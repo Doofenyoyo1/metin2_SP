@@ -188,6 +188,32 @@ EDITS = {
     'uiitemshop.py': [
         (b'\t\t\t"type" : "open_url",\r\n\t\t\t"value" : "https://mt2009.pl/"\r\n',
          b'\t\t\t"type" : "open_url",\r\n\t\t\t"value" : "https://github.com/Doofenyoyo1/metin2_SP"\r\n'),
+        # The mounts: the shop window shows a category as a range of the
+        # shop's own item indexes, and the migrator (apply.sh, "ItemShop
+        # mounts") lists the world's mount costumes at 701-799, a range no
+        # category read. After the hairstyles, the other thing a player wears
+        # for the look. The name falls back to Polish where the locale has no
+        # line for it; english_gui.py carries the English one.
+        (b'\t2,\r\n\t5,\r\n',
+         b'\t2,\r\n\t7,\r\n\t5,\r\n'),
+        (b'\tITEMSHOP_CATEGORY_FEATURED_INDEX: {\r\n\t\t"name": localeInfo.ITEMSHOP_CATEGORY_FEATURED,\r\n',
+         b'\t7: {\r\n'
+         b'\t\t"name": getattr(localeInfo, "ITEMSHOP_CATEGORY_MOUNTS", "Wierzchowce"),\r\n'
+         b'\t\t"action" : {\r\n'
+         b'\t\t\t"type" : "items",\r\n'
+         b'\t\t\t"items": [],\r\n'
+         b'\t\t\t"range": "701-799",\r\n'
+         b'\t\t},\r\n'
+         b'\t},\r\n'
+         b'\r\n'
+         b'\tITEMSHOP_CATEGORY_FEATURED_INDEX: {\r\n\t\t"name": localeInfo.ITEMSHOP_CATEGORY_FEATURED,\r\n'),
+        # A thirteenth button in a menu the twelve nearly filled (the last one
+        # ended at 416 of the panel's 422): a pixel less between two buttons and
+        # half the gap before the bottom group, so the last one ends at 416 again.
+        (b'\t\tcategory_button_step_y = category_button_height + 2.5\r\n',
+         b'\t\tcategory_button_step_y = category_button_height + 1.5\r\n'),
+        (b'\t\t\taddPos = category_button_height + 2\r\n',
+         b'\t\t\taddPos = category_button_height / 2\r\n'),
     ],
     'itemshop_subscriptionwindow.py': [
         (b'\t\tutils.open_url("https://mt2009.pl/")\r\n',

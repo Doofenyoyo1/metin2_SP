@@ -7517,6 +7517,38 @@ not in `data/`) reworked these point by point. What each hangs on:
   monsters are named from `locale/<lang>/mob_names.txt`, which is why an
   English player sees "Kowal" and a "Blacksmith" nobody reads sits in the EN
   pack. Naming NPCs from it would be an exe change.
+- **This repository's releases never ran playerbotify.py.** The publish
+  workflow builds the server package from the upstream package named in
+  `tools/upstream-sync.json` and copies every engine file out of it verbatim,
+  so an edit that lives only in `linux-port-mt2009/port/playerbotify.py`
+  compiled on nobody's machine. `ENGINE_EDITS` in
+  `tools/build_mt2009_server_update.py` names the playerbotify functions to
+  apply over the filled tree; they are idempotent, so the day upstream carries
+  one it prints "already", and an anchor that moved stops the build. Add a new
+  engine edit there as well as to `main()`, and check the build's "changed"
+  lines name the file.
+- **Mounts are costumes, and the costume block refused them.** The package
+  compiles in ENABLE_MOUNT_COSTUME_SYSTEM: an ITEM_COSTUME / COSTUME_MOUNT
+  (28/2) carries an apply whose value is the mount's mob vnum (20xxx), wearing
+  it in WEAR_COSTUME_MOUNT feeds POINT_MOUNT into `MountVnum`, and `/ride`,
+  `/unmount` and Ctrl+H take it off through `UnEquipSpecialRideUniqueItem`.
+  `apply_costume_block` refused every costume at the top of `CanEquipNow`,
+  so a mount could be bought and never ridden; `apply_costume_mount_allowed`
+  lets it through like the hairstyle (2.1.2). It keeps the hair edit's marker
+  line whole - rewording it would break every rerun, the trap noted above.
+  The in-game shop lists mounts at item indexes 701-799, which the client's
+  shop window shows as "Wierzchowce" (`uiitemshop.py`, a clientrootify edit).
+  The migrator fills that range from `world.item_proto` at every start
+  (`ITEMSHOP_MOUNTS` in migratorify.py). The columns of
+  `common.itemshop_items` are in no file this project carries (the db core's
+  `InitializeItemShop` is in ClientManagerBoot.cpp, which the package does not
+  ship), so the step reads them from information_schema and copies the shop's
+  first hairstyle row for every column but the index, the vnum, the count and
+  the price. Tested on a local MariaDB against two guessed shapes; if the real
+  table has names it does not know, it says so and lists nothing. `/reload i`
+  reloads the shop without a restart. No bot buys or wears a mount: costumes
+  are not equipment candidates, and a mount on a bot would set `IsRiding()`
+  and refuse its skills.
 
 
 ## Engine facts worth not re-deriving

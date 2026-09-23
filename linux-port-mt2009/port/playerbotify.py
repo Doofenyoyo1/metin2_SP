@@ -1412,6 +1412,7 @@ def main(root):
     apply_gm_panel(game)
     apply_costume_block(game)
     apply_costume_hair_allowed(game)
+    apply_costume_mount_allowed(game)
     apply_mark_login_quiet(game)
     apply_coop_handshake_window(game)
     apply_horse_rider_links(game)
@@ -1902,6 +1903,34 @@ def apply_costume_hair_allowed(game):
          '\t{\n'
          '\t\tChatPacket(CHAT_TYPE_INFO, "Kostiumy sa na tym serwerze wylaczone.");\n',
          marker='playerbotify.py, apply_costume_hair_allowed).')
+
+
+def apply_costume_mount_allowed(game):
+    """A mount costume is a costume the operator wants worn.
+
+    The package carries the mount costume system (ENABLE_MOUNT_COSTUME_SYSTEM:
+    WEAR_COSTUME_MOUNT, the POINT_MOUNT apply that MountVnum reads, /ride and
+    /unmount taking it on and off, the ikashop search's mount category and the
+    client's mount tooltip), and apply_costume_block refused every one of them
+    at the top of CanEquipNow - so a mount from the ItemShop could be bought
+    and never ridden ("ogarnij itemshop, mounty i inne rzeczy ktore naprawde
+    dzialaja", 23 September). A mount comes off the way it went on: the costume
+    window, /unmount and Ctrl+H all go through UnEquipSpecialRideUniqueItem,
+    and nothing in it is drawn over the body, which is what the block was for.
+    The block stays for the body, weapon and sash costumes. Guarded, because
+    COSTUME_MOUNT exists only where the system is compiled in.
+    """
+    edit(os.path.join(game, 'char_item.cpp'),
+         '\t// A hairstyle passes (playerbotify.py, apply_costume_hair_allowed).\n'
+         '\tif (item && item->GetType() == ITEM_COSTUME && item->GetSubType() != COSTUME_HAIR)\n',
+         '\t// A hairstyle passes (playerbotify.py, apply_costume_hair_allowed).\n'
+         '\t// A mount passes too (playerbotify.py, apply_costume_mount_allowed).\n'
+         '\tif (item && item->GetType() == ITEM_COSTUME && item->GetSubType() != COSTUME_HAIR\n'
+         '#ifdef ENABLE_MOUNT_COSTUME_SYSTEM\n'
+         '\t\t\t&& item->GetSubType() != COSTUME_MOUNT\n'
+         '#endif\n'
+         '\t\t\t)\n',
+         marker='playerbotify.py, apply_costume_mount_allowed).')
 
 
 def apply_coop_handshake_window(game):

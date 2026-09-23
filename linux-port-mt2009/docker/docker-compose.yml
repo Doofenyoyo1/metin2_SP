@@ -95,6 +95,10 @@ services:
       # Whether a player's new character gets the apprentice chest (the
       # launcher asks with the rates; starter_chest.quest reads the flag).
       M2_STARTER_CHEST: "${M2_STARTER_CHEST:-1}"
+      # The world's mount costumes in the ItemShop's "Wierzchowce" tab (apply.sh);
+      # 0 leaves common.itemshop_items to the operator.
+      M2_ITEMSHOP_MOUNTS: "${M2_ITEMSHOP_MOUNTS:-1}"
+      M2_ITEMSHOP_MOUNT_PRICE: "${M2_ITEMSHOP_MOUNT_PRICE:-250}"
 
     entrypoint: ["/bin/sh", "/opt/playerbot/apply.sh"]
 
@@ -451,7 +455,7 @@ services:
       # server it is actually looking at rather than "nieustawiona".
       # The default is bumped with every release, so a world nobody has
       # configured still reports the version it is actually running.
-      PLAYERBOTS_VERSION: "${M2_PLAYERBOTS_VERSION:-2.1.1}"
+      PLAYERBOTS_VERSION: "${M2_PLAYERBOTS_VERSION:-2.1.2}"
       TZ: "${M2_TZ:-UTC}"
     ports:
       # 7790 outside: 7789 is the browser bridge's port in this stack.
