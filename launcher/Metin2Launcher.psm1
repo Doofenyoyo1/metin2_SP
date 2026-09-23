@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 
 # Fallback used when the manifest carries no support block (offline, or an old manifest).
-$script:M2_DEFAULT_SUPPORT_CONTACT = 'https://discord.gg/pt5tvnrN6'
+$script:M2_DEFAULT_SUPPORT_CONTACT = 'https://github.com/Doofenyoyo1/metin2_SP/issues'
 
 function Get-M2SiblingClientExecutable {
     # The full package (Metin2-Singleplayer-<version>.zip) unpacks as Klient\
@@ -25,9 +25,9 @@ function Get-M2DefaultLauncherConfig {
     # dropped onto the other's tree would put ENGINE, world.sql and eighty
     # engine files where they do not belong, and the launcher would then
     # refuse to start the world it had.
-    $manifest = 'https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/update-manifest.json'
+    $manifest = 'https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/update-manifest.json'
     if ((Get-M2ServerEngine -ServerRoot $ServerRoot) -eq 'mt2009') {
-        $manifest = 'https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/update-manifest-mt2009.json'
+        $manifest = 'https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/update-manifest-mt2009.json'
     }
     $sibling = Get-M2SiblingClientExecutable -ServerRoot $ServerRoot
     [pscustomobject]@{
@@ -118,7 +118,7 @@ function ConvertFrom-M2ManifestText {
         $parsed = $clean | ConvertFrom-Json
     }
     catch {
-        throw "Kanal aktualizacji ($Origin) zwrocil plik, ktorego nie da sie odczytac jako JSON. To blad po stronie kanalu, nie Twojej instalacji - zglos to na Discordzie. Szczegoly: $($_.Exception.Message)"
+        throw "Kanal aktualizacji ($Origin) zwrocil plik, ktorego nie da sie odczytac jako JSON. To blad po stronie kanalu, nie Twojej instalacji - zglos to na GitHubie. Szczegoly: $($_.Exception.Message)"
     }
     if ($parsed -isnot [psobject] -or $parsed -is [string]) {
         throw "Kanal aktualizacji ($Origin) zwrocil cos, co nie jest manifestem. Twoja instalacja pozostaje bez zmian."

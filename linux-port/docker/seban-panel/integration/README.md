@@ -1,6 +1,6 @@
 # Integracja zarządzania serwerem — panel 1.34.0
 
-Te pliki rozszerzają kontener gry, a nie kontener panelu. Przed przebudowaniem gry porównaj `m2-supervise` i `entrypoint.sh` z bieżącym wydaniem Tieru; dołączone wersje bazują na 1.29.10. Nie zastępuj nowszych zmian autora bez połączenia różnic.
+Te pliki rozszerzają kontener gry, a nie kontener panelu. Przed przebudowaniem gry porównaj `m2-supervise` i `entrypoint.sh` z bieżącym wydaniem Playerbots; dołączone wersje bazują na 1.29.10. Nie zastępuj nowszych zmian autora bez połączenia różnic.
 
 `playerbot-quest-login.patch` jest wymagany przez narzędzie masowych nadań. Standardowa ścieżka logowania Playerbotów omija moment, w którym silnik uruchamia timery questów. Patch odkłada ten moment do czasu, aż dane questa dotrą z bazy. Bez niego kolejka będzie prawidłowo utworzona, lecz aktywne boty nie odbiorą przedmiotów. Patch nakładaj na źródła `game/src/server/game/src/` danego wydania, a następnie odbuduj wyłącznie usługę `game`.
 

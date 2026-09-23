@@ -268,7 +268,7 @@ namespace
 #if !defined(PLAYERBOT_ENGINE_MT2009)
 	// The order the bag is tidied into: the red and blue potions, then every
 	// other potion - green and purple, the timed boosters, the auto potions -
-	// then chests and keys ("wszelakie potki pierwsze a potem reszte", Tieru,
+	// then chests and keys ("wszelakie potki pierwsze a potem reszte",
 	// 15 September). Everything else is 99 and stays behind them.
 	int GetPlayerBotSortPriority(LPITEM item)
 	{
@@ -1110,7 +1110,7 @@ namespace
 	// merchant's and never a counter's, while the chests it opens go to the
 	// merchant under bag pressure - so on 15 September 2598 gold and silver keys
 	// lay in 1057 bags and not one of those bags held a chest ("srebrne i zlote
-	// klucze ... chomikuja to bez konca", Tieru). The last units in cell order
+	// klucze ... chomikuja to bez konca"). The last units in cell order
 	// are the ones kept.
 	bool IsPlayerBotSurplusTreasureKey(LPCHARACTER ch, LPITEM item)
 	{
@@ -1583,7 +1583,7 @@ namespace
 		// counter and the bag has no room for goes to the storekeeper
 		// (CollectPlayerBotSafeboxMaterials), not to the merchant for pennies:
 		// "jak nie ma miejsca to materialy niech traf ia do magazynu u Dozorcy"
-		// (Tieru, 13 September).
+		// (13 September).
 		if (IsPlayerBotTradeableMaterial(item))
 			return false;
 		// The rest of the 30000 block is eight gift boxes and two quest items.
@@ -1602,7 +1602,7 @@ namespace
 		// merchant's only from a bag under pressure with no counter to sell
 		// from. The default below sold them all - on the test world some
 		// thousand of each in a day, for a few hundred yang against 40 000 to
-		// 135 000 on the sheet (Tieru, 18 September).
+		// 135 000 on the sheet (18 September).
 		if (IsPlayerBotSheetGoods(item))
 			return IsPlayerBotBagUnderPressure(ch) && !PlayerBotCanOpenShop(ch);
 
@@ -1991,7 +1991,7 @@ namespace
 			return false;
 		// An Archer's stone dagger is worn only on a stone, so it is neither a
 		// wearable upgrade nor a higher-tier spare - yet it must reach +4 to break
-		// stones at all (Tieru). Refine it in the bag like a worn piece.
+		// stones at all . Refine it in the bag like a worn piece.
 		if (IsPlayerBotArcherStoneWeapon(ch, item))
 			return item->GetRefineLevel() < GetPlayerBotRefineTarget(ch, item);
 		// And the level-30 weapon it is grinding: not worn yet because it is not
@@ -2376,7 +2376,7 @@ namespace
 			// SCROLL_FROM no scroll goes on the step, whatever the piece.
 			const bool scrollStepAllowed = IsPlayerBotScrollStepAllowed(plusLevel);
 			const int stepProb = stepRecipe ? (int)stepRecipe->prob : 100;
-			// The level-30 weapons (Tieru, 15 September). From
+			// The level-30 weapons (15 September). From
 			// PLAYERBOT_WEAPON_SCROLL_ONLY_AVERAGE a weapon goes under a scroll at
 			// every step and never to the plain anvil - past the operator's floor
 			// too, or under SCROLL_FROM it could never be refined at all. A
@@ -2474,7 +2474,7 @@ namespace
 				const bool success = ch->CountSpecifyItem(nextVnum) > resultCountBefore;
 				// Only a refine that landed is news. A scroll's failure hands the
 				// piece back a grade down and a plain one burns it, and both were
-				// shouted as luck ("ulepszylem zbroje +4 na +3", Tieru, 15 September).
+				// shouted as luck ("ulepszylem zbroje +4 na +3", 15 September).
 				if (success)
 				{
 					BroadcastPlayerBotRefineSuccess(ch, nextVnum, (int)plusLevel + 1);
@@ -2831,7 +2831,7 @@ namespace
 		for (int i = 0; i < recipe->material_count; ++i)
 		{
 			// What the Biologist is still owed is not the anvil's: an Orc Tooth
-			// goes to him first and into a recipe after (Tieru, 15 September).
+			// goes to him first and into a recipe after (15 September).
 			if (ch->CountSpecifyItem(recipe->materials[i].vnum) -
 					GetPlayerBotBiologistReserve(ch, recipe->materials[i].vnum) < recipe->materials[i].count)
 				return false;

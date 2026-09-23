@@ -146,7 +146,7 @@ rm -rf /var/lib/docker
 ## Installing again
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.sh \
+curl -fsSL https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.sh \
   | sudo sh -s -- --archive /path/Reference_Server.zip --no-client \
       --domain example.com --email you@example.com
 ```

@@ -542,7 +542,7 @@ namespace
 	// duel. A duel is agreed three seconds after the challenge and fought at the
 	// top of the tick, above the fishing session, so a bot on the bank took one
 	// with its rod out and fought it that way ("bot wzial pvp z innym botem
-	// bedac wyposazonym w wedke", Tieru, 15 September). The same answer is asked
+	// bedac wyposazonym w wedke", 15 September). The same answer is asked
 	// of a bot that would challenge, of the bot it picks, and of both sides of a
 	// duel already under way.
 	const char* GetPlayerBotDuelUnreadiness(LPCHARACTER ch, DWORD dwNow)
@@ -738,7 +738,7 @@ namespace
 
 		// The aura goes up before the first blow. The duel claims the tick above
 		// the buff pass, so a warrior fought every duel bare and cut with
-		// Trzystronne Ciecie under no visible aura (Tieru, 15 September).
+		// Trzystronne Ciecie under no visible aura (15 September).
 		if (distance <= PLAYERBOT_DUEL_BUFF_RANGE && ManagePlayerBotCombatBuffs(ch, state, dwNow, true))
 			return true;
 
@@ -1975,7 +1975,7 @@ namespace
 	// gear, and Fasolka Zen lifts it by up to its value0 - the engine takes a
 	// bean only then. The training above never takes a bot under zero, so this
 	// is the net for whatever else might ("boty powinny unikac biegania z
-	// negatywna ranga", Tieru, 15 September).
+	// negatywna ranga", 15 September).
 	void ManagePlayerBotZenBeans(LPCHARACTER ch, DWORD dwNow)
 	{
 		static std::map<DWORD, DWORD> s_mapPlayerBotZenBeanNext;
@@ -2001,7 +2001,7 @@ namespace
 	// A rank below zero keeps a bot inside its village's safe ring until it is
 	// back. A character with a negative rank drops what it carries when a player
 	// kills it, and outside the ring anybody may ("boty powinny unikac biegania
-	// z negatywna ranga poza kolem", Tieru, 15 September, and a yes to holding
+	// z negatywna ranga poza kolem", 15 September, and a yes to holding
 	// them there with only Fasolka Zen to lift the rank in town). Off its village
 	// the bot is carried home to the market pitch, on a village map it walks
 	// there, and inside the ring it stands: the shopping pass buys a bean off a
@@ -2940,7 +2940,7 @@ size_t CPlayerBotManager::SpawnRegistered(size_t count, BYTE bEmpire)
 // The medal droppers an operator asks for, on top of the population
 // (PLAYERBOT_MEDAL_DROPPERS a kingdom, PLAYERBOT_MEDAL_DROPPER_LEVEL): "po 33
 // osoby na kazde krolestwo z osobowoscia dropek medali, aby grali w lochu malp
-// i mieli zablokowany exp" (Tieru, 15 September). They are taken from the far
+// i mieli zablokowany exp" (15 September). They are taken from the far
 // end of the kingdom's registry, where the identities that have never played
 // stand, so the ordinary slider - which takes the registry from the front -
 // does not reach them until nearly every bot plays, and the same characters
@@ -3050,7 +3050,7 @@ void CPlayerBotManager::SetSpawnWindow(DWORD dwWindowMs)
 // over the window. Nothing is in the world or in m_setScheduledBots until that
 // moment, so the top-up neither counts nor hurries them; from it on they are
 // the cohort's like the rest. "Dodatkowe 500 botow dolacza stopniowo w ciagu
-// 24 godzin" (Tieru, 16 September).
+// 24 godzin" (16 September).
 size_t CPlayerBotManager::ScheduleLateJoiners(size_t count, BYTE bEmpire, DWORD dwWindowMs)
 {
 	if (count == 0 || bEmpire < 1 || bEmpire > 3 || !LoadRegisteredBots())

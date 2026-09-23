@@ -426,7 +426,7 @@ namespace
 	// One blow with this weapon at the plus whose proto is given, expected
 	// over the dice, against a monster of the bot's own level - the way
 	// battle.cpp and char_battle.cpp deal it ("moze warto aby postacie znaly
-	// algorytm obrazen danej broni", Tieru, 15 September):
+	// algorytm obrazen danej broni", 15 September):
 	//
 	//   AR     = (min(90, (DX*4 + level*2) / 6) + 210) / 300
 	//            - (2*ER + 5) / (ER + 95) * 0.3, ER the monster's own rating
@@ -645,7 +645,7 @@ namespace
 					// at 75 two hundred is most of what a level-ten two-hander hits
 					// for, so the flat bonus let one outscore a far better sword
 					// (a Gilotynowe Ostrze +7 in the hand of a warrior of 75,
-					// Tieru, 15 September). score is one plus the blow here.
+					// 15 September). score is one plus the blow here.
 					if (ch->GetSkillGroup() == 2 && item->GetSubType() == WEAPON_TWO_HANDED &&
 							ch->GetHorseLevel() >= PLAYERBOT_BATTLE_HORSE_LEVEL)
 						score += (score - 1) * PLAYERBOT_TWO_HANDED_PREFERENCE_PERCENT / 100;
@@ -853,11 +853,11 @@ namespace
 	// weaker bot of its class standing nearby, and the counter never saw it: a
 	// bot raised Srebrne Kolczyki from +1 to +6 in a minute and gave them to
 	// another while it wore copper ones itself (AkhiGubernator, 15 September:
-	// "dobry samarytanin"). "Niech handluja ale nie daja za darmo" (Tieru):
+	// "dobry samarytanin"). "Niech handluja ale nie daja za darmo" :
 	// what comes off stays in the bag, and the junk rule and the counter
 	// decide what becomes of it. Nor does a party pass anything on any more:
 	// the book of another class and the material a member was short of went
-	// the same way ("usun", Tieru, 15 September).
+	// the same way ("usun", 15 September).
 
 	// The Archer's stone weapon (by build, whatever is in the hand - the
 	// IsPlayerBotArcher of playerbot_targeting.h asks for the bow). A bow cannot break a Metin: the stone does
@@ -1149,7 +1149,7 @@ namespace
 			// player.item, while the db core keeps a changed item in its cache
 			// for PLAYER_CACHE_FLUSH_SECONDS - so a bot that had just put a
 			// shield on showed an empty shield slot in the panel for minutes
-			// ("chyba na www klasycznym jest bug synchronizacji eq", Tieru,
+			// ("chyba na www klasycznym jest bug synchronizacji eq",
 			// 17 September; the row was there five minutes later). Both pieces:
 			// the one worn and the one taken off.
 			FlushPlayerBotItemRow(bestItem);
@@ -2372,7 +2372,7 @@ namespace
 	// level 9, and everything from level 34 up - so a bot between two
 	// stocked tiers, or above the top one, could never buy and walked the
 	// world in an empty slot: a quarter of the cohort had no body armour
-	// (Tieru, 13 September). This finds the highest stocked piece the bot
+	// (13 September). This finds the highest stocked piece the bot
 	// qualifies for, so the slot is filled and the blacksmith can raise it.
 	// Whether this character's class and sex may wear a proto at all: the
 	// anti-flag half of CItem::CanUsedBy and IsPlayerBotEquipmentCandidate, for

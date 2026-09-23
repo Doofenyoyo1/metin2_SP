@@ -227,7 +227,7 @@ namespace
 	// Keys past what the bag keeps (IsPlayerBotSurplusTreasureKey), under bag
 	// pressure. A key is small and the chest it opens may still drop, so it
 	// waits in the safebox rather than going to the merchant ("chyba ze chca
-	// chomikowac to warto do magazynu schowac", Tieru, 15 September); the
+	// chomikowac to warto do magazynu schowac", 15 September); the
 	// withdrawal below hands one back when a chest turns up.
 	void CollectPlayerBotSafeboxKeys(LPCHARACTER ch, std::vector<WORD>& cells)
 	{
@@ -313,7 +313,7 @@ namespace
 			// 17 September 3574 of 4698 withdrawals in an hour were items the
 			// same visit had deposited, one bot doing it every four minutes,
 			// and the pairs of CreateItem: ITEM_ID_DUP / LoadSafebox lines in
-			// syserr are that round trip seen from the database (Tieru).
+			// syserr are that round trip seen from the database .
 			if (pJustDeposited && pJustDeposited->find(item->GetVnum()) != pJustDeposited->end())
 				continue;
 
@@ -838,7 +838,7 @@ namespace
 		// seven, a bracelet at ten, an earring at fifteen, a necklace at twenty,
 		// a helmet at twenty-five - and gold and experience on top of all of
 		// them. No player has ever been paid any of it ("boty maja miec te same
-		// nagrody co gracz 1:1", Tieru). The Orc Tooth's own reward is not here
+		// nagrody co gracz 1:1"). The Orc Tooth's own reward is not here
 		// either: it is paid where the quest pays it, at the key-item hand-in.
 		DWORD rewardItem = 0;
 		if (mission.requiredLevel == 4)

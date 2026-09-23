@@ -22,7 +22,7 @@
 // Members offer the guild a share of their experience every hour, and the
 // master spends the skill points that come with the levels. "Gildie mega
 // mocne, silne oraz srednie i slabsze ... rozwijali gildie oddajac swoj exp"
-// (Tieru, 16 September). The tier is kept in player.playerbot_guild, which
+// (16 September). The tier is kept in player.playerbot_guild, which
 // apply.sh creates, because a guild outlives every core restart.
 //
 // No guild marks. A mark is a 16x12 image that has to reach every client that
@@ -717,7 +717,7 @@ namespace
 	// ----------------------------------------------------- the dropper's exit
 
 	// A dropper is a drop character, not a guildmate: "takie postacie niech nie
-	// dochodza do gildii, to tylko dropki" (Tieru, 15 September), and 238 of the
+	// dochodza do gildii, to tylko dropki" (15 September), and 238 of the
 	// test world's 250 were in one. It is never asked and never founds one, and
 	// one already inside leaves on its next guild check. A master cannot leave
 	// its own guild, so a dropper master hands it to the strongest bot of that
@@ -775,7 +775,7 @@ namespace
 	// A player's invitation. CGuild::Invite sends the invitee a packet a bot
 	// has no client to answer, so the invitation event expired after ten
 	// seconds and inviting a bot did nothing at all ("niech boty akceptuja
-	// zaproszenia jesli nie sa w zadnej gildii a my je zapraszamy", Tieru,
+	// zaproszenia jesli nie sa w zadnej gildii a my je zapraszamy",
 	// 16 September). The engine hands the invitation to the manager on the
 	// same call (playerbotify.py, apply_playerbot_guild_invites) and this
 	// answers it at once, while the event is alive: yes for any bot with no

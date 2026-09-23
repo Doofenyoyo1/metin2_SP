@@ -3,7 +3,7 @@
 
 // What a bot is playing for, weapon-wise. "To jest zart, postac 75 lv nosi
 // gilotynowe ostrze ... opracuj wszystkie bronie dostepne na serwerze, aby
-// boty wiedzialy po co graja" (Tieru, 15 September): a warrior of 75 in a
+// boty wiedzialy po co graja" (15 September): a warrior of 75 in a
 // two-hander of level ten, with nothing in the AI that knew a better weapon
 // existed, where it came from, or that it was worth saving for.
 //

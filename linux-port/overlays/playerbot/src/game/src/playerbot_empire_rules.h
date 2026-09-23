@@ -316,7 +316,7 @@ namespace playerbot_empire_rules
 	// centroid of the village's eight service NPCs, which put Jayang's market
 	// among the merchants on the square's edge ("sklepy sa zle rozstawione,
 	// bardziej przy handlarzach niz przy kole, straznik ... na kordach 457,
-	// 630", Tieru, 15 September) and ran Pyongmoo's ring half out of the safe
+	// 630", 15 September) and ran Pyongmoo's ring half out of the safe
 	// zone. They are the cell under the kingdom's own guard now - 11000 in
 	// Shinsoo, 11004 in Jinno, read from each map's npc.txt - and server_attr
 	// says the whole ring of 400..1700 round every one is open safe ground.

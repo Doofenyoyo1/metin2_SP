@@ -10,7 +10,7 @@ The pool is one list, written by a person: Iwakura's, from screenshots of the
 Polish servers of 2010-2012 (11 September 2026, "tu jest postaranie"). The
 earlier pool - jaksiezabic's list, the first Iwakura list and the names
 composed from their words - is gone, and so is the class-and-sex pairing:
-Tieru asked for the list as written, for everybody, and for every bot named
+The list was asked for as written, for everybody, and for every bot named
 from the old pool to be renamed from this one ("te wszystkie stare nicki z
 bazy powinny zostac wywalone, ta lista powinna byc aktywna").
 
@@ -33,7 +33,7 @@ older one was renamed on the next start, which was right the one time the whole
 world was to be renamed and wrong for every list after it - Iwakura's list of
 19 September adds three hundred names and drops nine, and the operator's word
 was to keep the names the bots already wear ("staraj sie nickow juz
-istniejacych playerbotow nie podmienic", Tieru). So a list only ever names the
+istniejacych playerbotow nie podmienic"). So a list only ever names the
 bots that come after it: a new world, a grown cohort, a bot that still wears
 its seed name. A name dropped from the list stays on the bot that wears it;
 the pool version is still written to common.playerbot_name_history, which is

@@ -86,10 +86,7 @@ WAŻNE
   zweryfikowanego pliku, jeśli wykrycie okaże się fałszywe.
 
 Projekt i aktualizacje:
-https://github.com/TieruYT/metin2-playerbots
+https://github.com/Doofenyoyo1/metin2_SP
 
-Discord:
-https://discord.gg/pt5tvnrN6
-
-Wsparcie projektu:
-https://zrzutka.pl/rw4g7p
+Zgłoszenia błędów:
+https://github.com/Doofenyoyo1/metin2_SP/issues

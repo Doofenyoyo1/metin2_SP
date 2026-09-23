@@ -11,8 +11,8 @@
 //    here as the wanted values and put to zero while no chest window is open.
 //    Until 2.0.74 the gate shut only once a chest window was written, so a
 //    world with no schedule dropped chests all the time, and the operator's
-//    word was "usune domyslny drop, a wprowadze tylko jako event" (Tieru,
-//    18 September): the event is the only way a chest drops now. Every core
+//    word was "usune domyslny drop, a wprowadze tylko jako event"
+//    (18 September): the event is the only way a chest drops now. Every core
 //    gates its own, because CreateDropItem rolls locally - including a core
 //    that hosts no bot, which the world clock (CPlayerBotManager::
 //    StartWorldClock) runs this for; before it, such a core never gated and

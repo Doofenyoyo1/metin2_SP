@@ -397,7 +397,7 @@ namespace playerbot_persona
 		// was frozen at 71, on a number no tier names. Measured in the whole of
 		// m2zip's history - locks at 63, 64, 65 ... up to 112 of them at 71,
 		// where the last tier ends at 62. The document's tiers stop at Mount
-		// Sohan, so above it a Grinder is not held at all (Tieru, 20 September).
+		// Sohan, so above it a Grinder is not held at all (20 September).
 		return 0;
 	}
 

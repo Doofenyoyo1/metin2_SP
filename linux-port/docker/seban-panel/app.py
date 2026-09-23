@@ -22,7 +22,7 @@ app.secret_key = os.environ.get("SEBAN_SESSION_SECRET", "change-this-before-publ
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
     # Cookies are scoped to the host, not the port. A dedicated name prevents
-    # the classic Tieru panel on :7788 from overwriting this panel on :7789.
+    # the classic panel on :7788 from overwriting this panel on :7789.
     SESSION_COOKIE_NAME=os.environ.get("SEBAN_SESSION_COOKIE_NAME", "seban_panel_session"),
     PERMANENT_SESSION_LIFETIME=timedelta(days=30),
 )
@@ -57,7 +57,7 @@ MAP_BOUNDS = {
     # Chunjo M1's already-correct (0,102400,102400,128000) from its own
     # MapSize 4x5 / BasePosition 0,102400) -- the original values here were
     # wrong on all three axes for at least one of the three maps each,
-    # flagged by Tieru testing the exported panel.
+    # flagged while testing the exported panel.
     67: (281600, 0, 51200, 51200), 68: (1049600, 0, 76800, 76800),
     66: (128000, 793600, 76800, 76800),
 }
@@ -80,7 +80,7 @@ BOT_SYSLOG_GLOB = os.environ.get("PLAYERBOTS_SYSLOG_GLOB", "/opt/metin2/var/chan
 RATES_SPOOL = Path("/opt/m2spool")
 UPDATE_SPOOL = Path("/opt/m2update")
 UPDATE_WATCHER_MAX_AGE_SECONDS = 90
-PLAYERBOTS_RELEASE_URL = "https://api.github.com/repos/TieruYT/metin2-playerbots/releases/latest"
+PLAYERBOTS_RELEASE_URL = "https://api.github.com/repos/Doofenyoyo1/metin2_SP/releases/latest"
 PLAYERBOTS_RELEASE_CACHE_SECONDS = 900
 _playerbots_release_cache = {"checked_at": 0.0, "latest": None, "error": None}
 SERVER_SETTINGS_READY_MAX_AGE_SECONDS = 20
@@ -104,7 +104,7 @@ AI_WEIGHT_MIN, AI_WEIGHT_MAX, AI_WEIGHT_NEUTRAL = 25, 250, 100
 AI_LIVE_DEFAULTS = {"CHAT": 1, "BOOKS": 1, "NIGHT": 1, "LIFE": 0, "WARS": 1, "ISHOP": 1, "SCRAP": 0, "REST": 100, "CHEST": None, "CHEST_STONE": None}
 AI_SPECIAL_WEIGHT_KEYS = frozenset(AI_LIVE_DEFAULTS)
 BIOLOGIST_COMPLETE_STATE = 557528158
-# Tieru 1.29.10 adds the Orc Tooth task after the six classic Biologist
+# Playerbots 1.29.10 adds the Orc Tooth task after the six classic Biologist
 # missions. The database lookup below also discovers future missions as soon
 # as the game has created their quest rows, while this list keeps the complete
 # progress scale correct before anyone has started a new task.
@@ -164,9 +164,9 @@ BOT_MOODS = {0: "Słaby", 1: "Normalny", 2: "Bardzo dobry"}
 BOT_MOOD_LOCKS = {1: "euforia po ulepszeniu", 2: "kapitulacja (Anty-PK)"}
 BOT_AMBITIONS = {0: "Poziom", 1: "Ekwipunek", 2: "Metiny", 3: "Koń", 4: "Biolog", 5: "Umiejętności", 6: "Handel"}
 BOT_GOALS = {0: "Zdobywanie poziomu", 1: "Przetrwanie", 2: "Wybór profesji", 3: "Zdobycie ekwipunku", 4: "Uzupełnienie zapasów", 5: "Ulepszanie EQ", 6: "Rozwój umiejętności", 7: "Polowanie na Metiny", 8: "Silne cele w PT", 9: "Misja Biologa", 10: "Misja Polowania", 11: "Rozwój konia"}
-# 18 (Kopie rudę) byla dopisana do playerbot_types.h u Tieru, ale nie tutaj -
+# 18 (Kopie rudę) byla dopisana do playerbot_types.h, ale nie tutaj -
 # boty kopiące rudę pokazywały gołe "#18" zamiast etykiety (audyt vs panel
-# Tieru na 7788, 2026-09-14).
+# klasyczny na 7788, 2026-09-14).
 BOT_ACTIONS = {0: "Planuje następny ruch", 1: "Podróżuje", 2: "Walczy", 3: "Podnosi łup", 4: "Regeneruje się", 5: "Wybiera profesję", 6: "Handluje", 7: "Ulepsza EQ", 8: "Czyta KU", 9: "Wkłada KD", 10: "Organizuje PT", 11: "Robi Biologa", 12: "Odwiedza Stajennego", 13: "Prowadzi stragan", 14: "Łowi ryby", 15: "Przegląda stragany", 16: "Wabi potwory", 17: "Odpoczywa w mieście", 18: "Kopie rudę"}
 # Akcje, w których bot stoi w miejscu z własnej woli: stragan, wędka, przegląd
 # straganów, lada NPC, kowal, trener, odpoczynek, kopanie rudy. Bez tego każdy
@@ -184,10 +184,10 @@ ITEM_TYPE_NAMES = (
 # reported as swapped bonus text on real equipped items ([GA]Seban's
 # Kolczyki Z Niebiań.Łez+9 showing "Odporność na dzwony/miecze" and "Silny
 # przeciw mistykom" for what the in-game tooltip calls wachlarze/broń
-# dwuręczną/Nieumarłym). Re-keyed against Tieru's own APPLY_META table
+# dwuręczną/Nieumarłym). Re-keyed against the classic panel's APPLY_META table
 # (admin_panel.py, 7788) entry by entry -- POINT_TO_APPLY below already
-# matched Tieru's exactly, so only the label side was wrong. Gaps at
-# 51/57/77/83 are Tieru's too (no player-visible text for those points).
+# matched the classic panel's exactly, so only the label side was wrong. Gaps at
+# 51/57/77/83 are the classic panel's too (no player-visible text for those points).
 APPLY_LABELS = {
     1: ("Maks. PŻ", ""), 2: ("Maks. PM", ""), 3: ("Witalność", ""), 4: ("Inteligencja", ""), 5: ("Siła", ""), 6: ("Zręczność", ""), 7: ("Szybkość ataku", "%"), 8: ("Szybkość ruchu", "%"), 9: ("Szybkość zaklęcia", "%"), 10: ("Regeneracja PŻ", "%"), 11: ("Regeneracja PM", "%"), 12: ("Szansa na otrucie", "%"), 13: ("Szansa na omdlenie", "%"), 14: ("Szansa na spowolnienie", "%"), 15: ("Szansa na cios krytyczny", "%"), 16: ("Szansa na przeszywający", "%"), 17: ("Silny przeciw ludziom", "%"), 18: ("Silny przeciw zwierzętom", "%"), 19: ("Silny przeciw orkom", "%"), 20: ("Silny przeciw mistykom", "%"), 21: ("Silny przeciw nieumarłym", "%"), 22: ("Silny przeciw diabłom", "%"), 23: ("Kradzież PŻ", "%"), 24: ("Kradzież PM", "%"), 25: ("Szansa na kradzież PM", "%"), 26: ("Odzyskanie PM po obrażeniach", "%"), 27: ("Szansa na blok", "%"), 28: ("Szansa na unik strzał", "%"), 29: ("Odporność na miecze", "%"), 30: ("Odporność na broń dwuręczną", "%"), 31: ("Odporność na sztylety", "%"), 32: ("Odporność na dzwony", "%"), 33: ("Odporność na wachlarze", "%"), 34: ("Odporność na strzały", "%"), 35: ("Odporność na ogień", "%"), 36: ("Odporność na błyskawice", "%"), 37: ("Odporność na magię", "%"), 38: ("Odporność na wiatr", "%"), 39: ("Odbicie obrażeń fizycznych", "%"), 40: ("Odbicie klątwy", "%"), 41: ("Odporność na trucizny", "%"), 42: ("Odzyskanie PM po zabiciu", "%"), 43: ("Bonus doświadczenia", "%"), 44: ("Bonus Yang", "%"), 45: ("Bonus dropu przedmiotów", "%"), 46: ("Bonus mikstur", "%"), 47: ("Odzyskanie PŻ po zabiciu", "%"), 48: ("Odporność na omdlenie", ""), 49: ("Odporność na spowolnienie", ""), 50: ("Odporność na przewrócenie", ""), 52: ("Zasięg łuku", "m"), 53: ("Wartość ataku", ""), 54: ("Wartość obrony", ""), 55: ("Wartość magicznego ataku", ""), 56: ("Magiczna wartość obrony", ""), 58: ("Maks. wytrzymałość", ""), 59: ("Silny przeciw wojownikom", "%"), 60: ("Silny przeciw ninja", "%"), 61: ("Silny przeciw surom", "%"), 62: ("Silny przeciw szamanom", "%"), 63: ("Silny przeciw potworom", "%"), 64: ("Wartość ataku", "%"), 65: ("Wartość obrony", "%"), 66: ("Bonus doświadczenia", "%"), 67: ("Szansa na zdobycie przedmiotów", ""), 68: ("Szansa na zdobycie Yang", ""), 69: ("Maks. PŻ", "%"), 70: ("Maks. PM", "%"), 71: ("Obrażenia umiejętności", "%"), 72: ("Średnie obrażenia", "%"), 73: ("Odporność na obrażenia umiejętności", "%"), 74: ("Odporność na średnie obrażenia", "%"), 75: ("Bonus doświadczenia (iCafe)", "%"), 76: ("Bonus dropu przedmiotów (iCafe)", "%"), 78: ("Odporność na wojowników", "%"), 79: ("Odporność na ninja", "%"), 80: ("Odporność na sury", "%"), 81: ("Odporność na szamanów", "%"), 82: ("Energia", ""), 84: ("Bonus kostiumu", "%"), 85: ("Magiczny atak", "%"), 86: ("Magiczny/fizyczny atak", "%"), 87: ("Odporność na lód", "%"), 88: ("Odporność na ziemię", "%"), 89: ("Odporność na mrok", "%"), 90: ("Odporność na cios krytyczny", "%"), 91: ("Odporność na przeszywający", "%"), 1138: ("Terror", "%"), 1139: ("Regeneracja wytrzymałości", "%"), 1140: ("Atak sztyletem przeciw potworom", ""), 1141: ("Wartość ataku przeciw potworom", ""), 1142: ("Odporność na potwory", "‰"), 1143: ("Pochłanianie obrażeń", "%"), 1144: ("Pochłanianie obrażeń od potworów", "%"), 1145: ("Przełamanie odporności na ogłuszenie", ""), 1146: ("Przełamanie klątwy świątyni", ""), 1147: ("Czas trwania umiejętności", "%"), 1148: ("Silny przeciw potworom z Doliny Orków", "%"), 1149: ("Silny przeciw Metinom", "%"), 1150: ("Silny przeciw bossom", "%"), 1151: ("Magiczny atak przeciw potworom", "%"), 1152: ("Przełamanie odporności na miecz", "%"), 1153: ("Przełamanie odporności na broń dwuręczną", "%"), 1154: ("Przełamanie odporności na sztylet", "%"), 1155: ("Przełamanie odporności na dzwonek", "%"), 1156: ("Przełamanie odporności na wachlarz", "%"), 1157: ("Przełamanie odporności na łuk", "%"), 1158: ("Szansa na zbieranie", "%"), 1159: ("Szansa na naukę", "%"), 1160: ("Odporność na ludzi", "%"), 1161: ("Magiczny atak", ""), 1162: ("Szansa na podpalenie", "%"), 1163: ("Zamiana obrażeń na PE", "%"), 1164: ("Szansa na rzadki łup", "%"), 1165: ("Magiczna wartość ataku przeciw potworom", ""), 1166: ("Szansa na unieruchomienie", "%"), 1167: ("Atak specjalny", ""), 1168: ("Kara za śmierć", "%")}
 # 71 i 72 są w tablicy powyżej, we właściwej kolejności: common/length.h
@@ -217,7 +217,7 @@ INVENTORY_PAGES = 4 if ENGINE_MT2009 else 2
 # would silently do nothing there: e.g. a queued NOTICE command would sit
 # as "pending" forever with nothing compiled in to pick it up.
 # Off by default (public release); this VPS's own .env turns it on since
-# the patches are actually applied here. First three flagged by Tieru
+# the patches are actually applied here. First three flagged in testing
 # testing the exported zip on a clean install, 2026-09-15; +9 announcements
 # added same day and gated the same way from the start.
 CUSTOM_PATCHES_ENABLED = os.environ.get("M2_PANEL_CUSTOM_PATCHES", "0").strip().lower() in ("1", "true", "yes", "on")
@@ -242,7 +242,7 @@ EMPIRE_EXPR = "COALESCE(NULLIF(pi.empire,0),0)" if ENGINE_MT2009 else "COALESCE(
 
 JOB_NAMES = ("Wojownik", "Ninja", "Sura", "Szaman")
 SKILLS = {
-    # Exact vnum/name pairs from Tieru's current panel. The old mapping put
+    # Exact vnum/name pairs from the current classic panel. The old mapping put
     # display names next to the wrong VNUMs, hence correct icons looked wrong.
     (0, 1): ((1, "Trzystronne Cięcie"), (2, "Wir Miecza"), (3, "Berserk"), (4, "Aura Miecza"), (5, "Szarża")),
     (0, 2): ((16, "Duchowe Uderzenie"), (17, "Tąpnięcie"), (18, "Uderzenie Miecza"), (19, "Silne Ciało"), (20, "Walnięcie")),
@@ -560,7 +560,7 @@ def item_base_stats(vnum):
     """Client-side item properties displayed by the in-game tooltip.
     value1-4 alone are the item's +0 base -- refine level adds value5, once
     for a weapon's attack/magic-attack range and twice for Body/Shield (per
-    Tieru's own tooltip JS, admin_panel.py 7788). Missing this made every
+    the classic panel's tooltip JS, admin_panel.py 7788). Missing this made every
     refined weapon/armor show its +0 numbers: Różowa Szata+9 read 29
     defense here vs. 83 in the live client (29 + 27*2); Antyczny Dzwon+9
     read 50-70/35-60 here vs. 120-140/105-130 live (both +70). Reported by
@@ -619,13 +619,13 @@ def parse_skills(raw, job, group):
         master, level = (raw[offset] if offset < len(raw) else 0), (raw[offset + 1] if offset + 1 < len(raw) else 0)
         rank = skill_rank(master, level)
         if level:
-            # Tieru's icon pack has the master artwork in *_m.png.  It is used
+            # The classic panel's icon pack has the master artwork in *_m.png.  It is used
             # for every mastered stage (M, G and P); there are no *_p.png files.
             result.append({"vnum": vnum, "name": name, "level": level, "master_type": master, "rank": rank, "icon_suffix": "_m" if master >= 1 or level >= 20 else ""})
     return result
 
 
-# Passives with no client icon pack (confirmed against Tieru's own
+# Passives with no client icon pack (confirmed against the classic panel's own
 # static/skill_icons/ -- none of these vnums are in it): horse riding/summon
 # and the four ability-book skills (Dowodzenie..Polimorfia). Their "level"
 # byte is a plain number here (30 lvl konia, 100% przywolania), not the
@@ -995,7 +995,7 @@ def read_spool_values(path):
 
 
 def update_status():
-    """State exposed by Tieru's isolated updater through its tiny spool."""
+    """State exposed by the Playerbots isolated updater through its tiny spool."""
     result = read_spool_values(UPDATE_SPOOL / "update.status")
     try:
         age = max(0, int(time.time() - (UPDATE_SPOOL / "watcher").stat().st_mtime))
@@ -1224,7 +1224,7 @@ def read_events_status():
     return newest
 
 def read_ai_weights():
-    """Read Tieru's live Playerbots goal weights; absent entries are neutral."""
+    """Read the live Playerbots goal weights; absent entries are neutral."""
     values = {key: AI_WEIGHT_NEUTRAL for key, _, _ in AI_WEIGHT_KEYS}
     values.update(AI_LIVE_DEFAULTS)
     try:
@@ -2153,7 +2153,7 @@ def character_stat_summary(pid):
 # Curated subset of log.log's `how` values that make an "equipment history"
 # instead of noise: log.log holds thousands of GET/SET_SOCKET/GET_GOLD rows
 # per bot, which drowned out the handful of equipment/trade events an
-# operator actually wants -- matches Tieru's own /api/bot_gear_history on
+# operator actually wants -- matches the classic panel\'s own /api/bot_gear_history on
 # 7788 (audit, 2026-09-14), translated to Polish only (this panel has no
 # language switcher).
 GEAR_HISTORY_HOWS = {
@@ -2245,7 +2245,7 @@ def bot_offline_shop(pid):
 def bot_live_logs(name, limit=80):
     """Tail of the live game core's own syslogs, filtered to lines naming
     this bot -- same source (channel1/*/syslog) and word-boundary matching
-    as Tieru's own /api/bot_logs on 7788, so a short name doesn't also
+    as the classic panel\'s own /api/bot_logs on 7788, so a short name doesn't also
     match a longer sibling's (botgrom vs botgrom2)."""
     if not name:
         return []
@@ -2276,7 +2276,7 @@ def api_bot_logs(pid):
 def api_admin_teleport_me():
     """Moves whichever GM/human character is actually online right now to a
     bot's current position -- same one-click 'teleport me' the operator uses
-    on Tieru's panel (7788), reusing the exact queue our own web_admin.quest
+    on the classic panel (7788), reusing the exact queue our own web_admin.quest
     already polls for item/gold grants (see item_grants.py). The panel
     cannot ask the database who is online (last_play only updates on save,
     minutes later), so every recently-active human character gets a queued
@@ -3125,7 +3125,7 @@ def rankings():
         # Bez "Polowanie": na tej linii silnika levelup.quest lezy w
         # quest/_unused, zaden hook zabicia nie strzela i licznik stoi na zero
         # dla kazdego bota - ranking miał wiec 100 pozycji z "Ukonczone do Lv 0"
-        # (Tieru, 13 wrzesnia).
+        # (13 wrzesnia).
         "gold": "Yang", "items": "Przedmioty", "horse": "Koń", "biologist": "Biolog",
         "shops": "Otwarte stragany", "skills": "Umiejętności", "plus9": "Przedmiot +9", "playtime": "Czas gry", "bosses": "Bossy", "refine": "Pomyślne ulepszenia", "refine_rate": "Skuteczność ulepszeń",
     }

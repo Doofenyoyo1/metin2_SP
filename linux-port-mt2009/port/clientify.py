@@ -22,11 +22,9 @@ What the edits are:
                     hasattr, so a client without it draws nothing). l0st3k
                     wrote it first for client 2.0.13 in a tree we do not have;
                     this is the same interface rebuilt on AttachTitle's model.
-  discord presence  l0st3k's Discord application (its name and images are
-                    what a friend's Discord shows beside the player) and the
-                    button's address - the two strings his exe differs in from
-                    the package's, read out of both binaries; the map table and
-                    the texts are the package's in both.
+  discord presence  the presence button's address, the project's repository
+                    instead of mt2009.pl; the application id, the map table and
+                    the texts stay the package's.
   four pages        the client's half of playerbotify.py's
                     apply_four_inventory_pages. The slot map itself comes from
                     the server's common/length.h, which this build compiles
@@ -249,17 +247,13 @@ def apply_personality_row(ui):
 
 
 def apply_discord_presence(ui):
-    # The application id decides the name Discord prints over the presence
-    # ("Mt2009" for the package's) and which uploaded images race_N and
-    # empire_N resolve to; l0st3k's application carries both.
-    edit(os.path.join(ui, 'Discord.h'),
-         'constexpr auto DiscordClientID = "1180989036949680258";',
-         'constexpr auto DiscordClientID = "1548716643541065798";',
-         marker='DiscordClientID = "1548716643541065798";')
+    # The package's application id stays (it decides the name Discord prints
+    # over the presence and which uploaded images race_N and empire_N resolve
+    # to); the button leads to the project's repository instead of mt2009.pl.
     edit(os.path.join(ui, 'PythonNetworkStreamPhaseGame.cpp'),
          'discordPresence.buttonURL = "https://mt2009.pl/";',
-         'discordPresence.buttonURL = "https://www.youtube.com/@tieru/";',
-         marker='discordPresence.buttonURL = "https://www.youtube.com/@tieru/";')
+         'discordPresence.buttonURL = "https://github.com/Doofenyoyo1/metin2_SP";',
+         marker='discordPresence.buttonURL = "https://github.com/Doofenyoyo1/metin2_SP";')
 
 
 def apply_four_inventory_pages(ui):

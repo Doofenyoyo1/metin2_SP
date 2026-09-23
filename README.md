@@ -2,32 +2,25 @@
 
 **Polski** | [English (README_EN.md)](README_EN.md)
 
-[![Strona](https://img.shields.io/badge/Strona-metin2singleplayer.com-2EA44F?style=for-the-badge&logo=firefoxbrowser&logoColor=white)](https://metin2singleplayer.com)
-[![Discord](https://img.shields.io/badge/Discord-Dołącz_do_społeczności-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/pt5tvnrN6)
-[![BuyCoffee](https://img.shields.io/badge/BuyCoffee-Postaw_kaw%C4%99-FF813F?style=for-the-badge&logo=coffeescript&logoColor=white)](https://buycoffee.to/metin2-playerbots)
-
 Lokalny świat Metin2 singleplayer, w którym po mapie biegają i autentycznie grają autonomiczne postacie (Playerbots): zdobywają poziomy, walczą solo i w party, zbierają łup, ulepszają ekwipunek u Kowala, polują na Metiny i zapisują swój postęp w standardowej bazie danych.
 
 ## Wersja 2.0 — nowe pliki serwerowe (mt2009)
 
 Od 2.0.0 projekt działa na plikach serwerowych mt2009. To **pełna paczka**
-(klient + serwer w jednym zipie), do pobrania z Discorda:
-[discord.gg/pt5tvnrN6](https://discord.gg/pt5tvnrN6). Stary launcher i stary
+(klient + serwer w jednym zipie), do pobrania z
+[wydań na GitHubie](https://github.com/Doofenyoyo1/metin2_SP/releases). Stary launcher i stary
 klient z linii 1.33 **nie pasują** do nowych plików — nie aktualizuj po staremu,
 pobierz całość. Po rozpakowaniu aktualizacje serwera i klienta przychodzą przez
 launcher, jak dotąd; linia 2.x ma własny kanał (`update-manifest-mt2009.json`),
 więc instalacje 1.33.x niczego z niej nie dostaną.
 Jak to jest zbudowane: [linux-port-mt2009/README.md](linux-port-mt2009/README.md).
 
-## 💬 Społeczność i wsparcie projektu
+## 💬 Zgłoszenia i rozwój
 
-- **[Strona projektu — metin2singleplayer.com](https://metin2singleplayer.com)** — opis projektu, roadmapa, instrukcja instalacji i FAQ, po polsku i po angielsku.
-- **[Dołącz do serwera Discord](https://discord.gg/pt5tvnrN6)** — porozmawiaj o projekcie, podziel się testami i pomysłami oraz śledź aktualności z rozwoju botów.
-- **[Wesprzyj rozwój na buycoffee.to](https://buycoffee.to/metin2-playerbots)** — dobrowolne wpłaty pomagają pokrywać koszty narzędzi i modeli AI wykorzystywanych podczas rozwijania projektu.
+- **[Repozytorium projektu](https://github.com/Doofenyoyo1/metin2_SP)** — kod, lista zmian i wydania.
+- **[Zgłoś błąd lub pomysł](https://github.com/Doofenyoyo1/metin2_SP/issues)** — dołącz paczkę logów z launchera („ZBIERZ LOGI”).
 
-<a href="https://buycoffee.to/metin2-playerbots" target="_blank"><img src="https://buycoffee.to/btn/buycoffeeto-btn-primary.svg" style="height: 42px;" alt="Postaw kawę na buycoffee.to"></a>
-
-Każda forma wsparcia — testy, zgłoszenia błędów, propozycje, kod lub wpłata — pomaga nam tworzyć coraz bardziej samodzielny i żywy świat Metin2.
+Każda forma wkładu — testy, zgłoszenia błędów, propozycje, kod — pomaga tworzyć coraz bardziej samodzielny i żywy świat Metin2.
 
 > [!IMPORTANT]
 > Projekt działa wyłącznie z **natywnym klientem Windows**. Nie zawiera ani nie pobiera automatycznie plików Metin2, pakietu r40250 lub wycofanego WebClienta. Do instalacji potrzebujesz własnej zgodnej kopii plików. Zobacz [pochodzenie projektu i atrybucję](docs/ATTRIBUTION.md).
@@ -84,8 +77,8 @@ Przygotuj lokalnie zgodne archiwum serwera r40250. Opcjonalnie przygotuj także 
 
 ### 2. Klonowanie i instalacja (Windows)
 ```powershell
-git clone https://github.com/TieruYT/metin2-playerbots.git
-Set-Location .\metin2-playerbots
+git clone https://github.com/Doofenyoyo1/metin2_SP.git
+Set-Location .\metin2_SP
 & .\installer\install.ps1 `
     -Archive 'C:\ścieżka\Reference_Server.zip' `
     -ClientArchive 'C:\ścieżka\Reference_Client.zip' `
@@ -123,7 +116,7 @@ Nowe połączenie w kliencie bazy: typ MySQL/MariaDB, host `127.0.0.1`, port `33
 Najszybciej: w launcherze GUI przycisk **DANE DO BAZY (NAVICAT)** pokazuje
 host, port i oba hasła w polach do skopiowania (w konsoli: akcja `DbAccess`,
 pozycja 16 menu). Hasła są losowane przy pierwszym uruchomieniu i nie ma
-żadnego „domyślnego” — nie wklejaj ich na Discordzie.
+żadnego „domyślnego” — nie wklejaj ich publicznie.
 
 Jeśli klient odpowiada `1045 - Access denied for user 'root'@'172.18.0.1'`,
 baza została zainicjalizowana pod innym hasłem niż to, które jest teraz w `.env`.

@@ -70,7 +70,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\New-M2UpdatePackage.ps1 `
   -SourceRoot . `
   -FileList .\launcher\server-update-files.txt `
   -OutputDirectory .\release `
-  -DownloadUrl 'https://github.com/TieruYT/metin2-playerbots/releases/download/v2026.08.31.1/metin2-server-update-2026.08.31.1.zip'
+  -DownloadUrl 'https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2026.08.31.1/metin2-server-update-2026.08.31.1.zip'
 ```
 
 Upload the generated ZIP, then copy its generated JSON fragment into the

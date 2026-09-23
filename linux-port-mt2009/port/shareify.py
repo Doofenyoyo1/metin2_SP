@@ -332,7 +332,7 @@ RUN set -eu; L=/opt/metin2/share/locale/poland/quest/libs/other/_otherModuleLoad
 # unless the herb of that dungeon's monkeys (50057-50059) is running. A bot
 # has no herb and no answer to it: the medal droppers live in those dungeons
 # and were thrown out as monkeys ("klatwa malp, z ktora boty nie potrafia
-# sobie poradzic", SIZOWSKI, 12 September; "usuniemy to", Tieru, 18
+# sobie poradzic", SIZOWSKI, 12 September; "usuniemy to", 18
 # September). The cores load a quest's event handlers from its compiled
 # object files, so those are deleted from the image; the state table stays,
 # so a character's saved monkey_curse flags still name a quest the engine

@@ -241,4 +241,4 @@ class ItemShopSubscriptionContent(itemshop_contentwindow.ItemShopContentWindow):
 			self.elements.append(text)
 
 	def __OnButtonClick(self):
-		utils.open_url("https://buycoffee.to/metin2-playerbots")
+		utils.open_url("https://github.com/Doofenyoyo1/metin2_SP")

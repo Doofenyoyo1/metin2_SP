@@ -462,7 +462,7 @@ namespace {
     // bag for the slot. Nothing asked the counter for gear - only for room to
     // add goods - so a warrior of 75 whose weapon burned at the anvil fought on
     // with a Gilotynowe Ostrze +7 of level ten while a Halabarda +6 and three
-    // swords of level 55 stood on her own counter (CiosZKarpia, Tieru,
+    // swords of level 55 stood on her own counter (CiosZKarpia,
     // 15 September). A line taken back within six hours is not taken again:
     // a piece the equipment pass will not put on would otherwise go back on
     // the counter and come off it every visit.
@@ -1063,7 +1063,7 @@ namespace {
                     // A line nobody has bought comes down a step for every
                     // PLAYERBOT_OFFLINE_UNSOLD_STEP_MS it has stood, to the ceiling
                     // the classic stall's markdown has and never under what the
-                    // blacksmith was paid (Tieru, 16 September). The clock is the
+                    // blacksmith was paid (16 September). The clock is the
                     // listing's own (o.listed); a line from before this core
                     // started is clocked from the first visit that sees it.
                     auto listed = o.listed.find(it->first);
