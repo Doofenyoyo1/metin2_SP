@@ -42,6 +42,15 @@ AKTUALIZUJ KLIENTA.
 - Uwaga: plik metin2client.exe zostaje z 2.0.25, więc przycisk w statusie
   Discorda prowadzi jeszcze na stary adres do czasu przebudowania klienta.
 
+### Klient 2.0.27
+
+Tylko klient: w launcherze AKTUALIZUJ KLIENTA. Serwer zostaje przy 2.0.98.
+
+- Przycisk „Dolacz do gry!” w statusie Discorda prowadzi teraz na GitHuba
+  projektu (profil github.com/Doofenyoyo1) zamiast na stary kanał YouTube.
+  Zmieniony jest tylko ten adres w pliku metin2client.exe; reszta klienta
+  jest taka sama jak w 2.0.26.
+
 ## 2.0.97 — 2026-09-23
 
 Serwer 2.0.97. Klient zostaje przy 2.0.25, więc aktualizacja klienta nie jest

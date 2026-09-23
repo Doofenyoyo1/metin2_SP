@@ -9,8 +9,10 @@ client-locale/ since <commit> - the commit the previous client was published
 from. Before that it checks that every file of those two directories at
 <commit> is in the previous packs byte for byte, so the baseline is the one
 the diff assumes. The COOP files beside the exe are taken from HEAD when they
-changed; metin2client.exe stays the previous one (it is built on Windows by
-linux-port-mt2009/tools/build-client.ps1). Needs python-lzo.
+changed. metin2client.exe is the previous one (it is built on Windows by
+linux-port-mt2009/tools/build-client.ps1) with EXE_STRING_PATCHES applied:
+equal-length replacements of NUL-terminated strings, each of which must be
+found exactly once or already be in place. Needs python-lzo.
 """
 import argparse
 import hashlib
@@ -22,6 +24,14 @@ import tempfile
 import zipfile
 
 REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+# The Discord presence button of the 2.0.25 exe led to the old operator's
+# channel. clientify.py puts the repository there on the next real build; until
+# then the address is swapped in the binary. The same length, byte for byte,
+# so nothing else in the image moves - which is why it is the profile and not
+# the repository, whose address is longer.
+EXE_STRING_PATCHES = [
+    (b'https://www.youtube.com/@tieru/\x00', b'https://github.com/Doofenyoyo1/\x00'),
+]
 PACKS = [('root', 'linux-port-mt2009/client-root'), ('locale', 'linux-port-mt2009/client-locale')]
 BESIDE = 'linux-port-mt2009/client-coop'
 
@@ -92,6 +102,20 @@ def main():
                 same = rel in index and open(full, 'rb').read() == open(index[rel], 'rb').read()
                 if not same and rel not in want:
                     sys.exit('repacked %s pack changed a file it was not asked to: %s' % (pack, rel))
+
+    exe = os.path.join(new_dir, 'metin2client.exe')
+    if os.path.isfile(exe):
+        data = open(exe, 'rb').read()
+        for old_s, new_s in EXE_STRING_PATCHES:
+            if len(old_s) != len(new_s):
+                sys.exit('an exe patch must keep the length: %r' % new_s)
+            if data.count(new_s) == 1 and data.count(old_s) == 0:
+                continue
+            if data.count(old_s) != 1:
+                sys.exit('exe patch: expected exactly one %r, found %d' % (old_s, data.count(old_s)))
+            data = data.replace(old_s, new_s)
+            print('  exe: %s -> %s' % (old_s.rstrip(b'\x00').decode(), new_s.rstrip(b'\x00').decode()))
+        open(exe, 'wb').write(data)
 
     top = {n.replace('\\', '/') for n in names if '\\' not in n and '/' not in n}
     for f in git('diff', '--name-only', a.since, 'HEAD', '--', BESIDE).decode().split():
