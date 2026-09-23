@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "_note": "Metadata for files that this repository cannot redistribute. The project does not publish or automatically download the Metin2 server files, game client, game data, or the retired upstream WebClient. Users must supply their own compatible files. Keep this file FLAT -- one \"key\": \"value\" per line -- because the POSIX installers read it with sed.",
+  "_placeholders": "A value that is not an https:// link, or not 64 hex characters, has not been filled in yet. Every reader checks that and stops with 'the link has not been filled in' instead of attempting a meaningless download.",
+  "_fallbacks": "Every explicitly configured *_url may be followed by *_url_fallback and *_url_fallback2 holding the SAME file elsewhere. A fetcher walks the list in order and verifies the same sha256. Project defaults are intentionally empty; operators may provide authorised sources through environment variables.",
+
+  "_engine": "Legacy upstream WebClient metadata retained only so older installed stacks can be identified. Metin2 Playerbots does not distribute, fetch, update, or support the browser client. Use a compatible native Windows client instead.",
+  "engine_version": "1.11.6",
+  "engine_file": "Reference_WebClientEngine.zip",
+  "engine_url": "",
+  "engine_url_template": "",
+  "engine_sha256": "c83614620cc4cf64432b1f95a8b1fc710d42f5d7a5337836c183aec83ec92289",
+  "engine_size_mb": 17,
+  "engine_requires_data": "1.0.2",
+
+  "_data": "Legacy upstream WebClient game-data metadata. It is not distributed or downloaded by this project.",
+  "data_version": "1.0.2",
+  "data_file": "Reference_WebClientData.zip",
+  "data_url": "",
+  "data_url_fallback": "",
+  "data_url_fallback2": "",
+  "data_sha256": "b83e4fe918db8756dbea53cb7ce62414c47cc761c688059bf77b6475ad5d8fc4",
+  "data_size_mb": 1749,
+
+  "_src_server": "Expected r40250 server baseline: metin2_server+src.tar.gz and metin2_mysql_dump.zip. Not hosted or downloaded by this project. Supply a local archive/reference directory, or an explicit URL you are authorised to use.",
+  "src_server_file": "Reference_Server.zip",
+  "src_server_url": "",
+  "src_server_url_fallback": "",
+  "src_server_url_fallback2": "",
+  "src_server_sha256": "1d4b72add3935ad6ee55899f8bcd7028cafad9a5a81404ca9bcc4b87c4524e84",
+  "src_server_size_mb": 223,
+
+  "_src_client": "Expected compatible native Windows client archive. Not hosted or downloaded by this project. An operator may provide their own local archive to the client builder or use an already configured external client.",
+  "src_client_file": "Reference_Client.zip",
+  "src_client_url": "",
+  "src_client_url_fallback": "",
+  "src_client_url_fallback2": "",
+  "src_client_sha256": "9d6511f641f998801a8da16d081a856c14a42ecad3de884715d4446c2b3c5c55",
+  "src_client_size_mb": 1290,
+  "src_client_kind": "raw",
+
+  "_not_downloaded": "Reference_ClientSource.zip (147 MB, MEGA) is the client's Visual Studio source. No installed server needs it and no choice in the installer offers it -- it exists for developing the client further. It is deliberately absent from this file so that nothing can be tempted to fetch it, and it must never reach a player: it is what somebody would use to build a cheat client against this exact server."
+}

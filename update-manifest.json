@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "channel": "stable",
+  "publishedAt": "2026-09-11T07:06:09Z",
+  "statusMessage": "Aktualizacja 1.33.3. Poprawki z nocy zgłoszeń, i po raz pierwszy od 1.33.0 zmienia się też klient. Panel GM nie zatrzymuje już ładowania gry (gdy się nie zbuduje, gra wchodzi bez niego, a powód trafia do syserr.txt). Kanał nie pokazuje FULL przy 2500 botach. Boty nie grzęzną po wejściu do M3. Znika koreański tekst przy śmierci z błogosławieństwem. Wędkarze nie rozrzucają ryb, martwy towar w końcu trafia do handlarza, a ItemShop nie odpowiada 400. Boty noszą nicki od Iwakury, dopasowane do klasy i płci. Kliknij AKTUALIZUJ i zaktualizuj też klient pod F9/w launcherze.",
+  "server": {
+    "version": "1.33.3",
+    "url": "https://github.com/TieruYT/metin2-playerbots/releases/download/v1.33.3/metin2-server-update-1.33.3.zip",
+    "sha256": "0191D06C06948F7101C7DD6041067366B8B9B9AA8A1DDB411A079E827F97D5B4"
+  },
+  "support": {
+    "contactUrl": "https://discord.gg/pt5tvnrN6",
+    "uploadUrl": ""
+  },
+  "client": {
+    "version": "1.33.3",
+    "url": "https://github.com/TieruYT/metin2-playerbots/releases/download/v1.33.3/metin2-client-update-1.33.3.zip",
+    "sha256": "F8DFBBEB9210BEA4E2211F4906743F69ABBFB4894436BD7B8AB73EEEE8F16368"
+  }
+}

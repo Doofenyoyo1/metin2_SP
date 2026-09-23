@@ -1,0 +1,7 @@
+seban-panel.env
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.tgz
+*.tar
