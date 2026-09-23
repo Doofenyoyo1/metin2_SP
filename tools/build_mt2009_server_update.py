@@ -47,7 +47,7 @@ STAGED = 'linux-port-mt2009/docker/game/src/server/game/src'
 # port/playerbotify.py would never reach a player; each one named here is
 # applied to the filled tree. They are idempotent: a package that already
 # carries one finds it "already", and an anchor that moved stops the build.
-ENGINE_EDITS = ['apply_costume_mount_allowed']
+ENGINE_EDITS = ['apply_costume_mount_allowed', 'apply_ride_seal_equip']
 
 
 def published(rel):

@@ -1413,6 +1413,7 @@ def main(root):
     apply_costume_block(game)
     apply_costume_hair_allowed(game)
     apply_costume_mount_allowed(game)
+    apply_ride_seal_equip(game)
     apply_mark_login_quiet(game)
     apply_coop_handshake_window(game)
     apply_horse_rider_links(game)
@@ -1931,6 +1932,45 @@ def apply_costume_mount_allowed(game):
          '#endif\n'
          '\t\t\t)\n',
          marker='playerbotify.py, apply_costume_mount_allowed).')
+
+
+def apply_ride_seal_equip(game):
+    """A ride seal goes on when its wearer is not already mounted.
+
+    EquipItem answers any ride item (IsRideItem: the ride seals, 16/2, and a
+    mount costume) in two ways. With ENABLE_MOUNT_COSTUME_EX_SYSTEM it sends a
+    summoned or ridden horse away and lets the item on; without it - this
+    package's build - it refuses every one with "You're already riding. Get off
+    first." whether the character is riding or not. So a seal bought from the
+    ItemShop's Wierzchowce tab (2.1.3) could never be worn (23 September), and
+    the sig_use that mount_seals.quest answers was never reached. The branch now
+    does what the EX branch does with the horse and refuses only a character
+    that is already on a mount (GetMountVnum: a seal worn in the other unique
+    slot), which is what the message says.
+    """
+    edit(os.path.join(game, 'char_item.cpp'),
+         '\t\t#else\n'
+         '\t\tChatPacket(CHAT_TYPE_INFO, LC_TEXT("You\'re already riding. Get off first."));\n'
+         '\t\treturn false;\n'
+         '\t\t#endif\n',
+         '\t\t#else\n'
+         '\t\t// A seal goes on unless a mount is already ridden (playerbotify.py,\n'
+         '\t\t// apply_ride_seal_equip); a horse is sent away first, as the EX branch does.\n'
+         '\t\tif (GetHorse() || IsHorseRiding()) {\n'
+         '\t\t\tStopRiding();\n'
+         '\t\t\tHorseSummon(false);\n'
+         '\t\t}\n'
+         '\n'
+         '\t\tif (GetHorse() || IsHorseRiding())\n'
+         '\t\t\treturn false;\n'
+         '\n'
+         '\t\tif (GetMountVnum())\n'
+         '\t\t{\n'
+         '\t\t\tChatPacket(CHAT_TYPE_INFO, LC_TEXT("You\'re already riding. Get off first."));\n'
+         '\t\t\treturn false;\n'
+         '\t\t}\n'
+         '\t\t#endif\n',
+         marker='apply_ride_seal_equip); a horse is sent away first, as the EX branch does.')
 
 
 def apply_coop_handshake_window(game):
