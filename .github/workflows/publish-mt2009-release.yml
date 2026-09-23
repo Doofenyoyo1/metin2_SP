@@ -59,9 +59,17 @@ jobs:
           echo "server=$server" >> "$GITHUB_OUTPUT"
           echo "client=$client" >> "$GITHUB_OUTPUT"
           echo "tag=v$server" >> "$GITHUB_OUTPUT"
-          if gh release view "v$server" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-             || git ls-remote --exit-code --tags origin "refs/tags/v$server" >/dev/null 2>&1; then
-            echo "::error::v$server already exists - bump linux-port-mt2009/VERSION first."
+          # A release with its packages is published and never touched again. One
+          # with none attached is what an interrupted run leaves, and is replaced.
+          if assets=$(gh release view "v$server" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length' 2>/dev/null); then
+            if [ "$assets" -gt 0 ]; then
+              echo "::error::v$server is already published with $assets file(s) - bump linux-port-mt2009/VERSION first."
+              exit 1
+            fi
+            echo "v$server exists with no files attached: replacing it."
+            gh release delete "v$server" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+          elif git ls-remote --exit-code --tags origin "refs/tags/v$server" >/dev/null 2>&1; then
+            echo "::error::tag v$server exists without a release - remove it or bump the version."
             exit 1
           fi
 
@@ -134,6 +142,18 @@ jobs:
             on { print }
           ' CHANGELOG.md > notes.md
           test -s notes.md
+          # Created as a draft, the files uploaded on their own, and published only
+          # once both are there with their sizes: the first run's one-call create
+          # published a release with no files and reported success.
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" \
-            --title "$SERVER (klient $CLIENT)" --notes-file notes.md --latest \
+            --title "$SERVER (klient $CLIENT)" --notes-file notes.md --draft
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
             "out/metin2-server-update-$SERVER.zip" "out/metin2-client-update-$CLIENT.zip"
+          for f in "metin2-server-update-$SERVER.zip" "metin2-client-update-$CLIENT.zip"; do
+            want=$(stat -c %s "out/$f")
+            got=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+                  --jq ".assets[] | select(.name == \"$f\") | .size")
+            echo "$f: local $want, release ${got:-missing}"
+            [ "$got" = "$want" ] || { echo "::error::$f did not reach the release"; exit 1; }
+          done
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
