@@ -15,6 +15,18 @@
 -- Wojenny, 20116 Wilk Wojenny, 20117 Szarzujacy Tygrys, 20118 Waleczny Lew.
 -- The other seals of the package wait for their animals to be read off the
 -- world. Keep this list and ishop_seals in the migrator (migratorify.py) the same.
+--
+-- A seal's rider also gets +30% damage against monsters, +2000 max HP and
+-- +50% experience (the operator's numbers, 23 September). Each is an
+-- AFFECT_MOUNT_BONUS (533) on its own point - override and cube, so the
+-- engine finds it by type and point and a seal put on twice replaces rather
+-- than stacks - because every road off a mount already removes that type:
+-- the seal taken off or run out (CItem::ClearMountAttributeAndAffect),
+-- /unmount, death and opening a shop. Points: 53 POINT_ATTBONUS_MONSTER,
+-- 6 POINT_MAX_HP, 116 POINT_MALL_EXPBONUS (which both GiveExp paths add as a
+-- percent); common/length.h has no #if in either enum, so the numbers are
+-- the engine's. Attacking and the horse skills need nothing here: the engine
+-- counts 20115-20118 as MOUNT_TYPE_MILITARY (GetMountLevelByVnum).
 quest mount_seals begin
     state start begin
         -- A plain chain rather than a keyed table: it is the shape every
@@ -36,7 +48,11 @@ quest mount_seals begin
         when sig_use begin
             local mob = mount_seals.mob_of(item.get_vnum())
             if mob > 0 then
-                pc.mount(mob, 60 * 60 * 24 * 365)
+                local secs = 60 * 60 * 24 * 365
+                pc.mount(mob, secs)
+                affect.add_new(533, 53, 30, secs, 0, true, true)
+                affect.add_new(533, 6, 2000, secs, 0, true, true)
+                affect.add_new(533, 116, 50, secs, 0, true, true)
             end
         end
     end

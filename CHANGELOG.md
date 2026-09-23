@@ -17,6 +17,30 @@ every version here.
 
 ---
 
+## 2.1.5 — 2026-09-23
+
+Tylko serwer 2.1.5, klient zostaje 2.0.30. W launcherze ZAINSTALUJ AKTUALIZACJE.
+Na VPS: `sh linux-port/tools/update.sh`.
+
+### Wierzchowiec z pieczęci daje bonusy
+
+Jeździec na wierzchowcu z pieczęci (Dzik Wojenny, Wilk Wojenny, Szarżujący
+Tygrys, Waleczny Lew) dostaje:
+
+- +30% silny przeciwko potworom,
+- +2000 maks. PŻ,
+- +50% doświadczenia.
+
+Bonusy znikają razem z wierzchowcem: po zdjęciu pieczęci, po `/unmount`, po
+śmierci, po otwarciu sklepu i gdy pieczęci skończy się czas. Założenie pieczęci
+drugi raz ich nie podwaja.
+
+Atak z tych wierzchowców serwer dopuszczał już wcześniej: silnik liczy
+wszystkie cztery jako wierzchowce bojowe najwyższej klasy (jak koń od 21
+poziomu), więc pozwala na zwykły atak i umiejętności konne.
+
+---
+
 ## 2.1.4 — 2026-09-23
 
 Tylko serwer 2.1.4, klient zostaje 2.0.30. W launcherze ZAINSTALUJ AKTUALIZACJE.
