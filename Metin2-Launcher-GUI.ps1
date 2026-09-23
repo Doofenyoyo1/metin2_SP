@@ -1996,16 +1996,13 @@ function Show-CoopDialog {
     # Co-op over the Internet (experimental). Hosting and its end restart the
     # game container and so run as actions in the main window; everything else
     # here is quick and in-process, and nothing that shows a password is
-    # written to any log. -JoinOnly is the window for a machine that only joins
-    # a friend's world: the joining tab alone, and nothing that asks the
-    # database or Docker about a world this machine does not host.
-    param([switch]$JoinOnly)
+    # written to any log.
     if (-not (Get-Command Get-M2CoopNetworkReport -ErrorAction SilentlyContinue)) {
         [Windows.Forms.MessageBox]::Show('Ta paczka nie ma modułu COOP.', 'COOP', 'OK', 'Information') | Out-Null
         return
     }
     $dialog = [Windows.Forms.Form]::new()
-    $dialog.Text = $(if ($JoinOnly) { 'COOP - dołączam do świata znajomego' } else { 'COOP - gra ze znajomymi przez internet (eksperymentalne)' })
+    $dialog.Text = 'COOP - gra ze znajomymi przez internet (eksperymentalne)'
     $dialog.Size = [Drawing.Size]::new(660, 600)
     $dialog.StartPosition = 'CenterParent'
     $dialog.FormBorderStyle = 'FixedDialog'
@@ -2020,7 +2017,7 @@ function Show-CoopDialog {
     $hostTab.Text = 'Hostuję swój świat'
     $joinTab = [Windows.Forms.TabPage]::new()
     $joinTab.Text = 'Dołączam do znajomego'
-    if (-not $JoinOnly) { $tabs.TabPages.Add($hostTab) }
+    $tabs.TabPages.Add($hostTab)
     $tabs.TabPages.Add($joinTab)
 
     # ------------------------------------------------------------ host tab
@@ -2067,23 +2064,21 @@ function Show-CoopDialog {
     [void]$viaBox.Items.Add('Internet (porty w routerze, UPnP)')
     $viaValues.Add('internet')
     $viaFound = @()
-    if (-not $JoinOnly) { try { $viaFound = @(Get-M2CoopVpnAdapters) } catch { $viaFound = @() } }
+    try { $viaFound = @(Get-M2CoopVpnAdapters) } catch { $viaFound = @() }
     foreach ($vpn in $viaFound) {
         [void]$viaBox.Items.Add(('{0} - adres {1}' -f $vpn.Name, $vpn.Address))
         $viaValues.Add([string]$vpn.Kind)
     }
     $viaBox.SelectedIndex = 0
-    if (-not $JoinOnly) {
-        # The way the world was last hosted, while that VPN is still here.
-        try {
-            $lastHosting = (Read-M2CoopState -ServerRoot $root).hosting
-            if ($lastHosting -and (@($lastHosting.PSObject.Properties.Name) -contains 'vpn')) {
-                $lastIndex = $viaValues.IndexOf([string]$lastHosting.vpn)
-                if ($lastIndex -ge 2) { $viaBox.SelectedIndex = $lastIndex }
-            }
+    # The way the world was last hosted, while that VPN is still here.
+    try {
+        $lastHosting = (Read-M2CoopState -ServerRoot $root).hosting
+        if ($lastHosting -and (@($lastHosting.PSObject.Properties.Name) -contains 'vpn')) {
+            $lastIndex = $viaValues.IndexOf([string]$lastHosting.vpn)
+            if ($lastIndex -ge 2) { $viaBox.SelectedIndex = $lastIndex }
         }
-        catch { }
     }
+    catch { }
 
     $addButton = [Windows.Forms.Button]::new()
     $addButton.Text = 'Dodaj znajomego'
@@ -2187,37 +2182,35 @@ function Show-CoopDialog {
     $dialog.CancelButton = $closeButton
 
     $refresh = {
-        if (-not $JoinOnly) {
-            $state = Read-M2CoopState -ServerRoot $root
-            $bindings = Get-M2CoopGameBindings -ServerRoot $root
-            $lines = @()
-            if (-not $bindings.Running) { $lines += 'Serwer gry: nie działa - najpierw GRAJ.' }
-            elseif ($bindings.Public) { $lines += 'Hostowanie: WŁĄCZONE - porty gry są otwarte dla sieci.' }
-            else { $lines += 'Hostowanie: wyłączone - porty gry słuchają tylko na tym komputerze.' }
-            $public = ''; $viaName = ''
-            if ($state.hosting) {
-                $fields = @($state.hosting.PSObject.Properties.Name)
-                if (($fields -contains 'friendAddress') -and [string]$state.hosting.friendAddress) { $public = [string]$state.hosting.friendAddress }
-                elseif (($fields -contains 'publicAddress') -and [string]$state.hosting.publicAddress) { $public = [string]$state.hosting.publicAddress }
-                if (($fields -contains 'mode') -and [string]$state.hosting.mode -eq 'vpn' -and ($fields -contains 'vpnName')) { $viaName = [string]$state.hosting.vpnName }
-            }
-            if ($public -and $viaName) { $lines += ('Adres dla znajomych (ostatnio): {0}, przez {1}' -f $public, $viaName) }
-            elseif ($public) { $lines += ('Adres dla znajomych (ostatnio): {0}' -f $public) }
-            $defaults = @()
-            try { $defaults = @(Get-M2CoopDefaultPasswordAccounts -ServerRoot $root) }
-            catch { $lines += 'Baza nie odpowiada - uruchom serwer (GRAJ).' }
-            if ($defaults.Count -gt 0) { $lines += ('UWAGA: konta {0} mają hasła z paczki - kliknij Zabezpiecz konta.' -f ($defaults -join ', ')) }
-            else { $lines += 'Konta admin i test: hasła zmienione.' }
-            $status.Text = ($lines -join [Environment]::NewLine)
-            $status.ForeColor = $(if ($defaults.Count -gt 0) { [Drawing.Color]::DarkRed } else { [Drawing.Color]::Black })
-            $list.Items.Clear()
-            foreach ($f in @($state.friends)) {
-                $item = [Windows.Forms.ListViewItem]::new([string]$f.name)
-                [void]$item.SubItems.Add([string]$f.login)
-                [void]$item.SubItems.Add($(if ($f.blocked) { 'zablokowany' } else { 'aktywny' }))
-                $item.Tag = [string]$f.login
-                [void]$list.Items.Add($item)
-            }
+        $state = Read-M2CoopState -ServerRoot $root
+        $bindings = Get-M2CoopGameBindings -ServerRoot $root
+        $lines = @()
+        if (-not $bindings.Running) { $lines += 'Serwer gry: nie działa - najpierw GRAJ.' }
+        elseif ($bindings.Public) { $lines += 'Hostowanie: WŁĄCZONE - porty gry są otwarte dla sieci.' }
+        else { $lines += 'Hostowanie: wyłączone - porty gry słuchają tylko na tym komputerze.' }
+        $public = ''; $viaName = ''
+        if ($state.hosting) {
+            $fields = @($state.hosting.PSObject.Properties.Name)
+            if (($fields -contains 'friendAddress') -and [string]$state.hosting.friendAddress) { $public = [string]$state.hosting.friendAddress }
+            elseif (($fields -contains 'publicAddress') -and [string]$state.hosting.publicAddress) { $public = [string]$state.hosting.publicAddress }
+            if (($fields -contains 'mode') -and [string]$state.hosting.mode -eq 'vpn' -and ($fields -contains 'vpnName')) { $viaName = [string]$state.hosting.vpnName }
+        }
+        if ($public -and $viaName) { $lines += ('Adres dla znajomych (ostatnio): {0}, przez {1}' -f $public, $viaName) }
+        elseif ($public) { $lines += ('Adres dla znajomych (ostatnio): {0}' -f $public) }
+        $defaults = @()
+        try { $defaults = @(Get-M2CoopDefaultPasswordAccounts -ServerRoot $root) }
+        catch { $lines += 'Baza nie odpowiada - uruchom serwer (GRAJ).' }
+        if ($defaults.Count -gt 0) { $lines += ('UWAGA: konta {0} mają hasła z paczki - kliknij Zabezpiecz konta.' -f ($defaults -join ', ')) }
+        else { $lines += 'Konta admin i test: hasła zmienione.' }
+        $status.Text = ($lines -join [Environment]::NewLine)
+        $status.ForeColor = $(if ($defaults.Count -gt 0) { [Drawing.Color]::DarkRed } else { [Drawing.Color]::Black })
+        $list.Items.Clear()
+        foreach ($f in @($state.friends)) {
+            $item = [Windows.Forms.ListViewItem]::new([string]$f.name)
+            [void]$item.SubItems.Add([string]$f.login)
+            [void]$item.SubItems.Add($(if ($f.blocked) { 'zablokowany' } else { 'aktywny' }))
+            $item.Tag = [string]$f.login
+            [void]$list.Items.Add($item)
         }
         $client = Get-CoopClientFolder
         $cfg = $(if ($client) { Join-Path $client 'coop.cfg' } else { '' })
