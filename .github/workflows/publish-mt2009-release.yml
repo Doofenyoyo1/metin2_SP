@@ -1,7 +1,7 @@
 name: Publish mt2009 release
 
 # Builds the mt2009 server and client update packages on Linux from the
-# previous release's packages (tools/release/*.py), publishes them as a
+# previous release's packages (tools/build_mt2009_*_update.py), publishes them as a
 # GitHub release, and writes their SHA-256 into update-manifest-mt2009.json on
 # the branch it ran from. The launcher reads that manifest from main, so the
 # branch is merged into main after the release exists, never before.
@@ -83,8 +83,8 @@ jobs:
       - name: Build
         run: |
           set -euo pipefail
-          python3 tools/release/build_mt2009_server_update.py --previous prev/server.zip --out out
-          python3 tools/release/build_mt2009_client_update.py --previous prev/client.zip --since "$CLIENT_SINCE" --out out
+          python3 tools/build_mt2009_server_update.py --previous prev/server.zip --out out
+          python3 tools/build_mt2009_client_update.py --previous prev/client.zip --since "$CLIENT_SINCE" --out out
           ls -la out
 
       - name: Manifest
