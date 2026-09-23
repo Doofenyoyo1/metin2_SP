@@ -5,7 +5,7 @@ OVERRIDE_DIR=os.environ.get("SEBAN_OVERRIDE_DIR", os.path.dirname(os.path.abspat
 HOOK=os.path.join(OVERRIDE_DIR,"apply-seban-overrides.sh")
 PROJECT=os.environ.get("SEBAN_COMPOSE_PROJECT", "metin2")
 UPDATE_PANEL=os.environ.get("SEBAN_UPDATE_PANEL", "0") == "1"
-MANIFEST="https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/update-manifest-mt2009.json"
+MANIFEST="https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/update-manifest-mt2009.json"
 SPOOL=os.environ.get("SEBAN_UPDATE_SPOOL", "/var/lib/docker/volumes/metin2_update-spool/_data")
 def progress(step, message):
     tmp=os.path.join(SPOOL, "update.status.new")
@@ -48,7 +48,7 @@ panel_updated=False
 if UPDATE_PANEL:
  panel_source=os.path.join(COMPOSE,"seban-panel")
  if not os.path.isdir(panel_source):
-  raise SystemExit(f"ERROR: Seban Panel update requested, but the Tieru package has no {panel_source}.")
+  raise SystemExit(f"ERROR: Seban Panel update requested, but the Playerbots package has no {panel_source}.")
  bundled_version=open(os.path.join(panel_source,"VERSION"),encoding="utf-8").read().strip()
  installed_panel_version=running_panel_version()
  if version_key(installed_panel_version) and version_key(bundled_version) <= version_key(installed_panel_version):
@@ -56,7 +56,7 @@ if UPDATE_PANEL:
  else:
   services.extend(["seban-panel","seban-collector","seban-item-grants"])
   panel_updated=True
-  print(f"Seban Panel update enabled: {installed_panel_version or 'unknown'} -> {bundled_version} (version bundled by Tieru).")
+  print(f"Seban Panel update enabled: {installed_panel_version or 'unknown'} -> {bundled_version} (version bundled with Playerbots).")
 else:
  print("Seban Panel update disabled: keeping the currently installed version.")
 subprocess.run(["docker","compose","-p",PROJECT,"up","-d","--build",*services],cwd=COMPOSE,check=True)

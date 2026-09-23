@@ -331,7 +331,7 @@ poziomów do ośmiu, jedno losowanie na dwie minuty. Udział agresywnych jest
 przypisany po pid, nie losowany — żeby królestwo miało charakter, a nie humor.
 
 Suwak `KINGDOMPVP` w panelu, **0% domyślnie**, czyli świat bez zmian dopóki
-Tieru sam go nie podniesie. Musiał trafić też do zapisu pliku wag w panelu: ten
+operator sam go nie podniesie. Musiał trafić też do zapisu pliku wag w panelu: ten
 przepisuje plik w całości, więc klucz, którego panel nie zna, zostałby skasowany
 przy pierwszym zapisie strony.
 

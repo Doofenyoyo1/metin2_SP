@@ -2,7 +2,7 @@
 """Renderuje playerbot_weapon_atlas.h: kazda bron tego swiata i skad sie bierze.
 
 "Opracuj wszystkie bronie dostepne na serwerze, aby boty wiedzialy po co graja"
-(Tieru, 15 wrzesnia). Atlas mowi AI, jaka bron jest dla danej klasy na danym
+(15 wrzesnia). Atlas mowi AI, jaka bron jest dla danej klasy na danym
 poziomie do zdobycia i gdzie: u kupca w wiosce, ze wspolnego dropu potworow
 danej rangi i poziomu, z konkretnego potwora albo skrzyni na mapie, na ktorej
 boty poluja - albo tylko na mapie, na ktora boty nie chodza.

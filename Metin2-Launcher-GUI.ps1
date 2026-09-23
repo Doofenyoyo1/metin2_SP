@@ -234,7 +234,7 @@ $script:Strings = @{
         gmPanel      = 'PANEL GM F9 (TEST)'
         updateClient = 'AKTUALIZUJ KLIENTA'
         dbAccessTitle = 'Dane do polaczenia z baza'
-        dbAccessHint = 'Wpisz te dane w Navicat, HeidiSQL albo DBeaver (typ MySQL/MariaDB, polaczenie TCP). Konto root widzi wszystko, konto gry tylko bazy gry. Baza slucha wylacznie na tym komputerze. Jesli baza odrzuca haslo, kliknij NAPRAW DOSTEP DO BAZY - ustawia oba konta na hasla z pliku .env. Nie wklejaj tych hasel na Discordzie.'
+        dbAccessHint = 'Wpisz te dane w Navicat, HeidiSQL albo DBeaver (typ MySQL/MariaDB, polaczenie TCP). Konto root widzi wszystko, konto gry tylko bazy gry. Baza slucha wylacznie na tym komputerze. Jesli baza odrzuca haslo, kliknij NAPRAW DOSTEP DO BAZY - ustawia oba konta na hasla z pliku .env. Nie wklejaj tych hasel publicznie.'
         dbAccessProtoNote = 'Na plikach 2.x przedmioty i potwory (item_proto, mob_proto) sa w bazie world; player.item_proto i player.mob_proto to tylko widoki. Zmiany w world zostaja po restarcie serwera.'
         startupUpdateTitle = 'Dostepna aktualizacja'
         startupServerUpdate = 'Znaleziono nowsza wersje serwera: {0}' + [Environment]::NewLine + '(zainstalowana: {1})' + [Environment]::NewLine + [Environment]::NewLine + 'Czy chcesz dokonac aktualizacji teraz?' + [Environment]::NewLine + [Environment]::NewLine + 'Postacie, przedmioty i boty zostana bez zmian. Serwer zostanie przebudowany - postep w logu na dole. Odpowiedz NIE odklada pytanie do nastepnej wersji; przycisk AKTUALIZUJ dziala zawsze.'
@@ -292,7 +292,7 @@ $script:Strings = @{
         gmPanel      = 'GM PANEL F9 (BETA)'
         updateClient = 'UPDATE CLIENT'
         dbAccessTitle = 'Database connection details'
-        dbAccessHint = 'Enter these in Navicat, HeidiSQL or DBeaver (MySQL/MariaDB, TCP connection). root sees everything, the game account only the game databases. The database listens on this computer only. If it rejects the password, click REPAIR DATABASE ACCESS - it sets both accounts to the passwords in .env. Never paste these passwords on Discord.'
+        dbAccessHint = 'Enter these in Navicat, HeidiSQL or DBeaver (MySQL/MariaDB, TCP connection). root sees everything, the game account only the game databases. The database listens on this computer only. If it rejects the password, click REPAIR DATABASE ACCESS - it sets both accounts to the passwords in .env. Never paste these passwords anywhere public.'
         dbAccessProtoNote = 'On the 2.x files items and monsters (item_proto, mob_proto) live in the world database; player.item_proto and player.mob_proto are views. Changes in world survive a server restart.'
         startupUpdateTitle = 'Update available'
         startupServerUpdate = 'A newer server version was found: {0}' + [Environment]::NewLine + '(installed: {1})' + [Environment]::NewLine + [Environment]::NewLine + 'Update now?' + [Environment]::NewLine + [Environment]::NewLine + 'Characters, items and bots stay as they are. The server is rebuilt - progress in the log below. NO postpones the question until the next version; the UPDATE button always works.'
@@ -467,7 +467,7 @@ function Refresh-Status {
 # kept out of the on-screen box so the interesting lines stay readable.
 $script:M2_NOISY_BUILD = 'already exists but was not created by Docker Compose|Get:\d|Unpacking |Selecting previously|Preparing to unpack|Reading database|Setting up |Suggested packages:|Recommended packages:|The following NEW packages|The following packages will be|debconf:'
 
-# Discord invite the ZIP button falls back to, and the once-per-session cache of
+# Issue tracker the ZIP button falls back to, and the once-per-session cache of
 # the support address read from the update manifest.
 $script:openContactAfterAction = ''
 $script:supportSettingsCache = $null
@@ -686,7 +686,7 @@ function Get-SupportSettings {
         try { $script:supportSettingsCache = Get-M2SupportSettings -Config (Get-LauncherConfig) }
         catch {
             Write-LocalLog "Nie udalo sie odczytac adresu zgloszen: $($_.Exception.Message)" -FileOnly
-            $script:supportSettingsCache = [pscustomobject]@{ UploadUrl = ''; ContactUrl = 'https://discord.gg/pt5tvnrN6'; Source = 'none' }
+            $script:supportSettingsCache = [pscustomobject]@{ UploadUrl = ''; ContactUrl = 'https://github.com/Doofenyoyo1/metin2_SP/issues'; Source = 'none' }
         }
     }
     return $script:supportSettingsCache
@@ -1674,9 +1674,8 @@ $worldBackupButton = New-Button (T 'worldBackup') 496 418 230 32 ([Drawing.Color
 # The world's difficulty - the waits at the Biologist and the stable keeper -
 # chosen here and applied at the next start (M2_DIFFICULTY in .env).
 $difficultyButton = New-Button (T 'difficulty') 28 456 218 32 ([Drawing.Color]::FromArgb(120, 95, 40))
-# COOP (experimental): this world played with friends over the Internet, the
-# hosting half for the Patreon testers behind their password (Open-CoopWindow).
-# The button exists only when the optional module does.
+# COOP (experimental): this world played with friends over the Internet
+# (Show-CoopDialog). The button exists only when the optional module does.
 $coopModulePath = Join-Path $root 'launcher\Metin2Launcher.Coop.psm1'
 $coopButton = $null
 if (Test-Path -LiteralPath $coopModulePath -PathType Leaf) {
@@ -1993,98 +1992,12 @@ function Get-CoopClientFolder {
     return ''
 }
 
-function Show-CoopUnlockDialog {
-    # Hosting is tried by the Patreon testers first. Their password is asked
-    # once and remembered by the module (.m2coop.json); a friend who only
-    # joins needs none, so the second way out opens just the joining tab.
-    # Returns 'unlocked', 'join' or 'cancel'. Nothing typed here is logged.
-    $dialog = [Windows.Forms.Form]::new()
-    $dialog.Text = 'COOP - testy dla patronów'
-    $dialog.Size = [Drawing.Size]::new(520, 270)
-    $dialog.StartPosition = 'CenterParent'
-    $dialog.FormBorderStyle = 'FixedDialog'
-    $dialog.MaximizeBox = $false
-    $dialog.MinimizeBox = $false
-    $dialog.Tag = 'cancel'
-    $info = [Windows.Forms.Label]::new()
-    $info.Text = ('Hostowanie własnego świata w COOP testują na razie patroni. Wpisz hasło z posta dla patronów - ' +
-        'launcher zapamięta je na tej instalacji.')
-    $info.Location = [Drawing.Point]::new(14, 12)
-    $info.Size = [Drawing.Size]::new(476, 40)
-    $dialog.Controls.Add($info)
-    $box = [Windows.Forms.TextBox]::new()
-    $box.UseSystemPasswordChar = $true
-    $box.Location = [Drawing.Point]::new(14, 60)
-    $box.Size = [Drawing.Size]::new(300, 26)
-    $box.Font = [Drawing.Font]::new('Consolas', 11)
-    $dialog.Controls.Add($box)
-    $unlock = [Windows.Forms.Button]::new()
-    $unlock.Text = 'Odblokuj'
-    $unlock.Location = [Drawing.Point]::new(326, 58)
-    $unlock.Size = [Drawing.Size]::new(164, 30)
-    $dialog.Controls.Add($unlock)
-    $dialog.AcceptButton = $unlock
-    $wrong = [Windows.Forms.Label]::new()
-    $wrong.Location = [Drawing.Point]::new(14, 94)
-    $wrong.Size = [Drawing.Size]::new(476, 20)
-    $wrong.ForeColor = [Drawing.Color]::DarkRed
-    $dialog.Controls.Add($wrong)
-    $joinInfo = [Windows.Forms.Label]::new()
-    $joinInfo.Text = 'Dołączasz do świata znajomego? Hasło nie jest potrzebne - wystarczy kod zaproszenia od niego.'
-    $joinInfo.Location = [Drawing.Point]::new(14, 128)
-    $joinInfo.Size = [Drawing.Size]::new(476, 36)
-    $joinInfo.ForeColor = [Drawing.Color]::DimGray
-    $dialog.Controls.Add($joinInfo)
-    $join = [Windows.Forms.Button]::new()
-    $join.Text = 'Mam kod zaproszenia'
-    $join.Location = [Drawing.Point]::new(14, 176)
-    $join.Size = [Drawing.Size]::new(200, 32)
-    $dialog.Controls.Add($join)
-    $cancel = [Windows.Forms.Button]::new()
-    $cancel.Text = 'Anuluj'
-    $cancel.Location = [Drawing.Point]::new(390, 176)
-    $cancel.Size = [Drawing.Size]::new(100, 32)
-    $cancel.DialogResult = [Windows.Forms.DialogResult]::Cancel
-    $dialog.Controls.Add($cancel)
-    $dialog.CancelButton = $cancel
-    $unlock.Add_Click({
-        if (Grant-M2CoopAccess -ServerRoot $root -Password $box.Text) {
-            Write-LocalLog 'COOP: hostowanie odblokowane hasłem testów.'
-            $dialog.Tag = 'unlocked'
-            $dialog.Close()
-            return
-        }
-        Write-LocalLog 'COOP: podano złe hasło testów.'
-        $wrong.Text = 'To nie jest hasło testów COOP.'
-        $box.SelectAll()
-        $box.Focus()
-    })
-    $join.Add_Click({
-        $dialog.Tag = 'join'
-        $dialog.Close()
-    })
-    [void]$dialog.ShowDialog()
-    $result = [string]$dialog.Tag
-    $dialog.Dispose()
-    return $result
-}
-
-function Open-CoopWindow {
-    if ((Get-Command Test-M2CoopAccess -ErrorAction SilentlyContinue) -and -not (Test-M2CoopAccess -ServerRoot $root)) {
-        $choice = Show-CoopUnlockDialog
-        if ($choice -eq 'join') { Show-CoopDialog -JoinOnly; return }
-        if ($choice -ne 'unlocked') { return }
-    }
-    Show-CoopDialog
-}
-
 function Show-CoopDialog {
-    # Co-op over the Internet (experimental; hosting is for the Patreon testers
-    # since 2.0.80, see Open-CoopWindow). Hosting and its end restart the game
-    # container and so run as actions in the main window; everything else here
-    # is quick and in-process, and nothing that shows a password is written to
-    # any log. -JoinOnly is the window for a friend who has an invite code and
-    # no testers' password: the joining tab alone, and nothing that asks the
+    # Co-op over the Internet (experimental). Hosting and its end restart the
+    # game container and so run as actions in the main window; everything else
+    # here is quick and in-process, and nothing that shows a password is
+    # written to any log. -JoinOnly is the window for a machine that only joins
+    # a friend's world: the joining tab alone, and nothing that asks the
     # database or Docker about a world this machine does not host.
     param([switch]$JoinOnly)
     if (-not (Get-Command Get-M2CoopNetworkReport -ErrorAction SilentlyContinue)) {
@@ -2523,7 +2436,7 @@ function Show-PanelChoiceDialog {
 
     # The third thing somebody pressing this button may actually want.
     # "podajcie te kody do gm bo ja nie moge na www wejsc", "ja nie mam zadnego
-    # hasla nawet w panelu tieru" - it is one line in .env and nothing showed it.
+    # hasla nawet w panelu" - it is one line in .env and nothing showed it.
     $passwordButton = [Windows.Forms.Button]::new()
     $passwordButton.Text = (T 'panelPw')
     $passwordButton.Location = [Drawing.Point]::new(16, 174)
@@ -2628,7 +2541,7 @@ $gmPanelButton.Add_Click({
         return
     }
     $answer = [Windows.Forms.MessageBox]::Show(
-        "Panel GM na F9 (autor: OskarPWA) to funkcja MOCNO EKSPERYMENTALNA.`r`n`r`nInstalacja podmienia w kliencie dwa pliki: packoot.eix i packoot.epk (skrypty gry). Poprzednie wersje trafiają do kopii zapasowej w folderze serwera (backups\client), więc da się wrócić.`r`n`r`nPanel otwiera tylko postać z uprawnieniami GM klawiszem F9. Jeśli po instalacji gra nie wczytuje się do końca, przywróć pliki z kopii i zgłoś to na Discordzie.`r`n`r`nZainstalować teraz?",
+        "Panel GM na F9 (autor: OskarPWA) to funkcja MOCNO EKSPERYMENTALNA.`r`n`r`nInstalacja podmienia w kliencie dwa pliki: packoot.eix i packoot.epk (skrypty gry). Poprzednie wersje trafiają do kopii zapasowej w folderze serwera (backups\client), więc da się wrócić.`r`n`r`nPanel otwiera tylko postać z uprawnieniami GM klawiszem F9. Jeśli po instalacji gra nie wczytuje się do końca, przywróć pliki z kopii i zgłoś to na GitHubie.`r`n`r`nZainstalować teraz?",
         'Panel GM F9 - wersja testowa', 'YesNo', 'Warning')
     if ($answer -ne [Windows.Forms.DialogResult]::Yes) { return }
     Start-LauncherAction -Action 'UpdateClient' -Yes
@@ -2650,7 +2563,7 @@ $bundleButton.Add_Click({
     }
     else {
         [Windows.Forms.MessageBox]::Show(
-            "Zapisze paczke ZIP z logami i otworze jej folder - dolacz ja na Discordzie.`r`n`r`nOtworze tez zaproszenie na serwer.",
+            "Zapisze paczke ZIP z logami i otworze jej folder - dolacz ja do zgloszenia na GitHubie.`r`n`r`nOtworze tez strone zgloszen.",
             'Logi', 'OK', 'Information') | Out-Null
         $script:openContactAfterAction = $support.ContactUrl
     }
@@ -2713,7 +2626,7 @@ $difficultyButton.Add_Click({
         Start-LauncherAction -Action 'SetDifficulty' -ExtraArgs $extra
     }
 })
-if ($coopButton) { $coopButton.Add_Click({ Open-CoopWindow }) }
+if ($coopButton) { $coopButton.Add_Click({ Show-CoopDialog }) }
 $importDbButton.Add_Click({
     if (-not (Confirm-DockerReady)) { return }
     $target = Get-GuiTargetVolume
@@ -2999,7 +2912,7 @@ $statusTimer.Start()
 # A new version people can actually notice. The footer has always changed
 # colour when the server was behind, and that is easy to miss on a window
 # sitting in the background - so while an update is waiting the line blinks
-# red and says so in words (Tieru: "zrob migotanie na czerwono ze jest wydana
+# red and says so in words ("zrob migotanie na czerwono ze jest wydana
 # nowa wersja klienta lub serwera, aby ludzie to widzieli").
 #
 # The timer owns nothing but the colour: Update-VersionFooter decides whether

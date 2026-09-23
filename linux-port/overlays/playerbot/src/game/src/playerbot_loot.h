@@ -170,7 +170,7 @@ namespace
 			return false;
 		// Never the goods a player crafts further, whatever the merchant pays:
 		// a bot of seventy-three walked past Grzyb Tue, Korzen Gango and a
-		// Zbroja Twarzy Ducha+3 on a floor (Tieru, 15 September).
+		// Zbroja Twarzy Ducha+3 on a floor (15 September).
 		if (IsPlayerBotPickupGoods(item))
 			return false;
 		const long long unit = (long long)GetPlayerBotNpcSellUnitPrice(item);
@@ -189,7 +189,7 @@ namespace
 				// Helmets and shields are picked up whatever their merchant price:
 				// the ones of level 21, 41 and 61 are worth more than it says, and a
 				// dungeon floor kept its Upiorna Maska while bots of fifty walked
-				// past (Tieru, 15 September: "tarcze na 21 41 61 poziom czy helmy
+				// past (15 September: "tarcze na 21 41 61 poziom czy helmy
 				// ... warto podnosic tak czy siak").
 				if (item->GetType() == ITEM_ARMOR &&
 						(item->GetSubType() == ARMOR_HEAD || item->GetSubType() == ARMOR_SHIELD))

@@ -76,7 +76,7 @@ const liveLogToggle=document.getElementById('live-log-toggle'),liveLogBox=docume
 // live syslog only holds ~800 lines across every bot on the server, so a
 // quiet bot's lines can scroll out of that window between two polls and
 // "flicker" if we just show whatever the latest fetch contains. Matches
-// Tieru's own bot-log console (7788), including the keyword colors.
+// the classic panel's bot-log console (7788), including the keyword colors.
 let liveLogTimer=null, collectedLogs=[], seenLogs={};
 const LOG_COLOR_RULES=[[/USE_SKILL|activated self buff/,'log-skill'],[/target acquired/,'log-target'],[/picked up loot|GIVE_GOLD/,'log-loot'],[/used health potion|used mana potion|USE_ITEM/,'log-potion'],[/SYSERR|failed/,'log-error']];
 const escapeHtml=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -112,7 +112,7 @@ liveLogCopy?.addEventListener('click', async () => {
   catch(_) { liveLogCopy.textContent='⛔ Nie udało się'; }
   setTimeout(()=>liveLogCopy.textContent='📋 Kopiuj logi', 2000);
 });
-// Auto-start, like Tieru's panel: logs are already flowing by the time you look.
+// Auto-start, like the classic panel: logs are already flowing by the time you look.
 liveLogToggle?.classList.add('active'); fetchLiveLogs(); liveLogTimer=setInterval(fetchLiveLogs, 1500);
 </script>
 {% endblock %}

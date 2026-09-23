@@ -112,7 +112,7 @@ def init(cur):
     # One-time branding migration for deployments created before the public-ready build.
     cur.execute("UPDATE player.web_seban_settings SET value='Metin2 Singleplayer' WHERE name='panel_name' AND value='Mt2009'")
     # Single-player suite: no setup wizard, no passphrase - one player at their
-    # own machine (Tieru, 13 September). Skip the wizard for installs seeded
+    # own machine (13 September). Skip the wizard for installs seeded
     # before this; an operator can still turn auth on from the panel.
     cur.execute("UPDATE player.web_seban_settings SET value='1' WHERE name='setup_complete' AND value='0'")
     # socket0 added 2026-09-13 so a generic Skill Book (vnum 50300 -- the

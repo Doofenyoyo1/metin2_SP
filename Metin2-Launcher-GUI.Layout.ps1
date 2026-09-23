@@ -1,5 +1,5 @@
 ﻿# The launcher window's layout (22 September): a menu of five pages on the
-# left with the versions and the coffee under it, the actions as cards on the
+# left with the versions and the issues link under it, the actions as cards on the
 # page, the status and a log that folds away on every page, and a painted
 # background. PowerShell 5.1 / WinForms.
 #
@@ -186,19 +186,19 @@ $header = [Windows.Forms.Panel]::new(); $header.Dock = 'Top'; $header.Height = 9
 $header.BackColor = UI-Color '#0D141A'; $header.Padding = [Windows.Forms.Padding]::new(26, 14, 26, 10)
 $script:form.Controls.Add($header)
 $brand = [Windows.Forms.Panel]::new(); $brand.Dock = 'Fill'; $header.Controls.Add($brand)
-$subtitle.Text = 'SINGLEPLAYER  /  PLAYERBOTS  /  BY TIERU'
+$subtitle.Text = 'SINGLEPLAYER  /  PLAYERBOTS'
 $subtitle.Dock = 'Top'; $subtitle.Height = 24
 $subtitle.Font = [Drawing.Font]::new('Segoe UI', 9); $subtitle.ForeColor = $script:ui.Muted
 $brand.Controls.Add($subtitle)
 $title.Text = 'METIN2'; $title.Dock = 'Top'; $title.Height = 37; $title.Font = [Drawing.Font]::new('Georgia', 25, [Drawing.FontStyle]::Bold)
 $title.ForeColor = $script:ui.Gold; $brand.Controls.Add($title)
 $brand.Controls.SetChildIndex($title, 0)
-$website = New-Button 'metin2singleplayer.com  >' 0 0 240 44
+$website = New-Button 'GitHub  >' 0 0 240 44
 UI-ButtonStyle $website
 $website.Dock = 'Right'; $website.Width = 240; $website.BackColor = UI-Color '#19232C'
 $website.ForeColor = $script:ui.Gold
-$website.AccessibleName = UI-Text 'Oficjalna strona projektu' 'Official project website'
-$website.Add_Click({ Start-Process 'https://metin2singleplayer.com/' })
+$website.AccessibleName = UI-Text 'Repozytorium projektu na GitHubie' 'Project repository on GitHub'
+$website.Add_Click({ Start-Process 'https://github.com/Doofenyoyo1/metin2_SP' })
 $header.Controls.Add($website)
 UI-ButtonStyle $languageButton
 $languageButton.Text = if ($script:Lang -eq 'en') { 'EN / PL' } else { 'PL / EN' }
@@ -242,14 +242,14 @@ $navStack = [Windows.Forms.FlowLayoutPanel]::new()
 $navStack.Dock = 'Top'; $navStack.Height = 300
 $navStack.FlowDirection = 'TopDown'; $navStack.WrapContents = $false
 $sidebar.Controls.Add($navStack)
-$coffeeButton = New-Button (UI-Text '☕  Postaw kawkę' '☕  Buy a coffee') 0 0 232 44
-UI-ButtonStyle $coffeeButton
-$coffeeButton.Dock = 'Bottom'; $coffeeButton.Height = 44
-$coffeeButton.Font = [Drawing.Font]::new('Segoe UI Semibold', 10)
-$coffeeButton.ForeColor = $script:ui.Gold
-$coffeeButton.AccessibleName = UI-Text 'Wesprzyj projekt na BuyCoffee' 'Support the project on BuyCoffee'
-$coffeeButton.Add_Click({ Start-Process 'https://buycoffee.to/metin2-playerbots' })
-$sidebar.Controls.Add($coffeeButton)
+$issuesButton = New-Button (UI-Text 'Zgłoś błąd' 'Report a bug') 0 0 232 44
+UI-ButtonStyle $issuesButton
+$issuesButton.Dock = 'Bottom'; $issuesButton.Height = 44
+$issuesButton.Font = [Drawing.Font]::new('Segoe UI Semibold', 10)
+$issuesButton.ForeColor = $script:ui.Gold
+$issuesButton.AccessibleName = UI-Text 'Zgłoś błąd lub pomysł na GitHubie' 'Report a bug or an idea on GitHub'
+$issuesButton.Add_Click({ Start-Process 'https://github.com/Doofenyoyo1/metin2_SP/issues' })
+$sidebar.Controls.Add($issuesButton)
 $versionPanel = [Windows.Forms.Panel]::new()
 $versionPanel.Dock = 'Bottom'; $versionPanel.Height = 232
 $versionPanel.Padding = [Windows.Forms.Padding]::new(10, 12, 8, 8)
@@ -320,21 +320,20 @@ $script:ui.LogToggle.Add_Click({ Switch-UILog })
 $logHeader.Controls.Add($script:ui.LogToggle)
 $footer.Dock = 'Bottom'; $footer.Height = 34
 $footer.BackColor = [Drawing.Color]::FromArgb(240, 10, 16, 20)
-$footer.Text = UI-Text 'Twój świat. Twoje tempo.    •    Metin2 Singleplayer by Tieru' 'Your world. Your pace.    •    Metin2 Singleplayer by Tieru'
+$footer.Text = UI-Text 'Twój świat. Twoje tempo.    •    Metin2 Singleplayer' 'Your world. Your pace.    •    Metin2 Singleplayer'
 $footer.ForeColor = $script:ui.Muted; $footer.Padding = [Windows.Forms.Padding]::new(28, 6, 0, 0)
 $main.Controls.Add($footer)
 
 $sections = @(
     @('home', '01', (UI-Text 'Pulpit' 'Overview'), (UI-Text 'Wróć do swojego świata' 'Return to your world'), (UI-Text 'Uruchom rozgrywkę lub zarządzaj działającym serwerem.' 'Start playing or manage your running server.')),
     @('world', '02', (UI-Text 'Świat i boty' 'World & bots'), (UI-Text 'Świat na Twoich zasadach' 'A world on your terms'), (UI-Text 'Ustaw boty i poziom trudności.' 'Configure bots and difficulty.')),
-    @('coop', '03', (UI-Text "COOP`r`n      (DLA WSPIERAJĄCYCH)" "COOP`r`n      (FOR SUPPORTERS)"), (UI-Text 'Graj razem ze znajomymi' 'Play together with friends'), (UI-Text 'COOP dla wspierających — zarządzaj wspólną rozgrywką.' 'COOP for supporters — manage your shared adventure.')),
+    @('coop', '03', (UI-Text 'COOP' 'COOP'), (UI-Text 'Graj razem ze znajomymi' 'Play together with friends'), (UI-Text 'Hostuj swój świat albo dołącz do świata znajomego.' 'Host your world or join a friend''s.')),
     @('database', '04', (UI-Text 'Baza danych' 'Database'), (UI-Text 'Zarządzanie bazą danych' 'Database management'), (UI-Text 'Dostęp, import i kopie Twojego świata.' 'Connection details, imports and backups of your world.')),
     @('logs', '05', (UI-Text 'Logi i diagnostyka' 'Logs & diagnostics'), (UI-Text 'Sprawdź, co się dzieje' 'See what is happening'), (UI-Text 'Diagnostyka i materiały potrzebne do zgłoszenia problemu.' 'Diagnostics and the information needed to report a problem.'))
 )
 foreach ($section in $sections) {
     UI-Page $section[0] $section[3] $section[4]
     $nav = New-Button ($section[1] + '   ' + $section[2]) 0 0 232 48
-    if ($section[0] -eq 'coop') { $nav.Height = 64 }
     UI-ButtonStyle $nav; $nav.TextAlign = 'MiddleLeft'
     $nav.Padding = [Windows.Forms.Padding]::new(10, 0, 0, 0)
     $nav.Margin = [Windows.Forms.Padding]::new(0, 5, 0, 0)
@@ -389,7 +388,7 @@ $coopInfo = [Windows.Forms.Panel]::new()
 $coopInfo.Dock = 'Fill'; $coopInfo.BackColor = [Drawing.Color]::FromArgb(235, 18, 26, 30)
 $coopInfo.Padding = [Windows.Forms.Padding]::new(14, 8, 14, 8)
 $coopInfo.Margin = [Windows.Forms.Padding]::new(0, 0, 12, 0)
-$coopText = UI-Label $coopInfo (UI-Text "Hasło otrzymują wspierający — znajdziesz je na Discordzie, na kanale dla wspierających.`r`n`r`nWsparcie opłaca tylko osoba hostująca grę. Zaproszeni gracze nie muszą płacić." "Supporters receive the password on Discord, in the supporters-only channel.`r`n`r`nOnly the person hosting the game needs to pay for support. Invited players do not need to pay.") 10 $script:ui.Text 100
+$coopText = UI-Label $coopInfo (UI-Text "COOP (eksperymentalne) jest dostępne w każdej instalacji: hostuj swój świat dla znajomych albo dołącz do świata znajomego kodem zaproszenia.`r`n`r`nZnajomy potrzebuje tylko klienta gry i kodu zaproszenia." "COOP (experimental) is available on every install: host your world for friends or join a friends world with an invite code.`r`n`r`nA friend needs only the game client and the invite code.") 10 $script:ui.Text 100
 $coopText.Dock = 'Fill'
 $script:ui.Pages.coop.Grid.Controls.Add($coopInfo, 0, 1)
 $script:ui.Pages.coop.Grid.SetColumnSpan($coopInfo, 2)
@@ -421,7 +420,7 @@ $script:versionLabel.Add_ForeColorChanged({
         $footer.Text = UI-Text 'Dostępna aktualizacja — przejdź do pulpitu.' 'Update available — open Overview.'
         $footer.ForeColor = $script:ui.Gold
     } else {
-        $footer.Text = UI-Text 'Twój świat. Twoje tempo.    •    Metin2 Singleplayer by Tieru' 'Your world. Your pace.    •    Metin2 Singleplayer by Tieru'
+        $footer.Text = UI-Text 'Twój świat. Twoje tempo.    •    Metin2 Singleplayer' 'Your world. Your pace.    •    Metin2 Singleplayer'
         $footer.ForeColor = $script:ui.Muted
     }
     $script:ui.VersionTip.SetToolTip($script:ui.SideVersions, $script:versionLabel.Text)
@@ -478,7 +477,7 @@ function Invoke-LayoutSelfTest([string]$OutputDirectory) {
     [Windows.Forms.Application]::DoEvents()
     if ($script:logBox.SelectionStart -ne $script:logBox.TextLength) { throw 'Log caret did not follow expansion' }
     if (([Uri](Get-UIRatesUrl)).AbsolutePath -ne '/rates') { throw 'Incorrect rates route' }
-    if (-not $coffeeButton.Visible) { throw 'Coffee link is not visible' }
+    if (-not $issuesButton.Visible) { throw 'Issues link is not visible' }
     $expected = @($installButton, $playButton, $stopButton, $panelButton, $clientButton, $updateButton,
         $bundleButton, $diagnosticsButton, $openLogButton, $folderButton, $botCountButton, $importDbButton,
         $repairDbButton, $dbAccessButton, $gmPanelButton, $worldBackupButton, $difficultyButton, $languageButton, $ratesButton)
@@ -486,6 +485,6 @@ function Invoke-LayoutSelfTest([string]$OutputDirectory) {
     foreach ($button in $expected) {
         if (@($script:ui.Cards | Where-Object { $_.Button -eq $button }).Count -ne 1) { throw "Missing/duplicate action: $($button.Text)" }
     }
-    [pscustomobject]@{ Checks = $results; ActionCards = $expected.Count; Navigation = 'OK'; Sidebar = 'OK'; LogToggle = 'OK'; LogScroll = 'OK'; RatesRoute = 'OK'; CoffeeLink = 'OK' } | ConvertTo-Json -Depth 4
+    [pscustomobject]@{ Checks = $results; ActionCards = $expected.Count; Navigation = 'OK'; Sidebar = 'OK'; LogToggle = 'OK'; LogScroll = 'OK'; RatesRoute = 'OK'; IssuesLink = 'OK' } | ConvertTo-Json -Depth 4
     $script:form.Close()
 }

@@ -1452,7 +1452,7 @@ def apply_playerbot_guild_invites(game):
     invitee's descriptor and arming a ten-second event; a bot's descriptor
     has no client behind it, so nothing ever answered and the invitation
     expired in silence ("niech boty akceptuja zaproszenia jesli nie sa w
-    zadnej gildii a my je zapraszamy", Tieru, 16 September). Unlike the
+    zadnej gildii a my je zapraszamy", 16 September). Unlike the
     party invitation (apply_playerbot_party_invites), the acceptance is the
     guild's own method with the invitee as its argument, so it can be run on
     the spot: the manager decides (AcceptPlayerBotGuildInvite in
@@ -1478,7 +1478,7 @@ def apply_hwang_curse_removed(game):
     # CHARACTER::Damage turned every blow at a monster on map 65 into a DODGE
     # unless a roll beat 50 plus POINT_BREAK_TEMPLE_CURSE, which the mask's
     # apply 146 lifts by 100 - so a player without the mask missed half his
-    # blows there ("bedziemy musieli usunac wymog i ten item", Tieru, 15
+    # blows there ("bedziemy musieli usunac wymog i ten item", 15
     # September, after NerrVoVy's report). The mask's sources go too: the drop
     # lines and the loot box in the share step shareify.py renders, the
     # introduction quest's reward there as well, and the shop line in apply.sh.
@@ -1505,7 +1505,7 @@ def apply_hwang_curse_removed(game):
 
 
 def apply_auto_hunt(game):
-    # Auto Lowy dla gracza (Tieru, 15 wrzesnia: "autolowy dla gracza, dla
+    # Auto Lowy dla gracza (15 wrzesnia: "autolowy dla gracza, dla
     # botow niepotrzebne ... dla kazdego za darmo bez wymagan"). Okno klienta
     # (client-root/uiautohunt.py) samo chodzi, bije i pije mikstury, ale nie ma
     # w Pythonie zadnej listy potworow wokol postaci - skrypty z sieci skanuja
@@ -1532,7 +1532,7 @@ def apply_auto_hunt(game):
          '\t{ "check_mob", do_check_mob, \t0, POS_DEAD,\t\tGM_IMPLEMENTOR },\n'
          '\t{ "autohunt_target",\tdo_autohunt_target,\t0,\t\t\tPOS_DEAD,\tGM_PLAYER\t},\n',
          marker='{ "autohunt_target",')
-    # The pick-up by kind ("nie podnos broni, zbroi", Tieru, 15 wrzesnia):
+    # The pick-up by kind ("nie podnos broni, zbroi", 15 wrzesnia):
     # "/autohunt_loot <zasieg> <rodzaje> <x> <y>" -> "AutoHuntLoot <vid> <x> <y>".
     edit(os.path.join(game, 'cmd_general.cpp'),
          "//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f\n",
@@ -1551,7 +1551,7 @@ def apply_auto_hunt(game):
 
 
 def apply_auto_hunt_offsets(game):
-    # Auto Lowy nic nie podnosily, jakkolwiek ustawione (Tieru, 15 wrzesnia,
+    # Auto Lowy nic nie podnosily, jakkolwiek ustawione (15 wrzesnia,
     # 23:10, klient 2.0.9). Klient liczy pozycje od rogu swojej mapy - jego
     # strumien sieciowy odejmuje baze mapy od kazdej pozycji z serwera, minimapa
     # pokazuje "334, 857" w Bokjung o bazie 102400, 204800 - a "AutoHuntLoot"
@@ -1602,7 +1602,7 @@ def apply_auto_hunt_offsets(game):
          '\t// The item\'s place as an offset from the character, which the client adds\n'
          '\t// to its own position: in the world\'s coordinates every item stood a\n'
          '\t// map\'s base away from a client that counts from its map\'s corner, and\n'
-         '\t// the pick-up never came within reach (Tieru, 15 September).\n'
+         '\t// the pick-up never came within reach (15 September).\n'
          '\tch->ChatPacket(CHAT_TYPE_COMMAND, "AutoHuntLoot %u %ld %ld",\n'
          '\t\t\t(unsigned int) (DWORD) f.m_pkBest->GetVID(),\n'
          '\t\t\t(long) (f.m_pkBest->GetX() - ch->GetX()), (long) (f.m_pkBest->GetY() - ch->GetY()));\n',
@@ -1703,8 +1703,8 @@ ACMD(do_autohunt_target)
 
 AUTO_HUNT_LOOT_COMMAND = r'''// The auto-hunt's pick-up by kind (client-root/uiautohunt.py). The client's
 // own PickCloseItem takes whatever lies nearest and cannot tell a sword from a
-// potion, and the window offers "do not pick up weapons, armour, ..." (Tieru,
-// 15 September). So the client asks "/autohunt_loot <range> <kinds> <x> <y>"
+// potion, and the window offers "do not pick up weapons, armour, ..."
+// (15 September). So the client asks "/autohunt_loot <range> <kinds> <x> <y>"
 // and is answered "AutoHuntLoot <vid> <x> <y>": the nearest item on the ground
 // this character may take, of a kind the window keeps, within the range of
 // the point the hunt started from - zero for nothing. The client walks there
@@ -1850,7 +1850,7 @@ ACMD(do_autohunt_loot)
 def apply_refine_log_way(game):
     # Jak zrobiono ulepszenie - do nawiasu w historii ekwipunku panelu
     # ("Ulepszenie udane (Kowal)", "(Zwoj Blogoslawienstwa)", "(Kowal w Wiezy
-    # Demonow)", Tieru 15.09). DoRefine zapisywal w log.refinelog "POWER" i dla
+    # Demonow)" 15.09). DoRefine zapisywal w log.refinelog "POWER" i dla
     # zwyklego kowala, i dla kowala z Wiezy Demonow (bMoneyOnly, sciezka
     # REFINE_TYPE_MONEY_ONLY w CInputMain::Refine), a DoRefineWithScroll
     # "SCROLL" dla kazdego zwoju - kolumna setType to SET, ktory trzy dluzsze
@@ -1989,7 +1989,7 @@ def apply_costume_block(game):
     """No costume goes on a character on this line.
 
     Players handed one through the panels put it on and could not take it off
-    again, and the character showed as a bare weapon (reported to Tieru,
+    again, and the character showed as a bare weapon (reported
     14 September); the operator's call was to switch costumes off rather than
     delete them. EquipItem, a drag onto the costume slot and the item's own
     use all pass through CanEquipNow, so the refusal sits at its top. A costume
@@ -3065,8 +3065,8 @@ def apply_four_inventory_pages(common, game, db):
     """Four bag pages of 45 cells, the horse page after them.
 
     The package had two pages and the horse inventory as a third
-    (ENABLE_EXTEND_INVEN_SYSTEM); most servers give four, and so do we (Tieru,
-    18 September). Two pages go in at cell 90 and every constant after the bag
+    (ENABLE_EXTEND_INVEN_SYSTEM); most servers give four, and so do we
+    (18 September). Two pages go in at cell 90 and every constant after the bag
     moves up by them: bag 0-179, horse 180-224, equipment 225-256, dragon soul
     257-286, belt 287-302, INVENTORY_AND_EQUIP_SLOT_MAX 303. What the engine
     derives from those constants follows by itself; what does not is here:
@@ -3717,7 +3717,7 @@ ACMD(do_inventory_arrange)
 
 
 def apply_inventory_arrange(game):
-    # "Scal i uporzadkuj" dla graczy i botow (Tieru, 18 wrzesnia; audyt Codexa
+    # "Scal i uporzadkuj" dla graczy i botow (18 wrzesnia; audyt Codexa
     # tego samego dnia): przycisk ekwipunku wysyla jedno polecenie, a serwer
     # scala stosy i uklada cztery strony od nowa. Wykonanie jest w
     # playerbot_arrange.cpp (Makefile bierze kazdy *.cpp z game/src), tu tylko
@@ -4012,7 +4012,7 @@ ACMD(do_pickup_nearby)
 
 def apply_pickup_nearby(game):
     # The whole drop under the ` key (vanderro's suggestion of 18 September;
-    # Tieru: "jedno Z niech bedzie klasycznie, a ` najwyzej jako caly drop"; the
+    # "jedno Z niech bedzie klasycznie, a ` najwyzej jako caly drop"; the
     # shape of SIZOWSKI's patch). The character's method hands every item in
     # reach to PickupItem one at a time; /pickup_nearby calls it.
     edit(os.path.join(game, 'char.h'),
@@ -4101,7 +4101,7 @@ ACMD(do_safebox_transfer)
 
 def apply_safebox_hands(game):
     # Rozdzielanie i laczenie stosow w torbie przy otwartym magazynie
-    # (propozycja blasty'ego, 19 wrzesnia; Tieru: "Jasne"). CHARACTER::MoveItem
+    # (propozycja blasty'ego, 19 wrzesnia; "Jasne"). CHARACTER::MoveItem
     # pytal CanHandleItem() z domyslnym wykluczeniem, a otwarty magazyn to dla
     # IsBusy zajetosc - wiec przy otwartym depo serwer po cichu odrzucal kazde
     # przesuniecie, rozdzielenie i polaczenie w ekwipunku, dokladnie wtedy, gdy

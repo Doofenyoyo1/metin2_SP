@@ -149,7 +149,7 @@ ITEMSHOP_CATEGORIES = {
 		"color": colorInfo.DRAGON_COIN_COLOR,
 		"action" : {
 			"type" : "open_url",
-			"value" : "https://buycoffee.to/metin2-playerbots"
+			"value" : "https://github.com/Doofenyoyo1/metin2_SP"
 		},
 	},
 

@@ -394,7 +394,7 @@ namespace
 				// And a big skill line is finished for every class, not only a
 				// caster: it is a PvP prize this world will use later, and mixing
 				// it off would waste it ("szkoda tracic takiego ladnego bonusu do
-				// PvP", Tieru). PvE still wears the average weapon - this only
+				// PvP"). PvE still wears the average weapon - this only
 				// stops the reroll from destroying the skill one.
 				// Thirty since community patch 2, point 3 ("tak, aby wynosily one
 				// 30%+ SR"); it was PLAYERBOT_BONUS_KEEP_AVERAGE, twenty.
@@ -535,7 +535,7 @@ namespace
 	// x1.5, skill 1-10 x1.2 - and read as steps, a 19% average asked what a 10%
 	// one did, and exactly what a weapon of 1% average and 3% skill did: two
 	// Ostrza z Czerwonej Stali +0 at 15 150 000 each ("czy nie pracowalismy nad
-	// tym, aby premiowana bardziej byla z wyzszymi srednimi?", Tieru,
+	// tym, aby premiowana bardziej byla z wyzszymi srednimi?",
 	// 15 September). His number is taken as what a roll in the middle of its
 	// band is worth, and the multiplier runs in a straight line from one band's
 	// middle to the next: a better roll asks more, a worse one less, and a
@@ -954,7 +954,7 @@ namespace
 
 			// The gear history shows the stone spent (PLAYERBOT_BONUS); this
 			// names the piece it was spent on, which is what a player asks -
-			// "na jaki przedmiot" (Tieru, 13 September).
+			// "na jaki przedmiot" (13 September).
 			LogManager::instance().ItemLog(ch, item,
 					bWantMarble ? "PLAYERBOT_BONUS_MARBLE"
 						: (bWantAdd ? "PLAYERBOT_BONUS_ADD" : "PLAYERBOT_BONUS_CHANGE"),

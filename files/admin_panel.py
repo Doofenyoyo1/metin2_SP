@@ -209,7 +209,7 @@ HUNTING_MOB_NAMES_PL = {
 
 # A skill book is vnum 50300 (or a named book) with the skill id in socket0;
 # the bag showed only "Ksiega Umiejetnosci" and nobody could tell which
-# skill it was (Tieru, 13 September). Flatten the per-class skill tables
+# skill it was (13 September). Flatten the per-class skill tables
 # into one id -> name map so a book can spell its skill out.
 SKILL_ID_NAMES = {}
 SKILL_ID_NAMES_PL = {}
@@ -1274,7 +1274,7 @@ def write_ai_weights(vals):
 
 # The Moonlight chest switch: one click that turns the drop off without
 # losing the two figures the operator had set ("Daj w panelu www mozliwosc
-# wylaczenia dropu szkat blasku", Tieru, 16 September). Off is CHEST 0 and
+# wylaczenia dropu szkat blasku", 16 September). Off is CHEST 0 and
 # CHEST_STONE 0 in the weights file - what the core reads within five
 # seconds - and the sliders' values kept beside it in a file of the panel's
 # own, because an unknown key in the weights file costs the core a log line
@@ -1819,13 +1819,11 @@ def _client_download_name(raw):
 # panel needing to be edited.
 BRAND = str(CONF.get("brand", "") or "").strip() or "Singleplayer Official Metin2"
 
-# The community's Discord. DELIBERATELY NOT CONFIGURABLE, and that is the point:
-# it is where this project posts what changed and where a player reports a bug,
-# so it is part of what the panel IS rather than something each install decides.
-# An operator who wants a different address edits this line, which is a change
-# to the software and shows up as one -- not a setting that quietly diverges
-# between installs and leaves players pointed at nothing.
-DISCORD_URL = "https://discord.gg/pt5tvnrN6"
+# The project's issue tracker. DELIBERATELY NOT CONFIGURABLE, and that is the
+# point: it is where this project posts what changed and where a player reports
+# a bug, so it is part of what the panel IS rather than something each install
+# decides. A different address is a change to the software and shows up as one.
+DISCORD_URL = "https://github.com/Doofenyoyo1/metin2_SP/issues"
 
 CLIENT_NAME  = str(CONF.get("client_name", "Metin2 Client") or "").strip()
 CLIENT_FILE  = _client_download_name(CLIENT_NAME)
@@ -2159,8 +2157,8 @@ def local_changelog():
 UPDATE_ENGINE = os.environ.get("M2PANEL_ENGINE", "r40250").strip().lower()
 UPDATE_BASE_URL = _env_path(
     "M2PANEL_UPDATE_URL",
-    "https://raw.githubusercontent.com/TieruYT/"
-    "metin2-playerbots/main")
+    "https://raw.githubusercontent.com/Doofenyoyo1/"
+    "metin2_SP/main")
 # Where this engine's VERSION lives under that base; the changelog is shared.
 UPDATE_VERSION_PATH = "/linux-port-mt2009/VERSION" if UPDATE_ENGINE == "mt2009" else "/VERSION"
 # The other line's VERSION, so a 1.x panel can say that 2.x exists. Only the
@@ -2237,8 +2235,8 @@ def _update_fetch(url, limit):
         # Honest about who is calling. GitHub sees this, and so would anyone
         # else the operator points M2PANEL_UPDATE_URL at.
         "User-Agent": "metin2-panel/%s (+%s)" % (PANEL_VERSION or "unknown",
-                                                 "https://github.com/TieruYT/"
-                                                 "metin2-playerbots"),
+                                                 "https://github.com/Doofenyoyo1/"
+                                                 "metin2_SP"),
         "Accept": "text/plain",
     })
     with urllib.request.urlopen(req, timeout=UPDATE_TIMEOUT) as resp:
@@ -2990,19 +2988,19 @@ T = {
                   "tr":"Beklenmeyen bir sorun oluştu. Tekrar dene; devam ederse sunucuyu kuran kişiye haber ver. 🙏"},
  "not_found":    {"pl":"Nie znaleziono gracza.","en":"Player not found.","de":"Spieler nicht gefunden.","tr":"Oyuncu bulunamadı."},
  # --- server rates ---
-   # --- discord ---
-   "dc_foot":      {"pl":"Discord — nowości, aktualizacje i pomoc","en":"Discord — news, updates and help",
-                    "de":"Discord — Neuigkeiten, Updates und Hilfe",
-                    "tr":"Discord — haberler, güncellemeler ve yardım"},
-   "dc_title":     {"pl":"💬 Wpadnij na Discorda","en":"💬 Come to the Discord",
-                    "de":"💬 Komm auf den Discord",
-                    "tr":"💬 Discord'a gel"},
-   "dc_body":      {"pl":"Wszystko, co aktualne, jest tam najpierw: co zmieniła ostatnia aktualizacja, kiedy serwer ma przerwę techniczną, i ludzie, którzy odpowiedzą szybciej, niż zdążysz poszukać. Znalazłeś błąd? Zgłoś go tam — to najszybsza droga do poprawki.","en":"Everything current is there first: what changed in the last update, when the server is down for maintenance, and the people who can answer a question faster than you can search for it. Found a bug? Report it there — it is the quickest way to get it fixed.",
-                    "de":"Alles Aktuelle steht dort zuerst: was sich mit dem letzten Update geändert hat, wann der Server für Wartungen weg ist, und die Leute, die eine Frage schneller beantworten, als du sie suchen kannst. Fehler gefunden? Melde ihn dort — das ist der schnellste Weg, ihn loszuwerden.",
-                    "tr":"Güncel olan her şey önce orada: son güncellemede ne değişti, sunucu bakım için ne zaman kapalı olacak ve bir soruyu aramandan daha hızlı yanıtlayacak insanlar. Hata mı buldun? Oraya bildir — düzeltilmesinin en hızlı yolu."},
-   "dc_btn":       {"pl":"💬 Dołącz do Discorda","en":"💬 Join the Discord",
-                    "de":"💬 Discord beitreten",
-                    "tr":"💬 Discord'a katıl"},
+   # --- project page (GitHub) ---
+   "dc_foot":      {"pl":"GitHub — nowości, aktualizacje i zgłoszenia","en":"GitHub — news, updates and issues",
+                    "de":"GitHub — Neuigkeiten, Updates und Meldungen",
+                    "tr":"GitHub — haberler, güncellemeler ve bildirimler"},
+   "dc_title":     {"pl":"🐙 Projekt na GitHubie","en":"🐙 The project on GitHub",
+                    "de":"🐙 Das Projekt auf GitHub",
+                    "tr":"🐙 GitHub'daki proje"},
+   "dc_body":      {"pl":"Tam jest kod, lista zmian i wydania. Znalazłeś błąd albo masz pomysł? Zgłoś go w zakładce Issues — to najszybsza droga do poprawki.","en":"The code, the changelog and the releases live there. Found a bug or have an idea? Open an issue — it is the quickest way to get it fixed.",
+                    "de":"Dort liegen der Code, die Änderungsliste und die Releases. Fehler gefunden oder eine Idee? Eröffne ein Issue — das ist der schnellste Weg zur Behebung.",
+                    "tr":"Kod, değişiklik listesi ve sürümler orada. Hata mı buldun ya da bir fikrin mi var? Bir issue aç — düzeltilmesinin en hızlı yolu."},
+   "dc_btn":       {"pl":"🐙 Zgłoś błąd na GitHubie","en":"🐙 Report on GitHub",
+                    "de":"🐙 Auf GitHub melden",
+                    "tr":"🐙 GitHub'da bildir"},
  "rates_nav":    {"pl":"⚙️ Mnożniki serwera","en":"⚙️ Server rates","de":"⚙️ Server-Raten","tr":"⚙️ Sunucu oranları"},
  "rates_open":   {"pl":"⚙️ Otwórz mnożniki serwera","en":"⚙️ Open server rates","de":"⚙️ Server-Raten öffnen","tr":"⚙️ Sunucu oranlarını aç"},
  "rates_dash_hint":{"pl":"Spraw, by cały serwer dawał więcej doświadczenia, przedmiotów i yang — wygodne, jeśli wolisz robić zadania niż grindować.","en":"Make the whole server give more experience, more items and more yang — handy if you would rather do quests than grind.",
@@ -3377,7 +3375,7 @@ T = {
  "pl_check_wait":{"pl":"Sprawdzono przed chwilą — daj temu minutę.","en":"Just checked a moment ago — give it a minute.","de":"Gerade eben schon geprüft — gib ihm eine Minute.","tr":"Az önce kontrol edildi — bir dakika bekle."},
  "pl_open":      {"pl":"📜 Otwórz listę zmian","en":"📜 Open the patch log","de":"📜 Patchlog öffnen","tr":"📜 Sürüm notlarını aç"},
  "upd_none":     {"pl":"To najnowsza opublikowana wersja.","en":"This is the newest published version.","de":"Das ist die neueste veröffentlichte Version.","tr":"Bu, yayımlanan en yeni sürüm."},
- "upd_next_line": {"pl":"Istnieje też linia 2.x (silnik mt2009, wersja {new}). To osobna paczka z Discorda, nie aktualizacja tej instalacji — ten launcher i klient 1.x z nią nie działają.","en":"There is also the 2.x line (mt2009 engine, version {new}). It is a separate package from the Discord, not an update of this install — this launcher and the 1.x client do not work with it.","de":"Es gibt auch die 2.x-Linie (mt2009-Engine, Version {new}). Das ist ein eigenes Paket vom Discord, kein Update dieser Installation — dieser Launcher und der 1.x-Client funktionieren damit nicht.","tr":"Ayrıca 2.x hattı var (mt2009 motoru, sürüm {new}). Bu, Discord'dan ayrı bir pakettir, bu kurulumun güncellemesi değil — bu başlatıcı ve 1.x istemcisi onunla çalışmaz."},
+ "upd_next_line": {"pl":"Istnieje też linia 2.x (silnik mt2009, wersja {new}). To osobna paczka z GitHuba, nie aktualizacja tej instalacji — ten launcher i klient 1.x z nią nie działają.","en":"There is also the 2.x line (mt2009 engine, version {new}). It is a separate package from GitHub, not an update of this install — this launcher and the 1.x client do not work with it.","de":"Es gibt auch die 2.x-Linie (mt2009-Engine, Version {new}). Das ist ein eigenes Paket von GitHub, kein Update dieser Installation — dieser Launcher und der 1.x-Client funktionieren damit nicht.","tr":"Ayrıca 2.x hattı var (mt2009 motoru, sürüm {new}). Bu, GitHub'dan ayrı bir pakettir, bu kurulumun güncellemesi değil — bu başlatıcı ve 1.x istemcisi onunla çalışmaz."},
  "upd_never":    {"pl":"Jeszcze nie sprawdzono — pierwsze sprawdzenie następuje kilka minut po starcie panelu.","en":"Not checked yet — the first check happens a couple of minutes after the panel starts.",
                   "de":"Noch nicht geprüft — die erste Prüfung läuft ein paar Minuten nach dem Start des Panels.",
                   "tr":"Henüz kontrol edilmedi — ilk kontrol panel başladıktan birkaç dakika sonra yapılır."},
@@ -4569,7 +4567,7 @@ def local_open():
         return False
     # The mt2009 line is the single-player suite: one player at their own
     # machine, no passphrase to invent or lose ("wylacz wymog wpisywania
-    # hasla, to projekt singleplayer" - Tieru, 13 September). An operator who
+    # hasla, to projekt singleplayer" - 13 September). An operator who
     # exposes it sets M2_PANEL_LOCAL_ONLY=0 or runs it behind the proxy,
     # both handled above.
     if ENGINE_MT2009:
@@ -7778,7 +7776,7 @@ function openBotModal(pid) {
               // Only when there is a hunt to report. On the mt2009 line
               // levelup.quest ships in quest/_unused, so hunting_progress_label
               // returns "" and this row said "Polowanie: Brak danych" to every
-              // bot on every card (Tieru, 13 September). A row that can only
+              // bot on every card (13 September). A row that can only
               // ever say "no data" is not a row.
               (p.hunting_label ? '<div style="grid-column:1 / -1"><b>' + I18N.hunting + ':</b> <span style="color:#fb923c">' + p.hunting_label + '</span></div>' : '') +
               '</div>';
@@ -7893,7 +7891,7 @@ function openBotModal(pid) {
               ' onclick="toggleBotSafeboxFromEl(this)">\U0001F4E6</div>';
 
       // And the stall beside it: what the bot sells lives in its offline shop,
-      // which is neither the bag nor the depot (Tieru, 17 September).
+      // which is neither the bag nor the depot (17 September).
       html += '<div class="m2-equip-slot" title="' + (I18N.shop || 'Sklep') +
               '" style="left:150px;top:46px;width:34px;height:34px;cursor:pointer;' +
               'display:flex;align-items:center;justify-content:center;font-size:19px"' +
@@ -7903,7 +7901,7 @@ function openBotModal(pid) {
       // No refresh button: opening a character is the refresh. openBotModal
       // reads /api/bot_inventory every time it runs, and the three fetches of
       // this window ask the browser for no cached copy, so what the card shows
-      // is what the database held the moment it was opened (Tieru, 20
+      // is what the database held the moment it was opened (20
       // September - "jak wchodzi sie w jakas postac niech sie odswieza").
       // What is left of the old caveat is the core's own delay, not ours: a
       // bot's items are written on the cache cycle, an equip at once since
@@ -8237,7 +8235,7 @@ def api_admin_warp_me():
         # character who played BEFORE the one sitting in the game, queued the
         # WARP for somebody offline, answered "timeout", and left the row
         # pending to teleport that other character on their next login
-        # (reproduced: Tieru in the game, the queue row for AdminSura). The
+        # (reproduced: one character in the game, the queue row for AdminSura). The
         # quest serves a row only to the character it names while that
         # character is online, so the honest way to find the online one is to
         # ask every recent human character at once, take the first answer,
@@ -8345,7 +8343,7 @@ GEAR_HISTORY_HOWS = {
 # DEVILTOWER for the Demon Tower smith and SCROLL:<vnum> for a scroll (the last
 # two since playerbotify's apply_refine_log_way; before that either smith said
 # POWER and every scroll SCROLL, or nothing when the SET column dropped its
-# name). Tieru, 15.09: "w nawiasie pisz (Kowal, Zwoj Blogoslawienstwa, ...)".
+# name). 15.09: "w nawiasie pisz (Kowal, Zwoj Blogoslawienstwa, ...)".
 REFINE_WAY_LABELS = {
     "POWER":      {"pl": "Kowal",                 "en": "Blacksmith"},
     "GUILD":      {"pl": "Kowal gildii",          "en": "Guild blacksmith"},

@@ -3,7 +3,7 @@
 -- world.shop_special 9009 - 25 000 yang and five Materialy Rzemieslnicze
 -- (30378, the storekeeper's material exchange), once in twenty-two hours, and
 -- from level thirty since apply.sh lowered the package's fifty to the rod's
--- own thirty (Tieru, 17 September); the check below says the same number so
+-- own thirty (17 September); the check below says the same number so
 -- the dialog does not refuse what the shop sells. Nothing in the package
 -- opens that shop: special_shop.quest answers 20406, 9006 and the three
 -- guards, and no quest names 9009, so no

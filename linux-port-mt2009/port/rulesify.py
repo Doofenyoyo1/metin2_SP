@@ -12,7 +12,7 @@ locale pack:
     python tools/eterpack.py --profile mt2009 repack <Klient>/pack/locale <out>/locale linux-port-mt2009/client-locale
 
 The stock text is the public Mt2009 server's; ours says what this project
-is, where to support it and where the Discord is. Idempotent.
+is and where to report a bug. Idempotent.
 """
 import io
 import os

@@ -16,7 +16,7 @@
 // (two of the three points sit inside a safe zone), a side apart, and every
 // bot of either goes for the nearest enemy it can see; the dead stand up in
 // their village and come back. "Potem stworzymy wojny gildii, gdzie beda chodzic na
-// specjalna mape i walczyc jak gracze miedzy soba" (Tieru, 16 September).
+// specjalna mape i walczyc jak gracze miedzy soba" (16 September).
 //
 // What this is not: a war with a player's guild. A player who declares war on
 // a bot guild is refused nothing by the engine, but no bot master accepts, so
@@ -687,7 +687,7 @@ namespace
 		// A transport horse comes off for the fight, as in a duel.
 		// On foot, every rider, and the horse sent away rather than left to
 		// trot behind the fight: the operator's rule for a war ("niech boty
-		// odwoluja konie i walcza tylko na pieszo", Tieru, 17 September),
+		// odwoluja konie i walcza tylko na pieszo", 17 September),
 		// which the battle horse's own fitness to fight used to exempt.
 		if (ch->IsRiding())
 		{

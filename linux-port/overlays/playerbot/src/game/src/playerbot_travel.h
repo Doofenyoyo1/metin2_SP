@@ -249,7 +249,7 @@ namespace
 		// The hunt for a first-village row: the six herb rows' monsters stand
 		// in Joan and its two mirrors and nowhere else, so a bot anywhere else
 		// with such a row open goes there for them - at seventy-eight as at
-		// fifteen (Tieru, 16 September). The wander then picks the hubs for
+		// fifteen (16 September). The wander then picks the hubs for
 		// the row's level (GetPlayerBotVillageHuntLevel).
 		const DWORD huntMob = GetPlayerBotBiologistHuntMob(ch);
 		return huntMob != 0 && huntMob < 500 && !IsPlayerBotM1Map(ch->GetMapIndex());
@@ -449,7 +449,7 @@ namespace
 		// The Biologist's row is done where its monster stands, whatever the
 		// level says: the Orc Tooth and the Curse Book in the valley, the Demon
 		// Souvenir in the tower. A row is finished before the next is begun,
-		// at any level ("nie ma czegos takiego jak za niskie dla bota", Tieru,
+		// at any level ("nie ma czegos takiego jak za niskie dla bota",
 		// 16 September); the specimen comes from the quest's own kill hook,
 		// which asks nothing about the level gap.
 		{

@@ -74,7 +74,7 @@ namespace
 	// last state starts the Curse Book, and the Curse Book's the Demon Souvenir.
 	// A bot takes its missions without the quest's dialog, so it keeps that
 	// order itself - it did not, and bots of seventy finished the Demon Souvenir
-	// with the Orc Tooth still open (Tieru, 15 September: "Ksiegi Klatw sa po
+	// with the Orc Tooth still open (15 September: "Ksiegi Klatw sa po
 	// Zebach Orka, a po Ksiegach Klatw sa Pamiatki Po Demonie"). A collect row
 	// after the first is open once the row before it is complete.
 	bool IsPlayerBotBiologistMissionOpen(LPCHARACTER ch, size_t missionIndex)
@@ -294,7 +294,7 @@ namespace
 	// herb row while it is there, without taking a place on the errand, since
 	// it adds no map change at all. The share above is what bounds the travel
 	// to M1; this is what fills the rows in ("jak mozna bezpiecznie zrobic by
-	// boty nadrabialy sobie biologa", Tieru, 17 September).
+	// boty nadrabialy sobie biologa", 17 September).
 	std::map<DWORD, std::pair<long, DWORD> > s_mapPlayerBotHerbVillageStay;
 
 	// True while that window is open. It is bounded per arrival -
@@ -413,7 +413,7 @@ namespace
 			return NULL;
 		// A dropper is a drop character: its table, its gear and its counter,
 		// and no quests ("jesli to osobowosc typowo dropek medali to powinien
-		// sie skupic tylko na lochu i eq ... a nie na robieniu questow", Tieru,
+		// sie skupic tylko na lochu i eq ... a nie na robieniu questow",
 		// 15 September - dropki of twenty-five doing the Biologist in M2). The
 		// planner, the pass, the travel and the status all ask this.
 		if (IsPlayerBotDropper(GetPlayerBotPersonalityByPID(ch->GetPlayerID())))
@@ -494,7 +494,7 @@ namespace
 			// PLAYERBOT_BIOLOGIST_OUTGROWN_LEVELS under the bot was stepped
 			// over by the middle passes, so the panel read "Zab Orka 4/10, za
 			// niskie dla bota, pominiete: 4" over a bot that would never finish
-			// either ("nie ma czegos takiego jak za niskie dla bota", Tieru,
+			// either ("nie ma czegos takiego jak za niskie dla bota",
 			// 16 September). The travel and the wander take the bot to the
 			// row's monster (playerbot_travel.h, playerbot_wandering.h).
 			if (first < 0)
@@ -582,7 +582,7 @@ namespace
 	{
 		// The horse trial comes first. A bot of seventy-seven with its horse
 		// at ten read "Zdobywam konia bojowego na pustyni (0/100)" in Jayang
-		// for the whole evening (Tieru, 16 September): the Gango Root's monster
+		// for the whole evening (16 September): the Gango Root's monster
 		// stands in the first village, so the herb row's hunt sent it there
 		// through NeedsPlayerBotM1OnlyServices ahead of the frontier draw, which
 		// wanted the desert - 35 such bots on map 3, and the same on every
@@ -602,7 +602,7 @@ namespace
 	// playerbot_battle_horse.h). The engine has already rolled its etc drop
 	// with the level gap in it - one percent of the chance at fifteen levels
 	// over the monster - and a row is done at any level ("nie ma czegos
-	// takiego jak za niskie dla bota", Tieru, 16 September), so the part the
+	// takiego jak za niskie dla bota", 16 September), so the part the
 	// gap took is rolled here: GetDropPct's own percent, which carries the
 	// world's rate and the premium, times (100 - fade) / fade. A bot at its
 	// row's level gets nothing extra and a bot of seventy what a player of the
@@ -718,7 +718,7 @@ namespace
 		// this line: no kill hook fires, so levelup.remain never decrements
 		// and every bot reads "0/40" for good, while the mission steered
 		// under-geared bots at its target mob. Disabled here; bots hunt by
-		// the frontier draw and the level-banded hubs instead (Tieru, 13
+		// the frontier draw and the level-banded hubs instead (13
 		// September).
 		(void)outLevel; (void)outSelection; (void)outRemaining;
 		return NULL;

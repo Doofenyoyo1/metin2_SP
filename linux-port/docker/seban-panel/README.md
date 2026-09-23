@@ -1,12 +1,12 @@
 # Metin2 Singleplayer Panel
 
-Metin2 Singleplayer Panel to alternatywny panel administracyjny i obserwacyjny dla serwerów Metin2 z Playerbots. Działa w osobnym kontenerze na porcie `7789`, obok klasycznego Panelu Tieru, który zwykle pozostaje na porcie `7788`.
+Metin2 Singleplayer Panel to alternatywny panel administracyjny i obserwacyjny dla serwerów Metin2 z Playerbots. Działa w osobnym kontenerze na porcie `7789`, obok klasycznego panelu, który zwykle pozostaje na porcie `7788`.
 
-Projekt korzysta z tej samej bazy, plików statusu Playerbots i kolejki administracyjnej. Nie zastępuje klasycznego panelu ani nie wymaga migracji danych — rozszerza instalację o dodatkowy, nowoczesny widok świata i narzędzia administracyjne. W menu znajduje się opcjonalny odnośnik do Panelu Tieru.
+Projekt korzysta z tej samej bazy, plików statusu Playerbots i kolejki administracyjnej. Nie zastępuje klasycznego panelu ani nie wymaga migracji danych — rozszerza instalację o dodatkowy, nowoczesny widok świata i narzędzia administracyjne. W menu znajduje się opcjonalny odnośnik do panelu klasycznego.
 
 ## Wydanie 1.54.1
 
-Panel zawiera niezależny Aktualizator Seban: stan, rzeczywisty postęp i log w `/manage`, automatyczny backup baz przed aktualizacją oraz ponowne nakładanie lokalnych reguł. Użytkownik może zdecydować osobnym, domyślnie wyłączonym checkboxem, czy razem z Playerbots ma zostać przebudowany również Seban Panel z wersji dołączonej przez Tieru. Aplikacja webowa nie ma dostępu do socketu Dockera; stałe zlecenie wykonuje ograniczona usługa systemowa.
+Panel zawiera niezależny Aktualizator Seban: stan, rzeczywisty postęp i log w `/manage`, automatyczny backup baz przed aktualizacją oraz ponowne nakładanie lokalnych reguł. Użytkownik może zdecydować osobnym, domyślnie wyłączonym checkboxem, czy razem z Playerbots ma zostać przebudowany również Seban Panel z wersji dołączonej do Playerbots. Aplikacja webowa nie ma dostępu do socketu Dockera; stałe zlecenie wykonuje ograniczona usługa systemowa.
 
 ## Co oferuje
 
@@ -21,9 +21,9 @@ Panel zawiera niezależny Aktualizator Seban: stan, rzeczywisty postęp i log w 
 - dashboard z wersją Playerbots, poziomem jeździectwa i przypiętym paskiem istotnych wydarzeń świata;
 - zarządzanie mnożnikami, zachowaniem Playerbots i restartem przez kolejkę natywnej instalacji;
 - kreator pierwszego uruchomienia, motywy Ocean/Ember/Forest i opcjonalną ochronę hasłem;
-- kontrolowany aktualizator Tieru: postęp i log w panelu, zlecenie aktualizacji do osobnego kontenera bez socketu Dockera w aplikacji webowej.
+- kontrolowany aktualizator Playerbots: postęp i log w panelu, zlecenie aktualizacji do osobnego kontenera bez socketu Dockera w aplikacji webowej.
 
-Panel uzupełnia klasyczny Panel Tieru o historię gospodarki, telemetrię hosta, ticker wydarzeń, rozbudowane rankingi i masowe nadania z warunkami. Oba panele mogą działać równolegle.
+Panel uzupełnia klasyczny panel o historię gospodarki, telemetrię hosta, ticker wydarzeń, rozbudowane rankingi i masowe nadania z warunkami. Oba panele mogą działać równolegle.
 
 ## Wymagania
 
@@ -31,7 +31,7 @@ Panel uzupełnia klasyczny Panel Tieru o historię gospodarki, telemetrię hosta
 - uruchomiona instalacja Metin2 z MariaDB/MySQL oraz Playerbots;
 - konto bazy używane przez panel z dostępem do baz `player`, `account` i `common`; konto musi móc utworzyć tabele `player.web_seban_*` oraz `player.web_admin_queue`;
 - zewnętrzna sieć Dockera, na której panel rozwiąże nazwę bazy i kontenera gry;
-- trzy istniejące wolumeny: wolumen z `/opt/metin2/var`, kolejka mnożników/restartu oraz `update-spool` instalacji Tieru;
+- trzy istniejące wolumeny: wolumen z `/opt/metin2/var`, kolejka mnożników/restartu oraz `update-spool` instalacji Playerbots;
 - dla masowych nadań: aktywny `web_admin.quest` i bezpiecznie zaimplementowane w rdzeniu `mysql_direct_query()` dla tabeli `player.web_admin_queue`.
 
 Bez ostatniego punktu działa monitoring, profile, rankingi, gospodarka i konfiguracja, ale nadania dla aktywnych postaci nie zostaną wykonane w grze.
@@ -99,14 +99,14 @@ demonstracyjnych oraz opcjonalnej aktualizacji Seban Panel konfiguruje się
 checkboxami wewnątrz sekcji Aktualizator Seban. Aktualizacja panelu jest
 domyślnie wyłączona, aby nie nadpisać lokalnych zmian. Po jej włączeniu updater
 buduje `seban-panel`, `seban-collector` i `seban-item-grants` z wersji panelu
-dołączonej do pobranego wydania Tieru. Aktualizator porównuje numery wersji i nie
+dołączonej do pobranego wydania Playerbots. Aktualizator porównuje numery wersji i nie
 cofnie nowszego lokalnego panelu do starszej wersji znajdującej się w paczce.
 
 ### Integracja ustawień respawnu i restartu
 
 Samo uruchomienie panelu daje monitoring oraz profile. Zmiana rat i respawnów wymaga dodatkowo helperów z `integration/` w **kontenerze gry**. Po ich instalacji `/manage` pokaże gotowość helpera; bez niej panel nie utworzy zlecenia, które czekałoby bez końca.
 
-Instrukcja w [integration/README.md](integration/README.md) wymaga skopiowania `m2-server-settings`, `m2-map-regens` i dostosowanego `m2-supervise` do kontekstu gry, a następnie przebudowania tylko usługi `game`. Przed podmianą `m2-supervise` porównaj go z wydaniem Tieru używanym przez serwer.
+Instrukcja w [integration/README.md](integration/README.md) wymaga skopiowania `m2-server-settings`, `m2-map-regens` i dostosowanego `m2-supervise` do kontekstu gry, a następnie przebudowania tylko usługi `game`. Przed podmianą `m2-supervise` porównaj go z wydaniem Playerbots używanym przez serwer.
 
 ## Konfiguracja środowiska
 
@@ -116,12 +116,12 @@ Instrukcja w [integration/README.md](integration/README.md) wymaga skopiowania `
 | `PLAYERBOTS_NETWORK` | Nazwa zewnętrznej sieci Dockera wspólnej z grą i bazą. |
 | `PLAYERBOTS_GAME_VAR_VOLUME` | Wolumen zamontowany przez grę jako `/opt/metin2/var`. |
 | `PLAYERBOTS_RATES_SPOOL_VOLUME` | Wolumen kolejki mnożników, zachowań i restartu. |
-| `PLAYERBOTS_UPDATE_SPOOL_VOLUME` | Wolumen `update-spool` współdzielony z odizolowanym aktualizatorem Tieru. |
+| `PLAYERBOTS_UPDATE_SPOOL_VOLUME` | Wolumen `update-spool` współdzielony z odizolowanym aktualizatorem Playerbots. |
 | `PLAYERBOTS_GAME_HOST` | Nazwa DNS kontenera gry w tej sieci. |
 | `PLAYERBOTS_LOGIN_PORT`, `PLAYERBOTS_WORLD_PORT` | Porty używane do kontroli etapu restartu. |
-| `PLAYERBOTS_VERSION` | Wersja aktualnie zainstalowanego wydania Tieru, wyświetlana na Dashboardzie. Aktualizuj ją razem z rdzeniem. |
+| `PLAYERBOTS_VERSION` | Wersja aktualnie zainstalowanego wydania Playerbots, wyświetlana na Dashboardzie. Aktualizuj ją razem z rdzeniem. |
 | `PLAYERBOTS_STATUS_GLOB` | Położenie plików `playerbot_status.tsv` wewnątrz panelu. |
-| `TIERU_PANEL_URL` | Publiczny adres klasycznego Panelu Tieru; używany przez link i ikony umiejętności. |
+| `TIERU_PANEL_URL` | Publiczny adres klasycznego panelu; używany przez link i ikony umiejętności. |
 | `SEBAN_SESSION_SECRET` | Długi, losowy sekret sesji. Nigdy go nie publikuj. |
 | `SEBAN_COLLECTOR_INTERVAL` | Interwał kolektora w sekundach, domyślnie `300`. |
 
@@ -138,7 +138,7 @@ docker compose --env-file seban-panel.env up -d --build
 
 Tabele historii i ustawienia pozostają w bazie. Przed aktualizacją produkcji wykonaj kopię bazy danych.
 
-### Aktualizacja Tieru z panelu
+### Aktualizacja Playerbots z panelu
 
 Jednorazowo uruchom `sudo updater/install-seban-updater.sh /ścieżka/do/serwera [projekt-compose]`, następnie włącz ochronę hasłem, zaloguj się ponownie i użyj przycisku w `/manage`. Aktualny stan instalacji oraz instrukcja właściwa dla danego VPS są także dostępne pod rozwijanym przyciskiem „Instalacja i działanie aktualizatora”.
 
@@ -151,5 +151,5 @@ Jednorazowo uruchom `sudo updater/install-seban-updater.sh /ścieżka/do/serwera
 
 ## Rozwój
 
-Projekt będzie rozwijany dalej. Kolejne wersje będą poszerzać diagnostykę Playerbots i widoki danych, zachowując współpracę z klasycznym Panelem Tieru.
+Projekt będzie rozwijany dalej. Kolejne wersje będą poszerzać diagnostykę Playerbots i widoki danych, zachowując współpracę z klasycznym panelem.
 

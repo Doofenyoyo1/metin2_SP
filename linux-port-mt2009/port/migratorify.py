@@ -62,14 +62,14 @@ FISHING_PASS_AND_RING = (
     "# wants worn, is sold in one place, the Fisherman's special shop (9009, opened\n"
     '# by fishing_pass_shop.quest), and the package asks level fifty for it - so a\n'
     '# player of thirty to forty-nine could wear the rod the line above allows and\n'
-    '# never fish (Tieru, 17 September). The db core reads shop_special_proto at\n'
+    '# never fish (17 September). The db core reads shop_special_proto at\n'
     '# boot, so this is live on the next start; idempotent, and only a fifty moves.\n'
     'db -e "UPDATE world.shop_special_proto SET limitvalue0 = 30 WHERE item_vnum = 27620 AND limittype0 = \'LEVEL\' AND limitvalue0 = 50; UPDATE world.shop_special_proto SET limitvalue1 = 30 WHERE item_vnum = 27620 AND limittype1 = \'LEVEL\' AND limitvalue1 = 50;"\n'
     '# Pierscien Teleportacji (70058) carries ITEM_FLAG_APPLICABLE (8192) in this\n'
     '# package, and under ENABLE_QUEST_DND_EVENT that flag makes UseItemEx treat an\n'
     '# ITEM_QUEST as "drop it onto another item": a plain use finds no target cell\n'
     '# and returns before the quest is asked, so teleport_ring.quest never ran for\n'
-    '# a player ("caly czas nie dziala pierscien teleportu", Tieru, 16 September).\n'
+    '# a player ("caly czas nie dziala pierscien teleportu", 16 September).\n'
     '# The ring is dragged onto nothing; the flag comes off. Idempotent.\n'
     'db -e "UPDATE world.item_proto SET flag = flag & ~8192 WHERE vnum = 70058 AND (flag & 8192) <> 0;"\n'
 )
@@ -105,7 +105,7 @@ WORLD_RATES = r"""
 # for a test cycle long ago, and that number reached every player as a promise
 # the game never kept: the panel showed it, the bots levelled at 100%, and the
 # first press of the button - even without touching a field - was what made it
-# real (NerrVoVy and Tieru, 20 September).
+# real (NerrVoVy, 20 September).
 #
 # So the numbers the launcher asked for are written here, into both places at
 # once, and only while the flags are absent: a world that has been set from the
@@ -306,7 +306,7 @@ def main():
                   '# is live on the next start; idempotent.\n'
                   'db -e "DELETE FROM world.shop_item WHERE item_vnum IN (72731, 72735);"\n'
                   '# And nobody keeps one: every Maska Sabaha still in a bag, on a character, in a\n'
-                  '# safebox or on a counter is removed (Tieru, 15 September, "usun" to the masks\n'
+                  '# safebox or on a counter is removed (15 September, "usun" to the masks\n'
                   '# players already held). On every start, so a mask an old core still held while\n'
                   '# an update ran this beside it goes on the next one.\n'
                   'masks=$(db -e "DELETE FROM player.item WHERE vnum IN (72731, 72735); SELECT ROW_COUNT();" || echo x)\n'

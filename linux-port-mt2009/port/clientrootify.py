@@ -10,12 +10,12 @@ Writes into client-root/ (beside serverinfo.py, which is hand-written):
   * gamerules.py  - RULES_VERSION bumped, so a client that accepted the public
                     server's terms is shown ours once (client-locale-src/rules.pl.txt);
   * intrologin.py - the three buttons of the login window: the home page is
-                    the project's GitHub, the Discord is ours, and the Facebook
-                    button - there is no Facebook - opens the buycoffee page;
+                    the project's GitHub, the Discord button opens its issues, and the Facebook
+                    button - there is no Facebook - opens the project page on GitHub;
                     a channel past the first is listed only while it answers;
   * uiitemshop.py, itemshop_subscriptionwindow.py - "Doladuj SM!" and the
-                    subscription button open the buycoffee page, not mt2009.pl;
-  * uisystem.py   - the system menu's support button opens our Discord.
+                    subscription button open the project page on GitHub, not mt2009.pl;
+  * uisystem.py   - the system menu's support button opens the project's issues.
   * uitooltip.py  - the GM branch no longer kills every item tooltip, and the
                     speed potion's asks for no apply name this client lacks.
   * game.py       - the "PlayerBotStatus" server command, handed to
@@ -156,15 +156,15 @@ EDITS = {
     # The ItemShop's "Doladuj SM!" and the subscription window's button both
     # opened the public server's site, and the system menu's support button
     # its account page. Nothing on this server sells coins; the two shop
-    # buttons open the buycoffee page (the players' own suggestion) and
-    # support is the Discord.
+    # buttons open the project page on GitHub and
+    # support is its issue tracker.
     'uiitemshop.py': [
         (b'\t\t\t"type" : "open_url",\r\n\t\t\t"value" : "https://mt2009.pl/"\r\n',
-         b'\t\t\t"type" : "open_url",\r\n\t\t\t"value" : "https://buycoffee.to/metin2-playerbots"\r\n'),
+         b'\t\t\t"type" : "open_url",\r\n\t\t\t"value" : "https://github.com/Doofenyoyo1/metin2_SP"\r\n'),
     ],
     'itemshop_subscriptionwindow.py': [
         (b'\t\tutils.open_url("https://mt2009.pl/")\r\n',
-         b'\t\tutils.open_url("https://buycoffee.to/metin2-playerbots")\r\n'),
+         b'\t\tutils.open_url("https://github.com/Doofenyoyo1/metin2_SP")\r\n'),
     ],
     # A game master saw no item tooltip at all: the GM branch of the item
     # tooltip iterates self.auxiliaryDict.items(), and auxiliaryDict is the
@@ -299,7 +299,7 @@ EDITS = {
          b'\t\tinventoryarrange.OnResult(code, moved, merged, units)\r\n'
          b'\r\n'
          b'\tdef __InGameShop_Show(self, url):\r\n'),
-        # "Podnies caly drop" (vanderro, 18 September; Tieru: "jedno Z niech
+        # "Podnies caly drop" (vanderro, 18 September; "jedno Z niech
         # bedzie klasycznie, a ` najwyzej jako caly drop"): ` asks the server
         # for every drop in range (pickupnearby.py, hand-written;
         # CHARACTER::PickupNearbyItems), Z keeps the single pickup. The key's
@@ -340,7 +340,7 @@ EDITS = {
          b'\t\tsafeboxtransfer.OnTransferResult(op, code, units)\r\n'
          b'\r\n'),
     ],
-    # "Scal i uporzadkuj" (Tieru, 18 September; Codex's audit the same day):
+    # "Scal i uporzadkuj" (18 September; Codex's audit the same day):
     # the inventory's auto-stack button asks the server once
     # (inventoryarrange.py) instead of sending a move for every pair of stacks.
     # Those moves were three hundred in a frame - the flood limit closed the
@@ -377,7 +377,7 @@ EDITS = {
          b'\r\n'
          b'\t\t\tmouseModule.mouseController.DeattachObject()\r\n'),
     ],
-    # The safebox's side (blasty's proposal, 19 September; Tieru: "Jasne"):
+    # The safebox's side (blasty's proposal, 19 September; "Jasne"):
     # "Scal i uporzadkuj" in the title bar, Shift and a click to split one of its
     # stacks, and a stack dropped on the same item poured into it - bag into
     # safebox, safebox into bag and inside the safebox (safeboxtransfer.py,
@@ -527,7 +527,7 @@ EDITS = {
         (b'\t\tversion_string = "Wersja: %d.%d.%d%s" % (\r\n',
          b'\t\tversion_string = uiScriptLocale.SYSTEM_VERSION % (\r\n'),
         (b'\t\tutils.open_url("https://mt2009.pl/Identity/Account/Manage/Support")\r\n',
-         b'\t\tutils.open_url("https://discord.gg/pt5tvnrN6")\r\n'),
+         b'\t\tutils.open_url("https://github.com/Doofenyoyo1/metin2_SP/issues")\r\n'),
     ],
     'intrologin.py': [
         # The second channel (serverinfo.py lists two) is the server's to
@@ -556,11 +556,11 @@ EDITS = {
          b'\t\t\tbakChannelID = 0\r\n'
          b'\t\tself.channelList.SelectItem(bakChannelID)\r\n'),
         (b'\t\tself.homePageButton.SAFE_SetEvent(self.OpenURL, "https://mt2009.pl/")\r\n',
-         b'\t\tself.homePageButton.SAFE_SetEvent(self.OpenURL, "https://github.com/TieruYT/metin2-playerbots")\r\n'),
+         b'\t\tself.homePageButton.SAFE_SetEvent(self.OpenURL, "https://github.com/Doofenyoyo1/metin2_SP")\r\n'),
         (b'\t\tself.facebookButton.SAFE_SetEvent(self.OpenURL, "https://www.facebook.com/Metin2009PL")\r\n',
-         b'\t\tself.facebookButton.SAFE_SetEvent(self.OpenURL, "https://buycoffee.to/metin2-playerbots")\r\n'),
+         b'\t\tself.facebookButton.SAFE_SetEvent(self.OpenURL, "https://github.com/Doofenyoyo1/metin2_SP")\r\n'),
         (b'\t\tself.discordButton.SAFE_SetEvent(self.OpenURL, "https://discord.gg/RhUaGRYZG7")\r\n',
-         b'\t\tself.discordButton.SAFE_SetEvent(self.OpenURL, "https://discord.gg/pt5tvnrN6")\r\n'),
+         b'\t\tself.discordButton.SAFE_SetEvent(self.OpenURL, "https://github.com/Doofenyoyo1/metin2_SP/issues")\r\n'),
     ],
     # The game options get a "Tytuly botow" row under the floating text one:
     # a bot's personality title (playerbot_status_tail.py, 2.0.53) or the

@@ -68,10 +68,10 @@ set -eu
 #      M2_SRC_ARCHIVE=/path/to/serverfiles.zip       sh install.sh
 #      M2_LOCAL_CONTEXT=/path/to/linux-port/docker   sh install.sh
 # -----------------------------------------------------------------------------
-M2_REPO_URL="${M2_REPO_URL:-https://github.com/TieruYT/metin2-playerbots.git}"
+M2_REPO_URL="${M2_REPO_URL:-https://github.com/Doofenyoyo1/metin2_SP.git}"
 # Where this script itself lives. The panel shows it as the way to update, so
 # an operator who fetched this from somewhere else gets told to go back there.
-M2_INSTALLER_URL="${M2_INSTALLER_URL:-https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.sh}"
+M2_INSTALLER_URL="${M2_INSTALLER_URL:-https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.sh}"
 M2_REPO_DIR="${M2_REPO_DIR:-}"
 M2_LOCAL_CONTEXT="${M2_LOCAL_CONTEXT:-}"
 
@@ -411,8 +411,8 @@ usage() {
 
   Metin2 server installer (Linux)
 
-    curl -fsSL https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.sh | sh
-    curl -fsSL https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.sh | sh -s -- [options]
+    curl -fsSL https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.sh | sh
+    curl -fsSL https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.sh | sh -s -- [options]
 
   Options:
 
@@ -533,7 +533,7 @@ check_root() {
         if have sudo; then
             die "Please run this as root. The usual way is:
 
-      curl -fsSL https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.sh | sudo sh
+      curl -fsSL https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.sh | sudo sh
 
   It needs root to install Docker, open the firewall and write to
   $INSTALL_DIR."
@@ -2986,7 +2986,7 @@ summary() {
         printf '     the clear, and anyone between you and the server can read them.\n'
         printf '\n'
         printf '     To fix that, point a domain name at %s and run:\n' "$PUBLIC_ADDRESS"
-        printf '         curl -fsSL https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.sh | sh -s -- \\\n'
+        printf '         curl -fsSL https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.sh | sh -s -- \\\n'
         printf '             --domain your.domain.com --email you@example.com\n'
         printf '     It will get a free certificate and switch the panel to HTTPS.\n'
     fi

@@ -3,7 +3,7 @@
 --
 -- gm_characters.sql creates the characters a fresh account lacks; it never
 -- touches a character that exists, and it cannot set skills, wear gear or
--- fill an elixir. So a world where the operator made Tieru before the four
+-- fill an elixir. So a world where the operator made a character before the four
 -- existed had a level-1 shaman with a fan, and the three it did create
 -- lost pieces over time with nothing putting them back (the 12 September
 -- audit under docs/codex-audits/admin-gm-mt2009-20260912). This quest runs

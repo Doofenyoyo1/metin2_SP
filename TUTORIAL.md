@@ -49,7 +49,7 @@ Open **PowerShell** (press Start, type `powershell`, press Enter) and paste:
 
 ```powershell
 $env:M2_SRC_ARCHIVE = 'C:\path\Reference_Server.zip'
-irm https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.ps1 | iex
+irm https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.ps1 | iex
 ```
 
 That is it. Now read the next section while it works.
@@ -100,7 +100,7 @@ Around 5 € a month at Hetzner, Netcup or Contabo. Any provider works.
 Connect to your server over SSH, then paste:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.sh | \
+curl -fsSL https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.sh | \
   sudo sh -s -- --archive /path/Reference_Server.zip --no-client
 ```
 
@@ -109,7 +109,7 @@ curl -fsSL https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/inst
 If you own a domain, point it at your server's IP address first, then run:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.sh | sudo sh -s -- \
+curl -fsSL https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.sh | sudo sh -s -- \
     --archive /path/Reference_Server.zip --no-client \
     --domain panel.yourdomain.com --email you@example.com
 ```

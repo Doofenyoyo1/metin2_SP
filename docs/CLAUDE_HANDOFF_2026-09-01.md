@@ -8,7 +8,7 @@ Boty korzystają z normalnych rekordów `account`, `player`, `item`, `quest` i
 łup, rozwijają ekwipunek i skille, tworzą PT, odwiedzają NPC, wykonują Biologa,
 Polowania i rozwijają konia. Panel WWW pokazuje mapę, stan i ekwipunek botów.
 
-Repozytorium publiczne: <https://github.com/TieruYT/metin2-playerbots>
+Repozytorium publiczne: <https://github.com/Doofenyoyo1/metin2_SP>
 
 ## Ważne ograniczenia
 
@@ -81,7 +81,7 @@ logowanie zawiesza się na ekranie ładowania.
 ## Launcher i aktualizacje
 
 Manifest domyślny:
-`https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/update-manifest.json`.
+`https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/update-manifest.json`.
 
 `Sprawdź aktualizacje` jest operacją tylko do odczytu. Brak manifestu (HTTP 404)
 oznacza nieopublikowany kanał i ma kończyć się informacją, nie czerwonym błędem,

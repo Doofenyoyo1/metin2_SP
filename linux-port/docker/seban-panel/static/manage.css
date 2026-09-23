@@ -18,7 +18,7 @@
 @media(max-width:600px){.respawn-row{grid-template-columns:1fr}.respawn-control{display:grid;grid-template-columns:64px minmax(55px,1fr) auto}.restart-console .restart-submit{flex-direction:column}.restart-console .restart-submit button{width:100%}}
 @media(max-width:760px){.chest-controls{grid-template-columns:1fr}.chest-controls label{grid-template-columns:minmax(110px,1fr) 88px 16px}}
 
-/* Tieru updater: status-only bridge; actual Docker access is isolated outside the web app. */
+/* Playerbots updater: status-only bridge; actual Docker access is isolated outside the web app. */
 .updater-panel{display:grid;gap:12px}.updater-panel h2{margin:0}.updater-panel>p{margin:0}.updater-status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.updater-status span{padding:11px;border:1px solid var(--edge);border-radius:6px;background:color-mix(in srgb,var(--panel) 84%,var(--blue2) 16%);font-size:12px;color:var(--muted)}.updater-status b{display:block;margin-top:3px;color:var(--text);font-size:15px}.updater-panel .restart-progress{margin:0}.updater-log{border:1px solid var(--edge);border-radius:6px;padding:9px 12px}.updater-log summary{cursor:pointer;color:var(--muted);font-size:13px}.updater-log pre{max-height:260px;margin:10px 0 0;overflow:auto;white-space:pre-wrap;color:var(--text);font:12px/1.45 ui-monospace,Consolas,monospace}@media(max-width:600px){.updater-status{grid-template-columns:1fr}.updater-panel form button{width:100%}}
 
 .integration-warning{border-color:#8b6330;background:color-mix(in srgb,var(--panel) 82%,#9b6420 18%)}.integration-warning h2{margin-bottom:8px}.integration-warning p{margin:8px 0}.integration-warning code{color:#f4d38c}.integration-warning .secondary{margin:4px 0 0}

@@ -509,7 +509,7 @@ namespace
 		// nothing in between. The marble is used on a boss precisely because
 		// the plain attack is what it multiplies, so this is also the right
 		// thing to do rather than merely the cheap one ("na marmurach nie
-		// uzywa sie skilli", Tieru).
+		// uzywa sie skilli").
 		if (!ch || !target || ch->GetSkillGroup() == 0 || ch->IsPolymorphed() ||
 				dwNow < state.dwNextSkillCastTime)
 			return false;

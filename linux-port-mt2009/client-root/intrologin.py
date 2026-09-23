@@ -941,9 +941,9 @@ class LoginWindow(ui.ScriptWindow):
 		self.pwdEditLine.SetReturnEvent(ui.__mem_func__(self.__OnClickLoginButton))
 		self.pwdEditLine.SetTabEvent(ui.__mem_func__(self.idEditLine.SetFocus))
 
-		self.homePageButton.SAFE_SetEvent(self.OpenURL, "https://github.com/TieruYT/metin2-playerbots")
-		self.facebookButton.SAFE_SetEvent(self.OpenURL, "https://buycoffee.to/metin2-playerbots")
-		self.discordButton.SAFE_SetEvent(self.OpenURL, "https://discord.gg/pt5tvnrN6")
+		self.homePageButton.SAFE_SetEvent(self.OpenURL, "https://github.com/Doofenyoyo1/metin2_SP")
+		self.facebookButton.SAFE_SetEvent(self.OpenURL, "https://github.com/Doofenyoyo1/metin2_SP")
+		self.discordButton.SAFE_SetEvent(self.OpenURL, "https://github.com/Doofenyoyo1/metin2_SP/issues")
 
 		self.save_credential_items = []
 		for i in range(MAX_CREDENTIALS_SAVE):

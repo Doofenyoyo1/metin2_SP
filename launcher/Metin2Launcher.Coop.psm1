@@ -1,7 +1,6 @@
 ﻿#requires -Version 5.1
-# Co-op over the Internet (experimental; since 2.0.80 hosting is open to the
-# Patreon testers behind a password): the host's PC keeps the world, a friend
-# runs only the client. What this module does:
+# Co-op over the Internet (experimental, available on every install): the
+# host's PC keeps the world, a friend runs only the client. What this module does:
 #
 #   network   the LAN interface with the default route, the address the
 #             Internet sees, the router's UPnP gateway and its WAN address -
@@ -30,15 +29,6 @@ $script:CoopDescription = 'Metin2 SinglePlayer COOP'
 $script:CoopFirewallRule = 'Metin2 SinglePlayer COOP'
 $script:CoopLeaseSeconds = 14400
 $script:CoopInvitePrefix = 'M2COOP1:'
-
-# Hosting is tried by the Patreon testers first (2.0.80): the COOP window asks
-# for their password once and keeps the proof in .m2coop.json, which no update
-# touches. Only a digest lives here. It is a gate for testers, not a lock - this
-# file is plain text - and a new digest re-locks every install. Joining a
-# friend's world needs no password: the invite code is the friend's own key,
-# and only somebody who can host can hand one out.
-$script:CoopAccessSalt = '7efd8b1a3ea2fc99'
-$script:CoopAccessDigest = '75b8d736837c3268d3109b68010047a71e6e841972087efb5ab83f3e13d7f11e'
 
 # ---------------------------------------------------------------- paths/env
 
@@ -72,36 +62,6 @@ function Save-M2CoopState {
     $path = Get-M2CoopStatePath -ServerRoot $ServerRoot
     $json = $State | ConvertTo-Json -Depth 6
     [IO.File]::WriteAllText($path, $json, [Text.UTF8Encoding]::new($false))
-}
-
-function Get-M2CoopAccessDigest {
-    # Spaces and dashes dropped and the case folded, so the password reads the
-    # same whether it was typed, pasted from a post or copied with a space.
-    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Password)
-    $normal = ($Password -replace '[\s-]', '').ToLowerInvariant()
-    $sha = [Security.Cryptography.SHA256]::Create()
-    try { $bytes = $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($script:CoopAccessSalt + ':' + $normal)) }
-    finally { $sha.Dispose() }
-    return -join ($bytes | ForEach-Object { $_.ToString('x2') })
-}
-
-function Test-M2CoopAccess {
-    param([Parameter(Mandatory = $true)][string]$ServerRoot)
-    $state = Read-M2CoopState -ServerRoot $ServerRoot
-    if (-not ($state.PSObject.Properties.Name -contains 'access')) { return $false }
-    return ([string]$state.access -eq $script:CoopAccessDigest)
-}
-
-function Grant-M2CoopAccess {
-    # True and remembered when the password is the testers' one; false and
-    # nothing written otherwise. The password itself is never stored.
-    param([Parameter(Mandatory = $true)][string]$ServerRoot, [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Password)
-    if ((Get-M2CoopAccessDigest -Password $Password) -ne $script:CoopAccessDigest) { return $false }
-    $state = Read-M2CoopState -ServerRoot $ServerRoot
-    if ($state.PSObject.Properties.Name -contains 'access') { $state.access = $script:CoopAccessDigest }
-    else { $state | Add-Member -NotePropertyName access -NotePropertyValue $script:CoopAccessDigest }
-    Save-M2CoopState -ServerRoot $ServerRoot -State $state
-    return $true
 }
 
 function Get-M2CoopEnvValue {
@@ -835,6 +795,6 @@ Export-ModuleMember -Function Get-M2CoopStatePath, Read-M2CoopState, Save-M2Coop
     Invoke-M2CoopSql, Get-M2CoopHashExpression, New-M2CoopSecret, Get-M2CoopDefaultPasswordAccounts, Set-M2CoopAccountPassword,
     Set-M2CoopAccountBlocked, New-M2CoopFriend, New-M2CoopInvite, Read-M2CoopInvite, Get-M2CoopClientFolder, Write-M2CoopClientConfig,
     Get-M2CoopFirewallBlocks, Get-M2CoopGameBindings, Set-M2CoopEnvValue, Protect-M2CoopAccounts, Set-M2CoopFriendBlocked,
-    Get-M2CoopWorldName, Get-M2CoopFriendInvite, Get-M2CoopAccessDigest, Test-M2CoopAccess, Grant-M2CoopAccess,
+    Get-M2CoopWorldName, Get-M2CoopFriendInvite,
     Get-M2CoopVpnProduct, Select-M2CoopVpnAdapters, Get-M2CoopVpnAdapters, Get-M2CoopVpnKindForAddress, Resolve-M2CoopHostingVia,
     Test-M2CoopHostAnswers, Get-M2CoopInviteTarget, Get-M2CoopJoinAdvice

@@ -63,19 +63,19 @@ check('bez coop.cfg jeden serwer', len(servers) == 1)
 check('serwer 1 na 127.0.0.1:11000', servers[0]['main']['host'] == '127.0.0.1'
       and servers[0]['auth'][0]['port'] == [11000])
 
-servers = load('# z zaproszenia\nname=Swiat Tieru\nhost=83.20.32.149\nauth=11000\nchannel=13000\nchannels=2\n')
+servers = load('# z zaproszenia\nname=Swiat Gospodarza\nhost=203.0.113.10\nauth=11000\nchannel=13000\nchannels=2\n')
 check('z coop.cfg dwa serwery', len(servers) == 2)
 friend = servers[1]
-check('serwer 2: host z pliku', friend['main']['host'] == '83.20.32.149')
+check('serwer 2: host z pliku', friend['main']['host'] == '203.0.113.10')
 check('serwer 2: kanal 1 na 13000, kanal 2 na 13010',
       friend['channel'][0]['tcp_port'] == 13000 and friend['channel'][1]['tcp_port'] == 13010
-      and friend['channel'][0]['ip'] == '83.20.32.149')
-check('serwer 2: auth 11000 na hoscie', friend['auth'][0]['ip'] == '83.20.32.149'
+      and friend['channel'][0]['ip'] == '203.0.113.10')
+check('serwer 2: auth 11000 na hoscie', friend['auth'][0]['ip'] == '203.0.113.10'
       and friend['auth'][0]['port'] == [11000])
 check('serwer 2: wlasna nazwa znaczkow gildii', friend['mark']['mark'] == '20.tga'
       and servers[0]['mark']['mark'] == '10.tga')
 check('serwer 2: nazwa inna niz serwera 1', friend['main']['name'] != servers[0]['main']['name']
-      and 'Swiat Tieru' in friend['main']['name'])
+      and 'Swiat Gospodarza' in friend['main']['name'])
 
 check('zly host (spacja, srednik) pominiety', len(load('host=1.2.3.4; rm\n')) == 1)
 check('port poza zakresem pominiety', len(load('host=1.2.3.4\nauth=70000\n')) == 1)

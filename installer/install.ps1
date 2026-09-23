@@ -85,10 +85,10 @@ try {
 #      $env:M2_SRC_ARCHIVE        = 'C:\path\to\the-package.zip'
 #      $env:M2_LOCAL_CONTEXT      = 'C:\path\to\linux-port\docker'
 # -----------------------------------------------------------------------------
-$script:RepoUrl      = if ($env:M2_REPO_URL)          { $env:M2_REPO_URL }          else { 'https://github.com/TieruYT/metin2-playerbots.git' }
+$script:RepoUrl      = if ($env:M2_REPO_URL)          { $env:M2_REPO_URL }          else { 'https://github.com/Doofenyoyo1/metin2_SP.git' }
 # Where this script itself lives, so it can tell the panel how to update: on
 # Windows the update IS re-running this, and the panel shows the line to paste.
-$script:SelfUrl      = if ($env:M2_INSTALLER_URL)     { $env:M2_INSTALLER_URL }     else { 'https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.ps1' }
+$script:SelfUrl      = if ($env:M2_INSTALLER_URL)     { $env:M2_INSTALLER_URL }     else { 'https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.ps1' }
 $script:RepoDir      = if ($env:M2_REPO_DIR)          { $env:M2_REPO_DIR }          else { '' }
 $script:LocalContext = if ($env:M2_LOCAL_CONTEXT)     { $env:M2_LOCAL_CONTEXT }     else { '' }
 $script:SrcArchive   = if ($env:M2_SRC_ARCHIVE)       { $env:M2_SRC_ARCHIVE }       else { '' }
@@ -1216,7 +1216,7 @@ download mirror. Nothing was installed and no server was left half-built.
 Use a local package that you are authorised to use, then run:
 
         `$env:M2_SRC_ARCHIVE = 'C:\Users\$($env:USERNAME)\Downloads\package.zip'
-        irm https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.ps1 | iex
+        irm https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.ps1 | iex
 
 Or, if you have already unpacked it:
 
@@ -1304,7 +1304,7 @@ The most likely cause is Windows' 260-character path limit: the game carries
 quest files about 125 characters below whatever folder you choose. Install
 somewhere shorter -- C:\Metin2Server, say:
 
-    iex "& { `$(irm https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.ps1) } -InstallDir C:\Metin2Server"
+    iex "& { `$(irm https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.ps1) } -InstallDir C:\Metin2Server"
 "@
         }
         # Two files the browser client's fetcher needs live OUTSIDE
@@ -3189,7 +3189,7 @@ function Show-Summary {
         Write-Host '    Rent a small Linux VPS instead -- 4 GB of memory is about 5 EUR'
         Write-Host '    a month at Hetzner, Contabo or Netcup -- and run one line on it:'
         Write-Host ''
-        Write-Host '        curl -fsSL https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.sh | sudo sh -s -- ' -ForegroundColor Cyan
+        Write-Host '        curl -fsSL https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.sh | sudo sh -s -- ' -ForegroundColor Cyan
         Write-Host '            --archive /path/Reference_Server.zip --no-client' -ForegroundColor Cyan
         Write-Host ''
         Write-Host '    That installer does the opposite of this one: it publishes the'
@@ -3425,11 +3425,11 @@ function Invoke-Metin2Install {
 
   Metin2 server installer (Windows)
 
-    irm https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.ps1 | iex
+    irm https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.ps1 | iex
 
   With options:
 
-    iex "& { $(irm https://raw.githubusercontent.com/TieruYT/metin2-playerbots/main/installer/install.ps1) } -DryRun"
+    iex "& { $(irm https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/installer/install.ps1) } -DryRun"
 
     -DryRun            show what would happen, change nothing
     -Yes               don't ask anything; accept every default

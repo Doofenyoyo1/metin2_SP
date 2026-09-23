@@ -124,7 +124,7 @@ namespace
 	// that can burn and for a prize piece). Seven puts a scroll on the steps to
 	// +7, +8 and +9 only, and every step under that goes to the plain anvil the
 	// way a bot with no scroll refines - asked for as one setting for the whole
-	// world ("tylko mozna np uzywac na +7 +8 +9", Tieru).
+	// world ("tylko mozna np uzywac na +7 +8 +9").
 	int s_iPlayerBotScrollFromPlus = 1;
 	// Whether a bot reads its books without the engine's day between them.
 	// On by default: the day is what makes a book a month's project, and the

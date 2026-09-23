@@ -220,7 +220,7 @@ int main()
 			// Past the last tier there is nothing to hold it at. Answering
 			// with the bot's own level made every level a lock - m2zip's logs
 			// carry 112 bots frozen at 71, a number no tier names - and the
-			// document's tiers stop at Sohan (Tieru, 20 September).
+			// document's tiers stop at Sohan (20 September).
 			assert(GrinderLockFor(66, pid) == 0);
 			assert(GrinderLockFor(70, pid) == 0);
 			assert(GrinderLockFor(120, pid) == 0);

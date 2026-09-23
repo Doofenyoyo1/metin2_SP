@@ -3,7 +3,7 @@
 -- instead of the twelve hours for the pony and each upgrade and the
 -- twenty-one between two trainings that the package wrote in. 2.0.56
 -- took the wait out for everybody ("niezaleznie od poziomu konia",
--- Tieru, 16 September; greess's "Zniesienie czasu oczekiwania na 1lv
+-- 16 September; greess's "Zniesienie czasu oczekiwania na 1lv
 -- konia"); 2.0.57 gives it back to whoever chooses hard. Compiled by the
 -- game Dockerfile beside pony_levelup; its objects land over the stock
 -- ones. Everything else byte for byte as the package has it.

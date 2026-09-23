@@ -748,8 +748,7 @@ function Assert-PanelPassphrase {
     # what its entrypoint has always done: invents a twenty-character password,
     # writes only its PBKDF2 hash into m2panel.conf, and prints the plaintext
     # once to a container log nobody reads. From then on the panel has a
-    # password that exists nowhere: "ja nie mam zadnego hasla nawet w panelu
-    # tieru", "przy czystej instalacji losuje haslo".
+    # password that exists nowhere: "ja nie mam zadnego hasla nawet w panelu", "przy czystej instalacji losuje haslo".
     #
     # So the launcher fills the blank before Compose ever sees it. Written to
     # .env, where the operator can read it back, and said out loud once here.

@@ -458,7 +458,7 @@ namespace
 	// drinks nothing during one, but an auto potion switched on before the
 	// challenge heals by itself inside the engine (AutoRecoveryItemProcess), and
 	// a bot topping itself up mid-duel was what "boty w PvP uzywaja potki
-	// czerwonej, moze maja wlaczona autopote?" was (Tieru, 15 September). The
+	// czerwonej, moze maja wlaczona autopote?" was (15 September). The
 	// engine's own switch is a second use of the item that runs the affect,
 	// found by the item id the affect carries; ManagePlayerBotAutoPotions puts it
 	// back on within a minute of the duel's end. One use a call: the engine

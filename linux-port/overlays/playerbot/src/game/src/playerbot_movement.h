@@ -561,8 +561,8 @@ namespace
 
 	// A bot climbing the Demon Tower with a player: in the player's party, the
 	// player on the same map. For such a bot the tower's stones are the floor's
-	// objective - "takie metiny sie zbija, by zaliczyc kolejne pietra" (Tieru,
-	// 16 September) - and no level band applies; for a bot on its own they stay
+	// objective - "takie metiny sie zbija, by zaliczyc kolejne pietra"
+	// (16 September) - and no level band applies; for a bot on its own they stay
 	// what IsPlayerBotDungeonTriggerStone says, a warp sprung on strangers.
 	// The dungeon's floor counter: mt2009's CDungeon carries one (the quests'
 	// d.get_level and d.advance_level), r40250's does not.
@@ -968,7 +968,7 @@ namespace
 		// A rider keeps the saddle to the end of the leg, and on a leg that does
 		// not ask for the horse. Nothing a bot does at the end of one wants the
 		// ground on either engine: an NPC, a counter, the anvil, a chest, a book,
-		// the gear and a portal all answer a rider (Tieru, 15 September: "Nie
+		// the gear and a portal all answer a rider (15 September: "Nie
 		// trzeba schodzic z konia by przeczytac ksiazke, sciagnac eq, ubrac eq,
 		// otworzyc jakies skrzynki, porozmawiac z npc, przejsc przez portal"). The
 		// two climb-downs that stood here, near_destination and on_foot_action,

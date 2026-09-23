@@ -2,21 +2,14 @@
 
 [Polski (README.md)](README.md) | **English**
 
-[![Website](https://img.shields.io/badge/Website-metin2singleplayer.com-2EA44F?style=for-the-badge&logo=firefoxbrowser&logoColor=white)](https://metin2singleplayer.com)
-[![Discord](https://img.shields.io/badge/Discord-Join_Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/pt5tvnrN6)
-[![BuyCoffee](https://img.shields.io/badge/BuyCoffee-Support_the_Project-FF813F?style=for-the-badge&logo=coffeescript&logoColor=white)](https://buycoffee.to/metin2-playerbots)
-
 A local Metin2 singleplayer world populated by genuine, autonomous player characters (Playerbots): leveling up, grinding solo and in squads, looting items, refining gear at the Blacksmith, hunting Metin stones, and persisting their full progression in the standard database.
 
-## 💬 Community & Project Support
+## 💬 Issues & Development
 
-- **[Project website — metin2singleplayer.com](https://metin2singleplayer.com)** — what the project is, the roadmap, the install guide and the FAQ, in Polish and English.
-- **[Join our Discord server](https://discord.gg/pt5tvnrN6)** — discuss the project, share playtests and ideas, and follow playerbot development updates.
-- **[Support development on buycoffee.to](https://buycoffee.to/metin2-playerbots)** — voluntary donations help cover the tools and AI models used to develop the project.
+- **[Project repository](https://github.com/Doofenyoyo1/metin2_SP)** — code, changelog and releases.
+- **[Report a bug or an idea](https://github.com/Doofenyoyo1/metin2_SP/issues)** — attach the launcher's log bundle ("ZBIERZ LOGI").
 
-<a href="https://buycoffee.to/metin2-playerbots" target="_blank"><img src="https://buycoffee.to/btn/buycoffeeto-btn-primary.svg" style="height: 42px;" alt="Support on buycoffee.to"></a>
-
-Every contribution — testing, bug reports, ideas, code, or financial support — helps us build a more autonomous and lively Metin2 world.
+Every contribution — testing, bug reports, ideas, code — helps build a more autonomous and lively Metin2 world.
 
 > [!IMPORTANT]
 > This project supports the **native Windows client only**. It neither contains nor automatically downloads Metin2 files, the r40250 package, or the withdrawn upstream WebClient. Installation requires your own compatible files. See [project provenance and attribution](docs/ATTRIBUTION.md).
@@ -71,8 +64,8 @@ Have a compatible local r40250 server archive ready. A native Windows client arc
 
 ### 2. Clone and Install (Windows)
 ```powershell
-git clone https://github.com/TieruYT/metin2-playerbots.git
-Set-Location .\metin2-playerbots
+git clone https://github.com/Doofenyoyo1/metin2_SP.git
+Set-Location .\metin2_SP
 & .\installer\install.ps1 `
     -Archive 'C:\path\Reference_Server.zip' `
     -ClientArchive 'C:\path\Reference_Client.zip' `

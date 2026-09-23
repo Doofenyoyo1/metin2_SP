@@ -58,8 +58,8 @@ archiwów gry do Git — patrz [NOTICE.md](../NOTICE.md) i [ATTRIBUTION.md](ATTR
 3. Sklonuj repozytorium i uruchom instalator PowerShell, podając własne archiwa:
 
 ```powershell
-git clone https://github.com/TieruYT/metin2-playerbots.git
-Set-Location .\metin2-playerbots
+git clone https://github.com/Doofenyoyo1/metin2_SP.git
+Set-Location .\metin2_SP
 & .\installer\install.ps1 `
     -Archive 'C:\PlikiMetin2\Reference_Server.zip' `
     -ClientArchive 'C:\PlikiMetin2\Reference_Client.zip' `
@@ -89,8 +89,8 @@ Instalator automatycznie:
 ### 2. Linux (Ubuntu / Debian)
 
 ```sh
-git clone https://github.com/TieruYT/metin2-playerbots.git
-cd metin2-playerbots
+git clone https://github.com/Doofenyoyo1/metin2_SP.git
+cd metin2_SP
 sudo sh ./installer/install.sh --local \
   --archive '/ścieżka/Reference_Server.zip' \
   --no-client --no-web-client

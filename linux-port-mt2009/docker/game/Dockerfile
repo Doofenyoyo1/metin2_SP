@@ -220,7 +220,7 @@ RUN set -eux; \
     # pony_buy, horse_upgrade, horse_upgrade2 and horse_levelup are the
     # package's stable-keeper quests with the wait for the horse taken out:
     # twelve hours for the pony and each upgrade, twenty-one between two
-    # trainings (Tieru, 16 September, 2.0.56).
+    # trainings (16 September, 2.0.56).
     # fishing_pass_shop opens the Fisherman's special shop, the only seller
     # of Karta Wedkarska, which no stock quest ever opened (2.0.68).
     # collect_quest_lv85 is the Biologist's red-branch row with its hand-in

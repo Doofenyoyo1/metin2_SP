@@ -1414,7 +1414,7 @@ function Show-DatabaseAccessAction {
     }
     Write-Host 'Jeśli baza odrzuca hasło z .env („Access denied"), użyj akcji RepairDb (przycisk' -ForegroundColor Gray
     Write-Host '„NAPRAW DOSTĘP DO BAZY"): ustawia konta root i metin2 na hasła z tego pliku.' -ForegroundColor Gray
-    Write-Host 'Nie wklejaj haseł z .env na Discordzie ani do paczki z logami.' -ForegroundColor Yellow
+    Write-Host 'Nie wklejaj haseł z .env publicznie ani do paczki z logami.' -ForegroundColor Yellow
     if (-not $Yes) {
         $answer = Read-Host 'Otworzyć plik .env w Notatniku, żeby skopiować hasła? [t/N]'
         if ($answer -match '^[tTyY]') { Start-Process notepad.exe -ArgumentList ('"' + $creds.EnvPath + '"') }
@@ -1471,7 +1471,7 @@ function Send-Logs {
     $config = Get-Config
     $support = Get-M2SupportSettings -Config $config
     if (-not $support.UploadUrl) {
-        throw "Kanał zgłoszeń jest teraz niedostępny. Utwórz ZIP akcją Logs i wyślij go ręcznie na Discordzie: $($support.ContactUrl)"
+        throw "Kanał zgłoszeń jest teraz niedostępny. Utwórz ZIP akcją Logs i dołącz go ręcznie do zgłoszenia: $($support.ContactUrl)"
     }
     $bundle = Create-Logs
     Write-Host 'Paczka zawiera logi Dockera i konfigurację z usuniętymi hasłami.' -ForegroundColor Yellow
@@ -1497,25 +1497,6 @@ function Assert-CoopModule {
     if (-not (Get-Command Get-M2CoopNetworkReport -ErrorAction SilentlyContinue)) {
         throw 'Brak modułu launcher\Metin2Launcher.Coop.psm1 - ta paczka nie ma trybu COOP.'
     }
-}
-
-function Assert-CoopHostAccess {
-    # Hosting is for the Patreon testers while COOP is tried out. The text menu
-    # asks for their password here; an action started by the window runs with
-    # no console to answer from, and the window asks before it starts one.
-    # Ending hosting, renewing the lease and joining a friend never ask.
-    Assert-CoopModule
-    if (Test-M2CoopAccess -ServerRoot $serverRoot) { return }
-    if ($Action -ne 'Menu') {
-        throw 'Hostowanie w COOP testują na razie patroni: odblokuj je ich hasłem w oknie COOP launchera albo w menu tekstowym.'
-    }
-    Write-Host 'Hostowanie w COOP testują na razie patroni - hasło jest w poście dla patronów.' -ForegroundColor Yellow
-    $secure = Read-Host 'Hasło testów COOP' -AsSecureString
-    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-    try { $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
-    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
-    if (-not (Grant-M2CoopAccess -ServerRoot $serverRoot -Password $plain)) { throw 'To nie jest hasło testów COOP.' }
-    Write-Host 'Hostowanie w COOP odblokowane na tej instalacji.' -ForegroundColor Green
 }
 
 function Write-CoopNetworkReport {
@@ -1589,7 +1570,7 @@ function Show-CoopCheckAction {
 }
 
 function Protect-CoopAccountsAction {
-    Assert-CoopHostAccess
+    Assert-CoopModule
     $changed = Protect-M2CoopAccounts -ServerRoot $serverRoot
     $names = @($changed.PSObject.Properties | ForEach-Object { $_.Name })
     if ($names.Count -eq 0) {
@@ -1603,7 +1584,7 @@ function Protect-CoopAccountsAction {
 }
 
 function Add-CoopFriendAction {
-    Assert-CoopHostAccess
+    Assert-CoopModule
     $name = $FriendName
     if (-not $name) { $name = Read-Host 'Imię albo nick znajomego' }
     if (-not $name) { throw 'Nie podano imienia znajomego.' }
@@ -1619,7 +1600,7 @@ function Add-CoopFriendAction {
 
 function Set-CoopFriendBlockedAction {
     param([bool]$Blocked = $true)
-    Assert-CoopHostAccess
+    Assert-CoopModule
     $login = $FriendLogin
     if (-not $login) { $login = Read-Host 'Login znajomego' }
     if (-not $login) { throw 'Nie podano loginu.' }
@@ -1629,7 +1610,7 @@ function Set-CoopFriendBlockedAction {
 }
 
 function Show-CoopInviteAction {
-    Assert-CoopHostAccess
+    Assert-CoopModule
     $state = Read-M2CoopState -ServerRoot $serverRoot
     $target = Get-M2CoopInviteTarget -ServerRoot $serverRoot
     if (-not $target.Address) {
@@ -1708,7 +1689,7 @@ function Wait-CoopGameReady {
 }
 
 function Start-CoopHostingAction {
-    Assert-CoopHostAccess
+    Assert-CoopModule
     Write-Phase 'sprawdzanie sieci'
     $report = Get-M2CoopNetworkReport
     Write-CoopNetworkReport -Report $report
@@ -1955,9 +1936,6 @@ function Show-Menu {
         Write-Host ' 22. Poziom trudności (czekanie u Biologa i Stajennego: easy / medium / hard / własne godziny)'
         if (Get-Command Get-M2CoopNetworkReport -ErrorAction SilentlyContinue) {
             Write-Host ' 23. COOP: sprawdź sieć i stan hostowania (eksperymentalne)'
-            if (-not (Test-M2CoopAccess -ServerRoot $serverRoot)) {
-                Write-Host '     Hostowanie (24-27) testują na razie patroni - launcher zapyta o ich hasło.' -ForegroundColor DarkGray
-            }
             Write-Host ' 24. COOP: zabezpiecz konta admin i test (nowe hasła)'
             Write-Host ' 25. COOP: dodaj znajomego (konto i kod zaproszenia)'
             Write-Host ' 26. COOP: pokaż kody zaproszeń'

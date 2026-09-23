@@ -25,22 +25,22 @@
 - `/economy/shops`: usunięto mylącą mapę z ostatnich sprzedaży, sprzedawca prowadzi teraz do karty postaci, a wyszukiwanie przedmiotów po odświeżeniu przenosi bezpośrednio do wyników.
 ## 2026-09-16 02:30 CEST · 1.54.1
 
-- Dodano domyślnie wyłączony checkbox „Aktualizuj także Seban Panel do wersji dołączonej przez Tieru”. Decyzja jest zapisywana trwale i dołączana do konkretnego zlecenia aktualizacji. Po włączeniu aktualizator przebudowuje również `seban-panel`, `seban-collector` i `seban-item-grants`; po wyłączeniu zachowuje aktualny panel oraz lokalne zmiany. Porównanie wersji blokuje przypadkowy downgrade, gdy paczka Tieru zawiera panel starszy od już zainstalowanego.
+- Dodano domyślnie wyłączony checkbox „Aktualizuj także Seban Panel do wersji dołączonej do Playerbots”. Decyzja jest zapisywana trwale i dołączana do konkretnego zlecenia aktualizacji. Po włączeniu aktualizator przebudowuje również `seban-panel`, `seban-collector` i `seban-item-grants`; po wyłączeniu zachowuje aktualny panel oraz lokalne zmiany. Porównanie wersji blokuje przypadkowy downgrade, gdy paczka Playerbots zawiera panel starszy od już zainstalowanego.
 - Aktualizator obsługuje teraz nazwę projektu Docker Compose podaną instalatorowi, dzięki czemu mechanizm nie jest przywiązany do projektu `metin2`. Ujednolicono publiczną instrukcję i usunięto przestarzałe odwołanie do starego `m2-updater selftest`.
 
 ## 2026-09-16 01:35 CEST · 1.54.0
 
 - Przygotowano publiczne wydanie Aktualizatora Seban: przenośny instalator przyjmuje ścieżkę dowolnej instalacji MT2009 i nazwę projektu Compose, wykrywa wspólną kolejkę oraz uruchamia trwałą usługę systemową. Instrukcja w `/manage` zmienia się zależnie od stanu usługi.
-- Checkboxy override'ów sterują rzeczywistą aktualizacją: Skrzynią Ucznia, Skrzyniami Blasku Księżyca i zachowaniem postaci demonstracyjnych. Oryginalny quest Tieru jest zachowywany i może zostać przywrócony.
+- Checkboxy override'ów sterują rzeczywistą aktualizacją: Skrzynią Ucznia, Skrzyniami Blasku Księżyca i zachowaniem postaci demonstracyjnych. Oryginalny quest Playerbots jest zachowywany i może zostać przywrócony.
 - Reguły override'ów połączono z sekcją Aktualizator Seban. Ukryto skrót do niedziałającego masowego nadawania przedmiotów.
 
 ## 2026-09-16 01:10 CEST · 1.53.1
 
-- Domknięto aktualizator: nazewnictwo w /manage jest jednolite (Aktualizator Seban), usunięto przestarzałe odwołania do oficjalnego kontenera updater Tieru i nieistniejącej ścieżki starego serwera. Ostatni restart po aktualizacji pokazuje teraz rzeczywistą datę oraz źródło „Aktualizator Seban”. Blok aktualizatora jest widoczny tylko przy monitoringu VPS/host.
+- Domknięto aktualizator: nazewnictwo w /manage jest jednolite (Aktualizator Seban), usunięto przestarzałe odwołania do oficjalnego kontenera updater Playerbots i nieistniejącej ścieżki starego serwera. Ostatni restart po aktualizacji pokazuje teraz rzeczywistą datę oraz źródło „Aktualizator Seban”. Blok aktualizatora jest widoczny tylko przy monitoringu VPS/host.
 
 ## 2026-09-16 00:40 CEST · 1.53.0
 
-- Przełomowy, niezależny aktualizator MT2009 w /manage: przed każdą aktualizacją tworzy kopię baz account, common, player i log, pobiera wyłącznie paczkę MT2009 Tieru, weryfikuje jej sumę SHA-256, ponownie stosuje nasze override'y (brak Skrzyni Ucznia, brak Skrzyń Blasku Księżyca, usuwanie kont demonstracyjnych) i przebudowuje tylko usługi gry. Seban Panel na porcie 7790 pozostaje nienaruszony. Watcher działa jako trwała usługa systemowa i pokazuje rzeczywistą wersję VERSION, a pasek postępu przechodzi przez kolejne etapy aktualizacji.
+- Przełomowy, niezależny aktualizator MT2009 w /manage: przed każdą aktualizacją tworzy kopię baz account, common, player i log, pobiera wyłącznie paczkę MT2009 Playerbots, weryfikuje jej sumę SHA-256, ponownie stosuje nasze override'y (brak Skrzyni Ucznia, brak Skrzyń Blasku Księżyca, usuwanie kont demonstracyjnych) i przebudowuje tylko usługi gry. Seban Panel na porcie 7790 pozostaje nienaruszony. Watcher działa jako trwała usługa systemowa i pokazuje rzeczywistą wersję VERSION, a pasek postępu przechodzi przez kolejne etapy aktualizacji.
 
 ## 2026-09-15 14:41 CEST · 1.52.1
 
@@ -52,7 +52,7 @@
 
 ## 2026-09-15 12:10 CEST · 1.51.0
 
-- Odblokowano przycisk "Aktualizator Tieru" w `/manage` (był ukryty od 2026-09-13). Izolowany kontener `updater` Tieru — jedyny, który dotyka gniazda Dockera, panel nigdy go nie dostaje — teraz sam odtwarza nasze skrypty `patch_*.py` i zamiata skrzynię ucznia zaraz po pobraniu nowych plików, przed zbudowaniem obrazów. Po drodze naprawiono trzy niezależne usterki blokujące tę usługę: zepsuty entrypoint w mt2009-owym renderze `docker-compose.yml` Tieru (wskazywał na nieistniejący plik), brak widoczności `/opt/seban-panel-custom` w kontenerze updatera (build panelu się tam zatrzymywał) i odmowę gita ("dubious ownership") przy pracy jako root. Wszystko naprawione lokalnie w `docker-compose.override.yml`, przeżyje każdą przyszłą aktualizację Tieru. Zweryfikowane działającym, pełnym przebiegiem na żywo.
+- Odblokowano przycisk "Aktualizator Playerbots" w `/manage` (był ukryty od 2026-09-13). Izolowany kontener `updater` Playerbots — jedyny, który dotyka gniazda Dockera, panel nigdy go nie dostaje — teraz sam odtwarza nasze skrypty `patch_*.py` i zamiata skrzynię ucznia zaraz po pobraniu nowych plików, przed zbudowaniem obrazów. Po drodze naprawiono trzy niezależne usterki blokujące tę usługę: zepsuty entrypoint w mt2009-owym renderze `docker-compose.yml` Playerbots (wskazywał na nieistniejący plik), brak widoczności `/opt/seban-panel-custom` w kontenerze updatera (build panelu się tam zatrzymywał) i odmowę gita ("dubious ownership") przy pracy jako root. Wszystko naprawione lokalnie w `docker-compose.override.yml`, przeżyje każdą przyszłą aktualizację Playerbots. Zweryfikowane działającym, pełnym przebiegiem na żywo.
 
 ## 2026-09-15 07:54 CEST · 1.50.0
 
@@ -60,7 +60,7 @@
 
 ## 2026-09-15 00:43 CEST · 1.49.1
 
-- Ogłoszenia +9 ukryte w wersji publicznej, tym samym mechanizmem co liczba botów/respawn/skrzynia startowa: nowa komenda `NOTICE` istnieje na razie tylko w naszej kopii `web_admin.quest`, nie u Tieru — bez tego, u innego operatora kolejka zalegałaby jako "pending" na zawsze, bez żadnego błędu.
+- Ogłoszenia +9 ukryte w wersji publicznej, tym samym mechanizmem co liczba botów/respawn/skrzynia startowa: nowa komenda `NOTICE` istnieje na razie tylko w naszej kopii `web_admin.quest`, nie w Playerbots — bez tego, u innego operatora kolejka zalegałaby jako "pending" na zawsze, bez żadnego błędu.
 
 ## 2026-09-15 00:39 CEST · 1.49.0
 
@@ -73,17 +73,17 @@
 - Naprawiono "Internal Server Error" przez pierwsze ~5 minut po restarcie/aktualizacji: panel sam tworzy potrzebne tabele przy starcie zamiast czekać, aż kolektor je stworzy w swoim własnym cyklu; kolektor też ponawia szybko (10s) zamiast czekać pełne 5 minut, gdy pierwsza próba się nie uda (np. baza jeszcze się budzi). Zgłoszone przez graczy (sizowski, 23:16).
 - `/manage`: docelowa liczba botów, respawn na mapach i wyłączanie skrzyni startowej — te trzy kontrolki wymagają naszych własnych skryptów questów, których świeży/publiczny install nie ma. Ukryte domyślnie, włączone na tym VPS-ie osobną flagą.
 - Poprawiono błędne granice map Las, Czerwony Las i Wieża Demonów (błąd we wszystkich trzech współrzędnych bazowych i/lub rozmiarach) — zweryfikowane wprost z plików `Setting.txt` silnika.
-- Zaktualizowano rdzeń Playerbots do wydania Tieru 2.0.48; przełączniki bez skrzyni ucznia i bez szkatułek blasku księżyca przetrwały. Liczba botów podniesiona do 1050 (+150).
+- Zaktualizowano rdzeń Playerbots do wydania Playerbots 2.0.48; przełączniki bez skrzyni ucznia i bez szkatułek blasku księżyca przetrwały. Liczba botów podniesiona do 1050 (+150).
 
 ## 2026-09-14 23:25 CEST · 1.47.0
 
-- `/player/`: logi na żywo zaczynają się teraz same przy otwarciu strony (bez klikania), zbierają linie zamiast je zamieniać (nie "znikają" między odświeżeniami przy zatłoczonym logu) i kolorują wpisy jak w panelu Tieru.
+- `/player/`: logi na żywo zaczynają się teraz same przy otwarciu strony (bez klikania), zbierają linie zamiast je zamieniać (nie "znikają" między odświeżeniami przy zatłoczonym logu) i kolorują wpisy jak w panelu klasycznym.
 - `/player/`: przycisk "Teleportuj moją postać do sklepu" przy Sklepie offline — przenosi na dokładne współrzędne straganu, nawet jeśli bot akurat nie odpowiada na status live.
 
 ## 2026-09-14 23:16 CEST · 1.46.0
 
 - Naprawiono ranking "Skuteczność ulepszeń": silnik loguje porażkę jako `REMOVE (REFINE FAIL)`, a nie `REFINE FAIL` (który ma zero wpisów w bazie) — stąd wszyscy pokazywali 100%. Teraz zgadza się z wartością widoczną na `/player/`.
-- `/player/`: nowa sekcja "Dziennik zdarzeń bota (logi na żywo)" — te same logi rdzenia gry co w panelu Tieru, z przyciskiem odświeżania na żądanie (co 4s) i kopiowania do schowka.
+- `/player/`: nowa sekcja "Dziennik zdarzeń bota (logi na żywo)" — te same logi rdzenia gry co w panelu klasycznym, z przyciskiem odświeżania na żądanie (co 4s) i kopiowania do schowka.
 
 ## 2026-09-14 23:05 CEST · 1.45.0
 
@@ -99,7 +99,7 @@
 ## 2026-09-14 22:26 CEST · 1.44.0
 
 - Tooltipy ekwipunku pokazywały złe wartości bazowe: obrona/atak nie uwzględniały bonusu z ulepszenia, więc np. Różowa Szata+9 pokazywała 29 obrony zamiast rzeczywistych 83. Naprawione dla broni i zbroi (ciało, głowa, tarcza, buty).
-- Wiele etykiet bonusów na przedmiotach było przesuniętych o jeden numer w tabeli tłumaczeń (np. "Silny przeciw mistykom" zamiast "Silny przeciw nieumarłym", "Odporność na dzwony" zamiast "na wachlarze") — cała tabela zweryfikowana krzyżowo z panelem Tieru i poprawiona. Znany, niepoprawiony wyjątek: jeden rzadki bonus (odbicie strzał) nadal pokazuje się jako "Odporność na sury" — ten sam brak jest też w źródle Tieru, wymaga dalszego śledztwa.
+- Wiele etykiet bonusów na przedmiotach było przesuniętych o jeden numer w tabeli tłumaczeń (np. "Silny przeciw mistykom" zamiast "Silny przeciw nieumarłym", "Odporność na dzwony" zamiast "na wachlarze") — cała tabela zweryfikowana krzyżowo z panelem klasycznym i poprawiona. Znany, niepoprawiony wyjątek: jeden rzadki bonus (odbicie strzał) nadal pokazuje się jako "Odporność na sury" — ten sam brak jest też w źródle Playerbots, wymaga dalszego śledztwa.
 
 ## 2026-09-14 22:04 CEST · 1.43.0
 
@@ -110,12 +110,12 @@
 
 ## 2026-09-14 20:09 CEST · 1.42.0
 
-- Zaktualizowano rdzeń Playerbots do wydania Tieru 2.0.46; przełączniki bez skrzyni ucznia i bez szkatułek blasku księżyca przetrwały bez ingerencji.
+- Zaktualizowano rdzeń Playerbots do wydania Playerbots 2.0.46; przełączniki bez skrzyni ucznia i bez szkatułek blasku księżyca przetrwały bez ingerencji.
 - Dashboard i `/economy/`: konta testowe instalatora (Admin, AdminNinja, AdminSura, AdminSzaman — 2 mld sztucznego yang) nie liczą się już do "yang w obiegu".
 - Dashboard: liczba w segmencie "Boty na mapach" nie chowa się już za paskiem przewijania; segment rośnie i wypełnia cały wolny sidebar.
 - `/player/`: nowa sekcja "Sklep offline" — co bot aktualnie sprzedaje, za ile i gdzie stoi stragan (nazwa, mapa, współrzędne), dociągane bezpośrednio z tabel IkarusShop.
-- `/player/`: przycisk "Teleportuj moją postać w grze (1 klik)" — jak w panelu Tieru, przez tę samą kolejkę questa co nadania przedmiotów.
-- `/player/`: "Historia ekwipunku" zamiast surowego logu — czytelne zdarzenia (Sprzedane handlarzowi, Założone, Ulepszenie udane, Spalone przy ulepszaniu itd.) z nazwą przedmiotu, jak w panelu Tieru.
+- `/player/`: przycisk "Teleportuj moją postać w grze (1 klik)" — jak w panelu klasycznym, przez tę samą kolejkę questa co nadania przedmiotów.
+- `/player/`: "Historia ekwipunku" zamiast surowego logu — czytelne zdarzenia (Sprzedane handlarzowi, Założone, Ulepszenie udane, Spalone przy ulepszaniu itd.) z nazwą przedmiotu, jak w panelu klasycznym.
 
 ## 2026-09-14 18:02 CEST · 1.41.0
 
@@ -129,7 +129,7 @@
 
 ## 2026-09-09 18:10 CEST · 1.40.0
 
-- Dodano zwijany poradnik uruchomienia aktualizatora Tieru na VPS bezpośrednio w Zarządzaniu.
+- Dodano zwijany poradnik uruchomienia aktualizatora Playerbots na VPS bezpośrednio w Zarządzaniu.
 - Tabele, przyciski, linki, przedziałki i kafelki wskazanych widoków dziedziczą teraz aktywny motyw.
 - Baza przedmiotów pokazuje ikonę rzeczywistego przedmiotu przy każdej kategorii.
 - Konta i profil postaci pokazują flagę oraz nazwę królestwa.
@@ -159,7 +159,7 @@
 
 ## 2026-09-08 17:35 CEST · 1.38.4
 
-- Sesja panelu ma własną nazwę ciasteczka i trwa 30 dni. Nie koliduje już z klasycznym panelem Tieru działającym na tym samym hoście pod innym portem.
+- Sesja panelu ma własną nazwę ciasteczka i trwa 30 dni. Nie koliduje już z klasycznym panelem działającym na tym samym hoście pod innym portem.
 - Dodano poprawkę rdzenia: po załadowaniu danych questa bot uruchamia własne timery. Dzięki temu odbiera także masowe nadania z kolejki panelu.
 - Masowe nadania wybierają wyłącznie Playerboty; postacie zwykłych graczy i administracji nie trafią do listy odbiorców nawet wtedy, gdy spełniają warunki poziomu lub konia.
 
@@ -178,12 +178,12 @@
 
 ## 2026-09-08 14:35 CEST · 1.38.1
 
-- Dodano `UPDATER_VPS.md`: komendy dla standardowych i niestandardowych instalacji Tieru na VPS, przygotowanie cache oraz diagnostykę aktualizatora.
+- Dodano `UPDATER_VPS.md`: komendy dla standardowych i niestandardowych instalacji Playerbots na VPS, przygotowanie cache oraz diagnostykę aktualizatora.
 - Rozszerzono README o wymagany wolumen `update-spool` i instrukcję włączenia aktualizacji z panelu.
 
 ## 2026-09-08 00:00 CEST · 1.38.0
 
-- Dodano most do izolowanego aktualizatora Tieru w `/manage`: stan, postęp, log i przycisk zlecenia aktualizacji.
+- Dodano most do izolowanego aktualizatora Playerbots w `/manage`: stan, postęp, log i przycisk zlecenia aktualizacji.
 - Panel zapisuje wyłącznie identyfikator zlecenia do wspólnej kolejki; Docker socket pozostaje wyłącznie w kontenerze aktualizatora.
 - Przycisk wymaga aktywnej ochrony hasłem oraz tokenu sesji; wdrożona aktualizacja automatycznie odświeża widoczną wersję Playerbots.
 
@@ -193,7 +193,7 @@
 
 ## 2026-09-07 22:35 CEST · 1.37.0
 
-- Zaktualizowano rdzeń Playerbots do wydania Tieru 1.30.12: obsługę szkatułek, wycenę bonusów w sklepach oraz diagnostykę Dockera.
+- Zaktualizowano rdzeń Playerbots do wydania Playerbots 1.30.12: obsługę szkatułek, wycenę bonusów w sklepach oraz diagnostykę Dockera.
 - Dodano Loch Małp Normalny (108) i Loch Małp Trudny (109) do mapy na żywo, historii natężenia, heatmap, wykresów, list map i zarządzania respawnem.
 - Z panelu można teraz sterować respawnem potworów we wszystkich trzech Lochach Małp; Metiny są ukryte, ponieważ te mapy nie mają pliku `stone.txt`.
 
@@ -217,7 +217,7 @@
 
 ## 1.35.0
 
-- Synchronizacja nazw i numerów umiejętności z aktualnym Panelem Tieru: ikona i podpis używają tego samego VNUM; nieużywane pozycje nie są już wyświetlane.
+- Synchronizacja nazw i numerów umiejętności z aktualnym panelem klasycznym: ikona i podpis używają tego samego VNUM; nieużywane pozycje nie są już wyświetlane.
 - Zarządzanie zachowaniem obsługuje przełącznik szybkich ksiąg (`BOOKS`) oraz szanse szkatułek (`CHEST`, `CHEST_STONE`).
 - Zapis wag zachowuje przyszłe klucze silnika, których panel jeszcze nie zna.
 
