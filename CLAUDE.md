@@ -7576,6 +7576,17 @@ not in `data/`) reworked these point by point. What each hangs on:
   migrator's multi-table `DELETE i FROM ... AS i JOIN` failed with "No
   database selected": the migrator runs with no default database, and an
   aliased multi-table DELETE wants one - use a subquery.
+- **A seal was refused whatever the rider was doing.** `EquipItem` answers a
+  ride item (`IsRideItem`: the seals and a mount costume) in two ways. With
+  ENABLE_MOUNT_COSTUME_EX_SYSTEM it sends a horse away and lets the item on;
+  without it, which is this package's build, it refused every one with "You're
+  already riding. Get off first." and checked nothing. So 2.1.3's seals could
+  never be worn and mount_seals.quest was never reached (23 September).
+  `apply_ride_seal_equip` (playerbotify, and in `ENGINE_EDITS`, since releases
+  take the engine verbatim from the upstream package) does the EX branch's
+  horse handling and refuses only a character already on a mount
+  (`GetMountVnum`). Before blaming a quest that "does nothing", read what
+  stands between the click and its signal.
 
 
 ## Engine facts worth not re-deriving

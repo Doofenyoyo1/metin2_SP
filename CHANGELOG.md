@@ -17,6 +17,29 @@ every version here.
 
 ---
 
+## 2.1.4 — 2026-09-23
+
+Tylko serwer 2.1.4, klient zostaje 2.0.30. W launcherze ZAINSTALUJ AKTUALIZACJE.
+Na VPS: `sh linux-port/tools/update.sh`.
+
+### Pieczęć wierzchowca da się założyć
+
+Po 2.1.3 pieczęć z zakładki „Wierzchowce” nie wchodziła w slot pierścienia:
+gra odpowiadała „You're already riding. Get off first.”, choć postać nie
+siedziała na koniu. To nie był błąd sklepu, tylko silnika tej paczki: jest
+zbudowany bez opcji kostiumów-wierzchowców (`ENABLE_MOUNT_COSTUME_EX_SYSTEM`),
+a w tej wersji `EquipItem` odmawiał każdej pieczęci i każdego wierzchowca z tym
+jednym komunikatem, bez sprawdzania czegokolwiek. Pieczęci nie dało się więc
+założyć nigdy.
+
+Teraz jest tak, jak w wersji z opcją: jeśli koń jest przywołany albo na nim
+siedzisz, zostaje odesłany, a pieczęć wchodzi i sadza cię na zwierzęciu.
+Komunikat „już jedziesz” pojawia się tylko wtedy, gdy naprawdę siedzisz już na
+wierzchowcu z drugiej pieczęci. Zdjęcie pieczęci kończy jazdę, a 30 godzin
+liczy się tylko w czasie noszenia, jak dotąd.
+
+---
+
 ## 2.1.3 — 2026-09-23
 
 Serwer 2.1.3 i klient 2.0.30. W launcherze ZAINSTALUJ AKTUALIZACJE, potem
