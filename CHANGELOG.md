@@ -17,6 +17,40 @@ every version here.
 
 ---
 
+## 2.1.2 — 2026-09-23
+
+Serwer 2.1.2 i klient 2.0.29. W launcherze ZAINSTALUJ AKTUALIZACJE, potem
+AKTUALIZUJ KLIENTA.
+
+### Wierzchowce w ItemShopie
+
+- **Wierzchowiec z ItemShopu da się teraz założyć i na nim jeździć.** Gra ma
+  system wierzchowców-kostiumów, ale serwer odmawiał założenia każdego kostiumu
+  poza fryzurą („Kostiumy sa na tym serwerze wylaczone.”), więc wierzchowiec
+  był nie do użycia. Teraz wierzchowiec przechodzi tak samo jak fryzura. Zakłada
+  się go w oknie kostiumów albo prawym przyciskiem w ekwipunku, a zsiada
+  i wsiada Ctrl+H albo komendą /unmount. Pozostałe kostiumy (strój, broń,
+  szarfa) nadal są wyłączone.
+- **Nowa zakładka „Wierzchowce” w ItemShopie w grze.** Przy każdym starcie
+  serwer wpisuje do sklepu wszystkie wierzchowce-kostiumy, jakie ma tabela
+  przedmiotów świata, a których w sklepie jeszcze nie ma. Nie ma na sztywno
+  wpisanej listy: w zakładce jest dokładnie to, co jest w danych gry.
+  Cena to 250 Smoczych Monet (`M2_ITEMSHOP_MOUNT_PRICE` w `.env`).
+  `M2_ITEMSHOP_MOUNTS=0` zostawia sklep tak, jak go ustawisz sam. Wtedy
+  usunięty wierzchowiec nie wróci przy następnym starcie.
+- Zakładka jest w kliencie 2.0.29. Bez nowego klienta wierzchowce są w sklepie,
+  ale żadna zakładka ich nie pokazuje.
+- Boty nie kupują wierzchowców i nigdy ich nie zakładają.
+
+Sprawdzone: zmiana w serwerze trafia do paczki aktualizacji (budowanie paczki
+nakłada ją na pliki silnika z paczki źródłowej), a krok w migratorze
+przetestowaliśmy na MariaDB na dwóch możliwych układach tabeli sklepu, także
+dwukrotnie pod rząd. W grze nikt jeszcze na takim wierzchowcu nie jeździł.
+Jeśli coś się nie zgadza, wiersz `[playerbot-migrate] ItemShop mounts:`
+w logu migratora mówi, ile wierzchowców znalazł w świecie i ile dopisał.
+
+---
+
 ## 2.1.1 — 2026-09-23
 
 Serwer 2.1.1 i klient 2.0.28. W launcherze ZAINSTALUJ AKTUALIZACJE, potem

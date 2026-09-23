@@ -627,6 +627,127 @@ else
     echo "[playerbot-migrate] WARNING: could not write the apprentice chest flag; the quest keeps the last one" >&2
 fi
 
+# The world's mount costumes, in the in-game ItemShop (CItemShopManager, read
+# by the db core out of common.itemshop_items at boot). The package has the
+# mount costume system compiled in and a shop that sold none, and the costume
+# block refused one anyway until playerbotify's apply_costume_mount_allowed -
+# so "mounty" in the shop were a thing a player could not have (23 September).
+# The client's shop window shows the index range 701-799 as "Wierzchowce"
+# (uiitemshop.py); this fills it with every ITEM_COSTUME / COSTUME_MOUNT (28/2)
+# of world.item_proto whose apply names a mount that stands in world.mob_proto -
+# read from the world itself, because the list of mounts is the package's and
+# no number of them is written down here. A mount already in the shop, at any
+# index, is left where it is; one the operator deleted comes back at the next
+# start, unless .env says M2_ITEMSHOP_MOUNTS=0. The price is
+# M2_ITEMSHOP_MOUNT_PRICE Dragon Coins.
+#
+# The table's columns are not in any file this project carries (the db core's
+# loader ships only as a binary), so they are read from information_schema and
+# a new row is a copy of the shop's first hairstyle row - the kind the bots buy
+# and wear every day - with the index, the item, the count and the price put in
+# and any promotion or auction number cleared. A table this cannot read, or a
+# shop with no hairstyle to copy, is left untouched and says so.
+ishop_on=$(printf '%s' "${M2_ITEMSHOP_MOUNTS:-1}" | tr 'A-Z' 'a-z' | tr -d ' \r')
+ishop_price=$(printf '%s\n' "${M2_ITEMSHOP_MOUNT_PRICE:-250}" | tr -d ' \r' | awk '{ v = $1 + 0; if (v < 1 || v > 100000) v = 250; printf "%d", v }')
+case "$ishop_on" in
+    0|off|no|false)
+        echo "[playerbot-migrate] ItemShop mounts: left to the operator (M2_ITEMSHOP_MOUNTS=0)"
+        ;;
+    *)
+        bq='`'
+        # One line a column, '|' between the fields: a tab is IFS whitespace, and
+        # read would fold the empty extra of an ordinary column away.
+        ishop_cols=$(db -e "SELECT CONCAT(column_name, '|', extra, '|', data_type) FROM information_schema.columns
+                             WHERE table_schema = 'common' AND table_name = 'itemshop_items'
+                             ORDER BY ordinal_position;" 2>/dev/null || true)
+        ishop_col() {
+            for want in "$@"; do
+                hit=$(printf '%s\n' "$ishop_cols" | awk -F'|' -v w="$want" 'tolower($1) == w { print $1; exit }')
+                if [ -n "$hit" ]; then
+                    printf '%s' "$hit"
+                    return 0
+                fi
+            done
+            return 1
+        }
+        c_idx=$(ishop_col index item_index idx id || true)
+        c_vnum=$(ishop_col vnum item_vnum || true)
+        c_count=$(ishop_col count item_count amount || true)
+        c_price=$(ishop_col price item_price || true)
+        if [ -z "$ishop_cols" ]; then
+            echo "[playerbot-migrate] ItemShop mounts: no common.itemshop_items on this world; nothing listed"
+        elif [ -z "$c_idx" ] || [ -z "$c_vnum" ] || [ -z "$c_count" ] || [ -z "$c_price" ]; then
+            echo "[playerbot-migrate] WARNING: ItemShop mounts: common.itemshop_items has columns this step does not know ($(printf '%s\n' "$ishop_cols" | awk -F'|' '{ printf "%s%s", s, $1; s = " " }')); nothing listed" >&2
+        else
+            ins=''
+            sel=''
+            while IFS='|' read -r col extra dtype; do
+                [ -n "$col" ] || continue
+                lc=$(printf '%s' "$col" | tr 'A-Z' 'a-z')
+                if [ "$col" = "$c_idx" ]; then
+                    v='n.idx'
+                elif [ "$col" = "$c_vnum" ]; then
+                    v='n.vnum'
+                elif [ "$col" = "$c_count" ]; then
+                    v='1'
+                elif [ "$col" = "$c_price" ]; then
+                    v="$ishop_price"
+                else
+                    case "$extra" in
+                        *auto_increment*) v='NULL' ;;
+                        *)
+                            case "$lc:$dtype" in
+                                *promo*:*int|*auction*:*int|*promo*:decimal|*auction*:decimal) v='0' ;;
+                                *) v="t.$bq$col$bq" ;;
+                            esac
+                            ;;
+                    esac
+                fi
+                ins="$ins${ins:+, }$bq$col$bq"
+                sel="$sel${sel:+, }$v"
+            done <<EOF
+$ishop_cols
+EOF
+            I="$bq$c_idx$bq"
+            V="$bq$c_vnum$bq"
+            mounts_in_world=$(db -e "SELECT COUNT(*) FROM world.item_proto AS p
+                 WHERE p.type = 28 AND p.subtype = 2
+                   AND EXISTS (SELECT 1 FROM world.mob_proto AS m
+                                WHERE m.vnum >= 20000 AND m.vnum IN (p.applyvalue0, p.applyvalue1, p.applyvalue2));" 2>/dev/null || echo x)
+            ishop_template=$(db -e "SELECT MIN(i.$I) FROM common.itemshop_items AS i
+                                      JOIN world.item_proto AS h ON h.vnum = i.$V
+                                     WHERE h.type = 28 AND h.subtype = 1;" 2>/dev/null | tr -d '[:space:]')
+            case "$ishop_template" in
+                ''|NULL|*[!0-9]*) ishop_template= ;;
+            esac
+            if [ -z "$ishop_template" ]; then
+                echo "[playerbot-migrate] WARNING: ItemShop mounts: the shop has no hairstyle row to copy; nothing listed" >&2
+            elif ishop_added=$(db -e "
+                INSERT INTO common.itemshop_items ($ins)
+                SELECT $sel
+                  FROM (SELECT c.vnum, b.base + ROW_NUMBER() OVER (ORDER BY c.vnum) AS idx
+                          FROM (SELECT p.vnum FROM world.item_proto AS p
+                                 WHERE p.type = 28 AND p.subtype = 2
+                                   AND EXISTS (SELECT 1 FROM world.mob_proto AS m
+                                                WHERE m.vnum >= 20000
+                                                  AND m.vnum IN (p.applyvalue0, p.applyvalue1, p.applyvalue2))
+                                   AND p.vnum NOT IN (SELECT $V FROM common.itemshop_items)) AS c
+                         CROSS JOIN (SELECT COALESCE(MAX($I), 700) AS base FROM common.itemshop_items
+                                      WHERE $I BETWEEN 701 AND 799) AS b) AS n
+                  JOIN common.itemshop_items AS t ON t.$I = $ishop_template
+                 WHERE n.idx <= 799;
+                SELECT ROW_COUNT();" 2>/tmp/ishop_mounts.err); then
+                ishop_added=$(printf '%s' "$ishop_added" | tr -d '[:space:]')
+                listed=$(db -e "SELECT COUNT(*) FROM common.itemshop_items WHERE $I BETWEEN 701 AND 799;" 2>/dev/null || echo '?')
+                echo "[playerbot-migrate] ItemShop mounts: ${mounts_in_world} in the world, ${ishop_added:-0} added, ${listed} in the Wierzchowce tab (${ishop_price} Dragon Coins each)"
+            else
+                echo "[playerbot-migrate] WARNING: ItemShop mounts could not be listed:" >&2
+                head -3 /tmp/ishop_mounts.err >&2
+            fi
+        fi
+        ;;
+esac
+
 echo "[playerbot-migrate] applying deterministic Playerbot seed (PID $first_pid..$last_pid)"
 result=/tmp/playerbot-seed.out
 trap 'rm -f "$result"' EXIT HUP INT TERM

@@ -10,7 +10,8 @@ clean `git archive HEAD`: the file list and the PathMap of
 linux-port-mt2009/README.md, bytecode skipped under wildcards, VERSION at the
 root, the overlay and staged playerbot_* sources identical. What git does not
 track comes out of the previous release's package - the engine files this
-repository never edits outside the port scripts - and the staged playerbot_*
+repository never edits outside the port scripts, with the port-script edits
+named in ENGINE_EDITS applied over them - and the staged playerbot_*
 are HEAD's overlay, the panel files/admin_panel.py.
 
 It then compares the file set with the previous package and fails if one was
@@ -41,6 +42,12 @@ PATHMAP = {
 KEEP_FROM_PREVIOUS = ['linux-port/docker/seban-panel/VERSION']
 OVERLAY = 'linux-port/overlays/playerbot/src/game/src'
 STAGED = 'linux-port-mt2009/docker/game/src/server/game/src'
+# Engine edits this repository made after the package it builds on. The engine
+# files come out of that package verbatim, so an edit that lives only in
+# port/playerbotify.py would never reach a player; each one named here is
+# applied to the filled tree. They are idempotent: a package that already
+# carries one finds it "already", and an anchor that moved stops the build.
+ENGINE_EDITS = ['apply_costume_mount_allowed']
 
 
 def published(rel):
@@ -97,6 +104,11 @@ def main():
         if not os.path.isfile(os.path.join(src, keep)) and keep in old_raw:
             open(os.path.join(src, keep), 'wb').write(old.read(old_raw[keep]))
             filled += 1
+
+    sys.path.insert(0, os.path.join(REPO, 'linux-port-mt2009', 'port'))
+    import playerbotify
+    for name in ENGINE_EDITS:
+        getattr(playerbotify, name)(os.path.join(src, STAGED))
 
     shutil.copyfile(os.path.join(src, 'files', 'admin_panel.py'),
                     os.path.join(src, 'linux-port', 'docker', 'panel', 'app', 'admin_panel.py'))
