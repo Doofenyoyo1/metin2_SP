@@ -1,20 +1,20 @@
 {
   "schema": 1,
   "channel": "stable",
-  "publishedAt": "2026-09-22T23:05:00Z",
-  "statusMessage": "2.0.97 (serwer 2.0.97, klient bez zmian - 2.0.25): boty odpisuja na priv - system rozmow od l0st3k (odpowiada tym, co bot naprawde robi, pamieta rozmowe, wie o swoim sklepie offline). Bot po smierci nie biegnie w sciane komnaty. Zawiera wszystko z 2.0.96: Auto Lowy 2.0, nowy launcher z tlem.",
+  "publishedAt": "2026-09-23T07:44:36Z",
+  "statusMessage": "2.0.98 (serwer 2.0.98, klient 2.0.26): COOP dla kazdego - hostowanie bez hasla. Aktualizacje i zgloszenia z nowego repozytorium github.com/Doofenyoyo1/metin2_SP.",
   "server": {
-    "version": "2.0.97",
-    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.0.97/metin2-server-update-2.0.97.zip",
-    "sha256": "F353A026D1F38518EBF948AB5A9815C74C338909D24E412BDF423408AADB3610"
+    "version": "2.0.98",
+    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.0.98/metin2-server-update-2.0.98.zip",
+    "sha256": "71D7BCB062A03E7CD8EBBD4F4D26902C903797D6667F000D0BBCB274BD8EFA1B"
   },
   "support": {
     "contactUrl": "https://github.com/Doofenyoyo1/metin2_SP/issues",
     "uploadUrl": ""
   },
   "client": {
-    "version": "2.0.25",
-    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.0.96/metin2-client-update-2.0.25.zip",
-    "sha256": "685C0C3B12364DD6661FDB5B1ADC803CF229D028784E46B9E9C45D840F825FBF"
+    "version": "2.0.26",
+    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.0.98/metin2-client-update-2.0.26.zip",
+    "sha256": "8CDD3CE68F0AA533DA62E08299161D7995F8A94B41DBA33513AF23BECA48AD6A"
   }
 }
