@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "publishedAt": "2026-09-23T08:42:02Z",
+  "publishedAt": "2026-09-23T08:56:22Z",
   "statusMessage": "2.0.98 (serwer 2.0.98, klient 2.0.27): COOP dla kazdego - hostowanie bez hasla. Klient 2.0.27: przycisk w statusie Discorda prowadzi na GitHuba projektu.",
   "server": {
     "version": "2.0.98",
@@ -13,8 +13,8 @@
     "uploadUrl": ""
   },
   "client": {
-    "version": "2.0.26",
-    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.0.98/metin2-client-update-2.0.26.zip",
-    "sha256": "BD15A2A8611E19D4F2723FA41A068B43EC0C246817C2D8B8C2238B2797D0DAD0"
+    "version": "2.0.27",
+    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/client-v2.0.27/metin2-client-update-2.0.27.zip",
+    "sha256": "EC863F66EE8F1998C18529421370AA5174A550352D2F50E3317FDF268F04B742"
   }
 }
