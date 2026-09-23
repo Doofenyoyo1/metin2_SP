@@ -1442,6 +1442,8 @@ def main(root):
     apply_shop_clock(game)
     apply_party_exp_of_blocked_members(game)
     apply_bot_shop_slots_unlocked(game)
+    apply_refine_abandoned_session(game)
+    apply_book_wait(game)
     print('playerbotify: done')
 
 
@@ -4467,6 +4469,116 @@ def apply_bot_shop_slots_unlocked(game):
          '\treturn GetSpecialFlag(SHOP_SLOT_UNLOCK_PROGRESS_FLAG);\n'
          '}\n',
          marker='// playerbot: a bot\'s counter has no padlocks')
+
+
+def apply_refine_abandoned_session(game):
+    # The server enters refine mode when it sends the refine dialog, and from
+    # then on CanHandleItem refuses every move, drop, use and gift until the
+    # client answers with a refine or a cancel. A client whose window raised
+    # before it opened never answers: German, Spanish, Italian, Portuguese,
+    # Romanian and Turkish players had a REFINE_COST taking a number, and
+    # "nothing happens when I put the item on the blacksmith... the whole
+    # inventory gets bugged out" was their bag, locked until the next login
+    # (JFK and zhask9431, 23 September). The client is fixed twice over
+    # (localeify.py, clientrootify's uirefine.py); this is for the client that
+    # is not updated yet, and for whatever the next broken window will be.
+    # A session with a refine NPC is over once that NPC is gone, on another
+    # map or out of the reach CInputMain::Refine allows - the refine it waits
+    # for would be refused for that very reason - so walking away from the
+    # blacksmith gives the bag back. A scroll's session has no NPC and is
+    # left as it was, and so is the bots' own refine, which never sets one.
+    edit(os.path.join(game, 'char_item.cpp'),
+         '\tif (!bSkipCheckRefine)\n'
+         '\t\tif (m_bUnderRefine)\n'
+         '\t\t\treturn false;\n',
+         '\tif (!bSkipCheckRefine)\n'
+         '\t\tif (m_bUnderRefine)\n'
+         '\t\t{\n'
+         '\t\t\t// playerbot: a refine session whose NPC is gone or out of reach\n'
+         '\t\t\t// has ended (playerbotify apply_refine_abandoned_session).\n'
+         '\t\t\tconst LPCHARACTER refineNPC = m_dwRefineNPCVID ? CHARACTER_MANAGER::instance().Find(m_dwRefineNPCVID) : NULL;\n'
+         '\t\t\tif (!m_dwRefineNPCVID ||\n'
+         '\t\t\t\t(refineNPC && refineNPC->GetMapIndex() == GetMapIndex() &&\n'
+         '\t\t\t\t DISTANCE_APPROX(GetX() - refineNPC->GetX(), GetY() - refineNPC->GetY()) <= 2000))\n'
+         '\t\t\t\treturn false;\n'
+         '\n'
+         '\t\t\tsys_log(0, "REFINE: %s left a refine session with its NPC gone or out of reach", GetName());\n'
+         '\t\t\tClearRefineMode();\n'
+         '\t\t}\n',
+         marker='// playerbot: a refine session whose NPC is gone or out of reach')
+
+
+def apply_book_wait(game):
+    # The wait between two books of one skill was the package's twenty-one
+    # hours, and 2.0.12 made it none (SKILLBOOK_LEARN_DELAY = 0, above), which
+    # left the Exorcism Scroll with nothing to do. It is the world's
+    # difficulty now: the event flag m2_book_wait, in seconds, which the
+    # migrator writes from M2_DIFFICULTY and the classic panel's difficulty
+    # card sets live (drip9660's proposal, 23 September). A read waits at most
+    # that long from now, so a wait the operator lowers applies to the next
+    # book rather than to the next day, and the riding guide keeps the wait it
+    # shared with the books in the package. The bots take their own number
+    # (m2_bot_book_wait) in ManagePlayerBotSkillBooks; they read through here.
+    skill = os.path.join(game, 'char_skill.cpp')
+    edit(skill,
+         'void CHARACTER::SetSkillNextReadTime(DWORD dwVnum, time_t time, bool bSuccess)\n',
+         '// playerbot: the wait between two books of one skill, in seconds - the\n'
+         '// world\'s difficulty (event flag m2_book_wait; playerbotify apply_book_wait).\n'
+         'int M2SkillBookLearnDelay()\n'
+         '{\n'
+         '\tconst int wait = quest::CQuestManager::instance().GetEventFlag("m2_book_wait");\n'
+         '\treturn wait > 0 ? wait : SKILLBOOK_LEARN_DELAY;\n'
+         '}\n'
+         '\n'
+         '// When the next book of a skill may be read: never later than the world\'s\n'
+         '// wait from now, so a wait lowered in the panel applies at once.\n'
+         'time_t M2SkillBookReadAt(const CHARACTER* ch, DWORD dwVnum)\n'
+         '{\n'
+         '\tconst time_t stored = ch->GetSkillNextReadTime(dwVnum);\n'
+         '\tconst time_t cap = get_global_time() + M2SkillBookLearnDelay();\n'
+         '\treturn stored < cap ? stored : cap;\n'
+         '}\n'
+         '\n'
+         'void CHARACTER::SetSkillNextReadTime(DWORD dwVnum, time_t time, bool bSuccess)\n',
+         marker='int M2SkillBookLearnDelay()\n')
+    edit(skill,
+         '\tif (get_global_time() < GetSkillNextReadTime(dwSkillVnum))\n',
+         '\tif (get_global_time() < M2SkillBookReadAt(this, dwSkillVnum))\n')
+    edit(skill,
+         '\t\t\tSkillLearnWaitMoreTimeMessage(GetSkillNextReadTime(dwSkillVnum) - get_global_time());\n',
+         '\t\t\tSkillLearnWaitMoreTimeMessage(M2SkillBookReadAt(this, dwSkillVnum) - get_global_time());\n')
+    edit(skill,
+         '\t\tSetSkillNextReadTime(dwSkillVnum, get_global_time() + SKILLBOOK_LEARN_DELAY, isSuccess);\n'
+         '\t}\n'
+         '\telse // WSZYSTKIE KLASOWE SKILLE\n',
+         '\t\tSetSkillNextReadTime(dwSkillVnum, get_global_time() + M2SkillBookLearnDelay(), isSuccess);\n'
+         '\t}\n'
+         '\telse // WSZYSTKIE KLASOWE SKILLE\n')
+    edit(skill,
+         '\t\t\tbool isSuccess = number(1, 100) <= percent;\n'
+         '\t\t\tSetSkillNextReadTime(dwSkillVnum, get_global_time() + SKILLBOOK_LEARN_DELAY, isSuccess);\n',
+         '\t\t\tbool isSuccess = number(1, 100) <= percent;\n'
+         '\t\t\tSetSkillNextReadTime(dwSkillVnum, get_global_time() + M2SkillBookLearnDelay(), isSuccess);\n')
+    # The riding guide in char_item.cpp, which never included anything that
+    # declares the two; an extern beside the includes rather than an edit of
+    # char.h, which every file of the core includes.
+    item = os.path.join(game, 'char_item.cpp')
+    edit(item,
+         '#include "questmanager.h"\n',
+         '#include "questmanager.h"\n'
+         '// playerbot: defined in char_skill.cpp (playerbotify apply_book_wait).\n'
+         'extern int M2SkillBookLearnDelay();\n'
+         'extern time_t M2SkillBookReadAt(const CHARACTER* ch, DWORD dwVnum);\n',
+         marker='extern int M2SkillBookLearnDelay();\n')
+    edit(item,
+         'if (get_global_time() < GetSkillNextReadTime(dwSkillVnum))',
+         'if (get_global_time() < M2SkillBookReadAt(this, dwSkillVnum))')
+    edit(item,
+         'SkillLearnWaitMoreTimeMessage(GetSkillNextReadTime(dwSkillVnum) - get_global_time());',
+         'SkillLearnWaitMoreTimeMessage(M2SkillBookReadAt(this, dwSkillVnum) - get_global_time());')
+    edit(item,
+         'SetSkillNextReadTime(dwSkillVnum, get_global_time() + SKILLBOOK_LEARN_DELAY, true);',
+         'SetSkillNextReadTime(dwSkillVnum, get_global_time() + M2SkillBookLearnDelay(), true);')
 
 
 if __name__ == '__main__':

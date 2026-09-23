@@ -9,19 +9,17 @@ name: Publish mt2009 release
 # What it builds is what the version files say changed against the manifest:
 # the server when linux-port-mt2009/VERSION differs from the manifest's server
 # version, the client when CLIENT_VERSION differs from its client version. The
-# previous packages are the ones the manifest points at, and the previous
-# client's source commit is the tag of the release it was published in. A
+# previous client is the one the manifest points at, and its source commit is
+# the tag of the release it was published in; the server's engine files come
+# from the upstream release named in tools/upstream-sync.json. A
 # server release is tagged v<server>; a client-only one client-v<client>.
 #
-# Run it from the Actions tab (Run workflow) on the branch to release; the
-# push trigger fires when this file itself changes on a claude/ branch. A
+# Run it from the Actions tab (Run workflow) on the branch to release - only
+# by hand, because a release reaches every player once main points at it. A
 # release that already has its packages stops the run before anything is built.
 
 on:
   workflow_dispatch:
-  push:
-    branches: ['claude/**']
-    paths: ['.github/workflows/publish-mt2009-release.yml']
 
 permissions:
   contents: write
@@ -53,8 +51,18 @@ jobs:
           print('build_server=%s' % str(build_server).lower())
           print('build_client=%s' % str(build_client).lower())
           print('tag=%s' % ('v' + server if build_server else 'client-v' + client))
-          print('prev_server_url=%s' % m['server']['url'])
-          print('prev_server_sha=%s' % m['server']['sha256'])
+          # The engine files git does not track come from the upstream release
+          # this repository is synced to (tools/upstream-sync.json): its port
+          # scripts produce those files, so an older package would pair new bot
+          # code with an old engine. Without the file, the previous package.
+          import os
+          base_url, base_sha = m['server']['url'], m['server']['sha256']
+          if os.path.isfile('tools/upstream-sync.json'):
+              sync = json.load(open('tools/upstream-sync.json', encoding='utf-8'))
+              base_url = sync['engine_package']['url']
+              base_sha = sync['engine_package']['sha256']
+          print('prev_server_url=%s' % base_url)
+          print('prev_server_sha=%s' % base_sha)
           print('prev_client_url=%s' % m['client']['url'])
           print('prev_client_sha=%s' % m['client']['sha256'])
           # .../releases/download/<tag>/<file>: the release the previous client came in.
