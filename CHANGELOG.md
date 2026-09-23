@@ -17,6 +17,31 @@ every version here.
 
 ---
 
+## 2.0.98 — 2026-09-23
+
+Serwer 2.0.98 i klient 2.0.26. W launcherze ZAINSTALUJ AKTUALIZACJE, potem
+AKTUALIZUJ KLIENTA.
+
+### COOP dla każdego
+
+- Hostowanie świata w COOP nie wymaga już żadnego hasła: przycisk COOP
+  w launcherze otwiera od razu okno z zakładkami „Hostuję swój świat”
+  i „Dołączam do znajomego”, a akcje COOP w menu tekstowym działają bez
+  odblokowywania. Hostowanie nadal odmawia, dopóki konta admin i test mają
+  hasła z paczki — zabezpiecz je najpierw (menu 24 albo „Zabezpiecz konta”).
+
+### Nowy dom projektu
+
+- Aktualizacje, instalatory i przyciski prowadzą teraz do repozytorium
+  github.com/Doofenyoyo1/metin2_SP; błędy i pomysły zgłaszaj w zakładce Issues.
+  Z launchera, panelu, klienta i dokumentacji zniknęły dawne linki do strony,
+  Discorda i wsparcia.
+- Klient: przyciski okna logowania, „Doładuj SM!”, przycisk abonamentu
+  i „Wsparcie” w menu systemowym prowadzą na GitHuba projektu. Regulamin
+  w oknie logowania ma nową treść i pokaże się raz ponownie.
+- Uwaga: plik metin2client.exe zostaje z 2.0.25, więc przycisk w statusie
+  Discorda prowadzi jeszcze na stary adres do czasu przebudowania klienta.
+
 ## 2.0.97 — 2026-09-23
 
 Serwer 2.0.97. Klient zostaje przy 2.0.25, więc aktualizacja klienta nie jest

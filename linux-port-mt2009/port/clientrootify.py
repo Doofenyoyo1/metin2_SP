@@ -7,7 +7,7 @@ Usage:  python clientrootify.py --root <directory the stock root pack was extrac
 
 Writes into client-root/ (beside serverinfo.py, which is hand-written):
 
-  * gamerules.py  - RULES_VERSION bumped, so a client that accepted the public
+  * gamerules.py  - RULES_VERSION bumped (5), so a client that accepted the public
                     server's terms is shown ours once (client-locale-src/rules.pl.txt);
   * intrologin.py - the three buttons of the login window: the home page is
                     the project's GitHub, the Discord button opens its issues, and the Facebook
@@ -151,7 +151,10 @@ EDITS = {
          b'\t\t\t\t\t\t\t\t\t"text" : uiScriptLocale.ITEMSHOP_ACCOUNT_STATE,\r\n'),
     ],
     'gamerules.py': [
-        (b'RULES_VERSION = 3\r\n', b'RULES_VERSION = 4\r\n'),
+        # 5 since the rules text dropped the old donation and Discord points;
+        # a root published at 4 moves to 5, a stock root goes straight there.
+        (b'RULES_VERSION = 4\r\n', b'RULES_VERSION = 5\r\n', True),
+        (b'RULES_VERSION = 3\r\n', b'RULES_VERSION = 5\r\n'),
     ],
     # The ItemShop's "Doladuj SM!" and the subscription window's button both
     # opened the public server's site, and the system menu's support button

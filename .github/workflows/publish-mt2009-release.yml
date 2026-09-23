@@ -1,0 +1,159 @@
+name: Publish mt2009 release
+
+# Builds the mt2009 server and client update packages on Linux from the
+# previous release's packages (tools/build_mt2009_*_update.py), publishes them as a
+# GitHub release, and writes their SHA-256 into update-manifest-mt2009.json on
+# the branch it ran from. The launcher reads that manifest from main, so the
+# branch is merged into main after the release exists, never before.
+#
+# Run it from the Actions tab (Run workflow) on the branch to release; the
+# push trigger below fires once, when this file itself changes on a release
+# branch. A tag that already exists stops the run before anything is built.
+
+on:
+  workflow_dispatch:
+    inputs:
+      previous_server_url:
+        description: Previous release's server update zip
+        default: https://github.com/TieruYT/metin2-playerbots/releases/download/v2.0.97/metin2-server-update-2.0.97.zip
+      previous_server_sha256:
+        description: Its SHA-256 (the previous manifest's)
+        default: F353A026D1F38518EBF948AB5A9815C74C338909D24E412BDF423408AADB3610
+      previous_client_url:
+        description: Previous release's client update zip
+        default: https://github.com/TieruYT/metin2-playerbots/releases/download/v2.0.96/metin2-client-update-2.0.25.zip
+      previous_client_sha256:
+        description: Its SHA-256
+        default: 685C0C3B12364DD6661FDB5B1ADC803CF229D028784E46B9E9C45D840F825FBF
+      client_since:
+        description: Commit the previous client was published from
+        default: 72f3953
+  push:
+    branches: ['claude/**']
+    paths: ['.github/workflows/publish-mt2009-release.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    env:
+      PREV_SERVER_URL: ${{ inputs.previous_server_url || 'https://github.com/TieruYT/metin2-playerbots/releases/download/v2.0.97/metin2-server-update-2.0.97.zip' }}
+      PREV_SERVER_SHA: ${{ inputs.previous_server_sha256 || 'F353A026D1F38518EBF948AB5A9815C74C338909D24E412BDF423408AADB3610' }}
+      PREV_CLIENT_URL: ${{ inputs.previous_client_url || 'https://github.com/TieruYT/metin2-playerbots/releases/download/v2.0.96/metin2-client-update-2.0.25.zip' }}
+      PREV_CLIENT_SHA: ${{ inputs.previous_client_sha256 || '685C0C3B12364DD6661FDB5B1ADC803CF229D028784E46B9E9C45D840F825FBF' }}
+      CLIENT_SINCE: ${{ inputs.client_since || '72f3953' }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Versions, and refuse a tag that exists
+        id: v
+        run: |
+          set -euo pipefail
+          server=$(tr -d ' \r\n' < linux-port-mt2009/VERSION)
+          client=$(tr -d ' \r\n' < linux-port-mt2009/CLIENT_VERSION)
+          echo "server=$server" >> "$GITHUB_OUTPUT"
+          echo "client=$client" >> "$GITHUB_OUTPUT"
+          echo "tag=v$server" >> "$GITHUB_OUTPUT"
+          # A release with its packages is published and never touched again. One
+          # with none attached is what an interrupted run leaves, and is replaced.
+          if assets=$(gh release view "v$server" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length' 2>/dev/null); then
+            if [ "$assets" -gt 0 ]; then
+              echo "::error::v$server is already published with $assets file(s) - bump linux-port-mt2009/VERSION first."
+              exit 1
+            fi
+            echo "v$server exists with no files attached: replacing it."
+            gh release delete "v$server" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+          elif git ls-remote --exit-code --tags origin "refs/tags/v$server" >/dev/null 2>&1; then
+            echo "::error::tag v$server exists without a release - remove it or bump the version."
+            exit 1
+          fi
+
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq liblzo2-dev
+          python3 -m pip install --quiet python-lzo
+
+      - name: Previous packages
+        run: |
+          set -euo pipefail
+          mkdir -p prev
+          curl -fsSL --retry 4 -o prev/server.zip "$PREV_SERVER_URL"
+          curl -fsSL --retry 4 -o prev/client.zip "$PREV_CLIENT_URL"
+          echo "$PREV_SERVER_SHA  prev/server.zip" | tr 'A-F' 'a-f' | sha256sum -c -
+          echo "$PREV_CLIENT_SHA  prev/client.zip" | tr 'A-F' 'a-f' | sha256sum -c -
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          python3 tools/build_mt2009_server_update.py --previous prev/server.zip --out out
+          python3 tools/build_mt2009_client_update.py --previous prev/client.zip --since "$CLIENT_SINCE" --out out
+          ls -la out
+
+      - name: Manifest
+        env:
+          SERVER: ${{ steps.v.outputs.server }}
+          CLIENT: ${{ steps.v.outputs.client }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          set -euo pipefail
+          python3 - <<'EOF'
+          import datetime, hashlib, json, os
+          repo, tag = os.environ['GITHUB_REPOSITORY'], os.environ['TAG']
+          server, client = os.environ['SERVER'], os.environ['CLIENT']
+          base = 'https://github.com/%s/releases/download/%s/' % (repo, tag)
+          def sha(p):
+              return hashlib.sha256(open(p, 'rb').read()).hexdigest().upper()
+          path = 'update-manifest-mt2009.json'
+          raw = open(path, 'rb').read()
+          m = json.loads(raw)
+          m['publishedAt'] = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+          m['server'].update(version=server, url=base + 'metin2-server-update-%s.zip' % server,
+                             sha256=sha('out/metin2-server-update-%s.zip' % server))
+          m['client'].update(version=client, url=base + 'metin2-client-update-%s.zip' % client,
+                             sha256=sha('out/metin2-client-update-%s.zip' % client))
+          out = json.dumps(m, indent=2, ensure_ascii=False) + '\n'
+          if b'\r\n' in raw:
+              out = out.replace('\n', '\r\n')
+          open(path, 'w', encoding='utf-8', newline='').write(out)
+          EOF
+          python3 tools/check-manifest-points-at-release.py "$SERVER"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add update-manifest-mt2009.json
+          git commit -m "chore(release): manifest hashes for $SERVER / client $CLIENT"
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
+      - name: Release
+        env:
+          SERVER: ${{ steps.v.outputs.server }}
+          CLIENT: ${{ steps.v.outputs.client }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          set -euo pipefail
+          awk -v v="$SERVER" '
+            index($0, "## " v " ") == 1 { on = 1 }
+            on && /^## / && index($0, "## " v " ") != 1 { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md
+          # Created as a draft, the files uploaded on their own, and published only
+          # once both are there with their sizes: the first run's one-call create
+          # published a release with no files and reported success.
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" \
+            --title "$SERVER (klient $CLIENT)" --notes-file notes.md --draft
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
+            "out/metin2-server-update-$SERVER.zip" "out/metin2-client-update-$CLIENT.zip"
+          for f in "metin2-server-update-$SERVER.zip" "metin2-client-update-$CLIENT.zip"; do
+            want=$(stat -c %s "out/$f")
+            got=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+                  --jq ".assets[] | select(.name == \"$f\") | .size")
+            echo "$f: local $want, release ${got:-missing}"
+            [ "$got" = "$want" ] || { echo "::error::$f did not reach the release"; exit 1; }
+          done
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
