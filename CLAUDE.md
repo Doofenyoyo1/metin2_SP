@@ -106,7 +106,7 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_itemshop.h` | The 2.x line's in-game ItemShop: the Kupon SM vouchers cashed, the account's Dragon Coins and Marks, and the few things a bot buys with them. Empty on r40250. |
 | `playerbot_market.h` | Buying from another bot's counter: what is worth having, the walk to the stall, and the purchase. |
 | `playerbot_chat_trade.h` | Trading over the chat: what a bot shouts about its counter and its wants, and the whisper it answers a player's "Kupie"/"Sprzedam" with. Fed by patch 0007. Anything else whispered falls through to the conversation. |
-| `playerbot_conv_*.h` | ĹŌŞƬĒĶ's conversation layer as pure code (text, lexicon, intents, memory, state, say, general, generator, engine): what a whisper means, what the bot remembers of the person, and the reply. No engine types, unit-tested (`tests/playerbot_conversation_test.cpp`). Included by the next row only. |
+| `playerbot_conv_*.h` | ĹŌŞƬĒĶ's conversation layer as pure code (text, aliases, lexicon, intents, memory, state, say, general, generator, engine): what a whisper means, what the bot remembers of the person, and the reply. `playerbot_conv_aliases.h` is the players' own words (FMS, KK, KD, bodzio; M1, V1, DT; 2kk) and is also included by `playerbot_chat_trade.h`. No engine types, unit-tested (`tests/playerbot_conversation_test.cpp`). Included by the next row only. |
 | `playerbot_chat_conversation.h` | The conversation's engine side: the snapshot of the bot it answers from, the whisper packet, the short timer while replies wait. After status.h. |
 | `playerbot_loot.h` | Picking things up, in and out of a fight, without sweeping the floor. |
 | `playerbot_lure_order_rules.h` | What a person's whisper to a bot means: "luruj" and "przestan lurowac". No engine types, unit-tested. Included first, with the other rules headers. |
@@ -1456,6 +1456,33 @@ not in `data/`) reworked these point by point. What each hangs on:
   reported that as "OK: Docker Engine odpowiada (wersja Error response...)",
   which also suppressed the WSL remedy - it is only raised when the engine is
   known to be down. A version is digits and dots.
+- **An engine that answers is not an engine that can build.** Docker Desktop
+  keeps images, the build cache and every volume on one ext4 disk inside
+  `docker_data.vhdx`, ext4 answers its first I/O error by remounting itself
+  read-only, and `docker info` goes on answering. pattsito (23 September), a
+  fresh install: 17 seconds into its first build buildkit said `input/output
+  error` about its own database and containerd `read-only file system`; every
+  build after that said only `failed to solve: exit code: 255`, which no
+  guidance rule can read, so the dialog said "run Diagnostics" and Diagnostics
+  said "mozna uruchomic serwer". Five update clicks in forty minutes each
+  downloaded and applied the same 47.8 MB with a backup of 7 042 files,
+  because a pending build masks the installed server as "unknown" - and
+  Save-State, reading through that mask, wrote "unknown" over the client
+  version a client update had just recorded. Now `Get-M2DockerDiskFault`
+  writes to that disk (a labelled volume, created and removed) in the
+  preflight, before an update touches a file and before every build, and
+  names the daemon's own words; the preflight warns under 15 GB free on the
+  drive holding Docker's disk (`Get-M2DockerDataLocation`:
+  `customWslDistroDir`/`dataFolder` in Docker's settings, else
+  `%LOCALAPPDATA%\Docker\wsl`) and only warns, because a disk image that grew
+  before has room of its own that no Windows number shows; `Update-Server`
+  finishes a pending build of the version on offer without downloading it;
+  `Read-State` masks the server alone; the bundle carries `disk-space.txt`.
+  The same bundle put his panel password on a public channel:
+  `Protect-M2LogContent` knew English "password=" and nothing of the Polish
+  lines the launcher prints (`tests/launcher_log_redaction_test.ps1`). And
+  the remedy's own `wsl --shutdown` must end its line: the guidance reads
+  whole outputs, and "wsl" followed on one line by "error" is the WSL rule's.
 - **Yang goes straight to the purse, for everybody, by patch 0010.**
   `CHARACTER::RewardGold` gave a kill's yang to the killer only with the
   premium or `IsEquipUniqueGroup(UNIQUE_GROUP_AUTOLOOT)` (72016..72018 on
@@ -5090,6 +5117,29 @@ not in `data/`) reworked these point by point. What each hangs on:
   error; no player dialog was driven. The bots' Biologist and stable keeper
   are the AI's own code and never waited (Drip's "z harda na easy nieeee",
   16 September).
+- **The skill books' wait joined the difficulty, one number for the players
+  and one for the bots.** The package waited twenty-one hours between two
+  books of one skill; 2.0.12 made that none (`SKILLBOOK_LEARN_DELAY = 0`),
+  which left the Exorcism Scroll with nothing to do (drip9660, 23
+  September). `m2_book_wait` (seconds) is the players': the engine asks it
+  at every read (`M2SkillBookLearnDelay`, playerbotify `apply_book_wait`,
+  the riding guide included) and a read waits at most that long from now
+  (`M2SkillBookReadAt`), so a lowered wait applies to the next book, not the
+  next day. `m2_bot_book_wait` is the bots' and replaces the BOOKS switch on
+  this line (`GetPlayerBotBookWaitSeconds`; `IsPlayerBotFastBooksEnabled` is
+  "it is zero"): the engine writes the players' number at a bot's read and
+  the AI writes the bots' over it at once (`NotePlayerBotBookRead`), clamps
+  it when the number is lowered (`ClampPlayerBotBookWait`), and spends a
+  bot's Exorcism affect itself when only the bots' wait stood in the way -
+  the engine spends one only against its own wait, and a scroll left on a
+  bot would wave every wait after it. The presets carry 7 h (medium) and
+  21 h (hard) for both. The classic panel's difficulty card (/rates) writes
+  all eight flags and makes them live through web_admin's `DIFFICULTY`, and
+  the migrator applies .env only when it changed since the last start
+  (`m2_difficulty_env` holds a checksum of what it said), so whichever was
+  changed last - the launcher or the panel - is what the world keeps.
+  Measured on m2zip: a panel save answered `done` from the game within the
+  twelve seconds and the flags stood in `player.quest`.
 - **A timed event is a file the panel writes and one core acts on.**
   `playerbot_event_rules.h` (pure, unit-tested) reads
   `/opt/m2spool/playerbot_events.tsv` - weekly windows by kind (chest, exp,
@@ -7357,7 +7407,7 @@ not in `data/`) reworked these point by point. What each hangs on:
   pure (no engine types) and bounded - 4096 pairs of person and bot, six
   queued lines a pair, four remembered turns, 256 bytes of input, a pair
   forgotten three hours after its last line - and `tests/playerbot_conversation_test.cpp`
-  runs it (400 checks). `playerbot_chat_conversation.h` is the only file that
+  runs it (505 checks since 1.1b). `playerbot_chat_conversation.h` is the only file that
   knows the engine: it looks the bot and the person up by pid every time it
   answers and never holds a character across ticks, sends the raw whisper
   packet, and runs its own event only while a reply is waiting (it returns 0
@@ -7365,13 +7415,33 @@ not in `data/`) reworked these point by point. What each hangs on:
   "Kupie"/"Sprzedam" line as a shout, as before, and hands everything else -
   and a trade line inside the eight-second trade clock, which used to vanish -
   to `HandlePlayerBotConversation`. The layer reads the AI and writes nothing
-  to it. Two things we changed: **on the 2.x line a bot's counter is an
-  offline shop, so `GetMyShop()` answered "no stall" for every bot** - the
-  snapshot reads the ikashop shop into `shopTown`/`shopSummary` and
-  `AnswerBuy` searches its lines; `shopOpen` stays false for one, because
-  every line that reads it means "I am standing at my stall" and such a
-  keeper is out hunting - and the bag's free cells are the item grid's, not
-  the empty pointers. Runtime switches are files in the core's working
+  to it. **On the 2.x line a bot's counter is an offline shop, so
+  `GetMyShop()` answered "no stall" for every bot**; 1.1b (the same day) has
+  one reader for both kinds, `GetPlayerBotStall` in `playerbot_chat_trade.h`
+  (the classic stall's `vecShopOffers`, or `ikashop::GetShopByOwnerID` - its
+  lines, prices and spawn), which the shout answer, the whisper fallback, the
+  snapshot and the price question all ask. In the snapshot `shopOpen` means a
+  stall of either kind and `shopStanding` the classic one the bot stands
+  behind - a line that says "I am standing here" must ask the second. Item
+  names go through `playerbot_conv::ExpandItemQuery` everywhere, so an alias
+  means the same thing in a whisper and on the shout channel. What we added
+  to 1.1b: the free cells are the item grid's, not the empty pointers (their
+  build still counts pointers - put it back at every merge); a two-letter
+  shout query is refused unless it is a dictionary word ("Kupie KK"); the
+  "Sprzedam" path asks the dictionary too; a named sum is capped before it can
+  overflow; and three things the live test found. **An alias word inside a
+  real name**: 1.1b dropped the query as typed whenever one of its words was
+  an alias (so "morelek" would not stem into "Moreli"), and "szpon" is an
+  alias, so "Kupie szpon wilka" went unanswered beside a counter selling
+  Szpon Wilka - the query as typed is kept now with its alias words marked
+  '=', which `ItemWordsMatch` wants whole (`HasWholeWord`). **"Kupie ksiega
+  X"** where X is no skill is searched as a name ("ksiega misji"), where it
+  was dropped without a log line. And "gdzie" is a skip word of
+  `ExtractTradeObject`, or "gdzie masz stragan?" searched the stall for an
+  item called "gdzie masz stragan". Left to the author, measured with the
+  self-test: "ksiega misji", "marmur polimorfii", "kamien duchowy" and
+  "ku strach" land in the skills, Metin and fear topics, and "dam 500k za X"
+  has no rule. Runtime switches are files in the core's working
   directory, read every thirty seconds: `playerbot_conv_debug` (the
   `PLAYERBOT_CONV`, `_QUEUE`, `_REPLY`, `_INITIATIVE` lines) and
   `playerbot_conv_noinit` (no bot starts a conversation). `PLAYERBOT_CONV_STATS`
@@ -7385,6 +7455,68 @@ not in `data/`) reworked these point by point. What each hangs on:
   bot began itself, no core died, and the tick at 7.0 s of 60 against 6.5 to
   6.9 before. Never watched with a person whispering: the test world has
   none, and the author runs it on their own.
+- **A full package is built from an installation, and an installation keeps
+  secrets beside its files.** The 2.0.71, 2.0.85 and 2.0.86 full packages
+  carried the test client's saved logins (`Klient/cache/credentials.json`,
+  the login window's "save account": passwords XORed with a key made from the
+  machine's MAC address and base64'd, so readable by anybody who guesses the
+  MAC), and 2.0.85/86 two copies of the test world's `.env`
+  (`.env.last-good`, `.env.bak-2.0.39`: the database, panel and session
+  passwords). The builders left out `.env` by its exact name only, and the
+  client's `credentials.json` only in the repository's script - not in the
+  session script the packages were actually made with. Both now leave out
+  every `.env*` but `.env.example`, the client's saved logins, its COOP entry
+  (`coop.cfg`), Auto Lowy's settings and the title switch, and both refuse a
+  package whose finished staging or zip still holds a file of that shape
+  (the scan in `linux-port-mt2009/tools/New-M2FullPackage.ps1`). Check a
+  full package's names against that shape before it goes anywhere. Found
+  answering Kordyl13 (23 September), whose VPS had followed the 1.x
+  `installer/install.sh` into `/opt/metin2/stack` and stopped at
+  `COPY schema/`: `docs/INSTALL.md` now opens with the 2.x line (the package
+  and `sh linux-port/tools/update.sh`), and the 2.x `.env.example` says what
+  the code does - on this line the classic panel opens without a passphrase
+  on any address while `M2_PANEL_LOCAL_ONLY` is empty, and the advanced one
+  starts with its own switch off, so a VPS keeps both on 127.0.0.1.
+- **A language pack is code the client runs: every text is a format, and the
+  loader cuts the last character of every line.** "Nothing happens when I put
+  the item on the blacksmith, and then the whole inventory is bugged" (JFK and
+  zhask9431, 23 September) was REFINE_COST "Kosten: %d Yang" in DE, ES, IT,
+  PT, RO and TR against `NumberToMoneyString`'s "1.000 Yang":
+  `RefineDialogNew.Open` raised before `Show()`, while the server had entered
+  refine mode (`SetRefineMode`) the moment it sent the dialog - and
+  `CanHandleItem` refuses every move, drop, use and gift under it until the
+  client answers with a refine or the cancel (255, 255), which a window that
+  never opened cannot send. Relog was the only way out. Three layers now:
+  `port/localeify.py` renders the fixed texts into `client-locale/locale/<lang>/`
+  and refuses to write while any text of any language fails to format with the
+  arguments its Polish counterpart takes (89 did, in seven languages - the
+  yang pickup, the screenshot line, the item shop's buy button, the stat minus
+  tooltips, the guild's dragon ghost, a fish's length, the party skills, and
+  "%,0f", which is no conversion at all); clientrootify's `uirefine.py` sends
+  the cancel when `Open` raises, so the next bad text costs a window and not a
+  bag; and `apply_refine_abandoned_session` (playerbotify) ends a session whose
+  refine NPC is gone, on another map or beyond the 2000 units
+  `CInputMain::Refine` allows, the first time `CanHandleItem` is asked - so a
+  player with an old client walks away from the blacksmith and has the bag
+  back. A scroll's session has no NPC and is untouched. Two more things the
+  same check found. `localeinfo.LoadLocaleFile` takes `line[:-1]`, and the
+  pack's `readline` hands the last line over without a newline when the file
+  does not end in one: es/locale_game.txt did not, its last type "SNA" came out
+  "SN", the loader raised and a Spanish client stopped with a message box
+  before the login. And `english_gui.GAME` went on with `globals().update`,
+  which put plain strings over typed lines (SNA/SA are functions the scripts
+  call), so `WHISPER_ERROR[mode](name)` was "'str' object is not callable" in
+  English; the overlay keeps a typed line a function now. The locale pack is
+  rendered from the last published one: extract it, run `localeify.py
+  --locale <dir>`, repack with `client-locale` as the overlay, and run
+  `tests/client_locale_loader_test.py <client-root> <extraction with
+  client-locale over it>` under Python 2.7 - it loads every language through
+  the client's own loader and formats the call sites the root formats.
+  NPC names over the heads are not the client's to translate: the server sends
+  an NPC's name (the Polish `mob_proto`) in the character packet, and only
+  monsters are named from `locale/<lang>/mob_names.txt`, which is why an
+  English player sees "Kowal" and a "Blacksmith" nobody reads sits in the EN
+  pack. Naming NPCs from it would be an exe change.
 
 
 ## Engine facts worth not re-deriving
@@ -7658,3 +7790,22 @@ port, the container scripts and the database bootstrap are its own. Read
 renders which file, why the player's tree is still called `linux-port` (the
 `ENGINE` marker), and what the overlay does differently under
 `PLAYERBOT_ENGINE_MT2009` (`playerbot_engine_compat.h`).
+
+## Upstream sync and releases
+
+This repository started as a copy of an upstream project that still releases
+on its own. `sh tools/sync-upstream.sh` brings its new commits in as one
+change (never its commit history), re-points its repository links here, and
+updates `tools/upstream-sync.json`: the last upstream commit synced and the
+upstream server package whose engine files match this tree's port scripts.
+Those engine files are not in git, so a release must take them from that
+package - the publish workflow (`.github/workflows/publish-mt2009-release.yml`)
+does, and packing them from an older package pairs new bot code with an old
+engine and the players' build fails. After a sync, keep COOP ungated (the
+upstream never gated it in code the sync touches, but check
+`launcher/Metin2Launcher.Coop.psm1`), and number the release above both
+lines: this repository went 2.0.98/client 2.0.27, upstream 2.1.0/client
+2.0.26, the merge is 2.1.1/client 2.0.28. An upstream `## x.y.z` CHANGELOG
+section whose number this repository already used moves under the new
+section, because the panel shows only sections newer than the installed
+version.

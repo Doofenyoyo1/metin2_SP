@@ -17,6 +17,193 @@ every version here.
 
 ---
 
+## 2.1.1 — 2026-09-23
+
+Serwer 2.1.1 i klient 2.0.28. W launcherze ZAINSTALUJ AKTUALIZACJE, potem
+AKTUALIZUJ KLIENTA.
+
+Ta wersja przenosi na naszą 2.0.98 wszystkie zmiany z projektu źródłowego,
+z jego wersji 2.0.98, 2.0.99 i 2.1.0: czat z botami 1.1b, kowala
+i zablokowany ekwipunek w sześciu językach, czas czekania na księgi
+umiejętności w poziomie trudności (także w panelu WWW), launcher, który
+rozpoznaje zepsuty dysk Dockera i nie pokazuje haseł w paczce z logami.
+Sekcje 2.1.0 i 2.0.99 poniżej opisują je tak, jak wyszły tam; numery klienta
+w nich (2.0.26) to numeracja projektu źródłowego, u nas te zmiany są
+w kliencie 2.0.28. Hostowanie w COOP zostaje bez hasła, a linki prowadzą
+dalej do naszego repozytorium.
+
+### Z projektu źródłowego: jego wersja 2.0.98
+
+Serwer 2.0.98 i klient 2.0.26. **Zaktualizuj też klienta** („AKTUALIZUJ
+wszystko” w launcherze). Kto gra po niemiecku, hiszpańsku, włosku,
+portugalsku, rumuńsku albo turecku, bez nowego klienta nie ulepszy przedmiotu
+u kowala. Zawiera wszystko z 2.0.97.
+
+#### Kowal i zablokowany ekwipunek w innych językach niż polski
+
+Po oddaniu przedmiotu kowalowi nic się nie działo, a potem nie dało się ruszyć
+w ekwipunku niczego: przesunąć, wyrzucić, użyć. Pomagało dopiero ponowne
+zalogowanie. Zgłosili to gracze z kanału angielskiego („nothing happens when
+I put the item on him”). Dotyczyło to wszystkich grających po niemiecku,
+hiszpańsku, włosku, portugalsku, rumuńsku i turecku.
+
+Przyczyna: w tych językach tekst „koszt ulepszenia” w pakiecie tłumaczeń
+oczekiwał liczby, a gra podaje kwotę jako tekst („1.000 Yang”). Okno kowala
+wywracało się, zanim się pokazało. Serwer w tym czasie czekał już na
+odpowiedź z tego okna i blokował cały ekwipunek.
+
+- **Klient 2.0.26 ma poprawione teksty we wszystkich językach.** Sprawdziliśmy
+  cały pakiet tłumaczeń tak, jak czyta go gra, i poprawiliśmy 89 tekstów
+  w siedmiu językach, także angielskim. Każdy z nich mógł wywrócić jakieś
+  okno albo komunikat: podnoszenie yang, zrzut ekranu, przycisk kupna
+  w ItemShopie, cofanie punktów statystyk, odnawianie Ducha Smoka w gildii,
+  długość ryby, umiejętności drużyny, sprzedaż kilku sztuk u handlarza.
+- **Okno kowala nie zablokuje już ekwipunku.** Jeśli mimo wszystko się nie
+  otworzy, klient sam anuluje ulepszanie, więc serwer odblokowuje ekwipunek.
+  Koszt i szansa pokażą się wtedy jako zwykłe liczby.
+- **Po stronie serwera:** kto odejdzie od kowala dalej niż 20 metrów, odzyskuje
+  ekwipunek, nawet ze starym klientem. Dopóki ktoś nie zaktualizuje klienta,
+  wystarczy odejść od kowala, bez wylogowywania.
+- **Klient po hiszpańsku w ogóle się nie uruchamiał.** W hiszpańskim pliku
+  tłumaczeń brakowało znaku końca ostatniej linii. Gra obcinała przez to
+  ostatnią literę i przed ekranem logowania pokazywała błąd. Poprawione.
+- Po angielsku: szept do osoby, którą masz zablokowaną, pokazuje teraz
+  komunikat zamiast błędu w tle.
+
+#### Launcher nie przycina się przy zmianie rozmiaru okna
+
+Przeciąganie krawędzi nowego okna launchera było bardzo powolne: przy każdym
+ruchu myszy okno przeliczało i od nowa rysowało tło oraz wszystkie przyciski.
+Tło jest teraz przygotowane raz dla danego rozmiaru, a układ przelicza się
+dopiero po puszczeniu krawędzi. W naszym pomiarze jeden krok przeciągania trwa
+teraz około 29 ms zamiast 378 ms. Wygląd okna jest taki sam jak wcześniej.
+
+#### Czat z botami 1.1b — ĹŌŞƬĒĶ (l0st3k)
+
+Druga wersja systemu rozmów od **ĹŌŞƬĒĶ (l0st3k)**, wydana dzień po pierwszej.
+
+- **Bot wie, co ma na straganie.** Zapytany o przedmiot, który ma wystawiony
+  (na przykład „masz ku aura miecza?”), odpowiada, że go ma, w którym mieście
+  stoi sklep i za ile. Dotyczy to też sklepu offline, a na tej linii serwera
+  każdy stragan bota jest sklepem offline. Wersja 1.1a przeszukiwała tylko
+  zwykłe stragany i na takie pytanie odpowiadała, że nic nie ma.
+- **Słownik metinowca.** Bot rozumie skróty, którymi piszą gracze: KK (Kawałek
+  Klejnotu), KD (Kamień Duszy albo Kamień Duchowy), KU (księga umiejętności),
+  FMS, RIB, 12D, bodzio, ebo, PD i inne. Rozumie też nazwy map (M1, M2, M3,
+  V1, V2, DT, Sohan, Czerwony Las) i kwoty (500k, 2kk, 1,5kk, 300 tys).
+- **Ceny i targowanie.** Na „ile chodzi FMS?” bot podaje najniższą cenę
+  z wystawionych straganów, a gdy nikt tego nie wystawia, cenę, za którą
+  ostatnio się sprzedawało. Na „sprzedasz mi FMS za 2kk?” porównuje ofertę
+  ze swoją ceną: zgodzi się, powie, że to za mało, albo że na straganie stoi
+  taniej.
+- **Wołaj.** Gdy na Wołaj napiszesz „Kupię …”, na priv odpisze bot, który ma
+  to na straganie. Teraz dotyczy to także sklepów offline i skrótów ze słownika
+  („Kupię FMS”, „Kupię KK”). Na „Sprzedam …” odzywa się bot, który tego
+  potrzebuje, i on również rozumie skróty.
+- Krótkie zwroty z gry: gz, gl, brb, gotowy, „ksujesz”.
+
+Nasze poprawki do wersji autora, znalezione w teście na żywo:
+
+- Nazwa przedmiotu, w której jest słowo ze słownika, znów działa. „Szpon”
+  to w słowniku Miecz Szponu Ducha i przez to „Kupię szpon wilka” zostawało
+  bez odpowiedzi, choć bot miał Szpon Wilka na straganie.
+- „Kupię księgę misji” na Wołaj jest szukane jak zwykły przedmiot. Wcześniej
+  „księga” oznaczała wyłącznie księgę umiejętności, a taka linia przepadała
+  bez śladu.
+- Na „gdzie masz stragan?” bot mówi, gdzie ma stragan, zamiast szukać na nim
+  przedmiotu o nazwie „gdzie”.
+- Dwuliterowe skróty („Kupię KK”) przechodzą przez Wołaj, a „Sprzedam …”
+  korzysta ze słownika.
+- Wolne miejsca w plecaku są liczone tak jak w grze, a absurdalnie duża kwota
+  w targowaniu nie psuje rachunku.
+
+Sprawdzone na naszym serwerze testowym przy około 850 botach. W dwóch
+przebiegach boty zadały sobie ponad 900 pytań, także o przedmioty, które
+naprawdę stoją na ich straganach. Po poprawkach wszystkie 35 wołań „Kupię …”
+dostało odpowiedź od bota, który ma dany przedmiot. Odpowiedź na wołanie
+zajmuje serwerowi około 2 ms, a żaden rdzeń nie padł.
+
+Czego bot jeszcze nie rozumie: pytanie „masz księgę misji?”, „masz marmur
+polimorfii?” albo „masz kamień duchowy?” bierze za rozmowę o umiejętnościach
+albo o Metinach. Działa skrót („masz km?”, „masz kd?”) i wołanie „Kupię …”.
+
+---
+
+## 2.1.0 — 2026-09-23
+
+Serwer i launcher; klient zostaje 2.0.26. Zawiera wszystko z 2.0.99.
+
+**Kto ma ustawiony poziom trudności średni albo trudny:** od tej wersji ten
+poziom obejmuje też księgi umiejętności (7 h albo 21 h czekania między
+dwiema księgami tej samej umiejętności, dla graczy i dla botów). Jeśli tego
+nie chcesz, wybierz poziom „Własny” i wpisz przy księgach 0. Na poziomie
+łatwym, domyślnym, nic się nie zmienia.
+
+### Czas czekania na księgi umiejętności w poziomie trudności
+
+Od 2.0.12 każdą kolejną księgę dało się przeczytać od razu, więc Zwój
+Egzorcyzmu nie miał nic do roboty. Teraz czas między dwiema księgami tej
+samej umiejętności jest częścią poziomu trudności, osobno dla graczy
+i osobno dla botów (pomysł drip9660):
+
+- **łatwy**: bez czekania, jak dotąd;
+- **średni**: 7 godzin;
+- **trudny**: 21 godzin, tak jak w oryginalnej grze;
+- **własny**: dowolna liczba godzin, osobno dla graczy i dla botów
+  (0 = od razu, ułamki dozwolone).
+
+Zwój Egzorcyzmu pomija to czekanie, także botom, które mają go w plecaku.
+Obniżony czas działa od razu: nikt nie czeka dłużej, niż mówi aktualne
+ustawienie. Ten sam czas obowiązuje przy Instrukcji Jazdy Konnej, tak jak
+w oryginale.
+
+### Poziom trudności w panelu WWW
+
+- **Panel WWW ma kartę „Poziom trudności”** (strona z mnożnikami serwera):
+  Biolog, Stajenny i księgi graczy oraz botów. Zmiana działa od razu, gdy
+  ktoś jest w grze, i zostaje po restarcie serwera, dopóki nie zmienisz
+  poziomu trudności w launcherze. Obowiązuje to ustawienie, które
+  zmieniono ostatnio.
+- **Okno poziomu trudności w launcherze ma dwa nowe pola**: księgi graczy
+  i księgi botów.
+- Przełącznik „Księgi umiejętności bez dobowej przerwy” na stronie AI
+  zastąpił czas dla botów w poziomie trudności.
+- Poprawione: w oknie poziomu trudności godziny z ułamkiem (np. 0,5)
+  pokazywały się jako 0, a „Zastosuj” zapisywało to 0.
+
+## 2.0.99 — 2026-09-23
+
+Tylko serwer i launcher; klient zostaje 2.0.26. Zawiera wszystko z 2.0.98 projektu źródłowego (opisane przy 2.1.1).
+
+### Launcher rozpoznaje zepsuty dysk Dockera
+
+Gdy Docker Desktop przy budowaniu serwera trafi na błąd zapisu, jego dysk
+(plik docker_data.vhdx) przełącza się w tryb tylko do odczytu. Od tej chwili
+każda próba kończyła się „kodem 1”, a Diagnostyka mówiła, że można uruchomić
+serwer. Zgłosił to gracz, który w ten sposób pięć razy pobrał i podmienił tę
+samą aktualizację.
+
+- **Launcher sprawdza, czy da się zapisać na dysku Dockera**: w Diagnostyce,
+  przed aktualizacją i przed każdym budowaniem. Gdy się nie da, mówi to wprost
+  i podaje kroki naprawy, a aktualizacji w ogóle nie pobiera.
+- **Diagnostyka ostrzega, gdy na dysku z Dockerem zostało mniej niż 15 GB
+  wolnego miejsca.** Brak miejsca to najczęstsza przyczyna takiego błędu.
+- **Ponowna aktualizacja tylko dokańcza budowanie.** Gdy pliki nowej wersji
+  są już na dysku, a budowanie się nie udało, launcher nie pobiera ich
+  drugi raz i nie robi kolejnej kopii plików.
+- **Launcher nie gubi zapisanej wersji klienta**, gdy budowanie serwera nie
+  doszło do końca. Wcześniej proponował potem aktualizację klienta, który
+  był już aktualny.
+
+### Paczka z logami
+
+- **Nie zawiera hasła do panelu WWW.** Launcher wypisuje je po polsku, a
+  filtr haseł rozpoznawał tylko angielskie wpisy. Panel działa domyślnie
+  tylko na Twoim komputerze, więc nikt z zewnątrz nie mógł go użyć, ale
+  hasło nie powinno trafiać do plików, które wysyła się innym.
+- **Zawiera informację o wolnym miejscu na dyskach** i rozmiarze dysku
+  Dockera, bo przy takich błędach to pierwsze pytanie.
+
 ## 2.0.98 — 2026-09-23
 
 Serwer 2.0.98 i klient 2.0.26. W launcherze ZAINSTALUJ AKTUALIZACJE, potem

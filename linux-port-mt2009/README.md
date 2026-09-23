@@ -124,8 +124,19 @@ was published from, and keeps its `metin2client.exe`. The workflow
 `.github/workflows/publish-mt2009-release.yml` runs both, publishes the release
 `v<VERSION>` and commits the hashes into `update-manifest-mt2009.json` on the
 branch it ran from; merge that branch into `main` after the release exists,
-because the launcher reads the manifest from `main`. Before the next run, set
-its inputs to this release's packages and commit.
+because the launcher reads the manifest from `main`. The workflow reads what to
+build from the version files against the manifest, so a release is a version
+bump, a push and "Run workflow" on the Actions tab.
+
+The project this repository came from keeps its own releases, and its changes
+are brought in with `sh tools/sync-upstream.sh`: it applies everything upstream
+committed since `synced_commit` in `tools/upstream-sync.json`, points its links
+at this repository, records the new commit and the upstream release whose
+server package supplies the engine files the port scripts produce (the release
+workflow takes them from there), and lists the conflicts and any added line
+naming upstream's people or places. It commits nothing; resolve, set both
+version files above this repository's and upstream's numbers, add the
+CHANGELOG section, commit, push, run the workflow.
 
 and the launcher tells the two apart by `linux-port\docker\ENGINE`
 (`Get-M2ServerEngine`). Engine-specific in the launcher: the dumps a world is

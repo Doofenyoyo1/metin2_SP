@@ -83,6 +83,10 @@ services:
       M2_DIFFICULTY: "${M2_DIFFICULTY:-easy}"
       M2_BIOLOGIST_WAIT_HOURS: "${M2_BIOLOGIST_WAIT_HOURS:-0}"
       M2_HORSE_WAIT_HOURS: "${M2_HORSE_WAIT_HOURS:-0}"
+      # The waits between two skill books, players' and bots' (custom only;
+      # the presets carry their own).
+      M2_BOOK_WAIT_HOURS: "${M2_BOOK_WAIT_HOURS:-0}"
+      M2_BOT_BOOK_WAIT_HOURS: "${M2_BOT_BOOK_WAIT_HOURS:-0}"
       # The rates a fresh world starts on, as event flags written before
       # the cores come up (apply.sh). A world that has been set from the
       # panel keeps what the panel said; these reach only a world whose
@@ -450,7 +454,7 @@ services:
       # server it is actually looking at rather than "nieustawiona".
       # The default is bumped with every release, so a world nobody has
       # configured still reports the version it is actually running.
-      PLAYERBOTS_VERSION: "${M2_PLAYERBOTS_VERSION:-2.0.98}"
+      PLAYERBOTS_VERSION: "${M2_PLAYERBOTS_VERSION:-2.1.1}"
       TZ: "${M2_TZ:-UTC}"
     ports:
       # 7790 outside: 7789 is the browser bridge's port in this stack.

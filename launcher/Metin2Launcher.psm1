@@ -1039,6 +1039,30 @@ function Protect-M2LogContent {
         $safe,
         '(?is)(ADMIN PANEL PASSWORD[^\r\n]*\r?\n\s*\r?\n\s*)[^\r\n]+',
         '$1<redacted>')
+    # And the launcher's own lines, which are Polish and which the rules above
+    # could not read: start-server.ps1 prints a freshly made panel password as
+    # "Haslo do panelu administracyjnego: <it>", under a heading "HASLO DO
+    # PANELU WWW" with the password alone a line or two below, and the
+    # password button prints it below "Haslo do panelu WWW (...):". The GUI's
+    # session log keeps every such line, and pattsito's bundle carried his
+    # panel password onto a public channel on 23 September. [ \t] and not \s
+    # where the value must be on the same line: \s crosses into the next
+    # line's timestamp. A heading is a line that ends in ")" or ":" - the line
+    # that carries the password itself ends in the password - and .NET's $
+    # stands before \n alone, so a CRLF line ends at \r?$.
+    $safe = [Regex]::Replace(
+        $safe,
+        '(?im)(has[lł]o do panelu[^\r\n]*[):][ \t]*\r?\n(?:[ \t]*\r?\n)*(?:\d{4}-\d\d-\d\d \d\d:\d\d:\d\d  )?[ \t]*)(\S+)(?=[ \t]*\r?$)',
+        '$1<redacted>')
+    $safe = [Regex]::Replace(
+        $safe,
+        '(?im)(\bhas[lł]o\b[^\r\n:]{0,80}:[ \t]*)([^\s,;]+)',
+        '$1<redacted>')
+    # A friend's account line from the COOP actions: "login X, haslo Y".
+    $safe = [Regex]::Replace(
+        $safe,
+        '(?i)(\bhas[lł]o[ \t]+)([^\s,;:)]{6,})',
+        '$1<redacted>')
     $safe = [Regex]::Replace(
         $safe,
         '(?i)(\b(?:mysql|mariadb)://[^:\s/]+:)[^@\s/]+(@)',
@@ -1069,7 +1093,13 @@ function Invoke-M2CapturedCommand {
 }
 
 function New-M2SupportBundle {
-    param([Parameter(Mandatory = $true)][string]$ServerRoot)
+    param(
+        [Parameter(Mandatory = $true)][string]$ServerRoot,
+        # Text files the caller made, by name - what another module knows
+        # (the disk report is the diagnostics module's), without this one
+        # reaching into it.
+        [hashtable]$ExtraFiles = @{}
+    )
 
     $root = [IO.Path]::GetFullPath($ServerRoot).TrimEnd('\')
     $outputDir = Join-Path $root 'support-bundles'
@@ -1105,6 +1135,11 @@ function New-M2SupportBundle {
         }
         $summary = $summary -join [Environment]::NewLine
         [IO.File]::WriteAllText((Join-Path $work 'summary.txt'), $summary, [Text.UTF8Encoding]::new($false))
+        foreach ($extra in @($ExtraFiles.Keys)) {
+            $extraName = [IO.Path]::GetFileName([string]$extra)
+            if (-not $extraName) { continue }
+            [IO.File]::WriteAllText((Join-Path $work $extraName), [string]$ExtraFiles[$extra], [Text.UTF8Encoding]::new($false))
+        }
 
         $versionFile = Join-Path $root 'VERSION'
         if (Test-Path -LiteralPath $versionFile -PathType Leaf) {
