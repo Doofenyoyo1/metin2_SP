@@ -114,6 +114,19 @@ always carried the full map; this text is what a release was typed from, so
 the two are kept identical, and the packager now refuses a server package with
 no `VERSION` at its root.
 
+A release can also be built without Windows. `tools/release/build_mt2009_server_update.py`
+builds the same package from a clean `git archive HEAD` with the same list and
+map, taking what git does not track (the staged engine, the panel's context)
+from the previous release's package; `tools/release/build_mt2009_client_update.py`
+repacks `root` and `locale` from the previous client package with only what
+changed in `client-root/` and `client-locale/` since the commit that client
+was published from, and keeps its `metin2client.exe`. The workflow
+`.github/workflows/publish-mt2009-release.yml` runs both, publishes the release
+`v<VERSION>` and commits the hashes into `update-manifest-mt2009.json` on the
+branch it ran from; merge that branch into `main` after the release exists,
+because the launcher reads the manifest from `main`. Before the next run, set
+its inputs to this release's packages and commit.
+
 and the launcher tells the two apart by `linux-port\docker\ENGINE`
 (`Get-M2ServerEngine`). Engine-specific in the launcher: the dumps a world is
 made from (`world.sql` instead of `hotbackup.sql`), the r40250 engine patches
