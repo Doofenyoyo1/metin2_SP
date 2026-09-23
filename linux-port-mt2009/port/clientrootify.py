@@ -190,8 +190,9 @@ EDITS = {
          b'\t\t\t"type" : "open_url",\r\n\t\t\t"value" : "https://github.com/Doofenyoyo1/metin2_SP"\r\n'),
         # The mounts: the shop window shows a category as a range of the
         # shop's own item indexes, and the migrator (apply.sh, "ItemShop
-        # mounts") lists the world's mount costumes at 701-799, a range no
-        # category read. After the hairstyles, the other thing a player wears
+        # mounts") lists the world's ride seals at 801-899, a range no
+        # category read. (2.1.2 said 701-799, which is where the package keeps
+        # its Dragon Mark goods, so the tab showed those a second time.) After the hairstyles, the other thing a player wears
         # for the look. The name falls back to Polish where the locale has no
         # line for it; english_gui.py carries the English one.
         (b'\t2,\r\n\t5,\r\n',
@@ -202,7 +203,7 @@ EDITS = {
          b'\t\t"action" : {\r\n'
          b'\t\t\t"type" : "items",\r\n'
          b'\t\t\t"items": [],\r\n'
-         b'\t\t\t"range": "701-799",\r\n'
+         b'\t\t\t"range": "801-899",\r\n'
          b'\t\t},\r\n'
          b'\t},\r\n'
          b'\r\n'

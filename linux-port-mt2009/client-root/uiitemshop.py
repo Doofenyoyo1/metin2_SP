@@ -122,7 +122,7 @@ ITEMSHOP_CATEGORIES = {
 		"action" : {
 			"type" : "items",
 			"items": [],
-			"range": "701-799",
+			"range": "801-899",
 		},
 	},
 

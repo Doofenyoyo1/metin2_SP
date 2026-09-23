@@ -1,0 +1,43 @@
+-- The ride seals put their rider on the animal.
+--
+-- A ride seal is ITEM_UNIQUE / UNIQUE_SPECIAL_RIDE (16/2), worn in a unique
+-- slot. CHARACTER::EquipItem hands a worn one to the quests as sig_use on
+-- QUEST_NO_NPC (CItem::IsOldMountItem, @fixme152), and the package ships no
+-- quest that answers it, so a seal put on did nothing (23 September: not one
+-- compiled quest object calls pc.mount). This one mounts the animal the seal
+-- names. Taking the seal off, /unmount and the seal running out all end the
+-- ride in the engine (CItem::ClearMountAttributeAndAffect), so the mount is
+-- given for as long as the seal can last; the seal's own clock (value0 minutes,
+-- counted by unique_expire_event only while it is worn - thirty hours, set by
+-- the migrator's ItemShop mounts step) is what the rider pays in.
+--
+-- The four war seals, whose animals the world's mob_proto names: 20115 Dzik
+-- Wojenny, 20116 Wilk Wojenny, 20117 Szarzujacy Tygrys, 20118 Waleczny Lew.
+-- The other seals of the package wait for their animals to be read off the
+-- world. Keep this list and ishop_seals in the migrator (migratorify.py) the same.
+quest mount_seals begin
+    state start begin
+        -- A plain chain rather than a keyed table: it is the shape every
+        -- shipped quest compiles, and qc's lexer is the one thing here that
+        -- nobody could run before release.
+        function mob_of(vnum)
+            if vnum == 71125 then
+                return 20115
+            elseif vnum == 71126 then
+                return 20116
+            elseif vnum == 71127 then
+                return 20117
+            elseif vnum == 71128 then
+                return 20118
+            end
+            return 0
+        end
+
+        when sig_use begin
+            local mob = mount_seals.mob_of(item.get_vnum())
+            if mob > 0 then
+                pc.mount(mob, 60 * 60 * 24 * 365)
+            end
+        end
+    end
+end

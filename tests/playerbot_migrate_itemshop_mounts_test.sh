@@ -84,11 +84,14 @@ run 'shape A: the row is built from the hairstyle' 1 250 "$SHAPE_A" 301 \
     'ItemShop mounts: 3 in the world, 2 added'
 run 'shape B: the surrogate key is left to the server' 1 250 "$SHAPE_B" 330 \
     "SELECT NULL, n.idx, n.vnum, 1, 250, t.${bq}currency${bq}" \
-    "WHERE ${bq}item_index${bq} BETWEEN 701 AND 799"
-run 'a price that is not a number reads as 250' 1 'abc' "$SHAPE_B" 330 \
-    'n.vnum, 1, 250,'
+    "WHERE ${bq}item_index${bq} BETWEEN 801 AND 899"
+run 'a price that is not a number reads as 500' 1 'abc' "$SHAPE_B" 330 \
+    'n.vnum, 1, 500,'
 run 'the price in .env is used' 1 99 "$SHAPE_B" 330 \
-    'n.vnum, 1, 99,' '(99 Dragon Coins each)'
+    'n.vnum, 1, 99,' '(99 Dragon Coins each, 30 h worn)'
+run 'the ride seals the quest knows are listed' 1 500 "$SHAPE_A" 301 \
+    'p.type = 16 AND p.subtype = 2 AND p.vnum IN (71125, 71126, 71127, 71128)' \
+    'COALESCE(MAX(`index`), 800)' 'WHERE n.idx <= 899'
 
 if [ "$fails" -ne 0 ]; then
     echo "$fails ItemShop mounts test(s) failed"
