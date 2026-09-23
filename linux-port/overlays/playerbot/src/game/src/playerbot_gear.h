@@ -120,6 +120,11 @@ namespace
 		if (item->GetType() == ITEM_UNIQUE &&
 				(IsPlayerBotNeverWornUnique(item->GetVnum()) || IsPlayerBotTimedUnique(item->GetVnum())))
 			return false;
+		// A ride seal is a player's mount: worn, it puts its wearer on the
+		// animal (mount_seals.quest), and a bot has no business riding a war
+		// boar into a pack because a unique slot stood empty.
+		if (item->GetType() == ITEM_UNIQUE && item->GetSubType() == UNIQUE_SPECIAL_RIDE)
+			return false;
 
 		switch (item->GetType())
 		{

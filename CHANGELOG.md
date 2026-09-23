@@ -17,6 +17,57 @@ every version here.
 
 ---
 
+## 2.1.3 — 2026-09-23
+
+Serwer 2.1.3 i klient 2.0.30. W launcherze ZAINSTALUJ AKTUALIZACJE, potem
+AKTUALIZUJ KLIENTA. Na VPS: `sh linux-port/tools/update.sh`.
+
+### Wierzchowce w ItemShopie, tym razem naprawdę
+
+W 2.1.2 zakładka „Wierzchowce” pokazywała to samo co „Smocze znaki”. Sprawdzone
+na świecie gracza:
+
+- ta zakładka czytała pozycje sklepu 701-799, a tam od zawsze stoją towary za
+  Smocze Znaki z samej paczki (Magiczny Kamień, mikstury Smoczego Boga i reszta);
+- w danych gry tej paczki nie ma ani jednego wierzchowca-kostiumu, więc 2.1.2
+  nie dodała do sklepu nic.
+
+Wierzchowce tej paczki to **pieczęcie**, które zakłada się na slot pierścienia.
+Paczka nie miała jednak żadnego questa, który by na nie wsadzał, więc założona
+pieczęć nic nie robiła. Teraz:
+
+- **Zakładka „Wierzchowce” czyta pozycje 801-899**, gdzie nic innego nie stoi.
+  Smocze Znaki są już tylko w swojej zakładce.
+- **Cztery pieczęcie wojenne w sklepie**: Pieczęć Dzika Wojennego, Wilka
+  Wojennego, Szarżującego Tygrysa i Walecznego Lwa, każda za **500 Smoczych
+  Monet** (`M2_ITEMSHOP_MOUNT_PRICE`).
+- **Założona pieczęć wsadza na zwierzę.** Zdjęcie pieczęci albo /unmount zsiada.
+- **Pieczęć działa 30 godzin, liczonych tylko wtedy, gdy jest założona**
+  (`M2_ITEMSHOP_MOUNT_HOURS`). Dotyczy pieczęci kupionych od tej wersji. Te,
+  które już ktoś ma, zostają z czasem, z jakim powstały.
+- Inne pieczęcie paczki (Biały Lew, Czarny Koń i reszta) jeszcze nie wsadzają
+  na zwierzę i nie ma ich w sklepie. Czekają, aż ustalimy, które zwierzę
+  należy do której.
+- Boty nigdy nie zakładają pieczęci.
+
+**Masz już w `.env` cenę 250?** Aktualizacja 2.1.2 dopisała
+`M2_ITEMSHOP_MOUNT_PRICE=250`, a aktualizacja nigdy nie zmienia wartości, które
+już tam są. Chcesz 500, to zmień ją sam przed aktualizacją:
+`sed -i 's/^M2_ITEMSHOP_MOUNT_PRICE=.*/M2_ITEMSHOP_MOUNT_PRICE=500/' linux-port/docker/.env`
+
+Poza tym: `update.sh` nie kończy już udanej aktualizacji komunikatem
+„Syntax error: Unterminated quoted string”. Działa teraz z kopii samego siebie,
+bo aktualizacja podmieniała mu plik w trakcie działania. Komunikat był
+niegroźny, a zniknie od następnej aktualizacji po tej.
+
+Sprawdzone: krok migratora na MariaDB, na kopii układu sklepu z tego świata.
+Pieczęcie wchodzą na 801-804 w Smoczych Monetach, drugi przebieg niczego nie
+dodaje, towary za Znaki na 701-713 zostają nietknięte, a wierzchowiec-kostium
+wpisany przez 2.1.2 do złego zakresu przenosi się na 801+. Questu nikt jeszcze
+nie skompilował ani nie sprawdził w grze.
+
+---
+
 ## 2.1.2 — 2026-09-23
 
 Serwer 2.1.2 i klient 2.0.29. W launcherze ZAINSTALUJ AKTUALIZACJE, potem

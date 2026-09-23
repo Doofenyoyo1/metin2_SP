@@ -98,10 +98,11 @@ services:
       # Whether a player's new character gets the apprentice chest (the
       # launcher asks with the rates; starter_chest.quest reads the flag).
       M2_STARTER_CHEST: "${M2_STARTER_CHEST:-1}"
-      # The world's mount costumes in the ItemShop's "Wierzchowce" tab (apply.sh);
+      # The world's ride seals in the ItemShop's "Wierzchowce" tab (apply.sh);
       # 0 leaves common.itemshop_items to the operator.
       M2_ITEMSHOP_MOUNTS: "${M2_ITEMSHOP_MOUNTS:-1}"
-      M2_ITEMSHOP_MOUNT_PRICE: "${M2_ITEMSHOP_MOUNT_PRICE:-250}"
+      M2_ITEMSHOP_MOUNT_PRICE: "${M2_ITEMSHOP_MOUNT_PRICE:-500}"
+      M2_ITEMSHOP_MOUNT_HOURS: "${M2_ITEMSHOP_MOUNT_HOURS:-30}"
 
     entrypoint: ["/bin/sh", "/opt/playerbot/apply.sh"]
 

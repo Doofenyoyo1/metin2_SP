@@ -627,19 +627,29 @@ else
     echo "[playerbot-migrate] WARNING: could not write the apprentice chest flag; the quest keeps the last one" >&2
 fi
 
-# The world's mount costumes, in the in-game ItemShop (CItemShopManager, read
-# by the db core out of common.itemshop_items at boot). The package has the
-# mount costume system compiled in and a shop that sold none, and the costume
-# block refused one anyway until playerbotify's apply_costume_mount_allowed -
-# so "mounty" in the shop were a thing a player could not have (23 September).
-# The client's shop window shows the index range 701-799 as "Wierzchowce"
-# (uiitemshop.py); this fills it with every ITEM_COSTUME / COSTUME_MOUNT (28/2)
-# of world.item_proto whose apply names a mount that stands in world.mob_proto -
-# read from the world itself, because the list of mounts is the package's and
-# no number of them is written down here. A mount already in the shop, at any
-# index, is left where it is; one the operator deleted comes back at the next
-# start, unless .env says M2_ITEMSHOP_MOUNTS=0. The price is
-# M2_ITEMSHOP_MOUNT_PRICE Dragon Coins.
+# The world's mounts, in the in-game ItemShop (CItemShopManager, read by the
+# db core out of common.itemshop_items at boot), in the range 801-899 that the
+# client's shop window shows as "Wierzchowce" (uiitemshop.py).
+#
+# 2.1.2 put them at 701-799 and listed only ITEM_COSTUME / COSTUME_MOUNT (28/2).
+# Both were wrong for this package, measured on a player's world (23
+# September): its own Dragon Mark goods already stand at 701-713, so the tab
+# showed them a second time beside "Smocze znaki", and world.item_proto holds
+# no mount costume at all - costumes are subtype 0 (307) and 1 (395) only. Its
+# mounts are the ride seals, ITEM_UNIQUE / UNIQUE_SPECIAL_RIDE (16/2): worn in a
+# unique slot, EquipItem hands one to the quest as sig_use and mount_seals.quest
+# puts the rider on the animal. The four war seals are the ones whose animals
+# the world's mob_proto names (20115-20118); the other seals wait for theirs.
+#
+# A ride seal's value0 is its time in minutes, counted by unique_expire_event
+# only while it is worn, and ITEM_MANAGER::CreateItem copies it into the new
+# seal; M2_ITEMSHOP_MOUNT_HOURS sets it for the four (30 by default, the
+# package's 28800 minutes being twenty days). A seal already made keeps the
+# time it was made with. A costume mount, on a world that has one, is listed
+# as before. A mount already in the shop, at any index, is left where it is -
+# except a costume mount 2.1.2 put in the Dragon Mark range, which moves; one
+# the operator deleted comes back at the next start, unless .env says
+# M2_ITEMSHOP_MOUNTS=0. The price is M2_ITEMSHOP_MOUNT_PRICE Dragon Coins.
 #
 # The table's columns are not in any file this project carries (the db core's
 # loader ships only as a binary), so they are read from information_schema and
@@ -648,7 +658,16 @@ fi
 # and any promotion or auction number cleared. A table this cannot read, or a
 # shop with no hairstyle to copy, is left untouched and says so.
 ishop_on=$(printf '%s' "${M2_ITEMSHOP_MOUNTS:-1}" | tr 'A-Z' 'a-z' | tr -d ' \r')
-ishop_price=$(printf '%s\n' "${M2_ITEMSHOP_MOUNT_PRICE:-250}" | tr -d ' \r' | awk '{ v = $1 + 0; if (v < 1 || v > 100000) v = 250; printf "%d", v }')
+ishop_price=$(printf '%s\n' "${M2_ITEMSHOP_MOUNT_PRICE:-500}" | tr -d ' \r' | awk '{ v = $1 + 0; if (v < 1 || v > 100000) v = 500; printf "%d", v }')
+ishop_hours=$(printf '%s\n' "${M2_ITEMSHOP_MOUNT_HOURS:-30}" | tr -d ' \r' | awk '{ v = $1 + 0; if (v < 1 || v > 8760) v = 30; printf "%d", v }')
+# The seals mount_seals.quest can put a rider on; keep the two lists together.
+ishop_seals='71125, 71126, 71127, 71128'
+# What the tab lists: a mount costume whose apply names a mount, or a ride seal
+# the quest knows.
+ishop_mount_items="((p.type = 28 AND p.subtype = 2
+                      AND EXISTS (SELECT 1 FROM world.mob_proto AS m
+                                   WHERE m.vnum >= 20000 AND m.vnum IN (p.applyvalue0, p.applyvalue1, p.applyvalue2)))
+                  OR (p.type = 16 AND p.subtype = 2 AND p.vnum IN ($ishop_seals)))"
 case "$ishop_on" in
     0|off|no|false)
         echo "[playerbot-migrate] ItemShop mounts: left to the operator (M2_ITEMSHOP_MOUNTS=0)"
@@ -710,10 +729,21 @@ $ishop_cols
 EOF
             I="$bq$c_idx$bq"
             V="$bq$c_vnum$bq"
+            # The seals' worn time, in minutes. Only while it is worn does it
+            # count (value2 = 0), and only a seal made from now on takes it.
+            db -e "UPDATE world.item_proto SET value0 = $ishop_hours * 60
+                    WHERE type = 16 AND subtype = 2 AND value2 = 0 AND vnum IN ($ishop_seals)
+                      AND value0 <> $ishop_hours * 60;" 2>/dev/null \
+                || echo "[playerbot-migrate] WARNING: ItemShop mounts: the seals' time could not be set" >&2
+            # 2.1.2 listed mount costumes at 701-799, where the package keeps its
+            # Dragon Mark goods; a row of ours there goes, to come back at 801.
+            # (A multi-table DELETE with an alias wants a default database, and
+            # the migrator runs with none.)
+            db -e "DELETE FROM common.itemshop_items
+                    WHERE $I BETWEEN 701 AND 799
+                      AND $V IN (SELECT vnum FROM world.item_proto WHERE type = 28 AND subtype = 2);" 2>/dev/null || true
             mounts_in_world=$(db -e "SELECT COUNT(*) FROM world.item_proto AS p
-                 WHERE p.type = 28 AND p.subtype = 2
-                   AND EXISTS (SELECT 1 FROM world.mob_proto AS m
-                                WHERE m.vnum >= 20000 AND m.vnum IN (p.applyvalue0, p.applyvalue1, p.applyvalue2));" 2>/dev/null || echo x)
+                 WHERE $ishop_mount_items;" 2>/dev/null || echo x)
             ishop_template=$(db -e "SELECT MIN(i.$I) FROM common.itemshop_items AS i
                                       JOIN world.item_proto AS h ON h.vnum = i.$V
                                      WHERE h.type = 28 AND h.subtype = 1;" 2>/dev/null | tr -d '[:space:]')
@@ -727,19 +757,16 @@ EOF
                 SELECT $sel
                   FROM (SELECT c.vnum, b.base + ROW_NUMBER() OVER (ORDER BY c.vnum) AS idx
                           FROM (SELECT p.vnum FROM world.item_proto AS p
-                                 WHERE p.type = 28 AND p.subtype = 2
-                                   AND EXISTS (SELECT 1 FROM world.mob_proto AS m
-                                                WHERE m.vnum >= 20000
-                                                  AND m.vnum IN (p.applyvalue0, p.applyvalue1, p.applyvalue2))
+                                 WHERE $ishop_mount_items
                                    AND p.vnum NOT IN (SELECT $V FROM common.itemshop_items)) AS c
-                         CROSS JOIN (SELECT COALESCE(MAX($I), 700) AS base FROM common.itemshop_items
-                                      WHERE $I BETWEEN 701 AND 799) AS b) AS n
+                         CROSS JOIN (SELECT COALESCE(MAX($I), 800) AS base FROM common.itemshop_items
+                                      WHERE $I BETWEEN 801 AND 899) AS b) AS n
                   JOIN common.itemshop_items AS t ON t.$I = $ishop_template
-                 WHERE n.idx <= 799;
+                 WHERE n.idx <= 899;
                 SELECT ROW_COUNT();" 2>/tmp/ishop_mounts.err); then
                 ishop_added=$(printf '%s' "$ishop_added" | tr -d '[:space:]')
-                listed=$(db -e "SELECT COUNT(*) FROM common.itemshop_items WHERE $I BETWEEN 701 AND 799;" 2>/dev/null || echo '?')
-                echo "[playerbot-migrate] ItemShop mounts: ${mounts_in_world} in the world, ${ishop_added:-0} added, ${listed} in the Wierzchowce tab (${ishop_price} Dragon Coins each)"
+                listed=$(db -e "SELECT COUNT(*) FROM common.itemshop_items WHERE $I BETWEEN 801 AND 899;" 2>/dev/null || echo '?')
+                echo "[playerbot-migrate] ItemShop mounts: ${mounts_in_world} in the world, ${ishop_added:-0} added, ${listed} in the Wierzchowce tab (${ishop_price} Dragon Coins each, ${ishop_hours} h worn)"
             else
                 echo "[playerbot-migrate] WARNING: ItemShop mounts could not be listed:" >&2
                 head -3 /tmp/ishop_mounts.err >&2

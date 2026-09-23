@@ -7549,6 +7549,33 @@ not in `data/`) reworked these point by point. What each hangs on:
   reloads the shop without a restart. No bot buys or wears a mount: costumes
   are not equipment candidates, and a mount on a bot would set `IsRiding()`
   and refuse its skills.
+- **This package has no mount costume, and 701-799 was never free.** 2.1.2's
+  tab showed the Dragon Mark goods a second time: the package keeps them at
+  `common.itemshop_items` 701-713, and `world.item_proto` holds costumes of
+  subtype 0 (307) and 1 (395) only - the step listed nothing (measured on a
+  player's world, 23 September; "0 in the world, 0 added" in the migrator's
+  line). Its mounts are the ride seals, ITEM_UNIQUE / UNIQUE_SPECIAL_RIDE
+  (16/2, 71124-71172): worn in a unique slot, `CHARACTER::EquipItem` sends one
+  to the quests as `sig_use` on QUEST_NO_NPC (`CItem::IsOldMountItem`,
+  @fixme152), and not one compiled quest object called `pc.mount`, so a seal
+  put on did nothing. `mount_seals.quest` (2.1.3) is `when sig_use` with a
+  table from seal to animal; the engine ends the ride itself on the unequip,
+  on `/unmount` and when the seal runs out (`ClearMountAttributeAndAffect`),
+  so the quest mounts for a year and the seal's clock is the price. A seal's
+  value0 is minutes, counted by `unique_expire_event` only while worn
+  (value2 0), copied into the socket at `CreateItem` - so the migrator's
+  `M2_ITEMSHOP_MOUNT_HOURS` sets value0 of the seals it sells and a seal
+  already made keeps its time. The tab is 801-899 now. Only the four war
+  seals (71125-71128) are mapped: `world.mob_proto` names their animals
+  20115-20118 (20110-20113 are the plain boar, wolf, tiger and lion). The
+  others (White Lion 71124, the Black Horse 71131-71134, the T.B. colours,
+  the 180-minute event mounts) need their animals read off mob_proto first;
+  add a row to the quest's table and to `ishop_seals` in migratorify.py
+  together. The Mlody Dzik / Wilk "(Pieczec)" items 52001+ are ITEM_QUEST
+  (value0 1-3, a grade) with no quest either - another system. The
+  migrator's multi-table `DELETE i FROM ... AS i JOIN` failed with "No
+  database selected": the migrator runs with no default database, and an
+  aliased multi-table DELETE wants one - use a subquery.
 
 
 ## Engine facts worth not re-deriving

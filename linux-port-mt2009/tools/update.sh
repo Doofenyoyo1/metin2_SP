@@ -39,6 +39,24 @@ set -u
 # The server folder is two levels up from this file (Serwer/linux-port/tools).
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=${M2_UPDATE_STACK_DIR:-$(cd "$HERE/../.." && pwd)}
+
+# An update unpacks a new copy of this very file over it, and sh reads a script
+# as it runs it, so the old run went on reading the new file at the old offset
+# and ended in "Syntax error: Unterminated quoted string" after a successful
+# update (23 September). Run from a copy; the copy unlinks itself, which a
+# shell that already has it open does not notice.
+if [ -z "${M2_UPDATE_FROM_COPY:-}" ]; then
+    case "${1:-run}" in
+        run|watch)
+            _self=${TMPDIR:-/tmp}/m2-update-self.$$
+            if cp "$0" "$_self" 2>/dev/null; then
+                M2_UPDATE_FROM_COPY=1 M2_UPDATE_STACK_DIR="$ROOT" exec sh "$_self" "$@"
+            fi
+            ;;
+    esac
+else
+    rm -f "$0" 2>/dev/null
+fi
 COMPOSE_DIR="$ROOT/linux-port/docker"
 REPO=${M2_UPDATE_REPO:-Doofenyoyo1/metin2_SP}
 BRANCH=${M2_UPDATE_BRANCH:-main}
@@ -302,7 +320,7 @@ sync_channel_ports() {
 # the keys named below, whose example value is the compose default (an
 # absent key already meant that), never a password, a port or an address;
 # a key already there, empty included, is the operator's and is left alone.
-ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_ITEMSHOP_MOUNTS M2_ITEMSHOP_MOUNT_PRICE"
+ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_ITEMSHOP_MOUNTS M2_ITEMSHOP_MOUNT_PRICE M2_ITEMSHOP_MOUNT_HOURS"
 add_missing_env_keys() {
     _env="$COMPOSE_DIR/.env"
     _ex="$COMPOSE_DIR/.env.example"

@@ -203,7 +203,7 @@ RUN set -eux; \
     # the item's use path).
     # pc.open_special_shop for fishing_pass_shop (2.0.68); affect.add_new and
     # affect.remove_new for the panel's speed in web_admin (2.0.76).
-    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new; do \
+    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.mount item.get_vnum; do \
       grep -qx "$fn" /tmp/qc-work/quest_functions || echo "$fn" >> /tmp/qc-work/quest_functions; \
     done; \
     # pony_levelup is the package's own stable-keeper quest with the 18-hour
@@ -226,7 +226,9 @@ RUN set -eux; \
     # collect_quest_lv85 is the Biologist's red-branch row with its hand-in
     # asking for the right item: the stock quest counted 30166, the level-80
     # row's, so nobody could hand in a single 30167 (2.0.95).
-    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85; do \
+    # mount_seals answers a worn ride seal's sig_use with pc.mount; the package
+    # ships no quest that does, so a seal put on did nothing (2.1.3).
+    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \
