@@ -880,7 +880,7 @@ namespace
 	// walk to offer one. Only when it is not fighting: a fight says what it is
 	// fighting.
 	bool BuildPlayerBotMercStatus(LPCHARACTER ch, const TPlayerBotAIState& state, const char* prefix,
-			char* status, size_t statusSize)
+			char* status, size_t statusSize, bool en)
 	{
 		if (!ch || !status || statusSize == 0)
 			return false;
@@ -892,11 +892,13 @@ namespace
 			const TPlayerBotMercContract& c = own->second;
 			LPCHARACTER client = CHARACTER_MANAGER::instance().FindByPID(c.clientPid);
 			if (c.pausedSince != 0)
-				snprintf(status, statusSize, "%sNajemnik: przerwa w kontrakcie, wroce do %s", prefix,
-						client ? client->GetName() : "klienta");
+				snprintf(status, statusSize,
+						PBT(en, "%sNajemnik: przerwa w kontrakcie, wroce do %s", "%sMercenary: contract paused, back to %s soon"),
+						prefix, client ? client->GetName() : PBT(en, "klienta", "the client"));
 			else
-				snprintf(status, statusSize, "%sNajemnik: chronie %s (jeszcze %u min)", prefix,
-						client ? client->GetName() : "klienta", c.leftMs / 60000u + 1u);
+				snprintf(status, statusSize,
+						PBT(en, "%sNajemnik: chronie %s (jeszcze %u min)", "%sMercenary: protecting %s (%u min left)"),
+						prefix, client ? client->GetName() : PBT(en, "klienta", "the client"), c.leftMs / 60000u + 1u);
 			return true;
 		}
 		std::map<DWORD, DWORD>::const_iterator hired = s_mapPlayerBotMercClientOf.find(pid);
@@ -907,18 +909,20 @@ namespace
 				return false;
 			LPCHARACTER merc = CHARACTER_MANAGER::instance().FindByPID(hired->second);
 			if (it->second.pausedSince != 0)
-				snprintf(status, statusSize, "%sCzekam na najemnika %s", prefix,
-						merc ? merc->GetName() : "?");
+				snprintf(status, statusSize, PBT(en, "%sCzekam na najemnika %s", "%sWaiting for my mercenary %s"),
+						prefix, merc ? merc->GetName() : "?");
 			else
-				snprintf(status, statusSize, "%sWynajalem najemnika %s (jeszcze %u min)", prefix,
-						merc ? merc->GetName() : "?", it->second.leftMs / 60000u + 1u);
+				snprintf(status, statusSize,
+						PBT(en, "%sWynajalem najemnika %s (jeszcze %u min)", "%sHired the mercenary %s (%u min left)"),
+						prefix, merc ? merc->GetName() : "?", it->second.leftMs / 60000u + 1u);
 			return true;
 		}
 		if (state.persona.dwMercClientPid != 0 && dwNow < state.persona.dwMercApproachUntil)
 		{
 			LPCHARACTER client = CHARACTER_MANAGER::instance().FindByPID(state.persona.dwMercClientPid);
-			snprintf(status, statusSize, "%sIde zaoferowac pomoc %s (%lld yang za godzine)", prefix,
-					client ? client->GetName() : "?", GetPlayerBotMercPrice());
+			snprintf(status, statusSize,
+					PBT(en, "%sIde zaoferowac pomoc %s (%lld yang za godzine)", "%sGoing to offer %s my help (%lld yang an hour)"),
+					prefix, client ? client->GetName() : "?", GetPlayerBotMercPrice());
 			return true;
 		}
 		return false;
@@ -1226,57 +1230,19 @@ namespace
 		const bool hunting = fighting || state.dwTargetVID != 0 ||
 				(state.dwLastCombatActionTime != 0 &&
 				 dwNow - state.dwLastCombatActionTime < PLAYERBOT_BUFF_COMBAT_WINDOW);
-		const TJobSkillBuild build = GetPlayerBotSkillBuild(ch->GetJob(), ch->GetSkillGroup(), ch->GetPlayerID());
-		for (size_t i = 0; i < sizeof(build.dwBuffSkills) / sizeof(build.dwBuffSkills[0]); ++i)
-		{
-			const DWORD vnum = build.dwBuffSkills[i];
-			if (vnum == 0 || ch->GetSkillLevel(vnum) == 0)
-				continue;
-			if (!hunting && !IsPlayerBotOutOfCombatBuff(vnum))
-				continue;
-			CSkillProto* proto = CSkillManager::instance().Get(vnum);
-			if (!proto || IS_SET(proto->dwFlag, SKILL_FLAG_SELFONLY))
-				continue;
-			LPCHARACTER target = NULL;
-			for (size_t m = 0; m < collect.members.size(); ++m)
-			{
-				LPCHARACTER member = collect.members[m];
-				if (proto->dwTargetRange != 0 &&
-						DISTANCE_APPROX(ch->GetX() - member->GetX(), ch->GetY() - member->GetY()) >
-								(int)proto->dwTargetRange)
-					continue;
-				if (vnum == 109) // Cure / Heal
-				{
-					if (member->GetMaxHP() <= 0 ||
-							(long long)member->GetHP() * 100 / member->GetMaxHP() > PLAYERBOT_PARTY_LEADER_CURE_HP_PERCENT)
-						continue;
-				}
-				else if (IsPlayerBotBuffAffectOn(member, vnum))
-					continue;
-				target = member;
-				break;
-			}
-			if (!target)
-				continue;
-			if (ch->IsRiding() && !CanPlayerBotEverFightOnHorse(ch))
-			{
-				SetPlayerBotRidingForTravel(ch, state, false, dwNow, "party_buff");
-				next = dwNow + PLAYERBOT_BUFF_RECHECK_FAST;
-				return true;
-			}
-			if (!ch->UseSkill(vnum, target))
-				continue;
-			SendPlayerBotSkillPacket(ch, vnum);
-			state.dwLastBotSkillTime = dwNow;
-			state.dwNextAttackTime = dwNow + PLAYERBOT_SKILL_ANIMATION_LOCK;
-			next = dwNow + PLAYERBOT_BUFF_RECHECK_FAST;
+		LPCHARACTER target = NULL;
+		DWORD vnum = 0;
+		const int done = CastPlayerBotSupportBuff(ch, state, dwNow, collect.members, hunting,
+				"party_buff", target, vnum);
+		if (done == 0)
+			return false;
+		next = dwNow + PLAYERBOT_BUFF_RECHECK_FAST;
+		if (done == 2)
 			PlayerBotLogThrottled("companion_buff", dwNow,
 					"PLAYERBOT_PARTY: buffed a member pid=%u name=%s member=%s person=%d vnum=%u",
 					ch->GetPlayerID(), ch->GetName(), target->GetName(),
 					(!target->GetDesc() || !target->GetDesc()->IsBot()) ? 1 : 0, vnum);
-			return true;
-		}
-		return false;
+		return true;
 	}
 }
 

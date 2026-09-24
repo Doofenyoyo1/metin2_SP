@@ -381,12 +381,21 @@ not in `data/`) reworked these point by point. What each hangs on:
   (60/13/8/5 percent for +6/+7/+8/+9; the fourteen the sheet leaves over also
   +6) while the weapon walked into town under it, then
   `PLAYERBOT_LEVEL30_LONG_TERM_PLUS` (+9 for the +9 draw) at every visit after.
-  From `PLAYERBOT_LEVEL30_BLESSING_FROM_3_AVERAGE` it goes under a Blessing
-  Scroll from +3 (the operator's 37%-and-up scroll-only rule answers first),
-  and a counter's piece at that average beating every one the bot holds is
-  bought as well (`IsPlayerBotMandatedLevel30Offer`). A bot that can buy one is
-  not sent to farm M3 for it. `PLAYERBOT_MARKET: level-30 census` counts the
-  eligible, the lacking and the pluses every ten minutes. Droppers are left out.
+  Iwakura's quick fix of 23 September took back the rest of the point - "from
+  34% under a Blessing Scroll from +3" and the purchase of every such piece
+  that beat the bot's own - and put a floor in its place: the class's own
+  weapon goes to `PLAYERBOT_LEVEL30_MIN_PLUS` (+6) whatever its average, under
+  a scroll when one fits the step and at the plain anvil when none does
+  (`IsPlayerBotLevel30UnderFloor` - past the operator's 37% scroll-only hold
+  and his 30-36% ceiling of +4, which apply from +6 up). A burnt one is bought
+  again on the next look at the market, which the burn brings forward
+  (`IsPlayerBotMandatedLevel30Offer` is "none held" now). A bot that can buy
+  one is not sent to farm M3 for it. `PLAYERBOT_MARKET: level-30 census` counts
+  the eligible, the lacking and the pluses every ten minutes: on m2zip that
+  evening 196 of 235 bots of thirty had none, bot 105 having bought a Full
+  Moon Sword for 3.62 million and burnt it at +5 six minutes later - the family
+  runs 90/85/75/65/55/45 to +6, so the floor is some ten weapons a bot at the
+  plain anvil. Droppers are left out.
 - **Two Grinder styles** (point 2), one draw by pid (`GrinderStyleRoll`):
   thirteen percent never hold at a lock (`NeverHoldsAtLocks`), and ten percent
   more may give grinding up - a 33% roll once per tier, the moment the Law of
@@ -2729,7 +2738,13 @@ not in `data/`) reworked these point by point. What each hangs on:
   one. `PrepareWeapon` asks `PlayerBotWeaponFitsNow`, or it would unequip the
   dagger as a profession mismatch on the next tick. The junk rule and the
   stall keep the chosen stone weapon; the weapon merchant sells a dagger of
-  the bot's level when the bag has none.
+  the bot's level when the bag has none. The Demon Tower (map 66 and its
+  instances) is the exception: there the bow stays in the hand for the stones
+  too and the dagger comes out only when the arrows are gone, for anything
+  then. Its stones stand among the floor's demons and a raid breaks them
+  together, and an Archer walking in to stab one was a bot in melee with a
+  pack ("ninja archerzy fajnie jakby stali z daleka i strzelali, a nie
+  podbiegali i bili z bliska", prodnathin, 23 September).
 - **A portal walk asked for once is a route somebody else finishes.**
   `MovePlayerBotToWorldPortal` plans the route and makes the map change only
   when the pass that called it calls it again within
@@ -2948,6 +2963,29 @@ not in `data/`) reworked these point by point. What each hangs on:
   the second run changes nothing at all.
   The spawn grids were picked by walking `server_attr`: 500/500 points stand
   on open ground in both new villages (of Chunjo's 1500, 153 do not).
+- **A kingdom holds what the seed gave it, and a number past that is cut in
+  silence.** `TakeKingdomCounts` (the launcher's per-kingdom numbers) caps each
+  kingdom at its identities and hands nothing on, and `SplitPopulation` gives
+  Chunjo whatever the other two cannot take - so with 500 Shinsoo and 500 Jinno
+  identities, 729/250/773 asked for came out as 500/250/500 and the one number
+  2500 as 500/1500/500 (kavvaski, 23 September; his log said it,
+  `per kingdom asked=729/250/773 registered=229/764/273` on one channel). 2.2.1
+  appends a thousand to each (Shinsoo 2504..3503, Jinno 3504..4503, both grids
+  measured clean on both engines' server_attr), so every kingdom holds 1500 and
+  2500 splits 834/833/833; the launcher's kingdom boxes stop at 1500. Three
+  things had to move with it: the name pool is 3000 a kingdom (a world named
+  from an older list wears ~650 names of each share of this one, and a worn
+  name is never free), the medal droppers are drawn from the first layout's far
+  end first (`PLAYERBOT_SEED_FIRST_LAYOUT_LAST_PID`) or every Shinsoo and Jinno
+  dropper would have become an ordinary bot and its place gone to a level-one
+  character, and nothing else keyed a range: apply.sh reads the range out of
+  the seed. On a 2.x world the new PIDs are free - the GM characters' explicit
+  9001-9004 pushed `player.player`'s AUTO_INCREMENT past them before 2.0.8
+  seeded 1504..2503, so people's characters stand at 9005 and up - and a PID
+  somebody's character does hold is skipped by the seed's own rules, as ever.
+  Worth knowing: `m_setRegisteredBots` is a `std::set`, so the spawn takes
+  identities in PID order and the three tiers `LoadRegisteredBots` orders its
+  query by (played this week, newcomers, veterans) are lost on the way in.
 - **apply.sh moves a stranded bot to its OWN kingdom.** Its allow-list is what
   decides where a bot may be parked at start, and it named only Chunjo's maps -
   every Shinsoo and Jinno bot would have been teleported to Bokjung on every
@@ -3932,8 +3970,21 @@ not in `data/`) reworked these point by point. What each hangs on:
   twenty levels outgrown scored the same single point and the bonus lines
   alone decided: the same sura wore a level-1 plate +6 with a level-34 one +4
   in its bag, then put the level-34 one on its counter. Each level past the
-  threshold now keeps ninety-five percent of the level before, so a higher
-  tier keeps more of its defence at any level.
+  threshold kept ninety-five percent of the level before, so a higher
+  tier kept more of its defence at any level. **And then the penalty went
+  altogether (23 September)**: it docked the defence itself, which is what
+  the piece gives, so a bot of thirty-five wore a Pieciokatna Tarcza +4 (34
+  defence, -6% speed, level 21) over the Bojowa Tarcza +7 in its bag (45, -2%,
+  level 0) - 35 bots on m2zip with a clearly better shield in the bag
+  ("pomimo ze bojowa+7 daje lepsze staty on woli nosic pieciokatna";
+  "wbudowane bonusy to tez bonusy", Iwakura). The score is the piece's own
+  numbers now and the required level only breaks a tie
+  (`PLAYERBOT_ARMOR_LEVEL_TIE_BREAK`). The tiers are climbed without it: the
+  merchant sells the next tier by level whatever the bot wears
+  (`BuyPlayerBotBestMerchantSlotGear` asks the level, not the score), and the
+  higher-tier piece in the bag is kept and refined (`IsPlayerBotHigherTierSpare`)
+  until its numbers win - the Pieciokatna from +6. `HasPlayerBotSellableSpare`
+  skips such a piece, because the collector never lists it.
 - **A bot in a player's party makes no plan of its own that changes map.**
   `ManagePlayerBotFollowHumanLeader` leaves the bot to the rest of the tick once
   it stands near the player, and the rest of the tick sent it away: in
@@ -7001,7 +7052,13 @@ not in `data/`) reworked these point by point. What each hangs on:
   `GetPlayerBotStallBaseKeep` leaves that much in the base stack so the cut
   lines agree - the medal dropper keeps one, being the medal shop. Any rule of
   the shape "may spend" beside one of the shape "may sell" wants reading
-  together: the pair can refuse both ways at once.
+  together: the pair can refuse both ways at once. And a line is two medals
+  (`PLAYERBOT_SHOP_HORSE_MEDAL_LINE_UNITS`): the medal is an ITEM_USE, a single
+  by `GetPlayerBotStallLineUnits`, and `BotOfflinePrepareLine` cut nothing of
+  its kind, so a stack went up whole - 139 of 164 medal lines on m2zip held
+  three to twenty, and nobody bought them ("wystawiaja nawet po 10 sztuk",
+  23 September). The medal is cut the scroll's way now, keep counted
+  over every stack, and a longer line comes home (`medal_pack`).
 - **Exempt from the junk rule is not the same as listed anywhere.** The change
   stone, the add stone and the blessing marble have been kept out of
   `IsPlayerBotJunkItem` since the marble went in - no bot may vendor one - and
@@ -7587,6 +7644,436 @@ not in `data/`) reworked these point by point. What each hangs on:
   horse handling and refuses only a character already on a mount
   (`GetMountVnum`). Before blaming a quest that "does nothing", read what
   stands between the click and its signal.
+- **On the 2.x line a market trip is a walk to one line, claimed.** The bots'
+  counters are ikashop offline shops, and the classic trip
+  (`FindPlayerBotStallPick`) looks for a keeper standing behind a counter -
+  there are none - so every trip ended `nothing_on_offer`: 4 406 in an hour on
+  one core of the test world, the offline buyer (`ManagePlayerBotOfflineShopping`,
+  which reads the stands in reach on its own clock) held off for as long as each
+  walk lasted, and 576 of them a crossing from the second village to Joan and
+  back, one in eleven with a purchase (23 September). On this engine the
+  shopping pass leaves the stands in reach to that buyer and makes only the walk
+  it cannot make: from a second village, and only for a line of the first
+  village's stands this bot would buy and can pay for, found before setting off
+  by the buyer's own rating (`RatePlayerBotOfflineLine`,
+  `FindPlayerBotFarOfflinePick` - its own cursor, started at a stand drawn by
+  pid) and handed to the buyer on arrival (`HandPlayerBotFarPickToBuyer`, which
+  claims that tick or the travel pass takes the bot straight back). The first
+  version bought on 47% of its walks and lost most of the rest to itself: 29 of
+  the 31 lines found sold on arrival were bought by another bot that had walked
+  over for the same line. A walk claims its line (`s_mapPlayerBotFarClaims`,
+  for the walk and the ride) and every other look, the browse in reach included,
+  passes over a line another bot has claimed; a keeper's service visit waits
+  for its own purchase under way, and a stand in edit mode is waited out at the
+  counter - both used to cost the pick. With that, 48 of 55 walks bought within
+  five minutes and none lost its line to another bot. What is left says why in
+  `PLAYERBOT_MARKET: far pick lost ... reason=`, and after a start it is
+  `cannot_pay`: the cap a counter line is judged by is a share of the median
+  wallet of the whole population, which falls while the cohort logs in (5.7
+  million at the first ledger, 2.6 ten minutes later), so a line picked early is
+  over the cap on arrival. The first village's own buyer still shouts for a
+  material it did not find (`AnnouncePlayerBotNeed`, which asks the world-wide
+  shout clock before it reads the bag - it is asked after every empty browse).
+- **A goal the ground does not join is walked to from the nearest ground that
+  does, at the Rybak too.** The town leg's rescue is `FindPlayerBotReachableGoal`
+  in `playerbot_movement.h` now, and the fishing tackle leg asks it: the Rybak's
+  approach point is drawn by pid round him and for some pids fell on a strip the
+  square does not join, so the plan was unreachable three times and the session
+  over in ten seconds, every session, for the same bots.
+- **Potions are poured together only when that frees a cell.** A bot drinks from
+  the first stack of a kind, so `CompactPlayerBotPotionStacks` topped the first
+  stack up from the last every time a few potions had gone - 29 000 passes an
+  hour on one core, nearly every one `freed_stacks=0`, each moved unit a save for
+  the db core - and measured a stack against two hundred where mt2009's limit is
+  the item's (`PlayerBotMaxStack`). A kind is poured only while its units would
+  fit in fewer stacks than it has from that cell on: 12.5 passes a minute
+  afterwards, none of them freeing nothing.
+- **Doyyumhwaji is a frontier with a gate per kingdom, like the valley.**
+  Map 62 (`metin2_map_n_flame_01`, base 588800,614400, 24x24 sectors) moved
+  from game2 to game1 in the mt2009 `m2-render-config`, in both layouts, and
+  apply.sh needed nothing: its allow-list is every hosted map. Its Town.txt is
+  a common line and then Shinsoo, Chunjo, Jinno - the order checked against
+  the desert's, whose rows the AI has walked for months - and npc.txt puts
+  10008/10010/10012 beside the three, named after the second villages, so
+  `TELEPORT_FIRE_LAND` and `GetFrontierGate(62)` give each kingdom its own
+  entrance and its own way home. What stands there, read out of its own files
+  (the wiki's is today's Gameforge game): 783 regen lines, about 3 400 monsters
+  of 69-72, all FIRE (no race line pays, so no row in the race table); two
+  AGGR elites in boss.txt every 28-42 minutes (2281, 2282); four Metins of
+  Murder (8014); thirteen ore veins; and the Flame King (2206, level 73, boss)
+  from `special_spawns.txt` group "Pieklo", every 110-140 minutes at one of
+  three points - a party's raid row, walked to wherever he stands, because a
+  boss hub is the boss and not its table point. The materials are the tiger
+  minion's Tiger Fang (30042), the Fighting Tiger's Flaming Mane (30019), the
+  Flame's Dragon Scales (30367) and the Flame Warrior's Warrior Symbol (30091);
+  the elites drop all four. The draw sends a third of 66-80 there by a hash of
+  its own, so no other bot's frontier moves. server_attr says one walkable
+  area holding every free cell - five bands of ground between lava, joined by
+  narrow crossings - with 770 of the 783 regen points on it; the 27 hubs are
+  the densest 6400-unit cells, and the east third, where Jinno enters, was
+  measured on its own or every hub would be a half-map walk from its gate
+  (`scratchpad/flame_points.py` of session 82d3ab90). Two things not done on
+  purpose: `PlayerBotCoreHasAnyFrontier` does not count 62 or the forests - on
+  the r40250 line they stand on Jinno's and Shinsoo's cores, and counting a
+  66+ map there would wedge those kingdoms at 36 again - and the Teleporter's
+  second page costs a player three fares for 62, 66, 67 and 68 while a bot pays
+  one for all of them, as it did for the forests. The panel's tile was rendered
+  with `tools/render_map_tiles.py` (Pillow is a `pip install` away in
+  `m2-eterpack:dev`). Watched on m2zip with a one-shot self-test in a
+  deploy-only build (`scratchpad/make_selftest_fire.py`; no bot there is past
+  39, and levels are not raised by hand): from each kingdom's entrance the
+  navigation grid reached its gate, all 27 hubs and the Flame King's three
+  points; two Chunjo and two Shinsoo bots put down at their own entrances were
+  out of band, walked to their own gates and came out in Bokjung and Jayang
+  within four seconds. No Jinno bot of thirty stood free in a village, so
+  Jinno's gate was proved by the grid alone. Bots of 66+ hunting there have
+  not been watched: the test world has none.
+- **In the person's own village a party bot runs its town visit.** 2.0.49
+  stopped every errand of a bot serving a person, because the errand and the
+  follow pass took turns walking it away and back - and so a party of bots
+  never refined, sold or restocked while the party lasted ("if you don't quit
+  the party, the other 7 players won't upgrade their equipment", _johnlennon,
+  23 September). `IsPlayerBotBesidePersonInVillage` - a village map with a
+  person of the party on it - lets the town visit start and run again, and
+  `ManagePlayerBotFollowHumanLeader` does not fetch a bot on a visit back from
+  the anvil; the moment the person leaves the map the follow pass takes the
+  bot along, the visit paused as before. The stable, the Biologist, the
+  herbalist and the world travel stay off: each can take the bot off the map.
+  Compiled on both engines, not watched: the test world has no person to
+  stand in a party.
+- **A script that updates itself must be read whole before it runs.**
+  `update.sh` unpacked the package - which carries it - with
+  `open(target, 'wb')` (and busybox's unzip does the same), so the running sh
+  went on reading the NEW file from the old one's offset after the update had
+  finished: "Unterminated quoted string", code 2 (Tyrion, 23 September, on a
+  mock server). Replayed for all twelve sizes the script has shipped at
+  (2.0.13 to 2.1.0) in `python:3-slim`, where sh is dash: every one ended in a
+  syntax error or a stray command, and 2.0.91, 2.0.95 and 2.1.0 ran
+  `docker compose up -d --build` a second time out of the new file's middle.
+  Every file is written beside its place and renamed onto it now (the old
+  mode kept; a file system that refuses the rename gets the old in-place
+  write), and the dispatch is one brace group ending in `exit`, which the shell
+  has read to its end before any of it runs. The first update onto this
+  version is still run by the old script and still ends with that noise, after
+  the work is done; `scratchpad/upd_selfoverwrite/` of session 82d3ab90 is the
+  harness (a mock tree, the network overridden, the running script kept at the
+  size a player's is).
+- **An empty hand is not a missing weapon.** `ManagePlayerBotWeaponMerchant`
+  bought the emergency weapon for any bot with nothing in the weapon slot,
+  while `PrepareWeapon` - the pass that would have put a bag weapon on - runs
+  on its own retry clock: on a world started that morning twelve were bought
+  in five minutes, and bots of level one carried four swords (Iwakura, 23
+  September). `BuyPlayerBotEmergencyWeapon` wears a bag weapon first and buys
+  nothing while one of the bot's sort and level lies there, even one the
+  engine refuses for the second and a half after a blow.
+- **The GM window's "Podglad" opened mt2009's own panel.** A GM's client is
+  told at login where the admin panel is (`GameMaster <url>`, input_login.cpp)
+  and "GM: Podglad Gracza" - Podglad, Captcha, Ban, Kick - opens
+  `<url>players/<pid>` in the browser; the package named
+  https://panel.mt2009.pl/, which answers our players "Sorry, you have been
+  blocked" (iceBeeg, 23 September). The URL is the game service's
+  `M2_GM_PANEL_URL` now (compose builds it from the classic panel's published
+  port, `apply_gm_panel_url` reads it) and the classic panel takes
+  `/players/<pid>` to the character's card. Kick (`/dc`) and Ban
+  (`/block_player`, `/block_pool`) were always commands to this server. The
+  client's only other mt2009 address, the gatekeeper POST in intrologin.py,
+  sits behind `constInfo.GATEKEEPER_CHECK = True` and never runs.
+- **A bonus pass works on one piece, and comes back to it.** It walked the
+  slots and gave each piece one stone, three a visit, so a bot added a line to
+  the boots, one to the necklace and one to the bracelet and finished none
+  (Iwakura's QUICK FIX nr 3, 23 September); on m2zip five of 26 passes in a
+  quarter of an hour put stones on two pieces, and two of those on the worn
+  armour *and* the new one the swap rule held in the bag for its slot.
+  `GetPlayerBotBonusStep` is now the one answer to "what would a stone do to
+  this piece" - worn, held (`PLAYERBOT_BONUS_TARGET_HELD`, which stands in for
+  its slot's worn piece) or goods - and the swap rule's wait
+  (`PlayerBotHoldsBonusStoneFor`) asks it too. A visit spends its stones on one
+  piece, remembered in `dwBonusFocusItem` and kept while a stone in the bag
+  fits it, whatever it is doing (lines to four, the marble's fifth, changes to
+  the finish); a new piece is the first in the order that can take a line,
+  then the first that can take a change, so pieces are filled before anything
+  is mixed. A change stone waits for `PLAYERBOT_BONUS_CHANGE_MIN_LINES` (three)
+  and a piece of three takes an add stone first when one fits it - his second
+  half, which also lets a piece of three be mixed where it used to wait for
+  the fourth. No stone waits for a piece it cannot fit: that would have
+  undone Sammy's green stones and parked every add stone behind a weapon being
+  rerolled for its average. `PLAYERBOT_BONUS: focus` names each new piece.
+  Measured on m2zip in the twelve minutes after the deploy: 81 passes, 194
+  stones, none of them on a second piece, no change under three lines - and
+  147 of the 161 changes on pieces of three whose bag held no add stone that
+  fitted, change stones that had waited for a fourth line before. Measure it as
+  the stone lines (`added`/`rerolled`/`marbled`) of one pid in one second
+  (`scratchpad/bonus_scatter.py` of session 82d3ab90 is the shape).
+- **The login and channel ports are the client's, not .env's.** The launcher's
+  preflight told a player whose 11000 was held by MSI_GamebarTool to "change
+  the port in .env" (Kordix, 23 September), and that starts a server nobody
+  can log in to: the local entry in serverinfo.py dials 11000, and the login
+  answer names the core's port inside the container, 13000 and up.
+  `Get-M2StackHostPorts` marks those `ClientFixed` and the message says to
+  close the program instead; the panels, the ItemShop and the database are
+  reached through the port .env publishes and keep the old advice.
+- **A tier is a map only if something sends the bot there.** The comment on
+  `GRINDER_TIERS` said "the map placement in the travel code is by level
+  already", and for M3 it never was: the level placement sends 19-25 to the
+  second village, and the one road to M3 was the level-30 weapon hunt (a third
+  of the bots without the weapon, by pid). Community Patch 2 then told a bot
+  that can buy the weapon not to farm it, so on m2zip M3 held 10 of the 426
+  bots of 15-25 and on Iwakura's young world none ("boty nie chodza wcale na
+  M3", 23 September). `IsPlayerBotM3TierGrinder` is the tier: a Grinder of
+  19-25 (or of Community Patch 1's quarter that skips the first village, from
+  13), not advanced, not quit, no dropper, meeting the document's entry
+  (`MeetsPlayerBotM3Survival`, weapon +6 and armour +5). `ShouldPlayerBotVisitM3`
+  lets it past the weapon's rules and keeps the crowd share, its M3 visit
+  never runs out (it leaves when it stops belonging), the revisit door does not
+  apply to it, it travels as `tier2_grinder_to_m3`, and the status reads
+  "Expie na M3 (Tier 2)" once it has the weapon. Fifteen minutes after the
+  deploy: 111 such trips and 103 bots on the three guild maps against 27, the
+  tick unchanged at 7.4 s of 60. In the same report Iwakura counted about 5%
+  of his bots exp-locked where he expected 80%; m2zip, measured the same hour,
+  held 81% of its bots of 13-18 and 66% of 19-25 at their locks. What releases
+  a young Grinder is the Law of Advancement met by ordinary gear (a level-15
+  weapon +7, a level-9 armour +6, Bojowa Tarcza +6 - 425 advances at 13-25 in
+  two days, 60% two minutes after the law is met), and on a world whose bots
+  average fourteen most have not reached their lock (13-19, drawn per bot).
+  Neither is a regression; how sticky a tier should be is his call.
+- **An event's boost is not the world's yang rate.** A yang event raises the
+  live `mob_gold` to the base times (100 + value) percent and keeps the base in
+  `m2_event_yang_base` (playerbot_events.h); every price the bots set read the
+  live flag, so a counter stocked during a +100% event asked double, and
+  `ForgetPlayerBotPricesOnRateChange` wiped the market's memory at the event's
+  start and again at its end ("Raty eventowe maja wplyw na ceny na rynku",
+  Iwakura, confirmed by Uxie; m2zip's own log on 23 September: "yang rate
+  changed from 200 to 400, forgetting asks=73 sales=28" at 07:49, the second
+  the event began). `GetPlayerBotPriceYangRate` is the base while one runs and
+  the live rate otherwise, read once a second, and the curve, the price
+  generation and the memory all ask it. Measured with a six-minute +100% event
+  on m2zip: mob_gold 200 -> 400, the base flag 200, no "yang rate changed" line
+  and no repricing.
+- **No skill of a class is cast from a saddle, a battle horse's included.**
+  mt2009's `CHARACTER::UseSkill`: a rider without `CanUseHorseSkill()` (horse
+  grade 3 - level 21 and up, `(level - 1) / 10 + 1` - and health left) is
+  refused everything but Sprint, and one with it everything but the four
+  SKILL_TYPE_HORSE skills (137-140, which no bot has) and Sprint
+  (`IsSkillUsableWhileRiding`). The 3 September mounted combat (the spec's
+  Module 2) kept a battle-horse rider in the saddle for a stone and, a warrior
+  or a sura, for everything - so from level thirty-five those two fought with
+  the swing alone, aura and berserk included, because the buff pass asked the
+  engine and the engine refused without a word ("sura bez skilli na koniu se
+  expi", prodnathin, 23 September). `CanPlayerBotEverFightOnHorse` is
+  `HasPlayerBotBattleHorse && !PlayerBotSkillsBeatTheSaddle` now (one attack
+  skill of the build at `PLAYERBOT_SADDLE_SKILL_LEVEL`, Master), so every path
+  that climbs down for a fight - the top of the tick, the target section, the
+  duel, the Anti-PK fight, the tower - treats a skilled rider like a rider of a
+  transport horse. One that still fights mounted climbs down for a missing
+  buff in a fight (`PLAYERBOT_HORSE: dismounted ... reason=buff`) and the
+  flip hold keeps it on foot while the set goes up; the three support-buff
+  passes climb down from any saddle. And since 2.2.6 a stone is broken on
+  foot from any saddle (`CanPlayerBotFightOnHorse` answers no for one, the
+  tower's fight climbs down for one too): "do zbijania metinow nikt nie
+  uzywa bojowca" (prodnathin, 23 September). With that the planner's
+  twice-as-many Metin expeditions for a battle horse went too, since they
+  stood on the same belief. On foot the
+  buffs were always cast: ten minutes of game1 before the change had aura
+  601, berserk 567, strong body 390, enchanted blade 476 casts. No bot on
+  m2zip owns a battle horse (the four GM characters do), so the saddle half
+  is compiled and read, not watched.
+- **A raid is a guild, and nothing written for a party reached it.** Inside
+  the Demon Tower the Shamans buffed themselves and nobody else: the
+  companion pass needs a party, and the party branch of the self-buff pass
+  runs only when the self-cast fails. `BuffPlayerBotTowerFellows` points the
+  companion pass's cast (`CastPlayerBotSupportBuff`, in playerbot_combat.h,
+  shared with it) at whoever stands in the tower of the Shaman's kingdom, the
+  people first. The loot pass took only what lay at a bot's feet in there,
+  because a bot always holds a foe and a pack always stands about, and a
+  floor jumps a few seconds after its last monster: between two foes a bot
+  now goes for what it may within `PLAYERBOT_TOWER_LOOT_RANGE` while its
+  health holds (`towerDash` in `HandleLoot`) - and since 2.2.6 whatever it is
+  worth: the choosy looter is off in an instance, because the floors were
+  strewn with potions and outgrown gear +2 under the names of bots of sixty
+  and seventy, which is exactly its fodder (prodnathin's screenshot of floor
+  3; "niech tam drop swoj pilnuja, aby podnosili"). A bot under
+  `PLAYERBOT_TOWER_MIN_LEVEL` inside an instance leaves it, and goes home from
+  the ground floor, unless a person's party brought it - the tower's keeper
+  tells a player forty too. And the sixth floor's smith is used: the quest's
+  1092.kill sets `deviltower_zone.can_refine` for everybody in the instance,
+  and a drag onto him is `DoRefine(item, true)` - the fee, no materials, the
+  anvil's odds, a burn on failure; 20074 takes a weapon, 20075 a body armour,
+  shield or helmet, 20076 the rest (`CanReceiveItem`), and the refine sets he
+  refuses are the elite 501 and 530 on mt2009 (`IsEliteRefine`) but everything
+  from 500 on r40250 (`DEVIL_TOWER_REFINE_HACK`). Since 2.2.6
+  `UsePlayerBotTowerSmith` gives him a bag piece and never a worn one (the operator:
+  "nie swoj noszony, a jakis zarobkowy albo zapasowy, np. +6 i podejma probe
+  na +7, bo kowal w DT nie wymaga ulepszaczy"): a higher-tier spare under its
+  refine target, or goods from `PLAYERBOT_TOWER_SMITH_GOODS_MIN_PLUS`, the
+  highest grade first; it says the outcome in the ordinary chat
+  (`SendPlayerBotLocalChat`, a player's own TALKING packet) and no longer
+  shouts it; one bot's turn is `PLAYERBOT_TOWER_SMITH_TURN_MS` at most, and the
+  bot of seventy-five takes the run on once everybody has had the turn or
+  `PLAYERBOT_TOWER_SMITH_REFINE_WAIT_MS` (45 s, was 150) has passed, saying in
+  `smith turns over ... still_waiting=` how many it did not wait for
+  ("troche dlugo po ulepszeniu czeka sie na kolejne pietro", prodnathin).
+  The first version (2.2.3) gave him the worn piece the anvil rules would
+  raise, with a backup asked for a weapon or armour. None of it has been
+  watched in a run: m2zip has no guild with four bots of forty. A read-only
+  census from a deploy-only build asked the picker about m2zip's 212 bots of
+  thirty and up: a piece for the weapon smith from 93, the armour smith 128,
+  the accessory smith 35 - and it caught the picker offering the weapon smith
+  a rod, which is why it asks the item type the way `CanReceiveItem` does.
+  The same census counted 38 of the 212 whose attack skills beat the saddle:
+  the players' skill order puts the buffs first, so most bots of thirty to
+  forty hold their attack skills at one and still ride into a fight - now
+  climbing down for their buffs.
+- **A polymorph marble is for the Reaper.** `ManagePlayerBotPolymorph` used
+  one on any boss at nine tenths of its health (`MOB_RANK_BOSS` and up) - 108
+  in fifteen hours on the test world, 57 of them on the Bestial Captain - and
+  on the Demon Kings of the tower's third and sixth floors,
+  while the players keep theirs for the ninth floor's Umarly Rozpruwacz
+  (prodnathin: "niekoniecznie wydaje mi sie potrzebne zeby boty tracily na
+  nich marmurki"; "zwykle uzywa sie na riperze"). Since 2.2.6
+  `PLAYERBOT_POLYMORPH_BOSS_VNUMS` names 1093 and 1095 (Niebieska Smierc, a
+  name given from memory) and nothing else; a marble a bot does not
+  spend stays goods for its counter (`PLAYERBOT_SHOP_MARBLE_LINES`).
+- **A bot's status line has an English twin, and the client picks.** The
+  server cannot know a client's language, so since 2.2.6 it builds the line
+  twice (`BuildPlayerBotStatusText(..., en)`, every format a
+  `PBT(en, "pl", "en")` pair) and sends both in one command,
+  `PlayerBotStatus <vid> <hex> <hex_en>`; a root from before ignores the third
+  word (the handler takes `*rest`), client 2.0.28's `playerbot_status_tail.py`
+  draws it for any language but Polish, English being what a Romanian or a
+  German reads first ("Chat language", JFK). A monster's or a stone's name in
+  the English line is `{m<vnum>}` and a Biologist item `{i<vnum>}`, which the
+  client fills in from its own tables (`nonplayer.GetMonsterName`,
+  `item.SelectItem` + `GetItemName` - the getter ignores an argument and names
+  whatever is selected). The English formats are runtime strings the compiler
+  cannot check against their arguments, so `status_en.py` (session 82d3ab90)
+  asserted that each pair carries the same conversions; keep them paired by
+  hand from now on. Two lines of 159 bytes as hex stay far under the 1024
+  bytes the client reads a chat packet into without a bound check. Bot chat,
+  whispers, shouts, shop names, notices and NPC names are still Polish: the
+  conversation layer understands and writes Polish only, and an NPC's name is
+  the server's `mob_proto`.
+- **A level the panels read is written when it moves.** Both panels read
+  `player.player.level`, which the db core writes from its cache every seven
+  minutes, so a young bot read three levels behind itself (NieBijOddam, 23
+  September: Lv 13 in the game, Lv 10 in both panels). `MirrorPlayerBotLevel`
+  saves the character (the delayed save, so the cache holds the new level)
+  and updates `level`/`exp` in the row at once when a bot's level changes;
+  the cache's later flush then writes the same level, never an older one.
+- **The launcher offers English to the game client.** The client's language
+  is the `LANGUAGE` line of `game1.cfg` beside the exe (`CPythonSystem`; no
+  file or no line means Polish) and its own switch is on the login screen and
+  closes the client. With the launcher in English and a Polish client, the
+  launcher asks when the client is chosen and before it starts one
+  (`Confirm-ClientLanguageForLauncher`), never while the client runs - it
+  writes `game1.cfg` back when it closes - and a "No" is kept for that client
+  folder in `.m2client-language-declined` beside the launcher's settings,
+  because `Save-M2LauncherConfig` keeps a fixed set of fields.
+- **The Useful Items List is the gambler's, and a limit counts the box.**
+  Community Patch 2, point 9 sat under "Zarzadzanie ekwipunkiem Hazardzisty"
+  and every bot kept the list, which names every body armour over 33 and
+  every shield over 20 of every class: m2zip's boxes held 33 521 pieces of
+  gear on 23 September, 14 345 of them body armour, 68 in one box, and a
+  warrior's box five copies of one level-34 plate - the "until a visit has
+  looked, the box counts as empty" rule let every restart put down more.
+  The operator's screenshot was a shaman of forty with a box of armour of 34 and 42
+  ("te zbroje nadaja sie do handlarza"), and Iwakura's answer was that the
+  point was the gambler's alone and that its "2 sztuki w ekwipunku" means
+  the bag and the box together ("trzeba zrobic zeby to byl warunek zawsze").
+  That sentence reads two ways; what shipped is: the list's gear is kept by
+  a gambler by nature only (`IsPlayerBotGamblerByNature` - drawn by pid in
+  the share `GetPlayerBotGambleChance` gives the character, droppers never,
+  plus any bot while its session runs: 170 of 888 on m2zip), and the two
+  counts everywhere a bot holds gear - the list (a small piece's three is
+  two now), the unsold-stands deposit (`mapGearStored`), a level-30 weapon
+  of another class ground for sale, and the class's own level-30 weapon at
+  four with the project and the class's own among the four. Everybody else
+  sells what the list names by the ordinary rules, which send a plain armour
+  to the merchant. What the boxes already hold comes out through
+  `CollectPlayerBotLppBoxRelease` (the pure half is `PlanLppBoxRelease`,
+  unit-tested): six pieces a visit, into a bag clear of pressure, and a visit
+  that released anything goes back to the merchants on the same visit.
+  `PlayerBotWantsLppRelease` brings a bot already in a village to its box for
+  that alone every four minutes at most - and once, to look, at a box no
+  visit has opened since the start, because only a look can say what an
+  older version put there. The first bot to do it on m2zip took five
+  Smiert. Zbroja Plytowa and a Smocza out and sold the six ten seconds later,
+  and in seventeen minutes the boxes went from 33 521 pieces of gear to
+  29 195.
+- **What a gambler made is goods, and the list's rank used to hide it.**
+  The list keeps the best copies of a family by `GetPlayerBotLppRank`, the
+  plus first, so the one piece a session had just taken to +6 or +7 was the
+  copy kept and went back to the storekeeper while the plain ones went on
+  the counter ("boty dobrze skladuja eq ale nie ulepszaja na sell", Iwakura,
+  23 September). `EndPlayerBotGamble` now puts every piece its plans touched
+  into `setGambleForSale`, and `IsPlayerBotLppFinished` - that set, or a
+  piece at `GAMBLE_SAFE_PLUS` (+7) or past it, which is goods whether a
+  restart forgot the set or not - is neither kept nor held in the box
+  (`CollectPlayerBotLppBoxRelease`) nor taken by the next session
+  (`IsPlayerBotGambleBase`). Measured the same day on game1 before it: 51
+  sessions, 861 attempts, 120 pieces burnt, 12 finished, none at +9, 78.9
+  million spent; 101 steps refused because the stake - the fee, the
+  materials and the whole piece on a burn - outran what was left of the 40%,
+  and 53 for want of materials. So the gambler does fire, rarely (once every
+  three to six hours a bot, and only past `HasPlayerBotRefineOpportunity`),
+  and mostly burns. `PLAYERBOT_PERSONA: gambler census` every ten minutes
+  counts the sessions, what they made, and at which gate the other visits
+  stopped (resting, not_here, after_perfect, purse, own_gear, no_bases,
+  roll) - read that before tuning any of it.
+- **A stone held to its end is a pack taken apart.** On the seventh floor
+  the Metin of Murder is broken ten times for the map and the regen never
+  stops; the pack took the stone the moment nothing stood within 1500 of it
+  and held it as the foe in hand until it fell, while the demons that
+  walked up killed the bots hitting it ("lapia aggro na metina i olewaja
+  moby", prodnathin; "najpierw moby, potem kamien", 23 September).
+  `IsPlayerBotTowerStoneWaiting` is a monster within
+  `PLAYERBOT_TOWER_STONE_THREAT_RANGE` of the bot on that floor: the stone is
+  then no candidate, a held one is let go (`PLAYERBOT_TOWER: stone waits`),
+  and the fight is ranked from the bot rather than from the stone. Compiled
+  and not watched: m2zip has no guild to take a raid that far.
+- **"Co 5 Malz" is every fifth shell, not every shell five at a time.**
+  Iwakura's Rybak "otwiera co 5 Malz w celu zdobycia perly"; the code read
+  it as batches of five and opened every shell over the anvil's reserve, so
+  a young world had pearls nobody under forty-eight refines with and no
+  shells on its counters, where twenty-six recipes consume one
+  ("boty otwieraja malze za szybko", LazyBastarden, 23 September).
+  `s_mapPlayerBotShellTally` counts what a bot gains (the bag at the first
+  look is not a gain) and one shell is opened per
+  `PLAYERBOT_RYBAK_SHELL_BATCH`. The reading is ours; ask Iwakura before
+  changing it back.
+- **A clock that takes one action per 200 ms refuses a bunched burst.**
+  The client's Ctrl + right-click sends a shop's price changes a quarter of
+  a second apart, and a stalled connection hands the server two at once:
+  `RecvShopEditItemClientPacket`'s `IncreaseClock(IkaShopTouchItem, 200 ms)`
+  answered one of every few with "Zaczekaj chwile", the client re-sent it
+  only after the shop list came back, and a player who left edit mode first
+  kept the old price (blasty, three times from 20 September).
+  `apply_shop_edit_burst` (playerbotify.py) takes ten to a second
+  (`IncreaseCount`); the per-minute weight above it (2 500, five an edit) is
+  still the flood guard. Server-side, so no client release was needed.
+- **The item search finds one clicked item (Tyrion).** His patch of 22
+  September carries the picked item in `SendSearchItem`'s second field as
+  vnum * 1000 + socket0, 0 being the whole category, so the packet is
+  unchanged and either side alone behaves as before. The server half is
+  `apply_shop_search_picked_item`, the client half a clientrootify entry for
+  `offlineshopsearch.py` generated from his diff and checked to equal
+  `patch(1)`'s result on client 2.0.26's root.
+- **Rada Pustelnika is one certain read, and the pass took it for an
+  Exorcism Scroll.** `LearnSkillByBook` rolls a hundred instead of
+  thirty-five for a class book while `AFFECT_SKILL_BOOK_BONUS` is on (on
+  r40250's english table: nothing against sixty-five), and takes the affect
+  off at the next read of any kind - a passive book's or `LearnGrandMasterSkill`'s
+  too, which gain nothing from it on mt2009. The book pass knew 71001 and
+  71094 as "the scrolls that unlock a wait" and used either only while a
+  wait stood in the way, which with the bots' wait at zero is never ("Boty
+  nie uzywaja rady ... kazdemu botowi nadalem po 5 sztuk, zaden nie uzyl",
+  DUDU, 23 September). Both are found by what they do now - USE_AFFECT with
+  the affect in value0 (`IsPlayerBotBookAffectItem`: three Radas and four
+  Exorcism Scrolls on mt2009, the item shop's copies without ANTI_SELL
+  among them, which the junk rule used to sell) - the Rada is used the
+  moment before a class book is read and never while one is on, and the
+  general books and a Kamien Duchowy wait while an active Rada has a class
+  book to be read with. `read skill book ... advice=1` is a read the Rada
+  made certain.
 
 
 ## Engine facts worth not re-deriving
@@ -7869,13 +8356,16 @@ change (never its commit history), re-points its repository links here, and
 updates `tools/upstream-sync.json`: the last upstream commit synced and the
 upstream server package whose engine files match this tree's port scripts.
 Those engine files are not in git, so a release must take them from that
-package - the publish workflow (`.github/workflows/publish-mt2009-release.yml`)
-does, and packing them from an older package pairs new bot code with an old
-engine and the players' build fails. After a sync, keep COOP ungated (the
-upstream never gated it in code the sync touches, but check
-`launcher/Metin2Launcher.Coop.psm1`), and number the release above both
-lines: this repository went 2.0.98/client 2.0.27, upstream 2.1.0/client
-2.0.26, the merge is 2.1.1/client 2.0.28. An upstream `## x.y.z` CHANGELOG
-section whose number this repository already used moves under the new
-section, because the panel shows only sections newer than the installed
-version.
+package - the publish workflow
+(`.github/workflows/publish-mt2009-release.yml`) does, and packing them from
+an older package pairs new bot code with an old engine and the players' build
+fails. After a sync, keep COOP ungated (the upstream never gated it in code
+the sync touches, but check `launcher/Metin2Launcher.Coop.psm1`), and number
+the release above both lines: this repository went 2.0.98/client 2.0.27,
+upstream 2.1.0/client 2.0.26, the merge is 2.1.1/client 2.0.28, and the next
+sync (upstream 2.2.0-2.2.6, client 2.0.27-2.0.28, over our 2.1.5 / client
+2.0.30) is 2.2.7 / client 2.0.31. Upstream's added attributions to its own
+operator are scrubbed from comments and notes the way the first sync did; a
+player's or a contributor's name stays. An upstream `## x.y.z` CHANGELOG
+section whose number this repository already used moves under the new section,
+because the panel shows only sections newer than the installed version.

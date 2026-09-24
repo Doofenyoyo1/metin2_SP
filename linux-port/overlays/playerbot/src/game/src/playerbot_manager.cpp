@@ -483,14 +483,46 @@ namespace
 #endif
 	}
 
+	// A bot's level, where the panels read it. Both read player.player, and the
+	// db core writes a character's row out of its cache every seven minutes
+	// (g_iPlayerCacheFlushSeconds), so a young bot that levels every few
+	// minutes stood three levels behind itself in both rankings: Lv 13 over
+	// its head, Lv 10 in the two panels ("strona nie aktualizuje poziomow
+	// botow", NieBijOddam, 23 September). A level that moved is put in the db
+	// core's cache (Save, the delayed save) and written to the row at once,
+	// both, so the cache's own flush later writes the same level and never an
+	// older one. A level-up is rare enough that one row each costs nothing.
+	void MirrorPlayerBotLevel(LPCHARACTER ch)
+	{
+		static std::map<DWORD, int> s_mapPlayerBotLevelWritten;
+		if (!ch || !ch->IsPC())
+			return;
+		const DWORD pid = ch->GetPlayerID();
+		const int level = (int)ch->GetLevel();
+		std::map<DWORD, int>::iterator it = s_mapPlayerBotLevelWritten.find(pid);
+		if (it == s_mapPlayerBotLevelWritten.end())
+		{
+			// The row was read at the login; nothing to write until it moves.
+			s_mapPlayerBotLevelWritten[pid] = level;
+			return;
+		}
+		if (it->second == level)
+			return;
+		it->second = level;
+		ch->Save();
+		DBManager::instance().Query("UPDATE player.player SET level=%d, exp=%u WHERE id=%u",
+				level, (unsigned int)ch->GetExp(), pid);
+	}
+
 	// When a marble is worth more than the whole skill rotation.
 	//
 	// A polymorph marble gives a large flat damage bonus for five minutes and
 	// the engine refuses every skill while it lasts (char_skill.cpp), so it is a
 	// trade, not an upgrade: worth taking against something that stands there
 	// long enough for the bonus to add up and cannot be killed faster by a
-	// rotation anyway. That is a boss, at the start of the fight - which is
-	// exactly where the players use them.
+	// rotation anyway. That is a boss, at the start of the fight - and of the
+	// bosses, the Reaper alone (PLAYERBOT_POLYMORPH_BOSS_VNUMS): the players
+	// keep their marbles for him and fight the Demon Kings with their skills.
 	//
 	// Every refusal the engine can raise is left to the engine (already
 	// transformed, in the saddle, a monster too high for the bot's level): none
@@ -504,6 +536,13 @@ namespace
 		LPCHARACTER victim = ch->GetVictim();
 		if (!victim || victim->IsDead() || !victim->IsMonster() ||
 				victim->GetMobRank() < MOB_RANK_BOSS)
+			return;
+		bool reaper = false;
+		for (size_t i = 0; i < sizeof(PLAYERBOT_POLYMORPH_BOSS_VNUMS) /
+				sizeof(PLAYERBOT_POLYMORPH_BOSS_VNUMS[0]); ++i)
+			if (PLAYERBOT_POLYMORPH_BOSS_VNUMS[i] == victim->GetRaceNum())
+				reaper = true;
+		if (!reaper)
 			return;
 		// Early in the fight, or the five minutes are spent on a boss that is
 		// nearly down and the bot has thrown a marble away for one hit.
@@ -1151,6 +1190,40 @@ namespace
 				(int)finder.m_pFound->GetEmpire(), ch->GetMapIndex());
 	}
 
+	// A person's village is the bot's village too. A bot serving a person ran
+	// no errand at all, because the errand and the follow pass took turns
+	// (2.0.49, Pabloo's fix), and so a party of bots never refined, sold or
+	// restocked for as long as it lasted: "if you don't quit the party, the
+	// other 7 players won't upgrade their equipment" (_johnlennon, 23
+	// September). In a village with a person of the party standing in it,
+	// the town visit takes the bot nowhere that person is not - the
+	// blacksmith, the merchants and the storekeeper are all in the village -
+	// so there it runs and the follow pass waits for it. The moment the person
+	// leaves the map the visit is paused again and the bot follows, as before.
+	bool IsPlayerBotBesidePersonInVillage(LPCHARACTER ch)
+	{
+		if (!ch || !IsPlayerBotVillageMap(ch->GetMapIndex()))
+			return false;
+		LPPARTY party = ch->GetParty();
+		if (!party)
+			return false;
+		struct FFindPersonHere
+		{
+			long mapIndex;
+			bool found;
+			explicit FFindPersonHere(long m) : mapIndex(m), found(false) {}
+			void operator()(LPCHARACTER member)
+			{
+				if (member && member->IsPC() && (!member->GetDesc() || !member->GetDesc()->IsBot()) &&
+						member->GetMapIndex() == mapIndex)
+					found = true;
+			}
+		};
+		FFindPersonHere finder(ch->GetMapIndex());
+		party->ForEachOnlineMember(finder);
+		return finder.found;
+	}
+
 	// Walking with the player who invited you.
 	//
 	// Claims the tick when it moves, because the alternative is the wander pass
@@ -1212,6 +1285,12 @@ namespace
 		// side. The leader changing map is handled above and ends the course
 		// anyway, so only the walk on this map stands down.
 		if (state.bLureStage != LURE_STAGE_NONE)
+			return false;
+		// Nor is a town visit in the village the leader stands in
+		// (IsPlayerBotBesidePersonInVillage): the blacksmith is further off
+		// than the follow distance, and fetching the bot back from the anvil
+		// on every other tick is the loop 2.0.49 ended by forbidding the visit.
+		if (state.bVisitingShop && IsPlayerBotVillageMap(ch->GetMapIndex()))
 			return false;
 		const int dist = DISTANCE_APPROX(ch->GetX() - leader->GetX(), ch->GetY() - leader->GetY());
 		if (dist <= PLAYERBOT_PARTY_FOLLOW_DISTANCE)
@@ -1318,7 +1397,10 @@ namespace
 				SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
 				return true;
 			}
-			if (ch->IsRiding() && !CanPlayerBotEverFightOnHorse(ch))
+			// From any saddle: a battle horse casts no skill of a class
+			// either (PLAYERBOT_SADDLE_SKILL_LEVEL), and the cast below would
+			// be refused without a word.
+			if (ch->IsRiding())
 			{
 				SetPlayerBotRidingForTravel(ch, state, false, dwNow, "leader_buff");
 				next = dwNow + PLAYERBOT_BUFF_RECHECK_FAST;
@@ -1794,6 +1876,43 @@ namespace
 		return false;
 	}
 
+	// The two affects the engine's book reading asks about, found in the bag
+	// by what the item does rather than by vnum: USE_AFFECT with the affect in
+	// value0 - AFFECT_SKILL_BOOK_BONUS for Rada Pustelnika (39030, 71094 and
+	// the item shop's 71294 on this line) and AFFECT_SKILL_NO_BOOK_DELAY for
+	// the Exorcism Scroll (39008, 71001, 71201, 72310). The pass knew two
+	// vnums and took the Rada for a second Exorcism Scroll.
+	int FindPlayerBotBookAffectCell(LPCHARACTER ch, DWORD affectType)
+	{
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (item && item->GetCell() == cell && !item->isLocked() && IsPlayerBotBookAffectItem(item) &&
+					(DWORD)item->GetValue(0) == affectType)
+				return cell;
+		}
+		return -1;
+	}
+
+	// A class book this bot can read now or once its wait is over: its own
+	// skill, at Master, 20 to 29. What an active Rada is kept for.
+	bool PlayerBotHoldsReadableClassBook(LPCHARACTER ch)
+	{
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetType() != ITEM_SKILLBOOK)
+				continue;
+			const DWORD skill = GetPlayerBotSkillBookSkillVnum(item);
+			if (!IsPlayerBotOwnSkill(ch, skill))
+				continue;
+			const BYTE level = ch->GetSkillLevel(skill);
+			if (ch->GetSkillMasterType(skill) == SKILL_MASTER && level >= 20 && level < 30)
+				return true;
+		}
+		return false;
+	}
+
 	// Whether LearnSkillByBook will read at all: under the level cap it wants
 	// PLAYERBOT_BOOK_READ_EXP in hand (FN_should_check_exp - mt2009 waves the
 	// cap through, r40250's english locale asks at every level).
@@ -1848,7 +1967,7 @@ namespace
 				const bool ready = IsPlayerBotFastBooksEnabled() ||
 					get_global_time() >= ch->GetSkillNextReadTime(skillVnum) ||
 					ch->FindAffect(AFFECT_SKILL_NO_BOOK_DELAY);
-				const bool canUnlock = ch->CountSpecifyItem(71001) || ch->CountSpecifyItem(71094);
+				const bool canUnlock = FindPlayerBotBookAffectCell(ch, AFFECT_SKILL_NO_BOOK_DELAY) >= 0;
 				if (!ready && !canUnlock) continue;
 				const int priority = (ready ? 100000 : 0) +
 					(skillVnum == build.dwPrimaryMaxSkill ? 10000 : 0) + skillLevel;
@@ -1863,22 +1982,19 @@ namespace
 
 		if (bestCell < 0 || bestSkillVnum == 0)
 		{
-			ReadPlayerBotGeneralSkillBook(ch, state, dwNow);
+			// A Rada already on is kept for the class book it was taken for: a
+			// general book's read takes it off for nothing on this line.
+			if (!ch->FindAffect(AFFECT_SKILL_BOOK_BONUS) || !PlayerBotHoldsReadableClassBook(ch))
+				ReadPlayerBotGeneralSkillBook(ch, state, dwNow);
 			return;
 		}
 
 		if (!IsPlayerBotFastBooksEnabled() && !ch->FindAffect(AFFECT_SKILL_NO_BOOK_DELAY) &&
 				get_global_time() < ch->GetSkillNextReadTime(bestSkillVnum))
 		{
-			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
-			{
-				LPITEM scroll = ch->GetInventoryItem(cell);
-				if (scroll && (scroll->GetVnum() == 71001 || scroll->GetVnum() == 71094))
-				{
-					ch->UseItem(TItemPos(INVENTORY, cell));
-					break;
-				}
-			}
+			const int exorcism = FindPlayerBotBookAffectCell(ch, AFFECT_SKILL_NO_BOOK_DELAY);
+			if (exorcism >= 0)
+				ch->UseItem(TItemPos(INVENTORY, (WORD)exorcism));
 		}
 
 		// The day's wait the engine puts between two reads of one skill
@@ -1922,16 +2038,35 @@ namespace
 #if defined(PLAYERBOT_ENGINE_MT2009)
 		const bool exorcised = get_global_time() < ch->GetSkillNextReadTime(bestSkillVnum);
 #endif
+		// Rada Pustelnika makes this read certain: while AFFECT_SKILL_BOOK_BONUS
+		// is on, LearnSkillByBook rolls a hundred where it rolls thirty-five
+		// (r40250's english table: nothing against sixty-five), and it takes
+		// the affect off at the next read of any kind - a passive book's or a
+		// Kamien Duchowy's, which gain nothing from it on this line. So it is
+		// used here, the moment before a class book is read and every check
+		// that could refuse the read has passed, and never while one is on.
+		// The pass knew the Rada as a second Exorcism Scroll and used it only
+		// while a wait stood in the way, which with the BOOKS switch on is
+		// never: DUDU gave five to every bot and not one was used ("Rada
+		// pustelnika vnum 71094", 23 September).
+		bool advice = ch->FindAffect(AFFECT_SKILL_BOOK_BONUS) != NULL;
+		if (!advice)
+		{
+			const int adviceCell = FindPlayerBotBookAffectCell(ch, AFFECT_SKILL_BOOK_BONUS);
+			if (adviceCell >= 0 && ch->UseItem(TItemPos(INVENTORY, (WORD)adviceCell)))
+				advice = ch->FindAffect(AFFECT_SKILL_BOOK_BONUS) != NULL;
+		}
 		if (ch->UseItem(TItemPos(INVENTORY, bestCell)))
 		{
 #if defined(PLAYERBOT_ENGINE_MT2009)
 			NotePlayerBotBookRead(ch, bestSkillVnum, exorcised);
 #endif
 			SetPlayerBotAction(state, BOT_ACTION_READ_BOOK, dwNow);
-			sys_log(0, "PLAYERBOT_AI: read skill book pid=%u name=%s skill=%u old_level=%u new_level=%u success=%d",
+			sys_log(0, "PLAYERBOT_AI: read skill book pid=%u name=%s skill=%u old_level=%u new_level=%u success=%d advice=%d",
 					ch->GetPlayerID(), ch->GetName(), bestSkillVnum, oldLevel,
 					ch->GetSkillLevel(bestSkillVnum),
-					ch->GetSkillLevel(bestSkillVnum) > oldLevel ? 1 : 0);
+					ch->GetSkillLevel(bestSkillVnum) > oldLevel ? 1 : 0,
+					advice && !ch->FindAffect(AFFECT_SKILL_BOOK_BONUS) ? 1 : 0);
 		}
 	}
 
@@ -1969,6 +2104,12 @@ namespace
 		}
 		if (!stone)
 			return;
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		// LearnGrandMasterSkill takes a Rada's affect off for nothing on this
+		// line; one that is on waits for the class book it was taken for.
+		if (ch->FindAffect(AFFECT_SKILL_BOOK_BONUS) && PlayerBotHoldsReadableClassBook(ch))
+			return;
+#endif
 
 		const char* nextTimeFlag = "training_grandmaster_skill.next_time";
 		const int now = get_global_time();
@@ -3000,7 +3141,9 @@ size_t CPlayerBotManager::SpawnRegistered(size_t count, BYTE bEmpire)
 // are chosen after every restart. One saved more than two levels over the lock
 // is passed over: two is the margin for a level taken on the tick before the
 // lock landed. Scheduled before the ordinary cohort, which steps over them, and
-// restored by TopUpMissingBots like the rest.
+// restored by TopUpMissingBots like the rest. The far end is the seed's first
+// layout's (PLAYERBOT_SEED_FIRST_LAYOUT_LAST_PID) before the identities 2.2.1
+// appended, so the droppers a world already has stay the droppers.
 size_t CPlayerBotManager::SpawnMedalDropperCohort(size_t count, BYTE bEmpire, BYTE bExpLockLevel)
 {
 	// The operator's number is per kingdom for the world: the first channel
@@ -3011,19 +3154,25 @@ size_t CPlayerBotManager::SpawnMedalDropperCohort(size_t count, BYTE bEmpire, BY
 		return 0;
 	m_bMedalDropperCohortLevel = bExpLockLevel;
 	size_t selected = 0;
-	for (TRegisteredPlayerBotSet::const_reverse_iterator it = m_setRegisteredBots.rbegin();
-			it != m_setRegisteredBots.rend() && selected < count; ++it)
+	for (int pass = 0; pass < 2 && selected < count; ++pass)
 	{
-		TPlayerBotAccountMap::const_iterator account = m_mapBotAccounts.find(*it);
-		if (account == m_mapBotAccounts.end() || account->second.bEmpire != bEmpire ||
-				(int)account->second.bLevel > (int)bExpLockLevel + 2)
-			continue;
-		if (m_setScheduledBots.find(*it) != m_setScheduledBots.end())
-			continue;
-		m_setMedalDropperCohort.insert(*it);
-		m_dequePendingSpawns.push_back(*it);
-		m_setScheduledBots.insert(*it);
-		++selected;
+		const bool firstLayout = pass == 0;
+		for (TRegisteredPlayerBotSet::const_reverse_iterator it = m_setRegisteredBots.rbegin();
+				it != m_setRegisteredBots.rend() && selected < count; ++it)
+		{
+			if ((*it <= PLAYERBOT_SEED_FIRST_LAYOUT_LAST_PID) != firstLayout)
+				continue;
+			TPlayerBotAccountMap::const_iterator account = m_mapBotAccounts.find(*it);
+			if (account == m_mapBotAccounts.end() || account->second.bEmpire != bEmpire ||
+					(int)account->second.bLevel > (int)bExpLockLevel + 2)
+				continue;
+			if (m_setScheduledBots.find(*it) != m_setScheduledBots.end())
+				continue;
+			m_setMedalDropperCohort.insert(*it);
+			m_dequePendingSpawns.push_back(*it);
+			m_setScheduledBots.insert(*it);
+			++selected;
+		}
 	}
 
 	const size_t batches = std::max<size_t>(1, m_dwSpawnWindowMs / PLAYERBOT_SPAWN_BATCH_INTERVAL);
@@ -4825,9 +4974,10 @@ void CPlayerBotManager::Update()
 		ProcessPlayerBotCatch(ch);
 		ManagePlayerBotHairDye(ch);
 		// A dropper that has reached its band stops earning experience, and a
-		// marble is spent on a boss. Both are cheap tests that end on the first
-		// line for everybody they do not concern.
+		// marble is spent on the Reaper. Both are cheap tests that end on the
+		// first lines for everybody they do not concern.
 		ManagePlayerBotExpLock(ch, state);
+		MirrorPlayerBotLevel(ch);
 		ManagePlayerBotPolymorph(ch, state, dwNow);
 		ManagePlayerBotGuild(ch, state, dwNow);
 		// Answered every tick and not on the party pass's own clock: the engine
@@ -4868,6 +5018,9 @@ void CPlayerBotManager::Update()
 		// IsPlayerBotHeldForCompany already knew the first two.
 		const bool bServingPerson = bHumanLedParty || IsPlayerBotHeldForCompany(ch) ||
 				state.dwLurePlayerPID != 0;
+		// Except for the town visit in a village the person stands in: there
+		// it runs (IsPlayerBotBesidePersonInVillage).
+		const bool bTownVisitAllowed = !bServingPerson || IsPlayerBotBesidePersonInVillage(ch);
 		// Keeping up with the player comes before the bot's own plans for the
 		// tick, or the wander pass walks it out of the party it just joined.
 		if (ManagePlayerBotFollowHumanLeader(ch, state, dwNow))
@@ -5026,7 +5179,7 @@ void CPlayerBotManager::Update()
 		// the next tier loops forever between the weapon and armour merchants and
 		// never returns to combat (or to its local party).
 		const bool bOnTownMap = IsPlayerBotVillageMap(ch->GetMapIndex());
-		if (!bServingPerson && bOnTownMap && !state.bVisitingShop && !state.bMultiPullActive &&
+		if (bTownVisitAllowed && bOnTownMap && !state.bVisitingShop && !state.bMultiPullActive &&
 				!bFightingMetin &&
 				(bNeedsProfession || dwNow > state.dwNextShopCheckTime))
 		{
@@ -5086,7 +5239,7 @@ void CPlayerBotManager::Update()
 		// A visit is an adaptive, persistent route. The bot only visits specialists
 		// needed by its current inventory: weapon merchant, armor merchant, Misc
 		// Merchant and/or blacksmith. Goals never change in the middle of a route.
-		if (!bServingPerson && HandlePlayerBotTownVisit(ch, state, dwNow))
+		if (bTownVisitAllowed && HandlePlayerBotTownVisit(ch, state, dwNow))
 			continue;
 
 		// A normal horse is for transport only, so it comes off before buffs
@@ -5448,9 +5601,9 @@ void CPlayerBotManager::Update()
 		LPITEM equippedWeapon = ch->GetWear(WEAR_WEAPON);
 		const bool isBow = (equippedWeapon && equippedWeapon->GetType() == ITEM_WEAPON && equippedWeapon->GetSubType() == WEAPON_BOW);
 		const int combatRange = isBow ? 800 : 280;
-		// A battle-horse rider closes on Metins (and, for warriors/suras, mob spots)
-		// without dismounting so the fight happens from the saddle. Everyone else
-		// keeps the previous on-foot approach.
+		// A warrior or a sura on a battle horse closes on a mob spot without
+		// dismounting, so the fight happens from the saddle. A stone, and
+		// everyone else's fight, is approached on foot.
 		const bool fightOnHorse = CanPlayerBotFightOnHorse(ch, target);
 
 		if (distance > combatRange)
@@ -5541,6 +5694,7 @@ void CPlayerBotManager::Update()
 	ReportPlayerBotPersonaCensus();
 	ReportPlayerBotMercCensus(get_dword_time());
 	ReportPlayerBotLppCensus(get_dword_time());
+	ReportPlayerBotGambleCensus(get_dword_time());
 
 	// Publish one compact, atomic snapshot per game core. The web panel reads
 	// these files from the shared read-only game-var volume, so it sees the real
