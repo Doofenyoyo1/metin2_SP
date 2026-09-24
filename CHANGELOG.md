@@ -70,6 +70,26 @@ Na świecie testowym w 20 minut po zmianie 9 botów poszło 21 razy do
 łuczników, liczniki próby urosły łącznie o 109 zabójstw, a jeden bot próbę
 skończył.
 
+### Klient 2.0.33
+
+Tylko klient: w launcherze AKTUALIZUJ KLIENTA. Serwer zostaje przy 2.2.9.
+
+- Nowe okno „Zmieniacz bonusów” pod klawiszem U. Przeciągnij do niego
+  przedmiot z plecaka (broń, zbroję albo ozdobę, nie noszoną), wybierz
+  strzałkami do 5 bonusów, które chcesz mieć, i ich najmniejsze wartości,
+  a potem kliknij Start. Klient sam używa Zaczarowań Przedmiotu z plecaka,
+  jednego po drugim, aż przedmiot dostanie wszystkie wybrane bonusy.
+- Zatrzymuje się sam, gdy bonusy się zgadzają, gdy skończą się kamienie,
+  gdy przedmiot zmieni miejsce w plecaku albo gdy serwer przestaje
+  odpowiadać. Działa też przy zamkniętym oknie; Zatrzymaj przerywa od razu.
+- Zielone Zaczarowania (dla broni i zbroi do 40. poziomu) idą pierwsze tam,
+  gdzie pasują. Przedmiot musi mieć już jakiś bonus: pierwsze bonusy dodaje
+  się ręcznie kamieniem dodawania.
+- Odstęp między zmianami ustawiasz w oknie (domyślnie 300 ms, najmniej
+  150 ms); ustawienia zapisują się w pliku bonusswitch.cfg obok klienta.
+  Każda zmiana, jak przy ręcznym użyciu kamienia, pisze na czacie „You have
+  changed the upgrade.”.
+
 ## 2.2.8 — 2026-09-24
 
 Serwer 2.2.8 i klient 2.0.32. Zaktualizuj oba („AKTUALIZUJ wszystko”

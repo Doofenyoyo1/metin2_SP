@@ -8255,6 +8255,25 @@ not in `data/`) reworked these point by point. What each hangs on:
   general books and a Kamien Duchowy wait while an active Rada has a class
   book to be read with. `read skill book ... advice=1` is a read the Rada
   made certain.
+- **The bonus switcher is a patient hand, not a server feature.**
+  `client-root/uibonusswitch.py` (client 2.0.33, U opens it) sends what a
+  player's drag does - `net.SendItemUseToItemPacket(stone, item)` - one at a
+  time, and the server rolls every change (`CHARACTER::UseItem`,
+  USE_CHANGE_ATTRIBUTE). What shaped it is the engine: PulseManager's
+  `ItemUse` admits five uses in half a second, so the next change waits for
+  the answer (the bonuses moved or the stone count fell - a reroll can land on
+  the same line); a worn item is refused (`item2->IsEquipped()`); the green
+  stones 71151/76023 refuse anything but a weapon or body armour of level 40
+  or less without spending the stone, so `GreenStoneFits` keeps them off the
+  rest or the loop would wait on a change that never comes; and an item with
+  no bonus has nothing to change. A bonus's number here is the POINT number
+  (122 average, 121 skill), which is what `player.GetItemAttribute` answers.
+  game.py registers the switcher with its updateables the first time U is
+  pressed, so it goes on with the window closed; `tests/uibonusswitch_test.py`
+  drives the loop against stubs. And a new client-root file needs
+  `--allow-new` at the repack: `build_mt2009_client_update.py` passes it for
+  what git calls added since the previous client, and eterpack refused it
+  before. Not run in a client yet.
 
 
 ## Engine facts worth not re-deriving
