@@ -161,7 +161,12 @@ function Get-M2UpdateManifest {
         try {
             $response = Invoke-WebRequest -Uri $apiUri -Method Get -UseBasicParsing -TimeoutSec $TimeoutSec `
                 -Headers @{ Accept = 'application/vnd.github.raw+json'; 'User-Agent' = 'metin2-playerbots-launcher' }
-            $text = [string]$response.Content
+            # Windows PowerShell 5.1 hands this media type back as a byte[],
+            # and [string] of one is its numbers joined by spaces - so this
+            # branch never matched and every launcher read the five-minute CDN
+            # instead (m2zip saw 2.2.5 twice after 2.2.6 was pushed).
+            $content = $response.Content
+            $text = if ($content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($content) } else { [string]$content }
             if ($text.TrimStart().StartsWith('{')) {
                 return ConvertFrom-M2ManifestText -Text $text -Origin ([string]$apiUri)
             }
@@ -1217,7 +1222,7 @@ function New-M2SupportBundle {
                 if ($core -like 'ch2-*') { $coreDir = '/opt/metin2/var/channel2/' + $core.Substring(4) }
                 Invoke-M2CapturedCommand -OutputPath (Join-Path $work ('playerbot-syslog-' + $core + '.txt')) -Command {
                     docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c `
-                        ('for f in ' + $coreDir + '/log/*/syslog.* ' + $coreDir + '/syslog; do [ -f $f ] && tail -n 400000 $f; done 2>/dev/null | grep -a -e PLAYERBOT_WORLD -e PLAYERBOT_PORTAL -e PLAYERBOT_NAV -e PLAYERBOT_WATCHDOG -e PLAYERBOT_GOAL -e PLAYERBOT_LOAD -e PLAYERBOT_SHOP -e PLAYERBOT_TOWN -e PLAYERBOT_DEPARTURE -e PLAYERBOT_HORSE -e PLAYERBOT_MONKEY -e PLAYERBOT_AUTH -e PLAYERBOT_CHANNEL -e PLAYERBOT_SERVICE -e PLAYERBOT_CONFIG -e PLAYERBOT_EVENT -e PLAYERBOT_LIFE -e PLAYERBOT_CHEST -e PLAYERBOT_COMBAT -e PLAYERBOT_STOCK -e PLAYERBOT_GUILD -e PLAYERBOT_TOWER -e PLAYERBOT_ISHOP -e PLAYERBOT_OFFLINE -e PLAYERBOT_MARKET -e PLAYERBOT_BAG -e INVENTORY_ARRANGE -e PLAYERBOT_AI -e PLAYERBOT_ECONOMY -e PLAYERBOT_PVP -e PLAYERBOT_LOOT -e PLAYERBOT_MOOD -e PLAYERBOT_PERSONA -e PLAYERBOT_ANTIPK -e PLAYERBOT_MERC -e PLAYERBOT_LPP -e PLAYERBOT_BONUS -e PLAYERBOT_PARTY:.accepted -e PLAYERBOT_PARTY:.asked -e PLAYERBOT_LURE:.order -e PLAYERBOT_LURE:.pack.handed -e PLAYERBOT_LURE:.waiting -e PLAYERBOT_CONV -e QUEST_ITEM -e GMPANEL -e GM_PROFILE -e autospawn | tail -n 40000')
+                        ('for f in ' + $coreDir + '/log/*/syslog.* ' + $coreDir + '/syslog; do [ -f $f ] && tail -n 400000 $f; done 2>/dev/null | grep -a -e PLAYERBOT_WORLD -e PLAYERBOT_PORTAL -e PLAYERBOT_NAV -e PLAYERBOT_WATCHDOG -e PLAYERBOT_GOAL -e PLAYERBOT_LOAD -e PLAYERBOT_SHOP -e PLAYERBOT_TOWN -e PLAYERBOT_DEPARTURE -e PLAYERBOT_HORSE -e PLAYERBOT_MONKEY -e PLAYERBOT_AUTH -e PLAYERBOT_CHANNEL -e PLAYERBOT_SERVICE -e PLAYERBOT_CONFIG -e PLAYERBOT_EVENT -e PLAYERBOT_LIFE -e PLAYERBOT_CHEST -e PLAYERBOT_COMBAT -e PLAYERBOT_STOCK -e PLAYERBOT_GUILD -e PLAYERBOT_TOWER -e PLAYERBOT_ISHOP -e PLAYERBOT_OFFLINE -e PLAYERBOT_MARKET -e PLAYERBOT_BAG -e INVENTORY_ARRANGE -e PLAYERBOT_AI -e PLAYERBOT_ECONOMY -e PLAYERBOT_PVP -e PLAYERBOT_LOOT -e PLAYERBOT_MOOD -e PLAYERBOT_PERSONA -e PLAYERBOT_ANTIPK -e PLAYERBOT_MERC -e PLAYERBOT_LPP -e PLAYERBOT_BONUS -e PLAYERBOT_PARTY:.accepted -e PLAYERBOT_PARTY:.asked -e PLAYERBOT_LURE:.order -e PLAYERBOT_LURE:.pack.handed -e PLAYERBOT_LURE:.waiting -e PLAYERBOT_CONV -e PLAYERBOT_SUMMON -e QUEST_ITEM -e GMPANEL -e GM_PROFILE -e autospawn | tail -n 40000')
                 }
                 Invoke-M2CapturedCommand -OutputPath (Join-Path $work ('syserr-' + $core + '.txt')) -Command {
                     docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c `
