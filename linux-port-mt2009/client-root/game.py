@@ -646,6 +646,7 @@ class GameWindow(ui.ScriptWindow):
 
 
 
+		onPressKeyDict[app.DIK_U]			= lambda : self.__ToggleBonusSwitcher()
 		# CUBE_TEST
 		#onPressKeyDict[app.DIK_K]			= lambda : self.interface.OpenCubeWindow()
 		onPressKeyDict[app.DIK_K]			= lambda : self.__ToggleAutoHunt()
@@ -1737,6 +1738,13 @@ class GameWindow(ui.ScriptWindow):
 
 	def StopRight(self):
 		player.SetSingleDIKKeyState(app.DIK_RIGHT, False)
+
+	def __ToggleBonusSwitcher(self):
+		import uibonusswitch
+		switcher = uibonusswitch.GetSwitcher()
+		if switcher not in self.updateable:
+			self.RegisterUpdatable(switcher)
+		uibonusswitch.ToggleWindow()
 
 	def PickUpItem(self):
 		player.PickCloseItem()

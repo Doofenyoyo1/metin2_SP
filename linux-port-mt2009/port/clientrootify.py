@@ -24,6 +24,7 @@ Writes into client-root/ (beside serverinfo.py, which is hand-written):
                     hunt among the updateables (uiautohunt.py, hand-written);
                     the "InventoryArrangeResult" command (inventoryarrange.py);
                     the ` key picks up every drop in range (pickupnearby.py).
+                    the U key opens the bonus switcher (uibonusswitch.py).
   * uiinventory.py - the auto-stack button is "Scal i uporzadkuj": one
                     /inventory_arrange to the server, which pours the stacks
                     and lays the four pages out (inventoryarrange.py,
@@ -403,6 +404,24 @@ EDITS = {
          b'\t\timport safeboxtransfer\r\n'
          b'\t\tsafeboxtransfer.OnTransferResult(op, code, units)\r\n'
          b'\r\n'),
+        # Zmieniacz bonusow (uibonusswitch.py, hand-written): U opens the
+        # window, and the switcher joins the updateables the first time, so it
+        # goes on changing with the window closed. The key goes before the cube
+        # test's opening comment and the method before PickUpItem - lines the
+        # Auto Lowy and pick-up edits above keep whole, so neither of them loses
+        # the text by which it knows it has been applied.
+        (b'\t\t# CUBE_TEST\r\n',
+         b'\t\tonPressKeyDict[app.DIK_U]\t\t\t= lambda : self.__ToggleBonusSwitcher()\r\n'
+         b'\t\t# CUBE_TEST\r\n'),
+        (b'\tdef PickUpItem(self):\r\n',
+         b'\tdef __ToggleBonusSwitcher(self):\r\n'
+         b'\t\timport uibonusswitch\r\n'
+         b'\t\tswitcher = uibonusswitch.GetSwitcher()\r\n'
+         b'\t\tif switcher not in self.updateable:\r\n'
+         b'\t\t\tself.RegisterUpdatable(switcher)\r\n'
+         b'\t\tuibonusswitch.ToggleWindow()\r\n'
+         b'\r\n'
+         b'\tdef PickUpItem(self):\r\n'),
     ],
     # "Scal i uporzadkuj" (18 September; Codex's audit the same day):
     # the inventory's auto-stack button asks the server once

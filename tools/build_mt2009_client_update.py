@@ -89,7 +89,15 @@ def main():
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             shutil.copyfile(os.path.join(REPO, f), dst)
             print('  %s: %s' % (pack, f[len(src_dir) + 1:]))
-        eterpack('repack', os.path.join(old_dir, 'pack', pack), os.path.join(new_dir, 'pack', pack), repl)
+        # A module added since the previous client is a file the old pack does
+        # not hold, and eterpack refuses those unless told: a stray file in the
+        # replacement directory is usually a mistake. Only what git itself calls
+        # added may go in new.
+        added = git('diff', '--name-only', '--diff-filter=A', a.since, 'HEAD', '--', src_dir).decode().split()
+        for f in added:
+            print('  %s: new file %s' % (pack, f[len(src_dir) + 1:]))
+        eterpack('repack', os.path.join(old_dir, 'pack', pack), os.path.join(new_dir, 'pack', pack), repl,
+                 *(['--allow-new'] if added else []))
 
         # Round trip: only the replaced files may differ.
         check = os.path.join(work, 'y-' + pack)
