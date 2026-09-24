@@ -879,14 +879,12 @@ namespace
 		return true;
 	}
 
-	// A battle horse (level 11+) lets its rider strike from the saddle. Bots that
-	// own one should ride into a fight instead of dismounting on the approach, but
-	// only when the weapon and target actually make mounted combat sensible.
-	// Could this bot fight from the saddle at all, whatever it ends up facing?
-	// The horse and the weapon decide that much on their own, and the tick has
-	// to know it before a target exists - that is the moment it decides whether
-	// to climb down.
-	bool CanPlayerBotEverFightOnHorse(LPCHARACTER ch)
+	// Defined with the builds (playerbot_skills.h), which come later.
+	bool PlayerBotSkillsBeatTheSaddle(LPCHARACTER ch);
+
+	// A battle horse (level 11+) and a weapon that can be swung from it. Not
+	// what a player breaks the stones with - see CanPlayerBotFightOnHorse.
+	bool HasPlayerBotBattleHorse(LPCHARACTER ch)
 	{
 		if (!ch || ch->GetHorseLevel() < PLAYERBOT_BATTLE_HORSE_LEVEL)
 			return false;
@@ -895,15 +893,35 @@ namespace
 				weapon->GetSubType() != WEAPON_BOW;
 	}
 
+	// A battle horse (level 11+) lets its rider strike from the saddle. Bots that
+	// own one should ride into a fight instead of dismounting on the approach, but
+	// only when the weapon and target actually make mounted combat sensible.
+	// Could this bot fight from the saddle at all, whatever it ends up facing?
+	// The horse and the weapon decide that much on their own, and the tick has
+	// to know it before a target exists - that is the moment it decides whether
+	// to climb down.
+	//
+	// And the skills decide the rest. No skill of a class can be cast from a
+	// saddle (PLAYERBOT_SADDLE_SKILL_LEVEL), so a bot whose attack skills are
+	// trained fights on foot like any rider of a transport horse: the target
+	// section climbs down when it picks a foe, and so do the duel, the Anti-PK
+	// fight and the tower.
+	bool CanPlayerBotEverFightOnHorse(LPCHARACTER ch)
+	{
+		return HasPlayerBotBattleHorse(ch) && !PlayerBotSkillsBeatTheSaddle(ch);
+	}
+
 	bool CanPlayerBotFightOnHorse(LPCHARACTER ch, LPCHARACTER target)
 	{
 		if (!CanPlayerBotEverFightOnHorse(ch))
 			return false;
 
-		// Against Metins a battle horse is priority #1: the rider keeps hacking the
-		// stone from the saddle rather than climbing down for every spot.
+		// A Metin is broken on foot. The saddle was once the stone hunter's
+		// first choice here, and it is nobody's: "do zbijania metinow nikt nie
+		// uzywa bojowca" (prodnathin, 23 September). The target section climbs
+		// down for one (dismount_for_target), as it does for a transport horse.
 		if (target && target->IsStone())
-			return true;
+			return false;
 
 		// Warriors and Suras clear mob spots (multi-pull / valour cloak packs) from
 		// horseback; ranged and caster jobs still fight on foot.
@@ -956,13 +974,15 @@ namespace
 		// (sizowski). While a fight is pending the saddle is the combat pass's to
 		// give up, not this pass's to take; once the foe is gone the next leg
 		// mounts as before. Only for a real, live foe, so a stale VID cannot
-		// strand the bot on foot.
-		if (!fightOnHorse && !keepHorseAtDestination && !CanPlayerBotEverFightOnHorse(ch))
+		// strand the bot on foot. A battle horse is asked the same about its
+		// foe: its rider breaks a stone on foot too, and a Shaman or a Ninja
+		// fights on foot whatever it faces (CanPlayerBotFightOnHorse).
+		if (!fightOnHorse && !keepHorseAtDestination)
 		{
 			LPCHARACTER foe = ch->GetVictim();
 			if (!foe && state.dwTargetVID != 0)
 				foe = CHARACTER_MANAGER::instance().Find(state.dwTargetVID);
-			if (foe && !foe->IsDead())
+			if (foe && !foe->IsDead() && !CanPlayerBotFightOnHorse(ch, foe))
 				return;
 		}
 		// A rider keeps the saddle to the end of the leg, and on a leg that does
@@ -1103,6 +1123,52 @@ namespace
 		sys_log(0, "PLAYERBOT_MONKEY: chamber pid=%u name=%s map=%ld chamber=%d from=%d spots=%u",
 				ch->GetPlayerID(), ch->GetName(), mapIndex, chamber, previous,
 				(unsigned int)room.bSpotCount);
+	}
+
+	// A goal on ground the bot's terrain does not join is not walked to at
+	// all: the planner answers "unreachable" three times, the service rescue
+	// relocates the bot on the sixth, and the misc merchant of Bokjung - whose
+	// approach point sits on a strip cut off from the square - cost 260 such
+	// rescues in a morning, six failed plans each. The nearest cell of the
+	// bot's own component inside the arrival radius is where the rescue would
+	// have put it; ask for it first. The ring's corners reach
+	// radius * 50 * sqrt(2), and the arrival test is against the goal asked
+	// for, not the moved one: a corner cell past the radius was walked to and
+	// never "arrived". True when the goal was moved; walkX/walkY are the goal
+	// itself otherwise. The town legs ask it, and so does the walk to the
+	// Rybak, whose approach point is drawn by pid round him and fell for some
+	// bots on ground the square does not join - every fishing session of
+	// theirs ended "route_failed" before a step (23 September).
+	bool FindPlayerBotReachableGoal(LPCHARACTER ch, long goalX, long goalY,
+			int arrivalDistance, long& walkX, long& walkY)
+	{
+		walkX = goalX;
+		walkY = goalY;
+		if (!ch)
+			return false;
+		CPlayerBotNavigation& navigation = CPlayerBotNavigation::instance(ch->GetMapIndex());
+		if (!navigation.Init(ch->GetMapIndex()) ||
+				navigation.CanReach(ch->GetX(), ch->GetY(), goalX, goalY))
+			return false;
+		const DWORD own = navigation.GetComponentAtWorld(ch->GetX(), ch->GetY());
+		if (own == 0)
+			return false;
+		const int radius = std::max(2, arrivalDistance / 71);
+		long bestDistance = -1;
+		for (int dy = -radius; dy <= radius; ++dy)
+			for (int dx = -radius; dx <= radius; ++dx)
+			{
+				const long cx = goalX + dx * 50, cy = goalY + dy * 50;
+				const long distance = dx * dx + dy * dy;
+				if (bestDistance >= 0 && distance >= bestDistance)
+					continue;
+				if (navigation.GetComponentAtWorld(cx, cy, 0) != own)
+					continue;
+				bestDistance = distance;
+				walkX = cx;
+				walkY = cy;
+			}
+		return bestDistance >= 0;
 	}
 
 	bool MovePlayerBot(LPCHARACTER ch, long destX, long destY, DWORD dwNow,

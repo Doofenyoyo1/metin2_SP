@@ -238,7 +238,15 @@ namespace
 				// every drop in it.
 				m_bagFull(CountPlayerBotFreeInventoryCells(owner) == 0),
 				m_skippedNoRoom(0),
-				m_choosy(IsPlayerBotChoosyLooter(owner)),
+				// Inside the Demon Tower a bot picks up its own drop whatever it
+				// is worth (23 September: "niech tam drop swoj pilnuja,
+				// aby podnosili"). The floors were left strewn with potions and
+				// outgrown gear +2 under the names of bots of sixty and seventy -
+				// exactly what the choosy looter walks past - while the owners
+				// fought on ("osoba, ktorej dropnal przedmiot, powinna podejsc
+				// sobie po niego", prodnathin, with the screenshot of floor 3).
+				m_choosy(IsPlayerBotChoosyLooter(owner) &&
+						!IsPlayerBotDemonTowerInstance(owner->GetMapIndex())),
 				m_skippedCheap(0),
 				m_medalDropper(owner && GetPlayerBotPersonalityByPID(owner->GetPlayerID()) ==
 						BOT_PERSONALITY_MEDAL_DROPPER)
@@ -500,7 +508,20 @@ namespace
 		// dashes for them - or the bots that are not fighting will have them.
 		const bool metinDash = state.dwStoneBrokenTime != 0 &&
 				dwNow - state.dwStoneBrokenTime < PLAYERBOT_METIN_LOOT_DASH_TIME;
-		if ((bFightingActiveTarget || state.bLootThreatNearby) && !metinDash)
+		// Inside the Demon Tower the fight never ends: the floor pass hands a
+		// bot its next foe the moment the last one falls, and a pack always
+		// stands about, so this pass only ever took what lay at a bot's feet -
+		// and a floor jumps a few seconds after its last monster, taking the
+		// rest with it ("sporo dropu zostaje na ziemi", prodnathin,
+		// 23 September). Between two foes, with its health holding, a bot
+		// there goes for what it may take within PLAYERBOT_TOWER_LOOT_RANGE
+		// before the next one is picked.
+		const bool towerDash = !bFightingActiveTarget &&
+				IsPlayerBotDemonTowerInstance(ch->GetMapIndex()) &&
+				!state.bRecoveringAfterDeath && ch->GetMaxHP() > 0 &&
+				(long long)ch->GetHP() * 100 >=
+						(long long)ch->GetMaxHP() * PLAYERBOT_TOWER_LOOT_MIN_HP_PERCENT;
+		if ((bFightingActiveTarget || state.bLootThreatNearby) && !metinDash && !towerDash)
 		{
 			TryPlayerBotCombatPickup(ch, state, dwNow);
 			return false;
@@ -509,7 +530,8 @@ namespace
 			return false;
 
 		CCollectPlayerBotLoot collector(ch,
-				metinDash ? PLAYERBOT_METIN_LOOT_DASH_RANGE : PLAYERBOT_LOOT_SEARCH_RANGE,
+				metinDash ? PLAYERBOT_METIN_LOOT_DASH_RANGE
+						: towerDash ? PLAYERBOT_TOWER_LOOT_RANGE : PLAYERBOT_LOOT_SEARCH_RANGE,
 				state.mapFailedLootVIDs, dwNow);
 		ch->GetSectree()->ForEachAround(collector);
 		collector.Sort();
