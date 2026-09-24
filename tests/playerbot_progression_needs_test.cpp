@@ -49,7 +49,11 @@ int GetPlayerBotBiologistReserve(LPCHARACTER,DWORD){return 17;}
 struct TPlayerBotMarketLedgerEntry{int dwSupplyUnits=0;};
 std::map<DWORD,TPlayerBotMarketLedgerEntry> testSupply;
 const TPlayerBotMarketLedgerEntry* GetPlayerBotMarketLedgerEntry(DWORD v){return &testSupply[v];}
-struct TPlayerBotAIState{DWORD dwProgressionTripNext=0,dwProgressionTripUntil=0; BYTE bPersonality=0;};
+// Iwakura's Patch 3: the mad scientist's market trip (playerbot_rare_persona.h).
+namespace playerbot_persona { enum { RARE_NONE=0, RARE_NAUKOWIEC=3 }; }
+struct TPlayerBotPersona{BYTE bRare=0, bRareStage=0;};
+bool IsPlayerBotRareNow(const TPlayerBotPersona& p, BYTE rare, DWORD){return p.bRare==rare;}
+struct TPlayerBotAIState{DWORD dwProgressionTripNext=0,dwProgressionTripUntil=0; BYTE bPersonality=0; TPlayerBotPersona persona;};
 bool IsPlayerBotHumanLedParty(void*){return false;}
 int alive=1000; int GetPlayerBotsAlive(){return alive;}
 bool IsPlayerBotOnBattleHorseTrial(LPCHARACTER){return horse;}
@@ -137,5 +141,17 @@ int main(){
     assert(GetPlayerBotProgressionNeed(&c,&stone2)==0);
     c.mastery[1]=SKILL_MASTER; trader=false;
     personaOn=false;
+    // The mad scientist goes at once, past the share and the clocks, and
+    // only one trip while its state lasts; not at all with no books short.
+    alive=40; s_mapPlayerBotProgressionTrip.clear();
+    TPlayerBotAIState m; m.persona.bRare=playerbot_persona::RARE_NAUKOWIEC;
+    assert(ShouldPlayerBotVisitProgressionMarket(&c,m,1000));
+    assert(m.persona.bRareStage==1 && m.dwProgressionTripUntil==1000+PLAYERBOT_PROGRESSION_TRIP_MS);
+    assert(ShouldPlayerBotVisitProgressionMarket(&c,m,2000)); // the trip goes on
+    assert(!ShouldPlayerBotVisitProgressionMarket(&c,m,1001+PLAYERBOT_PROGRESSION_TRIP_MS));
+    TPlayerBotAIState m2; m2.persona.bRare=playerbot_persona::RARE_NAUKOWIEC;
+    c.mastery[1]=SKILL_GRAND_MASTER; c.mastery[2]=0;
+    assert(!ShouldPlayerBotVisitProgressionMarket(&c,m2,1000) && m2.persona.bRareStage==0);
+    c.mastery[1]=SKILL_MASTER; alive=1000;
     std::printf("playerbot_progression_needs: all tests passed\n");
 }

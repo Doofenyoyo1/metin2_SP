@@ -114,7 +114,7 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_wandering.h` | What a bot does on a hunting map when nothing is asking for its attention. |
 | `playerbot_status.h` | What a bot shows above its head, and the words for it. |
 | `playerbot_targeting.h` | Choosing what to hit and hitting it, including the claim that keeps hundreds of bots off the same monster. |
-| `playerbot_guild_war.h` | The bots' guild wars: the pair picked per kingdom, the engine's field war declared and accepted, the rally on the guild map and the fight there. After targeting.h because the blows are its. |
+| `playerbot_guild_war.h` | Guild wars: the pair of bot guilds picked per kingdom, a player's declaration on a bot guild answered, the engine's field war declared and accepted, the two camps and the middle on the guild map, the muster and the fight there. After targeting.h because the blows are its. |
 | `playerbot_demon_tower.h` | The bots' Demon Tower: one guild's raid at a time (the call, the gathering by the stone, the stone broken together), and the floors for whoever the jump takes - the scan of the floor, the duel-shaped fight, the keys used and handed in, the smith passed. After guild_war.h because the fight and the kingdom names are its. |
 | `playerbot_persona_rules.h` | Iwakura's personality system as pure policy: the moods, the Grinder's tiers and the Law of Advancement, the gambler's ambitions, the Anti-PK window, the companion's draw, the mercenary's terms and the Useful Items List. No engine types, unit-tested (`tests/playerbot_persona_rules_test.cpp`). Included first, with the other rules headers. |
 | `playerbot_persona_tables.h` | Rendered from his document by `tools/generate_iwakura_persona.py`: the valuables whose drop lifts a mood, and the LPP's weapons by level band, target shields and target armours. |
@@ -122,6 +122,7 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_persona.h` | Which personality claims a bot now, its Grinder tier and lock, the Law of Advancement, the two habits of a weak mood (the pause and the AFK stop), and the census. |
 | `playerbot_gambler.h` | The gambler's session: the pieces it takes to the anvil, the ambition rolled for each, the budget, and what it does with what survives. |
 | `playerbot_lpp.h` | Iwakura's Useful Items List: what a bot keeps at the storekeeper rather than sells, what the box holds, and what it lets go. |
+| `playerbot_rare_persona.h` | Iwakura's rare personalities (Patch 3, point 7): the draw on each core, a state's start and end. After anti_pk.h, whose foe pass is the Executioner's fight. |
 | `playerbot_anti_pk.h` | The Anti-PK protocol and the stone hunter's quarrel: who struck the bot, who it fights back, and the capitulation after five deaths on one spot. |
 | `playerbot_companions.h` | The two social personalities: the companion's phase and its invitations to people, a companion Shaman's party buffs, and the mercenary's contracts. After demon_tower.h. |
 | `playerbot_manager.cpp` | Personality, party, upkeep, the watchdog - and `CPlayerBotManager` with the tick. |
@@ -3240,13 +3241,14 @@ not in `data/`) reworked these point by point. What each hangs on:
   open ground, ran to 17074:14107; the sides 1500 units off were blocked
   cells on two maps besides. `FindPlayerBotWarGround` walks the sectree's
   attributes in rings from the point and refuses BLOCK, OBJECT and BANPK;
-  `GetPlayerBotWarRally` keeps the two sides per map. Any other "meet here"
+  `GetPlayerBotWarSides` keeps the middle and the two camps per map. Any other "meet here"
   point on a guild map wants the same test. The fight is the
   duel's shape (buffs, the caster's range, the gap closer, the basic blow);
   the foe in hand is kept while it stands and the roster searched only when
   it is lost, because that search is every bot in the world on every tick.
   The WARS key of the weights file switches new declarations off; a war
-  under way is fought out. No bot master accepts a player's declaration.
+  under way is fought out. A player's declaration on a bot guild is answered
+  since 2.2.10 (the note "A player's guild can war on the bots" below).
 - **The 2.x line's ItemShop is in the game, and a bot buys there as a client
   would.** Not the PHP shop of `linux-port/docker/itemshop` (that one writes
   `player.item_award`): mt2009 has `CItemShopManager` (`/itemshop open`,
@@ -3328,7 +3330,21 @@ not in `data/`) reworked these point by point. What each hangs on:
   over a gigabyte each at -O2 -g; `make -j$(nproc)` on an 8 GB machine
   thrashed at "game builder 2/3 67%" and read as a hang. Both game
   Dockerfiles take the smaller of `nproc` and MemTotal/1400 MB unless
-  `MAKE_JOBS` (`M2_MAKE_JOBS`) is set, and print the choice.
+  `MAKE_JOBS` (`M2_MAKE_JOBS`) is set, and print the choice. It came back
+  on 24 September from the other side (Drip: "wiecznie zatrzymuje sie na
+  tych 67 procentach"). An update builds while the old server still runs,
+  because `up --build` recreates the containers only once the images are
+  built, and that server holds 4.5 GB of the same VM at 1100 bots.
+  `playerbot_manager.cpp` alone takes 2.3 GB at -O2 -g, against 0.5-0.7 GB
+  for an engine file; the whole core from nothing is 98 s and 3 GB at -j4.
+  So the 2.x game core's step sizes its jobs from MemAvailable: room for the
+  heavy file, then 700 MB a job. Under 2.6 GB free it prints a `UWAGA:` line
+  telling the player to stop the server first. The libs and db steps keep
+  MemTotal, so their cache stays. The launcher shows a clock for the build
+  step itself and labels the compile. After ten minutes it adds one line
+  to the log, and it marks the status line when the build reported low
+  memory. Before this, "game builder 2/3 (67%)" showed no sign of whether
+  the compile had run one minute or twenty.
 - **mt2009 fishing is four gates and a minigame, and the pass was the one
   nobody could pass.** `CHARACTER::fishing()` there wants level 50, maps
   1/21/41, `fishing_onboarding.completed`, bait in the rod's socket 2 and
@@ -4558,11 +4574,12 @@ not in `data/`) reworked these point by point. What each hangs on:
   was not potions, which is what this note said first: `needsPotions` is
   `NeedsPlayerBotEmergencyPotions` - under ten red, or eight blue for a
   caster - and the bots that left carried hundreds of both. They were
-  archers: `NeedsPlayerBotArrows` sends one out under
-  `PLAYERBOT_ARROW_RESTOCK_THRESHOLD` (a hundred), and the merchant pass
-  bought arrows only while that need stood. A dropper archer fills up to
-  `PLAYERBOT_DROPPER_ARROW_STOCK` there now (`WantsPlayerBotArrowTopUp`, and
-  never with an emergency sale). In the fourteen minutes after that restart
+  archers: `NeedsPlayerBotArrows` sent one out under
+  `PLAYERBOT_ARROW_RESTOCK_THRESHOLD` (a hundred then), and the merchant pass
+  bought arrows only while that need stood. A dropper archer filled up to a
+  thousand there (`WantsPlayerBotArrowTopUp`, gone since 24 September, when
+  a bot's quiver stopped emptying at all - see "A bot's quiver never
+  empties"). In the fourteen minutes after that restart
   109 of the 119 medal droppers stood in a dungeon, the 14 visits that ended
   were restocks of 14 archers, and 85 purchases put 17 000 arrows into their
   slots; twenty minutes on, the same fourteen held 650 to 915.
@@ -5082,11 +5099,37 @@ not in `data/`) reworked these point by point. What each hangs on:
   `ExecutePlayerBotBasicAttack` asked `GetArrowAndBow` and gave up; only the
   skill path nocked arrows from the bag. Seven of 127 archers of the test
   world stood with a bow, nothing in the arrow slot and a thousand arrows in
-  the bag (16 September). It nocks first now. No bot shoots without arrows -
+  the bag (16 September). It nocks first now - since 24 September for
+  real: the 16 September nock went into `AttackPlayerBotMeleeGroup`, which
+  the shot reaches only after its own `GetArrowAndBow` test has passed, so
+  an emptied quiver still stopped every plain shot until a skill nocked
+  ("archer podczas PVP stoi w miejscu i nie auto atakuje", prodnathin).
+  A fix is only in place once the path that fails reaches it. No bot shoots without arrows -
   the engine's `GetArrowAndBow` is the rule for a bot as for a player, and
   the one archer with none anywhere was walking to the weapon merchant; a
   report of "shooting without arrows" is worth checking against the arrow
   slot (`EQUIPMENT` position 9), which a bag view does not show.
+- **A bot's quiver never empties (24 September).** "Zeby boty Archer nie
+  musialy kupowac ciagle strzal, a mialy je bez limitu": the bots'
+  two shots - `ExecutePlayerBotBasicAttack` and the skill path in
+  `ExecutePlayerBotAttackSkill` - no longer call `UseArrow`, which was the
+  only way a bot ever spent one (the engine's own calls are all in
+  `CFuncShoot`, which no bot reaches). A player's Archer still spends
+  arrows. So an Archer needs arrows only when it has none it can nock
+  (`PLAYERBOT_ARROW_RESTOCK_THRESHOLD` 1), buys one bundle then, and the
+  dropper's and the trial's thousand-arrow top-up is gone. Two things had to
+  come with it. Running out used to be what brought a better arrow to the
+  slot, so the equipment pass nocks the best one in the bag on its own clock
+  (`UpgradePlayerBotArrows`; `GetPlayerBotArrowGrade` is value3, wooden 3 to
+  silver 25) and the junk rule keeps only a bag stack better than the worn
+  one - the next tier waiting for its level - and scraps the rest, or a
+  dropper's bag would carry its old thousand for good. And an arrow that
+  cannot hit is never nocked: mt2009's `CalcArrowDamage` fades a shot past
+  value4 to value2 per cent (doubled against a monster) at value5, and the
+  four elemental arrows 8006-8009 carry 0 in all three there, so past
+  point-blank they deal nothing - worn forever, that would be an Archer
+  shooting for nothing for life. r40250 fades by distance alone, reads no
+  value2, and its elemental arrows are as good as silver.
 - **A keep is a count of scrolls, not of cells before this one.** The
   scroll rule in `ScorePlayerBotShopStock` held a stack back while fewer
   than `PLAYERBOT_REFINE_SCROLL_KEEP` scrolls lay in the cells *ahead* of
@@ -5768,8 +5811,64 @@ not in `data/`) reworked these point by point. What each hangs on:
 - **A war is fought on foot, in the middle.** `CanPlayerBotEverFightOnHorse`
   kept a battle-horse rider in the saddle on the guild map and the two sides
   rallied 700 units apart (NerrVoVy's video, 17 September); the operator's
-  rule is horses dismissed and both sides on the same open ground
-  (`PLAYERBOT_GUILD_WAR_RALLY_SPREAD` 0).
+  rule is horses dismissed and both sides on the same open ground. Since
+  2.2.10 each side has a camp again, and the muster is what keeps that from
+  being two columns standing apart ("Each side musters at its camp" below).
+- **Each side musters at its camp, and the dead stand up there (2.2.10).**
+  Both sides on one ground fought from the first second, the side that cast
+  the first area skill won, and the dead stood up among their killers to be
+  killed again ("fajnie jakby gildie mialy 2 oddzielne teleporty, mialy
+  jakies pare sekund na zbuffowanie sie i dopiero wtedy ogien", prodnathin;
+  "zeby boty dobiegaly na srodek sie bic", 24 September).
+  `GetPlayerBotWarSides` finds once a map the middle - the open ground nearest
+  the Town.txt point clear of the safe zone, moved up to
+  `PLAYERBOT_GUILD_WAR_MIDDLE_SHIFT` where the camps get more room - and two
+  camps on opposite sides of it, the first of 1500/1200/900/600 at which both
+  ends are open, `CAMP_SAFE_MARGIN` clear of the safe zone and joined to the
+  middle. On the three guild maps the camps stand 2716 (Shinsoo, map 4), 2807
+  (Chunjo, 24) and 2707 (Jinno, 44) apart; round the unmoved ground Jinno's
+  were 1019 and Shinsoo's 1763, because that ground sits on the safe zone's
+  margin. `tools`-less check: `scratchpad/war_camps_offline.py` of session
+  82d3ab90 reproduces the core's search on the maps' server_attr to the unit.
+  The war opens with `PLAYERBOT_GUILD_WAR_MUSTER_SECONDS` at the camps -
+  buffs, and only a foe who comes up to the camp is fought - then every bot
+  goes for a foe or holds the middle and never goes back to its camp, which is
+  what the two columns of 17 September lacked. The muster's clock is the
+  engine's (`CGuild::GetWarStartTime`), so the second channel keeps it too. A
+  bot that dies is put back at its camp with `Show`
+  (`PlacePlayerBotAtWarCamp` - `TransitionPlayerBotMap`'s party, stall and
+  travel clocks belong to a map change), heals there invisible, and nobody
+  picks it as a foe while it buffs (`dwGuildWarCampUntil`, read by
+  `IsPlayerBotWarFoeRecovering` and ended by the bot's own first foe). The
+  field is the old 1800 round the middle plus 1100 round each camp - along the
+  camps' axis, not sideways, which is where the fight once strung out into the
+  rock faces.
+- **A player's guild can war on the bots, and the engine had to be told how
+  (2.2.10).** `do_war` refuses a player every field war (`CanStartWar` is
+  false for GUILD_WAR_TYPE_FIELD), and an arena declaration dies on the
+  player's own core unless it hosts the arena's map (`GuildWar_IsWarMap`) -
+  110 and 111 are on `first`, so from a village core a player could declare
+  no war at all, while the client hides the field ("Normal") button and ticks
+  the arena. `apply_player_war_on_bot_guilds` (playerbotify.py) hands a
+  `/war` on a bot guild to the manager (`HandlePlayerWarOnBotGuild`: the same
+  kingdom and the WARS switch, then a field war declared past both rules),
+  and every declaration the db core delivers (`CInputDB::GuildWar`) to
+  `NotePlayerBotGuildWarDeclared` on every core. The channel-1 core hosting
+  the bot guild's kingdom's guild map answers within
+  `PLAYERBOT_GUILD_WAR_OFFER_THINK_MS` on the player guild's chat
+  (`CGuild::Chat` reaches every core): accepted, or refused with the reason -
+  the switch, another kingdom, a war or the Tower already, the kingdom's
+  battlefield taken, fewer than eight bots online, the bot guild's hour of
+  rest after its last war, the player guild's hour after its last war on bots
+  (Remigiusz: "jakis cd jak w przypadku wojen boty vs boty"). The war takes
+  the kingdom's slot in `s_mapPlayerBotGuildWars` (`bPlayerWar`, the player's
+  guild as dwGuild1), is fought on channel 1 only, and the bots find the
+  enemy's people through `CHARACTER_MANAGER::GetPCMap` every two seconds
+  (`GetPlayerBotWarHumans`) besides the bot roster; the bots in the player's
+  own guild fight on its side from its camp. War blows were already
+  consensual to the Anti-PK protocol (`IsPlayerBotBlowConsensual`). Compiled
+  on both engines, the two hooks on mt2009; never run end to end, because
+  m2zip has had no bot guild since its reset and guilds come at level forty.
 - **The armour on the bot's back has the hand weapon's burn rule.**
   `IsPlayerBotWornArmourAtRisk`: worn body armour at a step that can burn
   (`PLAYERBOT_WORN_SCROLL_MAX_PROB`) with no other wearable body armour in the
@@ -5848,7 +5947,8 @@ not in `data/`) reworked these point by point. What each hangs on:
   and the personality's frontier visit clock ended a trial two-thirds done
   ("frontier_visit_complete" after 41 minutes). On the trial a bot is
   blocked by what stops the fight alone, its visit does not expire, and a
-  trial archer fills its quiver like a dropper (2.0.67). A trial is one
+  trial archer filled its quiver like a dropper (2.0.67; since 24 September
+  no bot's quiver empties at all). A trial is one
   errand with one end; every clock and every need that ends an ordinary
   frontier visit has to be asked whether it ends this one.
 - **An open horse trial outranks the herb errand, not only the hunt row.**
@@ -7511,6 +7611,30 @@ not in `data/`) reworked these point by point. What each hangs on:
   anyway, because `Chase` marks one only in reach. Why the world disappears
   is still a guess (the camera under the terrain, whose underside is
   culled); 69 tests on 2.7 and 3, never run in a client.
+- **Auto Lowy's autologin keeps no password (24 September).** The operator asked for
+  it "jako checkbox albo zmiesc przycisk estetycznie", against a mod's PDF
+  whose button stood in a row of its own under Zapisz/Start. It is the
+  eighth place of the "Ustawienia Walki" grid, empty until then, and it is
+  saved per character like the grid's other switches (`autologin`, default
+  0). `client-root/autologin.py` needs no copy of the login: the stream
+  keeps `id`, `pwd`, the address and the slot of the last login in memory
+  (`networkModule.MainStream`, and nothing clears them), and the exe opens the
+  login window for every disconnect in the game
+  (`CPythonNetworkStream::OnRemoteDisconnect` calls `SetLoginPhase`). A drop
+  is told apart from a logout by `NoteManualExit`, which clientrootify puts in
+  uisystem's logout and change-character buttons. The first frame of the
+  game ends it through the Hunter's `CanUpdate`, the one hook every frame
+  passes, and the game closing is `Hunter.Destroy`. A drop within thirty
+  seconds of the game closing starts tries at 3 s and then 5/10/20/30 s,
+  shown in the stock popup (whose close event is Cancel, so every close for
+  the next try clears the event first). "ALREADY" is retried in 10 s, a wrong
+  password or an old client stops it, and a try the account connector never
+  answers is dropped after 40 s. The character is entered by the stock
+  `stream.isAutoSelect`, cleared on the first game frame, and a hunt that was
+  running resumes 5 s in, with the settings in memory (saved or not) when it
+  is the same character. `tests/autologin_test.py` and
+  `tests/uiautohunt_test.py`, 14 + 72 tests on 2.7 and 3. Never run in a
+  client, and needs a client release (root repack) to reach anybody.
 - **The launcher's window is a layout file over the old controls.**
   `Metin2-Launcher-GUI.Layout.ps1` (22 September, prepared outside this
   repository as a UI test and brought in here) is dot-sourced by the GUI
@@ -8211,6 +8335,23 @@ not in `data/`) reworked these point by point. What each hangs on:
   then no candidate, a held one is let go (`PLAYERBOT_TOWER: stone waits`),
   and the fight is ranked from the bot rather than from the stone. Compiled
   and not watched: m2zip has no guild to take a raid that far.
+- **The seventh floor's demons come once, and its keys are used between
+  blows.** `deviltower7_regen.txt` brought all 34 of its groups back every
+  minute until a Metin of Murder's chest held the map, one chest in ten.
+  The pack never thinned, and the dead stood up in the middle of it. The
+  respawn was there for Cor Draconis, which this world does not have
+  ("usuwajac kolejne respy mobow", prodnathin; 24 September). Our
+  `deviltower_zone.quest` spawns the file once (`d.regen_file`, not
+  `d.set_regen_file`). The stone is the file's one line that has to come
+  back: the server timer `devil_7_stone` spawns it again nine seconds after
+  each kill, until a chest has given the map (`7_map_dropped`). Separately,
+  `UsePlayerBotTowerKey` took the tick for as long as a bot held a chest or
+  the map, the three seconds between two uses included. A bot with a chest
+  never fought, and one the engine refused stood for good. Only the use takes
+  the tick now. A refusal waits `PLAYERBOT_TOWER_KEY_REFUSED_MS` and logs
+  `key refused ... quest_running= can_handle=`. Nobody knows yet whether
+  that is why the pack stood still on the seventh floor in prodnathin's
+  screenshots: m2zip has no guild to take a raid there.
 - **"Co 5 Malz" is every fifth shell, not every shell five at a time.**
   Iwakura's Rybak "otwiera co 5 Malz w celu zdobycia perly"; the code read
   it as batches of five and opened every shell over the anvil's reserve, so
@@ -8274,6 +8415,105 @@ not in `data/`) reworked these point by point. What each hangs on:
   `--allow-new` at the repack: `build_mt2009_client_update.py` passes it for
   what git calls added since the previous client, and eterpack refused it
   before. Not run in a client yet.
+
+- **UseSkill takes the mana before it looks at the cooldown.** Both engines:
+  `CHARACTER::UseSkill` charges the SP (`PointChange(POINT_SP, -cost)`) and
+  only then asks `m_SkillUseInfo[vnum].UseSkill`, which refuses a skill still
+  cooling down and returns false with the mana gone. A player never meets it -
+  the client greys the slot out - but the bots' rotation tried every attack
+  skill in turn until one went, paying for each that was still cooling, and
+  the buff pass tried a missing buff every few seconds the same way. On m2zip
+  on 24 September game1 drank some 3 500 blue potions a minute, the mental
+  warrior PoteznyKoxu96 fought at 6 to 113 of 1 100 SP, and a rider climbed
+  off its battle horse for a Strong Body it could not pay for and got back on
+  six seconds later ("woj schodzi z konia i na niego wlazi i nie odpala
+  aury", Drip) - 622 of 2 285 climb-downs for a buff that day cast nothing.
+  A buff whose cooldown outlasts it made it worse: Enchanted Armour's is
+  33+140k seconds against 30+120k, Terror's a flat hundred. The AI keeps the
+  cooldown itself now (`mapSkillReadyAt`, `NotePlayerBotSkillCast`: the
+  engine's own k, `kCooldownPoly` and `ComputeCooltime`), asks nothing before
+  it is due (`PlayerBotUseSkill`, every one of the seven call sites), and
+  climbs down only for a buff that is due and paid for
+  (`CanPlayerBotAffordSkill`, the SP cost worked out as UseSkill works it).
+  Twelve minutes after the deploy: 723-753 blue potions a minute, PoteznyKoxu96
+  at 218-297 SP, and 2 of 50 climb-downs casting nothing. Any new place that
+  casts for a bot goes through `PlayerBotUseSkill`, or it pays for refusals.
+- **A recipe was read only by a bot Baek-Go had onboarded, and only the
+  Zielarz went to him.** `ManagePlayerBotCraftRecipes` returned for a bot
+  without `herbalism_onboarding.completed`, and the onboarding happened only
+  on the herbalist's visit, which only an advanced Conqueror of forty-five
+  makes under the PERSONA switch - so on 24 September m2zip had 1 597 recipes
+  in the bags of 822 bots and not one bot onboarded ("maja ich pelno w eq a
+  powinny czytac od razu po dropnieciu", Iwakura). A bot holding a recipe is
+  onboarded wherever it stands now, on the quest's terms: level fifteen and ten
+  Peach Blossoms, which the quest only looks at and never takes (the first
+  build took them), the first recipe and five bottles back. A read is the
+  quest's `crafting.learn_recipe`: the row's level, the bots' book wait on the
+  quest's own `crafting.learn_delay<vnum>` flag, a learning potion spent, and
+  one recipe used per read - the first build removed the whole stack, ten for
+  one roll. A Hermit's Advice waits for its class book, because the quest takes
+  it off at any recipe read. Two minutes after the deploy: 60 bots onboarded,
+  201 recipes read, 100 learnt.
+- **Iwakura's Patch 3 (24 September) is seven points, each on an old path.**
+  (1) The classic panel's gear history has tabs - trade, bonuses, refining,
+  other, all - and the trade tab reads `log.ikarusshop_log` too: a bot's
+  purchase from an offline shop is BUY_ITEM there and nothing in `log.log`.
+  (2) The gambler works nothing under level thirty, a body armour from
+  eighteen and earrings from twenty-two (`IsPlayerBotGambleLevelOk`, asked by
+  `IsPlayerBotGambleStock` and by the list, which keeps nothing the gambler
+  will not work), and a piece its session made at +7 or past is a reason to
+  keep a counter (`HasPlayerBotGambleGoods`). (3) The list keeps eighteen
+  pieces of gear in all, the bag and the box together: `PlanLppBoxRelease`
+  takes a total after the families have chosen, the most valuable on his sheet
+  at +7 first (unit-tested), `wLppBoxGearKept` is what the bag's share is
+  counted against, and the dead-stock deposit stops at it too. (4) At most
+  `PLAYERBOT_LOW_ARMOUR_MARKET_CAP` (twenty) body armours of one family at +0
+  to +4 stand on all the bots' counters: counted on the ledger like the junk
+  weapons (`NotePlayerBotCappedLineOnCounter`), refused past it, one past it
+  comes home (`low_armour`), and a bot that would list another takes it to the
+  plain anvil for +5 while the next step can be paid
+  (`PlayerBotRefinesLowArmourForSale`), the merchant's otherwise. m2zip held
+  98, 81, 76 and 66 lines of the four level-34 families. (5) The green and
+  purple potions (27100-27115) go up only in packs of 20, 50, 100 or 200 - the
+  largest the spare fills - and a line that is not a whole pack comes home to be
+  poured together (`potion_pack`): 1 396 of 1 406 lines on m2zip were under
+  twenty. (6) A counter is laid out by category - weapons, armour, jewellery,
+  books, refine goods, soul stones, bonus stones, potions, the rest
+  (`GetPlayerBotShopCategory`): a stall is laid out again over a clear grid
+  when it opens (`RelayPlayerBotStallByCategory`), and an offline shop puts a
+  new line between the categories before and after its own
+  (`BotOfflineSlot`), because a counter changes a line a visit and moving a
+  line costs two mutations. (7) The rare personalities, below.
+- **The rare personalities are old errands held open longer.**
+  `playerbot_rare_persona.h` draws them on each core every ten minutes
+  (`GetRareRule`, `RareCap`, `RareMayStart`, `RareDrawWins`, pure and
+  unit-tested): each qualifying bot wins a kind one time in its number, the
+  Metinolog one per 300 of the bots that qualify at once, every other kind one
+  at a time behind a world pause (4, 8, 3 and 12 hours). The Metinolog is a
+  Metin expedition of 120-250 minutes; the Nalogowiec the gambler's session
+  past every gate but the village and the party, on 85 percent of the purse it
+  began with, buying bases to +6 off the counters before the session too, and
+  wearing what comes out better than its gear; the Szalony Naukowiec one market
+  trip for its Master skills' books on 70 percent of the purse
+  (`PlayerBotNeedsMasterBooks`); the Egzekutor two hours of falling on another
+  kingdom's characters within ten levels on the shared maps - the Anti-PK
+  foe pass is its fight (`BOT_FOE_EXECUTOR`), its victim answers the blow, up
+  to six bots of the victim's kingdom within 3 500 come to help
+  (`BOT_FOE_DEFEND`, the executor call), and a death at a bot's hands sends it
+  to other ground instead of any capitulation; the Szalony Wedkarz six hours of
+  the fishing spell with a minute or two between sessions. The persona is the
+  rare one's for its whole length, after a contract and a party only; its title
+  is 110-114 and red, which a client before 2.0.31 does not know and draws
+  nothing for. The states and the pauses are in the core's memory: a restart
+  ends them. The first addict drawn on m2zip, BohenHleba, went round three
+  merchants and never reached the anvil: a session wants a workable base in
+  the bag (`no_bases`), and nothing sent the bot to a counter for one. So its
+  want of bases is a reason to walk to a market (`PlayerBotAddictWantsBases`
+  in `PlayerBotWantsAnythingFromMarket`), what it buys for its anvil is paid
+  from its own budget, not the median wallet's share, which at m2zip's rate
+  was 0.8 million against bases of several (`GetPlayerBotAddictBudgetLeft` in
+  `CanPlayerBotPayForOffer`), and it starts on its box's pieces as the town
+  trigger does.
 
 
 ## Engine facts worth not re-deriving
@@ -8500,8 +8740,28 @@ gates it: any install can host, and any client can join with an invite code.
   the handshake bytes). Not bound to the VPN address alone on purpose: a
   container published on an adapter that is not up yet does not start, and
   the VPN comes up after Docker Desktop at boot. Tested on stubs and on this
-  machine's own adapters, which hold no VPN; no world has been hosted through
-  a real one yet.
+  machine's own adapters, which hold no VPN. The first real one was Radmin VPN
+  on 24 September (Meskele and Sudak), and it worked once chosen by hand.
+- **"Powinno działać" over seven refusals: a router that answers and maps
+  nothing.** Sudak's FRITZ!Box 7530 AX (24 September) answered the SSDP search,
+  gave no WAN address and refused every AddPortMapping with no UPnP error code
+  ("kod -1"). The check still said "Publiczny adres IPv4 i UPnP w routerze -
+  hostowanie powinno działać", because an empty WAN fell through to `public`,
+  and CoopHost printed "Hostowanie włączone" in green, so the friend got a code
+  for a world that was offline. Meanwhile both were connected over Radmin VPN.
+  `auto` kept the Internet for a `public` verdict, and only choosing Radmin in
+  the list gave a working code - "najpierw wykrywa default opcje a potem
+  dopiero przy kolejnym radmina". Now an empty (or 0.0.0.0) WAN is the
+  `no-wan` verdict, a refusal says what it was (`Get-M2CoopUpnpRefusal`: 606,
+  the HTTP status, or no answer). An `auto` hosting whose router opened nothing
+  goes through the VPN on the machine (`Resolve-M2CoopRouterFallback`, after
+  the mapping, since a router that reports nothing may still map). Otherwise
+  CoopHost says in red that no port is open and gives the router's own steps
+  (`Get-M2CoopRouterHelp`: a FRITZ!Box wants "Selbstständige Portfreigaben
+  für dieses Gerät erlauben", and the Online-Monitor shows whether the line
+  has IPv4 at all). The window reads the VPNs when it opens, so a VPN
+  connected after that is missing from its list; the hosting action reads
+  them again, which is what the fallback uses.
 - **`@($list)` of a `List[object]` is an error in Windows PowerShell 5.1.**
   "Argument types do not match" ("Niezgodne typy argumentów"), empty or not,
   at the `return @($found)` that wrote it; `List[int]` is fine, which is why
@@ -8566,7 +8826,7 @@ upstream 2.1.0/client 2.0.26, the merge is 2.1.1/client 2.0.28, and the next
 sync (upstream 2.2.0-2.2.6, client 2.0.27-2.0.28, over our 2.1.5 / client
 2.0.30) is 2.2.7 / client 2.0.31, and the one after (upstream 2.2.7 /
 client 2.0.29, over our 2.2.7 / client 2.0.31) is 2.2.8 / client 2.0.32, and the one after (upstream 2.2.8, client
-unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32. Upstream's added attributions to its own
+unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34. Upstream's added attributions to its own
 operator are scrubbed from comments and notes the way the first sync did; a
 player's or a contributor's name stays. An upstream `## x.y.z` CHANGELOG
 section whose number this repository already used moves under the new section,
