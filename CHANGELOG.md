@@ -17,6 +17,187 @@ every version here.
 
 ---
 
+## 2.2.11 — 2026-09-24
+
+Serwer 2.2.11 i klient 2.0.34. Zaktualizuj oba („AKTUALIZUJ wszystko”
+w launcherze). Nowy klient dodaje autologin w Auto Łowach i pokazuje nad
+botami tytuły rzadkich osobowości (na czerwono). Poprzedni klient działa
+z nowym serwerem, tylko tych dwóch rzeczy nie ma. Na VPS:
+`sh linux-port/tools/update.sh`.
+
+Ta wersja przenosi na naszą 2.2.9 zmiany z wersji 2.2.9 i 2.2.10 projektu
+źródłowego: wojnę gildii graczy z gildią botów, obozy na wojnach gildii,
+receptury czytane od razu, odnowienie umiejętności pamiętane przez boty,
+Patch 3 od Iwakury z rzadkimi osobowościami, autologin w Auto Łowach
+i strzały bez końca dla botów-łuczników. Zostaje wszystko, co dodaliśmy
+wcześniej: okno zmiany bonusów pod klawiszem U (klient 2.0.33), wierzchowce
+z pieczęci w ItemShopie, hostowanie w COOP bez hasła i linki do naszego
+repozytorium.
+
+### Wojna gildii graczy z gildią botów (pomysł Remigiusza)
+
+- Mistrz gildii graczy może wypowiedzieć wojnę gildii botów ze swojego
+  królestwa zwykłą komendą `/war nazwa_gildii`. Po kilku sekundach boty
+  odpowiadają na czacie gildii: przyjmują wyzwanie albo odmawiają i mówią
+  dlaczego, np. walczą już gdzie indziej albo są w Wieży Demonów, na mapie
+  gildyjnej trwa inna wojna, w grze jest za mało ich botów (potrzeba 8),
+  odpoczywają po ostatniej wojnie albo wasza gildia walczyła z botami
+  niedawno.
+- Walka toczy się na mapie gildyjnej waszego królestwa, na kanale 1. Boty
+  z waszej gildii walczą po waszej stronie.
+- Gildia botów przyjmuje wojnę najwcześniej godzinę po swojej ostatniej
+  wojnie, a gildia graczy może wypowiedzieć botom następną wojnę godzinę po
+  poprzedniej.
+
+### Wojny gildii: obozy i zbiórka przed walką (prośba prodnathina)
+
+- Każda strona ma swój obóz po swojej stronie pola bitwy. Wojna zaczyna się
+  20-sekundową zbiórką w obozach: boty się buffują i walczą tylko z tymi,
+  którzy podejdą pod obóz. Potem ruszają na środek.
+- Bot, który zginie, wstaje w swoim obozie, a nie w środku bitwy. Dopóki
+  się tam buffuje, nikt go nie atakuje.
+- W czasie zbiórki nad botami widać „Zbiórka przed wojną gildii z …”.
+
+### Receptury zielarskie (zgłosił Iwakura)
+
+- Boty czytają receptury Baek-Go zaraz po zdobyciu. Dotąd czytał je tylko
+  bot, który przeszedł wprowadzenie u Baek-Go, a robił to wyłącznie
+  Zdobywca od 45 poziomu, więc receptury leżały w torbach.
+- Bot od 15 poziomu z recepturą przechodzi wprowadzenie na tych samych
+  warunkach co gracz (10 Kwiatów Brzoskwini w torbie, których quest nie
+  zabiera) i dostaje to samo co gracz: pierwszą recepturę i 5 butelek.
+- Jedno czytanie zużywa jedną recepturę, jak u gracza. Dotąd znikał cały
+  stos.
+
+### Wojownik i sura na koniu: aura, Silne Ciało, Czarowane Ostrze (zgłosił Drip)
+
+- Boty nie tracą już many na próby użycia umiejętności, która jeszcze się
+  odnawia. Serwer pobiera manę przed sprawdzeniem odnowienia, więc każda
+  taka próba była stratą. Bot pamięta teraz odnowienie każdej swojej
+  umiejętności i nie próbuje wcześniej. Boty mają więcej many i piją kilka
+  razy mniej niebieskich mikstur.
+- Bot na koniu schodzi z niego po buff tylko wtedy, gdy może go rzucić
+  (buff się odnowił i starczy many). Dotąd wojownik schodził z konia po aurę
+  albo Silne Ciało, nie miał many i wsiadał z powrotem bez buffa. Dotyczy to
+  każdej klasy.
+
+### Patch 3 od Iwakury
+
+- **Historia ekwipunku** w karcie bota ma zakładki: Handel (sprzedane
+  i kupione, także zakupy w sklepach offline), Bonusy, Ulepszanie, Inne
+  i Wszystko.
+- **Hazardzista** ulepsza tylko przedmioty od 30 poziomu (zbroje od 18,
+  kolczyki od 22). To, co doprowadził do +7, +8 i +9, wystawia na rynek.
+- **Zapas Hazardzisty**: bot trzyma dla Hazardzisty najwyżej 18 sztuk
+  ekwipunku łącznie w torbie i magazynie, najcenniejsze. Resztę sprzedaje
+  jak zwykle.
+- **Zbroje na rynku**: na straganach botów stoi razem najwyżej 20 sztuk
+  jednej zbroi na +0 do +4. Nadmiar wraca do torby. Bot, który chce
+  wystawić kolejną, najpierw ulepsza ją u kowala na +5, jeśli go na to
+  stać. Inaczej sprzedaje ją handlarzowi.
+- **Mikstury zielone i fioletowe** są wystawiane tylko w paczkach po 20,
+  50, 100 albo 200 sztuk. Mniejsze linie wracają do torby i łączą się
+  w większe.
+- **Porządek w sklepach botów**: bronie, zbroje, biżuteria, księgi,
+  ulepszacze, kamienie dusz, kamienie bonusów, mikstury, reszta. Nowy sklep
+  jest od razu tak ułożony, a w stojącym sklepie każda nowa linia trafia do
+  swojej grupy.
+- **Rzadkie osobowości.** Co 10 minut każdy bot, który spełnia warunki, ma
+  niewielką szansę, że na jakiś czas zmieni się w jedną z nich. Nad takim
+  botem tytuł jest czerwony (od klienta 2.0.34). Restart serwera kończy
+  trwające rzadkie osobowości.
+  - **Metinolog** (koń od 11 poziomu i broń +7): przez 2 do ponad 4 godzin
+    jeździ po mapie i rozbija Metiny. Najwyżej jeden na 300 botów, które
+    spełniają warunki.
+  - **Nałogowiec**: przez 3 godziny wydaje na ulepszanie do 85% yang, które
+    miał na początku. Przy każdej wizycie w wiosce idzie z przedmiotami do
+    kowala, a gdy ich nie ma, kupuje na ladach przedmioty do +6 i ulepszacze.
+    Ulepszone przedmioty lepsze od swoich zakłada, resztę wystawia. Najwyżej
+    jeden naraz, nie częściej niż co 4 godziny.
+  - **Szalony Naukowiec**: idzie na rynek i wydaje do 70% yang na księgi
+    swoich umiejętności na poziomie M. Najwyżej jeden naraz, nie częściej niż
+    co 8 godzin.
+  - **Egzekutor** (od 39 poziomu, broń +6 albo co najmniej 10% silny
+    przeciwko ludziom): przez 2 godziny atakuje na mapach wspólnych postacie
+    innych królestw, najwyżej 10 poziomów od swojego. Także graczy, ale nigdy
+    GM-ów. Gdy napadnie bota albo gracza w drużynie, do 6 botów z królestwa
+    ofiary, które są w pobliżu, przychodzi jej bronić. Gdy Egzekutor zginie
+    z ręki bota, przenosi się w inne miejsce. Najwyżej jeden naraz, nie
+    częściej niż co 3 godziny.
+  - **Szalony Wędkarz** (od 30 poziomu, z wędką, łowił już wcześniej): przez
+    6 godzin łowi prawie bez przerwy, z minutą lub dwiema przerwy między
+    sesjami. Najwyżej jeden naraz, nie częściej niż co 12 godzin.
+
+### Autologin w Auto Łowach (zgłosił i podesłał Mur4s)
+
+- W oknie Auto Łowów, w siatce „Ustawienia Walki”, jest nowy przełącznik
+  Autologin. Zapisuje się osobno dla każdej postaci, razem z resztą ustawień.
+- Gdy jest włączony, a gra się rozłączy (restart albo aktualizacja serwera,
+  zerwane połączenie, wyrzucenie z gry), klient sam loguje się ponownie na to
+  samo konto i wchodzi tą samą postacią. Jeśli Auto Łowy były włączone, po
+  kilku sekundach działają dalej.
+- Pierwsza próba jest po 3 sekundach, następne po 5, 10, 20 i 30 sekundach,
+  aż do skutku. Okienko odlicza czas, a przycisk Anuluj przerywa ponowne
+  logowanie. Gdy serwer trzyma jeszcze starą sesję (konto wciąż jest
+  w grze), klient próbuje znowu po 10 sekundach. Złe hasło, blokada konta
+  albo zbyt stary klient kończą próby.
+- Wylogowanie i zmiana postaci z menu nie są rozłączeniem, więc wtedy
+  autologin nic nie robi.
+- Hasło nie jest nigdzie zapisywane. Klient używa loginu i hasła z ostatniego
+  logowania, które trzyma w pamięci do zamknięcia gry.
+- Jeśli autologin nie zadziała, dołącz do zgłoszenia na GitHubie plik
+  syserr.txt z folderu klienta: gdy autologin przestaje próbować, zapisuje tam powód
+  w linii zaczynającej się od AUTOLOGIN.
+
+### Łucznicy: strzały bez końca (zgłosił prodnathin)
+
+- Botom-łucznikom strzały już się nie kończą. Bot kupuje paczkę 100 strzał
+  tylko wtedy, gdy nie ma żadnych, których może użyć, a nie co chwilę jak
+  dotąd. Łucznicy graczy zużywają strzały jak zawsze.
+- Bot zakłada najlepsze strzały, jakie ma w torbie. Dotąd lepsze zakładał
+  dopiero wtedy, gdy skończyły mu się stare. Gorsze strzały sprzedaje
+  handlarzowi.
+- Ognistej, Trującej, Lodowej i Przeklętej Strzały bot nie zakłada: na tych
+  plikach serwera zadają obrażenia tylko z bliska, więc łucznik strzelałby nimi
+  prawie na darmo. Takie strzały bot sprzedaje handlarzowi.
+- Dropiarze i boty na próbie konia bojowego nie noszą już po 1000 strzał.
+- Łucznik w pojedynku i w walce nie stoi już między umiejętnościami. Gdy
+  skończyły mu się strzały w slocie, zwykły strzał był odrzucany, dopóki
+  któraś umiejętność nie założyła nowych.
+
+### Wieża Demonów: 7. piętro (zgłosił prodnathin)
+
+- Demony na 7. piętrze pojawiają się raz, a nie co minutę aż do chwili, gdy
+  Nieznana Stara Skrzynia da mapę. Dotąd tłum na piętrze nigdy nie malał,
+  a polegli wstawali w samym jego środku. Ciągłe odradzanie było tam dla Cor
+  Draconis, którego na tym świecie nie ma. Dotyczy to także graczy.
+- Metin Morderstwa dalej wraca 9 sekund po każdym zniszczeniu, aż któraś
+  skrzynia da mapę.
+- Bot ze skrzynią albo mapą w torbie walczy między ich użyciami. Dotąd stał
+  przez cały ten czas, a bot, któremu gra odmówiła użycia, stał już na stałe.
+
+### Budowanie przy aktualizacji (zgłosił Drip)
+
+Aktualizacja kompiluje serwer, gdy stary serwer z botami jeszcze działa
+i zajmuje kilka GB pamięci Dockera. Liczba równoległych zadań kompilacji
+zależała od całej pamięci, więc na laptopie budowanie potrafiło bardzo długo
+stać na „game builder 2/3 (67%)”. Teraz:
+
+- Kompilacja rdzenia gry dobiera liczbę zadań do wolnej pamięci. Gdy wolnej
+  jest mniej niż 2,6 GB, w logu pojawia się ostrzeżenie, żeby przed
+  aktualizacją zatrzymać serwer (ZATRZYMAJ I ZAPISZ).
+- Launcher pokazuje przy tym kroku „kompilacja rdzenia gry” i jej własny czas,
+  a gdy trwa dłużej niż 10 minut, dopisuje do logu, co zrobić. To zobaczysz od
+  następnej aktualizacji, bo tę prowadzi jeszcze stary launcher.
+
+### COOP: router, który nic nie otwiera
+
+- Gdy router odpowiada, ale nie otwiera żadnego portu (np. FRITZ!Box bez
+  zgody na samodzielne przekierowania portów), launcher nie pisze już, że
+  hostowanie powinno działać. W trybie automatycznym hostuje wtedy przez VPN
+  zainstalowany na komputerze (np. Radmin VPN), a bez VPN-a mówi na czerwono,
+  że żaden port nie jest otwarty, i podaje, co ustawić w routerze.
+
 ## 2.2.9 — 2026-09-24
 
 Serwer 2.2.9, klient bez zmian (2.0.32). Launcher zaproponuje aktualizację

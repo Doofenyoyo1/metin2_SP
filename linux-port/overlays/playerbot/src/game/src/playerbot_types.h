@@ -173,15 +173,13 @@ namespace
 	const DWORD PLAYERBOT_EQUIPMENT_COMBAT_DELAY = 1700;
 	const DWORD PLAYERBOT_GEAR_LOG_INTERVAL = 10000;
 	const DWORD PLAYERBOT_WOODEN_ARROW_VNUM = 8000;
-	const int PLAYERBOT_ARROW_RESTOCK_THRESHOLD = 100;
+	// A bot's quiver is never emptied (24 September: "zeby boty Archer
+	// nie musialy kupowac ciagle strzal, a mialy je bez limitu"), so an Archer
+	// needs arrows only when it has none it can nock, and one bundle bought
+	// then lasts it for good. The shots of a player's Archer still spend
+	// arrows: only the bots' own two shots stopped calling UseArrow.
+	const int PLAYERBOT_ARROW_RESTOCK_THRESHOLD = 1;
 	const int PLAYERBOT_ARROW_SMALL_BUNDLE = 100;
-	const int PLAYERBOT_ARROW_LARGE_BUNDLE = 200;
-	// What a dropper's archer fills its quiver to at the weapon merchant, a
-	// bundle at a time (WantsPlayerBotArrowTopUp). A Monkey Dungeon visit is half
-	// an hour of shooting and a bundle of two hundred lasted minutes: 18 of the
-	// 22 medal droppers that left a dungeon for supplies were archers, each with
-	// more than five hundred red potions still in the bag.
-	const int PLAYERBOT_DROPPER_ARROW_STOCK = 1000;
 	const DWORD PLAYERBOT_POTION_LOG_INTERVAL = 10000;
 	// The engine already saves every character on save_event_second_cycle,
 	// which config.cpp sets to 120 s, and a level change forces a save below
@@ -899,6 +897,10 @@ namespace
 	// for its three enchantments - longer than most of the fights they were
 	// buffing for, which is why they were usually seen without them.
 	const DWORD PLAYERBOT_BUFF_RECHECK_FAST = 1200;
+	// A skill is asked for again this long after the cooldown the AI worked
+	// out for it (NotePlayerBotSkillCast), so a tick's rounding never lands a
+	// cast a moment early - which the engine refuses with the mana taken.
+	const DWORD PLAYERBOT_SKILL_READY_MARGIN_MS = 100;
 	// A rider of a battle horse climbs down for a buff, and its buffs run out
 	// one at a time: a Shaman on a Metin measured on m2zip on 24 September
 	// climbed down for Reflect, was back in the saddle six seconds later and
@@ -1315,14 +1317,43 @@ namespace
 	const DWORD PLAYERBOT_GUILD_WAR_RETRY_MS = 10 * 60 * 1000;
 	const DWORD PLAYERBOT_GUILD_WAR_DECLARE_TIMEOUT = 3 * 60 * 1000;
 	const int PLAYERBOT_GUILD_WAR_MIN_ONLINE = 8;
-	// The sides stand this far apart on the battlefield, on open ground found
-	// within this radius of the map's Town.txt point (playerbot_guild_war.h).
-	// Both sides rally on the same ground, the open middle nearest the map's
-	// Town.txt point, and fight from the first minute: a spread of 700 made
-	// two columns standing apart ("niech ida od poczatku na srodek strefy
-	// sie bic", 17 September).
-	const int PLAYERBOT_GUILD_WAR_RALLY_SPREAD = 0;
+	// The battlefield's middle is the open ground nearest the map's Town.txt
+	// point, found within this radius (playerbot_guild_war.h).
 	const long PLAYERBOT_GUILD_WAR_GROUND_SEARCH = 6000;
+	// Each side has a camp of its own, one of CAMP_DISTANCES from the middle
+	// on opposite sides of it, and fights in the middle. Both sides on one
+	// ground fought from the first second, the side that cast the first area
+	// skill won, and the dead stood up among their killers to be killed again:
+	// "fajnie jakby gildie mialy 2 oddzielne teleporty, mialy jakies pare
+	// sekund na zbuffowanie sie i dopiero wtedy ogien" (prodnathin, 24
+	// September), "zeby boty dobiegaly na srodek sie bic". A spread of
+	// 700 in September left two columns standing apart ("niech ida od
+	// poczatku na srodek", 17 September), which the muster answers:
+	// once it is over a bot goes for a foe or for the middle, never back to
+	// its camp. The first distance the map's ground allows is taken - both
+	// camps open, CAMP_SAFE_MARGIN clear of the safe zone and joined to the
+	// middle; where none is, both sides share the middle as before.
+	const long PLAYERBOT_GUILD_WAR_CAMP_DISTANCES[] = { 1500, 1200, 900, 600 };
+	const long PLAYERBOT_GUILD_WAR_CAMP_SAFE_MARGIN = 400;
+	const long PLAYERBOT_GUILD_WAR_CAMP_SNAP = 300;
+	// And the middle may move up to MIDDLE_SHIFT from that ground, in steps of
+	// MIDDLE_SHIFT_STEP, where the camps get more room. The ground nearest the
+	// Town.txt point sits on the safe zone's own margin, so camps across it
+	// stood 1019 apart on Jinno's guild map and 1763 on Shinsoo's, against
+	// 2807 on Chunjo's; moved 800 and 894 units they are 2707 and 2716
+	// (measured on the three maps' server_attr, 24 September).
+	const long PLAYERBOT_GUILD_WAR_MIDDLE_SHIFT = 800;
+	const long PLAYERBOT_GUILD_WAR_MIDDLE_SHIFT_STEP = 400;
+	// "At the camp", for the muster, the buffs and the grace below.
+	const long PLAYERBOT_GUILD_WAR_CAMP_RADIUS = 500;
+	// The muster: for this long after the war's start each side stands at its
+	// camp and buffs, and fights only a foe who comes within DEFEND_RANGE.
+	const DWORD PLAYERBOT_GUILD_WAR_MUSTER_SECONDS = 20;
+	const long PLAYERBOT_GUILD_WAR_CAMP_DEFEND_RANGE = 900;
+	// A bot that fell stands up at its own camp, and once healed nobody picks
+	// it as a foe there for this long while it buffs - the other side does not
+	// take the dead one by one as they rise.
+	const DWORD PLAYERBOT_GUILD_WAR_CAMP_GRACE_MS = 12 * 1000;
 	// And the ground keeps this far from the map's safe zone. The nearest open
 	// cell to the Town.txt point is the zone's own edge - fifty units from
 	// ATTR_BANPK on metin2_map_guild_02 and a hundred on _03, measured on
@@ -1335,7 +1366,24 @@ namespace
 	// beyond it is not chased, and a bot beyond it walks back to its spot
 	// (IsPlayerBotOnWarField). A spot is the ground and 400 of pid, so the
 	// crowd stands well inside; the rest is room for a charge and a chase.
+	// With the camps apart the field also takes in CAMP_RADIUS plus
+	// FIELD_BEYOND_CAMP round each camp - along the camps' axis, not sideways.
 	const long PLAYERBOT_GUILD_WAR_FIELD_RADIUS = 1800;
+	const long PLAYERBOT_GUILD_WAR_FIELD_BEYOND_CAMP = 600;
+	// A player's guild against a bot guild (playerbot_guild_war.h). The bots
+	// answer the master's declaration on the guild chat after THINK_MS. A bot
+	// guild takes a player's war BOT_REST_SECONDS after its own last war, and a
+	// player's guild gets one PLAYER_REST_SECONDS after its last against bots:
+	// the rest Remigiusz asked for ("jakis cd jak w przypadku wojen boty vs
+	// boty", 18 September), so no guild farms the ladder on one bot guild
+	// after another. A kingdom's next bot war comes no sooner than
+	// AFTER_PLAYER_WAR_MS after a player's has ended. The enemy's people on
+	// this core are looked for every HUMANS_REFRESH_MS.
+	const DWORD PLAYERBOT_GUILD_WAR_OFFER_THINK_MS = 5 * 1000;
+	const DWORD PLAYERBOT_GUILD_WAR_BOT_REST_SECONDS = 60 * 60;
+	const DWORD PLAYERBOT_GUILD_WAR_PLAYER_REST_SECONDS = 60 * 60;
+	const DWORD PLAYERBOT_GUILD_WAR_AFTER_PLAYER_WAR_MS = 30 * 60 * 1000;
+	const DWORD PLAYERBOT_GUILD_WAR_HUMANS_REFRESH_MS = 2000;
 	// Who a bot takes on at war. It took the nearest enemy and held him to his
 	// death, and the two sides rally on one ground, so the first enemy to
 	// arrive was everybody's nearest and the war was a queue: "wszyscy sie
@@ -1392,6 +1440,10 @@ namespace
 	// its target, one it holds is let go, and what it fights is ranked from
 	// where it stands rather than from the stone.
 	const int PLAYERBOT_TOWER_STONE_THREAT_RANGE = 1000;
+	// The seventh floor's keys are used between blows: the next of a stack
+	// after this long, and after a use the engine refused, this long.
+	const DWORD PLAYERBOT_TOWER_KEY_RETRY_MS = 3000;
+	const DWORD PLAYERBOT_TOWER_KEY_REFUSED_MS = 20000;
 	// The pack spreads its blows, not itself: an ordinary monster is taken
 	// from the few standing nearest the pack, about this many bots to each,
 	// and only among those no further than SPREAD_RANGE beyond the nearest
@@ -4689,6 +4741,19 @@ namespace
 	const DWORD PLAYERBOT_HERBALISM_ONBOARD_FLOWER = 50721;  // Kwiat Brzoskwini
 	const int PLAYERBOT_HERBALISM_ONBOARD_COUNT = 10;
 	const DWORD PLAYERBOT_HERBALISM_FIRST_RECIPE = 50909;    // Fioletowa Mikstura
+	// The quest's reward beside the first recipe: five of the smallest bottle.
+	const int PLAYERBOT_HERBALISM_ONBOARD_BOTTLES = 5;
+	// Reading recipes (ManagePlayerBotCraftRecipes). A recipe is read the moment
+	// it can be ("powinny czytac od razu po dropnieciu", Iwakura, 24 September),
+	// so after a read the next comes a few seconds later, the way a stack is
+	// worked through; with nothing to read the pass looks again on the slow
+	// clock, and a bot that cannot onboard yet looks on a slower one still.
+	const DWORD PLAYERBOT_HERBALISM_RECIPE_READ_GAP_MIN_MS = 3000;
+	const DWORD PLAYERBOT_HERBALISM_RECIPE_READ_GAP_MAX_MS = 6000;
+	const DWORD PLAYERBOT_HERBALISM_RECIPE_IDLE_MIN_MS = 20000;
+	const DWORD PLAYERBOT_HERBALISM_RECIPE_IDLE_MAX_MS = 40000;
+	const DWORD PLAYERBOT_HERBALISM_ONBOARD_RETRY_MIN_MS = 60000;
+	const DWORD PLAYERBOT_HERBALISM_ONBOARD_RETRY_MAX_MS = 120000;
 	// His shop, bought the way the fishing pass and the Forgetting Scroll are:
 	// the counter is a quest window a bot cannot open, so the bottle is created
 	// for the price the shop asks (world.shop_special, shop 14).
@@ -4718,6 +4783,13 @@ namespace
 	// lasts ten minutes and a boss is rarer than that, so a few of each is
 	// plenty and the rest is what players have never been able to buy.
 	const int PLAYERBOT_HERBALISM_POTION_KEEP = 5;
+	// Iwakura's Patch 3, point 5: the green and purple potions go on a counter
+	// in packs of these sizes and never in the 3, 4 and 5 a bag held - on 24
+	// September m2zip's counters carried 959 lines of the medium green one and
+	// 447 of the medium purple, all but ten of them under twenty. The largest
+	// pack the spare fills is the line; under the smallest nothing goes up.
+	const int PLAYERBOT_SHOP_POTION_PACKS[] = { 200, 100, 50, 20 };
+	const int PLAYERBOT_SHOP_POTION_PACK_MIN = 20;
 	// Drinking: only where it pays for the ten minutes it lasts - a boss, a
 	// Metin stone, a Demon Tower floor - and never twice inside one fight.
 	const DWORD PLAYERBOT_HERBALISM_DRINK_RETRY_MS = 60 * 1000;
@@ -5526,6 +5598,15 @@ namespace
 	};
 	const int PLAYERBOT_JUNK_WEAPON_MAX_REFINE = 3;
 	const int PLAYERBOT_JUNK_WEAPON_MARKET_CAP = 5;
+	// Iwakura's Patch 3, point 4: the market held a flood of body armours of
+	// level 34 at +0 to +4. At most this many of one family at those grades
+	// stand on all the bots' counters together; a bot that would list another
+	// takes it to the plain anvil for PLAYERBOT_LOW_ARMOUR_SALE_PLUS first, and
+	// one past the cap comes down and is treated like any other piece - the
+	// merchant's, when the anvil cannot be paid.
+	const int PLAYERBOT_LOW_ARMOUR_MARKET_CAP = 20;
+	const int PLAYERBOT_LOW_ARMOUR_MAX_PLUS = 4;
+	const int PLAYERBOT_LOW_ARMOUR_SALE_PLUS = 5;
 
 	// A weapon family is its base vnum plus the refine, 0..9.
 	bool IsPlayerBotJunkWeaponVnum(DWORD vnum)
@@ -5619,6 +5700,14 @@ namespace
 	// in PvE or in PvP. Body armour, helmets and shields are not in that list
 	// (he judges them by level and lines) and are taken as they come.
 	const int PLAYERBOT_GAMBLE_MIN_TIER = 3;
+	// Iwakura's Patch 3, point 2: the gambler works nothing under level
+	// thirty ("aby wyeliminowac sytuacje ulepszania ekwipunku na 1. poziom"),
+	// but a body armour from eighteen and earrings from twenty-two. The
+	// level is the item's own limit, and the list keeps nothing under it
+	// either, because the list is the gambler's stock.
+	const int PLAYERBOT_GAMBLE_MIN_ITEM_LEVEL = 30;
+	const int PLAYERBOT_GAMBLE_MIN_ARMOUR_LEVEL = 18;
+	const int PLAYERBOT_GAMBLE_MIN_EARRING_LEVEL = 22;
 	// At most this many pieces taken out of the safebox for one session.
 	const int PLAYERBOT_GAMBLE_SAFEBOX_TAKE = 4;
 	// And at most this many bases in the bag before it stops buying more off
@@ -5638,6 +5727,38 @@ namespace
 	// and a foe further than this, or in a safe zone, is let go.
 	const DWORD PLAYERBOT_ANTIPK_STRUCK_MEMORY_MS = 12000;
 	const int PLAYERBOT_ANTIPK_FOE_RANGE = 3000;
+	// Iwakura's Patch 3, point 7: the rare personalities
+	// (playerbot_rare_persona.h), drawn on each core this often.
+	const DWORD PLAYERBOT_RARE_DRAW_MS = 10 * 60 * 1000;
+	// Metinolog: a horse of eleven and a weapon at +7.
+	const int PLAYERBOT_METINOLOG_MIN_HORSE_LEVEL = 11;
+	const int PLAYERBOT_METINOLOG_MIN_WEAPON_PLUS = 7;
+	// Nalogowiec: 85 percent of the purse for the anvil, and bases bought off
+	// the counters to +6, this many to hand at most.
+	const int PLAYERBOT_NALOGOWIEC_BUDGET_PERCENT = 85;
+	const int PLAYERBOT_NALOGOWIEC_MARKET_BASES = 6;
+	const int PLAYERBOT_NALOGOWIEC_BASE_MAX_PLUS = 6;
+	// Szalony Naukowiec: 70 percent of the purse for its skill books.
+	const int PLAYERBOT_NAUKOWIEC_BUDGET_PERCENT = 70;
+	// Egzekutor: level 39 and a weapon at +6 or a line of 10% against people.
+	// Its prey is another kingdom's character in reach, within ten levels of
+	// it, never a GM; the victim's kingdom within the defence reach of it
+	// comes to help ("pozostale boty powinny podejmowac probe obrony"), for
+	// this long after its last blow and no more than this many at once.
+	const int PLAYERBOT_EGZEKUTOR_MIN_LEVEL = 39;
+	const int PLAYERBOT_EGZEKUTOR_MIN_WEAPON_PLUS = 6;
+	const int PLAYERBOT_EGZEKUTOR_HUMAN_BONUS = 10;
+	const int PLAYERBOT_EGZEKUTOR_HUNT_RANGE = 3000;
+	const int PLAYERBOT_EGZEKUTOR_LEVEL_WINDOW = 10;
+	const DWORD PLAYERBOT_EGZEKUTOR_SCAN_MS = 3000;
+	const int PLAYERBOT_EGZEKUTOR_DEFENCE_RANGE = 3500;
+	const DWORD PLAYERBOT_EGZEKUTOR_CALL_MS = 20000;
+	const int PLAYERBOT_EGZEKUTOR_DEFENDERS_MAX = 6;
+	// Szalony Wedkarz: level thirty, a rod and fishing done before; a minute
+	// or two between its sessions.
+	const int PLAYERBOT_WEDKARZ_MIN_LEVEL = 30;
+	const DWORD PLAYERBOT_WEDKARZ_REST_MIN_MS = 60 * 1000;
+	const DWORD PLAYERBOT_WEDKARZ_REST_MAX_MS = 120 * 1000;
 	// A party answers for a member struck this recently ("cala grupa rzuca sie
 	// na agresora"), from as far as this.
 	const DWORD PLAYERBOT_ANTIPK_PARTY_MEMORY_MS = 8000;
@@ -5752,6 +5873,10 @@ namespace
 	// przedmiotu ze wszystkich kategorii ... w ekwipunku i magazynie"; its
 	// class's level-30 weapon is the exception, PLAYERBOT_LEVEL30_KEEP_MAX.
 	const int PLAYERBOT_HELD_FAMILY_LIMIT = 2;
+	// And the most of all the gear a bot holds for the gambler, the bag and
+	// the box together: Iwakura's Patch 3, point 3, "lacznie maksymalnie 18
+	// sztuk", the surplus treated the ordinary way.
+	const int PLAYERBOT_LPP_TOTAL_LIMIT = playerbot_persona::LPP_TOTAL_LIMIT;
 	// The salt of the draw that makes a bot a gambler by nature, the one
 	// that keeps the list (IsPlayerBotGamblerByNature).
 	const DWORD PLAYERBOT_LPP_GAMBLER_SALT = 0x48415a41U;
@@ -5786,7 +5911,9 @@ namespace
 		BOT_FOE_PARTY,        // it struck a member of this bot's party
 		BOT_FOE_GRUDGE,       // it killed this bot, which has come back for it
 		BOT_FOE_STONE_RIVAL,  // another kingdom's, breaking this bot's stone
-		BOT_FOE_GUILD         // a person who struck a member of this bot's guild
+		BOT_FOE_GUILD,        // a person who struck a member of this bot's guild
+		BOT_FOE_EXECUTOR,     // another kingdom's character an executioner falls on
+		BOT_FOE_DEFEND        // an executioner who struck this bot's kingdom
 	};
 
 	// The gambler's plan for one piece (playerbot_gambler.h): the item, the
@@ -5961,6 +6088,19 @@ namespace
 		WORD wLppReleasable;
 		DWORD dwLppReleaseVisitAt;
 		std::map<DWORD, BYTE> mapGearStored;
+		// How many pieces of gear the box keeps once the release has run, list
+		// or no list: what PLAYERBOT_LPP_TOTAL_LIMIT is counted against.
+		WORD wLppBoxGearKept;
+		// Iwakura's Patch 3, point 7: a rare personality (playerbot_persona::ERare),
+		// how far into its errand it is, its length, and for the two that are
+		// budgets - the addict's anvil, the scientist's books - the purse it
+		// began with and what it has spent since (playerbot_rare_persona.h).
+		BYTE bRare;
+		BYTE bRareStage;
+		DWORD dwRareSince;
+		DWORD dwRareUntil;
+		long long llRareGoldStart;
+		long long llRareSpent;
 		// The pieces a gambler's session worked on, by item id: goods for the
 		// counter from the moment the session ends, never the list's to keep
 		// or the next session's to take (EndPlayerBotGamble).
@@ -5988,7 +6128,8 @@ namespace
 			dwCompanionBreakUntil(0), bWasInParty(false), dwAskedHumanPid(0), dwAskedHumanAt(0),
 			bAskedHow(0), dwNextHumanAsk(0), dwMercClientPid(0), dwMercApproachUntil(0),
 			dwNextMercScan(0), dwMercCooldownUntil(0), bBagFull(false), bLppStoredKnown(false),
-			bLppBoxFull(false), wLppReleasable(0), dwLppReleaseVisitAt(0) {}
+			bLppBoxFull(false), wLppReleasable(0), dwLppReleaseVisitAt(0), wLppBoxGearKept(0),
+			bRare(0), bRareStage(0), dwRareSince(0), dwRareUntil(0), llRareGoldStart(0), llRareSpent(0) {}
 	};
 
 	enum EPlayerBotAmbition
@@ -6217,6 +6358,7 @@ namespace
 			dwLastGuildPromotionTime(0),
 			dwGuildWarEnemyGID(0),
 			dwNextGuildWarMoveTime(0),
+			dwGuildWarCampUntil(0),
 			dwTowerRaidGuild(0),
 			bTowerSummoned(false),
 			lTowerInstance(0),
@@ -6567,6 +6709,10 @@ namespace
 		std::map<DWORD, DWORD> mapFailedStones;
 		std::map<DWORD, DWORD> mapFailedTargets;
 		std::map<DWORD, DWORD> mapBuffActiveUntil;
+		// When each skill the AI cast comes off its cooldown, by the engine's
+		// own formula (NotePlayerBotSkillCast): UseSkill takes the mana before
+		// it looks at the cooldown, so nothing is tried before this.
+		std::map<DWORD, DWORD> mapSkillReadyAt;
 		std::vector<PIXEL_POSITION> vecMultiPullCenters;
 		// Not in the initialiser list: it default-constructs empty, which is what
 		// a bot that has not met anybody yet is.
@@ -6595,6 +6741,9 @@ namespace
 		// otherwise), and the clock on its walks to and about the battlefield.
 		DWORD dwGuildWarEnemyGID;
 		DWORD dwNextGuildWarMoveTime;
+		// Until when a bot that stood up at its war camp is left alone there
+		// (PLAYERBOT_GUILD_WAR_CAMP_GRACE_MS); zero once it steps out.
+		DWORD dwGuildWarCampUntil;
 		// The Demon Tower (playerbot_demon_tower.h): the raid this bot answered
 		// (its guild's id, zero otherwise), whether its human master called it
 		// to the ground floor, the instance it is in, the clock on its walks
@@ -6804,6 +6953,18 @@ namespace
 
 	// Hunting stones right now: by role for life, or by expedition for half an
 	// hour. Every rule that used to ask for the role asks this instead.
+	// Iwakura's Patch 3, point 7: the rare personality running now, or none
+	// (playerbot_rare_persona.h ends it; this only reads its clock).
+	BYTE GetPlayerBotRareNow(const TPlayerBotPersona& p, DWORD dwNow)
+	{
+		return p.bRare != 0 && p.dwRareUntil != 0 && (int)(dwNow - p.dwRareUntil) < 0 ? p.bRare : 0;
+	}
+
+	bool IsPlayerBotRareNow(const TPlayerBotPersona& p, BYTE rare, DWORD dwNow)
+	{
+		return rare != 0 && GetPlayerBotRareNow(p, dwNow) == rare;
+	}
+
 	bool IsPlayerBotMetinHunting(const TPlayerBotAIState& state, DWORD dwNow)
 	{
 		return state.bBotRole == BOT_ROLE_METIN_HUNTER ||
