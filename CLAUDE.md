@@ -5869,6 +5869,30 @@ not in `data/`) reworked these point by point. What each hangs on:
   "over" lines in two minutes. A place is taken for the row picked
   (`PlayerBotTakeHerbErrand`), and the loop only asks whether one is held
   or free. A gate consulted inside a loop must not have a side effect.
+- **A trial's monster has to be walked to, and a bot with anything else to
+  hit never walks.** The battle trial is a hundred of the desert's two archers
+  (2105 at 47, 2107 at 51). They stand mostly in the middle of the map: resolved
+  through regen.txt and both group files, about 180 stand at a time, and nine
+  of the desert's twelve hubs have 0 to 3 within reach. The hub choice goes by
+  density, so the trial's bots of thirty-five to forty hunted spiders. On m2zip
+  on 24 September 38 bots on the trial made 10 to 40 trial kills an hour
+  between them ("boty nie wykonuja misji", rakso7064).
+  `GetPlayerBotHorseTrialHuntMob` makes the scorpion archer the bot's hunt
+  (`GetPlayerBotDesiredQuestMobVnum`), and `IsPlayerBotBiologistHuntRace`
+  counts the snake archer as the same family. The Biologist's map scan
+  (`StartPlayerBotMaterialHunt`) then walks the bot to the nearest archer it
+  may hit alone (the finder skips one over `PLAYERBOT_MAX_TARGET_LEVEL_DELTA`),
+  and the kept walk takes the trial's hunt as well as the Biologist's. The
+  scan alone gave one walk in twenty minutes, because it runs only on a tick
+  with nothing to fight, and a bot of thirty-five on the desert always has
+  something. So a bot on the trial there is `SERVICE_ONLY` in the value policy:
+  the archers (a quest target), defence, a wanted drop and stones still count,
+  plain experience does not. The next twenty minutes had 21 walks by 9 bots,
+  five tens of trial kills logged (against one to four an hour before), 109
+  kills in the database across 20 bots, and a trial finished.
+  `IsPlayerBotAngler` refuses a bot on either trial as well: only the
+  desert's own branch of the travel stood back for it, and three of sixteen
+  trial bots seen that morning were fishing in Joan.
 - **A counter line is sized by what the goods are worth, and the offline
   stand has to cut it.** The service visit added the best-scored cell as the
   stack it was: a refine material that was not a hoard went up whole, the
@@ -8127,12 +8151,29 @@ not in `data/`) reworked these point by point. What each hangs on:
   had three quarters of his first page full ("Boty zbieraja nadmiar itemow,
   ktore do niczego sie im nie przydadza", GoracyDelfin; "zbroje na 34 czy 42
   lv tez sa malo warte jesli nie sa ulepszone ... to juz lepiej jak laduja u
-  handlarza", the operator, 24 September). The list keeps its gear from
+  handlarza", the operator, 24 September). 2.2.7 then let go of every piece under
   `PLAYERBOT_LPP_KEEP_MIN_PLUS` (+4, what the tower's smith takes as goods)
-  or with a line of his tier 5-6 rolled half-way up
-  (`IsPlayerBotLppUnderKeepFloor`); what falls under that is neither kept nor
-  the gamblers' counter stock, the box gives it back and the merchant buys
-  it. A gambler's session still works any base in the bag that is not junk.
+  with no line of his tier 5-6 rolled half-way up
+  (`IsPlayerBotLppUnderKeepFloor`). But only a gambler keeps the list at all,
+  so the floor took the gamblers' stock and nothing else: a plain piece is the
+  base its anvil works ("czesc musi zostac (po 2 sztuki danego typu) pod
+  Hazardziste", Iwakura, the same morning), and the other bots' boxes were
+  being emptied by the release anyway. So a gambler keeps its plain pieces
+  within a family's two like the rest. The floor decides only where a plain
+  piece the list lets go ends up: at the merchant, never on the counter where
+  the list's other surplus goes. A finished copy (+7, or worked by a session)
+  no longer takes one of a family's two places in the bag, just as the box's
+  plan never gave it one. And the first visit of a start counts the box
+  before its deposit (`RefreshPlayerBotLppStored(..., false)`). The list
+  counts an unseen box as empty, so the first visit after every restart put
+  down what the release took back out at the next one. On m2zip a gambler put
+  seven +4 armours in at 10:36 and six came out at 10:43. With its plain
+  pieces kept, a gambler would have done the same with its whole bag after
+  every update. Measured on m2zip in the fourteen minutes after the change:
+  65 gamblers put 99 pieces of the list down, 97 of them plain, none past a
+  family's two, and not one came back out. In the hour before there were
+  65 deposits, seven of them plain. A gambler's session still works any base
+  in the bag that is not junk.
   And the books of another build go to the counter, not the box: one is
   enough to open a counter (`PLAYERBOT_SHOP_OTHER_CLASS_BOOK_MIN`),
   `CollectPlayerBotSafeboxBooks` leaves them in the bag of a bot that can keep
@@ -8505,7 +8546,8 @@ the release above both lines: this repository went 2.0.98/client 2.0.27,
 upstream 2.1.0/client 2.0.26, the merge is 2.1.1/client 2.0.28, and the next
 sync (upstream 2.2.0-2.2.6, client 2.0.27-2.0.28, over our 2.1.5 / client
 2.0.30) is 2.2.7 / client 2.0.31, and the one after (upstream 2.2.7 /
-client 2.0.29, over our 2.2.7 / client 2.0.31) is 2.2.8 / client 2.0.32. Upstream's added attributions to its own
+client 2.0.29, over our 2.2.7 / client 2.0.31) is 2.2.8 / client 2.0.32, and the one after (upstream 2.2.8, client
+unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32. Upstream's added attributions to its own
 operator are scrubbed from comments and notes the way the first sync did; a
 player's or a contributor's name stays. An upstream `## x.y.z` CHANGELOG
 section whose number this repository already used moves under the new section,
