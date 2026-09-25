@@ -483,6 +483,16 @@ namespace
 	// keeps waiting for a scroll is not kept waiting for good.
 	const int PLAYERBOT_SCROLL_SKIP_PERCENT = 50;
 	const DWORD PLAYERBOT_SCROLL_SKIP_BUCKET_SECONDS = 3 * 3600;
+	// No scroll goes on a piece of this level or under: "trzeba bodzie
+	// wylaczyc z eq do 18 poziomu tbh, bo tarcze na 1 lvl ulepszaja od +7
+	// bodziami" (Iwakura, 24 September, over a gear history of a Bojowa
+	// Tarcza - level nought - taken from +6 to +7 under Blessing Scrolls again
+	// and again). Such a piece goes to the plain anvil as far as the bot's
+	// ambition takes it; the armour on its back with no spare waits for the
+	// one the armour merchant sells; a weapon over the scroll-only line stays
+	// as it is; and the scroll is left for a counter and a bot with use for it
+	// (IsPlayerBotScrollFreeGear).
+	const int PLAYERBOT_SCROLL_FREE_GEAR_MAX_LEVEL = 18;
 	// What a Mental Warrior on a battle horse adds to a two-handed weapon's
 	// score, as a share of its own blow (GetPlayerBotEquipmentScore).
 	const int PLAYERBOT_TWO_HANDED_PREFERENCE_PERCENT = 20;
@@ -523,23 +533,27 @@ namespace
 	// of twelve scrolls in twenty minutes on those two steps of an Ostrze z
 	// Czerwonej Stali of one percent.
 	const long PLAYERBOT_LEVEL30_SCROLL_LOW_AVERAGE = 30;
-	// How far a level-30 weapon may be pushed at the plain anvil before the
-	// scrolls take over, by the average-damage line it carries. The operator's
-	// table of 17 September, in his own words: a weak average is ground boldly
-	// to +7, and the better the roll the earlier the risk stops being worth it,
-	// because what is being protected is the roll, not the plus.
+	// How far a weapon may be pushed at the plain anvil before the scrolls
+	// take over, by the average-damage line it carries. The operator's table
+	// as it stands since the evening of 24 September:
 	//
-	//   avg <= 14%      anvil to +7, and still a gamble above it
-	//   avg 15..21%     anvil to +7
+	//   avg <= 14%      anvil to +6, and a level-30 one still gambles above it
+	//   avg 15..21%     anvil to +6
 	//   avg 22..29%     anvil to +6
 	//   avg 30..36%     anvil to +4
 	//   avg >= 37%      scrolls from +0 (PLAYERBOT_WEAPON_SCROLL_ONLY_AVERAGE)
 	//
-	// Iwakura's answer of 24 September moved the two lower rows up to +7 as a
-	// test: "bron zrobmy do +7 u kowala a na +8 i +9 zwojami, raz sie zyje
-	// (testowo)". Every level-30 weapon under the scroll-only line now goes to
-	// +7 at the plain anvil, and +8 and +9 are a scroll's; the rows stay
-	// apart so the operator's own numbers are one edit away.
+	// His table of 17 September took the two lowest rows to +7: a weak average
+	// ground boldly, and the better the roll the earlier the risk stops being
+	// worth it, because what is being protected is the roll, not the plus.
+	// Iwakura's test of 24 September put every row at +7 ("bron zrobmy do +7 u
+	// kowala a na +8 i +9 zwojami"), and the operator's answer the same
+	// evening is the table above: the step to +7 is a scroll's, "no chyba ze
+	// sa dobre srednie obrazenia % to wtedy bodzie jeszcze wczesniej uzywane".
+	// Nor is it the level-30 family's alone any more - "ja bym dal ogolnie
+	// bronie PO 30 poziomie a nie same 30 lvl tbh pod to" (Iwakura) - so every
+	// weapon from PLAYERBOT_ANVIL_TABLE_WEAPON_MIN_LEVEL answers to it
+	// (IsPlayerBotAnvilTableWeapon, GetPlayerBotWeaponAnvilCeiling).
 	//
 	// Measured on this world's own refine_proto, because the table's last line
 	// says "unless the anvil is certain": the level-30 family runs
@@ -551,10 +565,13 @@ namespace
 	const long PLAYERBOT_LEVEL30_ANVIL_AVG_GOOD = 21;
 	const long PLAYERBOT_LEVEL30_ANVIL_AVG_BETTER = 29;
 	const long PLAYERBOT_LEVEL30_ANVIL_AVG_HIGH = 36;
-	const int PLAYERBOT_LEVEL30_ANVIL_PLUS_CHEAP = 7;
-	const int PLAYERBOT_LEVEL30_ANVIL_PLUS_GOOD = 7;
-	const int PLAYERBOT_LEVEL30_ANVIL_PLUS_BETTER = 7;
-	const int PLAYERBOT_LEVEL30_ANVIL_PLUS_HIGH = 7;
+	const int PLAYERBOT_LEVEL30_ANVIL_PLUS_CHEAP = 6;
+	const int PLAYERBOT_LEVEL30_ANVIL_PLUS_GOOD = 6;
+	const int PLAYERBOT_LEVEL30_ANVIL_PLUS_BETTER = 6;
+	const int PLAYERBOT_LEVEL30_ANVIL_PLUS_HIGH = 4;
+	// The weapons the table reaches besides the level-30 family: every one of
+	// this level or more.
+	const int PLAYERBOT_ANVIL_TABLE_WEAPON_MIN_LEVEL = 30;
 	// Above its ceiling a cheap roll is still worth a gamble now and then: the
 	// weapon is common and the scroll is not ("ewentualnie szansa na to ze bot
 	// pojdzie do kowala ulepszyc (40% zamiast bodziem)").
@@ -1332,8 +1349,29 @@ namespace
 	const DWORD PLAYERBOT_GUILD_WAR_DECLARE_TIMEOUT = 3 * 60 * 1000;
 	const int PLAYERBOT_GUILD_WAR_MIN_ONLINE = 8;
 	// The battlefield's middle is the open ground nearest the map's Town.txt
-	// point, found within this radius (playerbot_guild_war.h).
+	// point, found within this radius (playerbot_guild_war.h) - when no open
+	// plain is found (below).
 	const long PLAYERBOT_GUILD_WAR_GROUND_SEARCH = 6000;
+	// The ground nearest the Town.txt point was a narrow causeway on two of
+	// the three guild maps: Shinsoo's middle and both its camps stood on the
+	// long bridge south of the town plateau, 27% of the ground round it
+	// fightable, and Jinno's on a strip beside its safe zone, 55%. The bots
+	// fought on the bridge, in the river and up the slopes
+	// ("zmienilbym w kazdym krolestwie miejsce, w ktorym sie bija - na jakis
+	// otwarty obszar", prodnathin, with a screenshot of the bridge; the operator: "by
+	// boty na wojnie nie wypadaly poza most do rzeki i na wzgorza"). So the
+	// middle is the most open point within OPEN_SEARCH of the Town.txt point
+	// reachable from it - the share of cells neither blocked nor the safe
+	// zone within OPEN_RADIUS, sampled every OPEN_SAMPLE, on a grid of
+	// OPEN_STEP - the nearest of the most open. Measured on the maps'
+	// server_attr: Shinsoo's plain south of the bridge (135400,14300),
+	// Chunjo's (221900,12400) beside the old ground, Jinno's south-west plain
+	// (268100,16300), every one fully open. Distance costs nothing: the bots
+	// are moved straight to their camps, and a player joins at its camp too.
+	const long PLAYERBOT_GUILD_WAR_OPEN_SEARCH = 12000;
+	const long PLAYERBOT_GUILD_WAR_OPEN_STEP = 400;
+	const long PLAYERBOT_GUILD_WAR_OPEN_RADIUS = 1500;
+	const long PLAYERBOT_GUILD_WAR_OPEN_SAMPLE = 250;
 	// Each side has a camp of its own, one of CAMP_DISTANCES from the middle
 	// on opposite sides of it, and fights in the middle. Both sides on one
 	// ground fought from the first second, the side that cast the first area
@@ -1413,6 +1451,45 @@ namespace
 	const int PLAYERBOT_GUILD_WAR_JITTER = 400;
 	const int PLAYERBOT_GUILD_WAR_KEEP_BONUS = 300;
 	const DWORD PLAYERBOT_GUILD_WAR_RETARGET_MS = 4000;
+	// Boss raids (playerbot_boss_raid.h). The world pass looks at the bosses
+	// every CHECK_MS, not before FIRST_DELAY_MS after a start (the cohort is
+	// still spawning), and calls a raid to a boss standing with none: the
+	// members have GATHER_MS to come to a spot RALLY_MIN..+RALLY_SPREAD from
+	// him - his aggressive sight is 2000 - and a member within ARRIVED_RANGE
+	// of him counts as come. A fight whose boss has not lost half a percent
+	// of his health in STALL_MS calls REINFORCEMENTS more once, and the second
+	// stall gives him up for OUTPACED_COOLDOWN_MS; FIGHT_MAX_MS ends any
+	// fight. The loot window after his fall is LOOT_MS. A bot is called with
+	// MIN_HP_PERCENT of its health and the potions below, and a boss is
+	// nobody's target past MAX_ATTACKERS on him - the claim a monster has kept
+	// every other bot off the one bot that saw him first.
+	const DWORD PLAYERBOT_BOSS_RAID_CHECK_MS = 5000;
+	const DWORD PLAYERBOT_BOSS_RAID_FIRST_DELAY_MS = 3 * 60 * 1000;
+	const DWORD PLAYERBOT_BOSS_RAID_DOWN_RECHECK_MS = 30 * 1000;
+	const DWORD PLAYERBOT_BOSS_RAID_CALL_RETRY_MS = 2 * 60 * 1000;
+	const DWORD PLAYERBOT_BOSS_RAID_GATHER_MS = 3 * 60 * 1000;
+	const DWORD PLAYERBOT_BOSS_RAID_STALL_MS = 60 * 1000;
+	const DWORD PLAYERBOT_BOSS_RAID_FIGHT_MAX_MS = 20 * 60 * 1000;
+	const DWORD PLAYERBOT_BOSS_RAID_LOOT_MS = 15 * 1000;
+	const DWORD PLAYERBOT_BOSS_RAID_KILLED_COOLDOWN_MS = 60 * 1000;
+	const DWORD PLAYERBOT_BOSS_RAID_TOO_FEW_COOLDOWN_MS = 5 * 60 * 1000;
+	const DWORD PLAYERBOT_BOSS_RAID_OUTPACED_COOLDOWN_MS = 30 * 60 * 1000;
+	const DWORD PLAYERBOT_BOSS_RAID_CENSUS_MS = 10 * 60 * 1000;
+	const int PLAYERBOT_BOSS_RAID_RALLY_MIN = 2300;
+	const int PLAYERBOT_BOSS_RAID_RALLY_SPREAD = 500;
+	const int PLAYERBOT_BOSS_RAID_ARRIVED_RANGE = 3200;
+	// A member further than this from him on his own map is brought to its
+	// spot as one from another map is: from the far end of Jayang the walk
+	// outlasted the gathering (25 September: three raids of seven there ended
+	// too_few_came with both members on the map, one of them ninety
+	// kilometres from its spot), while one warped in from another map was
+	// there at once.
+	const int PLAYERBOT_BOSS_RAID_WALK_MAX = 20000;
+	const int PLAYERBOT_BOSS_RAID_MIN_HP_PERCENT = 80;
+	const size_t PLAYERBOT_BOSS_RAID_MIN_RED_POTIONS = 30;
+	const size_t PLAYERBOT_BOSS_RAID_MIN_BLUE_POTIONS = 15;
+	const int PLAYERBOT_BOSS_RAID_REINFORCEMENTS = 3;
+	const int PLAYERBOT_BOSS_MAX_ATTACKERS = 8;
 	// The Demon Tower raid (playerbot_demon_tower.h): one bot guild at a
 	// time on this core, the first a few minutes after a start and the next
 	// an interval after a raid ends; the members gather on the ground floor
@@ -1432,7 +1509,15 @@ namespace
 	const DWORD PLAYERBOT_TOWER_SMITH_WAIT_MS = 60 * 1000;
 	const DWORD PLAYERBOT_TOWER_SCAN_INTERVAL = 1500;
 	const DWORD PLAYERBOT_TOWER_CENSUS_INTERVAL = 10 * 60 * 1000;
-	const int PLAYERBOT_TOWER_MIN_LEVEL = 40;
+	// The bots' tower level: the raid calls nobody under it, a guild master
+	// summons nobody under it, and a bot under it that the jump took in leaves
+	// (a person's party excepted). It was the keeper's forty, and on m2zip on
+	// 25 September five raids of six ended stone_timeout on the ground floor:
+	// its demons are 1001-1004 at 57-60, and bots of 40-48 spent the ten
+	// minutes dying and standing up. At fifty-five the youngest member has the
+	// floor's common demons two to five levels over itself (the operator: "Podniesc
+	// prog?" - "tak").
+	const int PLAYERBOT_TOWER_MIN_LEVEL = 55;
 	const int PLAYERBOT_TOWER_UPPER_LEVEL = 75;
 	const int PLAYERBOT_TOWER_MIN_MEMBERS = 4;
 	const int PLAYERBOT_TOWER_MAX_MEMBERS = 16;
@@ -3216,6 +3301,14 @@ namespace
 	// rather than leaving them to whoever is not fighting.
 	const DWORD PLAYERBOT_METIN_LOOT_DASH_TIME = 20000;
 	const int PLAYERBOT_METIN_LOOT_DASH_RANGE = 1500;
+	// And for the first of those seconds the bot stands where the stone broke
+	// and looks for its drop on every pass, holding the tick even when the
+	// ground is empty so far: "mogliby chociaz 5 sekund poobserwowac co
+	// wypadlo" (24 September, over bots that ran on and left the
+	// stone's skill books lying). Not with its health under the second number:
+	// the stone's pack is still on it, and the fight comes first then.
+	const DWORD PLAYERBOT_METIN_LOOT_LINGER_MS = 5000;
+	const int PLAYERBOT_METIN_LOOT_LINGER_MIN_HP_PERCENT = 40;
 	// An archer pulls too, but a bow is not a shield: one group, four attackers.
 	const int PLAYERBOT_MULTI_PULL_ARCHER_MAX_AGGRESSORS = 4;
 	const BYTE PLAYERBOT_SKILL_MASTER_TRY_LEVEL = 17;
@@ -3239,8 +3332,16 @@ namespace
 	const long PLAYERBOT_SKILL_RESET_NPC_Y = 165700;  // map 21, base (0,102400)
 	const BYTE PLAYERBOT_SKILL_RESET_MIN_LEVEL = 5;
 	const BYTE PLAYERBOT_SKILL_RESET_MAX_LEVEL = 30;
+#if defined(PLAYERBOT_ENGINE_MT2009)
+	// The 2.x line's quest charges less and remembers the reset: with a skill
+	// at seventeen or more it adds one to skill_reset2.reset_count, which is
+	// 25 percent more on the next roll for Master (char_skill.cpp).
+	const long long PLAYERBOT_SKILL_RESET_BASE_COST = 5000;
+	const long long PLAYERBOT_SKILL_RESET_LEVEL_COST = 1000;
+#else
 	const long long PLAYERBOT_SKILL_RESET_BASE_COST = 10000;
 	const long long PLAYERBOT_SKILL_RESET_LEVEL_COST = 2000;
+#endif
 	// A wallet cushion, so a reset never leaves a bot unable to buy potions.
 	const long long PLAYERBOT_SKILL_RESET_GOLD_MARGIN = 100000;
 	const DWORD PLAYERBOT_SKILL_RESET_COOLDOWN = 1800000;   // 30 min between tries
@@ -5574,6 +5675,15 @@ namespace
 
 	BYTE GetPlayerBotPersonalityByPID(DWORD dwPID);
 
+	// The player's own companion (playerbot_sidekick.h, included after every
+	// fragment that asks these): whose it is, whether it stands at its
+	// owner's side, and what its owner handed it.
+	bool IsPlayerBotSidekickPID(DWORD pid);
+	bool IsPlayerBotSidekickLeashed(LPCHARACTER ch);
+	bool IsPlayerBotSidekickHolding(LPCHARACTER ch);
+	bool IsPlayerBotSidekickGift(LPCHARACTER ch, LPITEM item);
+	const char* GetPlayerBotSidekickOwnerName(LPCHARACTER ch);
+
 	// Iwakura's personality system ("SYSTEM OSOBOWOSCI v2.0", 19 September):
 	// playerbot_persona_rules.h is the policy, playerbot_mood.h and
 	// playerbot_persona.h the engine's half. The PERSONA key of the weights
@@ -6763,6 +6873,12 @@ namespace
 		DWORD dwNextTowerMoveTime;
 		DWORD dwNextTowerMasterCheckTime;
 		BYTE bTowerTalkStep;
+		// A boss raid (playerbot_boss_raid.h): the boss this bot was called to
+		// and the map he stands on (zero when none), and the clock on its
+		// walks to him.
+		WORD wBossRaidRace = 0;
+		long lBossRaidMap = 0;
+		DWORD dwNextBossRaidMoveTime = 0;
 		// The ItemShop (playerbot_itemshop.h): the account's Dragon Coins and
 		// Marks as last read or reckoned, whether they were ever read, the
 		// hairstyle bought once, and the three clocks.
@@ -7007,11 +7123,13 @@ namespace
 	// The passes that run above the tower's hook in the tick and can move a
 	// bot to another map - the offline shop's service visit, the market trip,
 	// the negative-rank rule - stand down for such a bot: the first run lost
-	// three raiders to "offline_shop_service" inside two minutes.
+	// three raiders to "offline_shop_service" inside two minutes. A bot called
+	// to a boss (playerbot_boss_raid.h) is the same business: its hook sits
+	// beside the tower's.
 	bool IsPlayerBotOnTowerBusiness(LPCHARACTER ch, const TPlayerBotAIState& state)
 	{
 		return (ch && IsPlayerBotDemonTowerInstance(ch->GetMapIndex())) ||
-				state.dwTowerRaidGuild != 0 || state.bTowerSummoned;
+				state.dwTowerRaidGuild != 0 || state.bTowerSummoned || state.wBossRaidRace != 0;
 	}
 
 	void SetPlayerBotAction(TPlayerBotAIState& state, BYTE action, DWORD dwNow)

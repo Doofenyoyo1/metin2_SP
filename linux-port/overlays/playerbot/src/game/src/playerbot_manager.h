@@ -76,10 +76,21 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// mt2009 via playerbotify.py): a player's on a bot guild waits for the
 		// bots' answer (playerbot_guild_war.h).
 		void	OnGuildWarDeclared(DWORD dwGuildFrom, DWORD dwGuildTo, BYTE bType);
+		// A player's "Tak" to the war letter in a field war
+		// (CGuild::GuildWarEntryAccept, mt2009 via playerbotify.py): a war on a
+		// bot guild is fought on the kingdom's guild map, and the player goes
+		// to its guild's camp there (playerbot_guild_war.h).
+		void	OnPlayerFieldWarEntry(LPCHARACTER ch, DWORD dwMyGuild, DWORD dwOppGuild);
 		// A player struck a bot, or a person in a party (CHARACTER::Damage,
 		// mt2009 via playerbotify.py): the Anti-PK protocol's only source of
 		// who is attacking a bot - the engine keeps no record of it.
 		void	OnPlayerStruck(LPCHARACTER victim, LPCHARACTER attacker);
+		// The player's own companion (playerbot_sidekick.h): its load on the
+		// core its owner stands on, past this channel's partition, and the
+		// /towarzysz command the Towarzysz quest sends (cmd_general.cpp, mt2009
+		// via playerbotify.py).
+		bool	SpawnSidekick(DWORD dwPlayerID);
+		void	OnSidekickCommand(LPCHARACTER ch, const char* szArgument);
 
 		// The operator's spawn plan (input_db.cpp through playerbotify.py): the
 		// window the cohort arrives over, and a second cohort that joins one at
@@ -247,6 +258,9 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// The life schedule: when each live bot's session ends, until when a
 		// logged-out bot rests (kept out of the world and out of the top-up),
 		// and who is on the way back from a rest.
+		// The companion SpawnSidekick is loading, which Spawn lets past the
+		// population's rules and nothing else does.
+		DWORD			m_dwSpawningSidekick = 0;
 		std::map<DWORD, DWORD>	m_mapLifeSessionEnd;
 		std::map<DWORD, DWORD>	m_mapLifeRestEnd;
 		std::set<DWORD>		m_setLifeReturning;

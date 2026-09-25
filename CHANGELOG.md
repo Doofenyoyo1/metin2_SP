@@ -17,6 +17,238 @@ every version here.
 
 ---
 
+## 2.2.15 — 2026-09-25
+
+Serwer 2.2.15 i klient 2.0.36. Zaktualizuj oba („AKTUALIZUJ wszystko”
+w launcherze): nowy klient ma okno towarzysza pod klawiszem P i dwa nowe
+przyciski na pasku. Na VPS: `sh linux-port/tools/update.sh`.
+
+Ta wersja przenosi na naszą 2.2.13 zmiany z wersji 2.2.13 i 2.2.14 projektu
+źródłowego: Towarzysza (stałego kompana gracza) z jego oknem, rajdy botów na
+bossów świata, umiejętności zatrzymujące się na 17 punktach, Wieżę Demonów od
+55 poziomu, serwer na VPS z launchera i przełączniki Auto Łowów i Towarzysza.
+Zostaje wszystko, co dodaliśmy wcześniej: okno zmiany bonusów pod klawiszem U,
+wierzchowce z pieczęci w ItemShopie, hostowanie w COOP bez hasła (także
+zaproszenia na VPS) i linki do naszego repozytorium.
+
+### Boty biją bossów (zgłosił prodnathin)
+
+- Bossów świata biją teraz grupy botów jednego królestwa: Best. Kapitana
+  w drugich wioskach, Wodza Orków w Dolinie Orków, Królową Pająków w Lochu
+  Pająków, Ezot. Przyw. i Zjawę Żółt. Tygrysa w Hwang, Olbrzymiego Żółwia
+  na Pustyni Yongbi, Dziewięć Ogonów na Górze Sohan i Ognistego Króla
+  w Doyyumhwaji.
+- Na bossa idą boty z jego przedziału poziomów (od 8 poziomów niżej do 9
+  wyżej): najpierw te, które już są na jego mapie, potem najsilniejsze,
+  a do tego szaman, jeśli jakiś jest wolny. Zbierają się poza zasięgiem
+  wzroku bossa, buffują się i atakują razem, gdy dojdzie ich dość albo gdy
+  boss sam kogoś zaatakuje.
+- Dotąd na bossa szedł jeden bot, a reszta biła jego świtę. Bot odpuszczał
+  też bossa, który leczy się szybciej, niż on zadaje obrażenia (Królowa
+  Pająków, Zjawa Tygrysa). Teraz, gdy boss przez minutę prawie nie traci
+  życia, przychodzą posiłki. Jeśli i to nie pomoże, boty zostawiają go na
+  pół godziny.
+- Wojownik, sura broni i ninja używają na bossie z rajdu marmuru
+  przemiany (prodnathin: „na marmurkach bić bossy”).
+- Pokonanie dużego bossa ogłasza wiadomość na czacie: „Boty z królestwa X
+  pokonały: Y (N min)”. Kapitanów to nie dotyczy, bo padają kilka razy na
+  godzinę.
+- Na świecie testowym boty mają najwyżej 48 poziom, więc na razie
+  sprawdziliśmy tylko Kapitanów: we wszystkich trzech drugich wioskach
+  padali po 41–138 sekundach, bici przez dwa boty. Na większych bossów boty
+  ruszą, gdy dojdą do ich poziomów.
+
+### Umiejętności: 17 punktów i Starsza Pani (zgłosił prodnathin)
+
+- Zwykła umiejętność zatrzymuje się na 17 punktach na każdym poziomie
+  postaci. Przy 17. punkcie pada rzut na Mistrza. Dotąd do 30 poziomu
+  można było dodawać punkty powyżej 17: każdy był kolejnym rzutem, a 20.
+  dawał Mistrza bez rzutu, więc reset u Starszej Pani nie był potrzebny.
+- Gdy rzut się nie uda, do 30 poziomu umiejętności resetuje Starsza Pani
+  w pierwszej wiosce (za yang), a każdy reset podnosi szansę następnego
+  rzutu. Gra przypomina o tym na czacie. Po 30 poziomie zostają, jak dotąd,
+  przedmioty do resetu umiejętności.
+- Boty robią tak samo. Ich reset u Starszej Pani też podnosi szansę
+  następnego rzutu i kosztuje tyle, ile u gracza.
+
+### Gildie botów znów idą do Wieży Demonów (zgłoszenie z kanału)
+
+- Powiadomienie na czacie działało, ale gildie przestały wyruszać. Jeśli
+  w królestwie nie było dwóch gildii zdolnych do wojny, zegar wojny co
+  chwilę pokazywał „wojna za kilka minut”, a do Wieży nie idzie gildia,
+  która wkrótce ma wojnę. Teraz brak pary do wojny nie blokuje Wieży.
+- Boty idą do Wieży od 55 poziomu (dotąd od 40). Na parterze stoją demony
+  57–60 poziomu i na świecie testowym boty 40–48 poziomu przez dziesięć
+  minut nie zbiły kamienia w pięciu rajdach z sześciu. Boty z gildii
+  gracza przychodzą na parter, gdy stoi tam mistrz gildii, też od 55
+  poziomu. Bot w Twojej grupie idzie z Tobą jak dotąd, a strażnik
+  wpuszcza gracza od 40 poziomu.
+
+### Auto Łowy (zgłosił prodnathin)
+
+- Po wstaniu, gdy Auto Łowy czekają na ustawiony procent życia, rzucają już
+  tylko buffy. Dotąd rzucały wszystkie umiejętności, więc np. szaman
+  Skowytem budził stado, które przed chwilą go zabiło, i ginął w kółko.
+
+### Okno towarzysza (klient 2.0.36)
+
+- Klawisz P albo przycisk na pasku otwiera okno towarzysza. Okno pokazuje
+  poziom, życie, manę, doświadczenie, yang, mikstury, miejsce, to, co
+  towarzysz teraz robi, i jego ekwipunek.
+- **Polecenia:** Przywołaj, Czekaj tu (zostaje w miejscu, gdy idziesz
+  dalej), Wolna ręka, Na zakupy (idzie do miasta do kowala i handlarzy,
+  potem wraca), Raport i Odpraw (z pytaniem, bo tego nie da się cofnąć).
+- **Walka:** Atakuj, Nie 1. atak, Nie walcz, tak jak komendy szeptem.
+- **Drop i wsparcie:** co zbiera (nic, Twój drop, wszystko), czy ściąga na
+  siebie potwory, gdy masz mało życia, i czy szaman Cię buffuje.
+- W liście „Towarzysz” jest nowa pozycja „Okno towarzysza (klawisz P)”.
+
+### Przyciski na pasku (klient 2.0.36)
+
+- Na pasku w prawym dolnym rogu, obok przycisków postaci, ekwipunku,
+  społeczności i systemu, są dwa nowe: Towarzysz (P) i Auto Łowy (K).
+  Zrobiliśmy je z grafik oryginalnych przycisków. Mieszczą się tylko przy
+  szerokości ekranu od 940 pikseli; przy węższym zostają klawisze P i K.
+
+### Auto Łowy i Towarzysz do wyłączenia na serwerze (pomysł Drip)
+
+- W launcherze, pod przyciskiem POZIOM TRUDNOŚCI, są dwa nowe pola: Auto
+  Łowy i Towarzysz. Oba są domyślnie włączone. Zmiana działa od następnego
+  uruchomienia serwera.
+- Z wyłączonymi Auto Łowami klient (od 2.0.36) zatrzymuje polowanie i pisze na czacie,
+  że na tym serwerze są wyłączone.
+- Z wyłączonym Towarzyszem nie przychodzi list „Towarzysz”, a towarzysze,
+  którzy są w grze, wylogowują się. Ich dane zostają i wracają po ponownym
+  włączeniu.
+- Na Linuksie służą do tego `M2_AUTOHUNT` i `M2_SIDEKICK` w `.env`
+  (1 włączone, 0 wyłączone).
+
+### Towarzysz — Twój stały kompan (nowość, do testów)
+
+Każdy może teraz zabrać w drogę stałego towarzysza, trochę jak najemnika
+w Diablo. To postać bota, która należy tylko do Ciebie.
+
+- **Jak go dostać:** po zalogowaniu kliknij list „Towarzysz” (ikona listu
+  z lewej strony ekranu). Wybierasz klasę, płeć, ścieżkę i nick (od 3 do 16
+  liter i cyfr, bez polskich znaków i spacji). Towarzyszem zostaje jedna
+  z postaci botów Twojego królestwa: dostaje wybrany nick i Twój poziom.
+  Postać stworzona poniżej 5 poziomu dostaje wybraną ścieżkę na 5 poziomie,
+  bo gra nie pozwala jej wybrać wcześniej.
+- **Grupa:** jest z Tobą w stałej grupie, exp dzielicie po równo. W grupie,
+  której liderem jest ktoś inny, towarzysz zostaje poza nią, dopóki lider go
+  nie zaprosi.
+- **Chodzi za Tobą.** Gdy zostanie w tyle albo zmienisz mapę (także w lochu),
+  pojawia się obok Ciebie.
+- **Walczy o Ciebie:** bije Twój cel, to, co bije Ciebie, to, co bije jego,
+  a w domyślnym stylu walki także potwory w pobliżu. Gdy spadniesz poniżej
+  40% życia, ściąga na siebie do trzech potworów, które Cię biją. Nie wtrąca
+  się w pojedynki i nie przyjmuje ich. Na wojnie gildii bije gracza wrogiej
+  gildii, którego sam zaatakujesz.
+- **Szaman buffuje Ciebie.**
+- **Zbiera drop:** Twój trafia do Twojego ekwipunku (przez grupę), a swój
+  zbiera dla siebie.
+- **Handel:** zawsze przyjmuje od Ciebie handel, gdy go zaakceptujesz.
+  Cudzy handel odrzuca. To, co od Ciebie dostanie, zatrzymuje (nie sprzeda
+  i nie przepali), a lepszy sprzęt zakłada sam.
+- **Kowal i handlarze:** gdy stoisz przy kowalu albo przy handlarzu broni,
+  zbroi lub różności, towarzysz ulepsza swój sprzęt, sprzedaje zbędne rzeczy
+  i kupuje, co mu potrzebne, jak inne boty.
+- **Wolna ręka:** puszczony „graj sam” gra po swojemu jak każdy bot. Zawołany
+  wraca do Ciebie od razu, przenosząc się na Twoją mapę.
+- **Loguje się i wylogowuje razem z Tobą** (20 sekund po Twoim wyjściu, żeby
+  teleport między mapami go nie wylogował). Po śmierci wstaje przy Tobie.
+- Nad głową ma napis „Towarzysz <Twój nick>”.
+
+**Komendy.** Z listu „Towarzysz” albo szeptem do towarzysza (`/w <jego nick>
+...`):
+
+- `chodź` (też „wracaj”, „do mnie”) — wraca do Ciebie;
+- `graj sam` (też „wolna ręka”) — gra po swojemu, dopóki go nie zawołasz;
+- `stan` — poziom, życie, gdzie jest, tryb i styl walki;
+- `atakuj` — bije wszystko w pobliżu (domyślnie);
+- `nie atakuj pierwszy` — nie zaczyna walki: broni Ciebie i siebie i pomaga
+  w walce, którą już toczysz;
+- `nie walcz` — oddaje tylko temu, kto go uderzy.
+
+To samo jako komenda na czacie: `/towarzysz przywolaj`, `/towarzysz wolny`,
+`/towarzysz stan`, `/towarzysz walka atakuj|obrona|spokoj`. Z listu możesz go
+też odprawić: jego postać wraca do świata jako zwykły bot, a nowego towarzysza
+wybierasz od razu.
+
+**Ograniczenia pierwszej wersji:**
+
+- Potrzebna jest wolna postać bota wybranej klasy i płci w Twoim królestwie.
+  Jeśli takiej nie ma, list to powie: wybierz inną klasę albo spróbuj później.
+- Nie da się jeszcze odebrać od niego przedmiotów.
+- Jest w świecie tylko wtedy, gdy Ty jesteś.
+
+### Zwoje na broń od 30 poziomu (Iwakura)
+
+- Broń idzie u zwykłego kowala do +6 (w 2.2.12: do +7), a od +7 pod zwojami.
+  Dotyczy to każdej broni od 30 poziomu, nie tylko broni na 30 poziom
+  (Iwakura: „ogólnie bronie po 30 poziomie”).
+- Broń z dobrą średnią wcześniej idzie pod zwoje: przy średniej 30–36% zwykły
+  kowal ulepsza ją tylko do +4, a od 37% (albo od 15% obrażeń umiejętności)
+  od początku tylko zwojami, jak dotąd.
+- Broń na 30 poziom z najsłabszą średnią (do 14%) nadal czasem idzie
+  u zwykłego kowala także powyżej +6, jak dotąd.
+- Boty nie używają zwojów na przedmiotach do 18 poziomu (przedtem ulepszały
+  np. tarczę na 0 poziom z +6 na +7 Zwojem Błogosławieństwa). Zwoje, których
+  nie potrzebują, wystawiają na sprzedaż.
+- Bot nie idzie do kowala z bronią, która czeka na zwój.
+
+### Metiny: boty patrzą, co wypadło (zgłosił prodnathin)
+
+- Po rozbiciu Metina bot czeka do 5 sekund i zbiera, co z niego wypadło
+  (np. księgi umiejętności). Dotąd biegł dalej, zanim drop pojawił się na
+  ziemi. Nie czeka, gdy walczy, gdy obok jest groźny potwór albo gdy ma
+  mniej niż 40% życia.
+
+### Wojna gildii
+
+- „Tak” w liście wojny („czy chcesz wziąć udział w wojnie?”) przenosi Cię
+  teraz do obozu Twojej gildii na mapie gildii Twojego królestwa. Dotąd przy
+  wojnie z gildią botów nic się nie działo (zgłosił Remigiusz).
+- Pole bitwy stoi na najbardziej otwartym terenie mapy gildii. W Shinsoo środek
+  wojny wypadał na moście, więc boty spadały do koryta rzeki i wchodziły na
+  wzgórza (zgłosił prodnathin).
+
+### Szepty z botami
+
+Poprawki na podstawie prawdziwych rozmów graczy z botami:
+
+- Kłótnię, kpinę, groźbę („bana ci daję”) i „przestań do mnie pisać” bot
+  rozpoznaje przed tematem szeptu. Dotąd np. „gold diggerze” brał za pytanie
+  o yang, a „zbić konia” za pytanie o swojego konia.
+- Po „przestań do mnie pisać” bot przez dwie godziny sam nie zaczyna z Tobą
+  rozmowy.
+- O swoim sprzęcie mówi to, co naprawdę planuje, i nie powtarza tego samego
+  powodu raz za razem.
+- Nazwa przedmiotu nie ma już podwójnego plusa („Pajęcza Włócznia+8 +8”).
+- Pamięta, na jakiej mapie powiedział, że był.
+
+### Launcher
+
+- **Serwer na VPS (nowość, eksperymentalne; po pytaniu Sudaka
+  o hosting).** Na stronie „Świat i boty” jest przycisk SERWER NA VPS.
+  Launcher łączy się z Twoim VPS-em przez SSH (hasło wpisujesz raz, potem
+  działa klucz), wysyła na niego folder serwera (ok. 100 MB) i uruchamia
+  instalację: Docker, plik wymiany przy małej pamięci, losowe hasła bazy
+  i nowe hasła kont `admin` i `test` (launcher je pokaże). Panele są dostępne
+  tylko przez tunel SSH z launchera, nie z Internetu. Na VPS-ie powstaje nowy
+  świat, a pierwsza budowa trwa tam 15–40 minut. Z tego samego miejsca
+  zaktualizujesz serwer na VPS-ie i otworzysz panele. Potrzebny jest VPS
+  z Linuksem na x86 (nie ARM), najlepiej 8 GB RAM i 60–80 GB dysku.
+  Zaproszenia dla znajomych działają jak w COOP i, jak całe COOP u nas,
+  nie wymagają hasła. Nie
+  sprawdziliśmy tego jeszcze na prawdziwym VPS-ie: jeśli coś nie zadziała,
+  wyślij paczkę logów.
+- W menu tekstowym hostowanie COOP kończyło się błędem, gdy launcher wykrył
+  VPN. Naprawione.
+- Zapis `.env` przy starcie jest teraz naprawdę odporny na nagłe wyłączenie
+  komputera: plik jest podmieniany w całości. Przez błąd był dotąd zwykłym
+  kopiowaniem na stary plik.
+
 ## 2.2.13 — 2026-09-25
 
 Serwer 2.2.13 i klient 2.0.35. Zaktualizuj oba („AKTUALIZUJ wszystko”

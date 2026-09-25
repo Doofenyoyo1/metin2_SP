@@ -365,6 +365,15 @@ namespace
 			snprintf(status, statusSize, PBT(en, "%sZbiorka gildii: Wieza Demonow", "%sGuild gathering: Demon Tower"), prefix);
 			return;
 		}
+		// A boss raid (playerbot_boss_raid.h), named by the boss.
+		if (state.wBossRaidRace != 0)
+		{
+			const CMob* boss = CMobManager::instance().Get(state.wBossRaidRace);
+			snprintf(mobName, sizeof(mobName), "{m%u}", (unsigned int)state.wBossRaidRace);
+			snprintf(status, statusSize, PBT(en, "%sRajd na bossa: %s", "%sBoss raid: %s"), prefix,
+					en ? mobName : (boss ? boss->m_table.szLocaleName : "boss"));
+			return;
+		}
 		// A guild war outranks every errand while it lasts (playerbot_guild_war.h).
 		if (state.dwGuildWarEnemyGID != 0)
 		{
@@ -378,6 +387,26 @@ namespace
 						prefix, enemy ? enemy->GetName() : "?");
 			else
 				snprintf(status, statusSize, PBT(en, "%sWojna gildii z %s", "%sGuild war with %s"), prefix, enemy ? enemy->GetName() : "?");
+			return;
+		}
+		// A player's companion at its owner's side says whose it is
+		// (playerbot_sidekick.h), and what it is doing for the owner.
+		if (const char* owner = GetPlayerBotSidekickOwnerName(ch))
+		{
+			if (state.bCurrentAction == BOT_ACTION_FIGHT)
+				snprintf(status, statusSize, PBT(en, "Towarzysz %s - walcze", "%s's companion - fighting"), owner);
+			else if (state.bCurrentAction == BOT_ACTION_LOOT)
+				snprintf(status, statusSize, PBT(en, "Towarzysz %s - zbieram drop", "%s's companion - picking up"), owner);
+			else if (state.bCurrentAction == BOT_ACTION_REFINE)
+				snprintf(status, statusSize, PBT(en, "Towarzysz %s - u kowala", "%s's companion - at the blacksmith"), owner);
+			else if (state.bCurrentAction == BOT_ACTION_SHOP)
+				snprintf(status, statusSize, PBT(en, "Towarzysz %s - u handlarza", "%s's companion - at the merchant"), owner);
+			else if (state.bRecoveringAfterDeath)
+				snprintf(status, statusSize, PBT(en, "Towarzysz %s - wracam do sil", "%s's companion - recovering"), owner);
+			else if (IsPlayerBotSidekickHolding(ch))
+				snprintf(status, statusSize, PBT(en, "Towarzysz %s - czekam", "%s's companion - waiting"), owner);
+			else
+				snprintf(status, statusSize, PBT(en, "Towarzysz %s", "%s's companion"), owner);
 			return;
 		}
 		if (state.bVisitingShop)
