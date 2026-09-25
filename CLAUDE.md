@@ -116,6 +116,7 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_targeting.h` | Choosing what to hit and hitting it, including the claim that keeps hundreds of bots off the same monster. |
 | `playerbot_guild_war.h` | Guild wars: the pair of bot guilds picked per kingdom, a player's declaration on a bot guild answered, the engine's field war declared and accepted, the two camps and the middle on the guild map, the muster and the fight there. After targeting.h because the blows are its. |
 | `playerbot_demon_tower.h` | The bots' Demon Tower: one guild's raid at a time (the call, the gathering by the stone, the stone broken together), and the floors for whoever the jump takes - the scan of the floor, the duel-shaped fight, the keys used and handed in, the smith passed. After guild_war.h because the fight and the kingdom names are its. |
+| `playerbot_boss_raid.h` | The world's bosses broken by a crowd of one kingdom: the table of bosses with their level windows and raid sizes, the call, the gathering outside the boss's sight, the fight together, the reinforcement and the giving up. After demon_tower.h, whose fight and keeping alive it borrows. |
 | `playerbot_persona_rules.h` | Iwakura's personality system as pure policy: the moods, the Grinder's tiers and the Law of Advancement, the gambler's ambitions, the Anti-PK window, the companion's draw, the mercenary's terms and the Useful Items List. No engine types, unit-tested (`tests/playerbot_persona_rules_test.cpp`). Included first, with the other rules headers. |
 | `playerbot_persona_tables.h` | Rendered from his document by `tools/generate_iwakura_persona.py`: the valuables whose drop lifts a mood, and the LPP's weapons by level band, target shields and target armours. |
 | `playerbot_mood.h` | The Bot Mood System: what a mood is worth to whom, the drought, the euphoria, and the mood a bot plays by (NORMALNY in company, its own alone). |
@@ -124,6 +125,7 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_lpp.h` | Iwakura's Useful Items List: what a bot keeps at the storekeeper rather than sells, what the box holds, and what it lets go. |
 | `playerbot_rare_persona.h` | Iwakura's rare personalities (Patch 3, point 7): the draw on each core, a state's start and end. After anti_pk.h, whose foe pass is the Executioner's fight. |
 | `playerbot_anti_pk.h` | The Anti-PK protocol and the stone hunter's quarrel: who struck the bot, who it fights back, and the capitulation after five deaths on one spot. |
+| `playerbot_sidekick.h` | "Towarzysz", a player's own companion: the record (`player.playerbot_sidekick`), the identity picked and renamed, its spawn with its owner, the owner's party, the follow, the fight for the owner, the owner's drops, the trade, the blacksmith, and the `/towarzysz` orders. After demon_tower.h (its fight), before companions.h (which asks it). |
 | `playerbot_companions.h` | The two social personalities: the companion's phase and its invitations to people, a companion Shaman's party buffs, and the mercenary's contracts. After demon_tower.h. |
 | `playerbot_manager.cpp` | Personality, party, upkeep, the watchdog - and `CPlayerBotManager` with the tick. |
 
@@ -5961,12 +5963,40 @@ not in `data/`) reworked these point by point. What each hangs on:
     his scroll-only +8/+9. `PLAYERBOT_AI: refine at the plain anvil, the
     coin said so ... why=prize|scroll_kept` is the measurement. His answer
     to Uriel took the level-30 weapon out of the coin: "bron zrobmy do +7
-    u kowala a na +8 i +9 zwojami, raz sie zyje (testowo)", so every row
-    of the operator's anvil table under the scroll-only line reads +7
-    (`PLAYERBOT_LEVEL30_ANVIL_PLUS_*`, the Demon Tower's smith asks the
-    same table) and `PlayerBotRisksPlainAnvil` is false for a level-30
-    weapon. The cheapest rolls (14% and under) keep the operator's gamble
-    above the ceiling.
+    u kowala a na +8 i +9 zwojami, raz sie zyje (testowo)", and 2.2.12
+    shipped every row of the operator's anvil table at +7. The same evening
+    the operator moved it back a step - "Bron 30 lvl idzie u zwyklego
+    kowala z +6 na +7 - to zrob od +7 bodziami, no chyba ze sa dobre
+    srednie obrazenia % to wtedy bodzie jeszcze wczesniej uzywane" - and
+    Iwakura, asked, put every weapon past thirty under it ("ja bym dal
+    ogolnie bronie PO 30 poziomie a nie same 30 lvl tbh pod to"). So the
+    table (`PLAYERBOT_LEVEL30_ANVIL_PLUS_*`) is 6/6/6/4 again below the
+    37% scroll-only line, and `IsPlayerBotAnvilTableWeapon` is the family
+    and any weapon of level thirty or more; `GetPlayerBotWeaponAnvilCeiling`
+    is the one answer the blacksmith pass, the planner, the field scroll
+    pass, the scroll purchase and the Demon Tower's smith ask, and
+    `PlayerBotRisksPlainAnvil` is false for all of them. The cheapest
+    level-30 rolls (14% and under) keep the operator's gamble above the
+    ceiling (`IsPlayerBotCheapLevel30Roll`); a weapon in the hand with no
+    backup still goes under a scroll, or waits, from the step that burns.
+    And no scroll goes on gear of `PLAYERBOT_SCROLL_FREE_GEAR_MAX_LEVEL`
+    (18) or under ("trzeba bodzie wylaczyc z eq do 18 poziomu tbh, bo
+    tarcze na 1 lvl ulepszaja od +7 bodziami", Iwakura, over a Bojowa
+    Tarcza of level nought): `FindPlayerBotRefineScrollCellFor` is how
+    every pass that puts a scroll on the bot's own gear looks for one, the
+    prize hold and the refine target's scroll ladder step round such a
+    piece, and a worn one is no scroll work, so its scrolls go to a
+    counter. Measured on m2zip in the three quarters of an hour before:
+    53 refines of gear of 18 or under went under a scroll. The gambler
+    keeps its own scroll finder and floors.
+  - The planner did not know the level-30 ceiling at all: a weapon waiting
+    for a scroll was an errand to `CanPlayerBotAttemptRefineItem`, the
+    bot walked to the blacksmith and the pass logged that it waits. With
+    the ceiling at +6 for every weapon from thirty that would have been
+    most bots of thirty and up, so the planner asks the ceiling now
+    (`weapon waits for a scroll ... where=plan`), and the prize hold too:
+    a prize piece at odds under `PLAYERBOT_PRIZE_SAFE_REFINE_PROB` with no
+    scroll and the coin on tails is no errand either.
   - The armour's protection had a hole the weapon's did not: a blacksmith
     session keeps the piece in the bag from its first step to its last,
     and `IsPlayerBotWornArmourAtRisk` asked the slot, so only the first step
@@ -8277,7 +8307,8 @@ not in `data/`) reworked these point by point. What each hangs on:
   3; "niech tam drop swoj pilnuja, aby podnosili"). A bot under
   `PLAYERBOT_TOWER_MIN_LEVEL` inside an instance leaves it, and goes home from
   the ground floor, unless a person's party brought it - the tower's keeper
-  tells a player forty too. And the sixth floor's smith is used: the quest's
+  tells a player forty, and the bots' own floor is fifty-five since 2.2.14.
+  And the sixth floor's smith is used: the quest's
   1092.kill sets `deviltower_zone.can_refine` for everybody in the instance,
   and a drag onto him is `DoRefine(item, true)` - the fee, no materials, the
   anvil's odds, a burn on failure; 20074 takes a weapon, 20075 a body armour,
@@ -8652,6 +8683,332 @@ not in `data/`) reworked these point by point. What each hangs on:
   found `docker compose restart panel` in both `.env.example` files after a
   password change: a restarted container keeps the environment it was created
   with, so it is `up -d --force-recreate panel`.
+- **A broken stone is watched for five seconds.** The loot pass searched the
+  ground the moment the stone died, found nothing yet, and set its ordinary
+  search delay - so the bot walked on and the books lay behind it ("nawet nie
+  podnosili ksiag umiejetnosci z kamienia metin", the operator, 24 September:
+  "mogliby chociaz 5 sekund poobserwowac co wypadlo"). For
+  `PLAYERBOT_METIN_LOOT_LINGER_MS` after `dwStoneBrokenTime`, above
+  `PLAYERBOT_METIN_LOOT_LINGER_MIN_HP_PERCENT` of its health, `HandleLoot`
+  searches on every tick and a bot with nothing in reach stands where it is
+  (`PLAYERBOT_LOOT: waiting at a broken stone`). Compiled on both engines and
+  deployed on m2zip on 25 September; not measured yet.
+- **A player's "Tak" to a field war is a trip to the camp.** The war letter
+  ("Popros o zezwolenie na udzial" -> "czy chcesz wziac udzial w wojnie?")
+  calls `CGuild::GuildWarEntryAccept`, which returns at once for
+  GUILD_WAR_TYPE_FIELD - a field war on the engine's terms is fought wherever
+  the sides meet - and a war on a bot guild is fought on the kingdom's guild
+  map, so the "Tak" did nothing (Remigiusz's video, 24 September).
+  `apply_player_war_on_bot_guilds` (playerbotify) hands that branch to
+  `CPlayerBotManager::OnPlayerFieldWarEntry`, and `EnterPlayerBotFieldWar`
+  (playerbot_guild_war.h) warps the player to its guild's camp there - the
+  side is the engine's (the lower guild id is side 0), a war between two
+  players' guilds keeps the engine's answer with a chat line, and the second
+  channel is told the war is channel 1's. `guild_war.cpp` ships staged.
+  Compiled and deployed on m2zip; never clicked with a person, because the
+  test world has no guild at war.
+- **The war's ground is the most open ground, not the nearest.** Shinsoo's
+  middle and camps stood on the causeway to the bridge - 27% of a 1500-unit
+  circle walkable - and Jinno's on a strip at 55%, so a fight spilled into the
+  river bed and up the hills ("boty na wojnie wypadaja poza most do rzeki i na
+  wzgorza"). It was not the water: `server_attr` has no ATTR_WATER anywhere in
+  the three fields, the river and the bridge are plain ground cut by BLOCK.
+  `FindPlayerBotOpenWarGround` samples `PLAYERBOT_GUILD_WAR_OPEN_SEARCH` round
+  the Town.txt point on a `_OPEN_STEP` grid and takes the point whose
+  `_OPEN_RADIUS` circle is most open (`GetPlayerBotWarGroundOpenness`, samples
+  `_OPEN_SAMPLE` apart), clear of the safe zone; the camps are then found round
+  it as before. Measured offline on the maps' own server_attr
+  (`scratchpad/war_open_ground2.py` of session 82d3ab90, pictures beside it):
+  Shinsoo (135400,14300), Chunjo (221900,12400), Jinno (268100,16300), each a
+  plain. The battlefield line carries `open=` and `middle_open=`. Compiled and
+  deployed; the first war on the new ground has not been watched.
+- **"Towarzysz" is a registered bot identity with an owner, and nothing of
+  the population may touch it** (the operator, 24 September: "stalym naszym
+  kompanem ... w STALYM PT (exp leci nam po rowno) ... zawsze akceptuje od
+  nas handel ... ulepsza przedmioty, najlepiej wtedy kiedy stoimy przy
+  kowalu"). `playerbot_sidekick.h` holds all of it; `player.playerbot_sidekick`
+  (owner, companion, mode, path, level at creation, setup done) and
+  `player.playerbot_sidekick_gift` (item ids the owner handed over) are made
+  by the core itself. The Towarzysz quest (`towarzysz.quest`, a letter at
+  every login) asks class, sex, path and a name and sends
+  `/towarzysz stworz <race> <group> <name>` (`apply_sidekick_command`); the
+  same letter is then the menu - przywolaj, wolny, stan, odprawa - and the
+  owner can whisper the companion "chodz", "graj sam", "stan" instead
+  (`HandlePlayerBotSidekickWhisper`, ahead of the conversation layer). The
+  identity is one the registry accepts, of the owner's kingdom and race,
+  saved more than `PLAYERBOT_SIDEKICK_IDENTITY_IDLE_MINUTES` ago - the db
+  core serves a load from its player cache, name included, so a rename of an
+  identity it still holds would not show - with no offline shop and not a
+  medal dropper; renamed in `player.player` with an `INSERT IGNORE` into the
+  name history (a name that is neither the seed's nor the pool's is kept at
+  every later start). It is raised to the owner's level the way
+  `pc.set_level` raises one, and given its path, at its first load. Things
+  that had to be told, because each one would have taken it away: `Spawn`
+  (only `SpawnSidekick`, which also lets it past the channel partition - a
+  companion logs in on whichever core its owner stands), the spawn queue,
+  the late joiners, the top-up, the life schedule, the channel refresh's
+  log-out and the coordinator's moves (pinned), the party pass (its party is
+  the owner's, kept by its own pass), party invitations (the owner's or the
+  owner's party leader's only), the duel (refused, "companion"), the
+  mercenary on both sides, the rare personalities, the exp lock (lifted), the
+  stall pass, bot guilds (it founds none, is recruited by none, leaves one it
+  was in), the Monkey Dungeon's room spread, the gambler's stock (a gift is
+  never a base), and `IsPlayerBotHeldForCompany` (the market, the service
+  walk and the world travel). The companions are read with the registry
+  (`LoadRegisteredBots`), because the start's first spawn batch goes out
+  before Update has ever run and would otherwise start one as the
+  population's bot. `PLAYERBOT_SIDEKICK` is in the support bundle's grep
+  list. At its owner's side
+  its pass sits just above the follow pass, below the upkeep - stats, skills,
+  books, the gear pass and chests run as for any bot - and owns the tick:
+  the trade (the owner's accepted once the owner has accepted, anybody else's
+  cancelled, what arrived is a gift the junk rule never sells), the party,
+  a place beside the owner (`PlacePlayerBotSidekick` - its own `Show`, not
+  `TransitionPlayerBotMap`, which refuses a map without a navigation grid and
+  turns a warp into the Spider Dungeon into a desert crossing - with the
+  dungeon membership `WarpBot` gives), the fight (`FightPlayerBotTowerObjective`
+  against the owner's own target, what hits the owner, what hits it, then the
+  nearest monster within `PLAYERBOT_SIDEKICK_HUNT_RANGE` of the owner; a
+  person only when the owner's guild is at war with theirs; the Anti-PK
+  protocol above it answers a person who strikes the owner), the blacksmith
+  and the three merchants when the owner stands at one, the owner's drops
+  (picked up through the engine's party branch, which hands them to the owner),
+  and the Shaman's buffs on the owner (`ManagePlayerBotBuffPerson`, the
+  leader's pass pointed at a person). An owner under
+  `PLAYERBOT_SIDEKICK_PROTECT_HP_PERCENT` has what is hitting it turned onto
+  the companion (`ProtectPlayerBotSidekickOwner`: the lure's `UpdateAggrPoint`
+  + `SetVictim` handover pointed at itself, three monsters at most every
+  1.5 s, while the companion's own health holds). After a death it stands up and heals
+  beside the owner rather than walking off from where it fell. It logs out
+  `PLAYERBOT_SIDEKICK_OWNER_GONE_MS` after its owner leaves the core, and the
+  owner's core spawns it again. The line over its head says whose it is. The
+  whole machinery was run on m2zip with the self-test (the file
+  `playerbot_sidekick_selftest` in a core's working directory, which lets a
+  bot own a companion and makes one for a bot it picks, then trades, frees,
+  summons and reports on a ninety-second clock): the pick, the rename, the
+  level and path, the placement, the party, the fight at the owner's side
+  (10-600 units apart for minutes), a trade with a potion in it and the gift
+  row, the leash let go (off to its own village) and the call back into the
+  owner's Monkey Dungeon. Never with a person: the letter, the party UI and
+  the whisper orders wait for a client. It is a bot owner's party that the
+  cohort rule kept breaking up in the self-test (`IsPlayerBotSidekickOwnerPID`
+  keeps the party pass off it), which a person's party never meets.
+  Every pair the self-test makes renames one of the population's bots
+  (TestKompanNNN) and raises it to its owner's level, and the dismissal at
+  its last step leaves both: put the names back from
+  `common.playerbot_name_history.human_name` after a test. So the self-test
+  takes up an earlier run's pair after a restart, waiting up to
+  `PLAYERBOT_SIDEKICK_SELFTEST_OWNER_WAIT_MS` for its owner to come in with
+  the spawn window, and to stop a run before its dismissal, delete the file
+  while it runs - the companion logs out and the pair stays for the next.
+  An order the owner-bot gave that was refused is logged as `says owner=`
+  (a person would read it in the chat), and the town visit is asked again
+  until it begins: on 25 September the first try met the companion lying
+  dead.
+  The operator's first test with a person (25 September, a new character of level
+  one) found two things no bot owner could: `CHARACTER::SetSkillGroup`
+  refuses a character under level five, so the path chosen in the letter was
+  silently dropped (`set up ... group=0`) and the trainer would have drawn
+  one by pid at five - `KeepPlayerBotSidekickPath` sets the chosen one at
+  five and after any reset, every tick, before `bNeedsProfession` is asked;
+  and the title over its head read "Grinder", because `ManagePlayerBotPersona`
+  sits below the sidekick pass in the tick and a leashed companion always
+  `continue`s above it - the pass runs from inside `ManagePlayerBotSidekick`
+  now, and a companion in its owner's party reads Towarzysz (persona 9,
+  title 109). The same day came the stances ("typu nie atakuj pierwszy"):
+  `bStance` in the record and a `stance` column added by `ALTER TABLE ... ADD
+  COLUMN IF NOT EXISTS` (the test world's table predates it), set by the
+  whispers "atakuj" / "nie atakuj pierwszy" / "nie walcz", the letter's "Jak
+  ma walczyc?" and `/towarzysz walka`. `FindPlayerBotSidekickFoe` takes the
+  idle monster near the owner only in the default stance; "nie atakuj
+  pierwszy" takes the owner's target only once it is a fight
+  (`IsPlayerBotSidekickFightUnderWay`: a monster at the owner, the companion
+  or the owner's party, a stone already damaged, a war foe) besides what hits
+  either of them; "nie walcz" only what hits the companion, and hands no
+  monster off a losing owner. Self-test, one step each 30 s in a deploy-only
+  build: under the default stance 18 monsters taken up nearby, 3 at the
+  owner and 4 at itself in a minute.
+- **A whisper that argues, mocks or says "stop" is answered as that before
+  any topic word in it gets a say.** Five whispers of 24 September read
+  "bana ci daje" beside a sum, "gold diggerze" as gold, "zbic konia" as the
+  bot's horse and "daleko w zyciu zajdziesz" with "Glebokie pytanie jak na
+  szept", and a bot of 64 defending a level-15 weapon said "Pajecza
+  Wlocznia+8 +8". Cold and argument intents now sit above the weak
+  catch-alls (STOP_TALKING, THREAT, MOCK, MATH, CONTRADICTION, GEAR_WHY/
+  ADVICE/OPINION, MAP_ADVICE, SHOW_ITEM, GIFT_OFFER); "przestan do mnie
+  pisac" sets `quietUntil` for two hours and the initiative honours it. The
+  gear answers read the AI's own goal from `s_mapPlayerBotWeaponGoals` and
+  never refresh it, and a reason said within `CONV_REASON_RECENT_MS` is left
+  out beside a reply of its own. The table's name already carries the
+  grade, so `GearName` is the one way a piece is named. A map the bot said is
+  remembered (`NoteSaidMap`), so "powiedziales ze w Joan" gets "bylem w
+  Joan". A PREFIX stem of six letters also matches one typo away: "digger"
+  read "dagger" as an insult until it was made exact - check a new stem
+  against its one-letter neighbours. Unit-tested on all five conversations
+  (844 checks); never watched with a person whispering.
+- **A world on a VPS is two holes closed, and the first bugs were in how
+  Windows hands bytes to ssh.** The community guide (Debian 13, Docker from
+  docker.com, `compose up -d --build`) left all three panels on 0.0.0.0 -
+  the classic one has no password on the 2.x line - and admin/admin and
+  test/test in the world. `linux-port/tools/vps-install.sh` (POSIX sh, as
+  root) writes `.env` with the panels on 127.0.0.1 and the game on 0.0.0.0,
+  two 48-hex database passwords and bots by memory (150/400/800). Under 8 GB
+  of memory it makes a 4 GB swap file. It builds detached (setsid,
+  `.vps-install.log`, `.vps-install.state`), writes new admin/test passwords
+  to root-only `/root/metin2-accounts.txt` before it changes them in the
+  database, and keeps everything on a second run. The launcher's half
+  (`Metin2Launcher.Vps.psm1`, "SERWER NA VPS" on the "Swiat i boty" page,
+  `Vps*` actions and text-menu entries 30-40) uses only what Windows ships;
+  friend invites and accounts are for everybody here, like all of COOP
+  (upstream asks its testers' password for them). An ed25519 key is made once in
+  `%USERPROFILE%\.ssh` and put on the VPS from a visible ssh window - the one
+  password ever typed - and everything after that runs in BatchMode.
+  Windows' tar (bsdtar) is streamed into ssh through .NET streams, never a
+  PowerShell pipeline. The panels are reached through `ssh -N -L`. Four traps
+  the stub tests found before any VPS could. `Process.Start` with stdin
+  redirected writes `Console.InputEncoding`'s preamble at once, so on a UTF-8
+  console every archive began EF BB BF and the VPS's tar refused it
+  (`Start-M2VpsProcess`). `[IO.File]::Replace($a, $b, $null)` gets `""` from
+  PowerShell and throws, so every save after the first failed
+  (`[NullString]::Value`); `start-server.ps1`'s `Write-FileDurable` made the
+  same call and had only ever copied - fixed the same night.
+  `Protect-M2LogContent` is not exported, so a `Get-Command` for it from
+  another module finds nothing - ask the module itself. And a tool found on
+  PATH is not Windows' tool: with Git's Unix tools on PATH `tar.exe` is GNU
+  tar, which reads "C:\..." as a remote host, so `Get-M2VpsTool` takes
+  System32's tar only and System32's OpenSSH before PATH (the upload test
+  failed seven checks when run from Git Bash until then). Tested in
+  containers (debian:12, ubuntu:24.04, the tools stubbed; 73 checks) and on
+  Windows against a fake ssh.exe (221 checks); never against a real VPS.
+  The text menu's COOP hosting called `Confirm-Action`, which does not exist
+  (`Confirm-Operation` does), and threw whenever a VPN was found - fixed the
+  same night. `listify.py` drops the hand-added `messenger_manager.cpp` from
+  the update list when it is run: put it back after a run.
+- **A boss is a raid, not a place to walk to.** Measured on the test world
+  over two and a half days (25 September): the Orc Chief killed once, in
+  fifty-three minutes, by twenty-three bots of whom exactly one was on him
+  for eighteen of the thirty-four minutes he was fought, and not one casket
+  in any bag ("nie ma u mnie ani jednej [szkatulki] po paru dniach gry",
+  prodnathin; the operator: every boss has to be killed). Three things did it: the
+  claim a monster has (`IsTargetClaimedByAnotherBot`) sent every bot but
+  the first onto his escort; `ShouldPlayerBotAbandonFight` gave up a boss
+  who heals faster than one blade hurts him (the Spider Queen a tenth of her
+  health every ten seconds, the Tiger Spectre an eighth every seven -
+  `regen_cycle`/`regen_percent` in `mob_proto`) and put him on the failed
+  list; and the walk to a boss hub was chosen only on a tick with nothing
+  else to hit. `playerbot_boss_raid.h` is the tower's raid on open ground:
+  `PLAYERBOT_WORLD_BOSSES` (race, map, a level window of eight under to nine
+  over - the casket is certain up to nine over - and a size), a world pass
+  per core that calls up to that many bots of one kingdom (his map's own
+  bots first, then the strongest, a Shaman in when there is one free; his
+  own map's kingdom for the Captains of the second villages), a spot for
+  each outside his aggressive sight of 2000, and the fight together when
+  enough have come or he has started on one of them. The claim is a crowd
+  of `PLAYERBOT_BOSS_MAX_ATTACKERS` for a boss now, the stall rule stands
+  down for a raider's own boss, and the raid asks the question instead: no
+  half a percent off him in `PLAYERBOT_BOSS_RAID_STALL_MS` calls
+  `PLAYERBOT_BOSS_RAID_REINFORCEMENTS` more once, and the second such minute
+  gives him up for half an hour. Not a party, on purpose: a party's cohort,
+  straggler and level-gap rules would break a crowd from four maps before it
+  met. A raider is Tower business to every pass that asks
+  `IsPlayerBotOnTowerBusiness`, to the mercenary and to the watchdog, and a
+  physical build uses a marble on its raid's boss (prodnathin: "na
+  marmurkach bic bossy"). The Spider Queen's raid takes only the bots
+  already in the dungeon, because a warp into 104 is a desert crossing on
+  foot. A member standing on his own map further than
+  `PLAYERBOT_BOSS_RAID_WALK_MAX` from him is brought to its spot like one
+  from another map: in Jayang three raids of seven ended `too_few_came` with
+  both members on the map, one of them ninety kilometres off, and even the
+  raids there that killed him began `arrived=1 of 2`, on his own attack.
+  The notice of a fall is for the big bosses only. Measured the first
+  hour on m2zip: the Bestial Captains of all three second villages raided
+  and killed in 41-138 s by two bots each; the rest could not be watched,
+  because the test world's bots stop at 48 (`PLAYERBOT_RAID: nobody to call
+  ... in_band=0` for everything past the Orc Chief).
+- **A normal skill stops at seventeen at every level, as the operator's rule
+  always said.** mt2009's `SkillLevelUp` waived the stop for a character of
+  thirty or under (`&& GetLevel() > 30`), so each point past seventeen was
+  another roll for Master and the twentieth a Master without any - which
+  made the Old Woman's reset for yang, the whole reason for the thirty,
+  something nobody needed ("po resecie u babki mozna dodawac powyzej 17
+  punktow", prodnathin, 25 September). `apply_skill_cap_at_seventeen`
+  (playerbotify) removes the waiver; a character of thirty or under is told
+  where the Old Woman is. The mt2009 roll is `25 + 25 * reset_count` (plus
+  20 under 35), and the package's `skill_reset2.quest` adds one to
+  `skill_reset2.reset_count` when any skill of the group is at seventeen or
+  more and charges `5000 + level * 1000` - r40250's quest is the note's
+  10000 + 2000 above. The bots' own reset does both on mt2009
+  (`PayPlayerBotSkillReset`, the costs under `#if PLAYERBOT_ENGINE_MT2009`).
+  Watched on m2zip the same morning: a Shaman of 25 with Cure stuck at
+  seventeen reset at the Old Woman for 30 000 (`reset_count=1`) and had its
+  24 points back in the next second.
+- **A war clock's retry is not a war on its way.** A kingdom with fewer than
+  two bot guilds with eight online finds no war pair, and the retry re-armed
+  its clock `PLAYERBOT_GUILD_WAR_RETRY_MS` ahead every time - so its "next
+  war in" stood under the ten minutes the Tower keeps a guild out of a raid
+  for, for good, and a kingdom with one guild never raided the Tower after
+  the first try of a start ("nie wyswietla sie powiadomienie na chacie jak
+  jakas gildia idzie na dt", prodnathin, 25 September: the notice was fine,
+  the calls had stopped). `s_abPlayerBotGuildWarNoPair` makes such a clock
+  answer -1, and the Tower's "no guild" line counts the guilds a war kept out
+  (`at_war=`, `war_soon=`). What that fix does not change, measured the same
+  morning: on m2zip five raids of six ended `stone_timeout`, because the
+  ground floor is groups 1001-1008 of this world's `mob_proto` - demons of
+  57-60 and 67 - against bots of 40-48 that spent the ten minutes in
+  `recovery started`. `PLAYERBOT_TOWER_MIN_LEVEL` was the operator's forty
+  ("40 poziom minimum"), and asked the same day whether to raise it he said
+  yes: it is 55 since 2.2.14 - the youngest member has the ground floor's
+  common demons (1001-1004 at 57-60) two to five levels over itself - and it
+  gates all four things at once (the raid's call, a player's guild master's
+  summons, the leaving of an instance and the walk home after it). A world
+  whose bots are younger has no bot raids until they grow: the price of not
+  sending forty-year-olds to die on the ground floor.
+- **The companion's window is the letter's commands, on P.**
+  `client-root/uisidekick.py` (client 2.0.33) asks `/towarzysz okno` every
+  1.5 s while shown (`okno 1` for the whole gear when it opens) and draws
+  `SidekickInfo`, `SidekickNames` (hex) and `SidekickGear` (hex, only when it
+  changed); its buttons send the letter's own orders (przywolaj, czekaj,
+  wolny, zakupy, stan, walka N, zbieraj N, ochrona N, buffy N, odprawa tak
+  after a question), spaced by `COMMAND_SPACING` because the server drops a
+  sixth command in half a second. `game.py` gets the four commands, the P
+  key and a keeper among the updateables whose `Destroy` takes the window
+  with the game window (clientrootify). `tests/uisidekick_test.py`, 12 tests
+  on 2.7 and 3; never run in a client.
+- **Auto Lowy and the companion are the world's choice.** `M2_AUTOHUNT` and
+  `M2_SIDEKICK` (the launcher's difficulty window and text menu, `-AutoHunt`
+  / `-Sidekick`; 1 by default) reach the migrate service, which writes the
+  event flags `m2_autohunt_off` and `m2_sidekick_off` at a start (Drip wanted
+  a COOP without the auto hunt; the operator, 25 September). Off, `/autohunt_target`
+  and `/autohunt_loot` answer `AutoHuntOff` (`apply_auto_hunt_switch`) and the
+  client stops the hunt and says why; the Towarzysz letter is not sent, the
+  command refuses (`SidekickInfo <p> 2` to the window) and every companion
+  logs out, its record kept for the day the switch is on again. An older
+  client does not know `AutoHuntOff` and hunts nothing, which is the point
+  anyway.
+- **Towarzysz and Auto Lowy have taskbar buttons made of the originals.**
+  The bottom right's four (character, inventory, community, system) are one
+  texture, `d:/ymir work/ui/taskbar.tga` in the etc pack, cut by `.sub` files;
+  nothing unused in it fits, so `tools/generate_taskbar_icons.py` makes two
+  from them - the shared octagonal frame, the character's helmet turned the
+  other way with two small crossed swords for the companion, the auto-attack
+  mouse button's sword and "A" for the hunt, recoloured through a lookup
+  from the helmet's own tones, the states at the originals' measured 1.18
+  and 0.74 of the brightness - into `client-root/playerbot_ui/`, RLE TGAs of
+  the originals' format. Every pack, root included, registers into one file
+  dictionary (`CEterPackManager::m_FileDict`), so a picture in the root pack
+  under a relative name is found by that name. The buttons stand left of the
+  character button only on a bar of 940 pixels or more
+  (`tests/client_taskbar_test.py`): under that the quick slots and the right
+  mouse button reach that far, and the P and K keys do the same.
+- **A clock taken in the same pass is later than the pass's own.** The
+  companion's errand began with `get_dword_time()` in a command the
+  self-test issued inside the tick, and the tick's older `dwNow` minus it
+  wrapped round, so the errand ended "timeout" in the second it began.
+  Guard `dwNow - stamp` wherever a stamp can come from a command handler.
+- **While the hunter waits for its health after standing up, only buffs
+  go.** Auto Lowy's revive wait cast its whole rotation, so a Shaman's
+  Dragon's Roar woke the pack that had just killed her and she fell again,
+  for good (prodnathin, 25 September). `BUFF_SKILLS` is what the wait casts.
 
 
 ## Engine facts worth not re-deriving
@@ -8978,14 +9335,17 @@ Those engine files are not in git, so a release must take them from that
 package - the publish workflow
 (`.github/workflows/publish-mt2009-release.yml`) does, and packing them from
 an older package pairs new bot code with an old engine and the players' build
-fails. After a sync, keep COOP ungated (the upstream never gated it in code
-the sync touches, but check `launcher/Metin2Launcher.Coop.psm1`), and number
+fails. After a sync, keep COOP ungated: upstream gates hosting behind its
+testers' password (`Test-M2CoopAccess`, `Open-CoopWindow`, `-JoinOnly`) and,
+since its 2.2.13, the VPS window's friend invites too - here the COOP button
+calls `Show-CoopDialog` directly, `launcher/Metin2Launcher.Coop.psm1` has no
+access check, and `Test-M2VpsInviteAccess` answers true. Then number
 the release above both lines: this repository went 2.0.98/client 2.0.27,
 upstream 2.1.0/client 2.0.26, the merge is 2.1.1/client 2.0.28, and the next
 sync (upstream 2.2.0-2.2.6, client 2.0.27-2.0.28, over our 2.1.5 / client
 2.0.30) is 2.2.7 / client 2.0.31, and the one after (upstream 2.2.7 /
 client 2.0.29, over our 2.2.7 / client 2.0.31) is 2.2.8 / client 2.0.32, and the one after (upstream 2.2.8, client
-unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35. Upstream's added attributions to its own
+unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36. Upstream's added attributions to its own
 operator are scrubbed from comments and notes the way the first sync did; a
 player's or a contributor's name stays. An upstream `## x.y.z` CHANGELOG
 section whose number this repository already used moves under the new section,

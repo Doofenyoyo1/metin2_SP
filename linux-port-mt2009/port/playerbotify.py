@@ -1459,11 +1459,47 @@ def main(root):
     apply_bot_shop_slots_unlocked(game)
     apply_refine_abandoned_session(game)
     apply_book_wait(game)
+    apply_skill_cap_at_seventeen(game)
+    apply_auto_hunt_switch(game)
     apply_gm_panel_url(game)
     apply_shop_edit_burst(game)
     apply_shop_search_picked_item(game)
     apply_blessing_scroll_from_stones(game)
+    apply_sidekick_command(game)
     print('playerbotify: done')
+
+
+SIDEKICK_COMMAND = r'''// "Towarzysz", the player's own companion (playerbot_sidekick.h): the
+// Towarzysz quest's letter sends these - stworz, przywolaj, wolny, stan,
+// odprawa - and a player may type them too. The manager answers in the chat.
+ACMD(do_towarzysz)
+{
+	if (!ch || !ch->GetDesc())
+		return;
+	CPlayerBotManager::instance().OnSidekickCommand(ch, argument);
+}
+'''
+
+
+def apply_sidekick_command(game):
+    # Towarzysz (24 wrzesnia): staly towarzysz gracza - bot w jego
+    # grupie, ktory za nim chodzi, walczy, buffuje, zbiera drop i przyjmuje
+    # handel. Quest "Towarzysz" pyta o klase, sciezke i nick i wysyla
+    # "/towarzysz stworz ..."; reszta menu to te same polecenia.
+    edit(os.path.join(game, 'cmd_general.cpp'),
+         "//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f\n",
+         SIDEKICK_COMMAND + "\n//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f\n",
+         marker='ACMD(do_towarzysz)\n')
+    edit(os.path.join(game, 'cmd.cpp'),
+         'ACMD(do_check_mob);\n',
+         'ACMD(do_check_mob);\n'
+         'ACMD(do_towarzysz);\n',
+         marker='ACMD(do_towarzysz);\n')
+    edit(os.path.join(game, 'cmd.cpp'),
+         '\t{ "check_mob", do_check_mob, \t0, POS_DEAD,\t\tGM_IMPLEMENTOR },\n',
+         '\t{ "check_mob", do_check_mob, \t0, POS_DEAD,\t\tGM_IMPLEMENTOR },\n'
+         '\t{ "towarzysz",\tdo_towarzysz,\t0,\t\t\tPOS_DEAD,\tGM_PLAYER\t},\n',
+         marker='{ "towarzysz",')
 
 
 def apply_playerbot_guild_invites(game):
@@ -1543,6 +1579,32 @@ def apply_player_war_on_bot_guilds(game):
          '\t\t\tCPlayerBotManager::instance().OnGuildWarDeclared(p->dwGuildFrom, p->dwGuildTo, p->bType);\n'
          '\t\t\tbreak;\n',
          marker='CPlayerBotManager::instance().OnGuildWarDeclared(')
+    # Joining a war from the letter ("czy chcesz wziac udzial w wojnie?") is
+    # CGuild::GuildWarEntryAccept, which returns at once for a field war - it
+    # has no war map - and a war on a bot guild is always one, fought on the
+    # kingdom's guild map. "Tak" took the player nowhere (Remigiusz, 24
+    # September, with a video); the manager takes it to its guild's camp.
+    war = os.path.join(game, 'guild_war.cpp')
+    edit(war,
+         '#include "guild_manager.h"\n',
+         '#include "guild_manager.h"\n#include "playerbot_manager.h"\n',
+         marker='#include "playerbot_manager.h"\n')
+    edit(war,
+         '\tif (gw.type == GUILD_WAR_TYPE_FIELD)\n'
+         '\t\treturn;\n'
+         '\n'
+         '\tif (gw.state != GUILD_WAR_ON_WAR)\n',
+         '\tif (gw.type == GUILD_WAR_TYPE_FIELD)\n'
+         '\t{\n'
+         '\t\t// Playerbot: a field war on a bot guild is fought on the kingdom\'s\n'
+         '\t\t// guild map, and the join takes the player to its guild\'s camp\n'
+         '\t\t// there (playerbotify.py, apply_player_war_on_bot_guilds).\n'
+         '\t\tCPlayerBotManager::instance().OnPlayerFieldWarEntry(ch, GetID(), dwOppGID);\n'
+         '\t\treturn;\n'
+         '\t}\n'
+         '\n'
+         '\tif (gw.state != GUILD_WAR_ON_WAR)\n',
+         marker='CPlayerBotManager::instance().OnPlayerFieldWarEntry(')
 
 
 def apply_hwang_curse_removed(game):
@@ -4923,6 +4985,54 @@ def apply_book_wait(game):
     edit(item,
          'SetSkillNextReadTime(dwSkillVnum, get_global_time() + SKILLBOOK_LEARN_DELAY, true);',
          'SetSkillNextReadTime(dwSkillVnum, get_global_time() + M2SkillBookLearnDelay(), true);')
+
+
+def apply_skill_cap_at_seventeen(game):
+    # A normal skill stops at seventeen and rolls for Master there at every
+    # level. The package waived the stop for a character of thirty or under,
+    # so each point past seventeen was another roll and the twentieth was a
+    # Master without any - and the Old Woman's reset for yang, which is what
+    # the thirty is for, was never needed ("po resecie u babki mozna dodawac
+    # powyzej 17 punktow", prodnathin, 25 September; the operator: seventeen, and up
+    # to thirty the Old Woman). Her reset still raises the next roll
+    # (skill_reset2.reset_count, 25 percent a reset, 20 more under 35), and
+    # past thirty the Forgetting Scroll is the way on, as it always was.
+    edit(os.path.join(game, 'char_skill.cpp'),
+         '\t\tGetSkillLevel(pkSk->dwVnum) >= 17 && GetSkillLevel(pkSk->dwVnum) < 20\n'
+         '\t\t&& GetLevel() > 30)\n'
+         '\t{\n'
+         '\t\tChatPacket(CHAT_TYPE_INFO, LC_TEXT("You can\'t advance this skill further. Use Skill Reset Scroll or Band of Oblivion."));\n',
+         '\t\tGetSkillLevel(pkSk->dwVnum) >= 17 && GetSkillLevel(pkSk->dwVnum) < 20)\n'
+         '\t{\n'
+         '\t\t// playerbot: seventeen and a roll at every level, not only past thirty.\n'
+         '\t\tChatPacket(CHAT_TYPE_INFO, LC_TEXT("You can\'t advance this skill further. Use Skill Reset Scroll or Band of Oblivion."));\n'
+         '\t\tif (GetLevel() <= 30)\n'
+         '\t\t\tChatPacket(CHAT_TYPE_INFO, "Do 30 poziomu umiejetnosci zresetuje Starsza Pani w pierwszej wiosce.");\n',
+         marker='// playerbot: seventeen and a roll at every level')
+
+
+def apply_auto_hunt_switch(game):
+    # Auto Lowy is the world's choice: M2_AUTOHUNT=0 in .env (the launcher's
+    # difficulty window) is the event flag m2_autohunt_off, which the migrator
+    # writes at a start, and then the two commands the hunt cannot move
+    # without - the target and the drop - answer "AutoHuntOff", on which the
+    # client stops its hunt and says why (uiautohunt.py). Drip asked for a
+    # world without it for the COOP (25 September; the operator: "Specjalnie dla
+    # Ciebie to zrobie"). Inserted after the opening brace, so the edits that
+    # rewrote these heads (their markers are further down) stay whole.
+    path = os.path.join(game, 'cmd_general.cpp')
+    for name, marker in (('target', '\t// playerbot: Auto Lowy switched off for this world (target).\n'),
+                         ('loot', '\t// playerbot: Auto Lowy switched off for this world (loot).\n')):
+        edit(path,
+             'ACMD(do_autohunt_%s)\n{\n' % name,
+             'ACMD(do_autohunt_%s)\n{\n' % name +
+             marker +
+             '\tif (quest::CQuestManager::instance().GetEventFlag("m2_autohunt_off"))\n'
+             '\t{\n'
+             '\t\tch->ChatPacket(CHAT_TYPE_COMMAND, "AutoHuntOff");\n'
+             '\t\treturn;\n'
+             '\t}\n',
+             marker=marker)
 
 
 if __name__ == '__main__':

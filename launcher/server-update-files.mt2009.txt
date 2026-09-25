@@ -71,6 +71,7 @@ Metin2-Launcher-GUI.Background.png
 launcher/Metin2Launcher.psm1
 launcher/Metin2Launcher.Diagnostics.psm1
 launcher/Metin2Launcher.Coop.psm1
+launcher/Metin2Launcher.Vps.psm1
 launcher/launcher.config.example.json
 launcher/update-manifest.example.json
 launcher/server-update-files.mt2009.txt
@@ -78,6 +79,7 @@ launcher/client-update-files.example.txt
 docs/LAUNCHER.md
 tools/New-M2UpdatePackage.ps1
 linux-port-mt2009/tools/update.sh
+linux-port-mt2009/tools/vps-install.sh
 
 # ---- engine files the port changed or added (measured against the package) --
 linux-port-mt2009/docker/game/src/server/common/length.h
@@ -114,6 +116,7 @@ linux-port-mt2009/docker/game/src/server/game/src/desc_manager.h
 linux-port-mt2009/docker/game/src/server/game/src/event.cpp
 linux-port-mt2009/docker/game/src/server/game/src/exchange.cpp
 linux-port-mt2009/docker/game/src/server/game/src/guild.cpp
+linux-port-mt2009/docker/game/src/server/game/src/guild_war.cpp
 linux-port-mt2009/docker/game/src/server/game/src/ikarus_shop_manager.cpp
 linux-port-mt2009/docker/game/src/server/game/src/ikarus_shop_manager.h
 linux-port-mt2009/docker/game/src/server/game/src/input.h
