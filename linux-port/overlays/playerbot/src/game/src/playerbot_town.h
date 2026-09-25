@@ -812,7 +812,7 @@ namespace
 				NeedsPlayerBotProgressionWeapon(ch) || NeedsPlayerBotArrows(ch);
 		state.bTownNeedArmorMerchant = HasPlayerBotJunkForMerchant(ch, BOT_MERCHANT_ARMOR) ||
 				NeedsPlayerBotProgressionArmor(ch) || NeedsPlayerBotProgressionShield(ch) ||
-				NeedsPlayerBotProgressionHelmet(ch);
+				NeedsPlayerBotProgressionHelmet(ch) || NeedsPlayerBotBackupArmour(ch);
 		state.bTownNeedBlacksmith = HasPlayerBotRefineOpportunity(ch) ||
 				IsPlayerBotGambling(state, dwNow);
 		// The gambler's first stop is the storekeeper, once a session.
@@ -1446,8 +1446,9 @@ namespace
 				continue;
 			if (item->GetRefineLevel() < PLAYERBOT_SHOP_SPARE_MIN_REFINE)
 				continue;
-			// Nor the weapon kept for the day the one in the hand burns.
-			if (IsPlayerBotKeptBackupWeapon(ch, item))
+			// Nor the weapon kept for the day the one in the hand burns, nor
+			// the armour kept for the day the one on the back does.
+			if (IsPlayerBotKeptBackupWeapon(ch, item) || IsPlayerBotKeptBackupArmour(ch, item))
 				continue;
 			// Gear under level thirty ranks under the prize score and is capped
 			// on a counter, so it cannot carry a stall on its own - a reason to
@@ -2811,6 +2812,7 @@ namespace
 		const bool report = ShouldReportPlayerBotMarketDecisions(
 				ch->GetPlayerID(), get_dword_time());
 		const DWORD backupWeaponID = GetPlayerBotBackupWeaponID(ch, false);
+		const DWORD backupArmourID = GetPlayerBotBackupArmourID(ch, false);
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
@@ -2851,8 +2853,11 @@ namespace
 				if (IsPlayerBotArcherBuild(ch) && IsPlayerBotStoneMeleeWeapon(ch, item) &&
 						FindPlayerBotStoneWeapon(ch, false) == item)
 					continue;
-				// Nor the weapon kept for the day the one in the hand burns.
+				// Nor the weapon kept for the day the one in the hand burns, nor
+				// the armour kept for the day the one on the back does.
 				if (type == ITEM_WEAPON && backupWeaponID != 0 && item->GetID() == backupWeaponID)
+					continue;
+				if (type == ITEM_ARMOR && backupArmourID != 0 && item->GetID() == backupArmourID)
 					continue;
 				const int wearCell = item->FindEquipCell(ch);
 				if (wearCell < 0 || ch->GetWear((BYTE)wearCell) == NULL)

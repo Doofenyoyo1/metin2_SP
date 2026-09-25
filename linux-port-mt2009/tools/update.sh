@@ -32,6 +32,18 @@
 #  the sequence above on each one. `sh update.sh check' only prints what is
 #  installed and what is published.
 #
+#  A tool that has read the manifest and fetched and checked the package
+#  itself (Tyrion's m2-vps-update) hands both over instead of letting this
+#  script fetch them a second time, when the manifest may have moved on:
+#
+#      M2_UPDATE_MANIFEST_FILE=/path/manifest.json \
+#      M2_UPDATE_ZIP=/path/metin2-server-update-X.Y.Z.zip \
+#          sh linux-port/tools/update.sh run
+#
+#  The update then runs on exactly the bytes that tool checked. The SHA-256 is
+#  still checked against the manifest, and the zip's own VERSION has to be the
+#  manifest's. `run' only: `watch' always reads what is published.
+#
 #  Needs: docker with compose, and either python3 or curl + unzip + sha256sum.
 # =============================================================================
 set -u
@@ -134,6 +146,24 @@ sha256_of() {
     elif have shasum; then shasum -a 256 "$1" | cut -d' ' -f1
     elif have python3; then python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"
     else die "no sha256sum, shasum or python3 to check the download with"
+    fi
+}
+
+# The VERSION at the root of a package zip, or nothing when it cannot be read
+# (no tool, or a zip without one): a manifest naming one version and a zip
+# carrying another is refused before anything is unpacked.
+zip_version() {
+    if have python3; then
+        python3 - "$1" 2>/dev/null <<'EOF'
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+for info in z.infolist():
+    if info.filename.replace('\\', '/') == 'VERSION':
+        print(z.read(info).decode('ascii', 'replace').strip())
+        break
+EOF
+    elif have unzip; then
+        unzip -p "$1" VERSION 2>/dev/null | tr -d '\r\n '
     fi
 }
 
@@ -308,6 +338,23 @@ migrate_world_layout() {
     printf 'M2_PLAYERBOT_WORLD_LAYOUT_DEFAULTED=1\n' >> "$_env"
 }
 
+# 2.2.11 dropped a Blessing Scroll from one Metin stone in twenty, and
+# Iwakura's answer the same evening was one in a hundred for the test. The
+# 2.2.11 value is in every .env add_missing_env_keys gave the key to, where a
+# new default never reaches, so 50 becomes 10 here, once; any other value is
+# somebody's choice and stays.
+migrate_blessing_scroll() {
+    _env="$COMPOSE_DIR/.env"
+    [ -f "$_env" ] || return 0
+    grep -q '^M2_BLESSING_SCROLL_STONE_PERMILLE_DEFAULTED=' "$_env" && return 0
+    [ -n "$(tail -c 1 "$_env")" ] && printf '\n' >> "$_env"
+    if [ "$(kv "$_env" M2_BLESSING_SCROLL_STONE_PERMILLE | tr -d ' \r')" = 50 ]; then
+        sed -i 's|^M2_BLESSING_SCROLL_STONE_PERMILLE=.*|M2_BLESSING_SCROLL_STONE_PERMILLE=10|' "$_env"
+        note "   Blessing Scrolls from Metins: M2_BLESSING_SCROLL_STONE_PERMILLE=10 (1%; 2.2.11 had 5%)"
+    fi
+    printf 'M2_BLESSING_SCROLL_STONE_PERMILLE_DEFAULTED=1\n' >> "$_env"
+}
+
 # Channel N listens on 13000+10*(N-1)..+2 inside the container, and compose
 # publishes M2_GAME_PORT_RANGE onto M2_GAME_CONTAINER_PORT_RANGE - so with the
 # second channel on and the range left at 13000-13002 the cores are up, the
@@ -356,7 +403,7 @@ sync_channel_ports() {
 # the keys named below, whose example value is the compose default (an
 # absent key already meant that), never a password, a port or an address;
 # a key already there, empty included, is the operator's and is left alone.
-ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_ITEMSHOP_MOUNTS M2_ITEMSHOP_MOUNT_PRICE M2_ITEMSHOP_MOUNT_HOURS"
+ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_BLESSING_SCROLL_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_ITEMSHOP_MOUNTS M2_ITEMSHOP_MOUNT_PRICE M2_ITEMSHOP_MOUNT_HOURS"
 add_missing_env_keys() {
     _env="$COMPOSE_DIR/.env"
     _ex="$COMPOSE_DIR/.env.example"
@@ -429,7 +476,18 @@ run_update() {
     STEP=0
     rm -rf "$WORK"; mkdir -p "$WORK" || { fail "cannot create $WORK"; return 1; }
     step "reading what is published"
-    fetch_manifest > "$WORK/manifest.json" 2>"$WORK/fetch.err" || { fail "the manifest could not be read: $(head -c 200 "$WORK/fetch.err")"; return 1; }
+    # What a tool hands over (the header): `run' only, never the panel's watch.
+    _given_manifest=""; _given_zip=""
+    if [ "$WATCHING" != 1 ]; then
+        _given_manifest=${M2_UPDATE_MANIFEST_FILE:-}
+        _given_zip=${M2_UPDATE_ZIP:-}
+    fi
+    if [ -n "$_given_manifest" ]; then
+        cp "$_given_manifest" "$WORK/manifest.json" 2>"$WORK/fetch.err" || { fail "the manifest $_given_manifest could not be read: $(head -c 200 "$WORK/fetch.err")"; return 1; }
+        note "   the manifest is $_given_manifest (M2_UPDATE_MANIFEST_FILE)"
+    else
+        fetch_manifest > "$WORK/manifest.json" 2>"$WORK/fetch.err" || { fail "the manifest could not be read: $(head -c 200 "$WORK/fetch.err")"; return 1; }
+    fi
     _ver=$(manifest_field "$WORK/manifest.json" version)
     _url=$(manifest_field "$WORK/manifest.json" url)
     _sha=$(manifest_field "$WORK/manifest.json" sha256 | tr 'A-F' 'a-f')
@@ -440,10 +498,20 @@ run_update() {
         set_status ok "the server is running version $_ver"
         return 0
     fi
-    step "downloading $(basename "$_url")"
-    download "$_url" "$WORK/update.zip" || { fail "the download failed"; return 1; }
+    if [ -n "$_given_zip" ]; then
+        step "taking the package $_given_zip (M2_UPDATE_ZIP)"
+        cp "$_given_zip" "$WORK/update.zip" || { fail "the package $_given_zip could not be copied"; return 1; }
+    else
+        step "downloading $(basename "$_url")"
+        download "$_url" "$WORK/update.zip" || { fail "the download failed"; return 1; }
+    fi
     _got=$(sha256_of "$WORK/update.zip" | tr 'A-F' 'a-f')
-    [ "$_got" = "$_sha" ] || { fail "the download's SHA-256 ($_got) is not the manifest's ($_sha)"; return 1; }
+    [ "$_got" = "$_sha" ] || { fail "the package's SHA-256 ($_got) is not the manifest's ($_sha)"; return 1; }
+    _zipver=$(zip_version "$WORK/update.zip")
+    if [ -n "$_zipver" ] && [ "$_zipver" != "$_ver" ]; then
+        fail "the package says version $_zipver and the manifest $_ver -- nothing was unpacked"
+        return 1
+    fi
     step "unpacking $_ver over $ROOT"
     unpack_over "$WORK/update.zip" "$ROOT" || { fail "the zip could not be unpacked"; return 1; }
     note "   the folder now says version $(installed_version)"
@@ -452,6 +520,8 @@ run_update() {
     # After the keys, so a world that had no layout line at all gets the
     # example's and then this.
     migrate_world_layout
+    # After the keys too: a world that never had the line gets the example's.
+    migrate_blessing_scroll
     # Before compose, because a published port range only changes at a recreate.
     sync_channel_ports
     restore_empty_context_dirs

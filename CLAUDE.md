@@ -1466,6 +1466,23 @@ not in `data/`) reworked these point by point. What each hangs on:
   reported that as "OK: Docker Engine odpowiada (wersja Error response...)",
   which also suppressed the WSL remedy - it is only raised when the engine is
   known to be down. A version is digits and dots.
+- **A server folder in OneDrive builds with files missing.** OneDrive moves
+  the Desktop into itself (Known Folder Move), so a server unpacked on the
+  Desktop can end up there without anybody touching it. Avalach's did
+  between 14:57 and 18:41 on 24 September (the backups' path in his
+  launcher log changes from `C:\Users\...\Desktop` to `...\OneDrive\Desktop`),
+  and every build after that - 2.2.9, 2.2.10, 2.2.11, six clicks - died on
+  the same boost header, `forward1_256.hpp: No such file or directory`,
+  while the diagnostics said "mozna uruchomic serwer". Docker reads a
+  OneDrive tree through its cloud placeholders (reparse points), and files
+  go missing from what it sends to the build; the 318 000 files of an
+  installation are the worst case for it. `Get-M2OneDriveRootFor` (the
+  `OneDrive*` variables and HKCU `...\OneDrive\Accounts\*\UserFolder`) puts
+  a warning in the preflight, and `Get-M2LauncherErrorGuidance -ServerRoot`
+  answers a missing file in such a folder with ONEDRIVE_BUILD_CONTEXT: move
+  the whole game folder out and start the launcher from there. The world
+  moves with it, because the project name lives in `.m2install.json` and
+  `.env`, not in the path.
 - **An engine that answers is not an engine that can build.** Docker Desktop
   keeps images, the build cache and every volume on one ext4 disk inside
   `docker_data.vhdx`, ext4 answers its first I/O error by remounting itself
@@ -4111,7 +4128,14 @@ not in `data/`) reworked these point by point. What each hangs on:
   older edit whose marker was its entire new text, so the next run on the
   staged tree found neither that text nor the stock anchor and stopped before
   `apply_costume_block`. Give an edit a `marker=` of one sentence no later edit
-  will split.
+  will split. And when the stock anchor survives the split, the second run
+  does not stop - it inserts the whole block again: 2.2.11's Blessing Scroll
+  edits wrote inside the Moonlight/Dragon Coin CONFIG tokens and under the
+  Metin book's constant, both of which had their whole text as the marker,
+  and the next run on the staged tree put four TOKEN blocks and the constant
+  in a second time (a redefinition the compiler would have refused). Both
+  carry a one-line marker now. After any change to playerbotify, run it twice
+  on the staged tree and expect no `edited:` line the second time.
 - **A client package can carry the executable, under the name the launchers
   run.** Client 2.0.6 (ĹŌŞƬĒĶ's animated login screen and Discord Rich
   Presence) came as `pack/{root,locale}.{index,data}` and `Metin2
@@ -5875,6 +5899,104 @@ not in `data/`) reworked these point by point. What each hangs on:
   bag goes under a scroll or waits, in `CanPlayerBotAttemptRefineItem` and the
   refine pass both ("potrafia spalic jedyna zbroje ... ida farmic bez zbroi",
   THC, 16 September).
+- **A rule that waits for a scroll waits for ever where no scroll drops.**
+  Iwakura (24 September): "do 25 lvla ladnie ulepszaja itemy na +9 a potem
+  nic", and his test world at drop and yang 5000 had 222 pieces at +9, all
+  under level 18. m2zip said the same that day: every +9 and nearly every +8
+  a bot held was a piece under level 20, none of level 30 or more reached
+  +8, bots of 30-39 wore weapons and armour of level ~21, and the refine
+  lines of five hours had 31 scroll refines in about 22 000. The cause is
+  structural. The Blessing Scroll drops here from monsters and Metins of
+  about 70 and up (`mob_drop_item.txt`; `common_drop_item.txt` has it on
+  pawns for a killer of 50 to 120, at 0.04 - the window is the killer's
+  level, `pkKiller->GetLevel()` in `CreateDropItem`),
+  from the boss caskets (6-8 per cent a casket) and from the Moonlight chest
+  (6 per cent, and only while a chest event runs since 2.0.74): the whole
+  world held 39 of them, in 29 bags. So every "under a scroll or not at all"
+  - the armour and the hand weapon above (`refine held, the only weapon or
+  armour and no scroll` logged some twelve thousand times a minute), the
+  level-30 weapon from +6 (`level-30 weapon waits for a scroll`), the
+  scroll-only weapons - is "not at all", and a merchant's low-level piece,
+  which no hold touches (`GetPlayerBotMerchantWeaponCeiling`), is the only
+  thing ground to +9. Since 2.2.11 the body armour is kept as the weapon is
+  (`FindPlayerBotBackupArmour`, `IsPlayerBotKeptBackupArmour`: never scrap,
+  counter goods, the storekeeper's or the gambler's) and the armour
+  merchant sells the best piece it stocks for the class as the spare when
+  the hold is all that stands in the way (`NeedsPlayerBotBackupArmour`,
+  `bought progression backup armor`). The scroll supply and the risk were
+  Iwakura's calls, and his answer the same evening was "testowo bodzie do
+  metinow + ulepszanie bardziej agresywne":
+  - **A Blessing Scroll from every Metin of level 15-90** at
+    `BLESSING_SCROLL_STONE_PERMILLE` (CONFIG, from
+    `M2_BLESSING_SCROLL_STONE_PERMILLE`, 50 by default - his "nie wiem ile %"
+    left the number to us), not for a killer more than the book's fifteen
+    levels over the stone (`apply_blessing_scroll_from_stones` in
+    playerbotify.py, the Dragon Coin voucher's shape). m2zip broke about 300
+    stones an hour at 1 100 bots (counted as the stone's book picked up,
+    `log.log` GET of 50300), so 5% is some fifteen scrolls an hour for the
+    world. The drop rate of the panel does not touch it, as it does not
+    touch the chest's roll. The Demon Tower's 8015-8019 are inside the
+    band, so a raid's stones give scrolls too. That was 2.2.11; half an
+    hour after the chat its release was built from, his answer to Uriel's
+    questions came in: "zwoje wypadaja z Metinow na poziomach 15-99
+    testowo 1%". So the band is 15-99 and the default 10 after it, three
+    scrolls an hour for the world, and the 50 that 2.2.11's start wrote
+    into every `.env` becomes 10 once (`Assert-BlessingScrollDefault`,
+    `migrate_blessing_scroll`, marker `..._DEFAULTED`). Read the DM
+    channel before a release built on a conversation about the same
+    questions.
+  - **"Tylko w 50% uzywaja bodzi"** is `PlayerBotRisksPlainAnvil`: half the
+    steps a scroll would take, or wait for, go to the plain anvil. The coin
+    is the piece's id (a refine makes a new item), its plus and a
+    three-hour bucket (`PLAYERBOT_SCROLL_SKIP_BUCKET_SECONDS`), so the
+    planner and the act read one coin and a piece the coin keeps waiting is
+    tossed again later - a per-call roll would have sent every piece to the
+    anvil within two ticks. It reaches the level-30 weapon above its anvil
+    ceiling, the prize-line hold and a scroll in the bag (kept for another
+    step or the counter), and `GetPlayerBotRefineTarget`'s ladder to +9 is
+    the ambition again on a step the coin sends to the anvil. It never
+    reaches the scroll-only weapons (the operator's line) or the hand
+    weapon and the body armour with no spare - his own document says the
+    main weapon is never risked without a replacement. The gambler keeps
+    his scroll-only +8/+9. `PLAYERBOT_AI: refine at the plain anvil, the
+    coin said so ... why=prize|scroll_kept` is the measurement. His answer
+    to Uriel took the level-30 weapon out of the coin: "bron zrobmy do +7
+    u kowala a na +8 i +9 zwojami, raz sie zyje (testowo)", so every row
+    of the operator's anvil table under the scroll-only line reads +7
+    (`PLAYERBOT_LEVEL30_ANVIL_PLUS_*`, the Demon Tower's smith asks the
+    same table) and `PlayerBotRisksPlainAnvil` is false for a level-30
+    weapon. The cheapest rolls (14% and under) keep the operator's gamble
+    above the ceiling.
+  - The armour's protection had a hole the weapon's did not: a blacksmith
+    session keeps the piece in the bag from its first step to its last,
+    and `IsPlayerBotWornArmourAtRisk` asked the slot, so only the first step
+    was protected. `GetPlayerBotBodyArmour` is the weapon's
+    `GetPlayerBotHandWeapon` for the body: worn, or with the slot empty the
+    best body armour in the bag, and the backup is the best other one.
+  The big three's +8/+9 was answered "tak ma iść" with no share and no
+  way (plain anvil or scrolls), and Uriel asked again; it stands as it was.
+- **The gambler may follow a Perfectionist, and not being allowed to was
+  why it never ran.** "Nastepnie wybiera kolejna osobowosc lecz nie moze to byc
+  Hazardzista" was a thirty-minute window after any Perfectionist, and every
+  market trip is one (`s.perfecting` in `DecidePlayerBotPersona`), so the
+  window was nearly always open: the census read after_perfect=356-415 of
+  about 500 visits in ten minutes and started=0-1 ("hazardzista dziala tak
+  jakby nie mogl", Iwakura). `StartPlayerBotTownVisit` clears
+  `dwPerfectEndedAt` unless the bot is a Perfectionist right then, so only
+  this visit's counts. **Measured, that changed nothing**: the four censuses
+  after it read after_perfect=186-394 and started=0-4, against 166-415 and
+  0-6 in the two hours before. The half hour was never what blocked it: a
+  bot is the Perfectionist in every visit that needs the anvil or makes a
+  market trip, which is nearly every visit, and his rule forbids the gambler
+  after it in the same visit. The rest of the gates stop 30-80 visits in ten
+  minutes (not in a village, in a party), 50-130 (the purse) and 10-50 (no
+  base his Patch 3 floor admits). The `own_gear` gate already keeps the
+  gambler off while the bot has work for its own gear, so letting the gambler
+  follow a Perfectionist that ran out of work is the obvious change - but it
+  was his rule, so he was asked (Uriel's DM of 24 September), and his answer
+  was "Tak, moze po perfekcjoniscie isc w Hazard". The gate is gone, with
+  `dwPerfectEndedAt` and `after_perfect=` in the census; `own_gear` is what
+  keeps the gambler behind the bot's own work now.
 - **Respawn speed was already an event flag; it only lacked a world-wide
   name.** `regen_event` scales the next spawn by `fastBossSpawn<map>` /
   `fastMobSpawn<map>` (a percent of the line's delay, 0 = untouched), which is
@@ -8514,6 +8636,22 @@ not in `data/`) reworked these point by point. What each hangs on:
   was 0.8 million against bases of several (`GetPlayerBotAddictBudgetLeft` in
   `CanPlayerBotPayForOffer`), and it starts on its box's pieces as the town
   trigger does.
+- **A tool that has checked the package hands it to update.sh.** Tyrion's
+  m2-vps-update (1.1.0, reviewed 24 September) reads the manifest, downloads
+  the server zip and checks it, and then ran update.sh, which read the
+  manifest and downloaded the zip again - a second copy nobody had checked,
+  from a manifest that may have moved on meanwhile. `run` takes
+  `M2_UPDATE_MANIFEST_FILE` and `M2_UPDATE_ZIP` now and fetches neither;
+  `watch` ignores both. On every path the SHA-256 is checked against the
+  manifest and the zip's own root VERSION has to be the manifest's version,
+  or nothing is unpacked (`zip_version`, python or busybox `unzip -p`).
+  Checked in a mock server on python:3-slim and on alpine without python:
+  both variables with the network blocked, a wrong sum, a zip of another
+  version, the old path. A tool finds out whether a package supports it by
+  grepping the unpacked update.sh for `M2_UPDATE_ZIP`. The same review
+  found `docker compose restart panel` in both `.env.example` files after a
+  password change: a restarted container keeps the environment it was created
+  with, so it is `up -d --force-recreate panel`.
 
 
 ## Engine facts worth not re-deriving
@@ -8767,6 +8905,27 @@ gates it: any install can host, and any client can join with an invite code.
   at the `return @($found)` that wrote it; `List[int]` is fine, which is why
   `Get-M2CoopGamePorts` never showed it. Return `$found.ToArray()` and wrap
   at the call site as everywhere else.
+- **A friend in the same house is sent to the host's home address.**
+  xXxDaronxXx (24 September) tested with his own laptop: the router answered
+  no UPnP, the Windows prompt for the firewall rule went unanswered twice
+  (the second time for two minutes), CoopHost still ended "Hostowanie
+  włączone" in green, and in the half hour of his tries not one connection
+  reached the auth core (the only outside ones were the launcher's own
+  probes). From a laptop in the same network the Internet address works
+  only through a router that forwards the ports and loops a connection to
+  its own address back in. Since 2.2.11 every invite carries `lan`, the
+  host's address in its network (`Get-M2CoopInviteTarget`, a private IPv4
+  only; an Internet code without it is still 2.0.80's), and the joining side
+  - the launcher's join and `Dolacz.ps1` alike - takes it when this machine
+  shares the host's /24 and the world answers there
+  (`Select-M2CoopJoinHost`, pure but for the probe; `tests/coop_vpn_test.ps1`).
+  It asks the home address only in that /24, because a friend's own network
+  is 192.168.1.x as often as not. The window asks Windows for the firewall
+  rule itself before it starts CoopHost (`-CoopFirewallAsked`): a hidden
+  process's UAC question only blinks on the taskbar. A router that does not
+  answer the search now ends like one that refused every port: the VPN
+  fallback, or a red UWAGA with the router's help and "bez portów w
+  routerze".
 - **A handshake over a hotspot needs time and slack, and gets neither from
   the package.** The login handshake is accepted only when one exchange's
   round trip is within 50 ms of the previous one, and
@@ -8826,7 +8985,7 @@ upstream 2.1.0/client 2.0.26, the merge is 2.1.1/client 2.0.28, and the next
 sync (upstream 2.2.0-2.2.6, client 2.0.27-2.0.28, over our 2.1.5 / client
 2.0.30) is 2.2.7 / client 2.0.31, and the one after (upstream 2.2.7 /
 client 2.0.29, over our 2.2.7 / client 2.0.31) is 2.2.8 / client 2.0.32, and the one after (upstream 2.2.8, client
-unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34. Upstream's added attributions to its own
+unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35. Upstream's added attributions to its own
 operator are scrubbed from comments and notes the way the first sync did; a
 player's or a contributor's name stays. An upstream `## x.y.z` CHANGELOG
 section whose number this repository already used moves under the new section,
