@@ -17,6 +17,93 @@ every version here.
 
 ---
 
+## 2.2.13 — 2026-09-25
+
+Serwer 2.2.13 i klient 2.0.35. Zaktualizuj oba („AKTUALIZUJ wszystko”
+w launcherze). Nowy klient zmienia tylko Dolacz.bat dla znajomych w COOP
+(i opis obok niego), więc klient 2.0.34 też działa z nowym serwerem. Na VPS:
+`sh linux-port/tools/update.sh`.
+
+Ta wersja przenosi na naszą 2.2.11 zmiany z wersji 2.2.11 i 2.2.12 projektu
+źródłowego: Zwoje Błogosławieństwa z Metinów, odważniejsze ulepszanie po 25
+poziomie, zapasową zbroję w torbie, COOP w jednej sieci domowej i ostrzeżenie
+o folderze serwera w OneDrive. Zostaje wszystko, co dodaliśmy wcześniej:
+okno zmiany bonusów pod klawiszem U, wierzchowce z pieczęci w ItemShopie,
+hostowanie w COOP bez hasła i linki do naszego repozytorium.
+
+### Zwoje Błogosławieństwa z Metinów (Iwakura)
+
+- Metiny od 15 do 99 poziomu dają Zwój Błogosławieństwa, graczom i botom,
+  domyślnie z szansą 1%. Dotąd na poziomach 25-50 zwojów prawie nie było:
+  ze zwykłych potworów wypadały dopiero postaciom od 50 poziomu, poza tym
+  z niektórych potworów i Metinów od ok. 70 poziomu, ze skrzyń bossów i ze
+  Szkatułki Blasku Księżyca w czasie eventu.
+- Postać wyższa od kamienia o więcej niż 15 poziomów zwoju nie dostanie,
+  tak jak księgi z Metina.
+- Szansę ustawia `M2_BLESSING_SCROLL_STONE_PERMILLE` w `.env` (w promilach:
+  10 to 1%, 0 wyłącza). Launcher sam dopisze ten klucz przy następnym
+  uruchomieniu. Wartość 50 (5%, domyślna przez chwilę w projekcie
+  źródłowym) launcher i `update.sh` jednorazowo zmieniają na 10; inną,
+  ustawioną ręcznie, zostawiają.
+
+### Ulepszanie po 25 poziomie (Iwakura)
+
+- Broń na 30 poziom idzie u zwykłego kowala do +7, niezależnie od średniej
+  (poza bronią od 37% średniej albo od 15% obrażeń umiejętności, która
+  dalej idzie tylko pod zwojem). Kroki na +8 i +9 idą pod zwojami.
+- Poza tą bronią boty ryzykują więcej: połowa kroków, na których bot użyłby
+  zwoju albo na niego czekał, idzie do zwykłego kowala. Losowanie jest
+  osobne dla każdego przedmiotu i każdego plusa i powtarza się co 3 godziny,
+  więc przedmiot nie czeka na zwój bez końca. Dotyczy to przedmiotów
+  z cennymi bonusami i zwojów w torbie, które zostają wtedy na inny krok
+  albo na sprzedaż.
+- Bez zmian zostaje ochrona tego, czego bot nie może stracić: noszona zbroja
+  i noszona broń lepsza od tej u handlarza nie idą bez zapasowej sztuki do
+  zwykłego kowala na krok, który może je spalić.
+- Bot trzyma w torbie zapasową zbroję tak jak zapasową broń: nie sprzedaje
+  jej, nie wystawia i nie odkłada do magazynu. Gdy jej nie ma, a noszona
+  zbroja przez to czeka na zwój, kupuje u handlarza zbrojami najlepszą
+  zbroję, jaką ten ma dla jego klasy.
+- Ochrona jedynej zbroi działa przez całą wizytę u kowala. Dotąd działała
+  tylko przy pierwszym kroku, bo potem zbroja leży w torbie do końca wizyty.
+- Hazardzista może ruszyć w tej samej wizycie w mieście po Perfekcjoniście,
+  jeśli bot nie ma już nic do ulepszenia dla siebie. Dotąd reguła „po
+  Perfekcjoniście nie może być Hazardzista” prawie nie dawała mu ruszyć.
+
+### COOP (zgłosił xXxDaronxXx)
+
+- Kod zaproszenia ma też adres komputera hosta w sieci domowej. Gdy znajomy
+  jest w tej samej sieci (np. laptop na tym samym Wi-Fi), Dolacz.bat
+  i launcher same wybierają ten adres i router nie jest potrzebny.
+- Okno COOP samo prosi Windows o regułę zapory, zanim uruchomi hostowanie,
+  więc okienko Windows jest widoczne na ekranie. Dotąd tylko migało na
+  pasku zadań.
+- Gdy router nie odpowiada na UPnP, launcher mówi to na czerwono
+  i podpowiada, co zrobić, zamiast kończyć „Hostowanie włączone”. Gdy na
+  komputerze jest VPN, a sposób hostowania wybiera launcher, hostuje przez
+  VPN.
+
+### Serwer w OneDrive (zgłosił Avalach)
+
+- Diagnostyka launchera ostrzega, gdy folder serwera leży w OneDrive. OneDrive
+  potrafi sam przenieść do siebie Pulpit, a Docker nie widzi części plików
+  z takich folderów: budowa serwera staje wtedy na pliku, który jest na
+  dysku („No such file or directory”), a diagnostyka mówiła dotąd, że można
+  uruchomić serwer.
+- Gdy budowa zgubi plik w folderze z OneDrive, okno błędu mówi, co zrobić:
+  przenieść cały folder gry poza OneDrive, np. do `C:\Metin2 Singleplayer`,
+  i uruchomić launcher z nowego miejsca. Świat, postacie i boty zostają.
+
+### Aktualizacja na VPS (recenzja narzędzia Tyriona)
+
+- `linux-port/tools/update.sh run` przyjmuje gotowy manifest i sprawdzony
+  zip (`M2_UPDATE_MANIFEST_FILE`, `M2_UPDATE_ZIP`) i wtedy niczego nie
+  pobiera drugi raz. Przy każdej aktualizacji sprawdza też, czy wersja
+  w zipie zgadza się z manifestem, i przerywa, zanim cokolwiek rozpakuje.
+- `.env.example`: po zmianie hasła panelu trzeba
+  `docker compose up -d --force-recreate panel`, nie `restart` (restart
+  zostawia stare hasło).
+
 ## 2.2.11 — 2026-09-24
 
 Serwer 2.2.11 i klient 2.0.34. Zaktualizuj oba („AKTUALIZUJ wszystko”
