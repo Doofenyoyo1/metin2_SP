@@ -4053,6 +4053,7 @@ WARP_LOC = [  # (emoji, {lang:name}, coords)
   ("🏜️", {"en":"Yongbi Desert","pl":"Pustynia Yongbi","de":"Yongbi-Wüste","tr":"Yongbi Çölü"}, "221900 502700"),
   ("❄️", {"en":"Mount Sohan","pl":"Góra Sohan","de":"Sohan-Berg","tr":"Sohan Dağı"}, "375200 174900"),
   ("🔥", {"en":"Fireland","pl":"Ognista Ziemia","de":"Feuerland","tr":"Ateş Ülkesi"}, "597800 622200"),
+  ("🧊", {"en":"Grotto of Exile","pl":"Grota Wygnańców","de":"Grotte der Verbannung","tr":"Sürgün Mağarası"}, "10000 1207800"),
 ]
 SPEED_LOC = [
   ("🚶", {"en":"Normal (reset)","de":"Normal (zurücksetzen)","tr":"Normal (sıfırla)"}, 0),
@@ -5984,7 +5985,7 @@ MAP_I18N = {
  "pl": {
   "title":"Mapa świata na żywo — Chunjo","live":"NA ŻYWO (1,5 s)","subtitle":"Interaktywny podgląd pozycji i rozwoju botów w czasie rzeczywistym",
   "player_panel":"Panel graczy","play_browser":"Graj w przeglądarce","show_bots":"Pokaż boty","names_levels":"Nicki i poziomy","pt_only":"Tylko w grupie (PT)",
-  "level":"Poziom","all":"Wszystkie","map":"Mapa","m1":"M1 — Joan (Chunjo)","m2":"M2 — Bokjung (Chunjo)","m3":"Ziemia Klanu Chunjo","s1":"M1 — Yongan (Shinsoo)","s2":"M2 — Jayang (Shinsoo)","s3":"Ziemia Klanu Shinsoo","smonkey":"Loch Małp Shinsoo","j1":"M1 — Pyongmoo (Jinno)","j2":"M2 — Bakra (Jinno)","j3":"Ziemia Klanu Jinno","jmonkey":"Loch Małp Jinno","monkey":"Łatwy Loch Małp","monkey_medium":"Średni Loch Małp","monkey_hard":"Trudny Loch Małp","orc":"Dolina Orków","desert":"Pustynia Yongbi","sohan":"Góra Sohan","spider":"Loch Pająków V1","spider_v2":"Loch Pająków V2","hwang":"Świątynia Hwang","forest":"Las","red_forest":"Czerwony Las","demon_tower":"Wieża Demonów","fire_land":"Doyyumhwaji (Ognista Ziemia)","heat":"Mapa cieplna","heat_deaths":"Zgony botów","heat_metins":"Rozbite metiny","heat_skills":"Awanse umiejętności","search":"🔍 Szukaj bota (np. botarek)...",
+  "level":"Poziom","all":"Wszystkie","map":"Mapa","m1":"M1 — Joan (Chunjo)","m2":"M2 — Bokjung (Chunjo)","m3":"Ziemia Klanu Chunjo","s1":"M1 — Yongan (Shinsoo)","s2":"M2 — Jayang (Shinsoo)","s3":"Ziemia Klanu Shinsoo","smonkey":"Loch Małp Shinsoo","j1":"M1 — Pyongmoo (Jinno)","j2":"M2 — Bakra (Jinno)","j3":"Ziemia Klanu Jinno","jmonkey":"Loch Małp Jinno","monkey":"Łatwy Loch Małp","monkey_medium":"Średni Loch Małp","monkey_hard":"Trudny Loch Małp","orc":"Dolina Orków","desert":"Pustynia Yongbi","sohan":"Góra Sohan","spider":"Loch Pająków V1","spider_v2":"Loch Pająków V2","hwang":"Świątynia Hwang","forest":"Las","red_forest":"Czerwony Las","demon_tower":"Wieża Demonów","fire_land":"Doyyumhwaji (Ognista Ziemia)","grotto":"Grota Wygnańców V1","grotto2":"Grota Wygnańców V2","heat":"Mapa cieplna","heat_deaths":"Zgony botów","heat_metins":"Rozbite metiny","heat_skills":"Awanse umiejętności","search":"🔍 Szukaj bota (np. botarek)...",
   "solo_bot":"Bot solo","party_bot":"W grupie (PT)","metin_fight":"Walka z Metinem","loading":"Ładowanie...","world_stats":"Statystyki świata","active_bots":"Aktywne boty",
   "in_parties":"W grupach (PT)","avg_level":"Średni poziom","max_level":"Maks. poziom","rankings":"Rankingi botów","rank_level":"Poziom","rank_weapon":"Broń","rank_armor":"Zbroja",
   "rank_weapon30":"Bronie 30 Lv","rank_items":"Przedmioty","rank_horse":"Koń","rank_biologist":"Biolog","rank_hunting":"Polowanie","rank_shops":"Otwarte sklepy","rank_skills":"Umiejętności","rank_plus9":"Przedmiot +9","rank_stall_open":"Stragan otwarty","rank_empty":"Brak danych rankingu.","rank_show":"Pokaż","rank_search":"Szukaj w rankingu...","none":"Brak","items_short":"przedm.",
@@ -6005,7 +6006,7 @@ MAP_I18N = {
  "en": {
   "title":"Live world map — Chunjo","live":"LIVE (1.5 s)","subtitle":"Interactive real-time view of bot positions and progression",
   "player_panel":"Player panel","play_browser":"Play in browser","show_bots":"Show bots","names_levels":"Names and levels","pt_only":"Party only (PT)",
-  "level":"Level","all":"All","map":"Map","m1":"M1 — Joan (Chunjo)","m2":"M2 — Bokjung (Chunjo)","m3":"Chunjo guild map","s1":"M1 — Yongan (Shinsoo)","s2":"M2 — Jayang (Shinsoo)","s3":"Shinsoo guild map","smonkey":"Shinsoo Monkey Dungeon","j1":"M1 — Pyongmoo (Jinno)","j2":"M2 — Bakra (Jinno)","j3":"Jinno guild map","jmonkey":"Jinno Monkey Dungeon","monkey":"Easy Monkey Dungeon","monkey_medium":"Medium Monkey Dungeon","monkey_hard":"Hard Monkey Dungeon","orc":"Orc Valley","desert":"Yongbi Desert","sohan":"Mount Sohan","spider":"Spider Dungeon V1","spider_v2":"Spider Dungeon V2","hwang":"Hwang Temple","forest":"Forest","red_forest":"Red Forest","demon_tower":"Demon Tower","fire_land":"Doyyumhwaji (Fireland)","heat":"Heatmap","heat_deaths":"Bot deaths","heat_metins":"Metins broken","heat_skills":"Skill-ups","search":"🔍 Find a bot (e.g. botarek)...",
+  "level":"Level","all":"All","map":"Map","m1":"M1 — Joan (Chunjo)","m2":"M2 — Bokjung (Chunjo)","m3":"Chunjo guild map","s1":"M1 — Yongan (Shinsoo)","s2":"M2 — Jayang (Shinsoo)","s3":"Shinsoo guild map","smonkey":"Shinsoo Monkey Dungeon","j1":"M1 — Pyongmoo (Jinno)","j2":"M2 — Bakra (Jinno)","j3":"Jinno guild map","jmonkey":"Jinno Monkey Dungeon","monkey":"Easy Monkey Dungeon","monkey_medium":"Medium Monkey Dungeon","monkey_hard":"Hard Monkey Dungeon","orc":"Orc Valley","desert":"Yongbi Desert","sohan":"Mount Sohan","spider":"Spider Dungeon V1","spider_v2":"Spider Dungeon V2","hwang":"Hwang Temple","forest":"Forest","red_forest":"Red Forest","demon_tower":"Demon Tower","fire_land":"Doyyumhwaji (Fireland)","grotto":"Grotto of Exile V1","grotto2":"Grotto of Exile V2","heat":"Heatmap","heat_deaths":"Bot deaths","heat_metins":"Metins broken","heat_skills":"Skill-ups","search":"🔍 Find a bot (e.g. botarek)...",
   "solo_bot":"Solo bot","party_bot":"In party (PT)","metin_fight":"Fighting a Metin","loading":"Loading...","world_stats":"World statistics","active_bots":"Active bots",
   "in_parties":"In parties (PT)","avg_level":"Average level","max_level":"Max level","rankings":"Bot rankings","rank_level":"Level","rank_weapon":"Weapon","rank_armor":"Armour",
   "rank_weapon30":"Lv 30 Weapons","rank_items":"Items","rank_horse":"Horse","rank_biologist":"Biologist","rank_hunting":"Hunting","rank_shops":"Open shops","rank_skills":"Skills","rank_plus9":"Item +9","rank_stall_open":"Stall open","rank_empty":"No ranking data.","rank_show":"Show","rank_search":"Search ranking...","none":"None","items_short":"items",
@@ -6189,7 +6190,7 @@ TPL_LIVE_MAP = BASE.replace("__BODY__", """
           <option value="44">{{m.j3}}</option><option value="45">{{m.jmonkey}}</option>
           <option value="108">{{m.monkey_medium}}</option><option value="109">{{m.monkey_hard}}</option>
           <option value="64">{{m.orc}}</option><option value="63">{{m.desert}}</option><option value="61">{{m.sohan}}</option><option value="104">{{m.spider}}</option><option value="65">{{m.hwang}}</option><option value="71">{{m.spider_v2}}</option>
-          <option value="67">{{m.forest}}</option><option value="68">{{m.red_forest}}</option><option value="66">{{m.demon_tower}}</option><option value="62">{{m.fire_land}}</option>
+          <option value="67">{{m.forest}}</option><option value="68">{{m.red_forest}}</option><option value="66">{{m.demon_tower}}</option><option value="62">{{m.fire_land}}</option><option value="72">{{m.grotto}}</option><option value="73">{{m.grotto2}}</option>
         </select>
       </div>
 
@@ -6292,6 +6293,7 @@ TPL_LIVE_MAP = BASE.replace("__BODY__", """
               <option value="200">200</option>
               <option value="500">500</option>
               <option value="1000">1000</option>
+              <option value="5000">5000</option>
             </select>
           </label>
         </div>
@@ -6889,7 +6891,7 @@ function setRankCategory(cat, btn) {
 
 function setRankLimit(value) {
   var parsed = parseInt(value, 10);
-  g_rankLimit = [15, 30, 50, 100, 200, 500, 1000].indexOf(parsed) >= 0 ? parsed : 15;
+  g_rankLimit = [15, 30, 50, 100, 200, 500, 1000, 5000].indexOf(parsed) >= 0 ? parsed : 15;
   fetchRankings();
 }
 
@@ -8761,6 +8763,9 @@ PLAYERBOT_MAP_BOUNDS = {
     68: (1049600, 0, 76800, 76800),         # Red Forest (metin2_map_trent02)
     # Moved onto the bots' own core in 2.1.1: 24x24 sectors, like the valley.
     62: (588800, 614400, 153600, 153600),   # Doyyumhwaji (metin2_map_n_flame_01)
+    # The Grotto of Exile, opened on 26 September; 72 moved onto game1 beside 73.
+    72: (0, 1203200, 153600, 153600),       # Grotto of Exile V1 (metin2_map_skipia_dungeon_01)
+    73: (153600, 1203200, 153600, 153600),  # Grotto of Exile V2 (metin2_map_skipia_dungeon_02)
 }
 
 
@@ -12631,6 +12636,236 @@ PLAYERBOT_MAP_TILES = {
         "a+AFgBcAXgB4AeAFgBcAXgB4AeAFgBcAXgB4AeAFgBcAXgB4AeAFgBcAXgB4AeAFgBcAXgB4AeAFgB+j/f95+hOUscXR5gAA"
         "AABJRU5ErkJggg=="
     ),
+    72: (
+        "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"
+    ),
+    73: (
+        "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"
+    ),
 }
 # Six Monkey Dungeons, one picture. The three easy ones - 5, 25 and 45, one per
 # kingdom - are the same server_attr byte for byte at three different bases, and
@@ -13107,7 +13342,9 @@ def api_bot_shop(pid):
 def api_bot_rankings():
     rtype = request.args.get("type", "level")
     try:
-        rank_limit = max(15, min(1000, int(request.args.get("limit", "15"))))
+        # 5000 since Iwakura's Patch 4 (point 8): a world at high rates has
+        # more bots worth ranking than a thousand.
+        rank_limit = max(15, min(5000, int(request.args.get("limit", "15"))))
     except (TypeError, ValueError):
         rank_limit = 15
     language = lang()

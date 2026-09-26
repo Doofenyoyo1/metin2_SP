@@ -701,8 +701,13 @@ class Hunter(object):
             return
 
         distance = player.GetCharacterDistance(vid) if vid else -1
-        
-        if (self.lootVid and (distance < 0 or distance > self.Reach()) and
+
+        # What the loot waits for is a fight at arm's length, whatever is in
+        # the hand. Measured against the bow's reach of 2400 a monster was
+        # nearly always "in reach", so an archer took only what fell at its
+        # feet and left its own Moonlight chest a few steps away (Mur4s,
+        # 25 September); for a blade the two limits are the same number.
+        if (self.lootVid and (distance < 0 or distance > MELEE_REACH) and
                 self.LootDistance() <= LOOT_FIRST_DISTANCE and self.GoForLoot(now)):
             self.ReleaseAttack()
             return

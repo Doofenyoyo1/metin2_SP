@@ -861,12 +861,13 @@ namespace
 
 	// The cheapest single-piece price of a matching line, per piece for stacks.
 	void NotePlayerBotConvMarketLines(const TPlayerBotStall& stall, const std::vector<std::string>& candidates,
-			DWORD skill, std::string& outName, long long& outPrice, unsigned int& outSellers, DWORD& seenVnum)
+			DWORD skill, bool forget, std::string& outName, long long& outPrice, unsigned int& outSellers,
+			DWORD& seenVnum)
 	{
 		for (size_t i = 0; i < stall.lines.size(); ++i)
 		{
 			const TPlayerBotStallLine& line = stall.lines[i];
-			if (!PlayerBotStallLineMatches(line, candidates, skill != 0, skill))
+			if (!PlayerBotStallLineMatches(line, candidates, skill != 0, forget, skill))
 				continue;
 			const long long unit = line.count > 1 ? line.price / line.count : line.price;
 			if (unit <= 0)
@@ -927,12 +928,13 @@ namespace
 				if (!GetPlayerBotStall(m_bot->GetPlayerID(), m_bot, stall))
 					return false;
 				std::string rest;
-				const DWORD skill = GetPlayerBotStallBookQuery(query, rest);
+				bool forget = false;
+				const DWORD skill = GetPlayerBotStallBookQuery(query, rest, forget);
 				std::vector<std::string> candidates;
 				playerbot_conv::ExpandItemQuery(query, candidates);
 				for (size_t i = 0; i < stall.lines.size(); ++i)
 				{
-					if (!PlayerBotStallLineMatches(stall.lines[i], candidates, skill != 0, skill))
+					if (!PlayerBotStallLineMatches(stall.lines[i], candidates, skill != 0, forget, skill))
 						continue;
 					outName = stall.lines[i].name;
 					outPrice = stall.lines[i].price;
@@ -949,7 +951,8 @@ namespace
 					unsigned int& outSellers)
 			{
 				std::string rest;
-				const DWORD skill = GetPlayerBotStallBookQuery(query, rest);
+				bool forget = false;
+				const DWORD skill = GetPlayerBotStallBookQuery(query, rest, forget);
 				std::vector<std::string> candidates;
 				playerbot_conv::ExpandItemQuery(query, candidates);
 				outPrice = 0;
@@ -965,7 +968,7 @@ namespace
 					LPCHARACTER keeper = CHARACTER_MANAGER::instance().FindByPID(it->first);
 					if (!keeper || !keeper->GetMyShop() || !GetPlayerBotStall(it->first, keeper, stall))
 						continue;
-					NotePlayerBotConvMarketLines(stall, candidates, skill, outName, outPrice, outSellers, seenVnum);
+					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, outName, outPrice, outSellers, seenVnum);
 				}
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
 				for (const auto& entry : ikashop::GetManager().GetPlayerBotOfflineShops())
@@ -975,7 +978,7 @@ namespace
 						continue;
 					if (!GetPlayerBotStall(entry.first, NULL, stall))
 						continue;
-					NotePlayerBotConvMarketLines(stall, candidates, skill, outName, outPrice, outSellers, seenVnum);
+					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, outName, outPrice, outSellers, seenVnum);
 				}
 #endif
 				if (outPrice > 0)

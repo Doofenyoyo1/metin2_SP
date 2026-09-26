@@ -59,6 +59,9 @@ linux-port-mt2009/docker/game/special_item_group.starter.txt
 linux-port-mt2009/PACZKA_INFO.txt
 CHANGELOG.md
 linux-port-mt2009/VERSION
+# This repository's own terms, over whatever an upstream package left there.
+LICENSE
+NOTICE.md
 start-server.ps1
 start.bat
 stop.bat

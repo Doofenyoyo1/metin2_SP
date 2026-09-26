@@ -312,7 +312,9 @@ namespace
 						mapIndex != PLAYERBOT_MAP_FOREST &&
 						mapIndex != PLAYERBOT_MAP_RED_FOREST &&
 						mapIndex != PLAYERBOT_MAP_DEMON_TOWER &&
-						mapIndex != PLAYERBOT_MAP_FIRE_LAND)
+						mapIndex != PLAYERBOT_MAP_FIRE_LAND &&
+						mapIndex != PLAYERBOT_MAP_GROTTO_V1 &&
+						mapIndex != PLAYERBOT_MAP_GROTTO_V2)
 					return false;
 
 				if (m_initialized && m_mapIndex == mapIndex)

@@ -601,6 +601,7 @@ namespace
 		p.mapLppStored.clear();
 		p.mapGearStored.clear();
 		int freeCells = 0;
+		int materials = 0;
 		for (DWORD pos = 0; pos < SAFEBOX_MAX_NUM; ++pos)
 		{
 			if (!box->IsValidPosition(pos))
@@ -610,6 +611,10 @@ namespace
 			LPITEM item = box->Get(pos);
 			if (!item)
 				continue;
+			// The refine materials, which the box gives back to the counter
+			// (PlayerBotWantsMaterialRelease; Iwakura's Patch 4, point 5).
+			if (IsPlayerBotTradeableMaterial(item) && !IsPlayerBotSafeRefineScroll(item->GetVnum()))
+				materials += std::max<int>(1, item->GetCount());
 			if (GetPlayerBotLppWearCell(item) >= 0)
 			{
 				BYTE& held = p.mapGearStored[GetPlayerBotLppFamily(item)];
@@ -636,6 +641,8 @@ namespace
 				++n;
 		}
 		p.bLppStoredKnown = true;
+		p.wBoxMaterialUnits = (WORD)std::min(materials, 65535);
+		p.dwMaterialReleaseVisitAt = get_dword_time() + PLAYERBOT_MATERIAL_RELEASE_VISIT_GAP_MS;
 		if (countVisit)
 			++s_uPlayerBotLppVisits;
 		{

@@ -874,10 +874,9 @@ namespace
 	}
 
 	// A hoard of a refine material: PLAYERBOT_SHOP_HOARD_MIN_UNITS or more over
-	// what the bot's own anvil keeps back. It goes on a counter in packs of
-	// PLAYERBOT_SHOP_HOARD_PACK_UNITS whatever the ledger says - the ledger lets
-	// a stack out only while the market is short, and two hundred of one
-	// material in one bag is not a market, it is a bag.
+	// what the bot's own anvil keeps back - two hundred of one material in one
+	// bag is not a market, it is a bag, and it opens a counter by itself
+	// (PLAYERBOT_SHOP_REASON_HOARD).
 	bool IsPlayerBotHoardedMaterial(LPCHARACTER ch, LPITEM item)
 	{
 		if (!ch || !item || !IsPlayerBotTradeableMaterial(item))
@@ -889,17 +888,54 @@ namespace
 				PLAYERBOT_SHOP_HOARD_MIN_UNITS;
 	}
 
-	// GetPlayerBotStallLineUnits for this bot's bag: a hoard sells in tens.
-	int GetPlayerBotStallLineUnitsFor(LPCHARACTER ch, LPITEM item)
+	// Iwakura's Patch 4, point 3: the next counter line of this kind cut the way
+	// a player cuts one (playerbot_stall_rules.h) - a refine material one or two
+	// at a time and fives past a holding of fifty, a refine scroll mostly one or
+	// two, a heap of herbs or hay ten, twenty, fifty or two hundred - given the
+	// lines of it the counter shows and how many of those are small (two or
+	// fewer). avail is what may go: what is over the kind's keep and no more
+	// than the stack it is cut from. Zero when no line can be made of it. A
+	// hoard sold in tens until this patch, and "towary zajmuja sloty w
+	// pakietach po 50, 11, 5, 4 czy 3 sztuki" was the counter it made.
+	int GetPlayerBotNaturalLineUnits(LPCHARACTER ch, LPITEM item, int avail,
+			int linesOnCounter, int smallLinesOnCounter)
 	{
-		const int units = GetPlayerBotStallLineUnits(item);
-		return units > 1 && IsPlayerBotHoardedMaterial(ch, item)
-				? PLAYERBOT_SHOP_HOARD_PACK_UNITS : units;
+		if (!ch || !item || avail <= 0)
+			return 0;
+		const DWORD vnum = item->GetVnum();
+		const unsigned seed = PlayerBotNavHash(ch->GetPlayerID() ^ (vnum * 2654435761U) ^
+				((DWORD)linesOnCounter << 24) ^ 0x4c4e4553U);
+		if (IsPlayerBotSafeRefineScroll(vnum))
+			return playerbot_stall_rules::FitSmallGoodsLine(
+					playerbot_stall_rules::ScrollLineUnits(seed), avail);
+		if (IsPlayerBotBulkGoods(item))
+			return playerbot_stall_rules::HeapLineUnits(avail, seed);
+		if (IsPlayerBotTradeableMaterial(item))
+			return playerbot_stall_rules::FitSmallGoodsLine(playerbot_stall_rules::MaterialLineUnits(
+					(int)ch->CountSpecifyItem(vnum), smallLinesOnCounter, seed), avail);
+		return std::min(GetPlayerBotStallLineUnits(item), avail);
+	}
+
+	// Whether a counter line of this kind has a shape a player would cut: the
+	// refine materials and scrolls one, two or five, the heaps ten, twenty,
+	// fifty or two hundred. Anything else has no such rule and passes.
+	bool IsPlayerBotNaturalLine(LPITEM item)
+	{
+		if (!item)
+			return true;
+		const int count = (int)item->GetCount();
+		if (IsPlayerBotBulkGoods(item))
+			return playerbot_stall_rules::IsHeapLine(count);
+		if (IsPlayerBotSafeRefineScroll(item->GetVnum()) || IsPlayerBotTradeableMaterial(item))
+			return playerbot_stall_rules::IsSmallGoodsLine(count);
+		return true;
 	}
 
 	// The refine scrolls a bot keeps for its own anvil (defined in
 	// playerbot_town.h beside the rule that asks it).
 	int GetPlayerBotRefineScrollKeep(LPCHARACTER ch);
+	// A worn piece the marble's fifth line would go on (playerbot_bonus.h).
+	bool PlayerBotWantsBlessingMarble(LPCHARACTER ch);
 
 	// What the stack a counter's lines are cut from keeps back: the anvil's
 	// reserve of a material, the keys the bot holds on to, the scrolls of its
@@ -930,6 +966,11 @@ namespace
 		// Nobody keeps a root back: the heap is the whole of what it is for.
 		if (IsPlayerBotBulkGoods(item))
 			return 0;
+		// The Alchemist's dust is kept only for the marble a hundred of it
+		// makes, while a worn piece waits for its fifth line (Iwakura's Patch 4,
+		// point 11); otherwise no bot consumes it.
+		if (item->GetVnum() == PLAYERBOT_MAGIC_DUST_VNUM)
+			return PlayerBotWantsBlessingMarble(ch) ? PLAYERBOT_DUST_PER_MARBLE : 0;
 		return 1;
 	}
 
@@ -1063,6 +1104,26 @@ namespace
 	{
 		return item && !IsPlayerBotCountedSingleGoods(item) &&
 				item->GetType() != ITEM_SKILLFORGET && item->GetType() != ITEM_POLYMORPH;
+	}
+
+	// How many lines of one item a counter shows: a heap's
+	// PLAYERBOT_SHOP_BULK_LINES, a refine scroll's PLAYERBOT_SHOP_SCROLL_LINES,
+	// a refine material's PLAYERBOT_SHOP_MATERIAL_LINES (eight since Iwakura's
+	// Patch 4 - lines of one and two need more of them), anything else capped
+	// by vnum PLAYERBOT_SHOP_SAME_VNUM_LINES; zero for what is counted by kind
+	// or by monster elsewhere. The classic collector, the offline add and the
+	// take-home all ask this one question.
+	int GetPlayerBotCounterLineCap(LPITEM item)
+	{
+		if (!item)
+			return 0;
+		if (IsPlayerBotBulkGoods(item))
+			return PLAYERBOT_SHOP_BULK_LINES;
+		if (IsPlayerBotSafeRefineScroll(item->GetVnum()))
+			return PLAYERBOT_SHOP_SCROLL_LINES;
+		if (IsPlayerBotTradeableMaterial(item))
+			return PLAYERBOT_SHOP_MATERIAL_LINES;
+		return IsPlayerBotSameVnumCapped(item) ? PLAYERBOT_SHOP_SAME_VNUM_LINES : 0;
 	}
 
 	// One key per kind of those goods, zero for anything else: a book's skill
@@ -1223,6 +1284,10 @@ namespace
 		LPITEM worn = ch->GetWear(wearCell);
 		if (!worn || !PlayerBotOutranksWornTier(ch, item, worn))
 			return false;
+		// A piece already at +7 or past that the worn one matches or beats is
+		// goods, not a project for the anvil (Iwakura's Patch 4, point 7).
+		if (IsPlayerBotFinishedSpareGoods(ch, item))
+			return false;
 		const long long itemScore = GetPlayerBotEquipmentScore(item, ch);
 		for (WORD otherCell = 0; otherCell < PLAYERBOT_BAG_CELLS; ++otherCell)
 		{
@@ -1286,13 +1351,68 @@ namespace
 				CanPlayerBotPayRefineStep(ch, item);
 	}
 
+	// Iwakura's Patch 4, point 13: the mission books - Latwa, Normalna, Trudna,
+	// ekspert - stand on one village's counters thirty at most, the four kinds
+	// together (playerbot_stall_rules::MISSION_BOOK_MAP_CAP). On m2zip on 25
+	// September each first village's counters held some 2 100 of them in 1 500
+	// lines ("zbyt duza liczba Ksiag Misji generowala niepotrzebny chaos w
+	// sklepach offline"), and the bags 5 500 more.
+	bool IsPlayerBotMissionBook(DWORD vnum)
+	{
+		return vnum >= PLAYERBOT_MISSION_BOOK_FIRST_VNUM && vnum <= PLAYERBOT_MISSION_BOOK_LAST_VNUM;
+	}
+
+	// The mission books a village's counters hold, by the ledger (rebuilt once a
+	// minute, and kept up between by every add and take-off).
+	int CountPlayerBotMissionBooksOnMap(long lMapIndex)
+	{
+		int units = 0;
+		for (DWORD vnum = PLAYERBOT_MISSION_BOOK_FIRST_VNUM; vnum <= PLAYERBOT_MISSION_BOOK_LAST_VNUM; ++vnum)
+			units += (int)GetPlayerBotMarketLocalSupply(lMapIndex, vnum);
+		return units;
+	}
+
+	// The village whose counters a bot's mission books would stand on: its own
+	// stand's, else the village it stands in, else its kingdom's first village.
+	long GetPlayerBotMissionBookMarketMap(LPCHARACTER ch)
+	{
+		if (!ch)
+			return 0;
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+		auto shop = ikashop::GetManager().GetShopByOwnerID(ch->GetPlayerID());
+		if (shop)
+			return shop->GetSpawn().map;
+#endif
+		if (IsPlayerBotVillageMap(ch->GetMapIndex()))
+			return ch->GetMapIndex();
+		return playerbot_empire_rules::GetHomeMap((int)ch->GetEmpire(),
+				playerbot_empire_rules::MAP_ROLE_M1);
+	}
+
+	bool IsPlayerBotMissionBookMarketFull(LPCHARACTER ch)
+	{
+		const long map = GetPlayerBotMissionBookMarketMap(ch);
+		return map != 0 && CountPlayerBotMissionBooksOnMap(map) >=
+				playerbot_stall_rules::MISSION_BOOK_MAP_CAP;
+	}
+
+	// Where a bot's own go while its village is full of them: the storekeeper
+	// or the general merchant, a coin for each kind ("rzut moneta, szansa
+	// 50/50").
+	bool PlayerBotMissionBookGoesToSafebox(LPCHARACTER ch, DWORD vnum)
+	{
+		return ch && playerbot_stall_rules::MissionBookGoesToSafebox(
+				PlayerBotNavHash(ch->GetPlayerID() ^ (vnum << 8) ^ 0x4d495342U));
+	}
+
 	bool IsPlayerBotJunkItem(LPCHARACTER ch, LPITEM item)
 	{
 		if (!ch || !item || item->IsEquipped() || item->isLocked())
 			return false;
 		// What a player handed a companion is the player's choice, not the
-		// merchant's (playerbot_sidekick.h).
-		if (IsPlayerBotSidekickGift(ch, item))
+		// merchant's (playerbot_sidekick.h), and so is what the player put on
+		// it, waiting in the bag for its slot.
+		if (IsPlayerBotSidekickGift(ch, item) || IsPlayerBotSidekickPinned(ch, item))
 			return false;
 
 		// The operator's word first: merchant is scrap whatever the rules
@@ -1341,11 +1461,26 @@ namespace
 				!PlayerBotRefinesLowArmourForSale(ch, item) && !IsPlayerBotLppKeptItem(ch, item) &&
 				!IsPlayerBotKeptBackupArmour(ch, item))
 			return true;
+		// A mission book whose village is full of them is the merchant's for
+		// half the kinds and the storekeeper's for the other half
+		// (PlayerBotMissionBookGoesToSafebox; Patch 4, point 13). Asked before
+		// the pickup goods, which would keep it for a counter with no room.
+		if (IsPlayerBotMissionBook(vnum) && IsPlayerBotMissionBookMarketFull(ch))
+			return !PlayerBotMissionBookGoesToSafebox(ch, vnum);
 		// The goods a player crafts further (IsPlayerBotPickupGoods) wait for a
 		// counter, and reach the merchant only from a bag under pressure that
-		// has no counter to sell from - the rule a polymorph marble keeps.
+		// has no counter to sell from - the rule a polymorph marble keeps. Gear
+		// among them waits only up to PLAYERBOT_PICKUP_GEAR_BAG_KEEP of a piece,
+		// the first in the bag; a counter shows no more than that of one thing,
+		// and every one past it was a cell lost for good.
 		if (IsPlayerBotPickupGoods(item))
+		{
+			if (IsPlayerBotPickupGear(item) && !IsPlayerBotLppKeptItem(ch, item) &&
+					!IsPlayerBotUpgradeForSelf(ch, item) &&
+					CountPlayerBotVnumUnitsAhead(ch, item) >= PLAYERBOT_PICKUP_GEAR_BAG_KEEP)
+				return true;
 			return IsPlayerBotBagUnderPressure(ch) && !PlayerBotCanOpenShop(ch);
+		}
 		// Kamien Duchowy is its owner's training (ManagePlayerBotGrandMasterTraining),
 		// never the merchant's: he paid 194 yang for one.
 		if (vnum == PLAYERBOT_GRAND_MASTER_STONE_VNUM)
@@ -1540,8 +1675,13 @@ namespace
 		if (IsPlayerBotRefineScroll(vnum))
 			return false;
 		// A soul stone is somebody's socket: this bot's, or across a counter
-		// another's. The merchant paid one yang for a Potwora +4.
+		// another's. The merchant paid one yang for a Potwora +4. One of the
+		// grades Iwakura bans waits in the bag for the Alchemist.
 		if (item->GetType() == ITEM_METIN)
+			return false;
+		// And what the Alchemist gave for it is counter goods: the merchant
+		// pays fifty yang for a dust that cost five hundred and a stone.
+		if (vnum == PLAYERBOT_MAGIC_DUST_VNUM)
 			return false;
 
 		// Fishing tackle and the catch worth keeping. Pearls are the entire point
@@ -1943,8 +2083,21 @@ namespace
 		const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(item->GetRefineSet());
 		if (!recipe || recipe->prob > PLAYERBOT_WORN_SCROLL_MAX_PROB)
 			return false;
-		if (item != GetPlayerBotHandWeapon(ch) ||
-				item->GetLevelLimit() <= GetPlayerBotMerchantWeaponCeiling(ch))
+		if (item != GetPlayerBotHandWeapon(ch))
+			return false;
+		// A weapon a merchant sells at the bot's level goes to the anvil as far
+		// as the bot's own drawn aim: a burned one is bought again for yang. Past
+		// that aim - Iwakura's Patch 4 takes every hand weapon to +9, and from
+		// +0 a plain anvil gets there two times in a hundred - a burn is a sword
+		// of +8 traded for a Miecz of +0, raised and burned again: 68 emergency
+		// purchases by 35 bots in the half hour after the deploy against one in
+		// the half hour before, each bot standing without a weapon in the square
+		// between them. Past the drawn aim - and past
+		// PLAYERBOT_MERCHANT_WEAPON_RISK_PLUS, where the ninety-percent steps
+		// end - it waits for a backup or a scroll like any other weapon.
+		if (item->GetLevelLimit() <= GetPlayerBotMerchantWeaponCeiling(ch) &&
+				(int)item->GetRefineLevel() < std::min<int>(GetPlayerBotRefineAmbitionDrawn(ch, item),
+					PLAYERBOT_MERCHANT_WEAPON_RISK_PLUS))
 			return false;
 		return GetPlayerBotBackupWeaponID(ch, fresh) == 0;
 	}
@@ -2115,7 +2268,7 @@ namespace
 	// the blacksmith can make into one. Goods are sold at what they are.
 	bool IsPlayerBotRefineBagCandidate(LPCHARACTER ch, LPITEM item)
 	{
-		if (!item || item->GetRefinedVnum() == 0)
+		if (!item || item->GetRefinedVnum() == 0 || IsPlayerBotSidekickPinned(ch, item))
 			return false;
 		// A level-30 weapon of a class this bot cannot wear, ground for sale
 		// (PlayerBotRefinesLevel30ForSale): no equipment candidate of its own,
@@ -2230,6 +2383,50 @@ namespace
 		return IsPlayerBotReadyGearSlot(wearCell) &&
 				IsPlayerBotReadyGearProto(ch, offer->GetProto(), offer->GetVnum(), wearCell) &&
 				offer->GetRefineLevel() >= PLAYERBOT_READY_GEAR_MIN_PLUS;
+	}
+
+	// Iwakura's Patch 4, point 7, "Protokol Odbudowy": a bot whose only weapon,
+	// body armour or shield burnt at the anvil looks at the market for a
+	// finished one before the merchant's plain piece - "ma bezwzgledny obowiazek
+	// przeszukac rynek (sklepy offline) i zakupic gotowy, nowy przedmiot
+	// zastepczy za posiadane Yang". The merchant waits PLAYERBOT_REBUILD_MARKET_MS
+	// for it (ManagePlayerBotWeaponMerchant, ManagePlayerBotArmorMerchant).
+	struct TPlayerBotRebuild
+	{
+		DWORD dwUntil;
+		BYTE bSlot;
+	};
+	std::map<DWORD, TPlayerBotRebuild> s_mapPlayerBotRebuild;
+
+	bool IsPlayerBotRebuildingFromMarket(LPCHARACTER ch, BYTE slot)
+	{
+		if (!ch)
+			return false;
+		std::map<DWORD, TPlayerBotRebuild>::iterator it = s_mapPlayerBotRebuild.find(ch->GetPlayerID());
+		if (it == s_mapPlayerBotRebuild.end())
+			return false;
+		if ((int)(it->second.dwUntil - get_dword_time()) <= 0)
+		{
+			s_mapPlayerBotRebuild.erase(it);
+			return false;
+		}
+		return it->second.bSlot == slot;
+	}
+
+	// Anything this bot can put on in the slot, worn or in the bag.
+	bool PlayerBotHasPieceForSlot(LPCHARACTER ch, BYTE slot)
+	{
+		if (!ch || ch->GetWear(slot))
+			return true;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (item && item->GetCell() == cell && !item->IsEquipped() &&
+					IsPlayerBotEquipmentCandidate(ch, item) && item->GetLevelLimit() <= ch->GetLevel() &&
+					item->FindEquipCell(ch) == (int)slot)
+				return true;
+		}
+		return false;
 	}
 
 	bool ManagePlayerBotRefining(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
@@ -2676,6 +2873,22 @@ namespace
 						state.offlineShop.nextBrowse = 0;
 #endif
 					}
+					// The only piece of its slot gone: the market first, now
+					// (IsPlayerBotRebuildingFromMarket; Patch 4, point 7).
+					if (scrollCell < 0 && (wearCell == WEAR_WEAPON || wearCell == WEAR_BODY ||
+							wearCell == WEAR_SHIELD) && !PlayerBotHasPieceForSlot(ch, wearCell))
+					{
+						TPlayerBotRebuild& rebuild = s_mapPlayerBotRebuild[ch->GetPlayerID()];
+						rebuild.dwUntil = dwNow + PLAYERBOT_REBUILD_MARKET_MS;
+						rebuild.bSlot = wearCell;
+						state.dwNextShoppingTime = 0;
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+						state.offlineShop.nextBrowse = 0;
+#endif
+						sys_log(0, "PLAYERBOT_MARKET: rebuild after a burn pid=%u name=%s slot=%u vnum=%u plus=%u gold=%lld",
+								ch->GetPlayerID(), ch->GetName(), (unsigned int)wearCell, oldVnum,
+								(unsigned int)plusLevel, (long long)ch->GetGold());
+					}
 				}
 				sys_log(0, "PLAYERBOT_AI: refine %s pid=%u name=%s old_vnum=%u new_vnum=%u plus=%u scroll=%d materials=%s",
 						success ? "SUCCESS" : (scrollCell >= 0 ? "FAILED_DOWNGRADED" : "FAILED_BURNED"),
@@ -2739,8 +2952,18 @@ namespace
 			// operator's anvil table from its ceiling, where the blacksmith stops
 			// (GetPlayerBotWeaponAnvilCeiling); everything else from +6.
 			const bool scrollOnly = IsPlayerBotScrollOnlyWeapon(item);
-			const int scrollFrom = !scrollOnly && IsPlayerBotAnvilTableWeapon(item)
-					? GetPlayerBotWeaponAnvilCeiling(ch, item) : (int)PLAYERBOT_SCROLL_REFINE_MIN_PLUS;
+			// The weapon in the hand or the armour on the back with nothing to
+			// fall back on goes under a scroll at any plus too: Iwakura's Patch
+			// 4, point 14 - "jesli bot decyduje sie na ulepszanie przy uzyciu
+			// Zwoju Blogoslawienstwa ..., zasada posiadania kopii zapasowej jest
+			// calkowicie ignorowana", and a bot with the scroll, the materials and
+			// the yang "ma bezwzgledny obowiazek natychmiast podjac proby
+			// ulepszenia". Here it waited for the next town visit and the
+			// blacksmith, or for +6.
+			const bool atRisk = IsPlayerBotWornWeaponAtRisk(ch, item) || IsPlayerBotWornArmourAtRisk(ch, item);
+			const int scrollFrom = scrollOnly || atRisk ? 0
+					: IsPlayerBotAnvilTableWeapon(item)
+						? GetPlayerBotWeaponAnvilCeiling(ch, item) : (int)PLAYERBOT_SCROLL_REFINE_MIN_PLUS;
 			if ((!scrollOnly && ((int)plus < scrollFrom || !IsPlayerBotScrollStepAllowed(plus))) ||
 					plus >= GetPlayerBotRefineTarget(ch, item))
 				continue;
@@ -2960,7 +3183,9 @@ namespace
 		// first. With a bow already equipped, ammunition takes priority over a
 		// level-tier upgrade: buying a better bow and leaving zero Yang for arrows
 		// merely creates a better-equipped idle bot.
-		if (!ch->GetWear(WEAR_WEAPON))
+		// Not while the market is being looked at for a finished one after a
+		// burn (IsPlayerBotRebuildingFromMarket; Patch 4, point 7).
+		if (!ch->GetWear(WEAR_WEAPON) && !IsPlayerBotRebuildingFromMarket(ch, WEAR_WEAPON))
 			bought = BuyPlayerBotEmergencyWeapon(ch) || bought;
 		if (isArcher)
 			bought = BuyPlayerBotArrowsAtMerchant(ch) || bought;
@@ -2986,11 +3211,13 @@ namespace
 		// and every tier above level 26 - the best piece it does stock, so a
 		// naked slot is filled and the blacksmith can raise it to +6.
 		bool bought = false;
-		if (NeedsPlayerBotProgressionArmor(ch))
+		// Not the slot the market is being looked at for after a burn
+		// (IsPlayerBotRebuildingFromMarket; Patch 4, point 7).
+		if (NeedsPlayerBotProgressionArmor(ch) && !IsPlayerBotRebuildingFromMarket(ch, WEAR_BODY))
 			bought = BuyPlayerBotProgressionGear(ch,
 					GetPlayerBotProgressionArmorVnum(ch), "armor") ||
 				BuyPlayerBotBestMerchantSlotGear(ch, WEAR_BODY, "armor") || bought;
-		if (NeedsPlayerBotProgressionShield(ch))
+		if (NeedsPlayerBotProgressionShield(ch) && !IsPlayerBotRebuildingFromMarket(ch, WEAR_SHIELD))
 			bought = BuyPlayerBotProgressionGear(ch,
 					GetPlayerBotProgressionShieldVnum(ch), "shield") ||
 				BuyPlayerBotBestMerchantSlotGear(ch, WEAR_SHIELD, "shield") || bought;
@@ -3065,6 +3292,10 @@ namespace
 	{
 		if (!ch || !item || item->GetRefinedVnum() == 0 ||
 				item->GetRefineLevel() >= GetPlayerBotRefineTarget(ch, item))
+			return false;
+		// What a companion's owner put on is the owner's to refine: a burn at
+		// the companion's anvil would lose the piece the owner chose.
+		if (IsPlayerBotSidekickPinned(ch, item))
 			return false;
 		if (!CanPlayerBotPayRefineStep(ch, item))
 			return false;

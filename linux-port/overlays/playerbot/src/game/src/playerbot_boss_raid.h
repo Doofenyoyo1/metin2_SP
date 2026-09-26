@@ -75,6 +75,14 @@ namespace
 		{ 1901,  61, 64, 81, 6, true },	// Nine Tails (72), Mount Sohan
 		{ 2206,  62, 65, 82, 5, true },	// Flame King (73), Doyyumhwaji
 		{ 1304,  65, 67, 84, 8, true },	// Yellow Tiger Spectre (75), Hwang
+		// The Grotto of Exile (26 September). Both stand a maze's walk from
+		// where a bot comes in - the Ice Witch some two hundred kilometres -
+		// which is what the raid's own move to a spot is for. Yonghan's
+		// Commander is no boss by rank, but his fall is what raises the
+		// General, and nothing else would ever break him.
+		{ 1192,  72, 81, 98, 8, true },	// Ice Witch (89), Grotto of Exile
+		{ 2491,  73, 85, 102, 6, true },	// Yonghan's Commander (93), Grotto of Exile 2
+		{ 2492,  73, 87, 104, 10, true },	// Yonghan's General (95), raised by his fall
 	};
 	const size_t PLAYERBOT_WORLD_BOSS_COUNT = sizeof(PLAYERBOT_WORLD_BOSSES) / sizeof(PLAYERBOT_WORLD_BOSSES[0]);
 

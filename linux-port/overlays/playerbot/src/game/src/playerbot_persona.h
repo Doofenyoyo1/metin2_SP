@@ -489,6 +489,10 @@ namespace
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
 		s.trading = s.trading || state.offlineShop.visiting;
 #endif
+		// No Trader in a dungeon or on a raid (Patch 4, point 12): its bag waits
+		// for the way out.
+		if (IsPlayerBotInDungeonBusiness(ch, state))
+			s.trading = false;
 		s.advanced = p.bAdvanced;
 		// A rare personality is the bot's for its whole length (Iwakura's
 		// Patch 3, point 7).
@@ -643,7 +647,7 @@ namespace
 				? CHARACTER_MANAGER::instance().Find(state.dwTargetVID) : NULL;
 		const bool busy = (target && !target->IsDead()) || ch->GetVictim() != NULL ||
 				state.bVisitingShop || state.bVisitingBiologist || state.bVisitingStable ||
-				state.bVisitingHerbalist || state.bMarketTrip || state.bFishingSession ||
+				state.bVisitingHerbalist || state.bVisitingAlchemist || state.bMarketTrip || state.bFishingSession ||
 				state.bRecoveringAfterDeath || state.bTacticalRetreat || ch->GetMyShop() != NULL ||
 				IsPlayerBotMiningNow(ch->GetPlayerID(), dwNow) ||
 				(ch->GetMaxHP() > 0 && ch->GetHP() * 100 < ch->GetMaxHP() * PLAYERBOT_MOOD_AFK_MIN_HP_PERCENT);

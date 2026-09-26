@@ -25,9 +25,17 @@
 // AutoGiveItem. One purchase an hour a bot, and only what the bot's own rules
 // would use: Kamien Duchowy for a Grand Master skill it can train, the change
 // stone for a worn weapon whose lines the reroll pass would still reroll,
-// with marks a Blessing Scroll for a piece under scroll work and the Dragon
-// God's attack potions, and a hairstyle - one in four bots, once - because a
-// crowd of a thousand identical heads is the thing a player notices first.
+// the Exorcism Scroll for a class book waiting out the book wait on a world
+// that has one, with marks - while the balance covers them - a Blessing
+// Scroll for a piece under scroll work and the Dragon God's attack potions,
+// and a hairstyle - one in four bots, once - because a crowd of a thousand
+// identical heads is the thing a player notices first.
+//
+// Until 26 September only the hairstyles were ever bought (112 purchases in
+// four days on m2zip, 23 982 coins unspent on 418 accounts): Kamien Duchowy's
+// line stood behind a time auction that ended in December 2024, which the
+// migrator now removes, the change stone was read off its four-pack, and the
+// marks wishes asked for more marks than any account ever held.
 // Nothing timed: every bot already holds the premium subscription for five
 // years (SpawnBot, the operator's rule), so the VIP rings and the Przepustka
 // Triumfu are worth nothing to it, and BuyItem refuses a VIP item to a
@@ -57,12 +65,19 @@ namespace
 		BYTE bMinLevel;
 	};
 
-	// The catalogue as the bots read it: the cheapest line per vnum for each
+	// The catalogue as the bots read it: every line per vnum for each
 	// currency, and the hairstyles for sale. Rebuilt every hour from the
 	// manager, which holds what the db core sent at boot - an operator who
 	// edits common.itemshop_items restarts the world anyway.
-	std::map<DWORD, TPlayerBotItemShopEntry> s_mapPlayerBotItemShopCoins;
-	std::map<DWORD, TPlayerBotItemShopEntry> s_mapPlayerBotItemShopMarks;
+	//
+	// Every line, not the cheapest unit alone: that kept the change stone's
+	// four-pack (207 coins) and never the single (69), and four accounts of
+	// 418 on m2zip held 207 - so the wish was one nobody could pay for
+	// (26 September). The buyer takes the cheapest unit it can afford
+	// (FindPlayerBotItemShopEntry).
+	typedef std::map<DWORD, std::vector<TPlayerBotItemShopEntry> > TPlayerBotItemShopTable;
+	TPlayerBotItemShopTable s_mapPlayerBotItemShopCoins;
+	TPlayerBotItemShopTable s_mapPlayerBotItemShopMarks;
 	std::vector<DWORD> s_vecPlayerBotItemShopHair;
 	DWORD s_dwNextPlayerBotItemShopScan = 0;
 
@@ -103,12 +118,8 @@ namespace
 			entry.dwCount = item.dwCount;
 			entry.bMinLevel = item.bMinLevel;
 			const bool marks = shop.GetItemCurrency(item) == CItemShopManager::CURRENCY_DRAGON_MARK;
-			std::map<DWORD, TPlayerBotItemShopEntry>& table = marks ? s_mapPlayerBotItemShopMarks : s_mapPlayerBotItemShopCoins;
-			std::map<DWORD, TPlayerBotItemShopEntry>::iterator it = table.find(item.dwVnum);
-			// The cheapest unit: "Zaczarowanie x4 for 207" beats "x1 for 69"
-			// only when the bot can afford four, and it buys one at a time.
-			if (it == table.end() || entry.dwPrice * it->second.dwCount < it->second.dwPrice * entry.dwCount)
-				table[item.dwVnum] = entry;
+			TPlayerBotItemShopTable& table = marks ? s_mapPlayerBotItemShopMarks : s_mapPlayerBotItemShopCoins;
+			table[item.dwVnum].push_back(entry);
 			if (!marks && proto->bType == ITEM_COSTUME && proto->bSubType == COSTUME_HAIR)
 				s_vecPlayerBotItemShopHair.push_back(item.dwVnum);
 		}
@@ -311,11 +322,43 @@ namespace
 		return others[PlayerBotNavHash(ch->GetPlayerID() ^ (DWORD)(get_global_time() / 3600)) % others.size()];
 	}
 
+	// The book pass's own two answers (playerbot_manager.cpp, after this file).
+	int FindPlayerBotBookAffectCell(LPCHARACTER ch, DWORD affectType);
+	bool PlayerBotHasBookReadExp(LPCHARACTER ch);
+	bool PlayerBotMarksCover(const TPlayerBotAIState& state, DWORD vnum);
+
+	// A class book in the bag the bot could read but for the wait, with at
+	// least PLAYERBOT_ISHOP_EXORCISM_MIN_WAIT_SECONDS of it left, and no
+	// Exorcism Scroll of its own: the scroll the book pass already uses when it
+	// has one. Nothing on a world whose bots do not wait (the easy difficulty).
+	bool PlayerBotWantsExorcismScroll(LPCHARACTER ch)
+	{
+		if (IsPlayerBotFastBooksEnabled() || ch->GetSkillGroup() == 0 ||
+				ch->FindAffect(AFFECT_SKILL_NO_BOOK_DELAY) ||
+				FindPlayerBotBookAffectCell(ch, AFFECT_SKILL_NO_BOOK_DELAY) >= 0 ||
+				!PlayerBotHasBookReadExp(ch))
+			return false;
+		const int now = get_global_time();
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetType() != ITEM_SKILLBOOK)
+				continue;
+			const DWORD skill = GetPlayerBotSkillBookSkillVnum(item);
+			if (!IsPlayerBotOwnSkill(ch, skill) || ch->GetSkillMasterType(skill) != SKILL_MASTER ||
+					ch->GetSkillLevel(skill) < 20 || ch->GetSkillLevel(skill) >= 30)
+				continue;
+			if ((int)ch->GetSkillNextReadTime(skill) - now >= PLAYERBOT_ISHOP_EXORCISM_MIN_WAIT_SECONDS)
+				return true;
+		}
+		return false;
+	}
+
 	// Every wish the bot has, in the order it would spend on them. The buyer
 	// takes the first it can afford: the first build picked one wish only,
 	// and a bot with no marks whose first wish was the marks' Blessing Scroll
 	// never got as far as the hairstyle its coins would have bought.
-	const int PLAYERBOT_ISHOP_MAX_WISHES = 5;
+	const int PLAYERBOT_ISHOP_MAX_WISHES = 7;
 
 	int CollectPlayerBotItemShopWishes(LPCHARACTER ch, const TPlayerBotAIState& state, TPlayerBotItemShopWish* wishes)
 	{
@@ -332,15 +375,21 @@ namespace
 			wishes[n].bMarks = false;
 			wishes[n++].szReason = "change_stone";
 		}
+		if (s_mapPlayerBotItemShopCoins.find(PLAYERBOT_ISHOP_EXORCISM_VNUM) != s_mapPlayerBotItemShopCoins.end() &&
+				PlayerBotWantsExorcismScroll(ch))
+		{
+			wishes[n].dwVnum = PLAYERBOT_ISHOP_EXORCISM_VNUM;
+			wishes[n].bMarks = false;
+			wishes[n++].szReason = "exorcism_scroll";
+		}
 		if (PlayerBotWearsScrollWork(ch) && CountPlayerBotSafeRefineScrolls(ch) == 0 &&
-				s_mapPlayerBotItemShopMarks.find(PLAYERBOT_ISHOP_BLESSING_SCROLL_VNUM) != s_mapPlayerBotItemShopMarks.end())
+				PlayerBotMarksCover(state, PLAYERBOT_ISHOP_BLESSING_SCROLL_VNUM))
 		{
 			wishes[n].dwVnum = PLAYERBOT_ISHOP_BLESSING_SCROLL_VNUM;
 			wishes[n].bMarks = true;
 			wishes[n++].szReason = "blessing_scroll";
 		}
-		if (!PlayerBotHoldsBooster(ch) &&
-				s_mapPlayerBotItemShopMarks.find(PLAYERBOT_ISHOP_ATTACK_POTION_VNUM) != s_mapPlayerBotItemShopMarks.end())
+		if (!PlayerBotHoldsBooster(ch) && PlayerBotMarksCover(state, PLAYERBOT_ISHOP_ATTACK_POTION_VNUM))
 		{
 			wishes[n].dwVnum = PLAYERBOT_ISHOP_ATTACK_POTION_VNUM;
 			wishes[n].bMarks = true;
@@ -368,20 +417,53 @@ namespace
 		return n;
 	}
 
-	const TPlayerBotItemShopEntry* FindPlayerBotItemShopEntry(const TPlayerBotItemShopWish& wish)
+	// The line a wish is bought from: of the lines the balance and the level
+	// allow, the cheapest unit. NULL when none of them is affordable.
+	const TPlayerBotItemShopEntry* FindPlayerBotItemShopEntry(LPCHARACTER ch, const TPlayerBotAIState& state,
+			const TPlayerBotItemShopWish& wish)
 	{
-		const std::map<DWORD, TPlayerBotItemShopEntry>& table = wish.bMarks ? s_mapPlayerBotItemShopMarks : s_mapPlayerBotItemShopCoins;
-		std::map<DWORD, TPlayerBotItemShopEntry>::const_iterator it = table.find(wish.dwVnum);
-		return it == table.end() ? NULL : &it->second;
+		const TPlayerBotItemShopTable& table = wish.bMarks ? s_mapPlayerBotItemShopMarks : s_mapPlayerBotItemShopCoins;
+		TPlayerBotItemShopTable::const_iterator it = table.find(wish.dwVnum);
+		if (it == table.end())
+			return NULL;
+		const int have = wish.bMarks ? state.iDragonMarks : state.iDragonCoins;
+		const TPlayerBotItemShopEntry* best = NULL;
+		for (size_t i = 0; i < it->second.size(); ++i)
+		{
+			const TPlayerBotItemShopEntry& line = it->second[i];
+			if (line.dwCount == 0 || ch->GetLevel() < line.bMinLevel || have < (int)line.dwPrice)
+				continue;
+			if (!best || (unsigned long long)line.dwPrice * best->dwCount <
+					(unsigned long long)best->dwPrice * line.dwCount)
+				best = &line;
+		}
+		return best;
 	}
 
 	bool CanPlayerBotAffordWish(LPCHARACTER ch, const TPlayerBotAIState& state, const TPlayerBotItemShopWish& wish)
 	{
-		const TPlayerBotItemShopEntry* entry = FindPlayerBotItemShopEntry(wish);
-		if (!entry || ch->GetLevel() < entry->bMinLevel)
+		return FindPlayerBotItemShopEntry(ch, state, wish) != NULL;
+	}
+
+	// A marks wish only while the balance covers its cheapest line. Marks come
+	// only from coins spent, one for one, so every mark in the world came from
+	// a hairstyle - the largest balance on m2zip was 117 against the Blessing
+	// Scroll's 719 and the potions' 249 - and the two marks wishes stood for
+	// nearly every bot of thirty: an hourly account read for nothing (36 282
+	// "saving" looks in eight hours) and the counter's hairstyle, which waits
+	// for a bot with no other wish, blocked for good. The balance is kept in
+	// the state and a bot's own purchases move it, so this asks no query.
+	bool PlayerBotMarksCover(const TPlayerBotAIState& state, DWORD vnum)
+	{
+		if (!state.bDragonBalanceKnown)
 			return false;
-		const int have = wish.bMarks ? state.iDragonMarks : state.iDragonCoins;
-		return have >= (int)entry->dwPrice;
+		TPlayerBotItemShopTable::const_iterator it = s_mapPlayerBotItemShopMarks.find(vnum);
+		if (it == s_mapPlayerBotItemShopMarks.end())
+			return false;
+		for (size_t i = 0; i < it->second.size(); ++i)
+			if (state.iDragonMarks >= (int)it->second[i].dwPrice)
+				return true;
+		return false;
 	}
 
 	// ------------------------------------------------------------- purchase
@@ -414,8 +496,8 @@ namespace
 	// on the same tick so IsBusy does not hold the rest of the tick.
 	bool BuyPlayerBotItemShop(LPCHARACTER ch, TPlayerBotAIState& state, const TPlayerBotItemShopWish& wish, DWORD dwNow)
 	{
-		const TPlayerBotItemShopEntry* pEntry = FindPlayerBotItemShopEntry(wish);
-		if (!pEntry || !CanPlayerBotAffordWish(ch, state, wish))
+		const TPlayerBotItemShopEntry* pEntry = FindPlayerBotItemShopEntry(ch, state, wish);
+		if (!pEntry)
 			return false;
 		const TPlayerBotItemShopEntry& entry = *pEntry;
 		if (!ch->HasPlayerData() || ch->IsBusy() || !ch->CanHandleItem() || !ch->HasSlotForItem(wish.dwVnum))

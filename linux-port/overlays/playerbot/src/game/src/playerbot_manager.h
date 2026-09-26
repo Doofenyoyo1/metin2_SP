@@ -91,6 +91,9 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// via playerbotify.py).
 		bool	SpawnSidekick(DWORD dwPlayerID);
 		void	OnSidekickCommand(LPCHARACTER ch, const char* szArgument);
+		// The owner a companion's kill counts for in the quests, or NULL
+		// (CHARACTER::Dead, mt2009 via playerbotify.py).
+		LPCHARACTER	GetSidekickKillCredit(LPCHARACTER killer, LPCHARACTER victim);
 
 		// The operator's spawn plan (input_db.cpp through playerbotify.py): the
 		// window the cohort arrives over, and a second cohort that joins one at

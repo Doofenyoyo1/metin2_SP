@@ -170,8 +170,12 @@ namespace
 			return false;
 		// Never the goods a player crafts further, whatever the merchant pays:
 		// a bot of seventy-three walked past Grzyb Tue, Korzen Gango and a
-		// Zbroja Twarzy Ducha+3 on a floor (15 September).
-		if (IsPlayerBotPickupGoods(item))
+		// Zbroja Twarzy Ducha+3 on a floor (15 September). A piece of
+		// gear the bag already keeps its share of (PLAYERBOT_PICKUP_GEAR_BAG_KEEP)
+		// is the merchant's anyway, so it is judged like any other drop.
+		if (IsPlayerBotPickupGoods(item) &&
+				!(IsPlayerBotPickupGear(item) &&
+				  ch->CountSpecifyItem(item->GetVnum()) >= PLAYERBOT_PICKUP_GEAR_BAG_KEEP))
 			return false;
 		const long long unit = (long long)GetPlayerBotNpcSellUnitPrice(item);
 		if (unit <= 0 || unit * (long long)item->GetCount() >= PLAYERBOT_LOOT_CHOOSY_MAX_VALUE)
@@ -222,6 +226,13 @@ namespace
 			return false;
 		if (item->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM || item->GetType() == ITEM_SKILLBOOK ||
 				item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM || IsPlayerBotPickupGoods(item))
+			return true;
+		// A boss's casket opens by itself eight seconds later, and the dungeon's
+		// own bosses drop silver and gold chests, which the bag's key opens: the
+		// medal dropper walked past both (26 September).
+		if (IsPlayerBotBossCasketVnum(item->GetVnum()))
+			return true;
+		if (item->GetType() == ITEM_TREASURE_BOX && PlayerBotHasTreasureKeyFor(ch, item))
 			return true;
 		return PlayerBotLootMergesIntoStack(ch, item);
 	}

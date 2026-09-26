@@ -211,6 +211,21 @@ db -e "UPDATE world.shop_special_proto SET limitvalue0 = 30 WHERE item_vnum = 27
 # a player ("caly czas nie dziala pierscien teleportu", 16 September).
 # The ring is dragged onto nothing; the flag comes off. Idempotent.
 db -e "UPDATE world.item_proto SET flag = flag & ~8192 WHERE vnum = 70058 AND (flag & 8192) <> 0;"
+# The Grotto of Exile's warp in Orc Valley's bottom-left corner (10077,
+# restored by the game image) reads its target out of its own locale_name
+# (FuncCheckWarp), and the package's pointed at cell (9,46) of map 72 - a
+# blocked cell six kilometres from any open ground. The target is the
+# grotto's Town point (100,46), where the engine also stands up whoever dies
+# in there, 1.3 km from the way out (10078). The db core reads mob_proto at
+# boot (PROTO_FROM_DB); idempotent.
+db -e "UPDATE world.mob_proto SET name = '????1? 100 12078', locale_name = '????1? 100 12078' WHERE vnum = 10077 AND locale_name <> '????1? 100 12078';" || echo "[playerbot-migrate] WARNING: could not point the Grotto of Exile warp at its Town" >&2
+# Three ItemShop lines stood behind time auctions the package's server ran
+# in December 2024 - 906 the Metin stone detector, 907 Kamien Duchowy, 908 -
+# and an ended auction is a line nobody sees and BuyItem refuses, a player
+# as much as a bot. Their auction rows go and the lines are ordinary ones;
+# an auction the operator makes is not touched. The db core reads both
+# tables at boot; idempotent.
+db -e "DELETE FROM common.itemshop_time_auctions WHERE item_index IN (906, 907, 908) AND end_time < '2025-01-01'; DELETE p FROM player.itemshop_time_auction AS p LEFT JOIN common.itemshop_time_auctions AS a ON a.item_index = p.item_index WHERE p.item_index IN (906, 907, 908) AND a.item_index IS NULL;" || echo "[playerbot-migrate] WARNING: could not end the ItemShop old time auctions" >&2
 # Maska Sabaha left the world with the Hwang curse (playerbotify
 # apply_hwang_curse_removed, the share step of the game Dockerfile): the shop
 # that sold one sells it no more. The db core reads the shops at boot, so this
@@ -625,6 +640,25 @@ if db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES
     echo "[playerbot-migrate] apprentice chest for new characters: $([ "$starter_off" = 1 ] && echo off || echo on)"
 else
     echo "[playerbot-migrate] WARNING: could not write the apprentice chest flag; the quest keeps the last one" >&2
+fi
+# A bot's apprentice chest is the seed's - Skrzynia Ucznia I lies in its
+# bag from the start - and the quest cannot tell a bot from a person, so a
+# bot still at level five or under at its first login got a second one: on
+# a new world, the whole cohort (Iwakura, 26 September). The seed marks the
+# bots it creates; this marks the ones seeded before it did, and changes
+# nothing on a start that finds them marked. A companion is one of these
+# identities, so a player gets no chest by making one either.
+if [ "$(db -e "SELECT COUNT(*) FROM information_schema.tables
+              WHERE table_schema='common' AND table_name='playerbot_seed_state';" 2>/dev/null)" = 1 ]; then
+    if db -e "INSERT INTO player.quest (dwPID, szName, szState, lValue)
+            SELECT l.pid, 'starter_chest', 'given', 1
+              FROM common.playerbot_seed_state AS l
+             WHERE l.state IN ('complete','adopted')
+            ON DUPLICATE KEY UPDATE lValue = GREATEST(lValue, 1);"; then
+        echo "[playerbot-migrate] apprentice chest: a bot's is the one the seed gave it"
+    else
+        echo "[playerbot-migrate] WARNING: could not mark the bots' apprentice chest as given" >&2
+    fi
 fi
 
 # The world's mounts, in the in-game ItemShop (CItemShopManager, read by the

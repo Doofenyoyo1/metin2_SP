@@ -47,7 +47,11 @@ STAGED = 'linux-port-mt2009/docker/game/src/server/game/src'
 # port/playerbotify.py would never reach a player; each one named here is
 # applied to the filled tree. They are idempotent: a package that already
 # carries one finds it "already", and an anchor that moved stops the build.
-ENGINE_EDITS = ['apply_costume_mount_allowed', 'apply_ride_seal_equip']
+ENGINE_EDITS = ['apply_costume_mount_allowed', 'apply_ride_seal_equip', 'apply_sidekick_quest_kill_credit']
+# Files an upstream package carries that this repository does not publish. An
+# update never deletes a file, so a player who took the upstream package keeps
+# it; the drop check below is for paths this repository's own list lost.
+NOT_OURS = {'LICENSE-MIT.txt'}
 
 
 def published(rel):
@@ -159,7 +163,7 @@ def main():
         if open(os.path.join(src, pub[ovp + n]), 'rb').read() != open(os.path.join(src, pub[stp + n]), 'rb').read():
             sys.exit('overlay and staged copy differ: ' + n)
 
-    dropped = sorted(set(old_raw) - set(pub))
+    dropped = sorted(set(old_raw) - set(pub) - NOT_OURS)
     if dropped:
         sys.exit('files the previous package carried and this one does not: %s' % dropped)
     changed = sorted(p for p in set(pub) & set(old_raw)

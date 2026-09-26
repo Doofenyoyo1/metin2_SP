@@ -52,6 +52,16 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
     echo "the working tree has changes - commit or stash them first"; exit 1
 fi
 
+# From 2.2.17 upstream's git carries releases and no source, so its diff
+# deletes this whole tree. Its changes come from its release packages then:
+# tools/sync-upstream-package.py.
+DELETED=$(git diff --name-only --diff-filter=D "$LAST" "$NEW" | wc -l)
+if [ "$DELETED" -gt 200 ]; then
+    echo "upstream's diff deletes $DELETED files - it no longer publishes source."
+    echo "merge from its release packages instead: python tools/sync-upstream-package.py --help"
+    exit 1
+fi
+
 PATCH=$(mktemp)
 git diff --binary "$LAST" "$NEW" > "$PATCH"
 set +e

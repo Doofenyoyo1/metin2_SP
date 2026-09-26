@@ -72,6 +72,21 @@ FISHING_PASS_AND_RING = (
     '# a player ("caly czas nie dziala pierscien teleportu", 16 September).\n'
     '# The ring is dragged onto nothing; the flag comes off. Idempotent.\n'
     'db -e "UPDATE world.item_proto SET flag = flag & ~8192 WHERE vnum = 70058 AND (flag & 8192) <> 0;"\n'
+    "# The Grotto of Exile's warp in Orc Valley's bottom-left corner (10077,\n"
+    '# restored by the game image) reads its target out of its own locale_name\n'
+    "# (FuncCheckWarp), and the package's pointed at cell (9,46) of map 72 - a\n"
+    '# blocked cell six kilometres from any open ground. The target is the\n'
+    "# grotto's Town point (100,46), where the engine also stands up whoever dies\n"
+    '# in there, 1.3 km from the way out (10078). The db core reads mob_proto at\n'
+    '# boot (PROTO_FROM_DB); idempotent.\n'
+    'db -e "UPDATE world.mob_proto SET name = \'????1? 100 12078\', locale_name = \'????1? 100 12078\' WHERE vnum = 10077 AND locale_name <> \'????1? 100 12078\';" || echo "[playerbot-migrate] WARNING: could not point the Grotto of Exile warp at its Town" >&2\n'
+    "# Three ItemShop lines stood behind time auctions the package's server ran\n"
+    '# in December 2024 - 906 the Metin stone detector, 907 Kamien Duchowy, 908 -\n'
+    '# and an ended auction is a line nobody sees and BuyItem refuses, a player\n'
+    '# as much as a bot. Their auction rows go and the lines are ordinary ones;\n'
+    '# an auction the operator makes is not touched. The db core reads both\n'
+    '# tables at boot; idempotent.\n'
+    'db -e "DELETE FROM common.itemshop_time_auctions WHERE item_index IN (906, 907, 908) AND end_time < \'2025-01-01\'; DELETE p FROM player.itemshop_time_auction AS p LEFT JOIN common.itemshop_time_auctions AS a ON a.item_index = p.item_index WHERE p.item_index IN (906, 907, 908) AND a.item_index IS NULL;" || echo "[playerbot-migrate] WARNING: could not end the ItemShop old time auctions" >&2\n'
 )
 
 GUILD_TIERS_AND_CHANNEL_PINS = (
@@ -229,6 +244,25 @@ STARTER_CHEST = (
     '    echo "[playerbot-migrate] apprentice chest for new characters: $([ "$starter_off" = 1 ] && echo off || echo on)"\n'
     'else\n'
     '    echo "[playerbot-migrate] WARNING: could not write the apprentice chest flag; the quest keeps the last one" >&2\n'
+    'fi\n'
+    "# A bot's apprentice chest is the seed's - Skrzynia Ucznia I lies in its\n"
+    '# bag from the start - and the quest cannot tell a bot from a person, so a\n'
+    '# bot still at level five or under at its first login got a second one: on\n'
+    '# a new world, the whole cohort (Iwakura, 26 September). The seed marks the\n'
+    '# bots it creates; this marks the ones seeded before it did, and changes\n'
+    '# nothing on a start that finds them marked. A companion is one of these\n'
+    '# identities, so a player gets no chest by making one either.\n'
+    'if [ "$(db -e "SELECT COUNT(*) FROM information_schema.tables\n'
+    '              WHERE table_schema=\'common\' AND table_name=\'playerbot_seed_state\';" 2>/dev/null)" = 1 ]; then\n'
+    '    if db -e "INSERT INTO player.quest (dwPID, szName, szState, lValue)\n'
+    "            SELECT l.pid, 'starter_chest', 'given', 1\n"
+    '              FROM common.playerbot_seed_state AS l\n'
+    "             WHERE l.state IN ('complete','adopted')\n"
+    '            ON DUPLICATE KEY UPDATE lValue = GREATEST(lValue, 1);"; then\n'
+    '        echo "[playerbot-migrate] apprentice chest: a bot\'s is the one the seed gave it"\n'
+    '    else\n'
+    '        echo "[playerbot-migrate] WARNING: could not mark the bots\' apprentice chest as given" >&2\n'
+    '    fi\n'
     'fi\n'
 )
 

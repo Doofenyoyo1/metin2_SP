@@ -329,7 +329,9 @@ namespace
 			return false;
 		if (CountPlayerBotFreeInventoryCells(ch) < 1)
 			return false;
-		ch->PointChange(POINT_GOLD, -total);
+		// PlayerBotChangeGold, not PointChange: mt2009 refuses POINT_GOLD there
+		// ("unknown point change type 11") and the bottles went for nothing.
+		PlayerBotChangeGold(ch, -total);
 		ch->AutoGiveItem(vnum, packs * PLAYERBOT_HERBALISM_BOTTLE_PACK);
 		sys_log(0, "PLAYERBOT_HERB: bottles bought pid=%u name=%s vnum=%u packs=%d gold=%lld",
 				ch->GetPlayerID(), ch->GetName(), vnum, packs, total);
@@ -467,7 +469,7 @@ namespace
 			ch->RemoveSpecifyItem(row->materials[i].vnum, row->materials[i].count);
 		}
 		if (row->price > 0)
-			ch->PointChange(POINT_GOLD, -(long long) row->price);
+			PlayerBotChangeGold(ch, -(long long) row->price);
 		const bool made = number(1, 100) <= row->chance;
 		if (made)
 			ch->AutoGiveItem(row->itemVnum, row->count);

@@ -654,23 +654,58 @@ namespace
 		return -1;
 	}
 
+	// Iwakura's Patch 4, point 6: the only gear an add or a change stone goes
+	// on - "doswiadczeni gracze nie bonuja losowego przedmiotu tylko dlatego, ze
+	// osiagnal on poziom +4 ... bot ma od teraz calkowity zakaz marnowania ich
+	// na ekwipunek niskiej jakosci (np. Srebrny Miecz)": the level-30
+	// average-damage weapons, every weapon from level 45 at +7, shields - and
+	// with them body armour and helmets, the operator's choice - from level 21
+	// at +7, bracelets, necklaces and boots from +4, earrings from +7. Nothing
+	// under +4 at all (point 1: "dodawanie bonusow do itemow od +0 do +3 jest
+	// od teraz niemozliwe").
+	bool IsPlayerBotBonusCategoryAllowed(LPITEM item)
+	{
+		if (!item)
+			return false;
+		const int plus = (int)item->GetRefineLevel();
+		if (plus < PLAYERBOT_BONUS_JEWEL_MIN_PLUS)
+			return false;
+		if (item->GetType() == ITEM_WEAPON)
+			return IsPlayerBotSpecialLevel30Weapon(item) ||
+					(item->GetLevelLimit() >= PLAYERBOT_BONUS_WEAPON_MIN_LEVEL &&
+						plus >= PLAYERBOT_BONUS_WEAPON_MIN_PLUS);
+		if (item->GetType() != ITEM_ARMOR)
+			return false;
+		switch (item->GetSubType())
+		{
+			case ARMOR_SHIELD:
+			case ARMOR_BODY:
+			case ARMOR_HEAD:
+				return item->GetLevelLimit() >= PLAYERBOT_BONUS_ARMOUR_MIN_LEVEL &&
+						plus >= PLAYERBOT_BONUS_ARMOUR_MIN_PLUS;
+			case ARMOR_WRIST:
+			case ARMOR_NECK:
+			case ARMOR_FOOTS:
+				return true;
+			case ARMOR_EAR:
+				return plus >= PLAYERBOT_BONUS_EAR_MIN_PLUS;
+			default:
+				return false;
+		}
+	}
+
 	bool CanPlayerBotRerollItem(LPITEM item)
 	{
 		return item && item->GetType() != ITEM_COSTUME && !item->isLocked() &&
 				!item->IsExchanging() && item->GetAttributeSetIndex() != -1 &&
-				item->GetRefineLevel() >= PLAYERBOT_BONUS_MIN_REFINE;
+				IsPlayerBotBonusCategoryAllowed(item);
 	}
 
-	// The same, for a piece in its slot: the young bot's boots, necklace and
-	// bracelet are bonused at any refine ("niezaleznie od poziomu ulepszenia",
-	// community patch 2, point 3). The refine floor above kept every one of
-	// them under +4 out of the pass, which with the jewellery a bot of twenty
-	// wears is nearly all of it - the patch's "boty aplikowaly je losowo".
+	// The same, for a piece in its slot. The young bot's boots, necklace and
+	// bracelet were bonused at any refine (community patch 2, point 3) until
+	// Iwakura's Patch 4 put every piece under the categories above, +4 first.
 	bool CanPlayerBotRerollItemFor(LPCHARACTER ch, LPITEM item, BYTE wearCell)
 	{
-		if (IsPlayerBotEarlyBonusSlot(ch, wearCell))
-			return item && item->GetType() != ITEM_COSTUME && !item->isLocked() &&
-					!item->IsExchanging() && item->GetAttributeSetIndex() != -1;
 		return CanPlayerBotRerollItem(item);
 	}
 
@@ -869,20 +904,24 @@ namespace
 		// this far only when no add stone could give it the fourth first.
 		if (count < PLAYERBOT_BONUS_CHANGE_MIN_LINES)
 			return PLAYERBOT_BONUS_STEP_NONE;
+		// What a companion's owner put on keeps the lines the owner chose it
+		// for (playerbot_sidekick.h); a line added above loses nothing.
+		if (IsPlayerBotSidekickPinned(ch, item))
+			return PLAYERBOT_BONUS_STEP_NONE;
 		bool wantChange = false;
 		if (target.kind == PLAYERBOT_BONUS_TARGET_GOODS)
 		{
 			// A level-30 weapon sells for its average line
 			// (PLAYERBOT_PRIZE_AVERAGE_DAMAGE), and a stone costs a fortieth of
 			// what the finished piece asks - but no change stone below +5.
-			wantChange = item->GetRefineLevel() >= PLAYERBOT_BONUS_CHANGE_MIN_REFINE &&
+			wantChange = IsPlayerBotBonusCategoryAllowed(item) &&
 					!HasPlayerBotFinishedBonus(ch, item, WEAR_WEAPON);
 		}
 		else if (target.kind == PLAYERBOT_BONUS_TARGET_HELD)
 		{
 			// Rerolled until its lines beat the worn piece's, which is what ends
 			// the hold (IsPlayerBotSwapHeldForBonus).
-			wantChange = item->GetRefineLevel() >= PLAYERBOT_BONUS_CHANGE_MIN_REFINE || earlySlot;
+			wantChange = IsPlayerBotBonusCategoryAllowed(item);
 		}
 		else
 		{
@@ -895,7 +934,7 @@ namespace
 			// to the score and not to anybody who looked at it. The young bot's
 			// jewellery and boots are changed until they carry the lines the
 			// patch requires, whatever the score (community patch 2, point 3).
-			wantChange = (item->GetRefineLevel() >= PLAYERBOT_BONUS_CHANGE_MIN_REFINE || earlySlot) &&
+			wantChange = IsPlayerBotBonusCategoryAllowed(item) &&
 					!HasPlayerBotFinishedBonus(ch, item, target.wearCell) &&
 					(ScorePlayerBotItemBonuses(ch, item, target.wearCell) < PLAYERBOT_BONUS_KEEP_SCORE ||
 					 IsPlayerBotSpecialLevel30WeaponVnum(item->GetVnum()) || earlySlot);
@@ -1092,11 +1131,56 @@ namespace
 	// pieces are filled before anything is mixed. No stone waits in the bag
 	// for a piece that cannot take it: a bot with change stones and no add
 	// stone mixes a full piece rather than hold them for the one still short.
+	// Iwakura's Patch 4, point 11: a worn piece of four lines that the
+	// marble's fifth would go on, and no marble in the bag - what a hundred
+	// of the Alchemist's dust are turned into a marble for, and kept back for
+	// meanwhile (GetPlayerBotStallBaseKeep).
+	bool PlayerBotWantsBlessingMarble(LPCHARACTER ch)
+	{
+		if (!ch || !ch->IsItemLoaded() || FindPlayerBotBlessingMarbleCell(ch) >= 0)
+			return false;
+		static const BYTE slots[] = {
+			WEAR_WEAPON, WEAR_BODY, WEAR_SHIELD, WEAR_HEAD,
+			WEAR_FOOTS, WEAR_WRIST, WEAR_NECK, WEAR_EAR
+		};
+		for (size_t i = 0; i < sizeof(slots) / sizeof(slots[0]); ++i)
+		{
+			// The marble goes where GetPlayerBotBonusStep would put it: a worn
+			// piece, not on a green-stone-only bot's.
+			if (ch->GetLevel() < PLAYERBOT_BONUS_MIN_LEVEL && !IsPlayerBotEarlyBonusSlot(ch, slots[i]))
+				continue;
+			LPITEM worn = ch->GetWear(slots[i]);
+			if (worn && worn->GetAttributeCount() == PLAYERBOT_BONUS_MAX_LINES &&
+					CanPlayerBotRerollItemFor(ch, worn, slots[i]))
+				return true;
+		}
+		return false;
+	}
+
+	// And the turning, "magicznie" - no NPC does it on these files. The marble
+	// rolls at its own odds when it is used, as a player's does.
+	bool ManagePlayerBotDustMarble(LPCHARACTER ch)
+	{
+		if (!PlayerBotWantsBlessingMarble(ch) ||
+				(int)ch->CountSpecifyItem(PLAYERBOT_MAGIC_DUST_VNUM) < PLAYERBOT_DUST_PER_MARBLE ||
+				ch->GetEmptyInventory(1) < 0)
+			return false;
+		ch->RemoveSpecifyItem(PLAYERBOT_MAGIC_DUST_VNUM, PLAYERBOT_DUST_PER_MARBLE);
+		LPITEM marble = ch->AutoGiveItem(PLAYERBOT_BLESSING_MARBLE_VNUM, 1, -1, false);
+		if (marble)
+			LogManager::instance().ItemLog(ch, marble, "PLAYERBOT_DUST_MARBLE", marble->GetName());
+		sys_log(0, "PLAYERBOT_BONUS: dust into a marble pid=%u name=%s dust_left=%d ok=%d",
+				ch->GetPlayerID(), ch->GetName(), (int)ch->CountSpecifyItem(PLAYERBOT_MAGIC_DUST_VNUM),
+				marble ? 1 : 0);
+		return marble != NULL;
+	}
+
 	bool ManagePlayerBotBonusReroll(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!ch || !ch->IsItemLoaded() || dwNow < state.dwNextBonusCheckTime)
 			return false;
 		state.dwNextBonusCheckTime = dwNow + PLAYERBOT_BONUS_INTERVAL;
+		ManagePlayerBotDustMarble(ch);
 		// A young bot spends the green stones only, on the gear they are for.
 		const bool greenOnly = ch->GetLevel() < PLAYERBOT_BONUS_MIN_LEVEL;
 		// The green stones the engine lets a young bot use work on a weapon and
@@ -1173,7 +1257,34 @@ namespace
 				break;
 			step = GetPlayerBotBonusStep(ch, target, stoneCell);
 		}
+		// A piece being worked is come back to soon, not in five minutes
+		// (Iwakura's Patch 4, point 6: "zmienia bonusy tak dlugo, az wylosuje
+		// statystyki o jak najwyzszym Tierze").
+		if (stonesUsed > 0)
+			state.dwNextBonusCheckTime = dwNow + PLAYERBOT_BONUS_WORKING_INTERVAL;
 		return stonesUsed > 0;
+	}
+
+	// Iwakura's Patch 4, point 6, "obowiazek natychmiastowego bonowania": a
+	// bot with a stone that fits a piece of its own does not wait for the next
+	// blacksmith - "ma on bezwzgledny obowiazek od razu przystapic do
+	// dzialania". Out of a fight only, like the scroll's field pass: a worn
+	// piece comes off for the engine to touch it and goes straight back on,
+	// and EquipItem refuses within a second and a half of a blow.
+	bool ManagePlayerBotFieldBonus(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		if (!ch || ch->IsDead() || state.bCurrentAction == BOT_ACTION_FIGHT || state.bVisitingShop ||
+				state.bRecoveringAfterDeath || state.bTacticalRetreat || state.dwTargetVID != 0 ||
+				ch->GetMyShop())
+			return false;
+		// The equipment pass's own wait (ManagePlayerBotEquipment): a piece
+		// taken off inside the engine's second and a half after a blow or a
+		// cast cannot go back on, and it waited in the bag for the next pass
+		// (PLAYERBOT_BONUS: could not re-equip, five a night on m2zip).
+		if (dwNow - ch->GetLastAttackTime() <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY ||
+				dwNow - state.dwLastBotSkillTime <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY)
+			return false;
+		return ManagePlayerBotBonusReroll(ch, state, dwNow);
 	}
 }
 

@@ -254,6 +254,12 @@ namespace
 			return false;
 		if (offer->GetLevelLimit() > ch->GetLevel())
 			return false;
+		// And only a finished piece: Iwakura's Patch 4, point 2 - "przedmiot z
+		// rynku musi byc ulepszony na minimum +6 ORAZ musi posiadac przynajmniej
+		// 2 poziomy ulepszenia wiecej niz przedmiot aktualnie zalozony przez
+		// bota" (the worn plus is asked below, once the slot is known).
+		if ((int)offer->GetRefineLevel() < PLAYERBOT_MARKET_GEAR_MIN_PLUS)
+			return false;
 		const int wearCell = offer->FindEquipCell(ch);
 		if (wearCell < 0)
 			return false;
@@ -275,6 +281,8 @@ namespace
 		LPITEM worn = ch->GetWear((BYTE)wearCell);
 		if (!worn)
 			return true;
+		if ((int)offer->GetRefineLevel() < (int)worn->GetRefineLevel() + PLAYERBOT_MARKET_GEAR_PLUS_OVER_WORN)
+			return false;
 		// A big bonus line is worth having even when the base item scores level
 		// with what is worn - a thousand health does not show up in the equipment
 		// score, and it is exactly what a player would buy the piece for.
@@ -284,6 +292,39 @@ namespace
 				GetPlayerBotEquipmentScore(worn, ch) * (100 + PLAYERBOT_MARKET_GEAR_MARGIN_PERCENT) / 100;
 	}
 
+	// The keys a silver or gold chest takes: a key opens a chest whose value0
+	// is its own (ManagePlayerBotChests). The "+" keys carry a lock of 0 on
+	// the 2.x line and open nothing; the proto is asked, not assumed.
+	const DWORD PLAYERBOT_TREASURE_KEY_VNUMS[] = { 50008, 50009, 50014, 50015 };
+
+	// A chest in the bag with no key for it, while some counter holds that
+	// key. On 26 September 43 bots on m2zip carried the silver chests the
+	// Monkey Dungeons' bosses drop and not one of them a key, with 207 silver
+	// keys standing on counters and 3 600 more in other bags: a key was
+	// bought only on a trip made for something else.
+	bool PlayerBotWantsKeyFromMarket(LPCHARACTER ch)
+	{
+		if (!ch)
+			return false;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM box = ch->GetInventoryItem(cell);
+			if (!box || box->GetCell() != cell || box->GetType() != ITEM_TREASURE_BOX ||
+					PlayerBotHasTreasureKeyFor(ch, box))
+				continue;
+			for (size_t i = 0; i < sizeof(PLAYERBOT_TREASURE_KEY_VNUMS) / sizeof(PLAYERBOT_TREASURE_KEY_VNUMS[0]); ++i)
+			{
+				const TItemTable* proto = ITEM_MANAGER::instance().GetTable(PLAYERBOT_TREASURE_KEY_VNUMS[i]);
+				if (!proto || proto->bType != ITEM_TREASURE_KEY || proto->alValues[0] != box->GetValue(0))
+					continue;
+				const TPlayerBotMarketLedgerEntry* keys = GetPlayerBotMarketLedgerEntry(PLAYERBOT_TREASURE_KEY_VNUMS[i]);
+				if (keys && keys->dwSupplyUnits > 0)
+					return true;
+			}
+		}
+		return false;
+	}
+
 	// Is there anything at all a market could sell this bot? Asked before the
 	// walk, so it has to be answerable without reading a single counter: these
 	// are the three things a bot is reliably short of and a stall reliably has.
@@ -291,6 +332,9 @@ namespace
 	{
 		if (!ch)
 			return false;
+		// A key for a chest it carries (PlayerBotWantsKeyFromMarket).
+		if (PlayerBotWantsKeyFromMarket(ch))
+			return true;
 		if (PlayerBotNeedsProgressionShopping(ch)) return true;
 		// A bean for a negative rank (WantsPlayerBotStallItem).
 		if (ch->GetRealAlignment() < 0 && ch->CountSpecifyItem(PLAYERBOT_ZEN_BEAN_VNUM) == 0)
@@ -402,6 +446,21 @@ namespace
 			const long long addictLeft = GetPlayerBotAddictBudgetLeft(ch);
 			if (addictLeft > 0 && WantsPlayerBotGambleOffer(ch, item))
 				return price <= addictLeft;
+		}
+		// A finished piece of gear (WantsPlayerBotStallItem: +6 and two grades
+		// over the one worn) comes out of the Perfectionist's half of the purse
+		// (Iwakura's Patch 4, point 2) - the median wallet's share below was a
+		// fraction of one +6 piece at m2zip's rates.
+		if (item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR)
+			return price <= spare * playerbot_persona::PERFECT_BUDGET_PERCENT / 100;
+		// A refine material is bought near what the market asks for its line,
+		// never at a counter's one zero too many (Iwakura's Patch 4, point 4):
+		// the wallet's cap below would have let a rich bot pay it.
+		if (IsPlayerBotTradeableMaterial(item))
+		{
+			const long long fair = GetPlayerBotShopAskingPrice(item);
+			if (fair > 0 && price > fair * PLAYERBOT_MARKET_MATERIAL_FAIR_MULTIPLE)
+				return false;
 		}
 		const long long cap = (long long)GetPlayerBotMarketMedianWallet() * PLAYERBOT_MARKET_STACK_WALLET_PERCENT / 100;
 		return cap <= 0 || price <= cap;
@@ -1099,6 +1158,39 @@ namespace
 				auStallsByReason[PLAYERBOT_SHOP_REASON_HOARD]);
 		ReportPlayerBotWeaponGoals(dwNow);
 		ReportPlayerBotLevel30Census();
+		// Iwakura's Patch 4, point 5: how much of the refine materials the bots
+		// hold stands on a counter - his mark is sixty-five percent ("przynajmniej
+		// 65% zmagazynowanych ulepszaczy"). The bags of this core's bots, their
+		// boxes as their last visits left them, and the ledger's counters, which
+		// are every bot's; on the unified layout that is the same population.
+		{
+			unsigned long long bagUnits = 0, boxUnits = 0, counterUnits = 0;
+			for (TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.begin();
+					it != s_mapPlayerBotAIStates.end(); ++it)
+			{
+				LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(it->first);
+				if (!ch || !ch->IsItemLoaded())
+					continue;
+				boxUnits += it->second.persona.wBoxMaterialUnits;
+				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+				{
+					LPITEM item = ch->GetInventoryItem(cell);
+					if (item && item->GetCell() == cell && IsPlayerBotTradeableMaterial(item) &&
+							!IsPlayerBotSafeRefineScroll(item->GetVnum()))
+						bagUnits += std::max<int>(1, item->GetCount());
+				}
+			}
+			const std::set<DWORD>& materials = GetPlayerBotRefineMaterialVnums();
+			for (TPlayerBotMarketLedger::const_iterator e = s_mapMarketLedger.begin();
+					e != s_mapMarketLedger.end(); ++e)
+				if (materials.find(e->first) != materials.end() && !IsPlayerBotNonGearMaterial(e->first) &&
+						!IsPlayerBotSafeRefineScroll(e->first))
+					counterUnits += e->second.dwSupplyUnits;
+			const unsigned long long allUnits = bagUnits + boxUnits + counterUnits;
+			sys_log(0, "PLAYERBOT_MARKET: material census bags=%llu boxes=%llu counters=%llu on_market=%u%%",
+					bagUnits, boxUnits, counterUnits,
+					allUnits ? (unsigned int)(counterUnits * 100 / allUnits) : 0U);
+		}
 		sys_log(0, "PLAYERBOT_MARKET: ledger stalls=%u lines=%u vnums=%u demand_bots=%u wallet=%u junk_weapons=%d/%d decisions list=%u probe=%u no_demand=%u overstock=%u floor=%u top:%s",
 				stalls, lines, (unsigned int)s_mapMarketLedger.size(), demandBots,
 				s_dwMarketMedianWallet, s_iPlayerBotJunkWeaponsOnCounters, PLAYERBOT_JUNK_WEAPON_MARKET_CAP,

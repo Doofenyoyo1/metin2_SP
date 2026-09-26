@@ -923,6 +923,34 @@ function Get-M2CoopClientFolder {
     return ''
 }
 
+# The client builds (SHA-256 of metin2client.exe) from before client 2.0.17,
+# which carried no co-op game host (clientify.py apply_coop_game_host): after
+# the character is chosen such a client connects to the address the server
+# names for its cores - 127.0.0.1 on every install - so a friend's client
+# logs in through the host and falls back to the login screen with nothing in
+# the server's logs (Cetis, 25 September: the server on a MiniPC in his own
+# network, the client on his PC). A client folder that was never updated keeps
+# the exe of an older full package. A list of the old builds rather than of the good ones,
+# so a newer build is never flagged.
+$script:CoopOldClientExeHashes = @(
+    '8263F81BFACDFA4A664C1F2A8CE846AEE14F19E584DB40A43F3184FEF1A59531',  # 2.0.0 - 2.0.8
+    '752623560AB54E2F3F84FF9ADB8961D73E2E289634075118D3FBEA984CFCEFB1',  # klient 2.0.6 - 2.0.12
+    '6D2BCDAF8311EAD805629093404137BDEC23CDC71EFC6F684795C333F075ADF0',  # klient 2.0.13, pelna 2.0.71
+    '8FD0D516DE691AC4C9CDC84E551DC1EE154881051B03177AA80F57D84F57E66E'   # klient 2.0.14 - 2.0.16
+)
+
+function Test-M2CoopClientExeOld {
+    param([Parameter(Mandatory = $true)][string]$ClientFolder)
+    $exe = Join-Path $ClientFolder 'metin2client.exe'
+    if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { return $false }
+    try { $hash = [string](Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash } catch { return $false }
+    return $script:CoopOldClientExeHashes -contains $hash.ToUpperInvariant()
+}
+
+function Get-M2CoopOldClientNote {
+    return 'Twój metin2client.exe jest starszy niż klient 2.0.17 i nie umie wejść do gry na serwerze znajomego: po wyborze postaci łączy się z tym komputerem zamiast z serwerem i wraca do logowania, a w logach serwera nic nie ma. Zaktualizuj klienta w launcherze (AKTUALIZUJ KLIENTA) albo podmień metin2client.exe na ten z pełnej paczki gry (folder Klient).'
+}
+
 function Write-M2CoopClientConfig {
     # HostAddress is where the client goes when it is not the invite's own
     # address: the host's home one (Select-M2CoopJoinHost).
@@ -963,4 +991,4 @@ Export-ModuleMember -Function Get-M2CoopStatePath, Read-M2CoopState, Save-M2Coop
     Test-M2CoopHostAnswers, Get-M2CoopInviteTarget, Get-M2CoopJoinAdvice,
     Get-M2CoopUpnpRefusal, Resolve-M2CoopRouterFallback, Get-M2CoopRouterHelp,
     Test-M2CoopLanInviteAddress, Test-M2CoopSameNetwork, Select-M2CoopJoinHost, Get-M2CoopLocalAddresses,
-    Resolve-M2CoopJoinHost, Get-M2CoopJoinNotes
+    Resolve-M2CoopJoinHost, Get-M2CoopJoinNotes, Test-M2CoopClientExeOld, Get-M2CoopOldClientNote

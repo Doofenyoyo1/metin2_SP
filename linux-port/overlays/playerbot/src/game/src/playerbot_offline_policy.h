@@ -89,6 +89,9 @@ struct State {
     // to the purchase or the moment it is given up, which says why.
     bool farBuy = false;
     uint32_t repriceSteps = 0;
+    // How many visits in a row a restock or a take-off has chained, two
+    // seconds apart (PLAYERBOT_OFFLINE_RESTOCK_CHAIN).
+    uint32_t chainSteps = 0;
     // Which compiled price table this shop was last priced against.
     uint32_t priceGeneration = 0;
     // The empty-hand probe of the counter, and the last line taken back to
@@ -101,6 +104,10 @@ struct State {
     // When the keeper last stood at its shop and served it: a shop on
     // another map waits PLAYERBOT_OFFLINE_FAR_SERVICE_MIN_MS from here.
     uint32_t lastServedAt = 0;
+    // When the visit under way began, and how many visits in a row ended
+    // before the keeper stood at its counter (BotOfflineInterruptVisit).
+    uint32_t visitStarted = 0;
+    uint32_t interrupted = 0;
     std::map<uint32_t, ListedLine> listed;
     bool visiting = false;
     bool restockTurn = false;
