@@ -441,6 +441,79 @@ namespace
 
 	void ManagePlayerBotWandering(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
 
+	// Iwakura's Patch 4, point 10: the Metin Stone Detector (27989, 76006) is
+	// the Metinolog's. The engine's use (char_item.cpp) counts a charge in
+	// socket 0, finds the nearest stone on the whole map, sends the client an
+	// arrow towards it and removes the detector at its sixth charge; a bot has
+	// no client to read the arrow, so after the use it asks the map the same
+	// question the engine did and remembers the stone the arrow pointed at
+	// (RememberPlayerBotMetin) - which is where its walk goes next. Once a
+	// PLAYERBOT_METIN_DETECTOR_GAP_MS, while no stone it knows of is in view.
+	std::map<DWORD, DWORD> s_mapPlayerBotDetectorNext;
+
+	struct FPlayerBotNearestStoneOnMap
+	{
+		LPCHARACTER me;
+		LPCHARACTER best;
+		DWORD bestDist;
+		explicit FPlayerBotNearestStoneOnMap(LPCHARACTER ch) : me(ch), best(NULL), bestDist(UINT_MAX) {}
+		void operator()(LPENTITY ent)
+		{
+			if (!ent || !ent->IsType(ENTITY_CHARACTER))
+				return;
+			LPCHARACTER c = (LPCHARACTER)ent;
+			if (!c->IsStone() || c->IsDead())
+				return;
+			const DWORD dist = (DWORD)DISTANCE_SQRT(me->GetX() - c->GetX(), me->GetY() - c->GetY());
+			if (dist != 0 && dist < bestDist)
+			{
+				bestDist = dist;
+				best = c;
+			}
+		}
+	};
+
+	bool UsePlayerBotStoneDetector(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		if (!ch || !ch->IsItemLoaded() ||
+				!IsPlayerBotRareNow(state.persona, playerbot_persona::RARE_METINOLOG, dwNow))
+			return false;
+		DWORD& next = s_mapPlayerBotDetectorNext[ch->GetPlayerID()];
+		if (next != 0 && (int)(dwNow - next) < 0)
+			return false;
+		next = dwNow + PLAYERBOT_METIN_DETECTOR_GAP_MS;
+		int detectorCell = -1;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && detectorCell < 0; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetCell() != cell || item->isLocked())
+				continue;
+			for (size_t i = 0; i < sizeof(PLAYERBOT_METIN_DETECTOR_VNUMS) / sizeof(PLAYERBOT_METIN_DETECTOR_VNUMS[0]); ++i)
+				if (item->GetVnum() == PLAYERBOT_METIN_DETECTOR_VNUMS[i])
+				{
+					detectorCell = cell;
+					break;
+				}
+		}
+		LPSECTREE_MAP map = SECTREE_MANAGER::instance().GetMap(ch->GetMapIndex());
+		if (detectorCell < 0 || !map)
+			return false;
+		LPITEM detector = ch->GetInventoryItem((WORD)detectorCell);
+		const DWORD vnum = detector->GetVnum();
+		const long charge = detector->GetSocket(0) + 1;
+		if (!ch->UseItem(TItemPos(INVENTORY, (WORD)detectorCell)))
+			return false;
+		FPlayerBotNearestStoneOnMap nearest(ch);
+		map->for_each(nearest);
+		if (nearest.best)
+			RememberPlayerBotMetin(nearest.best, dwNow);
+		sys_log(0, "PLAYERBOT_METIN: detector pid=%u name=%s vnum=%u charge=%ld/6 map=%ld stone=%u dist=%d",
+				ch->GetPlayerID(), ch->GetName(), vnum, charge, ch->GetMapIndex(),
+				nearest.best ? (unsigned int)nearest.best->GetRaceNum() : 0U,
+				nearest.best ? (int)nearest.bestDist : -1);
+		return nearest.best != NULL;
+	}
+
 	// A frontier map is worked, not squatted on.
 	//
 	// Wandering is what rotates a bot between hunting hubs, and in the tick it
@@ -608,6 +681,8 @@ namespace
 			if (IsPlayerBotMetinHunting(state, dwNow))
 			{
 				LPCHARACTER knownMetin = FindKnownPlayerBotMetin(ch, dwNow);
+				if (!knownMetin && UsePlayerBotStoneDetector(ch, state, dwNow))
+					knownMetin = FindKnownPlayerBotMetin(ch, dwNow);
 				if (knownMetin &&
 						DISTANCE_APPROX(ch->GetX() - knownMetin->GetX(), ch->GetY() - knownMetin->GetY()) >
 						800)
@@ -957,6 +1032,60 @@ namespace
 				{  719300,  683000, PLAYERBOT_FIRE_LAND_MIN_LEVEL, 255, false, 0 },
 				{  598000,  682200, PLAYERBOT_FIRE_LAND_MIN_LEVEL, 255, true, 2206 }
 			};
+			// The Grotto of Exile (72, 73), measured on each map's own regen and
+			// server_attr (26 September): the densest 6400-unit cells first, each
+			// hub a real spawn point on the Town's walkable area with a free ring
+			// of five cells and at least 12 000 from the next, the band the
+			// population's median level within 2 500 less three (a spawn line's
+			// whole group counted, the leader included). V1's ice of 81-85 are the
+			// 78 rows, its Setaou the 82-86 ones; the Ice Witch (1192) is a party's
+			// raid, walked to while she stands.
+			const TPlayerBotHuntingHub grottoV1Hubs[] = {
+				{   22600, 1238000, 78, 255, false, 0 },
+				{  125600, 1295100, 84, 255, false, 0 },
+				{   34800, 1237800, 78, 255, false, 0 },
+				{   87600, 1258100, 82, 255, false, 0 },
+				{    9200, 1240000, 78, 255, false, 0 },
+				{   35000, 1212400, 78, 255, false, 0 },
+				{   61000, 1213000, 78, 255, false, 0 },
+				{   22900, 1219600, 78, 255, false, 0 },
+				{   53300, 1224600, 78, 255, false, 0 },
+				{   53500, 1341600, 84, 255, false, 0 },
+				{   92600, 1269100, 84, 255, false, 0 },
+				{  105900, 1213100, 78, 255, false, 0 },
+				{  123200, 1269300, 82, 255, false, 0 },
+				{  130900, 1309000, 86, 255, false, 0 },
+				{   23600, 1276500, 80, 255, false, 0 },
+				{   36900, 1225400, 78, 255, false, 0 },
+				{  103800, 1276400, 84, 255, false, 0 },
+				{  104400, 1295800, 84, 255, false, 0 },
+				{  124900, 1251400, 84, 255, false, 0 },
+				{  124100, 1333900, 84, 255, false, 0 },
+				{   28700, 1323000, 81, 255, false, 0 },
+				{   46400, 1310000, 82, 255, false, 0 },
+				{   60800, 1281800, 84, 255, false, 0 },
+				{   68200, 1308400, 84, 255, false, 0 },
+				{  140400, 1323600, PLAYERBOT_GROTTO_V1_MIN_LEVEL, 255, true, 1192 }
+			};
+			// V2 is the worse maze: half its densest cells are 250-390 km of
+			// walking from where a bot comes in against a sixth of that in a
+			// straight line, and the hub choice measures the straight line
+			// (PLAYERBOT_HUB_HALF_WORTH_DISTANCE). So only the hubs within about
+			// 170 km of the arrival stand here - its middle, the Setaou of 87-89.
+			// The 91-97 ground round the outside, and Yonghan's Commander, are
+			// the boss raid's business (playerbot_boss_raid.h), which moves a bot
+			// to its spot rather than walking it through the maze.
+			const TPlayerBotHuntingHub grottoV2Hubs[] = {
+				{  216100, 1269400, 84, 255, false, 0 },
+				{  233200, 1283400, 84, 255, false, 0 },
+				{  245700, 1288000, 84, 255, false, 0 },
+				{  214800, 1288000, 86, 255, false, 0 },
+				{  233600, 1258300, 86, 255, false, 0 },
+				{  253900, 1264900, 86, 255, false, 0 },
+				{  239200, 1268000, 84, 255, false, 0 },
+				{  201900, 1269000, 86, 255, false, 0 },
+				{  261200, 1289500, 86, 255, false, 0 }
+			};
 			// The Demon Tower (66). Only two clusters carry 1001-1004 at all, and
 			// this is a map a bot visits for one specimen rather than lives on,
 			// so two hubs is the whole table.
@@ -1145,6 +1274,16 @@ namespace
 				hubs = fireLandHubs;
 				hubCount = sizeof(fireLandHubs) / sizeof(fireLandHubs[0]);
 			}
+			else if (ch->GetMapIndex() == PLAYERBOT_MAP_GROTTO_V1)
+			{
+				hubs = grottoV1Hubs;
+				hubCount = sizeof(grottoV1Hubs) / sizeof(grottoV1Hubs[0]);
+			}
+			else if (ch->GetMapIndex() == PLAYERBOT_MAP_GROTTO_V2)
+			{
+				hubs = grottoV2Hubs;
+				hubCount = sizeof(grottoV2Hubs) / sizeof(grottoV2Hubs[0]);
+			}
 			const DWORD pid = ch->GetPlayerID();
 			// A stone anybody has seen on this map comes before any hub while the
 			// bot hunts stones - by role, or on an expedition. Off the town map
@@ -1152,6 +1291,8 @@ namespace
 			if (IsPlayerBotMetinHunting(state, dwNow))
 			{
 				LPCHARACTER knownMetin = FindKnownPlayerBotMetin(ch, dwNow);
+				if (!knownMetin && UsePlayerBotStoneDetector(ch, state, dwNow))
+					knownMetin = FindKnownPlayerBotMetin(ch, dwNow);
 				if (knownMetin &&
 						DISTANCE_APPROX(ch->GetX() - knownMetin->GetX(), ch->GetY() - knownMetin->GetY()) > 800)
 				{

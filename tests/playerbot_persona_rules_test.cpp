@@ -422,7 +422,7 @@ int main()
 		assert(BudgetLeft(10000000, GAMBLE_BUDGET_PERCENT, 0) == 4000000);
 		assert(BudgetLeft(10000000, GAMBLE_BUDGET_PERCENT, 3999999) == 1);
 		assert(BudgetLeft(10000000, GAMBLE_BUDGET_PERCENT, 5000000) == 0);
-		assert(BudgetLeft(10000000, PERFECT_BUDGET_PERCENT, 0) == 8000000);
+		assert(BudgetLeft(10000000, PERFECT_BUDGET_PERCENT, 0) == 5000000);  // Patch 4: half the purse
 		assert(BudgetLeft(0, GAMBLE_BUDGET_PERCENT, 0) == 0);
 	}
 

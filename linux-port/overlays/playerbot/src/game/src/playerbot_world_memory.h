@@ -339,6 +339,26 @@ namespace
 			s_mapMarketLocalSupply[PlayerBotMarketLocalKey(lMapIndex, vnum)] += count;
 	}
 
+	// And a line taken off a counter comes off it at once, for the same
+	// reason: the mission books' cap (Patch 4, point 13) is a count of what
+	// the village's counters hold, and every keeper visiting in the minute
+	// before the rebuild would otherwise take another line home.
+	void RemovePlayerBotMarketSupply(DWORD vnum, WORD count, long lMapIndex)
+	{
+		if (vnum == 0 || count == 0)
+			return;
+		TPlayerBotMarketLedger::iterator entry = s_mapMarketLedger.find(vnum);
+		if (entry != s_mapMarketLedger.end())
+			entry->second.dwSupplyUnits = entry->second.dwSupplyUnits > count
+					? entry->second.dwSupplyUnits - count : 0;
+		if (lMapIndex <= 0)
+			return;
+		std::map<unsigned long long, DWORD>::iterator local =
+				s_mapMarketLocalSupply.find(PlayerBotMarketLocalKey(lMapIndex, vnum));
+		if (local != s_mapMarketLocalSupply.end())
+			local->second = local->second > count ? local->second - count : 0;
+	}
+
 	// The unit price the world's counters last asked for a thing, keyed like
 	// the sale memory, so the next counter asks within a step of it.
 	struct TPlayerBotAskMemory

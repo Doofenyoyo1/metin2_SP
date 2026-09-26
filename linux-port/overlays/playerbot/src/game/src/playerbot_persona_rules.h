@@ -565,7 +565,11 @@ namespace playerbot_persona
 	// sold as it is, whatever it was meant to reach.
 	// ---------------------------------------------------------------------
 	const int GAMBLE_BUDGET_PERCENT = 40;
-	const int PERFECT_BUDGET_PERCENT = 80;
+	// The Perfectionist's share of the purse for its gear: 80 ("max 80% yang")
+	// until Iwakura's Patch 4, point 2 - "50% zgromadzonych Yang przeznaczy na
+	// ulepszanie ekwipunku, a 50% na rozwoj postaci poprzez zakup Ksiag
+	// Umiejetnosci" (PLAYERBOT_BOOK_VISIT_BUDGET_PERCENT is the other half).
+	const int PERFECT_BUDGET_PERCENT = 50;
 	const uint8_t GAMBLE_SAFE_PLUS = 7;
 
 	inline uint8_t RollGambleTarget(uint32_t roll)

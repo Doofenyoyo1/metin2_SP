@@ -80,6 +80,11 @@ namespace
 	{
 		if (!ch || !ch->IsItemLoaded())
 			return false;
+		// A bot in a dungeon or on a raid takes no break until it is out of it
+		// (IsPlayerBotInDungeonBusiness; Iwakura's Patch 4, point 12).
+		TPlayerBotAIStateMap::const_iterator dungeonState = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+		if (dungeonState != s_mapPlayerBotAIStates.end() && IsPlayerBotInDungeonBusiness(ch, dungeonState->second))
+			return false;
 		// These problems can make continued combat impossible or waste most future
 		// drops, so they justify an immediate cross-map return.
 		if (ch->GetWear(WEAR_WEAPON) == NULL || ch->GetWear(WEAR_BODY) == NULL ||
@@ -499,6 +504,25 @@ namespace
 		if (level >= PLAYERBOT_FIRE_LAND_MIN_LEVEL && level <= PLAYERBOT_FIRE_LAND_MAX_LEVEL &&
 				PlayerBotNavHash(ch->GetPlayerID() ^ 0x464c414dU) % 3U == 0)
 			return PLAYERBOT_MAP_FIRE_LAND;
+		// Seventy-eight and up: the Grotto of Exile, the only ground past the
+		// Red Forest's 74-82 (26 September). V1's ice and Setaou run 81-89,
+		// V2's Setaou 87-97. From eighty-four V2 takes two draws in three and
+		// V1 the third; below it V1 takes two and the rows under this one the
+		// third, so the Red Forest's own bots do not all move at once. Neither
+		// grotto has a stone, so a Metin hunter by role keeps those rows; and a
+		// grotto this core does not host is passed over here rather than
+		// filtered to nothing after the draw, or a bot of eighty on such a core
+		// would have no frontier at all.
+		if (!stoneHunter && level >= PLAYERBOT_GROTTO_V2_MIN_LEVEL &&
+				IsPlayerBotMapHostedHere(PLAYERBOT_MAP_GROTTO_V2))
+		{
+			if ((draw % 3U) != 2 || !IsPlayerBotMapHostedHere(PLAYERBOT_MAP_GROTTO_V1))
+				return PLAYERBOT_MAP_GROTTO_V2;
+			return PLAYERBOT_MAP_GROTTO_V1;
+		}
+		if (!stoneHunter && level >= PLAYERBOT_GROTTO_V1_MIN_LEVEL && (draw % 3U) != 2 &&
+				IsPlayerBotMapHostedHere(PLAYERBOT_MAP_GROTTO_V1))
+			return PLAYERBOT_MAP_GROTTO_V1;
 		if (level >= PLAYERBOT_RED_FOREST_MIN_LEVEL)
 		{
 			switch (draw % 3U)
@@ -1034,6 +1058,7 @@ namespace
 		state.bVisitingShop = false;
 		state.bVisitingBiologist = false;
 		state.bVisitingStable = false;
+		state.bVisitingAlchemist = false;
 		if (!ch->Show(targetMap, targetX, targetY, 0))
 		{
 			if (wasRiding && !ch->IsRiding())

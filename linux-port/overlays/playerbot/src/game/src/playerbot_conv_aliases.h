@@ -47,7 +47,7 @@ namespace playerbot_conv
 			{ "gitara", "ostrze zbawienia" }, { "wioslo", "ostrze zbawienia" }, { "lopata", "ostrze zbawienia" },
 			{ "magnetyk", "magnetyczne ostrze" }, { "magneto", "magnetyczne ostrze" },
 			// books, stones, refining
-			{ "ku", "instr" }, { "ku", "ksiega umiejetnosci" },
+			{ "ku", "instr" }, { "ku", "ksiega umiejetnosci" }, { "kz", "ksiega zapomnienia" },
 			{ "kd", "kamien duszy" }, { "kd", "kamien duchowy" },
 			{ "km", "ksiega misji" }, { "oz", "opaska zapomnienia" },
 			{ "bodzio", "zwoj blogoslawienstwa" }, { "bodzia", "zwoj blogoslawienstwa" },

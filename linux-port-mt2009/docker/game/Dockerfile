@@ -245,7 +245,9 @@ RUN set -eux; \
     # ships no quest that does, so a seal put on did nothing (2.1.3).
     # towarzysz is the letter that makes and commands a player's companion
     # (playerbot_sidekick.h): class, path and name, then call, free, dismiss.
-    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz; do \
+    # devilcatacomb_zone is the Devil's Catacomb, which the package kept in
+    # quest/_unused and never compiled (26 September).
+    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \
@@ -321,7 +323,7 @@ RUN set -eu; L=/opt/metin2/share/locale/poland \
  && for f in /tmp/share-add/*.txt; do sed -i 's/\r$//; s/$/\r/' "$f"; done \
  && cat /tmp/share-add/mob_drop_item.m3.append.txt >> "$L/mob_drop_item.txt" \
  && f="$L/special_item_group.txt" \
- && awk 'BEGIN{keep=1} /^Group/{blk=""; keep=1} {blk=blk $0 "\n"} /Vnum[ \t]+(50011|50187|50212|50213|50188|50189|50190|50191|50192|50193|50194|50195|50196)([^0-9]|$)/{keep=0} /^}/{ if (keep) printf "%s", blk; blk=""; keep=1 }' "$f" > "$f.new" \
+ && awk 'BEGIN{keep=1} /^Group/{blk=""; keep=1} {blk=blk $0 "\n"} /Vnum[ \t]+(50011|50187|50212|50213|50188|50189|50190|50191|50192|50193|50194|50195|50196|50186|50254)([^0-9]|$)/{keep=0} /^}/{ if (keep) printf "%s", blk; blk=""; keep=1 }' "$f" > "$f.new" \
  && cat /tmp/share-add/special_item_group.moonlight.txt /tmp/share-add/special_item_group.starter.txt >> "$f.new" \
  && mv "$f.new" "$f" \
  && rm -rf /tmp/share-add \
@@ -374,6 +376,31 @@ RUN set -eu; O=/opt/metin2/share/locale/poland/quest/object \
  && rm -rf "$O/monkey_curse" \
  && ! find "$O" -path "$O/state" -prune -o -name 'monkey_curse*' -print | grep -q . \
  && echo "share: monkey curse removed ($n handlers)"
+
+# The Grotto of Exile's entrance (port/shareify.py renders this step): the
+# package commented out the warp in Orc Valley's bottom-left corner (10077,
+# cell 282,1455) and Seon-Pyeong beside it (20091), so nothing led into either
+# grotto but a GM's /warp. Both come back; the warp's target was a blocked cell
+# of map 72, which apply.sh moves onto the grotto's Town point
+# (world.mob_proto.locale_name, the name FuncCheckWarp reads the target from).
+RUN set -eu; N=/opt/metin2/share/locale/poland/map/map_n_threeway/npc.txt \
+ && sed -i -E 's#^//(m[[:blank:]]+282[[:blank:]]+1455[[:blank:]].*[[:blank:]]10077[[:space:]]*)$#\1#; s#^//(m[[:blank:]]+295[[:blank:]]+1442[[:blank:]].*[[:blank:]]20091[[:space:]]*)$#\1#' "$N" \
+ && grep -q -E '^m[[:blank:]]+282[[:blank:]]+1455[[:blank:]].*[[:blank:]]10077' "$N" \
+ && grep -q -E '^m[[:blank:]]+295[[:blank:]]+1442[[:blank:]].*[[:blank:]]20091' "$N" \
+ && echo "share: Grotto of Exile entrance restored in Orc Valley"
+
+# The Devil's Catacomb (port/shareify.py renders this step; the quest itself is
+# compiled from quest/devilcatacomb_zone.quest above): its Guardian (20367)
+# comes back to Hwang Temple, and the Reaper (1093) drops the Reaper's token -
+# the Dried Head (30319) the third floor takes one of from every member - as
+# r40250's Reaper does. It goes into his existing limit group, flat and certain
+# like his casket, because a second limit group for one monster is ignored.
+RUN set -eu; L=/opt/metin2/share/locale/poland \
+ && sed -i -E 's#^//(m[[:blank:]]+548[[:blank:]]+494[[:blank:]].*[[:blank:]]20367[[:space:]]*)$#\1#' "$L/map/metin2_map_milgyo/npc.txt" \
+ && grep -q -E '^m[[:blank:]]+548[[:blank:]]+494[[:blank:]].*[[:blank:]]20367' "$L/map/metin2_map_milgyo/npc.txt" \
+ && sed -i -E '/^Group[[:blank:]]+RiperLimit/,/^}/ s/^([[:blank:]]+1[[:blank:]]+50082[[:blank:]]+1[[:blank:]]+100.*)$/&\n\t2\t30319\t1\t100\r/' "$L/mob_drop_item.txt" \
+ && awk '/^Group[[:blank:]]+RiperLimit/{f=1} f&&/^}/{f=0} f&&/[[:blank:]]30319[[:blank:]]/{n++} END{exit n==1?0:1}' "$L/mob_drop_item.txt" \
+ && echo "share: Devil's Catacomb opened (the Guardian in Hwang, the Reaper's token)"
 
 # The cores run unprivileged and read this tree by path; a directory only root
 # can enter costs every quest below it, silently. Repair, then assert.

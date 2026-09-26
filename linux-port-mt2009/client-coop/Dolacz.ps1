@@ -164,6 +164,25 @@ function Select-CoopJoinHost {
     return [pscustomobject]@{ Host = [string]$Invite.host; Lan = $false; SameNetwork = $same; Answers = [bool]$answers; LanAddress = $lan }
 }
 
+# The same list as the launcher's (Test-M2CoopClientExeOld): the client
+# builds from before 2.0.17, which enter no friend's world - after the
+# character is chosen they connect to this computer instead.
+$oldClientExeHashes = @(
+    '8263F81BFACDFA4A664C1F2A8CE846AEE14F19E584DB40A43F3184FEF1A59531',  # 2.0.0 - 2.0.8
+    '752623560AB54E2F3F84FF9ADB8961D73E2E289634075118D3FBEA984CFCEFB1',  # klient 2.0.6 - 2.0.12
+    '6D2BCDAF8311EAD805629093404137BDEC23CDC71EFC6F684795C333F075ADF0',  # klient 2.0.13, pelna 2.0.71
+    '8FD0D516DE691AC4C9CDC84E551DC1EE154881051B03177AA80F57D84F57E66E'   # klient 2.0.14 - 2.0.16
+)
+
+function Test-CoopClientExeOld {
+    $exe = Join-Path $clientDir 'metin2client.exe'
+    if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { return $false }
+    try { $hash = [string](Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash } catch { return $false }
+    return $oldClientExeHashes -contains $hash.ToUpperInvariant()
+}
+
+$oldClientNote = 'Twój metin2client.exe jest starszy niż klient 2.0.17 i nie umie wejść do gry na serwerze znajomego: po wyborze postaci łączy się z tym komputerem zamiast z serwerem i wraca do logowania, a w logach serwera nic nie ma. Zaktualizuj klienta w launcherze (AKTUALIZUJ KLIENTA) albo podmień metin2client.exe na ten z pełnej paczki gry (folder Klient).'
+
 function Get-CoopJoinNotes {
     param([Parameter(Mandatory = $true)]$Invite, [Parameter(Mandatory = $true)]$Choice)
     $notes = @()
@@ -177,6 +196,7 @@ function Get-CoopJoinNotes {
         $notes += ('Jesteś w tej samej sieci domowej co znajomy ({0}), ale jego serwer tu nie odpowiada. Znajomy musi mieć włączone hostowanie i pozwolić Windows na regułę zapory (HOSTUJ ŚWIAT, w okienku Windows "Tak"). Potem kliknij Dołącz jeszcze raz.' -f $Choice.LanAddress)
     }
     else { $notes += 'Serwer znajomego teraz nie odpowiada - poproś, żeby uruchomił serwer (GRAJ) i włączył hostowanie.' }
+    if (Test-CoopClientExeOld) { $notes = @($oldClientNote) + $notes }
     return $notes
 }
 

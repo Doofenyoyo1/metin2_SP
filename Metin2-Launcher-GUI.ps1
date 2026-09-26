@@ -237,8 +237,13 @@ $script:Strings = @{
         dbAccessHint = 'Wpisz te dane w Navicat, HeidiSQL albo DBeaver (typ MySQL/MariaDB, polaczenie TCP). Konto root widzi wszystko, konto gry tylko bazy gry. Baza slucha wylacznie na tym komputerze. Jesli baza odrzuca haslo, kliknij NAPRAW DOSTEP DO BAZY - ustawia oba konta na hasla z pliku .env. Nie wklejaj tych hasel publicznie.'
         dbAccessProtoNote = 'Na plikach 2.x przedmioty i potwory (item_proto, mob_proto) sa w bazie world; player.item_proto i player.mob_proto to tylko widoki. Zmiany w world zostaja po restarcie serwera.'
         startupUpdateTitle = 'Dostepna aktualizacja'
-        startupServerUpdate = 'Znaleziono nowsza wersje serwera: {0}' + [Environment]::NewLine + '(zainstalowana: {1})' + [Environment]::NewLine + [Environment]::NewLine + 'Czy chcesz dokonac aktualizacji teraz?' + [Environment]::NewLine + [Environment]::NewLine + 'Postacie, przedmioty i boty zostana bez zmian. Serwer zostanie przebudowany - postep w logu na dole. Odpowiedz NIE odklada pytanie do nastepnej wersji; przycisk AKTUALIZUJ dziala zawsze.'
-        startupClientUpdate = 'Znaleziono nowsza wersje klienta: {0}' + [Environment]::NewLine + '(zainstalowana: {1})' + [Environment]::NewLine + [Environment]::NewLine + 'Czy chcesz zaktualizowac klienta teraz?' + [Environment]::NewLine + [Environment]::NewLine + 'Podmienia pliki pack w folderze klienta; poprzednie trafiaja do backups\client. Odpowiedz NIE odklada pytanie do nastepnej wersji; przycisk AKTUALIZUJ KLIENTA dziala zawsze.'
+        startupServerUpdate = 'Znaleziono nowsza wersje serwera: {0}' + [Environment]::NewLine + '(zainstalowana: {1})' + [Environment]::NewLine + [Environment]::NewLine + 'Postacie, przedmioty i boty zostana bez zmian. Serwer zostanie przebudowany - postep w logu na dole - a launcher, jesli sie zmienil, uruchomi sie potem ponownie sam.' + [Environment]::NewLine + [Environment]::NewLine + '"Nie teraz" odklada pytanie do nastepnej wersji; przycisk AKTUALIZUJ dziala zawsze.'
+        startupClientUpdate = 'Znaleziono nowsza wersje klienta: {0}' + [Environment]::NewLine + '(zainstalowana: {1})' + [Environment]::NewLine + [Environment]::NewLine + 'Podmienia pliki pack w folderze klienta; poprzednie trafiaja do backups\client. Zamknij gre przed aktualizacja.' + [Environment]::NewLine + [Environment]::NewLine + '"Nie teraz" odklada pytanie do nastepnej wersji; przycisk AKTUALIZUJ KLIENTA dziala zawsze.'
+        startupUpdateBoth = 'Znaleziono nowsze wersje:' + [Environment]::NewLine + '   serwer i launcher: {0}  (zainstalowana: {1})' + [Environment]::NewLine + '   klient: {2}  (zainstalowana: {3})' + [Environment]::NewLine + [Environment]::NewLine + 'Postacie, przedmioty i boty zostana bez zmian. Serwer zostanie przebudowany - postep w logu na dole - klient dostanie nowe pliki pack (poprzednie trafiaja do backups\client), a launcher, jesli sie zmienil, uruchomi sie potem ponownie sam. Zamknij gre przed aktualizacja.' + [Environment]::NewLine + [Environment]::NewLine + '"Tylko serwer" - gdy nie grasz na kliencie z tego komputera albo aktualizujesz go inaczej. "Nie teraz" odklada pytanie do nastepnej wersji; przyciski AKTUALIZUJ i AKTUALIZUJ KLIENTA dzialaja zawsze.'
+        startupUpdateAll = 'Aktualizuj wszystko'
+        startupUpdateNow = 'Aktualizuj teraz'
+        startupUpdateServerOnly = 'Tylko serwer'
+        startupUpdateLater = 'Nie teraz'
         dbAccessOpenEnv = 'OTWORZ PLIK .ENV'
         dbAccessNoEnv = 'Brak pliku linux-port\docker\.env - uruchom najpierw serwer (GRAJ), launcher go utworzy.'
         language     = 'JEZYK / LANGUAGE: POLSKI'
@@ -267,6 +272,10 @@ $script:Strings = @{
         clientPickFilter = 'Program klienta Metin2 (*.exe)|*.exe|Wszystkie pliki (*.*)|*.*'
         clientNotChosen = 'Nie wybrano klienta. Użyj przycisku „Wybierz klienta”.'
         clientStartFailed = 'Nie udało się uruchomić klienta'
+        clientBlockedTitle = 'Windows zablokował klienta'
+        clientBlockedPolicy = "Windows nie pozwolił uruchomić klienta gry (metin2client.exe). Zrobiła to Inteligentna kontrola aplikacji (Smart App Control): blokuje programy bez podpisu cyfrowego, których Microsoft nie zna, a klient gry takiego podpisu nie ma.`r`n`r`nTa funkcja nie ma listy wyjątków. Klient uruchomi się dopiero po jej wyłączeniu: Ustawienia > Prywatność i zabezpieczenia > Zabezpieczenia Windows > Kontrola aplikacji i przeglądarki > Ustawienia inteligentnej kontroli aplikacji > Wyłączone. Windows może potem nie pozwolić włączyć jej z powrotem bez ponownej instalacji systemu, więc zdecyduj sam.`r`n`r`nKlienta bierz tylko z pełnej paczki gry albo z aktualizacji w launcherze."
+        clientBlockedVirus = "Program antywirusowy zablokował klienta gry (metin2client.exe). Windows Defender potrafi uznać go za zagrożenie (np. Trojan:Script/Wacatac). To fałszywy alarm: plik nie ma podpisu cyfrowego, więc ocenia go heurystyka.`r`n`r`nCo zrobić: Zabezpieczenia Windows > Ochrona przed wirusami i zagrożeniami > Historia ochrony > wpis z metin2client.exe > Akcje > Przywróć. Potem dodaj folder klienta do wykluczeń: Ochrona przed wirusami i zagrożeniami > Zarządzaj ustawieniami > Wykluczenia > Dodaj wykluczenie > Folder.`r`n`r`nWyjątek dodawaj tylko dla klienta z pełnej paczki gry albo z aktualizacji w launcherze."
+        clientMissing = "W folderze klienta nie ma już pliku {0}. Najczęściej zabiera go program antywirusowy: Windows Defender potrafi uznać klienta za zagrożenie (np. Trojan:Script/Wacatac). To fałszywy alarm: plik nie ma podpisu cyfrowego, więc ocenia go heurystyka.`r`n`r`nCo zrobić: Zabezpieczenia Windows > Ochrona przed wirusami i zagrożeniami > Historia ochrony > wpis z {0} > Akcje > Przywróć. Potem dodaj folder klienta do wykluczeń: Ochrona przed wirusami i zagrożeniami > Zarządzaj ustawieniami > Wykluczenia > Dodaj wykluczenie > Folder. Na koniec kliknij GRAJ jeszcze raz.`r`n`r`nJeśli przeniosłeś klienta w inne miejsce, wskaż go przyciskiem WYBIERZ KLIENTA."
     }
     en = @{
         formTitle    = 'Metin2 Singleplayer Playerbots - All in One'
@@ -303,8 +312,13 @@ $script:Strings = @{
         dbAccessHint = 'Enter these in Navicat, HeidiSQL or DBeaver (MySQL/MariaDB, TCP connection). root sees everything, the game account only the game databases. The database listens on this computer only. If it rejects the password, click REPAIR DATABASE ACCESS - it sets both accounts to the passwords in .env. Never paste these passwords anywhere public.'
         dbAccessProtoNote = 'On the 2.x files items and monsters (item_proto, mob_proto) live in the world database; player.item_proto and player.mob_proto are views. Changes in world survive a server restart.'
         startupUpdateTitle = 'Update available'
-        startupServerUpdate = 'A newer server version was found: {0}' + [Environment]::NewLine + '(installed: {1})' + [Environment]::NewLine + [Environment]::NewLine + 'Update now?' + [Environment]::NewLine + [Environment]::NewLine + 'Characters, items and bots stay as they are. The server is rebuilt - progress in the log below. NO postpones the question until the next version; the UPDATE button always works.'
-        startupClientUpdate = 'A newer client version was found: {0}' + [Environment]::NewLine + '(installed: {1})' + [Environment]::NewLine + [Environment]::NewLine + 'Update the client now?' + [Environment]::NewLine + [Environment]::NewLine + 'Replaces the pack files in the client folder; the previous ones go to backups\client. NO postpones the question until the next version; the UPDATE CLIENT button always works.'
+        startupServerUpdate = 'A newer server version was found: {0}' + [Environment]::NewLine + '(installed: {1})' + [Environment]::NewLine + [Environment]::NewLine + 'Characters, items and bots stay as they are. The server is rebuilt - progress in the log below - and the launcher, if it changed, restarts by itself afterwards.' + [Environment]::NewLine + [Environment]::NewLine + '"Not now" postpones the question until the next version; the UPDATE button always works.'
+        startupClientUpdate = 'A newer client version was found: {0}' + [Environment]::NewLine + '(installed: {1})' + [Environment]::NewLine + [Environment]::NewLine + 'Replaces the pack files in the client folder; the previous ones go to backups\client. Close the game before the update.' + [Environment]::NewLine + [Environment]::NewLine + '"Not now" postpones the question until the next version; the UPDATE CLIENT button always works.'
+        startupUpdateBoth = 'Newer versions were found:' + [Environment]::NewLine + '   server and launcher: {0}  (installed: {1})' + [Environment]::NewLine + '   client: {2}  (installed: {3})' + [Environment]::NewLine + [Environment]::NewLine + 'Characters, items and bots stay as they are. The server is rebuilt - progress in the log below - the client gets the new pack files (the previous ones go to backups\client), and the launcher, if it changed, restarts by itself afterwards. Close the game before the update.' + [Environment]::NewLine + [Environment]::NewLine + '"Server only" - when you do not play on this computer''s client or update it another way. "Not now" postpones the question until the next version; the UPDATE and UPDATE CLIENT buttons always work.'
+        startupUpdateAll = 'Update everything'
+        startupUpdateNow = 'Update now'
+        startupUpdateServerOnly = 'Server only'
+        startupUpdateLater = 'Not now'
         dbAccessOpenEnv = 'OPEN .ENV FILE'
         dbAccessNoEnv = 'No linux-port\docker\.env yet - start the server (PLAY) once, the launcher creates it.'
         language     = 'LANGUAGE / JEZYK: ENGLISH'
@@ -333,6 +347,10 @@ $script:Strings = @{
         clientPickFilter = 'Metin2 client program (*.exe)|*.exe|All files (*.*)|*.*'
         clientNotChosen = 'No client chosen. Use the "CHOOSE CLIENT" button.'
         clientStartFailed = 'Could not start the client'
+        clientBlockedTitle = 'Windows blocked the client'
+        clientBlockedPolicy = "Windows would not start the game client (metin2client.exe). Smart App Control did it: it blocks programs without a digital signature that Microsoft does not know, and the game client has no such signature.`r`n`r`nIt has no list of exceptions. The client starts only once it is off: Settings > Privacy & security > Windows Security > App & browser control > Smart App Control settings > Off. Windows may not let you turn it back on without reinstalling the system, so decide for yourself.`r`n`r`nOnly take the client from the project's full package or from an update in the launcher."
+        clientBlockedVirus = "An antivirus blocked the game client (metin2client.exe). Windows Defender can take it for a threat (e.g. Trojan:Script/Wacatac). It is a false alarm: the file has no digital signature, so a heuristic judges it.`r`n`r`nWhat to do: Windows Security > Virus & threat protection > Protection history > the entry for metin2client.exe > Actions > Restore. Then exclude the client folder: Virus & threat protection > Manage settings > Exclusions > Add an exclusion > Folder.`r`n`r`nOnly make that exception for the client from the project's full package or from an update in the launcher."
+        clientMissing = "The client folder no longer holds {0}. As a rule an antivirus took it: Windows Defender can take the client for a threat (e.g. Trojan:Script/Wacatac). It is a false alarm: the file has no digital signature, so a heuristic judges it.`r`n`r`nWhat to do: Windows Security > Virus & threat protection > Protection history > the entry for {0} > Actions > Restore. Then exclude the client folder: Virus & threat protection > Manage settings > Exclusions > Add an exclusion > Folder. Then click PLAY again.`r`n`r`nIf you moved the client somewhere else, point to it with the CHOOSE CLIENT button."
     }
 }
 
@@ -480,9 +498,45 @@ function Find-ClientExecutable {
     return ''
 }
 
+function Get-ClientStartBlock {
+    # Whether Windows itself refused the client, and how. Smart App Control and
+    # the other application control policies answer with
+    # ERROR_SYSTEM_INTEGRITY_POLICY_VIOLATION (4551) or
+    # ERROR_ACCESS_DISABLED_BY_POLICY (1260), an antivirus with
+    # ERROR_VIRUS_INFECTED (225) or ERROR_VIRUS_DELETED (226). On 25 September
+    # Microsoft began taking metin2client.exe for a trojan, and all a player saw
+    # was Windows' one sentence about "application control policies".
+    param($ErrorRecord)
+
+    $exception = $ErrorRecord.Exception
+    while ($exception) {
+        if ($exception -is [ComponentModel.Win32Exception]) {
+            if (@(4551, 1260) -contains $exception.NativeErrorCode) { return 'policy' }
+            if (@(225, 226) -contains $exception.NativeErrorCode) { return 'virus' }
+        }
+        $exception = $exception.InnerException
+    }
+    $message = [string]$ErrorRecord.Exception.Message
+    if ($message -match 'kontroli aplikacji|Application Control|zasady grupy|group policy') { return 'policy' }
+    if ($message -match 'wirus|virus') { return 'virus' }
+    return ''
+}
+
 function Start-ConfiguredClient {
     $executable = Find-ClientExecutable
-    if (-not $executable) { $executable = Select-ClientExecutable }
+    if (-not $executable) {
+        # A client that was chosen once and has gone from its folder was, as a
+        # rule, taken by an antivirus; the picker would only have asked for a
+        # file that is no longer there.
+        $gone = [string](Get-LauncherConfig).clientExecutable
+        if ($gone -and (Test-Path -LiteralPath (Split-Path -Parent $gone) -PathType Container)) {
+            Write-LocalLog "Brak pliku klienta: $gone"
+            [Windows.Forms.MessageBox]::Show(((T 'clientMissing') -f [IO.Path]::GetFileName($gone)),
+                (T 'clientBlockedTitle'), 'OK', 'Warning') | Out-Null
+            return
+        }
+        $executable = Select-ClientExecutable
+    }
     if (-not $executable) {
         [Windows.Forms.MessageBox]::Show(
             (T 'clientNotChosen'),
@@ -495,8 +549,13 @@ function Start-ConfiguredClient {
         Write-LocalLog "Uruchomiono klienta: $([IO.Path]::GetFileName($executable))"
     }
     catch {
-        Write-LocalLog "BŁĄD uruchamiania klienta: $($_.Exception.Message)"
-        [Windows.Forms.MessageBox]::Show($_.Exception.Message, (T 'clientStartFailed'), 'OK', 'Error') | Out-Null
+        $startError = $_
+        Write-LocalLog "BŁĄD uruchamiania klienta: $($startError.Exception.Message)"
+        switch (Get-ClientStartBlock -ErrorRecord $startError) {
+            'policy' { [Windows.Forms.MessageBox]::Show((T 'clientBlockedPolicy'), (T 'clientBlockedTitle'), 'OK', 'Warning') | Out-Null }
+            'virus'  { [Windows.Forms.MessageBox]::Show((T 'clientBlockedVirus'), (T 'clientBlockedTitle'), 'OK', 'Warning') | Out-Null }
+            default  { [Windows.Forms.MessageBox]::Show($startError.Exception.Message, (T 'clientStartFailed'), 'OK', 'Error') | Out-Null }
+        }
     }
 }
 
@@ -766,11 +825,13 @@ function Complete-LauncherAction {
     $launchClient = $script:launchClientAfterAction
     $openSupport = $script:openSupportAfterAction
     $contactUrl = $script:openContactAfterAction
+    $restartAfterUpdate = $script:restartAfterUpdate
     $script:activeProcess.Dispose()
     $script:activeProcess = $null
     $script:launchClientAfterAction = $false
     $script:openSupportAfterAction = $false
     $script:openContactAfterAction = ''
+    $script:restartAfterUpdate = $false
     $script:progress.Style = 'Blocks'
     $script:progress.Value = 0
     $script:actionStatus.Text = if ($exitCode -eq 0) { "Gotowe: $action" } else { "Błąd: $action (kod $exitCode)" }
@@ -788,6 +849,13 @@ function Complete-LauncherAction {
             'Warning') | Out-Null
     }
     if ($exitCode -eq 0 -and $action -like 'Update*' -and (Get-LauncherFingerprint) -ne $script:launcherFingerprint) {
+        # The startup question said the launcher restarts by itself, and a
+        # second question about it was what KamCio asked to be spared.
+        if ($restartAfterUpdate) {
+            Write-LocalLog 'Launcher zaktualizowany - uruchamiam go ponownie.'
+            Restart-Launcher
+            return
+        }
         $answer = [Windows.Forms.MessageBox]::Show(
             "Launcher zostal zaktualizowany.`r`n`r`nTo okno dziala jeszcze na starej wersji - nowe przyciski i poprawki pojawia sie dopiero po ponownym uruchomieniu.`r`n`r`nUruchomic launcher ponownie teraz?",
             'Aktualizacja zainstalowana', 'YesNo', 'Information')
@@ -798,10 +866,6 @@ function Complete-LauncherAction {
         $script:launcherFingerprint = Get-LauncherFingerprint
     }
     if ($exitCode -eq 0 -and $launchClient) { Start-ConfiguredClient }
-    if ($script:offerClientAfterAction) {
-        $script:offerClientAfterAction = $false
-        if ($exitCode -eq 0) { Offer-ClientUpdate }
-    }
     if ($exitCode -eq 0 -and $openSupport -and (Test-Path $supportDirectory)) {
         Start-Process explorer.exe -ArgumentList ('"{0}"' -f $supportDirectory)
         if ($contactUrl) { Start-Process $contactUrl }
@@ -1365,59 +1429,148 @@ function Test-VersionNewer {
 }
 
 $script:latestManifest = $null
-$script:offerClientAfterAction = $false
 $script:startupOfferDone = $false
+# An update the startup question started: its answer covers restarting the
+# launcher too. An update from the AKTUALIZUJ button still asks about that.
+$script:restartAfterUpdate = $false
 
-function Offer-ClientUpdate {
+function Get-ServerUpdateOffer {
+    # The server version to offer at startup, or $null: newer than the one
+    # installed and not put off with "Nie teraz".
+    $installed = Get-InstalledServerVersion
+    $available = $script:latestServerVersion
+    if (-not $available -or -not (Test-VersionNewer -Installed $installed -Available $available)) { return $null }
+    if ((Read-DeclinedOffers).server -eq $available) { return $null }
+    return @{ Available = $available; Installed = $installed }
+}
+
+function Get-ClientUpdateOffer {
     # Only on the 2.x line: there the manifest's client component is the
     # ordinary client package. On r40250 it is the experimental GM panel,
     # which nobody should be nagged into at startup.
-    if (-not $script:clientUpdateIsPlain -or -not $script:latestManifest) { return }
+    if (-not $script:clientUpdateIsPlain -or -not $script:latestManifest) { return $null }
     $clientProperty = $script:latestManifest.PSObject.Properties['client']
-    if (-not $clientProperty -or -not $clientProperty.Value -or -not [string]$clientProperty.Value.version) { return }
+    if (-not $clientProperty -or -not $clientProperty.Value -or -not [string]$clientProperty.Value.version) { return $null }
     $available = ([string]$clientProperty.Value.version).Trim()
     $installed = Get-InstalledClientVersion
-    if (-not (Test-VersionNewer -Installed $installed -Available $available)) { return }
-    if ((Read-DeclinedOffers).client -eq $available) { return }
+    if (-not (Test-VersionNewer -Installed $installed -Available $available)) { return $null }
+    if ((Read-DeclinedOffers).client -eq $available) { return $null }
     $config = Get-LauncherConfig
     if (-not [string]$config.clientRoot) {
         Write-LocalLog "Dostepna wersja klienta $available, ale folder klienta nie jest ustawiony - pomijam pytanie."
-        return
+        return $null
     }
-    $answer = [Windows.Forms.MessageBox]::Show(
-        ((T 'startupClientUpdate') -f $available, $installed),
-        (T 'startupUpdateTitle'), 'YesNo', 'Question')
-    if ($answer -ne [Windows.Forms.DialogResult]::Yes) {
-        Save-DeclinedOffer -Component 'client' -Version $available
-        Write-LocalLog "Aktualizacja klienta $available odlozona."
-        return
+    return @{ Available = $available; Installed = $installed }
+}
+
+function Show-StartupUpdateDialog {
+    # One question for everything the start found. It used to be two - the
+    # server's, then the client's once the server was done, and a third about
+    # restarting the launcher between them ("dwa monity o potwierdzeniu
+    # aktualizacji launchera i clienta", KamCio, 25 September) - and the server
+    # alone is an answer of its own for whoever does not play on this
+    # computer's client (bruce_willis: a server on a VPS). Returns 'all',
+    # 'server', 'later' (put off until the next version, as NO always did), or
+    # '' when the window was closed: then it asks again at the next start.
+    param($Server, $Client)
+
+    if ($Server -and $Client) {
+        $text = (T 'startupUpdateBoth') -f $Server.Available, $Server.Installed, $Client.Available, $Client.Installed
     }
-    Start-LauncherAction -Action 'UpdateClient' -Yes
+    elseif ($Server) { $text = (T 'startupServerUpdate') -f $Server.Available, $Server.Installed }
+    else { $text = (T 'startupClientUpdate') -f $Client.Available, $Client.Installed }
+
+    $dialog = [Windows.Forms.Form]::new()
+    $dialog.Text = (T 'startupUpdateTitle')
+    $dialog.StartPosition = 'CenterParent'
+    $dialog.FormBorderStyle = 'FixedDialog'
+    $dialog.MaximizeBox = $false
+    $dialog.MinimizeBox = $false
+    $dialog.ShowInTaskbar = $false
+
+    $info = [Windows.Forms.Label]::new()
+    $info.Text = $text
+    $info.Location = [Drawing.Point]::new(16, 14)
+    $infoHeight = $info.GetPreferredSize([Drawing.Size]::new(500, 0)).Height
+    $info.Size = [Drawing.Size]::new(500, $infoHeight)
+    $dialog.Controls.Add($info)
+
+    $buttons = @()
+    if ($Server -and $Client) {
+        $buttons += ,@((T 'startupUpdateAll'), [Windows.Forms.DialogResult]::Yes, 180)
+        $buttons += ,@((T 'startupUpdateServerOnly'), [Windows.Forms.DialogResult]::No, 150)
+    }
+    else {
+        $buttons += ,@((T 'startupUpdateNow'), [Windows.Forms.DialogResult]::Yes, 180)
+    }
+    $buttons += ,@((T 'startupUpdateLater'), [Windows.Forms.DialogResult]::Ignore, 130)
+    $y = 14 + $infoHeight + 16
+    $x = 16 + 500
+    $accept = $null
+    for ($i = $buttons.Count - 1; $i -ge 0; $i--) {
+        $spec = $buttons[$i]
+        $button = [Windows.Forms.Button]::new()
+        $button.Text = $spec[0]
+        $button.DialogResult = $spec[1]
+        $x -= $spec[2]
+        $button.Location = [Drawing.Point]::new($x, $y)
+        $button.Size = [Drawing.Size]::new($spec[2] - 8, 30)
+        # Laid out from the right, tabbed from the left: Enter must mean the
+        # update, not the "Nie teraz" that was added first.
+        $button.TabIndex = $i
+        $dialog.Controls.Add($button)
+        if ($i -eq 0) { $accept = $button }
+    }
+    $dialog.AcceptButton = $accept
+    $dialog.ActiveControl = $accept
+    $dialog.ClientSize = [Drawing.Size]::new(532, $y + 30 + 14)
+
+    if ($script:form -and $script:form.Visible) { $answer = $dialog.ShowDialog($script:form) }
+    else { $answer = $dialog.ShowDialog() }
+    $dialog.Dispose()
+    if ($answer -eq [Windows.Forms.DialogResult]::Yes) { return 'all' }
+    if ($answer -eq [Windows.Forms.DialogResult]::No) { return 'server' }
+    if ($answer -eq [Windows.Forms.DialogResult]::Ignore) { return 'later' }
+    return ''
 }
 
 function Offer-StartupUpdates {
-    # Once per session, on the first manifest read: the server first, and the
-    # client after the server action has finished (two actions cannot run at
-    # once), or right away when the server is current.
+    # Once per session, on the first manifest read. Everything in one action:
+    # UpdateAll does the server and then the client in one run, where the
+    # client used to wait for the server's action to end and ask again.
     if ($script:startupOfferDone -or -not $script:latestManifest) { return }
     $script:startupOfferDone = $true
     if ($script:activeProcess -and -not $script:activeProcess.HasExited) { return }
-    $installed = Get-InstalledServerVersion
-    $available = $script:latestServerVersion
-    if ($available -and (Test-VersionNewer -Installed $installed -Available $available) -and
-            (Read-DeclinedOffers).server -ne $available) {
-        $answer = [Windows.Forms.MessageBox]::Show(
-            ((T 'startupServerUpdate') -f $available, $installed),
-            (T 'startupUpdateTitle'), 'YesNo', 'Question')
-        if ($answer -eq [Windows.Forms.DialogResult]::Yes) {
-            $script:offerClientAfterAction = $true
-            Start-LauncherAction -Action 'UpdateServer' -Yes
-            return
+    $server = Get-ServerUpdateOffer
+    $client = Get-ClientUpdateOffer
+    if (-not $server -and -not $client) { return }
+    $choice = Show-StartupUpdateDialog -Server $server -Client $client
+    if ($choice -eq 'all') {
+        if ($server) {
+            $script:restartAfterUpdate = $true
+            if ($client) { Start-LauncherAction -Action 'UpdateAll' -Yes }
+            else { Start-LauncherAction -Action 'UpdateServer' -Yes }
         }
-        Save-DeclinedOffer -Component 'server' -Version $available
-        Write-LocalLog "Aktualizacja serwera $available odlozona."
+        else { Start-LauncherAction -Action 'UpdateClient' -Yes }
+        return
     }
-    Offer-ClientUpdate
+    if ($choice -eq 'server') {
+        Save-DeclinedOffer -Component 'client' -Version $client.Available
+        Write-LocalLog "Aktualizacja klienta $($client.Available) odlozona - wybrano tylko serwer."
+        $script:restartAfterUpdate = $true
+        Start-LauncherAction -Action 'UpdateServer' -Yes
+        return
+    }
+    if ($choice -eq 'later') {
+        if ($server) {
+            Save-DeclinedOffer -Component 'server' -Version $server.Available
+            Write-LocalLog "Aktualizacja serwera $($server.Available) odlozona."
+        }
+        if ($client) {
+            Save-DeclinedOffer -Component 'client' -Version $client.Available
+            Write-LocalLog "Aktualizacja klienta $($client.Available) odlozona."
+        }
+    }
 }
 
 function Update-BotDialogValueLabel {
@@ -2112,8 +2265,10 @@ function Update-VersionFooter {
         $what = if ($serverBehind -and $clientBehind) { 'SERWERA I KLIENTA' }
             elseif ($serverBehind) { 'SERWERA' }
             else { 'KLIENTA' }
-        $script:versionLabel.Text = ("!! NOWA WERSJA {0} - kliknij ZAINSTALUJ AKTUALIZACJE`r`n{1}" -f
-            $what, $script:versionLabel.Text)
+        # The button's own words (T 'update'): the line used to send players
+        # to a "ZAINSTALUJ AKTUALIZACJE" nobody could find (Artur554, 25 September).
+        $script:versionLabel.Text = ("!! NOWA WERSJA {0} - kliknij {1}`r`n{2}" -f
+            $what, (T 'update'), $script:versionLabel.Text)
     }
     $script:versionBaseColor = if ($upToDate -and -not $clientBehind) { [Drawing.Color]::LightGreen }
         elseif ($script:latestServerVersion) { [Drawing.Color]::Gold }
@@ -2687,6 +2842,13 @@ function Show-CoopDialog {
             $intro = ("Uruchom klienta i wybierz serwer 'Online: {0}'. Hasło jest w schowku." -f $invite.name)
             if ($advice) { $intro = $advice + ' ' + $intro }
             else { $intro += ' ' + (@(Get-M2CoopJoinNotes -Choice $choice) -join ' ') }
+            # A client exe from before 2.0.17 cannot enter a friend's world at
+            # all (Test-M2CoopClientExeOld): said first, because nothing else
+            # here helps until it is replaced.
+            if (Test-M2CoopClientExeOld -ClientFolder $client) {
+                Write-LocalLog 'COOP: klient ma stary metin2client.exe (sprzed 2.0.17).'
+                $intro = (Get-M2CoopOldClientNote) + ' ' + $intro
+            }
             Show-CoopSecretDialog -Title 'Świat znajomego dodany' -Intro $intro `
                 -Secret ("Login: {0}`r`nHasło: {1}" -f $invite.login, $invite.password)
         }

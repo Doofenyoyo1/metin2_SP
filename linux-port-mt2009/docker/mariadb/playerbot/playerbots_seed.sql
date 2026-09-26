@@ -5040,6 +5040,16 @@ BEGIN NOT ATOMIC
       FROM playerbot_seed_pending AS q
     ON DUPLICATE KEY UPDATE lValue = GREATEST(lValue, VALUES(lValue));
 
+    -- The same for starter_chest.quest (the 2.x line's chest for a person's
+    -- new character): it gives the chest at a first login at level five or
+    -- under, and on a new world every bot's first login is at level one - so
+    -- every bot had a second chest and a second starter weapon out of it
+    -- (Iwakura, 26 September).
+    INSERT INTO player.quest (dwPID, szName, szState, lValue)
+    SELECT q.pid, 'starter_chest', 'given', 1
+      FROM playerbot_seed_pending AS q
+    ON DUPLICATE KEY UPDATE lValue = GREATEST(lValue, VALUES(lValue));
+
     SELECT COUNT(*) INTO v_conflicts
       FROM playerbot_seed_pending AS q
      WHERE NOT EXISTS (

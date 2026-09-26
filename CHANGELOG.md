@@ -17,6 +17,391 @@ every version here.
 
 ---
 
+## 2.2.21 — 2026-09-26
+
+Serwer 2.2.21 i klient 2.0.38: zaktualizuj oba („AKTUALIZUJ wszystko”
+w launcherze). Na VPS: `sh linux-port/tools/update.sh`. Zawiera wszystko z 2.2.16.
+
+Ta wersja przenosi na naszą 2.2.16 wersje 2.2.16-2.2.20 projektu źródłowego
+(serwer) i jego klienta 2.0.34-2.0.37. Od 2.2.17 projekt źródłowy nie publikuje
+kodu, więc zmiany wzięliśmy z jego paczek aktualizacji. Zostaje wszystko, co
+dodaliśmy wcześniej: okno zmiany bonusów pod klawiszem U, wierzchowce z pieczęci
+w ItemShopie, hostowanie w COOP bez hasła, serwer na VPS i linki do naszego
+repozytorium.
+
+### Grota Wygnańców
+
+- Wejście wraca na swoje miejsce: portal w lewym dolnym rogu Doliny
+  Orków, a obok niego Seon-Pyeong. Paczka miała oba zakomentowane, a cel
+  portalu wypadał w ścianie Groty, więc do Groty dało się wejść tylko
+  komendą GM. Teraz portal przenosi na punkt startowy Groty V1, 1,3 km od
+  wyjścia. Z V1 do V2 prowadzi portal na końcu V1, jak w paczce.
+- W Grocie V1 stoją lodowe potwory (81–85) i Setaou (87–89), a co
+  kilka godzin pojawia się Silna Lodowa Wiedźma (89). W V2 są Setaou
+  87–97 i Dowódca Yonghan (93), po którego śmierci pojawia się Generał
+  Yonghan (95). Metinów tam nie ma.
+- Boty chodzą do Groty V1 od 78 poziomu, a do V2 od 84. Na Wiedźmę i
+  obu dowódców Yonghan zwołują rajdy jak na innych bossów.
+- Mapa 72 (Grota V1) przeszła na rdzeń game1, obok V2. Na game2 żaden
+  bot nie mógł na niej stanąć.
+- Panel: obie Groty na mapie na żywo i punkt teleportu „Grota
+  Wygnańców”.
+
+### Diabelskie Katakumby
+
+- Katakumby da się przejść. Paczka trzymała quest w katalogu
+  nieużywanych, nigdy go nie skompilowała, a Strażnika Katakumb w
+  Świątyni Hwang miała zakomentowanego.
+- Wejście u Strażnika w Hwang: od 75 poziomu, po pokonaniu Umarłego
+  Rozpruwacza na 9. piętrze Wieży Demonów, raz na 30 minut. Od 2. piętra
+  potrzebna jest grupa, a przejście na 3. piętro zabiera każdemu po
+  jednej Zasuszonej Głowie.
+- Umarły Rozpruwacz upuszcza teraz Zasuszoną Głowę (100%). Wcześniej
+  jedynym źródłem była skrzynia z 90 poziomu.
+- Skrzynia Azraela i Skrzynia Mroku (z bossów Przylądka Smoczej Głowy,
+  Góry Grzmotu, Lasu Mglistego Świtu i Zatoki Czarnego Piasku) nie miały
+  zawartości i po otwarciu nic nie dawały. Mają teraz zawartość z
+  oryginalnych plików gry.
+
+### Szkatułki z bossów
+
+- Boty podnoszą i otwierają szkatułki z bossów, także dropiarze medali.
+  Szkatułka bossa nie trafia już na ladę, bot ją otwiera.
+- Jedna skrzynia, na której zawartość brakuje miejsca w plecaku, nie
+  blokuje już otwierania pozostałych.
+- Bot ze Srebrną albo Złotą Szkatułką bez klucza idzie na rynek po
+  klucz, jeśli jakaś lada go ma. Na serwerze testowym 43 boty nosiły
+  takie szkatułki bez klucza, a na ladach stało 207 srebrnych kluczy.
+
+### ItemShop
+
+- Boty kupowały wyłącznie fryzury. Teraz kupują też Kamień Duchowy (do
+  szkolenia umiejętności na poziomie Wielkiego Mistrza), pojedynczy
+  kamień zmiany bonusów zamiast paczki czterech za 207 monet, a na
+  światach z czekaniem na księgi Zwój Egzorcyzmu.
+- Kamień Duchowy (49 Smoczych Monet) i Wykrywacz Kamieni Metin (99)
+  wracają do sklepu także dla graczy. Stały za aukcjami czasowymi,
+  które skończyły się w grudniu 2024, więc nikt nie mógł ich kupić.
+
+### Poprawki
+
+- Na nowym świecie każdy bot dostawał przy pierwszym logowaniu drugą
+  Skrzynię Ucznia (Iwakura). Bot ma już skrzynię z seeda, a przy
+  aktualizacji istniejący świat oznacza to samo swoim botom.
+- Towarzysz: potwory, które zabija przy Tobie, liczą się do Twoich
+  misji (Biolog, misje zabijania) (Dabroo).
+- Towarzysz: nowy Towarzysz zaczyna z pustym plecakiem, pustym
+  magazynem i startowym wyposażeniem. Wcześniej przejmował przedmioty i
+  yang bota, którego tożsamość dostał, i można je było wyjąć przez jego
+  ekwipunek (Vipper). Towarzysz już stworzony zostaje, jaki jest.
+- Bot z jedyną bronią od handlarza nie ulepsza jej ponad +4 bez
+  zapasowej broni albo zwoju (Iwakura: „boty na start kupują wiele broni
+  na 1 lvl”). Na serwerze testowym 16 botów kupiło w godzinę 34 bronie
+  awaryjne, bo paliły kolejne bronie +0 przy krokach na +5 i +6. Do +4
+  samotna broń pali się raz na trzy próby, do +6 dwa razy na trzy.
+- Zielarstwo botów nic nie kosztowało: butelki i warzenie nie
+  zabierały yang, bo ta wersja silnika odrzucała taką zmianę złota. Teraz
+  bot płaci jak gracz.
+- Bot nie dodaje bonusu na noszony przedmiot tuż po ciosie. Zdejmował go
+  wtedy do zmiany, a silnik przez półtorej sekundy po ciosie nie pozwala
+  założyć go z powrotem, więc przedmiot zostawał w plecaku do następnego
+  przebiegu.
+
+---
+
+### Towarzysz: potwory przechodzą na Ciebie, statystyki i lurowanie
+
+- Potwory, które biją Towarzysza, przechodzą na Ciebie, gdy on zginie,
+  gdy go puścisz wolno albo wyślesz na zakupy. Wcześniej stawały w
+  miejscu. Nic się nie zmienia w walce, którą toczysz razem z nim.
+- Statystyki Towarzysza możesz rozdawać sam: w oknie Towarzysza jest
+  nowy przycisk „Statystyki”, a w nim „+” i „+5” przy każdej statystyce.
+  Pierwszy rozdany punkt przełącza go na ręczne rozdawanie. Jeden raz
+  możesz za darmo zresetować wszystkie jego punkty i rozdać je od nowa.
+  Pomysł: Kiciamol.
+- Towarzysz może lurować: zbiera trzy grupy potworów z okolicy i
+  przyprowadza je do Ciebie. Włączasz to przyciskiem „Lurowanie” w oknie
+  Towarzysza albo szeptem „luruj”, a wyłączasz szeptem „przestań lurować”.
+  Nie luruje, gdy sam ma mało życia albo gdy wokół Ciebie trwa już
+  walka.
+
+### Patch 4 od Iwakury
+
+- **Biżuteria i reszta sprzętu od +4.** Boty podnoszą każdy noszony
+  przedmiot co najmniej do +4. Hełm, buty i biżuteria idą dalej, do +9,
+  gdy broń, zbroja i tarcza stoją już na +7. 38% botów wybiera
+  biżuterię i buty z listy Iwakury dla swojej klasy (np. Kolczyki Z
+  Niebiań.Łez dla szamana i sury, Buty Feniksa), reszta to, co ma
+  najlepsze.
+- **Perfekcjonista dąży do +9** z całym sprzętem, którego używa. Połowę
+  złota wydaje na ulepszanie, połowę na księgi umiejętności. Zapasowa
+  broń, zbroja i tarcza w plecaku zostają przy dotychczasowym celu, bo
+  to one ratują bota, gdy noszona sztuka spłonie. Jedyną broń od
+  handlarza bot podnosi ponad ten cel tylko z zapasową w plecaku albo
+  pod zwojem. Bez tego pierwszy test skończył się pętlą: spalony miecz
+  +8, zakup Miecza +0 u handlarza, znów spalony.
+- **Zakupy sprzętu z rynku:** tylko przedmiot co najmniej +6 i co
+  najmniej o dwa ulepszenia wyższy od noszonego. Płaci z puli
+  Perfekcjonisty.
+- **Naturalne stosy w sklepach.** Ulepszacze boty wystawiają po 1–2
+  sztuki, a przy zapasie od 50 sztuk pięć linii po 2 i dalej po 5. Zioła
+  i siano idą po 10, 20, 50 albo 200, a Zwoje Błogosławieństwa głównie
+  po 1–2, rzadko po 5. Na jednej ladzie jest najwyżej 8 linii jednego
+  ulepszacza. Linie w innych rozmiarach boty jednorazowo zdejmują i
+  wystawiają od nowa.
+- **Koniec chomikowania ulepszaczy.** Każdy ulepszacz ponad to, czego bot
+  potrzebuje do własnego sprzętu, trafia na sklep, a magazyn regularnie
+  oddaje je na sprzedaż. Jedna wizyta w sklepie dokłada kilka linii, a
+  nie jedną, więc wyprzedany towar szybciej wraca.
+- **Ludzka pomyłka:** raz na tysiąc wystawień księgi umiejętności albo
+  pojedynczego ulepszacza bot dopisuje cenie jedno zero. Boty takiej
+  ceny nie zapłacą.
+- **Bonusy tylko tam, gdzie się opłacają:** broń na 30 poziom ze
+  średnimi obrażeniami, broń od 45 poziomu od +7, tarcze, zbroje i hełmy
+  od 21 poziomu od +7, bransolety, naszyjniki i buty od +4, kolczyki od
+  +7. Nic poniżej +4. Bot z kamieniami bonusuje od razu, także poza
+  miastem, a zmienia bonusy dopiero przy czterech liniach.
+- **Jeden najlepszy egzemplarz.** Zapasowa broń, zbroja albo tarcza na
+  +7 do +9, gorsza od noszonej albo taka sama, trafia na sklep, także z
+  magazynu. Gdy bot spali u kowala swój jedyny przedmiot, najpierw szuka
+  zamiennika na rynku, a dopiero potem kupuje zwykły u handlarza.
+- **Buty:** obrona i poziom ulepszenia nie mają już znaczenia. Liczą się
+  bonusy z tieru 3 i wyższego, a czyste buty bot porównuje według tieru
+  z listy Iwakury.
+- **Wykrywacz Kamieni Metin:** Metinolog go używa (6 ładunków), idzie do
+  wskazanego kamienia i niszczy go.
+- **100 Magicznego Pyłu = Marmur Błogosławieństwa**, gdy bot nosi
+  przedmiot z czterema bonusami. Do tego czasu pył odkłada.
+- **Handlarz nie budzi się w lochach.** W Wieży Demonów i na rajdzie
+  pełny plecak nie odciąga już bota od grupy.
+- **Księgi Misji:** najwyżej 30 sztuk na ladach jednej wioski. Nadmiar
+  boty zdejmują i połowę kładą do magazynu, a połowę sprzedają u
+  Handlarki Różności.
+- **Zwój Błogosławieństwa bez kopii zapasowej:** broń bez zamiennika bot
+  ulepsza pod zwojem od razu, także w polu, a brakujące ulepszacze
+  kupuje na rynku.
+- Panel: ranking botów ma opcję „5000”.
+
+### COOP: stary metin2client.exe (zgłosił Cetis)
+
+- Klient sprzed wersji 2.0.17 po wybraniu postaci łączy się z Twoim
+  komputerem zamiast z serwerem znajomego i wraca do logowania, a w
+  logach serwera nic nie widać. Aktualizacje klienta nie przynoszą już
+  pliku exe (fałszywy alarm Defendera), więc stary exe z dawnej pełnej
+  paczki zostaje na dysku.
+- Launcher i „Dolacz.bat” mówią teraz o tym przy dołączaniu do świata
+  znajomego. Naprawa to podmiana metin2client.exe na ten z pełnej paczki
+  gry.
+
+### Towarzysz dostaje wszystkie punkty umiejętności (zgłosił Piciu713)
+
+- Towarzysz stworzony przed 5 poziomem dostawał na 5 poziomie ścieżkę,
+  ale bez punktów, które gracz dostaje przy wyborze ścieżki u trenera.
+  Liczyły mu się tylko punkty za poziomy od szóstego, więc szaman na
+  7 poziomie miał 2 punkty zamiast 6.
+- Teraz dostaje je tak samo jak gracz. Towarzysz, któremu już ich brakuje,
+  dostanie brakujące punkty, gdy tylko pojawi się w grze po aktualizacji
+  serwera. Punkty rozdane wcześniej zostają na swoich miejscach.
+
+### Szaman-Towarzysz trzyma Twoje buffy tak jak swoje (zgłosili teivos i iceBeeg)
+
+- Towarzysz trzymał swoje buffy przez cały czas, a Tobie rzucał te do
+  walki tylko wtedy, gdy sam walczył. W trybie „Nie walcz” nie walczy
+  nigdy, więc smoczy szaman (Błogosławieństwo, Odbicie, Pomoc Smoka)
+  nie bufował Cię wcale, a po Twojej śmierci bufował z powrotem tylko
+  siebie. W trybie „Nie 1. atak” walczył razem z Tobą i dlatego tam
+  działało.
+- Teraz utrzymuje Twoje buffy tak jak swoje, w każdym trybie, i zawsze
+  najpierw Twoje. Gdy któregoś Ci brakuje, na przykład po śmierci,
+  rzuca go od razu. Buffy możesz wyłączyć jak dotąd w oknie Towarzysza.
+
+### Boty wracają do walki po odrzuceniu w Wieży Demonów (zgłosił prodnathin)
+
+- Umiejętności bossów odrzucają postać nawet o 8 metrów i gra nie
+  sprawdza, gdzie ona ląduje. Boty wyrzucone z 9. piętra w pustkę wokół
+  niego stały tam do końca rajdu, bo nie mogły stamtąd wyznaczyć
+  drogi. Gracz ma na to „Uwolnij się” w menu. Boty miały taki ratunek
+  tylko na zwykłych mapach, a na piętrach Wieży od drugiego w górę nie.
+- Teraz bot, który stoi w niedostępnym miejscu, od razu wraca na
+  najbliższy kawałek podłogi, także na każdym piętrze Wieży.
+
+### „Kupię KZ” to Księga Zapomnienia, nie księga umiejętności (zgłosił prodnathin)
+
+- Okrzyk „kupię księgę zapomnienia smoczy skowyt” był czytany jak prośba
+  o księgę umiejętności, więc bot odpisywał, że ma na straganie Instr.
+  Smoczy Skowyt.
+- Teraz „KZ …” i „księga zapomnienia …” oznaczają Księgę Zapomnienia tej
+  umiejętności, a „KU …” i „księga …” księgę umiejętności. W odpowiedzi
+  Księga Zapomnienia ma w nazwie umiejętność, np. „Księga Zapomnienia
+  (Mrocz. Uderzenie)”. Gdy nikt jej nie wystawił, żaden bot nie odpowiada,
+  zamiast proponować coś innego.
+- „Sprzedam KZ …” nie dostaje już odpowiedzi „kupię KU …”.
+
+### Opisy umiejętności w oknie Towarzysza (klient 2.0.38, propozycja Piciu713)
+
+- Po najechaniu myszą na umiejętność w oknie „Umiejętności towarzysza”
+  pojawia się ten sam opis co w Twoim oknie umiejętności: poziom, działanie,
+  czas trwania, odnowienie, wymagane PE i następny poziom.
+- Liczby są wyliczane ze statystyk Towarzysza (jego poziomu, INT, SIŁ
+  i broni), nie z Twoich. Ze starszym serwerem opis pokaże tylko nazwę
+  i działanie umiejętności.
+
+### Jedno pytanie o aktualizację (propozycja KamCio i bruce_willis)
+
+- Przy starcie launcher pytał osobno o serwer, potem, czy uruchomić się
+  ponownie, a na końcu o klienta.
+- Teraz jest jedno okno z przyciskami „Aktualizuj wszystko”, „Tylko serwer”
+  i „Nie teraz”. „Aktualizuj wszystko” aktualizuje serwer i klienta za
+  jednym razem, a launcher uruchamia się potem ponownie sam. „Tylko serwer”
+  jest dla tych, którzy nie grają na kliencie z tego komputera, np. mają
+  serwer na VPS. „Nie teraz” odkłada pytanie do następnej wersji, jak
+  dotąd.
+- Nowe okno zobaczysz przy następnej aktualizacji, bo tę instaluje jeszcze
+  obecny launcher.
+
+### Boty nie chomikują Kryształowych Kolczyków (zgłosił Iwakura)
+
+- Boty podnoszą Kryształowe Kolczyki, Zbroje Twarzy Ducha i bronie 65
+  poziomu dla graczy, którzy je przerabiają, i trzymały je dla straganu.
+  Stragan wystawia najwyżej trzy linie jednego przedmiotu, więc każda
+  następna sztuka leżała w torbie na zawsze. W jednej torbie było ich
+  siedemnaście.
+- Teraz bot trzyma w torbie najwyżej trzy sztuki jednego takiego
+  przedmiotu, żeby zastąpić te, które sprzedadzą się ze straganu. Resztę
+  sprzedaje handlarzowi przy najbliższej wizycie w mieście. Bot, który
+  jest wybredny przy podnoszeniu łupu i ma już swoje trzy, zostawia
+  następne na ziemi.
+- Zioła, Fasolki Zen, Pigułki Krwi, siano, marchewki i księgi misji się
+  stackują, więc ich to nie dotyczy.
+
+### Auto Łowy: łucznik podbiega po przedmioty (klient 2.0.38, zgłosił Mur4s)
+
+- Łuk sięga daleko, więc prawie zawsze jakiś potwór był „w zasięgu”
+  i łucznik podnosił tylko to, co spadło mu pod nogi. Jego własna
+  Szkatułka Blasku Księżyca leżała kilka kroków dalej.
+- Teraz przedmiot w pobliżu ma pierwszeństwo przed potworem, który nie
+  stoi tuż obok, także z łukiem w ręku. Potwór tuż obok nadal jest
+  pierwszy. U postaci walczących wręcz nic się nie zmienia.
+
+### Gdy Windows zablokuje klienta (zgłosili 6zmacko i Meskele)
+
+- 25 września gracze zaczęli zgłaszać, że Windows Defender uznaje klienta
+  gry (metin2client.exe) za zagrożenie (np. Trojan:Script/Wacatac)
+  i przenosi go do kwarantanny, a Inteligentna kontrola aplikacji (Smart
+  App Control) nie pozwala go uruchomić. To fałszywy alarm: plik nie ma
+  podpisu cyfrowego, więc ocenia go heurystyka. Inne antywirusy na
+  VirusTotal nic w nim nie znajdują.
+- Zamiast surowego błędu Windows launcher mówi teraz, co się stało i co
+  można zrobić: przy blokadzie przez Smart App Control, przy blokadzie
+  przez antywirusa i wtedy, gdy klienta nie ma już w folderze, bo zabrał go
+  antywirus. Zadziała po ponownym uruchomieniu launchera.
+- Co zrobić już teraz: Zabezpieczenia Windows > Ochrona przed wirusami
+  i zagrożeniami > Historia ochrony > wpis z metin2client.exe > Akcje >
+  Przywróć, a potem dodaj folder klienta do wykluczeń (Ochrona przed
+  wirusami i zagrożeniami > Zarządzaj ustawieniami > Wykluczenia). Smart
+  App Control nie ma listy wyjątków: klient uruchomi się dopiero po jej
+  wyłączeniu (Kontrola aplikacji i przeglądarki), a Windows może potem nie
+  pozwolić włączyć jej z powrotem bez ponownej instalacji systemu.
+
+### Ekwipunek i umiejętności Towarzysza (zgłosił GorącyDelfin)
+
+- W oknie Towarzysza (klawisz P) są dwa nowe przyciski: Ekwipunek
+  i Umiejętności.
+- Ekwipunek wygląda jak Twój: to, co Towarzysz ma na sobie, jego torba
+  (cztery strony) i jego yang. Przedmioty przeciągasz myszą jak u siebie:
+  w jego torbie, z jego torby do Twojej i z powrotem, a także prosto na
+  jego miejsca na ekwipunek.
+- Prawy albo podwójny klik zakłada przedmiot z jego torby albo zdejmuje
+  założony.
+- To, co założysz Towarzyszowi, zostaje na nim. Nie zdejmie tego sam, nie
+  zamieni na inny przedmiot, nie zaniesie do kowala i nie przelosuje na nim
+  bonusów (może najwyżej dodać nowy). To, co zdejmiesz, zostaje w jego
+  torbie: Towarzysz sam tego nie założy. Takie przedmioty są podświetlone
+  na kolorowo. Ctrl + klik albo przycisk „Odepnij” oddaje decyzję
+  Towarzyszowi. Dotąd potrafił odłożyć do torby np. dzwon z +12 INT
+  i założyć w jego miejsce inny.
+- Przedmiot, którego Towarzysz nie może założyć (klasa, płeć, poziom,
+  statystyki), zostaje w Twojej torbie, a okno pisze dlaczego.
+- Okno Umiejętności pokazuje umiejętności jego ścieżki z poziomami
+  (1–17, M1–M10, G1–G10, P) i wolne punkty. Plusem dodajesz punkt. Od
+  pierwszego punktu dodanego przez Ciebie to Ty rozdajesz punkty, a
+  Towarzysz przestaje robić to sam. Przycisk pod listą przełącza to
+  z powrotem.
+- Sprawdziliśmy to po stronie serwera na świecie testowym: autotest
+  wydawał te same polecenia, które wysyła okno. Samego okna w kliencie nie
+  uruchamialiśmy, więc piszcie, jeśli coś w nim wygląda źle.
+
+### „Poddaję się”: boty odpuszczają (zgłosił Mur4s)
+
+- Napisz szeptem do dowolnego bota „poddaję się” (albo „rozejm”, „odpuść”,
+  „litości”, „mam dość”), a boty dadzą Ci 30 minut spokoju. Nie zaatakuje
+  Cię ani uderzony bot, ani jego drużyna, ani jego gildia. „Dość”, „stop”,
+  „przepraszam” i „sorry” też działają, jeśli boty akurat z Tobą walczą.
+- Boty odpuszczają też same, gdy dwa razy w ciągu kwadransa padniesz
+  w walce z nimi. Dostajesz wtedy wiadomość na czacie.
+- Rozejm kończy się, gdy zaatakujesz bota, ale tylko takiego, którego masz
+  zaznaczonego. Umiejętności obszarowe rzucone na potwora, obok którego
+  stoją boty, rozejmu nie zrywają. Najpewniej to one ściągały wcześniej na
+  gracza przy bossie całą gildię botów: każde muśnięcie liczyło się jako
+  atak na bota.
+- Po zerwaniu rozejmu kolejny przez szept można dostać dopiero po 10
+  minutach.
+- Rozejm obowiązuje na kanale, na którym go zawarto, i kończy się przy
+  restarcie serwera.
+- Wojen gildii i pojedynków to nie dotyczy.
+- Nie mogliśmy tego sprawdzić z prawdziwym graczem: na świecie testowym
+  nie ma nikogo, z kim boty by walczyły.
+
+### Towarzysz buffuje Ciebie w trakcie walki (zgłosił Teivos)
+
+- Szaman-Towarzysz buffował właściciela tylko wtedy, gdy nie miał z kim
+  walczyć, a przy polującym właścicielu zawsze ma. W walce odnawiał buffy
+  wyłącznie sobie. Teraz przed każdym ciosem sprawdza Twoje buffy
+  i odnawia te, których brakuje.
+- Na świecie testowym szamanka-towarzysz rzucała Odbicie i Błogosławieństwo
+  na właściciela między swoimi atakami.
+
+### Słabe kamienie duszy idą do Alchemika (zgłosił DUDU, pomysł Iwakury)
+
+- Boty wystawiały na targ tysiące kamieni duszy +0 do +2 i nic więcej z nimi
+  nie robiły. Teraz 85 na 100 takich kamieni bot zanosi Alchemikowi
+  w pierwszej wiosce i wymienia na Magiczny Pył, jak gracz (500 yang za
+  sztukę pyłu). Pozostałe 15 na 100 nadal trafia na targ. Pył boty
+  wystawiają na sprzedaż.
+- Na świecie testowym w pierwszą godzinę: 82 wymiany, 342 kamienie, 666
+  sztuk pyłu.
+
+### Stragany dropperów znów się odnawiają (zgłosił SIZOWSKI)
+
+- Po każdym uruchomieniu serwera wygasły sklep offline zostawał na mapie
+  jako „duch”, w którego nie dało się kliknąć. To on blokował odnowienie
+  straganu w tym samym miejscu, więc stragany dropperów medali stały
+  wygasłe godzinami. Teraz wygasły sklep znika z mapy. Jeśli walka przerwie
+  botowi obsługę straganu, bot wraca do niego po chwili, a nie dopiero po
+  następnym obchodzie.
+
+### Boty różnych królestw nie biją się już o Metiny (zgłosił DUDU)
+
+- Bot dołączał do każdego bitego kamienia, a przy kamieniu bot, który był
+  pierwszy, bije przybysza z innego królestwa. Nawet przy suwaku
+  „Wrogość między królestwami” ustawionym na 0% kończyło się to bójkami.
+  Teraz bot dołącza tylko do kamienia, który biją boty jego królestwa,
+  a omija kamień innego królestwa.
+- Bot innego królestwa jest dla bota rywalem przy kamieniu tylko wtedy, gdy
+  ten suwak zalicza bota do wrogich innym królestwom. To te same boty, które
+  zaczepiają boty innych królestw na wspólnych mapach. Przy 0% boty różnych
+  królestw nie biją się o Metiny wcale. Gracz innego królestwa, który bije
+  kamień bota, jest dla niego rywalem jak dotąd.
+- Bot w rajdzie na bossa nie idzie już bronić królestwa przed Egzekutorem
+  i nie wraca do dawnych porachunków. To one odciągały boty od Wodza
+  Orków.
+
+### Towarzysz rozumie więcej słów
+
+- „zrób miejsce”, „opróżnij”, „wyczyść eq” i „sprzedaj śmieci” wysłane
+  szeptem działają jak „zakupy”: Towarzysz idzie do miasta sprzedać
+  śmieci u handlarza.
+
 ## 2.2.16 — 2026-09-25
 
 Serwer 2.2.16. Klient bez zmian (2.0.36, z wydania 2.2.15). Zawiera wszystko z 2.2.15.

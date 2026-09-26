@@ -2038,6 +2038,9 @@ function Join-CoopAction {
     foreach ($note in @(Get-M2CoopJoinNotes -Choice $choice)) {
         Write-Host $note -ForegroundColor $(if ($choice.Answers) { 'Green' } else { 'Yellow' })
     }
+    # A client exe from before 2.0.17 cannot enter a friend's world at all
+    # (Test-M2CoopClientExeOld).
+    if (Test-M2CoopClientExeOld -ClientFolder $client) { Write-Host (Get-M2CoopOldClientNote) -ForegroundColor Red }
 }
 
 # ---------------------------------------------------------------- vps

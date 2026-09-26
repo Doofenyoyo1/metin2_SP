@@ -254,6 +254,8 @@ namespace
 			state.lDeathX = ch->GetX();
 			state.lDeathY = ch->GetY();
 			++state.bDeathCount;
+			// A companion's fight goes on with its owner (playerbot_sidekick.h).
+			NotePlayerBotSidekickDown(ch, dwNow);
 			// A Conqueror dying to monsters too often has outgrown its gear
 			// (playerbot_persona.h).
 			NotePlayerBotPersonaDeath(ch, state, dwNow);

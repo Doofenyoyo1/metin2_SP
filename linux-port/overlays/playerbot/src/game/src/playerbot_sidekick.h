@@ -82,6 +82,10 @@ namespace
 	// owner's own target is fought this far from the owner.
 	const int PLAYERBOT_SIDEKICK_GUARD_RANGE = 1800;
 	const int PLAYERBOT_SIDEKICK_ASSIST_RANGE = 2500;
+	// A companion's kill counts for its owner's quests while the owner stands
+	// this near the corpse (CPlayerBotManager::GetSidekickKillCredit): the reach
+	// of a party's shared experience.
+	const int PLAYERBOT_SIDEKICK_KILL_CREDIT_RANGE = 5000;
 	// The drops it goes for, and the step at which it takes one. The server
 	// hands a pick-up over from 600 (@fixme173), so the step stays inside it.
 	const int PLAYERBOT_SIDEKICK_LOOT_RANGE = 1200;
@@ -138,6 +142,68 @@ namespace
 	// nothing to do, and one still going after the second is called off.
 	const DWORD PLAYERBOT_SIDEKICK_ERRAND_START_MS = 15000;
 	const DWORD PLAYERBOT_SIDEKICK_ERRAND_MAX_MS = 8 * 60 * 1000;
+	// The window of its bag and skills (uisidekickinventory.py): the version of
+	// what it is sent, where a worn position starts (1000 + WEAR_*), the cells
+	// of one bag page, the mark of a piece its owner took off, how long the
+	// fight holds off for a piece its owner put on, and how many lines one
+	// answer may carry - more than a full bag and every slot, so a full picture
+	// is one answer and a runaway is still bounded.
+	const int PLAYERBOT_SIDEKICK_EQ_PROTOCOL = 1;
+	const int PLAYERBOT_SIDEKICK_EQ_WEAR_BASE = 1000;
+	const int PLAYERBOT_SIDEKICK_EQ_PAGE_CELLS = 45;
+	const BYTE PLAYERBOT_SIDEKICK_PIN_UNWANTED = 255;
+	const DWORD PLAYERBOT_SIDEKICK_EQUIP_WAIT_MS = 4000;
+	const size_t PLAYERBOT_SIDEKICK_EQ_MAX_LINES = 260;
+	// A companion that falls, is sent away or leaves on an errand in the
+	// middle of a fight hands what was fighting it to its owner (the operator, 25
+	// September: "Boty zaczepione przez towarzysza niech lapia tez aggro na nas
+	// (np. jak nasz towarzysz zginie)"). The engine gives a monster whose
+	// victim died a new one only when the monster is aggressive
+	// (CHARACTER::StateBattle, FindVictim), so a pack the companion was holding
+	// walked home the moment it fell, and the owner's fight ended with the
+	// monsters back at their spawn. What fought it is remembered this long - by
+	// the time the tick sees the companion dead some have let it go already -
+	// and a monster is handed over within this distance of the owner.
+	const DWORD PLAYERBOT_SIDEKICK_FOE_MEMORY_MS = 10000;
+	const DWORD PLAYERBOT_SIDEKICK_FOE_MEMORY_EVERY_MS = 1000;
+	const size_t PLAYERBOT_SIDEKICK_FOE_MEMORY_MAX = 32;
+	const int PLAYERBOT_SIDEKICK_HANDOFF_RANGE = 2500;
+	// The owner spends the stat points (the window's "Statystyki"; Kiciamol,
+	// 25 September: "Dodasz jeszcze mozliwosc dodawania statystyk przez
+	// gracza?" - the operator: "Tak"). One order adds at most this many points.
+	const int PLAYERBOT_SIDEKICK_STAT_ORDER_MAX = 10;
+	// "Lurowanie" in the window (the operator, 25 September: "towarzysz zbiera 3
+	// grupki mobow - moby zwykle sa w trojke/czworke, wiec niech jakos to
+	// odroznia i zbiera spoty"). A course wakes up to this many packs round
+	// the owner and walks back with them. A pack is one group as the regen
+	// spawned it - a "g" or "r" line makes one CParty of three or four, and a
+	// blow at one wakes the rest (CParty's PM_AGGRO_INCREASE) - and a monster
+	// with no group is a pack of one, taken only when no group is in reach.
+	const int PLAYERBOT_SIDEKICK_LURE_PACKS = 3;
+	// Looked for this far round the owner and not nearer - what stands at the
+	// owner is the owner's fight already - and one pack this far at least from
+	// the spots woken before it in the course, or it is the same spot.
+	const int PLAYERBOT_SIDEKICK_LURE_MIN_RANGE = 600;
+	const int PLAYERBOT_SIDEKICK_LURE_MAX_RANGE = 2600;
+	const int PLAYERBOT_SIDEKICK_LURE_SEPARATION = 700;
+	// A pack further over the owner's level than this is left alone.
+	const int PLAYERBOT_SIDEKICK_LURE_LEVEL_OVER = 5;
+	// A course begins only while this few monsters are on the owner and the
+	// companion - the last pull is as good as dealt with - and while both
+	// have this much of their health; it turns back under the second share.
+	const int PLAYERBOT_SIDEKICK_LURE_BUSY_MONSTERS = 2;
+	const int PLAYERBOT_SIDEKICK_LURE_START_HP_PERCENT = 60;
+	const int PLAYERBOT_SIDEKICK_LURE_ABORT_HP_PERCENT = 35;
+	// Close enough to strike, the walk to one pack, the whole course, the
+	// owner walking off from where it began it, back at the owner, and the
+	// wait between two courses and after a look that found nothing.
+	const int PLAYERBOT_SIDEKICK_LURE_STRIKE_RANGE = 900;
+	const DWORD PLAYERBOT_SIDEKICK_LURE_APPROACH_MS = 12000;
+	const DWORD PLAYERBOT_SIDEKICK_LURE_COURSE_MS = 45000;
+	const int PLAYERBOT_SIDEKICK_LURE_ANCHOR_LEASH = 1200;
+	const int PLAYERBOT_SIDEKICK_LURE_BACK_RANGE = 350;
+	const DWORD PLAYERBOT_SIDEKICK_LURE_PAUSE_MS = 3000;
+	const DWORD PLAYERBOT_SIDEKICK_LURE_NOTHING_MS = 6000;
 
 	// What it picks up at the owner's side.
 	enum EPlayerBotSidekickLoot
@@ -157,6 +223,10 @@ namespace
 		BYTE bLoot;
 		bool bProtect;	// takes what hits a losing owner
 		bool bBuffs;	// a Shaman's buffs on the owner
+		bool bManualSkills;	// the owner spends its skill points, the AI none
+		bool bManualStats;	// the owner spends its stat points, the AI none
+		bool bStatResetUsed;	// the one reset of its stats for nothing is gone
+		bool bLure;	// wakes packs round the owner and brings them over
 		BYTE bGroup;
 		BYTE bLevel;
 		bool bSetupDone;
@@ -166,7 +236,8 @@ namespace
 		TPlayerBotSidekick()
 			: dwOwnerPID(0), dwSidekickPID(0), bMode(PLAYERBOT_SIDEKICK_FOLLOW),
 			  bStance(PLAYERBOT_SIDEKICK_STANCE_ATTACK), bLoot(PLAYERBOT_SIDEKICK_LOOT_ALL), bProtect(true),
-			  bBuffs(true), bGroup(0), bLevel(1), bSetupDone(true), dwOwnerSeenAt(0), dwNextSpawnTry(0)
+			  bBuffs(true), bManualSkills(false), bManualStats(false), bStatResetUsed(false), bLure(false),
+			  bGroup(0), bLevel(1), bSetupDone(true), dwOwnerSeenAt(0), dwNextSpawnTry(0)
 		{
 		}
 	};
@@ -189,6 +260,23 @@ namespace
 	// Every town visit an owner's order began, so the self-test can tell a
 	// begun one from a refused one.
 	unsigned int s_uPlayerBotSidekickErrands = 0;
+	// The self-test of the window alone (the file's first line "eq"), and the
+	// piece it hands over and takes back.
+	bool s_bPlayerBotSidekickSelfTestEq = false;
+	DWORD s_dwPlayerBotSidekickSelfTestGiftID = 0;
+	// The piece the window's self-test took off onto a chosen cell, and the
+	// slot a gift was dropped straight onto.
+	DWORD s_dwPlayerBotSidekickSelfTestPieceID = 0;
+	int s_iPlayerBotSidekickSelfTestGiftWear = -1;
+	const int PLAYERBOT_SIDEKICK_EQ_SELFTEST_STEPS = 15;
+	// The self-test of the stats, the lure and the handover (the file's first
+	// line "lure"): its owner - a bot - is put on a hunting spot of its village
+	// and stands there as a player standing on a spot does, until the step
+	// that lets the companion go.
+	bool s_bPlayerBotSidekickSelfTestLure = false;
+	const int PLAYERBOT_SIDEKICK_LURE_SELFTEST_STEPS = 17;
+	const int PLAYERBOT_SIDEKICK_LURE_SELFTEST_FREE_STEP = 14;
+	bool s_bPlayerBotSidekickPinTable = false;
 
 	// What a companion carries between ticks that nobody else needs.
 	struct TPlayerBotSidekickRuntime
@@ -223,11 +311,46 @@ namespace
 		long long llErrandGold;
 		// What the window last got of its gear.
 		DWORD dwGearSent;
+		// The owner's hand on its gear (the window): item id -> the wear slot
+		// the owner put it on, or PLAYERBOT_SIDEKICK_PIN_UNWANTED for a piece
+		// the owner took off.
+		std::map<DWORD, BYTE> mapPins;
+		// What the bag window was last sent, by position, the batch number and
+		// the yang beside it.
+		std::map<int, DWORD> mapEqSent;
+		DWORD dwEqGen;
+		long long llEqGoldSent;
+		// A piece the owner put on while a blow was fresh: the fight holds off
+		// until it is on or this passes.
+		DWORD dwEquipWaitUntil;
+		// When it last saw its owner in a fight (IsPlayerBotSidekickOwnerFighting).
+		DWORD dwOwnerFightSeenAt;
+		// What fought it lately (monster vid -> when), handed to the owner when
+		// it falls or leaves (HandPlayerBotSidekickFoesToOwner).
+		std::map<DWORD, DWORD> mapFoesOnSelf;
+		DWORD dwNextFoeMemory;
+		// A lure course (ManagePlayerBotSidekickLure): 0 none, 1 walking out
+		// to a pack, 2 walking back with what it woke; the pack it walks to,
+		// how many it woke, where the owner stood when it began, the spots it
+		// woke, and its clocks.
+		BYTE bLureStage;
+		DWORD dwLureVID;
+		int iLurePacks;
+		int iLureMonsters;
+		long lLureAnchorX;
+		long lLureAnchorY;
+		std::vector<std::pair<long, long> > vecLureSpots;
+		DWORD dwLureCourseSince;
+		DWORD dwLureStageSince;
+		DWORD dwNextLure;
+		unsigned int uLureCourses;
 		TPlayerBotSidekickRuntime()
 			: dwNextPartyCheck(0), dwNextService(0), dwNextLoot(0), dwNextCatchUp(0), dwLootVID(0),
 			  dwLootSince(0), dwNextProtect(0), bTrading(false), dwLastFoeVID(0), bHold(false), lHoldMap(0),
 			  lHoldX(0), lHoldY(0), bErrand(false), bErrandVisit(false), dwErrandSince(0), llErrandGold(0),
-			  dwGearSent(0)
+			  dwGearSent(0), dwEqGen(0), llEqGoldSent(-1), dwEquipWaitUntil(0), dwOwnerFightSeenAt(0),
+			  dwNextFoeMemory(0), bLureStage(0), dwLureVID(0), iLurePacks(0), iLureMonsters(0), lLureAnchorX(0),
+			  lLureAnchorY(0), dwLureCourseSince(0), dwLureStageSince(0), dwNextLure(0), uLureCourses(0)
 		{
 			memset(adwFoes, 0, sizeof(adwFoes));
 		}
@@ -279,16 +402,33 @@ namespace
 		// The stance and the window's settings came a day after the table, which
 		// the test world already held; without the columns the companions still
 		// load, with the defaults, and keep what they are told while the core
-		// runs.
+		// runs. The stat points, the stat reset and the lure came the day
+		// after that, in the same statement.
 		std::unique_ptr<SQLMsg> settings(AccountDB::instance().DirectQuery(
 				"ALTER TABLE player.playerbot_sidekick "
 				"ADD COLUMN IF NOT EXISTS stance TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER mode, "
 				"ADD COLUMN IF NOT EXISTS loot TINYINT UNSIGNED NOT NULL DEFAULT 2 AFTER stance, "
 				"ADD COLUMN IF NOT EXISTS protect TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER loot, "
-				"ADD COLUMN IF NOT EXISTS buffs TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER protect"));
+				"ADD COLUMN IF NOT EXISTS buffs TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER protect, "
+				"ADD COLUMN IF NOT EXISTS manual_skills TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER buffs, "
+				"ADD COLUMN IF NOT EXISTS manual_stats TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER manual_skills, "
+				"ADD COLUMN IF NOT EXISTS stat_reset TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER manual_stats, "
+				"ADD COLUMN IF NOT EXISTS lure TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER stat_reset"));
 		s_bPlayerBotSidekickSettingsColumns = settings.get() && settings->uiSQLErrno == 0;
 		if (!s_bPlayerBotSidekickSettingsColumns)
 			sys_err("PLAYERBOT_SIDEKICK: no settings columns errno=%u", settings.get() ? settings->uiSQLErrno : 0U);
+		// What the owner put on or took off in the window. Without the table
+		// the marks hold while the core runs.
+		std::unique_ptr<SQLMsg> pins(AccountDB::instance().DirectQuery(
+				"CREATE TABLE IF NOT EXISTS player.playerbot_sidekick_pin ("
+				"item_id INT UNSIGNED NOT NULL PRIMARY KEY, "
+				"sidekick_pid INT UNSIGNED NOT NULL, "
+				"wear TINYINT UNSIGNED NOT NULL, "
+				"pinned_at DATETIME NOT NULL, "
+				"KEY sidekick (sidekick_pid)) ENGINE=InnoDB"));
+		s_bPlayerBotSidekickPinTable = pins.get() && pins->uiSQLErrno == 0;
+		if (!s_bPlayerBotSidekickPinTable)
+			sys_err("PLAYERBOT_SIDEKICK: no pin table errno=%u", pins.get() ? pins->uiSQLErrno : 0U);
 		// A companion whose owner's character was deleted would be kept out of
 		// the population for good: its record goes, and the identity plays on
 		// as the bot it was, under the name it was given.
@@ -307,8 +447,8 @@ namespace
 			return;
 		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(s_bPlayerBotSidekickSettingsColumns
 				? "SELECT owner_pid, sidekick_pid, mode, skill_group, start_level, setup_done, stance, loot, "
-				  "protect, buffs FROM player.playerbot_sidekick"
-				: "SELECT owner_pid, sidekick_pid, mode, skill_group, start_level, setup_done, 0, 2, 1, 1 "
+				  "protect, buffs, manual_skills, manual_stats, stat_reset, lure FROM player.playerbot_sidekick"
+				: "SELECT owner_pid, sidekick_pid, mode, skill_group, start_level, setup_done, 0, 2, 1, 1, 0, 0, 0, 0 "
 				  "FROM player.playerbot_sidekick"));
 		if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
 			return;
@@ -318,7 +458,8 @@ namespace
 		while (NULL != (row = mysql_fetch_row(msg->Get()->pSQLResult)))
 		{
 			TPlayerBotSidekick rec;
-			unsigned int mode = 0, group = 0, level = 1, done = 0, stance = 0, loot = 2, protect = 1, buffs = 1;
+			unsigned int mode = 0, group = 0, level = 1, done = 0, stance = 0, loot = 2, protect = 1, buffs = 1,
+					manual = 0, manualStats = 0, statReset = 0, lure = 0;
 			if (row[0]) str_to_number(rec.dwOwnerPID, row[0]);
 			if (row[1]) str_to_number(rec.dwSidekickPID, row[1]);
 			if (row[2]) str_to_number(mode, row[2]);
@@ -329,6 +470,10 @@ namespace
 			if (row[7]) str_to_number(loot, row[7]);
 			if (row[8]) str_to_number(protect, row[8]);
 			if (row[9]) str_to_number(buffs, row[9]);
+			if (row[10]) str_to_number(manual, row[10]);
+			if (row[11]) str_to_number(manualStats, row[11]);
+			if (row[12]) str_to_number(statReset, row[12]);
+			if (row[13]) str_to_number(lure, row[13]);
 			if (rec.dwOwnerPID == 0 || rec.dwSidekickPID == 0)
 				continue;
 			rec.bMode = mode == PLAYERBOT_SIDEKICK_FREE ? PLAYERBOT_SIDEKICK_FREE : PLAYERBOT_SIDEKICK_FOLLOW;
@@ -336,6 +481,10 @@ namespace
 			rec.bLoot = (BYTE)std::min<unsigned int>(loot, PLAYERBOT_SIDEKICK_LOOT_ALL);
 			rec.bProtect = protect != 0;
 			rec.bBuffs = buffs != 0;
+			rec.bManualSkills = manual != 0;
+			rec.bManualStats = manualStats != 0;
+			rec.bStatResetUsed = statReset != 0;
+			rec.bLure = lure != 0;
 			rec.bGroup = (BYTE)std::min<unsigned int>(group, 2);
 			rec.bLevel = (BYTE)std::max<unsigned int>(1, std::min<unsigned int>(level, 255));
 			rec.bSetupDone = done != 0;
@@ -354,6 +503,10 @@ namespace
 					rec.bLoot = old->second.bLoot;
 					rec.bProtect = old->second.bProtect;
 					rec.bBuffs = old->second.bBuffs;
+					rec.bManualSkills = old->second.bManualSkills;
+					rec.bManualStats = old->second.bManualStats;
+					rec.bStatResetUsed = old->second.bStatResetUsed;
+					rec.bLure = old->second.bLure;
 				}
 			}
 			fresh[rec.dwOwnerPID] = rec;
@@ -489,6 +642,89 @@ namespace
 				rt->second.setGifts.find(item->GetID()) != rt->second.setGifts.end();
 	}
 
+	// The owner's mark on a piece of its companion's (the window, below): the
+	// wear slot the owner put it on, PLAYERBOT_SIDEKICK_PIN_UNWANTED for one
+	// the owner took off, -1 for none. Asked by the equipment, refine, bonus
+	// and junk passes of every bot, so the empty case is one test.
+	int GetPlayerBotSidekickPinOf(LPCHARACTER ch, LPITEM item)
+	{
+		if (!ch || !item || s_mapPlayerBotSidekickRuntime.empty())
+			return -1;
+		std::map<DWORD, TPlayerBotSidekickRuntime>::const_iterator rt =
+				s_mapPlayerBotSidekickRuntime.find(ch->GetPlayerID());
+		if (rt == s_mapPlayerBotSidekickRuntime.end() || rt->second.mapPins.empty())
+			return -1;
+		std::map<DWORD, BYTE>::const_iterator pin = rt->second.mapPins.find(item->GetID());
+		return pin == rt->second.mapPins.end() ? -1 : (int)pin->second;
+	}
+
+	// Put on by its owner: kept on, never refined, its lines never changed.
+	bool IsPlayerBotSidekickPinned(LPCHARACTER ch, LPITEM item)
+	{
+		const int pin = GetPlayerBotSidekickPinOf(ch, item);
+		return pin >= 0 && pin != PLAYERBOT_SIDEKICK_PIN_UNWANTED;
+	}
+
+	// Taken off by its owner: the AI never puts it back on.
+	bool IsPlayerBotSidekickUnwanted(LPCHARACTER ch, LPITEM item)
+	{
+		return GetPlayerBotSidekickPinOf(ch, item) == PLAYERBOT_SIDEKICK_PIN_UNWANTED;
+	}
+
+	// A piece its owner put on that waits in the bag - refused for the moment
+	// (a blow in the last second and a half), or taken off by something since
+	// (a fishing session with the leash let go) - with the slot it goes to.
+	// askEngine: only one the engine would let on now.
+	LPITEM FindPlayerBotSidekickPinnedInBag(LPCHARACTER ch, int& wearCell, bool askEngine)
+	{
+		wearCell = -1;
+		if (!ch || s_mapPlayerBotSidekickRuntime.empty())
+			return NULL;
+		std::map<DWORD, TPlayerBotSidekickRuntime>::const_iterator rt =
+				s_mapPlayerBotSidekickRuntime.find(ch->GetPlayerID());
+		if (rt == s_mapPlayerBotSidekickRuntime.end() || rt->second.mapPins.empty())
+			return NULL;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetCell() != cell)
+				continue;
+			std::map<DWORD, BYTE>::const_iterator pin = rt->second.mapPins.find(item->GetID());
+			if (pin == rt->second.mapPins.end() || pin->second == PLAYERBOT_SIDEKICK_PIN_UNWANTED ||
+					pin->second >= WEAR_MAX_NUM)
+				continue;
+			LPITEM worn = ch->GetWear(pin->second);
+			if (worn && IS_SET(worn->GetFlag(), ITEM_FLAG_IRREMOVABLE))
+				continue;
+			if (askEngine && (item->isLocked() || item->IsExchanging() ||
+					!PlayerBotCanEquipNow(ch, item, TItemPos(INVENTORY, cell))))
+				continue;
+			wearCell = pin->second;
+			return item;
+		}
+		return NULL;
+	}
+
+	// The owner spends its skill points (the window's "reczne"), and the skill
+	// pass leaves them alone.
+	bool IsPlayerBotSidekickManualSkills(LPCHARACTER ch)
+	{
+		if (!ch || s_mapPlayerBotSidekickOwner.empty())
+			return false;
+		const TPlayerBotSidekick* rec = FindPlayerBotSidekickOf(ch->GetPlayerID());
+		return rec && rec->bManualSkills;
+	}
+
+	// The owner spends its stat points (the window's "Statystyki"), and the
+	// stat pass (ManagePlayerBotStats) leaves them alone.
+	bool IsPlayerBotSidekickManualStats(LPCHARACTER ch)
+	{
+		if (!ch || s_mapPlayerBotSidekickOwner.empty())
+			return false;
+		const TPlayerBotSidekick* rec = FindPlayerBotSidekickOf(ch->GetPlayerID());
+		return rec && rec->bManualStats;
+	}
+
 	void SetPlayerBotSidekickFlag(DWORD ownerPid, const char* flag, int value)
 	{
 		quest::PC* pc = quest::CQuestManager::instance().GetPC(ownerPid);
@@ -514,6 +750,140 @@ namespace
 			case PLAYERBOT_SIDEKICK_STANCE_PASSIVE: return "nie walczy, tylko sie broni";
 			default: return "atakuje wszystko w poblizu";
 		}
+	}
+
+	// ------------------------------------------------ its fight, when it goes
+
+	// What is fighting the companion now: the monsters whose victim it is,
+	// round it.
+	struct FPlayerBotSidekickAttackers
+	{
+		LPCHARACTER self;
+		std::vector<DWORD> vids;
+
+		explicit FPlayerBotSidekickAttackers(LPCHARACTER s) : self(s)
+		{
+		}
+
+		void operator()(LPENTITY ent)
+		{
+			if (vids.size() >= PLAYERBOT_SIDEKICK_FOE_MEMORY_MAX || !ent || !ent->IsType(ENTITY_CHARACTER))
+				return;
+			LPCHARACTER c = (LPCHARACTER)ent;
+			if (c != self && !c->IsDead() && c->IsMonster() && c->GetVictim() == self)
+				vids.push_back((DWORD)c->GetVID());
+		}
+	};
+
+	void NotePlayerBotSidekickAttackers(LPCHARACTER ch, TPlayerBotSidekickRuntime& rt, DWORD dwNow)
+	{
+		if (!ch->GetSectree())
+			return;
+		FPlayerBotSidekickAttackers attackers(ch);
+		ch->GetSectree()->ForEachAround(attackers);
+		for (size_t i = 0; i < attackers.vids.size(); ++i)
+			rt.mapFoesOnSelf[attackers.vids[i]] = dwNow;
+	}
+
+	// Once a second at its owner's side: what fights it now joins what fought
+	// it lately, and what fought it long ago is forgotten. A stamp later than
+	// the pass's clock (a command in the same pass) is not old.
+	void RememberPlayerBotSidekickAttackers(LPCHARACTER ch, TPlayerBotSidekickRuntime& rt, DWORD dwNow)
+	{
+		if (dwNow < rt.dwNextFoeMemory)
+			return;
+		rt.dwNextFoeMemory = dwNow + PLAYERBOT_SIDEKICK_FOE_MEMORY_EVERY_MS;
+		for (std::map<DWORD, DWORD>::iterator it = rt.mapFoesOnSelf.begin(); it != rt.mapFoesOnSelf.end();)
+		{
+			if (dwNow > it->second && dwNow - it->second > PLAYERBOT_SIDEKICK_FOE_MEMORY_MS)
+				rt.mapFoesOnSelf.erase(it++);
+			else
+				++it;
+		}
+		if (rt.mapFoesOnSelf.size() < PLAYERBOT_SIDEKICK_FOE_MEMORY_MAX * 2)
+			NotePlayerBotSidekickAttackers(ch, rt, dwNow);
+	}
+
+	// The companion leaves its fight - it fell, was sent away or off on an
+	// errand, or let go to play on its own - and what was fighting it turns on
+	// its owner, the way a monster that is hit turns on who hit it: a place in
+	// its aggro and its victim (CHARACTER::BeginFight). The aggro is a single
+	// point, so the fight after it is the engine's to decide - the companion,
+	// back on its feet and hitting it again, has the larger share and takes it
+	// back (ChangeVictimByAggro). A monster fighting somebody else still
+	// standing is left to that fight, and one the owner cannot be hit by (a
+	// safe zone, a monster too far) stays where it is.
+	int HandPlayerBotSidekickFoesToOwner(LPCHARACTER ch, LPCHARACTER owner, TPlayerBotSidekickRuntime& rt,
+			DWORD dwNow, const char* why)
+	{
+		if (!owner || owner->IsDead() || !owner->GetSectree() || owner->GetMapIndex() != ch->GetMapIndex())
+		{
+			rt.mapFoesOnSelf.clear();
+			return 0;
+		}
+		NotePlayerBotSidekickAttackers(ch, rt, dwNow);
+		int handed = 0;
+		int tooFar = 0;
+		int refused = 0;
+		for (std::map<DWORD, DWORD>::const_iterator it = rt.mapFoesOnSelf.begin(); it != rt.mapFoesOnSelf.end(); ++it)
+		{
+			LPCHARACTER monster = CHARACTER_MANAGER::instance().Find(it->first);
+			if (!monster || monster->IsDead() || !monster->IsMonster() ||
+					monster->GetMapIndex() != owner->GetMapIndex())
+				continue;
+			LPCHARACTER victim = monster->GetVictim();
+			if (victim == owner || (victim && victim != ch && !victim->IsDead()))
+				continue;
+			if (DISTANCE_APPROX(monster->GetX() - owner->GetX(), monster->GetY() - owner->GetY()) >
+					PLAYERBOT_SIDEKICK_HANDOFF_RANGE)
+			{
+				++tooFar;
+				continue;
+			}
+			if (!battle_is_attackable(monster, owner))
+			{
+				++refused;
+				continue;
+			}
+			monster->UpdateAggrPoint(owner, DAMAGE_TYPE_SPECIAL, 1);
+			monster->BeginFight(owner);
+			++handed;
+		}
+		rt.mapFoesOnSelf.clear();
+		if (handed > 0 || tooFar > 0 || refused > 0)
+			sys_log(0, "PLAYERBOT_SIDEKICK: foes turned on the owner pid=%u name=%s owner=%u why=%s handed=%d "
+					"too_far=%d refused=%d", ch->GetPlayerID(), ch->GetName(), owner->GetPlayerID(), why, handed, tooFar,
+					refused);
+		return handed;
+	}
+
+	// The companion is seen dead (HandleDeath, playerbot_survival.h).
+	void NotePlayerBotSidekickDown(LPCHARACTER ch, DWORD dwNow)
+	{
+		if (!ch || s_mapPlayerBotSidekickOwner.empty())
+			return;
+		const TPlayerBotSidekick* rec = FindPlayerBotSidekickOf(ch->GetPlayerID());
+		if (!rec || rec->bMode != PLAYERBOT_SIDEKICK_FOLLOW)
+			return;
+		std::map<DWORD, TPlayerBotSidekickRuntime>::iterator rt = s_mapPlayerBotSidekickRuntime.find(ch->GetPlayerID());
+		if (rt == s_mapPlayerBotSidekickRuntime.end())
+			return;
+		// A course cut short by the fall: what it woke is in the memory.
+		rt->second.bLureStage = 0;
+		rt->second.dwLureVID = 0;
+		HandPlayerBotSidekickFoesToOwner(ch, GetPlayerBotSidekickOwnerChar(rec->dwOwnerPID), rt->second, dwNow, "down");
+	}
+
+	// Before an order takes the companion out of the owner's fight.
+	void HandPlayerBotSidekickFoesBeforeLeaving(DWORD sidekickPid, LPCHARACTER owner, const char* why)
+	{
+		LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(sidekickPid);
+		std::map<DWORD, TPlayerBotSidekickRuntime>::iterator rt = s_mapPlayerBotSidekickRuntime.find(sidekickPid);
+		if (!sk || sk->IsDead() || rt == s_mapPlayerBotSidekickRuntime.end())
+			return;
+		rt->second.bLureStage = 0;
+		rt->second.dwLureVID = 0;
+		HandPlayerBotSidekickFoesToOwner(sk, owner, rt->second, get_dword_time(), why);
 	}
 
 	// --------------------------------------------------------- being born
@@ -582,7 +952,9 @@ namespace
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
 				"AND l.pid NOT IN (SELECT owner FROM player.ikashop_offlineshop) "
 #endif
-				"ORDER BY (p.level > %d), ABS(CAST(p.level AS SIGNED) - %d), l.pid DESC LIMIT 120",
+				// A never-played identity first: a played one is one of the
+				// population's bots, taken out with everything it earned.
+				"ORDER BY (p.playtime > 0), (p.level > %d), ABS(CAST(p.level AS SIGNED) - %d), l.pid DESC LIMIT 120",
 				(unsigned int)empire, (unsigned int)race, PLAYERBOT_SIDEKICK_IDENTITY_IDLE_MINUTES,
 				ownerLevel, ownerLevel);
 		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
@@ -688,6 +1060,16 @@ namespace
 			SayPlayerBotSidekick(owner, "Nie udalo sie nadac nicku - sprobuj innego.");
 			return false;
 		}
+		// And the storekeeper's box of the account it was: a companion on a town
+		// errand takes books and materials back out of it (WithdrawPlayerBotSafebox),
+		// and the window then hands them to the owner. The db core writes the
+		// SAFEBOX window straight to the table and reads it from there, so the
+		// rows are the box; the bag is emptied on the first load
+		// (FinishPlayerBotSidekickSetup).
+		snprintf(query, sizeof(query),
+				"DELETE i FROM player.item AS i JOIN player.player AS p ON p.id=%u "
+				"WHERE i.window='SAFEBOX' AND i.owner_id=p.account_id", pid);
+		std::unique_ptr<SQLMsg> safebox(AccountDB::instance().DirectQuery(query));
 		const int level = MINMAX(1, owner->GetLevel(), 255);
 		snprintf(query, sizeof(query),
 				"INSERT INTO player.playerbot_sidekick (owner_pid, sidekick_pid, mode, skill_group, start_level, setup_done, created_at) "
@@ -884,6 +1266,94 @@ namespace
 			if (id != 0)
 				rt.setGifts.insert(id);
 		}
+		if (!s_bPlayerBotSidekickPinTable)
+			return;
+		// The window's marks, forgotten the same way: a day after the piece is
+		// nobody's or somebody else's (the owner takes a piece back through the
+		// window, which clears its mark at once).
+		snprintf(query, sizeof(query),
+				"DELETE p FROM player.playerbot_sidekick_pin AS p LEFT JOIN player.item AS i "
+				"ON i.id=p.item_id AND i.owner_id=p.sidekick_pid "
+				"WHERE p.sidekick_pid=%u AND i.id IS NULL AND p.pinned_at < NOW() - INTERVAL 1 DAY", sidekickPid);
+		std::unique_ptr<SQLMsg> prunePins(AccountDB::instance().DirectQuery(query));
+		snprintf(query, sizeof(query), "SELECT item_id, wear FROM player.playerbot_sidekick_pin WHERE sidekick_pid=%u",
+				sidekickPid);
+		std::unique_ptr<SQLMsg> pins(AccountDB::instance().DirectQuery(query));
+		if (!pins.get() || pins->uiSQLErrno != 0 || !pins->Get() || !pins->Get()->pSQLResult)
+			return;
+		while (NULL != (row = mysql_fetch_row(pins->Get()->pSQLResult)))
+		{
+			DWORD id = 0;
+			unsigned int wear = PLAYERBOT_SIDEKICK_PIN_UNWANTED;
+			if (row[0])
+				str_to_number(id, row[0]);
+			if (row[1])
+				str_to_number(wear, row[1]);
+			if (id != 0 && (wear < WEAR_MAX_NUM || wear == PLAYERBOT_SIDEKICK_PIN_UNWANTED))
+				rt.mapPins[id] = (BYTE)wear;
+		}
+	}
+
+	// A companion starts with nothing of the bot it was (Vipper, 26 September:
+	// "dostaje caly jego ekwipunek oraz yang"). Its identity is one of the
+	// population's, often played, and the window hands the owner anything it
+	// holds ("wez") - a bot's bag, its worn gear and its yang, and after a
+	// dismissal the next bot's; a seeded identity raised to the owner's level
+	// would open its starter chest and hand over the whole chain the same way.
+	// So the first load empties it and gives the class's starter weapon and
+	// armour and the two potions, as the seed gives a new bot. Only at
+	// creation: what the pair gathers afterwards is the pair's.
+	void ClearPlayerBotSidekickBelongings(LPCHARACTER ch)
+	{
+		int removed = 0;
+		for (int wear = 0; wear < WEAR_MAX_NUM; ++wear)
+		{
+			LPITEM worn = ch->GetWear(wear);
+			if (!worn)
+				continue;
+			ITEM_MANAGER::instance().RemoveItem(worn, "PLAYERBOT_SIDEKICK_CLEAR");
+			++removed;
+		}
+		for (int cell = 0; cell < INVENTORY_MAX_NUM; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetCell() != cell)
+				continue;
+			ITEM_MANAGER::instance().RemoveItem(item, "PLAYERBOT_SIDEKICK_CLEAR");
+			++removed;
+		}
+		const long long gold = (long long)ch->GetGold();
+		if (gold > 0)
+			PlayerBotChangeGold(ch, -gold);
+		// The seed's own starter set (playerbots_seed.sql): the class's first
+		// weapon and armour, red and blue potions.
+		static const DWORD weapons[4] = { 10, 1000, 10, 7000 };
+		static const DWORD armours[4] = { 11200, 11400, 11600, 11800 };
+		const int job = MINMAX(0, (int)ch->GetJob(), 3);
+		const DWORD starter[2] = { weapons[job], armours[job] };
+		for (int i = 0; i < 2; ++i)
+		{
+			LPITEM piece = ch->AutoGiveItem(starter[i], 1, -1, false);
+			if (piece && piece->GetOwner() == ch && piece->GetWindow() == INVENTORY)
+				PlayerBotEquipItem(ch, piece);
+		}
+		ch->AutoGiveItem(27001, 200, -1, false);
+		ch->AutoGiveItem(27004, 200, -1, false);
+		sys_log(0, "PLAYERBOT_SIDEKICK: belongings cleared pid=%u name=%s items=%d gold=%lld",
+				ch->GetPlayerID(), ch->GetName(), removed, gold);
+	}
+
+	// The setup's second half, on the companion's first tick with its bag
+	// loaded: what the bot it was carried goes, and the setup is written down.
+	void FinishPlayerBotSidekickSetup(LPCHARACTER ch, TPlayerBotSidekick& rec)
+	{
+		ClearPlayerBotSidekickBelongings(ch);
+		ch->Save();
+		rec.bSetupDone = true;
+		DBManager::instance().Query("UPDATE player.playerbot_sidekick SET setup_done=1 WHERE sidekick_pid=%u",
+				ch->GetPlayerID());
+		sys_log(0, "PLAYERBOT_SIDEKICK: set up pid=%u name=%s level=%d group=%u",
+				ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), (unsigned int)ch->GetSkillGroup());
 	}
 
 	void OnPlayerBotSidekickLoaded(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
@@ -903,19 +1373,19 @@ namespace
 		{
 			// The owner's level at its creation, then the path chosen - which a
 			// companion under level five takes at five
-			// (KeepPlayerBotSidekickPath).
+			// (KeepPlayerBotSidekickPath). Nothing of the bot it was goes once
+			// its bag has come (FinishPlayerBotSidekickSetup): this runs as the
+			// character loads, before the db core sends a single item, and the
+			// first cut emptied a bag that was not there yet - the bot's items
+			// arrived a moment later and stayed (the self-test, 26 September:
+			// "belongings cleared items=0", then its seed chest opened). Both
+			// steps are safe to repeat until the setup is written down.
 			RaisePlayerBotSidekickLevel(ch, rec->bLevel);
 			if (rec->bGroup != 0 && ch->GetLevel() >= 5 && ch->GetSkillGroup() != rec->bGroup)
 			{
 				ch->ClearSkill();
 				ch->SetSkillGroup(rec->bGroup);
 			}
-			ch->Save();
-			rec->bSetupDone = true;
-			DBManager::instance().Query("UPDATE player.playerbot_sidekick SET setup_done=1 WHERE sidekick_pid=%u",
-					ch->GetPlayerID());
-			sys_log(0, "PLAYERBOT_SIDEKICK: set up pid=%u name=%s level=%d group=%u",
-					ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), (unsigned int)ch->GetSkillGroup());
 		}
 		LPCHARACTER owner = GetPlayerBotSidekickOwnerChar(rec->dwOwnerPID);
 		if (owner && owner->GetSectree() && rec->bMode == PLAYERBOT_SIDEKICK_FOLLOW)
@@ -939,6 +1409,347 @@ namespace
 	bool HandlePlayerBotSidekickWhisper(LPCHARACTER from, LPCHARACTER bot, const char* text);
 	void HandlePlayerBotSidekickCommand(LPCHARACTER ch, const char* argument);
 	void SendPlayerBotSidekickWindow(LPCHARACTER owner, bool fullGear);
+	DWORD GetPlayerBotSidekickSkillBase(LPCHARACTER sk);
+	std::string GetPlayerBotSidekickWearRefusal(LPCHARACTER sk, LPITEM item, LPITEM replacing);
+	std::string GetPlayerBotSidekickHandOverRefusal(LPITEM item);
+	int CountPlayerBotSidekickChasers(LPCHARACTER ch);
+	int GetPlayerBotSidekickHealthPercent(LPCHARACTER ch);
+
+	// Where a piece of the companion's stands now: a bag cell, 1000 + the
+	// wear slot, or -1 when it has left both.
+	int FindPlayerBotSidekickSelfTestPiece(LPCHARACTER ch, DWORD id)
+	{
+		if (!id)
+			return -1;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (item && item->GetCell() == cell && item->GetID() == id)
+				return cell;
+		}
+		for (int wear = 0; wear < WEAR_MAX_NUM; ++wear)
+		{
+			LPITEM item = ch->GetWear(wear);
+			if (item && item->GetID() == id)
+				return PLAYERBOT_SIDEKICK_EQ_WEAR_BASE + wear;
+		}
+		return -1;
+	}
+
+	// The bag window's self-test (the self-test file's first line "eq"): one
+	// of the window's orders every pass of the self-test (half a minute), on
+	// the pair it makes or takes up, each answered in the log - where
+	// SendPlayerBotSidekickCommand writes every command while a self-test
+	// runs. A move in the bag, a piece handed over and taken back, the body
+	// armour taken off (and left off by the AI) and put on again (pinned), the
+	// skills, the pin undone; then the paths that move items the other way
+	// round - two pieces trading places, a stack poured on another, a piece
+	// taken off onto a chosen cell, a piece the companion can wear taken to
+	// the owner, handed back straight onto its slot, taken back off the slot
+	// and given back to the bag - and a skill point spent, each measured
+	// before and after (the units of a kind, where a piece ended up). The
+	// owner in a self-test is a bot, so the piece that goes round is the
+	// companion's own, and each round trip is made in one pass: given half a
+	// minute, the owner's own equipment pass put a necklace on.
+	void StepPlayerBotSidekickEqSelfTest(LPCHARACTER owner, LPCHARACTER sk, int step)
+	{
+		char order[96];
+		int from = -1;
+		int to = -1;
+		switch (step)
+		{
+			case 1:
+				HandlePlayerBotSidekickCommand(owner, "eq 1");
+				break;
+			case 2:
+				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && from < 0; ++cell)
+				{
+					LPITEM item = sk->GetInventoryItem(cell);
+					if (item && item->GetCell() == cell && item->GetSize() == 1 && !item->isLocked())
+						from = cell;
+				}
+				for (int cell = PLAYERBOT_BAG_CELLS - 1; cell >= 0 && to < 0; --cell)
+					if (!sk->GetInventoryItem(cell) && sk->IsEmptyItemGrid(TItemPos(INVENTORY, cell), 1))
+						to = cell;
+				snprintf(order, sizeof(order), "eq ruch %d %d", from, to);
+				HandlePlayerBotSidekickCommand(owner, order);
+				break;
+			case 3:
+				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && from < 0; ++cell)
+				{
+					LPITEM item = owner->GetInventoryItem(cell);
+					if (item && item->GetCell() == cell && item->GetSize() == 1 && !item->isLocked() &&
+							!item->IsExchanging() && !IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_GIVE))
+					{
+						from = cell;
+						s_dwPlayerBotSidekickSelfTestGiftID = item->GetID();
+					}
+				}
+				snprintf(order, sizeof(order), "eq daj %d -1", from);
+				HandlePlayerBotSidekickCommand(owner, order);
+				break;
+			case 4:
+				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && from < 0; ++cell)
+				{
+					LPITEM item = sk->GetInventoryItem(cell);
+					if (item && item->GetCell() == cell && item->GetID() == s_dwPlayerBotSidekickSelfTestGiftID)
+						from = cell;
+				}
+				snprintf(order, sizeof(order), "eq wez %d -1", from);
+				HandlePlayerBotSidekickCommand(owner, order);
+				break;
+			case 5:
+				snprintf(order, sizeof(order), "eq ruch %d -1", PLAYERBOT_SIDEKICK_EQ_WEAR_BASE + WEAR_BODY);
+				HandlePlayerBotSidekickCommand(owner, order);
+				break;
+			case 6:
+			{
+				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && from < 0; ++cell)
+				{
+					LPITEM item = sk->GetInventoryItem(cell);
+					if (item && item->GetCell() == cell && IsPlayerBotSidekickUnwanted(sk, item))
+						from = cell;
+				}
+				LPITEM body = sk->GetWear(WEAR_BODY);
+				sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test body_now=%u unwanted_cell=%d", body ? body->GetVnum() : 0U,
+						from);
+				snprintf(order, sizeof(order), "eq ruch %d %d", from, PLAYERBOT_SIDEKICK_EQ_WEAR_BASE + WEAR_BODY);
+				HandlePlayerBotSidekickCommand(owner, order);
+				break;
+			}
+			case 7:
+			{
+				LPITEM body = sk->GetWear(WEAR_BODY);
+				sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test body=%u pinned=%d points=%d", body ? body->GetVnum() : 0U,
+						body && IsPlayerBotSidekickPinned(sk, body) ? 1 : 0, (int)sk->GetPoint(POINT_SKILL));
+				HandlePlayerBotSidekickCommand(owner, "umiejetnosci");
+				const DWORD base = GetPlayerBotSidekickSkillBase(sk);
+				if (base != 0 && sk->GetPoint(POINT_SKILL) > 0)
+				{
+					snprintf(order, sizeof(order), "umiejetnosci dodaj %u", base);
+					HandlePlayerBotSidekickCommand(owner, order);
+				}
+				HandlePlayerBotSidekickCommand(owner, "umiejetnosci reczne 0");
+				break;
+			}
+			case 8:
+				snprintf(order, sizeof(order), "eq odepnij %d", PLAYERBOT_SIDEKICK_EQ_WEAR_BASE + WEAR_BODY);
+				HandlePlayerBotSidekickCommand(owner, order);
+				HandlePlayerBotSidekickCommand(owner, "eq");
+				break;
+			case 9:
+			{
+				// Two pieces of one size and two kinds trade places.
+				int a = -1;
+				int b = -1;
+				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && b < 0; ++cell)
+				{
+					LPITEM item = sk->GetInventoryItem(cell);
+					if (!item || item->GetCell() != cell || item->isLocked())
+						continue;
+					LPITEM first = a >= 0 ? sk->GetInventoryItem(a) : NULL;
+					if (!first)
+						a = cell;
+					else if (first->GetSize() == item->GetSize() && first->GetVnum() != item->GetVnum())
+						b = cell;
+				}
+				if (a < 0 || b < 0)
+				{
+					sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test swap: no pair");
+					break;
+				}
+				const DWORD idA = sk->GetInventoryItem(a)->GetID();
+				const DWORD idB = sk->GetInventoryItem(b)->GetID();
+				snprintf(order, sizeof(order), "eq ruch %d %d", a, b);
+				HandlePlayerBotSidekickCommand(owner, order);
+				sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test swap a=%d b=%d a_now=%d b_now=%d", a, b,
+						FindPlayerBotSidekickSelfTestPiece(sk, idA), FindPlayerBotSidekickSelfTestPiece(sk, idB));
+				break;
+			}
+			case 10:
+			{
+				// A stack poured on another of its kind with room to spare; the
+				// units of the kind are the same afterwards.
+				int into = -1;
+				for (WORD i = 0; i < PLAYERBOT_BAG_CELLS && into < 0; ++i)
+				{
+					LPITEM x = sk->GetInventoryItem(i);
+					if (!x || x->GetCell() != i || !x->IsStackable() || x->isLocked() ||
+							(int)x->GetCount() >= PlayerBotMaxStack(x))
+						continue;
+					for (WORD j = 0; j < PLAYERBOT_BAG_CELLS; ++j)
+					{
+						LPITEM y = sk->GetInventoryItem(j);
+						if (j != i && y && y->GetCell() == j && y->GetVnum() == x->GetVnum() && !y->isLocked())
+						{
+							from = j;
+							into = i;
+							break;
+						}
+					}
+				}
+				if (into < 0)
+				{
+					sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test pour: no two stacks of a kind with room");
+					break;
+				}
+				const DWORD vnum = sk->GetInventoryItem(into)->GetVnum();
+				const int unitsBefore = sk->CountSpecifyItem(vnum);
+				const int intoBefore = (int)sk->GetInventoryItem(into)->GetCount();
+				const int fromBefore = (int)sk->GetInventoryItem(from)->GetCount();
+				snprintf(order, sizeof(order), "eq ruch %d %d", from, into);
+				HandlePlayerBotSidekickCommand(owner, order);
+				LPITEM intoNow = sk->GetInventoryItem(into);
+				LPITEM fromNow = sk->GetInventoryItem(from);
+				sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test pour vnum=%u from=%d(%d->%d) into=%d(%d->%d) units=%d->%d",
+						vnum, from, fromBefore, fromNow && fromNow->GetVnum() == vnum ? (int)fromNow->GetCount() : 0,
+						into, intoBefore, intoNow ? (int)intoNow->GetCount() : -1, unitsBefore,
+						sk->CountSpecifyItem(vnum));
+				break;
+			}
+			case 11:
+			{
+				// A worn piece taken off onto a cell chosen for it.
+				static const int kinds[] = { WEAR_HEAD, WEAR_FOOTS, WEAR_WRIST, WEAR_NECK, WEAR_EAR, WEAR_SHIELD };
+				LPITEM piece = NULL;
+				int wear = -1;
+				for (size_t k = 0; k < sizeof(kinds) / sizeof(kinds[0]) && !piece; ++k)
+					if ((piece = sk->GetWear(kinds[k])) != NULL)
+						wear = kinds[k];
+				if (!piece)
+				{
+					sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test take-off: nothing worn to take off");
+					break;
+				}
+				for (int cell = PLAYERBOT_BAG_CELLS - 1; cell >= 0 && to < 0; --cell)
+					if (!sk->GetInventoryItem(cell) && sk->IsEmptyItemGrid(TItemPos(INVENTORY, cell), piece->GetSize()))
+						to = cell;
+				s_dwPlayerBotSidekickSelfTestPieceID = piece->GetID();
+				snprintf(order, sizeof(order), "eq ruch %d %d", PLAYERBOT_SIDEKICK_EQ_WEAR_BASE + wear, to);
+				HandlePlayerBotSidekickCommand(owner, order);
+				LPITEM landed = to >= 0 ? sk->GetInventoryItem(to) : NULL;
+				sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test take-off wear=%d vnum=%u to=%d now=%d unwanted=%d", wear,
+						piece->GetVnum(), to, FindPlayerBotSidekickSelfTestPiece(sk, s_dwPlayerBotSidekickSelfTestPieceID),
+						landed && landed->GetID() == s_dwPlayerBotSidekickSelfTestPieceID &&
+						IsPlayerBotSidekickUnwanted(sk, landed) ? 1 : 0);
+				break;
+			}
+			case 12:
+			{
+				// A piece the companion can wear, from its bag to the owner's and
+				// straight back onto its slot in the same pass - a bot owner's own
+				// equipment pass would put it on otherwise: given, worn, pinned.
+				int wear = -1;
+				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && from < 0; ++cell)
+				{
+					LPITEM item = sk->GetInventoryItem(cell);
+					if (!item || item->GetCell() != cell || !item->IsEquipable() || item->isLocked() ||
+							item->IsExchanging() || !GetPlayerBotSidekickHandOverRefusal(item).empty())
+						continue;
+					const int cellWear = item->FindEquipCell(sk);
+					if (cellWear < 0 || cellWear >= WEAR_MAX_NUM ||
+							!GetPlayerBotSidekickWearRefusal(sk, item, sk->GetWear(cellWear)).empty())
+						continue;
+					from = cell;
+					wear = cellWear;
+					s_dwPlayerBotSidekickSelfTestGiftID = item->GetID();
+				}
+				if (from < 0)
+				{
+					sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test gift to a slot: nothing in the bag it can wear");
+					break;
+				}
+				s_iPlayerBotSidekickSelfTestGiftWear = wear;
+				const DWORD id = s_dwPlayerBotSidekickSelfTestGiftID;
+				snprintf(order, sizeof(order), "eq wez %d -1", from);
+				HandlePlayerBotSidekickCommand(owner, order);
+				const int ownerAt = FindPlayerBotSidekickSelfTestPiece(owner, id);
+				LPITEM before = sk->GetWear(wear);
+				const DWORD beforeID = before ? before->GetID() : 0;
+				if (ownerAt >= 0 && ownerAt < PLAYERBOT_SIDEKICK_EQ_WEAR_BASE)
+				{
+					snprintf(order, sizeof(order), "eq daj %d %d", ownerAt, PLAYERBOT_SIDEKICK_EQ_WEAR_BASE + wear);
+					HandlePlayerBotSidekickCommand(owner, order);
+				}
+				LPITEM worn = sk->GetWear(wear);
+				sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test gift to a slot from=%d owner_had=%d wear=%d gift_now=%d worn_is_gift=%d pinned=%d replaced_now=%d owner_now=%d",
+						from, ownerAt, wear, FindPlayerBotSidekickSelfTestPiece(sk, id),
+						worn && worn->GetID() == id ? 1 : 0, worn && IsPlayerBotSidekickPinned(sk, worn) ? 1 : 0,
+						FindPlayerBotSidekickSelfTestPiece(sk, beforeID), FindPlayerBotSidekickSelfTestPiece(owner, id));
+				break;
+			}
+			case 13:
+			{
+				// Taken back off the slot and given back to the bag, in one pass.
+				const DWORD id = s_dwPlayerBotSidekickSelfTestGiftID;
+				const int at = FindPlayerBotSidekickSelfTestPiece(sk, id);
+				if (at < 0)
+				{
+					sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test take off the slot: the companion has not got the piece");
+					break;
+				}
+				snprintf(order, sizeof(order), "eq wez %d -1", at);
+				HandlePlayerBotSidekickCommand(owner, order);
+				const int ownerAt = FindPlayerBotSidekickSelfTestPiece(owner, id);
+				const int companionAfterTake = FindPlayerBotSidekickSelfTestPiece(sk, id);
+				if (ownerAt >= 0 && ownerAt < PLAYERBOT_SIDEKICK_EQ_WEAR_BASE)
+				{
+					snprintf(order, sizeof(order), "eq daj %d -1", ownerAt);
+					HandlePlayerBotSidekickCommand(owner, order);
+				}
+				sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test took the piece off the slot from=%d companion_after_take=%d owner_had=%d companion_now=%d owner_now=%d",
+						at, companionAfterTake, ownerAt, FindPlayerBotSidekickSelfTestPiece(sk, id),
+						FindPlayerBotSidekickSelfTestPiece(owner, id));
+				break;
+			}
+			case 14:
+			{
+				// A point spent by the owner - the first makes the points the
+				// owner's. A companion with none is given one for the test.
+				const DWORD base = GetPlayerBotSidekickSkillBase(sk);
+				DWORD pick = 0;
+				int low = 99;
+				for (DWORD vnum = base; base != 0 && vnum < base + 6; ++vnum)
+					if (CSkillManager::instance().Get(vnum) && sk->GetSkillMasterType(vnum) == SKILL_NORMAL &&
+							sk->GetSkillLevel(vnum) < 17 && sk->GetSkillLevel(vnum) < low)
+					{
+						pick = vnum;
+						low = sk->GetSkillLevel(vnum);
+					}
+				if (!pick)
+				{
+					sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test skill point: no skill of the path takes a point");
+					break;
+				}
+				if (sk->GetPoint(POINT_SKILL) <= 0)
+				{
+					sk->PointChange(POINT_SKILL, 1);
+					sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test skill point: one point given for the test");
+				}
+				const int pointsBefore = sk->GetPoint(POINT_SKILL);
+				snprintf(order, sizeof(order), "umiejetnosci dodaj %u", pick);
+				HandlePlayerBotSidekickCommand(owner, order);
+				sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test skill point vnum=%u level=%d->%d points=%d->%d manual=%d", pick,
+						low, (int)sk->GetSkillLevel(pick), pointsBefore, (int)sk->GetPoint(POINT_SKILL),
+						IsPlayerBotSidekickManualSkills(sk) ? 1 : 0);
+				HandlePlayerBotSidekickCommand(owner, "umiejetnosci reczne 0");
+				break;
+			}
+			case 15:
+			{
+				// The piece left in the bag at step eleven is the AI's again.
+				const int at = FindPlayerBotSidekickSelfTestPiece(sk, s_dwPlayerBotSidekickSelfTestPieceID);
+				if (at >= 0)
+				{
+					snprintf(order, sizeof(order), "eq odepnij %d", at);
+					HandlePlayerBotSidekickCommand(owner, order);
+				}
+				HandlePlayerBotSidekickCommand(owner, "eq");
+				sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test done");
+				break;
+			}
+		}
+	}
 
 	// The self-test's orders, one every ninety seconds after the companion is
 	// made: a trade from the owner with one item in it, the leash let go, the
@@ -946,6 +1757,99 @@ namespace
 	// orders - the spot kept, the snapshot, the switches, a town visit - and,
 	// after an hour, the dismissal: every path a person's letter and window
 	// take, on a world with no person in it.
+	void LogPlayerBotSidekickSelfTestStats(LPCHARACTER sk, const TPlayerBotSidekick& rec, const char* when)
+	{
+		sys_log(0, "PLAYERBOT_SIDEKICK: lure self-test stats %s points=%d ht=%d iq=%d st=%d dx=%d manual=%d reset_used=%d",
+				when, (int)sk->GetPoint(POINT_STAT), (int)sk->GetRealPoint(POINT_HT), (int)sk->GetRealPoint(POINT_IQ),
+				(int)sk->GetRealPoint(POINT_ST), (int)sk->GetRealPoint(POINT_DX), rec.bManualStats ? 1 : 0,
+				rec.bStatResetUsed ? 1 : 0);
+	}
+
+	// The owner of the lure self-test stands on its spot (the tick asks it,
+	// playerbot_manager.cpp).
+	bool IsPlayerBotSidekickSelfTestFrozenOwner(LPCHARACTER ch)
+	{
+		return s_bPlayerBotSidekickSelfTest && s_bPlayerBotSidekickSelfTestLure && ch &&
+				ch->GetPlayerID() == s_dwPlayerBotSidekickSelfTestOwner && s_iPlayerBotSidekickSelfTestStep >= 1 &&
+				s_iPlayerBotSidekickSelfTestStep < PLAYERBOT_SIDEKICK_LURE_SELFTEST_FREE_STEP;
+	}
+
+	void StepPlayerBotSidekickLureSelfTest(LPCHARACTER owner, LPCHARACTER sk, TPlayerBotSidekick& rec, int step)
+	{
+		const DWORD dwNow = get_dword_time();
+		const TPlayerBotSidekickRuntime* rt = FindPlayerBotSidekickRuntime(sk->GetPlayerID());
+		sys_log(0, "PLAYERBOT_SIDEKICK: lure self-test step=%d owner=%u sidekick=%u lure=%d stage=%d packs=%d courses=%u "
+				"chasers=%d dist=%d owner_hp=%d sk_hp=%d", step, owner->GetPlayerID(), sk->GetPlayerID(),
+				rec.bLure ? 1 : 0, rt ? (int)rt->bLureStage : -1, rt ? rt->iLurePacks : -1, rt ? rt->uLureCourses : 0U,
+				CountPlayerBotSidekickChasers(sk), DISTANCE_APPROX(sk->GetX() - owner->GetX(), sk->GetY() - owner->GetY()),
+				GetPlayerBotSidekickHealthPercent(owner), GetPlayerBotSidekickHealthPercent(sk));
+		switch (step)
+		{
+			case 1:
+			{
+				// A hunting spot of the owner's village, the one whose monsters are
+				// nearest the owner's level from below.
+				const TPlayerBotVillageGround* ground = GetPlayerBotVillageGround(owner->GetMapIndex());
+				const TPlayerBotVillageHub* best = NULL;
+				for (size_t i = 0; ground && i < ground->hubCount; ++i)
+				{
+					const TPlayerBotVillageHub& hub = ground->hubs[i];
+					if (hub.mobLevel <= owner->GetLevel() && (!best || hub.mobLevel > best->mobLevel))
+						best = &hub;
+				}
+				if (best && owner->Show(owner->GetMapIndex(), best->x, best->y, 0))
+				{
+					owner->Stop();
+					sys_log(0, "PLAYERBOT_SIDEKICK: lure self-test owner on a spot map=%ld x=%ld y=%ld mob_level=%d",
+							owner->GetMapIndex(), best->x, best->y, (int)best->mobLevel);
+				}
+				LogPlayerBotSidekickSelfTestStats(sk, rec, "before");
+				HandlePlayerBotSidekickCommand(owner, "statystyki odnow");
+				LogPlayerBotSidekickSelfTestStats(sk, rec, "after_reset");
+				// The second reset is refused.
+				HandlePlayerBotSidekickCommand(owner, "statystyki odnow");
+				break;
+			}
+			case 2:
+				HandlePlayerBotSidekickCommand(owner, "statystyki dodaj st 5");
+				HandlePlayerBotSidekickCommand(owner, "statystyki dodaj ht 3");
+				LogPlayerBotSidekickSelfTestStats(sk, rec, "after_adds");
+				break;
+			case 3:
+				// The AI has spent none of what is left in the thirty seconds since.
+				LogPlayerBotSidekickSelfTestStats(sk, rec, "manual_holds");
+				HandlePlayerBotSidekickCommand(owner, "luruj 1");
+				SendPlayerBotSidekickWindow(owner, false);
+				break;
+			case 10:
+				sys_log(0, "PLAYERBOT_SIDEKICK: lure self-test whisper \"przestan lurowac\" handled=%d lure=%d",
+						HandlePlayerBotSidekickWhisper(owner, sk, "przestan lurowac") ? 1 : 0, rec.bLure ? 1 : 0);
+				break;
+			case 11:
+				sys_log(0, "PLAYERBOT_SIDEKICK: lure self-test whisper \"luruj\" handled=%d lure=%d",
+						HandlePlayerBotSidekickWhisper(owner, sk, "luruj") ? 1 : 0, rec.bLure ? 1 : 0);
+				break;
+			case PLAYERBOT_SIDEKICK_LURE_SELFTEST_FREE_STEP:
+				HandlePlayerBotSidekickCommand(owner, "wolny");
+				break;
+			case 15:
+				HandlePlayerBotSidekickCommand(owner, "przywolaj");
+				HandlePlayerBotSidekickCommand(owner, "luruj 0");
+				HandlePlayerBotSidekickCommand(owner, "statystyki reczne 0");
+				break;
+			case 16:
+				LogPlayerBotSidekickSelfTestStats(sk, rec, "ai_again");
+				break;
+			case PLAYERBOT_SIDEKICK_LURE_SELFTEST_STEPS:
+				sys_log(0, "PLAYERBOT_SIDEKICK: lure self-test done owner=%u sidekick=%u courses=%u",
+						owner->GetPlayerID(), sk->GetPlayerID(), rt ? rt->uLureCourses : 0U);
+				break;
+			default:
+				break;
+		}
+		(void)dwNow;
+	}
+
 	void StepPlayerBotSidekickSelfTest(DWORD dwNow)
 	{
 		TPlayerBotSidekickMap::iterator rec = s_mapPlayerBotSidekicks.find(s_dwPlayerBotSidekickSelfTestOwner);
@@ -954,6 +1858,29 @@ namespace
 			return;
 		LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec->second.dwSidekickPID);
 		const DWORD age = dwNow - s_dwPlayerBotSidekickSelfTestAt;
+		// The window's test goes one order a pass, once the companion is in
+		// the world with its bag loaded.
+		if (s_bPlayerBotSidekickSelfTestEq)
+		{
+			if (!sk || !sk->IsItemLoaded() || !CPlayerBotManager::instance().IsManaged(sk->GetPlayerID()))
+				return;
+			if (s_iPlayerBotSidekickSelfTestStep >= PLAYERBOT_SIDEKICK_EQ_SELFTEST_STEPS)
+				return;
+			const int eqStep = ++s_iPlayerBotSidekickSelfTestStep;
+			sys_log(0, "PLAYERBOT_SIDEKICK: eq self-test step=%d owner=%u sidekick=%u", eqStep, owner->GetPlayerID(),
+					sk->GetPlayerID());
+			StepPlayerBotSidekickEqSelfTest(owner, sk, eqStep);
+			return;
+		}
+		// The stats', the lure's and the handover's, one step a pass too.
+		if (s_bPlayerBotSidekickSelfTestLure)
+		{
+			if (!sk || sk->IsDead() || !CPlayerBotManager::instance().IsManaged(sk->GetPlayerID()) ||
+					s_iPlayerBotSidekickSelfTestStep >= PLAYERBOT_SIDEKICK_LURE_SELFTEST_STEPS)
+				return;
+			StepPlayerBotSidekickLureSelfTest(owner, sk, rec->second, ++s_iPlayerBotSidekickSelfTestStep);
+			return;
+		}
 		const int step = (int)(age / 90000U);
 		if (step <= s_iPlayerBotSidekickSelfTestStep)
 			return;
@@ -1070,6 +1997,25 @@ namespace
 		s_bPlayerBotSidekickSelfTest = on;
 		if (!on)
 			return;
+		// The file's first line "eq": the bag window's orders alone.
+		{
+			char line[16] = "";
+			FILE* file = fopen(PLAYERBOT_SIDEKICK_SELFTEST_FILE, "r");
+			if (file)
+			{
+				if (!fgets(line, sizeof(line), file))
+					line[0] = 0;
+				fclose(file);
+			}
+			const bool eq = !strncmp(line, "eq", 2);
+			if (eq != s_bPlayerBotSidekickSelfTestEq)
+				sys_log(0, "PLAYERBOT_SIDEKICK: self-test of the bag window %s", eq ? "on" : "off");
+			s_bPlayerBotSidekickSelfTestEq = eq;
+			const bool lure = !strncmp(line, "lure", 4);
+			if (lure != s_bPlayerBotSidekickSelfTestLure)
+				sys_log(0, "PLAYERBOT_SIDEKICK: self-test of the stats and the lure %s", lure ? "on" : "off");
+			s_bPlayerBotSidekickSelfTestLure = lure;
+		}
 		if (s_dwPlayerBotSidekickSelfTestOwner != 0)
 		{
 			StepPlayerBotSidekickSelfTest(dwNow);
@@ -1321,6 +2267,9 @@ namespace
 			rtIt->second.bHold = false;
 			rtIt->second.bErrand = false;
 		}
+		// What it was fighting at the owner's side stays with the owner.
+		if (rec.bMode == PLAYERBOT_SIDEKICK_FOLLOW)
+			HandPlayerBotSidekickFoesBeforeLeaving(rec.dwSidekickPID, owner, "free");
 		rec.bMode = PLAYERBOT_SIDEKICK_FREE;
 		DBManager::instance().Query("UPDATE player.playerbot_sidekick SET mode=1 WHERE owner_pid=%u", rec.dwOwnerPID);
 		LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID);
@@ -1332,8 +2281,13 @@ namespace
 
 	void DismissPlayerBotSidekick(LPCHARACTER owner, TPlayerBotSidekick rec)
 	{
+		if (rec.bMode == PLAYERBOT_SIDEKICK_FOLLOW)
+			HandPlayerBotSidekickFoesBeforeLeaving(rec.dwSidekickPID, owner, "dismissed");
 		DBManager::instance().Query("DELETE FROM player.playerbot_sidekick WHERE owner_pid=%u", rec.dwOwnerPID);
 		DBManager::instance().Query("DELETE FROM player.playerbot_sidekick_gift WHERE sidekick_pid=%u", rec.dwSidekickPID);
+		if (s_bPlayerBotSidekickPinTable)
+			DBManager::instance().Query("DELETE FROM player.playerbot_sidekick_pin WHERE sidekick_pid=%u",
+					rec.dwSidekickPID);
 		s_mapPlayerBotSidekicks.erase(rec.dwOwnerPID);
 		s_mapPlayerBotSidekickOwner.erase(rec.dwSidekickPID);
 		s_mapPlayerBotSidekickRuntime.erase(rec.dwSidekickPID);
@@ -1361,6 +2315,22 @@ namespace
 			std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
 		}
 		sys_log(0, "PLAYERBOT_SIDEKICK: setting owner=%u pid=%u %s=%u", rec.dwOwnerPID, rec.dwSidekickPID, column, value);
+	}
+
+	// The lure switch, kept in the record at once (see the stance). Answers
+	// with the companion's words for it.
+	const char* SetPlayerBotSidekickLure(TPlayerBotSidekick& rec, bool lure)
+	{
+		if (rec.bLure != lure)
+		{
+			rec.bLure = lure;
+			SetPlayerBotSidekickSetting(rec, "lure", lure ? 1U : 0U);
+		}
+		if (!lure)
+			return "Dobra, nie luruje - walcze przy tobie.";
+		if (rec.bStance == PLAYERBOT_SIDEKICK_STANCE_PASSIVE)
+			return "Lurowanie wlaczone, ale teraz nie walcze - zmien walke na \"Atakuj\" albo \"Nie 1. atak\", a zaczne.";
+		return "Dobra, luruje: kiedy stoisz na spocie, sciagam do 3 grup potworow z okolicy i przyprowadzam je do ciebie.";
 	}
 
 	// The companion in this core's world with its state, or NULL with the owner
@@ -1486,6 +2456,11 @@ namespace
 			return;
 		}
 		rt.bHold = false;
+		// The monsters it held stay with the owner rather than follow it into
+		// town or walk home.
+		HandPlayerBotSidekickFoesToOwner(sk, owner, rt, dwNow, "errand");
+		rt.bLureStage = 0;
+		rt.dwLureVID = 0;
 		if (sk->GetParty())
 			LeavePlayerBotParty(sk);
 		if (sk->GetMapIndex() != map && !TransitionPlayerBotMap(sk, *state, map, x, y, dwNow, "sidekick_errand"))
@@ -1577,6 +2552,16 @@ namespace
 			snprintf(out, size, "%s", *text ? text : "gra po swojemu");
 			return;
 		}
+		if (rt && rt->bLureStage == 1)
+		{
+			snprintf(out, size, "luruje potwory (%d/%d grup)", rt->iLurePacks, PLAYERBOT_SIDEKICK_LURE_PACKS);
+			return;
+		}
+		if (rt && rt->bLureStage == 2)
+		{
+			snprintf(out, size, "wraca z potworami (%d grup)", rt->iLurePacks);
+			return;
+		}
 		const char* what = "stoi przy tobie";
 		if (state.bCurrentAction == BOT_ACTION_FIGHT)
 			what = "walczy";
@@ -1637,7 +2622,7 @@ namespace
 		else if (rt && rt->bHold && mode == 0)
 			mode = 2;
 		SendPlayerBotSidekickCommand(owner,
-				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d",
+				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d %d %d",
 				PLAYERBOT_SIDEKICK_WINDOW_PROTOCOL,
 				inWorld ? (int)sk->GetRaceNum() : -1, inWorld ? (int)sk->GetSkillGroup() : 0,
 				inWorld ? sk->GetLevel() : 0, expPercent,
@@ -1645,7 +2630,7 @@ namespace
 				inWorld ? (int)sk->GetSP() : 0, inWorld ? (int)sk->GetMaxSP() : 0,
 				where, dist, mode, (unsigned int)rec.bStance, (unsigned int)rec.bLoot, rec.bProtect ? 1 : 0,
 				rec.bBuffs ? 1 : 0, inWorld ? (long long)sk->GetGold() : 0LL, (unsigned int)red, (unsigned int)blue,
-				inWorld && sk->IsDead() ? 1 : 0);
+				inWorld && sk->IsDead() ? 1 : 0, rec.bLure ? 1 : 0, rt ? (int)rt->bLureStage : 0);
 		char doing[96] = "";
 		char place[64] = "";
 		if (inWorld)
@@ -1689,6 +2674,1074 @@ namespace
 			rt->dwGearSent = hash;
 	}
 
+	// ------------------------------------------------ its bag and skills, in a window
+	//
+	// The companion's bag and worn gear in a window of the owner's client
+	// (uisidekickinventory.py; the operator, 25 September: "widoczny jej ekwipunek, ze
+	// mozesz itemy przenosic normalnie dowoli"), and its skills beside it. What
+	// the owner does there is the owner's word over the AI's:
+	// - a piece the owner puts on is pinned (IsPlayerBotSidekickPinned): the
+	//   equipment pass never takes it off or ranks anything against it, puts it
+	//   back first when something else took it off, the blacksmith does not
+	//   refine it and no change stone touches its lines (an added line loses
+	//   nothing, so the add stone still may) - the bell with +12 INT that the
+	//   equipment pass kept in the bag for a heavier one (GoracyDelfin, 25
+	//   September);
+	// - a piece the owner takes off is never put back on by the AI
+	//   (IsPlayerBotSidekickUnwanted), or the next equipment pass would undo
+	//   the owner's hand;
+	// - what crosses between the two bags crosses the way a trade moves it
+	//   (CExchange::Done), with a trade's refusals: nothing ITEM_ANTIFLAG_GIVE,
+	//   nothing locked or in a trade, and a window that is busy says so.
+	// The positions are the protocol's: a bag cell, or 1000 + WEAR_* for a worn
+	// piece; -1 is "wherever it fits".
+
+	bool IsPlayerBotSidekickEqBagPos(int pos)
+	{
+		return pos >= 0 && pos < PLAYERBOT_BAG_CELLS;
+	}
+
+	bool IsPlayerBotSidekickEqWearPos(int pos)
+	{
+		return pos >= PLAYERBOT_SIDEKICK_EQ_WEAR_BASE && pos < PLAYERBOT_SIDEKICK_EQ_WEAR_BASE + WEAR_MAX_NUM;
+	}
+
+	// A position as the window writes it; INT_MIN for nothing a window writes.
+	int ParsePlayerBotSidekickEqPos(const char* text)
+	{
+		if (!text || !*text)
+			return INT_MIN;
+		for (const char* p = text + (*text == '-' ? 1 : 0); *p; ++p)
+			if (!isdigit((unsigned char)*p))
+				return INT_MIN;
+		int pos = INT_MIN;
+		str_to_number(pos, text);
+		if (pos == -1 || IsPlayerBotSidekickEqBagPos(pos) || IsPlayerBotSidekickEqWearPos(pos))
+			return pos;
+		return INT_MIN;
+	}
+
+	void SetPlayerBotSidekickPin(DWORD sidekickPid, TPlayerBotSidekickRuntime& rt, DWORD itemId, BYTE wear)
+	{
+		// One piece a slot: a new one there frees the one pinned before.
+		if (wear != PLAYERBOT_SIDEKICK_PIN_UNWANTED)
+			for (std::map<DWORD, BYTE>::iterator it = rt.mapPins.begin(); it != rt.mapPins.end();)
+			{
+				if (it->first != itemId && it->second == wear)
+				{
+					if (s_bPlayerBotSidekickPinTable)
+						DBManager::instance().Query("DELETE FROM player.playerbot_sidekick_pin WHERE item_id=%u", it->first);
+					rt.mapPins.erase(it++);
+				}
+				else
+					++it;
+			}
+		rt.mapPins[itemId] = wear;
+		if (s_bPlayerBotSidekickPinTable)
+			DBManager::instance().Query("REPLACE INTO player.playerbot_sidekick_pin (item_id, sidekick_pid, wear, pinned_at) "
+					"VALUES (%u, %u, %u, NOW())", itemId, sidekickPid, (unsigned int)wear);
+	}
+
+	void ClearPlayerBotSidekickPin(TPlayerBotSidekickRuntime& rt, DWORD itemId)
+	{
+		if (rt.mapPins.erase(itemId) && s_bPlayerBotSidekickPinTable)
+			DBManager::instance().Query("DELETE FROM player.playerbot_sidekick_pin WHERE item_id=%u", itemId);
+	}
+
+	void AddPlayerBotSidekickGift(DWORD sidekickPid, TPlayerBotSidekickRuntime& rt, DWORD itemId)
+	{
+		if (rt.setGifts.insert(itemId).second)
+			DBManager::instance().Query("INSERT IGNORE INTO player.playerbot_sidekick_gift (item_id, sidekick_pid, given_at) "
+					"VALUES (%u, %u, NOW())", itemId, sidekickPid);
+	}
+
+	void ClearPlayerBotSidekickGift(DWORD sidekickPid, TPlayerBotSidekickRuntime& rt, DWORD itemId)
+	{
+		if (rt.setGifts.erase(itemId))
+			DBManager::instance().Query("DELETE FROM player.playerbot_sidekick_gift WHERE item_id=%u AND sidekick_pid=%u",
+					itemId, sidekickPid);
+	}
+
+	// The window's marks on a piece: 1 put on by the owner, 2 the owner's gift,
+	// 4 taken off by the owner.
+	int GetPlayerBotSidekickEqFlags(const TPlayerBotSidekickRuntime& rt, LPITEM item)
+	{
+		int flags = 0;
+		std::map<DWORD, BYTE>::const_iterator pin = rt.mapPins.find(item->GetID());
+		if (pin != rt.mapPins.end())
+			flags |= pin->second == PLAYERBOT_SIDEKICK_PIN_UNWANTED ? 4 : 1;
+		if (rt.setGifts.find(item->GetID()) != rt.setGifts.end())
+			flags |= 2;
+		return flags;
+	}
+
+	DWORD HashPlayerBotSidekickEqItem(LPITEM item, int flags)
+	{
+		DWORD hash = 2166136261U;
+		const DWORD parts[4] = { item->GetID(), item->GetVnum(), (DWORD)item->GetCount(), (DWORD)flags };
+		for (int i = 0; i < 4; ++i)
+			hash = (hash ^ parts[i]) * 16777619U;
+		for (int i = 0; i < 3 && i < ITEM_SOCKET_MAX_NUM; ++i)
+			hash = (hash ^ (DWORD)item->GetSocket(i)) * 16777619U;
+		for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
+		{
+			hash = (hash ^ (DWORD)item->GetAttributeType(i)) * 16777619U;
+			hash = (hash ^ (DWORD)item->GetAttributeValue(i)) * 16777619U;
+		}
+		return hash == 0 ? 1U : hash;
+	}
+
+	void SendPlayerBotSidekickEqItem(LPCHARACTER owner, DWORD gen, int pos, LPITEM item, int flags)
+	{
+		char attrs[192] = "-";
+		bool any = false;
+		for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
+			if (item->GetAttributeType(i) != 0)
+				any = true;
+		if (any)
+		{
+			size_t n = 0;
+			for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM && n + 24 < sizeof(attrs); ++i)
+				n += snprintf(attrs + n, sizeof(attrs) - n, "%s%u:%d", i ? "," : "",
+						(unsigned int)item->GetAttributeType(i), (int)item->GetAttributeValue(i));
+		}
+		long sockets[3] = { 0, 0, 0 };
+		for (int i = 0; i < 3 && i < ITEM_SOCKET_MAX_NUM; ++i)
+			sockets[i] = (long)item->GetSocket(i);
+		SendPlayerBotSidekickCommand(owner, "SidekickEqItem %u %d %u %u %d %ld %ld %ld %s", gen, pos, item->GetVnum(),
+				(unsigned int)item->GetCount(), flags, sockets[0], sockets[1], sockets[2], attrs);
+	}
+
+	struct TPlayerBotSidekickEqEntry
+	{
+		LPITEM item;
+		int flags;
+		DWORD hash;
+	};
+
+	// The bag and the worn gear as the window is sent them: the whole picture
+	// when it opens (or after the companion came back into the world), and
+	// after that only what changed, nothing at all when nothing did. What the
+	// window was sent is remembered by position (mapEqSent).
+	void SendPlayerBotSidekickEq(LPCHARACTER owner, bool full)
+	{
+		if (!owner || !owner->GetDesc() || (owner->GetDesc()->IsBot() && !s_bPlayerBotSidekickSelfTest))
+			return;
+		if (IsPlayerBotSidekickSwitchedOff())
+		{
+			SendPlayerBotSidekickCommand(owner, "SidekickEqNone %d 2", PLAYERBOT_SIDEKICK_EQ_PROTOCOL);
+			return;
+		}
+		TPlayerBotSidekickMap::iterator it = s_mapPlayerBotSidekicks.find(owner->GetPlayerID());
+		if (it == s_mapPlayerBotSidekicks.end())
+		{
+			SendPlayerBotSidekickCommand(owner, "SidekickEqNone %d 0", PLAYERBOT_SIDEKICK_EQ_PROTOCOL);
+			return;
+		}
+		LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(it->second.dwSidekickPID);
+		if (!sk || !sk->IsItemLoaded() || !CPlayerBotManager::instance().IsManaged(it->second.dwSidekickPID))
+		{
+			SendPlayerBotSidekickCommand(owner, "SidekickEqNone %d 1", PLAYERBOT_SIDEKICK_EQ_PROTOCOL);
+			return;
+		}
+		TPlayerBotSidekickRuntime& rt = s_mapPlayerBotSidekickRuntime[sk->GetPlayerID()];
+		std::map<int, TPlayerBotSidekickEqEntry> now;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = sk->GetInventoryItem(cell);
+			if (!item || item->GetCell() != cell)
+				continue;
+			TPlayerBotSidekickEqEntry& e = now[(int)cell];
+			e.item = item;
+			e.flags = GetPlayerBotSidekickEqFlags(rt, item);
+			e.hash = HashPlayerBotSidekickEqItem(item, e.flags);
+		}
+		for (int wear = 0; wear < WEAR_MAX_NUM; ++wear)
+		{
+			LPITEM item = sk->GetWear(wear);
+			if (!item)
+				continue;
+			TPlayerBotSidekickEqEntry& e = now[PLAYERBOT_SIDEKICK_EQ_WEAR_BASE + wear];
+			e.item = item;
+			e.flags = GetPlayerBotSidekickEqFlags(rt, item);
+			e.hash = HashPlayerBotSidekickEqItem(item, e.flags);
+		}
+		const long long gold = (long long)sk->GetGold();
+		const bool begin = full || rt.dwEqGen == 0;
+		if (!begin)
+		{
+			bool changed = gold != rt.llEqGoldSent || now.size() != rt.mapEqSent.size();
+			for (std::map<int, TPlayerBotSidekickEqEntry>::const_iterator e = now.begin(); !changed && e != now.end(); ++e)
+			{
+				std::map<int, DWORD>::const_iterator sent = rt.mapEqSent.find(e->first);
+				changed = sent == rt.mapEqSent.end() || sent->second != e->second.hash;
+			}
+			if (!changed)
+				return;
+		}
+		++rt.dwEqGen;
+		if (begin)
+		{
+			rt.mapEqSent.clear();
+			SendPlayerBotSidekickCommand(owner, "SidekickEqBegin %d %u %d %d", PLAYERBOT_SIDEKICK_EQ_PROTOCOL, rt.dwEqGen,
+					PLAYERBOT_BAG_CELLS, PLAYERBOT_SIDEKICK_EQ_PAGE_CELLS);
+		}
+		size_t lines = 0;
+		for (std::map<int, DWORD>::iterator sent = rt.mapEqSent.begin(); sent != rt.mapEqSent.end();)
+		{
+			if (now.find(sent->first) != now.end())
+			{
+				++sent;
+				continue;
+			}
+			if (lines >= PLAYERBOT_SIDEKICK_EQ_MAX_LINES)
+				break;
+			SendPlayerBotSidekickCommand(owner, "SidekickEqEmpty %u %d", rt.dwEqGen, sent->first);
+			++lines;
+			rt.mapEqSent.erase(sent++);
+		}
+		for (std::map<int, TPlayerBotSidekickEqEntry>::const_iterator e = now.begin(); e != now.end(); ++e)
+		{
+			std::map<int, DWORD>::iterator sent = rt.mapEqSent.find(e->first);
+			if (sent != rt.mapEqSent.end() && sent->second == e->second.hash)
+				continue;
+			// What does not fit this answer goes with the next, which the window
+			// asks for in a second and a half.
+			if (lines >= PLAYERBOT_SIDEKICK_EQ_MAX_LINES)
+				break;
+			SendPlayerBotSidekickEqItem(owner, rt.dwEqGen, e->first, e->second.item, e->second.flags);
+			++lines;
+			rt.mapEqSent[e->first] = e->second.hash;
+		}
+		SendPlayerBotSidekickCommand(owner, "SidekickEqEnd %u %lld", rt.dwEqGen, gold);
+		rt.llEqGoldSent = gold;
+	}
+
+	void AnswerPlayerBotSidekickEq(LPCHARACTER owner, int code, const char* text)
+	{
+		SendPlayerBotSidekickCommand(owner, "SidekickEqResult %d %s", code,
+				EncodePlayerBotSidekickText(text, 150).c_str());
+	}
+
+	// Why the companion cannot wear a piece at all - its type, a class, a sex,
+	// a level or a stat the item asks for, a unique of a group it already
+	// wears - in the owner's words; empty when it can, whatever the moment
+	// says (a blow a second ago). The engine says it to the companion's chat,
+	// which nobody reads. replacing: the piece a unique would take the place
+	// of, which is no obstacle.
+	std::string GetPlayerBotSidekickWearRefusal(LPCHARACTER sk, LPITEM item, LPITEM replacing)
+	{
+		if (!item->IsEquipable() || item->IsDragonSoul() || item->FindEquipCell(sk) < 0)
+			return "Tego nie da sie zalozyc.";
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		if (item->GetType() == ITEM_COSTUME && item->GetSubType() != COSTUME_HAIR)
+			return "Kostiumy sa na tym serwerze wylaczone.";
+#endif
+		if (!item->CanUsedBy(sk))
+			return "To nie jest dla klasy towarzysza.";
+		if ((IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_MALE) && GET_SEX(sk) == SEX_MALE) ||
+				(IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_FEMALE) && GET_SEX(sk) == SEX_FEMALE))
+			return "To nie jest dla plci towarzysza.";
+		char text[128];
+		const TItemTable* proto = item->GetProto();
+		for (int i = 0; proto && i < ITEM_LIMIT_MAX_NUM; ++i)
+		{
+			const long limit = proto->aLimits[i].lValue;
+			const char* what = NULL;
+			switch (proto->aLimits[i].bType)
+			{
+				case LIMIT_LEVEL:
+					if (sk->GetLevel() < limit)
+					{
+						snprintf(text, sizeof(text), "Towarzysz ma za niski poziom (trzeba %ld, ma %d).", limit,
+								sk->GetLevel());
+						return text;
+					}
+					break;
+				case LIMIT_STR: if (sk->GetPoint(POINT_ST) < limit) what = "sily"; break;
+				case LIMIT_INT: if (sk->GetPoint(POINT_IQ) < limit) what = "inteligencji"; break;
+				case LIMIT_DEX: if (sk->GetPoint(POINT_DX) < limit) what = "zrecznosci"; break;
+				case LIMIT_CON: if (sk->GetPoint(POINT_HT) < limit) what = "witalnosci"; break;
+			}
+			if (what)
+			{
+				snprintf(text, sizeof(text), "Towarzysz ma za malo %s (trzeba %ld).", what, limit);
+				return text;
+			}
+		}
+		if (item->GetWearFlag() & WEARABLE_UNIQUE)
+			for (int wear = WEAR_UNIQUE1; wear <= WEAR_UNIQUE2; ++wear)
+			{
+				LPITEM worn = sk->GetWear(wear);
+				if (worn && worn != item && worn != replacing && worn->IsSameSpecialGroup(item))
+					return "Towarzysz nosi juz cos z tej samej grupy.";
+			}
+		return std::string();
+	}
+
+	// Puts a piece of the companion's bag on for its owner, and pins it there.
+	// A piece the engine will not let on for the moment - a blow or a skill in
+	// the last second and a half, which it asks of every equip - is pinned all
+	// the same and goes on at the equipment pass's first chance, the fight held
+	// off for it (dwEquipWaitUntil).
+	int EquipPlayerBotSidekickForOwner(LPCHARACTER owner, LPCHARACTER sk, TPlayerBotAIState& state,
+			TPlayerBotSidekickRuntime& rt, LPITEM item, int wantWear, std::string& answer)
+	{
+		if (item->IsEquipped())
+		{
+			answer = "Towarzysz juz to nosi.";
+			return 0;
+		}
+		const int wear = item->FindEquipCell(sk);
+		const bool unique = wear == WEAR_UNIQUE1 || wear == WEAR_UNIQUE2;
+		const bool uniqueSlot = wantWear == WEAR_UNIQUE1 || wantWear == WEAR_UNIQUE2;
+		if (wantWear >= 0 && wear >= 0 && wear != wantWear && !(unique && uniqueSlot))
+		{
+			answer = "To nie pasuje w to miejsce.";
+			return 2;
+		}
+		const int slot = unique && uniqueSlot ? wantWear : wear;
+		LPITEM old = slot >= 0 ? sk->GetWear(slot) : NULL;
+		const std::string refusal = GetPlayerBotSidekickWearRefusal(sk, item, old);
+		if (!refusal.empty())
+		{
+			answer = refusal;
+			return 2;
+		}
+		if (old && IS_SET(old->GetFlag(), ITEM_FLAG_IRREMOVABLE))
+		{
+			answer = "Tego, co tam nosi, nie da sie zdjac.";
+			return 2;
+		}
+		SetPlayerBotSidekickPin(sk->GetPlayerID(), rt, item->GetID(), (BYTE)slot);
+		const DWORD now = get_dword_time();
+		const bool blowFresh = now - sk->GetLastAttackTime() <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY ||
+				now - state.dwLastBotSkillTime <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY;
+		bool worn = false;
+		if (!blowFresh && !item->isLocked() && !item->IsExchanging())
+		{
+			// A ring or a glove goes where the owner put it: the engine takes the
+			// first free unique slot whatever it is asked (CItem::FindEquipCell),
+			// so the slot asked for is emptied first.
+			if (unique && old && old->IsEquipped() && sk->GetEmptyInventory(old->GetSize()) >= 0)
+				sk->UnequipItem(old);
+			// Anything else: the engine swaps a worn piece into the new one's
+			// cell when it fits there; one that does not goes to a free cell.
+			worn = PlayerBotEquipItem(sk, item) && item->IsEquipped();
+			if (!worn && old && old->IsEquipped() && sk->GetEmptyInventory(old->GetSize()) >= 0 &&
+					sk->UnequipItem(old) && !old->IsEquipped())
+				worn = PlayerBotEquipItem(sk, item) && item->IsEquipped();
+		}
+		if (worn)
+		{
+			// Pinned where it went: a unique finds its own slot.
+			const int wentTo = (int)item->GetCell() - INVENTORY_MAX_NUM;
+			if (wentTo >= 0 && wentTo < WEAR_MAX_NUM && wentTo != slot)
+				SetPlayerBotSidekickPin(sk->GetPlayerID(), rt, item->GetID(), (BYTE)wentTo);
+			LogManager::instance().ItemLog(sk, item, "PLAYERBOT_SIDEKICK_WEAR", owner->GetName());
+			FlushPlayerBotItemRow(item);
+			FlushPlayerBotItemRow(old);
+			answer = "Zalozone. Tego towarzysz sam nie zdejmie.";
+			return 0;
+		}
+		rt.dwEquipWaitUntil = now + PLAYERBOT_SIDEKICK_EQUIP_WAIT_MS;
+		state.bEquipPending = true;
+		state.dwNextEquipmentCheckTime = 0;
+		answer = "Zalozy to, jak tylko skonczy cios.";
+		return 0;
+	}
+
+	// Takes a worn piece off for its owner, to a cell or to the first that
+	// fits, and marks it: the AI does not put it back on.
+	int UnequipPlayerBotSidekickForOwner(LPCHARACTER owner, LPCHARACTER sk, TPlayerBotSidekickRuntime& rt, int wear,
+			int toCell, std::string& answer)
+	{
+		LPITEM worn = sk->GetWear(wear);
+		if (!worn)
+		{
+			answer = "Tam nic nie ma.";
+			return 3;
+		}
+		if (IS_SET(worn->GetFlag(), ITEM_FLAG_IRREMOVABLE) || worn->isLocked())
+		{
+			answer = "Tego nie da sie zdjac.";
+			return 2;
+		}
+		bool done = false;
+		if (toCell >= 0)
+			done = sk->MoveItem(TItemPos(INVENTORY, INVENTORY_MAX_NUM + wear), TItemPos(INVENTORY, toCell),
+					worn->GetCount()) && !worn->IsEquipped();
+		else
+			done = sk->GetEmptyInventory(worn->GetSize()) >= 0 && sk->UnequipItem(worn) && !worn->IsEquipped();
+		if (!done)
+		{
+			answer = sk->GetEmptyInventory(worn->GetSize()) < 0 ? "Towarzysz nie ma miejsca w torbie." :
+					"Nie da sie tego teraz zdjac - sprobuj za chwile.";
+			return 2;
+		}
+		SetPlayerBotSidekickPin(sk->GetPlayerID(), rt, worn->GetID(), PLAYERBOT_SIDEKICK_PIN_UNWANTED);
+		LogManager::instance().ItemLog(sk, worn, "PLAYERBOT_SIDEKICK_UNWEAR", owner->GetName());
+		FlushPlayerBotItemRow(worn);
+		answer = "Zdjete. Towarzysz sam tego nie zalozy (odepnij, zeby znow mogl).";
+		return 0;
+	}
+
+	// A move inside its bag, as the owner's own bag moves: onto an empty place,
+	// into a stack of the same thing, or - which the engine's own move does
+	// not do - swapped with a piece of the same size lying there.
+	int MovePlayerBotSidekickBagItem(LPCHARACTER sk, int from, int to, std::string& answer)
+	{
+		LPITEM item = sk->GetInventoryItem(from);
+		if (!item || item->GetCell() != from)
+		{
+			answer = "Tam nic nie ma.";
+			return 3;
+		}
+		if (from == to)
+			return 0;
+		if (item->isLocked() || item->IsExchanging())
+		{
+			answer = "Ten przedmiot jest teraz zajety.";
+			return 2;
+		}
+		LPITEM other = sk->GetInventoryItem(to);
+		const bool sameStack = other && other != item && other->GetVnum() == item->GetVnum() && item->IsStackable();
+		if (other && other != item && other->GetCell() == to && !sameStack && other->GetSize() == item->GetSize())
+		{
+			if (other->isLocked() || other->IsExchanging())
+			{
+				answer = "Ten przedmiot jest teraz zajety.";
+				return 2;
+			}
+			item->RemoveFromCharacter();
+			other->RemoveFromCharacter();
+			item->AddToCharacter(sk, TItemPos(INVENTORY, to));
+			other->AddToCharacter(sk, TItemPos(INVENTORY, from));
+			answer = "Zamienione miejscami.";
+			return 0;
+		}
+		const DWORD before = sameStack ? (DWORD)other->GetCount() : 0;
+		if (!sk->MoveItem(TItemPos(INVENTORY, from), TItemPos(INVENTORY, to), item->GetCount()))
+		{
+			answer = "Tam nie ma miejsca.";
+			return 2;
+		}
+		if (sameStack && (DWORD)other->GetCount() == before)
+		{
+			answer = "Ten stos jest juz pelny.";
+			return 2;
+		}
+		answer = sameStack ? "Polaczone." : "Przeniesione.";
+		return 0;
+	}
+
+	// A stack dropped on a stack of the same thing, poured the way the
+	// engine's own move pours one: the same vnum and sockets, up to the item's
+	// own ceiling. The units moved; -1 when the two are not one thing. A
+	// source emptied is removed, with its quickslot.
+	int PourPlayerBotSidekickStack(LPCHARACTER from, LPITEM item, LPITEM into, const char* why)
+	{
+		if (!into || into == item || into->GetVnum() != item->GetVnum() || !into->IsStackable() ||
+				IS_SET(into->GetAntiFlag(), ITEM_ANTIFLAG_STACK) || into->isLocked() || into->IsExchanging())
+			return -1;
+		for (int i = 0; i < ITEM_SOCKET_MAX_NUM; ++i)
+			if (into->GetSocket(i) != item->GetSocket(i))
+				return -1;
+		const int room = PlayerBotMaxStack(into) - (int)into->GetCount();
+		const int moved = std::min(room, (int)item->GetCount());
+		if (moved <= 0)
+			return 0;
+		into->SetCount(into->GetCount() + moved);
+		if (moved >= (int)item->GetCount())
+		{
+			from->SyncQuickslot(QUICKSLOT_TYPE_ITEM, item->GetCell(), 255);
+			ITEM_MANAGER::instance().RemoveItem(item, why);
+		}
+		else
+			item->SetCount(item->GetCount() - moved);
+		return moved;
+	}
+
+	// Why a piece may not cross between the two bags, in the owner's words;
+	// empty when it may. A trade's own refusals.
+	std::string GetPlayerBotSidekickHandOverRefusal(LPITEM item)
+	{
+		if (IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_GIVE))
+			return "Tego nie da sie przekazac (tak jak w handlu).";
+		if (item->isLocked() || item->IsExchanging())
+			return "Ten przedmiot jest teraz zajety.";
+		if (item->IsDragonSoul())
+			return "Kamieni smoka nie da sie tu przekazac.";
+		return std::string();
+	}
+
+	// Moves a piece from one character's bag to a cell of the other's, as
+	// CExchange::Done does.
+	void HandPlayerBotSidekickItemOver(LPCHARACTER from, LPCHARACTER to, LPITEM item, int cell)
+	{
+		from->SyncQuickslot(QUICKSLOT_TYPE_ITEM, item->GetCell(), 255);
+		item->RemoveFromCharacter();
+		item->AddToCharacter(to, TItemPos(INVENTORY, cell));
+		ITEM_MANAGER::instance().FlushDelayedSave(item);
+	}
+
+	// Where a piece of this size goes in a character's bag: the cell asked
+	// for when it is free, the first free one for -1. -1 when there is none.
+	int FindPlayerBotSidekickHandOverCell(LPCHARACTER ch, LPITEM item, int cell)
+	{
+		if (cell < 0)
+			return ch->GetEmptyInventory(item->GetSize());
+		return ch->IsEmptyItemGrid(TItemPos(INVENTORY, cell), item->GetSize()) ? cell : -1;
+	}
+
+	// From the owner's bag to its companion: onto a cell, a stack or a slot.
+	// What it gives is its gift (never sold, IsPlayerBotSidekickGift); what it
+	// gives straight onto a slot is put on and pinned.
+	int GivePlayerBotSidekickItem(LPCHARACTER owner, LPCHARACTER sk, TPlayerBotAIState& state,
+			TPlayerBotSidekickRuntime& rt, int fromCell, int to, std::string& answer)
+	{
+		LPITEM item = IsPlayerBotSidekickEqBagPos(fromCell) ? owner->GetInventoryItem(fromCell) : NULL;
+		if (!item || item->GetCell() != fromCell || item->GetWindow() != INVENTORY || item->IsEquipped())
+		{
+			answer = "Nie ma tego w twojej torbie.";
+			return 3;
+		}
+		answer = GetPlayerBotSidekickHandOverRefusal(item);
+		if (!answer.empty())
+			return 2;
+		const bool toWear = IsPlayerBotSidekickEqWearPos(to);
+		const int wantWear = toWear ? to - PLAYERBOT_SIDEKICK_EQ_WEAR_BASE : -1;
+		if (toWear)
+		{
+			// What the companion could never wear stays with the owner.
+			const int wear = item->FindEquipCell(sk);
+			const bool unique = (wear == WEAR_UNIQUE1 || wear == WEAR_UNIQUE2) &&
+					(wantWear == WEAR_UNIQUE1 || wantWear == WEAR_UNIQUE2);
+			if (wear >= 0 && wear != wantWear && !unique)
+			{
+				answer = "To nie pasuje w to miejsce.";
+				return 2;
+			}
+			answer = GetPlayerBotSidekickWearRefusal(sk, item, sk->GetWear(wantWear));
+			if (!answer.empty())
+				return 2;
+		}
+		const char* name = item->GetName();
+		std::string pieceName = name ? name : "";
+		const DWORD vnum = item->GetVnum();
+		// Onto a stack of the same thing, as far as it takes.
+		LPITEM stack = IsPlayerBotSidekickEqBagPos(to) ? sk->GetInventoryItem(to) : NULL;
+		if (stack && stack->GetCell() == to)
+		{
+			const DWORD count = (DWORD)item->GetCount();
+			const int poured = PourPlayerBotSidekickStack(owner, item, stack, "PLAYERBOT_SIDEKICK_GIVE");
+			if (poured > 0)
+			{
+				AddPlayerBotSidekickGift(sk->GetPlayerID(), rt, stack->GetID());
+				LogManager::instance().ItemLog(sk, stack, "PLAYERBOT_GIFT_IN", owner->GetName());
+				char text[160];
+				snprintf(text, sizeof(text), "Dolozone do stosu towarzysza: %d z %u.", poured, (unsigned int)count);
+				answer = text;
+				return 0;
+			}
+			if (poured == 0)
+			{
+				answer = "Ten stos jest juz pelny.";
+				return 2;
+			}
+		}
+		const int cell = FindPlayerBotSidekickHandOverCell(sk, item, IsPlayerBotSidekickEqBagPos(to) ? to : -1);
+		if (cell < 0)
+		{
+			answer = IsPlayerBotSidekickEqBagPos(to) ? "Tam nie ma miejsca." : "Towarzysz nie ma miejsca w torbie.";
+			return 2;
+		}
+		HandPlayerBotSidekickItemOver(owner, sk, item, cell);
+		AddPlayerBotSidekickGift(sk->GetPlayerID(), rt, item->GetID());
+		ClearPlayerBotSidekickPin(rt, item->GetID());
+		LogManager::instance().ItemLog(sk, item, "PLAYERBOT_GIFT_IN", owner->GetName());
+		sys_log(0, "PLAYERBOT_SIDEKICK: given pid=%u owner=%u item=%u vnum=%u cell=%d", sk->GetPlayerID(),
+				owner->GetPlayerID(), item->GetID(), vnum, cell);
+		if (toWear)
+		{
+			std::string worn;
+			const int code = EquipPlayerBotSidekickForOwner(owner, sk, state, rt, item, wantWear, worn);
+			answer = std::string("Dane: ") + pieceName + ". " + worn;
+			return code;
+		}
+		state.dwNextEquipmentCheckTime = 0;
+		answer = std::string("Dane towarzyszowi: ") + pieceName + ".";
+		return 0;
+	}
+
+	// From the companion to its owner's bag: a bag piece or a worn one (taken
+	// off first). The owner's mark and gift go with it.
+	int TakePlayerBotSidekickItem(LPCHARACTER owner, LPCHARACTER sk, TPlayerBotSidekickRuntime& rt, int from,
+			int toCell, std::string& answer)
+	{
+		const bool fromWear = IsPlayerBotSidekickEqWearPos(from);
+		LPITEM item = fromWear ? sk->GetWear(from - PLAYERBOT_SIDEKICK_EQ_WEAR_BASE)
+				: (IsPlayerBotSidekickEqBagPos(from) ? sk->GetInventoryItem(from) : NULL);
+		if (!item || (!fromWear && item->GetCell() != from))
+		{
+			answer = "Tam nic nie ma.";
+			return 3;
+		}
+		answer = GetPlayerBotSidekickHandOverRefusal(item);
+		if (!answer.empty())
+			return 2;
+		if (fromWear && IS_SET(item->GetFlag(), ITEM_FLAG_IRREMOVABLE))
+		{
+			answer = "Tego nie da sie zdjac.";
+			return 2;
+		}
+		std::string pieceName = item->GetName() ? item->GetName() : "";
+		// Onto a stack of the owner's of the same thing, as far as it takes.
+		LPITEM stack = IsPlayerBotSidekickEqBagPos(toCell) ? owner->GetInventoryItem(toCell) : NULL;
+		if (!fromWear && stack && stack->GetCell() == toCell)
+		{
+			const DWORD id = item->GetID();
+			const DWORD count = (DWORD)item->GetCount();
+			const int poured = PourPlayerBotSidekickStack(sk, item, stack, "PLAYERBOT_SIDEKICK_TAKE");
+			if (poured > 0)
+			{
+				if (poured >= (int)count)
+				{
+					ClearPlayerBotSidekickGift(sk->GetPlayerID(), rt, id);
+					ClearPlayerBotSidekickPin(rt, id);
+				}
+				LogManager::instance().ItemLog(owner, stack, "PLAYERBOT_SIDEKICK_TAKE", sk->GetName());
+				char text[160];
+				snprintf(text, sizeof(text), "Dolozone do twojego stosu: %d z %u.", poured, (unsigned int)count);
+				answer = text;
+				return 0;
+			}
+			if (poured == 0)
+			{
+				answer = "Twoj stos jest juz pelny.";
+				return 2;
+			}
+		}
+		const int cell = FindPlayerBotSidekickHandOverCell(owner, item, IsPlayerBotSidekickEqBagPos(toCell) ? toCell : -1);
+		if (cell < 0)
+		{
+			answer = IsPlayerBotSidekickEqBagPos(toCell) ? "Tam nie ma miejsca." : "Nie masz miejsca w torbie.";
+			return 2;
+		}
+		// A worn piece comes off into the companion's bag first: the engine
+		// unequips a piece only there (CItem::RemoveFromCharacter would leave
+		// it with two owners).
+		if (fromWear && (sk->GetEmptyInventory(item->GetSize()) < 0 || !sk->UnequipItem(item) || item->IsEquipped()))
+		{
+			answer = sk->GetEmptyInventory(item->GetSize()) < 0 ?
+					"Towarzysz nie ma miejsca w torbie, zeby to zdjac - wez najpierw cos z jego torby." :
+					"Nie da sie tego teraz zdjac - sprobuj za chwile.";
+			return 2;
+		}
+		const DWORD id = item->GetID();
+		HandPlayerBotSidekickItemOver(sk, owner, item, cell);
+		ClearPlayerBotSidekickGift(sk->GetPlayerID(), rt, id);
+		ClearPlayerBotSidekickPin(rt, id);
+		LogManager::instance().ItemLog(owner, item, "PLAYERBOT_SIDEKICK_TAKE", sk->GetName());
+		sys_log(0, "PLAYERBOT_SIDEKICK: taken pid=%u owner=%u item=%u vnum=%u worn=%d cell=%d", sk->GetPlayerID(),
+				owner->GetPlayerID(), id, item->GetVnum(), fromWear ? 1 : 0, cell);
+		answer = std::string("Wziete od towarzysza: ") + pieceName + ".";
+		return 0;
+	}
+
+	// The window's orders on the bag: "eq" (what changed), "eq 1" (all of
+	// it), "eq ruch <z> <na>", "eq daj <twoja komorka> <na>", "eq wez <z>
+	// <twoja komorka>", "eq odepnij <pozycja>". Each is answered with one
+	// SidekickEqResult and then what changed.
+	void HandlePlayerBotSidekickEqCommand(LPCHARACTER owner, const char* op, const char* a, const char* b)
+	{
+		if (!*op || !strcmp(op, "1"))
+		{
+			SendPlayerBotSidekickEq(owner, *op != 0);
+			return;
+		}
+		TPlayerBotSidekickMap::iterator rec = s_mapPlayerBotSidekicks.find(owner->GetPlayerID());
+		if (rec == s_mapPlayerBotSidekicks.end())
+		{
+			SendPlayerBotSidekickCommand(owner, "SidekickEqNone %d 0", PLAYERBOT_SIDEKICK_EQ_PROTOCOL);
+			return;
+		}
+		LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec->second.dwSidekickPID);
+		TPlayerBotAIStateMap::iterator st = s_mapPlayerBotAIStates.find(rec->second.dwSidekickPID);
+		if (!sk || !sk->IsItemLoaded() || st == s_mapPlayerBotAIStates.end() ||
+				!CPlayerBotManager::instance().IsManaged(rec->second.dwSidekickPID))
+		{
+			AnswerPlayerBotSidekickEq(owner, 1, "Towarzysza nie ma teraz w grze.");
+			SendPlayerBotSidekickCommand(owner, "SidekickEqNone %d 1", PLAYERBOT_SIDEKICK_EQ_PROTOCOL);
+			return;
+		}
+		// Not before the bot it was has left its bag (FinishPlayerBotSidekickSetup):
+		// an order sent blind in that moment would take out what the setup is
+		// about to remove.
+		if (!rec->second.bSetupDone)
+		{
+			AnswerPlayerBotSidekickEq(owner, 1, "Towarzysz jeszcze sie przygotowuje - sprobuj za chwile.");
+			return;
+		}
+		TPlayerBotSidekickRuntime& rt = s_mapPlayerBotSidekickRuntime[sk->GetPlayerID()];
+		TPlayerBotAIState& state = st->second;
+		const int from = ParsePlayerBotSidekickEqPos(a);
+		const int to = ParsePlayerBotSidekickEqPos(b);
+		std::string answer;
+		int code = 9;
+		const bool twoBags = !strcmp(op, "daj") || !strcmp(op, "wez");
+		if (!strcmp(op, "ruch") || twoBags || !strcmp(op, "odepnij"))
+		{
+			if (from == INT_MIN || (strcmp(op, "odepnij") && to == INT_MIN))
+				answer = "Zle miejsce.";
+			// A trade, a counter, the safebox, the anvil: the engine's own
+			// "busy", for both of them.
+			else if (!sk->CanHandleItem())
+				answer = "Towarzysz jest teraz zajety (handel, magazyn albo kowal) - sprobuj za chwile.";
+			else if (twoBags && !owner->CanHandleItem())
+				answer = "Zamknij najpierw handel, sklep albo magazyn.";
+			else if (!strcmp(op, "ruch"))
+			{
+				if (IsPlayerBotSidekickEqBagPos(from) && IsPlayerBotSidekickEqBagPos(to))
+					code = MovePlayerBotSidekickBagItem(sk, from, to, answer);
+				else if (IsPlayerBotSidekickEqBagPos(from) && (to == -1 || IsPlayerBotSidekickEqWearPos(to)))
+				{
+					LPITEM item = sk->GetInventoryItem(from);
+					if (!item || item->GetCell() != from)
+					{
+						answer = "Tam nic nie ma.";
+						code = 3;
+					}
+					else
+						code = EquipPlayerBotSidekickForOwner(owner, sk, state, rt, item,
+								to == -1 ? -1 : to - PLAYERBOT_SIDEKICK_EQ_WEAR_BASE, answer);
+				}
+				else if (IsPlayerBotSidekickEqWearPos(from) && (to == -1 || IsPlayerBotSidekickEqBagPos(to)))
+					code = UnequipPlayerBotSidekickForOwner(owner, sk, rt, from - PLAYERBOT_SIDEKICK_EQ_WEAR_BASE, to,
+							answer);
+				else
+					answer = "Przeciagnij to do torby towarzysza.";
+			}
+			else if (!strcmp(op, "daj"))
+			{
+				if (!IsPlayerBotSidekickEqBagPos(from))
+					answer = "Zle miejsce.";
+				else
+					code = GivePlayerBotSidekickItem(owner, sk, state, rt, from, to, answer);
+			}
+			else if (!strcmp(op, "wez"))
+			{
+				if (from == -1 || !(to == -1 || IsPlayerBotSidekickEqBagPos(to)))
+					answer = "Zle miejsce.";
+				else
+					code = TakePlayerBotSidekickItem(owner, sk, rt, from, to, answer);
+			}
+			else
+			{
+				LPITEM item = IsPlayerBotSidekickEqWearPos(from) ? sk->GetWear(from - PLAYERBOT_SIDEKICK_EQ_WEAR_BASE)
+						: (IsPlayerBotSidekickEqBagPos(from) ? sk->GetInventoryItem(from) : NULL);
+				if (!item || (IsPlayerBotSidekickEqBagPos(from) && item->GetCell() != from))
+				{
+					answer = "Tam nic nie ma.";
+					code = 3;
+				}
+				else
+				{
+					const bool unwanted = IsPlayerBotSidekickUnwanted(sk, item);
+					ClearPlayerBotSidekickPin(rt, item->GetID());
+					state.dwNextEquipmentCheckTime = 0;
+					answer = unwanted ? "Towarzysz moze to znow zalozyc sam." :
+							"Odpiete. Towarzysz znow sam wybiera, co tam nosi.";
+					code = 0;
+				}
+			}
+		}
+		else
+			answer = "Nieznane polecenie okna.";
+		sys_log(0, "PLAYERBOT_SIDEKICK: eq %s owner=%u pid=%u from=%s to=%s code=%d", op, owner->GetPlayerID(),
+				sk->GetPlayerID(), a, b, code);
+		AnswerPlayerBotSidekickEq(owner, code, answer.c_str());
+		SendPlayerBotSidekickEq(owner, false);
+	}
+
+	// The six skills of the path it walks: from one, thirty-one, sixty-one and
+	// ninety-one by class, the second path fifteen further on - the rule of
+	// skill_proto and of every client's skill window. 0 with no path.
+	DWORD GetPlayerBotSidekickSkillBase(LPCHARACTER sk)
+	{
+		static const DWORD bases[4] = { 1, 31, 61, 91 };
+		const int job = sk->GetJob();
+		const int group = sk->GetSkillGroup();
+		if (job < 0 || job > 3 || group < 1 || group > 2)
+			return 0;
+		return bases[job] + (DWORD)(group - 1) * 15;
+	}
+
+	void SendPlayerBotSidekickSkills(LPCHARACTER owner)
+	{
+		if (!owner || !owner->GetDesc() || (owner->GetDesc()->IsBot() && !s_bPlayerBotSidekickSelfTest))
+			return;
+		TPlayerBotSidekickMap::iterator rec = s_mapPlayerBotSidekicks.find(owner->GetPlayerID());
+		if (rec == s_mapPlayerBotSidekicks.end())
+		{
+			SendPlayerBotSidekickCommand(owner, "SidekickEqNone %d 0", PLAYERBOT_SIDEKICK_EQ_PROTOCOL);
+			return;
+		}
+		LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec->second.dwSidekickPID);
+		if (!sk || !CPlayerBotManager::instance().IsManaged(rec->second.dwSidekickPID))
+		{
+			SendPlayerBotSidekickCommand(owner, "SidekickEqNone %d 1", PLAYERBOT_SIDEKICK_EQ_PROTOCOL);
+			return;
+		}
+		// After the five the window has always read, what the client's skill
+		// tooltip computes its numbers from - the companion's, because the
+		// client's own tooltip reads the player's (CPythonSkill's
+		// ProcessFormula asks CPythonPlayer::GetStatus). An older client reads
+		// the five and nothing more. The skill power by level and the battle
+		// points (hit rate, the attack from the weapon) the client works out
+		// itself, as it does for the player, from the level, the stats and
+		// the weapon's vnum.
+		LPITEM weapon = sk->GetWear(WEAR_WEAPON);
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		const int magicAtt = (int)sk->GetPoint(POINT_MAGIC_ATT);
+		const int skillDuration = (int)sk->GetPoint(POINT_SKILL_DURATION);
+#else
+		const int magicAtt = 0;
+		const int skillDuration = 0;
+#endif
+		// And after those, the stat window's (StatWindow in
+		// uisidekickinventory.py): the points left, who spends them, whether the
+		// one free reset is still there, and the four stats as spent - the real
+		// points, without what the gear adds - in the order the character window
+		// shows them (vitality, intelligence, strength, dexterity). An older
+		// client reads none of it.
+		SendPlayerBotSidekickCommand(owner,
+				"SidekickSkillBegin %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %u %d %d %d %d %d %d %d",
+				PLAYERBOT_SIDEKICK_EQ_PROTOCOL, (int)sk->GetPoint(POINT_SKILL), (int)sk->GetJob(),
+				(int)sk->GetSkillGroup(), rec->second.bManualSkills ? 1 : 0, (int)sk->GetLevel(),
+				(int)sk->GetPoint(POINT_ST), (int)sk->GetPoint(POINT_DX), (int)sk->GetPoint(POINT_HT),
+				(int)sk->GetPoint(POINT_IQ), (int)sk->GetMaxHP(), (int)sk->GetMaxSP(),
+				(int)sk->GetPoint(POINT_DEF_GRADE), (int)sk->GetPoint(POINT_MAGIC_ATT_GRADE),
+				(int)sk->GetPoint(POINT_ATT_SPEED), magicAtt, skillDuration,
+				(int)sk->GetPoint(POINT_PARTY_BUFFER_BONUS), (int)sk->GetPoint(POINT_CASTING_SPEED),
+				weapon ? (unsigned int)weapon->GetVnum() : 0U,
+				(int)sk->GetPoint(POINT_STAT), rec->second.bManualStats ? 1 : 0, rec->second.bStatResetUsed ? 0 : 1,
+				(int)sk->GetRealPoint(POINT_HT), (int)sk->GetRealPoint(POINT_IQ), (int)sk->GetRealPoint(POINT_ST),
+				(int)sk->GetRealPoint(POINT_DX));
+		const DWORD base = GetPlayerBotSidekickSkillBase(sk);
+		for (DWORD vnum = base; base != 0 && vnum < base + 6; ++vnum)
+			if (CSkillManager::instance().Get(vnum))
+				SendPlayerBotSidekickCommand(owner, "SidekickSkill %u %d %d", vnum, (int)sk->GetSkillLevel(vnum),
+						(int)sk->GetSkillMasterType(vnum));
+		SendPlayerBotSidekickCommand(owner, "SidekickSkillEnd");
+	}
+
+	void SetPlayerBotSidekickManualSkills(TPlayerBotSidekick& rec, bool manual)
+	{
+		rec.bManualSkills = manual;
+		SetPlayerBotSidekickSetting(rec, "manual_skills", manual ? 1U : 0U);
+	}
+
+	// "umiejetnosci" (the list), "umiejetnosci dodaj <vnum>" (one point there -
+	// and from then on the owner spends them, or the skill pass would move the
+	// point to its own build), "umiejetnosci reczne <0|1>".
+	void HandlePlayerBotSidekickSkillCommand(LPCHARACTER owner, const char* op, const char* a)
+	{
+		if (!*op)
+		{
+			SendPlayerBotSidekickSkills(owner);
+			return;
+		}
+		TPlayerBotSidekickMap::iterator rec = s_mapPlayerBotSidekicks.find(owner->GetPlayerID());
+		LPCHARACTER sk = rec == s_mapPlayerBotSidekicks.end() ? NULL :
+				CHARACTER_MANAGER::instance().FindByPID(rec->second.dwSidekickPID);
+		if (!sk || !CPlayerBotManager::instance().IsManaged(rec->second.dwSidekickPID))
+		{
+			AnswerPlayerBotSidekickEq(owner, 1, "Towarzysza nie ma teraz w grze.");
+			SendPlayerBotSidekickSkills(owner);
+			return;
+		}
+		std::string answer;
+		int code = 2;
+		char text[160];
+		if (!strcmp(op, "reczne") && (!strcmp(a, "0") || !strcmp(a, "1")))
+		{
+			SetPlayerBotSidekickManualSkills(rec->second, !strcmp(a, "1"));
+			answer = rec->second.bManualSkills ? "Punkty umiejetnosci rozdajesz teraz ty." :
+					"Punkty umiejetnosci rozdaje znow towarzysz.";
+			code = 0;
+		}
+		else if (!strcmp(op, "dodaj"))
+		{
+			DWORD vnum = 0;
+			str_to_number(vnum, a);
+			const DWORD base = GetPlayerBotSidekickSkillBase(sk);
+			if (base == 0)
+				answer = "Towarzysz nie ma jeszcze sciezki (dostanie ja na 5 poziomie).";
+			else if (vnum < base || vnum >= base + 6 || !CSkillManager::instance().Get(vnum))
+				answer = "To nie jest umiejetnosc towarzysza.";
+			else if (sk->GetPoint(POINT_SKILL) <= 0)
+				answer = "Towarzysz nie ma wolnych punktow umiejetnosci.";
+			else if (sk->GetSkillMasterType(vnum) != SKILL_NORMAL)
+				answer = "Te umiejetnosc rozwijaja juz tylko ksiegi i kamienie duchowe.";
+			else if (sk->GetSkillLevel(vnum) >= 17)
+				answer = "Na 17 poziomie umiejetnosc czeka na mistrza - dalej tylko ksiegi albo reset u Starszej Pani.";
+			else
+			{
+				const int before = sk->GetSkillLevel(vnum);
+				const int typeBefore = sk->GetSkillMasterType(vnum);
+				sk->SkillLevelUp(vnum);
+				const int after = sk->GetSkillLevel(vnum);
+				if (after > before || sk->GetSkillMasterType(vnum) != typeBefore)
+				{
+					if (!rec->second.bManualSkills)
+						SetPlayerBotSidekickManualSkills(rec->second, true);
+					snprintf(text, sizeof(text), "Umiejetnosc na poziomie %d%s. Punkty rozdajesz teraz ty.", after,
+							sk->GetSkillMasterType(vnum) != typeBefore ? " - mistrz!" : "");
+					answer = text;
+					code = 0;
+				}
+				else
+					answer = "Nie udalo sie - poziom towarzysza jest za niski na te umiejetnosc.";
+			}
+			sys_log(0, "PLAYERBOT_SIDEKICK: skill up owner=%u pid=%u vnum=%u code=%d level=%d points=%d",
+					owner->GetPlayerID(), sk->GetPlayerID(), vnum, code, (int)sk->GetSkillLevel(vnum),
+					(int)sk->GetPoint(POINT_SKILL));
+		}
+		else
+			answer = "Nieznane polecenie okna.";
+		AnswerPlayerBotSidekickEq(owner, code, answer.c_str());
+		SendPlayerBotSidekickSkills(owner);
+	}
+
+	void SetPlayerBotSidekickManualStats(TPlayerBotSidekick& rec, bool manual)
+	{
+		rec.bManualStats = manual;
+		SetPlayerBotSidekickSetting(rec, "manual_stats", manual ? 1U : 0U);
+	}
+
+	// "statystyki" (the numbers come with the skills, SidekickSkillBegin),
+	// "statystyki dodaj <ht|iq|st|dx> [ile]", "statystyki reczne <0|1>" and
+	// "statystyki odnow": Kiciamol's question of 25 September, "Dodasz
+	// jeszcze mozliwosc dodawania statystyk przez gracza?" - the operator: "Tak". The
+	// first point the owner spends makes the points the owner's
+	// (ManagePlayerBotStats spends none after it), as with the skills. The AI
+	// spends a point within a second of the level that brings it, so by the
+	// time an owner opens the window every point is spent: the owner gets one
+	// reset of them for nothing - CHARACTER::ResetPoint, what a stat reset
+	// does to a player - once per companion, and spends them all anew.
+	void HandlePlayerBotSidekickStatCommand(LPCHARACTER owner, const char* op, const char* a, const char* b)
+	{
+		if (!*op)
+		{
+			SendPlayerBotSidekickSkills(owner);
+			return;
+		}
+		TPlayerBotSidekickMap::iterator rec = s_mapPlayerBotSidekicks.find(owner->GetPlayerID());
+		LPCHARACTER sk = rec == s_mapPlayerBotSidekicks.end() ? NULL :
+				CHARACTER_MANAGER::instance().FindByPID(rec->second.dwSidekickPID);
+		if (!sk || !CPlayerBotManager::instance().IsManaged(rec->second.dwSidekickPID))
+		{
+			AnswerPlayerBotSidekickEq(owner, 1, "Towarzysza nie ma teraz w grze.");
+			SendPlayerBotSidekickSkills(owner);
+			return;
+		}
+		std::string answer;
+		int code = 2;
+		char text[192];
+		if (!strcmp(op, "reczne") && (!strcmp(a, "0") || !strcmp(a, "1")))
+		{
+			SetPlayerBotSidekickManualStats(rec->second, !strcmp(a, "1"));
+			answer = rec->second.bManualStats ? "Punkty statystyk rozdajesz teraz ty." :
+					"Punkty statystyk rozdaje znow towarzysz.";
+			code = 0;
+		}
+		else if (!strcmp(op, "dodaj"))
+		{
+			BYTE point = 0;
+			const char* name = "";
+			if (!strcmp(a, "ht") || !strcmp(a, "wit"))
+			{
+				point = POINT_HT;
+				name = "witalnosc";
+			}
+			else if (!strcmp(a, "iq") || !strcmp(a, "int"))
+			{
+				point = POINT_IQ;
+				name = "inteligencja";
+			}
+			else if (!strcmp(a, "st") || !strcmp(a, "sil"))
+			{
+				point = POINT_ST;
+				name = "sila";
+			}
+			else if (!strcmp(a, "dx") || !strcmp(a, "zr"))
+			{
+				point = POINT_DX;
+				name = "zrecznosc";
+			}
+			int wanted = 1;
+			if (*b)
+				str_to_number(wanted, b);
+			wanted = MINMAX(1, wanted, PLAYERBOT_SIDEKICK_STAT_ORDER_MAX);
+			if (point == 0)
+				answer = "Nieznana statystyka.";
+			else if (sk->IsPolymorphed())
+				answer = "Towarzysz jest teraz przemieniony - statystyki poczekaja.";
+			else if (sk->GetPoint(POINT_STAT) <= 0)
+				answer = "Towarzysz nie ma wolnych punktow statystyk.";
+			else
+			{
+				int added = 0;
+				while (added < wanted && AllocatePlayerBotStat(sk, point))
+					++added;
+				if (added > 0)
+				{
+					if (!rec->second.bManualStats)
+						SetPlayerBotSidekickManualStats(rec->second, true);
+					snprintf(text, sizeof(text), "%s: +%d (teraz %d). Wolne punkty: %d. Rozdajesz je teraz ty.",
+							name, added, (int)sk->GetRealPoint(point), (int)sk->GetPoint(POINT_STAT));
+					answer = text;
+					code = 0;
+				}
+				else
+					answer = "Tej statystyki nie da sie juz podniesc (90 to najwiecej).";
+			}
+			sys_log(0, "PLAYERBOT_SIDEKICK: stat up owner=%u pid=%u point=%u code=%d value=%d points=%d",
+					owner->GetPlayerID(), sk->GetPlayerID(), (unsigned int)point, code,
+					point ? (int)sk->GetRealPoint(point) : 0, (int)sk->GetPoint(POINT_STAT));
+		}
+		else if (!strcmp(op, "odnow"))
+		{
+			if (rec->second.bStatResetUsed)
+				answer = "Darmowy reset statystyk towarzysz juz wykorzystal.";
+			else if (sk->IsDead())
+				answer = "Najpierw musi wstac.";
+			else if (sk->IsPolymorphed())
+				answer = "Towarzysz jest teraz przemieniony - reset poczeka.";
+			else
+			{
+				const int before = (int)sk->GetPoint(POINT_STAT);
+				sk->ResetPoint(sk->GetLevel());
+				rec->second.bStatResetUsed = true;
+				SetPlayerBotSidekickSetting(rec->second, "stat_reset", 1U);
+				if (!rec->second.bManualStats)
+					SetPlayerBotSidekickManualStats(rec->second, true);
+				snprintf(text, sizeof(text), "Statystyki wrocily do poczatkowych. Masz %d punktow do rozdania.",
+						(int)sk->GetPoint(POINT_STAT));
+				answer = text;
+				code = 0;
+				sys_log(0, "PLAYERBOT_SIDEKICK: stats reset owner=%u pid=%u level=%d points=%d->%d",
+						owner->GetPlayerID(), sk->GetPlayerID(), (int)sk->GetLevel(), before,
+						(int)sk->GetPoint(POINT_STAT));
+			}
+		}
+		else
+			answer = "Nieznane polecenie okna.";
+		AnswerPlayerBotSidekickEq(owner, code, answer.c_str());
+		SendPlayerBotSidekickSkills(owner);
+	}
+
 	// Whether the folded whisper holds the phrase as whole words.
 	bool PlayerBotSidekickHeard(const char* folded, const char* phrase)
 	{
@@ -1725,13 +3778,26 @@ namespace
 			SendPlayerBotWhisper(bot, from, SetPlayerBotSidekickStance(*rec, (BYTE)stance));
 			handled = true;
 		}
+		// The lure, in the words any bot is asked to lure with; a bare "stop"
+		// is about the lure only while the companion lures.
+		const playerbot_lure_rules::EOrder lureOrder = playerbot_lure_rules::ParseOrder(folded);
+		if (lureOrder == playerbot_lure_rules::ORDER_START ||
+				(lureOrder == playerbot_lure_rules::ORDER_STOP && (rec->bLure || strstr(folded, "lur"))))
+		{
+			SendPlayerBotWhisper(bot, from, SetPlayerBotSidekickLure(*rec, lureOrder == playerbot_lure_rules::ORDER_START));
+			return true;
+		}
 		static const char* const summonWords[] = { "chodz", "do mnie", "wracaj", "wroc", "za mna", "przywolaj",
 				"tutaj", "come", "follow" };
 		static const char* const freeWords[] = { "graj sam", "graj po swojemu", "wolna reka", "idz expic",
 				"expij sam", "idz sam", "go play" };
 		// Before the call, whose "tutaj" is in "czekaj tutaj".
 		static const char* const holdWords[] = { "czekaj", "zaczekaj", "poczekaj", "zostan", "stoj", "wait" };
-		static const char* const errandWords[] = { "zakupy", "na zakupy", "do miasta", "idz do miasta" };
+		// "Zrob miejsce w eq" is what a player writes when the bag is full
+		// (a player's screenshot of 25 September: the companion answered it with
+		// talk, "Zero, EQ pelne"): the errand is where the merchant takes the junk.
+		static const char* const errandWords[] = { "zakupy", "na zakupy", "do miasta", "idz do miasta",
+				"zrob miejsce", "oproznij", "wyczysc eq", "sprzedaj smieci" };
 		for (size_t i = 0; i < sizeof(freeWords) / sizeof(freeWords[0]); ++i)
 			if (PlayerBotSidekickHeard(folded, freeWords[i]))
 			{
@@ -1774,6 +3840,10 @@ namespace
 	// /towarzysz stworz <rasa 0-7> <sciezka 1-2> <nick> | przywolaj | wolny | czekaj | zakupy | stan
 	//            | walka <0 atakuj, 1 nie atakuj pierwszy, 2 nie walcz> | zbieraj <0 nic, 1 twoj, 2 wszystko>
 	//            | ochrona <0|1> | buffy <0|1> | okno [1] | odprawa tak
+	//            | eq [1 | ruch <z> <na> | daj <z> <na> | wez <z> <na> | odepnij <pozycja>]
+	//            | umiejetnosci [dodaj <vnum> | reczne <0|1>]
+	//            | statystyki [dodaj <ht|iq|st|dx> [ile] | reczne <0|1> | odnow]
+	//            | luruj <0|1>
 	void HandlePlayerBotSidekickCommand(LPCHARACTER ch, const char* argument)
 	{
 		if (!ch || !ch->GetDesc() || (ch->GetDesc()->IsBot() && !s_bPlayerBotSidekickSelfTest))
@@ -1798,6 +3868,8 @@ namespace
 		{
 			if (!strcmp(sub, "okno"))
 				SendPlayerBotSidekickCommand(ch, "SidekickInfo %d 2", PLAYERBOT_SIDEKICK_WINDOW_PROTOCOL);
+			else if (!strcmp(sub, "eq") || !strcmp(sub, "umiejetnosci") || !strcmp(sub, "statystyki"))
+				SendPlayerBotSidekickCommand(ch, "SidekickEqNone %d 2", PLAYERBOT_SIDEKICK_EQ_PROTOCOL);
 			else
 				SayPlayerBotSidekick(ch, "Towarzysze sa wylaczeni na tym serwerze (wlacza je wlasciciel serwera w launcherze).");
 			return;
@@ -1817,6 +3889,23 @@ namespace
 			SendPlayerBotSidekickWindow(ch, !strcmp(a1, "1"));
 			return;
 		}
+		// The bag window and the skills window (uisidekickinventory.py): each
+		// says for itself that there is no companion.
+		if (!strcmp(sub, "eq"))
+		{
+			HandlePlayerBotSidekickEqCommand(ch, a1, a2, a3);
+			return;
+		}
+		if (!strcmp(sub, "umiejetnosci"))
+		{
+			HandlePlayerBotSidekickSkillCommand(ch, a1, a2);
+			return;
+		}
+		if (!strcmp(sub, "statystyki"))
+		{
+			HandlePlayerBotSidekickStatCommand(ch, a1, a2, a3);
+			return;
+		}
 		TPlayerBotSidekickMap::iterator rec = s_mapPlayerBotSidekicks.find(ch->GetPlayerID());
 		if (rec == s_mapPlayerBotSidekicks.end())
 		{
@@ -1832,6 +3921,13 @@ namespace
 			HoldPlayerBotSidekick(ch, rec->second, dwNow);
 		else if (!strcmp(sub, "zakupy"))
 			SendPlayerBotSidekickShopping(ch, rec->second, dwNow);
+		else if (!strcmp(sub, "luruj"))
+		{
+			if (!strcmp(a1, "0") || !strcmp(a1, "1"))
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickLure(rec->second, !strcmp(a1, "1")));
+			else
+				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz luruj 1 (lurowanie wlaczone) albo /towarzysz luruj 0");
+		}
 		else if (!strcmp(sub, "zbieraj") || !strcmp(sub, "ochrona") || !strcmp(sub, "buffy"))
 		{
 			int value = -1;
@@ -2104,8 +4200,32 @@ namespace
 				(owner->GetParty() && victim->GetParty() == owner->GetParty()));
 	}
 
-	LPCHARACTER FindPlayerBotSidekickFoe(LPCHARACTER ch, LPCHARACTER owner, BYTE stance, int& why)
+	// The owner's target is a fight under way, whatever the stance says the
+	// companion may do about it.
+	bool IsPlayerBotSidekickOwnerTargetInFight(LPCHARACTER ch, LPCHARACTER owner)
 	{
+		LPCHARACTER target = owner->GetTarget();
+		return target && target != ch && !target->IsDead() && target->GetMapIndex() == owner->GetMapIndex() &&
+				(target->IsMonster() || target->IsStone() || IsPlayerBotSidekickWarFoe(owner, target)) &&
+				IsPlayerBotSidekickFightUnderWay(ch, owner, target);
+	}
+
+	// The owner was seen in a fight within PLAYERBOT_BUFF_COMBAT_WINDOW - the
+	// window a bot keeps its own fight buffs up for after its last blow. Its
+	// buffs then come before the loot and the walk after it.
+	bool IsPlayerBotSidekickOwnerFighting(const TPlayerBotSidekickRuntime& rt, DWORD dwNow)
+	{
+		return rt.dwOwnerFightSeenAt != 0 && dwNow >= rt.dwOwnerFightSeenAt &&
+				dwNow - rt.dwOwnerFightSeenAt < PLAYERBOT_BUFF_COMBAT_WINDOW;
+	}
+
+	// ownerFighting: the owner's target is a fight under way or a monster is
+	// at the owner - told in every stance, "nie walcz" included, because beside
+	// the owner's fight the owner's buffs come first.
+	LPCHARACTER FindPlayerBotSidekickFoe(LPCHARACTER ch, LPCHARACTER owner, BYTE stance, int& why,
+			bool& ownerFighting)
+	{
+		ownerFighting = IsPlayerBotSidekickOwnerTargetInFight(ch, owner);
 		LPCHARACTER target = stance == PLAYERBOT_SIDEKICK_STANCE_PASSIVE ? NULL : owner->GetTarget();
 		if (target && target != ch && !target->IsDead() &&
 				(target->IsMonster() || target->IsStone() || IsPlayerBotSidekickWarFoe(owner, target)) &&
@@ -2122,6 +4242,8 @@ namespace
 			return NULL;
 		FPlayerBotSidekickFoes foes(ch, owner, owner->GetX(), owner->GetY(), owner->GetMapIndex());
 		owner->GetSectree()->ForEachAround(foes);
+		if (foes.onOwner)
+			ownerFighting = true;
 		if (foes.onOwner && stance != PLAYERBOT_SIDEKICK_STANCE_PASSIVE)
 		{
 			why = PLAYERBOT_SIDEKICK_FOE_AT_OWNER;
@@ -2335,23 +4457,80 @@ namespace
 
 	// Defined in playerbot_manager.cpp, after the fragments: a Shaman's buffs
 	// cast on a person, the owner here (ManagePlayerBotBuffHumanLeader's pass).
-	bool ManagePlayerBotBuffPerson(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER person, DWORD dwNow);
+	bool ManagePlayerBotBuffPerson(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER person, DWORD dwNow,
+			bool mayWalk, bool fightBuffsDue);
+
+	// The owner's buffs come before the companion's own and before the next
+	// blow. They were cast only when nothing was left to fight, and in the
+	// default stance a companion hunting beside its owner always has a
+	// monster: the fight put its buffs on itself (FightPlayerBotTowerObjective)
+	// and the owner went without them for as long as the hunt lasted - "zaczela
+	// stawiac wylacznie na siebie" (Teivos, 25 September). A buff out of reach
+	// waits for the fight's end rather than walking the companion off its foe.
+	// And the owner's are kept up the way its own are: all of them, wherever it
+	// stands. The companion's own go up as a duellist's do
+	// (ManagePlayerBotCombatBuffs with duel), while the owner's fight buffs
+	// waited for a fight of the companion's - which in "nie walcz" never comes,
+	// so a Dragon Shaman, whose Blessing, Reflect and Dragon's Aid are all
+	// fight buffs, buffed its owner with nothing (teivos), and after the
+	// owner's death buffed itself back up and left the owner bare ("jak sie
+	// zginie to ten buff nie chce buffac ... sam siebie buffa", iceBeeg, the
+	// same evening). The buffs' cooldown is two seconds, so its own never
+	// keep the owner's waiting.
+	bool BuffPlayerBotSidekickOwner(LPCHARACTER ch, TPlayerBotAIState& state, const TPlayerBotSidekick& rec,
+			LPCHARACTER owner, DWORD dwNow, bool mayWalk)
+	{
+		if (!rec.bBuffs || !owner || owner->IsDead() || owner->GetMapIndex() != ch->GetMapIndex())
+			return false;
+		return ManagePlayerBotBuffPerson(ch, state, owner, dwNow, mayWalk, true);
+	}
 
 	// The path the owner chose, the moment the engine allows one:
 	// CHARACTER::SetSkillGroup refuses a character under level five
 	// (char_skill.cpp), so a companion made at the start of the game takes it at
 	// five, wherever it stands. Never the trainer's, which draws a path by pid
 	// (playerbot_skills.h), and back again after the old woman's reset.
+	// ClearSkill goes first every time, the first path included: it is what
+	// hands a player the 4 + (level - 5) points at the trainer, and SetSkillGroup
+	// hands none - a companion made under five stood on the points of its levels
+	// after five alone, two at level seven where a player has six (Piciu713,
+	// 25 September). No skill has a level before the first path.
 	void KeepPlayerBotSidekickPath(LPCHARACTER ch, const TPlayerBotSidekick& rec)
 	{
 		if (rec.bGroup == 0 || ch->GetLevel() < 5 || ch->GetSkillGroup() == rec.bGroup)
 			return;
 		const BYTE before = ch->GetSkillGroup();
-		if (before != 0)
-			ch->ClearSkill();
+		ch->ClearSkill();
 		ch->SetSkillGroup(rec.bGroup);
-		sys_log(0, "PLAYERBOT_SIDEKICK: path pid=%u name=%s level=%d group=%u->%u", ch->GetPlayerID(), ch->GetName(),
-				ch->GetLevel(), (unsigned int)before, (unsigned int)ch->GetSkillGroup());
+		sys_log(0, "PLAYERBOT_SIDEKICK: path pid=%u name=%s level=%d group=%u->%u points=%d", ch->GetPlayerID(),
+				ch->GetName(), ch->GetLevel(), (unsigned int)before, (unsigned int)ch->GetSkillGroup(),
+				(int)ch->GetPoint(POINT_SKILL));
+	}
+
+	// The companions made under level five before that: their points are
+	// topped up to a player's count once - the trainer's 4 + (level - 5) against
+	// what the path's skills already took (a level under Master took that many
+	// points, a Master seventeen and the roll at seventeen, the books the rest)
+	// - and never past it, so a companion whose points are right is left alone.
+	void TopUpPlayerBotSidekickSkillPoints(LPCHARACTER ch)
+	{
+		const DWORD base = GetPlayerBotSidekickSkillBase(ch);
+		if (base == 0 || ch->GetLevel() < 5)
+			return;
+		const int budget = 4 + ((int)ch->GetLevel() - 5);
+		int spent = 0;
+		for (DWORD vnum = base; vnum < base + 6; ++vnum)
+		{
+			const int level = (int)ch->GetSkillLevel(vnum);
+			spent += level >= 20 ? 17 : level;
+		}
+		const int unspent = (int)ch->GetPoint(POINT_SKILL);
+		if (unspent + spent >= budget)
+			return;
+		ch->PointChange(POINT_SKILL, budget - spent - unspent);
+		ch->SkillLevelPacket();
+		sys_log(0, "PLAYERBOT_SIDEKICK: skill points topped up pid=%u name=%s level=%d spent=%d free=%d->%d",
+				ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), spent, unspent, (int)ch->GetPoint(POINT_SKILL));
 	}
 
 	// A fight where it stands - at its owner's side, or at the spot it keeps -
@@ -2376,6 +4555,355 @@ namespace
 		return FightPlayerBotTowerObjective(ch, state, foe, dwNow);
 	}
 
+	// ------------------------------------------------------------- the lure
+	//
+	// "Lurowanie" (the window's switch, "/towarzysz luruj 1", the whisper
+	// "luruj"): beside an owner standing on a spot, the companion walks out to
+	// the packs round it nobody is fighting, wakes each with a blow - the
+	// group wakes with it through the engine's party aggro - and walks back
+	// with what it woke, up to PLAYERBOT_SIDEKICK_LURE_PACKS packs a course.
+	// What it brings keeps fighting it beside the owner, whose area skills
+	// then have them all in reach; should it fall, they turn on the owner
+	// (HandPlayerBotSidekickFoesToOwner). Not an Archer's party role
+	// (playerbot_lure.h, which needs a bow and three in a party): any class,
+	// its own blow, the owner's spot.
+
+	// What stands round the owner in a fight with either of them, and round
+	// the companion in a fight with it.
+	struct FPlayerBotSidekickEngaged
+	{
+		LPCHARACTER self;
+		LPCHARACTER owner;
+		int onBoth;
+		int onSelf;
+
+		FPlayerBotSidekickEngaged(LPCHARACTER s, LPCHARACTER o) : self(s), owner(o), onBoth(0), onSelf(0)
+		{
+		}
+
+		void operator()(LPENTITY ent)
+		{
+			if (!ent || !ent->IsType(ENTITY_CHARACTER))
+				return;
+			LPCHARACTER c = (LPCHARACTER)ent;
+			if (c->IsDead() || !c->IsMonster())
+				return;
+			LPCHARACTER victim = c->GetVictim();
+			if (!victim)
+				return;
+			if (victim == self)
+			{
+				++onSelf;
+				++onBoth;
+			}
+			else if (owner && victim == owner)
+				++onBoth;
+		}
+	};
+
+	int CountPlayerBotSidekickChasers(LPCHARACTER ch)
+	{
+		if (!ch->GetSectree())
+			return 0;
+		FPlayerBotSidekickEngaged engaged(ch, NULL);
+		ch->GetSectree()->ForEachAround(engaged);
+		return engaged.onSelf;
+	}
+
+	// The packs round the anchor - where the owner stood when the course began
+	// - one entry per group: the CParty the regen spawned it in, or the monster
+	// itself when it stands alone. A pack with a member already in a fight, one
+	// too strong for the owner, one in a safe zone and one at a spot this
+	// course woke already are no packs to go for.
+	struct FPlayerBotSidekickLurePacks
+	{
+		struct TPack
+		{
+			DWORD dwVID;
+			int iDist;
+			int iMembers;
+			bool bRefused;
+			long x;
+			long y;
+			TPack() : dwVID(0), iDist(INT_MAX), iMembers(0), bRefused(false), x(0), y(0)
+			{
+			}
+		};
+		LPCHARACTER self;
+		LPCHARACTER owner;
+		long anchorX;
+		long anchorY;
+		int maxLevel;
+		const std::vector<std::pair<long, long> >& spots;
+		std::map<const void*, TPack> packs;
+		int seen;
+
+		FPlayerBotSidekickLurePacks(LPCHARACTER s, LPCHARACTER o, long x, long y, int level,
+				const std::vector<std::pair<long, long> >& taken)
+			: self(s), owner(o), anchorX(x), anchorY(y), maxLevel(level), spots(taken), seen(0)
+		{
+		}
+
+		void operator()(LPENTITY ent)
+		{
+			if (!ent || !ent->IsType(ENTITY_CHARACTER))
+				return;
+			LPCHARACTER c = (LPCHARACTER)ent;
+			if (c == self || c == owner || c->IsDead() || !c->IsMonster() || c->GetMobRank() >= MOB_RANK_BOSS ||
+					c->GetMapIndex() != self->GetMapIndex())
+				return;
+			const int fromAnchor = DISTANCE_APPROX(c->GetX() - anchorX, c->GetY() - anchorY);
+			if (fromAnchor < PLAYERBOT_SIDEKICK_LURE_MIN_RANGE || fromAnchor > PLAYERBOT_SIDEKICK_LURE_MAX_RANGE)
+				return;
+			++seen;
+			const void* key = c->GetParty() ? (const void*)c->GetParty() : (const void*)c;
+			TPack& pack = packs[key];
+			if (pack.bRefused)
+				return;
+			bool refuse = c->GetVictim() != NULL || (int)c->GetLevel() > maxLevel ||
+					IsPlayerBotSafeZone(c->GetMapIndex(), c->GetX(), c->GetY());
+			for (size_t i = 0; i < spots.size() && !refuse; ++i)
+				refuse = DISTANCE_APPROX(c->GetX() - spots[i].first, c->GetY() - spots[i].second) <
+						PLAYERBOT_SIDEKICK_LURE_SEPARATION;
+			if (refuse)
+			{
+				pack.bRefused = true;
+				return;
+			}
+			++pack.iMembers;
+			const int fromSelf = DISTANCE_APPROX(c->GetX() - self->GetX(), c->GetY() - self->GetY());
+			if (fromSelf < pack.iDist)
+			{
+				pack.iDist = fromSelf;
+				pack.dwVID = (DWORD)c->GetVID();
+				pack.x = c->GetX();
+				pack.y = c->GetY();
+			}
+		}
+	};
+
+	// The pack to go for next: a group before a monster on its own, the nearer
+	// of two, one another bot is on or the companion cannot walk to passed
+	// over. The member it answers with is the one to strike.
+	LPCHARACTER PickPlayerBotSidekickLurePack(LPCHARACTER ch, LPCHARACTER owner, const TPlayerBotSidekickRuntime& rt,
+			int& members, int& seen)
+	{
+		members = 0;
+		seen = 0;
+		if (!owner->GetSectree())
+			return NULL;
+		FPlayerBotSidekickLurePacks finder(ch, owner, rt.lLureAnchorX, rt.lLureAnchorY,
+				(int)owner->GetLevel() + PLAYERBOT_SIDEKICK_LURE_LEVEL_OVER, rt.vecLureSpots);
+		owner->GetSectree()->ForEachAround(finder);
+		seen = finder.seen;
+		std::vector<std::pair<int, const FPlayerBotSidekickLurePacks::TPack*> > order;
+		for (std::map<const void*, FPlayerBotSidekickLurePacks::TPack>::const_iterator it = finder.packs.begin();
+				it != finder.packs.end(); ++it)
+		{
+			const FPlayerBotSidekickLurePacks::TPack& pack = it->second;
+			if (pack.bRefused || pack.dwVID == 0)
+				continue;
+			const int size = std::min(pack.iMembers, 4);
+			order.push_back(std::make_pair(pack.iDist - 400 * size + (pack.iMembers == 1 ? 800 : 0), &pack));
+		}
+		std::sort(order.begin(), order.end(),
+				[](const std::pair<int, const FPlayerBotSidekickLurePacks::TPack*>& a,
+						const std::pair<int, const FPlayerBotSidekickLurePacks::TPack*>& b) { return a.first < b.first; });
+		for (size_t i = 0; i < order.size() && i < 6; ++i)
+		{
+			const FPlayerBotSidekickLurePacks::TPack& pack = *order[i].second;
+			if (IsTargetClaimedByAnotherBot(ch, pack.dwVID) ||
+					!IsPlayerBotReachable(ch->GetMapIndex(), ch->GetX(), ch->GetY(), pack.x, pack.y))
+				continue;
+			LPCHARACTER target = CHARACTER_MANAGER::instance().Find(pack.dwVID);
+			if (!target)
+				continue;
+			members = pack.iMembers;
+			return target;
+		}
+		return NULL;
+	}
+
+	int GetPlayerBotSidekickHealthPercent(LPCHARACTER ch)
+	{
+		return ch->GetMaxHP() > 0 ? (int)((long long)ch->GetHP() * 100 / ch->GetMaxHP()) : 0;
+	}
+
+	void EndPlayerBotSidekickLure(LPCHARACTER ch, TPlayerBotSidekickRuntime& rt, DWORD dwNow, const char* why)
+	{
+		if (rt.bLureStage != 0)
+			sys_log(0, "PLAYERBOT_SIDEKICK: lure over pid=%u name=%s why=%s packs=%d chasers=%d course_s=%u",
+					ch->GetPlayerID(), ch->GetName(), why, rt.iLurePacks, CountPlayerBotSidekickChasers(ch),
+					dwNow >= rt.dwLureCourseSince ? (dwNow - rt.dwLureCourseSince) / 1000 : 0U);
+		rt.bLureStage = 0;
+		rt.dwLureVID = 0;
+		rt.iLurePacks = 0;
+		rt.iLureMonsters = 0;
+		rt.vecLureSpots.clear();
+		rt.dwNextLure = dwNow + PLAYERBOT_SIDEKICK_LURE_PAUSE_MS;
+	}
+
+	// Aims the course at the next pack, or turns it home when there is none
+	// (or the course has its packs already).
+	void AimPlayerBotSidekickLure(LPCHARACTER ch, LPCHARACTER owner, TPlayerBotSidekickRuntime& rt, DWORD dwNow)
+	{
+		rt.dwLureStageSince = dwNow;
+		if (rt.iLurePacks >= PLAYERBOT_SIDEKICK_LURE_PACKS)
+		{
+			rt.bLureStage = 2;
+			rt.dwLureVID = 0;
+			return;
+		}
+		int members = 0, seen = 0;
+		LPCHARACTER target = PickPlayerBotSidekickLurePack(ch, owner, rt, members, seen);
+		if (!target)
+		{
+			rt.bLureStage = rt.iLurePacks > 0 ? 2 : 0;
+			rt.dwLureVID = 0;
+			return;
+		}
+		rt.bLureStage = 1;
+		rt.dwLureVID = (DWORD)target->GetVID();
+	}
+
+	// The course, one step a tick; true while it has the tick. With nothing to
+	// do it looks for a course once a second, and after a look that found no
+	// pack PLAYERBOT_SIDEKICK_LURE_NOTHING_MS later.
+	bool ManagePlayerBotSidekickLure(LPCHARACTER ch, TPlayerBotAIState& state, const TPlayerBotSidekick& rec,
+			TPlayerBotSidekickRuntime& rt, LPCHARACTER owner, DWORD dwNow)
+	{
+		if (!rec.bLure || rec.bStance == PLAYERBOT_SIDEKICK_STANCE_PASSIVE || rt.bHold || rt.bErrand)
+		{
+			if (rt.bLureStage != 0)
+				EndPlayerBotSidekickLure(ch, rt, dwNow, "switched_off");
+			return false;
+		}
+		if (rt.bLureStage == 0)
+		{
+			if (dwNow < rt.dwNextLure)
+				return false;
+			rt.dwNextLure = dwNow + 1000;
+			if (owner->IsDead() || owner->GetMapIndex() != ch->GetMapIndex() || !owner->GetSectree() ||
+					owner->IsStateMove() ||
+					IsPlayerBotSafeZone(owner->GetMapIndex(), owner->GetX(), owner->GetY()) ||
+					GetPlayerBotSidekickHealthPercent(owner) < PLAYERBOT_SIDEKICK_LURE_START_HP_PERCENT ||
+					GetPlayerBotSidekickHealthPercent(ch) < PLAYERBOT_SIDEKICK_LURE_START_HP_PERCENT)
+				return false;
+			FPlayerBotSidekickEngaged engaged(ch, owner);
+			owner->GetSectree()->ForEachAround(engaged);
+			if (engaged.onBoth > PLAYERBOT_SIDEKICK_LURE_BUSY_MONSTERS)
+				return false;
+			rt.lLureAnchorX = owner->GetX();
+			rt.lLureAnchorY = owner->GetY();
+			rt.vecLureSpots.clear();
+			rt.iLurePacks = 0;
+			rt.iLureMonsters = engaged.onSelf;
+			int members = 0, seen = 0;
+			LPCHARACTER target = PickPlayerBotSidekickLurePack(ch, owner, rt, members, seen);
+			if (!target)
+			{
+				rt.dwNextLure = dwNow + PLAYERBOT_SIDEKICK_LURE_NOTHING_MS;
+				PlayerBotLogThrottled("sidekick_lure_none", dwNow,
+						"PLAYERBOT_SIDEKICK: nothing to lure pid=%u name=%s map=%ld seen=%d",
+						ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), seen);
+				return false;
+			}
+			rt.bLureStage = 1;
+			rt.dwLureVID = (DWORD)target->GetVID();
+			rt.dwLureCourseSince = dwNow;
+			rt.dwLureStageSince = dwNow;
+			++rt.uLureCourses;
+			sys_log(0, "PLAYERBOT_SIDEKICK: lure begins pid=%u name=%s owner=%u map=%ld first=%s members=%d dist=%d",
+					ch->GetPlayerID(), ch->GetName(), owner->GetPlayerID(), ch->GetMapIndex(), target->GetName(),
+					members, DISTANCE_APPROX(target->GetX() - ch->GetX(), target->GetY() - ch->GetY()));
+		}
+		state.dwLastMeaningfulActivityTime = dwNow;
+		// The owner gone from the spot, somebody's health low, the course too
+		// long: what is woken comes home now, and with nothing woken it ends.
+		const bool ownerLeft = owner->IsDead() || owner->GetMapIndex() != ch->GetMapIndex() ||
+				DISTANCE_APPROX(owner->GetX() - rt.lLureAnchorX, owner->GetY() - rt.lLureAnchorY) >
+						PLAYERBOT_SIDEKICK_LURE_ANCHOR_LEASH;
+		if (owner->GetMapIndex() != ch->GetMapIndex())
+		{
+			EndPlayerBotSidekickLure(ch, rt, dwNow, "owner_left_map");
+			return false;
+		}
+		const bool hurt = GetPlayerBotSidekickHealthPercent(owner) < PLAYERBOT_SIDEKICK_LURE_ABORT_HP_PERCENT ||
+				GetPlayerBotSidekickHealthPercent(ch) < PLAYERBOT_SIDEKICK_LURE_ABORT_HP_PERCENT;
+		const bool late = dwNow >= rt.dwLureCourseSince && dwNow - rt.dwLureCourseSince > PLAYERBOT_SIDEKICK_LURE_COURSE_MS;
+		if (rt.bLureStage == 1 && (ownerLeft || hurt || late))
+		{
+			if (rt.iLurePacks == 0)
+			{
+				EndPlayerBotSidekickLure(ch, rt, dwNow, ownerLeft ? "owner_left" : hurt ? "hurt" : "late");
+				return false;
+			}
+			rt.bLureStage = 2;
+			rt.dwLureVID = 0;
+			rt.dwLureStageSince = dwNow;
+		}
+		if (rt.bLureStage == 1)
+		{
+			LPCHARACTER target = CHARACTER_MANAGER::instance().Find(rt.dwLureVID);
+			const int chasers = CountPlayerBotSidekickChasers(ch);
+			LPCHARACTER victim = target && !target->IsDead() ? target->GetVictim() : NULL;
+			// A pack is woken when it chases the companion - the one it struck,
+			// or more of them than before the blow (the struck one may have died
+			// of it and its group come on all the same).
+			if (victim == ch || chasers > rt.iLureMonsters)
+			{
+				++rt.iLurePacks;
+				rt.vecLureSpots.push_back(target ? std::make_pair((long)target->GetX(), (long)target->GetY())
+						: std::make_pair(ch->GetX(), ch->GetY()));
+				rt.iLureMonsters = std::max(chasers, rt.iLureMonsters + 1);
+				AimPlayerBotSidekickLure(ch, owner, rt, dwNow);
+				return true;
+			}
+			// Gone, fighting somebody else, or out of reach for too long: the
+			// next one.
+			if (!target || target->IsDead() || victim ||
+					(dwNow >= rt.dwLureStageSince && dwNow - rt.dwLureStageSince > PLAYERBOT_SIDEKICK_LURE_APPROACH_MS))
+			{
+				if (target)
+					rt.vecLureSpots.push_back(std::make_pair((long)target->GetX(), (long)target->GetY()));
+				AimPlayerBotSidekickLure(ch, owner, rt, dwNow);
+				if (rt.bLureStage == 0)
+				{
+					EndPlayerBotSidekickLure(ch, rt, dwNow, "no_pack");
+					return false;
+				}
+				return true;
+			}
+			const int dist = DISTANCE_APPROX(target->GetX() - ch->GetX(), target->GetY() - ch->GetY());
+			if (dist > PLAYERBOT_SIDEKICK_LURE_STRIKE_RANGE)
+			{
+				WalkPlayerBotSidekick(ch, target->GetX(), target->GetY(), dwNow, false);
+				SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
+				return true;
+			}
+			FightPlayerBotTowerObjective(ch, state, target, dwNow);
+			return true;
+		}
+		// Home with what it woke: beside the owner the course is over and the
+		// fight is the ordinary one, the woken packs on the companion.
+		long x = 0, y = 0;
+		GetPlayerBotSidekickSpot(ch, owner, x, y);
+		if (DISTANCE_APPROX(ch->GetX() - x, ch->GetY() - y) > PLAYERBOT_SIDEKICK_LURE_BACK_RANGE &&
+				!(dwNow >= rt.dwLureStageSince && dwNow - rt.dwLureStageSince > PLAYERBOT_SIDEKICK_LURE_APPROACH_MS))
+		{
+			if (state.dwTargetVID != 0)
+			{
+				state.dwTargetVID = 0;
+				ch->SetVictim(NULL);
+			}
+			WalkPlayerBotSidekick(ch, x, y, dwNow, false);
+			SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
+			return true;
+		}
+		EndPlayerBotSidekickLure(ch, rt, dwNow, "brought");
+		return false;
+	}
+
 	// "Czekaj tutaj": it keeps its spot. What comes at it is fought, and - in
 	// the default stance - what stands near the spot; the owner, when it is
 	// on this map, is defended there as at its side. The drops within reach
@@ -2391,6 +4919,7 @@ namespace
 			return true;
 		}
 		LPCHARACTER sameMapOwner = owner && owner->GetMapIndex() == ch->GetMapIndex() ? owner : NULL;
+		RememberPlayerBotSidekickAttackers(ch, rt, dwNow);
 		if (sameMapOwner && dwNow >= rt.dwNextPartyCheck)
 		{
 			rt.dwNextPartyCheck = dwNow + PLAYERBOT_SIDEKICK_PARTY_CHECK_MS;
@@ -2398,6 +4927,8 @@ namespace
 		}
 		FPlayerBotSidekickFoes foes(ch, sameMapOwner, rt.lHoldX, rt.lHoldY, rt.lHoldMap);
 		ch->GetSectree()->ForEachAround(foes);
+		if (sameMapOwner && (foes.onOwner || IsPlayerBotSidekickOwnerTargetInFight(ch, sameMapOwner)))
+			rt.dwOwnerFightSeenAt = dwNow;
 		LPCHARACTER foe = NULL;
 		int why = PLAYERBOT_SIDEKICK_FOE_NEARBY;
 		if (foes.onOwner && rec.bStance != PLAYERBOT_SIDEKICK_STANCE_PASSIVE)
@@ -2412,6 +4943,10 @@ namespace
 		}
 		else if (foes.idle && rec.bStance == PLAYERBOT_SIDEKICK_STANCE_ATTACK)
 			foe = foes.idle;
+		// The owner near the spot is buffed as at its side, but a waiting
+		// companion never walks to it for that.
+		if (sameMapOwner && BuffPlayerBotSidekickOwner(ch, state, rec, sameMapOwner, dwNow, false))
+			return true;
 		if (foe)
 			return FightPlayerBotSidekickFoe(ch, state, rt, foe, why, dwNow);
 		if (state.dwTargetVID != 0)
@@ -2479,7 +5014,16 @@ namespace
 		TPlayerBotSidekick* rec = FindPlayerBotSidekickOf(ch->GetPlayerID());
 		if (!rec)
 			return false;
+		// A new companion does nothing until the bot it was is gone from its bag
+		// (OnPlayerBotSidekickLoaded, FinishPlayerBotSidekickSetup).
+		if (!rec->bSetupDone)
+		{
+			if (!ch->IsItemLoaded())
+				return true;
+			FinishPlayerBotSidekickSetup(ch, *rec);
+		}
 		KeepPlayerBotSidekickPath(ch, *rec);
+		TopUpPlayerBotSidekickSkillPoints(ch);
 		TPlayerBotSidekickRuntime& rt = s_mapPlayerBotSidekickRuntime[ch->GetPlayerID()];
 		if (HandlePlayerBotSidekickTrade(ch, state, *rec, rt, dwNow))
 			return true;
@@ -2514,6 +5058,22 @@ namespace
 		ManagePlayerBotPersona(ch, state, dwNow);
 		if (KeepPlayerBotSidekickAlive(ch, state, owner, dwNow))
 			return true;
+		// A piece its owner put on waits out the second and a half after a blow
+		// that the engine asks of every equip: the fight holds off that long, and
+		// the equipment pass above puts it on.
+		if (rt.dwEquipWaitUntil != 0)
+		{
+			int pinnedWear = -1;
+			if (dwNow < rt.dwEquipWaitUntil && FindPlayerBotSidekickPinnedInBag(ch, pinnedWear, false))
+			{
+				if (ch->IsStateMove())
+					ch->Stop();
+				state.bEquipPending = true;
+				state.dwLastMeaningfulActivityTime = dwNow;
+				return true;
+			}
+			rt.dwEquipWaitUntil = 0;
+		}
 		if (rt.bHold)
 			return ManagePlayerBotSidekickHold(ch, state, *rec, rt, owner, dwNow);
 		// Another map of this core, or the owner outran it: beside the owner.
@@ -2537,15 +5097,31 @@ namespace
 		}
 		if (rec->bStance != PLAYERBOT_SIDEKICK_STANCE_PASSIVE && rec->bProtect)
 			ProtectPlayerBotSidekickOwner(ch, owner, rt, dwNow);
+		RememberPlayerBotSidekickAttackers(ch, rt, dwNow);
+		if (ManagePlayerBotSidekickLure(ch, state, *rec, rt, owner, dwNow))
+			return true;
 		int why = PLAYERBOT_SIDEKICK_FOE_NEARBY;
-		LPCHARACTER foe = owner->IsDead() ? NULL : FindPlayerBotSidekickFoe(ch, owner, rec->bStance, why);
+		bool ownerFighting = false;
+		LPCHARACTER foe = owner->IsDead() ? NULL :
+				FindPlayerBotSidekickFoe(ch, owner, rec->bStance, why, ownerFighting);
+		if (ownerFighting)
+			rt.dwOwnerFightSeenAt = dwNow;
 		if (foe)
+		{
+			if (BuffPlayerBotSidekickOwner(ch, state, *rec, owner, dwNow, false))
+				return true;
 			return FightPlayerBotSidekickFoe(ch, state, rt, foe, why, dwNow);
+		}
 		if (state.dwTargetVID != 0)
 		{
 			state.dwTargetVID = 0;
 			ch->SetVictim(NULL);
 		}
+		// Beside a fight it is not to take part in, the owner's buffs are all it
+		// does there, and they come before the loot and the walk after the owner.
+		if (IsPlayerBotSidekickOwnerFighting(rt, dwNow) &&
+				BuffPlayerBotSidekickOwner(ch, state, *rec, owner, dwNow, true))
+			return true;
 		if (dist <= PLAYERBOT_SIDEKICK_NPC_RANGE + PLAYERBOT_SIDEKICK_FOLLOW_DISTANCE && dwNow >= rt.dwNextService)
 		{
 			rt.dwNextService = dwNow + PLAYERBOT_SIDEKICK_SERVICE_INTERVAL_MS;
@@ -2572,7 +5148,7 @@ namespace
 		if (ch->IsStateMove() && dist <= PLAYERBOT_SIDEKICK_FOLLOW_DISTANCE / 2)
 			ch->Stop();
 		state.dwLastMeaningfulActivityTime = dwNow;
-		if (rec->bBuffs && ManagePlayerBotBuffPerson(ch, state, owner, dwNow))
+		if (BuffPlayerBotSidekickOwner(ch, state, *rec, owner, dwNow, true))
 			return true;
 		ManagePlayerBotCombatBuffs(ch, state, dwNow, true);
 		SetPlayerBotAction(state, BOT_ACTION_IDLE, dwNow);

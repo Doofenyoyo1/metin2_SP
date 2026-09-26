@@ -42,19 +42,33 @@ namespace
 	// Giant Tree's and Chegal's - every one of them a giftbox in item_proto.
 	// Kept beside the rendered table rather than in it: the table is his
 	// personality document's list, and this one is the patch's.
+	// Azrael's (50186) and Skrzynia Mroku (50254) since the share gave them a
+	// group (shareify's BOSS_CHESTS, 26 September): until then neither held
+	// anything, for a bot or a player.
 	const DWORD PLAYERBOT_MOOD_BOSS_CASKET_VNUMS[] = {
 		50070, 50071, 50072, 50073, 50074, 50075, 50076, 50077,
 		50078, 50079, 50080, 50081, 50082, 50090, 50097, 50098,
+		50186, 50254,
 	};
+
+	// A boss's casket: a giftbox the bot opens itself, and never counter
+	// goods while it can (IsPlayerBotSurplusChest) - "niech je otwieraja"
+	// (the operator, 26 September). The list above is also the chest pass's.
+	bool IsPlayerBotBossCasketVnum(DWORD vnum)
+	{
+		for (size_t i = 0; i < sizeof(PLAYERBOT_MOOD_BOSS_CASKET_VNUMS) / sizeof(PLAYERBOT_MOOD_BOSS_CASKET_VNUMS[0]); ++i)
+			if (PLAYERBOT_MOOD_BOSS_CASKET_VNUMS[i] == vnum)
+				return true;
+		return false;
+	}
 
 	// Is this item on Iwakura's list of valuable drops? A skill book and a
 	// Forgetting book are one vnum each, told apart by the skill in socket 0;
 	// a family of gear counts at any refine.
 	bool IsPlayerBotMoodValuable(DWORD vnum, long socket0, BYTE type)
 	{
-		for (size_t i = 0; i < sizeof(PLAYERBOT_MOOD_BOSS_CASKET_VNUMS) / sizeof(PLAYERBOT_MOOD_BOSS_CASKET_VNUMS[0]); ++i)
-			if (PLAYERBOT_MOOD_BOSS_CASKET_VNUMS[i] == vnum)
-				return true;
+		if (IsPlayerBotBossCasketVnum(vnum))
+			return true;
 		if (vnum == PLAYERBOT_MOOD_SKILL_BOOK_VNUM)
 			return IsPlayerBotSkillInList(PLAYERBOT_MOOD_VALUABLE_BOOK_SKILLS,
 					sizeof(PLAYERBOT_MOOD_VALUABLE_BOOK_SKILLS), socket0);

@@ -243,9 +243,12 @@ namespace
 		std::string name;
 		DWORD vnum;
 		DWORD skill;
+		// A Forgetting Book's line (ITEM_SKILLFORGET, the skill in socket 0),
+		// not a skill book's: "KZ", which players buy by the skill too.
+		bool forget;
 		long long price;
 		unsigned int count;
-		TPlayerBotStallLine() : vnum(0), skill(0), price(0), count(1) {}
+		TPlayerBotStallLine() : vnum(0), skill(0), forget(false), price(0), count(1) {}
 	};
 
 	struct TPlayerBotStall
@@ -260,13 +263,14 @@ namespace
 		TPlayerBotStall() : open(false), offline(false), mapIndex(0), x(0), y(0), channel(0) {}
 	};
 
-	std::string GetPlayerBotStallLineName(const TItemTable* proto, DWORD skill)
+	std::string GetPlayerBotStallLineName(const TItemTable* proto, DWORD skill, bool forget)
 	{
 		if (skill)
 		{
 			const char* skillName = GetPlayerBotSkillName(skill);
 			if (skillName && strcmp(skillName, "?") != 0)
-				return std::string("Instr. ") + skillName;
+				return forget && proto ? std::string(proto->szLocaleName) + " (" + skillName + ")"
+						: std::string("Instr. ") + skillName;
 		}
 		return proto ? std::string(proto->szLocaleName) : std::string();
 	}
@@ -295,7 +299,12 @@ namespace
 					TPlayerBotStallLine line;
 					line.vnum = item->GetVnum();
 					line.skill = GetPlayerBotSkillBookSkillVnum(item);
-					line.name = GetPlayerBotStallLineName(item->GetProto(), line.skill);
+					if (item->GetType() == ITEM_SKILLFORGET)
+					{
+						line.skill = (DWORD)item->GetSocket(0);
+						line.forget = true;
+					}
+					line.name = GetPlayerBotStallLineName(item->GetProto(), line.skill, line.forget);
 					line.price = (long long)offer.dwPrice;
 					line.count = offer.wCount ? offer.wCount : 1;
 					out.lines.push_back(line);
@@ -325,7 +334,12 @@ namespace
 				line.vnum = shopItem->GetInfo().vnum;
 				if (proto->bType == ITEM_SKILLBOOK)
 					line.skill = line.vnum == 50300 ? (DWORD)shopItem->GetInfo().alSockets[0] : (DWORD)proto->alValues[0];
-				line.name = GetPlayerBotStallLineName(proto, line.skill);
+				else if (proto->bType == ITEM_SKILLFORGET)
+				{
+					line.skill = (DWORD)shopItem->GetInfo().alSockets[0];
+					line.forget = true;
+				}
+				line.name = GetPlayerBotStallLineName(proto, line.skill, line.forget);
 				line.price = (long long)shopItem->GetPrice().yang;
 				line.count = (unsigned int)shopItem->GetInfo().count;
 				out.lines.push_back(line);
@@ -336,20 +350,45 @@ namespace
 		return false;
 	}
 
-	// A folded query against a stall line: the skill of a book ("ku aura"), or
-	// the name with the players' aliases ("fms", "12d", "bodzio").
+	// A folded query against a stall line: the skill of a book ("ku aura") -
+	// a skill book's or a Forgetting Book's (forget, "kz aura"), never the one
+	// for the other - or the name with the players' aliases ("fms", "12d",
+	// "bodzio"). A Forgetting Book answers to its own name only: its line's
+	// name carries the skill, and "kupie smoczy skowyt" means the skill book.
 	bool PlayerBotStallLineMatches(const TPlayerBotStallLine& line, const std::vector<std::string>& candidates,
-			bool book, DWORD skillVnum)
+			bool book, bool forget, DWORD skillVnum)
 	{
 		if (book)
-			return line.skill != 0 && line.skill == skillVnum;
+			return line.skill != 0 && line.skill == skillVnum && line.forget == forget;
+		if (line.forget)
+		{
+			const TItemTable* proto = ITEM_MANAGER::instance().GetTable(line.vnum);
+			return proto && playerbot_conv::ItemNameMatchesAny(playerbot_conv::FoldName(proto->szLocaleName), candidates);
+		}
 		return playerbot_conv::ItemNameMatchesAny(playerbot_conv::FoldName(line.name.c_str()), candidates);
 	}
 
 	// "ku aura miecza" / "ksiege aura miecza": the skill a book query names, or 0.
-	DWORD GetPlayerBotStallBookQuery(const std::string& folded, std::string& rest)
+	// "kz aura miecza" / "ksiega zapomnienia aura miecza": the same for the
+	// skill's Forgetting Book (forget). They are read first, or "ksiege" takes
+	// "zapomnienia smoczy skowyt" for a skill book's query and finds the skill
+	// inside it - "kupie ksiege zapomnienia smoczy skowyt" was answered with
+	// Instr. Smoczy Skowyt (prodnathin, 25 September).
+	DWORD GetPlayerBotStallBookQuery(const std::string& folded, std::string& rest, bool& forget)
 	{
 		rest = folded;
+		forget = false;
+		static const char* const kForget[] = { "kz ", "ksiega zapomnienia ", "ksiege zapomnienia ", "ksiegi zapomnienia " };
+		for (size_t i = 0; i < sizeof(kForget) / sizeof(kForget[0]); ++i)
+		{
+			const size_t n = strlen(kForget[i]);
+			if (folded.compare(0, n, kForget[i]) == 0)
+			{
+				forget = true;
+				rest = folded.substr(n);
+				return FindPlayerBotSkillByName(rest.c_str());
+			}
+		}
 		static const char* const kBook[] = { "ku ", "ksiega ", "ksiege ", "ksiegi ", "instr " };
 		for (size_t i = 0; i < sizeof(kBook) / sizeof(kBook[0]); ++i)
 		{
@@ -370,13 +409,22 @@ namespace
 		PLAYERBOT_TRADE_SELL
 	};
 
+	// Whether the folded text at p opens with this whole word.
+	bool PlayerBotTextOpensWithWord(const char* p, const char* word)
+	{
+		const size_t n = strlen(word);
+		return strncmp(p, word, n) == 0 && (p[n] == 0 || IsPlayerBotChatSeparator(p[n]));
+	}
+
 	// "Kupię KU Aura", "sprzedam kosc niedzwiedzia", "Szukam Amuletu Orka":
-	// the verb, whether a skill book is meant, and the rest folded.
+	// the verb, whether a skill book is meant - or a Forgetting Book, "KZ
+	// Aura" and "ksiege zapomnienia Aura" (outForget) - and the rest folded.
 	EPlayerBotTradeVerb ParsePlayerBotTradeText(const char* text, char* outQuery,
-			size_t size, bool& outBook)
+			size_t size, bool& outBook, bool& outForget)
 	{
 		outQuery[0] = 0;
 		outBook = false;
+		outForget = false;
 		char folded[CHAT_MAX_LEN + 1];
 		FoldPlayerBotChatText(text, folded, sizeof(folded));
 		const char* p = folded;
@@ -405,7 +453,13 @@ namespace
 			return verb;
 		while (*p && IsPlayerBotChatSeparator(*p))
 			++p;
-		if (strncmp(p, "ku ", 3) == 0)
+		if (PlayerBotTextOpensWithWord(p, "kz"))
+		{
+			outBook = true;
+			outForget = true;
+			p += 2;
+		}
+		else if (strncmp(p, "ku ", 3) == 0)
 		{
 			outBook = true;
 			p += 3;
@@ -415,6 +469,13 @@ namespace
 		{
 			outBook = true;
 			p += 7;
+			while (*p && IsPlayerBotChatSeparator(*p))
+				++p;
+			if (PlayerBotTextOpensWithWord(p, "zapomnienia"))
+			{
+				outForget = true;
+				p += 11;
+			}
 		}
 		while (*p && IsPlayerBotChatSeparator(*p))
 			++p;
@@ -424,13 +485,14 @@ namespace
 			outQuery[--n] = 0;
 		// "Kupie KK", "Sprzedam KD": two letters are too few to search names
 		// with, but a word of the players' dictionary names the item exactly.
-		return n >= PLAYERBOT_TRADE_QUERY_MIN || (n > 0 && playerbot_conv::IsItemAliasWord(outQuery))
+		// "Kupie KZ" names the Forgetting Book with nothing after it.
+		return n >= PLAYERBOT_TRADE_QUERY_MIN || (n > 0 && playerbot_conv::IsItemAliasWord(outQuery)) || outForget
 				? verb : PLAYERBOT_TRADE_NONE;
 	}
 
 	// "Kupie X": the nearest open counter with X on it answers with where and
 	// how much. The player's own map first, then any.
-	bool AnswerPlayerBotBuyShout(LPCHARACTER player, const char* query, bool book,
+	bool AnswerPlayerBotBuyShout(LPCHARACTER player, const char* query, bool book, bool forget,
 			DWORD skillVnum)
 	{
 		std::vector<std::string> candidates;
@@ -449,7 +511,7 @@ namespace
 			for (size_t k = 0; k < stall.lines.size(); ++k)
 			{
 				const TPlayerBotStallLine& line = stall.lines[k];
-				if (!PlayerBotStallLineMatches(line, candidates, book, skillVnum))
+				if (!PlayerBotStallLineMatches(line, candidates, book, forget, skillVnum))
 					continue;
 				const long long distance = stall.mapIndex == player->GetMapIndex()
 						? (long long)DISTANCE_APPROX(player->GetX() - stall.x, player->GetY() - stall.y)
@@ -495,9 +557,14 @@ namespace
 
 	// "Sprzedam X": a bot that is short of X says it will buy, and where. The
 	// bot can: playerbot_market.h reads a player's counter like any other.
-	bool AnswerPlayerBotSellShout(LPCHARACTER player, const char* query, bool book,
+	bool AnswerPlayerBotSellShout(LPCHARACTER player, const char* query, bool book, bool forget,
 			DWORD skillVnum)
 	{
+		// No bot buys a Forgetting Book off anybody (the few it reads it makes,
+		// BuyPlayerBotForgetScroll), so "Sprzedam KZ Aura" has nobody to answer
+		// it - where a Master of Aura used to say it would buy the skill book.
+		if (forget)
+			return false;
 		DWORD wantedVnum = 0;
 		const char* pszName = NULL;
 		if (!book)
@@ -705,38 +772,53 @@ namespace
 			return;
 		char query[128];
 		bool book = false;
-		const EPlayerBotTradeVerb verb = ParsePlayerBotTradeText(text, query, sizeof(query), book);
+		bool forget = false;
+		const EPlayerBotTradeVerb verb = ParsePlayerBotTradeText(text, query, sizeof(query), book, forget);
 		if (verb == PLAYERBOT_TRADE_NONE)
 			return;
 		const DWORD skillVnum = book ? FindPlayerBotSkillByName(query) : 0;
 		if (book && skillVnum == 0)
 		{
 			// "Kupie ksiege misji" names an item whose name begins with the
-			// word, not a skill: it is searched as a name like any other.
-			char named[sizeof(query)];
-			snprintf(named, sizeof(named), "ksiega %s", query);
-			strlcpy(query, named, sizeof(query));
+			// word, not a skill: it is searched as a name like any other. So
+			// is a Forgetting Book with no skill after it ("Kupie KZ").
+			std::string named = forget ? "ksiega zapomnienia" : "ksiega";
+			if (query[0])
+			{
+				named += ' ';
+				named += query;
+			}
+			strlcpy(query, named.c_str(), sizeof(query));
 			book = false;
+			forget = false;
 		}
 		const DWORD dwNow = get_dword_time();
 		if (!PlayerBotTradeReplyAllowed(player, dwNow))
 			return;
 		const bool answered = verb == PLAYERBOT_TRADE_BUY
-				? AnswerPlayerBotBuyShout(player, query, book, skillVnum)
-				: AnswerPlayerBotSellShout(player, query, book, skillVnum);
-		sys_log(0, "PLAYERBOT_TRADE: shout from=%s verb=%s book=%d query=\"%s\" answered=%d",
+				? AnswerPlayerBotBuyShout(player, query, book, forget, skillVnum)
+				: AnswerPlayerBotSellShout(player, query, book, forget, skillVnum);
+		sys_log(0, "PLAYERBOT_TRADE: shout from=%s verb=%s book=%d forget=%d query=\"%s\" answered=%d",
 				player->GetName(), verb == PLAYERBOT_TRADE_BUY ? "buy" : "sell",
-				book ? 1 : 0, query, answered ? 1 : 0);
+				book ? 1 : 0, forget ? 1 : 0, query, answered ? 1 : 0);
 	}
 
 	// A player's whisper to a bot. A trade line is answered like a shout, by
 	// whichever bot is best placed; anything else gets the bot's own state -
 	// what its counter holds, or that it is out hunting.
+	// Defined in playerbot_anti_pk.h, which comes after this file.
+	bool HandlePlayerBotSurrenderWhisper(LPCHARACTER player, LPCHARACTER bot, const char* text, DWORD dwNow);
+
 	void HandlePlayerWhisperToBot(LPCHARACTER player, LPCHARACTER bot, const char* text)
 	{
 		if (!player || !bot || !text)
 			return;
 		const DWORD dwNow = get_dword_time();
+		// "Poddaje sie" first (the truce, playerbot_anti_pk.h): the lure
+		// order's bare stop words are a surrender's too, and from a person the
+		// bots are fighting "dosc" answered "Nie luruje dla ciebie".
+		if (HandlePlayerBotSurrenderWhisper(player, bot, text, dwNow))
+			return;
 		// Before the trade line, because an order is answered whatever the
 		// reply clock says: a person who asked a bot to pull for them is owed
 		// an answer, and "luruj" is nobody's idea of a trade.
@@ -744,7 +826,8 @@ namespace
 			return;
 		char query[128];
 		bool book = false;
-		const EPlayerBotTradeVerb verb = ParsePlayerBotTradeText(text, query, sizeof(query), book);
+		bool forget = false;
+		const EPlayerBotTradeVerb verb = ParsePlayerBotTradeText(text, query, sizeof(query), book, forget);
 		if (verb != PLAYERBOT_TRADE_NONE)
 		{
 			// The 8-second trade clock is for shouts - one bot to one door. A

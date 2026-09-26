@@ -125,3 +125,161 @@ Group	lv90
 	3	76010	3	100
 	4	76002	3	100
 }
+# Two boss caskets the package has no group for, as r40250's share defines
+# them (its names resolved to vnums: this reader takes numbers only, and one
+# name it cannot find fails the whole file). Skrzynia Azraela (50186) is
+# Azrael's, the Catacombs' last boss; Skrzynia Mroku (50254) drops from the
+# Gnoll Lord, his guard, Arges and Polifem on maps 301-304 - hosted, so a
+# player of a hundred who broke one open got "nic nie otrzymales" and
+# nothing (26 September).
+Group	box_50186
+{
+	Vnum	50186
+	Type	Pct
+	1	172	1	25	-- Miecz Zadlo+2
+	2	252	1	25	-- Demoniczne Ostrze+2
+	3	1122	1	25	-- Noz Siamese+2
+	4	2182	1	25	-- Luk Niebieskiego Smoka+2
+	5	3152	1	25	-- Zlodziej Dusz+2
+	6	7152	1	25	-- Ekstazyjny Wachlarz+2
+	7	11291	1	30	-- Zbroja Z Czarnej Stali+1
+	8	11292	1	20	-- Zbroja Z Czarnej Stali+2
+	9	11491	1	30	-- Ubranie Czarn. Wiatru+1
+	10	11492	1	20	-- Ubranie Czarn. Wiatru+2
+	11	11691	1	30	-- Zbr. Plyt. Czar. Magii+1
+	12	11692	1	20	-- Zbr. Plyt. Czar. Magii+2
+	13	11891	1	30	-- Czarna Szata+1
+	14	11892	1	20	-- Czarna Szata+2
+	15	17204	1	30	-- Kolczyki Z Niebian.Lez+4
+	16	17205	1	20	-- Kolczyki Z Niebian.Lez+5
+	17	17206	1	10	-- Kolczyki Z Niebian.Lez+6
+	18	16204	1	30	-- Naszyj. Z Niebian.Lez+4
+	19	16205	1	20	-- Naszyj. Z Niebian.Lez+5
+	20	16206	1	10	-- Naszyj. Z Niebian.Lez+6
+	21	14204	1	30	-- Bransol. Z Niebian.Lez+4
+	22	14205	1	20	-- Bransol. Z Niebian.Lez+5
+	23	14206	1	10	-- Bransol. Z Niebian.Lez+6
+	24	12260	1	7	-- Maska Strachu+0
+	25	12280	1	5	-- Helm Mistrza Wojny+0
+	26	12390	1	7	-- Orkowy Kaptur+0
+	27	12400	1	5	-- Pajeczy Kaptur+0
+	28	12530	1	7	-- Rogowy Helm+0
+	29	12540	1	5	-- Magiczny Helm+0
+	30	12670	1	7	-- Kapelusz Kardynala+0
+	31	12680	1	5	-- Kapelusz Duszy+0
+	32	13140	1	5	-- Tarcza Tytanow+0
+	33	14220	1	5	-- Opaska Krysztalu Duszy+0
+	34	16220	1	5	-- Naszyjnik Krysz. Duszy+0
+	35	17220	1	5	-- Kolczyki Krysz. Duszy+0
+	36	gold	500000	40	-- gold
+	37	27002	200	100	-- Czerwona Mikstura(S)
+	38	27003	100	100	-- Czerwona Mikstura(D)
+	39	27005	200	100	-- Niebieska Mikstura(S)
+	40	27006	100	100	-- Niebieska Mikstura(D)
+	41	39004	1	5	-- Marmur Blogoslawienstwa
+}
+Group	box_50254
+{
+	Vnum	50254
+	1	174	1	25	-- Miecz Zadlo+4
+	2	254	1	25	-- Demoniczne Ostrze+4
+	3	1124	1	25	-- Noz Siamese+4
+	4	2184	1	25	-- Luk Niebieskiego Smoka+4
+	5	3154	1	25	-- Zlodziej Dusz+4
+	6	7154	1	25	-- Ekstazyjny Wachlarz+4
+	7	11293	1	30	-- Zbroja Z Czarnej Stali+3
+	8	11294	1	20	-- Zbroja Z Czarnej Stali+4
+	9	11493	1	30	-- Ubranie Czarn. Wiatru+3
+	10	11494	1	20	-- Ubranie Czarn. Wiatru+4
+	11	11693	1	30	-- Zbr. Plyt. Czar. Magii+3
+	12	11694	1	20	-- Zbr. Plyt. Czar. Magii+4
+	13	11893	1	30	-- Czarna Szata+3
+	14	11894	1	20	-- Czarna Szata+4
+	15	17205	1	30	-- Kolczyki Z Niebian.Lez+5
+	16	17206	1	20	-- Kolczyki Z Niebian.Lez+6
+	17	17207	1	10	-- Kolczyki Z Niebian.Lez+7
+	18	16205	1	30	-- Naszyj. Z Niebian.Lez+5
+	19	16206	1	20	-- Naszyj. Z Niebian.Lez+6
+	20	16207	1	10	-- Naszyj. Z Niebian.Lez+7
+	21	14205	1	30	-- Bransol. Z Niebian.Lez+5
+	22	14206	1	20	-- Bransol. Z Niebian.Lez+6
+	23	14207	1	10	-- Bransol. Z Niebian.Lez+7
+	24	12260	1	7	-- Maska Strachu+0
+	25	12280	1	5	-- Helm Mistrza Wojny+0
+	26	12390	1	7	-- Orkowy Kaptur+0
+	27	12400	1	5	-- Pajeczy Kaptur+0
+	28	12530	1	7	-- Rogowy Helm+0
+	29	12540	1	5	-- Magiczny Helm+0
+	30	12670	1	7	-- Kapelusz Kardynala+0
+	31	12680	1	5	-- Kapelusz Duszy+0
+	32	13140	1	5	-- Tarcza Tytanow+0
+	33	14220	1	5	-- Opaska Krysztalu Duszy+0
+	34	16220	1	5	-- Naszyjnik Krysz. Duszy+0
+	35	17220	1	5	-- Kolczyki Krysz. Duszy+0
+	36	155	1	7	-- Miecz Szponu Ducha+5
+	37	156	1	6	-- Miecz Szponu Ducha+6
+	38	157	1	5	-- Miecz Szponu Ducha+7
+	39	1105	1	7	-- Smoczy Noz+5
+	40	1106	1	6	-- Smoczy Noz+6
+	41	1107	1	5	-- Smoczy Noz+7
+	42	2145	1	7	-- Olbrz. Luk Zolt. Smoka+5
+	43	2146	1	6	-- Olbrz. Luk Zolt. Smoka+6
+	44	2147	1	5	-- Olbrz. Luk Zolt. Smoka+7
+	45	3145	1	7	-- Magnetyczne Ostrze+5
+	46	3146	1	6	-- Magnetyczne Ostrze+6
+	47	3147	1	5	-- Magnetyczne Ostrze+7
+	48	5105	1	7	-- Dzwon Nieba I Ziemi+5
+	49	5106	1	6	-- Dzwon Nieba I Ziemi+6
+	50	5107	1	5	-- Dzwon Nieba I Ziemi+7
+	51	7145	1	7	-- Wachlarz Zbawienia+5
+	52	7146	1	6	-- Wachlarz Zbawienia+6
+	53	7147	1	5	-- Wachlarz Zbawienia+7
+	54	11295	1	7	-- Zbroja Z Czarnej Stali+5
+	55	11296	1	6	-- Zbroja Z Czarnej Stali+6
+	56	11297	1	5	-- Zbroja Z Czarnej Stali+7
+	57	11495	1	7	-- Ubranie Czarn. Wiatru+5
+	58	11496	1	6	-- Ubranie Czarn. Wiatru+6
+	59	11497	1	5	-- Ubranie Czarn. Wiatru+7
+	60	11695	1	7	-- Zbr. Plyt. Czar. Magii+5
+	61	11696	1	6	-- Zbr. Plyt. Czar. Magii+6
+	62	11697	1	5	-- Zbr. Plyt. Czar. Magii+7
+	63	11895	1	7	-- Czarna Szata+5
+	64	11896	1	6	-- Czarna Szata+6
+	65	11897	1	5	-- Czarna Szata+7
+	66	460	1	1	-- Runiczny Miecz+0
+	67	470	1	1	-- Klinga Smoczego Kla+0
+	68	1340	1	1	-- Kolec Pieciu Elementow+0
+	69	2370	1	1	-- Luk Feniksa+0
+	70	3190	1	1	-- Ostrze Slonca+0
+	71	5340	1	1	-- Dzwon Smoczego Ducha+0
+	72	7370	1	1	-- Wachlarz Lezac. Smoka+0
+	73	20000	1	1	-- Pancerz Diabel. Rogu+0
+	74	20250	1	1	-- Szata Smoczego Jezdzca+0
+	75	20500	1	1	-- Pancerz Koscioplytowy+0
+	76	20750	1	1	-- Zlote Ubranie+0
+	77	14500	1	3	-- Rubinowa Bransoleta+0
+	78	14520	1	3	-- Granatowa Bransoleta+0
+	79	14540	1	3	-- Szmaragdowa Bransoleta+0
+	80	14560	1	3	-- Szafirowa Bransoleta+0
+	81	16500	1	3	-- Rubinowy Naszyjnik+0
+	82	16520	1	3	-- Granatowy Naszyjnik+0
+	83	16540	1	3	-- Szmaragdowy Naszyjnik+0
+	84	16560	1	3	-- Szafirowy Naszyjnik+0
+	85	17500	1	3	-- Rubinowe Kolczyki+0
+	86	17520	1	3	-- Granatowe Kolczyki+0
+	87	17540	1	3	-- Szmaragdowe Kolczyki+0
+	88	17560	1	3	-- Szafirowe Kolczyki+0
+	89	exp	50000	70	-- exp
+	90	exp	100000	60	-- exp
+	91	exp	200000	50	-- exp
+	92	exp	300000	40	-- exp
+	93	exp	400000	30	-- exp
+	94	exp	500000	20	-- exp
+	95	gold	500000	40	-- gold
+	96	27002	200	100	-- Czerwona Mikstura(S)
+	97	27003	100	100	-- Czerwona Mikstura(D)
+	98	27005	200	100	-- Niebieska Mikstura(S)
+	99	27006	100	100	-- Niebieska Mikstura(D)
+	100	39004	1	5	-- Marmur Blogoslawienstwa
+	101	71130	1	5	-- Przepustka
+}
