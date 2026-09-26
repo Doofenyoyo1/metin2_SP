@@ -594,6 +594,8 @@ class InventoryWindow(ui.ScriptWindow):
 		self.isExchangeItemOpen = False
 		self.isRechargePotion = False
 		self.wndHorseInventory = None
+		self.wndChestPreview = None
+		self.chestPreviewButton = None
 		eventManager.EventManager().add_observer(uiExchange.EVENT_OPEN_EXCHANGE, self.OnExchangeDialogOpen) # handel
 		eventManager.EventManager().add_observer(uiExchange.EVENT_CLOSE_EXCHANGE, self.OnExchangeDialogClose) # handel
 
@@ -661,6 +663,7 @@ class InventoryWindow(ui.ScriptWindow):
 			self.horseInventoryButton = self.GetChild("HorseInventoryWindow")
 			self.depositButton = self.GetChild("DepositButton")
 			self.myshopButton = self.GetChild("MyShopButton")
+			self.chestPreviewButton = self.GetChild2("ChestPreviewButton")
 
 			if app.ENABLE_CHEQUE_SYSTEM:
 				self.wndCheque = self.GetChild("Cheque")
@@ -771,6 +774,9 @@ class InventoryWindow(ui.ScriptWindow):
 		if self.myshopButton:
 			self.myshopButton.SetEvent(ui.__mem_func__(self.ClickMyShopButton))
 
+		if self.chestPreviewButton:
+			self.chestPreviewButton.SetEvent(ui.__mem_func__(self.ClickChestPreviewButton))
+
 		self.inventorySlotStateMgr = InventorySlotManager(self.wndItem)
 
 		if app.ENABLE_CHEQUE_SYSTEM:
@@ -851,6 +857,11 @@ class InventoryWindow(ui.ScriptWindow):
 
 		self.inventorySlotStateMgr = None
 
+		if self.wndChestPreview:
+			self.wndChestPreview.Close()
+			self.wndChestPreview = None
+		self.chestPreviewButton = None
+
 	def Hide(self):
 		if constInfo.GET_ITEM_QUESTION_DIALOG_STATUS():
 			self.OnCloseQuestionDialog()
@@ -873,6 +884,9 @@ class InventoryWindow(ui.ScriptWindow):
 		if app.ENABLE_CHEQUE_SYSTEM:
 			if self.dlgPickETC:
 				self.dlgPickETC.Close()
+
+		if self.wndChestPreview:
+			self.wndChestPreview.Close()
 
 		wndMgr.Hide(self.hWnd)
 
@@ -908,6 +922,12 @@ class InventoryWindow(ui.ScriptWindow):
 	def ClickDepositButton(self):
 		print "ClickDepositButton"
 		net.SendChatPacket("/click_mall")
+
+	def ClickChestPreviewButton(self):
+		if not self.wndChestPreview:
+			import uichestpreview
+			self.wndChestPreview = uichestpreview.ChestPreviewWindow(self)
+		self.wndChestPreview.Toggle()
 
 	def ClickMyShopButton(self):
 		print "ClickMyShopButton"

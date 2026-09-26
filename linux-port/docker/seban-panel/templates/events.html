@@ -7,6 +7,11 @@ function syncChestBonus(row) {
   const chest = kind === 'chest';
   bonus.classList.toggle('is-ignored', chest);
   field.disabled = chest;
+  const world = kind === 'tanaka' || kind === 'zuo';
+  const map = row.querySelector('.event-map');
+  if (map) map.style.display = world ? '' : 'none';
+  const unit = bonus.querySelector('small');
+  if (unit) unit.textContent = kind === 'tanaka' ? 'piratów' : (kind === 'zuo' ? 'metinów/fala' : '+%');
 }
 document.querySelectorAll('.planner-row').forEach(row => {
   const select = row.querySelector('select[name$="_kind"]');
@@ -22,9 +27,11 @@ document.querySelectorAll('.planner-row').forEach(row => {
 {% for kind in event_kinds %}
   {% set st = status.get(kind,{}) %}
   <article class="event-status {{ 'active' if st.active else ('scheduled' if st.scheduled else '') }}">
-    <span class="event-icon">{{ {'chest':'🎁','exp':'⚡','drop':'📦','yang':'💰'}[kind] }}</span>
+    <span class="event-icon">{{ event_icons[kind] }}</span>
     <div><small>{{ event_labels[kind] }}</small>
-    {% if st.active %}<strong>Trwa{% if kind != 'chest' %} · +{{ st.value }}%{% endif %}</strong><em>do {{ st.until_text }}</em>
+    {% if st.active and kind in world_kinds %}<strong>Trwa · {{ map_names.get(st.map, st.map) }}</strong><em>do {{ st.until_text }}{% if st.host %} · na mapie {{ st.alive }} · pokonane {{ st.killed }} · boty {{ st.bots }}{% if st.phase == 'bosses' %} · bossowie{% endif %}{% endif %}</em>
+    {% elif st.active %}<strong>Trwa{% if kind != 'chest' %} · +{{ st.value }}%{% endif %}</strong><em>do {{ st.until_text }}</em>
+    {% elif st.scheduled and kind in world_kinds %}<strong>Zaplanowany · {{ map_names.get(st.next_map, st.next_map) }}</strong><em>następny: {{ st.next_start_text }}</em>
     {% elif st.scheduled %}<strong>Zaplanowany{% if kind != 'chest' %} · +{{ st.next_value }}%{% endif %}</strong><em>następny: {{ st.next_start_text }}</em>
     {% else %}<strong>Brak aktywnego eventu</strong><em>ustaw szybki event lub plan</em>{% endif %}</div>
   </article>
@@ -38,24 +45,35 @@ document.querySelectorAll('.planner-row').forEach(row => {
     {% set now = nows.get(kind) %}
     <form method="post" class="quick-event-card {{ 'is-running' if now and now.until > now_epoch else '' }}">
       <input type="hidden" name="kind" value="{{ kind }}">
-      <div><span>{{ {'chest':'🎁','exp':'⚡','drop':'📦','yang':'💰'}[kind] }}</span><b>{{ event_labels[kind] }}</b></div>
+      <div><span>{{ event_icons[kind] }}</span><b>{{ event_labels[kind] }}</b></div>
       {% if now and now.until > now_epoch %}<p>Aktywny do {{ status.get(kind,{}).until_text or 'końca odliczania' }}</p>{% else %}<p>Uruchom jednorazowo</p>{% endif %}
       <label>Czas<select name="minutes">{% for minute in now_minutes %}<option value="{{ minute }}" {% if minute == 60 %}selected{% endif %}>{{ minute }} min</option>{% endfor %}</select></label>
-      {% if kind != 'chest' %}<label>Bonus<input name="value" type="number" min="1" max="1000" value="50"><small>% ponad ratę serwera</small></label>{% endif %}
+      {% if kind in world_kinds %}<label>{{ 'Piratów naraz' if kind == 'tanaka' else 'Metinów w fali' }}<input name="value" type="number" min="1" max="{{ world_max[kind] }}" value="{{ world_default[kind] }}"></label>
+      <label>Mapa<select name="map">{% for map_id, map_name in event_maps %}<option value="{{ map_id }}">{{ map_name }}</option>{% endfor %}</select></label>
+      {% elif kind != 'chest' %}<label>Bonus<input name="value" type="number" min="1" max="1000" value="50"><small>% ponad ratę serwera</small></label>{% endif %}
       {% if now and now.until > now_epoch %}<button name="action" value="stop" class="secondary">Zatrzymaj</button>{% else %}<button name="action" value="now">Aktywuj teraz</button>{% endif %}
     </form>
   {% endfor %}
   </div>
 </section>
 
+<section class="panel events-quick">
+  <div><p class="eyebrow">TANAKA I ZUO</p><h2>Udział botów</h2><p class="muted">Pirat Tanaka ucieka przed bijącym, sypie yang i zostawia ucho zwycięzcy (Yonah daje za nie szkatułkę); Zuo co pięć minut zrzuca falę metinów, a od połowy eventu przyzywa bossów. Tu ustawiasz, jaka część botów, które mogłyby przyjść (poziom pasuje do mapy, nic ważniejszego ich nie trzyma - wojna, Wieża Demonów, rajd, pojedynek, party gracza), bierze udział. 0 = boty nie przychodzą.</p></div>
+  <form method="post" class="quick-event-card" style="max-width:340px">
+    <label>Udział botów<input name="bots" type="number" min="0" max="100" value="{{ event_settings.bots }}"><small>%</small></label>
+    <button name="action" value="bots">Zapisz</button>
+  </form>
+</section>
+
 <section class="panel planner-panel">
-  <div class="planner-intro"><div><p class="eyebrow">TYDZIEŃ POWTARZALNY</p><h2>Harmonogram eventów</h2><p class="muted">Wybierz dni i przedział godzin. Okno 22:00–02:00 przechodzi przez północ. Dla rat wpisujesz bonus ponad bieżącą ratę serwera; 50 oznacza +50%. Harmonogram szkatułek blokuje ich drop poza wybranymi oknami.</p></div><div class="planner-legend"><span class="legend-live"></span> aktywny <span class="legend-plan"></span> zaplanowany</div></div>
+  <div class="planner-intro"><div><p class="eyebrow">TYDZIEŃ POWTARZALNY</p><h2>Harmonogram eventów</h2><p class="muted">Wybierz dni i przedział godzin. Okno 22:00–02:00 przechodzi przez północ. Dla rat wpisujesz bonus ponad bieżącą ratę serwera; 50 oznacza +50%. Dla Pirata Tanaki to liczba piratów naraz (1–20), dla Zuo liczba metinów w fali (1–30); obu wybierasz też mapę. Harmonogram szkatułek blokuje ich drop poza wybranymi oknami.</p></div><div class="planner-legend"><span class="legend-live"></span> aktywny <span class="legend-plan"></span> zaplanowany</div></div>
   <form method="post" class="planner-form">
     <div class="planner-columns"><span>Event</span><span>Dni tygodnia</span><span>Godziny</span><span>Bonus</span><span>Wł.</span><span>Usuń</span></div>
     {% for row in rows %}
     {% set index = loop.index0 %}
     <div class="planner-row">
-      <select name="r{{index}}_kind" aria-label="Event {{ index + 1 }}"><option value="">— wybierz —</option>{% for kind in event_kinds %}<option value="{{kind}}" {% if row.kind == kind %}selected{% endif %}>{{ event_labels[kind] }}</option>{% endfor %}</select>
+      <div><select name="r{{index}}_kind" aria-label="Event {{ index + 1 }}"><option value="">— wybierz —</option>{% for kind in event_kinds %}<option value="{{kind}}" {% if row.kind == kind %}selected{% endif %}>{{ event_labels[kind] }}</option>{% endfor %}</select>
+      <select class="event-map" name="r{{index}}_map" aria-label="Mapa {{ index + 1 }}" style="margin-top:6px">{% for map_id, map_name in event_maps %}<option value="{{ map_id }}" {% if row.map == map_id %}selected{% endif %}>{{ map_name }}</option>{% endfor %}</select></div>
       <div class="week-days">{% for day in range(1,8) %}<label title="{{ day_names[day-1] }}"><input type="checkbox" name="r{{index}}_d{{day}}" {% if day in row.days %}checked{% endif %}><span>{{ day_names[day-1] }}</span></label>{% endfor %}</div>
       <div class="time-range"><input type="time" name="r{{index}}_start" value="{{row.start}}" onclick="this.showPicker && this.showPicker()"><i>→</i><input type="time" name="r{{index}}_end" value="{{row.end}}" onclick="this.showPicker && this.showPicker()"></div>
       <label class="bonus-input"><input type="number" name="r{{index}}_value" min="0" max="1000" value="{{row.value}}"><small>+%</small><em>dla Szkatułek: szansa z Zarządzania</em></label>

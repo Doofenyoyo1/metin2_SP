@@ -455,6 +455,29 @@ namespace playerbot_empire_rules
 		return false;
 	}
 
+	// Yonah, mob 20005, one in each first village: who takes Pirate Tanaka's
+	// ear for a Purple Ebony Chest (tanaka_ears.quest; the bots walk theirs to
+	// her, playerbot_world_events.h). Read off npc.txt the same way - cells
+	// (597,511), (702,686) and (292,718) on bases (409600,896000), (0,102400)
+	// and (921600,204800).
+	inline bool GetYonah(long mapIndex, TPoint& out)
+	{
+		static const TTownPitchRow rows[] = {
+			{ 1,  { 469300, 947100 } },
+			{ 21, { 70200, 171000 } },
+			{ 41, { 950800, 276600 } },
+		};
+		for (unsigned int i = 0; i < sizeof(rows) / sizeof(rows[0]); ++i)
+		{
+			if (rows[i].mapIndex == mapIndex)
+			{
+				out = rows[i].pitch;
+				return true;
+			}
+		}
+		return false;
+	}
+
 	// The warp NPCs that join a kingdom's own four maps, both ends. `gate` is
 	// where the NPC stands (the bot walks to it), `arrival` is where the engine
 	// puts the character down, read from the NPC's own name.

@@ -151,6 +151,10 @@ namespace
 			return false;
 		if (IsPlayerBotOnTowerBusiness(ch, state) || state.dwGuildWarEnemyGID != 0)
 			return false;
+		// A pirate hunt and a Zuo wave are company too (playerbot_world_events.h):
+		// a SLABY bot's pause would stop a chaser halfway.
+		if (state.bWorldEventKind != 0)
+			return false;
 		return playerbot_pvp::GetDuelOpponent(ch->GetPlayerID(), dwNow) == 0;
 	}
 

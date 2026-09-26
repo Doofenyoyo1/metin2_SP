@@ -884,6 +884,10 @@ namespace
 		// The Demon Tower first (playerbot_demon_tower.h).
 		if (IsPlayerBotOnTowerBusiness(ch, state))
 			return false;
+		// And a pirate or a Zuo wave (playerbot_world_events.h): a market trip
+		// is a walk to another village.
+		if (state.bWorldEventKind != 0)
+			return false;
 		// A dropper farms one thing for the counters and buys nothing off them.
 		// The medal droppers went shopping all the same: 350 trips for 116 of
 		// them in the first twenty-five minutes after a restart, 75 of them a

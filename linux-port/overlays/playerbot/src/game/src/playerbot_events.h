@@ -30,7 +30,11 @@
 //  - writes playerbot_events_status.tsv beside playerbot_status.tsv for the
 //    panel's "active until / next at".
 //
-// Nothing here changes what the bots do; a chest event is about drops.
+// Nothing here changes what the bots do; a chest event is about drops. The
+// two events that put something into the world - Pirate Tanaka and Zuo's
+// Metin rain - are judged here like the rest and run by
+// playerbot_world_events.h, which speaks for them itself, because only it
+// knows the map and what stands on it.
 namespace {
 	const char* const PLAYERBOT_EVENTS_DEFAULT_PATH = "/opt/m2spool/playerbot_events.tsv";
 	const char* const PLAYERBOT_EVENTS_STATUS_PATH = "playerbot_events_status.tsv";
@@ -43,6 +47,9 @@ namespace {
 	const long PLAYERBOT_EVENTS_LEADER_MAP = PLAYERBOT_MAP_CHUNJO_M1;
 
 	std::vector<playerbot_events::Window> s_vecPlayerBotEvents;
+	// The file's settings lines ("bots 50"), back to their defaults at every
+	// read so a line taken out is a setting taken out.
+	playerbot_events::Settings s_PlayerBotEventSettings;
 	time_t s_tPlayerBotEventsMtime = 0;
 	long s_lPlayerBotEventsSize = -1;
 	DWORD s_dwPlayerBotEventsNextReload = 0;
@@ -89,6 +96,7 @@ namespace {
 	void ReadPlayerBotEventsFile(const char* szPath)
 	{
 		s_vecPlayerBotEvents.clear();
+		s_PlayerBotEventSettings = playerbot_events::Settings();
 		FILE* fp = fopen(szPath, "rb");
 		if (!fp)
 			return;
@@ -99,12 +107,15 @@ namespace {
 			playerbot_events::Window w;
 			if (playerbot_events::ParseLine(line, w))
 				s_vecPlayerBotEvents.push_back(w);
+			else if (playerbot_events::ParseSettingLine(line, s_PlayerBotEventSettings))
+				continue;
 			else if (line[0] != '#' && line[0] != '\r' && line[0] != '\n')
 				++ignored;
 		}
 		fclose(fp);
-		sys_log(0, "PLAYERBOT_EVENT: %u event lines read from %s (%d ignored)",
-				(unsigned int)s_vecPlayerBotEvents.size(), szPath, ignored);
+		sys_log(0, "PLAYERBOT_EVENT: %u event lines read from %s (%d ignored, bots %d%%)",
+				(unsigned int)s_vecPlayerBotEvents.size(), szPath, ignored,
+				s_PlayerBotEventSettings.botsPercent);
 	}
 
 	void RefreshPlayerBotEvents(DWORD dwNow)
@@ -120,6 +131,7 @@ namespace {
 			{
 				sys_log(0, "PLAYERBOT_EVENT: %s is gone, no events", szPath);
 				s_vecPlayerBotEvents.clear();
+				s_PlayerBotEventSettings = playerbot_events::Settings();
 				s_tPlayerBotEventsMtime = 0;
 				s_lPlayerBotEventsSize = -1;
 			}
@@ -333,7 +345,7 @@ namespace {
 		quest::CQuestManager& q = quest::CQuestManager::instance();
 		for (int kind = playerbot_events::KIND_EXP; kind < playerbot_events::KIND_MAX; ++kind)
 		{
-			if (active[kind])
+			if (!playerbot_events::IsRateKind(kind) || active[kind])
 				continue;
 			for (int premium = 0; premium < 2; ++premium)
 			{
@@ -380,20 +392,34 @@ namespace {
 		g_iMoonlightChestStonePermille = closed ? 0 : s_iPlayerBotChestStoneWantedPermille;
 	}
 
+	// What a world event has put into the world and who answered it, for the
+	// status columns: "host alive killed bots phase" - host 1 on the core
+	// that runs it (playerbot_world_events.h, which comes after this file).
+	void FormatPlayerBotWorldEventColumns(int kind, char* out, size_t size);
+
+	// The first eight columns are what every panel has read since 2.0.74; the
+	// rest came with Tanaka and Zuo, and an older panel stops at the eighth.
 	void WritePlayerBotEventsStatus()
 	{
 		const char* tempPath = "playerbot_events_status.tsv.tmp";
 		FILE* fp = fopen(tempPath, "wb");
 		if (!fp)
 			return;
-		fprintf(fp, "kind\tscheduled\tactive\tvalue\tuntil\tnext_start\tnext_value\twritten\n");
+		fprintf(fp, "kind\tscheduled\tactive\tvalue\tuntil\tnext_start\tnext_value\twritten"
+				"\tmap\tsince\tnext_map\thost\talive\tkilled\tbots\tphase\n");
 		const long now = (long)time(NULL);
 		for (int kind = 0; kind < playerbot_events::KIND_MAX; ++kind)
 		{
 			const playerbot_events::Status& st = s_aPlayerBotEventStatus[kind];
-			fprintf(fp, "%s\t%d\t%d\t%d\t%ld\t%ld\t%d\t%ld\n", playerbot_events::KindName(kind),
+			char world[96];
+			if (playerbot_events::IsWorldKind(kind))
+				FormatPlayerBotWorldEventColumns(kind, world, sizeof(world));
+			else
+				snprintf(world, sizeof(world), "0\t0\t0\t0\t-");
+			fprintf(fp, "%s\t%d\t%d\t%d\t%ld\t%ld\t%d\t%ld\t%ld\t%ld\t%ld\t%s\n",
+					playerbot_events::KindName(kind),
 					st.scheduled ? 1 : 0, st.active ? 1 : 0, st.value, st.until, st.nextStart,
-					st.nextValue, now);
+					st.nextValue, now, st.map, st.since, st.nextMap, world);
 		}
 		fclose(fp);
 		rename(tempPath, PLAYERBOT_EVENTS_STATUS_PATH);
@@ -422,17 +448,20 @@ namespace {
 					s_bPlayerBotEventsStatusDirty = true;
 				shown = st;
 				TPlayerBotEventState& state = s_aPlayerBotEventState[kind];
+				// Tanaka and Zuo speak for themselves, with the map in the
+				// sentence (playerbot_world_events.h); here they are only judged.
+				const bool world = playerbot_events::IsWorldKind(kind);
 				if (st.active && !state.active)
 				{
 					state.active = true;
 					state.value = st.value;
 					state.until = st.until;
 					state.nextReminder = dwNow + PLAYERBOT_EVENTS_REMINDER_INTERVAL;
-					sys_log(0, "PLAYERBOT_EVENT: %s starts value=%d until=%ld leader=%d",
-							playerbot_events::KindName(kind), st.value, st.until, leader ? 1 : 0);
-					if (leader)
+					sys_log(0, "PLAYERBOT_EVENT: %s starts value=%d until=%ld map=%ld leader=%d",
+							playerbot_events::KindName(kind), st.value, st.until, st.map, leader ? 1 : 0);
+					if (leader && !world)
 					{
-						if (kind != playerbot_events::KIND_CHEST)
+						if (playerbot_events::IsRateKind(kind))
 							BeginPlayerBotRateEvent(kind, st.value);
 						AnnouncePlayerBotEvent(kind, st.value, st.until, EVENT_PHASE_START);
 					}
@@ -440,9 +469,9 @@ namespace {
 				else if (!st.active && state.active)
 				{
 					sys_log(0, "PLAYERBOT_EVENT: %s ends leader=%d", playerbot_events::KindName(kind), leader ? 1 : 0);
-					if (leader)
+					if (leader && !world)
 					{
-						if (kind != playerbot_events::KIND_CHEST)
+						if (playerbot_events::IsRateKind(kind))
 							EndPlayerBotRateEvent(kind, state.value);
 						AnnouncePlayerBotEvent(kind, state.value, 0, EVENT_PHASE_END);
 					}
@@ -456,11 +485,11 @@ namespace {
 					// this did, asked for the base to be cleared and read it back
 					// before the clearing had come round - the live flag stayed
 					// boosted after the event.
-					if (kind != playerbot_events::KIND_CHEST && leader)
+					if (playerbot_events::IsRateKind(kind) && leader)
 						HoldPlayerBotRateEvent(kind, st.value, dwNow);
 					state.value = st.value;
 					state.until = st.until;
-					if (leader && dwNow >= state.nextReminder)
+					if (leader && !world && dwNow >= state.nextReminder)
 					{
 						state.nextReminder = dwNow + PLAYERBOT_EVENTS_REMINDER_INTERVAL;
 						AnnouncePlayerBotEvent(kind, st.value, st.until, EVENT_PHASE_REMINDER);

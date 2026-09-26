@@ -474,10 +474,14 @@ namespace
 	}
 
 	// The seventh floor's stone waits: while the floor's demons stand (the
-	// order above), and - before the floor has been read - while a monster
-	// stands within PLAYERBOT_TOWER_STONE_THREAT_RANGE of this bot. The pack
-	// held the Metin of Murder to its end once it had it, and the demons that
-	// walked up took the bots apart one by one while they hit it.
+	// order above), and - before the floor has been read, and beside the
+	// Metin of Murder - while a monster stands within
+	// PLAYERBOT_TOWER_STONE_THREAT_RANGE of this bot. The pack held the Metin
+	// of Murder to its end once it had it, and the demons that walked up took
+	// the bots apart one by one while they hit it; the order of 2.2.22 left
+	// what the Metin of Murder brings to the splash, which a guild of seventy
+	// and eighty survives and a weaker one does not (prodnathin's Update_DT,
+	// 26 September: his option b, the monsters first and the map oftener).
 	bool IsPlayerBotTowerStoneWaiting(LPCHARACTER ch, const TPlayerBotTowerScan* scan, int level)
 	{
 		if (!ch || !scan || level != 5)
@@ -485,7 +489,6 @@ namespace
 		switch (GetPlayerBotTowerSeventhPhase(ch->GetMapIndex()))
 		{
 			case SEVENTH_STONES:
-			case SEVENTH_MURDER:
 				return false;
 			case SEVENTH_DEMONS:
 				return true;
@@ -529,14 +532,22 @@ namespace
 		const BYTE seventh = level == 5 ? GetPlayerBotTowerSeventhPhase(ch->GetMapIndex()) : (BYTE)SEVENTH_UNKNOWN;
 		const bool seventhStonesFirst = seventh == SEVENTH_STONES || seventh == SEVENTH_MURDER;
 		const bool seventhNoStone = seventh == SEVENTH_DEMONS;
-		const bool threatened = seventh == SEVENTH_UNKNOWN && IsPlayerBotTowerStoneWaiting(ch, scan, level);
+		const bool threatened = (seventh == SEVENTH_UNKNOWN || seventh == SEVENTH_MURDER) &&
+				IsPlayerBotTowerStoneWaiting(ch, scan, level);
 		// On a floor the stone turns (the seventh: the Metin of Murder drops
 		// the chest) the pack fights its way to the stone: the monsters are
 		// ranked from the stone, so the ground round it is what gets cleared,
 		// and the stone becomes a candidate the moment nothing stands there.
 		// Ranked from the pack alone it drifted after whatever was nearest and
 		// the stone stood untouched for nine minutes (17 September, 00:05).
-		if (fromPack && level == 5 && !threatened)
+		// Not once the four Metins of Death are down: the demons that come
+		// with the Metin of Murder are fought where each bot stands, nearest
+		// first, and the stone after them - ranked from the stone, the whole
+		// pack walked to it and pulled every demon of the floor onto itself
+		// there ("boty atakuja najblizszy cel wzgledem siebie", prodnathin,
+		// 26 September).
+		const bool seventhFromBot = seventh == SEVENTH_DEMONS || (seventh == SEVENTH_MURDER && threatened);
+		if (fromPack && level == 5 && !threatened && !seventhFromBot)
 		{
 			for (size_t i = 0; i < scan->entities.size(); ++i)
 				if (scan->entities[i].stone && scan->entities[i].race != PLAYERBOT_DEVIL_TOWER_STONE_FIRST)
@@ -546,7 +557,7 @@ namespace
 					break;
 				}
 		}
-		if (threatened)
+		if (threatened || seventhFromBot)
 		{
 			fromX = ch->GetX();
 			fromY = ch->GetY();
@@ -596,8 +607,9 @@ namespace
 		}
 		// No stone or boss outranks the monsters: this bot's share of them.
 		// Only the ones within SPREAD_RANGE beyond the nearest count, and no
-		// more of them than the pack has bots for.
-		if (!bestShared && spread.size() > 1 && scan->packN > PLAYERBOT_TOWER_BOTS_PER_MONSTER)
+		// more of them than the pack has bots for. Ranked from each bot itself
+		// (the seventh floor's demons) the nearest is already every bot's own.
+		if (!bestShared && !seventhFromBot && spread.size() > 1 && scan->packN > PLAYERBOT_TOWER_BOTS_PER_MONSTER)
 		{
 			std::sort(spread.begin(), spread.end());
 			const int limit = spread.front().first + PLAYERBOT_TOWER_SPREAD_RANGE;
@@ -721,6 +733,69 @@ namespace
 		return true;
 	}
 
+	// A step away from a boss that has turned on this bot (the Reaper,
+	// PLAYERBOT_TOWER_REAPER_*): straight away from him first, then turned a
+	// quarter and a half at a time while the ground refuses, never towards
+	// him. One step at most every KITE_MS; between two the bot walks the one it
+	// has, and one that has arrived shoots or casts again.
+	std::map<DWORD, DWORD> s_mapPlayerBotTowerKiteAt;
+
+	bool KitePlayerBotFromTowerBoss(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER boss, DWORD dwNow)
+	{
+		DWORD& next = s_mapPlayerBotTowerKiteAt[ch->GetPlayerID()];
+		if (dwNow < next)
+			return ch->IsStateMove();
+		next = dwNow + PLAYERBOT_TOWER_REAPER_KITE_MS;
+		const double ax = (double)(ch->GetX() - boss->GetX());
+		const double ay = (double)(ch->GetY() - boss->GetY());
+		const double length = sqrt(ax * ax + ay * ay);
+		const double ux = length >= 1.0 ? ax / length : 1.0;
+		const double uy = length >= 1.0 ? ay / length : 0.0;
+		static const double turns[] = { 0.0, 0.7853981634, -0.7853981634, 1.5707963268, -1.5707963268 };
+		for (size_t i = 0; i < sizeof(turns) / sizeof(turns[0]); ++i)
+		{
+			const double c = cos(turns[i]);
+			const double s = sin(turns[i]);
+			const long toX = ch->GetX() + (long)((ux * c - uy * s) * PLAYERBOT_TOWER_REAPER_KITE_STEP);
+			const long toY = ch->GetY() + (long)((ux * s + uy * c) * PLAYERBOT_TOWER_REAPER_KITE_STEP);
+			if (!MovePlayerBot(ch, toX, toY, dwNow, 4, false, false))
+				continue;
+			SetPlayerBotAction(state, BOT_ACTION_FIGHT, dwNow);
+			PlayerBotLogThrottled("tower_boss_kite", dwNow,
+					"PLAYERBOT_TOWER: steps away from the boss pid=%u name=%s map=%ld boss_race=%u dist=%d turn=%u his_victim=%d",
+					ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), (unsigned int)boss->GetRaceNum(),
+					(int)length, (unsigned int)i, boss->GetVictim() == ch ? 1 : 0);
+			return true;
+		}
+		return false;
+	}
+
+	// A Shaman at the Reaper: at CASTER_RANGE and no nearer than KEEP_AWAY,
+	// casting and swinging nothing - its swing between two casts is what
+	// walked it into his reach ("szamani healerzy bija sie z bliska hitami",
+	// prodnathin).
+	bool FightPlayerBotTowerBossFromRange(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER boss,
+			int distance, DWORD dwNow)
+	{
+		if (distance < PLAYERBOT_TOWER_REAPER_KEEP_AWAY && KitePlayerBotFromTowerBoss(ch, state, boss, dwNow))
+			return true;
+		if (distance > PLAYERBOT_TOWER_REAPER_CASTER_RANGE + PLAYERBOT_TOWER_REAPER_CASTER_SLACK)
+		{
+			if (dwNow >= state.dwNextTowerMoveTime)
+			{
+				state.dwNextTowerMoveTime = dwNow + 1000;
+				MovePlayerBot(ch, boss->GetX(), boss->GetY(), dwNow, 4, false, false);
+			}
+			return true;
+		}
+		if (ch->IsStateMove())
+			ch->Stop();
+		ch->SetRotationToXY(boss->GetX(), boss->GetY());
+		ch->SetPosition(POS_FIGHTING);
+		CastPlayerBotDuelSkill(ch, boss, state, dwNow);
+		return true;
+	}
+
 	// The duel's shape, as in the guild war: the aura first, a caster from its
 	// range, a warrior across the gap, a blade from where it reaches, a bow
 	// from its own reach - which in here is the tower's standoff
@@ -754,6 +829,16 @@ namespace
 		const int combatRange = isBow ? GetPlayerBotBowRange(ch->GetMapIndex()) : PLAYERBOT_DUEL_MELEE_RANGE;
 		const bool caster = ch->GetJob() == JOB_SHAMAN ||
 				(ch->GetJob() == JOB_SURA && ch->GetSkillGroup() == 2);
+		// The Reaper, from range: the Archer at its bow's reach and the Shaman
+		// at its casting range, and the one he turns on steps away from him.
+		if (foe->GetRaceNum() == PLAYERBOT_TOWER_REAPER && (isBow || ch->GetJob() == JOB_SHAMAN))
+		{
+			if (foe->GetVictim() == ch && distance < PLAYERBOT_TOWER_REAPER_KITE_DISTANCE &&
+					KitePlayerBotFromTowerBoss(ch, state, foe, dwNow))
+				return true;
+			if (!isBow)
+				return FightPlayerBotTowerBossFromRange(ch, state, foe, distance, dwNow);
+		}
 		if (isBow && StepPlayerBotTowerArcherBack(ch, state, dwNow))
 			return true;
 		if (distance > combatRange)
@@ -1533,11 +1618,13 @@ namespace
 						CountPlayerBotTowerMonstersNear(scan, ch->GetX(), ch->GetY(), PLAYERBOT_TOWER_STONE_THREAT_RANGE));
 				foe = NULL;
 			}
-			// ... and in the seventh floor's stone phases a monster in hand
-			// gives way to the stone the moment one stands: what the stones
-			// spawn is left to the splash.
+			// ... and while the four Metins of Death stand a monster in hand
+			// gives way to the stone the moment one stands: what those stones
+			// spawn is left to the splash. Beside the Metin of Murder only once
+			// nothing stands at the bot's side (IsPlayerBotTowerStoneWaiting).
 			if (foe && !foe->IsStone() && level == 5 &&
-					(run.bSeventhPhase == SEVENTH_STONES || run.bSeventhPhase == SEVENTH_MURDER))
+					(run.bSeventhPhase == SEVENTH_STONES ||
+					 (run.bSeventhPhase == SEVENTH_MURDER && !IsPlayerBotTowerStoneWaiting(ch, scan, level))))
 			{
 				LPCHARACTER stone = PickPlayerBotTowerObjective(ch, scan, level, false, 0);
 				if (stone && stone->IsStone())

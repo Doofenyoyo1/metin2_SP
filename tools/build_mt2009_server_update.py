@@ -48,7 +48,8 @@ STAGED = 'linux-port-mt2009/docker/game/src/server/game/src'
 # applied to the filled tree. They are idempotent: a package that already
 # carries one finds it "already", and an anchor that moved stops the build.
 ENGINE_EDITS = ['apply_costume_mount_allowed', 'apply_ride_seal_equip', 'apply_sidekick_quest_kill_credit',
-                'apply_quest_pc_is_playerbot']
+                'apply_quest_pc_is_playerbot', 'apply_drop_share_active', 'apply_tanaka_goblin',
+                'apply_shaman_party_buff', 'apply_chest_mob_preview']
 # Files an upstream package carries that this repository does not publish. An
 # update never deletes a file, so a player who took the upstream package keeps
 # it; the drop check below is for paths this repository's own list lost.

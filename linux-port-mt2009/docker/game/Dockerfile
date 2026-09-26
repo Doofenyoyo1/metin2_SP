@@ -162,7 +162,7 @@ RUN --mount=type=cache,target=/root/.ccache set -eux; \
     A="$(awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo)"; [ -n "$A" ] && [ "$A" -gt 0 ] || A="$T"; \
     J="${MAKE_JOBS:-}"; if [ -z "$J" ]; then J="$(nproc)"; M=$(( 1 + (A - 2600) / 700 )); [ "$M" -ge 1 ] || M=1; [ "$M" -ge "$J" ] || J="$M"; fi; \
     echo "make -j$J (cores $(nproc), memory $T MB, free $A MB)"; \
-    if [ "$A" -lt 2600 ]; then echo "UWAGA: w maszynie Dockera wolne jest tylko $A MB pamieci, a najciezszy plik rdzenia potrzebuje okolo 2300 MB. Kompilacja moze trwac bardzo dlugo. Zatrzymaj serwer przed aktualizacja (w launcherze: ZATRZYMAJ I ZAPISZ, potem GRAJ albo SPRAWDZ AKTUALIZACJE)."; fi; \
+    if [ "$A" -lt 2600 ]; then echo "UWAGA: w maszynie Dockera wolne jest tylko $A MB pamieci RAM (to nie miejsce na dysku), a najciezszy plik rdzenia potrzebuje okolo 2300 MB. Kompilacja moze trwac bardzo dlugo. Zatrzymaj serwer przed aktualizacja (w launcherze: ZATRZYMAJ I ZAPISZ, potem GRAJ albo SPRAWDZ AKTUALIZACJE)."; fi; \
     make -C game/src -j"$J" ${M2_MAKE}; \
     mkdir -p /out; cp "game/game_r$(cat __REVISION__)" /out/game
 
@@ -252,7 +252,9 @@ RUN set -eux; \
     # the Grotto of Exile for a Bloodstone from 75, in place of the free warp
     # 2.2.21 opened; heavens_cave_keyquest is Seon-Hae's daily quest for the
     # Bloodstone, from quest/_unused (2.2.22).
-    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest; do \
+    # tanaka_ears is Yonah's exchange of Pirate Tanaka's ear for a Purple Ebony
+    # Chest, the Tanaka event's reward (playerbot_world_events.h).
+    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \

@@ -408,6 +408,16 @@ namespace
 						prefix, enemy ? enemy->GetName() : "?", role);
 			return;
 		}
+		// Pirate Tanaka and Zuo, after the war that outranks them
+		// (playerbot_world_events.h).
+		{
+			char worldEvent[96];
+			if (DescribePlayerBotWorldEvent(ch, state, en, worldEvent, sizeof(worldEvent)))
+			{
+				snprintf(status, statusSize, "%s%s", prefix, worldEvent);
+				return;
+			}
+		}
 		// A player's companion at its owner's side says whose it is
 		// (playerbot_sidekick.h), and what it is doing for the owner.
 		if (const char* owner = GetPlayerBotSidekickOwnerName(ch))

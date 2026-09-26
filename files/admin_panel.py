@@ -1299,7 +1299,35 @@ CHEST_SWITCH = os.path.join(AI_SPOOL, "playerbot_chest_switch.tsv")
 # panel writes, the core stats the file every five seconds. The core answers
 # with playerbot_events_status.tsv beside its playerbot_status.tsv.
 EVENTS_FILE = os.path.join(AI_SPOOL, "playerbot_events.tsv")
-EVENT_KINDS = ("chest", "exp", "drop", "yang")
+EVENT_KINDS = ("chest", "exp", "drop", "yang", "tanaka", "zuo")
+# Tanaka and Zuo put something into the world (playerbot_world_events.h): their
+# value is a count - pirates at once, Metin stones a wave - and they carry a
+# map, 0 letting the event pick. The core holds the same bounds
+# (WorldEventCount).
+EVENT_WORLD_KINDS = ("tanaka", "zuo")
+EVENT_WORLD_DEFAULT = {"tanaka": 3, "zuo": 8}
+EVENT_WORLD_MAX = {"tanaka": 20, "zuo": 30}
+# The maps the core can run them on (PLAYERBOT_EVENT_MAPS): id, Polish, English.
+EVENT_MAPS = (
+    (0, "", ""),
+    (64, "Dolina Ork\u00f3w", "Orc Valley"),
+    (63, "Pustynia Yongbi", "Yongbi Desert"),
+    (61, "G\u00f3ra Sohan", "Mount Sohan"),
+    (65, "\u015awi\u0105tynia Hwang", "Hwang Temple"),
+    (62, "Ognista Ziemia", "Doyyumhwaji"),
+    (67, "Las Duch\u00f3w", "Ghost Wood"),
+    (68, "Czerwony Las", "Red Wood"),
+    (21, "Joan", "Joan"),
+    (1, "Yongan", "Yongan"),
+    (41, "Pyongmoo", "Pyongmoo"),
+    (23, "Bokjung", "Bokjung"),
+    (3, "Jayang", "Jayang"),
+    (43, "Bakra", "Bakra"),
+)
+EVENT_MAP_IDS = tuple(m[0] for m in EVENT_MAPS)
+# The "bots" line: the share of the bots that could come to Tanaka or Zuo
+# that does (playerbot_event_rules.h, Settings::botsPercent).
+EVENT_BOTS_DEFAULT = 50
 EVENTS_STATUS_FILES = [
     "/opt/metin2/var/channel1/game1/playerbot_events_status.tsv",
     "/opt/metin2/var/channel1/first/playerbot_events_status.tsv",
@@ -1330,6 +1358,41 @@ def event_hhmm(text):
     return "%02d:%02d" % (h, mi)
 
 
+def event_map_name(map_id):
+    """A world event's map as the page names it; 0 is "the event picks"."""
+    for mid, pl, en in EVENT_MAPS:
+        if mid == map_id:
+            if mid == 0:
+                return t("ev_map_auto")
+            return pl if lang() == "pl" else en
+    return str(map_id)
+
+
+def event_world_value(kind, value):
+    """A world event's count as the core will read it (WorldEventCount)."""
+    if value <= 0:
+        return EVENT_WORLD_DEFAULT[kind]
+    return min(EVENT_WORLD_MAX[kind], value)
+
+
+def read_event_settings():
+    """The file's settings lines: {"bots": percent}."""
+    settings = {"bots": EVENT_BOTS_DEFAULT}
+    try:
+        with open(EVENTS_FILE, "r", encoding="utf-8", errors="replace") as fh:
+            lines = fh.read().splitlines()
+    except OSError:
+        return settings
+    for line in lines:
+        f = line.rstrip("\r").split("\t")
+        if len(f) >= 2 and f[0] == "bots":
+            try:
+                settings["bots"] = max(0, min(100, int(f[1])))
+            except ValueError:
+                pass
+    return settings
+
+
 def read_events():
     """The file as the page shows it: rows (a row switched off is kept as a
     '#off' line the core skips) and the 'now' lines by kind."""
@@ -1352,7 +1415,11 @@ def read_events():
         f = line.split("\t")
         if f[0] == "now" and len(f) >= 4 and f[1] in EVENT_KINDS:
             try:
-                nows[f[1]] = {"until": int(f[2]), "value": int(f[3])}
+                n = {"until": int(f[2]), "value": int(f[3]), "map": 0, "since": 0}
+                if f[1] in EVENT_WORLD_KINDS:
+                    n["map"] = int(f[4]) if len(f) >= 5 and f[4] else 0
+                    n["since"] = int(f[5]) if len(f) >= 6 and f[5] else 0
+                nows[f[1]] = n
             except ValueError:
                 pass
             continue
@@ -1366,26 +1433,43 @@ def read_events():
             value = int(f[4])
         except ValueError:
             value = 0
+        map_id = 0
+        if f[0] in EVENT_WORLD_KINDS and len(f) >= 6:
+            try:
+                map_id = int(f[5])
+            except ValueError:
+                map_id = 0
         rows.append({"kind": f[0], "days": days, "start": start, "end": end,
-                     "value": value, "on": on})
+                     "value": value, "on": on, "map": map_id})
     return rows, nows
 
 
-def write_events(rows, nows):
+def write_events(rows, nows, settings=None):
     """Replace the file in one step, written beside and renamed over, because
-    the core reads it on its own clock and must never see half of it."""
+    the core reads it on its own clock and must never see half of it. The
+    settings lines are kept as they are unless new ones are given."""
+    if settings is None:
+        settings = read_event_settings()
     body = ["# Metin2 playerbots -- timed events (the panel's Events page).",
-            "# kind<TAB>days<TAB>from<TAB>to<TAB>value  |  now<TAB>kind<TAB>until_epoch<TAB>value",
+            "# kind<TAB>days<TAB>from<TAB>to<TAB>value[<TAB>map]  |  now<TAB>kind<TAB>until_epoch<TAB>value[<TAB>map<TAB>since]",
             "# days: * or 1..7 (1 = Monday); a '#off' line is a row switched off.",
+            "# map: Tanaka and Zuo only, 0 = the event picks. bots: the share of bots that answer them.",
             ""]
     for r in rows:
         days = "*" if len(r["days"]) == 7 else (",".join(str(d) for d in r["days"]) or "-")
         line = "%s\t%s\t%s\t%s\t%d" % (r["kind"], days, r["start"], r["end"], int(r["value"]))
+        if r["kind"] in EVENT_WORLD_KINDS:
+            line += "\t%d" % int(r.get("map", 0))
         body.append(line if r.get("on", True) else "#off\t" + line)
     for kind in EVENT_KINDS:
         n = nows.get(kind)
         if n and int(n.get("until", 0)) > time.time():
-            body.append("now\t%s\t%d\t%d" % (kind, int(n["until"]), int(n.get("value", 0))))
+            if kind in EVENT_WORLD_KINDS:
+                body.append("now\t%s\t%d\t%d\t%d\t%d" % (kind, int(n["until"]), int(n.get("value", 0)),
+                                                        int(n.get("map", 0)), int(n.get("since", 0))))
+            else:
+                body.append("now\t%s\t%d\t%d" % (kind, int(n["until"]), int(n.get("value", 0))))
+    body.append("bots\t%d" % max(0, min(100, int(settings.get("bots", EVENT_BOTS_DEFAULT)))))
     tmp = EVENTS_FILE + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         fh.write("\n".join(body) + "\n")
@@ -1394,8 +1478,11 @@ def write_events(rows, nows):
 
 def read_events_status():
     """What the core last wrote, by kind; {} when no core has written for five
-    minutes (an older core, or none running)."""
+    minutes (an older core, or none running). Tanaka and Zuo are run by one
+    core (playerbot_world_events.h): its row, marked host, carries what stands
+    and who answered, and is taken over the newest file's."""
     best, best_written = {}, 0
+    hosts, host_written = {}, {}
     for path in EVENTS_STATUS_FILES:
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as fh:
@@ -1408,15 +1495,28 @@ def read_events_status():
             if len(f) < 8 or f[0] not in EVENT_KINDS:
                 continue
             try:
-                cur[f[0]] = {"scheduled": f[1] == "1", "active": f[2] == "1", "value": int(f[3]),
-                             "until": int(f[4]), "next_start": int(f[5]), "next_value": int(f[6])}
+                row = {"scheduled": f[1] == "1", "active": f[2] == "1", "value": int(f[3]),
+                       "until": int(f[4]), "next_start": int(f[5]), "next_value": int(f[6]),
+                       "map": 0, "since": 0, "next_map": 0, "host": False,
+                       "alive": 0, "killed": 0, "bots": 0, "phase": ""}
                 written = int(f[7])
+                if len(f) >= 16:
+                    row.update({"map": int(f[8]), "since": int(f[9]), "next_map": int(f[10]),
+                                "host": f[11] == "1", "alive": int(f[12]), "killed": int(f[13]),
+                                "bots": int(f[14]), "phase": f[15] if f[15] != "-" else ""})
+                cur[f[0]] = row
             except ValueError:
                 continue
+        for kind, row in cur.items():
+            if row.get("host") and written > host_written.get(kind, 0):
+                hosts[kind], host_written[kind] = row, written
         if cur and written > best_written:
             best, best_written = cur, written
     if not best or time.time() - best_written > 300:
         return {}
+    for kind, row in hosts.items():
+        if time.time() - host_written[kind] <= 300:
+            best[kind] = row
     now = time.localtime()
     for st in best.values():
         for key in ("until", "next_start"):
@@ -3686,6 +3786,23 @@ T.update({
  "ev_now_started":{"en":"Event switched on for %d minutes; the chat is told within seconds.","pl":"Event w\u0142\u0105czony na %d minut; czat dowie si\u0119 w kilka sekund.","de":"Event f\u00fcr %d Minuten eingeschaltet; der Chat erf\u00e4hrt es binnen Sekunden.","tr":"Etkinlik %d dakikal\u0131\u011f\u0131na a\u00e7\u0131ld\u0131; sohbet saniyeler i\u00e7inde \u00f6\u011frenir."},
  "ev_stop":      {"en":"End now","pl":"Zako\u0144cz","de":"Jetzt beenden","tr":"\u015eimdi bitir"},
  "ev_stopped":   {"en":"The event switched on by hand is over.","pl":"Event w\u0142\u0105czony r\u0119cznie zako\u0144czony.","de":"Das von Hand eingeschaltete Event ist beendet.","tr":"Elle a\u00e7\u0131lan etkinlik bitti."},
+ "ev_kind_tanaka": {"en":"Pirate Tanaka","pl":"Pirat Tanaka","de":"Pirat Tanaka","tr":"Korsan Tanaka"},
+ "ev_kind_zuo": {"en":"Zuo: Metin rain","pl":"Zuo: deszcz metin\u00f3w","de":"Zuo: Metinregen","tr":"Zuo: Metin ya\u011fmuru"},
+ "ev_world_note": {"en":"Pirate Tanaka runs from whoever hits him, scatters yang as he loses health and leaves his ear to the one who beat him; Yonah in the first village gives a Purple Ebony Chest for an ear. Zuo drops a wave of Metin stones of the map's level every five minutes (the chat gives the coordinates) and from half the event on calls bosses. Bots come too; a war, the Demon Tower, a raid or a player's party come first for them.","pl":"Pirat Tanaka ucieka przed ka\u017cdym, kto go bije, sypie yang, gdy traci \u017cycie, i zostawia ucho temu, kto go pokona\u0142; Yonah w pierwszej wiosce daje za ucho Fioletow\u0105 Hebanow\u0105 Szkatu\u0142k\u0119. Zuo co pi\u0119\u0107 minut zrzuca fal\u0119 metin\u00f3w poziomu mapy (czat podaje koordynaty), a od po\u0142owy eventu przyzywa boss\u00f3w. Przychodz\u0105 te\u017c boty; wojna, Wie\u017ca Demon\u00f3w, rajd albo party gracza maj\u0105 dla nich pierwsze\u0144stwo.","de":"Pirat Tanaka flieht vor jedem, der ihn schl\u00e4gt, verstreut Yang, wenn er Leben verliert, und l\u00e4sst dem Sieger sein Ohr; Yonah im ersten Dorf gibt f\u00fcr ein Ohr eine Violette Ebenholztruhe. Zuo wirft alle f\u00fcnf Minuten eine Welle Metinsteine der Kartenstufe ab (der Chat nennt die Koordinaten) und ruft ab der H\u00e4lfte des Events Bosse. Auch Bots kommen; Krieg, Teufelsturm, Raid oder die Gruppe eines Spielers gehen f\u00fcr sie vor.","tr":"Korsan Tanaka kendisine vuran herkesten ka\u00e7ar, can kaybettik\u00e7e yang sa\u00e7ar ve onu yenene kula\u011f\u0131n\u0131 b\u0131rak\u0131r; ilk k\u00f6ydeki Yonah bir kulak kar\u015f\u0131l\u0131\u011f\u0131nda Mor Abanoz Sand\u0131k verir. Zuo her be\u015f dakikada haritan\u0131n seviyesinde bir Metin ta\u015f\u0131 dalgas\u0131 d\u00fc\u015f\u00fcr\u00fcr (sohbet koordinatlar\u0131 verir) ve etkinli\u011fin yar\u0131s\u0131ndan itibaren boss \u00e7a\u011f\u0131r\u0131r. Botlar da gelir; sava\u015f, \u015eeytan Kulesi, bask\u0131n veya bir oyuncunun grubu onlar i\u00e7in \u00f6nce gelir."},
+ "ev_world_value_help": {"en":"For Pirate Tanaka the value is how many pirates roam at once (1-20, 0 = 3); for Zuo how many Metin stones fall in a wave (1-30, 0 = 8). The map column counts for these two only.","pl":"Dla Pirata Tanaki warto\u015b\u0107 to liczba pirat\u00f3w naraz (1-20, 0 = 3); dla Zuo liczba metin\u00f3w w fali (1-30, 0 = 8). Kolumna mapy liczy si\u0119 tylko dla tych dw\u00f3ch.","de":"Bei Pirat Tanaka ist der Wert die Zahl der Piraten gleichzeitig (1-20, 0 = 3); bei Zuo die Zahl der Metinsteine je Welle (1-30, 0 = 8). Die Kartenspalte gilt nur f\u00fcr diese beiden.","tr":"Korsan Tanaka i\u00e7in de\u011fer ayn\u0131 anda dola\u015fan korsan say\u0131s\u0131d\u0131r (1-20, 0 = 3); Zuo i\u00e7in bir dalgadaki Metin ta\u015f\u0131 say\u0131s\u0131 (1-30, 0 = 8). Harita s\u00fctunu yaln\u0131zca bu ikisi i\u00e7in ge\u00e7erlidir."},
+ "ev_col_map": {"en":"Map (Tanaka, Zuo)","pl":"Mapa (Tanaka, Zuo)","de":"Karte (Tanaka, Zuo)","tr":"Harita (Tanaka, Zuo)"},
+ "ev_map_auto": {"en":"the event picks","pl":"wybiera event","de":"das Event w\u00e4hlt","tr":"etkinlik se\u00e7er"},
+ "ev_now_tanaka": {"en":"pirates at once","pl":"pirat\u00f3w naraz","de":"Piraten gleichzeitig","tr":"ayn\u0131 anda korsan"},
+ "ev_now_zuo": {"en":"stones a wave","pl":"metin\u00f3w w fali","de":"Steine je Welle","tr":"dalga ba\u015f\u0131na ta\u015f"},
+ "ev_world_alive": {"en":"standing","pl":"na mapie","de":"auf der Karte","tr":"haritada"},
+ "ev_world_killed": {"en":"beaten","pl":"pokonane","de":"besiegt","tr":"yenilen"},
+ "ev_world_bots": {"en":"bots taking part","pl":"boty w evencie","de":"Bots dabei","tr":"kat\u0131lan botlar"},
+ "ev_phase_stones": {"en":"stones falling","pl":"spadaj\u0105 metiny","de":"Steine fallen","tr":"ta\u015flar d\u00fc\u015f\u00fcyor"},
+ "ev_phase_bosses": {"en":"bosses","pl":"bossowie","de":"Bosse","tr":"bosslar"},
+ "ev_bots_title": {"en":"Bots at Tanaka and Zuo","pl":"Boty na Tanace i Zuo","de":"Bots bei Tanaka und Zuo","tr":"Tanaka ve Zuo'da botlar"},
+ "ev_bots_help": {"en":"What share of the bots that could come - their level suits the map and nothing more pressing holds them (a war, the Demon Tower, a raid, a duel, a player's party) - takes part. 0 keeps every bot out; the same bots answer every time, and a few chase each pirate.","pl":"Jaka cz\u0119\u015b\u0107 bot\u00f3w, kt\u00f3re mog\u0142yby przyj\u015b\u0107 - poziom pasuje do mapy i nic wa\u017cniejszego ich nie trzyma (wojna, Wie\u017ca Demon\u00f3w, rajd, pojedynek, party gracza) - bierze udzia\u0142. 0 = boty nie bior\u0105 udzia\u0142u; przychodz\u0105 za ka\u017cdym razem te same boty, a ka\u017cdego pirata goni kilka.","de":"Welcher Anteil der Bots, die kommen k\u00f6nnten - ihre Stufe passt zur Karte und nichts Wichtigeres h\u00e4lt sie (Krieg, Teufelsturm, Raid, Duell, Gruppe eines Spielers) - teilnimmt. 0 h\u00e4lt alle Bots fern; es kommen jedes Mal dieselben Bots, und jeden Piraten jagen einige.","tr":"Gelebilecek botlar\u0131n - seviyesi haritaya uyan ve daha \u00f6nemli bir \u015fey taraf\u0131ndan tutulmayan (sava\u015f, \u015eeytan Kulesi, bask\u0131n, d\u00fcello, bir oyuncunun grubu) - ne kadar\u0131n\u0131n kat\u0131ld\u0131\u011f\u0131. 0 t\u00fcm botlar\u0131 d\u0131\u015far\u0131da tutar; her seferinde ayn\u0131 botlar gelir ve her korsan\u0131 birka\u00e7\u0131 kovalar."},
+ "ev_bots_save": {"en":"Save","pl":"Zapisz","de":"Speichern","tr":"Kaydet"},
+ "ev_bots_saved": {"en":"Saved; the game core reads it within five seconds.","pl":"Zapisano; rdze\u0144 gry odczyta to w pi\u0119\u0107 sekund.","de":"Gespeichert; der Spielkern liest es binnen f\u00fcnf Sekunden.","tr":"Kaydedildi; oyun \u00e7ekirde\u011fi be\u015f saniyede okur."},
  "ai_chest_off":  {"en":"Turn the Moonlight chest drop off","pl":"Wyłącz drop Szkatułek Blasku Księżyca","de":"Mondschein-Truhen nicht fallen lassen","tr":"Ay Işığı Sandığı düşmesini kapat"},
  "ai_chest_off_help":{"en":"Ticked and saved, no chest drops from monsters or Metin stones (both figures go to 0‰); the sliders keep what you set and come back when you untick. Unticking is not the same as chests falling: outside a chest event none drops whatever these say, so what brings them back is a window on the Events page. Applies within five seconds.",
                   "pl":"Zaznaczone i zapisane: żadna szkatułka nie wypada z potworów ani z Metinów (obie wartości idą na 0‰); suwaki pamiętają Twoje ustawienie i wracają po odznaczeniu. Odznaczenie to jeszcze nie szkatułki: poza eventem szkatułek nie wypada żadna, cokolwiek mówią te suwaki — żeby leciały, potrzebne jest okno na stronie Eventy. Działa w pięć sekund.",
@@ -5715,6 +5832,7 @@ TPL_EVENTS = BASE.replace("__BODY__", """
 <h3>{{t('ev_nav')}}</h3>
 <p class="muted">{{t('ev_intro')}}</p>
 <p class="muted">{{t('ev_chest_note')}}</p>
+<p class="muted">{{t('ev_world_note')}}</p>
 <p class="muted">{{t('ev_notice_note')}}</p>
 </div>
 
@@ -5726,7 +5844,10 @@ TPL_EVENTS = BASE.replace("__BODY__", """
 <tr>
 <td><b>{{t('ev_kind_' + k)}}</b></td>
 <td>
-{% if s and s.active %}<span class="badge">{{t('ev_active')}} {{s.until_text}}{% if s.value and k != 'chest' %} (+{{s.value}}%){% endif %}</span>
+{% if s and s.active and k in world_kinds %}<span class="badge">{{t('ev_active')}} {{s.until_text}} ({{map_name(s.map)}})</span>
+{% if s.host %}<br><small>{{t('ev_world_alive')}}: {{s.alive}} &middot; {{t('ev_world_killed')}}: {{s.killed}} &middot; {{t('ev_world_bots')}}: {{s.bots}}{% if s.phase == 'stones' %} &middot; {{t('ev_phase_stones')}}{% elif s.phase == 'bosses' %} &middot; {{t('ev_phase_bosses')}}{% endif %}</small>{% endif %}
+{% elif s and s.active %}<span class="badge">{{t('ev_active')}} {{s.until_text}}{% if s.value and k != 'chest' %} (+{{s.value}}%){% endif %}</span>
+{% elif s and s.next_start and k in world_kinds %}{{t('ev_next')}}: {{s.next_start_text}} ({{map_name(s.next_map)}})
 {% elif s and s.next_start %}{{t('ev_next')}}: {{s.next_start_text}}{% if s.next_value and k != 'chest' %} (+{{s.next_value}}%){% endif %}
 {% elif s and s.scheduled %}{{t('ev_inactive')}}
 {% elif s %}{{t('ev_none')}}
@@ -5739,7 +5860,9 @@ TPL_EVENTS = BASE.replace("__BODY__", """
 <input type="hidden" name="kind" value="{{k}}">
 {{t('ev_now_minutes')}}
 <select name="minutes">{% for m in minutes %}<option value="{{m}}" {% if m == 60 %}selected{% endif %}>{{m}}</option>{% endfor %}</select>
-{% if k != 'chest' %}{{t('ev_now_value')}} <input type="number" name="value" min="1" max="1000" value="50" style="width:70px">{% endif %}
+{% if k in world_kinds %}{{t('ev_now_' + k)}} <input type="number" name="value" min="1" max="{{world_max[k]}}" value="{{world_default[k]}}" style="width:60px">
+<select name="map">{% for m in maps %}<option value="{{m[0]}}">{{map_name(m[0])}}</option>{% endfor %}</select>
+{% elif k != 'chest' %}{{t('ev_now_value')}} <input type="number" name="value" min="1" max="1000" value="50" style="width:70px">{% endif %}
 <button class="btn" type="submit">{{t('ev_now_go')}}</button>
 </form>
 {% if nows.get(k) and nows[k].until > now_epoch %}
@@ -5757,13 +5880,25 @@ TPL_EVENTS = BASE.replace("__BODY__", """
 </div>
 
 <div class="card">
+<h3>{{t('ev_bots_title')}}</h3>
+<p class="muted">{{t('ev_bots_help')}}</p>
+<form method="post">
+<input type="hidden" name="_csrf" value="{{csrf_token}}">
+<input type="hidden" name="action" value="bots">
+<input type="number" name="bots" min="0" max="100" value="{{settings.bots}}" style="width:70px"> %
+<button class="btn" type="submit">{{t('ev_bots_save')}}</button>
+</form>
+</div>
+
+<div class="card">
 <h3>{{t('ev_schedule')}}</h3>
 <p class="muted">{{t('ev_value_help')}}</p>
+<p class="muted">{{t('ev_world_value_help')}}</p>
 <form method="post">
 <input type="hidden" name="_csrf" value="{{csrf_token}}">
 <input type="hidden" name="action" value="save">
 <table>
-<tr><th>{{t('ev_col_kind')}}</th><th>{{t('ev_col_days')}}</th><th>{{t('ev_col_from')}}</th><th>{{t('ev_col_to')}}</th><th>{{t('ev_col_value')}}</th><th>{{t('ev_col_on')}}</th><th>{{t('ev_col_del')}}</th></tr>
+<tr><th>{{t('ev_col_kind')}}</th><th>{{t('ev_col_days')}}</th><th>{{t('ev_col_from')}}</th><th>{{t('ev_col_to')}}</th><th>{{t('ev_col_value')}}</th><th>{{t('ev_col_map')}}</th><th>{{t('ev_col_on')}}</th><th>{{t('ev_col_del')}}</th></tr>
 {% for r in rows %}{% set i = loop.index0 %}
 <tr>
 <td><select name="r{{i}}_kind"><option value="">-</option>{% for k in kinds %}<option value="{{k}}" {% if r.kind == k %}selected{% endif %}>{{t('ev_kind_' + k)}}</option>{% endfor %}</select></td>
@@ -5771,6 +5906,7 @@ TPL_EVENTS = BASE.replace("__BODY__", """
 <td><input type="text" name="r{{i}}_start" value="{{r.start}}" size="5" placeholder="20:00"></td>
 <td><input type="text" name="r{{i}}_end" value="{{r.end}}" size="5" placeholder="21:00"></td>
 <td><input type="number" name="r{{i}}_value" value="{{r.value}}" min="0" max="1000" style="width:70px"></td>
+<td><select name="r{{i}}_map">{% for m in maps %}<option value="{{m[0]}}" {% if r.map == m[0] %}selected{% endif %}>{{map_name(m[0])}}</option>{% endfor %}</select></td>
 <td><input type="checkbox" name="r{{i}}_on" value="1" {% if r.on %}checked{% endif %}></td>
 <td>{% if r.kind %}<input type="checkbox" name="r{{i}}_del" value="1">{% endif %}</td>
 </tr>
@@ -6015,7 +6151,7 @@ MAP_I18N = {
   "horse_lv":"Koń Lv","visible":"Widocznych","characters":"postaci","in_group":"W grupie [PT]","solo":"Solo","player":"GRACZ","bot":"Bot","class":"Klasa","action":"Akcja","status":"Status","personality":"Osobowość","mood":"Nastrój","charakter":"Charakter","ambition":"Ambicja","current_goal":"Aktualny cel",
   "coordinates":"Koordynaty","open_inventory":"Kliknij, aby otworzyć ekwipunek i EQ","loading_character":"Ładowanie ekwipunku i statystyk postaci","error":"Błąd","not_found":"Nie znaleziono danych",
   "teleport_me":"Teleportuj moją postać w grze (1 klik)","position":"Pozycja","horse":"Koń","biologist":"Biolog","bio_stage":"Etap Biologa","hunting":"Polowanie","no_data":"Brak danych",
-  "stats":"Statystyki","unspent_stats":"Nierozdane: {n} pkt statystyk","skills":"Umiejętności","profession_none":"Nie wybrano","profession_pending":"Profesja nie została jeszcze wybrana.","depot":"Magazyn","depot_empty":"Magazyn jest pusty.","shop":"Sklep","shop_none":"Ten bot nie ma otwartego sklepu.","shop_empty":"Lada jest pusta.","shop_price":"Cena","shop_premium":"premium",
+  "stats":"Statystyki","unspent_stats":"Nierozdane: {n} pkt statystyk","skills":"Umiejętności","profession_none":"Nie wybrano","profession_pending":"Profesja nie została jeszcze wybrana.","depot":"Magazyn","depot_empty":"Magazyn jest pusty.","shop":"Sklep","shop_none":"Ten bot nie ma otwartego sklepu.","shop_empty":"Lada jest pusta.","shop_price":"Cena","shop_premium":"premium","shop_expired":"wygasły — nikt z niego nie kupi, dopóki bot go nie odnowi",
   "unspent_skills":"Nierozdane: {n} pkt umiejętności","equipped":"Założony ekwipunek (EQ)","weapon":"Broń","armor":"Zbroja","helmet":"Hełm","shield":"Tarcza","bracelet":"Bransoleta",
   "boots":"Buty","necklace":"Naszyjnik","earrings":"Kolczyki","empty":"Puste","inventory":"Zawartość ekwipunku","items_count":"przedmiotów","inventory_empty":"Ekwipunek jest pusty.","quantity":"Ilość",
   "gear_history":"Historia ekwipunku","gear_history_hint":"Handel, bonusy i ulepszanie w osobnych zakładkach — z log.log i dziennika sklepów offline","gear_history_loading":"Ładowanie historii...","gear_history_empty":"Brak wpisów w tej zakładce.","gear_history_more":"Pokaż starsze","gear_tab_trade":"Handel","gear_tab_bonus":"Bonusy","gear_tab_refine":"Ulepszanie","gear_tab_other":"Inne","gear_tab_all":"Wszystko",
@@ -6036,7 +6172,7 @@ MAP_I18N = {
   "horse_lv":"Horse Lv","visible":"Visible","characters":"characters","in_group":"In party [PT]","solo":"Solo","player":"PLAYER","bot":"Bot","class":"Class","action":"Action","status":"Status","personality":"Personality","mood":"Mood","charakter":"Character","ambition":"Ambition","current_goal":"Current goal",
   "coordinates":"Coordinates","open_inventory":"Click to open inventory and equipment","loading_character":"Loading character equipment and statistics","error":"Error","not_found":"No data found",
   "teleport_me":"Teleport my in-game character (one click)","position":"Position","horse":"Horse","biologist":"Biologist","bio_stage":"Biologist stage","hunting":"Hunting","no_data":"No data",
-  "stats":"Statistics","unspent_stats":"Unspent: {n} stat points","skills":"Skills","profession_none":"Not selected","profession_pending":"The profession has not been selected yet.","depot":"Depot","depot_empty":"The depot is empty.","shop":"Shop","shop_none":"This bot has no stall open.","shop_empty":"The counter is empty.","shop_price":"Price","shop_premium":"premium",
+  "stats":"Statistics","unspent_stats":"Unspent: {n} stat points","skills":"Skills","profession_none":"Not selected","profession_pending":"The profession has not been selected yet.","depot":"Depot","depot_empty":"The depot is empty.","shop":"Shop","shop_none":"This bot has no stall open.","shop_empty":"The counter is empty.","shop_price":"Price","shop_premium":"premium","shop_expired":"expired — nobody can buy from it until the bot renews it",
   "unspent_skills":"Unspent: {n} skill points","equipped":"Equipped items","weapon":"Weapon","armor":"Armour","helmet":"Helmet","shield":"Shield","bracelet":"Bracelet",
   "boots":"Boots","necklace":"Necklace","earrings":"Earrings","empty":"Empty","inventory":"Inventory contents","items_count":"items","inventory_empty":"The inventory is empty.","quantity":"Quantity",
   "gear_history":"Equipment history","gear_history_hint":"Trade, bonuses and refining on separate tabs — from log.log and the offline shop log","gear_history_loading":"Loading history...","gear_history_empty":"No entries on this tab.","gear_history_more":"Show older","gear_tab_trade":"Trade","gear_tab_bonus":"Bonuses","gear_tab_refine":"Refining","gear_tab_other":"Other","gear_tab_all":"All",
@@ -7443,7 +7579,8 @@ function renderShopWindow(shop) {
   where.textContent = (shop.name || '') +
       ' · ' + (I18N.map || 'Mapa') + ' ' + shop.map_index +
       ' (' + shop.x + ', ' + shop.y + ')' +
-      (shop.is_premium ? ' · ' + (I18N.shop_premium || 'premium') : '');
+      (shop.is_premium ? ' · ' + (I18N.shop_premium || 'premium') : '') +
+      (shop.expired ? ' · ' + (I18N.shop_expired || 'wygasły') : '');
   if (!offers.length) {
     list.innerHTML = '';
     empty.textContent = I18N.shop_empty || 'Lada jest pusta.';
@@ -13314,12 +13451,16 @@ def api_bot_shop(pid):
     # price in that item's own ikashop_data JSON - the same three places seban's
     # panel reads for its shop feed. The stall belongs to the character, so the
     # owner here is the pid, unlike the depot, which belongs to the account.
+    # A line just sold is still a row with that window - the db core empties
+    # its ikashop_data at once and the window changes when the game core saves
+    # the item back - and read "0" as its price (6zmacko, 26 September), so it
+    # is left out; duration 0 is a stand that ran out, which nobody can buy from.
     language = lang()
     try:
         with db() as c, c.cursor() as cur:
             cur.execute(
                 """
-                SELECT `map`, x, y, is_premium, CAST(`name` AS BINARY) AS name
+                SELECT `map`, x, y, is_premium, duration, CAST(`name` AS BINARY) AS name
                   FROM player.ikashop_offlineshop
                  WHERE owner = %s
                 """,
@@ -13334,6 +13475,7 @@ def api_bot_shop(pid):
                        CAST(JSON_UNQUOTE(JSON_EXTRACT(ikashop_data, '$.yang')) AS UNSIGNED) AS price
                   FROM player.item
                  WHERE owner_id = %s AND `window` = 'IKASHOP_OFFLINESHOP'
+                   AND ikashop_data IS NOT NULL AND ikashop_data <> ''
                  ORDER BY pos ASC
                 """,
                 (pid,),
@@ -13356,6 +13498,7 @@ def api_bot_shop(pid):
                 "x": int(shop.get("x") or 0),
                 "y": int(shop.get("y") or 0),
                 "is_premium": bool(shop.get("is_premium")),
+                "expired": int(shop.get("duration") or 0) == 0,
                 "offers": offers,
             }})
     except Exception as e:
@@ -14063,6 +14206,18 @@ def events_page():
     if request.method == "POST":
         # (the global before_request hook has already checked the CSRF token)
         action = request.form.get("action", "")
+        if action == "bots":
+            try:
+                bots = max(0, min(100, int(request.form.get("bots") or 0)))
+            except ValueError:
+                bots = EVENT_BOTS_DEFAULT
+            try:
+                write_events(rows, nows, {"bots": bots})
+            except OSError:
+                flash(t("ev_failed"), "error")
+                return redirect(url_for("events_page"))
+            flash(t("ev_bots_saved"))
+            return redirect(url_for("events_page"))
         if action == "save":
             new_rows = []
             for i in range(0, 64):
@@ -14081,9 +14236,18 @@ def events_page():
                     flash(t("ev_bad_row") % (i + 1), "error")
                     return redirect(url_for("events_page"))
                 days = [d for d in range(1, 8) if request.form.get("r%d_d%d" % (i, d))]
+                map_id = 0
+                if kind in EVENT_WORLD_KINDS:
+                    value = event_world_value(kind, value)
+                    try:
+                        map_id = int(request.form.get("r%d_map" % i) or 0)
+                    except ValueError:
+                        map_id = 0
+                    if map_id not in EVENT_MAP_IDS:
+                        map_id = 0
                 new_rows.append({"kind": kind, "days": days, "start": start, "end": end,
                                  "value": 0 if kind == "chest" else value,
-                                 "on": bool(request.form.get("r%d_on" % i))})
+                                 "on": bool(request.form.get("r%d_on" % i)), "map": map_id})
             try:
                 write_events(new_rows, nows)
             except OSError:
@@ -14100,8 +14264,19 @@ def events_page():
                 value = max(1, min(1000, int(request.form.get("value") or 50)))
             except ValueError:
                 minutes, value = 60, 50
-            nows[kind] = {"until": int(time.time()) + minutes * 60,
-                          "value": 0 if kind == "chest" else value}
+            map_id = 0
+            if kind in EVENT_WORLD_KINDS:
+                value = event_world_value(kind, value)
+                try:
+                    map_id = int(request.form.get("map") or 0)
+                except ValueError:
+                    map_id = 0
+                if map_id not in EVENT_MAP_IDS:
+                    map_id = 0
+            started = int(time.time())
+            nows[kind] = {"until": started + minutes * 60,
+                          "value": 0 if kind == "chest" else value,
+                          "map": map_id, "since": started}
             try:
                 write_events(rows, nows)
             except OSError:
@@ -14122,10 +14297,13 @@ def events_page():
 
     # Two empty rows after the saved ones: a new window needs no script.
     shown = list(rows) + [{"kind": "", "days": list(range(1, 8)), "start": "20:00",
-                           "end": "21:00", "value": 50, "on": True} for _ in range(2)]
+                           "end": "21:00", "value": 50, "on": True, "map": 0} for _ in range(2)]
     return render_template_string(TPL_EVENTS, rows=shown, nows=nows, kinds=EVENT_KINDS,
                                   status=read_events_status(), minutes=EVENT_NOW_MINUTES,
-                                  day_names=t("ev_days").split(","), now_epoch=int(time.time()))
+                                  day_names=t("ev_days").split(","), now_epoch=int(time.time()),
+                                  world_kinds=EVENT_WORLD_KINDS, world_default=EVENT_WORLD_DEFAULT,
+                                  world_max=EVENT_WORLD_MAX, maps=EVENT_MAPS,
+                                  map_name=event_map_name, settings=read_event_settings())
 
 @app.route("/ai", methods=["GET", "POST"])
 @login_required

@@ -692,6 +692,24 @@ namespace
 		return nearTarget.Found();
 	}
 
+	// Whether a skill cast from this far reaches its target. ComputeSkill
+	// drops a cast whose target stands beyond the skill's range (plus fifty),
+	// and a splash round the caster (Dragon's Roar) hits nothing far from it,
+	// so a caster standing off - a duel's six hundred, the Reaper's eleven
+	// hundred - spent the mana and the cooldown on nothing. A range of none
+	// is none: the engine does not look.
+	bool PlayerBotSkillReaches(DWORD skillVnum, int distance)
+	{
+		CSkillProto* proto = CSkillManager::instance().Get(skillVnum);
+		if (!proto)
+			return false;
+		if (IS_SET(proto->dwFlag, SKILL_FLAG_SELFONLY))
+			return proto->iSplashRange > 0 && distance <= proto->iSplashRange;
+		if (proto->dwTargetRange > 0)
+			return distance < (int)proto->dwTargetRange + 50;
+		return true;
+	}
+
 	bool ExecutePlayerBotAttackSkill(LPCHARACTER ch, LPCHARACTER target, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		// Under a polymorph marble the engine refuses every skill - five
@@ -725,12 +743,15 @@ namespace
 		}
 
 		const TJobSkillBuild build = GetPlayerBotSkillBuild(ch->GetJob(), ch->GetSkillGroup(), ch->GetPlayerID());
+		const int distance = DISTANCE_APPROX(ch->GetX() - target->GetX(), ch->GetY() - target->GetY());
 		for (size_t i = 0; i < sizeof(build.dwOffensiveSkills) / sizeof(build.dwOffensiveSkills[0]); ++i)
 		{
 			const DWORD skillVnum = build.dwOffensiveSkills[i];
 			if (skillVnum == 0 || ch->GetSkillLevel(skillVnum) == 0)
 				continue;
 			if (target->IsStone() && IsPlayerBotSplashSkill(skillVnum))
+				continue;
+			if (distance > PLAYERBOT_SKILL_REACH_CHECK_FROM && !PlayerBotSkillReaches(skillVnum, distance))
 				continue;
 			if (IsPlayerBotSplashSkill(skillVnum) && IsPlayerBotSplashNearTriggerStone(ch, target, skillVnum))
 				continue;

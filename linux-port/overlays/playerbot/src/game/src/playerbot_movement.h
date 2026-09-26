@@ -915,8 +915,16 @@ namespace
 	// trained fights on foot like any rider of a transport horse: the target
 	// section climbs down when it picks a foe, and so do the duel, the Anti-PK
 	// fight and the tower.
+	//
+	// Never a player's companion: it rode up to its owner on the battle horse
+	// and, its skills short of Master, fought from the saddle with the swing
+	// alone - "uzywa konia by byc szybciej przy mnie lecz gdy zaczynamy walke
+	// to z niego nie schodzi" (prodnathin, 26 September). Its owner fights on
+	// foot with the skills it chose, and so does the companion.
 	bool CanPlayerBotEverFightOnHorse(LPCHARACTER ch)
 	{
+		if (ch && IsPlayerBotSidekickPID(ch->GetPlayerID()))
+			return false;
 		return HasPlayerBotBattleHorse(ch) && !PlayerBotSkillsBeatTheSaddle(ch);
 	}
 
@@ -935,7 +943,7 @@ namespace
 		// tower_stone), and a missing buff still takes the rider down for a
 		// moment and puts it back (ManagePlayerBotCombatBuffs).
 		if (target && target->IsStone())
-			return HasPlayerBotBattleHorse(ch);
+			return HasPlayerBotBattleHorse(ch) && !IsPlayerBotSidekickPID(ch->GetPlayerID());
 
 		if (!CanPlayerBotEverFightOnHorse(ch))
 			return false;

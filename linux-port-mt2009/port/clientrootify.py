@@ -32,14 +32,23 @@ Writes into client-root/ (beside serverinfo.py, which is hand-written):
                     the companion's window on the P key and its "Sidekick*"
                     commands (uisidekick.py, hand-written), and its bag and
                     skill windows' "SidekickEq*" and "SidekickSkill*"
-                    (uisidekickinventory.py, hand-written).
+                    (uisidekickinventory.py, hand-written); the chest
+                    preview's and the drop strip's answers, the strip under
+                    the target's bar (uichestpreview.py, uimobpreview.py -
+                    Gibon, upstream 2.2.22), and "SidekickVid", which lets the
+                    player walk through their own companion
+                    (sidekickcollision.py, upstream 2.2.23).
   * uiinventory.py - the auto-stack button is "Scal i uporzadkuj": one
                     /inventory_arrange to the server, which pours the stacks
                     and lays the four pages out (inventoryarrange.py,
                     hand-written; playerbot_arrange.cpp on the server). The
                     method the button used to call stays under another name
                     and is never called. The companion's item dropped on the
-                    bag is "/towarzysz eq wez" (uisidekickinventory.py).
+                    bag is "/towarzysz eq wez" (uisidekickinventory.py). The chest
+                    preview button (uichestpreview.py).
+  * uitarget.py   - a "?" in the target bar's corner in place of the close
+                    button, for a monster or a Metin: what it can drop for
+                    this character (uimobpreview.py, /mob_drop_preview).
   * offlineshopmanage.py - a click on an empty slot of the shop's edit grid
                     removes nothing instead of raising KeyError.
   * offlineshopsearch.py - a click on an icon of the item search's grid picks
@@ -49,7 +58,8 @@ Writes into client-root/ (beside serverinfo.py, which is hand-written):
   * uigameoption.py, uiscript/gameoptiondialog.py - the "Tytuly botow" row of
                     the game options: a bot's personality title or the classic
                     alignment title (playerbot_status_tail.py keeps the choice).
-  * uiscript/inventorywindow.py - four page tabs instead of two; uiinventory.py
+  * uiscript/inventorywindow.py - four page tabs instead of two, and the
+                    chest preview button; uiinventory.py
                     already makes one tab per page but the horse page, reading
                     player.INVENTORY_PAGE_COUNT from the exe.
   * utils.py      - the requirement counts (a horse-bag slot, a special
@@ -562,6 +572,150 @@ EDITS = {
          b'\t\tuisidekickinventory.OnSkillEnd(*args)\r\n'
          b'\r\n'
          b'\tdef\t__ReleaseGKey(self):\r\n'),
+        # Upstream 2.2.22-2.2.23 (Gibon): the chest preview's and the drop
+        # strip's answers (uichestpreview.py, uimobpreview.py), the strip under the
+        # target's bar, and the companion's VID for the walk-through
+        # (sidekickcollision.py).
+        (b'\t\tself.targetBoard = None\r\n'
+         b'\t\tself.console = None\r\n',
+         b'\t\tself.targetBoard = None\r\n'
+         b'\t\tself.mobDropWindow = None\r\n'
+         b'\t\tself.console = None\r\n'),
+        (b'\t\tself.targetBoard.SetToolTip(self.interface.tooltip)\r\n'
+         b'\t\tself.targetBoard.Hide()\r\n',
+         b'\t\tself.targetBoard.SetToolTip(self.interface.tooltip)\r\n'
+         b'\t\ttry:\r\n'
+         b'\t\t\timport uimobpreview\r\n'
+         b'\t\t\tself.mobDropWindow = uimobpreview.MobDropWindow(self.interface.wndInventory, self.targetBoard)\r\n'
+         b'\t\t\tself.targetBoard.SetMobDropEvent(ui.__mem_func__(self.OpenMobDropWindow))\r\n'
+         b'\t\texcept Exception as e:\r\n'
+         b'\t\t\tself.mobDropWindow = None\r\n'
+         b'\t\t\tdbg.TraceError("mob drop preview: %s" % e)\r\n'
+         b'\t\tself.targetBoard.Hide()\r\n'),
+        (b'\t\t\tself.targetBoard = None\r\n'
+         b'\r\n',
+         b'\t\t\tself.targetBoard = None\r\n'
+         b'\r\n'
+         b'\t\tif self.mobDropWindow:\r\n'
+         b'\t\t\tself.mobDropWindow.Close()\r\n'
+         b'\t\t\tself.mobDropWindow = None\r\n'
+         b'\r\n'),
+        (b'\t\t\tself.interface.ToggleCharacterWindow(state)\r\n'
+         b'\r\n',
+         b'\t\t\tself.interface.ToggleCharacterWindow(state)\r\n'
+         b'\r\n'
+         b'\tdef __SidekickVid(self, vid="0", *rest):\r\n'
+         b'\t\t# The keeper ends with the game window; the next one hears the\r\n'
+         b'\t\t# VID again, because a warp is a new login on the server.\r\n'
+         b'\t\timport sidekickcollision\r\n'
+         b'\t\tsidekickcollision.SetVid(vid)\r\n'
+         b'\t\tfor keeper in self.updateable:\r\n'
+         b'\t\t\tif isinstance(keeper, sidekickcollision.Keeper):\r\n'
+         b'\t\t\t\treturn\r\n'
+         b'\t\tself.RegisterUpdatable(sidekickcollision.GetKeeper())\r\n'
+         b'\r\n'),
+        (b'\t\tif vid != self.targetBoard.GetTargetVID():\r\n'
+         b'\t\t\tself.targetBoard.ResetTargetBoard()\r\n',
+         b'\t\tif vid != self.targetBoard.GetTargetVID():\r\n'
+         b'\t\t\tif self.mobDropWindow and self.mobDropWindow.IsShow():\r\n'
+         b'\t\t\t\tself.mobDropWindow.Close()\r\n'
+         b'\t\t\tself.targetBoard.ResetTargetBoard()\r\n'),
+        (b'\t\t\tself.targetBoard.Close()\r\n'
+         b'\r\n',
+         b'\t\t\tself.targetBoard.Close()\r\n'
+         b'\t\t\tif self.mobDropWindow:\r\n'
+         b'\t\t\t\tself.mobDropWindow.Close()\r\n'
+         b'\r\n'),
+        (b'\tdef CloseTargetBoard(self):\r\n'
+         b'\t\tself.targetBoard.Close()\r\n'
+         b'\r\n'
+         b'\t## View Equipment\r\n',
+         b'\tdef CloseTargetBoard(self):\r\n'
+         b'\t\tself.targetBoard.Close()\r\n'
+         b'\t\tif self.mobDropWindow:\r\n'
+         b'\t\t\tself.mobDropWindow.Close()\r\n'
+         b'\r\n'
+         b'\tdef OpenMobDropWindow(self, vid, vnum, name):\r\n'
+         b'\t\tif self.mobDropWindow:\r\n'
+         b'\t\t\tself.mobDropWindow.OpenForMob(vid, vnum, name)\r\n'
+         b'\r\n'
+         b'\t## View Equipment\r\n'),
+        (b'\r\n'
+         b'\t\t# Panel GM: patrz __gmCheckSent w __init__ - kilkaset klatek po wejsciu\r\n',
+         b'\r\n'
+         b"\t\t# The drop strip follows the target's bar and goes with it.\r\n"
+         b'\t\tif self.mobDropWindow and self.mobDropWindow.IsShow():\r\n'
+         b'\t\t\tvid = self.mobDropWindow.targetVID\r\n'
+         b'\t\t\tdistance = player.GetCharacterDistance(vid)\r\n'
+         b'\t\t\tif (not self.targetBoard.IsShow() or vid != self.targetBoard.GetTargetVID() or\r\n'
+         b'\t\t\t\t\tdistance < 0 or distance > 5000):\r\n'
+         b'\t\t\t\tself.mobDropWindow.Close()\r\n'
+         b'\t\t\telse:\r\n'
+         b'\t\t\t\tself.mobDropWindow.FollowTarget()\r\n'
+         b'\r\n'
+         b'\t\t# Panel GM: patrz __gmCheckSent w __init__ - kilkaset klatek po wejsciu\r\n'),
+        (b'\t\t\t"CloseMall"\t\t\t\t: self.CommandCloseMall,\r\n'
+         b'\t\t\t"ShowMeMallPassword"\t: self.AskMallPassword,\r\n',
+         b'\t\t\t"CloseMall"\t\t\t\t: self.CommandCloseMall,\r\n'
+         b'\t\t\t"ChestPreviewBegin"\t\t: self.__ChestPreviewBegin,\r\n'
+         b'\t\t\t"ChestPreviewItem"\t\t: self.__ChestPreviewItem,\r\n'
+         b'\t\t\t"ChestPreviewEffect"\t\t: self.__ChestPreviewEffect,\r\n'
+         b'\t\t\t"ChestPreviewEnd"\t\t: self.__ChestPreviewEnd,\r\n'
+         b'\t\t\t"ChestPreviewError"\t\t: self.__ChestPreviewError,\r\n'
+         b'\t\t\t"MobPreviewBegin"\t\t: self.__MobPreviewBegin,\r\n'
+         b'\t\t\t"MobPreviewItem"\t\t: self.__MobPreviewItem,\r\n'
+         b'\t\t\t"MobPreviewEnd"\t\t\t: self.__MobPreviewEnd,\r\n'
+         b'\t\t\t"MobPreviewError"\t\t: self.__MobPreviewError,\r\n'
+         b'\t\t\t"ShowMeMallPassword"\t: self.AskMallPassword,\r\n'),
+        (b'\t\tserverCommandList["GlobalRankingUpdatePacket"] = self.__Global_Ranking__RecvData\r\n'
+         b'\t\tserverCommandList["GlobalRankingUpdatePacketMyPos"] = self.__Global_Ranking__RecvSelfData\r\n',
+         b'\t\tserverCommandList["GlobalRankingUpdatePacket"] = self.__Global_Ranking__RecvData\r\n'
+         b'\t\tserverCommandList["SidekickVid"] = self.__SidekickVid\r\n'
+         b'\t\tserverCommandList["GlobalRankingUpdatePacketMyPos"] = self.__Global_Ranking__RecvSelfData\r\n'),
+        (b'\r\n'
+         b'\tdef __GMPanel_Open(self):\r\n',
+         b'\r\n'
+         b"\t# The chest preview's and the drop strip's answers from the server:\r\n"
+         b'\t# each goes to its window, which ignores one it did not ask for.\r\n'
+         b'\tdef __ChestPreviewReceive(self, action, data):\r\n'
+         b'\t\tif not self.interface or not self.interface.wndInventory:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tpreview = getattr(self.interface.wndInventory, "wndChestPreview", None)\r\n'
+         b'\t\tif preview:\r\n'
+         b'\t\t\tgetattr(preview, action)(data)\r\n'
+         b'\r\n'
+         b'\tdef __ChestPreviewBegin(self, data=""):\r\n'
+         b'\t\tself.__ChestPreviewReceive("ReceiveBegin", data)\r\n'
+         b'\r\n'
+         b'\tdef __ChestPreviewItem(self, data=""):\r\n'
+         b'\t\tself.__ChestPreviewReceive("ReceiveItem", data)\r\n'
+         b'\r\n'
+         b'\tdef __ChestPreviewEffect(self, data=""):\r\n'
+         b'\t\tself.__ChestPreviewReceive("ReceiveEffect", data)\r\n'
+         b'\r\n'
+         b'\tdef __ChestPreviewEnd(self, data=""):\r\n'
+         b'\t\tself.__ChestPreviewReceive("ReceiveEnd", data)\r\n'
+         b'\r\n'
+         b'\tdef __ChestPreviewError(self, data=""):\r\n'
+         b'\t\tself.__ChestPreviewReceive("ReceiveError", data)\r\n'
+         b'\r\n'
+         b'\tdef __MobPreviewReceive(self, action, data):\r\n'
+         b'\t\tif self.mobDropWindow:\r\n'
+         b'\t\t\tgetattr(self.mobDropWindow, action)(data)\r\n'
+         b'\r\n'
+         b'\tdef __MobPreviewBegin(self, data=""):\r\n'
+         b'\t\tself.__MobPreviewReceive("ReceiveBegin", data)\r\n'
+         b'\r\n'
+         b'\tdef __MobPreviewItem(self, data=""):\r\n'
+         b'\t\tself.__MobPreviewReceive("ReceiveItem", data)\r\n'
+         b'\r\n'
+         b'\tdef __MobPreviewEnd(self, data=""):\r\n'
+         b'\t\tself.__MobPreviewReceive("ReceiveEnd", data)\r\n'
+         b'\r\n'
+         b'\tdef __MobPreviewError(self, data=""):\r\n'
+         b'\t\tself.__MobPreviewReceive("ReceiveError", data)\r\n'
+         b'\r\n'
+         b'\tdef __GMPanel_Open(self):\r\n'),
     ],
     # "Scal i uporzadkuj" (18 September; Codex's audit the same day):
     # the inventory's auto-stack button asks the server once
@@ -634,6 +788,52 @@ EDITS = {
          b'\r\n'
          b'\t\t\tif player.SLOT_TYPE_INVENTORY == attachedSlotType:\r\n'
          b'\t\t\t\t#@fixme011 BEGIN (block ds equip)\r\n'),
+        # Upstream 2.2.22 (Gibon): the chest preview button beside the
+        # inventory's own (uichestpreview.py).
+        (b'\t\tself.wndHorseInventory = None\r\n'
+         b'\t\teventManager.EventManager().add_observer(uiExchange.EVENT_OPEN_EXCHANGE, self.OnExchangeDialogOpen) # handel\r\n',
+         b'\t\tself.wndHorseInventory = None\r\n'
+         b'\t\tself.wndChestPreview = None\r\n'
+         b'\t\tself.chestPreviewButton = None\r\n'
+         b'\t\teventManager.EventManager().add_observer(uiExchange.EVENT_OPEN_EXCHANGE, self.OnExchangeDialogOpen) # handel\r\n'),
+        (b'\t\t\tself.myshopButton = self.GetChild("MyShopButton")\r\n'
+         b'\r\n',
+         b'\t\t\tself.myshopButton = self.GetChild("MyShopButton")\r\n'
+         b'\t\t\tself.chestPreviewButton = self.GetChild2("ChestPreviewButton")\r\n'
+         b'\r\n'),
+        (b'\r\n'
+         b'\t\tself.inventorySlotStateMgr = InventorySlotManager(self.wndItem)\r\n',
+         b'\r\n'
+         b'\t\tif self.chestPreviewButton:\r\n'
+         b'\t\t\tself.chestPreviewButton.SetEvent(ui.__mem_func__(self.ClickChestPreviewButton))\r\n'
+         b'\r\n'
+         b'\t\tself.inventorySlotStateMgr = InventorySlotManager(self.wndItem)\r\n'),
+        (b'\r\n'
+         b'\tdef Hide(self):\r\n',
+         b'\r\n'
+         b'\t\tif self.wndChestPreview:\r\n'
+         b'\t\t\tself.wndChestPreview.Close()\r\n'
+         b'\t\t\tself.wndChestPreview = None\r\n'
+         b'\t\tself.chestPreviewButton = None\r\n'
+         b'\r\n'
+         b'\tdef Hide(self):\r\n'),
+        (b'\t\t\t\tself.dlgPickETC.Close()\r\n'
+         b'\r\n',
+         b'\t\t\t\tself.dlgPickETC.Close()\r\n'
+         b'\r\n'
+         b'\t\tif self.wndChestPreview:\r\n'
+         b'\t\t\tself.wndChestPreview.Close()\r\n'
+         b'\r\n'),
+        (b'\t\tnet.SendChatPacket("/click_mall")\r\n'
+         b'\r\n',
+         b'\t\tnet.SendChatPacket("/click_mall")\r\n'
+         b'\r\n'
+         b'\tdef ClickChestPreviewButton(self):\r\n'
+         b'\t\tif not self.wndChestPreview:\r\n'
+         b'\t\t\timport uichestpreview\r\n'
+         b'\t\t\tself.wndChestPreview = uichestpreview.ChestPreviewWindow(self)\r\n'
+         b'\t\tself.wndChestPreview.Toggle()\r\n'
+         b'\r\n'),
     ],
     # The safebox's side (blasty's proposal, 19 September; "Jasne"):
     # "Scal i uporzadkuj" in the title bar, Shift and a click to split one of its
@@ -1261,6 +1461,36 @@ EDITS = {
         # an escape, like the options' row, so the script stays ASCII.
         (b'\t\t\t\t\t\t\t"tooltip_text" : uiScriptLocale.INVENTORY_AUTOSTACK,\r\n',
          b'\t\t\t\t\t\t\t"tooltip_text" : uiScriptLocale.INVENTORY_SORT_STACK,\r\n'),
+        # Upstream 2.2.22 (Gibon): the chest preview button.
+        (b'\t\t\t\t\t\t\t\t\t"down_image": flamewindPath.GetInventory("myshop_btn3"),\r\n'
+         b'\t\t\t\t\t\t\t\t},\r\n'
+         b'\t\t\t\t\t\t\t),\r\n'
+         b'\t\t\t\t\t\t},\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t{\r\n',
+         b'\t\t\t\t\t\t\t\t\t"down_image": flamewindPath.GetInventory("myshop_btn3"),\r\n'
+         b'\t\t\t\t\t\t\t\t},\r\n'
+         b'\t\t\t\t\t\t\t),\r\n'
+         b'\t\t\t\t\t\t},\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t{\r\n'
+         b'\t\t\t\t\t\t\t"name" : "ChestPreviewButton",\r\n'
+         b'\t\t\t\t\t\t\t"type" : "button",\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"x" : 70,\r\n'
+         b'\t\t\t\t\t\t\t"y" : 21,\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"horizontal_align" : "right",\r\n'
+         b'\t\t\t\t\t\t\t"vertical_align" : "bottom",\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"tooltip_text" : "Podgl\\xb9d skrzynki",\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"default_image" : "playerbot_ui/chest_button.tga",\r\n'
+         b'\t\t\t\t\t\t\t"over_image" : "playerbot_ui/chest_button.tga",\r\n'
+         b'\t\t\t\t\t\t\t"down_image" : "playerbot_ui/chest_button.tga",\r\n'
+         b'\t\t\t\t\t\t},\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t{\r\n'),
     ],
     # The requirement counts under a locked horse-bag slot and a special
     # shop's price ("(0 na 60)") read two bag pages and, with the horse out,
@@ -1386,6 +1616,91 @@ EDITS = {
          b'\t\tuiautohunt.ToggleWindow()\r\n'
          b'\r\n'
          b'\tdef __RampageGauge_Click(self):\r\n'),
+    ],
+    # Upstream 2.2.22 (Gibon): a "?" in the target bar's corner opens what the
+    # monster or Metin can drop for this character (uimobpreview.py,
+    # /mob_drop_preview); the close button comes back for anything else.
+    'uitarget.py': [
+        (b'\t\treturn (value & flag) == flag\r\n'
+         b'\r\n',
+         b'\t\treturn (value & flag) == flag\r\n'
+         b'\r\n'
+         b'class CompactDropButton(ui.Button):\r\n'
+         b'\tdef __init__(self):\r\n'
+         b'\t\tui.Button.__init__(self)\r\n'
+         b'\t\tself.SetUpVisual("d:/ymir work/ui/public/close_button_01.sub")\r\n'
+         b'\t\tself.SetOverVisual("d:/ymir work/ui/public/close_button_02.sub")\r\n'
+         b'\t\tself.SetDownVisual("d:/ymir work/ui/public/close_button_03.sub")\r\n'
+         b'\t\tself.cover = ui.Bar()\r\n'
+         b'\t\tself.cover.SetParent(self)\r\n'
+         b'\t\tself.cover.SetPosition(3, 3)\r\n'
+         b'\t\tself.cover.SetSize(9, 9)\r\n'
+         b'\t\tself.cover.SetColor(0xFF171717)\r\n'
+         b'\t\tself.cover.AddFlag("not_pick")\r\n'
+         b'\t\tself.cover.Show()\r\n'
+         b'\t\tself.label = ui.TextLine()\r\n'
+         b'\t\tself.label.SetParent(self)\r\n'
+         b'\t\tself.label.SetPosition(8, -2)\r\n'
+         b'\t\tself.label.SetHorizontalAlignCenter()\r\n'
+         b'\t\tself.label.SetOutline(True)\r\n'
+         b'\t\tself.label.SetText("?")\r\n'
+         b'\t\tself.label.AddFlag("not_pick")\r\n'
+         b'\t\tself.label.Show()\r\n'
+         b'\r\n'
+         b'def IsDropPreviewTarget(vid):\r\n'
+         b'\tif nonplayer.GetVnumByVID(vid) <= 0:\r\n'
+         b'\t\treturn False\r\n'
+         b'\treturn chr.GetInstanceType(vid) in (chr.INSTANCE_TYPE_ENEMY, getattr(chr, "INSTANCE_TYPE_STONE", 2))\r\n'
+         b'\r\n'),
+        (b'\r\n'
+         b'\t\tself.buttonDict = {}\r\n',
+         b'\r\n'
+         b'\t\tself.mobDropButton = CompactDropButton()\r\n'
+         b'\t\tself.mobDropButton.SetParent(self)\r\n'
+         b'\t\tself.mobDropButton.SetPosition(30, 13)\r\n'
+         b'\t\tself.mobDropButton.SetWindowHorizontalAlignRight()\r\n'
+         b'\t\tself.mobDropButton.SetEvent(ui.__mem_func__(self.OnPressedMobDrop))\r\n'
+         b'\t\tself.mobDropButton.Hide()\r\n'
+         b'\t\tself.eventMobDrop = None\r\n'
+         b'\r\n'
+         b'\t\tself.buttonDict = {}\r\n'),
+        (b'\t\tself.closeButton = None\r\n'
+         b'\t\tself.showingButtonList = None\r\n',
+         b'\t\tself.closeButton = None\r\n'
+         b'\t\tself.mobDropButton = None\r\n'
+         b'\t\tself.eventMobDrop = None\r\n'
+         b'\t\tself.showingButtonList = None\r\n'),
+        (b'\t\tself.Close()\r\n'
+         b'\r\n',
+         b'\t\tself.Close()\r\n'
+         b'\r\n'
+         b'\tdef SetMobDropEvent(self, callback):\r\n'
+         b'\t\tself.eventMobDrop = callback\r\n'
+         b'\r\n'
+         b'\tdef OnPressedMobDrop(self):\r\n'
+         b'\t\tif self.eventMobDrop and self.vid:\r\n'
+         b'\t\t\tvnum = nonplayer.GetVnumByVID(self.vid)\r\n'
+         b'\t\t\tif vnum > 0:\r\n'
+         b'\t\t\t\tself.eventMobDrop(self.vid, vnum, chr.GetNameByVID(self.vid))\r\n'
+         b'\r\n'),
+        (b'\t\tself.hpGauge.Hide()\r\n'
+         b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n',
+         b'\t\tself.hpGauge.Hide()\r\n'
+         b'\t\tif self.mobDropButton:\r\n'
+         b'\t\t\tself.mobDropButton.Hide()\r\n'
+         b'\t\t\tself.closeButton.Show()\r\n'
+         b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n'),
+        (b'\t\tself.SetTargetVID(vid)\r\n'
+         b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n',
+         b'\t\tself.SetTargetVID(vid)\r\n'
+         b'\t\tif self.mobDropButton:\r\n'
+         b'\t\t\tif IsDropPreviewTarget(vid):\r\n'
+         b'\t\t\t\tself.closeButton.Hide()\r\n'
+         b'\t\t\t\tself.mobDropButton.Show()\r\n'
+         b'\t\t\telse:\r\n'
+         b'\t\t\t\tself.mobDropButton.Hide()\r\n'
+         b'\t\t\t\tself.closeButton.Show()\r\n'
+         b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n'),
     ],
 }
 

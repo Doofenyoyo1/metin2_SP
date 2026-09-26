@@ -155,6 +155,23 @@ window = {
 						},
 
 						{
+							"name" : "ChestPreviewButton",
+							"type" : "button",
+
+							"x" : 70,
+							"y" : 21,
+
+							"horizontal_align" : "right",
+							"vertical_align" : "bottom",
+
+							"tooltip_text" : "Podgl\xb9d skrzynki",
+
+							"default_image" : "playerbot_ui/chest_button.tga",
+							"over_image" : "playerbot_ui/chest_button.tga",
+							"down_image" : "playerbot_ui/chest_button.tga",
+						},
+
+						{
 							"name" : "Equipment_Tab_01",
 							"type" : "radio_button",
 

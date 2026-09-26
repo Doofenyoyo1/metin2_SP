@@ -131,6 +131,7 @@ class GameWindow(ui.ScriptWindow):
 		self.guildWarQuestionDialog = None
 		self.interface = None
 		self.targetBoard = None
+		self.mobDropWindow = None
 		self.console = None
 		self.mapNameShower = None
 		self.affectShower = None
@@ -157,6 +158,13 @@ class GameWindow(ui.ScriptWindow):
 		self.targetBoard.SetGMCheckEvent(ui.__mem_func__(self.interface.OpenGMLookupFor))
 		self.targetBoard.SetEQEvent(ui.__mem_func__(self.interface.OpenGMEquipFor))
 		self.targetBoard.SetToolTip(self.interface.tooltip)
+		try:
+			import uimobpreview
+			self.mobDropWindow = uimobpreview.MobDropWindow(self.interface.wndInventory, self.targetBoard)
+			self.targetBoard.SetMobDropEvent(ui.__mem_func__(self.OpenMobDropWindow))
+		except Exception as e:
+			self.mobDropWindow = None
+			dbg.TraceError("mob drop preview: %s" % e)
 		self.targetBoard.Hide()
 
 		# Panel GM: /gmpanel_check_gm wyslane od razu w __init__ rozlaczalo
@@ -398,6 +406,10 @@ class GameWindow(ui.ScriptWindow):
 		if self.targetBoard:
 			self.targetBoard.Destroy()
 			self.targetBoard = None
+
+		if self.mobDropWindow:
+			self.mobDropWindow.Close()
+			self.mobDropWindow = None
 
 		if self.interface:
 			self.interface.HideAllWindows()
@@ -742,6 +754,16 @@ class GameWindow(ui.ScriptWindow):
 		else:
 			state = "EMOTICON"
 			self.interface.ToggleCharacterWindow(state)
+
+	def __SidekickVid(self, vid="0", *rest):
+		# The keeper ends with the game window; the next one hears the
+		# VID again, because a warp is a new login on the server.
+		import sidekickcollision
+		sidekickcollision.SetVid(vid)
+		for keeper in self.updateable:
+			if isinstance(keeper, sidekickcollision.Keeper):
+				return
+		self.RegisterUpdatable(sidekickcollision.GetKeeper())
 
 	def	__PressFKey(self):
 		if app.IsPressed(app.DIK_LCONTROL) or app.IsPressed(app.DIK_RCONTROL):
@@ -1410,6 +1432,8 @@ class GameWindow(ui.ScriptWindow):
 
 	def SetHPTargetBoard(self, vid, hpPercentage):
 		if vid != self.targetBoard.GetTargetVID():
+			if self.mobDropWindow and self.mobDropWindow.IsShow():
+				self.mobDropWindow.Close()
 			self.targetBoard.ResetTargetBoard()
 			self.targetBoard.SetEnemyVID(vid)
 
@@ -1440,9 +1464,17 @@ class GameWindow(ui.ScriptWindow):
 	def CloseTargetBoardIfDifferent(self, vid):
 		if vid != self.targetBoard.GetTargetVID():
 			self.targetBoard.Close()
+			if self.mobDropWindow:
+				self.mobDropWindow.Close()
 
 	def CloseTargetBoard(self):
 		self.targetBoard.Close()
+		if self.mobDropWindow:
+			self.mobDropWindow.Close()
+
+	def OpenMobDropWindow(self, vid, vnum, name):
+		if self.mobDropWindow:
+			self.mobDropWindow.OpenForMob(vid, vnum, name)
 
 	## View Equipment
 	def OpenEquipmentDialog(self, vid):
@@ -2190,6 +2222,16 @@ class GameWindow(ui.ScriptWindow):
 	def OnUpdate(self):
 		app.UpdateGame()
 
+		# The drop strip follows the target's bar and goes with it.
+		if self.mobDropWindow and self.mobDropWindow.IsShow():
+			vid = self.mobDropWindow.targetVID
+			distance = player.GetCharacterDistance(vid)
+			if (not self.targetBoard.IsShow() or vid != self.targetBoard.GetTargetVID() or
+					distance < 0 or distance > 5000):
+				self.mobDropWindow.Close()
+			else:
+				self.mobDropWindow.FollowTarget()
+
 		# Panel GM: patrz __gmCheckSent w __init__ - kilkaset klatek po wejsciu
 		# do swiata pytamy serwer, czy ta postac jest GM (odpowiedz: SetGMFlag).
 		if not self.__gmCheckSent:
@@ -2651,6 +2693,15 @@ class GameWindow(ui.ScriptWindow):
 
 			# ITEM_MALL
 			"CloseMall"				: self.CommandCloseMall,
+			"ChestPreviewBegin"		: self.__ChestPreviewBegin,
+			"ChestPreviewItem"		: self.__ChestPreviewItem,
+			"ChestPreviewEffect"		: self.__ChestPreviewEffect,
+			"ChestPreviewEnd"		: self.__ChestPreviewEnd,
+			"ChestPreviewError"		: self.__ChestPreviewError,
+			"MobPreviewBegin"		: self.__MobPreviewBegin,
+			"MobPreviewItem"		: self.__MobPreviewItem,
+			"MobPreviewEnd"			: self.__MobPreviewEnd,
+			"MobPreviewError"		: self.__MobPreviewError,
 			"ShowMeMallPassword"	: self.AskMallPassword,
 			"item_mall"				: self.__ItemMall_Open,
 			# END_OF_ITEM_MALL
@@ -2769,6 +2820,7 @@ class GameWindow(ui.ScriptWindow):
 		serverCommandList["AutoHuntOff"] = self.__AutoHuntOff
 		serverCommandList["GlobalRankingWipe"] = self.__Global_Ranking__RecvWipe
 		serverCommandList["GlobalRankingUpdatePacket"] = self.__Global_Ranking__RecvData
+		serverCommandList["SidekickVid"] = self.__SidekickVid
 		serverCommandList["GlobalRankingUpdatePacketMyPos"] = self.__Global_Ranking__RecvSelfData
 		serverCommandList["SidekickEqNone"] = self.__SidekickEqNone
 		serverCommandList["SidekickEqBegin"] = self.__SidekickEqBegin
@@ -3348,6 +3400,46 @@ class GameWindow(ui.ScriptWindow):
 		# postaci - a to wygladalo, jakby pierwsze kliniecie nie dzialalo.
 		if self.targetBoard and self.targetBoard.IsShowButton():
 			self.targetBoard.RefreshButton()
+
+	# The chest preview's and the drop strip's answers from the server:
+	# each goes to its window, which ignores one it did not ask for.
+	def __ChestPreviewReceive(self, action, data):
+		if not self.interface or not self.interface.wndInventory:
+			return
+		preview = getattr(self.interface.wndInventory, "wndChestPreview", None)
+		if preview:
+			getattr(preview, action)(data)
+
+	def __ChestPreviewBegin(self, data=""):
+		self.__ChestPreviewReceive("ReceiveBegin", data)
+
+	def __ChestPreviewItem(self, data=""):
+		self.__ChestPreviewReceive("ReceiveItem", data)
+
+	def __ChestPreviewEffect(self, data=""):
+		self.__ChestPreviewReceive("ReceiveEffect", data)
+
+	def __ChestPreviewEnd(self, data=""):
+		self.__ChestPreviewReceive("ReceiveEnd", data)
+
+	def __ChestPreviewError(self, data=""):
+		self.__ChestPreviewReceive("ReceiveError", data)
+
+	def __MobPreviewReceive(self, action, data):
+		if self.mobDropWindow:
+			getattr(self.mobDropWindow, action)(data)
+
+	def __MobPreviewBegin(self, data=""):
+		self.__MobPreviewReceive("ReceiveBegin", data)
+
+	def __MobPreviewItem(self, data=""):
+		self.__MobPreviewReceive("ReceiveItem", data)
+
+	def __MobPreviewEnd(self, data=""):
+		self.__MobPreviewReceive("ReceiveEnd", data)
+
+	def __MobPreviewError(self, data=""):
+		self.__MobPreviewReceive("ReceiveError", data)
 
 	def __GMPanel_Open(self):
 		self.interface.ToggleGMPanelWindow()

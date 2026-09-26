@@ -238,6 +238,10 @@ namespace
 		// one thing it farms (IsPlayerBotAngler).
 		if (!ch || IsPlayerBotDropper(state.bPersonality) || ch->GetLevel() < PLAYERBOT_MINING_MIN_LEVEL)
 			return false;
+		// Nor a bot that answered a world event: between Zuo's waves it hunts
+		// and does not settle at a vein (playerbot_world_events.h).
+		if (state.bWorldEventKind != 0)
+			return false;
 		const DWORD roll = PlayerBotNavHash(ch->GetPlayerID() ^ 0x4D494E45U) % 100U;
 		const int chance = state.bPersonality == BOT_PERSONALITY_CAREFUL_COLLECTOR
 				? PLAYERBOT_MINING_COLLECTOR_PERCENT : PLAYERBOT_MINING_PERCENT;

@@ -1451,6 +1451,10 @@ namespace
 		// counter's, never the merchant's, who paid nothing for it.
 		if (IsPlayerBotCatacombHead(vnum))
 			return false;
+		// Pirate Tanaka's ear is Yonah's, for a Purple Ebony Chest
+		// (ManagePlayerBotTanakaEars): the merchant pays 2 500 for it.
+		if (vnum == PLAYERBOT_TANAKA_EAR_VNUM)
+			return false;
 		// One of Iwakura's fifty-four weapons nobody buys at +0..+3 goes to the
 		// merchant once the bots' counters carry PLAYERBOT_JUNK_WEAPON_MARKET_CAP
 		// of them - unless this bot will wear it, refine it or keep it as the
@@ -1486,7 +1490,7 @@ namespace
 					!IsPlayerBotUpgradeForSelf(ch, item) &&
 					CountPlayerBotVnumUnitsAhead(ch, item) >= PLAYERBOT_PICKUP_GEAR_BAG_KEEP)
 				return true;
-			return IsPlayerBotBagUnderPressure(ch) && !PlayerBotCanOpenShop(ch);
+			return IsPlayerBotBagUnderPressure(ch) && !PlayerBotHasCounter(ch);
 		}
 		// Kamien Duchowy is its owner's training (ManagePlayerBotGrandMasterTraining),
 		// never the merchant's: he paid 194 yang for one.
@@ -1592,7 +1596,7 @@ namespace
 		// and no counter is possible - unless this bot would wear it.
 		if ((item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR) &&
 				item->GetRefineLevel() <= PLAYERBOT_MERCHANT_MAX_REFINE &&
-				IsPlayerBotBagUnderPressure(ch) && !PlayerBotCanOpenShop(ch) &&
+				IsPlayerBotBagUnderPressure(ch) && !PlayerBotHasCounter(ch) &&
 				!IsPlayerBotUpgradeForSelf(ch, item))
 			return true;
 
@@ -1614,7 +1618,7 @@ namespace
 		// under level thirty keeps the operator's rule above.
 		if (IsPlayerBotLppSurplusGoods(ch, item) && !IsPlayerBotLowLevelGear(item) &&
 				!IsPlayerBotUpgradeForSelf(ch, item))
-			return IsPlayerBotBagUnderPressure(ch) && !PlayerBotCanOpenShop(ch);
+			return IsPlayerBotBagUnderPressure(ch) && !PlayerBotHasCounter(ch);
 
 		// Whatever else it is, a +5 or better is not something to hand an NPC for
 		// a fifth of the shop price. The reserve rule below keeps one spare per
@@ -1669,7 +1673,7 @@ namespace
 		// or past the PLAYERBOT_SHOP_MARBLE_LINES a counter shows, which no
 		// counter will take and which would otherwise ride in the bag for good.
 		if (item->GetType() == ITEM_POLYMORPH)
-			return IsPlayerBotBagUnderPressure(ch) && (!PlayerBotCanOpenShop(ch) ||
+			return IsPlayerBotBagUnderPressure(ch) && (!PlayerBotHasCounter(ch) ||
 					CountPlayerBotVnumUnitsAhead(ch, item) >= PLAYERBOT_SHOP_MARBLE_LINES);
 		if (item->GetType() == ITEM_TREASURE_BOX)
 			return CountPlayerBotFreeInventoryCells(ch) <= PLAYERBOT_BAG_PRESSURE_FREE_CELLS &&
@@ -1850,7 +1854,7 @@ namespace
 		// thousand of each in a day, for a few hundred yang against 40 000 to
 		// 135 000 on the sheet (18 September).
 		if (IsPlayerBotSheetGoods(item))
-			return IsPlayerBotBagUnderPressure(ch) && !PlayerBotCanOpenShop(ch);
+			return IsPlayerBotBagUnderPressure(ch) && !PlayerBotHasCounter(ch);
 
 		// Keep at most one immediately usable upgrade for each wear slot.  The old
 		// test kept every item that scored above the currently worn one; at high

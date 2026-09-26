@@ -25,15 +25,30 @@ namespace
 		return item && item->GetType() == ITEM_ELK;
 	}
 
+	// Pirate Tanaka's ear, the prize of the Tanaka event
+	// (playerbot_world_events.h). It falls in the middle of thirty piles of his
+	// yang, and behind them - one a second, then the hesitation any item gets -
+	// it waited over half a minute: the first winner on the test world went
+	// back to the retreat its chase had interrupted and rode off without it
+	// (26 September). Reached for at once and before the yang.
+	bool IsPlayerBotUrgentDrop(LPITEM item)
+	{
+		return item && item->GetVnum() == PLAYERBOT_TANAKA_EAR_VNUM;
+	}
+
 	// Yang first, then by distance. A bot that walks past three coin piles to
 	// reach a hide, then walks back for each pile, spends its time crossing a
 	// field it has already cleared - and the yang is what pays for the potions
-	// that keep it killing.
+	// that keep it killing. Ahead of both, an event's prize.
 	struct FPlayerBotLootOrder
 	{
 		bool operator()(const std::pair<int, LPITEM>& a,
 				const std::pair<int, LPITEM>& b) const
 		{
+			const bool aUrgent = IsPlayerBotUrgentDrop(a.second);
+			const bool bUrgent = IsPlayerBotUrgentDrop(b.second);
+			if (aUrgent != bUrgent)
+				return aUrgent;
 			const bool aMoney = IsPlayerBotMoneyDrop(a.second);
 			const bool bMoney = IsPlayerBotMoneyDrop(b.second);
 			if (aMoney != bMoney)
@@ -48,7 +63,7 @@ namespace
 	DWORD GetPlayerBotLootVisibleDelay(LPITEM item, DWORD itemVID, DWORD playerID)
 	{
 		const DWORD roll = PlayerBotNavHash(itemVID ^ playerID);
-		if (IsPlayerBotMoneyDrop(item))
+		if (IsPlayerBotMoneyDrop(item) || IsPlayerBotUrgentDrop(item))
 			return PLAYERBOT_LOOT_MONEY_DELAY_MIN +
 					(roll % (PLAYERBOT_LOOT_MONEY_DELAY_MAX -
 							PLAYERBOT_LOOT_MONEY_DELAY_MIN + 1));
@@ -579,7 +594,7 @@ namespace
 				state.dwNextBagFullLogTime = dwNow + 60000;
 				sys_log(0, "PLAYERBOT_LOOT: bag full pid=%u name=%s map=%ld drops_in_reach=%d level=%d can_open_shop=%d",
 						ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(),
-						collector.SkippedNoRoom(), ch->GetLevel(), PlayerBotCanOpenShop(ch) ? 1 : 0);
+						collector.SkippedNoRoom(), ch->GetLevel(), PlayerBotHasCounter(ch) ? 1 : 0);
 			}
 			// Standing at a broken stone: nothing to take yet, and nothing else
 			// gets the tick until the linger is over.

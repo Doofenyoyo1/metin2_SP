@@ -118,7 +118,7 @@ namespace
 		// that can keep a counter (PLAYERBOT_SHOP_OTHER_CLASS_BOOK_MIN); one
 		// that cannot - under the shop's level, on the second channel - puts
 		// them down as before rather than carry them for ever.
-		const bool counter = PlayerBotCanOpenShop(ch);
+		const bool counter = PlayerBotHasCounter(ch);
 		int surplus = 0;
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
@@ -248,7 +248,7 @@ namespace
 			// counter while the bag stays clear of pressure. It asked the ledger
 			// for somebody short of the material until Iwakura's Patch 4 (point
 			// 5): every material is goods now, so every one is the counter's.
-			if (PlayerBotCanOpenShop(ch) && !IsPlayerBotBagFull(ch))
+			if (PlayerBotHasCounter(ch) && !IsPlayerBotBagFull(ch))
 				continue;
 			cells.push_back(cell);
 		}
@@ -350,7 +350,7 @@ namespace
 	bool PlayerBotWantsMaterialRelease(LPCHARACTER ch, const TPlayerBotAIState& state, DWORD dwNow)
 	{
 		const TPlayerBotPersona& p = state.persona;
-		if (!ch || p.wBoxMaterialUnits == 0 || dwNow < p.dwMaterialReleaseVisitAt || !PlayerBotCanOpenShop(ch))
+		if (!ch || p.wBoxMaterialUnits == 0 || dwNow < p.dwMaterialReleaseVisitAt || !PlayerBotHasCounter(ch))
 			return false;
 		const int freeAfter = CountPlayerBotFreeInventoryCells(ch) - 1;
 		return freeAfter > PLAYERBOT_BAG_PRESSURE_FREE_CELLS &&
@@ -429,7 +429,7 @@ namespace
 				// bag that stays clear of the pressure the deposit waits for -
 				// the deposit keeps them in the bag now, so it does not go
 				// straight back down.
-				if (!wanted && ch->GetSkillGroup() != 0 && PlayerBotCanOpenShop(ch) &&
+				if (!wanted && ch->GetSkillGroup() != 0 && PlayerBotHasCounter(ch) &&
 						!IsPlayerBotOwnSkill(ch, GetPlayerBotSkillBookSkillVnum(item)))
 				{
 					const int freeAfter = CountPlayerBotFreeInventoryCells(ch) - (int)item->GetSize();
@@ -465,7 +465,7 @@ namespace
 					wanted = freeAfter > PLAYERBOT_BAG_PRESSURE_FREE_CELLS;
 					why = "anvil";
 				}
-				else if (PlayerBotCanOpenShop(ch))
+				else if (PlayerBotHasCounter(ch))
 				{
 					// Every material is the counter's since Iwakura's Patch 4
 					// (point 5: "przynajmniej 65% zmagazynowanych ulepszaczy
@@ -485,7 +485,7 @@ namespace
 					why = "gamble";
 				}
 			}
-			else if (!pGambler && IsPlayerBotFinishedSpareGoods(ch, item) && PlayerBotCanOpenShop(ch))
+			else if (!pGambler && IsPlayerBotFinishedSpareGoods(ch, item) && PlayerBotHasCounter(ch))
 			{
 				// A weapon, armour or shield from +7 that what the bot fights in
 				// matches or beats comes out for the counter (Iwakura's Patch 4,
@@ -1407,7 +1407,7 @@ namespace
 	bool ManagePlayerBotAlchemist(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!ch || state.bVisitingShop || state.bVisitingBiologist || state.bVisitingHerbalist ||
-				state.bVisitingStable || state.bFishingSession)
+				state.bVisitingStable || state.bFishingSession || state.bVisitingYonah)
 			return false;
 		// A bot in somebody's party is theirs, and the Alchemist is an errand.
 		if (ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty()))
@@ -3862,6 +3862,10 @@ namespace
 		// Nor a player's companion: it stands at its owner's side, or plays
 		// while its owner is online, and a stand would outlive both.
 		if (IsPlayerBotSidekickPID(ch->GetPlayerID()))
+			return false;
+		// Nor a bot on a pirate or a Zuo wave: a stand is the village's, the
+		// event is out on its map (playerbot_world_events.h).
+		if (state.bWorldEventKind != 0)
 			return false;
 		// Every shop in the world stands on the first channel (the operator's
 		// rule for the second one, playerbot_channel_rules.h). Without the
