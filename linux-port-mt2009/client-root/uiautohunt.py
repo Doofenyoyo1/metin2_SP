@@ -91,6 +91,13 @@ LOOT_STUCK_PAUSE = 10.0
 REVIVE_RETRY = 5.0
 REVIVE_MIN_SECONDS = 10
 SKILL_MIN_INTERVAL = 1.5
+# A skill's blows are the client's own motion events: a walk begun while the
+# motion runs ends it, and the skill hits nothing ("dmg ze skilli podczas
+# grania na autolowach nie wchodzi", prodnathin, 26 September; Colide traced
+# it to the walk to a drop that came right after the cast). After a cast the
+# hunter takes no step - to a drop, to its target, back to its start - for
+# this long; a drop at its feet is still picked up, which moves nothing.
+SKILL_MOTION_HOLD = 1.3
 ITEM_MIN_INTERVAL = 1
 STATUS_INTERVAL = 0.3
 MELEE_REACH = 200
@@ -426,6 +433,7 @@ class Hunter(object):
         self.nextLootRequest = 0.0
         self.nextLootPick = 0.0
         self.nextBuffGlobal = 0.0
+        self.skillHoldUntil = 0.0
 
     def CanUpdate(self):
         # Asked on every frame of the game, running or not: the autologin
@@ -734,7 +742,7 @@ class Hunter(object):
                 self.nextRequest = now + STUCK_PAUSE
                 self.WalkTo(self.anchor[0], self.anchor[1])
                 return
-            if now >= self.nextMove:
+            if now >= self.nextMove and now >= self.skillHoldUntil:
                 self.nextMove = now + MOVE_INTERVAL
                 (px, py, pz) = player.GetMainCharacterPosition()
                 (tx, ty, tz) = chr.GetPixelPosition(vid)
@@ -788,6 +796,7 @@ class Hunter(object):
                     continue
             player.ClickSkillSlot(slot)
             self.skillNext[index] = now + max(SKILL_MIN_INTERVAL, float(self.config['skill%d_interval' % index]))
+            self.skillHoldUntil = now + SKILL_MOTION_HOLD
             return
 
     def FightDistance(self):
@@ -828,7 +837,7 @@ class Hunter(object):
             self.lootSince = 0.0
             self.lootPausedUntil = now + LOOT_STUCK_PAUSE
             return False
-        if now >= self.nextMove:
+        if now >= self.nextMove and now >= self.skillHoldUntil:
             self.nextMove = now + MOVE_INTERVAL
             self.WalkTo(self.lootPos[0], self.lootPos[1])
         return True
@@ -857,7 +866,7 @@ class Hunter(object):
         return math.sqrt((px - lx) * (px - lx) + (py - ly) * (py - ly))
 
     def ReturnToAnchor(self, now):
-        if not self.config['return'] or now < self.nextMove:
+        if not self.config['return'] or now < self.nextMove or now < self.skillHoldUntil:
             return
         (px, py, pz) = player.GetMainCharacterPosition()
         (ax, ay) = self.anchor

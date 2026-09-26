@@ -85,6 +85,16 @@ namespace
 	int s_iPlayerBotTowerBestFloor = 0;
 	time_t s_tPlayerBotTowerNowSeen = (time_t)-1;
 
+	// The seventh floor's order (PLAYERBOT_TOWER_SEVENTH_*): a phase only
+	// ever moves forward within a run.
+	enum EPlayerBotTowerSeventhPhase
+	{
+		SEVENTH_UNKNOWN = 0,
+		SEVENTH_STONES,	// the four Metins of Death stand
+		SEVENTH_DEMONS,	// the floor's demons, the Metin of Murder waiting
+		SEVENTH_MURDER	// the Metin of Murder alone, for the chest and the map
+	};
+
 	// One run of the tower: the instance, its floor, the progress clock.
 	struct TPlayerBotTowerRun
 	{
@@ -98,6 +108,17 @@ namespace
 		bool bEnding;
 		const char* pszEnd;
 		DWORD dwNextReport;
+		// The seventh floor's phase, and since when.
+		BYTE bSeventhPhase;
+		DWORD dwSeventhPhaseSince;
+		// The Umarly Rozpruwacz seen standing on the ninth floor, and his fall
+		// told (AnnouncePlayerBotTowerReaper).
+		bool bReaperSeen;
+		bool bReaperDown;
+		// Whose run this is for the kingdom rule (GetPlayerBotTowerRunKingdom),
+		// and when a person was last looked for in it.
+		BYTE bKingdom;
+		DWORD dwKingdomLookedAt;
 		// The bots that have had their turn at the sixth floor's smith, and
 		// when each began its turn (PLAYERBOT_TOWER_SMITH_TURN_MS).
 		std::set<DWORD> smithServed;
@@ -105,7 +126,9 @@ namespace
 
 		TPlayerBotTowerRun() :
 			iLevel(-1), iAlive(-1), dwEnteredAt(0), dwLevelSince(0), dwLastProgress(0),
-			dwSmithSince(0), bSmithDone(false), bEnding(false), pszEnd(""), dwNextReport(0) {}
+			dwSmithSince(0), bSmithDone(false), bEnding(false), pszEnd(""), dwNextReport(0),
+			bSeventhPhase(SEVENTH_UNKNOWN), dwSeventhPhaseSince(0), bReaperSeen(false), bReaperDown(false),
+			bKingdom(0), dwKingdomLookedAt(0) {}
 	};
 	std::map<long, TPlayerBotTowerRun> s_mapPlayerBotTowerRuns;
 
@@ -272,15 +295,203 @@ namespace
 		return n;
 	}
 
-	// The seventh floor's stone waits while a monster stands within
-	// PLAYERBOT_TOWER_STONE_THREAT_RANGE of this bot. The pack held the Metin
-	// of Murder to its end once it had it - a stone of that floor is broken
-	// ten times for the chest, and the regen never stops - and the demons that
+	BYTE GetPlayerBotTowerSeventhPhase(long lMapIndex)
+	{
+		std::map<long, TPlayerBotTowerRun>::const_iterator it = s_mapPlayerBotTowerRuns.find(lMapIndex);
+		return it != s_mapPlayerBotTowerRuns.end() ? it->second.bSeventhPhase : (BYTE)SEVENTH_UNKNOWN;
+	}
+
+	// The seventh floor's phase, moved on from what the scan sees. Every bot on
+	// the floor asks, and a phase only goes forward: the four Metins of Death
+	// stand from the jump (devil_jump_7 spawns them before it jumps anybody),
+	// the fourth one's fall brings in deviltower7_regen.txt - the demons and
+	// the Metin of Murder, once - and the Metin of Murder alone is what is left
+	// when the demons are down. A bot that reaches the floor after the four
+	// fell never saw them, and decides from what stands once the scan is the
+	// floor's.
+	void UpdatePlayerBotTowerSeventhPhase(TPlayerBotTowerRun& run, const TPlayerBotTowerScan* scan, long map, DWORD dwNow)
+	{
+		if (!scan || run.bSeventhPhase == SEVENTH_MURDER)
+			return;
+		long cx = 0, cy = 0;
+		GetPlayerBotTowerFloorCentre(5, cx, cy);
+		int deathStones = 0;
+		int demons = 0;
+		for (size_t i = 0; i < scan->entities.size(); ++i)
+		{
+			const TPlayerBotTowerEntity& e = scan->entities[i];
+			if (e.npc || DISTANCE_APPROX(cx - e.x, cy - e.y) > PLAYERBOT_TOWER_FLOOR_RADIUS)
+				continue;
+			if (!e.stone)
+				++demons;
+			else if (e.race == PLAYERBOT_TOWER_STONE_FLOOR7)
+				++deathStones;
+		}
+		BYTE next = run.bSeventhPhase;
+		const char* why = "";
+		if (run.bSeventhPhase == SEVENTH_UNKNOWN)
+		{
+			if (deathStones > 0)
+			{
+				next = SEVENTH_STONES;
+				why = "four_stones";
+			}
+			else if (dwNow - run.dwLevelSince >= PLAYERBOT_TOWER_SEVENTH_SETTLE_MS)
+			{
+				next = demons > PLAYERBOT_TOWER_SEVENTH_CLEAR_LIMIT ? SEVENTH_DEMONS : SEVENTH_MURDER;
+				why = "joined_late";
+			}
+		}
+		else if (run.bSeventhPhase == SEVENTH_STONES)
+		{
+			if (deathStones == 0)
+			{
+				next = SEVENTH_DEMONS;
+				why = "four_down";
+			}
+		}
+		else if (dwNow - run.dwSeventhPhaseSince >= PLAYERBOT_TOWER_SEVENTH_SETTLE_MS)
+		{
+			if (demons <= PLAYERBOT_TOWER_SEVENTH_CLEAR_LIMIT)
+			{
+				next = SEVENTH_MURDER;
+				why = "demons_down";
+			}
+			else if (dwNow - run.dwSeventhPhaseSince > PLAYERBOT_TOWER_SEVENTH_DEMONS_MAX_MS)
+			{
+				next = SEVENTH_MURDER;
+				why = "demons_timeout";
+			}
+		}
+		if (next == run.bSeventhPhase)
+			return;
+		run.bSeventhPhase = next;
+		run.dwSeventhPhaseSince = dwNow;
+		sys_log(0, "PLAYERBOT_TOWER: seventh floor phase=%s why=%s map=%ld death_stones=%d demons=%d floor_s=%u",
+				next == SEVENTH_STONES ? "stones" : next == SEVENTH_DEMONS ? "demons" : "murder", why, map,
+				deathStones, demons, (dwNow - run.dwLevelSince) / 1000U);
+	}
+
+	// A person standing in an instance, if there is one.
+	struct FFindPlayerBotTowerPerson
+	{
+		LPCHARACTER m_person;
+		FFindPlayerBotTowerPerson() : m_person(NULL) {}
+
+		void operator()(LPENTITY ent)
+		{
+			if (m_person || !ent || !ent->IsType(ENTITY_CHARACTER))
+				return;
+			LPCHARACTER c = (LPCHARACTER)ent;
+			if (c->IsPC() && c->GetDesc() && !c->GetDesc()->IsBot())
+				m_person = c;
+		}
+	};
+
+	LPCHARACTER FindPlayerBotTowerPerson(long lMapIndex)
+	{
+		LPSECTREE_MAP pMap = SECTREE_MANAGER::instance().GetMap(lMapIndex);
+		if (!pMap)
+			return NULL;
+		FFindPlayerBotTowerPerson f;
+		pMap->for_each(f);
+		return f.m_person;
+	}
+
+	// Whose run an instance is: the raiding bot guild's kingdom, or the
+	// kingdom of the person climbing in it; 0 for a run of bystanders.
+	BYTE GetPlayerBotTowerRunKingdom(long map, TPlayerBotTowerRun& run, DWORD dwNow)
+	{
+		const TPlayerBotTowerRaid& raid = s_PlayerBotTowerRaid;
+		if (raid.bPhase == TOWER_PHASE_INSIDE && raid.lInstance == map)
+			return raid.bEmpire;
+		if (run.bKingdom == 0 && (run.dwKingdomLookedAt == 0 || dwNow - run.dwKingdomLookedAt > 10000))
+		{
+			run.dwKingdomLookedAt = dwNow;
+			LPCHARACTER person = FindPlayerBotTowerPerson(map);
+			if (person)
+				run.bKingdom = person->GetEmpire();
+		}
+		return run.bKingdom;
+	}
+
+	// The Reaper's fall is news: "powiadomienie na chacie ze rajd tej i tej
+	// gildii pokonal umarlego rozpruwacza" (prodnathin, 25 September). A bot
+	// guild's raid is named after its guild; a person's run with bots in it
+	// after the person's guild, or the person.
+	void AnnouncePlayerBotTowerReaper(long map, const TPlayerBotTowerRun& run, DWORD dwNow)
+	{
+		const TPlayerBotTowerRaid& raid = s_PlayerBotTowerRaid;
+		CGuild* g = (raid.bPhase == TOWER_PHASE_INSIDE && raid.lInstance == map)
+				? CGuildManager::instance().FindGuild(raid.dwGuildID) : NULL;
+		char msg[256];
+		std::string who;
+		if (g)
+		{
+			snprintf(msg, sizeof(msg), "Gildia %s (%s) pokonala Umarlego Rozpruwacza na dziewiatym pietrze Wiezy Demonow!",
+					g->GetName(), GetPlayerBotKingdomName(raid.bEmpire));
+			who = g->GetName();
+		}
+		else
+		{
+			LPCHARACTER person = FindPlayerBotTowerPerson(map);
+			if (!person)
+			{
+				sys_log(0, "PLAYERBOT_TOWER: reaper down map=%ld told=0 why=no_raid_no_person after_s=%u",
+						map, (dwNow - run.dwEnteredAt) / 1000U);
+				return;
+			}
+			CGuild* pg = person->GetGuild();
+			if (pg)
+				snprintf(msg, sizeof(msg), "Gildia %s pokonala Umarlego Rozpruwacza na dziewiatym pietrze Wiezy Demonow!",
+						pg->GetName());
+			else
+				snprintf(msg, sizeof(msg), "Druzyna gracza %s pokonala Umarlego Rozpruwacza na dziewiatym pietrze Wiezy Demonow!",
+						person->GetName());
+			who = pg ? pg->GetName() : person->GetName();
+		}
+		BroadcastNotice(msg);
+		sys_log(0, "PLAYERBOT_TOWER: reaper down map=%ld told=1 who=%s after_s=%u",
+				map, who.c_str(), (dwNow - run.dwEnteredAt) / 1000U);
+	}
+
+	// Watched from the ninth floor's scan: standing, then gone - his kill
+	// runs d.kill_all, so nothing of the floor stands after him.
+	void WatchPlayerBotTowerReaper(TPlayerBotTowerRun& run, const TPlayerBotTowerScan* scan, long map, DWORD dwNow)
+	{
+		if (!scan || run.bReaperDown)
+			return;
+		for (size_t i = 0; i < scan->entities.size(); ++i)
+			if (!scan->entities[i].npc && scan->entities[i].race == PLAYERBOT_TOWER_REAPER)
+			{
+				run.bReaperSeen = true;
+				return;
+			}
+		if (!run.bReaperSeen || dwNow - run.dwLevelSince < PLAYERBOT_TOWER_SEVENTH_SETTLE_MS)
+			return;
+		run.bReaperDown = true;
+		AnnouncePlayerBotTowerReaper(map, run, dwNow);
+	}
+
+	// The seventh floor's stone waits: while the floor's demons stand (the
+	// order above), and - before the floor has been read - while a monster
+	// stands within PLAYERBOT_TOWER_STONE_THREAT_RANGE of this bot. The pack
+	// held the Metin of Murder to its end once it had it, and the demons that
 	// walked up took the bots apart one by one while they hit it.
 	bool IsPlayerBotTowerStoneWaiting(LPCHARACTER ch, const TPlayerBotTowerScan* scan, int level)
 	{
-		return ch && scan && level == 5 &&
-				CountPlayerBotTowerMonstersNear(scan, ch->GetX(), ch->GetY(), PLAYERBOT_TOWER_STONE_THREAT_RANGE) > 0;
+		if (!ch || !scan || level != 5)
+			return false;
+		switch (GetPlayerBotTowerSeventhPhase(ch->GetMapIndex()))
+		{
+			case SEVENTH_STONES:
+			case SEVENTH_MURDER:
+				return false;
+			case SEVENTH_DEMONS:
+				return true;
+			default:
+				return CountPlayerBotTowerMonstersNear(scan, ch->GetX(), ch->GetY(), PLAYERBOT_TOWER_STONE_THREAT_RANGE) > 0;
+		}
 	}
 
 	// The floor's objective for this bot: the nearest thing that has to die
@@ -309,10 +520,16 @@ namespace
 		const bool fromPack = onFloor && scan && scan->packN >= 2;
 		long fromX = fromPack ? scan->packX : ch->GetX();
 		long fromY = fromPack ? scan->packY : ch->GetY();
-		// On the seventh floor a demon at the bot's side comes first: the
-		// stone waits, and the fight is ranked from the bot
+		// The seventh floor's order (UpdatePlayerBotTowerSeventhPhase): the
+		// stones first while the four Metins of Death stand and once the
+		// demons are down, no stone while the demons stand. Before the floor
+		// has been read a demon at the bot's side comes first: the stone
+		// waits, and the fight is ranked from the bot
 		// (PLAYERBOT_TOWER_STONE_THREAT_RANGE).
-		const bool threatened = IsPlayerBotTowerStoneWaiting(ch, scan, level);
+		const BYTE seventh = level == 5 ? GetPlayerBotTowerSeventhPhase(ch->GetMapIndex()) : (BYTE)SEVENTH_UNKNOWN;
+		const bool seventhStonesFirst = seventh == SEVENTH_STONES || seventh == SEVENTH_MURDER;
+		const bool seventhNoStone = seventh == SEVENTH_DEMONS;
+		const bool threatened = seventh == SEVENTH_UNKNOWN && IsPlayerBotTowerStoneWaiting(ch, scan, level);
 		// On a floor the stone turns (the seventh: the Metin of Murder drops
 		// the chest) the pack fights its way to the stone: the monsters are
 		// ranked from the stone, so the ground round it is what gets cleared,
@@ -337,7 +554,8 @@ namespace
 		// A stone cannot hit back: on a floor still full of monsters it waits,
 		// or the pack walks into two hundred demons to reach it (the fourth
 		// floor has no monsters, only its stones).
-		const bool stonesNow = level == 2 || !scan || scan->monsters <= PLAYERBOT_TOWER_STONE_CLEAR_LIMIT;
+		const bool stonesNow = level == 2 || seventhStonesFirst || !scan ||
+				scan->monsters <= PLAYERBOT_TOWER_STONE_CLEAR_LIMIT;
 		for (size_t i = 0; scan && i < scan->entities.size(); ++i)
 		{
 			const TPlayerBotTowerEntity& e = scan->entities[i];
@@ -358,7 +576,7 @@ namespace
 			if (!parterStone && e.stone && !stonesNow &&
 					CountPlayerBotTowerMonstersNear(scan, e.x, e.y, PLAYERBOT_TOWER_STONE_CLEAR_RADIUS) > 0)
 				continue;
-			if (!parterStone && e.stone && threatened)
+			if (!parterStone && e.stone && (threatened || seventhNoStone))
 				continue;
 			const int fromDistance = DISTANCE_APPROX(fromX - e.x, fromY - e.y);
 			const bool shared = parterStone || e.stone || e.boss;
@@ -516,6 +734,7 @@ namespace
 	// a tired horse) leaves the bot fighting as it stands.
 	bool FightPlayerBotTowerObjective(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER foe, DWORD dwNow)
 	{
+		ReadyPlayerBotHandForFight(ch, state, dwNow, "raid_fight");
 		const bool wantsSaddle = CanPlayerBotFightOnHorse(ch, foe);
 		if (wantsSaddle != ch->IsRiding() &&
 				SetPlayerBotRidingForTravel(ch, state, wantsSaddle, dwNow,
@@ -1086,6 +1305,8 @@ namespace
 			run.bSmithDone = false;
 			run.smithServed.clear();
 			run.smithTurnSince.clear();
+			run.bSeventhPhase = SEVENTH_UNKNOWN;
+			run.dwSeventhPhaseSince = dwNow;
 			if (level + 2 > s_iPlayerBotTowerBestFloor)
 				s_iPlayerBotTowerBestFloor = level + 2;
 			sys_log(0, "PLAYERBOT_TOWER: floor %d map=%ld alive=%d after_s=%u",
@@ -1096,6 +1317,10 @@ namespace
 			run.iAlive = scan->alive;
 			run.dwLastProgress = dwNow;
 		}
+		if (level == 5)
+			UpdatePlayerBotTowerSeventhPhase(run, scan, map, dwNow);
+		else if (level == 7)
+			WatchPlayerBotTowerReaper(run, scan, map, dwNow);
 		if (dwNow >= run.dwNextReport)
 		{
 			run.dwNextReport = dwNow + 60000;
@@ -1167,6 +1392,31 @@ namespace
 				ch->ExitToSavedLocation();
 			}
 			return true;
+		}
+
+		// Nor does a bot of another kingdom than the run's climb in it: "oprocz
+		// gildii, ktora ma rajd bylem w stanie naliczyc z 8-15 botow z innych
+		// krolestw, ktore przeszkadzaja w rajdzie przez to, ze farmia na dt1"
+		// (prodnathin, 24 September). The stone's jump takes everybody on the
+		// ground floor, so a bystander of another kingdom is sent back out the
+		// way the quest's own exit sends a player. A bot in a person's party
+		// and a person's companion stay with the person.
+		{
+			const BYTE runKingdom = GetPlayerBotTowerRunKingdom(map, run, dwNow);
+			if (runKingdom != 0 && ch->GetEmpire() != runKingdom && state.dwTowerRaidGuild == 0 &&
+					!(ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty())) &&
+					!IsPlayerBotSidekickPID(ch->GetPlayerID()))
+			{
+				if (dwNow >= state.dwNextTowerMoveTime)
+				{
+					state.dwNextTowerMoveTime = dwNow + 5000;
+					sys_log(0, "PLAYERBOT_TOWER: another kingdom's run, leaving pid=%u name=%s empire=%u run_empire=%u map=%ld",
+							ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetEmpire(),
+							(unsigned int)runKingdom, map);
+					ch->ExitToSavedLocation();
+				}
+				return true;
+			}
 		}
 
 		if (KeepPlayerBotTowerAlive(ch, state, dwNow))
@@ -1278,10 +1528,20 @@ namespace
 			if (foe && foe->IsStone() && IsPlayerBotTowerStoneWaiting(ch, scan, level))
 			{
 				PlayerBotLogThrottled("tower_stone_waits", dwNow,
-						"PLAYERBOT_TOWER: stone waits, monsters first pid=%u name=%s map=%ld floor=7 near=%d",
-						ch->GetPlayerID(), ch->GetName(), map,
+						"PLAYERBOT_TOWER: stone waits, monsters first pid=%u name=%s map=%ld floor=7 phase=%u near=%d",
+						ch->GetPlayerID(), ch->GetName(), map, (unsigned int)run.bSeventhPhase,
 						CountPlayerBotTowerMonstersNear(scan, ch->GetX(), ch->GetY(), PLAYERBOT_TOWER_STONE_THREAT_RANGE));
 				foe = NULL;
+			}
+			// ... and in the seventh floor's stone phases a monster in hand
+			// gives way to the stone the moment one stands: what the stones
+			// spawn is left to the splash.
+			if (foe && !foe->IsStone() && level == 5 &&
+					(run.bSeventhPhase == SEVENTH_STONES || run.bSeventhPhase == SEVENTH_MURDER))
+			{
+				LPCHARACTER stone = PickPlayerBotTowerObjective(ch, scan, level, false, 0);
+				if (stone && stone->IsStone())
+					foe = stone;
 			}
 		}
 		if (!foe)
@@ -1495,6 +1755,21 @@ namespace
 		return true;
 	}
 
+	// The ground floor while another kingdom's bot guild gathers there or is
+	// breaking its stone: the jump would take a bystander in with the raid
+	// (prodnathin, 24 September), so the travel does not send a bot of
+	// another kingdom there and one already there leaves. A raid member, a
+	// bot in a person's party and a person's companion are not bystanders.
+	bool IsPlayerBotTowerGroundClosedFor(LPCHARACTER ch)
+	{
+		const TPlayerBotTowerRaid& raid = s_PlayerBotTowerRaid;
+		return ch && (raid.bPhase == TOWER_PHASE_GATHER || raid.bPhase == TOWER_PHASE_STONE) &&
+				raid.bEmpire != 0 && ch->GetEmpire() != raid.bEmpire &&
+				raid.members.find(ch->GetPlayerID()) == raid.members.end() &&
+				!(ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty())) &&
+				!IsPlayerBotSidekickPID(ch->GetPlayerID());
+	}
+
 	// The per-bot pass. Claims the tick inside the tower and on the way to it.
 	bool ManagePlayerBotDemonTower(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
@@ -1509,6 +1784,23 @@ namespace
 		}
 		if (state.dwTowerRaidGuild != 0)
 			return ManagePlayerBotTowerCall(ch, state, dwNow);
+		if (ch->GetMapIndex() == PLAYERBOT_MAP_DEMON_TOWER && !state.bTowerSummoned &&
+				IsPlayerBotTowerGroundClosedFor(ch))
+		{
+			if (dwNow >= state.dwNextTowerMoveTime)
+			{
+				state.dwNextTowerMoveTime = dwNow + 5000;
+				long destMap = 0, destX = 0, destY = 0;
+				if (GetPlayerBotVillageReturn(ch, playerbot_empire_rules::MAP_ROLE_M2, destMap, destX, destY))
+				{
+					sys_log(0, "PLAYERBOT_TOWER: another kingdom's raid gathers, leaving the ground floor pid=%u name=%s empire=%u raid_empire=%u",
+							ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetEmpire(),
+							(unsigned int)s_PlayerBotTowerRaid.bEmpire);
+					TransitionPlayerBotMap(ch, state, destMap, destX, destY, dwNow, "tower_other_kingdom_raid");
+				}
+			}
+			return true;
+		}
 		if (dwNow < state.dwNextTowerMasterCheckTime)
 			return state.bTowerSummoned ? ManagePlayerBotTowerWithMaster(ch, state, dwNow) : false;
 		state.dwNextTowerMasterCheckTime = dwNow + (state.bTowerSummoned ? 1000 : 10000);

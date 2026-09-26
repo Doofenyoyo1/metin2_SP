@@ -156,6 +156,10 @@ def sync_client(base_zip, new_zip, work, report):
             merge(os.path.join(REPO, 'linux-port-mt2009', 'client-root', p),
                   os.path.join(b, 'root', p), os.path.join(n, 'root', p), report)
     for p in sorted(walk(n)):
+        if p.startswith('pack/') and not p.startswith('pack/root.'):
+            if not same(os.path.join(b, p), os.path.join(n, p)):
+                report.append('BINARY PACK (list it in UPSTREAM_PACKS of build_mt2009_client_update.py): ' + p)
+            continue
         if p.startswith(('pack/', 'root/')) or p.endswith('.exe'):
             continue
         if not same(os.path.join(b, p), os.path.join(n, p)):

@@ -697,6 +697,13 @@ namespace
 		// them at once (playerbot_boss_raid.h).
 		if (state.wBossRaidRace != 0 && target->GetRaceNum() == state.wBossRaidRace)
 			return false;
+		// So does the Catacomb's raid, whose floor ends when its objective
+		// dies and whose run ends after PLAYERBOT_CATACOMB_STALL_MS without a
+		// death (playerbot_catacomb.h): Azrael heals four and a half thousand a
+		// second, and a raider that gave him up here was given him back by the
+		// raid on the next tick and gave him up again, for good.
+		if (IsPlayerBotCatacombInstance(target->GetMapIndex()) && IsPlayerBotCatacombRaider(ch->GetPlayerID()))
+			return false;
 
 		if (dwNow - state.dwFightStartTime < PLAYERBOT_FIGHT_INITIAL_GRACE ||
 				dwNow - state.dwFightLastProgressTime < PLAYERBOT_FIGHT_STALL_TIMEOUT)
@@ -1964,7 +1971,13 @@ namespace
 		const bool bIsDuel = !primary->IsMonster() && !primary->IsStone() &&
 				IsPlayerBotSanctionedFoe(ch, primary, get_dword_time()) &&
 				CanPlayerBotStrikeCharacter(ch, primary);
-		const bool bIsTargetValid = (primary->IsMonster() || primary->IsStone() || bIsDuel);
+		// And the Catacomb's Gates of Perdition, which are doors: the gate in
+		// ExecutePlayerBotBasicAttack let a swing at one through and this one
+		// then returned zero, so the second floor's doors took nothing but the
+		// odd skill and a raid stood before them until it gave up (the raid's
+		// self-test on m2zip, 26 September).
+		const bool bIsGate = primary->IsDoor() && IsPlayerBotCatacombInstance(primary->GetMapIndex());
+		const bool bIsTargetValid = (primary->IsMonster() || primary->IsStone() || bIsDuel || bIsGate);
 		if (!bIsTargetValid || primary->IsDead())
 			return 0;
 
@@ -2118,6 +2131,9 @@ namespace
 				// them standing and looking at one another - and why a guild war
 				// was fought with skills alone until 2.0.95.
 				(!target->IsMonster() && !target->IsStone() &&
+					// The Catacomb's Gates of Perdition are doors, and the
+					// second floor opens only when a set of them is down.
+					!(target->IsDoor() && IsPlayerBotCatacombInstance(target->GetMapIndex())) &&
 					(!IsPlayerBotSanctionedFoe(ch, target, dwNow) ||
 					 !CanPlayerBotStrikeCharacter(ch, target))) ||
 				ch->GetMapIndex() != target->GetMapIndex() ||

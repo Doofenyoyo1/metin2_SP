@@ -116,8 +116,10 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_status.h` | What a bot shows above its head, and the words for it. |
 | `playerbot_targeting.h` | Choosing what to hit and hitting it, including the claim that keeps hundreds of bots off the same monster. |
 | `playerbot_guild_war.h` | Guild wars: the pair of bot guilds picked per kingdom, a player's declaration on a bot guild answered, the engine's field war declared and accepted, the two camps and the middle on the guild map, the muster and the fight there. After targeting.h because the blows are its. |
+| `playerbot_war_rules.h` | How a guild war is fought, as pure policy: the class roles (tank, hunter, archer, assassin, dragon, the two healers), the six patterns a guild draws per war, the order out of the camp, the round, the field's capsule. No engine types, unit-tested (`tests/playerbot_war_rules_test.cpp`, ours - upstream shipped the header without it). Included first, with the other rules headers. |
 | `playerbot_demon_tower.h` | The bots' Demon Tower: one guild's raid at a time (the call, the gathering by the stone, the stone broken together), and the floors for whoever the jump takes - the scan of the floor, the duel-shaped fight, the keys used and handed in, the smith passed. After guild_war.h because the fight and the kingdom names are its. |
 | `playerbot_boss_raid.h` | The world's bosses broken by a crowd of one kingdom: the table of bosses with their level windows and raid sizes, the call, the gathering outside the boss's sight, the fight together, the reinforcement and the giving up. After demon_tower.h, whose fight and keeping alive it borrows. |
+| `playerbot_catacomb.h` | The Devil's Catacomb raided by a party of bots of one kingdom (upstream 2.2.21): the call by the Guardian in Hwang Temple, the key on the first floor, the gates, the Metins of Revenge, the maze, Tartarus, Charon and Azrael; a person in the party clicks the statue, the rock and the stake. The CATACOMB key and `/opt/m2spool/playerbot_catacomb_now`. |
 | `playerbot_persona_rules.h` | Iwakura's personality system as pure policy: the moods, the Grinder's tiers and the Law of Advancement, the gambler's ambitions, the Anti-PK window, the companion's draw, the mercenary's terms and the Useful Items List. No engine types, unit-tested (`tests/playerbot_persona_rules_test.cpp`). Included first, with the other rules headers. |
 | `playerbot_persona_tables.h` | Rendered from his document by `tools/generate_iwakura_persona.py`: the valuables whose drop lifts a mood, and the LPP's weapons by level band, target shields and target armours. |
 | `playerbot_mood.h` | The Bot Mood System: what a mood is worth to whom, the drought, the euphoria, and the mood a bot plays by (NORMALNY in company, its own alone). |
@@ -9548,7 +9550,7 @@ upstream 2.1.0/client 2.0.26, the merge is 2.1.1/client 2.0.28, and the next
 sync (upstream 2.2.0-2.2.6, client 2.0.27-2.0.28, over our 2.1.5 / client
 2.0.30) is 2.2.7 / client 2.0.31, and the one after (upstream 2.2.7 /
 client 2.0.29, over our 2.2.7 / client 2.0.31) is 2.2.8 / client 2.0.32, and the one after (upstream 2.2.8, client
-unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38. Upstream's added attributions to its own
+unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38, and the one after (upstream 2.2.21 / client 2.0.38, over our 2.2.21 / client 2.0.38) is 2.2.22 / client 2.0.39. Upstream's added attributions to its own
 operator are scrubbed from comments and notes the way the first sync did; a
 player's or a contributor's name stays. An upstream `## x.y.z` CHANGELOG
 section whose number this repository already used moves under the new section,
@@ -9577,7 +9579,12 @@ only reports, and each needs a person:
   composify), and the render must come out equal to the merge.
 - Upstream's licence files, which this repository does not ship.
   `NOT_OURS` in the packager lets the drop check pass without them.
-Upstream's unit tests are not in the packages either. When a pure header
+A pack upstream rebuilt from the original game client (2.0.38's `pack/season2`,
+the Grotto and Catacomb maps) has no source here: `UPSTREAM_PACKS` in
+`tools/build_mt2009_client_update.py` names it and the release takes it byte
+for byte from `synced_client_package` (`--upstream`, which the publish
+workflow downloads). Add a pack there when a sync's client zip carries a new
+binary pack. Upstream's unit tests are not in the packages either. When a pure header
 changes a constant, fix our test (2.2.19's PERFECT_BUDGET_PERCENT went from
 80 to 50). Afterwards, build both packages locally against the new upstream
 package and read them back.

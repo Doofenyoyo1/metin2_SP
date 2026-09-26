@@ -539,7 +539,7 @@ namespace
 
 	bool EquipPlayerBotRod(LPCHARACTER ch)
 	{
-		if (!ch)
+		if (!ch || IsPlayerBotGearFrozen(ch))
 			return false;
 		if (IsPlayerBotHoldingRod(ch))
 			return true;
@@ -698,7 +698,7 @@ namespace
 	// soften.
 	bool UpgradePlayerBotRod(LPCHARACTER ch)
 	{
-		if (!ch)
+		if (!ch || IsPlayerBotGearFrozen(ch))
 			return false;
 		LPITEM rod = NULL;
 		// RefinableRod refuses a rod in the hand, so a worn one comes off first
@@ -1242,7 +1242,7 @@ namespace
 	// in the bag and is worn on the next ask rather than bought again.
 	bool EnsurePlayerBotFishingPass(LPCHARACTER ch, DWORD dwNow)
 	{
-		if (!ch)
+		if (!ch || IsPlayerBotGearFrozen(ch))
 			return false;
 		// Asked for now: the equipment pass leaves a worn pass alone for a while
 		// (IsPlayerBotFishingPassHeld).

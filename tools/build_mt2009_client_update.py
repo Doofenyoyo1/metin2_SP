@@ -13,6 +13,11 @@ changed. metin2client.exe is the previous one (it is built on Windows by
 linux-port-mt2009/tools/build-client.ps1) with EXE_STRING_PATCHES applied:
 equal-length replacements of NUL-terminated strings, each of which must be
 found exactly once or already be in place. Needs python-lzo.
+
+Packs this repository has no source for - map packs, rebuilt by upstream from
+the original game client - come from the upstream client package this tree is
+synced to (--upstream, tools/upstream-sync.json's synced_client_package),
+byte for byte, when the previous package lacks them or holds another copy.
 """
 import argparse
 import hashlib
@@ -34,6 +39,10 @@ EXE_STRING_PATCHES = [
 ]
 PACKS = [('root', 'linux-port-mt2009/client-root'), ('locale', 'linux-port-mt2009/client-locale')]
 BESIDE = 'linux-port-mt2009/client-coop'
+# Packs taken whole from the upstream client package. season2 carries the maps
+# of the Grotto of Exile (72, 73) under maps/, where the client looks for them,
+# and the Devil's Catacomb (216) from the original client (upstream 2.0.38).
+UPSTREAM_PACKS = ['season2']
 
 
 def git(*args):
@@ -49,6 +58,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--previous', required=True, help='the previous release\'s client update zip')
     ap.add_argument('--since', required=True, help='the commit the previous client was published from')
+    ap.add_argument('--upstream', help='the upstream client update zip (tools/upstream-sync.json)')
     ap.add_argument('--out', required=True)
     a = ap.parse_args()
 
@@ -110,6 +120,30 @@ def main():
                 same = rel in index and open(full, 'rb').read() == open(index[rel], 'rb').read()
                 if not same and rel not in want:
                     sys.exit('repacked %s pack changed a file it was not asked to: %s' % (pack, rel))
+
+    if a.upstream:
+        up = zipfile.ZipFile(a.upstream)
+        up_raw = {n.replace('\\', '/'): n for n in up.namelist() if not n.endswith(('/', '\\'))}
+        have = {n.replace('\\', '/') for n in names}
+        for pack in UPSTREAM_PACKS:
+            for ext in ('.data', '.index'):
+                rel = 'pack/' + pack + ext
+                if rel not in up_raw:
+                    if rel in have:
+                        continue
+                    sys.exit('the upstream client package has no %s and the previous one neither' % rel)
+                data = up.read(up_raw[rel])
+                dst = os.path.join(new_dir, rel)
+                if os.path.isfile(dst) and open(dst, 'rb').read() == data:
+                    continue
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                open(dst, 'wb').write(data)
+                if rel not in have:
+                    names.append(rel.replace('/', '\\'))
+                    have.add(rel)
+                print('  %s: from the upstream client package' % rel)
+    elif any(not os.path.isfile(os.path.join(old_dir, 'pack', p + '.data')) for p in UPSTREAM_PACKS):
+        sys.exit('the previous package lacks %s and no --upstream was given' % ', '.join(UPSTREAM_PACKS))
 
     exe = os.path.join(new_dir, 'metin2client.exe')
     if os.path.isfile(exe):

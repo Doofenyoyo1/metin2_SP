@@ -61,6 +61,13 @@ jobs:
               sync = json.load(open('tools/upstream-sync.json', encoding='utf-8'))
               base_url = sync['engine_package']['url']
               base_sha = sync['engine_package']['sha256']
+          up_client_url = up_client_sha = ''
+          if os.path.isfile('tools/upstream-sync.json'):
+              uc = json.load(open('tools/upstream-sync.json', encoding='utf-8')).get('synced_client_package') or {}
+              up_client_url, up_client_sha = uc.get('url', ''), uc.get('sha256', '')
+          # Packs this repository has no source for (map packs) come from it.
+          print('upstream_client_url=%s' % up_client_url)
+          print('upstream_client_sha=%s' % up_client_sha)
           print('prev_server_url=%s' % base_url)
           print('prev_server_sha=%s' % base_sha)
           print('prev_client_url=%s' % m['client']['url'])
@@ -108,6 +115,8 @@ jobs:
           SERVER_SHA: ${{ steps.v.outputs.prev_server_sha }}
           CLIENT_URL: ${{ steps.v.outputs.prev_client_url }}
           CLIENT_SHA: ${{ steps.v.outputs.prev_client_sha }}
+          UPSTREAM_CLIENT_URL: ${{ steps.v.outputs.upstream_client_url }}
+          UPSTREAM_CLIENT_SHA: ${{ steps.v.outputs.upstream_client_sha }}
           BUILD_SERVER: ${{ steps.v.outputs.build_server }}
           BUILD_CLIENT: ${{ steps.v.outputs.build_client }}
         run: |
@@ -120,6 +129,10 @@ jobs:
           if [ "$BUILD_CLIENT" = true ]; then
             curl -fsSL --retry 4 -o prev/client.zip "$CLIENT_URL"
             echo "$CLIENT_SHA  prev/client.zip" | tr 'A-F' 'a-f' | sha256sum -c -
+            if [ -n "$UPSTREAM_CLIENT_URL" ]; then
+              curl -fsSL --retry 4 -o prev/upstream-client.zip "$UPSTREAM_CLIENT_URL"
+              echo "$UPSTREAM_CLIENT_SHA  prev/upstream-client.zip" | tr 'A-F' 'a-f' | sha256sum -c -
+            fi
           fi
 
       - name: Build
@@ -136,7 +149,9 @@ jobs:
           if [ "$BUILD_CLIENT" = true ]; then
             since=$(git rev-parse "$PREV_CLIENT_TAG^{commit}")
             echo "previous client from $PREV_CLIENT_TAG = $since"
-            python3 tools/build_mt2009_client_update.py --previous prev/client.zip --since "$since" --out out
+            up=""
+            [ -f prev/upstream-client.zip ] && up="--upstream prev/upstream-client.zip"
+            python3 tools/build_mt2009_client_update.py --previous prev/client.zip --since "$since" $up --out out
           fi
           ls -la out
 

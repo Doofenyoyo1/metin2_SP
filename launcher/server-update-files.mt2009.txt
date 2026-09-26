@@ -147,6 +147,7 @@ linux-port-mt2009/docker/game/src/server/game/src/playerbot_*
 linux-port-mt2009/docker/game/src/server/game/src/pvp.cpp
 linux-port-mt2009/docker/game/src/server/game/src/questlua_affect.cpp
 linux-port-mt2009/docker/game/src/server/game/src/questlua_item.cpp
+linux-port-mt2009/docker/game/src/server/game/src/questlua_pc.cpp
 linux-port-mt2009/docker/game/src/server/game/src/questmanager.cpp
 linux-port-mt2009/docker/game/src/server/game/src/questnpc.cpp
 linux-port-mt2009/docker/game/src/server/game/src/refine.cpp

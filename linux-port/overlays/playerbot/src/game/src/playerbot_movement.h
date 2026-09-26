@@ -600,8 +600,15 @@ namespace
 
 	bool IsPlayerBotDungeonStoneObjective(LPCHARACTER ch, LPCHARACTER stone)
 	{
-		return ch && stone && stone->IsStone() && !stone->IsDead() &&
-				IsPlayerBotDungeonTriggerStone(stone->GetRaceNum()) &&
+		if (!ch || !stone || !stone->IsStone() || stone->IsDead())
+			return false;
+		// The Devil's Catacomb's Metins of Revenge (level 85) are its third
+		// floor's objective for a raider, whatever its level: the tick's
+		// "obsolete stone" check dropped the raid's stone and its route on
+		// every pass for a raider more than ten levels under it.
+		if (IsPlayerBotCatacombInstance(stone->GetMapIndex()) && IsPlayerBotCatacombRaider(ch->GetPlayerID()))
+			return true;
+		return IsPlayerBotDungeonTriggerStone(stone->GetRaceNum()) &&
 				(IsPlayerBotClimbingWithPlayer(ch) || IsPlayerBotTowerRaider(ch));
 	}
 

@@ -298,7 +298,7 @@ namespace
 	// swapped back to its sword mid-swing is told it cannot dig.
 	bool EquipPlayerBotPickaxe(LPCHARACTER ch)
 	{
-		if (!ch)
+		if (!ch || IsPlayerBotGearFrozen(ch))
 			return false;
 		if (IsPlayerBotHoldingPickaxe(ch))
 			return true;
@@ -377,7 +377,7 @@ namespace
 
 	bool ManagePlayerBotAccessorySockets(LPCHARACTER ch, DWORD dwNow)
 	{
-		if (!ch || !IsPlayerBotPersonaEnabled() || !ch->IsItemLoaded() || ch->IsDead())
+		if (!ch || !IsPlayerBotPersonaEnabled() || !ch->IsItemLoaded() || ch->IsDead() || IsPlayerBotGearFrozen(ch))
 			return false;
 		const DWORD pid = ch->GetPlayerID();
 		std::map<DWORD, DWORD>::const_iterator next = s_mapPlayerBotSocketWorkNext.find(pid);
@@ -475,13 +475,55 @@ namespace
 		// judges by the weapon in the hand, and a bot that walked away holding
 		// one would swing a digging tool at an orc until the gear pass noticed.
 		LPITEM worn = ch->GetWear(WEAR_WEAPON);
-		if (worn && worn->GetType() == ITEM_PICK)
+		if (worn && worn->GetType() == ITEM_PICK && !IsPlayerBotGearFrozen(ch))
 			ch->UnequipItem(worn);
 		s_mapPlayerBotMiningNext[pid] = dwNow + (dwRetry != 0 ? dwRetry :
 				(DWORD)number(PLAYERBOT_MINING_REST_MIN, PLAYERBOT_MINING_REST_MAX));
 		ClearPlayerBotRoute(state, true);
 		sys_log(0, "PLAYERBOT_MINING: session end pid=%u name=%s reason=%s",
 				pid, ch->GetName(), szReason ? szReason : "done");
+	}
+
+	// A bot that a guild war or a raid takes from the water or the vein goes
+	// with a weapon in its hand. Those passes claim the tick above the fishing
+	// and mining sessions and above the equipment pass, so nothing else ever
+	// put the rod or the pickaxe away: DUDU's screenshot of a guild war on
+	// 2.2.16 had half a dozen bots swinging their rods at the enemy ("rybacy,
+	// ktorzy nie zmieniaja wedki na bron", 26 September). Ends the session, puts
+	// the tool in the bag and the best weapon of the bag in the hand; a refused
+	// equip (the engine's second and a half after a blow) is tried again on the
+	// next tick, and nothing is claimed, so the pass goes on meanwhile.
+	void ReadyPlayerBotHandForFight(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow, const char* reason)
+	{
+		if (!ch || ch->IsDead() || IsPlayerBotGearFrozen(ch))
+			return;
+		const bool fishing = state.bFishingSession;
+		const bool mining = IsPlayerBotMiningNow(ch->GetPlayerID(), dwNow);
+		if (fishing)
+			EndPlayerBotFishingSession(ch, state, dwNow, reason);
+		if (mining)
+			EndPlayerBotMiningSession(ch, state, dwNow, reason);
+		LPITEM held = ch->GetWear(WEAR_WEAPON);
+		if (held && (held->GetType() == ITEM_ROD || held->GetType() == ITEM_PICK))
+		{
+			if (!ch->UnequipItem(held))
+				return;
+			held = NULL;
+		}
+		if (held)
+		{
+			if (fishing || mining)
+				PlayerBotLogThrottled("ready_hand", dwNow,
+						"PLAYERBOT_GEAR: hand ready for a fight pid=%u name=%s weapon=%u reason=%s fishing=%d mining=%d",
+						ch->GetPlayerID(), ch->GetName(), held->GetVnum(), reason, (int)fishing, (int)mining);
+			return;
+		}
+		const bool equipped = EquipFirstAvailablePlayerBotWeapon(ch);
+		held = ch->GetWear(WEAR_WEAPON);
+		PlayerBotLogThrottled("ready_hand", dwNow,
+				"PLAYERBOT_GEAR: hand ready for a fight pid=%u name=%s weapon=%u equipped=%d reason=%s fishing=%d mining=%d",
+				ch->GetPlayerID(), ch->GetName(), held ? held->GetVnum() : 0, (int)equipped, reason,
+				(int)fishing, (int)mining);
 	}
 
 	// A session, in the shape the fishing one has: it owns the whole tick, so

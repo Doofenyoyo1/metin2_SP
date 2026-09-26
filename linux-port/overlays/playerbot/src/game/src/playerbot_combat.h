@@ -199,6 +199,7 @@ namespace
 		if (!ch->UseSkill(vnum, victim))
 			return false;
 		NotePlayerBotSkillCast(ch, state, vnum, dwNow);
+		state.dwLastEngineSkillTime = get_dword_time();
 		return true;
 	}
 

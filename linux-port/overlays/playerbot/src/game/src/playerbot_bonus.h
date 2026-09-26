@@ -1059,7 +1059,7 @@ namespace
 	{
 		keepGoing = false;
 		LPITEM item = target.item;
-		if (!ch || !item || step == PLAYERBOT_BONUS_STEP_NONE || stoneCell < 0)
+		if (!ch || !item || step == PLAYERBOT_BONUS_STEP_NONE || stoneCell < 0 || IsPlayerBotGearFrozen(ch))
 			return false;
 		const bool worn = target.kind == PLAYERBOT_BONUS_TARGET_WORN;
 		// A worn piece has to come off for the engine to touch it - UseItemEx
@@ -1235,6 +1235,15 @@ namespace
 			return false;
 
 		const TPlayerBotBonusTarget target = targets[pick];
+		// A worn piece comes off for the stone and goes straight back on, so
+		// only while the engine would let it back on - the blacksmith's path
+		// too, where a buff cast on the walk in shut the window as surely as a
+		// blow does. The pass comes back in a moment, not in five minutes.
+		if (target.kind == PLAYERBOT_BONUS_TARGET_WORN && IsPlayerBotEquipWindowShut(ch, state))
+		{
+			state.dwNextBonusCheckTime = dwNow + PLAYERBOT_EQUIPMENT_COMBAT_DELAY;
+			return false;
+		}
 		if (target.item->GetID() != state.dwBonusFocusItem)
 		{
 			static const char* const kinds[] = { "worn", "held", "goods" };
@@ -1277,12 +1286,11 @@ namespace
 				state.bRecoveringAfterDeath || state.bTacticalRetreat || state.dwTargetVID != 0 ||
 				ch->GetMyShop())
 			return false;
-		// The equipment pass's own wait (ManagePlayerBotEquipment): a piece
+		// The equipment pass's own wait (IsPlayerBotEquipWindowShut): a piece
 		// taken off inside the engine's second and a half after a blow or a
 		// cast cannot go back on, and it waited in the bag for the next pass
 		// (PLAYERBOT_BONUS: could not re-equip, five a night on m2zip).
-		if (dwNow - ch->GetLastAttackTime() <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY ||
-				dwNow - state.dwLastBotSkillTime <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY)
+		if (IsPlayerBotEquipWindowShut(ch, state))
 			return false;
 		return ManagePlayerBotBonusReroll(ch, state, dwNow);
 	}

@@ -51,8 +51,8 @@ namespace
 	// cast; the equipment pass waits for the same window.
 	bool IsPlayerBotUniqueSwapWindowOpen(LPCHARACTER ch, const TPlayerBotAIState& state, DWORD dwNow)
 	{
-		return dwNow - ch->GetLastAttackTime() > PLAYERBOT_EQUIPMENT_COMBAT_DELAY &&
-				dwNow - state.dwLastBotSkillTime > PLAYERBOT_EQUIPMENT_COMBAT_DELAY;
+		(void) dwNow;
+		return !IsPlayerBotEquipWindowShut(ch, state);
 	}
 
 	bool IsPlayerBotWearingTimedUnique(LPCHARACTER ch, bool ring)
@@ -86,7 +86,7 @@ namespace
 	void ManagePlayerBotUniqueSlots(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		static std::map<DWORD, DWORD> s_mapPlayerBotUniqueSlotNext;
-		if (!ch || !ch->IsItemLoaded() || ch->IsDead())
+		if (!ch || !ch->IsItemLoaded() || ch->IsDead() || IsPlayerBotGearFrozen(ch))
 			return;
 		DWORD& next = s_mapPlayerBotUniqueSlotNext[ch->GetPlayerID()];
 		if (dwNow < next)
