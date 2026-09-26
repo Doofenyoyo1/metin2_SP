@@ -158,7 +158,7 @@ def sync_client(base_zip, new_zip, work, report):
     for p in sorted(walk(n)):
         if p.startswith('pack/') and not p.startswith('pack/root.'):
             if not same(os.path.join(b, p), os.path.join(n, p)):
-                report.append('BINARY PACK (list it in UPSTREAM_PACKS of build_mt2009_client_update.py): ' + p)
+                report.append('BINARY PACK (extract it with eterpack and bring the changed files into its folder, SOURCE_PACKS of build_mt2009_client_update.py): ' + p)
             continue
         if p.startswith(('pack/', 'root/')) or p.endswith('.exe'):
             continue

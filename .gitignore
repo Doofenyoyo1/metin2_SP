@@ -199,3 +199,6 @@ linux-port/docker/artifacts.json
 # The world catalog is a measurement, regenerated with tools/dump_world_catalog.py
 # whenever the map files change; the C++ tables built from it are what ships.
 tools/world_catalog.json
+
+# The season2 pack ships two files named *.msm~; they are content, not backups.
+!linux-port-mt2009/client-season2/**/*~

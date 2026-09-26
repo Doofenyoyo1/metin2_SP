@@ -466,7 +466,7 @@ GROTTO_CATACOMB_RESCUE = (
     "# and no client of that time could stand on any of them: the grotto's maps\n"
     '# stood in the season2 pack without the maps/ the client looks under, and the\n'
     "# Catacomb's map was in no pack at all (client 2.0.39 carries all three, its\n"
-    '# season2 pack taken whole from upstream\'s client). Entering one closed the\n'
+    '# season2 pack written from client-season2/). Entering one closed the\n'
     '# client, and a character saved there could not log in again ("postac jest\n'
     '# zbugowana", Iwakura, 26 September). Once: every character of a person\n'
     '# saved on one of them or in an\n'

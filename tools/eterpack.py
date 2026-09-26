@@ -12,6 +12,14 @@ say) used to be "repack root.epk by hand". This does it from a script:
     python tools/eterpack.py list   <pack/root>
     python tools/eterpack.py extract <pack/root> <outdir>
     python tools/eterpack.py repack  <pack/root> <outpack/root> <dir-with-replacements>
+    python tools/eterpack.py pack    <dir> <outpack/name>
+
+`pack` writes a new archive from every file under <dir>, in sorted order,
+type 2 (compressed and encrypted, what PackMakerLite writes for the mt2009
+packs) and index version 2: a pack whose whole content lives in the
+repository, like season2 (linux-port-mt2009/client-season2). The client finds
+a file by the CRC of its name, so the order is only there to make the output
+the same on every run.
 
 `repack` rewrites the archive with every file of the original, taking a file
 from <dir> instead when one of the same name is there (a new name is appended).
@@ -230,6 +238,29 @@ def main():
         use_profile(sys.argv[2])
         del sys.argv[1:3]
     cmd = sys.argv[1]
+    if cmd == 'pack':
+        src, out_base = sys.argv[2], sys.argv[3]
+        names = []
+        for root, _, fs in os.walk(src):
+            for n in fs:
+                names.append(os.path.relpath(os.path.join(root, n), src).replace(os.sep, '/'))
+        if not names:
+            raise SystemExit('pack: %s holds no file' % src)
+        files = []
+        for n in sorted(names):
+            try:
+                n.encode('latin-1')
+            except UnicodeEncodeError:
+                raise SystemExit('pack: a name the index cannot hold: %r' % n)
+            if len(n.encode('latin-1')) > 160:
+                raise SystemExit('pack: a name over 160 bytes: %s' % n)
+            files.append((n.lower(), open(os.path.join(src, n), 'rb').read(), 2))
+        if len({f[0] for f in files}) != len(files):
+            raise SystemExit('pack: two files differ only in case')
+        os.makedirs(os.path.dirname(out_base) or '.', exist_ok=True)
+        write_pack(out_base, 2, files)
+        print('wrote', out_base + EXT_INDEX + '/' + EXT_DATA, 'files', len(files))
+        return
     base = sys.argv[2]
     version, entries = read_index(base + EXT_INDEX)
     if cmd == 'list':
@@ -286,7 +317,7 @@ def main():
         write_pack(out_base, version, files)
         print('wrote', out_base + EXT_INDEX + '/' + EXT_DATA, 'files', len(files))
         return
-    raise SystemExit('usage: [--profile r40250|mt2009] list|extract|repack')
+    raise SystemExit('usage: [--profile r40250|mt2009] list|extract|repack|pack')
 
 
 if __name__ == '__main__':

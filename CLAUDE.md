@@ -9579,12 +9579,14 @@ only reports, and each needs a person:
   composify), and the render must come out equal to the merge.
 - Upstream's licence files, which this repository does not ship.
   `NOT_OURS` in the packager lets the drop check pass without them.
-A pack upstream rebuilt from the original game client (2.0.38's `pack/season2`,
-the Grotto and Catacomb maps) has no source here: `UPSTREAM_PACKS` in
-`tools/build_mt2009_client_update.py` names it and the release takes it byte
-for byte from `synced_client_package` (`--upstream`, which the publish
-workflow downloads). Add a pack there when a sync's client zip carries a new
-binary pack. Upstream's unit tests are not in the packages either. When a pure header
+A binary pack (2.0.38's `pack/season2`: the Grotto and Catacomb maps, the
+Catacomb's from the original game client) is kept here as files,
+`linux-port-mt2009/client-season2/` (1 541 files, `-text` in .gitattributes),
+and the client build writes it whole with `eterpack.py pack` whenever the
+folder changed (`SOURCE_PACKS` in `tools/build_mt2009_client_update.py`); the
+round trip must give the folder back byte for byte. Nothing is downloaded from
+upstream for it. When a sync's client zip carries a changed pack, extract both
+and bring the changed files into the folder. Upstream's unit tests are not in the packages either. When a pure header
 changes a constant, fix our test (2.2.19's PERFECT_BUDGET_PERCENT went from
 80 to 50). Afterwards, build both packages locally against the new upstream
 package and read them back.

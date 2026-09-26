@@ -22,3 +22,9 @@
 *.ico binary
 *.zip binary
 *.gz  binary
+
+# The client's season2 pack as files (tools/eterpack.py pack writes it): map
+# terrain, models and the text files beside them, byte for byte as the client
+# reads them - a CRLF turned into LF moves every offset in a .txt the client
+# parses, and a .raw is not text at all.
+linux-port-mt2009/client-season2/** -text

@@ -28,8 +28,8 @@ Ta wersja przenosi na naszą 2.2.21 wersję 2.2.21 projektu źródłowego (serwe
 i jego klienta 2.0.38, wziętą z jego paczek aktualizacji. Zostaje wszystko, co
 dodaliśmy wcześniej: okno zmiany bonusów pod klawiszem U, wierzchowce z pieczęci
 w ItemShopie, hostowanie w COOP bez hasła, serwer na VPS i linki do naszego
-repozytorium. Paczka mapy Groty i Katakumb (pack/season2) jest wzięta w całości
-z klienta projektu źródłowego.
+repozytorium. Paczka z mapami Groty i Katakumb (pack/season2) jest teraz w naszym
+repozytorium jako pliki i budujemy ją sami.
 
 ### Grota Wygnańców i Katakumby w kliencie
 
