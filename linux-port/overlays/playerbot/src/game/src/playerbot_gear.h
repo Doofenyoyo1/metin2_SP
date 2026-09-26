@@ -1113,7 +1113,7 @@ namespace
 
 	bool ManagePlayerBotEquipment(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
-		if (!ch || !ch->IsItemLoaded())
+		if (!ch || !ch->IsItemLoaded() || IsPlayerBotGearFrozen(ch))
 			return false;
 
 		// The Archer's stone mode, decided here because this pass is what
@@ -1269,9 +1269,7 @@ namespace
 
 		// Equipping is forbidden for 1.5 seconds after an attack or skill, or right after spawn.
 		// Hold bEquipPending and do not disrupt active combat.
-		if (dwNow - ch->GetLastAttackTime() <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY ||
-			dwNow - state.dwLastBotSkillTime <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY ||
-			(state.dwSpawnTime != 0 && dwNow - state.dwSpawnTime <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY))
+		if (IsPlayerBotEquipWindowShut(ch, state))
 		{
 			state.bEquipPending = true;
 			return false;
@@ -3646,6 +3644,9 @@ namespace
 	{
 		if (!ch || ch->GetWear(WEAR_WEAPON))
 			return ch && ch->GetWear(WEAR_WEAPON);
+		// Nothing bought that could not be put on (IsPlayerBotGearFrozen).
+		if (IsPlayerBotGearFrozen(ch))
+			return false;
 
 		// A weapon the bag already holds is put on, not bought a second time.
 		// The weapon merchant bought for any empty hand, and a new bot's hand
@@ -3699,6 +3700,10 @@ namespace
 
 	bool PrepareWeapon(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
+		// Transformed, the bot fights with the monster's attack and cannot put
+		// anything on (IsPlayerBotGearFrozen): whatever is in the hand stays.
+		if (IsPlayerBotGearFrozen(ch))
+			return true;
 		LPITEM equippedWeapon = ch->GetWear(WEAR_WEAPON);
 		// PlayerBotWeaponFitsNow and not IsPlayerBotWeapon: the Archer's dagger
 		// on a stone is the right weapon for the moment, not a profession

@@ -204,6 +204,23 @@ namespace
 	const int PLAYERBOT_SIDEKICK_LURE_BACK_RANGE = 350;
 	const DWORD PLAYERBOT_SIDEKICK_LURE_PAUSE_MS = 3000;
 	const DWORD PLAYERBOT_SIDEKICK_LURE_NOTHING_MS = 6000;
+	// A skill of its path standing at seventeen without Master: a Forgetting
+	// Book in its bag naming that skill is read within the first, and its
+	// owner is asked for one at most once per the second, per skill
+	// (ReadPlayerBotSidekickForgetBook).
+	const DWORD PLAYERBOT_SIDEKICK_FORGET_CHECK_MS = 3000;
+	const DWORD PLAYERBOT_SIDEKICK_FORGET_ASK_MS = 60 * 60 * 1000;
+#if defined(PLAYERBOT_ENGINE_MT2009)
+	// The engine's refusal names two ways past seventeen - "Uzyj Zwoju Powrotu
+	// Um. lub Ksiegi Zapomnienia" - and the scroll is the ItemShop's:
+	// reset_scroll.quest's 71003 takes one skill back to nothing with its
+	// points (ResetOneSkill, seventeen at most) and the next skill to reach
+	// seventeen turns Master for certain
+	// (reset_status_items.force_to_master_skill, read by SkillLevelUp). The
+	// quest asks which skill in a dialog a companion cannot answer; it takes
+	// the one that is stuck.
+	const DWORD PLAYERBOT_SIDEKICK_SKILL_RESET_SCROLL_VNUM = 71003;
+#endif
 
 	// What it picks up at the owner's side.
 	enum EPlayerBotSidekickLoot
@@ -344,13 +361,20 @@ namespace
 		DWORD dwLureStageSince;
 		DWORD dwNextLure;
 		unsigned int uLureCourses;
+		// The Forgetting Book (ReadPlayerBotSidekickForgetBook): its clock, when
+		// the owner was last asked for one, by skill, and the books it holds for
+		// a skill that is not stuck, told once.
+		DWORD dwNextForgetCheck;
+		std::map<DWORD, DWORD> mapForgetAskedAt;
+		std::set<DWORD> setForgetToldItems;
 		TPlayerBotSidekickRuntime()
 			: dwNextPartyCheck(0), dwNextService(0), dwNextLoot(0), dwNextCatchUp(0), dwLootVID(0),
 			  dwLootSince(0), dwNextProtect(0), bTrading(false), dwLastFoeVID(0), bHold(false), lHoldMap(0),
 			  lHoldX(0), lHoldY(0), bErrand(false), bErrandVisit(false), dwErrandSince(0), llErrandGold(0),
 			  dwGearSent(0), dwEqGen(0), llEqGoldSent(-1), dwEquipWaitUntil(0), dwOwnerFightSeenAt(0),
 			  dwNextFoeMemory(0), bLureStage(0), dwLureVID(0), iLurePacks(0), iLureMonsters(0), lLureAnchorX(0),
-			  lLureAnchorY(0), dwLureCourseSince(0), dwLureStageSince(0), dwNextLure(0), uLureCourses(0)
+			  lLureAnchorY(0), dwLureCourseSince(0), dwLureStageSince(0), dwNextLure(0), uLureCourses(0),
+			  dwNextForgetCheck(0)
 		{
 			memset(adwFoes, 0, sizeof(adwFoes));
 		}
@@ -3015,8 +3039,7 @@ namespace
 		}
 		SetPlayerBotSidekickPin(sk->GetPlayerID(), rt, item->GetID(), (BYTE)slot);
 		const DWORD now = get_dword_time();
-		const bool blowFresh = now - sk->GetLastAttackTime() <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY ||
-				now - state.dwLastBotSkillTime <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY;
+		const bool blowFresh = IsPlayerBotEquipWindowShut(sk, state);
 		bool worn = false;
 		if (!blowFresh && !item->isLocked() && !item->IsExchanging())
 		{
@@ -3398,6 +3421,12 @@ namespace
 			// "busy", for both of them.
 			else if (!sk->CanHandleItem())
 				answer = "Towarzysz jest teraz zajety (handel, magazyn albo kowal) - sprobuj za chwile.";
+			// A worn piece taken off a transformed companion stays off until the
+			// transformation ends (IsPlayerBotGearFrozen).
+			else if (strcmp(op, "odepnij") && IsPlayerBotGearFrozen(sk) &&
+					(IsPlayerBotSidekickEqWearPos(from) || IsPlayerBotSidekickEqWearPos(to) ||
+					(!strcmp(op, "ruch") && to == -1)))
+				answer = "Towarzysz jest teraz przemieniony - zmiana sprzetu poczeka do konca przemiany.";
 			else if (twoBags && !owner->CanHandleItem())
 				answer = "Zamknij najpierw handel, sklep albo magazyn.";
 			else if (!strcmp(op, "ruch"))
@@ -4533,6 +4562,182 @@ namespace
 				ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), spent, unspent, (int)ch->GetPoint(POINT_SKILL));
 	}
 
+	// What the next point at seventeen is worth: SkillLevelUp's own roll.
+	int GetPlayerBotSidekickMasterChance(LPCHARACTER ch)
+	{
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		int chance = MIN(100, 25 + 25 * ch->GetQuestFlag("skill_reset2.reset_count"));
+		if (ch->GetLevel() < 35)
+			chance += 20;
+		return MIN(100, chance);
+#else
+		return 25;	// 1 in 21 - 17
+#endif
+	}
+
+	// A skill at seventeen that did not turn Master, and the Forgetting Book
+	// to roll again (Hiob's screenshot of 26 September: Smoczy Skowyt and
+	// Pomoc Smoka at seventeen, nothing free - "ona zacznie uzywac OZ???";
+	// the operator: "bysmy mogli uzyc za nia ksiegi zapomnienia lub ona sama bedzie
+	// uzywac"). The engine rolls once, as a point takes a skill to seventeen
+	// (SkillLevelUp), and refuses every point after it; the book
+	// (ITEM_SKILLFORGET, the skill in its first socket, SkillLevelDown) takes
+	// the level back to sixteen with its point, and that point spent again is
+	// the next roll. The ordinary bots buy theirs out of their purse on a pass
+	// with a point in hand (ManagePlayerBotSkills); a companion has no purse
+	// and spends a point the moment it has one, so its skills at seventeen
+	// stood there for good. The book is its owner's to give - the trade or
+	// the bag window - and it reads it here, by itself: a book naming one of
+	// its skills that stands at seventeen, as the book would for a player.
+	// Its points spent by itself, the point goes straight back into that
+	// skill; spent by the owner, the point waits in the window for the
+	// owner's "+". A book for a skill that is not stuck stays in the bag - it
+	// would take a level for nothing - and a stuck skill with no book in the
+	// bag has the owner asked for one.
+	void ReadPlayerBotSidekickForgetBook(LPCHARACTER ch, const TPlayerBotSidekick& rec,
+			TPlayerBotSidekickRuntime& rt, DWORD dwNow)
+	{
+		if (dwNow < rt.dwNextForgetCheck)
+			return;
+		rt.dwNextForgetCheck = dwNow + PLAYERBOT_SIDEKICK_FORGET_CHECK_MS;
+		const DWORD base = GetPlayerBotSidekickSkillBase(ch);
+		if (base == 0 || ch->IsDead() || ch->IsPolymorphed() || !ch->IsItemLoaded() || ch->GetExchange())
+			return;
+		std::set<DWORD> stuck;
+		for (DWORD vnum = base; vnum < base + 6; ++vnum)
+			if (CSkillManager::instance().Get(vnum) && ch->GetSkillMasterType(vnum) == SKILL_NORMAL &&
+					ch->GetSkillLevel(vnum) >= PLAYERBOT_SKILL_MASTER_TRY_LEVEL && ch->GetSkillLevel(vnum) < 20)
+				stuck.insert(vnum);
+		if (stuck.empty())
+			return;
+		LPCHARACTER owner = GetPlayerBotSidekickOwnerChar(rec.dwOwnerPID);
+		char text[256];
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetType() != ITEM_SKILLFORGET || item->isLocked())
+				continue;
+			const DWORD skill = (DWORD)item->GetSocket(0);
+			if (stuck.find(skill) == stuck.end())
+			{
+				if (rt.setForgetToldItems.insert(item->GetID()).second)
+				{
+					const bool mine = skill >= base && skill < base + 6;
+					snprintf(text, sizeof(text), "Ta Ksiega Zapomnienia jest do umiejetnosci %s, %s - zostaje w plecaku.",
+							skill ? GetPlayerBotSkillName(skill) : "(zadnej)",
+							mine ? "a ta nie stoi na 17" : "ktorej nie mam");
+					SayPlayerBotSidekick(owner, text);
+				}
+				continue;
+			}
+			const int before = (int)ch->GetSkillLevel(skill);
+			const DWORD itemId = item->GetID();
+			ch->UseItem(TItemPos(INVENTORY, cell));
+			const int after = (int)ch->GetSkillLevel(skill);
+			if (after >= before)
+			{
+				sys_log(0, "PLAYERBOT_SIDEKICK: forget book refused pid=%u name=%s skill=%u level=%d item=%u",
+						ch->GetPlayerID(), ch->GetName(), skill, before, itemId);
+				return;
+			}
+			int rolled = after;
+			bool master = false;
+			if (!rec.bManualSkills && ch->GetPoint(POINT_SKILL) > 0)
+			{
+				ch->SkillLevelUp(skill);
+				rolled = (int)ch->GetSkillLevel(skill);
+				master = ch->GetSkillMasterType(skill) != SKILL_NORMAL;
+			}
+			sys_log(0, "PLAYERBOT_SIDEKICK: forget book pid=%u name=%s owner=%u skill=%u level=%d->%d->%d master=%d manual=%d chance=%d",
+					ch->GetPlayerID(), ch->GetName(), rec.dwOwnerPID, skill, before, after, rolled, master ? 1 : 0,
+					rec.bManualSkills ? 1 : 0, GetPlayerBotSidekickMasterChance(ch));
+			if (rec.bManualSkills)
+				snprintf(text, sizeof(text), "Ksiega Zapomnienia przeczytana: %s na %d. Dodaj punkt w oknie "
+						"umiejetnosci - to proba na mistrza (szansa %d%%).", GetPlayerBotSkillName(skill), after,
+						GetPlayerBotSidekickMasterChance(ch));
+			else if (master)
+				snprintf(text, sizeof(text), "Ksiega Zapomnienia przeczytana: %s - mistrz!", GetPlayerBotSkillName(skill));
+			else
+				snprintf(text, sizeof(text), "Ksiega Zapomnienia przeczytana: %s znow na %d, bez mistrza. "
+						"Kolejna ksiega to kolejna proba (szansa %d%%).", GetPlayerBotSkillName(skill), rolled,
+						GetPlayerBotSidekickMasterChance(ch));
+			SayPlayerBotSidekick(owner, text);
+			rt.mapForgetAskedAt[skill] = dwNow;
+			return;
+		}
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		// No book: the skill reset scroll, for the stuck skill of the lowest
+		// vnum - after the book, which is a roll where the scroll is a Master
+		// bought outright.
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetVnum() != PLAYERBOT_SIDEKICK_SKILL_RESET_SCROLL_VNUM || item->isLocked())
+				continue;
+			const DWORD skill = *stuck.begin();
+			const int before = (int)ch->GetSkillLevel(skill);
+			if (!ch->ResetOneSkill(skill))
+				return;
+			ch->SetQuestFlag("reset_status_items.force_to_master_skill",
+					ch->GetQuestFlag("reset_status_items.force_to_master_skill") + 1);
+			item->SetCount(item->GetCount() - 1);
+			bool master = false;
+			if (!rec.bManualSkills)
+			{
+				for (int guard = 0; guard < 20 && ch->GetPoint(POINT_SKILL) > 0 &&
+						ch->GetSkillMasterType(skill) == SKILL_NORMAL && ch->GetSkillLevel(skill) < 17; ++guard)
+				{
+					const int was = (int)ch->GetSkillLevel(skill);
+					ch->SkillLevelUp(skill);
+					if ((int)ch->GetSkillLevel(skill) == was && ch->GetSkillMasterType(skill) == SKILL_NORMAL)
+						break;
+				}
+				master = ch->GetSkillMasterType(skill) != SKILL_NORMAL;
+			}
+			ch->Save();
+			sys_log(0, "PLAYERBOT_SIDEKICK: skill reset scroll pid=%u name=%s owner=%u skill=%u level=%d->%d master=%d manual=%d points=%d",
+					ch->GetPlayerID(), ch->GetName(), rec.dwOwnerPID, skill, before, (int)ch->GetSkillLevel(skill),
+					master ? 1 : 0, rec.bManualSkills ? 1 : 0, (int)ch->GetPoint(POINT_SKILL));
+			if (rec.bManualSkills)
+				snprintf(text, sizeof(text), "Zwoj Powrotu Umiejetnosci uzyty: %s od zera, punkty czekaja w oknie "
+						"umiejetnosci. Pierwsza umiejetnosc, ktora dojdzie do 17, zostanie mistrzem.",
+						GetPlayerBotSkillName(skill));
+			else if (master)
+				snprintf(text, sizeof(text), "Zwoj Powrotu Umiejetnosci uzyty: %s - mistrz!", GetPlayerBotSkillName(skill));
+			else
+				snprintf(text, sizeof(text), "Zwoj Powrotu Umiejetnosci uzyty: %s na %d. Mistrz przy 17.",
+						GetPlayerBotSkillName(skill), (int)ch->GetSkillLevel(skill));
+			SayPlayerBotSidekick(owner, text);
+			rt.mapForgetAskedAt[skill] = dwNow;
+			return;
+		}
+#endif
+		// Nothing to read: its owner is asked, once in a while, in one line
+		// for every skill whose clock has run out.
+		if (!owner || rec.bMode != PLAYERBOT_SIDEKICK_FOLLOW)
+			return;
+		std::string names;
+		for (std::set<DWORD>::const_iterator it = stuck.begin(); it != stuck.end(); ++it)
+		{
+			std::map<DWORD, DWORD>::iterator asked = rt.mapForgetAskedAt.find(*it);
+			if (asked != rt.mapForgetAskedAt.end() && dwNow - asked->second < PLAYERBOT_SIDEKICK_FORGET_ASK_MS)
+				continue;
+			rt.mapForgetAskedAt[*it] = dwNow;
+			if (!names.empty())
+				names += ", ";
+			names += GetPlayerBotSkillName(*it);
+		}
+		if (names.empty())
+			return;
+		snprintf(text, sizeof(text), "Na 17 bez mistrza: %s. Daj mi Ksiege Zapomnienia tej umiejetnosci"
+#if defined(PLAYERBOT_ENGINE_MT2009)
+				" (albo Zwoj Powrotu Umiejetnosci)"
+#endif
+				" - uzyje jej i sprobuje mistrza (szansa %d%%).", names.c_str(),
+				GetPlayerBotSidekickMasterChance(ch));
+		SayPlayerBotSidekick(owner, text);
+	}
+
 	// A fight where it stands - at its owner's side, or at the spot it keeps -
 	// with the straight walk a map with no navigation grid needs.
 	bool FightPlayerBotSidekickFoe(LPCHARACTER ch, TPlayerBotAIState& state, TPlayerBotSidekickRuntime& rt,
@@ -5025,6 +5230,7 @@ namespace
 		KeepPlayerBotSidekickPath(ch, *rec);
 		TopUpPlayerBotSidekickSkillPoints(ch);
 		TPlayerBotSidekickRuntime& rt = s_mapPlayerBotSidekickRuntime[ch->GetPlayerID()];
+		ReadPlayerBotSidekickForgetBook(ch, *rec, rt, dwNow);
 		if (HandlePlayerBotSidekickTrade(ch, state, *rec, rt, dwNow))
 			return true;
 		if (rec->bMode != PLAYERBOT_SIDEKICK_FOLLOW)

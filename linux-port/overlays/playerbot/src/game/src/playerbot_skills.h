@@ -750,8 +750,13 @@ namespace
 		}
 
 		// Before the early return below: a bot with no free point is exactly
-		// the bot whose points are in the wrong place.
-		ReallocatePlayerBotSkillPoint(ch, state, build, dwNow);
+		// the bot whose points are in the wrong place. Not a companion: both
+		// this and the stuck skill's book below take any Forgetting Book in
+		// the bag and write their own skill into it, and a companion's book is
+		// its owner's gift for the skill it names
+		// (ReadPlayerBotSidekickForgetBook).
+		if (!sidekick)
+			ReallocatePlayerBotSkillPoint(ch, state, build, dwNow);
 
 		if (ch->GetPoint(POINT_SKILL) <= 0)
 			return;
@@ -772,7 +777,7 @@ namespace
 		// Forgetting Scroll instead of eating the points to twenty: the engine
 		// rolls at every point from seventeen on, and a scroll from the market
 		// buys the same roll back for the price of one level.
-		const DWORD dwStuckSkill = GetPlayerBotStuckSkill(ch);
+		const DWORD dwStuckSkill = sidekick ? 0 : GetPlayerBotStuckSkill(ch);
 		if (dwStuckSkill != 0 && !UsePlayerBotForgetScroll(ch, dwStuckSkill) &&
 				BuyPlayerBotForgetScroll(ch, dwStuckSkill))
 			UsePlayerBotForgetScroll(ch, dwStuckSkill);

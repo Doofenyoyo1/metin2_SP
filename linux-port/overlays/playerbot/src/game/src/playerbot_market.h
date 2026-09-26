@@ -213,6 +213,15 @@ namespace
 		// - and only while the skill can still be read up.
 		// A Forgetting Scroll on somebody's counter is what a bot past the old
 		// woman's thirty with a skill stuck at seventeen came to market for.
+		// A companion's book must name the skill it reads it for
+		// (ReadPlayerBotSidekickForgetBook); the others write theirs in.
+		if (offer->GetVnum() == PLAYERBOT_SKILL_FORGET_SCROLL_VNUM && IsPlayerBotSidekickPID(ch->GetPlayerID()))
+		{
+			const DWORD skill = (DWORD)offer->GetSocket(0);
+			return skill != 0 && ch->GetSkillMasterType(skill) == SKILL_NORMAL &&
+					ch->GetSkillLevel(skill) >= PLAYERBOT_SKILL_MASTER_TRY_LEVEL && ch->GetSkillLevel(skill) < 20 &&
+					ch->CountSpecifyItem(PLAYERBOT_SKILL_FORGET_SCROLL_VNUM) == 0;
+		}
 		if (offer->GetVnum() == PLAYERBOT_SKILL_FORGET_SCROLL_VNUM)
 			return GetPlayerBotStuckSkill(ch) != 0 &&
 					ch->GetLevel() > PLAYERBOT_SKILL_RESET_MAX_LEVEL &&

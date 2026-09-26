@@ -8,6 +8,7 @@
 #include "playerbot_persona_rules.h"
 #include "playerbot_lure_order_rules.h"
 #include "playerbot_truce_rules.h"
+#include "playerbot_war_rules.h"
 
 #include "char.h"
 #include "skill.h"
@@ -156,6 +157,10 @@ namespace { bool HandlePlayerBotConversation(LPCHARACTER player, LPCHARACTER bot
 // gathering outside his sight, the fight together. After demon_tower.h, whose
 // fight and keeping alive it borrows.
 #include "playerbot_boss_raid.h"
+// The Devil's Catacomb, raided by a party of one kingdom: the gathering at
+// the Guardian, the key on the first floor and the six floors after it.
+// After boss_raid.h, beside the tower whose scan-free fight it borrows.
+#include "playerbot_catacomb.h"
 // The player's own companion, "Towarzysz": the owner's party, the owner's
 // fights, the owner's drops, the owner's trades. Before companions.h, whose
 // IsPlayerBotHeldForCompany asks whether a bot is one.
@@ -1531,6 +1536,9 @@ namespace
 		// A mercenary's contract keeps its own party, by its own rules.
 		if (IsPlayerBotOnMercContract(ch->GetPlayerID()))
 			return;
+		// And so does the Catacomb's raid: its party is what the key takes in.
+		if (IsPlayerBotCatacombRaider(ch->GetPlayerID()))
+			return;
 		// Iwakura's companion leaves at eighty percent of its bag and goes to
 		// empty it ("opuszcza grupe i naturalnie przechodzi w osobowosc
 		// Handlarza"). Asked before the cohort, which a full bag also leaves,
@@ -1810,7 +1818,7 @@ namespace
 	// socket is read back afterwards to learn which way the roll went.
 	void ManagePlayerBotSoulStones(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
-		if (!ch || !ch->IsItemLoaded() || dwNow < state.dwNextSoulStoneTime)
+		if (!ch || !ch->IsItemLoaded() || dwNow < state.dwNextSoulStoneTime || IsPlayerBotGearFrozen(ch))
 			return;
 		state.dwNextSoulStoneTime = dwNow + PLAYERBOT_SOUL_STONE_CHECK_INTERVAL;
 
@@ -4732,6 +4740,13 @@ void CPlayerBotManager::SpawnChannelArrivals(DWORD)
 }
 #endif
 
+namespace
+{
+	// When each bot was first seen standing in a pocket
+	// (PLAYERBOT_NAV_POCKET_PERMILLE), for the local rescue's grace.
+	std::map<DWORD, DWORD> s_mapPlayerBotPocketSince;
+}
+
 void CPlayerBotManager::Update()
 {
 	const DWORD dwNow = get_dword_time();
@@ -4808,7 +4823,9 @@ void CPlayerBotManager::Update()
 	// The world's bosses: a raid called to every one standing with none
 	// (playerbot_boss_raid.h).
 	ManagePlayerBotBossRaids(dwNow);
-	WritePlayerBotGuildStatus(dwNow);
+	// The Devil's Catacomb (playerbot_catacomb.h).
+	ManagePlayerBotCatacombRaids(dwNow);
+WritePlayerBotGuildStatus(dwNow);
 	WritePlayerBotItemShopCensus(dwNow);
 	// The ore veins, once a minute for the whole world. A vein deletes itself
 	// after 7-15 minutes and nothing in this world's regen files puts one back -
@@ -5112,7 +5129,11 @@ void CPlayerBotManager::Update()
 		// planner snaps a start by ("boty po zginieciu i odrzuceniu nie sa w
 		// stanie wrocic do walki", prodnathin, 25 September). A player has
 		// "Uwolnij sie" for it (/escape), a bot this.
-		const bool bTowerFloor = IsPlayerBotDemonTowerInstance(ch->GetMapIndex());
+		// And the Devil's Catacomb, whose floors are rooms of one map as the
+		// tower's are, the first one included: no pocket rule, a wider look,
+		// and no village entry point to fall back on.
+		const bool bTowerFloor = IsPlayerBotDemonTowerInstance(ch->GetMapIndex()) ||
+				IsPlayerBotCatacombInstance(ch->GetMapIndex()) || ch->GetMapIndex() == PLAYERBOT_MAP_CATACOMB;
 		if (playerbot_empire_rules::IsKingdomMap(ch->GetMapIndex()) ||
 				IsPlayerBotMonkeyMap(ch->GetMapIndex()) ||
 				IsPlayerBotFrontierMap(ch->GetMapIndex()) || bTowerFloor)
@@ -5129,13 +5150,43 @@ void CPlayerBotManager::Update()
 					!bCrossingJoanGate &&
 					IsPlayerBotPositionBlocked(currentMap, ch->GetX(), ch->GetY());
 
-			if (bOutOfBounds || bInsideObstacle)
+			// And a pocket (PLAYERBOT_NAV_POCKET_PERMILLE): on the maps whose
+			// ground is one piece - not a Monkey Dungeon's chambers, not the
+			// tower's rooms - a bot is never somewhere walled off from the rest
+			// of the map on purpose. A companion stands where its owner does, a
+			// bot in a person's party goes where the person leads, and a raider
+			// is placed by its raid: none of them is taken out.
+			const bool bPocketsMatter = !bTowerFloor && currentMap != PLAYERBOT_MAP_DEMON_TOWER &&
+					!IsPlayerBotMonkeyMap(currentMap);
+			bool bInPocket = false;
+			if (bPocketsMatter && !bOutOfBounds && !bInsideObstacle &&
+					navigation.IsInPocketWorld(ch->GetX(), ch->GetY()) &&
+					!IsPlayerBotSidekickPID(ch->GetPlayerID()) &&
+					!(ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty())) &&
+					!IsPlayerBotOnTowerBusiness(ch, state))
+			{
+				std::map<DWORD, DWORD>::iterator since = s_mapPlayerBotPocketSince.find(ch->GetPlayerID());
+				if (since == s_mapPlayerBotPocketSince.end())
+					s_mapPlayerBotPocketSince[ch->GetPlayerID()] = dwNow;
+				else if (dwNow - since->second >= PLAYERBOT_NAV_POCKET_GRACE_MS)
+					bInPocket = true;
+			}
+			else if (!s_mapPlayerBotPocketSince.empty())
+				s_mapPlayerBotPocketSince.erase(ch->GetPlayerID());
+
+			if (bOutOfBounds || bInsideObstacle || bInPocket)
 			{
 				const long oldX = ch->GetX();
 				const long oldY = ch->GetY();
 				PIXEL_POSITION safe;
 				bool foundSafe = false;
-				if (bInsideObstacle)
+				// Out of a wall onto the map's own ground, not into the pocket
+				// behind it: the nearest open cell of any component was one of
+				// the two ways into Hwang's.
+				if ((bInsideObstacle || bInPocket) && bPocketsMatter)
+					foundSafe = navigation.FindNearestGroundOutsidePocketsWorld(
+							ch->GetX(), ch->GetY(), PLAYERBOT_NAV_POCKET_RESCUE_CELLS, safe, ch->GetPlayerID());
+				if (!foundSafe && bInsideObstacle)
 					foundSafe = navigation.FindNearestWalkableWorld(
 							ch->GetX(), ch->GetY(), 20, safe, ch->GetPlayerID());
 				// A floor has no entry point of its own to fall back on, and the
@@ -5175,8 +5226,10 @@ void CPlayerBotManager::Update()
 				ch->Show(currentMap, safe.x, safe.y, 0);
 				ch->Stop();
 				ch->SendMovePacket(FUNC_MOVE, 0, safe.x, safe.y, 0, dwNow);
+				s_mapPlayerBotPocketSince.erase(ch->GetPlayerID());
 				sys_err("PLAYERBOT_NAV: locally rescued pid=%u name=%s reason=%s map=%ld from=(%ld,%ld) to=(%ld,%ld)",
-						ch->GetPlayerID(), ch->GetName(), bOutOfBounds ? "bounds" : "blocked",
+						ch->GetPlayerID(), ch->GetName(),
+						bOutOfBounds ? "bounds" : (bInsideObstacle ? "blocked" : "pocket"),
 						currentMap, oldX, oldY, safe.x, safe.y);
 				continue;
 			}
@@ -5415,8 +5468,16 @@ void CPlayerBotManager::Update()
 		// Umarly Rozpruwacz's casket lay on the snow (Ciapek, 16 September). The
 		// loot window a broken stone gets - PLAYERBOT_METIN_LOOT_DASH_TIME within
 		// PLAYERBOT_METIN_LOOT_DASH_RANGE, whatever else is going on - is its.
+		// Only when the boss himself is dead or gone: a target given up
+		// (ShouldPlayerBotAbandonFight) leaves curTarget empty with the boss
+		// alive, and every raider of the Catacomb's self-test logged "boss
+		// down" beside Tartar at full strength and ran for a loot that was not
+		// there.
+		LPCHARACTER progressBoss = state.dwFightProgressVID != 0 && state.bFightProgressBoss
+				? CHARACTER_MANAGER::instance().Find(state.dwFightProgressVID) : NULL;
 		if (state.dwFightProgressVID != 0 && state.bFightProgressBoss &&
 				(curTarget == NULL || curTarget->IsDead()) &&
+				(progressBoss == NULL || progressBoss->IsDead()) &&
 				(state.dwStoneBrokenTime == 0 || dwNow - state.dwStoneBrokenTime > PLAYERBOT_METIN_LOOT_DASH_TIME))
 		{
 			state.dwStoneBrokenTime = dwNow;
@@ -5466,6 +5527,13 @@ void CPlayerBotManager::Update()
 		// gathering and the fight. Beside the tower's hook and for the same
 		// reasons - after the loot, so his drops are picked up.
 		if (ManagePlayerBotBossRaid(ch, state, dwNow))
+			continue;
+
+		// The Devil's Catacomb (playerbot_catacomb.h): a raider's gathering at
+		// the Guardian, the key on the first floor and every floor after it.
+		// Beside the tower's and the boss's hooks, after the loot for the key
+		// and the totem.
+		if (ManagePlayerBotCatacomb(ch, state, dwNow))
 			continue;
 
 		// Horse medals are equally real resources: a bot leaves combat, walks to
@@ -6195,7 +6263,12 @@ bool CPlayerBotManager::WarpBot(LPCHARACTER bot, long x, long y, long lPrivateMa
 		return false;
 	}
 	LPDUNGEON before = bot->GetDungeon();
-	if (!TransitionPlayerBotMap(bot, it->second, lMapIndex, x, y, dwNow, "warpset"))
+	// Into an instance the move is a dungeon's jump, and a party's jump
+	// (CDungeon::JumpParty) walks the party's own member list while it warps
+	// each of them: a bot that left its party on the way would take itself out
+	// of the list being walked. "dungeon_jump" keeps the party.
+	if (!TransitionPlayerBotMap(bot, it->second, lMapIndex, x, y, dwNow,
+			lMapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN ? "dungeon_jump" : "warpset"))
 		return false;
 	LPDUNGEON after = lMapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN
 			? CDungeonManager::instance().FindByMapIndex(lMapIndex) : NULL;

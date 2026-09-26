@@ -145,7 +145,10 @@ namespace
 	// The bot guilds' Demon Tower raids (the TOWER key), playerbot_demon_tower.h.
 	bool s_bPlayerBotTowerRaids = true;
 	bool s_bPlayerBotTowerRaidsReported = true;
-	// The bots' ItemShop purchases (the ISHOP key), playerbot_itemshop.h.
+	// The Devil's Catacomb's raids (the CATACOMB key), playerbot_catacomb.h.
+	bool s_bPlayerBotCatacombRaids = true;
+	bool s_bPlayerBotCatacombRaidsReported = true;
+// The bots' ItemShop purchases (the ISHOP key), playerbot_itemshop.h.
 	bool s_bPlayerBotItemShop = true;
 	bool s_bPlayerBotItemShopReported = true;
 	// Whether a bot's stand may stand in a second village too (the SHOP_M2
@@ -216,6 +219,7 @@ namespace
 		s_bPlayerBotLifeSchedule = false;
 		s_bPlayerBotGuildWars = true;
 		s_bPlayerBotTowerRaids = true;
+		s_bPlayerBotCatacombRaids = true;
 		s_bPlayerBotItemShop = true;
 		s_bPlayerBotShopsInM2 = false;
 		s_bPlayerBotPersona = true;
@@ -344,7 +348,18 @@ namespace
 			s_bPlayerBotTowerRaids = enabled;
 			return;
 		}
-		if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
+		if (PlayerBotWeightNameEquals(szKey, "CATACOMB"))
+		{
+			const bool enabled = value != 0;
+			if (enabled != s_bPlayerBotCatacombRaidsReported)
+			{
+				sys_log(0, "PLAYERBOT_CONFIG: catacomb raids %s", enabled ? "on" : "off");
+				s_bPlayerBotCatacombRaidsReported = enabled;
+			}
+			s_bPlayerBotCatacombRaids = enabled;
+			return;
+		}
+if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 		{
 			const bool enabled = value != 0;
 			if (enabled != s_bPlayerBotItemShopReported)
@@ -529,6 +544,8 @@ namespace
 			return s_bPlayerBotGuildWars ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "TOWER"))
 			return s_bPlayerBotTowerRaids ? 1 : 0;
+		if (PlayerBotWeightNameEquals(szKey, "CATACOMB"))
+			return s_bPlayerBotCatacombRaids ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			return s_bPlayerBotItemShop ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "SHOP_M2"))
@@ -584,6 +601,7 @@ namespace
 				PlayerBotWeightNameEquals(szKey, "LIFE") ||
 				PlayerBotWeightNameEquals(szKey, "WARS") ||
 				PlayerBotWeightNameEquals(szKey, "TOWER") ||
+				PlayerBotWeightNameEquals(szKey, "CATACOMB") ||
 				PlayerBotWeightNameEquals(szKey, "ISHOP") ||
 				PlayerBotWeightNameEquals(szKey, "SHOP_M2") ||
 				PlayerBotWeightNameEquals(szKey, "PERSONA"))
@@ -1060,6 +1078,12 @@ namespace
 	bool IsPlayerBotTowerRaidsEnabled()
 	{
 		return s_bPlayerBotTowerRaids;
+	}
+
+	// The CATACOMB switch, asked by ManagePlayerBotCatacombRaids.
+	bool IsPlayerBotCatacombRaidsEnabled()
+	{
+		return s_bPlayerBotCatacombRaids;
 	}
 
 	// The ISHOP switch, asked by ManagePlayerBotItemShop.

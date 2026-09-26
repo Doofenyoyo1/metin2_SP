@@ -314,7 +314,8 @@ namespace
 						mapIndex != PLAYERBOT_MAP_DEMON_TOWER &&
 						mapIndex != PLAYERBOT_MAP_FIRE_LAND &&
 						mapIndex != PLAYERBOT_MAP_GROTTO_V1 &&
-						mapIndex != PLAYERBOT_MAP_GROTTO_V2)
+						mapIndex != PLAYERBOT_MAP_GROTTO_V2 &&
+						mapIndex != PLAYERBOT_MAP_CATACOMB)
 					return false;
 
 				if (m_initialized && m_mapIndex == mapIndex)
@@ -379,6 +380,7 @@ namespace
 							++walkableCount;
 					}
 				}
+				m_walkableCells = (DWORD)walkableCount;
 
 				BuildClearance();
 				const DWORD componentCount = BuildComponents();
@@ -570,6 +572,63 @@ namespace
 				if (!FindNearestWalkableCell(tx, ty, 2, 0, 0))
 					return false;
 				return m_component[Index(tx, ty)] == component;
+			}
+
+			// A component under PLAYERBOT_NAV_POCKET_PERMILLE of the map's
+			// walkable ground (see there).
+			bool IsPocketComponent(DWORD component) const
+			{
+				return component != 0 && component < m_componentCells.size() &&
+						(unsigned long long)m_componentCells[component] * 1000ULL <
+						(unsigned long long)m_walkableCells * PLAYERBOT_NAV_POCKET_PERMILLE;
+			}
+
+			bool IsInPocketWorld(long x, long y) const
+			{
+				return IsPocketComponent(GetComponentAtWorld(x, y, 1));
+			}
+
+			// The nearest open cell that is no pocket's, ring by ring, as
+			// FindNearestWalkableCell looks.
+			bool FindNearestGroundOutsidePocketsWorld(long x, long y, int maxRadiusCells,
+					PIXEL_POSITION& out, DWORD seed = 0) const
+			{
+				if (!m_initialized)
+					return false;
+				int originX, originY;
+				WorldToCell(x, y, originX, originY);
+				for (int radius = 0; radius <= maxRadiusCells; ++radius)
+				{
+					bool found = false;
+					DWORD bestTie = 0xffffffffU;
+					int bestX = originX;
+					int bestY = originY;
+					for (int gy = originY - radius; gy <= originY + radius; ++gy)
+						for (int gx = originX - radius; gx <= originX + radius; ++gx)
+						{
+							if (std::max(abs(gx - originX), abs(gy - originY)) != radius ||
+									IsBlockedCell(gx, gy))
+								continue;
+							const int index = Index(gx, gy);
+							if (m_component[index] == 0 || IsPocketComponent(m_component[index]))
+								continue;
+							const DWORD tie = PlayerBotNavHash(seed ^ (DWORD)index);
+							if (!found || tie < bestTie)
+							{
+								found = true;
+								bestTie = tie;
+								bestX = gx;
+								bestY = gy;
+							}
+						}
+					if (found)
+					{
+						CellToWorld(bestX, bestY, out.x, out.y);
+						out.z = 0;
+						return true;
+					}
+				}
+				return false;
 			}
 
 			DWORD GetComponentAtWorld(long x, long y, int maxRadiusCells = 4) const
@@ -1223,6 +1282,7 @@ namespace
 			{
 				DWORD component = 0;
 				std::vector<int> queue;
+				m_componentCells.assign(1, 0);
 				const int moveX[8] = { 1, 1, 0, -1, -1, -1, 0, 1 };
 				const int moveY[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
 
@@ -1258,6 +1318,7 @@ namespace
 								queue.push_back(nextIndex);
 							}
 						}
+						m_componentCells.push_back((DWORD)queue.size());
 					}
 				}
 				return component;
@@ -1797,6 +1858,10 @@ namespace
 			std::vector<BYTE> m_water;
 			std::vector<BYTE> m_clearance;
 			std::vector<DWORD> m_component;
+			// Cells in each component (by label, 0 unused), and on the map: what
+			// IsPocketComponent measures by.
+			std::vector<DWORD> m_componentCells;
+			DWORD m_walkableCells = 0;
 			std::vector<uint16_t> m_nodeToken;
 			std::vector<int> m_nodeCost;
 			std::vector<int> m_parent;

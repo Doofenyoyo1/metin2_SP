@@ -17,6 +17,15 @@
 -- Floor 4: the maze and the rune stake (30104). Floor 5: Tartar (2591), whose
 -- totem (30312) goes to the obelisk (30102). Floor 6: Charon (2597) and every
 -- monster. Floor 7: Azrael (2598) and every monster. Sixty minutes from floor 2.
+--
+-- 2.2.21: a party of bots runs it too (playerbot_catacomb.h). The three windows
+-- a character passes - the key on the statue, the turtle rock, the rune stake -
+-- ask pc.is_playerbot() (playerbotify.py) and let a bot through without the
+-- dialog it has no client to answer; a person gets them as before. And the
+-- move to floor 3 is the dungeon's own timer, not the clicker's: a clicker
+-- without a Dried Head is the first one exit_all_by_item_group sends out, and
+-- its timer then found no dungeon and did nothing, for a person as much as for
+-- a bot - the run stood until its sixtieth minute.
 quest devilcatacomb_zone begin
 	state start begin
 	
@@ -234,10 +243,12 @@ quest devilcatacomb_zone begin
 				end
 
 				item.remove()
-				say(gameforge.devilcatacomb_zone._190_say)
-				wait()
-				say(gameforge.devilcatacomb_zone._200_say)
-				wait()
+				if not pc.is_playerbot() then
+					say(gameforge.devilcatacomb_zone._190_say)
+					wait()
+					say(gameforge.devilcatacomb_zone._200_say)
+					wait()
+				end
 				d.new_jump_party (setting.map_idx, setting.floor2_entry.x + setting.base.x  , setting.floor2_entry.y + setting.base.y )
 				d.setqf2("devilcatacomb_zone","level", 2)
 				d.setf ("level",2)
@@ -326,30 +337,38 @@ quest devilcatacomb_zone begin
 			
 			if d.getf("devilcatacomb_floor2_stone_clicked") == 0 then
 				if not devilcatacomb_zone.is_dc2_doors_clear () then
-					say(gameforge.devilcatacomb_zone._220_say)
-					wait ()
+					if not pc.is_playerbot() then
+						say(gameforge.devilcatacomb_zone._220_say)
+						wait ()
+					end
 					return
 				end
-				say(gameforge.devilcatacomb_zone._230_say)
-				wait()
-				say(gameforge.devilcatacomb_zone._240_say)
-				wait()
-				local s = select(gameforge.devilcatacomb_zone._150_select, gameforge.devilcatacomb_zone._160_select)
+				local s = 1
+				if not pc.is_playerbot() then
+					say(gameforge.devilcatacomb_zone._230_say)
+					wait()
+					say(gameforge.devilcatacomb_zone._240_say)
+					wait()
+					s = select(gameforge.devilcatacomb_zone._150_select, gameforge.devilcatacomb_zone._160_select)
+				end
 				if s == 1 then
 					if d.getf("devilcatacomb_floor2_stone_clicked") == 0 then
 						d.setf("devilcatacomb_floor2_stone_clicked", 1)
 						d.setqf2("devilcatacomb_zone","last_exit_time", get_global_time())
 						d.set_item_group ("reapers_credit", 3, setting.reapers_credit3, 1, setting.reapers_credit2, 1, setting.reapers_credit1, 1)
 						d.say_diff_by_item_group("reapers_credit", gameforge.devilcatacomb_zone._250_say, gameforge.devilcatacomb_zone._260_say)
-						timer ("devilcatacomb_floor3_enter_timer", 7)
+						server_timer ("devilcatacomb_floor3_enter_timer", 7, d.get_map_index())
 					end
 				end
-			else
+			elseif not pc.is_playerbot() then
 				say(gameforge.devilcatacomb_zone._270_say)
 			end
 		end
-		
-		when devilcatacomb_floor3_enter_timer.timer begin
+
+		when devilcatacomb_floor3_enter_timer.server_timer begin
+			if not d.select(get_server_timer_arg()) then
+				return
+			end
 			local setting = devilcatacomb_zone.setting()
 			d.set_warp_location (65, 5914, 992)
 			d.exit_all_by_item_group ("reapers_credit")
@@ -359,7 +378,7 @@ quest devilcatacomb_zone begin
 			d.setf("level",3)
 			d.setqf2("devilcatacomb_zone","level", 3)
 			d.regen_file (setting.mob_regen_file_path.."dc_3f_regen.txt")
-			timer("warp_timer",3)
+			server_timer("devilcatacomb_warp_notice_timer", 3, d.get_map_index())
 			
 			local position = setting.floor3_stone_pos
 		
@@ -373,11 +392,25 @@ quest devilcatacomb_zone begin
 		
 			local vid = d.spawn_mob( setting.floor3_stone, position[n][1], position[n][2])
 			d.set_unique ("real",vid)
-			if (is_test_server()) then
-				-- real stone pos
-				chat (position[n][1],position[n][2])
+		end
+
+		-- warp_timer's notice, for the moves a server timer makes.
+		when devilcatacomb_warp_notice_timer.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				local level = d.getf("level")
+				local level_switch = {
+					[3] = gameforge.devilcatacomb_zone._60_say,
+					[4] = gameforge.devilcatacomb_zone._70_say,
+					[5] = gameforge.devilcatacomb_zone._80_say,
+					[6] = gameforge.devilcatacomb_zone._90_say,
+				}
+				local t = 3600 -(get_global_time() - d.getf("enter_time"))
+				local t_r = math.mod (t, 60)
+				local t_m = (t - t_r) / 60
+				d.notice ( level_switch[level] )
+				d.notice(string.format(gameforge.devilcatacomb_zone._20_say, t_m))
+				d.set_warp_location (0, 0, 0)
 			end
-	
 		end
 
 		when devilcatacomb3_stone.kill begin
@@ -413,8 +446,10 @@ quest devilcatacomb_zone begin
 		when devilcatacomb_floor4_stone.click begin
 			local setting = devilcatacomb_zone.setting()
 			local n = number (1,5)
-			say(gameforge.devilcatacomb_zone._300_say)
-			wait()
+			if not pc.is_playerbot() then
+				say(gameforge.devilcatacomb_zone._300_say)
+				wait()
+			end
 			if (is_test_server()) then
 				-- devil_king pos
 				chat (setting.devil_king_pos[n][1], setting.devil_king_pos[n][2])

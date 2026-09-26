@@ -459,12 +459,15 @@ namespace
 		// which asks nothing about the level gap.
 		{
 			const long rowHome = GetPlayerBotHuntingMobHome(GetPlayerBotBiologistHuntMob(ch, true));
-			if (rowHome != 0 && IsPlayerBotFrontierMapIndex(rowHome) && IsPlayerBotMapHostedHere(rowHome))
+			if (rowHome != 0 && IsPlayerBotFrontierMapIndex(rowHome) && IsPlayerBotMapHostedHere(rowHome) &&
+					!(rowHome == PLAYERBOT_MAP_DEMON_TOWER && IsPlayerBotTowerGroundClosedFor(ch)))
 				return rowHome;
 		}
 		// And the military trial is in the Demon Tower, for the same reason: the
 		// bot hunts where the trial is, whatever its level would otherwise say.
-		if (IsPlayerBotOnMilitaryHorseTrial(ch))
+		// Not while another kingdom's raid gathers on the ground floor
+		// (IsPlayerBotTowerGroundClosedFor), which would only send it out again.
+		if (IsPlayerBotOnMilitaryHorseTrial(ch) && !IsPlayerBotTowerGroundClosedFor(ch))
 			return PLAYERBOT_MAP_DEMON_TOWER;
 
 		const BYTE level = ch->GetLevel();
@@ -548,7 +551,8 @@ namespace
 		// PlayerBotMapHasMetinStones says no anyway, so nobody is sent there to
 		// break one - the operator asked that the dungeon stay unrun until it is
 		// worked out properly.
-		if (level >= PLAYERBOT_DEMON_TOWER_MIN_LEVEL && (draw % 4U) == 0 && !stoneHunter)
+		if (level >= PLAYERBOT_DEMON_TOWER_MIN_LEVEL && (draw % 4U) == 0 && !stoneHunter &&
+				!IsPlayerBotTowerGroundClosedFor(ch))
 			return PLAYERBOT_MAP_DEMON_TOWER;
 		if (level >= PLAYERBOT_SPIDER_V2_MIN_LEVEL)
 		{
@@ -1035,7 +1039,11 @@ namespace
 		// player's: a bot off to town, or put back on its feet by the sectree
 		// rescue, is still in it - the rescue after a Demon Tower warp left a
 		// player alone in his own party (sizowski, 14 September).
-		if (ch->GetParty() && !IsPlayerBotHumanLedParty(ch->GetParty()))
+		// A dungeon's jump into its instance (WarpBot's "dungeon_jump") keeps it:
+		// CDungeon::JumpParty walks the party's member list while it warps each
+		// member, and the Catacomb's key is what such a party is for.
+		if (ch->GetParty() && !IsPlayerBotHumanLedParty(ch->GetParty()) &&
+				!(reason && strcmp(reason, "dungeon_jump") == 0))
 			LeavePlayerBotParty(ch);
 		state.dwTargetVID = 0;
 		ch->SetVictim(NULL);

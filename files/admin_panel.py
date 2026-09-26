@@ -1124,6 +1124,9 @@ def read_ai_weights():
     # Guild wars between the bots' guilds (playerbot_guild_war.h). On.
     vals["WARS"] = 1
     vals["TOWER"] = 1
+    # The bots' raids on Azrael in the Devil's Catacomb (playerbot_catacomb.h,
+    # mt2009 only). On.
+    vals["CATACOMB"] = 1
     # The bots' ItemShop purchases (playerbot_itemshop.h). On.
     vals["ISHOP"] = 1
     # Whether a bot's stand may stand in a second village too. Off: the stands
@@ -1172,6 +1175,9 @@ def read_ai_weights():
                     continue
                 if name == "TOWER":
                     vals["TOWER"] = 0 if parts[1].strip() in ("0", "off", "no") else 1
+                    continue
+                if name == "CATACOMB":
+                    vals["CATACOMB"] = 0 if parts[1].strip() in ("0", "off", "no") else 1
                     continue
                 if name == "ISHOP":
                     vals["ISHOP"] = 0 if parts[1].strip() in ("0", "off", "no") else 1
@@ -1250,6 +1256,8 @@ def write_ai_weights(vals):
     # Not a weight: whether the bots' guilds fight field wars.
     body.append("WARS\t%d" % (1 if vals.get("WARS", 1) else 0))
     body.append("TOWER\t%d" % (1 if vals.get("TOWER", 1) else 0))
+    # Not a weight: whether the bots raid the Devil's Catacomb (mt2009).
+    body.append("CATACOMB\t%d" % (1 if vals.get("CATACOMB", 1) else 0))
     # Not a weight: whether the bots cash their vouchers and buy in the ItemShop.
     body.append("ISHOP\t%d" % (1 if vals.get("ISHOP", 1) else 0))
     # Not a weight: whether a bot's stand may stand in a second village too.
@@ -3529,11 +3537,18 @@ T.update({
                   "tr":"Yaklaşık iki saatte bir, aynı krallıktan iki bot loncası o krallığın lonca haritasında bir saha savaşı yapar: otuz dakika, oyunun kendi ilanı ve puanlaması, başlangıçta sohbette bir duyuru. Bir loncanın seçilmesi için sekiz botu çevrimiçi olmalı. Kapalı: yeni savaş ilan edilmez; süren savaş sonuna kadar oynanır."},
  "ai_wars_on":   {"en":"Enabled","pl":"Włączone","de":"Eingeschaltet","tr":"Açık"},
  "ai_tower":     {"en":"Bot guilds climb the Demon Tower","pl":"Gildie botów chodzą do Wieży Demonów","de":"Bot-Gilden steigen in den Dämonenturm","tr":"Bot loncaları Şeytan Kulesi'ne çıkar"},
- "ai_tower_help": {"en":"About every hour and a half one bot guild of this core calls its members of level 40 and up to the tower's ground floor (the game says it on the chat), they break the Metin of Toughness together after four minutes and climb the floors: monsters, stones, keys and seals as in the game; from the sixth floor on a bot of 75 is needed, as for players. Whoever stands on the ground floor when the stone breaks - a bot on its errand, a player who came to watch - goes in with them. 'Now' calls a raid on the core's next check when none is under way.",
-                  "pl":"Mniej więcej co półtorej godziny jedna gildia botów tego rdzenia zwołuje członków od 40. poziomu na parter Wieży (ogłoszenie na czacie), po czterech minutach razem rozbijają Metin Twardości i przechodzą piętra: potwory, kamienie, klucze i pieczęcie jak w grze; od 6. piętra potrzebny jest bot z 75. poziomem, tak jak u graczy. Kto stoi na parterze, gdy pęka kamień — bot na własnej misji albo gracz, który przyszedł popatrzeć — wchodzi razem z nimi. „Teraz” zwołuje wyprawę przy najbliższym sprawdzeniu rdzenia, jeśli żadna nie trwa.",
-                  "de":"Etwa alle anderthalb Stunden ruft eine Bot-Gilde dieses Kerns ihre Mitglieder ab Stufe 40 ins Erdgeschoss des Turms (Ansage im Chat), nach vier Minuten zerschlagen sie gemeinsam den Metin der Härte und steigen die Etagen hinauf: Monster, Steine, Schlüssel und Siegel wie im Spiel; ab der sechsten Etage wird ein Bot mit Stufe 75 gebraucht, wie bei Spielern. Wer beim Zerbrechen des Steins im Erdgeschoss steht - ein Bot auf seinem Botengang, ein zuschauender Spieler - geht mit hinein. 'Jetzt' ruft beim nächsten Check des Kerns eine Expedition, wenn keine läuft.",
-                  "tr":"Yaklaşık her bir buçuk saatte bu çekirdeğin bir bot loncası 40 ve üzeri üyelerini kulenin zemin katına çağırır (sohbette duyurulur), dört dakika sonra Sertlik Metini'ni birlikte kırar ve katları çıkarlar: canavarlar, taşlar, anahtarlar ve mühürler oyundaki gibi; 6. kattan itibaren oyuncularda olduğu gibi 75 seviye bir bot gerekir. Taş kırıldığında zemin katta duran herkes - görevindeki bir bot, izlemeye gelen bir oyuncu - onlarla girer. 'Şimdi', hiçbiri sürmüyorsa çekirdeğin bir sonraki kontrolünde bir sefer çağırır."},
+ "ai_tower_help": {"en":"About every hour and a half one bot guild of this core calls its members of level 55 and up to the tower's ground floor (the game says it on the chat), they break the Metin of Toughness together after four minutes and climb the floors: monsters, stones, keys and seals as in the game; from the sixth floor on a bot of 75 is needed, as for players. Whoever stands on the ground floor when the stone breaks - a bot on its errand, a player who came to watch - goes in with them. 'Now' calls a raid on the core's next check when none is under way.",
+                  "pl":"Mniej więcej co półtorej godziny jedna gildia botów tego rdzenia zwołuje członków od 55. poziomu na parter Wieży (ogłoszenie na czacie), po czterech minutach razem rozbijają Metin Twardości i przechodzą piętra: potwory, kamienie, klucze i pieczęcie jak w grze; od 6. piętra potrzebny jest bot z 75. poziomem, tak jak u graczy. Kto stoi na parterze, gdy pęka kamień — bot na własnej misji albo gracz, który przyszedł popatrzeć — wchodzi razem z nimi. „Teraz” zwołuje wyprawę przy najbliższym sprawdzeniu rdzenia, jeśli żadna nie trwa.",
+                  "de":"Etwa alle anderthalb Stunden ruft eine Bot-Gilde dieses Kerns ihre Mitglieder ab Stufe 55 ins Erdgeschoss des Turms (Ansage im Chat), nach vier Minuten zerschlagen sie gemeinsam den Metin der Härte und steigen die Etagen hinauf: Monster, Steine, Schlüssel und Siegel wie im Spiel; ab der sechsten Etage wird ein Bot mit Stufe 75 gebraucht, wie bei Spielern. Wer beim Zerbrechen des Steins im Erdgeschoss steht - ein Bot auf seinem Botengang, ein zuschauender Spieler - geht mit hinein. 'Jetzt' ruft beim nächsten Check des Kerns eine Expedition, wenn keine läuft.",
+                  "tr":"Yaklaşık her bir buçuk saatte bu çekirdeğin bir bot loncası 55 ve üzeri üyelerini kulenin zemin katına çağırır (sohbette duyurulur), dört dakika sonra Sertlik Metini'ni birlikte kırar ve katları çıkarlar: canavarlar, taşlar, anahtarlar ve mühürler oyundaki gibi; 6. kattan itibaren oyuncularda olduğu gibi 75 seviye bir bot gerekir. Taş kırıldığında zemin katta duran herkes - görevindeki bir bot, izlemeye gelen bir oyuncu - onlarla girer. 'Şimdi', hiçbiri sürmüyorsa çekirdeğin bir sonraki kontrolünde bir sefer çağırır."},
  "ai_tower_on":  {"en":"Enabled","pl":"Włączone","de":"Eingeschaltet","tr":"Açık"},
+ "ai_catacomb":  {"en":"Bot raids on Azrael (the Devil's Catacomb)","pl":"Rajdy botów na Azraela (Katakumby Diabła)","de":"Bot-Raids auf Azrael (Katakomben des Teufels)","tr":"Azrael'e bot baskınları (Şeytan Yeraltı Mezarı)"},
+ "ai_catacomb_help": {"en":"About every two hours a party of four to eight bots of one kingdom - level 80 and up, the Demon Tower's ninth floor done and a Dried Head in the bag, as the dungeon asks of a player - gathers at the Catacomb's Guardian in Hwang Temple (the game says it on the chat), hunts the key on the first floor and goes down the floors as in the game: the gates, the Metins of Revenge, the maze, Tartar, Charon and Azrael. With a player inside, the player clicks and the bots fight. 'Now' calls a raid on the core's next check (within a minute) if none is under way and there are bots who may go.",
+                  "pl":"Mniej więcej co dwie godziny drużyna od czterech do ośmiu botów jednego królestwa - od 80. poziomu, z przejściem 9. piętra Wieży Demonów i Zasuszoną Głową w plecaku, jak loch wymaga od gracza - zbiera się przy Strażniku Katakumb w Świątyni Hwang (ogłoszenie na czacie), na pierwszym piętrze zdobywa klucz i schodzi piętrami jak w grze: wrota, Metiny Zemsty, labirynt, Tartar, Charon i Azrael. Gdy w środku jest gracz, to on klika, a boty walczą. „Teraz” zwołuje rajd przy najbliższym sprawdzeniu rdzenia (do minuty), jeśli żaden nie trwa i są boty, które mogą iść.",
+                  "de":"Etwa alle zwei Stunden sammelt sich eine Gruppe von vier bis acht Bots eines Königreichs - ab Stufe 80, mit geschaffter neunter Etage des Dämonenturms und einem Getrockneten Kopf im Inventar, wie der Dungeon es von Spielern verlangt - beim Wächter der Katakomben im Hwang-Tempel (Ansage im Chat), holt im ersten Stock den Schlüssel und steigt die Etagen hinab wie im Spiel: Tore, Metine der Rache, Labyrinth, Tartar, Charon und Azrael. Ist ein Spieler drin, klickt der Spieler und die Bots kämpfen. 'Jetzt' ruft beim nächsten Check des Kerns (binnen einer Minute) einen Raid, wenn keiner läuft und Bots gehen dürfen.",
+                  "tr":"Yaklaşık iki saatte bir, bir krallığın dört ila sekiz botundan oluşan bir grup - 80 ve üzeri seviye, Şeytan Kulesi'nin 9. katını bitirmiş ve çantasında Kurutulmuş Kafa olan, zindanın oyuncudan istediği gibi - Hwang Tapınağı'ndaki Yeraltı Mezarı Muhafızı'nda toplanır (sohbette duyurulur), birinci katta anahtarı bulur ve oyundaki gibi katları iner: kapılar, İntikam Metinleri, labirent, Tartar, Charon ve Azrael. İçeride bir oyuncu varsa tıklayan oyuncudur, botlar savaşır. 'Şimdi', hiçbiri sürmüyorsa ve gidebilecek botlar varsa çekirdeğin bir sonraki kontrolünde (bir dakika içinde) bir baskın çağırır."},
+ "ai_catacomb_now": {"en":"Call a raid on Azrael now","pl":"Rajd na Azraela teraz","de":"Jetzt einen Azrael-Raid rufen","tr":"Şimdi bir Azrael baskını çağır"},
+ "ai_catacomb_now_done": {"en":"Requested: the core calls a raid on its next check (within a minute) if none is under way and there are bots who may go.","pl":"Zlecone: rdzeń zwoła rajd przy najbliższym sprawdzeniu (do minuty), jeśli żaden nie trwa i są boty, które mogą iść.","de":"Angefordert: der Kern ruft beim nächsten Check (binnen einer Minute) einen Raid, wenn keiner läuft und Bots gehen dürfen.","tr":"İstendi: hiçbiri sürmüyorsa ve gidebilecek botlar varsa çekirdek bir sonraki kontrolde (bir dakika içinde) bir baskın çağırır."},
  "ai_bots_held_title": {"pl":"Boty czekają przy drzwiach","en":"The bots are waiting at the door",
   "de":"Die Bots warten an der Tür","tr":"Botlar kapıda bekliyor"},
  "ai_bots_held_help": {"pl":"Ten świat powstał przed chwilą i nie ma w nim jeszcze ani jednego bota - tak, jak poprosiłeś przy zakładaniu. Ustaw teraz spokojnie stawki, respawny i zachowanie botów, a potem wpuść je. Wejdą stopniowo, tak jak po zwykłym starcie.",
@@ -5868,6 +5883,14 @@ TPL_AI = BASE.replace("__BODY__", """
   <label><input type="checkbox" name="TOWER" value="1" {% if cur.get('TOWER', 1) %}checked{% endif %}> {{t('ai_tower_on')}}</label>
   <div style="margin-top:6px"><button type="submit" formaction="{{url_for('ai_tower_now')}}" formmethod="post">{{t('ai_tower_now')}}</button></div>
 </div>
+{% if engine_mt2009 %}
+<div style="margin-bottom:18px">
+  <h3 style="margin:0 0 2px">💀 {{t('ai_catacomb')}}</h3>
+  <p class="muted" style="margin:0 0 6px">{{t('ai_catacomb_help')}}</p>
+  <label><input type="checkbox" name="CATACOMB" value="1" {% if cur.get('CATACOMB', 1) %}checked{% endif %}> {{t('ai_tower_on')}}</label>
+  <div style="margin-top:6px"><button type="submit" formaction="{{url_for('ai_catacomb_now')}}" formmethod="post">{{t('ai_catacomb_now')}}</button></div>
+</div>
+{% endif %}
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">🛒 {{t('ai_ishop')}}</h3>
   <p class="muted" style="margin:0 0 6px">{{t('ai_ishop_help')}}</p>
@@ -14131,6 +14154,10 @@ def ai_weights():
         vals["LIFE"] = 1 if request.form.get("LIFE") else 0
         vals["WARS"] = 1 if request.form.get("WARS") else 0
         vals["TOWER"] = 1 if request.form.get("TOWER") else 0
+        # The Catacomb's box is on the mt2009 page alone; elsewhere the value
+        # the file holds stays.
+        if ENGINE_MT2009:
+            vals["CATACOMB"] = 1 if request.form.get("CATACOMB") else 0
         vals["ISHOP"] = 1 if request.form.get("ISHOP") else 0
         vals["SHOP_M2"] = 1 if request.form.get("SHOP_M2") else 0
         vals["PERSONA"] = 1 if request.form.get("PERSONA") else 0
@@ -14203,6 +14230,23 @@ def ai_tower_now():
         flash(t("ai_tower_now_done"))
     except OSError as e:
         flash("%s: %s" % (t("ai_tower_now"), e))
+    return redirect(url_for("ai_weights"))
+
+
+@app.route("/ai/catacomb_now", methods=["POST"])
+@login_required
+def ai_catacomb_now():
+    """"Now" for the bots' raid on Azrael: the core watches this file's mtime
+    (PLAYERBOT_CATACOMB_NOW_PATH in playerbot_catacomb.h) and calls a raid on
+    its next check when none is under way."""
+    path = os.path.join(AI_SPOOL, "playerbot_catacomb_now")
+    try:
+        with open(path, "a", encoding="utf-8"):
+            pass
+        os.utime(path, None)
+        flash(t("ai_catacomb_now_done"))
+    except OSError as e:
+        flash("%s: %s" % (t("ai_catacomb_now"), e))
     return redirect(url_for("ai_weights"))
 
 

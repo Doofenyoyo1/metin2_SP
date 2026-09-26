@@ -1468,6 +1468,7 @@ def main(root):
     apply_sidekick_command(game)
     apply_expired_shop_no_entity(game)
     apply_sidekick_quest_kill_credit(game)
+    apply_quest_pc_is_playerbot(game)
     print('playerbotify: done')
 
 
@@ -1492,6 +1493,35 @@ def apply_sidekick_quest_kill_credit(game):
          '\t\t\tpkQuestKiller = pkAttacker;\n'
          '\t\tquest::CQuestManager::instance().Kill(pkQuestKiller->GetPlayerID(), GetRaceNum());\n',
          marker='// playerbot: a companion\'s kill is its owner\'s for the quests.')
+
+
+def apply_quest_pc_is_playerbot(game):
+    """pc.is_playerbot(): whether the quest's character is a bot.
+
+    The Devil's Catacomb (devilcatacomb_zone.quest, 2.2.21) opens its statue,
+    its rock and its stake by a dialog a bot cannot answer, and lets a bot
+    through each of them itself - which needs the quest to tell a bot from a
+    player. DESC::IsBot is that test; a character without a descriptor is no
+    bot. The Dockerfile adds the name to qc's function list.
+    """
+    edit(os.path.join(game, 'questlua_pc.cpp'),
+         '\tALUA(pc_is_polymorphed)\n',
+         '\t// playerbot: whether the quest\'s character is a playerbot (DESC::IsBot):\n'
+         '\t// the Devil\'s Catacomb lets a bot through its three windows.\n'
+         '\tALUA(pc_is_playerbot)\n'
+         '\t{\n'
+         '\t\tLPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();\n'
+         '\t\tlua_pushboolean(L, ch && ch->GetDesc() && ch->GetDesc()->IsBot());\n'
+         '\t\treturn 1;\n'
+         '\t}\n'
+         '\n'
+         '\tALUA(pc_is_polymorphed)\n',
+         marker='\tALUA(pc_is_playerbot)\n')
+    edit(os.path.join(game, 'questlua_pc.cpp'),
+         '\t\t\t{ "is_polymorphed",\t\tpc_is_polymorphed\t},\n',
+         '\t\t\t{ "is_polymorphed",\t\tpc_is_polymorphed\t},\n'
+         '\t\t\t{ "is_playerbot",\t\tpc_is_playerbot\t},\n',
+         marker='{ "is_playerbot",')
 
 
 SIDEKICK_COMMAND = r'''// "Towarzysz", the player's own companion (playerbot_sidekick.h): the

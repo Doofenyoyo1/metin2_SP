@@ -2301,6 +2301,8 @@ namespace
 			unit = PLAYERBOT_PRIOR_SHELLFISH;
 		else if (item->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM)
 			unit = PLAYERBOT_PRIOR_HORSE_MEDAL;
+		else if (IsPlayerBotCatacombHead(item->GetVnum()))
+			unit = ScalePlayerBotIwakuraPrice(PLAYERBOT_PRIOR_CATACOMB_HEAD);
 		// An item-shop head, at the price of the coins it cost
 		// (PLAYERBOT_PRIOR_ISHOP_HAIRSTYLE), whatever the wallets say.
 		const bool hairstyle = item->GetType() == ITEM_COSTUME && item->GetSubType() == COSTUME_HAIR;
@@ -2646,6 +2648,10 @@ namespace
 					(int)item->GetCount(), GetPlayerBotCountedGoodsKeep(ch, item)) ? 800 : -1;
 		if (item->GetType() == ITEM_POLYMORPH || IsPlayerBotMetinDetector(item->GetVnum()))
 			return PLAYERBOT_SHOP_POLYMORPH_SCORE;
+		// A Dried Head, for a player's run of the Catacomb
+		// (PLAYERBOT_PRIOR_CATACOMB_HEAD).
+		if (IsPlayerBotCatacombHead(item->GetVnum()))
+			return PLAYERBOT_SHOP_CATACOMB_HEAD_SCORE;
 		// A bonus stone over what the bot keeps for its own rerolling, above the
 		// books and below the materials, the way a marble sits. On this world it
 		// reaches no counter and that is the engine's word, not this branch's:

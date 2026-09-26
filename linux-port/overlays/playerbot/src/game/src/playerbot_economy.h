@@ -1444,6 +1444,13 @@ namespace
 		// and nothing anywhere else (the quest takes a player's on logout).
 		if (IsPlayerBotDemonTowerKey(vnum))
 			return !IsPlayerBotDemonTowerInstance(ch->GetMapIndex());
+		// So are the Catacomb's key and totem, in the Catacomb.
+		if (IsPlayerBotCatacombKey(vnum))
+			return ch->GetMapIndex() != PLAYERBOT_MAP_CATACOMB && !IsPlayerBotCatacombInstance(ch->GetMapIndex());
+// A Dried Head is a player's way into the Catacomb's third floor: the
+		// counter's, never the merchant's, who paid nothing for it.
+		if (IsPlayerBotCatacombHead(vnum))
+			return false;
 		// One of Iwakura's fifty-four weapons nobody buys at +0..+3 goes to the
 		// merchant once the bots' counters carry PLAYERBOT_JUNK_WEAPON_MARKET_CAP
 		// of them - unless this bot will wear it, refine it or keep it as the
@@ -2431,7 +2438,7 @@ namespace
 
 	bool ManagePlayerBotRefining(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
-		if (!ch || !ch->IsItemLoaded() || dwNow < state.dwNextRefineCheckTime)
+		if (!ch || !ch->IsItemLoaded() || dwNow < state.dwNextRefineCheckTime || IsPlayerBotGearFrozen(ch))
 			return false;
 
 		state.dwNextRefineCheckTime = dwNow + PLAYERBOT_REFINE_INTERVAL;
@@ -2919,7 +2926,7 @@ namespace
 	// the operator's SCROLL_FROM (playerbot_config.h).
 	bool ManagePlayerBotScrollRefine(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
-		if (!ch || !ch->IsItemLoaded() || dwNow < state.dwNextScrollRefineTime)
+		if (!ch || !ch->IsItemLoaded() || dwNow < state.dwNextScrollRefineTime || IsPlayerBotGearFrozen(ch))
 			return false;
 		if (state.bCurrentAction == BOT_ACTION_FIGHT || state.bVisitingShop ||
 				state.bRecoveringAfterDeath || state.bTacticalRetreat || ch->IsDead())

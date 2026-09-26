@@ -1453,8 +1453,13 @@ namespace
 	// once it is over a bot goes for a foe or for the middle, never back to
 	// its camp. The first distance the map's ground allows is taken - both
 	// camps open, CAMP_SAFE_MARGIN clear of the safe zone and joined to the
-	// middle; where none is, both sides share the middle as before.
-	const long PLAYERBOT_GUILD_WAR_CAMP_DISTANCES[] = { 1500, 1200, 900, 600 };
+	// middle; where none is, both sides share the middle as before. Since
+	// 2.2.21 the first is 2300 - "zwiekszylbym odstep pomiedzy gildiami"
+	// (prodnathin, 26 September, with a screenshot of the two camps in each
+	// other's reach): about four and a half kilometres between the camps
+	// where they were three, and all three guild maps have room for 2600 on
+	// their open plains (measured offline on the maps' server_attr).
+	const long PLAYERBOT_GUILD_WAR_CAMP_DISTANCES[] = { 2300, 2000, 1700, 1500, 1200, 900, 600 };
 	const long PLAYERBOT_GUILD_WAR_CAMP_SAFE_MARGIN = 400;
 	const long PLAYERBOT_GUILD_WAR_CAMP_SNAP = 300;
 	// And the middle may move up to MIDDLE_SHIFT from that ground, in steps of
@@ -1488,7 +1493,9 @@ namespace
 	// (IsPlayerBotOnWarField). A spot is the ground and 400 of pid, so the
 	// crowd stands well inside; the rest is room for a charge and a chase.
 	// With the camps apart the field also takes in CAMP_RADIUS plus
-	// FIELD_BEYOND_CAMP round each camp - along the camps' axis, not sideways.
+	// FIELD_BEYOND_CAMP round the line from one camp to the other - along the
+	// camps' axis, not sideways - so camps further out than FIELD_RADIUS are
+	// joined to the middle by field the whole way.
 	const long PLAYERBOT_GUILD_WAR_FIELD_RADIUS = 1800;
 	const long PLAYERBOT_GUILD_WAR_FIELD_BEYOND_CAMP = 600;
 	// A player's guild against a bot guild (playerbot_guild_war.h). The bots
@@ -1520,6 +1527,36 @@ namespace
 	const int PLAYERBOT_GUILD_WAR_JITTER = 400;
 	const int PLAYERBOT_GUILD_WAR_KEEP_BONUS = 300;
 	const DWORD PLAYERBOT_GUILD_WAR_RETARGET_MS = 4000;
+	// The war by class and path (playerbot_war_rules.h, prodnathin's proposal
+	// of 26 September) - a round, and what the roles do in it. A side that has
+	// knocked out the whole of the other walks back to its camp while the
+	// other stands up and buffs at its own, for REGROUP_MS - and up to
+	// REGROUP_EXTRA_MS more while nobody of the losers is up yet - and then
+	// both leave their camps again, one by one. A war's rounds are looked at
+	// every ROUND_CHECK_MS.
+	const DWORD PLAYERBOT_GUILD_WAR_REGROUP_MS = 25 * 1000;
+	const DWORD PLAYERBOT_GUILD_WAR_REGROUP_EXTRA_MS = 15 * 1000;
+	const DWORD PLAYERBOT_GUILD_WAR_ROUND_CHECK_MS = 1000;
+	// A defensive healer keeps out of reach: a foe within HEALER_FLEE_RANGE
+	// sends it HEALER_FLEE_STEP back towards its camp, and it holds
+	// HEALER_BEHIND behind its side's pack; it looks for somebody to heal (Cure,
+	// under PLAYERBOT_PARTY_LEADER_CURE_HP_PERCENT) every HEALER_LOOK_MS.
+	const long PLAYERBOT_GUILD_WAR_HEALER_FLEE_RANGE = 500;
+	const long PLAYERBOT_GUILD_WAR_HEALER_FLEE_STEP = 700;
+	const long PLAYERBOT_GUILD_WAR_HEALER_BEHIND = 500;
+	const DWORD PLAYERBOT_GUILD_WAR_HEALER_LOOK_MS = 700;
+	// An archer keeps its distance: a foe within ARCHER_KEEP_AWAY gets one
+	// step of ARCHER_STEP back towards the archer's camp, at most
+	// ARCHER_STEPS_MAX of them in ARCHER_STEP_WINDOW_MS - a foe that keeps
+	// coming is shot where it stands rather than chased round the field.
+	const long PLAYERBOT_GUILD_WAR_ARCHER_KEEP_AWAY = 400;
+	const long PLAYERBOT_GUILD_WAR_ARCHER_STEP = 450;
+	const int PLAYERBOT_GUILD_WAR_ARCHER_STEPS_MAX = 3;
+	const DWORD PLAYERBOT_GUILD_WAR_ARCHER_STEP_WINDOW_MS = 8000;
+	// A dagger ninja goes into Stealth (skill 34, learned and never cast on a
+	// hunt) on its way to a foe further than ASSASSIN_STEALTH_RANGE.
+	const DWORD PLAYERBOT_SKILL_NINJA_STEALTH = 34;
+	const int PLAYERBOT_GUILD_WAR_ASSASSIN_STEALTH_RANGE = 500;
 	// Boss raids (playerbot_boss_raid.h). The world pass looks at the bosses
 	// every CHECK_MS, not before FIRST_DELAY_MS after a start (the cohort is
 	// still spawning), and calls a raid to a boss standing with none: the
@@ -1608,6 +1645,20 @@ namespace
 	// its target, one it holds is let go, and what it fights is ranked from
 	// where it stands rather than from the stone.
 	const int PLAYERBOT_TOWER_STONE_THREAT_RANGE = 1000;
+	// ...and since 2.2.21 the whole seventh floor goes in prodnathin's order
+	// (26 September), which replaced that rule there: the four Metins of Death
+	// first, the monsters they spawn left to the splash ("po wybiciu calego
+	// spota nie ma koniecznosci aby boty focusowaly sie na zbijaniu mobow,
+	// ktore wychodza z metina, bo i tak je zabija ... a tak to traca czas");
+	// then every demon the fourth one's fall brings in, the Metin of Murder
+	// waiting; then the Metin of Murder alone, its own spawn left to the
+	// splash again. The demons count as gone at SEVENTH_CLEAR_LIMIT or fewer
+	// on the floor, or after SEVENTH_DEMONS_MAX_MS, so one out of reach cannot
+	// hold the run; a bot that reaches the floor after the four fell decides
+	// from what stands once SEVENTH_SETTLE_MS on the floor have passed.
+	const int PLAYERBOT_TOWER_SEVENTH_CLEAR_LIMIT = 3;
+	const DWORD PLAYERBOT_TOWER_SEVENTH_DEMONS_MAX_MS = 8 * 60 * 1000;
+	const DWORD PLAYERBOT_TOWER_SEVENTH_SETTLE_MS = 5000;
 	// The seventh floor's keys are used between blows: the next of a stack
 	// after this long, and after a use the engine refused, this long.
 	const DWORD PLAYERBOT_TOWER_KEY_RETRY_MS = 3000;
@@ -1687,6 +1738,10 @@ namespace
 	// and the Map of the Tower, the Bong-In keys for Sa-Soe, the smiths.
 	const DWORD PLAYERBOT_TOWER_STONE_FLOOR4 = 8016;
 	const DWORD PLAYERBOT_TOWER_STONE_FLOOR7 = 8018;
+	const DWORD PLAYERBOT_TOWER_STONE_MURDER = 8019;
+	// The ninth floor's Umarly Rozpruwacz: his fall ends the run and is told
+	// to the world (AnnouncePlayerBotTowerReaper).
+	const DWORD PLAYERBOT_TOWER_REAPER = 1093;
 	const DWORD PLAYERBOT_TOWER_OPENING_STONE = 50084;
 	const DWORD PLAYERBOT_TOWER_CHEST_ITEM = 30300;
 	const DWORD PLAYERBOT_TOWER_MAP_ITEM = 30302;
@@ -2511,6 +2566,13 @@ namespace
 	// twenty-five put them out at that price. Every chest and casket is in the
 	// same position: 50011, 50192 and 50193 all carry a zero price.
 	const DWORD PLAYERBOT_PRIOR_HORSE_MEDAL = 400000;
+	// The Dried Head (IsPlayerBotCatacombHead): what the Devil's Catacomb's
+	// third floor takes one of from every member, and nothing else in this
+	// world asks for it. The merchant priced it at nothing and the junk rule
+	// sold every one; a player needs one for each run, so a bot that has one
+	// puts it on its counter. At the yang curve; the operator's to move.
+	const DWORD PLAYERBOT_PRIOR_CATACOMB_HEAD = 1500000;
+	const int PLAYERBOT_SHOP_CATACOMB_HEAD_SCORE = 700;
 	const DWORD PLAYERBOT_PRIOR_NO_MERCHANT_PRICE = 30000;
 	// Under this a number on a counter is not a price, it is an accident - and
 	// the accident used to be permanent, see LimitPlayerBotAskStep.
@@ -3596,6 +3658,20 @@ namespace
 	// from memory; it is the Catacomb's boss and costs nothing to name here.
 	const DWORD PLAYERBOT_POLYMORPH_BOSS_VNUMS[] = { 1093, 1095 };
 	const DWORD PLAYERBOT_POLYMORPH_RETRY_MS = 60000;
+	// A transformed character keeps what it wears. The engine refuses every
+	// equip while a character is polymorphed (CHARACTER::EquipItem, "You cannot
+	// change the equipped item while you are transformed", arrows excepted) and
+	// refuses no unequip (CanUnequipNow asks nothing about it), so a pass that
+	// swaps a piece - takes the old one off, then puts the new one on - left a
+	// transformed bot holding nothing: the bot that marbled the Reaper fought
+	// him without its weapon and stood "idle without weapon" after the
+	// transformation ended (SIZOWSKI, 26 September). Every pass that takes a
+	// worn piece off asks this first. The transformation's own attack is the
+	// monster's, so nothing is lost by waiting it out.
+	inline bool IsPlayerBotGearFrozen(LPCHARACTER ch)
+	{
+		return ch && ch->IsPolymorphed();
+	}
 	// Since 2.0.27 a booster is recognised by what the engine does with it, not
 	// by its vnum: USE_AFFECT with value0 510 is the timed stat buff (attack
 	// +10/+15, speed, critical, penetration, the Dragon God set, the experience
@@ -3646,7 +3722,25 @@ namespace
 		return lMapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN &&
 				lMapIndex / 10000 == PLAYERBOT_MAP_DEMON_TOWER;
 	}
-	// How far a bot's bow shot reaches: eight metres on the maps, where an
+	// The Devil's Catacomb (playerbot_catacomb.h): map 216, on game1. Its first
+	// floor is the map itself, every other floor an instance of it.
+	const long PLAYERBOT_MAP_CATACOMB = 216;
+	bool IsPlayerBotCatacombInstance(long lMapIndex)
+	{
+		return lMapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN &&
+				lMapIndex / 10000 == PLAYERBOT_MAP_CATACOMB;
+	}
+	// Its key (30311, off the first floor's monsters) and Tartar's totem
+	// (30312): the run's, whoever holds them, and nothing anywhere else.
+	bool IsPlayerBotCatacombKey(DWORD vnum)
+	{
+		return vnum == 30311 || vnum == 30312;
+	}
+	// The raid's members and the line over their heads (playerbot_catacomb.h,
+	// included later).
+	bool IsPlayerBotCatacombRaider(DWORD pid);
+	bool DescribePlayerBotCatacombRaid(LPCHARACTER ch, bool en, char* out, size_t size);
+// How far a bot's bow shot reaches: eight metres on the maps, where an
 	// Archer mostly hunts alone, and the tower's standoff inside it and on its
 	// ground floor (PLAYERBOT_TOWER_ARCHER_RANGE). The approach and the shot
 	// ask the same number, or the Archer stops where it may not shoot.
@@ -3662,6 +3756,14 @@ namespace
 		return vnum == PLAYERBOT_TOWER_OPENING_STONE || vnum == PLAYERBOT_TOWER_CHEST_ITEM ||
 				vnum == PLAYERBOT_TOWER_MAP_ITEM || vnum == PLAYERBOT_TOWER_KEY_ITEM;
 	}
+	// The Dried Head in its three vnums - 30319 off the Demon Tower's Reaper
+	// (the game image puts it in his limit group), 30320, and 76002 of which
+	// the level-90 chest holds three: the Devil's Catacomb's "reapers_credit"
+	// (devilcatacomb_zone.quest).
+	bool IsPlayerBotCatacombHead(DWORD vnum)
+	{
+		return vnum == 30319 || vnum == 30320 || vnum == 76002;
+	}
 	// How far round a splash skill's caster and its target a Demon Tower stone
 	// is looked for before the skill is cast: the skill's own splash range when
 	// it has one, this when it does not, plus a margin for a stone at the edge
@@ -3673,6 +3775,27 @@ namespace
 	// snapped goal a little past the edge still reaches ClampWorld, a point in
 	// Orc Valley asked for in Bokjung does not.
 	const long PLAYERBOT_NAV_OFF_MAP_MARGIN = 6400;
+	// A pocket: a walkable component of under POCKET_PERMILLE of its map's
+	// walkable ground, walled off from the rest. Hwang has forty-six of them -
+	// walkways outside the courtyard walls, octagon pavilions, rooms beside
+	// the gates, the largest 0.44% of the map - and a bot got into one only by
+	// being moved there without a look at the terrain: a boss's CRUSH skill
+	// (791, 792 and 1304 carry EnemyCrush300, which slides its victim 400
+	// units) or the local rescue in the tick, which took the nearest open
+	// cell of any component. Once inside, every hub failed CanReach and the
+	// exit was "unreachable", so the bot circled on the spot for good
+	// (SIZOWSKI, 26 September, "mapa 65 problem z nawigacja"). Measured on
+	// every map a bot stands on (26 September): one component of 95-100% and
+	// the rest under 0.5%, save Jinno's guild map (19.6%, the piece with no
+	// way in) and the second Grotto (1.2%), neither a pocket at this line; the
+	// Demon Tower and the Catacomb are rooms, and the Monkey Dungeons
+	// chambers, and none of them is asked. A bot in a pocket for
+	// POCKET_GRACE_MS is put on the nearest ground outside one within
+	// POCKET_RESCUE_CELLS, and a bot pushed into a wall is taken out onto
+	// such ground first.
+	const DWORD PLAYERBOT_NAV_POCKET_PERMILLE = 10;
+	const DWORD PLAYERBOT_NAV_POCKET_GRACE_MS = 5000;
+	const int PLAYERBOT_NAV_POCKET_RESCUE_CELLS = 80;
 	// Wykrywacz Kamieni Metin: useless to a bot (it draws on a client), wanted
 	// by players - counter goods, never merchant scrap.
 	const DWORD PLAYERBOT_METIN_DETECTOR_VNUMS[] = { 27989, 76006 };
@@ -5874,6 +5997,16 @@ namespace
 
 	BYTE GetPlayerBotPersonalityByPID(DWORD dwPID);
 
+	// The Demon Tower's ground floor while another kingdom's bot guild gathers
+	// there for its raid (playerbot_demon_tower.h): the travel does not send a
+	// bot there, and one already there leaves.
+	bool IsPlayerBotTowerGroundClosedFor(LPCHARACTER ch);
+
+	// The role a bot plays in its guild's war and whether its side is
+	// regrouping after a round (playerbot_guild_war.h), for the status line.
+	const char* GetPlayerBotWarRoleName(LPCHARACTER ch, bool en);
+	bool IsPlayerBotWarRegrouping(LPCHARACTER ch);
+
 	// The player's own companion (playerbot_sidekick.h, included after every
 	// fragment that asks these): whose it is, whether it stands at its
 	// owner's side, and what its owner handed it.
@@ -6510,6 +6643,7 @@ namespace
 			dwTargetVID(0),
 			dwSpawnTime(0),
 			dwLastBotSkillTime(0),
+			dwLastEngineSkillTime(0),
 			dwLastKillerVID(0),
 			dwLastDeathTime(0),
 			lDeathX(0),
@@ -6786,6 +6920,11 @@ namespace
 		DWORD dwTargetVID;
 		DWORD dwSpawnTime;
 		DWORD dwLastBotSkillTime;
+		// Every cast the engine let through (PlayerBotUseSkill), buffs
+		// included, on the engine's clock: CHARACTER::m_dwLastSkillTime, which
+		// EquipItem reads (IsPlayerBotEquipWindowShut). dwLastBotSkillTime is
+		// the watchdog's and the rotation's, and not every cast marks it.
+		DWORD dwLastEngineSkillTime;
 		DWORD dwLastKillerVID;
 		DWORD dwLastDeathTime;
 		long lDeathX;
@@ -7257,6 +7396,27 @@ namespace
 
 	typedef std::map<DWORD, TPlayerBotAIState> TPlayerBotAIStateMap;
 
+	// CHARACTER::EquipItem refuses every piece but arrows within a second and a
+	// half of the character's own blow or cast, and right after it comes into
+	// the world (CHARACTER::Initialize stamps the cast clock) - on both engines,
+	// and not after a blow it took. A worn piece the bonus pass took off inside
+	// that window could not go back on and waited in the bag for the equipment
+	// pass ("PLAYERBOT_BONUS: could not re-equip", sixteen a night on
+	// SIZOWSKI's world, 26 September): the old guard counted the rotation's
+	// casts and not the buffs. Read on the engine's clock, because a blow
+	// earlier in this tick is later than the tick's own now.
+	bool IsPlayerBotEquipWindowShut(LPCHARACTER ch, const TPlayerBotAIState& state)
+	{
+		if (!ch)
+			return true;
+		const DWORD now = get_dword_time();
+		const DWORD stamps[3] = { ch->GetLastAttackTime(), state.dwLastEngineSkillTime, state.dwSpawnTime };
+		for (int i = 0; i < 3; ++i)
+			if (stamps[i] != 0 && (stamps[i] > now || now - stamps[i] <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY))
+				return true;
+		return false;
+	}
+
 	// Every bot the manager has ever ticked, alive for the life of the process:
 	// a bot that logs out keeps its plans, cooldowns and hobby. It lives here
 	// rather than in the manager because the subsystems read it too - refining
@@ -7364,7 +7524,10 @@ namespace
 	bool IsPlayerBotOnTowerBusiness(LPCHARACTER ch, const TPlayerBotAIState& state)
 	{
 		return (ch && IsPlayerBotDemonTowerInstance(ch->GetMapIndex())) ||
-				state.dwTowerRaidGuild != 0 || state.bTowerSummoned || state.wBossRaidRace != 0;
+				state.dwTowerRaidGuild != 0 || state.bTowerSummoned || state.wBossRaidRace != 0 ||
+				// And the Devil's Catacomb's raid (playerbot_catacomb.h).
+				(ch && (IsPlayerBotCatacombInstance(ch->GetMapIndex()) ||
+					IsPlayerBotCatacombRaider(ch->GetPlayerID())));
 	}
 
 	// A dungeon's business: the tower's and a raid's, and any dungeon instance.

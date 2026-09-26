@@ -369,6 +369,15 @@ namespace
 			snprintf(status, statusSize, PBT(en, "%sZbiorka gildii: Wieza Demonow", "%sGuild gathering: Demon Tower"), prefix);
 			return;
 		}
+		// The Devil's Catacomb's raid (playerbot_catacomb.h).
+		{
+			char raid[96];
+			if (DescribePlayerBotCatacombRaid(ch, en, raid, sizeof(raid)))
+			{
+				snprintf(status, statusSize, "%s%s", prefix, raid);
+				return;
+			}
+		}
 		// A boss raid (playerbot_boss_raid.h), named by the boss.
 		if (state.wBossRaidRace != 0)
 		{
@@ -386,11 +395,17 @@ namespace
 			// (PLAYERBOT_GUILD_WAR_MUSTER_SECONDS, playerbot_guild_war.h).
 			CGuild* mine = ch ? ch->GetGuild() : NULL;
 			const DWORD startedAt = (mine && enemy) ? mine->GetWarStartTime(enemy->GetID()) : 0;
+			// And the role it plays there (playerbot_war_rules.h).
+			const char* role = GetPlayerBotWarRoleName(ch, en);
 			if (startedAt != 0 && (DWORD)get_global_time() < startedAt + PLAYERBOT_GUILD_WAR_MUSTER_SECONDS)
-				snprintf(status, statusSize, PBT(en, "%sZbiorka przed wojna gildii z %s", "%sMustering for the guild war with %s"),
+				snprintf(status, statusSize, PBT(en, "%sZbiorka przed wojna gildii z %s (%s)", "%sMustering for the guild war with %s (%s)"),
+						prefix, enemy ? enemy->GetName() : "?", role);
+			else if (IsPlayerBotWarRegrouping(ch))
+				snprintf(status, statusSize, PBT(en, "%sPrzegrupowanie w obozie - wojna z %s", "%sRegrouping at the camp - war with %s"),
 						prefix, enemy ? enemy->GetName() : "?");
 			else
-				snprintf(status, statusSize, PBT(en, "%sWojna gildii z %s", "%sGuild war with %s"), prefix, enemy ? enemy->GetName() : "?");
+				snprintf(status, statusSize, PBT(en, "%sWojna gildii z %s (%s)", "%sGuild war with %s (%s)"),
+						prefix, enemy ? enemy->GetName() : "?", role);
 			return;
 		}
 		// A player's companion at its owner's side says whose it is

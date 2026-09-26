@@ -218,7 +218,8 @@ RUN set -eux; \
     # the item's use path).
     # pc.open_special_shop for fishing_pass_shop (2.0.68); affect.add_new and
     # affect.remove_new for the panel's speed in web_admin (2.0.76).
-    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.mount item.get_vnum; do \
+    # pc.is_playerbot for the Devil's Catacomb's bot branches (2.2.22).
+    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.mount item.get_vnum pc.is_playerbot; do \
       grep -qx "$fn" /tmp/qc-work/quest_functions || echo "$fn" >> /tmp/qc-work/quest_functions; \
     done; \
     # pony_levelup is the package's own stable-keeper quest with the 18-hour
@@ -247,7 +248,11 @@ RUN set -eux; \
     # (playerbot_sidekick.h): class, path and name, then call, free, dismiss.
     # devilcatacomb_zone is the Devil's Catacomb, which the package kept in
     # quest/_unused and never compiled (26 September).
-    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone; do \
+    # check_trans_ticket is the package's own with Koe-Pung's branch put back:
+    # the Grotto of Exile for a Bloodstone from 75, in place of the free warp
+    # 2.2.21 opened; heavens_cave_keyquest is Seon-Hae's daily quest for the
+    # Bloodstone, from quest/_unused (2.2.22).
+    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \
@@ -378,15 +383,29 @@ RUN set -eu; O=/opt/metin2/share/locale/poland/quest/object \
  && echo "share: monkey curse removed ($n handlers)"
 
 # The Grotto of Exile's entrance (port/shareify.py renders this step): the
-# package commented out the warp in Orc Valley's bottom-left corner (10077,
-# cell 282,1455) and Seon-Pyeong beside it (20091), so nothing led into either
-# grotto but a GM's /warp. Both come back; the warp's target was a blocked cell
-# of map 72, which apply.sh moves onto the grotto's Town point
-# (world.mob_proto.locale_name, the name FuncCheckWarp reads the target from).
-RUN set -eu; N=/opt/metin2/share/locale/poland/map/map_n_threeway/npc.txt \
- && sed -i -E 's#^//(m[[:blank:]]+282[[:blank:]]+1455[[:blank:]].*[[:blank:]]10077[[:space:]]*)$#\1#; s#^//(m[[:blank:]]+295[[:blank:]]+1442[[:blank:]].*[[:blank:]]20091[[:space:]]*)$#\1#' "$N" \
- && grep -q -E '^m[[:blank:]]+282[[:blank:]]+1455[[:blank:]].*[[:blank:]]10077' "$N" \
+# package commented out Koe-Pung in Orc Valley's bottom-left corner (20093,
+# cell 282,1455) - the Dragon Order's guard, who lets a character of 75
+# through for a Bloodstone (quest/check_trans_ticket.quest, compiled above) -
+# with a free warp on the same cell (10077) and Seon-Pyeong beside them
+# (20091). Koe-Pung and Seon-Pyeong come back and the warp stays commented,
+# as the game has it: "wejscie do groty chyba powinno wymagac jakiegos
+# klucza" (the operator, 26 September; 2.2.21 had opened the warp). The Bloodstone
+# is Seon-Hae's daily quest (quest/heavens_cave_keyquest.quest), and the
+# package stands Seon-Hae (20095) in Jinno's first village alone: Yongan and
+# Joan get him beside their herbalist (20018), on cells measured free and on
+# the main ground of their server_attr, far outside the market's ring. A bot
+# is moved into the grotto server-side and asks nobody.
+RUN set -eu; L=/opt/metin2/share/locale/poland/map; N=$L/map_n_threeway/npc.txt \
+ && sed -i -E 's#^(m[[:blank:]]+282[[:blank:]]+1455[[:blank:]].*[[:blank:]]10077[[:space:]]*)$#//\1#; s#^//(m[[:blank:]]+282[[:blank:]]+1455[[:blank:]].*[[:blank:]]20093[[:space:]]*)$#\1#; s#^//(m[[:blank:]]+295[[:blank:]]+1442[[:blank:]].*[[:blank:]]20091[[:space:]]*)$#\1#' "$N" \
+ && ! grep -q -E '^m[[:blank:]]+282[[:blank:]]+1455[[:blank:]].*[[:blank:]]10077' "$N" \
+ && grep -q -E '^m[[:blank:]]+282[[:blank:]]+1455[[:blank:]].*[[:blank:]]20093' "$N" \
  && grep -q -E '^m[[:blank:]]+295[[:blank:]]+1442[[:blank:]].*[[:blank:]]20091' "$N" \
+ && for p in "metin2_map_a1 698 652" "metin2_map_b1 677 585"; do \
+      set -- $p; F="$L/$1/npc.txt"; \
+      [ -z "$(tail -c 1 "$F")" ] || printf '\n' >> "$F"; \
+      grep -q -E '[[:blank:]]20095[[:space:]]*$' "$F" || printf 'm\t%s\t%s\t0\t0\t0\t5\t1m\t100\t1\t20095\n' "$2" "$3" >> "$F"; \
+      grep -q -E "^m[[:blank:]]+$2[[:blank:]]+$3[[:blank:]].*[[:blank:]]20095" "$F"; \
+    done \
  && echo "share: Grotto of Exile entrance restored in Orc Valley"
 
 # The Devil's Catacomb (port/shareify.py renders this step; the quest itself is
