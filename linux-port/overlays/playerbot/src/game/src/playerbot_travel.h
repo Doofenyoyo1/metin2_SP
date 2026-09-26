@@ -1533,6 +1533,16 @@ namespace
 			state.lDesertCrossingTo = 0;
 			return false;
 		}
+		// A bot that answered a world event stays on its map between Zuo's
+		// waves (playerbot_world_events.h): the frontier draw, a herb row or a
+		// horse expedition would walk it off, and the event would warp it back
+		// on the next tick. What stops a fight - no weapon, no potions, a full
+		// bag - still goes to town, and the event lets the bot go first.
+		if (state.bWorldEventKind != 0 && ch->GetMapIndex() == state.lWorldEventMap && !BlocksPlayerBotTravel(ch))
+		{
+			state.lDesertCrossingTo = 0;
+			return false;
+		}
 
 		const long mapIndex = ch->GetMapIndex();
 		const bool hasMedal = ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) > 0;

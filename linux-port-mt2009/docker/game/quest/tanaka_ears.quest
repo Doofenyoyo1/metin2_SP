@@ -1,0 +1,55 @@
+-- The Tanaka event's reward (playerbot_world_events.h): Pirate Tanaka's ear
+-- (30202), which his fall gives whoever hurt him most and was still in the
+-- fight (playerbotify apply_tanaka_goblin), for a Purple Ebony Chest (50115)
+-- at Yonah (20005), who stands in each first village. The package has only
+-- an old German quest for it in quest/_unused (japan_invader_kill), gated on
+-- an event flag nobody sets. Every ear the bag has room for, up to twenty a
+-- talk, one cell kept free; counted again after the dialog, because the bag
+-- may change while it stands open. The chest is not stackable, so it is given
+-- one at a time. Bots never come through here - they walk theirs to Yonah in
+-- the AI (ManagePlayerBotTanakaEars).
+quest tanaka_ears begin
+    state start begin
+        when 20005.chat."Uszy Pirata Tanaki" with pc.count_item(30202) > 0 begin
+            local ears = pc.count_item(30202)
+            local room = pc.get_empty_inventory_count() - 1
+            local n = ears
+            if n > room then
+                n = room
+            end
+            if n > 20 then
+                n = 20
+            end
+            say_title("Yonah:")
+            say("Pirat Tanaka to zmora naszych brzegow.")
+            say("Za kazde jego ucho dam ci Fioletowa Hebanowa")
+            say("Szkatulke.")
+            say("")
+            if n <= 0 then
+                say("Najpierw zrob miejsce w ekwipunku.")
+                return
+            end
+            local s = select("Oddaj uszy: " .. n, "Nie teraz")
+            if s ~= 1 then
+                return
+            end
+            ears = pc.count_item(30202)
+            room = pc.get_empty_inventory_count() - 1
+            if n > ears then
+                n = ears
+            end
+            if n > room then
+                n = room
+            end
+            if n <= 0 then
+                return
+            end
+            pc.remove_item(30202, n)
+            for i = 1, n do
+                pc.give_item2(50115, 1)
+            end
+            say_title("Yonah:")
+            say("Dziekuje! Oto twoje szkatulki.")
+        end
+    end
+end

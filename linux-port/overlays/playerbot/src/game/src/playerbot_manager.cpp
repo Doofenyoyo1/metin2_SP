@@ -161,6 +161,10 @@ namespace { bool HandlePlayerBotConversation(LPCHARACTER player, LPCHARACTER bot
 // the Guardian, the key on the first floor and the six floors after it.
 // After boss_raid.h, beside the tower whose scan-free fight it borrows.
 #include "playerbot_catacomb.h"
+// Pirate Tanaka and Zuo's Metin rain: what the timed events put into the
+// world, and the bots that answer them. After the raids, whose fight it
+// borrows and which it gives way to.
+#include "playerbot_world_events.h"
 // The player's own companion, "Towarzysz": the owner's party, the owner's
 // fights, the owner's drops, the owner's trades. Before companions.h, whose
 // IsPlayerBotHeldForCompany asks whether a bot is one.
@@ -659,6 +663,9 @@ namespace
 			TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
 			if (it != s_mapPlayerBotAIStates.end() && IsPlayerBotOnTowerBusiness(ch, it->second))
 				return "raid";
+			// Nor on its way to a pirate or a Zuo wave (playerbot_world_events.h).
+			if (it != s_mapPlayerBotAIStates.end() && it->second.bWorldEventKind != 0)
+				return "event";
 		}
 		return ch && IsPlayerBotSummoned(ch->GetPlayerID()) ? "summoned" : NULL;
 	}
@@ -2618,6 +2625,9 @@ namespace
 		const DWORD dwNow = get_dword_time();
 		RefreshPlayerBotWeights(dwNow);
 		ManagePlayerBotEvents(dwNow);
+		// Tanaka and Zuo run where their map is, bots or none
+		// (playerbot_world_events.h).
+		ManagePlayerBotWorldEvents(dwNow);
 		// A player's companion, on a core no bot has woken yet: the first of
 		// them starts Update and ends this clock (playerbot_sidekick.h).
 		ManagePlayerBotSidekicks(dwNow);
@@ -3612,6 +3622,27 @@ bool CPlayerBotManager::SpawnSidekick(DWORD dwPlayerID)
 		record.bLevel = (BYTE)std::min<unsigned int>(level, 255);
 		account = m_mapBotAccounts.insert(TPlayerBotAccountMap::value_type(dwPlayerID, record)).first;
 	}
+	// A companion's kingdom is its owner's. The engine's change of kingdom
+	// (pc.change_empire - an Olejek Wygnania) rewrites the owner's account and
+	// nobody else's, and the companion came back in the old kingdom beside its
+	// owner in the new one ("Towarzysz nie zmienia krolestwa razem z graczem",
+	// Piciu713, 26 September): its own account follows the owner's here.
+	LPCHARACTER owner = GetPlayerBotSidekickOwnerHere(dwPlayerID);
+	if (owner && owner->GetEmpire() >= 1 && owner->GetEmpire() <= 3 &&
+			owner->GetEmpire() != account->second.bEmpire && account->second.dwID != 0)
+	{
+		char query[256];
+		snprintf(query, sizeof(query), "UPDATE player.player_index SET empire=%u WHERE id=%u",
+				(unsigned int)owner->GetEmpire(), account->second.dwID);
+		std::unique_ptr<SQLMsg> update(AccountDB::instance().DirectQuery(query));
+		if (update.get() && update->uiSQLErrno == 0)
+		{
+			sys_log(0, "PLAYERBOT_SIDEKICK: kingdom follows its owner pid=%u owner=%u empire=%u->%u",
+					dwPlayerID, owner->GetPlayerID(), (unsigned int)account->second.bEmpire,
+					(unsigned int)owner->GetEmpire());
+			account->second.bEmpire = owner->GetEmpire();
+		}
+	}
 	if (account->second.bEmpire < 1 || account->second.bEmpire > 3)
 		return false;
 	account->second.bChannel = g_bChannel;
@@ -4334,7 +4365,8 @@ void CPlayerBotManager::PublishChannelPresence(DWORD dwNow)
 				(ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty())) || IsPlayerBotSummoned(pid) ||
 				ch->GetMapIndex() >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN ||
 				playerbot_pvp::GetDuelOpponent(pid, dwNow) != 0 ||
-				(state && (IsPlayerBotOnTowerBusiness(ch, *state) || state->dwGuildWarEnemyGID != 0));
+				(state && (IsPlayerBotOnTowerBusiness(ch, *state) || state->dwGuildWarEnemyGID != 0 ||
+					state->bWorldEventKind != 0));
 #if defined(ENABLE_IKASHOP_RENEWAL)
 		auto stand = ikashop::GetManager().GetShopByOwnerID(pid);
 		liveStand = stand && stand->GetDuration() != 0;
@@ -4825,6 +4857,9 @@ void CPlayerBotManager::Update()
 	ManagePlayerBotBossRaids(dwNow);
 	// The Devil's Catacomb (playerbot_catacomb.h).
 	ManagePlayerBotCatacombRaids(dwNow);
+	// Pirate Tanaka and Zuo: what they put into the world, and who is called
+	// to it (playerbot_world_events.h).
+	ManagePlayerBotWorldEvents(dwNow);
 WritePlayerBotGuildStatus(dwNow);
 	WritePlayerBotItemShopCensus(dwNow);
 	// The ore veins, once a minute for the whole world. A vein deletes itself
@@ -5536,6 +5571,15 @@ WritePlayerBotGuildStatus(dwNow);
 		if (ManagePlayerBotCatacomb(ch, state, dwNow))
 			continue;
 
+		// Pirate Tanaka and Zuo (playerbot_world_events.h): a bot that answered
+		// an event goes after its pirate, or the stone or boss of a wave, and
+		// between Zuo's waves lives its own life on the event's map. Below the
+		// war, the tower, the raids and the Catacomb, all of which come first -
+		// a bot any of them takes is let go by the event - and after the loot,
+		// so a pirate's yang and ear are picked up.
+		if (ManagePlayerBotWorldEvent(ch, state, dwNow))
+			continue;
+
 		// Horse medals are equally real resources: a bot leaves combat, walks to
 		if (!bServingPerson && !state.bMultiPullActive && !bFightingMetin &&
 				ManagePlayerBotHorse(ch, state, dwNow))
@@ -5562,6 +5606,13 @@ WritePlayerBotGuildStatus(dwNow);
 		// stand, and the travel pass walked them straight back out.
 		if (!bServingPerson && !state.bMultiPullActive && !bFightingMetin &&
 				ManagePlayerBotAlchemist(ch, state, dwNow))
+			continue;
+
+		// Yonah (playerbot_world_events.h): the ears of Pirate Tanaka for a
+		// Purple Ebony Chest each, while the bot is in a first village - the
+		// Alchemist's shape, beside it.
+		if (!bServingPerson && !state.bMultiPullActive && !bFightingMetin &&
+				ManagePlayerBotTanakaEars(ch, state, dwNow))
 			continue;
 
 		// Spending time in town once the errand that brought the bot here is

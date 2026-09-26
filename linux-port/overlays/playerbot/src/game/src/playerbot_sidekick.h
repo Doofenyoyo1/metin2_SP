@@ -210,6 +210,13 @@ namespace
 	// (ReadPlayerBotSidekickForgetBook).
 	const DWORD PLAYERBOT_SIDEKICK_FORGET_CHECK_MS = 3000;
 	const DWORD PLAYERBOT_SIDEKICK_FORGET_ASK_MS = 60 * 60 * 1000;
+	// A bag near full (IsPlayerBotBagFull) is told to the owner at most this
+	// often: at its owner's side the companion never goes to town by itself.
+	const DWORD PLAYERBOT_SIDEKICK_BAG_FULL_TELL_MS = 30 * 60 * 1000;
+	// Its owner's client is told which character the companion is at every
+	// change and again this often, for a command a loading screen swallowed
+	// (SendPlayerBotSidekickBody).
+	const DWORD PLAYERBOT_SIDEKICK_BODY_RESEND_MS = 60 * 1000;
 #if defined(PLAYERBOT_ENGINE_MT2009)
 	// The engine's refusal names two ways past seventeen - "Uzyj Zwoju Powrotu
 	// Um. lub Ksiegi Zapomnienia" - and the scroll is the ItemShop's:
@@ -367,6 +374,8 @@ namespace
 		DWORD dwNextForgetCheck;
 		std::map<DWORD, DWORD> mapForgetAskedAt;
 		std::set<DWORD> setForgetToldItems;
+		// When it last told its owner its bag was near full.
+		DWORD dwBagFullToldAt;
 		TPlayerBotSidekickRuntime()
 			: dwNextPartyCheck(0), dwNextService(0), dwNextLoot(0), dwNextCatchUp(0), dwLootVID(0),
 			  dwLootSince(0), dwNextProtect(0), bTrading(false), dwLastFoeVID(0), bHold(false), lHoldMap(0),
@@ -374,7 +383,7 @@ namespace
 			  dwGearSent(0), dwEqGen(0), llEqGoldSent(-1), dwEquipWaitUntil(0), dwOwnerFightSeenAt(0),
 			  dwNextFoeMemory(0), bLureStage(0), dwLureVID(0), iLurePacks(0), iLureMonsters(0), lLureAnchorX(0),
 			  lLureAnchorY(0), dwLureCourseSince(0), dwLureStageSince(0), dwNextLure(0), uLureCourses(0),
-			  dwNextForgetCheck(0)
+			  dwNextForgetCheck(0), dwBagFullToldAt(0)
 		{
 			memset(adwFoes, 0, sizeof(adwFoes));
 		}
@@ -614,6 +623,14 @@ namespace
 	// (BuildPlayerBotStatusText): the owner's name while it is at the owner's
 	// side, nothing otherwise - let off the leash it plays, and says so, like
 	// any bot.
+	// Its owner in this core's world, if there: SpawnSidekick logs the
+	// companion in with the owner's kingdom.
+	LPCHARACTER GetPlayerBotSidekickOwnerHere(DWORD sidekickPid)
+	{
+		const TPlayerBotSidekick* rec = FindPlayerBotSidekickOf(sidekickPid);
+		return rec ? GetPlayerBotSidekickOwnerChar(rec->dwOwnerPID) : NULL;
+	}
+
 	const char* GetPlayerBotSidekickOwnerName(LPCHARACTER ch)
 	{
 		if (!ch || s_mapPlayerBotSidekickOwner.empty())
@@ -2094,6 +2111,49 @@ namespace
 		}
 	}
 
+#if defined(PLAYERBOT_ENGINE_MT2009)
+	// Walking through one's own companion ("wylacz kolizje player-towarzysz",
+	// the operator, 26 September: at its owner's side in a fight it stood in the way).
+	// The collision is the client's alone - CInstanceBase::CheckAdvancing tests
+	// the main instance against every other one, and
+	// CActorInstance::TestActorCollision skips a victim whose actor type is NPC
+	// (ENABLE_NPC_WITHOUT_COLLISIONS) - so the owner's client is told which
+	// character is its companion, "SidekickVid <vid>" and 0 once it has gone,
+	// and client-root/sidekickcollision.py types that instance as an NPC every
+	// time the client makes it anew. At every change of either VID - a warp is
+	// a new login, a new VID for the owner - and again after
+	// PLAYERBOT_SIDEKICK_BODY_RESEND_MS. A root from before 2.0.41 answers the
+	// command with one "Unknown Server Command" line in its syserr.txt.
+	struct TPlayerBotSidekickBodySent
+	{
+		DWORD dwVid;
+		DWORD dwOwnerVid;
+		DWORD dwAt;
+		TPlayerBotSidekickBodySent() : dwVid(0), dwOwnerVid(0), dwAt(0) {}
+	};
+	std::map<DWORD, TPlayerBotSidekickBodySent> s_mapPlayerBotSidekickBodySent;	// by owner pid
+
+	void SendPlayerBotSidekickBody(LPCHARACTER owner, const TPlayerBotSidekick& rec, DWORD dwNow)
+	{
+		if (!owner || !owner->GetDesc() || owner->GetDesc()->IsBot())
+			return;
+		LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID);
+		const DWORD vid = sk && sk->GetSectree() ? (DWORD)sk->GetVID() : 0;
+		const DWORD ownerVid = (DWORD)owner->GetVID();
+		TPlayerBotSidekickBodySent& sent = s_mapPlayerBotSidekickBodySent[rec.dwOwnerPID];
+		// Nothing to take back from a client that was never told.
+		if (vid == 0 && sent.dwVid == 0)
+			return;
+		if (vid == sent.dwVid && ownerVid == sent.dwOwnerVid &&
+				dwNow - sent.dwAt < PLAYERBOT_SIDEKICK_BODY_RESEND_MS)
+			return;
+		owner->ChatPacket(CHAT_TYPE_COMMAND, "SidekickVid %u", (unsigned int)vid);
+		sent.dwVid = vid;
+		sent.dwOwnerVid = ownerVid;
+		sent.dwAt = dwNow;
+	}
+#endif
+
 	// Once a second for the whole core: the table, and every companion in or
 	// out of the world by its owner's presence here.
 	void ManagePlayerBotSidekicks(DWORD dwNow)
@@ -2132,11 +2192,39 @@ namespace
 					CPlayerBotManager::instance().Despawn(rec.dwSidekickPID);
 					s_mapPlayerBotSidekickRuntime.erase(rec.dwSidekickPID);
 				}
+#if defined(PLAYERBOT_ENGINE_MT2009)
+				if (owner && owner->GetSectree())
+					SendPlayerBotSidekickBody(owner, rec, dwNow);
+#endif
 				continue;
 			}
 			if (owner && owner->GetSectree())
 			{
 				rec.dwOwnerSeenAt = dwNow;
+				// Its owner came back in another kingdom (an Olejek Wygnania is
+				// pc.change_empire, which rewrites the owner's account and takes
+				// a relog) while the companion still stood in the world: it logs
+				// out, and the next try brings it in with the owner's kingdom
+				// (SpawnSidekick).
+				if (here)
+				{
+					LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID);
+					if (sk && sk->GetEmpire() != owner->GetEmpire() && owner->GetEmpire() >= 1 &&
+							owner->GetEmpire() <= 3)
+					{
+						if (sk->GetParty())
+							LeavePlayerBotParty(sk);
+						sk->Save();
+						sys_log(0, "PLAYERBOT_SIDEKICK: owner changed kingdom, logging out to follow pid=%u owner=%u empire=%u->%u",
+								rec.dwSidekickPID, rec.dwOwnerPID, (unsigned int)sk->GetEmpire(),
+								(unsigned int)owner->GetEmpire());
+						SayPlayerBotSidekick(owner, "Zmieniles krolestwo - ide za toba, zaraz bede.");
+						CPlayerBotManager::instance().Despawn(rec.dwSidekickPID);
+						s_mapPlayerBotSidekickRuntime.erase(rec.dwSidekickPID);
+						rec.dwNextSpawnTry = dwNow + PLAYERBOT_SIDEKICK_SPAWN_RETRY_MS;
+						continue;
+					}
+				}
 				if (!here && dwNow >= rec.dwNextSpawnTry)
 				{
 					rec.dwNextSpawnTry = dwNow + PLAYERBOT_SIDEKICK_SPAWN_RETRY_MS;
@@ -2146,6 +2234,9 @@ namespace
 							!CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID))
 						CPlayerBotManager::instance().SpawnSidekick(rec.dwSidekickPID);
 				}
+#if defined(PLAYERBOT_ENGINE_MT2009)
+				SendPlayerBotSidekickBody(owner, rec, dwNow);
+#endif
 			}
 			// A record made in this very pass carries get_dword_time(), later
 			// than dwNow: seen just now, not four billion milliseconds ago.
@@ -2323,6 +2414,18 @@ namespace
 				LeavePlayerBotParty(sk);
 			CPlayerBotManager::instance().Despawn(rec.dwSidekickPID);
 		}
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		// The record goes with this call, so the owner's client hears of the
+		// empty place here or nowhere (SendPlayerBotSidekickBody).
+		std::map<DWORD, TPlayerBotSidekickBodySent>::iterator body =
+				s_mapPlayerBotSidekickBodySent.find(rec.dwOwnerPID);
+		if (body != s_mapPlayerBotSidekickBodySent.end())
+		{
+			if (body->second.dwVid != 0 && owner && owner->GetDesc() && !owner->GetDesc()->IsBot())
+				owner->ChatPacket(CHAT_TYPE_COMMAND, "SidekickVid 0");
+			s_mapPlayerBotSidekickBodySent.erase(body);
+		}
+#endif
 		SayPlayerBotSidekick(owner, "Towarzysz odszedl. Nowego mozesz wybrac w liscie Towarzysz.");
 		sys_log(0, "PLAYERBOT_SIDEKICK: dismissed owner=%u pid=%u", rec.dwOwnerPID, rec.dwSidekickPID);
 	}
@@ -5339,6 +5442,19 @@ namespace
 			rt.dwNextLoot = dwNow + PLAYERBOT_SIDEKICK_LOOT_INTERVAL_MS;
 			if (PickUpPlayerBotSidekickLoot(ch, state, owner, rt, rec->bLoot, dwNow))
 				return true;
+		}
+		// A bag near full is its owner's to know: the merchant takes the scrap
+		// and, from a bag under pressure, the goods only when the owner stands
+		// at one or sends it on an errand, and the owner cannot see the bag
+		// without the window.
+		if ((rt.dwBagFullToldAt == 0 || dwNow - rt.dwBagFullToldAt >= PLAYERBOT_SIDEKICK_BAG_FULL_TELL_MS) &&
+				IsPlayerBotBagFull(ch))
+		{
+			rt.dwBagFullToldAt = dwNow;
+			SayPlayerBotSidekick(owner, "Mam prawie pelny plecak. Stan przy handlarzu albo szepnij \"zakupy\" - "
+					"sprzedam zlom. Co chcesz zatrzymac, wez z mojego plecaka (okno Towarzysza).");
+			sys_log(0, "PLAYERBOT_SIDEKICK: bag near full, owner told pid=%u name=%s free=%d", ch->GetPlayerID(),
+					ch->GetName(), CountPlayerBotFreeInventoryCells(ch));
 		}
 		if (dist > PLAYERBOT_SIDEKICK_FOLLOW_DISTANCE)
 		{

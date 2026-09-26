@@ -846,6 +846,20 @@ namespace
 	const int PLAYERBOT_ALCHEMIST_MIN_STONES = 3;
 	const DWORD PLAYERBOT_ALCHEMIST_CHECK_MIN_MS = 5 * 60 * 1000;
 	const DWORD PLAYERBOT_ALCHEMIST_CHECK_MAX_MS = 10 * 60 * 1000;
+	// The Tanaka event (playerbot_world_events.h): Pirate Tanaka himself, the
+	// ear his fall leaves for whoever beat him, and what Yonah (20005, one in
+	// each first village) gives for one - the Purple Ebony Chest, whose group
+	// holds bonus stones, a Kamien Duchowy, Zen Beans and scrolls
+	// (special_item_group.txt, 15 September). The ear is Yonah's, never the
+	// merchant's (IsPlayerBotJunkItem), and a bot walks it to her the way it
+	// walks its soul stones to the Alchemist.
+	const DWORD PLAYERBOT_TANAKA_VNUM = 5001;
+	const DWORD PLAYERBOT_TANAKA_EAR_VNUM = 30202;
+	const DWORD PLAYERBOT_PURPLE_EBONY_CHEST_VNUM = 50115;
+	const DWORD PLAYERBOT_YONAH_CHECK_MIN_MS = 4 * 60 * 1000;
+	const DWORD PLAYERBOT_YONAH_CHECK_MAX_MS = 8 * 60 * 1000;
+	// At most this many ears a visit, like the quest's own dialog.
+	const int PLAYERBOT_YONAH_EARS_PER_VISIT = 20;
 	// The fifteen in a hundred a counter keeps are its cheapest goods: under
 	// the books and the materials, where the 700 to 900 every soul stone had
 	// put a +2 level with the horse medal and first onto every counter.
@@ -1720,6 +1734,21 @@ namespace
 	const int PLAYERBOT_TOWER_ARCHER_KEEP_AWAY = 500;
 	const int PLAYERBOT_TOWER_ARCHER_STEP_BACK = 700;
 	const DWORD PLAYERBOT_TOWER_ARCHER_STEP_MS = 2500;
+	// The Reaper (floor nine) kills whoever stands at him in a blow or two:
+	// "wszystkie boty biegna w jednym ciagu jak kaczki i padaja na hita"
+	// (prodnathin's Update_DT, 26 September). A Shaman casts at him from
+	// CASTER_RANGE (every Shaman attack skill but Dragon's Roar reaches that
+	// far) and swings nothing; whoever he has turned on - an Archer or a
+	// Shaman - steps away from him while he is nearer than KITE_DISTANCE, a
+	// step of KITE_STEP at most every KITE_MS, and a Shaman he walks up to
+	// does so inside KEEP_AWAY whoever he is after. He walks at a hundred,
+	// which a bot on foot outruns.
+	const int PLAYERBOT_TOWER_REAPER_CASTER_RANGE = 1100;
+	const int PLAYERBOT_TOWER_REAPER_CASTER_SLACK = 200;
+	const int PLAYERBOT_TOWER_REAPER_KEEP_AWAY = 600;
+	const int PLAYERBOT_TOWER_REAPER_KITE_DISTANCE = 900;
+	const int PLAYERBOT_TOWER_REAPER_KITE_STEP = 700;
+	const DWORD PLAYERBOT_TOWER_REAPER_KITE_MS = 900;
 	// A raid is a guild and not a party, so the party buffs never reached it:
 	// the tower's Shaman keeps its fellows' buffs up itself, one cast a pass.
 	const DWORD PLAYERBOT_TOWER_ALLY_BUFF_INTERVAL = 3000;
@@ -1976,6 +2005,9 @@ namespace
 	// Ciecie under no aura, no Szarza and no Wir Miecza).
 	const int PLAYERBOT_DUEL_MELEE_RANGE = 170;
 	const int PLAYERBOT_DUEL_CASTER_RANGE = 600;
+	// Beyond this, the rotation casts only what reaches its target
+	// (PlayerBotSkillReaches): at a swing's distance nothing changes.
+	const int PLAYERBOT_SKILL_REACH_CHECK_FROM = 400;
 	const int PLAYERBOT_DUEL_CHARGE_MIN_RANGE = 250;
 	const int PLAYERBOT_DUEL_CHARGE_RANGE = 600;
 	const int PLAYERBOT_DUEL_BUFF_RANGE = 1500;
@@ -6028,6 +6060,19 @@ namespace
 	// fighting it turns on its owner.
 	void NotePlayerBotSidekickDown(LPCHARACTER ch, DWORD dwNow);
 
+	// Whether a bot sells from a counter at all: the engine's gate and the
+	// shop channel's (PlayerBotCanOpenShop) - and never a player's companion,
+	// whose stall pass is off. Every rule that keeps a piece as "counter
+	// goods" and lets the merchant have it only from a bag under pressure
+	// with no counter asked the engine's gate alone, so a companion kept its
+	// materials and gear for a counter it never opens, and its bag filled
+	// for good while the merchant bought its pennies ("Towarzysz nie sprzedaje
+	// zlomu", SIZOWSKI, 26 September).
+	bool PlayerBotHasCounter(LPCHARACTER ch)
+	{
+		return PlayerBotCanOpenShop(ch) && ch && !IsPlayerBotSidekickPID(ch->GetPlayerID());
+	}
+
 	// Iwakura's personality system ("SYSTEM OSOBOWOSCI v2.0", 19 September):
 	// playerbot_persona_rules.h is the policy, playerbot_mood.h and
 	// playerbot_persona.h the engine's half. The PERSONA key of the weights
@@ -7252,6 +7297,19 @@ namespace
 		WORD wBossRaidRace = 0;
 		long lBossRaidMap = 0;
 		DWORD dwNextBossRaidMoveTime = 0;
+		// A world event (playerbot_world_events.h): which one this bot answered
+		// (a playerbot_events kind, zero when none), the map it runs on, what
+		// the bot was sent after - its pirate, or the stone or boss of a Zuo
+		// wave it picked - and the clock on its walks there.
+		BYTE bWorldEventKind = 0;
+		long lWorldEventMap = 0;
+		DWORD dwWorldEventTargetVID = 0;
+		DWORD dwNextWorldEventMoveTime = 0;
+		DWORD dwWorldEventJoinedAt = 0;
+		// Yonah and the Tanaka ears: the walk to her, and its two clocks.
+		bool bVisitingYonah = false;
+		DWORD dwNextYonahCheckTime = 0;
+		DWORD dwNextYonahActionTime = 0;
 		// The ItemShop (playerbot_itemshop.h): the account's Dragon Coins and
 		// Marks as last read or reckoned, whether they were ever read, the
 		// hairstyle bought once, and the three clocks.
@@ -7512,6 +7570,11 @@ namespace
 		sys_log(0, "PLAYERBOT_GOAL: pid=%u name=%s goal=%u",
 				ch ? ch->GetPlayerID() : 0, ch ? ch->GetName() : "?", (unsigned int)goal);
 	}
+
+	// A bot answering Tanaka or Zuo, for the line over its head
+	// (playerbot_world_events.h, which comes after the status).
+	bool DescribePlayerBotWorldEvent(LPCHARACTER ch, const TPlayerBotAIState& state, bool en,
+			char* out, size_t size);
 
 	// A bot the Demon Tower has (playerbot_demon_tower.h): inside an instance,
 	// called to a raid, or summoned to its human master on the ground floor.

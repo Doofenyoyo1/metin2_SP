@@ -291,7 +291,7 @@ namespace
 	// counter.
 	DWORD PickPlayerBotHairstyleForCounter(LPCHARACTER ch)
 	{
-		if (!ch || s_vecPlayerBotItemShopHair.empty() || !PlayerBotCanOpenShop(ch) ||
+		if (!ch || s_vecPlayerBotItemShopHair.empty() || !PlayerBotHasCounter(ch) ||
 				(PlayerBotNavHash(ch->GetPlayerID() ^ 0x48545244U) % PLAYERBOT_ISHOP_HAIR_TRADE_SHARE) != 0)
 			return 0;
 #if defined(ENABLE_IKASHOP_RENEWAL)

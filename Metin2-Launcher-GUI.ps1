@@ -692,7 +692,14 @@ function Update-ActionPhase {
     # The game core's build step says this when the Docker VM has less memory
     # free than its heaviest file needs (see the game Dockerfile). Its RUN line
     # carries the same words, but that line is a step and returned above.
+    # "Pamięć" is also what Polish calls disk space, and the status line's
+    # "mało wolnej pamięci w Dockerze" sent players with hundreds of free
+    # gigabytes to clean their disks (artur554, charliee, uxietoszef, 25-26
+    # September): it says RAM now, and the log says once what it means.
     if ($Line -match 'UWAGA: w maszynie Dockera wolne jest tylko') {
+        if (-not $script:activeLowMemory) {
+            Write-LocalLog 'Maszynie Dockera brakuje teraz wolnej pamięci RAM (to nie jest miejsce na dysku - dysku nie trzeba czyścić). Zwykle dlatego, że aktualizacja kompiluje serwer, gdy stary serwer z botami wciąż działa. Kompilacja potrwa dłużej, ale skończy się - nie przerywaj. Przy następnej aktualizacji kliknij najpierw ZATRZYMAJ I ZAPISZ.'
+        }
         $script:activeLowMemory = $true
         return
     }
@@ -741,11 +748,11 @@ function Update-ActionStatusText {
         else { $text += ' {0}' -f (Format-StepClock -Span $inStep) }
         if ($script:activePhaseLabel -eq 'kompilacja rdzenia gry') {
             $long = $inStep.TotalSeconds -ge $script:activeCompileHintSeconds
-            if ($script:activeLowMemory) { $text += '  ⚠ mało wolnej pamięci w Dockerze' }
+            if ($script:activeLowMemory) { $text += '  ⚠ mało wolnego RAM-u w Dockerze (to nie dysk)' }
             elseif ($long) { $text += '  ⚠ dłużej niż zwykle' }
             if ($long -and -not $script:activeCompileHintNoticed) {
                 $script:activeCompileHintNoticed = $true
-                Write-LocalLog ('Kompilacja rdzenia gry trwa już {0:N0} min, a zwykle zajmuje 1–5 min. Tak długo trwa najczęściej wtedy, gdy maszynie Dockera brakuje pamięci: aktualizacja kompiluje, kiedy stary serwer z botami wciąż działa. Nie przerywaj — restart zaczyna kompilację od nowa. Przy następnej aktualizacji kliknij najpierw ZATRZYMAJ I ZAPISZ.' -f $inStep.TotalMinutes)
+                Write-LocalLog ('Kompilacja rdzenia gry trwa już {0:N0} min, a zwykle zajmuje 1–5 min. Tak długo trwa najczęściej wtedy, gdy maszynie Dockera brakuje pamięci RAM (nie miejsca na dysku): aktualizacja kompiluje, kiedy stary serwer z botami wciąż działa. Nie przerywaj — restart zaczyna kompilację od nowa. Przy następnej aktualizacji kliknij najpierw ZATRZYMAJ I ZAPISZ.' -f $inStep.TotalMinutes)
             }
         }
         if ($script:progress.Style -ne 'Blocks') { $script:progress.Style = 'Blocks' }

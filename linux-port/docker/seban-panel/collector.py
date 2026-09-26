@@ -258,6 +258,12 @@ def collect(con, previous):
         cur.execute("""INSERT IGNORE INTO player.web_seban_item_snapshot (captured_at,vnum,socket0,amount)
           SELECT %s, vnum, IF(vnum=50300, socket0, 0), SUM(count)
           FROM player.item GROUP BY vnum, IF(vnum=50300, socket0, 0)""", (now,))
+        # Only what can be bought (Playerbots 2.2.24): a stand with duration 0
+        # ran out and holds its goods until its owner renews it - on m2zip on
+        # 26 September 970 of 1 641 stands, nearly all of them of bots not in
+        # the world - and a line just sold keeps its window with ikashop_data
+        # emptied until the game core saves the item back. Both were counted
+        # as "Aktywne sklepy" and offers, and priced the market's averages.
         cur.execute("""INSERT IGNORE INTO player.web_seban_shop_snapshot
           (captured_at, map_index, empire, shop_count, offer_count, item_count, total_value)
           SELECT %s, o.map, pi.empire, COUNT(DISTINCT o.owner), COUNT(i.id),
@@ -267,11 +273,16 @@ def collect(con, previous):
           JOIN player.player p ON p.id = o.owner
           JOIN player.player_index pi ON pi.id = p.account_id
           LEFT JOIN player.item i ON i.owner_id = o.owner AND i.window = 'IKASHOP_OFFLINESHOP'
+            AND i.ikashop_data IS NOT NULL AND i.ikashop_data <> ''
+          WHERE o.duration > 0
           GROUP BY o.map, pi.empire""", (now,))
         cur.execute("""INSERT IGNORE INTO player.web_seban_shop_item_snapshot (captured_at, vnum, socket0, offers, total_units, total_value)
           SELECT %s, vnum, IF(vnum=50300, socket0, 0), COUNT(*), SUM(count),
                  COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(ikashop_data,'$.yang')) AS UNSIGNED)),0)
-          FROM player.item WHERE window = 'IKASHOP_OFFLINESHOP' GROUP BY vnum, IF(vnum=50300, socket0, 0)""", (now,))
+          FROM player.item WHERE window = 'IKASHOP_OFFLINESHOP'
+            AND ikashop_data IS NOT NULL AND ikashop_data <> ''
+            AND owner_id IN (SELECT owner FROM player.ikashop_offlineshop WHERE duration > 0)
+          GROUP BY vnum, IF(vnum=50300, socket0, 0)""", (now,))
         cur.execute("SELECT COALESCE(SUM(gold),0) FROM player.player WHERE name NOT IN ('[SA]Admin','Test','Admin','AdminNinja','AdminSura','AdminSzaman')")
         yang = cur.fetchone()[0]
         cur.execute("INSERT IGNORE INTO player.web_seban_metric_snapshot VALUES (%s,'total_yang',%s)", (now, yang))

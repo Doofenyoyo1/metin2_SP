@@ -1469,6 +1469,10 @@ def main(root):
     apply_expired_shop_no_entity(game)
     apply_sidekick_quest_kill_credit(game)
     apply_quest_pc_is_playerbot(game)
+    apply_drop_share_active(game)
+    apply_tanaka_goblin(game)
+    apply_shaman_party_buff(game)
+    apply_chest_mob_preview(game)
     print('playerbotify: done')
 
 
@@ -1522,6 +1526,634 @@ def apply_quest_pc_is_playerbot(game):
          '\t\t\t{ "is_polymorphed",\t\tpc_is_polymorphed\t},\n'
          '\t\t\t{ "is_playerbot",\t\tpc_is_playerbot\t},\n',
          marker='{ "is_playerbot",')
+
+
+def apply_drop_share_active(game):
+    """A drop belongs to whoever is still in the fight (2.2.24).
+
+    A Metin's drop went round everybody who had ever done a tenth of its
+    damage, so a bot too weak for the stone that had fallen or walked off
+    long before owned the books the one who broke it could not pick up.
+    TBattleInfo remembers when an attacker last hurt the victim, and
+    M2DropShareActive - forty seconds, the same map, five thousand units -
+    decides who shares the drop and who the single-item owner is
+    (GetMostAttacked, DistributeExp's pkChrMostAttacked). Experience is
+    shared as before. Reproduces upstream 2.2.23's (our 2.2.24's) char.h and char_battle.cpp
+    together with apply_tanaka_goblin.
+    """
+    edit(os.path.join(game, 'char.h'),
+         '\t\t\tint iAggro;\n'
+         '\n',
+         '\t\t\tint iAggro;\n'
+         '\t\t\t// playerbot: when this attacker last hurt the victim, so a drop\n'
+         '\t\t\t// leaves out whoever walked away from the fight (char_battle.cpp).\n'
+         '\t\t\tDWORD dwLastHit;\n'
+         '\n',
+         marker='\t\t\t// leaves out whoever walked away from the fight (char_battle.cpp).\n')
+    edit(os.path.join(game, 'char.h'),
+         '\t\t\tTBattleInfo(int iTot, int iAggr)\n'
+         '\t\t\t\t: iTotalDamage(iTot), iAggro(iAggr)\n'
+         '\t\t\t\t{}\n',
+         '\t\t\tTBattleInfo(int iTot, int iAggr)\n'
+         '\t\t\t\t: iTotalDamage(iTot), iAggro(iAggr), dwLastHit(0)\n'
+         '\t\t\t\t{}\n',
+         marker='\t\t\t\t: iTotalDamage(iTot), iAggro(iAggr), dwLastHit(0)\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '// #define ENABLE_NO_DAMAGE_QUEST_RUNNING\n'
+         '\n',
+         '// #define ENABLE_NO_DAMAGE_QUEST_RUNNING\n'
+         '\n'
+         "// playerbot: whether an attacker still has a share of this victim's drop.\n"
+         "// A Metin's drop went round everybody who had ever done a tenth of its\n"
+         '// damage, and a bot too weak for the stone did that and fell or walked off\n'
+         '// long before somebody else broke it - so the one who broke it found the\n'
+         '// drop was not theirs ("osoba, ktora zbila metina nie podnosi, bo nie\n'
+         '// nalezy do niego", prodnathin, 26 September). A share, and the drop of a\n'
+         '// single item, are for whoever hurt the victim in the last forty seconds\n'
+         "// and stands beside it; everybody's experience is left as it was.\n"
+         'static bool M2DropShareActive(LPCHARACTER victim, LPCHARACTER attacker, DWORD dwLastHit)\n'
+         '{\n'
+         '\tif (!victim || !attacker || dwLastHit == 0)\n'
+         '\t\treturn false;\n'
+         '\tif (get_dword_time() - dwLastHit > 40000)\n'
+         '\t\treturn false;\n'
+         '\tif (attacker->GetMapIndex() != victim->GetMapIndex())\n'
+         '\t\treturn false;\n'
+         '\treturn DISTANCE_APPROX(victim->GetX() - attacker->GetX(), victim->GetY() - attacker->GetY()) <= 5000;\n'
+         '}\n'
+         '\n',
+         marker='\treturn DISTANCE_APPROX(victim->GetX() - attacker->GetX(), victim->GetY() - attacker->GetY()) <= 5000;\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\n'
+         '\t\t\t\t\tif (ch)\n'
+         '\t\t\t\t\t{\n',
+         '\n'
+         '\t\t\t\t\t// playerbot: only whoever is still in the fight shares the drop.\n'
+         '\t\t\t\t\tif (ch && M2DropShareActive(this, ch, it->second.dwLastHit))\n'
+         '\t\t\t\t\t{\n',
+         marker='\t\t\t\t\t// playerbot: only whoever is still in the fight shares the drop.\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\t\t}\n'
+         '\t\tStartRecoveryEvent();\n',
+         '\t\t}\n'
+         '\t\tit->second.dwLastHit = get_dword_time(); // playerbot: M2DropShareActive\n'
+         '\t\tStartRecoveryEvent();\n',
+         marker='\t\tit->second.dwLastHit = get_dword_time(); // playerbot: M2DropShareActive\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\tLPCHARACTER pkChrMostAttacked = NULL;\n'
+         '\tauto it = m_map_kDamage.begin();\n',
+         '\tLPCHARACTER pkChrMostAttacked = NULL;\n'
+         '\t// playerbot: the most damage among those still in the fight.\n'
+         '\tint iMostActiveDam = -1;\n'
+         '\tLPCHARACTER pkChrMostActive = NULL;\n'
+         '\tauto it = m_map_kDamage.begin();\n',
+         marker='\tint iMostActiveDam = -1;\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\t\tconst int iDam    = it->second.iTotalDamage;\n'
+         '\n',
+         '\t\tconst int iDam    = it->second.iTotalDamage;\n'
+         '\t\tconst DWORD dwLastHit = it->second.dwLastHit; // playerbot: M2DropShareActive\n'
+         '\n',
+         marker='\t\tconst int iDam    = it->second.iTotalDamage;\n'
+                '\t\tconst DWORD dwLastHit = it->second.dwLastHit; // playerbot: M2DropShareActive\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\t\t\tiMostDam = iDam;\n'
+         '\t\t}\n'
+         '\t}\n'
+         '\n',
+         '\t\t\tiMostDam = iDam;\n'
+         '\t\t}\n'
+         '\t\tif (M2DropShareActive(this, pAttacker, dwLastHit) && iDam > iMostActiveDam)\n'
+         '\t\t{\n'
+         '\t\t\tpkChrMostActive = pAttacker;\n'
+         '\t\t\tiMostActiveDam = iDam;\n'
+         '\t\t}\n'
+         '\t}\n'
+         '\n',
+         marker='\t\tif (M2DropShareActive(this, pAttacker, dwLastHit) && iDam > iMostActiveDam)\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\t}\n'
+         '\n'
+         '\treturn pkChrMostAttacked;\n'
+         '}\n'
+         '#endif\n',
+         '\t}\n'
+         '\n'
+         '\treturn pkChrMostActive ? pkChrMostActive : pkChrMostAttacked;\n'
+         '}\n'
+         '#endif\n',
+         marker='\treturn pkChrMostActive ? pkChrMostActive : pkChrMostAttacked;\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\tint iMostDam = 0;\n'
+         '\n',
+         '\tint iMostDam = 0;\n'
+         '\t// playerbot: the most damage among those still in the fight.\n'
+         '\tLPCHARACTER pkChrMostActive = NULL;\n'
+         '\tint iMostActiveDam = 0;\n'
+         '\n',
+         marker='\tint iMostActiveDam = 0;\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\t\tint iDam = it->second.iTotalDamage;\n'
+         '\n',
+         '\t\tint iDam = it->second.iTotalDamage;\n'
+         '\t\tconst DWORD dwLastHit = it->second.dwLastHit; // playerbot: M2DropShareActive\n'
+         '\n',
+         marker='\t\tint iDam = it->second.iTotalDamage;\n'
+                '\t\tconst DWORD dwLastHit = it->second.dwLastHit; // playerbot: M2DropShareActive\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\t\t\tpkChrMostAttacked = pAttacker;\n'
+         '\t\t\tiMostDam = iDam;\n'
+         '\t\t}\n'
+         '\n',
+         '\t\t\tpkChrMostAttacked = pAttacker;\n'
+         '\t\t\tiMostDam = iDam;\n'
+         '\t\t}\n'
+         '\t\tif (M2DropShareActive(this, pAttacker, dwLastHit) && (!pkChrMostActive || iDam > iMostActiveDam))\n'
+         '\t\t{\n'
+         '\t\t\tpkChrMostActive = pAttacker;\n'
+         '\t\t\tiMostActiveDam = iDam;\n'
+         '\t\t}\n'
+         '\n',
+         marker='\t\tif (M2DropShareActive(this, pAttacker, dwLastHit) && (!pkChrMostActive || iDam > iMostActiveDam))\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\t//m_map_kDamage.clear();\n'
+         '\n',
+         '\t//m_map_kDamage.clear();\n'
+         '\tif (pkChrMostActive) // playerbot: M2DropShareActive\n'
+         '\t\tpkChrMostAttacked = pkChrMostActive;\n'
+         '\n',
+         marker='\tif (pkChrMostActive) // playerbot: M2DropShareActive\n')
+
+
+def apply_tanaka_goblin(game):
+    """Pirate Tanaka's fall is the winner's (the Tanaka event, 2.2.24).
+
+    playerbot_world_events.h spawns him; CHARACTER::Reward returns before the
+    drop tables for him, so his yang and his ear (30202, which Yonah trades in
+    tanaka_ears.quest) are dropped here, owned by the one who hurt him most and
+    is still in the fight, and the quests hear of the kill. The yang he sheds
+    when struck is a fifth of his table at the world's rate, owned by the
+    hitter for the first seconds, where the stock shower was a flat thousand.
+    """
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\n'
+         '\t\tLPITEM item;\n',
+         '\n'
+         "\t\t// playerbot: the Tanaka event - his fall is the winner's: the one who\n"
+         '\t\t// hurt him most and is still in the fight (M2DropShareActive).\n'
+         '\t\tLPCHARACTER pkTanakaWinner = GetMostAttacked();\n'
+         '\t\tif (pkTanakaWinner && !pkTanakaWinner->IsPC())\n'
+         '\t\t\tpkTanakaWinner = NULL;\n'
+         '\n'
+         '\t\tLPITEM item;\n',
+         marker="\t\t// playerbot: the Tanaka event - his fall is the winner's: the one who\n")
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\n'
+         '\t\t\t\titem->AddToGround(GetMapIndex(), pos);\n'
+         '\t\t\t\titem->StartDestroyEvent();\n'
+         '\t\t\t}\n',
+         '\n'
+         '\t\t\t\titem->AddToGround(GetMapIndex(), pos);\n'
+         "\t\t\t\tif (pkTanakaWinner) // playerbot: the winner's for the first seconds\n"
+         '\t\t\t\t\titem->SetOwnership(pkTanakaWinner);\n'
+         '\t\t\t\titem->StartDestroyEvent();\n'
+         '\t\t\t}\n',
+         marker="\t\t\t\tif (pkTanakaWinner) // playerbot: the winner's for the first seconds\n")
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\t\t\t\titem->StartDestroyEvent();\n'
+         '\t\t\t}\n'
+         '\t\t}\n'
+         '\t\treturn;\n',
+         '\t\t\t\titem->StartDestroyEvent();\n'
+         '\t\t\t}\n'
+         '\t\t}\n'
+         '\t\t// playerbot: his ear for the winner, and the quests hear of the kill.\n'
+         '\t\tif (pkTanakaWinner)\n'
+         '\t\t{\n'
+         '\t\t\tif ((item = ITEM_MANAGER::instance().CreateItem(30202, 1)))\n'
+         '\t\t\t{\n'
+         '\t\t\t\tPIXEL_POSITION earPos = GetXYZ();\n'
+         '\t\t\t\tSECTREE_MANAGER::instance().GetMovablePosition(GetMapIndex(), GetX(), GetY(), earPos);\n'
+         '\t\t\t\titem->AddToGround(GetMapIndex(), earPos);\n'
+         '\t\t\t\titem->SetOwnership(pkTanakaWinner);\n'
+         '\t\t\t\titem->StartDestroyEvent();\n'
+         '\t\t\t}\n'
+         '\t\t\tpkTanakaWinner->SetQuestNPCID(GetVID());\n'
+         '\t\t\tquest::CQuestManager::instance().Kill(pkTanakaWinner->GetPlayerID(), GetRaceNum());\n'
+         '\t\t\tsys_log(0, "WAEGU ear to %s pid %u gold %d", pkTanakaWinner->GetName(), pkTanakaWinner->GetPlayerID(), iGold);\n'
+         '\t\t}\n'
+         '\t\treturn;\n',
+         marker='\t\t\tsys_log(0, "WAEGU ear to %s pid %u gold %d", pkTanakaWinner->GetName(), pkTanakaWinner->GetPlayerID(), iGold);\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\t\t{\n'
+         '\t\t\tDWORD dwGold = 1000;\n'
+         '\t\t\tint iSplitCount = number(10, 13);\n',
+         '\t\t{\n'
+         '\t\t\t// playerbot: the Tanaka event - a fifth of what his fall scatters,\n'
+         "\t\t\t// at the world's yang rate (the stock shower was a flat thousand).\n"
+         '\t\t\tDWORD dwGold = MAX((DWORD)1000, (DWORD)((long long)number(GetMobTable().dwGoldMin, GetMobTable().dwGoldMax) *\n'
+         '\t\t\t\t\tCHARACTER_MANAGER::instance().GetMobGoldAmountRate(NULL) / 100 / 5));\n'
+         '\t\t\tint iSplitCount = number(10, 13);\n',
+         marker='\t\t\tDWORD dwGold = MAX((DWORD)1000, (DWORD)((long long)number(GetMobTable().dwGoldMin, GetMobTable().dwGoldMax) *\n')
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\t\t\t\t\t}\n'
+         '\n'
+         '\t\t\t\t\titem->AddToGround(GetMapIndex(), pos);\n'
+         '\t\t\t\t\titem->StartDestroyEvent();\n'
+         '\t\t\t\t}\n'
+         '\t\t\t}\n',
+         '\t\t\t\t\t}\n'
+         '\n'
+         '\t\t\t\t\titem->AddToGround(GetMapIndex(), pos);\n'
+         "\t\t\t\t\t// playerbot: the hitter's for the first seconds.\n"
+         '\t\t\t\t\tif (pAttacker && pAttacker->IsPC())\n'
+         '\t\t\t\t\t\titem->SetOwnership(pAttacker);\n'
+         '\t\t\t\t\titem->StartDestroyEvent();\n'
+         '\t\t\t\t}\n'
+         '\t\t\t}\n',
+         marker="\t\t\t\t\t// playerbot: the hitter's for the first seconds.\n")
+
+
+def apply_shaman_party_buff(game):
+    """A Shaman's support buff reaches its whole party on the map (2.2.24).
+
+    Cast on itself or on somebody of its party, a buff skill goes to every
+    member on the caster's map within 300 minimap cells on each axis
+    (ForEachOnMapMember), players and bots alike; cast on a stranger it stays
+    a one-target buff. Upstream's (Gibon's) change, reproduced byte for byte.
+    """
+    edit(os.path.join(game, 'char_skill.cpp'),
+         '\n'
+         'int CHARACTER::ComputeSkillAtPosition(DWORD dwVnum, const PIXEL_POSITION& posTarget, BYTE bSkillLevel)\n',
+         '\n'
+         "// playerbot: a Shaman's support buff for its whole party on the map\n"
+         '// (Gibon) - cast on itself or on somebody of its party; three hundred of the\n'
+         "// map's coordinates on each axis are the party's reach.\n"
+         'static const long PLAYERBOT_SHAMAN_PARTY_BUFF_AXIS_RANGE = 30000;\n'
+         '\n'
+         'static bool IsShamanPartyBuff(LPCHARACTER caster, DWORD dwVnum, LPCHARACTER pkVictim)\n'
+         '{\n'
+         '\tif (!caster || caster->GetJob() != JOB_SHAMAN || !IsBuffSkill(dwVnum) || !caster->GetParty())\n'
+         '\t\treturn false;\n'
+         '\treturn !pkVictim || pkVictim == caster || pkVictim->GetParty() == caster->GetParty();\n'
+         '}\n'
+         '\n'
+         'int CHARACTER::ComputeSkillAtPosition(DWORD dwVnum, const PIXEL_POSITION& posTarget, BYTE bSkillLevel)\n',
+         marker='\tif (!caster || caster->GetJob() != JOB_SHAMAN || !IsBuffSkill(dwVnum) || !caster->GetParty())\n')
+    edit(os.path.join(game, 'char_skill.cpp'),
+         '\tFComputeSkillParty f(dwVnum, pkVictim, bSkillLevel);\n'
+         '\tif (GetParty() && GetParty()->GetNearMemberCount())\n'
+         '\t\tGetParty()->ForEachNearMember(f);\n',
+         '\tFComputeSkillParty f(dwVnum, pkVictim, bSkillLevel);\n'
+         "\t// playerbot: a Shaman's party buff is every member on the map, not only\n"
+         '\t// the ones the party counts as near.\n'
+         '\tif (GetParty() && IsShamanPartyBuff(this, dwVnum, this))\n'
+         '\t\tGetParty()->ForEachOnMapMember(f, GetMapIndex());\n'
+         '\telse if (GetParty() && GetParty()->GetNearMemberCount())\n'
+         '\t\tGetParty()->ForEachNearMember(f);\n',
+         marker="\t// playerbot: a Shaman's party buff is every member on the map, not only\n")
+    edit(os.path.join(game, 'char_skill.cpp'),
+         '\n'
+         '\tif (pkSk->dwTargetRange && DISTANCE_SQRT(GetX() - pkVictim->GetX(), GetY() - pkVictim->GetY()) >= pkSk->dwTargetRange + 50)\n'
+         '\t{\n',
+         '\n'
+         "\t// playerbot: a Shaman's party buff reaches a living member on its map\n"
+         "\t// within the party's reach instead of the skill's own.\n"
+         '\tif (pkVictim != this && IsShamanPartyBuff(this, dwVnum, pkVictim))\n'
+         '\t{\n'
+         '\t\tif (pkVictim->IsDead() || pkVictim->GetMapIndex() != GetMapIndex() ||\n'
+         '\t\t\t\tlabs(GetX() - pkVictim->GetX()) > PLAYERBOT_SHAMAN_PARTY_BUFF_AXIS_RANGE ||\n'
+         '\t\t\t\tlabs(GetY() - pkVictim->GetY()) > PLAYERBOT_SHAMAN_PARTY_BUFF_AXIS_RANGE)\n'
+         '\t\t\treturn BATTLE_NONE;\n'
+         '\t}\n'
+         '\telse if (pkSk->dwTargetRange && DISTANCE_SQRT(GetX() - pkVictim->GetX(), GetY() - pkVictim->GetY()) >= pkSk->dwTargetRange + 50)\n'
+         '\t{\n',
+         marker='\telse if (pkSk->dwTargetRange && DISTANCE_SQRT(GetX() - pkVictim->GetX(), GetY() - pkVictim->GetY()) >= pkSk->dwTargetRange + 50)\n')
+    edit(os.path.join(game, 'char_skill.cpp'),
+         '\t}\n'
+         '\n'
+         '\tif (IS_SET(pkSk->dwFlag, SKILL_FLAG_SELFONLY))\n'
+         '\t\tpkVictim = this;\n'
+         '#ifdef ENABLE_SKILL_FLAG_PARTY\n',
+         '\t}\n'
+         '\n'
+         "\t// playerbot: a Shaman's party buff is cast on the caster and computed\n"
+         '\t// for the party below; on a stranger it stays a one-target buff.\n'
+         '\tconst bool bShamanPartyBuff = IsShamanPartyBuff(this, dwVnum, pkVictim);\n'
+         '\tif (bShamanPartyBuff)\n'
+         '\t\tpkVictim = this;\n'
+         '\telse if (IS_SET(pkSk->dwFlag, SKILL_FLAG_SELFONLY))\n'
+         '\t\tpkVictim = this;\n'
+         '#ifdef ENABLE_SKILL_FLAG_PARTY\n',
+         marker='\tconst bool bShamanPartyBuff = IsShamanPartyBuff(this, dwVnum, pkVictim);\n')
+    edit(os.path.join(game, 'char_skill.cpp'),
+         '\n'
+         '\tif (IS_SET(pkSk->dwFlag, SKILL_FLAG_SELFONLY))\n'
+         '\t\tComputeSkill(dwVnum, this);\n',
+         '\n'
+         '\tif (bShamanPartyBuff)\n'
+         '\t\tComputeSkillParty(dwVnum, this);\n'
+         '\telse if (IS_SET(pkSk->dwFlag, SKILL_FLAG_SELFONLY))\n'
+         '\t\tComputeSkill(dwVnum, this);\n',
+         marker='\tif (bShamanPartyBuff)\n'
+                '\t\tComputeSkillParty(dwVnum, this);\n')
+
+
+def apply_chest_mob_preview(game):
+    """What a chest holds and what a monster can drop (2.2.24).
+
+    /chest_preview <cell> and /mob_drop_preview <vid> answer the client's two
+    windows (client-root/uichestpreview.py, uimobpreview.py) from the tables
+    this process loaded, nested special groups followed, so an operator's
+    edited group shows at once. A monster is asked about only on the asker's
+    map and within reach. Gibon's windows, the server half upstream wrote.
+    """
+    edit(os.path.join(game, 'cmd.cpp'),
+         'ACMD(do_autohunt_loot);\n'
+         'ACMD(do_inventory_arrange);\n',
+         'ACMD(do_autohunt_loot);\n'
+         'ACMD(do_chest_preview);\n'
+         'ACMD(do_mob_drop_preview);\n'
+         'ACMD(do_inventory_arrange);\n',
+         marker='ACMD(do_mob_drop_preview);\n')
+    edit(os.path.join(game, 'cmd.cpp'),
+         '\t{ "autohunt_loot",\tdo_autohunt_loot,\t0,\t\t\tPOS_DEAD,\tGM_PLAYER\t},\n'
+         '\t{ "inventory_arrange",\tdo_inventory_arrange,\t0,\t\tPOS_DEAD,\tGM_PLAYER\t},\n',
+         '\t{ "autohunt_loot",\tdo_autohunt_loot,\t0,\t\t\tPOS_DEAD,\tGM_PLAYER\t},\n'
+         '\t{ "chest_preview",\tdo_chest_preview,\t0,\t\t\tPOS_DEAD,\tGM_PLAYER\t},\n'
+         '\t{ "mob_drop_preview",\tdo_mob_drop_preview,\t0,\t\t\tPOS_DEAD,\tGM_PLAYER\t},\n'
+         '\t{ "inventory_arrange",\tdo_inventory_arrange,\t0,\t\tPOS_DEAD,\tGM_PLAYER\t},\n',
+         marker='\t{ "mob_drop_preview",\tdo_mob_drop_preview,\t0,\t\t\tPOS_DEAD,\tGM_PLAYER\t},\n')
+    edit(os.path.join(game, 'cmd_general.cpp'),
+         '\n'
+         "//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f\n",
+         '\n'
+         "// What a chest holds and what a monster can drop (Gibon's two windows, 26\n"
+         '// September; client-root/uichestpreview.py and uimobpreview.py). Both answer\n'
+         '// from what this process loaded - special_item_group.txt with its nested\n'
+         "// groups followed, and the monster's drop tables - so a window shows what the\n"
+         "// running server hands out, an operator's edited group included, and nothing\n"
+         '// about a chest or a drop is kept in the client.\n'
+         'static const int PLAYERBOT_CHEST_PREVIEW_MAX_LINES = 400;\n'
+         'static const int PLAYERBOT_CHEST_PREVIEW_MAX_DEPTH = 4;\n'
+         'static const int PLAYERBOT_MOB_PREVIEW_RANGE = 5000;\n'
+         '\n'
+         '// One line a reward. A nested group is often reached from several parents -\n'
+         '// Srebrna Szkatulka+ (50013) names its weapon and book groups twice - so each\n'
+         '// group is expanded once and an item named twice is one line with the bigger\n'
+         '// count; the first version sent 150 lines for that chest, a third of them\n'
+         '// repeats, and ran out before its end; even without them that chest holds\n'
+         '// more than a hundred and fifty items, so an answer stops at four hundred.\n'
+         'static void AddPlayerBotChestPreviewLine(std::vector<std::pair<DWORD, int> >& lines, DWORD vnum, int count)\n'
+         '{\n'
+         '\tfor (auto& line : lines)\n'
+         '\t{\n'
+         '\t\tif (line.first != vnum)\n'
+         '\t\t\tcontinue;\n'
+         '\t\tif (vnum > CSpecialItemGroup::MOB_GROUP)\n'
+         '\t\t{\n'
+         '\t\t\tline.second = MAX(line.second, count);\n'
+         '\t\t\treturn;\n'
+         '\t\t}\n'
+         '\t\tif (line.second == count)\n'
+         '\t\t\treturn;\n'
+         '\t}\n'
+         '\tif ((int) lines.size() < PLAYERBOT_CHEST_PREVIEW_MAX_LINES)\n'
+         '\t\tlines.emplace_back(vnum, count);\n'
+         '}\n'
+         '\n'
+         '// An item line is "ChestPreviewItem <vnum>|<count>"; what\n'
+         '// CHARACTER::GiveItemFromSpecialItemGroup does instead of handing out an item\n'
+         '// (yang, experience, a monster, an affect) is "ChestPreviewEffect\n'
+         '// <kind>|<amount>". A monster\'s or a group\'s number, and the poison\'s nothing,\n'
+         '// stand where an amount stands there, so those go out as one; an item this\n'
+         '// process does not know is one the chest cannot give.\n'
+         'static void CollectPlayerBotChestPreviewGroup(DWORD groupVnum, std::set<DWORD>& seen, int depth, std::vector<std::pair<DWORD, int> >& lines)\n'
+         '{\n'
+         '\tif (depth > PLAYERBOT_CHEST_PREVIEW_MAX_DEPTH || !seen.insert(groupVnum).second)\n'
+         '\t\treturn;\n'
+         '\tconst CSpecialItemGroup* group = ITEM_MANAGER::instance().GetSpecialItemGroup(groupVnum);\n'
+         '\tif (!group)\n'
+         '\t\treturn;\n'
+         '\tfor (const auto& reward : group->GetItems())\n'
+         '\t{\n'
+         '\t\tif (reward.isSpecial)\n'
+         '\t\t\tCollectPlayerBotChestPreviewGroup(reward.vnum, seen, depth + 1, lines);\n'
+         '\t\telse if (reward.count <= 0)\n'
+         '\t\t\tcontinue;\n'
+         '\t\telse if (reward.vnum > CSpecialItemGroup::MOB_GROUP)\n'
+         '\t\t{\n'
+         '\t\t\tif (ITEM_MANAGER::instance().GetTable(reward.vnum))\n'
+         '\t\t\t\tAddPlayerBotChestPreviewLine(lines, reward.vnum, reward.count);\n'
+         '\t\t}\n'
+         '\t\telse if (reward.vnum >= CSpecialItemGroup::GOLD)\n'
+         '\t\t{\n'
+         '\t\t\tconst bool amount = reward.vnum == CSpecialItemGroup::GOLD || reward.vnum == CSpecialItemGroup::EXP ||\n'
+         '\t\t\t\treward.vnum == CSpecialItemGroup::SLOW || reward.vnum == CSpecialItemGroup::DRAIN_HP;\n'
+         '\t\t\tAddPlayerBotChestPreviewLine(lines, reward.vnum, amount ? reward.count : 1);\n'
+         '\t\t}\n'
+         '\t}\n'
+         '}\n'
+         '\n'
+         '// "/chest_preview <cell>": the chest in that cell of the asker\'s own bag.\n'
+         'ACMD(do_chest_preview)\n'
+         '{\n'
+         '\tchar arg1[32];\n'
+         '\tone_argument(argument, arg1, sizeof(arg1));\n'
+         '\tint cell = -1;\n'
+         '\tif (!*arg1 || !str_to_number(cell, arg1) || cell < 0 || cell >= ch->GetInventoryMaxCount())\n'
+         '\t{\n'
+         '\t\tch->ChatPacket(CHAT_TYPE_COMMAND, "ChestPreviewError invalid");\n'
+         '\t\treturn;\n'
+         '\t}\n'
+         '\tLPITEM box = ch->GetInventoryItem(cell);\n'
+         '\tif (!box || (box->GetType() != ITEM_GIFTBOX && box->GetType() != ITEM_TREASURE_BOX))\n'
+         '\t{\n'
+         '\t\tch->ChatPacket(CHAT_TYPE_COMMAND, "ChestPreviewError invalid");\n'
+         '\t\treturn;\n'
+         '\t}\n'
+         '\tconst DWORD vnum = box->GetVnum();\n'
+         '\tif (!ITEM_MANAGER::instance().GetSpecialItemGroup(vnum))\n'
+         '\t{\n'
+         '\t\tch->ChatPacket(CHAT_TYPE_COMMAND, "ChestPreviewError missing");\n'
+         '\t\treturn;\n'
+         '\t}\n'
+         '\tstd::vector<std::pair<DWORD, int> > lines;\n'
+         '\tstd::set<DWORD> seen;\n'
+         '\tCollectPlayerBotChestPreviewGroup(vnum, seen, 0, lines);\n'
+         '\tch->ChatPacket(CHAT_TYPE_COMMAND, "ChestPreviewBegin %u", vnum);\n'
+         '\tfor (const auto& line : lines)\n'
+         '\t{\n'
+         '\t\tif (line.first > CSpecialItemGroup::MOB_GROUP)\n'
+         '\t\t\tch->ChatPacket(CHAT_TYPE_COMMAND, "ChestPreviewItem %u|%d", line.first, line.second);\n'
+         '\t\telse\n'
+         '\t\t\tch->ChatPacket(CHAT_TYPE_COMMAND, "ChestPreviewEffect %u|%d", line.first, line.second);\n'
+         '\t}\n'
+         '\tch->ChatPacket(CHAT_TYPE_COMMAND, "ChestPreviewEnd %u", vnum);\n'
+         '}\n'
+         '\n'
+         '// "/mob_drop_preview <vid>": a live monster or Metin stone on the asker\'s map\n'
+         '// and within reach, so a client cannot ask about any race it likes, nor about\n'
+         "// another map. The answer is ITEM_MANAGER::SendMobDropPreview. Gibon's version\n"
+         '// never registered this one, so the "?" asked a command nobody knew.\n'
+         'ACMD(do_mob_drop_preview)\n'
+         '{\n'
+         '\tchar arg1[32];\n'
+         '\tone_argument(argument, arg1, sizeof(arg1));\n'
+         '\tDWORD vid = 0;\n'
+         '\tif (!*arg1 || !str_to_number(vid, arg1))\n'
+         '\t{\n'
+         '\t\tch->ChatPacket(CHAT_TYPE_COMMAND, "MobPreviewError invalid");\n'
+         '\t\treturn;\n'
+         '\t}\n'
+         '\tLPCHARACTER target = CHARACTER_MANAGER::instance().Find(vid);\n'
+         '\tif (!target || (!target->IsMonster() && !target->IsStone()) ||\n'
+         '\t\t\ttarget->GetMapIndex() != ch->GetMapIndex() ||\n'
+         '\t\t\tDISTANCE_APPROX(target->GetX() - ch->GetX(), target->GetY() - ch->GetY()) > PLAYERBOT_MOB_PREVIEW_RANGE)\n'
+         '\t{\n'
+         '\t\tch->ChatPacket(CHAT_TYPE_COMMAND, "MobPreviewError invalid");\n'
+         '\t\treturn;\n'
+         '\t}\n'
+         '\tITEM_MANAGER::instance().SendMobDropPreview(ch, target);\n'
+         '}\n'
+         '\n'
+         "//martysama0134's 4e4e75d8b719b9240e033009cf4d7b0f\n",
+         marker='static void CollectPlayerBotChestPreviewGroup(DWORD groupVnum, std::set<DWORD>& seen, int depth, std::vector<std::pair<DWORD, int> >& lines)\n')
+    edit(os.path.join(game, 'item_manager.h'),
+         '\t\tvoid\t\t\tListMobItemDrop(LPCHARACTER ch, DWORD mobVnum);\n'
+         '\n',
+         '\t\tvoid\t\t\tListMobItemDrop(LPCHARACTER ch, DWORD mobVnum);\n'
+         '\t\tvoid\t\t\tSendMobDropPreview(LPCHARACTER viewer, LPCHARACTER mob);\n'
+         '\n',
+         marker='\t\tvoid\t\t\tSendMobDropPreview(LPCHARACTER viewer, LPCHARACTER mob);\n')
+    edit(os.path.join(game, 'item_manager.cpp'),
+         '\n'
+         'DWORD ITEM_MANAGER::GetRefineFromVnum(DWORD dwVnum)\n',
+         '\n'
+         '// What a monster or a Metin stone can drop, from the tables this process\n'
+         '// loaded (/mob_drop_preview in cmd_general.cpp, client-root/uimobpreview.py).\n'
+         '// Everything CreateDropItem above rolls for the race is listed, the\n'
+         '// playerbot additions under their own conditions, for this viewer: its level\n'
+         "// and its gloves decide as a killer's would. A quest's drop depends on the\n"
+         "// quest, and the common drop by level and the horse's skill book on the\n"
+         "// killer's level and saddle, so none of those is listed. An item is one line\n"
+         '// with its biggest count however many tables name it - Metin Szeptow (8028)\n'
+         '// names its weapons and armour three times - and a special group is expanded\n'
+         '// once.\n'
+         'static const int PLAYERBOT_MOB_PREVIEW_MAX_LINES = 400;\n'
+         'static const int PLAYERBOT_MOB_PREVIEW_MAX_DEPTH = 4;\n'
+         "// Pirate Tanaka's fall drops nothing from the tables (CHARACTER::Reward\n"
+         '// returns before CreateDropItem for him): his yang and, for the one who hurt\n'
+         '// him most, his ear (the Tanaka event, playerbotify apply_tanaka_goblin).\n'
+         'static const DWORD PLAYERBOT_MOB_PREVIEW_TANAKA_VNUM = 5001;\n'
+         'static const DWORD PLAYERBOT_MOB_PREVIEW_TANAKA_EAR_VNUM = 30202;\n'
+         '\n'
+         'static void AddMobPreviewItem(std::vector<std::pair<DWORD, int> >& lines, DWORD vnum, int amount)\n'
+         '{\n'
+         "\t// The tables' own Moonlight chests drop only while a chest window is open.\n"
+         '\tif (vnum == 50011 && g_iMoonlightChestPermille <= 0 && g_iMoonlightChestStonePermille <= 0)\n'
+         '\t\treturn;\n'
+         '\tif (amount <= 0 || !ITEM_MANAGER::instance().GetTable(vnum))\n'
+         '\t\treturn;\n'
+         '\tfor (auto& line : lines)\n'
+         '\t\tif (line.first == vnum)\n'
+         '\t\t{\n'
+         '\t\t\tline.second = MAX(line.second, amount);\n'
+         '\t\t\treturn;\n'
+         '\t\t}\n'
+         '\tif ((int) lines.size() < PLAYERBOT_MOB_PREVIEW_MAX_LINES)\n'
+         '\t\tlines.emplace_back(vnum, amount);\n'
+         '}\n'
+         '\n'
+         'static void AddMobPreviewSpecialGroup(std::vector<std::pair<DWORD, int> >& lines, DWORD groupVnum, std::set<DWORD>& seen, int depth)\n'
+         '{\n'
+         '\tif (depth > PLAYERBOT_MOB_PREVIEW_MAX_DEPTH || !seen.insert(groupVnum).second)\n'
+         '\t\treturn;\n'
+         '\tconst CSpecialItemGroup* group = ITEM_MANAGER::instance().GetSpecialItemGroup(groupVnum);\n'
+         '\tif (!group)\n'
+         '\t\treturn;\n'
+         '\tfor (const auto& reward : group->GetItems())\n'
+         '\t{\n'
+         '\t\tif (reward.isSpecial)\n'
+         '\t\t\tAddMobPreviewSpecialGroup(lines, reward.vnum, seen, depth + 1);\n'
+         '\t\t// A drop is an item or nothing (GetSpecialItemGroupDropInfo): yang and\n'
+         "\t\t// the other effects of a group are a chest's, not a monster's.\n"
+         '\t\telse if (reward.vnum > CSpecialItemGroup::MOB_GROUP)\n'
+         '\t\t\tAddMobPreviewItem(lines, reward.vnum, reward.count);\n'
+         '\t}\n'
+         '}\n'
+         '\n'
+         'void ITEM_MANAGER::SendMobDropPreview(LPCHARACTER viewer, LPCHARACTER mob)\n'
+         '{\n'
+         '\tif (!viewer || !mob)\n'
+         '\t\treturn;\n'
+         '\tconst DWORD race = mob->GetRaceNum();\n'
+         '\tstd::vector<std::pair<DWORD, int> > lines;\n'
+         '\tif (race == PLAYERBOT_MOB_PREVIEW_TANAKA_VNUM)\n'
+         '\t\tAddMobPreviewItem(lines, PLAYERBOT_MOB_PREVIEW_TANAKA_EAR_VNUM, 1);\n'
+         '\telse\n'
+         '\t{\n'
+         '\t\tstd::set<DWORD> seen;\n'
+         '\t\tauto drop = m_map_pkDropItemGroup.find(race);\n'
+         '\t\tif (drop != m_map_pkDropItemGroup.end())\n'
+         '\t\t\tfor (const auto& reward : drop->second->GetVector())\n'
+         '\t\t\t{\n'
+         '\t\t\t\tif (reward.bSpecialGroup)\n'
+         '\t\t\t\t\tAddMobPreviewSpecialGroup(lines, reward.dwVnum, seen, 0);\n'
+         '\t\t\t\telse\n'
+         '\t\t\t\t\tAddMobPreviewItem(lines, reward.dwVnum, reward.iCount);\n'
+         '\t\t\t}\n'
+         '\n'
+         '\t\tauto kill = m_map_pkMobItemGroup.find(race);\n'
+         '\t\tif (kill != m_map_pkMobItemGroup.end() && kill->second && !kill->second->IsEmpty())\n'
+         '\t\t\tfor (const auto& reward : kill->second->GetItems())\n'
+         '\t\t\t\tAddMobPreviewItem(lines, reward.dwItemVnum, reward.iCount);\n'
+         '\n'
+         '\t\tauto level = m_map_pkLevelItemGroup.find(race);\n'
+         '\t\tif (level != m_map_pkLevelItemGroup.end() && level->second->GetLevelLimit() <= (DWORD) viewer->GetLevel())\n'
+         '\t\t\tfor (const auto& reward : level->second->GetVector())\n'
+         '\t\t\t\tAddMobPreviewItem(lines, reward.dwVNum, reward.iCount);\n'
+         '\n'
+         '\t\tif (viewer->GetPremiumRemainSeconds(PREMIUM_ITEM) > 0 || viewer->IsEquipUniqueGroup(UNIQUE_GROUP_DOUBLE_ITEM))\n'
+         '\t\t{\n'
+         '\t\t\tauto glove = m_map_pkGloveItemGroup.find(race);\n'
+         '\t\t\tif (glove != m_map_pkGloveItemGroup.end())\n'
+         '\t\t\t\tfor (const auto& reward : glove->second->GetVector())\n'
+         '\t\t\t\t\tAddMobPreviewItem(lines, reward.dwVnum, reward.iCount);\n'
+         '\t\t}\n'
+         '\n'
+         '\t\tif (mob->GetMobDropItemVnum() && m_map_dwEtcItemDropProb.count(mob->GetMobDropItemVnum()))\n'
+         '\t\t\tAddMobPreviewItem(lines, mob->GetMobDropItemVnum(), 1);\n'
+         '\n'
+         '\t\tif (mob->IsStone())\n'
+         '\t\t{\n'
+         '\t\t\tif (mob->GetDropMetinStoneVnum() && mob->GetDropMetinStonePct() > 0)\n'
+         '\t\t\t\tAddMobPreviewItem(lines, mob->GetDropMetinStoneVnum(), 1);\n'
+         '\t\t\tif (viewer->GetLevel() <= mob->GetLevel() + PLAYERBOT_METIN_BOOK_LEVEL_DELTA)\n'
+         '\t\t\t{\n'
+         '\t\t\t\tAddMobPreviewItem(lines, 50300, 1);\n'
+         '\t\t\t\tif (g_iBlessingScrollStonePermille > 0 &&\n'
+         '\t\t\t\t\t\tmob->GetLevel() >= PLAYERBOT_BLESSING_SCROLL_STONE_MIN_LEVEL &&\n'
+         '\t\t\t\t\t\tmob->GetLevel() <= PLAYERBOT_BLESSING_SCROLL_STONE_MAX_LEVEL)\n'
+         '\t\t\t\t\tAddMobPreviewItem(lines, 25040, 1);\n'
+         '\t\t\t}\n'
+         '\t\t}\n'
+         '\n'
+         '\t\tif ((mob->IsStone() ? g_iMoonlightChestStonePermille : g_iMoonlightChestPermille) > 0)\n'
+         '\t\t\tAddMobPreviewItem(lines, 50011, 1);\n'
+         '\t\tif ((mob->IsStone() ? g_iDragonCoinStonePermille\n'
+         '\t\t\t\t: (mob->GetMobRank() >= MOB_RANK_BOSS ? g_iDragonCoinBossPermille : 0)) > 0)\n'
+         '\t\t\tAddMobPreviewItem(lines, 80017, 1);\n'
+         '\t}\n'
+         '\n'
+         '\tviewer->ChatPacket(CHAT_TYPE_COMMAND, "MobPreviewBegin %u", race);\n'
+         '\tfor (const auto& line : lines)\n'
+         '\t\tviewer->ChatPacket(CHAT_TYPE_COMMAND, "MobPreviewItem %u|%d", line.first, line.second);\n'
+         '\tviewer->ChatPacket(CHAT_TYPE_COMMAND, "MobPreviewEnd %u", race);\n'
+         '}\n'
+         '\n'
+         'DWORD ITEM_MANAGER::GetRefineFromVnum(DWORD dwVnum)\n',
+         marker='static void AddMobPreviewSpecialGroup(std::vector<std::pair<DWORD, int> >& lines, DWORD groupVnum, std::set<DWORD>& seen, int depth)\n')
 
 
 SIDEKICK_COMMAND = r'''// "Towarzysz", the player's own companion (playerbot_sidekick.h): the

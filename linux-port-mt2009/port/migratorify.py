@@ -97,6 +97,17 @@ FISHING_PASS_AND_RING = (
     '# multi-table one, which MariaDB refuses with no default database, so the\n'
     "# players' buy counts of the three stayed and this warned at every start.\n"
     'db -e "DELETE FROM common.itemshop_time_auctions WHERE item_index IN (906, 907, 908) AND end_time < \'2025-01-01\'; DELETE FROM player.itemshop_time_auction WHERE item_index IN (906, 907, 908) AND item_index NOT IN (SELECT item_index FROM common.itemshop_time_auctions);" || echo "[playerbot-migrate] WARNING: could not end the ItemShop old time auctions" >&2\n'
+    '# Pirate Tanaka (5001), the Tanaka event\'s treasure goblin\n'
+    '# (playerbot_world_events.h): the package gives him 560 yang, which his fall\n'
+    '# splits into thirty piles of twenty, and a flat thousand at each fifth of his\n'
+    '# health (playerbotify apply_tanaka_goblin scales that to a fifth of a roll of\n'
+    '# these). A world whose operator set his yang by hand keeps it: only the\n'
+    '# stock 560 moves. The db core reads mob_proto at boot; idempotent.\n'
+    'db -e "UPDATE world.mob_proto SET gold_min = 15000, gold_max = 25000 WHERE vnum = 5001 AND gold_min = 560 AND gold_max = 560;" || echo "[playerbot-migrate] WARNING: could not give Pirate Tanaka his yang" >&2\n'
+    '# His ear (30202), which Yonah takes for a Purple Ebony Chest\n'
+    '# (tanaka_ears.quest), stacks to the 200 its row already says: the package\n'
+    '# left ITEM_FLAG_STACKABLE off, so every ear took a cell. Idempotent.\n'
+    'db -e "UPDATE world.item_proto SET flag = flag | 4 WHERE vnum = 30202 AND (flag & 4) = 0;" || echo "[playerbot-migrate] WARNING: could not make Tanaka\'s ear stack" >&2\n'
 )
 
 GUILD_TIERS_AND_CHANNEL_PINS = (

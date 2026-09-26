@@ -1,6 +1,7 @@
 // g++ -Wall -Wextra -o /tmp/t tests/playerbot_event_rules_test.cpp && /tmp/t
 #include "../linux-port/overlays/playerbot/src/game/src/playerbot_event_rules.h"
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 
 using namespace playerbot_events;
@@ -86,6 +87,51 @@ int main()
 	st = Evaluate(all, KIND_EXP, 1000001, 2, 20 * 60 + 30);
 	// 1000001 sits 41 seconds into its minute (999960); Thursday 18:00 is 1290 minutes on.
 	CHECK(st.scheduled && !st.active && st.nextStart == 999960 + 1290 * 60);
+
+	// The two world events (upstream 2.2.22, whose test it did not ship):
+	// Tanaka and Zuo carry a map, a rate kind does not; a now-line may carry
+	// its first second; the counts are held to their ceilings.
+	CHECK(ParseLine("tanaka\t*\t19:00\t20:00\t3\t64", w));
+	CHECK(w.kind == KIND_TANAKA && w.value == 3 && w.map == 64);
+	CHECK(IsWorldKind(KIND_TANAKA) && IsWorldKind(KIND_ZUO) && !IsWorldKind(KIND_EXP));
+	CHECK(IsRateKind(KIND_YANG) && !IsRateKind(KIND_CHEST) && !IsRateKind(KIND_ZUO));
+	CHECK(ParseLine("exp\t*\t19:00\t20:00\t50\t64", w) && w.map == 0);
+	CHECK(ParseLine("zuo\t5\t21:00\t22:00\t8\t0", w) && w.kind == KIND_ZUO && w.map == 0);
+	CHECK(ParseLine("now\tzuo\t1758045600\t8\t63\t1758042000", w));
+	CHECK(w.now && w.map == 63 && w.since == 1758042000);
+	CHECK(ParseLine("now\tzuo\t1758045600\t8\t63\t1758049999", w) && w.since == 0);
+	CHECK(WorldEventCount(KIND_TANAKA, 0) == 3 && WorldEventCount(KIND_TANAKA, 50) == 20);
+	CHECK(WorldEventCount(KIND_ZUO, 0) == 8 && WorldEventCount(KIND_ZUO, 50) == 30);
+	CHECK(WorldEventCount(KIND_EXP, 50) == 50);
+	CHECK(std::strcmp(KindName(KIND_TANAKA), "tanaka") == 0 && KindFromName("zuo") == KIND_ZUO);
+	// A settings line is no event, and an event line no setting.
+	Settings set;
+	CHECK(!ParseLine("bots\t50", w));
+	CHECK(ParseSettingLine("bots\t75\r\n", set) && set.botsPercent == 75);
+	CHECK(ParseSettingLine("bots\t250", set) && set.botsPercent == 100);
+	CHECK(!ParseSettingLine("exp\t*\t19:00\t20:00\t50", set));
+	CHECK(!BotTakesPart(7, 0) && BotTakesPart(7, 100));
+	int taking = 0;
+	for (unsigned int pid = 1; pid <= 1000; ++pid)
+		taking += BotTakesPart(pid, 50) ? 1 : 0;
+	CHECK(taking > 400 && taking < 600);
+	for (unsigned int pid = 1; pid <= 1000; ++pid)
+		CHECK(!BotTakesPart(pid, 30) || BotTakesPart(pid, 60));  // a raised slider keeps who came
+	// Zuo's bosses come in the second half; an unknown first second is all rain.
+	CHECK(!IsZuoBossHalf(1000, 4600, 2000) && IsZuoBossHalf(1000, 4600, 2800));
+	CHECK(!IsZuoBossHalf(0, 4600, 4000));
+	// A window's map and first second come with the line whose value is taken.
+	std::vector<Window> ev;
+	Window t1, t2;
+	CHECK(ParseLine("tanaka\t*\t19:00\t21:00\t3\t64", t1));
+	CHECK(ParseLine("tanaka\t*\t19:30\t20:30\t5\t63", t2));
+	ev.push_back(t1);
+	ev.push_back(t2);
+	Status tk = Evaluate(ev, KIND_TANAKA, 999030, 2, 20 * 60);
+	CHECK(tk.active && tk.value == 5 && tk.map == 63);
+	CHECK(tk.since == 999000 - 30 * 60);
+	tk = Evaluate(ev, KIND_TANAKA, 999030, 2, 18 * 60 + 50);
+	CHECK(!tk.active && tk.nextMap == 64 && tk.nextStart == 999000 + 10 * 60);
 
 	if (g_failed)
 	{

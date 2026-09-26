@@ -548,7 +548,11 @@ quest deviltower_zone begin
         when 30300.use with in_dungeon(66) and d.get_level() == 5 begin
             pc.remove_item(30300, 1)
 
-            local pct = number(1,10)
+            -- One chest in four holds the map; the package had one in ten, and
+            -- a guild broke eleven Metins of Murder without it and fell on the
+            -- floor, whose curse grows every five minutes (prodnathin's
+            -- Update_DT, 26 September).
+            local pct = number(1,4)
 
             if pct == 1 then
                 game.drop_item(30302, 1)
