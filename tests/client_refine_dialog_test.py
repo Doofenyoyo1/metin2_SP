@@ -104,6 +104,7 @@ def stub_modules(refine_cost):
 
     const = types.ModuleType('constInfo')
     const.IS_UNIQUE_70LEVEL_WEAPON = lambda vnum: False
+    const.ENABLE_REFINE_PCT = True
     sys.modules['constInfo'] = const
 
     events = types.ModuleType('eventManager')
@@ -126,6 +127,7 @@ def new_dialog(uirefine, tooltip):
     dialog._RefineDialogNew__Initialize = lambda: None
     dialog.probText = Widget()
     dialog.costText = Widget()
+    dialog.successPercentage = Widget()
     dialog.toolTip = tooltip
     dialog.itemImage = Widget()
     dialog.slotList = [Widget(), Widget(), Widget()]
@@ -160,6 +162,16 @@ def main():
         failures.append('the cost fell back to %r, not the plain amount' % (cost,))
     if net.sent:
         failures.append('an opened window sent %r' % (net.sent,))
+    # The chance line shows the server's chance, and a server that sends 0
+    # (the package's, before 2.2.30) keeps it hidden.
+    shown = [name for name, args in dialog.successPercentage.calls if name in ('Show', 'Hide')]
+    if shown != ['Show']:
+        failures.append('a chance of 90 left the chance line %r' % (shown,))
+    dialog = new_dialog(uirefine, Widget())
+    dialog.Open(5, 1001, 1000, 0, 0)
+    shown = [name for name, args in dialog.successPercentage.calls if name in ('Show', 'Hide')]
+    if shown != ['Hide']:
+        failures.append('a chance of 0 left the chance line %r' % (shown,))
 
     # Anything else raising in Open: the cancel goes to the server, the error on.
     net, uirefine = load(root, 'Cost: %s')

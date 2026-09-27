@@ -34,10 +34,11 @@ namespace playerbot_conv
 		static const TItemAlias kAliases[] = {
 			// weapons
 			{ "fms", "miecz pelni ksiezyca" }, { "pelnia", "miecz pelni ksiezyca" },
-			{ "rib", "ostrze czerwonej stali" }, { "hms", "polksiezycowy miecz" },
+			{ "rib", "ostrze czerwonej stali" }, { "hms", "pol ksiezycowy miecz" },
 			{ "12d", "miecz dwunastu duchow" }, { "duszki", "miecz dwunastu duchow" },
 			{ "duszek", "miecz dwunastu duchow" }, { "12stka", "miecz dwunastu duchow" },
 			{ "nimfa", "miecz nimfy" }, { "barba", "miecz barbarzyncy" }, { "barbarzynca", "miecz barbarzyncy" },
+			{ "poltorak", "miecz poltorareczny" },
 			{ "szpon", "miecz szponu ducha" }, { "parta", "partyzana" }, { "halka", "halabarda" },
 			{ "kruk", "stalowy luk kruka" }, { "jelonek", "luk rogu jelenia" },
 			{ "koziki", "kozik czarnego liscia" }, { "kozik", "kozik czarnego liscia" },
@@ -84,6 +85,15 @@ namespace playerbot_conv
 			const char last = alias[la - 1];
 			if ((last == 'a' || last == 'e' || last == 'i' || last == 'o' || last == 'y') &&
 					word.size() >= la && word.size() <= la + 2 && word.compare(0, la - 1, alias, la - 1) == 0)
+				return true;
+		}
+		// "jelonka", "jelonkiem" for "jelonek": a closing -ek loses its e in
+		// every other case (a mobile e), so the stem is the alias without it.
+		if (la >= 5 && alias[la - 2] == 'e' && alias[la - 1] == 'k')
+		{
+			std::string stem(alias, la - 2);
+			stem += 'k';
+			if (word.size() > stem.size() && word.size() <= stem.size() + 3 && word.compare(0, stem.size(), stem) == 0)
 				return true;
 		}
 		return false;
@@ -142,11 +152,98 @@ namespace playerbot_conv
 		return false;
 	}
 
+	// A '+' in an item's name is part of it: Biala Wstega+, Szpon Wilka+ and
+	// the other refined materials, the costumes with one - another item than
+	// the one without, which "szukam bialej wstegi+" was offered (Bloody
+	// Reapers, 27 September). A '+' before digits is a refine level instead
+	// ("fms+9", split off as the word "+9"). A query that names the plus -
+	// "wstega+", "wstega +", "z plusem", or the word "~plus" the whisper's
+	// Normalize leaves for it - ends in the word "~plus", and ItemWordsMatch
+	// then takes only a name with a plus of its own, and without it only a
+	// name without one.
+	inline std::string MarkItemQueryPlus(const std::string& query)
+	{
+		std::string spaced;
+		bool namePlus = false;
+		for (size_t i = 0; i < query.size(); ++i)
+		{
+			const char c = query[i];
+			if (c != '+')
+			{
+				spaced += c;
+				continue;
+			}
+			if (i + 1 < query.size() && query[i + 1] >= '0' && query[i + 1] <= '9')
+			{
+				if (!spaced.empty() && spaced[spaced.size() - 1] != ' ')
+					spaced += ' ';
+				spaced += '+';
+				continue;
+			}
+			namePlus = true;
+			spaced += ' ';
+		}
+		std::vector<std::string> words;
+		SplitWords(spaced, words);
+		std::string out;
+		for (size_t i = 0; i < words.size(); ++i)
+		{
+			const std::string& w = words[i];
+			if (w == "~plus" || w == "plus" || w == "plusem" || w == "plusa" || w == "plusik")
+			{
+				namePlus = true;
+				continue;
+			}
+			if (!out.empty())
+				out += ' ';
+			out += w;
+		}
+		if (namePlus)
+		{
+			if (!out.empty())
+				out += ' ';
+			out += "~plus";
+		}
+		return out;
+	}
+
+	// Whether a folded proto name carries a '+' of its own: one no digit
+	// follows (Biala Wstega+, not Miecz Pelni Ksiezyca+9).
+	inline bool NameHasOwnPlus(const std::string& foldedName)
+	{
+		for (size_t i = 0; i < foldedName.size(); ++i)
+			if (foldedName[i] == '+' &&
+					(i + 1 >= foldedName.size() || foldedName[i + 1] < '0' || foldedName[i + 1] > '9'))
+				return true;
+		return false;
+	}
+
+	// Whether the name shortens this word. A proto name has twenty-four
+	// characters, so the long ones cut a word to its start and a dot - "Ostrze
+	// Z Czerw. Stali", "Kozik Czar. Lis.", "Wachlarz Jes. Wiatru" on both
+	// engines - and neither a player's full name nor the dictionary's own
+	// expansion found them: "rib", "koziki" and "jesion" named nothing, and
+	// Hiob's "riba" was answered with something else (27 September).
+	inline bool NameAbbreviates(const std::string& foldedName, const std::string& word)
+	{
+		for (size_t dot = foldedName.find('.'); dot != std::string::npos; dot = foldedName.find('.', dot + 1))
+		{
+			size_t start = dot;
+			while (start > 0 && foldedName[start - 1] >= 'a' && foldedName[start - 1] <= 'z')
+				--start;
+			const size_t len = dot - start;
+			if (len >= 3 && word.size() >= len && word.compare(0, len, foldedName, start, len) == 0)
+				return true;
+		}
+		return false;
+	}
+
 	// The query itself first, then the query with each alias replaced by its
 	// expansion: "fms +9" -> { "fms +9", "miecz pelni ksiezyca +9" }.
-	inline void ExpandItemQuery(const std::string& query, std::vector<std::string>& out)
+	inline void ExpandItemQuery(const std::string& rawQuery, std::vector<std::string>& out)
 	{
 		out.clear();
+		const std::string query = MarkItemQueryPlus(rawQuery);
 		std::vector<std::string> words;
 		SplitWords(query, words);
 		size_t n = 0;
@@ -235,17 +332,25 @@ namespace playerbot_conv
 	}
 
 	// Every word of `query` (less a Polish ending) somewhere in the folded proto
-	// name. Words of one or two letters are ignored ("z", "na"), a "+9" must be
-	// in the name as it is, and a word marked '=' (an alias typed as itself,
-	// see ExpandItemQuery) must be there whole.
+	// name, or shortened there to its start and a dot (NameAbbreviates). Words
+	// of one or two letters are ignored ("z", "na"), a "+9" must be in the name
+	// as it is, a word marked '=' (an alias typed as itself, see
+	// ExpandItemQuery) must be there whole, and "~plus" (MarkItemQueryPlus)
+	// asks for a name with a plus of its own - its absence for one without.
 	inline bool ItemWordsMatch(const std::string& foldedName, const std::string& query)
 	{
 		std::vector<std::string> words;
 		SplitWords(query, words);
 		int used = 0;
+		bool wantPlus = false;
 		for (size_t i = 0; i < words.size(); ++i)
 		{
 			const std::string& w = words[i];
+			if (w == "~plus")
+			{
+				wantPlus = true;
+				continue;
+			}
 			if (w.size() >= 2 && w[0] == '=')
 			{
 				if (!HasWholeWord(foldedName, w.substr(1)))
@@ -263,11 +368,11 @@ namespace playerbot_conv
 			if (w.size() < 3)
 				continue;
 			const size_t stemLen = w.size() > 5 ? w.size() - 2 : (w.size() > 3 ? w.size() - 1 : w.size());
-			if (foldedName.find(w.substr(0, stemLen)) == std::string::npos)
+			if (foldedName.find(w.substr(0, stemLen)) == std::string::npos && !NameAbbreviates(foldedName, w))
 				return false;
 			++used;
 		}
-		return used > 0;
+		return used > 0 && NameHasOwnPlus(foldedName) == wantPlus;
 	}
 
 	// Against a list prepared once (ExpandItemQuery), for loops over many lines.

@@ -241,13 +241,63 @@ namespace
 		return playerbot_conv::ItemNameMatches(protoName, query);
 	}
 
+	// The items a bot's conversation named, and the client's link for each
+	// (MakePlayerBotItemLink): the reply goes out with the link where the
+	// bare name stood - gold, "[name]", the item's own tooltip on a click - so
+	// "co masz na straganie?" is answered with the items and not a list of
+	// names ("zamiast pisac tekstem jakie ma itemy zalaczal je jako podglad
+	// itema", the operator, 27 September). The generator is pure and prints
+	// names; the engine noted what it handed it (the snapshot and the world's
+	// answers) and links them on the way out. A bot's book starts again with
+	// every snapshot, and holds the entries in the order they were named, so
+	// two swords of one name take their own links in turn - except that the
+	// piece an answer is about goes first: "ile za Miecz+5" is answered with
+	// the cheapest seller's sword, not with the one in the bot's own bag.
+	const size_t PLAYERBOT_CONV_LINKS_MAX = 32;
+	std::map<DWORD, std::vector<playerbot_item_link::TEntry> > s_mapPlayerBotConvLinks;
+
+	void NotePlayerBotConvLink(DWORD botPID, const std::string& name, const std::string& link, bool first = false)
+	{
+		if (name.empty() || link.empty())
+			return;
+		std::vector<playerbot_item_link::TEntry>& book = s_mapPlayerBotConvLinks[botPID];
+		playerbot_item_link::TEntry entry;
+		entry.name = name;
+		entry.link = link;
+		if (first)
+		{
+			book.insert(book.begin(), entry);
+			if (book.size() > PLAYERBOT_CONV_LINKS_MAX)
+				book.pop_back();
+			return;
+		}
+		if (book.size() >= PLAYERBOT_CONV_LINKS_MAX)
+			return;
+		book.push_back(entry);
+	}
+
+	// The reply with the named items linked while the client can show the
+	// whole line (playerbot_item_link::Substitute, WhisperRoom).
+	std::string LinkPlayerBotConvItems(LPCHARACTER bot, const char* text)
+	{
+		const std::string in = text ? text : "";
+		std::map<DWORD, std::vector<playerbot_item_link::TEntry> >::const_iterator found =
+				s_mapPlayerBotConvLinks.find(bot->GetPlayerID());
+		if (found == s_mapPlayerBotConvLinks.end())
+			return in;
+		return playerbot_item_link::Substitute(in, found->second,
+				playerbot_item_link::WhisperRoom(strlen(bot->GetName())));
+	}
+
 	// The whisper packet, as SendPlayerBotWhisper builds it, without its
 	// per-line syslog entry: a conversation is many lines and the debug switch
-	// logs them when wanted.
-	void SendPlayerBotConvWhisper(LPCHARACTER bot, LPCHARACTER to, const char* text)
+	// logs them when wanted. The items it names go out linked.
+	void SendPlayerBotConvWhisper(LPCHARACTER bot, LPCHARACTER to, const char* rawText)
 	{
-		if (!bot || !to || !to->GetDesc() || !text || !*text)
+		if (!bot || !to || !to->GetDesc() || !rawText || !*rawText)
 			return;
+		const std::string linked = LinkPlayerBotConvItems(bot, rawText);
+		const char* text = linked.c_str();
 		const size_t len = std::min<size_t>(strlen(text), CHAT_MAX_LEN);
 		TPacketGCWhisper pack;
 		pack.bHeader = HEADER_GC_WHISPER;
@@ -862,7 +912,7 @@ namespace
 	// The cheapest single-piece price of a matching line, per piece for stacks.
 	void NotePlayerBotConvMarketLines(const TPlayerBotStall& stall, const std::vector<std::string>& candidates,
 			DWORD skill, bool forget, std::string& outName, long long& outPrice, unsigned int& outSellers,
-			DWORD& seenVnum)
+			DWORD& seenVnum, std::string& outLink)
 	{
 		for (size_t i = 0; i < stall.lines.size(); ++i)
 		{
@@ -878,6 +928,7 @@ namespace
 			{
 				outPrice = unit;
 				outName = line.name;
+				outLink = line.link;
 			}
 			return; // one line per stall is enough for "the cheapest"
 		}
@@ -900,6 +951,7 @@ namespace
 					{
 						outName = item->GetProto()->szLocaleName;
 						outCount = (unsigned int)item->GetCount();
+						NotePlayerBotConvLink(m_bot->GetPlayerID(), outName, MakePlayerBotItemLink(item, outName.c_str()), true);
 						return true;
 					}
 				}
@@ -909,8 +961,10 @@ namespace
 					LPITEM item = m_bot->GetWear(worn[i]);
 					if (item && item->GetProto() && PlayerBotConvNameMatches(item->GetProto()->szLocaleName, query))
 					{
-						outName = PlayerBotConvItemName(item) + " (na sobie)";
+						const std::string named = PlayerBotConvItemName(item);
+						outName = named + " (na sobie)";
 						outCount = 1;
+						NotePlayerBotConvLink(m_bot->GetPlayerID(), named, MakePlayerBotItemLink(item, named.c_str()), true);
 						return true;
 					}
 				}
@@ -939,6 +993,7 @@ namespace
 					outName = stall.lines[i].name;
 					outPrice = stall.lines[i].price;
 					outCount = stall.lines[i].count;
+					NotePlayerBotConvLink(m_bot->GetPlayerID(), outName, stall.lines[i].link, true);
 					return true;
 				}
 				return false;
@@ -958,6 +1013,7 @@ namespace
 				outPrice = 0;
 				outSellers = 0;
 				DWORD seenVnum = 0;
+				std::string link;
 				const DWORD self = m_bot ? m_bot->GetPlayerID() : 0;
 				TPlayerBotStall stall;
 				for (TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.begin();
@@ -968,7 +1024,7 @@ namespace
 					LPCHARACTER keeper = CHARACTER_MANAGER::instance().FindByPID(it->first);
 					if (!keeper || !keeper->GetMyShop() || !GetPlayerBotStall(it->first, keeper, stall))
 						continue;
-					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, outName, outPrice, outSellers, seenVnum);
+					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, outName, outPrice, outSellers, seenVnum, link);
 				}
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
 				for (const auto& entry : ikashop::GetManager().GetPlayerBotOfflineShops())
@@ -978,11 +1034,16 @@ namespace
 						continue;
 					if (!GetPlayerBotStall(entry.first, NULL, stall))
 						continue;
-					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, outName, outPrice, outSellers, seenVnum);
+					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, outName, outPrice, outSellers, seenVnum, link);
 				}
 #endif
 				if (outPrice > 0)
+				{
+					// The seller's own piece: its bonuses are the price's reason.
+					if (m_bot)
+						NotePlayerBotConvLink(m_bot->GetPlayerID(), outName, link, true);
 					return true;
+				}
 				if (seenVnum)
 				{
 					size_t samples = 0;
@@ -1066,6 +1127,7 @@ namespace
 				const DWORD now = get_dword_time();
 
 				s = TBotSnapshot();
+				s_mapPlayerBotConvLinks[botPID].clear();
 				s.name = bot->GetName();
 				s.askerName = player->GetName();
 				s.level = bot->GetLevel();
@@ -1153,6 +1215,11 @@ namespace
 								s.bagSummary += ", ";
 							s.bagSummary += PlayerBotConvItemName(item);
 							++listed;
+							// Linked under the name without its " x3": the count
+							// stays beside the link.
+							const std::string named = item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR
+									? PlayerBotConvItemName(item) : std::string(item->GetProto()->szLocaleName);
+							NotePlayerBotConvLink(botPID, named, MakePlayerBotItemLink(item, named.c_str()));
 						}
 					}
 				}
@@ -1162,6 +1229,9 @@ namespace
 					s.weaponName = weapon->GetProto()->szLocaleName;
 					s.weaponPlus = weapon->GetRefineLevel();
 					s.weaponLevel = weapon->GetLevelLimit();
+					// $WEAPON prints GearName (playerbot_conv_say.h).
+					const std::string named = GearName(s.weaponName, s.weaponPlus);
+					NotePlayerBotConvLink(botPID, named, MakePlayerBotItemLink(weapon, named.c_str()));
 				}
 				// "czemu biegasz z bronia na 15 level?" is answered from what the AI
 				// is playing for (playerbot_weapon_goal.h) - read from its cache and
@@ -1197,6 +1267,8 @@ namespace
 				{
 					s.armorName = body->GetProto()->szLocaleName;
 					s.armorPlus = body->GetRefineLevel();
+					const std::string named = GearName(s.armorName, s.armorPlus);
+					NotePlayerBotConvLink(botPID, named, MakePlayerBotItemLink(body, named.c_str()));
 				}
 
 				s.fishing = state.bFishingSession || state.bIsFishing;
@@ -1245,6 +1317,7 @@ namespace
 							if (!s.shopSummary.empty())
 								s.shopSummary += ", ";
 							s.shopSummary += stall.lines[i].name;
+							NotePlayerBotConvLink(botPID, stall.lines[i].name, stall.lines[i].link);
 							if (stall.lines[i].count > 1)
 								s.shopSummary += " x" + ToString((long long)stall.lines[i].count);
 							s.shopSummary += " za ";

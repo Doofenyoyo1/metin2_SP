@@ -53,7 +53,7 @@ $Difficulty = ''; $BiologistHours = ''; $HorseHours = ''; $BookHours = ''; $BotB
 # Auto Lowy and the companion joined the window on 25 September, and the
 # apprentice chest the same day: -1 keeps what .env says (on when it says
 # nothing).
-$AutoHunt = -1; $Sidekick = -1; $StarterChest = -1
+$AutoHunt = -1; $AutoHuntItem = -1; $Sidekick = -1; $StarterChest = -1
 
 Write-Host '== hard is the package: 21 hours between books, players and bots =='
 $script:env = @{}

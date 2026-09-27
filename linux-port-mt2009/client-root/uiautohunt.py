@@ -133,6 +133,12 @@ STUCK_SECONDS = 8.0
 # distance do not turn the hunter back and forth (Buby, 23 September).
 CHASE_SWITCH_MARGIN = 300
 STUCK_PAUSE = 2.0
+# A walk that still gains ground is not stuck: the target's and the drop's
+# clocks start again at every WALK_PROGRESS units closer. Counted from the
+# first step, STUCK_SECONDS were 3600 units at a Ninja's pace and the drop's
+# six seconds 2700, less than a range of 5000 asks for, so an archer gave up
+# on the monsters at the edge and on every far drop (teivos, 27 September).
+WALK_PROGRESS = 200
 STUCK_SKIP_SECONDS = 60.0
 
 # A skill cast at an enemy goes only at the monster the hunter is fighting:
@@ -412,8 +418,13 @@ def NeedsTarget(skillIndex):
     for low, high in TARGET_SKILL_RANGES:
         if low <= skillIndex <= high:
             inRange = True
-    if not inRange or skillIndex in SELF_SKILLS or skillIndex in STANDING_SKILLS:
+    if not inRange or skillIndex in SELF_SKILLS:
         return False
+    # The exe's own answer first, STANDING_SKILLS only for an exe that has
+    # none: 47 stands in the Polish skill table and is an aimed Arrow Shower
+    # in the English one, where casting it on its clock shot whatever was
+    # under the cursor, at any distance (teivos, 27 September).
+    answered = False
     for name in ('IsToggleSkill', 'IsStandingSkill'):
         ask = getattr(skill, name, None)
         if ask is None:
@@ -421,9 +432,11 @@ def NeedsTarget(skillIndex):
         try:
             if ask(skillIndex):
                 return False
+            if name == 'IsStandingSkill':
+                answered = True
         except Exception:
             pass
-    return True
+    return answered or skillIndex not in STANDING_SKILLS
 
 def YesNo(value):
     return 'tak' if value else 'nie'
@@ -461,6 +474,8 @@ class Hunter(object):
         self.deadSince = 0.0
         self.justRevived = False
         self.approachSince = 0.0
+        self.approachBest = 0.0
+        self.lootBest = 0.0
         self.skillNext = [0.0] * SKILL_SLOTS
         self.itemNext = [0.0] * USE_ITEM_SLOTS
         self.lootVid = 0
@@ -773,18 +788,24 @@ class Hunter(object):
                 self.ReturnToAnchor(now)
             return
             
+        # A fight holds the drop's clock, so a drop left for it is walked to
+        # afterwards instead of being given up without a step.
+        self.lootSince = 0.0
         reach = self.Reach()
         if distance > reach:
             self.ReleaseAttack()
-            if not self.approachSince:
+            if not self.approachSince or distance < self.approachBest - WALK_PROGRESS:
                 self.approachSince = now
+                self.approachBest = distance
             elif now - self.approachSince > STUCK_SECONDS:
                 self.skipVid = vid
                 self.skipUntil = now + STUCK_SKIP_SECONDS
                 self.targetVid = 0
                 self.approachSince = 0.0
                 self.nextRequest = now + STUCK_PAUSE
-                self.WalkTo(self.anchor[0], self.anchor[1])
+                # Back to the start only when "Wracaj" asks for it.
+                if self.config.get('return', 0):
+                    self.WalkTo(self.anchor[0], self.anchor[1])
                 return
             if now >= self.nextMove and now >= self.skillHoldUntil:
                 self.nextMove = now + MOVE_INTERVAL
@@ -872,10 +893,12 @@ class Hunter(object):
     def GoForLoot(self, now):
         if not self.lootVid:
             return False
-        if self.LootDistance() <= LOOT_PICK_DISTANCE:
+        dist = self.LootDistance()
+        if dist <= LOOT_PICK_DISTANCE:
             return True
-        if not self.lootSince:
+        if not self.lootSince or dist < self.lootBest - WALK_PROGRESS:
             self.lootSince = now
+            self.lootBest = dist
         elif now - self.lootSince > LOOT_STUCK_SECONDS:
             self.lootVid = 0
             self.lootSince = 0.0

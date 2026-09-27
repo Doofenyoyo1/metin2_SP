@@ -1863,11 +1863,17 @@ namespace
 	class CCollectPlayerBotMeleeTargets
 	{
 		public:
-			CCollectPlayerBotMeleeTargets(LPCHARACTER owner, LPCHARACTER primary) :
+			// range and aroundCaster for a skill (ApplyPlayerBotSkillHits): its
+			// own reach, and a spin that strikes all round the body rather than
+			// ahead of it. A swing takes the defaults.
+			CCollectPlayerBotMeleeTargets(LPCHARACTER owner, LPCHARACTER primary,
+					int range = PLAYERBOT_MELEE_SPLASH_RANGE, bool aroundCaster = false) :
 				m_owner(owner),
 				m_primaryVID(primary->GetVID()),
 				m_dirX((float)(primary->GetX() - owner->GetX())),
-				m_dirY((float)(primary->GetY() - owner->GetY()))
+				m_dirY((float)(primary->GetY() - owner->GetY())),
+				m_range(range),
+				m_aroundCaster(aroundCaster)
 			{
 				// The direction of the blow is the line to what is being struck,
 				// not GetRotation(): the rotation is only set at the end of this
@@ -1906,7 +1912,7 @@ namespace
 				const int distance = DISTANCE_APPROX(
 						m_owner->GetX() - candidate->GetX(),
 						m_owner->GetY() - candidate->GetY());
-				if (distance > PLAYERBOT_MELEE_SPLASH_RANGE || !IsInFrontOfTheBlow(candidate))
+				if (distance > m_range || (!m_aroundCaster && !IsInFrontOfTheBlow(candidate)))
 					return true;
 
 				m_targets.push_back(std::make_pair(distance, candidate->GetVID()));
@@ -1946,8 +1952,76 @@ namespace
 			DWORD m_primaryVID;
 			float m_dirX;
 			float m_dirY;
+			int m_range;
+			bool m_aroundCaster;
 			std::vector<std::pair<int, DWORD> > m_targets;
 	};
+
+	// How many hits one cast of a skill may land on one victim: the engine's
+	// own per-target limit for the attack packets a client sends
+	// (CheckSkillHitCount - three for Three-Way Cut and Rolling Dagger on both
+	// engines), one for every other melee skill.
+	int GetPlayerBotSkillHitsPerTarget(DWORD skillVnum)
+	{
+		return skillVnum == 1 || skillVnum == 33 ? 3 : 1;
+	}
+
+	// The spins, which strike all round the body: Sword Spin and Rolling
+	// Dagger. Every other melee skill strikes ahead, like a swing.
+	bool IsPlayerBotSkillAroundCaster(DWORD skillVnum)
+	{
+		return skillVnum == 2 || skillVnum == 33;
+	}
+
+	// A melee skill as a player's client sends it. A client plays the skill's
+	// motion and sends an attack packet for every monster the motion's
+	// collision crosses, up to the per-target limit each; the engine hands
+	// each to ComputeSkill, and TSkillUseInfo::HitOnce stops them at the
+	// skill's lMaxHit - twelve for Sword Spin, five for Three-Way Cut. A bot
+	// has no client, and its cast was one ComputeSkill on the one it aimed
+	// at: a Body Warrior spinning at a Metin in a ring of twenty wolves hurt
+	// the stone and nothing else ("zeby woj body bil single target", Iwakura,
+	// 27 September). So the hits a client would send are made here, the one
+	// aimed at first, then the nearest round it, on the engine's own
+	// ComputeSkill and within its own count - HitOnce refuses whatever this
+	// would add past lMaxHit. A splash skill needs none of it (the engine
+	// splashes it itself), and a character keeps the one hit it always got:
+	// a duel, a war and a fight back are between two.
+	DWORD ApplyPlayerBotSkillHits(LPCHARACTER ch, DWORD skillVnum, LPCHARACTER target)
+	{
+		if (!ch || !target)
+			return 0;
+		CSkillProto* proto = CSkillManager::instance().Get(skillVnum);
+		const bool clientDriven = proto && ch->GetSectree() && !target->IsPC() &&
+				IS_SET(proto->dwFlag, SKILL_FLAG_ATTACK) && IS_SET(proto->dwFlag, SKILL_FLAG_USE_MELEE_DAMAGE) &&
+				!IS_SET(proto->dwFlag, SKILL_FLAG_SPLASH) && proto->lMaxHit != 1;
+		if (!clientDriven)
+		{
+			ch->ComputeSkill(skillVnum, target);
+			return 1;
+		}
+		int budget = proto->lMaxHit > 0 ? (int)proto->lMaxHit : PLAYERBOT_SKILL_MAX_HITS_UNCAPPED;
+		const int perTarget = GetPlayerBotSkillHitsPerTarget(skillVnum);
+		DWORD hits = 0;
+		for (int h = 0; h < perTarget && budget > 0 && !target->IsDead(); ++h, --budget, ++hits)
+			ch->ComputeSkill(skillVnum, target);
+		if (budget <= 0)
+			return hits;
+		const int reach = std::max(PLAYERBOT_MELEE_SPLASH_RANGE, proto->iSplashRange + PLAYERBOT_SKILL_HIT_MARGIN);
+		CCollectPlayerBotMeleeTargets collector(ch, target, reach, IsPlayerBotSkillAroundCaster(skillVnum));
+		ch->GetSectree()->ForEachAround(collector);
+		collector.Sort();
+		const std::vector<std::pair<int, DWORD> >& targets = collector.GetTargets();
+		for (size_t i = 0; i < targets.size() && budget > 0; ++i)
+		{
+			LPCHARACTER victim = CHARACTER_MANAGER::instance().Find(targets[i].second);
+			if (!victim || victim->IsDead() || (!victim->IsMonster() && !victim->IsStone()))
+				continue;
+			for (int h = 0; h < perTarget && budget > 0 && !victim->IsDead(); ++h, --budget, ++hits)
+				ch->ComputeSkill(skillVnum, victim);
+		}
+		return hits;
+	}
 
 	DWORD AttackPlayerBotMeleeGroup(LPCHARACTER ch, LPCHARACTER primary)
 	{

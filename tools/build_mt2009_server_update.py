@@ -50,7 +50,7 @@ STAGED = 'linux-port-mt2009/docker/game/src/server/game/src'
 ENGINE_EDITS = ['apply_costume_mount_allowed', 'apply_ride_seal_equip', 'apply_sidekick_quest_kill_credit',
                 'apply_quest_pc_is_playerbot', 'apply_drop_share_active', 'apply_tanaka_goblin',
                 'apply_shaman_party_buff', 'apply_chest_mob_preview',
-                'apply_auto_hunt_item_switch', 'apply_auto_hunt_loot_kinds']
+                'apply_auto_hunt_item_switch', 'apply_auto_hunt_loot_kinds', 'apply_refine_chance_shown']
 # Files an upstream package carries that this repository does not publish. An
 # update never deletes a file, so a player who took the upstream package keeps
 # it; the drop check below is for paths this repository's own list lost.

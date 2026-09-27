@@ -38,6 +38,25 @@ SAVED_CREDENTIALS = {}
 EVENT_TRY_CONNECT = "EVENT_TRY_CONNECT"
 EVENT_REQUEST_STATE_CHECK = "EVENT_REQUEST_STATE_CHECK"
 
+# An exe older than the four inventory pages passes the version check, which
+# is this root's, and then shows the server's bag in the wrong slots; the
+# exe says how many pages it was built with (upstream's client 2.0.42, our 2.0.44).
+CLIENT_INVENTORY_PAGES = 4
+STALE_EXE_TEXT = {
+	"pl": "Tw\xf3j metin2client.exe jest starszy ni\xbf reszta klienta[ENTER]"
+		"(2 strony ekwipunku zamiast 4), wi\xeac gra go nie wpu\x9cci.[ENTER]"
+		"Zamknij gr\xea i uruchom launcher ponownie - sam podmieni ten plik.[ENTER]"
+		"Je\x9cli nie pomo\xbfe, zg\xb3o\x9c to na GitHubie projektu (Issues).",
+	"en": "Your metin2client.exe is older than the rest of the client[ENTER]"
+		"(2 inventory pages instead of 4), so the game will not let it in.[ENTER]"
+		"Close the game and start the launcher again - it replaces the file itself.[ENTER]"
+		"If that does not help, report it on the project's GitHub (Issues).",
+}
+
+def IsClientExeStale():
+	import player
+	return getattr(player, "INVENTORY_PAGE_COUNT", 0) < CLIENT_INVENTORY_PAGES
+
 def IsLoginDelay():
 	global LOGIN_DELAY_SEC
 	if LOGIN_DELAY_SEC > 0.0:
@@ -272,6 +291,7 @@ class LoginWindow(ui.ScriptWindow):
 		self.lastLoginTime = 0
 		self.inputDialog = None
 		self.connectingDialog = None
+		self.staleExeDialog = None
 		self.stream=stream
 		self.isNowCountDown=False
 		self.isStartError=False
@@ -402,6 +422,10 @@ class LoginWindow(ui.ScriptWindow):
 		if self.connectingDialog:
 			self.connectingDialog.Close()
 		self.connectingDialog = None
+
+		if self.staleExeDialog:
+			self.staleExeDialog.Hide()
+		self.staleExeDialog = None
 
 		ServerStateChecker.Initialize(self)
 
@@ -974,6 +998,10 @@ class LoginWindow(ui.ScriptWindow):
 
 	def Connect(self, id, pwd):
 
+		if IsClientExeStale():
+			self.__PopupStaleExe()
+			return
+
 		if constInfo.SEQUENCE_PACKET_ENABLE:
 			net.SetPacketSequenceMode()
 
@@ -990,6 +1018,14 @@ class LoginWindow(ui.ScriptWindow):
 
 		self.stream.SetLoginInfo(id, pwd)
 		eventManager.EventManager().send_delayed_event(EVENT_TRY_CONNECT, 0.2)
+
+	def __PopupStaleExe(self):
+		if self.staleExeDialog:
+			self.staleExeDialog.Hide()
+		dlg = uiCommon.PopupDialog()
+		dlg.SetText(STALE_EXE_TEXT.get(systemSetting.GetLanguage(), STALE_EXE_TEXT["pl"]))
+		dlg.Open()
+		self.staleExeDialog = dlg
 
 	def TryConnect(self):
 		self.stream.Connect()

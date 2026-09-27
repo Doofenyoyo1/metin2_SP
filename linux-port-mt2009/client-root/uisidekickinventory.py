@@ -216,7 +216,11 @@ TEXT_NOT_PINNED = 'Tego nie trzeba odpina\xe6.'
 TEXT_WEAR_TO_WEAR = 'Zdejmij go najpierw do torby.'
 TEXT_ONLY_FROM_BAG = 'Daj mu przedmiot z torby.'
 TEXT_WHOLE_STACK = 'Towarzysz bierze tylko ca\xb3y stos.'
-TEXT_NO_GOLD = 'Yang daje si\xea przez handel.'
+TEXT_GIVE_YANG = 'Daj'
+TEXT_TAKE_YANG = 'We\x9f'
+TEXT_GIVE_YANG_TITLE = 'Daj yang towarzyszowi'
+TEXT_TAKE_YANG_TITLE = 'We\x9f yang od towarzysza'
+TEXT_YANG_AMOUNT = 'Kwota: '
 TEXT_ITEM_MOVED = 'Towarzysz ju\xbf go przestawi\xb3.'
 TEXT_RESULTS = {
 	RESULT_DONE: 'Gotowe.',
@@ -678,6 +682,25 @@ def DropIntoPlayerBag(attachedType, attachedPos, cell):
 	return True
 
 
+def YangOrderText(text):
+	"""What the amount dialog holds, as the server reads it ("eq yang daj
+	<kwota>", ParsePlayerBotSidekickYang): digits with one decimal point and
+	k's ("1.5kk", "500k"); a thousands separator is dropped. '' when it
+	names no amount."""
+	text = (text or '').strip().lower().replace(' ', '')
+	body = text.rstrip('k')
+	ks = len(text) - len(body)
+	if body.count('.') + body.count(',') > 1:
+		body = body.replace('.', '').replace(',', '')
+	body = body.replace(',', '.')
+	if not body or body[0] == '.' or ks > 3:
+		return ''
+	for c in body:
+		if not (c.isdigit() or c == '.'):
+			return ''
+	return body + 'k' * ks
+
+
 # ---------------------------------------------------------------- windows
 
 def TextWidth(line, text):
@@ -869,6 +892,8 @@ class EquipmentWindow(_Window):
 		self.page = 0
 		self.tooltip = None
 		self.droppedAt = -DOUBLE_CLICK_SECONDS
+		self.yangDialog = None
+		self.yangGive = True
 		self.Build()
 		self.Refresh()
 
@@ -934,8 +959,13 @@ class EquipmentWindow(_Window):
 		self.bagSlots = grid
 		y += GRID_ROWS * CELL + 4
 
-		self._Image(self, gridX, y + 1, MONEY_ICON_IMAGE)
-		self.goldLine = self._Label(self, gridX + 20, y, '')
+		# The companion's yang, and the two ways it moves (upstream's server
+		# 2.2.27, our 2.2.30): the amount to the left edge and the buttons to
+		# the right, on the one line the 590 pixels leave.
+		self._Image(self, 14, y + 1, MONEY_ICON_IMAGE)
+		self.goldLine = self._Label(self, 34, y, '')
+		self.giveYangButton = self._Btn(self, 'small', self.WIDTH - 98, y - 2, TEXT_GIVE_YANG, self.OnGiveYang)
+		self.takeYangButton = self._Btn(self, 'small', self.WIDTH - 52, y - 2, TEXT_TAKE_YANG, self.OnTakeYang)
 		y += 20
 		self._StatusLines(y)
 
@@ -1073,7 +1103,9 @@ class EquipmentWindow(_Window):
 		elif kind == player.SLOT_TYPE_INVENTORY:
 			count = controller.GetAttachedItemCount()
 			if controller.GetAttachedItemIndex() == player.ITEM_MONEY:
-				self.SetStatus(TEXT_NO_GOLD, COLOR_BAD, toChat=False)
+				# Yang dropped on the bag is given, as the amount picked.
+				if count > 0:
+					SendOrder(ORIGIN_EQ, 'eq yang daj %d' % count)
 			elif not IsPlayerBagCell(source):
 				self.SetStatus(TEXT_ONLY_FROM_BAG, COLOR_BAD, toChat=False)
 			elif 0 < count < player.GetItemCount(source):
@@ -1161,6 +1193,50 @@ class EquipmentWindow(_Window):
 		if self.tooltip:
 			self.tooltip.HideToolTip()
 
+	# ---------------------------------------------------------- yang
+
+	def OnGiveYang(self):
+		self.OpenYangDialog(True)
+
+	def OnTakeYang(self):
+		self.OpenYangDialog(False)
+
+	def OpenYangDialog(self, give):
+		"""The client's own amount dialog. What is typed goes to the server as
+		YangOrderText makes it; the server says what came of it."""
+		self.CloseYangDialog()
+		import uiCommon
+		dialog = uiCommon.MoneyInputDialog()
+		dialog.SetTitle(TEXT_GIVE_YANG_TITLE if give else TEXT_TAKE_YANG_TITLE)
+		if hasattr(dialog, 'SetMoneyHeaderText'):
+			dialog.SetMoneyHeaderText(TEXT_YANG_AMOUNT)
+		if hasattr(dialog, 'HideCheque'):
+			try:
+				dialog.HideCheque()
+			except Exception:
+				pass
+		dialog.SetAcceptEvent(ui.__mem_func__(self.OnAcceptYang))
+		dialog.SetCancelEvent(ui.__mem_func__(self.CloseYangDialog))
+		dialog.Open()
+		self.yangDialog = dialog
+		self.yangGive = give
+
+	def OnAcceptYang(self):
+		dialog = self.yangDialog
+		if not dialog:
+			return
+		text = YangOrderText(dialog.GetText())
+		give = self.yangGive
+		self.CloseYangDialog()
+		if text:
+			SendOrder(ORIGIN_EQ, 'eq yang %s %s' % ('daj' if give else 'wez', text))
+
+	def CloseYangDialog(self):
+		dialog = self.yangDialog
+		self.yangDialog = None
+		if dialog:
+			dialog.Close()
+
 	# ---------------------------------------------------------- the clock
 
 	def OnUpdate(self):
@@ -1186,6 +1262,7 @@ class EquipmentWindow(_Window):
 			Deattach()
 		ReleaseIcon(True)
 		self.OnOverOut()
+		self.CloseYangDialog()
 		self.Hide()
 
 	def Destroy(self):

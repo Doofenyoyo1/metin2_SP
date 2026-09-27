@@ -1261,6 +1261,77 @@ EDITS = {
          b'\t\t\treturn\r\n'
          b'\r\n'
          b'\t\tif self.connectingDialog:\r\n'),
+        # An exe from before the four inventory pages (a full package's of its
+        # day, which no client update replaced where the antivirus refused
+        # the file) passes the version check, which is this root's, and then
+        # draws the server's page IV in the equipment slots, shows pages III
+        # and IV empty and loses what it puts on (601210, kordianq1112, 27
+        # September; upstream's client 2.0.42, our 2.0.44). The exe says how
+        # many pages it was built with, so the login refuses one that says
+        # fewer than four, in words that name the fix - the launcher
+        # replaces the file (Repair-M2ClientExecutables).
+        (b'EVENT_REQUEST_STATE_CHECK = "EVENT_REQUEST_STATE_CHECK"\r\n'
+         b'\r\n',
+         b'EVENT_REQUEST_STATE_CHECK = "EVENT_REQUEST_STATE_CHECK"\r\n'
+         b'\r\n'
+         b'# An exe older than the four inventory pages passes the version check, which\r\n'
+         b"# is this root's, and then shows the server's bag in the wrong slots; the\r\n"
+         b"# exe says how many pages it was built with (upstream's client 2.0.42, our 2.0.44).\r\n"
+         b'CLIENT_INVENTORY_PAGES = 4\r\n'
+         b'STALE_EXE_TEXT = {\r\n'
+         b'\t"pl": "Tw\\xf3j metin2client.exe jest starszy ni\\xbf reszta klienta[ENTER]"\r\n'
+         b'\t\t"(2 strony ekwipunku zamiast 4), wi\\xeac gra go nie wpu\\x9cci.[ENTER]"\r\n'
+         b'\t\t"Zamknij gr\\xea i uruchom launcher ponownie - sam podmieni ten plik.[ENTER]"\r\n'
+         b'\t\t"Je\\x9cli nie pomo\\xbfe, zg\\xb3o\\x9c to na GitHubie projektu (Issues).",\r\n'
+         b'\t"en": "Your metin2client.exe is older than the rest of the client[ENTER]"\r\n'
+         b'\t\t"(2 inventory pages instead of 4), so the game will not let it in.[ENTER]"\r\n'
+         b'\t\t"Close the game and start the launcher again - it replaces the file itself.[ENTER]"\r\n'
+         b'\t\t"If that does not help, report it on the project\'s GitHub (Issues).",\r\n'
+         b'}\r\n'
+         b'\r\n'
+         b'def IsClientExeStale():\r\n'
+         b'\timport player\r\n'
+         b'\treturn getattr(player, "INVENTORY_PAGE_COUNT", 0) < CLIENT_INVENTORY_PAGES\r\n'
+         b'\r\n'),
+        (b'\t\tself.connectingDialog = None\r\n'
+         b'\t\tself.stream=stream\r\n',
+         b'\t\tself.connectingDialog = None\r\n'
+         b'\t\tself.staleExeDialog = None\r\n'
+         b'\t\tself.stream=stream\r\n'),
+        (b'\t\tself.connectingDialog = None\r\n'
+         b'\r\n'
+         b'\t\tServerStateChecker.Initialize(self)\r\n',
+         b'\t\tself.connectingDialog = None\r\n'
+         b'\r\n'
+         b'\t\tif self.staleExeDialog:\r\n'
+         b'\t\t\tself.staleExeDialog.Hide()\r\n'
+         b'\t\tself.staleExeDialog = None\r\n'
+         b'\r\n'
+         b'\t\tServerStateChecker.Initialize(self)\r\n'),
+        (b'\tdef Connect(self, id, pwd):\r\n'
+         b'\r\n'
+         b'\t\tif constInfo.SEQUENCE_PACKET_ENABLE:\r\n',
+         b'\tdef Connect(self, id, pwd):\r\n'
+         b'\r\n'
+         b'\t\tif IsClientExeStale():\r\n'
+         b'\t\t\tself.__PopupStaleExe()\r\n'
+         b'\t\t\treturn\r\n'
+         b'\r\n'
+         b'\t\tif constInfo.SEQUENCE_PACKET_ENABLE:\r\n'),
+        (b'\t\teventManager.EventManager().send_delayed_event(EVENT_TRY_CONNECT, 0.2)\r\n'
+         b'\r\n'
+         b'\tdef TryConnect(self):\r\n',
+         b'\t\teventManager.EventManager().send_delayed_event(EVENT_TRY_CONNECT, 0.2)\r\n'
+         b'\r\n'
+         b'\tdef __PopupStaleExe(self):\r\n'
+         b'\t\tif self.staleExeDialog:\r\n'
+         b'\t\t\tself.staleExeDialog.Hide()\r\n'
+         b'\t\tdlg = uiCommon.PopupDialog()\r\n'
+         b'\t\tdlg.SetText(STALE_EXE_TEXT.get(systemSetting.GetLanguage(), STALE_EXE_TEXT["pl"]))\r\n'
+         b'\t\tdlg.Open()\r\n'
+         b'\t\tself.staleExeDialog = dlg\r\n'
+         b'\r\n'
+         b'\tdef TryConnect(self):\r\n'),
     ],
     # The game options get a "Tytuly botow" row under the floating text one:
     # a bot's personality title (playerbot_status_tail.py, 2.0.53) or the
@@ -1556,12 +1627,34 @@ EDITS = {
          b'\tdef __OpenWindow(self, targetItemPos, nextGradeItemVnum, cost, prob, type):\r\n'
          b'\r\n'
          b'\t\tif False == self.isLoaded:\r\n'),
+        # The chance the server rolls with, under the materials (Piciu713, 27
+        # September; upstream's client 2.0.43, our 2.0.44). The package's
+        # server sent 0 in its place and the client hid the line; the server
+        # sends the real chance since playerbotify's apply_refine_chance_shown,
+        # and an older server's 0 still hides it. It sits inside the text the
+        # pair below writes, so the pair before it moves a root rendered
+        # without it (client 2.0.42 and earlier) onto the new text.
+        (b'\t\t\tself.probText.SetText("%d%%" % (self.percentage))\r\n'
+         b'\t\ttry:\r\n'
+         b'\t\t\tself.costText.SetText(localeInfo.REFINE_COST % localeInfo.NumberToMoneyString(self.cost))\r\n',
+         b'\t\t\tself.probText.SetText("%d%%" % (self.percentage))\r\n'
+         b'\t\tif constInfo.ENABLE_REFINE_PCT and self.percentage > 0:\r\n'
+         b'\t\t\tself.successPercentage.Show()\r\n'
+         b'\t\telse:\r\n'
+         b'\t\t\tself.successPercentage.Hide()\r\n'
+         b'\t\ttry:\r\n'
+         b'\t\t\tself.costText.SetText(localeInfo.REFINE_COST % localeInfo.NumberToMoneyString(self.cost))\r\n',
+         True),
         (b'\t\tself.probText.SetText(localeInfo.REFINE_SUCCESS_PROBALITY % (self.percentage))\r\n'
          b'\t\tself.costText.SetText(localeInfo.REFINE_COST % localeInfo.NumberToMoneyString(self.cost))\r\n',
          b'\t\ttry:\r\n'
          b'\t\t\tself.probText.SetText(localeInfo.REFINE_SUCCESS_PROBALITY % (self.percentage))\r\n'
          b'\t\texcept:\r\n'
          b'\t\t\tself.probText.SetText("%d%%" % (self.percentage))\r\n'
+         b'\t\tif constInfo.ENABLE_REFINE_PCT and self.percentage > 0:\r\n'
+         b'\t\t\tself.successPercentage.Show()\r\n'
+         b'\t\telse:\r\n'
+         b'\t\t\tself.successPercentage.Hide()\r\n'
          b'\t\ttry:\r\n'
          b'\t\t\tself.costText.SetText(localeInfo.REFINE_COST % localeInfo.NumberToMoneyString(self.cost))\r\n'
          b'\t\texcept:\r\n'
@@ -1570,6 +1663,17 @@ EDITS = {
     'constinfo.py': [
         (b'\t"major" : 0,\r\n\t"minor" : 15,\r\n',
          b'\t"major" : 1,\r\n\t"minor" : 0,\r\n'),
+        (b'ENABLE_REFINE_PCT = False # enable successfulness % in the refine dialog\r\n',
+         b'ENABLE_REFINE_PCT = True # enable successfulness % in the refine dialog\r\n'),
+    ],
+    # The whisper window's name field took PLAYER_NAME_MAX_LEN, the fourteen
+    # a new character may be called, and bots are named up to twenty-two, so
+    # one character in eight could be whispered only by a click on it (Mkls,
+    # 27 September; upstream's client 2.0.43, our 2.0.44). Twenty-four is the
+    # server's CHARACTER_NAME_MAX_LEN.
+    'uiscript/whisperdialog.py': [
+        (b'"input_limit" : PLAYER_NAME_MAX_LEN,\r\n',
+         b'"input_limit" : 24,\r\n'),
     ],
     # Towarzysz and Auto Lowy on the taskbar, left of the character button, in
     # the originals' frame and tones (25 September: "na zasadzie

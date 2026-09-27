@@ -366,6 +366,41 @@ inline Status Evaluate(const std::vector<Window>& windows, int kind, long nowEpo
 	return st;
 }
 
+// A world event runs once for every map it names. Two rains of Zuo - one over
+// Bakra, one over Bokjung - are two events with a clock each, where one
+// status for the kind let the later line take the earlier's place and the
+// first rain stopped two minutes in (Derpsonkowy95, 27 September). The lines
+// of one map merge the way Evaluate merges a kind's, and map 0, "the event
+// picks", is an event of its own. Only the active ones, in the order their
+// maps first appear in the file.
+inline void EvaluateWorldByMap(const std::vector<Window>& windows, int kind, long nowEpoch,
+		int dayIndex, int minute, std::vector<Status>& out)
+{
+	out.clear();
+	std::vector<long> maps;
+	for (size_t i = 0; i < windows.size(); ++i)
+	{
+		if (windows[i].kind != kind)
+			continue;
+		bool seen = false;
+		for (size_t k = 0; k < maps.size() && !seen; ++k)
+			seen = maps[k] == windows[i].map;
+		if (!seen)
+			maps.push_back(windows[i].map);
+	}
+	std::vector<Window> ofMap;
+	for (size_t k = 0; k < maps.size(); ++k)
+	{
+		ofMap.clear();
+		for (size_t i = 0; i < windows.size(); ++i)
+			if (windows[i].kind == kind && windows[i].map == maps[k])
+				ofMap.push_back(windows[i]);
+		const Status st = Evaluate(ofMap, kind, nowEpoch, dayIndex, minute);
+		if (st.active)
+			out.push_back(st);
+	}
+}
+
 // Zuo's two halves: the stones rain in the first, the bosses come in the
 // second. An event whose first second is unknown is all rain.
 inline bool IsZuoBossHalf(long since, long until, long now)

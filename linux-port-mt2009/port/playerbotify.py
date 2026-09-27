@@ -1475,6 +1475,7 @@ def main(root):
     apply_chest_mob_preview(game)
     apply_auto_hunt_item_switch(game)
     apply_auto_hunt_loot_kinds(game)
+    apply_refine_chance_shown(game)
     print('playerbotify: done')
 
 
@@ -5861,6 +5862,37 @@ def apply_auto_hunt_loot_kinds(game):
          '\t\tif (kinds & AUTOHUNT_LOOT_JEWELLERY)\n'
          '\t\t\tkinds |= AUTOHUNT_LOOT_BRACELET | AUTOHUNT_LOOT_SHOES | AUTOHUNT_LOOT_NECKLACE | AUTOHUNT_LOOT_EARRINGS;\n'
          '\t}\n',
+         marker=marker)
+
+
+def apply_refine_chance_shown(game):
+    # The refine window's "Szansa na Ulepszenie" line: the package sent 0 in
+    # the dialog packet whatever the roll would be (the chance was commented
+    # out), and the client hid the line; switched on by hand it read 0% (Piciu713,
+    # 27 September; upstream's 2.2.29, our 2.2.30). What goes out now is the
+    # chance the roll uses, counted the way DoRefine and DoRefineWithScroll
+    # count it: the recipe's, 100 under a War God scroll (UP_TO_3TH_LEVEL) or
+    # a Gwarancja (TUNING_FLAG_100_CHANCE), plus a scroll's value1 (ten for
+    # the Dragon God's, fifteen for the Smith's Handbook), and ten more at the
+    # guild's blacksmith. A client from before 2.0.44 keeps the line hidden as
+    # it always did; with 100% it no longer asks about the item burning.
+    path = os.path.join(game, 'char_item.cpp')
+    marker = '\t// The chance the roll will use, as DoRefine and DoRefineWithScroll count it\n'
+    edit(path,
+         '\t//p.prob = IsBonusRefineChance ? 100 : prt->prob;\n'
+         '\tp.prob = IsRefineBonus(itemScroll, TUNING_FLAG_100_CHANCE) ? 100 : 0;\n',
+         marker +
+         '\t// (apply_refine_chance_shown): the package sent 0 here.\n'
+         '\tint iRefineChance = prt->prob;\n'
+         '\tif (itemScroll && itemScroll->GetType() == ITEM_USE && itemScroll->GetSubType() == USE_TUNING)\n'
+         '\t{\n'
+         '\t\tif (itemScroll->GetValue(0) == UP_TO_3TH_LEVEL_SCROLL || IsRefineBonus(itemScroll, TUNING_FLAG_100_CHANCE))\n'
+         '\t\t\tiRefineChance = 100;\n'
+         '\t\tiRefineChance += itemScroll->GetValue(1);\n'
+         '\t}\n'
+         '\telse if (IsRefineThroughGuild())\n'
+         '\t\tiRefineChance += 10;\n'
+         '\tp.prob = MINMAX(0, iRefineChance, 100);\n',
          marker=marker)
 
 

@@ -17,6 +17,189 @@ every version here.
 
 ---
 
+## 2.2.30 — 2026-09-27
+
+Serwer 2.2.30 i klient 2.0.44: zaktualizuj oba („AKTUALIZUJ wszystko”
+w launcherze). Na VPS: `sh linux-port/tools/update.sh`. Pełne nicki botów
+w oknie szeptu, szansa na ulepszenie w oknie kowala, Auto Łowy dochodzące do
+dalekich celów i przedmiotów, przyciski yang Towarzysza i ostrzeżenie o starym
+pliku gry działają dopiero z nowym klientem, reszta zmian już po aktualizacji
+serwera. Zawiera wszystko z 2.2.27.
+
+Ta wersja przenosi na naszą 2.2.27 wersje 2.2.27, 2.2.28 i 2.2.29 projektu
+źródłowego (serwer) i jego klienty 2.0.42 i 2.0.43, wzięte z jego paczek
+aktualizacji. Zostaje wszystko, co dodaliśmy wcześniej: okno zmiany bonusów
+pod klawiszem U, wierzchowce z pieczęci w ItemShopie, hostowanie w COOP bez
+hasła, serwer na VPS i linki do naszego repozytorium.
+
+### Pełne nicki w oknie szeptu (zgłosił Mkls)
+
+- Okno szeptu otwierane Shift+Enter przyjmuje nick do 24 znaków. Dotąd
+  przyjmowało 14, tyle ile wolno wpisać przy tworzeniu nowej postaci. Boty
+  mają nicki do 22 znaków, więc do co ósmej postaci dało się napisać tylko
+  po kliknięciu w nią.
+- Działa od klienta 2.0.44.
+
+### Szansa na ulepszenie w oknie kowala (zgłosił Piciu713)
+
+- Okno ulepszania pokazuje „Szansa na Ulepszenie” z tą samą szansą, z którą
+  serwer losuje: szansą z przepisu, 100% przy Zwoju Wojny i Gwarancji
+  Rzemiosła, 10 punktów więcej przy Zwoju Boga Smoków, 15 więcej przy
+  Podręczniku Kowala i 10 więcej u kowala gildii.
+- Dotąd serwer z paczki wysyłał w tym miejscu zawsze 0, a klient chował tę
+  linijkę. Stąd 0% po jej ręcznym włączeniu.
+- Szansę widać z serwerem 2.2.30 i klientem 2.0.44. Klient 2.0.42 działa z
+  nowym serwerem jak dotąd, bez tej linijki.
+- Przy ulepszeniu ze 100% szansą okno nie pyta już o zniszczenie
+  przedmiotu, bo takie ulepszenie zawsze się udaje.
+
+### Auto Łowy: dalekie cele i przedmioty (zgłosił teivos)
+
+- Postać idzie do celu i do przedmiotu, dopóki się do nich zbliża. Dotąd
+  rezygnowała z celu po 8 sekundach od pierwszego kroku, a z przedmiotu po
+  6, więc przy zasięgu 5000 łucznik stał zamiast dojść do potworów na
+  skraju i zostawiał dalekie przedmioty.
+- Przedmiot, od którego oderwała postać walka, podnosi po walce.
+- Przy wyłączonym „Wracaj” postać po rezygnacji z celu nie wraca już na
+  miejsce startu.
+- W angielskim kliencie umiejętność łucznika nr 47 nie strzela już sama w
+  potwora pod kursorem, z dowolnej odległości.
+- Działa od klienta 2.0.44.
+
+### Zuo i Pirat Tanaka na kilku mapach naraz (zgłosił Derpsonkowy95)
+
+- Event uruchomiony na kolejnej mapie nie kończy już poprzedniego. Każda
+  mapa ma swój event, który zaczyna się, trwa i kończy niezależnie od
+  pozostałych. Dotąd Zuo w Bakra ustawione na 19:00 kończyło się, gdy o
+  19:02 ktoś uruchomił Zuo w Bokjung, a metiny spadały już tylko w Bokjung.
+- Na mapy królestwa (obie wioski, mapę gildii i łatwy Loch Małp) przychodzą
+  tylko boty tego królestwa. Na wspólne mapy świata nadal przychodzą boty
+  wszystkich trzech. Dotąd na Zuo w Bokjung schodziły się też boty z Jinno i
+  Shinsoo.
+- W obu panelach lista trwających eventów pokazuje mapy i każdy event można
+  zatrzymać osobno. Komunikaty na czacie podają nazwę mapy.
+- Na świecie testowym projektu źródłowego Zuo w Bakra i Zuo w Bokjung
+  uruchomione minutę po sobie trwały obok siebie do własnego końca: po trzy
+  fale i dwóch bossów, po 24 zniszczone metiny na każdej mapie. Do Bakra
+  przyszło 19 botów, same z Jinno, do Bokjung 18, same z Chunjo.
+
+### Boty zostawiają sobie broń z lepszymi bonusami (zgłosił sosen)
+
+- Bot, który zdobędzie broń swojej klasy z lepszymi bonusami niż broń w
+  ręce, ale z niższym plusem, zostawia ją, ulepsza u kowala co najmniej do
+  plusa broni w ręce i zakłada, gdy bije mocniej. Dotąd zwykła broń z
+  lepszymi bonusami szła do handlarza (do +3) albo na stragan (od +4), a
+  broń na 30 poziom (np. FMS) przegrywała z bronią +8 czy +9 w ręce i
+  część botów wystawiała ją na stragan.
+- Broń na 30 poziom nigdy nie trafiała i nie trafia do handlarza.
+- Która broń jest lepsza, liczy model obrażeń bota. Dla bota na
+  umiejętnościach broń z wyższą średnią, ale z większym minusem do
+  umiejętności, bywa słabsza i wtedy idzie na stragan. Broń innej klasy
+  nadal idzie na sprzedaż.
+
+### Przedmioty w szeptach botów jako podgląd
+
+- Gdy bot w szepcie wymienia przedmioty (co ma w ekwipunku i na sobie, co
+  wystawia na straganie, ile kosztuje przedmiot na targu), wstawia je tak
+  jak gracz przez Alt+klik: nazwa w nawiasach kwadratowych, złota dla
+  przedmiotu z bonusami, a po kliknięciu okienko z plusem, kamieniami i
+  bonusami tego konkretnego przedmiotu.
+- Tak samo odpowiedź bota na „Kupię …” na czacie pokazuje przedmiot z
+  jego straganu.
+- Klient pokazuje najwyżej 255 znaków linii szeptu razem z nickiem, więc w
+  jednej odpowiedzi mieszczą się dwa, trzy linki. Pozostałe przedmioty
+  zostają zwykłymi nazwami.
+- Nie trzeba aktualizować klienta.
+
+### Stary plik gry i pomieszany ekwipunek (zgłosili 601210 i kordianq1112)
+
+- Objawy: strony III i IV ekwipunku klikają się, ale są puste, sprzedaż u
+  NPC nic nie robi, przedmiot założony prawym klikiem znika, w oknie
+  ekwipunku widać miecze w miejscu hełmu, a czasem nie da się wylogować ani
+  zmienić kanału.
+- Przyczyna: stary plik gry `metin2client.exe` z dawnej pełnej paczki (np.
+  2.0.71 z klientem 2.0.13), który zna tylko dwie strony ekwipunku.
+  Przedmioty są całe na serwerze: po podmianie pliku wszystko jest na swoim
+  miejscu, a te „zniknięte” są założone. U nas każda aktualizacja klienta
+  przynosi `metin2client.exe`, ale gdy antywirus nie pozwoli go zapisać,
+  wraca cała paczka i stary plik zostaje.
+- Launcher sam podmienia stary `metin2client.exe` na aktualny: po
+  aktualizacji klienta, przy starcie i przed uruchomieniem gry. Podmienia
+  tylko znane stare wersje, a poprzednią zostawia w `Serwer\backups\client`.
+  Jeśli antywirus nie pozwoli zapisać pliku, launcher napisze w dzienniku, co
+  zrobić (wykluczenie folderu klienta w Zabezpieczeniach Windows). Aktualny
+  plik wydanie klienta publikuje teraz także osobno, a manifest go wskazuje.
+- Launcher przy każdym starcie usuwa z folderu klienta dwa zbędne pliki z
+  dawnych pełnych paczek: `metin2client-2.0.13.exe` i
+  `metin2client-claude.exe`, jeśli obok jest `metin2client.exe`. Jeśli
+  uruchamiał któryś z nich, od teraz uruchamia `metin2client.exe`.
+- Klient 2.0.44 ze starym plikiem exe nie wejdzie do gry: przy logowaniu
+  pokaże, co zrobić, zamiast wpuszczać z pomieszanym ekwipunkiem.
+- Ręcznie: wystarczy wziąć sam `metin2client.exe` z paczki klienta 2.0.44
+  (wydanie v2.2.30 na GitHubie) i wrzucić go do folderu `Klient`.
+
+### Boty biją metiny razem z potworami wokół (zgłosił Iwakura)
+
+- Umiejętności botów trafiają tyle celów, ile trafiłby gracz: Trójstronne
+  cięcie i Wirujący Sztylet po trzy razy każdy cel w zasięgu, Wir Miecza do
+  12 potworów naraz, pozostałe umiejętności walki wręcz potwory przed botem.
+  Dotąd każda umiejętność bota trafiała tylko cel, w który mierzył, więc przy
+  metinie otoczonym potworami bot bił sam kamień.
+- Przy metinie boty używają umiejętności obszarowych, gdy w ich zasięgu stoją
+  co najmniej dwa potwory. Dotąd nie używały ich przy kamieniu nigdy.
+- Zwykły cios trafia do 10 potworów przed botem (było 4).
+- Na świecie testowym projektu źródłowego w pierwszym kwadransie Trójstronne
+  cięcie trafiło więcej niż jeden cel w 92% użyć, Wir Miecza do 12, a przy
+  metinach boty użyły umiejętności obszarowych 1177 razy.
+
+### Wszystkie boty rozwijają konie (zgłosił Urtopy)
+
+- Boty o charakterze Grindera nie zatrzymują się już na pierwszym koniu i nie
+  sprzedają medali: każdy bot zbiera medale, oddaje je Stajennemu i podchodzi
+  do prób konia bojowego i wojskowego. Dropperzy nadal nie biorą udziału w
+  próbach.
+- Na świecie testowym projektu źródłowego w pierwszych 16 minutach po zmianie
+  43 boty wyszły poza konia pierwszego poziomu, a do stajni trafiło 195
+  medali.
+
+### Wymiana yang z Towarzyszem (pomysł Hioba)
+
+- W oknie ekwipunku Towarzysza obok jego yang są przyciski „Daj” i „Weź”.
+  Otwierają okno kwoty, a yang przechodzi w obie strony. Yang można też
+  przeciągnąć z ekwipunku na okno Towarzysza.
+- Nie da się dać więcej, niż się ma, ani przekroczyć limitu yang u siebie
+  albo u Towarzysza. Każda wymiana trafia do logów serwera.
+
+### Czat z botami: ulepszacze z „+” i nazwy broni graczy (zgłosili Bloody Reapers i Hiob)
+
+- Bot odróżnia ulepszacz z „+” w nazwie (np. Biała Wstęga+) od zwykłego:
+  pytanie o „Białą Wstęgę +” albo „z plusem” nie dostaje już oferty zwykłej.
+  „+9” przy broni nadal znaczy poziom ulepszenia.
+- Boty rozumieją nazwy, których używają gracze: rib (broń dwuręczna na 30
+  lvl), fms, hms, jelonek (łuk na 30 lvl), koziki (sztylety na 30 lvl) i
+  półtorak, także odmienione („riba”, „jelonkiem”). Rozpoznają też skrócone
+  nazwy przedmiotów z gry, np. „Ostrze Z Czerw. Stali”. Dotąd zamiast riba
+  bot potrafił zaproponować zwój misji.
+
+### Klient 2.0.44
+
+- Okno szeptu przyjmuje nicki do 24 znaków.
+- Okno kowala pokazuje szansę na ulepszenie (z serwerem 2.2.30).
+- Auto Łowy dochodzą do dalekich celów i przedmiotów.
+- Przyciski wymiany yang w oknie ekwipunku Towarzysza.
+- Ostrzeżenie przy logowaniu, gdy plik `metin2client.exe` jest starszy niż
+  reszta klienta. U nas odsyła do zgłoszeń na GitHubie projektu.
+
+### Testy
+
+- Nowy test `tests/playerbot_item_link_rules_test.cpp` (linki przedmiotów w
+  szeptach) i `tests/launcher_client_exe_repair_test.ps1` (podmiana starego
+  exe i usuwanie zbędnych plików). Testy eventów na kilku mapach, nazw broni
+  i „+” w czacie, okna kowala, Auto Łowów i wymiany yang z Towarzyszem
+  dopisane do istniejących.
+
+---
+
 ## 2.2.27 — 2026-09-27
 
 Serwer 2.2.27 i klient 2.0.42: zaktualizuj oba („AKTUALIZUJ wszystko”

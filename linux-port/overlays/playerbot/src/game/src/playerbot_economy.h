@@ -151,6 +151,49 @@ namespace
 		return avg >= PLAYERBOT_BONUS_KEEP_AVERAGE || skill >= PLAYERBOT_WEAPON_PRIZE_SKILL_PERCENT;
 	}
 
+	// The one weapon a bot keeps in the bag for its lines: of the bot's class,
+	// wearable now, outside the level-30 family (FindPlayerBotClassLevel30Weapon
+	// has those), a prize (IsPlayerBotPrizeWeapon), under the plus of the one in
+	// the hand, and at that plus a blow over the hand's by
+	// PLAYERBOT_LINES_PROJECT_MARGIN_PERCENT. The equipment pass judges the plus
+	// a piece has, so better lines under a lower plus were never worn: the
+	// merchant took them at +0..+3 and the counter above that ("jak boty sobie
+	// wydropia bron z wysokimi srednimi dla siebie to za wszelka cene probuja ja
+	// sprzedac zamiast sobie ja zostawic", sosen, 27 September). The best one
+	// only - the bag is not a collection - refined to the hand's plus
+	// (GetPlayerBotRefineTarget), where the equipment pass takes it.
+	LPITEM FindPlayerBotLinesProject(LPCHARACTER ch)
+	{
+		if (!ch || !ch->IsItemLoaded())
+			return NULL;
+		LPITEM worn = ch->GetWear(WEAR_WEAPON);
+		if (!worn)
+			return NULL;
+		const long long wornBlow = GetPlayerBotWeaponHitDamage(worn, ch);
+		if (wornBlow <= 0)
+			return NULL;
+		const BYTE plus = worn->GetRefineLevel();
+		LPITEM best = NULL;
+		long long bestBlow = wornBlow * (100 + PLAYERBOT_LINES_PROJECT_MARGIN_PERCENT) / 100;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetCell() != cell || item->GetType() != ITEM_WEAPON ||
+					item->GetRefineLevel() >= plus || IsPlayerBotSpecialLevel30Weapon(item) ||
+					!IsPlayerBotPrizeWeapon(item) || !IsPlayerBotWeapon(ch, item) || !item->CanUsedBy(ch) ||
+					item->GetLevelLimit() > ch->GetLevel())
+				continue;
+			const TItemTable* proto = GetPlayerBotWeaponProtoAtPlus(item, plus);
+			const long long blow = proto ? GetPlayerBotWeaponHitDamageAt(item, proto, ch) : 0;
+			if (blow > bestBlow)
+			{
+				best = item;
+				bestBlow = blow;
+			}
+		}
+		return best;
+	}
+
 	// Anything a player would not put on the anvil without a scroll: a prize
 	// weapon, or a piece already carrying PLAYERBOT_PRIZE_LINES lines.
 	bool IsPlayerBotPrizeItem(LPITEM item)
@@ -1654,6 +1697,10 @@ namespace
 		// on the back does (FindPlayerBotBackupArmour).
 		if (IsPlayerBotKeptBackupWeapon(ch, item) || IsPlayerBotKeptBackupArmour(ch, item))
 			return false;
+		// And the weapon kept for its lines, on its way to the hand
+		// (FindPlayerBotLinesProject).
+		if (item->GetType() == ITEM_WEAPON && item == FindPlayerBotLinesProject(ch))
+			return false;
 
 		// Gear the counter could not sell in six stands is scrap, whatever the
 		// rules below would keep it for - up to PLAYERBOT_SHOP_UNSOLD_SCRAP_MAX_REFINE.
@@ -2396,6 +2443,9 @@ namespace
 		// The class's own level-30 weapon, whatever the damage model makes of
 		// it today (community patch 2, point 1).
 		if (IsPlayerBotPersonaEnabled() && item == FindPlayerBotClassLevel30Weapon(ch))
+			return item->GetRefineLevel() < GetPlayerBotRefineTarget(ch, item);
+		// The weapon kept for its lines, taken to the hand's plus.
+		if (item->GetType() == ITEM_WEAPON && item == FindPlayerBotLinesProject(ch))
 			return item->GetRefineLevel() < GetPlayerBotRefineTarget(ch, item);
 		if (!IsPlayerBotEquipmentCandidate(ch, item) ||
 				IsPlayerBotJunkItem(ch, item))

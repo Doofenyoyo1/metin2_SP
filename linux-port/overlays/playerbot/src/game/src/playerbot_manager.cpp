@@ -9,6 +9,7 @@
 #include "playerbot_lure_order_rules.h"
 #include "playerbot_truce_rules.h"
 #include "playerbot_war_rules.h"
+#include "playerbot_item_link_rules.h"
 
 #include "char.h"
 #include "skill.h"

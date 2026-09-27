@@ -336,6 +336,36 @@ class StubQuestion(object):
 		self.opened = False
 
 
+class StubMoneyInput(object):
+	"""The client's amount dialog, as the yang buttons use it."""
+	def __init__(self, *args, **kwargs):
+		self.title = ''
+		self.text = ''
+		self.accept = None
+		self.cancel = None
+		self.opened = False
+		self.closed = False
+
+	def SetTitle(self, title):
+		self.title = title
+
+	def SetAcceptEvent(self, event):
+		self.accept = event
+
+	def SetCancelEvent(self, event):
+		self.cancel = event
+
+	def GetText(self):
+		return self.text
+
+	def Open(self):
+		self.opened = True
+
+	def Close(self):
+		self.opened = False
+		self.closed = True
+
+
 class StubToolTip(object):
 	POSITIVE_COLOR = 0xff00ff00
 
@@ -497,7 +527,7 @@ def install_stubs():
 		GridSlotWindow=StubGridSlotWindow)
 	setattr(ui, '__mem_func__', lambda func: func)
 	sys.modules['ui'] = ui
-	sys.modules['uiCommon'] = module('uiCommon', QuestionDialog=StubQuestion)
+	sys.modules['uiCommon'] = module('uiCommon', QuestionDialog=StubQuestion, MoneyInputDialog=StubMoneyInput)
 	sys.modules['uiToolTip'] = module('uiToolTip', ItemToolTip=StubToolTip)
 
 
@@ -557,6 +587,14 @@ class Base(unittest.TestCase):
 # ---------------------------------------------------------------- parsing
 
 class ParsingTest(Base):
+	def test_a_yang_amount_is_sent_as_the_server_reads_it(self):
+		self.assertEqual(inv.YangOrderText('500k'), '500k')
+		self.assertEqual(inv.YangOrderText(' 1,5KK '), '1.5kk')
+		self.assertEqual(inv.YangOrderText('1.000.000'), '1000000')
+		self.assertEqual(inv.YangOrderText('12 500'), '12500')
+		for text in ('', 'k', '.5', 'abc', '5kkkk', None):
+			self.assertEqual(inv.YangOrderText(text), '')
+
 	def test_attributes_come_as_seven_pairs_or_a_dash(self):
 		self.assertEqual(inv.ParseAttrs('-'), [(0, 0)] * 7)
 		self.assertEqual(inv.ParseAttrs(''), [(0, 0)] * 7)
@@ -876,7 +914,7 @@ class EquipmentWindowTest(Base):
 		controller.AttachObject(None, SLOT_TYPE_INVENTORY, 14, 27001, 200)
 		self.window.equipSlots.Click('selectEmpty', 1000)
 		self.assertEqual(self.orders()[-1], '/towarzysz eq daj 14 1000')
-		# A split stack, a worn piece and yang are not what "daj" carries.
+		# A split stack and a worn piece are not what "daj" carries.
 		self.advance(0.35)
 		controller.AttachObject(None, SLOT_TYPE_INVENTORY, 15, 27001, 20)
 		self.window.bagSlots.Click('selectEmpty', 21)
@@ -884,16 +922,50 @@ class EquipmentWindowTest(Base):
 		controller.AttachObject(None, SLOT_TYPE_INVENTORY, 230, 19, 1)
 		self.window.bagSlots.Click('selectItem', 3)
 		self.assertEqual(self.window.StatusText(), inv.TEXT_ONLY_FROM_BAG)
+		self.assertEqual(len(self.orders()), 2)
+		# Yang dropped on the window is given, the amount picked up.
 		controller.AttachObject(None, SLOT_TYPE_INVENTORY, 12, 1, 5000)
 		self.window.bagSlots.Click('selectEmpty', 22)
-		self.assertEqual(self.window.StatusText(), inv.TEXT_NO_GOLD)
-		self.assertEqual(len(self.orders()), 2)
+		self.assertEqual(self.orders()[-1], '/towarzysz eq yang daj 5000')
 		self.assertFalse(controller.isAttached())
 		# Anything else on the cursor is let go.
+		self.advance(0.35)
 		controller.AttachObject(None, SLOT_TYPE_SAFEBOX, 3, 27001, 1)
 		self.window.bagSlots.Click('selectEmpty', 22)
 		self.assertFalse(controller.isAttached())
+		self.assertEqual(len(self.orders()), 3)
+
+	def test_yang_moves_through_the_amount_dialog(self):
+		self.open_with([item_line(3, 19)])
+		click(self.window.giveYangButton)
+		dialog = self.window.yangDialog
+		self.assertEqual(dialog.title, inv.TEXT_GIVE_YANG_TITLE)
+		dialog.text = '1.5kk'
+		dialog.accept()
+		self.assertEqual(self.orders()[-1], '/towarzysz eq yang daj 1.5kk')
+		self.assertIsNone(self.window.yangDialog)
+		self.assertTrue(dialog.closed)
+		self.advance(0.35)
+		click(self.window.takeYangButton)
+		dialog = self.window.yangDialog
+		self.assertEqual(dialog.title, inv.TEXT_TAKE_YANG_TITLE)
+		dialog.text = '250 000'
+		dialog.accept()
+		self.assertEqual(self.orders()[-1], '/towarzysz eq yang wez 250000')
+		# Nothing that names no amount is sent, and a cancel sends nothing.
+		self.advance(0.35)
+		click(self.window.giveYangButton)
+		self.window.yangDialog.text = 'duzo'
+		self.window.yangDialog.accept()
+		click(self.window.giveYangButton)
+		self.window.yangDialog.cancel()
+		self.assertIsNone(self.window.yangDialog)
 		self.assertEqual(len(self.orders()), 2)
+		# Closing the window closes its dialog.
+		click(self.window.takeYangButton)
+		dialog = self.window.yangDialog
+		self.window.Close()
+		self.assertTrue(dialog.closed)
 
 	def test_the_companions_item_is_taken_into_the_players_bag(self):
 		self.open_with([item_line(3, 19), item_line(1004, 19)])
