@@ -8081,6 +8081,33 @@ not in `data/`) reworked these point by point. What each hangs on:
   monsters are named from `locale/<lang>/mob_names.txt`, which is why an
   English player sees "Kowal" and a "Blacksmith" nobody reads sits in the EN
   pack. Naming NPCs from it would be an exe change.
+- **Three Python errors close the mt2009 client, and they leave no dialog.**
+  Everything else a script raises goes to `syserr.txt` in the client folder
+  and the game goes on - an updateable in `GameWindow.OnUpdate` raising every
+  frame stops the rest of that OnUpdate (`interface.BUILD_OnUpdate` too) and
+  fills syserr, but it closes nothing. What closes it is `exception.Abort`,
+  which is `app.Abort`: any exception while `PythonScriptLoader.LoadScriptFile`
+  runs a `uiscript/*.py` (ui.py, three `except` branches, "Failed to load
+  script file" in syserr), any exception in a `ui.SimplyWindow`'s initialize
+  method, and any in `GameWindow.StartGame` - which runs at every entry into
+  the world, every teleport included. So a window script that names a
+  localeInfo/uiScriptLocale key one language lacks, an engine constant the exe
+  does not export or a flag the app module does not register is a game that
+  shuts when that window opens, in that language only.
+  `tests/client_uiscript_load_test.py <root> <locale dir> <metin2client.exe>`
+  (Python 2.7) runs every window script in every language at two resolutions,
+  with the app module's flags read out of the exe (PyModule_AddIntConstant is
+  `push <value>; push "<NAME>"`); run it on the extracted packs before a client
+  release. With ENABLE_LOCALE_COMMON (1 in this exe) the windows come from
+  `UIScript/` only, and the locale pack's `locale/<lang>/ui/*.py` are dead
+  files. A native crash is the other kind, and the exe says which it was: it
+  writes a minidump, `metin2client_<YYYYMMDD_HHMMSS>.dmp`
+  (SetUnhandledExceptionFilter + MiniDumpWriteDump). A player whose client
+  "just closes" has either a dump or a Failed-to-load line in syserr - ask for
+  both before guessing. Measured on client 2.0.42 (27 September): all 108 live
+  window scripts load in all eight languages; the three that fail
+  (acce_absorbwindow, acce_combinewindow, characterdetailswindow) are loaded
+  only behind flags this exe has at 0.
 - **This repository's releases never ran playerbotify.py.** The publish
   workflow builds the server package from the upstream package named in
   `tools/upstream-sync.json` and copies every engine file out of it verbatim,
