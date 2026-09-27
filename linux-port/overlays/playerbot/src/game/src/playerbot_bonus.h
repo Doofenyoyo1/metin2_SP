@@ -678,8 +678,10 @@ namespace
 			return false;
 		switch (item->GetSubType())
 		{
-			case ARMOR_SHIELD:
 			case ARMOR_BODY:
+				return item->GetLevelLimit() >= PLAYERBOT_BONUS_BODY_MIN_LEVEL &&
+						plus >= PLAYERBOT_BONUS_ARMOUR_MIN_PLUS;
+			case ARMOR_SHIELD:
 			case ARMOR_HEAD:
 				return item->GetLevelLimit() >= PLAYERBOT_BONUS_ARMOUR_MIN_LEVEL &&
 						plus >= PLAYERBOT_BONUS_ARMOUR_MIN_PLUS;
@@ -869,6 +871,39 @@ namespace
 		}
 	}
 
+	// Community Patch 1 sends a young bot's ordinary stones to the necklace,
+	// the bracelet and the boots first. Once none of the three it wears can
+	// take a line from the bag, the rest of the gear is next (Iwakura, 26
+	// September: "po wybonowaniu butow, naszyjnika i bransolety, bot powinien
+	// automatycznie przechodzic do kolejnych przedmiotow") - until then the
+	// stones of 327 of 346 bots holding them on m2zip had no piece they were
+	// allowed on, and 17 adds and 9 changes rode in one bag for good.
+	bool IsPlayerBotEarlyBonusDone(LPCHARACTER ch)
+	{
+		static const BYTE slots[] = { WEAR_NECK, WEAR_WRIST, WEAR_FOOTS };
+		for (size_t s = 0; ch && s < sizeof(slots) / sizeof(slots[0]); ++s)
+		{
+			LPITEM worn = ch->GetWear(slots[s]);
+			if (worn && worn->GetAttributeCount() < PLAYERBOT_BONUS_MAX_LINES &&
+					CanPlayerBotRerollItemFor(ch, worn, slots[s]) &&
+					FindPlayerBotBonusStoneCellLike(ch, PLAYERBOT_BONUS_ADD_VNUM, worn, false) >= 0)
+				return false;
+		}
+		return true;
+	}
+
+	// Whether a young bot may spend only the green stones on this piece: yes
+	// on goods, never on the three early pieces, and on the rest only until
+	// those three have taken what the bag can give them.
+	bool IsPlayerBotGreenOnlyFor(LPCHARACTER ch, const TPlayerBotBonusTarget& target)
+	{
+		if (!ch || ch->GetLevel() >= PLAYERBOT_BONUS_MIN_LEVEL)
+			return false;
+		if (target.kind == PLAYERBOT_BONUS_TARGET_GOODS)
+			return true;
+		return !IsPlayerBotEarlyBonusSlot(ch, target.wearCell) && !IsPlayerBotEarlyBonusDone(ch);
+	}
+
 	EPlayerBotBonusStep GetPlayerBotBonusStep(LPCHARACTER ch, const TPlayerBotBonusTarget& target, int& stoneCell)
 	{
 		stoneCell = -1;
@@ -879,8 +914,9 @@ namespace
 				IsPlayerBotEarlyBonusSlot(ch, target.wearCell);
 		// A young bot spends the green stones only - except on the necklace,
 		// the bracelet and the boots, which a green stone cannot touch at all,
-		// so those three take an ordinary one even under the level.
-		const bool greenOnly = ch->GetLevel() < PLAYERBOT_BONUS_MIN_LEVEL && !earlySlot;
+		// so those three take an ordinary one even under the level, and on the
+		// rest once those three are done (IsPlayerBotGreenOnlyFor).
+		const bool greenOnly = IsPlayerBotGreenOnlyFor(ch, target);
 		const int count = item->GetAttributeCount();
 
 		// An empty line is free power: add before anything else. Four by the
@@ -980,16 +1016,25 @@ namespace
 			WEAR_WEAPON, WEAR_BODY, WEAR_HEAD, WEAR_SHIELD,
 			WEAR_FOOTS, WEAR_WRIST, WEAR_NECK, WEAR_EAR
 		};
+		// After the three early pieces: the armour and the earrings, then the
+		// rest (Iwakura, 26 September).
 		static const BYTE wearSlotsEarly[] = {
 			WEAR_NECK, WEAR_WRIST, WEAR_FOOTS,
-			WEAR_WEAPON, WEAR_BODY, WEAR_HEAD, WEAR_SHIELD, WEAR_EAR
+			WEAR_WEAPON, WEAR_BODY, WEAR_EAR, WEAR_HEAD, WEAR_SHIELD
 		};
 		const bool early = ch->GetLevel() < PLAYERBOT_EARLY_BONUS_MAX_LEVEL;
 		const BYTE* wearSlots = early ? wearSlotsEarly : wearSlotsLate;
 		const size_t wearSlotCount = early ? sizeof(wearSlotsEarly) / sizeof(wearSlotsEarly[0])
 				: sizeof(wearSlotsLate) / sizeof(wearSlotsLate[0]);
 
+		// The piece held for a slot is the one the equipment pass would put on
+		// but for its lines: better than the worn one by that pass's own test
+		// (IsPlayerBotWearableUpgrade) and the best such piece for the slot.
+		// The first bag piece with weaker lines than the worn one's used to
+		// do - the piece just taken off, a gambler's stock - and the stones
+		// went into what would never be worn (B02 of Iwakura's audit).
 		LPITEM held[WEAR_MAX_NUM] = {};
+		long long heldScore[WEAR_MAX_NUM] = {};
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
@@ -997,12 +1042,19 @@ namespace
 					!IsPlayerBotEquipmentCandidate(ch, item))
 				continue;
 			const int slot = item->FindEquipCell(ch);
-			if (slot < 0 || slot >= WEAR_MAX_NUM || held[slot])
+			if (slot < 0 || slot >= WEAR_MAX_NUM)
 				continue;
 			LPITEM worn = ch->GetWear((BYTE)slot);
-			if (worn && IsPlayerBotSwapHeldForBonus(ch, item, worn) &&
-					CanPlayerBotRerollItemFor(ch, item, (BYTE)slot))
+			if (!worn || !IsPlayerBotWearableUpgrade(ch, item, cell) ||
+					!IsPlayerBotSwapHeldForBonus(ch, item, worn) ||
+					!CanPlayerBotRerollItemFor(ch, item, (BYTE)slot))
+				continue;
+			const long long score = GetPlayerBotEquipmentScore(item, ch);
+			if (!held[slot] || score > heldScore[slot])
+			{
 				held[slot] = item;
+				heldScore[slot] = score;
+			}
 		}
 
 		bool listed[WEAR_MAX_NUM] = {};
@@ -1146,10 +1198,11 @@ namespace
 		for (size_t i = 0; i < sizeof(slots) / sizeof(slots[0]); ++i)
 		{
 			// The marble goes where GetPlayerBotBonusStep would put it: a worn
-			// piece, not on a green-stone-only bot's.
-			if (ch->GetLevel() < PLAYERBOT_BONUS_MIN_LEVEL && !IsPlayerBotEarlyBonusSlot(ch, slots[i]))
-				continue;
+			// piece, not one a young bot may give green stones only.
 			LPITEM worn = ch->GetWear(slots[i]);
+			const TPlayerBotBonusTarget target = { worn, slots[i], (BYTE)PLAYERBOT_BONUS_TARGET_WORN };
+			if (IsPlayerBotGreenOnlyFor(ch, target))
+				continue;
 			if (worn && worn->GetAttributeCount() == PLAYERBOT_BONUS_MAX_LINES &&
 					CanPlayerBotRerollItemFor(ch, worn, slots[i]))
 				return true;
@@ -1188,16 +1241,19 @@ namespace
 		// necklace, the wrist and the boots Community Patch 1 asks a young bot
 		// to bonus first can only be done with an ordinary stone. Under the
 		// level those three slots are therefore allowed one, and every other
-		// slot is still green-only.
+		// slot too once those three are done (IsPlayerBotGreenOnlyFor).
 		const bool ordinaryForJewellery = greenOnly &&
 				(HasPlayerBotBonusStone(ch, PLAYERBOT_BONUS_ADD_VNUM, false) ||
 				 HasPlayerBotBonusStone(ch, PLAYERBOT_BONUS_CHANGE_VNUM, false));
 		// Nothing to spend, nothing to weigh: the pass below scores every line
 		// of eight worn pieces, and a bag with no stone and no marble ends here.
+		// A marble is something to spend at any level: the step decides where
+		// (the necklace, the bracelet and the boots of a young bot), and ending
+		// the pass here for a young bot left the marble its dust made in the bag
+		// for good (B19 of Iwakura's audit of 26 September).
 		if (!HasPlayerBotBonusStone(ch, PLAYERBOT_BONUS_ADD_VNUM, greenOnly) &&
 				!HasPlayerBotBonusStone(ch, PLAYERBOT_BONUS_CHANGE_VNUM, greenOnly) &&
-				!ordinaryForJewellery &&
-				(greenOnly || FindPlayerBotBlessingMarbleCell(ch) < 0))
+				!ordinaryForJewellery && FindPlayerBotBlessingMarbleCell(ch) < 0)
 			return false;
 
 		std::vector<TPlayerBotBonusTarget> targets;
@@ -1232,7 +1288,13 @@ namespace
 				}
 			}
 		if (pick < 0)
+		{
+			PlayerBotLogThrottled("bonus_idle", dwNow,
+					"PLAYERBOT_BONUS: idle pid=%u name=%s level=%d early_done=%d",
+					ch->GetPlayerID(), ch->GetName(), (int)ch->GetLevel(),
+					IsPlayerBotEarlyBonusDone(ch) ? 1 : 0);
 			return false;
+		}
 
 		const TPlayerBotBonusTarget target = targets[pick];
 		// A worn piece comes off for the stone and goes straight back on, so

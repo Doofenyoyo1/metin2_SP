@@ -3206,6 +3206,18 @@ T = {
                      "en":"✅ Saved! The new difficulty is live in game."},
  "diff_saved_restart": {"pl":"Zapisano. Nikt nie jest zalogowany, więc pomocnik w grze nie odpowiedział — nowe czasy zadziałają po restarcie serwera (albo zapisz jeszcze raz, gdy ktoś będzie w grze).",
                         "en":"Saved. Nobody is logged in, so the in-game helper did not answer — the new waits apply after a server restart (or save again while somebody is in game)."},
+ "ah_title":    {"pl":"Panel Autołowy", "en":"Auto Hunt panel"},
+ "ah_help":     {"pl":"Kto może używać okna Auto Łowy w kliencie. „Tylko po kupnie” — gracz kupuje w ItemShopie „Auto Lowy (8h)” i używa go z ekwipunku: 8 godzin, które lecą tylko wtedy, gdy postać jest w grze; kolejne bilety się sumują (najwyżej 30 dni). Zmiana działa od razu, gdy ktoś jest w grze, i zostaje po restarcie, dopóki nie zmienisz jej w launcherze (przycisk POZIOM TRUDNOŚCI).",
+                 "en":"Who may use the client's Auto Hunt window. \"Only after buying\": a player buys \"Auto Lowy (8h)\" in the ItemShop and uses it from the inventory - eight hours that run only while the character is in the game; further tickets add up (thirty days at most). A change is live at once while somebody is in game, and it stays across a restart until it is changed in the launcher (the DIFFICULTY button)."},
+ "ah_all":      {"pl":"Panel Autołowy dostępny dla każdego", "en":"Auto Hunt panel available to everybody"},
+ "ah_item":     {"pl":"Panel Autołowy dostępny tylko po kupnie przedmiotu z ItemShop", "en":"Auto Hunt panel only after buying the ItemShop item"},
+ "ah_off":      {"pl":"Autołowy są na tym świecie wyłączone (launcher: M2_AUTOHUNT=0), więc ten wybór zadziała dopiero, gdy je włączysz.",
+                 "en":"Auto Hunt is switched off on this world (launcher: M2_AUTOHUNT=0), so this choice applies once it is switched on."},
+ "ah_save":     {"pl":"Zapisz dostęp do Autołowów", "en":"Save the Auto Hunt access"},
+ "ah_saved_live": {"pl":"✅ Zapisano! Nowy dostęp do Autołowów działa już w grze.",
+                   "en":"✅ Saved! The new Auto Hunt access is live in game."},
+ "ah_saved_restart": {"pl":"Zapisano. Nikt nie jest zalogowany, więc pomocnik w grze nie odpowiedział — zmiana zadziała po restarcie serwera (albo zapisz jeszcze raz, gdy ktoś będzie w grze).",
+                      "en":"Saved. Nobody is logged in, so the in-game helper did not answer — the change applies after a server restart (or save again while somebody is in game)."},
  "ai_books_moved": {"pl":"Na tym serwerze ustawia to poziom trudności (Mnożniki serwera → Poziom trudności): osobno czas dla graczy, osobno dla botów; 0 = od razu.",
                     "en":"On this server the difficulty sets it (Server rates → Difficulty): one wait for the players, one for the bots; 0 = at once."},
  "ch2_title":   {"pl":"Drugi kanał (CH2)", "en":"Second channel (CH2)"},
@@ -4418,6 +4430,25 @@ def persist_difficulty_mt2009(cur, values):
     for flag, value in zip(MT2009_DIFFICULTY_FLAGS, values):
         cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
                     "VALUES (0, %s, '', %s)", (flag, int(value)))
+
+# Auto Lowy for everybody (0) or only with the ItemShop's "Auto Lowy (8h)" (1):
+# the event flag m2_autohunt_item, which the engine asks before it answers the
+# client's auto hunt (playerbotify apply_auto_hunt_item_switch). The migrator
+# applies .env's M2_AUTOHUNT_ITEM only when it changed since the last start, so
+# what this card writes stays until the launcher's choice changes (the
+# operator, 27 September). m2_autohunt_off is the world's M2_AUTOHUNT=0.
+def read_autohunt_mt2009():
+    out = {"item": 0, "off": 0}
+    with db() as c, c.cursor() as cur:
+        cur.execute("SELECT szName, lValue FROM player.quest WHERE dwPID=0 "
+                    "AND szName IN ('m2_autohunt_item', 'm2_autohunt_off')")
+        for row in cur.fetchall():
+            name = row["szName"] if isinstance(row, dict) else row[0]
+            value = row["lValue"] if isinstance(row, dict) else row[1]
+            if isinstance(name, bytes):
+                name = name.decode("ascii", "replace")
+            out["item" if name == "m2_autohunt_item" else "off"] = 1 if int(value or 0) > 0 else 0
+    return out
 
 def read_regen_mt2009():
     """The two flags as the page shows them (100 = normal), from player.quest."""
@@ -5741,6 +5772,18 @@ regenLabel("regen_boss");regenLabel("regen_mob");
 <p><label>{{t('diff_book_h')}} <input type="number" name="book" min="0" max="{{difficulty_max}}" step="0.5" value="{{difficulty.book}}" style="width:90px"></label></p>
 <p><label>{{t('diff_bot_book_h')}} <input type="number" name="bot_book" min="0" max="{{difficulty_max}}" step="0.5" value="{{difficulty.bot_book}}" style="width:90px"></label></p>
 <button class="big" style="margin-top:12px">{{t('diff_save')}}</button>
+</form></div>
+{% endif %}
+{% if autohunt %}
+<div class="card">
+<form method="post" action="{{url_for('rates_autohunt')}}">
+<input type="hidden" name="_csrf" value="{{csrf_token}}">
+<h3>🎯 {{t('ah_title')}}</h3>
+<p class="muted">{{t('ah_help')}}</p>
+{% if autohunt.off %}<p class="muted">⚠️ {{t('ah_off')}}</p>{% endif %}
+<p><label><input type="radio" name="item" value="0"{% if not autohunt.item %} checked{% endif %}> {{t('ah_all')}}</label></p>
+<p><label><input type="radio" name="item" value="1"{% if autohunt.item %} checked{% endif %}> {{t('ah_item')}}</label></p>
+<button class="big" style="margin-top:12px">{{t('ah_save')}}</button>
 </form></div>
 {% endif %}
 {% if channels %}
@@ -8637,6 +8680,11 @@ GEAR_HISTORY_HOWS = {
     "SAFEBOX PUT":           ("safebox",     {"pl": "Do magazynu",        "en": "Into the safebox"}),
     "SAFEBOX GET":           ("safebox",     {"pl": "Z magazynu",         "en": "Out of the safebox"}),
     "MOONLIGHT_GET":         ("get",         {"pl": "Ze Szkatułki Blasku", "en": "From a Moonlight chest"}),
+    # A bot's purchase from a village merchant and the marble a hundred Magic
+    # Dust make (Iwakura's Patch 4, point 11): neither had a row the card read
+    # (B23 of Iwakura's audit of 26 September).
+    "PLAYERBOT_NPC_BUY":     ("bought",      {"pl": "Kupione u handlarza", "en": "Bought from a merchant"}),
+    "PLAYERBOT_DUST_MARBLE": ("bonus",       {"pl": "Marmur z Magicznego Pyłu", "en": "Marble from Magic Dust"}),
     "EXCHANGE_TAKE":         ("gift_in",     {"pl": "Z wymiany",          "en": "From a trade"}),
     "EXCHANGE_GIVE":         ("gift_out",    {"pl": "Oddane w wymianie",  "en": "Given in a trade"}),
 }
@@ -8648,8 +8696,9 @@ GEAR_HISTORY_HOWS = {
 # it to log.ikarusshop_log as BUY_ITEM - so the trade tab reads that table too.
 GEAR_HISTORY_TABS = {
     "trade":  ("PLAYERBOT_STALL_SOLD", "SHOP_BUY", "PLAYERBOT_SHOP_SELL", "EXCHANGE_TAKE",
-               "EXCHANGE_GIVE", "PLAYERBOT_GIFT_OUT", "PLAYERBOT_GIFT_IN"),
-    "bonus":  ("PLAYERBOT_BONUS", "PLAYERBOT_BONUS_ADD", "PLAYERBOT_BONUS_CHANGE", "PLAYERBOT_BONUS_MARBLE"),
+               "EXCHANGE_GIVE", "PLAYERBOT_GIFT_OUT", "PLAYERBOT_GIFT_IN", "PLAYERBOT_NPC_BUY"),
+    "bonus":  ("PLAYERBOT_BONUS", "PLAYERBOT_BONUS_ADD", "PLAYERBOT_BONUS_CHANGE", "PLAYERBOT_BONUS_MARBLE",
+               "PLAYERBOT_DUST_MARBLE"),
     "refine": ("REFINE SUCCESS", "REFINE FAIL", "REMOVE (REFINE FAIL)", "REFINE FISH_ROD SUCCESS",
                "REFINE FISH_ROD FAIL"),
     "other":  ("PLAYERBOT_EQUIP", "SAFEBOX PUT", "SAFEBOX GET", "MOONLIGHT_GET"),
@@ -13504,6 +13553,11 @@ def api_bot_shop(pid):
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+# How many level-30 weapons the ranking reads before it scores them - every one
+# on a world of thousands of bots, and a bound on a runaway one.
+WEAPON30_RANK_SCAN = 50000
+
+
 @app.route("/api/bot_rankings")
 def api_bot_rankings():
     rtype = request.args.get("type", "level")
@@ -13545,7 +13599,7 @@ def api_bot_rankings():
                     )
                     ORDER BY i.id DESC
                     LIMIT %s
-                """), (rank_limit,))
+                """), (WEAPON30_RANK_SCAN,))
             elif rtype == "weapon":
                 cur.execute(bot_sql("""
                     SELECT p.id, p.name, p.level, p.job, p.gold, i.vnum as weapon_vnum
@@ -13846,7 +13900,11 @@ def api_bot_rankings():
                 })
 
             if rtype == "weapon30":
+                # Every such weapon is read and the best are kept: the query cut
+                # to the newest rank_limit first, so the ranking was the best of
+                # the newest weapons, not the best (B26 of Iwakura's audit).
                 rankings.sort(key=lambda x: (x["sr"], x["um"], x["level"]), reverse=True)
+                rankings = rankings[:rank_limit]
             elif rtype == "skills":
                 # Ordered here rather than in SQL: the grade comes out of the
                 # packed skill table, which MySQL cannot read.
@@ -13946,6 +14004,7 @@ def rates():
     regen = None
     regen_count = None
     difficulty = None
+    autohunt = None
     if ENGINE_MT2009:
         try:
             regen = read_regen_mt2009()
@@ -13959,6 +14018,10 @@ def rates():
             difficulty = read_difficulty_mt2009()
         except Exception:
             difficulty = None
+        try:
+            autohunt = read_autohunt_mt2009()
+        except Exception:
+            autohunt = None
     channels = None
     if ENGINE_MT2009:
         try:
@@ -13968,7 +14031,7 @@ def rates():
     return render_template_string(TPL_RATES, cur=cur_rates, presets=RATE_PRESETS, regen=regen,
                                   regen_count=regen_count, count_choices=REGEN_COUNT_CHOICES,
                                   difficulty=difficulty, difficulty_levels=DIFFICULTY_LEVELS,
-                                  difficulty_max=DIFFICULTY_MAX_HOURS,
+                                  difficulty_max=DIFFICULTY_MAX_HOURS, autohunt=autohunt,
                                   channels=channels,
                                   intro_key="rates_intro_mt2009" if ENGINE_MT2009 else "rates_intro",
                                   state_msg=t("rates_st_" + st) if st in RATE_STATES else "")
@@ -14100,6 +14163,41 @@ def rates_difficulty():
             except Exception:
                 pass
         flash(t("diff_saved_restart"))
+    return redirect(url_for("rates"))
+
+
+@app.post("/rates/autohunt")
+@login_required
+def rates_autohunt():
+    """Auto Lowy for everybody or only with the ItemShop's ticket. mt2009 only:
+    the engine reads the event flag before it answers the client's auto hunt."""
+    if not ENGINE_MT2009:
+        return redirect(url_for("rates"))
+    value = (request.form.get("item", "") or "").strip()
+    if value not in ("0", "1"):
+        return redirect(url_for("rates"))
+    try:
+        with db() as c, c.cursor() as cur:
+            cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                        "VALUES (0, 'm2_autohunt_item', '', %s)", (int(value),))
+    except Exception:
+        flash(t("db_down"), "error")
+        return redirect(url_for("rates"))
+    try:
+        status, qid = queue_and_wait("", "AUTOHUNT", value, "", wait=RATES_LIVE_WAIT)
+    except Exception:
+        status, qid = "failed", 0
+    if status == "done":
+        flash(t("ah_saved_live"))
+    else:
+        if status == "timeout":
+            try:
+                with db() as c, c.cursor() as cur:
+                    cur.execute("UPDATE player.web_admin_queue SET status='cancelled' "
+                                "WHERE id=%s AND status='pending'", (qid,))
+            except Exception:
+                pass
+        flash(t("ah_saved_restart"))
     return redirect(url_for("rates"))
 
 

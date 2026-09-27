@@ -566,6 +566,36 @@ quest web_admin begin
 				end
 			end
 
+			-- Auto Lowy for everybody or only with the ItemShop's ticket, the
+			-- same way (the operator, 27 September): the panel has written the
+			-- row (m2_autohunt_item), this makes it live without a restart
+			-- (playerbotify apply_auto_hunt_item_switch asks it). arg1 = "0" or "1".
+			local hrows = wa_query("SELECT id, arg1 FROM player.web_admin_queue WHERE status='pending' AND cmd='AUTOHUNT' ORDER BY id ASC LIMIT 3")
+			if type(hrows) == "table" then
+				local hi
+				for hi = 1, table.getn(hrows) do
+					local hr = hrows[hi]
+					if type(hr) == "table" then
+						local hqid = tonumber(hr.id)
+						local hval = nil
+						if hr.arg1 == "0" or hr.arg1 == "1" then
+							hval = tonumber(hr.arg1)
+						end
+						if hqid ~= nil then
+							local hres = "done"
+							if hval == nil then
+								hres = "bad_args"
+							elseif game.set_event_flag == nil then
+								hres = "failed"
+							else
+								game.set_event_flag("m2_autohunt_item", hval)
+							end
+							wa_query("UPDATE player.web_admin_queue SET status='" .. hres .. "' WHERE id=" .. hqid .. " AND status='pending' LIMIT 1")
+						end
+					end
+				end
+			end
+
 			-- The world's difficulty, the same way (drip9660, 23 September):
 			-- the level and seven waits in seconds - the Biologist's, the
 			-- stable keeper's four (m2_difficulty.lua), and the skill books'

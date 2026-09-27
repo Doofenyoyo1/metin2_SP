@@ -26,6 +26,9 @@ namespace
 	// something worth the swing is in reach, and taken when nothing else is.
 	const int PLAYERBOT_TRIVIAL_LEVEL_GAP = 9;
 	const int PLAYERBOT_MELEE_RANGE = 250;
+	// How far inside its reach a bow stops on the way to a foe: it walks to the
+	// edge of its range, not onto the monster.
+	const int PLAYERBOT_BOW_APPROACH_SLACK = 150;
 	const int PLAYERBOT_MELEE_SPLASH_RANGE = 300;
 	const size_t PLAYERBOT_MAX_MELEE_TARGETS = 4;
 	// A swing is a swing in front of the character, and the client is where
@@ -46,7 +49,16 @@ namespace
 	// stacks at a believable cadence instead of clearing the floor in one tick.
 	const DWORD PLAYERBOT_LOOT_VISIBLE_DELAY_MIN = 1000;
 	const DWORD PLAYERBOT_LOOT_VISIBLE_DELAY_MAX = 1800;
+	// mt2009's PickupItem refuses a pickup within 500 ms of the last one, and
+	// the pass hid a refused drop for five seconds as if it had failed: a
+	// bot's full tick comes every ~480 ms, so every second try was refused and
+	// Tanaka's winner took one pile a second with five always hidden, until
+	// the pass saw an empty floor and the event let it go (26 September).
+#if defined(PLAYERBOT_ENGINE_MT2009)
+	const DWORD PLAYERBOT_LOOT_PICKUP_INTERVAL_MIN = 550;
+#else
 	const DWORD PLAYERBOT_LOOT_PICKUP_INTERVAL_MIN = 450;
+#endif
 	const DWORD PLAYERBOT_LOOT_PICKUP_INTERVAL_MAX = 850;
 	// Yang is taken almost at once. The pause above exists so a bot does not
 	// hoover a field the instant it drops, but a coin pile is one click a player
@@ -54,8 +66,13 @@ namespace
 	// cleared field for six seconds instead of finding the next pack.
 	const DWORD PLAYERBOT_LOOT_MONEY_DELAY_MIN = 150;
 	const DWORD PLAYERBOT_LOOT_MONEY_DELAY_MAX = 350;
+#if defined(PLAYERBOT_ENGINE_MT2009)
+	const DWORD PLAYERBOT_LOOT_MONEY_INTERVAL_MIN = 550;
+	const DWORD PLAYERBOT_LOOT_MONEY_INTERVAL_MAX = 650;
+#else
 	const DWORD PLAYERBOT_LOOT_MONEY_INTERVAL_MIN = 150;
 	const DWORD PLAYERBOT_LOOT_MONEY_INTERVAL_MAX = 300;
+#endif
 	// A combat pickup is a cheap-looking action but an expensive query: Metin2's
 	// ForEachAround snapshots every entity in nine neighbouring sectrees before
 	// the callback can apply the 3 m pickup radius.  Throttle empty scans as well
@@ -350,6 +367,15 @@ namespace
 	// Monkey Dungeon for two hours after a medal that had no cell to land in
 	// ("eq pelne od dawna a on se napierdala 2 godziny malpy").
 	const int PLAYERBOT_BAG_FULL_PERCENT = 80;
+	// The box's release to the counter (reason=market) fills a bag only this
+	// far. Up to just under the deposit's 80% it was, so the next pick-up sent
+	// the stack down again: 84% of 1615 such releases on m2zip in a day went
+	// back to the box the bot had taken them from, 884 of them never listed
+	// (Iwakura's audit, R1).
+	const int PLAYERBOT_MATERIAL_RELEASE_BAG_PERCENT = 60;
+	// How long a bot that came down from M3 for the anvil is kept from the
+	// Teleporter back while the refine that brought it is still to be made.
+	const DWORD PLAYERBOT_REMOTE_REFINE_ERRAND_MS = 15 * 60 * 1000;
 	// The storekeeper (Dozorca, 9005): npc.txt cell (609,596) on map 21, base
 	// (0,102400); cell (471,347) on map 23, base (102400,204800). A bot's
 	// safebox is one page of forty-five cells behind the default password -
@@ -644,6 +670,9 @@ namespace
 	// towards PLAYERBOT_LEVEL30_LONG_TERM_PLUS ("+8/+9 to ABSOLUTNY
 	// PRIORYTET"), +9 for the ones that drew it.
 	const int PLAYERBOT_LEVEL30_BUDGET_PERCENT = 60;
+	// How long one such budget runs: a purchase and the visits to the anvil
+	// that follow it are one spend.
+	const DWORD PLAYERBOT_LEVEL30_BUDGET_WINDOW_MS = 30 * 60 * 1000;
 	const int PLAYERBOT_LEVEL30_FIRST_PLUS6_PERCENT = 60;
 	const int PLAYERBOT_LEVEL30_FIRST_PLUS7_PERCENT = 13;
 	const int PLAYERBOT_LEVEL30_FIRST_PLUS8_PERCENT = 8;
@@ -1486,6 +1515,20 @@ namespace
 	const long PLAYERBOT_GUILD_WAR_MIDDLE_SHIFT_STEP = 400;
 	// "At the camp", for the muster, the buffs and the grace below.
 	const long PLAYERBOT_GUILD_WAR_CAMP_RADIUS = 500;
+	// A war is a fight with no town to walk back to ("czy boty uzywaja potek na
+	// wojnie? powinny!", the operator, 27 September): the life pass drank only below
+	// the hunting 65%, so every round opened on wounded bots and ended in
+	// seconds (Gacek, 26 September). A red below 85% and a blue below 50% in
+	// the fight, and at the camp topped up to 95% and 90%.
+	// How many of a guild's bots fight, drawn: the smaller side's number and
+	// no more than twenty (playerbot_war_rules::SideSize), drawn again every
+	// half minute for whoever has come or gone.
+	const int PLAYERBOT_GUILD_WAR_SIDE_MAX = 20;
+	const DWORD PLAYERBOT_GUILD_WAR_SIDE_REDRAW_MS = 30 * 1000;
+	const int PLAYERBOT_GUILD_WAR_POTION_HP_PERCENT = 85;
+	const int PLAYERBOT_GUILD_WAR_POTION_SP_PERCENT = 50;
+	const int PLAYERBOT_GUILD_WAR_CAMP_POTION_HP_PERCENT = 95;
+	const int PLAYERBOT_GUILD_WAR_CAMP_POTION_SP_PERCENT = 90;
 	// The muster: for this long after the war's start each side stands at its
 	// camp and buffs, and fights only a foe who comes within DEFEND_RANGE.
 	const DWORD PLAYERBOT_GUILD_WAR_MUSTER_SECONDS = 20;
@@ -2180,7 +2223,12 @@ namespace
 	// a level-33 player refused every monster on the map for being eight levels
 	// over *itself*. The bot only has to survive the walk back, which is what
 	// the health gate and the leash are for.
-	const int PLAYERBOT_LURE_PLAYER_MAX_LEVEL_OVER = 3;
+	// A person's lure is the person's order: only a pull nobody survives is
+	// refused. At 3 over the higher of the two an Archer lured a fifth of the
+	// desert for an owner of 38 and started when a level-up let in the next
+	// spawn group (prodnathin, 26 September); the 60/35% health gates still
+	// turn it home.
+	const int PLAYERBOT_LURE_PLAYER_MAX_LEVEL_OVER = 15;
 	// And the two that end a gathering, which have to sit under the one that
 	// opens it. 2.0.90 dropped the opening gate to 55% for an order and left
 	// the break at the bots' own 70%, so a bot between the two opened a course
@@ -2537,7 +2585,10 @@ namespace
 	// 8: his price list of 20 September - nearly every number moved, most of
 	// the materials by about seventy percent, and the herbalist's recipes are
 	// priced for the first time (one row for all forty of them).
-	const DWORD PLAYERBOT_PRICE_TABLE_VERSION = 8;
+	// 9: his prices of 26 September - the Blessing Scroll at 375 000, the
+	// Polymorph Marbles at 113 750-148 750 with their exceptions, and the
+	// fishing rods from +0 to +19 priced for the first time.
+	const DWORD PLAYERBOT_PRICE_TABLE_VERSION = 9;
 	// Community patch 2, point 8: inflation. Every PLAYERBOT_INFLATION_STEP_YANG
 	// the world's characters hold between them lifts every price his sheet sets
 	// by PLAYERBOT_INFLATION_STEP_PERCENT, on top of the yang-rate curve and in
@@ -2689,10 +2740,16 @@ namespace
 	// pairs.
 	const long long PLAYERBOT_BOOTS_FAMILY_TIER_SCORE = 300;
 	const int PLAYERBOT_BOOTS_MIN_LINE_TIER = 3;
-	// Point 2: a piece of gear off a counter is +6 at least and two grades
-	// over the piece worn in its slot.
+	// Point 2: a piece of gear off a counter is +6 at least and one grade over
+	// the piece worn in its slot, or the same grade with better lines -
+	// Iwakura's answer of 26 September ("b) co najmniej +6 i o jeden plus
+	// wiecej niz noszony; lub gdy ma taki sam + ale ma sumarycznie lepsze
+	// bonusy"). It was two grades, and with the score's margin on top a
+	// level-34 armour needed three: its defence grows about seven percent a
+	// grade, so 0-2 armours an hour left the counters after 2.2.19 against
+	// 8-18 before.
 	const int PLAYERBOT_MARKET_GEAR_MIN_PLUS = 6;
-	const int PLAYERBOT_MARKET_GEAR_PLUS_OVER_WORN = 2;
+	const int PLAYERBOT_MARKET_GEAR_PLUS_OVER_WORN = 1;
 	// Point 7: a weapon, body armour or shield from +7 that the worn piece
 	// matches or beats is goods (IsPlayerBotFinishedSpareGoods).
 	const BYTE PLAYERBOT_SPARE_GOODS_MIN_PLUS = 7;
@@ -2708,6 +2765,11 @@ namespace
 	const int PLAYERBOT_BONUS_WEAPON_MIN_PLUS = 7;
 	const int PLAYERBOT_BONUS_ARMOUR_MIN_LEVEL = 21;
 	const int PLAYERBOT_BONUS_ARMOUR_MIN_PLUS = 7;
+	// Body armour from the level-18 plates up, at +7 (Iwakura, 26 September:
+	// a +7 armour is "odpowiednio wysoki stopien ulepszenia"). A bot of 25 to
+	// 34 wears the level-18 plate, and at 21 its +7 and +9 were refused, so
+	// the stones of 264 bots on m2zip had nowhere to go but the jewellery.
+	const int PLAYERBOT_BONUS_BODY_MIN_LEVEL = 18;
 	const int PLAYERBOT_BONUS_JEWEL_MIN_PLUS = 4;
 	const int PLAYERBOT_BONUS_EAR_MIN_PLUS = 7;
 	// Point 6, "obowiazek natychmiastowego bonowania": a pass that spent stones
@@ -4015,6 +4077,15 @@ namespace
 	// the counter while a worn piece can still use one.
 	const BYTE PLAYERBOT_SCROLL_REFINE_MAX_PLUS = 9;
 	const int PLAYERBOT_REFINE_SCROLL_KEEP = 3;
+	// Iwakura's scroll rule (27 September): a bot holding this many safe
+	// scrolls refines the weapon it wears - of this level or more, under this
+	// plus - under them, and buys at the market what the step lacks first
+	// (IsPlayerBotScrollRuleWeapon). Three is also the stall's keep, so a
+	// counter sells none of them (a resource trader keeps one, and the rule
+	// reaches it only between two service visits).
+	const int PLAYERBOT_SCROLL_RULE_MIN_SCROLLS = 3;
+	const int PLAYERBOT_SCROLL_RULE_WEAPON_MIN_LEVEL = 30;
+	const BYTE PLAYERBOT_SCROLL_RULE_WEAPON_PLUS = 7;
 
 	// The two scrolls the bots refine under: neither burns the piece.
 	bool IsPlayerBotSafeRefineScroll(DWORD vnum)
@@ -5921,7 +5992,10 @@ namespace
 		BOT_TOWN_PHASE_SKILL_RESET,
 		BOT_TOWN_PHASE_SKILL_RESET_WAIT,
 		BOT_TOWN_PHASE_SAFEBOX,
-		BOT_TOWN_PHASE_SAFEBOX_WAIT
+		BOT_TOWN_PHASE_SAFEBOX_WAIT,
+		// A gambler's session between the storekeeper and the anvil: the
+		// counters, for the materials its pieces lack (ManagePlayerBotGambleMarket).
+		BOT_TOWN_PHASE_GAMBLE_MARKET
 	};
 
 	enum EPlayerBotLongTermGoal
@@ -6116,10 +6190,38 @@ namespace
 	// stand on all the bots' counters together; a bot that would list another
 	// takes it to the plain anvil for PLAYERBOT_LOW_ARMOUR_SALE_PLUS first, and
 	// one past the cap comes down and is treated like any other piece - the
-	// merchant's, when the anvil cannot be paid.
-	const int PLAYERBOT_LOW_ARMOUR_MARKET_CAP = 20;
+	// merchant's, when the anvil cannot be paid. Forty since his answer of 26
+	// September ("podniesienie liczby zbroi do 40 sztuk na swiat"); it was
+	// twenty, and the four level-34 families stood at 20/19/18/14.
+	const int PLAYERBOT_LOW_ARMOUR_MARKET_CAP = 40;
 	const int PLAYERBOT_LOW_ARMOUR_MAX_PLUS = 4;
 	const int PLAYERBOT_LOW_ARMOUR_SALE_PLUS = 5;
+	// The same answer: body armour and jewellery at +0..+3 are every bot's
+	// counter goods, under level thirty too ("postacie normalnie je
+	// wystawiac" - on his new world five such armours stood on the counters,
+	// his, against five hundred in the bots' bags), not a scrap keeper's
+	// fodder only (IsPlayerBotLowPlusMarketGear). The level-one pieces stay the
+	// merchant's. Jewellery is held to the armour's bound on the same terms,
+	// forty of a family at +0..+3 on all the bots' counters: that is the
+	// operator's "never a counter full of it" of 14 September, not a number of
+	// Iwakura's, who asked for the jewellery to reach the market at all.
+	const int PLAYERBOT_LOW_PLUS_MARKET_MAX_PLUS = 3;
+	const int PLAYERBOT_LOW_JEWEL_MARKET_CAP = PLAYERBOT_LOW_ARMOUR_MARKET_CAP;
+	// Where it ranks on a counter: ahead of the ordinary materials
+	// (PLAYERBOT_SHOP_MATERIAL_SCORE), behind the ones the bots are short of.
+	// A service visit adds three lines, the best first, and the bots' counters
+	// are materials above all - 12 554 of their lines on m2zip on 26 September
+	// - so last in line, where it went first, is never: an hour after the
+	// change five of the 520 armours under level thirty the bots carried had
+	// reached a counter. Three of them a bag at most (PLAYERBOT_LOW_PLUS_BAG_KEEP)
+	// and forty of a family on the counters are what keeps it from being a
+	// counter full of it.
+	const int PLAYERBOT_SHOP_LOW_PLUS_GEAR_SCORE = 480;
+	// How many of those pieces a bag keeps for its counter, the first in bag
+	// order; the rest are the merchant's as before. A counter takes two lines
+	// of the gear under level thirty, so three wait for the next stand, and a
+	// bot that picks up armour all day does not fill its bag with it.
+	const int PLAYERBOT_LOW_PLUS_BAG_KEEP = 3;
 
 	// A weapon family is its base vnum plus the refine, 0..9.
 	bool IsPlayerBotJunkWeaponVnum(DWORD vnum)
@@ -6155,6 +6257,9 @@ namespace
 	const char* const PLAYERBOT_PERSONA_FLAG_DROUGHT = "playerbot.persona_drought_s";
 	const char* const PLAYERBOT_PERSONA_FLAG_ADVANCED = "playerbot.persona_adv";
 	const char* const PLAYERBOT_PERSONA_FLAG_LOCK_LEVEL = "playerbot.persona_lock_lv";
+	// The lock above is the Law of Advancement's, pinned (TPlayerBotPersona::
+	// bLockPinned).
+	const char* const PLAYERBOT_PERSONA_FLAG_LOCK_PINNED = "playerbot.persona_lock_pin";
 	// Community patch 2, point 2: gave grinding up for good, and the tier its
 	// 33% was last rolled at (so a tier is rolled once).
 	const char* const PLAYERBOT_PERSONA_FLAG_QUIT = "playerbot.persona_quit";
@@ -6192,6 +6297,12 @@ namespace
 	const int PLAYERBOT_READY_GEAR_LEVEL_WINDOW = 10;
 	const DWORD PLAYERBOT_READY_GEAR_WAIT_MS = 20 * 60 * 1000;
 	const DWORD PLAYERBOT_READY_GEAR_RECHECK_MS = 60 * 60 * 1000;
+	// How long a blacksmith session remembers the slots it took pieces off
+	// (TPlayerBotAIState::dwRefineTakenOffSlots): longer than any visit.
+	const DWORD PLAYERBOT_REFINE_TAKEN_OFF_MS = 10 * 60 * 1000;
+	// The four slots the finished piece is looked for in: the weapon, the
+	// armour, the shield and the helmet (IsPlayerBotReadyGearSlot).
+	const int PLAYERBOT_READY_GEAR_SLOTS = 4;
 	const int PLAYERBOT_GAMBLE_TOWN_WEAPON_PLUS = 7;
 	const int PLAYERBOT_GAMBLE_TOWN_ARMOUR_PLUS = 6;
 	// A bot that qualifies and does not take it is asked again this much later;
@@ -6222,8 +6333,23 @@ namespace
 	const int PLAYERBOT_GAMBLE_SAFEBOX_TAKE = 4;
 	// And at most this many bases in the bag before it stops buying more off
 	// the counters ("Jesli brakuje mu bazy lub ulepszaczy, przeszukuje sklepy
-	// offline na rynku").
+	// offline na rynku") - between its sessions the bag and the box's gear
+	// together (PlayerBotGamblerWantsBases), asked again at most this often,
+	// and a base at no more than this many times Iwakura's sheet price for it
+	// ("skupuje je po najnizszych cenach"; the browse takes the cheapest).
 	const int PLAYERBOT_GAMBLE_MARKET_BASES = 3;
+	const DWORD PLAYERBOT_GAMBLE_BASES_RECHECK_MS = 60 * 1000;
+	const long long PLAYERBOT_GAMBLE_BASE_FAIR_MULTIPLE = 2;
+	// Iwakura's answer of 26 September to how a session runs: "Zabiera baze
+	// z magazynu do ekwipunku ... i kupuje ulepszacze na rynku i ulepsza, moze
+	// wiecej niz 1 Item, poki budzet pozwala". After the storekeeper a session
+	// buys the materials its pieces lack for their plain steps to
+	// GAMBLE_SAFE_PLUS: at most this many lines, within this long, and a line
+	// for no more than this share of what is left of the session's budget - the
+	// rest is the anvil's, whose fees and burned pieces it has to cover.
+	const int PLAYERBOT_GAMBLE_MARKET_BUYS = 8;
+	const DWORD PLAYERBOT_GAMBLE_MARKET_MS = 4 * 60 * 1000;
+	const long long PLAYERBOT_GAMBLE_MARKET_BUDGET_PERCENT = 50;
 
 	// The stone hunter (Pogromca, playerbot_anti_pk.h and the target section):
 	// how often a bot busy with a monster looks round for a stone, and how
@@ -6296,9 +6422,10 @@ namespace
 	// "sporadycznie" for NORMALNY, and BARDZO DOBRY has better things to do.
 	// The answer is rolled once per window per bot, so the question can be asked
 	// every tick without the answer flickering. The FISHING weight scales both.
+	// The odds themselves are playerbot_persona::RYBAK_BASE_PERMILLE.
 	const DWORD PLAYERBOT_RYBAK_ROLL_WINDOW_MS = 30 * 60 * 1000;
-	const int PLAYERBOT_RYBAK_SLABY_PERCENT = 75;
-	const int PLAYERBOT_RYBAK_NORMALNY_PERMILLE = 40;
+	// How long the roll's "fish" holds while the bot walks to the bank.
+	const DWORD PLAYERBOT_RYBAK_TRIP_HOLD_MS = 15 * 60 * 1000;
 	// "Faza Rybaka trwa maksymalnie 1 godzine": a bad mood's session runs
 	// half an hour to an hour, a good mood's episode is short.
 	const DWORD PLAYERBOT_RYBAK_SLABY_SESSION_MIN = 30 * 60 * 1000;
@@ -6487,10 +6614,13 @@ namespace
 		long long llBookBudgetSpent;
 		DWORD dwBookBudgetSince;
 		// The market Perfectionist's look for finished gear
-		// (PLAYERBOT_READY_GEAR_PERCENT): until when the anvil waits for the
-		// purchase, and when the market was last looked at for it.
-		DWORD dwReadyGearWaitUntil;
-		DWORD dwReadyGearCheckedAt;
+		// (PLAYERBOT_READY_GEAR_PERCENT), for each of its four slots
+		// (GetPlayerBotReadyGearSlotIndex): until when the anvil waits for the
+		// purchase, and when the market was last looked at for it. One clock
+		// for the four held the whole anvil for a piece of one slot (B03 of
+		// Iwakura's audit).
+		DWORD adwReadyGearWaitUntil[PLAYERBOT_READY_GEAR_SLOTS];
+		DWORD adwReadyGearCheckedAt[PLAYERBOT_READY_GEAR_SLOTS];
 		// The Grinder that gave grinding up (community patch 2, point 2), and
 		// the last tier its chance was rolled at.
 		bool bQuitGrinding;
@@ -6505,6 +6635,10 @@ namespace
 		// say a Conqueror has outgrown its gear.
 		bool bAdvanced;
 		BYTE bLockLevel;
+		// The lock was written by the Law of Advancement - a Conqueror that
+		// went back to grinding after its deaths - and holds whatever the
+		// tier's draw says, until the bot advances again.
+		bool bLockPinned;
 		DWORD dwNextAdvanceRoll;
 		playerbot_persona::TDeathWindow deaths;
 		// The player-death counter of the engine (PLAYER_STATS_DEATH_FROM_
@@ -6513,6 +6647,13 @@ namespace
 		// The Perfectionist's purse: what the bot held when its town visit
 		// began, of which the anvil takes at most PERFECT_BUDGET_PERCENT.
 		long long llVisitGoldStart;
+		// The class's level-30 weapon's one budget (community patch 2, point
+		// 1): the purse its first spend found, what the purchase and the anvil
+		// have spent of PLAYERBOT_LEVEL30_BUDGET_PERCENT since, and when that
+		// began (GetPlayerBotLevel30BudgetLeft).
+		long long llLevel30BudgetBase;
+		long long llLevel30BudgetSpent;
+		DWORD dwLevel30BudgetSince;
 		// The gambler (playerbot_gambler.h): the session, its purse and what it
 		// has spent of the GAMBLE_BUDGET_PERCENT, when it must end at the latest,
 		// when the next may start, the next step's clock, what it has done, and
@@ -6531,6 +6672,12 @@ namespace
 		WORD wGambleAttempts;
 		bool bGambleSafeboxChecked;
 		BYTE bGambleSafeboxTaken;
+		// Its walk along the counters after the storekeeper, for the materials
+		// its pieces lack: still to come, the lines it has bought, and the
+		// clock that ends it (ManagePlayerBotGambleMarket).
+		bool bGambleMarketPending;
+		BYTE bGambleMarketBuys;
+		DWORD dwGambleMarketUntil;
 		std::vector<TPlayerBotGamblePlan> vecGamblePlans;
 		// The Anti-PK protocol (playerbot_anti_pk.h): the last player who
 		// struck the bot and when (CHARACTER::Damage tells the manager, mt2009),
@@ -6551,6 +6698,8 @@ namespace
 		long lAvoidSpotY;
 		DWORD dwAvoidSpotUntil;
 		DWORD dwFishingSpellUntil;
+		// A trip to the bank the Rybak's roll decided (HoldPlayerBotRybakTrip).
+		DWORD dwRybakTripUntil;
 		// The stone hunter: the stone it is breaking and how often it has died
 		// at it, whether it has turned on the stone's pack below 35%, and the
 		// clock of its look round for a stone.
@@ -6634,16 +6783,18 @@ namespace
 			dwPauseUntil(0), dwPausedAfterFight(0), dwAfkUntil(0), dwNextAfkAt(0),
 			dwAfkLootWaitSince(0), bLevel30VisitStartPlus(0xFF),
 			llBookBudgetBase(0), llBookBudgetSpent(0), dwBookBudgetSince(0),
-			dwReadyGearWaitUntil(0), dwReadyGearCheckedAt(0), bQuitGrinding(false), bQuitRolledTier(0),
+			adwReadyGearWaitUntil(), adwReadyGearCheckedAt(), bQuitGrinding(false), bQuitRolledTier(0),
 			bMedalGoalDone(false), dwNextMedalGoalCheck(0),
-			bAdvanced(false), bLockLevel(0), dwNextAdvanceRoll(0), llPlayerDeaths(-1),
-			llVisitGoldStart(0), bGambling(false), llGambleGoldStart(0),
+			bAdvanced(false), bLockLevel(0), bLockPinned(false), dwNextAdvanceRoll(0), llPlayerDeaths(-1),
+			llVisitGoldStart(0), llLevel30BudgetBase(0), llLevel30BudgetSpent(0), dwLevel30BudgetSince(0),
+			bGambling(false), llGambleGoldStart(0),
 			llGambleSpent(0), dwGambleUntil(0), dwNextGambleAt(0), dwNextGambleStep(0),
 			bGambleNines(0), bGambleBurned(0), bGambleFinished(0), bGambleDowngraded(0),
 			wGambleAttempts(0), bGambleSafeboxChecked(false), bGambleSafeboxTaken(0),
+			bGambleMarketPending(false), bGambleMarketBuys(0), dwGambleMarketUntil(0),
 			dwStruckByVID(0), dwStruckByPID(0), dwStruckAt(0), dwFoeVID(0), bFoeReason(0),
 			dwFoeSince(0), dwNextRivalScan(0), dwCapitulatedUntil(0), lAvoidSpotMap(0),
-			lAvoidSpotX(0), lAvoidSpotY(0), dwAvoidSpotUntil(0), dwFishingSpellUntil(0),
+			lAvoidSpotX(0), lAvoidSpotY(0), dwAvoidSpotUntil(0), dwFishingSpellUntil(0), dwRybakTripUntil(0),
 			dwPogromcaStoneVID(0), bPogromcaDeaths(0), bPogromcaClearing(false),
 			dwNextStoneProbe(0), llHerbGoldStart(0),
 			wCompanionDraw(playerbot_persona::COMPANION_DRAW_NONE), dwCompanionPhaseEnd(0),
@@ -6723,6 +6874,8 @@ namespace
 			dwNextRetreatMoveTime(0),
 			dwRetreatThreatVID(0),
 			dwNextRefineCheckTime(0),
+			dwRefineTakenOffSlots(0),
+			dwRefineTakenOffAt(0),
 			dwNextBonusCheckTime(0),
 			dwBonusFocusItem(0),
 			dwNextChatTime(0),
@@ -7006,6 +7159,11 @@ namespace
 		DWORD dwNextRetreatMoveTime;
 		DWORD dwRetreatThreatVID;
 		DWORD dwNextRefineCheckTime;
+		// The wear slots (bit 1 << WEAR_*) a blacksmith session took a piece
+		// off for the anvil, and when: after the first step the piece is in the
+		// bag, and it is still the worn one (ManagePlayerBotRefining).
+		DWORD dwRefineTakenOffSlots;
+		DWORD dwRefineTakenOffAt;
 		DWORD dwNextBonusCheckTime;
 		// The piece the bonus pass is working on (its item id), kept until it
 		// is done or no stone in the bag fits it (ManagePlayerBotBonusReroll).
@@ -7302,6 +7460,9 @@ namespace
 		// the bot was sent after - its pirate, or the stone or boss of a Zuo
 		// wave it picked - and the clock on its walks there.
 		BYTE bWorldEventKind = 0;
+		// Tanaka's winner is held on the event while his piles and ear are
+		// still on the floor, until this (PLAYERBOT_TANAKA_LOOT_HOLD_MS).
+		DWORD dwWorldEventLootUntil = 0;
 		long lWorldEventMap = 0;
 		DWORD dwWorldEventTargetVID = 0;
 		DWORD dwNextWorldEventMoveTime = 0;
@@ -7469,8 +7630,15 @@ namespace
 			return true;
 		const DWORD now = get_dword_time();
 		const DWORD stamps[3] = { ch->GetLastAttackTime(), state.dwLastEngineSkillTime, state.dwSpawnTime };
+		// By difference, as EquipItem reads it: CHARACTER::Initialize sets the
+		// attack clock to get_dword_time() - 20000, which in a core's first
+		// twenty seconds wraps to a time far ahead, and "later than now" read
+		// as a blow still landing until the character's first swing. A Shaman
+		// companion that never swings answered every item its owner gave it
+		// with "Zalozy to, jak tylko skonczy cios" and stood (GoracyDelfin,
+		// 26 September; "equip window never came ... last_attack_ms=30872").
 		for (int i = 0; i < 3; ++i)
-			if (stamps[i] != 0 && (stamps[i] > now || now - stamps[i] <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY))
+			if (stamps[i] != 0 && now - stamps[i] <= PLAYERBOT_EQUIPMENT_COMBAT_DELAY)
 				return true;
 		return false;
 	}

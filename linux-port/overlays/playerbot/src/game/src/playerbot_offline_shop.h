@@ -184,8 +184,18 @@ namespace {
             }
         }
         if (r.done) {
-            if (r.success && r.op == playerbot_offline::Buy && r.count && r.unitPrice)
+            if (r.success && r.op == playerbot_offline::Buy && r.count && r.unitPrice) {
                 RememberPlayerBotSale(r.vnum, r.refine, r.unitPrice, now, r.skill);
+                // A gambler's or an addict's purchase is charged to its budget
+                // as the classic stall's always was (BuyFromPlayerBotStall):
+                // the offline road skipped it, and the addict's 85 percent
+                // never counted what it bought off the stands (B07).
+                NotePlayerBotGamblePurchase(ch, (long long)r.unitPrice * r.count);
+                if (r.level30)
+                    NotePlayerBotLevel30Spend(ch, (long long)r.unitPrice * r.count);
+                if (r.gambleBase)
+                    NotePlayerBotGambleBaseBought(ch, r.vnum, (long long)r.unitPrice * r.count);
+            }
             sys_log(0, "PLAYERBOT_OFFLINE: ack pid=%u op=%u item=%u ok=%d",
                 ch->GetPlayerID(), unsigned(r.op), r.item, r.success);
             playerbot_offline::requests.erase(it);
@@ -200,12 +210,19 @@ namespace {
     }
     // Unregistered comparison object: no persistent ID allocation, save queue,
     // expiry events or item-manager insertion. Destroy with M2_DELETE below.
+    // It carries the line's item id - the id the piece had in the bag, which
+    // a line keeps - because a rule that asks by id has to read the line as
+    // that piece: a gambler's piece for sale (setGambleForSale) read as a
+    // piece of Iwakura's list with no id, came home "lpp" at every visit and
+    // went back up at the next, its markdown lost each time (B06 of Iwakura's
+    // audit of 26 September). The item manager never sees the id.
     LPITEM BotOfflinePreview(const ikashop::CShopItem& source) {
         const auto& i = source.GetInfo();
         auto proto = source.GetTable();
         if (!proto) return NULL;
         auto item = M2_NEW CItem(i.vnum);
         item->Initialize();
+        item->SetID((DWORD)source.GetID());
         item->SetProto(proto);
         item->SetSkipSave(true);
         item->SetCount(i.count);
@@ -399,7 +416,23 @@ namespace {
         // (Iwakura's Patch 4, point 13) come home a line a visit; the ledger is
         // told of each at once (BotOfflineTakeOff), so the keepers of one
         // minute do not take the whole village's home between them.
-        const bool missionBooksOver = CountPlayerBotMissionBooksOnMap(shop->GetSpawn().map) >
+        // An expired stand's lines are on no count yet (the ledger skips a
+        // stand that ran out), so a renewal checked against counts without
+        // them: 971 of 1642 bot stands on m2zip were expired, with 559 to 606
+        // mission books a village against the cap of 30 (Iwakura's audit,
+        // R5). Its own lines are added to each cap it is asked against.
+        int ownBooks = 0, ownJunk = 0;
+        std::map<DWORD, int> ownLow;
+        if (shop->GetDuration() == 0)
+            for (const auto& [lid, l] : shop->GetItems()) {
+                if (!l) continue;
+                const DWORD v = l->GetInfo().vnum;
+                const int n = (int)l->GetInfo().count;
+                if (IsPlayerBotMissionBook(v)) ownBooks += n;
+                if (IsPlayerBotJunkWeaponVnum(v)) ownJunk += n;
+                if (const DWORD family = GetPlayerBotLowArmourFamily(v)) ownLow[family] += n;
+            }
+        const bool missionBooksOver = CountPlayerBotMissionBooksOnMap(shop->GetSpawn().map) + ownBooks >
             playerbot_stall_rules::MISSION_BOOK_MAP_CAP;
         int marbles = 0;
         std::set<long> marbleMobs;
@@ -468,7 +501,7 @@ namespace {
             // junk rule sends it to the merchant (community patch 2, point 13).
             if (IsPlayerBotCappedJunkWeapon(preview) &&
                     GetPlayerBotItemPolicy(preview) != PLAYERBOT_ITEM_POLICY_STALL &&
-                    s_iPlayerBotJunkWeaponsOnCounters > PLAYERBOT_JUNK_WEAPON_MARKET_CAP) {
+                    s_iPlayerBotJunkWeaponsOnCounters + ownJunk > PLAYERBOT_JUNK_WEAPON_MARKET_CAP) {
                 if (!unwanted) { unwanted = id; reason = "junk_weapon"; }
                 M2_DELETE(preview);
                 continue;
@@ -485,11 +518,17 @@ namespace {
             // So does a body armour at +0..+4 of a family past
             // PLAYERBOT_LOW_ARMOUR_MARKET_CAP on the bots' counters (Iwakura's
             // Patch 3, point 4): the anvil takes it to +5 if it can be paid,
-            // the merchant otherwise.
-            if (IsPlayerBotCappedLowArmour(preview) &&
+            // the merchant otherwise. And a jewel at +0..+3 of a family past
+            // PLAYERBOT_LOW_JEWEL_MARKET_CAP, his answer of 26 September.
+            if ((IsPlayerBotCappedLowArmour(preview) || IsPlayerBotCappedLowJewel(preview)) &&
                     GetPlayerBotItemPolicy(preview) != PLAYERBOT_ITEM_POLICY_STALL &&
-                    CountPlayerBotLowArmourOnCounters(preview->GetVnum()) > PLAYERBOT_LOW_ARMOUR_MARKET_CAP) {
-                if (!unwanted) { unwanted = id; reason = "low_armour"; }
+                    CountPlayerBotLowArmourOnCounters(preview->GetVnum()) +
+                        ownLow[GetPlayerBotLowArmourFamily(preview->GetVnum())] >
+                        GetPlayerBotLowArmourMarketCap(preview->GetVnum())) {
+                if (!unwanted) {
+                    unwanted = id;
+                    reason = IsPlayerBotCappedLowJewel(preview) ? "low_jewel" : "low_armour";
+                }
                 M2_DELETE(preview);
                 continue;
             }
@@ -570,10 +609,14 @@ namespace {
                 M2_DELETE(preview);
                 continue;
             }
+            // A body armour or a jewel at +0..+3 under level thirty is goods
+            // below the operator's +6 (IsPlayerBotLowPlusMarketGear), and still
+            // one of the counter's lines of that gear.
             if (IsPlayerBotLowLevelGear(preview) &&
                     GetPlayerBotItemPolicy(preview) != PLAYERBOT_ITEM_POLICY_STALL) {
                 const bool capped = CountsAgainstPlayerBotLowGearCap(preview);
-                if (preview->GetRefineLevel() < GetPlayerBotLowGearMinRefine(preview) ||
+                if ((preview->GetRefineLevel() < GetPlayerBotLowGearMinRefine(preview) &&
+                        !IsPlayerBotLowPlusMarketGear(preview)) ||
                         (capped && lowGear >= PLAYERBOT_SHOP_LOW_GEAR_MAX_LINES)) {
                     if (!unwanted) { unwanted = id; reason = "low_gear"; }
                 } else if (capped) {
@@ -607,11 +650,12 @@ namespace {
         ikashop::GetManager().RecvShopRemoveItemClientPacket(ch, itemid);
         if (!EndCall(ch->GetPlayerID())) return false;
         RemovePlayerBotMarketSupply(lineVnum, lineCount, lineMap);
+        NotePlayerBotMissionBooksOnCounter(lineMap, lineVnum, -(int)lineCount);
         // Off the world's count at once, so the next keeper's visit this
         // minute does not take a second one home for the same surplus.
         if (why && strcmp(why, "junk_weapon") == 0 && s_iPlayerBotJunkWeaponsOnCounters > 0)
             --s_iPlayerBotJunkWeaponsOnCounters;
-        if (why && strcmp(why, "low_armour") == 0) {
+        if (why && (strcmp(why, "low_armour") == 0 || strcmp(why, "low_jewel") == 0)) {
             const auto line = state.offlineShop.listed.find(itemid);
             if (line != state.offlineShop.listed.end())
                 NotePlayerBotLowArmourOnCounter(line->second.vnum, -1);
@@ -780,8 +824,10 @@ namespace {
         }
         // Nor one of Iwakura's junk weapons past the world's cap.
         if (IsPlayerBotCappedJunkWeapon(item) && IsPlayerBotJunkWeaponMarketFull()) return true;
-        // Nor a body armour at +0..+4 of a family at its cap (Patch 3, point 4).
-        if (IsPlayerBotCappedLowArmour(item) && IsPlayerBotLowArmourMarketFull(item->GetVnum())) return true;
+        // Nor a body armour at +0..+4 of a family at its cap (Patch 3, point 4),
+        // nor a jewel at +0..+3 of one (Iwakura's answer of 26 September).
+        if ((IsPlayerBotCappedLowArmour(item) || IsPlayerBotCappedLowJewel(item)) &&
+                IsPlayerBotLowArmourMarketFull(item->GetVnum())) return true;
         return false;
     }
     // The lines of this vnum a counter carries, and how many of them are small
@@ -802,10 +848,14 @@ namespace {
     // chests (PLAYERBOT_CHEST_LINE_UNITS) or one unit of the goods kept by
     // count is cut off its stack into a free cell; anything else goes up as
     // the stack it is. -1 when no line can be cut without the stack's reserve
-    // or the bag's last free cells.
-    int BotOfflinePrepareLine(LPCHARACTER ch, WORD cell, NativeShop shop) {
+    // or the bag's last free cells. A line this visit already cut
+    // (BotOfflinePrepareVisitLine) is taken as it is: looked at again, a heap
+    // of fifty was cut once more to twenty one time in three, or left in the
+    // bag when no cell was free for the second cut (B01 of Iwakura's audit).
+    int BotOfflinePrepareLine(LPCHARACTER ch, WORD cell, NativeShop shop, bool alreadyCut = false) {
         LPITEM item = ch->GetInventoryItem(cell);
         if (!item) return -1;
+        if (alreadyCut) return cell;
         // Iwakura's Patch 3, point 5: a green or purple potion goes up as the
         // largest pack of 20, 50, 100 or 200 that the spare over the bot's own
         // keep fills out of this stack; the merge pass pours the small stacks
@@ -839,7 +889,7 @@ namespace {
             const int avail = std::min((int)item->GetCount(), spare);
             int lines = 0, small = 0;
             BotOfflineCountLinesOf(shop, item->GetVnum(), lines, small);
-            const int take = GetPlayerBotNaturalLineUnits(ch, item, avail, lines, small);
+            const int take = GetPlayerBotNaturalLineUnits(ch, item, avail, spare, lines, small);
             if (take <= 0) return -1;
             if (take >= (int)item->GetCount()) return cell;
             if (CountPlayerBotFreeInventoryCells(ch) <= PLAYERBOT_SHOP_SPLIT_KEEP_FREE_CELLS) return -1;
@@ -1199,6 +1249,13 @@ namespace {
                     strlcpy(sign, shop->GetName(), sizeof(sign));
                 manager.RecvShopReopenClientPacket(ch, sign, 1);
                 reopened = EndCall(ch->GetPlayerID());
+                // Its lines are on the counts at once, not at the next ledger.
+                if (reopened)
+                    for (const auto& [lid, l] : shop->GetItems()) {
+                        if (!l) continue;
+                        NotePlayerBotCappedLineOnCounter(l->GetInfo().vnum, (int)l->GetInfo().count);
+                        NotePlayerBotMissionBooksOnCounter(serviceMap, l->GetInfo().vnum, (int)l->GetInfo().count);
+                    }
                 if (reopened)
                     sys_log(0, "PLAYERBOT_OFFLINE: reopen pid=%u name=%s lines=%u sign=\"%s\" how=%s moved_from=%ld",
                         ch->GetPlayerID(), ch->GetName(), unsigned(shop->GetItems().size()), sign, how,
@@ -1297,10 +1354,13 @@ namespace {
         // now: it is exactly a line, so BotOfflinePrepareLine below hands it
         // back as it is. A stale cell (the item gone, or another in its
         // place) is simply not it.
+        int preparedCell = -1;
         if (o.preparedItem) {
             LPITEM line = ch->GetInventoryItem((WORD)o.preparedCell);
-            if (line && line->GetID() == o.preparedItem)
+            if (line && line->GetID() == o.preparedItem) {
                 scored.insert(scored.begin(), std::make_pair(1000000, (WORD)o.preparedCell));
+                preparedCell = (int)o.preparedCell;
+            }
             o.preparedItem = 0;
         }
         bool sent = false;
@@ -1321,7 +1381,7 @@ namespace {
             int pos = BotOfflineSlot(ch, shop, item);
             if (pos < 0) continue;
             if (BotOfflineCounterRefuses(shop, item)) continue;
-            const int lineCell = BotOfflinePrepareLine(ch, cell, shop);
+            const int lineCell = BotOfflinePrepareLine(ch, cell, shop, (int)cell == preparedCell);
             if (lineCell < 0) continue;
             const WORD at = (WORD)lineCell;
             item = ch->GetInventoryItem(at);
@@ -1366,6 +1426,7 @@ namespace {
                     // minute before the ledger is rebuilt.
                     AddPlayerBotMarketSupply(item->GetVnum(), (WORD)item->GetCount(), shop->GetSpawn().map);
                     NotePlayerBotCappedLineOnCounter(item->GetVnum(), (int)item->GetCount());
+                    NotePlayerBotMissionBooksOnCounter(shop->GetSpawn().map, item->GetVnum(), (int)item->GetCount());
                     if (slipped)
                         sys_log(0, "PLAYERBOT_OFFLINE: price slip pid=%u name=%s item=%u vnum=%u count=%u price=%lld",
                             ch->GetPlayerID(), ch->GetName(), id, item->GetVnum(),

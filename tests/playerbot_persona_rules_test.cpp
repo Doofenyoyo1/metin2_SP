@@ -865,11 +865,19 @@ int main()
 				}
 			}
 		}
+		// A tier's lock range may reach into the next tier's (tier 1 draws
+		// 13-19, tier 2 19-25): the shared level holds both tiers' bots now
+		// that a lock past a tier's band holds (B17 of Iwakura's audit), so it
+		// is counted with the lower tier, whose share it is, and left out of
+		// the upper one's.
 		for (unsigned int i = 0; i < GRINDER_TIER_COUNT; ++i)
 		{
 			const TGrinderTier& t = GRINDER_TIERS[i];
+			int from = t.lockMin;
+			if (i > 0 && GRINDER_TIERS[i - 1].lockMax >= from)
+				from = GRINDER_TIERS[i - 1].lockMax + 1;
 			int total = 0, peak = 0, bands = 0;
-			for (int level = t.lockMin; level <= t.lockMax; ++level)
+			for (int level = from; level <= t.lockMax; ++level)
 			{
 				total += stops[level];
 				if (stops[level] > peak)
@@ -880,6 +888,16 @@ int main()
 				continue;
 			// No level may hold more than twice an even share of its tier.
 			assert(peak * bands <= total * 2);
+		}
+		// A tier-1 bot that drew 19 stops at 19, as the draw says, rather
+		// than going on under tier 2's draw: 19 holds at least what an
+		// ordinary level of tier 1 holds (2.3% of the cohort before, ~14%
+		// after).
+		{
+			int first = 0;
+			for (int level = 13; level <= 18; ++level)
+				first += stops[level];
+			assert(stops[19] * 6 >= first);
 		}
 		// And the two tiers that shared a width must not share a draw.
 		int sameOffset = 0;

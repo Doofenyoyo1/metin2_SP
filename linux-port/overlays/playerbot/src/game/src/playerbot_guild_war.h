@@ -1099,12 +1099,20 @@ namespace
 	// tower, a bot at war does not break off at
 	// PLAYERBOT_RECOVERY_INITIAL_HP_PERCENT: a kill is the war's score, and a
 	// side that vanished at a fifth of its health would never lose one.
-	bool KeepPlayerBotAliveAtWar(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	bool KeepPlayerBotAliveAtWar(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow, bool atCamp = false)
 	{
 		if (HandlePostDeathRecovery(ch, state, dwNow))
 			return true;
-		UseHealthPotion(ch, state, dwNow);
-		UseManaPotion(ch, state, dwNow);
+		// Neither claims the tick, each on its own one-second clock, so the
+		// buff or the blow below still goes out.
+		UseHealthPotion(ch, state, dwNow,
+				atCamp ? PLAYERBOT_GUILD_WAR_CAMP_POTION_HP_PERCENT : PLAYERBOT_GUILD_WAR_POTION_HP_PERCENT);
+		UseManaPotion(ch, state, dwNow,
+				atCamp ? PLAYERBOT_GUILD_WAR_CAMP_POTION_SP_PERCENT : PLAYERBOT_GUILD_WAR_POTION_SP_PERCENT);
+		// And the elixir, which only the potion block below this pass switched
+		// on, so no bot at war ever had one running it had not brought: its
+		// own minute's clock, refused in a duel only.
+		ManagePlayerBotAutoPotions(ch, dwNow);
 		return false;
 	}
 
@@ -1243,8 +1251,11 @@ namespace
 		{
 			if (dwNow < round.dwRegroupUntil)
 				return round;
+			// Over when the last of the losers is up, not the first: the rest
+			// were still lying at their camp, and the round opened on a side
+			// short of them.
 			const int loser = round.dwLoserGuild == g0 ? 0 : 1;
-			if (up[loser] == 0 && present[loser] > 0 &&
+			if (up[loser] < present[loser] &&
 					dwNow < round.dwRegroupUntil + PLAYERBOT_GUILD_WAR_REGROUP_EXTRA_MS)
 				return round;
 			sys_log(0, "PLAYERBOT_GUILD: regroup over guilds=%s/%s round=%u up=%d/%d present=%d/%d",
@@ -1537,7 +1548,9 @@ namespace
 					++attackers[it->second.dwTargetVID];
 				continue;
 			}
-			if (guild != enemy || !IsPlayerBotWarFoeUp(ch, other))
+			// A bot of the enemy left out of the draw is nobody's foe.
+			if (guild != enemy || it->second.dwGuildWarEnemyGID != mine->GetID() ||
+					!IsPlayerBotWarFoeUp(ch, other))
 				continue;
 			const int distance = DISTANCE_APPROX(ch->GetX() - other->GetX(), ch->GetY() - other->GetY());
 			if (maxDistance > 0 && distance > maxDistance)
@@ -1622,6 +1635,80 @@ namespace
 	// half hour: the walk to the battlefield, the muster at the camp, the
 	// fight in the middle, the stand-up at the camp after every death; and the
 	// way home afterwards. A bot in a player's party stays with the player.
+	// Out of a war that is over, or that did not draw this bot: off the
+	// battlefield, and nobody's foe (dwGuildWarEnemyGID 0 is what every
+	// other pass reads as "not at war").
+	void LeavePlayerBotGuildWar(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		if (state.dwGuildWarEnemyGID == 0)
+			return;
+		state.dwGuildWarEnemyGID = 0;
+		state.dwGuildWarCampUntil = 0;
+		state.dwTargetVID = 0;
+		ch->SetVictim(NULL);
+		const long battlefield = playerbot_empire_rules::GetHomeMap(
+				(int)ch->GetEmpire(), playerbot_empire_rules::MAP_ROLE_M3);
+		if (ch->GetMapIndex() == battlefield)
+		{
+			long destMap = 0, destX = 0, destY = 0;
+			if (GetPlayerBotVillageReturn(ch, playerbot_empire_rules::MAP_ROLE_M2, destMap, destX, destY))
+				TransitionPlayerBotMap(ch, state, destMap, destX, destY, dwNow, "guild_war_over");
+		}
+	}
+
+	// Who of the two guilds fights this war: every bot on this core, out of a
+	// person's party, drawn to equal sides of at most twenty
+	// (playerbot_war_rules::CallSide), and drawn again every half minute so
+	// that one who went is replaced by the next of the draw. Against a
+	// person's guild its bots are only capped: the people are not on the
+	// roster, and the war is theirs to size.
+	struct TPlayerBotWarCall
+	{
+		DWORD dwWarAt = 0;
+		DWORD dwNextDraw = 0;
+		std::set<DWORD> called;
+	};
+	std::map<std::pair<DWORD, DWORD>, TPlayerBotWarCall> s_mapPlayerBotWarCalls;
+
+	bool IsPlayerBotCalledToWar(LPCHARACTER ch, CGuild* mine, CGuild* enemy, DWORD dwNow)
+	{
+		CGuild* g[2] = { mine, enemy };
+		if (enemy->GetID() < mine->GetID())
+			std::swap(g[0], g[1]);
+		TPlayerBotWarCall& call = s_mapPlayerBotWarCalls[std::make_pair(g[0]->GetID(), g[1]->GetID())];
+		const DWORD warAt = mine->GetWarStartTime(enemy->GetID());
+		if (call.dwWarAt != warAt || dwNow >= call.dwNextDraw)
+		{
+			call.dwWarAt = warAt;
+			call.dwNextDraw = dwNow + PLAYERBOT_GUILD_WAR_SIDE_REDRAW_MS;
+			call.called.clear();
+			std::vector<unsigned int> roster[2];
+			for (TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.begin();
+					it != s_mapPlayerBotAIStates.end(); ++it)
+			{
+				LPCHARACTER c = CHARACTER_MANAGER::instance().FindByPID(it->first);
+				if (!c || (c->GetParty() && IsPlayerBotHumanLedParty(c->GetParty())))
+					continue;
+				for (int s = 0; s < 2; ++s)
+					if (c->GetGuild() == g[s])
+						roster[s].push_back(it->first);
+			}
+			const int n = IsPlayerBotGuild(g[0]) && IsPlayerBotGuild(g[1])
+					? playerbot_war_rules::SideSize((int)roster[0].size(), (int)roster[1].size(),
+							PLAYERBOT_GUILD_WAR_SIDE_MAX)
+					: PLAYERBOT_GUILD_WAR_SIDE_MAX;
+			for (int s = 0; s < 2; ++s)
+			{
+				playerbot_war_rules::CallSide(roster[s], g[s]->GetID(), warAt, n);
+				call.called.insert(roster[s].begin(), roster[s].end());
+			}
+			PlayerBotLogThrottled("guild_war_sides", dwNow,
+					"PLAYERBOT_GUILD: war sides guilds=%s/%s each=%d",
+					g[0]->GetName(), g[1]->GetName(), n);
+		}
+		return call.called.count(ch->GetPlayerID()) != 0;
+	}
+
 	bool ManagePlayerBotGuildWar(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!ch || ch->IsDead())
@@ -1630,25 +1717,16 @@ namespace
 		CGuild* enemy = mine ? GetPlayerBotWarEnemy(mine) : NULL;
 		if (!enemy)
 		{
-			if (state.dwGuildWarEnemyGID != 0)
-			{
-				state.dwGuildWarEnemyGID = 0;
-				state.dwGuildWarCampUntil = 0;
-				state.dwTargetVID = 0;
-				ch->SetVictim(NULL);
-				const long battlefield = playerbot_empire_rules::GetHomeMap(
-						(int)ch->GetEmpire(), playerbot_empire_rules::MAP_ROLE_M3);
-				if (ch->GetMapIndex() == battlefield)
-				{
-					long destMap = 0, destX = 0, destY = 0;
-					if (GetPlayerBotVillageReturn(ch, playerbot_empire_rules::MAP_ROLE_M2, destMap, destX, destY))
-						TransitionPlayerBotMap(ch, state, destMap, destX, destY, dwNow, "guild_war_over");
-				}
-			}
+			LeavePlayerBotGuildWar(ch, state, dwNow);
 			return false;
 		}
 		if (ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty()))
 			return false;
+		if (!IsPlayerBotCalledToWar(ch, mine, enemy, dwNow))
+		{
+			LeavePlayerBotGuildWar(ch, state, dwNow);
+			return false;
+		}
 		const BYTE empire = ch->GetEmpire();
 		const long battlefield = playerbot_empire_rules::GetHomeMap((int)empire, playerbot_empire_rules::MAP_ROLE_M3);
 		if (battlefield == 0 || !IsPlayerBotMapHostedHere(battlefield))
@@ -1715,10 +1793,25 @@ namespace
 			state.lDeathX = 0;
 			state.lDeathY = 0;
 			state.dwGuildWarCampUntil = dwNow + PLAYERBOT_GUILD_WAR_CAMP_GRACE_MS;
+			// Up at the camp whole, as the engine's own restart on a war map
+			// does it (cmd_general.cpp): a field war has no war map, so the
+			// bot stood up with 50 HP and the mana it died with, rested to
+			// 75% and went back into the next round at that - "maja po 1 hp,
+			// bo bitwa trwa 3 sekundy" (Gacek, 26 September).
+			if (!ch->IsDead() &&
+					DISTANCE_APPROX(ch->GetX() - campX, ch->GetY() - campY) <= PLAYERBOT_GUILD_WAR_CAMP_RADIUS)
+			{
+				ch->PointChange(POINT_HP, ch->GetMaxHP() - ch->GetHP());
+				ch->PointChange(POINT_SP, ch->GetMaxSP() - ch->GetSP());
+				state.bRecoveringAfterDeath = false;
+				state.dwNextRecoveryProtectionTime = 0;
+				state.dwNextRecoveryHealTime = 0;
+			}
 		}
 		// Ahead of the horse: the recovery walks off the ground on its own
 		// terms, and a dismount would only have it mount again.
-		if (KeepPlayerBotAliveAtWar(ch, state, dwNow))
+		if (KeepPlayerBotAliveAtWar(ch, state, dwNow,
+				DISTANCE_APPROX(ch->GetX() - campX, ch->GetY() - campY) <= PLAYERBOT_GUILD_WAR_CAMP_RADIUS))
 			return true;
 		// A transport horse comes off for the fight, as in a duel.
 		// On foot, every rider, and the horse sent away rather than left to

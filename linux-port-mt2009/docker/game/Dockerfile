@@ -219,7 +219,9 @@ RUN set -eux; \
     # pc.open_special_shop for fishing_pass_shop (2.0.68); affect.add_new and
     # affect.remove_new for the panel's speed in web_admin (2.0.76).
     # pc.is_playerbot for the Devil's Catacomb's bot branches (2.2.22).
-    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.mount item.get_vnum pc.is_playerbot; do \
+    # affect.get_duration and pc.has_affect for the ItemShop's Auto Lowy ticket
+    # and anti-experience ring (autohunt_time, antiexp_ring; 2.2.27).
+    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.mount item.get_vnum pc.is_playerbot affect.get_duration pc.has_affect; do \
       grep -qx "$fn" /tmp/qc-work/quest_functions || echo "$fn" >> /tmp/qc-work/quest_functions; \
     done; \
     # pony_levelup is the package's own stable-keeper quest with the 18-hour
@@ -254,7 +256,7 @@ RUN set -eux; \
     # Bloodstone, from quest/_unused (2.2.22).
     # tanaka_ears is Yonah's exchange of Pirate Tanaka's ear for a Purple Ebony
     # Chest, the Tanaka event's reward (playerbot_world_events.h).
-    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears; do \
+    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears autohunt_time antiexp_ring; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \
@@ -323,15 +325,21 @@ COPY src/serverfiles/share/package /opt/metin2/share/package
 #  * special_item_group.moonlight.txt - the Moonlight chest (50011) the bots
 #    open, replacing the stock block (the reader keeps the first group per
 #    vnum, so the stock one is cut out first);
+#  * special_item_group.moonlight.custom.txt, when the operator made one -
+#    their Moonlight chest (50011) instead of ours. No package, update or
+#    launcher writes it, so an edit there survives them all (Piciu713,
+#    26 September: an edit of the shipped file came back as the 16.09 one);
 #  * special_item_group.starter.txt - the starter chest chain the playerbot
 #    seed hands out and the package has no group for.
-COPY mob_drop_item.m3.append.txt special_item_group.moonlight.txt special_item_group.starter.txt /tmp/share-add/
+COPY special_item_group.moonlight.custom*.txt mob_drop_item.m3.append.txt special_item_group.moonlight.txt special_item_group.starter.txt /tmp/share-add/
 RUN set -eu; L=/opt/metin2/share/locale/poland \
- && for f in /tmp/share-add/*.txt; do sed -i 's/\r$//; s/$/\r/' "$f"; done \
+ && for f in /tmp/share-add/*.txt; do sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/$/\r/' "$f"; done \
+ && m=/tmp/share-add/special_item_group.moonlight.txt; c=/tmp/share-add/special_item_group.moonlight.custom.txt \
+ && if [ -s "$c" ]; then grep -q -E '^[[:blank:]]*Vnum[[:blank:]]+50011[[:space:]]*$' "$c" || { echo "FATAL: $c defines no Vnum 50011" >&2; exit 1; }; m="$c"; echo "share: the operator's Moonlight chest"; fi \
  && cat /tmp/share-add/mob_drop_item.m3.append.txt >> "$L/mob_drop_item.txt" \
  && f="$L/special_item_group.txt" \
  && awk 'BEGIN{keep=1} /^Group/{blk=""; keep=1} {blk=blk $0 "\n"} /Vnum[ \t]+(50011|50187|50212|50213|50188|50189|50190|50191|50192|50193|50194|50195|50196|50186|50254)([^0-9]|$)/{keep=0} /^}/{ if (keep) printf "%s", blk; blk=""; keep=1 }' "$f" > "$f.new" \
- && cat /tmp/share-add/special_item_group.moonlight.txt /tmp/share-add/special_item_group.starter.txt >> "$f.new" \
+ && cat "$m" /tmp/share-add/special_item_group.starter.txt >> "$f.new" \
  && mv "$f.new" "$f" \
  && rm -rf /tmp/share-add \
  && echo "share: moonlight + starter chests, M3 drops appended"

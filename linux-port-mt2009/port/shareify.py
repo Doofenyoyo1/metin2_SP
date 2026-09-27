@@ -398,15 +398,21 @@ DOCKERFILE_STEP = r'''
 #  * special_item_group.moonlight.txt - the Moonlight chest (50011) the bots
 #    open, replacing the stock block (the reader keeps the first group per
 #    vnum, so the stock one is cut out first);
+#  * special_item_group.moonlight.custom.txt, when the operator made one -
+#    their Moonlight chest (50011) instead of ours. No package, update or
+#    launcher writes it, so an edit there survives them all (Piciu713,
+#    26 September: an edit of the shipped file came back as the 16.09 one);
 #  * special_item_group.starter.txt - the starter chest chain the playerbot
 #    seed hands out and the package has no group for.
-COPY mob_drop_item.m3.append.txt special_item_group.moonlight.txt special_item_group.starter.txt /tmp/share-add/
+COPY special_item_group.moonlight.custom*.txt mob_drop_item.m3.append.txt special_item_group.moonlight.txt special_item_group.starter.txt /tmp/share-add/
 RUN set -eu; L=/opt/metin2/share/locale/poland \
- && for f in /tmp/share-add/*.txt; do sed -i 's/\r$//; s/$/\r/' "$f"; done \
+ && for f in /tmp/share-add/*.txt; do sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/$/\r/' "$f"; done \
+ && m=/tmp/share-add/special_item_group.moonlight.txt; c=/tmp/share-add/special_item_group.moonlight.custom.txt \
+ && if [ -s "$c" ]; then grep -q -E '^[[:blank:]]*Vnum[[:blank:]]+50011[[:space:]]*$' "$c" || { echo "FATAL: $c defines no Vnum 50011" >&2; exit 1; }; m="$c"; echo "share: the operator's Moonlight chest"; fi \
  && cat /tmp/share-add/mob_drop_item.m3.append.txt >> "$L/mob_drop_item.txt" \
  && f="$L/special_item_group.txt" \
  && awk 'BEGIN{keep=1} /^Group/{blk=""; keep=1} {blk=blk $0 "\n"} /Vnum[ \t]+(@CUT@)([^0-9]|$)/{keep=0} /^}/{ if (keep) printf "%s", blk; blk=""; keep=1 }' "$f" > "$f.new" \
- && cat /tmp/share-add/special_item_group.moonlight.txt /tmp/share-add/special_item_group.starter.txt >> "$f.new" \
+ && cat "$m" /tmp/share-add/special_item_group.starter.txt >> "$f.new" \
  && mv "$f.new" "$f" \
  && rm -rf /tmp/share-add \
  && echo "share: moonlight + starter chests, M3 drops appended"

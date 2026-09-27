@@ -371,10 +371,34 @@ namespace playerbot_persona
 		return roll % 100u < (uint32_t)GRINDER_QUIT_CHANCE_PERCENT;
 	}
 
+	// The lock a tier draws for this pid, spread evenly over the tier's lock
+	// range (see the salt below).
+	inline uint8_t GrinderDrawFor(const TGrinderTier& t, uint32_t pid)
+	{
+		const uint32_t salt = 0x4c4f434bu + (uint32_t)t.tier * 0x9e3779b1u;
+		return (uint8_t)(t.lockMin + MixPid(pid, salt) % (uint32_t)(t.lockMax - t.lockMin + 1));
+	}
+
 	inline uint8_t GrinderLockFor(uint8_t level, uint32_t pid)
 	{
 		if (level < GRINDER_FREE_BELOW)
 			return 0;
+		// A tier whose lock range reaches past its band holds a bot that drew
+		// a lock past it, up to that lock. Tier 1 draws 13-19 and its band ends
+		// at 18: a bot that drew 19 came to 19 in tier 2's band, where tier 2's
+		// draw decided, and went on - 2.3% of the bots stopped at 19 where the
+		// draws say about 14% (B17 of Iwakura's audit of 26 September).
+		for (unsigned int i = 0; i < GRINDER_TIER_COUNT; ++i)
+		{
+			const TGrinderTier& t = GRINDER_TIERS[i];
+			if (level <= t.maxLevel || level > t.lockMax)
+				continue;
+			if (t.tier == 1 && SkipsFirstVillage(pid))
+				continue;
+			const uint8_t drawn = GrinderDrawFor(t, pid);
+			if (drawn >= level)
+				return drawn;
+		}
 		for (unsigned int i = 0; i < GRINDER_TIER_COUNT; ++i)
 		{
 			const TGrinderTier& t = GRINDER_TIERS[i];
@@ -399,9 +423,7 @@ namespace playerbot_persona
 			// the M3 lock is "losowana rowno". Iwakura saw it as bots massing
 			// on a level his document never names (20 September). With a salt
 			// per tier the same count reads 4.8-5.4% across 19..25.
-			const uint32_t salt = 0x4c4f434bu + (uint32_t)t.tier * 0x9e3779b1u;
-			const uint8_t lock = (uint8_t)(t.lockMin +
-					MixPid(pid, salt) % (uint32_t)(t.lockMax - t.lockMin + 1));
+			const uint8_t lock = GrinderDrawFor(t, pid);
 			return lock < level ? level : lock;
 		}
 		// Past the last tier the table has nothing to say, and answering with
@@ -411,6 +433,93 @@ namespace playerbot_persona
 		// where the last tier ends at 62. The document's tiers stop at Mount
 		// Sohan, so above it a Grinder is not held at all (20 September).
 		return 0;
+	}
+
+	// ---------------------------------------------------------------------
+	// Where a Grinder's written lock stands against today's draw: the one
+	// answer GetPlayerBotPersonaLockLevel acts on and logs. `written` is the
+	// lock the bot carries (zero for none); `pinned` says the Law of
+	// Advancement wrote it - a Conqueror dying to monsters three times in half
+	// an hour goes back to grinding, held where it fell, until its gear meets
+	// the law for that level; `quit` is a Grinder that gave grinding up
+	// (community patch 2, point 2).
+	//
+	// A pinned lock is the law's and not the draw's, so no redraw raises it and
+	// no rule lifts it. Without the pin the demotion held nobody: at 26-29 and
+	// 36-39 the redraw raised the lock at once to the tier's draw above the
+	// bot (30-35, 40-48), and past the last tier the lift took it off (B04 of
+	// Iwakura's audit of 26 September).
+	// ---------------------------------------------------------------------
+	enum EGrinderLockChange
+	{
+		GRINDER_LOCK_UNCHANGED,
+		GRINDER_LOCK_LIFTED_QUIT,
+		GRINDER_LOCK_LIFTED_NEVER_HOLDS,
+		GRINDER_LOCK_LIFTED_NO_TIER,
+		GRINDER_LOCK_REDRAWN,
+		GRINDER_LOCK_REACHED,
+	};
+
+	struct TGrinderLockAnswer
+	{
+		// The level the bot is held at once it reaches it, zero for none.
+		uint8_t hold;
+		// The lock it carries from now on.
+		uint8_t written;
+		// EGrinderLockChange: what happened to `written`, for the log.
+		uint8_t change;
+	};
+
+	inline TGrinderLockAnswer ResolveGrinderLock(uint8_t written, bool pinned, bool quit,
+			uint8_t level, uint32_t pid)
+	{
+		TGrinderLockAnswer a = { 0, written, GRINDER_LOCK_UNCHANGED };
+		if (pinned && written != 0)
+		{
+			a.hold = written;
+			return a;
+		}
+		// The Grinders who never hold, and the ones who gave grinding up: no
+		// lock, and one written before goes.
+		if (NeverHoldsAtLocks(pid) || quit)
+		{
+			if (written != 0)
+			{
+				a.written = 0;
+				a.change = quit ? GRINDER_LOCK_LIFTED_QUIT : GRINDER_LOCK_LIFTED_NEVER_HOLDS;
+			}
+			return a;
+		}
+		const uint8_t lock = GrinderLockFor(level, pid);
+		// Today's draw holds this bot nowhere - past the last tier, or one of
+		// the quarter that walks through the first village - so a lock written
+		// under an older rule goes.
+		if (written != 0 && lock == 0)
+		{
+			a.written = 0;
+			a.change = GRINDER_LOCK_LIFTED_NO_TIER;
+			return a;
+		}
+		if (written != 0)
+		{
+			// A lock written under an older rule is raised to today's draw,
+			// and only raised, and only inside the tier the bot is in: lowering
+			// it would hand a bot a level it has already passed.
+			if (lock > written && GrinderTierFor(written) == GrinderTierFor(level))
+			{
+				a.written = lock;
+				a.change = GRINDER_LOCK_REDRAWN;
+			}
+			a.hold = a.written;
+			return a;
+		}
+		if (lock != 0 && level >= lock)
+		{
+			a.written = lock;
+			a.change = GRINDER_LOCK_REACHED;
+		}
+		a.hold = lock;
+		return a;
 	}
 
 	// ---------------------------------------------------------------------
@@ -726,6 +835,60 @@ namespace playerbot_persona
 			return false;
 		w = TPkDeaths();
 		return true;
+	}
+
+	// ---------------------------------------------------------------------
+	// Iwakura's Rybak by mood (Community Patch 2, URGENT 2): the chance, in
+	// per mille, that a bot of this mood takes up the rod in its window, at a
+	// FISHING weight in percent of the neutral one. At the neutral weight and
+	// under it each mood keeps its own odds, scaled - SLABY 750, NORMALNY 40,
+	// BARDZO DOBRY none, the document's "bardzo duza szansa" and
+	// "sporadycznie". Over it the population's share is the neutral share
+	// times the weight, and what a mood's hundred percent cannot take goes to
+	// the next mood up. Scaled mood by mood, SLABY was full at 134% and the
+	// slider's 200% gave 1.37 times the anglers - 26% of the bots at 100%, 36%
+	// at 200% (B11 of Iwakura's audit of 26 September). `mix` is the last
+	// census of the moods; with none yet, every mood is only scaled.
+	// ---------------------------------------------------------------------
+	const uint32_t RYBAK_BASE_PERMILLE[MOOD_COUNT] = { 750, 40, 0 };
+	// Never every bot of a core at the water, whatever the slider says: what
+	// spills over from a full mood stops here.
+	const uint32_t RYBAK_SHARE_CAP_PERMILLE = 900;
+
+	inline uint32_t RybakChancePermille(uint8_t mood, uint32_t weightPercent,
+			const uint32_t mix[MOOD_COUNT])
+	{
+		if (mood >= MOOD_COUNT)
+			return 0;
+		uint64_t natural[MOOD_COUNT];
+		uint64_t total = 0, base = 0, sumNatural = 0;
+		for (int m = 0; m < MOOD_COUNT; ++m)
+		{
+			natural[m] = std::min<uint64_t>(1000,
+					(uint64_t)RYBAK_BASE_PERMILLE[m] * weightPercent / 100);
+			total += mix[m];
+			base += (uint64_t)RYBAK_BASE_PERMILLE[m] * mix[m];
+			sumNatural += natural[m] * mix[m];
+		}
+		if (weightPercent <= 100 || total == 0)
+			return (uint32_t)natural[mood];
+		// In per mille of a bot, summed over the census: what the weight asks
+		// for, and what the scaled odds alone give.
+		const uint64_t target = std::min<uint64_t>(base * weightPercent / 100,
+				total * RYBAK_SHARE_CAP_PERMILLE);
+		uint64_t extra = target > sumNatural ? target - sumNatural : 0;
+		uint64_t chance[MOOD_COUNT];
+		for (int m = 0; m < MOOD_COUNT; ++m)
+		{
+			chance[m] = natural[m];
+			if (extra == 0 || mix[m] == 0)
+				continue;
+			const uint64_t room = (1000 - natural[m]) * mix[m];
+			const uint64_t give = std::min<uint64_t>(extra, room);
+			chance[m] += give / mix[m];
+			extra -= give;
+		}
+		return (uint32_t)chance[mood];
 	}
 
 	// The eight percent: from level thirty, never in a party ("przez pobyt w PT

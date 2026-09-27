@@ -487,9 +487,17 @@ namespace
 		// the one frontier map that spawns none. Sohan takes its share; the
 		// expedition roll in playerbot_planner.h makes the same check for the
 		// half-hour hunters, whose draw stands.
+		// Iwakura's Metinolog (Patch 3, point 7) is a stone hunter for its two
+		// to four hours as well: its expedition begins without the roll's look
+		// at the frontier, and from forty-eight it drew the Spider Dungeons,
+		// the two Forests and the Grotto like anybody else and spent its whole
+		// state reading "cel: Metiny" on a map with no stone.txt (B08 of
+		// Iwakura's audit of 26 September).
 		TPlayerBotAIStateMap::const_iterator role = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
 		const bool stoneHunter = role != s_mapPlayerBotAIStates.end() &&
-				role->second.bBotRole == BOT_ROLE_METIN_HUNTER;
+				(role->second.bBotRole == BOT_ROLE_METIN_HUNTER ||
+				 IsPlayerBotRareNow(role->second.persona, playerbot_persona::RARE_METINOLOG,
+						get_dword_time()));
 		// Fifty-four and up: the second Spider Dungeon takes the draw the
 		// first one had - spiders of sixty to sixty-eight that never attack
 		// first, against V1's fifty to fifty-eight - and a stone hunter
@@ -1774,7 +1782,9 @@ namespace
 				state.dwNextWorldTravelTime = dwNow + minDelay + spread;
 				return false;
 			}
-			if (dwNow < state.dwNextWorldTravelTime)
+			// The rules' comparison, which survives the clock's wrap; `dwNow <`
+			// read a deadline set before it as running for weeks.
+			if (playerbot_world_rules::IsTravelCooldownActive(dwNow, state.dwNextWorldTravelTime))
 				return false;
 
 			// Joan has a Teleporter of its own, so a bot which has already outgrown
@@ -1784,7 +1794,10 @@ namespace
 			// bots that happened to already be in Bokjung.
 			// Let it fish before it is handed the next hunting destination.
 			if (WantsPlayerBotFishingTrip(ch, state, dwNow))
+			{
+				HoldPlayerBotRybakTrip(state, dwNow);
 				return false;
+			}
 
 			if (!needsHorseExpedition && !wantsM3)
 			{
@@ -1918,6 +1931,15 @@ namespace
 						toEasy ? easyY : monkeyY, dwNow, reason);
 			}
 
+			// The anvil that brought it down from M3 before the Teleporter
+			// takes it back: in M2 this pass runs before the town visit, and
+			// it sent 304 of 399 such bots back within three minutes, a
+			// median two seconds in M2, with no refine and no blacksmith
+			// (Iwakura's audit, R4).
+			if (HasPlayerBotPriorityRefineOpportunity(ch) && state.dwNextRemoteRefineReturnTime != 0 &&
+					(int)(dwNow - state.dwNextRemoteRefineReturnTime) >= 0 &&
+					dwNow - state.dwNextRemoteRefineReturnTime < PLAYERBOT_REMOTE_REFINE_ERRAND_MS)
+				return false;
 			if (wantsM3 && !needsCriticalTownServices)
 			{
 				// The same Teleporter, the same wait and the same fare.
@@ -1943,6 +1965,7 @@ namespace
 			// the pearls it brings back are worth more than the hunting it skips.
 			if (WantsPlayerBotFishingTrip(ch, state, dwNow))
 			{
+				HoldPlayerBotRybakTrip(state, dwNow);
 				long gateX = 0, gateY = 0, destMap = 0, destX = 0, destY = 0;
 				if (!GetPlayerBotKingdomLeg(ch, playerbot_empire_rules::MAP_ROLE_M2,
 							playerbot_empire_rules::MAP_ROLE_M1, gateX, gateY, destMap, destX, destY))
@@ -2034,7 +2057,11 @@ namespace
 			else if (state.bVisitingShop)
 				reason = "m3_shopping_to_m2";
 			else if (scheduledRemoteRefine)
+			{
 				reason = "m3_scheduled_refine_to_m2";
+				// The town visit starts on arrival, not at its next check.
+				state.dwNextShopCheckTime = 0;
+			}
 			else if (visitExpired)
 				reason = "m3_visit_complete";
 			// A visit that ran out without the weapon closes the door for a
@@ -2140,7 +2167,10 @@ namespace
 					(!needsTown && !outOfBand && wantsFishing);
 			const char* reason = "frontier_visit_complete";
 			if (joanHome && wantsFishing && !needsTown && !outOfBand)
+			{
 				reason = "frontier_fishing_to_m1";
+				HoldPlayerBotRybakTrip(state, dwNow);
+			}
 			else if (joanHome)
 				reason = "frontier_services_to_m1";
 			else if (needsTown)

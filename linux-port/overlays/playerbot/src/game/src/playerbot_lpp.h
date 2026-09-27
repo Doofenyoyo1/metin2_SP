@@ -186,11 +186,15 @@ namespace
 
 	// Whether a piece is on the list at all, and as what; `family` is its +0
 	// vnum. The level-30 set is left to its own rules.
+	// `underLevelFloor`, when asked, says a piece is his list's but for the
+	// gambler's level floor (Patch 3, point 2).
 	bool ClassifyPlayerBotLppItem(LPCHARACTER ch, LPITEM item, playerbot_persona::TLppPiece& piece,
-			DWORD& family)
+			DWORD& family, bool* underLevelFloor = NULL)
 	{
 		piece = playerbot_persona::TLppPiece();
 		family = 0;
+		if (underLevelFloor)
+			*underLevelFloor = false;
 		if (!ch || !item || !item->GetProto())
 			return false;
 		const BYTE type = item->GetType();
@@ -269,7 +273,11 @@ namespace
 		// Iwakura's Patch 3, point 2: the gambler works nothing under its
 		// level floor, so the list keeps nothing under it for the gambler.
 		if (piece.kind != playerbot_persona::LPP_NONE && !IsPlayerBotGambleLevelOk(item))
+		{
 			piece.kind = playerbot_persona::LPP_NONE;
+			if (underLevelFloor)
+				*underLevelFloor = true;
+		}
 		return piece.kind != playerbot_persona::LPP_NONE;
 	}
 
@@ -523,11 +531,22 @@ namespace
 			held.value = GetPlayerBotLppStockValue(item);
 			playerbot_persona::TLppPiece piece;
 			DWORD family = 0;
-			if (ClassifyPlayerBotLppItem(ch, item, piece, family))
+			bool underLevelFloor = false;
+			if (ClassifyPlayerBotLppItem(ch, item, piece, family, &underLevelFloor))
 			{
 				held.limit = keeper && !IsPlayerBotLppFinished(st->second.persona, item)
 						? playerbot_persona::LppLimit(piece, IsPlayerBotLppFamilyPerfect(ch, item, family)) : 0;
 				held.obsolete = playerbot_persona::LppObsolete(piece, (int)ch->GetLevel());
+			}
+			else if (underLevelFloor)
+			{
+				// A piece of his list the gambler's level floor has put out of
+				// it: put down before the floor, it was held by the ordinary
+				// family limit for good and took a place of the eighteen, and a
+				// box full of them kept every new piece out (B14 of Iwakura's
+				// audit of 26 September). Nothing keeps it now.
+				held.limit = 0;
+				held.obsolete = false;
 			}
 			else
 			{

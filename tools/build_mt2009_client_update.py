@@ -42,7 +42,10 @@ BESIDE = 'linux-port-mt2009/client-coop'
 # Packs taken whole from the upstream client package. season2 carries the maps
 # of the Grotto of Exile (72, 73) under maps/, where the client looks for them,
 # and the Devil's Catacomb (216) from the original client (upstream 2.0.38).
-UPSTREAM_PACKS = ['season2']
+# gamedata is the client's item_proto and skill table: the rod's level 30,
+# and the names of the ItemShop's Auto Lowy ticket and anti-experience ring
+# (upstream 2.0.41).
+UPSTREAM_PACKS = ['season2', 'gamedata']
 
 
 def git(*args):

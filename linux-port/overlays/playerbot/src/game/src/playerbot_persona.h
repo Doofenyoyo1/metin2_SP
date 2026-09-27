@@ -162,9 +162,10 @@ namespace
 		if (dropperLock != 0)
 		{
 			const BYTE held = ch->GetLevel() >= dropperLock ? dropperLock : 0;
-			if (p.bLockLevel != held || p.bAdvanced)
+			if (p.bLockLevel != held || p.bAdvanced || p.bLockPinned)
 			{
 				p.bLockLevel = held;
+				p.bLockPinned = false;
 				p.bAdvanced = false;
 				p.dwNextAdvanceRoll = 0;
 				p.bDirty = true;
@@ -174,67 +175,46 @@ namespace
 		if (p.bAdvanced)
 			return 0;
 		const BYTE level = (BYTE)std::min<int>(255, ch->GetLevel());
-		// The Grinders who never hold, and the ones who gave grinding up
-		// (community patch 2, point 2): no lock, and one written before goes.
-		if (playerbot_persona::NeverHoldsAtLocks(ch->GetPlayerID()) || p.bQuitGrinding)
+		// The whole of the rule is playerbot_persona::ResolveGrinderLock
+		// (unit-tested): a pinned lock holds, the Grinders who never hold and
+		// the ones who gave grinding up carry none (community patch 2, point
+		// 2), a lock today's draw no longer asks for goes - m2zip's 112 bots
+		// frozen at 71 - and one written before Community Patch 1 is raised to
+		// this pid's draw inside its tier.
+		const BYTE was = p.bLockLevel;
+		const playerbot_persona::TGrinderLockAnswer a = playerbot_persona::ResolveGrinderLock(
+				p.bLockLevel, p.bLockPinned, p.bQuitGrinding, level, ch->GetPlayerID());
+		if (a.written != p.bLockLevel)
 		{
-			if (p.bLockLevel != 0)
-			{
+			p.bLockLevel = a.written;
+			p.bDirty = true;
+		}
+		if (p.bLockLevel == 0 && p.bLockPinned)
+		{
+			p.bLockPinned = false;
+			p.bDirty = true;
+		}
+		switch (a.change)
+		{
+			case playerbot_persona::GRINDER_LOCK_LIFTED_QUIT:
+			case playerbot_persona::GRINDER_LOCK_LIFTED_NEVER_HOLDS:
+			case playerbot_persona::GRINDER_LOCK_LIFTED_NO_TIER:
 				sys_log(0, "PLAYERBOT_PERSONA: grinder lock lifted pid=%u name=%s level=%u was=%u why=%s",
-						ch->GetPlayerID(), ch->GetName(), (unsigned int)level, (unsigned int)p.bLockLevel,
-						p.bQuitGrinding ? "quit" : "never_holds");
-				p.bLockLevel = 0;
-				p.bDirty = true;
-			}
-			return 0;
-		}
-		const BYTE lock = playerbot_persona::GrinderLockFor(level, ch->GetPlayerID());
-		if (p.bLockLevel != 0 && lock == 0)
-		{
-			// Today's draw says this bot is held nowhere - it is past the last
-			// tier, or it is one of the quarter that walks through the first
-			// village - so a lock written under an older rule goes. Without
-			// this the fix above reaches only bots that have not been locked
-			// yet, and m2zip's 112 bots frozen at 71 would stay there.
-			sys_log(0, "PLAYERBOT_PERSONA: grinder lock lifted pid=%u name=%s level=%u was=%u",
-					ch->GetPlayerID(), ch->GetName(), (unsigned int)level,
-					(unsigned int)p.bLockLevel);
-			p.bLockLevel = 0;
-			p.bDirty = true;
-			return 0;
-		}
-		if (p.bLockLevel != 0)
-		{
-			// A lock written before Community Patch 1 is the old fixed number
-			// - fifteen for every bot of the first village, twenty-three for
-			// every bot of M3 - and a world that has been played holds
-			// thousands of them. Keeping them would leave the patch reaching
-			// no bot that already stands on one, which is the whole village.
-			// So a lock is raised to what this bot's pid draws today, and
-			// only raised: lowering it would hand a bot a level it has already
-			// passed, and only inside the tier it is already in, so nothing
-			// slides into the next tier's band.
-			if (lock > p.bLockLevel &&
-					playerbot_persona::GrinderTierFor(p.bLockLevel) ==
-						playerbot_persona::GrinderTierFor(level))
-			{
+						ch->GetPlayerID(), ch->GetName(), (unsigned int)level, (unsigned int)was,
+						a.change == playerbot_persona::GRINDER_LOCK_LIFTED_QUIT ? "quit" :
+						a.change == playerbot_persona::GRINDER_LOCK_LIFTED_NEVER_HOLDS ? "never_holds" : "no_tier");
+				break;
+			case playerbot_persona::GRINDER_LOCK_REDRAWN:
 				sys_log(0, "PLAYERBOT_PERSONA: grinder lock redrawn pid=%u name=%s was=%u now=%u",
-						ch->GetPlayerID(), ch->GetName(),
-						(unsigned int)p.bLockLevel, (unsigned int)lock);
-				p.bLockLevel = lock;
-				p.bDirty = true;
-			}
-			return p.bLockLevel;
+						ch->GetPlayerID(), ch->GetName(), (unsigned int)was, (unsigned int)a.written);
+				break;
+			case playerbot_persona::GRINDER_LOCK_REACHED:
+				sys_log(0, "PLAYERBOT_PERSONA: grinder holds pid=%u name=%s level=%u tier=%u lock=%u",
+						ch->GetPlayerID(), ch->GetName(), (unsigned int)level,
+						(unsigned int)playerbot_persona::GrinderTierFor(level), (unsigned int)a.written);
+				break;
 		}
-		if (lock != 0 && level >= lock)
-		{
-			p.bLockLevel = lock;
-			p.bDirty = true;
-			sys_log(0, "PLAYERBOT_PERSONA: grinder holds pid=%u name=%s level=%u tier=%u lock=%u",
-					ch->GetPlayerID(), ch->GetName(), (unsigned int)level,
-					(unsigned int)playerbot_persona::GrinderTierFor(level), (unsigned int)lock);
-		}
-		return lock;
+		return a.hold;
 	}
 
 	// Community patch 2, point 14: one in a hundred of the first village's
@@ -334,6 +314,7 @@ namespace
 				{
 					p.bQuitGrinding = true;
 					p.bLockLevel = 0;
+					p.bLockPinned = false;
 					p.dwNextAdvanceRoll = 0;
 					sys_log(0, "PLAYERBOT_PERSONA: grinder gives grinding up pid=%u name=%s level=%u tier=%u lock=%u",
 							ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(),
@@ -361,6 +342,7 @@ namespace
 		}
 		p.bAdvanced = true;
 		p.bLockLevel = 0;
+		p.bLockPinned = false;
 		p.dwNextAdvanceRoll = 0;
 		p.bDirty = true;
 		const LPITEM weapon = GetPlayerBotHandWeapon(ch);
@@ -446,6 +428,10 @@ namespace
 			return;
 		p.bAdvanced = false;
 		p.bLockLevel = (BYTE)std::min<int>(255, ch->GetLevel());
+		// Pinned, so neither the tier's draw nor the lift of a lock no tier
+		// asks for moves it (playerbot_persona::ResolveGrinderLock); the next
+		// advance clears it.
+		p.bLockPinned = true;
 		p.dwNextAdvanceRoll = 0;
 		p.deaths = playerbot_persona::TDeathWindow();
 		p.bDirty = true;
@@ -525,9 +511,24 @@ namespace
 	// A rare personality's clock and ends (playerbot_rare_persona.h, later).
 	void ManagePlayerBotRareState(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
 
+	// The gambler's end of a session (playerbot_gambler.h, which comes later in
+	// the include order).
+	void EndPlayerBotGamble(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow, const char* reason);
+
 	void ManagePlayerBotPersona(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
-		if (!ch || !IsPlayerBotPersonaEnabled() || !state.persona.bRestored)
+		if (!ch)
+			return;
+		// A gambler's session ends at the anvil (ManagePlayerBotGamble), and
+		// only there - so a visit that never got back to the anvil, run out,
+		// thrown away by the watchdog or ended by a map change, left it open
+		// for good, and every next session was refused for a session nobody
+		// was running (B05 of Iwakura's audit of 26 September).
+		if (state.persona.bGambling &&
+				(!IsPlayerBotPersonaEnabled() || dwNow >= state.persona.dwGambleUntil || !state.bVisitingShop))
+			EndPlayerBotGamble(ch, state, dwNow, !IsPlayerBotPersonaEnabled() ? "switch_off" :
+					dwNow >= state.persona.dwGambleUntil ? "time" : "visit_gone");
+		if (!IsPlayerBotPersonaEnabled() || !state.persona.bRestored)
 			return;
 		TPlayerBotPersona& p = state.persona;
 		if (p.dwNextDecide != 0 && dwNow < p.dwNextDecide)
@@ -552,6 +553,36 @@ namespace
 			if (PLAYERBOT_GEAR_PRICES[i].dwBaseVnum == familyBase)
 				return (long long)ScalePlayerBotIwakuraPrice(PLAYERBOT_GEAR_PRICES[i].adwPrice[plus]);
 		return 0;
+	}
+
+	// What a family at a plus costs where Iwakura's sheet has no row for it:
+	// the merchant's price of the base, and every blacksmith's fee to the plus
+	// at what a step costs on average to get through, cost * 100 / prob - the
+	// walk GetPlayerBotRefineInvestment makes for a piece in hand. The sheet
+	// prices no helmet, so a goal dropper's helmet cost nothing and the goal
+	// was met without it (B16 of Iwakura's audit of 26 September). Zero when
+	// the ladder does not lead to the plus.
+	long long GetPlayerBotGoalPieceCost(DWORD familyBase, int plus)
+	{
+		const long long sheet = GetPlayerBotGearFamilyPrice(familyBase, plus);
+		if (sheet > 0 || familyBase == 0 || plus <= 0)
+			return sheet;
+		long long total = 0;
+		FindPlayerBotMerchantOffer(familyBase, &total);
+		DWORD vnum = familyBase;
+		for (int step = 0; step < plus; ++step)
+		{
+			const TItemTable* proto = ITEM_MANAGER::instance().GetTable(vnum);
+			if (!proto || proto->dwRefinedVnum == 0)
+				return 0;
+			const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(proto->wRefineSet);
+			if (!recipe || recipe->cost < 0)
+				return 0;
+			const int prob = std::max(1, std::min(100, (int)recipe->prob));
+			total += (long long)recipe->cost * 100LL / (long long)prob;
+			vnum = proto->dwRefinedVnum;
+		}
+		return total;
 	}
 
 	// The goal droppers: PLAYERBOT_MEDAL_GOAL_PERCENT of the medal droppers.
@@ -585,16 +616,34 @@ namespace
 			return;
 		p.dwNextMedalGoalCheck = dwNow + PLAYERBOT_MEDAL_GOAL_CHECK_MS;
 		long long cost = 0;
+		// A piece the goal still wants and nothing can price is not a piece the
+		// purse has paid for: the look waits for the next one.
+		bool unpriced = false;
 		const bool wantsShield = PlayerBotWantsShield(ch);
-		if (!PlayerBotWearsGoalPiece(ch, WEAR_WEAPON, PLAYERBOT_MEDAL_GOAL_MAIN_PLUS))
-			cost += GetPlayerBotGearFamilyPrice(GetPlayerBotProgressionWeaponVnum(ch), PLAYERBOT_MEDAL_GOAL_MAIN_PLUS);
-		if (!PlayerBotWearsGoalPiece(ch, WEAR_BODY, PLAYERBOT_MEDAL_GOAL_MAIN_PLUS))
-			cost += GetPlayerBotGearFamilyPrice(GetPlayerBotProgressionArmorVnum(ch), PLAYERBOT_MEDAL_GOAL_MAIN_PLUS);
-		if (!PlayerBotWearsGoalPiece(ch, WEAR_HEAD, PLAYERBOT_MEDAL_GOAL_SIDE_PLUS))
-			cost += GetPlayerBotGearFamilyPrice(GetPlayerBotProgressionHelmetVnum(ch), PLAYERBOT_MEDAL_GOAL_SIDE_PLUS);
-		if (wantsShield && !PlayerBotWearsGoalPiece(ch, WEAR_SHIELD, PLAYERBOT_MEDAL_GOAL_SIDE_PLUS))
-			cost += GetPlayerBotGearFamilyPrice(GetPlayerBotProgressionShieldVnum(ch), PLAYERBOT_MEDAL_GOAL_SIDE_PLUS);
+		struct { BYTE wear; DWORD family; int plus; } goal[] = {
+			{ WEAR_WEAPON, GetPlayerBotProgressionWeaponVnum(ch), PLAYERBOT_MEDAL_GOAL_MAIN_PLUS },
+			{ WEAR_BODY, GetPlayerBotProgressionArmorVnum(ch), PLAYERBOT_MEDAL_GOAL_MAIN_PLUS },
+			{ WEAR_HEAD, GetPlayerBotProgressionHelmetVnum(ch), PLAYERBOT_MEDAL_GOAL_SIDE_PLUS },
+			{ WEAR_SHIELD, wantsShield ? GetPlayerBotProgressionShieldVnum(ch) : 0, PLAYERBOT_MEDAL_GOAL_SIDE_PLUS },
+		};
+		for (size_t i = 0; i < sizeof(goal) / sizeof(goal[0]); ++i)
+		{
+			if ((goal[i].wear == WEAR_SHIELD && !wantsShield) ||
+					PlayerBotWearsGoalPiece(ch, goal[i].wear, goal[i].plus))
+				continue;
+			const long long piece = GetPlayerBotGoalPieceCost(goal[i].family, goal[i].plus);
+			if (piece <= 0)
+				unpriced = true;
+			cost += piece;
+		}
 		const long long spare = (long long)ch->GetGold() - GetPlayerBotReservedGold(ch);
+		if (unpriced)
+		{
+			PlayerBotLogThrottled("medal_goal_unpriced", dwNow,
+					"PLAYERBOT_PERSONA: medal dropper's goal has a piece with no price pid=%u name=%s level=%u",
+					ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel());
+			return;
+		}
 		if (cost > 0 && spare < cost)
 			return;
 		p.bMedalGoalDone = true;
@@ -640,6 +689,13 @@ namespace
 		}
 		if (p.dwNextAfkAt == 0)
 			p.dwNextAfkAt = dwNow + playerbot_persona::AfkInterval((uint32_t)number(0, 0x7fffffff));
+		// A wait for the drop runs over consecutive looks only. One broken off
+		// - the mood lifting, a pass above this one claiming the tick - left
+		// its stamp, and the next wait was over before it began: the bot went
+		// away from the keyboard beside its own drop (B20 of Iwakura's audit).
+		if (p.dwAfkLootWaitSince != 0 && (mood != playerbot_persona::MOOD_SLABY ||
+				(int)(dwNow - p.dwNextAfkAt) > (int)(2 * PLAYERBOT_MOOD_AFK_LOOT_RETRY_MS)))
+			p.dwAfkLootWaitSince = 0;
 		if (mood != playerbot_persona::MOOD_SLABY || dwNow < p.dwNextAfkAt)
 			return false;
 		// Only between two things, never in the middle of one.
@@ -775,6 +831,8 @@ namespace
 		if (!s_bPlayerBotPersonaCensusPass)
 			return;
 		s_bPlayerBotPersonaCensusPass = false;
+		for (int i = 0; i < playerbot_persona::MOOD_COUNT; ++i)
+			s_auPlayerBotRybakMoodMix[i] = s_auPlayerBotMoodCensus[i];
 		const unsigned int* c = s_auPlayerBotPersonaCensus;
 		sys_log(0, "PLAYERBOT_PERSONA: census grinder=%u zdobywca=%u handlarz=%u hazardzista=%u perfekcjonista=%u pogromca=%u gornik=%u rybak=%u najemnik=%u towarzysz=%u metinolog=%u nalogowiec=%u naukowiec=%u egzekutor=%u wedkarz=%u held=%u | mood slaby=%u normalny=%u bardzo_dobry=%u afk=%u | pvp=%u capitulated=%u",
 				c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[12], c[13], c[14],

@@ -270,6 +270,15 @@ EDITS = {
          b'\t\tif abilityType == getattr(item, "APPLY_ATT_SPEED", 17):\r\n'),
         (b'\t\telif abilityType == item.APPLY_MOV_SPEED:\r\n',
          b'\t\telif abilityType == getattr(item, "APPLY_MOV_SPEED", 19):\r\n'),
+        # The ItemShop's Auto Lowy ticket (31073) and anti-experience ring
+        # (40002) are package items the client describes as something else;
+        # their own words, in the item's CP1250 (upstream 2.2.26).
+        (b'\n\t\titemDesc = item.GetItemDescription()\r\n',
+         b'\n\t\titemDesc = item.GetItemDescription()\r\n'
+         b'\t\titemDesc = {\r\n'
+         b'\t\t\t31073: "Bilet na Auto \xa3owy: 8 godzin automatycznego polowania (klawisz K). Czas leci tylko wtedy, gdy jeste\x9c w grze; kolejne bilety si\xea sumuj\xb9 (do 30 dni). U\xbfyj z ekwipunku.",\r\n'
+         b'\t\t\t40002: "U\xbfyj, aby w\xb3\xb9czy\xe6 albo wy\xb3\xb9czy\xe6 blokad\xea do\x9cwiadczenia. Bez limitu czasu.",\r\n'
+         b'\t\t}.get(itemVnum, itemDesc)\r\n'),
     ],
     # A bot's status arrives as the command "PlayerBotStatus <vid> <hex>"
     # (SendPlayerBotOverheadChat) and is drawn as a text tail only: as talking
@@ -277,6 +286,17 @@ EDITS = {
     # Both edits take in the line after the insertion, so a second run on our
     # own output finds neither anchor and changes nothing.
     'game.py': [
+        # Server 2.2.27 says why Auto Lowy stopped ("AutoHuntOff item": no
+        # time left from the ItemShop's ticket) and client 2.0.42 hands the
+        # word on: the migration of our own earlier insertion, before the edit
+        # that makes it, which then finds its new text and skips.
+        (b'\tdef __AutoHuntOff(self, *rest):\r\n'
+         b'\t\timport uiautohunt\r\n'
+         b'\t\tuiautohunt.OnServerOff()\r\n',
+         b'\tdef __AutoHuntOff(self, *rest):\r\n'
+         b'\t\timport uiautohunt\r\n'
+         b'\t\tuiautohunt.OnServerOff(*rest)\r\n',
+         True),
         # Server 2.2.6 sends the English line as a third word and client
         # 2.0.28 hands it on: the migration of our own earlier insertion,
         # before the edit below, which then finds its new text and skips.
@@ -498,7 +518,7 @@ EDITS = {
          b'\r\n'
          b'\tdef __AutoHuntOff(self, *rest):\r\n'
          b'\t\timport uiautohunt\r\n'
-         b'\t\tuiautohunt.OnServerOff()\r\n'
+         b'\t\tuiautohunt.OnServerOff(*rest)\r\n'
          b'\r\n'
          b'\tdef __PressGKey(self):\r\n'),
         # The companion's bag and skill windows (uisidekickinventory.py,

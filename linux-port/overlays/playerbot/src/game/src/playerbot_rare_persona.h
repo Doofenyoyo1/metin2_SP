@@ -225,6 +225,15 @@ namespace
 			EndPlayerBotRare(ch, state, dwNow, "time");
 			return;
 		}
+		// A person's party, or the company of a person (a mercenary's contract,
+		// a companion holding a person): the person comes first, and a rare
+		// state is a bot's own time - an executioner in a person's party left
+		// it for its prey or pulled the person into its fights (B10).
+		if ((ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty())) || IsPlayerBotHeldForCompany(ch))
+		{
+			EndPlayerBotRare(ch, state, dwNow, "person_company");
+			return;
+		}
 		switch (p.bRare)
 		{
 			case playerbot_persona::RARE_NALOGOWIEC:

@@ -216,7 +216,7 @@ class HelpersTest(unittest.TestCase):
 		loaded = uiautohunt.ConfigFromText(old)
 		self.assertEqual(loaded['range'], 3000)
 		self.assertEqual(loaded['pickup'], 1)
-		self.assertEqual(uiautohunt.LootMask(loaded), 127)
+		self.assertEqual(uiautohunt.LootMask(loaded), 8191)
 		self.assertEqual(loaded['config_version'], uiautohunt.CONFIG_VERSION)
 
 	def test_a_current_file_keeps_the_pick_up_off(self):
@@ -279,12 +279,42 @@ class HelpersTest(unittest.TestCase):
 
 	def test_loot_mask_follows_the_toggles(self):
 		config = uiautohunt.DefaultConfig()
-		self.assertEqual(uiautohunt.LootMask(config), 127)
+		self.assertEqual(uiautohunt.LootMask(config), 8191)
 		config['loot_weapon'] = 0
 		config['loot_armour'] = 0
-		self.assertEqual(uiautohunt.LootMask(config), 124)
+		self.assertEqual(uiautohunt.LootMask(config), 8188)
 		config['pickup'] = 0
 		self.assertEqual(uiautohunt.LootMask(config), 0)
+
+	def test_the_split_kinds_keep_their_parent_for_an_older_server(self):
+		# The helmet, the shield and the four trinkets are switches of their
+		# own since client 2.0.42; a server before 2.2.27 reads the second
+		# field only, where each of them still counts as armour or jewellery.
+		config = uiautohunt.DefaultConfig()
+		for key in ('loot_armour', 'loot_jewellery', 'loot_helmet', 'loot_shield',
+				'loot_bracelet', 'loot_necklace', 'loot_earrings'):
+			config[key] = 0
+		self.assertEqual(uiautohunt.LootMask(config), (1 << 10) | 1 | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6))
+		self.assertEqual(uiautohunt.LootCoarseMask(config), 1 | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6))
+		config['loot_shoes'] = 0
+		config['loot_shield'] = 1
+		self.assertEqual(uiautohunt.LootCoarseMask(config), 1 | (1 << 1) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6))
+		config['pickup'] = 0
+		self.assertEqual(uiautohunt.LootCoarseMask(config), 0)
+
+	def test_a_file_from_before_the_split_carries_its_switches_over(self):
+		# "Ozdoby: nie" in a file of client 2.0.41 stays a bag without shoes.
+		config = uiautohunt.DefaultConfig()
+		config['loot_jewellery'] = 0
+		config['config_version'] = 5
+		text = '\n'.join('%s=%s' % (k, v) for k, v in sorted(config.items())
+			if not k.startswith(('loot_helmet', 'loot_shield', 'loot_bracelet',
+				'loot_shoes', 'loot_necklace', 'loot_earrings')))
+		loaded = uiautohunt.ConfigFromText(text)
+		for key in ('loot_bracelet', 'loot_shoes', 'loot_necklace', 'loot_earrings'):
+			self.assertEqual(loaded[key], 0, key)
+		self.assertEqual(loaded['loot_helmet'], 1)
+		self.assertEqual(loaded['config_version'], uiautohunt.CONFIG_VERSION)
 
 	def test_stop_point_and_facing(self):
 		self.assertEqual(uiautohunt.StopPoint(0, 0, 1000, 0, 120), (880.0, 0.0))
@@ -386,7 +416,7 @@ class HuntTest(unittest.TestCase):
 	def test_asks_the_server_from_the_start_point(self):
 		step(self.hunter)
 		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0'])
-		self.assertEqual(commands('/autohunt_loot'), ['/autohunt_loot 2000 127 0 0'])
+		self.assertEqual(commands('/autohunt_loot'), ['/autohunt_loot 2000 127 0 0 8191'])
 		step(self.hunter, 0.5)
 		self.assertEqual(len(commands('/autohunt_target')), 1)
 		step(self.hunter, 0.4)
@@ -788,6 +818,16 @@ class HuntTest(unittest.TestCase):
 		# And the module's own entry point, which game.py calls, reaches its hunter.
 		uiautohunt.OnServerOff()
 
+	def test_a_hunt_without_ticket_time_says_what_to_buy(self):
+		# M2_AUTOHUNT_ITEM=1: a character with no time from the ItemShop's
+		# ticket is answered "AutoHuntOff item", and the hunt says so.
+		self.hunter.OnServerOff('item')
+		self.assertFalse(self.hunter.running)
+		said = [text for text in STATE['chat'] if 'brak czasu' in text]
+		self.assertEqual(len(said), 1)
+		self.assertFalse([text for text in STATE['chat'] if 'na tym serwerze' in text])
+		uiautohunt.OnServerOff('item')
+
 	def test_waiting_for_health_casts_buffs_and_no_attack(self):
 		# The Shaman stood up among the monsters that killed her and roared
 		# (Dragon's Roar, 93, a standing attack) the moment it cooled down, and
@@ -942,14 +982,14 @@ class HuntTest(unittest.TestCase):
 		STATE['pos'] = (1500, 800)
 		step(self.hunter)
 		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 -500 200 1 0'])
-		self.assertEqual(commands('/autohunt_loot'), ['/autohunt_loot 2000 127 -500 200'])
+		self.assertEqual(commands('/autohunt_loot'), ['/autohunt_loot 2000 127 -500 200 8191'])
 
 	def test_without_the_walk_back_the_range_goes_with_the_character(self):
 		self.hunter.config['return'] = 0
 		STATE['pos'] = (1500, 800)
 		step(self.hunter)
 		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0'])
-		self.assertEqual(commands('/autohunt_loot'), ['/autohunt_loot 2000 127 0 0'])
+		self.assertEqual(commands('/autohunt_loot'), ['/autohunt_loot 2000 127 0 0 8191'])
 
 	def test_the_loot_answer_is_an_offset_from_the_character(self):
 		STATE['pos'] = (5000, 7000)

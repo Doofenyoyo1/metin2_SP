@@ -328,6 +328,7 @@ namespace
 			case BOT_TOWN_PHASE_BLACKSMITH_WAIT: return PBT(en, "Ulepszam ekwipunek", "Upgrading equipment");
 			case BOT_TOWN_PHASE_SAFEBOX: return PBT(en, "Ide do magazynu z ksiegami", "Taking books to the storage");
 			case BOT_TOWN_PHASE_SAFEBOX_WAIT: return PBT(en, "Oddaje ksiegi do magazynu", "Putting books into storage");
+			case BOT_TOWN_PHASE_GAMBLE_MARKET: return PBT(en, "Kupuje ulepszacze na rynku", "Buying refine materials at the market");
 			case BOT_TOWN_PHASE_GATE_IN:
 			case BOT_TOWN_PHASE_GATE_CROSS_IN: return PBT(en, "Ide do miasta", "Going into town");
 			case BOT_TOWN_PHASE_GATE_OUT:

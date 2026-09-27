@@ -41,9 +41,24 @@ namespace playerbot_world_rules
 		return MONKEY_STAY;
 	}
 
+	// The longest travel cooldown the travel pass sets is fifteen minutes
+	// (playerbot_travel.h, number(300000, 900000)); an hour leaves room, and
+	// a deadline further ahead than that is no cooldown at all.
+	const unsigned int TRAVEL_COOLDOWN_MAX_MS = 60u * 60u * 1000u;
+
+	// Both are get_dword_time(), milliseconds since the core started in a
+	// 32-bit DWORD that wraps after 49.7 days. `now < next` read a cooldown set
+	// in the last minutes before the wrap as long over, and after the wrap
+	// every deadline set before it - nothing sets one back to zero while the
+	// bot is in the world - as running for as long as the core had run when it
+	// was set. The difference is what survives the wrap. The bound is what a
+	// signed difference alone would lose: a deadline the pass has not read for
+	// over 24.8 days (a bot back in its village after a month at the frontier)
+	// would read as ahead again, and for up to as long.
 	inline bool IsTravelCooldownActive(unsigned int now, unsigned int nextTravelTime)
 	{
-		return nextTravelTime != 0 && now < nextTravelTime;
+		const unsigned int ahead = nextTravelTime - now;
+		return nextTravelTime != 0 && ahead != 0 && ahead <= TRAVEL_COOLDOWN_MAX_MS;
 	}
 }
 

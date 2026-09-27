@@ -339,7 +339,7 @@ namespace
 		{ 35002,   104302 },	// Nieznane Lekarstwo
 	};
 	const TPlayerBotMaterialPrice PLAYERBOT_EXTRA_MATERIAL_PRICES[] = {
-		{ 25040,   550000 },	// Zwoj Blogoslawienstwa
+		{ 25040,   375000 },	// Zwoj Blogoslawienstwa
 		{ 25043,  1500000 },	// Podrecznik Kowala
 		{ 25044,   400000 },	// Zwoj Wojny
 		{ 25045,  1000000 },	// Zwoj Boga Smokow
@@ -356,6 +356,26 @@ namespace
 		{ 27113,      500 },	// Fioletowa Mikstura(M)
 		{ 27114,     1500 },	// Fioletowa Mikstura(S)
 		{ 27115,     3000 },	// Fioletowa Mikstura(D)
+		{ 27400,    15000 },	// Wedka +0
+		{ 27410,    65000 },	// Wedka +1
+		{ 27420,   150000 },	// Wedka +2
+		{ 27430,   320000 },	// Wedka +3
+		{ 27440,   580000 },	// Wedka +4
+		{ 27450,  1110000 },	// Wedka +5
+		{ 27460,  1700000 },	// Wedka +6
+		{ 27470,  2500000 },	// Wedka +7
+		{ 27480,  3500000 },	// Wedka +8
+		{ 27490,  4600000 },	// Wedka +9
+		{ 27500,  7000000 },	// Wedka +10
+		{ 27510, 10000000 },	// Wedka +11
+		{ 27520, 10000000 },	// Wedka +12
+		{ 27530, 10000000 },	// Wedka +13
+		{ 27540, 10000000 },	// Wedka +14
+		{ 27550, 10000000 },	// Wedka +15
+		{ 27560, 10000000 },	// Wedka +16
+		{ 27570, 10000000 },	// Wedka +17
+		{ 27580, 10000000 },	// Wedka +18
+		{ 27590, 10000000 },	// Wedka +19
 		{ 27798,    15000 },	// Skamieniala Krewetka
 		{ 30378,    40000 },	// Materialy Rzemieslnicze
 		{ 39002,   500000 },	// Pierscien Doswiadczenia
@@ -641,22 +661,22 @@ namespace
 	// is drawn from the band below, stable per marble.
 	struct TPlayerBotMarblePrice { DWORD dwMob; DWORD dwPrice; };
 	const TPlayerBotMarblePrice PLAYERBOT_MARBLE_PRICES[] = {
-		{   502,  162500 },	// Dziki Sluga
-		{   701,  165000 },	// Ezoteryczny Fanatyk
-		{   731,  187500 },	// Elit. Ezot. Fanatyk
-		{   751,  165000 },	// Wysoki Fanatyk
-		{   771,  187500 },	// Best. Fanatyk
-		{  1402,  100000 },	// Wojownik Z Toporem
-		{  1403,  125000 },	// Tysieczny Wojownik
-		{  1601,  112500 },	// Ogr Wojownik
-		{  2001,  162500 },	// Mlody Pajak
-		{  2002,  175000 },	// Trujacy Pajak
-		{  2051,  162500 },	// Podly Mlody Truj. Pajak
-		{  2052,  162500 },	// Podly Smier. Truj. Pajak
-		{  2061,  187500 },	// Maly Trujacy Pajak v2
+		{   502,  284375 },	// Dziki Sluga
+		{   701,  288750 },	// Ezoteryczny Fanatyk
+		{   731,  328125 },	// Elit. Ezot. Fanatyk
+		{   751,  288750 },	// Wysoki Fanatyk
+		{   771,  328125 },	// Best. Fanatyk
+		{  1402,  175000 },	// Wojownik Z Toporem
+		{  1403,  218750 },	// Tysieczny Wojownik
+		{  1601,  196875 },	// Ogr Wojownik
+		{  2001,  284375 },	// Mlody Pajak
+		{  2002,  306250 },	// Trujacy Pajak
+		{  2051,  284375 },	// Podly Mlody Truj. Pajak
+		{  2052,  284375 },	// Podly Smier. Truj. Pajak
+		{  2061,  328125 },	// Maly Trujacy Pajak v2
 	};
-	const DWORD PLAYERBOT_MARBLE_PRICE_MIN = 65000;
-	const DWORD PLAYERBOT_MARBLE_PRICE_MAX = 85000;
+	const DWORD PLAYERBOT_MARBLE_PRICE_MIN = 113750;
+	const DWORD PLAYERBOT_MARBLE_PRICE_MAX = 148750;
 
 	// Forgetting Scrolls by the skill in the socket. A price of zero is his
 	// "do sprzedazy u handlarki": that one is the merchant's, not a counter's.

@@ -105,7 +105,13 @@ namespace
 			return false;
 		if (item->IsOwnership(owner))
 			return true;
-		if (!owner->GetParty() ||
+		// Never another member's yang: the party branch of PickupItem has no
+		// case for it and puts the pile into the owner's bag as a "Yang" item
+		// worth nothing - 109 of Tanaka's piles in 25 minutes on m2zip, 93 of
+		// them sold for a few yang apiece, and a winner's bag full nine seconds
+		// after his win. Only Tanaka's yang has an owner (patch 0010 sends every
+		// other pile straight to the purse), so only his is kept off.
+		if (!owner->GetParty() || IsPlayerBotMoneyDrop(item) ||
 				IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_GIVE | ITEM_ANTIFLAG_DROP))
 			return false;
 
@@ -324,7 +330,8 @@ namespace
 				// size 2", 7736 times in two hours from 320 bots on the test
 				// world), and the bot stood at the drop asking every five seconds
 				// until the watchdog moved it.
-				if (m_bagFull ? !PlayerBotLootMergesIntoStack(m_owner, item)
+				// Yang takes no cell, a full bag or not.
+				if (m_bagFull ? !(IsPlayerBotMoneyDrop(item) || PlayerBotLootMergesIntoStack(m_owner, item))
 						: !PlayerBotBagTakesDrop(m_owner, item))
 				{
 					++m_skippedNoRoom;

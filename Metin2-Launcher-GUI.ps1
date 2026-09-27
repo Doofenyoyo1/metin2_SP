@@ -951,7 +951,7 @@ function Get-DifficultyFromEnv {
     # the keys are not there yet (an older .env, which start-server.ps1 fills in).
     $envPath = Join-Path $root 'linux-port\docker\.env'
     $level = 'easy'; $bio = '0'; $horse = '0'; $book = '0'; $botBook = '0'
-    $autoHunt = $true; $sidekick = $true; $starter = $true
+    $autoHunt = $true; $sidekick = $true; $starter = $true; $autoHuntItem = $false
     if (Test-Path -LiteralPath $envPath -PathType Leaf) {
         $content = [IO.File]::ReadAllText($envPath)
         $m = [Regex]::Match($content, '(?m)^M2_DIFFICULTY=(\S+)\s*$')
@@ -967,6 +967,9 @@ function Get-DifficultyFromEnv {
         # Auto Lowy and the companion: on unless .env says 0.
         $m = [Regex]::Match($content, '(?m)^M2_AUTOHUNT=(\S+)\s*$')
         if ($m.Success) { $autoHunt = ($m.Groups[1].Value.Trim() -ne '0') }
+        # Only with the ItemShop's ticket: off unless .env says 1.
+        $m = [Regex]::Match($content, '(?m)^M2_AUTOHUNT_ITEM=(\S+)\s*$')
+        if ($m.Success) { $autoHuntItem = ($m.Groups[1].Value.Trim() -eq '1') }
         $m = [Regex]::Match($content, '(?m)^M2_SIDEKICK=(\S+)\s*$')
         if ($m.Success) { $sidekick = ($m.Groups[1].Value.Trim() -ne '0') }
         $m = [Regex]::Match($content, '(?m)^M2_STARTER_CHEST=(\S+)\s*$')
@@ -974,7 +977,7 @@ function Get-DifficultyFromEnv {
     }
     if ($level -notin @('easy', 'medium', 'hard', 'custom')) { $level = 'easy' }
     return @{ Level = $level; Biologist = $bio; Horse = $horse; Book = $book; BotBook = $botBook
-        AutoHunt = $autoHunt; Sidekick = $sidekick; Starter = $starter }
+        AutoHunt = $autoHunt; AutoHuntItem = $autoHuntItem; Sidekick = $sidekick; Starter = $starter }
 }
 
 function Show-DifficultyDialog {
@@ -986,12 +989,14 @@ function Show-DifficultyDialog {
     # September: Drip's COOP without the auto hunt), and whether a player's new
     # character gets the apprentice chest - asked before only where a fresh
     # world is made, so a world already standing had no way to it (Drip looked
-    # here for it the same morning). Returns
-    # @{ Level; Biologist; Horse; Book; BotBook; AutoHunt; Sidekick; Starter } or $null.
+    # here for it the same morning). Under Auto Lowy, whether its panel is for
+    # everybody or only for a character that bought "Auto Lowy (8h)" in the
+    # ItemShop (the operator, 27 September). Returns
+    # @{ Level; Biologist; Horse; Book; BotBook; AutoHunt; AutoHuntItem; Sidekick; Starter } or $null.
     param([hashtable]$Current)
     $dialog = [Windows.Forms.Form]::new()
     $dialog.Text = (T 'difficultyDialog')
-    $dialog.Size = [Drawing.Size]::new(560, 566)
+    $dialog.Size = [Drawing.Size]::new(560, 618)
     $dialog.StartPosition = 'CenterParent'
     $dialog.FormBorderStyle = 'FixedDialog'
     $dialog.MaximizeBox = $false
@@ -1124,31 +1129,54 @@ function Show-DifficultyDialog {
     $autoHuntCheck.Size = [Drawing.Size]::new(516, 24)
     $autoHuntCheck.Checked = ($Current.AutoHunt -ne $false)
     $dialog.Controls.Add($autoHuntCheck)
+    # Its own panel, so the two are a group apart from the level's radios.
+    $autoHuntItemPanel = [Windows.Forms.Panel]::new()
+    $autoHuntItemPanel.Name = 'autoHuntItem'
+    $autoHuntItemPanel.Location = [Drawing.Point]::new(36, $y + 160)
+    $autoHuntItemPanel.Size = [Drawing.Size]::new(498, 50)
+    $autoHuntAllRadio = [Windows.Forms.RadioButton]::new()
+    $autoHuntAllRadio.Text = 'Panel Autołowy dostępny dla każdego'
+    $autoHuntAllRadio.Location = [Drawing.Point]::new(0, 2)
+    $autoHuntAllRadio.Size = [Drawing.Size]::new(496, 22)
+    $autoHuntItemRadio = [Windows.Forms.RadioButton]::new()
+    $autoHuntItemRadio.Text = 'Panel Autołowy dostępny tylko po kupnie przedmiotu z ItemShop (8 h gry)'
+    $autoHuntItemRadio.Location = [Drawing.Point]::new(0, 26)
+    $autoHuntItemRadio.Size = [Drawing.Size]::new(496, 22)
+    $autoHuntItemRadio.Checked = ($Current.AutoHuntItem -eq $true)
+    $autoHuntAllRadio.Checked = -not $autoHuntItemRadio.Checked
+    $autoHuntItemPanel.Controls.Add($autoHuntAllRadio)
+    $autoHuntItemPanel.Controls.Add($autoHuntItemRadio)
+    $autoHuntItemPanel.Enabled = $autoHuntCheck.Checked
+    $dialog.Controls.Add($autoHuntItemPanel)
+    $autoHuntCheck.Add_CheckedChanged({
+        $form = $this.FindForm()
+        if ($form) { $form.Controls['autoHuntItem'].Enabled = $this.Checked }
+    })
     $sidekickCheck = [Windows.Forms.CheckBox]::new()
     $sidekickCheck.Name = 'sidekick'
     $sidekickCheck.Text = 'Towarzysz - stały kompan gracza (list "Towarzysz" i okno P)'
-    $sidekickCheck.Location = [Drawing.Point]::new(18, $y + 162)
+    $sidekickCheck.Location = [Drawing.Point]::new(18, $y + 214)
     $sidekickCheck.Size = [Drawing.Size]::new(516, 24)
     $sidekickCheck.Checked = ($Current.Sidekick -ne $false)
     $dialog.Controls.Add($sidekickCheck)
     $starterCheck = [Windows.Forms.CheckBox]::new()
     $starterCheck.Name = 'starterChest'
     $starterCheck.Text = 'Skrzynia Ucznia dla nowych postaci graczy (przy pierwszym logowaniu)'
-    $starterCheck.Location = [Drawing.Point]::new(18, $y + 188)
+    $starterCheck.Location = [Drawing.Point]::new(18, $y + 240)
     $starterCheck.Size = [Drawing.Size]::new(516, 24)
     $starterCheck.Checked = ($Current.Starter -ne $false)
     $dialog.Controls.Add($starterCheck)
 
     $okButton = [Windows.Forms.Button]::new()
     $okButton.Text = (T 'apply')
-    $okButton.Location = [Drawing.Point]::new(332, $y + 230)
+    $okButton.Location = [Drawing.Point]::new(332, $y + 282)
     $okButton.Size = [Drawing.Size]::new(100, 32)
     $okButton.DialogResult = [Windows.Forms.DialogResult]::OK
     $dialog.Controls.Add($okButton)
 
     $cancelButton = [Windows.Forms.Button]::new()
     $cancelButton.Text = (T 'cancel')
-    $cancelButton.Location = [Drawing.Point]::new(438, $y + 230)
+    $cancelButton.Location = [Drawing.Point]::new(438, $y + 282)
     $cancelButton.Size = [Drawing.Size]::new(96, 32)
     $cancelButton.DialogResult = [Windows.Forms.DialogResult]::Cancel
     $dialog.Controls.Add($cancelButton)
@@ -1163,12 +1191,13 @@ function Show-DifficultyDialog {
     $book = $bookBox.Value.ToString([Globalization.CultureInfo]::InvariantCulture)
     $botBook = $botBookBox.Value.ToString([Globalization.CultureInfo]::InvariantCulture)
     $autoHunt = $autoHuntCheck.Checked
+    $autoHuntItem = $autoHuntItemRadio.Checked
     $sidekick = $sidekickCheck.Checked
     $starter = $starterCheck.Checked
     $dialog.Dispose()
     if ($result -ne [Windows.Forms.DialogResult]::OK) { return $null }
     return @{ Level = $chosen; Biologist = $bio; Horse = $horse; Book = $book; BotBook = $botBook
-        AutoHunt = $autoHunt; Sidekick = $sidekick; Starter = $starter }
+        AutoHunt = $autoHunt; AutoHuntItem = $autoHuntItem; Sidekick = $sidekick; Starter = $starter }
 }
 
 function Show-FreshWorldDialog {
@@ -3382,14 +3411,15 @@ $difficultyButton.Add_Click({
         'hard' { 'trudny (Biolog 24 h, koń 12-21 h, księgi 21 h)' }
         default { "własny (Biolog $($chosen.Biologist) h, Stajenny $($chosen.Horse) h, księgi: gracze $($chosen.Book) h, boty $($chosen.BotBook) h)" }
     }
-    $features = "Auto Łowy $(if ($chosen.AutoHunt) { 'włączone' } else { 'wyłączone' }), Towarzysz $(if ($chosen.Sidekick) { 'włączony' } else { 'wyłączony' }), Skrzynia Ucznia $(if ($chosen.Starter) { 'tak' } else { 'nie' })"
+    $features = "Auto Łowy $(if (-not $chosen.AutoHunt) { 'wyłączone' } elseif ($chosen.AutoHuntItem) { 'włączone (tylko po kupnie z ItemShop)' } else { 'włączone (dla każdego)' }), Towarzysz $(if ($chosen.Sidekick) { 'włączony' } else { 'wyłączony' }), Skrzynia Ucznia $(if ($chosen.Starter) { 'tak' } else { 'nie' })"
     $answer = [Windows.Forms.MessageBox]::Show(
         "Ustawić poziom trudności: $what; $features - i zrestartować serwer teraz, aby zastosować? Baza i postęp botów pozostaną bez zmian.",
         'Poziom trudności', 'YesNoCancel', 'Question')
     if ($answer -eq [Windows.Forms.DialogResult]::Cancel) { return }
     $extra = @('-Difficulty', $chosen.Level, '-BiologistHours', "$($chosen.Biologist)", '-HorseHours', "$($chosen.Horse)",
         '-BookHours', "$($chosen.Book)", '-BotBookHours', "$($chosen.BotBook)",
-        '-AutoHunt', $(if ($chosen.AutoHunt) { '1' } else { '0' }), '-Sidekick', $(if ($chosen.Sidekick) { '1' } else { '0' }),
+        '-AutoHunt', $(if ($chosen.AutoHunt) { '1' } else { '0' }), '-AutoHuntItem', $(if ($chosen.AutoHuntItem) { '1' } else { '0' }),
+        '-Sidekick', $(if ($chosen.Sidekick) { '1' } else { '0' }),
         '-StarterChest', $(if ($chosen.Starter) { '1' } else { '0' }))
     if ($answer -eq [Windows.Forms.DialogResult]::Yes) {
         Start-LauncherAction -Action 'SetDifficulty' -Yes -ExtraArgs $extra

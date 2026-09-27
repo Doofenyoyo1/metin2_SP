@@ -29,6 +29,7 @@ struct Character {
     int GetSkillLevel(DWORD skill){return mastery[skill]==SKILL_GRAND_MASTER?30:20;}
     int GetRealAlignment(){return alignment;} int GetLevel(){return level;} int GetGold(){return gold;}
     bool IsItemLoaded(){return loaded;} int CountSpecifyItem(DWORD v){return quantities[v];}
+    int GetEmpire(){return 2;}
 };
 using LPCHARACTER=Character*;
 struct TJobSkillBuild { BYTE bSkillCount=2; DWORD dwSkills[2]={1,2}; };
@@ -69,6 +70,13 @@ bool bigThree=false; bool IsPlayerBotBigThreeAtPlus(LPCHARACTER,int){return bigT
 // Community patch 2, point 5: the Trader in town buys its own books whatever
 // its gear stands at, from its book purse.
 bool trader=false; bool PlayerBotBuysBooksAsTrader(LPCHARACTER){return trader;}
+// Iwakura's scroll rule: what a weapon's next step under a scroll lacks
+// (playerbot_market.h), and what the first village's counters hold of it.
+std::map<DWORD,int> scrollMissing; std::map<DWORD,int> villageSupply; long askedVillage=0;
+void CollectPlayerBotScrollRuleMissing(LPCHARACTER, std::map<DWORD,int>& out){out=scrollMissing;}
+namespace playerbot_empire_rules { enum { MAP_ROLE_M1 = 1 };
+    long GetHomeMap(int empire, int role){return role==MAP_ROLE_M1 ? (empire==2 ? 21 : 1) : 0;} }
+DWORD GetPlayerBotMarketLocalSupply(long map, DWORD v){askedVillage=map; return (DWORD)villageSupply[v];}
 #include "../linux-port/overlays/playerbot/src/game/src/playerbot_progression_needs.h"
 int main(){
     Character c; c.mastery[1]=SKILL_MASTER;
@@ -157,5 +165,26 @@ int main(){
     assert(!PlayerBotNeedsMasterBooks(&c));
     assert(!ShouldPlayerBotVisitProgressionMarket(&c,m2,1000) && m2.persona.bRareStage==0);
     owned.count=7; rareNow=false; alive=1000;
+
+    // Books only for a skill at Master: below it the engine will not let the
+    // book train it (754 of 1908 bought on m2zip lay in bags unreadable).
+    c.mastery[1]=0;
+    assert(GetPlayerBotProgressionNeed(&c,&book)==0);
+    c.mastery[1]=SKILL_MASTER;
+    assert(GetPlayerBotProgressionNeed(&c,&book)>0);
+
+    // The scroll rule's materials send a bot to its first village only when
+    // those counters hold every unit the step lacks - skill group or none.
+    scrollMissing.clear(); villageSupply.clear();
+    assert(!PlayerBotScrollRuleSupplyExists(&c));
+    scrollMissing[30053]=2; villageSupply[30053]=1;
+    assert(!PlayerBotScrollRuleSupplyExists(&c));
+    villageSupply[30053]=2;
+    assert(PlayerBotScrollRuleSupplyExists(&c) && askedVillage==21);
+    c.group=0;
+    assert(PlayerBotNeedsProgressionShopping(&c));
+    scrollMissing.clear();
+    assert(!PlayerBotNeedsProgressionShopping(&c));
+    c.group=1;
     std::printf("playerbot_progression_needs: all tests passed\n");
 }

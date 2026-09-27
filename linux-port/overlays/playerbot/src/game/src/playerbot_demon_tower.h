@@ -839,7 +839,14 @@ namespace
 			if (!isBow)
 				return FightPlayerBotTowerBossFromRange(ch, state, foe, distance, dwNow);
 		}
-		if (isBow && StepPlayerBotTowerArcherBack(ch, state, dwNow))
+		// The step back towards the pack is the raid floors' (the tower, the
+		// Catacomb): elsewhere its point - where every bot of the whole map
+		// stands, on average - means nothing, and an Archer companion stepped
+		// towards it at every new monster and circled (prodnathin, 26 September).
+		const long mapIndex = ch->GetMapIndex();
+		const bool raidFloor = mapIndex == PLAYERBOT_MAP_DEMON_TOWER || IsPlayerBotDemonTowerInstance(mapIndex) ||
+				mapIndex == PLAYERBOT_MAP_CATACOMB || IsPlayerBotCatacombInstance(mapIndex);
+		if (isBow && raidFloor && StepPlayerBotTowerArcherBack(ch, state, dwNow))
 			return true;
 		if (distance > combatRange)
 		{
@@ -857,13 +864,25 @@ namespace
 			if (dwNow >= state.dwNextTowerMoveTime)
 			{
 				state.dwNextTowerMoveTime = dwNow + 1000;
-				MovePlayerBot(ch, foe->GetX(), foe->GetY(), dwNow, 4, distance > PLAYERBOT_SEARCH_RANGE,
+				// A bow walks to the edge of its reach, not onto the monster:
+				// the walk to the foe itself ran an Archer into the pack.
+				long goalX = foe->GetX(), goalY = foe->GetY();
+				if (isBow && distance > 0)
+				{
+					const long long stand = std::max(0, combatRange - PLAYERBOT_BOW_APPROACH_SLACK);
+					goalX += (long)((long long)(ch->GetX() - foe->GetX()) * stand / distance);
+					goalY += (long)((long long)(ch->GetY() - foe->GetY()) * stand / distance);
+				}
+				MovePlayerBot(ch, goalX, goalY, dwNow, 4, distance > PLAYERBOT_SEARCH_RANGE,
 						wantsSaddle, wantsSaddle);
 			}
 			return true;
 		}
 		if (ch->IsStateMove())
 			ch->Stop();
+		// In reach, a bow keeps no route: the light tick would walk it on.
+		if (isBow)
+			ClearPlayerBotRoute(state, false);
 		ch->SetPosition(POS_FIGHTING);
 		if (!CastPlayerBotDuelSkill(ch, foe, state, dwNow))
 			ExecutePlayerBotBasicAttack(ch, foe, state, dwNow);

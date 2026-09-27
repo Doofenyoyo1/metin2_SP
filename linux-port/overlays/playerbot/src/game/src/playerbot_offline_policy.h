@@ -15,6 +15,12 @@ struct Request {
     bool sent = false, done = false, success = false, warned = false;
     uint32_t vnum = 0, count = 0, unitPrice = 0, skill = 0;
     uint8_t refine = 0;
+    // A purchase of the buyer's class's level-30 weapon, charged to the
+    // budget its anvil shares once the db core confirms it.
+    bool level30 = false;
+    // A base a gambler bought between its sessions, counted by the gambler's
+    // census once the db core confirms it.
+    bool gambleBase = false;
 };
 inline std::map<uint32_t, Request> requests;
 // A line that sold while its owner was off hunting. On this engine the goods
@@ -101,6 +107,11 @@ struct State {
     // The line cut out of its stack before the shop board opened, for the
     // add of the same visit (BotOfflinePrepareVisitLine): item id and cell.
     uint32_t preparedItem = 0, preparedCell = 0;
+    // A finished piece the market Perfectionist's anvil waits for, found on
+    // a stand of the bot's map while it stood at the blacksmith: the buyer
+    // takes it as its pick once the town visit has let the bot go
+    // (PlayerBotFindReadyGearToBuy).
+    uint32_t readyPickOwner = 0, readyPickItem = 0, readyPickUntil = 0;
     // When the keeper last stood at its shop and served it: a shop on
     // another map waits PLAYERBOT_OFFLINE_FAR_SERVICE_MIN_MS from here.
     uint32_t lastServedAt = 0;

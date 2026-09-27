@@ -108,6 +108,21 @@ FISHING_PASS_AND_RING = (
     '# (tanaka_ears.quest), stacks to the 200 its row already says: the package\n'
     '# left ITEM_FLAG_STACKABLE off, so every ear took a cell. Idempotent.\n'
     'db -e "UPDATE world.item_proto SET flag = flag | 4 WHERE vnum = 30202 AND (flag & 4) = 0;" || echo "[playerbot-migrate] WARNING: could not make Tanaka\'s ear stack" >&2\n'
+    '# The skill books (type 17), the Forgetting Book (22) and Kamien Duchowy\n'
+    "# (50513) stacked to the package's ten; the operator's two hundred (DUDU,\n"
+    '# 26 September). PROTO_FROM_DB: the db core reads it at boot, and books of\n'
+    '# two skills never merge, their socket differs. Never lowered again: the\n'
+    '# engine would cut every stack above the new ceiling at the next load.\n'
+    'db -e "UPDATE world.item_proto SET stack = 200 WHERE (type IN (17, 22) OR vnum = 50513) AND stack = 10;" || echo "[playerbot-migrate] WARNING: could not raise the books\' stack" >&2\n'
+    "# The ItemShop's Auto Lowy ticket and anti-experience ring (the operator,\n"
+    '# 27 September): two quest items the package defines and nothing uses -\n'
+    '# "Opaska Posz. Zlota" (31073) and "Pierscien Levi" (40002) - renamed\n'
+    '# and bound (no sale, trade, drop or counter; the ticket stacks), their uses\n'
+    "# answered by autohunt_time.quest and antiexp_ring.quest; and the shop's\n"
+    '# first page gains them with the Teleport Ring (70058), which is never used\n'
+    '# up. ASCII names: db() speaks latin1 into the cp1250 columns. A line the\n'
+    '# operator changed by hand is kept (INSERT IGNORE). Idempotent.\n'
+    'db -e "UPDATE world.item_proto SET locale_name = \'Auto Lowy (8h)\', flag = flag | 4, antiflag = 74112 WHERE vnum = 31073 AND locale_name <> \'Auto Lowy (8h)\'; UPDATE world.item_proto SET locale_name = \'Pierscien Anty-Exp\', flag = 0, antiflag = 41344 WHERE vnum = 40002 AND locale_name <> \'Pierscien Anty-Exp\'; INSERT IGNORE INTO common.itemshop_items (\\`index\\`, vnum, count, price, currency, minLevel) VALUES (6, 31073, 1, 29, \'DRAGON_COIN\', 0), (7, 40002, 1, 99, \'DRAGON_COIN\', 0), (8, 70058, 1, 149, \'DRAGON_COIN\', 30);" || echo "[playerbot-migrate] WARNING: could not add the ItemShop\'s Auto Lowy ticket and rings" >&2\n'
 )
 
 GUILD_TIERS_AND_CHANNEL_PINS = (
@@ -461,6 +476,20 @@ GAME_FEATURES = (
     '    echo "[playerbot-migrate] Auto Lowy: $([ "$autohunt_off" = 1 ] && echo off || echo on), companions: $([ "$sidekick_off" = 1 ] && echo off || echo on)"\n'
     'else\n'
     '    echo "[playerbot-migrate] WARNING: could not write the Auto Lowy and companion flags; the cores keep the last ones" >&2\n'
+    'fi\n'
+    "# Auto Lowy for everybody (0) or only with the ItemShop's ticket (1): .env\n"
+    "# M2_AUTOHUNT_ITEM, which the launcher's difficulty window writes; the\n"
+    '# classic panel sets the flag live (web_admin.quest AUTOHUNT). The .env value\n'
+    '# is applied only when it changed since the last start (m2_autohunt_item_env),\n'
+    '# so a choice made in the panel outlives a restart.\n'
+    'case "$(printf \'%s\' "${M2_AUTOHUNT_ITEM:-0}" | tr \'A-Z\' \'a-z\' | tr -d \' \\r\')" in 1|on|yes|true) autohunt_item=1 ;; *) autohunt_item=0 ;; esac\n'
+    'autohunt_item_env=$(db -N -e "SELECT lValue FROM player.quest WHERE dwPID = 0 AND szName = \'m2_autohunt_item_env\' LIMIT 1;" 2>/dev/null | tr -d \' \\r\')\n'
+    'if [ "$autohunt_item_env" != "$((autohunt_item + 1))" ]; then\n'
+    '    if db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES (0, \'m2_autohunt_item\', \'\', $autohunt_item), (0, \'m2_autohunt_item_env\', \'\', $((autohunt_item + 1)));"; then\n'
+    '        echo "[playerbot-migrate] Auto Lowy: $([ "$autohunt_item" = 1 ] && echo \'only with the ItemShop ticket\' || echo \'for everybody\') (from .env)"\n'
+    '    else\n'
+    '        echo "[playerbot-migrate] WARNING: could not write the Auto Lowy ticket flag" >&2\n'
+    '    fi\n'
     'fi\n'
 )
 
