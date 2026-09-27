@@ -543,6 +543,19 @@ function Start-ConfiguredClient {
             'Metin2 Playerbots', 'OK', 'Information') | Out-Null
         return
     }
+    # The full packages' two stray executables go, and a launcher that started
+    # one starts metin2client.exe; an old metin2client.exe is replaced first,
+    # by an action that starts the client when it ends (601210, kordianq1112,
+    # 27 September: the exe of a full 2.0.71 under the root of 2.0.41).
+    try {
+        foreach ($note in @(Repair-M2ClientExecutables -ClientFolder (Split-Path -Parent $executable) -ServerRoot $root -ConfigPath $configPath)) {
+            Write-LocalLog $note
+        }
+        $repointed = Find-ClientExecutable
+        if ($repointed) { $executable = $repointed }
+    }
+    catch { Write-LocalLog "Porządki w plikach klienta nieudane: $($_.Exception.Message)" }
+    if (Start-ClientExeRepairIfWanted -LaunchClient) { return }
     Confirm-ClientLanguageForLauncher -Executable $executable
     try {
         Start-Process -FilePath $executable -WorkingDirectory (Split-Path -Parent $executable)
@@ -1466,6 +1479,10 @@ function Test-VersionNewer {
 
 $script:latestManifest = $null
 $script:startupOfferDone = $false
+# The replacement of an old metin2client.exe is a download and an action of
+# its own; once a session, because an antivirus that refused it refuses it
+# again, and the root says the rest at the login.
+$script:clientExeRepairTried = $false
 # An update the startup question started: its answer covers restarting the
 # launcher too. An update from the AKTUALIZUJ button still asks about that.
 $script:restartAfterUpdate = $false
@@ -1570,6 +1587,51 @@ function Show-StartupUpdateDialog {
     return ''
 }
 
+function Get-ClientFolderForRepair {
+    $config = Get-LauncherConfig
+    $folder = [string]$config.clientRoot
+    if (-not $folder -and [string]$config.clientExecutable) { $folder = Split-Path -Parent ([string]$config.clientExecutable) }
+    if ($folder -and (Test-Path -LiteralPath $folder -PathType Container)) { return $folder }
+    return ''
+}
+
+function Test-ClientExeRepairWanted {
+    # The client folder's metin2client.exe is one of the old builds (from a
+    # full package of its day: no client package has carried the exe since
+    # 2.0.35) and the manifest names the current one.
+    if ($script:clientExeRepairTried) { return $false }
+    if (-not (Get-M2ClientExeComponent -Manifest $script:latestManifest)) { return $false }
+    $folder = Get-ClientFolderForRepair
+    return [bool]($folder -and (Test-M2ClientExeOld -ClientFolder $folder))
+}
+
+function Invoke-ClientStrayCleanup {
+    # The full packages' two stray executables go, and a launcher that starts
+    # one starts metin2client.exe, at every start of this window: an update is
+    # run by the launcher that was there before it, which has no such step, and
+    # a player whose PLAY starts only the server never reaches
+    # Start-ConfiguredClient (the operator, 27 September: "zaktualizowalem u
+    # siebie i nie usunelo plikow exe starych"). No download - the old exe's
+    # replacement is Start-ClientExeRepairIfWanted's.
+    try {
+        $folder = Get-ClientFolderForRepair
+        if (-not $folder) { return }
+        foreach ($note in @(Repair-M2ClientExecutables -ClientFolder $folder -ServerRoot $root -ConfigPath $configPath)) {
+            Write-LocalLog $note
+        }
+    }
+    catch { Write-LocalLog "Porządki w plikach klienta nieudane: $($_.Exception.Message)" }
+}
+
+function Start-ClientExeRepairIfWanted {
+    param([switch]$LaunchClient)
+    if (-not (Test-ClientExeRepairWanted)) { return $false }
+    $script:clientExeRepairTried = $true
+    Write-LocalLog 'Klient ma stary metin2client.exe (sprzed czterech stron ekwipunku) - podmieniam go na aktualny.'
+    $null = Start-LauncherAction -Action 'RepairClientExe' -Yes -LaunchClient:$LaunchClient
+    return $true
+}
+
 function Offer-StartupUpdates {
     # Once per session, on the first manifest read. Everything in one action:
     # UpdateAll does the server and then the client in one run, where the
@@ -1579,7 +1641,10 @@ function Offer-StartupUpdates {
     if ($script:activeProcess -and -not $script:activeProcess.HasExited) { return }
     $server = Get-ServerUpdateOffer
     $client = Get-ClientUpdateOffer
-    if (-not $server -and -not $client) { return }
+    if (-not $server -and -not $client) {
+        [void](Start-ClientExeRepairIfWanted)
+        return
+    }
     $choice = Show-StartupUpdateDialog -Server $server -Client $client
     if ($choice -eq 'all') {
         if ($server) {
@@ -1606,6 +1671,7 @@ function Offer-StartupUpdates {
             Save-DeclinedOffer -Component 'client' -Version $client.Available
             Write-LocalLog "Aktualizacja klienta $($client.Available) odlozona."
         }
+        [void](Start-ClientExeRepairIfWanted)
     }
 }
 
@@ -3774,6 +3840,7 @@ if (Test-Path -LiteralPath $sessionLog -PathType Leaf) {
     if ($tail) { $script:logBox.Text = ($tail -join [Environment]::NewLine) + [Environment]::NewLine }
 }
 Write-LocalLog 'Uruchomiono GUI launchera.'
+Invoke-ClientStrayCleanup
 Update-VersionFooter
 Refresh-Status
 [void]$script:form.ShowDialog()

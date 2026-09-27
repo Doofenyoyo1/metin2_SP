@@ -512,6 +512,58 @@ namespace
 		return proto && (proto->dwFlag & SKILL_FLAG_SPLASH) != 0;
 	}
 
+	// The monsters a splash would land on besides the one it is cast at.
+	class FPlayerBotSplashCrowd
+	{
+		public:
+			FPlayerBotSplashCrowd(LPCHARACTER caster, long x, long y, int range) :
+				m_caster(caster), m_x(x), m_y(y), m_range(range), m_count(0) {}
+
+			void operator () (LPENTITY entity)
+			{
+				if (!entity || !entity->IsType(ENTITY_CHARACTER))
+					return;
+				LPCHARACTER mob = static_cast<LPCHARACTER>(entity);
+				if (!mob->IsMonster() || mob->IsStone() || mob->IsDead() ||
+						DISTANCE_APPROX(mob->GetX() - m_x, mob->GetY() - m_y) > m_range ||
+						!battle_is_attackable(m_caster, mob))
+					return;
+				++m_count;
+			}
+
+			int Count() const { return m_count; }
+
+		private:
+			LPCHARACTER m_caster;
+			long m_x;
+			long m_y;
+			int m_range;
+			int m_count;
+	};
+
+	// But a Metin is a crowd the moment its pack comes out, and then a splash
+	// is the best thing in the rotation: a Body Warrior hacked one in a ring
+	// of twenty wolves and bears with its single-target skills only, because
+	// this rule knew the stone and not what stood round it (Iwakura, 27
+	// September). Counted round where the splash lands - the caster for a
+	// spin, the stone for the rest.
+	bool IsPlayerBotSplashWorthAtStone(LPCHARACTER ch, LPCHARACTER stone, DWORD skillVnum)
+	{
+		CSkillProto* proto = CSkillManager::instance().Get(skillVnum);
+		if (!ch || !stone || !proto || !ch->GetSectree())
+			return false;
+		const bool aroundCaster = IS_SET(proto->dwFlag, SKILL_FLAG_SELFONLY);
+		const long x = aroundCaster ? ch->GetX() : stone->GetX();
+		const long y = aroundCaster ? ch->GetY() : stone->GetY();
+		FPlayerBotSplashCrowd crowd(ch, x, y, std::max(proto->iSplashRange, 0) + PLAYERBOT_SKILL_HIT_MARGIN);
+		ch->GetSectree()->ForEachAround(crowd);
+		return crowd.Count() >= PLAYERBOT_SPLASH_CROWD_MIN;
+	}
+
+	// A melee skill's hits as a player's client sends them, in
+	// playerbot_targeting.h beside the swing's (the collector is there).
+	DWORD ApplyPlayerBotSkillHits(LPCHARACTER ch, DWORD skillVnum, LPCHARACTER target);
+
 	// The character this bot agreed to duel, if it is still standing where the
 	// bot can reach it. Resolved here rather than in the policy header because
 	// that one is shared with an engine translation unit and knows no
@@ -749,7 +801,8 @@ namespace
 			const DWORD skillVnum = build.dwOffensiveSkills[i];
 			if (skillVnum == 0 || ch->GetSkillLevel(skillVnum) == 0)
 				continue;
-			if (target->IsStone() && IsPlayerBotSplashSkill(skillVnum))
+			if (target->IsStone() && IsPlayerBotSplashSkill(skillVnum) &&
+					!IsPlayerBotSplashWorthAtStone(ch, target, skillVnum))
 				continue;
 			if (distance > PLAYERBOT_SKILL_REACH_CHECK_FROM && !PlayerBotSkillReaches(skillVnum, distance))
 				continue;
@@ -768,7 +821,9 @@ namespace
 				// Keep the single, proven server-side damage path.  Shoot() would
 				// consume the pending target and run a second damage path.  The visual
 				// packet follows the same order as the build verified in the client.
-				ch->ComputeSkill(skillVnum, target);
+				// A melee skill lands on as many as a player's client would send
+				// hits for (ApplyPlayerBotSkillHits); everything else once.
+				const DWORD hits = ApplyPlayerBotSkillHits(ch, skillVnum, target);
 				SendPlayerBotSkillPacket(ch, skillVnum);
 				// The arrow is needed in the slot and never spent: a bot's quiver
 				// never empties (ExecutePlayerBotBasicAttack).
@@ -782,8 +837,9 @@ namespace
 						 ? PLAYERBOT_SHAMAN_ATTACK_SKILL_INTERVAL
 						 : PLAYERBOT_SKILL_ATTACK_INTERVAL);
 				state.dwNextAttackTime = dwNow + PLAYERBOT_SKILL_ANIMATION_LOCK;
-				sys_log(0, "PLAYERBOT_AI: used attack skill pid=%u name=%s vnum=%u target_vid=%u",
-						ch->GetPlayerID(), ch->GetName(), skillVnum, (DWORD)target->GetVID());
+				sys_log(0, "PLAYERBOT_AI: used attack skill pid=%u name=%s vnum=%u target_vid=%u hits=%u stone=%d",
+						ch->GetPlayerID(), ch->GetName(), skillVnum, (DWORD)target->GetVID(), hits,
+						target->IsStone() ? 1 : 0);
 				return true;
 			}
 		}

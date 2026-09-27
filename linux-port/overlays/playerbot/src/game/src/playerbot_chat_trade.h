@@ -129,6 +129,52 @@ namespace
 				bot->GetPlayerID(), bot->GetName(), to->GetName(), text);
 	}
 
+	// An item as the client links one in a line of the chat, what a player's
+	// Alt-click puts there: the format is playerbot_item_link_rules.h's, the
+	// item this one's - a live item or an offline shop's record of one.
+	std::string FormatPlayerBotItemLink(DWORD vnum, DWORD flags, const long* sockets,
+			const TPlayerItemAttribute* attrs, const char* name)
+	{
+		long socketsOf[playerbot_item_link::LINK_SOCKETS] = { 0, 0, 0 };
+		for (int i = 0; i < playerbot_item_link::LINK_SOCKETS && i < ITEM_SOCKET_MAX_NUM; ++i)
+			socketsOf[i] = sockets[i];
+		playerbot_item_link::TAttr attrsOf[ITEM_ATTRIBUTE_MAX_NUM];
+		for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
+		{
+			attrsOf[i].type = attrs[i].bType;
+			attrsOf[i].value = attrs[i].sValue;
+		}
+		return playerbot_item_link::Format(vnum, flags, socketsOf, attrsOf, ITEM_ATTRIBUTE_MAX_NUM, name);
+	}
+
+	// A live item's link, printed under `name` (its proto's by default).
+	std::string MakePlayerBotItemLink(LPITEM item, const char* name = NULL)
+	{
+		if (!item || !item->GetProto())
+			return std::string();
+		long sockets[ITEM_SOCKET_MAX_NUM];
+		for (int i = 0; i < ITEM_SOCKET_MAX_NUM; ++i)
+			sockets[i] = item->GetSocket(i);
+		TPlayerItemAttribute attrs[ITEM_ATTRIBUTE_MAX_NUM];
+		for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
+		{
+			attrs[i].bType = item->GetAttributeType(i);
+			attrs[i].sValue = item->GetAttributeValue(i);
+		}
+		return FormatPlayerBotItemLink(item->GetVnum(), (DWORD)item->GetFlag(), sockets, attrs,
+				name && *name ? name : item->GetProto()->szLocaleName);
+	}
+
+	// A reply with the stall lines it names linked while the client can show
+	// the whole line (playerbot_item_link::Substitute, WhisperRoom): the ones
+	// past the room keep their names, because a cut link prints as raw text.
+	std::string LinkPlayerBotTradeReply(LPCHARACTER sender, const char* text,
+			const std::vector<playerbot_item_link::TEntry>& links)
+	{
+		return playerbot_item_link::Substitute(text ? text : "", links,
+				playerbot_item_link::WhisperRoom(strlen(sender->GetName())));
+	}
+
 	// A line on the world channel in the bot's name, within the two throttles.
 	bool ShoutPlayerBotTrade(LPCHARACTER bot, const char* text, DWORD dwNow)
 	{
@@ -241,6 +287,8 @@ namespace
 	struct TPlayerBotStallLine
 	{
 		std::string name;
+		// The item's chat link (MakePlayerBotItemLink), printed as the name.
+		std::string link;
 		DWORD vnum;
 		DWORD skill;
 		// A Forgetting Book's line (ITEM_SKILLFORGET, the skill in socket 0),
@@ -305,6 +353,7 @@ namespace
 						line.forget = true;
 					}
 					line.name = GetPlayerBotStallLineName(item->GetProto(), line.skill, line.forget);
+					line.link = MakePlayerBotItemLink(item, line.name.c_str());
 					line.price = (long long)offer.dwPrice;
 					line.count = offer.wCount ? offer.wCount : 1;
 					out.lines.push_back(line);
@@ -340,6 +389,8 @@ namespace
 					line.forget = true;
 				}
 				line.name = GetPlayerBotStallLineName(proto, line.skill, line.forget);
+				line.link = FormatPlayerBotItemLink(line.vnum, proto->dwFlags, shopItem->GetInfo().alSockets,
+						shopItem->GetInfo().aAttr, line.name.c_str());
 				line.price = (long long)shopItem->GetPrice().yang;
 				line.count = (unsigned int)shopItem->GetInfo().count;
 				out.lines.push_back(line);
@@ -537,7 +588,12 @@ namespace
 			snprintf(reply, sizeof(reply), "Mam %s na straganie w %s, %s yang",
 					bestLine.name.c_str(), GetPlayerBotTownName(bestMap),
 					playerbot_conv::FormatYang(bestLine.price).c_str());
-		SendPlayerBotWhisper(bestKeeper, player, reply);
+		// The line shown as the client shows a linked item: the piece itself,
+		// its grade and bonuses, on a click.
+		std::vector<playerbot_item_link::TEntry> links(1);
+		links[0].name = bestLine.name;
+		links[0].link = bestLine.link;
+		SendPlayerBotWhisper(bestKeeper, player, LinkPlayerBotTradeReply(bestKeeper, reply, links).c_str());
 		return true;
 	}
 
@@ -854,15 +910,20 @@ namespace
 		if (GetPlayerBotStall(bot->GetPlayerID(), bot, stall) && !stall.lines.empty())
 		{
 			std::string goods;
+			std::vector<playerbot_item_link::TEntry> links;
 			for (size_t k = 0; k < stall.lines.size() && k < 3; ++k)
 			{
 				if (!goods.empty())
 					goods += ", ";
 				goods += stall.lines[k].name;
+				playerbot_item_link::TEntry entry;
+				entry.name = stall.lines[k].name;
+				entry.link = stall.lines[k].link;
+				links.push_back(entry);
 			}
 			snprintf(reply, sizeof(reply), "Mam stragan w %s, na nim: %s",
 					GetPlayerBotTownName(stall.mapIndex), goods.c_str());
-			SendPlayerBotWhisper(bot, player, reply);
+			SendPlayerBotWhisper(bot, player, LinkPlayerBotTradeReply(bot, reply, links).c_str());
 		}
 		else if (it != s_mapPlayerBotAIStates.end() && it->second.bMarketTrip)
 		{

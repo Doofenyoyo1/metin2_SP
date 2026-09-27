@@ -286,6 +286,23 @@ namespace playerbot_conv
 				folded += '+';
 				continue;
 			}
+			// A '+' after a word and before no digit is part of an item's name:
+			// Biala Wstega+ is another item than Biala Wstega, and "szukam
+			// bialej wstegi+" was offered the plain one (Bloody Reapers, 27
+			// September). It survives as the word "~plus", which the item
+			// matcher reads (ItemWordsMatch); a sum ("2 + 2") has a digit before
+			// it and keeps its old reading.
+			if (c == '+')
+			{
+				size_t k = folded.size();
+				while (k > 0 && folded[k - 1] == ' ')
+					--k;
+				if (k > 0 && folded[k - 1] >= 'a' && folded[k - 1] <= 'z')
+				{
+					folded += " ~plus ";
+					continue;
+				}
+			}
 			c = FoldCp1250(c);
 			if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
 				folded += (char)c;

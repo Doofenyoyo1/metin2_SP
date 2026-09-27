@@ -35,25 +35,16 @@ namespace
 		return PLAYERBOT_HORSE_REQUIRED_LEVEL;
 	}
 
-	// Iwakura's Jezdziec: a Grinder wants a horse for its speed and no more
-	// ("odebrac konia na 1. poziomie - zalezy mu tylko na szybkosci
-	// przemieszczania sie"), and the medals after the first are stock for a
-	// counter; a Conqueror raises it to eleven and twenty-one, the horse it
-	// fights from. A dropper keeps its own rules.
-	bool IsPlayerBotGrinderRider(LPCHARACTER ch)
-	{
-		if (!ch || !IsPlayerBotPersonaEnabled())
-			return false;
-		TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
-		return it != s_mapPlayerBotAIStates.end() && it->second.persona.bRestored &&
-				!it->second.persona.bAdvanced && !IsPlayerBotDropper(it->second.bPersonality);
-	}
-
+	// Every bot raises its horse, to the battle horse and the military one.
+	// Iwakura's Jezdziec stopped a Grinder at the first ("odebrac konia na 1.
+	// poziomie - zalezy mu tylko na szybkosci przemieszczania sie") and sold
+	// the medals after it, so under his personalities almost nobody rode more
+	// than a pony: a top Blade Master of Urtopy's "nie ma na to checi". The
+	// operator's answer (27 September): "niech wszyscy rozwijaja konie". A
+	// dropper still takes no trial (IsPlayerBotTrialExempt).
 	bool CanPlayerBotAdvanceHorse(LPCHARACTER ch)
 	{
 		if (!ch || ch->GetHorseLevel() >= 21)
-			return false;
-		if (ch->GetHorseLevel() >= 1 && IsPlayerBotGrinderRider(ch))
 			return false;
 		// A horse at exactly ten is what the battle horse trial asks for, and one
 		// more medal makes it eleven - after which no medal, quest or NPC in this

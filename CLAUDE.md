@@ -106,6 +106,7 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_itemshop.h` | The 2.x line's in-game ItemShop: the Kupon SM vouchers cashed, the account's Dragon Coins and Marks, and the few things a bot buys with them. Empty on r40250. |
 | `playerbot_market.h` | Buying from another bot's counter: what is worth having, the walk to the stall, and the purchase. |
 | `playerbot_chat_trade.h` | Trading over the chat: what a bot shouts about its counter and its wants, and the whisper it answers a player's "Kupie"/"Sprzedam" with. Fed by patch 0007. Anything else whispered falls through to the conversation. |
+| `playerbot_item_link_rules.h` | An item as the client's Alt-click links it in a chat line (`item:` vnum, flags, sockets in hex, then every bonus), and a reply with the items it names linked, each once, only while the whole still fits the 255 bytes the client prints of a whisper line. No engine types, unit-tested (`tests/playerbot_item_link_rules_test.cpp`, ours - upstream shipped the header without it). The engine half is in chat_trade.h and chat_conversation.h. |
 | `playerbot_conv_*.h` | ĹŌŞƬĒĶ's conversation layer as pure code (text, aliases, lexicon, intents, memory, state, say, general, generator, engine): what a whisper means, what the bot remembers of the person, and the reply. `playerbot_conv_aliases.h` is the players' own words (FMS, KK, KD, bodzio; M1, V1, DT; 2kk) and is also included by `playerbot_chat_trade.h`. No engine types, unit-tested (`tests/playerbot_conversation_test.cpp`). Included by the next row only. |
 | `playerbot_chat_conversation.h` | The conversation's engine side: the snapshot of the bot it answers from, the whisper packet, the short timer while replies wait, a Shaman's buffs evaluated from `skill_proto`, and the summon ("chodz do mnie") with its pass in the tick. After status.h. |
 | `playerbot_loot.h` | Picking things up, in and out of a fight, without sweeping the floor. |
@@ -120,7 +121,7 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_demon_tower.h` | The bots' Demon Tower: one guild's raid at a time (the call, the gathering by the stone, the stone broken together), and the floors for whoever the jump takes - the scan of the floor, the duel-shaped fight, the keys used and handed in, the smith passed. After guild_war.h because the fight and the kingdom names are its. |
 | `playerbot_boss_raid.h` | The world's bosses broken by a crowd of one kingdom: the table of bosses with their level windows and raid sizes, the call, the gathering outside the boss's sight, the fight together, the reinforcement and the giving up. After demon_tower.h, whose fight and keeping alive it borrows. |
 | `playerbot_catacomb.h` | The Devil's Catacomb raided by a party of bots of one kingdom (upstream 2.2.21): the call by the Guardian in Hwang Temple, the key on the first floor, the gates, the Metins of Revenge, the maze, Tartarus, Charon and Azrael; a person in the party clicks the statue, the rock and the stake. The CATACOMB key and `/opt/m2spool/playerbot_catacomb_now`. |
-| `playerbot_world_events.h` | Pirate Tanaka and Zuo (upstream 2.2.22, our 2.2.24): the two timed events that put something into the world, scheduled from the panel's Events page like the chests and the rates (`playerbot_event_rules.h` holds the `tanaka`/`zuo` kinds, the map column and the `bots` share), the pirates kept on the map and replaced, the waves of Metins and the bosses of the second half, and the bots sent to them (never off a war, the Tower, a raid, a duel or a person's party). The ear's drop is playerbotify `apply_tanaka_goblin`, Yonah's exchange `tanaka_ears.quest`. After catacomb.h, before sidekick.h. |
+| `playerbot_world_events.h` | Pirate Tanaka and Zuo (upstream 2.2.22, our 2.2.24): the two timed events that put something into the world, scheduled from the panel's Events page like the chests and the rates (`playerbot_event_rules.h` holds the `tanaka`/`zuo` kinds, the map column and the `bots` share), the pirates kept on the map and replaced, the waves of Metins and the bosses of the second half, and the bots sent to them (never off a war, the Tower, a raid, a duel or a person's party). One event per map since upstream 2.2.28 (our 2.2.30, `EvaluateWorldByMap`): a Zuo over Bakra and one over Bokjung run side by side, a kingdom map calls only that kingdom's bots, and the panels key a "now" line by kind and map (`zuo@43`). The ear's drop is playerbotify `apply_tanaka_goblin`, Yonah's exchange `tanaka_ears.quest`. After catacomb.h, before sidekick.h. |
 | `playerbot_persona_rules.h` | Iwakura's personality system as pure policy: the moods, the Grinder's tiers and the Law of Advancement, the gambler's ambitions, the Anti-PK window, the companion's draw, the mercenary's terms and the Useful Items List. No engine types, unit-tested (`tests/playerbot_persona_rules_test.cpp`). Included first, with the other rules headers. |
 | `playerbot_persona_tables.h` | Rendered from his document by `tools/generate_iwakura_persona.py`: the valuables whose drop lifts a mood, and the LPP's weapons by level band, target shields and target armours. |
 | `playerbot_mood.h` | The Bot Mood System: what a mood is worth to whom, the drought, the euphoria, and the mood a bot plays by (NORMALNY in company, its own alone). |
@@ -4197,6 +4198,24 @@ not in `data/`) reworked these point by point. What each hangs on:
   video is to come in a later client patch), and it appends a few lines to
   `login_preload.log` in the client folder on every start. The
   static-background switch asked of ĹŌŞƬĒĶ is not in this build.
+- **Our client packages carry the exe; upstream's stopped at 2.0.35.**
+  Defender took upstream's `metin2client.exe` for a trojan, and a package
+  with one refused file is rolled back whole, so upstream publishes the exe
+  as a release asset of its own (the manifest's `clientExe`: url, sha256,
+  size) and its launcher (2.2.27) replaces a known old build with it
+  (`Repair-M2ClientExecutables`, `$script:M2OldClientExeHashes` - the four
+  two-page builds, the same list as `Metin2Launcher.Coop.psm1`'s and
+  `Dolacz.ps1`'s) at every start, before the game starts and after a client
+  update, and deletes the two strays old full packages carried. Our client
+  packages go on carrying the exe (`build_mt2009_client_update.py` takes the
+  previous package's and applies `EXE_STRING_PATCHES`), and since 2.2.30 a
+  client release also uploads that exe alone and writes `clientExe` into our
+  manifest (the publish workflow), so the same repair runs here. Ours differs
+  from upstream's current build by 21 bytes, the Discord button's address;
+  both export `player.INVENTORY_PAGE_COUNT`, which client 2.0.44's login asks
+  before it lets an exe in (`IsClientExeStale` in intrologin.py - an exe that
+  lacks the attribute is refused, so never ship a root with that check beside
+  an exe that does not export it).
 - **A blow is modelled the way battle.cpp deals it, and mt2009 hides a share
   of it.** `GetPlayerBotWeaponHitDamageAt` (playerbot_gear.h) is
   `CalcAttackRating` against a monster of the bot's own level, `CalcMeleeDamage`
@@ -9563,7 +9582,7 @@ upstream 2.1.0/client 2.0.26, the merge is 2.1.1/client 2.0.28, and the next
 sync (upstream 2.2.0-2.2.6, client 2.0.27-2.0.28, over our 2.1.5 / client
 2.0.30) is 2.2.7 / client 2.0.31, and the one after (upstream 2.2.7 /
 client 2.0.29, over our 2.2.7 / client 2.0.31) is 2.2.8 / client 2.0.32, and the one after (upstream 2.2.8, client
-unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38, and the one after (upstream 2.2.21 / client 2.0.38, over our 2.2.21 / client 2.0.38) is 2.2.22 / client 2.0.39, and the one after (upstream 2.2.22-2.2.23 / client 2.0.39-2.0.40, over our 2.2.22 / client 2.0.39) is 2.2.24 / client 2.0.41, and the one after (upstream 2.2.24-2.2.26 / client 2.0.41, over our 2.2.24 / client 2.0.41) is 2.2.27 / client 2.0.42. Upstream's added attributions to its own
+unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38, and the one after (upstream 2.2.21 / client 2.0.38, over our 2.2.21 / client 2.0.38) is 2.2.22 / client 2.0.39, and the one after (upstream 2.2.22-2.2.23 / client 2.0.39-2.0.40, over our 2.2.22 / client 2.0.39) is 2.2.24 / client 2.0.41, and the one after (upstream 2.2.24-2.2.26 / client 2.0.41, over our 2.2.24 / client 2.0.41) is 2.2.27 / client 2.0.42, and the one after (upstream 2.2.27-2.2.29 / client 2.0.42-2.0.43, over our 2.2.27 / client 2.0.42) is 2.2.30 / client 2.0.44. Upstream's added attributions to its own
 operator are scrubbed from comments and notes the way the first sync did; a
 player's or a contributor's name stays. An upstream `## x.y.z` CHANGELOG
 section whose number this repository already used moves under the new section,
@@ -9615,3 +9634,14 @@ unit tests are not in the packages either. When a pure header
 changes a constant, fix our test (2.2.19's PERFECT_BUDGET_PERCENT went from
 80 to 50). Afterwards, build both packages locally against the new upstream
 package and read them back.
+A clientrootify pair must not write inside the text an earlier pair of the
+same file writes, or the second render of a rendered root finds neither side
+of the earlier pair and stops (the idempotency check in "When adding a
+clientrootify edit" above). When upstream's change lands inside such text -
+2.0.43's chance line in `uirefine.py` sat between the two try blocks our
+2.0.36 pair writes - fold it into that pair's `new` and put an optional
+migration pair in front of it (old = the pair's previous `new`, new = the new
+one, third element True): a stock root skips the migration, our published
+root takes it, a rendered root skips both. No Python 2.7 here and no Docker:
+the client tests run on Python 3, and `client_refine_dialog_test.py` needs
+`builtins.xrange = range` put in front of it (`runpy`).

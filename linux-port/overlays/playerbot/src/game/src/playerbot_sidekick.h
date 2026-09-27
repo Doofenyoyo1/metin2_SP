@@ -3491,10 +3491,95 @@ namespace
 		return 0;
 	}
 
+	// "1500000", "1.5kk", "500k", "2kkk": the amount the window's yang dialog
+	// or a typed order names, 0 when it names none.
+	long long ParsePlayerBotSidekickYang(const char* text)
+	{
+		if (!text || !*text)
+			return 0;
+		long long whole = 0;
+		long long fraction = 0;
+		long long fractionScale = 1;
+		bool dot = false;
+		const char* p = text;
+		for (; *p; ++p)
+		{
+			if (*p >= '0' && *p <= '9')
+			{
+				if (dot)
+				{
+					if (fractionScale < 1000)
+					{
+						fraction = fraction * 10 + (*p - '0');
+						fractionScale *= 10;
+					}
+				}
+				else if (whole < 100000000000LL)
+					whole = whole * 10 + (*p - '0');
+				continue;
+			}
+			if ((*p == '.' || *p == ',') && !dot)
+			{
+				dot = true;
+				continue;
+			}
+			break;
+		}
+		long long unit = 1;
+		for (; *p == 'k' || *p == 'K'; ++p)
+			unit *= 1000;
+		if (*p || unit > 1000000000LL)
+			return 0;
+		// More than any purse holds is refused as that, not wrapped round.
+		if (whole > (long long)GOLD_MAX / unit + 1)
+			return (long long)GOLD_MAX + 1;
+		return whole * unit + fraction * unit / fractionScale;
+	}
+
+	// Yang between the owner and the companion, either way. A trade could
+	// only give it some ("Yang daje sie przez handel"), and what it gathered -
+	// its drops' yang, what the merchant paid it - stayed with it: "bedzie w
+	// koncu mozliwosc pobrania hajsu od towarzysza?" (Hiob, 27 September; the
+	// operator: both ways). The window's two buttons send "eq yang daj
+	// <kwota>" and "eq yang wez <kwota>". A purse holds GOLD_MAX either way,
+	// and the game's log says who moved what.
+	int MovePlayerBotSidekickYang(LPCHARACTER owner, LPCHARACTER sk, bool give, const char* amountText,
+			std::string& answer)
+	{
+		const long long amount = ParsePlayerBotSidekickYang(amountText);
+		if (amount <= 0)
+		{
+			answer = "Podaj kwote, np. 500000 albo 1.5kk.";
+			return 9;
+		}
+		LPCHARACTER from = give ? owner : sk;
+		LPCHARACTER to = give ? sk : owner;
+		if ((long long)from->GetGold() < amount)
+		{
+			answer = give ? "Nie masz tyle yang." : "Towarzysz nie ma tyle yang.";
+			return 2;
+		}
+		if ((long long)to->GetGold() + amount > (long long)GOLD_MAX)
+		{
+			answer = give ? "Towarzysz nie zmiesci tyle yang." : "Nie zmiescisz tyle yang.";
+			return 2;
+		}
+		PlayerBotChangeGold(from, -amount);
+		PlayerBotChangeGold(to, amount);
+		LogManager::instance().CharLog(owner, (DWORD)amount,
+				give ? "PLAYERBOT_SIDEKICK_YANG_GIVE" : "PLAYERBOT_SIDEKICK_YANG_TAKE", sk->GetName());
+		sys_log(0, "PLAYERBOT_SIDEKICK: yang %s pid=%u name=%s owner=%u amount=%lld owner_gold=%lld sidekick_gold=%lld",
+				give ? "given" : "taken", sk->GetPlayerID(), sk->GetName(), owner->GetPlayerID(), amount,
+				(long long)owner->GetGold(), (long long)sk->GetGold());
+		answer = std::string(give ? "Dano towarzyszowi " : "Wziete od towarzysza: ") +
+				playerbot_conv::FormatYang(amount) + " yang.";
+		return 0;
+	}
+
 	// The window's orders on the bag: "eq" (what changed), "eq 1" (all of
 	// it), "eq ruch <z> <na>", "eq daj <twoja komorka> <na>", "eq wez <z>
-	// <twoja komorka>", "eq odepnij <pozycja>". Each is answered with one
-	// SidekickEqResult and then what changed.
+	// <twoja komorka>", "eq odepnij <pozycja>", "eq yang daj|wez <kwota>".
+	// Each is answered with one SidekickEqResult and then what changed.
 	void HandlePlayerBotSidekickEqCommand(LPCHARACTER owner, const char* op, const char* a, const char* b)
 	{
 		if (!*op || !strcmp(op, "1"))
@@ -3532,7 +3617,20 @@ namespace
 		std::string answer;
 		int code = 9;
 		const bool twoBags = !strcmp(op, "daj") || !strcmp(op, "wez");
-		if (!strcmp(op, "ruch") || twoBags || !strcmp(op, "odepnij"))
+		if (!strcmp(op, "yang"))
+		{
+			// A trade, a counter, the safebox open on either side: the
+			// engine's "busy", as for an item.
+			if (strcmp(a, "daj") && strcmp(a, "wez"))
+				answer = "Nieznane polecenie okna.";
+			else if (!sk->CanHandleItem())
+				answer = "Towarzysz jest teraz zajety (handel, magazyn albo kowal) - sprobuj za chwile.";
+			else if (!owner->CanHandleItem())
+				answer = "Zamknij najpierw handel, sklep albo magazyn.";
+			else
+				code = MovePlayerBotSidekickYang(owner, sk, !strcmp(a, "daj"), b, answer);
+		}
+		else if (!strcmp(op, "ruch") || twoBags || !strcmp(op, "odepnij"))
 		{
 			if (from == INT_MIN || (strcmp(op, "odepnij") && to == INT_MIN))
 				answer = "Zle miejsce.";

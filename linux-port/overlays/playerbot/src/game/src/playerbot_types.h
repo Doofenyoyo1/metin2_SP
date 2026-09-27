@@ -30,7 +30,25 @@ namespace
 	// edge of its range, not onto the monster.
 	const int PLAYERBOT_BOW_APPROACH_SLACK = 150;
 	const int PLAYERBOT_MELEE_SPLASH_RANGE = 300;
-	const size_t PLAYERBOT_MAX_MELEE_TARGETS = 4;
+	// How many one swing strikes, the one it was aimed at included. A player's
+	// client sends a hit for every monster its weapon's arc crosses and the
+	// engine counts none of them (CHARACTER::Attack asks the speed hack and the
+	// distance per victim), so the number here is a guard against a crowd of
+	// fifty, not a rule: at four, a bot hacking a Metin in the ring of wolves
+	// and bears that came out of it cut three of them a swing while they all
+	// bit it ("Bot bijac metina zadaje dmg tylko metinowi, a nie wypadajacym
+	// potworom", Iwakura, 27 September).
+	const size_t PLAYERBOT_MAX_MELEE_TARGETS = 10;
+	// A melee skill as a player's client sends it (ApplyPlayerBotSkillHits):
+	// how far from the caster its victims stand past the skill's own splash
+	// range, and how many hits a skill whose lMaxHit is 0 - no limit in the
+	// engine - lands at most.
+	const int PLAYERBOT_SKILL_HIT_MARGIN = 100;
+	const int PLAYERBOT_SKILL_MAX_HITS_UNCAPPED = 12;
+	// A splash skill is cast at a stone only with this many monsters about it:
+	// against the stone alone it is the rotation's weakest blow, against the
+	// pack that came out of it the strongest.
+	const int PLAYERBOT_SPLASH_CROWD_MIN = 2;
 	// A swing is a swing in front of the character, and the client is where
 	// that is decided for a player: CActorInstance::__NormalAttackProcess
 	// refuses a victim further than 300 units (this range, to the unit) and
@@ -467,6 +485,10 @@ namespace
 	// A skill line this high on a weapon is a prize line too (the bonus pass
 	// keeps an average line from PLAYERBOT_BONUS_KEEP_AVERAGE).
 	const long PLAYERBOT_WEAPON_PRIZE_SKILL_PERCENT = 15;
+	// A weapon of the bot's class with a prize line, under the plus of the one
+	// in the hand, is kept and refined when at that plus it would hit this
+	// much harder (FindPlayerBotLinesProject): better lines, a lower plus.
+	const long PLAYERBOT_LINES_PROJECT_MARGIN_PERCENT = 5;
 	// A stone is not spent on a piece under this refine: the piece is going
 	// to be refined first, and a burn on the way there takes the lines with
 	// it. And a piece carrying this many lines is finished in the only sense
@@ -7464,6 +7486,9 @@ namespace
 		// still on the floor, until this (PLAYERBOT_TANAKA_LOOT_HOLD_MS).
 		DWORD dwWorldEventLootUntil = 0;
 		long lWorldEventMap = 0;
+		// Which of the kind's events: the map the panel asked for (0 when the
+		// event picked), one event per map since several run at once.
+		long lWorldEventKey = 0;
 		DWORD dwWorldEventTargetVID = 0;
 		DWORD dwNextWorldEventMoveTime = 0;
 		DWORD dwWorldEventJoinedAt = 0;

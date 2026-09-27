@@ -2096,8 +2096,23 @@ namespace
 				item->GetRefineLevel() < PLAYERBOT_LEVEL30_MIN_PLUS;
 	}
 
+	// What a level-30 weapon hits for at a plus, or at its own above it.
+	long long GetPlayerBotLevel30PotentialAt(LPCHARACTER ch, LPITEM item, BYTE plus)
+	{
+		if (!item)
+			return 0;
+		const TItemTable* proto = GetPlayerBotWeaponProtoAtPlus(item, std::max<BYTE>(item->GetRefineLevel(), plus));
+		return proto ? GetPlayerBotWeaponHitDamageAt(item, proto, ch) : 0;
+	}
+
 	// The one it works on: the best of them by what it will hit for, the
-	// weapon in the hand winning a tie.
+	// weapon in the hand winning a tie. All of them are judged at one plus -
+	// the hand's, PLAYERBOT_LEVEL30_PROJECT_PLUS if that is higher - so a copy
+	// with the better lines is the one worked on under a hand at +8 or +9 too.
+	// Each judged at its own plus, the hand at +8 always beat a fresh +0 whose
+	// lines were better, and the fresh one went on a counter ("jak maja fmsa +4
+	// 30 srednie a dropna fmsa 35 srednie to ... powinny go ulepszac zeby go
+	// zalozyc", sosen, 27 September).
 	LPITEM FindPlayerBotClassLevel30Weapon(LPCHARACTER ch)
 	{
 		if (!ch || !ch->IsItemLoaded())
@@ -2105,17 +2120,19 @@ namespace
 		LPITEM best = NULL;
 		long long bestPotential = -1;
 		LPITEM worn = ch->GetWear(WEAR_WEAPON);
-		if (IsPlayerBotClassLevel30Weapon(ch, worn))
+		const bool wornOwn = IsPlayerBotClassLevel30Weapon(ch, worn);
+		const BYTE plus = std::max<BYTE>(wornOwn ? worn->GetRefineLevel() : 0, PLAYERBOT_LEVEL30_PROJECT_PLUS);
+		if (wornOwn)
 		{
 			best = worn;
-			bestPotential = GetPlayerBotLevel30Potential(ch, worn);
+			bestPotential = GetPlayerBotLevel30PotentialAt(ch, worn, plus);
 		}
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
 			if (!item || item->GetCell() != cell || !IsPlayerBotClassLevel30Weapon(ch, item))
 				continue;
-			const long long potential = GetPlayerBotLevel30Potential(ch, item);
+			const long long potential = GetPlayerBotLevel30PotentialAt(ch, item, plus);
 			if (potential > bestPotential)
 			{
 				best = item;
@@ -2699,8 +2716,10 @@ namespace
 	bool PlayerBotRefinesLowArmourForSale(LPCHARACTER ch, LPITEM item);
 	// Defined in playerbot_economy.h, after the backup rules it gives way to.
 	bool PlayerBotRisksPlainAnvil(LPCHARACTER ch, LPITEM item);
+	// Defined in playerbot_economy.h, beside the prize line it asks for.
+	LPITEM FindPlayerBotLinesProject(LPCHARACTER ch);
 
-	BYTE GetPlayerBotRefineTarget(LPCHARACTER ch, LPITEM item)
+	BYTE GetPlayerBotRefineTargetOwn(LPCHARACTER ch, LPITEM item)
 	{
 		if (!ch || !item)
 			return 0;
@@ -2761,6 +2780,25 @@ namespace
 			return PLAYERBOT_SCROLL_REFINE_MAX_PLUS;
 		const BYTE ambition = GetPlayerBotRefineAmbition(ch, item);
 		return (int)ambition >= firstRung ? PLAYERBOT_SCROLL_REFINE_MAX_PLUS : ambition;
+	}
+
+	// A weapon worked on in the bag under the one in the hand - the class's
+	// level-30 copy with the better lines, or the weapon kept for its lines
+	// (FindPlayerBotLinesProject) - is taken at least to the hand's plus, where
+	// it hits harder and the equipment pass puts it on. An aim under the hand's
+	// plus left it in the bag for good.
+	BYTE GetPlayerBotRefineTarget(LPCHARACTER ch, LPITEM item)
+	{
+		const BYTE target = GetPlayerBotRefineTargetOwn(ch, item);
+		if (!ch || !item || item->IsEquipped() || item->GetType() != ITEM_WEAPON)
+			return target;
+		LPITEM worn = ch->GetWear(WEAR_WEAPON);
+		if (!worn || worn->GetRefineLevel() <= target)
+			return target;
+		const bool classCopy = IsPlayerBotClassLevel30Weapon(ch, item) && item == FindPlayerBotClassLevel30Weapon(ch);
+		if (!classCopy && item != FindPlayerBotLinesProject(ch))
+			return target;
+		return std::min<BYTE>(worn->GetRefineLevel(), PLAYERBOT_SCROLL_REFINE_MAX_PLUS);
 	}
 
 	// What the village merchants actually stock, and what they charge for it.

@@ -2511,9 +2511,9 @@ namespace
 		// one - could neither use nor sell what it had.
 		if (ch && GetPlayerBotPersonalityByPID(ch->GetPlayerID()) == BOT_PERSONALITY_MEDAL_DROPPER)
 			return true;
-		// Iwakura's Grinder on its first horse: "a nadmiar medali sprzedaje".
-		if (ch && ch->GetHorseLevel() >= 1 && IsPlayerBotGrinderRider(ch))
-			return true;
+		// Iwakura's Grinder sold the medals after its first horse; since every
+		// bot raises its horse (CanPlayerBotAdvanceHorse, 27 September) it keeps
+		// them for the stable like anybody else.
 		// Anything over the keep is goods for everybody. Without this a bot on a
 		// horse of exactly ten past level thirty-five - a battle-horse candidate,
 		// which may spend no medal at all - was refused by both halves of the
@@ -2694,6 +2694,10 @@ namespace
 				return -1;
 			return PlayerBotKeepsLevel30ForAnvil(ch, item) ? -1 : 2000;
 		}
+		// Nor the weapon a bot keeps for its lines: it is on its way to the
+		// hand (FindPlayerBotLinesProject), not to a counter.
+		if (ch && item->GetType() == ITEM_WEAPON && item == FindPlayerBotLinesProject(ch))
+			return -1;
 		// Iwakura's fifty-four weapons at +0..+3 stand on the bots' counters
 		// PLAYERBOT_JUNK_WEAPON_MARKET_CAP at a time, world-wide.
 		if (IsPlayerBotCappedJunkWeapon(item) && IsPlayerBotJunkWeaponMarketFull())

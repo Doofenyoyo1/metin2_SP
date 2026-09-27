@@ -94,6 +94,152 @@ function Save-M2LauncherConfig {
         ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
 }
 
+# The builds of metin2client.exe (SHA-256) from before the current one. A full
+# package carries the exe of its day, and no client package has carried one
+# since 2.0.35 (Defender took it for a trojan), so an install made from an old
+# full package keeps its exe through every update, under the new root. The
+# first three know two inventory pages: on a server of 2.0.74 or later such a
+# client draws the server's page IV in the equipment slots, shows pages III and
+# IV empty, sells nothing and loses what it puts on (601210 and kordianq1112,
+# 27 September - a full 2.0.71 updated to 2.2.26). A list of the old builds
+# rather than of the good ones, so a newer build, or somebody's own, is never
+# touched. The same four as Metin2Launcher.Coop.psm1's.
+$script:M2OldClientExeHashes = @(
+    '8263F81BFACDFA4A664C1F2A8CE846AEE14F19E584DB40A43F3184FEF1A59531',  # 2.0.0 - 2.0.8
+    '752623560AB54E2F3F84FF9ADB8961D73E2E289634075118D3FBEA984CFCEFB1',  # klient 2.0.6 - 2.0.12
+    '6D2BCDAF8311EAD805629093404137BDEC23CDC71EFC6F684795C333F075ADF0',  # klient 2.0.13, pelna 2.0.71
+    '8FD0D516DE691AC4C9CDC84E551DC1EE154881051B03177AA80F57D84F57E66E'   # klient 2.0.14 - 2.0.16
+)
+
+# The two executables the full packages up to 2.0.97 carried beside
+# metin2client.exe by accident, the 2.0.13 build and a test build of 2.0.14,
+# which no update ever took away (the operator, 27 September: "mamy w kliencie
+# 3 exe zamiast jednego").
+$script:M2StrayClientExeNames = @('metin2client-2.0.13.exe', 'metin2client-claude.exe')
+
+function Get-M2FileSha256 {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return '' }
+    try { return ([string](Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash).ToUpperInvariant() }
+    catch { return '' }
+}
+
+function Test-M2ClientExeOld {
+    # Whether the client folder's metin2client.exe is one of the old builds.
+    param(
+        [Parameter(Mandatory = $true)][string]$ClientFolder,
+        [string[]]$OldHashes = $script:M2OldClientExeHashes
+    )
+    $hash = Get-M2FileSha256 -Path (Join-Path $ClientFolder 'metin2client.exe')
+    return [bool]($hash -and ($OldHashes -contains $hash))
+}
+
+function Get-M2ClientExeComponent {
+    # The manifest's "clientExe": the current metin2client.exe as a release
+    # asset of its own, with its SHA-256. It stays out of the client package on
+    # purpose - a package with one file the antivirus refuses is rolled back
+    # whole, and this is the file Defender takes. $null when the manifest has
+    # none (an older one) or a malformed one.
+    param($Manifest)
+    if (-not $Manifest) { return $null }
+    $property = $Manifest.PSObject.Properties['clientExe']
+    if (-not $property -or -not $property.Value) { return $null }
+    $component = $property.Value
+    foreach ($name in @('url', 'sha256')) {
+        if (-not $component.PSObject.Properties[$name] -or -not [string]$component.$name) { return $null }
+    }
+    if (-not (Test-M2Sha256 ([string]$component.sha256))) { return $null }
+    return $component
+}
+
+function Repair-M2ClientExecutables {
+    # Puts the client folder's executables in order: an old metin2client.exe
+    # replaced by the manifest's (when $ExeComponent is given), a launcher that
+    # starts one of the strays pointed back at metin2client.exe, and the strays
+    # deleted - the last two only while metin2client.exe is there, so nobody is
+    # left without a client. Nothing here fails the caller: an antivirus taking
+    # the download, a running client holding its file, a folder that cannot be
+    # written are each a line of the notes it returns, and the root refuses an
+    # old exe at the login in words of its own.
+    param(
+        [Parameter(Mandatory = $true)][string]$ClientFolder,
+        $ExeComponent = $null,
+        [string]$BackupRoot = '',
+        [string]$ServerRoot = '',
+        [string]$ConfigPath = '',
+        [string[]]$OldHashes = $script:M2OldClientExeHashes
+    )
+    $notes = @()
+    if (-not (Test-Path -LiteralPath $ClientFolder -PathType Container)) { return $notes }
+    $folder = [IO.Path]::GetFullPath($ClientFolder).TrimEnd('\')
+    $main = Join-Path $folder 'metin2client.exe'
+
+    if ($ExeComponent -and (Test-M2ClientExeOld -ClientFolder $folder -OldHashes $OldHashes)) {
+        $running = @(Get-M2FolderProcesses -Root $folder)
+        if ($running.Count -gt 0) {
+            $notes += "Klient ma stary metin2client.exe, ale gra jest uruchomiona ($($running -join ', ')) - zamknij ją, a launcher podmieni plik przy następnym uruchomieniu."
+        }
+        else {
+            $temp = Join-Path ([IO.Path]::GetTempPath()) ('m2-client-exe-' + [Guid]::NewGuid().ToString('N') + '.exe')
+            try {
+                Get-M2Download -Source ([string]$ExeComponent.url) -Destination $temp
+                $hash = Get-M2FileSha256 -Path $temp
+                if ($hash -ne ([string]$ExeComponent.sha256).ToUpperInvariant()) {
+                    throw "błędna suma SHA-256 pobranego pliku ($hash)"
+                }
+                if ($BackupRoot) {
+                    $backup = Join-Path $BackupRoot ('exe-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+                    New-Item -ItemType Directory -Path $backup -Force | Out-Null
+                    Copy-Item -LiteralPath $main -Destination (Join-Path $backup 'metin2client.exe') -Force
+                }
+                Copy-Item -LiteralPath $temp -Destination $main -Force
+                $notes += "Podmieniono stary metin2client.exe na aktualny (SHA-256 $($hash.Substring(0, 8))...)."
+            }
+            catch {
+                if (Test-M2AntivirusBlock -ErrorRecord $_) {
+                    $notes += ('Antywirus nie pozwolił zapisać aktualnego metin2client.exe (Windows Defender bierze go za zagrożenie - to fałszywy alarm), więc w folderze klienta został stary, z którym ekwipunek się rozjeżdża. ' +
+                        'Dodaj folder klienta do wykluczeń (Zabezpieczenia Windows > Ochrona przed wirusami i zagrożeniami > Zarządzaj ustawieniami > Wykluczenia) i uruchom launcher ponownie.')
+                }
+                else {
+                    $notes += "Nie udało się podmienić starego metin2client.exe: $($_.Exception.Message)"
+                }
+            }
+            finally {
+                if (Test-Path -LiteralPath $temp -PathType Leaf) {
+                    try { Remove-Item -LiteralPath $temp -Force } catch { }
+                }
+            }
+        }
+    }
+
+    if (-not (Test-Path -LiteralPath $main -PathType Leaf)) { return $notes }
+    # The launcher first: a config that starts a stray is pointed back before
+    # the stray goes, or the next start would ask for a file nobody has.
+    if ($ServerRoot -and $ConfigPath -and (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) {
+        $config = Get-M2LauncherConfig -ServerRoot $ServerRoot -ConfigPath $ConfigPath
+        $chosen = [string]$config.clientExecutable
+        if ($chosen -and ($script:M2StrayClientExeNames -contains [IO.Path]::GetFileName($chosen)) -and
+            ([IO.Path]::GetFullPath((Split-Path -Parent $chosen)).TrimEnd('\') -ieq $folder)) {
+            $config.clientExecutable = $main
+            $config.clientRoot = $folder
+            Save-M2LauncherConfig -Config $config -ConfigPath $ConfigPath
+            $notes += "Launcher uruchamiał $([IO.Path]::GetFileName($chosen)) - teraz uruchamia metin2client.exe."
+        }
+    }
+    foreach ($name in $script:M2StrayClientExeNames) {
+        $stray = Join-Path $folder $name
+        if (-not (Test-Path -LiteralPath $stray -PathType Leaf)) { continue }
+        try {
+            Remove-Item -LiteralPath $stray -Force
+            $notes += "Usunięto zbędny plik klienta: $name."
+        }
+        catch {
+            $notes += "Nie udało się usunąć $name ($($_.Exception.Message)) - spróbuję przy następnym uruchomieniu."
+        }
+    }
+    return $notes
+}
+
 function ConvertFrom-M2ManifestText {
     param(
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text,
@@ -2211,5 +2357,8 @@ Export-ModuleMember -Function @(
     'Sync-M2PlayerbotOverlay',
     'Set-M2PlayerbotsVersionEnvironment',
     'Invoke-M2EnginePatches',
-    'Get-M2FolderProcesses'
+    'Get-M2FolderProcesses',
+    'Test-M2ClientExeOld',
+    'Get-M2ClientExeComponent',
+    'Repair-M2ClientExecutables'
 )

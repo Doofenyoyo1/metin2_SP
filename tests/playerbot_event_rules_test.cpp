@@ -132,6 +132,28 @@ int main()
 	CHECK(tk.since == 999000 - 30 * 60);
 	tk = Evaluate(ev, KIND_TANAKA, 999030, 2, 18 * 60 + 50);
 	CHECK(!tk.active && tk.nextMap == 64 && tk.nextStart == 999000 + 10 * 60);
+	// One event per map since upstream 2.2.28 (our 2.2.30): a Zuo over Bakra
+	// and one over Bokjung run side by side, each with its own clock, where
+	// the kind's one status let the later line end the earlier rain
+	// (Derpsonkowy95). In the order the maps first appear; map 0 is its own.
+	std::vector<Status> byMap;
+	EvaluateWorldByMap(ev, KIND_TANAKA, 999030, 2, 20 * 60, byMap);
+	CHECK(byMap.size() == 2);
+	CHECK(byMap.size() == 2 && byMap[0].map == 64 && byMap[0].value == 3 && byMap[1].map == 63 && byMap[1].value == 5);
+	CHECK(byMap.size() == 2 && byMap[0].until != byMap[1].until);
+	EvaluateWorldByMap(ev, KIND_TANAKA, 999030, 2, 20 * 60 + 45, byMap);
+	CHECK(byMap.size() == 1 && byMap[0].map == 64);
+	EvaluateWorldByMap(ev, KIND_TANAKA, 999030, 2, 18 * 60 + 50, byMap);
+	CHECK(byMap.empty());
+	EvaluateWorldByMap(ev, KIND_ZUO, 999030, 2, 20 * 60, byMap);
+	CHECK(byMap.empty());
+	Window z0, z43;
+	CHECK(ParseLine("zuo\t*\t19:00\t21:00\t8\t0", z0));
+	CHECK(ParseLine("now\tzuo\t1000000\t12\t43", z43));
+	ev.push_back(z0);
+	ev.push_back(z43);
+	EvaluateWorldByMap(ev, KIND_ZUO, 999030, 2, 20 * 60, byMap);
+	CHECK(byMap.size() == 2 && byMap[0].map == 0 && byMap[1].map == 43 && byMap[1].value == 12);
 
 	if (g_failed)
 	{

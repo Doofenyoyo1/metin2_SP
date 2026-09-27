@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'Start', 'Stop', 'StartDocker', 'StopAll', 'Check', 'UpdateServer', 'UpdateClient', 'UpdateAll', 'Diagnose', 'Logs', 'SendLogs', 'Configure', 'SetBots', 'SetDifficulty', 'ImportDb', 'BackupDb', 'RestoreDb', 'ResetWorld', 'RepairDb', 'DbAccess', 'PanelPassword', 'FreePorts', 'CoopCheck', 'CoopSecure', 'CoopAddFriend', 'CoopBlockFriend', 'CoopUnblockFriend', 'CoopInvite', 'CoopHost', 'CoopStop', 'CoopRenew', 'CoopJoin', 'VpsConnect', 'VpsCheck', 'VpsInstall', 'VpsUpdate', 'VpsStatus', 'VpsPanel', 'VpsPanelClose', 'VpsLogs', 'VpsPasswords', 'VpsClient', 'VpsInvite')]
+    [ValidateSet('Menu', 'Start', 'Stop', 'StartDocker', 'StopAll', 'Check', 'UpdateServer', 'UpdateClient', 'UpdateAll', 'RepairClientExe', 'Diagnose', 'Logs', 'SendLogs', 'Configure', 'SetBots', 'SetDifficulty', 'ImportDb', 'BackupDb', 'RestoreDb', 'ResetWorld', 'RepairDb', 'DbAccess', 'PanelPassword', 'FreePorts', 'CoopCheck', 'CoopSecure', 'CoopAddFriend', 'CoopBlockFriend', 'CoopUnblockFriend', 'CoopInvite', 'CoopHost', 'CoopStop', 'CoopRenew', 'CoopJoin', 'VpsConnect', 'VpsCheck', 'VpsInstall', 'VpsUpdate', 'VpsStatus', 'VpsPanel', 'VpsPanelClose', 'VpsLogs', 'VpsPasswords', 'VpsClient', 'VpsInvite')]
     [string]$Action = 'Menu',
     [string]$Manifest = '',
     [int]$BotCount = -1,
@@ -601,6 +601,7 @@ function Update-Client {
     $state = Read-State
     if (Test-InstalledVersion -Installed ([string]$state.client) -Available ([string]$component.version)) {
         Write-Host "Klient jest już aktualny (wersja $($component.version))." -ForegroundColor Green
+        Repair-ClientExe -RemoteManifest $RemoteManifest -Config $Config
         return
     }
     $clientRoot = [string]$Config.clientRoot
@@ -618,6 +619,29 @@ function Update-Client {
     $result = Invoke-M2PackageUpdate -Component $component -TargetRoot $clientRoot -BackupRoot (Join-Path $serverRoot 'backups\client')
     Save-State -ServerVersion '' -ClientVersion $result.Version
     Write-Host "Klient został zaktualizowany. Plików: $($result.Files), kopia: $($result.Backup)" -ForegroundColor Green
+    Repair-ClientExe -RemoteManifest $RemoteManifest -Config $Config
+}
+
+function Repair-ClientExe {
+    # The client folder's executables after a client update, and whenever the
+    # GUI finds an old metin2client.exe (Repair-M2ClientExecutables): the exe
+    # of an old full package replaced by the manifest's "clientExe", the two
+    # strays those packages carried deleted, and a launcher that started one of
+    # them pointed back at metin2client.exe. A refusal is said, never thrown:
+    # the client package has been applied by then and stays applied.
+    param($RemoteManifest, $Config)
+    $clientRoot = [string]$Config.clientRoot
+    if (-not $clientRoot -and [string]$Config.clientExecutable) {
+        $clientRoot = Split-Path -Parent ([string]$Config.clientExecutable)
+    }
+    if (-not $clientRoot -or -not (Test-Path -LiteralPath $clientRoot -PathType Container)) { return }
+    $component = Get-M2ClientExeComponent -Manifest $RemoteManifest
+    $notes = @(Repair-M2ClientExecutables -ClientFolder $clientRoot -ExeComponent $component `
+        -BackupRoot (Join-Path $serverRoot 'backups\client') -ServerRoot $serverRoot -ConfigPath $configPath)
+    foreach ($note in $notes) { Write-Host $note -ForegroundColor Yellow }
+    if (Test-M2ClientExeOld -ClientFolder $clientRoot) {
+        Write-Host 'metin2client.exe w folderze klienta jest nadal stary (sprzed czterech stron ekwipunku) - gra nie wpuści go do logowania, dopóki nie zostanie podmieniony.' -ForegroundColor Yellow
+    }
 }
 
 function Configure-Launcher {
@@ -2230,6 +2254,10 @@ function Invoke-Action {
             $remote = Get-M2UpdateManifest -Source (Get-ManifestSource $config)
             Show-UpdateStatus -RemoteManifest $remote
             Update-Client -RemoteManifest $remote -Config $config
+        }
+        'RepairClientExe' {
+            $remote = Get-M2UpdateManifest -Source (Get-ManifestSource $config)
+            Repair-ClientExe -RemoteManifest $remote -Config $config
         }
         'UpdateAll' {
             $remote = Get-M2UpdateManifest -Source (Get-ManifestSource $config)

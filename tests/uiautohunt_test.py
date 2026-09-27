@@ -872,6 +872,43 @@ class HuntTest(unittest.TestCase):
 		self.assertEqual(self.hunter.targetVid, 0)
 		self.assertEqual(STATE['walks'][-1], (1000, 1000))
 
+	def test_a_walk_that_gains_ground_is_not_given_up(self):
+		# An archer's range of 5000 is more than eight seconds of walking: the
+		# clock starts again at every WALK_PROGRESS closer (teivos, 27 September).
+		STATE['where'][55] = (5000, 1000, 0)
+		STATE['distance'][55] = 4000
+		self.hunter.OnServerTarget('55')
+		step(self.hunter)
+		for _ in range(5):
+			STATE['distance'][55] -= 600
+			step(self.hunter, 4.0)
+			self.assertEqual(self.hunter.targetVid, 55)
+		# Standing still, it gives up as before.
+		step(self.hunter, 4.0)
+		step(self.hunter, 4.5)
+		self.assertEqual(self.hunter.targetVid, 0)
+
+	def test_without_the_walk_back_a_lost_target_is_not_walked_home(self):
+		self.hunter.config['return'] = 0
+		STATE['where'][55] = (2000, 1000, 0)
+		STATE['distance'][55] = 900
+		self.hunter.OnServerTarget('55')
+		step(self.hunter)
+		del STATE['walks'][:]
+		step(self.hunter, 8.5)
+		self.assertEqual(self.hunter.targetVid, 0)
+		self.assertNotIn((1000, 1000), STATE['walks'])
+
+	def test_the_exes_answer_outranks_the_standing_list(self):
+		# 47 is a standing skill in the Polish table and an aimed Arrow Shower
+		# in the English one: the exe that answers decides (teivos).
+		stub = sys.modules['skill']
+		stub.IsStandingSkill = lambda index: False
+		self.addCleanup(delattr, stub, 'IsStandingSkill')
+		self.assertTrue(uiautohunt.NeedsTarget(47))
+		stub.IsStandingSkill = lambda index: index == 47
+		self.assertFalse(uiautohunt.NeedsTarget(47))
+
 	def test_names_the_target_it_gave_up_on_for_a_minute(self):
 		self.hunter.config['stones'] = 1
 		STATE['where'][55] = (2000, 1000, 0)

@@ -1558,8 +1558,8 @@ namespace
 		// at the stable: neither village holds such a bot back for one, and its
 		// expedition goes on past it (GetPlayerBotDesiredHorseMedalStock).
 		// Under Iwakura's system only a medal the stable would take holds a bot
-		// back: a Grinder on its first horse carries them as stock for a
-		// counter (IsPlayerBotGrinderRider), and a village that held it for one
+		// back: one it cannot hand in (a battle-horse candidate's, a horse at
+		// the cap) is stock for a counter, and a village that held it for one
 		// would hold it for good.
 		const bool holdsMedalToHandIn = hasMedal &&
 				state.bPersonality != BOT_PERSONALITY_MEDAL_DROPPER &&

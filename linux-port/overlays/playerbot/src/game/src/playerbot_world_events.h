@@ -208,17 +208,45 @@ namespace
 			killed(0), escaped(0), bossesSpawned(0), bossesKilled(0), called(0) {}
 	};
 
-	TPlayerBotWorldEvent s_aPlayerBotWorldEvents[2];
+	// The events this core runs, one for every map the panel named, keyed by
+	// the kind and that map (0: the event picks). One event a kind let a Zuo
+	// switched on over Bokjung end the one over Bakra two minutes in
+	// (Derpsonkowy95, 27 September); several now rain side by side.
+	typedef std::map<std::pair<int, long>, TPlayerBotWorldEvent> TPlayerBotWorldEventMap;
+	TPlayerBotWorldEventMap s_mapPlayerBotWorldEvents;
 	DWORD s_dwNextPlayerBotWorldEventCheck = 0;
 	DWORD s_dwPlayerBotWorldEventsFirstSeen = 0;
 
-	TPlayerBotWorldEvent* GetPlayerBotWorldEvent(int kind)
+	TPlayerBotWorldEvent* FindPlayerBotWorldEvent(int kind, long key)
 	{
-		if (kind == playerbot_events::KIND_TANAKA)
-			return &s_aPlayerBotWorldEvents[0];
-		if (kind == playerbot_events::KIND_ZUO)
-			return &s_aPlayerBotWorldEvents[1];
-		return NULL;
+		TPlayerBotWorldEventMap::iterator it = s_mapPlayerBotWorldEvents.find(std::make_pair(kind, key));
+		return it == s_mapPlayerBotWorldEvents.end() ? NULL : &it->second;
+	}
+
+	// Whether another event of the kind already runs on the map: "the event
+	// picks" draws from the maps nobody else has.
+	bool IsPlayerBotWorldEventMapTaken(int kind, long lMap, long ownKey)
+	{
+		for (TPlayerBotWorldEventMap::const_iterator it = s_mapPlayerBotWorldEvents.begin();
+				it != s_mapPlayerBotWorldEvents.end(); ++it)
+		{
+			if (it->first.first != kind || it->first.second == ownKey || !it->second.running)
+				continue;
+			if (std::find(it->second.maps.begin(), it->second.maps.end(), lMap) != it->second.maps.end())
+				return true;
+		}
+		return false;
+	}
+
+	// A kingdom's own maps - its two villages, its guild map, its Monkey
+	// Dungeon - call only its own bots, as a person of another kingdom is a
+	// stranger there: a Zuo over Bokjung drew Jinno's and Shinsoo's bots into
+	// Chunjo's village (Derpsonkowy95, 27 September). The shared world calls
+	// every kingdom.
+	bool IsPlayerBotWorldEventMapOpenTo(int empire, long lMap)
+	{
+		const int owner = playerbot_empire_rules::GetMapOwnerEmpire(lMap);
+		return owner == playerbot_empire_rules::EMPIRE_NONE || owner == empire;
 	}
 
 	// Who runs an event: the first channel's core that hosts the map the
@@ -337,6 +365,7 @@ namespace
 		const DWORD target = state.dwWorldEventTargetVID;
 		state.bWorldEventKind = 0;
 		state.lWorldEventMap = 0;
+		state.lWorldEventKey = 0;
 		state.dwWorldEventTargetVID = 0;
 		state.dwNextWorldEventMoveTime = 0;
 		state.dwWorldEventJoinedAt = 0;
@@ -351,7 +380,8 @@ namespace
 	{
 		ev.participants.erase(pid);
 		TPlayerBotAIStateMap::iterator it = s_mapPlayerBotAIStates.find(pid);
-		if (it == s_mapPlayerBotAIStates.end() || it->second.bWorldEventKind != (BYTE)ev.kind)
+		if (it == s_mapPlayerBotAIStates.end() || it->second.bWorldEventKind != (BYTE)ev.kind ||
+				it->second.lWorldEventKey != ev.requestedMap)
 			return;
 		LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(pid);
 		ClearPlayerBotWorldEventState(it->second, ch);
@@ -373,6 +403,8 @@ namespace
 			return "level";
 		if (st.bWorldEventKind != 0)
 			return "already";
+		if (eventMap != 0 && !IsPlayerBotWorldEventMapOpenTo((int)c->GetEmpire(), eventMap))
+			return "kingdom";
 		const DWORD pid = c->GetPlayerID();
 		// A war, the tower, a raid, the Catacomb, a duel: all of them first.
 		if (IsPlayerBotOnTowerBusiness(c, st) || st.dwGuildWarEnemyGID != 0 ||
@@ -427,6 +459,7 @@ namespace
 		ev.participants.insert(pid);
 		++ev.called;
 		st->second.bWorldEventKind = (BYTE)ev.kind;
+		st->second.lWorldEventKey = ev.requestedMap;
 		st->second.lWorldEventMap = lMap;
 		st->second.dwWorldEventTargetVID = targetVID;
 		st->second.dwWorldEventJoinedAt = dwNow;
@@ -729,7 +762,8 @@ namespace
 			const DWORD pid = *it++;
 			TPlayerBotAIStateMap::iterator st = s_mapPlayerBotAIStates.find(pid);
 			LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(pid);
-			if (!ch || st == s_mapPlayerBotAIStates.end() || st->second.bWorldEventKind != (BYTE)ev.kind)
+			if (!ch || st == s_mapPlayerBotAIStates.end() || st->second.bWorldEventKind != (BYTE)ev.kind ||
+					st->second.lWorldEventKey != ev.requestedMap)
 			{
 				ev.participants.erase(pid);
 				continue;
@@ -752,6 +786,7 @@ namespace
 		long x;
 		long y;
 		int level;
+		int empire;
 		DWORD order;
 	};
 
@@ -786,6 +821,7 @@ namespace
 			r.x = c->GetX();
 			r.y = c->GetY();
 			r.level = (int)c->GetLevel();
+			r.empire = (int)c->GetEmpire();
 			r.order = 0;
 			out.push_back(r);
 		}
@@ -829,7 +865,8 @@ namespace
 			for (size_t k = 0; k < all.size(); ++k)
 			{
 				TPlayerBotEventRecruit r = all[k];
-				if (r.level < (int)row->bMinLevel || (r.map != thing.map && IsPlayerBotSpiderMap(r.map)))
+				if (r.level < (int)row->bMinLevel || (r.map != thing.map && IsPlayerBotSpiderMap(r.map)) ||
+						!IsPlayerBotWorldEventMapOpenTo(r.empire, thing.map))
 					continue;
 				// On his map by distance, then the rest by pid.
 				if (r.map == thing.map)
@@ -920,11 +957,9 @@ namespace
 
 	void BeginPlayerBotWorldEvent(int kind, const playerbot_events::Status& st, DWORD dwNow)
 	{
-		TPlayerBotWorldEvent* evp = GetPlayerBotWorldEvent(kind);
-		if (!evp)
-			return;
-		TPlayerBotWorldEvent& ev = *evp;
+		TPlayerBotWorldEvent& ev = s_mapPlayerBotWorldEvents[std::make_pair(kind, st.map)];
 		ev = TPlayerBotWorldEvent();
+		s_bPlayerBotEventsStatusDirty = true;
 		ev.running = true;
 		ev.kind = kind;
 		ev.value = playerbot_events::WorldEventCount(kind, st.value);
@@ -946,7 +981,7 @@ namespace
 			{
 				const TPlayerBotEventMap& row = PLAYERBOT_EVENT_MAPS[i];
 				const bool listed = kind == playerbot_events::KIND_TANAKA ? row.bTanakaAuto : row.bZuoAuto;
-				if (listed && IsPlayerBotMapHostedHere(row.lMap))
+				if (listed && IsPlayerBotMapHostedHere(row.lMap) && !IsPlayerBotWorldEventMapTaken(kind, row.lMap, st.map))
 					auto_.push_back(row.lMap);
 			}
 			if (kind == playerbot_events::KIND_TANAKA)
@@ -987,12 +1022,18 @@ namespace
 		}
 	}
 
-	void EndPlayerBotWorldEvent(int kind, const char* why, bool announce, DWORD dwNow)
+	void EndPlayerBotWorldEvent(int kind, long key, const char* why, bool announce, DWORD dwNow)
 	{
-		TPlayerBotWorldEvent* evp = GetPlayerBotWorldEvent(kind);
-		if (!evp || !evp->running)
+		TPlayerBotWorldEventMap::iterator found = s_mapPlayerBotWorldEvents.find(std::make_pair(kind, key));
+		if (found == s_mapPlayerBotWorldEvents.end())
 			return;
-		TPlayerBotWorldEvent& ev = *evp;
+		s_bPlayerBotEventsStatusDirty = true;
+		if (!found->second.running)
+		{
+			s_mapPlayerBotWorldEvents.erase(found);
+			return;
+		}
+		TPlayerBotWorldEvent& ev = found->second;
 		int taken = 0, left = 0;
 		for (size_t i = 0; i < ev.things.size(); ++i)
 		{
@@ -1013,24 +1054,27 @@ namespace
 		const std::set<DWORD> participants = ev.participants;
 		for (std::set<DWORD>::const_iterator it = participants.begin(); it != participants.end(); ++it)
 			ReleasePlayerBotWorldEventParticipant(ev, *it, NULL);
-		sys_log(0, "PLAYERBOT_EVENT: %s over here why=%s spawned=%u killed=%u escaped=%u waves=%u bosses=%u/%u "
+		sys_log(0, "PLAYERBOT_EVENT: %s over here key=%ld why=%s spawned=%u killed=%u escaped=%u waves=%u bosses=%u/%u "
 				"called=%u taken_back=%d left_fought=%d after_s=%u",
-				playerbot_events::KindName(kind), why, ev.spawned, ev.killed, ev.escaped, ev.waves,
+				playerbot_events::KindName(kind), key, why, ev.spawned, ev.killed, ev.escaped, ev.waves,
 				ev.bossesKilled, ev.bossesSpawned, ev.called, taken, left, (dwNow - ev.startedTick) / 1000U);
+		// Several run at once, so each ending names its maps.
 		if (announce && !ev.maps.empty())
 		{
+			const std::string where = DescribePlayerBotWorldEventMaps(ev);
 			if (kind == playerbot_events::KIND_TANAKA)
-				SayPlayerBotWorldEvent("Event zakonczony: Pirat Tanaka odplynal. Pokonany %u razy.", ev.killed);
+				SayPlayerBotWorldEvent("Event zakonczony: Pirat Tanaka odplynal (%s). Pokonany %u razy.",
+						where.c_str(), ev.killed);
 			else
-				SayPlayerBotWorldEvent("Event Zuo zakonczony: rozbite metiny %u, pokonani bossowie %u z %u.",
-						ev.killed, ev.bossesKilled, ev.bossesSpawned);
+				SayPlayerBotWorldEvent("Event Zuo %s zakonczony: rozbite metiny %u, pokonani bossowie %u z %u.",
+						where.c_str(), ev.killed, ev.bossesKilled, ev.bossesSpawned);
 		}
-		ev = TPlayerBotWorldEvent();
+		s_mapPlayerBotWorldEvents.erase(found);
 	}
 
-	void AdvancePlayerBotWorldEvent(int kind, const playerbot_events::Status& st, DWORD dwNow)
+	void AdvancePlayerBotWorldEvent(TPlayerBotWorldEvent& ev, const playerbot_events::Status& st, DWORD dwNow)
 	{
-		TPlayerBotWorldEvent& ev = *GetPlayerBotWorldEvent(kind);
+		const int kind = ev.kind;
 		ev.value = playerbot_events::WorldEventCount(kind, st.value);
 		if (st.until > 0)
 			ev.until = st.until;
@@ -1071,7 +1115,8 @@ namespace
 					ev.bossHalfAnnounced = true;
 					if (ev.nextBossAt < dwNow + 20000)
 						ev.nextBossAt = dwNow + 20000;
-					SayPlayerBotWorldEvent("Zuo: metiny przestaja spadac - nadchodza bossowie!");
+					SayPlayerBotWorldEvent("Zuo %s: metiny przestaja spadac - nadchodza bossowie!",
+							DescribePlayerBotWorldEventMaps(ev).c_str());
 				}
 				if (dwNow >= ev.nextBossAt)
 				{
@@ -1116,40 +1161,96 @@ namespace
 		for (int k = 0; k < 2; ++k)
 		{
 			const int kind = kinds[k];
-			const playerbot_events::Status& st = s_aPlayerBotEventStatus[kind];
-			TPlayerBotWorldEvent& ev = *GetPlayerBotWorldEvent(kind);
-			const bool drive = st.active && IsPlayerBotWorldEventDriver(st.map);
-			if (!drive)
+			// One event a map the file names (playerbot_events.h keeps them
+			// per map), each begun, run and ended on its own; a map asked for
+			// in the middle of another's event is an event beside it.
+			const std::vector<playerbot_events::Status>& active = s_aPlayerBotWorldActive[kind];
+			std::set<long> driven;
+			for (size_t i = 0; i < active.size(); ++i)
 			{
-				if (ev.running)
-					EndPlayerBotWorldEvent(kind, st.active ? "handed_over" : "over", !st.active, dwNow);
-				continue;
+				const playerbot_events::Status& st = active[i];
+				if (!IsPlayerBotWorldEventDriver(st.map))
+					continue;
+				driven.insert(st.map);
+				TPlayerBotWorldEvent* ev = FindPlayerBotWorldEvent(kind, st.map);
+				if (!ev || !ev->running)
+					BeginPlayerBotWorldEvent(kind, st, dwNow);
+				else
+					AdvancePlayerBotWorldEvent(*ev, st, dwNow);
 			}
-			// Another map asked for in the middle: the event starts again there.
-			if (ev.running && st.map != ev.requestedMap)
-				EndPlayerBotWorldEvent(kind, "map_changed", false, dwNow);
-			if (!ev.running)
-				BeginPlayerBotWorldEvent(kind, st, dwNow);
-			else
-				AdvancePlayerBotWorldEvent(kind, st, dwNow);
+			// Over, or now another core's to run.
+			std::vector<long> gone;
+			for (TPlayerBotWorldEventMap::const_iterator it = s_mapPlayerBotWorldEvents.begin();
+					it != s_mapPlayerBotWorldEvents.end(); ++it)
+				if (it->first.first == kind && driven.find(it->first.second) == driven.end())
+					gone.push_back(it->first.second);
+			for (size_t i = 0; i < gone.size(); ++i)
+			{
+				bool still = false;
+				for (size_t a = 0; a < active.size() && !still; ++a)
+					still = active[a].map == gone[i];
+				EndPlayerBotWorldEvent(kind, gone[i], still ? "handed_over" : "over", !still, dwNow);
+			}
 		}
 	}
 
-	// "host alive killed bots phase" for the status file (playerbot_events.h).
+	const char* GetPlayerBotWorldEventPhase(const TPlayerBotWorldEvent& ev)
+	{
+		if (ev.kind != playerbot_events::KIND_ZUO)
+			return "tanaka";
+		return playerbot_events::IsZuoBossHalf(ev.since, ev.until, (long)time(NULL)) ? "bosses" : "stones";
+	}
+
+	unsigned int CountPlayerBotWorldEventKills(const TPlayerBotWorldEvent& ev)
+	{
+		return ev.kind == playerbot_events::KIND_ZUO ? ev.killed + ev.bossesKilled : ev.killed;
+	}
+
+	// "host alive killed bots phase" for the kind's row of the status file
+	// (playerbot_events.h): every event of the kind this core runs added up,
+	// the phase the first one's. The rows of the events themselves follow.
 	void FormatPlayerBotWorldEventColumns(int kind, char* out, size_t size)
 	{
-		const TPlayerBotWorldEvent* ev = GetPlayerBotWorldEvent(kind);
-		if (!ev || !ev->running)
+		unsigned int alive = 0, killed = 0, bots = 0;
+		const char* phase = NULL;
+		for (TPlayerBotWorldEventMap::const_iterator it = s_mapPlayerBotWorldEvents.begin();
+				it != s_mapPlayerBotWorldEvents.end(); ++it)
+		{
+			const TPlayerBotWorldEvent& ev = it->second;
+			if (it->first.first != kind || !ev.running)
+				continue;
+			alive += (unsigned int)ev.things.size();
+			killed += CountPlayerBotWorldEventKills(ev);
+			bots += (unsigned int)ev.participants.size();
+			if (!phase)
+				phase = GetPlayerBotWorldEventPhase(ev);
+		}
+		if (!phase)
 		{
 			snprintf(out, size, "0\t0\t0\t0\t-");
 			return;
 		}
-		const char* phase = "tanaka";
-		if (kind == playerbot_events::KIND_ZUO)
-			phase = playerbot_events::IsZuoBossHalf(ev->since, ev->until, (long)time(NULL)) ? "bosses" : "stones";
-		const unsigned int killed = kind == playerbot_events::KIND_ZUO ? ev->killed + ev->bossesKilled : ev->killed;
-		snprintf(out, size, "1\t%u\t%u\t%u\t%s", (unsigned int)ev->things.size(), killed,
-				(unsigned int)ev->participants.size(), phase);
+		snprintf(out, size, "1\t%u\t%u\t%u\t%s", alive, killed, bots, phase);
+	}
+
+	// One row of the status file for every event this core runs, after the
+	// kinds' rows: "<kind>@<the map the panel asked for>" and the same sixteen
+	// columns, the map being the one it runs on. A panel that knows one event
+	// a kind skips a first column it does not know.
+	void WritePlayerBotWorldEventRows(FILE* fp, long written)
+	{
+		for (TPlayerBotWorldEventMap::const_iterator it = s_mapPlayerBotWorldEvents.begin();
+				it != s_mapPlayerBotWorldEvents.end(); ++it)
+		{
+			const TPlayerBotWorldEvent& ev = it->second;
+			if (!ev.running)
+				continue;
+			const long runsOn = it->first.second != 0 ? it->first.second : (ev.maps.size() == 1 ? ev.maps[0] : 0);
+			fprintf(fp, "%s@%ld\t1\t1\t%d\t%ld\t0\t0\t%ld\t%ld\t%ld\t0\t1\t%u\t%u\t%u\t%s\n",
+					playerbot_events::KindName(ev.kind), it->first.second, ev.value, ev.until, written, runsOn,
+					ev.since, (unsigned int)ev.things.size(), CountPlayerBotWorldEventKills(ev),
+					(unsigned int)ev.participants.size(), GetPlayerBotWorldEventPhase(ev));
+		}
 	}
 
 	// ------------------------------------------------------------------
@@ -1214,7 +1315,7 @@ namespace
 		if (state.bWorldEventKind == 0 || !ch || ch->IsDead())
 			return false;
 		const DWORD pid = ch->GetPlayerID();
-		TPlayerBotWorldEvent* evp = GetPlayerBotWorldEvent(state.bWorldEventKind);
+		TPlayerBotWorldEvent* evp = FindPlayerBotWorldEvent(state.bWorldEventKind, state.lWorldEventKey);
 		if (!evp || !evp->running || evp->participants.find(pid) == evp->participants.end())
 		{
 			ClearPlayerBotWorldEventState(state, ch);

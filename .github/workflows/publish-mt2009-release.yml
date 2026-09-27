@@ -2,7 +2,9 @@ name: Publish mt2009 release
 
 # Builds the mt2009 update packages on Linux (tools/build_mt2009_*_update.py),
 # publishes them as a GitHub release, and writes their SHA-256 into
-# update-manifest-mt2009.json on the branch it ran from. The launcher reads that
+# update-manifest-mt2009.json on the branch it ran from. A client release also
+# publishes the package's metin2client.exe on its own, as the manifest's
+# "clientExe", which the launcher puts over an old exe. The launcher reads that
 # manifest from main, so the branch is merged into main after the release
 # exists, never before.
 #
@@ -152,6 +154,17 @@ jobs:
             up=""
             [ -f prev/upstream-client.zip ] && up="--upstream prev/upstream-client.zip"
             python3 tools/build_mt2009_client_update.py --previous prev/client.zip --since "$since" $up --out out
+            # The exe the package carries, published beside it as well: the
+            # launcher replaces an old metin2client.exe from the manifest's
+            # "clientExe" (Repair-M2ClientExecutables) without a client update,
+            # and says what to do when the antivirus refuses the file.
+            python3 - "$(ls out/metin2-client-update-*.zip)" <<'EOF'
+          import sys, zipfile
+          z = zipfile.ZipFile(sys.argv[1])
+          names = [n for n in z.namelist() if n.replace('\\', '/') == 'metin2client.exe']
+          if names:
+              open('out/metin2client.exe', 'wb').write(z.read(names[0]))
+          EOF
           fi
           ls -la out
 
@@ -180,6 +193,10 @@ jobs:
                   continue
               name = 'metin2-%s-update-%s.zip' % (kind, version)
               m[kind].update(version=version, url=base + name, sha256=sha('out/' + name))
+          # A server-only release keeps the clientExe the last client release wrote.
+          if os.environ['BUILD_CLIENT'] == 'true' and os.path.isfile('out/metin2client.exe'):
+              m['clientExe'] = {'url': base + 'metin2client.exe', 'sha256': sha('out/metin2client.exe'),
+                                'size': os.path.getsize('out/metin2client.exe')}
           out = json.dumps(m, indent=2, ensure_ascii=False) + '\n'
           if b'\r\n' in raw:
               out = out.replace('\n', '\r\n')
@@ -213,7 +230,7 @@ jobs:
             on { print }
           ' CHANGELOG.md > notes.md
           test -s notes.md
-          files=$(ls out/*.zip)
+          files=$(ls out/*.zip out/*.exe 2>/dev/null)
           # Created as a draft, the files uploaded on their own, and published only
           # once every one is there with its size: a one-call create once
           # published a release with no files and reported success.

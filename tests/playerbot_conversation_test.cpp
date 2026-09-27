@@ -642,6 +642,7 @@ static void TestMemoryBounds()
 
 static void TestAliasesAndMoney()
 {
+	TTokens t0;
 	// items
 	CHECK(ItemNameMatches("Miecz Pelni Ksiezyca+9", "fms"), "fms");
 	CHECK(ItemNameMatches("Miecz Pe\xB3ni Ksi\xEA\xBFyca+9", "fmsa"), "fmsa cp1250");
@@ -681,6 +682,31 @@ static void TestAliasesAndMoney()
 	CHECK(ItemNameMatches("Kamien Duchowy", "kd"), "kd is Kamien Duchowy");
 	CHECK(IntentOf("masz km?") == I_ITEM_OWN && IntentOf("masz kd?") == I_ITEM_OWN, "masz km/kd -> ITEM_OWN: %s %s",
 			IntentName(IntentOf("masz km?")), IntentName(IntentOf("masz kd?")));
+	// The players' names (upstream 2.2.27, our 2.2.30; Hiob): rib, hms,
+	// jelonek and poltorak, declined, and the game's own shortened names -
+	// "riba" was answered with a mission scroll.
+	CHECK(ItemNameMatches("Ostrze Z Czerw. Stali+5", "riba"), "riba is the shortened name");
+	CHECK(ItemNameMatches("Ostrze Z Czerw. Stali", "rib"), "rib");
+	CHECK(ItemNameMatches("Ostrze Z Czerw. Stali", "ostrze czerwonej stali"), "the full name finds the shortened one");
+	CHECK(!ItemNameMatches("Ksiega Misji (Latwa)", "riba"), "riba is no mission book");
+	CHECK(ItemNameMatches("Kozik Czar. Lis.+3", "koziki"), "koziki");
+	CHECK(ItemNameMatches("Luk Rogu Jelenia+4", "jelonkiem"), "jelonkiem is jelonek");
+	CHECK(ItemNameMatches("Luk Rogu Jelenia", "jelonka"), "jelonka is jelonek");
+	CHECK(ItemNameMatches("Pol Ksiezycowy Miecz+7", "hms"), "hms");
+	CHECK(ItemNameMatches("Miecz Poltorareczny+2", "poltorak"), "poltorak");
+	// A plus with no digit is part of the name (Bloody Reapers): Biala
+	// Wstega+ is not Biala Wstega, and a "+9" is still a grade.
+	CHECK(ItemNameMatches("Bia\xB3" "a Wst\xEA" "ga+", "biala wstega+"), "wstega+ is the plus one");
+	CHECK(!ItemNameMatches("Bia\xB3" "a Wst\xEA" "ga", "biala wstega+"), "wstega+ is not the plain one");
+	CHECK(ItemNameMatches("Bia\xB3" "a Wst\xEA" "ga+", "bialej wstegi z plusem"), "z plusem");
+	CHECK(ItemNameMatches("Bia\xB3" "a Wst\xEA" "ga+", "biala wstega +"), "a plus after a space");
+	CHECK(!ItemNameMatches("Bia\xB3" "a Wst\xEA" "ga+", "biala wstega"), "no plus asked, no plus given");
+	CHECK(ItemNameMatches("Bia\xB3" "a Wst\xEA" "ga", "biala wstega"), "the plain one still");
+	CHECK(ItemNameMatches("Miecz Pelni Ksiezyca+9", "fms+9"), "fms+9 is a grade, not a plus");
+	Normalize("szukam bialej wstegi+", t0);
+	CHECK(t0.norm.find("~plus") != std::string::npos, "Normalize keeps the name's plus: '%s'", t0.norm.c_str());
+	Normalize("ile to 2 + 2", t0);
+	CHECK(t0.norm.find("~plus") == std::string::npos, "a sum keeps its plus: '%s'", t0.norm.c_str());
 
 	// money
 	TTokens t;

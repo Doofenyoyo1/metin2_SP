@@ -66,6 +66,10 @@ namespace {
 	};
 	TPlayerBotEventState s_aPlayerBotEventState[playerbot_events::KIND_MAX];
 	playerbot_events::Status s_aPlayerBotEventStatus[playerbot_events::KIND_MAX];
+	// Tanaka and Zuo run once for every map the file names, several at a
+	// time (EvaluateWorldByMap): the active ones a map, which
+	// playerbot_world_events.h begins, runs and ends one by one.
+	std::vector<playerbot_events::Status> s_aPlayerBotWorldActive[playerbot_events::KIND_MAX];
 
 	// The sliders' figures, captured whenever playerbot_config.h has just
 	// written them (the weights generation moved), so the gate can put zero
@@ -396,6 +400,8 @@ namespace {
 	// status columns: "host alive killed bots phase" - host 1 on the core
 	// that runs it (playerbot_world_events.h, which comes after this file).
 	void FormatPlayerBotWorldEventColumns(int kind, char* out, size_t size);
+	// And a row for every event this core runs, "<kind>@<map>", after them.
+	void WritePlayerBotWorldEventRows(FILE* fp, long written);
 
 	// The first eight columns are what every panel has read since 2.0.74; the
 	// rest came with Tanaka and Zuo, and an older panel stops at the eighth.
@@ -421,6 +427,7 @@ namespace {
 					st.scheduled ? 1 : 0, st.active ? 1 : 0, st.value, st.until, st.nextStart,
 					st.nextValue, now, st.map, st.since, st.nextMap, world);
 		}
+		WritePlayerBotWorldEventRows(fp, now);
 		fclose(fp);
 		rename(tempPath, PLAYERBOT_EVENTS_STATUS_PATH);
 	}
@@ -449,8 +456,21 @@ namespace {
 				shown = st;
 				TPlayerBotEventState& state = s_aPlayerBotEventState[kind];
 				// Tanaka and Zuo speak for themselves, with the map in the
-				// sentence (playerbot_world_events.h); here they are only judged.
+				// sentence (playerbot_world_events.h); here they are only judged,
+				// once for the kind and once for every map.
 				const bool world = playerbot_events::IsWorldKind(kind);
+				if (world)
+				{
+					std::vector<playerbot_events::Status> byMap;
+					playerbot_events::EvaluateWorldByMap(s_vecPlayerBotEvents, kind, (long)now, dayIndex, minute, byMap);
+					std::vector<playerbot_events::Status>& kept = s_aPlayerBotWorldActive[kind];
+					bool changed = byMap.size() != kept.size();
+					for (size_t i = 0; i < byMap.size() && !changed; ++i)
+						changed = byMap[i].map != kept[i].map || byMap[i].until != kept[i].until;
+					if (changed)
+						s_bPlayerBotEventsStatusDirty = true;
+					kept.swap(byMap);
+				}
 				if (st.active && !state.active)
 				{
 					state.active = true;

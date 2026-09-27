@@ -325,6 +325,10 @@ class RefineDialogNew(ui.ScriptWindow):
 			self.probText.SetText(localeInfo.REFINE_SUCCESS_PROBALITY % (self.percentage))
 		except:
 			self.probText.SetText("%d%%" % (self.percentage))
+		if constInfo.ENABLE_REFINE_PCT and self.percentage > 0:
+			self.successPercentage.Show()
+		else:
+			self.successPercentage.Hide()
 		try:
 			self.costText.SetText(localeInfo.REFINE_COST % localeInfo.NumberToMoneyString(self.cost))
 		except:
