@@ -617,7 +617,9 @@ namespace
 	LPCHARACTER FindPlayerBotExecutorPrey(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		static std::map<DWORD, DWORD> s_mapNextScan;
-		if (!ch || !ch->GetSectree() ||
+		// Never from a party: its members would be pulled into the fight, a
+		// person's party left for the prey (B10 of Iwakura's audit).
+		if (!ch || !ch->GetSectree() || ch->GetParty() ||
 				!IsPlayerBotRareNow(state.persona, playerbot_persona::RARE_EGZEKUTOR, dwNow) ||
 				ch->GetMapIndex() >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN ||
 				playerbot_empire_rules::IsKingdomMap(ch->GetMapIndex()) || state.bRecoveringAfterDeath ||

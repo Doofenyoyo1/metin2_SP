@@ -180,6 +180,7 @@ namespace
 		ch->SetQuestFlag(PLAYERBOT_PERSONA_FLAG_DROUGHT, (int)(p.mood.droughtMs / 1000) + 1);
 		ch->SetQuestFlag(PLAYERBOT_PERSONA_FLAG_ADVANCED, (p.bAdvanced ? 1 : 0) + 1);
 		ch->SetQuestFlag(PLAYERBOT_PERSONA_FLAG_LOCK_LEVEL, (int)p.bLockLevel + 1);
+		ch->SetQuestFlag(PLAYERBOT_PERSONA_FLAG_LOCK_PINNED, (p.bLockPinned ? 1 : 0) + 1);
 		ch->SetQuestFlag(PLAYERBOT_PERSONA_FLAG_QUIT, (p.bQuitGrinding ? 1 : 0) + 1);
 		ch->SetQuestFlag(PLAYERBOT_PERSONA_FLAG_QUIT_TIER, (int)p.bQuitRolledTier + 1);
 		ch->SetQuestFlag(PLAYERBOT_PERSONA_FLAG_MEDAL_GOAL, (p.bMedalGoalDone ? 1 : 0) + 1);
@@ -225,6 +226,7 @@ namespace
 		p.bAdvanced = ch->GetQuestFlag(PLAYERBOT_PERSONA_FLAG_ADVANCED) - 1 == 1;
 		const int lockLevel = ch->GetQuestFlag(PLAYERBOT_PERSONA_FLAG_LOCK_LEVEL) - 1;
 		p.bLockLevel = lockLevel > 0 && lockLevel <= PLAYER_MAX_LEVEL_CONST ? (BYTE)lockLevel : 0;
+		p.bLockPinned = p.bLockLevel != 0 && ch->GetQuestFlag(PLAYERBOT_PERSONA_FLAG_LOCK_PINNED) - 1 == 1;
 		p.bQuitGrinding = ch->GetQuestFlag(PLAYERBOT_PERSONA_FLAG_QUIT) - 1 == 1;
 		const int quitTier = ch->GetQuestFlag(PLAYERBOT_PERSONA_FLAG_QUIT_TIER) - 1;
 		p.bQuitRolledTier = quitTier > 0 && quitTier < 256 ? (BYTE)quitTier : 0;
@@ -245,10 +247,11 @@ namespace
 		p.dwNextSave = dwNow + PLAYERBOT_PERSONA_SAVE_INTERVAL;
 		// The first stop from the keyboard is never on the first minute.
 		p.dwNextAfkAt = dwNow + playerbot_persona::AfkInterval((uint32_t)number(0, 0x7fffffff));
-		sys_log(0, "PLAYERBOT_MOOD: restored pid=%u name=%s mood=%s lock=%u lock_min=%u played_min=%u drought_min=%u advanced=%d lock_level=%u fresh=%d",
+		sys_log(0, "PLAYERBOT_MOOD: restored pid=%u name=%s mood=%s lock=%u lock_min=%u played_min=%u drought_min=%u advanced=%d lock_level=%u pinned=%d fresh=%d",
 				ch->GetPlayerID(), ch->GetName(), GetPlayerBotMoodName(p.mood.mood),
 				(unsigned int)p.mood.lockKind, p.mood.lockLeftMs / 60000u, p.mood.playedMs / 60000u,
-				p.mood.droughtMs / 60000u, p.bAdvanced ? 1 : 0, (unsigned int)p.bLockLevel, mood > 0 ? 0 : 1);
+				p.mood.droughtMs / 60000u, p.bAdvanced ? 1 : 0, (unsigned int)p.bLockLevel,
+				p.bLockPinned ? 1 : 0, mood > 0 ? 0 : 1);
 		return true;
 	}
 

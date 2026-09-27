@@ -44,16 +44,31 @@ namespace
 	// every ten minutes (ReportPlayerBotGambleCensus): "czy strategia
 	// hazardzisty sie odpala" (Iwakura, 23 September) is a question the log
 	// could only answer one session at a time.
+	// noBases is a visit whose bag held no base at all and whose box no gear
+	// of the list. Of the visits that went on with no base the anvil could
+	// work there and then, fromBox had none in the bag - the storekeeper
+	// gives them - and unworkable had bases short of their materials, the fee
+	// or a scroll, which the counters may give (ManagePlayerBotGambleMarket).
+	// marketLines are the lines a session bought on the counters on its way
+	// to the anvil, basesBought the bases a gambler bought between sessions.
 	struct TPlayerBotGambleCensus
 	{
 		unsigned int started, ended, attempts, finished, burned, nines;
 		long long spent;
 		unsigned int restNotOver, notHere, purse, ownGear, noBases, rollLost;
+		unsigned int fromBox, unworkable, marketLines, basesBought;
 		TPlayerBotGambleCensus() : started(0), ended(0), attempts(0), finished(0), burned(0), nines(0),
-			spent(0), restNotOver(0), notHere(0), purse(0), ownGear(0), noBases(0),
-			rollLost(0) {}
+			spent(0), restNotOver(0), notHere(0), purse(0), ownGear(0), noBases(0), rollLost(0),
+			fromBox(0), unworkable(0), marketLines(0), basesBought(0) {}
 	};
 	TPlayerBotGambleCensus s_PlayerBotGambleCensus;
+
+	// The list's own word on a finished piece: at the gambler's +7 or past it,
+	// or worked by a session (playerbot_lpp.h, which comes later in the
+	// include order).
+	bool IsPlayerBotLppFinished(const TPlayerBotPersona& p, LPITEM item);
+	// And whether a bot is a gambler by nature (playerbot_lpp.h).
+	bool IsPlayerBotGamblerByNature(DWORD pid, const TPlayerBotAIState& state);
 
 	// A piece a session worked on is goods from then on: the list keeps it
 	// no longer and no session takes it again.
@@ -175,9 +190,24 @@ namespace
 				IsPlayerBotHigherTierSpare(ch, item) || IsPlayerBotLevel30Project(ch, item) ||
 				IsPlayerBotArcherStoneWeapon(ch, item) || IsPlayerBotRefineBagCandidate(ch, item))
 			return false;
-		// What an earlier session made is for sale as it is.
+		// What an earlier session made is for sale as it is. The set that says
+		// so lives in the process, and after a restart it is empty: a piece at
+		// the gambler's +7 or past it (IsPlayerBotLppFinished) is taken as made
+		// unless a plan of this session is working it, or the first session
+		// after a restart took its own +7s and +8s back to the anvil (B22 of
+		// Iwakura's audit of 26 September).
 		if (IsPlayerBotGambleForSale(ch, item))
 			return false;
+		TPlayerBotAIStateMap::const_iterator st = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+		if (st != s_mapPlayerBotAIStates.end() && IsPlayerBotLppFinished(st->second.persona, item))
+		{
+			bool underWay = false;
+			const std::vector<TPlayerBotGamblePlan>& plans = st->second.persona.vecGamblePlans;
+			for (size_t i = 0; i < plans.size() && !underWay; ++i)
+				underWay = plans[i].dwItemId == item->GetID() && !plans[i].bDone;
+			if (!underWay)
+				return false;
+		}
 		return !IsPlayerBotJunkItem(ch, item);
 	}
 
@@ -195,21 +225,76 @@ namespace
 		}
 	}
 
-	// What the next plain step of every base in the bag consumes: the
-	// storekeeper's half of "ulepszacze" (WithdrawPlayerBotSafebox).
+	// What a base's plain steps consume from its grade to GAMBLE_SAFE_PLUS, by
+	// the recipes of the grades on the way (item_proto's refined vnum and
+	// refine set): this world's +0 to +4 ask for yang alone, and from +4 each
+	// step one or two materials, one or two of each. The next step's alone was
+	// all a session knew of, so a base at +4 came to the anvil with the one
+	// material for +5 and was set aside at +5.
+	void AddPlayerBotGambleChainNeeds(LPITEM item, std::map<DWORD, int>& need)
+	{
+		if (!item)
+			return;
+		const TItemTable* proto = item->GetProto();
+		int plus = item->GetRefineLevel();
+		for (int step = 0; proto && proto->dwRefinedVnum != 0 && plus < (int)playerbot_persona::GAMBLE_SAFE_PLUS &&
+				step < 10; ++step, ++plus)
+		{
+			const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(proto->wRefineSet);
+			if (!recipe)
+				break;
+			for (int m = 0; m < recipe->material_count; ++m)
+				if (recipe->materials[m].vnum != 0 && recipe->materials[m].count > 0)
+					need[recipe->materials[m].vnum] += recipe->materials[m].count;
+			proto = ITEM_MANAGER::instance().GetTable(proto->dwRefinedVnum);
+		}
+	}
+
+	// What the plain steps of every base in the bag consume to the gambler's
+	// +7: the storekeeper's half of "ulepszacze" (WithdrawPlayerBotSafebox)
+	// and what a session or the addict wants off the counters
+	// (WantsPlayerBotGambleOffer).
 	void CollectPlayerBotGambleMaterials(LPCHARACTER ch, std::set<DWORD>& out)
 	{
 		out.clear();
 		std::vector<LPITEM> bases;
 		CollectPlayerBotGambleBases(ch, bases);
+		std::map<DWORD, int> need;
 		for (size_t i = 0; i < bases.size(); ++i)
+			AddPlayerBotGambleChainNeeds(bases[i], need);
+		for (std::map<DWORD, int>::const_iterator it = need.begin(); it != need.end(); ++it)
+			out.insert(it->first);
+	}
+
+	// What of that the bag lacks, for the session's walk along the counters
+	// (ManagePlayerBotGambleMarket): the bases in the order the anvil takes
+	// them, the most valuable at +7 first, and the materials of the first base
+	// whose steps - with those of the bases before it - the bag cannot cover,
+	// so the purse goes into one piece the anvil can finish rather than a
+	// step of each. Held means over what the Biologist is owed and the bot's
+	// own anvil keeps back, the spare PlayerBotGambleHasMaterials works with.
+	void CollectPlayerBotGambleMissingMaterials(LPCHARACTER ch, std::map<DWORD, int>& missing)
+	{
+		missing.clear();
+		std::vector<LPITEM> bases;
+		CollectPlayerBotGambleBases(ch, bases);
+		std::vector<std::pair<DWORD, LPITEM> > order;
+		for (size_t i = 0; i < bases.size(); ++i)
+			order.push_back(std::make_pair(GetPlayerBotGambleValueAt(bases[i], playerbot_persona::GAMBLE_SAFE_PLUS),
+					bases[i]));
+		std::sort(order.begin(), order.end(),
+				[](const std::pair<DWORD, LPITEM>& a, const std::pair<DWORD, LPITEM>& b) { return a.first > b.first; });
+		std::map<DWORD, int> need;
+		for (size_t i = 0; i < order.size() && missing.empty(); ++i)
 		{
-			const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(bases[i]->GetRefineSet());
-			if (!recipe)
-				continue;
-			for (int m = 0; m < recipe->material_count; ++m)
-				if (recipe->materials[m].vnum != 0 && recipe->materials[m].count > 0)
-					out.insert(recipe->materials[m].vnum);
+			AddPlayerBotGambleChainNeeds(order[i].second, need);
+			for (std::map<DWORD, int>::const_iterator it = need.begin(); it != need.end(); ++it)
+			{
+				const int spare = (int)ch->CountSpecifyItem(it->first) - GetPlayerBotBiologistReserve(ch, it->first) -
+						GetPlayerBotRefineMaterialReserve(ch, it->first);
+				if (it->second > spare)
+					missing[it->first] = it->second - std::max(0, spare);
+			}
 		}
 	}
 
@@ -313,6 +398,8 @@ namespace
 		if (!p.bGambling)
 			return;
 		p.bGambling = false;
+		p.bGambleMarketPending = false;
+		p.dwGambleMarketUntil = 0;
 		const bool addict = IsPlayerBotRareNow(p, playerbot_persona::RARE_NALOGOWIEC, dwNow);
 		// Every piece the session took is for sale now, finished or stopped
 		// short: the list used to keep the best copy of a family - the highest
@@ -428,9 +515,20 @@ namespace
 		for (size_t i = 0; i < bases.size(); ++i)
 			if (IsPlayerBotGambleWorkable(ch, bases[i]))
 				++workable;
-		// The addict starts on what its box holds as the town trigger does:
-		// the session's first stop is the storekeeper.
-		if (workable == 0 && !((townTrigger || addict) && !p.mapLppStored.empty()))
+		// Iwakura's answer of 26 September: a session "zabiera baze z magazynu
+		// do ekwipunku ... i kupuje ulepszacze na rynku i ulepsza". So a box
+		// holding gear the list keeps (wLppBoxGearKept, known once a visit has
+		// looked into it) starts one for every gambler, as it did the town
+		// trigger's and the addict's, and so do bases whose materials the bag
+		// lacks: the storekeeper first, then the counters
+		// (ManagePlayerBotGambleMarket), then the anvil. It asked for a
+		// workable base in the bag before, because a third of the sessions that
+		// did not were a walk for nothing - every piece at +4, where the
+		// recipes start asking for materials - and on m2zip that left 14 to 42
+		// visits in ten minutes with a box of pieces and no session.
+		const bool boxStock = (p.bLppStoredKnown && p.wLppBoxGearKept > 0) ||
+				((townTrigger || addict) && !p.mapLppStored.empty());
+		if (bases.empty() && !boxStock)
 		{
 			++s_PlayerBotGambleCensus.noBases;
 			return false;
@@ -442,6 +540,8 @@ namespace
 			return false;
 		}
 		++s_PlayerBotGambleCensus.started;
+		if (workable == 0)
+			++(bases.empty() ? s_PlayerBotGambleCensus.fromBox : s_PlayerBotGambleCensus.unworkable);
 
 		p.bGambling = true;
 		// The addict's budget counts from the purse it began the state with,
@@ -459,6 +559,9 @@ namespace
 		p.wGambleAttempts = 0;
 		p.bGambleSafeboxChecked = false;
 		p.bGambleSafeboxTaken = 0;
+		p.bGambleMarketPending = true;
+		p.bGambleMarketBuys = 0;
+		p.dwGambleMarketUntil = 0;
 		p.vecGamblePlans.clear();
 		p.dwNextDecide = 0;
 		sys_log(0, "PLAYERBOT_PERSONA: gambler begins pid=%u name=%s gold=%lld budget=%lld pieces=%u workable=%u character=%u map=%ld town_trigger=%d addict=%d",
@@ -764,11 +867,71 @@ namespace
 		if (!first && IsPlayerBotPersonaEnabled())
 		{
 			const TPlayerBotGambleCensus& c = s_PlayerBotGambleCensus;
-			sys_log(0, "PLAYERBOT_PERSONA: gambler census started=%u ended=%u attempts=%u finished=%u burned=%u nines=%u spent=%lld not_started: resting=%u not_here=%u purse=%u own_gear=%u no_bases=%u roll=%u",
+			sys_log(0, "PLAYERBOT_PERSONA: gambler census started=%u ended=%u attempts=%u finished=%u burned=%u nines=%u spent=%lld not_started: resting=%u not_here=%u purse=%u own_gear=%u no_bases=%u roll=%u begun: from_box=%u unworkable=%u market_lines=%u bases_bought=%u",
 					c.started, c.ended, c.attempts, c.finished, c.burned, c.nines, c.spent,
-					c.restNotOver, c.notHere, c.purse, c.ownGear, c.noBases, c.rollLost);
+					c.restNotOver, c.notHere, c.purse, c.ownGear, c.noBases, c.rollLost,
+					c.fromBox, c.unworkable, c.marketLines, c.basesBought);
 		}
 		s_PlayerBotGambleCensus = TPlayerBotGambleCensus();
+	}
+
+	// A gambler by nature between its sessions, short of pieces to work: the
+	// market's half of "Jesli brakuje mu bazy lub ulepszaczy, przeszukuje
+	// sklepy offline na rynku i skupuje je po najnizszych cenach". The session
+	// itself is a town visit - the storekeeper, then the anvil - and a bot on a
+	// visit does not browse, so only the addict ever read the counters for a
+	// base: of the 1 823 pieces of gear the bots bought off them on m2zip on 25
+	// and 26 September, one was a body armour at +0..+3. The bag's bases and
+	// the gear the box keeps count together, so a box of plain pieces is never
+	// topped up from the counters, and a box no visit has seen since the start
+	// is not guessed at. Any plus the gambler works (IsPlayerBotGambleStock):
+	// "hazardzisci maja normalnie kupowac przedmioty na rynek bez wzgledu na
+	// +" (Iwakura, 26 September). The answer is kept a minute, because the
+	// browse asks it of every line it reads.
+	std::map<DWORD, std::pair<DWORD, bool> > s_mapPlayerBotGamblerWantsBases;
+
+	bool PlayerBotGamblerWantsBases(LPCHARACTER ch)
+	{
+		if (!ch || !ch->IsItemLoaded() || !IsPlayerBotPersonaEnabled())
+			return false;
+		const DWORD dwNow = get_dword_time();
+		std::pair<DWORD, bool>& cached = s_mapPlayerBotGamblerWantsBases[ch->GetPlayerID()];
+		if (cached.first != 0 && dwNow - cached.first < PLAYERBOT_GAMBLE_BASES_RECHECK_MS)
+			return cached.second;
+		cached.first = dwNow ? dwNow : 1;
+		cached.second = false;
+		TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+		if (it == s_mapPlayerBotAIStates.end())
+			return false;
+		const TPlayerBotAIState& state = it->second;
+		if (IsPlayerBotGambling(state, dwNow) ||
+				IsPlayerBotRareNow(state.persona, playerbot_persona::RARE_NALOGOWIEC, dwNow) ||
+				!state.persona.bLppStoredKnown || !IsPlayerBotGamblerByNature(ch->GetPlayerID(), state) ||
+				(long long)ch->GetGold() < (long long)ScalePlayerBotIwakuraPrice(PLAYERBOT_GAMBLE_MIN_PURSE_BASE))
+			return false;
+		std::vector<LPITEM> bases;
+		CollectPlayerBotGambleBases(ch, bases);
+		cached.second = (int)bases.size() + (int)state.persona.wLppBoxGearKept < PLAYERBOT_GAMBLE_MARKET_BASES;
+		return cached.second;
+	}
+
+	// An offer such a gambler would buy as a base (PlayerBotGamblerWantsBases).
+	bool IsPlayerBotGamblerBaseOffer(LPCHARACTER ch, LPITEM offer)
+	{
+		return ch && offer && (offer->GetType() == ITEM_WEAPON || offer->GetType() == ITEM_ARMOR) &&
+				PlayerBotGamblerWantsBases(ch) && IsPlayerBotGambleStock(ch, offer);
+	}
+
+	// A base bought between the sessions: the census counts it, and the next
+	// question recounts the bag.
+	void NotePlayerBotGambleBaseBought(LPCHARACTER ch, DWORD vnum, long long paid)
+	{
+		if (!ch)
+			return;
+		++s_PlayerBotGambleCensus.basesBought;
+		s_mapPlayerBotGamblerWantsBases.erase(ch->GetPlayerID());
+		sys_log(0, "PLAYERBOT_PERSONA: gambler bought a base pid=%u name=%s vnum=%u paid=%lld gold=%lld",
+				ch->GetPlayerID(), ch->GetName(), vnum, paid, (long long)ch->GetGold());
 	}
 
 	// The gambler's second source, after the storekeeper: the counters. "Jesli
@@ -791,8 +954,10 @@ namespace
 		// purse it began the state with.
 		const bool gambling = IsPlayerBotGambling(it->second, dwNow);
 		const bool addict = IsPlayerBotRareNow(p, playerbot_persona::RARE_NALOGOWIEC, dwNow);
+		// Between the sessions, a gambler short of pieces buys a base and
+		// nothing else (PlayerBotGamblerWantsBases).
 		if (!gambling && !addict)
-			return false;
+			return IsPlayerBotGamblerBaseOffer(ch, offer);
 		const long long start = gambling ? p.llGambleGoldStart : p.llRareGoldStart;
 		const long long spent = gambling ? p.llGambleSpent : p.llRareSpent;
 		if (playerbot_persona::BudgetLeft(start, GetPlayerBotGambleBudgetPercent(p, dwNow), spent) <= 0)
@@ -860,7 +1025,13 @@ namespace
 		if (it == s_mapPlayerBotAIStates.end())
 			return;
 		if (IsPlayerBotGambling(it->second, get_dword_time()))
+		{
 			it->second.persona.llGambleSpent += paid;
+			// A line of the session's walk along the counters
+			// (ManagePlayerBotGambleMarket).
+			if (it->second.bTownVisitPhase == BOT_TOWN_PHASE_GAMBLE_MARKET)
+				++s_PlayerBotGambleCensus.marketLines;
+		}
 		else if (IsPlayerBotRareNow(it->second.persona, playerbot_persona::RARE_NALOGOWIEC, get_dword_time()))
 			it->second.persona.llRareSpent += paid;
 	}

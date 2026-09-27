@@ -113,6 +113,28 @@ inline int HeapLineUnits(int spare, unsigned seed)
 	return 0;
 }
 
+// The heap cut from one stack of a kind: the size the kind's whole spare asks
+// for, or - the stack being smaller than that - the largest heap the stack
+// holds. Asked again of a line it cut, with the same spare and seed, it
+// answers the line itself. The service visit cuts a line before the board
+// opens and looks at it again when it adds it, and HeapLineUnits of the line
+// alone stepped a size down one time in three: fifty cut again to twenty, or
+// the line left behind in the bag (Iwakura's audit of 26 September, B01).
+inline int HeapLineFromStack(int stack, int spare, unsigned seed)
+{
+	if (stack <= 0 || spare <= 0)
+		return 0;
+	const int want = HeapLineUnits(spare, seed);
+	if (want <= stack)
+		return want;
+	static const int sizes[] = { 200, 50, 20, 10 };
+	const int avail = stack < spare ? stack : spare;
+	for (int i = 0; i < 4; ++i)
+		if (avail >= sizes[i])
+			return sizes[i];
+	return 0;
+}
+
 // Point 4, "ludzka pomylka": one listing in a thousand of a skill book or of a
 // refine material put up singly asks one zero too many - up, never down.
 const unsigned PRICE_SLIP_ONE_IN = 1000;
@@ -140,6 +162,32 @@ const int MISSION_BOOK_MAP_CAP = 30;
 inline bool MissionBookGoesToSafebox(unsigned seed)
 {
 	return (seed & 1u) == 0;
+}
+
+// Point 2, as Iwakura answered it on 26 September: whether a bot buys a piece
+// off a counter for a slot it wears. +6 at least (minPlus); a grade over the
+// worn piece (plusOverWorn) when it scores over it, or when it carries a
+// valuable line the worn piece lacks; the worn grade when it scores over it and
+// its lines are worth marginPct more. The scores are the equipment score and
+// its count of the rolled lines (GetPlayerBotEquipmentScore,
+// GetPlayerBotItemLineScore). It asked two grades and the score's margin on
+// top, which a level-34 armour - forty-seven defence and three a grade - met
+// only from +6 to +9.
+inline bool BuysGearOverWorn(int offerPlus, int wornPlus, long long offerScore, long long wornScore,
+		long long offerLines, long long wornLines, bool offerValuable, bool wornValuable,
+		int minPlus, int plusOverWorn, long long marginPct)
+{
+	if (offerPlus < minPlus)
+		return false;
+	if (offerPlus < wornPlus + plusOverWorn)
+	{
+		if (offerPlus != wornPlus || offerScore <= wornScore)
+			return false;
+		return offerLines > 0 && offerLines * 100 > wornLines * (100 + marginPct);
+	}
+	if (offerValuable && !wornValuable)
+		return true;
+	return offerScore > wornScore;
 }
 
 }

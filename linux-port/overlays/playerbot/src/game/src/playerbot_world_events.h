@@ -77,6 +77,9 @@ namespace
 	const int PLAYERBOT_TANAKA_CHASERS = 3;
 	const int PLAYERBOT_TANAKA_REMOTE_CHASERS = 2;
 	const DWORD PLAYERBOT_TANAKA_NOTICE_GAP_MS = 15 * 1000;
+	// How long a bot is kept on the event after the pirate falls, while his
+	// piles and ear are still to take: 25 to 35 piles at one a second.
+	const DWORD PLAYERBOT_TANAKA_LOOT_HOLD_MS = 45 * 1000;
 
 	// Zuo.
 	const DWORD PLAYERBOT_ZUO_FIRST_WAVE_MS = 60 * 1000;
@@ -337,6 +340,7 @@ namespace
 		state.dwWorldEventTargetVID = 0;
 		state.dwNextWorldEventMoveTime = 0;
 		state.dwWorldEventJoinedAt = 0;
+		state.dwWorldEventLootUntil = 0;
 		if (target != 0 && state.dwTargetVID == target)
 			state.dwTargetVID = 0;
 		if (ch && target != 0 && ch->GetVictim() && (DWORD)ch->GetVictim()->GetVID() == target)
@@ -1252,6 +1256,19 @@ namespace
 				}
 			if (!target || target->IsDead())
 			{
+				// Held on the event - the stand's service, the travel and the
+				// market all stand down for it - while the pirate's piles and
+				// ear are still on the floor: released the moment he fell, the
+				// winner was warped to its stand with the ear and a few piles
+				// left behind ("boty nie zbieraja yangow i ucha", Kiciamol).
+				// The tick stays the loot pass's, which runs above this one.
+				const size_t left = CountPlayerBotLootToTake(ch, state, dwNow);
+				if (state.dwWorldEventLootUntil == 0)
+					state.dwWorldEventLootUntil = dwNow + PLAYERBOT_TANAKA_LOOT_HOLD_MS;
+				if (left > 0 && (int)(state.dwWorldEventLootUntil - dwNow) > 0)
+					return false;
+				sys_log(0, "PLAYERBOT_EVENT: tanaka loot done pid=%u name=%s left=%u",
+						pid, ch->GetName(), (unsigned int)left);
 				ReleasePlayerBotWorldEventParticipant(ev, pid, NULL);
 				return false;
 			}

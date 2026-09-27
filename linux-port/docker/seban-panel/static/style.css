@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&display=swap');
 :root{--bg:#09111e;--panel:#101d2d;--edge:#213852;--text:#edf5ff;--muted:#91a8c5;--blue2:#1f6fe5;--gold:#f2c34d}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Inter,Segoe UI,Arial,sans-serif}aside{position:fixed;width:220px;inset:0 auto 0 0;border-right:1px solid var(--edge);padding:20px 16px;background:#0c1726;display:flex;flex-direction:column}.brand{font-weight:800;font-size:19px;color:#fff;text-decoration:none;margin:0 7px 32px}.brand span{display:block;font-size:11px;font-weight:500;color:#71adff;margin-top:2px}nav{display:grid;gap:5px}nav a{color:#b6cce7;text-decoration:none;padding:11px 9px;border-radius:6px}nav a:hover{background:#1c3353;color:#fff}nav hr{border:0;border-top:1px solid var(--edge);margin:13px 0}.quiet{margin-top:auto;width:100%;border:0;background:none;color:var(--muted);text-align:left;padding:10px;font:inherit;cursor:pointer}main{margin-left:220px;max-width:1550px;padding:38px 6vw 70px}h1{font-size:32px;line-height:1.1;margin:6px 0 10px}h2{font-size:18px;margin:0 0 18px}h3{margin:18px 0 9px;font-size:15px}.eyebrow{font-size:11px;letter-spacing:1.5px;color:#69a6ff;font-weight:700;margin:0}.muted,small{color:var(--muted)}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:30px 0}.cards.compact{grid-template-columns:repeat(4,minmax(150px,1fr));max-width:900px}.cards article,.panel,.live-shell{background:var(--panel);border:1px solid var(--edge);border-radius:8px}.cards article{padding:18px}.cards span{display:block;color:var(--muted);font-size:13px}.cards strong{font-size:27px;display:block;margin:7px 0}.cards small{font-size:12px}.grid{display:grid;gap:16px;margin:16px 0}.grid.two{grid-template-columns:1fr 1fr}.panel{padding:22px;margin:16px 0;overflow-x:auto}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:12px;color:#89a6cc;font-weight:600;border-bottom:1px solid var(--edge);padding:10px}td{padding:12px 10px;border-bottom:1px solid #1e3249}tr:last-child td{border:0}td a,.back{color:#69a6ff;text-decoration:none}td.item-cell{display:flex;align-items:center;gap:10px}.item-cell img{width:32px;height:32px;object-fit:contain;background:#0b1625;border:1px solid #294562;border-radius:4px}.button,button{display:inline-block;padding:9px 13px;color:#fff;background:var(--blue2);border:0;border-radius:5px;font:inherit;cursor:pointer;text-decoration:none}.secondary{margin-top:16px;background:#203d63}.gauges{display:flex;gap:35px;margin:18px 0}.gauges b{font-size:30px;display:block}.gauges span{color:var(--muted);font-size:13px}.search{display:flex;gap:8px;margin:24px 0}.search input,input,select{background:#0d1929;border:1px solid #294562;color:#fff;border-radius:5px;padding:10px 12px;font:inherit}.flash{margin-bottom:15px;padding:11px;border-radius:5px}.flash.error{background:#5b1e2b;color:#ffdbe1}.login{min-height:100vh;display:grid;place-items:center}.login-card{width:min(420px,90vw);padding:32px;background:var(--panel);border:1px solid var(--edge);border-radius:9px}.login-card .brand{display:block;margin:0 0 24px}.login-card label{display:grid;gap:7px;color:var(--muted);margin:18px 0}.login-card button{width:100%}canvas{max-height:420px}
 .live-shell{margin:22px 0;padding:21px;background:linear-gradient(135deg,#131a1c,#111817)}.live-shell header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.live-shell header h2{color:#ffe089;margin:3px 0}.live-badge{background:#164e35;color:#7cf0ae;border:1px solid #2c9e5c;border-radius:16px;padding:6px 10px;white-space:nowrap;font-size:12px}.live-filters{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:17px 0;padding:13px;border:1px solid #493e25;border-radius:8px;background:#161510}.live-filters label{display:flex;gap:6px;align-items:center;color:#d6c9a7;font-size:13px}.live-filters input[type=checkbox]{accent-color:#4d91ff}.live-filters #bot-search{margin-left:auto;min-width:190px}.level-filter{display:flex;gap:5px}.level-filter button{padding:4px 9px;background:#443711;color:#f7d677;border-radius:14px;font-size:12px}.level-filter button.active{background:var(--gold);color:#201705}.live-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,.85fr);gap:16px}.world-map{height:600px;position:relative;overflow:hidden;background:radial-gradient(circle at 48% 40%,#17251b 0,#0c120f 52%,#060807 100%);border:1px solid #5b4b26;border-radius:6px;box-shadow:inset 0 0 70px #000}.world-map:before{content:'';position:absolute;inset:0;opacity:.14;background-image:linear-gradient(#8f7835 1px,transparent 1px),linear-gradient(90deg,#8f7835 1px,transparent 1px);background-size:10% 10%}.map-caption{position:absolute;z-index:2;left:12px;top:10px;background:#080a08cc;border:1px solid #5b4b26;padding:4px 8px;border-radius:4px;color:#e8d488;font-size:12px}.bot-point{z-index:3;position:absolute;width:10px;height:10px;transform:translate(-50%,-50%);border-radius:50%;background:#39e890;border:1px solid #e2fff0;box-shadow:0 0 9px #39e890;cursor:pointer}.bot-point.is-pt{background:#a974ff;box-shadow:0 0 9px #a974ff}.bot-point em{display:block;position:absolute;left:7px;top:-15px;padding:1px 3px;border:1px solid #4a4a4a;border-radius:3px;background:#090b09e8;color:#eee;white-space:nowrap;font-style:normal;font-size:10px;pointer-events:none}.live-sidebar{position:static;width:auto;padding:14px;background:#12120e;border:1px solid #493e25;border-radius:7px}.mini-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mini-stats div{padding:11px;background:#18160e;border:1px solid #3b321b;border-radius:6px}.mini-stats b{font-size:22px;color:#f4c64f;display:block}.mini-stats span{color:#b5a786;font-size:11px}.live-ranking{height:438px;overflow:auto}.live-ranking a{display:block;color:#ded8c7;text-decoration:none;padding:8px;border-bottom:1px solid #352e1d;background:#16140d}.live-ranking a:hover{background:#292313}.live-ranking a b{color:#f4c64f;margin-right:4px}.live-ranking span{float:right;color:#6fa7ff;font-weight:700}.live-shell footer{display:flex;gap:20px;flex-wrap:wrap;margin-top:12px;color:#cabf9e;font-size:12px}.dot{width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:4px}.dot.bot{background:#39e890}.dot.pt{background:#a974ff}
 @media(max-width:1000px){.live-grid{grid-template-columns:1fr}.world-map{height:520px}.live-ranking{height:230px}}
@@ -22,3 +23,232 @@ body[data-theme="ember"] .profile-sections section,body[data-theme="ember"] .inv
 body[data-theme="ember"] .world-overview,body[data-theme="ember"] .world-summary-grid>div,body[data-theme="ember"] .live-filters,body[data-theme="ember"] .dashboard-widgets .panel,body[data-theme="ember"] .rank-tabs a{background:#251717!important;border-color:#563535!important}body[data-theme="ember"] .world-summary-grid b,body[data-theme="ember"] .mini-stats b,body[data-theme="ember"] .live-ranking a b{color:#e7aa78!important}body[data-theme="forest"] .world-overview,body[data-theme="forest"] .world-summary-grid>div,body[data-theme="forest"] .live-filters,body[data-theme="forest"] .dashboard-widgets .panel,body[data-theme="forest"] .rank-tabs a{background:#12251a!important;border-color:#2a5439!important}body[data-theme="forest"] .world-summary-grid b,body[data-theme="forest"] .mini-stats b,body[data-theme="forest"] .live-ranking a b{color:#85dba3!important}
 .ranking-leader{background:radial-gradient(ellipse 70% 160% at 50% -70%,#ffe7a852,transparent 70%),linear-gradient(180deg,#f6ca6335 0%,#c38a2118 55%,transparent 100%);box-shadow:inset 0 1px 0 #ffeab075,inset 0 -1px 0 #b77b2138}.ranking-leader td{background:transparent!important}.ranking-leader td:first-child{border-left:2px solid #f0be4c}.ranking-leader td:last-child{border-right:2px solid #f0be4c}
 :root{--leader-ink:#edf5ff;--leader-ink-2:#f2c34d;--leader-ink-3:#77c4ff}body[data-theme="ember"]{--leader-ink:#fff0e9;--leader-ink-2:#e7aa78;--leader-ink-3:#ff7764}body[data-theme="forest"]{--leader-ink:#e9fff0;--leader-ink-2:#85dba3;--leader-ink-3:#c4f58c}.ranking-leader td:nth-child(2) a{display:inline-block;position:relative;color:transparent;background:radial-gradient(circle at 14% 35%,#fff 0 1.4px,transparent 1.8px),radial-gradient(circle at 42% 68%,#fff 0 1.1px,transparent 1.5px),radial-gradient(circle at 75% 24%,#fff 0 1.5px,transparent 1.9px),linear-gradient(100deg,var(--leader-ink),var(--leader-ink-3),var(--leader-ink-2),var(--leader-ink));background-size:90px 36px,112px 44px,135px 40px,240% 100%;-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 6px var(--leader-ink-3));text-shadow:none;animation:leader-starlight 3.6s linear infinite}@keyframes leader-starlight{0%{background-position:0 0,0 0,0 0,120% 0}100%{background-position:90px 0,-112px 0,135px 0,-120% 0}}@media(prefers-reduced-motion:reduce){.ranking-leader td:nth-child(2) a{animation:none}}
+body[data-theme="empire"]{--leader-ink:#fff3c4;--leader-ink-2:#e8b93f;--leader-ink-3:#c94a2a}
+
+/* ============================================================
+   MOTYW "CESARSTWO" v2 -- handoff z Claude Design, 2026-09-19
+   Aktywacja: <body data-theme="empire"> (tak jak ember/forest)
+   ============================================================ */
+
+body[data-theme="empire"]{
+  --bg:#120c08; --panel:#241a12; --edge:#4a3520; --text:#f3e9d8; --muted:#a89478; --blue2:#8a5a1f; --gold:#e8b93f;
+  background:
+    radial-gradient(ellipse 80% 45% at 50% 0%, rgba(201,74,42,.10), transparent 60%),
+    radial-gradient(ellipse 60% 35% at 8% 100%, rgba(232,185,63,.06), transparent 70%),
+    var(--bg);
+  background-attachment:fixed;
+}
+body[data-theme="empire"] h1, body[data-theme="empire"] .brand, body[data-theme="empire"] h2{ font-family:'Cinzel',Georgia,serif; }
+
+/* --- Plaque panels: cut corners instead of plain rounded rects --- */
+body[data-theme="empire"] .cards article, body[data-theme="empire"] .panel,
+body[data-theme="empire"] .inventory-panel, body[data-theme="empire"] .profile-sections section,
+body[data-theme="empire"] .bot-log, body[data-theme="empire"] .log-lines{
+  background:linear-gradient(160deg,#241a12,#1a1109)!important; border:0!important;
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);
+  box-shadow:0 0 0 1px var(--edge), inset 0 1px 0 rgba(232,185,63,.08), 0 8px 20px rgba(0,0,0,.35);
+  position:relative;
+}
+/* .live-shell deliberately excluded from clip-path above: .world-overview
+   (the "PLAYERBOTS - SWIAT / Stan serwera" panel) escapes .live-shell's own
+   box on purpose via position:absolute (see live-overrides.css) to sit
+   beside it. clip-path clips a descendant's paint even when it renders
+   outside the ancestor's box, same as overflow:hidden would -- so cutting
+   .live-shell's corners was silently deleting that whole panel. Confirmed
+   live 2026-09-19: this, not the old @media(min-width:1351px) block, was the
+   actual cause -- that block is legitimate and was restored. .live-shell's
+   background/border are already themed correctly via the --live-* variables
+   (this file, below) and the base var(--edge) border rule -- no extra rule
+   needed here now that clip-path is gone. */
+/* Stat cells (STR/VIT/DEX/INT on /player/): true hexagons, not cut corners. */
+body[data-theme="empire"] .stat-cells div{
+  background:linear-gradient(160deg,#2c2014,#1a1109)!important; border:0!important;
+  clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%);
+  box-shadow:0 0 0 1px var(--edge), inset 0 1px 0 rgba(232,185,63,.1);
+  padding:14px 6px!important; min-width:64px;
+}
+/* Profile badges (kingdom / HP / MP / Yang / map / channel / VIP...) on /player/. */
+body[data-theme="empire"] .profile-tags span{
+  background:color-mix(in srgb,var(--panel) 70%,#000)!important; border:1px solid var(--edge)!important; color:var(--text)!important;
+}
+/* .news-ticker is a fixed bar flush against the 220px sidebar -- a cut
+   bottom-left corner there reads as a gap, not a decoration. Square corners
+   only, no clip-path. */
+body[data-theme="empire"] .news-ticker{
+  background:linear-gradient(160deg,#241a12,#1a1109)!important; border:1px solid var(--edge)!important; border-bottom:0!important;
+  box-shadow:0 -8px 26px rgba(0,0,0,.4);
+}
+body[data-theme="empire"] .cards article::after{
+  content:''; position:absolute; top:10px; right:12px; width:6px; height:6px; background:var(--gold); transform:rotate(45deg); opacity:.8;
+}
+body[data-theme="empire"] .cards strong{ color:#f6dfa0; text-shadow:0 0 12px rgba(232,185,63,.25); }
+body[data-theme="empire"] .eyebrow{ color:var(--gold); letter-spacing:2px; }
+
+/* --- Rank medallions: add class="rank-medal" to the numeric rank cell --- */
+body[data-theme="empire"] .rank-medal, body[data-theme="empire"] tbody tr td:first-child > span.rank-medal{
+  display:inline-flex; width:22px; height:22px; border-radius:50%; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 35% 30%,#fff3c4,#e8b93f 55%,#8a5a1f 100%); color:#201705; font-weight:700; font-size:11px;
+}
+
+
+/* --- Vital bars (HP/MP/EXP) --- */
+/* background-color (not the background shorthand) so the tick pattern below
+   can set background-image independently -- a shorthand !important also
+   !importants background-image:none, silently eating the ticks otherwise. */
+body[data-theme="empire"] .vital.hp .bar i{ background-color:#c94a2a!important; box-shadow:0 0 8px #c94a2a; background-image:repeating-linear-gradient(90deg,transparent 0 9px,rgba(0,0,0,.35) 9px 10px)!important; }
+body[data-theme="empire"] .vital.mp .bar i{ background-color:#4d91ff!important; box-shadow:0 0 8px #4d91ff; background-image:repeating-linear-gradient(90deg,transparent 0 9px,rgba(0,0,0,.35) 9px 10px)!important; }
+body[data-theme="empire"] .vital.exp .bar i{ background-color:var(--gold)!important; box-shadow:0 0 8px var(--gold); background-image:repeating-linear-gradient(90deg,transparent 0 9px,rgba(0,0,0,.35) 9px 10px)!important; }
+
+/* --- Live map / dashboard widgets --- */
+body[data-theme="empire"] .live-shell header h2{ color:#f6dfa0; }
+body[data-theme="empire"] .live-badge{ background:#2f4a1e; color:#a6e08a; border-color:#4c7a34; }
+body[data-theme="empire"] .live-filters{ background:#181210; border-color:var(--edge); }
+body[data-theme="empire"] .level-filter button{ background:#241a12; color:#e0cfae; border-radius:16px; }
+body[data-theme="empire"] .level-filter button.active{ background:var(--gold); color:#201705; }
+/* No background override here on purpose: .world-map[data-map-index="N"] in
+   live-overrides.css sets the real per-map screenshot via background-image,
+   and this selector's specificity would have silently beaten it and blanked
+   every map -- confirmed live 2026-09-19, fixed by just not touching it. */
+body[data-theme="empire"] .world-map{ border-color:var(--edge); }
+body[data-theme="empire"] .level-filter button.active, body[data-theme="empire"] .carousel-arrows button{ color:#201705!important; }
+body[data-theme="empire"] .map-caption{ border-color:var(--edge); color:#e8d488; }
+body[data-theme="empire"] .dot.metin, body[data-theme="empire"] .dot.stuck{ background:#c94a2a; animation:empire-flicker 1.6s ease-in-out infinite; }
+body[data-theme="empire"] .live-sidebar, body[data-theme="empire"] .mini-stats div, body[data-theme="empire"] .live-ranking a{ background:#181109!important; border-color:var(--edge)!important; }
+body[data-theme="empire"] .mini-stats b{ color:var(--gold); }
+body[data-theme="empire"] .live-ranking a:hover{ background:#292313!important; }
+body[data-theme="empire"] .ranking-leader{ background:radial-gradient(ellipse 70% 160% at 50% -70%,#ffe7a852,transparent 70%),linear-gradient(180deg,#f6ca6335 0%,#c38a2118 55%,transparent 100%)!important; }
+body[data-theme="empire"] .world-overview, body[data-theme="empire"] .world-summary-grid>div, body[data-theme="empire"] .dashboard-widgets .panel, body[data-theme="empire"] .rank-tabs a{ background:var(--panel)!important; border-color:var(--edge)!important; }
+body[data-theme="empire"] .world-summary-grid b, body[data-theme="empire"] .live-ranking a b{ color:var(--gold)!important; }
+body[data-theme="empire"] .rank-tabs a.active{ background:var(--gold)!important; color:#201705!important; }
+body[data-theme="empire"] input, body[data-theme="empire"] select{ background:#100d0a; border-color:var(--edge); color:var(--text); }
+body[data-theme="empire"] .exp-orbs i.full{ background:radial-gradient(circle at 35% 28%,#ffeab0,#e8b93f 55%,#6f3610 100%); box-shadow:0 0 6px var(--gold); }
+body[data-theme="empire"] .news-label{ color:var(--gold); font-family:'Cinzel',serif; }
+
+/* --- Sidebar nav --- */
+body[data-theme="empire"] aside.site-nav{ background:linear-gradient(180deg,#1c140d,#140d08); border-right:3px double var(--edge); box-shadow:inset -1px 0 0 rgba(232,185,63,.08),6px 0 24px rgba(0,0,0,.4); }
+body[data-theme="empire"] .brand span{ color:var(--gold); letter-spacing:1px; }
+body[data-theme="empire"] nav a{ color:#d9c8a8; border-radius:3px; }
+body[data-theme="empire"] nav a:hover{ background:color-mix(in srgb,var(--gold) 22%,transparent); color:#f6dfa0; }
+body[data-theme="empire"] nav a.active, body[data-theme="empire"] nav a[aria-current="page"]{
+  color:#201705!important; background:linear-gradient(180deg,#f6dfa0,#e8b93f)!important; font-weight:700;
+  box-shadow:0 2px 10px rgba(232,185,63,.35);
+}
+
+@keyframes empire-flicker{0%,100%{opacity:1;transform:scaleY(1)}45%{opacity:.75;transform:scaleY(.9)}55%{opacity:.95;transform:scaleY(1.05)}}
+@keyframes empire-seal-glow{0%,100%{box-shadow:0 0 0 0 rgba(232,185,63,.5)}50%{box-shadow:0 0 14px 3px rgba(232,185,63,.55)}}
+
+body[data-theme="empire"] .empire-embers{ position:fixed; inset:0; pointer-events:none; z-index:1; overflow:hidden; }
+body[data-theme="empire"] .empire-embers span{
+  position:absolute; bottom:-20px; width:4px; height:4px; border-radius:50%;
+  background:radial-gradient(circle,#ffcf6b,#e8641f 60%,transparent 100%);
+  animation:empire-ember-rise var(--dur,6s) linear infinite; animation-delay:var(--delay,0s);
+}
+@keyframes empire-ember-rise{0%{transform:translateY(0) translateX(0);opacity:0}10%{opacity:.9}90%{opacity:.4}100%{transform:translateY(-620px) translateX(var(--drift,20px));opacity:0}}
+
+/* No negative side margins here on purpose: -6vw on each side used to pull
+   this wider than <main>'s own box, bleeding under the fixed 220px sidebar
+   on the left and pushing a horizontal scrollbar on the right. Confirmed
+   live 2026-09-19. Stays inside main's normal content width instead, with
+   its own padding/border/radius giving it visual weight as a section. */
+body[data-theme="empire"] .empire-hero{
+  margin:-6px 0 34px; padding:44px 6vw; text-align:center; position:relative; overflow:hidden;
+  isolation:isolate;
+  border-radius:10px;
+  background:radial-gradient(ellipse 70% 60% at 20% 30%, rgba(77,110,180,.35), transparent 60%),
+    radial-gradient(ellipse 60% 70% at 85% 60%, rgba(201,74,42,.42), transparent 65%), linear-gradient(180deg,#0e0a08,#1a120c);
+  border:1px solid var(--edge); border-bottom:3px double var(--edge); box-shadow:0 0 70px rgba(0,0,0,.55) inset;
+}
+body[data-theme="empire"] .empire-hero-eyebrow{ font-family:'Cinzel',serif; font-size:13px; letter-spacing:4px; color:var(--gold); font-weight:700; margin:0; }
+body[data-theme="empire"] .empire-hero-title{ font-family:'Cinzel',serif; font-weight:900; font-size:44px; margin:14px 0 8px; color:#fff; text-shadow:0 2px 0 #000,0 0 30px rgba(232,185,63,.45); }
+body[data-theme="empire"] .empire-hero-sub{ color:#c9b699; margin:0; font-size:14px; }
+
+body[data-theme="empire"] .empire-hero-copy{
+  position:relative;z-index:4;
+  clip-path:inset(0 100% 0 0);
+  animation:empire-hero-copy-reveal 2.43s linear forwards;
+}
+@keyframes empire-hero-copy-reveal{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+
+body[data-theme="empire"] .empire-hero-title--intro{
+  position:relative;display:inline-block;isolation:isolate;
+  animation:empire-hero-fire-intro 4.2s ease-out 2.35s forwards;
+}
+body[data-theme="empire"] .empire-hero-title--intro::before{
+  content:attr(data-text);position:absolute;inset:0;color:#fb923c;filter:blur(10px);
+  opacity:0;z-index:-1;animation:empire-hero-fire-heat 1.2s ease-in-out 2.35s 3 both;
+}
+@keyframes empire-hero-fire-intro{
+  0%,18%{transform:translateY(0) scale(1);color:#fff7ed;text-shadow:0 0 6px #fed7aa,0 0 16px #fb923c,0 0 34px #f97316,0 0 70px #dc2626}
+  36%{transform:translateY(-2px) scale(1.02);color:#fff7ed;text-shadow:0 0 8px #fff7ed,0 0 22px #fdba74,0 0 50px #f97316,0 0 95px #b91c1c}
+  56%{transform:translateY(1px) scale(.99);color:#fff7ed;text-shadow:0 0 5px #fed7aa,0 0 14px #fb923c,0 0 28px #ea580c,0 0 60px #991b1b}
+  74%{transform:translateY(0) scale(1);color:#fff7ed;text-shadow:0 0 6px #fed7aa,0 0 16px #fb923c,0 0 34px #f97316,0 0 70px #dc2626}
+  100%{transform:translateY(0) scale(1);color:#fff;text-shadow:0 2px 0 #000,0 0 30px rgba(232,185,63,.45)}
+}
+@keyframes empire-hero-fire-heat{0%,100%{transform:translateY(0) scale(1);opacity:0}20%,70%{transform:translateY(-10px) scale(1.14);opacity:.82}}
+
+body[data-theme="empire"] .empire-hero-runner{
+  position:absolute;bottom:0;left:-140px;height:100%;width:auto;z-index:6;
+  animation:empire-hero-run 2.6s linear forwards;
+}
+@keyframes empire-hero-run{
+  from{left:-140px;opacity:1}
+  86%{opacity:1}
+  to{left:calc(100% - 80px);opacity:0}
+}
+
+body[data-theme="empire"] .empire-hero-idle{
+  position:absolute;bottom:0;right:24px;height:108%;width:auto;z-index:3;opacity:0;
+  animation:empire-hero-idle-in .36s ease-out 2.24s forwards;
+}
+@keyframes empire-hero-idle-in{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+
+@media(prefers-reduced-motion:reduce){
+  body[data-theme="empire"] .empire-hero-runner{display:none}
+  body[data-theme="empire"] .empire-hero-copy{animation:none;clip-path:none}
+  body[data-theme="empire"] .empire-hero-title--intro,body[data-theme="empire"] .empire-hero-title--intro::before{animation:none}
+  body[data-theme="empire"] .empire-hero-idle{display:block!important;opacity:1;animation:none}
+}
+
+/* Klikalne wiersze na /accounts -> /account/<id>, z zipa z Windowsa 20.09. */
+.account-row{cursor:pointer}
+.account-row:hover td{background:color-mix(in srgb,var(--blue2) 16%,transparent)}
+.account-login{color:#69a6ff}
+body[data-theme="empire"] .account-row:hover td{background:color-mix(in srgb,var(--gold) 18%,transparent)}
+body[data-theme="empire"] .account-login{color:var(--gold)}
+
+/* Popup powiadomień (dialog na środku) zamiast baneru na górze strony. */
+.flash-modal{border:0;border-radius:10px;padding:0;background:transparent;max-width:520px;width:92vw}
+.flash-modal::backdrop{background:rgba(5,10,18,.65)}
+.flash-modal .flash-card{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:8px;border-left:4px solid;color:#fff;background:var(--panel)}
+.flash-modal .flash-card:last-of-type{margin-bottom:0}
+.flash-card svg{width:22px;height:22px;flex:0 0 auto;margin-top:1px}
+.flash-card.success{border-left-color:#39e890;background-image:linear-gradient(to right,#39e8903d,#39e8901f 50%,#39e89010)}
+.flash-card.success svg{fill:#39e890}
+.flash-card.error{border-left-color:#ff5757;background-image:linear-gradient(to right,#ff57573d,#ff57571f 50%,#ff575710)}
+.flash-card.error svg{fill:#ff5757}
+.flash-modal form{margin:16px 0 0;text-align:center}
+.flash-modal-ok{padding:9px 26px;border-radius:8px}
+
+/* Dashboard ranking: automatic rotation is opt-in and respects the active theme. */
+.ranking-carousel-controls{display:flex;align-items:center;gap:10px}.rank-autoplay-toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;color:var(--muted);user-select:none}.rank-autoplay-toggle input{position:absolute;opacity:0;width:1px;height:1px}.rank-autoplay-track{position:relative;display:inline-block;width:32px;height:18px;border:1px solid var(--edge);border-radius:999px;background:color-mix(in srgb,var(--panel) 72%,var(--muted));transition:background .2s ease,border-color .2s ease,box-shadow .2s ease}.rank-autoplay-track span{position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:var(--text);transition:transform .2s cubic-bezier(.22,1,.36,1),background .2s ease}.rank-autoplay-toggle input:checked+.rank-autoplay-track{background:var(--blue2);border-color:var(--blue2);box-shadow:0 0 10px color-mix(in srgb,var(--blue2) 55%,transparent)}.rank-autoplay-toggle input:checked+.rank-autoplay-track span{transform:translateX(14px);background:#fff}.rank-autoplay-toggle input:focus-visible+.rank-autoplay-track{outline:2px solid var(--blue2);outline-offset:2px}
+\n\n/* Dashboard hero: shared shaman animation with theme-aware fire. */
+.empire-hero{--hero-accent:#77c4ff;--hero-accent-soft:#bce7ff;--hero-fire-hot:#2d8ee8;--hero-fire-deep:#164f9f;--hero-title-shadow:rgba(68,164,255,.46);margin:-6px 0 34px;padding:44px 6vw;text-align:center;position:relative;overflow:hidden;isolation:isolate;border:1px solid var(--edge);border-bottom:3px double var(--edge);border-radius:10px;background:radial-gradient(ellipse 70% 68% at 18% 30%,rgba(24,129,217,.42),transparent 62%),radial-gradient(ellipse 58% 72% at 86% 65%,rgba(53,193,224,.28),transparent 65%),linear-gradient(180deg,#071525,#0d2437);box-shadow:inset 0 0 70px rgba(0,0,0,.55)}
+body[data-theme="ember"] .empire-hero{--hero-accent:#ffb27f;--hero-accent-soft:#ffe0c7;--hero-fire-hot:#fa743f;--hero-fire-deep:#a91f1f;--hero-title-shadow:rgba(244,92,45,.5);background:radial-gradient(ellipse 65% 75% at 18% 25%,rgba(186,48,29,.5),transparent 63%),radial-gradient(ellipse 54% 65% at 88% 70%,rgba(246,136,45,.33),transparent 64%),linear-gradient(180deg,#28100d,#401711)}
+body[data-theme="forest"] .empire-hero{--hero-accent:#85dba3;--hero-accent-soft:#d4ffe0;--hero-fire-hot:#58c784;--hero-fire-deep:#197a4c;--hero-title-shadow:rgba(75,204,125,.46);background:radial-gradient(ellipse 68% 72% at 20% 28%,rgba(28,123,71,.48),transparent 62%),radial-gradient(ellipse 56% 70% at 86% 65%,rgba(137,211,86,.22),transparent 64%),linear-gradient(180deg,#0b2117,#102e20)}
+body[data-theme="empire"] .empire-hero{--hero-accent:var(--gold);--hero-accent-soft:#fff0bc;--hero-fire-hot:#f97316;--hero-fire-deep:#b91c1c;--hero-title-shadow:rgba(232,185,63,.45)}
+.empire-hero-eyebrow{position:relative;z-index:4;font-family:'Cinzel',serif;font-size:13px;letter-spacing:4px;color:var(--hero-accent);font-weight:700;margin:0}.empire-hero-title{position:relative;z-index:4;font-family:'Cinzel',serif;font-weight:900;font-size:44px;margin:14px 0 8px;color:#fff;text-shadow:0 2px 0 #000,0 0 30px var(--hero-title-shadow)}.empire-hero-sub{position:relative;z-index:4;color:color-mix(in srgb,var(--hero-accent-soft) 76%,var(--text));margin:0;font-size:14px}.empire-hero-copy{position:relative;z-index:4;clip-path:inset(0 100% 0 0);animation:empire-hero-copy-reveal 2.43s linear forwards}.empire-hero-title--intro{display:inline-block;isolation:isolate;animation:dashboard-hero-fire-intro 4.2s ease-out 2.35s forwards}.empire-hero-title--intro::before{content:attr(data-text);position:absolute;inset:0;color:var(--hero-fire-hot);filter:blur(10px);opacity:0;z-index:-1;animation:dashboard-hero-fire-heat 1.2s ease-in-out 2.35s 3 both}@keyframes dashboard-hero-fire-intro{0%,18%{transform:translateY(0) scale(1);color:var(--hero-accent-soft);text-shadow:0 0 6px var(--hero-accent-soft),0 0 16px var(--hero-fire-hot),0 0 34px var(--hero-fire-hot),0 0 70px var(--hero-fire-deep)}36%{transform:translateY(-2px) scale(1.02);text-shadow:0 0 8px var(--hero-accent-soft),0 0 22px var(--hero-accent),0 0 50px var(--hero-fire-hot),0 0 95px var(--hero-fire-deep)}56%{transform:translateY(1px) scale(.99);text-shadow:0 0 5px var(--hero-accent-soft),0 0 14px var(--hero-fire-hot),0 0 28px var(--hero-fire-hot),0 0 60px var(--hero-fire-deep)}74%{transform:translateY(0) scale(1);text-shadow:0 0 6px var(--hero-accent-soft),0 0 16px var(--hero-fire-hot),0 0 34px var(--hero-fire-hot),0 0 70px var(--hero-fire-deep)}100%{transform:translateY(0) scale(1);color:#fff;text-shadow:0 2px 0 #000,0 0 30px var(--hero-title-shadow)}}@keyframes dashboard-hero-fire-heat{0%,100%{transform:translateY(0) scale(1);opacity:0}20%,70%{transform:translateY(-10px) scale(1.14);opacity:.82}}
+.empire-hero-runner{position:absolute;bottom:0;left:-140px;height:100%;width:auto;z-index:6;animation:empire-hero-run 2.6s linear forwards}.empire-hero-idle{position:absolute;bottom:0;right:24px;height:108%;width:auto;z-index:3;opacity:0;animation:empire-hero-idle-in .36s ease-out 2.24s forwards}@media(prefers-reduced-motion:reduce){.empire-hero-runner{display:none}.empire-hero-copy{animation:none;clip-path:none}.empire-hero-title--intro,.empire-hero-title--intro::before{animation:none}.empire-hero-idle{display:block!important;opacity:1;animation:none}}@media(max-width:650px){.empire-hero{padding:34px 22px}.empire-hero-title{font-size:31px}.empire-hero-eyebrow{font-size:10px;letter-spacing:2.5px}.empire-hero-sub{font-size:12px;padding-right:65px}.empire-hero-idle{right:4px;height:88%}}
+
+/* Keep the shared shaman strictly inside the hero, regardless of theme. */
+.empire-hero{height:180px;min-height:180px;padding:28px 220px 28px 42px}.empire-hero-runner,.empire-hero-idle{position:absolute!important;bottom:0!important;width:auto!important;height:190px!important;max-height:none!important}.empire-hero-runner{left:-140px}.empire-hero-idle{right:20px!important}@media(max-width:650px){.empire-hero{height:164px;min-height:164px;padding:25px 118px 22px 18px}.empire-hero-runner,.empire-hero-idle{height:158px!important}.empire-hero-idle{right:2px!important}}
+
+/* Anchor animated character to the dashboard banner. */
+#heroBanner{position:relative!important}
+#heroBanner .empire-hero-runner,#heroBanner .empire-hero-idle{position:absolute!important;bottom:0!important;height:170px!important;max-height:170px!important;width:auto!important}
+
+/* Operator's own cursor (static/cursor.cur, "Selección Normal.cur", 2026-09-25).
+   Only the base pointer -- links/buttons keep the normal hand cursor on hover
+   via their own more specific `cursor:pointer` rules above. On by default
+   (data-cursor="custom", see DEFAULT_SETTINGS in app.py); togglable from
+   /manage -> "system" drops back to the browser/OS default cursor. */
+body[data-cursor="custom"]{cursor:url('cursor.cur'),auto}

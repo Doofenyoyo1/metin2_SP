@@ -64,7 +64,12 @@ namespace {
         if (!ch || !offer || !ch->IsItemLoaded()) return 0;
         if (offer->GetType() == ITEM_SKILLBOOK) {
             DWORD skill = GetPlayerBotSkillBookSkillVnum(offer);
+            // Only for a skill the engine will let the book train, which is a
+            // skill at Master (LearnSkillByBook): of 1908 books bought on
+            // m2zip on 26 September, 754 of those still in their buyer's bag
+            // were for skills below seventeen, and 92 for one at Master.
             if (!ch->GetSkillGroup() || !IsPlayerBotOwnSkill(ch, skill) ||
+                    ch->GetSkillMasterType(skill) != SKILL_MASTER ||
                     !(PlayerBotStudiesAtTheMarket(ch) || PlayerBotBuysBooksAsTrader(ch))) return 0;
             return std::max(0, GetPlayerBotBookKeepLimit(ch, skill) - CountPlayerBotOwnedSkillBooks(ch, skill));
         }
@@ -89,8 +94,24 @@ namespace {
         }
         return false;
     }
+    // Iwakura's scroll rule (IsPlayerBotScrollRuleWeapon): what its weapon's
+    // next step lacks, when the counters of the bot's first village hold every
+    // unit of it - the ledger's count, asked again at the counter. The trip is
+    // how a bot that lives on the frontier meets those counters at all.
+    bool PlayerBotScrollRuleSupplyExists(LPCHARACTER ch) {
+        std::map<DWORD, int> missing;
+        CollectPlayerBotScrollRuleMissing(ch, missing);
+        if (missing.empty()) return false;
+        const long firstVillage = playerbot_empire_rules::GetHomeMap(ch->GetEmpire(),
+            playerbot_empire_rules::MAP_ROLE_M1);
+        for (std::map<DWORD, int>::const_iterator it = missing.begin(); it != missing.end(); ++it)
+            if ((int)GetPlayerBotMarketLocalSupply(firstVillage, it->first) < it->second) return false;
+        return true;
+    }
     bool PlayerBotNeedsProgressionShopping(LPCHARACTER ch) {
-        if (!ch || !ch->IsItemLoaded() || !ch->GetSkillGroup()) return false;
+        if (!ch || !ch->IsItemLoaded()) return false;
+        if (PlayerBotScrollRuleSupplyExists(ch)) return true;
+        if (!ch->GetSkillGroup()) return false;
         const TJobSkillBuild build = GetPlayerBotSkillBuild(ch->GetJob(), ch->GetSkillGroup(), ch->GetPlayerID());
         const bool studies = PlayerBotStudiesAtTheMarket(ch);
         // Books are the trader's too (community patch 2, point 5).
@@ -127,7 +148,7 @@ namespace {
             const TPlayerBotMarketLedgerEntry* supply = GetPlayerBotMarketLedgerEntry(vnum);
             if (supply && supply->dwSupplyUnits > 0 && GetPlayerBotBiologistPurchaseNeed(ch, vnum) > 0) return true;
         }
-        return false;
+        return PlayerBotScrollRuleSupplyExists(ch);
     }
     // Who is out on a trip now, pid -> when it ends. A map rather than a count,
     // so a bot that despawns mid-trip frees its place when the trip would have
@@ -190,9 +211,10 @@ namespace {
         if (CountPlayerBotProgressionTrips(now) >= cap) return false;
         state.dwProgressionTripUntil = now + PLAYERBOT_PROGRESSION_TRIP_MS;
         s_mapPlayerBotProgressionTrip[ch->GetPlayerID()] = state.dwProgressionTripUntil;
-        sys_log(0, "PLAYERBOT_MARKET: progression trip pid=%u name=%s map=%ld level=%d gold=%lld trips=%u cap=%u",
+        sys_log(0, "PLAYERBOT_MARKET: progression trip pid=%u name=%s map=%ld level=%d gold=%lld trips=%u cap=%u scroll_rule=%d",
             ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), (int)ch->GetLevel(),
-            (long long)ch->GetGold(), (unsigned)s_mapPlayerBotProgressionTrip.size(), (unsigned)cap);
+            (long long)ch->GetGold(), (unsigned)s_mapPlayerBotProgressionTrip.size(), (unsigned)cap,
+            PlayerBotScrollRuleSupplyExists(ch) ? 1 : 0);
         return true;
     }
 }

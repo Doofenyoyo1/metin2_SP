@@ -1473,6 +1473,8 @@ def main(root):
     apply_tanaka_goblin(game)
     apply_shaman_party_buff(game)
     apply_chest_mob_preview(game)
+    apply_auto_hunt_item_switch(game)
+    apply_auto_hunt_loot_kinds(game)
     print('playerbotify: done')
 
 
@@ -5748,6 +5750,118 @@ def apply_auto_hunt_switch(game):
              '\t\treturn;\n'
              '\t}\n',
              marker=marker)
+
+
+def apply_auto_hunt_item_switch(game):
+    # Auto Lowy may be the ItemShop's: with the event flag m2_autohunt_item
+    # raised (.env M2_AUTOHUNT_ITEM, the launcher's difficulty window, or the
+    # classic panel live through web_admin's AUTOHUNT) the two commands the
+    # hunt cannot move without answer "AutoHuntOff item" to a character with
+    # no hunting time - affect 560, which autohunt_time.quest gives for the
+    # "Auto Lowy (8h)" ticket and which counts down only while the character
+    # is in the game. A character whose affects have not loaded yet gets no
+    # answer at all, or a login would be told it has no time it does have.
+    # Goes after apply_auto_hunt_switch's lines, whose marker it keeps whole.
+    path = os.path.join(game, 'cmd_general.cpp')
+    for name in ('target', 'loot'):
+        off = ('\t// playerbot: Auto Lowy switched off for this world (%s).\n'
+               '\tif (quest::CQuestManager::instance().GetEventFlag("m2_autohunt_off"))\n'
+               '\t{\n'
+               '\t\tch->ChatPacket(CHAT_TYPE_COMMAND, "AutoHuntOff");\n'
+               '\t\treturn;\n'
+               '\t}\n' % name)
+        marker = "\t// playerbot: Auto Lowy only with the ItemShop's time (%s).\n" % name
+        edit(path, off,
+             off + marker +
+             '\tif (quest::CQuestManager::instance().GetEventFlag("m2_autohunt_item"))\n'
+             '\t{\n'
+             '\t\tif (!ch->IsLoadedAffect())\n'
+             '\t\t\treturn;\n'
+             '\t\tif (!ch->FindAffect(560))\n'
+             '\t\t{\n'
+             '\t\t\tch->ChatPacket(CHAT_TYPE_COMMAND, "AutoHuntOff item");\n'
+             '\t\t\treturn;\n'
+             '\t\t}\n'
+             '\t}\n',
+             marker=marker)
+
+
+def apply_auto_hunt_loot_kinds(game):
+    # The client's pick-up window (upstream's 2.0.41, our 2.0.42) keeps the
+    # helmet, the shield, the bracelet, the shoes, the necklace and the
+    # earrings apart from the body armour and the other jewellery ("nie
+    # podnos kolczykow, butow, naszyjnikow"), and sends every kind it keeps as a fifth field of
+    # /autohunt_loot, with the seven kinds of the older window in the second
+    # for a server before this one. Without the fifth - an older client -
+    # "armour" still takes the helmet and the shield and "jewellery" every
+    # worn trinket, as it always did.
+    path = os.path.join(game, 'cmd_general.cpp')
+    marker = '\tAUTOHUNT_LOOT_HELMET = 1 << 7,\n'
+    edit(path,
+         '\tAUTOHUNT_LOOT_OTHER = 1 << 6,\n',
+         '\tAUTOHUNT_LOOT_OTHER = 1 << 6,\n'
+         '\t// Client 2.0.41 split these off the armour and the jewellery\n'
+         '\t// ("nie podnos kolczykow, butow, naszyjnikow").\n' +
+         marker +
+         '\tAUTOHUNT_LOOT_SHIELD = 1 << 8,\n'
+         '\tAUTOHUNT_LOOT_BRACELET = 1 << 9,\n'
+         '\tAUTOHUNT_LOOT_SHOES = 1 << 10,\n'
+         '\tAUTOHUNT_LOOT_NECKLACE = 1 << 11,\n'
+         '\tAUTOHUNT_LOOT_EARRINGS = 1 << 12,\n',
+         marker=marker)
+    edit(path,
+         '\t\t\t\tcase ARMOR_BODY:\n'
+         '\t\t\t\tcase ARMOR_HEAD:\n'
+         '\t\t\t\tcase ARMOR_SHIELD:\n'
+         '\t\t\t\t\treturn AUTOHUNT_LOOT_ARMOUR;\n',
+         '\t\t\t\tcase ARMOR_BODY:\n'
+         '\t\t\t\t\treturn AUTOHUNT_LOOT_ARMOUR;\n'
+         '\t\t\t\tcase ARMOR_HEAD:\n'
+         '\t\t\t\t\treturn AUTOHUNT_LOOT_HELMET;\n'
+         '\t\t\t\tcase ARMOR_SHIELD:\n'
+         '\t\t\t\t\treturn AUTOHUNT_LOOT_SHIELD;\n'
+         '\t\t\t\tcase ARMOR_WRIST:\n'
+         '\t\t\t\t\treturn AUTOHUNT_LOOT_BRACELET;\n'
+         '\t\t\t\tcase ARMOR_FOOTS:\n'
+         '\t\t\t\t\treturn AUTOHUNT_LOOT_SHOES;\n'
+         '\t\t\t\tcase ARMOR_NECK:\n'
+         '\t\t\t\t\treturn AUTOHUNT_LOOT_NECKLACE;\n'
+         '\t\t\t\tcase ARMOR_EAR:\n'
+         '\t\t\t\t\treturn AUTOHUNT_LOOT_EARRINGS;\n',
+         marker='\t\t\t\t\treturn AUTOHUNT_LOOT_HELMET;\n')
+    marker = '\t// Client 2.0.41 sends every kind it keeps as a fifth field and the\n'
+    edit(path,
+         '\tchar arg1[256], arg2[256], arg3[256], arg4[256];\n'
+         '\tconst char * rest = two_arguments(argument, arg1, sizeof(arg1), arg2, sizeof(arg2));\n'
+         '\ttwo_arguments(rest, arg3, sizeof(arg3), arg4, sizeof(arg4));\n'
+         '\n'
+         '\tint range = 2000;\n'
+         '\tint kinds = 0;\n'
+         '\tstr_to_number(range, arg1);\n'
+         '\tstr_to_number(kinds, arg2);\n',
+         '\tchar arg1[256], arg2[256], arg3[256], arg4[256], arg5[256];\n'
+         '\tconst char * rest = two_arguments(argument, arg1, sizeof(arg1), arg2, sizeof(arg2));\n'
+         '\trest = two_arguments(rest, arg3, sizeof(arg3), arg4, sizeof(arg4));\n'
+         '\tone_argument(rest, arg5, sizeof(arg5));\n'
+         '\n'
+         '\tint range = 2000;\n'
+         '\tint kinds = 0;\n'
+         '\tstr_to_number(range, arg1);\n'
+         '\tstr_to_number(kinds, arg2);\n' +
+         marker +
+         '\t// seven kinds of 2.0.40 as the second, for a server before this one.\n'
+         '\t// Without the fifth - an older client - "armour" still means the\n'
+         '\t// helmet and the shield too, and "jewellery" every worn trinket.\n'
+         '\tif (*arg5)\n'
+         '\t\tstr_to_number(kinds, arg5);\n'
+         '\telse\n'
+         '\t{\n'
+         '\t\tif (kinds & AUTOHUNT_LOOT_ARMOUR)\n'
+         '\t\t\tkinds |= AUTOHUNT_LOOT_HELMET | AUTOHUNT_LOOT_SHIELD;\n'
+         '\t\tif (kinds & AUTOHUNT_LOOT_JEWELLERY)\n'
+         '\t\t\tkinds |= AUTOHUNT_LOOT_BRACELET | AUTOHUNT_LOOT_SHOES | AUTOHUNT_LOOT_NECKLACE | AUTOHUNT_LOOT_EARRINGS;\n'
+         '\t}\n',
+         marker=marker)
 
 
 if __name__ == '__main__':

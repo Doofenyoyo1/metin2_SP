@@ -10,6 +10,7 @@
 .world-map[data-map-index="108"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/medium-monkey.webp')}
 .world-map[data-map-index="109"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/hard-monkey.webp')}
 .world-map[data-map-index="61"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/mount-sohan.png')}
+.world-map[data-map-index="62"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/doyyumhwaji.png')}
 .world-map[data-map-index="64"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/orc-valley.png')}
 .world-map[data-map-index="63"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/yongbi-desert.png')}
 .world-map[data-map-index="104"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/spider-dungeon-v1.png')}
@@ -24,13 +25,9 @@
 .world-map[data-map-index="43"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/jinno-m2.png')}
 .world-map[data-map-index="67"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/trent-forest.png')}
 .world-map[data-map-index="68"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/trent02-red-forest.png')}
-.world-map[data-map-index="66"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/deviltower.png')}
-.world-overview{min-height:510px;padding:17px;background:#0d1929;border:1px solid #294562;border-radius:7px;display:flex;flex-direction:column}.world-overview h3{margin:3px 0 14px}.world-summary-grid{display:grid;grid-template-columns:1fr;gap:6px;flex:none}.world-summary-grid>div{min-height:0;padding:9px 10px;border:1px solid #213852;border-radius:6px;background:#101d2d;display:flex;align-items:center;justify-content:space-between;gap:10px}.world-summary-grid b{order:2;color:#82b6ff;font-size:20px;overflow:hidden;text-overflow:ellipsis}.world-summary-grid span,.overview-restart span{display:block;color:#9db9de;font-size:11px}.overview-maps,.overview-restart,.overview-rates{margin-top:12px;padding-top:12px;border-top:1px solid #213852}
-/* Boty na mapach: rosnie i wypelnia caly wolny segment sidebaru (jak
-   .live-sidebar/.live-ranking-section po drugiej stronie), zamiast sztywnych
-   kilku wierszy ze scrollem, gdy pod nim jest sporo pustego miejsca. */
-.overview-maps{display:flex;flex-direction:column;flex:1;min-height:120px}.overview-restart,.overview-rates{flex:none}
-.overview-maps h4,.overview-rates h4{margin:0 0 8px}.overview-maps-list>div,.overview-rates div{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #213852;color:#9db9de;font-size:12px}.overview-maps-list{flex:1;min-height:0;overflow-y:auto;overflow-y:overlay;padding-right:10px;scrollbar-gutter:stable}.overview-maps b,.overview-rates b{color:#79e3af}.overview-restart b{display:block;margin-top:4px;font-size:12px;color:#dcecff}@media(max-width:1350px){.live-dashboard-grid{grid-template-columns:1fr}.world-overview{min-height:0}.live-grid{justify-content:start}}@media(max-width:1000px){.live-grid{grid-template-columns:1fr}.world-map{height:510px;max-width:510px;justify-self:center}}@media(max-width:520px){.world-map{height:440px}}
+.world-map[data-map-index="72"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/grotto-v1.png')}
+.world-map[data-map-index="73"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/grotto-v2.png')}
+.world-overview{min-height:510px;padding:17px;background:#0d1929;border:1px solid #294562;border-radius:7px}.world-overview h3{margin:3px 0 14px}.world-summary-grid{display:grid;grid-template-columns:1fr;gap:6px}.world-summary-grid>div{min-height:0;padding:9px 10px;border:1px solid #213852;border-radius:6px;background:#101d2d;display:flex;align-items:center;justify-content:space-between;gap:10px}.world-summary-grid b{order:2;color:#82b6ff;font-size:20px;overflow:hidden;text-overflow:ellipsis}.world-summary-grid span,.overview-restart span{display:block;color:#9db9de;font-size:11px}.overview-maps,.overview-restart,.overview-rates{margin-top:12px;padding-top:12px;border-top:1px solid #213852}.overview-maps h4,.overview-rates h4{margin:0 0 8px}.overview-maps-list{display:block}.overview-maps-list>div,.overview-rates div{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #213852;color:#9db9de;font-size:12px}.overview-maps b,.overview-rates b{color:#79e3af}.overview-restart b{display:block;margin-top:4px;font-size:12px;color:#dcecff}@media(max-width:1350px){.live-dashboard-grid{grid-template-columns:1fr}.world-overview{min-height:0}.live-grid{justify-content:start}}@media(max-width:1000px){.live-grid{grid-template-columns:1fr}.world-map{height:510px;max-width:510px;justify-self:center}}@media(max-width:520px){.world-map{height:440px}}
 @media(min-width:1351px){.live-shell{box-sizing:border-box;width:calc(66.666% - 9px);position:relative}.live-dashboard-grid{display:block}.world-overview{position:absolute;left:calc(100% + 18px);top:0;bottom:0;width:calc(50% - 9px);box-sizing:border-box;min-height:0}.live-map-section{width:100%}}
 
 /* Seban Panel palette: the live widget no longer borrows the classic panel's gold/brown skin. */
@@ -38,21 +35,136 @@
 .live-shell header h2{color:#dcecff}.live-filters{background:#0d1929;border-color:#294562}.live-filters label,.live-shell footer{color:#b7cce5}
 .level-filter button{background:#203d63;color:#dcecff}.level-filter button.active{background:#1f6fe5;color:#fff}
 .world-map,.live-sidebar{border-color:#294562}.live-sidebar{background:#0d1929}.mini-stats div,.live-ranking a{background:#101d2d;border-color:#213852}.mini-stats b,.live-ranking a b{color:#82b6ff}.live-ranking span{color:#79e3af}
-.bot-point.is-stuck{background:#ef4444;border-color:#fecaca;box-shadow:0 0 11px #ef4444}.pt-mark,.stuck-mark{display:inline-block;margin-left:5px;padding:1px 4px;border-radius:4px;font-size:10px;line-height:1.3;background:#7c3aed;color:#fff}.stuck-mark{background:#dc2626}.dot.stuck{background:#ef4444}
-.world-map[data-map-index="21"],.world-map[data-map-index="1"],.world-map[data-map-index="41"]{aspect-ratio:4/5}.world-map[data-map-index="23"],.world-map[data-map-index="24"],.world-map[data-map-index="25"],.world-map[data-map-index="61"],.world-map[data-map-index="63"],.world-map[data-map-index="64"],.world-map[data-map-index="104"],.world-map[data-map-index="108"],.world-map[data-map-index="109"],.world-map[data-map-index="65"],.world-map[data-map-index="4"],.world-map[data-map-index="44"],.world-map[data-map-index="5"],.world-map[data-map-index="45"],.world-map[data-map-index="3"],.world-map[data-map-index="43"],.world-map[data-map-index="67"],.world-map[data-map-index="68"],.world-map[data-map-index="66"]{aspect-ratio:1/1}
+.bot-point.is-stuck{background:#ef4444}.pt-mark,.stuck-mark{display:inline-block;margin-left:5px;padding:1px 4px;border-radius:4px;font-size:10px;line-height:1.3;background:#7c3aed;color:#fff}.stuck-mark{background:#dc2626}.dot.stuck{background:#ef4444}
+.world-map[data-map-index="21"],.world-map[data-map-index="1"],.world-map[data-map-index="41"]{aspect-ratio:4/5}.world-map[data-map-index="23"],.world-map[data-map-index="24"],.world-map[data-map-index="25"],.world-map[data-map-index="61"],.world-map[data-map-index="62"],.world-map[data-map-index="63"],.world-map[data-map-index="64"],.world-map[data-map-index="104"],.world-map[data-map-index="108"],.world-map[data-map-index="109"],.world-map[data-map-index="65"],.world-map[data-map-index="4"],.world-map[data-map-index="44"],.world-map[data-map-index="5"],.world-map[data-map-index="45"],.world-map[data-map-index="3"],.world-map[data-map-index="43"],.world-map[data-map-index="67"],.world-map[data-map-index="68"]{aspect-ratio:1/1}
 /* Exact map canvases: image is never cropped or stretched. */
-.live-dashboard-grid{display:grid!important;grid-template-columns:minmax(0,1fr) 300px!important;gap:18px!important}.live-grid{grid-template-columns:minmax(0,1fr) 300px!important;justify-content:stretch!important}.world-map{height:auto!important;width:100%!important;background-size:100% 100%!important;background-repeat:no-repeat!important}.world-map[data-map-index="21"],.world-map[data-map-index="1"],.world-map[data-map-index="41"]{aspect-ratio:4/5!important}.world-map[data-map-index="23"],.world-map[data-map-index="24"],.world-map[data-map-index="25"],.world-map[data-map-index="61"],.world-map[data-map-index="63"],.world-map[data-map-index="64"],.world-map[data-map-index="104"],.world-map[data-map-index="108"],.world-map[data-map-index="109"],.world-map[data-map-index="65"],.world-map[data-map-index="4"],.world-map[data-map-index="44"],.world-map[data-map-index="5"],.world-map[data-map-index="45"],.world-map[data-map-index="3"],.world-map[data-map-index="43"],.world-map[data-map-index="67"],.world-map[data-map-index="68"],.world-map[data-map-index="66"]{aspect-ratio:1!important}.quick-leader a,.live-ranking .is-global-leader{color:#ffe28a!important;text-shadow:0 0 9px #edb637}.quick-leader a:after,.live-ranking .is-global-leader:before{content:' ✦';color:#ffe28a;animation:leader-star 1.8s ease-in-out infinite}@media(max-width:1350px){.live-dashboard-grid,.live-grid{grid-template-columns:1fr!important}.world-overview{position:static!important;width:auto!important}}
+.live-dashboard-grid{display:grid!important;grid-template-columns:minmax(0,1fr) 300px!important;gap:18px!important}.live-grid{grid-template-columns:minmax(0,1fr) 300px!important;justify-content:stretch!important}.world-map{height:auto!important;width:100%!important;background-size:100% 100%!important;background-repeat:no-repeat!important}.world-map[data-map-index="21"],.world-map[data-map-index="1"],.world-map[data-map-index="41"]{aspect-ratio:4/5!important}.world-map[data-map-index="23"],.world-map[data-map-index="24"],.world-map[data-map-index="25"],.world-map[data-map-index="61"],.world-map[data-map-index="63"],.world-map[data-map-index="64"],.world-map[data-map-index="104"],.world-map[data-map-index="108"],.world-map[data-map-index="109"],.world-map[data-map-index="65"],.world-map[data-map-index="4"],.world-map[data-map-index="44"],.world-map[data-map-index="5"],.world-map[data-map-index="45"],.world-map[data-map-index="3"],.world-map[data-map-index="43"],.world-map[data-map-index="67"],.world-map[data-map-index="68"]{aspect-ratio:1!important}.quick-leader a,.live-ranking .is-global-leader{color:#ffe28a!important;text-shadow:0 0 9px #edb637}.quick-leader a:after,.live-ranking .is-global-leader:before{content:' ✦';color:#ffe28a;animation:leader-star 1.8s ease-in-out infinite}@media(max-width:1350px){.live-dashboard-grid,.live-grid{grid-template-columns:1fr!important}.world-overview{position:static!important;width:auto!important}}
 
 /* v1.39: live map uses the active panel theme, not fixed classic-panel blue. */
 :root{--live-surface:#0d1929;--live-surface-strong:#101d2d;--live-border:#294562;--live-line:#213852;--live-accent:#1f6fe5;--live-accent-text:#dcecff;--live-number:#82b6ff;--live-progress-end:#49d49a;--live-filter:#203d63}
 body[data-theme="ember"]{--live-surface:#251717;--live-surface-strong:#2b1918;--live-border:#563535;--live-line:#4b302f;--live-accent:#b45337;--live-accent-text:#fff0e5;--live-number:#e7aa78;--live-progress-end:#e0a154;--live-filter:#643d30}
 body[data-theme="forest"]{--live-surface:#12251a;--live-surface-strong:#173021;--live-border:#2a5439;--live-line:#244a33;--live-accent:#2d8b57;--live-accent-text:#ebfff1;--live-number:#85dba3;--live-progress-end:#86d85a;--live-filter:#255f3e}
+body[data-theme="empire"]{--live-surface:#241a12;--live-surface-strong:#1a1109;--live-border:#4a3520;--live-line:#3a2a18;--live-accent:#e8b93f;--live-accent-text:#f3e9d8;--live-number:#e8b93f;--live-progress-end:#c94a2a;--live-filter:#3a2a18}
 .live-shell{background:linear-gradient(135deg,var(--live-surface-strong),var(--live-surface))!important;border-color:var(--live-border)!important}.live-shell header h2{color:var(--live-accent-text)!important}.live-filters{background:var(--live-surface)!important;border-color:var(--live-border)!important}.live-filters label,.live-shell footer{color:var(--live-accent-text)!important}.live-filters input[type=checkbox]{accent-color:var(--live-accent)!important}.level-filter button{background:var(--live-filter)!important;color:var(--live-accent-text)!important;border-color:var(--live-border)!important}.level-filter button.active{background:var(--live-accent)!important;color:#fff!important}.world-map{border-color:var(--live-border)!important}.live-sidebar,.world-overview{background:var(--live-surface)!important;border-color:var(--live-border)!important}.mini-stats div,.live-ranking a,.world-summary-grid>div{background:var(--live-surface-strong)!important;border-color:var(--live-line)!important}.mini-stats b,.live-ranking a b,.world-summary-grid b{color:var(--live-number)!important}.live-ranking span{color:var(--live-progress-end)!important}.live-activity,.overview-maps,.overview-restart,.overview-rates{border-color:var(--live-line)!important}.activity-line i{background:var(--live-line)!important}.activity-line i:before{background:linear-gradient(90deg,var(--live-accent),var(--live-progress-end))!important}.carousel-arrows button{background:var(--live-accent)!important;color:#fff!important}.quick-rank-slide li{border-color:var(--live-line)!important}.quick-rank-slide li:before,.quick-rank-slide a:hover{color:var(--live-number)!important}.carousel-dots button{background:var(--live-line)!important}.carousel-dots button.active{background:var(--live-accent)!important}
 
 /* v1.39.1: every label and value in the world-status card follows the active theme. */
-.world-summary-grid span,.overview-restart span,.overview-maps div,.overview-rates div{color:var(--live-accent-text)!important}.overview-maps b,.overview-rates b,.overview-restart b{color:var(--live-progress-end)!important}.world-overview h3,.overview-maps h4,.overview-rates h4{color:var(--live-accent-text)!important}.world-overview .eyebrow{color:var(--live-number)!important}
+.world-summary-grid span,.overview-restart span,.overview-maps-list>div,.overview-rates div{color:var(--live-accent-text)!important}.overview-maps b,.overview-rates b,.overview-restart b{color:var(--live-progress-end)!important}.world-overview h3,.overview-maps h4,.overview-rates h4{color:var(--live-accent-text)!important}.world-overview .eyebrow{color:var(--live-number)!important}
 
 /* v1.40: keep the small dividers in the dashboard world card themed too. */
-.overview-maps div,.overview-rates div{border-color:var(--live-line)!important}
-/* Playerbots release status in the Dashboard world summary. */
-.playerbots-version .playerbots-installed{font-variant-numeric:tabular-nums}.playerbots-version.current .playerbots-installed{color:#55d99a!important}.playerbots-version.warning .playerbots-installed{color:#f6b45d!important}.playerbots-version.outdated .playerbots-installed{color:#ff6b6b!important}.playerbots-version.unknown .playerbots-installed{color:var(--muted)!important}.playerbots-available{display:block;margin-top:2px;font-size:11px;font-weight:800;letter-spacing:.04em;color:transparent;background:linear-gradient(90deg,color-mix(in srgb,#67e99b 18%,transparent) 0 40%,color-mix(in srgb,#67e99b 58%,transparent) 46%,#effff5 50%,color-mix(in srgb,#67e99b 58%,transparent) 54%,color-mix(in srgb,#67e99b 18%,transparent) 60% 100%) 0 0/300% 100%;-webkit-background-clip:text;background-clip:text;animation:playerbots-version-shimmer 2.8s linear infinite}@keyframes playerbots-version-shimmer{to{background-position:300% 0}}@media(prefers-reduced-motion:reduce){.playerbots-available{animation:none}}
+.overview-maps-list>div,.overview-rates div{border-color:var(--live-line)!important}
+
+/* v1.41: wysokość .live-sidebar jest teraz ustawiana z JS (dokładnie tyle,
+   ile faktycznie zajmuje mapa -- patrz live-widget.js/syncSidebarHeight).
+   Tu tylko zdejmujemy sztywny floor 510px i pilnujemy, żeby nadmiar treści
+   (ranking/aktywności) przewijał się w środku, a nie rozpychał box. Mapa
+   (.world-map) w ogóle nie jest tu dotykana. */
+.live-sidebar{min-height:0!important;box-sizing:border-box!important;overflow:hidden!important}
+@media(max-width:1000px){.live-sidebar{height:auto!important;max-height:none!important;overflow:visible!important}.live-ranking-section{min-height:0!important}.live-sidebar .live-ranking{height:auto!important;max-height:340px!important;overflow-y:auto!important}}
+
+/* Flagi na żywej mapie: kanał świeci wyłącznie na obwódce, nigdy na fladze. */
+.bot-point{width:18px!important;height:18px!important;box-sizing:border-box!important;border:0!important;border-radius:50%!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;--map-channel-ring:#78b6ff}
+.bot-point.ch-1{--map-channel-ring:#43df91}.bot-point.ch-2{--map-channel-ring:#ef5ac9}
+.bot-point .bot-point-flag{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;position:relative;z-index:1}
+.bot-point::before{content:"";position:absolute;inset:-1px;z-index:2;border:1px solid var(--map-channel-ring);border-radius:inherit;box-shadow:0 0 3px color-mix(in srgb,var(--map-channel-ring) 85%,transparent),0 0 7px color-mix(in srgb,var(--map-channel-ring) 42%,transparent);pointer-events:none}
+.bot-point.is-pt,.bot-point.is-pt .bot-point-flag{border-radius:2px!important}.bot-point.is-stuck{background:transparent!important}
+.bot-point-stuck{position:absolute;z-index:4;right:-7px;top:-8px;color:#ff4a48;font:900 13px/1 Arial,sans-serif;text-shadow:0 0 3px #270000,0 0 6px #ff4a48;pointer-events:none}
+.bot-point.is-metin::before,.map-legend-marker--metin::after{inset:-3px;border:2px solid transparent;background:conic-gradient(#ff4d5a,#ffb347,#f9ed69,#53df8b,#48d7ff,#9c74ff,#f05ac9,#ff4d5a);background-origin:border-box;-webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;box-shadow:0 0 7px #f05ac980;animation:map-metin-ring-rainbow 2.4s linear infinite}.bot-point em{z-index:5;left:12px;top:-18px}
+@keyframes map-metin-ring-rainbow{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(360deg)}}
+.map-legend-marker{position:relative;display:inline-block;width:18px;height:18px;margin-right:5px;vertical-align:-5px;border-radius:50%;--map-channel-ring:#43df91}.map-legend-marker img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.map-legend-marker::after{content:"";position:absolute;inset:-1px;border:1px solid var(--map-channel-ring);border-radius:inherit;box-shadow:0 0 3px color-mix(in srgb,var(--map-channel-ring) 86%,transparent),0 0 6px color-mix(in srgb,var(--map-channel-ring) 40%,transparent)}.map-legend-marker--ch2{--map-channel-ring:#ef5ac9}
+.map-legend-marker--party,.map-legend-marker--party img{border-radius:2px}.map-legend-marker--stuck b{position:absolute;z-index:2;right:-7px;top:-8px;color:#ff4a48;font:900 13px/1 Arial,sans-serif;text-shadow:0 0 3px #270000}
+.map-legend-channel{display:inline-block;width:11px;height:11px;box-sizing:border-box;margin-right:4px;vertical-align:-1px;border-radius:50%;border:2px solid #43df91;box-shadow:0 0 4px #43df91}.map-legend-channel--ch2{border-color:#ef5ac9;box-shadow:0 0 4px #ef5ac9}
+@media (prefers-reduced-motion:reduce){.bot-point.is-metin::before,.map-legend-marker--metin::after{animation:none}}
+
+/* v1.43: aktywny event czasowy (np. "podwójny drop na godzinę") na danej
+   racie -- wiersz podświetlony na inny kolor, plakietka z bonusem i żywym
+   odliczaniem do końca (JS w live-widget.js), żeby było widać na pierwszy
+   rzut oka że to nie jest stała rata tylko coś co zaraz wygaśnie. */
+.overview-rates .rate-row{flex-wrap:nowrap!important;gap:6px}
+.overview-rates .rate-row>span:first-child{flex:0 0 auto}
+/* value (100%) + bonus (+50% 1h) grouped in one flex child, tight against
+   each other on the row's right edge -- previously the bonus <small> was its
+   own third flex item with flex:1 1 auto inside a justify-content:
+   space-between row, which stretched it to fill the row and shoved it out
+   to the far right edge with a huge gap after "100%" instead of right next
+   to it. Reported by [GA]Seban 2026-09-21. */
+.overview-rates .rate-row .rate-value-group{display:flex;align-items:baseline;gap:6px;flex:0 0 auto;min-width:0}
+.overview-rates .rate-row.rate-event-active{background:color-mix(in srgb,var(--live-accent) 9%,transparent)!important;border-radius:6px;padding:5px 8px!important;border-bottom-color:transparent!important}
+/* Tylko bonus dostaje inny kolor -- "100%" ma zostać w normalnym kolorze
+   wartości, żeby jedynym wyróżnikiem eventu było złote "+50% 1h" obok niego
+   (poprzednio cała wartość 100% też zmieniała kolor na złoty). */
+.overview-rates .rate-bonus{flex:0 0 auto;min-width:0;text-align:right;margin:0;font-size:11px;color:#d7b87c;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* v1.44: legenda znaczników mapy przeniesiona w HTML zaraz pod mapę (była na
+   samym końcu sekcji, więc na telefonie w pionie -- gdzie wszystko stoi w
+   jednej kolumnie -- wyświetlała się dopiero po całym panelu bocznym i
+   "Boty na mapach", zgłoszone 21.09 zrzutami z iPhone'a). .live-grid ma na
+   sztywno 2 kolumny (mapa/panel) -- samo grid-column:1/-1 na 3. dziecku
+   psuło auto-układanie i przesuwało panel boczny pod mapę na desktopie
+   (zgłoszone 21.09 po zmianie). Jawne przypięcie każdego elementu do
+   konkretnej komórki, osobno na desktopie i przy złożeniu w jedną kolumnę
+   (ten sam próg 1350px co reszta .live-grid), więc auto-placement nigdy nie
+   musi zgadywać. */
+.live-grid{grid-template-rows:auto auto!important}
+.live-grid>.world-map{grid-column:1!important;grid-row:1!important}
+.live-grid>.map-legend{grid-column:1/-1!important;grid-row:2!important}
+.live-grid>.live-sidebar{grid-column:2!important;grid-row:1!important}
+@media(max-width:1350px){
+.live-grid>.world-map{grid-column:1!important;grid-row:1!important}
+.live-grid>.map-legend{grid-column:1!important;grid-row:2!important}
+.live-grid>.live-sidebar{grid-column:1!important;grid-row:3!important}
+}
+
+/* v1.45: pasek przewijania Rankingu i Aktywności motywowy -- kolor akcentu
+   (i tła) zmienia się razem z --live-* zmiennymi po zmianie motywu
+   (ember/forest/empire), zamiast sztywnych kolorów sprzed tej poprawki. */
+.live-ranking,#live-activity{scrollbar-width:thin;scrollbar-color:var(--live-line) var(--live-surface-strong)}
+.live-ranking::-webkit-scrollbar,#live-activity::-webkit-scrollbar{width:8px}
+.live-ranking::-webkit-scrollbar-track,#live-activity::-webkit-scrollbar-track{background:var(--live-surface-strong);border-radius:999px}
+.live-ranking::-webkit-scrollbar-thumb,#live-activity::-webkit-scrollbar-thumb{background:var(--live-line);border-radius:999px}
+.live-ranking::-webkit-scrollbar-thumb:hover,#live-activity::-webkit-scrollbar-thumb:hover{background:var(--live-accent)}
+
+/* v1.46: na desktopie .live-ranking-section (flex:1, baza 0%) i .live-activity
+   (baza auto, pełna treść) walczyły o tę samą, ograniczoną wysokość panelu
+   bocznego -- gdy razem nie mieściły się, ranking dostawał dosłownie 0px
+   (potwierdzone w devtools) i nachodził wizualnie na nagłówek "Aktywności"
+   pod spodem. Ranking dostaje teraz stały, capnięty rozmiar (jak na
+   telefonie) i własny scroll, aktywności elastycznie zajmują resztę ze
+   swoim wewnętrznym scrollem -- żadne z nich już nie może zejść do zera. */
+@media(min-width:1351px){
+.live-ranking-section{flex:0 0 auto!important;max-height:380px!important;min-height:0!important;overflow:hidden!important}
+.live-sidebar .live-ranking{flex:1 1 auto!important;height:auto!important;max-height:none!important;min-height:0!important;overflow-y:auto!important}
+.live-activity{flex:1 1 auto!important;min-height:0!important;overflow:hidden!important}
+}
+
+/* Lista "Boty na mapach" jest częścią panelu o stałej wysokości obok mapy.
+   Gdy jest więcej map niż wolnego miejsca, przewija się tylko sama lista —
+   nie rozciąga karty świata ani kolejnych kafelków Dashboardu. */
+@media(min-width:1351px){
+.world-overview{display:flex;flex-direction:column;overflow:hidden}
+.overview-pages{display:flex;flex:1 1 auto;flex-direction:column;min-height:0}
+.overview-page[data-page="2"]{display:flex;flex:1 1 auto;flex-direction:column;min-height:0}
+.overview-page[data-page="2"] .overview-maps{display:flex;flex:1 1 auto;flex-direction:column;min-height:0}
+.overview-page[data-page="2"] .overview-maps-list{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-right:6px;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:var(--live-accent) var(--live-surface-strong)}
+.overview-page[data-page="2"] .overview-maps-list::-webkit-scrollbar{width:8px}
+.overview-page[data-page="2"] .overview-maps-list::-webkit-scrollbar-track{background:var(--live-surface-strong);border-radius:999px}
+.overview-page[data-page="2"] .overview-maps-list::-webkit-scrollbar-thumb{background:linear-gradient(var(--live-accent),var(--live-progress-end));border:2px solid var(--live-surface-strong);border-radius:999px}
+.overview-page[data-page="2"] .overview-maps-list::-webkit-scrollbar-thumb:hover{background:var(--live-number)}
+}
+.item-policy-editor{background:color-mix(in srgb,var(--panel) 86%,#000)!important;border-color:var(--edge)!important;color:var(--text)!important;caret-color:var(--blue2)}.item-policy-editor:focus{border-color:var(--blue2)!important;box-shadow:0 0 0 2px color-mix(in srgb,var(--blue2) 28%,transparent)}
+.live-insights{display:none!important}@media(min-width:1700px){.live-dashboard-grid{position:relative}.live-insights{display:flex!important;position:absolute;inset:auto 0 auto auto!important;top:0!important;right:0!important;bottom:auto!important;left:auto!important;width:260px;height:auto!important;box-sizing:border-box;flex-direction:column;gap:12px;padding:12px;border:1px solid var(--live-border);border-radius:7px;background:var(--live-surface);z-index:1}.live-insights-tabs{display:flex;gap:6px}.live-insights-tabs button{flex:1;padding:7px;border:1px solid var(--live-border);border-radius:6px;background:var(--live-filter);color:var(--live-accent-text)}.live-insights-tabs button.active{background:var(--live-accent);color:#fff}.live-insight-page{display:none}.live-insight-page.active{display:grid;gap:9px}.live-insight-page h3{margin:0;color:var(--live-accent-text);font-size:14px}.map-insight-chart,.map-respawn-summary{display:grid;gap:7px}.map-insight-row{display:grid;grid-template-columns:auto 1fr auto;gap:7px;align-items:center;font-size:12px;color:var(--live-accent-text)}.map-insight-row i{height:8px;border-radius:999px;background:var(--live-line);overflow:hidden}.map-insight-row i:before{content:"";display:block;width:var(--share);height:100%;background:var(--chart-color);border-radius:inherit}.map-respawn-summary>div{padding:9px;border:1px solid var(--live-line);border-radius:6px;background:var(--live-surface-strong)}.map-respawn-summary b,.map-respawn-summary small{display:block}.map-respawn-summary b{color:var(--live-number)}.map-respawn-summary small{margin-top:3px;color:var(--live-accent-text)}}
+.live-insights-toggle{display:none}@media(max-width:1699px){.live-insights-toggle{display:inline-flex;align-items:center;justify-content:center;min-height:34px;margin:10px 0 0;padding:7px 11px;border:1px solid var(--live-border);border-radius:7px;background:var(--live-filter);color:var(--live-accent-text);font:inherit;font-size:12px;cursor:pointer}.live-shell.show-map-insights .live-insights-toggle{background:var(--live-accent);color:#fff}.live-shell.show-map-insights .live-sidebar{display:none!important}.live-shell.show-map-insights .live-insights{display:flex!important;position:static;inset:auto!important;width:auto;height:auto!important;min-height:0;box-sizing:border-box;flex-direction:column;gap:12px;padding:12px;border:1px solid var(--live-border);border-radius:7px;background:var(--live-surface)}.live-shell.show-map-insights .live-insights-tabs{display:flex;gap:6px}.live-shell.show-map-insights .live-insights-tabs button{flex:1;padding:7px;border:1px solid var(--live-border);border-radius:6px;background:var(--live-filter);color:var(--live-accent-text)}.live-shell.show-map-insights .live-insights-tabs button.active{background:var(--live-accent);color:#fff}.live-shell.show-map-insights .live-insight-page{display:none}.live-shell.show-map-insights .live-insight-page.active{display:grid;gap:9px}.live-shell.show-map-insights .live-insight-page h3{margin:0;color:var(--live-accent-text);font-size:14px}.live-shell.show-map-insights .map-insight-chart,.live-shell.show-map-insights .map-respawn-summary{display:grid;gap:7px}.live-shell.show-map-insights .map-insight-row{display:grid;grid-template-columns:auto 1fr auto;gap:7px;align-items:center;font-size:12px;color:var(--live-accent-text)}.live-shell.show-map-insights .map-insight-row i{height:8px;border-radius:999px;background:var(--live-line);overflow:hidden}.live-shell.show-map-insights .map-insight-row i:before{content:"";display:block;width:var(--share);height:100%;background:var(--chart-color);border-radius:inherit}.live-shell.show-map-insights .map-respawn-summary>div{padding:9px;border:1px solid var(--live-line);border-radius:6px;background:var(--live-surface-strong)}.live-shell.show-map-insights .map-respawn-summary b,.live-shell.show-map-insights .map-respawn-summary small{display:block}.live-shell.show-map-insights .map-respawn-summary b{color:var(--live-number)}.live-shell.show-map-insights .map-respawn-summary small{margin-top:3px;color:var(--live-accent-text)}}@media(min-width:1351px) and (max-width:1699px){.live-shell.show-map-insights .live-grid>.live-insights{grid-column:2!important;grid-row:1!important}}@media(max-width:1350px){.live-shell.show-map-insights .live-grid>.live-insights{grid-column:1!important;grid-row:3!important}}
+
+/* Wide dashboard: every map signal stays visible in its own compact panel. */
+.map-insight-card{display:grid;gap:9px;padding:11px;border:1px solid var(--live-border);border-radius:7px;background:var(--live-surface-strong)}
+.map-insight-card h3{margin:0;color:var(--live-accent-text);font-size:14px}
+.map-insight-chart{display:flex;align-items:center;gap:12px}
+.map-donut{width:78px;aspect-ratio:1;border-radius:50%;display:grid;place-content:center;text-align:center;background:radial-gradient(circle at center,var(--live-surface) 0 57%,transparent 59%),var(--map-donut);flex:0 0 auto}
+.map-donut b{display:block;color:var(--live-accent-text);font-size:12px;line-height:1.05}
+.map-donut small{display:block;margin-top:2px;color:var(--live-number);font-size:16px;font-weight:800}
+.map-donut-legend{display:grid;gap:5px;min-width:0}
+.map-donut-legend span{display:flex;align-items:center;gap:5px;color:var(--live-accent-text);font-size:11px;white-space:nowrap}
+.map-donut-legend i{width:7px;height:7px;border-radius:50%;background:var(--dot);flex:0 0 auto}
+.map-donut-legend b{margin-left:auto;color:var(--live-number)}
+@media(min-width:1700px){.live-insights{gap:11px!important;padding:0!important;border:0!important;background:transparent!important}.live-insights .map-insight-card{box-shadow:0 8px 18px #0002}.live-insights .map-respawn-summary>div{padding:8px}}
+.world-map[data-map-index="62"],.world-map[data-map-index="72"],.world-map[data-map-index="73"]{aspect-ratio:1!important}

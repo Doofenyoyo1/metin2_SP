@@ -67,14 +67,36 @@ ITEM_SLOT_KEYS = tuple('item%d_vnum' % i for i in xrange(USE_ITEM_SLOTS))
 ITEM_EDIT_KEYS = tuple('item%d_val' % i for i in xrange(USE_ITEM_SLOTS))
 
 RANGES = (1000, 2000, 3000, 4000)
+# What Auto Lowy picks up, a switch each. The bits are the server's
+# (AutoHuntLootKind, playerbotify apply_auto_hunt_loot_kinds): 0-6 are the
+# seven kinds of client 2.0.40, 7-12 what client 2.0.41 split off them - the
+# helmet and the shield from the armour, the bracelet, the shoes, the
+# necklace and the earrings from the jewellery, which keeps what is left
+# (a pendant, gloves, rings, belts).
 LOOT_KINDS = (
-    ('loot_weapon',    'Bro\xf1',    1 << 0),
-    ('loot_armour',    'Zbroje',       1 << 1),
-    ('loot_jewellery', 'Ozdoby',       1 << 2),
-    ('loot_potion',    'Mikstury',     1 << 3),
-    ('loot_book',      'Ksi\xeagi', 1 << 4),
-    ('loot_stone',     'Kamienie',     1 << 5),
-    ('loot_other',     'Inne',         1 << 6),
+    ('loot_weapon',    'Bro\xf1',       1 << 0),
+    ('loot_armour',    'Zbroje',        1 << 1),
+    ('loot_helmet',    'He\xb3my',       1 << 7),
+    ('loot_shield',    'Tarcze',        1 << 8),
+    ('loot_bracelet',  'Bransolety',    1 << 9),
+    ('loot_shoes',     'Buty',          1 << 10),
+    ('loot_necklace',  'Naszyjniki',    1 << 11),
+    ('loot_earrings',  'Kolczyki',      1 << 12),
+    ('loot_jewellery', 'Ozdoby',        1 << 2),
+    ('loot_potion',    'Mikstury',      1 << 3),
+    ('loot_book',      'Ksi\xeagi',     1 << 4),
+    ('loot_stone',     'Kamienie',      1 << 5),
+    ('loot_other',     'Inne',          1 << 6),
+)
+# Each split kind and the kind it came out of. A server before the split
+# reads only the seven, so the second field of /autohunt_loot keeps them:
+# "armour" while any of body, helmet or shield is taken, "jewellery" while
+# any trinket is. A settings file from before the split gives each new
+# switch the old one's value, so "Ozdoby: nie" stays a bag without shoes.
+LOOT_SPLIT_FROM = (
+    ('loot_helmet', 'loot_armour'), ('loot_shield', 'loot_armour'),
+    ('loot_bracelet', 'loot_jewellery'), ('loot_shoes', 'loot_jewellery'),
+    ('loot_necklace', 'loot_jewellery'), ('loot_earrings', 'loot_jewellery'),
 )
 
 TARGET_REQUEST_INTERVAL = 0.8
@@ -173,7 +195,7 @@ for _index in xrange(SKILL_SLOTS):
 for _key, _label, _bit in LOOT_KINDS:
     DEFAULTS.append((_key, 1))
 
-CONFIG_VERSION = 5
+CONFIG_VERSION = 6
 DEFAULTS.append(('config_version', CONFIG_VERSION))
 
 GLOBAL_DEFAULTS = [
@@ -257,6 +279,10 @@ def ConfigFromText(text):
         config = ConfigFromOldValues(values)
     else:
         config = DefaultConfig()
+    if version < 6:
+        for key, parent in LOOT_SPLIT_FROM:
+            if key not in values:
+                config[key] = config[parent]
     config['config_version'] = CONFIG_VERSION
     return config
 
@@ -304,6 +330,17 @@ def LootMask(config):
     for key, label, bit in LOOT_KINDS:
         if config.get(key):
             mask |= bit
+    return mask
+
+def LootCoarseMask(config):
+    """LootMask in the seven kinds a server before the split reads."""
+    bits = dict((key, bit) for key, label, bit in LOOT_KINDS)
+    parents = dict(LOOT_SPLIT_FROM)
+    mask = 0
+    if config.get('pickup'):
+        for key, label, bit in LOOT_KINDS:
+            if config.get(key):
+                mask |= bits[parents.get(key, key)]
     return mask
 
 def FacingDegree(fromX, fromY, toX, toY):
@@ -552,14 +589,20 @@ class Hunter(object):
         if not quiet:
             chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: stop.')
 
-    def OnServerOff(self):
+    def OnServerOff(self, reason=''):
         # The world is played without Auto Lowy (M2_AUTOHUNT=0 on the server,
-        # the launcher's difficulty window): the target and the drop are
-        # refused with "AutoHuntOff", and the hunt stops and says why - once a
-        # start, however many refusals were already on their way.
+        # the launcher's difficulty window), or with it only for a character
+        # with time from the ItemShop's "Auto Lowy (8h)" and this one has none
+        # (M2_AUTOHUNT_ITEM=1; the reason "item", server 2.2.26): the target
+        # and the drop are refused with "AutoHuntOff", and the hunt stops and
+        # says why - once a start, however many refusals were already on
+        # their way. A server before 2.2.26 sends no reason.
         if not self.running:
             return
         self.Stop(quiet=True)
+        if reason == 'item':
+            chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: brak czasu. Kup "Auto \xa3owy (8h)" w ItemShopie i u\xbfyj go z ekwipunku - czas leci tylko w grze.')
+            return
         chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy s\xb9 wy\xb3\xb9czone na tym serwerze (ustawienia \x9cwiata w launcherze).')
 
     def OnServerTarget(self, value):
@@ -666,7 +709,8 @@ class Hunter(object):
             return
         self.nextLootRequest = now + LOOT_REQUEST_INTERVAL
         (dx, dy) = self.AnchorOffset()
-        net.SendChatPacket('/autohunt_loot %d %d %d %d' % (self.config['range'], mask, dx, dy))
+        net.SendChatPacket('/autohunt_loot %d %d %d %d %d' % (
+            self.config['range'], LootCoarseMask(self.config), dx, dy, mask))
 
     def Chase(self, now):
         if self.config['attack']:
@@ -1481,9 +1525,12 @@ class AutoHuntWindow(ui.BoardWithTitleBar):
         self.toggles = {}
 
 
+LOOT_ROWS = (len(LOOT_KINDS) + 1 + 2) // 3   # "Podnie\x9c" and the kinds, three a row
+
+
 class AutoHuntLootWindow(ui.BoardWithTitleBar):
     WIDTH = 300
-    HEIGHT = 245
+    HEIGHT = 179 + LOOT_ROWS * 22
 
     def __init__(self, hunter):
         ui.BoardWithTitleBar.__init__(self)
@@ -1503,7 +1550,7 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
         y = 32
 
         pd_btn_start = 24
-        pd_h = pd_btn_start + 3 * 22 + 8 
+        pd_h = pd_btn_start + LOOT_ROWS * 22 + 8
         pdBoard = self._Board(BL, y, BW, pd_h)
         self._Label(pdBoard, 14, 4, 'Podnoszenie')
         
@@ -1648,5 +1695,5 @@ def OnServerTarget(value):
 def OnServerLoot(vid, x, y):
     GetHunter().OnServerLoot(vid, x, y)
 
-def OnServerOff():
-    GetHunter().OnServerOff()
+def OnServerOff(reason=''):
+    GetHunter().OnServerOff(reason)

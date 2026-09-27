@@ -1,155 +1,122 @@
-# Metin2 Singleplayer Panel
+# Metin2 Playerbots — Advanced Web Panel (Seban Panel)
 
-Metin2 Singleplayer Panel to alternatywny panel administracyjny i obserwacyjny dla serwerów Metin2 z Playerbots. Działa w osobnym kontenerze na porcie `7789`, obok klasycznego panelu, który zwykle pozostaje na porcie `7788`.
+Alternatywny, rozbudowany panel administracyjny dla serwerów **Metin2 z
+[Playerbots](https://github.com/Doofenyoyo1/metin2_SP)** (linia
+mt2009). Działa obok klasycznego panelu — nie zastępuje go i nie
+wymaga migracji danych, tylko dokłada drugi, nowocześniejszy widok świata i
+własne narzędzia.
 
-Projekt korzysta z tej samej bazy, plików statusu Playerbots i kolejki administracyjnej. Nie zastępuje klasycznego panelu ani nie wymaga migracji danych — rozszerza instalację o dodatkowy, nowoczesny widok świata i narzędzia administracyjne. W menu znajduje się opcjonalny odnośnik do panelu klasycznego.
+To repozytorium jest **fanowskim dodatkiem do Playerbots** — jeśli
+nie prowadzisz serwera na tym silniku, ten projekt Ci się nie przyda.
 
-## Wydanie 1.54.1
+## Jak to jest zbudowane
 
-Panel zawiera niezależny Aktualizator Seban: stan, rzeczywisty postęp i log w `/manage`, automatyczny backup baz przed aktualizacją oraz ponowne nakładanie lokalnych reguł. Użytkownik może zdecydować osobnym, domyślnie wyłączonym checkboxem, czy razem z Playerbots ma zostać przebudowany również Seban Panel z wersji dołączonej do Playerbots. Aplikacja webowa nie ma dostępu do socketu Dockera; stałe zlecenie wykonuje ograniczona usługa systemowa.
+Ten panel **nie jest samodzielnym projektem z własnym `docker-compose.yml`**.
+Jest podkatalogiem wpiętym w istniejący stack Playerbots —
+`docker-compose.yml` buduje go stąd (`context: /opt/seban-panel-custom`) jako
+trzy dodatkowe usługi obok gry i bazy:
 
-## Co oferuje
+- `seban-panel` — sama aplikacja webowa (Flask + gunicorn), port `7790` na
+  zewnątrz;
+- `seban-collector` — proces w tle zbierający migawki (mapy, ekonomia,
+  telemetria hosta) co kilka minut do własnych tabel `player.web_seban_*`;
+- `seban-item-grants` — obsługa masowych nadań przedmiotów dla aktywnych
+  postaci.
 
-- mapa świata botów odświeżana co 1,5 sekundy, z prawidłowymi proporcjami obsługiwanych map;
-- filtry poziomów, wyszukiwarka, widok grup, ranking na mapie oraz oznaczenia botów możliwie zawieszonych i walczących z Metinem;
-- globalne rankingi botów: poziom, Yang, broń, pancerz, koń oraz bronie 30 poziomu z sortowaniem po średnich obrażeniach, obrażeniach umiejętności i ulepszeniu;
-- postacie z widokiem ekwipunku i magazynu, stackami, Yang, HP/MP/EXP, statystykami, pozycją, koniem, kolorową rangą oraz historią logów;
-- tooltipy przedmiotów w stylu gry, z bonusami, wartościami ujemnymi, kamieniami duszy i ich właściwościami;
-- ikony oraz stopnie umiejętności od zwykłego poziomu po M, G i P;
-- ekonomię z historią stanu przedmiotów i wykresem Yang w obiegu;
-- telemetrię CPU, RAM i dysku z historią oraz wyborem prezentacji hosta/VPS albo Dockera;
-- dashboard z wersją Playerbots, poziomem jeździectwa i przypiętym paskiem istotnych wydarzeń świata;
-- zarządzanie mnożnikami, zachowaniem Playerbots i restartem przez kolejkę natywnej instalacji;
-- kreator pierwszego uruchomienia, motywy Ocean/Ember/Forest i opcjonalną ochronę hasłem;
-- kontrolowany aktualizator Playerbots: postęp i log w panelu, zlecenie aktualizacji do osobnego kontenera bez socketu Dockera w aplikacji webowej.
+Panel czyta tę samą bazę MariaDB, te same pliki statusu Playerbots
+(`playerbot_status.tsv`) i tę samą kolejkę administracyjną co reszta stacku —
+nic nie trzeba migrować ani duplikować.
 
-Panel uzupełnia klasyczny panel o historię gospodarki, telemetrię hosta, ticker wydarzeń, rozbudowane rankingi i masowe nadania z warunkami. Oba panele mogą działać równolegle.
+## Instalacja (jako część istniejącego serwera Playerbots)
 
-## Wymagania
-
-- Docker Engine i Docker Compose v2 na hoście Linux;
-- uruchomiona instalacja Metin2 z MariaDB/MySQL oraz Playerbots;
-- konto bazy używane przez panel z dostępem do baz `player`, `account` i `common`; konto musi móc utworzyć tabele `player.web_seban_*` oraz `player.web_admin_queue`;
-- zewnętrzna sieć Dockera, na której panel rozwiąże nazwę bazy i kontenera gry;
-- trzy istniejące wolumeny: wolumen z `/opt/metin2/var`, kolejka mnożników/restartu oraz `update-spool` instalacji Playerbots;
-- dla masowych nadań: aktywny `web_admin.quest` i bezpiecznie zaimplementowane w rdzeniu `mysql_direct_query()` dla tabeli `player.web_admin_queue`.
-
-Bez ostatniego punktu działa monitoring, profile, rankingi, gospodarka i konfiguracja, ale nadania dla aktywnych postaci nie zostaną wykonane w grze.
-
-## Instalacja
-
-1. Sklonuj repozytorium i przejdź do katalogu panelu.
+1. W katalogu serwera (obok `linux-port/docker/docker-compose.yml`) sklonuj
+   to repozytorium jako `seban-panel-custom`:
 
    ```bash
-   git clone <URL_REPOZYTORIUM>
-   cd <KATALOG_REPOZYTORIUM>/seban-panel
+   git clone https://github.com/krajevsky/metin2-playerbots-advanced-webpanel.git seban-panel-custom
    ```
 
-2. Sprawdź nazwy zasobów istniejącej instalacji.
+2. Podepnij go do stacku — najprościej przez `docker-compose.override.yml` w
+   `linux-port/docker/`, żeby nie ruszać pliku Playerbots bezpośrednio (przeżywa
+   wtedy każdą aktualizację silnika):
+
+   ```yaml
+   services:
+     seban-panel:
+       build:
+         context: /ścieżka/do/seban-panel-custom
+   ```
+
+3. Zbuduj i uruchom:
 
    ```bash
-   docker network ls
-   docker volume ls
+   docker compose build seban-panel seban-collector seban-item-grants
+   docker compose up -d seban-panel seban-collector seban-item-grants
    ```
 
-   Potrzebujesz sieci, na której działają MariaDB i gra, wolumenu zawierającego `/opt/metin2/var` oraz wolumenu kolejki używanej przez klasyczny panel.
+4. Wejdź na `http://adres-serwera:7790/setup` — kreator zapyta o nazwę
+   panelu, motyw i opcjonalne hasło.
 
-3. Utwórz prywatny plik konfiguracji i uzupełnij go własnymi wartościami.
-
-   ```bash
-   cp seban-panel.env.example seban-panel.env
-   openssl rand -hex 32
-   ```
-
-   Wklej wygenerowaną wartość do `SEBAN_SESSION_SECRET`. Ustaw też `DB_HOST`, dane bazy, nazwy sieci i wolumenów. `TIERU_PANEL_URL` musi być adresem dostępnym **z przeglądarki użytkownika**, np. `http://adres-serwera:7788`.
-
-4. Sprawdź konfigurację, a następnie uruchom kontenery.
-
-   ```bash
-   docker compose --env-file seban-panel.env config
-   docker compose --env-file seban-panel.env up -d --build
-   ```
-
-5. Otwórz `http://adres-serwera:7789/setup`. Kreator poprosi o nazwę panelu, motyw, alarm bez ruchu, źródło monitoringu i opcjonalne hasło.
-
-6. Zweryfikuj uruchomienie.
-
-   ```bash
-   docker compose --env-file seban-panel.env ps
-   docker compose --env-file seban-panel.env logs --tail=100 seban-panel seban-collector seban-item-grants
-   ```
-
-## Aktualizator Seban na VPS
-
-Paczka panelu zawiera katalog `updater/`. Instalację wykonuje się jednorazowo,
-podając katalog serwera z plikiem `VERSION` i podkatalogiem `linux-port/docker`:
-
-```bash
-sudo updater/install-seban-updater.sh /opt/metin2/stack metin2
-```
-
-Drugi argument jest nazwą projektu Docker Compose i domyślnie wynosi `metin2`.
-Instalator wykrywa wolumen `${projekt}_update-spool`, zapisuje lokalną konfigurację
-w `/etc/seban-updater.env` i uruchamia usługę `seban-updater`. Po odświeżeniu
-`/manage` status usługi powinien zmienić się na „gotowa”.
-
-Przed każdą aktualizacją powstaje skompresowany backup baz `account`, `common`,
-`player` i `log`. Reguły Skrzyni Ucznia, Skrzyń Blasku Księżyca, postaci
-demonstracyjnych oraz opcjonalnej aktualizacji Seban Panel konfiguruje się
-checkboxami wewnątrz sekcji Aktualizator Seban. Aktualizacja panelu jest
-domyślnie wyłączona, aby nie nadpisać lokalnych zmian. Po jej włączeniu updater
-buduje `seban-panel`, `seban-collector` i `seban-item-grants` z wersji panelu
-dołączonej do pobranego wydania Playerbots. Aktualizator porównuje numery wersji i nie
-cofnie nowszego lokalnego panelu do starszej wersji znajdującej się w paczce.
-
-### Integracja ustawień respawnu i restartu
-
-Samo uruchomienie panelu daje monitoring oraz profile. Zmiana rat i respawnów wymaga dodatkowo helperów z `integration/` w **kontenerze gry**. Po ich instalacji `/manage` pokaże gotowość helpera; bez niej panel nie utworzy zlecenia, które czekałoby bez końca.
-
-Instrukcja w [integration/README.md](integration/README.md) wymaga skopiowania `m2-server-settings`, `m2-map-regens` i dostosowanego `m2-supervise` do kontekstu gry, a następnie przebudowania tylko usługi `game`. Przed podmianą `m2-supervise` porównaj go z wydaniem Playerbots używanym przez serwer.
-
-## Konfiguracja środowiska
+Zmienne środowiskowe, jakich panel oczekuje (ustawiane zwykle przez
+`docker-compose.yml` Playerbots, nie ręcznie — patrz `environment: &seban-env` w
+tamtym pliku):
 
 | Zmienna | Znaczenie |
 | --- | --- |
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | Połączenie z bazą Metin2. |
-| `PLAYERBOTS_NETWORK` | Nazwa zewnętrznej sieci Dockera wspólnej z grą i bazą. |
-| `PLAYERBOTS_GAME_VAR_VOLUME` | Wolumen zamontowany przez grę jako `/opt/metin2/var`. |
-| `PLAYERBOTS_RATES_SPOOL_VOLUME` | Wolumen kolejki mnożników, zachowań i restartu. |
-| `PLAYERBOTS_UPDATE_SPOOL_VOLUME` | Wolumen `update-spool` współdzielony z odizolowanym aktualizatorem Playerbots. |
-| `PLAYERBOTS_GAME_HOST` | Nazwa DNS kontenera gry w tej sieci. |
-| `PLAYERBOTS_LOGIN_PORT`, `PLAYERBOTS_WORLD_PORT` | Porty używane do kontroli etapu restartu. |
-| `PLAYERBOTS_VERSION` | Wersja aktualnie zainstalowanego wydania Playerbots, wyświetlana na Dashboardzie. Aktualizuj ją razem z rdzeniem. |
-| `PLAYERBOTS_STATUS_GLOB` | Położenie plików `playerbot_status.tsv` wewnątrz panelu. |
-| `TIERU_PANEL_URL` | Publiczny adres klasycznego panelu; używany przez link i ikony umiejętności. |
-| `SEBAN_SESSION_SECRET` | Długi, losowy sekret sesji. Nigdy go nie publikuj. |
-| `SEBAN_COLLECTOR_INTERVAL` | Interwał kolektora w sekundach, domyślnie `300`. |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | Połączenie z bazą MariaDB. |
+| `PLAYERBOTS_GAME_HOST` | Nazwa kontenera gry w sieci Compose. |
+| `PLAYERBOTS_LOGIN_PORT`, `PLAYERBOTS_WORLD_PORT` | Porty rdzenia gry — kontrola etapu restartu. |
+| `PLAYERBOTS_STATUS_GLOB` | Ścieżka do plików `playerbot_status.tsv`. |
+| `PLAYERBOTS_VERSION` | Wersja Playerbots wyświetlana na dashboardzie. |
+| `TIERU_PANEL_URL` | Publiczny adres klasycznego panelu (link w menu). |
+| `SEBAN_SESSION_SECRET` | Sekret sesji Flask. Nigdy nie publikuj wartości. |
+| `SEBAN_COLLECTOR_INTERVAL` | Interwał kolektora w sekundach (domyślnie `300`). |
+| `SEBAN_M2_ROOT` | Ścieżka do katalogu serwera na hoście — używana przez `seban-collector` do jednorazowego wczytania puli nicków botów. |
 
-`seban-panel.env` jest ignorowany przez Git. Nie umieszczaj w repozytorium haseł, adresów prywatnych ani sekretów.
-
-## Aktualizacja
-
-Od wersji 1.34.0 wspólne ustawianie mnożników i osobnych czasów respawnu potworów/Metinów wymaga również [integracji z kontenerem gry](integration/README.md). Samo zaktualizowanie kontenera panelu nie wystarczy do obsługi tej kolejki. Postęp, data oraz źródło restartu są widoczne w tej samej sekcji co przyciski zarządzania.
+## Aktualizacja (jak sklonować najnowszą wersję)
 
 ```bash
+cd /ścieżka/do/seban-panel-custom
 git pull
-docker compose --env-file seban-panel.env up -d --build
+docker compose build seban-panel seban-collector seban-item-grants
+docker compose up -d seban-panel seban-collector seban-item-grants
 ```
 
-Tabele historii i ustawienia pozostają w bazie. Przed aktualizacją produkcji wykonaj kopię bazy danych.
+Tabele historii i ustawienia panelu zostają w bazie — `git pull` dotyka tylko
+kodu aplikacji, nic nie kasuje.
 
-### Aktualizacja Playerbots z panelu
+## Co panel oferuje
 
-Jednorazowo uruchom `sudo updater/install-seban-updater.sh /ścieżka/do/serwera [projekt-compose]`, następnie włącz ochronę hasłem, zaloguj się ponownie i użyj przycisku w `/manage`. Aktualny stan instalacji oraz instrukcja właściwa dla danego VPS są także dostępne pod rozwijanym przyciskiem „Instalacja i działanie aktualizatora”.
+Pełna lista funkcji — zobacz [CHANGELOG.md](CHANGELOG.md), aktualizowany na
+bieżąco z każdą zmianą. W skrócie:
+
+- mapa świata botów na żywo (pozycje, grupy, walki z Metinami, boty możliwie
+  zawieszone), z filtrami poziomu i wyszukiwarką;
+- pełne profile postaci: ekwipunek/magazyn w stylu gry z tooltipami,
+  statystyki, HP/MP/EXP, koń, ranga, historia zdarzeń;
+- rankingi botów (poziom, Yang, broń, pancerz, koń, bronie 30 poziomu);
+- ekonomia: historia cen, sklepy offline, ItemShop, obieg Yang;
+- dashboard z telemetrią hosta (CPU/RAM/dysk), wersją Playerbots, ratami
+  serwerowymi z licznikiem aktywnych eventów bonusowych;
+- system powiadomień (koniec eventu, nowa wersja Playerbots, podsumowanie
+  dnia) z dzwoneczkiem i powiadomieniami na żywo;
+- zarządzanie: raty, liczba botów, zachowania AI, respawny map, restart;
+- kreator postaci, baza przedmiotów, komendy GM, konta i GM (w tym
+  przeglądanie/edycja puli nicków botów);
+- logi panelu (Diagnostyka → Logi panelu) — do załączania przy zgłaszaniu
+  błędów.
 
 ## Bezpieczeństwo
 
-- Włącz hasło podczas pierwszej konfiguracji, jeśli panel jest dostępny spoza zaufanej sieci.
-- Wystawiaj port `7789` przez reverse proxy z HTTPS, gdy panel ma być dostępny z Internetu.
-- Nie wystawiaj MariaDB publicznie i ogranicz uprawnienia konta bazy do niezbędnych baz.
-- Przed uruchomieniem masowych nadań przetestuj `web_admin.quest` na postaci testowej.
+- Włącz hasło w kreatorze pierwszego uruchomienia, jeśli panel ma być
+  dostępny spoza zaufanej sieci.
+- Nie wystawiaj portu MariaDB publicznie.
+- `SEBAN_SESSION_SECRET` nigdy nie powinien trafić do repozytorium ani do
+  publicznego zgłoszenia błędu.
 
 ## Rozwój
 
-Projekt będzie rozwijany dalej. Kolejne wersje będą poszerzać diagnostykę Playerbots i widoki danych, zachowując współpracę z klasycznym panelem.
-
+Ten panel jest rozwijany na bieżąco pod konkretny serwer — zmiany trafiają
+tu razem z wdrożeniem, nie osobno. Issues/PR mile widziane, ale to nie jest
+projekt myślany jako uniwersalne, wspierane narzędzie dla każdego —
+korzystasz na własną odpowiedzialność.

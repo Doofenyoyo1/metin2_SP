@@ -186,8 +186,13 @@ namespace
 	const int PLAYERBOT_SIDEKICK_LURE_MIN_RANGE = 600;
 	const int PLAYERBOT_SIDEKICK_LURE_MAX_RANGE = 2600;
 	const int PLAYERBOT_SIDEKICK_LURE_SEPARATION = 700;
-	// A pack further over the owner's level than this is left alone.
-	const int PLAYERBOT_SIDEKICK_LURE_LEVEL_OVER = 5;
+	// A pack further over the owner's level than this is left alone. The lure
+	// is the owner's order, so only a pull nobody survives is refused: at 5 an
+	// Archer companion lured 21% of the desert's spawns for an owner of 38 and
+	// "nagle dobilismy level to zaczal lurowac" (prodnathin, 26 September); at
+	// 15 an owner of 35 has 74% of it. Bosses stay out, and the 60/35% health
+	// gates still turn it home.
+	const int PLAYERBOT_SIDEKICK_LURE_LEVEL_OVER = 15;
 	// A course begins only while this few monsters are on the owner and the
 	// companion - the last pull is as good as dealt with - and while both
 	// have this much of their health; it turns back under the second share.
@@ -3173,7 +3178,18 @@ namespace
 		rt.dwEquipWaitUntil = now + PLAYERBOT_SIDEKICK_EQUIP_WAIT_MS;
 		state.bEquipPending = true;
 		state.dwNextEquipmentCheckTime = 0;
-		answer = "Zalozy to, jak tylko skonczy cios.";
+		// The reason the owner can act on: a blow still landing, or the bag
+		// with no cell for what would come off - the equipment pass tries the
+		// engine's swap in place, which needs none, and keeps trying.
+		if (blowFresh)
+			answer = "Zalozy to, jak tylko skonczy cios.";
+		else if (old && sk->GetEmptyInventory(old->GetSize()) < 0)
+			answer = "Nie mam miejsca w plecaku na to, co zdejme. Zaloze, gdy tylko sie zwolni.";
+		else
+			answer = "Nie moge tego teraz zalozyc - sprobuje za chwile.";
+		sys_log(0, "PLAYERBOT_SIDEKICK: equip waits pid=%u name=%s vnum=%u slot=%d blow=%d bag_room=%d",
+				sk->GetPlayerID(), sk->GetName(), item->GetVnum(), slot, blowFresh ? 1 : 0,
+				old && sk->GetEmptyInventory(old->GetSize()) < 0 ? 0 : 1);
 		return 0;
 	}
 
@@ -4428,8 +4444,11 @@ namespace
 			const bool ownersOnly = owner && item->IsOwnership(owner) && !item->IsOwnership(self);
 			if (ownersOnly)
 			{
-				// The party branch hands over only what may change hands.
-				if (IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_GIVE | ITEM_ANTIFLAG_DROP) ||
+				// The party branch hands over only what may change hands - and
+				// not the owner's yang, which it would put into the owner's bag
+				// as an item worth nothing (IsPlayerBotPartyLoot).
+				if (IsPlayerBotMoneyDrop(item) ||
+						IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_GIVE | ITEM_ANTIFLAG_DROP) ||
 						self->GetParty() == NULL || self->GetParty() != owner->GetParty())
 					return;
 			}

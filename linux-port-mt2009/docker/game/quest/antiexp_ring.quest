@@ -1,0 +1,20 @@
+-- "Pierscien Anty-Exp" (40002, sold in the ItemShop, never used up): the level
+-- lock a player asked for (Iwakura's ItemShop thread, 26 September). Its use
+-- switches AFFECT_EXP_BLOCK (310) on and off - the affect the engine honours
+-- wherever it hands out experience, and the one the bots' own level lock is
+-- (ManagePlayerBotExpLock); the client shows its icon, and a right click on it
+-- takes it off (the stock affect_remove.quest). The ring was the package's
+-- unused "Pierscien Levi" (migratorify.py renames it). Bots never come here.
+quest antiexp_ring begin
+    state start begin
+        when 40002.use begin
+            if pc.has_affect(310) then
+                affect.remove_new(310)
+                syschat("Pierscien Anty-Exp: doswiadczenie znowu wlaczone.")
+            else
+                affect.add_new(310, 0, 0, 60 * 365 * 24 * 3600, 0, true)
+                syschat("Pierscien Anty-Exp: nie dostajesz doswiadczenia (uzyj ponownie, by wlaczyc).")
+            end
+        end
+    end
+end

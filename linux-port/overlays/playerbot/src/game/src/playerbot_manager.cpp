@@ -331,8 +331,15 @@ namespace
 		if (IsPlayerBotPersonaEnabled() && state.persona.bRestored)
 		{
 			const TPlayerBotPersona& p = state.persona;
+			// Nor a bot in one of Iwakura's rare states (Patch 3, point 7): the
+			// state is its whole time, and the draw asked for no party only at
+			// its start - an angler or an addict that joined a party after it
+			// held the rod or the anvil for hours inside one (B10 of Iwakura's
+			// audit of 26 September). A party already joined is left on the
+			// next check, as for anybody out of the cohort.
 			if (IsPlayerBotOnMercContract(ch->GetPlayerID()) || p.bBagFull ||
-					(p.dwCompanionBreakUntil != 0 && get_dword_time() < p.dwCompanionBreakUntil))
+					(p.dwCompanionBreakUntil != 0 && get_dword_time() < p.dwCompanionBreakUntil) ||
+					GetPlayerBotRareNow(p, get_dword_time()) != 0)
 				return false;
 			return playerbot_persona::IsCompanionDraw(p.wCompanionDraw,
 					GetPlayerBotPartyCohortPerMille(bFrontier));
@@ -1933,6 +1940,31 @@ namespace
 	// their leader. Asked from ManagePlayerBotSkillBooks when no class book
 	// is due, on its clock (sizowski, 16 September: "dodanie korzystania z
 	// combo i dowodzenia botom").
+	// A read below the top level costs 20000 experience (LearnSkillByBook),
+	// asked of GetExp() and taken through PointChange. A bot the level lock
+	// holds (ManagePlayerBotExpLock, AFFECT_EXP_BLOCK) has an empty bar for
+	// good - the lock goes on in the tick of the level-up that emptied it, and
+	// PointChange neither adds nor takes experience under it - so it read
+	// nothing, ever: every readable book in a bot's bag on m2zip belonged to a
+	// locked bot, 852 of the 1725 bots of level 20 and up (27 September,
+	// "boty nie czytaja ksiag"). The lock is the bot's own and gives the price
+	// back anyway, so the check is met for the read and the bar put back as it
+	// was. Bots only: a player's anti-experience ring pays as before.
+	bool UsePlayerBotBook(LPCHARACTER ch, WORD cell)
+	{
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		if (ch->FindAffect(AFFECT_EXP_BLOCK) && (long long)ch->GetExp() < PLAYERBOT_BOOK_READ_EXP)
+		{
+			const DWORD exp = ch->GetExp();
+			ch->SetExp(PLAYERBOT_BOOK_READ_EXP);
+			const bool used = ch->UseItem(TItemPos(INVENTORY, cell));
+			ch->SetExp(exp);
+			return used;
+		}
+#endif
+		return ch->UseItem(TItemPos(INVENTORY, cell));
+	}
+
 	bool ReadPlayerBotGeneralSkillBook(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!ch || ch->IsPolymorphed())
@@ -1961,7 +1993,7 @@ namespace
 #if defined(PLAYERBOT_ENGINE_MT2009)
 			const bool exorcised = get_global_time() < ch->GetSkillNextReadTime(skill);
 #endif
-			if (!ch->UseItem(TItemPos(INVENTORY, cell)))
+			if (!UsePlayerBotBook(ch, (WORD)cell))
 				return false;
 #if defined(PLAYERBOT_ENGINE_MT2009)
 			NotePlayerBotBookRead(ch, skill, exorcised);
@@ -2018,7 +2050,9 @@ namespace
 	bool PlayerBotHasBookReadExp(LPCHARACTER ch)
 	{
 #if defined(PLAYERBOT_ENGINE_MT2009)
-		if (ch->GetLevel() >= gPlayerMaxLevel)
+		// At the top level the engine asks nothing, and under the lock the
+		// read is paid by UsePlayerBotBook.
+		if (ch->GetLevel() >= gPlayerMaxLevel || ch->FindAffect(AFFECT_EXP_BLOCK))
 			return true;
 #endif
 		return (long long)ch->GetExp() >= PLAYERBOT_BOOK_READ_EXP;
@@ -2155,7 +2189,7 @@ namespace
 			if (adviceCell >= 0 && ch->UseItem(TItemPos(INVENTORY, (WORD)adviceCell)))
 				advice = ch->FindAffect(AFFECT_SKILL_BOOK_BONUS) != NULL;
 		}
-		if (ch->UseItem(TItemPos(INVENTORY, bestCell)))
+		if (UsePlayerBotBook(ch, (WORD)bestCell))
 		{
 #if defined(PLAYERBOT_ENGINE_MT2009)
 			NotePlayerBotBookRead(ch, bestSkillVnum, exorcised);
@@ -2500,6 +2534,13 @@ namespace
 				// or at its spot for a boss raid to gather (playerbot_boss_raid.h)
 				state.lTowerInstance != 0 || state.dwTowerRaidGuild != 0 || state.bTowerSummoned ||
 				state.wBossRaidRace != 0 ||
+				// a gambler at its anvil, a click every few seconds and not a
+				// step between them, or at a counter waiting for the db core to
+				// deliver what it bought there (playerbot_gambler.h)
+				(IsPlayerBotGambling(state, dwNow) &&
+				 (state.bTownVisitPhase == BOT_TOWN_PHASE_BLACKSMITH ||
+				  state.bTownVisitPhase == BOT_TOWN_PHASE_BLACKSMITH_WAIT ||
+				  state.bTownVisitPhase == BOT_TOWN_PHASE_GAMBLE_MARKET)) ||
 				// away from the keyboard, or pausing between two packs, in a
 				// SLABY mood (playerbot_persona.h): standing still is the point
 				(state.persona.dwAfkUntil != 0 && dwNow < state.persona.dwAfkUntil) ||
@@ -4017,14 +4058,24 @@ static void RunPlayerBotLightTick(LPDESC d, LPCHARACTER ch, TPlayerBotAIState& s
 {
 	if (!d->IsPhase(PHASE_GAME) || ch->IsDead())
 		return;
+	LPCHARACTER quickTarget = state.dwTargetVID != 0
+			? CHARACTER_MANAGER::instance().Find(state.dwTargetVID) : NULL;
 	// Following an already computed route is cheap; planning one is not, and
-	// stays in the full tick.
-	if (!state.vecRoute.empty() && state.uRouteIndex < state.vecRoute.size() &&
+	// stays in the full tick. But not past a target already in reach: the
+	// route leads to where the monster stood when it was planned, and this
+	// pass walked an Archer on into the pack it was shooting from its range -
+	// the plain shot is refused on the move, so only skills landed
+	// (prodnathin, 26 September).
+	LPITEM held = ch->GetWear(WEAR_WEAPON);
+	const int reach = held && held->GetType() == ITEM_WEAPON && held->GetSubType() == WEAPON_BOW
+			? GetPlayerBotBowRange(ch->GetMapIndex()) : PLAYERBOT_MELEE_RANGE;
+	const bool inReach = quickTarget && !quickTarget->IsDead() &&
+			quickTarget->GetMapIndex() == ch->GetMapIndex() &&
+			DISTANCE_APPROX(ch->GetX() - quickTarget->GetX(), ch->GetY() - quickTarget->GetY()) <= reach;
+	if (!inReach && !state.vecRoute.empty() && state.uRouteIndex < state.vecRoute.size() &&
 			state.lRouteMapIndex == ch->GetMapIndex())
 		MovePlayerBot(ch, state.lRouteDestX, state.lRouteDestY, dwNow, 32, true,
 				state.bRouteAllowsHorse);
-	LPCHARACTER quickTarget = state.dwTargetVID != 0
-			? CHARACTER_MANAGER::instance().Find(state.dwTargetVID) : NULL;
 	ExecutePlayerBotBasicAttack(ch, quickTarget, state, dwNow);
 	// This pass lands about half of all killing blows, and the full tick
 	// cannot count them later: it replaces a target it finds dead before it
@@ -4829,8 +4880,14 @@ void CPlayerBotManager::Update()
 				if (!c || st == s_mapPlayerBotAIStates.end() || IsMedalDropperCohortPID(it->first))
 					continue;
 				TPlayerBotAIState& s = st->second;
-				const BYTE want = personaNow ? GetPlayerBotCharakter(s.persona.bDrawnPersonality)
+				BYTE want = personaNow ? GetPlayerBotCharakter(s.persona.bDrawnPersonality)
 						: s.persona.bDrawnPersonality;
+				// A goal dropper that graduated plays as the Wanderer under the
+				// switch, as RestorePlayerBotPersonaState makes it at a login:
+				// off and on again sent it back to its dungeon for good (B21 of
+				// Iwakura's audit of 26 September).
+				if (personaNow && s.persona.bMedalGoalDone && want == BOT_PERSONALITY_MEDAL_DROPPER)
+					want = BOT_PERSONALITY_WANDERER;
 				if (s.bPersonality == want)
 					continue;
 				s.bPersonality = want;
@@ -5703,11 +5760,27 @@ WritePlayerBotGuildStatus(dwNow);
 			// not with a dozen pieces of junk.
 			const bool bNeedsSellRun = !personaOn && CountPlayerBotJunkItems(ch) >= 12;
 			const bool bNeedsPotionCleanup = HasPlayerBotExcessPotions(ch);
+			// What the box gives back - the list's pieces the gambler no longer
+			// keeps, the refine materials for the counter (Patch 4, point 5) -
+			// is a visit of its own. The two were asked only inside a visit
+			// something else had begun, so the release rode on a bot's other
+			// errands and came for no bot that had none (B15 of Iwakura's audit
+			// of 26 September).
+			const bool bNeedsLppRelease = PlayerBotWantsLppRelease(ch, state, dwNow);
+			const bool bNeedsMaterialRelease = PlayerBotWantsMaterialRelease(ch, state, dwNow);
 
 			if (bNeedsProfession || bInventoryFull || bNeedsPotions || bWeaponMissing ||
 					bNeedsRefine || bNeedsGearUpgrade || bNeedsSellRun ||
 					bNeedsPotionCleanup)
 				StartPlayerBotTownVisit(ch, state, dwNow);
+			else if (bNeedsLppRelease || bNeedsMaterialRelease)
+			{
+				StartPlayerBotTownVisit(ch, state, dwNow);
+				if (state.bVisitingShop)
+					sys_log(0, "PLAYERBOT_TOWN: visit for the box's release pid=%u name=%s map=%ld lpp=%d materials=%d box_units=%u",
+							ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), bNeedsLppRelease ? 1 : 0,
+							bNeedsMaterialRelease ? 1 : 0, (unsigned int)state.persona.wBoxMaterialUnits);
+			}
 		}
 
 		// A visit is an adaptive, persistent route. The bot only visits specialists

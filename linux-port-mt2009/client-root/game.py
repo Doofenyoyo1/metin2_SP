@@ -804,7 +804,7 @@ class GameWindow(ui.ScriptWindow):
 
 	def __AutoHuntOff(self, *rest):
 		import uiautohunt
-		uiautohunt.OnServerOff()
+		uiautohunt.OnServerOff(*rest)
 
 	def __PressGKey(self):
 		if app.IsPressed(app.DIK_LCONTROL) or app.IsPressed(app.DIK_RCONTROL):

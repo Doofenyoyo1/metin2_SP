@@ -888,11 +888,20 @@ function Sync-M2PlayerbotOverlay {
     # start-server.ps1 runs and stages them - and a COPY of a file that is not
     # there fails the whole build: "special_item_group.moonlight.txt: not
     # found", five players in the first ten minutes of 1.29.1.
-    foreach ($pair in @(
+    # r40250 only. The mt2009 package ships docker\game\*.txt itself, and its
+    # serverfiles\ copy was the full package's, which no update refreshes: this
+    # copy put it back over an operator's edit of the chest file at every start
+    # and update (Piciu713, 26 September - "the original from 16.09"). An edit
+    # that has to last goes into special_item_group.moonlight.custom.txt.
+    $dataPairs = @()
+    if ((Get-M2ServerEngine -ServerRoot $ServerRoot) -eq 'r40250') {
+        $dataPairs = @(
             @{ From = 'linux-port\overlays\playerbot\serverfiles\special_item_group.moonlight.txt';
                To   = 'linux-port\docker\game\special_item_group.moonlight.txt' },
             @{ From = 'linux-port\overlays\playerbot\serverfiles\mob_drop_item.m3.append.txt';
-               To   = 'linux-port\docker\game\mob_drop_item.m3.append.txt' })) {
+               To   = 'linux-port\docker\game\mob_drop_item.m3.append.txt' })
+    }
+    foreach ($pair in $dataPairs) {
         $dataSource = Join-Path $ServerRoot $pair.From
         $dataStaged = Join-Path $ServerRoot $pair.To
         if (-not (Test-Path -LiteralPath $dataSource -PathType Leaf)) { continue }
@@ -951,9 +960,15 @@ function Sync-M2PlayerbotOverlay {
             @{ From = 'files\admin_panel.py';       To = 'linux-port\docker\panel\app\admin_panel.py' },
             @{ From = 'files\items.json';           To = 'linux-port\docker\panel\app\items.json' },
             @{ From = 'files\favicon.png';          To = 'linux-port\docker\panel\app\favicon.png' },
-            @{ From = 'files\web_admin_schema.sql'; To = 'linux-port\docker\panel\schema\web_admin_schema.sql' },
+            @{ From = 'files\web_admin_schema.sql'; To = 'linux-port\docker\panel\schema\web_admin_schema.sql' }) +
+            # The two quests from files\ on r40250 only. The mt2009 package ships
+            # its own docker\game\quest\web_admin.quest - the live rates, respawn
+            # speed and count, difficulty and Auto Lowy commands - and this put
+            # r40250's over it at every update, so none of those ran on an
+            # install made by the launcher (27 September).
+            $(if ((Get-M2ServerEngine -ServerRoot $ServerRoot) -eq 'r40250') { @(
             @{ From = 'files\web_admin.quest';      To = 'linux-port\docker\game\quest\web_admin.quest' },
-            @{ From = 'files\high_risk.quest';      To = 'linux-port\docker\game\quest\high_risk.quest' })) {
+            @{ From = 'files\high_risk.quest';      To = 'linux-port\docker\game\quest\high_risk.quest' }) } else { @() })) {
         $panelSource = Join-Path $ServerRoot $pair.From
         $panelStaged = Join-Path $ServerRoot $pair.To
         if (-not (Test-Path -LiteralPath $panelSource -PathType Leaf)) { continue }
@@ -1224,7 +1239,7 @@ function New-M2SupportBundle {
                 if ($core -like 'ch2-*') { $coreDir = '/opt/metin2/var/channel2/' + $core.Substring(4) }
                 Invoke-M2CapturedCommand -OutputPath (Join-Path $work ('playerbot-syslog-' + $core + '.txt')) -Command {
                     docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c `
-                        ('for f in ' + $coreDir + '/log/*/syslog.* ' + $coreDir + '/syslog; do [ -f $f ] && tail -n 400000 $f; done 2>/dev/null | grep -a -e PLAYERBOT_WORLD -e PLAYERBOT_PORTAL -e PLAYERBOT_NAV -e PLAYERBOT_WATCHDOG -e PLAYERBOT_GOAL -e PLAYERBOT_LOAD -e PLAYERBOT_SHOP -e PLAYERBOT_TOWN -e PLAYERBOT_DEPARTURE -e PLAYERBOT_HORSE -e PLAYERBOT_MONKEY -e PLAYERBOT_AUTH -e PLAYERBOT_CHANNEL -e PLAYERBOT_SERVICE -e PLAYERBOT_CONFIG -e PLAYERBOT_EVENT -e PLAYERBOT_LIFE -e PLAYERBOT_CHEST -e PLAYERBOT_COMBAT -e PLAYERBOT_STOCK -e PLAYERBOT_GUILD -e PLAYERBOT_TOWER -e PLAYERBOT_CATACOMB -e PLAYERBOT_ISHOP -e PLAYERBOT_OFFLINE -e PLAYERBOT_MARKET -e PLAYERBOT_BAG -e INVENTORY_ARRANGE -e PLAYERBOT_AI -e PLAYERBOT_ECONOMY -e PLAYERBOT_PVP -e PLAYERBOT_LOOT -e PLAYERBOT_MOOD -e PLAYERBOT_PERSONA -e PLAYERBOT_ANTIPK -e PLAYERBOT_MERC -e PLAYERBOT_LPP -e PLAYERBOT_ALCHEMIST -e PLAYERBOT_BONUS -e PLAYERBOT_PARTY:.accepted -e PLAYERBOT_PARTY:.asked -e PLAYERBOT_LURE:.order -e PLAYERBOT_LURE:.pack.handed -e PLAYERBOT_LURE:.waiting -e PLAYERBOT_CONV -e PLAYERBOT_SUMMON -e PLAYERBOT_SIDEKICK -e QUEST_ITEM -e GMPANEL -e GM_PROFILE -e autospawn | tail -n 40000')
+                        ('for f in ' + $coreDir + '/log/*/syslog.* ' + $coreDir + '/syslog; do [ -f $f ] && tail -n 400000 $f; done 2>/dev/null | grep -a -e PLAYERBOT_WORLD -e PLAYERBOT_PORTAL -e PLAYERBOT_NAV -e PLAYERBOT_WATCHDOG -e PLAYERBOT_GOAL -e PLAYERBOT_LOAD -e PLAYERBOT_SHOP -e PLAYERBOT_TOWN -e PLAYERBOT_DEPARTURE -e PLAYERBOT_HORSE -e PLAYERBOT_MONKEY -e PLAYERBOT_AUTH -e PLAYERBOT_CHANNEL -e PLAYERBOT_SERVICE -e PLAYERBOT_CONFIG -e PLAYERBOT_EVENT -e PLAYERBOT_LIFE -e PLAYERBOT_CHEST -e PLAYERBOT_COMBAT -e PLAYERBOT_STOCK -e PLAYERBOT_GUILD -e PLAYERBOT_TOWER -e PLAYERBOT_CATACOMB -e PLAYERBOT_ISHOP -e PLAYERBOT_OFFLINE -e PLAYERBOT_MARKET -e PLAYERBOT_BAG -e INVENTORY_ARRANGE -e PLAYERBOT_AI -e PLAYERBOT_ECONOMY -e PLAYERBOT_PVP -e PLAYERBOT_LOOT -e PLAYERBOT_MOOD -e PLAYERBOT_PERSONA -e PLAYERBOT_ANTIPK -e PLAYERBOT_MERC -e PLAYERBOT_LPP -e PLAYERBOT_ALCHEMIST -e PLAYERBOT_METIN:.detector -e PLAYERBOT_BONUS -e PLAYERBOT_PARTY:.accepted -e PLAYERBOT_PARTY:.asked -e PLAYERBOT_LURE:.order -e PLAYERBOT_LURE:.pack.handed -e PLAYERBOT_LURE:.waiting -e PLAYERBOT_CONV -e PLAYERBOT_SUMMON -e PLAYERBOT_SIDEKICK -e QUEST_ITEM -e GMPANEL -e GM_PROFILE -e autospawn | tail -n 40000')
                 }
                 Invoke-M2CapturedCommand -OutputPath (Join-Path $work ('syserr-' + $core + '.txt')) -Command {
                     docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c `

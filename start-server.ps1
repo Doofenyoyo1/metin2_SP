@@ -1130,14 +1130,22 @@ if ((Test-Path -LiteralPath $overlaySource -PathType Container) -and
         @{ From = 'CHANGELOG.md';               To = 'linux-port\docker\panel\app\CHANGELOG.md' },
         @{ From = 'files\items.json';           To = 'linux-port\docker\panel\app\items.json' },
         @{ From = 'files\favicon.png';          To = 'linux-port\docker\panel\app\favicon.png' },
-        @{ From = 'files\web_admin_schema.sql'; To = 'linux-port\docker\panel\schema\web_admin_schema.sql' },
-        @{ From = 'files\web_admin.quest';      To = 'linux-port\docker\game\quest\web_admin.quest' },
-        @{ From = 'files\high_risk.quest';      To = 'linux-port\docker\game\quest\high_risk.quest' },
-        @{ From = 'linux-port\overlays\playerbot\serverfiles\mob_drop_item.m3.append.txt';
-           To   = 'linux-port\docker\game\mob_drop_item.m3.append.txt' },
-        @{ From = 'linux-port\overlays\playerbot\serverfiles\special_item_group.moonlight.txt';
-           To   = 'linux-port\docker\game\special_item_group.moonlight.txt' }
+        @{ From = 'files\web_admin_schema.sql'; To = 'linux-port\docker\panel\schema\web_admin_schema.sql' }
     )
+    # The chest data from serverfiles\ on r40250 only - see
+    # Sync-M2PlayerbotOverlay: on mt2009 the package ships docker\game\*.txt
+    # and that copy is the full package's, put back over an operator's edit.
+    # And its two quests from files\: the mt2009 package ships its own
+    # web_admin.quest, and r40250's went over it at every start.
+    if ((Get-ServerEngine) -eq 'r40250') {
+        $stagedPairs += @(
+            @{ From = 'files\web_admin.quest';      To = 'linux-port\docker\game\quest\web_admin.quest' },
+            @{ From = 'files\high_risk.quest';      To = 'linux-port\docker\game\quest\high_risk.quest' },
+            @{ From = 'linux-port\overlays\playerbot\serverfiles\mob_drop_item.m3.append.txt';
+               To   = 'linux-port\docker\game\mob_drop_item.m3.append.txt' },
+            @{ From = 'linux-port\overlays\playerbot\serverfiles\special_item_group.moonlight.txt';
+               To   = 'linux-port\docker\game\special_item_group.moonlight.txt' })
+    }
     foreach ($pair in $stagedPairs) {
         $from = Join-Path $PSScriptRoot $pair.From
         $to   = Join-Path $PSScriptRoot $pair.To

@@ -281,11 +281,20 @@ namespace
 		return GetPlayerBotProtoLevelLimit(proto) <= (int)ch->GetLevel();
 	}
 
+	// The moods of this core's bots at the last census of the personalities
+	// (ReportPlayerBotPersonaCensus), for the Rybak's share: all zero until the
+	// first census, and then each mood's odds are only scaled.
+	uint32_t s_auPlayerBotRybakMoodMix[playerbot_persona::MOOD_COUNT] = { 0, 0, 0 };
+
 	// Iwakura's Rybak, while the PERSONA switch is on: from level thirty, never
 	// in a party ("jesli bot jest w PT nie powinien lowic"), for the hour a
 	// capitulation sent it to the water, and otherwise by its mood - a SLABY
 	// bot very likely gives up the grind for the bank, a NORMALNY one now and
-	// then, and a BARDZO DOBRY one does not. Rolled once per window per bot.
+	// then, and a BARDZO DOBRY one does not, with the FISHING slider's share
+	// playerbot_persona::RybakChancePermille's. Rolled once per window per
+	// bot, and held while a trip to the bank it decided is under way
+	// (HoldPlayerBotRybakTrip): a window that turned on the road sent the bot
+	// back the way it came.
 	bool IsPlayerBotRybakNow(LPCHARACTER ch, const TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!ch || ch->GetParty() || (int)ch->GetLevel() < playerbot_persona::PK_FISHING_MIN_LEVEL)
@@ -293,19 +302,26 @@ namespace
 		const TPlayerBotPersona& p = state.persona;
 		if (p.dwFishingSpellUntil != 0 && dwNow < p.dwFishingSpellUntil)
 			return true;
+		if (p.dwRybakTripUntil != 0 && dwNow < p.dwRybakTripUntil)
+			return true;
 		const DWORD roll = PlayerBotNavHash(ch->GetPlayerID() ^ 0x5259424BU ^
 				(dwNow / PLAYERBOT_RYBAK_ROLL_WINDOW_MS));
-		switch (p.mood.mood)
-		{
-			case playerbot_persona::MOOD_SLABY:
-				return PlayerBotWeightedRoll(roll % 100U, PLAYERBOT_RYBAK_SLABY_PERCENT,
-						PLAYERBOT_WEIGHT_FISHING);
-			case playerbot_persona::MOOD_NORMALNY:
-				return PlayerBotWeightedRoll(roll % 1000U, PLAYERBOT_RYBAK_NORMALNY_PERMILLE,
-						PLAYERBOT_WEIGHT_FISHING);
-			default:
-				return false;
-		}
+		const uint32_t weight = (uint32_t)std::max(0, GetPlayerBotWeight(PLAYERBOT_WEIGHT_FISHING)) *
+				100U / (uint32_t)PLAYERBOT_WEIGHT_NEUTRAL;
+		return roll % 1000U < playerbot_persona::RybakChancePermille(p.mood.mood, weight,
+				s_auPlayerBotRybakMoodMix);
+	}
+
+	// A trip to the bank the roll decided: the decision holds for
+	// PLAYERBOT_RYBAK_TRIP_HOLD_MS or until the session begins. A hold run
+	// out is let go, and the roll decides again.
+	void HoldPlayerBotRybakTrip(TPlayerBotAIState& state, DWORD dwNow)
+	{
+		DWORD& until = state.persona.dwRybakTripUntil;
+		if (until != 0 && dwNow >= until)
+			until = 0;
+		if (until == 0)
+			until = dwNow + PLAYERBOT_RYBAK_TRIP_HOLD_MS;
 	}
 
 	// How long this Rybak stays at the water: the capitulation's hour to its
@@ -1427,6 +1443,7 @@ namespace
 #endif
 
 			state.bFishingSession = true;
+			state.persona.dwRybakTripUntil = 0;
 			state.bIsFishing = false;
 			state.dwFishingCastTime = 0;
 			state.dwNextFishingActionTime = 0;

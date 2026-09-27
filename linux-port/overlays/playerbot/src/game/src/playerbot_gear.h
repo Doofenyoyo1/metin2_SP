@@ -1107,6 +1107,36 @@ namespace
 		return PlayerBotHoldsBonusStoneFor(ch, candidate);
 	}
 
+	// The same wait for an empty slot. A blacksmith session takes the worn
+	// piece off to refine it, so when the equipment pass comes to put things
+	// back the slot is empty, the test above has nothing to compare with, and
+	// the new piece that was waiting for its lines went on in front of the old
+	// one it was waiting behind (B27 of Iwakura's audit). The piece in the bag
+	// with better lines that could go on now stands in for the worn one.
+	LPITEM FindPlayerBotBetterLinedRival(LPCHARACTER ch, LPITEM item, int wearCell)
+	{
+		if (!ch || !item || !IsPlayerBotPersonaEnabled() || item->GetType() == ITEM_WEAPON)
+			return NULL;
+		long long rivalLines = GetPlayerBotItemLineScore(item, ch);
+		LPITEM rival = NULL;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM other = ch->GetInventoryItem(cell);
+			if (!other || other == item || other->GetCell() != cell || other->IsEquipped() ||
+					other->GetType() == ITEM_WEAPON || !IsPlayerBotEquipmentCandidate(ch, other) ||
+					other->FindEquipCell(ch) != wearCell ||
+					!PlayerBotCanEquipNow(ch, other, TItemPos(INVENTORY, cell)))
+				continue;
+			const long long lines = GetPlayerBotItemLineScore(other, ch);
+			if (lines > rivalLines)
+			{
+				rival = other;
+				rivalLines = lines;
+			}
+		}
+		return rival && PlayerBotHoldsBonusStoneFor(ch, item) ? rival : NULL;
+	}
+
 	// Defined further down, with the arrows' purchase.
 	int CountPlayerBotArrows(LPCHARACTER ch);
 	bool UpgradePlayerBotArrows(LPCHARACTER ch);
@@ -1248,6 +1278,18 @@ namespace
 						GetPlayerBotItemLineScore(item, ch), GetPlayerBotItemLineScore(oldItem, ch));
 				continue;
 			}
+			if (!oldItem)
+			{
+				LPITEM rival = FindPlayerBotBetterLinedRival(ch, item, wearCell);
+				if (rival)
+				{
+					PlayerBotLogThrottled("swap_held_for_bonus_empty", dwNow,
+							"PLAYERBOT_BONUS: new piece waits in the bag for its lines, the slot empty pid=%u name=%s wear=%d new_vnum=%u rival_vnum=%u new_lines=%lld rival_lines=%lld",
+							ch->GetPlayerID(), ch->GetName(), wearCell, item->GetVnum(), rival->GetVnum(),
+							GetPlayerBotItemLineScore(item, ch), GetPlayerBotItemLineScore(rival, ch));
+					continue;
+				}
+			}
 
 			const long long improvement = oldItem ? itemScore - oldScore : 1000000000000LL + itemScore;
 			if (!bestItem || improvement > bestImprovement)
@@ -1285,7 +1327,14 @@ namespace
 		// wear slot.  Passing WEAR_WEAPON/WEAR_BODY here made swaps of differently
 		// sized items fail.  Put the old item into a genuinely free inventory area,
 		// then let FindEquipCell choose the normal destination.
-		if (bestOldItem)
+		// The owner's piece for a companion goes on by the engine's swap in
+		// place first, which puts the old piece in the new one's cell and needs
+		// no free one: taking the old piece off first did, and a companion that
+		// loots everything and never goes to town alone has a full bag - the
+		// piece its owner gave it waited for ever.
+		const bool swapped = pinned && bestOldItem && bestWearCell != WEAR_UNIQUE1 &&
+				bestWearCell != WEAR_UNIQUE2 && PlayerBotEquipItem(ch, bestItem) && bestItem->IsEquipped();
+		if (!swapped && bestOldItem)
 		{
 			if (ch->GetEmptyInventory(bestOldItem->GetSize()) < 0 ||
 					!ch->UnequipItem(bestOldItem))
@@ -1295,7 +1344,7 @@ namespace
 			}
 		}
 
-		if (PlayerBotEquipItem(ch, bestItem))
+		if (swapped || PlayerBotEquipItem(ch, bestItem))
 		{
 			sys_log(0, "PLAYERBOT_AI: equipped upgrade pid=%u name=%s wear=%d old_vnum=%u new_vnum=%u old_score=%lld new_score=%lld",
 					ch->GetPlayerID(), ch->GetName(), bestWearCell, oldVnum, newVnum, oldScore, bestScore);
@@ -1328,6 +1377,9 @@ namespace
 	void RestorePlayerBotEquipmentAfterRefining(LPCHARACTER ch,
 			TPlayerBotAIState& state, DWORD dwNow)
 	{
+		// What the session took off goes back on here, so the slots it
+		// remembers are the equipment pass's again (ManagePlayerBotRefining).
+		state.dwRefineTakenOffSlots = 0;
 		// A blacksmith session can temporarily remove more than one worn item.
 		// ManagePlayerBotEquipment intentionally equips only one upgrade per call,
 		// so force a short bounded pass before the bot leaves the NPC.  This makes
@@ -2000,6 +2052,9 @@ namespace
 				item->CanUsedBy(ch);
 	}
 
+	// Defined below, beside the scroll count it asks.
+	bool IsPlayerBotScrollRuleWeapon(LPCHARACTER ch, LPITEM item);
+
 	// Where the plain anvil stops for a weapon of the table
 	// (IsPlayerBotAnvilTableWeapon): the operator's ceiling for its average
 	// line, and the class's own level-30 weapon never under
@@ -2008,6 +2063,12 @@ namespace
 	// none of them sends a bot for a step another one holds.
 	int GetPlayerBotWeaponAnvilCeiling(LPCHARACTER ch, LPITEM item)
 	{
+		// Iwakura's scroll rule: while it holds, no step of the weapon in the
+		// hand is the plain anvil's, so every pass that asks here - the
+		// blacksmith, the field scroll pass, the planner, the tower's smith -
+		// puts it under a scroll.
+		if (IsPlayerBotScrollRuleWeapon(ch, item))
+			return 0;
 		int ceiling = GetPlayerBotLevel30AnvilCeiling(SumPlayerBotItemLines(item, APPLY_NORMAL_HIT_DAMAGE_BONUS));
 		if (IsPlayerBotClassLevel30Weapon(ch, item))
 			ceiling = std::max<int>(ceiling, PLAYERBOT_LEVEL30_MIN_PLUS);
@@ -2073,17 +2134,49 @@ namespace
 				FindPlayerBotClassLevel30Weapon(ch) == NULL;
 	}
 
-	// What the purchase may cost: PLAYERBOT_LEVEL30_BUDGET_PERCENT of what the
-	// bot holds over its reserve and the shopping floor. The anvil's share of
-	// the same budget is kept by ManagePlayerBotRefining against the purse the
-	// visit began with, so a purchase made on the way leaves it less.
-	long long GetPlayerBotLevel30PurchaseCap(LPCHARACTER ch)
+	// Community patch 2, point 1, as one budget: the class's level-30 weapon's
+	// purchase and its anvil share PLAYERBOT_LEVEL30_BUDGET_PERCENT of the purse
+	// the first of them found (over the reserve and the shopping floor), for
+	// PLAYERBOT_LEVEL30_BUDGET_WINDOW_MS. Measured apart - the purchase against
+	// the purse it met, the anvil against the purse its visit began with - the
+	// two came to some eighty percent, and the anvil's own sixty never
+	// counted: the Perfectionist's half of the purse stopped the pass first
+	// (B25 of Iwakura's audit of 26 September).
+	long long GetPlayerBotLevel30BudgetLeft(LPCHARACTER ch, DWORD dwNow)
 	{
 		if (!ch)
 			return 0;
-		const long long spare = (long long)ch->GetGold() - GetPlayerBotReservedGold(ch) -
-				(long long)PLAYERBOT_SHOPPING_GOLD_FLOOR;
-		return spare > 0 ? spare * PLAYERBOT_LEVEL30_BUDGET_PERCENT / 100 : 0;
+		const long long spare = std::max<long long>(0, (long long)ch->GetGold() - GetPlayerBotReservedGold(ch) -
+				(long long)PLAYERBOT_SHOPPING_GOLD_FLOOR);
+		TPlayerBotAIStateMap::iterator st = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+		if (st == s_mapPlayerBotAIStates.end())
+			return spare * PLAYERBOT_LEVEL30_BUDGET_PERCENT / 100;
+		TPlayerBotPersona& p = st->second.persona;
+		if (p.dwLevel30BudgetSince == 0 || dwNow - p.dwLevel30BudgetSince >= PLAYERBOT_LEVEL30_BUDGET_WINDOW_MS)
+		{
+			p.dwLevel30BudgetSince = dwNow != 0 ? dwNow : 1;
+			p.llLevel30BudgetBase = spare;
+			p.llLevel30BudgetSpent = 0;
+		}
+		return std::max<long long>(0,
+				p.llLevel30BudgetBase * PLAYERBOT_LEVEL30_BUDGET_PERCENT / 100 - p.llLevel30BudgetSpent);
+	}
+
+	// What the purchase or the anvil spent of it.
+	void NotePlayerBotLevel30Spend(LPCHARACTER ch, long long amount)
+	{
+		if (!ch || amount <= 0)
+			return;
+		GetPlayerBotLevel30BudgetLeft(ch, get_dword_time());
+		TPlayerBotAIStateMap::iterator st = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+		if (st != s_mapPlayerBotAIStates.end())
+			st->second.persona.llLevel30BudgetSpent += amount;
+	}
+
+	// What the purchase may cost: what is left of that budget.
+	long long GetPlayerBotLevel30PurchaseCap(LPCHARACTER ch)
+	{
+		return GetPlayerBotLevel30BudgetLeft(ch, get_dword_time());
 	}
 
 	// The first plus, drawn by pid so a bot keeps the same one for life.
@@ -2438,6 +2531,23 @@ namespace
 		return scrolls;
 	}
 
+	// Iwakura's scroll rule (27 September): the weapon a bot fights with - worn,
+	// or the one a blacksmith session keeps in the bag (GetPlayerBotHandWeapon)
+	// - of level thirty or more and under +7 goes under a scroll at every step
+	// while the bag holds PLAYERBOT_SCROLL_RULE_MIN_SCROLLS safe scrolls, in the
+	// field, past the operator's anvil table. Without it a +5 with thirty-seven
+	// scrolls and the materials in the bag waited for the blacksmith and the
+	// plain anvil. Under SCROLL_FROM the floor still answers.
+	bool IsPlayerBotScrollRuleWeapon(LPCHARACTER ch, LPITEM item)
+	{
+		if (!ch || !item || item->GetType() != ITEM_WEAPON || item->GetSubType() == WEAPON_ARROW ||
+				item->GetRefinedVnum() == 0 || item->GetLevelLimit() < PLAYERBOT_SCROLL_RULE_WEAPON_MIN_LEVEL ||
+				item->GetRefineLevel() >= PLAYERBOT_SCROLL_RULE_WEAPON_PLUS ||
+				!IsPlayerBotScrollStepAllowed(item->GetRefineLevel()) || item != GetPlayerBotHandWeapon(ch))
+			return false;
+		return CountPlayerBotSafeRefineScrolls(ch) >= PLAYERBOT_SCROLL_RULE_MIN_SCROLLS;
+	}
+
 	bool PlayerBotWantsShield(LPCHARACTER ch);
 
 	// Iwakura's Perfectionist ranks the gear: the weapon first, the armour,
@@ -2607,8 +2717,15 @@ namespace
 		if (IsPlayerBotSpecialLevel30Weapon(item) && IsPlayerBotWeapon(ch, item) &&
 				(item->IsEquipped() || IsPlayerBotLevel30Project(ch, item) ||
 					(IsPlayerBotPersonaEnabled() && item == FindPlayerBotClassLevel30Weapon(ch))))
-			return IsPlayerBotPersonaEnabled() ? GetPlayerBotLevel30Aim(ch, item)
+		{
+			const BYTE aim = IsPlayerBotPersonaEnabled() ? GetPlayerBotLevel30Aim(ch, item)
 					: PLAYERBOT_SCROLL_REFINE_MAX_PLUS;
+			// The visit's aim is +6 for six bots in ten and holds until the next
+			// town visit, so the field pass left a +6 alone: under the scroll
+			// rule the one in the hand goes to +7 whatever the aim.
+			return IsPlayerBotScrollRuleWeapon(ch, item)
+					? std::max<BYTE>(aim, PLAYERBOT_SCROLL_RULE_WEAPON_PLUS) : aim;
+		}
 		// One of another class, ground for sale, as far as its ceiling.
 		if (PlayerBotRefinesLevel30ForSale(ch, item))
 			return GetPlayerBotLevel30SaleTarget(item);
@@ -2964,6 +3081,10 @@ namespace
 		if (!item)
 			return false;
 		PlayerBotChangeGold(ch, -price);
+		// The gear history reads log.log, and a bot's purchase from a merchant
+		// wrote nothing there: the card showed a piece that came from nowhere
+		// (B23 of Iwakura's audit of 26 September).
+		LogManager::instance().ItemLog(ch, item, "PLAYERBOT_NPC_BUY", item->GetName());
 		sys_log(0, "PLAYERBOT_GEAR: bought progression %s pid=%u name=%s vnum=%u required_level=%d price=%lld",
 				category ? category : "gear", ch->GetPlayerID(), ch->GetName(), vnum,
 				item->GetLevelLimit(), price);
@@ -3691,6 +3812,7 @@ namespace
 		}
 
 		PlayerBotChangeGold(ch, -price);
+		LogManager::instance().ItemLog(ch, weapon, "PLAYERBOT_NPC_BUY", weapon->GetName());
 		const bool equipped = PlayerBotEquipItem(ch, weapon);
 
 		sys_log(0, "PLAYERBOT_AI: bought emergency weapon pid=%u name=%s vnum=%u price=%lld equipped=%d",
@@ -4033,9 +4155,15 @@ namespace
 		return false;
 	}
 
-	bool UseHealthPotion(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	// The threshold is the caller's (a war drinks sooner), and the healing a
+	// potion already under way will bring counts: the engine refuses a use
+	// that it would carry past the top anyway.
+	bool UseHealthPotion(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow,
+			int hpPercent = PLAYERBOT_POTION_HP_PERCENT)
 	{
-		if (ch->GetMaxHP() <= 0 || ch->GetHP() * 100 > ch->GetMaxHP() * PLAYERBOT_POTION_HP_PERCENT)
+		if (ch->GetMaxHP() <= 0 ||
+				((long long)ch->GetHP() + ch->GetPoint(POINT_HP_RECOVERY)) * 100 >
+					(long long)ch->GetMaxHP() * hpPercent)
 			return false;
 
 		// A duel is fought without drinking. The operator's rule, and the only
@@ -4084,9 +4212,12 @@ namespace
 		return false;
 	}
 
-	bool UseManaPotion(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	bool UseManaPotion(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow,
+			int spPercent = PLAYERBOT_POTION_SP_PERCENT)
 	{
-		if (ch->GetMaxSP() <= 0 || ch->GetSP() * 100 > ch->GetMaxSP() * PLAYERBOT_POTION_SP_PERCENT)
+		if (ch->GetMaxSP() <= 0 ||
+				((long long)ch->GetSP() + ch->GetPoint(POINT_SP_RECOVERY)) * 100 >
+					(long long)ch->GetMaxSP() * spPercent)
 			return false;
 
 		if (dwNow < state.dwNextManaPotionTime)

@@ -27,7 +27,9 @@
 // or 2). The engine side is playerbot_guild_war.h. Tested in
 // tests/playerbot_war_rules_test.cpp.
 
+#include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace playerbot_war_rules
 {
@@ -317,6 +319,37 @@ namespace playerbot_war_rules
 		}
 		outX = fromX + (long)(dx / len * (double)back);
 		outY = fromY + (long)(dy / len * (double)back);
+	}
+
+	// How many each side sends: the smaller roster, and no more than the cap
+	// (0 = none). The strong guild's forty against the elite's twenty-four won
+	// almost every war on a world with one of each a kingdom (DUDU, 26
+	// September); "po 20v20, niekoniecznie od najwyzszego levela - losowi
+	// zawodnicy" (prodnathin).
+	inline int SideSize(int roster0, int roster1, int cap)
+	{
+		int n = roster0 < roster1 ? roster0 : roster1;
+		if (cap > 0 && n > cap)
+			n = cap;
+		return n > 0 ? n : 0;
+	}
+
+	inline unsigned int DrawKey(unsigned int pid, unsigned int guildId, unsigned int warStartedAt)
+	{
+		return Mix(Mix(pid, 0x44524157u), guildId ^ warStartedAt);
+	}
+
+	// The first n of the war's draw, by a key the pid, the guild and the
+	// war's start fix: the same n all war, a different n the next war, and one
+	// who leaves lets the next of the draw in while nobody else moves.
+	inline void CallSide(std::vector<unsigned int>& roster, unsigned int guildId, unsigned int warStartedAt, int n)
+	{
+		std::sort(roster.begin(), roster.end(), [&](unsigned int a, unsigned int b) {
+			const unsigned int ka = DrawKey(a, guildId, warStartedAt), kb = DrawKey(b, guildId, warStartedAt);
+			return ka != kb ? ka < kb : a < b;
+		});
+		if (n >= 0 && roster.size() > (size_t)n)
+			roster.resize((size_t)n);
 	}
 }
 

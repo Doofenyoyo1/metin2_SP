@@ -1044,6 +1044,10 @@ class ItemToolTip(ToolTip):
 
 
 		itemDesc = item.GetItemDescription()
+		itemDesc = {
+			31073: "Bilet na Auto £owy: 8 godzin automatycznego polowania (klawisz K). Czas leci tylko wtedy, gdy jesteœ w grze; kolejne bilety siê sumuj¹ (do 30 dni). U¿yj z ekwipunku.",
+			40002: "U¿yj, aby w³¹czyæ albo wy³¹czyæ blokadê doœwiadczenia. Bez limitu czasu.",
+		}.get(itemVnum, itemDesc)
 		itemSummary = item.GetItemSummary()
 
 		isCostumeItem = 0

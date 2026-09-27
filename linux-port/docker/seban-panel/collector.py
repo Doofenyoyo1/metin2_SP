@@ -1,4 +1,5 @@
 import os
+import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -6,7 +7,30 @@ from pathlib import Path
 import pymysql
 
 INTERVAL = int(os.environ.get("SEBAN_COLLECTOR_INTERVAL", "300"))
-STATUS_GLOB = os.environ.get("PLAYERBOTS_STATUS_GLOB", "/opt/metin2/var/channel*/*/playerbot_status.tsv")
+CHANNEL_VAR_ROOT = Path(os.environ.get("PLAYERBOTS_VAR_ROOT", "/opt/metin2/var"))
+
+
+def discovered_channels():
+    """Same discovery as app.py's -- kept duplicated since this runs in its
+    own process, not imported. Sorted channel numbers with a live var dir."""
+    found = []
+    try:
+        for path in CHANNEL_VAR_ROOT.glob("channel*"):
+            match = re.fullmatch(r"channel(\d+)", path.name)
+            if match and path.is_dir():
+                found.append(int(match.group(1)))
+    except OSError:
+        pass
+    return sorted(found) or [1]
+
+
+def status_paths():
+    for channel in discovered_channels():
+        try:
+            for path in CHANNEL_VAR_ROOT.glob(f"channel{channel}/*/playerbot_status.tsv"):
+                yield channel, path
+        except OSError:
+            continue
 
 
 def connect():
@@ -83,17 +107,12 @@ def host_metrics(previous=None):
         return previous, 0, 0, 0, 0, 0
 
 
+def table_exists(cur, table):
+    cur.execute("SELECT 1 FROM information_schema.tables WHERE table_schema='player' AND table_name=%s", (table,))
+    return cur.fetchone() is not None
+
+
 def init(cur):
-    # The switches /manage writes (rankings with real players, the +9
-    # announcements, the starter chest) live in common.m2_switches, a table
-    # Seban's own VPS scripts made and a stock Playerbots install never had:
-    # 1.54.1's rankings, dashboard and /manage answered 500 without it. Made
-    # here like the panel's other tables (Playerbots 2.0.55); an existing one
-    # is left as it is.
-    cur.execute("""CREATE TABLE IF NOT EXISTS common.m2_switches (
-      name VARCHAR(64) NOT NULL PRIMARY KEY,
-      value VARCHAR(16) NOT NULL DEFAULT '0'
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""")
     cur.execute("""CREATE TABLE IF NOT EXISTS player.web_admin_queue (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       player_name VARCHAR(24) NOT NULL, cmd VARCHAR(32) NOT NULL,
@@ -106,8 +125,123 @@ def init(cur):
     cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_settings (
       name VARCHAR(64) NOT NULL PRIMARY KEY, value VARCHAR(255) NOT NULL,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB""")
+    # Not created by apply.sh or any migration -- this table only ever existed
+    # because it was added by hand on the previous server. Self-healing
+    # CREATE here so a from-scratch install (no DB, no backups) doesn't 500
+    # on every page that reads a switch (student chest, plus9 announcements,
+    # real-players-in-rankings).
+    cur.execute("""CREATE TABLE IF NOT EXISTS common.m2_switches (
+      name VARCHAR(64) NOT NULL PRIMARY KEY, value VARCHAR(16) NOT NULL DEFAULT '0',
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB""")
+    # Historia eventów czasowych (start/koniec + statystyki) -- popup "event
+    # się skończył" i trwała lista na /events czytają stąd. Zdobycie szkatułki
+    # (log.log how='GET') liczymy niezależnie od tego co bot z nią potem
+    # zrobił (otworzył/sprzedał/zatrzymał), więc liczba jest dokładna mimo że
+    # stan ekwipunku nie jest. Yang: "ekstra" to różnica wynikająca z bonusu,
+    # policzona z sumy realnie zdobytego yangu (log.log how='GET_GOLD') w
+    # oknie eventu, nie ze stanu konta.
+    cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_event_runs (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      kind VARCHAR(16) NOT NULL, value INT NOT NULL,
+      started_at DATETIME NOT NULL, ended_at DATETIME NULL,
+      chest_count INT NULL, yang_extra BIGINT NULL,
+      acknowledged TINYINT(1) NOT NULL DEFAULT 0,
+      KEY kind_open (kind, ended_at)) ENGINE=InnoDB""")
+    # Dzwoneczek powiadomień w base.html, wspólny dla całego panelu -- karmiony
+    # z trzech źródeł (koniec eventu, nowa wersja Playerbots, podsumowanie
+    # dnia). read_at osobno od popped_at: popped = pokazany raz jako toast na
+    # żywo, read = użytkownik faktycznie otworzył dzwoneczek/kliknął.
+    cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_notifications (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      kind VARCHAR(32) NOT NULL, title VARCHAR(255) NOT NULL, body VARCHAR(500) NULL,
+      link_url VARCHAR(255) NULL, ref_id BIGINT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      read_at DATETIME NULL, popped_at DATETIME NULL,
+      KEY(read_at), KEY(created_at)) ENGINE=InnoDB""")
+    # Powiadomienia powstają przy okazji zwykłego ruchu na stronie (2 workery
+    # gunicorn x 4 wątki), nie w jednym procesie w tle -- dwa równoległe
+    # żądania mogły oba zobaczyć ten sam "otwarty" event/dzień/wersję przed
+    # zapisem drugiego i wstawić dwa identyczne wpisy (duplikaty w dzwoneczku,
+    # zgłoszone przez [GA]Seban 2026-09-21). Sprzątamy stare duplikaty (zostaje
+    # najstarszy wpis) zanim dodamy unikalny indeks, inaczej ALTER by się
+    # wywalił na już istniejących parach. Ten indeks + INSERT IGNORE w
+    # create_notification() (app.py) czyni to bezpiecznym pod współbieżnością.
+    # Single-table DELETE with a subquery, not the join-delete "DELETE n1
+    # FROM ... n1 JOIN ... n2" form -- that form errors with "No database
+    # selected" over a schema-qualified table when the connection has no
+    # default database (this one doesn't -- pymysql.connect() below never
+    # passes db=), even though every other query here works fine fully
+    # qualified. Confirmed live 2026-09-21.
+    cur.execute("""DELETE FROM player.web_seban_notifications
+      WHERE ref_id IS NOT NULL AND id NOT IN (
+        SELECT min_id FROM (SELECT MIN(id) AS min_id FROM player.web_seban_notifications
+          WHERE ref_id IS NOT NULL GROUP BY kind, ref_id) AS keep)""")
+    try:
+        cur.execute("ALTER TABLE player.web_seban_notifications ADD UNIQUE INDEX IF NOT EXISTS uniq_kind_ref (kind, ref_id)")
+    except pymysql.MySQLError:
+        pass
+    # Podsumowanie dnia: jeden wiersz na dzień świata, start/koniec dla
+    # kilku metryk (migawki z web_seban_metric_snapshot) + liczniki zdarzeń
+    # z log.log/event_runs w tym oknie czasowym.
+    cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_daily_summary (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      summary_date DATE NOT NULL, day_number INT NOT NULL,
+      bots_start INT, bots_end INT, yang_start BIGINT, yang_end BIGINT,
+      refine9_count INT, metin_count INT, cash_start BIGINT, cash_end BIGINT,
+      events_count INT, level_start INT, level_end INT, shops_start INT, shops_end INT,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY(summary_date)) ENGINE=InnoDB""")
+    cur.execute("ALTER TABLE player.web_seban_daily_summary ADD COLUMN IF NOT EXISTS top_weapon_vnum INT UNSIGNED NULL")
+    cur.execute("ALTER TABLE player.web_seban_daily_summary ADD COLUMN IF NOT EXISTS top_weapon_name VARCHAR(64) NULL")
+    cur.execute("ALTER TABLE player.web_seban_daily_summary ADD COLUMN IF NOT EXISTS top_weapon_avg_damage INT NULL")
+    cur.execute("ALTER TABLE player.web_seban_daily_summary ADD COLUMN IF NOT EXISTS top_weapon_owner_pid INT UNSIGNED NULL")
+    cur.execute("ALTER TABLE player.web_seban_daily_summary ADD COLUMN IF NOT EXISTS top_weapon_owner_name VARCHAR(24) NULL")
+    cur.execute("ALTER TABLE player.web_seban_daily_summary ADD COLUMN IF NOT EXISTS fish_count INT NULL")
+    cur.execute("ALTER TABLE player.web_seban_daily_summary ADD COLUMN IF NOT EXISTS mining_count INT NULL")
+    cur.execute("ALTER TABLE player.web_seban_daily_summary ADD COLUMN IF NOT EXISTS boss_count INT NULL")
+    # /live-chat's persistent capture of PLAYERBOT_TRADE/PLAYERBOT_SHOUT
+    # syslog lines -- app.py's scan_bot_chat_logs() reads/writes these
+    # incrementally on every poll (see its docstring). message(191) in the
+    # unique key keeps the index within InnoDB's byte limit for utf8mb4.
+    cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_bot_chat_log (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      channel TINYINT UNSIGNED NOT NULL, pid INT UNSIGNED NOT NULL,
+      name VARCHAR(64) NOT NULL, message VARCHAR(255) NOT NULL, captured_at DATETIME NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_msg (channel,pid,captured_at,message(191)), INDEX idx_captured (captured_at)
+      ) ENGINE=InnoDB""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_chat_offset (
+      path VARCHAR(255) NOT NULL PRIMARY KEY, byte_offset BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB""")
+    # Local, time-indexed cache of rare log.log achievements for the
+    # dashboard ticker and /world-feed -- log.log itself has no index on
+    # `time` (only who/what/how), so app.py's sync_news_events() keeps this
+    # caught up incrementally instead of every page load re-scanning ~1.7M
+    # rows of log.log directly (operator's call, 2026-09-25: no schema
+    # changes to the live game log table).
+    cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_news_event (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      event_key VARCHAR(191) NOT NULL, time DATETIME NOT NULL, kind VARCHAR(16) NOT NULL,
+      message VARCHAR(255) NOT NULL, actor VARCHAR(64) NOT NULL, player_id INT UNSIGNED NOT NULL,
+      job INT NOT NULL DEFAULT 0, empire TINYINT NOT NULL DEFAULT 0,
+      vnum INT UNSIGNED NOT NULL DEFAULT 0, socket0 INT UNSIGNED NOT NULL DEFAULT 0, refine_tier TINYINT NOT NULL DEFAULT 0,
+      UNIQUE KEY uniq_event (event_key), INDEX idx_time (time)
+      ) ENGINE=InnoDB""")
+    # Upgrade method (blacksmith vs scroll, and which scroll) -- log.refinelog.setType,
+    # see app.py's REFINE_METHOD_LABELS/_classify_refine_events (operator's ask 2026-09-25).
+    cur.execute("ALTER TABLE player.web_seban_news_event ADD COLUMN IF NOT EXISTS method VARCHAR(64) NULL")
+    # Small JSON-blob cache for otherwise-expensive dashboard queries
+    # (cached_dashboard_ranking() in app.py) -- web_seban_settings.value is
+    # VARCHAR(255) by design for small config values, too small for a
+    # serialized top-10 ranking and silently truncates it, so this gets its
+    # own properly-sized table instead of repurposing settings.
+    cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_query_cache (
+      name VARCHAR(64) NOT NULL PRIMARY KEY, value MEDIUMTEXT NOT NULL,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB""")
     cur.execute("""INSERT IGNORE INTO player.web_seban_settings (name,value) VALUES
-      ('panel_name','Metin2 Singleplayer'),('stuck_minutes','5'),('theme','ocean'),('monitor_mode','vps'),
+      ('panel_name','Metin2 Singleplayer'),('stuck_minutes','5'),('theme','empire'),('monitor_mode','vps'),
       ('setup_complete','1'),('auth_enabled','0'),('auth_password_hash','')""")
     # One-time branding migration for deployments created before the public-ready build.
     cur.execute("UPDATE player.web_seban_settings SET value='Metin2 Singleplayer' WHERE name='panel_name' AND value='Mt2009'")
@@ -120,23 +254,25 @@ def init(cur):
     # app.py) shows up as distinct rows instead of one lump sum. Disposable
     # monitoring history, not player data, so a schema change here drops and
     # recreates rather than an in-place ALTER of the primary key.
-    # SHOW COLUMNS on a table that is not there is an error (1146), not an
-    # empty answer: on an install that never had the table the check threw
-    # before the CREATE and the page reading it answered 500. information_schema
-    # counts zero for a missing table instead (Playerbots 2.0.47, kept in 2.0.49).
-    # A row or none, never a column read by position: app.py calls init()
-    # at start with its DictCursor, where [0] is a KeyError (2.0.49).
-    cur.execute("""SELECT 1 FROM information_schema.columns WHERE table_schema='player'
-      AND table_name='web_seban_item_snapshot' AND column_name='socket0' LIMIT 1""")
-    if cur.fetchone() is None:
-        cur.execute("DROP TABLE IF EXISTS player.web_seban_item_snapshot")
+    if table_exists(cur, "web_seban_item_snapshot"):
+        cur.execute("SHOW COLUMNS FROM player.web_seban_item_snapshot LIKE 'socket0'")
+        if cur.fetchone() is None:
+            cur.execute("DROP TABLE IF EXISTS player.web_seban_item_snapshot")
     cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_item_snapshot (
       captured_at DATETIME NOT NULL, vnum INT UNSIGNED NOT NULL, socket0 INT NOT NULL DEFAULT 0,
       amount BIGINT UNSIGNED NOT NULL,
       PRIMARY KEY(captured_at,vnum,socket0), KEY(vnum,captured_at)) ENGINE=InnoDB""")
+    # channel added 2026-09-19 for CH2 support: the same map can now carry two
+    # independent counts (one per channel) at the same captured_at, so the
+    # primary key has to grow -- same drop/recreate approach as socket0 above,
+    # disposable monitoring history rather than player data.
+    if table_exists(cur, "web_seban_map_snapshot"):
+        cur.execute("SHOW COLUMNS FROM player.web_seban_map_snapshot LIKE 'channel'")
+        if cur.fetchone() is None:
+            cur.execute("DROP TABLE IF EXISTS player.web_seban_map_snapshot")
     cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_map_snapshot (
-      captured_at DATETIME NOT NULL, map_index INT UNSIGNED NOT NULL, character_count INT UNSIGNED NOT NULL,
-      PRIMARY KEY(captured_at,map_index), KEY(map_index,captured_at)) ENGINE=InnoDB""")
+      captured_at DATETIME NOT NULL, channel TINYINT UNSIGNED NOT NULL DEFAULT 1, map_index INT UNSIGNED NOT NULL, character_count INT UNSIGNED NOT NULL,
+      PRIMARY KEY(captured_at,channel,map_index), KEY(map_index,captured_at)) ENGINE=InnoDB""")
     cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_system_snapshot (
       captured_at DATETIME NOT NULL PRIMARY KEY, cpu_percent DECIMAL(5,1) NOT NULL,
       ram_percent DECIMAL(5,1) NOT NULL, ram_used_mb INT UNSIGNED NOT NULL, ram_total_mb INT UNSIGNED NOT NULL,
@@ -151,6 +287,10 @@ def init(cur):
     cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_bot_position_snapshot (
       captured_at DATETIME NOT NULL, pid INT UNSIGNED NOT NULL, map_index INT UNSIGNED NOT NULL,
       x INT NOT NULL, y INT NOT NULL, PRIMARY KEY(captured_at,pid), KEY(pid,captured_at)) ENGINE=InnoDB""")
+    # channel added 2026-09-19 (CH2 support) -- a bot only ever sits on one
+    # channel at a time, so the primary key doesn't need to change, just a
+    # plain additive column read by the player page's "last seen on" lookup.
+    cur.execute("ALTER TABLE player.web_seban_bot_position_snapshot ADD COLUMN IF NOT EXISTS channel TINYINT UNSIGNED NOT NULL DEFAULT 1")
     # Offline shops (IkarusShop "stragany"): player.ikashop_offlineshop is one
     # row per open shop, player.item WHERE window='IKASHOP_OFFLINESHOP' is one
     # row per listed offer, and the offer's price for its whole stack (not
@@ -168,20 +308,60 @@ def init(cur):
     # above only keeps the per-map/empire rollup, not individual vnums.
     # socket0 added 2026-09-13, same reason and same drop/recreate approach
     # as web_seban_item_snapshot above.
-    # SHOW COLUMNS on a table that is not there is an error (1146), not an
-    # empty answer: on an install that never had the table the check threw
-    # before the CREATE and the page reading it answered 500. information_schema
-    # counts zero for a missing table instead (Playerbots 2.0.47, kept in 2.0.49).
-    # A row or none, never a column read by position: app.py calls init()
-    # at start with its DictCursor, where [0] is a KeyError (2.0.49).
-    cur.execute("""SELECT 1 FROM information_schema.columns WHERE table_schema='player'
-      AND table_name='web_seban_shop_item_snapshot' AND column_name='socket0' LIMIT 1""")
-    if cur.fetchone() is None:
-        cur.execute("DROP TABLE IF EXISTS player.web_seban_shop_item_snapshot")
+    if table_exists(cur, "web_seban_shop_item_snapshot"):
+        cur.execute("SHOW COLUMNS FROM player.web_seban_shop_item_snapshot LIKE 'socket0'")
+        if cur.fetchone() is None:
+            cur.execute("DROP TABLE IF EXISTS player.web_seban_shop_item_snapshot")
     cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_shop_item_snapshot (
       captured_at DATETIME NOT NULL, vnum INT UNSIGNED NOT NULL, socket0 INT NOT NULL DEFAULT 0,
       offers INT UNSIGNED NOT NULL, total_units BIGINT UNSIGNED NOT NULL, total_value BIGINT UNSIGNED NOT NULL,
       PRIMARY KEY(captured_at,vnum,socket0), KEY(vnum,captured_at)) ENGINE=InnoDB""")
+
+    # "Konta i GM -> Nazwy postaci botów": a durable, queryable copy of the
+    # 5400-name pool from playerbot_names.sql (the engine's own generated
+    # rename list -- 1800 names/kingdom, applied once per bot the moment its
+    # account exists, not when it's actively spawned; see
+    # common.playerbot_name_history for who already has one). Parsed from the
+    # file once (only when this table is still empty of 'base' rows) so the
+    # panel can browse/search/filter 5400 rows without re-reading a 5600-line
+    # SQL file on every request. 'custom' rows are names the operator adds
+    # from the panel; 'blocked' marks a name (base or custom) as never to be
+    # dealt out again. None of this touches a bot that already has a name --
+    # see check_bot_name_reconcile() in app.py, which only ever assigns a name
+    # to a bot with no common.playerbot_name_history row at all (i.e. freshly
+    # seeded past the current 2500, after a real wipe/reseed).
+    # name is explicitly latin1/latin1_swedish_ci -- the columns this table
+    # gets JOINed against (common.playerbot_name_history.human_name,
+    # player.player.name) are both that collation (the mt2009 schema's own
+    # default), while this session's default is cp1250 (M2_DEFAULT_GAME_
+    # LANGUAGE). A plain VARCHAR here inherited cp1250 and every query
+    # joining on name/human_name/=%s failed with "Illegal mix of collations"
+    # (1267) the moment the panel loaded -- caught immediately, 2026-09-22.
+    cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_bot_name_pool (
+      name VARCHAR(24) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL PRIMARY KEY,
+      empire TINYINT UNSIGNED NOT NULL,
+      pool_order INT UNSIGNED NOT NULL, source ENUM('base','custom') NOT NULL DEFAULT 'base',
+      priority INT NOT NULL DEFAULT 0, blocked TINYINT(1) NOT NULL DEFAULT 0,
+      note VARCHAR(255) NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY empire_priority (empire, blocked, priority, pool_order)) ENGINE=InnoDB DEFAULT CHARSET=latin1""")
+    # cur.fetchone() is not always a plain tuple here -- this init() also runs
+    # through app.py's DictCursor at startup (_ensure_collector_tables), so
+    # indexing by [0] crashed the panel with KeyError there. LIMIT 1 + "is
+    # not None" (table_exists()'s own trick above) works under either cursor.
+    cur.execute("SELECT 1 FROM player.web_seban_bot_name_pool WHERE source='base' LIMIT 1")
+    if cur.fetchone() is None:
+        names_sql = Path("/hostfs" + os.environ.get("SEBAN_M2_ROOT", "/opt/metin2-mt2009/mt2009-r41023-base")) \
+            / "linux-port/docker/mariadb/playerbot/playerbot_names.sql"
+        try:
+            text = names_sql.read_text(encoding="latin-1", errors="replace")
+        except OSError:
+            text = ""
+        rows = re.findall(r"\((\d+),(\d+),'([^']*)'\)", text)
+        if rows:
+            cur.executemany(
+                "INSERT IGNORE INTO player.web_seban_bot_name_pool (pool_order,empire,name,source) VALUES (%s,%s,%s,'base')",
+                [(int(n), int(empire), name) for n, empire, name in rows])
+            print(f"[seban-collector] bot name pool: loaded {len(rows)} base name(s) from {names_sql}", flush=True)
 
 
 # playerbot_status.tsv, read by its header: Iwakura's personalities (2.0.85)
@@ -214,12 +394,12 @@ def parse_status_rows(text):
 
 def live_positions():
     result = {}
-    for path in Path("/").glob(STATUS_GLOB.lstrip("/")):
+    for channel, path in status_paths():
         try:
             if time.time() - path.stat().st_mtime > 25:
                 continue
             for n, _status in parse_status_rows(path.read_text(encoding="cp1250", errors="replace")):
-                result[n["pid"]] = (n.get("map", 0), n.get("x", 0), n.get("y", 0))
+                result[n["pid"]] = (n.get("map", 0), n.get("x", 0), n.get("y", 0), channel)
         except (OSError, ValueError):
             continue
     return result
@@ -227,8 +407,8 @@ def live_positions():
 
 def live_map_counts():
     counts = {}
-    for index, _, _ in live_positions().values():
-        counts[index] = counts.get(index, 0) + 1
+    for index, _, _, channel in live_positions().values():
+        counts[(channel, index)] = counts.get((channel, index), 0) + 1
     return counts
 
 
@@ -246,10 +426,11 @@ def collect(con, previous):
             ram_used_mb=VALUES(ram_used_mb), ram_total_mb=VALUES(ram_total_mb), disk_percent=VALUES(disk_percent),
             disk_used_mb=VALUES(disk_used_mb), disk_total_mb=VALUES(disk_total_mb)""",
             (now, cpu, ram, used, total, disk_percent, disk_used, disk_total))
-        for map_index, count in live_map_counts().items():
-            cur.execute("INSERT IGNORE INTO player.web_seban_map_snapshot VALUES (%s,%s,%s)", (now, map_index, count))
-        for pid, (map_index, x, y) in live_positions().items():
-            cur.execute("INSERT IGNORE INTO player.web_seban_bot_position_snapshot VALUES (%s,%s,%s,%s,%s)", (now, pid, map_index, x, y))
+        for (channel, map_index), count in live_map_counts().items():
+            cur.execute("INSERT IGNORE INTO player.web_seban_map_snapshot (captured_at,channel,map_index,character_count) VALUES (%s,%s,%s,%s)", (now, channel, map_index, count))
+        positions = live_positions()
+        for pid, (map_index, x, y, channel) in positions.items():
+            cur.execute("INSERT IGNORE INTO player.web_seban_bot_position_snapshot (captured_at,pid,channel,map_index,x,y) VALUES (%s,%s,%s,%s,%s,%s)", (now, pid, channel, map_index, x, y))
         # Split by socket0 only for vnum 50300 (the generic Skill Book -- see
         # resolve_item_display_name in app.py): splitting every socketed
         # item this way would fragment ordinary equipment into one row per
@@ -258,7 +439,7 @@ def collect(con, previous):
         cur.execute("""INSERT IGNORE INTO player.web_seban_item_snapshot (captured_at,vnum,socket0,amount)
           SELECT %s, vnum, IF(vnum=50300, socket0, 0), SUM(count)
           FROM player.item GROUP BY vnum, IF(vnum=50300, socket0, 0)""", (now,))
-        # Only what can be bought (Playerbots 2.2.24): a stand with duration 0
+        # Only what can be bought (Playerbots 2.2.23): a stand with duration 0
         # ran out and holds its goods until its owner renews it - on m2zip on
         # 26 September 970 of 1 641 stands, nearly all of them of bots not in
         # the world - and a line just sold keeps its window with ikashop_data
@@ -279,13 +460,24 @@ def collect(con, previous):
         cur.execute("""INSERT IGNORE INTO player.web_seban_shop_item_snapshot (captured_at, vnum, socket0, offers, total_units, total_value)
           SELECT %s, vnum, IF(vnum=50300, socket0, 0), COUNT(*), SUM(count),
                  COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(ikashop_data,'$.yang')) AS UNSIGNED)),0)
-          FROM player.item WHERE window = 'IKASHOP_OFFLINESHOP'
-            AND ikashop_data IS NOT NULL AND ikashop_data <> ''
-            AND owner_id IN (SELECT owner FROM player.ikashop_offlineshop WHERE duration > 0)
+          FROM player.item i JOIN player.ikashop_offlineshop o ON o.owner=i.owner_id
+          WHERE i.window = 'IKASHOP_OFFLINESHOP' AND o.duration > 0
+            AND i.ikashop_data IS NOT NULL AND i.ikashop_data <> ''
           GROUP BY vnum, IF(vnum=50300, socket0, 0)""", (now,))
         cur.execute("SELECT COALESCE(SUM(gold),0) FROM player.player WHERE name NOT IN ('[SA]Admin','Test','Admin','AdminNinja','AdminSura','AdminSzaman')")
         yang = cur.fetchone()[0]
         cur.execute("INSERT IGNORE INTO player.web_seban_metric_snapshot VALUES (%s,'total_yang',%s)", (now, yang))
+        # Dodatkowe migawki dla "Podsumowania dnia" (start/koniec dnia
+        # porównuje dwie migawki z tej samej tabeli, jak total_yang powyżej).
+        cur.execute("INSERT IGNORE INTO player.web_seban_metric_snapshot VALUES (%s,'bots_count',%s)", (now, len(positions)))
+        # Tylko boty -- konto GM/admina z wysokim poziomem fałszowałoby to.
+        cur.execute("""SELECT COALESCE(MAX(p.level),0) FROM player.player p
+          LEFT JOIN account.account a ON a.id=p.account_id WHERE LEFT(a.login,10)='playerbot_'""")
+        cur.execute("INSERT IGNORE INTO player.web_seban_metric_snapshot VALUES (%s,'max_level',%s)", (now, cur.fetchone()[0]))
+        cur.execute("SELECT COALESCE(SUM(cash),0) FROM account.account")
+        cur.execute("INSERT IGNORE INTO player.web_seban_metric_snapshot VALUES (%s,'dragon_coins',%s)", (now, cur.fetchone()[0]))
+        cur.execute("SELECT COUNT(DISTINCT owner) FROM player.ikashop_offlineshop WHERE duration > 0")
+        cur.execute("INSERT IGNORE INTO player.web_seban_metric_snapshot VALUES (%s,'shops_count',%s)", (now, cur.fetchone()[0]))
         check_plus9_refines(cur)
     return previous
 

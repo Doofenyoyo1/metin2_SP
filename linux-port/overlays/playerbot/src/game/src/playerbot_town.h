@@ -33,6 +33,9 @@ namespace
 	void CollectPlayerBotGambleMaterials(LPCHARACTER ch, std::set<DWORD>& out);
 	bool ManagePlayerBotGamble(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
 	bool ContinuePlayerBotVisitAsGambler(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
+	// And its walk along the counters between the storekeeper and the anvil
+	// (playerbot_offline_market.h; nothing on r40250's classic stalls).
+	bool ManagePlayerBotGambleMarket(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
 
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
 	bool HasPlayerBotOfflineShop(LPCHARACTER ch);
@@ -354,7 +357,7 @@ namespace
 			return false;
 		const int freeAfter = CountPlayerBotFreeInventoryCells(ch) - 1;
 		return freeAfter > PLAYERBOT_BAG_PRESSURE_FREE_CELLS &&
-				(PLAYERBOT_BAG_CELLS - freeAfter) * 100 < PLAYERBOT_BAG_CELLS * PLAYERBOT_BAG_FULL_PERCENT;
+				(PLAYERBOT_BAG_CELLS - freeAfter) * 100 < PLAYERBOT_BAG_CELLS * PLAYERBOT_MATERIAL_RELEASE_BAG_PERCENT;
 	}
 
 	// And out of it again, the way CInputMain::SafeboxCheckout does it.
@@ -472,9 +475,13 @@ namespace
 					// bedzie automatycznie i regularnie trafiac na rynek") - it
 					// asked the ledger for a bot short of it before, and the
 					// boxes kept the rest for good.
+					// Filled to PLAYERBOT_MATERIAL_RELEASE_BAG_PERCENT only, and
+					// not a kind the bag already holds a spare of over the
+					// anvil's reserve: that one is on its way to the counter.
 					const int freeAfter = CountPlayerBotFreeInventoryCells(ch) - (int)item->GetSize();
 					wanted = freeAfter > PLAYERBOT_BAG_PRESSURE_FREE_CELLS &&
-							(PLAYERBOT_BAG_CELLS - freeAfter) * 100 < PLAYERBOT_BAG_CELLS * PLAYERBOT_BAG_FULL_PERCENT;
+							(PLAYERBOT_BAG_CELLS - freeAfter) * 100 < PLAYERBOT_BAG_CELLS * PLAYERBOT_MATERIAL_RELEASE_BAG_PERCENT &&
+							(int)ch->CountSpecifyItem(item->GetVnum()) <= GetPlayerBotRefineMaterialReserve(ch, item->GetVnum());
 					why = "market";
 				}
 				else if (pGambler && gambleMaterials.find(item->GetVnum()) != gambleMaterials.end())
@@ -2694,17 +2701,27 @@ namespace
 		// Iwakura's Patch 3, point 4: a body armour at +0..+4 of a family the
 		// bots' counters already carry PLAYERBOT_LOW_ARMOUR_MARKET_CAP of is no
 		// goods - the anvil takes it to +5 first if it can be paid
-		// (PlayerBotRefinesLowArmourForSale), the merchant otherwise.
-		if (IsPlayerBotCappedLowArmour(item) && IsPlayerBotLowArmourMarketFull(item->GetVnum()))
+		// (PlayerBotRefinesLowArmourForSale), the merchant otherwise. And a
+		// jewel at +0..+3 of a family at PLAYERBOT_LOW_JEWEL_MARKET_CAP, his
+		// answer of 26 September.
+		if ((IsPlayerBotCappedLowArmour(item) || IsPlayerBotCappedLowJewel(item)) &&
+				IsPlayerBotLowArmourMarketFull(item->GetVnum()))
 			return -1;
 		// Gear under level thirty goes up at +6 or better and ranks under the
 		// materials whatever is rolled on it, and one counter carries only
 		// PLAYERBOT_SHOP_LOW_GEAR_MAX_LINES of it (CollectPlayerBotShopItems).
 		// Asked before the bonus and the precious refine below, both of which
 		// used to wave a +4 armour for level 26 through to the top of the list.
+		// A body armour or a jewel at +0..+3 goes up too, ahead of the ordinary
+		// materials (IsPlayerBotLowPlusMarketGear, Iwakura's answer of 26
+		// September; PLAYERBOT_SHOP_LOW_PLUS_GEAR_SCORE says why there).
 		if (IsPlayerBotLowLevelGear(item))
+		{
+			if (IsPlayerBotLowPlusMarketGear(item))
+				return PLAYERBOT_SHOP_LOW_PLUS_GEAR_SCORE + item->GetRefineLevel();
 			return item->GetRefineLevel() >= GetPlayerBotLowGearMinRefine(item)
 					? PLAYERBOT_SHOP_LOW_GEAR_SCORE + item->GetRefineLevel() : -1;
+		}
 		// A piece of Iwakura's list past what the list keeps, at any refine:
 		// the gamblers' stock (community patch 2, point 9).
 		if (ch && IsPlayerBotLppSurplusGoods(ch, item))
@@ -2922,10 +2939,14 @@ namespace
 		const BYTE type = item->GetType();
 		if (type == ITEM_WEAPON || type == ITEM_ARMOR)
 		{
-			// A scrap keeper puts the low refines out too, last in line after
-			// everything worth more: fodder for a player's blacksmith runs. From
-			// level thirty only - the gear under it never gets this far (see the
-			// top of this function), and nothing at +4 does either.
+			// A body armour or a jewel at +0..+3 is every bot's goods since
+			// Iwakura's answer of 26 September (IsPlayerBotLowPlusMarketGear).
+			if (IsPlayerBotLowPlusMarketGear(item))
+				return PLAYERBOT_SHOP_LOW_PLUS_GEAR_SCORE + item->GetRefineLevel();
+			// A scrap keeper puts the other low refines out too, last in line
+			// after everything worth more: fodder for a player's blacksmith
+			// runs. From level thirty only - the gear under it never gets this
+			// far (see the top of this function), and nothing at +4 does either.
 			if (IsPlayerBotScrapKeeper(ch->GetPlayerID()) &&
 					item->GetRefineLevel() < PLAYERBOT_SHOP_MIN_GEAR_REFINE)
 				return 100 + item->GetRefineLevel();
@@ -3539,7 +3560,7 @@ namespace
 				{
 					const int spare = (int)ch->CountSpecifyItem(item->GetVnum()) - keep;
 					const int avail = std::min((int)item->GetCount(), spare);
-					const int take = GetPlayerBotNaturalLineUnits(ch, item, avail, lines, small);
+					const int take = GetPlayerBotNaturalLineUnits(ch, item, avail, spare, lines, small);
 					// Nothing more of it, or the stack is a line as it stands.
 					if (take <= 0 || take >= (int)item->GetCount())
 						break;
@@ -4381,6 +4402,7 @@ namespace
 		{
 			AddPlayerBotMarketSupply(offers[i].dwVnum, offers[i].wCount, ch->GetMapIndex());
 			NotePlayerBotCappedLineOnCounter(offers[i].dwVnum, offers[i].wCount);
+			NotePlayerBotMissionBooksOnCounter(ch->GetMapIndex(), offers[i].dwVnum, offers[i].wCount);
 		}
 		sys_log(0, "PLAYERBOT_SHOP: opened pid=%u name=%s reason=%s items=%u left_behind no_line=%u no_slot=%u antiflag=%u first_vnum=%u first_price=%u pos=(%ld,%ld) sign=\"%s\"",
 				ch->GetPlayerID(), ch->GetName(), GetPlayerBotShopReasonName(state.bShopOpenReason),
@@ -4713,7 +4735,10 @@ namespace
 			{
 				ManagePlayerBotWeaponMerchant(ch);
 				ManagePlayerBotEquipment(ch, state, dwNow);
-				if (!ch->GetWear(WEAR_WEAPON))
+				// Not while the market is looked at for a finished weapon after a
+				// burn: the merchant held off on purpose, and a rich bot sent to
+				// scavenge the fields left the market it was meant to read (B13).
+				if (!ch->GetWear(WEAR_WEAPON) && !IsPlayerBotRebuildingFromMarket(ch, WEAR_WEAPON))
 				{
 					// Nothing sellable was sufficient. Leave the counter after this
 					// visit and search nearby hunting fields for ownerless Yang/gear.
@@ -4976,11 +5001,38 @@ namespace
 						: backToMerchants ? GetPlayerBotFirstExteriorTownPhase(state)
 						: ((state.bTownNeedMisc || state.bTownNeedBlacksmith)
 							? BOT_TOWN_PHASE_GATE_IN : BOT_TOWN_PHASE_NONE);
+				// A gambler's session goes from the storekeeper to the counters
+				// for what its pieces lack, and on to the anvil from there
+				// (Iwakura's answer of 26 September). Joan's market stands on
+				// the storekeeper's side of its wall.
+				if (IsPlayerBotGambling(state, dwNow) && state.persona.bGambleMarketPending &&
+						state.bTownVisitPhase != BOT_TOWN_PHASE_NONE && !backToMerchants)
+					state.bTownVisitPhase = BOT_TOWN_PHASE_GAMBLE_MARKET;
 				state.dwTownWaitUntil = 0;
 				ClearPlayerBotRoute(state, true);
 				if (state.bTownVisitPhase == BOT_TOWN_PHASE_NONE)
 					FinishPlayerBotTownVisit(ch, state, dwNow, true);
 			}
+			return true;
+		}
+
+		// A gambler's walk along the counters for the materials its pieces lack
+		// (ManagePlayerBotGambleMarket), then the anvil the way the storekeeper
+		// would have gone on to it.
+		if (state.bTownVisitPhase == BOT_TOWN_PHASE_GAMBLE_MARKET)
+		{
+			if (ManagePlayerBotGambleMarket(ch, state, dwNow))
+				return true;
+			state.persona.bGambleMarketPending = false;
+			state.persona.dwGambleMarketUntil = 0;
+			state.bTownVisitPhase = bDirect
+					? GetPlayerBotFirstDirectTownPhase(state)
+					: ((state.bTownNeedMisc || state.bTownNeedBlacksmith)
+						? BOT_TOWN_PHASE_GATE_IN : BOT_TOWN_PHASE_NONE);
+			state.dwTownWaitUntil = 0;
+			ClearPlayerBotRoute(state, true);
+			if (state.bTownVisitPhase == BOT_TOWN_PHASE_NONE)
+				FinishPlayerBotTownVisit(ch, state, dwNow, true);
 			return true;
 		}
 

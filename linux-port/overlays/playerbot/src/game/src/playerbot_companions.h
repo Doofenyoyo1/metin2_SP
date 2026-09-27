@@ -1072,7 +1072,8 @@ namespace
 		if (!ch || !ch->GetSectree())
 			return false;
 		TPlayerBotPersona& p = state.persona;
-		if (p.dwAskedHumanPid != 0 || (p.dwNextHumanAsk != 0 && dwNow < p.dwNextHumanAsk))
+		if (p.dwAskedHumanPid != 0 || (p.dwNextHumanAsk != 0 && dwNow < p.dwNextHumanAsk) ||
+				GetPlayerBotRareNow(p, dwNow) != 0)
 			return false;
 		LPPARTY mine = ch->GetParty();
 		if (mine && (mine->GetLeaderPID() != ch->GetPlayerID() ||

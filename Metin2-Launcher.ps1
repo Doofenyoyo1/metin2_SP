@@ -26,6 +26,9 @@ param(
     # And whether the world is played with Auto Lowy and with the companion
     # (Towarzysz): 1 = on, 0 = off, -1 leaves .env as it is.
     [int]$AutoHunt = -1,
+    # SetDifficulty: Auto Lowy for everybody (0) or only with the ItemShop's
+    # "Auto Lowy (8h)" (1); -1 keeps what .env says.
+    [int]$AutoHuntItem = -1,
     [int]$Sidekick = -1,
     # The rates a fresh world starts on, asked for when one is about to be
     # made (ResetWorld, and the first start of an install that has no database
@@ -1005,10 +1008,11 @@ function Set-DifficultyAction {
     $currentBook = Get-DotEnvValue -Key 'M2_BOOK_WAIT_HOURS' -Default '0'
     $currentBotBook = Get-DotEnvValue -Key 'M2_BOT_BOOK_WAIT_HOURS' -Default '0'
     $currentAutoHunt = (Get-DotEnvValue -Key 'M2_AUTOHUNT' -Default '1') -ne '0'
+    $currentAutoHuntItem = (Get-DotEnvValue -Key 'M2_AUTOHUNT_ITEM' -Default '0') -eq '1'
     $currentSidekick = (Get-DotEnvValue -Key 'M2_SIDEKICK' -Default '1') -ne '0'
     $currentStarter = (Get-DotEnvValue -Key 'M2_STARTER_CHEST' -Default '1') -ne '0'
     Write-Host "Aktualny poziom trudności: $current (przy 'custom': Biolog $currentBio h, Stajenny $currentHorse h, księgi: gracze $currentBook h, boty $currentBotBook h)." -ForegroundColor Gray
-    Write-Host "Auto Łowy: $(if ($currentAutoHunt) { 'włączone' } else { 'wyłączone' }); Towarzysz: $(if ($currentSidekick) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($currentStarter) { 'tak' } else { 'nie' })." -ForegroundColor Gray
+    Write-Host "Auto Łowy: $(if ($currentAutoHunt) { 'włączone' } else { 'wyłączone' }) ($(if ($currentAutoHuntItem) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($currentSidekick) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($currentStarter) { 'tak' } else { 'nie' })." -ForegroundColor Gray
 
     # -Difficulty passed (from the GUI or scripting) is non-interactive, like
     # -BotCount: never Read-Host, restart only with -Yes.
@@ -1040,11 +1044,19 @@ function Set-DifficultyAction {
     # "gdzie te skrzynie ucznia do wylaczenia ... w launcherze szukam, ni ma"
     # (Drip, 25 September) was answered with this very window.
     $autoHuntOn = $currentAutoHunt
+    $autoHuntItemOn = $currentAutoHuntItem
     $sidekickOn = $currentSidekick
     $starterOn = $currentStarter
     if ($interactive) {
         $answer = Read-Host "Auto Łowy (automatyczne polowanie w kliencie, klawisz K) włączone? (T/n, Enter = $(if ($currentAutoHunt) { 'tak' } else { 'nie' }))"
         if ("$answer".Trim()) { $autoHuntOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
+        if ($autoHuntOn) {
+            # The operator, 27 September: the panel for everybody, or only for
+            # a character that bought "Auto Lowy (8h)" in the ItemShop.
+            $answer = Read-Host "Panel Autołowy: 1 = dostępny dla każdego, 2 = dostępny tylko po kupnie przedmiotu z ItemShop (Enter = $(if ($currentAutoHuntItem) { '2' } else { '1' }))"
+            if ("$answer".Trim() -eq '1') { $autoHuntItemOn = $false }
+            elseif ("$answer".Trim() -eq '2') { $autoHuntItemOn = $true }
+        }
         $answer = Read-Host "Towarzysz (stały kompan gracza, list i okno P) włączony? (T/n, Enter = $(if ($currentSidekick) { 'tak' } else { 'nie' }))"
         if ("$answer".Trim()) { $sidekickOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
         $answer = Read-Host "Skrzynia Ucznia dla nowych postaci graczy (przy pierwszym logowaniu)? (T/n, Enter = $(if ($currentStarter) { 'tak' } else { 'nie' }))"
@@ -1052,6 +1064,7 @@ function Set-DifficultyAction {
     }
     else {
         if ($AutoHunt -ge 0) { $autoHuntOn = ($AutoHunt -ne 0) }
+        if ($AutoHuntItem -ge 0) { $autoHuntItemOn = ($AutoHuntItem -ne 0) }
         if ($Sidekick -ge 0) { $sidekickOn = ($Sidekick -ne 0) }
         if ($StarterChest -ge 0) { $starterOn = ($StarterChest -ne 0) }
     }
@@ -1081,10 +1094,11 @@ function Set-DifficultyAction {
     Set-DotEnvValue -Key 'M2_BOOK_WAIT_HOURS' -Value $book
     Set-DotEnvValue -Key 'M2_BOT_BOOK_WAIT_HOURS' -Value $botBook
     Set-DotEnvValue -Key 'M2_AUTOHUNT' -Value $(if ($autoHuntOn) { '1' } else { '0' })
+    Set-DotEnvValue -Key 'M2_AUTOHUNT_ITEM' -Value $(if ($autoHuntItemOn) { '1' } else { '0' })
     Set-DotEnvValue -Key 'M2_SIDEKICK' -Value $(if ($sidekickOn) { '1' } else { '0' })
     Set-DotEnvValue -Key 'M2_STARTER_CHEST' -Value $(if ($starterOn) { '1' } else { '0' })
     Write-Host "Zapisano: poziom trudności $level (Biolog $bio h, Stajenny $horse h, księgi: gracze $book h, boty $botBook h)." -ForegroundColor Green
-    Write-Host "Auto Łowy: $(if ($autoHuntOn) { 'włączone' } else { 'wyłączone' }); Towarzysz: $(if ($sidekickOn) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($starterOn) { 'tak' } else { 'nie' })." -ForegroundColor Green
+    Write-Host "Auto Łowy: $(if ($autoHuntOn) { 'włączone' } else { 'wyłączone' }) ($(if ($autoHuntItemOn) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($sidekickOn) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($starterOn) { 'tak' } else { 'nie' })." -ForegroundColor Green
     if ($Yes) {
         Start-Server
         Write-Host "Serwer zrestartowany z poziomem trudności: $level." -ForegroundColor Green

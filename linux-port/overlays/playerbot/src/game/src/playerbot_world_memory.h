@@ -272,16 +272,36 @@ namespace
 	}
 
 	// Iwakura's Patch 3, point 4: body armours at +0..+4 on the bots'
-	// counters, by family, counted the way the junk weapons are above.
+	// counters, by family, counted the way the junk weapons are above - and
+	// since his answer of 26 September the jewellery at +0..+3 as well
+	// (PLAYERBOT_LOW_JEWEL_MARKET_CAP), in the same map: a family is its +0
+	// vnum, and no armour shares one with a jewel.
 	std::map<DWORD, int> s_mapPlayerBotLowArmourOnCounters;
+
+	bool IsPlayerBotJewelSubType(BYTE subType)
+	{
+		return subType == ARMOR_WRIST || subType == ARMOR_NECK || subType == ARMOR_EAR;
+	}
 
 	DWORD GetPlayerBotLowArmourFamily(DWORD vnum)
 	{
 		const TItemTable* proto = ITEM_MANAGER::instance().GetTable(vnum);
-		if (!proto || proto->bType != ITEM_ARMOR || proto->bSubType != ARMOR_BODY ||
-				(int)(vnum % 10) > PLAYERBOT_LOW_ARMOUR_MAX_PLUS)
+		if (!proto || proto->bType != ITEM_ARMOR)
 			return 0;
-		return vnum - vnum % 10;
+		const int plus = (int)(vnum % 10);
+		if (proto->bSubType == ARMOR_BODY)
+			return plus <= PLAYERBOT_LOW_ARMOUR_MAX_PLUS ? vnum - plus : 0;
+		if (IsPlayerBotJewelSubType(proto->bSubType))
+			return plus <= PLAYERBOT_LOW_PLUS_MARKET_MAX_PLUS ? vnum - plus : 0;
+		return 0;
+	}
+
+	// The cap of the family a vnum counts in: the armour's or the jewellery's.
+	int GetPlayerBotLowArmourMarketCap(DWORD vnum)
+	{
+		const TItemTable* proto = ITEM_MANAGER::instance().GetTable(vnum);
+		return proto && proto->bType == ITEM_ARMOR && IsPlayerBotJewelSubType(proto->bSubType)
+				? PLAYERBOT_LOW_JEWEL_MARKET_CAP : PLAYERBOT_LOW_ARMOUR_MARKET_CAP;
 	}
 
 	void NotePlayerBotLowArmourOnCounter(DWORD vnum, int units)
@@ -304,7 +324,7 @@ namespace
 
 	bool IsPlayerBotLowArmourMarketFull(DWORD vnum)
 	{
-		return CountPlayerBotLowArmourOnCounters(vnum) >= PLAYERBOT_LOW_ARMOUR_MARKET_CAP;
+		return CountPlayerBotLowArmourOnCounters(vnum) >= GetPlayerBotLowArmourMarketCap(vnum);
 	}
 
 	// The largest of PLAYERBOT_SHOP_POTION_PACKS that `units` fills, or zero.
@@ -337,6 +357,22 @@ namespace
 		++entry.dwSupplyStalls;
 		if (lMapIndex > 0)
 			s_mapMarketLocalSupply[PlayerBotMarketLocalKey(lMapIndex, vnum)] += count;
+	}
+
+	// The mission books on the bots' own counters, by village (Patch 4, point
+	// 13): the cap is on what the bots put up. It counted every offline shop,
+	// so one person's counter of thirty books "filled" a village and sent
+	// every bot's home (B18 of Iwakura's audit of 26 September). Kept like the
+	// ledger - rebuilt with it, and moved by every add and take-off of a bot.
+	std::map<long, int> s_mapPlayerBotMissionBooksByMap;
+
+	void NotePlayerBotMissionBooksOnCounter(long lMapIndex, DWORD vnum, int units)
+	{
+		if (lMapIndex <= 0 || units == 0 || vnum < PLAYERBOT_MISSION_BOOK_FIRST_VNUM ||
+				vnum > PLAYERBOT_MISSION_BOOK_LAST_VNUM)
+			return;
+		int& held = s_mapPlayerBotMissionBooksByMap[lMapIndex];
+		held = std::max(0, held + units);
 	}
 
 	// And a line taken off a counter comes off it at once, for the same

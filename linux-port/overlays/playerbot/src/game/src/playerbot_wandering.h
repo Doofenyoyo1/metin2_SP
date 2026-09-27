@@ -449,6 +449,13 @@ namespace
 	// question the engine did and remembers the stone the arrow pointed at
 	// (RememberPlayerBotMetin) - which is where its walk goes next. Once a
 	// PLAYERBOT_METIN_DETECTOR_GAP_MS, while no stone it knows of is in view.
+	//
+	// The map is asked first, with the filters the walk to a known stone
+	// applies (FindKnownPlayerBotMetin), and a charge is spent only for a stone
+	// that passes them and lies beyond the bot's own search. It was spent on
+	// every look and remembered the nearest stone of any level, which the walk
+	// then refused: six charges gone in six minutes, and on a map without
+	// stones every time (B09 of Iwakura's audit of 26 September).
 	std::map<DWORD, DWORD> s_mapPlayerBotDetectorNext;
 
 	struct FPlayerBotNearestStoneOnMap
@@ -456,7 +463,11 @@ namespace
 		LPCHARACTER me;
 		LPCHARACTER best;
 		DWORD bestDist;
-		explicit FPlayerBotNearestStoneOnMap(LPCHARACTER ch) : me(ch), best(NULL), bestDist(UINT_MAX) {}
+		DWORD reservationPID;
+		DWORD now;
+		FPlayerBotNearestStoneOnMap(LPCHARACTER ch, DWORD dwNow)
+			: me(ch), best(NULL), bestDist(UINT_MAX),
+			  reservationPID(GetPlayerBotPartyReservationPID(ch)), now(dwNow) {}
 		void operator()(LPENTITY ent)
 		{
 			if (!ent || !ent->IsType(ENTITY_CHARACTER))
@@ -465,11 +476,18 @@ namespace
 			if (!c->IsStone() || c->IsDead())
 				return;
 			const DWORD dist = (DWORD)DISTANCE_SQRT(me->GetX() - c->GetX(), me->GetY() - c->GetY());
-			if (dist != 0 && dist < bestDist)
-			{
-				bestDist = dist;
-				best = c;
-			}
+			if (dist == 0 || dist >= bestDist || !IsPlayerBotMetinWorthFighting(me, c))
+				return;
+			TKnownPlayerBotMetinMap::const_iterator known = s_mapKnownPlayerBotMetins.find(c->GetVID());
+			if (known != s_mapKnownPlayerBotMetins.end() && known->second.dwReserveUntil > now &&
+					known->second.dwReservedByPID != 0 && known->second.dwReservedByPID != reservationPID)
+				return;
+			// Last, and only for a stone that would be the best so far: a look
+			// at the navigation grid's components.
+			if (!IsPlayerBotReachable(me->GetMapIndex(), me->GetX(), me->GetY(), c->GetX(), c->GetY()))
+				return;
+			bestDist = dist;
+			best = c;
 		}
 	};
 
@@ -498,20 +516,32 @@ namespace
 		LPSECTREE_MAP map = SECTREE_MANAGER::instance().GetMap(ch->GetMapIndex());
 		if (detectorCell < 0 || !map)
 			return false;
+		FPlayerBotNearestStoneOnMap nearest(ch, dwNow);
+		map->for_each(nearest);
+		if (!nearest.best)
+		{
+			PlayerBotLogThrottled("metin_detector_nothing", dwNow,
+					"PLAYERBOT_METIN: detector kept, no stone for this bot on the map pid=%u name=%s level=%u map=%ld",
+					ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), ch->GetMapIndex());
+			return false;
+		}
+		// One the bot's own search reaches needs no charge to be found.
+		if ((int)nearest.bestDist <= PLAYERBOT_SEARCH_RANGE)
+		{
+			RememberPlayerBotMetin(nearest.best, dwNow);
+			return true;
+		}
 		LPITEM detector = ch->GetInventoryItem((WORD)detectorCell);
 		const DWORD vnum = detector->GetVnum();
 		const long charge = detector->GetSocket(0) + 1;
 		if (!ch->UseItem(TItemPos(INVENTORY, (WORD)detectorCell)))
 			return false;
-		FPlayerBotNearestStoneOnMap nearest(ch);
-		map->for_each(nearest);
-		if (nearest.best)
-			RememberPlayerBotMetin(nearest.best, dwNow);
-		sys_log(0, "PLAYERBOT_METIN: detector pid=%u name=%s vnum=%u charge=%ld/6 map=%ld stone=%u dist=%d",
+		RememberPlayerBotMetin(nearest.best, dwNow);
+		sys_log(0, "PLAYERBOT_METIN: detector pid=%u name=%s vnum=%u charge=%ld/6 map=%ld stone=%u level=%u dist=%d",
 				ch->GetPlayerID(), ch->GetName(), vnum, charge, ch->GetMapIndex(),
-				nearest.best ? (unsigned int)nearest.best->GetRaceNum() : 0U,
-				nearest.best ? (int)nearest.bestDist : -1);
-		return nearest.best != NULL;
+				(unsigned int)nearest.best->GetRaceNum(), (unsigned int)nearest.best->GetLevel(),
+				(int)nearest.bestDist);
+		return true;
 	}
 
 	// A frontier map is worked, not squatted on.

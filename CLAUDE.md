@@ -9111,6 +9111,18 @@ not in `data/`) reworked these point by point. What each hangs on:
   logs out, its record kept for the day the switch is on again. An older
   client does not know `AutoHuntOff` and hunts nothing, which is the point
   anyway.
+  Since 2.2.27 there is a third answer, the ItemShop's: `M2_AUTOHUNT_ITEM=1`
+  (the difficulty window, or the classic panel's /rates card live through
+  web_admin's `AUTOHUNT`) is the flag `m2_autohunt_item`, and then the two
+  commands answer `AutoHuntOff item` to a character without affect 560 -
+  the time `autohunt_time.quest` gives for "Auto Lowy (8h)" (31073, a
+  package item renamed by the migrator), counted only while the character
+  is in the game (`apply_auto_hunt_item_switch`). A character whose affects
+  have not loaded yet gets no answer, not a refusal. The migrator applies
+  the .env value only when it changed since the last start
+  (`m2_autohunt_item_env`), so the panel's choice outlives a restart. The
+  anti-experience ring is 40002 (`antiexp_ring.quest`); the shop lines are
+  `common.itemshop_items` 6-8, INSERT IGNORE.
 - **Towarzysz and Auto Lowy have taskbar buttons made of the originals.**
   The bottom right's four (character, inventory, community, system) are one
   texture, `d:/ymir work/ui/taskbar.tga` in the etc pack, cut by `.sub` files;
@@ -9551,7 +9563,7 @@ upstream 2.1.0/client 2.0.26, the merge is 2.1.1/client 2.0.28, and the next
 sync (upstream 2.2.0-2.2.6, client 2.0.27-2.0.28, over our 2.1.5 / client
 2.0.30) is 2.2.7 / client 2.0.31, and the one after (upstream 2.2.7 /
 client 2.0.29, over our 2.2.7 / client 2.0.31) is 2.2.8 / client 2.0.32, and the one after (upstream 2.2.8, client
-unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38, and the one after (upstream 2.2.21 / client 2.0.38, over our 2.2.21 / client 2.0.38) is 2.2.22 / client 2.0.39, and the one after (upstream 2.2.22-2.2.23 / client 2.0.39-2.0.40, over our 2.2.22 / client 2.0.39) is 2.2.24 / client 2.0.41. Upstream's added attributions to its own
+unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38, and the one after (upstream 2.2.21 / client 2.0.38, over our 2.2.21 / client 2.0.38) is 2.2.22 / client 2.0.39, and the one after (upstream 2.2.22-2.2.23 / client 2.0.39-2.0.40, over our 2.2.22 / client 2.0.39) is 2.2.24 / client 2.0.41, and the one after (upstream 2.2.24-2.2.26 / client 2.0.41, over our 2.2.24 / client 2.0.41) is 2.2.27 / client 2.0.42. Upstream's added attributions to its own
 operator are scrubbed from comments and notes the way the first sync did; a
 player's or a contributor's name stays. An upstream `## x.y.z` CHANGELOG
 section whose number this repository already used moves under the new section,
@@ -9595,7 +9607,11 @@ upstream's roots and picks the smallest unique context). An engine file that
 changed is the same work on the server side: the diff between upstream's two
 packages as playerbotify edits, applied to the older package's file until it
 equals the newer one byte for byte and a second run says "already".
-Upstream's unit tests are not in the packages either. When a pure header
+A release of upstream's can also carry a stock pack it never shipped before:
+2.0.41 put `pack/gamedata` (the client's item_proto and skill table: the
+rod's level 30, the ItemShop ticket's and ring's names) into the client
+update, and the sync names it in `UPSTREAM_PACKS` like season2. Upstream's
+unit tests are not in the packages either. When a pure header
 changes a constant, fix our test (2.2.19's PERFECT_BUDGET_PERCENT went from
 80 to 50). Afterwards, build both packages locally against the new upstream
 package and read them back.

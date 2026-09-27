@@ -163,6 +163,14 @@ namespace
 		for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
 			if (item->GetAttributeType(i) != 0 && item->GetAttributeValue(i) != 0)
 				++lines;
+		// A jewel filled by the stones is four lines, which the stones never
+		// take past, so it never met the five: a necklace of four with +1000
+		// HP went to the plain anvil on its way to +9 and survived one time in
+		// thirty-five (Iwakura's audit, R7: 12 such burns in a day, 5 of them
+		// at a step of 60% or worse).
+		if (item->GetType() == ITEM_ARMOR && IsPlayerBotJewelSubType(item->GetSubType()) &&
+				lines >= PLAYERBOT_BONUS_MAX_LINES)
+			return true;
 		return lines >= PLAYERBOT_PRIZE_LINES;
 	}
 
@@ -182,6 +190,53 @@ namespace
 	{
 		return item && item->GetType() == ITEM_ARMOR && item->GetSubType() == ARMOR_BODY &&
 				item->GetRefineLevel() <= PLAYERBOT_LOW_ARMOUR_MAX_PLUS && !IsPlayerBotPrizeItem(item);
+	}
+
+	// And a jewel his answer of 26 September holds to the same bound: +0..+3,
+	// no prize lines (PLAYERBOT_LOW_JEWEL_MARKET_CAP), counted with the armour
+	// by family (GetPlayerBotLowArmourFamily).
+	bool IsPlayerBotCappedLowJewel(LPITEM item)
+	{
+		return item && item->GetType() == ITEM_ARMOR && IsPlayerBotJewelSubType(item->GetSubType()) &&
+				item->GetRefineLevel() <= PLAYERBOT_LOW_PLUS_MARKET_MAX_PLUS && !IsPlayerBotPrizeItem(item);
+	}
+
+	// A body armour or a jewel at +0..+3 is every bot's counter goods (Iwakura's
+	// answer of 26 September, "postacie normalnie je wystawiac"), under level
+	// thirty as well: the gamblers' bases and a young world's players' gear,
+	// which only a scrap keeper put up - from level thirty, and nobody under it,
+	// where the operator's floor of +6 stood - while the merchant got the rest
+	// for a few hundred yang. On m2zip on 26 September the bots in the world
+	// carried 560 such armours and none of them was on a counter under level
+	// thirty. Not a level-one piece (a wooden jewel, a starter armour), which
+	// stays the merchant's under +7 (GetPlayerBotLowGearMinRefine), and not one
+	// with prize lines, which the other rules price. The family caps above
+	// still hold, and one counter still takes only
+	// PLAYERBOT_SHOP_LOW_GEAR_MAX_LINES of the gear under level thirty.
+	bool IsPlayerBotLowPlusMarketGear(LPITEM item)
+	{
+		if (!item || item->GetType() != ITEM_ARMOR ||
+				(int)item->GetRefineLevel() > PLAYERBOT_LOW_PLUS_MARKET_MAX_PLUS ||
+				(int)item->GetLevelLimit() <= PLAYERBOT_SHOP_STARTER_GEAR_MAX_LEVEL || IsPlayerBotPrizeItem(item))
+			return false;
+		return item->GetSubType() == ARMOR_BODY || IsPlayerBotJewelSubType(item->GetSubType());
+	}
+
+	// Those pieces in the bag's cells before this one: the bag keeps the first
+	// PLAYERBOT_LOW_PLUS_BAG_KEEP for its counter (IsPlayerBotJunkItem).
+	int CountPlayerBotLowPlusGearAhead(LPCHARACTER ch, LPITEM item)
+	{
+		if (!ch || !item || item->GetWindow() != INVENTORY)
+			return 0;
+		int ahead = 0;
+		for (WORD cell = 0; cell < item->GetCell() && cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM held = ch->GetInventoryItem(cell);
+			if (held && held != item && held->GetCell() == cell && !held->IsEquipped() &&
+					IsPlayerBotLowPlusMarketGear(held))
+				++ahead;
+		}
+		return ahead;
 	}
 
 	// Every skill book in the bag, whatever the skill.
@@ -670,6 +725,30 @@ namespace
 				PlayerBotIsShortOfRefineMaterial(ch, materialVnum);
 	}
 
+	// What the next step of the weapon under Iwakura's scroll rule
+	// (IsPlayerBotScrollRuleWeapon) lacks, by vnum: the recipe's count less
+	// what the bag holds over the Biologist's share, the question
+	// CanPlayerBotPayRefineStep asks. Empty when the rule does not hold or
+	// nothing is lacking. The offline buyer and the progression trip buy
+	// exactly this; the rule's bots were short of a material 21 times in 23
+	// on m2zip (27 September), and only the 64-line browse ever looked.
+	void CollectPlayerBotScrollRuleMissing(LPCHARACTER ch, std::map<DWORD, int>& missing)
+	{
+		missing.clear();
+		LPITEM weapon = ch && ch->IsItemLoaded() ? GetPlayerBotHandWeapon(ch) : NULL;
+		if (!IsPlayerBotScrollRuleWeapon(ch, weapon))
+			return;
+		const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(weapon->GetRefineSet());
+		for (int m = 0; recipe && m < recipe->material_count; ++m)
+		{
+			const DWORD vnum = recipe->materials[m].vnum;
+			const int need = (int)recipe->materials[m].count;
+			const int have = (int)ch->CountSpecifyItem(vnum) - GetPlayerBotBiologistReserve(ch, vnum);
+			if (vnum != 0 && have < need)
+				missing[vnum] = need - std::max(0, have);
+		}
+	}
+
 	// How many units of a material this bot keeps back for its own anvil:
 	// twice the largest recipe count among the pieces it would raise - the
 	// same measure "short" uses above. The counter lists only what is over
@@ -893,11 +972,14 @@ namespace
 	// at a time and fives past a holding of fifty, a refine scroll mostly one or
 	// two, a heap of herbs or hay ten, twenty, fifty or two hundred - given the
 	// lines of it the counter shows and how many of those are small (two or
-	// fewer). avail is what may go: what is over the kind's keep and no more
-	// than the stack it is cut from. Zero when no line can be made of it. A
-	// hoard sold in tens until this patch, and "towary zajmuja sloty w
-	// pakietach po 50, 11, 5, 4 czy 3 sztuki" was the counter it made.
-	int GetPlayerBotNaturalLineUnits(LPCHARACTER ch, LPITEM item, int avail,
+	// fewer). spare is what of the kind may go, over its keep and counted over
+	// every stack; avail is that and no more than the stack the line is cut
+	// from. Zero when no line can be made of it. A hoard sold in tens until
+	// this patch, and "towary zajmuja sloty w pakietach po 50, 11, 5, 4 czy 3
+	// sztuki" was the counter it made. A heap is sized from the kind's whole
+	// spare (HeapLineFromStack), so a line already cut is that line when the
+	// add looks at it again (B01 of Iwakura's audit).
+	int GetPlayerBotNaturalLineUnits(LPCHARACTER ch, LPITEM item, int avail, int spare,
 			int linesOnCounter, int smallLinesOnCounter)
 	{
 		if (!ch || !item || avail <= 0)
@@ -909,7 +991,7 @@ namespace
 			return playerbot_stall_rules::FitSmallGoodsLine(
 					playerbot_stall_rules::ScrollLineUnits(seed), avail);
 		if (IsPlayerBotBulkGoods(item))
-			return playerbot_stall_rules::HeapLineUnits(avail, seed);
+			return playerbot_stall_rules::HeapLineFromStack((int)item->GetCount(), spare, seed);
 		if (IsPlayerBotTradeableMaterial(item))
 			return playerbot_stall_rules::FitSmallGoodsLine(playerbot_stall_rules::MaterialLineUnits(
 					(int)ch->CountSpecifyItem(vnum), smallLinesOnCounter, seed), avail);
@@ -966,11 +1048,15 @@ namespace
 		// Nobody keeps a root back: the heap is the whole of what it is for.
 		if (IsPlayerBotBulkGoods(item))
 			return 0;
-		// The Alchemist's dust is kept only for the marble a hundred of it
-		// makes, while a worn piece waits for its fifth line (Iwakura's Patch 4,
-		// point 11); otherwise no bot consumes it.
+		// The Alchemist's dust is saved up to the hundred a marble takes
+		// (Iwakura's Patch 4, point 11) by every bot that puts bonus lines on
+		// its gear, not only while a worn piece already waits for its fifth: it
+		// arrives six or seven at a time, and kept only while a piece waited it
+		// went to the counters in between - on m2zip (27 September) two bots in
+		// 544 held a hundred and one marble was made in two days.
 		if (item->GetVnum() == PLAYERBOT_MAGIC_DUST_VNUM)
-			return PlayerBotWantsBlessingMarble(ch) ? PLAYERBOT_DUST_PER_MARBLE : 0;
+			return ch && (ch->GetLevel() >= PLAYERBOT_BONUS_MIN_LEVEL || PlayerBotWantsBlessingMarble(ch))
+					? PLAYERBOT_DUST_PER_MARBLE : 0;
 		return 1;
 	}
 
@@ -1057,9 +1143,9 @@ namespace
 
 	// Books of one skill in the cells before this one, in books. Cell order
 	// decides, so the same books stay put from one town visit to the next. It
-	// used to count rows, and a book stacks to ten on mt2009, so "keep twelve"
-	// kept twelve stacks - up to a hundred and twenty books of a skill nothing
-	// was selling. An item outside the bag (the safebox's, asked
+	// used to count rows, and a book stacked to ten on mt2009 (two hundred
+	// since 2.2.26), so "keep twelve" kept twelve stacks - up to a hundred and
+	// twenty books of a skill nothing was selling. An item outside the bag (the safebox's, asked
 	// whether to come out) has no cells before it: the whole bag is in front.
 	int CountPlayerBotSkillBooksAhead(LPCHARACTER ch, LPITEM item, DWORD skillVnum)
 	{
@@ -1342,10 +1428,14 @@ namespace
 	// "Jesli bot chce wystawic taki przedmiot, musi najpierw ulepszyc go
 	// minimum do poziomu +5" (Iwakura's Patch 3, point 4): a body armour of a
 	// family whose cap is full goes to the plain anvil for +5 while the purse
-	// and the bag can pay the next step, and is goods once it is there.
+	// and the bag can pay the next step, and is goods once it is there. From
+	// level thirty only: under it a +5 is no counter's (the operator's +6,
+	// GetPlayerBotLowGearMinRefine), and the anvil would be paid for a piece the
+	// junk rule then hands the merchant - which never came up while no armour
+	// under thirty went up at +0..+4 at all.
 	bool PlayerBotRefinesLowArmourForSale(LPCHARACTER ch, LPITEM item)
 	{
-		return ch && IsPlayerBotCappedLowArmour(item) && !item->IsEquipped() &&
+		return ch && IsPlayerBotCappedLowArmour(item) && !IsPlayerBotLowLevelGear(item) && !item->IsEquipped() &&
 				IsPlayerBotLowArmourMarketFull(item->GetVnum()) &&
 				!IsPlayerBotLppKeptItem(ch, item) && !IsPlayerBotKeptBackupArmour(ch, item) &&
 				CanPlayerBotPayRefineStep(ch, item);
@@ -1362,14 +1452,14 @@ namespace
 		return vnum >= PLAYERBOT_MISSION_BOOK_FIRST_VNUM && vnum <= PLAYERBOT_MISSION_BOOK_LAST_VNUM;
 	}
 
-	// The mission books a village's counters hold, by the ledger (rebuilt once a
-	// minute, and kept up between by every add and take-off).
+	// The mission books the bots' counters of a village hold
+	// (s_mapPlayerBotMissionBooksByMap, rebuilt with the ledger once a minute
+	// and kept up between by every add and take-off). A person's counter is
+	// not the bots' cap to keep.
 	int CountPlayerBotMissionBooksOnMap(long lMapIndex)
 	{
-		int units = 0;
-		for (DWORD vnum = PLAYERBOT_MISSION_BOOK_FIRST_VNUM; vnum <= PLAYERBOT_MISSION_BOOK_LAST_VNUM; ++vnum)
-			units += (int)GetPlayerBotMarketLocalSupply(lMapIndex, vnum);
-		return units;
+		std::map<long, int>::const_iterator it = s_mapPlayerBotMissionBooksByMap.find(lMapIndex);
+		return it == s_mapPlayerBotMissionBooksByMap.end() ? 0 : it->second;
 	}
 
 	// The village whose counters a bot's mission books would stand on: its own
@@ -1611,6 +1701,17 @@ namespace
 				!IsPlayerBotUpgradeForSelf(ch, item) && !IsPlayerBotHigherTierSpare(ch, item) &&
 				item->GetID() != GetPlayerBotBackupWeaponID(ch, false))
 			return true;
+
+		// A body armour or a jewel at +0..+3 waits for the counter while its
+		// family has room there (IsPlayerBotLowPlusMarketGear) - for a bot that
+		// keeps a counter, while its bag has room, and the first
+		// PLAYERBOT_LOW_PLUS_BAG_KEEP of them in bag order. Anything else is the
+		// rules below, as before: the one upgrade a slot stays, the rest is
+		// the merchant's.
+		if (IsPlayerBotLowPlusMarketGear(item) && PlayerBotHasCounter(ch) && !IsPlayerBotBagUnderPressure(ch) &&
+				!IsPlayerBotLowArmourMarketFull(item->GetVnum()) &&
+				CountPlayerBotLowPlusGearAhead(ch, item) < PLAYERBOT_LOW_PLUS_BAG_KEEP)
+			return false;
 
 		// A piece of Iwakura's list past what the list keeps goes on a counter
 		// for the gamblers (community patch 2, point 9), and to the merchant
@@ -2035,7 +2136,9 @@ namespace
 		return soldCount > 0;
 	}
 
-	bool HasPlayerBotBackupGear(LPCHARACTER ch, BYTE wearCell)
+	// A piece in the bag for the slot besides `except` - which is the worn
+	// piece itself once a blacksmith session has taken it off.
+	bool HasPlayerBotBackupGear(LPCHARACTER ch, BYTE wearCell, LPITEM except = NULL)
 	{
 		if (!ch)
 			return false;
@@ -2043,7 +2146,7 @@ namespace
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
-			if (!IsPlayerBotEquipmentCandidate(ch, item))
+			if (item == except || !IsPlayerBotEquipmentCandidate(ch, item))
 				continue;
 			if (item->FindEquipCell(ch) == wearCell)
 				return true;
@@ -2338,6 +2441,19 @@ namespace
 				wearCell == WEAR_HEAD;
 	}
 
+	// The slot's place in TPlayerBotPersona's ready-gear clocks, or -1.
+	int GetPlayerBotReadyGearSlotIndex(int wearCell)
+	{
+		switch (wearCell)
+		{
+			case WEAR_WEAPON: return 0;
+			case WEAR_BODY: return 1;
+			case WEAR_SHIELD: return 2;
+			case WEAR_HEAD: return 3;
+		}
+		return -1;
+	}
+
 	// A finished piece for this bot: its class's, of the slot, at +8 or +9,
 	// no higher than its level and at most PLAYERBOT_READY_GEAR_LEVEL_WINDOW
 	// under it ("bot majacy 34. poziom zauwazy Smiertelna Zbroje Plytowa +8").
@@ -2359,27 +2475,89 @@ namespace
 		return level <= (int)ch->GetLevel() && level + PLAYERBOT_READY_GEAR_LEVEL_WINDOW >= (int)ch->GetLevel();
 	}
 
-	// Whether some counter holds one for this slot, better than the piece worn
-	// there: none worn, one worn under +8, or a lower level. Read off the
-	// ledger, without walking to a counter.
+	// Whether a counter on this bot's map holds one for this slot that the
+	// purchase could take: better than the piece worn there (none worn, one
+	// worn under +8, or a lower level) and at least
+	// PLAYERBOT_MARKET_GEAR_PLUS_OVER_WORN grades over it - the purchase's own
+	// rule (WantsPlayerBotStallItem). Read off the ledger, without walking to
+	// a counter. It asked for any +8 anywhere on the core, so a bot wearing a
+	// +7 held its anvil twenty minutes for a +8 it could not buy (B03 of
+	// Iwakura's audit).
+	// The purchase's rule for a finished piece against the one worn in its
+	// slot (WantsPlayerBotStallItem): none worn, one worn under +8, or a lower
+	// level - and PLAYERBOT_MARKET_GEAR_PLUS_OVER_WORN grades over it.
+	bool IsPlayerBotReadyGearOverWorn(LPCHARACTER ch, const TItemTable* proto, DWORD vnum, int wearCell)
+	{
+		LPITEM worn = ch->GetWear((WORD)wearCell);
+		if (!worn)
+			return true;
+		if ((int)(vnum % 10) < (int)worn->GetRefineLevel() + PLAYERBOT_MARKET_GEAR_PLUS_OVER_WORN)
+			return false;
+		const int wornLevel = worn->GetProto() ? GetPlayerBotProtoLevelLimit(worn->GetProto()) : -1;
+		return worn->GetRefineLevel() < PLAYERBOT_READY_GEAR_MIN_PLUS ||
+				GetPlayerBotProtoLevelLimit(proto) > wornLevel;
+	}
+
+	// Whether a counter on this bot's map holds one for this slot that the
+	// purchase could take, read off the ledger without walking to a counter.
+	// It asked for any +8 anywhere on the core, so a bot wearing a +7 held its
+	// anvil twenty minutes for a +8 it could not buy, on all four slots at
+	// once (B03 of Iwakura's audit of 26 September).
 	bool PlayerBotMarketHasReadyGear(LPCHARACTER ch, int wearCell)
 	{
 		if (!ch || !IsPlayerBotReadyGearSlot(wearCell))
 			return false;
-		LPITEM worn = ch->GetWear((WORD)wearCell);
-		const int wornLevel = worn && worn->GetProto() ? GetPlayerBotProtoLevelLimit(worn->GetProto()) : -1;
 		for (TPlayerBotMarketLedger::const_iterator it = s_mapMarketLedger.begin(); it != s_mapMarketLedger.end(); ++it)
 		{
-			if (it->second.dwSupplyUnits == 0)
+			if (it->second.dwSupplyUnits == 0 ||
+					GetPlayerBotMarketLocalSupply(ch->GetMapIndex(), it->first) == 0)
 				continue;
 			const TItemTable* proto = ITEM_MANAGER::instance().GetTable(it->first);
-			if (!IsPlayerBotReadyGearProto(ch, proto, it->first, wearCell))
-				continue;
-			if (!worn || worn->GetRefineLevel() < PLAYERBOT_READY_GEAR_MIN_PLUS ||
-					GetPlayerBotProtoLevelLimit(proto) > wornLevel)
+			if (IsPlayerBotReadyGearProto(ch, proto, it->first, wearCell) &&
+					IsPlayerBotReadyGearOverWorn(ch, proto, it->first, wearCell))
 				return true;
 		}
 		return false;
+	}
+
+	// Whether the buyer would take such a piece off a counter of this map and
+	// could pay for it - the one question the anvil's wait and the purchase
+	// answer alike. On the 2.x line the stands are read line by line and the
+	// line found is handed to the buyer (playerbot_offline_market.h), because
+	// a browse reads sixty-four lines a look and would not reach it inside
+	// the wait; elsewhere the ledger's answer is all there is, and the market
+	// trip the wait asks for is what finds the counter.
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+	bool PlayerBotFindReadyGearToBuy(LPCHARACTER ch, TPlayerBotAIState& state, int wearCell);
+#else
+	bool PlayerBotFindReadyGearToBuy(LPCHARACTER ch, TPlayerBotAIState&, int wearCell)
+	{
+		return PlayerBotMarketHasReadyGear(ch, wearCell);
+	}
+#endif
+
+	// Whether the market Perfectionist's anvil waits for a finished piece for
+	// this slot now.
+	bool IsPlayerBotReadyGearHeld(const TPlayerBotAIState& state, int wearCell, DWORD dwNow)
+	{
+		const int index = GetPlayerBotReadyGearSlotIndex(wearCell);
+		return index >= 0 && state.persona.adwReadyGearWaitUntil[index] != 0 &&
+				dwNow < state.persona.adwReadyGearWaitUntil[index];
+	}
+
+	// The same wait as the planner sees it: a piece for a slot the anvil holds
+	// is no reason to walk to the blacksmith. The class's level-30 weapon is
+	// never held (its own rule's, in the refining pass).
+	bool IsPlayerBotRefineHeldForReadyGear(LPCHARACTER ch, LPITEM item, int wearCell, DWORD dwNow)
+	{
+		if (!ch || !item || !IsPlayerBotPersonaEnabled())
+			return false;
+		TPlayerBotAIStateMap::const_iterator st = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+		if (st == s_mapPlayerBotAIStates.end())
+			return false;
+		const int slot = wearCell >= 0 ? wearCell : item->FindEquipCell(ch);
+		return IsPlayerBotReadyGearHeld(st->second, slot, dwNow) &&
+				item != FindPlayerBotClassLevel30Weapon(ch);
 	}
 
 	// A counter's piece the market Perfectionist buys: a finished one by the
@@ -2448,18 +2626,18 @@ namespace
 		state.dwNextRefineCheckTime = dwNow + PLAYERBOT_REFINE_INTERVAL;
 
 		// Iwakura's Perfectionist spends at most PERFECT_BUDGET_PERCENT of what
-		// it walked into town with ("max 80% yang"), and keeps the rest.
+		// it walked into town with ("max 80% yang"), and keeps the rest. The
+		// class's level-30 weapon is the exception: it has a budget of its own
+		// (GetPlayerBotLevel30BudgetLeft), which this one used to stop first.
 		const bool personaOn = IsPlayerBotPersonaEnabled();
-		if (personaOn && state.persona.llVisitGoldStart > 0 &&
+		const bool perfectSpent = personaOn && state.persona.llVisitGoldStart > 0 &&
 				(long long)ch->GetGold() * 100 <
-					state.persona.llVisitGoldStart * (100 - playerbot_persona::PERFECT_BUDGET_PERCENT))
-		{
+					state.persona.llVisitGoldStart * (100 - playerbot_persona::PERFECT_BUDGET_PERCENT);
+		if (perfectSpent)
 			PlayerBotLogThrottled("perfectionist_budget", dwNow,
 					"PLAYERBOT_PERSONA: perfectionist budget spent pid=%u name=%s gold=%lld start=%lld",
 					ch->GetPlayerID(), ch->GetName(), (long long)ch->GetGold(),
 					state.persona.llVisitGoldStart);
-			return false;
-		}
 
 		// Collect all upgradable worn items and inventory candidates
 		struct TRefineCandidate
@@ -2471,10 +2649,21 @@ namespace
 		};
 
 		std::vector<TRefineCandidate> candidates;
+		// The slots this session took a piece off (dwRefineTakenOffSlots). The
+		// first step unequips the worn piece and every step after it finds the
+		// piece in the bag, so it was a spare to every rule that asks the slot:
+		// no scroll for the eighty and sixty percent steps of the piece in the
+		// hand, no market first after its burn (B12 of Iwakura's audit of 26
+		// September). A piece whose slot is still empty and was emptied here is
+		// the worn one.
+		if (state.dwRefineTakenOffSlots != 0 && dwNow - state.dwRefineTakenOffAt >= PLAYERBOT_REFINE_TAKEN_OFF_MS)
+			state.dwRefineTakenOffSlots = 0;
 		// The class's own level-30 weapon goes to the anvil first, ahead of
 		// everything the Perfectionist's order ranks (community patch 2,
 		// point 1: "ABSOLUTNY PRIORYTET").
 		LPITEM classLevel30 = personaOn ? FindPlayerBotClassLevel30Weapon(ch) : NULL;
+		if (perfectSpent && !classLevel30)
+			return false;
 		const BYTE wearSlots[] = {
 			WEAR_WEAPON, WEAR_BODY, WEAR_SHIELD, WEAR_HEAD,
 			WEAR_FOOTS, WEAR_WRIST, WEAR_NECK, WEAR_EAR
@@ -2561,6 +2750,13 @@ namespace
 
 			TRefineCandidate cand;
 			cand.wearCell = 255;
+			if (state.dwRefineTakenOffSlots != 0)
+			{
+				const int slot = item->FindEquipCell(ch);
+				if (slot >= 0 && slot < 32 && (state.dwRefineTakenOffSlots & (1u << slot)) != 0 &&
+						ch->GetWear((WORD)slot) == NULL)
+					cand.wearCell = (BYTE)slot;
+			}
 			cand.item = item;
 			cand.plusLevel = plusLevel;
 			const bool coreProgression = IsPlayerBotCoreProgressionItem(ch, item);
@@ -2619,35 +2815,57 @@ namespace
 			if (personaOn && item != classLevel30 && IsPlayerBotMarketPerfectionist(ch->GetPlayerID()))
 			{
 				const int slot = wearCell != 255 ? (int)wearCell : item->FindEquipCell(ch);
-				if (IsPlayerBotReadyGearSlot(slot))
+				const int index = GetPlayerBotReadyGearSlotIndex(slot);
+				if (index >= 0)
 				{
 					TPlayerBotPersona& p = state.persona;
-					if ((p.dwReadyGearCheckedAt == 0 || dwNow - p.dwReadyGearCheckedAt >= PLAYERBOT_READY_GEAR_RECHECK_MS) &&
-							PlayerBotMarketHasReadyGear(ch, slot))
+					// A wait whose slot now wears what no counter can better by
+					// the purchase's rule - the piece it waited for, bought -
+					// ends here rather than at its clock.
+					LPITEM wornHere = ch->GetWear((WORD)slot);
+					if (p.adwReadyGearWaitUntil[index] != 0 && wornHere &&
+							(int)wornHere->GetRefineLevel() + PLAYERBOT_MARKET_GEAR_PLUS_OVER_WORN > 9)
+						p.adwReadyGearWaitUntil[index] = 0;
+					// Looked at once in PLAYERBOT_READY_GEAR_RECHECK_MS a slot,
+					// found or not: the look on the 2.x line reads the stands
+					// line by line.
+					if (p.adwReadyGearCheckedAt[index] == 0 ||
+							dwNow - p.adwReadyGearCheckedAt[index] >= PLAYERBOT_READY_GEAR_RECHECK_MS)
 					{
-						p.dwReadyGearCheckedAt = dwNow;
-						p.dwReadyGearWaitUntil = dwNow + PLAYERBOT_READY_GEAR_WAIT_MS;
-						sys_log(0, "PLAYERBOT_MARKET: perfectionist looks for a finished piece pid=%u name=%s level=%u slot=%d worn_plus=%d",
-								ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), slot,
-								ch->GetWear((WORD)slot) ? (int)ch->GetWear((WORD)slot)->GetRefineLevel() : -1);
+						p.adwReadyGearCheckedAt[index] = dwNow;
+						if (PlayerBotFindReadyGearToBuy(ch, state, slot))
+						{
+							p.adwReadyGearWaitUntil[index] = dwNow + PLAYERBOT_READY_GEAR_WAIT_MS;
+							sys_log(0, "PLAYERBOT_MARKET: perfectionist looks for a finished piece pid=%u name=%s level=%u slot=%d worn_plus=%d",
+									ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), slot,
+									ch->GetWear((WORD)slot) ? (int)ch->GetWear((WORD)slot)->GetRefineLevel() : -1);
+						}
 					}
-					if (p.dwReadyGearWaitUntil != 0 && dwNow < p.dwReadyGearWaitUntil)
+					if (IsPlayerBotReadyGearHeld(state, slot, dwNow))
 						continue;
 				}
 			}
-			// The level-30 weapon's purchase and anvil share one budget:
-			// PLAYERBOT_LEVEL30_BUDGET_PERCENT of the purse the visit began with.
-			if (item == classLevel30 && state.persona.llVisitGoldStart > 0 &&
-					(long long)ch->GetGold() * 100 <
-						state.persona.llVisitGoldStart * (100 - PLAYERBOT_LEVEL30_BUDGET_PERCENT))
-			{
-				PlayerBotLogThrottled("refine_l30_budget", dwNow,
-						"PLAYERBOT_AI: level-30 weapon budget spent pid=%u name=%s vnum=%u plus=%u gold=%lld start=%lld",
-						ch->GetPlayerID(), ch->GetName(), oldVnum, (unsigned int)plusLevel,
-						(long long)ch->GetGold(), state.persona.llVisitGoldStart);
+			// Past the Perfectionist's half only the level-30 weapon goes on.
+			if (perfectSpent && item != classLevel30)
 				continue;
+			// The level-30 weapon's purchase and anvil share one budget
+			// (GetPlayerBotLevel30BudgetLeft): the step's fee has to fit in
+			// what is left of it.
+			if (item == classLevel30)
+			{
+				const TRefineTable* l30Recipe = CRefineManager::instance().GetRefineRecipe(item->GetRefineSet());
+				const long long l30Fee = l30Recipe ? (long long)ch->ComputeRefineFee(l30Recipe->cost) : 0;
+				const long long l30Left = GetPlayerBotLevel30BudgetLeft(ch, dwNow);
+				if (l30Left < l30Fee)
+				{
+					PlayerBotLogThrottled("refine_l30_budget", dwNow,
+							"PLAYERBOT_AI: level-30 weapon budget spent pid=%u name=%s vnum=%u plus=%u gold=%lld left=%lld fee=%lld",
+							ch->GetPlayerID(), ch->GetName(), oldVnum, (unsigned int)plusLevel,
+							(long long)ch->GetGold(), l30Left, l30Fee);
+					continue;
+				}
 			}
-			const bool hasBackup = (wearCell != 255) ? HasPlayerBotBackupGear(ch, wearCell) : true;
+			const bool hasBackup = (wearCell != 255) ? HasPlayerBotBackupGear(ch, wearCell, item) : true;
 
 			if (wearCell == WEAR_WEAPON && !hasBackup && plusLevel >= 4 && ch->GetGold() < 5000)
 				continue;
@@ -2674,6 +2892,11 @@ namespace
 					continue;
 				if (!ch->UnequipItem(item) || item->IsEquipped())
 					continue;
+				if (wearCell < 32)
+				{
+					state.dwRefineTakenOffSlots |= 1u << wearCell;
+					state.dwRefineTakenOffAt = dwNow;
+				}
 			}
 			// Only a piece in this bot's own bag goes to the anvil. DoRefine
 			// removes what it burns by its cell, and a piece in a slot the engine
@@ -2770,8 +2993,10 @@ namespace
 				// ceiling: the family is everywhere and the scroll is not.
 				// Iwakura's coin never comes up for a weapon of the table
 				// (PlayerBotRisksPlainAnvil).
-				const bool cheapGamble = aboveCeiling && IsPlayerBotCheapLevel30Roll(item) &&
-						number(1, 100) <= PLAYERBOT_LEVEL30_CHEAP_ANVIL_PERCENT;
+				// Not the weapon under Iwakura's scroll rule, whose ceiling is +0
+				// because every step of it is a scroll's.
+				const bool cheapGamble = aboveCeiling && !IsPlayerBotScrollRuleWeapon(ch, item) &&
+						IsPlayerBotCheapLevel30Roll(item) && number(1, 100) <= PLAYERBOT_LEVEL30_CHEAP_ANVIL_PERCENT;
 				// Under the ceiling the only weapon the bot has, at a step that
 				// burns (IsPlayerBotWornWeaponAtRisk), still goes under a scroll
 				// the bag holds, or waits for one below.
@@ -2846,6 +3071,7 @@ namespace
 						ch->GetPlayerID(), ch->GetName(), oldVnum, (unsigned int)plusLevel, stepProb, coinWhy);
 			// Asked before the attempt, which may destroy the item.
 			const bool classLevel30 = IsPlayerBotClassLevel30Weapon(ch, item);
+			const long long goldBeforeAttempt = (long long)ch->GetGold();
 			bool attempted = false;
 			if (scrollCell >= 0)
 			{
@@ -2857,6 +3083,9 @@ namespace
 				attempted = ch->DoRefine(item, false);
 			if (attempted)
 			{
+				// The step's fee goes on the level-30 weapon's budget.
+				if (classLevel30 && personaOn)
+					NotePlayerBotLevel30Spend(ch, goldBeforeAttempt - (long long)ch->GetGold());
 				const bool success = ch->CountSpecifyItem(nextVnum) > resultCountBefore;
 				// Only a refine that landed is news. A scroll's failure hands the
 				// piece back a grade down and a plain one burns it, and both were
@@ -2996,6 +3225,14 @@ namespace
 			// pass asks them.
 			if (!CanPlayerBotAttemptRefineItem(ch, item))
 				continue;
+			// The weapon under Iwakura's scroll rule first, ahead of a lower
+			// piece that would spend the scrolls the rule counts on.
+			if (IsPlayerBotScrollRuleWeapon(ch, item))
+			{
+				best = item;
+				bestWear = wearSlots[i];
+				break;
+			}
 			if (!best || plus < best->GetRefineLevel())
 			{
 				best = item;
@@ -3004,6 +3241,8 @@ namespace
 		}
 		if (!best)
 			return false;
+		// Asked while the weapon is still in the hand.
+		const bool ruleStep = IsPlayerBotScrollRuleWeapon(ch, best);
 		// The scroll the blacksmith pass would put on the same step - the
 		// Dragon God from PLAYERBOT_DRAGON_GOD_SCROLL_MIN_PLUS - rather than
 		// whichever scroll happened to lie first in the bag.
@@ -3025,16 +3264,19 @@ namespace
 				best->GetCell() >= PLAYERBOT_BAG_CELLS)
 			return false;
 		const WORD cell = best->GetCell();
-		const int before = ch->CountSpecifyItem(nextVnum);
 		ch->SetRefineMode(scrollCell);
 		const bool attempted = ch->DoRefineWithScroll(best);
 		ch->ClearRefineMode();
 		LPITEM after = ch->GetInventoryItem(cell);
+		// The outcome is read off the cell before the piece goes back on. It
+		// was CountSpecifyItem after the re-equip, which counts the bag only,
+		// so a success worn again was logged FAILED_DOWNGRADED and cost a
+		// level of mood (log.log: REFINE SUCCESS in the same second).
+		const bool success = attempted && after && after->GetVnum() == nextVnum;
 		if (after)
 			PlayerBotEquipItem(ch, after);
 		if (attempted)
 		{
-			const bool success = ch->CountSpecifyItem(nextVnum) > before;
 			if (success)
 			{
 				BroadcastPlayerBotRefineSuccess(ch, nextVnum, (int)plus + 1);
@@ -3042,9 +3284,9 @@ namespace
 			}
 			else
 				NotePlayerBotMoodRefineFailure(ch, (int)plus + 1, "downgraded");
-			sys_log(0, "PLAYERBOT_AI: refine %s pid=%u name=%s old_vnum=%u new_vnum=%u plus=%u scroll=1 place=field wear=%u",
+			sys_log(0, "PLAYERBOT_AI: refine %s pid=%u name=%s old_vnum=%u new_vnum=%u plus=%u scroll=1 place=field wear=%u rule=%d",
 					success ? "SUCCESS" : "FAILED_DOWNGRADED", ch->GetPlayerID(), ch->GetName(),
-					oldVnum, nextVnum, (unsigned int)plus + 1, (unsigned int)bestWear);
+					oldVnum, nextVnum, (unsigned int)plus + 1, (unsigned int)bestWear, ruleStep ? 1 : 0);
 		}
 		return attempted;
 	}
@@ -3204,7 +3446,11 @@ namespace
 		if (isArcher && !FindPlayerBotStoneWeapon(ch, true))
 			bought = BuyPlayerBotProgressionGear(ch,
 					GetPlayerBotProgressionStoneWeaponVnum(ch), "stone dagger") || bought;
-		if (NeedsPlayerBotProgressionWeapon(ch) &&
+		// The ladder's weapon waits for the market after a burn too: the gate
+		// stood on the emergency weapon alone, and the ladder bought the
+		// merchant's plain piece the protocol was written to keep off (B13 of
+		// Iwakura's audit of 26 September).
+		if (NeedsPlayerBotProgressionWeapon(ch) && !IsPlayerBotRebuildingFromMarket(ch, WEAR_WEAPON) &&
 				(!isArcher || CountPlayerBotArrows(ch) >= PLAYERBOT_ARROW_RESTOCK_THRESHOLD))
 			bought = BuyPlayerBotProgressionGear(ch,
 					GetPlayerBotProgressionWeaponVnum(ch), "weapon") || bought;
@@ -3394,10 +3640,14 @@ namespace
 			WEAR_WEAPON, WEAR_BODY, WEAR_SHIELD, WEAR_HEAD,
 			WEAR_FOOTS, WEAR_WRIST, WEAR_NECK, WEAR_EAR
 		};
+		// A slot whose anvil waits for a finished piece off a counter is no
+		// reason either (IsPlayerBotRefineHeldForReadyGear).
+		const DWORD dwNow = get_dword_time();
 		for (size_t i = 0; i < sizeof(wearSlots) / sizeof(wearSlots[0]); ++i)
 		{
 			LPITEM item = ch->GetWear(wearSlots[i]);
-			if (CanPlayerBotAttemptRefineItem(ch, item))
+			if (CanPlayerBotAttemptRefineItem(ch, item) &&
+					!IsPlayerBotRefineHeldForReadyGear(ch, item, wearSlots[i], dwNow))
 				return true;
 		}
 
@@ -3407,7 +3657,8 @@ namespace
 			// promise the executor will refuse is a walk to town for nothing.
 			LPITEM item = ch->GetInventoryItem(cell);
 			if (IsPlayerBotRefineBagCandidate(ch, item) &&
-					CanPlayerBotAttemptRefineItem(ch, item))
+					CanPlayerBotAttemptRefineItem(ch, item) &&
+					!IsPlayerBotRefineHeldForReadyGear(ch, item, -1, dwNow))
 				return true;
 		}
 		return false;

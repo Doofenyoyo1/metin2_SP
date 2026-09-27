@@ -82,6 +82,22 @@ struct Duel
 
 inline std::map<uint32_t, Duel> duels;
 
+// No duel is assumed to last longer than this (PLAYERBOT_PVP_DUEL_ASSUMED is
+// three minutes); a deadline further ahead is none.
+inline constexpr uint32_t kDuelMaxMs = 60u * 60u * 1000u;
+
+// Whether a duel's deadline is still ahead of now. It is get_dword_time() plus
+// the assumed length, a 32-bit clock that wraps after 49.7 days: `now >= until`
+// ended a duel agreed in the last minutes before the wrap at once. The
+// difference survives the wrap, and the bound keeps an entry nothing read for
+// weeks - a bot gone in the middle of a duel and back a month later - from
+// reading as ahead again, which a signed difference alone would do.
+inline bool DuelStands(uint32_t until, uint32_t now)
+{
+	const uint32_t ahead = until - now;
+	return ahead != 0 && ahead <= kDuelMaxMs;
+}
+
 inline void NoteDuelStarted(uint32_t botPid, uint32_t opponentPid, uint32_t until)
 {
 	if (!botPid)
@@ -96,7 +112,7 @@ inline bool IsInDuel(uint32_t botPid, uint32_t now)
 	std::map<uint32_t, Duel>::iterator it = duels.find(botPid);
 	if (it == duels.end())
 		return false;
-	if (now >= it->second.until)
+	if (!DuelStands(it->second.until, now))
 	{
 		duels.erase(it);
 		return false;
@@ -119,7 +135,7 @@ inline uint32_t GetDuelOpponent(uint32_t botPid, uint32_t now)
 	std::map<uint32_t, Duel>::iterator it = duels.find(botPid);
 	if (it == duels.end())
 		return 0;
-	if (now >= it->second.until)
+	if (!DuelStands(it->second.until, now))
 	{
 		duels.erase(it);
 		return 0;

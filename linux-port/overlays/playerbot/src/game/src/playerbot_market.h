@@ -264,9 +264,9 @@ namespace
 		if (offer->GetLevelLimit() > ch->GetLevel())
 			return false;
 		// And only a finished piece: Iwakura's Patch 4, point 2 - "przedmiot z
-		// rynku musi byc ulepszony na minimum +6 ORAZ musi posiadac przynajmniej
-		// 2 poziomy ulepszenia wiecej niz przedmiot aktualnie zalozony przez
-		// bota" (the worn plus is asked below, once the slot is known).
+		// rynku musi byc ulepszony na minimum +6" - one grade over the piece
+		// worn, or the same grade with better lines (his answer of 26
+		// September; the worn plus is asked below, once the slot is known).
 		if ((int)offer->GetRefineLevel() < PLAYERBOT_MARKET_GEAR_MIN_PLUS)
 			return false;
 		const int wearCell = offer->FindEquipCell(ch);
@@ -277,6 +277,9 @@ namespace
 		// worn does not change until the gear pass runs - so a bot standing at
 		// the ring bought the same +6 armour three times over, two seconds
 		// apart, each one better than what it had on and none of them on yet.
+		// At least as good, not within the margin: a grade is about seven
+		// percent of an armour's score, and the margin kept a +7 off the
+		// counter from a bot with a +6 of its family in the bag.
 		const long long offerScore = GetPlayerBotEquipmentScore(offer, ch);
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
@@ -284,21 +287,31 @@ namespace
 			if (!spare || spare->IsEquipped() || !IsPlayerBotEquipmentCandidate(ch, spare) ||
 					spare->FindEquipCell(ch) != wearCell)
 				continue;
-			if (GetPlayerBotEquipmentScore(spare, ch) * (100 + PLAYERBOT_MARKET_GEAR_MARGIN_PERCENT) / 100 >= offerScore)
+			if (GetPlayerBotEquipmentScore(spare, ch) >= offerScore)
 				return false;
 		}
 		LPITEM worn = ch->GetWear((BYTE)wearCell);
 		if (!worn)
 			return true;
-		if ((int)offer->GetRefineLevel() < (int)worn->GetRefineLevel() + PLAYERBOT_MARKET_GEAR_PLUS_OVER_WORN)
-			return false;
-		// A big bonus line is worth having even when the base item scores level
-		// with what is worn - a thousand health does not show up in the equipment
-		// score, and it is exactly what a player would buy the piece for.
-		if (HasPlayerBotValuableBonus(offer) && !HasPlayerBotValuableBonus(worn))
-			return true;
-		return offerScore >
-				GetPlayerBotEquipmentScore(worn, ch) * (100 + PLAYERBOT_MARKET_GEAR_MARGIN_PERCENT) / 100;
+		// Against the worn piece, playerbot_stall_rules::BuysGearOverWorn: a
+		// grade over it when it scores over it - the grade is the margin now;
+		// the old fifteen percent on top of two grades took three of a level-34
+		// armour, whose defence grows about seven percent a grade - or when it
+		// carries a big line the worn piece lacks, a thousand health that does
+		// not show in the equipment score and is exactly what a player would
+		// buy the piece for. The worn grade for its lines, when they are worth
+		// the market's margin more by Iwakura's tier table
+		// (GetPlayerBotItemLineScore) - "lub gdy ma taki sam + ale ma
+		// sumarycznie lepsze bonusy (z tabeli tierow bonusow) od noszonego" -
+		// and it scores over the worn piece, so the equipment pass puts it on:
+		// a pair of boots scores by its lines of tier three and up alone, and
+		// better low lines would have bought a pair it never wears.
+		return playerbot_stall_rules::BuysGearOverWorn((int)offer->GetRefineLevel(),
+				(int)worn->GetRefineLevel(), offerScore, GetPlayerBotEquipmentScore(worn, ch),
+				GetPlayerBotItemLineScore(offer, ch), GetPlayerBotItemLineScore(worn, ch),
+				HasPlayerBotValuableBonus(offer), HasPlayerBotValuableBonus(worn),
+				PLAYERBOT_MARKET_GEAR_MIN_PLUS, PLAYERBOT_MARKET_GEAR_PLUS_OVER_WORN,
+				PLAYERBOT_MARKET_GEAR_MARGIN_PERCENT);
 	}
 
 	// The keys a silver or gold chest takes: a key opens a chest whose value0
@@ -372,8 +385,9 @@ namespace
 		// A socket open on a piece it keeps.
 		if (PlayerBotHasOpenSoulStoneSocket(ch))
 			return true;
-		// The bases the addict's anvil works (Iwakura's Patch 3, point 7).
-		if (PlayerBotAddictWantsBases(ch))
+		// The bases the addict's anvil works (Iwakura's Patch 3, point 7), and
+		// a gambler's between its sessions (PlayerBotGamblerWantsBases).
+		if (PlayerBotAddictWantsBases(ch) || PlayerBotGamblerWantsBases(ch))
 			return true;
 		// And a piece of gear for a slot that is empty or behind the ladder.
 		//
@@ -406,8 +420,12 @@ namespace
 		if (IsPlayerBotPersonaEnabled())
 		{
 			TPlayerBotAIStateMap::const_iterator st = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
-			if (st != s_mapPlayerBotAIStates.end() && st->second.persona.dwReadyGearWaitUntil != 0 &&
-					get_dword_time() < st->second.persona.dwReadyGearWaitUntil)
+			const DWORD dwNow = get_dword_time();
+			if (st != s_mapPlayerBotAIStates.end() &&
+					(IsPlayerBotReadyGearHeld(st->second, WEAR_WEAPON, dwNow) ||
+					 IsPlayerBotReadyGearHeld(st->second, WEAR_BODY, dwNow) ||
+					 IsPlayerBotReadyGearHeld(st->second, WEAR_SHIELD, dwNow) ||
+					 IsPlayerBotReadyGearHeld(st->second, WEAR_HEAD, dwNow)))
 				return true;
 		}
 		// The class's level-30 weapon, which a bot of thirty or more without one
@@ -450,14 +468,35 @@ namespace
 		if (IsPlayerBotStrategicPurchase(item->GetVnum()) || IsPlayerBotStrategicWeaponOffer(ch, item))
 			return price <= GetPlayerBotStrategicPurchaseCap(ch);
 		// The addict's bases and materials come out of its own budget
-		// (GetPlayerBotAddictBudgetLeft, Iwakura's Patch 3, point 7).
+		// (GetPlayerBotAddictBudgetLeft, Iwakura's Patch 3, point 7) - a
+		// material near what the market asks for it, like anybody's: this
+		// branch stood before the fair-price test below and let the addict pay
+		// a counter's one zero too many (B07 of Iwakura's audit).
 		{
 			const long long addictLeft = GetPlayerBotAddictBudgetLeft(ch);
 			if (addictLeft > 0 && WantsPlayerBotGambleOffer(ch, item))
+			{
+				if (IsPlayerBotTradeableMaterial(item))
+				{
+					const long long fair = GetPlayerBotShopAskingPrice(item);
+					if (fair > 0 && price > fair * PLAYERBOT_MARKET_MATERIAL_FAIR_MULTIPLE)
+						return false;
+				}
 				return price <= addictLeft;
+			}
 		}
-		// A finished piece of gear (WantsPlayerBotStallItem: +6 and two grades
-		// over the one worn) comes out of the Perfectionist's half of the purse
+		// A gambler's base between its sessions (IsPlayerBotGamblerBaseOffer)
+		// near what Iwakura's sheet asks for the piece: the browse takes the
+		// cheapest line, and this keeps it off a counter's one zero too many.
+		if (IsPlayerBotGamblerBaseOffer(ch, item))
+		{
+			const long long fair = GetPlayerBotShopAskingPrice(item);
+			if (fair > 0 && price > fair * PLAYERBOT_GAMBLE_BASE_FAIR_MULTIPLE)
+				return false;
+		}
+		// A finished piece of gear (WantsPlayerBotStallItem: +6 and a grade over
+		// the one worn, or its grade with better lines) comes out of the
+		// Perfectionist's half of the purse
 		// (Iwakura's Patch 4, point 2) - the median wallet's share below was a
 		// fraction of one +6 piece at m2zip's rates.
 		if (item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR)
@@ -620,6 +659,8 @@ namespace
 		const int goldBefore = ch->GetGold();
 		// Read before the purchase: a sold line's item is the buyer's after it.
 		const bool book = line.pkItem->GetType() == ITEM_SKILLBOOK;
+		const bool level30 = IsPlayerBotClassLevel30Weapon(ch, line.pkItem);
+		const bool gambleBase = IsPlayerBotGamblerBaseOffer(ch, line.pkItem);
 		ch->SetShopOwner(pick.keeper);
 		CShopManager::instance().Buy(ch, pick.bSlot);
 		// Leaving either of these set would point this bot at a character it is no
@@ -633,6 +674,9 @@ namespace
 		const int paid = goldBefore - ch->GetGold();
 		if (book)
 			NotePlayerBotBookBought(ch, paid);
+		// The class's level-30 weapon goes on the budget its anvil shares.
+		if (level30)
+			NotePlayerBotLevel30Spend(ch, paid);
 		// A sale is the one measurement of demand there is. The asking price on
 		// a counter is what a seller hoped for; this is what a buyer did.
 		// With the skill, so a book sale lands on its own market.
@@ -643,6 +687,8 @@ namespace
 			NotePlayerBotChestBought(ch->GetPlayerID(), get_dword_time());
 		// A gambler's purchase is charged to the session's budget.
 		NotePlayerBotGamblePurchase(ch, paid);
+		if (gambleBase)
+			NotePlayerBotGambleBaseBought(ch, pick.dwVnum, paid);
 		sys_log(0, "PLAYERBOT_MARKET: bought pid=%u name=%s from=%s slot=%u vnum=%u refine=%u count=%u asked=%u paid=%lld gold=%lld",
 				ch->GetPlayerID(), ch->GetName(), pick.keeper->GetName(),
 				(unsigned int)pick.bSlot, pick.dwVnum, (unsigned int)pick.bRefine,
@@ -1078,6 +1124,7 @@ namespace
 		s_dwMarketLedgerTime = dwNow;
 		s_mapMarketLedger.clear();
 		s_mapMarketLocalSupply.clear();
+		s_mapPlayerBotMissionBooksByMap.clear();
 		s_iPlayerBotJunkWeaponsOnCounters = 0;
 		s_mapPlayerBotLowArmourOnCounters.clear();
 		RefreshPlayerBotWorldYang(dwNow);
@@ -1112,6 +1159,7 @@ namespace
 						continue;
 					AddPlayerBotMarketSupply(offer.dwVnum, offer.wCount, ch->GetMapIndex());
 					NotePlayerBotCappedLineOnCounter(offer.dwVnum, offer.wCount);
+					NotePlayerBotMissionBooksOnCounter(ch->GetMapIndex(), offer.dwVnum, offer.wCount);
 					++lines;
 				}
 			}
