@@ -17,6 +17,19 @@ every version here.
 
 ---
 
+## 2.2.34 — 2026-09-28
+
+Tylko serwer (klient zostaje 2.0.47): „AKTUALIZUJ serwer” w launcherze,
+na VPS `sh linux-port/tools/update.sh`.
+
+- **Dom Towarowy już nie wyrzuca z gry.** Okno prosi serwer o katalog
+  ofert zaraz po otwarciu i przy każdym wyszukiwaniu, a serwer tego pakietu
+  nie obsługiwał tej prośby (była wykomentowana w obsłudze pakietów
+  sklepów offline) i traktował ją jak uszkodzony pakiet: gracz tracił
+  połączenie w chwili otwarcia okna. Serwer ją teraz obsługuje, klient nie
+  wymaga zmian. Kto wyłączył Dom Towarowy w oknie trudności, może go
+  włączyć z powrotem.
+
 ## 2.2.33 — 2026-09-28
 
 Serwer 2.2.33 i klient 2.0.47: zaktualizuj oba („AKTUALIZUJ wszystko”
