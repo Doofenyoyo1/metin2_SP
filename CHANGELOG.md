@@ -17,6 +17,22 @@ every version here.
 
 ---
 
+## 2.2.35 — 2026-09-28
+
+Tylko serwer (klient zostaje 2.0.47): „AKTUALIZUJ serwer” w launcherze,
+na VPS `sh linux-port/tools/update.sh`.
+
+- **Gildia może postawić wszystkich trzech kowali.** Fabryka Broni
+  (Bronmistrz), Kowal Zbroi i Jubiler należą do jednej grupy budynków, a
+  serwer pozwalał na jeden budynek z grupy na terenie - więc pierwszy
+  kowal gildii był jedynym, bo budynku nie da się też zburzyć. Teraz stoją
+  wszyscy trzej obok siebie. Kwatera Główna musi stać wcześniej, koszt i
+  materiały są jak dotąd, a odlewnik, ołtarz i magazyn nadal są po jednym.
+- **Serwer mówi, czemu budynku nie da się postawić.** Budynek, który
+  wystawał poza teren gildii albo nachodził na inny, był odrzucany bez
+  słowa - kliknięcie po prostu nic nie robiło. Teraz na czacie pojawia się
+  powód i podpowiedź: przesuń go albo obróć.
+
 ## 2.2.34 — 2026-09-28
 
 Tylko serwer (klient zostaje 2.0.47): „AKTUALIZUJ serwer” w launcherze,
