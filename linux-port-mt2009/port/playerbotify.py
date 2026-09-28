@@ -1487,6 +1487,7 @@ def main(root):
     apply_flea_market_fill_dispatch(game)
     apply_build_refusals_spoken(game)
     apply_all_three_smiths(game)
+    apply_build_refusal_reason(game)
     print('playerbotify: done')
 
 
@@ -6848,6 +6849,108 @@ def apply_all_three_smiths(game):
          '\t\t\t\t{\n'
          '\t\t\t\t\tif (pkLand->FindObjectByGroup(t->dwGroupVnum))\n',
          marker='\t\t\t\t// The three smiths may all stand on one land (apply_all_three_smiths).\n')
+
+
+def apply_build_refusal_reason(game):
+    # 2.2.36's refusal listed every reason CLand::RequestCreateObject can have
+    # and the builder still could not tell which one stood in the way ("still
+    # the same error", 28 September). building.cpp ships in no package, so its
+    # three tests are asked again here, in its own order and with its own
+    # arithmetic (the stock RequestCreateObject): the rotated footprint inside
+    # the land, then any character that is not a monster inside the unrotated
+    # one (FIsIn walks the whole map), and what is left is ATTR_OBJECT - a
+    # building, a wall or its foundation already there. The land and the
+    # object are read with what questlua_building and the db core already use
+    # (CLand::GetData, TObjectProto::lRegion, TMapRegion). Directions are the
+    # minimap's: x grows to the right, y downwards. A metre is 100 units.
+    edit(os.path.join(game, 'cmd_gm.cpp'),
+         '\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Budynek musi stac w calosci na terenie gildii, nie moze nachodzic na inny budynek i nikt nie moze stac w jego miejscu (Ty, Twoj kon, towarzysz, bot, NPC). Odejdz na bok i ustaw go przyciskiem Zmien (Miejsce).");\n'
+         '\t\t\t\t\treturn;\n',
+         '\t\t\t\t\t// Which of the engine\'s tests refused it (apply_build_refusal_reason).\n'
+         '\t\t\t\t\tconst TMapRegion * buildRegion = SECTREE_MANAGER::instance().GetMapRegion(ch->GetMapIndex());\n'
+         '\t\t\t\t\tif (buildRegion)\n'
+         '\t\t\t\t\t{\n'
+         '\t\t\t\t\t\tconst TLand & land = pkLand->GetData();\n'
+         '\t\t\t\t\t\tconst long wx = map_x + buildRegion->sx;\n'
+         '\t\t\t\t\t\tconst long wy = map_y + buildRegion->sy;\n'
+         '\t\t\t\t\t\tconst long lsx = buildRegion->sx + land.x;\n'
+         '\t\t\t\t\t\tconst long lsy = buildRegion->sy + land.y;\n'
+         '\t\t\t\t\t\tconst long lex = lsx + land.width;\n'
+         '\t\t\t\t\t\tconst long ley = lsy + land.height;\n'
+         '\t\t\t\t\t\tconst float rad = z_rot * 2.0f * M_PI / 360.0f;\n'
+         '\t\t\t\t\t\tconst long tsx = (long)(t->lRegion[0] * cos(rad) + t->lRegion[1] * sin(rad) + wx);\n'
+         '\t\t\t\t\t\tconst long tsy = (long)(t->lRegion[0] * -sin(rad) + t->lRegion[1] * cos(rad) + wy);\n'
+         '\t\t\t\t\t\tconst long tex = (long)(t->lRegion[2] * cos(rad) + t->lRegion[3] * sin(rad) + wx);\n'
+         '\t\t\t\t\t\tconst long tey = (long)(t->lRegion[2] * -sin(rad) + t->lRegion[3] * cos(rad) + wy);\n'
+         '\t\t\t\t\t\tconst long osx = wx + t->lRegion[0];\n'
+         '\t\t\t\t\t\tconst long osy = wy + t->lRegion[1];\n'
+         '\t\t\t\t\t\tconst long oex = wx + t->lRegion[2];\n'
+         '\t\t\t\t\t\tconst long oey = wy + t->lRegion[3];\n'
+         '\t\t\t\t\t\tconst long overLeft = lsx - tsx;\n'
+         '\t\t\t\t\t\tconst long overRight = tex - lex;\n'
+         '\t\t\t\t\t\tconst long overUp = lsy - tsy;\n'
+         '\t\t\t\t\t\tconst long overDown = tey - ley;\n'
+         '\t\t\t\t\t\tconst long objW = tex > tsx ? tex - tsx : tsx - tex;\n'
+         '\t\t\t\t\t\tconst long objH = tey > tsy ? tey - tsy : tsy - tey;\n'
+         '\t\t\t\t\t\tsys_err("BUILD refused pid %u name %s vnum %u map %ld pos %ld %ld rot %.0f land %u %ld %ld ~ %ld %ld obj %ld %ld ~ %ld %ld",\n'
+         '\t\t\t\t\t\t\t\tch->GetPlayerID(), ch->GetName(), dwVnum, (long)ch->GetMapIndex(), wx, wy, z_rot,\n'
+         '\t\t\t\t\t\t\t\tpkLand->GetID(), lsx, lsy, lex, ley, tsx, tsy, tex, tey);\n'
+         '\t\t\t\t\t\tif (objW > land.width || objH > land.height)\n'
+         '\t\t\t\t\t\t{\n'
+         '\t\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Ten budynek (%ld x %ld m) jest wiekszy niz teren gildii (%ld x %ld m) i nie zmiesci sie na nim.",\n'
+         '\t\t\t\t\t\t\t\t\t(objW + 99) / 100, (objH + 99) / 100, (long)(land.width / 100), (long)(land.height / 100));\n'
+         '\t\t\t\t\t\t\treturn;\n'
+         '\t\t\t\t\t\t}\n'
+         '\t\t\t\t\t\tif (overLeft > 0 || overRight > 0 || overUp > 0 || overDown > 0)\n'
+         '\t\t\t\t\t\t{\n'
+         '\t\t\t\t\t\t\tchar where[128];\n'
+         '\t\t\t\t\t\t\twhere[0] = \'\\0\';\n'
+         '\t\t\t\t\t\t\tif (overLeft > 0)\n'
+         '\t\t\t\t\t\t\t\tsnprintf(where + strlen(where), sizeof(where) - strlen(where), " o %ld m w prawo", (overLeft + 99) / 100);\n'
+         '\t\t\t\t\t\t\tif (overRight > 0)\n'
+         '\t\t\t\t\t\t\t\tsnprintf(where + strlen(where), sizeof(where) - strlen(where), " o %ld m w lewo", (overRight + 99) / 100);\n'
+         '\t\t\t\t\t\t\tif (overUp > 0)\n'
+         '\t\t\t\t\t\t\t\tsnprintf(where + strlen(where), sizeof(where) - strlen(where), " o %ld m w dol", (overUp + 99) / 100);\n'
+         '\t\t\t\t\t\t\tif (overDown > 0)\n'
+         '\t\t\t\t\t\t\t\tsnprintf(where + strlen(where), sizeof(where) - strlen(where), " o %ld m w gore", (overDown + 99) / 100);\n'
+         '\t\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Budynek wystaje poza teren gildii. Przesun go (na minimapie)%s.", where);\n'
+         '\t\t\t\t\t\t\treturn;\n'
+         '\t\t\t\t\t\t}\n'
+         '\t\t\t\t\t\tLPCHARACTER blocker = NULL;\n'
+         '\t\t\t\t\t\tif (osx <= ch->GetX() && ch->GetX() <= oex && osy <= ch->GetY() && ch->GetY() <= oey)\n'
+         '\t\t\t\t\t\t\tblocker = ch;\n'
+         '\t\t\t\t\t\tLPSECTREE_MAP buildMap = SECTREE_MANAGER::instance().GetMap(ch->GetMapIndex());\n'
+         '\t\t\t\t\t\tif (!blocker && buildMap)\n'
+         '\t\t\t\t\t\t{\n'
+         '\t\t\t\t\t\t\tauto findBlocker = [&](LPENTITY ent)\n'
+         '\t\t\t\t\t\t\t{\n'
+         '\t\t\t\t\t\t\t\tif (blocker || !ent->IsType(ENTITY_CHARACTER))\n'
+         '\t\t\t\t\t\t\t\t\treturn;\n'
+         '\t\t\t\t\t\t\t\tLPCHARACTER other = (LPCHARACTER) ent;\n'
+         '\t\t\t\t\t\t\t\tif (other->IsMonster())\n'
+         '\t\t\t\t\t\t\t\t\treturn;\n'
+         '\t\t\t\t\t\t\t\tif (osx <= other->GetX() && other->GetX() <= oex && osy <= other->GetY() && other->GetY() <= oey)\n'
+         '\t\t\t\t\t\t\t\t\tblocker = other;\n'
+         '\t\t\t\t\t\t\t};\n'
+         '\t\t\t\t\t\t\tbuildMap->for_each(findBlocker);\n'
+         '\t\t\t\t\t\t}\n'
+         '\t\t\t\t\t\tif (blocker == ch)\n'
+         '\t\t\t\t\t\t{\n'
+         '\t\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Stoisz w miejscu budynku. Odejdz na bok (poza jego obrys) i kliknij Buduj jeszcze raz.");\n'
+         '\t\t\t\t\t\t\treturn;\n'
+         '\t\t\t\t\t\t}\n'
+         '\t\t\t\t\t\tif (blocker)\n'
+         '\t\t\t\t\t\t{\n'
+         '\t\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "W miejscu budynku stoi: %s (%ld, %ld). Poczekaj, az odejdzie, albo ustaw budynek obok.",\n'
+         '\t\t\t\t\t\t\t\t\tblocker->GetName(), (long)((blocker->GetX() - buildRegion->sx) / 100), (long)((blocker->GetY() - buildRegion->sy) / 100));\n'
+         '\t\t\t\t\t\t\treturn;\n'
+         '\t\t\t\t\t\t}\n'
+         '\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "To miejsce zajmuje juz inny budynek albo jego podstawa (sciana, brama, dekoracja). Ustaw budynek obok.");\n'
+         '\t\t\t\t\t\treturn;\n'
+         '\t\t\t\t\t}\n'
+         '\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Budynek musi stac w calosci na terenie gildii, nie moze nachodzic na inny budynek i nikt nie moze stac w jego miejscu (Ty, Twoj kon, towarzysz, bot, NPC). Odejdz na bok i ustaw go przyciskiem Zmien (Miejsce).");\n'
+         '\t\t\t\t\treturn;\n',
+         marker='\t\t\t\t\t// Which of the engine\'s tests refused it (apply_build_refusal_reason).\n')
 
 if __name__ == '__main__':
     if len(sys.argv) != 2 or not os.path.isdir(os.path.join(sys.argv[1], 'game', 'src')):
