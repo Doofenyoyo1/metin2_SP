@@ -1484,6 +1484,7 @@ def main(root):
     apply_cape_pulls_whole_view(game)
     apply_shop_owner_whole_name(game)
     apply_flea_market(game)
+    apply_flea_market_fill_dispatch(game)
     print('playerbotify: done')
 
 
@@ -6760,6 +6761,26 @@ def apply_flea_market(game):
          '\n'
          '\tCPlayerBotManager::instance().SendFleaMarketPriceQuote(ch, INVENTORY, (WORD)cell, requestID);\n'
          '}\n')
+
+
+def apply_flea_market_fill_dispatch(game):
+    # The Dom Towarowy asks for its catalogue with ikashop's search fill
+    # (ikashop.SendRandomSearchFillRequest, subheader 12), and the package's
+    # dispatch had that case commented out with the other search packets. The
+    # request fell to the default branch, which answers -1, and CInputMain
+    # treats that as a broken packet: the connection of whoever opened the
+    # window died the moment it asked (2.2.33, "when i use dom towarowy the game
+    # crashes"). apply_flea_market wrote the handler and nothing reached it.
+    # With the world's Dom Towarowy off the package's own fill answers, twenty
+    # random listings and five auctions, which is what the case did before the
+    # package commented it out; no client of ours sends it but that window.
+    edit(os.path.join(game, 'input_main.cpp'),
+         '\t\t//case ikashop::SUBHEADER_CG_SHOP_SEARCH_FILL_REQUEST:\n'
+         '\t\t//\treturn IkarusShopPacketSearchFillRequest(ch, data, iBufferLeft);\n',
+         '\t\t// The Dom Towarowy\'s catalogue (apply_flea_market_fill_dispatch).\n'
+         '\t\tcase ikashop::SUBHEADER_CG_SHOP_SEARCH_FILL_REQUEST:\n'
+         '\t\t\treturn IkarusShopPacketSearchFillRequest(ch, data, iBufferLeft);\n',
+         marker='\t\t// The Dom Towarowy\'s catalogue (apply_flea_market_fill_dispatch).\n')
 
 
 if __name__ == '__main__':
