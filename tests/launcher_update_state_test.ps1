@@ -46,6 +46,9 @@ $script:calls = [Collections.Generic.List[string]]::new()
 function Write-Phase { param([string]$Name) }
 function Confirm-Operation { param([string]$Question) return $true }
 function Assert-DockerDiskWritable { param([switch]$KeepRebuildPending, [string]$Before) $script:calls.Add('disk') }
+# The port preflight (upstream's 2.2.31, our 2.2.33) asks Windows which program
+# holds a server port; nothing does here.
+function Assert-ServerPortsFree { param([switch]$KeepRebuildPending, [string]$Before) $script:calls.Add('ports') }
 function Rebuild-Server { $script:calls.Add('build') }
 function Invoke-M2PackageUpdate {
     param($Component, [string]$TargetRoot, [string]$BackupRoot)
@@ -82,7 +85,7 @@ try {
     Write-Host '== a pending build of an older version still takes the new package =='
     Set-Fixture -Version '2.0.97' -ShippedClient '2.0.13' -State @{ schema = 1; server = '2.0.97'; client = '2.0.26' } -Pending
     Update-Server -RemoteManifest $manifest
-    Check 'disk checked, downloaded, built' 'disk,download,build' ($script:calls -join ',')
+    Check 'disk and ports checked before the download, then built' 'disk,ports,download,build' ($script:calls -join ',')
     Check 'the new server version is recorded' '2.0.98' (Read-RecordedState).server
     Check 'and the client version survives it' '2.0.26' (Read-RecordedState).client
 

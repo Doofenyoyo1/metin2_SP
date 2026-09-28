@@ -110,6 +110,12 @@ LOOT_FIRST_DISTANCE = 900
 LOOT_PICK_INTERVAL = 0.6
 LOOT_STUCK_SECONDS = 6.0
 LOOT_STUCK_PAUSE = 10.0
+# The queue's own patience: AskForLoot refreshes self.lootVid roughly once
+# a second, so a sweep is declared over only after one full cycle of that
+# clock has had the chance to say nothing more is owed.
+LOOT_MAX_PICK_RETRIES = 3
+LOOT_SKIP_DURATION = 30.0
+LOOT_SWEEP_END_GRACE = 0.5
 REVIVE_RETRY = 5.0
 REVIVE_MIN_SECONDS = 10
 SKILL_MIN_INTERVAL = 1.5
@@ -408,6 +414,14 @@ def IsManaItem(vnum):
     _manaItems[vnum] = mana
     return mana
 
+def InTargetSkillRange(skillIndex):
+    """A skill of a class or of the horse: the only ones that fight. A guild's
+    or a support skill is nobody's (TARGET_SKILL_RANGES)."""
+    for low, high in TARGET_SKILL_RANGES:
+        if low <= skillIndex <= high:
+            return True
+    return False
+
 def NeedsTarget(skillIndex):
     """Whether a skill is cast at an enemy: a skill of a class or of the horse
     that is neither standing nor a toggle nor one of SELF_SKILLS. The client
@@ -486,6 +500,12 @@ class Hunter(object):
         self.nextLootPick = 0.0
         self.nextBuffGlobal = 0.0
         self.skillHoldUntil = 0.0
+        self.lootSweeping = False
+        self.lootSweepIdleSince = 0.0
+        self.targetMissFrames = 0
+        self.targetSetSince = 0.0
+        self.lootPickAttempts = {}
+        self.lootSkippedVids = {}
 
     def CanUpdate(self):
         # Asked on every frame of the game, running or not: the autologin
@@ -601,6 +621,8 @@ class Hunter(object):
         self.ReleaseAttack()
         self.targetVid = 0
         self.lootVid = 0
+        self.lootSweeping = False
+        self.lootSweepIdleSince = 0.0
         if not quiet:
             chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: stop.')
 
@@ -623,6 +645,8 @@ class Hunter(object):
     def OnServerTarget(self, value):
         if not self.running or not self.config.get('attack', 1):
             return
+        if self.lootSweeping:
+            return
             
         new_vid = ParseTargetVid(value)
         if not new_vid:
@@ -643,16 +667,24 @@ class Hunter(object):
             self.targetVid = new_vid
             self.approachSince = 0.0
             self.nextMove = 0.0
+            self.nextFace = 0.0
+            self.targetMissFrames = 0
+            self.targetSetSince = 0.0
 
     def OnServerLoot(self, vid, x, y):
         if not self.running or clientclock.Now() < self.lootPausedUntil or not LootMask(self.config):
             return
         (new_vid, dx, dy) = ParseLoot(vid, x, y)
-        
+        if new_vid:
+            now = clientclock.Now()
+            skip_until = self.lootSkippedVids.get(new_vid, 0.0)
+            if now < skip_until:
+                return
+            elif skip_until:
+                del self.lootSkippedVids[new_vid]
         if new_vid != self.lootVid:
             self.lootSince = 0.0
             self.nextMove = 0.0
-            
         self.lootVid = new_vid
         (px, py, pz) = player.GetMainCharacterPosition()
         self.lootPos = (int(px) + dx, int(py) + dy)
@@ -661,6 +693,8 @@ class Hunter(object):
         self.ReleaseAttack()
         self.targetVid = 0
         self.lootVid = 0
+        self.lootSweeping = False
+        self.lootSweepIdleSince = 0.0
         if not self.deadSince:
             self.deadSince = now
             return
@@ -728,6 +762,10 @@ class Hunter(object):
             self.config['range'], LootCoarseMask(self.config), dx, dy, mask))
 
     def Chase(self, now):
+        self.PickNearLoot(now)
+        if self.lootSweeping:
+            self.HandleLootSweep(now)
+            return
         if self.config['attack']:
             if now >= self.nextRequest:
                 self.nextRequest = now + TARGET_REQUEST_INTERVAL
@@ -749,11 +787,7 @@ class Hunter(object):
                 net.SendChatPacket(command)
         else:
             self.targetVid = 0
-
-        self.PickNearLoot(now)
-        
         vid = self.targetVid
-
         if vid and hasattr(player, 'IsTargetDead') and player.IsTargetDead(vid):
             if self.attacking:
                 self.ReleaseAttack()
@@ -765,34 +799,39 @@ class Hunter(object):
             
             self.targetVid = 0
             self.nextRequest = 0
+            # Allow immediate loot walking - the old skill's animation
+            # hold must not delay the sweep after the target is gone.
+            self.skillHoldUntil = 0.0
+            self.targetMissFrames = 0
+            self.targetSetSince = 0.0
+            # The queue: whatever is down is picked up before the next
+            # target is even asked for.
+            self.TryStartLootSweep(now, force=True)
             return
-
         distance = player.GetCharacterDistance(vid) if vid else -1
-
-        # What the loot waits for is a fight at arm's length, whatever is in
-        # the hand. Measured against the bow's reach of 2400 a monster was
-        # nearly always "in reach", so an archer took only what fell at its
-        # feet and left its own Moonlight chest a few steps away (Mur4s,
-        # 25 September); for a blade the two limits are the same number.
-        if (self.lootVid and (distance < 0 or distance > MELEE_REACH) and
-                self.LootDistance() <= LOOT_FIRST_DISTANCE and self.GoForLoot(now)):
-            self.ReleaseAttack()
-            return
-        
         if distance < 0:
+            # Grace period: the client may need a few frames to load a
+            # mob the server just picked.  Clear only after five misses
+            # so a mob on the edge of view is not thrown away at once.
+            if vid and self.targetMissFrames < 5:
+                self.targetMissFrames += 1
+                return
+            self.targetMissFrames = 0
+            self.targetSetSince = 0.0
             self.targetVid = 0
             self.ReleaseAttack()
             if player.GetTargetVID() != 0:
                 player.ClearTarget()
-            if not self.GoForLoot(now):
+            # Quick retry instead of waiting for the full request interval.
+            self.nextRequest = min(self.nextRequest, now + 0.3)
+            if not self.TryStartLootSweep(now, force=True):
                 self.ReturnToAnchor(now)
             return
+        self.targetMissFrames = 0
             
-        # A fight holds the drop's clock, so a drop left for it is walked to
-        # afterwards instead of being given up without a step.
-        self.lootSince = 0.0
         reach = self.Reach()
         if distance > reach:
+            self.targetSetSince = 0.0
             self.ReleaseAttack()
             if not self.approachSince or distance < self.approachBest - WALK_PROGRESS:
                 self.approachSince = now
@@ -821,7 +860,6 @@ class Hunter(object):
             self.Face(vid)
             
         current_target = player.GetTargetVID()
-
         if current_target != vid:
             if self.attacking:
                 self.ReleaseAttack()
@@ -829,10 +867,89 @@ class Hunter(object):
                 player.ClearTarget()
             if vid != 0:
                 player.SetTarget(vid)
+                # For a bow character start auto-attack on the same frame
+                # as SetTarget.  The melee path walks first which naturally
+                # sets the target, but a bow stands still and the one-frame
+                # gap between SetTarget and SetAttackKeyState can let a
+                # stale client animation swallow the target selection.
+                if self.Reach() > MELEE_REACH and not self.attacking:
+                    player.SetAttackKeyState(True)
+                    self.attacking = True
+                # Track how long SetTarget has not registered.
+                if not self.targetSetSince:
+                    self.targetSetSince = now
+                elif now - self.targetSetSince > 1.0:
+                    # SetTarget still ignored after a second - walk a short
+                    # step toward the mob to nudge the client out of any
+                    # lingering skill-reserved mode.
+                    if now >= self.nextMove:
+                        self.nextMove = now + MOVE_INTERVAL
+                        (px, py, pz) = player.GetMainCharacterPosition()
+                        (tx, ty, tz) = chr.GetPixelPosition(vid)
+                        dx = tx - px
+                        dy = ty - py
+                        d = math.sqrt(dx * dx + dy * dy)
+                        if d > 0:
+                            step = min(300.0, d)
+                            self.WalkTo(px + dx * step / d, py + dy * step / d)
+                        self.targetSetSince = now
         else:
+            self.targetSetSince = 0.0
             if not self.attacking:
                 player.SetAttackKeyState(True)
                 self.attacking = True
+
+    def TryStartLootSweep(self, now, force=False):
+        """Enters the queue's second half: whatever the ground still owes is
+        collected before the next target is even asked for. Only a target
+        just settled - dead, or gone from the map entirely - opens it
+        (force=True); a target still being fought, or merely out of reach
+        and being walked to, is never detoured from."""
+        if self.lootSweeping:
+            return True
+        if not LootMask(self.config):
+            return False
+        if not self.lootVid:
+            return False
+        if not force and self.LootDistance() > LOOT_FIRST_DISTANCE:
+            return False
+
+        self.ReleaseAttack()
+        if player.GetTargetVID() != 0:
+            player.ClearTarget()
+        self.targetVid = 0
+        self.lootSweeping = True
+        self.lootSweepIdleSince = 0.0
+        self.lootSince = 0.0
+        self.lootBest = 0.0
+        self.nextMove = 0.0
+        return True
+
+    def HandleLootSweep(self, now):
+        """The queue stays on loot until AskForLoot's own clock has had a
+        clear turn to say nothing more is owed (LOOT_SWEEP_END_GRACE) - not
+        the instant a single pick-up empties self.lootVid, which a request
+        already on its way back would otherwise refill a moment later."""
+        if not LootMask(self.config):
+            self.lootSweeping = False
+            self.lootSweepIdleSince = 0.0
+            self.nextRequest = 0
+            return
+
+        if self.lootVid:
+            self.lootSweepIdleSince = 0.0
+            self.GoForLoot(now)
+            return
+
+        if not self.lootSweepIdleSince:
+            self.lootSweepIdleSince = now
+            return
+
+        if now - self.lootSweepIdleSince >= LOOT_SWEEP_END_GRACE:
+            self.lootSweeping = False
+            self.lootSweepIdleSince = 0.0
+            self.lootPickAttempts = {}
+            self.nextRequest = 0
 
     def CastSkills(self, now, buffsOnly=False):
         if not self.config['use_skills']:
@@ -850,7 +967,8 @@ class Hunter(object):
                 continue
             if buffsOnly and skillIndex not in BUFF_SKILLS:
                 continue
-            if NeedsTarget(skillIndex):
+            needsTarget = NeedsTarget(skillIndex)
+            if needsTarget:
                 # The slot's clock is left alone, so the skill goes on the
                 # first frame the fight is there, and a buff further down
                 # still goes on this one.
@@ -859,9 +977,34 @@ class Hunter(object):
                 limit = MELEE_REACH if skillIndex in WARP_SKILLS else self.Reach()
                 if fightDistance < 0 or fightDistance > limit:
                     continue
+            elif skillIndex not in BUFF_SKILLS and InTargetSkillRange(skillIndex):
+                # A standing combat skill (Arrow Shower, Dragon's Roar and
+                # the like): cast only while the hunter's own target is alive
+                # and in the client's hand.  Without this the skill fires
+                # between groups, its animation blocks player.SetTarget for
+                # the next mob, and a bow Ninja freezes until a targeted
+                # skill's cooldown expires and ClickSkillSlot selects the
+                # target through the client's own mechanism.  A guild's buff
+                # is no class's combat skill and goes between fights as
+                # before.
+                isToggle = False
+                try:
+                    isToggle = skill.IsToggleSkill(skillIndex)
+                except Exception:
+                    pass
+                if not isToggle:
+                    if fightDistance is None:
+                        fightDistance = self.FightDistance()
+                    if fightDistance < 0:
+                        continue
             player.ClickSkillSlot(slot)
             self.skillNext[index] = now + max(SKILL_MIN_INTERVAL, float(self.config['skill%d_interval' % index]))
-            self.skillHoldUntil = now + SKILL_MOTION_HOLD
+            # Only a blow just aimed at the live target risks losing its
+            # damage to a walk ordered right after - a standing buff or
+            # Stealth casts where the character already stands, so it
+            # needs no hold on its own step.
+            if needsTarget:
+                self.skillHoldUntil = now + SKILL_MOTION_HOLD
             return
 
     def FightDistance(self):
@@ -883,8 +1026,17 @@ class Hunter(object):
             return False
         if self.LootDistance() > LOOT_PICK_DISTANCE:
             return False
+        vid = self.lootVid
+        attempts = self.lootPickAttempts.get(vid, 0) + 1
+        self.lootPickAttempts[vid] = attempts
+        if attempts > LOOT_MAX_PICK_RETRIES:
+            self.lootSkippedVids[vid] = now + LOOT_SKIP_DURATION
+            self.lootPickAttempts.pop(vid, None)
+            self.lootVid = 0
+            self.lootSince = 0.0
+            return False
         self.nextLootPick = now + LOOT_PICK_INTERVAL
-        net.SendItemPickUpPacket(self.lootVid)
+        net.SendItemPickUpPacket(vid)
         self.lootVid = 0
         self.lootSince = 0.0
         self.nextLootRequest = min(self.nextLootRequest, now + 0.3)

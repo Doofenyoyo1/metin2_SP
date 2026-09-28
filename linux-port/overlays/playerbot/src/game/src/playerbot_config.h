@@ -126,6 +126,14 @@ namespace
 	// way a bot with no scroll refines - asked for as one setting for the whole
 	// world ("tylko mozna np uzywac na +7 +8 +9").
 	int s_iPlayerBotScrollFromPlus = 1;
+	// The bots' guild wars (playerbot_guild_war.h): how long one lasts, in
+	// minutes - the engine's field war is thirty, and at fifteen the bots end
+	// theirs early - and how often a kingdom has one, in hours from the start
+	// of one war to the start of the next. DUDU's ask of 26 September ("wybor
+	// miedzy 15min a 30min czasu trwania i czestotliwosc 1/2/3/4 h"); the
+	// defaults are the world as it was, thirty minutes every two hours.
+	int s_iPlayerBotWarMinutes = 30;
+	int s_iPlayerBotWarEveryHours = 2;
 	// Whether a bot reads its books without the engine's day between them.
 	// On by default: the day is what makes a book a month's project, and the
 	// books were rotting in the bags of bots that could not read them yet.
@@ -214,6 +222,8 @@ namespace
 		s_iPlayerBotTickBudgetMs = PLAYERBOT_TICK_BUDGET_MS_DEFAULT;
 		s_iPlayerBotKingdomPvpPercent = 0;
 		s_iPlayerBotScrollFromPlus = 1;
+		s_iPlayerBotWarMinutes = 30;
+		s_iPlayerBotWarEveryHours = 2;
 		s_bPlayerBotFastBooks = true;
 		s_bPlayerBotNight = true;
 		s_bPlayerBotLifeSchedule = false;
@@ -430,6 +440,22 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			s_iPlayerBotKingdomPvpPercent = percent;
 			return;
 		}
+		if (PlayerBotWeightNameEquals(szKey, "WAR_MINUTES"))
+		{
+			const int minutes = value <= 15 ? 15 : 30;
+			if (minutes != s_iPlayerBotWarMinutes)
+				sys_log(0, "PLAYERBOT_CONFIG: bot guild wars last %d minutes", minutes);
+			s_iPlayerBotWarMinutes = minutes;
+			return;
+		}
+		if (PlayerBotWeightNameEquals(szKey, "WAR_HOURS"))
+		{
+			const int hours = value < 1 ? 1 : (value > 4 ? 4 : (int)value);
+			if (hours != s_iPlayerBotWarEveryHours)
+				sys_log(0, "PLAYERBOT_CONFIG: a bot guild war every %d hours in each kingdom", hours);
+			s_iPlayerBotWarEveryHours = hours;
+			return;
+		}
 		if (PlayerBotWeightNameEquals(szKey, "SCROLL_FROM"))
 		{
 			const int plus = value < 1 ? 1 : (value > PLAYERBOT_SCROLL_REFINE_MAX_PLUS
@@ -558,6 +584,10 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			return s_iPlayerBotRestPercent;
 		if (PlayerBotWeightNameEquals(szKey, "KINGDOMPVP"))
 			return s_iPlayerBotKingdomPvpPercent;
+		if (PlayerBotWeightNameEquals(szKey, "WAR_MINUTES"))
+			return s_iPlayerBotWarMinutes;
+		if (PlayerBotWeightNameEquals(szKey, "WAR_HOURS"))
+			return s_iPlayerBotWarEveryHours;
 		if (PlayerBotWeightNameEquals(szKey, "CHEST"))
 			return !s_bPlayerBotChestFromFile ? -1 :
 					(GetPlayerBotChestWantedPermille(false) >= 0 ? GetPlayerBotChestWantedPermille(false) : g_iMoonlightChestPermille);
@@ -974,6 +1004,27 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			return false;
 		return (int)(((dwPID ^ 0x5bf03635U) * 2246822519U) % 100U) <
 				PLAYERBOT_RESOURCE_TRADER_PERCENT;
+	}
+
+	// WAR_MINUTES and WAR_HOURS, for the wars (playerbot_guild_war.h).
+	int GetPlayerBotGuildWarMinutes()
+	{
+		if (!s_bPlayerBotWeightsInitialised)
+			ResetPlayerBotWeights();
+		return s_iPlayerBotWarMinutes;
+	}
+
+	// The rest between two wars of a kingdom: from one war's end to the next
+	// one's declaration, so that the starts are WAR_HOURS apart - ninety
+	// minutes after a war of thirty at the default two hours, as the constant
+	// used to say - and never under the retry, or a war every hour of fifteen
+	// minutes would leave the camps no time to empty.
+	DWORD GetPlayerBotGuildWarRestMs()
+	{
+		if (!s_bPlayerBotWeightsInitialised)
+			ResetPlayerBotWeights();
+		const int restMinutes = s_iPlayerBotWarEveryHours * 60 - s_iPlayerBotWarMinutes;
+		return std::max<DWORD>(PLAYERBOT_GUILD_WAR_RETRY_MS, (DWORD)std::max(0, restMinutes) * 60U * 1000U);
 	}
 
 	int GetPlayerBotScrollFromPlus()

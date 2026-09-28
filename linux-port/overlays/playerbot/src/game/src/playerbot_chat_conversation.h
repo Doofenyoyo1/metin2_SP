@@ -157,7 +157,11 @@ namespace
 				case playerbot_persona::PERSONA_NAJEMNIK: return S_MERC;
 				case playerbot_persona::PERSONA_TOWARZYSZ: return S_COMPANION;
 				case playerbot_persona::PERSONA_METINOLOG: return S_METIN;
-				case playerbot_persona::PERSONA_NALOGOWIEC: return S_GAMBLER;
+				case playerbot_persona::PERSONA_NALOGOWIEC:
+				case playerbot_persona::PERSONA_HAZ_MLODSZY:
+				case playerbot_persona::PERSONA_HAZ_STARSZY:
+				case playerbot_persona::PERSONA_HAZ_NACZELNY:
+				case playerbot_persona::PERSONA_HAZ_SZALONY: return S_GAMBLER;
 				case playerbot_persona::PERSONA_NAUKOWIEC: return S_PERFECTIONIST;
 				case playerbot_persona::PERSONA_EGZEKUTOR: return S_MERC;
 				case playerbot_persona::PERSONA_WEDKARZ: return S_FISHER;

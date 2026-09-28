@@ -38,6 +38,7 @@ namespace
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
 	bool ManagePlayerBotOfflineShopping(LPCHARACTER, TPlayerBotAIState&, DWORD);
 	void AddPlayerBotOfflineLedger(DWORD&, DWORD&);
+	void CorrectPlayerBotStandingSlips(DWORD);
 	bool FindPlayerBotFarOfflinePick(LPCHARACTER, TPlayerBotAIState&, long);
 	bool HandPlayerBotFarPickToBuyer(LPCHARACTER, TPlayerBotAIState&, DWORD);
 	void ClaimPlayerBotFarLine(DWORD, DWORD, DWORD);
@@ -291,25 +292,29 @@ namespace
 				return false;
 		}
 		LPITEM worn = ch->GetWear((BYTE)wearCell);
-		if (!worn)
+		// A weapon for the tenth level or under in the hand of a bot of thirty
+		// is no weapon to buy over (Community Patch 5, point 2): its +6 asked
+		// every offer for +7, and the market was one of the two ways out of it.
+		if (!worn || IsPlayerBotBannedLowWeapon(ch, worn))
 			return true;
 		// Against the worn piece, playerbot_stall_rules::BuysGearOverWorn: a
 		// grade over it when it scores over it - the grade is the margin now;
 		// the old fifteen percent on top of two grades took three of a level-34
-		// armour, whose defence grows about seven percent a grade - or when it
-		// carries a big line the worn piece lacks, a thousand health that does
-		// not show in the equipment score and is exactly what a player would
-		// buy the piece for. The worn grade for its lines, when they are worth
-		// the market's margin more by Iwakura's tier table
-		// (GetPlayerBotItemLineScore) - "lub gdy ma taki sam + ale ma
-		// sumarycznie lepsze bonusy (z tabeli tierow bonusow) od noszonego" -
-		// and it scores over the worn piece, so the equipment pass puts it on:
-		// a pair of boots scores by its lines of tier three and up alone, and
-		// better low lines would have bought a pair it never wears.
+		// armour, whose defence grows about seven percent a grade. The worn
+		// grade for its lines, when they are worth the market's margin more by
+		// Iwakura's tier table (GetPlayerBotItemLineScore) - "lub gdy ma taki
+		// sam + ale ma sumarycznie lepsze bonusy (z tabeli tierow bonusow) od
+		// noszonego" - and it scores over the worn piece. Both only over the
+		// worn piece's score, because that is the one test the equipment pass
+		// puts a piece on by: a pair of boots scores by its lines of tier three
+		// and up alone, and better low lines would have bought a pair it never
+		// wears. A big line the worn piece lacks - a thousand health, which a
+		// player buys a piece for - used to buy a grade over whatever it scored,
+		// and the piece stayed in the bag for the counter (R2 of Iwakura's
+		// audit).
 		return playerbot_stall_rules::BuysGearOverWorn((int)offer->GetRefineLevel(),
 				(int)worn->GetRefineLevel(), offerScore, GetPlayerBotEquipmentScore(worn, ch),
 				GetPlayerBotItemLineScore(offer, ch), GetPlayerBotItemLineScore(worn, ch),
-				HasPlayerBotValuableBonus(offer), HasPlayerBotValuableBonus(worn),
 				PLAYERBOT_MARKET_GEAR_MIN_PLUS, PLAYERBOT_MARKET_GEAR_PLUS_OVER_WORN,
 				PLAYERBOT_MARKET_GEAR_MARGIN_PERCENT);
 	}
@@ -446,6 +451,13 @@ namespace
 
 	bool CanPlayerBotPayForOffer(LPCHARACTER ch, LPITEM item, long long price) {
 		if (!ch || !item || price <= 0) return false;
+		// Community Patch 5, point 6 - "Boty otrzymuja bezwzgledny zakaz
+		// kupowania takich przedmiotow": a line with a keeper's slip in its
+		// price, one zero too many, is never bought by a bot, before any of the
+		// purses below gets a say (IsPlayerBotPriceSlipOffer). The fair-price
+		// caps further down refused most of them already; the ban does not
+		// hang on what any one of those caps is set to.
+		if (IsPlayerBotPriceSlipOffer(item, price)) return false;
 		const long long spare = (long long)ch->GetGold() - GetPlayerBotReservedGold(ch) - PLAYERBOT_SHOPPING_GOLD_FLOOR;
 		if (price > spare) return false;
 		if (IsPlayerBotProgressionOffer(ch, item)) {
@@ -502,8 +514,9 @@ namespace
 		if (item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR)
 			return price <= spare * playerbot_persona::PERFECT_BUDGET_PERCENT / 100;
 		// A refine material is bought near what the market asks for its line,
-		// never at a counter's one zero too many (Iwakura's Patch 4, point 4):
-		// the wallet's cap below would have let a rich bot pay it.
+		// never at a counter's one zero too many (Iwakura's Patch 4, point 4,
+		// and the ban at the top): the wallet's cap below would have let a
+		// rich bot pay it.
 		if (IsPlayerBotTradeableMaterial(item))
 		{
 			const long long fair = GetPlayerBotShopAskingPrice(item);
@@ -1185,6 +1198,11 @@ namespace
 			std::sort(wallets.begin(), wallets.end());
 			s_dwMarketMedianWallet = wallets[wallets.size() / 2];
 		}
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+		// The slips the pass above found, put right where no keeper will -
+		// priced against the ledger and the wallets as they now stand.
+		CorrectPlayerBotStandingSlips(dwNow);
+#endif
 
 		if (s_dwMarketReportTime != 0 &&
 				dwNow - s_dwMarketReportTime < PLAYERBOT_MARKET_REPORT_INTERVAL)

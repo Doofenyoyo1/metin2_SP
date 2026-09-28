@@ -124,6 +124,9 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_world_events.h` | Pirate Tanaka and Zuo (upstream 2.2.22, our 2.2.24): the two timed events that put something into the world, scheduled from the panel's Events page like the chests and the rates (`playerbot_event_rules.h` holds the `tanaka`/`zuo` kinds, the map column and the `bots` share), the pirates kept on the map and replaced, the waves of Metins and the bosses of the second half, and the bots sent to them (never off a war, the Tower, a raid, a duel or a person's party). One event per map since upstream 2.2.28 (our 2.2.30, `EvaluateWorldByMap`): a Zuo over Bakra and one over Bokjung run side by side, a kingdom map calls only that kingdom's bots, and the panels key a "now" line by kind and map (`zuo@43`). The ear's drop is playerbotify `apply_tanaka_goblin`, Yonah's exchange `tanaka_ears.quest`. After catacomb.h, before sidekick.h. |
 | `playerbot_persona_rules.h` | Iwakura's personality system as pure policy: the moods, the Grinder's tiers and the Law of Advancement, the gambler's ambitions, the Anti-PK window, the companion's draw, the mercenary's terms and the Useful Items List. No engine types, unit-tested (`tests/playerbot_persona_rules_test.cpp`). Included first, with the other rules headers. |
 | `playerbot_persona_tables.h` | Rendered from his document by `tools/generate_iwakura_persona.py`: the valuables whose drop lifts a mood, and the LPP's weapons by level band, target shields and target armours. |
+| `playerbot_price_rules.h` | Iwakura's Community Patch 5 on prices as pure arithmetic: the inflation compounded (x1.05 a step), the maximal lines' multiplier (x1.7/x2.5/x4.0), which bonus row prices a line. No engine types, unit-tested (`tests/playerbot_price_rules_test.cpp`, ours - upstream shipped the header without it). Engine side: `ScalePlayerBotIwakuraPrice`, `GetPlayerBotBonusPricePercent`. |
+| `playerbot_bonus_rules.h` | Which stone a bot puts on which piece next (Community Patch 5, points 5 and 9): the green round first, then the piece being worked, then filling before mixing, and the rest of the worn gear once no category piece can use a kind of stone. No engine types, unit-tested (`tests/playerbot_bonus_rules_test.cpp`, ours). `playerbot_bonus.h` is its engine half. |
+| `playerbot_refine_rules.h` | What a bot of thirty may fight with (no weapon of level ten or under), the scroll rule for its weapon and then its armour, the step taken inside a fight, and the backup weapon (Community Patch 5, points 2 and 4, audit R8). No engine types, unit-tested (`tests/playerbot_refine_rules_test.cpp`, ours). |
 | `playerbot_mood.h` | The Bot Mood System: what a mood is worth to whom, the drought, the euphoria, and the mood a bot plays by (NORMALNY in company, its own alone). |
 | `playerbot_persona.h` | Which personality claims a bot now, its Grinder tier and lock, the Law of Advancement, the two habits of a weak mood (the pause and the AFK stop), and the census. |
 | `playerbot_gambler.h` | The gambler's session: the pieces it takes to the anvil, the ambition rolled for each, the budget, and what it does with what survives. |
@@ -9582,7 +9585,7 @@ upstream 2.1.0/client 2.0.26, the merge is 2.1.1/client 2.0.28, and the next
 sync (upstream 2.2.0-2.2.6, client 2.0.27-2.0.28, over our 2.1.5 / client
 2.0.30) is 2.2.7 / client 2.0.31, and the one after (upstream 2.2.7 /
 client 2.0.29, over our 2.2.7 / client 2.0.31) is 2.2.8 / client 2.0.32, and the one after (upstream 2.2.8, client
-unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38, and the one after (upstream 2.2.21 / client 2.0.38, over our 2.2.21 / client 2.0.38) is 2.2.22 / client 2.0.39, and the one after (upstream 2.2.22-2.2.23 / client 2.0.39-2.0.40, over our 2.2.22 / client 2.0.39) is 2.2.24 / client 2.0.41, and the one after (upstream 2.2.24-2.2.26 / client 2.0.41, over our 2.2.24 / client 2.0.41) is 2.2.27 / client 2.0.42, and the one after (upstream 2.2.27-2.2.29 / client 2.0.42-2.0.43, over our 2.2.27 / client 2.0.42) is 2.2.30 / client 2.0.44. Upstream's added attributions to its own
+unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38, and the one after (upstream 2.2.21 / client 2.0.38, over our 2.2.21 / client 2.0.38) is 2.2.22 / client 2.0.39, and the one after (upstream 2.2.22-2.2.23 / client 2.0.39-2.0.40, over our 2.2.22 / client 2.0.39) is 2.2.24 / client 2.0.41, and the one after (upstream 2.2.24-2.2.26 / client 2.0.41, over our 2.2.24 / client 2.0.41) is 2.2.27 / client 2.0.42, and the one after (upstream 2.2.27-2.2.29 / client 2.0.42-2.0.43, over our 2.2.27 / client 2.0.42) is 2.2.30 / client 2.0.44, and the one after (upstream 2.2.30-2.2.32 / client 2.0.44-2.0.46, over our 2.2.30 / client 2.0.44) is 2.2.33 / client 2.0.47. Upstream's added attributions to its own
 operator are scrubbed from comments and notes the way the first sync did; a
 player's or a contributor's name stays. An upstream `## x.y.z` CHANGELOG
 section whose number this repository already used moves under the new section,
@@ -9645,3 +9648,20 @@ one, third element True): a stock root skips the migration, our published
 root takes it, a rendered root skips both. No Python 2.7 here and no Docker:
 the client tests run on Python 3, and `client_refine_dialog_test.py` needs
 `builtins.xrange = range` put in front of it (`runpy`).
+An engine file new to the packager's list has no base in the older package.
+2.2.30 put `battle.cpp` in upstream's list with its first edit (the tower's
+peace), and 2.2.31 added a second (the elemental resistances): the stock text
+was taken from the 2.2.30 package with that one block removed, and every
+edit checked against it. Download the intermediate releases when a new file
+arrives, and diff them one step at a time. An upstream fix can also land
+inside text two of our older pairs share (2.0.46's shop button in
+`uiscript/inventorywindow.py` changed the first line of our 2.0.39 chest
+preview pair's anchor): then the older pair and upstream's neighbouring pair
+become one host pair, the migration in front of it covering both. Check every
+rendered file with a second render on the rendered root, never the first
+alone. And our own client tests pin behaviour upstream is free to change:
+2.2.30's Auto Lowy sweeps the drop after the fight and casts a standing
+combat skill only at a live target, and six tests were rewritten to assert
+that rather than deleted. PowerShell 7 for Linux (a release tarball from
+GitHub) runs most launcher tests here; the ones that call `powershell.exe`
+or lean on NTFS fail the same on every commit.

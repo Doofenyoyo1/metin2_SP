@@ -78,6 +78,12 @@ namespace {
         if (IsPlayerBotOnTowerBusiness(ch, state)) return "tower";
         // Nor off a pirate or a Zuo wave (playerbot_world_events.h).
         if (state.bWorldEventKind != 0) return "world_event";
+        // Nor away from a broken stone's drops while its loot window is open:
+        // a service that fell due during the fight started on the first pass
+        // after the break, and the owner's book lay out its thirty seconds of
+        // ownership for the next bot to ride in (sosen, 27 September).
+        if (state.dwStoneBrokenTime != 0 &&
+                get_dword_time() - state.dwStoneBrokenTime < PLAYERBOT_METIN_LOOT_DASH_TIME) return "metin_loot";
         // Nor out of a Monkey Dungeon: a visit is half an hour in rooms
         // joined only by their doors, and a keeper warped out of it has the
         // whole way back in to walk. The service waits for the way out.
@@ -272,6 +278,94 @@ namespace {
         }
         return afterLower >= 0 ? afterLower : anywhere;
     }
+    // Iwakura's "ludzka pomylka" (Patch 4, point 4; Community Patch 5, point
+    // 6): one listing in a thousand of a single book or a single refine
+    // material asks one zero too many - up, never down ("bot wystawi Aure
+    // Miecza za 15kk zamiast 1,5kk"). The pieces that slipped on this core: the
+    // draw is the piece's id (IsPlayerBotPriceSlipDrawn), so a line taken home
+    // and put up again would slip at every listing, and this keeps it to one
+    // mistake a piece. A restart forgets it, which costs a second slip at most.
+    std::set<DWORD> s_setPlayerBotPriceSlips;
+
+    // The price a line of this item goes up at: the one asked, or ten times
+    // it for a slip - within `room`, what the counter's GOLD_MAX leaves.
+    long long BotOfflineSlipPrice(LPITEM item, long long price, long long room) {
+        if (!item || price <= 0 || !IsPlayerBotPriceSlipKind(item) ||
+                !IsPlayerBotPriceSlipDrawn(item->GetID()) ||
+                s_setPlayerBotPriceSlips.count(item->GetID()))
+            return price;
+        return playerbot_stall_rules::SlippedPrice(price, room);
+    }
+    // A slip that went up: its piece slips no more, and its four hours are
+    // counted from now on the keeper's own listing (BotOfflineDueSlipLine).
+    // The set is bounded where one slip in a thousand listings never takes it.
+    void BotOfflineRememberSlip(TPlayerBotAIState& state, DWORD itemid, DWORD now) {
+        if (s_setPlayerBotPriceSlips.size() >= 4096) s_setPlayerBotPriceSlips.clear();
+        s_setPlayerBotPriceSlips.insert(itemid);
+        state.offlineShop.listed[itemid].slippedAt = now;
+    }
+    // A line of this item at this price that is a slip still standing: drawn,
+    // and asking twice what this core would ask for it
+    // (playerbot_stall_rules::IsStandingSlip). The keeper's own test and the
+    // ledger's; a buyer asks IsPlayerBotPriceSlipOffer, which also refuses the
+    // undrawn at five times.
+    bool IsPlayerBotStandingPriceSlip(LPITEM item, long long price) {
+        return IsPlayerBotPriceSlipKind(item) && IsPlayerBotPriceSlipDrawn(item->GetID()) &&
+            playerbot_stall_rules::IsStandingSlip(true, price, (long long)GetPlayerBotShopAskingPrice(item));
+    }
+    // The first line of the keeper's running stand whose slipped price has
+    // had its time - PLAYERBOT_OFFLINE_SLIP_KEEPER_LEAD_MS before the four
+    // hours are out, or at once for a slip whose age this core does not know
+    // (a restart, a keeper that came from the other channel) - and the price
+    // it meant: what the keeper asks for it now, never under the blacksmith's
+    // bill, as an add prices a line. A slip put right some other way - the
+    // hourly reprice, the core's own correction - is no slip any more, and
+    // its clock is let go. Only a drawn line of one unit is looked at, so a
+    // counter costs a hash a line and one price for a slip.
+    DWORD BotOfflineDueSlipLine(LPCHARACTER ch, TPlayerBotAIState& state, NativeShop shop, DWORD now,
+            long long& normal, int& ageMin) {
+        normal = 0;
+        ageMin = -1;
+        if (!ch || !shop || shop->GetDuration() == 0) return 0;
+        auto& o = state.offlineShop;
+        for (const auto& [id, line] : shop->GetItems()) {
+            if (!line || line->GetInfo().count != 1 || !IsPlayerBotPriceSlipDrawn(id)) continue;
+            LPITEM preview = BotOfflinePreview(*line);
+            if (!preview) continue;
+            auto known = o.listed.find(id);
+            if (!IsPlayerBotStandingPriceSlip(preview, (long long)line->GetPrice().GetTotalYangAmount())) {
+                if (known != o.listed.end()) known->second.slippedAt = 0;
+                M2_DELETE(preview);
+                continue;
+            }
+            const uint32_t slippedAt = known != o.listed.end() ? known->second.slippedAt : 0;
+            if (!playerbot_stall_rules::SlipDue(slippedAt, now, PLAYERBOT_OFFLINE_SLIP_KEEPER_LEAD_MS)) {
+                M2_DELETE(preview);
+                continue;
+            }
+            normal = std::max<long long>(GetPlayerBotShopAskingPrice(preview), GetPlayerBotRefineInvestment(preview));
+            ageMin = slippedAt ? (int)((now - slippedAt) / 60000U) : -1;
+            M2_DELETE(preview);
+            return id;
+        }
+        return 0;
+    }
+    // The slip back to the price it meant, through the journal like every
+    // other edit of the board. True when the request reached the db core.
+    bool BotOfflineFixSlip(LPCHARACTER ch, TPlayerBotAIState& state, DWORD itemid, long long normal,
+            int ageMin, DWORD now) {
+        using namespace playerbot_offline;
+        if (normal <= 0 || normal >= GOLD_MAX || !Begin(ch->GetPlayerID(), Edit, itemid, now)) return false;
+        ikashop::TPriceInfo price{};
+        price.yang = normal;
+        ikashop::GetManager().RecvShopEditItemClientPacket(ch, itemid, price);
+        if (!EndCall(ch->GetPlayerID())) return false;
+        auto known = state.offlineShop.listed.find(itemid);
+        if (known != state.offlineShop.listed.end()) known->second.slippedAt = 0;
+        sys_log(0, "PLAYERBOT_OFFLINE: price slip put right pid=%u name=%s item=%u price=%lld age_min=%d",
+            ch->GetPlayerID(), ch->GetName(), itemid, normal, ageMin);
+        return true;
+    }
     bool SubmitPlayerBotOfflineShop(LPCHARACTER ch, TPlayerBotAIState& state,
             DWORD now, const char* sign, TShopItemTable* table, BYTE count) {
         using namespace playerbot_offline;
@@ -283,6 +377,26 @@ namespace {
         state.dwNextShopKeepTime = now + 120000;
         if (manager.GetShopByOwnerID(ch->GetPlayerID()) || requests.count(ch->GetPlayerID()) ||
                 !db_clientdesc || !db_clientdesc->IsPhase(PHASE_DBCLIENT) || !count) return false;
+        // A new stand's lines are listings as much as a service visit's add,
+        // so the slip (BotOfflineSlipPrice) is drawn for them too. Before the
+        // checks below, which have to see the prices the stand will carry, and
+        // within what the owner's gold and the other lines leave of GOLD_MAX -
+        // the engine's own test of a new shop.
+        std::vector<long long> meant(count, 0);
+        {
+            long long asked = ch->GetGold();
+            for (BYTE n = 0; n < count; ++n)
+                asked += std::max<long long>(0, (long long)table[n].price);
+            for (BYTE n = 0; n < count; ++n) {
+                const long long before = (long long)table[n].price;
+                const long long after = BotOfflineSlipPrice(ch->GetItem(table[n].pos), before,
+                        (long long)GOLD_MAX - 1 - (asked - before));
+                if (after == before) continue;
+                meant[n] = before;
+                table[n].price = after;
+                asked += after - before;
+            }
+        }
         // Keep the existing prices and selection, but revalidate every line,
         // including vertical grid cells, before OpenMyShop removes anything.
         std::set<WORD> cells;
@@ -312,6 +426,17 @@ namespace {
         if (now - state.dwSpawnTime < 120000) return false;
         if (ch->GetGold() - aOfflineShopTime[duration].price < GetPlayerBotReservedGold(ch) ||
                 !BotOfflineBudget(now) || !Begin(ch->GetPlayerID(), Create, 0, now)) return false;
+        // What goes up, read while the items are still in the bag: the create
+        // takes them out of it.
+        struct TPlayerBotNewLine { DWORD id, vnum, skill, count; BYTE refine; };
+        std::vector<TPlayerBotNewLine> newLines;
+        newLines.reserve(count);
+        for (BYTE n = 0; n < count; ++n) {
+            LPITEM item = ch->GetItem(table[n].pos);
+            newLines.push_back(item ? TPlayerBotNewLine{ item->GetID(), item->GetVnum(),
+                    item->GetType() == ITEM_SKILLBOOK ? (DWORD)item->GetSocket(0) : 0U,
+                    (DWORD)item->GetCount(), (BYTE)item->GetRefineLevel() } : TPlayerBotNewLine{});
+        }
         ch->OpenMyShop(sign, table, count, duration);
         bool sent = EndCall(ch->GetPlayerID());
         state.dwNextShopKeepTime = now + (sent ? 600000 : 120000);
@@ -320,6 +445,30 @@ namespace {
         state.vecShopOffers.clear(); // native ownership, not the old inventory mirror
         sys_log(0, "PLAYERBOT_OFFLINE: create pid=%u sent=%d lines=%u map=%ld sign=\"%s\"",
             ch->GetPlayerID(), sent, unsigned(count), ch->GetMapIndex(), sign);
+        if (sent) {
+            // The new stand's lines go on the ledger's counts at once, as a
+            // reopen's and every add's do. It waited for the next ledger, up to
+            // a minute, and the caps those counts hold - Iwakura's junk weapons,
+            // the weak armour and jewels by family, the mission books of a
+            // village - could be overrun by every keeper that opened a stand in
+            // that minute (Iwakura's audit, R5). A slip is no bot's supply.
+            const long standMap = ch->GetMapIndex();
+            for (BYTE n = 0; n < count; ++n) {
+                const TPlayerBotNewLine& line = newLines[n];
+                if (!line.vnum) continue;
+                if (!meant[n])
+                    AddPlayerBotMarketSupply(line.vnum, (WORD)line.count, standMap);
+                NotePlayerBotCappedLineOnCounter(line.vnum, (int)line.count);
+                NotePlayerBotMissionBooksOnCounter(standMap, line.vnum, (int)line.count);
+                if (!meant[n]) continue;
+                state.offlineShop.listed[line.id] = playerbot_offline::ListedLine{
+                    line.vnum, line.skill, now, line.refine };
+                BotOfflineRememberSlip(state, line.id, now);
+                sys_log(0, "PLAYERBOT_OFFLINE: price slip pid=%u name=%s item=%u vnum=%u count=%u price=%lld meant=%lld at=create",
+                    ch->GetPlayerID(), ch->GetName(), line.id, line.vnum, (unsigned int)line.count,
+                    (long long)table[n].price, meant[n]);
+            }
+        }
         if (!sent) {
             // OpenMyShop refuses silently - a chat line to a descriptor nobody
             // reads - and refuses the whole shop over one condition, so name
@@ -362,11 +511,14 @@ namespace {
             const DWORD vnum = haveListing && known->second.vnum ? known->second.vnum : line.vnum;
             const BYTE refine = haveListing ? (BYTE)known->second.refine : (BYTE)0;
             const DWORD skill = haveListing ? (DWORD)known->second.skill : 0U;
+            // A slip a person paid - one zero too many - says nothing of what
+            // the market wants, however fast it went.
+            const bool slip = haveListing && known->second.slippedAt != 0;
             // A line that left within PLAYERBOT_MARKET_FAST_SALE_MS of going
             // up is Iwakura's "wysoki popyt": the next counter carrying this
             // thing asks more. A line whose listing time this core never saw -
             // it went up before the last restart - is sold, but not timed.
-            if (haveListing && known->second.when != 0 &&
+            if (haveListing && known->second.when != 0 && !slip &&
                     now - known->second.when < PLAYERBOT_MARKET_FAST_SALE_MS) {
                 NotePlayerBotFastSale(vnum, refine, now, skill);
                 sys_log(0, "PLAYERBOT_MARKET: fast sale pid=%u name=%s vnum=%u+%u skill=%u in=%u s",
@@ -381,10 +533,10 @@ namespace {
             // Every sale with how long its line stood, which is what the work on
             // unsold stock has to be measured by. -1 for a line this core never
             // saw go up: a restart inherited it, and its age is not known.
-            sys_log(0, "PLAYERBOT_OFFLINE: sold pid=%u name=%s vnum=%u skill=%u count=%u price=%lld listed_s=%d",
+            sys_log(0, "PLAYERBOT_OFFLINE: sold pid=%u name=%s vnum=%u skill=%u count=%u price=%lld listed_s=%d slip=%d",
                 ch->GetPlayerID(), ch->GetName(), vnum, skill, (unsigned int)line.count,
                 (long long)line.price, haveListing && known->second.when != 0
-                    ? (int)((now - known->second.when) / 1000) : -1);
+                    ? (int)((now - known->second.when) / 1000) : -1, slip ? 1 : 0);
             if (haveListing) o.listed.erase(known);
         }
         playerbot_offline::sold.erase(it);
@@ -1069,6 +1221,22 @@ namespace {
             if (BotOfflineReclaimLine(ch, state, shop, now, gain) != 0)
                 o.nextService = now;
         }
+        // Nor does a slipped price whose four hours are nearly out, whatever
+        // the round says - a dropper's hour, a far keeper's forty-five minutes
+        // (Community Patch 5, point 6); looked for once a minute, and put right
+        // first thing at the counter. A stand this keeper cannot serve from
+        // here - the other channel's, another kingdom's - is the core's to put
+        // right (CorrectPlayerBotStandingSlips), not a reason to call it; and
+        // the first thirty seconds after a spawn are the shop list's, as above.
+        if (!o.visiting && shop && Due(now, o.nextSlipProbe) && now - state.dwSpawnTime >= 30000 &&
+                shop->GetSpawn().channel == g_bChannel && IsPlayerBotMapHostedHere(shop->GetSpawn().map) &&
+                playerbot_empire_rules::GetMapOwnerEmpire(shop->GetSpawn().map) == ch->GetEmpire()) {
+            o.nextSlipProbe = now + PLAYERBOT_OFFLINE_SLIP_PROBE_MS;
+            long long normal = 0;
+            int ageMin = -1;
+            if (BotOfflineDueSlipLine(ch, state, shop, now, normal, ageMin) != 0)
+                o.nextService = now;
+        }
         if (!Due(now, o.nextService)) return false;
         // A purchase under way comes first. A service visit opens the board,
         // and the buyer gives its pick up to anybody with the board open: four
@@ -1168,11 +1336,16 @@ namespace {
         // (PLAYERBOT_OFFLINE_FAR_SERVICE_MIN_MS): two map changes a visit for
         // every keeper out on the frontier was most of the gates' traffic. An
         // empty hand with a weapon on its own counter does not wait (the
-        // reclaim probe above), nor does the first visit after a start.
+        // reclaim probe above), nor does the first visit after a start, nor a
+        // slipped price whose time is out (the slip probe above).
         if (!o.visiting && ch->GetMapIndex() != serviceMap && ch->GetWear(WEAR_WEAPON) &&
                 o.lastServedAt != 0 && !Due(now, o.lastServedAt + PLAYERBOT_OFFLINE_FAR_SERVICE_MIN_MS)) {
-            o.nextService = now + PLAYERBOT_OFFLINE_FAR_SERVICE_RETRY_MS;
-            return false;
+            long long normal = 0;
+            int ageMin = -1;
+            if (!BotOfflineDueSlipLine(ch, state, shop, now, normal, ageMin)) {
+                o.nextService = now + PLAYERBOT_OFFLINE_FAR_SERVICE_RETRY_MS;
+                return false;
+            }
         }
         if (!o.visiting) {
             o.visiting = true;
@@ -1199,7 +1372,12 @@ namespace {
         // A visit that reprices adds nothing - the restock loop below stops at
         // once on the same test - so it cuts no line: the cut would only be
         // poured back by the merge pass, after a whole bag's scoring for it.
-        if (!o.restockTurn && o.nextReprice && Due(now, o.nextReprice) && !shop->GetItems().empty())
+        // Nor does one that puts a slipped price right (below, once the board
+        // is open).
+        long long slipNormal = 0;
+        int slipAgeMin = -1;
+        const DWORD dueSlip = BotOfflineDueSlipLine(ch, state, shop, now, slipNormal, slipAgeMin);
+        if (dueSlip || (!o.restockTurn && o.nextReprice && Due(now, o.nextReprice) && !shop->GetItems().empty()))
             o.preparedItem = 0;
         else
             BotOfflinePrepareVisitLine(ch, state, shop);
@@ -1324,6 +1502,16 @@ namespace {
             BotOfflineFinishVisit(ch, state, now);
             return false;
         }
+        // A slipped price whose time is out goes back to the price it meant
+        // before anything goes on or comes off (Community Patch 5, point 6:
+        // "po tym czasie bot automatycznie zmienia jego cene na normalna"). A
+        // step of its own, like every mutation of the board, and the rest of
+        // the visit two seconds on.
+        if (dueSlip && BotOfflineFixSlip(ch, state, dueSlip, slipNormal, slipAgeMin, now)) {
+            BotOfflineFinishVisit(ch, state, now);
+            BotOfflineChainVisit(state, now);
+            return false;
+        }
         // A line the counter would not take today comes off before anything
         // goes on - that is the operation of this visit. The stands already up
         // when the rule arrived held 2 409 such lines between them; a bag with
@@ -1388,23 +1576,17 @@ namespace {
             if (!item || !BotOfflineValid(ch, item, pos)) continue;
             ikashop::TPriceInfo price{};
             price.yang = std::max(GetPlayerBotShopAskingPrice(item), GetPlayerBotRefineInvestment(item));
-            // Iwakura's Patch 4, point 4, "ludzka pomylka": one listing in a
-            // thousand of a skill book, or of a refine material put up singly,
-            // asks one zero too many - up, never down ("bot wystawi Aure Miecza
-            // za 15kk zamiast 1,5kk"). Drawn by the item's id, so a line slips
-            // once and not at every visit; the hourly reprice may find it, the
-            // way a player finds his own. No bot pays it
-            // (PLAYERBOT_MARKET_MATERIAL_FAIR_MULTIPLE, the books' twice).
-            bool slipped = false;
-            if ((item->GetType() == ITEM_SKILLBOOK ||
-                    (IsPlayerBotTradeableMaterial(item) && item->GetCount() == 1)) &&
-                    playerbot_stall_rules::PriceSlips(PlayerBotNavHash(item->GetID() ^ 0x534c4950U)) &&
-                    price.yang > 0 && shop->GetTotalYangValue() < GOLD_MAX) {
-                const long long before = price.yang;
-                price.yang = playerbot_stall_rules::SlippedPrice(price.yang,
+            // Iwakura's "ludzka pomylka" (BotOfflineSlipPrice): a single book
+            // or a single refine material drawn to slip asks one zero too many.
+            // No bot buys it (IsPlayerBotPriceSlipOffer), and it stands four
+            // hours at most before its keeper puts it right
+            // (BotOfflineDueSlipLine) - or the hourly reprice finds it first,
+            // the way a player finds his own.
+            const long long meant = price.yang;
+            if (shop->GetTotalYangValue() < GOLD_MAX)
+                price.yang = BotOfflineSlipPrice(item, price.yang,
                         (long long)GOLD_MAX - 1 - (long long)shop->GetTotalYangValue());
-                slipped = price.yang != before;
-            }
+            const bool slipped = price.yang != meant;
             if (price.yang <= 0 || price.yang >= GOLD_MAX ||
                     shop->GetTotalYangValue() >= GOLD_MAX - price.yang) continue;
             DWORD id = item->GetID();
@@ -1423,14 +1605,18 @@ namespace {
                     // On the ledger at once, by its village, like a classic
                     // stall's lines: the next keeper there must not put the
                     // same material up against the player's floor in the
-                    // minute before the ledger is rebuilt.
-                    AddPlayerBotMarketSupply(item->GetVnum(), (WORD)item->GetCount(), shop->GetSpawn().map);
+                    // minute before the ledger is rebuilt. A slip is no bot's
+                    // supply.
+                    if (!slipped)
+                        AddPlayerBotMarketSupply(item->GetVnum(), (WORD)item->GetCount(), shop->GetSpawn().map);
                     NotePlayerBotCappedLineOnCounter(item->GetVnum(), (int)item->GetCount());
                     NotePlayerBotMissionBooksOnCounter(shop->GetSpawn().map, item->GetVnum(), (int)item->GetCount());
-                    if (slipped)
-                        sys_log(0, "PLAYERBOT_OFFLINE: price slip pid=%u name=%s item=%u vnum=%u count=%u price=%lld",
+                    if (slipped) {
+                        BotOfflineRememberSlip(state, id, now);
+                        sys_log(0, "PLAYERBOT_OFFLINE: price slip pid=%u name=%s item=%u vnum=%u count=%u price=%lld meant=%lld at=add",
                             ch->GetPlayerID(), ch->GetName(), id, item->GetVnum(),
-                            (unsigned int)item->GetCount(), (long long)price.yang);
+                            (unsigned int)item->GetCount(), (long long)price.yang, meant);
+                    }
                 }
             }
             break; // one item a step; a step that added one chains the next

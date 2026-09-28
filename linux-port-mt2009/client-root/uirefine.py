@@ -416,6 +416,10 @@ class RefineDialogNew(ui.ScriptWindow):
 	def UpdateDialog(self):
 		newWidth = self.toolTip.GetWidth() + 60
 		newHeight = self.dialogHeight + 69
+		# The chance line stands 70 above the bottom and the last material's
+		# row reached 61 above it: shown, it has a row of its own.
+		if constInfo.ENABLE_REFINE_PCT and getattr(self, "percentage", 0) > 0:
+			newHeight += 16
 
 		##if 936 == app.GetDefaultCodePage():
 		newHeight -= 8

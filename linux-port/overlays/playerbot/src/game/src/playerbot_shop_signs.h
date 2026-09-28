@@ -103,27 +103,14 @@ namespace
 			const TPlayerBotSignBonusLabel* label = FindPlayerBotSignBonusLabel(type);
 			if (type == 0 || value <= 0 || !label)
 				continue;
-			int pct = 0;
-			if (slot == PRICE_SLOT_WEAPON && type == APPLY_NORMAL_HIT_DAMAGE_BONUS)
-				pct = GetPlayerBotDamageTierPct(PLAYERBOT_AVERAGE_DAMAGE_TIERS,
-						sizeof(PLAYERBOT_AVERAGE_DAMAGE_TIERS) / sizeof(PLAYERBOT_AVERAGE_DAMAGE_TIERS[0]), value);
-			else if (slot == PRICE_SLOT_WEAPON && type == APPLY_SKILL_DAMAGE_BONUS)
-				pct = GetPlayerBotDamageTierPct(PLAYERBOT_SKILL_DAMAGE_TIERS,
-						sizeof(PLAYERBOT_SKILL_DAMAGE_TIERS) / sizeof(PLAYERBOT_SKILL_DAMAGE_TIERS[0]), value);
-			else
-			{
-				for (size_t r = 0; r < sizeof(PLAYERBOT_BONUS_PRICE_ROWS) / sizeof(PLAYERBOT_BONUS_PRICE_ROWS[0]); ++r)
-				{
-					const TPlayerBotBonusPriceRow& row = PLAYERBOT_BONUS_PRICE_ROWS[r];
-					if (row.bApply != type || (row.bSlots & slot) == 0 ||
-							level < row.bMinLevel || level > row.bMaxLevel)
-						continue;
-					const long maxRoll = GetPlayerBotBonusMaxRoll(item, type);
-					if (maxRoll > 0 && value >= maxRoll)
-						pct = row.wMaxPct;
-					break;
-				}
-			}
+			// The price's own question (GetPlayerBotBonusLinePct): a damage line
+			// by its tier, any other line only at its top.
+			bool atTop = false;
+			int pct = GetPlayerBotBonusLinePct(item, slot, level, type, value, &atTop);
+			const bool damageLine = slot == PRICE_SLOT_WEAPON &&
+					(type == APPLY_NORMAL_HIT_DAMAGE_BONUS || type == APPLY_SKILL_DAMAGE_BONUS);
+			if (!damageLine && !atTop)
+				pct = 0;
 			if (pct >= playerbot_shop_names::SIGN_BONUS_MIN_PCT && pct > bestPct)
 			{
 				bestPct = pct;

@@ -770,7 +770,10 @@ int main()
 		assert(PERSONA_GRINDER == 0 && PERSONA_TOWARZYSZ == 9);
 		assert(PERSONA_TITLE_BASE + PERSONA_TOWARZYSZ == 109);
 		// Iwakura's Patch 3, point 7: the rare ones after them, 110 to 114.
-		assert(PERSONA_METINOLOG == 10 && PERSONA_WEDKARZ == 14 && PERSONA_COUNT == 15);
+		assert(PERSONA_METINOLOG == 10 && PERSONA_WEDKARZ == 14);
+		// Community Patch 5, point 1: the four gamblers after those, 115 to 118.
+		assert(PERSONA_HAZ_MLODSZY == 15 && PERSONA_HAZ_SZALONY == 18 && PERSONA_COUNT == 19);
+		assert(PERSONA_TITLE_BASE + PERSONA_HAZ_SZALONY == 118);
 		assert(PERSONA_TITLE_BASE + PERSONA_EGZEKUTOR == 113);
 	}
 
@@ -795,7 +798,8 @@ int main()
 		assert(metin.minMinutes == 120 && metin.maxMinutes == 250 && metin.capByEligible);
 		assert(GetRareRule(RARE_NALOGOWIEC).oneIn == 1000 && GetRareRule(RARE_NALOGOWIEC).worldPauseMin == 240);
 		assert(GetRareRule(RARE_NAUKOWIEC).oneIn == 500 && GetRareRule(RARE_NAUKOWIEC).worldPauseMin == 480);
-		assert(GetRareRule(RARE_EGZEKUTOR).oneIn == 300 && GetRareRule(RARE_EGZEKUTOR).worldPauseMin == 180);
+		// Community Patch 5, point 12: one in 400 and five hours.
+		assert(GetRareRule(RARE_EGZEKUTOR).oneIn == 400 && GetRareRule(RARE_EGZEKUTOR).worldPauseMin == 300);
 		assert(GetRareRule(RARE_EGZEKUTOR).minMinutes == 120 && GetRareRule(RARE_EGZEKUTOR).maxMinutes == 120);
 		assert(GetRareRule(RARE_WEDKARZ).oneIn == 600 && GetRareRule(RARE_WEDKARZ).worldPauseMin == 720);
 		assert(GetRareRule(RARE_WEDKARZ).minMinutes == 360);
@@ -911,6 +915,88 @@ int main()
 		const int cohort = (int)(lastPid - firstPid + 1);
 		// A shared draw put every bot here; chance alone puts about a seventh.
 		assert(sameOffset * 3 < cohort);
+	}
+
+	// --- Community Patch 5, point 1: the four gamblers --------------------------
+	{
+		// Their draws: one in 250, 300, 350 and 1000 of the bots that qualify,
+		// capped by those, four, six, eight and sixteen hours apart.
+		const uint8_t kinds[4] = { RARE_HAZ_MLODSZY, RARE_HAZ_STARSZY, RARE_HAZ_NACZELNY, RARE_HAZ_SZALONY };
+		const uint8_t personas[4] = { PERSONA_HAZ_MLODSZY, PERSONA_HAZ_STARSZY, PERSONA_HAZ_NACZELNY, PERSONA_HAZ_SZALONY };
+		const uint32_t oneIn[4] = { 250, 300, 350, 1000 };
+		const uint32_t pause[4] = { 240, 360, 480, 960 };
+		const uint8_t top[4] = { 60, 40, 25, 15 };
+		const uint8_t budget[4] = { 80, 70, 60, 90 };
+		for (int i = 0; i < 4; ++i)
+		{
+			assert(IsRareGambler(kinds[i]));
+			const TRareRule r = GetRareRule(kinds[i]);
+			assert(r.persona == personas[i] && r.oneIn == oneIn[i] && r.worldPauseMin == pause[i]);
+			assert(r.capByEligible);
+			assert(RareCap(r, oneIn[i] * 3) == 3 && RareCap(r, 1) == 1 && RareCap(r, 0) == 0);
+			const TGamblerTerms t = GetGamblerTerms(kinds[i]);
+			assert(t.topPercent == top[i] && t.budgetPercent == budget[i]);
+			assert(t.everything == (kinds[i] == RARE_HAZ_SZALONY));
+			// The bases bought, always within the terms.
+			for (uint32_t roll = 0; roll < 50; ++roll)
+			{
+				const uint8_t n = GamblerBuyCount(t, roll);
+				assert(n >= t.buyMin && n <= t.buyMax);
+			}
+		}
+		assert(!IsRareGambler(RARE_METINOLOG) && !IsRareGambler(RARE_WEDKARZ) && !IsRareGambler(RARE_NONE));
+		assert(GetGamblerTerms(RARE_EGZEKUTOR).budgetPercent == 0);
+		// The Mlodszy buys one to three, the Naczelny three to six.
+		assert(GamblerBuyCount(GetGamblerTerms(RARE_HAZ_MLODSZY), 0) == 1);
+		assert(GamblerBuyCount(GetGamblerTerms(RARE_HAZ_MLODSZY), 2) == 3);
+		assert(GamblerBuyCount(GetGamblerTerms(RARE_HAZ_NACZELNY), 3) == 6);
+
+		// The category it holds most of, and any other it holds as many of;
+		// the Szalony every category that holds any; nothing from an empty bag.
+		{
+			const unsigned int none[GAMBLE_CAT_COUNT] = { 0, 0, 0, 0 };
+			assert(ChooseGambleCategories(none, false) == 0 && ChooseGambleCategories(none, true) == 0);
+			const unsigned int weapons[GAMBLE_CAT_COUNT] = { 3, 1, 0, 2 };
+			assert(ChooseGambleCategories(weapons, false) == (1u << GAMBLE_CAT_WEAPON));
+			assert(ChooseGambleCategories(weapons, true)
+					== ((1u << GAMBLE_CAT_WEAPON) | (1u << GAMBLE_CAT_ARMOUR) | (1u << GAMBLE_CAT_JEWEL)));
+			const unsigned int tie[GAMBLE_CAT_COUNT] = { 2, 2, 0, 1 };
+			assert(ChooseGambleCategories(tie, false) == ((1u << GAMBLE_CAT_WEAPON) | (1u << GAMBLE_CAT_ARMOUR)));
+		}
+		assert(GambleCategoryMinLevel(GAMBLE_CAT_WEAPON) == 30 && GambleCategoryMinLevel(GAMBLE_CAT_ARMOUR) == 26);
+		assert(GambleCategoryMinLevel(GAMBLE_CAT_SHIELD_HELMET) == 21 && GambleCategoryMinLevel(GAMBLE_CAT_JEWEL) == 22);
+
+		// +7 seven times in ten, +8 and +9 fifteen each.
+		{
+			int seen[10] = {};
+			for (uint32_t roll = 0; roll < 1000; ++roll)
+				++seen[RollRareGambleTarget(roll)];
+			assert(seen[7] == 700 && seen[8] == 150 && seen[9] == 150);
+		}
+
+		// The plain anvil to +6; each step to +7, +8 and +9 under a scroll while
+		// the bag holds one, at the plain anvil when it does not.
+		assert(NextRareGambleStep(0, 7, true) == GAMBLE_STEP_PLAIN);
+		assert(NextRareGambleStep(5, 7, true) == GAMBLE_STEP_PLAIN);
+		assert(NextRareGambleStep(6, 7, true) == GAMBLE_STEP_SCROLL);
+		assert(NextRareGambleStep(6, 7, false) == GAMBLE_STEP_PLAIN);
+		assert(NextRareGambleStep(8, 9, true) == GAMBLE_STEP_SCROLL);
+		assert(NextRareGambleStep(7, 7, true) == GAMBLE_STEP_DONE);
+		assert(NextRareGambleStep(9, 9, false) == GAMBLE_STEP_DONE);
+
+		// The richest share: the purse at the share's edge, a tie at it in.
+		{
+			std::vector<long long> purses;
+			for (long long g = 100; g >= 1; --g)
+				purses.push_back(g * 1000);
+			assert(WealthBar(purses, 60) == 41000);
+			assert(WealthBar(purses, 15) == 86000);
+			assert(WealthBar(purses, 100) == 1000);
+			assert(WealthBar(purses, 0) == -1);
+			assert(WealthBar(std::vector<long long>(), 60) == -1);
+			// One character: it is the whole world, and so the richest share.
+			assert(WealthBar(std::vector<long long>{ 5 }, 15) == 5);
+		}
 	}
 
 	std::printf("playerbot_persona_rules: all tests passed\n");

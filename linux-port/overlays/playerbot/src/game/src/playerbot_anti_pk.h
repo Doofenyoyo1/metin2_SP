@@ -761,8 +761,8 @@ namespace
 			return false;
 		if (KeepPlayerBotAliveAtWar(ch, state, dwNow))
 			return true;
-		if (ch->IsRiding() && !CanPlayerBotEverFightOnHorse(ch))
-			SetPlayerBotRidingForTravel(ch, state, false, dwNow, "anti_pk");
+		// On foot, with the horse sent away, as in a duel.
+		SendPlayerBotHorseAwayForFight(ch, state, dwNow, "anti_pk");
 		DrinkPlayerBotCraftedPotion(ch, foe, dwNow, true);
 
 		state.dwTargetVID = (DWORD)foe->GetVID();

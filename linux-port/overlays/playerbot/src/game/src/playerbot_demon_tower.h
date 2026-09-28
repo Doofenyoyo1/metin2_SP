@@ -115,10 +115,6 @@ namespace
 		// told (AnnouncePlayerBotTowerReaper).
 		bool bReaperSeen;
 		bool bReaperDown;
-		// Whose run this is for the kingdom rule (GetPlayerBotTowerRunKingdom),
-		// and when a person was last looked for in it.
-		BYTE bKingdom;
-		DWORD dwKingdomLookedAt;
 		// The bots that have had their turn at the sixth floor's smith, and
 		// when each began its turn (PLAYERBOT_TOWER_SMITH_TURN_MS).
 		std::set<DWORD> smithServed;
@@ -127,8 +123,7 @@ namespace
 		TPlayerBotTowerRun() :
 			iLevel(-1), iAlive(-1), dwEnteredAt(0), dwLevelSince(0), dwLastProgress(0),
 			dwSmithSince(0), bSmithDone(false), bEnding(false), pszEnd(""), dwNextReport(0),
-			bSeventhPhase(SEVENTH_UNKNOWN), dwSeventhPhaseSince(0), bReaperSeen(false), bReaperDown(false),
-			bKingdom(0), dwKingdomLookedAt(0) {}
+			bSeventhPhase(SEVENTH_UNKNOWN), dwSeventhPhaseSince(0), bReaperSeen(false), bReaperDown(false) {}
 	};
 	std::map<long, TPlayerBotTowerRun> s_mapPlayerBotTowerRuns;
 
@@ -184,12 +179,26 @@ namespace
 		// objective is chosen from here, not from each bot, so the sixteen
 		// fight the same few demons in one place instead of sixteen different
 		// ones across the floor - spread over the seventh floor they died 253
-		// times in eight minutes.
+		// times in eight minutes. A bot standing up after a fall is invisible
+		// and fights nobody, so it is no part of it: counted in, it drew the
+		// pack's centre after itself wherever it had fallen.
 		long packX;
 		long packY;
 		int packN;
+		// Where a bot that fell walks back to (RegroupPlayerBotTowerAfterDeath):
+		// the pack's bot nearest its centre - a point somebody stands on,
+		// where the centre of two clumps can be the middle of a group of
+		// demons - or a person in the run when no bot stands.
+		bool hasAnchor;
+		long anchorX;
+		long anchorY;
+		std::vector<std::pair<long, long> > packBots;
+		bool hasPerson;
+		long personX;
+		long personY;
 
-		TPlayerBotTowerScan() : dwScannedAt(0), alive(0), monsters(0), upperBots(0), packX(0), packY(0), packN(0) {}
+		TPlayerBotTowerScan() : dwScannedAt(0), alive(0), monsters(0), upperBots(0), packX(0), packY(0), packN(0),
+			hasAnchor(false), anchorX(0), anchorY(0), hasPerson(false), personX(0), personY(0) {}
 	};
 	std::map<long, TPlayerBotTowerScan> s_mapPlayerBotTowerScans;
 
@@ -205,14 +214,26 @@ namespace
 			LPCHARACTER c = (LPCHARACTER)ent;
 			if (c->IsPC())
 			{
-				if (!c->IsDead() && c->GetDesc() && c->GetDesc()->IsBot())
+				if (c->IsDead() || !c->GetDesc())
+					return;
+				if (!c->GetDesc()->IsBot())
 				{
-					if (c->GetLevel() >= PLAYERBOT_TOWER_UPPER_LEVEL)
-						++m_scan.upperBots;
-					m_scan.packX += c->GetX();
-					m_scan.packY += c->GetY();
-					++m_scan.packN;
+					if (!m_scan.hasPerson && !c->IsAffectFlag(AFF_REVIVE_INVISIBLE))
+					{
+						m_scan.hasPerson = true;
+						m_scan.personX = c->GetX();
+						m_scan.personY = c->GetY();
+					}
+					return;
 				}
+				if (c->GetLevel() >= PLAYERBOT_TOWER_UPPER_LEVEL)
+					++m_scan.upperBots;
+				if (c->IsAffectFlag(AFF_REVIVE_INVISIBLE))
+					return;
+				m_scan.packX += c->GetX();
+				m_scan.packY += c->GetY();
+				++m_scan.packN;
+				m_scan.packBots.push_back(std::make_pair(c->GetX(), c->GetY()));
 				return;
 			}
 			if (c->IsDead())
@@ -248,6 +269,9 @@ namespace
 		scan.packX = 0;
 		scan.packY = 0;
 		scan.packN = 0;
+		scan.hasAnchor = false;
+		scan.packBots.clear();
+		scan.hasPerson = false;
 		LPSECTREE_MAP pMap = SECTREE_MANAGER::instance().GetMap(lMapIndex);
 		if (!pMap)
 			return &scan;
@@ -257,8 +281,31 @@ namespace
 		{
 			scan.packX /= scan.packN;
 			scan.packY /= scan.packN;
+			int best = INT_MAX;
+			for (size_t i = 0; i < scan.packBots.size(); ++i)
+			{
+				const int distance = DISTANCE_APPROX(scan.packBots[i].first - scan.packX,
+						scan.packBots[i].second - scan.packY);
+				if (distance < best)
+				{
+					best = distance;
+					scan.hasAnchor = true;
+					scan.anchorX = scan.packBots[i].first;
+					scan.anchorY = scan.packBots[i].second;
+				}
+			}
 		}
 		return &scan;
+	}
+
+	// A scanned monster or stone as it stands now, or NULL: the scan is up to
+	// PLAYERBOT_TOWER_SCAN_INTERVAL old, and a monster's corpse stays findable
+	// for ten seconds after it falls - a bot handed one swung at a corpse,
+	// or cast at it and lost the next swing, while the wave went on.
+	LPCHARACTER FindPlayerBotTowerLive(const TPlayerBotTowerEntity& e)
+	{
+		LPCHARACTER c = CHARACTER_MANAGER::instance().Find(e.vid);
+		return c && !c->IsDead() ? c : NULL;
 	}
 
 	LPCHARACTER FindPlayerBotTowerNpc(const TPlayerBotTowerScan* scan, DWORD raceFirst, DWORD raceLast,
@@ -282,14 +329,19 @@ namespace
 	}
 
 	// Monsters standing within radius of a point: a stone with none about it
-	// is broken without being surrounded.
+	// is broken without being surrounded. The dead are not counted - counted,
+	// a wave already killed kept the seventh floor's stone "waiting" with
+	// nothing left to fight first.
 	int CountPlayerBotTowerMonstersNear(const TPlayerBotTowerScan* scan, long x, long y, int radius)
 	{
 		int n = 0;
 		for (size_t i = 0; scan && i < scan->entities.size(); ++i)
 		{
 			const TPlayerBotTowerEntity& e = scan->entities[i];
-			if (!e.npc && !e.stone && DISTANCE_APPROX(x - e.x, y - e.y) <= radius)
+			if (e.npc || e.stone)
+				continue;
+			LPCHARACTER c = FindPlayerBotTowerLive(e);
+			if (c && DISTANCE_APPROX(x - c->GetX(), y - c->GetY()) <= radius)
 				++n;
 		}
 		return n;
@@ -398,23 +450,6 @@ namespace
 		return f.m_person;
 	}
 
-	// Whose run an instance is: the raiding bot guild's kingdom, or the
-	// kingdom of the person climbing in it; 0 for a run of bystanders.
-	BYTE GetPlayerBotTowerRunKingdom(long map, TPlayerBotTowerRun& run, DWORD dwNow)
-	{
-		const TPlayerBotTowerRaid& raid = s_PlayerBotTowerRaid;
-		if (raid.bPhase == TOWER_PHASE_INSIDE && raid.lInstance == map)
-			return raid.bEmpire;
-		if (run.bKingdom == 0 && (run.dwKingdomLookedAt == 0 || dwNow - run.dwKingdomLookedAt > 10000))
-		{
-			run.dwKingdomLookedAt = dwNow;
-			LPCHARACTER person = FindPlayerBotTowerPerson(map);
-			if (person)
-				run.bKingdom = person->GetEmpire();
-		}
-		return run.bKingdom;
-	}
-
 	// The Reaper's fall is news: "powiadomienie na chacie ze rajd tej i tej
 	// gildii pokonal umarlego rozpruwacza" (prodnathin, 25 September). A bot
 	// guild's raid is named after its guild; a person's run with bots in it
@@ -510,7 +545,7 @@ namespace
 	LPCHARACTER PickPlayerBotTowerObjective(LPCHARACTER ch, const TPlayerBotTowerScan* scan, int level,
 			bool parterStone, int maxDistance)
 	{
-		DWORD bestVid = 0;
+		LPCHARACTER best = NULL;
 		int bestScore = INT_MIN;
 		bool bestShared = false;
 		// The ordinary monsters that passed every test below, with their
@@ -550,7 +585,8 @@ namespace
 		if (fromPack && level == 5 && !threatened && !seventhFromBot)
 		{
 			for (size_t i = 0; i < scan->entities.size(); ++i)
-				if (scan->entities[i].stone && scan->entities[i].race != PLAYERBOT_DEVIL_TOWER_STONE_FIRST)
+				if (scan->entities[i].stone && scan->entities[i].race != PLAYERBOT_DEVIL_TOWER_STONE_FIRST &&
+						FindPlayerBotTowerLive(scan->entities[i]))
 				{
 					fromX = scan->entities[i].x;
 					fromY = scan->entities[i].y;
@@ -575,9 +611,15 @@ namespace
 			const bool first = e.stone && e.race == PLAYERBOT_DEVIL_TOWER_STONE_FIRST;
 			if (parterStone ? !first : first)
 				continue;
-			if (onFloor && DISTANCE_APPROX(floorX - e.x, floorY - e.y) > PLAYERBOT_TOWER_FLOOR_RADIUS)
+			// Measured where it stands now, and never a corpse.
+			LPCHARACTER c = FindPlayerBotTowerLive(e);
+			if (!c || c->GetMapIndex() != ch->GetMapIndex())
 				continue;
-			const int distance = DISTANCE_APPROX(ch->GetX() - e.x, ch->GetY() - e.y);
+			const long ex = c->GetX();
+			const long ey = c->GetY();
+			if (onFloor && DISTANCE_APPROX(floorX - ex, floorY - ey) > PLAYERBOT_TOWER_FLOOR_RADIUS)
+				continue;
+			const int distance = DISTANCE_APPROX(ch->GetX() - ex, ch->GetY() - ey);
 			if (maxDistance > 0 && distance > maxDistance)
 				continue;
 			// A stone on a floor still full of monsters is broken only once nothing
@@ -585,11 +627,11 @@ namespace
 			// kills (140-170 alive for ten minutes), so "the floor is clear" would
 			// never come, while the ground round the stone does clear.
 			if (!parterStone && e.stone && !stonesNow &&
-					CountPlayerBotTowerMonstersNear(scan, e.x, e.y, PLAYERBOT_TOWER_STONE_CLEAR_RADIUS) > 0)
+					CountPlayerBotTowerMonstersNear(scan, ex, ey, PLAYERBOT_TOWER_STONE_CLEAR_RADIUS) > 0)
 				continue;
 			if (!parterStone && e.stone && (threatened || seventhNoStone))
 				continue;
-			const int fromDistance = DISTANCE_APPROX(fromX - e.x, fromY - e.y);
+			const int fromDistance = DISTANCE_APPROX(fromX - ex, fromY - ey);
 			const bool shared = parterStone || e.stone || e.boss;
 			int score = -fromDistance;
 			if (!parterStone && e.stone)
@@ -601,15 +643,22 @@ namespace
 			if (score > bestScore)
 			{
 				bestScore = score;
-				bestVid = e.vid;
+				best = c;
 				bestShared = shared;
 			}
 		}
 		// No stone or boss outranks the monsters: this bot's share of them.
 		// Only the ones within SPREAD_RANGE beyond the nearest count, and no
-		// more of them than the pack has bots for. Ranked from each bot itself
-		// (the seventh floor's demons) the nearest is already every bot's own.
-		if (!bestShared && !seventhFromBot && spread.size() > 1 && scan->packN > PLAYERBOT_TOWER_BOTS_PER_MONSTER)
+		// more of them than the pack has bots for. The seventh floor's demons
+		// are the one fight where the nearest is already every bot's own: they
+		// stand all over the floor, and each bot fights where it is. Beside the
+		// Metin of Murder the pack stands in a knot at the stone and its waves
+		// come out of one square round it, so each bot's nearest was the same
+		// monster, held by all of them until it fell ("kazdy obiera ten sam
+		// cel", prodnathin, 27 September): there each takes its share of the
+		// few nearest itself.
+		if (!bestShared && seventh != SEVENTH_DEMONS && spread.size() > 1 &&
+				scan->packN > PLAYERBOT_TOWER_BOTS_PER_MONSTER)
 		{
 			std::sort(spread.begin(), spread.end());
 			const int limit = spread.front().first + PLAYERBOT_TOWER_SPREAD_RANGE;
@@ -620,9 +669,10 @@ namespace
 					PLAYERBOT_TOWER_BOTS_PER_MONSTER);
 			const size_t choices = std::min(nearby, wanted);
 			if (choices > 1)
-				bestVid = spread[PlayerBotNavHash(ch->GetPlayerID() ^ 0x53505244U) % choices].second;
+				best = CHARACTER_MANAGER::instance().Find(
+						spread[PlayerBotNavHash(ch->GetPlayerID() ^ 0x53505244U) % choices].second);
 		}
-		return bestVid ? CHARACTER_MANAGER::instance().Find(bestVid) : NULL;
+		return best;
 	}
 
 	// ------------------------------------------------------------ the rules
@@ -679,7 +729,7 @@ namespace
 			if (e.npc || e.stone)
 				continue;
 			const int distance = DISTANCE_APPROX(x - e.x, y - e.y);
-			if (distance < bestDistance)
+			if (distance < bestDistance && FindPlayerBotTowerLive(e))
 			{
 				bestDistance = distance;
 				best = &e;
@@ -891,13 +941,16 @@ namespace
 
 	// What the tick does for a bot's life before the fight, and this pass
 	// claims the tick above all of it: standing up after a death, the potions,
-	// and breaking off at PLAYERBOT_RECOVERY_INITIAL_HP_PERCENT.
-	bool KeepPlayerBotTowerAlive(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	// and breaking off at PLAYERBOT_RECOVERY_INITIAL_HP_PERCENT. The boss
+	// raids, the Catacomb and the timed events ask it too, at the hunt's
+	// potion thresholds; a tower floor drinks at its own.
+	bool KeepPlayerBotTowerAlive(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow,
+			int hpPercent = PLAYERBOT_POTION_HP_PERCENT, int spPercent = PLAYERBOT_POTION_SP_PERCENT)
 	{
 		if (HandlePostDeathRecovery(ch, state, dwNow))
 			return true;
-		UseHealthPotion(ch, state, dwNow);
-		UseManaPotion(ch, state, dwNow);
+		UseHealthPotion(ch, state, dwNow, hpPercent);
+		UseManaPotion(ch, state, dwNow, spPercent);
 		if (!state.bRecoveringAfterDeath && ch->GetMaxHP() > 0 &&
 				ch->GetHP() * 100 <= ch->GetMaxHP() * PLAYERBOT_RECOVERY_INITIAL_HP_PERCENT)
 		{
@@ -915,6 +968,82 @@ namespace
 			return true;
 		}
 		return false;
+	}
+
+	// A bot that falls on a floor stands up where it fell, with a fifth of its
+	// health and invisible for a few seconds, and the recovery every map gives
+	// it then walked it a thousand units from the spot, in a direction its pid
+	// drew. On a floor that was away from the pack and into the next group -
+	// the eighth floor's thirty-six respawn every minute and attack on sight
+	// within twenty metres - which followed it back, and a pack of half the old
+	// size could not clear the floor for its own dead ("po smierci odbiegaja w
+	// glab pietra i luruja kolejne grupy potworow - moglyby po smierci cofac
+	// sie do punktu startowego tego pietra", prodnathin, 26 September;
+	// "najwazniejsze", 27 September). Here it walks back to the pack instead,
+	// or to the floor's arrival - where the jump put everybody - when no bot
+	// of the pack stands; healing, drinking and invisible on the way, so it
+	// pulls nothing new, and what was already after it follows it into the
+	// pack, which is where a player would take it too. It fights again once
+	// it is healed and with the others, or REGROUP_MAX_MS after the fall
+	// wherever it has got to. The same for the break-off at
+	// PLAYERBOT_RECOVERY_INITIAL_HP_PERCENT, which is the fall a potion
+	// could not stop.
+	bool RegroupPlayerBotTowerAfterDeath(LPCHARACTER ch, TPlayerBotAIState& state,
+			const TPlayerBotTowerScan* scan, int level, DWORD dwNow)
+	{
+		if (!state.bRecoveringAfterDeath)
+			return false;
+		SetPlayerBotAction(state, BOT_ACTION_RECOVER, dwNow);
+		state.dwTargetVID = 0;
+		ch->SetVictim(NULL);
+		// The step away from the death spot is the open world's
+		// (HandlePostDeathRecovery), and never runs for this bot.
+		state.lDeathX = 0;
+		state.lDeathY = 0;
+		UseHealthPotion(ch, state, dwNow, PLAYERBOT_TOWER_POTION_HP_PERCENT);
+		UseManaPotion(ch, state, dwNow, PLAYERBOT_TOWER_POTION_SP_PERCENT);
+		const bool healed = RestHealPlayerBot(ch, state, dwNow);
+
+		long goalX = ch->GetX(), goalY = ch->GetY();
+		const char* to = "here";
+		if (scan && scan->hasAnchor)
+		{
+			goalX = scan->anchorX;
+			goalY = scan->anchorY;
+			to = "pack";
+		}
+		else if (scan && scan->hasPerson)
+		{
+			goalX = scan->personX;
+			goalY = scan->personY;
+			to = "person";
+		}
+		else if (GetPlayerBotTowerFloorCentre(level, goalX, goalY))
+			to = "arrival";
+		const int distance = DISTANCE_APPROX(ch->GetX() - goalX, ch->GetY() - goalY);
+		const bool arrived = distance <= PLAYERBOT_TOWER_REGROUP_RADIUS;
+		const DWORD sinceFall = dwNow - state.dwLastDeathTime;
+		if (healed && (arrived || sinceFall > PLAYERBOT_TOWER_REGROUP_MAX_MS))
+		{
+			sys_log(0, "PLAYERBOT_TOWER: regrouped pid=%u name=%s map=%ld floor=%d to=%s arrived=%d distance=%d hp=%d/%d after_s=%u",
+					ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), level + 2, to, arrived ? 1 : 0,
+					distance, ch->GetHP(), ch->GetMaxHP(), sinceFall / 1000U);
+			EndPlayerBotRecovery(ch, state);
+			return false;
+		}
+		KeepPlayerBotRecoveryHidden(ch, state, dwNow);
+		if (arrived)
+		{
+			if (ch->IsStateMove())
+				ch->Stop();
+			return true;
+		}
+		if (dwNow >= state.dwNextTowerMoveTime)
+		{
+			state.dwNextTowerMoveTime = dwNow + 1500;
+			MovePlayerBot(ch, goalX, goalY, dwNow, 8, true, false);
+		}
+		return true;
 	}
 
 	// A raid is a guild and not a party, so neither the party's buffs
@@ -1498,32 +1627,19 @@ namespace
 			return true;
 		}
 
-		// Nor does a bot of another kingdom than the run's climb in it: "oprocz
-		// gildii, ktora ma rajd bylem w stanie naliczyc z 8-15 botow z innych
-		// krolestw, ktore przeszkadzaja w rajdzie przez to, ze farmia na dt1"
-		// (prodnathin, 24 September). The stone's jump takes everybody on the
-		// ground floor, so a bystander of another kingdom is sent back out the
-		// way the quest's own exit sends a player. A bot in a person's party
-		// and a person's companion stay with the person.
-		{
-			const BYTE runKingdom = GetPlayerBotTowerRunKingdom(map, run, dwNow);
-			if (runKingdom != 0 && ch->GetEmpire() != runKingdom && state.dwTowerRaidGuild == 0 &&
-					!(ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty())) &&
-					!IsPlayerBotSidekickPID(ch->GetPlayerID()))
-			{
-				if (dwNow >= state.dwNextTowerMoveTime)
-				{
-					state.dwNextTowerMoveTime = dwNow + 5000;
-					sys_log(0, "PLAYERBOT_TOWER: another kingdom's run, leaving pid=%u name=%s empire=%u run_empire=%u map=%ld",
-							ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetEmpire(),
-							(unsigned int)runKingdom, map);
-					ch->ExitToSavedLocation();
-				}
-				return true;
-			}
-		}
+		// A bot of another kingdom than the run's climbs with it. 2.2.21 sent
+		// such a bystander out ("przeszkadzaja w rajdzie", prodnathin,
+		// 24 September), and the raids came in at half their size and died on
+		// the eighth floor for want of numbers; since 27 September every
+		// kingdom's bots may be in the tower - "maja prawo tam byc" (the operator) -
+		// and two bots never fight each other on its maps (playerbotify's
+		// apply_tower_bots_at_peace refuses the blow in battle_is_attackable,
+		// which CanPlayerBotStrikeCharacter asks for every foe).
 
-		if (KeepPlayerBotTowerAlive(ch, state, dwNow))
+		if (RegroupPlayerBotTowerAfterDeath(ch, state, scan, level, dwNow))
+			return true;
+		if (KeepPlayerBotTowerAlive(ch, state, dwNow, PLAYERBOT_TOWER_POTION_HP_PERCENT,
+				PLAYERBOT_TOWER_POTION_SP_PERCENT))
 			return true;
 		// A transport horse never fights; a battle horse's rider is asked about
 		// the foe itself (FightPlayerBotTowerObjective), a stone keeping it in
@@ -1534,6 +1650,10 @@ namespace
 			return true;
 		}
 		SetPlayerBotAction(state, BOT_ACTION_FIGHT, dwNow);
+		// The elixir and the boosters: the tick's potion block below the hook
+		// switches them on, and it never runs for a bot on a floor. Neither
+		// claims the tick.
+		UsePlayerBotBoosters(ch, state, dwNow);
 
 		// The floor's keys before the floor's fight.
 		if (level == 5)
@@ -1789,15 +1909,20 @@ namespace
 	}
 
 	// A player's guild: its bots come to the ground floor while their human
-	// master stands there, and stand by him until he breaks the stone.
+	// master stands there, and stand by him until he breaks the stone - unless
+	// he went in alone. The keeper at the door asks a guild master which
+	// (deviltower_zone.quest, the "solo" flag): "zazwyczaj chce wejsc na dt
+	// porobic misje ale cale stado botow mi to niezbyt ulatwia" (Remigiusz,
+	// 27 September). Bots already there go home the way they do when he leaves.
 	bool ManagePlayerBotTowerWithMaster(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		CGuild* guild = ch->GetGuild();
 		LPCHARACTER master = NULL;
 		if (guild && !CPlayerBotManager::instance().IsRegisteredBotPID(guild->GetMasterPID()))
 			master = guild->GetMasterCharacter();
+		const bool alone = master && master->GetQuestFlag("deviltower_zone.solo") > 0;
 		const bool summoned = master && master != ch && !master->IsDead() &&
-				master->GetMapIndex() == PLAYERBOT_MAP_DEMON_TOWER &&
+				master->GetMapIndex() == PLAYERBOT_MAP_DEMON_TOWER && !alone &&
 				ch->GetLevel() >= PLAYERBOT_TOWER_MIN_LEVEL &&
 				!(ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty()));
 		if (!summoned)
@@ -1805,7 +1930,8 @@ namespace
 			if (state.bTowerSummoned)
 			{
 				state.bTowerSummoned = false;
-				sys_log(0, "PLAYERBOT_TOWER: master left the ground floor pid=%u name=%s", ch->GetPlayerID(), ch->GetName());
+				sys_log(0, "PLAYERBOT_TOWER: master left the ground floor pid=%u name=%s alone=%d",
+						ch->GetPlayerID(), ch->GetName(), alone ? 1 : 0);
 				if (ch->GetMapIndex() == PLAYERBOT_MAP_DEMON_TOWER)
 				{
 					long destMap = 0, destX = 0, destY = 0;
@@ -1861,21 +1987,6 @@ namespace
 		return true;
 	}
 
-	// The ground floor while another kingdom's bot guild gathers there or is
-	// breaking its stone: the jump would take a bystander in with the raid
-	// (prodnathin, 24 September), so the travel does not send a bot of
-	// another kingdom there and one already there leaves. A raid member, a
-	// bot in a person's party and a person's companion are not bystanders.
-	bool IsPlayerBotTowerGroundClosedFor(LPCHARACTER ch)
-	{
-		const TPlayerBotTowerRaid& raid = s_PlayerBotTowerRaid;
-		return ch && (raid.bPhase == TOWER_PHASE_GATHER || raid.bPhase == TOWER_PHASE_STONE) &&
-				raid.bEmpire != 0 && ch->GetEmpire() != raid.bEmpire &&
-				raid.members.find(ch->GetPlayerID()) == raid.members.end() &&
-				!(ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty())) &&
-				!IsPlayerBotSidekickPID(ch->GetPlayerID());
-	}
-
 	// The per-bot pass. Claims the tick inside the tower and on the way to it.
 	bool ManagePlayerBotDemonTower(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
@@ -1890,23 +2001,6 @@ namespace
 		}
 		if (state.dwTowerRaidGuild != 0)
 			return ManagePlayerBotTowerCall(ch, state, dwNow);
-		if (ch->GetMapIndex() == PLAYERBOT_MAP_DEMON_TOWER && !state.bTowerSummoned &&
-				IsPlayerBotTowerGroundClosedFor(ch))
-		{
-			if (dwNow >= state.dwNextTowerMoveTime)
-			{
-				state.dwNextTowerMoveTime = dwNow + 5000;
-				long destMap = 0, destX = 0, destY = 0;
-				if (GetPlayerBotVillageReturn(ch, playerbot_empire_rules::MAP_ROLE_M2, destMap, destX, destY))
-				{
-					sys_log(0, "PLAYERBOT_TOWER: another kingdom's raid gathers, leaving the ground floor pid=%u name=%s empire=%u raid_empire=%u",
-							ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetEmpire(),
-							(unsigned int)s_PlayerBotTowerRaid.bEmpire);
-					TransitionPlayerBotMap(ch, state, destMap, destX, destY, dwNow, "tower_other_kingdom_raid");
-				}
-			}
-			return true;
-		}
 		if (dwNow < state.dwNextTowerMasterCheckTime)
 			return state.bTowerSummoned ? ManagePlayerBotTowerWithMaster(ch, state, dwNow) : false;
 		state.dwNextTowerMasterCheckTime = dwNow + (state.bTowerSummoned ? 1000 : 10000);

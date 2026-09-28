@@ -47,6 +47,11 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		void	OnPlayerWhisper(LPCHARACTER from, LPCHARACTER bot, const char* szText);
 
 		bool	IsManaged(DWORD dwPlayerID) const;
+		// The Dom Towarowy's price hint (/flea_price, playerbotify
+		// apply_flea_market): the bots' asking price for the item in that
+		// cell and what they have been paid for it, as "FleaPriceQuote".
+		void	SendFleaMarketPriceQuote(LPCHARACTER ch, BYTE bWindow, WORD wCell,
+				DWORD dwRequestID);
 		bool	IsRegistered(DWORD dwPlayerID);
 		// The same question answered from the registry as it is, never by
 		// loading it: false until the bootstrap has loaded it. For callers
@@ -91,6 +96,10 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// via playerbotify.py).
 		bool	SpawnSidekick(DWORD dwPlayerID);
 		void	OnSidekickCommand(LPCHARACTER ch, const char* szArgument);
+		// Where a companion whose saved place is a map this core does not
+		// host loads instead: beside its owner (InputDB::PlayerLoad, mt2009
+		// via playerbotify.py). False for anybody else.
+		bool	PlaceLoadingSidekick(DWORD dwPlayerID, long& lMapIndex, long& x, long& y);
 		// The owner a companion's kill counts for in the quests, or NULL
 		// (CHARACTER::Dead, mt2009 via playerbotify.py).
 		LPCHARACTER	GetSidekickKillCredit(LPCHARACTER killer, LPCHARACTER victim);
@@ -228,6 +237,10 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		bool			m_bSecondChannel = false;
 		int			m_iSecondChannelShare = 40;
 		int			m_aChannelIdentities[3][4] = {};
+		// What this start has given each channel of each kingdom so far - the
+		// cohort, then the late joiners (SplitForThisChannel). Every core
+		// computes the same plan from the same identities.
+		int			m_aChannelPlanned[3][4] = {};
 		// Whether the channels come from the assignment table (mt2009 with the
 		// second channel on) rather than the spread and the pins.
 		bool			m_bChannelTable = false;

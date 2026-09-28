@@ -441,6 +441,100 @@ if [ "$rescue_done" = "0" ]; then
         echo "[playerbot-migrate] WARNING: could not move the characters out of the Grotto and the Catacomb" >&2
     fi
 fi
+# The bonus table as the global server has it (sosen's list, 27 September):
+# Max HP to 2000, Max SP to 80 (200 on a necklace), regeneration to 30, no
+# stamina, skill-duration, arrow-reflection or flat-experience lines, and fire,
+# lightning and wind resistance, the double-experience and the item-drop
+# chances added. Once, and only over the package's own values.
+attr_done=$(db -e "SELECT COUNT(*) FROM player.playerbot_migrations WHERE name = 'item_attr_global_2231';" 2>/dev/null || echo x)
+if [ "$attr_done" = "0" ]; then
+    if attr_out=$(db -e "
+        START TRANSACTION;
+        UPDATE world.item_attr SET prob = 35, lv1 = 500, lv2 = 500, lv3 = 1000, lv4 = 1500, lv5 = 2000
+         WHERE apply = 'POINT_MAX_HP' AND lv1 = 300 AND lv2 = 500 AND lv3 = 800 AND lv4 = 1000 AND lv5 = 1500;
+        UPDATE world.item_attr SET lv1 = 10, lv2 = 20, lv3 = 30, lv4 = 80, lv5 = 200, wrist = 4, foots = 4, neck = 5
+         WHERE apply = 'POINT_MAX_SP' AND lv1 = 20 AND lv2 = 50 AND lv3 = 90 AND lv4 = 140 AND lv5 = 250;
+        UPDATE world.item_attr SET lv1 = 4, lv2 = 8, lv3 = 12, lv4 = 20, lv5 = 30
+         WHERE apply IN ('POINT_HP_REGEN', 'POINT_SP_REGEN') AND lv1 = 2 AND lv2 = 4 AND lv3 = 6 AND lv4 = 8 AND lv5 = 12;
+        UPDATE world.item_attr SET weapon = 0, body = 0, wrist = 0, foots = 0, neck = 0, head = 0, shield = 0, ear = 0
+         WHERE apply IN ('POINT_MAX_STAMINA', 'POINT_ST_REGEN', 'POINT_SKILL_DURATION', 'POINT_REFLECT_ARROW', 'POINT_MALL_EXPBONUS');
+        INSERT INTO world.item_attr (apply, prob, lv1, lv2, lv3, lv4, lv5, weapon, body, wrist, foots, neck, head, shield, ear)
+        SELECT n.a, n.p, n.l1, n.l2, n.l3, n.l4, n.l5, n.w, n.b, n.wr, n.f, n.ne, n.h, n.s, n.e FROM (
+            SELECT 'POINT_RESIST_FIRE' AS a, 18 AS p, 2 AS l1, 4 AS l2, 6 AS l3, 10 AS l4, 15 AS l5, 0 AS w, 5 AS b, 5 AS wr, 0 AS f, 0 AS ne, 5 AS h, 0 AS s, 0 AS e
+            UNION ALL SELECT 'POINT_RESIST_ELEC', 18, 2, 4, 6, 10, 15, 0, 5, 5, 0, 0, 5, 0, 0
+            UNION ALL SELECT 'POINT_RESIST_WIND', 18, 2, 4, 6, 10, 15, 0, 5, 5, 0, 0, 5, 0, 0
+            UNION ALL SELECT 'POINT_EXP_DOUBLE_BONUS', 10, 2, 4, 6, 8, 20, 0, 0, 0, 5, 5, 0, 5, 0
+            UNION ALL SELECT 'POINT_ITEM_DROP_BONUS', 7, 2, 4, 6, 8, 20, 0, 0, 5, 0, 0, 0, 0, 5) AS n
+         WHERE NOT EXISTS (SELECT 1 FROM world.item_attr AS x WHERE x.apply = n.a);
+        SELECT ROW_COUNT();
+        INSERT IGNORE INTO player.playerbot_migrations (name, done_at) VALUES ('item_attr_global_2231', NOW());
+        COMMIT;
+    "); then
+        echo "[playerbot-migrate] bonus table as the global server has it: $(printf '%s' "$attr_out" | tr -d ' \r\n') line(s) added"
+    else
+        echo "[playerbot-migrate] WARNING: could not change the bonus table" >&2
+    fi
+fi
+# r40250's monster elements: lightning (bit 11) and wind (bit 14) back on the
+# monsters the official data gives them (47 and 63), off the ones the package
+# put the bits on. A resistance line works against a monster's element
+# (apply_elemental_resistances). Once.
+elem_done=$(db -e "SELECT COUNT(*) FROM player.playerbot_migrations WHERE name = 'mob_elements_r40250_2231';" 2>/dev/null || echo x)
+if [ "$elem_done" = "0" ]; then
+    if elem_out=$(db -e "
+        START TRANSACTION;
+        UPDATE world.mob_proto SET setRaceFlag = (setRaceFlag + 0) & ~2048
+         WHERE ((setRaceFlag + 0) & 2048) <> 0 AND vnum NOT IN (1306, 1307, 1308, 1309, 1310, 1334, 1401, 1402, 1403, 1601, 1602, 1603, 2401, 2402, 2403, 2404, 2411, 2412, 2413, 2414, 2431, 2432, 2433, 2434, 2451, 2452, 2453, 2454, 2491, 2492, 2493, 2494, 2495, 3101, 3102, 3103, 3104, 3105, 3190, 3191, 3551, 3552, 3553, 3554, 3555, 3595, 3596);
+        UPDATE world.mob_proto SET setRaceFlag = (setRaceFlag + 0) | 2048
+         WHERE vnum IN (1306, 1307, 1308, 1309, 1310, 1334, 1401, 1402, 1403, 1601, 1602, 1603, 2401, 2402, 2403, 2404, 2411, 2412, 2413, 2414, 2431, 2432, 2433, 2434, 2451, 2452, 2453, 2454, 2491, 2492, 2493, 2494, 2495, 3101, 3102, 3103, 3104, 3105, 3190, 3191, 3551, 3552, 3553, 3554, 3555, 3595, 3596);
+        UPDATE world.mob_proto SET setRaceFlag = (setRaceFlag + 0) & ~16384
+         WHERE ((setRaceFlag + 0) & 16384) <> 0 AND vnum NOT IN (701, 702, 703, 704, 705, 706, 707, 731, 732, 733, 734, 735, 736, 737, 751, 752, 753, 754, 755, 756, 757, 771, 772, 773, 774, 775, 776, 777, 791, 792, 793, 794, 795, 796, 1301, 1302, 1303, 1304, 1305, 1331, 1332, 1333, 1335, 2091, 2092, 2093, 2094, 2095, 2191, 2192, 3201, 3202, 3203, 3204, 3205, 3290, 3291, 3301, 3302, 3303, 3304, 3305, 3390);
+        UPDATE world.mob_proto SET setRaceFlag = (setRaceFlag + 0) | 16384
+         WHERE vnum IN (701, 702, 703, 704, 705, 706, 707, 731, 732, 733, 734, 735, 736, 737, 751, 752, 753, 754, 755, 756, 757, 771, 772, 773, 774, 775, 776, 777, 791, 792, 793, 794, 795, 796, 1301, 1302, 1303, 1304, 1305, 1331, 1332, 1333, 1335, 2091, 2092, 2093, 2094, 2095, 2191, 2192, 3201, 3202, 3203, 3204, 3205, 3290, 3291, 3301, 3302, 3303, 3304, 3305, 3390);
+        SELECT SUM(((setRaceFlag + 0) & 2048) <> 0), SUM(((setRaceFlag + 0) & 16384) <> 0) FROM world.mob_proto;
+        INSERT IGNORE INTO player.playerbot_migrations (name, done_at) VALUES ('mob_elements_r40250_2231', NOW());
+        COMMIT;
+    "); then
+        echo "[playerbot-migrate] monster elements as r40250 has them (lightning, wind): $(printf '%s' "$elem_out" | tr '\t\r\n' '   ')"
+    else
+        echo "[playerbot-migrate] WARNING: could not set the monster elements" >&2
+    fi
+fi
+# The bonus table back to the package's (the operator, 27 September), with
+# Max HP at 500, 1000, 1500 and 2000: what item_attr_global_2231 changed goes
+# back to world.sql's rows and its five added lines come out (an item that
+# rolled one keeps it). Only over what 2231 or the package wrote. Once.
+attr_back=$(db -e "SELECT COUNT(*) FROM player.playerbot_migrations WHERE name = 'item_attr_mt2009_2232';" 2>/dev/null || echo x)
+if [ "$attr_back" = "0" ]; then
+    if attr_back_out=$(db -e "
+        START TRANSACTION;
+        UPDATE world.item_attr SET prob = 28, lv1 = 500, lv2 = 500, lv3 = 1000, lv4 = 1500, lv5 = 2000
+         WHERE apply = 'POINT_MAX_HP' AND ((prob = 35 AND lv1 = 500 AND lv2 = 500 AND lv3 = 1000 AND lv4 = 1500 AND lv5 = 2000)
+            OR (lv1 = 300 AND lv2 = 500 AND lv3 = 800 AND lv4 = 1000 AND lv5 = 1500));
+        UPDATE world.item_attr SET lv1 = 20, lv2 = 50, lv3 = 90, lv4 = 140, lv5 = 250, wrist = 5, foots = 5, neck = 5
+         WHERE apply = 'POINT_MAX_SP' AND lv1 = 10 AND lv2 = 20 AND lv3 = 30 AND lv4 = 80 AND lv5 = 200;
+        UPDATE world.item_attr SET lv1 = 2, lv2 = 4, lv3 = 6, lv4 = 8, lv5 = 12
+         WHERE apply IN ('POINT_HP_REGEN', 'POINT_SP_REGEN') AND lv1 = 4 AND lv2 = 8 AND lv3 = 12 AND lv4 = 20 AND lv5 = 30;
+        UPDATE world.item_attr SET body = 5, wrist = 5, head = 5
+         WHERE apply IN ('POINT_MAX_STAMINA', 'POINT_ST_REGEN', 'POINT_SKILL_DURATION')
+           AND weapon = 0 AND body = 0 AND wrist = 0 AND foots = 0 AND neck = 0 AND head = 0 AND shield = 0 AND ear = 0;
+        UPDATE world.item_attr SET wrist = 5, ear = 5
+         WHERE apply = 'POINT_REFLECT_ARROW'
+           AND weapon = 0 AND body = 0 AND wrist = 0 AND foots = 0 AND neck = 0 AND head = 0 AND shield = 0 AND ear = 0;
+        UPDATE world.item_attr SET foots = 5, neck = 5, shield = 5
+         WHERE apply = 'POINT_MALL_EXPBONUS'
+           AND weapon = 0 AND body = 0 AND wrist = 0 AND foots = 0 AND neck = 0 AND head = 0 AND shield = 0 AND ear = 0;
+        DELETE FROM world.item_attr WHERE apply IN ('POINT_RESIST_FIRE', 'POINT_RESIST_ELEC', 'POINT_RESIST_WIND',
+            'POINT_EXP_DOUBLE_BONUS', 'POINT_ITEM_DROP_BONUS');
+        SELECT ROW_COUNT();
+        INSERT IGNORE INTO player.playerbot_migrations (name, done_at) VALUES ('item_attr_mt2009_2232', NOW());
+        COMMIT;
+    "); then
+        echo "[playerbot-migrate] bonus table as the package has it, Max HP 500-2000: $(printf '%s' "$attr_back_out" | tr -d ' \r\n') added line(s) taken out"
+    else
+        echo "[playerbot-migrate] WARNING: could not put the bonus table back" >&2
+    fi
+fi
 # fish_log came from r40250's dump and has that engine's eight columns,
 # while this one writes six - so every catch failed with errno 1136 and the
 # table is empty on every 2.x world that ever ran. CREATE IF NOT EXISTS
@@ -892,7 +986,10 @@ esac
 # and drop (m2_autohunt_off, playerbotify apply_auto_hunt_switch) and
 # sends no Towarzysz letter, refuses its command and keeps companions out
 # of the world (m2_sidekick_off). Event flags like the difficulty, so a
-# change reaches the cores at the next start.
+# change reaches the cores at the next start. The Dom Towarowy (M2_FLEA_MARKET,
+# the same window, 27 September) is a third: off, flea_market.quest offers
+# nothing at the merchant and every /flea_ command refuses
+# (m2_flea_market_off, playerbotify apply_flea_market).
 feature_off() {
     case "$(printf '%s' "$1" | tr 'A-Z' 'a-z' | tr -d ' \r')" in
         0|off|no|false) echo 1 ;;
@@ -901,12 +998,14 @@ feature_off() {
 }
 autohunt_off=$(feature_off "${M2_AUTOHUNT:-1}")
 sidekick_off=$(feature_off "${M2_SIDEKICK:-1}")
+flea_off=$(feature_off "${M2_FLEA_MARKET:-1}")
 if db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES
         (0, 'm2_autohunt_off', '', $autohunt_off),
-        (0, 'm2_sidekick_off', '', $sidekick_off);"; then
-    echo "[playerbot-migrate] Auto Lowy: $([ "$autohunt_off" = 1 ] && echo off || echo on), companions: $([ "$sidekick_off" = 1 ] && echo off || echo on)"
+        (0, 'm2_sidekick_off', '', $sidekick_off),
+        (0, 'm2_flea_market_off', '', $flea_off);"; then
+    echo "[playerbot-migrate] Auto Lowy: $([ "$autohunt_off" = 1 ] && echo off || echo on), companions: $([ "$sidekick_off" = 1 ] && echo off || echo on), Dom Towarowy: $([ "$flea_off" = 1 ] && echo off || echo on)"
 else
-    echo "[playerbot-migrate] WARNING: could not write the Auto Lowy and companion flags; the cores keep the last ones" >&2
+    echo "[playerbot-migrate] WARNING: could not write the Auto Lowy, companion and Dom Towarowy flags; the cores keep the last ones" >&2
 fi
 # Auto Lowy for everybody (0) or only with the ItemShop's ticket (1): .env
 # M2_AUTOHUNT_ITEM, which the launcher's difficulty window writes; the

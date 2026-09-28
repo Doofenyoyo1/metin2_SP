@@ -417,13 +417,28 @@ class HuntTest(unittest.TestCase):
 		step(self.hunter)
 		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0'])
 		self.assertEqual(commands('/autohunt_loot'), ['/autohunt_loot 2000 127 0 0 8191'])
+		# With nothing in hand the next question goes a third of a second
+		# later, not after the whole interval: a monster at the edge of view
+		# is asked for again at once (upstream's 2.2.30, our 2.2.33).
+		step(self.hunter, 0.2)
+		self.assertEqual(len(commands('/autohunt_target')), 1)
+		step(self.hunter, 0.3)
+		self.assertEqual(len(commands('/autohunt_target')), 2)
+		step(self.hunter, 0.4)
+		self.assertEqual(len(commands('/autohunt_loot')), 1)
+		step(self.hunter, 0.2)
+		self.assertEqual(len(commands('/autohunt_loot')), 2)
+
+	def test_a_target_in_hand_is_asked_about_on_the_full_interval(self):
+		STATE['where'][55] = (1100, 1000, 0)
+		STATE['distance'][55] = 100
+		self.hunter.OnServerTarget('55')
+		step(self.hunter)
+		self.assertEqual(len(commands('/autohunt_target')), 1)
 		step(self.hunter, 0.5)
 		self.assertEqual(len(commands('/autohunt_target')), 1)
 		step(self.hunter, 0.4)
 		self.assertEqual(len(commands('/autohunt_target')), 2)
-		self.assertEqual(len(commands('/autohunt_loot')), 1)
-		step(self.hunter, 0.2)
-		self.assertEqual(len(commands('/autohunt_loot')), 2)
 
 	def test_no_loot_question_when_the_pick_up_is_off(self):
 		self.hunter.config['pickup'] = 0
@@ -574,11 +589,22 @@ class HuntTest(unittest.TestCase):
 
 	def test_the_client_says_what_is_standing(self):
 		stub = sys.modules['skill']
+		self.assertTrue(uiautohunt.NeedsTarget(36))
 		stub.IsStandingSkill = lambda index: index == 36
 		self.addCleanup(delattr, stub, 'IsStandingSkill')
+		self.assertFalse(uiautohunt.NeedsTarget(36))
 		self.hunter.config['skill0_slot'] = 1
 		STATE['skills'][1] = 36
+		# A standing combat skill goes only while the hunter's own target is
+		# alive and in the client's hand, never between groups: its animation
+		# swallowed the next SetTarget (upstream's 2.2.30, our 2.2.33).
 		step(self.hunter)
+		self.assertEqual(STATE['cast'], [])
+		STATE['where'][55] = (1100, 1000, 0)
+		STATE['distance'][55] = 100
+		self.hunter.OnServerTarget('55')
+		step(self.hunter, 0.1)
+		step(self.hunter, 0.1)
 		self.assertEqual(STATE['cast'], [1])
 
 	def test_a_skill_the_client_does_not_know_is_no_crash(self):
@@ -641,6 +667,9 @@ class HuntTest(unittest.TestCase):
 	def test_walks_to_loot_and_picks_it_up(self):
 		self.hunter.OnServerLoot('77', '600', '0')
 		step(self.hunter)
+		# The sweep opens on this frame and walks from the next.
+		self.assertTrue(self.hunter.lootSweeping)
+		step(self.hunter, 0.1)
 		self.assertEqual(STATE['walks'][-1], (1600, 1000))
 		self.assertEqual(STATE['picked'], [])
 		STATE['pos'] = (1500, 1000)
@@ -661,6 +690,7 @@ class HuntTest(unittest.TestCase):
 	def test_leaves_loot_it_cannot_reach_alone_for_a_while(self):
 		self.hunter.OnServerLoot('77', '2000', '0')
 		step(self.hunter)
+		step(self.hunter, 0.1)
 		step(self.hunter, 6.5)
 		self.assertEqual(self.hunter.lootVid, 0)
 		self.hunter.OnServerLoot('77', '2000', '0')
@@ -848,6 +878,14 @@ class HuntTest(unittest.TestCase):
 		STATE['status'][1] = 60
 		step(self.hunter, 1.6)
 		self.assertFalse(self.hunter.justRevived)
+		# The Roar is a standing combat skill: it waits for a live target in
+		# hand (upstream's 2.2.30, our 2.2.33).
+		step(self.hunter, 1.6)
+		self.assertNotIn(1, STATE['cast'])
+		STATE['where'][55] = (1100, 1000, 0)
+		STATE['distance'][55] = 100
+		self.hunter.OnServerTarget('55')
+		step(self.hunter, 0.1)
 		step(self.hunter, 1.6)
 		self.assertIn(1, STATE['cast'])
 
@@ -991,14 +1029,47 @@ class HuntTest(unittest.TestCase):
 		step(self.hunter)
 		self.assertEqual(STATE['walks'], [(1000, 1000)])
 
-	def test_fetches_drops_before_a_far_target(self):
+	def test_a_far_target_comes_before_the_drops_and_they_after_it(self):
+		# The fight first, the whole drop once it is over (upstream's 2.2.30,
+		# our 2.2.33: "najpierw bije cel albo grupke, a gdy wszystko padnie,
+		# zbiera caly drop"). A target walked to is never detoured from.
 		STATE['where'][55] = (1500, 1000, 0)
 		STATE['distance'][55] = 500
 		self.hunter.OnServerTarget('55')
 		self.hunter.OnServerLoot('77', '700', '0')
 		step(self.hunter)
+		(x, y) = STATE['walks'][-1]
+		self.assertTrue(1000 < x < 1500 and y == 1000, STATE['walks'])
+		self.assertFalse(self.hunter.lootSweeping)
+		# It is gone from the map: after the client's five frames of grace
+		# the sweep takes the drop before the next target.
+		STATE['distance'][55] = -1
+		for _ in range(6):
+			step(self.hunter, 0.1)
+		self.assertTrue(self.hunter.lootSweeping)
+		self.assertEqual(self.hunter.targetVid, 0)
+		step(self.hunter, 0.1)
 		self.assertEqual(STATE['walks'][-1], (1700, 1000))
-		self.assertEqual(STATE['attack'], [])
+
+	def test_a_dead_target_opens_the_sweep_at_once(self):
+		with_new_exe(self)
+		STATE['where'][55] = (1100, 1000, 0)
+		STATE['distance'][55] = 100
+		self.hunter.OnServerTarget('55')
+		self.hunter.OnServerLoot('77', '700', '0')
+		step(self.hunter)
+		step(self.hunter, 0.1)
+		self.assertEqual(STATE['attack'][-1], True)
+		STATE['dead'].add(55)
+		step(self.hunter, 0.1)
+		self.assertTrue(self.hunter.lootSweeping)
+		self.assertEqual(STATE['attack'][-1], False)
+		# While it sweeps it asks for no target and ignores one offered.
+		asked = len(commands('/autohunt_target'))
+		self.hunter.OnServerTarget('56')
+		self.assertEqual(self.hunter.targetVid, 0)
+		step(self.hunter, 0.9)
+		self.assertEqual(len(commands('/autohunt_target')), asked)
 
 	def test_a_fight_in_reach_comes_before_drops(self):
 		STATE['where'][55] = (1100, 1000, 0)

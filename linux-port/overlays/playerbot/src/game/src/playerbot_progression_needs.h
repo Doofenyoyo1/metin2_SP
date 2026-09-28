@@ -94,10 +94,11 @@ namespace {
         }
         return false;
     }
-    // Iwakura's scroll rule (IsPlayerBotScrollRuleWeapon): what its weapon's
-    // next step lacks, when the counters of the bot's first village hold every
-    // unit of it - the ledger's count, asked again at the counter. The trip is
-    // how a bot that lives on the frontier meets those counters at all.
+    // Iwakura's scroll rule (IsPlayerBotScrollRulePiece): what the next step
+    // of its weapon - or of its armour, once the weapon is at +8 - lacks, when
+    // the counters of the bot's first village hold every unit of it - the
+    // ledger's count, asked again at the counter. The trip is how a bot that
+    // lives on the frontier meets those counters at all.
     bool PlayerBotScrollRuleSupplyExists(LPCHARACTER ch) {
         std::map<DWORD, int> missing;
         CollectPlayerBotScrollRuleMissing(ch, missing);

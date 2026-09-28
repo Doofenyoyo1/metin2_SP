@@ -1456,6 +1456,16 @@ namespace
 					(unsigned int)((state.dwFishingSessionEndTime - dwNow) / 60000));
 		}
 
+		// A person's blow ends the session on the tick it is noticed, as a
+		// miner's does (playerbot_mining.h): the session owns the tick, so the
+		// Anti-PK fight never saw the blow and a bot at the water was killed
+		// without lifting a hand, while the comment over that fight said the
+		// rod's session ends at a blow (D15 of Iwakura's audit). The rod comes
+		// off here and the weapon is back on a tick or two later.
+		if (state.persona.dwStruckByPID != 0 && state.persona.dwStruckAt != 0 &&
+				(DWORD)(dwNow - state.persona.dwStruckAt) < PLAYERBOT_ANTIPK_STRUCK_MEMORY_MS)
+			return EndPlayerBotFishingSession(ch, state, dwNow, "attacked");
+
 		// A session only ends between casts, so a fish already on the hook is
 		// still landed.
 		if (dwNow >= state.dwFishingSessionEndTime && !state.bIsFishing)

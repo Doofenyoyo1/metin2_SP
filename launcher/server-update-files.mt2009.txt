@@ -53,6 +53,7 @@ linux-port-mt2009/docker/game/quest/*
 linux-port-mt2009/docker/game/mob_drop_item.m3.append.txt
 linux-port-mt2009/docker/game/special_item_group.moonlight.txt
 linux-port-mt2009/docker/game/special_item_group.starter.txt
+linux-port-mt2009/docker/game/cube.seon_pyeong.txt
 
 # ---- the launcher and the package's own bookkeeping --------------------------
 # The line's own version and package note, published under the root names.
@@ -97,6 +98,7 @@ linux-port-mt2009/docker/game/src/server/game/src/ClientPackageCryptInfo.cpp
 linux-port-mt2009/docker/game/src/server/game/src/FileMonitor_FreeBSD.cpp
 linux-port-mt2009/docker/game/src/server/game/src/FileMonitor_FreeBSD.h
 linux-port-mt2009/docker/game/src/server/game/src/Makefile
+linux-port-mt2009/docker/game/src/server/game/src/battle.cpp
 linux-port-mt2009/docker/game/src/server/game/src/char.cpp
 linux-port-mt2009/docker/game/src/server/game/src/char.h
 linux-port-mt2009/docker/game/src/server/game/src/char_battle.cpp

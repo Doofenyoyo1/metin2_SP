@@ -179,6 +179,8 @@ class OfflineShopManage(ui.ScriptWindow):
 		self.tooltipItem = None
 		self.questionDialog = None
 		self.addItemDialog = None
+		self.fleaPriceDialog = None
+		self.fleaPriceRequestID = 0
 		self.closeShopDialog = None
 		self.editSignDialog = None
 		self.endTime = 0
@@ -477,8 +479,72 @@ class OfflineShopManage(ui.ScriptWindow):
 			self.ActivateItems(itemSlotList)
 
 	def __CloseAddInput(self):
+		self.fleaPriceDialog = None
 		self.addItemDialog.Close()
 		return True
+
+	def __SetFleaMarketPriceHint(self, dialog, primaryText, secondaryText):
+		if not hasattr(dialog, "fleaMarketPriceHint"):
+			dialog.fleaMarketPriceHint = ui.TextLine()
+			dialog.fleaMarketPriceHint.SetParent(dialog.board)
+			dialog.fleaMarketPriceHint.SetWindowHorizontalAlignCenter()
+			dialog.fleaMarketPriceHint.SetHorizontalAlignCenter()
+			dialog.fleaMarketPriceHint.SetPackedFontColor(0xFFFFD56A)
+			dialog.fleaMarketPriceHint.Show()
+
+			dialog.fleaMarketPriceHistory = ui.TextLine()
+			dialog.fleaMarketPriceHistory.SetParent(dialog.board)
+			dialog.fleaMarketPriceHistory.SetWindowHorizontalAlignCenter()
+			dialog.fleaMarketPriceHistory.SetHorizontalAlignCenter()
+			dialog.fleaMarketPriceHistory.SetPackedFontColor(0xFFA8D8FF)
+			dialog.fleaMarketPriceHistory.Show()
+
+		if app.ENABLE_CHEQUE_SYSTEM:
+			hintY = 112
+			buttonY = 145
+		else:
+			hintY = 79
+			buttonY = 112
+
+		dialog.fleaMarketPriceHint.SetPosition(0, hintY)
+		dialog.fleaMarketPriceHistory.SetPosition(0, hintY + 16)
+		dialog.fleaMarketPriceHint.SetText(primaryText)
+		dialog.fleaMarketPriceHistory.SetText(secondaryText)
+		dialog.SetSize(280, buttonY + 32)
+		dialog.board.SetSize(280, buttonY + 32)
+		dialog.acceptButton.SetPosition(-36, buttonY)
+		dialog.cancelButton.SetPosition(35, buttonY)
+		dialog.SetCenterPosition()
+
+	def __RequestFleaMarketPrice(self, inventoryWindowType, inventorySlotIndex):
+		self.fleaPriceRequestID += 1
+		if self.fleaPriceRequestID > 2000000000:
+			self.fleaPriceRequestID = 1
+
+		self.fleaPriceDialog = self.addItemDialog
+		net.SendChatPacket("/flea_price %d %d %d" % (
+			self.fleaPriceRequestID, inventoryWindowType, inventorySlotIndex))
+
+	def SetFleaMarketPriceQuote(self, requestID, suggestedPrice, observedPrice, sampleCount):
+		if requestID != self.fleaPriceRequestID:
+			return
+		if not self.fleaPriceDialog or self.fleaPriceDialog != self.addItemDialog:
+			return
+		if not self.addItemDialog.IsShow():
+			return
+
+		if suggestedPrice > 0:
+			primary = "Sugestia botow: " + localeInfo.NumberToMoneyString(suggestedPrice)
+		else:
+			primary = "Boty nie maja jeszcze wyceny tego przedmiotu."
+
+		if observedPrice > 0 and sampleCount > 0:
+			secondary = "Ostatnia cena botow: %s (probki: %d)" % (
+				localeInfo.NumberToMoneyString(observedPrice), sampleCount)
+		else:
+			secondary = "Brak historii transakcji - pokazana cena bazowa."
+
+		self.__SetFleaMarketPriceHint(self.addItemDialog, primary, secondary)
 
 	def ShowAddItemDialog(self, inventorySlotIndex, shopSlotIndex, inventoryWindowType, itemVnum, itemCount):
 		if not constInfo.myshop_data["items"].has_key(shopSlotIndex):
@@ -501,6 +567,7 @@ class OfflineShopManage(ui.ScriptWindow):
 				dialog.SetValue(itemPrice)
 
 			self.addItemDialog = dialog
+			self.__RequestFleaMarketPrice(inventoryWindowType, inventorySlotIndex)
 		else:
 			chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.OFFLINE_SHOP_CANNOT_PLACE_ITEM_ON_ITEM)
 
@@ -525,6 +592,7 @@ class OfflineShopManage(ui.ScriptWindow):
 		if inputPrice > player.GOLD_MAX:
 			inputPrice = player.GOLD_MAX
 
+		self.fleaPriceDialog = None
 		self.addItemDialog.Close()
 
 		itemVnum = player.GetItemIndex(inventoryWindowType, inventorySlotIndex)

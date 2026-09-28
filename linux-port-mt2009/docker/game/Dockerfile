@@ -256,7 +256,12 @@ RUN set -eux; \
     # Bloodstone, from quest/_unused (2.2.22).
     # tanaka_ears is Yonah's exchange of Pirate Tanaka's ear for a Purple Ebony
     # Chest, the Tanaka event's reward (playerbot_world_events.h).
-    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears autohunt_time antiexp_ring; do \
+    # seon_pyeong opens Seon-Pyeong's cube window by the Grotto of Exile: a +9
+    # piece of level 65-66 into its level-80 successor (cube.seon_pyeong.txt,
+    # appended to the share's cube.txt below; NerrVoVy, 27 September).
+    # flea_market is the Dom Towarowy's two options at the miscellaneous
+    # merchant in M1, offered only while M2_FLEA_MARKET is on (Uxie [DSO]).
+    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears autohunt_time antiexp_ring seon_pyeong flea_market; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \
@@ -430,6 +435,21 @@ RUN set -eu; L=/opt/metin2/share/locale/poland \
  && sed -i -E '/^Group[[:blank:]]+RiperLimit/,/^}/ s/^([[:blank:]]+1[[:blank:]]+50082[[:blank:]]+1[[:blank:]]+100.*)$/&\n\t2\t30319\t1\t100\r/' "$L/mob_drop_item.txt" \
  && awk '/^Group[[:blank:]]+RiperLimit/{f=1} f&&/^}/{f=0} f&&/[[:blank:]]30319[[:blank:]]/{n++} END{exit n==1?0:1}' "$L/mob_drop_item.txt" \
  && echo "share: Devil's Catacomb opened (the Guardian in Hwang, the Reaper's token)"
+
+# Seon-Pyeong's recipes (port/shareify.py renders cube.seon_pyeong.txt and this
+# step; the quest that opens his window is quest/seon_pyeong.quest above): a +9
+# piece of level 65-66 into its level-80 successor. The package's cube.txt has
+# no recipe for him, and Cube_open refuses an NPC with none.
+COPY cube.seon_pyeong.txt /tmp/cube-add/
+RUN set -eu; C=/opt/metin2/share/locale/poland/cube.txt; A=/tmp/cube-add/cube.seon_pyeong.txt \
+ && ! grep -q -E '^npc[[:blank:]]+20091[[:space:]]*$' "$C" \
+ && n=$(grep -c -E '^npc[[:blank:]]+20091[[:space:]]*$' "$A") \
+ && sed -i 's/\r$//; s/$/\r/' "$A" \
+ && { [ -z "$(tail -c 1 "$C")" ] || printf '\r\n' >> "$C"; } \
+ && cat "$A" >> "$C" \
+ && rm -rf /tmp/cube-add \
+ && test "$(grep -c -E '^npc[[:blank:]]+20091[[:space:]]*$' "$C")" -eq "$n" \
+ && echo "share: Seon-Pyeong's recipes appended to cube.txt ($n)"
 
 # The cores run unprivileged and read this tree by path; a directory only root
 # can enter costs every quest below it, silently. Repair, then assert.

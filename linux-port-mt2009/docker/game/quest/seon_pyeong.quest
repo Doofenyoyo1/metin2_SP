@@ -1,0 +1,26 @@
+-- Seon-Pyeong (20091) beside the Grotto of Exile's entrance in Orc Valley:
+-- a +9 weapon or body armour of level 65-66 made into its level-80 successor
+-- in the cube window, with a Broszura Szermierki from the grotto, two of each
+-- pearl and two million Yang. The recipes are cube.seon_pyeong.txt, appended
+-- to the share's cube.txt (port/shareify.py); Cube_open refuses an NPC that has
+-- no recipe there. NerrVoVy's quest and recipes (26-27 September), the text
+-- without diacritics like the rest of ours, and a word on what the anvil keeps.
+quest seon_pyeong begin
+	state start begin
+		when 20091.chat."Wytwarzanie Ekwipunku" begin
+			say_title(mob_name(20091)..":")
+			say("Witaj! Potrafie przekuc na wyzsze poziomy bron")
+			say("oraz zbroje w legendarny, potezniejszy ekwipunek.")
+			say("Czy przyniosles ze soba odpowiednie przedmioty,")
+			say("ulepszacze oraz wystarczajaca ilosc Yang?")
+			say("")
+			say("Bonusy i kamienie oddanego przedmiotu przepadaja.")
+			say("")
+			local s = select("Otworz okno ulepszania", "Anuluj")
+			if s == 1 then
+				setskin(NOWINDOW)
+				command("cube open")
+			end
+		end
+	end
+end

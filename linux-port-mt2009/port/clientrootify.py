@@ -674,6 +674,37 @@ EDITS = {
          b'\t\t\t\tself.mobDropWindow.FollowTarget()\r\n'
          b'\r\n'
          b'\t\t# Panel GM: patrz __gmCheckSent w __init__ - kilkaset klatek po wejsciu\r\n'),
+        # Upstream's client 2.0.44-2.0.46, our 2.0.47: the target board's health
+        # (TargetHP) and the Dom Towarowy's commands go in after the drop
+        # strip's, inside the list the pair below writes; a root rendered before
+        # 2.0.47 takes them here (optional: absent from a stock root).
+        (b'\t\t\t"CloseMall"\t\t\t\t: self.CommandCloseMall,\r\n'
+         b'\t\t\t"ChestPreviewBegin"\t\t: self.__ChestPreviewBegin,\r\n'
+         b'\t\t\t"ChestPreviewItem"\t\t: self.__ChestPreviewItem,\r\n'
+         b'\t\t\t"ChestPreviewEffect"\t\t: self.__ChestPreviewEffect,\r\n'
+         b'\t\t\t"ChestPreviewEnd"\t\t: self.__ChestPreviewEnd,\r\n'
+         b'\t\t\t"ChestPreviewError"\t\t: self.__ChestPreviewError,\r\n'
+         b'\t\t\t"MobPreviewBegin"\t\t: self.__MobPreviewBegin,\r\n'
+         b'\t\t\t"MobPreviewItem"\t\t: self.__MobPreviewItem,\r\n'
+         b'\t\t\t"MobPreviewEnd"\t\t\t: self.__MobPreviewEnd,\r\n'
+         b'\t\t\t"MobPreviewError"\t\t: self.__MobPreviewError,\r\n'
+         b'\t\t\t"ShowMeMallPassword"\t: self.AskMallPassword,\r\n',
+         b'\t\t\t"CloseMall"\t\t\t\t: self.CommandCloseMall,\r\n'
+         b'\t\t\t"ChestPreviewBegin"\t\t: self.__ChestPreviewBegin,\r\n'
+         b'\t\t\t"ChestPreviewItem"\t\t: self.__ChestPreviewItem,\r\n'
+         b'\t\t\t"ChestPreviewEffect"\t\t: self.__ChestPreviewEffect,\r\n'
+         b'\t\t\t"ChestPreviewEnd"\t\t: self.__ChestPreviewEnd,\r\n'
+         b'\t\t\t"ChestPreviewError"\t\t: self.__ChestPreviewError,\r\n'
+         b'\t\t\t"MobPreviewBegin"\t\t: self.__MobPreviewBegin,\r\n'
+         b'\t\t\t"MobPreviewItem"\t\t: self.__MobPreviewItem,\r\n'
+         b'\t\t\t"MobPreviewEnd"\t\t\t: self.__MobPreviewEnd,\r\n'
+         b'\t\t\t"MobPreviewError"\t\t: self.__MobPreviewError,\r\n'
+         b'\t\t\t"TargetHP"\t\t\t\t: self.__TargetHP,\r\n'
+         b'\t\t\t"FleaMarketOpen"\t\t: self.OpenFleaMarket,\r\n'
+         b'\t\t\t"FleaPriceQuote"\t\t: self.FleaPriceQuote,\r\n'
+         b'\t\t\t"FleaMarketStackUpdate"\t: self.FleaMarketStackUpdate,\r\n'
+         b'\t\t\t"ShowMeMallPassword"\t: self.AskMallPassword,\r\n',
+         True),
         (b'\t\t\t"CloseMall"\t\t\t\t: self.CommandCloseMall,\r\n'
          b'\t\t\t"ShowMeMallPassword"\t: self.AskMallPassword,\r\n',
          b'\t\t\t"CloseMall"\t\t\t\t: self.CommandCloseMall,\r\n'
@@ -686,6 +717,10 @@ EDITS = {
          b'\t\t\t"MobPreviewItem"\t\t: self.__MobPreviewItem,\r\n'
          b'\t\t\t"MobPreviewEnd"\t\t\t: self.__MobPreviewEnd,\r\n'
          b'\t\t\t"MobPreviewError"\t\t: self.__MobPreviewError,\r\n'
+         b'\t\t\t"TargetHP"\t\t\t\t: self.__TargetHP,\r\n'
+         b'\t\t\t"FleaMarketOpen"\t\t: self.OpenFleaMarket,\r\n'
+         b'\t\t\t"FleaPriceQuote"\t\t: self.FleaPriceQuote,\r\n'
+         b'\t\t\t"FleaMarketStackUpdate"\t: self.FleaMarketStackUpdate,\r\n'
          b'\t\t\t"ShowMeMallPassword"\t: self.AskMallPassword,\r\n'),
         (b'\t\tserverCommandList["GlobalRankingUpdatePacket"] = self.__Global_Ranking__RecvData\r\n'
          b'\t\tserverCommandList["GlobalRankingUpdatePacketMyPos"] = self.__Global_Ranking__RecvSelfData\r\n',
@@ -736,6 +771,60 @@ EDITS = {
          b'\t\tself.__MobPreviewReceive("ReceiveError", data)\r\n'
          b'\r\n'
          b'\tdef __GMPanel_Open(self):\r\n'),
+        # Upstream's client 2.0.44-2.0.46, our 2.0.47: the Dom Towarowy's window
+        # (customfleamarket.py, Uxie [DSO]) and its commands, the target board's
+        # health numbers (TargetHP), the whole owner name of an offline shop
+        # (IkashopOwnerName) and the companion's chest switch.
+        (b'\t\t\t"shop_edit": self.OfflineShopEdit,\r\n'
+         b'\t        "event": self.__ProcessServerEvent,\r\n',
+         b'\t\t\t"shop_edit": self.OfflineShopEdit,\r\n'
+         b'\t\t\t"IkashopOwnerName": self.__IkashopOwnerName,\r\n'
+         b'\t        "event": self.__ProcessServerEvent,\r\n'),
+        (b'\t\t\tdbg.TraceError(msg)\r\n'
+         b'\t\t\treturn 0\r\n'
+         b'\r\n'
+         b'\tdef OfflineShopEdit(self, strState):\r\n',
+         b'\t\t\tdbg.TraceError(msg)\r\n'
+         b'\t\t\treturn 0\r\n'
+         b'\r\n'
+         b'\tdef __IkashopOwnerName(self, pid="0", name="", *rest):\r\n'
+         b'\t\tif self.interface and getattr(self.interface, "offlineShopGuest", None):\r\n'
+         b'\t\t\tself.interface.offlineShopGuest.SetWholeOwnerName(pid, name)\r\n'
+         b'\r\n'
+         b'\tdef OfflineShopEdit(self, strState):\r\n'),
+        (b'\r\n'
+         b'\tdef __EnableTestServerFlag(self):\r\n',
+         b'\r\n'
+         b'\t# HP_REAL_VALUES: serwer dosyla realne HP/MaxHP celu (obok zwyklego\r\n'
+         b'\t# procentowego pakietu targetu), bo TPacketGCTarget przewozi tylko\r\n'
+         b'\t# procent. Aktualizujemy tekst na pasku HP tylko jesli to nadal ten sam cel.\r\n'
+         b'\tdef __TargetHP(self, vid, hp, maxHp):\r\n'
+         b'\t\ttry:\r\n'
+         b'\t\t\tvid = int(vid)\r\n'
+         b'\t\t\thp = int(hp)\r\n'
+         b'\t\t\tmaxHp = int(maxHp)\r\n'
+         b'\t\texcept ValueError:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tself.targetBoard.SetRealHP(vid, hp, maxHp)\r\n'
+         b'\r\n'
+         b'\t# The Dom Towarowy (Uxie [DSO]): the merchant opens its window, the\r\n'
+         b'\t# counter gets its price hint, and a stack the market sold part of\r\n'
+         b'\t# shows what is left.\r\n'
+         b'\tdef OpenFleaMarket(self):\r\n'
+         b'\t\tif self.interface:\r\n'
+         b'\t\t\tself.interface.OpenFleaMarket()\r\n'
+         b'\r\n'
+         b'\tdef FleaPriceQuote(self, requestID, suggestedPrice, observedPrice, sampleCount):\r\n'
+         b'\t\tif self.interface:\r\n'
+         b'\t\t\tself.interface.offlineShopManage.SetFleaMarketPriceQuote(\r\n'
+         b'\t\t\t\tint(requestID), int(suggestedPrice), int(observedPrice), int(sampleCount))\r\n'
+         b'\r\n'
+         b'\tdef FleaMarketStackUpdate(self, ownerID, itemID, remainingCount, remainingYang, remainingCheque):\r\n'
+         b'\t\tif self.interface:\r\n'
+         b'\t\t\tself.interface.fleaMarket.UpdateStackOffer(\r\n'
+         b'\t\t\t\tint(ownerID), int(itemID), int(remainingCount), int(remainingYang), int(remainingCheque))\r\n'
+         b'\r\n'
+         b'\tdef __EnableTestServerFlag(self):\r\n'),
     ],
     # "Scal i uporzadkuj" (18 September; Codex's audit the same day):
     # the inventory's auto-stack button asks the server once
@@ -1147,6 +1236,124 @@ EDITS = {
          b'\r\n'
          b'\tdef __OnClear(self):\r\n'
          b'\t\tikashop.ClearFoundShopMap()\r\n'),
+        # Upstream's client 2.0.44-2.0.46, our 2.0.47: the whole owner name in the
+        # item search's results, and the Dom Towarowy's catalogue fill.
+        (b'\t\treturn True\r\n',
+         b'\t\treturn True\r\n'
+         b'\r\n'
+         b'\r\n'
+         b'class FleaMarketQuantityDialog(ui.BoardWithTitleBar):\r\n'
+         b'\t# A small stock-UI dialog for a listing that is a stack. The amount is\r\n'
+         b"\t# always the offer's own, and the Dom Towarowy buys a stack whole.\r\n"
+         b'\tdef __init__(self, market):\r\n'
+         b'\t\tui.BoardWithTitleBar.__init__(self)\r\n'
+         b'\t\tself.market = proxy(market)\r\n'
+         b'\t\tself.data = None\r\n'
+         b'\r\n'
+         b'\t\tself.SetSize(360, 190)\r\n'
+         b'\t\tself.AddFlag("movable")\r\n'
+         b'\t\tself.AddFlag("float")\r\n'
+         b'\t\tself.SetTitleName("Kup czesc stacka")\r\n'
+         b'\t\tself.SetCloseEvent(self.Close)\r\n'
+         b'\r\n'
+         b'\t\tself.itemLine = self.__MakeText(18, 42)\r\n'
+         b'\t\tself.availableLine = self.__MakeText(18, 66)\r\n'
+         b'\t\tself.__MakeText(18, 96, "Ile sztuk kupic:")\r\n'
+         b'\r\n'
+         b'\t\tself.inputBar = ui.SlotBar()\r\n'
+         b'\t\tself.inputBar.SetParent(self)\r\n'
+         b'\t\tself.inputBar.SetPosition(150, 91)\r\n'
+         b'\t\tself.inputBar.SetSize(80, 22)\r\n'
+         b'\t\tself.inputBar.AddFlag("not_pick")\r\n'
+         b'\t\tself.inputBar.Show()\r\n'
+         b'\r\n'
+         b'\t\tself.quantityEdit = ui.EditLine()\r\n'
+         b'\t\tself.quantityEdit.SetParent(self.inputBar)\r\n'
+         b'\t\tself.quantityEdit.SetPosition(4, 3)\r\n'
+         b'\t\tself.quantityEdit.SetSize(72, 17)\r\n'
+         b'\t\tself.quantityEdit.SetMax(9)\r\n'
+         b'\t\tself.quantityEdit.SetNumberMode()\r\n'
+         b'\t\tself.quantityEdit.OnIMEUpdate = ui.__mem_func__(self.__OnQuantityChanged)\r\n'
+         b'\t\tself.quantityEdit.SAFE_SetReturnEvent(self.Accept)\r\n'
+         b'\t\tself.quantityEdit.Show()\r\n'
+         b'\r\n'
+         b'\t\tself.totalLine = self.__MakeText(18, 124)\r\n'
+         b'\t\tself.buyButton = self.__MakeButton(118, 153, "Kup", self.Accept)\r\n'
+         b'\t\tself.cancelButton = self.__MakeButton(204, 153, "Anuluj", self.Close)\r\n'
+         b'\t\tself.Hide()\r\n'
+         b'\r\n'
+         b'\tdef __MakeText(self, x, y, text=""):\r\n'
+         b'\t\tline = ui.TextLine()\r\n'
+         b'\t\tline.SetParent(self)\r\n'
+         b'\t\tline.SetPosition(x, y)\r\n'
+         b'\t\tline.SetText(text)\r\n'
+         b'\t\tline.Show()\r\n'
+         b'\t\treturn line\r\n'
+         b'\r\n'
+         b'\tdef __MakeButton(self, x, y, text, event):\r\n'
+         b'\t\tbutton = ui.Button()\r\n'
+         b'\t\tbutton.SetParent(self)\r\n'
+         b'\t\tbutton.SetPosition(x, y)\r\n'
+         b'\t\tbutton.SetSize(76, 25)\r\n'
+         b'\t\tbutton.SetUpVisual("d:/ymir work/ui/public/middle_button_01.sub")\r\n'
+         b'\t\tbutton.SetOverVisual("d:/ymir work/ui/public/middle_button_02.sub")\r\n'
+         b'\t\tbutton.SetDownVisual("d:/ymir work/ui/public/middle_button_03.sub")\r\n'
+         b'\t\tbutton.SetText(text)\r\n'
+         b'\t\tbutton.SetEvent(event)\r\n'
+         b'\t\tbutton.Show()\r\n'
+         b'\t\treturn button\r\n'
+         b'\r\n'
+         b'\tdef __GetQuantity(self):\r\n'
+         b'\t\tif not self.data:\r\n'
+         b'\t\t\treturn 0\r\n'
+         b'\t\ttry:\r\n'
+         b'\t\t\tquantity = int(self.quantityEdit.GetText())\r\n'
+         b'\t\texcept:\r\n'
+         b'\t\t\tquantity = 1\r\n'
+         b'\t\treturn max(1, min(quantity, self.data["count"]))\r\n'
+         b'\r\n'
+         b'\tdef __OnQuantityChanged(self):\r\n'
+         b'\t\tui.EditLine.OnIMEUpdate(self.quantityEdit)\r\n'
+         b'\t\tself.__UpdatePrice()\r\n'
+         b'\r\n'
+         b'\tdef __UpdatePrice(self):\r\n'
+         b'\t\tif not self.data:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tquantity = self.__GetQuantity()\r\n'
+         b'\t\tprice = self.market.GetStackPurchasePrice(self.data, quantity)\r\n'
+         b'\t\tself.totalLine.SetText("Do zaplaty za %d szt.: %s" % (quantity, self.market.FormatPrice(price)))\r\n'
+         b'\r\n'
+         b'\tdef Open(self, data):\r\n'
+         b'\t\tself.data = data\r\n'
+         b'\t\tself.itemLine.SetText(self.market.GetItemName(data))\r\n'
+         b'\t\tself.availableLine.SetText("W stacku jest: %d szt." % data["count"])\r\n'
+         b'\t\tself.quantityEdit.SetText(str(data["count"]))\r\n'
+         b'\t\tself.__UpdatePrice()\r\n'
+         b'\t\tself.Show()\r\n'
+         b'\t\tself.SetTop()\r\n'
+         b'\t\tself.SetCenterPosition()\r\n'
+         b'\t\tself.quantityEdit.SetFocus()\r\n'
+         b'\r\n'
+         b'\tdef Accept(self):\r\n'
+         b'\t\tif not self.data:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tdata = self.data\r\n'
+         b'\t\tquantity = self.__GetQuantity()\r\n'
+         b'\t\tself.Close()\r\n'
+         b'\t\tself.market.SendStackPurchase(data, quantity)\r\n'
+         b'\r\n'
+         b'\tdef Close(self):\r\n'
+         b'\t\tself.data = None\r\n'
+         b'\t\tself.Hide()\r\n'
+         b'\r\n'
+         b'\tdef OnPressEscapeKey(self):\r\n'
+         b'\t\tself.Close()\r\n'
+         b'\t\treturn True\r\n'
+         b'\r\n'
+         b'\r\n'
+         b"# The Dom Towarowy's window (customfleamarket.py, Uxie [DSO]).\r\n"
+         b'import customfleamarket\r\n'
+         b'FleaMarketWindow = customfleamarket.FleaMarketWindow\r\n'),
     ],
     # The offline shop's edit grid removes an item on a left click and never
     # asked whether the slot held one: a click on an empty slot was a KeyError
@@ -1170,6 +1377,101 @@ EDITS = {
          b'\t\t\t\t\tself.__SendEditItemPricePacket(i, inputPrice)\r\n',
          b'\t\t\t\tshoppricepump.Queue([(i, inputPrice) for i in item_list])\r\n'),
         (b'import ikashop\r\n', b'import ikashop\r\nimport shoppricepump\r\n'),
+        # Upstream's client 2.0.44-2.0.46, our 2.0.47: under the price of an item
+        # being listed, what a bot would ask for it and what the bots paid
+        # (/flea_price, the Dom Towarowy's hint).
+        (b'\t\tself.addItemDialog = None\r\n'
+         b'\t\tself.closeShopDialog = None\r\n',
+         b'\t\tself.addItemDialog = None\r\n'
+         b'\t\tself.fleaPriceDialog = None\r\n'
+         b'\t\tself.fleaPriceRequestID = 0\r\n'
+         b'\t\tself.closeShopDialog = None\r\n'),
+        (b'\tdef __CloseAddInput(self):\r\n'
+         b'\t\tself.addItemDialog.Close()\r\n'
+         b'\t\treturn True\r\n'
+         b'\r\n',
+         b'\tdef __CloseAddInput(self):\r\n'
+         b'\t\tself.fleaPriceDialog = None\r\n'
+         b'\t\tself.addItemDialog.Close()\r\n'
+         b'\t\treturn True\r\n'
+         b'\r\n'
+         b'\tdef __SetFleaMarketPriceHint(self, dialog, primaryText, secondaryText):\r\n'
+         b'\t\tif not hasattr(dialog, "fleaMarketPriceHint"):\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint = ui.TextLine()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetParent(dialog.board)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetWindowHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetPackedFontColor(0xFFFFD56A)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.Show()\r\n'
+         b'\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory = ui.TextLine()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetParent(dialog.board)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetWindowHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetPackedFontColor(0xFFA8D8FF)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.Show()\r\n'
+         b'\r\n'
+         b'\t\tif app.ENABLE_CHEQUE_SYSTEM:\r\n'
+         b'\t\t\thintY = 112\r\n'
+         b'\t\t\tbuttonY = 145\r\n'
+         b'\t\telse:\r\n'
+         b'\t\t\thintY = 79\r\n'
+         b'\t\t\tbuttonY = 112\r\n'
+         b'\r\n'
+         b'\t\tdialog.fleaMarketPriceHint.SetPosition(0, hintY)\r\n'
+         b'\t\tdialog.fleaMarketPriceHistory.SetPosition(0, hintY + 16)\r\n'
+         b'\t\tdialog.fleaMarketPriceHint.SetText(primaryText)\r\n'
+         b'\t\tdialog.fleaMarketPriceHistory.SetText(secondaryText)\r\n'
+         b'\t\tdialog.SetSize(280, buttonY + 32)\r\n'
+         b'\t\tdialog.board.SetSize(280, buttonY + 32)\r\n'
+         b'\t\tdialog.acceptButton.SetPosition(-36, buttonY)\r\n'
+         b'\t\tdialog.cancelButton.SetPosition(35, buttonY)\r\n'
+         b'\t\tdialog.SetCenterPosition()\r\n'
+         b'\r\n'
+         b'\tdef __RequestFleaMarketPrice(self, inventoryWindowType, inventorySlotIndex):\r\n'
+         b'\t\tself.fleaPriceRequestID += 1\r\n'
+         b'\t\tif self.fleaPriceRequestID > 2000000000:\r\n'
+         b'\t\t\tself.fleaPriceRequestID = 1\r\n'
+         b'\r\n'
+         b'\t\tself.fleaPriceDialog = self.addItemDialog\r\n'
+         b'\t\tnet.SendChatPacket("/flea_price %d %d %d" % (\r\n'
+         b'\t\t\tself.fleaPriceRequestID, inventoryWindowType, inventorySlotIndex))\r\n'
+         b'\r\n'
+         b'\tdef SetFleaMarketPriceQuote(self, requestID, suggestedPrice, observedPrice, sampleCount):\r\n'
+         b'\t\tif requestID != self.fleaPriceRequestID:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tif not self.fleaPriceDialog or self.fleaPriceDialog != self.addItemDialog:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tif not self.addItemDialog.IsShow():\r\n'
+         b'\t\t\treturn\r\n'
+         b'\r\n'
+         b'\t\tif suggestedPrice > 0:\r\n'
+         b'\t\t\tprimary = "Sugestia botow: " + localeInfo.NumberToMoneyString(suggestedPrice)\r\n'
+         b'\t\telse:\r\n'
+         b'\t\t\tprimary = "Boty nie maja jeszcze wyceny tego przedmiotu."\r\n'
+         b'\r\n'
+         b'\t\tif observedPrice > 0 and sampleCount > 0:\r\n'
+         b'\t\t\tsecondary = "Ostatnia cena botow: %s (probki: %d)" % (\r\n'
+         b'\t\t\t\tlocaleInfo.NumberToMoneyString(observedPrice), sampleCount)\r\n'
+         b'\t\telse:\r\n'
+         b'\t\t\tsecondary = "Brak historii transakcji - pokazana cena bazowa."\r\n'
+         b'\r\n'
+         b'\t\tself.__SetFleaMarketPriceHint(self.addItemDialog, primary, secondary)\r\n'
+         b'\r\n'),
+        (b'\t\t\tself.addItemDialog = dialog\r\n'
+         b'\t\telse:\r\n',
+         b'\t\t\tself.addItemDialog = dialog\r\n'
+         b'\t\t\tself.__RequestFleaMarketPrice(inventoryWindowType, inventorySlotIndex)\r\n'
+         b'\t\telse:\r\n'),
+        (b'\t\t\tinputPrice = player.GOLD_MAX\r\n'
+         b'\r\n'
+         b'\t\tself.addItemDialog.Close()\r\n'
+         b'\r\n',
+         b'\t\t\tinputPrice = player.GOLD_MAX\r\n'
+         b'\r\n'
+         b'\t\tself.fleaPriceDialog = None\r\n'
+         b'\t\tself.addItemDialog.Close()\r\n'
+         b'\r\n'),
     ],
     'uisystem.py': [
         # Numer wersji w oknie systemowym przez klucz locale (2.0.23).
@@ -1553,12 +1855,14 @@ EDITS = {
         (b'\t\t\t\t\t\t\t"tooltip_text" : uiScriptLocale.INVENTORY_AUTOSTACK,\r\n',
          b'\t\t\t\t\t\t\t"tooltip_text" : uiScriptLocale.INVENTORY_SORT_STACK,\r\n'),
         # Upstream 2.2.22 (Gibon): the chest preview button.
-        (b'\t\t\t\t\t\t\t\t\t"down_image": flamewindPath.GetInventory("myshop_btn3"),\r\n'
-         b'\t\t\t\t\t\t\t\t},\r\n'
-         b'\t\t\t\t\t\t\t),\r\n'
-         b'\t\t\t\t\t\t},\r\n'
-         b'\r\n'
-         b'\t\t\t\t\t\t{\r\n',
+        # Upstream's client 2.0.44-2.0.46, our 2.0.47: the buttons under the
+        # equipment (the shop's here) are playerbot_ui's 21-pixel ones, and the
+        # chest preview button sits above them with its label inside the window
+        # (Tyrion, NerrVoVy). A root rendered before 2.0.47 takes that here
+        # (optional: absent from a stock root); the pair after it is the stock's.
+        (b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"default_image": flamewindPath.GetInventory("myshop_btn1"),\r\n'
+         b'\t\t\t\t\t\t\t\t\t"over_image": flamewindPath.GetInventory("myshop_btn2"),\r\n'
          b'\t\t\t\t\t\t\t\t\t"down_image": flamewindPath.GetInventory("myshop_btn3"),\r\n'
          b'\t\t\t\t\t\t\t\t},\r\n'
          b'\t\t\t\t\t\t\t),\r\n'
@@ -1581,7 +1885,122 @@ EDITS = {
          b'\t\t\t\t\t\t\t"down_image" : "playerbot_ui/chest_button.tga",\r\n'
          b'\t\t\t\t\t\t},\r\n'
          b'\r\n'
+         b'\t\t\t\t\t\t{\r\n',
+         b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"default_image": "playerbot_ui/myshop_btn1.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t\t"over_image": "playerbot_ui/myshop_btn2.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t\t"down_image": "playerbot_ui/myshop_btn3.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t},\r\n'
+         b'\t\t\t\t\t\t\t),\r\n'
+         b'\t\t\t\t\t\t},\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t{\r\n'
+         b'\t\t\t\t\t\t\t"name" : "ChestPreviewButton",\r\n'
+         b'\t\t\t\t\t\t\t"type" : "button",\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"x" : 33,\r\n'
+         b'\t\t\t\t\t\t\t"y" : 68,\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"horizontal_align" : "right",\r\n'
+         b'\t\t\t\t\t\t\t"vertical_align" : "bottom",\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"tooltip_text" : "Podgl\\xb9d skrzynki",\r\n'
+         b'\t\t\t\t\t\t\t"tooltip_x" : -30,\r\n'
+         b'\t\t\t\t\t\t\t"tooltip_y" : -19,\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"default_image" : "playerbot_ui/chest_button_big.tga",\r\n'
+         b'\t\t\t\t\t\t\t"over_image" : "playerbot_ui/chest_button_big.tga",\r\n'
+         b'\t\t\t\t\t\t\t"down_image" : "playerbot_ui/chest_button_big.tga",\r\n'
+         b'\t\t\t\t\t\t},\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t{\r\n',
+         True),
+        (b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"default_image": flamewindPath.GetInventory("myshop_btn1"),\r\n'
+         b'\t\t\t\t\t\t\t\t\t"over_image": flamewindPath.GetInventory("myshop_btn2"),\r\n'
+         b'\t\t\t\t\t\t\t\t\t"down_image": flamewindPath.GetInventory("myshop_btn3"),\r\n'
+         b'\t\t\t\t\t\t\t\t},\r\n'
+         b'\t\t\t\t\t\t\t),\r\n'
+         b'\t\t\t\t\t\t},\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t{\r\n',
+         b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"default_image": "playerbot_ui/myshop_btn1.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t\t"over_image": "playerbot_ui/myshop_btn2.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t\t"down_image": "playerbot_ui/myshop_btn3.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t},\r\n'
+         b'\t\t\t\t\t\t\t),\r\n'
+         b'\t\t\t\t\t\t},\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t{\r\n'
+         b'\t\t\t\t\t\t\t"name" : "ChestPreviewButton",\r\n'
+         b'\t\t\t\t\t\t\t"type" : "button",\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"x" : 33,\r\n'
+         b'\t\t\t\t\t\t\t"y" : 68,\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"horizontal_align" : "right",\r\n'
+         b'\t\t\t\t\t\t\t"vertical_align" : "bottom",\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"tooltip_text" : "Podgl\\xb9d skrzynki",\r\n'
+         b'\t\t\t\t\t\t\t"tooltip_x" : -30,\r\n'
+         b'\t\t\t\t\t\t\t"tooltip_y" : -19,\r\n'
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"default_image" : "playerbot_ui/chest_button_big.tga",\r\n'
+         b'\t\t\t\t\t\t\t"over_image" : "playerbot_ui/chest_button_big.tga",\r\n'
+         b'\t\t\t\t\t\t\t"down_image" : "playerbot_ui/chest_button_big.tga",\r\n'
+         b'\t\t\t\t\t\t},\r\n'
+         b'\r\n'
          b'\t\t\t\t\t\t{\r\n'),
+        # Upstream's client 2.0.44-2.0.46, our 2.0.47: the buttons under the
+        # equipment 21 pixels as the sort button, the chest preview above them and
+        # its label inside the window (Tyrion, NerrVoVy).
+        (b'\r\n'
+         b'\t\t\t\t\t\t\t"x" : 55,\r\n'
+         b'\t\t\t\t\t\t\t"y" : 23,\r\n'
+         b'\r\n',
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"x" : 73,\r\n'
+         b'\t\t\t\t\t\t\t"y" : 29,\r\n'
+         b'\r\n'),
+        (b'\r\n'
+         b'\t\t\t\t\t\t\t"image" : flamewindPath.GetInventory("inventory_buttons_slot"),\r\n'
+         b'\t\t\t\t\t\t\t"children" : (\r\n',
+         b'\r\n'
+         b'\t\t\t\t\t\t\t"image" : "playerbot_ui/inventory_buttons_slot.tga",\r\n'
+         b'\t\t\t\t\t\t\t"children" : (\r\n'),
+        (b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"default_image" : flamewindPath.GetInventory("horse_inv_btn1"),\r\n'
+         b'\t\t\t\t\t\t\t\t\t"over_image" : flamewindPath.GetInventory("horse_inv_btn2"),\r\n'
+         b'\t\t\t\t\t\t\t\t\t"down_image" : flamewindPath.GetInventory("horse_inv_btn3"),\r\n'
+         b'\t\t\t\t\t\t\t\t},\r\n',
+         b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"default_image" : "playerbot_ui/horse_inv_btn1.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t\t"over_image" : "playerbot_ui/horse_inv_btn2.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t\t"down_image" : "playerbot_ui/horse_inv_btn3.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t},\r\n'),
+        (b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"x" : 17,"y" : 2,\r\n'
+         b'\r\n',
+         b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"x" : 24,"y" : 2,\r\n'
+         b'\r\n'),
+        (b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"default_image" : flamewindPath.GetInventory("deposit_btn1"),\r\n'
+         b'\t\t\t\t\t\t\t\t\t"over_image" : flamewindPath.GetInventory("deposit_btn2"),\r\n'
+         b'\t\t\t\t\t\t\t\t\t"down_image" : flamewindPath.GetInventory("deposit_btn3"),\r\n'
+         b'\t\t\t\t\t\t\t\t},\r\n',
+         b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"default_image" : "playerbot_ui/deposit_btn1.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t\t"over_image" : "playerbot_ui/deposit_btn2.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t\t"down_image" : "playerbot_ui/deposit_btn3.tga",\r\n'
+         b'\t\t\t\t\t\t\t\t},\r\n'),
+        (b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"x": 32, "y": 2,\r\n'
+         b'\r\n',
+         b'\r\n'
+         b'\t\t\t\t\t\t\t\t\t"x": 46, "y": 2,\r\n'
+         b'\r\n'),
     ],
     # The requirement counts under a locked horse-bag slot and a special
     # shop's price ("(0 na 60)") read two bag pages and, with the horse out,
@@ -1659,6 +2078,17 @@ EDITS = {
          b'\t\t\tself.costText.SetText(localeInfo.REFINE_COST % localeInfo.NumberToMoneyString(self.cost))\r\n'
          b'\t\texcept:\r\n'
          b'\t\t\tself.costText.SetText(localeInfo.NumberToMoneyString(self.cost))\r\n'),
+        # Upstream's client 2.0.44-2.0.46, our 2.0.47: the window a line taller
+        # while it shows the chance, so the line no longer covers the last
+        # material (Piciu713).
+        (b'\t\tnewHeight = self.dialogHeight + 69\r\n'
+         b'\r\n',
+         b'\t\tnewHeight = self.dialogHeight + 69\r\n'
+         b"\t\t# The chance line stands 70 above the bottom and the last material's\r\n"
+         b'\t\t# row reached 61 above it: shown, it has a row of its own.\r\n'
+         b'\t\tif constInfo.ENABLE_REFINE_PCT and getattr(self, "percentage", 0) > 0:\r\n'
+         b'\t\t\tnewHeight += 16\r\n'
+         b'\r\n'),
     ],
     'constinfo.py': [
         (b'\t"major" : 0,\r\n\t"minor" : 15,\r\n',
@@ -1807,12 +2237,28 @@ EDITS = {
          b'\t\t\tif vnum > 0:\r\n'
          b'\t\t\t\tself.eventMobDrop(self.vid, vnum, chr.GetNameByVID(self.vid))\r\n'
          b'\r\n'),
+        # The health's text goes with the gauge when the board is reset (upstream's
+        # client 2.0.45, our 2.0.47): inside the text the pair below writes, so a
+        # root rendered before 2.0.47 takes it here (optional).
+        (b'\t\tself.hpGauge.Hide()\r\n'
+         b'\t\tif self.mobDropButton:\r\n'
+         b'\t\t\tself.mobDropButton.Hide()\r\n'
+         b'\t\t\tself.closeButton.Show()\r\n'
+         b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n',
+         b'\t\tself.hpGauge.Hide()\r\n'
+         b'\t\tif self.mobDropButton:\r\n'
+         b'\t\t\tself.mobDropButton.Hide()\r\n'
+         b'\t\t\tself.closeButton.Show()\r\n'
+         b'\t\tself.hpText.Hide()\r\n'
+         b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n',
+         True),
         (b'\t\tself.hpGauge.Hide()\r\n'
          b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n',
          b'\t\tself.hpGauge.Hide()\r\n'
          b'\t\tif self.mobDropButton:\r\n'
          b'\t\t\tself.mobDropButton.Hide()\r\n'
          b'\t\t\tself.closeButton.Show()\r\n'
+         b'\t\tself.hpText.Hide()\r\n'
          b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n'),
         (b'\t\tself.SetTargetVID(vid)\r\n'
          b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n',
@@ -1825,6 +2271,165 @@ EDITS = {
          b'\t\t\t\tself.mobDropButton.Hide()\r\n'
          b'\t\t\t\tself.closeButton.Show()\r\n'
          b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n'),
+        # Upstream's client 2.0.44-2.0.46, our 2.0.47: the target's health as a
+        # number on the gauge, and another player's gauge in a duel, a war or PK
+        # mode (TargetHP, playerbotify's apply_target_hp_values; Kiciamol).
+        (b'\t\thpGauge.Hide()\r\n'
+         b'\r\n'
+         b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n'
+         b'\t\t\telementImage = ui.ImageBox()\r\n',
+         b'\t\thpGauge.Hide()\r\n'
+         b'\r\n'
+         b'\t\t# HP_NUMBER_ON_GAUGE / HP_REAL_VALUES: liczbowy zapis HP na pasku.\r\n'
+         b'\t\t# SetHP() ustawia tymczasowo "..." (bo dostaje tylko procent),\r\n'
+         b'\t\t# a realne "aktualny/max" doklada SetRealHP() po komendzie TargetHP.\r\n'
+         b'\t\thpText = ui.TextLine()\r\n'
+         b'\t\thpText.SetParent(hpGauge)\r\n'
+         b'\t\thpText.SetOutline()\r\n'
+         b'\t\thpText.SetHorizontalAlignCenter()\r\n'
+         b'\t\thpText.SetVerticalAlignCenter()\r\n'
+         b'\t\thpText.SetPosition(65, 1)\r\n'
+         b'\t\thpText.Hide()\r\n'
+         b'\r\n'
+         b'\t\tif app.ENABLE_ELEMENTAL_TARGET:\r\n'
+         b'\t\t\telementImage = ui.ImageBox()\r\n'),
+        (b'\t\tself.hpGauge = hpGauge\r\n'
+         b'\t\tself.closeButton = closeButton\r\n',
+         b'\t\tself.hpGauge = hpGauge\r\n'
+         b'\t\tself.hpText = hpText\r\n'
+         b'\t\tself.closeButton = closeButton\r\n'),
+        (b'\t\tself.hpGauge = None\r\n'
+         b'\t\tself.affectDict = None\r\n',
+         b'\t\tself.hpGauge = None\r\n'
+         b'\t\tself.hpText = None\r\n'
+         b'\t\tself.affectDict = None\r\n'),
+        (b'\r\n'
+         b'\tdef SetHP(self, hpPercentage):\r\n'
+         b'\t\tif not self.hpGauge.IsShow():\r\n'
+         b'\r\n'
+         b'\t\t\tself.SetSize(200 + 7*self.nameLength, self.GetHeight())\r\n',
+         b'\r\n'
+         b'\tdef __ShowHPBoard(self):\r\n'
+         b'\t\tif not self.hpGauge.IsShow():\r\n'
+         b'\t\t\tself.SetSize(200 + 7*self.nameLength, self.GetHeight())\r\n'),
+        (b'\t\t\tself.hpGauge.Show()\r\n'
+         b'\t\t\tself.UpdatePosition()\r\n'
+         b'\r\n'
+         b'\t\tself.hpGauge.SetPercentage(hpPercentage, 100)\r\n'
+         b'\r\n',
+         b'\t\t\tself.hpGauge.Show()\r\n'
+         b'\t\t\tself.hpText.Show()\r\n'
+         b'\t\t\tself.UpdatePosition()\r\n'
+         b'\r\n'
+         b'\tdef SetHP(self, hpPercentage):\r\n'
+         b'\t\tself.__ShowHPBoard()\r\n'
+         b'\t\tself.hpText.SetText("...")\r\n'
+         b'\r\n'
+         b'\t\tself.hpGauge.SetPercentage(hpPercentage, 100)\r\n'
+         b'\t\t# HP_REAL_VALUES: tekst na pasku nie jest juz liczony z procentu -\r\n'
+         b'\t\t# ustawia go SetRealHP() po otrzymaniu prawdziwych liczb z serwera\r\n'
+         b'\t\t# (komenda "TargetHP" - patrz game.py).\r\n'
+         b'\r\n'
+         b'\tdef SetRealHP(self, vid, hp, maxHp):\r\n'
+         b'\t\t# Ignoruj dane, ktore dojda po zmianie celu (spoznione w drodze)\r\n'
+         b'\t\tif vid != self.vid:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\r\n'
+         b'\t\t# HP_REAL_VALUES: niezalezne od SetHP(), bo u niektorych klientow\r\n'
+         b'\t\t# binarka C++ w ogole nie wywoluje SetHP() dla celu-gracza (twarda\r\n'
+         b'\t\t# blokada pokazywania paska HP wroga w PvP, zaszyta w kodzie klienta,\r\n'
+         b'\t\t# do ktorego nie mamy zrodel). Ten kanal idzie osobno przez komende\r\n'
+         b'\t\t# czatu, wiec sam musi pokazac pasek/tekst, a nie polegac na SetHP().\r\n'
+         b'\t\tself.__ShowHPBoard()\r\n'
+         b'\r\n'
+         b'\t\tif maxHp > 0:\r\n'
+         b'\t\t\tself.hpGauge.SetPercentage(hp, maxHp)\r\n'
+         b'\t\tself.hpText.SetText("%d/%d" % (hp, maxHp))\r\n'
+         b'\r\n'),
+    ],
+    # Upstream's client 2.0.44-2.0.46, our 2.0.47: the Dom Towarowy's window
+    # (customfleamarket.py) made and torn down with the interface, and the
+    # offline shop's whole owner name for its title and whisper.
+    'interfacemodule.py': [
+        (b'\r\n'
+         b'\t\tself.hyperlinkItemTooltip = uiToolTip.HyperlinkItemToolTip()\r\n',
+         b'\r\n'
+         b'\t\tself.fleaMarket = offlineShopSearch.FleaMarketWindow()\r\n'
+         b'\t\tself.fleaMarket.SetToolTip(self.tooltipItem)\r\n'
+         b'\t\tself.fleaMarket.SetGuestBoard(self.offlineShopGuest)\r\n'
+         b'\r\n'
+         b'\t\tself.hyperlinkItemTooltip = uiToolTip.HyperlinkItemToolTip()\r\n'),
+        (b'\r\n'
+         b'\t\tif self.dlgRefineNew:\r\n',
+         b'\r\n'
+         b'\t\tif self.fleaMarket:\r\n'
+         b'\t\t\tself.fleaMarket.Destroy()\r\n'
+         b'\r\n'
+         b'\t\tif self.dlgRefineNew:\r\n'),
+        (b'\t\tdel self.offlineShopSearch\r\n'
+         b'\t\tdel self.inputDialog\r\n',
+         b'\t\tdel self.offlineShopSearch\r\n'
+         b'\t\tdel self.fleaMarket\r\n'
+         b'\t\tdel self.inputDialog\r\n'),
+        (b'\r\n'
+         b'\tdef ClickPrivateShop(self, vid, is_offline):\r\n',
+         b'\r\n'
+         b'\tdef OpenFleaMarket(self):\r\n'
+         b'\t\tself.fleaMarket.Open()\r\n'
+         b'\t\treturn True\r\n'
+         b'\r\n'
+         b'\tdef ClickPrivateShop(self, vid, is_offline):\r\n'),
+    ],
+    # Upstream's client 2.0.45-2.0.46, our 2.0.47: the maximum values of the
+    # bonus table glow orange (the table back to the package's, Max HP to
+    # 2000).
+    'localeinfo_point.py': [
+        (b'ATTR_MAX_VALUES = {\r\n'
+         b'\tplayer.POINT_MAX_HP: 1500,\r\n'
+         b'\tplayer.POINT_MAX_SP: 250,\r\n',
+         b'ATTR_MAX_VALUES = {\r\n'
+         b'\tplayer.POINT_MAX_HP: 2000,\r\n'
+         b'\tplayer.POINT_MAX_SP: 250,\r\n'),
+        (b'\tplayer.POINT_ATT_GRADE_BONUS: 50,\r\n'
+         b'}\r\n',
+         b'\tplayer.POINT_ATT_GRADE_BONUS: 50,\r\n'
+         b'\t# The bonus table as the global server has it (item_attr_global_2231).\r\n'
+         b'\tplayer.POINT_RESIST_FIRE: 15,\r\n'
+         b'\tplayer.POINT_RESIST_ELEC: 15,\r\n'
+         b'\tplayer.POINT_RESIST_WIND: 15,\r\n'
+         b'\tplayer.POINT_EXP_DOUBLE_BONUS: 20,\r\n'
+         b'\tplayer.POINT_ITEM_DROP_BONUS: 20,\r\n'
+         b'}\r\n'),
+    ],
+    # Upstream's client 2.0.44, our 2.0.47: an offline shop's window titled and
+    # whispered by the owner's whole name (IkashopOwnerName), not the fourteen
+    # letters the shop packet carries (Mkls).
+    'offlineshopguest.py': [
+        (b'\r\n'
+         b'\t## BINARY CALLS\r\n'
+         b'\tdef OpenShopGuest(self, data):\r\n'
+         b"\t\tdata['items'] = {item['cell']: item for item in data['items']}\r\n",
+         b'\r\n'
+         b'\tdef SetWholeOwnerName(self, pid, name):\r\n'
+         b'\t\ttry:\r\n'
+         b'\t\t\tpid = int(pid)\r\n'
+         b'\t\texcept ValueError:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tif not hasattr(self, "wholeOwnerNames"):\r\n'
+         b'\t\t\tself.wholeOwnerNames = {}\r\n'
+         b'\t\tself.wholeOwnerNames[pid] = name\r\n'
+         b'\r\n'
+         b'\tdef __WholeOwnerName(self, data):\r\n'
+         b'\t\tshortName = data.get("ownerName", "")\r\n'
+         b'\t\tname = getattr(self, "wholeOwnerNames", {}).get(data.get("id", 0), "")\r\n'
+         b'\t\tif shortName and name.startswith(shortName):\r\n'
+         b'\t\t\treturn name\r\n'
+         b'\t\treturn shortName\r\n'
+         b'\r\n'
+         b'\t## BINARY CALLS\r\n'
+         b'\tdef OpenShopGuest(self, data):\r\n'
+         b'\t\tdata["ownerName"] = self.__WholeOwnerName(data)\r\n'
+         b"\t\tdata['items'] = {item['cell']: item for item in data['items']}\r\n"),
     ],
 }
 

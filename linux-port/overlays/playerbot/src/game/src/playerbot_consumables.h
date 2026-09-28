@@ -209,6 +209,9 @@ namespace
 		if (!ch || !ch->IsItemLoaded() || dwNow < state.dwNextChestTime)
 			return false;
 		state.dwNextChestTime = dwNow + PLAYERBOT_CHEST_INTERVAL;
+		// A companion whose owner keeps its chests closed ("Skrzynki: nie").
+		if (IsPlayerBotSidekickKeepingChests(ch))
+			return false;
 		// A treasure chest (the silver and gold ones) opens with a key, not by
 		// itself: the engine's path is "use the key on the chest", which removes
 		// both and hands out the chest's group. Any key whose lock value matches.

@@ -25,6 +25,13 @@
 //                      sends him to other ground.
 //   Szalony Wedkarz    six hours at the water (the fishing spell), sessions
 //                      a minute or two apart, the bag emptied in town between.
+//   Mlodszy, Starszy,  Community Patch 5, point 1 - the four gamblers that
+//   Naczelny and       took the Hazardzista's place, shown in purple: drawn
+//   Szalony            among the richest 60, 40, 25 and 15 percent of the
+//   Hazardzista        world's characters (RefreshPlayerBotWealthRanks), a
+//                      session at the anvil on the bag's pieces of his list,
+//                      the bases bought off the counters first when the bag
+//                      holds none (playerbot_gambler.h).
 //
 // The states and the world's pauses live in the core's memory: a restart ends
 // them and starts the pauses afresh. An implementation fragment in the sense
@@ -42,6 +49,10 @@ namespace
 			case playerbot_persona::RARE_NAUKOWIEC: return "naukowiec";
 			case playerbot_persona::RARE_EGZEKUTOR: return "egzekutor";
 			case playerbot_persona::RARE_WEDKARZ: return "wedkarz";
+			case playerbot_persona::RARE_HAZ_MLODSZY: return "hazardzista_mlodszy";
+			case playerbot_persona::RARE_HAZ_STARSZY: return "hazardzista_starszy";
+			case playerbot_persona::RARE_HAZ_NACZELNY: return "hazardzista_naczelny";
+			case playerbot_persona::RARE_HAZ_SZALONY: return "hazardzista_szalony";
 			default: return "none";
 		}
 	}
@@ -103,6 +114,37 @@ namespace
 		return false;
 	}
 
+	// Community Patch 5, point 1: "Postac musi znajdowac sie w 60% (40%, 25%,
+	// 15%) najbogatszych w Yang postaci w grze" - every character, the ones
+	// not in the game too, so the purses are the database's, asked on the
+	// engine's queue at each draw (DBManager::FuncQuery answers on a later
+	// tick) and ranked richest first. A live bot's purse there is as old as
+	// the db core's last flush, which for a share of the world is nothing.
+	std::vector<long long> s_vecPlayerBotWealth;
+
+	void RefreshPlayerBotWealthRanks()
+	{
+		DBManager::instance().FuncQuery([](SQLMsg* msg)
+		{
+			if (!msg || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
+				return;
+			std::vector<long long> purses;
+
+			MYSQL_ROW row;
+			while ((row = mysql_fetch_row(msg->Get()->pSQLResult)) != NULL)
+				purses.push_back(row[0] ? std::max(0LL, strtoll(row[0], NULL, 10)) : 0LL);
+			s_vecPlayerBotWealth.swap(purses);
+		}, "SELECT gold FROM player.player ORDER BY gold DESC");
+	}
+
+	// Whether a purse is among the richest `topPercent` of the world's
+	// characters; nobody is until the first answer is in.
+	bool IsPlayerBotAmongRichest(LPCHARACTER ch, unsigned int topPercent)
+	{
+		const long long bar = playerbot_persona::WealthBar(s_vecPlayerBotWealth, topPercent);
+		return ch && bar >= 0 && (long long)ch->GetGold() >= bar;
+	}
+
 	// His conditions, kind by kind.
 	bool QualifiesPlayerBotRare(LPCHARACTER ch, const TPlayerBotAIState& state, BYTE rare)
 	{
@@ -134,6 +176,15 @@ namespace
 						(CountPlayerBotRods(ch) > 0 || IsPlayerBotHoldingRod(ch)) &&
 						PlayerBotHasFishedBefore(ch) && CanPlayerBotUseFishingRod(ch) &&
 						!IsPlayerBotOnBattleHorseTrial(ch) && !IsPlayerBotOnMilitaryHorseTrial(ch);
+			case playerbot_persona::RARE_HAZ_MLODSZY:
+			case playerbot_persona::RARE_HAZ_STARSZY:
+			case playerbot_persona::RARE_HAZ_NACZELNY:
+			case playerbot_persona::RARE_HAZ_SZALONY:
+				// His only condition is the share of the richest. The addict's
+				// purse floor stays under it: in a young world the richest
+				// sixty percent may be purses no anvil can do anything with.
+				return IsPlayerBotAmongRichest(ch, playerbot_persona::GetGamblerTerms(rare).topPercent) &&
+						(long long)ch->GetGold() >= (long long)ScalePlayerBotIwakuraPrice(PLAYERBOT_GAMBLE_MIN_PURSE_BASE);
 			default:
 				return false;
 		}
@@ -168,6 +219,34 @@ namespace
 				p.dwFishingSpellUntil = p.dwRareUntil;
 				state.dwNextFishingCheckTime = 0;
 				break;
+			case playerbot_persona::RARE_HAZ_MLODSZY:
+			case playerbot_persona::RARE_HAZ_STARSZY:
+			case playerbot_persona::RARE_HAZ_NACZELNY:
+			case playerbot_persona::RARE_HAZ_SZALONY:
+			{
+				// The shopping it does before its session: none while its bag
+				// holds a piece of his list, else a drawn number of bases in a
+				// drawn category - the weapons of level thirty or higher, and
+				// the share that takes a piece off his list.
+				p.dwNextGambleAt = 0;
+				p.bRareBought = 0;
+				p.bGambleCategories = 0;
+				p.bGambleWeaponHigh = number(1, 100) > PLAYERBOT_RARE_GAMBLE_LEVEL30_PERCENT;
+				p.bGambleOffList = number(1, 100) <= PLAYERBOT_RARE_GAMBLE_OFF_LIST_PERCENT;
+				unsigned int counts[playerbot_persona::GAMBLE_CAT_COUNT];
+				CountPlayerBotRareGambleBases(ch, counts);
+				unsigned int held = 0;
+				for (int i = 0; i < playerbot_persona::GAMBLE_CAT_COUNT; ++i)
+					held += counts[i];
+				p.bRareBuyWant = held > 0 ? 0 : playerbot_persona::GamblerBuyCount(
+						playerbot_persona::GetGamblerTerms(rare), (uint32_t)number(0, 1000000));
+				p.bGambleBuyCategory = (BYTE)number(0, playerbot_persona::GAMBLE_CAT_COUNT - 1);
+				sys_log(0, "PLAYERBOT_PERSONA: gambler drawn pid=%u name=%s kind=%s held=%u buys=%u category=%u weapons_over_30=%d off_list=%d",
+						ch->GetPlayerID(), ch->GetName(), GetPlayerBotRareName(rare), held,
+						(unsigned int)p.bRareBuyWant, (unsigned int)p.bGambleBuyCategory,
+						p.bGambleWeaponHigh ? 1 : 0, p.bGambleOffList ? 1 : 0);
+				break;
+			}
 			default:
 				break;
 		}
@@ -240,6 +319,22 @@ namespace
 				if (p.bRareStage != 0 && !IsPlayerBotGambling(state, dwNow))
 					EndPlayerBotRare(ch, state, dwNow, "session_over");
 				break;
+			case playerbot_persona::RARE_HAZ_MLODSZY:
+			case playerbot_persona::RARE_HAZ_STARSZY:
+			case playerbot_persona::RARE_HAZ_NACZELNY:
+			case playerbot_persona::RARE_HAZ_SZALONY:
+				// Its session over, its purse spent ("jesli Yang zacznie
+				// brakowac, konczy dzialanie osobowosci"), or its shopping
+				// over with nothing in the bag to work.
+				if (p.bRareStage != 0 && !IsPlayerBotGambling(state, dwNow))
+					EndPlayerBotRare(ch, state, dwNow, "session_over");
+				else if (p.bRareStage == 0 && GetPlayerBotAddictBudgetLeft(ch) <= 0)
+					EndPlayerBotRare(ch, state, dwNow, "budget");
+				else if (p.bRareStage == 0 && !IsPlayerBotRareGamblerBuying(p, dwNow) &&
+						(DWORD)(dwNow - p.dwRareSince) >= PLAYERBOT_RARE_GAMBLE_BUY_WINDOW_MS &&
+						!PlayerBotRareGamblerWantsTown(ch, true))
+					EndPlayerBotRare(ch, state, dwNow, "no_bases");
+				break;
 			case playerbot_persona::RARE_NAUKOWIEC:
 				if (p.bRareStage != 0 && (state.dwProgressionTripUntil == 0 ||
 						(int)(dwNow - state.dwProgressionTripUntil) >= 0))
@@ -271,6 +366,9 @@ namespace
 		if (s_dwNextDraw != 0 && (int)(dwNow - s_dwNextDraw) < 0)
 			return;
 		s_dwNextDraw = dwNow + PLAYERBOT_RARE_DRAW_MS;
+		// The purses the four gamblers are ranked by; this draw reads the
+		// last answer, the next the one asked now.
+		RefreshPlayerBotWealthRanks();
 
 		uint32_t running[playerbot_persona::RARE_COUNT] = { 0 };
 		uint32_t eligible[playerbot_persona::RARE_COUNT] = { 0 };
@@ -331,9 +429,11 @@ namespace
 					break;
 			}
 		}
-		sys_log(0, "PLAYERBOT_PERSONA: rare census running metinolog=%u nalogowiec=%u naukowiec=%u egzekutor=%u wedkarz=%u eligible metinolog=%u nalogowiec=%u naukowiec=%u egzekutor=%u wedkarz=%u",
+		sys_log(0, "PLAYERBOT_PERSONA: rare census running metinolog=%u nalogowiec=%u naukowiec=%u egzekutor=%u wedkarz=%u haz_mlodszy=%u haz_starszy=%u haz_naczelny=%u haz_szalony=%u eligible metinolog=%u nalogowiec=%u naukowiec=%u egzekutor=%u wedkarz=%u haz_mlodszy=%u haz_starszy=%u haz_naczelny=%u haz_szalony=%u purses=%u",
 				running[1], running[2], running[3], running[4], running[5],
-				eligible[1], eligible[2], eligible[3], eligible[4], eligible[5]);
+				running[6], running[7], running[8], running[9],
+				eligible[1], eligible[2], eligible[3], eligible[4], eligible[5],
+				eligible[6], eligible[7], eligible[8], eligible[9], (unsigned int)s_vecPlayerBotWealth.size());
 	}
 }
 

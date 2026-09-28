@@ -122,6 +122,17 @@ class TargetBoard(ui.ThinBoard):
 		hpGauge.MakeGauge(130, "red")
 		hpGauge.Hide()
 
+		# HP_NUMBER_ON_GAUGE / HP_REAL_VALUES: liczbowy zapis HP na pasku.
+		# SetHP() ustawia tymczasowo "..." (bo dostaje tylko procent),
+		# a realne "aktualny/max" doklada SetRealHP() po komendzie TargetHP.
+		hpText = ui.TextLine()
+		hpText.SetParent(hpGauge)
+		hpText.SetOutline()
+		hpText.SetHorizontalAlignCenter()
+		hpText.SetVerticalAlignCenter()
+		hpText.SetPosition(65, 1)
+		hpText.Hide()
+
 		if app.ENABLE_ELEMENTAL_TARGET:
 			elementImage = ui.ImageBox()
 			elementImage.SetParent(self)
@@ -204,6 +215,7 @@ class TargetBoard(ui.ThinBoard):
 
 		self.name = name
 		self.hpGauge = hpGauge
+		self.hpText = hpText
 		self.closeButton = closeButton
 		self.nameString = 0
 		self.nameLength = 0
@@ -236,6 +248,7 @@ class TargetBoard(ui.ThinBoard):
 		self.buttonDict = None
 		self.name = None
 		self.hpGauge = None
+		self.hpText = None
 		self.affectDict = None
 		self.affectBar = None
 		self.tooltip = None
@@ -363,6 +376,7 @@ class TargetBoard(ui.ThinBoard):
 		if self.mobDropButton:
 			self.mobDropButton.Hide()
 			self.closeButton.Show()
+		self.hpText.Hide()
 		if app.ENABLE_ELEMENTAL_TARGET:
 			self.elementImage.Hide()
 
@@ -423,18 +437,41 @@ class TargetBoard(ui.ThinBoard):
 
 		self.name.SetText(self.nameString)
 
-	def SetHP(self, hpPercentage):
+	def __ShowHPBoard(self):
 		if not self.hpGauge.IsShow():
-
 			self.SetSize(200 + 7*self.nameLength, self.GetHeight())
 			self.name.SetPosition(23, 13)
 
 			self.name.SetWindowHorizontalAlignLeft()
 			self.name.SetHorizontalAlignLeft()
 			self.hpGauge.Show()
+			self.hpText.Show()
 			self.UpdatePosition()
 
+	def SetHP(self, hpPercentage):
+		self.__ShowHPBoard()
+		self.hpText.SetText("...")
+
 		self.hpGauge.SetPercentage(hpPercentage, 100)
+		# HP_REAL_VALUES: tekst na pasku nie jest juz liczony z procentu -
+		# ustawia go SetRealHP() po otrzymaniu prawdziwych liczb z serwera
+		# (komenda "TargetHP" - patrz game.py).
+
+	def SetRealHP(self, vid, hp, maxHp):
+		# Ignoruj dane, ktore dojda po zmianie celu (spoznione w drodze)
+		if vid != self.vid:
+			return
+
+		# HP_REAL_VALUES: niezalezne od SetHP(), bo u niektorych klientow
+		# binarka C++ w ogole nie wywoluje SetHP() dla celu-gracza (twarda
+		# blokada pokazywania paska HP wroga w PvP, zaszyta w kodzie klienta,
+		# do ktorego nie mamy zrodel). Ten kanal idzie osobno przez komende
+		# czatu, wiec sam musi pokazac pasek/tekst, a nie polegac na SetHP().
+		self.__ShowHPBoard()
+
+		if maxHp > 0:
+			self.hpGauge.SetPercentage(hp, maxHp)
+		self.hpText.SetText("%d/%d" % (hp, maxHp))
 
 	def StartTargetAffect(self):
 		self.refreshTargetAffectList = []

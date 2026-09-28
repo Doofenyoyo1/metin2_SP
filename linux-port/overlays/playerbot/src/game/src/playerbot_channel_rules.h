@@ -208,6 +208,38 @@ namespace playerbot_channel_rules
 			plan.extraOut = onShopChannel - cap < drainMost ? onShopChannel - cap : drainMost;
 		return plan;
 	}
+
+	// One kingdom's part of the number, between the two channels, from what
+	// each has left to start: the second takes its share as far as its own
+	// identities go and the first the rest - and what the first cannot start,
+	// the second takes. The moves above leave a bot's row where the last
+	// move put it, and nothing brings an offline one back, so a world that
+	// has played for weeks keeps most of its identities on the second
+	// channel: on m2zip on 27 September the first had 765 of 4 500, started
+	// every one of them against a share of 800, and the second started only
+	// its 20% - 940 bots of the 1 099 asked. The first channel's medal
+	// droppers come out of its own identities before the cohort does, so the
+	// caller counts them out of `left1`.
+	inline void SplitKingdomBetweenChannels(int total, int sharePercent, int left1, int left2,
+			int& first, int& second)
+	{
+		first = 0;
+		second = 0;
+		if (total <= 0)
+			return;
+		if (left1 < 0)
+			left1 = 0;
+		if (left2 < 0)
+			left2 = 0;
+		second = ShareOfTotal(total, true, sharePercent, 2, left2);
+		first = total - second;
+		if (first > left1)
+		{
+			const int shortfall = first - left1;
+			first = left1;
+			second = second + shortfall < left2 ? second + shortfall : left2;
+		}
+	}
 }
 
 #endif

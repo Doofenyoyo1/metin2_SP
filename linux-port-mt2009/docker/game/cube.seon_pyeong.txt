@@ -1,0 +1,146 @@
+# Seon-Pyeong (20091) by the Grotto of Exile: a +9 piece of level 65-66 into
+# its level-80 successor (NerrVoVy; rendered by
+# linux-port-mt2009/port/shareify.py and appended to cube.txt).
+
+# Miecz Bojowy+9 (65) -> Miecz Trytona+0 (80)
+section
+npc	20091
+item	149	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	270	1
+percent	100
+gold	2000000
+end
+
+# Miecz Egzorcysty+9 (65) -> Brzegowe Ostrze+0 (80)
+section
+npc	20091
+item	249	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	200	1
+percent	100
+gold	2000000
+end
+
+# Miecz Szponu Ducha+9 (65) -> Swiety Miecz+0 (80)
+section
+npc	20091
+item	159	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	280	1
+percent	100
+gold	2000000
+end
+
+# Smoczy Noz+9 (65) -> Bezduszny Noz+0 (80)
+section
+npc	20091
+item	1109	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	4040	1
+percent	100
+gold	2000000
+end
+
+# Olbrz. Luk Zolt. Smoka+9 (65) -> Olbrz. Luk Diabla+0 (80)
+section
+npc	20091
+item	2149	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	2160	1
+percent	100
+gold	2000000
+end
+
+# Dzwon Nieba I Ziemi+9 (65) -> Dzwon Szczeki Smoka+0 (80)
+section
+npc	20091
+item	5109	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	5330	1
+percent	100
+gold	2000000
+end
+
+# Wachlarz Zbawienia+9 (65) -> Wachlarz Demona+0 (80)
+section
+npc	20091
+item	7149	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	7190	1
+percent	100
+gold	2000000
+end
+
+# Zbroja Z Czarnej Stali+9 (66) -> Zbroja Z Nieb. Stali+0 (80)
+section
+npc	20091
+item	11299	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	12010	1
+percent	100
+gold	2000000
+end
+
+# Ubranie Czarn. Wiatru+9 (66) -> Ubranie Nieb. Smoka+0 (80)
+section
+npc	20091
+item	11499	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	12020	1
+percent	100
+gold	2000000
+end
+
+# Zbr. Plyt. Czar. Magii+9 (66) -> Zbroja Plytowa Aury+0 (80)
+section
+npc	20091
+item	11699	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	12030	1
+percent	100
+gold	2000000
+end
+
+# Czarna Szata+9 (66) -> Szata Smoka+0 (80)
+section
+npc	20091
+item	11899	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	12040	1
+percent	100
+gold	2000000
+end

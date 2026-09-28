@@ -346,6 +346,30 @@ namespace
 	inline bool BuildPlayerBotSummonStatus(LPCHARACTER ch, const TPlayerBotAIState& state, const char* prefix,
 			char* status, size_t statusSize, bool en);
 
+	// What a Biologist row has the bot after right now, in the words over its
+	// head: the specimen, or in the row's second half the key the quest waits
+	// for. The key is one kill in five hundred on the row's own monster at any
+	// level, so a bot of eighty in Orc Valley with ten teeth handed in is
+	// after Jinunggyi's stone - and read "Zbieram dla Biologa: Zab Orka" there
+	// (prodnathin, 27 September: "musze zrobic chmurke nad postacia ze akurat
+	// to robia", the operator).
+	const char* GetPlayerBotBiologistStatusItem(LPCHARACTER ch, const TPlayerBotBiologistMission* mission,
+			size_t missionIndex, bool en, char* link, size_t linkSize, bool* outKey)
+	{
+		const bool key = mission && mission->keyItemVnum != 0 &&
+				IsPlayerBotBiologistKeyPhase(ch, missionIndex);
+		if (outKey)
+			*outKey = key;
+		if (!mission)
+			return "";
+		if (en)
+		{
+			snprintf(link, linkSize, "{i%u}", (unsigned int)(key ? mission->keyItemVnum : mission->itemVnum));
+			return link;
+		}
+		return key && mission->keyItemLabel ? mission->keyItemLabel : mission->itemLabel;
+	}
+
 	void BuildPlayerBotStatusText(LPCHARACTER ch, const TPlayerBotAIState& state,
 			char* status, size_t statusSize, bool en = false)
 	{
@@ -686,18 +710,24 @@ namespace
 				break;
 			case BOT_ACTION_BIOLOGIST:
 			{
+				size_t missionIndex = 0;
 				const TPlayerBotBiologistMission* mission =
-						GetActivePlayerBotBiologistMission(ch);
+						GetActivePlayerBotBiologistMission(ch, &missionIndex);
+				bool key = false;
+				const char* wanted = GetPlayerBotBiologistStatusItem(ch, mission, missionIndex, en,
+						itemName, sizeof(itemName), &key);
 				if (!mission)
 					snprintf(status, statusSize, PBT(en, "%sWracam od Biologa", "%sComing back from the Biologist"), prefix);
 				else if (state.bVisitingBiologist &&
 						DISTANCE_APPROX(ch->GetX() - PLAYERBOT_BIOLOGIST_X,
 								ch->GetY() - PLAYERBOT_BIOLOGIST_Y) > 850)
-					snprintf(status, statusSize, PBT(en, "%sIde do Biologa z: %s", "%sTaking to the Biologist: %s"), prefix, (en ? (snprintf(itemName, sizeof(itemName), "{i%u}", (unsigned int)mission->itemVnum), itemName) : mission->itemLabel));
+					snprintf(status, statusSize, PBT(en, "%sIde do Biologa z: %s", "%sTaking to the Biologist: %s"), prefix, wanted);
 				else if (state.bVisitingBiologist)
-					snprintf(status, statusSize, PBT(en, "%sOddaje Biologowi: %s", "%sHanding in to the Biologist: %s"), prefix, (en ? (snprintf(itemName, sizeof(itemName), "{i%u}", (unsigned int)mission->itemVnum), itemName) : mission->itemLabel));
+					snprintf(status, statusSize, PBT(en, "%sOddaje Biologowi: %s", "%sHanding in to the Biologist: %s"), prefix, wanted);
+				else if (key)
+					snprintf(status, statusSize, PBT(en, "%sProbuje wydropic dla Biologa: %s", "%sTrying to drop for the Biologist: %s"), prefix, wanted);
 				else
-					snprintf(status, statusSize, PBT(en, "%sZbieram dla Biologa: %s", "%sCollecting for the Biologist: %s"), prefix, (en ? (snprintf(itemName, sizeof(itemName), "{i%u}", (unsigned int)mission->itemVnum), itemName) : mission->itemLabel));
+					snprintf(status, statusSize, PBT(en, "%sZbieram dla Biologa: %s", "%sCollecting for the Biologist: %s"), prefix, wanted);
 				break;
 			}
 			case BOT_ACTION_STABLE:
@@ -836,9 +866,14 @@ namespace
 					size_t missionIndex = 0;
 					const TPlayerBotBiologistMission* mission =
 							GetActivePlayerBotBiologistMission(ch, &missionIndex);
+					bool key = false;
+					const char* wanted = GetPlayerBotBiologistStatusItem(ch, mission, missionIndex, en,
+							itemName, sizeof(itemName), &key);
 					if (mission && !state.bVisitingBiologist &&
 							!PlayerBotBiologistHoldsHandIn(ch, mission, missionIndex))
-						snprintf(status, statusSize, PBT(en, "%sZbieram dla Biologa: %s", "%sCollecting for the Biologist: %s"), prefix, (en ? (snprintf(itemName, sizeof(itemName), "{i%u}", (unsigned int)mission->itemVnum), itemName) : mission->itemLabel));
+						snprintf(status, statusSize, key
+								? PBT(en, "%sProbuje wydropic dla Biologa: %s", "%sTrying to drop for the Biologist: %s")
+								: PBT(en, "%sZbieram dla Biologa: %s", "%sCollecting for the Biologist: %s"), prefix, wanted);
 					else
 						snprintf(status, statusSize, PBT(en, "%sIde do Biologa", "%sGoing to the Biologist"), prefix);
 				}

@@ -155,8 +155,39 @@ quest deviltower_zone begin
                 say_reward(msg(translate.deviltower_zone.current_limit, left_count))
             end
 
-            local s =  select(gameforge.locale.monkey_dungeon.enter, translate.deviltower_zone.limit_option, gameforge.locale.monkey_dungeon.no_enter)
-            if s == 1 then
+            -- What the door offers. A guild master's bots come to the ground
+            -- floor while he stands there (playerbot_demon_tower.h,
+            -- ManagePlayerBotTowerWithMaster) and the stone's jump takes them
+            -- in with him, so he chooses whether they are called: "zazwyczaj
+            -- chce wejsc na dt porobic misje ale cale stado botow mi to niezbyt
+            -- ulatwia" (Remigiusz, 27 September). The public ground floor is
+            -- never private: whoever else stands there goes in with the jump.
+            -- And anybody may take a tower of their own - "solo", a new
+            -- instance of the first floor with only the player in it, as many
+            -- servers have it (27 September): no ground floor, no Metin
+            -- of Toughness, no bots and nobody else. d.new_jump warps the
+            -- player alone, and the quest's dungeon is the new one from that
+            -- moment (GetDungeonForce), so the floor is filled here, as the
+            -- stone's timer fills it for the jump of everybody.
+            local choices = {}
+            local actions = {}
+            if pc.is_guild_master() then
+                table.insert(choices, "Wejdz z gildia")
+                table.insert(actions, "enter")
+                table.insert(choices, "Wejdz bez gildii")
+                table.insert(actions, "no_guild")
+            else
+                table.insert(choices, gameforge.locale.monkey_dungeon.enter)
+                table.insert(actions, "enter")
+            end
+            table.insert(choices, "Wejdz solo (tylko ty)")
+            table.insert(actions, "solo")
+            table.insert(choices, translate.deviltower_zone.limit_option)
+            table.insert(actions, "limit")
+            table.insert(choices, gameforge.locale.monkey_dungeon.no_enter)
+            table.insert(actions, "none")
+            local action = actions[select_table(choices)]
+            if action == "enter" or action == "no_guild" or action == "solo" then
                 if not pc.can_warp() then
                     npc_name()
                     say(translate.general.wait_after_exchange)
@@ -175,10 +206,25 @@ quest deviltower_zone begin
                     end
                     pc.remove_item(30377, 1)
                 end
-                
+
+                if action == "solo" then
+                    pc.setqf("solo", 1)
+                    local first_location = deviltower_zone.get_level_location(1)
+                    d.new_jump(66, first_location.x * 100, first_location.y * 100)
+                    d.regen_file(first_location.regen)
+                    local second_location = deviltower_zone.get_level_location(2)
+                    d.set_warp_at_eliminate(4, d.get_map_index(), second_location.x, second_location.y, second_location.regen)
+                    return
+                end
+
+                if action == "no_guild" then
+                    pc.setqf("solo", 1)
+                else
+                    pc.setqf("solo", 0)
+                end
                 pc.setqf("pass_enter", 1)
                 pc.warp((1280 + 117)*100, (7936 + 614)*100)
-            elseif s == 2 then
+            elseif action == "limit" then
                 say_title(gameforge.deviltower_zone._20_sayTitle)
                 say_split(translate.deviltower_zone.limit_info1)
                 say()

@@ -33,6 +33,13 @@ namespace
 	void CollectPlayerBotGambleMaterials(LPCHARACTER ch, std::set<DWORD>& out);
 	bool ManagePlayerBotGamble(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
 	bool ContinuePlayerBotVisitAsGambler(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
+	// Community Patch 5's four gamblers: the session a visit begins with,
+	// which of them the bot is, what one of their sessions made (goods for
+	// the counter at any plus) and the bases one holds for its anvil.
+	bool BeginPlayerBotRareGambleSession(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
+	BYTE GetPlayerBotRareGamblerKind(const TPlayerBotPersona& p, DWORD dwNow);
+	bool IsPlayerBotGambleForSale(LPCHARACTER ch, LPITEM item);
+	bool IsPlayerBotRareGambleHeldBase(LPCHARACTER ch, LPITEM item);
 	// And its walk along the counters between the storekeeper and the anvil
 	// (playerbot_offline_market.h; nothing on r40250's classic stalls).
 	bool ManagePlayerBotGambleMarket(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
@@ -503,10 +510,12 @@ namespace
 						(PLAYERBOT_BAG_CELLS - freeAfter) * 100 < PLAYERBOT_BAG_CELLS * PLAYERBOT_BAG_FULL_PERCENT;
 				why = "spare_goods";
 			}
-			else if (pGambler && (item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR))
+			else if (pGambler && (item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR) &&
+					GetPlayerBotRareGamblerKind(*pGambler, get_dword_time()) == 0)
 			{
 				// A few pieces a session, into a bag that stays clear of the
 				// pressure the deposit waits for, like the market's half above.
+				// The addict's: Community Patch 5's four work their bag.
 				const int freeAfter = CountPlayerBotFreeInventoryCells(ch) - (int)item->GetSize();
 				wanted = pGambler->bGambleSafeboxTaken < PLAYERBOT_GAMBLE_SAFEBOX_TAKE &&
 						IsPlayerBotGambleStock(ch, item) &&
@@ -861,6 +870,10 @@ namespace
 	{
 		if (!ch || state.bVisitingShop || !IsPlayerBotVillageMap(ch->GetMapIndex()))
 			return;
+		// One of Community Patch 5's four gamblers with its bases in the bag
+		// begins its session with the visit, so the storekeeper and the anvil
+		// are on the visit's own list below (IsPlayerBotGambling).
+		BeginPlayerBotRareGambleSession(ch, state, dwNow);
 		// Not "am I in Bokjung" but "is this a second village": what the trainer
 		// and the old woman are missing from is the role, and every kingdom's
 		// second village is missing them in the same way.
@@ -877,9 +890,13 @@ namespace
 		state.bTownNeedMisc = HasPlayerBotJunkForMerchant(ch, BOT_MERCHANT_MISC) ||
 				NeedsPlayerBotPotions(ch) || HasPlayerBotExcessPotions(ch) ||
 				NeedsPlayerBotProgressionBoots(ch);
+		// And a bot of thirty whose only weapon is for the tenth level or under
+		// (Community Patch 5, point 2), and a weapon held off its next step for
+		// want of the backup the merchant sells (R8 of Iwakura's audit).
 		state.bTownNeedWeaponMerchant = HasPlayerBotJunkForMerchant(
 				ch, BOT_MERCHANT_WEAPON) || ch->GetWear(WEAR_WEAPON) == NULL ||
-				NeedsPlayerBotProgressionWeapon(ch) || NeedsPlayerBotArrows(ch);
+				NeedsPlayerBotProgressionWeapon(ch) || NeedsPlayerBotArrows(ch) ||
+				NeedsPlayerBotProperWeapon(ch) || NeedsPlayerBotBackupWeapon(ch);
 		state.bTownNeedArmorMerchant = HasPlayerBotJunkForMerchant(ch, BOT_MERCHANT_ARMOR) ||
 				NeedsPlayerBotProgressionArmor(ch) || NeedsPlayerBotProgressionShield(ch) ||
 				NeedsPlayerBotProgressionHelmet(ch) || NeedsPlayerBotBackupArmour(ch);
@@ -1759,8 +1776,10 @@ namespace
 	}
 
 	// Iwakura's Patch 3, point 2: "postac ta powinna pamietac o wystawianiu na
-	// rynek przedmiotow ulepszonych do poziomow +7, +8 oraz +9" - a piece at
-	// the gambler's +7 or past it, made by one of its sessions, still in the bag.
+	// rynek przedmiotow ulepszonych do poziomow +7, +8 oraz +9" - and since
+	// Community Patch 5, point 1, "wszystkie ulepszone (nie wazny jest +) ida
+	// na sklep offline": any piece one of its sessions made or took off for
+	// it, still in the bag, opens a counter.
 	bool HasPlayerBotGambleGoods(LPCHARACTER ch, const TPlayerBotAIState& state)
 	{
 		if (!ch || state.persona.setGambleForSale.empty())
@@ -1769,7 +1788,6 @@ namespace
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
 			if (item && item->GetCell() == cell && !item->IsEquipped() &&
-					item->GetRefineLevel() >= (int)playerbot_persona::GAMBLE_SAFE_PLUS &&
 					state.persona.setGambleForSale.find(item->GetID()) != state.persona.setGambleForSale.end())
 				return true;
 		}
@@ -1905,8 +1923,12 @@ namespace
 	{
 		if (bonusPercent <= 0)
 			return price;
-		return std::max<DWORD>(1, (DWORD)((unsigned long long)price *
-				(unsigned long long)(100 + bonusPercent) / 100ULL));
+		// Saturated rather than cast: a hundredfold line product under
+		// Community Patch 5's x4 for four maximal lines takes a +9 of the top
+		// families past 32 bits, and a cast would have wrapped it to pennies.
+		const unsigned long long premium = (unsigned long long)price *
+				(unsigned long long)(100 + bonusPercent) / 100ULL;
+		return std::max<DWORD>(1, premium > 0xFFFFFFFFULL ? 0xFFFFFFFFU : (DWORD)premium);
 	}
 
 	// Iwakura's price competition (see PLAYERBOT_SHOP_PRICE_JITTER_PCT): a stable
@@ -1926,8 +1948,9 @@ namespace
 				(item->GetVnum() * 2654435761U) ^
 				((DWORD)item->GetRefineLevel() * 0x9E3779B9U)) % span) -
 				(int)PLAYERBOT_SHOP_PRICE_JITTER_PCT;
-		return std::max<DWORD>(1, (DWORD)((unsigned long long)price *
-				(unsigned long long)(100 + delta) / 100ULL));
+		const unsigned long long swung = (unsigned long long)price *
+				(unsigned long long)(100 + delta) / 100ULL;
+		return std::max<DWORD>(1, swung > 0xFFFFFFFFULL ? 0xFFFFFFFFU : (DWORD)swung);
 	}
 
 	// The world's yang, for the inflation (PLAYERBOT_INFLATION_STEP_YANG). A
@@ -1938,13 +1961,24 @@ namespace
 	long long s_llPlayerBotWorldYang = 0;
 	DWORD s_dwPlayerBotWorldYangAt = 0;
 
-	int GetPlayerBotInflationPercent()
+	// Whole steps of PLAYERBOT_INFLATION_STEP_YANG in the world's purses.
+	long long GetPlayerBotInflationSteps()
 	{
 		if (s_llPlayerBotWorldYang < PLAYERBOT_INFLATION_STEP_YANG)
 			return 0;
-		const long long steps = s_llPlayerBotWorldYang / PLAYERBOT_INFLATION_STEP_YANG;
-		return (int)std::min<long long>(steps * PLAYERBOT_INFLATION_STEP_PERCENT,
-				PLAYERBOT_INFLATION_MAX_PERCENT);
+		return s_llPlayerBotWorldYang / PLAYERBOT_INFLATION_STEP_YANG;
+	}
+
+	// The inflation as a multiplier in ten-thousandths (10000 is none): x1.05
+	// a step, compounded (Community Patch 5, point 10), where Community Patch
+	// 2 added five points a step. Worked out when the sum comes back, not per
+	// price: every price his sheet sets asks for it, and a power is not a
+	// division.
+	long long s_llPlayerBotInflationFactor = playerbot_price_rules::INFLATION_FACTOR_ONE;
+
+	long long GetPlayerBotInflationFactor()
+	{
+		return s_llPlayerBotInflationFactor;
 	}
 
 	void RefreshPlayerBotWorldYang(DWORD dwNow)
@@ -1959,13 +1993,18 @@ namespace
 			MYSQL_ROW row = mysql_fetch_row(msg->Get()->pSQLResult);
 			if (!row || !row[0])
 				return;
-			const int before = GetPlayerBotInflationPercent();
+			const long long before = GetPlayerBotInflationFactor();
 			const bool first = s_llPlayerBotWorldYang == 0;
 			s_llPlayerBotWorldYang = std::max(0LL, strtoll(row[0], NULL, 10));
-			const int after = GetPlayerBotInflationPercent();
+			s_llPlayerBotInflationFactor = playerbot_price_rules::InflationFactor(
+					GetPlayerBotInflationSteps(), PLAYERBOT_INFLATION_STEP_PERCENT,
+					playerbot_price_rules::INFLATION_FACTOR_ONE * (100LL + PLAYERBOT_INFLATION_MAX_PERCENT) / 100LL);
+			const long long after = GetPlayerBotInflationFactor();
+			const long long one = playerbot_price_rules::INFLATION_FACTOR_ONE;
 			if (first || after != before)
-				sys_log(0, "PLAYERBOT_MARKET: world yang=%lld inflation=%d%% (was %d%%)",
-						s_llPlayerBotWorldYang, after, before);
+				sys_log(0, "PLAYERBOT_MARKET: world yang=%lld inflation=x%lld.%04lld steps=%lld (was x%lld.%04lld)",
+						s_llPlayerBotWorldYang, after / one, after % one, GetPlayerBotInflationSteps(),
+						before / one, before % one);
 		}, "SELECT COALESCE(SUM(gold),0) FROM player.player");
 	}
 
@@ -1998,10 +2037,18 @@ namespace
 					pct = lo.iPct + (long long)(hi.iPct - lo.iPct) * (rate - lo.iRate) / (hi.iRate - lo.iRate);
 					break;
 				}
-		// And the inflation over the curve (community patch 2, point 8).
-		const unsigned long long scaled = (unsigned long long)base *
-				(unsigned long long)std::max(1LL, pct) / 100ULL *
-				(unsigned long long)(100 + GetPlayerBotInflationPercent()) / 100ULL;
+		// And the inflation over the curve (community patch 2, point 8),
+		// compounded (community patch 5, point 10). A price the curve alone
+		// has taken past the type's ceiling stops there before the factor, so
+		// the product cannot leave 64 bits whatever the rate or the world's
+		// purses.
+		const unsigned long long curved = (unsigned long long)base *
+				(unsigned long long)std::max(1LL, pct) / 100ULL;
+		if (curved >= 0xFFFFFFFFULL)
+			return 0xFFFFFFFFUL;
+		const unsigned long long scaled = curved *
+				(unsigned long long)GetPlayerBotInflationFactor() /
+				(unsigned long long)playerbot_price_rules::INFLATION_FACTOR_ONE;
 		return scaled > 0xFFFFFFFFULL ? 0xFFFFFFFFUL : (DWORD)scaled;
 	}
 
@@ -2016,7 +2063,7 @@ namespace
 	{
 		const int rate = std::max(1, GetPlayerBotPriceYangRate());
 		return (PLAYERBOT_PRICE_TABLE_VERSION * 1000000UL + (DWORD)std::min(rate, 999999)) ^
-				((DWORD)(GetPlayerBotInflationPercent() / PLAYERBOT_INFLATION_STEP_PERCENT) << 24);
+				((DWORD)GetPlayerBotInflationSteps() << 24);
 	}
 
 	// Iwakura's base for a book, at this world's yang rate. The rate is the
@@ -2247,11 +2294,27 @@ namespace
 		if (gearBase != 0)
 			return ApplyPlayerBotPriceCompetition(item,
 					ApplyPlayerBotBonusPremium(std::max(gearBase, investment), bonusPercent));
-		if (refine >= 9)
+		// A polymorph marble asks his number and nothing else (Community Patch
+		// 5, point 3): an exception its own, any other kind a draw from his
+		// band that stays with the marble. Every marble is one vnum whatever
+		// monster is in it, so the sale memory and the step limiter below -
+		// both keyed by vnum - dragged a Fanatyk's 388 750 towards the band's
+		// 130 000 and back, and the listing jitter carried the band past both
+		// of its ends.
+		const DWORD marbleBase = GetPlayerBotMarbleAskingBase(item);
+		if (marbleBase != 0)
+			return marbleBase * std::max<DWORD>(1, item->GetCount());
+		// Whatever his sheet prices by name wins over the three flat refine
+		// prices: a fishing rod is "Wedka+10" to the engine, and until his rods
+		// had prices every rod from +7 up asked the 150 000 to 900 000 of a +7
+		// to +9 piece of gear - a +10 is 7 000 000 on his sheet, +11 to +19 ten
+		// million. Nothing else he prices by name carries a plus of seven.
+		const DWORD materialBase = GetPlayerBotMaterialAskingBase(item->GetVnum());
+		if (materialBase == 0 && refine >= 9)
 			return ApplyPlayerBotPriceCompetition(item, ApplyPlayerBotBonusPremium(std::max(PLAYERBOT_SHOP_PRICE_PLUS9, investment), bonusPercent));
-		if (refine == 8)
+		if (materialBase == 0 && refine == 8)
 			return ApplyPlayerBotPriceCompetition(item, ApplyPlayerBotBonusPremium(std::max(PLAYERBOT_SHOP_PRICE_PLUS8, investment), bonusPercent));
-		if (refine == 7)
+		if (materialBase == 0 && refine == 7)
 			return ApplyPlayerBotPriceCompetition(item, ApplyPlayerBotBonusPremium(std::max(PLAYERBOT_SHOP_PRICE_PLUS7, investment), bonusPercent));
 		// A skill book's own market, and the goods whose merchant price says
 		// nothing about what they are worth here. Both come from the audit of
@@ -2279,15 +2342,14 @@ namespace
 		// it stays.
 		// A book asks Iwakura's price for its skill (PLAYERBOT_BOOK_PRICES),
 		// at the world's yang rate; the wallet block below is not for it.
-		// A material Iwakura has priced by hand wins over every prior below it,
-		// pearls and the shell included - his table covers those three too.
-		const DWORD materialBase = GetPlayerBotMaterialAskingBase(item->GetVnum());
-		// The two other things his sheets price by hand: a polymorph marble by
-		// the monster in its socket, and a Forgetting Scroll by the skill in
-		// its own. Both are worth what he says whatever the merchant thinks -
-		// a marble sold for three hundred yang before there was a table.
-		const DWORD iwakuraBase = GetPlayerBotMarbleAskingBase(item) +
-				GetPlayerBotForgetScrollAskingBase(item);
+		// A material Iwakura has priced by hand (materialBase, above the flat
+		// refine prices) wins over every prior below it, pearls and the shell
+		// included - his table covers those three too.
+		// The other thing his sheets price by hand here: a Forgetting Scroll by
+		// the skill in its socket. It is worth what he says whatever the
+		// merchant thinks, as a marble is (above: a marble sold for three
+		// hundred yang before there was a table).
+		const DWORD iwakuraBase = GetPlayerBotForgetScrollAskingBase(item);
 		if (bookSkill != 0)
 			unit = GetPlayerBotBookAskingBase(bookSkill);
 		else if (IsPlayerBotGeneralSkillBook(item->GetVnum()))
@@ -2468,6 +2530,41 @@ namespace
 		return RoundPlayerBotPrice(GetPlayerBotShopAskingPriceRaw(item));
 	}
 
+	// Iwakura's "ludzka pomylka" (Patch 4, point 4; Community Patch 5, point
+	// 6): a line of one book or one refine material
+	// (playerbot_stall_rules::IsSlipKind) slips at one listing in a thousand on
+	// an offline stand (playerbot_offline_shop.h), and no bot buys it. The
+	// books a skill is read from include Sztuka Combo and the Leadership
+	// books, which the engine types ITEM_USE.
+	bool IsPlayerBotPriceSlipKind(LPITEM item)
+	{
+		return item && playerbot_stall_rules::IsSlipKind((int)item->GetCount(),
+				item->GetType() == ITEM_SKILLBOOK || IsPlayerBotGeneralSkillBook(item->GetVnum()),
+				IsPlayerBotTradeableMaterial(item) && !IsPlayerBotSafeRefineScroll(item->GetVnum()));
+	}
+
+	// Whether a line of this item id is drawn to slip. By the id alone, so the
+	// keeper that lists it and a buyer on any core, before a restart or after
+	// it, get the same answer: the mark every buyer can read, where a memory
+	// of the keeper's would reach only its own core and last only its uptime.
+	bool IsPlayerBotPriceSlipDrawn(DWORD dwItemID)
+	{
+		return dwItemID != 0 &&
+				playerbot_stall_rules::PriceSlips(PlayerBotNavHash(dwItemID ^ 0x534c4950U));
+	}
+
+	// What no bot pays (playerbot_stall_rules::BuyerRefusesSlip): a line drawn
+	// to slip that still asks twice the buyer's own price for the thing, and
+	// any such line at five times. CanPlayerBotPayForOffer asks it, and every
+	// purchase asks that right before it buys, on both roads to a counter.
+	bool IsPlayerBotPriceSlipOffer(LPITEM item, long long price)
+	{
+		if (!IsPlayerBotPriceSlipKind(item) || price <= 0)
+			return false;
+		return playerbot_stall_rules::BuyerRefusesSlip(IsPlayerBotPriceSlipDrawn(item->GetID()),
+				price, (long long)GetPlayerBotShopAskingPrice(item));
+	}
+
 	// How much a stall wants this on its counter rather than in the bag. Higher
 	// wins. Nothing scores what the bot still needs itself: that is filtered out
 	// before scoring, not scored badly.
@@ -2580,10 +2677,17 @@ namespace
 
 	// The scrolls a bot keeps for its own anvil: PLAYERBOT_REFINE_SCROLL_KEEP
 	// while a worn piece can still use one (one bot in five, the resource
-	// trader, keeps a single), none once nothing worn wants a scroll.
+	// trader, keeps a single), none once nothing worn wants a scroll - and
+	// every one while Iwakura's scroll rule has a piece to work on
+	// (PlayerBotHasScrollRuleWork): "powinien uzyc zwojow", and a counter that
+	// sold them down to the rule's three left it one step and then two.
 	int GetPlayerBotRefineScrollKeep(LPCHARACTER ch)
 	{
-		if (!ch || !PlayerBotWearsScrollWork(ch))
+		if (!ch)
+			return 0;
+		if (PlayerBotHasScrollRuleWork(ch))
+			return CountPlayerBotSafeRefineScrolls(ch);
+		if (!PlayerBotWearsScrollWork(ch))
 			return 0;
 		return IsPlayerBotResourceTrader(ch->GetPlayerID())
 				? PLAYERBOT_REFINE_SCROLL_TRADER_KEEP : PLAYERBOT_REFINE_SCROLL_KEEP;
@@ -2640,6 +2744,14 @@ namespace
 		// with them (the item shop's copies are the ones a counter would take).
 		if (IsPlayerBotBookAffectItem(item))
 			return -1;
+		// Community Patch 5, point 1: what a gambler's session made, and the
+		// piece it took off for it, goes on the counter at any plus
+		// ("wszystkie ulepszone (nie wazny jest +) ida na sklep offline") -
+		// and the bases one of the four holds for its anvil do not, yet.
+		if (ch && IsPlayerBotGambleForSale(ch, item))
+			return PLAYERBOT_SHOP_GAMBLE_GOODS_SCORE + item->GetRefineLevel();
+		if (ch && IsPlayerBotRareGambleHeldBase(ch, item))
+			return -1;
 		// Nor is a piece Iwakura's list keeps for the storekeeper
 		// (playerbot_lpp.h): only its copies past the keep are for sale.
 		if (ch && IsPlayerBotLppKeptItem(ch, item))
@@ -2654,7 +2766,23 @@ namespace
 			return playerbot_stall_rules::HoldsSpare(CountPlayerBotVnumUnitsAhead(ch, item),
 					(int)item->GetCount(), GetPlayerBotCountedGoodsKeep(ch, item)) ? 800 : -1;
 		if (item->GetType() == ITEM_POLYMORPH || IsPlayerBotMetinDetector(item->GetVnum()))
+		{
+			// A detector is a stone hunter's own while it hunts them - the
+			// Metinolog and a hunter by role or expedition read the whole map
+			// with it (FindKnownPlayerBotMetin) - and everybody else's goods.
+			// Every bot put its detector on the counter, the Metinolog's
+			// included (R9 of Iwakura's audit).
+			if (ch && IsPlayerBotMetinDetector(item->GetVnum()))
+			{
+				TPlayerBotAIStateMap::const_iterator hunter = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+				const DWORD now = get_dword_time();
+				if (hunter != s_mapPlayerBotAIStates.end() &&
+						(IsPlayerBotMetinHunting(hunter->second, now) ||
+						 IsPlayerBotRareNow(hunter->second.persona, playerbot_persona::RARE_METINOLOG, now)))
+					return -1;
+			}
 			return PLAYERBOT_SHOP_POLYMORPH_SCORE;
+		}
 		// A Dried Head, for a player's run of the Catacomb
 		// (PLAYERBOT_PRIOR_CATACOMB_HEAD).
 		if (IsPlayerBotCatacombHead(item->GetVnum()))
@@ -3314,7 +3442,7 @@ namespace
 		snprintf(msg, sizeof(msg), "%s : %s", ch->GetName(), body);
 
 		s_dwLastShoutTime = dwNow;
-		SendShout(msg, ch->GetEmpire());
+		SendPlayerBotShout(msg, ch->GetEmpire());
 		sys_log(0, "PLAYERBOT_SHOUT: pid=%u plus=%d text=%s",
 				ch->GetPlayerID(), newPlus, msg);
 	}

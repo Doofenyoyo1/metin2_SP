@@ -49,6 +49,9 @@ namespace
 		// A player's guild against a bot guild: dwGuild1 is the player's,
 		// which declared, and dwGuild2 the bots', which accepted.
 		bool bPlayerWar;
+		// The bots' war ended early (WAR_MINUTES at fifteen) - asked of the
+		// db core once, and the war is over when it answers.
+		bool bEndAsked;
 	};
 	// One war a kingdom at a time, a player's included: the kingdom has one
 	// battlefield.
@@ -864,6 +867,7 @@ namespace
 		war.dwStartedAt = 0;
 		war.bStarted = false;
 		war.bPlayerWar = true;
+		war.bEndAsked = false;
 		s_mapPlayerBotGuildWars[empire] = war;
 		s_mapPlayerBotGuildLastWarAt[offer.dwTo] = stamp;
 		s_mapPlayerBotPlayerGuildLastWarAt[offer.dwFrom] = stamp;
@@ -945,8 +949,9 @@ namespace
 							snprintf(notice, sizeof(notice), "Wojna gildii: %s kontra gildia botow %s! Pole bitwy: mapa gildyjna (%s), 30 minut.",
 									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire));
 						else
-							snprintf(notice, sizeof(notice), "Wojna gildii: %s kontra %s! Pole bitwy: mapa gildyjna (%s), 30 minut.",
-									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire));
+							snprintf(notice, sizeof(notice), "Wojna gildii: %s kontra %s! Pole bitwy: mapa gildyjna (%s), %d minut.",
+									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire),
+									GetPlayerBotGuildWarMinutes());
 						BroadcastNotice(notice);
 						sys_log(0, "PLAYERBOT_GUILD: war on %s vs %s empire=%d battlefield=%ld online=%d/%d player=%d",
 								g1->GetName(), g2->GetName(), empire, battlefield,
@@ -984,8 +989,25 @@ namespace
 						s_adwPlayerBotNextGuildWarTime[empire] = std::max(s_adwPlayerBotNextGuildWarTime[empire],
 								dwNow + PLAYERBOT_GUILD_WAR_AFTER_PLAYER_WAR_MS);
 					else
-						s_adwPlayerBotNextGuildWarTime[empire] = dwNow + PLAYERBOT_GUILD_WAR_INTERVAL;
+						s_adwPlayerBotNextGuildWarTime[empire] = dwNow + GetPlayerBotGuildWarRestMs();
 					s_mapPlayerBotGuildWars.erase(it);
+				}
+				// WAR_MINUTES at fifteen: the bots' war ends at its fifteenth
+				// minute, not the engine's thirtieth, with the winner the db
+				// core would have named - the higher score, a draw on a tie. A
+				// person's war keeps the engine's half hour: the person agreed
+				// to that one.
+				else if (!war.bPlayerWar && !war.bEndAsked && GetPlayerBotGuildWarMinutes() < 30 &&
+						dwNow - war.dwStartedAt >= (DWORD)GetPlayerBotGuildWarMinutes() * 60U * 1000U)
+				{
+					const int score1 = g1->GetWarScoreAgainstTo(g2->GetID());
+					const int score2 = g2->GetWarScoreAgainstTo(g1->GetID());
+					const DWORD winner = score1 > score2 ? g1->GetID() : (score2 > score1 ? g2->GetID() : 0);
+					war.bEndAsked = true;
+					CGuildManager::instance().RequestWarOver(g1->GetID(), g2->GetID(), winner, 0);
+					sys_log(0, "PLAYERBOT_GUILD: war ended at %d min %s vs %s score=%d:%d winner=%s",
+							GetPlayerBotGuildWarMinutes(), g1->GetName(), g2->GetName(), score1, score2,
+							winner == 0 ? "draw" : (winner == g1->GetID() ? g1->GetName() : g2->GetName()));
 				}
 				else if (!enabled)
 					PlayerBotLogThrottled("guild_war_off", dwNow,
@@ -1033,6 +1055,7 @@ namespace
 			war.dwStartedAt = 0;
 			war.bStarted = false;
 			war.bPlayerWar = false;
+			war.bEndAsked = false;
 			s_mapPlayerBotGuildWars[(BYTE)empire] = war;
 			sys_log(0, "PLAYERBOT_GUILD: war declared %s -> %s empire=%d online=%d/%d",
 					a->GetName(), b->GetName(), empire, CountPlayerBotGuildOnline(a), CountPlayerBotGuildOnline(b));
@@ -1072,15 +1095,33 @@ namespace
 		return other && !IsPlayerBotSafeZone(other->GetMapIndex(), other->GetX(), other->GetY());
 	}
 
+	// The bots out of the round they fell in, by pid, with their war's pair of
+	// guilds (the lower id first): a round is fought until one side is down, so
+	// a bot that fell stands up at its camp and waits there for the next
+	// round. It used to run straight back into this one, and a round ended
+	// only when a whole side happened to be down at the same moment - "biją
+	// się, padają i przychodzą od razu z powrotem, runda potrafi trwać nawet
+	// 15 minut" (DUDU, 27 September). Emptied when the round is won, when the
+	// war between the pair begins again, and for a bot that leaves the war.
+	std::map<DWORD, std::pair<DWORD, DWORD> > s_mapPlayerBotWarOut;
+
+	bool IsPlayerBotWarOut(DWORD pid)
+	{
+		return s_mapPlayerBotWarOut.find(pid) != s_mapPlayerBotWarOut.end();
+	}
+
 	// A foe that has just stood up is out of the fight until it has recovered.
 	// It is invisible meanwhile, which mt2009's battle_is_attackable refuses
 	// every blow at, so a bot that went on at it swung at nothing; and r40250
 	// refuses nothing there, so it would have killed the same bot again the
 	// moment it rose. And a bot at its camp in the grace after that is left
-	// to buff (PLAYERBOT_GUILD_WAR_CAMP_GRACE_MS).
+	// to buff (PLAYERBOT_GUILD_WAR_CAMP_GRACE_MS), and one out of the round
+	// waits at its camp untouched.
 	bool IsPlayerBotWarFoeRecovering(LPCHARACTER other)
 	{
 		if (other->IsAffectFlag(AFF_REVIVE_INVISIBLE))
+			return true;
+		if (IsPlayerBotWarOut(other->GetPlayerID()))
 			return true;
 		TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.find(other->GetPlayerID());
 		return it != s_mapPlayerBotAIStates.end() &&
@@ -1180,6 +1221,20 @@ namespace
 	};
 	std::map<std::pair<DWORD, DWORD>, TPlayerBotWarRound> s_mapPlayerBotWarRounds;
 
+	// Every bot of this war back in the fight: the round is over.
+	void ReleasePlayerBotWarOut(DWORD g0, DWORD g1)
+	{
+		const std::pair<DWORD, DWORD> pair = std::make_pair(g0, g1);
+		for (std::map<DWORD, std::pair<DWORD, DWORD> >::iterator it = s_mapPlayerBotWarOut.begin();
+				it != s_mapPlayerBotWarOut.end();)
+		{
+			if (it->second == pair)
+				s_mapPlayerBotWarOut.erase(it++);
+			else
+				++it;
+		}
+	}
+
 	TPlayerBotWarRound& UpdatePlayerBotWarRound(CGuild* mine, CGuild* enemy, long battlefield, DWORD dwNow)
 	{
 		const DWORD g0 = std::min(mine->GetID(), enemy->GetID());
@@ -1190,6 +1245,7 @@ namespace
 		{
 			round = TPlayerBotWarRound();
 			round.dwWarStartedAt = startedAt;
+			ReleasePlayerBotWarOut(g0, g1);
 		}
 		if (dwNow < round.dwNextCheck)
 			return round;
@@ -1215,7 +1271,8 @@ namespace
 			if (s < 0)
 				continue;
 			++present[s];
-			if (c->IsDead() || c->IsAffectFlag(AFF_REVIVE_INVISIBLE) || it->second.bRecoveringAfterDeath)
+			if (c->IsDead() || c->IsAffectFlag(AFF_REVIVE_INVISIBLE) || it->second.bRecoveringAfterDeath ||
+					IsPlayerBotWarOut(it->first))
 				continue;
 			++up[s];
 			sumX[s] += c->GetX();
@@ -1268,10 +1325,23 @@ namespace
 			return round;
 		const int winner = playerbot_war_rules::RoundWinner(up[0], present[0], up[1], present[1]);
 		if (winner < 0)
+		{
+			// The last of both sides down at once: nobody won, and with every
+			// bot out of the round nobody would ever fight again this war.
+			if (up[0] == 0 && up[1] == 0 && present[0] > 0 && present[1] > 0)
+			{
+				ReleasePlayerBotWarOut(g0, g1);
+				PlayerBotLogThrottled("guild_war_draw", dwNow,
+						"PLAYERBOT_GUILD: round drawn guilds=%s/%s round=%u present=%d/%d map=%ld",
+						guilds[0]->GetName(), guilds[1]->GetName(), round.uRounds, present[0], present[1],
+						battlefield);
+			}
 			return round;
+		}
 		++round.uRounds;
 		round.dwRegroupUntil = dwNow + PLAYERBOT_GUILD_WAR_REGROUP_MS;
 		round.dwLoserGuild = guilds[1 - winner]->GetID();
+		ReleasePlayerBotWarOut(g0, g1);
 		sys_log(0, "PLAYERBOT_GUILD: round won guild=%s over=%s round=%u up=%d present=%d/%d map=%ld",
 				guilds[winner]->GetName(), guilds[1 - winner]->GetName(), round.uRounds, up[winner],
 				present[winner], present[1 - winner], battlefield);
@@ -1640,6 +1710,7 @@ namespace
 	// other pass reads as "not at war").
 	void LeavePlayerBotGuildWar(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
+		s_mapPlayerBotWarOut.erase(ch->GetPlayerID());
 		if (state.dwGuildWarEnemyGID == 0)
 			return;
 		state.dwGuildWarEnemyGID = 0;
@@ -1752,12 +1823,23 @@ namespace
 		// each bot then leaves it on its own clock: one by one, the tank first
 		// ("x bot wyruszy za 0.5 sekundy, inny za 2 sekundy", prodnathin).
 		const bool held = IsPlayerBotWarMustering(mine, enemy) || round.dwRegroupUntil != 0;
+		// A bot that fell in this round stands up and waits at its camp for
+		// the next one, as the muster does (s_mapPlayerBotWarOut).
+		if (state.bRecoveringAfterDeath && !held && !IsPlayerBotWarOut(pid))
+		{
+			s_mapPlayerBotWarOut[pid] = std::make_pair(std::min(mine->GetID(), enemy->GetID()),
+					std::max(mine->GetID(), enemy->GetID()));
+			PlayerBotLogThrottled("guild_war_out", dwNow,
+					"PLAYERBOT_GUILD: out for the round pid=%u name=%s guild=%s round=%u",
+					ch->GetPlayerID(), ch->GetName(), mine->GetName(), round.uRounds + 1);
+		}
+		const bool out = !held && IsPlayerBotWarOut(pid);
 		DWORD& runOutAt = s_mapPlayerBotWarRunOutAt[pid];
-		if (held)
+		if (held || out)
 			runOutAt = 0;
 		else if (runOutAt == 0)
 			runOutAt = dwNow + playerbot_war_rules::RunOutDelayMs(role, pattern, pid);
-		const bool mustering = held || (int)(runOutAt - dwNow) > 0;
+		const bool mustering = held || out || (int)(runOutAt - dwNow) > 0;
 
 		if (state.dwGuildWarEnemyGID != enemy->GetID())
 		{
