@@ -1485,6 +1485,8 @@ def main(root):
     apply_shop_owner_whole_name(game)
     apply_flea_market(game)
     apply_flea_market_fill_dispatch(game)
+    apply_build_refusals_spoken(game)
+    apply_all_three_smiths(game)
     print('playerbotify: done')
 
 
@@ -6782,6 +6784,66 @@ def apply_flea_market_fill_dispatch(game):
          '\t\t\treturn IkarusShopPacketSearchFillRequest(ch, data, iBufferLeft);\n',
          marker='\t\t// The Dom Towarowy\'s catalogue (apply_flea_market_fill_dispatch).\n')
 
+
+def apply_build_refusals_spoken(game):
+    # /build c answers a failed CLand::RequestCreateObject - a building that
+    # reaches past the land's edge, or overlaps one already standing - with a
+    # chat line on a test server only, so a player's click on "Buduj" did
+    # nothing at all and said nothing ("after i created guild, i can only place
+    # the bronmistrz, cant place anything other", 28 September). And a
+    # building's group may stand once on a land (object_proto: 1 the main
+    # building, 2 the three smiths, 3 the smelters, 4 the altar, 6 the
+    # warehouse); "can only be erected once" never said which group it meant.
+    path = os.path.join(game, 'cmd_gm.cpp')
+    edit(path,
+         '\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("This type of building can only be erected once."));\n'
+         '\t\t\t\t\t\treturn;\n',
+         '\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("This type of building can only be erected once."));\n'
+         '\t\t\t\t\t\t// What the group means (apply_build_refusals_spoken).\n'
+         '\t\t\t\t\t\tif (t->dwGroupVnum == 3)\n'
+         '\t\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Gildia ma jeden odlewnik - jeden juz stoi na tym terenie.");\n'
+         '\t\t\t\t\t\telse if (t->dwGroupVnum == 1)\n'
+         '\t\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Kwatera Glowna juz stoi na tym terenie.");\n'
+         '\t\t\t\t\t\telse if (t->dwGroupVnum == 4)\n'
+         '\t\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Oltarz Mocy juz stoi na tym terenie.");\n'
+         '\t\t\t\t\t\treturn;\n',
+         marker='\t\t\t\t\t\t// What the group means (apply_build_refusals_spoken).\n')
+    edit(path,
+         '\t\t\t\tif (!isSuccess)\n'
+         '\t\t\t\t{\n'
+         '\t\t\t\t\tif (test_server)\n'
+         '\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You cannot erect a building at this place."));\n'
+         '\t\t\t\t\treturn;\n'
+         '\t\t\t\t}\n',
+         '\t\t\t\tif (!isSuccess)\n'
+         '\t\t\t\t{\n'
+         '\t\t\t\t\t// Said to everybody, not a test server only (apply_build_refusals_spoken).\n'
+         '\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You cannot erect a building at this place."));\n'
+         '\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Budynek musi stac w calosci na terenie gildii i nie moze nachodzic na inny budynek - przesun go albo obroc.");\n'
+         '\t\t\t\t\treturn;\n'
+         '\t\t\t\t}\n',
+         marker='\t\t\t\t\t// Said to everybody, not a test server only (apply_build_refusals_spoken).\n')
+
+
+def apply_all_three_smiths(game):
+    # The operator's rule (28 September): a guild may put up all three smiths -
+    # Fabryka Broni, Kowal Zbroi and Jubiler (object_proto group 2, NPC
+    # 20044-20046) - where the engine allowed one of them per land and, the
+    # client's demolish button being commented out, never a second choice. The
+    # "once per land" test is skipped for that group alone; the dependency on
+    # the main building, the price, the materials and the placement still
+    # apply. CLand is asked only what do_build already asks it, so a second
+    # weapon smith is not refused either: that is money spent on nothing, not
+    # a broken land.
+    edit(os.path.join(game, 'cmd_gm.cpp'),
+         '\t\t\t\tif (t->dwGroupVnum)\n'
+         '\t\t\t\t{\n'
+         '\t\t\t\t\tif (pkLand->FindObjectByGroup(t->dwGroupVnum))\n',
+         '\t\t\t\t// The three smiths may all stand on one land (apply_all_three_smiths).\n'
+         '\t\t\t\tif (t->dwGroupVnum && t->dwGroupVnum != 2)\n'
+         '\t\t\t\t{\n'
+         '\t\t\t\t\tif (pkLand->FindObjectByGroup(t->dwGroupVnum))\n',
+         marker='\t\t\t\t// The three smiths may all stand on one land (apply_all_three_smiths).\n')
 
 if __name__ == '__main__':
     if len(sys.argv) != 2 or not os.path.isdir(os.path.join(sys.argv[1], 'game', 'src')):
