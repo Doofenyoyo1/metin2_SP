@@ -17,6 +17,19 @@ every version here.
 
 ---
 
+## 2.2.36 — 2026-09-28
+
+Tylko serwer (klient zostaje 2.0.47): „AKTUALIZUJ serwer” w launcherze,
+na VPS `sh linux-port/tools/update.sh`.
+
+- **Podpowiedź przy odrzuconym budynku mówi, co naprawdę stoi na
+  przeszkodzie.** 2.2.35 pisała tylko o granicy terenu i innym budynku, więc
+  gracz stojący na własnym terenie myślał, że teren jest zły. Najczęstszy
+  powód to ktoś w miejscu budynku: Ty sam (okno budowy stawia budynek na
+  Twojej postaci, dopóki nie przesuniesz go przyciskiem „Zmień”), Twój koń,
+  towarzysz, przechodzący bot albo NPC. Odejdź na bok, odeślij konia
+  i towarzysza, i ustaw budynek z dala od krawędzi terenu.
+
 ## 2.2.35 — 2026-09-28
 
 Tylko serwer (klient zostaje 2.0.47): „AKTUALIZUJ serwer” w launcherze,
@@ -31,9 +44,7 @@ na VPS `sh linux-port/tools/update.sh`.
 - **Serwer mówi, czemu budynku nie da się postawić.** Budynek, który
   wystawał poza teren gildii albo nachodził na inny, był odrzucany bez
   słowa - kliknięcie po prostu nic nie robiło. Teraz na czacie pojawia się
-  powód i podpowiedź. Najczęstszy powód: w miejscu budynku ktoś stoi - Ty
-  sam (okno budowy stawia budynek na Twojej postaci, dopóki nie przesuniesz
-  go przyciskiem „Zmień”), Twój koń, towarzysz, przechodzący bot albo NPC.
+  powód i podpowiedź: przesuń go albo obróć.
 
 ## 2.2.34 — 2026-09-28
 
