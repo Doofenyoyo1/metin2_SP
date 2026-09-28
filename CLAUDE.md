@@ -9265,6 +9265,20 @@ not in `data/`) reworked these point by point. What each hangs on:
   `mov byte ptr [ebp - 1], N` with capstone. Worked out from the package and
   the exe, not compiled or watched: no full engine tree was at hand.
 
+- **A guild land holds one building of each group, and the client cannot
+  demolish.** `do_build` (cmd_gm.cpp) refuses a building whose object_proto
+  group already stands on the land and one whose depend-group does not: 1 the
+  main building (every facility depends on it), 2 the three smiths (Fabryka
+  Broni / Kowal Zbroi / Jubiler - NPC 20044/20045/20046, one of the three per
+  guild), 3 the smelters, 4 the altar, 6 the warehouse; decorations are group
+  0. A placement that reaches past the land or overlaps another building
+  (`CLand::RequestCreateObject`) was refused with a chat line on a test server
+  only, so a player's click did nothing - `apply_build_refusals_spoken` says it
+  to everybody now and names the smith/smelter choice ("i can only place the
+  bronmistrz", 28 September). What is still missing: the target board's
+  "Zniszcz" button for a building is commented out in uitarget.py (stock), so a
+  guild master cannot swap its smith; the server's `/build d <vid>` would take
+  it, without a refund.
 
 ## Engine facts worth not re-deriving
 

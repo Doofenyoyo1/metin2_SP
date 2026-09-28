@@ -1485,6 +1485,7 @@ def main(root):
     apply_shop_owner_whole_name(game)
     apply_flea_market(game)
     apply_flea_market_fill_dispatch(game)
+    apply_build_refusals_spoken(game)
     print('playerbotify: done')
 
 
@@ -6781,6 +6782,48 @@ def apply_flea_market_fill_dispatch(game):
          '\t\tcase ikashop::SUBHEADER_CG_SHOP_SEARCH_FILL_REQUEST:\n'
          '\t\t\treturn IkarusShopPacketSearchFillRequest(ch, data, iBufferLeft);\n',
          marker='\t\t// The Dom Towarowy\'s catalogue (apply_flea_market_fill_dispatch).\n')
+
+
+def apply_build_refusals_spoken(game):
+    # /build c answers a failed CLand::RequestCreateObject - a building that
+    # reaches past the land's edge, or overlaps one already standing - with a
+    # chat line on a test server only, so a player's click on "Buduj" did
+    # nothing at all and said nothing ("after i created guild, i can only place
+    # the bronmistrz, cant place anything other", 28 September). The other
+    # refusal they met is the engine's own rule and stays: a building's group
+    # may stand once on a land (object_proto: 1 the main building, 2 the three
+    # smiths, 3 the smelters, 4 the altar, 6 the warehouse), so a guild with a
+    # weapon smith gets no armour smith or jeweller - but "can only be erected
+    # once" never said which choice it had made, so the line says it now.
+    path = os.path.join(game, 'cmd_gm.cpp')
+    edit(path,
+         '\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("This type of building can only be erected once."));\n'
+         '\t\t\t\t\t\treturn;\n',
+         '\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("This type of building can only be erected once."));\n'
+         '\t\t\t\t\t\t// What the group means (apply_build_refusals_spoken).\n'
+         '\t\t\t\t\t\tif (t->dwGroupVnum == 2)\n'
+         '\t\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Gildia ma jednego kowala: Fabryke Broni, Kowala Zbroi albo Jubilera - jeden z nich juz stoi.");\n'
+         '\t\t\t\t\t\telse if (t->dwGroupVnum == 3)\n'
+         '\t\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Gildia ma jeden odlewnik - jeden juz stoi na tym terenie.");\n'
+         '\t\t\t\t\t\telse if (t->dwGroupVnum == 1)\n'
+         '\t\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Kwatera Glowna juz stoi na tym terenie.");\n'
+         '\t\t\t\t\t\treturn;\n',
+         marker='\t\t\t\t\t\t// What the group means (apply_build_refusals_spoken).\n')
+    edit(path,
+         '\t\t\t\tif (!isSuccess)\n'
+         '\t\t\t\t{\n'
+         '\t\t\t\t\tif (test_server)\n'
+         '\t\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You cannot erect a building at this place."));\n'
+         '\t\t\t\t\treturn;\n'
+         '\t\t\t\t}\n',
+         '\t\t\t\tif (!isSuccess)\n'
+         '\t\t\t\t{\n'
+         '\t\t\t\t\t// Said to everybody, not a test server only (apply_build_refusals_spoken).\n'
+         '\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You cannot erect a building at this place."));\n'
+         '\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Budynek musi stac w calosci na terenie gildii i nie moze nachodzic na inny budynek - przesun go albo obroc.");\n'
+         '\t\t\t\t\treturn;\n'
+         '\t\t\t\t}\n',
+         marker='\t\t\t\t\t// Said to everybody, not a test server only (apply_build_refusals_spoken).\n')
 
 
 if __name__ == '__main__':
