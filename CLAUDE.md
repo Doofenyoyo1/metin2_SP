@@ -9280,7 +9280,13 @@ not in `data/`) reworked these point by point. What each hangs on:
   not in any package to check another call against). A placement that reaches
   past the land or overlaps another building (`CLand::RequestCreateObject`)
   was refused with a chat line on a test server only, so the click did
-  nothing - `apply_build_refusals_spoken` says it to everybody.
+  nothing - `apply_build_refusals_spoken` says it to everybody. That same
+  test refuses a footprint with any character that is not a monster standing
+  in it - the builder, a horse, a companion, a passing bot, an NPC (stock
+  `FIsIn` in building.cpp, which no package ships) - and the build window
+  puts the building on the builder until "Zmien" moves it, so the line names
+  that first. The two reasons are only told apart in syserr: "object is
+  outside of land region" or "another object already exist".
 
 ## Engine facts worth not re-deriving
 
