@@ -13,7 +13,16 @@
 #
 #  Three of the dumped tables use utf8mb3_uca1400_ai_ci, a collation MariaDB
 #  only has from 11.4; the compose file pins mariadb:11.8 for that reason.
+#
+#  The entrypoint runs an executable .sh and SOURCES one that is not, and on
+#  Linux this file arrives without the bit (a zip carries no modes). Sourced,
+#  its shell options stayed on for the rest of the entrypoint, and on the very
+#  next file, 20-log-schema.sql, docker_process_sql reads "$1" with nounset
+#  on: every first start on a VPS stopped at "docker-entrypoint.sh: line 314:
+#  $1: unbound variable" (Urtopy, 27 September). So the options are the
+#  entrypoint's own again at the end; a FATAL below still ends it, as it must.
 # =============================================================================
+_initdb_saved_opts=$(set +o)
 set -euo pipefail
 
 DUMP_DIR=/docker-entrypoint-initdb.d/dumps
@@ -153,3 +162,7 @@ SQL
 fi
 
 echo "[initdb] database initialisation complete"
+# The entrypoint's own options back (see the head of this file): what it
+# does after a sourced script is its business, not this one's.
+eval "$_initdb_saved_opts"
+unset _initdb_saved_opts

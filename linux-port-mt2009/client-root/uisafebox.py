@@ -414,6 +414,9 @@ class SafeboxWindow(ui.ScriptWindow):
 		eventManager.EventManager().send_event(EVENT_CLOSE_SAFEBOX)
 
 	def CommandCloseSafebox(self):
+		if self.IsShow():
+			eventManager.EventManager().send_event(EVENT_CLOSE_SAFEBOX)
+
 		if self.tooltipItem:
 			self.tooltipItem.HideToolTip()
 

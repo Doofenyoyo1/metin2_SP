@@ -40,6 +40,17 @@ namespace
 		}
 	}
 
+	// The belt a potion trip sets out at, moved by the RESTOCK weight: 25 waits
+	// for a quarter of it, 250 goes at two and a half times - never past `cap`.
+	// The weight used to reach the planner alone, whose goal is only the word
+	// over the bot's head, while the trip asked this with the old numbers.
+	size_t GetPlayerBotPotionTrip(size_t base, size_t cap)
+	{
+		const size_t scaled = base * (size_t)GetPlayerBotWeight(PLAYERBOT_WEIGHT_RESTOCK) /
+				(size_t)PLAYERBOT_WEIGHT_NEUTRAL;
+		return std::max<size_t>(1, std::min(scaled, cap));
+	}
+
 	bool NeedsPlayerBotPotions(LPCHARACTER ch)
 	{
 		if (!ch)
@@ -47,14 +58,20 @@ namespace
 		size_t redCount = 0, blueCount = 0;
 		CountPlayerBotPotions(ch, redCount, blueCount);
 		const bool isMage = ch->GetJob() == JOB_SHAMAN || ch->GetJob() == JOB_SURA;
+		// The first ten levels buy one fixed pack at a time, the size of the
+		// trigger, so the weight only brings their trigger down.
 		if (ch->GetLevel() <= 10)
-			return (redCount < 30 && ch->GetGold() >= 300) ||
-					(isMage && blueCount < 20 && ch->GetGold() >= 400);
+			return (redCount < GetPlayerBotPotionTrip(30, 30) && ch->GetGold() >= 300) ||
+					(isMage && blueCount < GetPlayerBotPotionTrip(20, 20) && ch->GetGold() >= 400);
 		// Only a belt that is nearly out is worth crossing a map for. A bot with
 		// half its potions left has no business walking away from a good spot -
 		// it will fill up anyway the next time something else brings it to town.
-		return (redCount < PLAYERBOT_POTION_TRIP_RED && ch->GetGold() >= 1200) ||
-				(blueCount < PLAYERBOT_POTION_TRIP_BLUE && ch->GetGold() >= 1200);
+		return (redCount < GetPlayerBotPotionTrip(PLAYERBOT_POTION_TRIP_RED,
+					PLAYERBOT_POTION_FILL_RED * PLAYERBOT_POTION_TRIP_CAP_PERCENT / 100) &&
+					ch->GetGold() >= 1200) ||
+				(blueCount < GetPlayerBotPotionTrip(PLAYERBOT_POTION_TRIP_BLUE,
+					PLAYERBOT_POTION_FILL_BLUE * PLAYERBOT_POTION_TRIP_CAP_PERCENT / 100) &&
+					ch->GetGold() >= 1200);
 	}
 
 	bool NeedsPlayerBotEmergencyPotions(LPCHARACTER ch)

@@ -267,6 +267,7 @@ namespace
 		bool bLure;	// wakes packs round the owner and brings them over
 		bool bSolo;	// "Gra beze mnie": plays on while the owner is out of the game
 		bool bChests;	// "Skrzynki": opens the chests and caskets in its bag
+		bool bParty;	// "Grupa": joins its owner's party whoever leads it
 		BYTE bGroup;
 		BYTE bLevel;
 		// The owner's level: live while the owner is in this world, the
@@ -280,7 +281,7 @@ namespace
 			: dwOwnerPID(0), dwSidekickPID(0), bMode(PLAYERBOT_SIDEKICK_FOLLOW),
 			  bStance(PLAYERBOT_SIDEKICK_STANCE_ATTACK), bLoot(PLAYERBOT_SIDEKICK_LOOT_ALL), bProtect(true),
 			  bBuffs(true), bManualSkills(false), bManualStats(false), bStatResetUsed(false), bLure(false),
-			  bSolo(false), bChests(true), bGroup(0), bLevel(1), bOwnerLevel(0), bSetupDone(true), dwOwnerSeenAt(0),
+			  bSolo(false), bChests(true), bParty(true), bGroup(0), bLevel(1), bOwnerLevel(0), bSetupDone(true), dwOwnerSeenAt(0),
 			  dwNextSpawnTry(0)
 		{
 		}
@@ -459,8 +460,8 @@ namespace
 		// the test world already held; without the columns the companions still
 		// load, with the defaults, and keep what they are told while the core
 		// runs. The stat points, the stat reset and the lure came the day
-		// after that, in the same statement, and "Gra beze mnie" (solo) and
-		// "Skrzynki" (chests) on 27 September.
+		// after that, in the same statement, "Gra beze mnie" (solo) and
+		// "Skrzynki" (chests) on 27 September, and "Grupa" (party) on the 28th.
 		std::unique_ptr<SQLMsg> settings(AccountDB::instance().DirectQuery(
 				"ALTER TABLE player.playerbot_sidekick "
 				"ADD COLUMN IF NOT EXISTS stance TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER mode, "
@@ -472,7 +473,8 @@ namespace
 				"ADD COLUMN IF NOT EXISTS stat_reset TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER manual_stats, "
 				"ADD COLUMN IF NOT EXISTS lure TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER stat_reset, "
 				"ADD COLUMN IF NOT EXISTS solo TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER lure, "
-				"ADD COLUMN IF NOT EXISTS chests TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER solo"));
+				"ADD COLUMN IF NOT EXISTS chests TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER solo, "
+				"ADD COLUMN IF NOT EXISTS party TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER chests"));
 		s_bPlayerBotSidekickSettingsColumns = settings.get() && settings->uiSQLErrno == 0;
 		if (!s_bPlayerBotSidekickSettingsColumns)
 			sys_err("PLAYERBOT_SIDEKICK: no settings columns errno=%u", settings.get() ? settings->uiSQLErrno : 0U);
@@ -505,14 +507,15 @@ namespace
 		if (!EnsurePlayerBotSidekickTable())
 			return;
 		// The owner's level from its row, which is where an owner out of the
-		// game is (the cap of "Gra beze mnie"), and the chest switch after it.
+		// game is (the cap of "Gra beze mnie"), and the chest and party switches
+		// after it.
 		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(s_bPlayerBotSidekickSettingsColumns
 				? "SELECT s.owner_pid, s.sidekick_pid, s.mode, s.skill_group, s.start_level, s.setup_done, s.stance, "
 				  "s.loot, s.protect, s.buffs, s.manual_skills, s.manual_stats, s.stat_reset, s.lure, s.solo, "
-				  "(SELECT p.level FROM player.player AS p WHERE p.id=s.owner_pid), s.chests "
+				  "(SELECT p.level FROM player.player AS p WHERE p.id=s.owner_pid), s.chests, s.party "
 				  "FROM player.playerbot_sidekick AS s"
 				: "SELECT s.owner_pid, s.sidekick_pid, s.mode, s.skill_group, s.start_level, s.setup_done, "
-				  "0, 2, 1, 1, 0, 0, 0, 0, 0, (SELECT p.level FROM player.player AS p WHERE p.id=s.owner_pid), 1 "
+				  "0, 2, 1, 1, 0, 0, 0, 0, 0, (SELECT p.level FROM player.player AS p WHERE p.id=s.owner_pid), 1, 1 "
 				  "FROM player.playerbot_sidekick AS s"));
 		if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
 			return;
@@ -523,7 +526,8 @@ namespace
 		{
 			TPlayerBotSidekick rec;
 			unsigned int mode = 0, group = 0, level = 1, done = 0, stance = 0, loot = 2, protect = 1, buffs = 1,
-					manual = 0, manualStats = 0, statReset = 0, lure = 0, solo = 0, ownerLevel = 0, chests = 1;
+					manual = 0, manualStats = 0, statReset = 0, lure = 0, solo = 0, ownerLevel = 0, chests = 1,
+					party = 1;
 			if (row[0]) str_to_number(rec.dwOwnerPID, row[0]);
 			if (row[1]) str_to_number(rec.dwSidekickPID, row[1]);
 			if (row[2]) str_to_number(mode, row[2]);
@@ -541,6 +545,7 @@ namespace
 			if (row[14]) str_to_number(solo, row[14]);
 			if (row[15]) str_to_number(ownerLevel, row[15]);
 			if (row[16]) str_to_number(chests, row[16]);
+			if (row[17]) str_to_number(party, row[17]);
 			if (rec.dwOwnerPID == 0 || rec.dwSidekickPID == 0)
 				continue;
 			rec.bMode = mode == PLAYERBOT_SIDEKICK_FREE ? PLAYERBOT_SIDEKICK_FREE : PLAYERBOT_SIDEKICK_FOLLOW;
@@ -554,6 +559,7 @@ namespace
 			rec.bLure = lure != 0;
 			rec.bSolo = solo != 0;
 			rec.bChests = chests != 0;
+			rec.bParty = party != 0;
 			rec.bGroup = (BYTE)std::min<unsigned int>(group, 2);
 			rec.bLevel = (BYTE)std::max<unsigned int>(1, std::min<unsigned int>(level, 255));
 			rec.bOwnerLevel = (BYTE)std::min<unsigned int>(ownerLevel, 255);
@@ -583,6 +589,7 @@ namespace
 					rec.bLure = old->second.bLure;
 					rec.bSolo = old->second.bSolo;
 					rec.bChests = old->second.bChests;
+					rec.bParty = old->second.bParty;
 				}
 			}
 			fresh[rec.dwOwnerPID] = rec;
@@ -1202,9 +1209,19 @@ namespace
 				"WHERE i.window='SAFEBOX' AND i.owner_id=p.account_id", pid);
 		std::unique_ptr<SQLMsg> safebox(AccountDB::instance().DirectQuery(query));
 		const int level = MINMAX(1, owner->GetLevel(), 255);
-		snprintf(query, sizeof(query),
-				"INSERT INTO player.playerbot_sidekick (owner_pid, sidekick_pid, mode, skill_group, start_level, setup_done, created_at) "
-				"VALUES (%u, %u, 0, %d, %d, 0, NOW())", ownerPid, pid, group, level);
+		// A new companion's skill points are its owner's from the start: the
+		// AI spent them all at the first summon, before anybody had opened the
+		// window ("Lepiej byloby, gdyby domyslnie wlaczona byla opcja
+		// samodzielnego rozdawania skilli", blasty, 28 September). The window's
+		// switch hands them to the AI. The stat points stay the AI's.
+		if (s_bPlayerBotSidekickSettingsColumns)
+			snprintf(query, sizeof(query),
+					"INSERT INTO player.playerbot_sidekick (owner_pid, sidekick_pid, mode, skill_group, start_level, setup_done, "
+					"created_at, manual_skills) VALUES (%u, %u, 0, %d, %d, 0, NOW(), 1)", ownerPid, pid, group, level);
+		else
+			snprintf(query, sizeof(query),
+					"INSERT INTO player.playerbot_sidekick (owner_pid, sidekick_pid, mode, skill_group, start_level, setup_done, created_at) "
+					"VALUES (%u, %u, 0, %d, %d, 0, NOW())", ownerPid, pid, group, level);
 		std::unique_ptr<SQLMsg> insert(AccountDB::instance().DirectQuery(query));
 		if (!insert.get() || insert->uiSQLErrno != 0)
 		{
@@ -1218,6 +1235,7 @@ namespace
 		rec.bGroup = (BYTE)group;
 		rec.bLevel = (BYTE)level;
 		rec.bSetupDone = false;
+		rec.bManualSkills = true;
 		rec.dwOwnerSeenAt = get_dword_time();
 		s_mapPlayerBotSidekicks[ownerPid] = rec;
 		s_mapPlayerBotSidekickOwner[pid] = ownerPid;
@@ -1226,6 +1244,8 @@ namespace
 		snprintf(text, sizeof(text), "%s (%s) dolacza do ciebie - chwila i bedzie przy tobie.",
 				name, GetPlayerBotSidekickClassName((BYTE)race));
 		SayPlayerBotSidekick(owner, text);
+		SayPlayerBotSidekick(owner, "Punkty umiejetnosci rozdajesz ty: okno towarzysza (P), Umiejetnosci. "
+				"Wolisz, zeby robil to sam? Ustaw tam \"Punkty rozdaje sam: nie\".");
 		sys_log(0, "PLAYERBOT_SIDEKICK: created owner=%u owner_name=%s pid=%u name=%s race=%d group=%d level=%d",
 				ownerPid, owner->GetName(), pid, name, race, group, level);
 		CPlayerBotManager::instance().SpawnSidekick(pid);
@@ -1234,14 +1254,28 @@ namespace
 
 	// ---------------------------------------------------------- the party
 
+	// "Grupa" of this companion (TPlayerBotSidekick::bParty), by its pid.
+	bool IsPlayerBotSidekickJoiningAnyParty(DWORD sidekickPid)
+	{
+		std::map<DWORD, DWORD>::const_iterator owner = s_mapPlayerBotSidekickOwner.find(sidekickPid);
+		if (owner == s_mapPlayerBotSidekickOwner.end())
+			return false;
+		TPlayerBotSidekickMap::const_iterator rec = s_mapPlayerBotSidekicks.find(owner->second);
+		return rec != s_mapPlayerBotSidekicks.end() && rec->second.bParty;
+	}
+
 	// In the owner's party, "exp leci nam po rowno". A party the owner leads,
 	// or none, which is made for the owner the way the engine makes one when
 	// its first invitation is accepted (CHARACTER::PartyInviteAccept); the
 	// split is set once, when this makes the party - after that it is the
-	// leader's. Another player's party is its leader's to fill: the companion
-	// takes an invitation from that leader (AcceptPlayerBotPartyInvite) and
-	// otherwise follows its owner outside it. And not while the owner is in a
-	// dungeon, where the engine refuses a new member too (PERR_DUNGEON).
+	// leader's. Another person's party the companion joins with "Grupa" on
+	// (the default) while a place stays free after it for one more person:
+	// three friends in one party, and only the leader's companion with them,
+	// was "tylko jeden towarzysz" (xXxDaronxXx, 28 September). With "Grupa"
+	// off it takes an invitation from that leader (AcceptPlayerBotPartyInvite)
+	// and otherwise follows its owner outside the party. And not while the
+	// owner is in a dungeon, where the engine refuses a new member too
+	// (PERR_DUNGEON).
 	void KeepPlayerBotSidekickInParty(LPCHARACTER ch, LPCHARACTER owner, DWORD dwNow)
 	{
 		LPPARTY party = owner->GetParty();
@@ -1249,7 +1283,18 @@ namespace
 			return;
 		if (owner->GetDungeon())
 			return;
-		if (party && party->GetLeaderPID() != owner->GetPlayerID())
+		const bool joinsAny = IsPlayerBotSidekickJoiningAnyParty(ch->GetPlayerID());
+		if (party && party->GetLeaderPID() != owner->GetPlayerID() && joinsAny &&
+				party->GetMemberCount() + 2 > PARTY_MAX_MEMBER)
+		{
+			if (ch->GetParty())
+				LeavePlayerBotParty(ch);
+			PlayerBotLogThrottled("sidekick_party_room", dwNow,
+					"PLAYERBOT_SIDEKICK: no place left for a person after it pid=%u name=%s owner=%u members=%d",
+					ch->GetPlayerID(), ch->GetName(), owner->GetPlayerID(), (int)party->GetMemberCount());
+			return;
+		}
+		if (party && party->GetLeaderPID() != owner->GetPlayerID() && !joinsAny)
 		{
 			if (ch->GetParty())
 				LeavePlayerBotParty(ch);
@@ -2598,6 +2643,22 @@ namespace
 		return "Dobra, nie otwieram skrzyn ani szkatulek - zostaja w mojej torbie, mozesz je wziac w oknie Towarzysza.";
 	}
 
+	// "Grupa", kept in the record at once (see the stance): whether the
+	// companion follows its owner into a party somebody else leads. Answers
+	// with the companion's words for it.
+	const char* SetPlayerBotSidekickParty(TPlayerBotSidekick& rec, bool join)
+	{
+		if (rec.bParty != join)
+		{
+			rec.bParty = join;
+			SetPlayerBotSidekickSetting(rec, "party", join ? 1U : 0U);
+		}
+		if (join)
+			return "Dobra, dolaczam do twojej grupy, nawet gdy prowadzi ja ktos inny - jesli zostanie w niej miejsce "
+					"jeszcze dla jednej osoby.";
+		return "Dobra, do grupy, ktora prowadzi ktos inny, dolacze tylko na zaproszenie jej lidera.";
+	}
+
 	// The companion in this core's world with its state, or NULL with the owner
 	// told why not.
 	LPCHARACTER FindPlayerBotSidekickForOrder(LPCHARACTER owner, const TPlayerBotSidekick& rec,
@@ -2886,10 +2947,10 @@ namespace
 			mode = 3;
 		else if (rt && rt->bHold && mode == 0)
 			mode = 2;
-		// "Gra beze mnie" and "Skrzynki" last: a window older than they are reads
-		// the words it knows and leaves the rest (uisidekick.ParseInfo).
+		// "Gra beze mnie", "Skrzynki" and "Grupa" last: a window older than they
+		// are reads the words it knows and leaves the rest (uisidekick.ParseInfo).
 		SendPlayerBotSidekickCommand(owner,
-				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d %d %d %d %d",
+				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d %d %d %d %d %d",
 				PLAYERBOT_SIDEKICK_WINDOW_PROTOCOL,
 				inWorld ? (int)sk->GetRaceNum() : -1, inWorld ? (int)sk->GetSkillGroup() : 0,
 				inWorld ? sk->GetLevel() : 0, expPercent,
@@ -2898,7 +2959,7 @@ namespace
 				where, dist, mode, (unsigned int)rec.bStance, (unsigned int)rec.bLoot, rec.bProtect ? 1 : 0,
 				rec.bBuffs ? 1 : 0, inWorld ? (long long)sk->GetGold() : 0LL, (unsigned int)red, (unsigned int)blue,
 				inWorld && sk->IsDead() ? 1 : 0, rec.bLure ? 1 : 0, rt ? (int)rt->bLureStage : 0, rec.bSolo ? 1 : 0,
-				rec.bChests ? 1 : 0);
+				rec.bChests ? 1 : 0, rec.bParty ? 1 : 0);
 		char doing[96] = "";
 		char place[64] = "";
 		if (inWorld)
@@ -3929,9 +3990,105 @@ namespace
 		SetPlayerBotSidekickSetting(rec, "manual_skills", manual ? 1U : 0U);
 	}
 
+	// "umiejetnosci zeruj <vnum>": the owner takes one of the companion's skills
+	// back to nothing, with what a player would use, out of the companion's own
+	// bag - "mozliwosc resetowania jego umiejetnosci do zera za pomoca KZ lub
+	// zwoju powrotu umiejetnosci" (blasty, 28 September). The Forgetting Book
+	// takes one level with its point (SkillLevelDown) and never a Master's; the
+	// skill reset scroll takes the whole skill, Master and all, and does what
+	// its quest does (ResetOneSkill, the next Master forced). Books when the
+	// bag holds enough to reach zero, because the scroll is the ItemShop's;
+	// the scroll when they are too few, or for a Master; and nothing half-way:
+	// the owner asked for zero. The points wait in the window, the owner's to
+	// spend from then on, as after a "+".
+	bool ResetPlayerBotSidekickSkill(LPCHARACTER sk, TPlayerBotSidekick& rec, DWORD vnum, std::string& answer)
+	{
+		char text[192];
+		const int before = (int)sk->GetSkillLevel(vnum);
+		const bool normal = sk->GetSkillMasterType(vnum) == SKILL_NORMAL;
+		std::vector<WORD> bookCells;
+		int books = 0;
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		LPITEM scroll = NULL;
+#endif
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = sk->GetInventoryItem(cell);
+			if (!item || item->isLocked())
+				continue;
+			if (item->GetType() == ITEM_SKILLFORGET && (DWORD)item->GetSocket(0) == vnum)
+			{
+				bookCells.push_back(cell);
+				books += (int)item->GetCount();
+			}
+#if defined(PLAYERBOT_ENGINE_MT2009)
+			else if (!scroll && item->GetVnum() == PLAYERBOT_SIDEKICK_SKILL_RESET_SCROLL_VNUM)
+				scroll = item;
+#endif
+		}
+		const char* way = "none";
+		if (normal && books >= before)
+		{
+			way = "books";
+			int read = 0;
+			for (size_t i = 0; i < bookCells.size() && sk->GetSkillLevel(vnum) > 0; ++i)
+			{
+				for (int guard = 0; guard < 40 && sk->GetSkillLevel(vnum) > 0; ++guard)
+				{
+					LPITEM item = sk->GetInventoryItem(bookCells[i]);
+					if (!item || item->GetType() != ITEM_SKILLFORGET || (DWORD)item->GetSocket(0) != vnum)
+						break;
+					const int was = (int)sk->GetSkillLevel(vnum);
+					sk->UseItem(TItemPos(INVENTORY, bookCells[i]));
+					if ((int)sk->GetSkillLevel(vnum) >= was)
+						break;
+					++read;
+				}
+			}
+			if (sk->GetSkillLevel(vnum) > 0)
+				snprintf(text, sizeof(text), "Przeczytane Ksiegi Zapomnienia: %d, %s stoi na %d - reszty silnik nie przyjal.",
+						read, GetPlayerBotSkillName(vnum), (int)sk->GetSkillLevel(vnum));
+			else
+				snprintf(text, sizeof(text), "Przeczytane Ksiegi Zapomnienia: %d - %s od zera, punkty czekaja w oknie.",
+						read, GetPlayerBotSkillName(vnum));
+		}
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		else if (scroll)
+		{
+			way = "scroll";
+			if (!sk->ResetOneSkill(vnum))
+				snprintf(text, sizeof(text), "Zwoj Powrotu Umiejetnosci nie zadzialal.");
+			else
+			{
+				sk->SetQuestFlag("reset_status_items.force_to_master_skill",
+						sk->GetQuestFlag("reset_status_items.force_to_master_skill") + 1);
+				scroll->SetCount(scroll->GetCount() - 1);
+				sk->Save();
+				snprintf(text, sizeof(text), "Zwoj Powrotu Umiejetnosci uzyty: %s od zera, punkty czekaja w oknie. "
+						"Kolejna umiejetnosc na 17 zostanie mistrzem.", GetPlayerBotSkillName(vnum));
+			}
+		}
+#endif
+		else if (!normal)
+			snprintf(text, sizeof(text), "Mistrza nie cofnie Ksiega Zapomnienia - wloz do plecaka towarzysza "
+					"Zwoj Powrotu Umiejetnosci.");
+		else
+			snprintf(text, sizeof(text), "Do zera trzeba %d Ksiag Zapomnienia tej umiejetnosci, w plecaku towarzysza "
+					"jest %d - albo wloz mu Zwoj Powrotu Umiejetnosci.", before, books);
+		answer = text;
+		const bool done = sk->GetSkillLevel(vnum) < before;
+		if (done && !rec.bManualSkills)
+			SetPlayerBotSidekickManualSkills(rec, true);
+		sys_log(0, "PLAYERBOT_SIDEKICK: skill reset owner=%u pid=%u vnum=%u way=%s master=%d level=%d->%d books=%d points=%d",
+				rec.dwOwnerPID, sk->GetPlayerID(), vnum, way, normal ? 0 : 1, before, (int)sk->GetSkillLevel(vnum), books,
+				(int)sk->GetPoint(POINT_SKILL));
+		return done;
+	}
+
 	// "umiejetnosci" (the list), "umiejetnosci dodaj <vnum>" (one point there -
 	// and from then on the owner spends them, or the skill pass would move the
-	// point to its own build), "umiejetnosci reczne <0|1>".
+	// point to its own build), "umiejetnosci reczne <0|1>", "umiejetnosci zeruj
+	// <vnum>" (ResetPlayerBotSidekickSkill).
 	void HandlePlayerBotSidekickSkillCommand(LPCHARACTER owner, const char* op, const char* a)
 	{
 		if (!*op)
@@ -3994,6 +4151,22 @@ namespace
 			sys_log(0, "PLAYERBOT_SIDEKICK: skill up owner=%u pid=%u vnum=%u code=%d level=%d points=%d",
 					owner->GetPlayerID(), sk->GetPlayerID(), vnum, code, (int)sk->GetSkillLevel(vnum),
 					(int)sk->GetPoint(POINT_SKILL));
+		}
+		else if (!strcmp(op, "zeruj"))
+		{
+			DWORD vnum = 0;
+			str_to_number(vnum, a);
+			const DWORD base = GetPlayerBotSidekickSkillBase(sk);
+			if (base == 0)
+				answer = "Towarzysz nie ma jeszcze sciezki (dostanie ja na 5 poziomie).";
+			else if (vnum < base || vnum >= base + 6 || !CSkillManager::instance().Get(vnum))
+				answer = "To nie jest umiejetnosc towarzysza.";
+			else if (sk->GetSkillLevel(vnum) <= 0)
+				answer = "Ta umiejetnosc jest juz na zerze.";
+			else if (sk->IsPolymorphed() || sk->IsDead() || sk->GetExchange())
+				answer = "Nie teraz - sprobuj, gdy towarzysz nie walczy przemieniony, nie lezy i nie handluje.";
+			else if (ResetPlayerBotSidekickSkill(sk, rec->second, vnum, answer))
+				code = 0;
 		}
 		else
 			answer = "Nieznane polecenie okna.";
@@ -4328,6 +4501,14 @@ namespace
 				SayPlayerBotSidekick(ch, SetPlayerBotSidekickChests(rec->second, !strcmp(a1, "1")));
 			else
 				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz skrzynki 1 (sam otwieram skrzynie) albo /towarzysz skrzynki 0");
+		}
+		else if (!strcmp(sub, "grupa"))
+		{
+			if (!strcmp(a1, "0") || !strcmp(a1, "1"))
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickParty(rec->second, !strcmp(a1, "1")));
+			else
+				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz grupa 1 (dolaczam do twojej grupy, kto by jej nie prowadzil) "
+						"albo /towarzysz grupa 0");
 		}
 		else if (!strcmp(sub, "zbieraj") || !strcmp(sub, "ochrona") || !strcmp(sub, "buffy"))
 		{
@@ -4998,9 +5179,10 @@ namespace
 				if (rt.setForgetToldItems.insert(item->GetID()).second)
 				{
 					const bool mine = skill >= base && skill < base + 6;
-					snprintf(text, sizeof(text), "Ta Ksiega Zapomnienia jest do umiejetnosci %s, %s - zostaje w plecaku.",
+					snprintf(text, sizeof(text), "Ta Ksiega Zapomnienia jest do umiejetnosci %s, %s - zostaje w plecaku.%s",
 							skill ? GetPlayerBotSkillName(skill) : "(zadnej)",
-							mine ? "a ta nie stoi na 17" : "ktorej nie mam");
+							mine ? "a ta nie stoi na 17" : "ktorej nie mam",
+							mine ? " Zeruj w oknie umiejetnosci ja zuzyje." : "");
 					SayPlayerBotSidekick(owner, text);
 				}
 				continue;

@@ -1244,6 +1244,46 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 				(long long)iChance * GetPlayerBotWeight(bWeight) / PLAYERBOT_WEIGHT_NEUTRAL;
 		return (long long)dwRoll < threshold;
 	}
+
+	// An errand a bot already takes at every chance, taken by fewer bots.
+	//
+	// REFINE, SKILL, BIOLOG and HUNTING reached only the planner, and the
+	// planner's goal is the status line's word: the blacksmith, the books and
+	// the two missions each start from a need of their own, so those sliders
+	// changed what a bot said over its head and nothing it did (the audit of
+	// 28 September; "sprawdz wszystkie suwaki na www", the operator). Under neutral
+	// they now close the errand for a share of the bots, half an hour at a
+	// time: at 50 a bot takes it in half its windows. The threshold is read at
+	// every ask, so a change in the panel is felt at once; only the draw
+	// belongs to the window, and the window's edge is spread by pid so the
+	// bots do not all turn at the same second. Neutral and above is every
+	// window, as it was - an errand already taken at every chance cannot be
+	// taken more often. A companion is its owner's, not the world's, and is
+	// never closed. Its own hash, so this file still calls nothing below it.
+	const DWORD PLAYERBOT_WEIGHT_GATE_WINDOW_MS = 30 * 60 * 1000;
+
+	bool IsPlayerBotWeightGateOpen(DWORD dwPid, BYTE bWeight, DWORD dwSalt, DWORD dwNow)
+	{
+		const int weight = GetPlayerBotWeight(bWeight);
+		if (weight >= PLAYERBOT_WEIGHT_NEUTRAL || IsPlayerBotSidekickPID(dwPid))
+			return true;
+		const DWORD window = (dwNow + (dwPid * 7919U) % PLAYERBOT_WEIGHT_GATE_WINDOW_MS) /
+				PLAYERBOT_WEIGHT_GATE_WINDOW_MS;
+		DWORD h = dwPid * 2654435761U ^ dwSalt ^ window * 0x9E3779B1U;
+		h ^= h >> 16;
+		h *= 0x7FEB352DU;
+		h ^= h >> 15;
+		h *= 0x846CA68BU;
+		h ^= h >> 16;
+		return (int)(h % 100U) < weight;
+	}
+
+	// The salts, one a weight, so that the bots a low REFINE closes are not
+	// the ones a low SKILL closes too.
+	const DWORD PLAYERBOT_WEIGHT_GATE_SALT_REFINE = 0x52454649U;
+	const DWORD PLAYERBOT_WEIGHT_GATE_SALT_SKILL = 0x534b494cU;
+	const DWORD PLAYERBOT_WEIGHT_GATE_SALT_BIOLOG = 0x42494f4cU;
+	const DWORD PLAYERBOT_WEIGHT_GATE_SALT_HUNTING = 0x48554e54U;
 }
 
 #endif

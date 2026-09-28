@@ -26,6 +26,36 @@ import flamewindPath
 EVENT_OPEN_MYSHOP_SHOP_MANAGE = "EVENT_OPEN_MYSHOP_SHOP_MANAGE" # args |
 EVENT_CLOSE_MYSHOP_SHOP_MANAGE = "EVENT_CLOSE_MYSHOP_SHOP_MANAGE" # args |
 
+AUTO_PRICE_FILE = "shop_auto_price.cfg"
+AUTO_PRICE_KEY = "auto_price"
+
+def IsAutoPriceOn():
+	try:
+		f = open(AUTO_PRICE_FILE, "r")
+		try:
+			for line in f.readlines():
+				key, sep, value = line.partition("=")
+				if sep and key.strip() == AUTO_PRICE_KEY:
+					return value.strip() == "1"
+		finally:
+			f.close()
+	except (IOError, OSError):
+		pass
+	return False
+
+def SetAutoPriceOn(on):
+	try:
+		f = open(AUTO_PRICE_FILE, "w")
+		try:
+			f.write("%s=%d\n" % (AUTO_PRICE_KEY, 1 if on else 0))
+		finally:
+			f.close()
+	except (IOError, OSError):
+		pass
+
+def GetAutoPriceText(on):
+	return "Auto cena: %s" % ("tak" if on else "nie")
+
 g_isEditingPrivateShop = False
 def IsEditingPrivateShop():
 	global g_isEditingPrivateShop
@@ -506,6 +536,21 @@ class OfflineShopManage(ui.ScriptWindow):
 			hintY = 79
 			buttonY = 112
 
+		if not hasattr(dialog, "fleaAutoPriceButton"):
+			button = ui.Button()
+			button.SetParent(dialog.board)
+			button.SetUpVisual("d:/ymir work/ui/public/large_button_01.sub")
+			button.SetOverVisual("d:/ymir work/ui/public/large_button_02.sub")
+			button.SetDownVisual("d:/ymir work/ui/public/large_button_03.sub")
+			button.SetWindowHorizontalAlignCenter()
+			button.SetToolTipText("Wpisuje sugestie botow jako cene")
+			button.SAFE_SetEvent(self.__OnToggleAutoPrice)
+			button.Show()
+			dialog.fleaAutoPriceButton = button
+		dialog.fleaAutoPriceButton.SetPosition(0, hintY + 34)
+		dialog.fleaAutoPriceButton.SetText(GetAutoPriceText(IsAutoPriceOn()))
+		buttonY += 27
+
 		dialog.fleaMarketPriceHint.SetPosition(0, hintY)
 		dialog.fleaMarketPriceHistory.SetPosition(0, hintY + 16)
 		dialog.fleaMarketPriceHint.SetText(primaryText)
@@ -522,6 +567,7 @@ class OfflineShopManage(ui.ScriptWindow):
 			self.fleaPriceRequestID = 1
 
 		self.fleaPriceDialog = self.addItemDialog
+		self.addItemDialog.fleaOpenText = self.addItemDialog.GetText()
 		net.SendChatPacket("/flea_price %d %d %d" % (
 			self.fleaPriceRequestID, inventoryWindowType, inventorySlotIndex))
 
@@ -545,6 +591,26 @@ class OfflineShopManage(ui.ScriptWindow):
 			secondary = "Brak historii transakcji - pokazana cena bazowa."
 
 		self.__SetFleaMarketPriceHint(self.addItemDialog, primary, secondary)
+		self.addItemDialog.fleaSuggestedPrice = suggestedPrice
+		if IsAutoPriceOn():
+			self.__FillSuggestedPrice(self.addItemDialog)
+
+	def __FillSuggestedPrice(self, dialog):
+		suggested = getattr(dialog, "fleaSuggestedPrice", 0)
+		if suggested <= 0 or dialog.GetText() != getattr(dialog, "fleaOpenText", None):
+			return
+		dialog.SetValue(min(suggested, player.GOLD_MAX))
+		dialog.fleaOpenText = dialog.GetText()
+
+	def __OnToggleAutoPrice(self):
+		on = not IsAutoPriceOn()
+		SetAutoPriceOn(on)
+		dialog = self.addItemDialog
+		if not dialog or not hasattr(dialog, "fleaAutoPriceButton"):
+			return
+		dialog.fleaAutoPriceButton.SetText(GetAutoPriceText(on))
+		if on:
+			self.__FillSuggestedPrice(dialog)
 
 	def ShowAddItemDialog(self, inventorySlotIndex, shopSlotIndex, inventoryWindowType, itemVnum, itemCount):
 		if not constInfo.myshop_data["items"].has_key(shopSlotIndex):

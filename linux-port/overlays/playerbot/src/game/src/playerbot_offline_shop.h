@@ -327,6 +327,7 @@ namespace {
         normal = 0;
         ageMin = -1;
         if (!ch || !shop || shop->GetDuration() == 0) return 0;
+        TPlayerBotPricingKeeper pricing(ch->GetPlayerID());
         auto& o = state.offlineShop;
         for (const auto& [id, line] : shop->GetItems()) {
             if (!line || line->GetInfo().count != 1 || !IsPlayerBotPriceSlipDrawn(id)) continue;
@@ -1632,6 +1633,8 @@ namespace {
                 o.repriceItem = it->first;
                 auto preview = BotOfflinePreview(*it->second);
                 if (preview) {
+                    // The keeper's own spread, as when the line went up.
+                    TPlayerBotPricingKeeper pricing(ch->GetPlayerID());
                     ikashop::TPriceInfo price{};
                     // A line nobody has bought comes down a step for every
                     // PLAYERBOT_OFFLINE_UNSOLD_STEP_MS it has stood, to the ceiling

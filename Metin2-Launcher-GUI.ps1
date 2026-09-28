@@ -28,6 +28,8 @@ if ($UiSelfTest) {
 $supportDirectory = Join-Path $root 'support-bundles'
 $composeFile = Join-Path $root 'linux-port\docker\docker-compose.yml'
 $sessionLog = Join-Path $logDirectory ('launcher-{0}.log' -f (Get-Date -Format 'yyyyMMdd'))
+# Protect-M2SessionLogLine's memory of a heading whose password is on the next line.
+$script:sessionLogRedaction = @{}
 
 function Write-StartupFailure {
     # Straight to the file: this runs before (or instead of) the window, so
@@ -62,7 +64,28 @@ trap {
 
 foreach ($required in @($cliLauncher, $modulePath, $diagnosticsModulePath, $composeFile)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
-        throw "Brakuje wymaganego pliku: $required"
+        # Hyper96's Metin2-Launcher.ps1 was written by the update at 01:20, run
+        # at 01:22 and gone at 01:23 with the launcher still open (28 September):
+        # the launcher deletes none of these, an antivirus that takes a script
+        # which downloads and starts a server for a threat does. Say what to do
+        # rather than only which file it was.
+        $relative = $required.Substring($root.Length).TrimStart('\')
+        # Which antivirus, from Windows' own Security Center, so the report
+        # names it: Hyper96's folder was in his antivirus's exclusions and its
+        # history was empty, and the file was gone all the same.
+        $antivirus = ''
+        try {
+            $antivirus = (@(Get-CimInstance -Namespace 'root/SecurityCenter2' -ClassName 'AntiVirusProduct' -ErrorAction Stop |
+                ForEach-Object { [string]$_.displayName } | Where-Object { $_ }) | Sort-Object -Unique) -join ', '
+        }
+        catch { }
+        throw ("Brakuje pliku launchera: $required`r`n" +
+            $(if ($antivirus) { "Antywirus w systemie: $antivirus`r`n" } else { '' }) + "`r`n" +
+            "Launcher sam go nie usuwa - najczesciej zabiera go antywirus (falszywy alarm na skrypt, ktory pobiera i uruchamia serwer).`r`n`r`n" +
+            "1. Zajrzyj do kwarantanny antywirusa. W Windows: Zabezpieczenia Windows > Ochrona przed wirusami i zagrozeniami > Historia ochrony. " +
+            "Przywroc plik i dodaj folder $root do wykluczen.`r`n" +
+            "2. Jesli nie da sie go przywrocic: pobierz z GitHuba (Doofenyoyo1/metin2_SP, Releases) paczke metin2-server-update-<wersja>.zip " +
+            "i wyjmij z niej $relative do $root. Najpierw dodaj wykluczenie, inaczej antywirus zabierze go znowu.")
     }
 }
 
@@ -154,8 +177,12 @@ function Write-LocalLog {
         [switch]$FileOnly
     )
     $line = '{0}  {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message
+    # The file is what players post, so a password never reaches it; the box
+    # keeps the line as it was, because that is where the player reads it.
+    $fileLine = $line
+    try { $fileLine = Protect-M2SessionLogLine -Text $line -State $script:sessionLogRedaction } catch { }
     [IO.File]::AppendAllText($sessionLog,
-        (ConvertTo-M2AsciiLine $line) + [Environment]::NewLine,
+        (ConvertTo-M2AsciiLine $fileLine) + [Environment]::NewLine,
         [Text.UTF8Encoding]::new($false))
     if (-not $FileOnly -and $script:logBox -and -not $script:logBox.IsDisposed) {
         $script:logBox.AppendText($line + [Environment]::NewLine)
@@ -272,6 +299,8 @@ $script:Strings = @{
         clientPickFilter = 'Program klienta Metin2 (*.exe)|*.exe|Wszystkie pliki (*.*)|*.*'
         clientNotChosen = 'Nie wybrano klienta. Użyj przycisku „Wybierz klienta”.'
         clientStartFailed = 'Nie udało się uruchomić klienta'
+        stopAskTitle = 'Bezpieczne zatrzymanie'
+        stopAsk = "Zatrzymać serwer? Postacie, baza i postęp botów zostaną zachowane.`r`n`r`nTak - serwer i Docker Desktop (Docker zwalnia wtedy pamięć RAM).`r`nNie - sam serwer; Docker zostaje włączony dla innych programów.`r`nAnuluj - nic nie zatrzymuj."
         clientBlockedTitle = 'Windows zablokował klienta'
         clientBlockedPolicy = "Windows nie pozwolił uruchomić klienta gry (metin2client.exe). Zrobiła to Inteligentna kontrola aplikacji (Smart App Control): blokuje programy bez podpisu cyfrowego, których Microsoft nie zna, a klient gry takiego podpisu nie ma.`r`n`r`nTa funkcja nie ma listy wyjątków. Klient uruchomi się dopiero po jej wyłączeniu: Ustawienia > Prywatność i zabezpieczenia > Zabezpieczenia Windows > Kontrola aplikacji i przeglądarki > Ustawienia inteligentnej kontroli aplikacji > Wyłączone. Windows może potem nie pozwolić włączyć jej z powrotem bez ponownej instalacji systemu, więc zdecyduj sam.`r`n`r`nKlienta bierz tylko z pełnej paczki gry albo z aktualizacji w launcherze."
         clientBlockedVirus = "Program antywirusowy zablokował klienta gry (metin2client.exe). Windows Defender potrafi uznać go za zagrożenie (np. Trojan:Script/Wacatac). To fałszywy alarm: plik nie ma podpisu cyfrowego, więc ocenia go heurystyka.`r`n`r`nCo zrobić: Zabezpieczenia Windows > Ochrona przed wirusami i zagrożeniami > Historia ochrony > wpis z metin2client.exe > Akcje > Przywróć. Potem dodaj folder klienta do wykluczeń: Ochrona przed wirusami i zagrożeniami > Zarządzaj ustawieniami > Wykluczenia > Dodaj wykluczenie > Folder.`r`n`r`nWyjątek dodawaj tylko dla klienta z pełnej paczki gry albo z aktualizacji w launcherze."
@@ -347,6 +376,8 @@ $script:Strings = @{
         clientPickFilter = 'Metin2 client program (*.exe)|*.exe|All files (*.*)|*.*'
         clientNotChosen = 'No client chosen. Use the "CHOOSE CLIENT" button.'
         clientStartFailed = 'Could not start the client'
+        stopAskTitle = 'Safe stop'
+        stopAsk = "Stop the server? Characters, the database and the bots' progress are kept.`r`n`r`nYes - the server and Docker Desktop (Docker then frees its RAM).`r`nNo - the server only; Docker stays on for other programs.`r`nCancel - stop nothing."
         clientBlockedTitle = 'Windows blocked the client'
         clientBlockedPolicy = "Windows would not start the game client (metin2client.exe). Smart App Control did it: it blocks programs without a digital signature that Microsoft does not know, and the game client has no such signature.`r`n`r`nIt has no list of exceptions. The client starts only once it is off: Settings > Privacy & security > Windows Security > App & browser control > Smart App Control settings > Off. Windows may not let you turn it back on without reinstalling the system, so decide for yourself.`r`n`r`nOnly take the client from the project's full package or from an update in the launcher."
         clientBlockedVirus = "An antivirus blocked the game client (metin2client.exe). Windows Defender can take it for a threat (e.g. Trojan:Script/Wacatac). It is a false alarm: the file has no digital signature, so a heuristic judges it.`r`n`r`nWhat to do: Windows Security > Virus & threat protection > Protection history > the entry for metin2client.exe > Actions > Restore. Then exclude the client folder: Virus & threat protection > Manage settings > Exclusions > Add an exclusion > Folder.`r`n`r`nOnly make that exception for the client from the project's full package or from an update in the launcher."
@@ -840,6 +871,9 @@ function Complete-LauncherAction {
         }
     }
     $output = $script:activeOutputAll
+    foreach ($path in @($script:activeOut, $script:activeErr)) {
+        try { Protect-M2LogFile -Path $path } catch { }
+    }
 
     $action = $script:activeAction
     $launchClient = $script:launchClientAfterAction
@@ -2429,10 +2463,14 @@ $playButton.Add_Click({
 })
 $dockerButton.Add_Click({ Start-LauncherAction -Action 'StartDocker' })
 $stopButton.Add_Click({
-    $answer = [Windows.Forms.MessageBox]::Show(
-        'Zatrzymać serwer i Docker Desktop? Postacie, baza i postęp botów zostaną zachowane.',
-        'Bezpieczne zatrzymanie', 'YesNo', 'Question')
+    # The button used to stop Docker Desktop with the server, and with it
+    # whatever else the player runs in Docker ("nie powinna mi go wylaczac,
+    # zamykajac tym samym inne projekty", Producent Hip Hopu, 28 September).
+    # Yes is the old stop - the engine's machine holds gigabytes of RAM, which
+    # is why it went at all - and No stops the server alone.
+    $answer = [Windows.Forms.MessageBox]::Show((T 'stopAsk'), (T 'stopAskTitle'), 'YesNoCancel', 'Question')
     if ($answer -eq [Windows.Forms.DialogResult]::Yes) { Start-LauncherAction -Action 'StopAll' }
+    elseif ($answer -eq [Windows.Forms.DialogResult]::No) { Start-LauncherAction -Action 'Stop' }
 })
 function Get-M2PanelAddresses {
     # Both web panels of the same world, at whatever ports this installation

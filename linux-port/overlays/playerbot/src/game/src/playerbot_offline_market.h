@@ -94,6 +94,25 @@ namespace {
         return want ? priority : -1;
     }
 
+    // The people's stands among `shops`, every line up to
+    // PLAYERBOT_MARKET_PERSON_LOOK_LINES, for a browse that looks at them
+    // first: the window below reads sixty-four lines from a cursor, and a
+    // first village holds some ten thousand.
+    template<class Shops, class Visitor>
+    void BrowsePlayerBotPersonLines(const Shops& shops, Visitor visit) {
+        unsigned checked = 0;
+        for (const auto& entry : shops) {
+            const auto& shop = entry.second;
+            if (CPlayerBotManager::instance().IsRegisteredBotPID(shop->GetOwnerPID()))
+                continue;
+            for (const auto& [id, line] : shop->GetItems()) {
+                if (++checked > PLAYERBOT_MARKET_PERSON_LOOK_LINES)
+                    return;
+                visit(shop, id, line);
+            }
+        }
+    }
+
     // The buyer's pick, taken to its stand and bought: the walk, the keeper's
     // edit mode waited out, the line asked again on arrival, and the request
     // to the db core, which delivers. True while it has the tick; false once
@@ -270,7 +289,7 @@ namespace {
             int bestPriority = -1;
             long long bestPrice = 0;
             const bool personFirst = number(1, 100) <= PLAYERBOT_MARKET_PERSON_FIRST_PERCENT;
-            BrowseLines(shops, o, 64, [&](auto shop, auto id, const auto& line) {
+            auto rate = [&](auto shop, auto id, const auto& line) {
                 if (IsPlayerBotLineClaimedByOther(id, ch->GetPlayerID(), now)) return;
                 long long price = 0;
                 const int priority = RatePlayerBotOfflineLine(ch, shop, line, budget, personFirst, price);
@@ -281,7 +300,11 @@ namespace {
                 o.buyOwner = shop->GetOwnerPID();
                 o.buyItem = id;
                 o.buyUntil = now + 45000;
-            });
+            };
+            if (personFirst)
+                BrowsePlayerBotPersonLines(shops, rate);
+            if (!o.buyOwner)
+                BrowseLines(shops, o, 64, rate);
             // A first village's stands with nothing on them this bot came for:
             // it asks on the trade channel, as a trip that found the market
             // empty always did. The classic trip was that trip's only caller,
@@ -334,9 +357,7 @@ namespace {
         long long bestPrice = 0;
         const bool personFirst = number(1, 100) <= PLAYERBOT_MARKET_PERSON_FIRST_PERCENT;
         const DWORD now = get_dword_time();
-        std::swap(o.browseOwner, o.farBrowseOwner);
-        std::swap(o.browseItem, o.farBrowseItem);
-        BrowseLines(shops, o, PLAYERBOT_MARKET_FAR_LOOK_LINES, [&](auto shop, auto id, const auto& line) {
+        auto rate = [&](auto shop, auto id, const auto& line) {
             if (IsPlayerBotLineClaimedByOther(id, ch->GetPlayerID(), now)) return;
             long long price = 0;
             const int priority = RatePlayerBotOfflineLine(ch, shop, line, budget, personFirst, price);
@@ -346,9 +367,16 @@ namespace {
             bestPrice = price;
             o.farPickOwner = shop->GetOwnerPID();
             o.farPickItem = id;
-        });
-        std::swap(o.browseOwner, o.farBrowseOwner);
-        std::swap(o.browseItem, o.farBrowseItem);
+        };
+        if (personFirst)
+            BrowsePlayerBotPersonLines(shops, rate);
+        if (!o.farPickOwner) {
+            std::swap(o.browseOwner, o.farBrowseOwner);
+            std::swap(o.browseItem, o.farBrowseItem);
+            BrowseLines(shops, o, PLAYERBOT_MARKET_FAR_LOOK_LINES, rate);
+            std::swap(o.browseOwner, o.farBrowseOwner);
+            std::swap(o.browseItem, o.farBrowseItem);
+        }
         return o.farPickOwner != 0;
     }
 

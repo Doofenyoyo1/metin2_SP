@@ -822,7 +822,11 @@ namespace
 		size_t biologistIndex = 0;
 		const TPlayerBotBiologistMission* biologistMission =
 				GetActivePlayerBotBiologistMission(ch, &biologistIndex);
-		if (biologistMission && !state.bVisitingBiologist)
+		// The BIOLOG and HUNTING weights under neutral leave a share of the
+		// bots hunting what the map offers (IsPlayerBotWeightGateOpen).
+		if (biologistMission && !state.bVisitingBiologist &&
+				IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_BIOLOG,
+					PLAYERBOT_WEIGHT_GATE_SALT_BIOLOG, dwNow))
 		{
 			const int accepted = std::max(0, ch->GetQuestFlag(
 					GetPlayerBotBiologistFlag(*biologistMission, "collect_count")));
@@ -837,7 +841,9 @@ namespace
 			else if (ch->CountSpecifyItem(biologistMission->itemVnum) < remaining)
 				desiredBiologistMobVnum = biologistMission->mobVnum;
 		}
-		const DWORD desiredHuntingMobVnum = GetActivePlayerBotHuntingMobVnum(ch);
+		const DWORD desiredHuntingMobVnum =
+				IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_HUNTING,
+					PLAYERBOT_WEIGHT_GATE_SALT_HUNTING, dwNow) ? GetActivePlayerBotHuntingMobVnum(ch) : 0;
 		DWORD desiredQuestMobVnum = desiredBiologistMobVnum;
 		if (desiredHuntingMobVnum != 0)
 		{
@@ -2242,7 +2248,9 @@ namespace
 		if (!weapon || weapon->GetType() != ITEM_WEAPON)
 			return false;
 
-		const bool isBow = weapon->GetSubType() == WEAPON_BOW;
+		// A transformed Archer strikes as the monster it became, hand to hand
+		// (IsPlayerBotFightingAsMonster).
+		const bool isBow = weapon->GetSubType() == WEAPON_BOW && !IsPlayerBotFightingAsMonster(ch);
 		if (isBow)
 		{
 			LPITEM bow = NULL;
@@ -2298,7 +2306,8 @@ namespace
 	// An Archer Ninja with a bow in hand.
 	bool IsPlayerBotArcher(LPCHARACTER ch)
 	{
-		if (!ch || ch->GetJob() != JOB_ASSASSIN || ch->GetSkillGroup() != 2)
+		if (!ch || ch->GetJob() != JOB_ASSASSIN || ch->GetSkillGroup() != 2 ||
+				IsPlayerBotFightingAsMonster(ch))
 			return false;
 		LPITEM weapon = ch->GetWear(WEAR_WEAPON);
 		return weapon && weapon->GetType() == ITEM_WEAPON && weapon->GetSubType() == WEAPON_BOW;

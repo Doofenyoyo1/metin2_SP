@@ -223,8 +223,12 @@ EDITS = {
         # its Dragon Mark goods, so the tab showed those a second time.) After the hairstyles, the other thing a player wears
         # for the look. The name falls back to Polish where the locale has no
         # line for it; english_gui.py carries the English one.
+        # Upstream's client 2.0.47 lists its wedding page (category 3,
+        # 201-299) after the hairstyles; the mounts come after that.
+        (b'\t2,\r\n\t7,\r\n\t5,\r\n',
+         b'\t2,\r\n\t3,\r\n\t7,\r\n\t5,\r\n', True),
         (b'\t2,\r\n\t5,\r\n',
-         b'\t2,\r\n\t7,\r\n\t5,\r\n'),
+         b'\t2,\r\n\t3,\r\n\t7,\r\n\t5,\r\n'),
         (b'\tITEMSHOP_CATEGORY_FEATURED_INDEX: {\r\n\t\t"name": localeInfo.ITEMSHOP_CATEGORY_FEATURED,\r\n',
          b'\t7: {\r\n'
          b'\t\t"name": getattr(localeInfo, "ITEMSHOP_CATEGORY_MOUNTS", "Wierzchowce"),\r\n'
@@ -236,13 +240,18 @@ EDITS = {
          b'\t},\r\n'
          b'\r\n'
          b'\tITEMSHOP_CATEGORY_FEATURED_INDEX: {\r\n\t\t"name": localeInfo.ITEMSHOP_CATEGORY_FEATURED,\r\n'),
-        # A thirteenth button in a menu the twelve nearly filled (the last one
-        # ended at 416 of the panel's 422): a pixel less between two buttons and
-        # half the gap before the bottom group, so the last one ends at 416 again.
+        # Fourteen buttons (the wedding page and the mounts) in a menu the
+        # twelve nearly filled (the last one ended at 416 of the panel's 422):
+        # half a pixel between two buttons and upstream's four before the
+        # bottom group, so the last one ends at 420.5.
+        (b'\t\tcategory_button_step_y = category_button_height + 1.5\r\n',
+         b'\t\tcategory_button_step_y = category_button_height + 0.5\r\n', True),
         (b'\t\tcategory_button_step_y = category_button_height + 2.5\r\n',
-         b'\t\tcategory_button_step_y = category_button_height + 1.5\r\n'),
+         b'\t\tcategory_button_step_y = category_button_height + 0.5\r\n'),
+        (b'\t\t\taddPos = category_button_height / 2\r\n',
+         b'\t\t\taddPos = 4\r\n', True),
         (b'\t\t\taddPos = category_button_height + 2\r\n',
-         b'\t\t\taddPos = category_button_height / 2\r\n'),
+         b'\t\t\taddPos = 4\r\n'),
     ],
     'itemshop_subscriptionwindow.py': [
         (b'\t\tutils.open_url("https://mt2009.pl/")\r\n',
@@ -825,6 +834,15 @@ EDITS = {
          b'\t\t\t\tint(ownerID), int(itemID), int(remainingCount), int(remainingYang), int(remainingCheque))\r\n'
          b'\r\n'
          b'\tdef __EnableTestServerFlag(self):\r\n'),
+        # Upstream's client 2.0.48, our 2.0.50: the character under the cursor is
+        # told to sidekickcollision.py, which makes the owner's own companion a
+        # player while the cursor stands on it, so a right click opens its menu.
+        (b'\t\t\tself.PickingCharacterIndex = chr.Pick()\r\n'
+         b'\r\n',
+         b'\t\t\tself.PickingCharacterIndex = chr.Pick()\r\n'
+         b'\t\t\timport sidekickcollision\r\n'
+         b'\t\t\tsidekickcollision.SetPicked(self.PickingCharacterIndex)\r\n'
+         b'\r\n'),
     ],
     # "Scal i uporzadkuj" (18 September; Codex's audit the same day):
     # the inventory's auto-stack button asks the server once
@@ -943,6 +961,79 @@ EDITS = {
          b'\t\t\tself.wndChestPreview = uichestpreview.ChestPreviewWindow(self)\r\n'
          b'\t\tself.wndChestPreview.Toggle()\r\n'
          b'\r\n'),
+        # Upstream's client 2.0.48, our 2.0.50: the red marks of what an open
+        # window refuses follow the item, not the cell - after an arrange, a
+        # pickup or a checkout a marked empty cell took nothing (Piciu713).
+        (b'\r\n'
+         b'\t\teventManager.EventManager().add_observer(uiShop.EVENT_ADD_MASS_SELL, self.OnMassSellItemAdd)\r\n',
+         b'\r\n'
+         b'\t\t# What the open windows refuse (SetItemSlotLimit) and the cells\r\n'
+         b'\t\t# marked for it, so that the marks follow the items.\r\n'
+         b'\t\tself.slotLimits = []\r\n'
+         b'\t\tself.limitedSlots = {}\r\n'
+         b'\r\n'
+         b'\t\teventManager.EventManager().add_observer(uiShop.EVENT_ADD_MASS_SELL, self.OnMassSellItemAdd)\r\n'),
+        (b'\t\t(localSlot, page) = GetLocalSlotAndInventoryPageFromGlobalSlot(sourceSlotPos)\r\n'
+         b'\r\n',
+         b'\t\t(localSlot, page) = GetLocalSlotAndInventoryPageFromGlobalSlot(sourceSlotPos)\r\n'
+         b'\r\n'
+         b'\tdef ClearSlotStates(self, *checkState):\r\n'
+         b'\t\t# Every window that sets a limit clears all the marks as it\r\n'
+         b'\t\t# closes, so the limits end there too.\r\n'
+         b'\t\tif not checkState or self.SLOT_STATE_UNUSABLE in checkState:\r\n'
+         b'\t\t\tself.slotLimits = []\r\n'
+         b'\t\t\tself.limitedSlots = {}\r\n'
+         b'\t\tGridSlotStateManager.ClearSlotStates(self, *checkState)\r\n'
+         b'\r\n'),
+        (b'\tdef SetItemSlotLimit(self, antiflag):\r\n'
+         b'\t\tfor slot in range(player.INVENTORY_PAGE_SIZE * player.INVENTORY_PAGE_COUNT):\r\n',
+         b'\tdef SetItemSlotLimit(self, antiflag):\r\n'
+         b'\t\tif antiflag not in self.slotLimits:\r\n'
+         b'\t\t\tself.slotLimits.append(antiflag)\r\n'
+         b'\t\tfor slot in range(player.INVENTORY_PAGE_SIZE * player.INVENTORY_PAGE_COUNT):\r\n'),
+        (b'\t\t\t\tself.SetSlotState(slot, self.SLOT_STATE_UNUSABLE)\r\n'
+         b'\r\n',
+         b'\t\t\t\tself.SetSlotState(slot, self.SLOT_STATE_UNUSABLE)\r\n'
+         b'\t\t\t\tself.limitedSlots[slot] = True\r\n'
+         b'\r\n'),
+        (b'\t\tself.GetSlotWindow(slotIndex).DeactivateSlot(slotIndex)\r\n'
+         b'\r\n'
+         b'\tdef RefreshAllSlots(self):\r\n'
+         b'\t\tfor i in range(player.INVENTORY_PAGE_SIZE):\r\n',
+         b'\t\tself.GetSlotWindow(slotIndex).DeactivateSlot(slotIndex)\r\n'
+         b'\r\n'
+         b'\tdef FollowSlotLimits(self, slot):\r\n'
+         b'\t\t# A cell is marked while it holds an item an open window refuses,\r\n'
+         b'\t\t# and a cell this marked is freed once it no longer does.\r\n'
+         b'\t\tif not self.slotLimits or slot >= len(self.slotStates):\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tlimited = False\r\n'
+         b'\t\tfor antiflag in self.slotLimits:\r\n'
+         b'\t\t\tif player.IsAntiFlagBySlot(slot, antiflag):\r\n'
+         b'\t\t\t\tlimited = True\r\n'
+         b'\t\t\t\tbreak\r\n'
+         b'\t\tstate = self.slotStates[slot]\r\n'
+         b'\t\tif limited:\r\n'
+         b'\t\t\tif state in (self.SLOT_STATE_NONE, self.SLOT_STATE_NEW_ITEM):\r\n'
+         b'\t\t\t\tself.slotStates[slot] = self.SLOT_STATE_UNUSABLE\r\n'
+         b'\t\t\t\tself.limitedSlots[slot] = True\r\n'
+         b'\t\telif slot in self.limitedSlots:\r\n'
+         b'\t\t\tdel self.limitedSlots[slot]\r\n'
+         b'\t\t\tif state == self.SLOT_STATE_UNUSABLE:\r\n'
+         b'\t\t\t\tself.slotStates[slot] = self.SLOT_STATE_NONE\r\n'
+         b'\r\n'
+         b'\tdef RefreshAllSlots(self):\r\n'
+         b'\t\tfor i in range(player.INVENTORY_PAGE_SIZE):\r\n'),
+        (b'\t\t\trealSlot = player.INVENTORY_PAGE_SIZE * self.tab + i\r\n'
+         b'\t\t\tself.RefreshSlotState(realSlot, i)\r\n',
+         b'\t\t\trealSlot = player.INVENTORY_PAGE_SIZE * self.tab + i\r\n'
+         b'\t\t\tself.FollowSlotLimits(realSlot)\r\n'
+         b'\t\t\tself.RefreshSlotState(realSlot, i)\r\n'),
+        (b'\t\t\trealSlot = player.INVENTORY_DEFAULT_MAX_NUM + i\r\n'
+         b'\t\t\tself.RefreshSlotState(realSlot, i)\r\n',
+         b'\t\t\trealSlot = player.INVENTORY_DEFAULT_MAX_NUM + i\r\n'
+         b'\t\t\tself.FollowSlotLimits(realSlot)\r\n'
+         b'\t\t\tself.RefreshSlotState(realSlot, i)\r\n'),
     ],
     # The safebox's side (blasty's proposal, 19 September; "Jasne"):
     # "Scal i uporzadkuj" in the title bar, Shift and a click to split one of its
@@ -1035,6 +1126,15 @@ EDITS = {
          b'\t\tslotPos = self.dlgPickItem.itemGlobalSlotIndex\r\n'
          b'\t\tmouseModule.mouseController.AttachObject(self, player.SLOT_TYPE_SAFEBOX, slotPos, safebox.GetItemID(slotPos), count)\r\n'
          b'\t\tsnd.PlaySound("sound/ui/pick.wav")\r\n'),
+        # Upstream's client 2.0.48: the safebox closed by the server tells the
+        # inventory, which clears its marks with it.
+        (b'\tdef CommandCloseSafebox(self):\r\n'
+         b'\t\tif self.tooltipItem:\r\n',
+         b'\tdef CommandCloseSafebox(self):\r\n'
+         b'\t\tif self.IsShow():\r\n'
+         b'\t\t\teventManager.EventManager().send_event(EVENT_CLOSE_SAFEBOX)\r\n'
+         b'\r\n'
+         b'\t\tif self.tooltipItem:\r\n'),
     ],
     # The safebox's "Scal i uporzadkuj": the bag's button and images, in the
     # title bar where the bag has its own.
@@ -1386,11 +1486,9 @@ EDITS = {
          b'\t\tself.fleaPriceDialog = None\r\n'
          b'\t\tself.fleaPriceRequestID = 0\r\n'
          b'\t\tself.closeShopDialog = None\r\n'),
+        # Upstream's client 2.0.47 wrote the "Auto cena" button into this
+        # pair's text: a published root carries the old form, migrated here.
         (b'\tdef __CloseAddInput(self):\r\n'
-         b'\t\tself.addItemDialog.Close()\r\n'
-         b'\t\treturn True\r\n'
-         b'\r\n',
-         b'\tdef __CloseAddInput(self):\r\n'
          b'\t\tself.fleaPriceDialog = None\r\n'
          b'\t\tself.addItemDialog.Close()\r\n'
          b'\t\treturn True\r\n'
@@ -1457,6 +1555,218 @@ EDITS = {
          b'\t\t\tsecondary = "Brak historii transakcji - pokazana cena bazowa."\r\n'
          b'\r\n'
          b'\t\tself.__SetFleaMarketPriceHint(self.addItemDialog, primary, secondary)\r\n'
+         b'\r\n',
+         b'\tdef __CloseAddInput(self):\r\n'
+         b'\t\tself.fleaPriceDialog = None\r\n'
+         b'\t\tself.addItemDialog.Close()\r\n'
+         b'\t\treturn True\r\n'
+         b'\r\n'
+         b'\tdef __SetFleaMarketPriceHint(self, dialog, primaryText, secondaryText):\r\n'
+         b'\t\tif not hasattr(dialog, "fleaMarketPriceHint"):\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint = ui.TextLine()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetParent(dialog.board)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetWindowHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetPackedFontColor(0xFFFFD56A)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.Show()\r\n'
+         b'\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory = ui.TextLine()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetParent(dialog.board)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetWindowHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetPackedFontColor(0xFFA8D8FF)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.Show()\r\n'
+         b'\r\n'
+         b'\t\tif app.ENABLE_CHEQUE_SYSTEM:\r\n'
+         b'\t\t\thintY = 112\r\n'
+         b'\t\t\tbuttonY = 145\r\n'
+         b'\t\telse:\r\n'
+         b'\t\t\thintY = 79\r\n'
+         b'\t\t\tbuttonY = 112\r\n'
+         b'\r\n'
+         b'\t\tif not hasattr(dialog, "fleaAutoPriceButton"):\r\n'
+         b'\t\t\tbutton = ui.Button()\r\n'
+         b'\t\t\tbutton.SetParent(dialog.board)\r\n'
+         b'\t\t\tbutton.SetUpVisual("d:/ymir work/ui/public/large_button_01.sub")\r\n'
+         b'\t\t\tbutton.SetOverVisual("d:/ymir work/ui/public/large_button_02.sub")\r\n'
+         b'\t\t\tbutton.SetDownVisual("d:/ymir work/ui/public/large_button_03.sub")\r\n'
+         b'\t\t\tbutton.SetWindowHorizontalAlignCenter()\r\n'
+         b'\t\t\tbutton.SetToolTipText("Wpisuje sugestie botow jako cene")\r\n'
+         b'\t\t\tbutton.SAFE_SetEvent(self.__OnToggleAutoPrice)\r\n'
+         b'\t\t\tbutton.Show()\r\n'
+         b'\t\t\tdialog.fleaAutoPriceButton = button\r\n'
+         b'\t\tdialog.fleaAutoPriceButton.SetPosition(0, hintY + 34)\r\n'
+         b'\t\tdialog.fleaAutoPriceButton.SetText(GetAutoPriceText(IsAutoPriceOn()))\r\n'
+         b'\t\tbuttonY += 27\r\n'
+         b'\r\n'
+         b'\t\tdialog.fleaMarketPriceHint.SetPosition(0, hintY)\r\n'
+         b'\t\tdialog.fleaMarketPriceHistory.SetPosition(0, hintY + 16)\r\n'
+         b'\t\tdialog.fleaMarketPriceHint.SetText(primaryText)\r\n'
+         b'\t\tdialog.fleaMarketPriceHistory.SetText(secondaryText)\r\n'
+         b'\t\tdialog.SetSize(280, buttonY + 32)\r\n'
+         b'\t\tdialog.board.SetSize(280, buttonY + 32)\r\n'
+         b'\t\tdialog.acceptButton.SetPosition(-36, buttonY)\r\n'
+         b'\t\tdialog.cancelButton.SetPosition(35, buttonY)\r\n'
+         b'\t\tdialog.SetCenterPosition()\r\n'
+         b'\r\n'
+         b'\tdef __RequestFleaMarketPrice(self, inventoryWindowType, inventorySlotIndex):\r\n'
+         b'\t\tself.fleaPriceRequestID += 1\r\n'
+         b'\t\tif self.fleaPriceRequestID > 2000000000:\r\n'
+         b'\t\t\tself.fleaPriceRequestID = 1\r\n'
+         b'\r\n'
+         b'\t\tself.fleaPriceDialog = self.addItemDialog\r\n'
+         b'\t\tself.addItemDialog.fleaOpenText = self.addItemDialog.GetText()\r\n'
+         b'\t\tnet.SendChatPacket("/flea_price %d %d %d" % (\r\n'
+         b'\t\t\tself.fleaPriceRequestID, inventoryWindowType, inventorySlotIndex))\r\n'
+         b'\r\n'
+         b'\tdef SetFleaMarketPriceQuote(self, requestID, suggestedPrice, observedPrice, sampleCount):\r\n'
+         b'\t\tif requestID != self.fleaPriceRequestID:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tif not self.fleaPriceDialog or self.fleaPriceDialog != self.addItemDialog:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tif not self.addItemDialog.IsShow():\r\n'
+         b'\t\t\treturn\r\n'
+         b'\r\n'
+         b'\t\tif suggestedPrice > 0:\r\n'
+         b'\t\t\tprimary = "Sugestia botow: " + localeInfo.NumberToMoneyString(suggestedPrice)\r\n'
+         b'\t\telse:\r\n'
+         b'\t\t\tprimary = "Boty nie maja jeszcze wyceny tego przedmiotu."\r\n'
+         b'\r\n'
+         b'\t\tif observedPrice > 0 and sampleCount > 0:\r\n'
+         b'\t\t\tsecondary = "Ostatnia cena botow: %s (probki: %d)" % (\r\n'
+         b'\t\t\t\tlocaleInfo.NumberToMoneyString(observedPrice), sampleCount)\r\n'
+         b'\t\telse:\r\n'
+         b'\t\t\tsecondary = "Brak historii transakcji - pokazana cena bazowa."\r\n'
+         b'\r\n'
+         b'\t\tself.__SetFleaMarketPriceHint(self.addItemDialog, primary, secondary)\r\n'
+         b'\t\tself.addItemDialog.fleaSuggestedPrice = suggestedPrice\r\n'
+         b'\t\tif IsAutoPriceOn():\r\n'
+         b'\t\t\tself.__FillSuggestedPrice(self.addItemDialog)\r\n'
+         b'\r\n'
+         b'\tdef __FillSuggestedPrice(self, dialog):\r\n'
+         b'\t\tsuggested = getattr(dialog, "fleaSuggestedPrice", 0)\r\n'
+         b'\t\tif suggested <= 0 or dialog.GetText() != getattr(dialog, "fleaOpenText", None):\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tdialog.SetValue(min(suggested, player.GOLD_MAX))\r\n'
+         b'\t\tdialog.fleaOpenText = dialog.GetText()\r\n'
+         b'\r\n'
+         b'\tdef __OnToggleAutoPrice(self):\r\n'
+         b'\t\ton = not IsAutoPriceOn()\r\n'
+         b'\t\tSetAutoPriceOn(on)\r\n'
+         b'\t\tdialog = self.addItemDialog\r\n'
+         b'\t\tif not dialog or not hasattr(dialog, "fleaAutoPriceButton"):\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tdialog.fleaAutoPriceButton.SetText(GetAutoPriceText(on))\r\n'
+         b'\t\tif on:\r\n'
+         b'\t\t\tself.__FillSuggestedPrice(dialog)\r\n'
+         b'\r\n', True),
+        (b'\tdef __CloseAddInput(self):\r\n'
+         b'\t\tself.addItemDialog.Close()\r\n'
+         b'\t\treturn True\r\n'
+         b'\r\n',
+         b'\tdef __CloseAddInput(self):\r\n'
+         b'\t\tself.fleaPriceDialog = None\r\n'
+         b'\t\tself.addItemDialog.Close()\r\n'
+         b'\t\treturn True\r\n'
+         b'\r\n'
+         b'\tdef __SetFleaMarketPriceHint(self, dialog, primaryText, secondaryText):\r\n'
+         b'\t\tif not hasattr(dialog, "fleaMarketPriceHint"):\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint = ui.TextLine()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetParent(dialog.board)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetWindowHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.SetPackedFontColor(0xFFFFD56A)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHint.Show()\r\n'
+         b'\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory = ui.TextLine()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetParent(dialog.board)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetWindowHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetHorizontalAlignCenter()\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.SetPackedFontColor(0xFFA8D8FF)\r\n'
+         b'\t\t\tdialog.fleaMarketPriceHistory.Show()\r\n'
+         b'\r\n'
+         b'\t\tif app.ENABLE_CHEQUE_SYSTEM:\r\n'
+         b'\t\t\thintY = 112\r\n'
+         b'\t\t\tbuttonY = 145\r\n'
+         b'\t\telse:\r\n'
+         b'\t\t\thintY = 79\r\n'
+         b'\t\t\tbuttonY = 112\r\n'
+         b'\r\n'
+         b'\t\tif not hasattr(dialog, "fleaAutoPriceButton"):\r\n'
+         b'\t\t\tbutton = ui.Button()\r\n'
+         b'\t\t\tbutton.SetParent(dialog.board)\r\n'
+         b'\t\t\tbutton.SetUpVisual("d:/ymir work/ui/public/large_button_01.sub")\r\n'
+         b'\t\t\tbutton.SetOverVisual("d:/ymir work/ui/public/large_button_02.sub")\r\n'
+         b'\t\t\tbutton.SetDownVisual("d:/ymir work/ui/public/large_button_03.sub")\r\n'
+         b'\t\t\tbutton.SetWindowHorizontalAlignCenter()\r\n'
+         b'\t\t\tbutton.SetToolTipText("Wpisuje sugestie botow jako cene")\r\n'
+         b'\t\t\tbutton.SAFE_SetEvent(self.__OnToggleAutoPrice)\r\n'
+         b'\t\t\tbutton.Show()\r\n'
+         b'\t\t\tdialog.fleaAutoPriceButton = button\r\n'
+         b'\t\tdialog.fleaAutoPriceButton.SetPosition(0, hintY + 34)\r\n'
+         b'\t\tdialog.fleaAutoPriceButton.SetText(GetAutoPriceText(IsAutoPriceOn()))\r\n'
+         b'\t\tbuttonY += 27\r\n'
+         b'\r\n'
+         b'\t\tdialog.fleaMarketPriceHint.SetPosition(0, hintY)\r\n'
+         b'\t\tdialog.fleaMarketPriceHistory.SetPosition(0, hintY + 16)\r\n'
+         b'\t\tdialog.fleaMarketPriceHint.SetText(primaryText)\r\n'
+         b'\t\tdialog.fleaMarketPriceHistory.SetText(secondaryText)\r\n'
+         b'\t\tdialog.SetSize(280, buttonY + 32)\r\n'
+         b'\t\tdialog.board.SetSize(280, buttonY + 32)\r\n'
+         b'\t\tdialog.acceptButton.SetPosition(-36, buttonY)\r\n'
+         b'\t\tdialog.cancelButton.SetPosition(35, buttonY)\r\n'
+         b'\t\tdialog.SetCenterPosition()\r\n'
+         b'\r\n'
+         b'\tdef __RequestFleaMarketPrice(self, inventoryWindowType, inventorySlotIndex):\r\n'
+         b'\t\tself.fleaPriceRequestID += 1\r\n'
+         b'\t\tif self.fleaPriceRequestID > 2000000000:\r\n'
+         b'\t\t\tself.fleaPriceRequestID = 1\r\n'
+         b'\r\n'
+         b'\t\tself.fleaPriceDialog = self.addItemDialog\r\n'
+         b'\t\tself.addItemDialog.fleaOpenText = self.addItemDialog.GetText()\r\n'
+         b'\t\tnet.SendChatPacket("/flea_price %d %d %d" % (\r\n'
+         b'\t\t\tself.fleaPriceRequestID, inventoryWindowType, inventorySlotIndex))\r\n'
+         b'\r\n'
+         b'\tdef SetFleaMarketPriceQuote(self, requestID, suggestedPrice, observedPrice, sampleCount):\r\n'
+         b'\t\tif requestID != self.fleaPriceRequestID:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tif not self.fleaPriceDialog or self.fleaPriceDialog != self.addItemDialog:\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tif not self.addItemDialog.IsShow():\r\n'
+         b'\t\t\treturn\r\n'
+         b'\r\n'
+         b'\t\tif suggestedPrice > 0:\r\n'
+         b'\t\t\tprimary = "Sugestia botow: " + localeInfo.NumberToMoneyString(suggestedPrice)\r\n'
+         b'\t\telse:\r\n'
+         b'\t\t\tprimary = "Boty nie maja jeszcze wyceny tego przedmiotu."\r\n'
+         b'\r\n'
+         b'\t\tif observedPrice > 0 and sampleCount > 0:\r\n'
+         b'\t\t\tsecondary = "Ostatnia cena botow: %s (probki: %d)" % (\r\n'
+         b'\t\t\t\tlocaleInfo.NumberToMoneyString(observedPrice), sampleCount)\r\n'
+         b'\t\telse:\r\n'
+         b'\t\t\tsecondary = "Brak historii transakcji - pokazana cena bazowa."\r\n'
+         b'\r\n'
+         b'\t\tself.__SetFleaMarketPriceHint(self.addItemDialog, primary, secondary)\r\n'
+         b'\t\tself.addItemDialog.fleaSuggestedPrice = suggestedPrice\r\n'
+         b'\t\tif IsAutoPriceOn():\r\n'
+         b'\t\t\tself.__FillSuggestedPrice(self.addItemDialog)\r\n'
+         b'\r\n'
+         b'\tdef __FillSuggestedPrice(self, dialog):\r\n'
+         b'\t\tsuggested = getattr(dialog, "fleaSuggestedPrice", 0)\r\n'
+         b'\t\tif suggested <= 0 or dialog.GetText() != getattr(dialog, "fleaOpenText", None):\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tdialog.SetValue(min(suggested, player.GOLD_MAX))\r\n'
+         b'\t\tdialog.fleaOpenText = dialog.GetText()\r\n'
+         b'\r\n'
+         b'\tdef __OnToggleAutoPrice(self):\r\n'
+         b'\t\ton = not IsAutoPriceOn()\r\n'
+         b'\t\tSetAutoPriceOn(on)\r\n'
+         b'\t\tdialog = self.addItemDialog\r\n'
+         b'\t\tif not dialog or not hasattr(dialog, "fleaAutoPriceButton"):\r\n'
+         b'\t\t\treturn\r\n'
+         b'\t\tdialog.fleaAutoPriceButton.SetText(GetAutoPriceText(on))\r\n'
+         b'\t\tif on:\r\n'
+         b'\t\t\tself.__FillSuggestedPrice(dialog)\r\n'
          b'\r\n'),
         (b'\t\t\tself.addItemDialog = dialog\r\n'
          b'\t\telse:\r\n',
@@ -1471,6 +1781,42 @@ EDITS = {
          b'\r\n'
          b'\t\tself.fleaPriceDialog = None\r\n'
          b'\t\tself.addItemDialog.Close()\r\n'
+         b'\r\n'),
+        # Upstream's client 2.0.47, our 2.0.50: "Auto cena" under the bots'
+        # suggestion, remembered in shop_auto_price.cfg.
+        (b'EVENT_CLOSE_MYSHOP_SHOP_MANAGE = "EVENT_CLOSE_MYSHOP_SHOP_MANAGE" # args |\r\n'
+         b'\r\n',
+         b'EVENT_CLOSE_MYSHOP_SHOP_MANAGE = "EVENT_CLOSE_MYSHOP_SHOP_MANAGE" # args |\r\n'
+         b'\r\n'
+         b'AUTO_PRICE_FILE = "shop_auto_price.cfg"\r\n'
+         b'AUTO_PRICE_KEY = "auto_price"\r\n'
+         b'\r\n'
+         b'def IsAutoPriceOn():\r\n'
+         b'\ttry:\r\n'
+         b'\t\tf = open(AUTO_PRICE_FILE, "r")\r\n'
+         b'\t\ttry:\r\n'
+         b'\t\t\tfor line in f.readlines():\r\n'
+         b'\t\t\t\tkey, sep, value = line.partition("=")\r\n'
+         b'\t\t\t\tif sep and key.strip() == AUTO_PRICE_KEY:\r\n'
+         b'\t\t\t\t\treturn value.strip() == "1"\r\n'
+         b'\t\tfinally:\r\n'
+         b'\t\t\tf.close()\r\n'
+         b'\texcept (IOError, OSError):\r\n'
+         b'\t\tpass\r\n'
+         b'\treturn False\r\n'
+         b'\r\n'
+         b'def SetAutoPriceOn(on):\r\n'
+         b'\ttry:\r\n'
+         b'\t\tf = open(AUTO_PRICE_FILE, "w")\r\n'
+         b'\t\ttry:\r\n'
+         b'\t\t\tf.write("%s=%d\\n" % (AUTO_PRICE_KEY, 1 if on else 0))\r\n'
+         b'\t\tfinally:\r\n'
+         b'\t\t\tf.close()\r\n'
+         b'\texcept (IOError, OSError):\r\n'
+         b'\t\tpass\r\n'
+         b'\r\n'
+         b'def GetAutoPriceText(on):\r\n'
+         b'\treturn "Auto cena: %s" % ("tak" if on else "nie")\r\n'
          b'\r\n'),
     ],
     'uisystem.py': [
@@ -1634,6 +1980,100 @@ EDITS = {
          b'\t\tself.staleExeDialog = dlg\r\n'
          b'\r\n'
          b'\tdef TryConnect(self):\r\n'),
+        # Upstream's client 2.0.47, our 2.0.50: fifteen saved accounts on five
+        # pages of three, arrows under the list, F1-F3 for the page shown.
+        (b'\r\n'
+         b'MAX_CREDENTIALS_SAVE = 3\r\n'
+         b'SAVED_CREDENTIALS = {}\r\n',
+         b'\r\n'
+         b'MAX_CREDENTIALS_SAVE = 15\r\n'
+         b'CREDENTIALS_PER_PAGE = 3\r\n'
+         b'SAVED_CREDENTIALS = {}\r\n'),
+        (b'\t\tself.SetSize(208, 30)\r\n'
+         b'\t\tself.SetPosition(0, 35 * index)\r\n'
+         b'\r\n',
+         b'\t\tself.SetSize(208, 30)\r\n'
+         b'\t\tself.SetPosition(0, 35 * (index % CREDENTIALS_PER_PAGE))\r\n'
+         b'\r\n'),
+        (b'\t\t\tself.tooltip.ClearToolTip()\r\n'
+         b'\t\t\tself.tooltip.AppendTextLine(localeInfo.SAVE_ACCOUNT_LOAD_SHORTCUT_TOOLTIP % (self.index+1))\r\n'
+         b'\t\t\tself.tooltip.ShowToolTip()\r\n',
+         b'\t\t\tself.tooltip.ClearToolTip()\r\n'
+         b'\t\t\tself.tooltip.AppendTextLine(localeInfo.SAVE_ACCOUNT_LOAD_SHORTCUT_TOOLTIP % (self.index % CREDENTIALS_PER_PAGE + 1))\r\n'
+         b'\t\t\tself.tooltip.ShowToolTip()\r\n'),
+        (b'\t\tself.save_credential_items = None\r\n'
+         b'\r\n',
+         b'\t\tself.save_credential_items = None\r\n'
+         b'\t\tself.credentialsPageButtons = None\r\n'
+         b'\t\tself.credentialsPageLabel = None\r\n'
+         b'\r\n'),
+        (b'\t\t\titem.SetToolTip(self.tooltip)\r\n'
+         b'\t\t\titem.Show()\r\n'
+         b'\t\t\tself.save_credential_items.append(item)\r\n',
+         b'\t\t\titem.SetToolTip(self.tooltip)\r\n'
+         b'\t\t\tself.save_credential_items.append(item)\r\n'),
+        (b'\t\t\tself.save_credential_items.append(item)\r\n'
+         b'\r\n',
+         b'\t\t\tself.save_credential_items.append(item)\r\n'
+         b'\t\tself.__CreateCredentialsPager()\r\n'
+         b'\r\n'),
+        (b'\t\treturn 1\r\n'
+         b'\r\n',
+         b'\t\treturn 1\r\n'
+         b'\r\n'
+         b'\tdef __CreateCredentialsPager(self):\r\n'
+         b'\t\ttop = 35 * CREDENTIALS_PER_PAGE\r\n'
+         b'\t\tself.credentialsWindow.SetSize(208, top + 24)\r\n'
+         b'\t\tbuttons = []\r\n'
+         b'\t\tfor text, step in (("<", -1), (">", 1)):\r\n'
+         b'\t\t\tbutton = ui.Button()\r\n'
+         b'\t\t\tbutton.SetParent(self.credentialsWindow)\r\n'
+         b'\t\t\tbutton.SetUpVisual("d:/ymir work/ui/public/small_button_01.sub")\r\n'
+         b'\t\t\tbutton.SetOverVisual("d:/ymir work/ui/public/small_button_02.sub")\r\n'
+         b'\t\t\tbutton.SetDownVisual("d:/ymir work/ui/public/small_button_03.sub")\r\n'
+         b'\t\t\tbutton.SetText(text)\r\n'
+         b'\t\t\tif step > 0:\r\n'
+         b'\t\t\t\tbutton.SetWindowHorizontalAlignRight()\r\n'
+         b'\t\t\t\tbutton.SetPosition(52, top + 2)\r\n'
+         b'\t\t\telse:\r\n'
+         b'\t\t\t\tbutton.SetPosition(8, top + 2)\r\n'
+         b'\t\t\tbutton.SAFE_SetEvent(self.__OnCredentialsPage, step)\r\n'
+         b'\t\t\tbutton.Show()\r\n'
+         b'\t\t\tbuttons.append(button)\r\n'
+         b'\t\tself.credentialsPageButtons = buttons\r\n'
+         b'\t\tlabel = ui.TextLine()\r\n'
+         b'\t\tlabel.SetParent(self.credentialsWindow)\r\n'
+         b'\t\tlabel.SetOutline(True)\r\n'
+         b'\t\tlabel.SetHorizontalAlignCenter()\r\n'
+         b'\t\tlabel.SetPosition(104, top + 5)\r\n'
+         b'\t\tlabel.Show()\r\n'
+         b'\t\tself.credentialsPageLabel = label\r\n'
+         b'\t\tself.__ShowCredentialsPage(0)\r\n'
+         b'\r\n'
+         b'\tdef __ShowCredentialsPage(self, page):\r\n'
+         b'\t\tpages = (MAX_CREDENTIALS_SAVE + CREDENTIALS_PER_PAGE - 1) / CREDENTIALS_PER_PAGE\r\n'
+         b'\t\tself.credentialsPage = page % pages\r\n'
+         b'\t\tfor item in self.save_credential_items:\r\n'
+         b'\t\t\tif item.index / CREDENTIALS_PER_PAGE == self.credentialsPage:\r\n'
+         b'\t\t\t\titem.Show()\r\n'
+         b'\t\t\telse:\r\n'
+         b'\t\t\t\titem.Hide()\r\n'
+         b'\t\tself.credentialsPageLabel.SetText("%d / %d" % (self.credentialsPage + 1, pages))\r\n'
+         b'\r\n'
+         b'\tdef __OnCredentialsPage(self, step):\r\n'
+         b'\t\tif self.save_credential_items:\r\n'
+         b'\t\t\tself.__ShowCredentialsPage(self.credentialsPage + step)\r\n'
+         b'\r\n'),
+        (b'\r\n'
+         b'\t\tfor idx in xrange(MAX_CREDENTIALS_SAVE):\r\n'
+         b'\t\t\tif app.DIK_F1+idx == key and self.save_credential_items[idx].IsSaved():\r\n'
+         b'\t\t\t\tself.__OnClickSelectServerButton()\r\n',
+         b'\r\n'
+         b'\t\tfirst = getattr(self, "credentialsPage", 0) * CREDENTIALS_PER_PAGE\r\n'
+         b'\t\tfor row in xrange(CREDENTIALS_PER_PAGE):\r\n'
+         b'\t\t\tidx = first + row\r\n'
+         b'\t\t\tif app.DIK_F1+row == key and idx < MAX_CREDENTIALS_SAVE and self.save_credential_items[idx].IsSaved():\r\n'
+         b'\t\t\t\tself.__OnClickSelectServerButton()\r\n'),
     ],
     # The game options get a "Tytuly botow" row under the floating text one:
     # a bot's personality title (playerbot_status_tail.py, 2.0.53) or the

@@ -612,13 +612,16 @@ namespace
 				sizeof(PLAYERBOT_POLYMORPH_BOSS_VNUMS[0]); ++i)
 			if (PLAYERBOT_POLYMORPH_BOSS_VNUMS[i] == victim->GetRaceNum())
 				reaper = true;
-		// And on the boss a raid was called to (playerbot_boss_raid.h), by a
-		// build whose blows the marble multiplies: a raid is what "na
-		// marmurkach bic bossy" means (prodnathin, 25 September), and a
-		// Shaman's or a black-magic Sura's damage is its skills, which the
-		// marble takes away.
-		const bool raidBoss = state.wBossRaidRace != 0 && victim->GetRaceNum() == state.wBossRaidRace &&
-				ch->GetJob() != JOB_SHAMAN && !(ch->GetJob() == JOB_SURA && ch->GetSkillGroup() == 2);
+		// And on the boss a raid was called to (playerbot_boss_raid.h): a raid
+		// is what "na marmurkach bic bossy" means (prodnathin, 25 September).
+		// Every build takes it. 2.2.33 kept it from the Shaman, the black-magic
+		// Sura and the Archer, whose part is their skills or their bow; what
+		// went wrong was their fight, which went on as a caster's and an
+		// archer's under the marble, and a transformed bot fights hand to
+		// hand now (IsPlayerBotFightingAsMonster) - "boty typu sura szaman
+		// lucznik rowniez powinny wchodzic na marmur" (prodnathin, 28
+		// September).
+		const bool raidBoss = state.wBossRaidRace != 0 && victim->GetRaceNum() == state.wBossRaidRace;
 		if (!reaper && !raidBoss)
 			return;
 		// Early in the fight, or the five minutes are spent on a boss that is
@@ -2092,6 +2095,11 @@ namespace
 				dwNow < state.dwNextSkillBookTime)
 			return;
 		state.dwNextSkillBookTime = dwNow + PLAYERBOT_SKILL_BOOK_CHECK_INTERVAL;
+		// The SKILL weight under neutral: a share of the bots leaves its books
+		// in the bag for the half hour (IsPlayerBotWeightGateOpen).
+		if (!IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_SKILL,
+				PLAYERBOT_WEIGHT_GATE_SALT_SKILL, dwNow))
+			return;
 		// Short of the experience a read wants, the engine keeps the book and
 		// the use still says yes: nothing to try until the bot has hunted.
 		if (!PlayerBotHasBookReadExp(ch))
@@ -5291,6 +5299,24 @@ WritePlayerBotGuildStatus(dwNow);
 		if (ManagePlayerBotGuildWar(ch, state, dwNow))
 			continue;
 
+		// A broken stone's loot window comes before a player's quarrel: the
+		// drop is the bot's for thirty seconds and then anybody's, and a
+		// player who fought the bot over the stone waited those seconds out
+		// while the bot fought back and then picked the bot's drop up ("bot
+		// probuje walczyc z graczem zamiast podniesc przedmiot nalezacy do
+		// niego", teivos, 27 September). Not under the linger's health: then
+		// the fight comes first, as it does against the stone's own pack.
+		bool bLootDecided = false;
+		const bool bStoneLootOpen = state.dwStoneBrokenTime != 0 &&
+				dwNow - state.dwStoneBrokenTime < PLAYERBOT_METIN_LOOT_DASH_TIME;
+		if (bStoneLootOpen && ch->GetMaxHP() > 0 &&
+				ch->GetHP() * 100 >= ch->GetMaxHP() * PLAYERBOT_METIN_LOOT_LINGER_MIN_HP_PERCENT)
+		{
+			bLootDecided = true;
+			if (HandleLoot(ch, state, dwNow))
+				continue;
+		}
+
 		// A player who struck the bot, or its party, or is breaking its stone
 		// for another kingdom (playerbot_anti_pk.h): ahead of every errand,
 		// the way a duel is - "natychmiast przerywa swoje dotychczasowe zajecie".
@@ -5311,9 +5337,8 @@ WritePlayerBotGuildStatus(dwNow);
 		// A broken stone's or a fallen boss's loot window, ahead of every errand
 		// below: the drop is its owner's for thirty seconds and then anybody's.
 		// It is this pass's one loot decision; the call further down is skipped.
-		bool bLootDecided = false;
-		if (state.dwStoneBrokenTime != 0 &&
-				dwNow - state.dwStoneBrokenTime < PLAYERBOT_METIN_LOOT_DASH_TIME)
+		// Asked above the quarrel already, unless the bot was too hurt then.
+		if (bStoneLootOpen && !bLootDecided)
 		{
 			bLootDecided = true;
 			if (HandleLoot(ch, state, dwNow))
@@ -6648,6 +6673,11 @@ void CPlayerBotManager::OnPlayerFieldWarEntry(LPCHARACTER ch, DWORD dwMyGuild, D
 void CPlayerBotManager::OnPlayerStruck(LPCHARACTER victim, LPCHARACTER attacker)
 {
 	NotePlayerBotStruck(victim, attacker, get_dword_time());
+}
+
+void CPlayerBotManager::OnBossKilled(LPCHARACTER boss, LPCHARACTER killer)
+{
+	NotePlayerBotBossKilled(boss, killer, get_dword_time());
 }
 
 // --- The F10 bot-admin window -----------------------------------------------

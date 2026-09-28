@@ -9044,9 +9044,11 @@ not in `data/`) reworked these point by point. What each hangs on:
   gives him up for half an hour. Not a party, on purpose: a party's cohort,
   straggler and level-gap rules would break a crowd from four maps before it
   met. A raider is Tower business to every pass that asks
-  `IsPlayerBotOnTowerBusiness`, to the mercenary and to the watchdog, and a
-  physical build uses a marble on its raid's boss (prodnathin: "na
-  marmurkach bic bossy"). The Spider Queen's raid takes only the bots
+  `IsPlayerBotOnTowerBusiness`, to the mercenary and to the watchdog, and
+  every build uses a marble on its raid's boss (prodnathin: "na marmurkach
+  bic bossy"); since upstream 2.2.35 (our 2.2.38) the casters and the Archer
+  too, and a transformed bot fights hand to hand with no skill, buff or bow's
+  reach (`IsPlayerBotFightingAsMonster`). The Spider Queen's raid takes only the bots
   already in the dungeon, because a warp into 104 is a desert crossing on
   foot. A member standing on his own map further than
   `PLAYERBOT_BOSS_RAID_WALK_MAX` from him is brought to its spot like one
@@ -9634,7 +9636,7 @@ upstream 2.1.0/client 2.0.26, the merge is 2.1.1/client 2.0.28, and the next
 sync (upstream 2.2.0-2.2.6, client 2.0.27-2.0.28, over our 2.1.5 / client
 2.0.30) is 2.2.7 / client 2.0.31, and the one after (upstream 2.2.7 /
 client 2.0.29, over our 2.2.7 / client 2.0.31) is 2.2.8 / client 2.0.32, and the one after (upstream 2.2.8, client
-unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38, and the one after (upstream 2.2.21 / client 2.0.38, over our 2.2.21 / client 2.0.38) is 2.2.22 / client 2.0.39, and the one after (upstream 2.2.22-2.2.23 / client 2.0.39-2.0.40, over our 2.2.22 / client 2.0.39) is 2.2.24 / client 2.0.41, and the one after (upstream 2.2.24-2.2.26 / client 2.0.41, over our 2.2.24 / client 2.0.41) is 2.2.27 / client 2.0.42, and the one after (upstream 2.2.27-2.2.29 / client 2.0.42-2.0.43, over our 2.2.27 / client 2.0.42) is 2.2.30 / client 2.0.44, and the one after (upstream 2.2.30-2.2.32 / client 2.0.44-2.0.46, over our 2.2.30 / client 2.0.44) is 2.2.33 / client 2.0.47. Upstream's added attributions to its own
+unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38, and the one after (upstream 2.2.21 / client 2.0.38, over our 2.2.21 / client 2.0.38) is 2.2.22 / client 2.0.39, and the one after (upstream 2.2.22-2.2.23 / client 2.0.39-2.0.40, over our 2.2.22 / client 2.0.39) is 2.2.24 / client 2.0.41, and the one after (upstream 2.2.24-2.2.26 / client 2.0.41, over our 2.2.24 / client 2.0.41) is 2.2.27 / client 2.0.42, and the one after (upstream 2.2.27-2.2.29 / client 2.0.42-2.0.43, over our 2.2.27 / client 2.0.42) is 2.2.30 / client 2.0.44, and the one after (upstream 2.2.30-2.2.32 / client 2.0.44-2.0.46, over our 2.2.30 / client 2.0.44) is 2.2.33 / client 2.0.47, and the one after (upstream 2.2.33-2.2.35 / client 2.0.47-2.0.49, over our 2.2.37 / client 2.0.47) is 2.2.38 / client 2.0.50. Upstream's added attributions to its own
 operator are scrubbed from comments and notes the way the first sync did; a
 player's or a contributor's name stays. An upstream `## x.y.z` CHANGELOG
 section whose number this repository already used moves under the new section,
@@ -9714,3 +9716,13 @@ combat skill only at a live target, and six tests were rewritten to assert
 that rather than deleted. PowerShell 7 for Linux (a release tarball from
 GitHub) runs most launcher tests here; the ones that call `powershell.exe`
 or lean on NTFS fail the same on every commit.
+
+When upstream ships a fix we already made as a playerbotify edit, the edit
+has to accept upstream's text too, because a release takes the engine files
+from upstream's package. Upstream 2.2.33 uncommented the Dom Towarowy's
+search-fill case in `input_main.cpp` under a comment of its own, the fix our
+2.2.34 made as `apply_flea_market_fill_dispatch`; that edit's marker is the
+uncommented case itself now, which both texts carry, so it says "already" on
+upstream's file and still edits the stock one. Run every name in
+`ENGINE_EDITS` twice over the new package's engine tree before a release:
+the first run may edit, the second must say "already" everywhere.

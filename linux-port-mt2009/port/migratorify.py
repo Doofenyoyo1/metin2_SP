@@ -649,6 +649,20 @@ BONUS_TABLE_AND_ELEMENTS = (
     '        echo "[playerbot-migrate] WARNING: could not put the bonus table back" >&2\n'
     '    fi\n'
     'fi\n'
+    "# Broszura Szermierki (70031), Seon-Pyeong's recipe material, stacks to the\n"
+    '# 200 its row already says: the package left ITEM_FLAG_STACKABLE off, so\n'
+    "# every brochure took a cell (NerrVoVy, 27 September), as Tanaka's ear did.\n"
+    '# PROTO_FROM_DB: the db core reads it at boot. Idempotent.\n'
+    'db -e "UPDATE world.item_proto SET flag = flag | 4 WHERE vnum = 70031 AND (flag & 4) = 0;" || echo "[playerbot-migrate] WARNING: could not make Broszura Szermierki stack" >&2\n'
+    "# The ItemShop's marriage page (indexes 201-299, which the client's\n"
+    '# ITEMSHOP_CATEGORY_MARRIAGE lists and client 2.0.47 shows) had no line at\n'
+    "# all: the engagement ring (the Old Lady's ring quest gives one too), the\n"
+    '# tuxedo, the wedding dress and the bouquet (the travelling peddler of a\n'
+    "# second village sells the three for yang too), and the Love Bird's Feather\n"
+    '# with the six harmony and love jewels that work on love points (xXxDaronxXx,\n'
+    "# 27 September). From level 25, the wedding's own level. A line the operator\n"
+    '# changed by hand is kept (INSERT IGNORE). Idempotent.\n'
+    'db -e "INSERT IGNORE INTO common.itemshop_items (\\`index\\`, vnum, count, price, currency, minLevel) VALUES (201, 70301, 1, 19, \'DRAGON_COIN\', 25), (202, 11901, 1, 49, \'DRAGON_COIN\', 25), (203, 11903, 1, 49, \'DRAGON_COIN\', 25), (204, 50201, 1, 9, \'DRAGON_COIN\', 25), (205, 71068, 1, 29, \'DRAGON_COIN\', 25), (206, 71069, 1, 39, \'DRAGON_COIN\', 25), (207, 71070, 1, 39, \'DRAGON_COIN\', 25), (208, 71071, 1, 39, \'DRAGON_COIN\', 25), (209, 71072, 1, 39, \'DRAGON_COIN\', 25), (210, 71073, 1, 39, \'DRAGON_COIN\', 25), (211, 71074, 1, 39, \'DRAGON_COIN\', 25);" || echo "[playerbot-migrate] WARNING: could not fill the ItemShop\'s marriage page" >&2\n'
 )
 
 

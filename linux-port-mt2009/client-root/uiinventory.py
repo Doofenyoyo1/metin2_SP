@@ -388,6 +388,11 @@ class InventorySlotManager(GridSlotStateManager):
 
 		self.isMyShopManageOpen = False
 
+		# What the open windows refuse (SetItemSlotLimit) and the cells
+		# marked for it, so that the marks follow the items.
+		self.slotLimits = []
+		self.limitedSlots = {}
+
 		eventManager.EventManager().add_observer(uiShop.EVENT_ADD_MASS_SELL, self.OnMassSellItemAdd)
 		eventManager.EventManager().add_observer(uiShop.EVENT_STOP_MASS_SELL, self.OnMassSellStop)
 
@@ -440,6 +445,14 @@ class InventorySlotManager(GridSlotStateManager):
 
 	def OnMassSellItemRemove(self, sourceSlotPos, sourceWindowType):
 		(localSlot, page) = GetLocalSlotAndInventoryPageFromGlobalSlot(sourceSlotPos)
+
+	def ClearSlotStates(self, *checkState):
+		# Every window that sets a limit clears all the marks as it
+		# closes, so the limits end there too.
+		if not checkState or self.SLOT_STATE_UNUSABLE in checkState:
+			self.slotLimits = []
+			self.limitedSlots = {}
+		GridSlotStateManager.ClearSlotStates(self, *checkState)
 
 	def OnRefineClose(self):
 		self.ClearSlotStates(self.SLOT_STATE_UNUSABLE)
@@ -506,10 +519,13 @@ class InventorySlotManager(GridSlotStateManager):
 		self.SetItemSlotLimit(item.ITEM_ANTIFLAG_GIVE)
 
 	def SetItemSlotLimit(self, antiflag):
+		if antiflag not in self.slotLimits:
+			self.slotLimits.append(antiflag)
 		for slot in range(player.INVENTORY_PAGE_SIZE * player.INVENTORY_PAGE_COUNT):
 			isAntiflag = player.IsAntiFlagBySlot(slot, antiflag)
 			if isAntiflag:
 				self.SetSlotState(slot, self.SLOT_STATE_UNUSABLE)
+				self.limitedSlots[slot] = True
 
 		self.RefreshAllSlots()
 
@@ -534,13 +550,35 @@ class InventorySlotManager(GridSlotStateManager):
 		self.GetSlotWindow(slotIndex).SetUsableSlot(slotIndex)
 		self.GetSlotWindow(slotIndex).DeactivateSlot(slotIndex)
 
+	def FollowSlotLimits(self, slot):
+		# A cell is marked while it holds an item an open window refuses,
+		# and a cell this marked is freed once it no longer does.
+		if not self.slotLimits or slot >= len(self.slotStates):
+			return
+		limited = False
+		for antiflag in self.slotLimits:
+			if player.IsAntiFlagBySlot(slot, antiflag):
+				limited = True
+				break
+		state = self.slotStates[slot]
+		if limited:
+			if state in (self.SLOT_STATE_NONE, self.SLOT_STATE_NEW_ITEM):
+				self.slotStates[slot] = self.SLOT_STATE_UNUSABLE
+				self.limitedSlots[slot] = True
+		elif slot in self.limitedSlots:
+			del self.limitedSlots[slot]
+			if state == self.SLOT_STATE_UNUSABLE:
+				self.slotStates[slot] = self.SLOT_STATE_NONE
+
 	def RefreshAllSlots(self):
 		for i in range(player.INVENTORY_PAGE_SIZE):
 			realSlot = player.INVENTORY_PAGE_SIZE * self.tab + i
+			self.FollowSlotLimits(realSlot)
 			self.RefreshSlotState(realSlot, i)
 
 		for i in range(player.INVENTORY_PAGE_SIZE):
 			realSlot = player.INVENTORY_DEFAULT_MAX_NUM + i
+			self.FollowSlotLimits(realSlot)
 			self.RefreshSlotState(realSlot, i)
 
 	def HighlightSlot(self, inventorySlot):

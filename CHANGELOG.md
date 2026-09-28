@@ -17,6 +17,147 @@ every version here.
 
 ---
 
+## 2.2.38 — 2026-09-28
+
+Serwer 2.2.38 i klient 2.0.50: zaktualizuj oba („AKTUALIZUJ wszystko”
+w launcherze). Na VPS: `sh linux-port/tools/update.sh`. Boty przechodzą
+6. piętro Wieży Demonów, każda klasa bierze marmur na Umarłego Rozpruwacza,
+a ogłoszenie podaje, kto zadał ostatni cios. Suwaki zachowania botów w
+panelach działają na to, co boty robią. Towarzysz dołącza do grupy
+prowadzonej przez znajomego, jego punkty umiejętności rozdajesz sam i możesz
+je wyzerować, a prawy klik na niego otwiera menu. W ItemShopie jest strona
+„Ślub”, w sklepie offline przycisk „Auto cena”, w oknie logowania 15
+zapisanych kont, a czerwone pola ekwipunku przy otwartym magazynie albo
+sklepie znów przyjmują przedmioty. Okno ItemShopu, sklep offline, lista kont,
+Towarzysz i ekwipunek działają dopiero z nowym klientem, reszta już po
+aktualizacji serwera. Zawiera wszystko z 2.2.37.
+
+Ta wersja przenosi na naszą 2.2.37 wersje 2.2.33, 2.2.34 i 2.2.35 projektu
+źródłowego (serwer) i jego klienty 2.0.47, 2.0.48 i 2.0.49, wzięte z jego
+paczek aktualizacji. Zostaje wszystko, co dodaliśmy wcześniej: trzej kowale
+gildii i powody odrzucenia budynku, okno zmiany bonusów pod klawiszem U,
+wierzchowce z pieczęci w ItemShopie (zakładka po stronie „Ślub”),
+hostowanie w COOP bez hasła, serwer na VPS i linki do naszego repozytorium.
+Poprawkę Domu Towarowego projekt źródłowy wydał osobno w 2.2.33; u nas
+działała od 2.2.34 i zostaje, jak była.
+
+### Wieża Demonów (prodnathin)
+
+- **6. piętro.** Boty stały przed potworem zaklinowanym w ścianie, do
+  którego nie ma przejścia, zamiast bić Elitarnego Króla Demonów, więc kowal
+  się nie pojawiał i rajd nie szedł dalej. Teraz omijają taki cel przez
+  minutę, a gdy na piętrze zostały już tylko takie, po 30 sekundach ściągają
+  je do siebie (do sześciu naraz) i dobijają.
+- **Marmur dla każdej klasy.** Szamani, Sury czarnej magii i Łucznicy biorą
+  teraz marmur na Umarłego Rozpruwacza i na bossa rajdu jak reszta, jeśli gra
+  im pozwala. Pod marmurem gra nie pozwala używać umiejętności, więc po
+  przemianie walczą wręcz jak zadający obrażenia: bez dystansu łuku albo
+  czarów, bez odskakiwania od Rozpruwacza i bez buffów.
+- **Ostatni cios.** Ogłoszenie o pokonaniu Umarłego Rozpruwacza kończy się
+  „Ostatni cios: <nick>”, gracza albo bota, bo na rajd bywa, że przyjdzie
+  ktoś spoza gildii.
+
+### Towarzysz (xXxDaronxXx, blasty, Piciu713, blipu)
+
+- **„Grupa”.** Nowy przycisk w oknie Towarzysza (i `/towarzysz grupa 1`
+  albo `0`): Towarzysz dołącza do Twojej grupy także wtedy, gdy prowadzi ją
+  ktoś inny, o ile zostanie w niej miejsce jeszcze dla jednej osoby.
+  Domyślnie włączone. Wyłączone: jak dotąd, tylko na zaproszenie lidera.
+- **Punkty umiejętności rozdaje właściciel.** Nowy Towarzysz nie rozdaje już
+  sam punktów przy pierwszym przywołaniu: czekają w jego oknie umiejętności,
+  a Towarzysz mówi o tym, gdy dołącza. Przełącznik „Punkty rozdaję sam: nie”
+  oddaje je jego SI. Towarzysze sprzed aktualizacji zostają przy swoim
+  ustawieniu.
+- **„Zeruj” w oknie umiejętności.** Przy każdej umiejętności z poziomem jest
+  przycisk „Zeruj” (najpierw pyta). Towarzysz używa tego, co ma w plecaku:
+  Ksiąg Zapomnienia tej umiejętności, jeśli wystarczy ich do zera (każda
+  cofa jeden poziom razem z punktem), a gdy jest ich za mało albo
+  umiejętność jest już mistrzowska, Zwoju Powrotu Umiejętności (cała
+  umiejętność od zera, a następna, która dojdzie do 17, zostanie mistrzem).
+  Niczego nie robi w połowie. Punkty wracają do okna i od tej chwili
+  rozdajesz je Ty.
+- **Prawy klik na Towarzysza.** Dla klienta właściciela Towarzysz jest
+  NPC-em, żeby dało się przez niego przechodzić, a menu (szept, handel,
+  zaproszenie do gildii) gra otwiera tylko dla gracza. Gdy kursor stoi na
+  Towarzyszu, klient traktuje go teraz jak gracza; po zjechaniu kursorem
+  znów da się przez niego przejść.
+
+### Suwaki zachowania botów (panel klasyczny i panel Sebana)
+
+- Zapasy, Kowal, Księgi, Biolog i Misje polowania zmieniały tylko napis nad
+  głową bota, a nie to, co bot robi. Teraz:
+  - Zapasy przesuwają moment powrotu po mikstury: przy 100 poniżej 300
+    czerwonych albo 200 niebieskich, przy 25 dopiero przy ćwiartce tego,
+    przy 250 już przy dwa i pół raza tylu (najwyżej 480/360).
+  - Kowal, Księgi, Biolog i Misje polowania przy 100 działają przy każdej
+    okazji, więc suwak kończy się na 100. Poniżej część botów pomija daną
+    sprawę po pół godziny: przy 25 mniej więcej trzy boty na cztery.
+  - Poziom podniesiony daje zwykłemu biciu pierwszeństwo, a grinderzy biją
+    wtedy po kilka potworów naraz; obniżony nic nie zmienia.
+- „Wszystko z powrotem na 100” w obu panelach ustawiało też wrogość między
+  królestwami na 100% (każdy bot wrogi), zwoje od +9, odpoczynek na 100%, a
+  w panelu klasycznym szkatułki na 100‰. Teraz przywraca tylko suwaki celów.
+- Panel klasyczny nie kasuje już przy zapisie ustawień, których nie zna, a
+  suwak szkatułek z potwora sięga 1000‰, jak w grze. Przełączniki, które na
+  danym silniku nic nie robią (Wieża, ItemShop i Katakumby na r40250, Misje
+  polowania i Szybkie księgi na 2.x), są ukryte i zachowują swoją wartość.
+- Opisy suwaków mówią, co naprawdę robią i jak szybko.
+
+### Nowe
+
+- **ItemShop: strona „Ślub”.** Pierścionek Zaręczynowy, Smoking, Suknia
+  Ślubna, Bukiet, Pióro Ptaka Miłości oraz kolczyki, bransolety i naszyjniki
+  Miłości i Harmonii, od 25 poziomu, za Smocze Monety. Ślub: obie postacie
+  mają co najmniej 25 poziom, są z jednego królestwa, różnią się najwyżej o 15
+  poziomów, mają po Pierścionku Zaręczynowym i założone Smoking albo Suknię
+  Ślubną. U Starszej Pani jedna z nich płaci 1 000 000 Yang i wpisuje imię
+  drugiej, która stoi obok i potwierdza. Potem rozmowa ze Starszą Panią
+  przenosi parę na mapę ślubu, gdzie przysięgę składa się u Hany Org. Ślubów.
+  Boty nie biorą ślubów. Zakładka „Wierzchowce” jest teraz pod „Ślubem”.
+  (xXxDaronxXx)
+- **Sklep offline: „Auto cena”.** Pod sugestią botów w oknie ceny jest
+  przycisk, który wpisuje tę sugestię jako cenę. Nie nadpisuje tego, co sam
+  wpiszesz. Domyślnie wyłączony, a Twój wybór zostaje zapamiętany. Działa,
+  gdy Dom Towarowy jest włączony. (vanderro, NerrVoVy, hubert)
+- **15 zapisanych kont.** W oknie logowania jest 5 stron po 3 konta ze
+  strzałkami pod listą. F1–F3 logują konto z widocznej strony, a konta
+  zapisane do tej pory są na pierwszej. (xXxDaronxXx)
+- **„Zatrzymaj i zapisz” nie wyłącza Dockera bez pytania.** Przycisk
+  zatrzymywał razem z serwerem cały Docker Desktop, a z nim inne projekty.
+  Teraz pyta: „Tak” to serwer i Docker Desktop, jak dotąd (Docker zwalnia
+  wtedy pamięć RAM), „Nie” to sam serwer, a Docker działa dalej, „Anuluj”
+  nic nie zatrzymuje. (Producent Hip Hopu)
+
+### Poprawki
+
+- **Puste pola w ekwipunku „zajęte” przy otwartym magazynie albo sklepie.**
+  Klient zaznaczał na czerwono pola z przedmiotami, których otwarte okno nie
+  przyjmie, ale pamiętał to po numerze pola, a nie po przedmiocie. Po „Scal i
+  uporządkuj”, podniesieniu czegoś z ziemi albo wyjęciu z magazynu
+  zaznaczenie zostawało na pustym polu. Teraz zaznaczenie idzie za
+  przedmiotem. (Piciu713)
+- **Jeden bot, jedna cena.** Bot wystawiał te same przedmioty w swoim
+  sklepie w różnych cenach. Teraz jeden sklepikarz podaje jedną cenę za tę
+  samą rzecz, a różne boty nadal różne, więc wahania rynku zostają.
+  (Producent Hip Hopu, Piciu713)
+- **Panel Sebana: „Potencjalny zarobek”** mnożył cenę paczki przez liczbę
+  sztuk jeszcze raz, choć cena w sklepie offline jest za całą paczkę. Teraz
+  to suma cen, a podpowiedź przy cenie mówi „za N szt.”. (Producent Hip Hopu)
+- **Najpierw łup z Metina, potem kłótnia.** Bot, któremu gracz przeszkadzał
+  przy kamieniu, podnosi swój drop, zanim odpowie na atak, o ile ma co
+  najmniej 40% HP. (teivos)
+- **Broszura Szermierki się stackuje** (do 200 w jednej kratce). Broszury,
+  które już masz w torbie, połączysz, przeciągając jedną na drugą, albo
+  przyciskiem „Scal i uporządkuj”. (NerrVoVy)
+- **Instalacja na VPS** kończyła się błędem bazy „$1: unbound variable”.
+  Jeśli pierwsza instalacja już się na tym wywróciła, na VPS wykonaj
+  `docker compose down -v` i zainstaluj serwer ponownie. (Urtopy)
+- Bot u kowala nie próbuje już co kilka sekund ulepszać przedmiotu z
+  plecaka, na który brakuje mu materiałów albo Yang.
+- Launcher: hasło do panelu nie trafia już do pliku logu (widać je tylko w
+  oknie launchera), a gdy antywirus zabierze plik launchera, launcher mówi,
+  gdzie go szukać i jak go przywrócić. (Hyper96)
+
 ## 2.2.37 — 2026-09-28
 
 Tylko serwer (klient zostaje 2.0.47): „AKTUALIZUJ serwer” w launcherze,

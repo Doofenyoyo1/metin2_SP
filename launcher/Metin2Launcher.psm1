@@ -1238,6 +1238,53 @@ function Protect-M2LogContent {
     return $safe
 }
 
+function Protect-M2SessionLogLine {
+    # The GUI's session log takes the actions' output a line at a time, and a
+    # player posts that file on the Discord as it is: only the support bundle's
+    # copy went through Protect-M2LogContent, and Hyper96's launcher-*.log of
+    # 28 September carried the panel password start-server.ps1 had just made.
+    # One line cannot show a heading with the password a line or two below it,
+    # so -State remembers the heading and the next line that is not empty is
+    # the password. A heading is a line that begins with "Haslo do panelu" and
+    # ends in ")" or ":", or the panel's own "ADMIN PANEL PASSWORD"; the line
+    # that carries a password itself ends in the password. Before either may
+    # stand the session log's timestamp and a container's "panel-1  | ", which
+    # is all an empty line of `docker compose logs` consists of.
+    param(
+        [AllowEmptyString()][string]$Text,
+        [hashtable]$State
+    )
+    if (-not $Text) { return $Text }
+    $body = [Regex]::Match($Text, '^((?:\d{4}-\d\d-\d\d \d\d:\d\d:\d\d  )?[ \t]*(?:[\w.-]+[ \t]+\|[ \t]?)?[ \t]*)(.*)$')
+    if ($State -and $State['redactNext']) {
+        if (-not $body.Groups[2].Value.Trim()) { return $Text }
+        $State['redactNext'] = $false
+        return $body.Groups[1].Value + '<redacted>'
+    }
+    if ($State -and ($body.Groups[2].Value -match '(?i)^has[lł]o do panelu.*[):][ \t]*$' -or
+            $body.Groups[2].Value -match 'ADMIN PANEL PASSWORD')) {
+        $State['redactNext'] = $true
+    }
+    return (Protect-M2LogContent -Text $Text)
+}
+
+function Protect-M2LogFile {
+    # An action's own output file (launcher-logs\action-*.out.log) gets posted
+    # too. The child writes it through a redirect, so it is masked in place once
+    # the child has exited, whole, so the headings are seen with what follows
+    # them. Rewritten only when something was masked.
+    param([string]$Path)
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
+    try {
+        $text = [IO.File]::ReadAllText($Path)
+        $safe = Protect-M2LogContent -Text $text
+        if ($safe -cne $text) {
+            [IO.File]::WriteAllText($Path, $safe, [Text.UTF8Encoding]::new($false))
+        }
+    }
+    catch { }
+}
+
 function Invoke-M2CapturedCommand {
     param(
         [Parameter(Mandatory = $true)][string]$OutputPath,
@@ -2375,5 +2422,7 @@ Export-ModuleMember -Function @(
     'Get-M2FolderProcesses',
     'Test-M2ClientExeOld',
     'Get-M2ClientExeComponent',
-    'Repair-M2ClientExecutables'
+    'Repair-M2ClientExecutables',
+    'Protect-M2SessionLogLine',
+    'Protect-M2LogFile'
 )
