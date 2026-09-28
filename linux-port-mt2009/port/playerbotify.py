@@ -6790,7 +6790,11 @@ def apply_build_refusals_spoken(game):
     # reaches past the land's edge, or overlaps one already standing - with a
     # chat line on a test server only, so a player's click on "Buduj" did
     # nothing at all and said nothing ("after i created guild, i can only place
-    # the bronmistrz, cant place anything other", 28 September). And a
+    # the bronmistrz, cant place anything other", 28 September). The engine's
+    # overlap test also counts every character that is not a monster standing
+    # inside the footprint - the builder, a horse, a companion, a passing bot,
+    # an NPC - and the build window puts a building on the builder until
+    # Zmien moves it, so the line names that first. And a
     # building's group may stand once on a land (object_proto: 1 the main
     # building, 2 the three smiths, 3 the smelters, 4 the altar, 6 the
     # warehouse); "can only be erected once" never said which group it meant.
@@ -6819,7 +6823,7 @@ def apply_build_refusals_spoken(game):
          '\t\t\t\t{\n'
          '\t\t\t\t\t// Said to everybody, not a test server only (apply_build_refusals_spoken).\n'
          '\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("You cannot erect a building at this place."));\n'
-         '\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Budynek musi stac w calosci na terenie gildii i nie moze nachodzic na inny budynek - przesun go albo obroc.");\n'
+         '\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Budynek musi stac w calosci na terenie gildii, nie moze nachodzic na inny budynek i nikt nie moze stac w jego miejscu (Ty, Twoj kon, towarzysz, bot, NPC). Odejdz na bok i ustaw go przyciskiem Zmien (Miejsce).");\n'
          '\t\t\t\t\treturn;\n'
          '\t\t\t\t}\n',
          marker='\t\t\t\t\t// Said to everybody, not a test server only (apply_build_refusals_spoken).\n')

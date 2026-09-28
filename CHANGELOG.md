@@ -31,7 +31,9 @@ na VPS `sh linux-port/tools/update.sh`.
 - **Serwer mówi, czemu budynku nie da się postawić.** Budynek, który
   wystawał poza teren gildii albo nachodził na inny, był odrzucany bez
   słowa - kliknięcie po prostu nic nie robiło. Teraz na czacie pojawia się
-  powód i podpowiedź: przesuń go albo obróć.
+  powód i podpowiedź. Najczęstszy powód: w miejscu budynku ktoś stoi - Ty
+  sam (okno budowy stawia budynek na Twojej postaci, dopóki nie przesuniesz
+  go przyciskiem „Zmień”), Twój koń, towarzysz, przechodzący bot albo NPC.
 
 ## 2.2.34 — 2026-09-28
 
