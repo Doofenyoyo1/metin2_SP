@@ -107,13 +107,13 @@ window = {
 							"name" : "InventoryAdditionalButtons",
 							"type" : "image",
 
-							"x" : 55,
-							"y" : 23,
+							"x" : 73,
+							"y" : 29,
 
 							"horizontal_align" : "right",
 							"vertical_align" : "bottom",
 
-							"image" : flamewindPath.GetInventory("inventory_buttons_slot"),
+							"image" : "playerbot_ui/inventory_buttons_slot.tga",
 							"children" : (
 								{
 									"name" : "HorseInventoryWindow",
@@ -123,33 +123,33 @@ window = {
 
 									"tooltip_text" : uiScriptLocale.HORSE_INVENTORY,
 
-									"default_image" : flamewindPath.GetInventory("horse_inv_btn1"),
-									"over_image" : flamewindPath.GetInventory("horse_inv_btn2"),
-									"down_image" : flamewindPath.GetInventory("horse_inv_btn3"),
+									"default_image" : "playerbot_ui/horse_inv_btn1.tga",
+									"over_image" : "playerbot_ui/horse_inv_btn2.tga",
+									"down_image" : "playerbot_ui/horse_inv_btn3.tga",
 								},
 								{
 									"name" : "DepositButton",
 									"type" : "button",
 
-									"x" : 17,"y" : 2,
+									"x" : 24,"y" : 2,
 
 									"tooltip_text" : uiScriptLocale.POCKET_DEPOSIT,
 
-									"default_image" : flamewindPath.GetInventory("deposit_btn1"),
-									"over_image" : flamewindPath.GetInventory("deposit_btn2"),
-									"down_image" : flamewindPath.GetInventory("deposit_btn3"),
+									"default_image" : "playerbot_ui/deposit_btn1.tga",
+									"over_image" : "playerbot_ui/deposit_btn2.tga",
+									"down_image" : "playerbot_ui/deposit_btn3.tga",
 								},
 								{
 									"name": "MyShopButton",
 									"type": "button",
 
-									"x": 32, "y": 2,
+									"x": 46, "y": 2,
 
 									"tooltip_text" : uiScriptLocale.SHOP_MANAGE,
 
-									"default_image": flamewindPath.GetInventory("myshop_btn1"),
-									"over_image": flamewindPath.GetInventory("myshop_btn2"),
-									"down_image": flamewindPath.GetInventory("myshop_btn3"),
+									"default_image": "playerbot_ui/myshop_btn1.tga",
+									"over_image": "playerbot_ui/myshop_btn2.tga",
+									"down_image": "playerbot_ui/myshop_btn3.tga",
 								},
 							),
 						},
@@ -158,17 +158,19 @@ window = {
 							"name" : "ChestPreviewButton",
 							"type" : "button",
 
-							"x" : 70,
-							"y" : 21,
+							"x" : 33,
+							"y" : 68,
 
 							"horizontal_align" : "right",
 							"vertical_align" : "bottom",
 
 							"tooltip_text" : "Podgl\xb9d skrzynki",
+							"tooltip_x" : -30,
+							"tooltip_y" : -19,
 
-							"default_image" : "playerbot_ui/chest_button.tga",
-							"over_image" : "playerbot_ui/chest_button.tga",
-							"down_image" : "playerbot_ui/chest_button.tga",
+							"default_image" : "playerbot_ui/chest_button_big.tga",
+							"over_image" : "playerbot_ui/chest_button_big.tga",
+							"down_image" : "playerbot_ui/chest_button_big.tga",
 						},
 
 						{

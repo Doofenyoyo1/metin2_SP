@@ -140,6 +140,16 @@ inline int HeapLineFromStack(int stack, int spare, unsigned seed)
 const unsigned PRICE_SLIP_ONE_IN = 1000;
 const long long PRICE_SLIP_FACTOR = 10;
 
+// What can slip: a line of one unit - "pojedynczej ksiegi lub ulepszacza", as
+// Community Patch 5, point 6 restates it - of a book a skill is read from or of
+// a refine material. A book went up slipped whatever the line held, and a
+// refine scroll with the materials; his own Patch 4 names "ulepszacze ...
+// oraz zwoje" apart, and the census of his 65 percent counts no scroll.
+inline bool IsSlipKind(int count, bool book, bool refineMaterial)
+{
+	return count == 1 && (book || refineMaterial);
+}
+
 inline bool PriceSlips(unsigned seed)
 {
 	return seed % PRICE_SLIP_ONE_IN == 0;
@@ -154,6 +164,54 @@ inline long long SlippedPrice(long long price, long long ceiling)
 	return price * PRICE_SLIP_FACTOR;
 }
 
+// Community Patch 5, point 6: no bot buys a slipped line - "bezwzgledny
+// zakaz". The draw is the line's item id, which every core reads the same and
+// no restart forgets, so a buyer anywhere knows which lines were drawn. One of
+// them is a slip still standing while it asks PRICE_SLIP_SEEN_MULTIPLE times
+// what the buyer would ask for the same thing. A book or a hand-priced
+// material draws its price between 80 and 125 percent at every asking, so on
+// one core a slip stands at 6.4 to 15.6 times the buyer's price and a line put
+// back at 0.64 to 1.56 times it. Twice leaves room for the market to have
+// moved in the hours between - a yang rate raised fourfold still leaves a
+// slip at 2.5 - and errs towards refusing: a line wrongly refused is one line
+// in a thousand a bot does without, a slip bought is the rule broken. And
+// whatever its draw, no bot pays PRICE_SLIP_NEVER_MULTIPLE times its own price
+// for such a line - the net under the mark, should a slip ever be made some
+// other way. A person may still buy one.
+const long long PRICE_SLIP_SEEN_MULTIPLE = 2;
+const long long PRICE_SLIP_NEVER_MULTIPLE = 5;
+
+inline bool IsStandingSlip(bool drawn, long long unitPrice, long long fairUnit)
+{
+	return drawn && fairUnit > 0 && unitPrice >= fairUnit * PRICE_SLIP_SEEN_MULTIPLE;
+}
+
+inline bool BuyerRefusesSlip(bool drawn, long long unitPrice, long long fairUnit)
+{
+	if (fairUnit <= 0)
+		return false;
+	return IsStandingSlip(drawn, unitPrice, fairUnit) || unitPrice >= fairUnit * PRICE_SLIP_NEVER_MULTIPLE;
+}
+
+// And a slip stands PRICE_SLIP_HOLD_MS at most - "maksymalnie przez 4
+// godziny" - and then asks the price it meant. Due `lead` before the hold is
+// out: the keeper is called that much early, the core corrects it itself at
+// the end. slippedAt 0 is a slip this core did not see made (a restart, a
+// keeper from the other channel): its age is not known, so it is due at once,
+// which can only shorten it. The clocks are the core's milliseconds, and the
+// age is their unsigned distance: a wrap between the two does not matter, and
+// a slip nothing looked at for weeks still reads as old, where a signed one
+// reads it as young again from 24.8 days.
+const unsigned PRICE_SLIP_HOLD_MS = 4u * 60u * 60u * 1000u;
+
+inline bool SlipDue(unsigned slippedAt, unsigned now, unsigned lead)
+{
+	if (slippedAt == 0)
+		return true;
+	const unsigned hold = lead < PRICE_SLIP_HOLD_MS ? PRICE_SLIP_HOLD_MS - lead : 0u;
+	return now - slippedAt >= hold;
+}
+
 // Point 13: the mission books on one village's counters, all four kinds
 // together, and where a bot's own go once that is full - its storekeeper or the
 // general merchant, a coin for each.
@@ -166,28 +224,27 @@ inline bool MissionBookGoesToSafebox(unsigned seed)
 
 // Point 2, as Iwakura answered it on 26 September: whether a bot buys a piece
 // off a counter for a slot it wears. +6 at least (minPlus); a grade over the
-// worn piece (plusOverWorn) when it scores over it, or when it carries a
-// valuable line the worn piece lacks; the worn grade when it scores over it and
-// its lines are worth marginPct more. The scores are the equipment score and
-// its count of the rolled lines (GetPlayerBotEquipmentScore,
+// worn piece (plusOverWorn) when it scores over it; the worn grade when it
+// scores over it and its lines are worth marginPct more. The scores are the
+// equipment score and its count of the rolled lines (GetPlayerBotEquipmentScore,
 // GetPlayerBotItemLineScore). It asked two grades and the score's margin on
 // top, which a level-34 armour - forty-seven defence and three a grade - met
-// only from +6 to +9.
+// only from +6 to +9. A grade over also used to be bought for a valuable line
+// the worn piece lacked, whatever it scored (R2 of Iwakura's audit): the
+// equipment pass puts on nothing that scores no better than the piece worn,
+// so such a piece stayed in the bag and went back onto a counter. What the
+// bot buys it has to be able to wear.
 inline bool BuysGearOverWorn(int offerPlus, int wornPlus, long long offerScore, long long wornScore,
-		long long offerLines, long long wornLines, bool offerValuable, bool wornValuable,
-		int minPlus, int plusOverWorn, long long marginPct)
+		long long offerLines, long long wornLines, int minPlus, int plusOverWorn, long long marginPct)
 {
 	if (offerPlus < minPlus)
 		return false;
+	if (offerScore <= wornScore)
+		return false;
 	if (offerPlus < wornPlus + plusOverWorn)
-	{
-		if (offerPlus != wornPlus || offerScore <= wornScore)
-			return false;
-		return offerLines > 0 && offerLines * 100 > wornLines * (100 + marginPct);
-	}
-	if (offerValuable && !wornValuable)
-		return true;
-	return offerScore > wornScore;
+		return offerPlus == wornPlus && offerLines > 0 &&
+				offerLines * 100 > wornLines * (100 + marginPct);
+	return true;
 }
 
 }

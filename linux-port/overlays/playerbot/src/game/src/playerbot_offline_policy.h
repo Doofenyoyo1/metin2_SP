@@ -51,6 +51,10 @@ struct ListedLine {
     uint32_t vnum = 0, skill = 0, when = 0;
     uint8_t refine = 0;
     uint32_t observedSince = 0;
+    // When this line's price slipped, if this core saw it slip (Community
+    // Patch 5, point 6: four hours at most); 0 for a price as meant, or a
+    // slip whose age nobody here knows.
+    uint32_t slippedAt = 0;
 };
 inline bool Due(uint32_t now, uint32_t at) {
     return at == 0 || int32_t(now - at) >= 0;
@@ -104,6 +108,9 @@ struct State {
     // wear with when, so a piece the bot will not put on is not taken back
     // and listed again every visit.
     uint32_t nextReclaimProbe = 0, lastReclaimItem = 0, lastReclaimAt = 0;
+    // When the counter is next looked over for a slipped price whose time is
+    // out, which calls the keeper whatever its round says.
+    uint32_t nextSlipProbe = 0;
     // The line cut out of its stack before the shop board opened, for the
     // add of the same visit (BotOfflinePrepareVisitLine): item id and cell.
     uint32_t preparedItem = 0, preparedCell = 0;

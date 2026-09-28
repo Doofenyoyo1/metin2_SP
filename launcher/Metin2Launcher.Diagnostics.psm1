@@ -103,12 +103,19 @@ function Get-M2LauncherErrorGuidance {
     )
 
     $value = [string]$Text
-    $port = '7788'
-    if ($value -match '(?i)(?:Bind for |listen (?:tcp )?)(?:\[?[^\]\s:]+\]?:)?(?<port>\d{2,5})') {
-        $port = $Matches.port
-    }
-    elseif ($value -match '(?i)(?<port>\d{2,5}).{0,80}(?:port is already allocated|address already in use)') {
-        $port = $Matches.port
+    # The port the failure names. Docker Desktop has said "listen tcp4
+    # 127.0.0.1:3306" and "exposing port TCP 127.0.0.1:3306" for a while, where
+    # this knew only "listen tcp", and a port it could not read was reported as
+    # the panel's 7788: MySQL held 3306 and the advice was to free 7788
+    # (Producent Hip Hopu, 27 September). No number is better than a wrong one.
+    $port = ''
+    foreach ($pattern in @(
+            '(?i)(?:bind for|listen(?: (?:tcp|udp)[46]?)?|exposing port (?:tcp|udp))\s+(?:\[[^\]]*\]|[^\s:\[\]]+)?:(?<port>\d{2,5})\b',
+            '(?i)(?<port>\d{2,5})\b.{0,80}(?:port is already allocated|address already in use|only one usage of each socket address|jednokrotne u.ycie)')) {
+        if ($value -match $pattern) {
+            $port = $Matches.port
+            break
+        }
     }
 
     # A file the build could not find, in a server folder OneDrive holds
@@ -143,26 +150,79 @@ function Get-M2LauncherErrorGuidance {
         }
     }
 
+    # The launcher's own refusal - the start's preflight, or the update's
+    # Assert-ServerPortsFree - names each port a program of Windows' own holds
+    # in a line of Get-M2ProgramPortAdvice's, and that line is the remedy. The
+    # unknown case below shows the output's last line, which there is only
+    # "the database is fine". Case-sensitive: the preflight's own check lines
+    # say "port" and are not advice.
+    $heldPorts = @([regex]::Matches($value, 'Port (\d{2,5}) \([^)\r\n]*\) zajmuje [^\r\n]+') | ForEach-Object { $_ })
+    if ($heldPorts.Count -gt 0) {
+        return [pscustomobject]@{
+            Code = 'PORT_IN_USE'
+            Title = "Port $($heldPorts[0].Groups[1].Value) jest już zajęty"
+            Message = 'Inny program trzyma port serwera, więc serwer nie może na nim wystartować. Baza, postacie i ustawienia są w porządku.'
+            Remedy = (@($heldPorts | ForEach-Object { $_.Value.Trim() } | Select-Object -Unique) -join [Environment]::NewLine)
+        }
+    }
+
+    # A port something holds. Asked before the reserved range below: Docker
+    # Desktop begins both failures with "ports are not available", and only the
+    # reason after it tells them apart - "Only one usage of each socket address"
+    # (WSAEADDRINUSE; in Polish "jednokrotne użycie") is a program on the port,
+    # "forbidden by its access permissions" is Windows' own reservation. A MySQL
+    # on 3306 was told the port was reserved, and which one it was not.
+    if ($value -match '(?i)port is already allocated|address already in use|only one usage of each socket address|jednokrotne u.ycie|WSAEADDRINUSE|\b10048\b|failed programming external connectivity|bind for .+ failed|port \d{2,5} (?:jest zajęty|zajmuje)') {
+        $holder = ''
+        $remedy = 'Kliknij GRAJ albo ZAINSTALUJ AKTUALIZACJE jeszcze raz - launcher sam znajdzie kontener innej instalacji trzymający ten port i zatrzyma go, nie ruszając bazy, wolumenów ani postępu (w wersji konsolowej robi to opcja 21, Zwolnij porty). Samo wyłączenie Docker Desktop nie pomaga: kontenery mają politykę restart=unless-stopped, więc wracają przy każdym starcie silnika i znów zajmują port. Nie usuwaj wolumenów Dockera.'
+        # A program of Windows' own on the port, not a container, is nothing
+        # the launcher can stop, and "click GRAJ again" fails the same way:
+        # name the program, and the line of .env that moves the port when the
+        # game client does not dial it by its own number.
+        if ($port -and $ServerRoot) {
+            $listener = $null
+            try { $listener = Get-M2ListeningProcess -Port ([int]$port) } catch { }
+            if ($listener -and $listener.Name -and $listener.Name -notmatch '(?i)^(com\.docker|docker|vpnkit|wslrelay)') {
+                $holder = " Trzyma go program $($listener.Name) (PID $($listener.Pid))."
+                $entry = $null
+                try {
+                    $entry = @(Get-M2StackHostPorts -ServerRoot $ServerRoot |
+                        Where-Object { [int]$_.Port -eq [int]$port }) | Select-Object -First 1
+                }
+                catch { }
+                if ($entry -and -not $entry.ClientFixed -and $entry.Key) {
+                    $remedy = ('Zamknij program {0} (jeśli to usługa, np. MySQL, zatrzymaj ją w Usługach Windows) albo zmień w pliku linux-port\docker\.env wiersz {1}={2} na inny wolny port, np. {3}, i kliknij GRAJ. Baza i postęp są w porządku.' -f
+                        $listener.Name, $entry.Key, $port, ([int]$port + 1))
+                }
+                else {
+                    $remedy = ('Zamknij program {0} (Menedżer zadań, karta Szczegóły, Zakończ zadanie; jeśli to usługa, zatrzymaj ją w Usługach Windows) i kliknij GRAJ jeszcze raz. Baza i postęp są w porządku.' -f
+                        $listener.Name)
+                }
+            }
+        }
+        $title = if ($port) { "Port $port jest już zajęty" } else { 'Port serwera jest już zajęty' }
+        $which = if ($port) { "portu $port" } else { 'jednego z portów serwera' }
+        return [pscustomobject]@{
+            Code = 'PORT_IN_USE'
+            Title = $title
+            Message = "Inny program albo druga instalacja serwera używa $which.$holder Launcher nie uruchomi drugiego serwera na tym samym porcie."
+            Remedy = $remedy
+        }
+    }
+
     # Not a busy port: Windows itself refused the bind. Hyper-V and WSL reserve
     # random port ranges after a restart ("excluded port ranges"), and when
     # 11000 or 13000 falls inside one, compose fails one second after the
     # images are built with a message about access permissions. Five updates
     # in a row went that way for one player before this branch existed.
-    if ($value -match '(?i)ports are not available|forbidden by its access permissions|zabroniony przez uprawnienia|WSAEACCES|\b10013\b') {
+    if ($value -match '(?i)ports are not available|forbidden by its access permissions|zabroniony przez (?:jego )?uprawnienia|WSAEACCES|\b10013\b') {
+        $title = if ($port) { "Windows zarezerwował port $port" } else { 'Windows zarezerwował port serwera' }
+        $subject = if ($port) { "Port $port" } else { 'Port serwera' }
         return [pscustomobject]@{
             Code = 'PORT_EXCLUDED'
-            Title = "Windows zarezerwował port $port"
-            Message = "Port $port nie jest zajęty przez program - jest w zakresie, który Windows (Hyper-V/WSL) zarezerwował dla siebie po ostatnim restarcie. Docker nie może na nim nasłuchiwać, więc serwer nie wstaje. Pliki serwera i baza są w porządku."
+            Title = $title
+            Message = "$subject nie jest zajęty przez program - jest w zakresie, który Windows (Hyper-V/WSL) zarezerwował dla siebie po ostatnim restarcie. Docker nie może na nim nasłuchiwać, więc serwer nie wstaje. Pliki serwera i baza są w porządku."
             Remedy = 'Uruchom PowerShell jako administrator i wykonaj: net stop winnat, potem kliknij GRAJ w launcherze, a gdy serwer wstanie, wykonaj: net start winnat. Zwykle pomaga też zwykły restart Windows. Sprawdzenie zakresów: netsh interface ipv4 show excludedportrange protocol=tcp'
-        }
-    }
-
-    if ($value -match '(?i)port is already allocated|address already in use|failed programming external connectivity|bind for .+ failed|port \d{2,5} (?:jest zajęty|zajmuje)') {
-        return [pscustomobject]@{
-            Code = 'PORT_IN_USE'
-            Title = "Port $port jest już zajęty"
-            Message = "Inny program albo druga instalacja serwera używa portu $port. Launcher nie uruchomi drugiego serwera na tym samym porcie."
-            Remedy = 'Kliknij GRAJ albo ZAINSTALUJ AKTUALIZACJE jeszcze raz - launcher sam znajdzie kontener innej instalacji trzymający ten port i zatrzyma go, nie ruszając bazy, wolumenów ani postępu (w wersji konsolowej robi to opcja 21, Zwolnij porty). Samo wyłączenie Docker Desktop nie pomaga: kontenery mają politykę restart=unless-stopped, więc wracają przy każdym starcie silnika i znów zajmują port. Nie usuwaj wolumenów Dockera.'
         }
     }
 
@@ -616,7 +676,9 @@ function Get-M2StackHostPorts {
         $value = [string]$values[$entry.Key]
         $number = [int]$entry.Default
         if ($value -match '^\d+$') { $number = [int]$value }
-        $ports += [pscustomobject]@{ Port = $number; Name = [string]$entry.Name; ClientFixed = [bool]$entry.ClientFixed }
+        # Key: the .env line that moves the port, which the advice names.
+        $ports += [pscustomobject]@{ Port = $number; Name = [string]$entry.Name; ClientFixed = [bool]$entry.ClientFixed;
+            Key = [string]$entry.Key }
     }
     # "13000-13002": each channel binds its own port and any one of them can be
     # the one that is taken.
@@ -628,7 +690,7 @@ function Get-M2StackHostPorts {
     if ($last -lt $first) { $last = $first }
     if (($last - $first) -gt 32) { $last = $first + 32 }
     for ($p = $first; $p -le $last; $p++) {
-        $ports += [pscustomobject]@{ Port = [int]$p; Name = 'kanal gry'; ClientFixed = $true }
+        $ports += [pscustomobject]@{ Port = [int]$p; Name = 'kanal gry'; ClientFixed = $true; Key = 'M2_GAME_PORT_RANGE' }
     }
     return $ports
 }
@@ -647,6 +709,68 @@ function Get-M2ForeignPortHolders {
     $ports = @(Get-M2StackHostPorts -ServerRoot $ServerRoot | ForEach-Object { [int]$_.Port })
     $holders = @(Get-M2DockerPortHolders -Ports $ports -CurrentProject $project)
     return @($holders | Where-Object { $_.Project -and -not $_.IsCurrentProject })
+}
+
+# What to do about a program of Windows' own on one of the server's ports: the
+# start's preflight says it, and so does the update's check below, in one
+# wording. A port the game client dials by its own number cannot move.
+function Get-M2ProgramPortAdvice {
+    param(
+        [Parameter(Mandatory = $true)][int]$Port,
+        [AllowEmptyString()][string]$Name = '',
+        [bool]$ClientFixed = $false,
+        [AllowEmptyString()][string]$Key = '',
+        [Parameter(Mandatory = $true)]$Listener
+    )
+
+    $who = if ($Listener.Name) { "proces $($Listener.Name), PID $($Listener.Pid)" } else { "PID $($Listener.Pid)" }
+    if ($ClientFixed -or -not $Key) {
+        return "Port $Port ($Name) zajmuje $who. Zamknij ten program (Menedżer zadań, karta Szczegóły, Zakończ zadanie) i spróbuj jeszcze raz. Nie zmieniaj tego portu w pliku .env: klient gry łączy się zawsze z portem 11000 i kanałami od 13000, więc po zmianie nie dałoby się zalogować."
+    }
+    return "Port $Port ($Name) zajmuje $who. Zamknij ten program (jeśli to usługa, np. MySQL, zatrzymaj ją w Usługach Windows) albo zmień w pliku linux-port\docker\.env wiersz $Key=$Port na inny wolny port, np. $($Port + 1)."
+}
+
+# The server's ports a program of Windows' own listens on. Not Docker: its
+# listeners stand for containers - this installation's, or another's, which
+# Stop-M2ForeignPortHolders stops before a build - and a container publishing
+# the port is Docker's however Windows names the listener. The update asks this
+# before it downloads anything, because its build takes minutes and compose
+# found such a port only at the very end (Producent Hip Hopu, 27 September: a
+# MySQL on 3306, and the update's advice named the panel's 7788).
+function Get-M2ProgramPortConflicts {
+    param([Parameter(Mandatory = $true)][string]$ServerRoot)
+
+    $busy = @()
+    foreach ($entry in @(Get-M2StackHostPorts -ServerRoot $ServerRoot)) {
+        $listener = Get-M2ListeningProcess -Port ([int]$entry.Port)
+        if ($null -eq $listener) { continue }
+        if ([string]$listener.Name -match '(?i)^(com\.docker|docker|vpnkit|wslrelay)') { continue }
+        $busy += [pscustomobject]@{
+            Port = [int]$entry.Port
+            Name = [string]$entry.Name
+            ClientFixed = [bool]$entry.ClientFixed
+            Key = [string]$entry.Key
+            Listener = $listener
+        }
+    }
+    if ($busy.Count -eq 0) { return @() }
+    $published = @()
+    foreach ($holder in @(Get-M2DockerPortHolders -Ports @($busy | ForEach-Object { [int]$_.Port }))) {
+        $published += @($holder.Ports | ForEach-Object { [int]$_ })
+    }
+    $conflicts = @()
+    foreach ($entry in $busy) {
+        if ($published -contains [int]$entry.Port) { continue }
+        $conflicts += [pscustomobject]@{
+            Port = $entry.Port
+            Name = $entry.Name
+            ClientFixed = $entry.ClientFixed
+            Key = $entry.Key
+            Listener = $entry.Listener
+            Advice = (Get-M2ProgramPortAdvice -Port $entry.Port -Name $entry.Name -ClientFixed $entry.ClientFixed -Key $entry.Key -Listener $entry.Listener)
+        }
+    }
+    return $conflicts
 }
 
 function Stop-M2ForeignPortHolders {
@@ -911,6 +1035,7 @@ function Get-M2DockerPreflight {
                     Port = [int]$entry.Port
                     Name = [string]$entry.Name
                     ClientFixed = [bool]$entry.ClientFixed
+                    Key = [string]$entry.Key
                     Listener = $listener
                 }
             }
@@ -944,12 +1069,8 @@ function Get-M2DockerPreflight {
             else {
                 $who = if ($entry.Listener.Name) { "proces $($entry.Listener.Name), PID $($entry.Listener.Pid)" } else { "PID $($entry.Listener.Pid)" }
                 [void]$checks.Add("BŁĄD: port $($entry.Port) ($($entry.Name)) zajmuje $who.")
-                if ($entry.ClientFixed) {
-                    [void]$blocking.Add("Port $($entry.Port) ($($entry.Name)) zajmuje $who. Zamknij ten program (Menedżer zadań, karta Szczegóły, Zakończ zadanie) i kliknij GRAJ jeszcze raz. Nie zmieniaj tego portu w pliku .env: klient gry łączy się zawsze z portem 11000 i kanałami od 13000, więc po zmianie nie dałoby się zalogować.")
-                }
-                else {
-                    [void]$blocking.Add("Port $($entry.Port) ($($entry.Name)) zajmuje $who. Zamknij ten program albo zmień port w pliku linux-port\docker\.env.")
-                }
+                [void]$blocking.Add((Get-M2ProgramPortAdvice -Port ([int]$entry.Port) -Name ([string]$entry.Name) `
+                    -ClientFixed ([bool]$entry.ClientFixed) -Key ([string]$entry.Key) -Listener $entry.Listener))
             }
         }
         if ($foreignHolders.Count -gt 0) {
@@ -1129,5 +1250,7 @@ Export-ModuleMember -Function @(
     'Get-M2PublishedPortMatches',
     'Get-M2DockerPortHolders',
     'Get-M2ForeignPortHolders',
-    'Stop-M2ForeignPortHolders'
+    'Stop-M2ForeignPortHolders',
+    'Get-M2ProgramPortAdvice',
+    'Get-M2ProgramPortConflicts'
 )

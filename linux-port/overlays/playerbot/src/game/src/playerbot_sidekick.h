@@ -7,8 +7,11 @@
 // player's own bag, accepts every trade the player offers, and refines and
 // shops when the player stands at the blacksmith or a merchant. It logs in and
 // out with the player. "Wolna reka" lets it play like any other bot while the
-// player is online; "Przywolaj" puts it back at the player's side. It never
-// takes a duel, and nobody's duel is its fight.
+// player is online; "Przywolaj" puts it back at the player's side. "Gra beze
+// mnie", off unless the player sets it in the window, keeps it in the world
+// when the player leaves the game, playing like any other bot and earning
+// experience up to thirty levels over the player's. It never takes a duel,
+// and nobody's duel is its fight.
 //
 // A companion is an ordinary registered bot identity - a seeded
 // playerbot_NNN account, with every guard LoadRegisteredBots keeps - picked
@@ -71,6 +74,12 @@ namespace
 	// two maps of one core is a logout and a login seconds apart, which is why
 	// it is not zero.
 	const DWORD PLAYERBOT_SIDEKICK_OWNER_GONE_MS = 20000;
+	// "Gra beze mnie" (Burdavsky, 27 September; off unless its owner sets it
+	// in the window): with its owner out of the game it stays and plays as a
+	// bot of its own, and stops earning experience this many levels over its
+	// owner - the engine's own party boundary (__party_can_join_by_level), so
+	// the two can always hunt in one party again.
+	const int PLAYERBOT_SIDEKICK_SOLO_LEVEL_LEAD = 30;
 	const DWORD PLAYERBOT_SIDEKICK_SPAWN_RETRY_MS = 10000;
 	// At the owner's side: it walks up past the first distance, is put beside
 	// the owner past the second (a horse outran it, or a wall is in the way),
@@ -256,8 +265,13 @@ namespace
 		bool bManualStats;	// the owner spends its stat points, the AI none
 		bool bStatResetUsed;	// the one reset of its stats for nothing is gone
 		bool bLure;	// wakes packs round the owner and brings them over
+		bool bSolo;	// "Gra beze mnie": plays on while the owner is out of the game
+		bool bChests;	// "Skrzynki": opens the chests and caskets in its bag
 		BYTE bGroup;
 		BYTE bLevel;
+		// The owner's level: live while the owner is in this world, the
+		// table's otherwise (the cap of "Gra beze mnie").
+		BYTE bOwnerLevel;
 		bool bSetupDone;
 		// This core's clocks.
 		DWORD dwOwnerSeenAt;
@@ -266,7 +280,8 @@ namespace
 			: dwOwnerPID(0), dwSidekickPID(0), bMode(PLAYERBOT_SIDEKICK_FOLLOW),
 			  bStance(PLAYERBOT_SIDEKICK_STANCE_ATTACK), bLoot(PLAYERBOT_SIDEKICK_LOOT_ALL), bProtect(true),
 			  bBuffs(true), bManualSkills(false), bManualStats(false), bStatResetUsed(false), bLure(false),
-			  bGroup(0), bLevel(1), bSetupDone(true), dwOwnerSeenAt(0), dwNextSpawnTry(0)
+			  bSolo(false), bChests(true), bGroup(0), bLevel(1), bOwnerLevel(0), bSetupDone(true), dwOwnerSeenAt(0),
+			  dwNextSpawnTry(0)
 		{
 		}
 	};
@@ -381,6 +396,9 @@ namespace
 		std::set<DWORD> setForgetToldItems;
 		// When it last told its owner its bag was near full.
 		DWORD dwBagFullToldAt;
+		// Playing on its own while its owner is out of the game ("Gra beze
+		// mnie"; StartPlayerBotSidekickAlone).
+		bool bAlone;
 		TPlayerBotSidekickRuntime()
 			: dwNextPartyCheck(0), dwNextService(0), dwNextLoot(0), dwNextCatchUp(0), dwLootVID(0),
 			  dwLootSince(0), dwNextProtect(0), bTrading(false), dwLastFoeVID(0), bHold(false), lHoldMap(0),
@@ -388,7 +406,7 @@ namespace
 			  dwGearSent(0), dwEqGen(0), llEqGoldSent(-1), dwEquipWaitUntil(0), dwOwnerFightSeenAt(0),
 			  dwNextFoeMemory(0), bLureStage(0), dwLureVID(0), iLurePacks(0), iLureMonsters(0), lLureAnchorX(0),
 			  lLureAnchorY(0), dwLureCourseSince(0), dwLureStageSince(0), dwNextLure(0), uLureCourses(0),
-			  dwNextForgetCheck(0), dwBagFullToldAt(0)
+			  dwNextForgetCheck(0), dwBagFullToldAt(0), bAlone(false)
 		{
 			memset(adwFoes, 0, sizeof(adwFoes));
 		}
@@ -441,7 +459,8 @@ namespace
 		// the test world already held; without the columns the companions still
 		// load, with the defaults, and keep what they are told while the core
 		// runs. The stat points, the stat reset and the lure came the day
-		// after that, in the same statement.
+		// after that, in the same statement, and "Gra beze mnie" (solo) and
+		// "Skrzynki" (chests) on 27 September.
 		std::unique_ptr<SQLMsg> settings(AccountDB::instance().DirectQuery(
 				"ALTER TABLE player.playerbot_sidekick "
 				"ADD COLUMN IF NOT EXISTS stance TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER mode, "
@@ -451,7 +470,9 @@ namespace
 				"ADD COLUMN IF NOT EXISTS manual_skills TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER buffs, "
 				"ADD COLUMN IF NOT EXISTS manual_stats TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER manual_skills, "
 				"ADD COLUMN IF NOT EXISTS stat_reset TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER manual_stats, "
-				"ADD COLUMN IF NOT EXISTS lure TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER stat_reset"));
+				"ADD COLUMN IF NOT EXISTS lure TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER stat_reset, "
+				"ADD COLUMN IF NOT EXISTS solo TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER lure, "
+				"ADD COLUMN IF NOT EXISTS chests TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER solo"));
 		s_bPlayerBotSidekickSettingsColumns = settings.get() && settings->uiSQLErrno == 0;
 		if (!s_bPlayerBotSidekickSettingsColumns)
 			sys_err("PLAYERBOT_SIDEKICK: no settings columns errno=%u", settings.get() ? settings->uiSQLErrno : 0U);
@@ -483,11 +504,16 @@ namespace
 	{
 		if (!EnsurePlayerBotSidekickTable())
 			return;
+		// The owner's level from its row, which is where an owner out of the
+		// game is (the cap of "Gra beze mnie"), and the chest switch after it.
 		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(s_bPlayerBotSidekickSettingsColumns
-				? "SELECT owner_pid, sidekick_pid, mode, skill_group, start_level, setup_done, stance, loot, "
-				  "protect, buffs, manual_skills, manual_stats, stat_reset, lure FROM player.playerbot_sidekick"
-				: "SELECT owner_pid, sidekick_pid, mode, skill_group, start_level, setup_done, 0, 2, 1, 1, 0, 0, 0, 0 "
-				  "FROM player.playerbot_sidekick"));
+				? "SELECT s.owner_pid, s.sidekick_pid, s.mode, s.skill_group, s.start_level, s.setup_done, s.stance, "
+				  "s.loot, s.protect, s.buffs, s.manual_skills, s.manual_stats, s.stat_reset, s.lure, s.solo, "
+				  "(SELECT p.level FROM player.player AS p WHERE p.id=s.owner_pid), s.chests "
+				  "FROM player.playerbot_sidekick AS s"
+				: "SELECT s.owner_pid, s.sidekick_pid, s.mode, s.skill_group, s.start_level, s.setup_done, "
+				  "0, 2, 1, 1, 0, 0, 0, 0, 0, (SELECT p.level FROM player.player AS p WHERE p.id=s.owner_pid), 1 "
+				  "FROM player.playerbot_sidekick AS s"));
 		if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
 			return;
 		TPlayerBotSidekickMap fresh;
@@ -497,7 +523,7 @@ namespace
 		{
 			TPlayerBotSidekick rec;
 			unsigned int mode = 0, group = 0, level = 1, done = 0, stance = 0, loot = 2, protect = 1, buffs = 1,
-					manual = 0, manualStats = 0, statReset = 0, lure = 0;
+					manual = 0, manualStats = 0, statReset = 0, lure = 0, solo = 0, ownerLevel = 0, chests = 1;
 			if (row[0]) str_to_number(rec.dwOwnerPID, row[0]);
 			if (row[1]) str_to_number(rec.dwSidekickPID, row[1]);
 			if (row[2]) str_to_number(mode, row[2]);
@@ -512,6 +538,9 @@ namespace
 			if (row[11]) str_to_number(manualStats, row[11]);
 			if (row[12]) str_to_number(statReset, row[12]);
 			if (row[13]) str_to_number(lure, row[13]);
+			if (row[14]) str_to_number(solo, row[14]);
+			if (row[15]) str_to_number(ownerLevel, row[15]);
+			if (row[16]) str_to_number(chests, row[16]);
 			if (rec.dwOwnerPID == 0 || rec.dwSidekickPID == 0)
 				continue;
 			rec.bMode = mode == PLAYERBOT_SIDEKICK_FREE ? PLAYERBOT_SIDEKICK_FREE : PLAYERBOT_SIDEKICK_FOLLOW;
@@ -523,8 +552,11 @@ namespace
 			rec.bManualStats = manualStats != 0;
 			rec.bStatResetUsed = statReset != 0;
 			rec.bLure = lure != 0;
+			rec.bSolo = solo != 0;
+			rec.bChests = chests != 0;
 			rec.bGroup = (BYTE)std::min<unsigned int>(group, 2);
 			rec.bLevel = (BYTE)std::max<unsigned int>(1, std::min<unsigned int>(level, 255));
+			rec.bOwnerLevel = (BYTE)std::min<unsigned int>(ownerLevel, 255);
 			rec.bSetupDone = done != 0;
 			TPlayerBotSidekickMap::const_iterator old = s_mapPlayerBotSidekicks.find(rec.dwOwnerPID);
 			if (old != s_mapPlayerBotSidekicks.end() && old->second.dwSidekickPID == rec.dwSidekickPID)
@@ -533,6 +565,10 @@ namespace
 				rec.dwNextSpawnTry = old->second.dwNextSpawnTry;
 				// The setup this core did is newer than the row it wrote.
 				rec.bSetupDone = rec.bSetupDone || old->second.bSetupDone;
+				// The level this core saw is newer than the row: the db core
+				// writes a character's row out of its cache minutes after the
+				// fact, and a level never goes down.
+				rec.bOwnerLevel = std::max(rec.bOwnerLevel, old->second.bOwnerLevel);
 				// With no columns to keep them in, the settings live as long as
 				// the core.
 				if (!s_bPlayerBotSidekickSettingsColumns)
@@ -545,6 +581,8 @@ namespace
 					rec.bManualStats = old->second.bManualStats;
 					rec.bStatResetUsed = old->second.bStatResetUsed;
 					rec.bLure = old->second.bLure;
+					rec.bSolo = old->second.bSolo;
+					rec.bChests = old->second.bChests;
 				}
 			}
 			fresh[rec.dwOwnerPID] = rec;
@@ -576,6 +614,18 @@ namespace
 		return rec == s_mapPlayerBotSidekicks.end() ? NULL : &rec->second;
 	}
 
+	// "Skrzynki: nie" in the window: the chest pass (ManagePlayerBotChests)
+	// leaves this companion's chests and caskets closed, for its owner to take
+	// out of its bag and open (xxkld., 27 September: the Moonlight chests it
+	// opened put stones in its bag its owner could not use).
+	bool IsPlayerBotSidekickKeepingChests(LPCHARACTER ch)
+	{
+		if (!ch || s_mapPlayerBotSidekickOwner.empty())
+			return false;
+		const TPlayerBotSidekick* rec = FindPlayerBotSidekickOf(ch->GetPlayerID());
+		return rec && !rec->bChests;
+	}
+
 	// The owner, when it is a person in this core's world (or a bot, under the
 	// self-test).
 	LPCHARACTER GetPlayerBotSidekickOwnerChar(DWORD ownerPid)
@@ -586,6 +636,41 @@ namespace
 		if (owner->GetDesc()->IsBot() && !s_bPlayerBotSidekickSelfTest)
 			return NULL;
 		return owner;
+	}
+
+	// Its owner out of the game altogether: in no core's world - P2P_MANAGER
+	// knows every character the other cores hold - and gone from this one for
+	// longer than a warp between two of its maps takes.
+	bool IsPlayerBotSidekickOwnerOut(const TPlayerBotSidekick& rec, DWORD dwNow)
+	{
+		if (GetPlayerBotSidekickOwnerChar(rec.dwOwnerPID))
+			return false;
+		// A record made in this very pass carries a clock later than dwNow.
+		if (rec.dwOwnerSeenAt != 0 &&
+				(dwNow < rec.dwOwnerSeenAt || dwNow - rec.dwOwnerSeenAt < PLAYERBOT_SIDEKICK_OWNER_GONE_MS))
+			return false;
+		return P2P_MANAGER::instance().FindByPID(rec.dwOwnerPID) == NULL;
+	}
+
+	// "Gra beze mnie" in force: its owner out of the game, it plays on as a
+	// bot of its own (ManagePlayerBotSidekick hands it to the population's
+	// passes, ManagePlayerBotSidekicks keeps it in the world).
+	bool IsPlayerBotSidekickPlayingAlone(const TPlayerBotSidekick& rec, DWORD dwNow)
+	{
+		return rec.bSolo && IsPlayerBotSidekickOwnerOut(rec, dwNow);
+	}
+
+	// The level it stops earning experience at while it plays alone
+	// (ManagePlayerBotExpLock), or 0 when it does not: its owner's plus the
+	// party boundary. An owner whose level is not known holds it where it is.
+	BYTE GetPlayerBotSidekickSoloLockLevel(LPCHARACTER ch, DWORD dwNow)
+	{
+		const TPlayerBotSidekick* rec = ch ? FindPlayerBotSidekickOf(ch->GetPlayerID()) : NULL;
+		if (!rec || !IsPlayerBotSidekickPlayingAlone(*rec, dwNow))
+			return 0;
+		if (rec->bOwnerLevel == 0)
+			return 1;
+		return (BYTE)std::min<int>(255, (int)rec->bOwnerLevel + PLAYERBOT_SIDEKICK_SOLO_LEVEL_LEAD);
 	}
 
 	const TPlayerBotSidekickRuntime* FindPlayerBotSidekickRuntime(DWORD sidekickPid)
@@ -2206,6 +2291,7 @@ namespace
 			if (owner && owner->GetSectree())
 			{
 				rec.dwOwnerSeenAt = dwNow;
+				rec.bOwnerLevel = (BYTE)MINMAX(1, owner->GetLevel(), 255);
 				// Its owner came back in another kingdom (an Olejek Wygnania is
 				// pc.change_empire, which rewrites the owner's account and takes
 				// a relog) while the companion still stood in the world: it logs
@@ -2248,6 +2334,24 @@ namespace
 			else if (here && (rec.dwOwnerSeenAt == 0 ||
 					(dwNow >= rec.dwOwnerSeenAt && dwNow - rec.dwOwnerSeenAt >= PLAYERBOT_SIDEKICK_OWNER_GONE_MS)))
 			{
+				// "Gra beze mnie": an owner out of the game leaves it playing. An
+				// owner on another core still takes it along - this core lets it
+				// go and that one spawns it at the owner's side.
+				if (IsPlayerBotSidekickPlayingAlone(rec, dwNow))
+				{
+#if defined(PLAYERBOT_ENGINE_MT2009)
+					continue;
+#else
+					// r40250 has no AFFECT_EXP_BLOCK to hold it at the lead
+					// (ManagePlayerBotExpLock), so there it leaves at the lead.
+					LPCHARACTER alone = CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID);
+					if (!alone || alone->GetLevel() < (int)GetPlayerBotSidekickSoloLockLevel(alone, dwNow))
+						continue;
+					sys_log(0, "PLAYERBOT_SIDEKICK: playing alone reached its owner's level + %d pid=%u name=%s level=%d "
+							"owner=%u owner_level=%u", PLAYERBOT_SIDEKICK_SOLO_LEVEL_LEAD, rec.dwSidekickPID,
+							alone->GetName(), alone->GetLevel(), rec.dwOwnerPID, (unsigned int)rec.bOwnerLevel);
+#endif
+				}
 				LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID);
 				if (sk)
 				{
@@ -2463,6 +2567,35 @@ namespace
 		if (rec.bStance == PLAYERBOT_SIDEKICK_STANCE_PASSIVE)
 			return "Lurowanie wlaczone, ale teraz nie walcze - zmien walke na \"Atakuj\" albo \"Nie 1. atak\", a zaczne.";
 		return "Dobra, luruje: kiedy stoisz na spocie, sciagam do 3 grup potworow z okolicy i przyprowadzam je do ciebie.";
+	}
+
+	// "Gra beze mnie", kept in the record at once (see the stance). Answers
+	// with the companion's words for it.
+	const char* SetPlayerBotSidekickSolo(TPlayerBotSidekick& rec, bool solo)
+	{
+		if (rec.bSolo != solo)
+		{
+			rec.bSolo = solo;
+			SetPlayerBotSidekickSetting(rec, "solo", solo ? 1U : 0U);
+		}
+		if (!solo)
+			return "Dobra, kiedy wyjdziesz z gry, wyjde razem z toba.";
+		return "Dobra, kiedy wyjdziesz z gry, gram dalej sam - najwyzej 30 poziomow ponad twoj, zebysmy dalej mogli "
+				"expic razem w druzynie.";
+	}
+
+	// "Skrzynki", kept in the record at once (see the stance). Answers with the
+	// companion's words for it.
+	const char* SetPlayerBotSidekickChests(TPlayerBotSidekick& rec, bool open)
+	{
+		if (rec.bChests != open)
+		{
+			rec.bChests = open;
+			SetPlayerBotSidekickSetting(rec, "chests", open ? 1U : 0U);
+		}
+		if (open)
+			return "Dobra, sam otwieram skrzynie i szkatulki z torby.";
+		return "Dobra, nie otwieram skrzyn ani szkatulek - zostaja w mojej torbie, mozesz je wziac w oknie Towarzysza.";
 	}
 
 	// The companion in this core's world with its state, or NULL with the owner
@@ -2753,8 +2886,10 @@ namespace
 			mode = 3;
 		else if (rt && rt->bHold && mode == 0)
 			mode = 2;
+		// "Gra beze mnie" and "Skrzynki" last: a window older than they are reads
+		// the words it knows and leaves the rest (uisidekick.ParseInfo).
 		SendPlayerBotSidekickCommand(owner,
-				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d %d %d",
+				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d %d %d %d %d",
 				PLAYERBOT_SIDEKICK_WINDOW_PROTOCOL,
 				inWorld ? (int)sk->GetRaceNum() : -1, inWorld ? (int)sk->GetSkillGroup() : 0,
 				inWorld ? sk->GetLevel() : 0, expPercent,
@@ -2762,7 +2897,8 @@ namespace
 				inWorld ? (int)sk->GetSP() : 0, inWorld ? (int)sk->GetMaxSP() : 0,
 				where, dist, mode, (unsigned int)rec.bStance, (unsigned int)rec.bLoot, rec.bProtect ? 1 : 0,
 				rec.bBuffs ? 1 : 0, inWorld ? (long long)sk->GetGold() : 0LL, (unsigned int)red, (unsigned int)blue,
-				inWorld && sk->IsDead() ? 1 : 0, rec.bLure ? 1 : 0, rt ? (int)rt->bLureStage : 0);
+				inWorld && sk->IsDead() ? 1 : 0, rec.bLure ? 1 : 0, rt ? (int)rt->bLureStage : 0, rec.bSolo ? 1 : 0,
+				rec.bChests ? 1 : 0);
 		char doing[96] = "";
 		char place[64] = "";
 		if (inWorld)
@@ -2823,8 +2959,9 @@ namespace
 	//   (IsPlayerBotSidekickUnwanted), or the next equipment pass would undo
 	//   the owner's hand;
 	// - what crosses between the two bags crosses the way a trade moves it
-	//   (CExchange::Done), with a trade's refusals: nothing ITEM_ANTIFLAG_GIVE,
-	//   nothing locked or in a trade, and a window that is busy says so.
+	//   (CExchange::Done), with a trade's refusals but ITEM_ANTIFLAG_GIVE
+	//   (GetPlayerBotSidekickHandOverRefusal): nothing locked or in a trade,
+	//   and a window that is busy says so.
 	// The positions are the protocol's: a bag cell, or 1000 + WEAR_* for a worn
 	// piece; -1 is "wherever it fits".
 
@@ -3305,11 +3442,15 @@ namespace
 	}
 
 	// Why a piece may not cross between the two bags, in the owner's words;
-	// empty when it may. A trade's own refusals.
+	// empty when it may. Not ITEM_ANTIFLAG_GIVE: that flag keeps a piece from
+	// changing hands between two players, and the companion's bag is its
+	// owner's. The Moonlight chest's add and change stones (71084, 71085) carry
+	// it, and a companion that opened the chests kept them where its owner
+	// could not reach them (xxkld., 27 September; the operator: no block
+	// between a player and the companion). A trade still refuses them - the
+	// window is the way.
 	std::string GetPlayerBotSidekickHandOverRefusal(LPITEM item)
 	{
-		if (IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_GIVE))
-			return "Tego nie da sie przekazac (tak jak w handlu).";
 		if (item->isLocked() || item->IsExchanging())
 			return "Ten przedmiot jest teraz zajety.";
 		if (item->IsDragonSoul())
@@ -4173,6 +4314,20 @@ namespace
 				SayPlayerBotSidekick(ch, SetPlayerBotSidekickLure(rec->second, !strcmp(a1, "1")));
 			else
 				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz luruj 1 (lurowanie wlaczone) albo /towarzysz luruj 0");
+		}
+		else if (!strcmp(sub, "sam"))
+		{
+			if (!strcmp(a1, "0") || !strcmp(a1, "1"))
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickSolo(rec->second, !strcmp(a1, "1")));
+			else
+				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz sam 1 (gram dalej, kiedy wyjdziesz z gry) albo /towarzysz sam 0");
+		}
+		else if (!strcmp(sub, "skrzynki"))
+		{
+			if (!strcmp(a1, "0") || !strcmp(a1, "1"))
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickChests(rec->second, !strcmp(a1, "1")));
+			else
+				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz skrzynki 1 (sam otwieram skrzynie) albo /towarzysz skrzynki 0");
 		}
 		else if (!strcmp(sub, "zbieraj") || !strcmp(sub, "ochrona") || !strcmp(sub, "buffy"))
 		{
@@ -5434,6 +5589,39 @@ namespace
 	// Above it in the tick run the duel (it never takes one), the guild war,
 	// the Anti-PK protocol, and the upkeep - stats, skills, books, the gear
 	// pass, chests - exactly as for any bot.
+	// Its owner out of the game with "Gra beze mnie" set: what it held at the
+	// owner's side is let go - a spot, an errand, a lure course, and the
+	// owner's party, which the population's passes would read as a person's
+	// and hold it to - and those passes take it from here, as they take a
+	// companion let off the leash.
+	void StartPlayerBotSidekickAlone(LPCHARACTER ch, const TPlayerBotSidekick& rec, TPlayerBotSidekickRuntime& rt)
+	{
+		rt.bAlone = true;
+		rt.bHold = false;
+		rt.bErrand = false;
+		rt.bLureStage = 0;
+		rt.dwLureVID = 0;
+		if (ch->GetParty())
+			LeavePlayerBotParty(ch);
+		sys_log(0, "PLAYERBOT_SIDEKICK: owner out of the game, plays alone pid=%u name=%s level=%d owner=%u "
+				"owner_level=%u", ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), rec.dwOwnerPID,
+				(unsigned int)rec.bOwnerLevel);
+	}
+
+	// Its owner back: what it began on its own ends, as a summons ends it
+	// (SummonPlayerBotSidekick), and the follow below puts it at the owner's
+	// side and back in the party.
+	void EndPlayerBotSidekickAlone(LPCHARACTER ch, TPlayerBotAIState& state, const TPlayerBotSidekick& rec,
+			TPlayerBotSidekickRuntime& rt)
+	{
+		rt.bAlone = false;
+		state.bTownVisitPhase = BOT_TOWN_PHASE_NONE;
+		state.bMarketTrip = false;
+		state.bFishingSession = false;
+		sys_log(0, "PLAYERBOT_SIDEKICK: owner back, stops playing alone pid=%u name=%s level=%d owner=%u",
+				ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), rec.dwOwnerPID);
+	}
+
 	bool ManagePlayerBotSidekick(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		TPlayerBotSidekick* rec = FindPlayerBotSidekickOf(ch->GetPlayerID());
@@ -5455,6 +5643,14 @@ namespace
 			return true;
 		if (rec->bMode != PLAYERBOT_SIDEKICK_FOLLOW)
 			return false;
+		if (IsPlayerBotSidekickPlayingAlone(*rec, dwNow))
+		{
+			if (!rt.bAlone)
+				StartPlayerBotSidekickAlone(ch, *rec, rt);
+			return false;
+		}
+		if (rt.bAlone)
+			EndPlayerBotSidekickAlone(ch, state, *rec, rt);
 		if (rt.bErrand)
 			return ManagePlayerBotSidekickErrand(ch, state, *rec, rt, dwNow);
 		LPCHARACTER owner = GetPlayerBotSidekickOwnerChar(rec->dwOwnerPID);

@@ -565,8 +565,74 @@ namespace
 		return (WORD)prevPct;
 	}
 
+	// What one line on a piece asks on Iwakura's sheet, in hundredths, and
+	// whether it is at its top (Community Patch 5, point 11). A weapon's two
+	// damage lines by his tiers - the average counts as a line at its top from
+	// forty, his own rule, the skill damage at the top of its tiers - and
+	// every other line by his rows: the slot's row against this world's table,
+	// and the point-13 row of a line only upstream's 2.2.31 table rolled, against the
+	// top it names (playerbot_price_rules.h says which asks what). A line at
+	// its top that his sheet prices at x1.0 still counts as one. The shop sign
+	// asks the same question, so it cannot praise a line the price ignored.
+	WORD GetPlayerBotBonusLinePct(LPITEM item, BYTE slot, int level, BYTE type, long value, bool* atTop)
+	{
+		if (atTop)
+			*atTop = false;
+		if (!item || type == 0 || value <= 0)
+			return 100;
+		if (slot == PRICE_SLOT_WEAPON && type == APPLY_NORMAL_HIT_DAMAGE_BONUS)
+		{
+			if (atTop)
+				*atTop = value >= playerbot_price_rules::AVERAGE_DAMAGE_MAX_FROM;
+			return GetPlayerBotDamageTierPct(PLAYERBOT_AVERAGE_DAMAGE_TIERS,
+					sizeof(PLAYERBOT_AVERAGE_DAMAGE_TIERS) / sizeof(PLAYERBOT_AVERAGE_DAMAGE_TIERS[0]), value);
+		}
+		if (slot == PRICE_SLOT_WEAPON && type == APPLY_SKILL_DAMAGE_BONUS)
+		{
+			const size_t tiers = sizeof(PLAYERBOT_SKILL_DAMAGE_TIERS) / sizeof(PLAYERBOT_SKILL_DAMAGE_TIERS[0]);
+			if (atTop)
+				*atTop = value >= (long)PLAYERBOT_SKILL_DAMAGE_TIERS[tiers - 1].bFrom;
+			return GetPlayerBotDamageTierPct(PLAYERBOT_SKILL_DAMAGE_TIERS, tiers, value);
+		}
+		const TPlayerBotBonusPriceRow* slotRow = NULL;
+		const TPlayerBotBonusPriceRow* topRow = NULL;
+		for (size_t r = 0; r < sizeof(PLAYERBOT_BONUS_PRICE_ROWS) / sizeof(PLAYERBOT_BONUS_PRICE_ROWS[0]); ++r)
+		{
+			const TPlayerBotBonusPriceRow& row = PLAYERBOT_BONUS_PRICE_ROWS[r];
+			if (row.bApply != type || (row.bSlots & slot) == 0 ||
+					level < row.bMinLevel || level > row.bMaxLevel)
+				continue;
+			if (row.wTop == 0 && !slotRow)
+				slotRow = &row;
+			else if (row.wTop != 0 && !topRow)
+				topRow = &row;
+		}
+		const long tableMax = GetPlayerBotBonusMaxRoll(item, type);
+		if (atTop)
+			*atTop = playerbot_price_rules::IsMaxLine(value, tableMax, topRow ? (long)topRow->wTop : 0L);
+		playerbot_price_rules::BonusRow slotRule = { 100, 100, 0 };
+		playerbot_price_rules::BonusRow topRule = { 100, 100, 0 };
+		if (slotRow)
+		{
+			slotRule.maxPct = slotRow->wMaxPct;
+			slotRule.otherPct = slotRow->wOtherPct;
+		}
+		if (topRow)
+		{
+			topRule.maxPct = topRow->wMaxPct;
+			topRule.otherPct = topRow->wOtherPct;
+			topRule.top = topRow->wTop;
+		}
+		return (WORD)playerbot_price_rules::LinePercent(value, tableMax,
+				slotRow ? &slotRule : NULL, topRow ? &topRule : NULL);
+	}
+
 	// What the lines on an item add to its asking price, as a percentage:
-	// Iwakura's multipliers compounded, less the one the base already is.
+	// Iwakura's multipliers compounded, less the one the base already is, and
+	// then his multiplier for two to four lines at their top over the whole
+	// (Community Patch 5, point 11). Every exit of the asking price applies
+	// this once (ApplyPlayerBotBonusPremium), so the plus, the stones and the
+	// lines are all under it, as "cena koncowa" says.
 	//
 	// No character is asked for, on purpose: this is what any buyer pays, not
 	// what one bot would wear, so the caster and weapon-slot weightings of
@@ -580,41 +646,22 @@ namespace
 			return 0;
 		const int level = item->GetLevelLimit();
 		long long product = 100; // hundredths
+		int atTopLines = 0;
+		// The five ordinary lines: GetAttributeCount counts nothing else, so
+		// the two rare ones are neither priced nor counted.
 		const int count = item->GetAttributeCount();
 		for (int i = 0; i < count && i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
 		{
-			const BYTE type = item->GetAttributeType(i);
-			const long value = item->GetAttributeValue(i);
-			if (type == 0 || value <= 0)
-				continue;
-			WORD pct = 100;
-			if (slot == PRICE_SLOT_WEAPON && type == APPLY_NORMAL_HIT_DAMAGE_BONUS)
-				pct = GetPlayerBotDamageTierPct(PLAYERBOT_AVERAGE_DAMAGE_TIERS,
-						sizeof(PLAYERBOT_AVERAGE_DAMAGE_TIERS) / sizeof(PLAYERBOT_AVERAGE_DAMAGE_TIERS[0]), value);
-			else if (slot == PRICE_SLOT_WEAPON && type == APPLY_SKILL_DAMAGE_BONUS)
-				pct = GetPlayerBotDamageTierPct(PLAYERBOT_SKILL_DAMAGE_TIERS,
-						sizeof(PLAYERBOT_SKILL_DAMAGE_TIERS) / sizeof(PLAYERBOT_SKILL_DAMAGE_TIERS[0]), value);
-			else
-			{
-				for (size_t r = 0; r < sizeof(PLAYERBOT_BONUS_PRICE_ROWS) / sizeof(PLAYERBOT_BONUS_PRICE_ROWS[0]); ++r)
-				{
-					const TPlayerBotBonusPriceRow& row = PLAYERBOT_BONUS_PRICE_ROWS[r];
-					if (row.bApply != type || (row.bSlots & slot) == 0 ||
-							level < row.bMinLevel || level > row.bMaxLevel)
-						continue;
-					const long maxRoll = GetPlayerBotBonusMaxRoll(item, type);
-					pct = (maxRoll > 0 && value >= maxRoll) ? row.wMaxPct : row.wOtherPct;
-					break;
-				}
-			}
-			product = product * pct / 100;
-			if (product >= PLAYERBOT_BONUS_PRICE_MAX_PCT)
-			{
-				product = PLAYERBOT_BONUS_PRICE_MAX_PCT;
-				break;
-			}
+			bool atTop = false;
+			const WORD pct = GetPlayerBotBonusLinePct(item, slot, level, item->GetAttributeType(i),
+					item->GetAttributeValue(i), &atTop);
+			if (atTop)
+				++atTopLines;
+			// Every line is walked to the end: the ceiling stops the product,
+			// not the count of lines at their top.
+			product = playerbot_price_rules::CompoundLinePercent(product, pct, PLAYERBOT_BONUS_PRICE_MAX_PCT);
 		}
-		return (int)(product - 100);
+		return (int)playerbot_price_rules::PiecePremiumPercent(product, atTopLines);
 	}
 
 	int ScorePlayerBotItemBonuses(LPCHARACTER ch, LPITEM item, BYTE wearCell)
@@ -631,10 +678,6 @@ namespace
 		return score;
 	}
 
-	// An item the engine will actually accept a stone on. UseItemEx refuses an
-	// equipped item outright ("if (item2->IsEquipped()) return false"), costumes,
-	// and anything without an attribute set, so a bot has to take the piece off
-	// first - exactly as a player does.
 	// A Marmur Blogoslawienstwa in the bag: the one item that adds a fifth
 	// line (USE_ADD_ATTRIBUTE2, vnums 39004/70024/70124/76015 on these files;
 	// asked by subtype so a renamed one still counts). Nothing sells it, so
@@ -696,11 +739,25 @@ namespace
 		}
 	}
 
+	// An item the engine will actually accept a stone on, whatever the bot's
+	// own rules say. UseItemEx refuses a costume, anything without an
+	// attribute set (an arrow, a unique, a ring) and a piece in a trade, and
+	// on mt2009 the wedding clothes and rings too; a locked piece is on a
+	// counter. It refuses an equipped item outright as well ("if
+	// (item2->IsEquipped()) return false"), so a worn piece has to come off
+	// first - exactly as a player's does (ApplyPlayerBotBonusSteps).
+	bool CanPlayerBotTakeBonusStone(LPITEM item)
+	{
+		if (!item || item->GetType() == ITEM_COSTUME || item->isLocked() || item->IsExchanging() ||
+				item->GetAttributeSetIndex() == -1)
+			return false;
+		const DWORD vnum = item->GetVnum();
+		return !((vnum >= 11901 && vnum <= 11904) || vnum == 50201 || vnum == 50202);
+	}
+
 	bool CanPlayerBotRerollItem(LPITEM item)
 	{
-		return item && item->GetType() != ITEM_COSTUME && !item->isLocked() &&
-				!item->IsExchanging() && item->GetAttributeSetIndex() != -1 &&
-				IsPlayerBotBonusCategoryAllowed(item);
+		return CanPlayerBotTakeBonusStone(item) && IsPlayerBotBonusCategoryAllowed(item);
 	}
 
 	// The same, for a piece in its slot. The young bot's boots, necklace and
@@ -709,6 +766,47 @@ namespace
 	bool CanPlayerBotRerollItemFor(LPCHARACTER ch, LPITEM item, BYTE wearCell)
 	{
 		return CanPlayerBotRerollItem(item);
+	}
+
+	// Iwakura's Community Patch 5, point 5: "Zauwazono boty posiadajace
+	// wybonowany ekwipunek (naszyjnik, buty, bransoleta), ktore mimo
+	// posiadania np. 17 dodan i 9 zmianek w ogole z nich nie korzystaja. Bot
+	// powinien w takiej sytuacji wykorzystac je na reszcie ekwipunku." The
+	// rest of what a bot fights in is what the categories refuse for its
+	// refine alone - an armour, a helmet, a shield or earrings under +7, a
+	// weapon of forty-five under +7 - and the refine aim keeps the helmet and
+	// the jewellery at +4 until the weapon, the armour and the shield stand at
+	// +7, which stall at +6 for want of scrolls: on such a bot the categories
+	// took no stone past the three pieces, whatever its bag held. Such a piece
+	// takes the ordinary stones the categories cannot use now
+	// (playerbot_bonus_rules.h, RestOpen). Nothing under +4 still (point 1 of
+	// Patch 4), the categories' level floors stay, and so does the waste Patch
+	// 4 names: a weapon under forty-five outside the level-30 family ("np.
+	// Srebrny Miecz") takes no ordinary stone - a green one it may.
+	bool IsPlayerBotBonusRestPiece(LPITEM item)
+	{
+		if (!CanPlayerBotTakeBonusStone(item) || IsPlayerBotBonusCategoryAllowed(item) ||
+				(int)item->GetRefineLevel() < PLAYERBOT_BONUS_JEWEL_MIN_PLUS)
+			return false;
+		if (item->GetType() == ITEM_WEAPON)
+			return IsPlayerBotSpecialLevel30Weapon(item) ||
+					item->GetLevelLimit() >= PLAYERBOT_BONUS_WEAPON_MIN_LEVEL;
+		if (item->GetType() != ITEM_ARMOR)
+			return false;
+		switch (item->GetSubType())
+		{
+			case ARMOR_BODY:
+				return item->GetLevelLimit() >= PLAYERBOT_BONUS_BODY_MIN_LEVEL;
+			case ARMOR_SHIELD:
+			case ARMOR_HEAD:
+				return item->GetLevelLimit() >= PLAYERBOT_BONUS_ARMOUR_MIN_LEVEL;
+			case ARMOR_EAR:
+				return true;
+			default:
+				// The bracelet, the necklace and the boots: the categories take
+				// them from +4.
+				return false;
+		}
 	}
 
 	// How many of the boots, the necklace and the bracelet worn carry a
@@ -756,6 +854,48 @@ namespace
 					target->GetLimitValue(i) > PLAYERBOT_GREEN_BONUS_MAX_LEVEL)
 				return false;
 		return true;
+	}
+
+	// Iwakura's Community Patch 5, point 9: "Obecnie boty bardzo slabo
+	// wykorzystuja Zielony Czar i Zielona Sile. Czesto przetrzymuja je w
+	// ekwipunku az do poznych faz gry." A piece a green stone goes on is the
+	// engine's weapon or body armour of level forty or less, from +4 like
+	// every stone (point 1 of Patch 4) - and none of the Patch 4 categories:
+	// those took no weapon under forty-five but the level-30 family and no
+	// armour under +7, the young bot's weapon waited for health lines on the
+	// jewellery, and a green stone fits nothing else, so the level-20 chest's
+	// three and three lay in the bag for the rest of the game.
+	bool CanPlayerBotTakeGreenBonusStone(LPITEM item)
+	{
+		return CanPlayerBotTakeBonusStone(item) && CanPlayerBotSpendGreenBonusStoneOn(item) &&
+				(int)item->GetRefineLevel() >= PLAYERBOT_BONUS_JEWEL_MIN_PLUS;
+	}
+
+	// A weapon whose proto carries the damage addon: CItem::ChangeAttribute
+	// applies the addon again before it rolls the rest, so a change stone
+	// rolls its average and skill lines anew - the level-30 and level-75
+	// families on these files. On any other weapon those two lines never roll.
+	bool HasPlayerBotDamageAddon(LPITEM item)
+	{
+		return item && item->GetProto() && item->GetProto()->sAddonType != 0;
+	}
+
+	// Whether an add stone or the marble can still land a line on this piece.
+	// PutAttributeWithLevel draws among the lines the piece's attribute set
+	// allows and the piece does not carry yet, and with none left it adds
+	// nothing while the stone is spent all the same - so such a piece takes no
+	// add, and a pass that came back to it every thirty seconds would empty
+	// the bag into it.
+	bool CanPlayerBotItemRollNewLine(LPITEM item)
+	{
+		const int set = item ? item->GetAttributeSetIndex() : -1;
+		if (set < 0 || set >= ATTRIBUTE_SET_MAX_NUM)
+			return false;
+		for (TItemAttrMap::const_iterator it = g_map_itemAttr.begin(); it != g_map_itemAttr.end(); ++it)
+			if (it->second.bMaxLevelBySet[set] != 0 && it->second.dwProb != 0 &&
+					!item->HasAttr((BYTE)it->first))
+				return true;
+		return false;
 	}
 
 	// The bag stone of the kind a vnum names: the change stone is
@@ -823,6 +963,71 @@ namespace
 		return true;
 	}
 
+	// The stones in the bag by kind, the first cell of each: the add stone is
+	// USE_ADD_ATTRIBUTE and the change stone USE_CHANGE_ATTRIBUTE, each in an
+	// ordinary flavour (71085/71084 and the ItemShop's copies) and a green one
+	// (IsPlayerBotGreenBonusStone), and the marble USE_ADD_ATTRIBUTE2. Read
+	// once for a choice and again after every stone spent.
+	struct TPlayerBotBonusBag
+	{
+		int greenAdd;
+		int greenChange;
+		int plainAdd;
+		int plainChange;
+		int marble;
+	};
+
+	void ReadPlayerBotBonusBag(LPCHARACTER ch, TPlayerBotBonusBag& bag)
+	{
+		bag.greenAdd = bag.greenChange = bag.plainAdd = bag.plainChange = bag.marble = -1;
+		for (WORD cell = 0; ch && cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM stone = ch->GetInventoryItem(cell);
+			if (!stone || stone->GetType() != ITEM_USE || stone->GetCount() == 0 || stone->isLocked())
+				continue;
+			const bool green = IsPlayerBotGreenBonusStone(stone->GetVnum());
+			int* first = NULL;
+			switch (stone->GetSubType())
+			{
+				case USE_ADD_ATTRIBUTE:
+					first = green ? &bag.greenAdd : &bag.plainAdd;
+					break;
+				case USE_CHANGE_ATTRIBUTE:
+					first = green ? &bag.greenChange : &bag.plainChange;
+					break;
+				case USE_ADD_ATTRIBUTE2:
+					first = &bag.marble;
+					break;
+				default:
+					break;
+			}
+			if (first && *first < 0)
+				*first = (int)cell;
+		}
+	}
+
+	bool HasPlayerBotAnyBonusStone(const TPlayerBotBonusBag& bag)
+	{
+		return bag.greenAdd >= 0 || bag.greenChange >= 0 || bag.plainAdd >= 0 ||
+				bag.plainChange >= 0 || bag.marble >= 0;
+	}
+
+	playerbot_bonus_rules::TBag GetPlayerBotBonusBagKinds(const TPlayerBotBonusBag& bag)
+	{
+		const playerbot_bonus_rules::TBag kinds = {
+			bag.greenAdd >= 0, bag.greenChange >= 0, bag.plainAdd >= 0, bag.plainChange >= 0, bag.marble >= 0
+		};
+		return kinds;
+	}
+
+	playerbot_bonus_rules::TLimits GetPlayerBotBonusLimits()
+	{
+		const playerbot_bonus_rules::TLimits limits = {
+			PLAYERBOT_BONUS_MAX_LINES, PLAYERBOT_BONUS_CHANGE_MIN_LINES
+		};
+		return limits;
+	}
+
 	// What one stone would do to a piece now, and where the pass found it.
 	//
 	// Iwakura's QUICK FIX nr 3 (23 September) is both halves of this. "Boty
@@ -834,7 +1039,8 @@ namespace
 	// pelnych 4)": PLAYERBOT_BONUS_CHANGE_MIN_LINES. One function answers for
 	// every place a piece can be (worn, held for a slot, kept for sale), so the
 	// pass, the choice of the next piece and the swap rule's wait
-	// (PlayerBotHoldsBonusStoneFor) cannot disagree about a piece.
+	// (PlayerBotHoldsBonusStoneFor) cannot disagree about a piece. The
+	// choice itself is playerbot_bonus_rules.h, pure and unit-tested.
 	enum EPlayerBotBonusStep
 	{
 		PLAYERBOT_BONUS_STEP_NONE,
@@ -849,15 +1055,21 @@ namespace
 		// The new piece the swap rule holds in the bag for a slot
 		// (IsPlayerBotSwapHeldForBonus), bonused where it lies.
 		PLAYERBOT_BONUS_TARGET_HELD,
-		// A level-30 weapon in the bag kept for sale.
+		// A piece in the bag kept for sale, bonused where it lies: a level-30
+		// weapon, or the piece a caller of ApplyPlayerBotGreenBonusToItem names.
 		PLAYERBOT_BONUS_TARGET_GOODS,
 	};
 
+	// plain is how the ordinary stones may reach the piece
+	// (playerbot_bonus_rules::EPlain): the categories, the rest of the worn
+	// gear, or green stones only. The young bot's rule is read when the step
+	// is (IsPlayerBotGreenOnlyFor), not stored here.
 	struct TPlayerBotBonusTarget
 	{
 		LPITEM item;
 		BYTE wearCell;
 		BYTE kind;
+		BYTE plain;
 	};
 
 	const char* GetPlayerBotBonusStepName(EPlayerBotBonusStep step)
@@ -904,81 +1116,116 @@ namespace
 		return !IsPlayerBotEarlyBonusSlot(ch, target.wearCell) && !IsPlayerBotEarlyBonusDone(ch);
 	}
 
-	EPlayerBotBonusStep GetPlayerBotBonusStep(LPCHARACTER ch, const TPlayerBotBonusTarget& target, int& stoneCell)
+	// Whether a change stone - an ordinary one, or a green one - would still
+	// move this piece towards its finish: the one answer for the pass and for
+	// the ItemShop's purchase of a change stone (PlayerBotWantsChangeStone).
+	// An item that has landed the roll its slot is bought for is finished: it
+	// can still gain a line - that cannot lose what is already there - but it
+	// is never rerolled, whatever the score says. Short of that an ordinary
+	// change stops at the line score (PLAYERBOT_BONUS_KEEP_SCORE, every line
+	// weighed by Iwakura's tier), except where the operator mixes to the
+	// finish: a level-30 weapon is rerolled until it lands its average line,
+	// whatever the score says - the score is a sum of good lines, and a weapon
+	// full of them at twelve percent average was "good enough" to the score
+	// and not to anybody who looked at it; one kept for sale sells for that
+	// line (PLAYERBOT_PRIZE_AVERAGE_DAMAGE) at a stone's fortieth of what the
+	// finished piece asks - and the young bot's jewellery and boots are
+	// changed until they carry the lines community patch 2, point 3 requires.
+	// Why the rest keeps the score's stop is playerbot_bonus_rules::WantsChange:
+	// one piece takes every stone while it can use one. A green change mixes
+	// to the finish wherever a change can roll it (ChangeReachesFinish).
+	bool PlayerBotWantsBonusChange(LPCHARACTER ch, const TPlayerBotBonusTarget& target, bool green)
 	{
-		stoneCell = -1;
 		LPITEM item = target.item;
 		if (!ch || !item)
-			return PLAYERBOT_BONUS_STEP_NONE;
-		const bool earlySlot = target.kind != PLAYERBOT_BONUS_TARGET_GOODS &&
-				IsPlayerBotEarlyBonusSlot(ch, target.wearCell);
+			return false;
+		// Rerolled until its lines beat the worn piece's, which is what ends
+		// the hold (IsPlayerBotSwapHeldForBonus).
+		if (target.kind == PLAYERBOT_BONUS_TARGET_HELD)
+			return true;
+		const bool mixToFinish = green
+				? playerbot_bonus_rules::ChangeReachesFinish(item->GetType() == ITEM_WEAPON,
+					HasPlayerBotDamageAddon(item))
+				: (IsPlayerBotSpecialLevel30WeaponVnum(item->GetVnum()) ||
+					(target.kind != PLAYERBOT_BONUS_TARGET_GOODS && IsPlayerBotEarlyBonusSlot(ch, target.wearCell)));
+		return playerbot_bonus_rules::WantsChange(HasPlayerBotFinishedBonus(ch, item, target.wearCell),
+				mixToFinish, ScorePlayerBotItemBonuses(ch, item, target.wearCell), PLAYERBOT_BONUS_KEEP_SCORE);
+	}
+
+	// A piece as playerbot_bonus_rules.h weighs it.
+	playerbot_bonus_rules::TPiece BuildPlayerBotBonusPiece(LPCHARACTER ch, const TPlayerBotBonusTarget& target)
+	{
+		playerbot_bonus_rules::TPiece piece;
+		LPITEM item = target.item;
+		piece.lines = item ? item->GetAttributeCount() : 0;
+		piece.lineRolls = piece.lines < PLAYERBOT_BONUS_MARBLE_LINES && CanPlayerBotItemRollNewLine(item);
 		// A young bot spends the green stones only - except on the necklace,
 		// the bracelet and the boots, which a green stone cannot touch at all,
 		// so those three take an ordinary one even under the level, and on the
 		// rest once those three are done (IsPlayerBotGreenOnlyFor).
-		const bool greenOnly = IsPlayerBotGreenOnlyFor(ch, target);
-		const int count = item->GetAttributeCount();
-
-		// An empty line is free power: add before anything else. Four by the
-		// stone; the fifth is the marble's, on a worn piece, and only when the
-		// bag holds one.
-		if (count < PLAYERBOT_BONUS_MAX_LINES)
-		{
-			stoneCell = FindPlayerBotBonusStoneCellLike(ch, PLAYERBOT_BONUS_ADD_VNUM, item, greenOnly);
-			if (stoneCell >= 0)
-				return PLAYERBOT_BONUS_STEP_ADD;
-		}
-		else if (count == PLAYERBOT_BONUS_MAX_LINES && !greenOnly &&
-				target.kind == PLAYERBOT_BONUS_TARGET_WORN)
-		{
-			stoneCell = FindPlayerBotBlessingMarbleCell(ch);
-			if (stoneCell >= 0)
-				return PLAYERBOT_BONUS_STEP_MARBLE;
-		}
-
-		// The change stone waits for three lines, and a piece of three gets
-		// this far only when no add stone could give it the fourth first.
-		if (count < PLAYERBOT_BONUS_CHANGE_MIN_LINES)
-			return PLAYERBOT_BONUS_STEP_NONE;
+		piece.plain = (playerbot_bonus_rules::EPlain)target.plain;
+		if (piece.plain != playerbot_bonus_rules::PLAIN_NONE && IsPlayerBotGreenOnlyFor(ch, target))
+			piece.plain = playerbot_bonus_rules::PLAIN_NONE;
+		piece.greenFits = CanPlayerBotTakeGreenBonusStone(item);
+		// The fifth line is the marble's, on a worn piece.
+		piece.marbleAllowed = target.kind == PLAYERBOT_BONUS_TARGET_WORN;
+		piece.wantsPlainChange = PlayerBotWantsBonusChange(ch, target, false);
+		piece.wantsGreenChange = piece.greenFits && PlayerBotWantsBonusChange(ch, target, true);
 		// What a companion's owner put on keeps the lines the owner chose it
 		// for (playerbot_sidekick.h); a line added above loses nothing.
-		if (IsPlayerBotSidekickPinned(ch, item))
+		piece.pinned = IsPlayerBotSidekickPinned(ch, item);
+		piece.goods = target.kind == PLAYERBOT_BONUS_TARGET_GOODS;
+		// The green round's order: the armour, then the weapon - worn, or the
+		// piece the swap rule holds for the slot.
+		piece.greenRank = piece.goods ? -1
+				: (target.wearCell == WEAR_BODY ? 0 : (target.wearCell == WEAR_WEAPON ? 1 : -1));
+		return piece;
+	}
+
+	// The stone a choice names, by its cell in the bag.
+	EPlayerBotBonusStep ResolvePlayerBotBonusChoice(const playerbot_bonus_rules::TStepChoice& choice,
+			const TPlayerBotBonusBag& bag, int& stoneCell)
+	{
+		const bool green = choice.stone == playerbot_bonus_rules::STONE_GREEN;
+		EPlayerBotBonusStep step = PLAYERBOT_BONUS_STEP_NONE;
+		stoneCell = -1;
+		switch (choice.step)
+		{
+			case playerbot_bonus_rules::STEP_ADD:
+				stoneCell = green ? bag.greenAdd : bag.plainAdd;
+				step = PLAYERBOT_BONUS_STEP_ADD;
+				break;
+			case playerbot_bonus_rules::STEP_MARBLE:
+				stoneCell = bag.marble;
+				step = PLAYERBOT_BONUS_STEP_MARBLE;
+				break;
+			case playerbot_bonus_rules::STEP_CHANGE:
+				stoneCell = green ? bag.greenChange : bag.plainChange;
+				step = PLAYERBOT_BONUS_STEP_CHANGE;
+				break;
+			default:
+				break;
+		}
+		return stoneCell >= 0 ? step : PLAYERBOT_BONUS_STEP_NONE;
+	}
+
+	// restOpen: the kinds of ordinary stone the rest of the worn gear may take
+	// in this pass (playerbot_bonus_rules::RestOpen). greenStonesOnly: a green
+	// stone or nothing.
+	EPlayerBotBonusStep GetPlayerBotBonusStep(LPCHARACTER ch, const TPlayerBotBonusTarget& target, int& stoneCell,
+			unsigned restOpen = 0, bool greenStonesOnly = false)
+	{
+		stoneCell = -1;
+		if (!ch || !target.item)
 			return PLAYERBOT_BONUS_STEP_NONE;
-		bool wantChange = false;
-		if (target.kind == PLAYERBOT_BONUS_TARGET_GOODS)
-		{
-			// A level-30 weapon sells for its average line
-			// (PLAYERBOT_PRIZE_AVERAGE_DAMAGE), and a stone costs a fortieth of
-			// what the finished piece asks - but no change stone below +5.
-			wantChange = IsPlayerBotBonusCategoryAllowed(item) &&
-					!HasPlayerBotFinishedBonus(ch, item, WEAR_WEAPON);
-		}
-		else if (target.kind == PLAYERBOT_BONUS_TARGET_HELD)
-		{
-			// Rerolled until its lines beat the worn piece's, which is what ends
-			// the hold (IsPlayerBotSwapHeldForBonus).
-			wantChange = IsPlayerBotBonusCategoryAllowed(item);
-		}
-		else
-		{
-			// An item that has landed the roll its slot is bought for is
-			// finished: it can still gain a line - that cannot lose what is
-			// already there - but it is never rerolled, whatever the score says.
-			// A level-30 weapon is rerolled until it lands its average line,
-			// whatever the score says: the score is a sum of good lines and a
-			// weapon full of them at twelve percent average was "good enough"
-			// to the score and not to anybody who looked at it. The young bot's
-			// jewellery and boots are changed until they carry the lines the
-			// patch requires, whatever the score (community patch 2, point 3).
-			wantChange = IsPlayerBotBonusCategoryAllowed(item) &&
-					!HasPlayerBotFinishedBonus(ch, item, target.wearCell) &&
-					(ScorePlayerBotItemBonuses(ch, item, target.wearCell) < PLAYERBOT_BONUS_KEEP_SCORE ||
-					 IsPlayerBotSpecialLevel30WeaponVnum(item->GetVnum()) || earlySlot);
-		}
-		if (!wantChange)
+		TPlayerBotBonusBag bag;
+		ReadPlayerBotBonusBag(ch, bag);
+		if (!HasPlayerBotAnyBonusStone(bag))
 			return PLAYERBOT_BONUS_STEP_NONE;
-		stoneCell = FindPlayerBotBonusStoneCellLike(ch, PLAYERBOT_BONUS_CHANGE_VNUM, item, greenOnly);
-		return stoneCell >= 0 ? PLAYERBOT_BONUS_STEP_CHANGE : PLAYERBOT_BONUS_STEP_NONE;
+		const playerbot_bonus_rules::TStepChoice choice = playerbot_bonus_rules::StepFor(
+				BuildPlayerBotBonusPiece(ch, target), GetPlayerBotBonusBagKinds(bag),
+				GetPlayerBotBonusLimits(), restOpen, greenStonesOnly);
+		return ResolvePlayerBotBonusChoice(choice, bag, stoneCell);
 	}
 
 	// Whether the bag holds a stone this piece could take now. The swap rule
@@ -994,7 +1241,8 @@ namespace
 		const int slot = item->FindEquipCell(ch);
 		if (slot < 0 || slot >= WEAR_MAX_NUM || !CanPlayerBotRerollItemFor(ch, item, (BYTE)slot))
 			return false;
-		const TPlayerBotBonusTarget target = { item, (BYTE)slot, (BYTE)PLAYERBOT_BONUS_TARGET_HELD };
+		const TPlayerBotBonusTarget target = { item, (BYTE)slot, (BYTE)PLAYERBOT_BONUS_TARGET_HELD,
+				(BYTE)playerbot_bonus_rules::PLAIN_CATEGORY };
 		int stoneCell = -1;
 		return GetPlayerBotBonusStep(ch, target, stoneCell) != PLAYERBOT_BONUS_STEP_NONE;
 	}
@@ -1007,6 +1255,10 @@ namespace
 	// about to come off is a stone thrown away - and the level-30 weapons kept
 	// for sale come last. Other spares in the bag are sold or put in a stall
 	// long before they are worth polishing.
+	// Each worn piece is listed with how the ordinary stones may reach it: the
+	// categories of Patch 4, the rest of the gear (IsPlayerBotBonusRestPiece,
+	// Patch 5, point 5), or none at all where only a green stone fits it
+	// (Patch 5, point 9).
 	void CollectPlayerBotBonusTargets(LPCHARACTER ch, std::vector<TPlayerBotBonusTarget>& out)
 	{
 		out.clear();
@@ -1044,8 +1296,11 @@ namespace
 			const int slot = item->FindEquipCell(ch);
 			if (slot < 0 || slot >= WEAR_MAX_NUM)
 				continue;
+			// Nor for a slot whose worn piece a companion's owner put on: the
+			// equipment pass never takes it off, so a piece held behind it is
+			// one the companion will never wear (Iwakura's audit, B02).
 			LPITEM worn = ch->GetWear((BYTE)slot);
-			if (!worn || !IsPlayerBotWearableUpgrade(ch, item, cell) ||
+			if (!worn || IsPlayerBotSidekickPinned(ch, worn) || !IsPlayerBotWearableUpgrade(ch, item, cell) ||
 					!IsPlayerBotSwapHeldForBonus(ch, item, worn) ||
 					!CanPlayerBotRerollItemFor(ch, item, (BYTE)slot))
 				continue;
@@ -1057,33 +1312,51 @@ namespace
 			}
 		}
 
+		// The weapon waits for the health lines (community patch 2, point 3):
+		// two of the boots, the necklace and the bracelet first - for the
+		// ordinary stones. A green one goes on none of those three, and Patch
+		// 5, point 9 sends it to the armour and then to the weapon.
+		const bool weaponWaits = early &&
+				CountPlayerBotEarlyHpPieces(ch) < PLAYERBOT_EARLY_HP_PIECES_FOR_WEAPON;
 		bool listed[WEAR_MAX_NUM] = {};
 		for (size_t i = 0; i < wearSlotCount; ++i)
 		{
 			const BYTE wearCell = wearSlots[i];
 			listed[wearCell] = true;
-			// The weapon waits for the health lines (community patch 2, point
-			// 3): two of the boots, the necklace and the bracelet first.
-			if (early && wearCell == WEAR_WEAPON &&
-					CountPlayerBotEarlyHpPieces(ch) < PLAYERBOT_EARLY_HP_PIECES_FOR_WEAPON)
-				continue;
+			const bool plainWaits = weaponWaits && wearCell == WEAR_WEAPON;
 			if (held[wearCell])
 			{
-				const TPlayerBotBonusTarget target = { held[wearCell], wearCell, (BYTE)PLAYERBOT_BONUS_TARGET_HELD };
+				const TPlayerBotBonusTarget target = { held[wearCell], wearCell, (BYTE)PLAYERBOT_BONUS_TARGET_HELD,
+						(BYTE)(plainWaits ? playerbot_bonus_rules::PLAIN_NONE : playerbot_bonus_rules::PLAIN_CATEGORY) };
 				out.push_back(target);
 				continue;
 			}
+			// A worn piece comes off for its stones, so only one the engine
+			// really wears in that slot and lets come off.
 			LPITEM item = ch->GetWear(wearCell);
-			if (!CanPlayerBotRerollItemFor(ch, item, wearCell))
+			if (!item || !IsPlayerBotWornItemSound(ch, item, wearCell) ||
+					IS_SET(item->GetFlag(), ITEM_FLAG_IRREMOVABLE))
 				continue;
-			const TPlayerBotBonusTarget target = { item, wearCell, (BYTE)PLAYERBOT_BONUS_TARGET_WORN };
+			playerbot_bonus_rules::EPlain plain;
+			if (CanPlayerBotRerollItemFor(ch, item, wearCell))
+				plain = playerbot_bonus_rules::PLAIN_CATEGORY;
+			else if (IsPlayerBotBonusRestPiece(item))
+				plain = playerbot_bonus_rules::PLAIN_REST;
+			else if (CanPlayerBotTakeGreenBonusStone(item))
+				plain = playerbot_bonus_rules::PLAIN_NONE;
+			else
+				continue;
+			if (plainWaits)
+				plain = playerbot_bonus_rules::PLAIN_NONE;
+			const TPlayerBotBonusTarget target = { item, wearCell, (BYTE)PLAYERBOT_BONUS_TARGET_WORN, (BYTE)plain };
 			out.push_back(target);
 		}
 		// A piece held for a slot the order above does not name.
 		for (int slot = 0; slot < WEAR_MAX_NUM; ++slot)
 			if (held[slot] && !listed[slot])
 			{
-				const TPlayerBotBonusTarget target = { held[slot], (BYTE)slot, (BYTE)PLAYERBOT_BONUS_TARGET_HELD };
+				const TPlayerBotBonusTarget target = { held[slot], (BYTE)slot, (BYTE)PLAYERBOT_BONUS_TARGET_HELD,
+						(BYTE)playerbot_bonus_rules::PLAIN_CATEGORY };
 				out.push_back(target);
 			}
 
@@ -1098,30 +1371,20 @@ namespace
 				already = out[i].item == item;
 			if (already)
 				continue;
-			const TPlayerBotBonusTarget target = { item, (BYTE)WEAR_WEAPON, (BYTE)PLAYERBOT_BONUS_TARGET_GOODS };
+			const TPlayerBotBonusTarget target = { item, (BYTE)WEAR_WEAPON, (BYTE)PLAYERBOT_BONUS_TARGET_GOODS,
+					(BYTE)playerbot_bonus_rules::PLAIN_CATEGORY };
 			out.push_back(target);
 		}
 	}
 
-	// One stone, the one GetPlayerBotBonusStep chose, on one piece. False when
-	// nothing was spent; keepGoing false when the piece cannot take another
-	// stone this visit.
-	bool ApplyPlayerBotBonusStep(LPCHARACTER ch, const TPlayerBotBonusTarget& target,
-			EPlayerBotBonusStep step, int stoneCell, bool& keepGoing)
+	// One stone, the one GetPlayerBotBonusStep chose, on a piece the engine can
+	// touch now: in the bag, or taken off for it (ApplyPlayerBotBonusSteps).
+	void SpendPlayerBotBonusStone(LPCHARACTER ch, const TPlayerBotBonusTarget& target,
+			EPlayerBotBonusStep step, int stoneCell)
 	{
-		keepGoing = false;
 		LPITEM item = target.item;
-		if (!ch || !item || step == PLAYERBOT_BONUS_STEP_NONE || stoneCell < 0 || IsPlayerBotGearFrozen(ch))
-			return false;
-		const bool worn = target.kind == PLAYERBOT_BONUS_TARGET_WORN;
-		// A worn piece has to come off for the engine to touch it - UseItemEx
-		// refuses an equipped item outright - and it has to go back on
-		// afterwards: a bot walking about with its weapon in the bag would be
-		// worse than any line it could win. A piece in the bag is worked on
-		// where it lies.
-		if (worn && !ch->UnequipItem(item))
-			return false;
-
+		LPITEM stone = ch->GetInventoryItem((WORD)stoneCell);
+		const DWORD stoneVnum = stone ? stone->GetVnum() : 0;
 		const int count = item->GetAttributeCount();
 		const int scoreBefore = ScorePlayerBotItemBonuses(ch, item, target.wearCell);
 		const long long valueBefore = GetPlayerBotItemLineScore(item, ch);
@@ -1144,33 +1407,62 @@ namespace
 				item->GetName());
 		const char* what = step == PLAYERBOT_BONUS_STEP_CHANGE ? "rerolled"
 				: (step == PLAYERBOT_BONUS_STEP_MARBLE ? "marbled" : "added");
+		// stone= names the stone spent, so the green ones can be told from the
+		// ordinary (Patch 5, point 9), and rest=1 a piece of the rest of the
+		// gear (point 5).
 		if (target.kind == PLAYERBOT_BONUS_TARGET_HELD)
 		{
 			LPITEM wornNow = ch->GetWear(target.wearCell);
-			sys_log(0, "PLAYERBOT_BONUS: %s held piece pid=%u name=%s vnum=%u slot=%u lines=%d->%d value=%lld->%lld worn_value=%lld",
+			sys_log(0, "PLAYERBOT_BONUS: %s held piece pid=%u name=%s vnum=%u slot=%u lines=%d->%d value=%lld->%lld worn_value=%lld stone=%u",
 					what, ch->GetPlayerID(), ch->GetName(), item->GetVnum(), (unsigned int)target.wearCell,
 					count, item->GetAttributeCount(), valueBefore, GetPlayerBotItemLineScore(item, ch),
-					wornNow ? GetPlayerBotItemLineScore(wornNow, ch) : 0LL);
+					wornNow ? GetPlayerBotItemLineScore(wornNow, ch) : 0LL, (unsigned int)stoneVnum);
 		}
 		else
 		{
-			sys_log(0, "PLAYERBOT_BONUS: %s%s pid=%u name=%s vnum=%u slot=%u lines=%d->%d score=%d->%d gold=%lld",
+			sys_log(0, "PLAYERBOT_BONUS: %s%s pid=%u name=%s vnum=%u slot=%u lines=%d->%d score=%d->%d gold=%lld stone=%u rest=%d",
 					what, target.kind == PLAYERBOT_BONUS_TARGET_GOODS ? " goods" : "",
 					ch->GetPlayerID(), ch->GetName(), item->GetVnum(), (unsigned int)target.wearCell,
 					count, item->GetAttributeCount(), scoreBefore,
 					ScorePlayerBotItemBonuses(ch, item, target.wearCell),
-					(long long)(ch->GetGold() / 1000));
+					(long long)(ch->GetGold() / 1000), (unsigned int)stoneVnum,
+					target.plain == playerbot_bonus_rules::PLAIN_REST ? 1 : 0);
 		}
+	}
 
-		if (worn && !PlayerBotEquipItem(ch, item))
+	// Up to maxStones on one piece, the step asked again after each; the
+	// stones spent. A worn piece has to come off for the engine to touch it -
+	// UseItemEx refuses an equipped item outright - and it has to go back on
+	// afterwards: a bot walking about with its weapon in the bag would be
+	// worse than any line it could win. It comes off once for all of them and
+	// goes back on once. It came off and went back on for every stone, three
+	// times a pass and a pass every thirty seconds while a piece was worked
+	// (Iwakura's audit, R3), each time the equip window's to refuse. The
+	// caller asks that window first (IsPlayerBotEquipWindowShut), as it asks
+	// for a stone the piece can take: nothing comes off that no stone would go
+	// on. A piece in the bag is worked on where it lies.
+	int ApplyPlayerBotBonusSteps(LPCHARACTER ch, const TPlayerBotBonusTarget& target, EPlayerBotBonusStep step,
+			int stoneCell, int maxStones, unsigned restOpen, bool greenStonesOnly)
+	{
+		LPITEM item = target.item;
+		if (!ch || !item || step == PLAYERBOT_BONUS_STEP_NONE || stoneCell < 0 || maxStones <= 0 ||
+				IsPlayerBotGearFrozen(ch))
+			return 0;
+		const bool worn = target.kind == PLAYERBOT_BONUS_TARGET_WORN;
+		if (worn && !ch->UnequipItem(item))
+			return 0;
+		int used = 0;
+		while (used < maxStones && step != PLAYERBOT_BONUS_STEP_NONE && stoneCell >= 0)
 		{
-			sys_err("PLAYERBOT_BONUS: could not re-equip pid=%u name=%s vnum=%u slot=%u",
-					ch->GetPlayerID(), ch->GetName(), item->GetVnum(),
-					(unsigned int)target.wearCell);
-			return true;
+			SpendPlayerBotBonusStone(ch, target, step, stoneCell);
+			++used;
+			step = GetPlayerBotBonusStep(ch, target, stoneCell, restOpen, greenStonesOnly);
 		}
-		keepGoing = true;
-		return true;
+		if (worn && !PlayerBotEquipItem(ch, item))
+			sys_err("PLAYERBOT_BONUS: could not re-equip pid=%u name=%s vnum=%u slot=%u stones=%d",
+					ch->GetPlayerID(), ch->GetName(), item->GetVnum(),
+					(unsigned int)target.wearCell, used);
+		return used;
 	}
 
 	// One piece at a time (QUICK FIX nr 3, above). A visit spends its stones on
@@ -1200,7 +1492,8 @@ namespace
 			// The marble goes where GetPlayerBotBonusStep would put it: a worn
 			// piece, not one a young bot may give green stones only.
 			LPITEM worn = ch->GetWear(slots[i]);
-			const TPlayerBotBonusTarget target = { worn, slots[i], (BYTE)PLAYERBOT_BONUS_TARGET_WORN };
+			const TPlayerBotBonusTarget target = { worn, slots[i], (BYTE)PLAYERBOT_BONUS_TARGET_WORN,
+					(BYTE)playerbot_bonus_rules::PLAIN_CATEGORY };
 			if (IsPlayerBotGreenOnlyFor(ch, target))
 				continue;
 			if (worn && worn->GetAttributeCount() == PLAYERBOT_BONUS_MAX_LINES &&
@@ -1234,26 +1527,17 @@ namespace
 			return false;
 		state.dwNextBonusCheckTime = dwNow + PLAYERBOT_BONUS_INTERVAL;
 		ManagePlayerBotDustMarble(ch);
-		// A young bot spends the green stones only, on the gear they are for.
-		const bool greenOnly = ch->GetLevel() < PLAYERBOT_BONUS_MIN_LEVEL;
-		// The green stones the engine lets a young bot use work on a weapon and
-		// on body armour of level forty or less, and on nothing else - so the
-		// necklace, the wrist and the boots Community Patch 1 asks a young bot
-		// to bonus first can only be done with an ordinary stone. Under the
-		// level those three slots are therefore allowed one, and every other
-		// slot too once those three are done (IsPlayerBotGreenOnlyFor).
-		const bool ordinaryForJewellery = greenOnly &&
-				(HasPlayerBotBonusStone(ch, PLAYERBOT_BONUS_ADD_VNUM, false) ||
-				 HasPlayerBotBonusStone(ch, PLAYERBOT_BONUS_CHANGE_VNUM, false));
 		// Nothing to spend, nothing to weigh: the pass below scores every line
 		// of eight worn pieces, and a bag with no stone and no marble ends here.
-		// A marble is something to spend at any level: the step decides where
-		// (the necklace, the bracelet and the boots of a young bot), and ending
-		// the pass here for a young bot left the marble its dust made in the bag
-		// for good (B19 of Iwakura's audit of 26 September).
-		if (!HasPlayerBotBonusStone(ch, PLAYERBOT_BONUS_ADD_VNUM, greenOnly) &&
-				!HasPlayerBotBonusStone(ch, PLAYERBOT_BONUS_CHANGE_VNUM, greenOnly) &&
-				!ordinaryForJewellery && FindPlayerBotBlessingMarbleCell(ch) < 0)
+		// Any stone at any level: under PLAYERBOT_BONUS_MIN_LEVEL the green
+		// ones go on the weapon and the armour and an ordinary one on the
+		// necklace, the wrist and the boots Community Patch 1 asks a young bot
+		// to bonus first (IsPlayerBotGreenOnlyFor), and a marble is something to
+		// spend too - ending the pass here for a young bot left the marble its
+		// dust made in the bag for good (B19 of Iwakura's audit of 26 September).
+		TPlayerBotBonusBag bag;
+		ReadPlayerBotBonusBag(ch, bag);
+		if (!HasPlayerBotAnyBonusStone(bag))
 			return false;
 
 		std::vector<TPlayerBotBonusTarget> targets;
@@ -1261,43 +1545,42 @@ namespace
 		if (targets.empty())
 			return false;
 
-		int pick = -1;
+		// The choice is playerbot_bonus_rules.h's: the green stones first, on
+		// the armour and then the weapon (Patch 5, point 9); then the piece
+		// being worked while a stone fits it; then a new piece, the first that
+		// can take a line before the first that can take a change. The rest of
+		// the worn gear takes the kinds of ordinary stone the categories cannot
+		// use now (RestOpen, Patch 5, point 5), read once for the pass.
+		std::vector<playerbot_bonus_rules::TPiece> pieces;
+		pieces.reserve(targets.size());
+		int focus = -1;
+		for (size_t i = 0; i < targets.size(); ++i)
+		{
+			pieces.push_back(BuildPlayerBotBonusPiece(ch, targets[i]));
+			if (state.dwBonusFocusItem != 0 && targets[i].item->GetID() == state.dwBonusFocusItem)
+				focus = (int)i;
+		}
+		const playerbot_bonus_rules::TBag kinds = GetPlayerBotBonusBagKinds(bag);
+		const playerbot_bonus_rules::TLimits limits = GetPlayerBotBonusLimits();
+		const unsigned restOpen = playerbot_bonus_rules::RestOpen(&pieces[0], (int)pieces.size(), kinds, limits);
+		playerbot_bonus_rules::TStepChoice choice;
+		bool greenPick = false;
+		const int pick = playerbot_bonus_rules::Pick(&pieces[0], (int)pieces.size(), kinds, limits,
+				restOpen, focus, choice, greenPick);
 		int stoneCell = -1;
-		EPlayerBotBonusStep step = PLAYERBOT_BONUS_STEP_NONE;
-		if (state.dwBonusFocusItem != 0)
-			for (size_t i = 0; i < targets.size(); ++i)
-			{
-				if (targets[i].item->GetID() != state.dwBonusFocusItem)
-					continue;
-				step = GetPlayerBotBonusStep(ch, targets[i], stoneCell);
-				if (step != PLAYERBOT_BONUS_STEP_NONE)
-					pick = (int)i;
-				break;
-			}
-		for (int round = 0; pick < 0 && round < 2; ++round)
-			for (size_t i = 0; i < targets.size(); ++i)
-			{
-				const EPlayerBotBonusStep candidate = GetPlayerBotBonusStep(ch, targets[i], stoneCell);
-				const bool adding = candidate == PLAYERBOT_BONUS_STEP_ADD ||
-						candidate == PLAYERBOT_BONUS_STEP_MARBLE;
-				if ((round == 0 && adding) || (round == 1 && candidate == PLAYERBOT_BONUS_STEP_CHANGE))
-				{
-					pick = (int)i;
-					step = candidate;
-					break;
-				}
-			}
-		if (pick < 0)
+		const EPlayerBotBonusStep step = pick >= 0
+				? ResolvePlayerBotBonusChoice(choice, bag, stoneCell) : PLAYERBOT_BONUS_STEP_NONE;
+		if (step == PLAYERBOT_BONUS_STEP_NONE)
 		{
 			PlayerBotLogThrottled("bonus_idle", dwNow,
-					"PLAYERBOT_BONUS: idle pid=%u name=%s level=%d early_done=%d",
+					"PLAYERBOT_BONUS: idle pid=%u name=%s level=%d early_done=%d rest_open=%u",
 					ch->GetPlayerID(), ch->GetName(), (int)ch->GetLevel(),
-					IsPlayerBotEarlyBonusDone(ch) ? 1 : 0);
+					IsPlayerBotEarlyBonusDone(ch) ? 1 : 0, restOpen);
 			return false;
 		}
 
 		const TPlayerBotBonusTarget target = targets[pick];
-		// A worn piece comes off for the stone and goes straight back on, so
+		// A worn piece comes off for its stones and goes straight back on, so
 		// only while the engine would let it back on - the blacksmith's path
 		// too, where a buff cast on the walk in shut the window as surely as a
 		// blow does. The pass comes back in a moment, not in five minutes.
@@ -1306,28 +1589,29 @@ namespace
 			state.dwNextBonusCheckTime = dwNow + PLAYERBOT_EQUIPMENT_COMBAT_DELAY;
 			return false;
 		}
-		if (target.item->GetID() != state.dwBonusFocusItem)
+		static const char* const targetKinds[] = { "worn", "held", "goods" };
+		static const char* const plainKinds[] = { "category", "rest", "green" };
+		const char* const on = targetKinds[target.kind < 3 ? target.kind : 0];
+		const char* const reach = plainKinds[target.plain < 3 ? target.plain : 0];
+		if (greenPick)
 		{
-			static const char* const kinds[] = { "worn", "held", "goods" };
-			sys_log(0, "PLAYERBOT_BONUS: focus pid=%u name=%s vnum=%u slot=%u on=%s lines=%d step=%s previous=%u",
+			// The green round leaves the ordinary pass's piece where it was.
+			sys_log(0, "PLAYERBOT_BONUS: green pid=%u name=%s vnum=%u slot=%u on=%s lines=%d step=%s level=%d",
 					ch->GetPlayerID(), ch->GetName(), target.item->GetVnum(),
-					(unsigned int)target.wearCell, kinds[target.kind < 3 ? target.kind : 0],
-					target.item->GetAttributeCount(), GetPlayerBotBonusStepName(step),
-					state.dwBonusFocusItem);
+					(unsigned int)target.wearCell, on, target.item->GetAttributeCount(),
+					GetPlayerBotBonusStepName(step), (int)ch->GetLevel());
+		}
+		else if (target.item->GetID() != state.dwBonusFocusItem)
+		{
+			sys_log(0, "PLAYERBOT_BONUS: focus pid=%u name=%s vnum=%u slot=%u on=%s lines=%d step=%s previous=%u plain=%s",
+					ch->GetPlayerID(), ch->GetName(), target.item->GetVnum(),
+					(unsigned int)target.wearCell, on, target.item->GetAttributeCount(),
+					GetPlayerBotBonusStepName(step), state.dwBonusFocusItem, reach);
 			state.dwBonusFocusItem = target.item->GetID();
 		}
 
-		int stonesUsed = 0;
-		while (stonesUsed < PLAYERBOT_BONUS_STONES_PER_VISIT && step != PLAYERBOT_BONUS_STEP_NONE)
-		{
-			bool keepGoing = false;
-			if (!ApplyPlayerBotBonusStep(ch, target, step, stoneCell, keepGoing))
-				break;
-			++stonesUsed;
-			if (!keepGoing)
-				break;
-			step = GetPlayerBotBonusStep(ch, target, stoneCell);
-		}
+		const int stonesUsed = ApplyPlayerBotBonusSteps(ch, target, step, stoneCell,
+				PLAYERBOT_BONUS_STONES_PER_VISIT, restOpen, greenPick);
 		// A piece being worked is come back to soon, not in five minutes
 		// (Iwakura's Patch 4, point 6: "zmienia bonusy tak dlugo, az wylosuje
 		// statystyki o jak najwyzszym Tierze").
@@ -1355,6 +1639,101 @@ namespace
 		if (IsPlayerBotEquipWindowShut(ch, state))
 			return false;
 		return ManagePlayerBotBonusReroll(ch, state, dwNow);
+	}
+
+	// Iwakura's Community Patch 5, point 9, the gambler's half: "boty z
+	// osobowoscia Hazardzisty powinny wykorzystywac posiadane w ekwipunku
+	// Zielone Sily i Czary do bonowania przedmiotow, ktore wlasnie ulepszyly
+	// (jesli przedmioty te spelniaja wymog poziomu). Pozwoli to znacznie
+	// zwiekszyc wartosc takiego sprzetu przed wystawieniem go na sklep
+	// offline." For a gambler's session to call on what came off its anvil,
+	// and for anything else that has one piece and green stones in mind:
+	//
+	//   bool ApplyPlayerBotGreenBonusToItem(LPCHARACTER ch, TPlayerBotAIState& state,
+	//           LPITEM item, DWORD dwNow)
+	//
+	// The bot's own green stones on that one piece, worn or in its bag: a
+	// Zielona Sila while the piece has fewer than four lines, then a Zielony
+	// Czar - which mixes every line, not only the green ones - until the piece
+	// is finished for its slot (PlayerBotWantsBonusChange: HasPlayerBotFinishedBonus,
+	// and the line score for a weapon without the damage addon, whose finish no
+	// change can roll). Up to PLAYERBOT_BONUS_STONES_PER_VISIT a call, the step
+	// asked again after each; true when a stone was spent. Nothing on a piece
+	// the engine refuses a green stone (a weapon or a body armour of level
+	// forty or less, from +4), nothing but a line on a piece a companion's
+	// owner put on, nothing while the bot's stall is open or it is transformed,
+	// and a worn piece comes off once and goes back on once, only while the
+	// engine would let it back on (IsPlayerBotEquipWindowShut). With no green
+	// stone, or nothing a stone would do, it returns false having touched
+	// nothing, so it is safe to call on every piece and every tick. The
+	// ordinary stones and the ordinary pass's piece (dwBonusFocusItem) are
+	// left alone.
+	bool ApplyPlayerBotGreenBonusToItem(LPCHARACTER ch, TPlayerBotAIState& state, LPITEM item, DWORD dwNow)
+	{
+		if (!ch || !item || !ch->IsItemLoaded() || ch->IsDead() || ch->GetMyShop() || IsPlayerBotGearFrozen(ch) ||
+				item->GetOwner() != ch || !CanPlayerBotTakeGreenBonusStone(item))
+			return false;
+		TPlayerBotBonusTarget target = { item, (BYTE)WEAR_WEAPON, (BYTE)PLAYERBOT_BONUS_TARGET_GOODS,
+				(BYTE)playerbot_bonus_rules::PLAIN_NONE };
+		if (item->IsEquipped())
+		{
+			const int wearCell = (int)item->GetCell() - (int)INVENTORY_MAX_NUM;
+			if (wearCell < 0 || wearCell >= WEAR_MAX_NUM || !IsPlayerBotWornItemSound(ch, item, wearCell) ||
+					IS_SET(item->GetFlag(), ITEM_FLAG_IRREMOVABLE) || IsPlayerBotEquipWindowShut(ch, state))
+				return false;
+			target.wearCell = (BYTE)wearCell;
+			target.kind = PLAYERBOT_BONUS_TARGET_WORN;
+		}
+		else
+		{
+			if (item->GetWindow() != INVENTORY || item->GetCell() >= PLAYERBOT_BAG_CELLS ||
+					ch->GetInventoryItem(item->GetCell()) != item)
+				return false;
+			// Finished by the measure of the slot it is for.
+			target.wearCell = item->GetType() == ITEM_WEAPON ? (BYTE)WEAR_WEAPON : (BYTE)WEAR_BODY;
+		}
+		int stoneCell = -1;
+		const EPlayerBotBonusStep step = GetPlayerBotBonusStep(ch, target, stoneCell, 0, true);
+		if (step == PLAYERBOT_BONUS_STEP_NONE)
+			return false;
+		const int linesBefore = item->GetAttributeCount();
+		const int used = ApplyPlayerBotBonusSteps(ch, target, step, stoneCell,
+				PLAYERBOT_BONUS_STONES_PER_VISIT, 0, true);
+		// Every stone has its own line above; this says whose call it was.
+		PlayerBotLogThrottled("bonus_green_item", dwNow,
+				"PLAYERBOT_BONUS: green on a named piece pid=%u name=%s vnum=%u id=%u worn=%d stones=%d lines=%d->%d",
+				ch->GetPlayerID(), ch->GetName(), item->GetVnum(), item->GetID(),
+				target.kind == PLAYERBOT_BONUS_TARGET_WORN ? 1 : 0, used, linesBefore, item->GetAttributeCount());
+		return used > 0;
+	}
+
+	// Patch 5, point 9: "Czesto przetrzymuja je w ekwipunku az do poznych faz
+	// gry i wysokich poziomow postaci." A bot past the green band - over forty
+	// and wearing neither a weapon nor an armour a green stone fits
+	// (playerbot_bonus_rules::PastGreenBand) - keeps none of them back from a
+	// counter. What goes up is what the engine lets a counter carry: 71151 and
+	// 71152. The level-20 chest's 76023 and 76024, the only green stones these
+	// worlds hand out, carry ITEM_ANTIFLAG_MYSHOP and ITEM_ANTIFLAG_GIVE, so no
+	// counter or trade takes them, and the merchant would pay nothing for them
+	// (shop_buy_price 0) - they stay for a piece of forty or less that passes
+	// through the bag: a level-30 weapon kept for sale
+	// (PLAYERBOT_BONUS_TARGET_GOODS) or a gambler's (ApplyPlayerBotGreenBonusToItem).
+	bool PlayerBotKeepsGreenBonusStones(LPCHARACTER ch)
+	{
+		if (!ch)
+			return true;
+		return !playerbot_bonus_rules::PastGreenBand((int)ch->GetLevel(), PLAYERBOT_GREEN_BONUS_MAX_LEVEL,
+				CanPlayerBotSpendGreenBonusStoneOn(ch->GetWear(WEAR_WEAPON)),
+				CanPlayerBotSpendGreenBonusStoneOn(ch->GetWear(WEAR_BODY)));
+	}
+
+	// What a bag keeps of a bonus stone kind back from a counter: the
+	// counter's keep and the cut asks it (playerbot_economy.h).
+	int GetPlayerBotBonusStoneKeep(LPCHARACTER ch, LPITEM item)
+	{
+		if (item && IsPlayerBotGreenBonusStone(item->GetVnum()) && !PlayerBotKeepsGreenBonusStones(ch))
+			return 0;
+		return PLAYERBOT_BONUS_STONE_KEEP;
 	}
 }
 

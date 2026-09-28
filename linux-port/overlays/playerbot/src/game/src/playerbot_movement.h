@@ -886,6 +886,40 @@ namespace
 		return true;
 	}
 
+	// A fight with a character is fought on foot, and the horse is sent away,
+	// not left to trot beside it. StopRiding summons the horse as a follower,
+	// so every duel a bot climbed down for had the horse standing between the
+	// two - and between a player's cursor and the bot, which is why players
+	// ask each other to put a pet or a horse away before a duel ("fajnie
+	// jakby sie udalo zrobic skrypt gdzie BOT odwoluje konia podczas
+	// trwajacego pojedynku", archonek, 27 September). The operator's rule for a war since 17 September, now
+	// for the duel and the Anti-PK fight too: every rider, a battle horse's
+	// included. The next long leg mounts again, since StartRiding does not
+	// need the horse summoned.
+	//
+	// The fight holds the saddle while it lasts. A challenge not yet taken up
+	// is refused blows and lets the tick go on, the travel mounted for its
+	// leg once the flip hold ran out and the duel climbed down again: every
+	// six seconds until the challenge gave up, a horse called and sent away
+	// each time (KuzynGMa on m2zip, 27 September).
+	void SendPlayerBotHorseAwayForFight(LPCHARACTER ch, TPlayerBotAIState& state,
+			DWORD dwNow, const char* reason)
+	{
+		if (!ch)
+			return;
+		const DWORD holdUntil = dwNow + PLAYERBOT_HORSE_TRAVEL_FLIP_HOLD_MS;
+		if (state.dwNextHorseRideCheckTime < holdUntil)
+			state.dwNextHorseRideCheckTime = holdUntil;
+		if (ch->IsRiding())
+			SetPlayerBotRidingForTravel(ch, state, false, dwNow, reason);
+		if (ch->IsRiding() || !ch->GetHorse())
+			return;
+		ch->HorseSummon(false);
+		sys_log(0, "PLAYERBOT_HORSE: sent away pid=%u name=%s map=%ld pos=(%ld,%ld) reason=%s",
+				ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), ch->GetX(), ch->GetY(),
+				reason ? reason : "?");
+	}
+
 	// Defined with the builds (playerbot_skills.h), which come later.
 	bool PlayerBotSkillsBeatTheSaddle(LPCHARACTER ch);
 
@@ -944,6 +978,11 @@ namespace
 		// moment and puts it back (ManagePlayerBotCombatBuffs).
 		if (target && target->IsStone())
 			return HasPlayerBotBattleHorse(ch) && !IsPlayerBotSidekickPID(ch->GetPlayerID());
+		// A character - a player or another bot - is fought on foot
+		// (SendPlayerBotHorseAwayForFight), so nothing that asks about the foe
+		// in hand puts the bot back in the saddle in the middle of a duel.
+		if (target && target->IsPC())
+			return false;
 
 		if (!CanPlayerBotEverFightOnHorse(ch))
 			return false;

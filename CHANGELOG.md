@@ -17,6 +17,492 @@ every version here.
 
 ---
 
+## 2.2.33 — 2026-09-28
+
+Serwer 2.2.33 i klient 2.0.47: zaktualizuj oba („AKTUALIZUJ wszystko”
+w launcherze). Na VPS: `sh linux-port/tools/update.sh`. Community Patch 5 od
+Iwakury (czterech rzadkich Hazardzistów, nowe ceny, boty nie walczą bronią
+na 1–10 poziom), Dom Towarowy u Handlarki Różności w M1, Peleryna Męstwa
+przyciągająca cały ekran, Maks. PŻ do 2000 i działające odporności na
+żywioły, Seon-Pyeong przekuwający przedmioty z 65 poziomu na 80, wojny
+gildii z rundami do ostatniego, okrzyki botów na całym serwerze, Wieża
+Demonów bez walki między botami i z wejściem solo, a Towarzysz grający, gdy
+Cię nie ma. Dom Towarowy, życie celu na pasku, pełny nick właściciela
+sklepu, przełączniki Towarzysza i większe przyciski przy ekwipunku działają
+dopiero z nowym klientem, reszta już po aktualizacji serwera. Zawiera
+wszystko z 2.2.30.
+
+Ta wersja przenosi na naszą 2.2.30 wersje 2.2.30, 2.2.31 i 2.2.32 projektu
+źródłowego (serwer) i jego klienty 2.0.44, 2.0.45 i 2.0.46, wzięte z jego
+paczek aktualizacji. Zostaje wszystko, co dodaliśmy wcześniej: okno zmiany
+bonusów pod klawiszem U, wierzchowce z pieczęci w ItemShopie, hostowanie
+w COOP bez hasła, serwer na VPS i linki do naszego repozytorium.
+
+### Community Patch 5 od Iwakury: czterech Hazardzistów
+
+- **Hazardzista zastąpiony czterema rzadkimi osobowościami (punkt 1).**
+  Zwykły Hazardzista znika. W jego miejsce są cztery rzadkie osobowości
+  wyświetlane na fioletowo: Młodszy, Starszy, Naczelny i Szalony
+  Hazardzista. Losują się tylko wśród najbogatszych postaci (odpowiednio
+  60%, 40%, 25% i 15% najbogatszych w Yang), jeden bot na 250, 300, 350 i
+  1000 spełniających warunek, a potem długo nie pojawia się kolejny (4, 6, 8
+  i 16 godzin). Hazardzista wydaje na zakupy i ulepszanie najwyżej 80%, 70%,
+  60% albo 90% swojego Yang. Ulepsza kategorię przedmiotów, których ma w
+  plecaku najwięcej (bronie od 30 poziomu, zbroje od 26, tarcze i hełmy od
+  21, biżuterię z listy Iwakury); Szalony ulepsza wszystko naraz. Gdy nie ma
+  nic do ulepszania, kupuje na rynku od 1 do 6 przedmiotów od +0 do +5.
+  Każdy przedmiot celuje w +7 (70%), +8 albo +9 (po 15%), a ulepszenia na
+  +7, +8 i +9 robi ze Zwojem Błogosławieństwa, jeśli go ma. Lepszy sprzęt
+  zakłada, a resztę razem ze zdjętymi przedmiotami wystawia w swoim sklepie
+  offline.
+- Razem ze zwykłym Hazardzistą znika jego zapas: boty nie odkładają już do
+  magazynu przedmiotów z Listy Przydatnych Przedmiotów, a to, co tam leży,
+  stopniowo wystawiają na rynek albo sprzedają.
+- **Biżuteria z listy częściej (punkt 7).** 68% botów dobiera biżuterię i
+  buty z listy Iwakury (było 38%).
+- **Metinolog nie chodzi do Lochów Pająków (punkt 8).** Metinolog nie trafia
+  już na V1 ani V2, gdzie nie ma kamieni Metin, także przez misję Biologa
+  albo próbę konia wojskowego. Poluje wtedy na Sohanie.
+- **Egzekutor rzadziej (punkt 12).** Jeden na 400 spełniających warunki,
+  kolejny najwcześniej po 5 godzinach.
+
+### Nowe ceny i mnożniki (Community Patch 5 od Iwakury)
+
+- Nowe ceny sześciu broni z 30 poziomu: Miecz Pełni Księżyca (od 1 073 000
+  za +0–+3 do 12 025 000 za +9), Ostrze z Czerw. Stali (od 1 036 000 do
+  9 823 500), Kozik Czar. Liś. (od 529 100 do 8 621 000), Łuk z Rogu Jelenia
+  (od 684 500 do 9 287 000), Antyczny Dzwon (od 625 300 do 8 417 500) i
+  Wachlarz Jes. Wiatru (od 444 000 do 7 622 000).
+- Marmury Polimorfii: wyjątki (Fanatycy, pająki, Dziki Sługa, Ogr Wojownik,
+  Wojownik z Toporem, Tysięczny Wojownik) kosztują tyle, ile w nowym
+  cenniku, pozostałe dalej losowo od 113 750 do 148 750. Boty wystawiają
+  marmur dokładnie po cenie z cennika – dotąd ceny marmurów różnych potworów
+  mieszały się na rynku.
+- Wędki od +7 do +19 kosztują u botów tyle, ile w cenniku (+10 – 7 000 000,
+  od +11 do +19 – 10 000 000), a nie tyle co zwykły sprzęt +7, +8 i +9. Zwój
+  Błogosławieństwa bez zmian: 375 000.
+- Inflacja rośnie jak procent składany: każde 2,5 mld Yang na świecie mnoży
+  ceny razy 1,05 (przy 5 mld to ×1,1025, przy 7,5 mld ×1,1576), zamiast
+  dodawać po 5%.
+- Przedmiot z kilkoma maksymalnymi bonusami jest dodatkowo droższy: dwa
+  maksymalne bonusy ×1,7, trzy ×2,5, cztery i więcej ×4,0. Średnie obrażenia
+  od 40% zawsze liczą się jako maksymalny bonus.
+- Mnożniki dla bonusów z tabeli 2.2.31 projektu źródłowego, które zostały
+  na przedmiotach na światach, które ją miały
+  (pierwsza liczba za wartość maksymalną, druga za każdą inną): odporność na
+  błyskawice 1,4 / 1,1, na wiatr 1,6 / 1,2 i na ogień 1,9 / 1,5 (do 15%),
+  regeneracja PŻ 1,5 / 1,2 i PE 1,1 / 1,0 (do 30%), szansa na bonus
+  doświadczenia 1,8 / 1,3 i szansa na podwójną ilość przedmiotów 1,4 / 1,1
+  (do 20%; w patchu opisana jako „podwójna ilość Yang”).
+- Sklepy botów przeliczą ceny same, stopniowo, w ciągu kilku godzin.
+
+### Ludzka pomyłka w cenie: boty jej nie kupią, a po 4 godzinach znika (Community Patch 5 od Iwakury)
+
+- Raz na tysiąc wystawień bot „myli się” i dopisuje do ceny jedno zero.
+  Dotyczy to już tylko pojedynczej księgi (także Sztuki Combo i Przywództwa)
+  albo pojedynczego ulepszacza — wcześniej zdarzało się też przy kilku
+  księgach naraz i przy zwojach. Pomyłka może trafić się również przy
+  otwieraniu nowego sklepu, nie tylko przy dokładaniu towaru.
+- Boty mają bezwzględny zakaz kupowania przedmiotów z taką pomyłką, bez
+  względu na budżet. Gracz może je kupić, jeśli chce.
+- Przedmiot z pomyłką stoi w sklepie najwyżej 4 godziny: bot przychodzi do
+  sklepu i sam poprawia cenę na normalną. Jeśli bota nie ma w grze albo jest
+  czymś zajęty (lochy, drużyna gracza, Wieża Demonów), cenę poprawia serwer.
+- Boty nie liczą takich przedmiotów jako towaru na rynku, więc nie chodzą po
+  nie na targ.
+
+### Boty od 30 poziomu nie walczą bronią na 1–10 poziom (Community Patch 5 od Iwakury)
+
+- Bot od 30 poziomu nie zakłada, nie kupuje, nie ulepsza i nie trzyma jako
+  zapasowej broni na poziom 1–10, np. Miecza +6. Dotąd po spaleniu broni
+  zakładał pierwszą broń z plecaka albo kupował najtańszy miecz i przy nim
+  zostawał, bo Miecz +6 bije mocniej niż broń na 30 poziom +0.
+- Po spaleniu broni zakłada najlepszą broń z plecaka (np. broń na 30 poziom
+  +0, którą potem ulepsza). Jeśli takiej nie ma, przed powrotem do walki
+  kupuje na rynku albo u Handlarza Bronią najlepszą broń na swój poziom, na
+  jaką go stać (u handlarza zwykle na 25 albo 36 poziom).
+- Żeby bot nie stał bez broni: jeśli nie ma lepszej broni, a nie stać go na
+  najtańszą u handlarza (albo nie ma na nią miejsca w plecaku), walczy tym,
+  co ma, dopóki nie uzbiera.
+
+### Zwoje Błogosławieństwa także w trakcie walki (Community Patch 5 od Iwakury)
+
+- Bot z co najmniej 3 Zwojami Błogosławieństwa i bronią od 30 poziomu
+  poniżej +7 na chwilę przerywa walkę (najwyżej 5 sekund i tylko wtedy, gdy
+  ma co najmniej połowę życia), ulepsza broń pod zwojami do +7 i wraca do
+  walki. Dotąd czekał na chwilę bez walki, której bot na zatłoczonej mapie
+  nie miał, albo na wizytę u kowala raz na 40 minut i rzadziej. Stąd sura na
+  70 poziomie z 37 zwojami i bronią +5.
+- Nie przerywa walki w drużynie z graczem, przy lurowaniu i przy Metinie.
+- Gdy broń ma +8 lub więcej, ta sama zasada obejmuje noszoną zbroję (od
+  zbroi na 34 poziom): pod zwojami do +7, nigdy na zwykłym kowadle.
+- Brakujące ulepszacze do broni i zbroi bot kupuje najpierw na rynku. Dopóki
+  ma co tak ulepszać, nie wystawia zwojów na sprzedaż, Hazardzista ich nie
+  bierze, a budżet Perfekcjonisty go nie zatrzymuje.
+
+### Kamienie bonusów trafiają na cały ekwipunek (Community Patch 5 od Iwakury)
+
+- Bot z wybonowanym naszyjnikiem, butami i bransoletą nie trzyma już dodań
+  (Wzmocnienie Przedmiotu) i zmianek (Zaczarowanie Przedmiotu) w torbie:
+  przechodzi z nimi na resztę tego, co nosi, czyli zbroję, hełm, tarczę,
+  kolczyki i broń od 45 poziomu. Najpierw idą na przedmioty dopuszczone
+  zasadami z Patcha 4, a gdy te niczego nie potrzebują, na kolejne od +4, aż
+  każdy ma cztery bonusy i dobre wartości. Dopiero wtedy kamienie zostają w
+  torbie.
+- Nadal żadnego kamienia na przedmiot od +0 do +3 i żadnego zwykłego
+  kamienia na słabą broń poniżej 45 poziomu (np. Srebrny Miecz), jak w
+  Patchu 4.
+- Bot zdejmuje bonowany przedmiot raz na kilka kamieni, a nie przy każdym.
+- Towarzysz nie wydaje kamieni na przedmiot z torby, którego i tak nie
+  założy, bo w tym miejscu nosi rzecz założoną przez właściciela.
+
+### Zielony Czar i Zielona Siła (Community Patch 5 od Iwakury)
+
+- Boty od razu używają Zielonej Siły i Zielonego Czaru ze skrzynki z 20
+  poziomu: najpierw na zbroi, potem na broni, jeśli przedmiot ma co najwyżej
+  40 poziom i co najmniej +4. Nie czekają już na bonusy w naszyjniku, butach
+  i bransolecie ani na +7.
+- Zielony Czar miesza wszystkie bonusy przedmiotu, także dodane zwykłym
+  Wzmocnieniem, i nie czeka na czwarty bonus, gdy nie ma go czym dodać.
+- Hazardziści bonują Zieloną Siłą i Czarem świeżo ulepszone przedmioty do 40
+  poziomu przed wystawieniem ich w sklepie offline.
+- Bot, który wyrósł z przedmiotów do 40 poziomu, nie trzyma już zielonych
+  kamieni, które da się wystawić w sklepie. Tych ze skrzynki gra nie pozwala
+  sprzedać, więc idą na broń 30 poziomu przeznaczoną na sprzedaż i na
+  przedmioty Hazardzistów.
+
+### Dom Towarowy (Uxìĕ [DSO])
+
+- U Handlarki Różności w M1 jest nowa rozmowa „Dom Towarowy”: jedno okno ze
+  wszystkimi ofertami sklepów offline graczy i botów. Można szukać po nazwie
+  (także po nazwie umiejętności w księgach), wybierać kategorię z listy po
+  lewej, ustawić cenę od–do i jeden z pięciu sposobów sortowania. Kupuje się
+  bez podchodzenia do sklepu, stos w całości. Zwykły sklep Handlarki otwiera
+  rozmowa „Kup przedmioty”.
+- Przy wystawianiu przedmiotu we własnym sklepie offline pod ceną widać, za
+  ile wystawiłby go bot i ile boty ostatnio za niego płaciły.
+- Dom Towarowy włącza się i wyłącza w oknie poziomu trudności w launcherze
+  (domyślnie jest włączony). Wyłączony albo poza M1: Handlarka od razu
+  otwiera swój sklep, jak dotąd.
+- Działa od klienta 2.0.47.
+
+### Peleryna Męstwa przyciąga cały ekran (Uxìĕ [DSO])
+
+- Peleryna Męstwa przyciąga wszystkie potwory widoczne na ekranie, od
+  najbliższych, najwyżej 80, także te, które idą, i te za przeszkodą.
+  Wcześniej brała losowo 70% stojących potworów w promieniu mniej więcej o
+  połowę mniejszym, i to tylko te z wolną drogą do gracza.
+- Jak dotąd nie zabiera potworów, które walczą już z kimś innym (na przykład
+  z botem), i nie ściąga bossów.
+
+### Maks. PŻ do 2000, odporności na żywioły działają (zgłosił sosen)
+
+- Maks. PŻ losuje się w wartościach 500, 1000, 1500 i 2000 (było do 1500).
+  Reszta tabeli bonusów zostaje taka jak w paczce serwera.
+- Projekt źródłowy w swojej 2.2.31 przeszedł na tabelę bonusów z serwera
+  globalnego, a w 2.2.32 wrócił do tej z paczki. U nas oba kroki wykonują
+  się przy pierwszym starcie jeden po drugim, więc świat od razu ma tabelę
+  z paczki z Maks. PŻ do 2000. Przedmioty zachowują bonusy, które już mają.
+- Odporności na żywioły działają: zmniejszają obrażenia od potworów z danym
+  żywiołem, jak w oryginalnej grze (15% odporności to około 4,5% mniej
+  obrażeń). Potwory dostały żywioły z oryginalnych danych, na przykład
+  błyskawicę Setaou i Dowódca Yonghan z Groty, Niszczyciel i Ogr, a wiatr
+  Fanatycy, Żabi Żołnierze, Królowa Pająków i Olbrzymi Żółw.
+- Bonus szansy na podwójną ilość przedmiotów, tam gdzie przedmiot go ma,
+  podnosi szansę dropu, tak jak inne takie bonusy (20% to o 20% częściej).
+  Dotąd serwer go nie czytał.
+- W kliencie 2.0.47 na pomarańczowo świecą się maksymalne wartości z tej
+  tabeli.
+
+### Wojny gildii: runda do ostatniego (zgłosił DUDU)
+
+- Bot, który padnie w rundzie, wstaje w swoim obozie i czeka tam na następną
+  rundę. Runda kończy się, gdy padnie cała jedna strona. Dotąd polegli od
+  razu wracali do walki i runda potrafiła trwać kwadrans.
+- Gdy ostatni z obu stron padną jednocześnie, runda kończy się remisem i
+  wszyscy wracają do walki.
+- Limity członków to nie błąd: gildia elitarna ma najwyżej 24 członków,
+  silna 40, pozostałe tylu, na ilu pozwala poziom gildii (na przykład 52).
+  Na wojnę i tak każda strona wystawia tyle samo botów.
+
+### Długość i częstotliwość wojen gildii (zaproponował DUDU)
+
+- W panelu klasycznym, na stronie AI przy wojnach gildii, można wybrać
+  długość wojny botów (15 albo 30 minut) i jak często jest wojna w każdym
+  królestwie (co 1, 2, 3 albo 4 godziny). Domyślnie jak dotąd: 30 minut co 2
+  godziny.
+- Przy 15 minutach wojna botów kończy się wcześniej, a wygrywa gildia z
+  większą liczbą punktów (przy równej liczbie jest remis). Wojna gildii
+  gracza z botami zawsze trwa pełne 30 minut.
+
+### Okrzyki botów na całym serwerze (zgłosił blipu)
+
+- Okrzyki botów (reklama sklepu, ogłoszenia w mieście) docierają do graczy
+  na wszystkich mapach, tak jak okrzyk gracza. Dotąd znajomi w COOP nie
+  widzieli ich, jeśli byli na mapie innego rdzenia niż bot.
+- Jak w oryginalnej grze, gracz widzi okrzyki tylko swojego królestwa, a GM
+  (na przykład host w COOP) widzi wszystkie.
+
+### Logi VPS także dla serwera postawionego ręcznie (zgłosił Kordyl13)
+
+- Przycisk „Logi VPS” w oknie SERWER NA VPS działa także z serwerem, którego
+  nie instalował launcher (postawionym ręcznie z pełnej paczki albo starym
+  instalatorem linii 1.x). Launcher sam znajduje kontener gry, pokazuje logi
+  gry, migratora i bazy danych, a jeśli serwer 2.x stoi w innym folderze,
+  podpowiada, co wpisać w polu „Folder na VPS”. Dotąd kończyło się to błędem
+  „cannot open /opt/metin2/linux-port/tools/vps-install.sh”.
+- Na końcu logów widać układ świata (split albo unified) i liczbę botów
+  uruchomionych na każdym rdzeniu.
+
+### Poprawki z audytu Iwakury
+
+- Bot łowiący ryby odpowiada na atak gracza: przerywa łowienie i walczy, tak
+  jak górnik. Dotąd dało się go zabić bez żadnej reakcji.
+- Metinolog i inne boty polujące na kamienie nie wystawiają już swojego
+  wykrywacza Metinów w sklepie.
+- Bot nie kupi już z rynku przedmiotu, którego potem nie założy: przedmiot o
+  ulepszenie wyższy z cennym bonusem (np. 1000 PŻ) musi też być po prostu
+  lepszy od noszonego. Wcześniej taki zakup zostawał w plecaku i mógł wrócić
+  na ladę.
+- Nowy sklep bota od razu liczy się do limitów rynku (broni-śmieci, słabych
+  zbroi i biżuterii oraz Ksiąg Misji na wioskę), a nie dopiero po minucie,
+  więc kilka botów otwierających sklepy naraz nie przekroczy limitu.
+- Bot z bronią od handlarza na +4 kupuje u Handlarza Bronią drugą taką samą
+  (albo najlepszą broń, jaką handlarz ma dla niego) jako zapasową i dopiero
+  wtedy ulepsza broń z ręki dalej u zwykłego kowala, o ile po zakupie stać
+  go jeszcze na ulepszenie. Dotąd broń do 18 poziomu, na którą nie idą
+  zwoje, zostawała na +4 na zawsze.
+- Bot u kowala pamięta, który przedmiot zdjął do ulepszania. Dotąd lepsza
+  broń zapasowa z plecaka mogła zabrać zwój przeznaczony dla broni z ręki.
+
+
+### Seon-Pyeong ulepsza przedmioty z 65 poziomu (zaproponował NerrVoVy)
+
+- Seon-Pyeong przy wejściu do Groty Wygnańców w Dolinie Orków ma rozmowę
+  „Wytwarzanie Ekwipunku”, która otwiera okno wytwarzania.
+- Broń +9 z 65 poziomu albo zbroja +9 z 66 poziomu, Broszura Szermierki, po
+  2 Białe, Niebieskie i Krwawe Perły oraz 2 000 000 Yang dają jej następcę z
+  80 poziomu (+0), zawsze z powodzeniem: Miecz Trytona, Brzegowe Ostrze,
+  Święty Miecz, Bezduszny Nóż, Olbrzymi Łuk Diabła, Dzwon Szczęki Smoka,
+  Wachlarz Demona, Zbroja z Niebiańskiej Stali, Ubranie Niebiańskiego Smoka,
+  Zbroja Płytowa Aury i Szata Smoka.
+- Bonusy i kamienie duszy oddanego przedmiotu przepadają.
+- Broszura Szermierki wypada w Grocie: z Lodowej Wiedźmy co drugi raz,
+  rzadko z potworów Setaou.
+
+### Boty odwołują konia w PvP (zaproponował archonek)
+
+- W pojedynku i w walce z kimś, kto zaatakował bota, bot zsiada z konia
+  (także bojowego) i odwołuje go, żeby koń nie stał między walczącymi. Nie
+  wsiada ponownie, dopóki walka trwa. Na wojnach gildii boty robiły tak już
+  wcześniej.
+
+### Status bota przy misji Biologa (zgłosił prodnathin)
+
+- Gdy bot oddał już okazy, a misja czeka na kamień duszy, nad botem i w
+  panelu widać „Probuje wydropic dla Biologa: Kamien Duszy Jinunggyi” (albo
+  inny kamień tej misji) zamiast „Zbieram dla Biologa: Zab Orka”. Kamień
+  wypada z potworów misji na każdym poziomie, dlatego bot na 80 poziomie może
+  bić w Dolinie Orków.
+
+### Życie celu na pasku (Kiciamol)
+
+- Pasek celu pokazuje życie liczbą (na przykład 1520/3000). W pojedynku, na
+  wojnie albo przy włączonym trybie PK widać też pasek i życie drugiego
+  gracza.
+- Działa od klienta 2.0.47.
+
+### Towarzysz: przedmioty i skrzynki (zgłosił xxkld.)
+
+- Przedmioty, których nie można oddać innemu graczowi (na przykład
+  Zaczarowanie i Wzmocnienie Przedmiotu ze Szkatułek), przechodzą między Tobą
+  a Towarzyszem w oknie jego torby, w obie strony. Handel z innymi graczami
+  dalej ich nie przyjmuje.
+- Nowy przełącznik „Skrzynki” w oknie Towarzysza (P), domyślnie włączony.
+  Wyłączony: Towarzysz nie otwiera skrzyń ani szkatułek, zostają w jego
+  torbie do wzięcia. W czacie: /towarzysz skrzynki 1 albo 0.
+- Przełącznik działa od klienta 2.0.47. Podpowiedź „do Twojego poziomu +30”
+  jest teraz w dymku przycisku „Gra beze mnie”.
+
+### Przycisk podglądu skrzynki nie zasłania podpisów (zgłosił NerrVoVy)
+
+- Przycisk podglądu skrzynki stoi pod naszyjnikiem, a jego podpis nie
+  wychodzi poza okno. Wcześniej zasłaniał podpis przycisku sklepu.
+- Działa od klienta 2.0.47.
+
+### Wszystkie boty z suwaka na dwóch kanałach (zgłosił NerrVoVy)
+
+- Na świecie, który gra z drugim kanałem od kilku tygodni, większość botów
+  przechodziła z czasem na kanał 2. Kanał 1 startował wtedy mniej botów, niż
+  mówił suwak, a boty dołączające później prawie wcale nie wchodziły. Teraz
+  to, czego kanał 1 nie może uruchomić, uruchamia kanał 2: na naszym świecie
+  testowym zamiast 940 botów z 1099 startuje całe 1000 i dropki, a z 400
+  dołączających później wchodzą wszystkie, a nie 78.
+- Okno LICZBA BOTÓW w launcherze GUI otwiera pola królestw na równym
+  podziale, gdy indywidualne wartości są wyłączone (wcześniej na zerach), i
+  ostrzega, gdy któreś królestwo nie dostałoby żadnego bota.
+- Na Linuksie (VPS) aktualizacja raz włącza trzy królestwa na świecie z
+  bardzo starej wersji, tak jak od dawna robi to launcher na Windows.
+
+### Launcher: zajęty port serwera (zgłosił Producent Hip Hopu)
+
+- Gdy port serwera zajmuje inny program (na przykład własny MySQL na
+  3306), launcher mówi, który port, który program i który wiersz pliku .env
+  zmienić, zamiast podawać port panelu 7788.
+- Przed aktualizacją i przed budową serwera launcher sprawdza porty i
+  przerywa, zanim cokolwiek pobierze albo podmieni.
+
+
+### Wieża Demonów: powrót do drużyny po śmierci (zgłosił prodnathin)
+
+- Bot, który padnie na piętrze, wstaje niewidzialny i idzie do reszty
+  drużyny, a gdy nikt nie stoi, na punkt startowy piętra. Po drodze się
+  leczy i pije mikstury, a walczy dopiero przy drużynie. Dotąd odchodził
+  tysiąc jednostek w przypadkową stronę i ściągał na siebie kolejne grupy,
+  najbardziej na 8. piętrze, gdzie grupy odnawiają się co minutę.
+- To samo robi bot, który przy 20% życia wycofuje się z walki.
+- W Wieży boty piją mikstury wcześniej, jak na wojnie gildii: czerwone
+  poniżej 85% życia, niebieskie poniżej 50% many. Włączają też eliksiry i
+  wzmacniacze.
+
+### Wieża Demonów: bez przestojów przy mobach z Metina (zgłosił prodnathin)
+
+- Bot, który zostawiał kamień, żeby bić potwory obok, dostawał okno
+  zbierania łupu jak po zbiciu Metina i przez chwilę biegł po drop albo
+  stał. W Wieży nie ma już biegu po łup z Metina, a drop boty zbierają
+  między walkami.
+- Lista potworów na piętrze odświeża się co 0,4 s zamiast co 1,5 s i pomija
+  martwe, więc bot nie dostaje za cel trupa, którego przed chwilą zabił.
+- Przy Metinie Mordu każdy bot bierze jednego z kilku potworów najbliżej
+  siebie, mniej więcej dwa boty na potwora, zamiast wszystkie tego samego.
+
+### Wieża Demonów: wszystkie królestwa, bez walki między botami
+
+- Boty z innych królestw znów wchodzą do Wieży razem z rajdem. Od 2.2.21
+  były z niej wyrzucane, więc rajdy były o połowę mniejsze i nie
+  przechodziły 8. piętra.
+- Dwa boty nie mogą się ranić na mapach Wieży, na parterze i na piętrach,
+  także ciosami obszarowymi, i nie biorą się nawzajem na cel. Gracze walczą
+  jak dotąd.
+
+### Wieża Demonów: wejście bez gildii i solo (zaproponował Remigiusz)
+
+- Strażnik Wieży pyta mistrza gildii: „Wejdz z gildia” albo „Wejdz bez
+  gildii”. Bez gildii boty z jego gildii nie są wzywane na parter, a te,
+  które już tam stały, wracają do siebie. Parter zostaje wspólny: kto stoi
+  na nim, gdy pada kamień, wchodzi razem z graczem, jak dotąd.
+- Każdy gracz może też wybrać „Wejdz solo (tylko ty)”: własną Wieżę, w
+  której jest tylko on. Zaczyna od razu na pierwszym piętrze, bez parteru i
+  bez Metina Twardości; boty ani inni gracze tam nie wejdą. Limit wejść
+  liczy się jak przy zwykłym wejściu.
+
+### Boty podnoszą książki z metinów bitych przez wiele postaci (zgłosił sosen)
+
+- Łup z metina serwer dzieli między wszystkich, którzy zadali mu co
+  najmniej 10% obrażeń, i przez pierwsze 30 sekund tylko właściciel może
+  podnieść swoją część. Okno na zebranie łupu dostawał dotąd tylko bot,
+  który celował w kamień. Czwarty i kolejny bot bił potwory obok, trafiał
+  kamień ciosami obszarowymi i dostawał swoją część, często książkę, ale
+  bił dalej, a po 30 sekundach książkę brał ktoś inny.
+- Teraz każdy bot, który trafił kamień, po jego zniszczeniu idzie po swój
+  łup przed innymi zajęciami, a wizyta w sklepie offline czeka, aż skończy.
+- Na naszym świecie testowym książek podniesionych dopiero po 30 sekundach
+  było 5,2% (30 z 574) przed zmianą i 1,5% (6 z 405) w trzech godzinach po
+  niej.
+
+### Auto Łowy: zbieranie po walce (Colide, zgłosił teivos)
+
+- Postać najpierw bije cel albo grupkę, a gdy wszystko padnie, zbiera cały
+  drop i dopiero potem bierze następny cel. Dotąd ninja potrafiła zostawiać
+  przedmioty.
+- Przedmiot, którego nie da się podnieść, na przykład przy pełnym
+  ekwipunku, postać próbuje wziąć trzy razy, a potem pomija go na 30 sekund
+  i wraca do walki.
+- Łucznik zaczyna strzelać w chwili zaznaczenia celu, a umiejętności
+  obszarowe (Deszcz Strzał, Ryk Smoka i podobne) idą tylko przy żywym celu,
+  więc postać nie zawiesza się między grupkami. Wzmocnienia gildii idą jak
+  dotąd także między walkami.
+- Cel, którego klient jeszcze nie pokazał, nie jest od razu porzucany, a
+  po zwykłym wzmocnieniu (buff, ukrycie ninji) postać nie stoi już 1,3
+  sekundy.
+- Działa od klienta 2.0.47.
+
+### Towarzysz może grać, gdy Cię nie ma (zaproponował Burdavsky)
+
+- W oknie Towarzysza (klawisz P) jest nowy przełącznik „Gra beze mnie”.
+  Domyślnie jest wyłączony: Towarzysz wychodzi z gry razem z Tobą, jak
+  dotąd.
+- Włączony: kiedy wyjdziesz z gry, Towarzysz zostaje i gra dalej jak
+  zwykły bot. Zdobywa doświadczenie najwyżej do Twojego poziomu +30 (to
+  granica różnicy poziomów w drużynie), więc zawsze możecie znowu expić
+  razem.
+- Kiedy wrócisz do gry, Towarzysz kończy to, co robił, i staje przy Tobie.
+  Po restarcie serwera wraca do gry razem z Tobą.
+- To samo polecenie w czacie: /towarzysz sam 1 (włącz) albo /towarzysz sam
+  0 (wyłącz).
+- Przełącznik w oknie działa od klienta 2.0.47.
+
+### Pełny nick właściciela w oknie sklepu offline (zgłosił Mkls)
+
+- Okno sklepu offline pokazywało nick właściciela ucięty do 14 znaków
+  („Sklep Gracza ZepsutaSpacjaP” zamiast „ZepsutaSpacjaPL”), a przycisk
+  szeptu z tego okna pisał do nieistniejącej postaci. Dotyczyło to mniej
+  więcej co ósmego bota.
+- Teraz okno pokazuje pełny nick i szepcze do właściwej postaci (od klienta
+  2.0.47). Pełny nick widać też w wynikach wyszukiwarki przedmiotów, od razu
+  po aktualizacji serwera.
+
+### Większe przyciski przy ekwipunku (zgłosił Tyrion)
+
+- Przyciski juków konnych, depozytu i sklepu pod wyposażeniem oraz przycisk
+  podglądu skrzynki są większe: 21 zamiast 15 pikseli, tyle co przycisk
+  sortowania. Przycisk podglądu skrzynki stoi teraz nad pozostałymi.
+- Działa od klienta 2.0.47.
+
+### Towarzysz pojawia się po przywołaniu (zgłosił bruce_willis)
+
+- Towarzysz zapisany na mapie, którą obsługuje inna część serwera niż ta,
+  na której stoi właściciel (na przykład w wiosce Jinno, gdy właściciel
+  poluje na pustyni), nie mógł wejść do gry, a serwer próbował co 10 sekund
+  bez końca. Teraz taki Towarzysz pojawia się od razu obok właściciela.
+
+### Paczka logów z trzech ostatnich dni
+
+- Paczka diagnostyczna z launchera zawiera dzienniki launchera z trzech
+  ostatnich dni i listę wolumenów Dockera z datą utworzenia. Dotąd brała
+  pięć najnowszych plików, więc dziennik z poprzedniego dnia potrafił z niej
+  wypaść.
+
+### Szansa na ulepszenie nie zasłania ulepszaczy (zgłosił Piciu713)
+
+- Okno ulepszania jest o linijkę wyższe, gdy pokazuje szansę, więc napis
+  nie nachodzi już na ostatni ulepszacz.
+- Działa od klienta 2.0.47.
+
+### Klient 2.0.47
+
+- Dom Towarowy u Handlarki Różności w M1 i podpowiedź ceny przy wystawianiu
+  przedmiotu we własnym sklepie offline.
+- Życie celu liczbą na pasku, także gracza w pojedynku, na wojnie i w PK.
+- Pełny nick właściciela w oknie sklepu offline i w wyszukiwarce.
+- Przełączniki „Gra beze mnie” i „Skrzynki” w oknie Towarzysza (P).
+- Większe przyciski przy ekwipunku, przycisk podglądu skrzynki nad nimi.
+- Okno ulepszania o linijkę wyższe, gdy pokazuje szansę.
+- Maksymalne wartości bonusów świecą się na pomarańczowo.
+- Auto Łowy zbierają cały drop po walce.
+
+### Testy
+
+- Nowe testy `tests/playerbot_price_rules_test.cpp`,
+  `tests/playerbot_bonus_rules_test.cpp` i
+  `tests/playerbot_refine_rules_test.cpp` (ceny, kamienie bonusów, broń od
+  30 poziomu i zwoje w walce - projekt źródłowy wydał te pliki bez testów).
+  Test osobowości zna czterech Hazardzistów, testy Auto Łowów sprawdzają
+  zbieranie dropu po walce, a testy launchera Dom Towarowy i sprawdzanie
+  portów przed aktualizacją.
+
+---
+
 ## 2.2.30 — 2026-09-27
 
 Serwer 2.2.30 i klient 2.0.44: zaktualizuj oba („AKTUALIZUJ wszystko”

@@ -237,10 +237,11 @@ namespace
 		if (weapon->GetAttributeCount() < PLAYERBOT_BONUS_MAX_LINES ||
 				weapon->GetRefineLevel() < PLAYERBOT_BONUS_CHANGE_MIN_REFINE)
 			return false;
-		if (HasPlayerBotFinishedBonus(ch, weapon, WEAR_WEAPON))
-			return false;
-		if (ScorePlayerBotItemBonuses(ch, weapon, WEAR_WEAPON) >= PLAYERBOT_BONUS_KEEP_SCORE &&
-				!IsPlayerBotSpecialLevel30WeaponVnum(weapon->GetVnum()))
+		// Whether an ordinary change would still move it towards its finish,
+		// asked the way the pass asks it (PlayerBotWantsBonusChange).
+		const TPlayerBotBonusTarget target = { weapon, (BYTE)WEAR_WEAPON, (BYTE)PLAYERBOT_BONUS_TARGET_WORN,
+				(BYTE)playerbot_bonus_rules::PLAIN_CATEGORY };
+		if (!PlayerBotWantsBonusChange(ch, target, false))
 			return false;
 		return !HasPlayerBotBonusStone(ch, PLAYERBOT_BONUS_CHANGE_VNUM);
 	}

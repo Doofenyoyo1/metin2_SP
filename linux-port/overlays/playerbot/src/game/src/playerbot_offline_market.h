@@ -187,6 +187,7 @@ namespace {
     // written for.
     bool FindPlayerBotGambleMaterialPick(LPCHARACTER ch, TPlayerBotAIState& state,
             const std::map<DWORD, int>& missing, long long cap, DWORD now);
+    bool FindPlayerBotRareGamblerBasePick(LPCHARACTER ch, TPlayerBotAIState& state, long long cap, DWORD now);
 
     bool ManagePlayerBotOfflineShopping(LPCHARACTER ch, TPlayerBotAIState& state, DWORD now) {
         using namespace playerbot_offline;
@@ -227,19 +228,29 @@ namespace {
             o.nextBrowse = now + number(120000, 240000);
             const long long budget = Affordable(ch->GetGold(), GetPlayerBotReservedGold(ch), PLAYERBOT_SHOPPING_GOLD_FLOOR);
             if (budget <= 0) return false;
-            // What the weapon under Iwakura's scroll rule lacks for its next
-            // step is looked for on every stand of the map, the gambler's way,
-            // before the browse of sixty-four lines: a first village holds
-            // some ten thousand of them, and the rule's bots come in from the
-            // frontier for a service visit of a minute or two.
+            // What the piece under Iwakura's scroll rule lacks for its next
+            // step - the weapon, or the armour once the weapon is at +8 - is
+            // looked for on every stand of the map, the gambler's way, before
+            // the browse of sixty-four lines: a first village holds some ten
+            // thousand of them, and the rule's bots come in from the frontier
+            // for a service visit of a minute or two.
             {
                 std::map<DWORD, int> missing;
                 CollectPlayerBotScrollRuleMissing(ch, missing);
                 if (!missing.empty() && FindPlayerBotGambleMaterialPick(ch, state, missing, budget, now)) {
-                    sys_log(0, "PLAYERBOT_MARKET: scroll-rule weapon goes for materials pid=%u name=%s owner=%u item=%u lacking=%u",
+                    sys_log(0, "PLAYERBOT_MARKET: scroll-rule piece goes for materials pid=%u name=%s owner=%u item=%u lacking=%u",
                         ch->GetPlayerID(), ch->GetName(), o.buyOwner, o.buyItem, (unsigned int)missing.size());
                     return RunPlayerBotOfflinePick(ch, state, now);
                 }
+            }
+            // And one of Community Patch 5's four gamblers buying its bases
+            // looks on every stand of the map for one of its category.
+            if (FindPlayerBotRareGamblerBasePick(ch, state, budget, now)) {
+                sys_log(0, "PLAYERBOT_MARKET: gambler goes for a base pid=%u name=%s owner=%u item=%u category=%u bought=%u/%u",
+                    ch->GetPlayerID(), ch->GetName(), o.buyOwner, o.buyItem,
+                    (unsigned int)state.persona.bGambleBuyCategory, (unsigned int)state.persona.bRareBought,
+                    (unsigned int)state.persona.bRareBuyWant);
+                return RunPlayerBotOfflinePick(ch, state, now);
             }
             std::vector<std::pair<int, NativeShop> > shops;
             // Every stand is on the shop channel. With the assignment table a
@@ -459,6 +470,66 @@ namespace {
         return true;
     }
 
+    // One of Community Patch 5's four gamblers buying its bases
+    // (IsPlayerBotRareGamblerBuying): the cheapest line of its category on a
+    // stand of its map it can walk to, the higher level first for the share
+    // that wants weapons over thirty, that the buyer would take on arrival -
+    // the purchase's own tests - for no more than `cap`. The browse reads
+    // sixty-four lines a look, and a first village holds some ten thousand:
+    // a gambler with three hours would have spent most of them looking.
+    bool FindPlayerBotRareGamblerBasePick(LPCHARACTER ch, TPlayerBotAIState& state, long long cap, DWORD now) {
+        using namespace playerbot_offline;
+        if (!ch || cap <= 0 || !IsPlayerBotRareGamblerBuying(state.persona, now)) return false;
+        const int shopChannel = CPlayerBotManager::instance().IsChannelTableMode()
+                ? playerbot_channel_rules::SHOP_CHANNEL : (int)g_bChannel;
+        CPlayerBotNavigation& navigation = CPlayerBotNavigation::instance(ch->GetMapIndex());
+        const bool haveNav = navigation.Init(ch->GetMapIndex());
+        DWORD bestOwner = 0, bestItem = 0;
+        long long bestPrice = 0;
+        int bestLevel = -1;
+        for (const auto& [pid, shop] : ikashop::GetManager().GetPlayerBotOfflineShops()) {
+            if (!shop || pid == ch->GetPlayerID() || shop->GetDuration() == 0 || shop->IsEditMode()) continue;
+            const auto spawn = shop->GetSpawn();
+            if (spawn.map != ch->GetMapIndex() || (int)spawn.channel != shopChannel) continue;
+            int reach = -1;
+            for (const auto& [id, line] : shop->GetItems()) {
+                if (!line || line->GetInfo().count != 1 || IsPlayerBotLineClaimedByOther(id, ch->GetPlayerID(), now))
+                    continue;
+                const TItemTable* proto = line->GetTable();
+                if (!proto || (proto->bType != ITEM_WEAPON && proto->bType != ITEM_ARMOR)) continue;
+                const long long price = (long long)line->GetPrice().GetTotalYangAmount();
+                if (price <= 0 || price > cap) continue;
+                LPITEM preview = BotOfflinePreview(*line);
+                if (!preview) continue;
+                const int level = (int)GetPlayerBotPersonaLevelLimit(preview);
+                const bool better = !bestOwner || (state.persona.bGambleWeaponHigh && level != bestLevel
+                        ? level > bestLevel : price < bestPrice);
+                bool buyable = false;
+                if (better && IsPlayerBotRareGamblerBaseOffer(ch, preview)) {
+                    if (reach < 0)
+                        reach = !haveNav || navigation.CanReach(ch->GetX(), ch->GetY(), spawn.x, spawn.y) ? 1 : 0;
+                    buyable = reach == 1 && WantsPlayerBotStallItem(ch, preview) &&
+                            CanPlayerBotPayForOffer(ch, preview, price) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
+                }
+                M2_DELETE(preview);
+                if (reach == 0) break;
+                if (!buyable) continue;
+                bestOwner = shop->GetOwnerPID();
+                bestItem = id;
+                bestPrice = price;
+                bestLevel = level;
+            }
+        }
+        if (!bestOwner) return false;
+        auto& o = state.offlineShop;
+        o.buyOwner = bestOwner;
+        o.buyItem = bestItem;
+        o.buyUntil = now + PLAYERBOT_MARKET_FAR_PICK_WALK_MS;
+        o.farBuy = false;
+        ClaimPlayerBotLineUntil(bestItem, ch->GetPlayerID(), now, o.buyUntil);
+        return true;
+    }
+
     // Declared in playerbot_town.h: a gambler's session between the
     // storekeeper and the anvil (BOT_TOWN_PHASE_GAMBLE_MARKET), by Iwakura's
     // answer of 26 September - "Zabiera baze z magazynu do ekwipunku ... i
@@ -521,7 +592,15 @@ namespace {
         return true;
     }
 
+    // The slips standing on the running stands of this channel as the last
+    // ledger pass found them (IsPlayerBotStandingPriceSlip), and when this
+    // core first saw each: what CorrectPlayerBotStandingSlips works from.
+    struct TPlayerBotStandingSlip { DWORD owner, item; };
+    std::vector<TPlayerBotStandingSlip> s_vecPlayerBotStandingSlips;
+    std::map<DWORD, DWORD> s_mapPlayerBotSlipSeenAt;
+
     void AddPlayerBotOfflineLedger(DWORD& stalls, DWORD& lines) {
+        s_vecPlayerBotStandingSlips.clear();
         for (const auto& [pid, shop] : ikashop::GetManager().GetPlayerBotOfflineShops()) {
             if (!shop || shop->GetDuration() == 0 || shop->GetSpawn().channel != g_bChannel) continue;
             ++stalls;
@@ -530,13 +609,97 @@ namespace {
             const bool botShop = CPlayerBotManager::instance().IsRegisteredBotPID(shop->GetOwnerPID());
             for (const auto& [id, item] : shop->GetItems()) {
                 if (!item) continue;
-                AddPlayerBotMarketSupply(item->GetVnum(), item->GetInfo().count, shop->GetSpawn().map);
+                // A slipped price is no bot's supply: no bot buys it (Community
+                // Patch 5, point 6), so a trip made for it, or a listing held
+                // back by it, would be made for nothing. Only a drawn line of one
+                // unit is looked at closer, one in a thousand of them.
+                bool slip = false;
+                if (item->GetInfo().count == 1 && IsPlayerBotPriceSlipDrawn(id)) {
+                    if (LPITEM preview = BotOfflinePreview(*item)) {
+                        slip = IsPlayerBotStandingPriceSlip(preview, (long long)item->GetPrice().GetTotalYangAmount());
+                        M2_DELETE(preview);
+                    }
+                    if (slip)
+                        s_vecPlayerBotStandingSlips.push_back(TPlayerBotStandingSlip{ shop->GetOwnerPID(), id });
+                }
+                if (!slip)
+                    AddPlayerBotMarketSupply(item->GetVnum(), item->GetInfo().count, shop->GetSpawn().map);
                 if (botShop) {
                     NotePlayerBotCappedLineOnCounter(item->GetVnum(), item->GetInfo().count);
                     NotePlayerBotMissionBooksOnCounter(shop->GetSpawn().map, item->GetVnum(), item->GetInfo().count);
                 }
                 ++lines;
             }
+        }
+    }
+
+    // A slip stands four hours at most (Community Patch 5, point 6). Its
+    // keeper puts it right at its stand, called a little early
+    // (BotOfflineDueSlipLine); this is the core putting it right where the
+    // keeper cannot, PLAYERBOT_OFFLINE_SLIP_CORE_FIXES lines a ledger pass: a
+    // bot's stand this core hosts whose keeper is not in the world here -
+    // logged out, resting, moved to the other channel, where it would wait to
+    // be moved back before it served anything - at once; one whose keeper
+    // something held away from its stand past the four hours (a person's
+    // party, a dungeon, the tower) at the four hours; and one whose age its
+    // keeper here does not know, once the keeper has had
+    // PLAYERBOT_OFFLINE_SLIP_KEEPER_LEAD_MS since this core first saw it. The
+    // price goes through the db core's own edit, the packet a keeper's edit at
+    // its board ends in, and nothing is done while the keeper is at its board
+    // or has a request of its own under way. A person's stand is left alone.
+    void CorrectPlayerBotStandingSlips(DWORD now) {
+        using namespace playerbot_offline;
+        {
+            std::map<DWORD, DWORD> seen;
+            for (const auto& slip : s_vecPlayerBotStandingSlips) {
+                const auto was = s_mapPlayerBotSlipSeenAt.find(slip.item);
+                seen[slip.item] = was != s_mapPlayerBotSlipSeenAt.end() ? was->second : now;
+            }
+            s_mapPlayerBotSlipSeenAt.swap(seen);
+        }
+        if (!db_clientdesc || !db_clientdesc->IsPhase(PHASE_DBCLIENT)) return;
+        auto& manager = ikashop::GetManager();
+        int corrected = 0;
+        for (const auto& slip : s_vecPlayerBotStandingSlips) {
+            if (corrected >= PLAYERBOT_OFFLINE_SLIP_CORE_FIXES) break;
+            if (!CPlayerBotManager::instance().IsRegisteredBotPID(slip.owner) || requests.count(slip.owner)) continue;
+            auto shop = manager.GetShopByOwnerID(slip.owner);
+            if (!shop || shop->GetDuration() == 0 || shop->IsEditMode() ||
+                    shop->GetSpawn().channel != g_bChannel || !IsPlayerBotMapHostedHere(shop->GetSpawn().map))
+                continue;
+            auto line = shop->GetItem(slip.item);
+            if (!line) continue;
+            auto keeper = s_mapPlayerBotAIStates.find(slip.owner);
+            const char* why = "keeper_away";
+            if (keeper != s_mapPlayerBotAIStates.end()) {
+                const auto& listed = keeper->second.offlineShop.listed;
+                const auto known = listed.find(slip.item);
+                const uint32_t slippedAt = known != listed.end() ? known->second.slippedAt : 0;
+                if (slippedAt ? !playerbot_stall_rules::SlipDue(slippedAt, now, 0)
+                        : !Due(now, s_mapPlayerBotSlipSeenAt[slip.item] + PLAYERBOT_OFFLINE_SLIP_KEEPER_LEAD_MS))
+                    continue;
+                why = slippedAt ? "keeper_held" : "keeper_late";
+            }
+            LPITEM preview = BotOfflinePreview(*line);
+            if (!preview) continue;
+            const long long price = (long long)line->GetPrice().GetTotalYangAmount();
+            const bool standing = IsPlayerBotStandingPriceSlip(preview, price);
+            const long long normal = std::max<long long>(GetPlayerBotShopAskingPrice(preview),
+                    GetPlayerBotRefineInvestment(preview));
+            const DWORD vnum = preview->GetVnum();
+            M2_DELETE(preview);
+            if (!standing || normal <= 0 || normal >= price || normal >= GOLD_MAX) continue;
+            if (!BotOfflineBudget(now)) break;
+            ikashop::TPriceInfo meant{};
+            meant.yang = normal;
+            manager.SendShopEditItemDBPacket(slip.owner, slip.item, meant);
+            if (keeper != s_mapPlayerBotAIStates.end()) {
+                auto known = keeper->second.offlineShop.listed.find(slip.item);
+                if (known != keeper->second.offlineShop.listed.end()) known->second.slippedAt = 0;
+            }
+            ++corrected;
+            sys_log(0, "PLAYERBOT_OFFLINE: price slip put right by the core pid=%u name=%s item=%u vnum=%u from=%lld to=%lld why=%s",
+                slip.owner, shop->GetOwnerName(), slip.item, vnum, price, normal, why);
         }
     }
 }

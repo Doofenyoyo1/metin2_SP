@@ -30,6 +30,9 @@ param(
     # "Auto Lowy (8h)" (1); -1 keeps what .env says.
     [int]$AutoHuntItem = -1,
     [int]$Sidekick = -1,
+    # SetDifficulty: the Dom Towarowy (Uxie [DSO]'s flea market at the
+    # miscellaneous merchant in M1): 1 = on, 0 = off, -1 keeps what .env says.
+    [int]$FleaMarket = -1,
     # The rates a fresh world starts on, asked for when one is about to be
     # made (ResetWorld, and the first start of an install that has no database
     # yet). -1 leaves .env as it is, which is what every other caller wants.
@@ -268,6 +271,26 @@ function Assert-DockerDiskWritable {
            $fault + [Environment]::NewLine + [Environment]::NewLine + (Get-M2DockerDiskRemedy))
 }
 
+function Assert-ServerPortsFree {
+    # A program of Windows' own on one of the server's ports - a MySQL on 3306
+    # (Producent Hip Hopu, 27 September) - is what the start's preflight names,
+    # but an update never asked: it downloaded, swapped the files, built for
+    # minutes, and only then did compose fail to bind the port. Asked before
+    # the download now, and again before a build. Another installation's
+    # containers are not this check's: Clear-PortConflicts stops them.
+    # -KeepRebuildPending: the files are already the new ones, so a later GRAJ
+    # must still finish the build.
+    param([switch]$KeepRebuildPending, [string]$Before = 'budowanie serwera')
+    $conflicts = @(Get-M2ProgramPortConflicts -ServerRoot $serverRoot)
+    if ($conflicts.Count -eq 0) { return }
+    if ($KeepRebuildPending) {
+        Set-Content -LiteralPath $rebuildMarkerPath -Value ([DateTime]::UtcNow.ToString('o')) -Encoding UTF8
+    }
+    throw ("Przerywam $Before - port serwera zajmuje inny program:" + [Environment]::NewLine +
+           ((@($conflicts) | ForEach-Object { [string]$_.Advice }) -join [Environment]::NewLine) +
+           [Environment]::NewLine + 'Baza, postacie i ustawienia są w porządku.')
+}
+
 function Start-Server {
     # Before the preflight refuses the start: an old installation takes the
     # ports back on every engine start, so a check that only names it leaves the
@@ -492,6 +515,9 @@ function Rebuild-Server {
     # update is lost at its last step and the player is told to free a port they
     # cannot find.
     Clear-PortConflicts -Quiet | Out-Null
+    # And a port a program of Windows' own holds, which nothing here can stop:
+    # said before the minutes of building, not after them.
+    Assert-ServerPortsFree -KeepRebuildPending
 
     # See Stop-Server: compose progress on stderr must not be treated as failure
     # under $ErrorActionPreference='Stop' in Windows PowerShell 5.1.
@@ -557,6 +583,7 @@ function Update-Server {
         return
     }
     Assert-DockerDiskWritable -Before 'aktualizację (niczego nie pobrano ani nie podmieniono)'
+    Assert-ServerPortsFree -Before 'aktualizację (niczego nie pobrano ani nie podmieniono)'
     if (-not (Confirm-Operation 'Zaktualizować pliki serwera i przebudować kontenery? Baza postaci pozostanie bez zmian.')) {
         Write-Host 'Anulowano.' -ForegroundColor Yellow
         return
@@ -752,8 +779,13 @@ function Get-KingdomCountsFromEnv {
     $total = 0
     [int]::TryParse((Get-DotEnvValue -Key 'PLAYERBOT_AUTOSPAWN_COUNT' -Default '0'), [ref]$total) | Out-Null
     $even = [int][Math]::Floor($total / 3)
+    $enabled = (Get-DotEnvValue -Key 'PLAYERBOT_AUTOSPAWN_PER_KINGDOM' -Default '0') -eq '1'
     $read = {
         param($key)
+        # Only numbers in use are offered back: .env.example ships the three at
+        # 0 and start-server.ps1 adds them to every .env, so "not there yet" was
+        # never true and the dialog opened on zeros after all.
+        if (-not $enabled) { return $even }
         $raw = Get-DotEnvValue -Key $key -Default ''
         if ([string]::IsNullOrWhiteSpace([string]$raw)) { return $even }
         $n = 0
@@ -761,7 +793,7 @@ function Get-KingdomCountsFromEnv {
         return $even
     }
     return @{
-        Enabled = (Get-DotEnvValue -Key 'PLAYERBOT_AUTOSPAWN_PER_KINGDOM' -Default '0') -eq '1'
+        Enabled = $enabled
         Shinsoo = & $read 'PLAYERBOT_AUTOSPAWN_SHINSOO'
         Chunjo  = & $read 'PLAYERBOT_AUTOSPAWN_CHUNJO'
         Jinno   = & $read 'PLAYERBOT_AUTOSPAWN_JINNO'
@@ -1035,8 +1067,9 @@ function Set-DifficultyAction {
     $currentAutoHuntItem = (Get-DotEnvValue -Key 'M2_AUTOHUNT_ITEM' -Default '0') -eq '1'
     $currentSidekick = (Get-DotEnvValue -Key 'M2_SIDEKICK' -Default '1') -ne '0'
     $currentStarter = (Get-DotEnvValue -Key 'M2_STARTER_CHEST' -Default '1') -ne '0'
+    $currentFlea = (Get-DotEnvValue -Key 'M2_FLEA_MARKET' -Default '1') -ne '0'
     Write-Host "Aktualny poziom trudności: $current (przy 'custom': Biolog $currentBio h, Stajenny $currentHorse h, księgi: gracze $currentBook h, boty $currentBotBook h)." -ForegroundColor Gray
-    Write-Host "Auto Łowy: $(if ($currentAutoHunt) { 'włączone' } else { 'wyłączone' }) ($(if ($currentAutoHuntItem) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($currentSidekick) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($currentStarter) { 'tak' } else { 'nie' })." -ForegroundColor Gray
+    Write-Host "Auto Łowy: $(if ($currentAutoHunt) { 'włączone' } else { 'wyłączone' }) ($(if ($currentAutoHuntItem) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($currentSidekick) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($currentStarter) { 'tak' } else { 'nie' }); Dom Towarowy: $(if ($currentFlea) { 'włączony' } else { 'wyłączony' })." -ForegroundColor Gray
 
     # -Difficulty passed (from the GUI or scripting) is non-interactive, like
     # -BotCount: never Read-Host, restart only with -Yes.
@@ -1061,9 +1094,9 @@ function Set-DifficultyAction {
             $botBook = Read-Host 'Ile godzin czekają na kolejną księgę boty (0 = od razu)'
         }
     }
-    # Auto Lowy, the companion and the apprentice chest: asked in the text menu
-    # after the level, and taken from -AutoHunt/-Sidekick/-StarterChest
-    # otherwise; what .env says when neither. The chest was asked only where a
+    # Auto Lowy, the companion, the apprentice chest and the Dom Towarowy:
+    # asked in the text menu after the level, and taken from -AutoHunt/
+    # -Sidekick/-StarterChest/-FleaMarket otherwise; what .env says when neither. The chest was asked only where a
     # fresh world is made, so a world already standing had no way to it - and
     # "gdzie te skrzynie ucznia do wylaczenia ... w launcherze szukam, ni ma"
     # (Drip, 25 September) was answered with this very window.
@@ -1071,6 +1104,7 @@ function Set-DifficultyAction {
     $autoHuntItemOn = $currentAutoHuntItem
     $sidekickOn = $currentSidekick
     $starterOn = $currentStarter
+    $fleaOn = $currentFlea
     if ($interactive) {
         $answer = Read-Host "Auto Łowy (automatyczne polowanie w kliencie, klawisz K) włączone? (T/n, Enter = $(if ($currentAutoHunt) { 'tak' } else { 'nie' }))"
         if ("$answer".Trim()) { $autoHuntOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
@@ -1085,12 +1119,15 @@ function Set-DifficultyAction {
         if ("$answer".Trim()) { $sidekickOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
         $answer = Read-Host "Skrzynia Ucznia dla nowych postaci graczy (przy pierwszym logowaniu)? (T/n, Enter = $(if ($currentStarter) { 'tak' } else { 'nie' }))"
         if ("$answer".Trim()) { $starterOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
+        $answer = Read-Host "Dom Towarowy (wszystkie oferty sklepów offline u Handlarki Różności w M1) włączony? (T/n, Enter = $(if ($currentFlea) { 'tak' } else { 'nie' }))"
+        if ("$answer".Trim()) { $fleaOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
     }
     else {
         if ($AutoHunt -ge 0) { $autoHuntOn = ($AutoHunt -ne 0) }
         if ($AutoHuntItem -ge 0) { $autoHuntItemOn = ($AutoHuntItem -ne 0) }
         if ($Sidekick -ge 0) { $sidekickOn = ($Sidekick -ne 0) }
         if ($StarterChest -ge 0) { $starterOn = ($StarterChest -ne 0) }
+        if ($FleaMarket -ge 0) { $fleaOn = ($FleaMarket -ne 0) }
     }
     if ($level -notin @('easy', 'medium', 'hard', 'custom')) {
         throw "Nieznany poziom trudności: '$level'. Dozwolone: easy, medium, hard, custom."
@@ -1121,8 +1158,9 @@ function Set-DifficultyAction {
     Set-DotEnvValue -Key 'M2_AUTOHUNT_ITEM' -Value $(if ($autoHuntItemOn) { '1' } else { '0' })
     Set-DotEnvValue -Key 'M2_SIDEKICK' -Value $(if ($sidekickOn) { '1' } else { '0' })
     Set-DotEnvValue -Key 'M2_STARTER_CHEST' -Value $(if ($starterOn) { '1' } else { '0' })
+    Set-DotEnvValue -Key 'M2_FLEA_MARKET' -Value $(if ($fleaOn) { '1' } else { '0' })
     Write-Host "Zapisano: poziom trudności $level (Biolog $bio h, Stajenny $horse h, księgi: gracze $book h, boty $botBook h)." -ForegroundColor Green
-    Write-Host "Auto Łowy: $(if ($autoHuntOn) { 'włączone' } else { 'wyłączone' }) ($(if ($autoHuntItemOn) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($sidekickOn) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($starterOn) { 'tak' } else { 'nie' })." -ForegroundColor Green
+    Write-Host "Auto Łowy: $(if ($autoHuntOn) { 'włączone' } else { 'wyłączone' }) ($(if ($autoHuntItemOn) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($sidekickOn) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($starterOn) { 'tak' } else { 'nie' }); Dom Towarowy: $(if ($fleaOn) { 'włączony' } else { 'wyłączony' })." -ForegroundColor Green
     if ($Yes) {
         Start-Server
         Write-Host "Serwer zrestartowany z poziomem trudności: $level." -ForegroundColor Green

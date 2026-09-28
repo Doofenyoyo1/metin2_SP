@@ -221,6 +221,9 @@ class StubButton(StubWindow):
 	def SetText(self, text, *args, **kwargs):
 		self.text = text
 
+	def SetToolTipText(self, text, *args, **kwargs):
+		self.toolTip = text
+
 	def SAFE_SetEvent(self, event, *args):
 		self.event = event
 		self.eventArgs = args
@@ -1318,8 +1321,11 @@ class ScreenTest(Base):
 
 	def test_the_companions_window_still_fits(self):
 		window = uisidekick.GetWindow()
-		self.assertEqual((uisidekick.SidekickWindow.WIDTH, uisidekick.SidekickWindow.HEIGHT), (300, 554))
-		self.check_fits(window, 300, 554)
+		# 581 since the "Gra beze mnie" and "Skrzynki" switches (upstream's
+		# client 2.0.44-2.0.45, our 2.0.47): still inside 800x600.
+		self.assertEqual((uisidekick.SidekickWindow.WIDTH, uisidekick.SidekickWindow.HEIGHT), (300, 581))
+		self.assertLessEqual(uisidekick.SidekickWindow.HEIGHT, 600)
+		self.check_fits(window, 300, 581)
 
 	def test_the_equipment_slots_are_the_players(self):
 		window = inv.GetEquipmentWindow()

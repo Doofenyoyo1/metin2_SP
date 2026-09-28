@@ -24,8 +24,10 @@ namespace
 	// before taking a worn piece off for the anvil.
 	bool CanPlayerBotAttemptRefineItem(LPCHARACTER ch, LPITEM item);
 	bool CanPlayerBotPayRefineStep(LPCHARACTER ch, LPITEM item);
-	// Defined beside them too; the armour merchant asks it.
+	// Defined beside them too; the armour merchant asks it, and its weapon
+	// twin the weapon merchant (R8 of Iwakura's audit).
 	bool NeedsPlayerBotBackupArmour(LPCHARACTER ch);
+	bool NeedsPlayerBotBackupWeapon(LPCHARACTER ch);
 
 	PIXEL_POSITION GetPlayerBotGeneralStorePos(long mapIndex)
 	{
@@ -130,6 +132,11 @@ namespace
 	// keep, which is counter goods.
 	bool IsPlayerBotLppSurplusGoods(LPCHARACTER ch, LPITEM item);
 
+	// A gambler's goods and one of Community Patch 5's four gamblers' bases
+	// (playerbot_gambler.h, later): neither is the merchant's.
+	bool IsPlayerBotGambleForSale(LPCHARACTER ch, LPITEM item);
+	bool IsPlayerBotRareGambleHeldBase(LPCHARACTER ch, LPITEM item);
+
 	// A weapon with a line a player stops rerolling at: average damage from
 	// PLAYERBOT_BONUS_KEEP_AVERAGE, or skill damage from
 	// PLAYERBOT_WEAPON_PRIZE_SKILL_PERCENT. In this engine every failed
@@ -181,7 +188,7 @@ namespace
 			if (!item || item->GetCell() != cell || item->GetType() != ITEM_WEAPON ||
 					item->GetRefineLevel() >= plus || IsPlayerBotSpecialLevel30Weapon(item) ||
 					!IsPlayerBotPrizeWeapon(item) || !IsPlayerBotWeapon(ch, item) || !item->CanUsedBy(ch) ||
-					item->GetLevelLimit() > ch->GetLevel())
+					item->GetLevelLimit() > ch->GetLevel() || IsPlayerBotBannedLowWeapon(ch, item))
 				continue;
 			const TItemTable* proto = GetPlayerBotWeaponProtoAtPlus(item, plus);
 			const long long blow = proto ? GetPlayerBotWeaponHitDamageAt(item, proto, ch) : 0;
@@ -768,27 +775,42 @@ namespace
 				PlayerBotIsShortOfRefineMaterial(ch, materialVnum);
 	}
 
-	// What the next step of the weapon under Iwakura's scroll rule
-	// (IsPlayerBotScrollRuleWeapon) lacks, by vnum: the recipe's count less
-	// what the bag holds over the Biologist's share, the question
-	// CanPlayerBotPayRefineStep asks. Empty when the rule does not hold or
-	// nothing is lacking. The offline buyer and the progression trip buy
-	// exactly this; the rule's bots were short of a material 21 times in 23
-	// on m2zip (27 September), and only the 64-line browse ever looked.
+	// What the next step of a piece under Iwakura's scroll rule lacks - the
+	// weapon in the hand (IsPlayerBotScrollRuleWeapon) and, once that one
+	// stands at +8, the armour on the back (IsPlayerBotScrollRuleArmour) - by
+	// vnum: the recipe's count less what the bag holds over the Biologist's
+	// share, the question CanPlayerBotPayRefineStep asks. Empty when the rule
+	// has no piece or nothing is lacking. The offline buyer and the
+	// progression trip buy exactly this ("W razie braku potrzebnych
+	// ulepszaczy, bot najpierw udaje sie na rynek, aby je dokupic"); the
+	// rule's bots were short of a material 21 times in 23 on m2zip (27
+	// September), and only the 64-line browse ever looked.
 	void CollectPlayerBotScrollRuleMissing(LPCHARACTER ch, std::map<DWORD, int>& missing)
 	{
 		missing.clear();
-		LPITEM weapon = ch && ch->IsItemLoaded() ? GetPlayerBotHandWeapon(ch) : NULL;
-		if (!IsPlayerBotScrollRuleWeapon(ch, weapon))
+		if (!ch || !ch->IsItemLoaded())
 			return;
-		const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(weapon->GetRefineSet());
-		for (int m = 0; recipe && m < recipe->material_count; ++m)
+		LPITEM pieces[2] = { GetPlayerBotHandWeapon(ch), GetPlayerBotBodyArmour(ch) };
+		if (!IsPlayerBotScrollRuleWeapon(ch, pieces[0]))
+			pieces[0] = NULL;
+		if (!IsPlayerBotScrollRuleArmour(ch, pieces[1]))
+			pieces[1] = NULL;
+		// Both recipes' counts against one bag: what the two steps want of a
+		// material together.
+		std::map<DWORD, int> need;
+		for (int p = 0; p < 2; ++p)
 		{
-			const DWORD vnum = recipe->materials[m].vnum;
-			const int need = (int)recipe->materials[m].count;
-			const int have = (int)ch->CountSpecifyItem(vnum) - GetPlayerBotBiologistReserve(ch, vnum);
-			if (vnum != 0 && have < need)
-				missing[vnum] = need - std::max(0, have);
+			const TRefineTable* recipe = pieces[p]
+					? CRefineManager::instance().GetRefineRecipe(pieces[p]->GetRefineSet()) : NULL;
+			for (int m = 0; recipe && m < recipe->material_count; ++m)
+				if (recipe->materials[m].vnum != 0 && recipe->materials[m].count > 0)
+					need[recipe->materials[m].vnum] += (int)recipe->materials[m].count;
+		}
+		for (std::map<DWORD, int>::const_iterator it = need.begin(); it != need.end(); ++it)
+		{
+			const int have = (int)ch->CountSpecifyItem(it->first) - GetPlayerBotBiologistReserve(ch, it->first);
+			if (have < it->second)
+				missing[it->first] = it->second - std::max(0, have);
 		}
 	}
 
@@ -1061,6 +1083,9 @@ namespace
 	int GetPlayerBotRefineScrollKeep(LPCHARACTER ch);
 	// A worn piece the marble's fifth line would go on (playerbot_bonus.h).
 	bool PlayerBotWantsBlessingMarble(LPCHARACTER ch);
+	// What a bag keeps of a bonus stone kind: PLAYERBOT_BONUS_STONE_KEEP, and
+	// no green one for a bot past their band (playerbot_bonus.h).
+	int GetPlayerBotBonusStoneKeep(LPCHARACTER ch, LPITEM item);
 
 	// What the stack a counter's lines are cut from keeps back: the anvil's
 	// reserve of a material, the keys the bot holds on to, the scrolls of its
@@ -1082,7 +1107,7 @@ namespace
 		if (item->GetType() == ITEM_TREASURE_KEY)
 			return PLAYERBOT_TREASURE_KEY_KEEP;
 		if (IsPlayerBotBonusStoneItem(item))
-			return PLAYERBOT_BONUS_STONE_KEEP;
+			return GetPlayerBotBonusStoneKeep(ch, item);
 		// The medal dropper is the medal shop and keeps one back; everybody else
 		// keeps the ladder's two (PLAYERBOT_HORSE_MEDAL_KEEP) and lists the rest.
 		if (item->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM)
@@ -1302,7 +1327,7 @@ namespace
 		if (item->GetVnum() == PLAYERBOT_ZEN_BEAN_VNUM)
 			return GetPlayerBotZenBeanKeep(ch);
 		if (IsPlayerBotBonusStoneItem(item))
-			return PLAYERBOT_BONUS_STONE_KEEP;
+			return GetPlayerBotBonusStoneKeep(ch, item);
 		return 0;
 	}
 
@@ -1562,6 +1587,13 @@ namespace
 		// A piece Iwakura's list keeps for the storekeeper is never the
 		// merchant's, whatever the rules below would make of it.
 		if (IsPlayerBotLppKeptItem(ch, item))
+			return false;
+		// Nor what a gambler's session made or took off for it, which goes on
+		// the counter at any plus, nor a base one of Community Patch 5's four
+		// gamblers holds for its anvil (playerbot_gambler.h): the merchant's
+		// round comes before the anvil in a visit, and a base the gambler
+		// bought off a counter was scrap to the rules below.
+		if (IsPlayerBotGambleForSale(ch, item) || IsPlayerBotRareGambleHeldBase(ch, item))
 			return false;
 
 		const DWORD vnum = item->GetVnum();
@@ -2230,6 +2262,40 @@ namespace
 		return ceiling;
 	}
 
+	// What the weapon merchant sells as the backup for this weapon in the hand
+	// (R8 of Iwakura's audit): a copy of its family when a village merchant
+	// stocks the family's +0, else the best weapon the merchants sell the bot
+	// - what a burn would be replaced with anyway - either of which
+	// playerbot_refine_rules::IsBackupWeaponFor takes. Never one a bot of
+	// thirty may not wear (Community Patch 5, point 2).
+	bool FindPlayerBotBackupWeaponOffer(LPCHARACTER ch, LPITEM hand, DWORD& vnumOut, long long& priceOut)
+	{
+		vnumOut = 0;
+		priceOut = 0;
+		if (!ch || !hand || hand->GetType() != ITEM_WEAPON)
+			return false;
+		const DWORD family = GetPlayerBotItemFamily(hand);
+		std::vector<TPlayerBotMerchantWeapon> offers;
+		CollectPlayerBotProperMerchantWeapons(ch, offers);
+		const TPlayerBotMerchantWeapon* best = NULL;
+		for (size_t i = 0; i < offers.size(); ++i)
+		{
+			if (offers[i].dwVnum == family)
+			{
+				best = &offers[i];
+				break;
+			}
+			if (!best || offers[i].iLevel > best->iLevel ||
+					(offers[i].iLevel == best->iLevel && offers[i].llRoll > best->llRoll))
+				best = &offers[i];
+		}
+		if (!best)
+			return false;
+		vnumOut = best->dwVnum;
+		priceOut = best->llPrice;
+		return true;
+	}
+
 	// The weapon in the hand (GetPlayerBotHandWeapon) at a step the plain anvil
 	// can burn it, with nothing to fall back on: no backup in the bag
 	// (FindPlayerBotBackupWeapon) and nothing a merchant sells at its level.
@@ -2308,10 +2374,13 @@ namespace
 	// "nigdy nie ryzykuje ... jesli nie posiada w ekwipunku broni
 	// zastepczej", Iwakura's own). Nor for a weapon of the operator's anvil
 	// table (IsPlayerBotAnvilTableWeapon), which has its own answer: the plain
-	// anvil to its ceiling and the scrolls from there, every step of it.
+	// anvil to its ceiling and the scrolls from there, every step of it. Nor
+	// for the armour under his scroll rule (IsPlayerBotScrollRuleArmour):
+	// "powinien wykorzystac je do ulepszenia noszonej zbroi" leaves no coin.
 	bool PlayerBotRisksPlainAnvil(LPCHARACTER ch, LPITEM item)
 	{
-		if (!ch || !item || PLAYERBOT_SCROLL_SKIP_PERCENT <= 0 || IsPlayerBotAnvilTableWeapon(item))
+		if (!ch || !item || PLAYERBOT_SCROLL_SKIP_PERCENT <= 0 || IsPlayerBotAnvilTableWeapon(item) ||
+				IsPlayerBotScrollRuleArmour(ch, item))
 			return false;
 		const DWORD bucket = (DWORD)(get_global_time() / PLAYERBOT_SCROLL_SKIP_BUCKET_SECONDS);
 		const DWORD seed = (item->GetID() * 2654435761U) ^ ((DWORD)item->GetRefineLevel() * 0x9e3779b9U) ^
@@ -2431,6 +2500,16 @@ namespace
 	{
 		if (!item || item->GetRefinedVnum() == 0 || IsPlayerBotSidekickPinned(ch, item))
 			return false;
+		// The piece a blacksmith session took off is still the worn one (B12):
+		// the junk rule and the spare rules are not asked of it, as they are not
+		// of a piece on the bot. With a higher-tier spare beside it in the bag it
+		// was junk to the one-upgrade-a-slot rule, and its session stopped.
+		if (ch)
+		{
+			TPlayerBotAIStateMap::const_iterator st = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+			if (st != s_mapPlayerBotAIStates.end() && GetPlayerBotTakenOffSlotOf(ch, st->second, item) >= 0)
+				return item->GetRefineLevel() < GetPlayerBotRefineTarget(ch, item);
+		}
 		// A level-30 weapon of a class this bot cannot wear, ground for sale
 		// (PlayerBotRefinesLevel30ForSale): no equipment candidate of its own,
 		// and never junk.
@@ -2597,7 +2676,8 @@ namespace
 
 	// The same wait as the planner sees it: a piece for a slot the anvil holds
 	// is no reason to walk to the blacksmith. The class's level-30 weapon is
-	// never held (its own rule's, in the refining pass).
+	// never held (its own rule's, in the refining pass), nor a piece under
+	// Iwakura's scroll rule, whose scrolls are the answer already.
 	bool IsPlayerBotRefineHeldForReadyGear(LPCHARACTER ch, LPITEM item, int wearCell, DWORD dwNow)
 	{
 		if (!ch || !item || !IsPlayerBotPersonaEnabled())
@@ -2607,7 +2687,7 @@ namespace
 			return false;
 		const int slot = wearCell >= 0 ? wearCell : item->FindEquipCell(ch);
 		return IsPlayerBotReadyGearHeld(st->second, slot, dwNow) &&
-				item != FindPlayerBotClassLevel30Weapon(ch);
+				item != FindPlayerBotClassLevel30Weapon(ch) && !IsPlayerBotScrollRulePiece(ch, item);
 	}
 
 	// A counter's piece the market Perfectionist buys: a finished one by the
@@ -2699,20 +2779,25 @@ namespace
 		};
 
 		std::vector<TRefineCandidate> candidates;
-		// The slots this session took a piece off (dwRefineTakenOffSlots). The
-		// first step unequips the worn piece and every step after it finds the
-		// piece in the bag, so it was a spare to every rule that asks the slot:
-		// no scroll for the eighty and sixty percent steps of the piece in the
+		// The pieces this session took off (adwRefineTakenOffItem). The first
+		// step unequips the worn piece and every step after it finds the piece
+		// in the bag, so it was a spare to every rule that asks the slot: no
+		// scroll for the eighty and sixty percent steps of the piece in the
 		// hand, no market first after its burn (B12 of Iwakura's audit of 26
-		// September). A piece whose slot is still empty and was emptied here is
-		// the worn one.
-		if (state.dwRefineTakenOffSlots != 0 && dwNow - state.dwRefineTakenOffAt >= PLAYERBOT_REFINE_TAKEN_OFF_MS)
-			state.dwRefineTakenOffSlots = 0;
+		// September). The piece that was taken off - by its id, which each
+		// step moves on to what the anvil hands back - is the worn one, and no
+		// other piece for its slot.
+		if (dwNow - state.dwRefineTakenOffAt >= PLAYERBOT_REFINE_TAKEN_OFF_MS)
+			ClearPlayerBotRefineTakenOff(state);
 		// The class's own level-30 weapon goes to the anvil first, ahead of
 		// everything the Perfectionist's order ranks (community patch 2,
 		// point 1: "ABSOLUTNY PRIORYTET").
 		LPITEM classLevel30 = personaOn ? FindPlayerBotClassLevel30Weapon(ch) : NULL;
-		if (perfectSpent && !classLevel30)
+		// And a piece under Iwakura's scroll rule goes on past the
+		// Perfectionist's half: its step is the scroll's and the materials'
+		// (Community Patch 5, point 4), and a rule a purse's share can stop at
+		// every visit is not the rule.
+		if (perfectSpent && !classLevel30 && !PlayerBotHasScrollRuleWork(ch))
 			return false;
 		const BYTE wearSlots[] = {
 			WEAR_WEAPON, WEAR_BODY, WEAR_SHIELD, WEAR_HEAD,
@@ -2800,11 +2885,9 @@ namespace
 
 			TRefineCandidate cand;
 			cand.wearCell = 255;
-			if (state.dwRefineTakenOffSlots != 0)
 			{
-				const int slot = item->FindEquipCell(ch);
-				if (slot >= 0 && slot < 32 && (state.dwRefineTakenOffSlots & (1u << slot)) != 0 &&
-						ch->GetWear((WORD)slot) == NULL)
+				const int slot = GetPlayerBotTakenOffSlotOf(ch, state, item);
+				if (slot >= 0)
 					cand.wearCell = (BYTE)slot;
 			}
 			cand.item = item;
@@ -2857,12 +2940,16 @@ namespace
 				continue;
 			}
 			const BYTE wearCell = candidates[i].wearCell;
+			// A piece under Iwakura's scroll rule (Community Patch 5, point 4):
+			// the step is the scroll's, so no wait for a counter's finished
+			// piece, no Perfectionist's share and no backup's caution stops it.
+			const bool rulePiece = IsPlayerBotScrollRulePiece(ch, item);
 			// The market Perfectionist looks at the counters first (community
 			// patch 2, point 11): a finished +8 or +9 for this slot there, and
 			// the anvil waits PLAYERBOT_READY_GEAR_WAIT_MS for the purchase;
 			// nothing there, or the wait over, and it refines as ever. The
 			// class's level-30 weapon is its own rule's.
-			if (personaOn && item != classLevel30 && IsPlayerBotMarketPerfectionist(ch->GetPlayerID()))
+			if (personaOn && item != classLevel30 && !rulePiece && IsPlayerBotMarketPerfectionist(ch->GetPlayerID()))
 			{
 				const int slot = wearCell != 255 ? (int)wearCell : item->FindEquipCell(ch);
 				const int index = GetPlayerBotReadyGearSlotIndex(slot);
@@ -2895,8 +2982,9 @@ namespace
 						continue;
 				}
 			}
-			// Past the Perfectionist's half only the level-30 weapon goes on.
-			if (perfectSpent && item != classLevel30)
+			// Past the Perfectionist's half only the level-30 weapon goes on,
+			// and the scroll rule's piece.
+			if (perfectSpent && item != classLevel30 && !rulePiece)
 				continue;
 			// The level-30 weapon's purchase and anvil share one budget
 			// (GetPlayerBotLevel30BudgetLeft): the step's fee has to fit in
@@ -2915,7 +3003,9 @@ namespace
 					continue;
 				}
 			}
-			const bool hasBackup = (wearCell != 255) ? HasPlayerBotBackupGear(ch, wearCell, item) : true;
+			// The caution of a piece with nothing behind it is the plain anvil's:
+			// under the scroll rule a failure hands the piece back.
+			const bool hasBackup = rulePiece || ((wearCell != 255) ? HasPlayerBotBackupGear(ch, wearCell, item) : true);
 
 			if (wearCell == WEAR_WEAPON && !hasBackup && plusLevel >= 4 && ch->GetGold() < 5000)
 				continue;
@@ -2942,9 +3032,9 @@ namespace
 					continue;
 				if (!ch->UnequipItem(item) || item->IsEquipped())
 					continue;
-				if (wearCell < 32)
+				if (wearCell < WEAR_MAX_NUM)
 				{
-					state.dwRefineTakenOffSlots |= 1u << wearCell;
+					state.adwRefineTakenOffItem[wearCell] = item->GetID();
 					state.dwRefineTakenOffAt = dwNow;
 				}
 			}
@@ -3067,15 +3157,26 @@ namespace
 			}
 			else if (scrollStepAllowed &&
 					(plusLevel >= PLAYERBOT_SCROLL_REFINE_MIN_PLUS || IsPlayerBotPrizeItem(item) ||
-						wornStepCanBurn || handAtRisk))
+						wornStepCanBurn || handAtRisk || rulePiece))
 			{
 				scrollCell = FindPlayerBotRefineScrollCellFor(ch, item, stepProb);
 				// The coin keeps the scroll for another step, or for the counter.
+				// Never the scroll rule's (PlayerBotRisksPlainAnvil says no for it).
 				if (coinAnvil && scrollCell >= 0)
 				{
 					coinWhy = "scroll_kept";
 					scrollCell = -1;
 				}
+			}
+			// The armour under the scroll rule goes under a scroll at every step
+			// or waits; the bag holds three by the rule's own count, so this is
+			// a scroll kind no step may take (the War God's past +3).
+			if (scrollCell < 0 && rulePiece && item->GetType() == ITEM_ARMOR)
+			{
+				PlayerBotLogThrottled("refine_rule_armour_no_scroll", dwNow,
+						"PLAYERBOT_AI: scroll rule armour waits, no scroll for the step pid=%u name=%s vnum=%u plus=%u prob=%d",
+						ch->GetPlayerID(), ch->GetName(), oldVnum, (unsigned int)plusLevel, stepProb);
+				continue;
 			}
 			if (scrollCell < 0 && scrollOnly && !level30Floor)
 			{
@@ -3122,6 +3223,7 @@ namespace
 			// Asked before the attempt, which may destroy the item.
 			const bool classLevel30 = IsPlayerBotClassLevel30Weapon(ch, item);
 			const long long goldBeforeAttempt = (long long)ch->GetGold();
+			const WORD cellBefore = item->GetCell();
 			bool attempted = false;
 			if (scrollCell >= 0)
 			{
@@ -3131,6 +3233,14 @@ namespace
 			}
 			else
 				attempted = ch->DoRefine(item, false);
+			// The piece taken off for this step is still the worn one in the
+			// shape the anvil handed it back - a new item in the same cell,
+			// whatever the outcome - or gone (B12).
+			if (attempted && wearCell < WEAR_MAX_NUM && state.adwRefineTakenOffItem[wearCell] != 0)
+			{
+				LPITEM after = ch->GetInventoryItem(cellBefore);
+				state.adwRefineTakenOffItem[wearCell] = after ? after->GetID() : 0;
+			}
 			if (attempted)
 			{
 				// The step's fee goes on the level-30 weapon's budget.
@@ -3200,122 +3310,116 @@ namespace
 		return refinedCount > 0;
 	}
 
-	// The Blessing Scroll works from the bag, wherever the bot stands - a
-	// player uses one in the field, not at the anvil - so a bot carrying one
-	// does not wait for its next town visit to put it to use. In a quiet
-	// moment it takes the lowest worn piece at +6 or better, pays the table's
-	// fee and materials, and refines it under the scroll: on failure the piece
-	// comes back one level down instead of not at all. Never on a step under
-	// the operator's SCROLL_FROM (playerbot_config.h).
-	bool ManagePlayerBotScrollRefine(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	// Whether the next step of this worn piece can go under a scroll where the
+	// bot stands: every test the field pass asks of a candidate, asked again of
+	// the step it chose when the engine's equip window opens.
+	bool CanPlayerBotTakeFieldScrollStep(LPCHARACTER ch, LPITEM item, int wearCell)
 	{
-		if (!ch || !ch->IsItemLoaded() || dwNow < state.dwNextScrollRefineTime || IsPlayerBotGearFrozen(ch))
+		if (!ch || !item || item->GetRefinedVnum() == 0 || item->isLocked() || item->IsExchanging() ||
+				!IsPlayerBotWornItemSound(ch, item, wearCell))
 			return false;
-		if (state.bCurrentAction == BOT_ACTION_FIGHT || state.bVisitingShop ||
-				state.bRecoveringAfterDeath || state.bTacticalRetreat || ch->IsDead())
+		const BYTE plus = item->GetRefineLevel();
+		// The target is PLAYERBOT_SCROLL_REFINE_MAX_PLUS here by construction:
+		// this pass only runs with a scroll in the bag. A scroll-only weapon
+		// (IsPlayerBotScrollOnlyWeapon) is taken at any plus and past the
+		// floor, since it is never raised any other way; a weapon of the
+		// operator's anvil table from its ceiling, where the blacksmith stops
+		// (GetPlayerBotWeaponAnvilCeiling); everything else from +6.
+		const bool scrollOnly = IsPlayerBotScrollOnlyWeapon(item);
+		// The weapon in the hand or the armour on the back with nothing to
+		// fall back on goes under a scroll at any plus too: Iwakura's Patch
+		// 4, point 14 - "jesli bot decyduje sie na ulepszanie przy uzyciu
+		// Zwoju Blogoslawienstwa ..., zasada posiadania kopii zapasowej jest
+		// calkowicie ignorowana", and a bot with the scroll, the materials and
+		// the yang "ma bezwzgledny obowiazek natychmiast podjac proby
+		// ulepszenia". Here it waited for the next town visit and the
+		// blacksmith, or for +6. So does a piece under his scroll rule.
+		const bool atRisk = IsPlayerBotWornWeaponAtRisk(ch, item) || IsPlayerBotWornArmourAtRisk(ch, item) ||
+				IsPlayerBotScrollRulePiece(ch, item);
+		const int scrollFrom = scrollOnly || atRisk ? 0
+				: IsPlayerBotAnvilTableWeapon(item)
+					? GetPlayerBotWeaponAnvilCeiling(ch, item) : (int)PLAYERBOT_SCROLL_REFINE_MIN_PLUS;
+		if ((!scrollOnly && ((int)plus < scrollFrom || !IsPlayerBotScrollStepAllowed(plus))) ||
+				plus >= GetPlayerBotRefineTarget(ch, item))
 			return false;
-		state.dwNextScrollRefineTime = dwNow + PLAYERBOT_SCROLL_REFINE_INTERVAL;
+		// A step Iwakura's coin sends to the plain anvil waits for the
+		// blacksmith rather than taking a scroll here.
+		if (PlayerBotRisksPlainAnvil(ch, item))
+			return false;
+		if (!IsPlayerBotWearableAtLevel(ch, item->GetRefinedVnum()))
+			return false;
+		const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(item->GetRefineSet());
+		if (!recipe)
+			return false;
+		// A scroll this step can go under, not merely one in the bag: the War
+		// God scroll stops at +4, and no scroll goes on a piece of
+		// PLAYERBOT_SCROLL_FREE_GEAR_MAX_LEVEL or under.
+		if (FindPlayerBotRefineScrollCellFor(ch, item, (int)recipe->prob) < 0)
+			return false;
+		// Off, refined and back on: the piece needs a place in the bag between.
+		if (ch->GetEmptyInventory(item->GetSize()) < 0)
+			return false;
+		// The fee, the materials and the Biologist's reserve, as the blacksmith
+		// pass asks them.
+		return CanPlayerBotAttemptRefineItem(ch, item);
+	}
 
-		int scrollCell = FindPlayerBotRefineScrollCell(ch, 0);
-		if (scrollCell < 0)
-			return false;
+	// Why a piece under the scroll rule has no step to take now, once a
+	// minute for the whole population: what the recipe lacks (which the market
+	// is asked for, CollectPlayerBotScrollRuleMissing), the fee, the room.
+	void ReportPlayerBotScrollRuleWait(LPCHARACTER ch, LPITEM piece, DWORD dwNow)
+	{
+		if (!ch || !piece)
+			return;
+		std::map<DWORD, int> missing;
+		CollectPlayerBotScrollRuleMissing(ch, missing);
+		char lacking[96] = "none";
+		size_t used = 0;
+		for (std::map<DWORD, int>::const_iterator it = missing.begin();
+				it != missing.end() && used + 24 < sizeof(lacking); ++it)
+			used += snprintf(lacking + used, sizeof(lacking) - used, "%s%u:%d",
+					used ? "," : "", (unsigned int)it->first, it->second);
+		const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(piece->GetRefineSet());
+		PlayerBotLogThrottled("scroll_rule_wait", dwNow,
+				"PLAYERBOT_AI: scroll rule waits pid=%u name=%s vnum=%u plus=%u scrolls=%d gold=%lld fee=%lld lacking=%s room=%d",
+				ch->GetPlayerID(), ch->GetName(), piece->GetVnum(), (unsigned int)piece->GetRefineLevel(),
+				CountPlayerBotSafeRefineScrolls(ch), (long long)ch->GetGold(),
+				recipe ? (long long)ch->ComputeRefineFee(recipe->cost) : 0LL, lacking,
+				ch->GetEmptyInventory(piece->GetSize()) >= 0 ? 1 : 0);
+	}
 
-		// "1. Bronie, 2. Zbroje, 3. Tarcze, 4. Helmy" (Community Patch 1) -
-		// the order every other refine pass already used, and this one did not.
-		const BYTE wearSlots[] = {
-			WEAR_WEAPON, WEAR_BODY, WEAR_SHIELD, WEAR_HEAD,
-			WEAR_FOOTS, WEAR_WRIST, WEAR_NECK, WEAR_EAR
-		};
-		LPITEM best = NULL;
-		BYTE bestWear = 0;
-		for (size_t i = 0; i < sizeof(wearSlots) / sizeof(wearSlots[0]); ++i)
-		{
-			LPITEM item = ch->GetWear(wearSlots[i]);
-			if (!item || item->GetRefinedVnum() == 0 || item->isLocked() || item->IsExchanging() ||
-					!IsPlayerBotWornItemSound(ch, item, wearSlots[i]))
-				continue;
-			const BYTE plus = item->GetRefineLevel();
-			// The target is PLAYERBOT_SCROLL_REFINE_MAX_PLUS here by construction:
-			// this pass only runs with a scroll in the bag. A scroll-only weapon
-			// (IsPlayerBotScrollOnlyWeapon) is taken at any plus and past the
-			// floor, since it is never raised any other way; a weapon of the
-			// operator's anvil table from its ceiling, where the blacksmith stops
-			// (GetPlayerBotWeaponAnvilCeiling); everything else from +6.
-			const bool scrollOnly = IsPlayerBotScrollOnlyWeapon(item);
-			// The weapon in the hand or the armour on the back with nothing to
-			// fall back on goes under a scroll at any plus too: Iwakura's Patch
-			// 4, point 14 - "jesli bot decyduje sie na ulepszanie przy uzyciu
-			// Zwoju Blogoslawienstwa ..., zasada posiadania kopii zapasowej jest
-			// calkowicie ignorowana", and a bot with the scroll, the materials and
-			// the yang "ma bezwzgledny obowiazek natychmiast podjac proby
-			// ulepszenia". Here it waited for the next town visit and the
-			// blacksmith, or for +6.
-			const bool atRisk = IsPlayerBotWornWeaponAtRisk(ch, item) || IsPlayerBotWornArmourAtRisk(ch, item);
-			const int scrollFrom = scrollOnly || atRisk ? 0
-					: IsPlayerBotAnvilTableWeapon(item)
-						? GetPlayerBotWeaponAnvilCeiling(ch, item) : (int)PLAYERBOT_SCROLL_REFINE_MIN_PLUS;
-			if ((!scrollOnly && ((int)plus < scrollFrom || !IsPlayerBotScrollStepAllowed(plus))) ||
-					plus >= GetPlayerBotRefineTarget(ch, item))
-				continue;
-			// A step Iwakura's coin sends to the plain anvil waits for the
-			// blacksmith rather than taking a scroll here.
-			if (PlayerBotRisksPlainAnvil(ch, item))
-				continue;
-			if (!IsPlayerBotWearableAtLevel(ch, item->GetRefinedVnum()))
-				continue;
-			const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(item->GetRefineSet());
-			if (!recipe)
-				continue;
-			// A scroll this step can go under, not merely one in the bag: the War
-			// God scroll stops at +4, and no scroll goes on a piece of
-			// PLAYERBOT_SCROLL_FREE_GEAR_MAX_LEVEL or under.
-			if (FindPlayerBotRefineScrollCellFor(ch, item, (int)recipe->prob) < 0)
-				continue;
-			// The fee, the materials and the Biologist's reserve, as the blacksmith
-			// pass asks them.
-			if (!CanPlayerBotAttemptRefineItem(ch, item))
-				continue;
-			// The weapon under Iwakura's scroll rule first, ahead of a lower
-			// piece that would spend the scrolls the rule counts on.
-			if (IsPlayerBotScrollRuleWeapon(ch, item))
-			{
-				best = item;
-				bestWear = wearSlots[i];
-				break;
-			}
-			if (!best || plus < best->GetRefineLevel())
-			{
-				best = item;
-				bestWear = wearSlots[i];
-			}
-		}
-		if (!best)
-			return false;
-		// Asked while the weapon is still in the hand.
-		const bool ruleStep = IsPlayerBotScrollRuleWeapon(ch, best);
-		// The scroll the blacksmith pass would put on the same step - the
-		// Dragon God from PLAYERBOT_DRAGON_GOD_SCROLL_MIN_PLUS - rather than
-		// whichever scroll happened to lie first in the bag.
-		{
-			const TRefineTable* bestRecipe = CRefineManager::instance().GetRefineRecipe(best->GetRefineSet());
-			scrollCell = FindPlayerBotRefineScrollCellFor(ch, best, bestRecipe ? (int)bestRecipe->prob : 100);
-		}
-		if (scrollCell < 0)
-			return false;
+	void ClearPlayerBotScrollStep(TPlayerBotAIState& state)
+	{
+		state.dwScrollStepItem = 0;
+		state.dwScrollStepSince = 0;
+		state.bScrollStepHolds = false;
+	}
 
+	// One step under the scroll for a worn piece: off, under the scroll the
+	// blacksmith pass would put on the same step - the Dragon God from
+	// PLAYERBOT_DRAGON_GOD_SCROLL_MIN_PLUS - and back on. What the anvil hands
+	// back, NULL when nothing was attempted; equippedAgain says whether that
+	// is worn again.
+	LPITEM TakePlayerBotFieldScrollStep(LPCHARACTER ch, LPITEM piece, BYTE wear, bool ruleStep,
+			bool& attempted, bool& equippedAgain)
+	{
+		attempted = false;
+		equippedAgain = false;
+		const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(piece->GetRefineSet());
+		const int scrollCell = FindPlayerBotRefineScrollCellFor(ch, piece, recipe ? (int)recipe->prob : 100);
+		if (scrollCell < 0 || ch->GetEmptyInventory(piece->GetSize()) < 0)
+			return NULL;
 		// Off, refined, and back on: the engine will not touch a worn piece, and
 		// the result is a new item in the same cell whatever the outcome.
-		if (ch->GetEmptyInventory(best->GetSize()) < 0)
-			return false;
-		const DWORD oldVnum = best->GetVnum();
-		const DWORD nextVnum = best->GetRefinedVnum();
-		const BYTE plus = best->GetRefineLevel();
-		if (!ch->UnequipItem(best) || best->IsEquipped() || best->GetWindow() != INVENTORY ||
-				best->GetCell() >= PLAYERBOT_BAG_CELLS)
-			return false;
-		const WORD cell = best->GetCell();
+		const DWORD oldVnum = piece->GetVnum();
+		const DWORD nextVnum = piece->GetRefinedVnum();
+		const BYTE plus = piece->GetRefineLevel();
+		if (!ch->UnequipItem(piece) || piece->IsEquipped() || piece->GetWindow() != INVENTORY ||
+				piece->GetCell() >= PLAYERBOT_BAG_CELLS)
+			return NULL;
+		const WORD cell = piece->GetCell();
 		ch->SetRefineMode(scrollCell);
-		const bool attempted = ch->DoRefineWithScroll(best);
+		attempted = ch->DoRefineWithScroll(piece);
 		ch->ClearRefineMode();
 		LPITEM after = ch->GetInventoryItem(cell);
 		// The outcome is read off the cell before the piece goes back on. It
@@ -3324,7 +3428,7 @@ namespace
 		// level of mood (log.log: REFINE SUCCESS in the same second).
 		const bool success = attempted && after && after->GetVnum() == nextVnum;
 		if (after)
-			PlayerBotEquipItem(ch, after);
+			equippedAgain = PlayerBotEquipItem(ch, after) && after->IsEquipped();
 		if (attempted)
 		{
 			if (success)
@@ -3336,9 +3440,183 @@ namespace
 				NotePlayerBotMoodRefineFailure(ch, (int)plus + 1, "downgraded");
 			sys_log(0, "PLAYERBOT_AI: refine %s pid=%u name=%s old_vnum=%u new_vnum=%u plus=%u scroll=1 place=field wear=%u rule=%d",
 					success ? "SUCCESS" : "FAILED_DOWNGRADED", ch->GetPlayerID(), ch->GetName(),
-					oldVnum, nextVnum, (unsigned int)plus + 1, (unsigned int)bestWear, ruleStep ? 1 : 0);
+					oldVnum, nextVnum, (unsigned int)plus + 1, (unsigned int)wear, ruleStep ? 1 : 0);
 		}
-		return attempted;
+		return attempted ? after : NULL;
+	}
+
+	// The Blessing Scroll works from the bag, wherever the bot stands - a
+	// player uses one in the field, not at the anvil - so a bot carrying one
+	// does not wait for its next town visit to put it to use. In a quiet
+	// moment it takes the lowest worn piece at +6 or better, pays the table's
+	// fee and materials, and refines it under the scroll: on failure the piece
+	// comes back one level down instead of not at all. Never on a step under
+	// the operator's SCROLL_FROM (playerbot_config.h).
+	//
+	// A quiet moment is one without a fight, and a bot in a dense hunting
+	// ground has none: its action is a fight from one monster to the next,
+	// and this pass - at the bottom of the tick, behind every errand - never
+	// ran for it. That is the sura of seventy at +5 with thirty-seven scrolls
+	// and every material (Iwakura's Community Patch 5, point 4): its rule
+	// waited for a town visit, which a frontier bot makes when its visit runs
+	// out, forty minutes and more apart. So a step of Iwakura's scroll rule
+	// (IsPlayerBotScrollRulePiece) stops the fight for it: the bot drops its
+	// target and stands until the engine's equip window opens - a second and
+	// a half after its last blow - and then takes up to
+	// PLAYERBOT_SCROLL_RULE_STEPS_PER_PASS steps in that window
+	// (playerbot_refine_rules::DecideScrollStep). mayHoldFight is the tick's
+	// word that no person counts on the bot's blows. True while the pass
+	// claims the tick: a hold, or a step taken.
+	bool ManagePlayerBotScrollRefine(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow, bool mayHoldFight)
+	{
+		if (!ch || !ch->IsItemLoaded() || IsPlayerBotGearFrozen(ch) || ch->IsDead() || state.bVisitingShop ||
+				state.bRecoveringAfterDeath || state.bTacticalRetreat)
+		{
+			ClearPlayerBotScrollStep(state);
+			return false;
+		}
+		// A hold of this pass's own counts as the fight it stopped.
+		const bool fighting = state.bCurrentAction == BOT_ACTION_FIGHT || state.bScrollStepHolds;
+		// Never where a pull or a lure counts on the bot's blows.
+		const bool mayHold = mayHoldFight && !state.bMultiPullActive && state.dwLurePlayerPID == 0;
+
+		// "1. Bronie, 2. Zbroje, 3. Tarcze, 4. Helmy" (Community Patch 1) -
+		// the order every other refine pass already used, and this one did not.
+		const BYTE wearSlots[] = {
+			WEAR_WEAPON, WEAR_BODY, WEAR_SHIELD, WEAR_HEAD,
+			WEAR_FOOTS, WEAR_WRIST, WEAR_NECK, WEAR_EAR
+		};
+		LPITEM best = NULL;
+		BYTE bestWear = 0;
+		if (state.dwScrollStepItem != 0)
+		{
+			// The step chosen on an earlier tick, still worn where it was.
+			for (size_t i = 0; i < sizeof(wearSlots) / sizeof(wearSlots[0]) && !best; ++i)
+			{
+				LPITEM worn = ch->GetWear(wearSlots[i]);
+				if (worn && worn->GetID() == state.dwScrollStepItem)
+				{
+					best = worn;
+					bestWear = wearSlots[i];
+				}
+			}
+			if (!best)
+			{
+				ClearPlayerBotScrollStep(state);
+				return false;
+			}
+		}
+		else
+		{
+			if (dwNow < state.dwNextScrollRefineTime)
+				return false;
+			// In a fight only the rule's step is looked for, and only by a bot
+			// that may stop for it; the rest wait for a quiet moment, as ever.
+			if (fighting && !mayHold)
+				return false;
+			state.dwNextScrollRefineTime = dwNow + PLAYERBOT_SCROLL_REFINE_INTERVAL;
+			if (FindPlayerBotRefineScrollCell(ch, 0) < 0)
+				return false;
+			// The rule's pieces first - the weapon in the hand, then the armour
+			// on the back - ahead of a lower piece that would spend the scrolls
+			// the rule counts on.
+			LPITEM hand = ch->GetWear(WEAR_WEAPON);
+			LPITEM body = ch->GetWear(WEAR_BODY);
+			if (IsPlayerBotScrollRuleWeapon(ch, hand))
+			{
+				if (CanPlayerBotTakeFieldScrollStep(ch, hand, WEAR_WEAPON))
+				{
+					best = hand;
+					bestWear = WEAR_WEAPON;
+				}
+				else
+					ReportPlayerBotScrollRuleWait(ch, hand, dwNow);
+			}
+			if (!best && IsPlayerBotScrollRuleArmour(ch, body))
+			{
+				if (CanPlayerBotTakeFieldScrollStep(ch, body, WEAR_BODY))
+				{
+					best = body;
+					bestWear = WEAR_BODY;
+				}
+				else
+					ReportPlayerBotScrollRuleWait(ch, body, dwNow);
+			}
+			for (size_t i = 0; !best && !fighting && i < sizeof(wearSlots) / sizeof(wearSlots[0]); ++i)
+			{
+				LPITEM item = ch->GetWear(wearSlots[i]);
+				if (!item || !CanPlayerBotTakeFieldScrollStep(ch, item, wearSlots[i]))
+					continue;
+				if (!best || item->GetRefineLevel() < best->GetRefineLevel())
+				{
+					best = item;
+					bestWear = wearSlots[i];
+				}
+			}
+			if (!best)
+				return false;
+			state.dwScrollStepItem = best->GetID();
+			state.dwScrollStepSince = dwNow;
+			state.bScrollStepHolds = false;
+		}
+
+		// Asked while the piece is still worn.
+		const bool ruleStep = IsPlayerBotScrollRulePiece(ch, best);
+		const int hpPercent = ch->GetMaxHP() > 0 ? (int)((long long)ch->GetHP() * 100 / ch->GetMaxHP()) : 100;
+		switch (playerbot_refine_rules::DecideScrollStep(IsPlayerBotEquipWindowShut(ch, state), fighting,
+					ruleStep && mayHold, dwNow - state.dwScrollStepSince, hpPercent))
+		{
+			case playerbot_refine_rules::SCROLL_STEP_WAIT:
+				return false;
+			case playerbot_refine_rules::SCROLL_STEP_HOLD:
+				if (!state.bScrollStepHolds)
+					PlayerBotLogThrottled("scroll_rule_hold", dwNow,
+							"PLAYERBOT_AI: scroll rule stops the fight for the equip window pid=%u name=%s vnum=%u plus=%u wear=%u scrolls=%d",
+							ch->GetPlayerID(), ch->GetName(), best->GetVnum(), (unsigned int)best->GetRefineLevel(),
+							(unsigned int)bestWear, CountPlayerBotSafeRefineScrolls(ch));
+				state.bScrollStepHolds = true;
+				// No blow, from this pass or the light one between: the window is
+				// a second and a half after the bot's own last swing or cast.
+				state.dwTargetVID = 0;
+				ch->SetVictim(NULL);
+				if (ch->IsStateMove())
+					ch->Stop();
+				SetPlayerBotAction(state, BOT_ACTION_REFINE, dwNow);
+				return true;
+			case playerbot_refine_rules::SCROLL_STEP_DROP:
+				if (ruleStep)
+					PlayerBotLogThrottled("scroll_rule_drop", dwNow,
+							"PLAYERBOT_AI: scroll rule step put off pid=%u name=%s vnum=%u plus=%u waited_ms=%u hp=%d fighting=%d may_hold=%d",
+							ch->GetPlayerID(), ch->GetName(), best->GetVnum(), (unsigned int)best->GetRefineLevel(),
+							(unsigned int)(dwNow - state.dwScrollStepSince), hpPercent, fighting ? 1 : 0, mayHold ? 1 : 0);
+				ClearPlayerBotScrollStep(state);
+				return false;
+			case playerbot_refine_rules::SCROLL_STEP_NOW:
+			default:
+				break;
+		}
+		ClearPlayerBotScrollStep(state);
+
+		// The step, and while the rule still has the piece, the next ones in
+		// the same open window: a player clicks the scroll until it lands.
+		const int steps = ruleStep ? PLAYERBOT_SCROLL_RULE_STEPS_PER_PASS : 1;
+		bool any = false;
+		for (int n = 0; n < steps && best; ++n)
+		{
+			if (!CanPlayerBotTakeFieldScrollStep(ch, best, bestWear) ||
+					(n > 0 && !IsPlayerBotScrollRulePiece(ch, best)))
+				break;
+			bool attempted = false, equippedAgain = false;
+			LPITEM after = TakePlayerBotFieldScrollStep(ch, best, bestWear, ruleStep, attempted, equippedAgain);
+			any = any || attempted;
+			if (!attempted || !equippedAgain)
+				break;
+			best = after;
+		}
+		// The rule's next steps soon, not in PLAYERBOT_SCROLL_REFINE_INTERVAL.
+		if (any && ruleStep && PlayerBotHasScrollRuleWork(ch))
+			state.dwNextScrollRefineTime = dwNow + PLAYERBOT_SCROLL_RULE_STEP_INTERVAL;
+		return any;
 	}
 
 	bool ManagePlayerBotMiscMerchant(LPCHARACTER ch)
@@ -3504,6 +3782,35 @@ namespace
 				(!isArcher || CountPlayerBotArrows(ch) >= PLAYERBOT_ARROW_RESTOCK_THRESHOLD))
 			bought = BuyPlayerBotProgressionGear(ch,
 					GetPlayerBotProgressionWeaponVnum(ch), "weapon") || bought;
+		// A bot of thirty whose only weapon is one of the tenth level or under
+		// buys one over the line (Community Patch 5, point 2): the ladder
+		// above names a tier the merchant stocks only at levels 30-31 and
+		// 36-39, so from 32 and from 40 it bought nothing and the level-one
+		// sword stayed in the hand. The equipment pass puts the new one on,
+		// the old one scoring nothing against it.
+		if (NeedsPlayerBotProperWeapon(ch) && !IsPlayerBotRebuildingFromMarket(ch, WEAR_WEAPON) &&
+				(!isArcher || CountPlayerBotArrows(ch) >= PLAYERBOT_ARROW_RESTOCK_THRESHOLD))
+			bought = BuyPlayerBotProperWeapon(ch) || bought;
+		// The weapon in the hand held at a step that can burn it for want of a
+		// backup and a scroll (R8 of Iwakura's audit): the merchant's copy is
+		// that backup, bought only where the step can still be paid after it.
+		DWORD backupVnum = 0;
+		long long backupPrice = 0;
+		if (NeedsPlayerBotBackupWeapon(ch) && FindPlayerBotBackupWeaponOffer(ch, ch->GetWear(WEAR_WEAPON),
+					backupVnum, backupPrice))
+		{
+			LPITEM worn = ch->GetWear(WEAR_WEAPON);
+			const TRefineTable* recipe = worn ? CRefineManager::instance().GetRefineRecipe(worn->GetRefineSet()) : NULL;
+			if (recipe && (long long)ch->GetGold() - GetPlayerBotReservedGold(ch) - backupPrice >=
+						(long long)ch->ComputeRefineFee(recipe->cost) &&
+					BuyPlayerBotProgressionGear(ch, backupVnum, "backup weapon"))
+			{
+				bought = true;
+				// The step waits for the anvil's next visit; the copy is kept
+				// from the merchant from now on (IsPlayerBotKeptBackupWeapon).
+				GetPlayerBotBackupWeaponID(ch, true);
+			}
+		}
 		return sold || bought;
 	}
 
@@ -3604,6 +3911,14 @@ namespace
 		// the companion's anvil would lose the piece the owner chose.
 		if (IsPlayerBotSidekickPinned(ch, item))
 			return false;
+		// A weapon for the tenth level or under is no refine for a bot of
+		// thirty, worn or not (Community Patch 5, point 2): it is what the bot
+		// wears only until something over the line can be had, and the yang
+		// is that weapon's. The Archer's stone dagger is a tool with a rule of
+		// its own (IsPlayerBotArcherStoneWeapon), bought by level where the
+		// merchant has one.
+		if (IsPlayerBotLowWeaponFor(ch, item) && !IsPlayerBotArcherStoneWeapon(ch, item))
+			return false;
 		if (!CanPlayerBotPayRefineStep(ch, item))
 			return false;
 		const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(
@@ -3679,6 +3994,40 @@ namespace
 			return false;
 		const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(worn->GetRefineSet());
 		return recipe && FindPlayerBotRefineScrollCellFor(ch, worn, (int)recipe->prob) < 0;
+	}
+
+	// Its weapon twin (R8 of Iwakura's audit): the weapon in the hand held at a
+	// step that can burn it (IsPlayerBotWornWeaponAtRisk - past
+	// PLAYERBOT_MERCHANT_WEAPON_RISK_PLUS for a merchant's weapon) only for want
+	// of a backup, with no scroll for the step, and a merchant that sells one
+	// (FindPlayerBotBackupWeaponOffer). Gear of
+	// PLAYERBOT_SCROLL_FREE_GEAR_MAX_LEVEL or under never takes a scroll, and no
+	// backup weapon was ever bought, so CanPlayerBotAttemptRefineItem held such
+	// a weapon at +4 for good. The weapon merchant answers it
+	// (ManagePlayerBotWeaponMerchant), and a town visit takes the merchant in
+	// for it (StartPlayerBotTownVisit).
+	bool NeedsPlayerBotBackupWeapon(LPCHARACTER ch)
+	{
+		LPITEM worn = ch ? ch->GetWear(WEAR_WEAPON) : NULL;
+		// A weapon for the tenth level or under in the hand of a bot of thirty
+		// is replaced, not backed up (NeedsPlayerBotProperWeapon).
+		if (!worn || worn->GetType() != ITEM_WEAPON || IsPlayerBotLowWeaponFor(ch, worn) ||
+				!IsPlayerBotWornWeaponAtRisk(ch, worn) ||
+				worn->GetRefineLevel() >= GetPlayerBotRefineTarget(ch, worn) ||
+				!IsPlayerBotScrollStepAllowed(worn->GetRefineLevel()) ||
+				!CanPlayerBotPayRefineStep(ch, worn))
+			return false;
+		const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(worn->GetRefineSet());
+		if (!recipe || FindPlayerBotRefineScrollCellFor(ch, worn, (int)recipe->prob) >= 0)
+			return false;
+		// The merchant sells it only where the step can still be paid after it
+		// (ManagePlayerBotWeaponMerchant): a need the purchase would refuse is
+		// a walk to the merchant at every visit for nothing.
+		DWORD vnum = 0;
+		long long price = 0;
+		return FindPlayerBotBackupWeaponOffer(ch, worn, vnum, price) &&
+				(long long)ch->GetGold() - GetPlayerBotReservedGold(ch) - price >=
+					(long long)ch->ComputeRefineFee(recipe->cost);
 	}
 
 	bool HasPlayerBotRefineOpportunity(LPCHARACTER ch)

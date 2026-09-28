@@ -940,14 +940,27 @@ function Get-SpawnPlanFromEnv {
 
 function Get-KingdomPlanFromEnv {
     # PLAYERBOT_AUTOSPAWN_PER_KINGDOM with the three numbers, and the second
-    # channel with its share, as .env has them; off, 0/0/0 and 40% otherwise.
+    # channel with its share, as .env has them; off and 40% otherwise.
+    #
+    # The three boxes open on the operator's own numbers only while those are in
+    # use, and on an even share of the bots that play otherwise - never on the
+    # zeros .env.example ships: ticked and half filled, they left two kingdoms
+    # with nobody ("nowe postacie tworza sie tylko w Chunjo", NerrVoVy, 19
+    # September). The 2.0.83 fix reached the text launcher alone, and only for a
+    # .env without the keys, which start-server.ps1 adds at 0 to every one.
     $envPath = Join-Path $root 'linux-port\docker\.env'
     $plan = @{ PerKingdom = $false; Shinsoo = 0; Chunjo = 0; Jinno = 0; Channel2 = $false; Channel2Share = 40 }
     if (Test-Path -LiteralPath $envPath -PathType Leaf) {
         $content = [IO.File]::ReadAllText($envPath)
         $m = [Regex]::Match($content, '(?m)^PLAYERBOT_AUTOSPAWN_PER_KINGDOM=(\d+)\s*$')
         if ($m.Success) { $plan.PerKingdom = $m.Groups[1].Value -eq '1' }
+        $total = 0
+        $m = [Regex]::Match($content, '(?m)^PLAYERBOT_AUTOSPAWN_COUNT=(\d+)\s*$')
+        if ($m.Success) { $total = [int]$m.Groups[1].Value }
+        $even = [int][Math]::Floor($total / 3)
         foreach ($pair in @(@('Shinsoo', 'PLAYERBOT_AUTOSPAWN_SHINSOO'), @('Chunjo', 'PLAYERBOT_AUTOSPAWN_CHUNJO'), @('Jinno', 'PLAYERBOT_AUTOSPAWN_JINNO'))) {
+            $plan[$pair[0]] = $even
+            if (-not $plan.PerKingdom) { continue }
             $m = [Regex]::Match($content, '(?m)^' + $pair[1] + '=(\d+)\s*$')
             if ($m.Success) { $plan[$pair[0]] = [int]$m.Groups[1].Value }
         }
@@ -964,7 +977,7 @@ function Get-DifficultyFromEnv {
     # the keys are not there yet (an older .env, which start-server.ps1 fills in).
     $envPath = Join-Path $root 'linux-port\docker\.env'
     $level = 'easy'; $bio = '0'; $horse = '0'; $book = '0'; $botBook = '0'
-    $autoHunt = $true; $sidekick = $true; $starter = $true; $autoHuntItem = $false
+    $autoHunt = $true; $sidekick = $true; $starter = $true; $autoHuntItem = $false; $flea = $true
     if (Test-Path -LiteralPath $envPath -PathType Leaf) {
         $content = [IO.File]::ReadAllText($envPath)
         $m = [Regex]::Match($content, '(?m)^M2_DIFFICULTY=(\S+)\s*$')
@@ -987,10 +1000,12 @@ function Get-DifficultyFromEnv {
         if ($m.Success) { $sidekick = ($m.Groups[1].Value.Trim() -ne '0') }
         $m = [Regex]::Match($content, '(?m)^M2_STARTER_CHEST=(\S+)\s*$')
         if ($m.Success) { $starter = ($m.Groups[1].Value.Trim() -ne '0') }
+        $m = [Regex]::Match($content, '(?m)^M2_FLEA_MARKET=(\S+)\s*$')
+        if ($m.Success) { $flea = ($m.Groups[1].Value.Trim() -ne '0') }
     }
     if ($level -notin @('easy', 'medium', 'hard', 'custom')) { $level = 'easy' }
     return @{ Level = $level; Biologist = $bio; Horse = $horse; Book = $book; BotBook = $botBook
-        AutoHunt = $autoHunt; AutoHuntItem = $autoHuntItem; Sidekick = $sidekick; Starter = $starter }
+        AutoHunt = $autoHunt; AutoHuntItem = $autoHuntItem; Sidekick = $sidekick; Starter = $starter; Flea = $flea }
 }
 
 function Show-DifficultyDialog {
@@ -1004,12 +1019,13 @@ function Show-DifficultyDialog {
     # world is made, so a world already standing had no way to it (Drip looked
     # here for it the same morning). Under Auto Lowy, whether its panel is for
     # everybody or only for a character that bought "Auto Lowy (8h)" in the
-    # ItemShop (the operator, 27 September). Returns
-    # @{ Level; Biologist; Horse; Book; BotBook; AutoHunt; AutoHuntItem; Sidekick; Starter } or $null.
+    # ItemShop (the operator, 27 September). Last, the Dom Towarowy (Uxie
+    # [DSO]'s flea market, the operator's switch of 27 September). Returns
+    # @{ Level; Biologist; Horse; Book; BotBook; AutoHunt; AutoHuntItem; Sidekick; Starter; Flea } or $null.
     param([hashtable]$Current)
     $dialog = [Windows.Forms.Form]::new()
     $dialog.Text = (T 'difficultyDialog')
-    $dialog.Size = [Drawing.Size]::new(560, 618)
+    $dialog.Size = [Drawing.Size]::new(560, 644)
     $dialog.StartPosition = 'CenterParent'
     $dialog.FormBorderStyle = 'FixedDialog'
     $dialog.MaximizeBox = $false
@@ -1179,17 +1195,24 @@ function Show-DifficultyDialog {
     $starterCheck.Size = [Drawing.Size]::new(516, 24)
     $starterCheck.Checked = ($Current.Starter -ne $false)
     $dialog.Controls.Add($starterCheck)
+    $fleaCheck = [Windows.Forms.CheckBox]::new()
+    $fleaCheck.Name = 'fleaMarket'
+    $fleaCheck.Text = 'Dom Towarowy - oferty wszystkich sklepów u Handlarki Różności w M1'
+    $fleaCheck.Location = [Drawing.Point]::new(18, $y + 266)
+    $fleaCheck.Size = [Drawing.Size]::new(516, 24)
+    $fleaCheck.Checked = ($Current.Flea -ne $false)
+    $dialog.Controls.Add($fleaCheck)
 
     $okButton = [Windows.Forms.Button]::new()
     $okButton.Text = (T 'apply')
-    $okButton.Location = [Drawing.Point]::new(332, $y + 282)
+    $okButton.Location = [Drawing.Point]::new(332, $y + 308)
     $okButton.Size = [Drawing.Size]::new(100, 32)
     $okButton.DialogResult = [Windows.Forms.DialogResult]::OK
     $dialog.Controls.Add($okButton)
 
     $cancelButton = [Windows.Forms.Button]::new()
     $cancelButton.Text = (T 'cancel')
-    $cancelButton.Location = [Drawing.Point]::new(438, $y + 282)
+    $cancelButton.Location = [Drawing.Point]::new(438, $y + 308)
     $cancelButton.Size = [Drawing.Size]::new(96, 32)
     $cancelButton.DialogResult = [Windows.Forms.DialogResult]::Cancel
     $dialog.Controls.Add($cancelButton)
@@ -1207,10 +1230,11 @@ function Show-DifficultyDialog {
     $autoHuntItem = $autoHuntItemRadio.Checked
     $sidekick = $sidekickCheck.Checked
     $starter = $starterCheck.Checked
+    $flea = $fleaCheck.Checked
     $dialog.Dispose()
     if ($result -ne [Windows.Forms.DialogResult]::OK) { return $null }
     return @{ Level = $chosen; Biologist = $bio; Horse = $horse; Book = $book; BotBook = $botBook
-        AutoHunt = $autoHunt; AutoHuntItem = $autoHuntItem; Sidekick = $sidekick; Starter = $starter }
+        AutoHunt = $autoHunt; AutoHuntItem = $autoHuntItem; Sidekick = $sidekick; Starter = $starter; Flea = $flea }
 }
 
 function Show-FreshWorldDialog {
@@ -3456,8 +3480,14 @@ $botCountButton.Add_Click({
     }
     else { "$count grających botów" }
     $channelWhat = if ($chosen.Channel2) { ", drugi kanał włączony ($($chosen.Channel2Share)% botów na CH2)" } else { '' }
+    # A kingdom at zero starts nobody, and said so only in the text launcher.
+    $emptyKingdoms = @()
+    if ($chosen.PerKingdom) {
+        foreach ($k in @('Shinsoo', 'Chunjo', 'Jinno')) { if ([int]$chosen.$k -le 0) { $emptyKingdoms += $k } }
+    }
+    $emptyWhat = if ($emptyKingdoms.Count -gt 0) { "`n`nUWAGA: " + ($emptyKingdoms -join ' i ') + ' nie wystartuje żadnego bota.' } else { '' }
     $answer = [Windows.Forms.MessageBox]::Show(
-        "Ustawić $what (wejście w $($chosen.Minutes) min, $($chosen.Late) dodatkowych w ciągu $($chosen.Hours) h)$channelWhat i zrestartować serwer teraz, aby zastosować? Baza i postęp botów pozostaną bez zmian.",
+        "Ustawić $what (wejście w $($chosen.Minutes) min, $($chosen.Late) dodatkowych w ciągu $($chosen.Hours) h)$channelWhat i zrestartować serwer teraz, aby zastosować? Baza i postęp botów pozostaną bez zmian.$emptyWhat",
         'Liczba botów', 'YesNoCancel', 'Question')
     if ($answer -eq [Windows.Forms.DialogResult]::Cancel) { return }
     if ($answer -eq [Windows.Forms.DialogResult]::Yes) {
@@ -3477,7 +3507,7 @@ $difficultyButton.Add_Click({
         'hard' { 'trudny (Biolog 24 h, koń 12-21 h, księgi 21 h)' }
         default { "własny (Biolog $($chosen.Biologist) h, Stajenny $($chosen.Horse) h, księgi: gracze $($chosen.Book) h, boty $($chosen.BotBook) h)" }
     }
-    $features = "Auto Łowy $(if (-not $chosen.AutoHunt) { 'wyłączone' } elseif ($chosen.AutoHuntItem) { 'włączone (tylko po kupnie z ItemShop)' } else { 'włączone (dla każdego)' }), Towarzysz $(if ($chosen.Sidekick) { 'włączony' } else { 'wyłączony' }), Skrzynia Ucznia $(if ($chosen.Starter) { 'tak' } else { 'nie' })"
+    $features = "Auto Łowy $(if (-not $chosen.AutoHunt) { 'wyłączone' } elseif ($chosen.AutoHuntItem) { 'włączone (tylko po kupnie z ItemShop)' } else { 'włączone (dla każdego)' }), Towarzysz $(if ($chosen.Sidekick) { 'włączony' } else { 'wyłączony' }), Skrzynia Ucznia $(if ($chosen.Starter) { 'tak' } else { 'nie' }), Dom Towarowy $(if ($chosen.Flea) { 'włączony' } else { 'wyłączony' })"
     $answer = [Windows.Forms.MessageBox]::Show(
         "Ustawić poziom trudności: $what; $features - i zrestartować serwer teraz, aby zastosować? Baza i postęp botów pozostaną bez zmian.",
         'Poziom trudności', 'YesNoCancel', 'Question')
@@ -3486,7 +3516,8 @@ $difficultyButton.Add_Click({
         '-BookHours', "$($chosen.Book)", '-BotBookHours', "$($chosen.BotBook)",
         '-AutoHunt', $(if ($chosen.AutoHunt) { '1' } else { '0' }), '-AutoHuntItem', $(if ($chosen.AutoHuntItem) { '1' } else { '0' }),
         '-Sidekick', $(if ($chosen.Sidekick) { '1' } else { '0' }),
-        '-StarterChest', $(if ($chosen.Starter) { '1' } else { '0' }))
+        '-StarterChest', $(if ($chosen.Starter) { '1' } else { '0' }),
+        '-FleaMarket', $(if ($chosen.Flea) { '1' } else { '0' }))
     if ($answer -eq [Windows.Forms.DialogResult]::Yes) {
         Start-LauncherAction -Action 'SetDifficulty' -Yes -ExtraArgs $extra
     }

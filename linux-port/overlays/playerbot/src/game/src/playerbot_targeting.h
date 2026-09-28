@@ -1987,10 +1987,30 @@ namespace
 	// would add past lMaxHit. A splash skill needs none of it (the engine
 	// splashes it itself), and a character keeps the one hit it always got:
 	// a duel, a war and a fight back are between two.
+	// A stone this bot has just hurt. The engine shares a stone's drop among
+	// everybody still in its fight, and since the sweeps and the melee skills
+	// hit what a client would hit (2.2.27), the fourth bot at a stone - the
+	// one the three already there leave to its pack - hurts it too and owns a
+	// share, often the book; its target was a monster, so no loot window
+	// opened for it, the fight went on and the book's ownership ran out
+	// ("jak metina bilo ich wiecej niz 3 to nie podnosil ksiazki", sosen,
+	// 27 September). The manager opens the window when this stone breaks.
+	void NotePlayerBotStoneHit(LPCHARACTER ch, LPCHARACTER stone)
+	{
+		if (!ch || !stone || !stone->IsStone())
+			return;
+		TPlayerBotAIStateMap::iterator it = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+		if (it == s_mapPlayerBotAIStates.end())
+			return;
+		it->second.dwStoneLootVID = stone->GetVID();
+		it->second.dwStoneLootHitTime = get_dword_time();
+	}
+
 	DWORD ApplyPlayerBotSkillHits(LPCHARACTER ch, DWORD skillVnum, LPCHARACTER target)
 	{
 		if (!ch || !target)
 			return 0;
+		NotePlayerBotStoneHit(ch, target);
 		CSkillProto* proto = CSkillManager::instance().Get(skillVnum);
 		const bool clientDriven = proto && ch->GetSectree() && !target->IsPC() &&
 				IS_SET(proto->dwFlag, SKILL_FLAG_ATTACK) && IS_SET(proto->dwFlag, SKILL_FLAG_USE_MELEE_DAMAGE) &&
@@ -2017,6 +2037,7 @@ namespace
 			LPCHARACTER victim = CHARACTER_MANAGER::instance().Find(targets[i].second);
 			if (!victim || victim->IsDead() || (!victim->IsMonster() && !victim->IsStone()))
 				continue;
+			NotePlayerBotStoneHit(ch, victim);
 			for (int h = 0; h < perTarget && budget > 0 && !victim->IsDead(); ++h, --budget, ++hits)
 				ch->ComputeSkill(skillVnum, victim);
 		}
@@ -2080,6 +2101,7 @@ namespace
 
 		DWORD hitCount = 1;
 		primary->Damage(ch, iDamage, DAMAGE_TYPE_NORMAL);
+		NotePlayerBotStoneHit(ch, primary);
 		// No UseArrow: a bot's quiver never empties (24 September), so an
 		// Archer does not walk to town for arrows every half hour. The skill
 		// path in playerbot_combat.h does the same.
@@ -2106,6 +2128,7 @@ namespace
 
 				secondary->Damage(ch, CalcMeleeDamage(ch, secondary, false, false),
 						DAMAGE_TYPE_NORMAL);
+				NotePlayerBotStoneHit(ch, secondary);
 				++hitCount;
 			}
 		}

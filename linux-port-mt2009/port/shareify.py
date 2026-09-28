@@ -27,6 +27,9 @@ runtime stage of docker/game/Dockerfile:
     ("cannot find special item group 50194", 560 a minute from the bots of
     seventy). check_chain refuses a chain like that here.
 
+  * cube.seon_pyeong.txt - Seon-Pyeong's recipes by the Grotto of Exile,
+    appended to the share's cube.txt (SEON_PYEONG_RECIPES).
+
 Idempotent: re-run after editing an original.
 """
 import io
@@ -565,6 +568,75 @@ RUN set -eu; L=/opt/metin2/share/locale/poland \
 """
 
 
+# Seon-Pyeong (20091) by the Grotto of Exile turns a +9 piece of level 65-66
+# into its level-80 successor, always, for a Broszura Szermierki (70031), two of
+# each pearl and two million yang (NerrVoVy; upstream's 2.2.31, our 2.2.33). The
+# package's cube.txt names no recipe for him and Cube_open refuses an NPC with
+# none, so cube.seon_pyeong.txt is appended to it; the quest that opens his
+# window is quest/seon_pyeong.quest. The bonuses and stones of the piece given
+# are lost, as the cube's reward is a new item. (from vnum, name, level, to
+# vnum, name), the names as item_proto has them.
+SEON_PYEONG_NPC = 20091
+SEON_PYEONG_BOOKLET = 70031
+SEON_PYEONG_PEARLS = (27992, 27993, 27994)
+SEON_PYEONG_GOLD = 2000000
+SEON_PYEONG_RECIPES = (
+    (149, 'Miecz Bojowy', 65, 270, 'Miecz Trytona'),
+    (249, 'Miecz Egzorcysty', 65, 200, 'Brzegowe Ostrze'),
+    (159, 'Miecz Szponu Ducha', 65, 280, 'Swiety Miecz'),
+    (1109, 'Smoczy Noz', 65, 4040, 'Bezduszny Noz'),
+    (2149, 'Olbrz. Luk Zolt. Smoka', 65, 2160, 'Olbrz. Luk Diabla'),
+    (5109, 'Dzwon Nieba I Ziemi', 65, 5330, 'Dzwon Szczeki Smoka'),
+    (7149, 'Wachlarz Zbawienia', 65, 7190, 'Wachlarz Demona'),
+    (11299, 'Zbroja Z Czarnej Stali', 66, 12010, 'Zbroja Z Nieb. Stali'),
+    (11499, 'Ubranie Czarn. Wiatru', 66, 12020, 'Ubranie Nieb. Smoka'),
+    (11699, 'Zbr. Plyt. Czar. Magii', 66, 12030, 'Zbroja Plytowa Aury'),
+    (11899, 'Czarna Szata', 66, 12040, 'Szata Smoka'),
+)
+
+
+def seon_pyeong_cube():
+    """cube.seon_pyeong.txt: one cube section a recipe, in cube.cpp's format."""
+    out = ['# Seon-Pyeong (%d) by the Grotto of Exile: a +9 piece of level 65-66 into\n'
+           '# its level-80 successor (NerrVoVy; rendered by\n'
+           '# linux-port-mt2009/port/shareify.py and appended to cube.txt).\n' % SEON_PYEONG_NPC]
+    for src, src_name, level, dst, dst_name in SEON_PYEONG_RECIPES:
+        lines = ['# %s+9 (%d) -> %s+0 (80)' % (src_name, level, dst_name), 'section',
+                 'npc\t%d' % SEON_PYEONG_NPC, 'item\t%d\t1' % src, 'item\t%d\t1' % SEON_PYEONG_BOOKLET]
+        lines += ['item\t%d\t2' % v for v in SEON_PYEONG_PEARLS]
+        lines += ['reward\t%d\t1' % dst, 'percent\t100', 'gold\t%d' % SEON_PYEONG_GOLD, 'end']
+        out.append('\n' + '\n'.join(lines) + '\n')
+    return ''.join(out)
+
+
+def seon_pyeong_vnums():
+    v = {SEON_PYEONG_BOOKLET}
+    v.update(SEON_PYEONG_PEARLS)
+    for src, _, _, dst, _ in SEON_PYEONG_RECIPES:
+        v.update((src, dst))
+    return v
+
+
+DOCKERFILE_SEON_PYEONG_ANCHOR = ' && echo "share: Devil\'s Catacomb opened (the Guardian in Hwang, the Reaper\'s token)"\n'
+DOCKERFILE_SEON_PYEONG_MARKER = 'echo "share: Seon-Pyeong\'s recipes appended to cube.txt'
+DOCKERFILE_SEON_PYEONG_STEP = r"""
+# Seon-Pyeong's recipes (port/shareify.py renders cube.seon_pyeong.txt and this
+# step; the quest that opens his window is quest/seon_pyeong.quest above): a +9
+# piece of level 65-66 into its level-80 successor. The package's cube.txt has
+# no recipe for him, and Cube_open refuses an NPC with none.
+COPY cube.seon_pyeong.txt /tmp/cube-add/
+RUN set -eu; C=/opt/metin2/share/locale/poland/cube.txt; A=/tmp/cube-add/cube.seon_pyeong.txt \
+ && ! grep -q -E '^npc[[:blank:]]+20091[[:space:]]*$' "$C" \
+ && n=$(grep -c -E '^npc[[:blank:]]+20091[[:space:]]*$' "$A") \
+ && sed -i 's/\r$//; s/$/\r/' "$A" \
+ && { [ -z "$(tail -c 1 "$C")" ] || printf '\r\n' >> "$C"; } \
+ && cat "$A" >> "$C" \
+ && rm -rf /tmp/cube-add \
+ && test "$(grep -c -E '^npc[[:blank:]]+20091[[:space:]]*$' "$C")" -eq "$n" \
+ && echo "share: Seon-Pyeong's recipes appended to cube.txt ($n)"
+"""
+
+
 def main():
     items = dump_vnums('item_proto')
     mobs = dump_vnums('mob_proto')
@@ -586,6 +658,12 @@ def main():
     with io.open(os.path.join(GAME, 'special_item_group.starter.txt'), 'w', encoding='ascii', newline='\n') as f:
         f.write(STARTER)
     print('shareify: special_item_group.starter.txt written')
+    missing = sorted(seon_pyeong_vnums() - items)
+    if missing:
+        raise SystemExit('shareify: cube.seon_pyeong.txt names items the package lacks: %s' % missing)
+    with io.open(os.path.join(GAME, 'cube.seon_pyeong.txt'), 'w', encoding='ascii', newline='\n') as f:
+        f.write(seon_pyeong_cube())
+    print('shareify: cube.seon_pyeong.txt written')
 
     moonlight = io.open(os.path.join(GAME, 'special_item_group.moonlight.txt'), encoding='latin-1', newline='').read()
     cut = '|'.join(str(v) for v in group_vnums(moonlight) + group_vnums(STARTER))
@@ -630,7 +708,9 @@ def main():
         print('shareify: monkey curse step added')
     for marker, anchor, step, what in (
             (DOCKERFILE_GROTTO_MARKER, DOCKERFILE_GROTTO_ANCHOR, DOCKERFILE_GROTTO_STEP, 'Grotto of Exile entrance'),
-            (DOCKERFILE_CATACOMB_MARKER, DOCKERFILE_CATACOMB_ANCHOR, DOCKERFILE_CATACOMB_STEP, "Devil's Catacomb")):
+            (DOCKERFILE_CATACOMB_MARKER, DOCKERFILE_CATACOMB_ANCHOR, DOCKERFILE_CATACOMB_STEP, "Devil's Catacomb"),
+            (DOCKERFILE_SEON_PYEONG_MARKER, DOCKERFILE_SEON_PYEONG_ANCHOR, DOCKERFILE_SEON_PYEONG_STEP,
+             "Seon-Pyeong's recipes")):
         if marker in s:
             print('shareify: Dockerfile already carries the %s step' % what)
         else:

@@ -319,6 +319,9 @@ BOT_PERSONA_LABELS = {
         # Iwakura's Patch 3, point 7: the rare ones, drawn in red over a bot.
         10: "Metinolog", 11: "Nałogowiec", 12: "Szalony Naukowiec",
         13: "Egzekutor", 14: "Szalony Wędkarz",
+        # Community Patch 5, point 1: the four gamblers, drawn in purple.
+        15: "Młodszy Hazardzista", 16: "Starszy Hazardzista",
+        17: "Naczelny Hazardzista", 18: "Szalony Hazardzista",
     },
     "en": {
         0: "Grinder", 1: "Conqueror", 2: "Trader", 3: "Gambler",
@@ -326,6 +329,8 @@ BOT_PERSONA_LABELS = {
         8: "Mercenary", 9: "Companion",
         10: "Metinologist", 11: "Addict", 12: "Mad Scientist",
         13: "Executioner", 14: "Mad Angler",
+        15: "Junior Gambler", 16: "Senior Gambler",
+        17: "Chief Gambler", 18: "Mad Gambler",
     },
 }
 BOT_MOOD_LABELS = {
@@ -1144,6 +1149,11 @@ def read_ai_weights():
     # The lowest plus a refine under a Blessing or Dragon God scroll may land
     # on; 1 is no floor, which is also what the core starts from.
     vals["SCROLL_FROM"] = 1
+    # The bots' guild wars: minutes a war lasts (15 or 30) and hours from the
+    # start of one to the next in a kingdom (1-4). DUDU's ask; the defaults are
+    # what the core did before there was a choice.
+    vals["WAR_MINUTES"] = 30
+    vals["WAR_HOURS"] = 2
     # The chest event's two figures. None until the file says: the panel does
     # not know what CONFIG holds, and must not write a guess over it.
     vals["CHEST"] = None
@@ -1212,6 +1222,18 @@ def read_ai_weights():
                     except ValueError:
                         pass
                     continue
+                if name == "WAR_MINUTES":
+                    try:
+                        vals["WAR_MINUTES"] = 15 if int(parts[1]) <= 15 else 30
+                    except ValueError:
+                        pass
+                    continue
+                if name == "WAR_HOURS":
+                    try:
+                        vals["WAR_HOURS"] = max(1, min(4, int(parts[1])))
+                    except ValueError:
+                        pass
+                    continue
                 if name in ("CHEST", "CHEST_STONE"):
                     try:
                         vals[name] = max(0, min(1000, int(parts[1])))
@@ -1274,6 +1296,10 @@ def write_ai_weights(vals):
     # The lowest plus a scroll refine may land on; 1 leaves the bots' own
     # rules alone.
     body.append("SCROLL_FROM\t%d" % max(1, min(9, int(vals.get("SCROLL_FROM", 1)))))
+    # The bots' guild wars: how long (15 or 30 minutes) and how often (every
+    # 1-4 hours in each kingdom).
+    body.append("WAR_MINUTES\t%d" % (15 if int(vals.get("WAR_MINUTES", 30)) <= 15 else 30))
+    body.append("WAR_HOURS\t%d" % max(1, min(4, int(vals.get("WAR_HOURS", 2)))))
     # The Moonlight chest: thousandths per kill and per Metin. Written only once
     # the operator has set them, so an untouched install keeps its CONFIG.
     for key in ("CHEST", "CHEST_STONE"):
@@ -3747,6 +3773,14 @@ T.update({
                   "de":"Etwa alle zwei Stunden führen zwei Bot-Gilden eines Königreichs einen Feldkrieg auf der Gildenkarte dieses Königreichs: dreißig Minuten, Kriegserklärung und Wertung des Spiels selbst, eine Meldung im Chat beim Start. Eine Gilde braucht acht Bots online, um gewählt zu werden. Aus: kein neuer Krieg wird erklärt; ein laufender wird zu Ende gekämpft.",
                   "tr":"Yaklaşık iki saatte bir, aynı krallıktan iki bot loncası o krallığın lonca haritasında bir saha savaşı yapar: otuz dakika, oyunun kendi ilanı ve puanlaması, başlangıçta sohbette bir duyuru. Bir loncanın seçilmesi için sekiz botu çevrimiçi olmalı. Kapalı: yeni savaş ilan edilmez; süren savaş sonuna kadar oynanır."},
  "ai_wars_on":   {"en":"Enabled","pl":"Włączone","de":"Eingeschaltet","tr":"Açık"},
+ "ai_war_minutes": {"en":"A war lasts","pl":"Wojna trwa","de":"Ein Krieg dauert","tr":"Bir savaş sürer"},
+ "ai_war_hours":   {"en":"A war in each kingdom every","pl":"Wojna w każdym królestwie co","de":"Ein Krieg in jedem Königreich alle","tr":"Her krallıkta bir savaş, her"},
+ "ai_war_min_unit": {"en":"minutes","pl":"minut","de":"Minuten","tr":"dakika"},
+ "ai_war_hour_unit": {"en":"h","pl":"h","de":"Std.","tr":"saat"},
+ "ai_war_len_help": {"en":"At 15 minutes the bots end their war early, with the winner the game would name (the higher score, a draw on a tie). A player's guild at war with the bots always fights the game's thirty.",
+                     "pl":"Przy 15 minutach boty kończą swoją wojnę wcześniej, ze zwycięzcą, jakiego wskazałaby gra (więcej punktów, remis przy równej liczbie). Gildia gracza w wojnie z botami zawsze walczy pełne trzydzieści minut gry.",
+                     "de":"Bei 15 Minuten beenden die Bots ihren Krieg früher, mit dem Sieger, den das Spiel nennen würde (mehr Punkte, Unentschieden bei Gleichstand). Eine Spielergilde im Krieg mit den Bots kämpft immer die dreißig Minuten des Spiels.",
+                     "tr":"15 dakikada botlar savaşlarını erken bitirir; kazanan, oyunun seçeceği taraftır (daha yüksek puan, eşitlikte beraberlik). Botlarla savaşan bir oyuncu loncası her zaman oyunun otuz dakikasını savaşır."},
  "ai_tower":     {"en":"Bot guilds climb the Demon Tower","pl":"Gildie botów chodzą do Wieży Demonów","de":"Bot-Gilden steigen in den Dämonenturm","tr":"Bot loncaları Şeytan Kulesi'ne çıkar"},
  "ai_tower_help": {"en":"About every hour and a half one bot guild of this core calls its members of level 55 and up to the tower's ground floor (the game says it on the chat), they break the Metin of Toughness together after four minutes and climb the floors: monsters, stones, keys and seals as in the game; from the sixth floor on a bot of 75 is needed, as for players. Whoever stands on the ground floor when the stone breaks - a bot on its errand, a player who came to watch - goes in with them. 'Now' calls a raid on the core's next check when none is under way.",
                   "pl":"Mniej więcej co półtorej godziny jedna gildia botów tego rdzenia zwołuje członków od 55. poziomu na parter Wieży (ogłoszenie na czacie), po czterech minutach razem rozbijają Metin Twardości i przechodzą piętra: potwory, kamienie, klucze i pieczęcie jak w grze; od 6. piętra potrzebny jest bot z 75. poziomem, tak jak u graczy. Kto stoi na parterze, gdy pęka kamień — bot na własnej misji albo gracz, który przyszedł popatrzeć — wchodzi razem z nimi. „Teraz” zwołuje wyprawę przy najbliższym sprawdzeniu rdzenia, jeśli żadna nie trwa.",
@@ -3788,8 +3822,8 @@ T.update({
                   "tr":"Kapalı (varsayılan): bot tezgahını yalnızca oyuncuların alışveriş yaptığı ilk köylerde açar; ikinci köyde duran ve süresi dolan tezgah, sahibinin bir sonraki ziyaretinde ilk köyün pazar halkasında yenilenir. Açık: tezgahlar eskisi gibi iki köyde de durur."},
  "ai_shop_m2_on": {"en":"Allowed","pl":"Dozwolone","de":"Erlaubt","tr":"İzin verildi"},
  "ai_persona":   {"en":"Bot personalities (Iwakura v2)","pl":"Osobowości botów (Iwakura v2)","de":"Bot-Persönlichkeiten (Iwakura v2)","tr":"Bot kişilikleri (Iwakura v2)"},
- "ai_persona_help": {"en":"Iwakura's personality system. A bot's personality follows its situation (Grinder, Conqueror, Trader, Gambler, Perfectionist, Metin slayer, Miner, Fisherman, Mercenary, Companion) and it has a mood (poor, normal, very good) shown on its card. A Grinder holds its level at its tier (15, 23, 30-35, 40-48, 55-62) until it wears a weapon +7, an armour +6 and a shield +6 for its level, and only then may level on as a Conqueror. A bot in a poor mood pauses between packs and goes AFK now and then; only such bots rest in town. Now and then a bot becomes one of five rare personalities for a while, shown in red: Metinologist, Addict, Mad Scientist, Executioner, Mad Angler. Off: the bots play as they did before, with their old personalities.",
-                  "pl":"System osobowości Iwakury. Osobowość bota wynika z jego sytuacji (Grinder, Zdobywca, Handlarz, Hazardzista, Perfekcjonista, Pogromca metinów, Górnik, Rybak, Najemnik, Towarzysz), a bot ma nastrój (słaby, normalny, bardzo dobry) widoczny na jego karcie. Grinder trzyma poziom swojego tieru (15, 23, 30-35, 40-48, 55-62), dopóki nie założy broni +7, zbroi +6 i tarczy +6 na swój poziom - dopiero wtedy może dalej expić jako Zdobywca. Bot w słabym nastroju robi przerwy między grupami mobów i co jakiś czas odchodzi od komputera; tylko takie boty odpoczywają w mieście. Od czasu do czasu bot staje się na pewien czas jedną z pięciu rzadkich osobowości, widocznych na czerwono: Metinolog, Nałogowiec, Szalony Naukowiec, Egzekutor, Szalony Wędkarz. Wyłączone: boty grają jak wcześniej, ze starymi osobowościami.",
+ "ai_persona_help": {"en":"Iwakura's personality system. A bot's personality follows its situation (Grinder, Conqueror, Trader, Gambler, Perfectionist, Metin slayer, Miner, Fisherman, Mercenary, Companion) and it has a mood (poor, normal, very good) shown on its card. A Grinder holds its level at its tier (15, 23, 30-35, 40-48, 55-62) until it wears a weapon +7, an armour +6 and a shield +6 for its level, and only then may level on as a Conqueror. A bot in a poor mood pauses between packs and goes AFK now and then; only such bots rest in town. Now and then a bot becomes one of five rare personalities for a while, shown in red: Metinologist, Addict, Mad Scientist, Executioner, Mad Angler - or, among the richest bots, one of four gamblers shown in purple: Junior, Senior, Chief and Mad Gambler. Off: the bots play as they did before, with their old personalities.",
+                  "pl":"System osobowości Iwakury. Osobowość bota wynika z jego sytuacji (Grinder, Zdobywca, Handlarz, Hazardzista, Perfekcjonista, Pogromca metinów, Górnik, Rybak, Najemnik, Towarzysz), a bot ma nastrój (słaby, normalny, bardzo dobry) widoczny na jego karcie. Grinder trzyma poziom swojego tieru (15, 23, 30-35, 40-48, 55-62), dopóki nie założy broni +7, zbroi +6 i tarczy +6 na swój poziom - dopiero wtedy może dalej expić jako Zdobywca. Bot w słabym nastroju robi przerwy między grupami mobów i co jakiś czas odchodzi od komputera; tylko takie boty odpoczywają w mieście. Od czasu do czasu bot staje się na pewien czas jedną z pięciu rzadkich osobowości, widocznych na czerwono: Metinolog, Nałogowiec, Szalony Naukowiec, Egzekutor, Szalony Wędkarz - a wśród najbogatszych botów jednym z czterech Hazardzistów, widocznych na fioletowo: Młodszym, Starszym, Naczelnym i Szalonym. Wyłączone: boty grają jak wcześniej, ze starymi osobowościami.",
                   "de":"Iwakuras Persönlichkeitssystem. Die Persönlichkeit eines Bots folgt seiner Lage (Grinder, Eroberer, Händler, Spieler, Perfektionist, Metinjäger, Bergmann, Fischer, Söldner, Gefährte), und er hat eine Stimmung (schlecht, normal, sehr gut), die auf seiner Karte steht. Ein Grinder hält die Stufe seines Tiers (15, 23, 30-35, 40-48, 55-62), bis er eine Waffe +7, eine Rüstung +6 und einen Schild +6 für seine Stufe trägt, und erst dann darf er als Eroberer weiterleveln. Ein Bot in schlechter Stimmung macht Pausen zwischen den Gruppen und ist ab und zu AFK; nur solche Bots ruhen in der Stadt. Aus: die Bots spielen wie früher, mit ihren alten Persönlichkeiten.",
                   "tr":"Iwakura'nın kişilik sistemi. Bir botun kişiliği durumuna göre değişir (Grinder, Fatih, Tüccar, Kumarbaz, Mükemmeliyetçi, Metin avcısı, Madenci, Balıkçı, Paralı asker, Yoldaş) ve kartında görünen bir ruh hali vardır (kötü, normal, çok iyi). Bir Grinder, seviyesine uygun +7 silah, +6 zırh ve +6 kalkan giyene kadar kademesinin seviyesinde (15, 23, 30-35, 40-48, 55-62) kalır, ancak ondan sonra Fatih olarak seviye atlayabilir. Kötü ruh halindeki bot gruplar arasında durur ve ara sıra AFK olur; yalnızca bu botlar şehirde dinlenir. Kapalı: botlar eski kişilikleriyle önceki gibi oynar."},
  "ai_persona_on": {"en":"Enabled","pl":"Włączone","de":"Eingeschaltet","tr":"Açık"},
@@ -6167,6 +6201,17 @@ TPL_AI = BASE.replace("__BODY__", """
   <h3 style="margin:0 0 2px">🛡 {{t('ai_wars')}}</h3>
   <p class="muted" style="margin:0 0 6px">{{t('ai_wars_help')}}</p>
   <label><input type="checkbox" name="WARS" value="1" {% if cur.get('WARS', 1) %}checked{% endif %}> {{t('ai_wars_on')}}</label>
+  <div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+    <label>{{t('ai_war_minutes')}}
+      <select name="WAR_MINUTES">
+        {% for m in (15, 30) %}<option value="{{m}}" {% if cur.get('WAR_MINUTES', 30) == m %}selected{% endif %}>{{m}} {{t('ai_war_min_unit')}}</option>{% endfor %}
+      </select></label>
+    <label>{{t('ai_war_hours')}}
+      <select name="WAR_HOURS">
+        {% for h in (1, 2, 3, 4) %}<option value="{{h}}" {% if cur.get('WAR_HOURS', 2) == h %}selected{% endif %}>{{h}} {{t('ai_war_hour_unit')}}</option>{% endfor %}
+      </select></label>
+  </div>
+  <p class="muted" style="margin:6px 0 0">{{t('ai_war_len_help')}}</p>
 </div>
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">⛩ {{t('ai_tower')}}</h3>
@@ -14578,6 +14623,14 @@ def ai_weights():
             vals["SCROLL_FROM"] = max(1, min(9, int(request.form.get("SCROLL_FROM", 1))))
         except (TypeError, ValueError):
             vals["SCROLL_FROM"] = 1
+        try:
+            vals["WAR_MINUTES"] = 15 if int(request.form.get("WAR_MINUTES", 30)) <= 15 else 30
+        except (TypeError, ValueError):
+            vals["WAR_MINUTES"] = 30
+        try:
+            vals["WAR_HOURS"] = max(1, min(4, int(request.form.get("WAR_HOURS", 2))))
+        except (TypeError, ValueError):
+            vals["WAR_HOURS"] = 2
         for key in ("CHEST", "CHEST_STONE"):
             try:
                 vals[key] = max(0, min(1000, int(request.form.get(key))))

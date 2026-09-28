@@ -1326,6 +1326,15 @@ function New-M2SupportBundle {
         $composeFile = Join-Path $composeDir 'docker-compose.yml'
         Invoke-M2CapturedCommand -OutputPath (Join-Path $work 'docker-version.txt') -Command { docker version }
         Invoke-M2CapturedCommand -OutputPath (Join-Path $work 'docker-info.txt') -Command { docker info }
+        # Every volume and when it was made. A world that "vanished with the
+        # update" was a database MariaDB had initialized from nothing the
+        # evening before (Piciu97, 27 September), and only the volume's age
+        # says whether it was removed, and when. No space in the format: an
+        # argument with one reaches docker quoted.
+        Invoke-M2CapturedCommand -OutputPath (Join-Path $work 'docker-volumes.txt') -Command {
+            $volumeNames = @(docker volume ls -q)
+            if ($volumeNames.Count -gt 0) { docker volume inspect --format '{{.Name}};{{.CreatedAt}}' $volumeNames }
+        }
         if (Test-Path -LiteralPath $composeFile -PathType Leaf) {
             Invoke-M2CapturedCommand -OutputPath (Join-Path $work 'compose-ps.txt') -Command {
                 docker compose --project-directory $composeDir -f $composeFile ps -a
@@ -1385,7 +1394,7 @@ function New-M2SupportBundle {
                 if ($core -like 'ch2-*') { $coreDir = '/opt/metin2/var/channel2/' + $core.Substring(4) }
                 Invoke-M2CapturedCommand -OutputPath (Join-Path $work ('playerbot-syslog-' + $core + '.txt')) -Command {
                     docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c `
-                        ('for f in ' + $coreDir + '/log/*/syslog.* ' + $coreDir + '/syslog; do [ -f $f ] && tail -n 400000 $f; done 2>/dev/null | grep -a -e PLAYERBOT_WORLD -e PLAYERBOT_PORTAL -e PLAYERBOT_NAV -e PLAYERBOT_WATCHDOG -e PLAYERBOT_GOAL -e PLAYERBOT_LOAD -e PLAYERBOT_SHOP -e PLAYERBOT_TOWN -e PLAYERBOT_DEPARTURE -e PLAYERBOT_HORSE -e PLAYERBOT_MONKEY -e PLAYERBOT_AUTH -e PLAYERBOT_CHANNEL -e PLAYERBOT_SERVICE -e PLAYERBOT_CONFIG -e PLAYERBOT_EVENT -e PLAYERBOT_LIFE -e PLAYERBOT_CHEST -e PLAYERBOT_COMBAT -e PLAYERBOT_STOCK -e PLAYERBOT_GUILD -e PLAYERBOT_TOWER -e PLAYERBOT_CATACOMB -e PLAYERBOT_ISHOP -e PLAYERBOT_OFFLINE -e PLAYERBOT_MARKET -e PLAYERBOT_BAG -e INVENTORY_ARRANGE -e PLAYERBOT_AI -e PLAYERBOT_ECONOMY -e PLAYERBOT_PVP -e PLAYERBOT_LOOT -e PLAYERBOT_MOOD -e PLAYERBOT_PERSONA -e PLAYERBOT_ANTIPK -e PLAYERBOT_MERC -e PLAYERBOT_LPP -e PLAYERBOT_ALCHEMIST -e PLAYERBOT_METIN:.detector -e PLAYERBOT_BONUS -e PLAYERBOT_PARTY:.accepted -e PLAYERBOT_PARTY:.asked -e PLAYERBOT_LURE:.order -e PLAYERBOT_LURE:.pack.handed -e PLAYERBOT_LURE:.waiting -e PLAYERBOT_CONV -e PLAYERBOT_SUMMON -e PLAYERBOT_SIDEKICK -e QUEST_ITEM -e GMPANEL -e GM_PROFILE -e autospawn | tail -n 40000')
+                        ('for f in ' + $coreDir + '/log/*/syslog.* ' + $coreDir + '/syslog; do [ -f $f ] && tail -n 400000 $f; done 2>/dev/null | grep -a -e PLAYERBOT_WORLD -e PLAYERBOT_PORTAL -e PLAYERBOT_NAV -e PLAYERBOT_WATCHDOG -e PLAYERBOT_GOAL -e PLAYERBOT_LOAD -e PLAYERBOT_SHOP -e PLAYERBOT_TOWN -e PLAYERBOT_DEPARTURE -e PLAYERBOT_HORSE -e PLAYERBOT_MONKEY -e PLAYERBOT_AUTH -e PLAYERBOT_CHANNEL -e PLAYERBOT_SERVICE -e PLAYERBOT_CONFIG -e PLAYERBOT_EVENT -e PLAYERBOT_LIFE -e PLAYERBOT_CHEST -e PLAYERBOT_COMBAT -e PLAYERBOT_STOCK -e PLAYERBOT_GUILD -e PLAYERBOT_TOWER -e PLAYERBOT_CATACOMB -e PLAYERBOT_ISHOP -e PLAYERBOT_OFFLINE -e PLAYERBOT_MARKET -e PLAYERBOT_BAG -e INVENTORY_ARRANGE -e PLAYERBOT_AI -e PLAYERBOT_ECONOMY -e PLAYERBOT_PVP -e PLAYERBOT_LOOT -e PLAYERBOT_MOOD -e PLAYERBOT_PERSONA -e PLAYERBOT_ANTIPK -e PLAYERBOT_MERC -e PLAYERBOT_LPP -e PLAYERBOT_ALCHEMIST -e PLAYERBOT_METIN:.detector -e PLAYERBOT_BONUS -e PLAYERBOT_PARTY:.accepted -e PLAYERBOT_PARTY:.asked -e PLAYERBOT_LURE:.order -e PLAYERBOT_LURE:.pack.handed -e PLAYERBOT_LURE:.waiting -e PLAYERBOT_CONV -e PLAYERBOT_SUMMON -e PLAYERBOT_SIDEKICK -e CAPE_PULL -e FLEA_MARKET -e QUEST_ITEM -e GMPANEL -e GM_PROFILE -e autospawn | tail -n 40000')
                 }
                 Invoke-M2CapturedCommand -OutputPath (Join-Path $work ('syserr-' + $core + '.txt')) -Command {
                     docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c `
@@ -1439,9 +1448,15 @@ function New-M2SupportBundle {
         if (Test-Path -LiteralPath $launcherLogDir -PathType Container) {
             $logOutput = Join-Path $work 'launcher-logs'
             New-Item -ItemType Directory -Path $logOutput -Force | Out-Null
-            Get-ChildItem -LiteralPath $launcherLogDir -File -Filter '*.log' |
-                Sort-Object LastWriteTime -Descending |
-                Select-Object -First 5 |
+            # The day's launcher log of the last three days whatever else was
+            # written since, and the five newest of the rest. Five of any kind
+            # let one afternoon's action logs push out the day before - the
+            # day that held what the world lost (Piciu97, 27 September).
+            $allLogs = @(Get-ChildItem -LiteralPath $launcherLogDir -File -Filter '*.log' |
+                Sort-Object LastWriteTime -Descending)
+            $dailyLogs = @($allLogs | Where-Object { $_.Name -like 'launcher-*.log' } | Select-Object -First 3)
+            $otherLogs = @($allLogs | Where-Object { $_.Name -notlike 'launcher-*.log' } | Select-Object -First 5)
+            @($dailyLogs + $otherLogs) |
                 ForEach-Object {
                     $safeLog = Protect-M2LogContent -Text (Get-Content -LiteralPath $_.FullName -Raw -ErrorAction SilentlyContinue)
                     [IO.File]::WriteAllText((Join-Path $logOutput $_.Name), $safeLog, [Text.UTF8Encoding]::new($false))

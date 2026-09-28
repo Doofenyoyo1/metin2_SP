@@ -12,7 +12,7 @@
 #                                                     in this world (M2_SIDEKICK)
 #   SidekickInfo <protocol> 1 <race> <group> <level> <exp%> <hp> <maxhp> <sp>
 #                <maxsp> <where> <dist> <mode> <stance> <loot> <protect>
-#                <buffs> <gold> <red> <blue> <dead> [<lure> <luring>]
+#                <buffs> <gold> <red> <blue> <dead> [<lure> <luring> [<solo> [<chests>]]]
 #   SidekickNames <name> <place> <doing>            - hex of the CP1250 bytes
 #   SidekickGear <slot 0-7> <name>                  - hex, only when changed
 #
@@ -21,9 +21,12 @@
 # 1 attacks nobody first, 2 does not fight; loot: 0 nothing, 1 the owner's,
 # 2 everything. The orders are the letter's own commands, so the window adds
 # nothing the server did not already take from the quest: przywolaj, wolny,
-# czekaj, zakupy, stan, walka N, zbieraj N, ochrona N, buffy N, luruj N,
-# odprawa tak. lure (server 2.2.19): the companion wakes packs round the owner
-# and brings them over; luring: 0 no course, 1 out to a pack, 2 back with them.
+# czekaj, zakupy, stan, walka N, zbieraj N, ochrona N, buffy N, luruj N, sam N,
+# skrzynki N, odprawa tak. lure (server 2.2.19): the companion wakes packs round
+# the owner and brings them over; luring: 0 no course, 1 out to a pack, 2 back
+# with them. solo (server 2.2.33, "Gra beze mnie"): with its owner out of the
+# game it plays on alone, up to thirty levels over the owner's. chests (server
+# 2.2.33, "Skrzynki"): 1 it opens the chests in its bag, 0 it leaves them closed.
 #
 # "Ekwipunek", "Umiejetnosci" and "Statystyki" open the companion's bag, skill
 # and stat windows (uisidekickinventory.py). Every command of the companion's windows leaves
@@ -158,10 +161,14 @@ def ParseInfo(args):
 	for i, name in enumerate(names):
 		info[name] = ParseInt(values[i])
 	# The lure came later: an older server sends no such words, and the window
-	# then shows no switch for it.
+	# then shows no switch for it. The same for "Gra beze mnie" after it.
 	if len(values) >= len(names) + 2:
 		info['lure'] = ParseInt(values[len(names)])
 		info['luring'] = ParseInt(values[len(names) + 1])
+	if len(values) >= len(names) + 3:
+		info['solo'] = ParseInt(values[len(names) + 2])
+	if len(values) >= len(names) + 4:
+		info['chests'] = ParseInt(values[len(names) + 3])
 	return info
 
 
@@ -202,7 +209,7 @@ def PlaceText(info, place):
 
 class SidekickWindow(ui.BoardWithTitleBar):
 	WIDTH = 300
-	HEIGHT = 554
+	HEIGHT = 581
 
 	def __init__(self):
 		ui.BoardWithTitleBar.__init__(self)
@@ -223,7 +230,7 @@ class SidekickWindow(ui.BoardWithTitleBar):
 	# -------------------------------------------------------------- building
 
 	def Build(self):
-		# Five boards and a status line in 554 pixels, so the window fits an
+		# Five boards and a status line in 581 pixels, so the window fits an
 		# 800x600 screen beside the game as Auto Lowy's does.
 		BL = 10
 		BW = self.WIDTH - 2 * BL
@@ -265,7 +272,7 @@ class SidekickWindow(ui.BoardWithTitleBar):
 		self.stanceHint = self._Label(wkBoard, 10, 42, '')
 		y += 60 + 4
 
-		dpBoard = self._Board(BL, y, BW, 66)
+		dpBoard = self._Board(BL, y, BW, 93)
 		self._Label(dpBoard, 14, 4, 'Drop i wsparcie')
 		self.lootButtons = []
 		for i, text in enumerate(LOOTS):
@@ -273,7 +280,15 @@ class SidekickWindow(ui.BoardWithTitleBar):
 		self.protectButton = self._Btn(dpBoard, 'large', 6, 42, '', self.OnProtect)
 		self.buffButton = self._Btn(dpBoard, 'large', 98, 42, '', self.OnBuffs)
 		self.lureButton = self._Btn(dpBoard, 'large', 190, 42, '', self.OnLure)
-		y += 66 + 4
+		# "Gra beze mnie": whether it plays on while its owner is out of the
+		# game, up to thirty levels over the owner's (the engine's party
+		# boundary, so the two can hunt together again).
+		self.soloButton = self._Btn(dpBoard, 'xlarge', 6, 65, '', self.OnSolo)
+		self.soloButton.SetToolTipText('do twojego poziomu +30')
+		# "Skrzynki": whether it opens the chests in its bag itself or leaves
+		# them for the owner, whose they are (xxkld., 27 September).
+		self.chestButton = self._Btn(dpBoard, 'large', 190, 67, '', self.OnChests)
+		y += 93 + 4
 
 		# What it wears, and the three windows that show and change it: the
 		# bag and the gear as the player's own inventory
@@ -406,6 +421,16 @@ class SidekickWindow(ui.BoardWithTitleBar):
 			self.lureButton.Show()
 		else:
 			self.lureButton.Hide()
+		if 'solo' in info:
+			self.soloButton.SetText('Gra beze mnie: %s' % ('tak' if info['solo'] else 'nie'))
+			self.soloButton.Show()
+		else:
+			self.soloButton.Hide()
+		if 'chests' in info:
+			self.chestButton.SetText('Skrzynki: %s' % ('tak' if info['chests'] else 'nie'))
+			self.chestButton.Show()
+		else:
+			self.chestButton.Hide()
 		# The summon, the free hand and the wait are the three states the
 		# companion is in outside an errand: the one it is in stays down.
 		self.SetPressed((self.summonButton, self.freeButton, self.holdButton), mode if mode < 3 else -1)
@@ -464,6 +489,16 @@ class SidekickWindow(ui.BoardWithTitleBar):
 	def OnLure(self):
 		lure = self.info.get('lure', 0) if self.info else 0
 		self.SendCommand('luruj %d' % (0 if lure else 1))
+		self.nextPoll = 0.0
+
+	def OnSolo(self):
+		solo = self.info.get('solo', 0) if self.info else 0
+		self.SendCommand('sam %d' % (0 if solo else 1))
+		self.nextPoll = 0.0
+
+	def OnChests(self):
+		chests = self.info.get('chests', 1) if self.info else 1
+		self.SendCommand('skrzynki %d' % (0 if chests else 1))
 		self.nextPoll = 0.0
 
 	def OnDismiss(self):

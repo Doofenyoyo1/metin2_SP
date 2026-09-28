@@ -1,0 +1,26 @@
+-- The Dom Towarowy (Uxie [DSO]'s flea market, taken 27 September): the
+-- miscellaneous merchant of a first village offers every offline shop's
+-- listing, players' and bots', in one window (customfleamarket.py in the
+-- client root; the catalogue and the purchase are ikarus_shop_manager.cpp's,
+-- playerbotify apply_flea_market) beside her own shop.
+--
+-- Only while the world has it on - M2_FLEA_MARKET in .env, the launcher's
+-- difficulty window, which the migrator turns into m2_flea_market_off - and
+-- only in M1. Anywhere else, or off, neither option is offered, and a click
+-- on her opens her shop as it always did. The server asks the same two
+-- questions again at every /flea_ command.
+quest flea_market begin
+	state start begin
+		when 9003.chat."Kup przedmioty" with game.get_event_flag("m2_flea_market_off") == 0 and
+				(pc.get_map_index() == 1 or pc.get_map_index() == 21 or pc.get_map_index() == 41) begin
+			setskin(NOWINDOW)
+			npc.open_shop()
+		end
+
+		when 9003.chat."Dom Towarowy" with game.get_event_flag("m2_flea_market_off") == 0 and
+				(pc.get_map_index() == 1 or pc.get_map_index() == 21 or pc.get_map_index() == 41) begin
+			setskin(NOWINDOW)
+			cmdchat("FleaMarketOpen")
+		end
+	end
+end

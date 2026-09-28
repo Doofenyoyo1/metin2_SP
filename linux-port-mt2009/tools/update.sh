@@ -338,6 +338,28 @@ migrate_world_layout() {
     printf 'M2_PLAYERBOT_WORLD_LAYOUT_DEFAULTED=1\n' >> "$_env"
 }
 
+# Every 2.x world is meant to run all three kingdoms ("istotne, by tak bylo u
+# kazdego"), and a .env is written once and kept: a Linux install made before
+# 2.0.8 carries M2_PLAYERBOT_KINGDOMS=0 and stayed a Chunjo-only world for
+# good, because only the Windows launcher ever flipped it
+# (Assert-KingdomsDefault in start-server.ps1). Flipped here exactly once too;
+# an operator who sets 0 again afterwards keeps 0.
+migrate_kingdoms() {
+    _env="$COMPOSE_DIR/.env"
+    [ -f "$_env" ] || return 0
+    grep -q '^M2_PLAYERBOT_KINGDOMS_DEFAULTED=' "$_env" && return 0
+    [ -n "$(tail -c 1 "$_env")" ] && printf '\n' >> "$_env"
+    if grep -q '^M2_PLAYERBOT_KINGDOMS=' "$_env"; then
+        if [ "$(kv "$_env" M2_PLAYERBOT_KINGDOMS | tr -d ' \r')" != 1 ]; then
+            sed -i 's|^M2_PLAYERBOT_KINGDOMS=.*|M2_PLAYERBOT_KINGDOMS=1|' "$_env"
+            note "   three kingdoms: M2_PLAYERBOT_KINGDOMS=1 (Shinsoo, Chunjo and Jinno; the migrator seeds the two new ones on this start)"
+        fi
+    else
+        printf 'M2_PLAYERBOT_KINGDOMS=1\n' >> "$_env"
+    fi
+    printf 'M2_PLAYERBOT_KINGDOMS_DEFAULTED=1\n' >> "$_env"
+}
+
 # 2.2.11 dropped a Blessing Scroll from one Metin stone in twenty, and
 # Iwakura's answer the same evening was one in a hundred for the test. The
 # 2.2.11 value is in every .env add_missing_env_keys gave the key to, where a
@@ -403,7 +425,7 @@ sync_channel_ports() {
 # the keys named below, whose example value is the compose default (an
 # absent key already meant that), never a password, a port or an address;
 # a key already there, empty included, is the operator's and is left alone.
-ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_BLESSING_SCROLL_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_ITEMSHOP_MOUNTS M2_ITEMSHOP_MOUNT_PRICE M2_ITEMSHOP_MOUNT_HOURS M2_AUTOHUNT M2_SIDEKICK M2_AUTOHUNT_ITEM"
+ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_BLESSING_SCROLL_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_ITEMSHOP_MOUNTS M2_ITEMSHOP_MOUNT_PRICE M2_ITEMSHOP_MOUNT_HOURS M2_AUTOHUNT M2_SIDEKICK M2_AUTOHUNT_ITEM M2_FLEA_MARKET"
 add_missing_env_keys() {
     _env="$COMPOSE_DIR/.env"
     _ex="$COMPOSE_DIR/.env.example"
@@ -517,6 +539,8 @@ run_update() {
     note "   the folder now says version $(installed_version)"
     migrate_timezone
     add_missing_env_keys
+    # Before the layout, which reads the kingdoms' own counts.
+    migrate_kingdoms
     # After the keys, so a world that had no layout line at all gets the
     # example's and then this.
     migrate_world_layout

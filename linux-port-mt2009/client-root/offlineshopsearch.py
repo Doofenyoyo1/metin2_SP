@@ -930,3 +930,117 @@ class ShopSearchWindow(ui.ScriptWindow):
 	def OnPressEscapeKey(self):
 		self.Close()
 		return True
+
+
+class FleaMarketQuantityDialog(ui.BoardWithTitleBar):
+	# A small stock-UI dialog for a listing that is a stack. The amount is
+	# always the offer's own, and the Dom Towarowy buys a stack whole.
+	def __init__(self, market):
+		ui.BoardWithTitleBar.__init__(self)
+		self.market = proxy(market)
+		self.data = None
+
+		self.SetSize(360, 190)
+		self.AddFlag("movable")
+		self.AddFlag("float")
+		self.SetTitleName("Kup czesc stacka")
+		self.SetCloseEvent(self.Close)
+
+		self.itemLine = self.__MakeText(18, 42)
+		self.availableLine = self.__MakeText(18, 66)
+		self.__MakeText(18, 96, "Ile sztuk kupic:")
+
+		self.inputBar = ui.SlotBar()
+		self.inputBar.SetParent(self)
+		self.inputBar.SetPosition(150, 91)
+		self.inputBar.SetSize(80, 22)
+		self.inputBar.AddFlag("not_pick")
+		self.inputBar.Show()
+
+		self.quantityEdit = ui.EditLine()
+		self.quantityEdit.SetParent(self.inputBar)
+		self.quantityEdit.SetPosition(4, 3)
+		self.quantityEdit.SetSize(72, 17)
+		self.quantityEdit.SetMax(9)
+		self.quantityEdit.SetNumberMode()
+		self.quantityEdit.OnIMEUpdate = ui.__mem_func__(self.__OnQuantityChanged)
+		self.quantityEdit.SAFE_SetReturnEvent(self.Accept)
+		self.quantityEdit.Show()
+
+		self.totalLine = self.__MakeText(18, 124)
+		self.buyButton = self.__MakeButton(118, 153, "Kup", self.Accept)
+		self.cancelButton = self.__MakeButton(204, 153, "Anuluj", self.Close)
+		self.Hide()
+
+	def __MakeText(self, x, y, text=""):
+		line = ui.TextLine()
+		line.SetParent(self)
+		line.SetPosition(x, y)
+		line.SetText(text)
+		line.Show()
+		return line
+
+	def __MakeButton(self, x, y, text, event):
+		button = ui.Button()
+		button.SetParent(self)
+		button.SetPosition(x, y)
+		button.SetSize(76, 25)
+		button.SetUpVisual("d:/ymir work/ui/public/middle_button_01.sub")
+		button.SetOverVisual("d:/ymir work/ui/public/middle_button_02.sub")
+		button.SetDownVisual("d:/ymir work/ui/public/middle_button_03.sub")
+		button.SetText(text)
+		button.SetEvent(event)
+		button.Show()
+		return button
+
+	def __GetQuantity(self):
+		if not self.data:
+			return 0
+		try:
+			quantity = int(self.quantityEdit.GetText())
+		except:
+			quantity = 1
+		return max(1, min(quantity, self.data["count"]))
+
+	def __OnQuantityChanged(self):
+		ui.EditLine.OnIMEUpdate(self.quantityEdit)
+		self.__UpdatePrice()
+
+	def __UpdatePrice(self):
+		if not self.data:
+			return
+		quantity = self.__GetQuantity()
+		price = self.market.GetStackPurchasePrice(self.data, quantity)
+		self.totalLine.SetText("Do zaplaty za %d szt.: %s" % (quantity, self.market.FormatPrice(price)))
+
+	def Open(self, data):
+		self.data = data
+		self.itemLine.SetText(self.market.GetItemName(data))
+		self.availableLine.SetText("W stacku jest: %d szt." % data["count"])
+		self.quantityEdit.SetText(str(data["count"]))
+		self.__UpdatePrice()
+		self.Show()
+		self.SetTop()
+		self.SetCenterPosition()
+		self.quantityEdit.SetFocus()
+
+	def Accept(self):
+		if not self.data:
+			return
+		data = self.data
+		quantity = self.__GetQuantity()
+		self.Close()
+		self.market.SendStackPurchase(data, quantity)
+
+	def Close(self):
+		self.data = None
+		self.Hide()
+
+	def OnPressEscapeKey(self):
+		self.Close()
+		return True
+
+
+# The Dom Towarowy's window (customfleamarket.py, Uxie [DSO]).
+import customfleamarket
+FleaMarketWindow = customfleamarket.FleaMarketWindow

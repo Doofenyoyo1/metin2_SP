@@ -76,6 +76,10 @@ namespace
 		return redCount < 10 || (isMage && blueCount < 8);
 	}
 
+	// One of Community Patch 5's four gamblers that wants a village - its
+	// bases to buy or its session to begin (playerbot_gambler.h, later).
+	bool PlayerBotRareGamblerWantsTown(LPCHARACTER ch, bool sessionOnly);
+
 	bool NeedsPlayerBotCriticalTownServices(LPCHARACTER ch)
 	{
 		if (!ch || !ch->IsItemLoaded())
@@ -93,6 +97,12 @@ namespace
 				ch->GetWear(WEAR_FOOTS) == NULL || NeedsPlayerBotEmergencyPotions(ch) ||
 				NeedsPlayerBotArrows(ch) ||
 				ch->GetEmptyInventory(3) < 0)
+			return true;
+		// One of Community Patch 5's four gamblers is a rare state of three
+		// hours at most, and all of it is a town's: the counters for its bases
+		// and the anvil for its session. Out on a hunting map it would wait
+		// for its bag to fill, and most of its hours with it.
+		if (PlayerBotRareGamblerWantsTown(ch, false))
 			return true;
 		// The soft half - a bag at 45 percent - is what a keeper with goods
 		// carries for good, and through the village branches of the world
@@ -442,10 +452,28 @@ namespace
 		return 0;
 	}
 
+	// Iwakura's Metinolog (Patch 3, point 7) for its two to four hours.
+	bool IsPlayerBotMetinologNow(LPCHARACTER ch)
+	{
+		if (!ch)
+			return false;
+		TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+		return it != s_mapPlayerBotAIStates.end() &&
+				IsPlayerBotRareNow(it->second.persona, playerbot_persona::RARE_METINOLOG, get_dword_time());
+	}
+
 	long GetPlayerBotFrontierMapForLevelRaw(LPCHARACTER ch)
 	{
 		if (!ch)
 			return 0;
+		// The Metinolog skips the two errands below when they would take it to
+		// a map with no stone: from forty-eight the Biologist's row sent it to
+		// the Spider Dungeons and the military trial to the Demon Tower, and
+		// it stood there two to four hours reading "cel: Metiny" (B08 of
+		// Iwakura's audit; Community Patch 5, point 8). The state ends and the
+		// errands wait for it; a stone hunter by role keeps them, because its
+		// role is for life.
+		const bool metinolog = IsPlayerBotMetinologNow(ch);
 		// A bot working on its battle horse hunts where the trial is, whatever
 		// its level would otherwise say. By level 36 it would be off to Orc
 		// Valley, and the Black Wind band it needs lives in the desert.
@@ -460,14 +488,12 @@ namespace
 		{
 			const long rowHome = GetPlayerBotHuntingMobHome(GetPlayerBotBiologistHuntMob(ch, true));
 			if (rowHome != 0 && IsPlayerBotFrontierMapIndex(rowHome) && IsPlayerBotMapHostedHere(rowHome) &&
-					!(rowHome == PLAYERBOT_MAP_DEMON_TOWER && IsPlayerBotTowerGroundClosedFor(ch)))
+					(!metinolog || PlayerBotMapHasMetinStones(rowHome)))
 				return rowHome;
 		}
 		// And the military trial is in the Demon Tower, for the same reason: the
 		// bot hunts where the trial is, whatever its level would otherwise say.
-		// Not while another kingdom's raid gathers on the ground floor
-		// (IsPlayerBotTowerGroundClosedFor), which would only send it out again.
-		if (IsPlayerBotOnMilitaryHorseTrial(ch) && !IsPlayerBotTowerGroundClosedFor(ch))
+		if (IsPlayerBotOnMilitaryHorseTrial(ch) && !metinolog)
 			return PLAYERBOT_MAP_DEMON_TOWER;
 
 		const BYTE level = ch->GetLevel();
@@ -559,8 +585,7 @@ namespace
 		// PlayerBotMapHasMetinStones says no anyway, so nobody is sent there to
 		// break one - the operator asked that the dungeon stay unrun until it is
 		// worked out properly.
-		if (level >= PLAYERBOT_DEMON_TOWER_MIN_LEVEL && (draw % 4U) == 0 && !stoneHunter &&
-				!IsPlayerBotTowerGroundClosedFor(ch))
+		if (level >= PLAYERBOT_DEMON_TOWER_MIN_LEVEL && (draw % 4U) == 0 && !stoneHunter)
 			return PLAYERBOT_MAP_DEMON_TOWER;
 		if (level >= PLAYERBOT_SPIDER_V2_MIN_LEVEL)
 		{
@@ -600,7 +625,13 @@ namespace
 	// window, or 0 when its own village is still the right place for it.
 	long GetPlayerBotFrontierMapForLevel(LPCHARACTER ch)
 	{
-		const long map = GetPlayerBotFrontierMapForLevelRaw(ch);
+		long map = GetPlayerBotFrontierMapForLevelRaw(ch);
+		// Community Patch 5, point 8: "mapy Loch pajakow V1 oraz Loch pajakow
+		// V2 zostaja od teraz calkowicie zablokowane dla botow z osobowoscia
+		// Metinologa" - whatever sent it there, it hunts on Sohan, the stone
+		// map the draw above gives a stone hunter in their place.
+		if (IsPlayerBotSpiderMap(map) && IsPlayerBotMetinologNow(ch))
+			map = PLAYERBOT_MAP_SOHAN;
 		return IsPlayerBotMapHostedHere(map) ? map : 0;
 	}
 
@@ -1576,8 +1607,12 @@ namespace
 		// which is exactly the state a character is in for the first seconds after
 		// a map change. Trusting it there made a bot believe it had lost its
 		// weapon the moment it arrived somewhere.
+		// And a bot of thirty whose only weapon is for the tenth level or under
+		// while it could buy one over the line (Community Patch 5, point 2):
+		// the merchant and the market are in town.
 		const bool needsEssentialWeaponSupply = ch->IsItemLoaded() &&
-				(ch->GetWear(WEAR_WEAPON) == NULL || NeedsPlayerBotArrows(ch));
+				(ch->GetWear(WEAR_WEAPON) == NULL || NeedsPlayerBotArrows(ch) ||
+				 NeedsPlayerBotProperWeapon(ch));
 		const bool m2LevelingCohort = IsPlayerBotM2LevelingCohort(ch);
 		// The door waits after a visit that ran out without the weapon
 		// (PLAYERBOT_M3_REVISIT_WAIT_MIN_MS); the M3 dropper and the second
@@ -1756,6 +1791,11 @@ namespace
 			// PlayerBotHuntsVillageHerbs for the four-second Joan <-> Bokjung loop).
 			if (holdsMedalToHandIn || BlocksPlayerBotTravel(ch) || needsM1OnlyServices ||
 					PlayerBotHuntsVillageHerbs(ch) || HasPlayerBotExcessPotions(ch) ||
+					// One of Community Patch 5's four gamblers buys its bases on
+					// this village's stands and works them at its anvil: a town
+					// visit just behind it is no reason to walk off to M2, which
+					// has no bot stand, in the middle of its three hours.
+					PlayerBotRareGamblerWantsTown(ch, false) ||
 					((needsTownPreparation || needsCriticalTownServices) &&
 					 !townVisitRecentlyCompleted))
 				return false;

@@ -189,7 +189,7 @@ namespace
 		s_dwPlayerBotTradeShoutTime = last = dwNow;
 		char msg[CHAT_MAX_LEN + 1];
 		snprintf(msg, sizeof(msg), "%s : %s", bot->GetName(), text);
-		SendShout(msg, bot->GetEmpire());
+		SendPlayerBotShout(msg, bot->GetEmpire());
 		sys_log(0, "PLAYERBOT_TRADE: shout pid=%u name=%s text=\"%s\"",
 				bot->GetPlayerID(), bot->GetName(), text);
 		return true;

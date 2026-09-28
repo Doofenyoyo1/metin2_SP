@@ -102,6 +102,193 @@ namespace
 				IsPlayerBotWeaponSubTypeFor(ch, item->GetSubType());
 	}
 
+	// Defined further down, with the ladders and the merchants' stock.
+	int GetPlayerBotProtoLevelLimit(const TItemTable* proto);
+	bool IsPlayerBotProtoForCharacter(LPCHARACTER ch, const TItemTable* proto);
+
+	// Iwakura's Community Patch 5, point 2 (playerbot_refine_rules.h): a weapon
+	// for the tenth level or under in the hands of a bot of thirty. Its burned
+	// weapon's place was taken by "byle jaka bron na 1. poziom +6", with yang
+	// in the purse and a level-30 weapon at +0 in the bag - even at sixty.
+	bool IsPlayerBotLowWeaponFor(LPCHARACTER ch, LPITEM item)
+	{
+		return ch && item && item->GetType() == ITEM_WEAPON && item->GetSubType() != WEAPON_ARROW &&
+				playerbot_refine_rules::IsLowWeaponFor((int)ch->GetLevel(), (int)item->GetLevelLimit());
+	}
+
+	// A weapon over that line this bot could put on now: its job's kind, its
+	// class's, a level it has reached. Asked without the equipment candidate
+	// test below, which asks the ban this is the answer to.
+	bool IsPlayerBotProperWeaponFor(LPCHARACTER ch, LPITEM item)
+	{
+		return ch && item && IsPlayerBotWeapon(ch, item) && !item->IsExchanging() && item->CanUsedBy(ch) &&
+				!IsPlayerBotSidekickUnwanted(ch, item) &&
+				playerbot_refine_rules::IsProperWeaponFor((int)ch->GetLevel(), (int)item->GetLevelLimit());
+	}
+
+	// What a village merchant's line costs: the shop's price, the proto's when
+	// the shop names none, never under a hundred - the arithmetic
+	// BuyPlayerBotProgressionGear pays by.
+	long long GetPlayerBotMerchantOfferPrice(const CShop::SHOP_ITEM& offer, const TItemTable* proto)
+	{
+		long long price = (long long)offer.price;
+		if (price <= 0 && proto)
+			price = proto->dwShopBuyPrice > 0 ? (long long)proto->dwShopBuyPrice : (long long)proto->dwGold;
+		return std::max<long long>(100, price);
+	}
+
+	// A weapon over the line one of the three village merchants sells this
+	// bot, and what it costs.
+	struct TPlayerBotMerchantWeapon
+	{
+		DWORD dwVnum;
+		long long llPrice;
+		int iLevel;
+		long long llRoll;
+	};
+
+	void CollectPlayerBotProperMerchantWeapons(LPCHARACTER ch, std::vector<TPlayerBotMerchantWeapon>& out)
+	{
+		out.clear();
+		if (!ch)
+			return;
+		static const DWORD merchants[] = { 9001, 9002, 9003 };
+		for (size_t i = 0; i < sizeof(merchants) / sizeof(merchants[0]); ++i)
+		{
+			LPSHOP shop = CShopManager::instance().GetByNPCVnum(merchants[i]);
+			if (!shop)
+				continue;
+			const std::vector<CShop::SHOP_ITEM>& offers = shop->GetItemVector();
+			for (size_t k = 0; k < offers.size(); ++k)
+			{
+				const TItemTable* proto = ITEM_MANAGER::instance().GetTable(offers[k].vnum);
+				if (!proto || proto->bType != ITEM_WEAPON || !IsPlayerBotWeaponSubTypeFor(ch, proto->bSubType) ||
+						!IsPlayerBotProtoForCharacter(ch, proto))
+					continue;
+				const int level = GetPlayerBotProtoLevelLimit(proto);
+				if (!playerbot_refine_rules::IsProperWeaponFor((int)ch->GetLevel(), level))
+					continue;
+				bool known = false;
+				for (size_t j = 0; j < out.size() && !known; ++j)
+					known = out[j].dwVnum == offers[k].vnum;
+				if (known)
+					continue;
+				TPlayerBotMerchantWeapon offer;
+				offer.dwVnum = offers[k].vnum;
+				offer.llPrice = GetPlayerBotMerchantOfferPrice(offers[k], proto);
+				offer.iLevel = level;
+				offer.llRoll = (long long)proto->alValues[3] + proto->alValues[4];
+				out.push_back(offer);
+			}
+		}
+	}
+
+	// The best level a village merchant sells this bot a weapon at (over the
+	// low line from level thirty), 0 when none: what a burned weapon would be
+	// replaced with, and so the level a backup has to reach
+	// (playerbot_refine_rules::IsBackupWeaponFor).
+	int GetPlayerBotProperMerchantTopLevel(LPCHARACTER ch)
+	{
+		std::vector<TPlayerBotMerchantWeapon> offers;
+		CollectPlayerBotProperMerchantWeapons(ch, offers);
+		int top = 0;
+		for (size_t i = 0; i < offers.size(); ++i)
+			top = std::max(top, offers[i].iLevel);
+		return top;
+	}
+
+	// The ban's answer for one bot, kept PLAYERBOT_LOW_WEAPON_BAN_CACHE_MS: the
+	// candidate test asks it for every bag cell of every pass, and it walks the
+	// bag and the merchants' stock.
+	struct TPlayerBotLowWeaponBan
+	{
+		DWORD dwTime;
+		bool bBanned;
+		bool bHoldsProper;
+		long long llCheapest;
+		TPlayerBotLowWeaponBan() : dwTime(0), bBanned(false), bHoldsProper(false), llCheapest(0) {}
+	};
+	std::map<DWORD, TPlayerBotLowWeaponBan> s_mapPlayerBotLowWeaponBan;
+	// When a purchase of a weapon over the line last failed for want of room.
+	std::map<DWORD, DWORD> s_mapPlayerBotProperWeaponRefused;
+
+	const TPlayerBotLowWeaponBan& ReadPlayerBotLowWeaponBan(LPCHARACTER ch, bool fresh)
+	{
+		TPlayerBotLowWeaponBan& ban = s_mapPlayerBotLowWeaponBan[ch->GetPlayerID()];
+		const DWORD now = get_dword_time();
+		if (!fresh && ban.dwTime != 0 && now - ban.dwTime < PLAYERBOT_LOW_WEAPON_BAN_CACHE_MS)
+			return ban;
+		ban.dwTime = now != 0 ? now : 1;
+		ban.bHoldsProper = IsPlayerBotProperWeaponFor(ch, ch->GetWear(WEAR_WEAPON));
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && !ban.bHoldsProper; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			ban.bHoldsProper = item && item->GetCell() == cell && !item->IsEquipped() &&
+					IsPlayerBotProperWeaponFor(ch, item);
+		}
+		// The merchants' prices matter only to a bot with nothing over the
+		// line: one that holds a weapon over it keeps off the low one whatever
+		// its purse holds.
+		std::vector<TPlayerBotMerchantWeapon> offers;
+		if (!ban.bHoldsProper)
+			CollectPlayerBotProperMerchantWeapons(ch, offers);
+		ban.llCheapest = 0;
+		for (size_t i = 0; i < offers.size(); ++i)
+			if (ban.llCheapest == 0 || offers[i].llPrice < ban.llCheapest)
+				ban.llCheapest = offers[i].llPrice;
+		std::map<DWORD, DWORD>::const_iterator refused = s_mapPlayerBotProperWeaponRefused.find(ch->GetPlayerID());
+		const bool refusedLately = refused != s_mapPlayerBotProperWeaponRefused.end() &&
+				now - refused->second < PLAYERBOT_LOW_WEAPON_REFUSED_MS;
+		ban.bBanned = !playerbot_refine_rules::IsLowWeaponFallback(ban.bHoldsProper, (long long)ch->GetGold(),
+				ban.llCheapest, refusedLately);
+		return ban;
+	}
+
+	// Whether the ban holds for this bot now: of the level, and not given way
+	// (IsLowWeaponFallback: nothing over the line to fight with and no way to
+	// buy it). fresh reads the bag and the purse again.
+	bool IsPlayerBotLowWeaponBanned(LPCHARACTER ch, bool fresh = false)
+	{
+		if (!ch || (int)ch->GetLevel() < PLAYERBOT_LOW_WEAPON_BAN_LEVEL || !ch->IsItemLoaded())
+			return false;
+		return ReadPlayerBotLowWeaponBan(ch, fresh).bBanned;
+	}
+
+	// This weapon, for this bot, now. What a companion's owner put on is the
+	// owner's word (playerbot_sidekick.h).
+	bool IsPlayerBotBannedLowWeapon(LPCHARACTER ch, LPITEM item, bool fresh = false)
+	{
+		return IsPlayerBotLowWeaponFor(ch, item) && !IsPlayerBotSidekickPinned(ch, item) &&
+				IsPlayerBotLowWeaponBanned(ch, fresh);
+	}
+
+	// A bot of thirty with no weapon over the line, worn or in the bag, while
+	// the ban holds: the weapon merchant's errand (BuyPlayerBotProperWeapon) or
+	// the market's, and on the frontier a reason to go home for it.
+	bool NeedsPlayerBotProperWeapon(LPCHARACTER ch)
+	{
+		if (!ch || (int)ch->GetLevel() < PLAYERBOT_LOW_WEAPON_BAN_LEVEL || !ch->IsItemLoaded() ||
+				IsPlayerBotSidekickPinned(ch, ch->GetWear(WEAR_WEAPON)))
+			return false;
+		// A weapon over the line in the hand - nearly every bot - is answered
+		// without the bag and the merchants behind the kept answer.
+		if (IsPlayerBotProperWeaponFor(ch, ch->GetWear(WEAR_WEAPON)))
+			return false;
+		const TPlayerBotLowWeaponBan& ban = ReadPlayerBotLowWeaponBan(ch, false);
+		return ban.bBanned && !ban.bHoldsProper;
+	}
+
+	// A purchase of one refused for want of room: the low weapon may be worn
+	// for PLAYERBOT_LOW_WEAPON_REFUSED_MS rather than none.
+	void NotePlayerBotProperWeaponRefused(LPCHARACTER ch)
+	{
+		if (!ch)
+			return;
+		const DWORD now = get_dword_time();
+		s_mapPlayerBotProperWeaponRefused[ch->GetPlayerID()] = now != 0 ? now : 1;
+		s_mapPlayerBotLowWeaponBan.erase(ch->GetPlayerID());
+	}
+
 	bool IsPlayerBotEquipmentCandidate(LPCHARACTER ch, LPITEM item)
 	{
 		if (!ch || !item || item->IsExchanging() || !item->IsEquipable())
@@ -120,6 +307,11 @@ namespace
 			return false;
 
 		if (item->GetType() == ITEM_WEAPON && !IsPlayerBotWeapon(ch, item))
+			return false;
+		// Nothing for the tenth level or under in the hands of a bot of thirty
+		// while anything better can be had (Community Patch 5, point 2): not
+		// worn, not bought, not kept as the backup, not refined.
+		if (IsPlayerBotBannedLowWeapon(ch, item))
 			return false;
 		// Two uniques are never worn, and the rings and gloves on a clock are
 		// the unique-slot pass's to put on and take off (playerbot_unique_slots.h):
@@ -891,30 +1083,99 @@ namespace
 		return best;
 	}
 
+	// A blacksmith session's memory of what it took off (B12 of Iwakura's
+	// audit), forgotten when the session puts things back on or runs out.
+	void ClearPlayerBotRefineTakenOff(TPlayerBotAIState& state)
+	{
+		for (int wear = 0; wear < WEAR_MAX_NUM; ++wear)
+			state.adwRefineTakenOffItem[wear] = 0;
+	}
+
+	// The wear slot this bag piece was taken off by the session, -1 for none:
+	// by its id, while the slot stands empty. No bag walk - the refine pass
+	// asks it of every piece in the bag.
+	int GetPlayerBotTakenOffSlotOf(LPCHARACTER ch, const TPlayerBotAIState& state, LPITEM item)
+	{
+		if (!ch || !item || item->GetID() == 0 || item->IsEquipped() ||
+				get_dword_time() - state.dwRefineTakenOffAt >= PLAYERBOT_REFINE_TAKEN_OFF_MS)
+			return -1;
+		const int slot = item->FindEquipCell(ch);
+		if (slot < 0 || slot >= WEAR_MAX_NUM || state.adwRefineTakenOffItem[slot] != item->GetID() ||
+				ch->GetWear((WORD)slot) != NULL)
+			return -1;
+		return slot;
+	}
+
+	// The piece a blacksmith session took off this slot for the anvil
+	// (TPlayerBotAIState::adwRefineTakenOffItem), while the slot is still
+	// empty and the piece still in the bag: the worn one, whatever the bag
+	// holds beside it. Asked with the slot empty only, which is a session's
+	// few seconds, so the lookup costs nothing the rest of the time.
+	LPITEM FindPlayerBotTakenOffPiece(LPCHARACTER ch, int wearCell)
+	{
+		if (!ch || wearCell < 0 || wearCell >= WEAR_MAX_NUM || ch->GetWear(wearCell))
+			return NULL;
+		TPlayerBotAIStateMap::const_iterator st = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+		if (st == s_mapPlayerBotAIStates.end())
+			return NULL;
+		const DWORD id = st->second.adwRefineTakenOffItem[wearCell];
+		if (id == 0 || get_dword_time() - st->second.dwRefineTakenOffAt >= PLAYERBOT_REFINE_TAKEN_OFF_MS)
+			return NULL;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (item && item->GetID() == id && item->GetCell() == cell && !item->IsEquipped())
+				return item;
+		}
+		return NULL;
+	}
+
 	// The weapon in the hand, or - with the hand empty, as it is for a whole
 	// blacksmith session, or holding a rod or a pickaxe - the one that goes
 	// back into it. A tool is not a weapon with a blow of nothing: read as one,
 	// an angler's hand was outclassed by the whole atlas and every weapon on a
-	// counter was worth its savings.
+	// counter was worth its savings. With the hand emptied by the anvil it is
+	// the piece the session took off, not whatever scores best in the bag.
 	LPITEM GetPlayerBotHandWeapon(LPCHARACTER ch)
 	{
 		if (!ch || !ch->IsItemLoaded())
 			return NULL;
 		LPITEM worn = ch->GetWear(WEAR_WEAPON);
-		return worn && worn->GetType() == ITEM_WEAPON ? worn : FindPlayerBotBestBagWeapon(ch, NULL, NULL);
+		if (worn && worn->GetType() == ITEM_WEAPON)
+			return worn;
+		LPITEM taken = FindPlayerBotTakenOffPiece(ch, WEAR_WEAPON);
+		if (taken && taken->GetType() == ITEM_WEAPON && IsPlayerBotEquipmentCandidate(ch, taken) &&
+				taken->GetLevelLimit() <= ch->GetLevel())
+			return taken;
+		return FindPlayerBotBestBagWeapon(ch, NULL, NULL);
+	}
+
+	// A piece's family: the +0 of its refine chain, as the price table and
+	// the level-30 keep count one.
+	DWORD GetPlayerBotItemFamily(LPITEM item)
+	{
+		if (!item)
+			return 0;
+		const int plus = std::max(0, (int)item->GetRefineLevel());
+		return item->GetVnum() >= (DWORD)plus ? item->GetVnum() - (DWORD)plus : item->GetVnum();
 	}
 
 	// The weapon a bot keeps for the day the one in its hand burns: the best
-	// other weapon in the bag it can wear, scoring at least
-	// PLAYERBOT_REFINE_BACKUP_SCORE_PERCENT of the hand's. It is not a gift,
-	// not merchant scrap and not counter goods; without one the refine pass
-	// holds the hand's weapon off the plain anvil (IsPlayerBotWornWeaponAtRisk).
+	// other weapon in the bag it can wear that playerbot_refine_rules::
+	// IsBackupWeaponFor takes - scoring PLAYERBOT_REFINE_BACKUP_SCORE_PERCENT
+	// of the hand's, a copy of the hand's family, or one of the hand's level
+	// or of the merchant's best, whichever is lower. It is not a gift, not
+	// merchant scrap and not counter goods; without one the refine pass holds
+	// the hand's weapon off the plain anvil (IsPlayerBotWornWeaponAtRisk), and
+	// the weapon merchant sells one (NeedsPlayerBotBackupWeapon).
 	LPITEM FindPlayerBotBackupWeapon(LPCHARACTER ch)
 	{
 		LPITEM hand = GetPlayerBotHandWeapon(ch);
 		if (!hand)
 			return NULL;
 		const long long handScore = GetPlayerBotEquipmentScore(hand, ch);
+		const DWORD handFamily = GetPlayerBotItemFamily(hand);
+		const int merchantTop = GetPlayerBotProperMerchantTopLevel(ch);
 		// Never a spare at +7 or past that the hand matches or beats: that one
 		// is goods (IsPlayerBotFinishedSpareGoods; Iwakura's Patch 4, point 7:
 		// "bot zawsze zachowuje dla siebie tylko jeden, najlepszy egzemplarz").
@@ -931,14 +1192,16 @@ namespace
 			const long long score = GetPlayerBotEquipmentScore(item, ch);
 			if (item->GetRefineLevel() >= PLAYERBOT_SPARE_GOODS_MIN_PLUS && score <= handScore)
 				continue;
+			if (!playerbot_refine_rules::IsBackupWeaponFor(handScore, score, PLAYERBOT_REFINE_BACKUP_SCORE_PERCENT,
+					GetPlayerBotItemFamily(item) == handFamily, (int)hand->GetLevelLimit(), (int)item->GetLevelLimit(),
+					merchantTop))
+				continue;
 			if (!backup || score > backupScore || (score == backupScore && item->GetID() < backup->GetID()))
 			{
 				backup = item;
 				backupScore = score;
 			}
 		}
-		if (!backup || backupScore * 100 < handScore * PLAYERBOT_REFINE_BACKUP_SCORE_PERCENT)
-			return NULL;
 		return backup;
 	}
 
@@ -1260,9 +1523,14 @@ namespace
 			const long long itemScore = GetPlayerBotEquipmentScore(item, ch);
 			// A weapon in the hand that does not fit the moment - the bow while
 			// the Archer is on a stone, the dagger once the stone is gone - is
-			// worth nothing against the one that does.
+			// worth nothing against the one that does. Nor does the level-one
+			// sword +6 a bot of thirty holds (IsPlayerBotBannedLowWeapon): by the
+			// damage model it out-hits a level-30 weapon at +0, whose refine is
+			// the whole point, and any weapon over the line takes its place. The
+			// Archer's stone tool keeps its own rule (FindPlayerBotStoneWeapon).
 			const long long oldScore = oldItem
-					? ((wearCell == WEAR_WEAPON && !PlayerBotWeaponFitsNow(ch, state, oldItem))
+					? ((wearCell == WEAR_WEAPON && (!PlayerBotWeaponFitsNow(ch, state, oldItem) ||
+							(!stoneMode && IsPlayerBotBannedLowWeapon(ch, oldItem))))
 						? 0 : GetPlayerBotEquipmentScore(oldItem, ch))
 					: 0;
 			if (oldItem && itemScore <= oldScore)
@@ -1377,9 +1645,9 @@ namespace
 	void RestorePlayerBotEquipmentAfterRefining(LPCHARACTER ch,
 			TPlayerBotAIState& state, DWORD dwNow)
 	{
-		// What the session took off goes back on here, so the slots it
+		// What the session took off goes back on here, so the pieces it
 		// remembers are the equipment pass's again (ManagePlayerBotRefining).
-		state.dwRefineTakenOffSlots = 0;
+		ClearPlayerBotRefineTakenOff(state);
 		// A blacksmith session can temporarily remove more than one worn item.
 		// ManagePlayerBotEquipment intentionally equips only one upgrade per call,
 		// so force a short bounded pass before the bot leaves the NPC.  This makes
@@ -2294,7 +2562,10 @@ namespace
 		if (!ch || !ch->IsItemLoaded())
 			return;
 		LPITEM worn = ch->GetWear(WEAR_WEAPON);
-		if (worn && worn->GetType() == ITEM_WEAPON)
+		// A weapon a bot of thirty will not fight with (IsPlayerBotBannedLowWeapon)
+		// is nothing a level-30 weapon has to beat: the Miecz +6 in the hand
+		// out-hit every copy at +0 and kept the project from ever starting.
+		if (worn && worn->GetType() == ITEM_WEAPON && !IsPlayerBotBannedLowWeapon(ch, worn))
 		{
 			view.toBeat = GetPlayerBotWeaponHitDamage(worn, ch);
 			if (IsPlayerBotSpecialLevel30Weapon(worn) && IsPlayerBotWeapon(ch, worn))
@@ -2306,7 +2577,8 @@ namespace
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
 			if (!item || item->GetCell() != cell || item->IsEquipped() ||
-					!IsPlayerBotWeapon(ch, item) || item->GetLevelLimit() > ch->GetLevel())
+					!IsPlayerBotWeapon(ch, item) || item->GetLevelLimit() > ch->GetLevel() ||
+					IsPlayerBotBannedLowWeapon(ch, item))
 				continue;
 			if (!IsPlayerBotSpecialLevel30Weapon(item))
 			{
@@ -2554,15 +2826,75 @@ namespace
 	// while the bag holds PLAYERBOT_SCROLL_RULE_MIN_SCROLLS safe scrolls, in the
 	// field, past the operator's anvil table. Without it a +5 with thirty-seven
 	// scrolls and the materials in the bag waited for the blacksmith and the
-	// plain anvil. Under SCROLL_FROM the floor still answers.
+	// plain anvil. Under SCROLL_FROM the floor still answers. "Zwoje
+	// Blogoslawienstwa" are counted as the scrolls that hand a failed piece
+	// back rather than burn it (IsPlayerBotSafeRefineScroll): the Blessing
+	// Scroll and the kinds better than it; never the War God's, which stops at
+	// +3, nor a Gwarancja. The policy is playerbot_refine_rules.h's.
 	bool IsPlayerBotScrollRuleWeapon(LPCHARACTER ch, LPITEM item)
 	{
-		if (!ch || !item || item->GetType() != ITEM_WEAPON || item->GetSubType() == WEAPON_ARROW ||
-				item->GetRefinedVnum() == 0 || item->GetLevelLimit() < PLAYERBOT_SCROLL_RULE_WEAPON_MIN_LEVEL ||
-				item->GetRefineLevel() >= PLAYERBOT_SCROLL_RULE_WEAPON_PLUS ||
-				!IsPlayerBotScrollStepAllowed(item->GetRefineLevel()) || item != GetPlayerBotHandWeapon(ch))
+		if (!ch || !item || item->GetType() != ITEM_WEAPON || item->GetSubType() == WEAPON_ARROW)
 			return false;
-		return CountPlayerBotSafeRefineScrolls(ch) >= PLAYERBOT_SCROLL_RULE_MIN_SCROLLS;
+		const int level = (int)item->GetLevelLimit();
+		const int plus = (int)item->GetRefineLevel();
+		const bool refinable = item->GetRefinedVnum() != 0;
+		const bool stepAllowed = IsPlayerBotScrollStepAllowed(item->GetRefineLevel());
+		// The piece's own half first, as if the bag held the scrolls: the hand
+		// and the count walk the bag, and the refine target asks this of every
+		// piece there is.
+		if (!playerbot_refine_rules::IsScrollRuleWeapon(level, plus, refinable, stepAllowed,
+					PLAYERBOT_SCROLL_RULE_MIN_SCROLLS) ||
+				item != GetPlayerBotHandWeapon(ch))
+			return false;
+		return playerbot_refine_rules::IsScrollRuleWeapon(level, plus, refinable, stepAllowed,
+				CountPlayerBotSafeRefineScrolls(ch));
+	}
+
+	// Defined below, beside the backup armour it is the other half of.
+	LPITEM GetPlayerBotBodyArmour(LPCHARACTER ch);
+
+	// Community Patch 5, point 4, its second half: "W przypadku, gdy bot
+	// posiada juz bron ulepszona na przynajmniej +8, dokladnie ta sama zasada
+	// ... powinna zaczac dotyczyc jego zbroi." The body armour on the back - or
+	// the one a blacksmith session keeps in the bag (GetPlayerBotBodyArmour) -
+	// of level thirty or more (the level-34 tier up: the ladder has none at
+	// thirty) and under +7, once the weapon in the hand stands at +8, goes
+	// under the scrolls at every step, and what the step lacks is bought at the
+	// market first (CollectPlayerBotScrollRuleMissing), as for the weapon.
+	bool IsPlayerBotScrollRuleArmour(LPCHARACTER ch, LPITEM item)
+	{
+		if (!ch || !item || item->GetType() != ITEM_ARMOR || item->GetSubType() != ARMOR_BODY)
+			return false;
+		const int level = (int)item->GetLevelLimit();
+		const int plus = (int)item->GetRefineLevel();
+		const bool refinable = item->GetRefinedVnum() != 0;
+		const bool stepAllowed = IsPlayerBotScrollStepAllowed(item->GetRefineLevel());
+		// The piece's own half first, as for the weapon.
+		if (!playerbot_refine_rules::IsScrollRuleArmour(level, plus, refinable, stepAllowed,
+					PLAYERBOT_SCROLL_RULE_MIN_SCROLLS, PLAYERBOT_SCROLL_RULE_ARMOUR_WEAPON_PLUS) ||
+				item != GetPlayerBotBodyArmour(ch))
+			return false;
+		LPITEM hand = GetPlayerBotHandWeapon(ch);
+		return playerbot_refine_rules::IsScrollRuleArmour(level, plus, refinable, stepAllowed,
+				CountPlayerBotSafeRefineScrolls(ch), hand ? (int)hand->GetRefineLevel() : -1);
+	}
+
+	// Either half of the rule.
+	bool IsPlayerBotScrollRulePiece(LPCHARACTER ch, LPITEM item)
+	{
+		return IsPlayerBotScrollRuleWeapon(ch, item) || IsPlayerBotScrollRuleArmour(ch, item);
+	}
+
+	// Whether the rule has a piece to work on now: while it has, the scrolls
+	// are that piece's - the stall keeps them all and the gambler takes none
+	// (GetPlayerBotRefineScrollKeep). A counter sold them down to the three the
+	// rule needs, the first step spent one, and the rule stopped at two.
+	bool PlayerBotHasScrollRuleWork(LPCHARACTER ch)
+	{
+		if (!ch || !ch->IsItemLoaded())
+			return false;
+		return IsPlayerBotScrollRuleWeapon(ch, GetPlayerBotHandWeapon(ch)) ||
+				IsPlayerBotScrollRuleArmour(ch, GetPlayerBotBodyArmour(ch));
 	}
 
 	bool PlayerBotWantsShield(LPCHARACTER ch);
@@ -2719,13 +3051,15 @@ namespace
 	// Defined in playerbot_economy.h, beside the prize line it asks for.
 	LPITEM FindPlayerBotLinesProject(LPCHARACTER ch);
 
-	BYTE GetPlayerBotRefineTargetOwn(LPCHARACTER ch, LPITEM item)
+	BYTE GetPlayerBotRefineTargetOwnBase(LPCHARACTER ch, LPITEM item)
 	{
 		if (!ch || !item)
 			return 0;
 		// A body armour taken to +5 before it may go on a counter (Iwakura's
-		// Patch 3, point 4).
-		if (PlayerBotRefinesLowArmourForSale(ch, item))
+		// Patch 3, point 4). Not the one on the back under the scroll rule,
+		// which a blacksmith session keeps in the bag from its first step on,
+		// where that rule would have read it as a spare for the counter.
+		if (!IsPlayerBotScrollRuleArmour(ch, item) && PlayerBotRefinesLowArmourForSale(ch, item))
 			return PLAYERBOT_LOW_ARMOUR_SALE_PLUS;
 		// A level-30 weapon of its own class in the hand, or the one it is
 		// grinding, goes to +9 whatever the personality: that is what the
@@ -2780,6 +3114,18 @@ namespace
 			return PLAYERBOT_SCROLL_REFINE_MAX_PLUS;
 		const BYTE ambition = GetPlayerBotRefineAmbition(ch, item);
 		return (int)ambition >= firstRung ? PLAYERBOT_SCROLL_REFINE_MAX_PLUS : ambition;
+	}
+
+	// And a piece under Iwakura's scroll rule - the weapon in the hand, the
+	// armour on the back after it - goes to +7 at least, whatever the aim
+	// above says (playerbot_refine_rules::ScrollRuleTarget): every pass that
+	// asks a target, the planner, the material shopping and both refine passes
+	// then agree that the step is wanted.
+	BYTE GetPlayerBotRefineTargetOwn(LPCHARACTER ch, LPITEM item)
+	{
+		const BYTE target = GetPlayerBotRefineTargetOwnBase(ch, item);
+		return IsPlayerBotScrollRulePiece(ch, item)
+				? (BYTE)playerbot_refine_rules::ScrollRuleTarget((int)target) : target;
 	}
 
 	// A weapon worked on in the bag under the one in the hand - the class's
@@ -2932,7 +3278,13 @@ namespace
 		if (!ch || !ch->IsItemLoaded())
 			return NULL;
 		LPITEM worn = ch->GetWear(WEAR_BODY);
-		return worn ? worn : FindPlayerBotBestBagArmour(ch, NULL);
+		if (worn)
+			return worn;
+		// The piece the session took off, not the best of the bag (B12).
+		LPITEM taken = FindPlayerBotTakenOffPiece(ch, WEAR_BODY);
+		if (taken && IsPlayerBotBackupArmourCandidate(ch, taken))
+			return taken;
+		return FindPlayerBotBestBagArmour(ch, NULL);
 	}
 
 	LPITEM FindPlayerBotBackupArmour(LPCHARACTER ch)
@@ -3776,26 +4128,131 @@ namespace
 		return true;
 	}
 
+	// A weapon over the low line for a bot of thirty whose hand has none to
+	// take (Community Patch 5, point 2): the best a village merchant sells its
+	// class at its level that the purse pays for - levels 25 to 36 there -
+	// and not the level-one sword the empty hand was sold before. Surplus
+	// potions are sold towards the cheapest of them, as for the emergency
+	// weapon. A bag with no room for it is remembered
+	// (NotePlayerBotProperWeaponRefused): the ban gives way for a while rather
+	// than keep the bot unarmed.
+	bool BuyPlayerBotProperWeapon(LPCHARACTER ch)
+	{
+		if (!ch || !ch->IsItemLoaded() || IsPlayerBotGearFrozen(ch))
+			return false;
+		std::vector<TPlayerBotMerchantWeapon> offers;
+		CollectPlayerBotProperMerchantWeapons(ch, offers);
+		if (offers.empty())
+			return false;
+		// The highest level first, then the heavier blow.
+		std::sort(offers.begin(), offers.end(), [](const TPlayerBotMerchantWeapon& a, const TPlayerBotMerchantWeapon& b)
+		{
+			return a.iLevel != b.iLevel ? a.iLevel > b.iLevel : a.llRoll > b.llRoll;
+		});
+		long long cheapest = offers[0].llPrice;
+		for (size_t i = 1; i < offers.size(); ++i)
+			cheapest = std::min(cheapest, offers[i].llPrice);
+		if ((long long)ch->GetGold() < cheapest)
+			RaisePlayerBotEmergencyGold(ch, cheapest, "weapon_over_low_line");
+		const TPlayerBotMerchantWeapon* pick = NULL;
+		for (size_t i = 0; i < offers.size() && !pick; ++i)
+			if ((long long)ch->GetGold() >= offers[i].llPrice)
+				pick = &offers[i];
+		if (!pick)
+		{
+			PlayerBotLogThrottled("proper_weapon_unpaid", get_dword_time(),
+					"PLAYERBOT_AI: no yang for a weapon over the low line pid=%u name=%s level=%u gold=%lld cheapest=%lld",
+					ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), (long long)ch->GetGold(), cheapest);
+			s_mapPlayerBotLowWeaponBan.erase(ch->GetPlayerID());
+			return false;
+		}
+		// Room first: AutoGiveItem puts what the bag cannot take on the ground
+		// and returns it (see the emergency weapon below).
+		const TItemTable* proto = ITEM_MANAGER::instance().GetTable(pick->dwVnum);
+		if (!proto || ch->GetEmptyInventory(std::max(1, (int)proto->bSize)) < 0)
+		{
+			PlayerBotLogThrottled("proper_weapon_no_room", get_dword_time(),
+					"PLAYERBOT_AI: no room for a weapon over the low line pid=%u name=%s level=%u vnum=%u, the low one may go on",
+					ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), pick->dwVnum);
+			NotePlayerBotProperWeaponRefused(ch);
+			return false;
+		}
+		LPITEM weapon = ch->AutoGiveItem(pick->dwVnum, 1, -1, false);
+		if (!weapon)
+			return false;
+		if (weapon->GetOwner() != ch || weapon->GetWindow() != INVENTORY)
+		{
+			sys_err("PLAYERBOT_AI: weapon over the low line did not reach the bag pid=%u name=%s vnum=%u",
+					ch->GetPlayerID(), ch->GetName(), pick->dwVnum);
+			return false;
+		}
+		PlayerBotChangeGold(ch, -pick->llPrice);
+		LogManager::instance().ItemLog(ch, weapon, "PLAYERBOT_NPC_BUY", weapon->GetName());
+		// The answer the ban gave a moment ago is the purse's and the bag's of
+		// a moment ago.
+		s_mapPlayerBotLowWeaponBan.erase(ch->GetPlayerID());
+		LPITEM hand = ch->GetWear(WEAR_WEAPON);
+		sys_log(0, "PLAYERBOT_AI: bought a weapon over the low line pid=%u name=%s level=%u vnum=%u weapon_level=%d price=%lld gold_left=%lld hand=%u",
+				ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), pick->dwVnum, pick->iLevel,
+				pick->llPrice, (long long)ch->GetGold(), hand ? hand->GetVnum() : 0);
+		return true;
+	}
+
+	// The weapon an empty hand takes from the bag: the best one it can put on
+	// now, not the first. The first was how a bot of thirty whose weapon burned
+	// came to fight with the level-one sword +6 lying ahead of its level-30
+	// weapon in the bag; now that sword is not a candidate for it at all while
+	// anything over the line can be had (IsPlayerBotBannedLowWeapon), and the
+	// bag's best of the rest goes on.
 	bool EquipFirstAvailablePlayerBotWeapon(LPCHARACTER ch)
 	{
 		if (!ch)
 			return false;
 
+		std::vector<std::pair<long long, LPITEM> > ranked;
+		bool bannedLeft = false;
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
-			if (!IsPlayerBotWeapon(ch, item) || IsPlayerBotSidekickUnwanted(ch, item))
+			if (!IsPlayerBotWeapon(ch, item) || item->GetCell() != cell || IsPlayerBotSidekickUnwanted(ch, item))
 				continue;
-
-			const DWORD vnum = item->GetVnum();
-			if (PlayerBotCanEquipNow(ch, item, TItemPos(INVENTORY, cell)) && PlayerBotEquipItem(ch, item))
+			if (IsPlayerBotBannedLowWeapon(ch, item))
 			{
-				sys_log(0, "PLAYERBOT_AI: equipped weapon pid=%u name=%s vnum=%u",
-						ch->GetPlayerID(), ch->GetName(), vnum);
-				return ch->GetWear(WEAR_WEAPON) != NULL;
+				bannedLeft = true;
+				continue;
 			}
+			if (!PlayerBotCanEquipNow(ch, item, TItemPos(INVENTORY, cell)))
+				continue;
+			ranked.push_back(std::make_pair(GetPlayerBotEquipmentScore(item, ch), item));
 		}
-
+		std::stable_sort(ranked.begin(), ranked.end(),
+				[](const std::pair<long long, LPITEM>& a, const std::pair<long long, LPITEM>& b)
+				{
+					return a.first > b.first;
+				});
+		for (size_t i = 0; i < ranked.size(); ++i)
+		{
+			LPITEM item = ranked[i].second;
+			const DWORD vnum = item->GetVnum();
+			const bool low = IsPlayerBotLowWeaponFor(ch, item);
+			if (!PlayerBotEquipItem(ch, item))
+				continue;
+			sys_log(0, "PLAYERBOT_AI: equipped weapon pid=%u name=%s vnum=%u",
+					ch->GetPlayerID(), ch->GetName(), vnum);
+			// A bot of thirty on the ban's way out: nothing over the line to
+			// fight with and nothing to buy it with (IsLowWeaponFallback).
+			if (low)
+				PlayerBotLogThrottled("low_weapon_fallback", get_dword_time(),
+						"PLAYERBOT_AI: low weapon worn, nothing over the line to be had pid=%u name=%s level=%u vnum=%u weapon_level=%d gold=%lld",
+						ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), vnum,
+						(int)item->GetLevelLimit(), (long long)ch->GetGold());
+			return ch->GetWear(WEAR_WEAPON) != NULL;
+		}
+		if (bannedLeft)
+			PlayerBotLogThrottled("low_weapon_banned", get_dword_time(),
+					"PLAYERBOT_AI: low weapon left in the bag pid=%u name=%s level=%u gold=%lld rebuilding=%d",
+					ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), (long long)ch->GetGold(),
+					NeedsPlayerBotProperWeapon(ch) ? 1 : 0);
 		return false;
 	}
 
@@ -3813,15 +4270,31 @@ namespace
 		// purchases in five minutes on a world started that morning, and bots
 		// of level one carrying four swords (Iwakura, 23 September). One the
 		// engine refuses only for the moment (the second and a half after a
-		// blow) is worn on the next try, so it stops the purchase too.
+		// blow) is worn on the next try, so it stops the purchase too. The
+		// low sword a bot of thirty may not fight with stops nothing.
 		if (EquipFirstAvailablePlayerBotWeapon(ch))
 			return true;
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM held = ch->GetInventoryItem(cell);
 			if (IsPlayerBotWeapon(ch, held) && held->CanUsedBy(ch) &&
-					held->GetLevelLimit() <= ch->GetLevel())
+					held->GetLevelLimit() <= ch->GetLevel() && !IsPlayerBotBannedLowWeapon(ch, held))
 				return false;
+		}
+
+		// A bot of thirty buys a weapon over the low line (Community Patch 5,
+		// point 2) - "zakupic nowa z wyzszym poziomem przed powrotem do walki".
+		// When it cannot, the ban has given way by the time it is asked again
+		// (no yang for the cheapest, or no room), and the bag's low weapon or
+		// the old purchase below is what it fights with.
+		if (IsPlayerBotLowWeaponBanned(ch, true))
+		{
+			if (BuyPlayerBotProperWeapon(ch) && EquipFirstAvailablePlayerBotWeapon(ch))
+				return true;
+			if (IsPlayerBotLowWeaponBanned(ch, true))
+				return false;
+			if (EquipFirstAvailablePlayerBotWeapon(ch))
+				return true;
 		}
 
 		const DWORD vnum = GetPlayerBotEmergencyWeaponVnum(ch);

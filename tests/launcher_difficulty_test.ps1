@@ -52,8 +52,9 @@ $Yes = $false
 $Difficulty = ''; $BiologistHours = ''; $HorseHours = ''; $BookHours = ''; $BotBookHours = ''
 # Auto Lowy and the companion joined the window on 25 September, and the
 # apprentice chest the same day: -1 keeps what .env says (on when it says
-# nothing).
-$AutoHunt = -1; $AutoHuntItem = -1; $Sidekick = -1; $StarterChest = -1
+# nothing). The Dom Towarowy joined it on 27 September (upstream's 2.2.32,
+# our 2.2.33).
+$AutoHunt = -1; $AutoHuntItem = -1; $Sidekick = -1; $StarterChest = -1; $FleaMarket = -1
 
 Write-Host '== hard is the package: 21 hours between books, players and bots =='
 $script:env = @{}
@@ -126,6 +127,23 @@ $StarterChest = 1
 Set-DifficultyAction
 Check 'chest back on' '1' $script:env['M2_STARTER_CHEST']
 $StarterChest = -1
+
+Write-Host '== the Dom Towarowy: on by default, 1 or 0, kept when not passed =='
+$script:env = @{}
+$Difficulty = 'easy'
+Set-DifficultyAction
+Check 'flea market on by default' '1' $script:env['M2_FLEA_MARKET']
+$FleaMarket = 0
+Set-DifficultyAction
+Check 'flea market off' '0' $script:env['M2_FLEA_MARKET']
+Check 'chest untouched by the flea market' '1' $script:env['M2_STARTER_CHEST']
+$FleaMarket = -1
+Set-DifficultyAction
+Check 'flea market kept off' '0' $script:env['M2_FLEA_MARKET']
+$FleaMarket = 1
+Set-DifficultyAction
+Check 'flea market back on' '1' $script:env['M2_FLEA_MARKET']
+$FleaMarket = -1
 
 Write-Host '== a number out of range stops it =='
 $Difficulty = 'custom'; $BookHours = '721'; $BotBookHours = '0'

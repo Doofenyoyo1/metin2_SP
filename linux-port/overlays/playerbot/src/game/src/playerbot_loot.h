@@ -540,8 +540,25 @@ namespace
 		// in a ring round where the stone stood, and the pack it summoned is
 		// still on the bot. Go for them anyway, within reach, the way a player
 		// dashes for them - or the bots that are not fighting will have them.
-		const bool metinDash = state.dwStoneBrokenTime != 0 &&
+		// Not on a Demon Tower floor, where a stone is the floor's objective and
+		// the pack fights on after it: the dash dropped a live foe for twenty
+		// seconds for any drop within fifteen metres and the linger stood the
+		// bot still for five, at every Metin of Death and at every wave the
+		// Metin of Murder sends - the seventh floor's bots that "dostaja laga"
+		// and do nothing for a second or two (prodnathin, 27 September). The
+		// floor's own loot, between two foes (towerDash below), takes the drop.
+		const bool towerFloor = IsPlayerBotDemonTowerInstance(ch->GetMapIndex());
+		const bool metinDash = !towerFloor && state.dwStoneBrokenTime != 0 &&
 				dwNow - state.dwStoneBrokenTime < PLAYERBOT_METIN_LOOT_DASH_TIME;
+		// A bot standing up on a floor walks back to the pack
+		// (RegroupPlayerBotTowerAfterDeath), invisible and healing; a walk to a
+		// drop here took the tick from both, and it was visible again at a
+		// fifth of its health where the fight's drops lay.
+		if (towerFloor && state.bRecoveringAfterDeath)
+		{
+			TryPlayerBotCombatPickup(ch, state, dwNow);
+			return false;
+		}
 		// Inside the Demon Tower the fight never ends: the floor pass hands a
 		// bot its next foe the moment the last one falls, and a pack always
 		// stands about, so this pass only ever took what lay at a bot's feet -
@@ -550,8 +567,7 @@ namespace
 		// 23 September). Between two foes, with its health holding, a bot
 		// there goes for what it may take within PLAYERBOT_TOWER_LOOT_RANGE
 		// before the next one is picked.
-		const bool towerDash = !bFightingActiveTarget &&
-				IsPlayerBotDemonTowerInstance(ch->GetMapIndex()) &&
+		const bool towerDash = !bFightingActiveTarget && towerFloor &&
 				!state.bRecoveringAfterDeath && ch->GetMaxHP() > 0 &&
 				(long long)ch->GetHP() * 100 >=
 						(long long)ch->GetMaxHP() * PLAYERBOT_TOWER_LOOT_MIN_HP_PERCENT;

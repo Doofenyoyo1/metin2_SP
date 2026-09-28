@@ -140,6 +140,53 @@ namespace
 		return true;
 	}
 
+	// The three parts of a recovery that are the same wherever the bot stood
+	// up. The walk is not among them: here it is a step away from the death
+	// spot, and on a Demon Tower floor it is the walk back to the pack
+	// (RegroupPlayerBotTowerAfterDeath).
+	//
+	// Bot descriptors do not receive the same idle regeneration cadence as a
+	// real client. Previously a bot without red potions could therefore wait
+	// forever at 50 HP after restart_here. Rest-heal it gradually while it is
+	// protected, up to PLAYERBOT_RECOVERY_HP_PERCENT. True once it is healed;
+	// ending the recovery is the caller's.
+	bool RestHealPlayerBot(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		const int maxHP = ch->GetMaxHP();
+		const int recoveryHP = maxHP > 0
+				? (maxHP * PLAYERBOT_RECOVERY_HP_PERCENT + 99) / 100
+				: 0;
+		if (maxHP > 0 && ch->GetHP() < recoveryHP && dwNow >= state.dwNextRecoveryHealTime)
+		{
+			const int healStep = std::max(1, maxHP * PLAYERBOT_RECOVERY_REST_HEAL_PERCENT / 100);
+			const int healAmount = std::min(healStep, recoveryHP - ch->GetHP());
+			if (healAmount > 0)
+				ch->PointChange(POINT_HP, healAmount);
+			state.dwNextRecoveryHealTime = dwNow + PLAYERBOT_RECOVERY_REST_HEAL_INTERVAL;
+		}
+		return maxHP > 0 && ch->GetHP() >= recoveryHP;
+	}
+
+	void KeepPlayerBotRecoveryHidden(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		if (dwNow < state.dwNextRecoveryProtectionTime)
+			return;
+		// The same five seconds do_restart gives a player. Ten made the bot
+		// disappear for twice as long as anybody else does after standing up,
+		// which is the half of dying that did not look like a player's.
+		ch->ReviveInvisible(5);
+		state.dwNextRecoveryProtectionTime = dwNow + PLAYERBOT_RECOVERY_PROTECTION_INTERVAL;
+	}
+
+	void EndPlayerBotRecovery(LPCHARACTER ch, TPlayerBotAIState& state)
+	{
+		state.bRecoveringAfterDeath = false;
+		state.dwNextRecoveryProtectionTime = 0;
+		state.dwNextRecoveryHealTime = 0;
+		sys_log(0, "PLAYERBOT_AI: recovery complete pid=%u name=%s hp=%d/%d",
+				ch->GetPlayerID(), ch->GetName(), ch->GetHP(), ch->GetMaxHP());
+	}
+
 	bool HandlePostDeathRecovery(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!state.bRecoveringAfterDeath)
@@ -149,42 +196,12 @@ namespace
 		state.dwTargetVID = 0;
 		ch->SetVictim(NULL);
 
-		const int maxHP = ch->GetMaxHP();
-		const int recoveryHP = maxHP > 0
-				? (maxHP * PLAYERBOT_RECOVERY_HP_PERCENT + 99) / 100
-				: 0;
-
-		// Bot descriptors do not receive the same idle regeneration cadence as
-		// a real client.  Previously a bot without red potions could therefore
-		// wait forever at 50 HP after restart_here.  Rest-heal it gradually while
-		// it is protected and moving away from the death location.
-		if (maxHP > 0 && ch->GetHP() < recoveryHP && dwNow >= state.dwNextRecoveryHealTime)
+		if (RestHealPlayerBot(ch, state, dwNow))
 		{
-			const int healStep = std::max(1, maxHP * PLAYERBOT_RECOVERY_REST_HEAL_PERCENT / 100);
-			const int healAmount = std::min(healStep, recoveryHP - ch->GetHP());
-			if (healAmount > 0)
-				ch->PointChange(POINT_HP, healAmount);
-			state.dwNextRecoveryHealTime = dwNow + PLAYERBOT_RECOVERY_REST_HEAL_INTERVAL;
-		}
-
-		if (maxHP > 0 && ch->GetHP() >= recoveryHP)
-		{
-			state.bRecoveringAfterDeath = false;
-			state.dwNextRecoveryProtectionTime = 0;
-			state.dwNextRecoveryHealTime = 0;
-			sys_log(0, "PLAYERBOT_AI: recovery complete pid=%u name=%s hp=%d/%d",
-					ch->GetPlayerID(), ch->GetName(), ch->GetHP(), ch->GetMaxHP());
+			EndPlayerBotRecovery(ch, state);
 			return false;
 		}
-
-		if (dwNow >= state.dwNextRecoveryProtectionTime)
-		{
-			// The same five seconds do_restart gives a player. Ten made the bot
-			// disappear for twice as long as anybody else does after standing up,
-			// which is the half of dying that did not look like a player's.
-			ch->ReviveInvisible(5);
-			state.dwNextRecoveryProtectionTime = dwNow + PLAYERBOT_RECOVERY_PROTECTION_INTERVAL;
-		}
+		KeepPlayerBotRecoveryHidden(ch, state, dwNow);
 
 		// While recovering invisibly, if we are right inside the death danger zone (< 800 distance),
 		// step away from the death spot to a safer position

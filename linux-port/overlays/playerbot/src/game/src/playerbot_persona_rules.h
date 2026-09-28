@@ -49,6 +49,13 @@ namespace playerbot_persona
 		PERSONA_NAUKOWIEC,
 		PERSONA_EGZEKUTOR,
 		PERSONA_WEDKARZ,
+		// Iwakura's Community Patch 5, point 1: the four gamblers that took
+		// the Hazardzista's place, rare too and shown in purple. Appended for
+		// the same reason as the rare ones above.
+		PERSONA_HAZ_MLODSZY,
+		PERSONA_HAZ_STARSZY,
+		PERSONA_HAZ_NACZELNY,
+		PERSONA_HAZ_SZALONY,
 		PERSONA_COUNT
 	};
 
@@ -1253,6 +1260,11 @@ namespace playerbot_persona
 		RARE_NAUKOWIEC,
 		RARE_EGZEKUTOR,
 		RARE_WEDKARZ,
+		// Community Patch 5, point 1 (TGamblerTerms below).
+		RARE_HAZ_MLODSZY,
+		RARE_HAZ_STARSZY,
+		RARE_HAZ_NACZELNY,
+		RARE_HAZ_SZALONY,
 		RARE_COUNT
 	};
 
@@ -1264,23 +1276,32 @@ namespace playerbot_persona
 		uint32_t minMinutes;
 		uint32_t maxMinutes;
 		// The Metinolog's "maksymalnie 1 bot na 300 spelniajacych warunki":
-		// its cap grows with the bots that qualify; every other kind runs one
-		// at a time, which its world pause spaces.
+		// its cap grows with the bots that qualify; so do the four gamblers',
+		// in the same words. Every other kind runs one at a time, which its
+		// world pause spaces.
 		bool capByEligible;
 	};
 
-	// His numbers. The addict's session and the scientist's trip end the
-	// state themselves; their minutes are only its ceiling.
+	// His numbers. The addict's and the gamblers' sessions and the
+	// scientist's trip end the state themselves; their minutes are only its
+	// ceiling. Community Patch 5 moved the Egzekutor to one in 400 and five
+	// hours (point 12) and gave the four gamblers theirs (point 1): one in
+	// 250, 300, 350 and 1000, four, six, eight and sixteen hours - his
+	// "cooldown" is the world pause, as the Egzekutor's always was.
 	inline TRareRule GetRareRule(uint8_t rare)
 	{
 		switch (rare)
 		{
-			case RARE_METINOLOG:  return TRareRule{ PERSONA_METINOLOG, 300, 0, 120, 250, true };
-			case RARE_NALOGOWIEC: return TRareRule{ PERSONA_NALOGOWIEC, 1000, 240, 180, 180, false };
-			case RARE_NAUKOWIEC:  return TRareRule{ PERSONA_NAUKOWIEC, 500, 480, 90, 90, false };
-			case RARE_EGZEKUTOR:  return TRareRule{ PERSONA_EGZEKUTOR, 300, 180, 120, 120, false };
-			case RARE_WEDKARZ:    return TRareRule{ PERSONA_WEDKARZ, 600, 720, 360, 360, false };
-			default:              return TRareRule{ PERSONA_GRINDER, 0, 0, 0, 0, false };
+			case RARE_METINOLOG:    return TRareRule{ PERSONA_METINOLOG, 300, 0, 120, 250, true };
+			case RARE_NALOGOWIEC:   return TRareRule{ PERSONA_NALOGOWIEC, 1000, 240, 180, 180, false };
+			case RARE_NAUKOWIEC:    return TRareRule{ PERSONA_NAUKOWIEC, 500, 480, 90, 90, false };
+			case RARE_EGZEKUTOR:    return TRareRule{ PERSONA_EGZEKUTOR, 400, 300, 120, 120, false };
+			case RARE_WEDKARZ:      return TRareRule{ PERSONA_WEDKARZ, 600, 720, 360, 360, false };
+			case RARE_HAZ_MLODSZY:  return TRareRule{ PERSONA_HAZ_MLODSZY, 250, 240, 180, 180, true };
+			case RARE_HAZ_STARSZY:  return TRareRule{ PERSONA_HAZ_STARSZY, 300, 360, 180, 180, true };
+			case RARE_HAZ_NACZELNY: return TRareRule{ PERSONA_HAZ_NACZELNY, 350, 480, 180, 180, true };
+			case RARE_HAZ_SZALONY:  return TRareRule{ PERSONA_HAZ_SZALONY, 1000, 960, 240, 240, true };
+			default:                return TRareRule{ PERSONA_GRINDER, 0, 0, 0, 0, false };
 		}
 	}
 
@@ -1315,6 +1336,137 @@ namespace playerbot_persona
 		if (r.maxMinutes <= r.minMinutes)
 			return r.minMinutes;
 		return r.minMinutes + roll % (r.maxMinutes - r.minMinutes + 1);
+	}
+
+	// ---------------------------------------------------------------------
+	// Iwakura's Community Patch 5, point 1: the Hazardzista is gone ("dzialala
+	// slabo lub wcale i byla trudna do zbalansowania"), and four rare gamblers
+	// work the anvil in its place. Each is drawn only among the richest share
+	// of the world's characters (`topPercent`), stakes `budgetPercent` of the
+	// purse it began with on the bases it buys and on the anvil, and buys
+	// `buyMin` to `buyMax` bases at +0..+5 when its bag holds none; the
+	// Szalony works every category at once (`everything`).
+	// ---------------------------------------------------------------------
+	struct TGamblerTerms
+	{
+		uint8_t topPercent;
+		uint8_t budgetPercent;
+		uint8_t buyMin;
+		uint8_t buyMax;
+		bool everything;
+	};
+
+	inline bool IsRareGambler(uint8_t rare)
+	{
+		return rare >= RARE_HAZ_MLODSZY && rare <= RARE_HAZ_SZALONY;
+	}
+
+	inline TGamblerTerms GetGamblerTerms(uint8_t rare)
+	{
+		switch (rare)
+		{
+			case RARE_HAZ_MLODSZY:  return TGamblerTerms{ 60, 80, 1, 3, false };
+			case RARE_HAZ_STARSZY:  return TGamblerTerms{ 40, 70, 2, 5, false };
+			case RARE_HAZ_NACZELNY: return TGamblerTerms{ 25, 60, 3, 6, false };
+			// "Jesli nie posiada zadnych przedmiotow spelniajacych te warunki,
+			// zachowuje sie jak Naczelny Hazardzista" - three to six.
+			case RARE_HAZ_SZALONY:  return TGamblerTerms{ 15, 90, 3, 6, true };
+			default:                return TGamblerTerms{ 0, 0, 0, 0, false };
+		}
+	}
+
+	// How many bases a gambler whose bag holds none buys, out of a roll.
+	inline uint8_t GamblerBuyCount(const TGamblerTerms& t, uint32_t roll)
+	{
+		if (t.buyMax <= t.buyMin)
+			return t.buyMin;
+		return (uint8_t)(t.buyMin + roll % (uint32_t)(t.buyMax - t.buyMin + 1));
+	}
+
+	// The four categories of his list, each from its own level: weapons from
+	// thirty, body armour from twenty-six, shields and helmets from
+	// twenty-one, and the jewellery and boots from twenty-two - except the
+	// pieces his list names, which count whatever their level.
+	enum EGambleCategory
+	{
+		GAMBLE_CAT_WEAPON = 0,
+		GAMBLE_CAT_ARMOUR,
+		GAMBLE_CAT_SHIELD_HELMET,
+		GAMBLE_CAT_JEWEL,
+		GAMBLE_CAT_COUNT
+	};
+	const uint8_t GAMBLE_CAT_ALL = (1u << GAMBLE_CAT_COUNT) - 1u;
+
+	inline int GambleCategoryMinLevel(int category)
+	{
+		switch (category)
+		{
+			case GAMBLE_CAT_WEAPON: return 30;
+			case GAMBLE_CAT_ARMOUR: return 26;
+			case GAMBLE_CAT_SHIELD_HELMET: return 21;
+			case GAMBLE_CAT_JEWEL: return 22;
+			default: return 255;
+		}
+	}
+
+	// Which categories a session works, as a mask, out of how many pieces fit
+	// for the anvil the bag holds of each: the category it holds most of,
+	// and every other category it holds as many of ("jezeli w ekwipunku bota
+	// znajduja sie np. 2 bronie i 2 zbroje ... moze polaczyc te dwie
+	// kategorie"); every category that holds any for the Szalony. None when
+	// the bag holds nothing to work - the gambler buys first.
+	inline uint8_t ChooseGambleCategories(const unsigned int counts[GAMBLE_CAT_COUNT], bool everything)
+	{
+		unsigned int best = 0;
+		for (int i = 0; i < GAMBLE_CAT_COUNT; ++i)
+			best = std::max(best, counts[i]);
+		if (best == 0)
+			return 0;
+		uint8_t mask = 0;
+		for (int i = 0; i < GAMBLE_CAT_COUNT; ++i)
+			if (counts[i] > 0 && (everything || counts[i] == best))
+				mask |= (uint8_t)(1u << i);
+		return mask;
+	}
+
+	// Each piece's ambition: +7 seven times in ten, +8 and +9 fifteen each.
+	inline uint8_t RollRareGambleTarget(uint32_t roll)
+	{
+		const uint32_t r = roll % 100u;
+		return r < 70u ? 7 : (r < 85u ? 8 : 9);
+	}
+
+	// From which grade the gamblers take a Blessing Scroll: the steps to +7,
+	// +8 and +9 ("domyslnie korzystaja z nich dopiero przy ulepszaniu na
+	// poziomy od +7 do +9").
+	const uint8_t RARE_GAMBLE_SCROLL_TO_PLUS = 7;
+
+	// A step of the gamblers: the plain anvil up to +6, and each step to +7,
+	// +8 and +9 under a Blessing Scroll while the bag holds one and at the
+	// plain anvil when it does not - "moga uzywac Zwojow Blogoslawienstwa,
+	// lecz nie musza". A scroll that fails hands the piece back a grade down
+	// and the piece is worked on; the engine side stops a piece after its
+	// failures (PLAYERBOT_RARE_GAMBLE_SCROLL_FAILS).
+	inline EGambleStep NextRareGambleStep(uint8_t plus, uint8_t target, bool scrollInBag)
+	{
+		if (plus >= target || plus >= 9)
+			return GAMBLE_STEP_DONE;
+		if (plus + 1u >= RARE_GAMBLE_SCROLL_TO_PLUS && scrollInBag)
+			return GAMBLE_STEP_SCROLL;
+		return GAMBLE_STEP_PLAIN;
+	}
+
+	// Whether a purse ranks among the richest `topPercent` of the world's
+	// characters: `sortedDesc` is every character's gold, richest first; the
+	// bar is the purse at the edge of the share, so a tie at the edge is in.
+	inline long long WealthBar(const std::vector<long long>& sortedDesc, unsigned int topPercent)
+	{
+		if (sortedDesc.empty() || topPercent == 0)
+			return -1;
+		size_t within = (sortedDesc.size() * std::min(topPercent, 100u) + 99u) / 100u;
+		if (within == 0)
+			within = 1;
+		return sortedDesc[within - 1];
 	}
 
 	// ---------------------------------------------------------------------

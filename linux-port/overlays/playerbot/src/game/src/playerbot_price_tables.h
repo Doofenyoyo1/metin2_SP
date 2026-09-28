@@ -52,7 +52,7 @@ namespace
 		{   170, 0x000, { 352000, 352000, 352000, 352000, 896000, 896000, 896000, 3840000, 5760000, 8320000 } },	// Miecz Zadlo
 		{   180, 0x000, { 4480000, 4480000, 4480000, 4480000, 6400000, 8000000, 10240000, 14720000, 25600000, 41600000 } },	// Zatruty miecz
 		{   190, 0x000, { 2560000, 2560000, 2560000, 2560000, 3200000, 4320000, 5600000, 7680000, 10240000, 17600000 } },	// Lwi Miecz
-		{   290, 0x000, { 725000, 725000, 725000, 725000, 1050000, 1375000, 1650000, 3400000, 6225000, 8125000 } },	// Miecz Pelni Ksiezyca
+		{   290, 0x000, { 1073000, 1073000, 1073000, 1073000, 1554000, 2035000, 2442000, 5032000, 9213000, 12025000 } },	// Miecz Pelni Ksiezyca
 		{  1000, 0x000, { 21760, 21760, 21760, 21760, 60800, 60800, 60800, 128000, 283200, 512000 } },	// Sztylet
 		{  1010, 0x000, { 48000, 48000, 48000, 48000, 124800, 124800, 124800, 192000, 387200, 569600 } },	// Sztylet Kobry
 		{  1040, 0x000, { 76800, 76800, 76800, 76800, 230400, 230400, 230400, 649600, 1049600, 1552000 } },	// Ukaszenie Kota
@@ -65,7 +65,7 @@ namespace
 		{  1110, 0x000, { 332800, 332800, 332800, 332800, 768000, 768000, 768000, 2496000, 4608000, 8160000 } },	// Noz Blyskawicy
 		{  1120, 0x000, { 278400, 278400, 278400, 278400, 672000, 672000, 672000, 2841600, 4416000, 6240000 } },	// Noz Siamese
 		{  1130, 0x000, { 3360000, 3360000, 3360000, 3360000, 4992000, 5920000, 7776000, 10720000, 19712000, 31200000 } },	// Skrzydla Demona Chakr.
-		{  1170, 0x000, { 357500, 357500, 357500, 357500, 850000, 1080000, 1590000, 2210000, 3455000, 5825000 } },	// Kozik Czar. Lis.
+		{  1170, 0x000, { 529100, 529100, 529100, 529100, 1258000, 1598400, 2353200, 3270800, 5113400, 8621000 } },	// Kozik Czar. Lis.
 		{  2000, 0x000, { 23360, 23360, 23360, 23360, 67200, 67200, 67200, 144000, 316800, 480000 } },	// Luk
 		{  2010, 0x000, { 32640, 32640, 32640, 32640, 131200, 131200, 131200, 174400, 272000, 608000 } },	// Dlugi Luk
 		{  2020, 0x000, { 47360, 47360, 47360, 47360, 78400, 78400, 78400, 204800, 457600, 784000 } },	// Kompozytowy Luk
@@ -81,7 +81,7 @@ namespace
 		{  2120, 0x000, { 203200, 203200, 203200, 203200, 492800, 492800, 492800, 2032000, 5088000, 8064000 } },	// Olbrz. Skrzydl. Luk
 		{  2130, 0x000, { 364800, 364800, 364800, 364800, 832000, 832000, 832000, 2592000, 4928000, 10400000 } },	// Boski Luk Moreli
 		{  2140, 0x000, { 390400, 390400, 390400, 390400, 912000, 912000, 912000, 3104000, 6464000, 13600000 } },	// Olbrz. Luk Zolt. Smoka
-		{  2150, 0x000, { 462500, 462500, 462500, 462500, 762500, 1075000, 1300000, 2437500, 3600000, 6275000 } },	// Luk Z Rogu Jelenia
+		{  2150, 0x000, { 684500, 684500, 684500, 684500, 1128500, 1591000, 1924000, 3607500, 5328000, 9287000 } },	// Luk Z Rogu Jelenia
 		{  2160, 0x000, { 288000, 288000, 288000, 288000, 729600, 729600, 729600, 3136000, 5952000, 9920000 } },	// Olbrz. Luk Diabla
 		{  2170, 0x000, { 3648000, 3648000, 3648000, 3648000, 5184000, 6496000, 8320000, 11968000, 20736000, 33600000 } },	// Stalowy Luk Kruka
 		{  2180, 0x000, { 2080000, 2080000, 2080000, 2080000, 2592000, 3488000, 4544000, 6240000, 8320000, 14240000 } },	// Luk Niebieskiego Smoka
@@ -102,7 +102,7 @@ namespace
 		{  3140, 0x000, { 364800, 364800, 364800, 364800, 787200, 787200, 787200, 2816000, 6176000, 11456000 } },	// Magnetyczne Ostrze
 		{  3150, 0x000, { 300800, 300800, 300800, 300800, 768000, 768000, 768000, 3296000, 4928000, 12896000 } },	// Zlodziej Dusz
 		{  3160, 0x000, { 4160000, 4160000, 4160000, 4160000, 5952000, 7440000, 9504000, 13696000, 23808000, 38688000 } },	// Miecz Zalu
-		{  3210, 0x000, { 700000, 700000, 700000, 700000, 895000, 1075000, 1435000, 2555000, 4287500, 6637500 } },	// Ostrze Z Czerw. Stali
+		{  3210, 0x000, { 1036000, 1036000, 1036000, 1036000, 1324600, 1591000, 2123800, 3781400, 6345500, 9823500 } },	// Ostrze Z Czerw. Stali
 		{  4000, 0x000, { 30400, 30400, 30400, 30400, 124800, 124800, 124800, 212800, 390400, 768000 } },	// Amija
 		{  4010, 0x000, { 60800, 60800, 60800, 60800, 124800, 124800, 124800, 280000, 668800, 1139200 } },	// Dziewiec Ostrzy
 		{  4020, 0x000, { 72000, 72000, 72000, 72000, 192000, 192000, 192000, 614400, 832000, 1308800 } },	// Krotki Noz
@@ -117,7 +117,7 @@ namespace
 		{  5080, 0x000, { 168000, 168000, 168000, 168000, 380800, 380800, 380800, 1212800, 2291200, 3920000 } },	// Stalowy Robaczy Dzwon
 		{  5090, 0x000, { 172480, 172480, 172480, 172480, 403200, 403200, 403200, 1849600, 2768000, 4544000 } },	// Dzwon Burzowego Ptaka
 		{  5100, 0x000, { 291200, 291200, 291200, 291200, 627200, 627200, 627200, 2240000, 4928000, 9120000 } },	// Dzwon Nieba I Ziemi
-		{  5110, 0x000, { 422500, 422500, 422500, 422500, 585000, 750000, 1130000, 1490000, 2137500, 5687500 } },	// Antyczny Dzwon
+		{  5110, 0x000, { 625300, 625300, 625300, 625300, 865800, 1110000, 1672400, 2205200, 3163500, 8417500 } },	// Antyczny Dzwon
 		{  5120, 0x000, { 3136000, 3136000, 3136000, 3136000, 4480000, 5600000, 7168000, 10304000, 17920000, 29120000 } },	// Bambusowy Dzwon
 		{  5130, 0x000, { 246400, 246400, 246400, 246400, 627200, 627200, 627200, 2688000, 4032000, 8384000 } },	// Dzwon Smierci
 		{  7000, 0x000, { 20160, 20160, 20160, 20160, 56000, 56000, 56000, 123200, 168000, 396800 } },	// Wachlarz
@@ -136,7 +136,7 @@ namespace
 		{  7130, 0x000, { 304000, 304000, 304000, 304000, 697600, 697600, 697600, 2816000, 5088000, 10816000 } },	// Niebian. Ptasi Wachl.
 		{  7140, 0x000, { 340800, 340800, 340800, 340800, 795200, 795200, 795200, 2726400, 6000000, 13440000 } },	// Wachlarz Zbawienia
 		{  7150, 0x000, { 368000, 368000, 368000, 368000, 710400, 710400, 710400, 4044800, 7040000, 11424000 } },	// Ekstazyjny Wachlarz
-		{  7160, 0x000, { 300000, 300000, 300000, 300000, 457500, 612500, 897500, 1392500, 2945000, 5150000 } },	// Wachlarz Jes. Wiatru
+		{  7160, 0x000, { 444000, 444000, 444000, 444000, 677100, 906500, 1328300, 2060900, 4358600, 7622000 } },	// Wachlarz Jes. Wiatru
 		{  7180, 0x000, { 3046400, 3046400, 3046400, 3046400, 4352000, 5440000, 6976000, 10016000, 17408000, 28288000 } },	// Wachlarz 8 Trigramow
 		{ 11200, 0x000, { 32000, 32000, 32000, 32000, 89600, 89600, 89600, 192000, 400000, 1552000 } },	// Mnisia Zbr. Plytowa
 		{ 11210, 0x000, { 48000, 48000, 48000, 48000, 176000, 176000, 176000, 240000, 528000, 1600000 } },	// Zelazna Zbr. Plytowa
@@ -661,19 +661,19 @@ namespace
 	// is drawn from the band below, stable per marble.
 	struct TPlayerBotMarblePrice { DWORD dwMob; DWORD dwPrice; };
 	const TPlayerBotMarblePrice PLAYERBOT_MARBLE_PRICES[] = {
-		{   502,  284375 },	// Dziki Sluga
-		{   701,  288750 },	// Ezoteryczny Fanatyk
-		{   731,  328125 },	// Elit. Ezot. Fanatyk
-		{   751,  288750 },	// Wysoki Fanatyk
-		{   771,  328125 },	// Best. Fanatyk
-		{  1402,  175000 },	// Wojownik Z Toporem
-		{  1403,  218750 },	// Tysieczny Wojownik
-		{  1601,  196875 },	// Ogr Wojownik
-		{  2001,  284375 },	// Mlody Pajak
-		{  2002,  306250 },	// Trujacy Pajak
-		{  2051,  284375 },	// Podly Mlody Truj. Pajak
-		{  2052,  284375 },	// Podly Smier. Truj. Pajak
-		{  2061,  328125 },	// Maly Trujacy Pajak v2
+		{   502,  384375 },	// Dziki Sluga
+		{   701,  388750 },	// Ezoteryczny Fanatyk
+		{   731,  428125 },	// Elit. Ezot. Fanatyk
+		{   751,  388750 },	// Wysoki Fanatyk
+		{   771,  428125 },	// Best. Fanatyk
+		{  1402,  275000 },	// Wojownik Z Toporem
+		{  1403,  318750 },	// Tysieczny Wojownik
+		{  1601,  296875 },	// Ogr Wojownik
+		{  2001,  384375 },	// Mlody Pajak
+		{  2002,  406250 },	// Trujacy Pajak
+		{  2051,  384375 },	// Podly Mlody Truj. Pajak
+		{  2052,  384375 },	// Podly Smier. Truj. Pajak
+		{  2061,  428125 },	// Maly Trujacy Pajak v2
 	};
 	const DWORD PLAYERBOT_MARBLE_PRICE_MIN = 113750;
 	const DWORD PLAYERBOT_MARBLE_PRICE_MAX = 148750;
@@ -735,6 +735,14 @@ namespace
 	// g_map_itemAttr's top value for the apply on the item's attribute set.
 	// Lines his sheet does not name, or names at x1.0, multiply by nothing. The
 	// percent points are hundredths: 250 is x2.5.
+	//
+	// The rows with a top of their own are his Community Patch 5, point 13: the
+	// lines only upstream's 2.2.31 table rolled, or rolled higher (the elemental
+	// resistances to 15, regeneration to 30, the experience and item-drop
+	// chances to 20). An item keeps what it rolled, and this world's table no
+	// longer says what their maximum is, so the row does: the number in his
+	// line's name, checked against upstream's 2.2.31 table by the generator. They
+	// carry the slots that table rolled them on.
 	enum EPlayerBotPriceSlot
 	{
 		PRICE_SLOT_HEAD = 1, PRICE_SLOT_BODY = 2, PRICE_SLOT_SHIELD = 4, PRICE_SLOT_FOOTS = 8,
@@ -748,87 +756,95 @@ namespace
 		WORD wOtherPct;   // any other value, hundredths
 		BYTE bMinLevel;   // the item's level limit band, inclusive
 		BYTE bMaxLevel;
+		WORD wTop;        // the row's own maximum; 0: the world's table decides
 	};
 	const TPlayerBotBonusPriceRow PLAYERBOT_BONUS_PRICE_ROWS[] = {
-		{ PRICE_SLOT_HEAD, APPLY_ATTBONUS_ANIMAL, 230, 130, 0, 32 },	// silny przeciwko zwierzetom
-		{ PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_ANIMAL, 250, 130, 0, 32 },	// silny przeciwko zwierzetom
-		{ PRICE_SLOT_HEAD | PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_ANIMAL, 150, 115, 33, 255 },	// silny przeciwko zwierzetom
-		{ PRICE_SLOT_HEAD, APPLY_ATTBONUS_DEVIL, 230, 150, 0, 255 },	// silny przeciwko diablom
-		{ PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_DEVIL, 240, 150, 0, 255 },	// silny przeciwko diablom
-		{ PRICE_SLOT_HEAD, APPLY_ATTBONUS_HUMAN, 200, 115, 0, 255 },	// silny przeciwko ludziom
-		{ PRICE_SLOT_SHIELD, APPLY_ATTBONUS_HUMAN, 170, 140, 0, 255 },	// silny przeciwko ludziom
-		{ PRICE_SLOT_WRIST, APPLY_ATTBONUS_HUMAN, 190, 140, 0, 255 },	// silny przeciwko ludziom
-		{ PRICE_SLOT_EAR, APPLY_ATTBONUS_HUMAN, 250, 140, 0, 255 },	// silny przeciwko ludziom
-		{ PRICE_SLOT_WEAPON, APPLY_ATTBONUS_HUMAN, 160, 120, 0, 255 },	// silny przeciwko ludziom
-		{ PRICE_SLOT_HEAD | PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_MILGYO, 150, 110, 0, 255 },	// silny przeciwko mistykom
-		{ PRICE_SLOT_HEAD | PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR, APPLY_ATTBONUS_ORC, 180, 110, 0, 32 },	// silny przeciwko orkom
-		{ PRICE_SLOT_WEAPON, APPLY_ATTBONUS_ORC, 150, 110, 0, 32 },	// silny przeciwko orkom
-		{ PRICE_SLOT_HEAD | PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_ORC, 220, 130, 33, 255 },	// silny przeciwko orkom
-		{ PRICE_SLOT_HEAD | PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_UNDEAD, 200, 110, 0, 32 },	// silny przeciwko nieumarlym
-		{ PRICE_SLOT_HEAD, APPLY_ATTBONUS_UNDEAD, 230, 150, 33, 255 },	// silny przeciwko nieumarlym
-		{ PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_UNDEAD, 250, 150, 33, 255 },	// silny przeciwko nieumarlym
-		{ PRICE_SLOT_BODY, APPLY_ATT_GRADE_BONUS, 210, 170, 0, 255 },	// wartosc ataku
-		{ PRICE_SLOT_HEAD, APPLY_ATT_SPEED, 200, 120, 0, 255 },	// szybkosc ataku
-		{ PRICE_SLOT_FOOTS, APPLY_ATT_SPEED, 170, 130, 0, 255 },	// szbykosc ataku
-		{ PRICE_SLOT_SHIELD, APPLY_BLOCK, 200, 150, 0, 255 },	// szansa na blok ciosu
-		{ PRICE_SLOT_BODY, APPLY_CAST_SPEED, 160, 115, 0, 255 },	// szybkosc zaklecia
-		{ PRICE_SLOT_WEAPON, APPLY_CAST_SPEED, 130, 105, 0, 255 },	// szybkosc zaklecia
-		{ PRICE_SLOT_SHIELD, APPLY_CON, 160, 140, 0, 255 },	// witalnosc
-		{ PRICE_SLOT_WEAPON, APPLY_CON, 140, 110, 0, 255 },	// witalnosc
-		{ PRICE_SLOT_FOOTS | PRICE_SLOT_NECK, APPLY_CRITICAL_PCT, 200, 160, 0, 255 },	// szansa na cios krytyczny
-		{ PRICE_SLOT_WEAPON, APPLY_CRITICAL_PCT, 170, 140, 0, 255 },	// szansa na cios krytyczny
-		{ PRICE_SLOT_SHIELD, APPLY_DEX, 170, 140, 0, 255 },	// zrecznosc
-		{ PRICE_SLOT_WEAPON, APPLY_DEX, 150, 110, 0, 255 },	// zrecznosc
-		{ PRICE_SLOT_HEAD, APPLY_DODGE, 200, 140, 0, 255 },	// szansa na unik. strzaly
-		{ PRICE_SLOT_FOOTS, APPLY_DODGE, 160, 120, 0, 255 },	// szansa na unik. strzaly
-		{ PRICE_SLOT_SHIELD, APPLY_GOLD_DOUBLE_BONUS, 250, 170, 0, 255 },	// szansa na podwojna ilosc yang
-		{ PRICE_SLOT_FOOTS, APPLY_GOLD_DOUBLE_BONUS, 200, 150, 0, 255 },	// szansa na podwojna ilosc yang
-		{ PRICE_SLOT_NECK, APPLY_GOLD_DOUBLE_BONUS, 220, 150, 0, 255 },	// szansa na podwojna ilosc yang
-		{ PRICE_SLOT_HEAD | PRICE_SLOT_NECK, APPLY_HP_REGEN, 130, 110, 0, 255 },	// regeneracja mikstur pz
-		{ PRICE_SLOT_SHIELD, APPLY_IMMUNE_SLOW, 120, 120, 0, 255 },	// niewrazliwy na spowolnienie
-		{ PRICE_SLOT_SHIELD, APPLY_IMMUNE_STUN, 250, 250, 0, 255 },	// niewrazliwy na omdlenie
-		{ PRICE_SLOT_SHIELD, APPLY_INT, 160, 140, 0, 255 },	// inteligencja
-		{ PRICE_SLOT_WEAPON, APPLY_INT, 140, 110, 0, 255 },	// inteligencja
-		{ PRICE_SLOT_FOOTS | PRICE_SLOT_NECK, APPLY_MALL_EXPBONUS, 160, 125, 0, 255 },	// punkty doswiadczenia +%
-		{ PRICE_SLOT_WRIST | PRICE_SLOT_EAR, APPLY_MANA_BURN_PCT, 120, 100, 0, 255 },	// szansa na kradziez pe
-		{ PRICE_SLOT_BODY, APPLY_MAX_HP, 210, 170, 0, 255 },	// maks. pz
-		{ PRICE_SLOT_FOOTS | PRICE_SLOT_WRIST | PRICE_SLOT_NECK, APPLY_MAX_HP, 190, 180, 0, 255 },	// maks. pz
-		{ PRICE_SLOT_FOOTS | PRICE_SLOT_WRIST | PRICE_SLOT_NECK, APPLY_MAX_SP, 130, 110, 0, 255 },	// maks. pe
-		{ PRICE_SLOT_HEAD, APPLY_MAX_STAMINA, 140, 110, 0, 255 },	// maks. stamina
-		{ PRICE_SLOT_BODY, APPLY_MAX_STAMINA, 130, 110, 0, 255 },	// maks. stamina
-		{ PRICE_SLOT_EAR, APPLY_MOV_SPEED, 250, 160, 0, 255 },	// szybkosc ruchu
-		{ PRICE_SLOT_WRIST, APPLY_PENETRATE_PCT, 160, 130, 0, 255 },	// szansa na przeszywajace uderzenie
-		{ PRICE_SLOT_NECK, APPLY_PENETRATE_PCT, 170, 130, 0, 255 },	// szansa na przeszywajace uderzenie
-		{ PRICE_SLOT_WEAPON, APPLY_PENETRATE_PCT, 140, 115, 0, 255 },	// szansa na przeszywajace uderzenie
-		{ PRICE_SLOT_HEAD, APPLY_POISON_PCT, 220, 150, 0, 255 },	// szansa na otrucie
-		{ PRICE_SLOT_WEAPON, APPLY_POISON_PCT, 140, 120, 0, 255 },	// szansa na otrucie
-		{ PRICE_SLOT_EAR, APPLY_POISON_REDUCE, 110, 100, 0, 255 },	// odpornosc na trucizny
-		{ PRICE_SLOT_BODY, APPLY_REFLECT_MELEE, 130, 115, 0, 255 },	// szansa na dobicie ciosu
-		{ PRICE_SLOT_SHIELD, APPLY_REFLECT_MELEE, 160, 110, 0, 255 },	// szansa na odbicie ciosu
-		{ PRICE_SLOT_BODY | PRICE_SLOT_FOOTS | PRICE_SLOT_NECK | PRICE_SLOT_EAR, APPLY_RESIST_BELL, 150, 105, 0, 255 },	// odpornosc na dzwony
-		{ PRICE_SLOT_BODY | PRICE_SLOT_NECK, APPLY_RESIST_BOW, 240, 130, 0, 255 },	// odpornosc na strzaly
-		{ PRICE_SLOT_FOOTS, APPLY_RESIST_BOW, 160, 130, 0, 255 },	// odpornosc na strzaly
-		{ PRICE_SLOT_EAR, APPLY_RESIST_BOW, 180, 115, 0, 255 },	// odpornosc na strzaly
-		{ PRICE_SLOT_BODY | PRICE_SLOT_FOOTS, APPLY_RESIST_DAGGER, 160, 120, 0, 255 },	// odpornosc na sztylety
-		{ PRICE_SLOT_NECK | PRICE_SLOT_EAR, APPLY_RESIST_DAGGER, 180, 120, 0, 255 },	// odpornosc na sztylety
-		{ PRICE_SLOT_BODY | PRICE_SLOT_FOOTS | PRICE_SLOT_NECK | PRICE_SLOT_EAR, APPLY_RESIST_FAN, 150, 105, 0, 255 },	// odpornosc na wachlarze
-		{ PRICE_SLOT_HEAD, APPLY_RESIST_MAGIC, 170, 115, 0, 255 },	// odpornosc na magie
-		{ PRICE_SLOT_BODY, APPLY_RESIST_MAGIC, 150, 120, 0, 255 },	// odpornosc na magie
-		{ PRICE_SLOT_WRIST, APPLY_RESIST_MAGIC, 160, 120, 0, 255 },	// odpornosc na magie
-		{ PRICE_SLOT_BODY | PRICE_SLOT_FOOTS, APPLY_RESIST_SWORD, 160, 120, 0, 255 },	// odpornosc na miecze
-		{ PRICE_SLOT_NECK | PRICE_SLOT_EAR, APPLY_RESIST_SWORD, 180, 120, 0, 255 },	// odpornosc na miecze
-		{ PRICE_SLOT_BODY | PRICE_SLOT_FOOTS, APPLY_RESIST_TWOHAND, 160, 120, 0, 255 },	// odrponosc na bron dwureczna
-		{ PRICE_SLOT_NECK | PRICE_SLOT_EAR, APPLY_RESIST_TWOHAND, 180, 120, 0, 255 },	// odrponosc na bron dwureczna
-		{ PRICE_SLOT_BODY | PRICE_SLOT_WRIST, APPLY_STEAL_HP, 170, 160, 0, 255 },	// x% obrazen dodanych do pz
-		{ PRICE_SLOT_BODY, APPLY_STEAL_SP, 120, 105, 0, 255 },	// x% obrazen dodanych do pe
-		{ PRICE_SLOT_SHIELD, APPLY_STR, 170, 140, 0, 255 },	// sila
-		{ PRICE_SLOT_WEAPON, APPLY_STR, 150, 110, 0, 255 },	// sila
-		{ PRICE_SLOT_FOOTS | PRICE_SLOT_NECK, APPLY_STUN_PCT, 180, 150, 0, 255 },	// szansa na omdlenie
-		{ PRICE_SLOT_WEAPON, APPLY_STUN_PCT, 170, 150, 0, 255 },	// szansa na omdlenie
+		{ PRICE_SLOT_HEAD, APPLY_ATTBONUS_ANIMAL, 230, 130, 0, 32, 0 },	// silny przeciwko zwierzetom
+		{ PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_ANIMAL, 250, 130, 0, 32, 0 },	// silny przeciwko zwierzetom
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_ANIMAL, 150, 115, 33, 255, 0 },	// silny przeciwko zwierzetom
+		{ PRICE_SLOT_HEAD, APPLY_ATTBONUS_DEVIL, 230, 150, 0, 255, 0 },	// silny przeciwko diablom
+		{ PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_DEVIL, 240, 150, 0, 255, 0 },	// silny przeciwko diablom
+		{ PRICE_SLOT_HEAD, APPLY_ATTBONUS_HUMAN, 200, 115, 0, 255, 0 },	// silny przeciwko ludziom
+		{ PRICE_SLOT_SHIELD, APPLY_ATTBONUS_HUMAN, 170, 140, 0, 255, 0 },	// silny przeciwko ludziom
+		{ PRICE_SLOT_WRIST, APPLY_ATTBONUS_HUMAN, 190, 140, 0, 255, 0 },	// silny przeciwko ludziom
+		{ PRICE_SLOT_EAR, APPLY_ATTBONUS_HUMAN, 250, 140, 0, 255, 0 },	// silny przeciwko ludziom
+		{ PRICE_SLOT_WEAPON, APPLY_ATTBONUS_HUMAN, 160, 120, 0, 255, 0 },	// silny przeciwko ludziom
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_MILGYO, 150, 110, 0, 255, 0 },	// silny przeciwko mistykom
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR, APPLY_ATTBONUS_ORC, 180, 110, 0, 32, 0 },	// silny przeciwko orkom
+		{ PRICE_SLOT_WEAPON, APPLY_ATTBONUS_ORC, 150, 110, 0, 32, 0 },	// silny przeciwko orkom
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_ORC, 220, 130, 33, 255, 0 },	// silny przeciwko orkom
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_UNDEAD, 200, 110, 0, 32, 0 },	// silny przeciwko nieumarlym
+		{ PRICE_SLOT_HEAD, APPLY_ATTBONUS_UNDEAD, 230, 150, 33, 255, 0 },	// silny przeciwko nieumarlym
+		{ PRICE_SLOT_SHIELD | PRICE_SLOT_WRIST | PRICE_SLOT_EAR | PRICE_SLOT_WEAPON, APPLY_ATTBONUS_UNDEAD, 250, 150, 33, 255, 0 },	// silny przeciwko nieumarlym
+		{ PRICE_SLOT_BODY, APPLY_ATT_GRADE_BONUS, 210, 170, 0, 255, 0 },	// wartosc ataku
+		{ PRICE_SLOT_HEAD, APPLY_ATT_SPEED, 200, 120, 0, 255, 0 },	// szybkosc ataku
+		{ PRICE_SLOT_FOOTS, APPLY_ATT_SPEED, 170, 130, 0, 255, 0 },	// szbykosc ataku
+		{ PRICE_SLOT_SHIELD, APPLY_BLOCK, 200, 150, 0, 255, 0 },	// szansa na blok ciosu
+		{ PRICE_SLOT_BODY, APPLY_CAST_SPEED, 160, 115, 0, 255, 0 },	// szybkosc zaklecia
+		{ PRICE_SLOT_WEAPON, APPLY_CAST_SPEED, 130, 105, 0, 255, 0 },	// szybkosc zaklecia
+		{ PRICE_SLOT_SHIELD, APPLY_CON, 160, 140, 0, 255, 0 },	// witalnosc
+		{ PRICE_SLOT_WEAPON, APPLY_CON, 140, 110, 0, 255, 0 },	// witalnosc
+		{ PRICE_SLOT_FOOTS | PRICE_SLOT_NECK, APPLY_CRITICAL_PCT, 200, 160, 0, 255, 0 },	// szansa na cios krytyczny
+		{ PRICE_SLOT_WEAPON, APPLY_CRITICAL_PCT, 170, 140, 0, 255, 0 },	// szansa na cios krytyczny
+		{ PRICE_SLOT_SHIELD, APPLY_DEX, 170, 140, 0, 255, 0 },	// zrecznosc
+		{ PRICE_SLOT_WEAPON, APPLY_DEX, 150, 110, 0, 255, 0 },	// zrecznosc
+		{ PRICE_SLOT_HEAD, APPLY_DODGE, 200, 140, 0, 255, 0 },	// szansa na unik. strzaly
+		{ PRICE_SLOT_FOOTS, APPLY_DODGE, 160, 120, 0, 255, 0 },	// szansa na unik. strzaly
+		{ PRICE_SLOT_SHIELD | PRICE_SLOT_FOOTS | PRICE_SLOT_NECK, APPLY_EXP_DOUBLE_BONUS, 180, 130, 0, 255, 20 },	// 20% Szansa na Bonus Doswiadczenia
+		{ PRICE_SLOT_SHIELD, APPLY_GOLD_DOUBLE_BONUS, 250, 170, 0, 255, 0 },	// szansa na podwojna ilosc yang
+		{ PRICE_SLOT_FOOTS, APPLY_GOLD_DOUBLE_BONUS, 200, 150, 0, 255, 0 },	// szansa na podwojna ilosc yang
+		{ PRICE_SLOT_NECK, APPLY_GOLD_DOUBLE_BONUS, 220, 150, 0, 255, 0 },	// szansa na podwojna ilosc yang
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_NECK, APPLY_HP_REGEN, 130, 110, 0, 255, 0 },	// regeneracja mikstur pz
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_NECK, APPLY_HP_REGEN, 150, 120, 0, 255, 30 },	// Regeneracja PZ +30%
+		{ PRICE_SLOT_SHIELD, APPLY_IMMUNE_SLOW, 120, 120, 0, 255, 0 },	// niewrazliwy na spowolnienie
+		{ PRICE_SLOT_SHIELD, APPLY_IMMUNE_STUN, 250, 250, 0, 255, 0 },	// niewrazliwy na omdlenie
+		{ PRICE_SLOT_SHIELD, APPLY_INT, 160, 140, 0, 255, 0 },	// inteligencja
+		{ PRICE_SLOT_WEAPON, APPLY_INT, 140, 110, 0, 255, 0 },	// inteligencja
+		{ PRICE_SLOT_WRIST | PRICE_SLOT_EAR, APPLY_ITEM_DROP_BONUS, 140, 110, 0, 255, 20 },	// 20% Szansa na Wyrzucenie Podwojnej Ilosci Yang
+		{ PRICE_SLOT_FOOTS | PRICE_SLOT_NECK, APPLY_MALL_EXPBONUS, 160, 125, 0, 255, 0 },	// punkty doswiadczenia +%
+		{ PRICE_SLOT_WRIST | PRICE_SLOT_EAR, APPLY_MANA_BURN_PCT, 120, 100, 0, 255, 0 },	// szansa na kradziez pe
+		{ PRICE_SLOT_BODY, APPLY_MAX_HP, 210, 170, 0, 255, 0 },	// maks. pz
+		{ PRICE_SLOT_FOOTS | PRICE_SLOT_WRIST | PRICE_SLOT_NECK, APPLY_MAX_HP, 190, 180, 0, 255, 0 },	// maks. pz
+		{ PRICE_SLOT_FOOTS | PRICE_SLOT_WRIST | PRICE_SLOT_NECK, APPLY_MAX_SP, 130, 110, 0, 255, 0 },	// maks. pe
+		{ PRICE_SLOT_HEAD, APPLY_MAX_STAMINA, 140, 110, 0, 255, 0 },	// maks. stamina
+		{ PRICE_SLOT_BODY, APPLY_MAX_STAMINA, 130, 110, 0, 255, 0 },	// maks. stamina
+		{ PRICE_SLOT_EAR, APPLY_MOV_SPEED, 250, 160, 0, 255, 0 },	// szybkosc ruchu
+		{ PRICE_SLOT_WRIST, APPLY_PENETRATE_PCT, 160, 130, 0, 255, 0 },	// szansa na przeszywajace uderzenie
+		{ PRICE_SLOT_NECK, APPLY_PENETRATE_PCT, 170, 130, 0, 255, 0 },	// szansa na przeszywajace uderzenie
+		{ PRICE_SLOT_WEAPON, APPLY_PENETRATE_PCT, 140, 115, 0, 255, 0 },	// szansa na przeszywajace uderzenie
+		{ PRICE_SLOT_HEAD, APPLY_POISON_PCT, 220, 150, 0, 255, 0 },	// szansa na otrucie
+		{ PRICE_SLOT_WEAPON, APPLY_POISON_PCT, 140, 120, 0, 255, 0 },	// szansa na otrucie
+		{ PRICE_SLOT_EAR, APPLY_POISON_REDUCE, 110, 100, 0, 255, 0 },	// odpornosc na trucizny
+		{ PRICE_SLOT_BODY, APPLY_REFLECT_MELEE, 130, 115, 0, 255, 0 },	// szansa na dobicie ciosu
+		{ PRICE_SLOT_SHIELD, APPLY_REFLECT_MELEE, 160, 110, 0, 255, 0 },	// szansa na odbicie ciosu
+		{ PRICE_SLOT_BODY | PRICE_SLOT_FOOTS | PRICE_SLOT_NECK | PRICE_SLOT_EAR, APPLY_RESIST_BELL, 150, 105, 0, 255, 0 },	// odpornosc na dzwony
+		{ PRICE_SLOT_BODY | PRICE_SLOT_NECK, APPLY_RESIST_BOW, 240, 130, 0, 255, 0 },	// odpornosc na strzaly
+		{ PRICE_SLOT_FOOTS, APPLY_RESIST_BOW, 160, 130, 0, 255, 0 },	// odpornosc na strzaly
+		{ PRICE_SLOT_EAR, APPLY_RESIST_BOW, 180, 115, 0, 255, 0 },	// odpornosc na strzaly
+		{ PRICE_SLOT_BODY | PRICE_SLOT_FOOTS, APPLY_RESIST_DAGGER, 160, 120, 0, 255, 0 },	// odpornosc na sztylety
+		{ PRICE_SLOT_NECK | PRICE_SLOT_EAR, APPLY_RESIST_DAGGER, 180, 120, 0, 255, 0 },	// odpornosc na sztylety
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_BODY | PRICE_SLOT_WRIST, APPLY_RESIST_ELEC, 140, 110, 0, 255, 15 },	// 15% na Blyskawice
+		{ PRICE_SLOT_BODY | PRICE_SLOT_FOOTS | PRICE_SLOT_NECK | PRICE_SLOT_EAR, APPLY_RESIST_FAN, 150, 105, 0, 255, 0 },	// odpornosc na wachlarze
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_BODY | PRICE_SLOT_WRIST, APPLY_RESIST_FIRE, 190, 150, 0, 255, 15 },	// 15% na Ogien
+		{ PRICE_SLOT_HEAD, APPLY_RESIST_MAGIC, 170, 115, 0, 255, 0 },	// odpornosc na magie
+		{ PRICE_SLOT_BODY, APPLY_RESIST_MAGIC, 150, 120, 0, 255, 0 },	// odpornosc na magie
+		{ PRICE_SLOT_WRIST, APPLY_RESIST_MAGIC, 160, 120, 0, 255, 0 },	// odpornosc na magie
+		{ PRICE_SLOT_BODY | PRICE_SLOT_FOOTS, APPLY_RESIST_SWORD, 160, 120, 0, 255, 0 },	// odpornosc na miecze
+		{ PRICE_SLOT_NECK | PRICE_SLOT_EAR, APPLY_RESIST_SWORD, 180, 120, 0, 255, 0 },	// odpornosc na miecze
+		{ PRICE_SLOT_BODY | PRICE_SLOT_FOOTS, APPLY_RESIST_TWOHAND, 160, 120, 0, 255, 0 },	// odrponosc na bron dwureczna
+		{ PRICE_SLOT_NECK | PRICE_SLOT_EAR, APPLY_RESIST_TWOHAND, 180, 120, 0, 255, 0 },	// odrponosc na bron dwureczna
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_BODY | PRICE_SLOT_WRIST, APPLY_RESIST_WIND, 160, 120, 0, 255, 15 },	// 15% na Wiatr
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_NECK, APPLY_SP_REGEN, 110, 100, 0, 255, 30 },	// Regeneracja PE +30%
+		{ PRICE_SLOT_BODY | PRICE_SLOT_WRIST, APPLY_STEAL_HP, 170, 160, 0, 255, 0 },	// x% obrazen dodanych do pz
+		{ PRICE_SLOT_BODY, APPLY_STEAL_SP, 120, 105, 0, 255, 0 },	// x% obrazen dodanych do pe
+		{ PRICE_SLOT_SHIELD, APPLY_STR, 170, 140, 0, 255, 0 },	// sila
+		{ PRICE_SLOT_WEAPON, APPLY_STR, 150, 110, 0, 255, 0 },	// sila
+		{ PRICE_SLOT_FOOTS | PRICE_SLOT_NECK, APPLY_STUN_PCT, 180, 150, 0, 255, 0 },	// szansa na omdlenie
+		{ PRICE_SLOT_WEAPON, APPLY_STUN_PCT, 170, 150, 0, 255, 0 },	// szansa na omdlenie
 #if defined(PLAYERBOT_ENGINE_MT2009)
-		{ PRICE_SLOT_WRIST | PRICE_SLOT_EAR, APPLY_REFLECT_ARROW, 140, 110, 0, 255 },	// szansa na odbicie pocisku
-		{ PRICE_SLOT_HEAD | PRICE_SLOT_BODY | PRICE_SLOT_WRIST, APPLY_SKILL_DURATION, 130, 110, 0, 255 },	// czas trwania umiejetnosci
-		{ PRICE_SLOT_HEAD | PRICE_SLOT_BODY | PRICE_SLOT_WRIST, APPLY_ST_REGEN, 130, 110, 0, 255 },	// regeneracja st (staminy)
+		{ PRICE_SLOT_WRIST | PRICE_SLOT_EAR, APPLY_REFLECT_ARROW, 140, 110, 0, 255, 0 },	// szansa na odbicie pocisku
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_BODY | PRICE_SLOT_WRIST, APPLY_SKILL_DURATION, 130, 110, 0, 255, 0 },	// czas trwania umiejetnosci
+		{ PRICE_SLOT_HEAD | PRICE_SLOT_BODY | PRICE_SLOT_WRIST, APPLY_ST_REGEN, 130, 110, 0, 255, 0 },	// regeneracja st (staminy)
 #endif
 	};
 	// A weapon's average and skill damage, by tier of the value.

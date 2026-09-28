@@ -72,16 +72,17 @@ namespace
 
 	void NotePlayerBotLppDeposit() { ++s_uPlayerBotLppDeposits; }
 
-	// A gambler by nature: drawn by pid in the share its character turns
-	// gambler at (GetPlayerBotGambleChance, playerbot_persona_rules.h's
-	// GamblerByNature). A dropper never - its purse is its counter's, and it
-	// never gambles. On m2zip on 23 September this made about 170 of 870.
+	// A gambler by nature: drawn by pid in the share its character turned
+	// gambler at - about 170 of 870 on m2zip on 23 September. Nobody since
+	// Community Patch 5, point 1 took the Hazardzista out: the four gamblers
+	// that replaced it are rare states, work what is in their bag and buy
+	// the rest off the counters, and keep nothing at the storekeeper. So the
+	// list keeps a piece only while a session runs (IsPlayerBotLppKeeper),
+	// and what the boxes hold for it comes out at the visits
+	// (CollectPlayerBotLppBoxRelease) like any piece the list lets go.
 	bool IsPlayerBotGamblerByNature(DWORD pid, const TPlayerBotAIState& state)
 	{
-		if (IsPlayerBotDropper(state.bPersonality))
-			return false;
-		return playerbot_persona::GamblerByNature(PlayerBotNavHash(pid ^ PLAYERBOT_LPP_GAMBLER_SALT),
-				GetPlayerBotGambleChance(state.bPersonality));
+		return false;
 	}
 
 	// Who keeps the list's gear: a gambler by nature, and any bot while its

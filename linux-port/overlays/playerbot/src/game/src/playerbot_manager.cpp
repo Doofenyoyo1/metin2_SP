@@ -10,6 +10,9 @@
 #include "playerbot_truce_rules.h"
 #include "playerbot_war_rules.h"
 #include "playerbot_item_link_rules.h"
+#include "playerbot_price_rules.h"
+#include "playerbot_bonus_rules.h"
+#include "playerbot_refine_rules.h"
 
 #include "char.h"
 #include "skill.h"
@@ -64,6 +67,26 @@ extern int passes_per_sec;
 // Declared in input_p2p.cpp. ChatPacket would be useless for a bot - it has no
 // client descriptor of its own to send to.
 extern void SendShout(const char* szText, BYTE bEmpire);
+
+// A bot's shout goes where a player's does (CInputMain::Chat): to the other
+// cores as the P2P shout, and to this core's own clients through SendShout.
+// SendShout alone reached only the players on the bot's own core, so a friend
+// in COOP on another core or channel never read a line of it (blipu, 27
+// September). Who may read it stays the engine's rule (FuncShout): the bot's
+// own kingdom, and a GM - the host, most often - every kingdom.
+static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
+{
+	TPacketGGShout p;
+	memset(&p, 0, sizeof(p));
+	p.bHeader = HEADER_GG_SHOUT;
+	p.bEmpire = bEmpire;
+#ifdef PLAYERBOT_ENGINE_MT2009
+	p.bChatType = CHAT_TYPE_SHOUT;
+#endif
+	strlcpy(p.szText, szText, sizeof(p.szText));
+	P2P_MANAGER::instance().Send(&p, sizeof(TPacketGGShout));
+	SendShout(szText, bEmpire);
+}
 
 // The names the fragments below were written against, on an engine that
 // spells some of them differently. Empty on r40250.
@@ -478,7 +501,9 @@ namespace
 		BYTE lockLevel = GetPlayerBotExpLockLevel(state.bPersonality);
 		// A player's companion levels with its owner, whatever the persona
 		// system would lock a bot of its level at; a lock it carried from its
-		// life before is lifted.
+		// life before is lifted. Playing alone while its owner is out of the
+		// game ("Gra beze mnie") it stops at its owner's level plus the party
+		// boundary, and the lock goes again when the owner is back.
 		const bool sidekick = IsPlayerBotSidekickPID(ch->GetPlayerID());
 		// The operator's medal droppers stop where the operator said.
 		const bool cohort = !sidekick && CPlayerBotManager::instance().IsMedalDropperCohortPID(ch->GetPlayerID());
@@ -490,7 +515,7 @@ namespace
 		if (persona && !state.persona.bRestored)
 			return;
 		if (sidekick)
-			lockLevel = 0;
+			lockLevel = GetPlayerBotSidekickSoloLockLevel(ch, get_dword_time());
 		if (cohort)
 			lockLevel = CPlayerBotManager::instance().GetMedalDropperCohortLevel();
 		else if (persona && state.bPersonality == BOT_PERSONALITY_MEDAL_DROPPER)
@@ -514,7 +539,8 @@ namespace
 		}
 		ch->AddAffect(AFFECT_EXP_BLOCK, POINT_NONE, 0, 0, INFINITE_AFFECT_DURATION, 0, true, true);
 		sys_log(0, "PLAYERBOT_AI: exp locked for a %s pid=%u name=%s level=%u lock=%u personality=%u",
-				persona ? "grinder" : "dropper", ch->GetPlayerID(), ch->GetName(), (unsigned)ch->GetLevel(),
+				sidekick ? "companion playing alone" : persona ? "grinder" : "dropper", ch->GetPlayerID(),
+				ch->GetName(), (unsigned)ch->GetLevel(),
 				(unsigned)lockLevel, (unsigned)state.bPersonality);
 #else
 		// r40250 has no AFFECT_EXP_BLOCK at all - PointChange there knows no
@@ -820,9 +846,10 @@ namespace
 		// bot that agreed in the saddle stayed there, was refused, and gave the
 		// duel up to PLAYERBOT_PVP_REFUSED_GIVE_UP without a blow. Before 2.0.41
 		// the same blows landed from the saddle anyway ("bocik nawalal hitami z
-		// konia ... a ma zwyklego konia", Drip).
-		if (ch->IsRiding() && !CanPlayerBotEverFightOnHorse(ch))
-			SetPlayerBotRidingForTravel(ch, state, false, dwNow, "duel");
+		// konia ... a ma zwyklego konia", Drip). Nor from a battle horse's since
+		// 27 September: on foot, and the horse sent away rather than left
+		// standing between the two (SendPlayerBotHorseAwayForFight).
+		SendPlayerBotHorseAwayForFight(ch, state, dwNow, "duel");
 		const bool bSafe = IsPlayerBotSafeZone(ch->GetMapIndex(), ch->GetX(), ch->GetY()) ||
 				IsPlayerBotSafeZone(foe->GetMapIndex(), foe->GetX(), foe->GetY());
 		if (bSafe || !CanPlayerBotStrikeCharacter(ch, foe))
@@ -2907,7 +2934,10 @@ bool CPlayerBotManager::LoadRegisteredBots()
 	m_iSecondChannelShare = playerbot_channel_rules::CH2_SHARE_DEFAULT;
 	for (int c = 0; c < 3; ++c)
 		for (int e = 0; e < 4; ++e)
+		{
 			m_aChannelIdentities[c][e] = 0;
+			m_aChannelPlanned[c][e] = 0;
+		}
 	const char* secondChannel = std::getenv("M2_PLAYERBOT_CH2");
 	if (secondChannel && *secondChannel && std::atoi(secondChannel) != 0)
 		m_bSecondChannel = true;
@@ -3201,6 +3231,21 @@ bool CPlayerBotManager::IsRegisteredBotPID(DWORD dwPlayerID) const
 			m_setAllRegisteredBots.find(dwPlayerID) != m_setAllRegisteredBots.end();
 }
 
+// The medal droppers the first channel starts in each kingdom, on top of the
+// number and out of its own identities (SpawnMedalDropperCohort, the
+// bootstrap reads the same variable): the channel split counts them out of
+// what the first channel has for the cohort.
+static int GetPlayerBotMedalDroppersAsked()
+{
+	const char* configured = std::getenv("PLAYERBOT_MEDAL_DROPPERS");
+	int droppers = configured && *configured ? std::atoi(configured) : 0;
+	if (droppers < 0)
+		droppers = 0;
+	else if (droppers > 200)
+		droppers = 200;
+	return droppers;
+}
+
 void CPlayerBotManager::SplitForThisChannel(int total, const int* registeredHere, int* want)
 {
 	LoadRegisteredBots();
@@ -3224,15 +3269,31 @@ void CPlayerBotManager::SplitForThisChannel(int total, const int* registeredHere
 	playerbot_empire_rules::SplitPopulation(total, world, worldWant);
 	for (int e = 0; e < playerbot_empire_rules::EMPIRE_COUNT; ++e)
 		want[e] = 0;
+	// Each kingdom between the channels from what each has left: its
+	// identities, less what this start has already given it (the cohort,
+	// when these are the late joiners) and, on the first channel, less the
+	// medal droppers. What the first channel cannot start, the second does
+	// (playerbot_channel_rules::SplitKingdomBetweenChannels): the moves leave
+	// most identities of a world that has played on the second channel, and
+	// the first used to start all it had while the second kept to its share.
+	const int droppers = GetPlayerBotMedalDroppersAsked();
+	int first[playerbot_empire_rules::EMPIRE_COUNT] = { 0, 0, 0, 0 };
+	int second[playerbot_empire_rules::EMPIRE_COUNT] = { 0, 0, 0, 0 };
 	for (int e = playerbot_empire_rules::EMPIRE_SHINSOO; e <= playerbot_empire_rules::EMPIRE_JINNO; ++e)
 	{
-		const int here = playerbot_channel_rules::ShareOfTotal(worldWant[e], true,
-				m_iSecondChannelShare, (int)g_bChannel, m_aChannelIdentities[2][e]);
+		const int reserve = std::min(m_aChannelIdentities[1][e], droppers);
+		playerbot_channel_rules::SplitKingdomBetweenChannels(worldWant[e], m_iSecondChannelShare,
+				m_aChannelIdentities[1][e] - reserve - m_aChannelPlanned[1][e],
+				m_aChannelIdentities[2][e] - m_aChannelPlanned[2][e], first[e], second[e]);
+		m_aChannelPlanned[1][e] += first[e];
+		m_aChannelPlanned[2][e] += second[e];
+		const int here = g_bChannel == 1 ? first[e] : (g_bChannel == 2 ? second[e] : 0);
 		want[e] = std::min(here, std::max(0, registeredHere[e]));
 	}
-	sys_log(0, "PLAYERBOT: autospawn world=%d, channel %u starts %d/%d/%d (world split %d/%d/%d)",
+	sys_log(0, "PLAYERBOT: autospawn world=%d, channel %u starts %d/%d/%d (world split %d/%d/%d, ch1 %d/%d/%d, ch2 %d/%d/%d)",
 			total, (unsigned int)g_bChannel, want[1], want[2], want[3],
-			worldWant[1], worldWant[2], worldWant[3]);
+			worldWant[1], worldWant[2], worldWant[3],
+			first[1], first[2], first[3], second[1], second[2], second[3]);
 }
 
 int CPlayerBotManager::ScaleToThisChannel(int total, BYTE bEmpire)
@@ -3241,6 +3302,20 @@ int CPlayerBotManager::ScaleToThisChannel(int total, BYTE bEmpire)
 	// own must still learn that it takes nothing, so the load is asked for
 	// that whatever it answers.
 	LoadRegisteredBots();
+	// One kingdom, the operator's own number for it: split as the cohort is
+	// (SplitForThisChannel), and this is the plan for that kingdom now - it
+	// replaces the share of the one number the bootstrap asked for first.
+	if (m_bSecondChannel && bEmpire >= 1 && bEmpire <= 3)
+	{
+		const int reserve = std::min(m_aChannelIdentities[1][bEmpire], GetPlayerBotMedalDroppersAsked());
+		int first = 0, second = 0;
+		playerbot_channel_rules::SplitKingdomBetweenChannels(total, m_iSecondChannelShare,
+				m_aChannelIdentities[1][bEmpire] - reserve, m_aChannelIdentities[2][bEmpire],
+				first, second);
+		m_aChannelPlanned[1][bEmpire] = first;
+		m_aChannelPlanned[2][bEmpire] = second;
+		return g_bChannel == 1 ? first : (g_bChannel == 2 ? second : 0);
+	}
 	int second = 0;
 	if (bEmpire >= 1 && bEmpire <= 3)
 		second = m_aChannelIdentities[2][bEmpire];
@@ -3700,6 +3775,29 @@ bool CPlayerBotManager::SpawnSidekick(DWORD dwPlayerID)
 void CPlayerBotManager::OnSidekickCommand(LPCHARACTER ch, const char* szArgument)
 {
 	HandlePlayerBotSidekickCommand(ch, szArgument);
+}
+
+// A companion is saved where it last stood, and that can be a map another
+// core hosts: it followed its owner there, and the owner came back. The
+// engine's load refused it before anything of ours could put it beside its
+// owner ("entering 41 map is not allowed here", InputDB::PlayerLoad), and
+// SpawnSidekick asked again every ten seconds for good - "Towarzysz przy
+// kliknieciu przywolaj nie pojawia, relog nie pomaga" (bruce_willis,
+// 27 September; a Jinno companion saved in its village, the owner on map
+// 63 of game1). The load asks here first (playerbotify's
+// apply_sidekick_load_beside_owner): a companion whose owner stands on this
+// core loads at the owner's side, on the owner's map.
+bool CPlayerBotManager::PlaceLoadingSidekick(DWORD dwPlayerID, long& lMapIndex, long& x, long& y)
+{
+	LPCHARACTER owner = GetPlayerBotSidekickOwnerHere(dwPlayerID);
+	if (!owner || owner->IsDead() || !owner->GetSectree())
+		return false;
+	lMapIndex = owner->GetMapIndex();
+	x = owner->GetX();
+	y = owner->GetY();
+	sys_log(0, "PLAYERBOT_SIDEKICK: saved on a map this core does not host, loads beside its owner pid=%u owner=%u map=%ld",
+			dwPlayerID, owner->GetPlayerID(), lMapIndex);
+	return true;
 }
 
 // The owner a companion's kill counts for (CHARACTER::Dead through
@@ -5109,6 +5207,30 @@ WritePlayerBotGuildStatus(dwNow);
 		if (!d->IsPhase(PHASE_GAME))
 			continue;
 
+		// A stone this bot hurt within PLAYERBOT_METIN_LOOT_SHARE_MS is gone:
+		// the loot window opens here, at the top of the pass. Stamped where the
+		// target section notices a broken stone, it came after every errand
+		// above that section, and for a bot whose target was a monster it did
+		// not come at all - the drop's owner rode off to its counter or hit
+		// the next monster while its book lay out the engine's thirty seconds
+		// of ownership (sosen, 27 September; playerbot_loot.h's dash).
+		if (state.dwStoneLootVID != 0)
+		{
+			LPCHARACTER lootStone = CHARACTER_MANAGER::instance().Find(state.dwStoneLootVID);
+			const DWORD sinceHit = dwNow >= state.dwStoneLootHitTime ? dwNow - state.dwStoneLootHitTime : 0;
+			if (!lootStone || lootStone->IsDead() || !lootStone->IsStone())
+			{
+				if (sinceHit < PLAYERBOT_METIN_LOOT_SHARE_MS)
+				{
+					state.dwStoneBrokenTime = dwNow;
+					state.dwNextLootSearchTime = 0;
+				}
+				state.dwStoneLootVID = 0;
+			}
+			else if (sinceHit >= PLAYERBOT_METIN_LOOT_SHARE_MS)
+				state.dwStoneLootVID = 0;
+		}
+
 		// The mood's clocks (playerbot_mood.h): its quest flags read once they
 		// have arrived, the rotation, the drought, the end of a lock.
 		AdvancePlayerBotMood(ch, state, dwNow);
@@ -5185,6 +5307,18 @@ WritePlayerBotGuildStatus(dwNow);
 #endif
 		if (ManagePlayerBotShopLifetime(ch, state, dwNow))
 			continue;
+
+		// A broken stone's or a fallen boss's loot window, ahead of every errand
+		// below: the drop is its owner's for thirty seconds and then anybody's.
+		// It is this pass's one loot decision; the call further down is skipped.
+		bool bLootDecided = false;
+		if (state.dwStoneBrokenTime != 0 &&
+				dwNow - state.dwStoneBrokenTime < PLAYERBOT_METIN_LOOT_DASH_TIME)
+		{
+			bLootDecided = true;
+			if (HandleLoot(ch, state, dwNow))
+				continue;
+		}
 
 		// Browsing the market. Cheap when there is nothing to buy - it only looks
 		// around every couple of minutes - and claims the tick when it buys, so
@@ -5550,9 +5684,15 @@ WritePlayerBotGuildStatus(dwNow);
 		}
 		else if (!bFightingMetin && state.dwStoneProgressVID != 0)
 		{
-			// The stone is gone - broken, or abandoned. Either way the loot pass
-			// gets its window to go for what lies round it.
-			state.dwStoneBrokenTime = dwNow;
+			// The bot has left its stone. Broken, the loot pass gets its window
+			// to go for what lies round it; still standing, it has dropped
+			// nothing - and the window used to open anyway at every stone a bot
+			// let go for the monsters beside it, which on the Demon Tower's
+			// seventh floor was every wave the Metin of Murder sent, and stood
+			// the pack still while the wave came at it.
+			LPCHARACTER leftStone = CHARACTER_MANAGER::instance().Find(state.dwStoneProgressVID);
+			if (!leftStone || leftStone->IsDead() || !leftStone->IsStone())
+				state.dwStoneBrokenTime = dwNow;
 			ResetPlayerBotStoneProgress(state);
 		}
 
@@ -5606,7 +5746,7 @@ WritePlayerBotGuildStatus(dwNow);
 		// Exactly one loot decision per full AI pass. HandleLoot performs a
 		// non-blocking, throttled Z-style pickup in combat and returns false, while
 		// peaceful loot may take ownership of this tick and walk to the drop.
-		if (HandleLoot(ch, state, dwNow))
+		if (!bLootDecided && HandleLoot(ch, state, dwNow))
 			continue;
 
 		// The Demon Tower: a raider on its way to the ground floor, and every
@@ -5725,7 +5865,10 @@ WritePlayerBotGuildStatus(dwNow);
 				}
 			}
 
-			const bool bWeaponMissing = (ch->GetWear(WEAR_WEAPON) == NULL);
+			// A bot of thirty fighting with a weapon for the tenth level or under
+			// while it could buy one over the line is missing its weapon too
+			// (Community Patch 5, point 2).
+			const bool bWeaponMissing = (ch->GetWear(WEAR_WEAPON) == NULL) || NeedsPlayerBotProperWeapon(ch);
 			// Item count is not inventory usage: weapons and armour occupy 2-3
 			// vertical cells.  Keep a generous reserve for a high-rate Metin drop and
 			// visit town before no contiguous 3-cell slot remains.
@@ -5769,10 +5912,14 @@ WritePlayerBotGuildStatus(dwNow);
 			// of 26 September).
 			const bool bNeedsLppRelease = PlayerBotWantsLppRelease(ch, state, dwNow);
 			const bool bNeedsMaterialRelease = PlayerBotWantsMaterialRelease(ch, state, dwNow);
+			// One of Community Patch 5's four gamblers with its bases in the bag
+			// and its shopping over: the visit begins its session
+			// (BeginPlayerBotRareGambleSession in StartPlayerBotTownVisit).
+			const bool bNeedsGambleSession = PlayerBotRareGamblerWantsTown(ch, true);
 
 			if (bNeedsProfession || bInventoryFull || bNeedsPotions || bWeaponMissing ||
 					bNeedsRefine || bNeedsGearUpgrade || bNeedsSellRun ||
-					bNeedsPotionCleanup)
+					bNeedsPotionCleanup || bNeedsGambleSession)
 				StartPlayerBotTownVisit(ch, state, dwNow);
 			else if (bNeedsLppRelease || bNeedsMaterialRelease)
 			{
@@ -5863,7 +6010,13 @@ WritePlayerBotGuildStatus(dwNow);
 		UseManaPotion(ch, state, dwNow);
 		UseUtilityPotions(ch, state, dwNow);
 		UsePlayerBotBoosters(ch, state, dwNow);
-		ManagePlayerBotScrollRefine(ch, state, dwNow);
+		// A scroll step in the field claims the tick: Iwakura's scroll rule
+		// stops the fight for the engine's equip window, and a step taken is
+		// the tick's action. Not where a person counts on the bot's blows, nor
+		// in the middle of a Metin stone, whose claim a dropped target leaves
+		// standing (ReleasePlayerBotMetinReservation is the stone section's).
+		if (ManagePlayerBotScrollRefine(ch, state, dwNow, !bServingPerson && !bFightingMetin))
+			continue;
 		ManagePlayerBotFieldBonus(ch, state, dwNow);
 		// This also catches a bot loaded from the database at critically low HP
 		// after a server restart.  Do not let it immediately reacquire a target.
@@ -6334,6 +6487,37 @@ WritePlayerBotGuildStatus(dwNow);
 bool CPlayerBotManager::IsManaged(DWORD dwPlayerID) const
 {
 	return m_mapBots.find(dwPlayerID) != m_mapBots.end();
+}
+
+// Uxie [DSO]'s price hint for the Dom Towarowy (27 September): a player putting
+// an item on its own offline shop's counter is told what a bot would ask for
+// it (the asking price every bot's counter uses) and what the bots have been
+// paid for one lately, with the number of sales behind that. A bot has no
+// counter window to show it in. Zeros say there is nothing to go by.
+void CPlayerBotManager::SendFleaMarketPriceQuote(LPCHARACTER ch, BYTE bWindow,
+		WORD wCell, DWORD dwRequestID)
+{
+	if (!ch || IsManaged(ch->GetPlayerID()))
+		return;
+
+	DWORD suggestedPrice = 0;
+	DWORD observedPrice = 0;
+	DWORD sampleCount = 0;
+	LPITEM item = ch->GetItem(TItemPos(bWindow, wCell));
+	if (item)
+	{
+		suggestedPrice = GetPlayerBotShopAskingPrice(item);
+		const DWORD skillVnum = item->GetType() == ITEM_SKILLBOOK
+				? GetPlayerBotSkillBookSkillVnum(item) : 0;
+		size_t samples = 0;
+		const DWORD observedUnitPrice = GetPlayerBotSaleUnitPrice(item->GetVnum(),
+				item->GetRefineLevel(), get_dword_time(), &samples, skillVnum);
+		observedPrice = observedUnitPrice * std::max<DWORD>(1, item->GetCount());
+		sampleCount = (DWORD)samples;
+	}
+
+	ch->ChatPacket(CHAT_TYPE_COMMAND, "FleaPriceQuote %u %u %u %u",
+			dwRequestID, suggestedPrice, observedPrice, sampleCount);
 }
 
 size_t CPlayerBotManager::GetCount() const

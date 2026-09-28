@@ -1005,11 +1005,57 @@ function Open-M2VpsPanel {
 
 # ---------------------------------------------------------------- logs, accounts
 
+function Get-M2VpsLogsScript {
+    # Pure: the world's logs, whoever set the world up. The launcher's own
+    # install answers through vps-install.sh. A world set up by hand, or by
+    # the 1.x installer in /opt/metin2/stack, has no such script where the
+    # launcher looks - "sh: 0: cannot open /opt/metin2/linux-port/tools/
+    # vps-install.sh" was all its operator got (Kordyl13, 27 September) - so
+    # the script finds the game's container, reads its Compose folder from
+    # the container's labels, names the folder to type into the window, and
+    # prints the containers' logs itself, masked as vps-install.sh masks
+    # them. Either way it ends with the world's layout and the bots each core
+    # started, which is what "the other kingdoms never leave their villages"
+    # is answered from. Plain sh, sent on stdin (sh -s), like the probe.
+    param([string]$RemoteDir = $script:VpsDefaultRemoteDir, [int]$Lines = 200)
+    return (@(
+        ('d=' + $RemoteDir),
+        ('n=' + [Math]::Max(10, [Math]::Min(5000, $Lines))),
+        ('s="$d/' + $script:VpsScript + '"'),
+        'mask() { sed ''s/\([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][A-Za-z_]*[=:][[:space:]]*\)[^[:space:]]*/\1***/g; s/\([Hh][Aa][Ss][Ll][Oo][A-Za-z_]*[=:][[:space:]]*\)[^[:space:]]*/\1***/g''; }',
+        'if [ -f "$s" ]; then sh "$s" logs "$n"; fi',
+        'c=$(docker ps -a --format ''{{.Names}}'' 2>/dev/null | grep -E -- ''-game$'' | head -n 1)',
+        'if [ -z "$c" ]; then',
+        '    [ -f "$s" ] && exit 0',
+        '    echo "Na VPS nie ma serwera w $d ani kontenera gry (zaden kontener *-game w docker ps -a)."',
+        '    echo "Jesli serwer stoi w innym folderze, wpisz ten folder w polu Folder na VPS."',
+        '    exit 3',
+        'fi',
+        'if [ ! -f "$s" ]; then',
+        '    w=$(docker inspect --format ''{{ index .Config.Labels "com.docker.compose.project.working_dir" }}'' "$c" 2>/dev/null)',
+        '    echo "--- serwer postawiony bez launchera: kontener $c, folder Compose ${w:-nieznany} ---"',
+        '    if [ -n "$w" ] && [ -f "$w/../tools/vps-install.sh" ]; then',
+        '        echo "W polu Folder na VPS wpisz: $(cd "$w/../.." && pwd) - wtedy launcher obsluzy ten serwer w calosci."',
+        '    fi',
+        '    p=${c%-game}',
+        '    for x in "$c" "$p-playerbot-migrate" "$p-db"; do',
+        '        docker inspect "$x" >/dev/null 2>&1 || continue',
+        '        echo "--- docker logs $x (ostatnie $n) ---"',
+        '        docker logs --tail "$n" "$x" 2>&1 | mask',
+        '    done',
+        'fi',
+        'echo "--- uklad swiata i boty na rdzeniach ---"',
+        'docker logs "$c" 2>&1 | grep -a "world layout" | tail -n 1',
+        'docker exec "$c" sh -c ''for f in /opt/metin2/var/channel*/*/syslog; do [ -f "$f" ] || continue; echo "== $f"; grep -a -e "PLAYERBOT: autospawn" -e "PLAYERBOT_AUTH: loaded" "$f" | tail -n 4; done'' 2>&1 | mask',
+        'exit 0'
+    ) -join "`n") + "`n"
+}
+
 function Get-M2VpsLogs {
     # The VPS's install log and the game's containers' logs, masked on the
     # VPS and once more here with the launcher's own redaction.
     param([Parameter(Mandatory = $true)]$State, [int]$Lines = 200)
-    $result = Invoke-M2Vps -State $State -Command (Get-M2VpsScriptCommand -State $State -Arguments ('logs {0}' -f [Math]::Max(10, [Math]::Min(5000, $Lines)))) -TimeoutSeconds 120
+    $result = Invoke-M2Vps -State $State -Command 'sh -s' -Sudo -InputText (Get-M2VpsLogsScript -RemoteDir ([string]$State.remoteDir) -Lines $Lines) -TimeoutSeconds 120
     $text = ([string]$result.Output) + $(if ($result.Error) { "`n" + [string]$result.Error } else { '' })
     # Protect-M2LogContent is the launcher module's own and not exported, so
     # it is asked for inside that module (a Get-Command from here never found
@@ -1165,6 +1211,6 @@ Export-ModuleMember -Function Get-M2VpsStatePath, Get-M2VpsDefaultKeyPath, New-M
     Test-M2VpsUploadExcluded, Get-M2VpsNestedExcludes, Get-M2VpsUploadEntries, Get-M2VpsTarArguments, Get-M2VpsUnpackCommand, Send-M2VpsServer,
     ConvertFrom-M2VpsStatus, Get-M2VpsStatus, Compare-M2VpsVersion, Wait-M2VpsJob, Get-M2VpsInstallAddressArgument, Install-M2Vps, Update-M2Vps,
     Test-M2VpsLocalPortFree, Get-M2VpsTunnelPlan, Get-M2VpsTunnelProcess, Get-M2VpsPanelAddresses, Close-M2VpsPanel, Open-M2VpsPanel,
-    Get-M2VpsLogs, ConvertFrom-M2VpsAccounts, Get-M2VpsAccounts,
+    Get-M2VpsLogsScript, Get-M2VpsLogs, ConvertFrom-M2VpsAccounts, Get-M2VpsAccounts,
     Get-M2VpsGamePorts, Get-M2VpsWorldAddress, Write-M2VpsClientEntry, Test-M2VpsInviteAccess, Assert-M2VpsInviteAccess,
     ConvertTo-M2VpsAsciiName, New-M2VpsFriend, Get-M2VpsFriendInvite
