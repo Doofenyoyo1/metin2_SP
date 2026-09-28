@@ -203,11 +203,6 @@ jobs:
           open(path, 'w', encoding='utf-8', newline='').write(out)
           EOF
           python3 tools/check-manifest-points-at-release.py "$SERVER"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add update-manifest-mt2009.json
-          git commit -m "chore(release): manifest hashes for $TAG"
-          git push origin "HEAD:$GITHUB_REF_NAME"
 
       - name: Release
         env:
@@ -230,7 +225,10 @@ jobs:
             on { print }
           ' CHANGELOG.md > notes.md
           test -s notes.md
-          files=$(ls out/*.zip out/*.exe 2>/dev/null)
+          # A server-only release has no exe: ls exits 2 for the missing glob,
+          # which under set -e ended the step before the release was made.
+          files=$(ls out/*.zip out/*.exe 2>/dev/null || true)
+          test -n "$files"
           # Created as a draft, the files uploaded on their own, and published only
           # once every one is there with its size: a one-call create once
           # published a release with no files and reported success.
@@ -249,3 +247,19 @@ jobs:
           else
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false
           fi
+
+      # Last, and only once the release is published with every file: the
+      # launcher reads this manifest from main, so a manifest pushed ahead of a
+      # release that then failed sent every player to a download that did not
+      # exist (v2.2.34, whose first run died in the Release step after the
+      # manifest was already on main).
+      - name: Push manifest
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add update-manifest-mt2009.json
+          git commit -m "chore(release): manifest hashes for $TAG"
+          git push origin "HEAD:$GITHUB_REF_NAME"
