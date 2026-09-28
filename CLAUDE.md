@@ -9249,6 +9249,21 @@ not in `data/`) reworked these point by point. What each hangs on:
   goes round in one pass: given half a minute, the owner's own equipment
   pass wore the necklace of the second run. Not exercised: the windows
   themselves in a client.
+- **A handler nobody dispatches is a disconnect.** The Dom Towarowy (2.2.33)
+  asks for its catalogue with ikashop's search fill (the client's
+  `SendRandomSearchFillRequest`, subheader 12), and `apply_flea_market`
+  wrote the server's answer into `RecvShopSearchFillRequestClientPacket` -
+  but the package's `IkarusShopPacket` switch in `input_main.cpp` has that
+  case commented out with the offers and auctions. The packet fell to
+  `default:`, which returns -1, and `CInputMain` treats -1 as a broken
+  packet: the player who opened the window lost the connection on the spot
+  ("when i use dom towarowy the game crashes"). Upstream's 2.2.32 package
+  ships the same file. `apply_flea_market_fill_dispatch` (in
+  `ENGINE_EDITS`) uncomments the case. When a feature adds a server handler
+  for a client packet, find the switch that reaches it; the exe's
+  subheaders can be read off each `ikashop.Send*` function's
+  `mov byte ptr [ebp - 1], N` with capstone. Worked out from the package and
+  the exe, not compiled or watched: no full engine tree was at hand.
 
 
 ## Engine facts worth not re-deriving
