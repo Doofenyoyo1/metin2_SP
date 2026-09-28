@@ -17,6 +17,24 @@ every version here.
 
 ---
 
+## 2.2.37 — 2026-09-28
+
+Tylko serwer (klient zostaje 2.0.47): „AKTUALIZUJ serwer” w launcherze,
+na VPS `sh linux-port/tools/update.sh`.
+
+- **Odrzucony budynek mówi dokładnie, dlaczego.** Serwer powtarza teraz
+  sam te same trzy sprawdzenia co silnik i pisze na czacie tylko to, które
+  zawiodło:
+  - budynek jest większy niż teren gildii (z wymiarami obu),
+  - budynek wystaje poza teren i o ile metrów trzeba go przesunąć
+    (w prawo / w lewo / w górę / w dół, jak na minimapie),
+  - kto stoi w miejscu budynku: Ty sam albo konkretna postać, koń czy NPC
+    z nazwą i pozycją,
+  - albo że to miejsce zajmuje już inny budynek, ściana lub jego podstawa.
+
+  Każda odmowa trafia też do `syserr` jako linia `BUILD refused` z
+  pozycją budynku, granicami terenu i obrysem budynku.
+
 ## 2.2.36 — 2026-09-28
 
 Tylko serwer (klient zostaje 2.0.47): „AKTUALIZUJ serwer” w launcherze,

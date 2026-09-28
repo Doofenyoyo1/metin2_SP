@@ -9286,7 +9286,19 @@ not in `data/`) reworked these point by point. What each hangs on:
   `FIsIn` in building.cpp, which no package ships) - and the build window
   puts the building on the builder until "Zmien" moves it, so the line names
   that first. The two reasons are only told apart in syserr: "object is
-  outside of land region" or "another object already exist".
+  outside of land region" or "another object already exist". That list of
+  every reason still left a player standing on their own land sure the
+  land was wrong ("still the same error", the same day), so since 2.2.37
+  `apply_build_refusal_reason` asks the three tests again after a refusal
+  - stock `RequestCreateObject`'s arithmetic, read from a public copy of
+  the r40250 source (cCorax2/Source_code, `game/building.cpp`): the rotated
+  footprint in the land, the unrotated one for any non-monster character,
+  and ATTR_OBJECT for what is left - and says only the one that failed,
+  with the metres and the minimap direction, or the blocker's name and
+  place. `BUILD refused` in syserr carries the land and the footprint. It
+  reads `CLand::GetData()`, `TLand` and `TObjectProto::lRegion` as the
+  stock headers name them; compiled against stubs of those headers only,
+  not against mt2009's.
 
 ## Engine facts worth not re-deriving
 
