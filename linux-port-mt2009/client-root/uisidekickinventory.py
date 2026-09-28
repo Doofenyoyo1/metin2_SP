@@ -41,8 +41,9 @@
 #
 # The orders are the server's own words: eq, eq 1, eq ruch <from> <to>,
 # eq daj <myCell> <to>, eq wez <from> <myCell>, eq odepnij <pos>, umiejetnosci,
-# umiejetnosci dodaj <vnum>, umiejetnosci reczne <0|1>, statystyki,
-# statystyki dodaj <ht|iq|st|dx> <n>, statystyki reczne <0|1>, statystyki odnow.
+# umiejetnosci dodaj <vnum>, umiejetnosci reczne <0|1>, umiejetnosci zeruj <vnum>
+# (since server 2.2.35), statystyki, statystyki dodaj <ht|iq|st|dx> <n>,
+# statystyki reczne <0|1>, statystyki odnow.
 # They leave through
 # uisidekick.py's queue, one every 0.3 s for all the companion's windows
 # together, because the server drops a sixth command in half a second.
@@ -240,6 +241,10 @@ TEXT_POINTS = 'Wolne punkty: %d'
 TEXT_MANUAL = 'Punkty rozdaj\xea sam: %s'
 TEXT_AI_SPENDS = 'Punkty rozdaje SI towarzysza.'
 TEXT_SKILL_NAME = 'Umiej\xeatno\x9c\xe6 %d'
+TEXT_SKILL_RESET = 'Zeruj'
+TEXT_SKILL_RESET_ASK = 'Wyzerowa\xe6 %s?'
+TEXT_SKILL_RESET_MASTER = ' Mistrz przepadnie.'
+TEXT_SKILL_RESET_HOW = 'Towarzysz zu\xbfyje KZ albo Zw\xf3j Powrotu Umiej\xeatno\x9cci.'
 TEXT_STAT_TITLE = 'Statystyki towarzysza'
 TEXT_STAT_POINTS = 'Wolne punkty: %d'
 TEXT_STAT_LEVEL = 'Poziom %d'
@@ -1273,10 +1278,13 @@ class EquipmentWindow(_Window):
 
 class SkillWindow(_Window):
 	"""The companion's skills: the path's list with the level as the game writes
-	it, the points left, a "+" where a point can go, and who spends the points
-	(the first "+" makes it the owner - the server says so)."""
+	it, the points left, a "+" where a point can go, who spends the points (the
+	first "+" makes it the owner - the server says so), and "Zeruj" on a skill
+	with a level, asked about first: the companion takes it back to nothing with
+	the Forgetting Books or the skill reset scroll in its own bag (blasty, 28
+	September)."""
 
-	WIDTH = 240
+	WIDTH = 260
 	ROW_HEIGHT = 34
 	ROWS_TOP = 84
 	HEIGHT = ROWS_TOP + MAX_SKILL_ROWS * ROW_HEIGHT + 44
@@ -1286,6 +1294,8 @@ class SkillWindow(_Window):
 		_Window.__init__(self)
 		self.rows = []
 		self.tooltip = None
+		self.question = None
+		self.resetVnum = 0
 		self.Build()
 		self.Refresh()
 
@@ -1314,10 +1324,13 @@ class SkillWindow(_Window):
 		self.skillSlots = slots
 		self.nameLines = []
 		self.levelLines = []
+		self.resetButtons = []
+		resetX = self.WIDTH - 14 - BUTTON_SIZES['small'][0]
 		for i in range(MAX_SKILL_ROWS):
 			rowY = self.ROWS_TOP + i * self.ROW_HEIGHT
 			self.nameLines.append(self._Label(self, 54, rowY + 2, ''))
 			self.levelLines.append(self._Label(self, 54, rowY + 17, ''))
+			self.resetButtons.append(self._Btn(self, 'small', resetX, rowY + 6, TEXT_SKILL_RESET, self.OnReset, i))
 		self._StatusLines(self.ROWS_TOP + MAX_SKILL_ROWS * self.ROW_HEIGHT + 6)
 
 	def Refresh(self):
@@ -1338,6 +1351,7 @@ class SkillWindow(_Window):
 				slots.ClearSlot(i)
 				self.nameLines[i].SetText('')
 				self.levelLines[i].SetText('')
+				self.resetButtons[i].Hide()
 				continue
 			vnum, level, grade = self.rows[i]
 			shownGrade, step = SkillGradeStep(level, grade)
@@ -1347,6 +1361,10 @@ class SkillWindow(_Window):
 			self.levelLines[i].SetText(SkillLevelText(level, grade))
 			if CanAddSkillPoint(model.points, level, grade):
 				slots.ShowSlotButton(i)
+			if level > 0:
+				self.resetButtons[i].Show()
+			else:
+				self.resetButtons[i].Hide()
 		slots.RefreshSlot()
 		self.RefreshStatusFor(model)
 
@@ -1364,6 +1382,34 @@ class SkillWindow(_Window):
 
 	def OnManual(self):
 		SendOrder(ORIGIN_SKILL, 'umiejetnosci reczne %d' % (0 if _skills.manual else 1))
+
+	def OnReset(self, slot):
+		import uiCommon
+		self.OnResetCancel()
+		if not 0 <= slot < len(self.rows):
+			return
+		vnum, level, grade = self.rows[slot]
+		shownGrade, _ = SkillGradeStep(level, grade)
+		question = uiCommon.QuestionDialog2()
+		question.SetText1(TEXT_SKILL_RESET_ASK % SkillName(vnum, shownGrade) +
+			(TEXT_SKILL_RESET_MASTER if shownGrade > 0 else ''))
+		question.SetText2(TEXT_SKILL_RESET_HOW)
+		question.SetAcceptEvent(ui.__mem_func__(self.OnResetAccept))
+		question.SetCancelEvent(ui.__mem_func__(self.OnResetCancel))
+		question.Open()
+		self.question = question
+		self.resetVnum = vnum
+
+	def OnResetAccept(self):
+		if self.resetVnum:
+			SendOrder(ORIGIN_SKILL, 'umiejetnosci zeruj %d' % self.resetVnum)
+		self.OnResetCancel()
+
+	def OnResetCancel(self):
+		if self.question:
+			self.question.Close()
+		self.question = None
+		self.resetVnum = 0
 
 	def OnOverIn(self, slot):
 		"""The player's own skill tooltip, with the companion's skill and
@@ -1405,6 +1451,7 @@ class SkillWindow(_Window):
 
 	def Close(self):
 		self.OnOverOut()
+		self.OnResetCancel()
 		self.Hide()
 
 	def Destroy(self):

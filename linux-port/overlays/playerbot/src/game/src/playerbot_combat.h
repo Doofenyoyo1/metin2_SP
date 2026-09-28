@@ -223,7 +223,10 @@ namespace
 	bool ManagePlayerBotCombatBuffs(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow,
 			bool duel = false)
 	{
-		if (!ch || ch->GetSkillGroup() == 0 || dwNow < state.dwNextBuffCheckTime)
+		// Nor under a marble, where the engine refuses every skill a buff is
+		// (IsPlayerBotFightingAsMonster).
+		if (!ch || ch->GetSkillGroup() == 0 || dwNow < state.dwNextBuffCheckTime ||
+				IsPlayerBotFightingAsMonster(ch))
 			return false;
 
 		// These used to be cast only once a target had been acquired, which is

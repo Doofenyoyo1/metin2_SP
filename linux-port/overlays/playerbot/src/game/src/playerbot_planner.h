@@ -170,11 +170,20 @@ namespace
 		}
 
 		// --- and everything that is ------------------------------------------
+		// Each errand as the pass that runs it sees it, gates and all
+		// (IsPlayerBotWeightGateOpen): the goal is the word over the bot's
+		// head, and it must not name an errand the weights closed.
 		const bool canAdvanceHorse = ShouldPlayerBotPursueHorseExpedition(ch, dwNow);
-		const bool hasBiologistMission = GetActivePlayerBotBiologistMission(ch) != NULL;
-		const bool hasHuntingMission = GetActivePlayerBotHuntingMission(ch) != NULL;
+		const bool hasBiologistMission = GetActivePlayerBotBiologistMission(ch) != NULL &&
+				IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_BIOLOG,
+					PLAYERBOT_WEIGHT_GATE_SALT_BIOLOG, dwNow);
+		const bool hasHuntingMission = GetActivePlayerBotHuntingMission(ch) != NULL &&
+				IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_HUNTING,
+					PLAYERBOT_WEIGHT_GATE_SALT_HUNTING, dwNow);
 		const bool canRefine = HasPlayerBotRefineOpportunity(ch);
-		const bool canReadBook = HasPlayerBotUsableSkillBook(ch);
+		const bool canReadBook = HasPlayerBotUsableSkillBook(ch) &&
+				IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_SKILL,
+					PLAYERBOT_WEIGHT_GATE_SALT_SKILL, dwNow);
 
 		TPlayerBotGoalCandidate candidates[16];
 		int rank = 0;

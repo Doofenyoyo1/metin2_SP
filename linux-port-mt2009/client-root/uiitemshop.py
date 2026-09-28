@@ -43,6 +43,7 @@ ITEMSHOP_CATEGORIES_SORT = [
 	14,
 	1,
 	2,
+	3,
 	7,
 	5,
 	6,
@@ -607,7 +608,7 @@ class ItemShopWindow(ui.ScriptWindow):
 		categoryData = ITEMSHOP_CATEGORIES[catIndex]
 		category_button_start_position_y = 88
 		category_button_height = 23
-		category_button_step_y = category_button_height + 1.5
+		category_button_step_y = category_button_height + 0.5
 
 		btn = ui.Button()
 		btn.SetParent(self.menuPanel)
@@ -618,7 +619,7 @@ class ItemShopWindow(ui.ScriptWindow):
 
 		addPos = 0
 		if catIndex >= 11 and catIndex <= 13 or catIndex == ITEMSHOP_CATEGORY_USE_VOUCHER:
-			addPos = category_button_height / 2
+			addPos = 4
 
 		btn.SetPosition(0, category_button_start_position_y + len(self.categoryButtons["buttons"]) * category_button_step_y + addPos)
 		btn.SAFE_SetEvent(self.__OnCategoryButtonClick, catIndex)

@@ -553,6 +553,12 @@ run_job() {
     trap 'job_end failed 143 "przerwane"; exit 143' INT TERM
     case "$J_KIND" in
         install)
+            # The database's first-run scripts arrive without the execute
+            # bit (the folder comes over as a Windows copy), and the MariaDB
+            # entrypoint sources a script it cannot run: the one fault of
+            # that kind stopped every first start on a VPS (Urtopy, 27
+            # September; 10-import-dumps.sh now puts its options back too).
+            chmod a+x "$COMPOSE_DIR"/mariadb/initdb.d/*.sh 2>/dev/null || true
             job_phase build "budowa obrazow i start serwera (docker compose up -d --build) - pierwszy raz 15-40 minut"
             ( cd "$COMPOSE_DIR" && docker compose up -d --build )
             _rc=$?

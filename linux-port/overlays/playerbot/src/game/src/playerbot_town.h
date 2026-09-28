@@ -1931,6 +1931,49 @@ namespace
 		return std::max<DWORD>(1, premium > 0xFFFFFFFFULL ? 0xFFFFFFFFU : (DWORD)premium);
 	}
 
+	// The bot whose counter a price is for. An item in a bot's bag has its
+	// owner; a line on a bot's offline stand is a preview with no owner when
+	// its keeper reprices it (BotOfflinePreview), so the stand's code names the
+	// keeper around the call (TPlayerBotPricingKeeper). A player's item - the
+	// Dom Towarowy's hint - and a buyer weighing another bot's line have none.
+	DWORD s_dwPlayerBotPricingKeeper = 0;
+	struct TPlayerBotPricingKeeper
+	{
+		DWORD dwPrevious;
+		explicit TPlayerBotPricingKeeper(DWORD dwKeeper) : dwPrevious(s_dwPlayerBotPricingKeeper)
+		{
+			s_dwPlayerBotPricingKeeper = dwKeeper;
+		}
+		~TPlayerBotPricingKeeper()
+		{
+			s_dwPlayerBotPricingKeeper = dwPrevious;
+		}
+	};
+
+	DWORD GetPlayerBotPricingKeeper(LPITEM item)
+	{
+		LPCHARACTER owner = item ? item->GetOwner() : NULL;
+		if (owner)
+			return owner->GetDesc() && owner->GetDesc()->IsBot() ? owner->GetPlayerID() : 0;
+		return s_dwPlayerBotPricingKeeper;
+	}
+
+	// A book's or a hand-priced material's spread, PLAYERBOT_BOOK_PRICE_JITTER_MIN
+	// to _MAX percent of the table's number, stable per keeper and per thing as
+	// the gear's competition below is. Drawn per listing, one bot put two pairs
+	// of the same chest on one counter at 1 600 000 and 1 840 000 ("Rozne ceny
+	// tych samych przedmiotow w sklepie", Producent Hip Hopu, 28 September); two
+	// keepers still ask two numbers. With no keeper it is the table's number.
+	int GetPlayerBotListingSpreadPercent(LPITEM item, DWORD skillVnum)
+	{
+		const DWORD keeper = GetPlayerBotPricingKeeper(item);
+		if (!item || keeper == 0)
+			return 100;
+		const DWORD span = (DWORD)(PLAYERBOT_BOOK_PRICE_JITTER_MAX - PLAYERBOT_BOOK_PRICE_JITTER_MIN + 1);
+		return PLAYERBOT_BOOK_PRICE_JITTER_MIN + (int)(PlayerBotNavHash(keeper ^
+				(item->GetVnum() * 2654435761U) ^ (skillVnum * 0x85EBCA6BU) ^ 0x53505244U) % span);
+	}
+
 	// Iwakura's price competition (see PLAYERBOT_SHOP_PRICE_JITTER_PCT): a stable
 	// per-keeper, per-item swing so two stalls with the same +7 do not both ask
 	// the flat 150 000. Hashed on the owner and the item, so it does not flicker
@@ -2508,14 +2551,14 @@ namespace
 		// under the fees.
 		unit = std::max(unit, investment);
 		// A book's market has some noise in it: a fifth under to a quarter
-		// over, drawn per listing. After the limiter and the memory, so the
-		// anchor they keep is the table's number and not one draw of it.
-		// The same draw for a hand-priced material: Iwakura asks for it on both
-		// tables, so two counters never show the same number for a Zab Orka
-		// either.
+		// over, one keeper's own (GetPlayerBotListingSpreadPercent). After the
+		// limiter and the memory, so the anchor they keep is the table's number
+		// and not one keeper's. The same spread for a hand-priced material:
+		// Iwakura asks for it on both tables, so two counters never show the
+		// same number for a Zab Orka either.
 		if (bookSkill != 0 || materialBase != 0 || iwakuraBase != 0)
 			unit = std::max<DWORD>(1, (DWORD)((unsigned long long)unit *
-					(unsigned long long)number(PLAYERBOT_BOOK_PRICE_JITTER_MIN, PLAYERBOT_BOOK_PRICE_JITTER_MAX) / 100ULL));
+					(unsigned long long)GetPlayerBotListingSpreadPercent(item, bookSkill) / 100ULL));
 		unit = ApplyPlayerBotBonusPremium(unit, bonusPercent);
 		const DWORD price = unit * (DWORD)item->GetCount();
 		return price == 0 ? 1U : price;

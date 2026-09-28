@@ -2328,6 +2328,8 @@ class GameWindow(ui.ScriptWindow):
 		if True == wndMgr.IsPickedWindow(self.hWnd):
 
 			self.PickingCharacterIndex = chr.Pick()
+			import sidekickcollision
+			sidekickcollision.SetPicked(self.PickingCharacterIndex)
 
 			if -1 != self.PickingCharacterIndex:
 				textTail.ShowCharacterTextTail(self.PickingCharacterIndex)

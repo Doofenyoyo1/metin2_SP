@@ -161,6 +161,13 @@ namespace
 	// so the walk starts while there is still something to fight with.
 	const size_t PLAYERBOT_POTION_TRIP_RED = 300;
 	const size_t PLAYERBOT_POTION_TRIP_BLUE = 200;
+	// What the merchant fills a belt to once the bot stands in front of it
+	// (ManagePlayerBotMiscMerchant), and how far towards that the RESTOCK
+	// weight may move the trip (GetPlayerBotPotionTrip): past it, a purse that
+	// buys less than the trigger would walk the bot straight back.
+	const size_t PLAYERBOT_POTION_FILL_RED = 800;
+	const size_t PLAYERBOT_POTION_FILL_BLUE = 600;
+	const size_t PLAYERBOT_POTION_TRIP_CAP_PERCENT = 60;
 	// And the big potions from here on. See ManagePlayerBotMiscMerchant.
 	const BYTE PLAYERBOT_BIG_POTION_MIN_LEVEL = 40;
 	const int PLAYERBOT_POTION_SP_PERCENT = 30;
@@ -1713,6 +1720,14 @@ namespace
 	const DWORD PLAYERBOT_TOWER_GATHER_MS = 4 * 60 * 1000;
 	const DWORD PLAYERBOT_TOWER_STONE_TIMEOUT_MS = 10 * 60 * 1000;
 	const DWORD PLAYERBOT_TOWER_STALL_MS = 20 * 60 * 1000;
+	// A floor's monster the route planner cannot reach - one wedged in the
+	// sixth floor's wall, while the Elite Demon King stood unhit across the
+	// room (prodnathin, 28 September) - is out of every bot's pick for
+	// UNREACHABLE_MS; once the pack has had nothing else to fight for
+	// UNSTICK_MS, up to UNSTICK_MAX of the wedged ones are set down beside it.
+	const DWORD PLAYERBOT_TOWER_UNREACHABLE_MS = 60 * 1000;
+	const DWORD PLAYERBOT_TOWER_UNSTICK_MS = 30 * 1000;
+	const int PLAYERBOT_TOWER_UNSTICK_MAX = 6;
 	const DWORD PLAYERBOT_TOWER_FLOOR_MAX_MS = 35 * 60 * 1000;
 	const DWORD PLAYERBOT_TOWER_MAX_MS = 2 * 60 * 60 * 1000;
 	const DWORD PLAYERBOT_TOWER_SMITH_WAIT_MS = 60 * 1000;
@@ -1883,6 +1898,9 @@ namespace
 	// The ninth floor's Umarly Rozpruwacz: his fall ends the run and is told
 	// to the world (AnnouncePlayerBotTowerReaper).
 	const DWORD PLAYERBOT_TOWER_REAPER = 1093;
+	// How long the name of whoever struck him down waits for that notice
+	// (NotePlayerBotBossKilled): the floor scan sees him gone seconds later.
+	const DWORD PLAYERBOT_TOWER_REAPER_BLOW_MS = 300000;
 	const DWORD PLAYERBOT_TOWER_OPENING_STONE = 50084;
 	const DWORD PLAYERBOT_TOWER_CHEST_ITEM = 30300;
 	const DWORD PLAYERBOT_TOWER_MAP_ITEM = 30302;
@@ -2682,6 +2700,9 @@ namespace
 	// over the market's price that counter may ask (percent of it).
 	const int PLAYERBOT_MARKET_PERSON_FIRST_PERCENT = 33;
 	const int PLAYERBOT_MARKET_PERSON_PRICE_PERCENT = 110;
+	// How many lines of the people's stands in reach such a browse reads
+	// first (BrowsePlayerBotPersonLines).
+	const unsigned int PLAYERBOT_MARKET_PERSON_LOOK_LINES = 256;
 	const int PLAYERBOT_INFLATION_STEP_PERCENT = 5;
 	const int PLAYERBOT_INFLATION_MAX_PERCENT = 100000;
 	const DWORD PLAYERBOT_INFLATION_REFRESH_MS = 10 * 60 * 1000;
@@ -3853,6 +3874,16 @@ namespace
 	// worn piece off asks this first. The transformation's own attack is the
 	// monster's, so nothing is lost by waiting it out.
 	inline bool IsPlayerBotGearFrozen(LPCHARACTER ch)
+	{
+		return ch && ch->IsPolymorphed();
+	}
+	// And a transformed bot fights as the monster it became, whatever its
+	// build: hand to hand, with no skill, no buff and no bow's reach - the
+	// engine refuses the skills and the monster's blow is a melee one. The
+	// Shaman that stood at its casting range and the Archer at its bow's,
+	// both unable to hit from there, were the bots that "nie wiedzialy, ze sa
+	// na marmurze" (prodnathin, 28 September: "zmienia im sie rola na dps").
+	inline bool IsPlayerBotFightingAsMonster(LPCHARACTER ch)
 	{
 		return ch && ch->IsPolymorphed();
 	}

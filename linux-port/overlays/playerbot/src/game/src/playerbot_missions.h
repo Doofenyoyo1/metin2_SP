@@ -590,6 +590,12 @@ namespace
 		// not a destination; the row waits, and the hand-in still walks.
 		if (IsPlayerBotOnBattleHorseTrial(ch) || IsPlayerBotOnMilitaryHorseTrial(ch))
 			return 0;
+		// The BIOLOG weight under neutral leaves the row unhunted for a share of
+		// the bots, before a place is taken (IsPlayerBotWeightGateOpen); what a
+		// bot already carries is handed in all the same.
+		if (!ch || !IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_BIOLOG,
+				PLAYERBOT_WEIGHT_GATE_SALT_BIOLOG, get_dword_time()))
+			return 0;
 		size_t missionIndex = 0;
 		const TPlayerBotBiologistMission* mission =
 				GetActivePlayerBotBiologistMission(ch, &missionIndex, mayReserve);
@@ -674,6 +680,9 @@ namespace
 	{
 		if (!ch)
 			return 1;
+		if (!IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_BIOLOG,
+				PLAYERBOT_WEIGHT_GATE_SALT_BIOLOG, get_dword_time()))
+			return ch->GetLevel();
 		size_t missionIndex = 0;
 		const TPlayerBotBiologistMission* mission = GetActivePlayerBotBiologistMission(ch, &missionIndex);
 		if (!mission || mission->mobVnum >= 500 || IsPlayerBotBiologistKeyPhase(ch, missionIndex) ||

@@ -32,7 +32,8 @@ LOGIN_DELAY_SEC = 0.0
 SKIP_LOGIN_PHASE = False
 SKIP_LOGIN_PHASE_SUPPORT_CHANNEL = False
 
-MAX_CREDENTIALS_SAVE = 3
+MAX_CREDENTIALS_SAVE = 15
+CREDENTIALS_PER_PAGE = 3
 SAVED_CREDENTIALS = {}
 
 EVENT_TRY_CONNECT = "EVENT_TRY_CONNECT"
@@ -116,7 +117,7 @@ class SaveCredentialsItem(ui.ThinBoard):
 
 	def Setup(self, index):
 		self.SetSize(208, 30)
-		self.SetPosition(0, 35 * index)
+		self.SetPosition(0, 35 * (index % CREDENTIALS_PER_PAGE))
 
 		login_label = ui.TextLine()
 		login_label.SetParent(self)
@@ -162,7 +163,7 @@ class SaveCredentialsItem(ui.ThinBoard):
 	def __MouseOverIn(self):
 		if self.tooltip:
 			self.tooltip.ClearToolTip()
-			self.tooltip.AppendTextLine(localeInfo.SAVE_ACCOUNT_LOAD_SHORTCUT_TOOLTIP % (self.index+1))
+			self.tooltip.AppendTextLine(localeInfo.SAVE_ACCOUNT_LOAD_SHORTCUT_TOOLTIP % (self.index % CREDENTIALS_PER_PAGE + 1))
 			self.tooltip.ShowToolTip()
 
 	def __MouseOverOut(self):
@@ -441,6 +442,8 @@ class LoginWindow(ui.ScriptWindow):
 		for i in self.save_credential_items:
 			i.Destroy()
 		self.save_credential_items = None
+		self.credentialsPageButtons = None
+		self.credentialsPageLabel = None
 
 		self.idEditLine.SetTabEvent(0)
 		self.idEditLine.SetReturnEvent(0)
@@ -981,11 +984,54 @@ class LoginWindow(ui.ScriptWindow):
 		for i in range(MAX_CREDENTIALS_SAVE):
 			item = SaveCredentialsItem(i, self, self.credentialsWindow)
 			item.SetToolTip(self.tooltip)
-			item.Show()
 			self.save_credential_items.append(item)
+		self.__CreateCredentialsPager()
 
 		self.SetVersion()
 		return 1
+
+	def __CreateCredentialsPager(self):
+		top = 35 * CREDENTIALS_PER_PAGE
+		self.credentialsWindow.SetSize(208, top + 24)
+		buttons = []
+		for text, step in (("<", -1), (">", 1)):
+			button = ui.Button()
+			button.SetParent(self.credentialsWindow)
+			button.SetUpVisual("d:/ymir work/ui/public/small_button_01.sub")
+			button.SetOverVisual("d:/ymir work/ui/public/small_button_02.sub")
+			button.SetDownVisual("d:/ymir work/ui/public/small_button_03.sub")
+			button.SetText(text)
+			if step > 0:
+				button.SetWindowHorizontalAlignRight()
+				button.SetPosition(52, top + 2)
+			else:
+				button.SetPosition(8, top + 2)
+			button.SAFE_SetEvent(self.__OnCredentialsPage, step)
+			button.Show()
+			buttons.append(button)
+		self.credentialsPageButtons = buttons
+		label = ui.TextLine()
+		label.SetParent(self.credentialsWindow)
+		label.SetOutline(True)
+		label.SetHorizontalAlignCenter()
+		label.SetPosition(104, top + 5)
+		label.Show()
+		self.credentialsPageLabel = label
+		self.__ShowCredentialsPage(0)
+
+	def __ShowCredentialsPage(self, page):
+		pages = (MAX_CREDENTIALS_SAVE + CREDENTIALS_PER_PAGE - 1) / CREDENTIALS_PER_PAGE
+		self.credentialsPage = page % pages
+		for item in self.save_credential_items:
+			if item.index / CREDENTIALS_PER_PAGE == self.credentialsPage:
+				item.Show()
+			else:
+				item.Hide()
+		self.credentialsPageLabel.SetText("%d / %d" % (self.credentialsPage + 1, pages))
+
+	def __OnCredentialsPage(self, step):
+		if self.save_credential_items:
+			self.__ShowCredentialsPage(self.credentialsPage + step)
 
 	def OpenURL(self, url):
 		utils.open_url(url)
@@ -1343,8 +1389,10 @@ class LoginWindow(ui.ScriptWindow):
 		# 		if app.DIK_F1+idx == key and self.SAB_GetAccountData(idx):
 		# 			self.SAB_Click_Access(idx)
 
-		for idx in xrange(MAX_CREDENTIALS_SAVE):
-			if app.DIK_F1+idx == key and self.save_credential_items[idx].IsSaved():
+		first = getattr(self, "credentialsPage", 0) * CREDENTIALS_PER_PAGE
+		for row in xrange(CREDENTIALS_PER_PAGE):
+			idx = first + row
+			if app.DIK_F1+row == key and idx < MAX_CREDENTIALS_SAVE and self.save_credential_items[idx].IsSaved():
 				self.__OnClickSelectServerButton()
 				self.save_credential_items[idx].Load()
 		return True

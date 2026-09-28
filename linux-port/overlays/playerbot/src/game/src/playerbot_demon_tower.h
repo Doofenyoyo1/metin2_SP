@@ -119,11 +119,17 @@ namespace
 		// when each began its turn (PLAYERBOT_TOWER_SMITH_TURN_MS).
 		std::set<DWORD> smithServed;
 		std::map<DWORD, DWORD> smithTurnSince;
+		// The objectives no route reached from this floor, by vid, and until
+		// when every bot leaves them out (PLAYERBOT_TOWER_UNREACHABLE_MS); and
+		// since when those were all the floor had left to fight.
+		std::map<DWORD, DWORD> unreachableUntil;
+		DWORD dwOnlyUnreachableSince;
 
 		TPlayerBotTowerRun() :
 			iLevel(-1), iAlive(-1), dwEnteredAt(0), dwLevelSince(0), dwLastProgress(0),
 			dwSmithSince(0), bSmithDone(false), bEnding(false), pszEnd(""), dwNextReport(0),
-			bSeventhPhase(SEVENTH_UNKNOWN), dwSeventhPhaseSince(0), bReaperSeen(false), bReaperDown(false) {}
+			bSeventhPhase(SEVENTH_UNKNOWN), dwSeventhPhaseSince(0), bReaperSeen(false), bReaperDown(false),
+			dwOnlyUnreachableSince(0) {}
 	};
 	std::map<long, TPlayerBotTowerRun> s_mapPlayerBotTowerRuns;
 
@@ -143,6 +149,28 @@ namespace
 		outX = (PLAYERBOT_TOWER_BASE_CELL_X + PLAYERBOT_TOWER_FLOOR_CELLS[level][0]) * 100;
 		outY = (PLAYERBOT_TOWER_BASE_CELL_Y + PLAYERBOT_TOWER_FLOOR_CELLS[level][1]) * 100;
 		return true;
+	}
+
+	// Whether a character stands in this floor's room. Every floor is one
+	// map, so a foe held from before a jump, or a leftover of another floor,
+	// is on the same map index and in another room.
+	bool IsPlayerBotTowerInFloorRoom(int level, LPCHARACTER c)
+	{
+		long floorX = 0, floorY = 0;
+		if (!c || !GetPlayerBotTowerFloorCentre(level, floorX, floorY))
+			return true;
+		return DISTANCE_APPROX(floorX - c->GetX(), floorY - c->GetY()) <= PLAYERBOT_TOWER_FLOOR_RADIUS;
+	}
+
+	// An objective no route reached from this floor lately
+	// (NotePlayerBotTowerUnreachable).
+	bool IsPlayerBotTowerObjectiveUnreachable(long lMapIndex, DWORD vid, DWORD dwNow)
+	{
+		std::map<long, TPlayerBotTowerRun>::const_iterator run = s_mapPlayerBotTowerRuns.find(lMapIndex);
+		if (run == s_mapPlayerBotTowerRuns.end())
+			return false;
+		std::map<DWORD, DWORD>::const_iterator it = run->second.unreachableUntil.find(vid);
+		return it != run->second.unreachableUntil.end() && dwNow < it->second;
 	}
 
 	bool IsPlayerBotGuildRaidingTower(DWORD dwGuildID)
@@ -450,12 +478,52 @@ namespace
 		return f.m_person;
 	}
 
+	// Who struck the Reaper down, by the tower instance he fell in. The floor
+	// scan sees only that he no longer stands; the killer is known to
+	// CHARACTER::Dead alone, which tells OnBossKilled (playerbotify
+	// apply_boss_last_blow). Read once, by the notice.
+	struct TPlayerBotTowerReaperBlow
+	{
+		std::string name;
+		DWORD dwAt;
+	};
+	std::map<long, TPlayerBotTowerReaperBlow> s_PlayerBotTowerReaperBlow;
+
+	void NotePlayerBotBossKilled(LPCHARACTER boss, LPCHARACTER killer, DWORD dwNow)
+	{
+		if (!boss || !killer || !killer->IsPC() || boss->GetRaceNum() != PLAYERBOT_TOWER_REAPER)
+			return;
+		// A run no bot's pass watches - a person's alone - never reads its
+		// entry, so what is older than any notice could want goes here.
+		for (auto it = s_PlayerBotTowerReaperBlow.begin(); it != s_PlayerBotTowerReaperBlow.end();)
+		{
+			if (dwNow - it->second.dwAt > PLAYERBOT_TOWER_REAPER_BLOW_MS)
+				it = s_PlayerBotTowerReaperBlow.erase(it);
+			else
+				++it;
+		}
+		TPlayerBotTowerReaperBlow& blow = s_PlayerBotTowerReaperBlow[boss->GetMapIndex()];
+		blow.name = killer->GetName();
+		blow.dwAt = dwNow;
+	}
+
 	// The Reaper's fall is news: "powiadomienie na chacie ze rajd tej i tej
 	// gildii pokonal umarlego rozpruwacza" (prodnathin, 25 September). A bot
 	// guild's raid is named after its guild; a person's run with bots in it
-	// after the person's guild, or the person.
+	// after the person's guild, or the person. And the last blow is named,
+	// a person's or a bot's: "powiadomienie o ... zabiciu ripera przez 'x' -
+	// moze to byc gracz" (prodnathin, 28 September).
 	void AnnouncePlayerBotTowerReaper(long map, const TPlayerBotTowerRun& run, DWORD dwNow)
 	{
+		std::string lastBlow;
+		const auto blowIt = s_PlayerBotTowerReaperBlow.find(map);
+		if (blowIt != s_PlayerBotTowerReaperBlow.end())
+		{
+			if (dwNow - blowIt->second.dwAt <= PLAYERBOT_TOWER_REAPER_BLOW_MS)
+				lastBlow = blowIt->second.name;
+			s_PlayerBotTowerReaperBlow.erase(blowIt);
+		}
+
 		const TPlayerBotTowerRaid& raid = s_PlayerBotTowerRaid;
 		CGuild* g = (raid.bPhase == TOWER_PHASE_INSIDE && raid.lInstance == map)
 				? CGuildManager::instance().FindGuild(raid.dwGuildID) : NULL;
@@ -472,8 +540,8 @@ namespace
 			LPCHARACTER person = FindPlayerBotTowerPerson(map);
 			if (!person)
 			{
-				sys_log(0, "PLAYERBOT_TOWER: reaper down map=%ld told=0 why=no_raid_no_person after_s=%u",
-						map, (dwNow - run.dwEnteredAt) / 1000U);
+				sys_log(0, "PLAYERBOT_TOWER: reaper down map=%ld told=0 why=no_raid_no_person last_blow=%s after_s=%u",
+						map, lastBlow.empty() ? "-" : lastBlow.c_str(), (dwNow - run.dwEnteredAt) / 1000U);
 				return;
 			}
 			CGuild* pg = person->GetGuild();
@@ -485,9 +553,12 @@ namespace
 						person->GetName());
 			who = pg ? pg->GetName() : person->GetName();
 		}
-		BroadcastNotice(msg);
-		sys_log(0, "PLAYERBOT_TOWER: reaper down map=%ld told=1 who=%s after_s=%u",
-				map, who.c_str(), (dwNow - run.dwEnteredAt) / 1000U);
+		std::string notice = msg;
+		if (!lastBlow.empty())
+			notice += " Ostatni cios: " + lastBlow + ".";
+		BroadcastNotice(notice.c_str());
+		sys_log(0, "PLAYERBOT_TOWER: reaper down map=%ld told=1 who=%s last_blow=%s after_s=%u",
+				map, who.c_str(), lastBlow.empty() ? "-" : lastBlow.c_str(), (dwNow - run.dwEnteredAt) / 1000U);
 	}
 
 	// Watched from the ninth floor's scan: standing, then gone - his kill
@@ -603,6 +674,7 @@ namespace
 		// floor has no monsters, only its stones).
 		const bool stonesNow = level == 2 || seventhStonesFirst || !scan ||
 				scan->monsters <= PLAYERBOT_TOWER_STONE_CLEAR_LIMIT;
+		const DWORD pickNow = get_dword_time();
 		for (size_t i = 0; scan && i < scan->entities.size(); ++i)
 		{
 			const TPlayerBotTowerEntity& e = scan->entities[i];
@@ -614,6 +686,11 @@ namespace
 			// Measured where it stands now, and never a corpse.
 			LPCHARACTER c = FindPlayerBotTowerLive(e);
 			if (!c || c->GetMapIndex() != ch->GetMapIndex())
+				continue;
+			// Nor one no route reached from here lately: the nearest was
+			// always the one wedged in the wall, and the pack stood before it
+			// while the floor's king stood unhit (NotePlayerBotTowerUnreachable).
+			if (!parterStone && IsPlayerBotTowerObjectiveUnreachable(ch->GetMapIndex(), e.vid, pickNow))
 				continue;
 			const long ex = c->GetX();
 			const long ey = c->GetY();
@@ -857,6 +934,84 @@ namespace
 	// przywolywal konia nawet na dt" (prodnathin, 23 September). A change
 	// spends the tick; a refusal (the flip hold after a climb-down for a buff,
 	// a tired horse) leaves the bot fighting as it stands.
+	// The route planner found no way from this bot to the objective it was
+	// given: a monster wedged in a wall or standing in another floor's room.
+	// The whole run leaves it out of the pick for PLAYERBOT_TOWER_UNREACHABLE_MS
+	// (PickPlayerBotTowerObjective), and this bot takes the next one now.
+	void NotePlayerBotTowerUnreachable(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER foe, DWORD dwNow)
+	{
+		if (!IsPlayerBotDemonTowerInstance(ch->GetMapIndex()))
+			return;
+		std::map<long, TPlayerBotTowerRun>::iterator run = s_mapPlayerBotTowerRuns.find(ch->GetMapIndex());
+		if (run == s_mapPlayerBotTowerRuns.end())
+			return;
+		DWORD& until = run->second.unreachableUntil[(DWORD)foe->GetVID()];
+		if (until <= dwNow)
+			PlayerBotLogThrottled("tower_unreachable", dwNow,
+					"PLAYERBOT_TOWER: objective out of reach pid=%u name=%s vnum=%u at=(%ld,%ld) from=(%ld,%ld) floor=%d",
+					ch->GetPlayerID(), ch->GetName(), (unsigned int)foe->GetRaceNum(), foe->GetX(), foe->GetY(),
+					ch->GetX(), ch->GetY(), run->second.iLevel + 2);
+		until = dwNow + PLAYERBOT_TOWER_UNREACHABLE_MS;
+		state.dwTargetVID = 0;
+		ch->SetVictim(NULL);
+	}
+
+	// A monster wedged where no route goes never dies, and some floor always
+	// needs it to: the floors that jump on eliminate need every one, the
+	// sixth floor its Elite Demon King. Once the pack has had nothing but
+	// those to fight for PLAYERBOT_TOWER_UNSTICK_MS, up to
+	// PLAYERBOT_TOWER_UNSTICK_MAX of them are set down at the pack's anchor -
+	// a point a bot stands on - where the pack fights them as it fights
+	// everything else. A player walks into the same wall; this is the one
+	// thing on a floor the bots move rather than the floor's script.
+	void UnstickPlayerBotTowerMonsters(LPCHARACTER ch, TPlayerBotTowerRun& run, const TPlayerBotTowerScan* scan,
+			int level, DWORD dwNow)
+	{
+		if (!ch || !scan || level < 0)
+			return;
+		std::vector<LPCHARACTER> wedged;
+		for (size_t i = 0; i < scan->entities.size(); ++i)
+		{
+			const TPlayerBotTowerEntity& e = scan->entities[i];
+			if (e.npc || e.stone)
+				continue;
+			std::map<DWORD, DWORD>::const_iterator it = run.unreachableUntil.find(e.vid);
+			if (it == run.unreachableUntil.end() || dwNow >= it->second)
+				continue;
+			LPCHARACTER c = FindPlayerBotTowerLive(e);
+			if (c && c->GetMapIndex() == ch->GetMapIndex() && IsPlayerBotTowerInFloorRoom(level, c))
+				wedged.push_back(c);
+		}
+		if (wedged.empty())
+		{
+			run.dwOnlyUnreachableSince = 0;
+			return;
+		}
+		if (run.dwOnlyUnreachableSince == 0)
+		{
+			run.dwOnlyUnreachableSince = dwNow;
+			return;
+		}
+		if (dwNow - run.dwOnlyUnreachableSince < PLAYERBOT_TOWER_UNSTICK_MS)
+			return;
+		run.dwOnlyUnreachableSince = 0;
+		const long toX = scan->hasAnchor ? scan->anchorX : ch->GetX();
+		const long toY = scan->hasAnchor ? scan->anchorY : ch->GetY();
+		for (size_t i = 0; i < wedged.size() && (int)i < PLAYERBOT_TOWER_UNSTICK_MAX; ++i)
+		{
+			LPCHARACTER c = wedged[i];
+			const long fromX = c->GetX();
+			const long fromY = c->GetY();
+			if (c->IsStateMove())
+				c->Stop();
+			if (!c->Show(c->GetMapIndex(), toX, toY))
+				continue;
+			run.unreachableUntil.erase((DWORD)c->GetVID());
+			sys_log(0, "PLAYERBOT_TOWER: wedged monster set down by the pack map=%ld floor=%d vnum=%u from=(%ld,%ld) to=(%ld,%ld)",
+					ch->GetMapIndex(), level + 2, (unsigned int)c->GetRaceNum(), fromX, fromY, toX, toY);
+		}
+	}
+
 	bool FightPlayerBotTowerObjective(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER foe, DWORD dwNow)
 	{
 		ReadyPlayerBotHandForFight(ch, state, dwNow, "raid_fight");
@@ -873,15 +1028,19 @@ namespace
 
 		if (distance <= PLAYERBOT_DUEL_BUFF_RANGE && ManagePlayerBotCombatBuffs(ch, state, dwNow, true))
 			return true;
+		// Under a marble every build fights hand to hand
+		// (IsPlayerBotFightingAsMonster): no bow's reach, no casting range, no
+		// stepping away from the Reaper.
+		const bool marbled = IsPlayerBotFightingAsMonster(ch);
 		LPITEM weapon = ch->GetWear(WEAR_WEAPON);
-		const bool isBow = (weapon && weapon->GetType() == ITEM_WEAPON &&
+		const bool isBow = !marbled && (weapon && weapon->GetType() == ITEM_WEAPON &&
 				weapon->GetSubType() == WEAPON_BOW);
 		const int combatRange = isBow ? GetPlayerBotBowRange(ch->GetMapIndex()) : PLAYERBOT_DUEL_MELEE_RANGE;
-		const bool caster = ch->GetJob() == JOB_SHAMAN ||
-				(ch->GetJob() == JOB_SURA && ch->GetSkillGroup() == 2);
+		const bool caster = !marbled && (ch->GetJob() == JOB_SHAMAN ||
+				(ch->GetJob() == JOB_SURA && ch->GetSkillGroup() == 2));
 		// The Reaper, from range: the Archer at its bow's reach and the Shaman
 		// at its casting range, and the one he turns on steps away from him.
-		if (foe->GetRaceNum() == PLAYERBOT_TOWER_REAPER && (isBow || ch->GetJob() == JOB_SHAMAN))
+		if (foe->GetRaceNum() == PLAYERBOT_TOWER_REAPER && (isBow || (!marbled && ch->GetJob() == JOB_SHAMAN)))
 		{
 			if (foe->GetVictim() == ch && distance < PLAYERBOT_TOWER_REAPER_KITE_DISTANCE &&
 					KitePlayerBotFromTowerBoss(ch, state, foe, dwNow))
@@ -923,8 +1082,13 @@ namespace
 					goalX += (long)((long long)(ch->GetX() - foe->GetX()) * stand / distance);
 					goalY += (long)((long long)(ch->GetY() - foe->GetY()) * stand / distance);
 				}
+				// This call's outcome and no earlier one: a few of its early
+				// returns leave the field as it was.
+				state.bLastNavOutcome = PLAYERBOT_NAV_OUT_NONE;
 				MovePlayerBot(ch, goalX, goalY, dwNow, 4, distance > PLAYERBOT_SEARCH_RANGE,
 						wantsSaddle, wantsSaddle);
+				if (state.bLastNavOutcome == PLAYERBOT_NAV_OUT_UNREACHABLE)
+					NotePlayerBotTowerUnreachable(ch, state, foe, dwNow);
 			}
 			return true;
 		}
@@ -1540,6 +1704,8 @@ namespace
 			run.smithTurnSince.clear();
 			run.bSeventhPhase = SEVENTH_UNKNOWN;
 			run.dwSeventhPhaseSince = dwNow;
+			run.unreachableUntil.clear();
+			run.dwOnlyUnreachableSince = 0;
 			if (level + 2 > s_iPlayerBotTowerBestFloor)
 				s_iPlayerBotTowerBestFloor = level + 2;
 			sys_log(0, "PLAYERBOT_TOWER: floor %d map=%ld alive=%d after_s=%u",
@@ -1744,9 +1910,12 @@ namespace
 		if (state.dwTargetVID != 0)
 		{
 			LPCHARACTER held = CHARACTER_MANAGER::instance().Find(state.dwTargetVID);
+			// In this floor's room, and not one the run has found no way to.
 			if (held && !held->IsDead() && held->GetMapIndex() == map &&
 					(held->IsMonster() || held->IsStone()) &&
-					held->GetRaceNum() != PLAYERBOT_DEVIL_TOWER_STONE_FIRST)
+					held->GetRaceNum() != PLAYERBOT_DEVIL_TOWER_STONE_FIRST &&
+					IsPlayerBotTowerInFloorRoom(level, held) &&
+					!IsPlayerBotTowerObjectiveUnreachable(map, (DWORD)held->GetVID(), dwNow))
 				foe = held;
 			// ... but not a seventh-floor stone with a demon at the bot's side.
 			if (foe && foe->IsStone() && IsPlayerBotTowerStoneWaiting(ch, scan, level))
@@ -1775,7 +1944,9 @@ namespace
 		if (!foe)
 		{
 			// Nothing to fight: the floor's own script is at work (a jump in
-			// six seconds, a seal, a spawn), or a key still has to drop.
+			// six seconds, a seal, a spawn), or a key still has to drop - or
+			// all that stands in the room is wedged where no route goes.
+			UnstickPlayerBotTowerMonsters(ch, run, scan, level, dwNow);
 			state.dwTargetVID = 0;
 			ch->SetVictim(NULL);
 			if (ch->IsStateMove())

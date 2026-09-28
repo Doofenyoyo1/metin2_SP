@@ -2275,7 +2275,12 @@ function Invoke-Action {
     $config = Get-Config
     switch ($SelectedAction) {
         'Start' { Start-Server }
-        'Stop' { Stop-Server }
+        'Stop' {
+            Stop-Server
+            if (Test-M2DockerRunning) {
+                Write-Host 'Serwer zatrzymany, Docker Desktop działa dalej. Dane pozostają zapisane w wolumenach.' -ForegroundColor Green
+            }
+        }
         'StartDocker' { Start-Docker }
         'StopAll' { Stop-DockerAndServer }
         'FreePorts' { Clear-PortConflictsAction }

@@ -1488,6 +1488,7 @@ def main(root):
     apply_build_refusals_spoken(game)
     apply_all_three_smiths(game)
     apply_build_refusal_reason(game)
+    apply_boss_last_blow(game)
     print('playerbotify: done')
 
 
@@ -6783,7 +6784,11 @@ def apply_flea_market_fill_dispatch(game):
          '\t\t// The Dom Towarowy\'s catalogue (apply_flea_market_fill_dispatch).\n'
          '\t\tcase ikashop::SUBHEADER_CG_SHOP_SEARCH_FILL_REQUEST:\n'
          '\t\t\treturn IkarusShopPacketSearchFillRequest(ch, data, iBufferLeft);\n',
-         marker='\t\t// The Dom Towarowy\'s catalogue (apply_flea_market_fill_dispatch).\n')
+         # The case itself, uncommented: upstream's 2.2.33 package carries the
+         # same fix under a comment of its own, and a release takes the engine
+         # files from that package.
+         marker='\t\tcase ikashop::SUBHEADER_CG_SHOP_SEARCH_FILL_REQUEST:\n'
+                '\t\t\treturn IkarusShopPacketSearchFillRequest(ch, data, iBufferLeft);\n')
 
 
 def apply_build_refusals_spoken(game):
@@ -6951,6 +6956,28 @@ def apply_build_refusal_reason(game):
          '\t\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Budynek musi stac w calosci na terenie gildii, nie moze nachodzic na inny budynek i nikt nie moze stac w jego miejscu (Ty, Twoj kon, towarzysz, bot, NPC). Odejdz na bok i ustaw go przyciskiem Zmien (Miejsce).");\n'
          '\t\t\t\t\treturn;\n',
          marker='\t\t\t\t\t// Which of the engine\'s tests refused it (apply_build_refusal_reason).\n')
+
+
+def apply_boss_last_blow(game):
+    # The Dead Reaper's notice names who struck the last blow, a person's or
+    # a bot's, because a raid can draw somebody from outside the guild
+    # (upstream 2.2.35). CHARACTER::Dead is the one place that knows the
+    # killer of a boss, whoever the damage map favoured; the manager keeps it
+    # for the notice (OnBossKilled, playerbot_demon_tower.h).
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\tm_dwKillerPID = 0;\n'
+         '\n'
+         '\tbool isAgreedPVP = false;\n',
+         '\tm_dwKillerPID = 0;\n'
+         '\n'
+         '\t// playerbot: who struck a boss down, for the bots\' notices\n'
+         '\t// (playerbotify apply_boss_last_blow).\n'
+         '\tif (pkKiller && !IsPC() && GetMobRank() >= MOB_RANK_BOSS)\n'
+         '\t\tCPlayerBotManager::instance().OnBossKilled(this, pkKiller);\n'
+         '\n'
+         '\tbool isAgreedPVP = false;\n',
+         marker='\t// (playerbotify apply_boss_last_blow).\n')
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 2 or not os.path.isdir(os.path.join(sys.argv[1], 'game', 'src')):

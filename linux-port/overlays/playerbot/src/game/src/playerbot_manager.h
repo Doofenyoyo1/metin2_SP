@@ -90,6 +90,10 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// mt2009 via playerbotify.py): the Anti-PK protocol's only source of
 		// who is attacking a bot - the engine keeps no record of it.
 		void	OnPlayerStruck(LPCHARACTER victim, LPCHARACTER attacker);
+		// A boss or a king fell, and this is who struck the last blow
+		// (CHARACTER::Dead, mt2009 via playerbotify.py): the Demon Tower's
+		// Reaper is told with the name (playerbot_demon_tower.h).
+		void	OnBossKilled(LPCHARACTER boss, LPCHARACTER killer);
 		// The player's own companion (playerbot_sidekick.h): its load on the
 		// core its owner stands on, past this channel's partition, and the
 		// /towarzysz command the Towarzysz quest sends (cmd_general.cpp, mt2009

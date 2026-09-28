@@ -1100,6 +1100,10 @@ def write_ai_item_policy(text):
         fh.write(text.replace("\r\n", "\n").rstrip("\n") + "\n")
     os.replace(tmp, AI_ITEM_POLICY)
 AI_W_MIN, AI_W_MAX, AI_W_NEUTRAL = 25, 250, 100
+# Errands the bots already take at every chance at 100, so their sliders can
+# only make them rarer (playerbot_config.h's IsPlayerBotWeightGateOpen): the
+# page stops them at 100, where the core does too.
+AI_W_CAPPED = frozenset(("REFINE", "SKILL", "BIOLOG", "HUNTING"))
 
 # Name, emoji, and the order they are shown in -- which is the order the core
 # tests them in, so the page reads top to bottom like the bot decides.
@@ -1305,6 +1309,22 @@ def write_ai_weights(vals):
     for key in ("CHEST", "CHEST_STONE"):
         if vals.get(key) is not None:
             body.append("%s\t%d" % (key, max(0, min(1000, int(vals[key])))))
+    # What the file holds beyond this page's keys stays: rewriting it from the
+    # page's own list dropped a newer core's settings and a hand-set TICK_MS
+    # at every save (the advanced panel already kept them).
+    own = set(k for k, _ in AI_WEIGHT_KEYS) | set(vals)
+    try:
+        with open(AI_WEIGHTS, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                fields = line.split("#", 1)[0].split()
+                if len(fields) != 2:
+                    continue
+                key, value = fields[0].upper(), fields[1]
+                if key not in own and re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", key) and \
+                        re.fullmatch(r"-?\d{1,10}", value):
+                    body.append("%s\t%s" % (key, value))
+    except OSError:
+        pass
     tmp = AI_WEIGHTS + ".tmp"
     with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("\n".join(body) + "\n")
@@ -3738,10 +3758,10 @@ T.update({
                   "pl":"Zdecyduj, na co boty poświęcają czas \u2014 więcej łowców metinów, mniej wędkarzy, ruchliwszy targ. Działa w ciągu pięciu sekund, nic się nie restartuje.",
                   "de":"Entscheide, womit die Bots ihre Zeit verbringen \u2014 mehr Metin-Jäger, weniger Angler, ein belebterer Markt. Wirkt binnen fünf Sekunden, nichts startet neu.",
                   "tr":"Botların vaktini neye harcayacağını sen seç \u2014 daha çok metin avcısı, daha az balıkçı, daha hareketli pazar. Beş saniyede etkili olur, hiçbir şey yeniden başlamaz."},
- "ai_intro":     {"en":"Every number here is a preference, not an order. 100 is exactly how the server was built; 25 means a quarter as many bots choose it, 250 two and a half times as many. Surviving a losing fight, choosing a profession and finding a weapon are never affected \u2014 those are not preferences.",
-                  "pl":"Każda liczba to preferencja, nie rozkaz. 100 to dokładnie tak, jak serwer został zbudowany; 25 znaczy, że wybierze to cztery razy mniej botów, a 250 \u2014 dwa i pół raza więcej. Ucieczka z przegranej walki, wybór profesji i zdobycie broni nigdy nie podlegają tym suwakom \u2014 to nie są preferencje.",
-                  "de":"Jede Zahl hier ist eine Vorliebe, kein Befehl. 100 ist genau so, wie der Server gebaut wurde; 25 heißt, ein Viertel so viele Bots wählen es, 250 zweieinhalbmal so viele. Überleben, Berufswahl und Waffensuche bleiben unberührt \u2014 das sind keine Vorlieben.",
-                  "tr":"Buradaki her sayı bir tercih, emir değil. 100, sunucunun yapıldığı hâldir; 25 dörtte bir kadar bot bunu seçer, 250 iki buçuk katı. Hayatta kalma, meslek seçimi ve silah bulma bunlardan etkilenmez \u2014 onlar tercih değildir."},
+ "ai_intro":    {"en":"The settings below are live: the game core reads them every five seconds. Under each one it says what it moves and how soon - some change how many bots take an errand up, some when they set out, and four can only make an errand rarer, because at 100 the bots already take it at every chance. Surviving a losing fight, choosing a profession and finding a weapon are never affected — those are not preferences.",
+                 "pl":"Poniższe ustawienia działają na żywo: rdzeń gry czyta je co pięć sekund. Pod każdym jest napisane, co zmienia i jak szybko - jedne zmieniają, ilu botów czymś się zajmuje, inne, kiedy wyruszają, a cztery mogą sprawę tylko rozrzedzić, bo przy 100 boty już biorą ją przy każdej okazji. Ucieczka z przegranej walki, wybór profesji i zdobycie broni nigdy nie podlegają tym suwakom — to nie są preferencje.",
+                 "de":"Die Einstellungen unten wirken live: der Spielkern liest sie alle fünf Sekunden. Unter jeder steht, was sie bewegt und wie schnell - manche ändern, wie viele Bots eine Besorgung übernehmen, manche, wann sie aufbrechen, und vier können eine Besorgung nur seltener machen, weil die Bots sie bei 100 schon bei jeder Gelegenheit erledigen. Überleben, Berufswahl und Waffensuche bleiben unberührt — das sind keine Vorlieben.",
+                 "tr":"Aşağıdaki ayarlar canlıdır: oyun çekirdeği onları beş saniyede bir okur. Her birinin altında neyi ve ne kadar çabuk değiştirdiği yazar - bazıları kaç botun bir işi üstlendiğini, bazıları ne zaman yola çıktıklarını değiştirir, dördü ise bir işi yalnızca seyrekleştirebilir, çünkü 100'de botlar onu zaten her fırsatta yapar. Hayatta kalma, meslek seçimi ve silah bulma bunlardan etkilenmez — onlar tercih değildir."},
  "ai_chat":      {"en":"Bots talk over their heads","pl":"Boty piszą nad głową, co robią",
                   "de":"Bots reden über ihren Köpfen","tr":"Botlar başlarının üstünde konuşur"},
  "ai_chat_help": {"en":"The line over a bot's head (hunting, off to the blacksmith, fishing). Off for players who call it spam. The shout on the world channel about a +7/+8/+9 refine stays either way.",
@@ -3762,16 +3782,16 @@ T.update({
                   "tr":"Sunucu saatine göre (M2_TZ) 22:00-05:59 arasında çekirdek gece bayrağını kaldırır - GM'in /xmas_snow 1 ile ayarladığı bayrağın aynısı - ve sabah indirir. İstemci gece gökyüzünü ve, bayrak Noel bayrağı olduğu için, kar gösterir."},
  "ai_night_on":  {"en":"Enabled","pl":"Włączone","de":"Eingeschaltet","tr":"Açık"},
  "ai_life":      {"en":"Bots play like people","pl":"Boty grają jak żywi ludzie","de":"Bots spielen wie Menschen","tr":"Botlar insan gibi oynar"},
- "ai_life_help": {"en":"Experimental. Each bot plays a session of 3-6 hours (the first after a start from half an hour up), logs out, rests 3-9 hours and comes back - about two bots in five are online at any moment. Off, every bot stays in the world as before. Applies within a minute; switching it off brings the resting bots back within a few minutes. A bot in a player's party waits before logging out.",
-                  "pl":"Eksperymentalne. Każdy bot gra sesję 3–6 godzin (pierwszą po starcie serwera od pół godziny wzwyż), wylogowuje się, odpoczywa 3–9 godzin i wraca — w danej chwili online jest około dwóch botów na pięć. Wyłączone: wszystkie boty są w świecie jak dotąd. Działa w ciągu minuty; wyłączenie sprowadza odpoczywające boty z powrotem w kilka minut. Bot w drużynie gracza czeka z wylogowaniem.",
-                  "de":"Experimentell. Jeder Bot spielt eine Sitzung von 3-6 Stunden (die erste nach einem Start ab einer halben Stunde), loggt sich aus, ruht 3-9 Stunden und kommt zurück - etwa zwei von fünf Bots sind jeweils online. Aus: alle Bots bleiben wie bisher in der Welt. Greift innerhalb einer Minute; Ausschalten holt die ruhenden Bots in wenigen Minuten zurück. Ein Bot in der Gruppe eines Spielers wartet mit dem Ausloggen.",
-                  "tr":"Deneysel. Her bot 3-6 saatlik bir oturum oynar (başlangıçtan sonraki ilki yarım saatten itibaren), çıkış yapar, 3-9 saat dinlenir ve geri gelir - her an botların yaklaşık beşte ikisi çevrimiçidir. Kapalıyken tüm botlar eskisi gibi dünyada kalır. Bir dakika içinde uygulanır; kapatmak dinlenen botları birkaç dakika içinde geri getirir. Bir oyuncunun grubundaki bot çıkış yapmadan bekler."},
+ "ai_life_help": {"en":"Experimental. Each bot plays a session of 3-6 hours (the first after a start from half an hour up), logs out, rests 3-9 hours and comes back; at most two bots in five rest at once, so at least three in five are online. Off, every bot stays in the world as before. Applies within a minute; switching it off brings the resting bots back within a few minutes. A bot in a player's party waits before logging out.",
+                  "pl":"Eksperymentalne. Każdy bot gra sesję 3–6 godzin (pierwszą po starcie serwera od pół godziny wzwyż), wylogowuje się, odpoczywa 3–9 godzin i wraca; naraz odpoczywają najwyżej dwa boty na pięć, więc online są co najmniej trzy na pięć. Wyłączone: wszystkie boty są w świecie jak dotąd. Działa w ciągu minuty; wyłączenie sprowadza odpoczywające boty z powrotem w kilka minut. Bot w drużynie gracza czeka z wylogowaniem.",
+                  "de":"Experimentell. Jeder Bot spielt eine Sitzung von 3-6 Stunden (die erste nach einem Start ab einer halben Stunde), loggt sich aus, ruht 3-9 Stunden und kommt zurück; höchstens zwei von fünf Bots ruhen gleichzeitig, also sind mindestens drei von fünf online. Aus: alle Bots bleiben wie bisher in der Welt. Greift innerhalb einer Minute; Ausschalten holt die ruhenden Bots in wenigen Minuten zurück. Ein Bot in der Gruppe eines Spielers wartet mit dem Ausloggen.",
+                  "tr":"Deneysel. Her bot 3-6 saatlik bir oturum oynar (başlangıçtan sonraki ilki yarım saatten itibaren), çıkış yapar, 3-9 saat dinlenir ve geri gelir; aynı anda en fazla beşte iki bot dinlenir, yani en az beşte üçü çevrimiçidir. Kapalıyken tüm botlar eskisi gibi dünyada kalır. Bir dakika içinde uygulanır; kapatmak dinlenen botları birkaç dakika içinde geri getirir. Bir oyuncunun grubundaki bot çıkış yapmadan bekler."},
  "ai_life_on":   {"en":"Enabled (experimental)","pl":"Włączone (eksperymentalne)","de":"Eingeschaltet (experimentell)","tr":"Açık (deneysel)"},
  "ai_wars":      {"en":"Guild wars between the bots","pl":"Wojny gildii botów","de":"Gildenkriege der Bots","tr":"Botların lonca savaşları"},
- "ai_wars_help": {"en":"Every two hours or so two bot guilds of one kingdom fight a field war on that kingdom's guild map: thirty minutes, the game's own declaration and scoring, a notice on the chat when it starts. A guild needs eight bots online to be picked. Off: no new war is declared; one under way is fought to its end.",
-                  "pl":"Mniej więcej co dwie godziny dwie gildie botów z jednego królestwa toczą wojnę polową na mapie gildyjnej tego królestwa: trzydzieści minut, wypowiedzenie i punktacja gry, komunikat na czacie przy starcie. Gildia musi mieć osiem botów online, żeby ją wylosowano. Wyłączone: nowa wojna nie jest wypowiadana; trwająca dobiega końca.",
-                  "de":"Etwa alle zwei Stunden führen zwei Bot-Gilden eines Königreichs einen Feldkrieg auf der Gildenkarte dieses Königreichs: dreißig Minuten, Kriegserklärung und Wertung des Spiels selbst, eine Meldung im Chat beim Start. Eine Gilde braucht acht Bots online, um gewählt zu werden. Aus: kein neuer Krieg wird erklärt; ein laufender wird zu Ende gekämpft.",
-                  "tr":"Yaklaşık iki saatte bir, aynı krallıktan iki bot loncası o krallığın lonca haritasında bir saha savaşı yapar: otuz dakika, oyunun kendi ilanı ve puanlaması, başlangıçta sohbette bir duyuru. Bir loncanın seçilmesi için sekiz botu çevrimiçi olmalı. Kapalı: yeni savaş ilan edilmez; süren savaş sonuna kadar oynanır."},
+ "ai_wars_help": {"en":"Two bot guilds of one kingdom fight a field war on that kingdom's guild map, for as long and as often as set below (thirty minutes every two hours by default), with the game's own declaration and scoring and a notice on the chat when it starts. A guild needs eight bots online to be picked. Off: no new war is declared, and the bots of a war under way leave it within a minute.",
+                  "pl":"Dwie gildie botów z jednego królestwa toczą wojnę polową na mapie gildyjnej tego królestwa, tak długo i tak często, jak ustawiono niżej (domyślnie trzydzieści minut co dwie godziny), z wypowiedzeniem i punktacją gry i komunikatem na czacie przy starcie. Gildia musi mieć osiem botów online, żeby ją wylosowano. Wyłączone: nowa wojna nie jest wypowiadana, a boty z trwającej wojny wycofują się w ciągu minuty.",
+                  "de":"Zwei Bot-Gilden eines Königreichs führen einen Feldkrieg auf der Gildenkarte dieses Königreichs, so lange und so oft wie unten eingestellt (standardmäßig dreißig Minuten alle zwei Stunden), mit Kriegserklärung und Wertung des Spiels und einer Meldung im Chat beim Start. Eine Gilde braucht acht Bots online, um gewählt zu werden. Aus: kein neuer Krieg wird erklärt, und die Bots eines laufenden Krieges ziehen sich binnen einer Minute zurück.",
+                  "tr":"Aynı krallıktan iki bot loncası, o krallığın lonca haritasında aşağıda ayarlanan süre ve sıklıkta (varsayılan olarak iki saatte bir otuz dakika), oyunun kendi ilanı ve puanlamasıyla bir saha savaşı yapar; başlangıçta sohbette bir duyuru çıkar. Bir loncanın seçilmesi için sekiz botu çevrimiçi olmalı. Kapalı: yeni savaş ilan edilmez ve süren savaşın botları bir dakika içinde çekilir."},
  "ai_wars_on":   {"en":"Enabled","pl":"Włączone","de":"Eingeschaltet","tr":"Açık"},
  "ai_war_minutes": {"en":"A war lasts","pl":"Wojna trwa","de":"Ein Krieg dauert","tr":"Bir savaş sürer"},
  "ai_war_hours":   {"en":"A war in each kingdom every","pl":"Wojna w każdym królestwie co","de":"Ein Krieg in jedem Königreich alle","tr":"Her krallıkta bir savaş, her"},
@@ -3843,9 +3863,10 @@ T.update({
  "ai_rest_off":  {"en":"nobody rests","pl":"nikt nie odpoczywa","de":"niemand ruht","tr":"kimse dinlenmez"},
  "ai_rest_all":  {"en":"every bot","pl":"każdy bot","de":"jeder Bot","tr":"her bot"},
  "ai_kpvp":      {"en":"Hostility between kingdoms","pl":"Wrogość między królestwami","de":"Feindschaft zwischen Königreichen","tr":"Krallıklar arası düşmanlık"},
- "ai_kpvp_help": {"en":"The share of bots that will start a duel with a bot of another kingdom when they meet on shared ground - Orc Valley, the desert, Mount Sohan, the dungeons. Never in a village, never against a player, and never against a bot that is hurt or already fighting one. Which bots are the aggressive ones is fixed per character, so the same ones quarrel after every restart. Off by default.",
-                 "pl":"Udział botów, które zaczepią bota z innego królestwa, gdy spotkają go na wspólnym terenie - w Dolinie Orków, na pustyni, na Górze Sohan, w lochach. Nigdy w wiosce, nigdy na graczu i nigdy na bocie rannym albo już walczącym. To, które boty są agresywne, jest przypisane na stałe do postaci, więc po każdym restarcie zaczepiają te same. Domyślnie wyłączone.",
-                 "de":"Anteil der Bots, die einen Bot eines anderen Königreichs angreifen.","tr":"Başka krallıktan bir botla düello başlatacak botların oranı."},
+ "ai_kpvp_help": {"en":"The share of bots that will start a duel with a bot of another kingdom when they meet on shared ground - Orc Valley, the desert, Mount Sohan, the dungeons. Never in a village, never against a player, and never against a bot that is hurt or already fighting one. Which bots are the aggressive ones is fixed per character, so the same ones quarrel after every restart. Off by default. It works only with the shared world layout (unified, the default up to 1500 bots): under split every core holds one kingdom's bots, so there is nobody to fight.",
+                  "pl":"Udział botów, które zaczepią bota z innego królestwa, gdy spotkają go na wspólnym terenie - w Dolinie Orków, na pustyni, na Górze Sohan, w lochach. Nigdy w wiosce, nigdy na graczu i nigdy na bocie rannym albo już walczącym. To, które boty są agresywne, jest przypisane na stałe do postaci, więc po każdym restarcie zaczepiają te same. Domyślnie wyłączone. Działa tylko przy wspólnym układzie świata (unified, domyślny do 1500 botów): przy układzie split każdy rdzeń ma boty jednego królestwa i nie ma z kim walczyć.",
+                  "de":"Anteil der Bots, die einen Bot eines anderen Königreichs zum Duell fordern, wenn sie ihn auf gemeinsamem Gebiet treffen - Orktal, Wüste, Berg Sohan, die Verliese. Nie in einem Dorf, nie gegen einen Spieler und nie gegen einen verletzten oder schon kämpfenden Bot. Welche Bots aggressiv sind, ist pro Figur fest, also streiten nach jedem Neustart dieselben. Standardmäßig aus. Wirkt nur mit dem gemeinsamen Weltlayout (unified, Standard bis 1500 Bots): bei split hält jeder Kern die Bots eines Königreichs, und es gibt niemanden zum Kämpfen.",
+                  "tr":"Ortak arazide - Ork Vadisi, çöl, Sohan Dağı, zindanlar - başka krallıktan bir botla karşılaştığında düello başlatacak botların oranı. Asla köyde, asla bir oyuncuya karşı ve asla yaralı ya da zaten dövüşen bir bota karşı değil. Hangi botların saldırgan olduğu karaktere sabittir, yani her yeniden başlatmadan sonra aynıları kavga eder. Varsayılan olarak kapalı. Yalnızca ortak dünya düzeninde çalışır (unified, 1500 bota kadar varsayılan): split'te her çekirdek tek krallığın botlarını tutar, dövüşecek kimse yoktur."},
  "ai_kpvp_off":  {"en":"peace","pl":"pokój","de":"Frieden","tr":"barış"},
  "ai_kpvp_all":  {"en":"every bot","pl":"każdy bot","de":"jeder Bot","tr":"her bot"},
  "ai_scroll":    {"en":"Blessing and Dragon God Scrolls","pl":"Zwoje Błogosławieństwa i Boga Smoków","de":"Segens- und Drachengott-Schriftrollen","tr":"Kutsama ve Ejderha Tanrısı parşömenleri"},
@@ -3960,10 +3981,10 @@ T.update({
                    "pl":"Zapis ustawia obie wartości; do tego czasu gra trzyma to, co mówi .env.",
                    "de":"Speichern setzt beide Werte; bis dahin gilt, was .env sagt.",
                    "tr":"Kaydetmek iki değeri de yazar; o zamana kadar oyun .env'deki değeri kullanır."},
- "ai_live":      {"en":"Saved. The bots pick this up within five seconds \u2014 no restart, nobody is disconnected.",
-                  "pl":"Zapisano. Boty odczytają to w ciągu pięciu sekund \u2014 bez restartu, nikt nie zostaje rozłączony.",
-                  "de":"Gespeichert. Die Bots übernehmen das binnen fünf Sekunden \u2014 kein Neustart, niemand fliegt raus.",
-                  "tr":"Kaydedildi. Botlar bunu beş saniye içinde alır \u2014 yeniden başlatma yok, kimse düşmez."},
+ "ai_live":     {"en":"Saved. The game core reads it within five seconds — no restart, nobody is disconnected. Some settings reach a bot at its next decision (see the text under each).",
+                 "pl":"Zapisano. Rdzeń gry odczyta to w ciągu pięciu sekund — bez restartu, nikt nie zostaje rozłączony. Niektóre ustawienia docierają do bota przy jego następnej decyzji (opis pod każdym).",
+                 "de":"Gespeichert. Der Spielkern liest das binnen fünf Sekunden — kein Neustart, niemand fliegt raus. Manche Einstellungen erreichen einen Bot erst bei seiner nächsten Entscheidung (siehe den Text darunter).",
+                 "tr":"Kaydedildi. Oyun çekirdeği bunu beş saniye içinde okur — yeniden başlatma yok, kimse düşmez. Bazı ayarlar bota bir sonraki kararında ulaşır (her birinin altındaki metne bakın)."},
  "ai_failed":    {"en":"Could not write the file \u2014 the shared spool directory is not mounted in this container.",
                   "pl":"Nie udało się zapisać pliku \u2014 współdzielony katalog spool nie jest podmontowany w tym kontenerze.",
                   "de":"Datei konnte nicht geschrieben werden \u2014 das gemeinsame Spool-Verzeichnis ist in diesem Container nicht eingebunden.",
@@ -3978,66 +3999,67 @@ T.update({
  "ai_items_bad":  {"en":"Not saved: line(s) {n} are not '<vnum or type:N> <keep|stall|merchant|drop>'.",
                   "pl":"Nie zapisano: linie {n} nie mają postaci '<vnum albo type:N> <keep|stall|merchant|drop>'."},
  "ai_items_live": {"en":"Saved. The bots read the file within five seconds.","pl":"Zapisano. Boty czytają plik w ciągu pięciu sekund."},
- "ai_reset":     {"en":"Everything back to 100","pl":"Wszystko z powrotem na 100","de":"Alles zurück auf 100","tr":"Hepsini 100'e döndür"},
+ "ai_reset":    {"en":"Goals back to 100", "pl":"Cele z powrotem na 100", "de":"Ziele zurück auf 100", "tr":"Hedefleri 100'e döndür"},
+ "ai_every_chance": {"en":"every chance (as built)", "pl":"każda okazja (jak w grze)", "de":"jede Gelegenheit (wie gebaut)", "tr":"her fırsat (yapıldığı gibi)"},
  "ai_rare":      {"en":"rarely","pl":"rzadko","de":"selten","tr":"nadiren"},
  "ai_often":     {"en":"often","pl":"często","de":"oft","tr":"sık"},
  "ai_neutral":   {"en":"as built","pl":"jak w grze","de":"wie gebaut","tr":"yapıldığı gibi"},
 
  "aiw_RESTOCK":  {"en":"Buying potions","pl":"Kupowanie mikstur","de":"Tränke kaufen","tr":"İksir alma"},
- "aih_RESTOCK":  {"en":"Going back to town the moment the red potions run low.",
-                  "pl":"Powrót do miasta, gdy tylko kończą się czerwone mikstury.",
-                  "de":"Zurück in die Stadt, sobald die roten Tränke knapp werden.",
-                  "tr":"Kırmızı iksirler azalır azalmaz kasabaya dönmek."},
+ "aih_RESTOCK": {"en":"When a bot goes back to town for potions: at 100 when it has fewer than 300 red or 200 blue left (30/20 up to level 10). 25 waits for a quarter of that, 250 goes at two and a half times as many - at most 480/360, as the merchant fills the belt to 800/600. Applies at once.",
+                 "pl":"Kiedy bot wraca do miasta po mikstury: przy 100, gdy zostaje mu mniej niż 300 czerwonych lub 200 niebieskich (do 10. poziomu 30/20). 25 czeka do ćwiartki tego, 250 idzie już przy dwa i pół raza tylu - najwyżej przy 480/360, bo handlarz dopełnia do 800/600. Działa od razu.",
+                 "de":"Wann ein Bot für Tränke in die Stadt geht: bei 100, wenn er weniger als 300 rote oder 200 blaue hat (bis Stufe 10: 30/20). 25 wartet auf ein Viertel davon, 250 geht schon beim Zweieinhalbfachen - höchstens bei 480/360, weil der Händler auf 800/600 auffüllt. Wirkt sofort.",
+                 "tr":"Botun iksir için kasabaya ne zaman döndüğü: 100'de 300 kırmızıdan veya 200 maviden azı kaldığında (10. seviyeye kadar 30/20). 25 bunun dörtte birini bekler, 250 iki buçuk katında gider - tüccar 800/600'e tamamladığı için en fazla 480/360'ta. Hemen uygulanır."},
  "aiw_REFINE":   {"en":"The blacksmith","pl":"Kowal","de":"Der Schmied","tr":"Demirci"},
- "aih_REFINE":   {"en":"Upgrading weapons and armour instead of hunting.",
-                  "pl":"Ulepszanie broni i pancerza zamiast polowania.",
-                  "de":"Waffen und Rüstung aufwerten statt zu jagen.",
-                  "tr":"Avlanmak yerine silah ve zırh yükseltmek."},
+ "aih_REFINE":  {"en":"Trips to the blacksmith to upgrade. At 100 a bot goes at every chance, as the game was built, so the slider stops at 100: below it a share of the bots leaves the blacksmith alone for half an hour at a time - at 50 a bot upgrades in every other half hour. A bot already standing at the anvil upgrades what it can, and a gambler's session does not count. Applies at once.",
+                 "pl":"Wyprawy do kowala po ulepszenie. Przy 100 bot idzie przy każdej okazji, jak w grze, dlatego suwak kończy się na 100: poniżej część botów omija kowala po pół godziny - przy 50 bot ulepsza w co drugiej półgodzinie. Bot, który już stoi przy kowadle, ulepsza, co może, a sesja hazardzisty się nie liczy. Działa od razu.",
+                 "de":"Gänge zum Schmied zum Aufwerten. Bei 100 geht ein Bot bei jeder Gelegenheit, wie im Spiel, darum endet der Regler bei 100: darunter lässt ein Teil der Bots den Schmied jeweils eine halbe Stunde links liegen - bei 50 wertet ein Bot in jeder zweiten halben Stunde auf. Ein Bot, der schon am Amboss steht, wertet auf, was er kann, und die Sitzung eines Glücksspielers zählt nicht. Wirkt sofort.",
+                 "tr":"Yükseltme için demirciye gidişler. 100'de bot oyundaki gibi her fırsatta gider, bu yüzden kaydırıcı 100'de biter: altında botların bir kısmı demirciyi yarım saatliğine bırakır - 50'de bir bot her iki yarım saatin birinde yükseltir. Örsün başında duran bot yapabildiğini yükseltir, kumarbazın oturumu sayılmaz. Hemen uygulanır."},
  "aiw_SKILL":    {"en":"Skill books","pl":"Księgi umiejętności","de":"Skillbücher","tr":"Yetenek kitapları"},
- "aih_SKILL":    {"en":"Reading books to push a skill from master towards grand master.",
-                  "pl":"Czytanie ksiąg, by pchnąć umiejętność z M w stronę G.",
-                  "de":"Bücher lesen, um einen Skill von M Richtung G zu bringen.",
-                  "tr":"Bir yeteneği M'den G'ye taşımak için kitap okumak."},
+ "aih_SKILL":   {"en":"Reading skill books. At 100 a bot reads at every chance, as the game was built, so the slider stops at 100: below it a share of the bots leaves its books in the bag for half an hour at a time - at 50 a bot reads in every other half hour. The game's own wait between two books is set elsewhere. Applies at once.",
+                 "pl":"Czytanie ksiąg umiejętności. Przy 100 bot czyta przy każdej okazji, jak w grze, dlatego suwak kończy się na 100: poniżej część botów zostawia księgi w plecaku po pół godziny - przy 50 bot czyta w co drugiej półgodzinie. Przerwę samej gry między dwiema księgami ustawia się osobno. Działa od razu.",
+                 "de":"Fertigkeitsbücher lesen. Bei 100 liest ein Bot bei jeder Gelegenheit, wie im Spiel, darum endet der Regler bei 100: darunter lässt ein Teil der Bots seine Bücher jeweils eine halbe Stunde im Beutel - bei 50 liest ein Bot in jeder zweiten halben Stunde. Die eigene Wartezeit des Spiels zwischen zwei Büchern wird anderswo eingestellt. Wirkt sofort.",
+                 "tr":"Yetenek kitabı okumak. 100'de bot oyundaki gibi her fırsatta okur, bu yüzden kaydırıcı 100'de biter: altında botların bir kısmı kitaplarını yarım saatliğine çantada bırakır - 50'de bir bot her iki yarım saatin birinde okur. Oyunun iki kitap arasındaki kendi beklemesi başka yerde ayarlanır. Hemen uygulanır."},
  "aiw_HORSE":    {"en":"The horse","pl":"Koń","de":"Das Pferd","tr":"At"},
- "aih_HORSE":    {"en":"The stable, and the medal hunt in the Monkey Dungeon.",
-                  "pl":"Stajnia i polowanie na medale w Lochu Małp.",
-                  "de":"Der Stall und die Medaillenjagd im Affenverlies.",
-                  "tr":"Ahır ve Maymun Zindanı'ndaki madalya avı."},
+ "aih_HORSE":   {"en":"The trip to the Monkey Dungeon for horse medals: how many of the bots that could go set out. The stable itself (the horse's levels and books) does not listen to it, nor do the medal droppers and bots over level 64. Applies at the next travel check.",
+                 "pl":"Wyprawy do Lochu Małp po medale konne: ilu botów spośród tych, które mogą, wyrusza. Sama stajnia (poziomy konia i księgi) nie słucha tego suwaka, tak samo dropperzy medali i boty powyżej 64 poziomu. Działa przy następnym sprawdzeniu podróży.",
+                 "de":"Die Reise ins Affenverlies für Pferdemedaillen: wie viele der Bots, die könnten, aufbrechen. Der Stall selbst (Pferdestufen und Bücher) hört nicht darauf, ebenso wenig die Medaillen-Dropper und Bots über Stufe 64. Wirkt bei der nächsten Reiseprüfung.",
+                 "tr":"At madalyaları için Maymun Zindanı'na yolculuk: gidebilecek botlardan kaçının yola çıktığı. Ahırın kendisi (atın seviyeleri ve kitapları) bunu dinlemez; madalya dropper'ları ve 64. seviyenin üstündeki botlar da dinlemez. Bir sonraki yolculuk kontrolünde uygulanır."},
  "aiw_BIOLOG":   {"en":"The Biologist","pl":"Biolog","de":"Der Biologe","tr":"Biyolog"},
- "aih_BIOLOG":   {"en":"Collecting for the Biologist rather than levelling.",
-                  "pl":"Zbieranie dla Biologa zamiast bicia poziomów.",
-                  "de":"Für den Biologen sammeln statt zu leveln.",
-                  "tr":"Seviye yerine Biyolog için toplamak."},
+ "aih_BIOLOG":  {"en":"Hunting the Biologist's specimens: the trip to the mission monster's map and the hunt there. At 100 every bot with an open mission does it, as the game was built, so the slider stops at 100: below it a share of the bots hunts whatever its map offers for half an hour at a time. What a bot already carries is handed in all the same. Applies at once.",
+                 "pl":"Polowanie na okazy dla Biologa: podróż na mapę potwora z misji i polowanie tam. Przy 100 robi to każdy bot z otwartą misją, jak w grze, dlatego suwak kończy się na 100: poniżej część botów po pół godziny bije to, co jest na jego mapie. To, co bot już niesie, i tak oddaje. Działa od razu.",
+                 "de":"Die Jagd nach den Proben des Biologen: die Reise zur Karte des Missionsmonsters und die Jagd dort. Bei 100 tut das jeder Bot mit offener Mission, wie im Spiel, darum endet der Regler bei 100: darunter jagt ein Teil der Bots jeweils eine halbe Stunde, was seine Karte bietet. Was ein Bot schon trägt, gibt er trotzdem ab. Wirkt sofort.",
+                 "tr":"Biyolog'un örneklerini avlamak: görev canavarının haritasına yolculuk ve orada av. 100'de açık görevi olan her bot bunu oyundaki gibi yapar, bu yüzden kaydırıcı 100'de biter: altında botların bir kısmı yarım saatliğine haritasında ne varsa onu avlar. Botun zaten taşıdığını yine de teslim eder. Hemen uygulanır."},
  "aiw_METIN":    {"en":"Metin stones","pl":"Kamienie Metin","de":"Metinsteine","tr":"Metin taşları"},
- "aih_METIN":    {"en":"Hunting metins instead of ordinary monsters.",
-                  "pl":"Polowanie na metiny zamiast na zwykłe potwory.",
-                  "de":"Metins jagen statt gewöhnlicher Monster.",
-                  "tr":"Sıradan canavar yerine metin avlamak."},
+ "aih_METIN":   {"en":"Metin expeditions: once an hour every bot from level 15 rolls whether the next half hour goes to the stones - 25% at 100 (twice that on a battle horse), multiplied by the slider. Metin hunters by role always hunt stones and do not roll. A change reaches a bot at its next roll, within about an hour.",
+                 "pl":"Wyprawy na metiny: raz na godzinę każdy bot od 15 poziomu losuje, czy najbliższe pół godziny spędzi na kamieniach - 25% przy 100 (na koniu bojowym dwa razy tyle), razy suwak. Łowcy metinów z roli polują na nie zawsze i nie losują. Zmiana dociera do bota przy jego następnym losowaniu, w ciągu mniej więcej godziny.",
+                 "de":"Metin-Expeditionen: einmal pro Stunde würfelt jeder Bot ab Stufe 15, ob die nächste halbe Stunde den Steinen gehört - 25% bei 100 (auf einem Kampfpferd doppelt so viel), mal dem Regler. Metinjäger von Rolle jagen immer Steine und würfeln nicht. Eine Änderung erreicht einen Bot bei seinem nächsten Wurf, binnen etwa einer Stunde.",
+                 "tr":"Metin seferleri: saatte bir, 15. seviyeden itibaren her bot sonraki yarım saati taşlara ayırıp ayırmayacağına zar atar - 100'de %25 (savaş atında iki katı), kaydırıcıyla çarpılır. Rolü metin avcısı olan botlar her zaman taş avlar ve zar atmaz. Değişiklik bota bir sonraki zarında, yaklaşık bir saat içinde ulaşır."},
  "aiw_PARTY":    {"en":"Parties","pl":"Grupy (PT)","de":"Gruppen","tr":"Gruplar"},
- "aih_PARTY":    {"en":"Fighting together rather than each bot for itself.",
-                  "pl":"Walka razem, a nie każdy bot na własną rękę.",
-                  "de":"Gemeinsam kämpfen statt jeder für sich.",
-                  "tr":"Herkes kendi başına değil, birlikte savaşmak."},
+ "aih_PARTY":   {"en":"The share of bots that may join a party: in the villages 20% at 100 (5% at 25, 50% at 250); on the frontier (Orc Valley, the desert, Sohan, the Spider Dungeons) every bot already may at 100, so there the slider only works downwards (25% at 25). A bot left out leaves its party within a minute; new parties form in 1-3 minutes.",
+                 "pl":"Jaka część botów może wchodzić do grup: w wioskach 20% przy 100 (5% przy 25, 50% przy 250); na froncie (Dolina Orków, pustynia, Sohan, Lochy Pająków) przy 100 już każdy bot, więc tam suwak działa tylko w dół (25% przy 25). Bot, który wypada z puli, opuszcza grupę w ciągu minuty; nowe grupy tworzą się w 1–3 minuty.",
+                 "de":"Welcher Anteil der Bots Gruppen beitreten darf: in den Dörfern 20% bei 100 (5% bei 25, 50% bei 250); an der Front (Orktal, Wüste, Sohan, Spinnenverliese) darf es bei 100 schon jeder Bot, dort wirkt der Regler also nur nach unten (25% bei 25). Wer herausfällt, verlässt seine Gruppe binnen einer Minute; neue Gruppen bilden sich in 1-3 Minuten.",
+                 "tr":"Botların ne kadarının gruba girebileceği: köylerde 100'de %20 (25'te %5, 250'de %50); cephede (Ork Vadisi, çöl, Sohan, Örümcek Zindanları) 100'de zaten her bot girebilir, yani orada kaydırıcı yalnızca aşağı doğru çalışır (25'te %25). Dışarıda kalan bot bir dakika içinde grubundan ayrılır; yeni gruplar 1-3 dakikada kurulur."},
  "aiw_HUNTING":  {"en":"Hunting missions","pl":"Misje polowania","de":"Jagdmissionen","tr":"Av görevleri"},
- "aih_HUNTING":  {"en":"The level-up hunt on the map the mission points at.",
-                  "pl":"Polowanie na awans na mapie, którą wskazuje misja.",
-                  "de":"Die Aufstiegsjagd auf der Karte, die die Mission nennt.",
-                  "tr":"Görevin gösterdiği haritada seviye avı."},
+ "aih_HUNTING": {"en":"The level-up hunt mission (r40250 only): hunting the monster the mission names. At 100 every bot with a mission does it, so the slider stops at 100: below it a share of the bots hunts whatever its map offers for half an hour at a time. Applies at once.",
+                 "pl":"Misja polowania na awans (tylko r40250): bicie potwora, którego wskazuje misja. Przy 100 robi to każdy bot z misją, dlatego suwak kończy się na 100: poniżej część botów po pół godziny bije to, co jest na jego mapie. Działa od razu.",
+                 "de":"Die Aufstiegsjagd (nur r40250): das Monster jagen, das die Mission nennt. Bei 100 tut das jeder Bot mit Mission, darum endet der Regler bei 100: darunter jagt ein Teil der Bots jeweils eine halbe Stunde, was seine Karte bietet. Wirkt sofort.",
+                 "tr":"Seviye avı görevi (yalnızca r40250): görevin gösterdiği canavarı avlamak. 100'de görevi olan her bot bunu yapar, bu yüzden kaydırıcı 100'de biter: altında botların bir kısmı yarım saatliğine haritasında ne varsa onu avlar. Hemen uygulanır."},
  "aiw_LEVEL":    {"en":"Plain grinding","pl":"Zwykłe bicie potworów","de":"Schlichtes Grinden","tr":"Düz grind"},
- "aih_LEVEL":    {"en":"What a bot does when nothing else is asking for it. Raise this and the errands lose.",
-                  "pl":"To, co bot robi, gdy nic innego się nie dopomina. Podnieś, a sprawunki przegrają.",
-                  "de":"Was ein Bot tut, wenn nichts anderes ruft. Höher, und die Besorgungen verlieren.",
-                  "tr":"Başka bir şey çağırmadığında botun yaptığı şey. Yükselt, işler geri kalır."},
+ "aih_LEVEL":   {"en":"Plain grinding, what a bot does when nothing else is asking for it. Raised, the level goal wins over the other goals, and a grinder with that goal pulls several monsters at once and a third of them drink attack-speed potions; the errands themselves (potions, blacksmith, books, the Biologist) have their own sliders and this one does not hold them back. Lowering it changes nothing.",
+                 "pl":"Zwykłe bicie potworów, czyli to, co bot robi, gdy nic innego się nie dopomina. Podniesiony sprawia, że cel „poziom” wygrywa z innymi celami, a grinder z tym celem przyciąga kilka potworów naraz i co trzeci pije mikstury szybkości ataku; same sprawunki (mikstury, kowal, księgi, Biolog) mają własne suwaki i ten ich nie wstrzymuje. Obniżenie niczego nie zmienia.",
+                 "de":"Schlichtes Grinden, was ein Bot tut, wenn nichts anderes ruft. Erhöht gewinnt das Stufenziel gegen die anderen Ziele, und ein Grinder mit diesem Ziel zieht mehrere Monster auf einmal, und ein Drittel trinkt Angriffstempo-Tränke; die Besorgungen selbst (Tränke, Schmied, Bücher, der Biologe) haben eigene Regler, und dieser hält sie nicht auf. Senken ändert nichts.",
+                 "tr":"Düz grind, başka bir şey çağırmadığında botun yaptığı şey. Yükseltilince seviye hedefi diğer hedefleri geçer ve bu hedefteki grinder aynı anda birkaç canavar çeker, üçte biri saldırı hızı iksiri içer; işlerin kendisi (iksir, demirci, kitap, Biyolog) kendi kaydırıcılarına sahiptir ve bu onları durdurmaz. Düşürmek bir şey değiştirmez."},
  "aiw_FISHING":  {"en":"Fishing","pl":"Wędkowanie","de":"Angeln","tr":"Balık tutma"},
- "aih_FISHING":  {"en":"How many bots take up fishing at all. Decided once per bot, so a change reaches the next generation of anglers.",
-                  "pl":"Ilu botów w ogóle łowi. Rozstrzygane raz na bota, więc zmiana obejmuje kolejne pokolenie wędkarzy.",
-                  "de":"Wie viele Bots überhaupt angeln. Einmal pro Bot entschieden, eine Änderung trifft also die nächsten Angler.",
-                  "tr":"Kaç botun balık tuttuğu. Bot başına bir kez belirlenir, değişiklik sonraki balıkçılara işler."},
+ "aih_FISHING": {"en":"How many bots fish. With the personalities on (the default) a bot of level 30 and up, outside a party, rolls again every half hour against the slider and its mood - most often a bot in a poor mood; with them off a fixed share of the bots fishes (collectors more often). Raising it works within seconds; lowering it lets running sessions finish first (up to an hour). A bot sent to the water after five deaths in one place (the capitulation) goes whatever the slider says.",
+                 "pl":"Ilu botów łowi ryby. Przy włączonych osobowościach (domyślnie) bot od 30 poziomu, poza grupą, losuje od nowa co pół godziny według suwaka i swojego nastroju - najczęściej bot w słabym nastroju; przy wyłączonych łowi stały udział botów (zbieracze częściej). Podniesienie działa w kilka sekund; obniżenie pozwala dokończyć trwające sesje (do godziny). Bot wysłany nad wodę po pięciu śmierciach w jednym miejscu (kapitulacja) idzie niezależnie od suwaka.",
+                 "de":"Wie viele Bots angeln. Mit eingeschalteten Persönlichkeiten (Standard) würfelt ein Bot ab Stufe 30, außerhalb einer Gruppe, jede halbe Stunde neu gegen den Regler und seine Stimmung - am häufigsten ein Bot in schlechter Stimmung; ohne sie angelt ein fester Anteil der Bots (Sammler öfter). Erhöhen wirkt binnen Sekunden; Senken lässt laufende Sitzungen erst zu Ende gehen (bis zu einer Stunde). Ein Bot, der nach fünf Toden an einem Ort ans Wasser geschickt wird (die Kapitulation), geht unabhängig vom Regler.",
+                 "tr":"Kaç botun balık tuttuğu. Kişilikler açıkken (varsayılan) 30. seviye ve üstündeki, grupta olmayan bot yarım saatte bir kaydırıcıya ve ruh haline göre yeniden zar atar - en sık kötü ruh halindeki bot; kapalıyken botların sabit bir payı balık tutar (toplayıcılar daha sık). Yükseltmek saniyeler içinde işler; düşürmek süren oturumların önce bitmesine izin verir (bir saate kadar). Bir yerde beş kez öldükten sonra suya gönderilen bot (kapitülasyon) kaydırıcıdan bağımsız gider."},
  "aiw_TRADE":    {"en":"Market stalls","pl":"Stragany","de":"Marktstände","tr":"Pazar tezgahları"},
- "aih_TRADE":    {"en":"How many bots keep a private shop open. Four cases ignore this slider: a Merchant personality, a bot that cannot afford its potions, a full bag, and a dropper under bag pressure (the counter is how they empty it). The slider moves the rest: the surplus-books stall, the dropper's roll and the one-in-ten. Stalls already standing re-check within five minutes of a change; the status says why each one is open.",
-                  "pl":"Ilu botów trzyma otwarty stragan. Cztery przypadki nie słuchają tego suwaka: osobowość Handlarz, bot bez yang na mikstury, pełny plecak i dropper pod presją plecaka (lada to jedyny sposób, żeby go opróżnić). Suwak rusza resztę: stragan z nadmiaru ksiąg, los droppera i „jeden na dziesięciu”. Stojące już stragany sprawdzają się ponownie do pięciu minut po zmianie; status mówi, dlaczego każdy jest otwarty.",
-                  "de":"Wie viele Bots einen Laden offen halten. Vier Fälle ignorieren den Regler: die Händler-Persönlichkeit, ein Bot ohne Yang für Tränke, ein voller Beutel und ein Dropper unter Beuteldruck. Der Regler bewegt den Rest: den Bücher-Stand, den Dropper-Wurf und den Einen-von-zehn. Stehende Läden prüfen sich binnen fünf Minuten neu; der Status sagt, warum jeder offen ist.",
-                  "tr":"Kaç botun tezgahı açık tuttuğu. Dört durum bu kaydırıcıyı dinlemez: Tüccar kişiliği, iksir parası olmayan bot, dolu çanta ve çanta baskısındaki dropper. Kaydırıcı gerisini oynatır: fazla kitap tezgahı, dropper zarı ve onda bir. Açık tezgahlar değişiklikten sonra beş dakika içinde yeniden bakar; durum her birinin neden açık olduğunu söyler."},
+ "aih_TRADE":   {"en":"How many bots keep a stall. The slider does not touch a Merchant personality, a bot that cannot afford its potions, a full bag, a dropper under bag pressure, nor valuable spares and a gambler's goods (the counter is how they get rid of them). It moves the rest: the surplus-books stall (already every such bot at 100, so it only goes down), the dropper's roll and the one-in-ten. On r40250 standing stalls re-check within five minutes; on the 2.x line an offline stand is never closed early - a lower slider only stops its renewal when its eight hours run out. The status says why each one is open.",
+                 "pl":"Ilu botów trzyma stragan. Suwak nie rusza osobowości Handlarz, bota bez yang na mikstury, pełnego plecaka, droppera pod presją plecaka ani cennych zapasowych rzeczy i towaru hazardzisty (lada to sposób, żeby się ich pozbyć). Rusza resztę: stragan z nadmiaru ksiąg (przy 100 ma go już każdy taki bot, więc działa tylko w dół), los droppera i „jeden na dziesięciu”. Na r40250 stojące stragany sprawdzają się ponownie do pięciu minut po zmianie; na linii 2.x sklep offline nie jest zamykany wcześniej - niższy suwak tylko wstrzymuje jego odnowienie po ośmiu godzinach. Status mówi, dlaczego każdy jest otwarty.",
+                 "de":"Wie viele Bots einen Stand führen. Der Regler berührt weder die Händler-Persönlichkeit noch einen Bot ohne Yang für Tränke, einen vollen Beutel, einen Dropper unter Beuteldruck oder wertvolle Ersatzstücke und die Ware eines Glücksspielers (der Stand ist ihr Weg, sie loszuwerden). Er bewegt den Rest: den Bücher-Stand (bei 100 schon jeder solche Bot, also nur nach unten), den Dropper-Wurf und den Einen-von-zehn. Auf r40250 prüfen stehende Stände sich binnen fünf Minuten neu; auf der 2.x-Linie wird ein Offline-Laden nie früher geschlossen - ein niedrigerer Regler stoppt nur seine Verlängerung nach acht Stunden. Der Status sagt, warum jeder offen ist.",
+                 "tr":"Kaç botun tezgah tuttuğu. Kaydırıcı Tüccar kişiliğine, iksir parası olmayan bota, dolu çantaya, çanta baskısındaki dropper'a, değerli yedek eşyalara ve kumarbazın mallarına dokunmaz (tezgah onlardan kurtulmanın yoludur). Gerisini oynatır: fazla kitap tezgahı (100'de zaten her böyle bot açar, yani yalnızca aşağı iner), dropper zarı ve onda bir. r40250'de açık tezgahlar beş dakika içinde yeniden bakar; 2.x hattında çevrimdışı dükkân asla erken kapanmaz - düşük kaydırıcı yalnızca sekiz saat dolunca yenilenmesini durdurur. Durum her birinin neden açık olduğunu söyler."},
 })
 
 
@@ -6213,25 +6235,25 @@ TPL_AI = BASE.replace("__BODY__", """
   </div>
   <p class="muted" style="margin:6px 0 0">{{t('ai_war_len_help')}}</p>
 </div>
+{% if engine_mt2009 %}
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">⛩ {{t('ai_tower')}}</h3>
   <p class="muted" style="margin:0 0 6px">{{t('ai_tower_help')}}</p>
   <label><input type="checkbox" name="TOWER" value="1" {% if cur.get('TOWER', 1) %}checked{% endif %}> {{t('ai_tower_on')}}</label>
   <div style="margin-top:6px"><button type="submit" formaction="{{url_for('ai_tower_now')}}" formmethod="post">{{t('ai_tower_now')}}</button></div>
 </div>
-{% if engine_mt2009 %}
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">💀 {{t('ai_catacomb')}}</h3>
   <p class="muted" style="margin:0 0 6px">{{t('ai_catacomb_help')}}</p>
   <label><input type="checkbox" name="CATACOMB" value="1" {% if cur.get('CATACOMB', 1) %}checked{% endif %}> {{t('ai_tower_on')}}</label>
   <div style="margin-top:6px"><button type="submit" formaction="{{url_for('ai_catacomb_now')}}" formmethod="post">{{t('ai_catacomb_now')}}</button></div>
 </div>
-{% endif %}
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">🛒 {{t('ai_ishop')}}</h3>
   <p class="muted" style="margin:0 0 6px">{{t('ai_ishop_help')}}</p>
   <label><input type="checkbox" name="ISHOP" value="1" {% if cur.get('ISHOP', 1) %}checked{% endif %}> {{t('ai_ishop_on')}}</label>
 </div>
+{% endif %}
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">🏪 {{t('ai_shop_m2')}}</h3>
   <p class="muted" style="margin:0 0 6px">{{t('ai_shop_m2_help')}}</p>
@@ -6287,7 +6309,7 @@ TPL_AI = BASE.replace("__BODY__", """
   {% set chest = cur.get('CHEST') if cur.get('CHEST') is not none else 10 %}
   {% set stone = cur.get('CHEST_STONE') if cur.get('CHEST_STONE') is not none else 300 %}
   <div style="margin:6px 0 2px">{{t('ai_chest_kill')}} <span class="badge" id="v_CHEST">{{chest}}‰</span></div>
-  <input type="range" name="CHEST" id="s_CHEST" min="0" max="100" step="1" value="{{chest}}" style="width:100%"
+  <input type="range" name="CHEST" id="s_CHEST" min="0" max="1000" step="1" value="{{chest}}" style="width:100%"
          oninput="document.getElementById('v_CHEST').textContent=this.value+'‰'">
   <div style="margin:10px 0 2px">{{t('ai_chest_stone')}} <span class="badge" id="v_CHEST_STONE">{{stone}}‰</span></div>
   <input type="range" name="CHEST_STONE" id="s_CHEST_STONE" min="0" max="1000" step="10" value="{{stone}}" style="width:100%"
@@ -6295,17 +6317,20 @@ TPL_AI = BASE.replace("__BODY__", """
   <div class="muted" style="font-size:12px">{{t('ai_chest_note')}}</div>
 </div>
 {% for name, emoji in keys %}
+{% set capped = name in wcapped %}
+{% set wval = ([cur[name], wneutral]|min) if capped else cur[name] %}
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">{{emoji}} {{t('aiw_' ~ name)}}
-      <span class="badge" id="v_{{name}}">{{cur[name]}}</span></h3>
+      <span class="badge" id="v_{{name}}">{{wval}}</span></h3>
   <p class="muted" style="margin:0 0 6px">{{t('aih_' ~ name)}}</p>
-  <input type="range" name="{{name}}" id="s_{{name}}" min="{{wmin}}" max="{{wmax}}"
-         step="5" value="{{cur[name]}}" style="width:100%"
+  <input type="range" class="m2ai-goal" name="{{name}}" id="s_{{name}}" min="{{wmin}}" max="{{wneutral if capped else wmax}}"
+         step="5" value="{{wval}}" style="width:100%"
          oninput="document.getElementById('v_{{name}}').textContent=this.value">
   <div class="muted" style="display:flex;justify-content:space-between;font-size:12px">
     <span>{{wmin}} — {{t('ai_rare')}}</span>
-    <span>{{wneutral}} — {{t('ai_neutral')}}</span>
-    <span>{{wmax}} — {{t('ai_often')}}</span>
+    {% if capped %}<span>{{wneutral}} — {{t('ai_every_chance')}}</span>
+    {% else %}<span>{{wneutral}} — {{t('ai_neutral')}}</span>
+    <span>{{wmax}} — {{t('ai_often')}}</span>{% endif %}
   </div>
 </div>
 {% endfor %}
@@ -6314,7 +6339,7 @@ TPL_AI = BASE.replace("__BODY__", """
 </form></div>
 <script>
 function m2aiReset(){
-  document.querySelectorAll('input[type=range]').forEach(function(s){
+  document.querySelectorAll('input.m2ai-goal').forEach(function(s){
     s.value = {{wneutral}};
     document.getElementById('v_' + s.name).textContent = s.value;
   });
@@ -14584,10 +14609,13 @@ def ai_weights():
     """
     if request.method == "POST":
         # (the global before_request hook has already checked the CSRF token)
+        # A field this engine's page does not show (HUNTING on mt2009, the
+        # tower and the ItemShop on r40250) keeps what the file says.
+        old = read_ai_weights()
         vals = {}
         for name, _ in AI_WEIGHT_KEYS:
             try:
-                v = int(request.form.get(name, AI_W_NEUTRAL))
+                v = int(request.form.get(name, old.get(name, AI_W_NEUTRAL)))
             except (TypeError, ValueError):
                 v = AI_W_NEUTRAL
             # Clamped rather than rejected. A slider cannot send anything out of
@@ -14599,12 +14627,16 @@ def ai_weights():
         vals["NIGHT"] = 1 if request.form.get("NIGHT") else 0
         vals["LIFE"] = 1 if request.form.get("LIFE") else 0
         vals["WARS"] = 1 if request.form.get("WARS") else 0
-        vals["TOWER"] = 1 if request.form.get("TOWER") else 0
-        # The Catacomb's box is on the mt2009 page alone; elsewhere the value
-        # the file holds stays.
+        # The tower's, the Catacomb's and the ItemShop's boxes are on the
+        # mt2009 page alone; elsewhere the values the file holds stay.
         if ENGINE_MT2009:
+            vals["TOWER"] = 1 if request.form.get("TOWER") else 0
             vals["CATACOMB"] = 1 if request.form.get("CATACOMB") else 0
-        vals["ISHOP"] = 1 if request.form.get("ISHOP") else 0
+            vals["ISHOP"] = 1 if request.form.get("ISHOP") else 0
+        else:
+            vals["TOWER"] = old.get("TOWER", 1)
+            vals["CATACOMB"] = old.get("CATACOMB", 1)
+            vals["ISHOP"] = old.get("ISHOP", 1)
         vals["SHOP_M2"] = 1 if request.form.get("SHOP_M2") else 0
         vals["PERSONA"] = 1 if request.form.get("PERSONA") else 0
         try:
@@ -14667,7 +14699,8 @@ def ai_weights():
         cur["CHEST_STONE"] = chest_stone
     return render_template_string(TPL_AI, cur=cur, chest_off=chest_off,
                                   keys=keys, wmin=AI_W_MIN, bots_held=read_bot_hold(),
-                                  wmax=AI_W_MAX, wneutral=AI_W_NEUTRAL, engine_mt2009=ENGINE_MT2009)
+                                  wmax=AI_W_MAX, wneutral=AI_W_NEUTRAL, wcapped=AI_W_CAPPED,
+                                  engine_mt2009=ENGINE_MT2009)
 
 
 @app.route("/ai/tower_now", methods=["POST"])

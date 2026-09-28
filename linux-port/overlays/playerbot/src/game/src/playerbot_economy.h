@@ -2496,6 +2496,25 @@ namespace
 	// what the bot will wear is worth refining in the bag: an upgrade the
 	// equipment pass is about to put on, or the one higher-tier spare per slot
 	// the blacksmith can make into one. Goods are sold at what they are.
+	//
+	// Whether the engine would take this piece's next step at all: the fee in
+	// the purse and every material in the bag, the two things DoRefine and
+	// DoRefineWithScroll refuse on before they take anything. A bag piece is
+	// asked this and not CanPlayerBotPayRefineStep, whose reserve and
+	// Biologist's share the bag's pieces have never been held to.
+	bool CanPlayerBotAffordRefineAttempt(LPCHARACTER ch, LPITEM item)
+	{
+		const TRefineTable* recipe = item ? CRefineManager::instance().GetRefineRecipe(item->GetRefineSet()) : NULL;
+		if (!ch || !recipe || ch->GetGold() < ch->ComputeRefineFee(recipe->cost))
+			return false;
+		for (int i = 0; i < recipe->material_count; ++i)
+		{
+			if (ch->CountSpecifyItem(recipe->materials[i].vnum) < recipe->materials[i].count)
+				return false;
+		}
+		return true;
+	}
+
 	bool IsPlayerBotRefineBagCandidate(LPCHARACTER ch, LPITEM item)
 	{
 		if (!item || item->GetRefinedVnum() == 0 || IsPlayerBotSidekickPinned(ch, item))
@@ -2882,6 +2901,13 @@ namespace
 							(unsigned int)GetPlayerBotRefineTarget(ch, item));
 				continue;
 			}
+			// A step the engine would refuse is no candidate, as it is not for a
+			// worn piece above: a body armour at +7 short of a material was
+			// tried at every blacksmith tick of every visit, "refine SKIPPED ...
+			// vnum=11647 plus=7 materials=30006:2/0" twenty to forty times an
+			// hour a bot on m2zip (28 September).
+			if (!CanPlayerBotAffordRefineAttempt(ch, item))
+				continue;
 
 			TRefineCandidate cand;
 			cand.wearCell = 255;
@@ -3676,8 +3702,8 @@ namespace
 		{
 			// Unit prices are the ones the old fixed purchases implied: 20 yang for
 			// a Red Potion (M), 32 for a Blue Potion (M).
-			const DWORD RED_TARGET = 800;
-			const DWORD BLUE_TARGET = 600;
+			const DWORD RED_TARGET = (DWORD)PLAYERBOT_POTION_FILL_RED;
+			const DWORD BLUE_TARGET = (DWORD)PLAYERBOT_POTION_FILL_BLUE;
 			// From forty the bot buys the big (D) potions, not the medium (S).
 			// A level-47 bot heals in the hundreds per hit and a medium potion
 			// is a sip; "na tych poziomach to juz duze potki u handlarki", as
@@ -4034,6 +4060,14 @@ namespace
 	{
 		if (!ch || !ch->IsItemLoaded())
 			return false;
+		// The REFINE weight under neutral closes the anvil for a share of the
+		// bots (IsPlayerBotWeightGateOpen). This is the one question the
+		// planner, the town trip, the blacksmith's stop and the cross-map
+		// return all ask; a gambler's session is its own errand and is asked
+		// beside it, and a bot already at the anvil refines what it can.
+		if (!IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_REFINE,
+				PLAYERBOT_WEIGHT_GATE_SALT_REFINE, get_dword_time()))
+			return false;
 
 		const BYTE wearSlots[] = {
 			WEAR_WEAPON, WEAR_BODY, WEAR_SHIELD, WEAR_HEAD,
@@ -4066,6 +4100,9 @@ namespace
 	bool HasPlayerBotPriorityRefineOpportunity(LPCHARACTER ch)
 	{
 		if (!ch || !ch->IsItemLoaded())
+			return false;
+		if (!IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_REFINE,
+				PLAYERBOT_WEIGHT_GATE_SALT_REFINE, get_dword_time()))
 			return false;
 
 		// Cross-map blacksmith trips are reserved for currently worn essentials.

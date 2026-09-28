@@ -12,7 +12,8 @@
 #                                                     in this world (M2_SIDEKICK)
 #   SidekickInfo <protocol> 1 <race> <group> <level> <exp%> <hp> <maxhp> <sp>
 #                <maxsp> <where> <dist> <mode> <stance> <loot> <protect>
-#                <buffs> <gold> <red> <blue> <dead> [<lure> <luring> [<solo> [<chests>]]]
+#                <buffs> <gold> <red> <blue> <dead> [<lure> <luring> [<solo> [<chests>
+#                [<party>]]]]
 #   SidekickNames <name> <place> <doing>            - hex of the CP1250 bytes
 #   SidekickGear <slot 0-7> <name>                  - hex, only when changed
 #
@@ -22,11 +23,14 @@
 # 2 everything. The orders are the letter's own commands, so the window adds
 # nothing the server did not already take from the quest: przywolaj, wolny,
 # czekaj, zakupy, stan, walka N, zbieraj N, ochrona N, buffy N, luruj N, sam N,
-# skrzynki N, odprawa tak. lure (server 2.2.19): the companion wakes packs round
+# skrzynki N, grupa N, odprawa tak. lure (server 2.2.19): the companion wakes packs round
 # the owner and brings them over; luring: 0 no course, 1 out to a pack, 2 back
 # with them. solo (server 2.2.33, "Gra beze mnie"): with its owner out of the
 # game it plays on alone, up to thirty levels over the owner's. chests (server
 # 2.2.33, "Skrzynki"): 1 it opens the chests in its bag, 0 it leaves them closed.
+# party (server 2.2.38, "Grupa"): 1 it joins its owner's party whoever leads it,
+# while a place stays free after it for one more person; 0 a party somebody
+# else leads only on that leader's invitation.
 #
 # "Ekwipunek", "Umiejetnosci" and "Statystyki" open the companion's bag, skill
 # and stat windows (uisidekickinventory.py). Every command of the companion's windows leaves
@@ -169,6 +173,8 @@ def ParseInfo(args):
 		info['solo'] = ParseInt(values[len(names) + 2])
 	if len(values) >= len(names) + 4:
 		info['chests'] = ParseInt(values[len(names) + 3])
+	if len(values) >= len(names) + 5:
+		info['party'] = ParseInt(values[len(names) + 4])
 	return info
 
 
@@ -239,6 +245,10 @@ class SidekickWindow(ui.BoardWithTitleBar):
 
 		stBoard = self._Board(BL, y, BW, 146)
 		self._Label(stBoard, 14, 4, 'Posta\xe6')
+		# "Grupa": whether it follows its owner into a party somebody else
+		# leads (xXxDaronxXx, 28 September), in the board's title row.
+		self.partyButton = self._Btn(stBoard, 'large', 190, 1, '', self.OnParty)
+		self.partyButton.SetToolTipText('grupa prowadzona przez kogo\x9c innego')
 		self.nameLine = self._Label(stBoard, 10, 20, '')
 		self.classLine = self._Label(stBoard, 10, 20 + ROW, '')
 		self._Label(stBoard, 10, 52, 'HP')
@@ -431,6 +441,11 @@ class SidekickWindow(ui.BoardWithTitleBar):
 			self.chestButton.Show()
 		else:
 			self.chestButton.Hide()
+		if 'party' in info:
+			self.partyButton.SetText('Grupa: %s' % ('tak' if info['party'] else 'nie'))
+			self.partyButton.Show()
+		else:
+			self.partyButton.Hide()
 		# The summon, the free hand and the wait are the three states the
 		# companion is in outside an errand: the one it is in stays down.
 		self.SetPressed((self.summonButton, self.freeButton, self.holdButton), mode if mode < 3 else -1)
@@ -499,6 +514,11 @@ class SidekickWindow(ui.BoardWithTitleBar):
 	def OnChests(self):
 		chests = self.info.get('chests', 1) if self.info else 1
 		self.SendCommand('skrzynki %d' % (0 if chests else 1))
+		self.nextPoll = 0.0
+
+	def OnParty(self):
+		party = self.info.get('party', 1) if self.info else 1
+		self.SendCommand('grupa %d' % (0 if party else 1))
 		self.nextPoll = 0.0
 
 	def OnDismiss(self):
