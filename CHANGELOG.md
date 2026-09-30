@@ -16,7 +16,10 @@ Updating never touches your database. Characters, accounts and settings survive
 every version here.
 
 ---
+## 2.3.00 — 2026-09-30
 
+Serwer 2.3.00 i klient 2.1.00: zaktualizuj oba („AKTUALIZUJ wszystko”
+w launcherze). Na VPS: `sh linux-port/tools/update.sh`.
 ## 2.2.42 — 2026-09-30
 
 Serwer 2.2.42 i klient 2.0.54: zaktualizuj oba („AKTUALIZUJ wszystko”
