@@ -1,24 +1,24 @@
 {
   "schema": 1,
   "channel": "stable",
-  "publishedAt": "2026-09-30T12:50:43Z",
+  "publishedAt": "2026-09-30T17:38:25Z",
   "statusMessage": "2.0.98 (serwer 2.0.98, klient 2.0.27): COOP dla kazdego - hostowanie bez hasla. Klient 2.0.27: przycisk w statusie Discorda prowadzi na GitHuba projektu.",
   "server": {
-    "version": "2.3.00",
-    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.3.00/metin2-server-update-2.3.00.zip",
-    "sha256": "7458AC4166659215B9B2662AB0C6A37C8CEF17E5CD6D7780FF1BE2DAD7E6B7ED"
+    "version": "2.17.0",
+    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.0/metin2-server-update-2.17.0.zip",
+    "sha256": "7058FFEE72B36FEF4C345CD69E5B82529E13CF48268B2DB7F08025A33042F96A"
   },
   "support": {
     "contactUrl": "https://github.com/Doofenyoyo1/metin2_SP/issues",
     "uploadUrl": ""
   },
   "client": {
-    "version": "2.1.00",
-    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.3.00/metin2-client-update-2.1.00.zip",
-    "sha256": "C545CBC1C6EE27ABAD3ADA60FD5BBCF0040BAB170945F59D9FACD55BC6D872B6"
+    "version": "2.0.55",
+    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.0/metin2-client-update-2.0.55.zip",
+    "sha256": "6FCB7F927269A7F75690187D8C819103356FB79AA030B370D790AC1BCB8B1660"
   },
   "clientExe": {
-    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.3.00/metin2client.exe",
+    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.0/metin2client.exe",
     "sha256": "EEA61FE9359E09F11776BC05007DA0D5E78B61A6C655E7323CA01B50EE1F162A",
     "size": 13617152
   }
