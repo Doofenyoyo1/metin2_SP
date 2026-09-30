@@ -1,0 +1,214 @@
+#!/bin/sh
+# =============================================================================
+#  m2-chests -- what the chests hold, as the Seban panel's "Szkatułki" page
+#  saved it (MT2009_PLUS_CHEST_EDITOR_V1).
+#
+#  special_item_group.txt lives in the image (the Dockerfile builds it from the
+#  package's file, our Moonlight chest and the starter chests) and every core
+#  reads it once, while it boots (input_db.cpp, ReadSpecialDropItemFile). So an
+#  edit used to mean editing the Dockerfile's inputs and rebuilding the image.
+#
+#  Now the panel writes only the groups the operator changed into the spool
+#  volume both containers share:
+#      $SPOOL/chests/special_item_group.custom.txt
+#  and before the cores boot (m2-supervise, boot_cores) `apply' rebuilds the
+#  live file: the image's file with those groups cut out, the operator's
+#  groups appended. A group whose vnum the image does not have is simply
+#  added. The panel reads the image's file back from
+#      $SPOOL/chests/special_item_group.base.txt
+#  and how the last apply went from $SPOOL/chests/status.
+#
+#  A wrong item number makes ReadSpecialDropItemFile fail and the core shut
+#  down, so the custom file is checked first (layout, index order, item
+#  numbers against item_proto); a file that fails is not used at all and the
+#  cores boot with the image's chests.
+#
+#  Subcommands
+#      prepare   as root, at container start: keep the image's file, make the
+#                live one writable by the service account, the spool folder
+#      apply     rebuild the live file (run by m2-supervise before a boot)
+# =============================================================================
+set -u
+LC_ALL=C
+export LC_ALL
+
+SHARE_DIR="${M2_SHARE_DIR:-/opt/metin2/share}"
+VAR_DIR="${M2_VAR_DIR:-/opt/metin2/var}"
+LOCALE_DIR="$SHARE_DIR/locale/${M2_LOCALE_NAME:-poland}"
+SPOOL="${M2_RATES_SPOOL:-/opt/m2spool}/chests"
+
+LIVE="$LOCALE_DIR/special_item_group.txt"
+IMAGE="$LOCALE_DIR/special_item_group.image.txt"
+CUSTOM="$SPOOL/special_item_group.custom.txt"
+BASE_OUT="$SPOOL/special_item_group.base.txt"
+STATUS="$SPOOL/status"
+WORK="$VAR_DIR/chests"
+
+say() { printf '%s [chests] %s\n' "$(date -u '+%Y-%m-%d %H:%M:%SZ')" "$1"; }
+
+write_status() { # write_status STATE GROUPS SHA MESSAGE
+    _tmp="$STATUS.new.$$"
+    { printf 'state=%s\n' "$1"
+      printf 'time=%s\n' "$(date +%s 2>/dev/null)"
+      printf 'groups=%s\n' "$2"
+      printf 'sha=%s\n' "$3"
+      printf 'message=%s\n' "$4"
+    } > "$_tmp" 2>/dev/null || { rm -f "$_tmp"; return 1; }
+    chmod 0664 "$_tmp" 2>/dev/null
+    mv -f "$_tmp" "$STATUS" 2>/dev/null || rm -f "$_tmp"
+    return 0
+}
+
+# The live file is rewritten in place: the locale folder belongs to root, the
+# file itself to the service account (prepare).
+put_live() { # put_live SOURCE
+    cmp -s "$1" "$LIVE" && return 0
+    cat "$1" > "$LIVE"
+}
+
+cmd_prepare() {
+    [ -f "$LIVE" ] || { say "no $LIVE -- nothing to prepare"; return 0; }
+    # The first start of a container: the file is still the image's.
+    [ -f "$IMAGE" ] || cp -p "$LIVE" "$IMAGE" || return 1
+    chown metin2:metin2 "$LIVE" 2>/dev/null
+    chmod 0644 "$LIVE" 2>/dev/null
+    mkdir -p "$WORK" 2>/dev/null && chown metin2:metin2 "$WORK" 2>/dev/null
+    if mkdir -p "$SPOOL" 2>/dev/null; then
+        chgrp m2spool "$SPOOL" 2>/dev/null && chmod 2770 "$SPOOL" 2>/dev/null
+        chgrp m2spool "$SPOOL"/* 2>/dev/null
+        chmod g+rw "$SPOOL"/* 2>/dev/null
+    fi
+    return 0
+}
+
+cmd_apply() {
+    [ -f "$IMAGE" ] || { say "no $IMAGE (m2-chests prepare did not run) -- chests left as the image has them"; return 0; }
+    mkdir -p "$WORK" 2>/dev/null
+
+    # The image's file, for the panel to show and edit.
+    if [ -d "$SPOOL" ] && ! cmp -s "$IMAGE" "$BASE_OUT"; then
+        cp "$IMAGE" "$BASE_OUT.new.$$" 2>/dev/null && chmod 0664 "$BASE_OUT.new.$$" 2>/dev/null \
+            && mv -f "$BASE_OUT.new.$$" "$BASE_OUT" 2>/dev/null || rm -f "$BASE_OUT.new.$$"
+    fi
+
+    if [ ! -s "$CUSTOM" ] || ! grep -q '^[[:blank:]]*Group[[:blank:]]' "$CUSTOM"; then
+        put_live "$IMAGE" || { say "could not write $LIVE"; return 1; }
+        write_status base 0 "" "no groups changed in the panel -- the image's chests are live"
+        return 0
+    fi
+
+    _sha=$(sha256sum "$CUSTOM" | cut -d' ' -f1)
+    _norm="$WORK/custom.norm"
+    # UTF-8 BOM and line ends: the package's file is CRLF, so is the result.
+    sed '1s/^\xEF\xBB\xBF//; s/\r$//' "$CUSTOM" > "$_norm" || return 1
+
+    # Layout: Group <name> / { / Vnum <n> / [Type <t>] / 1 2 3 ... / }.
+    # Prints "V <vnum>" per group and "I <vnum>" per item line, or "E <why>".
+    awk '
+    function err(m) { print "E line " NR ": " m; bad = 1; exit }
+    { sub(/[[:blank:]]+$/, "") }
+    /^[[:blank:]]*$/ || /^[[:blank:]]*#/ { next }
+    {
+        n = split($0, f, /[[:blank:]]+/); o = 0
+        if (f[1] == "") { for (i = 2; i <= n; i++) f[i - 1] = f[i]; n-- }
+        key = tolower(f[1])
+        if (state == 0) {
+            if (key != "group" || n < 2) err("expected Group <name>")
+            state = 1; vnum = ""; next_idx = 1; gtype = ""; next
+        }
+        if (state == 1) { if (f[1] != "{") err("expected {"); state = 2; next }
+        if (f[1] == "}") {
+            if (vnum == "") err("group without Vnum")
+            if (vnum in seen) err("Vnum " vnum " twice")
+            seen[vnum] = 1; print "V " vnum; state = 0; next
+        }
+        if (key == "vnum") { if (n < 2 || f[2] !~ /^[0-9]+$/) err("bad Vnum"); vnum = f[2]; next }
+        if (key == "type") { gtype = tolower(f[2]); if (gtype !~ /^(pct|quest|special|attr|normal)$/) err("bad Type " f[2]); next }
+        if (key == "effect") next
+        if (f[1] !~ /^[0-9]+$/) err("unexpected \"" f[1] "\"")
+        if (f[1] + 0 != next_idx) err("index " f[1] " where " next_idx " belongs")
+        if (next_idx > 1023) err("more than 1023 lines in a group")
+        next_idx++
+        if (gtype == "attr") { if (n < 3 || f[2] !~ /^[0-9]+$/ || f[3] !~ /^-?[0-9]+$/) err("bad attr line"); next }
+        if (n < 4) err("a line needs item, count and chance")
+        if (f[3] !~ /^-?[0-9]+$/ || f[4] !~ /^[0-9]+$/) err("count and chance must be whole numbers")
+        if (n >= 5 && f[5] !~ /^[0-9]+$/ && f[5] !~ /^--/) err("rare must be a whole number")
+        it = tolower(f[2])
+        if (it ~ /^[0-9]+$/) { print "I " it; next }
+        if (it ~ /^(exp|mob|slow|drain_hp|poison|bleeding|group|gold)$/) next
+        if (it ~ /^s[0-9]+$/) next
+        err("unknown item \"" f[2] "\"")
+    }
+    END { if (!bad && state != 0) { print "E the last group is not closed"; exit } }
+    ' "$_norm" > "$WORK/custom.check" 2>&1
+
+    _why=$(sed -n 's/^E //p' "$WORK/custom.check" | head -1)
+    if [ -n "$_why" ]; then
+        say "the panel's chest file was NOT used: $_why"
+        put_live "$IMAGE"
+        write_status rejected 0 "$_sha" "$_why"
+        return 0
+    fi
+    _groups=$(sed -n 's/^V //p' "$WORK/custom.check" | tr '\n' ' ')
+    _count=$(printf '%s' "$_groups" | wc -w | tr -d ' ')
+
+    # Every item has to exist, or the core stops at boot. Checked against the
+    # table the db core loads (PROTO_FROM_DB); when the database does not
+    # answer, the panel's own check (done at save) has to do.
+    _items=$(sed -n 's/^I //p' "$WORK/custom.check" | sort -un | tr '\n' ',' | sed 's/,$//')
+    if [ -n "$_items" ] && command -v mariadb >/dev/null 2>&1; then
+        if MYSQL_PWD="${M2_DB_PASSWORD:-}" mariadb -h "${M2_DB_HOST:-mariadb}" -P "${M2_DB_PORT:-3306}" \
+                -u "${M2_DB_USER:-metin2}" -N -B --connect-timeout=10 \
+                -e "SELECT vnum FROM player.item_proto${M2_TABLE_POSTFIX:-} WHERE vnum IN ($_items)" \
+                > "$WORK/items.found" 2>/dev/null; then
+            printf '%s\n' "$_items" | tr ',' '\n' | sort -u > "$WORK/items.wanted"
+            _missing=$(sort -u "$WORK/items.found" | comm -23 "$WORK/items.wanted" - | tr '\n' ' ')
+            if [ -n "$(printf '%s' "$_missing" | tr -d ' ')" ]; then
+                _why="no such item: $_missing"
+                say "the panel's chest file was NOT used: $_why"
+                put_live "$IMAGE"
+                write_status rejected 0 "$_sha" "$_why"
+                return 0
+            fi
+        else
+            say "could not check the item numbers against the database -- trusting the panel's check"
+        fi
+    fi
+
+    # The image's file without the replaced groups (a group runs from its
+    # "Group" line to its "}"; what lies between groups goes with them), then
+    # the operator's groups.
+    awk -v list=" $_groups " '
+    BEGIN { keep = 1 }
+    /^[[:blank:]]*Group[[:blank:]]/ { blk = ""; keep = 1 }
+    { blk = blk $0 "\n" }
+    {
+        line = $0; sub(/\r$/, "", line)
+        if (line ~ /^[[:blank:]]*[Vv][Nn][Uu][Mm][[:blank:]]+[0-9]+/) {
+            split(line, f, /[[:blank:]]+/); v = (f[1] == "" ? f[3] : f[2])
+            if (index(list, " " v " ")) keep = 0
+        }
+    }
+    /^[[:blank:]]*}/ { if (keep) printf "%s", blk; blk = ""; keep = 1 }
+    END { if (keep) printf "%s", blk }
+    ' "$IMAGE" > "$WORK/live.new" || { say "could not build the live file"; put_live "$IMAGE"; return 1; }
+    {
+        printf '\r\n# ---- MT2009_PLUS_CHEST_EDITOR_V1: groups changed in the Seban panel ----\r\n'
+        sed 's/$/\r/' "$_norm"
+    } >> "$WORK/live.new"
+
+    if ! put_live "$WORK/live.new"; then
+        say "could not write $LIVE -- chests left as they were"
+        write_status failed 0 "$_sha" "the game container could not write special_item_group.txt"
+        return 1
+    fi
+    say "chests from the panel applied: $_count group(s) ($_groups)"
+    write_status ok "$_count" "$_sha" "applied: $_groups"
+    return 0
+}
+
+case "${1:-}" in
+    prepare) cmd_prepare ;;
+    apply)   cmd_apply ;;
+    *) echo "usage: m2-chests prepare|apply"; exit 1 ;;
+esac

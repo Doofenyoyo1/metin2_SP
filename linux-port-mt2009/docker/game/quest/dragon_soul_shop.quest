@@ -1,0 +1,18 @@
+-- Dragon Soul / Alchemy: material shop, opened from the Alchemist NPC
+-- (20001), shop vnum 13. See dragon_soul.quest's own header comment for why
+-- `define` and "gameforge.*" were both replaced.
+--
+-- 17 September 2026 correction: shop vnum 12 (this file's original guess,
+-- made when no shop-definition data could be found anywhere in this
+-- server's tree) was wrong. Confirmed directly in the DB: `world.shop` has
+-- vnum=13, npc_vnum=20001, name="Alchemist" -- shop 13 was already
+-- registered (with 2 of its 9 items already in `shop_item`, likely from the
+-- original server data this deployment started from). Fixed to 13 to match.
+quest dragon_soul_shop begin
+	state start begin
+		when 20001.chat."Kup materialy Alchemika" with ds.is_qualified() begin
+			say("Oto moj sklep z materialami do Alchemii Smoczych Kamieni.")
+			npc.open_shop(13)
+		end
+	end
+end

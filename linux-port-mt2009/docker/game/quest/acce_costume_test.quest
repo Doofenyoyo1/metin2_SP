@@ -1,0 +1,33 @@
+-- SUPERSEDED 17 September 2026, later the same day -- no longer compiled
+-- (removed from linux-port/docker/game/Dockerfile's quest for-loop).
+--
+-- This quest's 2 chat options on NPC 20001 (Alchemist), combined with
+-- Dragon Soul's own 4 (dragon_soul + dragon_soul_refine + dragon_soul_shop)
+-- and whatever was already on that NPC before either system touched it,
+-- pushed that NPC's single combined chat menu (NPC::OnChat() concatenates
+-- every active "when 20001.chat" trigger from every quest into one
+-- "[QUESTION 1;opt|2;opt|...]" string, questnpc.cpp/questlua.cpp) past
+-- what the client renders as buttons -- confirmed live: the operator's own
+-- screenshot showed options 1-5 as real buttons and 6 onward (this quest's
+-- both options, plus dragon_soul_refine's) as raw unparsed "[QUESTION...]"
+-- text instead.
+--
+-- Replaced with a GM command instead of adding yet another NPC menu entry:
+-- `/acce c` (combine) / `/acce a` (absorb) -- game/src/cmd_gm.cpp's
+-- do_acce, calls CHARACTER::OpenAcce() directly, no NPC menu involved at
+-- all. See custom-patches/README.md's Szarfa section.
+--
+-- Left on disk, uncompiled, rather than deleted, in case the menu-overflow
+-- fix needs revisiting later.
+--
+-- quest acce_costume_test begin
+-- 	state start begin
+-- 		when 20001.chat."[TEST] Polacz szarfy" begin
+-- 			pc.open_acce(true)
+-- 		end
+--
+-- 		when 20001.chat."[TEST] Wchlon bonus szarfy" begin
+-- 			pc.open_acce(false)
+-- 		end
+-- 	end
+-- end

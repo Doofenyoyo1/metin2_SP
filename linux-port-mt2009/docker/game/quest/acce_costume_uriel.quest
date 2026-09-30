@@ -1,0 +1,33 @@
+-- Szarfa (COSTUME_ACCE) combine ("kombinacja") and absorb ("przechwytywanie
+-- bonusow") windows, moved onto Uriel (NPC 20011) as proper quest chat
+-- options -- operator's explicit request, 17 September 2026. Previously
+-- these were only reachable via the GM-only /acce c and /acce a commands
+-- (added earlier the same day after acce_costume_test.quest's own NPC menu
+-- options overflowed NPC 20001's combined chat menu, see custom-patches/
+-- README.md's ACCE section) -- those GM commands stay in place unchanged,
+-- this quest adds a real player-facing path alongside them.
+--
+-- Uses pc.open_acce(bool), an existing Lua binding (questlua_pc.cpp,
+-- ALUA(pc_open_acce), gated ENABLE_ACCE_COSTUME_SYSTEM, already on) that
+-- calls CHARACTER::OpenAcce() directly -- the exact same C++ entry point
+-- the GM commands use. No new C++ was written for this quest.
+--
+-- NPC 20011 (Uriel) had exactly one other quest touching it before this
+-- (new_quest_lv19.quest, two mutually-exclusive per-player states of the
+-- same killanimals chat trigger) -- confirmed via grep across game/quest/
+-- before adding this, to stay well clear of the menu-overflow bug found and
+-- fixed for NPC 20001 earlier the same day.
+quest acce_costume_uriel begin
+	state start begin
+		when 20011.chat."Polacz Szarfy" begin
+			say_title(mob_name(20011))
+			say("Przynies dwie Szarfy tego samego stopnia, a polacze je w jedna, silniejsza.")
+			pc.open_acce(true)
+		end
+		when 20011.chat."Przechwyc bonus do Szarfy" begin
+			say_title(mob_name(20011))
+			say("Przynies Szarfe oraz przedmiot, z ktorego chcesz przechwycic bonus.")
+			pc.open_acce(false)
+		end
+	end
+end

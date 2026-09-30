@@ -1,0 +1,155 @@
+-- Costume bonus transfer at the blacksmith (NPC 20016) -- GF26 pack
+-- GF26_MOUNT_SPEED_COSTUME_BONUS_SERVER_AGENT_20260923, custom-patches/
+-- gf26_costume_bonus. One transfer uses one "Transfer bonusow" (70065,
+-- ITEM_QUEST reagent; the client has no ITEM_MEDIUM / item combination).
+--
+-- The player picks a source costume (destroyed) and a target costume of the
+-- same kind (BODY / HAIR / WEAPON, kept), sees both names and a warning, and
+-- confirms. The quest only chooses; pc.transfer_costume_attributes() (C++,
+-- questlua_pc.cpp) re-checks ownership, bag position, kind, bonuses, the
+-- reagent and every blocking window, and does the whole transfer in one call.
+-- Nothing is stored in quest flags: closing the dialog, logging out, a
+-- teleport or a channel change simply forgets the choice.
+quest costume_bonus_transfer begin
+	state start begin
+		function kind_name(subtype)
+			if subtype == 0 then
+				return "kostium"
+			elseif subtype == 1 then
+				return "fryzura"
+			elseif subtype == 4 then
+				return "naklada na bron"
+			end
+			return "inny"
+		end
+
+		-- Paged choice from a list of pc.get_costume_list() entries.
+		-- Returns the chosen entry, or nil when the player cancels.
+		function pick(title, list)
+			local per = 6
+			local n = table.getn(list)
+			local pages = math.ceil(n / per)
+			local page = 1
+			while true do
+				local opts = {}
+				local map = {}
+				local last = math.min(page * per, n)
+				for i = (page - 1) * per + 1, last do
+					local e = list[i]
+					table.insert(opts, string.format("%s (%s, bonusy: %d)", e.name, costume_bonus_transfer.kind_name(e.subtype), e.attr))
+					table.insert(map, e)
+				end
+				local next_idx = -1
+				local prev_idx = -1
+				if page < pages then
+					table.insert(opts, "Nastepna strona")
+					next_idx = table.getn(opts)
+				end
+				if page > 1 then
+					table.insert(opts, "Poprzednia strona")
+					prev_idx = table.getn(opts)
+				end
+				table.insert(opts, "Anuluj")
+				local cancel_idx = table.getn(opts)
+				say_title(mob_name(20016))
+				say(title)
+				say(string.format("Strona %d z %d", page, pages))
+				local s = select_table(opts)
+				if s == next_idx then
+					page = page + 1
+				elseif s == prev_idx then
+					page = page - 1
+				elseif s == cancel_idx or s == nil or s < 1 or s > table.getn(map) then
+					return nil
+				else
+					return map[s]
+				end
+			end
+		end
+
+		when 20016.chat."Transfer bonusow kostiumu" begin
+			say_title(mob_name(20016))
+			if pc.count_item(70065) < 1 then
+				say("Do przeniesienia bonusow z jednego kostiumu na drugi")
+				say("potrzebujesz przedmiotu:")
+				say_item_vnum(70065)
+				say("Jeden transfer zuzywa jedna sztuke.")
+				return
+			end
+
+			local all = pc.get_costume_list()
+			local sources = {}
+			for i = 1, table.getn(all) do
+				if all[i].attr > 0 then
+					table.insert(sources, all[i])
+				end
+			end
+			if table.getn(sources) == 0 then
+				say("Nie masz w ekwipunku kostiumu, fryzury ani nakladki")
+				say("na bron z bonusami. Zdejmij przedmiot, jesli jest")
+				say("zalozony - przenosze tylko z rzeczy lezacych w plecaku.")
+				return
+			end
+
+			local src = costume_bonus_transfer.pick("Wybierz przedmiot ZRODLOWY.[ENTER]Ten przedmiot zostanie ZNISZCZONY, a jego bonusy przejda na drugi.", sources)
+			if src == nil then
+				return
+			end
+
+			local targets = {}
+			for i = 1, table.getn(all) do
+				if all[i].subtype == src.subtype and all[i].id != src.id then
+					table.insert(targets, all[i])
+				end
+			end
+			if table.getn(targets) == 0 then
+				say_title(mob_name(20016))
+				say(string.format("Nie masz w plecaku drugiego przedmiotu tego samego rodzaju (%s).", costume_bonus_transfer.kind_name(src.subtype)))
+				say("Bonusy mozna przeniesc tylko: kostium na kostium,")
+				say("fryzure na fryzure, nakladke na nakladke.")
+				return
+			end
+
+			local dst = costume_bonus_transfer.pick("Wybierz przedmiot DOCELOWY.[ENTER]Zachowasz go, a jego obecne bonusy zostana zastapione bonusami zrodla.", targets)
+			if dst == nil then
+				return
+			end
+
+			say_title(mob_name(20016))
+			say_reward("Zrodlo (zostanie zniszczone):")
+			say(src.name)
+			say_reward("Cel (otrzyma bonusy zrodla):")
+			say(dst.name)
+			say("")
+			say_reward("UWAGA: przedmiot zrodlowy przepadnie bezpowrotnie,")
+			say_reward("a obecne bonusy celu zostana nadpisane.")
+			say("Zuzyjesz 1x Transfer bonusow.")
+			if select("Tak, przenies bonusy", "Anuluj") != 1 then
+				return
+			end
+
+			local r = pc.transfer_costume_attributes(src.id, dst.id)
+			say_title(mob_name(20016))
+			if r == 0 then
+				say("Gotowe. Bonusy zostaly przeniesione, a przedmiot")
+				say("zrodlowy i jeden Transfer bonusow zostaly zuzyte.")
+			elseif r == 1 then
+				say("Nie moge teraz pracowac - zamknij handel, sklep,")
+				say("magazyn lub inne okno i sprobuj ponownie.")
+			elseif r == 4 then
+				say("Oba przedmioty musza byc tego samego rodzaju")
+				say("(kostium, fryzura albo nakladka na bron).")
+			elseif r == 5 then
+				say("Przedmiot zrodlowy nie ma juz zadnych bonusow.")
+			elseif r == 6 then
+				say("Nie masz juz przedmiotu Transfer bonusow.")
+			else
+				say("Jeden z wybranych przedmiotow nie lezy juz w Twoim")
+				say("plecaku (zostal zalozony, przeniesiony lub wymieniony).")
+			end
+			if r != 0 then
+				say("Transfer sie nie udal - nic nie zostalo zniszczone.")
+			end
+		end
+	end
+end

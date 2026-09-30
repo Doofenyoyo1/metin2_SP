@@ -5,25 +5,15 @@
 -- (ManagePlayerBotExpLock); the client shows its icon, and a right click on it
 -- takes it off (the stock affect_remove.quest). The ring was the package's
 -- unused "Pierscien Levi" (migratorify.py renames it). Bots never come here.
--- Polish or English as the player's client asked (playerbot_lang.quest).
 quest antiexp_ring begin
     state start begin
-        function t(pl, en)
-            if pc.getf("playerbot_lang", "en") == 1 then
-                return en
-            end
-            return pl
-        end
-
         when 40002.use begin
             if pc.has_affect(310) then
                 affect.remove_new(310)
-                syschat(antiexp_ring.t("Pierscien Anty-Exp: doswiadczenie znowu wlaczone.",
-                    "Anti-Exp Ring: experience is on again."))
+                syschat("Pierscien Anty-Exp: doswiadczenie znowu wlaczone.")
             else
                 affect.add_new(310, 0, 0, 60 * 365 * 24 * 3600, 0, true)
-                syschat(antiexp_ring.t("Pierscien Anty-Exp: nie dostajesz doswiadczenia (uzyj ponownie, by wlaczyc).",
-                    "Anti-Exp Ring: you get no experience (use it again to turn it back on)."))
+                syschat("Pierscien Anty-Exp: nie dostajesz doswiadczenia (uzyj ponownie, by wlaczyc).")
             end
         end
     end

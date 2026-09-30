@@ -1,0 +1,84 @@
+-- MT2009_PLUS_OCHAO_V1: Swiatynia Ochao (Temple of Ochao, map 209), the
+-- "Version 16.2" package's temple_of_the_ochao.lua made ours:
+--  * Straznik Swiatyni (20426 - the package's 20408 is this world's Friendly
+--    Monkey) stands beside Koe-Pung in Orc Valley and, as in the package, in
+--    Dawnmistwood; from level 95 he takes a character to the temple's gate;
+--  * the Portal (20415) opens for a minute where the En-Tai Guardian (6400)
+--    fell (playerbot_ochao.h). The package sent it to the Enchanted Forest
+--    (map 210), which this world does not have yet: here it is the way out;
+--  * the Ochao Bodyguard (6311) gives the package's reward list, with the
+--    Arboreal materials and the Lycan armour mapped to this world's items:
+--    30609 -> 30015 Pamiatka Po Demonie, 30612 -> 30082 Ogon Weza+,
+--    21075 (Lycan) left out.
+-- The package's "when login ... temple_ochao.initialize()" is not needed: the
+-- Guardian starts with the core. Bots never come here.
+quest temple_of_the_ochao begin
+	state start begin
+		function min_level()
+			return 95
+		end
+
+		when 20426.chat."Swiatynia Ochao" begin
+			say_title(mob_name(20426)..":")
+			say("Za tymi gorami lezy Swiatynia Ochao. Jej wojownicy")
+			say("i magowie strzega swiatyni dzien i noc, a po jej")
+			say("komnatach krazy Straznik En-Tai, ktory co chwile")
+			say("zmienia miejsce. Pokonaj go, a na chwile otworzy")
+			say("sie w tym miejscu portal.")
+			say("")
+			if pc.get_level() < temple_of_the_ochao.min_level() then
+				say(string.format("Wpuszczam tylko wojownikow od %d poziomu.", temple_of_the_ochao.min_level()))
+				say("Wroc, gdy bedziesz silniejszy.")
+				return
+			end
+			say("Czy chcesz, abym zaprowadzil cie do Swiatyni?")
+			local s = select("Tak, prowadz", "Nie teraz")
+			if s == 1 then
+				if not pc.can_warp() then
+					say_title(mob_name(20426)..":")
+					say("Zakoncz najpierw handel i odczekaj chwile.")
+					return
+				end
+				pc.warp(853700, 1416400)
+			end
+		end
+
+		when 20415.chat."Opusc Swiatynie" with pc.get_map_index() == 209 begin
+			say_title(mob_name(20415))
+			say("Portal pozostawiony przez Straznika En-Tai drga")
+			say("jeszcze przez chwile. Prowadzi z powrotem do")
+			say("Doliny Orkow.")
+			say("")
+			say("(Zaczarowany Las, do ktorego wiodl kiedys, nie")
+			say("jest jeszcze otwarty.)")
+			say("")
+			local s = select("Przejdz przez portal", "Zostan w Swiatyni")
+			if s == 1 then
+				if not pc.can_warp() then
+					say("Zakoncz najpierw handel i odczekaj chwile.")
+					return
+				end
+				pc.warp(284700, 810600)
+			end
+		end
+
+		when 6311.kill with pc.get_level() >= 95 begin
+			local drop = {
+				{2145, 1, 60},	-- Olbrz. Luk Zolt. Smoka+5
+				{11295, 1, 55},	-- Zbroja Z Czarnej Stali+5
+				{11495, 1, 55},	-- Ubranie Czarn. Wiatru+5
+				{11695, 1, 55},	-- Zbr. Plyt. Czar. Magii+5
+				{11895, 1, 55},	-- Czarna Szata+5
+				{70043, 1, 45},	-- Rekawica Zlodzieja
+				{30015, 1, 15},	-- Pamiatka Po Demonie (za 30609)
+				{30082, 1, 15},	-- Ogon Weza+ (za 30612)
+				{30523, 1, 40},	-- Element Ozdoby
+			}
+			for i = 1, table.getn(drop) do
+				if number(1, 100) <= drop[i][3] then
+					game.drop_item_with_ownership(drop[i][1], drop[i][2], 300)
+				end
+			end
+		end
+	end
+end

@@ -1,0 +1,265 @@
+#!/bin/sh
+# =============================================================================
+#  m2-drops -- what the monsters, Metin stones and bosses drop, as the Seban
+#  panel's "Drop z potworów" page saved it (MT2009_PLUS_DROP_EDITOR_V1).
+#
+#  mob_drop_item.txt lives in the image (the Dockerfile builds it from the
+#  package's file plus our own appends: the M3 weapon ladder, the guild
+#  materials, Ochao, the dungeons...) and every core reads it once, while it
+#  boots (input_db.cpp -> ITEM_MANAGER::ReadMonsterDropItemGroup). A server
+#  update ships a new image and with it a new file, so an edit made in the
+#  image would be lost on the next update.
+#
+#  The panel therefore writes only the groups the operator changed - whole
+#  groups, one per monster and kind (Type drop / kill / limit / thiefgloves) -
+#  into the spool volume both containers share:
+#      $SPOOL/drops/mob_drop_item.custom.txt
+#  and before the cores boot (m2-supervise, boot_cores) `apply' rebuilds the
+#  live file: the image's file (with all of its appends) minus every group of
+#  the same monster AND the same kind, then the operator's groups. A group
+#  with no item lines means "this monster has none of this kind" - the image's
+#  groups are cut out and nothing is added.
+#  The panel reads the image's file back from $SPOOL/drops/mob_drop_item.base.txt
+#  (and, to show them read-only, common_drop_item.base.txt and
+#  etc_drop_item.base.txt), and how the last apply went from $SPOOL/drops/status.
+#
+#  What stops a core at boot (checked here, before anything is used):
+#    * a Group line with more than one word after it (the loader exit()s),
+#    * a key without a value (the loader stops reading the file there),
+#    * a missing Type/Mob, an unknown Type, kill without kill_drop, limit
+#      without level_limit,
+#    * an item that is not in item_proto, a count below 1, a kill line
+#      without its fourth (rare) number (std::out_of_range) or with chance 0.
+#  A file that fails any of that is not used at all: the cores boot with the
+#  image's drops and the panel is told why.
+#
+#  Subcommands
+#      prepare   as root, at container start: keep the image's file, make the
+#                live one writable by the service account, the spool folder
+#      apply     rebuild the live file (run by m2-supervise before a boot)
+# =============================================================================
+set -u
+LC_ALL=C
+export LC_ALL
+
+SHARE_DIR="${M2_SHARE_DIR:-/opt/metin2/share}"
+VAR_DIR="${M2_VAR_DIR:-/opt/metin2/var}"
+LOCALE_DIR="$SHARE_DIR/locale/${M2_LOCALE_NAME:-poland}"
+SPOOL="${M2_RATES_SPOOL:-/opt/m2spool}/drops"
+
+LIVE="$LOCALE_DIR/mob_drop_item.txt"
+IMAGE="$LOCALE_DIR/mob_drop_item.image.txt"
+CUSTOM="$SPOOL/mob_drop_item.custom.txt"
+BASE_OUT="$SPOOL/mob_drop_item.base.txt"
+STATUS="$SPOOL/status"
+WORK="$VAR_DIR/drops"
+
+say() { printf '%s [drops] %s\n' "$(date -u '+%Y-%m-%d %H:%M:%SZ')" "$1"; }
+
+write_status() { # write_status STATE GROUPS SHA MESSAGE
+    _tmp="$STATUS.new.$$"
+    { printf 'state=%s\n' "$1"
+      printf 'time=%s\n' "$(date +%s 2>/dev/null)"
+      printf 'groups=%s\n' "$2"
+      printf 'sha=%s\n' "$3"
+      printf 'message=%s\n' "$4"
+    } > "$_tmp" 2>/dev/null || { rm -f "$_tmp"; return 1; }
+    chmod 0664 "$_tmp" 2>/dev/null
+    mv -f "$_tmp" "$STATUS" 2>/dev/null || rm -f "$_tmp"
+    return 0
+}
+
+# publish SOURCE NAME -- a read-only copy of an image file for the panel.
+publish() {
+    [ -d "$SPOOL" ] && [ -f "$1" ] || return 0
+    cmp -s "$1" "$SPOOL/$2" && return 0
+    cp "$1" "$SPOOL/$2.new.$$" 2>/dev/null && chmod 0664 "$SPOOL/$2.new.$$" 2>/dev/null \
+        && mv -f "$SPOOL/$2.new.$$" "$SPOOL/$2" 2>/dev/null || rm -f "$SPOOL/$2.new.$$"
+}
+
+# The live file is rewritten in place: the locale folder belongs to root, the
+# file itself to the service account (prepare).
+put_live() { # put_live SOURCE
+    cmp -s "$1" "$LIVE" && return 0
+    cat "$1" > "$LIVE"
+}
+
+cmd_prepare() {
+    [ -f "$LIVE" ] || { say "no $LIVE -- nothing to prepare"; return 0; }
+    # The first start of a container: the file is still the image's (a new
+    # image means a new container, so an update always brings its own file).
+    [ -f "$IMAGE" ] || cp -p "$LIVE" "$IMAGE" || return 1
+    chown metin2:metin2 "$LIVE" 2>/dev/null
+    chmod 0644 "$LIVE" 2>/dev/null
+    mkdir -p "$WORK" 2>/dev/null && chown metin2:metin2 "$WORK" 2>/dev/null
+    if mkdir -p "$SPOOL" 2>/dev/null; then
+        chgrp m2spool "$SPOOL" 2>/dev/null && chmod 2770 "$SPOOL" 2>/dev/null
+        chgrp -R m2spool "$SPOOL"/* 2>/dev/null
+        chmod g+rw "$SPOOL"/* 2>/dev/null
+    fi
+    return 0
+}
+
+cmd_apply() {
+    [ -f "$IMAGE" ] || { say "no $IMAGE (m2-drops prepare did not run) -- drops left as the image has them"; return 0; }
+    mkdir -p "$WORK" 2>/dev/null
+
+    # The image's files, for the panel to show and edit.
+    publish "$IMAGE" mob_drop_item.base.txt
+    publish "$LOCALE_DIR/common_drop_item.txt" common_drop_item.base.txt
+    publish "$LOCALE_DIR/etc_drop_item.txt" etc_drop_item.base.txt
+
+    if [ ! -s "$CUSTOM" ] || ! grep -qi '^[[:blank:]]*Group[[:blank:]]' "$CUSTOM"; then
+        put_live "$IMAGE" || { say "could not write $LIVE"; return 1; }
+        write_status base 0 "" "no drop groups changed in the panel -- the image's drops are live"
+        return 0
+    fi
+
+    _sha=$(sha256sum "$CUSTOM" | cut -d' ' -f1)
+    _norm="$WORK/custom.norm"
+    sed '1s/^\xEF\xBB\xBF//; s/\r$//' "$CUSTOM" > "$_norm" || return 1
+
+    # Checks the layout the way CTextFileLoader + ReadMonsterDropItemGroup
+    # read it. Prints "K <mob>:<type>" per group, "I <vnum>" per item and
+    # "E <why>" on the first problem; the groups that have item lines go to
+    # custom.keep (the ones without only cut the image's groups out).
+    awk -v keep="$WORK/custom.keep" '
+    function err(m) { print "E line " NR ": " m; bad = 1; exit }
+    function isint(s) { return s ~ /^[0-9]+$/ }
+    function isnum(s) { return s ~ /^[0-9]+(\.[0-9]+)?$/ || s ~ /^\.[0-9]+$/ }
+    { sub(/[[:blank:]]+$/, "") }
+    /^[[:blank:]]*$/ || /^[[:blank:]]*(#|--|\/\/)/ { if (state == 2) blk = blk $0 "\n"; next }
+    {
+        n = split($0, f, /[[:blank:]]+/)
+        if (f[1] == "") { for (i = 2; i <= n; i++) f[i - 1] = f[i]; n-- }
+        # "--" starts a comment anywhere on a line (the loader keeps it as
+        # extra words, which the reader never looks at).
+        for (i = 1; i <= n; i++) if (f[i] ~ /^--/) { n = i - 1; break }
+        key = tolower(f[1])
+        if (state == 0) {
+            if (key != "group") err("expected Group <name>")
+            if (n != 2) err("a Group line takes exactly one name without spaces (the core exits otherwise)")
+            state = 1; mob = ""; type = ""; kd = ""; ll = ""; next_idx = 1; blk = $0 "\n"; next
+        }
+        if (state == 1) { if (f[1] != "{") err("expected {"); state = 2; blk = blk $0 "\n"; next }
+        if (f[1] == "}") {
+            if (mob == "") err("group without Mob")
+            if (type == "") err("group without Type")
+            if (type == "kill" && kd == "") err("a kill group needs kill_drop")
+            if (type == "limit" && ll == "") err("a limit group needs level_limit")
+            k = mob ":" type
+            if (k in seen) err("Mob " mob " Type " type " twice")
+            seen[k] = 1; print "K " k
+            blk = blk $0 "\n"
+            if (next_idx > 1) printf "%s", blk > keep
+            state = 0; next
+        }
+        blk = blk $0 "\n"
+        if (n < 2) err("\"" f[1] "\" without a value (the loader stops reading the file there)")
+        if (key == "mob") { if (!isint(f[2]) || f[2] + 0 < 1) err("bad Mob"); mob = f[2] + 0; next }
+        if (key == "type") {
+            if (f[2] !~ /^(drop|kill|limit|thiefgloves)$/) err("bad Type " f[2] " (drop, kill, limit, thiefgloves - lower case)")
+            type = f[2]; next
+        }
+        if (key == "kill_drop") { if (!isint(f[2]) || f[2] + 0 < 1) err("kill_drop must be 1 or more"); kd = f[2]; next }
+        if (key == "level_limit") { if (!isint(f[2])) err("bad level_limit"); ll = f[2]; next }
+        if (!isint(f[1])) err("unexpected \"" f[1] "\"")
+        if (type == "") err("Type must come before the item lines")
+        if (f[1] + 0 != next_idx) err("index " f[1] " where " next_idx " belongs")
+        if (next_idx > 255) err("more than 255 lines in a group")
+        next_idx++
+        if (n < 4) err("a line needs item, count and chance")
+        it = f[2]
+        if (it ~ /^s[0-9]+$/) { if (type != "drop") err("s<group> only works in a drop group") }
+        else if (isint(it)) print "I " it
+        else err("unknown item \"" it "\"")
+        if (!isint(f[3]) || f[3] + 0 < 1) err("count must be a whole number, 1 or more")
+        if (type == "kill") {
+            if (!isint(f[4]) || f[4] + 0 < 1) err("a kill line needs a whole-number weight, 1 or more")
+            if (n < 5 || !isint(f[5])) err("a kill line needs its rare number (0-100) as the fourth value")
+        } else if (!isnum(f[4])) err("chance must be a number (e.g. 4 or 0.5)")
+    }
+    END { if (!bad && state != 0) print "E the last group is not closed" }
+    ' "$_norm" > "$WORK/custom.check" 2>&1
+    : >> "$WORK/custom.keep"
+
+    _why=$(sed -n 's/^E //p' "$WORK/custom.check" | head -1)
+    if [ -n "$_why" ]; then
+        say "the panel's drop file was NOT used: $_why"
+        put_live "$IMAGE"
+        write_status rejected 0 "$_sha" "$_why"
+        rm -f "$WORK/custom.keep"
+        return 0
+    fi
+    _keys=$(sed -n 's/^K //p' "$WORK/custom.check" | tr '\n' ' ')
+    _count=$(printf '%s' "$_keys" | wc -w | tr -d ' ')
+
+    # Every item has to exist, or the core stops at boot. Checked against the
+    # table the db core loads; when the database does not answer, the panel's
+    # own check (done at save) has to do.
+    _items=$(sed -n 's/^I //p' "$WORK/custom.check" | sort -un | tr '\n' ',' | sed 's/,$//')
+    if [ -n "$_items" ] && command -v mariadb >/dev/null 2>&1; then
+        if MYSQL_PWD="${M2_DB_PASSWORD:-}" mariadb -h "${M2_DB_HOST:-mariadb}" -P "${M2_DB_PORT:-3306}" \
+                -u "${M2_DB_USER:-metin2}" -N -B --connect-timeout=10 \
+                -e "SELECT vnum FROM player.item_proto${M2_TABLE_POSTFIX:-} WHERE vnum IN ($_items)" \
+                > "$WORK/items.found" 2>/dev/null; then
+            printf '%s\n' "$_items" | tr ',' '\n' | sort -u > "$WORK/items.wanted"
+            _missing=$(sort -u "$WORK/items.found" | comm -23 "$WORK/items.wanted" - | tr '\n' ' ')
+            if [ -n "$(printf '%s' "$_missing" | tr -d ' ')" ]; then
+                _why="no such item: $_missing"
+                say "the panel's drop file was NOT used: $_why"
+                put_live "$IMAGE"
+                write_status rejected 0 "$_sha" "$_why"
+                rm -f "$WORK/custom.keep"
+                return 0
+            fi
+        else
+            say "could not check the item numbers against the database -- trusting the panel's check"
+        fi
+    fi
+
+    # The image's file without the groups of the same monster and kind (a
+    # group runs from its "Group" line to its "}"; what lies between groups
+    # is kept), then the operator's groups.
+    awk -v list=" $_keys " -v cutlog="$WORK/cut.log" '
+    {
+        line = $0; sub(/\r$/, "", line)
+        t = line; sub(/^[[:blank:]]+/, "", t); split(t, f, /[[:blank:]]+/); k = tolower(f[1])
+    }
+    !ing {
+        if (k == "group") { ing = 1; blk = $0 "\n"; mob = ""; typ = ""; next }
+        print; next
+    }
+    { blk = blk $0 "\n" }
+    k == "mob" { mob = f[2] + 0 }
+    k == "type" { typ = f[2] }
+    substr(t, 1, 1) == "}" {
+        if (index(list, " " mob ":" typ " ")) print mob ":" typ > cutlog
+        else printf "%s", blk
+        ing = 0; blk = ""
+    }
+    END { if (ing) printf "%s", blk }
+    ' "$IMAGE" > "$WORK/live.new" || { say "could not build the live file"; put_live "$IMAGE"; return 1; }
+    _cut=$(wc -l < "$WORK/cut.log" 2>/dev/null | tr -d ' '); rm -f "$WORK/cut.log"
+    {
+        [ -z "$(tail -c 1 "$WORK/live.new")" ] || printf '\r\n'
+        printf '\r\n# ---- MT2009_PLUS_DROP_EDITOR_V1: groups changed in the Seban panel ----\r\n'
+        sed 's/$/\r/' "$WORK/custom.keep"
+    } >> "$WORK/live.new"
+    rm -f "$WORK/custom.keep"
+
+    if ! put_live "$WORK/live.new"; then
+        say "could not write $LIVE -- drops left as they were"
+        write_status failed 0 "$_sha" "the game container could not write mob_drop_item.txt"
+        return 1
+    fi
+    say "drops from the panel applied: $_count group(s) ($_keys), ${_cut:-0} image group(s) replaced"
+    write_status ok "$_count" "$_sha" "applied: $_keys(${_cut:-0} image groups replaced)"
+    return 0
+}
+
+case "${1:-}" in
+    prepare) cmd_prepare ;;
+    apply)   cmd_apply ;;
+    *) echo "usage: m2-drops prepare|apply"; exit 1 ;;
+esac

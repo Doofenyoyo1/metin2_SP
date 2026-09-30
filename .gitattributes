@@ -22,3 +22,16 @@
 *.ico binary
 *.zip binary
 *.gz  binary
+
+# MT2009 PLUS's game data, byte for byte as it ships them (CRLF): the engine's
+# map, regen and motion readers have only ever been run on these bytes.
+linux-port-mt2009/docker/game/dungeons/** -text
+linux-port-mt2009/docker/game/ochao/** -text
+linux-port-mt2009/docker/game/treasure_hunt/** -text
+linux-port-mt2009/docker/game/costume_sets.txt -text
+linux-port-mt2009/docker/game/dragon_soul_applys.mt2009plus.txt -text
+linux-port-mt2009/docker/game/special_item_group.cors.txt -text
+linux-port-mt2009/docker/game/special_item_group.dungeons.txt -text
+linux-port-mt2009/docker/game/special_item_group.goblin.txt -text
+linux-port-mt2009/docker/mariadb/playerbot/*.mt2009plus.sql -text
+linux-port-mt2009/docker/mariadb/playerbot/mod/*.sql -text

@@ -1,0 +1,16 @@
+-- Ah-Yu (NPC 20003) costume shop, vnum 14 -- operator's explicit request,
+-- 17 September 2026. See custom-patches/ah_yu_costume_shop_seed.sql for the
+-- shop/shop_item/price setup this opens.
+--
+-- NPC 20003 had no quest referencing it at all before this (confirmed via
+-- grep across game/quest/ before adding), so there is no menu-overflow risk
+-- like NPC 20001 had.
+quest ah_yu_shop begin
+	state start begin
+		when 20003.chat."Kup kostiumy i nakladki" begin
+			say_title(mob_name(20003))
+			say("Kostiumy, fryzury i nakladki na bron -- wszystko po 1 yangu.")
+			npc.open_shop(14)
+		end
+	end
+end

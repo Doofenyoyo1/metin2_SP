@@ -1,0 +1,26 @@
+# MT2009_PLUS_GOBLIN_V1 (money pouch): the Sakiewka Pieniedzy (50023), the Goblin board's
+# last slot (playerbot_goblin.h), gives 1 000 000 - 10 000 000 yang, every half million
+# equally likely (the owner, 29 September; the stock group gave 10 000 - 50 000).
+Group	mt2009_sakiewka_pieniedzy
+{
+	Vnum	50023 -- Sakiewka Pieniedzy
+	1	gold	1000000	1 -- 1 000 000 yang
+	2	gold	1500000	1 -- 1 500 000 yang
+	3	gold	2000000	1 -- 2 000 000 yang
+	4	gold	2500000	1 -- 2 500 000 yang
+	5	gold	3000000	1 -- 3 000 000 yang
+	6	gold	3500000	1 -- 3 500 000 yang
+	7	gold	4000000	1 -- 4 000 000 yang
+	8	gold	4500000	1 -- 4 500 000 yang
+	9	gold	5000000	1 -- 5 000 000 yang
+	10	gold	5500000	1 -- 5 500 000 yang
+	11	gold	6000000	1 -- 6 000 000 yang
+	12	gold	6500000	1 -- 6 500 000 yang
+	13	gold	7000000	1 -- 7 000 000 yang
+	14	gold	7500000	1 -- 7 500 000 yang
+	15	gold	8000000	1 -- 8 000 000 yang
+	16	gold	8500000	1 -- 8 500 000 yang
+	17	gold	9000000	1 -- 9 000 000 yang
+	18	gold	9500000	1 -- 9 500 000 yang
+	19	gold	10000000	1 -- 10 000 000 yang
+}

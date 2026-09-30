@@ -1,0 +1,19 @@
+-- Dragon Soul / Alchemy: refine window (grade/step/strength) and attribute-
+-- change window, both opened from the same Alchemist NPC (20001). See
+-- dragon_soul.quest's own header comment for why `define` and
+-- "gameforge.*" were both replaced (this qc does not read `define`; the
+-- gameforge locale mechanism could not be found anywhere in this codebase).
+quest dragon_soul_refine begin
+	state start begin
+		when 20001.chat."Uszlachetnij Dusze Smoka" with ds.is_qualified() != 0 begin
+			say_title(mob_name(20001))
+			say("Przynies Dusze Smoka i odpowiednie materialy, a je uszlachetnie.")
+			ds.open_refine_window()
+		end
+		when 20001.chat."Zmien wlasciwosci Duszy Smoka" with ds.is_qualified() != 0 begin
+			say_title(mob_name(20001))
+			say("Zmiana wlasciwosci dziala tylko na Duszach Smoka stopnia Mitycznego.")
+			ds.open_changeattr_window()
+		end
+	end
+end
