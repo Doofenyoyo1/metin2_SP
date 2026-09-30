@@ -8,9 +8,19 @@
 -- home with it through TransitionPlayerBotMap, not through UseItem.
 quest teleport_ring begin
     state start begin
+        function low_level()
+            local low = {64, 61, get_player_map3_index(), 63}
+            if game.get_event_flag("mt2009_arezzo_closed") == 0 then
+                table.insert(low, 360)
+                table.insert(low, 361) -- Pustkowie Faraona (MT2009_PLUS_AREZZO_V1, phase 8)
+            end
+            return low
+        end
+
         function data()
             return {
-                low_level = {64, 61, get_player_map3_index(), 63},
+                -- MT2009_PLUS_AREZZO_V1: Dolina Cyklopow (360), as at the Teleporter (quest/map_warp.quest)
+                low_level = teleport_ring.low_level(),
                 high_level = {66, 67, 68, 62},
                 outside_city = {get_player_map1_index(), get_player_map2_index()},
             }

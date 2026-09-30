@@ -56,6 +56,10 @@ namespace playerbot_persona
 		PERSONA_HAZ_STARSZY,
 		PERSONA_HAZ_NACZELNY,
 		PERSONA_HAZ_SZALONY,
+		// MT2009_PLUS_BOTLIFE_V1: Baek-Go's herbalist, the Gornik's sibling -
+		// a bot at the herbal board the way the Gornik is one at a vein.
+		// Appended like the rest; its title is PERSONA_TITLE_BASE + 19.
+		PERSONA_ZIELARZ,
 		PERSONA_COUNT
 	};
 
@@ -1488,6 +1492,8 @@ namespace playerbot_persona
 		bool hired;
 		bool fishing;
 		bool mining;
+		// MT2009_PLUS_BOTLIFE_V1: on its way to Baek-Go's board or at it.
+		bool herbalism;
 		bool stoneFight;
 		bool gambling;
 		bool perfecting;
@@ -1496,7 +1502,7 @@ namespace playerbot_persona
 		// A rare personality running now (its EPersona id), or 0.
 		uint8_t rare;
 		TPersonaSignals() : mercenary(false), inParty(false), hired(false), fishing(false), mining(false),
-			stoneFight(false), gambling(false), perfecting(false), trading(false), advanced(false), rare(0) {}
+			herbalism(false), stoneFight(false), gambling(false), perfecting(false), trading(false), advanced(false), rare(0) {}
 	};
 
 	inline uint8_t DecidePersona(const TPersonaSignals& s)
@@ -1514,6 +1520,8 @@ namespace playerbot_persona
 			return PERSONA_RYBAK;
 		if (s.mining)
 			return PERSONA_GORNIK;
+		if (s.herbalism)
+			return PERSONA_ZIELARZ;
 		if (s.stoneFight)
 			return PERSONA_POGROMCA;
 		if (s.gambling)

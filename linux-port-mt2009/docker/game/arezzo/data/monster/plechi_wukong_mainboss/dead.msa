@@ -1,0 +1,37 @@
+ScriptType               MotionData
+
+MotionFileName           "D:\ymir work\monster2\plechito_wukong\plechi_wukong_mainboss\dead.GR2"
+MotionDuration           0.666667
+Accumulation             0.00	0.00	0.00
+
+
+Group MotionEventData
+{
+    MotionEventDataCount     3
+    Group Event00
+    {
+        MotionEventType      1
+        StartingTime         0.000000
+        
+        IndependentFlag      0
+        AttachingEnable      0
+        AttachingBoneName    "Root"
+        FollowingEnable      0
+        EffectFileName       "d:/ymir work/effect/plechito/monster/wukong/main_boss_dead_eff.mse"
+        EffectPosition       0.000000 0.000000 150.000000
+    }
+    Group Event01
+    {
+        MotionEventType      2
+        StartingTime         0.000000
+        
+        DuringTime           0.100000
+        Power                120
+        AffectingRange       200
+    }
+    Group Event02
+    {
+        MotionEventType      8
+        StartingTime         0.0000000
+    }
+}

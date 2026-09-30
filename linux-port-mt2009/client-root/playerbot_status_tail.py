@@ -187,12 +187,15 @@ PERSONALITY_TITLES = {
 	116: "Starszy Hazardzista",
 	117: "Naczelny Hazardzista",
 	118: "Szalony Hazardzista",
+	# MT2009_PLUS_BOTLIFE_V1: Baek-Go's herbalist, the Gornik's sibling
+	# (playerbot_persona_rules.h PERSONA_ZIELARZ).
+	119: "Zielarz",
 }
 
 # Iwakura's names are Polish, and the English client shows English ones.
 import systemSetting
 if systemSetting.GetLanguage() == "en":
-	PERSONALITY_TITLES.update({0: 'Persistent Explorer', 1: 'Metin Slayer', 2: 'Team Player', 3: 'Equipment Master', 4: 'Careful Gatherer', 5: 'Trader', 6: 'Wanderer', 7: 'Metin Farmer', 8: 'M3 Farmer', 9: 'M2 Farmer', 10: 'Medal Farmer', 100: 'Grinder', 101: 'Conqueror', 102: 'Trader', 103: 'Gambler', 104: 'Perfectionist', 105: 'Metin Slayer', 106: 'Miner', 107: 'Fisher', 108: 'Mercenary', 109: 'Companion', 110: 'Metinologist', 111: 'Addict', 112: 'Mad Scientist', 113: 'Executioner', 114: 'Mad Angler', 115: 'Junior Gambler', 116: 'Senior Gambler', 117: 'Chief Gambler', 118: 'Mad Gambler'})
+	PERSONALITY_TITLES.update({0: 'Persistent Explorer', 1: 'Metin Slayer', 2: 'Team Player', 3: 'Equipment Master', 4: 'Careful Gatherer', 5: 'Trader', 6: 'Wanderer', 7: 'Metin Farmer', 8: 'M3 Farmer', 9: 'M2 Farmer', 10: 'Medal Farmer', 100: 'Grinder', 101: 'Conqueror', 102: 'Trader', 103: 'Gambler', 104: 'Perfectionist', 105: 'Metin Slayer', 106: 'Miner', 107: 'Fisher', 108: 'Mercenary', 109: 'Companion', 110: 'Metinologist', 111: 'Addict', 112: 'Mad Scientist', 113: 'Executioner', 114: 'Mad Angler', 115: 'Junior Gambler', 116: 'Senior Gambler', 117: 'Chief Gambler', 118: 'Mad Gambler', 119: 'Herbalist'})
 
 PERSONALITY_COLOURS = {
 	0: (0.75, 0.85, 1.0),
@@ -225,6 +228,7 @@ PERSONALITY_COLOURS = {
 	116: (0.72, 0.35, 1.0),
 	117: (0.72, 0.35, 1.0),
 	118: (0.72, 0.35, 1.0),
+	119: (0.45, 0.85, 0.4),
 }
 
 TITLE_REFRESH_SECONDS = 1.0

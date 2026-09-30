@@ -223,7 +223,7 @@ RUN set -eux; \
     # and anti-experience ring (autohunt_time, antiexp_ring; 2.2.27).
     # pc.warp_channel for the panels' teleport to a bot on another channel
     # (web_admin; 2.2.42).
-    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.mount item.get_vnum pc.is_playerbot affect.get_duration pc.has_affect pc.warp_channel; do \
+    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.is_playerbot affect.get_duration pc.has_affect pc.warp_channel; do \
       grep -qx "$fn" /tmp/qc-work/quest_functions || echo "$fn" >> /tmp/qc-work/quest_functions; \
     done; \
     # pony_levelup is the package's own stable-keeper quest with the 18-hour
@@ -263,7 +263,13 @@ RUN set -eux; \
     # merchant in M1, offered only while M2_FLEA_MARKET is on (Uxie [DSO]).
     # temple_of_the_ochao is the Temple of Ochao's entrance (Straznik Swiatyni,
     # 20426), its portal (20415) and the Bodyguard's reward (MT2009_PLUS_OCHAO_V1).
-    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears acce_costume_uriel ah_yu_shop costume_bonus_transfer dragon_soul dragon_soul_refine dragon_soul_shop autohunt_time antiexp_ring seon_pyeong flea_market temple_of_the_ochao razador_dungeon nemere_dungeon goblin_skarbow; do \
+    # biblioteka_wiedzy is the Arezzo library dungeon (363) and map_warp the package's
+    # Teleporter with Dolina Cyklopow (360) on its first page (MT2009_PLUS_AREZZO_V1).
+    # dungeon_panel is the dungeon panel's part in the quests: the instances' start and the
+    # bosses of the open maps (MT2009_PLUS_DUNGEON_PANEL_V1, playerbot_dungeon_panel.h).
+    # wzgorze_wukonga, ruiny_skorpiona and starozytna_dzungla are the Arezzo dungeons 364-366
+    # (MT2009_PLUS_AREZZO_V1, phases 5-7).
+    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears acce_costume_uriel ah_yu_shop costume_bonus_transfer dragon_soul dragon_soul_refine dragon_soul_shop autohunt_time antiexp_ring seon_pyeong flea_market temple_of_the_ochao razador_dungeon nemere_dungeon goblin_skarbow biblioteka_wiedzy map_warp dungeon_panel wzgorze_wukonga ruiny_skorpiona starozytna_dzungla; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \
@@ -456,6 +462,30 @@ RUN set -eu; L=/opt/metin2/share/locale/poland/quest/libs/other/_otherModuleLoad
  && LC_ALL=C grep -q 'other/m2_difficulty.lua' "$L" \
  && test -s /opt/metin2/share/locale/poland/quest/libs/other/m2_difficulty.lua \
  && echo "share: difficulty hooked into the quest libraries"
+
+# MT2009_PLUS_EXCHANGE_CHANCE_V1: the NPC exchanges' chances follow the
+# world's difficulty - soul stones to Magiczny Pyl, skill books to Pergamin,
+# upgrade items to Materialy Rzemieslnicze. The
+# package keeps its chances in a table local to item_exchange.lua and reads
+# it twice: the window's chance field (item_exchange.open's cmdchat, which the
+# client prints as it is) and the roll of each piece (item_exchange.exchange).
+# Both reads go through m2_difficulty.exchange_chance (m2_difficulty.lua,
+# loaded after the crafting libraries and asked only at run time), so the
+# window shows the chance that is rolled; the package's number is what it
+# answers when nothing else applies.
+RUN set -eu; F=/opt/metin2/share/locale/poland/quest/libs/crafting/item_exchange.lua \
+ && LC_ALL=C grep -q 'if number(1,100) <= exchange_data.chance then' "$F" \
+ && LC_ALL=C grep -q 'exchange_data.price, exchange_data.chance, vnum))' "$F" \
+ && LC_ALL=C sed -i \
+      -e 's/^\([[:blank:]]*\)local success_count = 0/\1local m2_exchange_percent = m2_difficulty.exchange_chance(exchange_vnum, exchange_data.chance)\n\1local success_count = 0/' \
+      -e 's/if number(1,100) <= exchange_data\.chance then/if number(1,100) <= m2_exchange_percent then/' \
+      -e 's/exchange_data\.price, exchange_data\.chance, vnum))/exchange_data.price, m2_difficulty.exchange_chance(vnum, exchange_data.chance), vnum))/' \
+      "$F" \
+ && test "$(LC_ALL=C grep -c 'm2_difficulty.exchange_chance(' "$F")" = 2 \
+ && LC_ALL=C grep -q 'if number(1,100) <= m2_exchange_percent then' "$F" \
+ && ! LC_ALL=C grep -q '<= exchange_data.chance' "$F" \
+ && LC_ALL=C grep -q 'm2_difficulty.exchange_chance = function' /opt/metin2/share/locale/poland/quest/libs/other/m2_difficulty.lua \
+ && echo "share: the NPC exchanges' chances follow the difficulty"
 
 # The monkey curse (port/shareify.py renders this step): the package's
 # monkey_curse quest turned anybody 55 minutes into a Monkey Dungeon (35 on
@@ -667,6 +697,128 @@ RUN set -eu; L=/opt/metin2/share/locale/poland; A=/tmp/dungeons-add \
  && test "$(od -An -tx1 -N8 "$L/map/metin2_map_n_flame_dungeon_01/server_attr" | tr -d ' ')" = 0c0000000c000000 \
  && rm -rf "$A" \
  && echo "share: Razador (351) and Nemere (352) dungeons, their guards and the Nemere drops"
+
+# MT2009_PLUS_AREZZO_V1 (share): the first three places from the Arezzo files (the owner has the
+# rights to them), for players - the bots come later:
+#  * Dolina Cyklopow: metin2_map_exp, index 360, 4x4 at 230400 281600, level 45, on game1
+#    (m2-render-config), entered by the Teleporter (quest/map_warp.quest, first page);
+#  * Zaczarowany Las: natural_map, 362, 4x4 at 332800 384000, level 95+, game1, entered by the
+#    portal the En-Tai Guardian leaves in the Temple of Ochao (quest/temple_of_the_ochao.quest);
+#  * Biblioteka Wiedzy: plechito_chamber_of_wisdom, 363, 2x2 at 947200 614400, the level-30 spider
+#    dungeon on game2 (quest/biblioteka_wiedzy.quest, rooms in data/dungeon/biblioteka_wiedzy); its
+#    guard, Straznik Biblioteki (20430), stands in Orc Valley beside the Temple guard (a cell measured
+#    free) and in the public copy of 363 (the fallback lobby, as Razador's 351).
+# MT2009_PLUS_AREZZO_MODULE_V1: the guards on the old maps (20430 here, 20423 and 20424 below) are no
+# npc.txt lines any more - playerbot_arezzo.h spawns them while the module is on (M2_AREZZO, the panel)
+# and removes them while it is off; these steps only make sure no npc.txt line is left behind.
+# Arezzo's server_attr (cell for cell the client's attr.atr, checked) and Setting.txt; the regen is
+# every other of Arezzo's spawn points with our monsters (the level-45 cyclopes 9601-9605, the
+# stronger lemures 9611-9615) in groups 36001-36203 (group.arezzo.txt); Arezzo's C++ timed bosses and
+# stones are boss.txt / stone.txt (Arges 9606, Polifem 9607, Metin Cienia 8009; Lemur Hrabia 3390,
+# the Bodyguard 3391, 8052, 8053); a Teleporter (9012) at each open map's landing point. The drops
+# (mob_drop_item.arezzo.txt), the library's chest 30773 (special_item_group.arezzo.txt), the names
+# the Teleporter shows (translate.lua) and /goto cyklopy, /goto las for game masters.
+COPY arezzo/ /tmp/arezzo-add/
+RUN set -eu; L=/opt/metin2/share/locale/poland; A=/tmp/arezzo-add \
+ && find "$A" -type f -name '*.txt' -exec sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/$/\r/' {} + \
+ && for m in metin2_map_exp natural_map plechito_chamber_of_wisdom; do rm -rf "$L/map/$m"; cp -a "$A/map/$m" "$L/map/"; done \
+ && { [ -z "$(tail -c 1 "$L/map/index")" ] || printf '\n' >> "$L/map/index"; } \
+ && sed -i -E '/^36[0-6][[:blank:]]/d' "$L/map/index" \
+ && printf '360 metin2_map_exp\n362 natural_map\n363 plechito_chamber_of_wisdom\n' >> "$L/map/index" \
+ && test "$(grep -c -E '^(360[[:blank:]]+metin2_map_exp|362[[:blank:]]+natural_map|363[[:blank:]]+plechito_chamber_of_wisdom)[[:space:]]*$' "$L/map/index")" = 3 \
+ && cp "$A/dungeon_info.txt" "$L/dungeon_info.txt" \
+ && test "$(grep -c -E '^dungeon[[:blank:]]' "$L/dungeon_info.txt")" -ge 8 \
+    # MT2009_PLUS_DUNGEON_PANEL_V1 (share): the dungeon panel's list, locale/poland/dungeon_info.txt.
+ && mkdir -p /opt/metin2/share/data/dungeon && rm -rf /opt/metin2/share/data/dungeon/biblioteka_wiedzy \
+ && cp -a "$A/data/dungeon/biblioteka_wiedzy" /opt/metin2/share/data/dungeon/ \
+ && ! grep -q -E '^Group[[:blank:]]+MT2009_arezzo_' "$L/group.txt" \
+ && { [ -z "$(tail -c 1 "$L/group.txt")" ] || printf '\n' >> "$L/group.txt"; } \
+ && sed 's/\r$//' "$A/group.arezzo.txt" >> "$L/group.txt" \
+ && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+36(00[123]|20[123])[[:space:]]*$' "$L/group.txt")" = 6 \
+ && ! grep -q -E '^Group[[:blank:]]+MT2009_arezzo_' "$L/mob_drop_item.txt" \
+ && { [ -z "$(tail -c 1 "$L/mob_drop_item.txt")" ] || printf '\r\n' >> "$L/mob_drop_item.txt"; } \
+ && cat "$A/mob_drop_item.arezzo.txt" >> "$L/mob_drop_item.txt" \
+ && test "$(grep -c -E '^Group[[:blank:]]+MT2009_arezzo_' "$L/mob_drop_item.txt")" = 7 \
+ && f="$L/special_item_group.txt" \
+ && ! grep -q -E '^[[:blank:]]*Vnum[[:blank:]]+(30773|95073[123])([^0-9]|$)' "$f" \
+ && { [ -z "$(tail -c 1 "$f")" ] || printf '\r\n' >> "$f"; } \
+ && cat "$A/special_item_group.arezzo.txt" >> "$f" \
+ && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+(30773|95073[123])([^0-9]|$)' "$f")" = 4 \
+ && F="$L/map/map_n_threeway/npc.txt" \
+ && sed -i -E '/[[:blank:]]20430[[:space:]]*$/d' "$F" \
+ && ! grep -q -E '[[:blank:]]20430[[:space:]]*$' "$F" \
+ && for f in "$L/translate.lua" "$L/quest/libs/translate/translate.lua"; do \
+      [ -f "$f" ] || continue; \
+      LC_ALL=C grep -a -q 'map_names\[360\]' "$f" && continue; \
+      { [ -z "$(tail -c 1 "$f")" ] || printf '\r\n' >> "$f"; }; \
+      printf '\r\n-- MT2009_PLUS_AREZZO_V1: the Arezzo places (the Teleporter lists 360)\r\ntranslate.general.map_names[360] = "Dolina Cyklop\363w"\r\ntranslate.general.map_names[362] = "Zaczarowany Las"\r\ntranslate.general.map_names[363] = "Biblioteka Wiedzy"\r\n' >> "$f"; \
+    done \
+ && LC_ALL=C grep -a -q 'map_names\[360\]' "$L/quest/libs/translate/translate.lua" \
+ && S="$L/settings.lua" \
+ && { LC_ALL=C grep -a -q 'add_goto_info("cyklopy"' "$S" || printf 'add_goto_info("cyklopy", 0, 360, 2650, 3051)\r\n' >> "$S"; } \
+ && { LC_ALL=C grep -a -q 'add_goto_info("las"' "$S" || printf 'add_goto_info("las", 0, 362, 3787, 3946)\r\n' >> "$S"; } \
+ && test "$(od -An -tx1 -N8 "$L/map/metin2_map_exp/server_attr" | tr -d ' ')" = 1000000010000000 \
+ && test "$(od -An -tx1 -N8 "$L/map/natural_map/server_attr" | tr -d ' ')" = 1000000010000000 \
+ && test "$(od -An -tx1 -N8 "$L/map/plechito_chamber_of_wisdom/server_attr" | tr -d ' ')" = 0800000008000000 \
+ && rm -rf "$A" \
+ && echo "share: Arezzo places - Dolina Cyklopow (360), Zaczarowany Las (362), Biblioteka Wiedzy (363)"
+
+# MT2009_PLUS_AREZZO_V1 (share, phases 5-8): the three Arezzo dungeons and the fourth map, players only:
+#  * Wzgorze Wukonga - plechito_wukong_dungeon, 364, 2x2 at 844800 537600, level 45, game2
+#    (quest/wzgorze_wukonga.quest; its guard Straznik Wzgorza, 20423, in the Hwang Temple at 165,941);
+#  * Ruiny Skorpiona - plechito_scorpion_dungeon, 365, 2x2 at 844800 588800, level 65 - harder than Razador
+#    (quest/ruiny_skorpiona.quest; Straznik Ruin, 20424, on the Fire Land beside Razador's guard, 101,910);
+#  * Starozytna Dzungla - plechito_easter2023_dungeon, 366, 3x3 at 768000 537600, level 95, the hardest
+#    (quest/starozytna_dzungla.quest; Straznik Dzungli, 20425, in the Enchanted Forest - arezzo/map/natural_map);
+#  * Pustkowie Faraona - metin2_map_pustynia, 361, 4x4 at 230400 384000, level 55, game1, by the Teleporter.
+# The dungeons' public copies are the fallback lobbies (their guard only); their rooms are
+# data/dungeon/<quest>. The Plechito monsters' motions (share/data/monster/<folder>, the .msa/.msm/motlist
+# of the Arezzo share) - the server times attacks and moves by them. The desert's bosses' drops
+# (mob_drop_item.arezzo2.txt), the three chests (special_item_group.arezzo2.txt), the Teleporter's names and
+# /goto pustkowie for game masters. The groups are in group.arezzo.txt (the step above).
+COPY arezzo/ /tmp/arezzo-p58/
+RUN set -eu; L=/opt/metin2/share/locale/poland; A=/tmp/arezzo-p58 \
+ && find "$A" -type f -name '*.txt' -exec sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/$/\r/' {} + \
+ && for m in metin2_map_pustynia plechito_wukong_dungeon plechito_scorpion_dungeon plechito_easter2023_dungeon; do rm -rf "$L/map/$m"; cp -a "$A/map/$m" "$L/map/"; done \
+ && { [ -z "$(tail -c 1 "$L/map/index")" ] || printf '\n' >> "$L/map/index"; } \
+ && sed -i -E '/^36[1456][[:blank:]]/d' "$L/map/index" \
+ && printf '361 metin2_map_pustynia\n364 plechito_wukong_dungeon\n365 plechito_scorpion_dungeon\n366 plechito_easter2023_dungeon\n' >> "$L/map/index" \
+ && test "$(grep -c -E '^(361[[:blank:]]+metin2_map_pustynia|364[[:blank:]]+plechito_wukong_dungeon|365[[:blank:]]+plechito_scorpion_dungeon|366[[:blank:]]+plechito_easter2023_dungeon)[[:space:]]*$' "$L/map/index")" = 4 \
+ && for q in wzgorze_wukonga ruiny_skorpiona starozytna_dzungla; do rm -rf "/opt/metin2/share/data/dungeon/$q"; cp -a "$A/data/dungeon/$q" /opt/metin2/share/data/dungeon/; done \
+ && mkdir -p /opt/metin2/share/data/monster \
+ && for m in "$A"/data/monster/*; do rm -rf "/opt/metin2/share/data/monster/$(basename "$m")"; cp -a "$m" /opt/metin2/share/data/monster/; done \
+ && test -s /opt/metin2/share/data/monster/plechi_wukong_mainboss/motlist.txt \
+ && test -s /opt/metin2/share/data/monster/plechi_easter2023_bossmain/motlist.txt \
+ && ! grep -q -E '^Group[[:blank:]]+MT2009_arezzo_(9675|9681)' "$L/mob_drop_item.txt" \
+ && { [ -z "$(tail -c 1 "$L/mob_drop_item.txt")" ] || printf '\r\n' >> "$L/mob_drop_item.txt"; } \
+ && cat "$A/mob_drop_item.arezzo2.txt" >> "$L/mob_drop_item.txt" \
+ && test "$(grep -c -E '^Group[[:blank:]]+MT2009_arezzo_' "$L/mob_drop_item.txt")" = 9 \
+ && f="$L/special_item_group.txt" \
+ && ! grep -q -E '^[[:blank:]]*Vnum[[:blank:]]+(3077[456]|9507[456][123])([^0-9]|$)' "$f" \
+ && { [ -z "$(tail -c 1 "$f")" ] || printf '\r\n' >> "$f"; } \
+ && cat "$A/special_item_group.arezzo2.txt" >> "$f" \
+ && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+(3077[456]|9507[456][123])([^0-9]|$)' "$f")" = 12 \
+ && for p in "metin2_map_milgyo 20423" "metin2_map_n_flame_01 20424"; do \
+      set -- $p; F="$L/map/$1/npc.txt"; \
+      sed -i -E "/[[:blank:]]$2[[:space:]]*\$/d" "$F"; \
+      ! grep -q -E "[[:blank:]]$2[[:space:]]*\$" "$F" || exit 1; \
+    done \
+ && grep -q -E '[[:blank:]]20425[[:space:]]*$' "$L/map/natural_map/npc.txt" \
+ && for f in "$L/translate.lua" "$L/quest/libs/translate/translate.lua"; do \
+      [ -f "$f" ] || continue; \
+      LC_ALL=C grep -a -q 'map_names\[361\]' "$f" && continue; \
+      { [ -z "$(tail -c 1 "$f")" ] || printf '\r\n' >> "$f"; }; \
+      printf '\r\n-- MT2009_PLUS_AREZZO_V1 (phases 5-8)\r\ntranslate.general.map_names[361] = "Pustkowie Faraona"\r\ntranslate.general.map_names[364] = "Wzg\363rze Wukonga"\r\ntranslate.general.map_names[365] = "Ruiny Skorpiona"\r\ntranslate.general.map_names[366] = "Staro\277ytna D\277ungla"\r\n' >> "$f"; \
+    done \
+ && LC_ALL=C grep -a -q 'map_names\[361\]' "$L/quest/libs/translate/translate.lua" \
+ && S="$L/settings.lua" \
+ && { LC_ALL=C grep -a -q 'add_goto_info("pustkowie"' "$S" || printf 'add_goto_info("pustkowie", 0, 361, 2409, 3940)\r\n' >> "$S"; } \
+ && test "$(od -An -tx1 -N8 "$L/map/metin2_map_pustynia/server_attr" | tr -d ' ')" = 1000000010000000 \
+ && test "$(od -An -tx1 -N8 "$L/map/plechito_wukong_dungeon/server_attr" | tr -d ' ')" = 0800000008000000 \
+ && test "$(od -An -tx1 -N8 "$L/map/plechito_scorpion_dungeon/server_attr" | tr -d ' ')" = 0800000008000000 \
+ && test "$(od -An -tx1 -N8 "$L/map/plechito_easter2023_dungeon/server_attr" | tr -d ' ')" = 0c0000000c000000 \
+ && rm -rf "$A" \
+ && echo "share: Arezzo phases 5-8 - Pustkowie Faraona (361), Wzgorze Wukonga (364), Ruiny Skorpiona (365), Starozytna Dzungla (366)"
 # (MT2009_PLUS_DUNGEON_DROP_V1: Razador (6091) and Nemere (6191) drop only yang - the owner,
 # 29 September; their loot is the 2-5 chests per player of the quests - so every drop group
 # of theirs is cut whole above but the 0% chest previews; item_manager.cpp drops nothing

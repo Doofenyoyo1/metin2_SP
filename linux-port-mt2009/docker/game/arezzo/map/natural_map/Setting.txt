@@ -1,0 +1,11 @@
+ScriptType	MapSetting
+
+CellScale	200
+HeightScale	0.500000
+
+ViewRadius	128
+
+MapSize	4	4
+BasePosition	332800	384000
+TextureSet	textureset\ateop_fm_4.txt
+Environment	ateoptoniepoeta2.msenv

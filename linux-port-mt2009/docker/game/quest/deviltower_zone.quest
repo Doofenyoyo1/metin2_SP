@@ -676,6 +676,7 @@ quest deviltower_zone begin
         when 1093.kill with in_dungeon(66) and d.get_level() == 7 begin
             d.kill_all()
             d.setqf2("deviltower_zone","9_done", 1)
+            d.update_ranking("wieza") -- MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel's results
             d.add_player_stat(PLAYER_STATS_DUNGEON_FLAG)
             notice_multiline(gameforge.deviltower_zone._280_dNotice,d.notice)
             notice_multiline(gameforge.deviltower_zone._290_dNotice,d.notice)

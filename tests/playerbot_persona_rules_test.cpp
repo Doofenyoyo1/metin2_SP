@@ -753,6 +753,8 @@ int main()
 		assert(DecidePersona(s) == PERSONA_HAZARDZISTA);
 		s.stoneFight = true;
 		assert(DecidePersona(s) == PERSONA_POGROMCA);
+		s.herbalism = true;
+		assert(DecidePersona(s) == PERSONA_ZIELARZ);
 		s.mining = true;
 		assert(DecidePersona(s) == PERSONA_GORNIK);
 		s.fishing = true;
@@ -772,7 +774,10 @@ int main()
 		// Iwakura's Patch 3, point 7: the rare ones after them, 110 to 114.
 		assert(PERSONA_METINOLOG == 10 && PERSONA_WEDKARZ == 14);
 		// Community Patch 5, point 1: the four gamblers after those, 115 to 118.
-		assert(PERSONA_HAZ_MLODSZY == 15 && PERSONA_HAZ_SZALONY == 18 && PERSONA_COUNT == 19);
+		assert(PERSONA_HAZ_MLODSZY == 15 && PERSONA_HAZ_SZALONY == 18);
+		// MT2009 PLUS 2.16.0: the herbalist after them, 119.
+		assert(PERSONA_ZIELARZ == 19 && PERSONA_COUNT == 20);
+		assert(PERSONA_TITLE_BASE + PERSONA_ZIELARZ == 119);
 		assert(PERSONA_TITLE_BASE + PERSONA_HAZ_SZALONY == 118);
 		assert(PERSONA_TITLE_BASE + PERSONA_EGZEKUTOR == 113);
 	}

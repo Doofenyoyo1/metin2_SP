@@ -103,6 +103,21 @@ namespace
 	const DWORD PLAYERBOT_LOOT_THREAT_SCAN_INTERVAL_MIN = 900;
 	const DWORD PLAYERBOT_LOOT_THREAT_SCAN_INTERVAL_MAX = 1300;
 	const DWORD PLAYERBOT_LOOT_CLEANUP_INTERVAL = 10000;
+	// MT2009_PLUS_BOT_PRIORITY_LOOT_V1: a Horse Medal or a skill book on the
+	// ground within PRIORITY_LOOT_RANGE of a bot in a fight. The fight's own
+	// pickup only ever reaches the three metres at its feet, so a bot fighting
+	// non-stop - the Monkey Dungeon's chambers - left a medal lying a few
+	// metres off until anybody could take it (upstream 2.2.43). With its health
+	// at PRIORITY_LOOT_MIN_HP_PERCENT or more it runs for it and comes back to
+	// its foe; a run that has not reached the drop in PRIORITY_LOOT_GIVE_UP_MS
+	// is dropped and the drop hidden for PRIORITY_LOOT_RETRY_MS. The scan is a
+	// full nine-sectree walk like any other, so it is throttled on its own.
+	const int PLAYERBOT_PRIORITY_LOOT_RANGE = 1500;
+	const int PLAYERBOT_PRIORITY_LOOT_MIN_HP_PERCENT = 50;
+	const DWORD PLAYERBOT_PRIORITY_LOOT_SCAN_INTERVAL_MIN = 1500;
+	const DWORD PLAYERBOT_PRIORITY_LOOT_SCAN_INTERVAL_MAX = 2500;
+	const DWORD PLAYERBOT_PRIORITY_LOOT_GIVE_UP_MS = 8000;
+	const DWORD PLAYERBOT_PRIORITY_LOOT_RETRY_MS = 30000;
 	// Who leaves merchant fodder on the ground, and what fodder is worth - see
 	// IsPlayerBotLootBeneathBot. Yang is long long on the 2.x line, so the
 	// purse bound is too.
@@ -361,6 +376,11 @@ namespace
 	// the walk to the market pitch counts as arrived this close to it.
 	const DWORD PLAYERBOT_NEGATIVE_RANK_HOLD_MS = 30000;
 	const int PLAYERBOT_NEGATIVE_RANK_PITCH_ARRIVAL = 600;
+	// MT2009_PLUS_BOT_RANK_GLOVE_V1: how long a bot waits in town for a bean
+	// the stalls should have before it hunts its rank back instead, and how
+	// long that hunt lasts before the town is asked again.
+	const DWORD PLAYERBOT_NEGATIVE_RANK_TOWN_PATIENCE_MS = 5 * 60 * 1000;
+	const DWORD PLAYERBOT_NEGATIVE_RANK_HUNT_MS = 20 * 60 * 1000;
 	// How many books of one of its own skills a bot keeps. Ten successful
 	// reads take a skill from M1 to G1 and a read succeeds two times in three,
 	// so this is one skill's worth with a spare; the rest go on a counter or
@@ -4304,6 +4324,12 @@ namespace
 	// days); the stones had 20 387 units in bags and not one on a counter.
 	// The per-vnum line cap is what bounds it from here.
 	const int PLAYERBOT_SHOP_BONUS_STONE_SCORE = 520;
+	// MT2009_PLUS_BOTLIFE_V1: a jewellery refine stone over what the bot's
+	// own sockets take (GetPlayerBotAccessoryStoneKeep) - a Diament or an
+	// Ebonit is worth more than a bonus stone and every material, and for
+	// the same reason as the bonus stone it has to rank over the materials,
+	// or a keeper holding any would never put one up.
+	const int PLAYERBOT_SHOP_ACCESSORY_STONE_SCORE = 560;
 	const int PLAYERBOT_SHOP_MARBLE_LINES = 3;
 	// And no counter carries more than PLAYERBOT_SHOP_SAME_VNUM_LINES lines of
 	// one item. The caps above were each for a kind - a material, a heap, the
@@ -5249,6 +5275,21 @@ namespace
 	bool IsPlayerBotTimedUnique(DWORD vnum)
 	{
 		return IsPlayerBotExpRing(vnum) || IsPlayerBotThiefGlove(vnum);
+	}
+	// MT2009_PLUS_BOT_RANK_GLOVE_V1: the Prophecy King's Glove (70051, the
+	// engine's UNIQUE_ITEM_FASTER_ALIGNMENT_UP_BY_KILL: 14 rank a kill instead
+	// of 7) and his Symbol (70050, UNIQUE_ITEM_FASTER_ALIGNMENT_UP_BY_TIME: 120
+	// a minute outside a safe zone instead of 60). Both pay only while the rank
+	// is below zero (char_battle.cpp, char.cpp), and their 240 minutes, like a
+	// ring's, run only while worn. The equipment pass put them on any bot with
+	// a free unique slot, at a positive rank too (upstream 2.2.43); the
+	// unique-slot pass (playerbot_unique_slots.h) wears them only while the
+	// rank is negative and the bot is hunting.
+	const DWORD PLAYERBOT_RANK_GLOVE_VNUM = 70051;
+	const DWORD PLAYERBOT_RANK_SYMBOL_VNUM = 70050;
+	bool IsPlayerBotRankUnique(DWORD vnum)
+	{
+		return vnum == PLAYERBOT_RANK_GLOVE_VNUM || vnum == PLAYERBOT_RANK_SYMBOL_VNUM;
 	}
 	// How often the unique-slot pass looks, how soon it retries a change the
 	// swing window refused, and how long without a blow is no longer hunting.
@@ -7479,6 +7520,9 @@ namespace
 			dwNextLootSearchTime(0),
 			dwNextLootThreatCheckTime(0),
 			dwNextLootCleanupTime(0),
+			dwPriorityLootVID(0), // MT2009_PLUS_BOT_PRIORITY_LOOT_V1
+			dwPriorityLootStartTime(0),
+			dwNextPriorityLootScanTime(0),
 			dwNextInventoryMaintenanceTime(0),
 			dwNextWanderTime(0),
 			dwNextPartyCheckTime(0),
@@ -7857,6 +7901,11 @@ namespace
 		DWORD dwNextLootSearchTime;
 		DWORD dwNextLootThreatCheckTime;
 		DWORD dwNextLootCleanupTime;
+		// MT2009_PLUS_BOT_PRIORITY_LOOT_V1: the medal or book a fighting bot is
+		// running for, since when, and when it may look for the next one.
+		DWORD dwPriorityLootVID;
+		DWORD dwPriorityLootStartTime;
+		DWORD dwNextPriorityLootScanTime;
 		DWORD dwNextInventoryMaintenanceTime;
 		DWORD dwNextWanderTime;
 		DWORD dwNextPartyCheckTime;

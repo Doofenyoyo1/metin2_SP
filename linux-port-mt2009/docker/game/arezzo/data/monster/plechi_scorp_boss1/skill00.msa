@@ -1,0 +1,122 @@
+ScriptType               MotionData
+
+MotionFileName           "D:\ymir work\monster2\plechito_scorpion_monsters\plechi_scorp_boss1\skill00.GR2"
+MotionDuration           2.400000
+
+Group MotionEventData
+{
+    MotionEventDataCount     8
+    Group Event00
+    {
+        MotionEventType      1
+        StartingTime         0.100000
+        
+        IndependentFlag      0
+        AttachingEnable      1
+        AttachingBoneName    "Tail_chelaR"
+        FollowingEnable      1
+        EffectFileName       "d:/ymir work/effect/plechito/monster/scorpion_ruins/boss1_skill_making.mse"
+        EffectPosition       0.000000 0.000000 0.000000
+    }
+    Group Event01
+    {
+        MotionEventType      1
+        StartingTime         0.520000
+        
+        IndependentFlag      0
+        AttachingEnable      0
+        AttachingBoneName    "Root"
+        FollowingEnable      0
+        EffectFileName       "d:/ymir work/effect/plechito/monster/scorpion_ruins/boss1_skill_boom.mse"
+        EffectPosition       0.000000 -400.000000 0.000000
+    }
+    Group Event02
+    {
+        MotionEventType      1
+        StartingTime         0.860000
+        
+        IndependentFlag      0
+        AttachingEnable      0
+        AttachingBoneName    "Root"
+        FollowingEnable      0
+        EffectFileName       "d:/ymir work/effect/plechito/monster/scorpion_ruins/boss1_skill_boom.mse"
+        EffectPosition       300.000000 -400.000000 0.000000
+    }
+    Group Event03
+    {
+        MotionEventType      1
+        StartingTime         1.220000
+        
+        IndependentFlag      0
+        AttachingEnable      0
+        AttachingBoneName    "Root"
+        FollowingEnable      0
+        EffectFileName       "d:/ymir work/effect/plechito/monster/scorpion_ruins/boss1_skill_boom.mse"
+        EffectPosition       -300.000000 -400.000000 0.000000
+    }
+    Group Event04
+    {
+        MotionEventType      1
+        StartingTime         1.620000
+        
+        IndependentFlag      0
+        AttachingEnable      0
+        AttachingBoneName    "Root"
+        FollowingEnable      0
+        EffectFileName       "d:/ymir work/effect/plechito/monster/scorpion_ruins/boss1_skill_boom.mse"
+        EffectPosition       -50.000000 -600.000000 0.000000
+    }
+    Group Event05
+    {
+        MotionEventType      2
+        StartingTime         0.520000
+        
+        DuringTime           1.100000
+        Power                120
+        AffectingRange       5000
+    }
+    Group Event06
+    {
+        MotionEventType      4
+        StartingTime         0.5200000
+        DuringTime          1.100000
+        EnableHitProcess     0
+        
+        AttackType           0
+        HittingType          2
+        StiffenTime          0.000000
+        InvisibleTime        0.300000
+        ExternalForce        0.000000
+        HitLimitCount        3
+        CollisionType        4
+        
+        SphereDataCount      1
+        Group SphereData00
+        {
+            Radius           800.000000
+            Position         0.000000 -600.000000 0.000000
+        }
+    }
+    Group Event07
+    {
+        MotionEventType      4
+        StartingTime         1.2600000
+        DuringTime          0.400000
+        EnableHitProcess     0
+        
+        AttackType           0
+        HittingType          2
+        StiffenTime          0.000000
+        InvisibleTime        0.300000
+        ExternalForce        0.000000
+        HitLimitCount        3
+        CollisionType        4
+        
+        SphereDataCount      1
+        Group SphereData00
+        {
+            Radius           800.000000
+            Position         0.000000 -600.000000 0.000000
+        }
+    }
+}

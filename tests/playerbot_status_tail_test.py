@@ -170,16 +170,18 @@ class TitleTest(unittest.TestCase):
     def test_every_personality_has_a_title_and_a_colour(self):
         # The old eleven, and Iwakura's personalities at 100 + EPersona: his
         # ten, the five rare ones of his Patch 3 (110-114) and the four
-        # gamblers of his Community Patch 5 (115-118, in purple).
-        expected = list(range(11)) + list(range(100, 119))
+        # gamblers of his Community Patch 5 (115-118, in purple), and MT2009
+        # PLUS's herbalist (119).
+        expected = list(range(11)) + list(range(100, 120))
         self.assertEqual(sorted(status.PERSONALITY_TITLES), expected)
         self.assertEqual(sorted(status.PERSONALITY_COLOURS), expected)
         self.assertEqual(status.decode_title('42', '105'), (42, 105))
         self.assertEqual(status.decode_title('42', '110'), (42, 110))
         self.assertEqual(status.decode_title('42', '114'), (42, 114))
         self.assertEqual(status.decode_title('42', '118'), (42, 118))
+        self.assertEqual(status.decode_title('42', '119'), (42, 119))
         self.assertEqual(status.PERSONALITY_COLOURS[115], status.PERSONALITY_COLOURS[118])
-        self.assertIsNone(status.decode_title('42', '119'))
+        self.assertIsNone(status.decode_title('42', '120'))
         self.assertIsNone(status.decode_title('42', '255'))
 
     def test_attached_and_kept_for_a_minute(self):

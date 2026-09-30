@@ -508,6 +508,14 @@ MINIMAP_ZONE_NAME_DICT = {
 	# MT2009_PLUS_DUNGEONS_V1 (client): the two dungeons' names on the minimap
 	"metin2_map_n_flame_dungeon_01" : "Czy\x9c\xe6iec Ognia",
 	"metin2_map_n_snow_dungeon_01" : "Lodowa Kraina",
+	# MT2009_PLUS_AREZZO_V1 (client): Arezzo maps 360/362/363 on the minimap
+	"metin2_map_exp" : "Dolina Cyklop\xf3w",
+	"natural_map" : "Zaczarowany Las",
+	"plechito_chamber_of_wisdom" : "Biblioteka Wiedzy",
+	"metin2_map_pustynia" : "Pustkowie Faraona",
+	"plechito_wukong_dungeon" : "Wzg\xf3rze Wukonga",
+	"plechito_scorpion_dungeon" : "Ruiny Skorpiona",
+	"plechito_easter2023_dungeon" : "Staro\xbfytna D\xbfungla",
 }
 
 

@@ -1,0 +1,84 @@
+// MT2009_PLUS_AREZZO_V1: drops of the Arezzo places (Dolina Cyklopow 360, Zaczarowany Las 362).
+// The forest lemures (9611-9615) drop what the official ones (3301-3305) do; the valley's bosses
+// (Arges 9606, Polifem 9607) level-45 goods. The library (363) gives its loot as quest chests.
+
+Group	MT2009_arezzo_9611
+{
+	type	kill
+	mob	9611
+	kill_drop	400
+	1	30503	1	100	0	-- Ametystowy Ozdobny Noz
+	2	30509	1	100	0	-- Niebieska Smocza Stal
+	3	30513	1	100	0	-- Szlachetny Naramiennik
+	4	30523	1	100	0	-- Element Ozdoby
+}
+
+Group	MT2009_arezzo_9612
+{
+	type	kill
+	mob	9612
+	kill_drop	300
+	1	30503	1	100	0	-- Ametystowy Ozdobny Noz
+	2	30509	1	100	0	-- Niebieska Smocza Stal
+	3	30513	1	100	0	-- Szlachetny Naramiennik
+	4	30523	1	100	0	-- Element Ozdoby
+}
+
+Group	MT2009_arezzo_9613
+{
+	type	kill
+	mob	9613
+	kill_drop	250
+	1	30503	1	100	0	-- Ametystowy Ozdobny Noz
+	2	30509	1	100	0	-- Niebieska Smocza Stal
+	3	30513	1	100	0	-- Szlachetny Naramiennik
+	4	30523	1	100	0	-- Element Ozdoby
+}
+
+Group	MT2009_arezzo_9614
+{
+	type	kill
+	mob	9614
+	kill_drop	200
+	1	30503	1	100	0	-- Ametystowy Ozdobny Noz
+	2	30509	1	100	0	-- Niebieska Smocza Stal
+	3	30513	1	100	0	-- Szlachetny Naramiennik
+	4	30523	1	100	0	-- Element Ozdoby
+}
+
+Group	MT2009_arezzo_9615
+{
+	type	kill
+	mob	9615
+	kill_drop	150
+	1	30503	1	100	0	-- Ametystowy Ozdobny Noz
+	2	30509	1	100	0	-- Niebieska Smocza Stal
+	3	30513	1	100	0	-- Szlachetny Naramiennik
+	4	30523	1	100	0	-- Element Ozdoby
+}
+
+Group	MT2009_arezzo_9606
+{
+	mob	9606
+	Type	drop
+	1	50300	1	300	-- Ksiega Umiejetnosci
+	2	70037	1	30	-- Ksiega Zapomnienia
+	3	25040	1	15	-- Zwoj Blogoslawienstwa
+	4	70058	1	10	-- Pierscien Teleportacji
+	5	27002	20	100	-- Czerwona Mikstura(S)
+	6	27005	20	100	-- Niebieska Mikstura(S)
+}
+
+Group	MT2009_arezzo_9607
+{
+	mob	9607
+	Type	drop
+	1	50300	1	400	-- Ksiega Umiejetnosci
+	2	70037	1	50	-- Ksiega Zapomnienia
+	3	25040	1	30	-- Zwoj Blogoslawienstwa
+	4	70014	1	20	-- Pigulka Krwi
+	5	39002	1	20	-- Pierscien Doswiadczenia
+	6	70058	1	20	-- Pierscien Teleportacji
+	7	27002	30	100	-- Czerwona Mikstura(S)
+	8	27005	30	100	-- Niebieska Mikstura(S)
+}

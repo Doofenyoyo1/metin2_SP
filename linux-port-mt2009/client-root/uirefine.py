@@ -299,6 +299,16 @@ class RefineDialogNew(ui.ScriptWindow):
 		self.children = []
 
 	def Open(self, targetItemPos, nextGradeItemVnum, cost, prob, type):
+		try:
+			self.__OpenWindow(targetItemPos, nextGradeItemVnum, cost, prob, type)
+		except:
+			# The cancel is the answer the server waits for; the error
+			# still goes to syserr.txt.
+			net.SendRefinePacket(255, 255)
+			self.Hide()
+			raise
+
+	def __OpenWindow(self, targetItemPos, nextGradeItemVnum, cost, prob, type):
 
 		if False == self.isLoaded:
 			self.__LoadScript()

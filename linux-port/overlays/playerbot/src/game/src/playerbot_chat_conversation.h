@@ -167,6 +167,8 @@ namespace
 				case playerbot_persona::PERSONA_NAUKOWIEC: return S_PERFECTIONIST;
 				case playerbot_persona::PERSONA_EGZEKUTOR: return S_MERC;
 				case playerbot_persona::PERSONA_WEDKARZ: return S_FISHER;
+				// MT2009_PLUS_BOTLIFE_V1: the herbalist gathers and keeps, like a collector.
+				case playerbot_persona::PERSONA_ZIELARZ: return S_COLLECTOR;
 				default: break;
 			}
 		}

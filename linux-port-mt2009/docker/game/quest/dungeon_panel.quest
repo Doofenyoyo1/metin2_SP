@@ -1,0 +1,38 @@
+-- MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel's part in the quests (playerbot_dungeon_panel.h,
+-- game/arezzo/dungeon_info.txt).
+--  * every dungeon instance gets its start (dungeon flag mt2009_start) when its first player logs in:
+--    d.update_ranking takes the time from it;
+--  * the bosses of the places that have no quest of their own count here: the Spider Baroness in
+--    the second Spider Dungeon (71), the En-Tai Guardian in the Temple of Ochao (209) and the Monkey
+--    Dungeons' lords (5/25/45, 108, 109) - for every player who hurt the boss.
+-- The quests with a boss of their own (razador_dungeon, nemere_dungeon, biblioteka_wiedzy,
+-- deviltower_zone, devilcatacomb_zone) call d.update_ranking in its kill handler.
+quest dungeon_panel begin
+	state start begin
+		when login with pc.in_dungeon() begin
+			if d.getf("mt2009_start") == 0 then
+				d.setf("mt2009_start", get_global_time())
+			end
+		end
+
+		when 2092.kill with pc.get_map_index() == 71 begin
+			d.update_ranking("pajaki")
+		end
+
+		when 6400.kill with pc.get_map_index() == 209 begin
+			d.update_ranking("ochao")
+		end
+
+		when 5161.kill with pc.get_map_index() == 5 or pc.get_map_index() == 25 or pc.get_map_index() == 45 begin
+			d.update_ranking("malpy1")
+		end
+
+		when 5162.kill with pc.get_map_index() == 108 begin
+			d.update_ranking("malpy2")
+		end
+
+		when 5163.kill with pc.get_map_index() == 109 begin
+			d.update_ranking("malpy3")
+		end
+	end
+end

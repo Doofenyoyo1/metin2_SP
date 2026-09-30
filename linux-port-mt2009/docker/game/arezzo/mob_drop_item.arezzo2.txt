@@ -1,0 +1,31 @@
+// MT2009_PLUS_AREZZO_V1 (phases 5-8): the Pustkowie Faraona bosses (361) - Bastet (9675), Anubis (9681).
+// The three dungeons (364-366) give their loot as quest chests (special_item_group.arezzo2.txt).
+
+Group	MT2009_arezzo_9675
+{
+	mob	9675
+	Type	drop
+	1	50300	1	400	-- Ksiega Umiejetnosci
+	2	70037	1	40	-- Ksiega Zapomnienia
+	3	25040	1	20	-- Zwoj Blogoslawienstwa
+	4	70014	1	15	-- Pigulka Krwi
+	5	39002	1	15	-- Pierscien Doswiadczenia
+	6	70058	1	15	-- Pierscien Teleportacji
+	7	27002	30	100	-- Czerwona Mikstura(S)
+	8	27005	30	100	-- Niebieska Mikstura(S)
+}
+
+Group	MT2009_arezzo_9681
+{
+	mob	9681
+	Type	drop
+	1	50300	1	500	-- Ksiega Umiejetnosci
+	2	70037	1	60	-- Ksiega Zapomnienia
+	3	25040	1	35	-- Zwoj Blogoslawienstwa
+	4	70014	1	25	-- Pigulka Krwi
+	5	39002	1	25	-- Pierscien Doswiadczenia
+	6	70043	1	20	-- Rekawica Zlodzieja
+	7	70058	1	20	-- Pierscien Teleportacji
+	8	27003	30	100	-- Czerwona Mikstura(D)
+	9	27006	30	100	-- Niebieska Mikstura(D)
+}

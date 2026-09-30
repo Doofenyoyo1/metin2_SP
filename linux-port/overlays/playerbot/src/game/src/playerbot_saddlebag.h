@@ -17,7 +17,8 @@
 //     materials for all nine;
 //   * xyz_refine_exchange.quest, the Dozorca (9005): refine goods (30000-30092,
 //     30192-30199, 30343-30359, 30367) into Materialy Rzemieslnicze (30378),
-//     1000 yang a piece, 55 in a hundred come out (item_exchange.lua).
+//     1000 yang a piece, 55 in a hundred come out (item_exchange.lua; the
+//     world's difficulty may change that, GetPlayerBotExchangeChance).
 //
 // Both windows are a client's, so the pass does server-side what the quests
 // do, with their numbers (the Alchemist's exchange in playerbot_town.h is the
@@ -44,7 +45,6 @@ namespace
 	const DWORD PLAYERBOT_CRAFT_MATERIAL_VNUM = 30378;
 	const DWORD PLAYERBOT_CRAFT_MATERIAL_PRICE = 100000;
 	const long long PLAYERBOT_CRAFT_EXCHANGE_FEE = 1000;
-	const int PLAYERBOT_CRAFT_EXCHANGE_CHANCE = 55;
 	// A trip to the Dozorca for fewer goods than this is not worth the walk -
 	// unless it is a saddlebag bot short of materials.
 	const int PLAYERBOT_CRAFT_EXCHANGE_MIN_UNITS = 10;
@@ -452,9 +452,12 @@ namespace
 			ITEM_MANAGER::instance().RemoveItem(goods[i], "PLAYERBOT_CRAFT_EXCHANGE");
 		}
 		PlayerBotChangeGold(ch, -fee);
+		// MT2009_PLUS_EXCHANGE_CHANCE_V1: the players' chance, the world's
+		// difficulty (55 in a hundred on every preset; custom's own).
+		const int chance = GetPlayerBotExchangeChance(PLAYERBOT_NPC_EXCHANGE_MATERIAL);
 		int made = 0;
 		for (int i = 0; i < units; ++i)
-			if (number(1, 100) <= PLAYERBOT_CRAFT_EXCHANGE_CHANCE)
+			if (chance >= 100 || number(1, 100) <= chance)
 				++made;
 		for (int left = made; left > 0; )
 		{

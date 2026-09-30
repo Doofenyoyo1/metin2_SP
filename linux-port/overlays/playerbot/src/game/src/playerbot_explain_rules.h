@@ -107,6 +107,9 @@ namespace playerbot_explain_rules
 		GOODS_RARE_GOODS = 200,              // a Cor Draconis or a sash, a player's goods
 		GOODS_GUILD_MATERIAL = 201,          // a guild building material its guild does not keep
 		GOODS_DRAGON_STONE_SPARE = 202,      // a Dragon Stone the bot has no use for
+		// MT2009_PLUS_BOTLIFE_V1: a jewellery refine stone over what the bot's
+		// own sockets take.
+		GOODS_ACCESSORY_STONE_SPARE = 203,   // a = in the bag, b = keep
 	};
 
 	// ---- what shape the line was cut to (cut_shape) --------------------------

@@ -765,6 +765,37 @@ quest web_admin begin
 				end
 			end
 
+			-- MT2009_PLUS_AREZZO_MODULE_V1: the Arezzo module, same shape as RARE.
+			-- arg1 = "1" on, "0" off; written as mt2009_arezzo_closed (the
+			-- inverse), which the quests and the cores read (playerbot_arezzo.h
+			-- spawns or removes the entrance guards and sends players off the
+			-- maps within seconds). arg2 unused.
+			local zrows = wa_query("SELECT id, arg1, arg2 FROM player.web_admin_queue WHERE status='pending' AND cmd='AREZZO' ORDER BY id ASC LIMIT 3")
+			if type(zrows) == "table" then
+				local zi
+				for zi = 1, table.getn(zrows) do
+					local zr = zrows[zi]
+					if type(zr) == "table" then
+						local zqid = tonumber(zr.id)
+						local zon = nil
+						if type(zr.arg1) == "string" then
+							zon = tonumber(zr.arg1)
+						end
+						if zqid ~= nil then
+							local zres = "done"
+							if zon == nil or zon < 0 or zon > 1 then
+								zres = "bad_args"
+							elseif game.set_event_flag == nil then
+								zres = "failed"
+							else
+								game.set_event_flag("mt2009_arezzo_closed", 1 - zon)
+							end
+							wa_query("UPDATE player.web_admin_queue SET status='" .. zres .. "' WHERE id=" .. zqid .. " AND status='pending' LIMIT 1")
+						end
+					end
+				end
+			end
+
 			-- The thirty seconds are safely longer than the seven the
 			-- panel waits, so this never races it: by the time a row is
 			-- old enough to be swept, the panel has long since either

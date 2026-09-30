@@ -1,0 +1,384 @@
+# MT2009_PLUS_AREZZO_V1 (phases 5-7): the boss chests of Wzgorze Wukonga (30774), Ruiny Skorpiona (30775) and
+# Starozytna Dzungla (30776) - like the library's (special_item_group.arezzo.txt): a Pct group opening
+# nested groups (95074x, 95075x, 95076x - no item): gear always, a filler always and a second at 40-50%,
+# a pet item at 30-60%.
+Group	MT2009_chest_30774
+{
+	Vnum	30774 -- Skrzynia Wukonga
+	Type	Pct
+	1	s950741	1	100 -- bron / zbroja
+	2	s950742	1	100 -- zapychacz
+	3	s950742	1	40 -- drugi zapychacz
+	4	s950743	1	30 -- przedmiot do peta
+}
+Group	MT2009_chest_30774_gear
+{
+	Vnum	950741
+	1	100	1	30 -- Krwawy Miecz+0
+	2	101	1	25 -- Krwawy Miecz+1
+	3	102	1	20 -- Krwawy Miecz+2
+	4	103	1	15 -- Krwawy Miecz+3
+	5	104	1	10 -- Krwawy Miecz+4
+	6	1060	1	30 -- Sztylet Piesci Diab.+0
+	7	1061	1	25 -- Sztylet Piesci Diab.+1
+	8	1062	1	20 -- Sztylet Piesci Diab.+2
+	9	1063	1	15 -- Sztylet Piesci Diab.+3
+	10	1064	1	10 -- Sztylet Piesci Diab.+4
+	11	2090	1	30 -- Luk Kolczastego Lis.+0
+	12	2091	1	25 -- Luk Kolczastego Lis.+1
+	13	2092	1	20 -- Luk Kolczastego Lis.+2
+	14	2093	1	15 -- Luk Kolczastego Lis.+3
+	15	2094	1	10 -- Luk Kolczastego Lis.+4
+	16	3090	1	30 -- Lodowa Iglica+0
+	17	3091	1	25 -- Lodowa Iglica+1
+	18	3092	1	20 -- Lodowa Iglica+2
+	19	3093	1	15 -- Lodowa Iglica+3
+	20	3094	1	10 -- Lodowa Iglica+4
+	21	7090	1	30 -- Wachlarz Feniksa+0
+	22	7091	1	25 -- Wachlarz Feniksa+1
+	23	7092	1	20 -- Wachlarz Feniksa+2
+	24	7093	1	15 -- Wachlarz Feniksa+3
+	25	7094	1	10 -- Wachlarz Feniksa+4
+	26	110	1	30 -- Wielki Miecz+0
+	27	111	1	25 -- Wielki Miecz+1
+	28	112	1	20 -- Wielki Miecz+2
+	29	113	1	15 -- Wielki Miecz+3
+	30	114	1	10 -- Wielki Miecz+4
+	31	1070	1	30 -- Krwawy Sztylet+0
+	32	1071	1	25 -- Krwawy Sztylet+1
+	33	1072	1	20 -- Krwawy Sztylet+2
+	34	1073	1	15 -- Krwawy Sztylet+3
+	35	1074	1	10 -- Krwawy Sztylet+4
+	36	2100	1	30 -- Luk z rogu byka+0
+	37	2101	1	25 -- Luk z rogu byka+1
+	38	2102	1	20 -- Luk z rogu byka+2
+	39	2103	1	15 -- Luk z rogu byka+3
+	40	2104	1	10 -- Luk z rogu byka+4
+	41	3100	1	30 -- Miecz Dwunastu Duchow+0
+	42	3101	1	25 -- Miecz Dwunastu Duchow+1
+	43	3102	1	20 -- Miecz Dwunastu Duchow+2
+	44	3103	1	15 -- Miecz Dwunastu Duchow+3
+	45	3104	1	10 -- Miecz Dwunastu Duchow+4
+	46	5060	1	30 -- Magiczny Dzwon+0
+	47	5061	1	25 -- Magiczny Dzwon+1
+	48	5062	1	20 -- Magiczny Dzwon+2
+	49	5063	1	15 -- Magiczny Dzwon+3
+	50	5064	1	10 -- Magiczny Dzwon+4
+	51	7100	1	30 -- Potrojny Wachlarz+0
+	52	7101	1	25 -- Potrojny Wachlarz+1
+	53	7102	1	20 -- Potrojny Wachlarz+2
+	54	7103	1	15 -- Potrojny Wachlarz+3
+	55	7104	1	10 -- Potrojny Wachlarz+4
+	56	11260	1	30 -- Zbroja Plytowa Z Lusek+0
+	57	11261	1	25 -- Zbroja Plytowa Z Lusek+1
+	58	11262	1	20 -- Zbroja Plytowa Z Lusek+2
+	59	11263	1	15 -- Zbroja Plytowa Z Lusek+3
+	60	11264	1	10 -- Zbroja Plytowa Z Lusek+4
+	61	11460	1	30 -- Ubranie Mlodego Smoka+0
+	62	11461	1	25 -- Ubranie Mlodego Smoka+1
+	63	11462	1	20 -- Ubranie Mlodego Smoka+2
+	64	11463	1	15 -- Ubranie Mlodego Smoka+3
+	65	11464	1	10 -- Ubranie Mlodego Smoka+4
+	66	11660	1	30 -- Mglista Zbroja Plyt.+0
+	67	11661	1	25 -- Mglista Zbroja Plyt.+1
+	68	11662	1	20 -- Mglista Zbroja Plyt.+2
+	69	11663	1	15 -- Mglista Zbroja Plyt.+3
+	70	11664	1	10 -- Mglista Zbroja Plyt.+4
+	71	11860	1	30 -- Szata Moralnosci+0
+	72	11861	1	25 -- Szata Moralnosci+1
+	73	11862	1	20 -- Szata Moralnosci+2
+	74	11863	1	15 -- Szata Moralnosci+3
+	75	11864	1	10 -- Szata Moralnosci+4
+}
+Group	MT2009_chest_30774_misc
+{
+	Vnum	950742
+	1	27002	50	50 -- Czerwona Mikstura(S)
+	2	27005	50	50 -- Niebieska Mikstura(S)
+	3	27003	50	30 -- Czerwona Mikstura(D)
+	4	27006	50	30 -- Niebieska Mikstura(D)
+	5	50300	1	40 -- Ksiega Umiejetnosci
+	6	70037	1	12 -- Ksiega Zapomnienia
+	7	25040	1	10 -- Zwoj Blogoslawienstwa
+	8	70058	1	10 -- Pierscien Teleportacji
+	9	71130	1	12 -- Przepustka
+	10	14160	1	8 -- Krysztalowa Bransoleta+0
+	11	16160	1	8 -- Krysztalowy Naszyjnik+0
+	12	15160	1	8 -- Ekstazyjne Buty+0
+	13	exp	150000	25 -- EXP 150 000
+	14	gold	250000	25 -- Yang 250 000
+}
+Group	MT2009_chest_30774_pet
+{
+	Vnum	950743
+	1	55010	1	10 -- ksiega peta
+	2	55011	1	10 -- ksiega peta
+	3	55012	1	10 -- ksiega peta
+	4	55013	1	10 -- ksiega peta
+	5	55014	1	10 -- ksiega peta
+	6	55015	1	10 -- ksiega peta
+	7	55016	1	10 -- ksiega peta
+	8	55017	1	10 -- ksiega peta
+	9	55018	1	10 -- ksiega peta
+	10	55019	1	10 -- ksiega peta
+	11	55020	1	10 -- ksiega peta
+	12	55021	1	10 -- ksiega peta
+	13	55022	1	10 -- ksiega peta
+	14	55023	1	10 -- ksiega peta
+	15	55024	1	10 -- ksiega peta
+	16	55025	1	10 -- ksiega peta
+	17	55026	1	10 -- ksiega peta
+	18	55027	1	10 -- ksiega peta
+	19	55028	1	10 -- ksiega peta
+	20	55029	1	10 -- ksiega peta
+	21	55030	1	10 -- ksiega peta
+	22	55031	1	10 -- ksiega peta
+	23	55009	1	30 -- Skrzynia Ksiag Peta
+	24	55101	1	60 -- Eliksir
+	25	55108	1	60 -- Eliksir
+	26	55115	1	60 -- Eliksir
+	27	55102	1	30 -- Eliksir
+	28	55109	1	30 -- Eliksir
+	29	55116	1	30 -- Eliksir
+	30	55103	1	15 -- Eliksir
+	31	55110	1	15 -- Eliksir
+	32	55117	1	15 -- Eliksir
+	33	55001	1	216 -- Proteinowa Przekaska
+	34	55032	1	150 -- Smakolyk
+	35	55035	1	50 -- Smakolyk+
+}
+Group	MT2009_chest_30775
+{
+	Vnum	30775 -- Skrzynia Skorpiona
+	Type	Pct
+	1	s950751	1	100 -- bron / zbroja
+	2	s950752	1	100 -- zapychacz
+	3	s950752	1	45 -- drugi zapychacz
+	4	s950753	1	50 -- przedmiot do peta
+}
+Group	MT2009_chest_30775_gear
+{
+	Vnum	950751
+	1	170	1	30 -- Miecz Zadlo+0
+	2	171	1	25 -- Miecz Zadlo+1
+	3	172	1	20 -- Miecz Zadlo+2
+	4	173	1	15 -- Miecz Zadlo+3
+	5	174	1	10 -- Miecz Zadlo+4
+	6	250	1	30 -- Demoniczne Ostrze+0
+	7	251	1	25 -- Demoniczne Ostrze+1
+	8	252	1	20 -- Demoniczne Ostrze+2
+	9	253	1	15 -- Demoniczne Ostrze+3
+	10	254	1	10 -- Demoniczne Ostrze+4
+	11	1120	1	30 -- Noz Siamese+0
+	12	1121	1	25 -- Noz Siamese+1
+	13	1122	1	20 -- Noz Siamese+2
+	14	1123	1	15 -- Noz Siamese+3
+	15	1124	1	10 -- Noz Siamese+4
+	16	2180	1	30 -- Luk Niebieskiego Smoka+0
+	17	2181	1	25 -- Luk Niebieskiego Smoka+1
+	18	2182	1	20 -- Luk Niebieskiego Smoka+2
+	19	2183	1	15 -- Luk Niebieskiego Smoka+3
+	20	2184	1	10 -- Luk Niebieskiego Smoka+4
+	21	3150	1	30 -- Zlodziej Dusz+0
+	22	3151	1	25 -- Zlodziej Dusz+1
+	23	3152	1	20 -- Zlodziej Dusz+2
+	24	3153	1	15 -- Zlodziej Dusz+3
+	25	3154	1	10 -- Zlodziej Dusz+4
+	26	5130	1	30 -- Dzwon Smierci+0
+	27	5131	1	25 -- Dzwon Smierci+1
+	28	5132	1	20 -- Dzwon Smierci+2
+	29	5133	1	15 -- Dzwon Smierci+3
+	30	5134	1	10 -- Dzwon Smierci+4
+	31	7150	1	30 -- Ekstazyjny Wachlarz+0
+	32	7151	1	25 -- Ekstazyjny Wachlarz+1
+	33	7152	1	20 -- Ekstazyjny Wachlarz+2
+	34	7153	1	15 -- Ekstazyjny Wachlarz+3
+	35	7154	1	10 -- Ekstazyjny Wachlarz+4
+	36	11290	1	30 -- Zbroja Z Czarnej Stali+0
+	37	11291	1	25 -- Zbroja Z Czarnej Stali+1
+	38	11292	1	20 -- Zbroja Z Czarnej Stali+2
+	39	11293	1	15 -- Zbroja Z Czarnej Stali+3
+	40	11294	1	10 -- Zbroja Z Czarnej Stali+4
+	41	11490	1	30 -- Ubranie Czarn. Wiatru+0
+	42	11491	1	25 -- Ubranie Czarn. Wiatru+1
+	43	11492	1	20 -- Ubranie Czarn. Wiatru+2
+	44	11493	1	15 -- Ubranie Czarn. Wiatru+3
+	45	11494	1	10 -- Ubranie Czarn. Wiatru+4
+	46	11690	1	30 -- Zbr. Plyt. Czar. Magii+0
+	47	11691	1	25 -- Zbr. Plyt. Czar. Magii+1
+	48	11692	1	20 -- Zbr. Plyt. Czar. Magii+2
+	49	11693	1	15 -- Zbr. Plyt. Czar. Magii+3
+	50	11694	1	10 -- Zbr. Plyt. Czar. Magii+4
+	51	11890	1	30 -- Czarna Szata+0
+	52	11891	1	25 -- Czarna Szata+1
+	53	11892	1	20 -- Czarna Szata+2
+	54	11893	1	15 -- Czarna Szata+3
+	55	11894	1	10 -- Czarna Szata+4
+}
+Group	MT2009_chest_30775_misc
+{
+	Vnum	950752
+	1	27003	100	50 -- Czerwona Mikstura(D)
+	2	27006	100	50 -- Niebieska Mikstura(D)
+	3	50300	1	40 -- Ksiega Umiejetnosci
+	4	70037	1	15 -- Ksiega Zapomnienia
+	5	25040	1	12 -- Zwoj Blogoslawienstwa
+	6	70014	1	10 -- Pigulka Krwi
+	7	39002	1	10 -- Pierscien Doswiadczenia
+	8	70058	1	15 -- Pierscien Teleportacji
+	9	71130	1	20 -- Przepustka
+	10	14180	1	8 -- Ametystowa Bransoleta+0
+	11	16180	1	8 -- Ametystowy Naszyjnik+0
+	12	13140	1	6 -- Tarcza Tytanow+0
+	13	exp	600000	25 -- EXP 600 000
+	14	gold	800000	25 -- Yang 800 000
+}
+Group	MT2009_chest_30775_pet
+{
+	Vnum	950753
+	1	55010	1	10 -- ksiega peta
+	2	55011	1	10 -- ksiega peta
+	3	55012	1	10 -- ksiega peta
+	4	55013	1	10 -- ksiega peta
+	5	55014	1	10 -- ksiega peta
+	6	55015	1	10 -- ksiega peta
+	7	55016	1	10 -- ksiega peta
+	8	55017	1	10 -- ksiega peta
+	9	55018	1	10 -- ksiega peta
+	10	55019	1	10 -- ksiega peta
+	11	55020	1	10 -- ksiega peta
+	12	55021	1	10 -- ksiega peta
+	13	55022	1	10 -- ksiega peta
+	14	55023	1	10 -- ksiega peta
+	15	55024	1	10 -- ksiega peta
+	16	55025	1	10 -- ksiega peta
+	17	55026	1	10 -- ksiega peta
+	18	55027	1	10 -- ksiega peta
+	19	55028	1	10 -- ksiega peta
+	20	55029	1	10 -- ksiega peta
+	21	55030	1	10 -- ksiega peta
+	22	55031	1	10 -- ksiega peta
+	23	55009	1	30 -- Skrzynia Ksiag Peta
+	24	55101	1	60 -- Eliksir
+	25	55108	1	60 -- Eliksir
+	26	55115	1	60 -- Eliksir
+	27	55102	1	30 -- Eliksir
+	28	55109	1	30 -- Eliksir
+	29	55116	1	30 -- Eliksir
+	30	55103	1	15 -- Eliksir
+	31	55110	1	15 -- Eliksir
+	32	55117	1	15 -- Eliksir
+	33	55001	1	216 -- Proteinowa Przekaska
+	34	55032	1	150 -- Smakolyk
+	35	55035	1	50 -- Smakolyk+
+}
+Group	MT2009_chest_30776
+{
+	Vnum	30776 -- Skrzynia Dzungli
+	Type	Pct
+	1	s950761	1	100 -- bron / zbroja
+	2	s950762	1	100 -- zapychacz
+	3	s950762	1	50 -- drugi zapychacz
+	4	s950763	1	60 -- przedmiot do peta
+}
+Group	MT2009_chest_30776_gear
+{
+	Vnum	950761
+	1	185	1	30 -- Zatruty miecz+5
+	2	186	1	20 -- Zatruty miecz+6
+	3	187	1	10 -- Zatruty miecz+7
+	4	195	1	30 -- Lwi Miecz+5
+	5	196	1	20 -- Lwi Miecz+6
+	6	197	1	10 -- Lwi Miecz+7
+	7	1135	1	30 -- Skrzydla Demona Chakr.+5
+	8	1136	1	20 -- Skrzydla Demona Chakr.+6
+	9	1137	1	10 -- Skrzydla Demona Chakr.+7
+	10	2175	1	30 -- Stalowy Luk Kruka+5
+	11	2176	1	20 -- Stalowy Luk Kruka+6
+	12	2177	1	10 -- Stalowy Luk Kruka+7
+	13	3165	1	30 -- Miecz Zalu+5
+	14	3166	1	20 -- Miecz Zalu+6
+	15	3167	1	10 -- Miecz Zalu+7
+	16	5125	1	30 -- Bambusowy Dzwon+5
+	17	5126	1	20 -- Bambusowy Dzwon+6
+	18	5127	1	10 -- Bambusowy Dzwon+7
+	19	7185	1	30 -- Wachlarz 8 Trigramow+5
+	20	7186	1	20 -- Wachlarz 8 Trigramow+6
+	21	7187	1	10 -- Wachlarz 8 Trigramow+7
+	1	20000	1	30 -- Pancerz Diabel. Rogu+0
+	2	20001	1	25 -- Pancerz Diabel. Rogu+1
+	3	20002	1	20 -- Pancerz Diabel. Rogu+2
+	4	20003	1	15 -- Pancerz Diabel. Rogu+3
+	5	20004	1	10 -- Pancerz Diabel. Rogu+4
+	6	20250	1	30 -- Szata Smoczego Jezdzca+0
+	7	20251	1	25 -- Szata Smoczego Jezdzca+1
+	8	20252	1	20 -- Szata Smoczego Jezdzca+2
+	9	20253	1	15 -- Szata Smoczego Jezdzca+3
+	10	20254	1	10 -- Szata Smoczego Jezdzca+4
+	11	20500	1	30 -- Pancerz Kosciplytowy+0
+	12	20501	1	25 -- Pancerz Kosciplytowy+1
+	13	20502	1	20 -- Pancerz Kosciplytowy+2
+	14	20503	1	15 -- Pancerz Kosciplytowy+3
+	15	20504	1	10 -- Pancerz Kosciplytowy+4
+	16	20750	1	30 -- Zlote Ubranie+0
+	17	20751	1	25 -- Zlote Ubranie+1
+	18	20752	1	20 -- Zlote Ubranie+2
+	19	20753	1	15 -- Zlote Ubranie+3
+	20	20754	1	10 -- Zlote Ubranie+4
+}
+Group	MT2009_chest_30776_misc
+{
+	Vnum	950762
+	1	27003	200	50 -- Czerwona Mikstura(D)
+	2	27006	200	50 -- Niebieska Mikstura(D)
+	3	50300	1	40 -- Ksiega Umiejetnosci
+	4	70037	1	20 -- Ksiega Zapomnienia
+	5	25040	1	20 -- Zwoj Blogoslawienstwa
+	6	70014	1	15 -- Pigulka Krwi
+	7	39002	1	15 -- Pierscien Doswiadczenia
+	8	70043	1	15 -- Rekawica Zlodzieja
+	9	14540	1	8 -- Szmaragdowa Bransoleta+0
+	10	16540	1	8 -- Szmaragdowy Naszyjnik+0
+	11	17540	1	8 -- Szmaragdowe Kolczyki+0
+	12	exp	3000000	25 -- EXP 3 000 000
+	13	gold	3000000	25 -- Yang 3 000 000
+}
+Group	MT2009_chest_30776_pet
+{
+	Vnum	950763
+	1	55010	1	10 -- ksiega peta
+	2	55011	1	10 -- ksiega peta
+	3	55012	1	10 -- ksiega peta
+	4	55013	1	10 -- ksiega peta
+	5	55014	1	10 -- ksiega peta
+	6	55015	1	10 -- ksiega peta
+	7	55016	1	10 -- ksiega peta
+	8	55017	1	10 -- ksiega peta
+	9	55018	1	10 -- ksiega peta
+	10	55019	1	10 -- ksiega peta
+	11	55020	1	10 -- ksiega peta
+	12	55021	1	10 -- ksiega peta
+	13	55022	1	10 -- ksiega peta
+	14	55023	1	10 -- ksiega peta
+	15	55024	1	10 -- ksiega peta
+	16	55025	1	10 -- ksiega peta
+	17	55026	1	10 -- ksiega peta
+	18	55027	1	10 -- ksiega peta
+	19	55028	1	10 -- ksiega peta
+	20	55029	1	10 -- ksiega peta
+	21	55030	1	10 -- ksiega peta
+	22	55031	1	10 -- ksiega peta
+	23	55009	1	30 -- Skrzynia Ksiag Peta
+	24	55101	1	60 -- Eliksir
+	25	55108	1	60 -- Eliksir
+	26	55115	1	60 -- Eliksir
+	27	55102	1	30 -- Eliksir
+	28	55109	1	30 -- Eliksir
+	29	55116	1	30 -- Eliksir
+	30	55103	1	15 -- Eliksir
+	31	55110	1	15 -- Eliksir
+	32	55117	1	15 -- Eliksir
+	33	55001	1	216 -- Proteinowa Przekaska
+	34	55032	1	150 -- Smakolyk
+	35	55035	1	50 -- Smakolyk+
+}

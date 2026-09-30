@@ -1,0 +1,11 @@
+ScriptType	MapSetting
+
+CellScale	200
+HeightScale	0.500000
+
+ViewRadius	128
+
+MapSize	4	4
+BasePosition	230400	281600
+TextureSet	textureset\vasto_exp1.txt
+Environment	lasek2.msenv

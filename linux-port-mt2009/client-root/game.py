@@ -436,6 +436,8 @@ class GameWindow(ui.ScriptWindow):
 		uiwheel.DestroyWindow()
 		# MT2009_PLUS_GOBLIN_V1: the Treasure Hunt's windows (uigoblin.py).
 		__import__("uigoblin").DestroyWindow()
+		# MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel (uidungeoninfo.py).
+		__import__("uidungeoninfo").DestroyWindow()
 		# MT2009_PLUS_NEW_PET_V1: the New Pet System's window (uinewpet.py).
 		__import__("uinewpet").DestroyWindow()
 		# MT2009_PLUS_GUILD_DUTY_V1: the guild leader's panel.
@@ -681,6 +683,8 @@ class GameWindow(ui.ScriptWindow):
 		onPressKeyDict[app.DIK_F12]			= lambda : __import__("uiwheel").ToggleWindow()
 		# MT2009_PLUS_NEW_PET_V1: U - the New Pet System's window (uinewpet.py).
 		onPressKeyDict[app.DIK_U]			= lambda : __import__("uinewpet").ToggleWindow()
+		# MT2009_PLUS_DUNGEON_PANEL_V1: X - the dungeon panel ("Wyprawy", uidungeoninfo.py).
+		onPressKeyDict[app.DIK_X]			= lambda : __import__("uidungeoninfo").ToggleWindow()
 		onPressKeyDict[app.DIK_COMMA]		= lambda : self.ShowConsole()		# "`" key
 		onPressKeyDict[app.DIK_LSHIFT]		= lambda : self.__ToggleSprint()
 
@@ -699,8 +703,9 @@ class GameWindow(ui.ScriptWindow):
 
 
 
-		# The bonus switcher: X, because U is MT2009 PLUS's pet window.
-		onPressKeyDict[app.DIK_X]			= lambda : self.__ToggleBonusSwitcher()
+		# The bonus switcher: 0, because U is MT2009 PLUS's pet window, X its
+		# dungeon panel and every other letter is taken too.
+		onPressKeyDict[app.DIK_0]			= lambda : self.__ToggleBonusSwitcher()
 		# CUBE_TEST
 		#onPressKeyDict[app.DIK_K]			= lambda : self.interface.OpenCubeWindow()
 		onPressKeyDict[app.DIK_K]			= lambda : self.__ToggleAutoHunt()
@@ -2958,6 +2963,7 @@ class GameWindow(ui.ScriptWindow):
 		serverCommandList["WOF"] = self.__WheelOfFortune # MT2009_PLUS_WHEEL_V1
 		serverCommandList["NewPet"] = self.__NewPet # MT2009_PLUS_NEW_PET_V1
 		serverCommandList["GOB"] = self.__Goblin # MT2009_PLUS_GOBLIN_V1
+		serverCommandList["DungeonInfo"] = self.__DungeonInfo # MT2009_PLUS_DUNGEON_PANEL_V1
 
 		self.serverCommander=stringCommander.Analyzer()
 		for serverCommandItem in serverCommandList.items():
@@ -3568,6 +3574,11 @@ class GameWindow(ui.ScriptWindow):
 	def __Goblin(self, *args):
 		import uigoblin
 		uigoblin.OnCommand(self, *args)
+
+	# MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel's lines (dungeoninfo.py, the "dungeonInfo" module).
+	def __DungeonInfo(self, *args):
+		import dungeonInfo
+		dungeonInfo.OnCommand(self, *args)
 
 	# MT2009_PLUS_GUILD_DUTY_V1: the guild leader's panel (uiguildduty.py).
 	def __GuildDutyBegin(self, *args):

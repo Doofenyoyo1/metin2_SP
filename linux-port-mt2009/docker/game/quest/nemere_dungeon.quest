@@ -32,6 +32,10 @@ quest nemere_dungeon begin
 				near = 30, -- MT2009_PLUS_DUNGEON_ONE_WARP_V1: party members within 30 cells of the leader go with him
 				cooldown = 60 * 60,
 				limit_min = 60,
+				-- MT2009_PLUS_DUNGEON_FEE_V1: the price of a new expedition (each player, paid on entering it) and
+				-- how many new expeditions a player may start a day (Polish midnight).
+				fee = 15000000, fee_text = "15 000 000",
+				daily = 5,
 				-- [4] i [5]: 3 komorki na polnoc od pozycji z archiwum - tam server_attr z attr.atr klienta GF (2.0.28) ma sciane.
 				rooms = {
 					[2] = {422, 261}, [3] = {764, 264}, [4] = {175, 532}, [5] = {421, 535},
@@ -52,6 +56,55 @@ quest nemere_dungeon begin
 				crystal_permille = 40,
 				chests_min = 2, chests_max = 5,
 			}
+		end
+
+		-- MT2009_PLUS_DUNGEON_FEE_V1: the entry fee and the daily limit. Checked for everyone at the guard (with
+		-- the level and the rest), paid on the first login into a new instance (every way in:
+		-- the guard, the lobby, the lobby's own timer) - no money or no runs left there sends
+		-- the player out. "Wróæ do lochu" into the same instance costs nothing. GMs are free.
+		function today()
+			return math.floor((get_global_time() + 7200) / 86400)
+		end
+
+		function runs_today()
+			if pc.getf("nemere_dungeon", "day") ~= nemere_dungeon.today() then
+				return 0
+			end
+			return pc.getf("nemere_dungeon", "runs")
+		end
+
+		function over_limit()
+			local c = nemere_dungeon.cfg()
+			return not pc.is_gm() and nemere_dungeon.runs_today() >= c.daily
+		end
+
+		function too_poor()
+			local c = nemere_dungeon.cfg()
+			return not pc.is_gm() and pc.get_money() < c.fee
+		end
+
+		function pay_entry()
+			local c = nemere_dungeon.cfg()
+			if pc.is_gm() or pc.is_playerbot() then
+				return true
+			end
+			if nemere_dungeon.over_limit() then
+				syschat("Wykorzysta³eœ ju¿ dzisiejsze wyprawy do tego lochu ("..c.daily.."). Wróæ jutro.")
+				return false
+			end
+			if pc.get_money() < c.fee then
+				syschat("Wejœcie kosztuje "..c.fee_text.." Yang - nie masz tyle przy sobie.")
+				return false
+			end
+			pc.change_money(-c.fee)
+			local day = nemere_dungeon.today()
+			if pc.getf("nemere_dungeon", "day") ~= day then
+				pc.setf("nemere_dungeon", "day", day)
+				pc.setf("nemere_dungeon", "runs", 0)
+			end
+			pc.setf("nemere_dungeon", "runs", pc.getf("nemere_dungeon", "runs") + 1)
+			syschat("Op³ata za wejœcie: "..c.fee_text.." Yang. Dzisiejsza wyprawa "..pc.getf("nemere_dungeon", "runs").."/"..c.daily..".")
+			return true
 		end
 
 		function inside()
@@ -160,6 +213,7 @@ quest nemere_dungeon begin
 			say("")
 			say_reward("Wymagany poziom: "..c.min_level..". Ponowne wejœcie po 60 minutach.")
 			say_reward("Loch jest tylko dla graczy - boty z dru¿yny zostaj¹ tutaj.")
+			say_reward("Wejœcie: "..c.fee_text.." Yang. Najwy¿ej "..c.daily.." wypraw dziennie (dziœ: "..nemere_dungeon.runs_today().."/"..c.daily..").") -- MT2009_PLUS_DUNGEON_FEE_V1
 			if select("PrzejdŸ do Lodowej Krainy", "Nie teraz") ~= 1 then
 				return
 			end
@@ -224,9 +278,13 @@ quest nemere_dungeon begin
 			local humans = {me}
 			local low = {}
 			local wait = {}
+			local full = {} -- MT2009_PLUS_DUNGEON_FEE_V1
+			local poor = {}
 			if not pc.is_gm() and now - pc.getf("nemere_dungeon", "entry") < c.cooldown then
 				table.insert(wait, pc.get_name())
 			end
+			if nemere_dungeon.over_limit() then table.insert(full, pc.get_name()) end
+			if nemere_dungeon.too_poor() then table.insert(poor, pc.get_name()) end
 			if party.is_party() then
 				local lmap, lx, ly = pc.get_map_index(), pc.get_x(), pc.get_y()
 				local pids = {party.get_member_pids()}
@@ -242,6 +300,8 @@ quest nemere_dungeon begin
 							if not pc.is_gm() and now - pc.getf("nemere_dungeon", "entry") < c.cooldown then
 								table.insert(wait, pc.get_name())
 							end
+							if nemere_dungeon.over_limit() then table.insert(full, pc.get_name()) end
+							if nemere_dungeon.too_poor() then table.insert(poor, pc.get_name()) end
 						end
 						q.end_other_pc_block()
 					end
@@ -251,6 +311,16 @@ quest nemere_dungeon begin
 				say_title(mob_name(20395))
 				say("Za s³abi, by wejœæ (poziom "..c.min_level.."+):")
 				for i, n in next, low, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(full) > 0 then
+				say("Dzisiejsze wyprawy do tego lochu ju¿ wykorzystane ("..c.daily.." dziennie):")
+				for i, n in next, full, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(poor) > 0 then
+				say("Wejœcie kosztuje "..c.fee_text.." Yang - za ma³o przy sobie:")
+				for i, n in next, poor, nil do say(color(1,1,0).."    "..n) end
 				return
 			end
 			if table.getn(wait) > 0 then
@@ -350,6 +420,8 @@ quest nemere_dungeon begin
 			local humans = {}
 			local low = {}
 			local wait = {}
+			local full = {} -- MT2009_PLUS_DUNGEON_FEE_V1
+			local poor = {}
 			if party.is_party() then
 				local pids = {party.get_member_pids()}
 				for i, pid in next, pids, nil do
@@ -362,6 +434,8 @@ quest nemere_dungeon begin
 						if not pc.is_gm() and now - pc.getf("nemere_dungeon", "entry") < c.cooldown then
 							table.insert(wait, pc.get_name())
 						end
+						if nemere_dungeon.over_limit() then table.insert(full, pc.get_name()) end
+						if nemere_dungeon.too_poor() then table.insert(poor, pc.get_name()) end
 					end
 					q.end_other_pc_block()
 				end
@@ -373,10 +447,22 @@ quest nemere_dungeon begin
 				if not pc.is_gm() and now - pc.getf("nemere_dungeon", "entry") < c.cooldown then
 					table.insert(wait, pc.get_name())
 				end
+				if nemere_dungeon.over_limit() then table.insert(full, pc.get_name()) end
+				if nemere_dungeon.too_poor() then table.insert(poor, pc.get_name()) end
 			end
 			if table.getn(low) > 0 then
 				say("Za s³abi, by wejœæ (poziom "..c.min_level.."+):")
 				for i, n in next, low, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(full) > 0 then
+				say("Dzisiejsze wyprawy do tego lochu ju¿ wykorzystane ("..c.daily.." dziennie):")
+				for i, n in next, full, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(poor) > 0 then
+				say("Wejœcie kosztuje "..c.fee_text.." Yang - za ma³o przy sobie:")
+				for i, n in next, poor, nil do say(color(1,1,0).."    "..n) end
 				return
 			end
 			if table.getn(wait) > 0 then
@@ -444,6 +530,10 @@ quest nemere_dungeon begin
 				pc.setf("nemere_dungeon", "inside", 1)
 				pc.setf("nemere_dungeon", "pending", 0)
 				if pc.getf("nemere_dungeon", "idx") ~= idx then
+					if not nemere_dungeon.pay_entry() then -- MT2009_PLUS_DUNGEON_FEE_V1
+						pc.warp(c.exit_x * 100, c.exit_y * 100)
+						return
+					end
 					pc.setf("nemere_dungeon", "idx", idx)
 					pc.setf("nemere_dungeon", "entry", get_global_time())
 				end
@@ -625,6 +715,7 @@ quest nemere_dungeon begin
 		when 6191.kill with nemere_dungeon.inside() and d.getf("step") == 10 and d.getf("ready") == 1 begin
 			d.setf("step", 11)
 			nemere_dungeon.give_chests()
+			d.update_ranking("nemere") -- MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel's results
 			d.clear_regen()
 			nemere_dungeon.purge_mobs()
 			d.notice("Nemere zosta³ pokonany! Za 60 sekund wszyscy wróc¹ na Górê Sohan.")

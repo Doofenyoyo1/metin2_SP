@@ -221,9 +221,13 @@ namespace
 
 		// The bean for a bot standing out a negative rank in town: the one thing
 		// that lifts it there (KeepPlayerBotNegativeRankInTown), one at a time.
+		// MT2009_PLUS_BOT_RANK_GLOVE_V1: not while it hunts the rank back
+		// (IsPlayerBotRankHunting) - the town gave it no bean, and a trip back
+		// for one would only stand it there again.
 		if (offer->GetVnum() == PLAYERBOT_ZEN_BEAN_VNUM)
 			return ch->GetRealAlignment() < 0 &&
-					ch->CountSpecifyItem(PLAYERBOT_ZEN_BEAN_VNUM) == 0;
+					ch->CountSpecifyItem(PLAYERBOT_ZEN_BEAN_VNUM) == 0 &&
+					!IsPlayerBotRankHunting(ch, get_dword_time());
 
 		// A Moonlight chest, to open (WantsPlayerBotMoonlightChest).
 		if (offer->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
@@ -412,7 +416,8 @@ namespace
 			return true;
 		if (PlayerBotNeedsProgressionShopping(ch)) return true;
 		// A bean for a negative rank (WantsPlayerBotStallItem).
-		if (ch->GetRealAlignment() < 0 && ch->CountSpecifyItem(PLAYERBOT_ZEN_BEAN_VNUM) == 0)
+		if (ch->GetRealAlignment() < 0 && ch->CountSpecifyItem(PLAYERBOT_ZEN_BEAN_VNUM) == 0 &&
+				!IsPlayerBotRankHunting(ch, get_dword_time())) // MT2009_PLUS_BOT_RANK_GLOVE_V1
 			return true;
 		// A Moonlight chest, while some counter holds one: the ledger counts the
 		// counters (AddPlayerBotMarketSupply, the offline shops included), so the
@@ -1062,7 +1067,8 @@ namespace
 		// reached the Monkey Dungeon ("lataja po m2", sizowski). A dropper
 		// standing out a negative rank in town may shop, for the bean that lifts
 		// it (KeepPlayerBotNegativeRankInTown).
-		if (IsPlayerBotDropper(state.bPersonality) && ch->GetRealAlignment() >= 0)
+		if (IsPlayerBotDropper(state.bPersonality) &&
+				(ch->GetRealAlignment() >= 0 || IsPlayerBotRankHunting(ch, dwNow))) // MT2009_PLUS_BOT_RANK_GLOVE_V1
 		{
 			EndPlayerBotMarketTrip(ch, state, "dropper");
 			return false;

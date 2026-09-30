@@ -809,6 +809,30 @@ else
     echo "[playerbot-migrate] WARNING: could not write the difficulty flags; the quests keep the last ones" >&2
 fi
 
+# MT2009_PLUS_EXCHANGE_CHANCE_V1: the NPC exchanges' chances - soul stones to
+# Magiczny Pyl, skill books to Pergamin, upgrade items to Materialy
+# Rzemieslnicze - follow the level flag above: easy is the package's 100 / 100
+# / 55, medium 90 / 45 / 55, hard 55 / 40 / 55 (quest/m2_difficulty.lua for the
+# players, GetPlayerBotExchangeChance for the bots' dust and materials). A
+# custom level takes these three flags, .env's M2_EXCHANGE_DUST_CHANCE,
+# _PARCHMENT_ and _MATERIAL_ in percent, 0 or nothing being the package's own.
+# No panel writes them, so they are .env's at every start; a level changed in
+# the panel picks its preset or these at once.
+exchange_percent() {
+    printf '%s\n' "$1" | tr -d ' \r%' | awk '{ p = int($1 + 0); if (p < 0) p = 0; if (p > 100) p = 100; printf "%d", p }'
+}
+xdust=$(exchange_percent "${M2_EXCHANGE_DUST_CHANCE:-0}")
+xparch=$(exchange_percent "${M2_EXCHANGE_PARCHMENT_CHANCE:-0}")
+xmat=$(exchange_percent "${M2_EXCHANGE_MATERIAL_CHANCE:-0}")
+if db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES
+        (0, 'm2_exchange_dust_chance', '', $xdust),
+        (0, 'm2_exchange_parchment_chance', '', $xparch),
+        (0, 'm2_exchange_material_chance', '', $xmat);"; then
+    echo "[playerbot-migrate] exchange chances for a custom difficulty: dust $xdust%, parchment $xparch%, materials $xmat% (0 = the package's 100/100/55)"
+else
+    echo "[playerbot-migrate] WARNING: could not write the exchange chances; the quests keep the last ones" >&2
+fi
+
 # The apprentice chest (Skrzynia Ucznia) is the world's choice, one switch
 # for people and bots alike: the event flag m2_starter_chest_off, which
 # starter_chest.quest asks at a person's first login, the seed below asks
@@ -962,6 +986,24 @@ elif db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES
     echo "[playerbot-migrate] alchemy: $([ "$alchemy_off" = 1 ] && echo off || echo on), sashes: $([ "$sash_off" = 1 ] && echo off || echo on)"
 else
     echo "[playerbot-migrate] WARNING: could not write the alchemy and sash switches; they stay as they were" >&2
+fi
+
+# MT2009_PLUS_AREZZO_MODULE_V1: the Arezzo module (maps 360-366, their dungeons and entrance guards),
+# voluntary and off unless M2_AREZZO=1. One world flag, mt2009_arezzo_closed (1 = off), read by the
+# quests (Teleporter, ring, Ochao portal, dungeon guards) and the cores (playerbot_arezzo.h: the
+# guards and the send-off; the dungeon window). The panel switches it live (web_admin.quest AREZZO),
+# so, as with the alchemy, .env is applied only when it changed since the last start
+# (m2_arezzo_env = what it said + 1).
+case "$(printf '%s' "${M2_AREZZO:-0}" | tr 'A-Z' 'a-z' | tr -d ' \r')" in 1|on|yes|true) arezzo_on=1 ;; *) arezzo_on=0 ;; esac
+arezzo_env=$(db -N -e "SELECT lValue FROM player.quest WHERE dwPID = 0 AND szName = 'm2_arezzo_env' LIMIT 1;" 2>/dev/null | tr -d ' \r')
+if [ -n "$arezzo_env" ] && [ "$arezzo_env" = "$((arezzo_on + 1))" ]; then
+    echo "[playerbot-migrate] Arezzo module: .env unchanged since the last start - the switch stays as the panel or the last start left it"
+elif db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES
+        (0, 'mt2009_arezzo_closed', '', $((1 - arezzo_on))),
+        (0, 'm2_arezzo_env', '', $((arezzo_on + 1)));"; then
+    echo "[playerbot-migrate] Arezzo module: $([ "$arezzo_on" = 1 ] && echo on || echo off) (from .env)"
+else
+    echo "[playerbot-migrate] WARNING: could not write the Arezzo module switch; it stays as it was" >&2
 fi
 
 echo "[playerbot-migrate] applying deterministic Playerbot seed (PID $first_pid..$last_pid)"
@@ -1422,6 +1464,347 @@ CREATE TEMPORARY TABLE world.dg_item AS SELECT * FROM world.item_proto WHERE vnu
 UPDATE world.dg_item SET vnum = 30762, name = _cp1250 X'4B6C75637A204D726F7A75', locale_name = _cp1250 X'4B6C75637A204D726F7A75', stack = 200, antiflag = 0, flag = 4;
 INSERT IGNORE INTO world.item_proto SELECT * FROM world.dg_item;
 DROP TEMPORARY TABLE world.dg_item;" || echo "[playerbot-migrate] WARNING: could not set up the Razador and Nemere dungeons' monsters and keys" >&2
+
+# MT2009_PLUS_AREZZO_V1: the first three places from the Arezzo files (the owner has the rights to
+# them), players only - bots later: Dolina Cyklopow (map 360, level 45, the Teleporter), Zaczarowany
+# Las (362, level 95+, the Temple of Ochao's portal) and the Biblioteka Wiedzy dungeon (363, level 30,
+# quest/biblioteka_wiedzy.quest; game/arezzo/). Arezzo's own numbers (level 200 world) are not taken:
+# the cyclopes are level-45 copies of 3101-3105/3190/3191 (9601-9607), the forest's lemures are the
+# official 3301-3305 with 30% more HP and 25% more damage (9611-9615, the Temple and the Goblin waves
+# keep theirs), the library's spiders, eggs, queens and Baroness are level 30-35 copies (9703-9706)
+# of 2034/2095/2091/2092 - the Spider Dungeon keeps its own. Straznik Biblioteki (20430) is a copy
+# of the Fire Land's guard; the library's seal (30765) a copy of the Nemere key, its boss chest
+# (30773) a copy of Razador's (special_item_group.arezzo.txt). Rows are added once; the values are
+# written every start (PROTO_FROM_DB: read at the db core's boot). Idempotent.
+db -e "DROP TEMPORARY TABLE IF EXISTS world.az_mob;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3101 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9601;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4A65646E6F6F6B69205A6162696A616B61', locale_name = _cp1250 X'4A65646E6F6F6B69205A6162696A616B61', folder = 'cyclops_soldier', rank = 0, level = 43, st = 50, dx = 40, ht = 35, iq = 14, damage_min = 95, damage_max = 130, max_hp = 2000, def = 60, exp = 900, gold_min = 150, gold_max = 230, drain_sp = 0, sp_berserk = 0, ai_flag = 'AGGR', dam_multiply = 1.2, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9601;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3102 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9602;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'43796B6C6F7020AF6FB36E6965727A', locale_name = _cp1250 X'43796B6C6F7020AF6FB36E6965727A', folder = 'cyclops_soldier2', rank = 1, level = 44, st = 52, dx = 42, ht = 36, iq = 14, damage_min = 95, damage_max = 140, max_hp = 2500, def = 61, exp = 1150, gold_min = 180, gold_max = 270, drain_sp = 0, sp_stoneskin = 0, ai_flag = 'AGGR', dam_multiply = 1.4, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9602;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3103 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9603;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'43796B6C6F70204D6167', locale_name = _cp1250 X'43796B6C6F70204D6167', folder = 'cyclops_magic', rank = 1, level = 45, st = 30, dx = 42, ht = 55, iq = 15, damage_min = 95, damage_max = 140, max_hp = 2500, def = 58, exp = 1200, gold_min = 180, gold_max = 270, drain_sp = 0, sp_godspeed = 0, ai_flag = 'AGGR', dam_multiply = 1.4, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9603;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3104 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9604;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'43796B6C6F70204B6174', locale_name = _cp1250 X'43796B6C6F70204B6174', folder = 'cyclops_officer', rank = 2, level = 47, st = 35, dx = 60, ht = 40, iq = 15, damage_min = 95, damage_max = 145, max_hp = 3400, def = 63, exp = 2100, gold_min = 250, gold_max = 380, drain_sp = 0, sp_deathblow = 0, ai_flag = 'AGGR', dam_multiply = 1.6, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9604;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3105 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9605;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'47656E657261B3204F75746973', locale_name = _cp1250 X'47656E657261B3204F75746973', folder = 'cyclops_general', rank = 3, level = 49, st = 60, dx = 35, ht = 60, iq = 16, damage_min = 90, damage_max = 140, max_hp = 5200, def = 60, exp = 4000, gold_min = 340, gold_max = 510, drain_sp = 0, sp_revive = 0, ai_flag = 'AGGR', dam_multiply = 2.0, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9605;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3190 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9606;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4172676573', locale_name = _cp1250 X'4172676573', folder = 'cyclops_boss', rank = 4, level = 52, st = 50, dx = 33, ht = 62, iq = 16, damage_min = 80, damage_max = 150, max_hp = 40000, def = 67, exp = 14000, gold_min = 20000, gold_max = 30000, summon = 9604, drain_sp = 0, regen_cycle = 19, regen_percent = 22, sp_berserk = 20, sp_stoneskin = 10, sp_deathblow = 10, sp_revive = 0, ai_flag = 'AGGR,IGNORE_LAST_ATTACK,LOOSE_AGGRO_ON_DISTANCE', dam_multiply = 2.2, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9606;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3191 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9607;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'506F6C6966656D', locale_name = _cp1250 X'506F6C6966656D', folder = 'cyclops_boss2', rank = 5, level = 55, st = 55, dx = 35, ht = 65, iq = 17, damage_min = 85, damage_max = 155, max_hp = 90000, def = 70, exp = 20000, gold_min = 30000, gold_max = 50000, summon = 9605, drain_sp = 0, regen_cycle = 19, regen_percent = 22, sp_berserk = 20, sp_stoneskin = 15, sp_deathblow = 15, sp_revive = 0, ai_flag = 'AGGR,IGNORE_LAST_ATTACK,LOOSE_AGGRO_ON_DISTANCE', dam_multiply = 2.4, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9607;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3301 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9611;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4C656D757220576F6A6F776E696B', locale_name = _cp1250 X'4C656D757220576F6A6F776E696B', folder = 'lemures_soldier', damage_min = 229, damage_max = 280, max_hp = 9493, exp = 1668, gold_min = 238, gold_max = 356, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9611;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3302 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9612;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4C656D757220AF6FB36E6965727A', locale_name = _cp1250 X'4C656D757220AF6FB36E6965727A', folder = 'lemures_soldier2', damage_min = 231, damage_max = 282, max_hp = 19272, exp = 4044, gold_min = 481, gold_max = 720, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9612;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3303 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9613;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4C656D7572204D6167', locale_name = _cp1250 X'4C656D7572204D6167', folder = 'lemures_magic', damage_min = 234, damage_max = 285, max_hp = 19556, exp = 4086, gold_min = 484, gold_max = 728, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9613;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3304 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9614;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4C656D7572204B6174', locale_name = _cp1250 X'4C656D7572204B6174', folder = 'lemures_officer', damage_min = 210, damage_max = 315, max_hp = 49607, exp = 12385, gold_min = 733, gold_max = 1101, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9614;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3305 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9615;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4C656D75722047656E657261B3', locale_name = _cp1250 X'4C656D75722047656E657261B3', folder = 'lemures_general', damage_min = 211, damage_max = 318, max_hp = 100629, exp = 29883, gold_min = 987, gold_max = 1479, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9615;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 2034 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9703;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'5472756AB963792050616AB96B', locale_name = _cp1250 X'5472756AB963792050616AB96B', folder = 'spider_nipper', rank = 1, level = 30, st = 40, dx = 25, ht = 35, iq = 10, damage_min = 70, damage_max = 105, max_hp = 1600, def = 40, exp = 700, gold_min = 90, gold_max = 140, regen_cycle = 6, regen_percent = 7, sp_berserk = 0, sp_stoneskin = 0, enchant_poison = 0, enchant_critical = 0, resist_poison = 0, ai_flag = 'AGGR', dam_multiply = 1.2, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9703;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 2095 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9704;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'50616AEA637A65204A616A6F', locale_name = _cp1250 X'50616AEA637A65204A616A6F', folder = 'spider_egg', rank = 5, level = 30, st = 40, dx = 25, ht = 50, iq = 10, max_hp = 60000, def = 35, exp = 2000, gold_min = 0, gold_max = 0, summon = 9703, drain_sp = 0, regen_cycle = 0, regen_percent = 0, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0, resist_fire = 0, resist_poison = 0, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9704;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 2091 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9705;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C6F77612050616AB96BF377', locale_name = _cp1250 X'4B72F36C6F77612050616AB96BF377', folder = 'spider_queen', rank = 4, level = 33, st = 45, dx = 30, ht = 45, iq = 12, damage_min = 90, damage_max = 130, max_hp = 25000, def = 45, exp = 8000, gold_min = 3000, gold_max = 5000, summon = 9703, drain_sp = 0, regen_cycle = 10, regen_percent = 5, sp_berserk = 5, sp_stoneskin = 5, skill_level0 = 10, enchant_poison = 10, enchant_stun = 0, enchant_critical = 5, enchant_penetrate = 5, resist_fire = 0, resist_poison = 0, dam_multiply = 1.8, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9705;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 2092 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9706;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4261726F6EF3776E612050616AB96BF377', locale_name = _cp1250 X'4261726F6EF3776E612050616AB96BF377', folder = 'spider_king', rank = 5, level = 35, st = 55, dx = 35, ht = 55, iq = 14, damage_min = 100, damage_max = 150, max_hp = 150000, def = 55, exp = 30000, gold_min = 8000, gold_max = 12000, summon = 9703, drain_sp = 0, regen_cycle = 15, regen_percent = 5, sp_berserk = 10, sp_stoneskin = 5, sp_deathblow = 0, sp_revive = 0, skill_level0 = 15, enchant_poison = 10, enchant_slow = 5, enchant_stun = 5, enchant_critical = 10, enchant_penetrate = 10, attack_speed = 120, move_speed = 130, attack_range = 250, ai_flag = 'AGGR,BERSERK', dam_multiply = 2.0, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9706;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20394 LIMIT 1;
+UPDATE world.az_mob SET vnum = 20430;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'53747261BF6E696B204269626C696F74656B69', locale_name = _cp1250 X'53747261BF6E696B204269626C696F74656B69', drop_item = 0, resurrection_vnum = 0 WHERE vnum = 20430;
+DROP TEMPORARY TABLE IF EXISTS world.az_item;
+CREATE TEMPORARY TABLE world.az_item AS SELECT * FROM world.item_proto WHERE vnum = 30760 LIMIT 1;
+UPDATE world.az_item SET vnum = 30765;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.az_item;
+DROP TEMPORARY TABLE world.az_item;
+UPDATE world.item_proto SET name = _cp1250 X'506965637AEAE6204269626C696F74656B69', locale_name = _cp1250 X'506965637AEAE6204269626C696F74656B69', stack = 200, antiflag = 0, flag = 4 WHERE vnum = 30765;
+CREATE TEMPORARY TABLE world.az_item AS SELECT * FROM world.item_proto WHERE vnum = 50270 LIMIT 1;
+UPDATE world.az_item SET vnum = 30773;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.az_item;
+DROP TEMPORARY TABLE world.az_item;
+UPDATE world.item_proto SET name = _cp1250 X'536B727A796E6961204269626C696F74656B69', locale_name = _cp1250 X'536B727A796E6961204269626C696F74656B69', stack = 200, antiflag = 0, flag = 4 WHERE vnum = 30773;" || echo "[playerbot-migrate] WARNING: could not add the Arezzo maps' monsters, NPC and items" >&2
+
+# MT2009_PLUS_AREZZO_V1 (phases 5-8): the Arezzo dungeons Wzgorze Wukonga (364, level 45), Ruiny Skorpiona
+# (365, level 65) and Starozytna Dzungla (366, level 95) and the map Pustkowie Faraona (361, level 55), players
+# only. Arezzo's level-200 numbers are not taken: every monster is a copy of one of this world's rows (3101-3105,
+# 3190/3191, 3302-3305, 3390/3391, 8009, 8053) with the level, HP, damage and exp of its band (ANALIZA.md, section 6)
+# and the Plechito model as its folder (share/data/monster/<folder> from game/arezzo/data/monster). Arezzo's
+# 8207/8210/8213/8214 are 9677/9678/9675/9681 here and its 16100-16154 are 9707-9714 (the client's npclist uses
+# those numbers). The entrance guards 20423-20425 are copies of the Fire Land's; the seals 30766-30768 copies of
+# the Nemere key, the chests 30774-30776 of Razador's and Nemere's (special_item_group.arezzo2.txt). Rows are
+# added once; the values are written every start. Idempotent.
+db -e "DROP TEMPORARY TABLE IF EXISTS world.az_mob;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3101 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9680;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'537461726FBF79746E7920526F62616B', locale_name = _cp1250 X'537461726FBF79746E7920526F62616B', folder = 'plechito_pyramid_monster2', rank = 0, level = 53, st = 60, dx = 45, ht = 50, iq = 18, damage_min = 110, damage_max = 140, max_hp = 4000, def = 64, exp = 1200, gold_min = 260, gold_max = 390, drain_sp = 0, sp_berserk = 0, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 1.4, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9680;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3101 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9679;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'537461726FBF79746E7920536B6F7270696F6E', locale_name = _cp1250 X'537461726FBF79746E7920536B6F7270696F6E', folder = 'plechito_pyramid_monster3', rank = 0, level = 54, st = 62, dx = 46, ht = 52, iq = 18, damage_min = 112, damage_max = 145, max_hp = 5000, def = 65, exp = 1400, gold_min = 270, gold_max = 400, drain_sp = 0, sp_berserk = 0, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 1.4, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9679;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3102 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9671;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'537461726FBF79746E7920576F6A6F776E696B', locale_name = _cp1250 X'537461726FBF79746E7920576F6A6F776E696B', folder = 'plechito_pyramid_monster5', rank = 1, level = 55, st = 64, dx = 46, ht = 54, iq = 18, damage_min = 115, damage_max = 150, max_hp = 4800, def = 66, exp = 1700, gold_min = 290, gold_max = 430, drain_sp = 0, sp_stoneskin = 0, ai_flag = 'AGGR', setRaceFlag = 'DESERT,UNDEAD', dam_multiply = 1.5, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9671;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3102 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9672;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'537461726FBF79746E61204D756D6961', locale_name = _cp1250 X'537461726FBF79746E61204D756D6961', folder = 'plechito_pyramid_monster7', rank = 1, level = 56, st = 66, dx = 47, ht = 56, iq = 18, damage_min = 118, damage_max = 152, max_hp = 5200, def = 67, exp = 1900, gold_min = 300, gold_max = 450, drain_sp = 0, sp_stoneskin = 0, ai_flag = 'AGGR', setRaceFlag = 'DESERT,UNDEAD', dam_multiply = 1.5, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9672;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3103 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9674;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4D756D6961204B6170B3616E6B61', locale_name = _cp1250 X'4D756D6961204B6170B3616E6B61', folder = 'plechito_pyramid_monster11', rank = 2, level = 56, st = 40, dx = 47, ht = 70, iq = 20, damage_min = 120, damage_max = 155, max_hp = 5300, def = 68, exp = 2600, gold_min = 340, gold_max = 510, drain_sp = 0, sp_godspeed = 0, ai_flag = 'AGGR', setRaceFlag = 'DESERT,UNDEAD', dam_multiply = 1.6, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9674;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3104 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9673;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'537461726FBF79746E7920486F727573', locale_name = _cp1250 X'537461726FBF79746E7920486F727573', folder = 'plechito_pyramid_monster12', rank = 2, level = 57, st = 50, dx = 70, ht = 58, iq = 19, damage_min = 125, damage_max = 158, max_hp = 6000, def = 70, exp = 3000, gold_min = 360, gold_max = 540, drain_sp = 0, sp_deathblow = 0, ai_flag = 'AGGR', setRaceFlag = 'DESERT', dam_multiply = 1.7, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9673;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3105 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9676;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'537461726FBF79746E79204F7A79727973', locale_name = _cp1250 X'537461726FBF79746E79204F7A79727973', folder = 'plechito_pyramid_monster9', rank = 3, level = 58, st = 72, dx = 50, ht = 72, iq = 20, damage_min = 125, damage_max = 160, max_hp = 10800, def = 71, exp = 5400, gold_min = 420, gold_max = 630, drain_sp = 0, sp_revive = 0, ai_flag = 'AGGR', setRaceFlag = 'DESERT,UNDEAD', dam_multiply = 2.0, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9676;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8009 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9677;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'537461726FBF79746E79204B616D6965F1', locale_name = _cp1250 X'537461726FBF79746E79204B616D6965F1', level = 55, max_hp = 196000, def = 60, exp = 40, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9677;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8009 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9678;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4B616D6965F120506972616D696479', locale_name = _cp1250 X'4B616D6965F120506972616D696479', level = 57, max_hp = 220000, def = 62, exp = 45, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9678;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3190 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9675;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'426173746574', locale_name = _cp1250 X'426173746574', folder = 'plechito_pyramid_boss3', rank = 4, level = 60, st = 65, dx = 50, ht = 70, iq = 20, damage_min = 110, damage_max = 175, max_hp = 65000, def = 75, exp = 22000, gold_min = 30000, gold_max = 45000, summon = 9672, drain_sp = 0, regen_cycle = 19, regen_percent = 22, sp_berserk = 20, sp_stoneskin = 10, sp_deathblow = 10, sp_revive = 0, ai_flag = 'AGGR,IGNORE_LAST_ATTACK,LOOSE_AGGRO_ON_DISTANCE', setRaceFlag = 'DESERT', dam_multiply = 2.3, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9675;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3191 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9681;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'416E75626973', locale_name = _cp1250 X'416E75626973', folder = 'plechito_pyramid_boss4', rank = 5, level = 62, st = 70, dx = 52, ht = 75, iq = 22, damage_min = 120, damage_max = 185, max_hp = 115000, def = 80, exp = 32000, gold_min = 45000, gold_max = 65000, summon = 9676, drain_sp = 0, regen_cycle = 19, regen_percent = 22, sp_berserk = 20, sp_stoneskin = 15, sp_deathblow = 15, sp_revive = 0, ai_flag = 'AGGR,IGNORE_LAST_ATTACK,LOOSE_AGGRO_ON_DISTANCE', setRaceFlag = 'DESERT,UNDEAD', dam_multiply = 2.5, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9681;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3101 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9690;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'5769656C6B61204D61B37061', locale_name = _cp1250 X'5769656C6B61204D61B37061', folder = 'plechi_wukong_monster5', rank = 0, level = 44, st = 52, dx = 42, ht = 36, iq = 14, damage_min = 85, damage_max = 120, max_hp = 3000, def = 55, exp = 1100, gold_min = 180, gold_max = 270, drain_sp = 0, sp_berserk = 0, ai_flag = 'AGGR', setRaceFlag = 'ANIMAL', dam_multiply = 1.3, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9690;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3102 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9691;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4F62726FF16361205374796C75204D61B370', locale_name = _cp1250 X'4F62726FF16361205374796C75204D61B370', folder = 'plechi_wukong_monster6', rank = 1, level = 45, st = 54, dx = 43, ht = 38, iq = 14, damage_min = 90, damage_max = 125, max_hp = 3600, def = 56, exp = 1400, gold_min = 200, gold_max = 300, drain_sp = 0, sp_stoneskin = 0, ai_flag = 'AGGR', setRaceFlag = 'ANIMAL', dam_multiply = 1.4, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9691;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3103 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9692;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'55637A6F6E79205374796C75204D61B370', locale_name = _cp1250 X'55637A6F6E79205374796C75204D61B370', folder = 'plechi_wukong_monster7', rank = 2, level = 46, st = 32, dx = 44, ht = 56, iq = 16, damage_min = 90, damage_max = 130, max_hp = 4500, def = 57, exp = 2000, gold_min = 240, gold_max = 360, drain_sp = 0, sp_godspeed = 0, ai_flag = 'AGGR', setRaceFlag = 'ANIMAL', dam_multiply = 1.5, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9692;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3103 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9693;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'437A61726F647A69656A205374796C75204D61B370', locale_name = _cp1250 X'437A61726F647A69656A205374796C75204D61B370', folder = 'plechi_wukong_monster8', rank = 3, level = 47, st = 34, dx = 45, ht = 60, iq = 17, damage_min = 95, damage_max = 140, max_hp = 5500, def = 58, exp = 2800, gold_min = 300, gold_max = 450, drain_sp = 0, sp_godspeed = 0, ai_flag = 'AGGR', setRaceFlag = 'ANIMAL', dam_multiply = 1.8, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9693;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8009 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9701;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4B616D6965F120577A67F3727A61', locale_name = _cp1250 X'4B616D6965F120577A67F3727A61', folder = 'plechi_wukong_stone1', level = 45, max_hp = 100000, def = 50, exp = 30, summon = 9690, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9701;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8009 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9702;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4A616A6F2046656E696B7361', locale_name = _cp1250 X'4A616A6F2046656E696B7361', folder = 'plechi_wukong_stone2_full', level = 46, max_hp = 110000, def = 52, exp = 35, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9702;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3190 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9683;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4F62726FF163612043686D7572', locale_name = _cp1250 X'4F62726FF163612043686D7572', folder = 'plechi_wukong_boss1', rank = 4, level = 50, st = 52, dx = 36, ht = 60, iq = 16, damage_min = 100, damage_max = 150, max_hp = 60000, def = 65, exp = 10000, gold_min = 8000, gold_max = 12000, summon = 9691, drain_sp = 0, regen_cycle = 10, regen_percent = 5, sp_berserk = 10, sp_stoneskin = 5, sp_deathblow = 5, sp_revive = 0, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'ANIMAL', dam_multiply = 2.0, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9683;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3190 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9684;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'50B36F6D69656E6E792046656E696B73', locale_name = _cp1250 X'50B36F6D69656E6E792046656E696B73', folder = 'plechi_wukong_boss2', rank = 5, level = 52, st = 55, dx = 38, ht = 62, iq = 17, damage_min = 110, damage_max = 160, max_hp = 120000, def = 70, exp = 20000, gold_min = 10000, gold_max = 15000, summon = 0, drain_sp = 0, regen_cycle = 10, regen_percent = 5, sp_berserk = 15, sp_stoneskin = 10, sp_deathblow = 10, sp_revive = 0, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'FIRE', dam_multiply = 2.2, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9684;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3191 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9682;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'57754B6F6E67', locale_name = _cp1250 X'57754B6F6E67', folder = 'plechi_wukong_mainboss', rank = 5, level = 55, st = 60, dx = 40, ht = 68, iq = 18, damage_min = 130, damage_max = 190, max_hp = 280000, def = 75, exp = 60000, gold_min = 15000, gold_max = 22000, summon = 9693, drain_sp = 0, regen_cycle = 15, regen_percent = 5, sp_berserk = 15, sp_stoneskin = 10, sp_deathblow = 10, sp_revive = 0, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'ANIMAL', dam_multiply = 2.4, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9682;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3102 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9697;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4DB36F647920536B6F7270696F6E', locale_name = _cp1250 X'4DB36F647920536B6F7270696F6E', folder = 'plechi_scorp_mon1', rank = 1, level = 66, st = 90, dx = 70, ht = 80, iq = 25, damage_min = 200, damage_max = 240, max_hp = 27000, def = 92, exp = 2500, gold_min = 500, gold_max = 750, drain_sp = 0, sp_stoneskin = 0, enchant_poison = 5, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 2.55, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9697;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3102 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9698;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4E6965626965736B6920536B6F7270696F6E', locale_name = _cp1250 X'4E6965626965736B6920536B6F7270696F6E', folder = 'plechi_scorp_mon2', rank = 1, level = 67, st = 92, dx = 72, ht = 82, iq = 25, damage_min = 205, damage_max = 250, max_hp = 30000, def = 92, exp = 2800, gold_min = 520, gold_max = 780, drain_sp = 0, sp_stoneskin = 0, enchant_slow = 5, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 2.70, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9698;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3104 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9699;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'437A61726E7920536B6F7270696F6E', locale_name = _cp1250 X'437A61726E7920536B6F7270696F6E', folder = 'plechi_scorp_mon3', rank = 2, level = 68, st = 95, dx = 74, ht = 85, iq = 26, damage_min = 210, damage_max = 260, max_hp = 34500, def = 92, exp = 3100, gold_min = 560, gold_max = 840, drain_sp = 0, sp_deathblow = 0, enchant_poison = 10, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 2.85, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9699;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3105 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9700;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4475BF7920536B6F7270696F6E', locale_name = _cp1250 X'4475BF7920536B6F7270696F6E', folder = 'plechi_scorp_mon4', rank = 3, level = 70, st = 100, dx = 76, ht = 90, iq = 27, damage_min = 220, damage_max = 270, max_hp = 39000, def = 94, exp = 3500, gold_min = 620, gold_max = 930, drain_sp = 0, sp_revive = 0, enchant_poison = 10, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 3.00, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9700;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8009 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9696;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4D6574696E20536B6F7270696F6E61', locale_name = _cp1250 X'4D6574696E20536B6F7270696F6E61', level = 68, max_hp = 525000, def = 80, exp = 50, summon = 9697, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9696;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3190 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9695;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'437A6572776F6E7920536B6F7270696F6E', locale_name = _cp1250 X'437A6572776F6E7920536B6F7270696F6E', folder = 'plechi_scorp_boss1', rank = 4, level = 70, st = 110, dx = 80, ht = 100, iq = 30, damage_min = 250, damage_max = 320, max_hp = 270000, def = 98, exp = 30000, gold_min = 15000, gold_max = 22000, summon = 9698, drain_sp = 0, regen_cycle = 10, regen_percent = 5, sp_berserk = 15, sp_stoneskin = 10, sp_deathblow = 10, sp_revive = 0, enchant_poison = 20, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DESERT,INSECT', dam_multiply = 3.60, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9695;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3191 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9694;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C20536B6F7270696F6EF377', locale_name = _cp1250 X'4B72F36C20536B6F7270696F6EF377', folder = 'plechi_scorp_mainboss', rank = 5, level = 72, st = 130, dx = 90, ht = 130, iq = 40, damage_min = 290, damage_max = 370, max_hp = 1650000, def = 105, exp = 250000, gold_min = 30000, gold_max = 45000, summon = 9700, drain_sp = 0, regen_cycle = 15, regen_percent = 5, sp_berserk = 20, sp_stoneskin = 15, sp_deathblow = 15, sp_revive = 0, enchant_poison = 25, enchant_slow = 15, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DESERT,INSECT', dam_multiply = 4.20, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9694;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3302 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9707;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4C659C6E61205772F3BF6B61', locale_name = _cp1250 X'4C659C6E61205772F3BF6B61', folder = 'plechi_easter2023_monster8', rank = 1, level = 97, st = 120, dx = 95, ht = 100, iq = 35, damage_min = 300, damage_max = 350, max_hp = 40000, def = 135, exp = 8000, gold_min = 800, gold_max = 1200, drain_sp = 0, sp_revive = 0, ai_flag = 'AGGR', setRaceFlag = 'DEVIL', dam_multiply = 2.0, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9707;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3303 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9708;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'53756B6B7562204E6174757279', locale_name = _cp1250 X'53756B6B7562204E6174757279', folder = 'plechi_easter2023_monster6', rank = 2, level = 98, st = 95, dx = 120, ht = 100, iq = 40, damage_min = 310, damage_max = 365, max_hp = 45000, def = 135, exp = 9000, gold_min = 850, gold_max = 1270, drain_sp = 0, sp_stoneskin = 0, ai_flag = 'AGGR', setRaceFlag = 'DEVIL', dam_multiply = 2.1, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9708;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3305 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9709;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'536F7761204B7369EABF79636F7761', locale_name = _cp1250 X'536F7761204B7369EABF79636F7761', folder = 'plechi_easter2023_monster5', rank = 3, level = 100, st = 125, dx = 100, ht = 125, iq = 40, damage_min = 320, damage_max = 380, max_hp = 50000, def = 138, exp = 10000, gold_min = 900, gold_max = 1350, drain_sp = 0, sp_deathblow = 0, ai_flag = 'AGGR', setRaceFlag = 'DEVIL,ANIMAL', dam_multiply = 2.2, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9709;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8053 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9710;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'537461726FBF79746E79204B616D6965F1', locale_name = _cp1250 X'537461726FBF79746E79204B616D6965F1', level = 98, max_hp = 700000, def = 100, exp = 60, summon = 9707, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9710;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8053 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9711;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'5072616461776E79204B616D6965F1', locale_name = _cp1250 X'5072616461776E79204B616D6965F1', level = 100, max_hp = 900000, def = 105, exp = 70, summon = 9708, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9711;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3390 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9712;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'46616574686F726E', locale_name = _cp1250 X'46616574686F726E', folder = 'plechi_easter2023_boss1', rank = 4, level = 102, st = 130, dx = 100, ht = 135, iq = 40, damage_min = 350, damage_max = 430, max_hp = 500000, def = 140, exp = 80000, gold_min = 20000, gold_max = 30000, summon = 9707, drain_sp = 0, regen_cycle = 10, regen_percent = 5, sp_berserk = 20, sp_stoneskin = 15, sp_deathblow = 15, sp_revive = 0, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DEVIL', dam_multiply = 2.8, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9712;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3391 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9713;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C6577736B6120536F7761', locale_name = _cp1250 X'4B72F36C6577736B6120536F7761', folder = 'plechi_easter2023_boss2', rank = 5, level = 104, st = 135, dx = 105, ht = 140, iq = 42, damage_min = 360, damage_max = 450, max_hp = 900000, def = 145, exp = 150000, gold_min = 25000, gold_max = 37000, summon = 9709, drain_sp = 0, regen_cycle = 15, regen_percent = 5, sp_berserk = 20, sp_stoneskin = 20, sp_deathblow = 15, sp_revive = 0, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DEVIL,ANIMAL', dam_multiply = 3.0, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9713;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3391 LIMIT 1;
+UPDATE world.az_mob SET vnum = 9714;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C6F77612044BF756E676C69', locale_name = _cp1250 X'4B72F36C6F77612044BF756E676C69', folder = 'plechi_easter2023_bossmain', rank = 5, level = 106, st = 160, dx = 120, ht = 170, iq = 60, damage_min = 380, damage_max = 520, max_hp = 2800000, def = 150, exp = 700000, gold_min = 50000, gold_max = 75000, summon = 9708, drain_sp = 0, regen_cycle = 20, regen_percent = 5, sp_berserk = 25, sp_stoneskin = 20, sp_deathblow = 20, sp_revive = 0, enchant_poison = 15, enchant_slow = 15, enchant_stun = 10, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DEVIL', setImmuneFlag = 'STUN,SLOW,FALL,CURSE,POISON,TERROR', dam_multiply = 3.4, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9714;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20394 LIMIT 1;
+UPDATE world.az_mob SET vnum = 20423;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'53747261BF6E696B20577A67F3727A61', locale_name = _cp1250 X'53747261BF6E696B20577A67F3727A61', drop_item = 0, resurrection_vnum = 0 WHERE vnum = 20423;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20394 LIMIT 1;
+UPDATE world.az_mob SET vnum = 20424;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'53747261BF6E696B205275696E', locale_name = _cp1250 X'53747261BF6E696B205275696E', drop_item = 0, resurrection_vnum = 0 WHERE vnum = 20424;
+CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20394 LIMIT 1;
+UPDATE world.az_mob SET vnum = 20425;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
+DROP TEMPORARY TABLE world.az_mob;
+UPDATE world.mob_proto SET name = _cp1250 X'53747261BF6E696B2044BF756E676C69', locale_name = _cp1250 X'53747261BF6E696B2044BF756E676C69', drop_item = 0, resurrection_vnum = 0 WHERE vnum = 20425;
+DROP TEMPORARY TABLE IF EXISTS world.az_item;
+CREATE TEMPORARY TABLE world.az_item AS SELECT * FROM world.item_proto WHERE vnum = 30760 LIMIT 1;
+UPDATE world.az_item SET vnum = 30766;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.az_item;
+DROP TEMPORARY TABLE world.az_item;
+UPDATE world.item_proto SET name = _cp1250 X'506965637AEAE620577A67F3727A61', locale_name = _cp1250 X'506965637AEAE620577A67F3727A61', stack = 200, antiflag = 0, flag = 4 WHERE vnum = 30766;
+CREATE TEMPORARY TABLE world.az_item AS SELECT * FROM world.item_proto WHERE vnum = 30760 LIMIT 1;
+UPDATE world.az_item SET vnum = 30767;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.az_item;
+DROP TEMPORARY TABLE world.az_item;
+UPDATE world.item_proto SET name = _cp1250 X'506965637AEAE6205275696E', locale_name = _cp1250 X'506965637AEAE6205275696E', stack = 200, antiflag = 0, flag = 4 WHERE vnum = 30767;
+CREATE TEMPORARY TABLE world.az_item AS SELECT * FROM world.item_proto WHERE vnum = 30760 LIMIT 1;
+UPDATE world.az_item SET vnum = 30768;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.az_item;
+DROP TEMPORARY TABLE world.az_item;
+UPDATE world.item_proto SET name = _cp1250 X'506965637AEAE62044BF756E676C69', locale_name = _cp1250 X'506965637AEAE62044BF756E676C69', stack = 200, antiflag = 0, flag = 4 WHERE vnum = 30768;
+CREATE TEMPORARY TABLE world.az_item AS SELECT * FROM world.item_proto WHERE vnum = 50270 LIMIT 1;
+UPDATE world.az_item SET vnum = 30774;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.az_item;
+DROP TEMPORARY TABLE world.az_item;
+UPDATE world.item_proto SET name = _cp1250 X'536B727A796E69612057756B6F6E6761', locale_name = _cp1250 X'536B727A796E69612057756B6F6E6761', stack = 200, antiflag = 0, flag = 4 WHERE vnum = 30774;
+CREATE TEMPORARY TABLE world.az_item AS SELECT * FROM world.item_proto WHERE vnum = 50270 LIMIT 1;
+UPDATE world.az_item SET vnum = 30775;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.az_item;
+DROP TEMPORARY TABLE world.az_item;
+UPDATE world.item_proto SET name = _cp1250 X'536B727A796E696120536B6F7270696F6E61', locale_name = _cp1250 X'536B727A796E696120536B6F7270696F6E61', stack = 200, antiflag = 0, flag = 4 WHERE vnum = 30775;
+CREATE TEMPORARY TABLE world.az_item AS SELECT * FROM world.item_proto WHERE vnum = 50271 LIMIT 1;
+UPDATE world.az_item SET vnum = 30776;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.az_item;
+DROP TEMPORARY TABLE world.az_item;
+UPDATE world.item_proto SET name = _cp1250 X'536B727A796E69612044BF756E676C69', locale_name = _cp1250 X'536B727A796E69612044BF756E676C69', stack = 200, antiflag = 0, flag = 4 WHERE vnum = 30776;" || echo "[playerbot-migrate] WARNING: could not add the Arezzo dungeons' and Pustkowie Faraona's monsters, NPCs and items" >&2
 
 # MT2009_PLUS_GOBLIN_V1: the Treasure Hunt event (playerbot_goblin.h, the events
 # file's kind "goblin"): the Treasure Ticket (70617, from chests while the

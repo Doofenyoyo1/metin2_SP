@@ -52,6 +52,7 @@ namespace
 			case playerbot_persona::PERSONA_HAZ_STARSZY: return "Starszy Hazardzista";
 			case playerbot_persona::PERSONA_HAZ_NACZELNY: return "Naczelny Hazardzista";
 			case playerbot_persona::PERSONA_HAZ_SZALONY: return "Szalony Hazardzista";
+			case playerbot_persona::PERSONA_ZIELARZ: return "Zielarz";   // MT2009_PLUS_BOTLIFE_V1
 			default: return "?";
 		}
 	}
@@ -466,6 +467,8 @@ namespace
 		s.hired = IsPlayerBotHiredClient(ch->GetPlayerID());
 		s.fishing = state.bFishingSession;
 		s.mining = IsPlayerBotMiningNow(ch->GetPlayerID(), dwNow);
+		// MT2009_PLUS_BOTLIFE_V1: the Zielarz, on its way to Baek-Go or at his board.
+		s.herbalism = state.bVisitingHerbalist;
 		LPCHARACTER target = state.dwTargetVID != 0
 				? CHARACTER_MANAGER::instance().Find(state.dwTargetVID) : NULL;
 		s.stoneFight = (target && target->IsStone() && !target->IsDead()) ||
@@ -840,9 +843,9 @@ namespace
 		for (int i = 0; i < playerbot_persona::MOOD_COUNT; ++i)
 			s_auPlayerBotRybakMoodMix[i] = s_auPlayerBotMoodCensus[i];
 		const unsigned int* c = s_auPlayerBotPersonaCensus;
-		sys_log(0, "PLAYERBOT_PERSONA: census grinder=%u zdobywca=%u handlarz=%u hazardzista=%u perfekcjonista=%u pogromca=%u gornik=%u rybak=%u najemnik=%u towarzysz=%u metinolog=%u nalogowiec=%u naukowiec=%u egzekutor=%u wedkarz=%u haz_mlodszy=%u haz_starszy=%u haz_naczelny=%u haz_szalony=%u held=%u | mood slaby=%u normalny=%u bardzo_dobry=%u afk=%u | pvp=%u capitulated=%u",
+		sys_log(0, "PLAYERBOT_PERSONA: census grinder=%u zdobywca=%u handlarz=%u hazardzista=%u perfekcjonista=%u pogromca=%u gornik=%u rybak=%u najemnik=%u towarzysz=%u metinolog=%u nalogowiec=%u naukowiec=%u egzekutor=%u wedkarz=%u haz_mlodszy=%u haz_starszy=%u haz_naczelny=%u haz_szalony=%u zielarz=%u held=%u | mood slaby=%u normalny=%u bardzo_dobry=%u afk=%u | pvp=%u capitulated=%u",
 				c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[12], c[13], c[14],
-				c[15], c[16], c[17], c[18],
+				c[15], c[16], c[17], c[18], c[playerbot_persona::PERSONA_ZIELARZ],
 				s_uPlayerBotPersonaLocked,
 				s_auPlayerBotMoodCensus[0], s_auPlayerBotMoodCensus[1], s_auPlayerBotMoodCensus[2],
 				s_uPlayerBotPersonaAfk, s_uPlayerBotPersonaPvp, s_uPlayerBotPersonaCapitulated);

@@ -1,0 +1,159 @@
+-- MT2009_PLUS_AREZZO_V1: the package's Teleporter (quest/npc/teleporter/map_warp.quest in the
+-- share, compiled here under its own name so its object files land over the stock ones, like
+-- pony_levelup) with one more place on the first page: Dolina Cyklopow (360, level 45, from the
+-- Arezzo files). Its name is translate.general.map_names[360] (the Dockerfile's Arezzo step adds
+-- it to translate.lua); pc.teleport lands at the map's Town.txt. Nothing else changed.
+-- "/eventflag mt2009_arezzo_closed 1" hides it again (players without client 2.0.30).
+quest map_warp begin
+    state start begin
+        function data()
+            -- Dolina Cyklopow only while "/eventflag mt2009_arezzo_closed" is 0 (the default): an
+            -- operator whose players have no client with the Arezzo maps yet can close it.
+            local low = {64, 61, get_player_map3_index(), 63}
+            if game.get_event_flag("mt2009_arezzo_closed") == 0 then
+                table.insert(low, 360)
+                table.insert(low, 361) -- Pustkowie Faraona (MT2009_PLUS_AREZZO_V1, phase 8)
+            end
+            return {
+                low_level = low,
+                high_level = {66, 67, 68, 62},
+                outside_city = {get_player_map1_index(), get_player_map2_index()},
+            }
+        end
+
+        function get_teleport_list(page)
+            local available_teleports = map_warp.data()
+
+            local is_in_any_city = is_player_in_any_m1() or is_player_in_any_m2()
+            local map_list;
+            if is_in_any_city then
+                if page == 1 then
+                    map_list = available_teleports.low_level
+                else
+                    map_list = available_teleports.high_level
+                end
+            else
+                map_list = available_teleports.outside_city
+            end
+
+            local options = {}
+            for i, map_index in pairs(map_list) do
+                table.insert(options, translate.general.map_names[map_index])
+            end
+
+            if is_in_any_city and pc.get_level() >= 60 and page == 1 then
+                table.insert(options, translate.map_warp.next)
+            elseif page == 2 then
+                table.insert(options, translate.map_warp.previous)
+            end
+            
+            table.insert(options, translate.general.cancel)
+            local cancel_index = table.getn(options)
+            return options, map_list, cancel_index
+        end
+        
+
+
+        function process_teleport_list(current_page, page_count, base_price)
+            local price = base_price * (current_page == 1 and 1 or 3)
+            npc_name()
+            say_split(translate.map_warp.talk2)
+            say_reward(string.format(translate.map_warp.price, parse_number(price)))
+            local select_list, map_list, cancel_index = map_warp.get_teleport_list(current_page)
+            local x = select_table(select_list)
+            if x == cancel_index then
+                return -1
+            end
+            if page_count > 1 and x == cancel_index - 1 then -- previous or next
+                local next_page;
+                if current_page == 2 then
+                    next_page = 1
+                else
+                    next_page = 2
+                end
+
+                return map_warp.process_teleport_list(next_page, page_count, base_price)
+            end
+            return map_list[x], price
+        end
+
+        function check(price, player_level)
+            if not pc.can_warp() then
+                npc_name()
+                say_split(translate.general.wait_after_exchange)
+                say()
+                return false
+            end
+
+            if player_level < 11 then
+                npc_name()
+                say_split(translate.map_warp.low_level)
+                say()
+                return false
+            end
+
+            if pc.get_gold() < price then
+                npc_name()
+                say_split(translate.map_warp.no_money)
+                say_reward(string.format(translate.map_warp.price, parse_number(price)))
+                say()
+                return false
+            end
+            return true
+        end
+
+        when 9012.chat.translate.map_warp.chat begin
+            npc_name()
+
+            local player_map = pc.get_map_index()
+            local is_in_any_city = is_player_in_any_m1() or is_player_in_any_m2()
+
+            if is_in_any_city then
+                say_split(translate.map_warp.talk1)
+            else
+                say_split(translate.map_warp.talk1_outside)
+            end
+            wait()
+            local player_level = pc.get_level()
+            local base_price = math.max(math.floor(player_level / 5) * 1000, 1000)
+
+            if pc.get_map_index() >= 181 and pc.get_map_index() <= 183 then -- empire war map
+                base_price = 0
+            elseif not is_in_any_city then
+                base_price = base_price * 1.5
+            end
+
+            if not map_warp.check(base_price, player_level) then
+                return
+            end
+
+            local page_count = 1
+            if is_in_any_city and pc.get_level() >= 60 then
+                page_count = 2
+            end
+            local map_index, price = map_warp.process_teleport_list(1, page_count, base_price)
+            if map_index > 0 then
+                
+                npc_name()
+                if is_in_any_city then
+                    say_split(translate.map_warp.info_tp_from_city)
+                else
+                    say_split(translate.map_warp.info_tp_outside_city)
+                end
+                wait()
+                if not map_warp.check(price, player_level) then
+                    return
+                end
+                pc.change_money(-price)
+                debug("warp na %d", map_index)
+                if map_index == 66 then
+                    pc.warp(5900*100, 1114*100)
+                else
+                    pc.teleport(map_index)
+                end
+                return
+            end
+            setskin(NOWINDOW)
+        end
+    end
+end

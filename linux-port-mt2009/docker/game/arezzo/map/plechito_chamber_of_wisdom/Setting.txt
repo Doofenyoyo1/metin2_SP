@@ -1,0 +1,11 @@
+ScriptType	MapSetting
+
+CellScale	200
+HeightScale	0.500000
+
+ViewRadius	128
+
+MapSize	2	2
+BasePosition	947200	614400
+TextureSet	textureset\chamber_of_wisdom_dungeon.txt
+Environment	chamber_of_wisdom.msenv

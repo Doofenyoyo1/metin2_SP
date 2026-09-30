@@ -185,6 +185,9 @@ AI_WEIGHT_KEYS = (
     ("PARTY", "Grupy", "👥"), ("HUNTING", "Misje polowania", "🏹"),
     ("LEVEL", "Bicie potworów", "⚔️"), ("FISHING", "Wędkowanie", "🎣"),
     ("TRADE", "Stragany", "🏪"),
+    # MT2009_PLUS_BOTLIFE_V1: the veins and Baek-Go's board (playerbot_mining.h,
+    # playerbot_herbalism.h).
+    ("MINING", "Górnictwo", "⛏️"), ("HERB", "Zielarstwo", "🌿"),
 )
 AI_WEIGHT_MIN, AI_WEIGHT_MAX, AI_WEIGHT_NEUTRAL = 25, 250, 100
 # Errands the bots already take at every chance at 100, so their sliders can
@@ -206,17 +209,23 @@ AI_WEIGHT_HINTS = {
     "BATTLEPASS": "Szansa, że bot bez zajęcia celowo weźmie misję Battle Passa (metin, ryby, kowal, boss). 100 = jak dotąd (15–70% wg osobowości), 250 = 2,5× tyle (najwyżej za każdym razem), 0 = tylko postęp przy okazji. Od razu.",
     "SASH": "Pula botów od 30 lv, które budują szarfy. 100 = 80% z nich, od 125 = wszystkie, 0 = nikt (reszta sprzedaje szarfy). Przy następnym sprawdzeniu szarf (3–6 min).",
     "ALCHEMY": "Pula botów od 30 lv, które używają alchemii smoka. 100 = 75% z nich, od 135 = wszystkie, 0 = nikt (reszta sprzedaje Cory i zbędne kamienie). Od razu.",
+    "MINING": "Ilu botów kopie rudę i jak długo odpoczywa od żył. Przy osobowościach każdy bot od 30 lv z kilofem kopie żyłę w zasięgu wzroku - poniżej 100 suwak zamyka żyły części z nich na pół godziny; bez osobowości kopie stały udział botów (zbieracze częściej). Przerwa między sesjami skraca się przy wyższym suwaku i wydłuża przy niższym.",
+    "HERB": "Ilu botów pracuje przy stole zielarskim Baek-Go i jak często. Przy osobowościach to zadanie Zdobywcy od 45 lv; poniżej 100 stół jest zamknięty dla części z nich na pół godziny, powyżej 100 dochodzi część botów od 15 lv (przy 250 wszystkie). Przerwa między wizytami skraca się przy wyższym suwaku. Zioła boty mają z dropu.",
     "TRADE": "Ilu botów trzyma stragan (bez Handlarza, biednych, pełnego plecaka, droppera pod presją i cennych zapasów). Na 2.x stojący sklep offline tylko nie jest odnawiany po 8 h.",
 }
 # These values share the live weight file with goal weights, but the core treats
 # them as switches or direct settings rather than 25–250% goal weights.
-AI_LIVE_DEFAULTS = {"CHAT": 1, "BOOKS": 1, "NIGHT": 1, "LIFE": 0, "WARS": 1, "TOWER": 1, "CATACOMB": 1, "ISHOP": 1,
+AI_LIVE_DEFAULTS = {"CHAT": 1, "BOOKS": 1, "NIGHT": 1, "LIFE": 0,
+                     # MT2009_PLUS_BOTLIFE_V1: the hours of play a day under
+                     # LIFE (playerbot_life_rules.h); 0 = the key unset.
+                     "LIFE_HOURS": 0, "WARS": 1, "TOWER": 1, "CATACOMB": 1, "ISHOP": 1,
                      "SHOP_M2": 0, "PERSONA": 1, "SHOUTERS": 1, "SCRAP": 0, "REST": 100, "KINGDOMPVP": 0, "SCROLL_FROM": 1,
                      # The three wills (playerbot_config.h): percent of what the
                      # build does, 100 = as before, 0 = none of it.
                      "BATTLEPASS": 100, "SASH": 100, "ALCHEMY": 100,
                      "WAR_MINUTES": 30, "WAR_HOURS": 2, "CHEST": None, "CHEST_STONE": None}
 AI_SPECIAL_WEIGHT_KEYS = frozenset(AI_LIVE_DEFAULTS)
+AI_LIFE_HOURS_MAX = 24
 BIOLOGIST_COMPLETE_STATE = 557528158
 BIOLOGIST_KEY_ITEM_STATE = -1726153001
 BIOLOGIST_RESEARCH_MISSIONS = (
@@ -339,7 +348,7 @@ BOT_PERSONAS = {0: "Grinder", 1: "Zdobywca", 2: "Handlarz", 3: "Hazardzista", 4:
                 5: "Pogromca metinów", 6: "Górnik", 7: "Rybak", 8: "Najemnik", 9: "Towarzysz",
                 10: "Metinolog", 11: "Nałogowiec", 12: "Szalony Naukowiec", 13: "Egzekutor", 14: "Szalony Wędkarz",
                 15: "Młodszy Hazardzista", 16: "Starszy Hazardzista", 17: "Naczelny Hazardzista",
-                18: "Szalony Hazardzista"}
+                18: "Szalony Hazardzista", 19: "Zielarz"}
 BOT_MOODS = {0: "Słaby", 1: "Normalny", 2: "Bardzo dobry"}
 BOT_MOOD_LOCKS = {1: "euforia po ulepszeniu", 2: "kapitulacja (Anty-PK)"}
 ITEM_TYPE_NAMES = (
@@ -857,8 +866,9 @@ def panel_feature_states(current=None):
 def require_panel_feature(name):
     if panel_feature_enabled(name):
         return None
-    flash(f"Funkcja „{PANEL_FEATURES[name]['title']}” wymaga dodatkowej integracji. Włącz ją dopiero po wykonaniu instrukcji w ustawieniach panelu.", "error")
-    return redirect(url_for("manage_panel", _anchor="compatibility"))
+    # MT2009: the features that need Seban's extra helpers are not shown at all (the operator, 30 September).
+    flash(f"Funkcja „{PANEL_FEATURES[name]['title']}” nie jest dostępna na tym serwerze.", "error")
+    return redirect(url_for("manage"))
 
 
 def validate_display_settings(form):
@@ -2529,6 +2539,8 @@ def read_ai_weights():
                         values[key] = 0 if raw_value.lower() in ("0", "off", "no") else 1
                     elif key in ("SCRAP", "REST", "KINGDOMPVP"):
                         values[key] = max(0, min(100, int(raw_value)))
+                    elif key == "LIFE_HOURS":
+                        values[key] = max(0, min(AI_LIFE_HOURS_MAX, int(raw_value)))
                     elif key in ("BATTLEPASS", "SASH", "ALCHEMY"):
                         values[key] = max(0, min(250, int(raw_value)))
                     elif key == "SCROLL_FROM":
@@ -2578,6 +2590,10 @@ def write_ai_weights(values):
     content.append(f"BOOKS\t{1 if values.get('BOOKS', 1) else 0}")
     content.append(f"NIGHT\t{1 if values.get('NIGHT', 1) else 0}")
     content.append(f"LIFE\t{1 if values.get('LIFE', 0) else 0}")
+    # MT2009_PLUS_BOTLIFE_V1: written only once set - without the key the core
+    # keeps the sessions of 3-6 h and rests of 3-9 h of before.
+    if int(values.get("LIFE_HOURS", 0) or 0) > 0:
+        content.append(f"LIFE_HOURS\t{max(1, min(AI_LIFE_HOURS_MAX, int(values['LIFE_HOURS'])))}")
     content.append(f"WARS\t{1 if values.get('WARS', 1) else 0}")
     content.append(f"TOWER\t{1 if values.get('TOWER', 1) else 0}")
     content.append(f"CATACOMB\t{1 if values.get('CATACOMB', 1) else 0}")
@@ -7653,7 +7669,7 @@ def manage():
     bot_channels = sorted(per_channel.items()) if len(per_channel) > 1 else []
     updater = update_status()
     updater["protected"] = current_settings.get("auth_enabled") == "1" and bool(session.get("seban_admin"))
-    return render_template("manage.html", rates=read_rates(), rate_presets=RATE_PRESETS, ai_weights=read_ai_weights(), chest_switch=read_chest_switch(), ai_weight_keys=[k for k in AI_WEIGHT_KEYS if not (ENGINE_MT2009 and k[0] == "HUNTING")], ai_weight_capped=AI_WEIGHT_CAPPED, ai_weight_hints=AI_WEIGHT_HINTS, engine_mt2009=ENGINE_MT2009, restart=restart_progress(), settings=current_settings, map_counts=map_counts, bot_count=len(bots), bot_channels=bot_channels, map_respawn_options=MAP_RESPAWN_OPTIONS, map_stone_respawn_ids=MAP_STONE_RESPAWN_IDS, map_respawn_status=read_map_regen_status(), server_settings=server_settings_status(), updater=updater, playerbots_release=playerbots_release_status(), update_csrf=update_csrf_token(), bot_count_wanted=read_bot_count() if panel_feature_enabled("bot_count", current_settings) else len(live_bots()) or 350, spawn_plan=read_spawn_plan(), student_chest_disabled=read_student_chest_disabled() if panel_feature_enabled("student_chest", current_settings) else False, custom_patches_enabled=CUSTOM_PATCHES_ENABLED, include_real_players=include_real_players_in_rankings(), announce_plus9=read_announce_plus9_refines() if panel_feature_enabled("plus9_announcements", current_settings) else False, bots_held=read_bot_hold(), item_policy=read_ai_item_policy(), difficulty=read_difficulty(), autohunt=read_autohunt(), channels=read_channel_settings(), channel_shares=CH2_SHARE_CHOICES)
+    return render_template("manage.html", rates=read_rates(), rate_presets=RATE_PRESETS, ai_weights=read_ai_weights(), chest_switch=read_chest_switch(), ai_weight_keys=[k for k in AI_WEIGHT_KEYS if not (ENGINE_MT2009 and k[0] == "HUNTING") and not (not ENGINE_MT2009 and k[0] == "HERB")], ai_weight_capped=AI_WEIGHT_CAPPED, ai_weight_hints=AI_WEIGHT_HINTS, engine_mt2009=ENGINE_MT2009, restart=restart_progress(), settings=current_settings, map_counts=map_counts, bot_count=len(bots), bot_channels=bot_channels, map_respawn_options=MAP_RESPAWN_OPTIONS, map_stone_respawn_ids=MAP_STONE_RESPAWN_IDS, map_respawn_status=read_map_regen_status(), server_settings=server_settings_status(), updater=updater, playerbots_release=playerbots_release_status(), update_csrf=update_csrf_token(), bot_count_wanted=read_bot_count() if panel_feature_enabled("bot_count", current_settings) else len(live_bots()) or 350, spawn_plan=read_spawn_plan(), student_chest_disabled=read_student_chest_disabled() if panel_feature_enabled("student_chest", current_settings) else False, custom_patches_enabled=CUSTOM_PATCHES_ENABLED, include_real_players=include_real_players_in_rankings(), announce_plus9=read_announce_plus9_refines() if panel_feature_enabled("plus9_announcements", current_settings) else False, bots_held=read_bot_hold(), item_policy=read_ai_item_policy(), difficulty=read_difficulty(), autohunt=read_autohunt(), channels=read_channel_settings(), channel_shares=CH2_SHARE_CHOICES)
 
 
 @app.post("/manage/difficulty")
@@ -8038,6 +8054,11 @@ def manage_behavior():
     for key, default in (("NIGHT", 1), ("LIFE", 0), ("WARS", 1), ("TOWER", 1), ("ISHOP", 1), ("SHOP_M2", 0), ("PERSONA", 1),
                          ("SHOUTERS", 1)):
         values[key] = values.get(key, default) if key not in request.form else (1 if "1" in request.form.getlist(key) else 0)
+    # MT2009_PLUS_BOTLIFE_V1: the hours of play a day under LIFE.
+    try:
+        values["LIFE_HOURS"] = max(0, min(AI_LIFE_HOURS_MAX, int(request.form.get("LIFE_HOURS", values.get("LIFE_HOURS", 0)))))
+    except (TypeError, ValueError):
+        values["LIFE_HOURS"] = values.get("LIFE_HOURS", 0)
     try:
         values["SCRAP"] = max(0, min(100, int(request.form.get("SCRAP", values.get("SCRAP", 0)))))
     except (TypeError, ValueError):

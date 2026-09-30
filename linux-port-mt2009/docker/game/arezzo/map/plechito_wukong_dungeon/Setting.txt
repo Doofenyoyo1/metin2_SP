@@ -1,0 +1,11 @@
+ScriptType	MapSetting
+
+CellScale	200
+HeightScale	0.500000
+
+ViewRadius	128
+
+MapSize	2	2
+BasePosition	844800	537600
+TextureSet	textureset\plechi_wukong_dungeon.txt
+Environment	plechito_wukong_dumgeon.msenv

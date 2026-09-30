@@ -34,6 +34,10 @@ quest razador_dungeon begin
 				near = 30, -- MT2009_PLUS_DUNGEON_ONE_WARP_V1: party members within 30 cells of the leader go with him
 				cooldown = 60 * 60,
 				limit_min = 60,
+				-- MT2009_PLUS_DUNGEON_FEE_V1: the price of a new expedition (each player, paid on entering it) and
+				-- how many new expeditions a player may start a day (Polish midnight).
+				fee = 10000000, fee_text = "10 000 000",
+				daily = 5,
 				doors = {{320,394},{293,359},{333,321},{378,320},{400,355},{394,401}},
 				doors_dir = {135,90,210,152,90,223},
 				idoors = {{268,447},{234,359},{300,264},{454,217},{470,355},{467,469}},
@@ -51,6 +55,55 @@ quest razador_dungeon begin
 				maat_permille = 40,
 				chests_min = 2, chests_max = 5,
 			}
+		end
+
+		-- MT2009_PLUS_DUNGEON_FEE_V1: the entry fee and the daily limit. Checked for everyone at the guard (with
+		-- the level and the rest), paid on the first login into a new instance (every way in:
+		-- the guard, the lobby, the lobby's own timer) - no money or no runs left there sends
+		-- the player out. "Wróæ do lochu" into the same instance costs nothing. GMs are free.
+		function today()
+			return math.floor((get_global_time() + 7200) / 86400)
+		end
+
+		function runs_today()
+			if pc.getf("razador_dungeon", "day") ~= razador_dungeon.today() then
+				return 0
+			end
+			return pc.getf("razador_dungeon", "runs")
+		end
+
+		function over_limit()
+			local c = razador_dungeon.cfg()
+			return not pc.is_gm() and razador_dungeon.runs_today() >= c.daily
+		end
+
+		function too_poor()
+			local c = razador_dungeon.cfg()
+			return not pc.is_gm() and pc.get_money() < c.fee
+		end
+
+		function pay_entry()
+			local c = razador_dungeon.cfg()
+			if pc.is_gm() or pc.is_playerbot() then
+				return true
+			end
+			if razador_dungeon.over_limit() then
+				syschat("Wykorzysta³eœ ju¿ dzisiejsze wyprawy do tego lochu ("..c.daily.."). Wróæ jutro.")
+				return false
+			end
+			if pc.get_money() < c.fee then
+				syschat("Wejœcie kosztuje "..c.fee_text.." Yang - nie masz tyle przy sobie.")
+				return false
+			end
+			pc.change_money(-c.fee)
+			local day = razador_dungeon.today()
+			if pc.getf("razador_dungeon", "day") ~= day then
+				pc.setf("razador_dungeon", "day", day)
+				pc.setf("razador_dungeon", "runs", 0)
+			end
+			pc.setf("razador_dungeon", "runs", pc.getf("razador_dungeon", "runs") + 1)
+			syschat("Op³ata za wejœcie: "..c.fee_text.." Yang. Dzisiejsza wyprawa "..pc.getf("razador_dungeon", "runs").."/"..c.daily..".")
+			return true
 		end
 
 		function inside()
@@ -198,6 +251,7 @@ quest razador_dungeon begin
 			say("")
 			say_reward("Wymagany poziom: "..c.min_level..". Ponowne wejœcie po 60 minutach.")
 			say_reward("Loch jest tylko dla graczy - boty z dru¿yny zostaj¹ tutaj.")
+			say_reward("Wejœcie: "..c.fee_text.." Yang. Najwy¿ej "..c.daily.." wypraw dziennie (dziœ: "..razador_dungeon.runs_today().."/"..c.daily..").") -- MT2009_PLUS_DUNGEON_FEE_V1
 			if select("PrzejdŸ do Czyœæca Ognia", "Nie teraz") ~= 1 then
 				return
 			end
@@ -262,9 +316,13 @@ quest razador_dungeon begin
 			local humans = {me}
 			local low = {}
 			local wait = {}
+			local full = {} -- MT2009_PLUS_DUNGEON_FEE_V1
+			local poor = {}
 			if not pc.is_gm() and now - pc.getf("razador_dungeon", "entry") < c.cooldown then
 				table.insert(wait, pc.get_name())
 			end
+			if razador_dungeon.over_limit() then table.insert(full, pc.get_name()) end
+			if razador_dungeon.too_poor() then table.insert(poor, pc.get_name()) end
 			if party.is_party() then
 				local lmap, lx, ly = pc.get_map_index(), pc.get_x(), pc.get_y()
 				local pids = {party.get_member_pids()}
@@ -280,6 +338,8 @@ quest razador_dungeon begin
 							if not pc.is_gm() and now - pc.getf("razador_dungeon", "entry") < c.cooldown then
 								table.insert(wait, pc.get_name())
 							end
+							if razador_dungeon.over_limit() then table.insert(full, pc.get_name()) end
+							if razador_dungeon.too_poor() then table.insert(poor, pc.get_name()) end
 						end
 						q.end_other_pc_block()
 					end
@@ -289,6 +349,16 @@ quest razador_dungeon begin
 				say_title(mob_name(20394))
 				say("Za s³abi, by wejœæ (poziom "..c.min_level.."+):")
 				for i, n in next, low, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(full) > 0 then
+				say("Dzisiejsze wyprawy do tego lochu ju¿ wykorzystane ("..c.daily.." dziennie):")
+				for i, n in next, full, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(poor) > 0 then
+				say("Wejœcie kosztuje "..c.fee_text.." Yang - za ma³o przy sobie:")
+				for i, n in next, poor, nil do say(color(1,1,0).."    "..n) end
 				return
 			end
 			if table.getn(wait) > 0 then
@@ -388,6 +458,8 @@ quest razador_dungeon begin
 			local humans = {}
 			local low = {}
 			local wait = {}
+			local full = {} -- MT2009_PLUS_DUNGEON_FEE_V1
+			local poor = {}
 			if party.is_party() then
 				local pids = {party.get_member_pids()}
 				for i, pid in next, pids, nil do
@@ -400,6 +472,8 @@ quest razador_dungeon begin
 						if not pc.is_gm() and now - pc.getf("razador_dungeon", "entry") < c.cooldown then
 							table.insert(wait, pc.get_name())
 						end
+						if razador_dungeon.over_limit() then table.insert(full, pc.get_name()) end
+						if razador_dungeon.too_poor() then table.insert(poor, pc.get_name()) end
 					end
 					q.end_other_pc_block()
 				end
@@ -411,10 +485,22 @@ quest razador_dungeon begin
 				if not pc.is_gm() and now - pc.getf("razador_dungeon", "entry") < c.cooldown then
 					table.insert(wait, pc.get_name())
 				end
+				if razador_dungeon.over_limit() then table.insert(full, pc.get_name()) end
+				if razador_dungeon.too_poor() then table.insert(poor, pc.get_name()) end
 			end
 			if table.getn(low) > 0 then
 				say("Za s³abi, by wejœæ (poziom "..c.min_level.."+):")
 				for i, n in next, low, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(full) > 0 then
+				say("Dzisiejsze wyprawy do tego lochu ju¿ wykorzystane ("..c.daily.." dziennie):")
+				for i, n in next, full, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(poor) > 0 then
+				say("Wejœcie kosztuje "..c.fee_text.." Yang - za ma³o przy sobie:")
+				for i, n in next, poor, nil do say(color(1,1,0).."    "..n) end
 				return
 			end
 			if table.getn(wait) > 0 then
@@ -482,6 +568,10 @@ quest razador_dungeon begin
 				pc.setf("razador_dungeon", "inside", 1)
 				pc.setf("razador_dungeon", "pending", 0)
 				if pc.getf("razador_dungeon", "idx") ~= idx then
+					if not razador_dungeon.pay_entry() then -- MT2009_PLUS_DUNGEON_FEE_V1
+						pc.warp(c.exit_x * 100, c.exit_y * 100)
+						return
+					end
 					pc.setf("razador_dungeon", "idx", idx)
 					pc.setf("razador_dungeon", "entry", get_global_time())
 				end
@@ -628,6 +718,7 @@ quest razador_dungeon begin
 		when 6091.kill with razador_dungeon.inside() and d.getf("boss") == 1 begin
 			d.setf("boss", 2)
 			razador_dungeon.give_chests()
+			d.update_ranking("razador") -- MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel's results
 			d.clear_regen()
 			razador_dungeon.purge_mobs()
 			d.notice("Razador zosta³ pokonany! Za 60 sekund wszyscy wróc¹ na Ognist¹ Ziemiê.")

@@ -13,18 +13,7 @@
     <button>Zapisz miejsca ogłoszeń</button>
   </form>
 </section>
-<section class="panel capability-console" id="compatibility">
-  <p class="eyebrow">PLAYERBOTS 2.2.29 · ZGODNOŚĆ</p><h2>🧩 Funkcje wymagające integracji</h2>
-  <p class="muted">Czysta instalacja Playerbots nie zawiera wszystkich helperów i modyfikacji używanych na serwerze Sebana. Wyłączona funkcja pozostaje widoczna w panelu, ale jest szara i nie przyjmie zlecenia. Włącz ją dopiero po wdrożeniu wymagania z instrukcji.</p>
-  <form action="{{ url_for('manage_panel_features') }}" method="post" class="capability-form">
-    <div class="capability-grid">{% for name, feature in capability_features.items() %}<article class="capability-card {{ 'is-enabled' if feature.enabled else 'needs-action' }}">
-      <div class="capability-head"><span class="capability-icon">{{ feature.icon }}</span><div><h3>{{ feature.title }}</h3><small>{{ feature.scope }}</small></div><span class="capability-state">{{ 'Aktywna' if feature.enabled else 'Wymaga akcji' }}</span></div>
-      <p><b>Wymaganie:</b> {{ feature.requirement }}</p><details><summary>Instrukcja wdrożenia</summary><p>{{ feature.setup }}</p></details>
-      <label class="checkbox-row"><span>Udostępnij funkcję w panelu</span><input type="checkbox" name="feature_{{ name }}" value="1" {% if feature.enabled %}checked{% endif %}><small>{{ 'włączona' if feature.enabled else 'wyłączona' }}</small></label>
-    </article>{% endfor %}</div>
-    <button>Zapisz dostępność funkcji</button>
-  </form>
-  <p class="muted">Funkcje natywne w Playerbots 2.2.29 — raty, globalne tempo i liczebność respawnu, zachowanie AI, ItemShop, rajdy, polityka przedmiotów, kolejka przedmiotów i monitoring — pozostają dostępne bez dodatkowych przełączników.</p>
-</section>
+{# MT2009: the "Funkcje wymagające integracji" console is gone - on this server the features that need
+   Seban's extra helpers are simply not shown (the operator, 30 September). #}
 <script>document.body.dataset.ajaxForms='1';</script>
 {% endblock %}
