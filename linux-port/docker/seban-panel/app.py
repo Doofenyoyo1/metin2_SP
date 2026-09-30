@@ -203,12 +203,18 @@ AI_WEIGHT_HINTS = {
     "HUNTING": "Misja polowania na awans (tylko r40250). 100 = każdy bot z misją; poniżej część botów po pół godziny bije to, co jest na mapie.",
     "LEVEL": "Zwykłe bicie potworów. Podniesione: cel „poziom” wygrywa w statusie, grinderzy biją po kilka potworów naraz i piją mikstury szybkości. Obniżenie nic nie zmienia.",
     "FISHING": "Ilu botów łowi: przy osobowościach bot od 30 lv bez grupy losuje co pół godziny wg nastroju. Podniesienie w sekundy, obniżenie po końcu sesji (do godziny).",
+    "BATTLEPASS": "Szansa, że bot bez zajęcia celowo weźmie misję Battle Passa (metin, ryby, kowal, boss). 100 = jak dotąd (15–70% wg osobowości), 250 = 2,5× tyle (najwyżej za każdym razem), 0 = tylko postęp przy okazji. Od razu.",
+    "SASH": "Pula botów od 30 lv, które budują szarfy. 100 = 80% z nich, od 125 = wszystkie, 0 = nikt (reszta sprzedaje szarfy). Przy następnym sprawdzeniu szarf (3–6 min).",
+    "ALCHEMY": "Pula botów od 30 lv, które używają alchemii smoka. 100 = 75% z nich, od 135 = wszystkie, 0 = nikt (reszta sprzedaje Cory i zbędne kamienie). Od razu.",
     "TRADE": "Ilu botów trzyma stragan (bez Handlarza, biednych, pełnego plecaka, droppera pod presją i cennych zapasów). Na 2.x stojący sklep offline tylko nie jest odnawiany po 8 h.",
 }
 # These values share the live weight file with goal weights, but the core treats
 # them as switches or direct settings rather than 25–250% goal weights.
 AI_LIVE_DEFAULTS = {"CHAT": 1, "BOOKS": 1, "NIGHT": 1, "LIFE": 0, "WARS": 1, "TOWER": 1, "CATACOMB": 1, "ISHOP": 1,
-                     "SHOP_M2": 0, "PERSONA": 1, "SCRAP": 0, "REST": 100, "KINGDOMPVP": 0, "SCROLL_FROM": 1,
+                     "SHOP_M2": 0, "PERSONA": 1, "SHOUTERS": 1, "SCRAP": 0, "REST": 100, "KINGDOMPVP": 0, "SCROLL_FROM": 1,
+                     # The three wills (playerbot_config.h): percent of what the
+                     # build does, 100 = as before, 0 = none of it.
+                     "BATTLEPASS": 100, "SASH": 100, "ALCHEMY": 100,
                      "WAR_MINUTES": 30, "WAR_HOURS": 2, "CHEST": None, "CHEST_STONE": None}
 AI_SPECIAL_WEIGHT_KEYS = frozenset(AI_LIVE_DEFAULTS)
 BIOLOGIST_COMPLETE_STATE = 557528158
@@ -237,13 +243,6 @@ DIFFICULTY_PRESETS = {
     "hard": (86400, 43200, 43200, 64800, 75600, 75600, 75600),
 }
 CH2_SHARE_CHOICES = (20, 30, 40, 50, 60, 70)
-# Channels 3-4: Playerbots 2.2.36's "fresh cohort" (playerbot_channel_rules.h,
-# FIRST_FRESH_CHANNEL/FRESH_COUNT_MAX) -- a brand-new pool of level-1 bots that
-# never touches CH1/CH2's world (own shops-free channels), 0=off, 1=CH3 only,
-# 2=CH3+CH4. FRESH_COUNT_MAX in the engine is 1500; these are just the choices
-# offered in the dropdown, same pattern as CH2_SHARE_CHOICES.
-FRESH_CHANNEL_CHOICES = (0, 1, 2)
-FRESH_COUNT_CHOICES = (100, 200, 300, 500, 1000, 1500)
 PLAYER_ADMIN_WARPS = (
     ("🏯 Miasto Shinsoo", 474300, 954800), ("🏮 Miasto Chunjo", 65900, 155600),
     ("⛩️ Miasto Jinno", 963500, 279700), ("🏘️ Jayang (M2)", 353987, 880012),
@@ -296,10 +295,10 @@ try:
 except OSError:
     PANEL_VERSION = os.environ.get("SEBAN_PANEL_VERSION", "dev")
 DEFAULT_SETTINGS = {
-    "panel_name": "Metin2 Singleplayer", "stuck_minutes": "5", "theme": "empire", "monitor_mode": "vps", "cursor": "custom",
+    "panel_name": "MT2009 PLUS", "stuck_minutes": "5", "theme": "ocean", "monitor_mode": "vps", "cursor": "custom",
     # Existing installations without this key stay usable. Fresh installations
     # receive setup_complete=0 from the collector and enter the setup wizard.
-    "setup_complete": "1", "auth_enabled": "0", "auth_password_hash": "", "allow_student_chest": "0", "allow_moonlight_chest": "0", "keep_demo_characters": "0", "update_seban_panel": "0",
+    "setup_complete": "1", "auth_enabled": "0", "auth_password_hash": "", "allow_student_chest": "0", "allow_alchemy": "1", "allow_sashes": "1", "keep_demo_characters": "0", "update_seban_panel": "0",
     # Rare boss/dungeon announcements are visible in every supported feed by
     # default. Missing keys on older installations deliberately inherit this.
     "legendary_notice_live_chat": "1", "legendary_notice_world_feed": "1", "legendary_notice_ticker": "1",
@@ -312,7 +311,7 @@ except (OSError, ValueError):
 # Ta tabela miala 5 jako wedrowca i konczyla sie na nim, wiec straganiarz
 # czytal sie jako wedrowiec, a piec dopisanych od tamtej pory osobowosci
 # nie czytalo sie wcale.
-BOT_PERSONALITIES = {0: "Wytrwały poszukiwacz", 1: "Pogromca Metinów", 2: "Towarzysz drużyny", 3: "Mistrz ekwipunku", 4: "Rozważny zbieracz", 5: "Handlarz", 6: "Wędrowiec", 7: "Dropek Metinów", 8: "Dropek z M3", 9: "Dropek z M2", 10: "Dropek medali"}
+BOT_PERSONALITIES = {0: "Wytrwały poszukiwacz", 1: "Pogromca Metinów", 2: "Towarzysz drużyny", 3: "Mistrz ekwipunku", 4: "Rozważny zbieracz", 5: "Handlarz", 6: "Wędrowiec", 7: "Dropek Metinów", 8: "Dropek z M3", 9: "Dropek z M2", 10: "Dropek medali", 11: "Dropek surowców"}
 # One colour per personality, for /players/personalities -- purely cosmetic,
 # picked for contrast against the dark theme and against each other.
 BOT_PERSONALITY_COLORS = {0: "#69a6ff", 1: "#ff6b6b", 2: "#79e3af", 3: "#f2c34d", 4: "#c084fc",
@@ -647,7 +646,91 @@ def map_name(index):
     return MAP_NAMES.get(index, f"Poza aktywnym światem (mapa #{index})")
 
 
+# MT2009 Plus: the changelog shown here is the package's own, read from its
+# repository on GitHub and kept for a quarter of an hour; the panel's own file
+# is the fallback when GitHub cannot be reached.
+MT2009_PLUS_CHANGELOG_URL = os.environ.get(
+    "MT2009_PLUS_CHANGELOG_URL",
+    "https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/CHANGELOG.md")
+MT2009_PLUS_DISCORD_URL = "https://github.com/Doofenyoyo1/metin2_SP/issues"
+MT2009_PLUS_WEBSITE_URL = "https://github.com/Doofenyoyo1/metin2_SP"
+_mt2009_changelog_cache = {"at": 0.0, "entries": None}
+
+
+def _clean_changelog_text(text):
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"`([^`]*)`", r"\1", text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def parse_mt2009_changelog(markdown):
+    """The package's CHANGELOG.md as the entries the templates show:
+    "## 2.2.6 — 2026-09-23 — title" (or "## Klient 2.0.7 — ...") is one entry,
+    and each list item, paragraph and "###" heading under it one line."""
+    entries, current, block = [], None, []
+
+    def flush():
+        if current is not None and block:
+            current["changes"].append(_clean_changelog_text(" ".join(block)))
+        block.clear()
+
+    for raw in markdown.splitlines():
+        line = raw.rstrip()
+        heading = re.match(r"^##\s+((?:Klient|Client)\s+)?(\d+\.\d+\.\d+)\b(.*)$", line, re.I)
+        if heading:
+            flush()
+            parts = [part.strip() for part in re.split(r"\s+[—–-]\s+", heading.group(3).strip(" —–-")) if part.strip()]
+            date = next((part for part in parts if re.fullmatch(r"\d{4}-\d\d-\d\d", part)), "")
+            title = " — ".join(part for part in parts if part != date)
+            version = ("Klient " if heading.group(1) else "") + heading.group(2)
+            current = {"timestamp": date or "—", "version": version + (" · " + title if title else ""), "changes": []}
+            entries.append(current)
+            continue
+        if current is None or line.startswith("## ") or line.strip() == "---":
+            flush()
+            if line.startswith("## "):
+                current = None
+            continue
+        if not line.strip():
+            flush()
+            continue
+        sub_heading = re.match(r"^#{3,}\s+(.+)$", line)
+        bullet = re.match(r"^\s*[-*]\s+(.+)$", line)
+        if sub_heading:
+            flush()
+            current["changes"].append("▸ " + _clean_changelog_text(sub_heading.group(1)))
+        elif bullet:
+            flush()
+            block.append(bullet.group(1))
+        else:
+            block.append(line.strip())
+    flush()
+    return [entry for entry in entries if entry["changes"]][:40]
+
+
 def changelog_entries():
+    """MT2009 Plus's own changelog from GitHub, else the panel's file."""
+    now = time.time()
+    cached = _mt2009_changelog_cache["entries"]
+    if cached is not None and now - _mt2009_changelog_cache["at"] < 900:
+        return cached
+    try:
+        request_changelog = Request(MT2009_PLUS_CHANGELOG_URL, headers={"User-Agent": "MT2009-Plus-Panel"})
+        with urlopen(request_changelog, timeout=4) as response:
+            entries = parse_mt2009_changelog(response.read(400_000).decode("utf-8", "replace"))
+        if entries:
+            _mt2009_changelog_cache.update(at=now, entries=entries)
+            return entries
+    except (OSError, ValueError, HTTPError, URLError):
+        pass
+    if cached is not None:
+        _mt2009_changelog_cache["at"] = now - 600  # try GitHub again in five minutes
+        return cached
+    return local_panel_changelog_entries()
+
+
+def local_panel_changelog_entries():
     """Read version notes from the repository file for the public in-panel log."""
     path = Path(__file__).parent / "CHANGELOG.md"
     try:
@@ -879,7 +962,12 @@ def item_base_stats(vnum):
         return []
     stats, item_type, subtype = [], int(proto.get("type") or 0), int(proto.get("subtype") or 0)
     level = int(proto.get("level") or 0)
-    if level:
+    # A time-limited costume or pet carries a number of seconds where a level
+    # would be ("Wymagany poziom: 86400"), and not even the right one: the
+    # time left is the item's own (socket 0, see player()).
+    if level > 300 and item_type in (28, 37):
+        pass
+    elif level:
         stats.append(f"Wymagany poziom: {level}")
     value = lambda index: int(proto.get(f"value{index}") or 0)
     refine_bonus = value(5)
@@ -1335,6 +1423,7 @@ def guild_statuses():
     Pola wspólne gildii bierzemy raz; botów online i exp sumujemy ze wszystkich
     rdzeni, bo każdy rdzeń widzi tylko własną część świata."""
     gathered, newest = {}, 0.0
+    now = time.time()
     for _channel, path in channel_paths("playerbot_guild_status.tsv"):
         try:
             mtime = path.stat().st_mtime
@@ -1342,6 +1431,12 @@ def guild_statuses():
         except OSError:
             continue
         if not lines:
+            continue
+        # Rdzeń z botami przepisuje raport co minutę; rdzeń bez botów (po
+        # zmianie układu świata) zostawiał stary i te same boty liczyły się
+        # dwa razy (gildia 16 członków, 40 online). Serwer czyści je przy
+        # starcie (m2-render-config), a raport starszy niż 5 minut pomijamy.
+        if now - mtime > 300:
             continue
         newest = max(newest, mtime)
         columns = lines[0].rstrip("\r").split("\t")
@@ -1383,6 +1478,9 @@ def guild_statuses():
     result = []
     for guild in gathered.values():
         guild["avg_strength"] = guild["strength_sum"] // guild["online"] if guild["online"] else 0
+        # Nigdy więcej online niż członków.
+        if guild.get("members", 0) > 0 and guild["online"] > guild["members"]:
+            guild["online"] = guild["members"]
         guild["tier_label"] = GUILD_TIERS.get(guild["tier"], "Zwykła")
         result.append(guild)
     result.sort(key=lambda g: (g["tier"], -g["level"], -g["members"], g["name"].casefold()))
@@ -1634,6 +1732,24 @@ def update_status():
     return result
 
 
+def baked_playerbots_version():
+    """The VERSION the image was built with, or None.
+
+    update.sh and the launcher copy the server's own VERSION into seban-panel/
+    and the Dockerfile COPYs it beside this file. It wins over the environment:
+    compose's PLAYERBOTS_VERSION falls back to a number written into
+    docker-compose.yml, and nothing on a VPS sets M2_PLAYERBOTS_VERSION, so a
+    2.10.0 server reported 2.2.29 (27 September).
+    """
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION"),
+                  encoding="utf-8-sig") as handle:
+            baked = handle.read().strip()
+    except OSError:
+        return None
+    return baked if version_key(baked) else None
+
+
 def installed_playerbots_version():
     """Read the live MT2009 version reported by the isolated updater watcher."""
     current = update_status()
@@ -1644,6 +1760,9 @@ def installed_playerbots_version():
         match = re.search(r"version ([0-9]+(?:\.[0-9]+)+)", current.get("message", ""))
         if match:
             return match.group(1)
+    baked = baked_playerbots_version()
+    if baked:
+        return baked
     return os.environ.get("PLAYERBOTS_VERSION", "nieustawiona")
 
 def version_key(value):
@@ -1740,8 +1859,12 @@ def queue_tieru_update(update_seban_panel=False):
 
 
 EVENTS_FILE = RATES_SPOOL / "playerbot_events.tsv"
-EVENT_KINDS = ("chest", "exp", "drop", "yang", "tanaka", "zuo")
+EVENT_KINDS = ("chest", "exp", "drop", "yang", "tanaka", "zuo", "bossloot", "metinloot",
+               "goblin")  # MT2009_PLUS_GOBLIN_V1: Poszukiwanie skarbów (playerbot_goblin.h)
 EVENT_WORLD_KINDS = ("tanaka", "zuo")
+# On or off, no figure: the Moonlight chests and the double loot of bosses and
+# Metins (MT2009_PLUS_LOOT_EVENTS_V1, playerbot_events.h).
+EVENT_FLAG_KINDS = ("chest", "bossloot", "metinloot", "goblin")  # goblin: MT2009_PLUS_GOBLIN_V1
 EVENT_WORLD_DEFAULT = {"tanaka": 3, "zuo": 8}
 EVENT_WORLD_MAX = {"tanaka": 20, "zuo": 30}
 EVENT_BOTS_DEFAULT = 50
@@ -1760,8 +1883,13 @@ EVENT_LABELS = {
     "yang": "Yang",
     "tanaka": "Pirat Tanaka",
     "zuo": "Zuo: deszcz Metinów",
+    "bossloot": "Podwójny loot z bossów",
+    "metinloot": "Podwójny loot z Metinów",
+    # MT2009_PLUS_GOBLIN_V1: the Treasure Hunt with the Treasure Goblin.
+    "goblin": "Poszukiwanie skarbów (Goblin)",
 }
-EVENT_ICONS = {"chest": "🎁", "exp": "⚡", "drop": "📦", "yang": "💰", "tanaka": "🏴‍☠️", "zuo": "☄️"}
+EVENT_ICONS = {"chest": "🎁", "exp": "⚡", "drop": "📦", "yang": "💰", "tanaka": "🏴‍☠️", "zuo": "☄️", "bossloot": "👹", "metinloot": "🪨",
+               "goblin": "🪙"}  # goblin: MT2009_PLUS_GOBLIN_V1
 EVENT_DAY_NAMES = ("Pn", "Wt", "Śr", "Cz", "Pt", "Sb", "Nd")
 EVENT_NOW_MINUTES = (15, 30, 60, 120, 180, 360)
 EVENT_HHMM = re.compile(r"^([01]?\d|2[0-4]):([0-5]\d)$")
@@ -2123,7 +2251,7 @@ def check_version_notification():
         # BIGINT UNSIGNED) -- bez tego dwa równoległe żądania omijałyby
         # UNIQUE(kind,ref_id) na ref_id=NULL (NULL nigdy nie koliduje samo ze
         # sobą w unikalnym indeksie) i dalej dublowałyby to powiadomienie.
-        create_notification("version_update", f"Nowa wersja Playerbots: {latest}",
+        create_notification("version_update", f"Nowa wersja MT2009 PLUS: {latest}",
                              f"Masz zainstalowaną {release.get('installed')}.",
                              "https://github.com/Doofenyoyo1/metin2_SP/releases/latest",
                              zlib.crc32(latest.encode()))
@@ -2397,10 +2525,12 @@ def read_ai_weights():
             if len(fields) >= 2 and fields[0].upper() in values:
                 try:
                     key, raw_value = fields[0].upper(), fields[1]
-                    if key in ("CHAT", "BOOKS", "NIGHT", "LIFE", "WARS", "TOWER", "CATACOMB", "ISHOP", "SHOP_M2", "PERSONA"):
+                    if key in ("CHAT", "BOOKS", "NIGHT", "LIFE", "WARS", "TOWER", "CATACOMB", "ISHOP", "SHOP_M2", "PERSONA", "SHOUTERS"):
                         values[key] = 0 if raw_value.lower() in ("0", "off", "no") else 1
                     elif key in ("SCRAP", "REST", "KINGDOMPVP"):
                         values[key] = max(0, min(100, int(raw_value)))
+                    elif key in ("BATTLEPASS", "SASH", "ALCHEMY"):
+                        values[key] = max(0, min(250, int(raw_value)))
                     elif key == "SCROLL_FROM":
                         values[key] = max(1, min(9, int(raw_value)))
                     elif key == "WAR_MINUTES":
@@ -2454,9 +2584,13 @@ def write_ai_weights(values):
     content.append(f"ISHOP\t{1 if values.get('ISHOP', 1) else 0}")
     content.append(f"SHOP_M2\t{1 if values.get('SHOP_M2', 0) else 0}")
     content.append(f"PERSONA\t{1 if values.get('PERSONA', 1) else 0}")
+    # MT2009_PLUS_SHOUTERS_V1: the three shouters of the first villages.
+    content.append(f"SHOUTERS\t{1 if values.get('SHOUTERS', 1) else 0}")
     content.append(f"SCRAP\t{max(0, min(100, int(values.get('SCRAP', 0))))}")
     content.append(f"REST\t{max(0, min(100, int(values.get('REST', 100))))}")
     content.append(f"KINGDOMPVP\t{max(0, min(100, int(values.get('KINGDOMPVP', 0))))}")
+    for key in ("BATTLEPASS", "SASH", "ALCHEMY"):
+        content.append(f"{key}\t{max(0, min(250, int(values.get(key, 100))))}")
     content.append(f"SCROLL_FROM\t{max(1, min(9, int(values.get('SCROLL_FROM', 1))))}")
     content.append(f"WAR_MINUTES\t{max(5, min(180, int(values.get('WAR_MINUTES', 30))))}")
     content.append(f"WAR_HOURS\t{max(1, min(24, int(values.get('WAR_HOURS', 2))))}")
@@ -2537,23 +2671,9 @@ def read_channel_settings():
         share = 50
     if share not in CH2_SHARE_CHOICES:
         share = 50
-    try:
-        fresh = int(wish.get("FRESH", effective.get("FRESH", "0")) or 0)
-    except ValueError:
-        fresh = 0
-    if fresh not in FRESH_CHANNEL_CHOICES:
-        fresh = 0
-    try:
-        fresh_count = int(wish.get("FRESH_COUNT", effective.get("FRESH_COUNT", "200")) or 200)
-    except ValueError:
-        fresh_count = 200
-    if fresh_count not in FRESH_COUNT_CHOICES:
-        fresh_count = 200
     return {"ch2": wish.get("CH2", effective.get("CH2", "0")) == "1",
             "share": share,
-            "effective_ch2": effective.get("CH2", "0") == "1",
-            "fresh": fresh, "fresh_count": fresh_count,
-            "effective_fresh": int(effective.get("FRESH", "0") or 0)}
+            "effective_ch2": effective.get("CH2", "0") == "1"}
 
 
 def read_ai_item_policy():
@@ -3478,6 +3598,10 @@ def item_icon_url(vnum):
     # Most upgrade series use the same client icon for +0 through +9.
     # Prefer an explicit mapping, then fall back to the base VNUM safely.
     icon = ITEM_ICONS.get(str(value)) or ITEM_ICONS.get(str(value - value % 10))
+    # A Dragon Stone's icon is its kind, grade and step; the strength (the
+    # tens digit) does not change it.
+    if not icon and 110000 <= value <= 175499:
+        icon = ITEM_ICONS.get(str(value - value % 100))
     return url_for("static", filename=f"icons/{quote(icon)}") if icon else None
 
 
@@ -3564,13 +3688,16 @@ def globals_for_templates():
         except OSError:
             revision = 0
         return url_for("static", filename=filename, v=revision)
+    brand = current_settings.get("panel_name") or "MT2009 PLUS"
+    if brand == "Metin2 Singleplayer":
+        brand = "MT2009 PLUS"
     def level_badge(pid, level, prefix=""):
         label = f"{prefix}{int(level or 0)}"
         rank = top_level_badge_rank_map().get(int(pid or 0))
         if not rank:
             return escape(label)
         return Markup('<span class="top-level-badge" title="Top 10 poziomu · #%d">%s</span>') % (rank, escape(label))
-    return {"tieru_url": tieru_url, "panel_brand": current_settings.get("panel_name", "Metin2 Singleplayer"), "settings": current_settings, "map_name": map_name, "item_icon": item_icon, "job_name": job_name, "class_profile": class_profile, "class_portrait": class_portrait, "empire_info": empire_info, "empire_flag": empire_flag, "static_asset_url": static_asset_url, "level_badge": level_badge, "top_level_rank": lambda pid: top_level_rank_map().get(int(pid or 0)), "feature_enabled": lambda name: panel_feature_enabled(name, current_settings), "panel_features": panel_feature_states(current_settings)}
+    return {"tieru_url": tieru_url, "discord_url": MT2009_PLUS_DISCORD_URL, "website_url": MT2009_PLUS_WEBSITE_URL, "panel_brand": brand, "settings": current_settings, "map_name": map_name, "item_icon": item_icon, "job_name": job_name, "class_profile": class_profile, "class_portrait": class_portrait, "empire_info": empire_info, "empire_flag": empire_flag, "static_asset_url": static_asset_url, "level_badge": level_badge, "top_level_rank": lambda pid: top_level_rank_map().get(int(pid or 0)), "feature_enabled": lambda name: panel_feature_enabled(name, current_settings), "panel_features": panel_feature_states(current_settings)}
 @app.route("/login", methods=["GET", "POST"])
 def login():
     current = settings()
@@ -3865,6 +3992,108 @@ def bot_personalities():
     return render_template("bot_personalities.html", roster=roster, total=total, query=query, selected=selected, personalities=personalities)
 
 
+
+# Guild lands and buildings (playerbot_guild_land.h in the core): who owns
+# which land, what stands on it, the building fund its master holds and every
+# payment its members made to a collection ("zrzutka").
+GUILD_BUILDING_NAMES = {
+    14100: "Kwatera Główna", 14110: "Kwatera Główna", 14120: "Kwatera Główna",
+    14013: "Kowal broni", 14014: "Płatnerz", 14015: "Jubiler",
+    14043: "Alchemik diamentu", 14045: "Alchemik drewna kopalnego", 14046: "Alchemik miedzi",
+    14047: "Alchemik srebra", 14048: "Alchemik złota", 14049: "Alchemik jadeitu",
+    14050: "Alchemik ebonitu", 14051: "Alchemik perły", 14052: "Alchemik białego złota",
+    14053: "Alchemik kryształu", 14054: "Alchemik ametystu", 14055: "Alchemik niebiańskich łez",
+    14061: "Ołtarz Mocy", 14062: "Ołtarz Mocy", 14063: "Ołtarz Mocy",
+}
+GUILD_CONTRIBUTION_PURPOSES = {"land": "ziemia", "building": "budynek", "materials": "surowce (yang)",
+                               "material": "surowce (przedmioty)"}
+
+
+def guild_estates():
+    """guild_id -> {land_id, map_index, map, price, buildings: [names]}."""
+    estates = {}
+    try:
+        for row in rows("""SELECT gl.guild_id, gl.land_id, l.map_index, l.price
+                           FROM player.guild_land gl LEFT JOIN world.land l ON l.id=gl.land_id"""):
+            estates[int(row["guild_id"])] = {"land_id": row["land_id"], "map_index": row["map_index"],
+                                            "map": map_name(row["map_index"]) if row["map_index"] is not None else "—",
+                                            "price": int(row["price"] or 0), "buildings": []}
+        by_land = {e["land_id"]: e for e in estates.values()}
+        for row in rows("SELECT land_id, vnum FROM player.object ORDER BY id"):
+            estate = by_land.get(row["land_id"])
+            if estate is not None:
+                estate["buildings"].append(GUILD_BUILDING_NAMES.get(int(row["vnum"]), f"Budynek {row['vnum']}"))
+    except pymysql.MySQLError:
+        return {}
+    return estates
+
+
+def guild_contributions(guild_id):
+    """The building fund and every collection payment of one guild."""
+    fund = {"amount": 0, "holder": None}
+    payments, per_member = [], []
+    try:
+        row = one("""SELECT g.build_fund, p.name FROM player.playerbot_guild g
+                     LEFT JOIN player.player p ON p.id=g.fund_holder WHERE g.guild_id=%s""", (guild_id,))
+        if row:
+            fund = {"amount": int(row.get("build_fund") or 0), "holder": row.get("name")}
+        payments = rows("""SELECT c.pid, p.name, c.amount, c.purpose, c.at FROM player.playerbot_guild_contribution c
+                           LEFT JOIN player.player p ON p.id=c.pid WHERE c.guild_id=%s ORDER BY c.at DESC, c.id DESC LIMIT 60""",
+                        (guild_id,))
+        per_member = rows("""SELECT c.pid, p.name, SUM(c.amount) AS total, COUNT(*) AS times
+                             FROM player.playerbot_guild_contribution c LEFT JOIN player.player p ON p.id=c.pid
+                             WHERE c.guild_id=%s GROUP BY c.pid, p.name ORDER BY total DESC""", (guild_id,))
+    except pymysql.MySQLError:
+        pass
+    for payment in payments:
+        payment["purpose_label"] = GUILD_CONTRIBUTION_PURPOSES.get(payment["purpose"], payment["purpose"])
+    return fund, payments, per_member
+
+
+# MT2009_PLUS_GUILD_DUTY_V1: the guild leader's duties (playerbot_guildduty.h),
+# read only - the yang collection, the item mission with its bank and the
+# Demon Tower expedition, the running one of each or the last.
+GUILD_DUTY_STATES = {1: "trwa", 2: "zakończona", 3: "anulowana", 4: "czas minął"}
+GUILD_DUTY_TOWER_STATES = {1: "czeka na boty", 2: "zbiórka na parterze", 3: "rozbijanie Metina",
+                           4: "w wieży", 5: "zakończona", 6: "odwołana", 7: "nieudana"}
+GUILD_DUTY_MATERIALS = {90010: "Kamień Węglowy", 90011: "Pień", 90012: "Dykta"}
+
+
+def guild_duties(guild_id):
+    duties = {"collect": None, "donors": [], "mission": None, "workers": [], "bank": [], "tower": None}
+    try:
+        duties["collect"] = one("""SELECT id, state, target, collected, FROM_UNIXTIME(start_ts) AS started,
+                                   FROM_UNIXTIME(end_ts) AS ends FROM player.guild_duty_collect
+                                   WHERE guild_id=%s ORDER BY (state=1) DESC, id DESC LIMIT 1""", (guild_id,))
+        if duties["collect"]:
+            duties["donors"] = rows("""SELECT d.pid, p.name, d.amount, d.times FROM player.guild_duty_donation d
+                                       LEFT JOIN player.player p ON p.id=d.pid WHERE d.collect_id=%s
+                                       ORDER BY d.amount DESC LIMIT 20""", (duties["collect"]["id"],))
+        duties["mission"] = one("""SELECT id, state, vnum, target, collected, workers, workers_max
+                                   FROM player.guild_duty_mission WHERE guild_id=%s
+                                   ORDER BY (state=1) DESC, id DESC LIMIT 1""", (guild_id,))
+        if duties["mission"]:
+            duties["workers"] = rows("""SELECT w.pid, p.name, p.level, w.delivered FROM player.guild_duty_worker w
+                                        LEFT JOIN player.player p ON p.id=w.pid WHERE w.mission_id=%s
+                                        ORDER BY w.delivered DESC""", (duties["mission"]["id"],))
+        duties["bank"] = rows("""SELECT b.vnum, b.bot_pid, p.name, b.count, b.delivered, b.withdrawn, b.returned,
+                                 b.return_pending FROM player.guild_duty_bank b LEFT JOIN player.player p ON p.id=b.bot_pid
+                                 WHERE b.guild_id=%s AND b.count > 0
+                                 ORDER BY b.vnum, b.count DESC LIMIT 60""", (guild_id,))
+        duties["tower"] = one("""SELECT id, state, wanted, members, recruits, floor, note,
+                                 FROM_UNIXTIME(created_ts) AS created FROM player.guild_duty_tower
+                                 WHERE guild_id=%s ORDER BY (active_guild IS NOT NULL) DESC, id DESC LIMIT 1""", (guild_id,))
+    except pymysql.MySQLError:
+        pass
+    for key, labels in (("collect", GUILD_DUTY_STATES), ("mission", GUILD_DUTY_STATES), ("tower", GUILD_DUTY_TOWER_STATES)):
+        if duties[key]:
+            duties[key]["state_label"] = labels.get(duties[key]["state"], str(duties[key]["state"]))
+    if duties["mission"]:
+        duties["mission"]["item"] = GUILD_DUTY_MATERIALS.get(duties["mission"]["vnum"], str(duties["mission"]["vnum"]))
+    for b in duties["bank"]:
+        b["item"] = GUILD_DUTY_MATERIALS.get(b["vnum"], str(b["vnum"]))
+    return duties
+
 @app.route("/guilds")
 @login_required
 def guilds():
@@ -3884,6 +4113,9 @@ def guilds():
     summary = {"guilds": len(roster), "online": sum(g["online"] for g in roster),
                "wars": sum(1 for g in roster if g["war_with"]),
                "exp": sum(g["exp_offered"] for g in roster)}
+    estates = guild_estates()
+    for guild in roster:
+        guild["estate"] = estates.get(int(guild.get("id") or 0))
     return render_template("guilds.html", guilds=roster, query=query, summary=summary,
                            player_guilds=player_guild_rows(query),
                            next_wars=[{"empire": empire, "text": guild_war_text(seconds)} for empire, seconds in sorted(next_wars.items())],
@@ -3907,7 +4139,10 @@ def guild(guild_id):
                     FROM player.guild_member gm LEFT JOIN player.player p ON p.id=gm.pid
                     WHERE gm.guild_id=%s
                     ORDER BY (gm.pid=%s) DESC,gm.grade ASC,p.level DESC,p.name ASC""", (guild_id, details["leader_id"] or 0))
-    return render_template("guild.html", guild=details, members=members)
+    fund, payments, per_member = guild_contributions(guild_id)
+    return render_template("guild.html", guild=details, members=members, estate=guild_estates().get(guild_id),
+                           fund=fund, payments=payments, per_member=per_member,
+                           duties=guild_duties(guild_id))  # MT2009_PLUS_GUILD_DUTY_V1
 
 
 # kind -> (player_special_flag.flag, unit label for the ranking's "detail"
@@ -4300,6 +4535,24 @@ def _enrich_items(items):
         item["item_name"] = resolve_item_display_name(item["vnum"], item.get("socket0"), game_text(item["item_name"]))
         item["item_size"] = max(1, min(3, int(item.get("item_size") or 1)))
         item["base_stats"] = item_base_stats(item["vnum"]) + fishing_rod_stats(item["vnum"], item.get("socket0"))
+        # A costume's or pet seal's REAL_TIME limit counts down in socket 0.
+        if int(item.get("item_type") or 0) in (28, 37) and int(item.get("socket0") or 0) > time.time():
+            left = int(item["socket0"]) - int(time.time())
+            days, hours = left // 86400, left % 86400 // 3600
+            item["base_stats"].insert(0, f"Wygasa za: {days} {'dzień' if days == 1 else 'dni'} {hours} h" if days else f"Wygasa za: {hours} h")
+        # A Dragon Stone: grade, step and strength are in its vnum, the time
+        # it has left (seconds, spent while the deck is active) in socket 0.
+        if int(item.get("item_type") or 0) == 29 and 110000 <= int(item["vnum"] or 0) <= 175499:
+            v = int(item["vnum"])
+            grades = ["Zwykły", "Błyszczący", "Rzadki", "Antyczny", "Legendarny", "Mityczny"]
+            steps = ["Najniższy", "Niski", "Średni", "Wysoki", "Najwyższy"]
+            left = int(item.get("socket0") or 0)
+            item["base_stats"] = [
+                f"Klasa: {grades[min(5, v // 1000 % 10)]}",
+                f"Stopień: {steps[min(4, v // 100 % 10)]}",
+                f"Siła: +{v // 10 % 10}",
+                f"Pozostały czas: {left // 3600} h {left % 3600 // 60} min" if left > 0 else "Pozostały czas: brak",
+            ]
         item["bonuses"] = [apply_text(item.get(f"applytype{i}"), item.get(f"applyvalue{i}")) for i in range(3) if item.get(f"applytype{i}") and item.get(f"applyvalue{i}")]
         item["bonuses"] += [apply_text(item.get(f"attrtype{i}"), item.get(f"attrvalue{i}")) for i in range(7) if item.get(f"attrtype{i}") and item.get(f"attrvalue{i}")]
     # Only weapons (type 1) and armor (type 2) actually use sockets for gems
@@ -4387,14 +4640,15 @@ def load_character_items(pid, account_id):
     items = rows("""
       SELECT i.id, i.vnum, i.count, i.window, i.pos, i.socket0,i.socket1,i.socket2,
       i.attrtype0,i.attrvalue0,i.attrtype1,i.attrvalue1,i.attrtype2,i.attrvalue2,i.attrtype3,i.attrvalue3,i.attrtype4,i.attrvalue4,i.attrtype5,i.attrvalue5,i.attrtype6,i.attrvalue6,
-      p.applytype0,p.applyvalue0,p.applytype1,p.applyvalue1,p.applytype2,p.applyvalue2,p.size AS item_size,COALESCE(p.locale_name, CONCAT('VNUM ', i.vnum)) AS item_name
+      p.applytype0,p.applyvalue0,p.applytype1,p.applyvalue1,p.applytype2,p.applyvalue2,p.size AS item_size,COALESCE(p.locale_name, CONCAT('VNUM ', i.vnum)) AS item_name,
+      p.type AS item_type
       FROM player.item i LEFT JOIN player.item_proto p ON p.vnum=i.vnum WHERE i.owner_id=%s
       ORDER BY i.window, i.pos LIMIT 250
     """, (pid,))
     safebox = rows("""
       SELECT i.id,i.vnum,i.count,i.window,i.pos,i.socket0,i.socket1,i.socket2,
       i.attrtype0,i.attrvalue0,i.attrtype1,i.attrvalue1,i.attrtype2,i.attrvalue2,i.attrtype3,i.attrvalue3,i.attrtype4,i.attrvalue4,i.attrtype5,i.attrvalue5,i.attrtype6,i.attrvalue6,
-      p.applytype0,p.applyvalue0,p.applytype1,p.applyvalue1,p.applytype2,p.applyvalue2,p.size AS item_size,COALESCE(p.locale_name,CONCAT('VNUM ',i.vnum)) AS item_name
+      p.applytype0,p.applyvalue0,p.applytype1,p.applyvalue1,p.applytype2,p.applyvalue2,p.size AS item_size,COALESCE(p.locale_name,CONCAT('VNUM ',i.vnum)) AS item_name,p.type AS item_type
       FROM player.item i LEFT JOIN player.item_proto p ON p.vnum=i.vnum WHERE i.owner_id=%s AND i.window='SAFEBOX' ORDER BY i.pos LIMIT 180
     """, (account_id,))
     _enrich_items([*items, *safebox])
@@ -4406,9 +4660,25 @@ def load_character_items(pid, account_id):
         5: "neck", 6: "ear", 7: "unique1", 8: "unique2", 9: "arrow",
         10: "shield", 23: "belt",
     }
+    # The costume slots (length.h EWearPositions: 19 body, 20 hair, 21 mount,
+    # 22 sash, 24 weapon skin), shown in a row of their own under the
+    # inventory art, which has no place for them. The pet is its seal in the
+    # bag (ITEM_PET, 37): a summoned pet is the game's state, not a slot.
+    costume_slots = {19: "costume_body", 20: "costume_hair", 24: "costume_weapon", 22: "costume_acce", 21: "costume_mount"}
+    costumes = {}
+    # The Dragon Stones worn (length.h: DRAGON_SOUL_EQUIP_SLOT_START is
+    # INVENTORY_MAX_NUM + WEAR_MAX_NUM; the database keeps WEAR_MAX_NUM (32) +
+    # deck * 7 + kind): deck I at 32-38, deck II at 39-45.
+    alchemy = [{}, {}]
     for item in [*items, *safebox]:
         if item["window"] == "EQUIPMENT" and item["pos"] in equipment_slots:
             equipment[equipment_slots[item["pos"]]] = item
+        elif item["window"] == "EQUIPMENT" and item["pos"] in costume_slots:
+            costumes[costume_slots[item["pos"]]] = item
+        elif item["window"] == "EQUIPMENT" and 32 <= int(item["pos"] or 0) < 46:
+            alchemy[(int(item["pos"]) - 32) // 7][(int(item["pos"]) - 32) % 7] = item
+        elif item["window"] == "INVENTORY" and int(item.get("item_type") or 0) == 37 and "pet" not in costumes:
+            costumes["pet"] = item
         elif item["window"] == "INVENTORY":
             inventory.append(item)
     # The horse saddlebag ("juki konne") isn't a separate window -- it's the
@@ -4422,7 +4692,124 @@ def load_character_items(pid, account_id):
     # once a bot/character actually has something in it.
     horse_bag = [item for item in inventory if int(item["pos"] or 0) >= 180]
     inventory = [item for item in inventory if int(item["pos"] or 0) < 180]
-    return equipment, inventory, safebox, horse_bag
+    return equipment, costumes, alchemy, inventory, safebox, horse_bag
+
+
+# "Przejmij bota na xxx minut" (the operator, 27 September): the panel writes
+# one row of common.playerbot_takeover, and the game cores do the rest
+# (playerbot_takeover.h): the bot leaves the world, the account opens with the
+# password made here, and when the time is up the account closes as it was, a
+# person still on it is sent off and the bot comes back.
+TAKEOVER_STATE_LABELS = {
+    "requested": "bot wylogowuje się (kilka sekund)",
+    "active": "przejęty – możesz się zalogować",
+    "returning": "czas minął – bot wraca (do minuty)",
+    "done": "zakończone",
+}
+
+
+def ensure_takeover_table():
+    rows("""CREATE TABLE IF NOT EXISTS common.playerbot_takeover (
+        pid INT UNSIGNED NOT NULL PRIMARY KEY,
+        account_id INT UNSIGNED NOT NULL,
+        login VARCHAR(30) NOT NULL DEFAULT '',
+        password_plain VARCHAR(32) NOT NULL DEFAULT '',
+        password_hash VARCHAR(42) NOT NULL,
+        old_password VARCHAR(42) NOT NULL,
+        old_status VARCHAR(8) NOT NULL,
+        minutes INT UNSIGNED NOT NULL,
+        state VARCHAR(12) NOT NULL DEFAULT 'requested',
+        requested_at INT UNSIGNED NOT NULL DEFAULT 0,
+        active_at INT UNSIGNED NOT NULL DEFAULT 0,
+        until INT UNSIGNED NOT NULL DEFAULT 0,
+        returning_at INT UNSIGNED NOT NULL DEFAULT 0,
+        done_at INT UNSIGNED NOT NULL DEFAULT 0) ENGINE=InnoDB""")
+
+
+def takeover_account(pid):
+    """The bot's account, or None for a person's character or a companion."""
+    account = one("""SELECT a.id, a.login, a.password, a.status FROM player.player p
+        JOIN account.account a ON a.id=p.account_id
+        WHERE p.id=%s AND BINARY a.login LIKE BINARY 'playerbot\\_%%'""", (pid,))
+    if not account:
+        return None
+    try:
+        if one("SELECT 1 AS x FROM player.playerbot_sidekick WHERE sidekick_pid=%s", (pid,)):
+            return None
+    except pymysql.MySQLError:
+        pass
+    return account
+
+
+def takeover_status(pid):
+    try:
+        ensure_takeover_table()
+        row = one("""SELECT pid, login, password_plain, minutes, state,
+            CAST(until AS SIGNED) - CAST(UNIX_TIMESTAMP() AS SIGNED) AS seconds_left
+            FROM common.playerbot_takeover WHERE pid=%s""", (pid,))
+    except pymysql.MySQLError:
+        return None
+    if not row:
+        return None
+    row["label"] = TAKEOVER_STATE_LABELS.get(row["state"], row["state"])
+    row["running"] = row["state"] in ("requested", "active", "returning")
+    left = int(row.get("seconds_left") or 0)
+    row["left_text"] = f"{max(0, left) // 60} min {max(0, left) % 60} s" if row["state"] == "active" else ""
+    return row
+
+
+def mysql_password_hash(password):
+    return "*" + hashlib.sha1(hashlib.sha1(password.encode("utf-8")).digest()).hexdigest().upper()
+
+
+@app.post("/player/<int:pid>/takeover")
+@login_required
+def player_takeover(pid):
+    supplied = request.form.get("takeover_csrf", "")
+    expected = session.get("seban_update_csrf", "")
+    if not expected or not hmac.compare_digest(supplied, expected):
+        abort(403)
+    account = takeover_account(pid)
+    if not account:
+        flash("Przejąć można tylko bota (nie postać gracza ani Towarzysza).", "error")
+        return redirect(url_for("player", pid=pid))
+    ensure_takeover_table()
+    current = takeover_status(pid)
+    if request.form.get("action") == "stop":
+        if current and current["state"] == "active":
+            rows("UPDATE common.playerbot_takeover SET until=UNIX_TIMESTAMP() WHERE pid=%s AND state='active'", (pid,))
+            flash("Przejęcie kończy się – bot wróci do gry w ciągu minuty.", "success")
+        elif current and current["state"] == "requested":
+            rows("UPDATE common.playerbot_takeover SET state='done', done_at=UNIX_TIMESTAMP() WHERE pid=%s AND state='requested'", (pid,))
+            flash("Przejęcie anulowane – bot wróci do gry w ciągu minuty.", "success")
+        return redirect(url_for("player", pid=pid))
+    if current and current["running"]:
+        flash("Ten bot jest już przejęty.", "error")
+        return redirect(url_for("player", pid=pid))
+    try:
+        minutes = int(request.form.get("minutes", ""))
+    except ValueError:
+        minutes = 0
+    if not 1 <= minutes <= 1440:
+        flash("Czas przejęcia: od 1 do 1440 minut.", "error")
+        return redirect(url_for("player", pid=pid))
+    alphabet = "abcdefghjkmnpqrstuvwxyz23456789"
+    password = "".join(alphabet[b % len(alphabet)] for b in os.urandom(10))
+    # What the account goes back to. A bot's account is always closed
+    # ("!", BLOCK); one found open is the leftover of an interrupted takeover.
+    old_password, old_status = account["password"], account["status"]
+    if old_status == "OK" or old_password != "!":
+        old_password, old_status = "!", "BLOCK"
+    rows("""REPLACE INTO common.playerbot_takeover
+        (pid, account_id, login, password_plain, password_hash, old_password, old_status, minutes,
+         state, requested_at, active_at, until, returning_at, done_at)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'requested',UNIX_TIMESTAMP(),0,0,0,0)""",
+         (pid, account["id"], account["login"], password, mysql_password_hash(password),
+          old_password, old_status, minutes))
+    app.logger.warning("bot %s taken over for %s min (login %s)", pid, minutes, account["login"])
+    flash(f"Bot przejęty na {minutes} min. Za kilka sekund wyloguje się z gry – wtedy zaloguj się "
+          f"w kliencie loginem {account['login']} i hasłem {password}.", "success")
+    return redirect(url_for("player", pid=pid))
 
 
 PLUS9_EQUIPMENT_SLOTS = {0: "body", 1: "head", 2: "foots", 3: "wrist", 4: "weapon", 5: "neck", 6: "ear", 10: "shield"}
@@ -4524,7 +4911,7 @@ def player(pid):
     skill_raw = character.pop("skill_level", b"")
     character["skills"] = parse_skills(skill_raw, character.get("job"), character.get("skill_group"))
     character["passive_skills"] = parse_passive_skills(skill_raw)
-    equipment, inventory, safebox, horse_bag = load_character_items(pid, character["account_id"])
+    equipment, costumes, alchemy, inventory, safebox, horse_bag = load_character_items(pid, character["account_id"])
     character["full_plus9_equipment"] = full_plus9_badges_enabled() and is_full_plus9_equipment(equipment)
     gear_history = bot_gear_history(pid)
     offline_shop = bot_offline_shop(pid)
@@ -4532,7 +4919,10 @@ def player(pid):
     mission_progress = character_mission_progress(pid)
     gm_row = one("SELECT mAuthority FROM common.gmlist WHERE mName=%s LIMIT 1", (character["name"],))
     character["gm_rank"] = gm_row["mAuthority"] if gm_row else ""
-    return render_template("player.html", character=character, equipment=equipment, inventory=inventory, safebox=safebox,
+    takeover_bot = takeover_account(pid) is not None
+    return render_template("player.html", character=character, equipment=equipment, costumes=costumes, alchemy=alchemy, inventory=inventory, safebox=safebox,
+                            takeover_bot=takeover_bot, takeover=takeover_status(pid) if takeover_bot else None,
+                            takeover_csrf=update_csrf_token(),
                             has_safebox=bool(safebox), horse_bag=horse_bag, has_horse_bag=bool(horse_bag),
                             gear_history=gear_history, offline_shop=offline_shop, character_stats=character_stats,
                             mission_progress=mission_progress, gm_ranks=GM_RANK_OPTIONS,
@@ -4621,8 +5011,8 @@ def api_player_inventory_fragment(pid):
     if not account_id:
         abort(404)
     gold = one("SELECT gold FROM player.player WHERE id=%s", (pid,)).get("gold") or 0
-    equipment, inventory, safebox, horse_bag = load_character_items(pid, account_id["account_id"])
-    return render_template("_inventory_fragment.html", gold=gold, equipment=equipment, inventory=inventory, safebox=safebox,
+    equipment, costumes, alchemy, inventory, safebox, horse_bag = load_character_items(pid, account_id["account_id"])
+    return render_template("_inventory_fragment.html", gold=gold, equipment=equipment, costumes=costumes, alchemy=alchemy, inventory=inventory, safebox=safebox,
                             has_safebox=bool(safebox), horse_bag=horse_bag, has_horse_bag=bool(horse_bag))
 
 
@@ -5174,6 +5564,341 @@ def economy_shops():
 @login_required
 def api_shop_feed():
     return {"ok": True, "sales": recent_shop_sales(10)}
+
+
+def ensure_retirement_tables():
+    """The game core creates the playerbot_retire_* tables only when it queues a batch, so a
+    world that never retired a bot (a fresh one) has none and the page died with error 1146
+    -> HTTP 500 (20 September 2026). Same definitions as the core's (CREATE ... IF NOT EXISTS)."""
+    try:
+        for ddl in (
+            """CREATE TABLE IF NOT EXISTS common.playerbot_retire_control (
+                id TINYINT UNSIGNED NOT NULL PRIMARY KEY, batch_id INT UNSIGNED NOT NULL,
+                bot_count SMALLINT UNSIGNED NOT NULL, window_minutes INT UNSIGNED NOT NULL,
+                shop_minutes INT UNSIGNED NOT NULL, requested_at INT UNSIGNED NOT NULL
+            ) ENGINE=InnoDB""",
+            """CREATE TABLE IF NOT EXISTS common.playerbot_retire_batch (
+                id INT UNSIGNED NOT NULL PRIMARY KEY,
+                queued_count INT UNSIGNED NOT NULL DEFAULT 0,
+                started_at INT UNSIGNED NOT NULL)""",
+            """CREATE TABLE IF NOT EXISTS common.playerbot_retire_pick (
+                pid INT UNSIGNED NOT NULL PRIMARY KEY, batch_id INT UNSIGNED NOT NULL,
+                name VARCHAR(24) NOT NULL, level TINYINT UNSIGNED NOT NULL,
+                picked_at INT UNSIGNED NOT NULL, stage VARCHAR(16) NOT NULL DEFAULT 'shopping',
+                reset_at INT UNSIGNED NULL)""",
+            """CREATE TABLE IF NOT EXISTS common.playerbot_retire_event (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                batch_id INT UNSIGNED NOT NULL, pid INT UNSIGNED NOT NULL,
+                event_time INT UNSIGNED NOT NULL, event_type VARCHAR(32) NOT NULL,
+                details VARCHAR(255) NOT NULL DEFAULT '',
+                KEY batch_pid (batch_id,pid), KEY event_time (event_time)) ENGINE=InnoDB""",
+            """CREATE TABLE IF NOT EXISTS common.playerbot_retire_item (
+                batch_id INT UNSIGNED NOT NULL, pid INT UNSIGNED NOT NULL,
+                item_id INT UNSIGNED NOT NULL, vnum INT UNSIGNED NOT NULL,
+                listed_count INT UNSIGNED NOT NULL, listed_price BIGINT UNSIGNED NOT NULL,
+                sold_count INT UNSIGNED NOT NULL DEFAULT 0, sold_yang BIGINT UNSIGNED NOT NULL DEFAULT 0,
+                status VARCHAR(24) NOT NULL DEFAULT 'listed',
+                listed_at INT UNSIGNED NOT NULL, sold_at INT UNSIGNED NULL,
+                PRIMARY KEY (batch_id,pid,item_id), KEY pid_status (pid,status)) ENGINE=InnoDB"""):
+            rows(ddl)
+    except pymysql.MySQLError:
+        pass
+
+
+def retirement_control_status():
+    ensure_retirement_tables()
+    defaults = {"batch_id": 0, "bot_count": 50, "window_minutes": 15,
+                "shop_minutes": 30, "requested_at": 0, "queued_count": 0,
+                "active_count": 0, "reset_count": 0, "state": "ready"}
+    try:
+        control = one("""SELECT batch_id,bot_count,window_minutes,shop_minutes,requested_at
+                         FROM common.playerbot_retire_control WHERE id=1""")
+    except pymysql.MySQLError:
+        return defaults
+    if not control:
+        return defaults
+    result = dict(defaults)
+    result.update({key: int(control.get(key) or 0) for key in
+                   ("batch_id", "bot_count", "window_minutes", "shop_minutes", "requested_at")})
+    progress = one("""SELECT COALESCE(b.queued_count,0) AS queued_count,
+        SUM(p.stage IN ('shopping','selling','closing')) AS active_count,
+        SUM(p.stage='reset') AS reset_count
+      FROM common.playerbot_retire_control c
+      LEFT JOIN common.playerbot_retire_batch b ON b.id=c.batch_id
+      LEFT JOIN common.playerbot_retire_pick p ON p.batch_id=c.batch_id
+      WHERE c.id=1 GROUP BY c.batch_id,b.queued_count""")
+    for key in ("queued_count", "active_count", "reset_count"):
+        result[key] = int(progress.get(key) or 0)
+    if result["active_count"] or result["queued_count"] < result["bot_count"]:
+        result["state"] = "active"
+    elif result["batch_id"]:
+        result["state"] = "complete"
+    return result
+
+
+@app.post("/advanced/retired-bots/start")
+@login_required
+def retired_bots_start():
+    supplied = request.form.get("retirement_csrf", "")
+    expected = session.get("seban_update_csrf", "")
+    if not expected or not hmac.compare_digest(supplied, expected):
+        abort(403)
+    try:
+        count = int(request.form.get("bot_count", ""))
+        window_minutes = int(request.form.get("window_minutes", ""))
+        shop_minutes = int(request.form.get("shop_minutes", ""))
+        if not 1 <= count <= 2500:
+            raise ValueError("Liczba botów musi mieścić się w zakresie 1–2500.")
+        if not 1 <= window_minutes <= 10080:
+            raise ValueError("Czas rozłożenia resetów musi mieścić się w zakresie 1–10 080 minut.")
+        if not 1 <= shop_minutes <= 10080:
+            raise ValueError("Czas otwarcia sklepów musi mieścić się w zakresie 1–10 080 minut.")
+
+        current = retirement_control_status()
+        if current["state"] == "active":
+            raise RuntimeError("Poprzednia partia nadal trwa. Poczekaj na jej zakończenie przed uruchomieniem następnej.")
+
+        rows("""CREATE TABLE IF NOT EXISTS common.playerbot_retire_control (
+            id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+            batch_id INT UNSIGNED NOT NULL,
+            bot_count SMALLINT UNSIGNED NOT NULL,
+            window_minutes INT UNSIGNED NOT NULL,
+            shop_minutes INT UNSIGNED NOT NULL,
+            requested_at INT UNSIGNED NOT NULL
+        ) ENGINE=InnoDB""")
+        newest = one("""SELECT GREATEST(UNIX_TIMESTAMP(),
+            COALESCE((SELECT MAX(id)+1 FROM common.playerbot_retire_batch),1),
+            COALESCE((SELECT batch_id+1 FROM common.playerbot_retire_control WHERE id=1),1)) AS batch_id""")
+        batch_id = int(newest.get("batch_id") or int(time.time()))
+        rows("""INSERT INTO common.playerbot_retire_control
+            (id,batch_id,bot_count,window_minutes,shop_minutes,requested_at)
+            VALUES (1,%s,%s,%s,%s,UNIX_TIMESTAMP())
+            ON DUPLICATE KEY UPDATE batch_id=VALUES(batch_id),bot_count=VALUES(bot_count),
+              window_minutes=VALUES(window_minutes),shop_minutes=VALUES(shop_minutes),
+              requested_at=VALUES(requested_at)""",
+             (batch_id, count, window_minutes, shop_minutes))
+    except ValueError as exc:
+        flash(str(exc) if "invalid literal" not in str(exc) else "Wpisz całkowite wartości liczbowe.", "error")
+    except RuntimeError as exc:
+        flash(str(exc), "error")
+    except pymysql.MySQLError:
+        flash("Nie udało się zapisać nowej partii w bazie danych.", "error")
+    else:
+        flash(f"Partia #{batch_id} uruchomiona. Rdzeń CH1 odbierze ją w ciągu pięciu sekund.", "success")
+    return redirect(url_for("retired_bots"))
+
+
+# The two resets of the world (the operator, 27 September). The panel only
+# checks the database password and leaves a request in the spool; the game
+# container's supervisor stops every core, takes a backup and runs
+# m2-world-reset, then starts the cores again - nothing in here touches the
+# world itself, and nothing but the fixed kind crosses the boundary.
+WORLD_RESET_REQUEST = RATES_SPOOL / "world-reset.request"
+WORLD_RESET_STATUS = RATES_SPOOL / "world-reset.status"
+WORLD_RESET_KINDS = {
+    "bots": "Reset świata botów",
+    "all": "Reset całego świata",
+}
+WORLD_RESET_BUSY = ("requested", "stopping", "backup", "resetting", "starting")
+WORLD_RESET_STATE_LABELS = {
+    "requested": "czeka na serwer",
+    "stopping": "zatrzymuję serwer",
+    "backup": "zapisuję kopię bazy",
+    "resetting": "resetuję",
+    "starting": "uruchamiam serwer",
+    "done": "gotowe",
+    "failed": "nie udało się",
+}
+
+
+def world_reset_status():
+    status = read_spool_values(WORLD_RESET_STATUS)
+    request_values = read_spool_values(WORLD_RESET_REQUEST)
+    # A request the game container has not picked up yet has no status of
+    # its own (or an older one).
+    if request_values.get("id") and request_values.get("id") != status.get("id"):
+        status = {"state": "requested", "kind": request_values.get("kind", ""),
+                  "id": request_values.get("id"), "time": request_values.get("time", ""),
+                  "message": "serwer odbierze prośbę w ciągu kilku sekund"}
+    try:
+        age = int(time.time()) - int(status.get("time") or 0)
+    except ValueError:
+        age = 0
+    # A reset that went quiet for over an hour is not running any more.
+    status["busy"] = status.get("state") in WORLD_RESET_BUSY and age < 3600
+    status["label"] = WORLD_RESET_STATE_LABELS.get(status.get("state", ""), status.get("state", ""))
+    status["kind_label"] = WORLD_RESET_KINDS.get(status.get("kind", ""), "")
+    if status.get("time", "").isdigit():
+        status["when"] = datetime.fromtimestamp(int(status["time"])).strftime("%d.%m.%Y %H:%M:%S")
+    return status
+
+
+@app.route("/advanced/world-reset")
+@login_required
+def world_reset():
+    counts = one("""SELECT
+        SUM(BINARY a.login LIKE BINARY 'playerbot\\_%%') AS bots,
+        SUM(NOT (BINARY a.login LIKE BINARY 'playerbot\\_%%')) AS players
+      FROM player.player p JOIN account.account a ON a.id=p.account_id""") or {}
+    return render_template("world_reset.html", status=world_reset_status(),
+                           reset_csrf=update_csrf_token(), kinds=WORLD_RESET_KINDS,
+                           bots=int(counts.get("bots") or 0), players=int(counts.get("players") or 0))
+
+
+@app.get("/advanced/world-reset/status")
+@login_required
+def world_reset_status_json():
+    return jsonify(world_reset_status())
+
+
+@app.post("/advanced/world-reset")
+@login_required
+def world_reset_start():
+    supplied = request.form.get("reset_csrf", "")
+    expected = session.get("seban_update_csrf", "")
+    if not expected or not hmac.compare_digest(supplied, expected):
+        abort(403)
+    kind = request.form.get("kind", "")
+    if kind not in WORLD_RESET_KINDS:
+        abort(400)
+    password = request.form.get("db_password", "")
+    if not password or not hmac.compare_digest(password.encode("utf-8"),
+                                               os.environ.get("DB_PASSWORD", "").encode("utf-8")):
+        # A wrong guess costs a moment, so the form is no oracle for the password.
+        time.sleep(2)
+        app.logger.warning("world reset %s refused: wrong database password", kind)
+        flash("Niepoprawne hasło do bazy danych. Nic nie zostało zmienione.", "error")
+        return redirect(url_for("world_reset"))
+    if request.form.get("confirm", "") != "RESET":
+        flash("Wpisz RESET w polu potwierdzenia.", "error")
+        return redirect(url_for("world_reset"))
+    if world_reset_status()["busy"]:
+        flash("Poprzedni reset jeszcze trwa. Poczekaj na jego zakończenie.", "error")
+        return redirect(url_for("world_reset"))
+    request_id = "reset-" + uuid.uuid4().hex
+    temporary = RATES_SPOOL / (request_id + ".new")
+    try:
+        RATES_SPOOL.mkdir(parents=True, exist_ok=True)
+        temporary.write_text(f"id={request_id}\nkind={kind}\ntime={int(time.time())}\n", encoding="utf-8")
+        temporary.chmod(0o660)
+        os.replace(temporary, WORLD_RESET_REQUEST)
+    except OSError as exc:
+        app.logger.error("world reset %s could not be queued: %s", kind, exc)
+        flash("Nie udało się przekazać prośby do serwera (katalog wymiany niedostępny).", "error")
+        return redirect(url_for("world_reset"))
+    finally:
+        temporary.unlink(missing_ok=True)
+    app.logger.warning("world reset %s requested (%s)", kind, request_id)
+    flash(f"{WORLD_RESET_KINDS[kind]}: prośba przyjęta. Serwer zatrzyma się, zapisze kopię bazy, "
+          "wykona reset i uruchomi się ponownie.", "success")
+    return redirect(url_for("world_reset"))
+
+
+@app.route("/advanced/retired-bots")
+@login_required
+def retired_bots():
+    """Control and audit of the programmable playerbot retirement process.
+
+    A sale is real only when the offline-shop engine wrote a BUY_ITEM row.
+    The retirement module's own counters stay visible for comparison, but do
+    not drive the green "bought" state on this page.
+    """
+    ensure_retirement_tables()
+    batches = rows("""SELECT b.id,b.queued_count,FROM_UNIXTIME(b.started_at) AS started_at,
+        COUNT(p.pid) AS picked,SUM(p.stage='reset') AS reset_count,
+        SUM(p.stage='selling') AS selling_count,SUM(p.stage='aborted') AS aborted_count
+      FROM common.playerbot_retire_batch b
+      LEFT JOIN common.playerbot_retire_pick p ON p.batch_id=b.id
+      GROUP BY b.id,b.queued_count,b.started_at ORDER BY b.started_at DESC""")
+    requested_batch = request.args.get("batch", "").strip()
+    batch_id = int(requested_batch) if requested_batch.isdigit() else None
+    # Batch 0 is the world reset's (m2-world-reset): every bot, not a retirement.
+    where, params = ("WHERE p.batch_id=%s", (batch_id,)) if batch_id is not None else ("WHERE p.batch_id<>0", ())
+    bots = rows(f"""SELECT p.pid,p.batch_id,p.name,p.level,p.stage,
+        FROM_UNIXTIME(p.picked_at) AS picked_at,FROM_UNIXTIME(p.reset_at) AS reset_at,
+        COUNT(i.item_id) AS listed_lines,COALESCE(SUM(i.listed_count),0) AS listed_units,
+        COALESCE(SUM(i.listed_price),0) AS listed_value,
+        COALESCE(SUM(i.sold_count),0) AS audit_sold_units,
+        COALESCE(SUM(i.sold_yang),0) AS audit_sold_yang
+      FROM common.playerbot_retire_pick p
+      LEFT JOIN common.playerbot_retire_item i ON i.batch_id=p.batch_id AND i.pid=p.pid
+      {where}
+      GROUP BY p.pid,p.batch_id,p.name,p.level,p.stage,p.picked_at,p.reset_at
+      ORDER BY p.picked_at DESC,p.pid DESC LIMIT 250""", params)
+    bot_keys = {(int(bot["batch_id"]), int(bot["pid"])): bot for bot in bots}
+    for bot in bots:
+        bot["items"], bot["events"] = [], []
+        bot["engine_sold_lines"] = bot["engine_sold_units"] = bot["engine_sold_yang"] = 0
+    if bots:
+        pids = sorted({int(bot["pid"]) for bot in bots})
+        marks = ",".join(["%s"] * len(pids))
+        item_rows = rows(f"""SELECT i.batch_id,i.pid,i.item_id,i.vnum,i.listed_count,i.listed_price,
+            i.sold_count,i.sold_yang,i.status,FROM_UNIXTIME(i.listed_at) AS listed_at,
+            FROM_UNIXTIME(i.sold_at) AS sold_at,
+            COALESCE(ip.locale_name,CONCAT('VNUM ',i.vnum)) AS item_name,
+            COALESCE(s.engine_count,0) AS engine_count,COALESCE(s.engine_yang,0) AS engine_yang,
+            s.first_bought_at,s.last_bought_at
+          FROM common.playerbot_retire_item i
+          LEFT JOIN player.item_proto ip ON ip.vnum=i.vnum
+          LEFT JOIN (
+            SELECT ri.batch_id,ri.pid,ri.item_id,SUM(l.count) AS engine_count,
+              SUM(l.yang) AS engine_yang,MIN(l.time) AS first_bought_at,MAX(l.time) AS last_bought_at
+            FROM common.playerbot_retire_item ri
+            JOIN log.ikarusshop_log l ON l.what='BUY_ITEM' AND l.shop_owner=ri.pid
+              AND l.itemid=ri.item_id AND l.time>=FROM_UNIXTIME(ri.listed_at)
+            WHERE ri.pid IN ({marks}) GROUP BY ri.batch_id,ri.pid,ri.item_id
+          ) s ON s.batch_id=i.batch_id AND s.pid=i.pid AND s.item_id=i.item_id
+          WHERE i.pid IN ({marks}) ORDER BY i.batch_id DESC,i.pid,i.listed_at,i.item_id""",
+          tuple(pids) + tuple(pids))
+        item_by_key = {}
+        for item in item_rows:
+            key = (int(item["batch_id"]), int(item["pid"]))
+            bot = bot_keys.get(key)
+            if not bot:
+                continue
+            item["engine_count"], item["engine_yang"] = int(item["engine_count"] or 0), int(item["engine_yang"] or 0)
+            item["transactions"] = []
+            if item["engine_count"] >= int(item["listed_count"] or 0) and item["engine_count"]:
+                item["verified_status"] = "sold"
+            elif item["engine_count"]:
+                item["verified_status"] = "partial"
+            else:
+                item["verified_status"] = "unsold"
+            bot["items"].append(item)
+            item_by_key[(int(item["batch_id"]), int(item["pid"]), int(item["item_id"]))] = item
+            if item["engine_count"]:
+                bot["engine_sold_lines"] += 1
+                bot["engine_sold_units"] += item["engine_count"]
+                bot["engine_sold_yang"] += item["engine_yang"]
+        transactions = rows(f"""SELECT ri.batch_id,ri.pid,ri.item_id,l.id,l.who,
+            COALESCE(buyer.name,CONCAT('PID ',l.who)) AS buyer_name,l.count,l.yang,l.cheque,l.time
+          FROM common.playerbot_retire_item ri
+          JOIN log.ikarusshop_log l ON l.what='BUY_ITEM' AND l.shop_owner=ri.pid
+            AND l.itemid=ri.item_id AND l.time>=FROM_UNIXTIME(ri.listed_at)
+          LEFT JOIN player.player buyer ON buyer.id=l.who
+          WHERE ri.pid IN ({marks}) ORDER BY l.time""", tuple(pids))
+        for sale in transactions:
+            item = item_by_key.get((int(sale["batch_id"]), int(sale["pid"]), int(sale["item_id"])))
+            if item:
+                item["transactions"].append(sale)
+        event_rows = rows(f"""SELECT batch_id,pid,event_type,details,FROM_UNIXTIME(event_time) AS event_time
+          FROM common.playerbot_retire_event WHERE pid IN ({marks}) ORDER BY event_time,id""", tuple(pids))
+        for event in event_rows:
+            bot = bot_keys.get((int(event["batch_id"]), int(event["pid"])))
+            if bot:
+                bot["events"].append(event)
+    kpi = {
+        "bots": len(bots), "reset": sum(bot["stage"] == "reset" for bot in bots),
+        "selling": sum(bot["stage"] == "selling" for bot in bots),
+        "sold_lines": sum(int(bot["engine_sold_lines"]) for bot in bots),
+        "sold_units": sum(int(bot["engine_sold_units"]) for bot in bots),
+        "sold_yang": sum(int(bot["engine_sold_yang"]) for bot in bots),
+        "listed_units": sum(int(bot["listed_units"] or 0) for bot in bots),
+    }
+    return render_template("retired_bots.html", bots=bots, batches=batches,
+                           selected_batch=batch_id, kpi=kpi,
+                           retirement=retirement_control_status(),
+                           retirement_csrf=update_csrf_token())
 
 
 @app.route("/items")
@@ -6109,9 +6834,8 @@ def maps():
 @app.route("/changelog")
 @login_required
 def changelog():
-    source = request.args.get("source", "seban")
-    if source not in ("seban", "tieru"):
-        source = "seban"
+    # One changelog here: the project's own (changelog.html has no second tab).
+    source = "seban"
     tieru_entries, tieru_error = ([], None) if source != "tieru" else tieru_changelog_entries()
     return render_template("changelog.html", entries=changelog_entries(), panel_version=PANEL_VERSION,
                             source=source, tieru_entries=tieru_entries, tieru_error=tieru_error)
@@ -6460,6 +7184,342 @@ def respawns_map():
     return redirect(url_for("respawns"))
 
 
+# ---- Battle Pass (MT2009 PLUS) ------------------------------------------------
+# The missions and the season's final reward the game's Battle Pass reads
+# (playerbot_battlepass.h): player.battlepass_mission and
+# player.battlepass_config. The game reads both again every 30 seconds, so a
+# change here reaches the players without a restart. A season is a calendar
+# month; progress is player.battlepass_progress by season (YYYYMM).
+BATTLEPASS_TYPES = [
+    (1, "Zabij potwory", "mob"),
+    (2, "Zniszcz kamienie Metin", "mob"),
+    (3, "Pokonaj bossów", "mob"),
+    (4, "Złów ryby", None),
+    (5, "Próby ulepszenia przedmiotów", None),
+    (6, "Zbierz yang", None),
+    (7, "Otwórz skrzynie", None),
+    (8, "Zbierz zioła", None),
+    (9, "Wydobądź rudę", None),
+    (10, "Ukończ lochy", None),
+    (11, "Wykonaj Księgi Misji", None),
+    (12, "Czas gry (minuty)", None),
+    (13, "Użyj przedmiotu", "item"),
+    (14, "Wołanie (wiadomości na wołaj)", None),
+]
+BATTLEPASS_TYPE_NAMES = {t: label for t, label, _ in BATTLEPASS_TYPES}
+BATTLEPASS_TYPE_TARGET = {t: kind for t, _, kind in BATTLEPASS_TYPES}
+BATTLEPASS_NEW_ROWS = 4
+
+
+def ensure_battlepass_tables():
+    """The same tables the game makes at its first Battle Pass call, so the
+    page works before any player has opened the window."""
+    rows("""CREATE TABLE IF NOT EXISTS player.battlepass_mission (
+        id INT UNSIGNED NOT NULL PRIMARY KEY, type TINYINT UNSIGNED NOT NULL,
+        target INT UNSIGNED NOT NULL DEFAULT 0, count INT UNSIGNED NOT NULL DEFAULT 1,
+        reward_vnum INT UNSIGNED NOT NULL DEFAULT 0, reward_count INT UNSIGNED NOT NULL DEFAULT 0,
+        name VARBINARY(96) NOT NULL DEFAULT '', active TINYINT UNSIGNED NOT NULL DEFAULT 1) ENGINE=InnoDB""")
+    rows("""ALTER TABLE player.battlepass_mission
+        ADD COLUMN IF NOT EXISTS reward2_vnum INT UNSIGNED NOT NULL DEFAULT 0 AFTER reward_count,
+        ADD COLUMN IF NOT EXISTS reward2_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER reward2_vnum,
+        ADD COLUMN IF NOT EXISTS reward3_vnum INT UNSIGNED NOT NULL DEFAULT 0 AFTER reward2_count,
+        ADD COLUMN IF NOT EXISTS reward3_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER reward3_vnum,
+        ADD COLUMN IF NOT EXISTS description VARBINARY(255) NOT NULL DEFAULT '' AFTER name,
+        ADD COLUMN IF NOT EXISTS target_level INT UNSIGNED NOT NULL DEFAULT 0 AFTER target,
+        ADD COLUMN IF NOT EXISTS requires_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER active""")
+    rows("""CREATE TABLE IF NOT EXISTS player.battlepass_progress (
+        pid INT UNSIGNED NOT NULL, season INT UNSIGNED NOT NULL, mission INT UNSIGNED NOT NULL,
+        progress INT UNSIGNED NOT NULL DEFAULT 0, claimed TINYINT UNSIGNED NOT NULL DEFAULT 0,
+        PRIMARY KEY (pid, season, mission)) ENGINE=InnoDB""")
+    rows("""CREATE TABLE IF NOT EXISTS player.battlepass_config (
+        id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+        final1_vnum INT UNSIGNED NOT NULL DEFAULT 0, final1_count INT UNSIGNED NOT NULL DEFAULT 0,
+        final2_vnum INT UNSIGNED NOT NULL DEFAULT 0, final2_count INT UNSIGNED NOT NULL DEFAULT 0,
+        final3_vnum INT UNSIGNED NOT NULL DEFAULT 0, final3_count INT UNSIGNED NOT NULL DEFAULT 0) ENGINE=InnoDB""")
+    rows("INSERT IGNORE INTO player.battlepass_config (id, final1_vnum, final1_count) VALUES (1, 80017, 1)")
+
+
+def battlepass_item_name(vnum):
+    vnum = int(vnum or 0)
+    if not vnum:
+        return ""
+    row = one("SELECT COALESCE(locale_name,name) AS n FROM player.item_proto WHERE vnum=%s", (vnum,))
+    return game_text(row.get("n")) if row else ""
+
+
+def battlepass_mob_name(vnum):
+    vnum = int(vnum or 0)
+    if not vnum:
+        return ""
+    row = one("SELECT COALESCE(locale_name,name) AS n FROM player.mob_proto WHERE vnum=%s", (vnum,))
+    return game_text(row.get("n")) if row else ""
+
+
+def battlepass_auto_name(mission):
+    """What the game window calls a mission with no name of its own."""
+    count = mission["count"]
+    target = mission["target"]
+    kind = BATTLEPASS_TYPE_TARGET.get(mission["type"])
+    texts = {1: "Zabij {n} potworów", 2: "Zniszcz {n} kamieni Metin", 3: "Pokonaj {n} bossów",
+             4: "Złów {n} ryb", 5: "Ulepsz przedmiot {n} razy", 6: "Zbierz {n} yang", 7: "Otwórz {n} skrzyń",
+             8: "Zbierz {n} ziół", 9: "Wydobądź {n} rudy", 10: "Ukończ {n} lochów",
+             11: "Wykonaj {n} Ksiąg Misji", 12: "Graj przez {n} min", 13: "Użyj {n} przedmiotów",
+             14: "Napisz {n} razy na wołaj"}
+    level = mission.get("target_level") or 0
+    suffix = f" (poziom {level})" if level and kind == "mob" else ""
+    if target and kind == "mob":
+        return f"{texts[mission['type']].split(' {n}')[0]} {count} x {battlepass_mob_name(target) or target}{suffix}"
+    if target and kind == "item":
+        return f"Użyj {count} x {battlepass_item_name(target) or target}"
+    return texts.get(mission["type"], "Misja").format(n=f"{count:,}".replace(",", " ")) + suffix
+
+
+def battlepass_int(form, key, low, high, default=0):
+    try:
+        value = int(str(form.get(key, "")).strip() or default)
+    except ValueError:
+        raise ValueError(key)
+    if not low <= value <= high:
+        raise ValueError(key)
+    return value
+
+
+@app.route("/battlepass", methods=["GET", "POST"])
+@login_required
+def battlepass():
+    ensure_battlepass_tables()
+    if request.method == "POST":
+        if request.form.get("battlepass_csrf", "") != session.get("seban_update_csrf", ""):
+            flash("Sesja formularza wygasła - odśwież stronę i spróbuj jeszcze raz.", "error")
+            return redirect(url_for("battlepass"))
+        action = request.form.get("action", "")
+        try:
+            if action == "final":
+                values = []
+                for k in (1, 2, 3):
+                    vnum = battlepass_int(request.form, f"final{k}_vnum", 0, 2147483647)
+                    count = battlepass_int(request.form, f"final{k}_count", 0, 60000)
+                    if vnum and not count:
+                        count = 1
+                    values += [vnum, count if vnum else 0]
+                rows("""UPDATE player.battlepass_config SET final1_vnum=%s, final1_count=%s, final2_vnum=%s,
+                    final2_count=%s, final3_vnum=%s, final3_count=%s WHERE id=1""", tuple(values))
+                flash("Nagroda końcowa zapisana. Gra wczyta ją w ciągu 30 sekund.", "success")
+            elif action == "missions":
+                existing = {r["id"] for r in rows("SELECT id FROM player.battlepass_mission")}
+                next_id = max(existing or {0}) + 1
+                saved = removed = added = 0
+                for index in range(int(request.form.get("row_count", 0) or 0)):
+                    key = f"m{index}_"
+                    raw_id = request.form.get(key + "id", "")
+                    if raw_id and request.form.get(key + "delete"):
+                        rows("DELETE FROM player.battlepass_mission WHERE id=%s", (int(raw_id),))
+                        removed += 1
+                        continue
+                    mtype = battlepass_int(request.form, key + "type", 0, 14)
+                    if not mtype:
+                        continue  # an empty new row
+                    count = battlepass_int(request.form, key + "count", 1, 2000000000, 1)
+                    target = battlepass_int(request.form, key + "target", 0, 2147483647)
+                    level = battlepass_int(request.form, key + "target_level", 0, 255)
+                    if not BATTLEPASS_TYPE_TARGET.get(mtype):
+                        target = 0
+                    if BATTLEPASS_TYPE_TARGET.get(mtype) != "mob":
+                        level = 0
+                    requires = battlepass_int(request.form, key + "requires", 0, 2147483647)
+                    if raw_id and requires == int(raw_id):
+                        requires = 0
+                    rewards = []
+                    for k in ("", "2", "3"):
+                        vnum = battlepass_int(request.form, f"{key}reward{k}_vnum", 0, 2147483647)
+                        rcount = battlepass_int(request.form, f"{key}reward{k}_count", 0, 60000)
+                        rewards += [vnum, max(1, rcount) if vnum else 0]
+                    name = (request.form.get(key + "name") or "").strip().encode("cp1250", "replace")[:96]
+                    desc = (request.form.get(key + "description") or "").strip().encode("cp1250", "replace")[:255]
+                    active = 1 if request.form.get(key + "active") else 0
+                    values = (mtype, target, level, count, *rewards, name, desc, active, requires)
+                    if raw_id:
+                        rows("""UPDATE player.battlepass_mission SET type=%s, target=%s, target_level=%s, count=%s,
+                            reward_vnum=%s, reward_count=%s, reward2_vnum=%s, reward2_count=%s, reward3_vnum=%s,
+                            reward3_count=%s, name=%s, description=%s, active=%s, requires_id=%s WHERE id=%s""",
+                             values + (int(raw_id),))
+                        saved += 1
+                    else:
+                        rows("""INSERT INTO player.battlepass_mission (type, target, target_level, count, reward_vnum,
+                            reward_count, reward2_vnum, reward2_count, reward3_vnum, reward3_count, name, description,
+                            active, requires_id, id)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""", values + (next_id,))
+                        next_id += 1
+                        added += 1
+                rows("INSERT INTO log.log (type,time,who,how,hint) VALUES ('SYSTEM',NOW(),0,'PANEL_BATTLEPASS',%s)",
+                     (f"saved {saved}, added {added}, removed {removed}",))
+                flash(f"Misje zapisane (zmienione: {saved}, nowe: {added}, usunięte: {removed}). "
+                      "Gra wczyta je w ciągu 30 sekund.", "success")
+        except ValueError as error:
+            flash(f"Nieprawidłowa wartość w polu {error}.", "error")
+        return redirect(url_for("battlepass"))
+
+    missions = rows("""SELECT id,type,target,target_level,count,reward_vnum,reward_count,reward2_vnum,reward2_count,
+        reward3_vnum,reward3_count,name,description,active,requires_id FROM player.battlepass_mission ORDER BY id""")
+    for m in missions:
+        m["name"] = game_text(m["name"]) if m["name"] else ""
+        m["description"] = game_text(m["description"]) if m["description"] else ""
+        kind = BATTLEPASS_TYPE_TARGET.get(m["type"])
+        m["target_name"] = (battlepass_mob_name(m["target"]) if kind == "mob" else
+                            battlepass_item_name(m["target"]) if kind == "item" else "")
+        m["rewards"] = [(m["reward_vnum"], m["reward_count"], battlepass_item_name(m["reward_vnum"])),
+                        (m["reward2_vnum"], m["reward2_count"], battlepass_item_name(m["reward2_vnum"])),
+                        (m["reward3_vnum"], m["reward3_count"], battlepass_item_name(m["reward3_vnum"]))]
+        m["auto_name"] = battlepass_auto_name(m)
+    config = one("SELECT * FROM player.battlepass_config WHERE id=1") or {}
+    finals = [(config.get(f"final{k}_vnum", 0), config.get(f"final{k}_count", 0),
+               battlepass_item_name(config.get(f"final{k}_vnum", 0))) for k in (1, 2, 3)]
+    today = datetime.now()
+    season = today.year * 100 + today.month
+    next_month = (today.replace(day=1) + timedelta(days=32)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    days_left = max(0, (next_month - today).days + 1)
+    active_ids = [m["id"] for m in missions if m["active"]]
+    stats = {"players": 0, "finished": 0, "final": 0}
+    if active_ids:
+        marks = ",".join(["%s"] * len(active_ids))
+        stats["players"] = one(f"""SELECT COUNT(DISTINCT pid) AS c FROM player.battlepass_progress
+            WHERE season=%s AND mission IN ({marks}) AND progress>0""", (season, *active_ids)).get("c", 0)
+        stats["final"] = one("""SELECT COUNT(*) AS c FROM player.battlepass_progress
+            WHERE season=%s AND mission=0 AND claimed=1""", (season,)).get("c", 0)
+        need = {m["id"]: m["count"] for m in missions if m["active"]}
+        done = {}
+        for r in rows(f"""SELECT pid,mission,progress FROM player.battlepass_progress
+                WHERE season=%s AND mission IN ({marks})""", (season, *active_ids)):
+            if r["progress"] >= need.get(r["mission"], 1 << 31):
+                done[r["pid"]] = done.get(r["pid"], 0) + 1
+        stats["finished"] = sum(1 for v in done.values() if v >= len(active_ids))
+    return render_template("battlepass.html", missions=missions, finals=finals, types=BATTLEPASS_TYPES,
+                           type_names=BATTLEPASS_TYPE_NAMES, type_target=BATTLEPASS_TYPE_TARGET,
+                           new_rows=BATTLEPASS_NEW_ROWS, season=season, days_left=days_left, stats=stats,
+                           battlepass_csrf=update_csrf_token())
+
+
+# ---- Koło Fortuny (MT2009 PLUS) ----------------------------------------------
+# MT2009_PLUS_WHEEL_V1: the price of a spin and the reward pool the game's
+# wheel reads (playerbot_wheel.h, "/kolo", client uiwheel.py - F12):
+# player.wheel_config and player.wheel_reward; every spin is a row of
+# player.wheel_spin. The game reads the first two again every 30 seconds.
+WHEEL_NEW_ROWS = 4
+WHEEL_TICKET_VNUM = 80030
+
+
+def ensure_wheel_tables():
+    """The tables the game makes at its first wheel call, with the same starter
+    pool (only while there is no config row yet), so the page works first."""
+    rows("""CREATE TABLE IF NOT EXISTS player.wheel_config (
+        id TINYINT UNSIGNED NOT NULL PRIMARY KEY, enabled TINYINT UNSIGNED NOT NULL DEFAULT 1,
+        cost_vnum INT UNSIGNED NOT NULL DEFAULT 80030, cost_count INT UNSIGNED NOT NULL DEFAULT 1) ENGINE=InnoDB""")
+    rows("""CREATE TABLE IF NOT EXISTS player.wheel_reward (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, vnum INT UNSIGNED NOT NULL,
+        count INT UNSIGNED NOT NULL DEFAULT 1, weight INT UNSIGNED NOT NULL DEFAULT 10,
+        rare TINYINT UNSIGNED NOT NULL DEFAULT 0, active TINYINT UNSIGNED NOT NULL DEFAULT 1) ENGINE=InnoDB""")
+    rows("""CREATE TABLE IF NOT EXISTS player.wheel_spin (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, pid INT UNSIGNED NOT NULL,
+        created DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, items VARCHAR(255) NOT NULL DEFAULT '',
+        slot TINYINT UNSIGNED NOT NULL DEFAULT 0, vnum INT UNSIGNED NOT NULL, count INT UNSIGNED NOT NULL DEFAULT 1,
+        rare TINYINT UNSIGNED NOT NULL DEFAULT 0, cost_vnum INT UNSIGNED NOT NULL DEFAULT 0,
+        cost_count INT UNSIGNED NOT NULL DEFAULT 0, state TINYINT UNSIGNED NOT NULL DEFAULT 0,
+        given DATETIME NULL DEFAULT NULL, KEY pid_state (pid, state), KEY state_created (state, created)) ENGINE=InnoDB""")
+    rows("""INSERT INTO player.wheel_reward (vnum, count, weight, rare)
+        SELECT t.v, t.c, t.w, t.r FROM (
+        SELECT 27002 AS v, 50 AS c, 150 AS w, 0 AS r UNION ALL SELECT 27005, 50, 150, 0
+        UNION ALL SELECT 71095, 5, 100, 0 UNION ALL SELECT 50255, 2, 100, 0 UNION ALL SELECT 71001, 1, 70, 0
+        UNION ALL SELECT 71084, 1, 60, 0 UNION ALL SELECT 71085, 1, 50, 0 UNION ALL SELECT 50513, 1, 50, 0
+        UNION ALL SELECT 71027, 2, 50, 0 UNION ALL SELECT 71028, 2, 50, 0 UNION ALL SELECT 71026, 1, 40, 0
+        UNION ALL SELECT 71044, 2, 40, 0 UNION ALL SELECT 71045, 2, 40, 0 UNION ALL SELECT 71025, 1, 30, 0
+        UNION ALL SELECT 80017, 1, 16, 1 UNION ALL SELECT 80018, 1, 4, 1
+        ) AS t WHERE NOT EXISTS (SELECT 1 FROM player.wheel_config)
+        AND NOT EXISTS (SELECT 1 FROM player.wheel_reward)""")
+    rows("INSERT IGNORE INTO player.wheel_config (id, enabled, cost_vnum, cost_count) VALUES (1, 1, 80030, 1)")
+
+
+@app.route("/wheel", methods=["GET", "POST"])
+@login_required
+def wheel():
+    ensure_wheel_tables()
+    if request.method == "POST":
+        if request.form.get("wheel_csrf", "") != session.get("seban_update_csrf", ""):
+            flash("Sesja formularza wygasła - odśwież stronę i spróbuj jeszcze raz.", "error")
+            return redirect(url_for("wheel"))
+        action = request.form.get("action", "")
+        try:
+            if action == "config":
+                cost_vnum = battlepass_int(request.form, "cost_vnum", 1, 2147483647, WHEEL_TICKET_VNUM)
+                cost_count = battlepass_int(request.form, "cost_count", 1, 200, 1)
+                enabled = 1 if request.form.get("enabled") else 0
+                if not battlepass_item_name(cost_vnum):
+                    raise ValueError("cost_vnum")
+                rows("UPDATE player.wheel_config SET enabled=%s, cost_vnum=%s, cost_count=%s WHERE id=1",
+                     (enabled, cost_vnum, cost_count))
+                rows("INSERT INTO log.log (type,time,who,how,hint) VALUES ('SYSTEM',NOW(),0,'PANEL_WHEEL',%s)",
+                     (f"config enabled={enabled} cost={cost_vnum}x{cost_count}",))
+                flash("Ustawienia koła zapisane. Gra wczyta je w ciągu 30 sekund.", "success")
+            elif action == "rewards":
+                saved = removed = added = 0
+                for index in range(int(request.form.get("row_count", 0) or 0)):
+                    key = f"r{index}_"
+                    raw_id = request.form.get(key + "id", "")
+                    if raw_id and request.form.get(key + "delete"):
+                        rows("DELETE FROM player.wheel_reward WHERE id=%s", (int(raw_id),))
+                        removed += 1
+                        continue
+                    vnum = battlepass_int(request.form, key + "vnum", 0, 2147483647)
+                    if not vnum:
+                        continue  # an empty new row
+                    if not battlepass_item_name(vnum):
+                        raise ValueError(f"{key}vnum (nieznany VNUM {vnum})")
+                    count = battlepass_int(request.form, key + "count", 1, 60000, 1)
+                    weight = battlepass_int(request.form, key + "weight", 0, 1000000, 10)
+                    rare = 1 if request.form.get(key + "rare") else 0
+                    active = 1 if request.form.get(key + "active") else 0
+                    if raw_id:
+                        rows("UPDATE player.wheel_reward SET vnum=%s, count=%s, weight=%s, rare=%s, active=%s WHERE id=%s",
+                             (vnum, count, weight, rare, active, int(raw_id)))
+                        saved += 1
+                    else:
+                        rows("INSERT INTO player.wheel_reward (vnum, count, weight, rare, active) VALUES (%s,%s,%s,%s,%s)",
+                             (vnum, count, weight, rare, active))
+                        added += 1
+                rows("INSERT INTO log.log (type,time,who,how,hint) VALUES ('SYSTEM',NOW(),0,'PANEL_WHEEL',%s)",
+                     (f"saved {saved}, added {added}, removed {removed}",))
+                flash(f"Pula nagród zapisana (zmienione: {saved}, nowe: {added}, usunięte: {removed}). "
+                      "Gra wczyta ją w ciągu 30 sekund.", "success")
+        except ValueError as error:
+            flash(f"Nieprawidłowa wartość w polu {error}.", "error")
+        return redirect(url_for("wheel"))
+
+    config = one("SELECT enabled, cost_vnum, cost_count FROM player.wheel_config WHERE id=1") or {}
+    config["cost_name"] = battlepass_item_name(config.get("cost_vnum", 0))
+    rewards = rows("SELECT id, vnum, count, weight, rare, active FROM player.wheel_reward ORDER BY id")
+    total = sum(r["weight"] for r in rewards if r["active"] and r["vnum"])
+    for r in rewards:
+        r["name"] = battlepass_item_name(r["vnum"])
+        r["chance"] = (100.0 * r["weight"] / total) if (total and r["active"]) else 0.0
+    ticket = one("""SELECT `index`, count, price FROM common.itemshop_items
+        WHERE vnum=%s AND currency='DRAGON_COIN' ORDER BY count LIMIT 1""", (config.get("cost_vnum", 0),))
+    stats = one("""SELECT COUNT(*) AS total,
+        COALESCE(SUM(created >= CURDATE()), 0) AS today,
+        COALESCE(SUM(created >= NOW() - INTERVAL 7 DAY), 0) AS week,
+        COALESCE(SUM(state = 0), 0) AS pending,
+        COALESCE(SUM(rare = 1 AND created >= NOW() - INTERVAL 7 DAY), 0) AS rare_week,
+        COUNT(DISTINCT pid) AS players FROM player.wheel_spin""") or {}
+    recent = rows("""SELECT s.id, s.created, s.vnum, s.count, s.rare, s.state, s.pid, p.name
+        FROM player.wheel_spin s LEFT JOIN player.player p ON p.id = s.pid ORDER BY s.id DESC LIMIT 25""")
+    names = {}
+    for s in recent:
+        s["name"] = game_text(s["name"]) if s.get("name") else f"PID {s['pid']}"
+        if s["vnum"] not in names:
+            names[s["vnum"]] = battlepass_item_name(s["vnum"])
+        s["item"] = names[s["vnum"]] or str(s["vnum"])
+    return render_template("wheel.html", config=config, rewards=rewards, total=total, ticket=ticket,
+                           stats=stats, recent=recent, new_rows=WHEEL_NEW_ROWS, wheel_csrf=update_csrf_token())
+
+
 @app.route("/events", methods=["GET", "POST"])
 @login_required
 def events():
@@ -6515,7 +7575,7 @@ def events():
                     if map_id not in EVENT_MAP_IDS:
                         map_id = 0
                 new_rows.append({"kind": kind, "days": days, "start": start, "end": end,
-                                 "value": 0 if kind == "chest" else value, "map": map_id,
+                                 "value": 0 if kind in EVENT_FLAG_KINDS else value, "map": map_id,
                                  "on": bool(request.form.get(f"r{index}_on"))})
             try:
                 write_events(new_rows, nows)
@@ -6547,7 +7607,7 @@ def events():
             # second map is a second event beside the first, the same map again
             # starts that one over.
             nows[event_now_key(kind, map_id)] = {"kind": kind, "until": started + minutes * 60,
-                                                "value": 0 if kind == "chest" else value,
+                                                "value": 0 if kind in EVENT_FLAG_KINDS else value,
                                                 "map": map_id, "since": started}
             write_events(rows, nows)
             flash(f"Event aktywowany na {minutes} min. Rdzeń odczyta go w ciągu pięciu sekund.", "success")
@@ -6573,7 +7633,7 @@ def events():
                            event_kinds=EVENT_KINDS, event_labels=EVENT_LABELS,
                            day_names=EVENT_DAY_NAMES, now_minutes=EVENT_NOW_MINUTES,
                            now_epoch=int(time.time()), event_history=event_history,
-                           event_icons=EVENT_ICONS, world_kinds=EVENT_WORLD_KINDS,
+                           event_icons=EVENT_ICONS, world_kinds=EVENT_WORLD_KINDS, flag_kinds=EVENT_FLAG_KINDS,
                            world_defaults=EVENT_WORLD_DEFAULT, world_max=EVENT_WORLD_MAX,
                            event_maps=EVENT_MAPS, event_settings=read_event_settings())
 
@@ -6593,7 +7653,7 @@ def manage():
     bot_channels = sorted(per_channel.items()) if len(per_channel) > 1 else []
     updater = update_status()
     updater["protected"] = current_settings.get("auth_enabled") == "1" and bool(session.get("seban_admin"))
-    return render_template("manage.html", rates=read_rates(), rate_presets=RATE_PRESETS, ai_weights=read_ai_weights(), chest_switch=read_chest_switch(), ai_weight_keys=[k for k in AI_WEIGHT_KEYS if not (ENGINE_MT2009 and k[0] == "HUNTING")], ai_weight_capped=AI_WEIGHT_CAPPED, ai_weight_hints=AI_WEIGHT_HINTS, engine_mt2009=ENGINE_MT2009, restart=restart_progress(), settings=current_settings, map_counts=map_counts, bot_count=len(bots), bot_channels=bot_channels, map_respawn_options=MAP_RESPAWN_OPTIONS, map_stone_respawn_ids=MAP_STONE_RESPAWN_IDS, map_respawn_status=read_map_regen_status(), server_settings=server_settings_status(), updater=updater, playerbots_release=playerbots_release_status(), update_csrf=update_csrf_token(), bot_count_wanted=read_bot_count() if panel_feature_enabled("bot_count", current_settings) else len(live_bots()) or 350, spawn_plan=read_spawn_plan(), student_chest_disabled=read_student_chest_disabled() if panel_feature_enabled("student_chest", current_settings) else False, custom_patches_enabled=CUSTOM_PATCHES_ENABLED, include_real_players=include_real_players_in_rankings(), announce_plus9=read_announce_plus9_refines() if panel_feature_enabled("plus9_announcements", current_settings) else False, bots_held=read_bot_hold(), item_policy=read_ai_item_policy(), difficulty=read_difficulty(), autohunt=read_autohunt(), channels=read_channel_settings(), channel_shares=CH2_SHARE_CHOICES, fresh_counts=FRESH_COUNT_CHOICES)
+    return render_template("manage.html", rates=read_rates(), rate_presets=RATE_PRESETS, ai_weights=read_ai_weights(), chest_switch=read_chest_switch(), ai_weight_keys=[k for k in AI_WEIGHT_KEYS if not (ENGINE_MT2009 and k[0] == "HUNTING")], ai_weight_capped=AI_WEIGHT_CAPPED, ai_weight_hints=AI_WEIGHT_HINTS, engine_mt2009=ENGINE_MT2009, restart=restart_progress(), settings=current_settings, map_counts=map_counts, bot_count=len(bots), bot_channels=bot_channels, map_respawn_options=MAP_RESPAWN_OPTIONS, map_stone_respawn_ids=MAP_STONE_RESPAWN_IDS, map_respawn_status=read_map_regen_status(), server_settings=server_settings_status(), updater=updater, playerbots_release=playerbots_release_status(), update_csrf=update_csrf_token(), bot_count_wanted=read_bot_count() if panel_feature_enabled("bot_count", current_settings) else len(live_bots()) or 350, spawn_plan=read_spawn_plan(), student_chest_disabled=read_student_chest_disabled() if panel_feature_enabled("student_chest", current_settings) else False, custom_patches_enabled=CUSTOM_PATCHES_ENABLED, include_real_players=include_real_players_in_rankings(), announce_plus9=read_announce_plus9_refines() if panel_feature_enabled("plus9_announcements", current_settings) else False, bots_held=read_bot_hold(), item_policy=read_ai_item_policy(), difficulty=read_difficulty(), autohunt=read_autohunt(), channels=read_channel_settings(), channel_shares=CH2_SHARE_CHOICES)
 
 
 @app.post("/manage/difficulty")
@@ -6644,16 +7704,10 @@ def manage_channels():
         share = int(request.form.get("share", 50))
         if share not in CH2_SHARE_CHOICES:
             raise ValueError
-        fresh = int(request.form.get("fresh", 0))
-        if fresh not in FRESH_CHANNEL_CHOICES:
-            raise ValueError
-        fresh_count = int(request.form.get("fresh_count", 200))
-        if fresh_count not in FRESH_COUNT_CHOICES:
-            raise ValueError
         RATES_SPOOL.mkdir(parents=True, exist_ok=True)
         CHANNELS_WISH_FILE.write_text(
             f"CH2={1 if '1' in request.form.getlist('ch2') else 0}\nSHARE={share}\n"
-            f"FRESH={fresh}\nFRESH_COUNT={fresh_count}\nSET_AT={int(time.time())}\n", encoding="utf-8")
+            f"SET_AT={int(time.time())}\n", encoding="utf-8")
         flash("Ustawienia kanałów zapisane. Zostaną zastosowane przy następnym restarcie serwera.", "success")
     except (ValueError, OSError):
         flash("Nie udało się zapisać ustawień kanałów.", "error")
@@ -6746,12 +7800,33 @@ def manage_settings():
 @app.post("/manage/overrides")
 @login_required
 def manage_overrides():
-    if blocked := require_panel_feature("seban_updater"):
-        return blocked
-    values = {key: "1" if request.form.get(key) == "1" else "0" for key in ("allow_student_chest", "allow_moonlight_chest", "keep_demo_characters", "update_seban_panel")}
+    # MT2009 Plus: alchemy and sashes are live world switches and need no
+    # updater; the updater's own overrides are saved only when it is on.
+    keys = ("allow_alchemy", "allow_sashes")
+    if panel_feature_enabled("seban_updater"):
+        keys = ("allow_student_chest", "keep_demo_characters", "update_seban_panel") + keys
+    values = {key: "1" if request.form.get(key) == "1" else "0" for key in keys}
     write_settings(values)
-    flash("Override'y zapisane. Zostaną zastosowane przy następnej aktualizacji Playerbots.")
+    # MT2009 Plus: alchemy (Cor Draconis) and sashes are world switches that
+    # need no update to take effect - the event flags m2_alchemy_off and
+    # m2_sash_off, read by the engine and dragon_soul.quest. Written now and
+    # handed to the in-game helper (web_admin.quest, RARE) to switch live;
+    # the updater writes M2_ALCHEMY / M2_SASHES into .env for later starts.
+    try:
+        write_rare_switches(values["allow_alchemy"] == "1", values["allow_sashes"] == "1")
+        flash("Override'y zapisane. Alchemia i szarfy przełączone od razu; reszta zostanie zastosowana przy następnej aktualizacji Playerbots.")
+    except pymysql.MySQLError:
+        flash("Override'y zapisane. Nie udało się od razu przełączyć alchemii i szarf – zadziała po następnej aktualizacji albo restarcie.", "error")
     return redirect(url_for("manage"))
+
+
+def write_rare_switches(alchemy, sashes):
+    """The two flags the db core loads at boot, and a RARE row for the live switch."""
+    rows("REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES "
+         "(0, 'm2_alchemy_off', '', %s), (0, 'm2_sash_off', '', %s)",
+         (0 if alchemy else 1, 0 if sashes else 1))
+    rows("INSERT INTO player.web_admin_queue (player_name, cmd, arg1, arg2) VALUES ('', 'RARE', %s, '')",
+         ("%d,%d" % (1 if alchemy else 0, 1 if sashes else 0),))
 
 
 @app.post("/manage/restart-config")
@@ -6960,7 +8035,8 @@ def manage_behavior():
         values[key] = max(AI_WEIGHT_MIN, min(AI_WEIGHT_MAX, value))
     values["CHAT"] = 1 if "1" in request.form.getlist("CHAT") else 0
     values["BOOKS"] = values.get("BOOKS", 1) if "BOOKS" not in request.form else (1 if "1" in request.form.getlist("BOOKS") else 0)
-    for key, default in (("NIGHT", 1), ("LIFE", 0), ("WARS", 1), ("TOWER", 1), ("ISHOP", 1), ("SHOP_M2", 0), ("PERSONA", 1)):
+    for key, default in (("NIGHT", 1), ("LIFE", 0), ("WARS", 1), ("TOWER", 1), ("ISHOP", 1), ("SHOP_M2", 0), ("PERSONA", 1),
+                         ("SHOUTERS", 1)):
         values[key] = values.get(key, default) if key not in request.form else (1 if "1" in request.form.getlist(key) else 0)
     try:
         values["SCRAP"] = max(0, min(100, int(request.form.get("SCRAP", values.get("SCRAP", 0)))))
@@ -6974,6 +8050,12 @@ def manage_behavior():
         values["KINGDOMPVP"] = max(0, min(100, int(request.form.get("KINGDOMPVP", values.get("KINGDOMPVP", 0)))))
     except (TypeError, ValueError):
         values["KINGDOMPVP"] = 0
+    # The three wills: a field the page did not render keeps the file's value.
+    for key in ("BATTLEPASS", "SASH", "ALCHEMY"):
+        try:
+            values[key] = max(0, min(250, int(request.form.get(key, values.get(key, 100)))))
+        except (TypeError, ValueError):
+            values[key] = 100
     try:
         values["SCROLL_FROM"] = max(1, min(9, int(request.form.get("SCROLL_FROM", values.get("SCROLL_FROM", 1)))))
     except (TypeError, ValueError):
@@ -7209,6 +8291,1110 @@ def api_heat_events():
     events = [{"time": row["time"].isoformat(), "name": row.get("name")} for row in recent]
     return {"ok": True, "type": event_type, "map_index": map_index,
             "cells": cells, "max": peak, "total": total, "events": events}
+
+
+# ---- MT2009_PLUS_CHEST_EDITOR_V1 ---------------------------------------------
+# "Szkatułki": what a chest (Szkatułka Blasku Księżyca 50011 and every other
+# group of special_item_group.txt) hands out, edited here.
+#
+# The file lives in the game image (the Dockerfile builds it from the
+# package's file, our Moonlight chest and the starter chests) and every core
+# reads it once, while it boots, so it could only be changed by rebuilding the
+# image. This page writes the groups the operator changed - only those, whole -
+# to the spool volume both containers share (chests/special_item_group.custom.txt,
+# UTF-8 with CRLF like the package's file). The game's m2-chests (run by
+# m2-supervise before the cores boot) puts them into the live file in place of
+# the image's groups with the same Vnum and publishes the image's file back as
+# chests/special_item_group.base.txt, which is what this page shows; until a
+# game image with m2-chests runs, the copy bundled with the panel stands in.
+# A wrong item number stops a core at boot, so everything is checked here
+# (item_proto, nested groups, index order) and again by m2-chests.
+CHEST_SPOOL = RATES_SPOOL / "chests"
+CHEST_CUSTOM = CHEST_SPOOL / "special_item_group.custom.txt"
+CHEST_BASE = CHEST_SPOOL / "special_item_group.base.txt"
+CHEST_STATUS = CHEST_SPOOL / "status"
+CHEST_BACKUPS = CHEST_SPOOL / "backup"
+CHEST_SNAPSHOT = Path(__file__).resolve().with_name("special_item_group.snapshot.txt")
+CHEST_BACKUP_KEEP = 100
+CHEST_MAX_LINES = 1023
+# Szkatułka Blasku Księżyca: shown first, it is the chest the operator asks for.
+CHEST_FEATURED = (50011,)
+CHEST_TOKENS = {
+    "gold": "Yang", "exp": "Doświadczenie", "mob": "Potwór (VNUM w polu Ilość)",
+    "group": "Grupa potworów (numer w polu Ilość)", "slow": "Spowolnienie",
+    "drain_hp": "Utrata HP", "poison": "Trucizna", "bleeding": "Krwawienie",
+}
+CHEST_TYPES = {"": "Losuje 1 pozycję (wagi)", "pct": "Każda pozycja osobno (%)",
+               "quest": "Questowa", "special": "Specjalna", "attr": "Bonusy (attr)"}
+
+
+def chest_parse(text):
+    """special_item_group.txt -> groups, read the way the core reads it: the
+    index lines 1, 2, 3... up to the first missing one; '--' starts a
+    comment; a fifth number is the rare chance."""
+    groups, current, entries = [], None, {}
+    for number, raw in enumerate(text.replace("\r", "").split("\n"), 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        tokens = line.split()
+        key = tokens[0].lower()
+        if current is None:
+            if key == "group" and len(tokens) > 1:
+                current, entries = {"name": tokens[1], "vnum": None, "type": "", "extras": [], "items": [], "line": number}, {}
+            continue
+        if tokens[0] == "{":
+            continue
+        if tokens[0] == "}":
+            index = 1
+            while index in entries:
+                current["items"].append(entries[index])
+                index += 1
+            if current["vnum"] is not None:
+                groups.append(current)
+            current = None
+            continue
+        if key == "vnum" and len(tokens) > 1 and tokens[1].isdigit():
+            current["vnum"] = int(tokens[1])
+        elif key == "type" and len(tokens) > 1:
+            current["type"] = tokens[1].lower()
+        elif tokens[0].isdigit():
+            fields = tokens[1:]
+            comment = ""
+            for position, token in enumerate(fields):
+                if token.startswith("--") or token == "-":
+                    comment = " ".join(fields[position:]).lstrip("-").strip()
+                    fields = fields[:position]
+                    break
+            entry = {"item": fields[0] if fields else "", "count": fields[1] if len(fields) > 1 else "0",
+                     "prob": fields[2] if len(fields) > 2 else "0", "rare": "0", "comment": comment}
+            if len(fields) > 3:
+                if fields[3].lstrip("-").isdigit():
+                    entry["rare"] = fields[3]
+                    if not comment:
+                        entry["comment"] = " ".join(fields[4:]).lstrip("-").strip()
+                elif not comment:
+                    entry["comment"] = " ".join(fields[3:]).lstrip("-").strip()
+            entries.setdefault(int(tokens[0]), entry)
+        else:
+            current["extras"].append(line)
+    return groups
+
+
+def chest_read_text(path):
+    try:
+        return path.read_bytes().decode("utf-8-sig", "replace")
+    except OSError:
+        return None
+
+
+def chest_file_sha(path):
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def chest_state():
+    """Base groups (first per Vnum, as the core keeps them), the operator's
+    groups, where the base came from and how the game took the last save."""
+    text, source = chest_read_text(CHEST_BASE), "game"
+    if text is None:
+        text, source = chest_read_text(CHEST_SNAPSHOT) or "", "snapshot"
+    base = {}
+    for group in chest_parse(text):
+        base.setdefault(group["vnum"], group)
+    custom = {}
+    for group in chest_parse(chest_read_text(CHEST_CUSTOM) or ""):
+        custom.setdefault(group["vnum"], group)
+    status = read_spool_values(CHEST_STATUS) if CHEST_STATUS.exists() else {}
+    sha = chest_file_sha(CHEST_CUSTOM) if custom else ""
+    try:
+        base_time = datetime.fromtimestamp((CHEST_BASE if source == "game" else CHEST_SNAPSHOT).stat().st_mtime)
+    except OSError:
+        base_time = None
+    if not status:
+        live = {"kind": "unknown", "text": "Gra nie zgłosiła jeszcze stanu szkatułek – obraz gry nie ma skryptu m2-chests. "
+                "Zapis działa, ale gra użyje go dopiero po aktualizacji obrazu gry i restarcie."}
+    elif status.get("state") == "rejected" and status.get("sha") == sha:
+        live = {"kind": "error", "text": "Gra ODRZUCIŁA zapisany plik i działa na szkatułkach z obrazu: " + status.get("message", "")}
+    elif status.get("state") == "rejected":
+        live = {"kind": "pending", "text": "Poprzedni zapis został odrzucony przez grę (" + status.get("message", "") +
+                "). Aktualny zapis czeka na restart rdzeni."}
+    elif (status.get("sha") or "") == sha:
+        live = {"kind": "ok", "text": "W grze działają dokładnie te szkatułki, które widzisz" +
+                (f" ({len(custom)} zmienionych grup)." if custom else " (bez zmian względem obrazu gry).")}
+    else:
+        live = {"kind": "pending", "text": "Zapisane zmiany czekają na restart rdzeni gry – do tego czasu gra rozdaje poprzednią zawartość."}
+    try:
+        live["time"] = datetime.fromtimestamp(int(status.get("time", "0"))) if status.get("time") else None
+    except ValueError:
+        live["time"] = None
+    return {"base": base, "custom": custom, "source": source, "base_time": base_time, "live": live}
+
+
+def chest_effective(state):
+    groups = dict(state["base"])
+    groups.update(state["custom"])
+    return groups
+
+
+def chest_item_names(vnums):
+    # "s50012" (a nested group) is named after its chest too.
+    vnums = sorted({int(str(v).lstrip("sS")) for v in vnums if str(v).lstrip("sS").isdigit()})
+    names = {}
+    for start in range(0, len(vnums), 500):
+        part = vnums[start:start + 500]
+        marks = ",".join(["%s"] * len(part))
+        for row in rows(f"SELECT vnum,locale_name,type FROM player.item_proto WHERE vnum IN ({marks})", part):
+            names[int(row["vnum"])] = {"name": game_text(row["locale_name"]), "type": int(row["type"] or 0)}
+    return names
+
+
+def chest_entry_label(entry, names, groups):
+    item = str(entry["item"]).lower()
+    if item.isdigit():
+        known = names.get(int(item))
+        return known["name"] if known else "NIEZNANY PRZEDMIOT"
+    if item in CHEST_TOKENS:
+        return CHEST_TOKENS[item]
+    if item.startswith("s") and item[1:].isdigit():
+        nested = groups.get(int(item[1:]))
+        inner = names.get(int(item[1:]))
+        return "Losowanie z grupy " + item[1:] + (f" ({inner['name']})" if inner else f" ({nested['name']})" if nested else " – BRAK TAKIEJ GRUPY")
+    return "?"
+
+
+def chest_render_group(group):
+    """One group in the package's layout: tabs, CRLF (added when written),
+    rare always written so a comment is never read as one."""
+    lines = [f"Group\t{group['name']}", "{", f"\tVnum\t{group['vnum']}"]
+    if group.get("type"):
+        lines.append(f"\tType\t{group['type']}")
+    for extra in group.get("extras", []):
+        lines.append("\t" + extra)
+    for index, entry in enumerate(group["items"], 1):
+        line = f"\t{index}\t{entry['item']}\t{entry['count']}\t{entry['prob']}\t{entry.get('rare') or 0}"
+        comment = re.sub(r"[\"{}\r\n\t]", " ", entry.get("comment") or "").strip()
+        if comment:
+            line += f"\t-- {comment}"
+        lines.append(line)
+    lines.append("}")
+    return lines
+
+
+def chest_write_custom(custom_groups, reason):
+    """Writes the operator's groups (atomically, a backup of the previous file
+    first). custom_groups: {vnum: group}."""
+    import fcntl
+    CHEST_SPOOL.mkdir(parents=True, exist_ok=True)
+    CHEST_BACKUPS.mkdir(parents=True, exist_ok=True)
+    for folder in (CHEST_SPOOL, CHEST_BACKUPS):
+        try:
+            os.chown(folder, -1, 2050)
+            os.chmod(folder, 0o2770)
+        except OSError:
+            pass
+    with open(CHEST_SPOOL / ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")[:-3]
+        if CHEST_CUSTOM.exists():
+            (CHEST_BACKUPS / f"special_item_group.custom.{stamp}.txt").write_bytes(CHEST_CUSTOM.read_bytes())
+        else:
+            (CHEST_BACKUPS / f"special_item_group.custom.{stamp}.txt").write_bytes(
+                b"# (przed tym zapisem nie bylo zadnych zmian z panelu - obraz gry)\r\n")
+        lines = ["# MT2009_PLUS_CHEST_EDITOR_V1 - grupy special_item_group.txt zmienione w panelu Seban",
+                 f"# zapis: {datetime.now():%Y-%m-%d %H:%M:%S} - {reason}",
+                 "# Te grupy zastepuja grupy z obrazu gry o tym samym Vnum (m2-chests, przy starcie rdzeni).", ""]
+        for vnum in sorted(custom_groups):
+            lines += chest_render_group(custom_groups[vnum]) + [""]
+        temporary = CHEST_SPOOL / f"special_item_group.custom.txt.new{os.getpid()}"
+        temporary.write_bytes("\r\n".join(lines).encode("utf-8"))
+        os.chmod(temporary, 0o664)
+        os.replace(temporary, CHEST_CUSTOM)
+        backups = sorted(CHEST_BACKUPS.glob("special_item_group.custom.*.txt"))
+        for old in backups[:-CHEST_BACKUP_KEEP]:
+            try:
+                old.unlink()
+            except OSError:
+                pass
+
+
+def chest_backups():
+    result = []
+    for path in sorted(CHEST_BACKUPS.glob("special_item_group.custom.*.txt"), reverse=True)[:40]:
+        try:
+            groups = chest_parse(path.read_bytes().decode("utf-8", "replace"))
+            result.append({"name": path.name, "time": datetime.fromtimestamp(path.stat().st_mtime),
+                           "groups": ", ".join(str(g["vnum"]) for g in groups) or "brak zmian (obraz gry)"})
+        except OSError:
+            continue
+    return result
+
+
+def chest_validate(group_vnum, group_type, entries, groups):
+    """Everything the core would stop on at boot, or crash on when opened."""
+    errors = []
+    names = chest_item_names([e["item"] for e in entries])
+    if not entries:
+        errors.append("Grupa musi mieć co najmniej jedną pozycję.")
+    if len(entries) > CHEST_MAX_LINES:
+        errors.append(f"Najwyżej {CHEST_MAX_LINES} pozycji w grupie.")
+    for number, entry in enumerate(entries, 1):
+        item = entry["item"]
+        if group_type == "attr":
+            continue
+        if item.isdigit():
+            if int(item) not in names:
+                errors.append(f"Pozycja {number}: przedmiot {item} nie istnieje w item_proto (serwer by nie wstał).")
+        elif item in CHEST_TOKENS:
+            pass
+        elif item.startswith("s") and item[1:].isdigit():
+            if int(item[1:]) == group_vnum:
+                errors.append(f"Pozycja {number}: grupa nie może losować sama z siebie.")
+            elif int(item[1:]) not in groups:
+                errors.append(f"Pozycja {number}: nie ma grupy {item[1:]} do zagnieżdżenia.")
+        else:
+            errors.append(f"Pozycja {number}: „{item}” to nie VNUM ani znane słowo (gold, exp, mob, group, sNNNN...).")
+        if item.isdigit() and int(entry["count"]) < 1:
+            errors.append(f"Pozycja {number}: ilość przedmiotu musi być co najmniej 1.")
+        if group_type == "pct" and int(entry["prob"]) > 100:
+            errors.append(f"Pozycja {number}: w grupie procentowej szansa to 0–100%.")
+    if group_type != "attr" and entries and not any(int(e["prob"]) > 0 for e in entries):
+        errors.append("Co najmniej jedna pozycja musi mieć szansę większą od 0 (pusta grupa wywraca rdzeń przy otwarciu).")
+    return errors
+
+
+def chest_form_int(value, low, high, label):
+    value = (value or "").strip()
+    if not re.fullmatch(r"-?\d+", value):
+        raise ValueError(f"{label}: „{value}” to nie liczba całkowita.")
+    number = int(value)
+    if not low <= number <= high:
+        raise ValueError(f"{label}: dozwolone {low}–{high}.")
+    return number
+
+
+def chest_check_csrf():
+    if request.form.get("chest_csrf", "") != session.get("seban_update_csrf", ""):
+        flash("Sesja formularza wygasła – odśwież stronę i spróbuj jeszcze raz.", "error")
+        return False
+    return True
+
+
+@app.route("/chests")
+@login_required
+def chests():
+    state = chest_state()
+    groups = chest_effective(state)
+    names = chest_item_names(groups.keys())
+    listed = []
+    for vnum, group in groups.items():
+        known = names.get(vnum)
+        listed.append({"vnum": vnum, "group_name": group["name"], "item_name": known["name"] if known else "",
+                       "is_item": bool(known), "is_box": bool(known and known["type"] == 23),
+                       "type": group["type"], "lines": len(group["items"]), "custom": vnum in state["custom"],
+                       "featured": vnum in CHEST_FEATURED, "new": vnum not in state["base"]})
+    listed.sort(key=lambda g: (not g["featured"], not g["custom"], not g["is_box"], not g["is_item"], g["vnum"]))
+    return render_template("chests.html", groups=listed, state=state, backups=chest_backups(),
+                           chest_csrf=update_csrf_token(), restart=restart_progress())
+
+
+@app.route("/chests/<int:vnum>")
+@login_required
+def chest_edit(vnum):
+    state = chest_state()
+    groups = chest_effective(state)
+    group = groups.get(vnum)
+    if group is None:
+        flash(f"Nie ma grupy o Vnum {vnum}. Utwórz ją przyciskiem „Nowa szkatułka”.", "error")
+        return redirect(url_for("chests"))
+    names = chest_item_names([vnum] + [e["item"] for e in group["items"]])
+    weights = sum(max(0, int(e["prob"])) for e in group["items"] if str(e["prob"]).lstrip("-").isdigit())
+    entries = []
+    for entry in group["items"]:
+        prob = int(entry["prob"]) if str(entry["prob"]).lstrip("-").isdigit() else 0
+        if group["type"] == "pct":
+            chance = min(100.0, max(0, prob))
+        else:
+            chance = (100.0 * prob / weights) if weights and prob > 0 else 0.0
+        item = str(entry["item"])
+        entries.append(dict(entry, label=chest_entry_label(entry, names, groups), chance=chance,
+                            icon=item_icon_url(item) if item.isdigit() else None,
+                            nested=int(item[1:]) if item[:1].lower() == "s" and item[1:].isdigit() else None))
+    base = state["base"].get(vnum)
+    return render_template("chests.html", edit=group, entries=entries, vnum=vnum, state=state,
+                           item_name=(names.get(vnum) or {}).get("name", ""), custom=vnum in state["custom"],
+                           has_base=base is not None, tokens=CHEST_TOKENS, types=CHEST_TYPES,
+                           chest_csrf=update_csrf_token(), featured=vnum in CHEST_FEATURED)
+
+
+@app.post("/chests/<int:vnum>")
+@login_required
+def chest_save(vnum):
+    if not chest_check_csrf():
+        return redirect(url_for("chest_edit", vnum=vnum))
+    state = chest_state()
+    groups = chest_effective(state)
+    group = groups.get(vnum)
+    action = request.form.get("action", "save")
+    custom = dict(state["custom"])
+    try:
+        if action == "reset":
+            if vnum not in custom:
+                flash("Ta grupa i tak jest taka jak w obrazie gry.")
+                return redirect(url_for("chest_edit", vnum=vnum))
+            del custom[vnum]
+            chest_write_custom(custom, f"przywrocono grupe {vnum} z obrazu gry")
+            flash(f"Grupa {vnum} wróci do zawartości z obrazu gry po restarcie rdzeni.", "success")
+            return redirect(url_for("chest_edit", vnum=vnum) if vnum in state["base"] else url_for("chests"))
+        if group is None:
+            raise ValueError(f"Nie ma grupy o Vnum {vnum}.")
+        group_type = (request.form.get("group_type", group["type"]) or "").strip().lower()
+        if group_type not in CHEST_TYPES:
+            raise ValueError("Nieznany rodzaj grupy.")
+        if group["type"] in ("quest", "special", "attr") or group_type in ("quest", "special", "attr"):
+            group_type = group["type"]
+        entries = []
+        count = min(int(request.form.get("row_count", "0") or 0), CHEST_MAX_LINES + 50)
+        for index in range(count):
+            key = f"r{index}_"
+            item = (request.form.get(key + "item") or "").strip().lower()
+            if request.form.get(key + "delete") == "1" or not item:
+                continue
+            item = item.split()[0]
+            label = f"Pozycja „{item}”"
+            entries.append({
+                "item": item,
+                "count": str(chest_form_int(request.form.get(key + "count"), 0, 2000000000, label + " – ilość")),
+                "prob": str(chest_form_int(request.form.get(key + "prob"), 0, 1000000000, label + " – szansa")),
+                "rare": str(chest_form_int(request.form.get(key + "rare") or "0", 0, 100, label + " – rare")),
+                "comment": "",
+            })
+        errors = chest_validate(vnum, group_type, entries, groups)
+        if errors:
+            for message in errors[:12]:
+                flash(message, "error")
+            flash("Nic nie zostało zapisane – popraw błędy i zapisz jeszcze raz.", "error")
+            return redirect(url_for("chest_edit", vnum=vnum))
+        names = chest_item_names([e["item"] for e in entries])
+        for entry in entries:
+            entry["comment"] = chest_entry_label(entry, names, groups)
+        custom[vnum] = {"name": group["name"], "vnum": vnum, "type": group_type,
+                        "extras": [x for x in group.get("extras", []) if x.split()[0].lower() == "effect"],
+                        "items": entries}
+        chest_write_custom(custom, f"zmieniono grupe {vnum}")
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("chest_edit", vnum=vnum))
+    except OSError as exc:
+        flash(f"Nie udało się zapisać pliku w wolumenie spool: {exc}", "error")
+        return redirect(url_for("chest_edit", vnum=vnum))
+    flash(f"Zapisano {len(entries)} pozycji grupy {vnum}. Gra rozda nową zawartość po restarcie rdzeni "
+          "(przycisk „Zastosuj teraz” na liście szkatułek).", "success")
+    return redirect(url_for("chest_edit", vnum=vnum))
+
+
+@app.post("/chests/new")
+@login_required
+def chest_new():
+    if not chest_check_csrf():
+        return redirect(url_for("chests"))
+    raw = (request.form.get("vnum") or "").strip()
+    if not raw.isdigit():
+        flash("Podaj VNUM przedmiotu (szkatułki), dla którego ma powstać grupa.", "error")
+        return redirect(url_for("chests"))
+    vnum = int(raw)
+    state = chest_state()
+    groups = chest_effective(state)
+    if vnum in groups:
+        return redirect(url_for("chest_edit", vnum=vnum))
+    names = chest_item_names([vnum])
+    if vnum not in names:
+        flash(f"Przedmiot {vnum} nie istnieje w item_proto.", "error")
+        return redirect(url_for("chests"))
+    custom = dict(state["custom"])
+    custom[vnum] = {"name": f"PanelChest_{vnum}", "vnum": vnum, "type": "", "extras": [],
+                    "items": [{"item": "27001", "count": "1", "prob": "1", "rare": "0", "comment": "Czerwona Mikstura (M) - do zmiany"}]}
+    try:
+        chest_write_custom(custom, f"nowa grupa {vnum}")
+    except OSError as exc:
+        flash(f"Nie udało się zapisać pliku w wolumenie spool: {exc}", "error")
+        return redirect(url_for("chests"))
+    note = "" if names[vnum]["type"] == 23 else " Uwaga: ten przedmiot nie jest typu szkatułka (GIFTBOX), więc gra może nie otwierać go jak szkatułki."
+    flash(f"Utworzono grupę dla {names[vnum]['name']} z jedną pozycją startową – ustaw zawartość i zapisz.{note}", "success")
+    return redirect(url_for("chest_edit", vnum=vnum))
+
+
+@app.post("/chests/apply")
+@login_required
+def chest_apply():
+    if not chest_check_csrf():
+        return redirect(url_for("chests"))
+    if request.form.get("confirmation", "").strip().upper() != "RESTART":
+        flash("Aby potwierdzić restart rdzeni, wpisz RESTART.", "error")
+        return redirect(url_for("chests"))
+    queue_rate_restart(read_rates())
+    flash("Restart rdzeni zlecony – przed startem gra wczyta szkatułki z panelu (m2-chests). "
+          "Gracze online zostaną rozłączeni na ok. minutę.", "success")
+    return redirect(url_for("chests"))
+
+
+@app.post("/chests/restore")
+@login_required
+def chest_restore():
+    if not chest_check_csrf():
+        return redirect(url_for("chests"))
+    name = request.form.get("backup", "")
+    if not re.fullmatch(r"special_item_group\.custom\.[0-9-]+\.txt", name) or not (CHEST_BACKUPS / name).is_file():
+        flash("Nie ma takiej kopii.", "error")
+        return redirect(url_for("chests"))
+    custom = {}
+    for group in chest_parse((CHEST_BACKUPS / name).read_bytes().decode("utf-8", "replace")):
+        custom.setdefault(group["vnum"], group)
+    try:
+        chest_write_custom(custom, f"przywrocono kopie {name}")
+    except OSError as exc:
+        flash(f"Nie udało się zapisać pliku: {exc}", "error")
+        return redirect(url_for("chests"))
+    flash(f"Przywrócono kopię {name} ({len(custom)} grup). Obecny stan trafił do kopii. Zadziała po restarcie rdzeni.", "success")
+    return redirect(url_for("chests"))
+
+
+@app.route("/chests/backup/<name>")
+@login_required
+def chest_backup_view(name):
+    if not re.fullmatch(r"special_item_group\.custom\.[0-9-]+\.txt", name) or not (CHEST_BACKUPS / name).is_file():
+        abort(404)
+    return (CHEST_BACKUPS / name).read_bytes().decode("utf-8", "replace"), 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/chests/file")
+@login_required
+def chest_file_view():
+    text = chest_read_text(CHEST_CUSTOM)
+    return (text if text is not None else "# brak zmian z panelu - gra uzywa szkatulek z obrazu\n"), 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/api/chests/items")
+@login_required
+def api_chest_items():
+    query = request.args.get("q", "").strip()
+    if len(query) < 2 and not query.isdigit():
+        return {"ok": True, "items": []}
+    found = rows("SELECT vnum,locale_name FROM player.item_proto WHERE vnum=%s OR locale_name LIKE %s ORDER BY vnum LIMIT 25",
+                 (int(query) if query.isdigit() else -1, f"%{query}%"))
+    return {"ok": True, "items": [{"vnum": int(r["vnum"]), "name": game_text(r["locale_name"])} for r in found]}
+# ---- /MT2009_PLUS_CHEST_EDITOR_V1 --------------------------------------------
+
+
+# ---- MT2009_PLUS_DROP_EDITOR_V1 ----------------------------------------------
+# "Drop z potworów": what a monster, a Metin stone or a boss drops, edited here
+# (the "Szkatułki" page's twin, for mob_drop_item.txt).
+#
+# mob_drop_item.txt lives in the game image (the package's file plus the
+# Dockerfile's appends) and every core reads it once, while it boots
+# (ReadMonsterDropItemGroup). A group is "Group <name> { Mob <vnum>; Type
+# drop|kill|limit|thiefgloves; [kill_drop N | level_limit N]; 1 <item> <count>
+# <chance> [rare] ... }". This page writes the groups the operator changed -
+# only those, whole, one per monster and kind - to the spool volume both
+# containers share (drops/mob_drop_item.custom.txt, ASCII with CRLF). The
+# game's m2-drops (m2-supervise, before the cores boot) cuts every image
+# group of the same monster and kind out of the live file and appends these,
+# so a server update (a new image, a new mob_drop_item.txt) keeps them. A
+# group without item lines means "none of this kind for this monster". The
+# game publishes the image's file back as drops/mob_drop_item.base.txt, which
+# is what this page shows, and how its last apply went as drops/status.
+DROP_SPOOL = RATES_SPOOL / "drops"
+DROP_CUSTOM = DROP_SPOOL / "mob_drop_item.custom.txt"
+DROP_BASE = DROP_SPOOL / "mob_drop_item.base.txt"
+DROP_COMMON_BASE = DROP_SPOOL / "common_drop_item.base.txt"
+DROP_ETC_BASE = DROP_SPOOL / "etc_drop_item.base.txt"
+DROP_STATUS = DROP_SPOOL / "status"
+DROP_BACKUPS = DROP_SPOOL / "backup"
+DROP_BACKUP_KEEP = 100
+DROP_MAX_LINES = 255          # ReadMonsterDropItemGroup reads indexes 1..255
+DROP_MAX_COUNT = 2000
+DROP_TYPES = {
+    "drop": "Drop (każda pozycja osobno)",
+    "kill": "Kill (1 przedmiot co N zabójstw)",
+    "limit": "Limit (od poziomu gracza)",
+    "thiefgloves": "Rękawice złodzieja / premium",
+}
+MOB_RANK_NAMES = {0: "Zwykły", 1: "Silniejszy", 2: "Rycerz", 3: "Elitarny", 4: "Boss", 5: "Król"}
+MOB_TYPE_NAMES = {0: "Potwór", 1: "NPC", 2: "Metin", 3: "Portal", 4: "Drzwi", 5: "Budynek"}
+
+
+def drop_ascii(text):
+    """Comments go into the file as plain ASCII: the core's line reader takes
+    any byte above 127 as the first half of a two-byte character."""
+    import unicodedata
+    text = (text or "").replace("ł", "l").replace("Ł", "L")
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^A-Za-z0-9 .,:;()+'/%-]", " ", text).strip()[:60]
+
+
+def drop_parse(text):
+    """mob_drop_item.txt -> groups, read the way the core reads it: keys in any
+    case, the first value of a key wins, index lines 1, 2, 3... up to the
+    first missing one, "--" starts a comment, "#" a comment line."""
+    groups, current = [], None
+    for number, raw in enumerate(text.replace("\r", "").split("\n"), 1):
+        tokens = raw.split()
+        if not tokens or tokens[0].startswith("#") or tokens[0].startswith("//"):
+            continue
+        for position, token in enumerate(tokens):
+            if position and token.startswith("--"):
+                comment = " ".join(tokens[position:]).lstrip("-").strip()
+                tokens = tokens[:position]
+                break
+        else:
+            comment = ""
+        key = tokens[0].lower()
+        if current is None:
+            if key == "group" and len(tokens) > 1:
+                current = {"name": tokens[1], "keys": {}, "entries": {}, "line": number, "comment": comment}
+            continue
+        if tokens[0].startswith("{") or key.startswith("--"):
+            continue
+        if tokens[0].startswith("}"):
+            keys = current["keys"]
+            items, index = [], 1
+            while index in current["entries"]:
+                items.append(current["entries"][index])
+                index += 1
+            mob = keys.get("mob", [""])[0]
+            group = {"name": current["name"], "line": current["line"], "type": keys.get("type", [""])[0],
+                     "mob": int(mob) if mob.isdigit() else None, "items": items,
+                     "kill_drop": (keys.get("kill_drop") or ["0"])[0], "level_limit": (keys.get("level_limit") or ["0"])[0],
+                     "mob_comment": keys.get("_mob_comment", "")}
+            if group["mob"] is not None:
+                groups.append(group)
+            current = None
+            continue
+        if len(tokens) < 2:
+            continue
+        if tokens[0].isdigit():
+            fields = tokens[1:]
+            current["entries"].setdefault(int(tokens[0]), {
+                "item": fields[0], "count": fields[1] if len(fields) > 1 else "0",
+                "prob": fields[2] if len(fields) > 2 else "0",
+                "rare": fields[3] if len(fields) > 3 and fields[3].isdigit() else "0", "comment": comment})
+        elif key not in current["keys"]:
+            current["keys"][key] = tokens[1:]
+            if key == "mob":
+                current["keys"]["_mob_comment"] = comment
+    return groups
+
+
+def drop_read(path):
+    try:
+        return path.read_bytes().decode("utf-8-sig", "replace")
+    except OSError:
+        return None
+
+
+def drop_state():
+    """The image's groups, the operator's groups ({(mob, type): group}), and
+    how the game took the last save."""
+    text = drop_read(DROP_BASE)
+    base = drop_parse(text or "")
+    custom = {}
+    for group in drop_parse(drop_read(DROP_CUSTOM) or ""):
+        custom.setdefault((group["mob"], group["type"]), group)
+    status = read_spool_values(DROP_STATUS) if DROP_STATUS.exists() else {}
+    sha = chest_file_sha(DROP_CUSTOM) if custom else ""
+    try:
+        base_time = datetime.fromtimestamp(DROP_BASE.stat().st_mtime)
+    except OSError:
+        base_time = None
+    if not status:
+        live = {"kind": "unknown", "text": "Gra nie zgłosiła jeszcze stanu dropu – obraz gry nie ma skryptu m2-drops albo rdzenie "
+                "jeszcze nie wystartowały. Zapis działa, ale gra użyje go dopiero po aktualizacji obrazu gry i restarcie."}
+    elif status.get("state") == "rejected" and status.get("sha") == sha:
+        live = {"kind": "error", "text": "Gra ODRZUCIŁA zapisany plik i działa na dropie z obrazu: " + status.get("message", "")}
+    elif status.get("state") == "rejected":
+        live = {"kind": "pending", "text": "Poprzedni zapis został odrzucony przez grę (" + status.get("message", "") +
+                "). Aktualny zapis czeka na restart rdzeni."}
+    elif (status.get("sha") or "") == sha:
+        live = {"kind": "ok", "text": "Zastosowane: w grze działa dokładnie ten drop, który widzisz" +
+                (f" ({len(custom)} zmienionych grup)." if custom else " (bez zmian względem obrazu gry).")}
+    else:
+        live = {"kind": "pending", "text": "Czeka na restart: zapisane zmiany wejdą po restarcie rdzeni gry – do tego czasu potwory dropią po staremu."}
+    try:
+        live["time"] = datetime.fromtimestamp(int(status.get("time", "0"))) if status.get("time") else None
+    except ValueError:
+        live["time"] = None
+    return {"base": base, "custom": custom, "has_base": text is not None, "base_time": base_time, "live": live}
+
+
+def drop_mob_rows():
+    cached = getattr(g, "_drop_mobs", None)
+    if cached is None:
+        cached = {}
+        for row in rows("SELECT vnum,locale_name,name,`rank`,type,level,drop_item FROM player.mob_proto"):
+            cached[int(row["vnum"])] = {
+                "vnum": int(row["vnum"]), "name": game_text(row["locale_name"]) or game_text(row["name"]),
+                "rank": int(row["rank"] or 0), "type": int(row["type"] or 0), "level": int(row["level"] or 0),
+                "drop_item": int(row["drop_item"] or 0)}
+        for mob in cached.values():
+            mob["rank_name"] = MOB_RANK_NAMES.get(mob["rank"], str(mob["rank"]))
+            mob["kind"] = ("metin" if mob["type"] == 2 else "boss" if mob["rank"] >= 4 and mob["type"] == 0
+                           else "mob" if mob["type"] == 0 else "other")
+            mob["kind_name"] = {"metin": "Metin", "boss": "Boss", "mob": "Potwór"}.get(mob["kind"], MOB_TYPE_NAMES.get(mob["type"], "Inne"))
+        g._drop_mobs = cached
+    return cached
+
+
+def drop_mob_groups(state, mob):
+    """What the engine uses for one monster, per kind: the operator's group,
+    or the image's. drop groups of one monster are merged by the engine, the
+    other kinds keep only the first group (std::map::emplace)."""
+    result = {}
+    for kind in DROP_TYPES:
+        base = [grp for grp in state["base"] if grp["mob"] == mob and grp["type"] == kind]
+        custom = state["custom"].get((mob, kind))
+        if custom is not None:
+            result[kind] = {"source": "custom", "groups": [custom] if custom["items"] else [], "base": base,
+                            "removed": not custom["items"]}
+        elif base:
+            result[kind] = {"source": "image", "groups": base if kind == "drop" else base[:1], "base": base,
+                            "ignored": [] if kind == "drop" else base[1:], "removed": False}
+    return result
+
+
+def drop_item_label(item, names, chest_groups):
+    item = str(item).lower()
+    if item.isdigit():
+        known = names.get(int(item))
+        return known["name"] if known else "NIEZNANY PRZEDMIOT"
+    if item.startswith("s") and item[1:].isdigit():
+        inner = names.get(int(item[1:]))
+        nested = chest_groups.get(int(item[1:]))
+        title = inner["name"] if inner and inner["type"] == 23 else (nested["name"] if nested else "")
+        return "Losowanie z grupy szkatułki " + item[1:] + (f" ({title})" if title else "") + ("" if nested else " – BRAK TAKIEJ GRUPY")
+    return "?"
+
+
+def drop_float(value):
+    try:
+        return float(str(value).replace(",", "."))
+    except ValueError:
+        return 0.0
+
+
+def drop_chance(kind, entry, group, weights):
+    """Chance per kill, in %, as CreateDropItem computes it for a killer of
+    the monster's level with no bonus (iDeltaPercent 100, iRandRange 4e6)."""
+    prob = drop_float(entry["prob"])
+    if kind in ("drop", "thiefgloves"):
+        return min(100.0, max(0.0, prob / 4.0))
+    if kind == "limit":
+        return min(100.0, max(0.0, prob))
+    if kind == "kill":
+        every = max(1, int(drop_float(group.get("kill_drop", 1)) or 1))
+        return (100.0 * max(0.0, prob) / weights / every) if weights else 0.0
+    return 0.0
+
+
+def drop_render_group(mob, kind, group):
+    lines = [f"Group\tMT2009_panel_{mob}_{kind}", "{", f"\tMob\t{mob}", f"\tType\t{kind}"]
+    if kind == "kill":
+        lines.append(f"\tkill_drop\t{group['kill_drop']}")
+    if kind == "limit":
+        lines.append(f"\tlevel_limit\t{group['level_limit']}")
+    for index, entry in enumerate(group["items"], 1):
+        line = f"\t{index}\t{entry['item']}\t{entry['count']}\t{entry['prob']}"
+        if kind == "kill":
+            line += f"\t{entry.get('rare') or 0}"
+        comment = drop_ascii(entry.get("comment"))
+        if comment:
+            line += f"\t-- {comment}"
+        lines.append(line)
+    lines.append("}")
+    return lines
+
+
+def drop_write_custom(custom_groups, reason):
+    """Writes the operator's groups ({(mob, type): group}) atomically, a
+    backup of the previous file first."""
+    import fcntl
+    DROP_SPOOL.mkdir(parents=True, exist_ok=True)
+    DROP_BACKUPS.mkdir(parents=True, exist_ok=True)
+    for folder in (DROP_SPOOL, DROP_BACKUPS):
+        try:
+            os.chown(folder, -1, 2050)
+            os.chmod(folder, 0o2770)
+        except OSError:
+            pass
+    with open(DROP_SPOOL / ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")[:-3]
+        backup = DROP_BACKUPS / f"mob_drop_item.custom.{stamp}.txt"
+        if DROP_CUSTOM.exists():
+            backup.write_bytes(DROP_CUSTOM.read_bytes())
+        else:
+            backup.write_bytes(b"# (przed tym zapisem nie bylo zadnych zmian z panelu - obraz gry)\r\n")
+        lines = ["# MT2009_PLUS_DROP_EDITOR_V1 - grupy mob_drop_item.txt zmienione w panelu Seban",
+                 f"# zapis: {datetime.now():%Y-%m-%d %H:%M:%S} - {drop_ascii(reason)}",
+                 "# Kazda grupa zastepuje WSZYSTKIE grupy z obrazu gry o tym samym Mob i Type (m2-drops, przy starcie rdzeni).",
+                 "# Grupa bez pozycji = ten potwor nie ma dropu tego rodzaju.", ""]
+        for mob, kind in sorted(custom_groups):
+            lines += drop_render_group(mob, kind, custom_groups[(mob, kind)]) + [""]
+        temporary = DROP_SPOOL / f"mob_drop_item.custom.txt.new{os.getpid()}"
+        temporary.write_bytes("\r\n".join(lines).encode("ascii", "replace"))
+        os.chmod(temporary, 0o664)
+        os.replace(temporary, DROP_CUSTOM)
+        for old in sorted(DROP_BACKUPS.glob("mob_drop_item.custom.*.txt"))[:-DROP_BACKUP_KEEP]:
+            try:
+                old.unlink()
+            except OSError:
+                pass
+
+
+def drop_backups():
+    result = []
+    for path in sorted(DROP_BACKUPS.glob("mob_drop_item.custom.*.txt"), reverse=True)[:40]:
+        try:
+            groups = drop_parse(path.read_bytes().decode("utf-8", "replace"))
+            result.append({"name": path.name, "time": datetime.fromtimestamp(path.stat().st_mtime),
+                           "groups": ", ".join(f"{grp['mob']} {grp['type']}" + ("" if grp["items"] else " (usunięta)")
+                                               for grp in groups) or "brak zmian (obraz gry)"})
+        except OSError:
+            continue
+    return result
+
+
+def drop_validate(mob, kind, group):
+    """Everything ReadMonsterDropItemGroup would stop the core on, and what
+    would make a drop silently never happen."""
+    errors = []
+    entries = group["items"]
+    if mob not in drop_mob_rows():
+        errors.append(f"Potwór {mob} nie istnieje w mob_proto.")
+    if kind not in DROP_TYPES:
+        errors.append("Nieznany rodzaj grupy.")
+        return errors
+    if not entries:
+        errors.append("Grupa musi mieć co najmniej jedną pozycję (żeby wyłączyć drop tego rodzaju, użyj „Usuń grupę”).")
+    if len(entries) > DROP_MAX_LINES:
+        errors.append(f"Najwyżej {DROP_MAX_LINES} pozycji w grupie (silnik czyta tylko numery 1–255).")
+    names = chest_item_names([e["item"] for e in entries])
+    chest_groups = chest_effective(chest_state())
+    for number, entry in enumerate(entries, 1):
+        item = entry["item"]
+        if item.isdigit():
+            if int(item) not in names:
+                errors.append(f"Pozycja {number}: przedmiot {item} nie istnieje w item_proto (rdzeń by nie wstał).")
+        elif item.startswith("s") and item[1:].isdigit():
+            if kind != "drop":
+                errors.append(f"Pozycja {number}: losowanie z grupy szkatułki (s{item[1:]}) działa tylko w grupie „drop”.")
+            elif int(item[1:]) not in chest_groups:
+                errors.append(f"Pozycja {number}: nie ma grupy szkatułki {item[1:]} w special_item_group.txt (nic by nie wypadło).")
+        else:
+            errors.append(f"Pozycja {number}: „{item}” to nie VNUM przedmiotu ani s+numer grupy szkatułki.")
+        if kind == "kill" and int(drop_float(entry["prob"])) < 1:
+            errors.append(f"Pozycja {number}: w grupie „kill” waga musi być liczbą całkowitą ≥ 1 (0 zatrzymuje rdzeń).")
+        if kind == "limit" and drop_float(entry["prob"]) > 100:
+            errors.append(f"Pozycja {number}: w grupie „limit” szansa to 0–100%.")
+    if kind == "kill" and int(group["kill_drop"]) < 1:
+        errors.append("„Co ile zabójstw” musi być co najmniej 1.")
+    if kind != "kill" and entries and not any(drop_float(e["prob"]) > 0 for e in entries):
+        errors.append("Co najmniej jedna pozycja musi mieć szansę większą od 0.")
+    return errors
+
+
+def drop_check_csrf():
+    if request.form.get("drop_csrf", "") != session.get("seban_update_csrf", ""):
+        flash("Sesja formularza wygasła – odśwież stronę i spróbuj jeszcze raz.", "error")
+        return False
+    return True
+
+
+def drop_other_sources(mob):
+    """Drops that are not in mob_drop_item.txt, read-only: the package's
+    common and etc tables and what CreateDropItem hands out by itself."""
+    stone, boss = mob["kind"] == "metin", mob["rank"] >= 4
+    other = []
+    if mob["drop_item"]:
+        text = drop_read(DROP_ETC_BASE) or ""
+        for line in text.replace("\r", "").split("\n"):
+            parts = line.split("\t")
+            if len(parts) >= 2 and parts[0].strip() == str(mob["drop_item"]):
+                other.append({"item": mob["drop_item"], "chance": f"{drop_float(parts[-1]) / 4:.3g}%",
+                              "note": "etc_drop_item.txt (pole drop_item w mob_proto)"})
+    if stone:
+        other += [
+            {"item": 50300, "chance": "1 szt. gwarantowana", "note": "Księga umiejętności z każdego Metina, gdy zabójca ma najwyżej poziom Metina + 15"},
+            {"item": None, "chance": "wg tabeli silnika", "note": "Kamienie duchowe (tabela aStoneDrop w silniku, zależnie od Metina)"},
+            {"item": 50255, "chance": "50% (bot 5%)", "note": "Cor Draconis – zabójca najwyżej 15 poz. ponad Metina, alchemia włączona"},
+            {"item": 50011, "chance": "domyślnie 30%", "note": "Szkatułka Blasku Księżyca (CONFIG MOONLIGHT_CHEST_STONE_PERMILLE, gdy szkatułki włączone)"},
+            {"item": 80017, "chance": "domyślnie 0,3%", "note": "Kupon SM (CONFIG DRAGON_COIN_STONE_PERMILLE)"},
+        ]
+        if 15 <= mob["level"] <= 99:
+            other.append({"item": 25040, "chance": "domyślnie 1%", "note": "Zwój Błogosławieństwa, Metiny 15–99 (CONFIG BLESSING_SCROLL_STONE_PERMILLE)"})
+    elif boss:
+        other += [
+            {"item": 50255, "chance": "80% (bot 5%)", "note": "Cor Draconis – zabójca najwyżej 15 poz. ponad bossa, alchemia włączona"},
+            {"item": 85001, "chance": "80%", "note": "Szarfa +0 (jedna z 85001/85005/85011/85015/85021) – zabójca najwyżej 15 poz. ponad bossa"},
+            {"item": 80017, "chance": "domyślnie 5%", "note": "Kupon SM (CONFIG DRAGON_COIN_BOSS_PERMILLE)"},
+            {"item": 50011, "chance": "domyślnie 1%", "note": "Szkatułka Blasku Księżyca (CONFIG MOONLIGHT_CHEST_PERMILLE, gdy szkatułki włączone)"},
+        ]
+    else:
+        other.append({"item": 50011, "chance": "domyślnie 1%", "note": "Szkatułka Blasku Księżyca (CONFIG MOONLIGHT_CHEST_PERMILLE, gdy szkatułki włączone)"})
+    if stone or boss:
+        other.append({"item": None, "chance": "×2", "note": "Eventy podwójnego łupu: wszystko, co wypadło z bossa/Metina, wypada drugi raz"})
+    other.append({"item": None, "chance": "—", "note": "Dropy z questów (skrypty questów) i event księgi jeździeckiej – poza tym edytorem"})
+    common = []
+    if mob["rank"] <= 3:
+        text = drop_read(DROP_COMMON_BASE) or ""
+        for line in text.replace("\r", "").split("\n")[1:]:
+            cells = line.split("\t")
+            part = cells[mob["rank"] * 6: mob["rank"] * 6 + 6]
+            if len(part) < 5 or not part[4].strip().isdigit() or int(part[4]) <= 1 or not part[1].strip().isdigit() or part[1].strip() == "0":
+                continue
+            common.append({"item": int(part[4]), "levels": f"{part[1].strip()}–{part[2].strip()}",
+                           "chance": drop_float(part[3]) / 4})
+    names = chest_item_names([o["item"] for o in other if o["item"]] + [c["item"] for c in common])
+    for entry in other + common:
+        entry["name"] = (names.get(entry["item"]) or {}).get("name", "") if entry["item"] else ""
+        entry["icon"] = item_icon_url(entry["item"]) if entry["item"] else None
+    return other, common
+
+
+@app.route("/drops")
+@login_required
+def drops():
+    state = drop_state()
+    mobs = drop_mob_rows()
+    query = request.args.get("q", "").strip()
+    kind = request.args.get("kind", "")
+    counts = {}
+    for grp in state["base"]:
+        counts[grp["mob"]] = counts.get(grp["mob"], 0) + 1
+    changed = sorted({mob for mob, _ in state["custom"]})
+    found = []
+    if query or kind in ("metin", "boss"):
+        needle = query.casefold()
+        for mob in mobs.values():
+            if kind in ("metin", "boss") and mob["kind"] != kind:
+                continue
+            if query and not (query == str(mob["vnum"]) or (not query.isdigit() and needle in mob["name"].casefold())):
+                continue
+            found.append(mob)
+        found.sort(key=lambda m: (m["vnum"] != (int(query) if query.isdigit() else -1), m["level"], m["vnum"]))
+        found = found[:300]
+    return render_template("drops.html", state=state, found=found, query=query, kind=kind, counts=counts,
+                           changed=[mobs.get(v) or {"vnum": v, "name": "?", "level": 0, "kind_name": "?", "rank_name": ""} for v in changed],
+                           custom_keys=state["custom"], backups=drop_backups(), drop_csrf=update_csrf_token(),
+                           restart=restart_progress(), types=DROP_TYPES)
+
+
+@app.route("/drops/<int:mob>")
+@login_required
+def drop_edit(mob):
+    state = drop_state()
+    info = drop_mob_rows().get(mob)
+    if info is None:
+        flash(f"Nie ma potwora o VNUM {mob} w mob_proto.", "error")
+        return redirect(url_for("drops"))
+    kinds = drop_mob_groups(state, mob)
+    vnums = []
+    for data in kinds.values():
+        for grp in data["groups"] + data.get("ignored", []):
+            vnums += [e["item"] for e in grp["items"]]
+    names = chest_item_names(vnums)
+    chest_groups = chest_effective(chest_state())
+    rates = read_rates()
+    sections = []
+    for kind, label in DROP_TYPES.items():
+        data = kinds.get(kind)
+        section = {"kind": kind, "label": label, "data": data, "entries": [], "custom": (mob, kind) in state["custom"],
+                   "has_base": bool(data and data["base"])}
+        if data and data["groups"]:
+            first = data["groups"][0]
+            section["kill_drop"] = first["kill_drop"]
+            section["level_limit"] = first["level_limit"]
+            for grp in data["groups"]:
+                weights = sum(max(0.0, drop_float(e["prob"])) for e in grp["items"]) if kind == "kill" else 0
+                for entry in grp["items"]:
+                    item = str(entry["item"])
+                    chance = drop_chance(kind, entry, grp, weights)
+                    section["entries"].append(dict(
+                        entry, group=grp["name"], label=drop_item_label(item, names, chest_groups), chance=chance,
+                        chance_rate=min(100.0, chance * (rates.get("drop", 100) / 100.0)) if kind != "limit" else chance,
+                        icon=item_icon_url(item) if item.isdigit() else None,
+                        nested=int(item[1:]) if item[:1].lower() == "s" and item[1:].isdigit() else None,
+                        share=(100.0 * drop_float(entry["prob"]) / weights) if weights else None))
+            section["group_names"] = [grp["name"] for grp in data["groups"]]
+        sections.append(section)
+    other, common = drop_other_sources(info)
+    return render_template("drops.html", edit=True, mob=info, sections=sections, state=state, other=other,
+                           common=common, rates=rates, drop_csrf=update_csrf_token(), types=DROP_TYPES)
+
+
+@app.post("/drops/<int:mob>")
+@login_required
+def drop_save(mob):
+    if not drop_check_csrf():
+        return redirect(url_for("drop_edit", mob=mob))
+    kind = request.form.get("kind", "")
+    action = request.form.get("action", "save")
+    anchor = f"#k-{kind}"
+    if kind not in DROP_TYPES:
+        flash("Nieznany rodzaj grupy.", "error")
+        return redirect(url_for("drop_edit", mob=mob))
+    state = drop_state()
+    custom = dict(state["custom"])
+    key = (mob, kind)
+    has_base = any(grp["mob"] == mob and grp["type"] == kind for grp in state["base"])
+    try:
+        if action == "reset":
+            if key not in custom:
+                flash("Ta grupa i tak jest taka jak w obrazie gry.")
+            else:
+                del custom[key]
+                drop_write_custom(custom, f"przywrocono {kind} potwora {mob} z obrazu gry")
+                flash(f"Grupa „{kind}” potwora {mob} wróci do stanu z obrazu gry po restarcie rdzeni.", "success")
+            return redirect(url_for("drop_edit", mob=mob) + anchor)
+        if action == "remove":
+            if has_base:
+                custom[key] = {"mob": mob, "type": kind, "kill_drop": "1", "level_limit": "0", "items": []}
+            else:
+                custom.pop(key, None)
+            drop_write_custom(custom, f"usunieto {kind} potwora {mob}")
+            flash(f"Grupa „{kind}” potwora {mob} zniknie po restarcie rdzeni." +
+                  (" Gra wytnie ją z pliku z obrazu także po aktualizacjach." if has_base else ""), "success")
+            return redirect(url_for("drop_edit", mob=mob) + anchor)
+        if action == "create":
+            if key in custom and custom[key]["items"]:
+                return redirect(url_for("drop_edit", mob=mob) + anchor)
+            if mob not in drop_mob_rows():
+                raise ValueError(f"Potwór {mob} nie istnieje w mob_proto.")
+            start = {"item": "27001", "count": "1", "prob": "1" if kind != "drop" else "4", "rare": "0", "comment": "do zmiany"}
+            custom[key] = {"mob": mob, "type": kind, "kill_drop": "100", "level_limit": "1", "items": [start]}
+            drop_write_custom(custom, f"nowa grupa {kind} potwora {mob}")
+            flash(f"Utworzono grupę „{kind}” z jedną pozycją startową (Czerwona Mikstura) – ustaw zawartość i zapisz."
+                  + (" Zastąpi ona grupę z obrazu gry." if has_base else ""), "success")
+            return redirect(url_for("drop_edit", mob=mob) + anchor)
+        entries = []
+        count = min(int(request.form.get("row_count", "0") or 0), DROP_MAX_LINES + 50)
+        for index in range(count):
+            prefix = f"r{index}_"
+            item = (request.form.get(prefix + "item") or "").strip().lower()
+            if request.form.get(prefix + "delete") == "1" or not item:
+                continue
+            item = item.split()[0]
+            label = f"Pozycja „{item}”"
+            prob_raw = (request.form.get(prefix + "prob") or "").strip().replace(",", ".")
+            if kind == "kill":
+                prob = str(chest_form_int(prob_raw, 0, 1000000, label + " – waga"))
+            else:
+                if not re.fullmatch(r"\d{1,7}(\.\d{1,6})?", prob_raw):
+                    raise ValueError(f"{label} – szansa: „{prob_raw}” to nie liczba (np. 4 albo 0.5).")
+                prob = prob_raw.rstrip("0").rstrip(".") if "." in prob_raw else prob_raw
+                if drop_float(prob) > 400:
+                    raise ValueError(f"{label} – szansa: najwyżej 400 (= 100% na zabicie).")
+            entries.append({
+                "item": item,
+                "count": str(chest_form_int(request.form.get(prefix + "count"), 1, DROP_MAX_COUNT, label + " – ilość")),
+                "prob": prob,
+                "rare": str(chest_form_int(request.form.get(prefix + "rare") or "0", 0, 100, label + " – rare")) if kind == "kill" else "0",
+                "comment": "",
+            })
+        group = {"mob": mob, "type": kind, "items": entries,
+                 "kill_drop": str(chest_form_int(request.form.get("kill_drop") or "1", 1, 1000000, "Co ile zabójstw")) if kind == "kill" else "0",
+                 "level_limit": str(chest_form_int(request.form.get("level_limit") or "0", 0, 250, "Poziom od")) if kind == "limit" else "0"}
+        errors = drop_validate(mob, kind, group)
+        if errors:
+            for message in errors[:12]:
+                flash(message, "error")
+            flash("Nic nie zostało zapisane – popraw błędy i zapisz jeszcze raz.", "error")
+            return redirect(url_for("drop_edit", mob=mob) + anchor)
+        names = chest_item_names([e["item"] for e in entries])
+        for entry in entries:
+            known = names.get(int(entry["item"])) if entry["item"].isdigit() else None
+            entry["comment"] = known["name"] if known else entry["item"]
+        custom[key] = group
+        drop_write_custom(custom, f"zmieniono {kind} potwora {mob}")
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("drop_edit", mob=mob) + anchor)
+    except OSError as exc:
+        flash(f"Nie udało się zapisać pliku w wolumenie spool: {exc}", "error")
+        return redirect(url_for("drop_edit", mob=mob) + anchor)
+    flash(f"Zapisano {len(entries)} pozycji grupy „{kind}” potwora {mob}. Potwór zacznie tak dropić po restarcie rdzeni "
+          "(„Zastosuj teraz” na liście) – i zostanie tak po aktualizacjach serwera.", "success")
+    return redirect(url_for("drop_edit", mob=mob) + anchor)
+
+
+@app.post("/drops/apply")
+@login_required
+def drop_apply():
+    if not drop_check_csrf():
+        return redirect(url_for("drops"))
+    if request.form.get("confirmation", "").strip().upper() != "RESTART":
+        flash("Aby potwierdzić restart rdzeni, wpisz RESTART.", "error")
+        return redirect(url_for("drops"))
+    queue_rate_restart(read_rates())
+    flash("Restart rdzeni zlecony – przed startem gra wczyta drop z panelu (m2-drops). "
+          "Gracze online zostaną rozłączeni na ok. minutę.", "success")
+    return redirect(url_for("drops"))
+
+
+@app.post("/drops/restore")
+@login_required
+def drop_restore():
+    if not drop_check_csrf():
+        return redirect(url_for("drops"))
+    name = request.form.get("backup", "")
+    if not re.fullmatch(r"mob_drop_item\.custom\.[0-9-]+\.txt", name) or not (DROP_BACKUPS / name).is_file():
+        flash("Nie ma takiej kopii.", "error")
+        return redirect(url_for("drops"))
+    custom = {}
+    for group in drop_parse((DROP_BACKUPS / name).read_bytes().decode("utf-8", "replace")):
+        if group["type"] in DROP_TYPES:
+            custom.setdefault((group["mob"], group["type"]), group)
+    try:
+        drop_write_custom(custom, f"przywrocono kopie {name}")
+    except OSError as exc:
+        flash(f"Nie udało się zapisać pliku: {exc}", "error")
+        return redirect(url_for("drops"))
+    flash(f"Przywrócono kopię {name} ({len(custom)} grup). Obecny stan trafił do kopii. Zadziała po restarcie rdzeni.", "success")
+    return redirect(url_for("drops"))
+
+
+@app.post("/drops/reset-all")
+@login_required
+def drop_reset_all():
+    if not drop_check_csrf():
+        return redirect(url_for("drops"))
+    if request.form.get("confirmation", "").strip().upper() != "OBRAZ":
+        flash("Aby przywrócić cały drop z obrazu gry, wpisz OBRAZ.", "error")
+        return redirect(url_for("drops"))
+    try:
+        drop_write_custom({}, "przywrocono caly drop z obrazu gry")
+    except OSError as exc:
+        flash(f"Nie udało się zapisać pliku: {exc}", "error")
+        return redirect(url_for("drops"))
+    flash("Wszystkie zmiany dropu z panelu usunięte (są w kopii zapasowej). Drop z obrazu gry wróci po restarcie rdzeni.", "success")
+    return redirect(url_for("drops"))
+
+
+@app.route("/drops/backup/<name>")
+@login_required
+def drop_backup_view(name):
+    if not re.fullmatch(r"mob_drop_item\.custom\.[0-9-]+\.txt", name) or not (DROP_BACKUPS / name).is_file():
+        abort(404)
+    return (DROP_BACKUPS / name).read_bytes().decode("utf-8", "replace"), 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/drops/file")
+@login_required
+def drop_file_view():
+    text = drop_read(DROP_CUSTOM)
+    return (text if text is not None else "# brak zmian z panelu - gra uzywa dropu z obrazu\n"), 200, {"Content-Type": "text/plain; charset=utf-8"}
+# ---- /MT2009_PLUS_DROP_EDITOR_V1 ---------------------------------------------
 
 
 from item_grants import install as install_item_grants

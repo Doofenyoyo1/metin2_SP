@@ -18,6 +18,8 @@ setting() {
 }
 ALLOW_STUDENT_CHEST=$(setting allow_student_chest 0)
 ALLOW_MOONLIGHT_CHEST=$(setting allow_moonlight_chest 0)
+ALLOW_ALCHEMY=$(setting allow_alchemy 1)
+ALLOW_SASHES=$(setting allow_sashes 1)
 KEEP_DEMO_CHARACTERS=$(setting keep_demo_characters 0)
 # The freshly unpacked Playerbots package is the canonical enabled quest. Keep its
 # newest copy before replacing it with the disabled Seban variant.
@@ -27,6 +29,10 @@ if [ "$ALLOW_MOONLIGHT_CHEST" = 1 ]; then
 else
   set_kv M2_MOONLIGHT_CHEST_PERMILLE 0 "$ENV"; set_kv M2_MOONLIGHT_CHEST_STONE_PERMILLE 0 "$ENV"
 fi
+# MT2009 Plus: alchemy and sashes for later starts (apply.sh writes the flags
+# when .env changed; the panel already switched them live).
+set_kv M2_ALCHEMY "$ALLOW_ALCHEMY" "$ENV"
+set_kv M2_SASHES "$ALLOW_SASHES" "$ENV"
 if [ "$ALLOW_STUDENT_CHEST" = 1 ]; then
   set_kv M2_PLAYERBOT_DISABLE_STUDENT_CHEST 0 "$ENV"; test -s "$ORIGINAL_QUEST"; cp "$ORIGINAL_QUEST" "$QUEST"
 else

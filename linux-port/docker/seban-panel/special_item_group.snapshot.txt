@@ -1,0 +1,4233 @@
+Group	경험의반지
+{
+	Vnum	10000	-- Unknown Vnum
+	1	72001	1	1	-- Pierścień Doświadczenia
+	2	72002	1	1	-- Pierścień Doświadczenia 30 min
+	3	72003	1	1	-- Pierścień Doświadczenia 60 min
+	4	72003	1	1	-- Pierścień Doświadczenia
+	5	72049	1	1	-- Pierścień Doświadczenia
+	6	72050	1	1	-- Pierścień Doświadczenia
+	7	70005	1	1	-- PD z lasu
+}
+Group	관통의장
+{
+	Vnum	10001	-- Unknown Vnum
+	1	72025	1	1	-- Dłoń Przebicia
+	2	72026	1	1	-- Dłoń Krytyka
+	3	72027	1	1	-- Dłoń Krytyka
+}
+Group	도둑의장갑
+{
+	Vnum	10002	-- Unknown Vnum
+	1	72004	1	1	-- Rękawica Złodzieja
+	2	72005	1	1	-- Rękawica Złodzieja
+	3	72006	1	1	-- Rękawica Złodzieja (punktowa)
+	4	70043	1	1	-- Rękawica Złodzieja
+	5	71016	1	1	-- Rękawica Złodzieja
+}
+Group	비단보따리
+{
+	Vnum	10003	-- Unknown Vnum
+	1	72007	1	1	-- Szpula Jedwabiu
+	2	72008	1	1	-- Szpula Jedwabiu
+	3	72009	1	1	-- Szpula Jedwabiu
+}
+Group	열정의가면
+{
+	Vnum	10003	-- Unknown Vnum
+	1	72028	1	1	-- Maska Uczuć
+	2	72029	1	1	-- Maska Uczuć
+	3	72030	1	1	-- Maska Uczuć
+	4	71011	1	1	-- Maska Uczuć
+}
+Group	용신의공격
+{
+	Vnum	10004	-- Unknown Vnum
+	1	72031	1	1	-- Atak Boga Smoków
+	2	72032	1	1	-- Atak Boga Smoków
+	3	72033	1	1	-- Atak Boga Smoków
+}
+Group	용신의방어
+{
+	Vnum	10005	-- Unknown Vnum
+	1	72034	1	1	-- Obrona Boga Smoków
+	2	72035	1	1	-- Obrona Boga Smoków
+	3	72036	1	1	-- Obrona Boga Smoków
+}
+Group	용신의생명
+{
+	Vnum	10006	-- Unknown Vnum
+	1	72037	1	1	-- Życie Boga Smoków
+	2	72038	1	1	-- Życie Boga Smoków
+	3	72039	1	1	-- Życie Boga Smoków
+}
+Group	용신의지능
+{
+	Vnum	10007	-- Unknown Vnum
+	1	72040	1	1	-- Inteligencja Boga Smoków
+	2	72041	1	1	-- Inteligencja Boga Smoków
+	3	72042	1	1	-- Inteligencja Boga Smoków
+}
+Group	원앙의깃?
+{
+	Vnum	10008	-- Unknown Vnum
+	1	72010	1	1	-- Pióro Ptaka Miłości
+	2	72011	1	1	-- Pióro Ptaka Miłości
+	3	72012	1	1	-- Pióro Ptaka Miłości
+}
+Group	월간어심
+{
+	Vnum	10009	-- Unknown Vnum
+	1	72013	1	1	-- Rybie Wnętrzności
+	2	72014	1	1	-- Rybie Wnętrzności
+	3	72015	1	1	-- Rybie Wnętrzności
+}
+Group	육도
+{
+	Vnum	10010	-- Unknown Vnum
+	1	72043	1	1	-- Książka Lidera
+	2	72044	1	1	-- Książka Lidera
+	3	72045	1	1	-- Książka Lidera
+	4	70003	1	1	-- Książka Lidera
+	5	71012	1	1	-- Książka Lidera
+}
+Group	제3의손
+{
+	Vnum	10011	-- Unknown Vnum
+	1	72016	1	1	-- Trzecia Ręka
+	2	72017	1	1	-- Trzecia Ręka
+	3	72018	1	1	-- Trzecia Ręka
+}
+Group	창고확장권
+{
+	Vnum	10021	-- Unknown Vnum
+	1	72019	1	1	-- Powiększony Skład
+	2	72020	1	1	-- Powiększony Skład
+	3	72021	1	1	-- Powiększony Skład
+}
+Group	크리티컬의장
+{
+	Vnum	10023	-- Unknown Vnum
+	1	72046	1	1	-- Dłoń Krytyka
+	2	72047	1	1	-- Dłoń Krytyka
+	3	72048	1	1	-- Dłoń Krytyka
+}
+Group	행운의금화
+{
+	Vnum	10024	-- Unknown Vnum
+	1	72022	1	1	-- Medal Szczęścia
+	2	72023	1	1	-- Medal Szczęścia
+	3	72024	1	1	-- Medal Szczęścia
+	4	71017	1	1	-- Medal Szczęścia
+}
+Group	언어반지
+{
+	Vnum	10025	-- Unknown Vnum
+	1	70006	1	1	-- Pierścień Języka
+	2	70047	1	1	-- Pierścień Jęz.(Przykład)
+	3	71005	1	1	-- Pierścień Języka
+	4	71006	1	1	-- Pierścień Języka
+	5	71007	1	1	-- Pierścień Języka
+}
+Group	sabaha
+{
+	Vnum	10026	-- Unknown Vnum
+	1	72731	1	1
+	2	72735	1	1
+}
+Group	buty
+{
+	Vnum	10027	-- Unknown Vnum
+	1	72701	1	1
+	2	72702	1	1
+}
+Group	marriage_item
+{
+	Vnum	10028	-- Unknown Vnum
+	1	71069	1	1
+	2	71070	1	1
+	3	71071	1	1
+	4	71072	1	1
+	5	71073	1	1
+	6	71074	1	1
+}
+Group	동물_상자_캐시
+{
+	Vnum	10030	-- Unknown Vnum
+	1	71115	1	1	-- Pieczęć Dzika (nieb.)
+	2	71117	1	1	-- Pieczęć Wilka (nieb.)
+	3	71119	1	1	-- Pieczęć Tygrysa (nieb.)
+	4	71121	1	1	-- Pieczęć Lwa (niebieska)
+	5	71124	1	1	-- Biały Lew
+	6	71125	1	0	-- Pieczęć Dzika Wojennego
+	7	71126	1	1	-- Pieczęć Wilka Wojennego
+	8	71127	1	1	-- Pieczęć Szarż. Tygrysa
+	9	71128	1	1	-- Pieczęć Walecznego Lwa
+	10	71131	1	1	-- Pieczęć Czarnego Konia
+	11	71132	1	1	-- Pieczęć Czarnego Konia
+	12	71133	1	1	-- Pieczęć Czarnego Konia
+	13	71134	1	1	-- Pieczęć Czarnego Konia
+	14	71135	1	1	-- Pierścień Półksiężyca
+	15	71136	1	1	-- Lizak Potęgi
+	16	71137	1	1	-- Pieczęć T.B. (niebieski)
+	17	71138	1	1	-- Pieczęć T.B. (czerwona)
+	18	71139	1	1	-- Pieczęć T.B. (złoty)
+	19	71140	1	1	-- Pieczęć T.B. (zielony)
+	20	71141	1	1	-- Pieczęć T.B. (szary)
+	21	71142	1	1	-- Pieczęć T.B. (biały)
+	22	71161	1	1	-- Equus Purpur
+	23	71164	1	1	-- Pieczęć Kometka
+	24	71165	1	1	-- Piecz. Polarnego Drap.
+	25	71166	1	1	-- Pancerna Panda (Pieczęć)
+	26	71171	1	1	-- Pieczęć Jednorożca
+	27	71172	1	1	-- Pieczęć Mary Sennej
+}
+Group	탈것교환권			
+{				
+	Vnum	10032	-- Unknown Vnum
+	Type	Quest		
+	1	52701	1	1	-- Świadectwo Lwa
+	2	52702	1	1	-- Świadectwo Tygrysa
+	3	52703	1	1	-- Świadectwo Dzika
+	4	52704	1	1	-- Świadectwo Wilka
+	5	52705	1	1	-- Świadectwo Renifera (m)
+	6	52706	1	1	-- Świadectwo Renifera (ż)
+	7	52707	1	1	-- Certyfikat Dragora
+}				
+Group	flame_dungeon_ticket_group
+{
+	Vnum	10033	-- Unknown Vnum
+	1	71095	1	1	-- Przepustka
+	2	71130	1	1	-- Przepustka
+}	
+Group	아이템몰_복주머니
+{
+	Vnum	30097	-- Sakwa Szczęścia
+	1	25040	1	70	-- Zwój Błogosławieństwa
+	2	70024	1	20	-- Marmur Błogosławieństwa
+}
+Group	금장보물상자
+{
+	Vnum	50006	-- Złota Szkatułka
+	1	s10753	1	2 -- HighTier
+	2	s10754	1	1 -- HighTierPlus
+}
+Group	은장보물상자
+{
+	Vnum	50007	-- Srebrna Szkatułka
+	1	s10750	1	1 -- VeryLowTier
+	2	s10751	1	2 -- LowTier
+}
+Group	크리스마스이벤트(양말)
+{
+	Vnum	50010	-- Skarpetka
+	1	80003	1	8	-- Sreb. Sztab. (50k Yang)
+	2	gold	5000	1	-- Unknown Item
+	3	gold	10000	1	-- Unknown Item
+	4	gold	15000	1	-- Unknown Item
+	5	gold	20000	1	-- Unknown Item
+	6	gold	25000	1	-- Unknown Item
+	7	gold	30000	1	-- Unknown Item
+	8	gold	35000	1	-- Unknown Item
+	9	gold	40000	1	-- Unknown Item
+	10	50300	1	8	-- Księga Umiejętności
+	11	70201	1	8	-- Wybielacz
+	12	70206	1	8	-- Czarna Farba Do Włosów
+	13	70203	1	8	-- Blond Farba Do Włosów
+	14	70202	1	8	-- Biała Farba Do Włosów
+	15	70204	1	8	-- Czerw. Farba Do Włosów
+	16	70205	1	8	-- Brązowa Farba Do Włosów
+	17	70048	1	8	-- Płaszcz Uciekiniera
+	18	70049	1	8	-- Pierścień Lucy
+	19	70050	1	8	-- Symb. Króla Przepowiedni
+	20	70051	1	8	-- Rękawica Króla Przepow.
+	21	70102	1	8	-- Fasolka Zen
+	22	71006	1	8	-- Pierścień Języka
+	23	70008	1	8	-- Biała Flaga
+	24	70012	1	8	-- Łza Bogini
+	25	70038	1	8	-- Peleryna Męstwa
+	26	27006	15	8	-- Niebieska Mikstura(D)
+	27	27003	15	8	-- Czerwona Mikstura(D)
+	28	27005	30	8	-- Niebieska Mikstura(Ś)
+	29	27002	30	8	-- Czerwona Mikstura(Ś)
+}
+Group	금장보물상자+
+{
+	Vnum	50012	-- Złota Szkatułka+
+	1	s10755	1	1 -- VeryHighTier
+}
+Group	은장보물상자+
+{
+	Vnum	50013	-- Srebrna Szkatułka+
+	1	s10750	1	1 -- LowTier
+	2	s10751	1	2 -- MediumTier
+	
+}
+Group	세뱃돈주머니
+{
+	Vnum	50023	-- Sakiewka Pieniędzy
+	1	gold	50000	5	-- Unknown Item
+	2	gold	40000	10	-- Unknown Item
+	3	gold	30000	15	-- Unknown Item
+	4	gold	20000	20	-- Unknown Item
+	5	gold	10000	50	-- Unknown Item
+}
+Group	장미
+{
+	Vnum	50024	-- Róża
+	1	50621	1	1	-- Diament
+	2	71001	1	2	-- Zwój Egzorcyzmu
+	3	71094	1	2	-- Rada Pustelnika
+	4	25040	1	1	-- Zwój Błogosławieństwa
+	5	gold	10000	2	-- 10k yang
+	6	gold	15000	10	-- 15k yang
+	7	27003	10	20	-- Czerwona Mikstura(D)
+	8	27006	5	30	-- Niebieska Mikstura(D)
+	9	27002	20	50	-- Czerwona Mikstura(Ś)
+	10	27005	10	80	-- Niebieska Mikstura(Ś)
+}
+Group	초콜릿
+{
+	Vnum	50025	-- Czekolada
+	1	50621	1	1	-- Diament
+	2	71001	1	2	-- Zwój Egzorcyzmu
+	3	71094	1	2	-- Rada Pustelnika
+	4	25040	1	1	-- Zwój Błogosławieństwa
+	5	gold	10000	2	-- 10k yang
+	6	gold	15000	10	-- 15k yang
+	7	27003	10	20	-- Czerwona Mikstura(D)
+	8	27006	5	30	-- Niebieska Mikstura(D)
+	9	27002	20	50	-- Czerwona Mikstura(Ś)
+	10	27005	10	80	-- Niebieska Mikstura(Ś)
+}
+Group	장미
+{
+	Vnum	50031	-- Róża
+	1	50300	1	3	-- Księga Umiejętności
+	2	70102	1	1	-- Fasolka Zen
+	3	25040	1	1	-- Zwój Błogosławieństwa
+	4	80003	1	5	-- Sreb. Sztab. (50k Yang)
+	5	27003	5	10	-- Czerwona Mikstura(D)
+	6	27006	5	15	-- Niebieska Mikstura(D)
+	7	27002	5	25	-- Czerwona Mikstura(Ś)
+	8	27005	5	40	-- Niebieska Mikstura(Ś)
+}
+Group	사탕
+{
+	Vnum	50032	-- Cukierek
+	1	50300	1	3	-- Księga Umiejętności
+	2	70102	1	1	-- Fasolka Zen
+	3	25040	1	1	-- Zwój Błogosławieństwa
+	4	80003	1	5	-- Sreb. Sztab. (50k Yang)
+	5	27003	5	10	-- Czerwona Mikstura(D)
+	6	27006	5	15	-- Niebieska Mikstura(D)
+	7	27002	5	25	-- Czerwona Mikstura(Ś)
+	8	27005	5	40	-- Niebieska Mikstura(Ś)
+}
+Group	알수없는상자
+{
+	Vnum	50033	-- Zagadkowa Szkatułka
+	1	exp	10000	80	-- Unknown Item
+	2	exp	20000	70	-- Unknown Item
+	3	exp	30000	60	-- Unknown Item
+	4	exp	40000	50	-- Unknown Item
+	5	exp	50000	40	-- Unknown Item
+	6	gold	10000	80	-- Unknown Item
+	7	gold	20000	70	-- Unknown Item
+	8	gold	30000	65	-- Unknown Item
+	9	gold	40000	55	-- Unknown Item
+	10	gold	50000	49	-- Unknown Item
+	11	50300	1	10	-- Księga Umiejętności
+	12	70102	1	20	-- Fasolka Zen
+	13	25040	1	1	-- Zwój Błogosławieństwa
+	14	group	8501	30	-- Unknown Item
+	15	group	8502	30	-- Unknown Item
+	16	group	8503	30	-- Unknown Item
+	17	group	8504	30	-- Unknown Item
+	18	group	8505	30	-- Unknown Item
+	19	group	8506	40	-- Unknown Item
+	20	group	8507	40	-- Unknown Item
+	21	group	8508	30	-- Unknown Item
+	22	group	8509	30	-- Unknown Item
+	23	group	8510	30	-- Unknown Item
+	24	group	8511	30	-- Unknown Item
+}
+Group	어린이날선물상자_3
+{
+	Vnum	50035	-- Prezent (żółty)
+	1	exp	30000	100	-- Unknown Item
+	2	exp	50000	120	-- Unknown Item
+	3	exp	70000	100	-- Unknown Item
+	4	exp	100000	80	-- Unknown Item
+	5	gold	30000	160	-- Unknown Item
+	6	gold	50000	140	-- Unknown Item
+	7	80004	1	60	-- Sreb. Sztab. (100k Yang)
+	8	80005	1	5	-- Złota Sztab.(500k Yang)
+	9	50300	1	15	-- Księga Umiejętności
+	10	25040	1	10	-- Zwój Błogosławieństwa
+	11	71032	1	5	-- Zwój Boga Smoków
+	12	71004	10	30	-- Medal Smoka
+	13	70003	1	15	-- Książka Lidera
+	14	71018	10	40	-- Błogosławieństwo Życia
+	15	71019	10	40	-- Błogosławieństwo Magii
+	16	71020	10	20	-- Błogosławieństwo Smoka
+	17	50008	1	20	-- Złoty Klucz
+	18	50108	10	30	-- Fajerwerki
+	19	50100	50	50	-- Ogniste Petardy
+	20	50101	50	50	-- Ogniste Petardy
+	21	50102	50	50	-- Ogniste Petardy
+	22	50103	50	50	-- Ogniste Petardy
+	23	50104	50	51	-- Ogniste Petardy
+	24	50105	50	51	-- Ogniste Petardy
+	25	11280	1	3	30	-- Zbroja Boga Smoków+0
+	26	11260	1	4	30	-- Zbroja Płytowa Z Łusek+0
+	27	11270	1	5	30	-- Złota Zbroja Płytowa+0
+	28	11880	1	3	30	-- Szata Baronów+0
+	29	11870	1	4	30	-- Szata Pomarań. Kota+0
+	30	11860	1	5	30	-- Szata Moralności+0
+	31	11480	1	3	30	-- Ubranie Fuksyjne+0
+	32	11470	1	4	30	-- Ubranie Zabój. Wiatru+0
+	33	11460	1	5	30	-- Ubranie Młodego Smoka+0
+	34	11680	1	3	30	-- Duchowa Zbroja Płyt.+0
+	35	11670	1	4	30	-- Zbroja Twarzy Ducha+0
+	36	11660	1	5	30	-- Mglista Zbroja Płyt.+0
+	37	90010	2	20	-- Kamień Węgielny
+	38	90011	2	20	-- Pień
+	39	90012	2	20	-- Dykta
+}
+Group	어린이날선물상자_5
+{
+	Vnum	50036	-- Prezent (fioletowy)
+	1	exp	30000	30	-- Unknown Item
+	2	exp	50000	60	-- Unknown Item
+	3	exp	70000	50	-- Unknown Item
+	4	exp	100000	60	-- Unknown Item
+	5	gold	30000	50	-- Unknown Item
+	6	gold	50000	70	-- Unknown Item
+	7	80004	1	70	-- Sreb. Sztab. (100k Yang)
+	8	80005	1	10	-- Złota Sztab.(500k Yang)
+	9	80006	1	5	-- Złota Sztab.(1Mil.Yang)
+	10	50300	1	20	-- Księga Umiejętności
+	11	25040	1	20	-- Zwój Błogosławieństwa
+	12	71032	1	10	-- Zwój Boga Smoków
+	13	71004	10	30	-- Medal Smoka
+	14	70003	1	20	-- Książka Lidera
+	15	71018	10	50	-- Błogosławieństwo Życia
+	16	71019	10	50	-- Błogosławieństwo Magii
+	17	71020	10	30	-- Błogosławieństwo Smoka
+	18	50008	1	20	-- Złoty Klucz
+	19	50108	10	20	-- Fajerwerki
+	20	50100	50	15	-- Ogniste Petardy
+	21	50101	50	15	-- Ogniste Petardy
+	22	50102	50	15	-- Ogniste Petardy
+	23	50103	50	15	-- Ogniste Petardy
+	24	50104	50	15	-- Ogniste Petardy
+	25	50105	50	15	-- Ogniste Petardy
+	26	11280	1	3	30	-- Zbroja Boga Smoków+0
+	27	11260	1	5	30	-- Zbroja Płytowa Z Łusek+0
+	28	11270	1	7	30	-- Złota Zbroja Płytowa+0
+	29	11880	1	3	30	-- Szata Baronów+0
+	30	11870	1	5	30	-- Szata Pomarań. Kota+0
+	31	11860	1	7	30	-- Szata Moralności+0
+	32	11480	1	3	30	-- Ubranie Fuksyjne+0
+	33	11470	1	5	30	-- Ubranie Zabój. Wiatru+0
+	34	11460	1	7	30	-- Ubranie Młodego Smoka+0
+	35	11680	1	3	30	-- Duchowa Zbroja Płyt.+0
+	36	11670	1	5	30	-- Zbroja Twarzy Ducha+0
+	37	11660	1	7	30	-- Mglista Zbroja Płyt.+0
+	38	90010	2	25	-- Kamień Węgielny
+	39	90011	2	25	-- Pień
+	40	90012	2	25	-- Dykta
+}
+Group	육각보합
+{
+	Vnum	50037	-- Heksagonalna Szkatułka
+	1	27001	100	100	-- Czerwona Mikstura(M)
+	2	27002	50	70	-- Czerwona Mikstura(Ś)
+	3	27003	10	50	-- Czerwona Mikstura(D)
+	4	27004	100	75	-- Niebieska Mikstura(M)
+	5	27005	50	55	-- Niebieska Mikstura(Ś)
+	6	27006	10	35	-- Niebieska Mikstura(D)
+	7	exp	30000	70	-- Unknown Item
+	8	exp	50000	40	-- Unknown Item
+	9	exp	70000	20	-- Unknown Item
+	10	exp	100000	10	-- Unknown Item
+	11	70048	1	20	-- Płaszcz Uciekiniera
+	12	70102	1	9	-- Fasolka Zen
+	13	70051	1	20	-- Rękawica Króla Przepow.
+	14	70049	1	35	-- Pierścień Lucy
+	15	25040	1	1	-- Zwój Błogosławieństwa
+	16	30045	1	26	-- Igła Skorpiona
+	17	30051	1	26	-- Nieznany Talizman
+	18	30038	1	26	-- Skóra Tygrysa
+	19	30070	1	26	-- Futro Wilka+
+	20	30023	1	26	-- Futro Białego Tygrysa
+	21	30033	1	26	-- Stłuczona Porcelana
+	22	30011	1	26	-- Kłąb
+	23	30011	1	26	-- Kłąb
+	24	30082	1	26	-- Ogon Węża+
+	25	30035	1	26	-- Krem Do Twarzy
+	26	30010	1	26	-- Żółć Niedźwiedzia
+	27	30055	1	26	-- Szpon Skorpiona
+	28	30006	1	26	-- Ząb Orka
+	29	30003	1	26	-- Nos Świni
+	30	30017	1	26	-- Ozdobna Spinka Do Włosów
+}
+Group	청동증표
+{
+	Vnum	50038	-- Brązowy Certyfikat
+	1	70003	1	30	-- Książka Lidera
+	2	71034	10	35	-- Mikstura Ataku +15
+	3	71004	10	35	-- Medal Smoka
+}
+Group	은장증표
+{
+	Vnum	50039	-- Srebrny Certyfikat
+	1	25040	1	10	-- Zwój Błogosławieństwa
+	2	71044	10	45	-- Dłoń Krytyka
+	3	71045	10	45	-- Dłoń Przebicia
+}
+Group	금장증표
+{
+	Vnum	50040	-- Złoty Certyfikat
+	1	70003	1	50	-- Książka Lidera
+	2	70035	1	30	-- Magiczna Ruda Miedzi
+	3	70039	1	20	-- Podręcznik Kowala
+}
+Group	선물보따리
+{
+	Vnum	50041	-- Podarunek
+	1	72003	1	30	-- Pierścień Doświadczenia
+	2	70043	1	30	-- Rękawica Złodzieja
+	3	72024	1	30	-- Medal Szczęścia
+}
+Group	웅귀족장의상자
+{
+	Vnum	50070	-- Szkatułka Wodza Orków
+	1	3093	1	5	65	-- Lodowa Iglica+3
+	2	103	1	5	65	-- Krwawy Miecz+3
+	3	2093	1	5	65	-- Łuk Kolczastego Liś.+3
+	4	1063	1	5	65	-- Sztylet Pięści Diab.+3
+	5	5053	1	5	65	-- Morelowy Dzwon+3
+	6	7093	1	5	65	-- Wachlarz Feniksa+3
+	7	11263	1	5	65	-- Zbroja Płytowa Z Łusek+3
+	8	11663	1	5	65	-- Mglista Zbroja Płyt.+3
+	9	11463	1	5	65	-- Ubranie Młodego Smoka+3
+	10	11863	1	5	65	-- Szata Moralności+3
+	11	16103	1	3	35	-- Ebonitowy Naszyjnik+3
+	12	14103	1	3	35	-- Ebonitowa Bransoleta+3
+	13	17103	1	3	35	-- Ebonitowe Kolczyki+3
+	14	70038	1	5	-- Peleryna Męstwa	
+	15	25040	1	6	-- Zwój Błogosławieństwa	
+	16	70037	1	4	-- Księga Zapomnienia	
+	17	70014	1	4	-- Pigułka Krwi	
+	18	70043	1	2	-- Rękawica Złodzieja	
+	19	70005	1	2	-- Pierścień Doświadczenia	
+	20	70006	1	4	-- Pierścień Języka	
+	21	30370	1	2	-- Pozwolenie na Zaczar. Przedmiotu	
+	22	70042	1	3	-- Zaczarowana Rękawica	
+	23	70102	1	5	-- Fasolka Zen	
+	24	22011	2	2	-- Zwój Powrotu	
+}
+Group	밀교교주의상자
+{
+	Vnum	50071	-- Szkatułka Ezot. Władcy
+	1	3093	1	5	65	-- Lodowa Iglica+3
+	2	103	1	5	65	-- Krwawy Miecz+3
+	3	2093	1	5	65	-- Łuk Kolczastego Liś.+3
+	4	1063	1	5	65	-- Sztylet Pięści Diab.+3
+	5	5053	1	5	65	-- Morelowy Dzwon+3
+	6	7093	1	5	65	-- Wachlarz Feniksa+3
+	7	11263	1	5	65	-- Zbroja Płytowa Z Łusek+3
+	8	11663	1	5	65	-- Mglista Zbroja Płyt.+3
+	9	11463	1	5	65	-- Ubranie Młodego Smoka+3
+	10	11863	1	5	65	-- Szata Moralności+3
+	11	16123	1	3	35	-- Per�owy Naszyjnik+3
+	12	14123	1	3	35	-- Per�owa Bransoleta+3
+	13	17123	1	3	35	-- Per�owe Kolczyki+3
+	14	70038	1	5	-- Peleryna Męstwa	
+	15	25040	1	6	-- Zwój Błogosławieństwa	
+	16	70037	1	4	-- Księga Zapomnienia	
+	17	70014	1	4	-- Pigułka Krwi	
+	18	70043	1	3	-- Rękawica Złodzieja	
+	19	70005	1	2	-- Pierścień Doświadczenia	
+	20	70006	1	3	-- Pierścień Języka	
+	21	30370	1	2	-- Pozwolenie na Zaczar. Przedmiotu	
+	22	70042	1	2	-- Zaczarowana Rękawica	
+	23	70102	1	5	-- Fasolka Zen	
+	24	22011	2	2	-- Zwój Powrotu	
+}
+Group	여왕거미의상자
+{
+	Vnum	50073	-- Szkat. Królowej Pająków
+	1	3103	1	5	65	-- Miecz Dwunastu Duch�w+3
+	2	113	1	5	65	-- Wielki Miecz+3
+	3	2103	1	5	65	-- �uk z rogu byka+3
+	4	1073	1	5	65	-- Krwawy Sztylet+3
+	5	5063	1	5	65	-- Magiczny Dzwon+3
+	6	7103	1	5	65	-- Potr�jny Wachlarz+3
+	7	11263	1	5	65	-- Zbroja Płytowa Z Łusek+3
+	8	11663	1	5	65	-- Mglista Zbroja Płyt.+3
+	9	11463	1	5	65	-- Ubranie Młodego Smoka+3
+	10	11863	1	5	65	-- Szata Moralności+3
+	11	14143	1	3	35	-- Bransol. Z Bia�. Z�ota+3
+	12	17143	1	3	35	-- Kolczyki Z Bia�. Z�ota+3
+	13	16142	1	3	35	-- Naszyj. Z Bia�. Z�ota+2
+	14	70038	1	5	-- Peleryna Męstwa	
+	15	25040	1	6	-- Zwój Błogosławieństwa	
+	16	70037	1	4	-- Księga Zapomnienia	
+	17	70014	1	4	-- Pigułka Krwi	
+	18	70043	1	2	-- Rękawica Złodzieja	
+	19	70005	1	3	-- Pierścień Doświadczenia	
+	20	70006	1	4	-- Pierścień Języka	
+	21	30370	1	2	-- Pozwolenie na Zaczar. Przedmiotu	
+	22	70042	1	2	-- Zaczarowana Rękawica	
+	23	70102	1	5	-- Fasolka Zen	
+	24	22011	2	2	-- Zwój Powrotu	
+}
+Group	거대사막거북의상자
+{
+	Vnum	50076	-- Szkat. Pustynnego Żółwia
+	1	3103	1	5	75	-- Miecz Dwunastu Duch�w+3
+	2	113	1	5	75	-- Wielki Miecz+3
+	3	2103	1	5	75	-- �uk z rogu byka+3
+	4	1073	1	5	75	-- Krwawy Sztylet+3
+	5	5063	1	5	75	-- Magiczny Dzwon+3
+	6	7103	1	5	75	-- Potr�jny Wachlarz+3
+	7	11273	1	5	75	-- Z�ota Zbroja P�ytowa+3
+	8	11673	1	5	75	-- Zbroja Twarzy Ducha+3
+	9	11473	1	5	75	-- Ubranie Zab�j. Wiatru+3
+	10	11873	1	5	75	-- Szata Pomara�. Kota+3
+	11	14163	1	3	35	-- Kryszta�owa Bransoleta+3
+	12	17163	1	3	35	-- Kryszta�owe Kolczyki+3
+	13	16163	1	3	35	-- Kryszta�owy Naszyjnik+3
+	14	70038	1	8	-- Peleryna Męstwa	
+	15	25040	1	8	-- Zwój Błogosławieństwa	
+	16	70037	1	4	-- Księga Zapomnienia	
+	17	70014	1	4	-- Pigułka Krwi	
+	18	70043	1	3	-- Rękawica Złodzieja	
+	19	70005	1	3	-- Pierścień Doświadczenia	
+	20	70006	1	4	-- Pierścień Języka	
+	21	30370	1	2	-- Pozwolenie na Zaczar. Przedmiotu	
+	22	70042	1	3	-- Zaczarowana Rękawica	
+	23	70102	1	5	-- Fasolka Zen	
+	24	22011	3	3	-- Zwój Powrotu	
+}
+Group	구미호의상자
+{
+	Vnum	50077	-- Szkat.Dziewięciu Ogonów
+	1	11283	1	5	75	-- Zbroja Boga Smok�w+3
+	2	11683	1	5	75	-- Duchowa Zbroja P�yt.+3
+	3	11483	1	5	75	-- Ubranie Fuksyjne+3
+	4	11883	1	5	75	-- Szata Baron�w+3
+	5	3133	1	5	75	-- Partyzana+3
+	6	143	1	5	75	-- Miecz Bojowy+3
+	7	2133	1	5	75	-- Boski �uk Moreli+3
+	8	1103	1	5	75	-- Smoczy N�+3
+	9	5103	1	5	75	-- Dzwon Nieba I Ziemi+3
+	10	7143	1	5	75	-- Wachlarz Zbawienia+3
+	11	153	1	5	75	-- Miecz Szponu Ducha+3
+	12	243	1	5	75	-- Miecz Egzorcysty+3
+	13	14203	1	4	40	-- Bransol. Z Niebia�.�ez+3
+	14	17203	1	4	40	-- Kolczyki Z Niebia�.�ez+3
+	15	16203	1	4	40	-- Naszyj. Z Niebia�.�ez+3
+	16	70038	1	5	-- Peleryna Męstwa	
+	17	25040	1	6	-- Zwój Błogosławieństwa	
+	18	70037	1	3	-- Księga Zapomnienia	
+	19	70014	1	4	-- Pigułka Krwi	
+	20	70043	1	3	-- Rękawica Złodzieja	
+	21	70005	1	3	-- Pierścień Doświadczenia	
+	22	70006	1	4	-- Pierścień Języka	
+	23	30370	1	3	-- Pozwolenie na Zaczar. Przedmiotu	
+	24	70042	1	3	-- Zaczarowana Rękawica	
+	25	70102	1	5	-- Fasolka Zen	
+	26	22011	3	2	-- Zwój Powrotu	
+	27	30368	1	2	-- Pozwolenie na Wzmocn. Przedmiotu	
+	28	30373	1	8	-- Ksiega Erudyty	
+	29	30374	1	8	-- Pióro Mędrca	
+	30	50513	1	3	-- Kamień Duchowy	
+	31	71026	1	2	-- Magiczny Metal	
+	32	71201	1	1	-- Zwój Egzorcyzmu	
+	33	71094	1	1	-- Rada Pustelnika	
+}
+Group	누렁범귀의상자
+{
+	Vnum	50078	-- Szkat. Żółtego Tygrysa
+	1	11283	1	5	75	-- Zbroja Boga Smok�w+3
+	2	11683	1	5	75	-- Duchowa Zbroja P�yt.+3
+	3	11483	1	5	75	-- Ubranie Fuksyjne+3
+	4	11883	1	5	75	-- Szata Baron�w+3
+	5	3133	1	5	75	-- Partyzana+3
+	6	143	1	5	75	-- Miecz Bojowy+3
+	7	2133	1	5	75	-- Boski �uk Moreli+3
+	8	1103	1	5	75	-- Smoczy N�+3
+	9	5103	1	5	75	-- Dzwon Nieba I Ziemi+3
+	10	7143	1	5	75	-- Wachlarz Zbawienia+3
+	11	153	1	5	75	-- Miecz Szponu Ducha+3
+	12	243	1	5	75	-- Miecz Egzorcysty+3
+	13	14203	1	4	40	-- Bransol. Z Niebia�.�ez+3
+	14	17203	1	4	40	-- Kolczyki Z Niebia�.�ez+3
+	15	16203	1	4	40	-- Naszyj. Z Niebia�.�ez+3
+	16	70038	1	5	-- Peleryna Męstwa	
+	17	25040	1	6	-- Zwój Błogosławieństwa	
+	18	70037	1	3	-- Księga Zapomnienia	
+	19	70014	1	4	-- Pigułka Krwi	
+	20	70043	1	3	-- Rękawica Złodzieja	
+	21	70005	1	3	-- Pierścień Doświadczenia	
+	22	70006	1	4	-- Pierścień Języka	
+	23	30370	1	3	-- Pozwolenie na Zaczar. Przedmiotu	
+	24	70042	1	3	-- Zaczarowana Rękawica	
+	25	70102	1	5	-- Fasolka Zen	
+	26	22011	3	2	-- Zwój Powrotu	
+	27	30368	1	2	-- Pozwolenie na Wzmocn. Przedmiotu	
+	28	30373	1	8	-- Ksiega Erudyty	
+	29	30374	1	8	-- Pióro Mędrca	
+	30	50513	1	3	-- Kamień Duchowy	
+	31	71026	1	2	-- Magiczny Metal	
+	32	71201	1	1	-- Zwój Egzorcyzmu	
+	33	71094	1	1	-- Rada Pustelnika	
+}
+Group	화염왕의상자
+{
+	Vnum	50079	-- Szkat. Ognistego Króla
+	1	11283	1	5	75	-- Zbroja Boga Smok�w+3
+	2	11683	1	5	75	-- Duchowa Zbroja P�yt.+3
+	3	11483	1	5	75	-- Ubranie Fuksyjne+3
+	4	11883	1	5	75	-- Szata Baron�w+3
+	5	3133	1	5	75	-- Partyzana+3
+	6	143	1	5	75	-- Miecz Bojowy+3
+	7	2133	1	5	75	-- Boski �uk Moreli+3
+	8	1103	1	5	75	-- Smoczy N�+3
+	9	5103	1	5	75	-- Dzwon Nieba I Ziemi+3
+	10	7143	1	5	75	-- Wachlarz Zbawienia+3
+	11	153	1	5	75	-- Miecz Szponu Ducha+3
+	12	243	1	5	75	-- Miecz Egzorcysty+3
+	13	70038	1	6	-- Peleryna Męstwa	
+	14	25040	1	7	-- Zwój Błogosławieństwa	
+	15	70037	1	4	-- Księga Zapomnienia	
+	16	70014	1	4	-- Pigułka Krwi	
+	17	70043	1	3	-- Rękawica Złodzieja	
+	18	70005	1	3	-- Pierścień Doświadczenia	
+	19	70006	1	4	-- Pierścień Języka	
+	20	30370	1	3	-- Pozwolenie na Zaczar. Przedmiotu	
+	21	70042	1	3	-- Zaczarowana Rękawica	
+	22	70102	1	6	-- Fasolka Zen	
+	23	22011	3	2	-- Zwój Powrotu	
+	24	30368	1	1	-- Pozwolenie na Wzmocn. Przedmiotu	
+	25	30373	1	8	-- Ksiega Erudyty	
+	26	30374	1	8	-- Pióro Mędrca	
+	27	50513	1	3	-- Kamień Duchowy	
+	28	71026	1	2	-- Magiczny Metal	
+	29	71201	1	1	-- Zwój Egzorcyzmu	
+	30	71094	1	1	-- Rada Pustelnika	
+}
+Group	사귀왕의상자
+{
+	Vnum	50081	-- Szkat. Króla Demonów
+	1	3113	1	6	75	-- Ostrze Zbawienia+3
+	2	123	1	6	75	-- Miecz Lat. Maga+3
+	3	2113	1	6	75	-- �uk Jednoro�ca+3
+	4	1083	1	6	75	-- �ebrowy N�+3
+	5	5073	1	6	75	-- Z�oty Robaczy Dzwon+3
+	6	7113	1	6	75	-- Brwisty Wachlarz+3
+	7	11273	1	6	75	-- Z�ota Zbroja P�ytowa+3
+	8	11673	1	6	75	-- Zbroja Twarzy Ducha+3
+	9	11473	1	6	75	-- Ubranie Zab�j. Wiatru+3
+	10	11873	1	6	75	-- Szata Pomara�. Kota+3
+	11	14183	1	3	35	-- Ametystowa Bransoleta+3
+	12	17183	1	3	35	-- Ametystowe Kolczyki+3
+	13	16183	1	3	35	-- Ametystowy Naszyjnik+3
+	14	70038	1	5	-- Peleryna Męstwa	
+	15	25040	1	6	-- Zwój Błogosławieństwa	
+	16	70037	1	4	-- Księga Zapomnienia	
+	17	70014	1	4	-- Pigułka Krwi	
+	18	70043	1	2	-- Rękawica Złodzieja	
+	19	70005	1	2	-- Pierścień Doświadczenia	
+	20	70006	1	4	-- Pierścień Języka	
+	21	70042	1	2	-- Zaczarowana Rękawica	
+	22	70102	1	5	-- Fasolka Zen	
+	23	22011	2	1	-- Zwój Powrotu	
+	24	70008	1	3	-- Biała Flaga	
+}
+Group	사신의상자
+{
+	Vnum	50082	-- Szkat. Umarłego Rozpruw.
+	1	11285	1	6	60	-- Zbroja Boga Smok�w+5
+	2	11685	1	6	60	-- Duchowa Zbroja P�yt.+5
+	3	11485	1	6	60	-- Ubranie Fuksyjne+5
+	4	11885	1	6	60	-- Szata Baron�w+5
+	5	3150	1	6	60	-- Z�odziej Dusz+0
+	6	170	1	6	60	-- Miecz Żądło+0
+	7	2180	1	6	60	-- �uk Niebieskiego Smoka+0
+	8	1120	1	6	60	-- N� Siamese+0
+	9	5130	1	6	60	-- Dzwon �mierci+0
+	10	7150	1	6	60	-- Ekstazyjny Wachlarz+0
+	11	250	1	6	60	-- Demoniczne Ostrze+0
+	12	3160	1	1	25	-- Miecz Żalu+0
+	13	180	1	1	25	-- Zatruty miecz+0
+	14	190	1	1	25	-- Lwi Miecz+0
+	15	1130	1	1	25	-- Skrzydła Demona Chakr.+0
+	16	2170	1	1	25	-- Stalowy Łuk Kruka+0
+	17	5120	1	1	25	-- Bambusowy Dzwon+0
+	18	7180	1	1	25	-- Wachlarz 8 Tigramów+0
+	19	30371	1	6	-- Diabelskie Rogi	
+	20	70038	40	10	-- Peleryna Męstwa	
+	21	25040	1	10	-- Zwój Błogosławieństwa	
+	22	70037	1	2	-- Księga Zapomnienia	
+	23	70014	1	2	-- Pigułka Krwi	
+	24	70043	1	3	-- Rękawica Złodzieja	
+	25	70005	1	3	-- Pierścień Doświadczenia	
+	26	70006	1	2	-- Pierścień Języka	
+	27	30370	1	14	-- Pozwolenie na Zaczar. Przedmiotu	
+	28	70042	1	3	-- Zaczarowana Rękawica	
+	29	70102	1	2	-- Fasolka Zen	
+	30	22011	4	3	-- Zwój Powrotu	
+	31	30368	1	8	-- Pozwolenie na Wzmocn. Przedmiotu	
+	32	30373	1	8	-- Ksiega Erudyty	
+	33	30374	1	8	-- Pióro Mędrca	
+	34	50513	1	12	-- Kamień Duchowy	
+	35	71026	1	2	-- Magiczny Metal	
+	36	71201	1	3	-- Zwój Egzorcyzmu	
+	37	71094	1	2	-- Rada Pustelnika	
+	38	30375	1	2	-- Magiczna Ruda	
+	39	71025	1	2	-- Kamień Kowala	
+}
+Group	RedLas_Boss_Szkata
+{
+	Vnum	50097	-- Szkat. Olbrzym. Drzewa
+	1	11285	1	5	60	-- Zbroja Boga Smok�w+5
+	2	11685	1	5	60	-- Duchowa Zbroja P�yt.+5
+	3	11485	1	5	60	-- Ubranie Fuksyjne+5
+	4	11885	1	5	60	-- Szata Baron�w+5
+	5	3150	1	5	60	-- Z�odziej Dusz+0
+	6	170	1	5	60	-- Miecz Żądło+0
+	7	2180	1	5	60	-- �uk Niebieskiego Smoka+0
+	8	1120	1	5	60	-- N� Siamese+0
+	9	5130	1	5	60	-- Dzwon �mierci+0
+	10	7150	1	5	60	-- Ekstazyjny Wachlarz+0
+	11	250	1	5	60	-- Demoniczne Ostrze+0
+	12	14203	1	3	50	-- Bransol. Z Niebia�.�ez+3
+	13	17203	1	3	50	-- Kolczyki Z Niebia�.�ez+3
+	14	16203	1	3	50	-- Naszyj. Z Niebia�.�ez+3
+	15	70038	40	10	-- Peleryna Męstwa	
+	16	25040	1	10	-- Zwój Błogosławieństwa	
+	17	70037	1	2	-- Księga Zapomnienia	
+	18	70014	1	2	-- Pigułka Krwi	
+	19	70043	1	3	-- Rękawica Złodzieja	
+	20	70005	1	3	-- Pierścień Doświadczenia	
+	21	70006	1	2	-- Pierścień Języka	
+	22	30370	1	12	-- Pozwolenie na Zaczar. Przedmiotu	
+	23	70042	1	3	-- Zaczarowana Rękawica	
+	24	70102	1	2	-- Fasolka Zen	
+	25	22011	4	3	-- Zwój Powrotu	
+	26	30368	1	4	-- Pozwolenie na Wzmocn. Przedmiotu	
+	27	30373	1	8	-- Ksiega Erudyty	
+	28	30374	1	8	-- Pióro Mędrca	
+	29	50513	1	12	-- Kamień Duchowy	
+	30	71026	1	2	-- Magiczny Metal	
+	31	71201	1	2	-- Zwój Egzorcyzmu	
+	32	71094	1	1	-- Rada Pustelnika	
+	33	30375	1	2	-- Magiczna Ruda	
+	34	71025	1	2	-- Kamień Kowala	
+}
+Group	Giant_Boss_Szkata
+{
+	Vnum	50098	-- Szkat. Chegala
+	1	3150		5	80	-- Z�odziej Dusz+0
+	2	170		5	80	-- Miecz Żądło+0
+	3	2180		5	80	-- �uk Niebieskiego Smoka+0
+	4	1120		5	80	-- N� Siamese+0
+	5	5130		5	80	-- Dzwon �mierci+0
+	6	7150		5	80	-- Ekstazyjny Wachlarz+0
+	7	250		5	80	-- Demoniczne Ostrze+0
+	8	70038	40	5	-- Peleryna Męstwa	
+	9	25040	1	6	-- Zwój Błogosławieństwa	
+	10	70043	1	3	-- Rękawica Złodzieja	
+	11	70005	1	3	-- Pierścień Doświadczenia	
+	12	30370	1	8	-- Pozwolenie na Zaczar. Przedmiotu	
+	13	70042	1	3	-- Zaczarowana Rękawica	
+	14	70102	1	5	-- Fasolka Zen	
+	15	22011	3	2	-- Zwój Powrotu	
+	16	30368	1	4	-- Pozwolenie na Wzmocn. Przedmiotu	
+	17	30373	1	5	-- Ksiega Erudyty	
+	18	30374	1	5	-- Pióro Mędrca	
+	19	50513	1	5	-- Kamień Duchowy	
+	20	71026	1	2	-- Magiczny Metal	
+	21	71201	1	4	-- Zwój Egzorcyzmu	
+	22	71094	1	3	-- Rada Pustelnika	
+	23	30375	1	2	-- Magiczna Ruda	
+	24	71025	1	2	-- Kamień Kowala	
+	25	30372	1	2	-- Czarna Stal	
+}
+Group	진구미호의상자				
+{					
+	Vnum	50090	-- Szkat. Lisa o 9 Ogonach
+	1	170	1	16	20	-- Miecz Żądło+0
+	2	250	1	16	20	-- Demoniczne Ostrze+0
+	3	1120	1	16	20	-- Nóż Siamese+0
+	4	2180	1	16	20	-- Łuk Niebieskiego Smoka+0
+	5	3150	1	16	20	-- Złodziej Dusz+0
+	6	7150	1	16	20	-- Ekstazyjny Wachlarz+0
+	7	11290	1	31	20	-- Zbroja Z Czarnej Stali+0
+	8	11291	1	15	20	-- Zbroja Z Czarnej Stali+1
+	9	11490	1	31	20	-- Ubranie Czarn. Wiatru+0
+	10	11491	1	15	20	-- Ubranie Czarn. Wiatru+1
+	11	11690	1	31	20	-- Zbr. Płyt. Czar. Magii+0
+	12	11691	1	15	20	-- Zbr. Płyt. Czar. Magii+1
+	13	11890	1	31	20	-- Czarna Szata+0
+	14	11891	1	15	20	-- Czarna Szata+1
+	15	17204	1	60	20	-- Kolczyki Z Niebiań.Łez+4
+	16	17205	1	40	20	-- Kolczyki Z Niebiań.Łez+5
+	17	17206	1	20	20	-- Kolczyki Z Niebiań.Łez+6
+	18	16204	1	60	20	-- Naszyj. Z Niebiań.Łez+4
+	19	16205	1	40	20	-- Naszyj. Z Niebiań.Łez+5
+	20	16206	1	20	20	-- Naszyj. Z Niebiań.Łez+6
+	21	14204	1	60	20	-- Bransol. Z Niebiań.Łez+4
+	22	14205	1	40	20	-- Bransol. Z Niebiań.Łez+5
+	23	14206	1	20	20	-- Bransol. Z Niebiań.Łez+6
+	24	exp	500000	100	-- Unknown Item
+	25	exp	700000	60	-- Unknown Item
+	26	exp	1000000	20	-- Unknown Item
+	27	gold	300000	100	-- Unknown Item
+	28	gold	500000	60	-- Unknown Item
+	29	gold	1000000	20	-- Unknown Item
+}
+Group	대왕거미의상자
+{
+	Vnum	50074	-- Szkatułka Olbrz. Pająka
+	1	150	1	25	30	-- Miecz Szponu Ducha+0
+	2	151	1	13	30	-- Miecz Szponu Ducha+1
+	3	5090	1	25	30	-- Dzwon Burzowego Ptaka+0
+	4	5091	1	13	30	-- Dzwon Burzowego Ptaka+1
+	5	140	1	25	30	-- Miecz Bojowy+0
+	6	141	1	13	30	-- Miecz Bojowy+1
+	7	3130	1	25	30	-- Partyzana+0
+	8	3131	1	13	30	-- Partyzana+1
+	9	1100	1	25	30	-- Smoczy Nóż+0
+	10	1101	1	13	30	-- Smoczy Nóż+1
+	11	7130	1	25	30	-- Niebiań. Ptasi Wachl.+0
+	12	7131	1	13	30	-- Niebiań. Ptasi Wachl.+1
+	13	2140	1	25	30	-- Olbrz. Łuk Żółt. Smoka+0
+	14	2141	1	13	30	-- Olbrz. Łuk Żółt. Smoka+1
+	15	11681	1	17	30	-- Duchowa Zbroja Płyt.+1
+	16	11682	1	27	30	-- Duchowa Zbroja Płyt.+2
+	17	11683	1	11	30	-- Duchowa Zbroja Płyt.+3
+	18	11881	1	17	30	-- Szata Baronów+1
+	19	11882	1	27	30	-- Szata Baronów+2
+	20	11883	1	11	30	-- Szata Baronów+3
+	21	11481	1	17	30	-- Ubranie Fuksyjne+1
+	22	11482	1	27	30	-- Ubranie Fuksyjne+2
+	23	11483	1	11	30	-- Ubranie Fuksyjne+3
+	24	11281	1	17	30	-- Zbroja Boga Smoków+1
+	25	11282	1	27	30	-- Zbroja Boga Smoków+2
+	26	11283	1	11	30	-- Zbroja Boga Smoków+3
+	27	14163	1	23	30	-- Kryształowa Bransoleta+3
+	28	14164	1	10	30	-- Kryształowa Bransoleta+4
+	29	17163	1	23	30	-- Kryształowe Kolczyki+3
+	30	17164	1	10	30	-- Kryształowe Kolczyki+4
+	31	16163	1	23	30	-- Kryształowy Naszyjnik+3
+	32	16164	1	10	30	-- Kryształowy Naszyjnik+4
+	33	70012	1	25	-- Łza Bogini
+	34	70038	1	25	-- Peleryna Męstwa
+	35	25040	1	30	-- Zwój Błogosławieństwa
+	36	70048	1	25	-- Płaszcz Uciekiniera
+	37	70037	1	30	-- Księga Zapomnienia
+	38	70014	1	30	-- Pigułka Krwi
+	39	70043	1	25	-- Rękawica Złodzieja
+	40	70005	1	25	-- Pierścień Doświadczenia
+	41	gold	100000	20	-- Unknown Item
+	42	gold	150000	30	-- Unknown Item
+	43	gold	200000	30	-- Unknown Item
+	44	gold	250000	20	-- Unknown Item
+	45	exp	150000	30	-- Unknown Item
+	46	exp	200000	30	-- Unknown Item
+	47	exp	250000	20	-- Unknown Item
+	48	s50902	1	8	-- Unknown Item
+}
+Group	할로윈호박
+{
+	Vnum	50095	-- Dynia
+	1	50300	1	1	-- Księga Umiejętności
+	2	70102	1	1	-- Fasolka Zen
+	3	25040	1	3	-- Zwój Błogosławieństwa
+	4	80003	1	5	-- Sreb. Sztab. (50k Yang)
+	5	27003	5	10	-- Czerwona Mikstura(D)
+	6	27006	5	15	-- Niebieska Mikstura(D)
+	7	27002	5	25	-- Czerwona Mikstura(Ś)
+	8	27005	5	40	-- Niebieska Mikstura(Ś)
+}
+Group	football
+{
+	Vnum	50096	-- Piłka
+	1	50300	1	1	-- Księga Umiejętności
+	2	70102	1	1	-- Fasolka Zen
+	3	25040	1	2	-- Zwój Błogosławieństwa
+	4	80003	1	6	-- Sreb. Sztab. (50k Yang)
+	5	27003	5	10	-- Czerwona Mikstura(D)
+	6	27006	5	15	-- Niebieska Mikstura(D)
+	7	27002	51	25	-- Czerwona Mikstura(Ś)
+}
+Group	빨간색흑단상자
+{
+	Vnum	50109	-- Czerw. Ebonit. Szkatuła
+	1	50300	1	15	-- Księga Umiejętności
+	2	70102	1	10	-- Fasolka Zen
+	3	25040	1	5	-- Zwój Błogosławieństwa
+	4	71044	5	35	-- Dłoń Krytyka
+	5	71045	5	30	-- Dłoń Przebicia
+	6	72003	1	5	-- Pierścień Doświadczenia
+	7	72005	1	5	-- Rękawica Złodzieja
+}
+Group	주황색흑단상자
+{
+	Vnum	50110	-- Drog. Ebonit. Szkatułka
+	1	50300	1	25	-- Księga Umiejętności
+	2	25040	1	10	-- Zwój Błogosławieństwa
+	3	71032	1	5	-- Zwój Boga Smoków
+	4	70003	1	20	-- Książka Lidera
+	5	72003	1	20	-- Pierścień Doświadczenia
+	6	72005	1	20	-- Rękawica Złodzieja
+}
+Group	노랑색흑단상자
+{
+	Vnum	50111	-- Żółta Ebonit. Szkatułka
+	1	70048	1	5	-- Płaszcz Uciekiniera
+	2	70049	1	5	-- Pierścień Lucy
+	3	70050	1	5	-- Symb. Króla Przepowiedni
+	4	70051	1	5	-- Rękawica Króla Przepow.
+	5	70052	1	5	-- Amulet Karmy 1
+	6	50513	1	10	-- Kamień Duchowy
+	7	50300	1	10	-- Księga Umiejętności
+	8	70102	1	10	-- Fasolka Zen
+	9	25040	1	5	-- Zwój Błogosławieństwa
+	10	71032	1	5	-- Zwój Boga Smoków
+	11	72003	1	15	-- Pierścień Doświadczenia
+	12	72005	1	15	-- Rękawica Złodzieja
+}
+Group	연두색흑단상자
+{
+	Vnum	50112	-- J.Ziel. Ebonit. Szkat.
+	1	71085	1	5	-- Wzmocnienie Przedmiotu
+	2	71084	1	5	-- Zaczarowanie Przedmiotu
+	3	50513	1	10	-- Kamień Duchowy
+	4	70102	1	10	-- Fasolka Zen
+	5	25040	1	5	-- Zwój Błogosławieństwa
+	6	71032	1	5	-- Zwój Boga Smoków
+	7	72003	1	30	-- Pierścień Doświadczenia
+	8	72005	1	30	-- Rękawica Złodzieja
+}
+Group	녹색흑단상자
+{
+	Vnum	50113	-- Ziel. Ebonit. Szkatułka
+	1	71085	1	5	-- Wzmocnienie Przedmiotu
+	2	71084	1	5	-- Zaczarowanie Przedmiotu
+	3	50513	1	10	-- Kamień Duchowy
+	4	70102	1	10	-- Fasolka Zen
+	5	25040	1	5	-- Zwój Błogosławieństwa
+	6	71032	1	5	-- Zwój Boga Smoków
+	7	71044	5	30	-- Dłoń Krytyka
+	8	71045	5	30	-- Dłoń Przebicia
+}
+Group	파란색흑단상자
+{
+	Vnum	50114	-- Nieb. Ebon. Szkatułka
+	1	71085	1	5	-- Wzmocnienie Przedmiotu
+	2	71084	1	5	-- Zaczarowanie Przedmiotu
+	3	50513	1	10	-- Kamień Duchowy
+	4	70102	1	10	-- Fasolka Zen
+	5	25040	1	5	-- Zwój Błogosławieństwa
+	6	71032	1	5	-- Zwój Boga Smoków
+	7	71044	5	30	-- Dłoń Krytyka
+	8	71045	5	30	-- Dłoń Przebicia
+}
+Group	보라색흑단상자
+{
+	Vnum	50115	-- Fiol. Ebonit. Szkatułka
+	1	71085	1	5	-- Wzmocnienie Przedmiotu
+	2	71084	1	5	-- Zaczarowanie Przedmiotu
+	3	50513	1	10	-- Kamień Duchowy
+	4	70102	1	10	-- Fasolka Zen
+	5	25040	1	5	-- Zwój Błogosławieństwa
+	6	71032	1	5	-- Zwój Boga Smoków
+	7	71044	5	30	-- Dłoń Krytyka
+	8	71045	5	30	-- Dłoń Przebicia
+}
+Group	부서진_팔찌_상자
+{
+	Vnum	50120	-- Żelazna Szkatułka
+	1	14085	1	7	-- Jadeitowa Bransoleta+5
+	2	14185	1	7	-- Ametystowa Bransoleta+5
+	3	14125	1	7	-- Perłowa Bransoleta+5
+	4	14142	1	7	-- Bransol. Z Biał. Złota+2
+	5	14164	1	7	-- Kryształowa Bransoleta+4
+	6	14184	1	7	-- Ametystowa Bransoleta+4
+	7	14202	1	7	-- Bransol. Z Niebiań.Łez+2
+	8	30190	1	2	-- Krwisty Kamień
+	9	71018	1	6	-- Błogosławieństwo Życia
+	10	71019	1	6	-- Błogosławieństwo Magii
+	11	71044	1	6	-- Dłoń Krytyka
+	12	71004	1	6	-- Medal Smoka
+	13	72003	1	3	-- Pierścień Doświadczenia
+	14	70043	1	3	-- Rękawica Złodzieja
+	15	71017	1	3	-- Medal Szczęścia
+	16	72015	1	3	-- Rybie Wnętrzności
+	17	72012	1	3	-- Pióro Ptaka Miłości
+	18	27987	1	7	-- Małż
+	19	71082	1	3	-- Kamień Metin (Silny)
+}
+Group	부서진_목걸이_상자
+{
+	Vnum	50121	-- Żelazne Pudełko
+	1	16045	1	7	-- Srebrny Naszyjnik+5
+	2	16065	1	7	-- Złoty Naszyjnik+5
+	3	16084	1	7	-- Jadeitowy Naszyjnik+4
+	4	16104	1	7	-- Ebonitowy Naszyjnik+4
+	5	16124	1	7	-- Perłowy Naszyjnik+4
+	6	16144	1	7	-- Naszyj. Z Biał. Złota+4
+	7	16164	1	7	-- Kryształowy Naszyjnik+4
+	8	16184	1	7	-- Ametystowy Naszyjnik+4
+	9	16202	1	7	-- Naszyj. Z Niebiań.Łez+2
+	10	25040	1	3	-- Zwój Błogosławieństwa
+	11	70024	1	3	-- Marmur Błogosławieństwa
+	12	71004	1	6	-- Medal Smoka
+	13	72003	1	3	-- Pierścień Doświadczenia
+	14	71016	1	3	-- Rękawica Złodzieja
+	15	71017	1	3	-- Medal Szczęścia
+	16	72015	1	3	-- Rybie Wnętrzności
+	17	72012	1	3	-- Pióro Ptaka Miłości
+	18	27987	1	7	-- Małż
+	19	71082	1	3	-- Kamień Metin (Silny)
+}
+Group	부서진_귀걸이_상자
+{
+	Vnum	50122	-- Żelazna Skrzynia
+	1	17084	1	7	-- Jadeitowe Kolczyki+4
+	2	17102	1	7	-- Ebonitowe Kolczyki+2
+	3	17124	1	7	-- Perłowe Kolczyki+4
+	4	17144	1	7	-- Kolczyki Z Biał. Złota+4
+	5	17164	1	7	-- Kryształowe Kolczyki+4
+	6	17184	1	7	-- Ametystowe Kolczyki+4
+	7	17202	1	7	-- Kolczyki Z Niebiań.Łez+2
+	8	71034	1	6	-- Mikstura Ataku +15
+	9	71101	1	6	-- Mikstura Pośpiechu
+	10	71020	1	6	-- Błogosławieństwo Smoka
+	11	50124	1	5	-- Spróchniała Skrzynia
+	12	71004	1	5	-- Medal Smoka
+	13	72003	1	3	-- Pierścień Doświadczenia
+	14	71016	1	3	-- Rękawica Złodzieja
+	15	71017	1	3	-- Medal Szczęścia
+	16	72015	1	3	-- Rybie Wnętrzności
+	17	72012	1	3	-- Pióro Ptaka Miłości
+	18	27987	1	5	-- Małż
+	19	71082	1	3	-- Kamień Metin (Silny)
+}
+Group	eva_box
+{
+	Vnum	50124	-- Spróchniała Skrzynia
+	1	71114	5	40	-- Pieczęć Dzika (żółta)
+	2	71116	5	30	-- Pieczęć Wilka (żółta)
+	3	71118	5	20	-- Pieczęć Tygrysa (żółta)
+	4	71120	5	10	-- Pieczęć Lwa (żółta)
+}
+Group	mystery_box_1
+{
+	Vnum	50125	-- Tajemnicza Skrzynia
+	1	71085	1	2	-- Wzmocnienie Przedmiotu
+	2	70039	1	2	-- Podręcznik Kowala
+	3	71032	1	4	-- Zwój Boga Smoków
+	4	70024	1	4	-- Marmur Błogosławieństwa
+	5	25040	1	6	-- Zwój Błogosławieństwa
+	6	71012	1	14	-- Książka Lidera
+	7	71130	3	14	-- Przepustka
+	8	71083	1	14	-- Księga Obróbki Kamienia
+	9	71004	10	14	-- Medal Smoka
+	10	71018	2	14	-- Błogosławieństwo Życia
+	11	25041	1	1	-- Zwój Błogosławieństwa
+	12	71125	1	0	-- Pieczęć Dzika Wojennego
+	13	50126	1	10	-- Tajemnicza Skrzynia
+}
+Group	mystery_box_2
+{
+	Vnum	50126	-- Tajemnicza Skrzynia
+	1	25040	1	5	-- Zwój Błogosławieństwa
+	2	71130	5	20	-- Przepustka
+	3	71083	1	20	-- Księga Obróbki Kamienia
+	4	71004	10	20	-- Medal Smoka
+	5	71018	2	20	-- Błogosławieństwo Życia
+	6	71125	1	0	-- Pieczęć Dzika Wojennego
+}
+Group	산타크로스_판매_아이템1
+{
+	Vnum	50300	-- Księga Umiejętności
+	1	50300	1	44	-- Księga Umiejętności
+	2	50301	1	1	-- Sztuka Wojny Sun Zi
+	3	50302	1	1	-- Sztuka Wojny Wu Zi
+	4	50303	1	1	-- WeiLiao Zi
+	5	50304	1	1	-- Sztuka Combo
+	6	50305	1	1	-- Zaaw. Sztuka Combo
+	7	50306	1	1	-- Mistrz. Sztuka Combo
+}
+Group	산타크로스_판매_아이템2
+{
+	Vnum	70201	-- Wybielacz
+	1	30045	1	1	-- Igła Skorpiona
+	2	30051	1	1	-- Nieznany Talizman
+	3	30038	1	1	-- Skóra Tygrysa
+	4	30070	1	1	-- Futro Wilka+
+	5	30023	1	1	-- Futro Białego Tygrysa
+	6	30033	1	1	-- Stłuczona Porcelana
+	7	30011	1	1	-- Kłąb
+	8	30027	1	1	-- Futro Wilka
+	9	30082	1	1	-- Ogon Węża+
+	10	30035	1	1	-- Krem Do Twarzy
+	11	30010	1	1	-- Żółć Niedźwiedzia
+	12	30055	1	1	-- Szpon Skorpiona
+	13	30006	1	1	-- Ząb Orka
+	14	30003	1	1	-- Nos Świni
+	15	30017	1	1	-- Ozdobna Spinka Do Włosów
+	16	30058	1	1	-- Worek Z Pajęcz. Jajami
+	17	30086	1	1	-- Pamiątka Po Demonie+
+	18	30031	1	1	-- Ornament
+	19	30052	1	1	-- Flaga
+	20	30081	1	1	-- Ogon Skorpiona+
+	21	30053	1	1	-- Niedźwiedzia Skóra
+	22	30007	1	1	-- Amulet Orka
+	23	30004	1	1	-- Ząb Dzika
+	24	30018	1	1	-- Czerwona Wstęga
+	25	30069	1	1	-- Szpon Wilka+
+	26	30076	1	1	-- Amulet Orka+
+	27	30021	1	1	-- Kawałek Klejnotu
+	28	30028	1	1	-- Szpon Wilka
+	29	30025	1	1	-- Worek z Pajęczą Trucizną
+	30	30050	1	1	-- Matowy Lód
+	31	30022	1	1	-- Ogon Węża
+	32	30072	1	1	-- Niedźwiedzia Skóra+
+	33	30047	1	1	-- Księga Klątw
+	34	30015	1	1	-- Pamiątka Po Demonie
+	35	30067	1	1	-- Skóra Węża
+	36	30077	1	1	-- Ząb Orka+
+	37	30046	1	1	-- Ogon Skorpiona
+	38	30005	1	1	-- Kawałek Zepsutej Zbroi
+	39	30059	1	1	-- Nogi Pająka
+	40	30071	1	1	-- Żółć Niedźwiedzia+
+	41	30016	1	1	-- Klejnot Demona
+	42	30075	1	1	-- Shuriken+
+	43	30080	1	1	-- Księga Klątw+
+	44	30041	1	1	-- Shuriken
+}
+Group	웅귀족장소환서
+{
+	Vnum	71036	-- Zwój Przyw. - Wódz Orków
+	1	mob	691	100	-- Unknown Item
+}
+Group	밀교교주소환서
+{
+	Vnum	71037	-- Zwój Przyw. - Ezot. Wł.
+	1	mob	791	100	-- Unknown Item
+}
+Group	여왕거미소환서
+{
+	Vnum	71038	-- Zwój Przyw. - Król. Paj.
+	1	mob	2091	100	-- Unknown Item
+}
+Group	거대사막거북소환서
+{
+	Vnum	71039	-- Zwój Przyw. - Pust. Żółw
+	1	mob	2191	100	-- Unknown Item
+}
+Group	화염왕소환서
+{
+	Vnum	71040	-- Zwój Przyw. - Ogn. Król
+	1	mob	2206	100	-- Unknown Item
+}
+Group	구미호소환서
+{
+	Vnum	71041	-- Zwój Przyw. - 9 Ogonów
+	1	mob	1901	100	-- Unknown Item
+}
+Group	사귀왕소환서
+{
+	Vnum	71042	-- Zwój Przyw. - Król Dem.
+	1	mob	1096	100	-- Unknown Item
+}
+Group	누렁범귀소환서
+{
+	Vnum	71043	-- Zwój Przyw. - Duch Tygr.
+	1	mob	1304	100	-- Unknown Item
+}
+Group	화석목광맥소환서
+{
+	Vnum	71057	-- Zwój Przyw. - Ż.S. Drew.
+	1	mob	20049	100	-- Unknown Item
+}
+Group	구리광맥소환서
+{
+	Vnum	71058	-- Zwój Przyw. - Ż. Miedzi
+	1	mob	20050	100	-- Unknown Item
+}
+Group	은맥소환서
+{
+	Vnum	71059	-- Zwój Przyw. - Ż. Srebra
+	1	mob	20051	100	-- Unknown Item
+}
+Group	금맥소환서
+{
+	Vnum	71060	-- Zwój Przyw. - Żyła Złota
+	1	mob	20052	100	-- Unknown Item
+}
+Group	옥석맥소환서
+{
+	Vnum	71061	-- Zwój Przyw. - Ż. Jadeitu
+	1	mob	20053	100	-- Unknown Item
+}
+Group	흑단석맥소환서
+{
+	Vnum	71062	-- Zwój Przyw. - Ż. Ebonitu
+	1	mob	20054	100	-- Unknown Item
+}
+Group	조개무더기소환서
+{
+	Vnum	71063	-- Zwój Przyw. - S. Muszli
+	1	mob	20055	100	-- Unknown Item
+}
+Group	백금맥소환서
+{
+	Vnum	71064	-- Zwój Przyw. - Ż.B. Złota
+	1	mob	20056	100	-- Unknown Item
+}
+Group	수정석맥소환서
+{
+	Vnum	71065	-- Zwój Przyw. - Ż. Kryszt.
+	1	mob	20057	100	-- Unknown Item
+}
+Group	자수정석맥소환서
+{
+	Vnum	71066	-- Zwój Przyw. - Ż. Amet.
+	1	mob	20058	100	-- Unknown Item
+}
+Group	천루광맥소환서
+{
+	Vnum	71067	-- Zwój Przyw. - Ż.N. Łez
+	1	mob	20059	100	-- Unknown Item
+}
+Group	초급메틴석소환서
+{
+	Vnum	71080	-- Kamień Metin (Słaby)
+	1	mob	8001	10	-- Unknown Item
+	2	mob	8002	10	-- Unknown Item
+	3	mob	8003	10	-- Unknown Item
+	4	mob	8004	10	-- Unknown Item
+	5	mob	8005	10	-- Unknown Item
+}
+Group	중급메틴석소환서
+{
+	Vnum	71081	-- Kamień Metin (Średni)
+	1	mob	8006	10	-- Unknown Item
+	2	mob	8007	10	-- Unknown Item
+	3	mob	8008	10	-- Unknown Item
+	4	mob	8009	10	-- Unknown Item
+	5	mob	8010	10	-- Unknown Item
+}
+Group	고급메틴석소환서
+{
+	Vnum	71082	-- Kamień Metin (Silny)
+	1	mob	8011	10	-- Unknown Item
+	2	mob	8012	10	-- Unknown Item
+	3	mob	8013	10	-- Unknown Item
+	4	mob	8014	10	-- Unknown Item
+	5	mob	8024	10	-- Unknown Item
+	6	mob	8025	10	-- Unknown Item
+	7	mob	8026	10	-- Unknown Item
+	8	mob	8027	10	-- Unknown Item
+} 
+Group 스폐셜
+{
+	Vnum	10050	-- Unknown Vnum
+	type	special
+	1	71148	100000	1	-- Pierścień Siły Woli
+	2	71149	100001	1	-- Pierścień Śmier. Mocy
+	3	71158	100002	1	-- Medal Bohatera
+	4	71135	100003	1	-- Pierścień Półksiężyca
+	5	71136	100003	1	-- Lizak Potęgi
+	6	71143	100004	1	-- Pierścień Radości
+	7	71145	100005	1	-- Amulet Wiecznej Miłości
+}				
+Group	녹각보관함_아기파황
+{				
+	Vnum	53505	-- Skrzynia Azraelusia
+	Type	Pct		
+	1	53005	1	100	-- Azraeluś
+}
+Group	녹각보관함_아기파황_special
+{				
+	Vnum	53506	-- Skrz. Azraelusia (złota)
+	Type	Pct		
+	1	53006	1	100	-- Azraeluś (złoty)
+}
+Group	녹각보관함_아기순록_2012
+{				
+	Vnum	53507	-- Skrzynia Bambi
+	Type	Pct		
+	1	53007	1	100	-- Pieczęć Bambi
+}
+Group	녹각보관함_아기백곰
+{				
+	Vnum	53508	-- Skrzynia Knuuda
+	Type	Pct		
+	1	53008	1	100	-- Knuud (Pieczęć)
+}
+Group	녹각보관함_아기펜더
+{				
+	Vnum	53509	-- Skrzynia Bao Bao
+	Type	Pct		
+	1	53009	1	100	-- Bao Bao (Pieczęć)
+}
+Group	녹각보관함_아기사자
+{				
+	Vnum	53510	-- Skrzynia Leonidasa
+	Type	Pct		
+	1	53010	1	100	-- Pieczęć Leonidasa
+}
+Group	녹각보관함_아기호랑이
+{				
+	Vnum	53511	-- Skrzynia Khana
+	Type	Pct		
+	1	53011	1	100	-- Pieczęć Khana
+}
+Group	녹각보관함_아기멧돼지
+{				
+	Vnum	53512	-- Skrzynia Boczusia
+	Type	Pct		
+	1	53012	1	100	-- Pieczęć Boczusia
+}
+Group	녹각보관함_아기늑대
+{				
+	Vnum	53513	-- Skrzynia Rufusa
+	Type	Pct		
+	1	53013	1	100	-- Pieczęć Rufusa
+}
+Group	녹각보관함_붉은도적단장수
+{				
+	Vnum	53514	-- Skrzynia Kata
+	Type	Pct		
+	1	53014	1	100	-- Pieczęć Kata
+}
+Group	녹각보관함_붉은도적단장수_특
+{				
+	Vnum	53515	-- Skrzynia Kata (złota)
+	Type	Pct		
+	1	53015	1	100	-- Pieczęć Kata (złota)
+}
+Group	녹각보관함_할로윈뼈강아지
+{				
+	Vnum	53516	-- Trupia Skrzynia
+	Type	Pct		
+	1	53016	1	100	-- Pieczęć Kostka
+}
+Group	녹각보관함_녹염불사조
+{				
+	Vnum	53517	-- Jadeitowa Klatka
+	Type	Pct		
+	1	53017	1	100	-- Pieczęć Feniksa Jadeitu
+}
+Group	이동반지			
+{				
+	Vnum	10031	-- Unknown Vnum
+	Type	Quest		
+	1	70058	1	1	-- Pierścień Teleportacji
+}
+Group Receptury
+{
+	Vnum	50901 -- Receptury
+	1	50911	1	1	-- Receptura Fioletowa Mikstura
+	2	50912	1	1	-- Receptura Zielona Mikstura
+	3	50913	1	1	-- Receptura Pomarańcz. Wywar
+	4	50914	1	1	-- Receptura Żółty Wywar
+	5	50915	1	1	-- Receptura Cyjanowy Wywar
+	6	50916	1	1	-- Receptura Niebieski Wywar
+	7	50917	1	1	-- Receptura Zielony Wywar
+	8	50918	1	1	-- Receptura Platynowy Wywar
+	9	50919	1	1	-- Receptura Różowy Wywar
+	10	50920	1	1	-- Receptura Czerwony Wywar
+	11	50921	1	1	-- Receptura Fioletowy Wywar
+	12	50922	1	1	-- Receptura Karmazynowy Wywar
+	13	50923	1	1	-- Receptura Szary Wywar
+	14	50924	1	1	-- Receptura Mikstura Zaklęcia
+	15	50925	1	1	-- Receptura Mikstura Trwałości
+	16	50926	1	1	-- Receptura Mikstury Regen. PŻ
+	17	50927	1	1	-- Receptura Mikstury Regen. PE
+	18	50929	1	1	-- Receptura Mikstury Biegacza
+	19	50942	1	1	-- Receptura Brązowy Wywar
+	20	50943	1	1	-- Receptura Beżowy Wywar
+}
+Group Receptury_Super
+{
+	Vnum	50902 -- Receptury
+	1	50932	1	1	-- Receptura Mikstury Geniuszu
+	2	50933	1	1	-- Receptura Mikstury Determinacji
+	3	50935	1	1	-- Receptura Miks. Szybkiej Analizy
+	4	50930	1	1	-- Receptura Mikstura Madrosci
+}
+Group VeryLowExp
+{
+	Vnum	10801	-- exp
+	1	exp	2000	5	-- exp
+	2	exp	5000	2	-- exp
+	3	exp	10000	1	-- exp
+}
+Group LowExp
+{
+	Vnum	10802	-- exp
+	1	exp	15000	5	-- exp
+	2	exp	30000	3	-- exp
+	3	exp	50000	2	-- exp
+	4	exp	100000	1	-- exp
+	5	s10801	1	1	-- szansa na redukcje
+}
+Group MediumExp
+{
+	Vnum	10803	-- exp
+	1	exp	50000	5	-- exp
+	2	exp	80000	3	-- exp
+	3	exp	120000	2	-- exp
+	4	exp	200000	1	-- exp
+	5	s10802	1	1	-- szansa na redukcje
+}
+Group HighExp
+{
+	Vnum	10804	-- exp
+	1	exp	120000	5	-- exp
+	2	exp	180000	3	-- exp
+	3	exp	250000	2	-- exp
+	4	exp	400000	1	-- exp
+	5	s10803	1	1	-- szansa na redukcje
+}
+Group VeryHighExp
+{
+	Vnum	10805	-- exp
+	1	exp	300000	5	-- exp
+	2	exp	500000	3	-- exp
+	3	exp	800000	2	-- exp
+	4	exp	1000000	1	-- exp
+	5	s10804	1	1	-- szansa na redukcje
+}
+Group SubArmor_Low
+{
+	Vnum	10811	-- Unknown Vnum
+	1	13002	1	2	-- Bojowa Tarcza+2
+	2	12202	1	1	-- Tradycyjny Hełm+2
+	3	12342	1	1	-- Skórzana Maska+2
+	4	12482	1	1	-- Krwawy Hełm+2
+	5	12622	1	1	-- Czapka Mnicha+2
+}
+Group SubArmor_LowPlus
+{
+	Vnum	10812	-- Unknown Vnum
+	1	13004	1	2	-- Bojowa Tarcza+4
+	2	12204	1	1	-- Tradycyjny Hełm+4
+	3	12344	1	1	-- Skórzana Maska+4
+	4	12484	1	1	-- Krwawy Hełm+4
+	5	12624	1	1	-- Czapka Mnicha+4
+}
+Group SubArmor_Medium
+{
+	Vnum	10813	-- Unknown Vnum
+	1	13022	1	2	-- Pięciokątna Tarcza+2
+	2	12222	1	1	-- Żelazny Hełm+2
+	3	12362	1	1	-- Maska Kolcza+2
+	4	12502	1	1	-- Wyzywający Hełm+2
+	5	12642	1	1	-- Czapka Feniksa+2
+}
+Group SubArmor_MediumPlus
+{
+	Vnum	10814	-- Unknown Vnum
+	1	13025	1	2	-- Pięciokątna Tarcza+5
+	2	12225	1	1	-- Żelazny Hełm+5
+	3	12365	1	1	-- Maska Kolcza+5
+	4	12505	1	1	-- Wyzywający Hełm+5
+	5	12645	1	1	-- Czapka Feniksa+5
+}
+Group SubArmor_High
+{
+	Vnum	10815	-- Unknown Vnum
+	1	13042	1	2	-- Czarna Okrągła Tarcza+2
+	2	12242	1	1	-- Upiorna Maska+2
+	3	12382	1	1	-- Stalowa Maska+2
+	4	12522	1	1	-- Zamkowy Hełm+2
+	5	12662	1	1	-- Świetlista Czapka+2
+}
+Group SubArmor_HighPlus
+{
+	Vnum	10816	-- Unknown Vnum
+	1	13044	1	2	-- Czarna Okrągła Tarcza+5
+	2	12244	1	1	-- Upiorna Maska+5
+	3	12384	1	1	-- Stalowa Maska+5
+	4	12524	1	1	-- Zamkowy Hełm+5
+	5	12664	1	1	-- Świetlista Czapka+5
+}
+Group SubArmor_VeryHigh
+{
+	Vnum	10817	-- Unknown Vnum
+	1	13062	1	1	-- Sokola Tarcza+2
+	2	13082	1	1	-- Tarcza Tygrysa+2
+	3	13102	1	1	-- Lwia Tarcza+2
+	4	13122	1	1	-- Tarcza Smoka+2
+}
+Group SubArmor_VeryHighPlus
+{
+	Vnum	10818	-- Unknown Vnum
+	1	13064	1	1	-- Sokola Tarcza+5
+	2	13084	1	1	-- Tarcza Tygrysa+5
+	3	13104	1	1	-- Lwia Tarcza+5
+	4	13124	1	1	-- Tarcza Smoka+5
+}
+Group SubArmor_VeryHighPack
+{
+	Vnum	10819	-- Unknown Vnum
+	1	s10817	1	2	-- SubArmor_VeryHigh
+	2	s10816	1	1	-- SubArmor_HighPlus
+}
+Group Armor_VeryLow
+{
+	Vnum	10821	-- Unknown Vnum
+	1	11203	1	1	-- Mnisia Zbr. Płyt.+3
+	2	11212	1	1	-- Żelazna Zbr. Płyt.+2
+	3	11403	1	1	-- Błękitne Ubranie+3
+	4	11412	1	1	-- Kremowe Ubranie+2
+	5	11603	1	1	-- Żałobna Zbr. Płyt.+3
+	6	11612	1	1	-- Burzowa Zbroj. Płyt.+2
+	7	11803	1	1	-- Błękitna Szata+3
+	8	11812	1	1	-- Turkusowa Szata+2
+}
+Group Armor_Low
+{
+	Vnum	10822	-- Unknown Vnum
+	1	11223	1	1	-- Zbr. Płyt. Tygrysa+3
+	2	11232	1	1	-- Lwia Zbroja Płytowa+2
+	3	11423	1	1	-- Czerwone Ubranie+3
+	4	11432	1	1	-- Czer. Ubranie Mrówki+2
+	5	11623	1	1	-- Nieszczęsna Zbr. Płyt.+3
+	6	11632	1	1	-- Upiorna Zbroja Płyt.+2
+	7	11823	1	1	-- Różowa Szata+3
+	8	11832	1	1	-- Miłosna Szata+2
+}
+Group Armor_Medium
+{
+	Vnum	10823	-- Unknown Vnum
+	1	11243	1	1	-- Śmiert. Zbroja Płytowa+3
+	2	11252	1	1	-- Smocza Zbroja Płytowa+2
+	3	11443	1	1	-- Ubranie Lwiej Mrówki+3
+	4	11452	1	1	-- Ubranie Zabójcy+2
+	5	11643	1	1	-- Zbroja Płyt. Yin-Yang+3
+	6	11652	1	1	-- Mistyczna Zbroja Płyt.+2
+	7	11843	1	1	-- Szata Zach. Nieba+3
+	8	11852	1	1	-- Szata Słońca+2
+}
+Group Armor_High
+{
+	Vnum	10824	-- Unknown Vnum
+	1	11263	1	1	-- Zbroja Płytowa Z Łusek+3
+	2	11272	1	1	-- Złota Zbroja Płytowa+2
+	3	11463	1	1	-- Ubranie Młodego Smoka+3
+	4	11472	1	1	-- Ubranie Zabój. Wiatru+2
+	5	11663	1	1	-- Mglista Zbroja Płyt.+3
+	6	11672	1	1	-- Zbroja Twarzy Ducha+2
+	7	11863	1	1	-- Szata Moralności+3
+	8	11872	1	1	-- Szata Pomarań. Kota+2
+}
+Group Armor_VeryHigh
+{
+	Vnum	10825	-- Unknown Vnum
+	1	s10824	1	4	-- Unknown Item
+	2	11281	1	1	-- Zbroja Boga Smoków+1
+	3	11481	1	1	-- Ubranie Fuksyjne+1
+	4	11681	1	1	-- Duchowa Zbroja Płyt.+1
+	5	11881	1	1	-- Szata Baronów+1
+}
+Group Armor_VeryHighPlus
+{
+	Vnum	10826	-- Unknown Vnum
+	1	s10824	1	4	-- Unknown Item
+	2	11282	1	2	-- Zbroja Boga Smoków+2
+	3	11283	1	1	-- Zbroja Boga Smoków+3
+	4	11482	1	2	-- Ubranie Fuksyjne+2
+	5	11483	1	1	-- Ubranie Fuksyjne+3
+	6	11682	1	2	-- Duchowa Zbroja Płyt.+2
+	7	11683	1	1	-- Duchowa Zbroja Płyt.+3
+	8	11882	1	2	-- Szata Baronów+2
+	9	11883	1	1	-- Szata Baronów+3
+}
+Group Weapon_VeryLow
+{
+	Vnum	10831	-- Unknown Vnum
+	1	14	1	1	-- Miecz+4
+	2	23	1	1	-- Długi Miecz+3
+	3	33	1	1	-- Sejmitar+3
+	4	42	1	1	-- Stożkowy Miecz+2
+	5	51	1	1	-- Szeroki Miecz+1
+	6	1004	1	1	-- Sztylet+4
+	7	4003	1	1	-- Amija+3
+	8	1013	1	1	-- Sztylet Kobry+3
+	9	4012	1	1	-- Dziewięć Ostrzy+2
+	10	1021	1	1	-- Sztylet Nożycowy+1
+	11	2004	1	1	-- Łuk+4
+	12	2013	1	1	-- Długi Łuk+3
+	13	2023	1	1	-- Kompozytowy Łuk+3
+	14	2032	1	1	-- Bojowy Łuk+2
+	15	2041	1	1	-- Długi Łuk Jeźdźcy+1
+	16	3004	1	1	-- Glewia+4
+	17	3013	1	1	-- Włócznia+3
+	18	3023	1	1	-- Gilotynowe Ostrze+3
+	19	3032	1	1	-- Pajęcza Włócznia+2
+	20	3041	1	1	-- Gizarma+1
+	21	5003	1	1	-- Miedziany Dzwon+3
+	22	5012	1	1	-- Srebrny Dzwon+2
+	23	5011	1	1	-- Srebrny Dzwon+1
+	24	7004	1	1	-- Wachlarz+4
+	25	7013	1	1	-- Żelazny Wachlarz+3
+	26	7023	1	1	-- Wachlarz Czarn. Tygr.+3
+	27	7032	1	1	-- Żurawi Wachlarz+2
+	28	7041	1	1	-- Pawi Wachlarz+1
+}
+Group Weapon_Low
+{
+	Vnum	10832	-- Unknown Vnum
+	1	43	1	1	-- Stożkowy Miecz+3
+	2	52	1	1	-- Szeroki Miecz+2
+	3	62	1	1	-- Srebrny Miecz+2
+	4	71	1	1	-- Miecz Storczykowy+1
+	5	4013	1	1	-- Dziewięć Ostrzy+3
+	6	1022	1	1	-- Sztylet Nożycowy+2
+	7	4022	1	1	-- Krótki Nóż+2
+	8	1031	1	1	-- Nóż Szczęścia+1
+	9	2033	1	1	-- Bojowy Łuk+3
+	10	2042	1	1	-- Długi Łuk Jeźdźcy+2
+	11	2052	1	1	-- Bojowy Łuk Jeźdźcy+2
+	12	2061	1	1	-- Miedziany Łuk+1
+	13	3033	1	1	-- Pajęcza Włócznia+3
+	14	3042	1	1	-- Gizarma+2
+	15	3052	1	1	-- Kosa Bojowa+2
+	16	3061	1	1	-- Trójząb+1
+	17	5013	1	1	-- Srebrny Dzwon+3
+	18	5022	1	1	-- Złoty Dzwon+2
+	19	5031	1	1	-- Jadeitowy Dzwon+1
+	20	7033	1	1	-- Żurawi Wachlarz+3
+	21	7042	1	1	-- Pawi Wachlarz+2
+	22	7052	1	1	-- Wodny Wachlarz+2
+	23	7061	1	1	-- Kamienny Wachlarz+1
+}
+Group Weapon_Medium
+{
+	Vnum	10833	-- Unknown Vnum
+	1	73	1	1	-- Miecz Storczykowy+3
+	2	82	1	1	-- Miecz Półtoraręczny+2
+	3	91	1	1	-- Miecz Barbarzyńcy+1
+	4	100	1	1	-- Krwawy Miecz+0
+	5	1033	1	1	-- Nóż Szczęścia+3
+	6	1042	1	1	-- Ukąszenie Kota+2
+	7	1051	1	1	-- Twarz Diabła+1
+	8	1060	1	1	-- Sztylet Pięści Diab.+0
+	9	2063	1	1	-- Miedziany Łuk+3
+	10	2072	1	1	-- Łuk Czarnych Ruin+2
+	11	2081	1	1	-- Łuk Czerwonego Oka+1
+	12	2090	1	1	-- Łuk Kolczastego Liś.+0
+	13	3063	1	1	-- Trójząb+3
+	14	3072	1	1	-- Halabarda+2
+	15	3081	1	1	-- Olbrz. Topór+1
+	16	3090	1	1	-- Lodowa Iglica+0
+	17	5033	1	1	-- Jadeitowy Dzwon+3
+	18	5042	1	1	-- Dzwon Fontanny+2
+	19	5051	1	1	-- Morelowy Dzwon+1
+	20	7063	1	1	-- Kamienny Wachlarz+3
+	21	7072	1	1	-- Oceaniczny Wachlarz+2
+	22	7081	1	1	-- Żądłowy Wachlarz+1
+	23	7090	1	1	-- Wachlarz Feniksa+0
+}
+Group Weapon_High
+{
+	Vnum	10834	-- Unknown Vnum
+	1	93	1	1	-- Miecz Barbarzyńcy+3
+	2	102	1	1	-- Krwawy Miecz+2
+	3	111	1	1	-- Wielki Miecz+1
+	4	120	1	1	-- Miecz Lat. Maga+0
+	5	1053	1	1	-- Twarz Diabła+3
+	6	1062	1	1	-- Sztylet Pięści Diab.+2
+	7	1071	1	1	-- Krwawy Sztylet+1
+	8	1080	1	1	-- Żebrowy Nóż+0
+	9	2083	1	1	-- Łuk Czerwonego Oka+3
+	10	2092	1	1	-- Łuk Kolczastego Liś.+2
+	11	2101	1	1	-- Łuk z rogu byka+1
+	12	2110	1	1	-- Łuk Jednorożca+0
+	13	3083	1	1	-- Olbrz. Topór+3
+	14	3092	1	1	-- Lodowa Iglica+2
+	15	3101	1	1	-- Miecz Dwunastu Duchów+1
+	16	3110	1	1	-- Ostrze Zbawienia+0
+	17	5053	1	1	-- Morelowy Dzwon+3
+	18	5061	1	1	-- Magiczny Dzwon+1
+	19	5070	1	1	-- Złoty Robaczy Dzwon+0
+	20	7083	1	1	-- Żądłowy Wachlarz+3
+	21	7092	1	1	-- Wachlarz Feniksa+2
+	22	7101	1	1	-- Potrójny Wachlarz+1
+	23	7110	1	1	-- Brwisty Wachlarz+0
+}
+Group Weapon_VeryHigh
+{
+	Vnum	10835	-- Unknown Vnum
+	1	113	1	2	-- Wielki Miecz+3
+	2	122	1	2	-- Miecz Lat. Maga+2
+	3	131	1	2	-- Pół-księżycowy Miecz+1
+	4	160	1	1	-- Miecz Nimfy+0
+	5	1073	1	2	-- Krwawy Sztylet+3
+	6	1082	1	2	-- Żebrowy Nóż+2
+	7	1091	1	2	-- Chakram+1
+	8	1110	1	1	-- Nóż Błyskawicy+0
+	9	2103	1	2	-- Łuk z rogu byka+3
+	10	2112	1	2	-- Łuk Jednorożca+2
+	11	2121	1	2	-- Olbrz. Skrzydl. Łuk+1
+	12	2130	1	1	-- Boski Łuk Moreli+0
+	13	3103	1	2	-- Miecz Dwunastu Duchów+3
+	14	3112	1	2	-- Ostrze Zbawienia+2
+	15	3121	1	2	-- Zabójca Lwów+1
+	16	3140	1	1	-- Magnetyczne Ostrze+0
+	17	5063	1	2	-- Magiczny Dzwon+3
+	18	5072	1	2	-- Złoty Robaczy Dzwon+2
+	19	5081	1	2	-- Stalowy Robaczy Dzwon+1
+	19	5090	1	1	-- Dzwon Burzowego Ptaka+0
+	20	7103	1	2	-- Potrójny Wachlarz+3
+	21	7112	1	2	-- Brwisty Wachlarz+2
+	22	7121	1	2	-- Czarny Słon. Wachlarz+1
+	23	7130	1	1	-- Niebiań. Ptasi Wachl.+0
+}
+Group Weapon_VeryHighPlus
+{
+	Vnum	10836	-- Unknown Vnum
+	1	124	1	2	-- Miecz Lat. Maga+4
+	2	133	1	2	-- Pół-księżycowy Miecz+3
+	3	162	1	1	-- Miecz Nimfy+2
+	4	1084	1	2	-- Żebrowy Nóż+4
+	5	1093	1	2	-- Chakram+3
+	6	1112	1	1	-- Nóż Błyskawicy+2
+	7	2114	1	2	-- Łuk Jednorożca+4
+	8	2123	1	2	-- Olbrz. Skrzydl. Łuk+3
+	9	2132	1	1	-- Boski Łuk Moreli+2
+	10	3114	1	2	-- Ostrze Zbawienia+4
+	11	3123	1	2	-- Zabójca Lwów+3
+	12	3142	1	1	-- Magnetyczne Ostrze+2
+	13	5074	1	2	-- Złoty Robaczy Dzwon+4
+	14	5083	1	2	-- Stalowy Robaczy Dzwon+3
+	15	5092	1	1	-- Dzwon Burzowego Ptaka+2
+	16	7114	1	2	-- Brwisty Wachlarz+4
+	17	7123	1	2	-- Czarny Słon. Wachlarz+3
+	18	7132	1	1	-- Niebiań. Ptasi Wachl.+2
+}
+Group Jewelry_VeryLow
+{
+	Vnum	10841	-- Unknown Vnum
+	1	14002	1	1	-- Drewniana Bransoleta+2
+	2	14021	1	1	-- Miedziana Bransoleta+1
+	3	14040	1	1	-- Srebrna Bransoleta+0
+	4	15002	1	1	-- Skórzane Buty+2
+	5	15021	1	1	-- Bambusowe Buty+1
+	6	15040	1	1	-- Drewniane Buty+0
+	7	16002	1	1	-- Drewniany Naszyjnik+2
+	8	16021	1	1	-- Miedziany Naszyjnik+1
+	9	16040	1	1	-- Srebrny Naszyjnik+0
+	10	17002	1	1	-- Drewniane Kolczyki+2
+	11	17021	1	1	-- Miedziane Kolczyki+1
+	12	17040	1	1	-- Srebrne Kolczyki+0
+}
+Group Jewelry_Low
+{
+	Vnum	10842	-- Unknown Vnum
+	1	14042	1	1	-- Srebrna Bransoleta+2
+	2	14061	1	1	-- Złota Bransoleta+1
+	3	14080	1	1	-- Jadeitowa Bransoleta+0
+	4	15042	1	1	-- Drewniane Buty+2
+	5	15061	1	1	-- Buty Wyszywane Złotem+1
+	6	15080	1	1	-- Skórzane Kozaki+0
+	7	16042	1	1	-- Srebrny Naszyjnik+2
+	8	16061	1	1	-- Złoty Naszyjnik+1
+	9	16080	1	1	-- Jadeitowy Naszyjnik+0
+	10	17042	1	1	-- Srebrne Kolczyki+2
+	11	17061	1	1	-- Złote Kolczyki+1
+	12	17080	1	1	-- Jadeitowe Kolczyki+0
+}
+Group Jewelry_Medium
+{
+	Vnum	10843	-- Unknown Vnum
+	1	14082	1	1	-- Jadeitowa Bransoleta+2
+	2	14101	1	1	-- Ebonitowa Bransoleta+1
+	3	14120	1	1	-- Perłowa Bransoleta+0
+	4	15082	1	1	-- Skórzane Kozaki+2
+	5	15101	1	1	-- Złote Buty+1
+	6	15120	1	1	-- Buty Z Brązu+0
+	7	16082	1	1	-- Jadeitowy Naszyjnik+2
+	8	16101	1	1	-- Ebonitowy Naszyjnik+1
+	9	16120	1	1	-- Perłowy Naszyjnik+0
+	10	17082	1	1	-- Jadeitowe Kolczyki+2
+	11	17101	1	1	-- Ebonitowe Kolczyki+1
+	12	17120	1	1	-- Perłowe Kolczyki+0
+}
+Group Jewelry_High
+{
+	Vnum	10844	-- Unknown Vnum
+	1	14122	1	1	-- Perłowa Bransoleta+2
+	2	14141	1	1	-- Bransol. Z Biał. Złota+1
+	3	14160	1	1	-- Kryształowa Bransoleta+0
+	4	15122	1	1	-- Buty Z Brązu+2
+	5	15141	1	1	-- Jadeitowe Buty+1
+	6	15160	1	1	-- Ekstazyjne Buty+0
+	7	16122	1	1	-- Perłowy Naszyjnik+2
+	8	16141	1	1	-- Naszyj. Z Biał. Złota+1
+	9	16160	1	1	-- Kryształowy Naszyjnik+0
+	10	17122	1	1	-- Perłowe Kolczyki+2
+	11	17141	1	1	-- Kolczyki Z Biał. Złota+1
+	12	17160	1	1	-- Kryształowe Kolczyki+0
+}
+Group Jewelry_VeryHigh
+{
+	Vnum	10845	-- Unknown Vnum
+	1	14162	1	1	-- Kryształowa Bransoleta+2
+	2	14181	1	1	-- Ametystowa Bransoleta+1
+	3	14200	1	1	-- Bransol. Z Niebiań.Łez+0
+	4	15161	1	1	-- Ekstazyjne Buty+1
+	5	15181	1	1	-- Deszczowe Buty+1
+	6	15200	1	1	-- Buty Feniksa+0
+	7	15220	1	1	-- Buty Ognistego Ptaka+0
+	8	16162	1	1	-- Kryształowy Naszyjnik+2
+	9	16181	1	1	-- Ametystowy Naszyjnik+1
+	10	16200	1	1	-- Naszyj. Z Niebiań.Łez+0
+	11	17162	1	1	-- Kryształowe Kolczyki+2
+	12	17181	1	1	-- Ametystowe Kolczyki+1
+	13	17200	1	1	-- Kolczyki Z Niebiań.Łez+0
+}
+Group VeryLowGold
+{
+	Vnum	10901	-- yang
+	1	gold	1000	10	-- yang
+	2	gold	2500	7	-- yang
+	3	gold	5000	4	-- yang
+	4	gold	10000	2	-- yang
+	5	gold	20000	1	-- yang
+}
+Group LowGold
+{
+	Vnum	10902	-- yang
+	1	gold	5000	10	-- yang
+	2	gold	10000	7	-- yang
+	3	gold	20000	4	-- yang
+	4	gold	30000	2	-- yang
+	5	gold	50000	1	-- yang
+	6	s10901	1	3	-- szansa na redukcje
+}
+Group MediumGold
+{
+	Vnum	10903	-- yang
+	1	gold	20000	10	-- yang
+	2	gold	30000	7	-- yang
+	3	gold	50000	4	-- yang
+	4	gold	75000	2	-- yang
+	5	gold	105000	1	-- yang
+	6	s10902	1	3	-- szansa na redukcje
+}
+Group HighGold
+{
+	Vnum	10904	-- yang
+	1	gold	50000	10	-- yang
+	2	gold	75000	7	-- yang
+	3	gold	105000	4	-- yang
+	4	gold	140000	2	-- yang
+	5	gold	200000	1	-- yang
+	6	s10903	1	3	-- szansa na redukcje
+}
+Group VeryHighGold
+{
+	Vnum	10905	-- yang
+	1	gold	105000	10	-- yang
+	2	gold	140000	7	-- yang
+	3	gold	200000	4	-- yang
+	4	gold	280000	2	-- yang
+	5	gold	400000	1	-- yang
+	6	s10904	1	3	-- szansa na redukcje
+}
+Group Ulepszacze_M1
+{
+	Vnum	10921	-- Unknown Vnum
+	1	30003	1	1	-- Nos Świni
+	2	30004	1	1	-- Ząb Dzika
+	3	30010	1	1	-- Żółć Niedźwiedzia
+	4	30023	1	1	-- Futro Białego Tygrysa
+	5	30027	1	1	-- Futro Wilka
+	6	30028	1	1	-- Szpon Wilka
+	7	30037	1	1	-- Szpon Tygrysa
+	8	30038	1	1	-- Skóra Tygrysa
+	9	30053	1	1	-- Niedźwiedzia Skóra
+	10	30069	1	1	-- Szpon Wilka+
+	11	30070	1	1	-- Futro Wilka+
+	12	30071	1	1	-- Żółć Niedźwiedzia+
+	13	30072	1	1	-- Niedźwiedzia Skóra+
+	14	30346	1	1	-- Dziczyzna
+	15	30347	1	1	-- Gourou
+	16	30353	1	1	-- Wieprzowina
+	17	s10922	1	1	-- Zaprzys
+}
+Group Ulepszacze_Zaprzys
+{
+	Vnum	10922	-- Unknown Vnum
+	1	30011	1	1	-- Kłąb
+	2	30017	1	1	-- Ozdobna Spinka Do Włosów
+	3	30018	1	1	-- Czerwona Wstęga
+	4	30031	1	1	-- Ornament
+	5	30034	1	1	-- Biała Wstęga
+	6	30035	1	1	-- Krem Do Twarzy
+	7	30073	1	1	-- Biała Wstęga+
+	8	30356	1	1	-- Waleczna Dusza
+}
+Group Ulepszacze_M2
+{
+	Vnum	10923	-- Unknown Vnum
+	1	30005	1	2	-- Kawałek Zepsutej Zbroi
+	2	30021	1	2	-- Kawałek Klejnotu
+	3	30030	1	2	-- Zardzewiałe Ostrze
+	4	30032	1	2	-- Czarny Uniform
+	5	30033	1	2	-- Stłuczona Porcelana
+	6	30041	1	2	-- Shuriken
+	7	30052	1	2	-- Flaga
+	8	30074	1	2	-- Czarny Uniform+
+	9	30075	1	1	-- Shuriken+
+	10	30092	1	2	-- Zdobycz Dzikusa
+	11	30357	1	1	-- Amulet wojownika
+	12	30358	1	1	-- Serce wojownika
+}
+Group Ulepszacze_Ork
+{
+	Vnum	10924	-- Unknown Vnum
+	1	30007	1	1	-- Amulet Orka
+	2	30076	1	1	-- Amulet Orka+
+	3	30352	1	1	-- Orkowe Jądra
+	4	30006	1	1	-- Ząb Orka
+	5	30077	1	1	-- Ząb Orka+
+}
+Group Ulepszacze_Ezot_Low
+{
+	Vnum	10925	-- Unknown Vnum
+	1	30008	1	1	-- Ezoteryczny Przewodnik
+	2	30078	1	1	-- Ezoteryczny Przewodnik+
+	3	30051	1	1	-- Nieznany Talizman
+	4	30079	1	1	-- Nieznany Talizman+
+	5	30047	1	1	-- Księga Klątw
+}
+Group Ulepszacze_Dolina
+{
+	Vnum	10926	-- Unknown Vnum
+	1	s10924	1	1	-- Ork
+	2	s10925	1	1	-- Ezot Low
+}
+Group Ulepszacze_Hwang
+{
+	Vnum	10927	-- Unknown Vnum
+	1	s10925	1	1	-- Ezot Low
+	2	30040	1	1	-- Liść
+	3	30060	1	1	-- Język Żaby
+	4	30061	1	1	-- Żabie Udka
+	5	30080	1	1	-- Księga Klątw+
+	6	30344	1	1	-- Wysuszone Oczy
+	7	30345	1	1	-- Ezoteryczne Drewno
+}
+Group Ulepszacze_Pustynia
+{
+	Vnum	10928	-- Unknown Vnum
+	1	30022	1	3	-- Ogon Węża
+	2	30025	1	3	-- Worek z Pajęczą Trucizną
+	3	30045	1	3	-- Igła Skorpiona
+	4	30046	1	3	-- Ogon Skorpiona
+	5	30081	1	3	-- Ogon Skorpiona+
+	6	30055	1	3	-- Szpon Skorpiona
+	7	30056	1	3	-- Pajęcza Sieć
+	8	30057	1	3	-- Oczy Pająka
+	9	30058	1	3	-- Worek Z Pajęcz. Jajami
+	10	30059	1	3	-- Nogi Pająka
+	11	30067	1	3	-- Skóra Węża
+	12	30359	1	3	-- Piasek Pustyni
+	13	30082	1	1	-- Ogon Węża+
+}
+Group Ulepszacze_Sohan
+{
+	Vnum	10929	-- Unknown Vnum
+	1	30009	1	1	-- Nieznane Lekarstwo
+	2	30014	1	1	-- Futro Yeti
+	3	30039	1	1	-- Kawałek Płótna
+	4	30048	1	1	-- Kawałek Lodu
+	5	30049	1	1	-- Lodowy Róg Wieloryba
+	6	30050	1	1	-- Matowy Lód
+	7	30083	1	1	-- Nieznane Lekarstwo+
+	8	30085	1	1	-- Kawałek Płótna+
+	9	30088	1	1	-- Kawałek Lodu+
+	10	30089	1	1	-- Futro Yeti+
+	11	30090	1	1	-- Matowy Lód+
+	12	30348	1	1	-- Lodowata Maź
+	13	30355	1	1	-- Zgniłe Mięso
+}
+Group Ulepszacze_Pieklo
+{
+	Vnum	10930	-- Unknown Vnum
+	1	30019	1	1	-- Płonąca Grzywa
+	2	30042	1	1	-- Pazur Tygrysa
+	3	30091	1	1	-- Symbol Wojownika
+	4	30367	1	1	-- Łuski Smoka
+}
+Group Ulepszacze_Las
+{
+	Vnum	10931	-- Unknown Vnum
+	1	30354	1	1	-- Czerwone Nasiono
+	2	30349	1	1	-- Żywe Drzewo
+}
+Group Ulepszacze_Demon
+{
+	Vnum	10932	-- Unknown Vnum
+	1	30015	1	1	-- Pamiątka Po Demonie
+	2	30087	1	1	-- Klejnot Demona+
+	3	30016	1	1	-- Klejnot Demona
+	4	30086	1	1	-- Pamiątka Po Demonie+
+	5	30343	1	1	-- Mięso Demona
+}
+Group LosowaPerla
+{
+	Vnum	10933	-- Unknown Vnum
+	1	27992	1	1	- Biała Perła
+	2	27993	1	1	- Niebieska Perła
+	3	27994	1	1	- Krwawa Perła
+}
+Group Losowy_Przetop
+{
+	Vnum	10990	-- Unknown Vnum
+	1	50621	1	1	-- Diament
+	2	50623	1	2	-- Skamieniałe Drewno
+	3	50624	1	2	-- Miedź
+	4	50625	1	2	-- Srebro
+	5	50626	1	2	-- Złoto
+	6	50627	1	2	-- Jadeit
+	7	50628	1	2	-- Ebonit
+	8	50629	1	2	-- Perła
+	9	50630	1	2	-- Białe Złoto
+	10	50631	1	2	-- Kryształ
+	11	50632	1	2	-- Ametyst
+	12	50633	1	2	-- Niebiańskie Łzy
+}
+Group Losowa_Ksiazka_Low
+{
+	Vnum	10991	-- Unknown Vnum
+	1	50301	1	20	-- Sztuka Wojny Sun Zi
+	2	50304	1	2	-- Sztuka Combo
+	3	50311	1	10	-- Język Shinsoo
+	4	50312	1	10	-- Język Chunjo
+	5	50313	1	10	-- Język Jinno
+	6	50314	1	20	-- Księga Polimorfii
+	7	50061	1	4	-- Instr. Oswajania Konia
+	8	50600	1	10	-- Przewodnik Do Zbieractwa
+}
+Group Losowa_Ksiazka_Med
+{
+	Vnum	10992	-- Unknown Vnum
+	1	50302	1	20	-- Sztuka Wojny Wu Zi
+	2	50305	1	2	-- Zaaw. Sztuka Combo
+	3	50311	1	5	-- Język Shinsoo
+	4	50312	1	5	-- Język Chunjo
+	5	50313	1	5	-- Język Jinno
+	6	50315	1	15	-- Zaaw. Ks. Polimorfii
+	7	50600	1	15	-- Przewodnik Do Zbieractwa
+	8	50060	1	5	-- Instr. Jazdy Konnej
+	9	50061	1	2	-- Instr. Oswajania Konia
+	10	s10991	1	10	-- Losowa_Ksiazka_Low
+}
+Group Losowa_Ksiazka_High
+{
+	Vnum	10993	-- Unknown Vnum
+	1	50303	1	15	-- WeiLiao Zi
+	2	50306	1	2	-- Mistrz. Sztuka Combo
+	3	50311	1	1	-- Język Shinsoo
+	4	50312	1	1	-- Język Chunjo
+	5	50313	1	1	-- Język Jinno
+	6	50316	1	8	-- Mistrz. Ks. Polimorfii
+	7	50600	1	15	-- Przewodnik Do Zbieractwa
+	8	50060	1	10	-- Instr. Jazdy Konnej
+	9	50061	1	2	-- Instr. Oswajania Konia
+	10	s10992	1	10	-- Losowa_Ksiazka_Med
+}
+Group	Kamien_Duszy_0
+{
+	Vnum	10980	-- Unknown Vnum
+	1	28030	1	1	-- Kamień Duszy Penetr.+0
+	2	28031	1	1	-- Kamień Duszy Śmierci+0
+	3	28032	1	1	-- Kamień Duszy Powtórki+0
+	4	28033	1	1	-- Kamień Duszy Wojownika+0
+	5	28034	1	1	-- Kamień Duszy Ninja+0
+	6	28035	1	1	-- Kamień Duszy Sury+0
+	7	28036	1	1	-- Kamień Duszy Szamana+0
+	8	28037	1	1	-- Kamień Duszy Potwora+0
+	9	28038	1	1	-- Kamień Duszy Uchylenia+0
+	10	28039	1	1	-- Kamień Duszy Uniku+0
+	11	28040	1	1	-- Kamień Duszy Magii+0
+	12	28041	1	1	-- Kamień Witalności+0
+	13	28042	1	1	-- Kamień Duszy Obrony+0
+	14	28043	1	1	-- Kamień Duszy Przysp.+0
+}
+Group	Kamien_Duszy_1
+{
+	Vnum	10981	-- Unknown Vnum
+	1	28130	1	1	-- Kamień Duszy Penetr.+1
+	2	28131	1	1	-- Kamień Duszy Śmierci+1
+	3	28132	1	1	-- Kamień Duszy Powtórki+1
+	4	28133	1	1	-- Kamień Duszy Wojownika+1
+	5	28134	1	1	-- Kamień Duszy Ninja+1
+	6	28135	1	1	-- Kamień Duszy Sury+1
+	7	28136	1	1	-- Kamień Duszy Szamana+1
+	8	28137	1	1	-- Kamień Duszy Potwora+1
+	9	28138	1	1	-- Kamień Duszy Uchylenia+1
+	10	28139	1	1	-- Kamień Duszy Uniku+1
+	11	28140	1	1	-- Kamień Duszy Magii+1
+	12	28141	1	1	-- Kamień Witalności+1
+	13	28142	1	1	-- Kamień Duszy Obrony+1
+	14	28143	1	1	-- Kamień Duszy Przysp.+1
+}
+Group	Kamien_Duszy_2
+{
+	Vnum	10982	-- Unknown Vnum
+	1	28230	1	1	-- Kamień Duszy Penetr.+2
+	2	28231	1	1	-- Kamień Duszy Śmierci+2
+	3	28232	1	1	-- Kamień Duszy Powtórki+2
+	4	28233	1	1	-- Kamień Duszy Wojownika+2
+	5	28234	1	1	-- Kamień Duszy Ninja+2
+	6	28235	1	1	-- Kamień Duszy Sury+2
+	7	28236	1	1	-- Kamień Duszy Szamana+2
+	8	28237	1	1	-- Kamień Duszy Potwora+2
+	9	28238	1	1	-- Kamień Duszy Uchylenia+2
+	10	28239	1	1	-- Kamień Duszy Uniku+2
+	11	28240	1	1	-- Kamień Duszy Magii+2
+	12	28241	1	1	-- Kamień Witalności+2
+	13	28242	1	1	-- Kamień Duszy Obrony+2
+	14	28243	1	1	-- Kamień Duszy Przysp.+2
+}
+Group	Kamien_Duszy_3
+{
+	Vnum	10983	-- Unknown Vnum
+	1	28330	1	1	-- Kamień Duszy Penetr.+3
+	2	28331	1	1	-- Kamień Duszy Śmierci+3
+	3	28332	1	1	-- Kamień Duszy Powtórki+3
+	4	28333	1	1	-- Kamień Duszy Wojownika+3
+	5	28334	1	1	-- Kamień Duszy Ninja+3
+	6	28335	1	1	-- Kamień Duszy Sury+3
+	7	28336	1	1	-- Kamień Duszy Szamana+3
+	8	28337	1	1	-- Kamień Duszy Potwora+3
+	9	28338	1	1	-- Kamień Duszy Uchylenia+3
+	10	28339	1	1	-- Kamień Duszy Uniku+3
+	11	28340	1	1	-- Kamień Duszy Magii+3
+	12	28341	1	1	-- Kamień Witalności+3
+	13	28342	1	1	-- Kamień Duszy Obrony+3
+	14	28343	1	1	-- Kamień Duszy Przysp.+3
+}
+Group	Kamien_Duszy_4
+{
+	Vnum	10984	-- Unknown Vnum
+	1	28430	1	1	-- Kamień Duszy Penetr.+4
+	2	28431	1	1	-- Kamień Duszy Śmierci+4
+	3	28432	1	1	-- Kamień Duszy Powtórki+4
+	4	28433	1	1	-- Kamień Duszy Wojownika+4
+	5	28434	1	1	-- Kamień Duszy Ninja+4
+	6	28435	1	1	-- Kamień Duszy Sury+4
+	7	28436	1	1	-- Kamień Duszy Szamana+4
+	8	28437	1	1	-- Kamień Duszy Potwora+4
+	9	28438	1	1	-- Kamień Duszy Uchylenia+4
+	10	28439	1	1	-- Kamień Duszy Uniku+4
+	11	28440	1	1	-- Kamień Duszy Magii+4
+	12	28441	1	1	-- Kamień Witalności+4
+	13	28442	1	1	-- Kamień Duszy Obrony+4
+	14	28443	1	1	-- Kamień Duszy Przysp.+4
+}
+Group	Losowy_Kamien_Duszy_0_do_2
+{
+	Vnum	10986	-- Unknown Vnum
+	1	s10980	1	3	-- Unknown Item
+	2	s10981	1	2	-- Unknown Item
+	3	s10982	1	1	-- Unknown Item
+}
+Group	Losowy_Kamien_Duszy_0_do_3
+{
+	Vnum	10987	-- Unknown Vnum
+	1	s10980	1	5	-- Unknown Item
+	2	s10981	1	4	-- Unknown Item
+	3	s10982	1	3	-- Unknown Item
+	4	s10983	1	1	-- Unknown Item
+}
+Group	Losowy_Kamien_Duszy_2_do_4
+{
+	Vnum	10988	-- Unknown Vnum
+	1	s10982	1	10	-- Unknown Item
+	2	s10983	1	8	-- Unknown Item
+	3	s10984	1	1	-- Unknown Item
+}
+Group	Losowy_Kamien_Duszy_0_do_2_Rowno
+{
+	Vnum	10989	-- Unknown Vnum
+	1	s10980	1	1	-- Unknown Item
+	2	s10981	1	1	-- Unknown Item
+	3	s10982	1	1	-- Unknown Item
+}
+Group Losowa_Unikatowy_Kwiat
+{
+	Vnum	10994	-- Unknown Vnum
+	1	50731	5	1	-- Gwiazda Nocy
+	2	50732	5	1	-- Śnieżny Kwiat
+	3	50733	5	1	-- Bursztynowy Płatek
+	4	50734	5	1	-- Perłowe Wiechy
+	5	50735	5	1	-- Korzeń Węża
+}
+Group LootBox_M1
+{
+	Vnum	20701	-- Unknown Vnum
+	1	drain_hp	600	4	-- bomba
+	2	poison	1	4	-- trucie
+	3	s10901	1	8	-- verylow yang
+	4	s50901	1	3	-- receptury
+	5	s10921	1	8	-- ulep m1
+	6	s10831	1	9	-- weapon verylow
+	7	s10821	1	9	-- armor verylow
+	8	s10841	1	9	-- jewelry verylow
+	9	50721	5	8	-- Kwiat Brzoskwini
+	10	50722	5	8	-- Pokrzywa
+	11	50307	1	4	-- Księga Misji (Łatwa)
+	12	30376	1	1	-- Drewniany Klucz
+	13	72732	1	2	-- Ogon Konia
+}
+Group LootBox_M2
+{
+	Vnum	20702	-- Unknown Vnum
+	1	drain_hp	1500	4	-- bomba
+	2	poison	1	4	-- trucie
+	3	s10902	1	8	-- low yang
+	4	s50901	1	4	-- receptury
+	5	s10923	1	10	-- ulep m2
+	6	s10832	1	10	-- weapon low
+	7	s10822	1	10	-- armor low
+	8	s10842	1	10	-- jewelry low
+	9	50721	5	5	-- Kwiat Brzoskwini
+	10	50722	5	5	-- Pokrzywa
+	11	50723	5	5	-- Kwiat Kaki
+	12	50724	5	5	-- Korzeń Gango
+	13	s10991	1	4	-- ksiegi low
+	14	50308	1	4	-- Księga Misji (Normalna)
+	15	50307	1	1	-- Księga Misji (Łatwa)
+	16	30376	1	2	-- Drewniany Klucz
+	17	72732	1	3	-- Ogon Konia
+}
+Group LootBox_Dolina
+{
+	Vnum	20703	-- Unknown Vnum
+	1	drain_hp	3500	8	-- bomba
+	2	poison	1	8	-- trucie
+	3	s10904	1	20	-- high yang
+	4	s50901	1	15	-- receptury
+	5	s10926	1	20	-- ulep orki
+	6	s10833	1	26	-- weapon med
+	7	s10823	1	26	-- armor med
+	8	s10843	1	26	-- jewelry med
+	9	s10814	1	15	-- subarmor medium plus
+	10	50721	10	11	-- Kwiat Brzoskwini
+	11	50722	10	11	-- Pokrzywa
+	12	50723	10	11	-- Kwiat Kaki
+	13	50724	10	11	-- Korzeń Gango
+	14	50725	10	11	-- Bez
+	15	50733	5	17	-- Bursztynowy Płatek
+	16	s10990	1	10	-- przetopy
+	17	70037	1	3	-- Księga Zapomnienia
+	18	s10991	1	9	-- ksiegi low
+	19	50308	1	15	-- Księga Misji (Normalna)
+	20	50309	1	5	-- Księga Misji (Trudna)
+	21	s50902	1	1	-- super receptury
+	22	30376	1	5	-- Drewniany Klucz
+	23	30370	1	1	-- Pozwolenie na Zaczar. Przedmiotu
+}
+Group LootBox_Pustynia
+{
+	Vnum	20704	-- Unknown Vnum
+	1	drain_hp	3500	4	-- bomba
+	2	poison	1	4	-- trucie
+	3	s10903	1	10	-- med yang
+	4	s50901	1	5	-- receptury
+	5	s10928	1	8	-- ulep pustynia
+	6	s10833	1	10	-- weapon med
+	7	s10823	1	10	-- armor med
+	8	s10843	1	10	-- jewelry med
+	9	s10813	1	6	-- subarmor medium
+	10	50721	5	4	-- Kwiat Brzoskwini
+	11	50722	5	4	-- Pokrzywa
+	12	50723	5	4	-- Kwiat Kaki
+	13	50724	5	4	-- Korzeń Gango
+	14	50725	5	4	-- Bez
+	15	50735	3	6	-- Korzeń Węża
+	16	70037	1	3	-- Księga Zapomnienia
+	17	s10991	1	3	-- ksiegi low
+	18	50308	1	3	-- Księga Misji (Normalna)
+	19	50309	1	2	-- Księga Misji (Trudna)
+}
+Group LootBox_Sohan
+{
+	Vnum	20705	-- Unknown Vnum
+	1	drain_hp	5000	6	-- bomba
+	2	poison	1	6	-- trucie
+	3	s10904	1	20	-- high yang
+	4	s50901	1	15	-- receptury
+	5	s10929	1	26	-- ulep sohan
+	6	s10834	1	28	-- weapon high
+	7	s10824	1	28	-- armor high
+	8	s10844	1	28	-- jewelry high
+	9	s10815	1	15	-- subarmor high
+	10	50722	5	6	-- Pokrzywa
+	11	50723	5	6	-- Kwiat Kaki
+	12	50724	5	6	-- Korzeń Gango
+	13	50725	5	13	-- Bez
+	14	50726	5	13	-- Grzyb Tue
+	15	50732	3	16	-- Śnieżny Kwiat
+	16	70037	1	5	-- Księga Zapomnienia
+	17	50513	1	1	-- Kamień Duchowy
+	18	s10990	1	5	-- przetopy
+	19	s10992	1	5	-- ksiegi med
+	20	50309	1	12	-- Księga Misji (Trudna)
+	21	30370	1	1	-- Pozwolenie na Zaczar. Przedmiotu
+}
+Group LootBox_Hwang
+{
+	Vnum	20706	-- Unknown Vnum
+	1	drain_hp	5000	6	-- bomba
+	2	poison	1	6	-- trucie
+	3	s10904	1	30	-- high yang
+	4	s50901	1	10	-- receptury
+	5	s10927	1	26	-- ulep hwang
+	6	s10834	1	28	-- weapon high
+	7	s10824	1	28	-- armor high
+	8	s10844	1	28	-- jewelry high
+	9	s10815	1	16	-- subarmor high
+	10	50722	5	6	-- Pokrzywa
+	11	50723	5	6	-- Kwiat Kaki
+	12	50724	5	6	-- Korzeń Gango
+	13	50725	5	12	-- Bez
+	14	50726	5	12	-- Grzyb Tue
+	15	50734	3	16	-- Perłowe Wiechy
+	16	70037	1	3	-- Księga Zapomnienia
+	17	50513	1	2	-- Kamień Duchowy
+	18	s10990	1	2	-- przetopy
+	19	s10991	1	2	-- ksiegi low
+	20	s10992	1	3	-- ksiegi medium
+	21	50309	1	12	-- Księga Misji (Trudna)
+	22	72731	1	0	-- Maska Sabaha
+	23	30370	1	2	-- Pozwolenie na Zaczar. Przedmiotu
+}
+Group LootBox_Pieklo
+{
+	Vnum	20707	-- Unknown Vnum
+	1	drain_hp	7000	6	-- bomba
+	2	poison	1	6	-- trucie
+	3	s10905	1	25	-- veryhigh yang
+	4	s50901	1	10	-- receptury
+	5	s10930	1	20	-- ulep pieklo
+	6	s10834	1	24	-- weapon high
+	7	s10824	1	24	-- armor high
+	8	s10844	1	24	-- jewelry high
+	9	s10815	1	12	-- subarmor high
+	10	50727	5	12	-- Róża Alpejska
+	11	50728	5	12	-- Morwa
+	12	50729	5	12	-- Mniszek Lekarski
+	13	s10994	1	8	-- unikatowe roslinki
+	14	70037	1	3	-- Księga Zapomnienia
+	15	50513	1	3	-- Kamień Duchowy
+	16	s10990	1	3	-- przetopy
+	17	s10992	1	1	-- ksiegi medium
+	18	50310	1	12	-- Księga Misji (ekspert)
+	19	70102	1	6	-- Fasolka zen
+	20	30370	1	3	-- Pozwolenie na Zaczar. Przedmiotu
+}
+Group LootBox_Las
+{
+	Vnum	20708	-- Unknown Vnum
+	1	drain_hp	8000	6	-- bomba
+	2	poison	1	6	-- trucie
+	3	s10905	1	30	-- veryhigh yang
+	4	s50901	1	10	-- receptury
+	5	s10931	1	8	-- ulep las
+	6	s10834	1	24	-- weapon high
+	7	s10835	1	10	-- weapon veryhigh
+	8	s10824	1	24	-- armor high
+	9	s10844	1	24	-- jewelry high
+	10	s10815	1	12	-- subarmor high
+	11	s10816	1	6	-- subarmor veryhigh
+	12	50727	5	10	-- Róża Alpejska
+	13	50728	5	10	-- Morwa
+	14	50729	5	10	-- Mniszek Lekarski
+	15	s10994	1	8	-- unikatowe roslinki
+	16	70037	1	2	-- Księga Zapomnienia
+	17	50513	1	4	-- Kamień Duchowy
+	18	s10990	1	2	-- przetopy
+	19	s10993	1	2	-- ksiegi high
+	20	50310	1	8	-- Księga Misji (ekspert)
+	21	70102	1	7	-- Fasolka zen
+	22	30370	1	4	-- Pozwolenie na Zaczar. Przedmiotu
+}
+Group LootBox_RedLas
+{
+	Vnum	20709	-- Unknown Vnum
+	1	drain_hp	9000	18	-- bomba
+	2	poison	1	18	-- trucie
+	3	s10905	1	90	-- veryhigh yang
+	4	s50901	1	27	-- receptury
+	5	s10931	1	20	-- ulep las
+	6	s10835	1	72	-- weapon veryhigh
+	7	s10825	1	72	-- armor veryhigh
+	8	s10845	1	72	-- jewelry veryhigh
+	9	s10815	1	36	-- subarmor high
+	10	s10816	1	18	-- subarmor veryhigh
+	11	50727	5	18	-- Róża Alpejska
+	12	50728	5	18	-- Morwa
+	13	50729	5	18	-- Mniszek Lekarski
+	14	s10994	1	18	-- unikatowe roslinki
+	15	70037	1	9	-- Księga Zapomnienia
+	16	50513	1	12	-- Kamień Duchowy
+	17	s10990	1	9	-- przetopy
+	18	s10993	1	9	-- ksiegi high
+	19	50310	1	24	-- Księga Misji (ekspert)
+	20	30370	1	16	-- Pozwolenie na Zaczar. Przedmiotu
+	21	30368	1	3	-- Pozwolenie na Wzmocn. Przedmiotu
+	22	70102	1	18	-- Fasolka zen
+}
+Group LootBox_Gigant
+{
+	Vnum	20710	-- Unknown Vnum
+	1	drain_hp	11000	2	-- bomba
+	2	poison	1	2	-- trucie
+	3	s10905	1	10	-- veryhigh yang
+	4	s10835	1	10	-- weapon veryhigh
+	5	s10825	1	10	-- armor veryhigh
+	6	s10845	1	10	-- jewelry veryhigh
+	7	s10817	1	6	-- subarmor veryhigh plus
+	8	s10994	1	4	-- unikatowe roslinki
+	9	70037	1	2	-- Księga Zapomnienia
+	10	50513	1	3	-- Kamień Duchowy
+	11	s10990	1	3	-- przetopy
+	12	s10993	1	4	-- ksiegi high
+	13	50310	1	4	-- Księga Misji (ekspert)
+	14	30372	1	1	-- Czarna Stal
+	15	s50902	1	4	-- super receptury
+	16	30370	1	2	-- Pozwolenie na Zaczar. Przedmiotu
+	17	30368	1	1	-- Pozwolenie na Wzmocn. Przedmiotu
+}
+Group QuestBook_Low
+{
+	Vnum	50307	-- Księga Misji (łatwa)
+	1	50300	1	25	-- Ksiega Umiejetnosci
+	2	s50901	1	12	-- receptury
+	3	s10921	1	100	-- ulep m1
+	4	s10831	1	33	-- weapon verylow
+	5	s10821	1	30	-- armor verylow
+	6	s10841	1	30	-- jewelry verylow
+	7	s10811	1	20	-- subarmor low
+	8	50721	10	12	-- Kwiat Brzoskwini
+	9	50722	10	12	-- Pokrzywa
+	10	50723	10	6	-- Kwiat Kaki
+	11	s10986	1	15	-- Losowy Kd +0 do +2
+	12	30376	1	2	-- Drewniany Klucz
+}
+Group QuestBook_Medium
+{
+	Vnum	50308	-- Księga Misji (normalna)
+	1	50300	1	30	-- Ksiega Umiejetnosci
+	2	s50901	1	20	-- receptury
+	3	s10991	1	10	-- Losowa_Ksiazka_Low
+	4	s10923	1	60	-- ulep m2
+	5	s10926	1	30	-- ulep dolina
+	6	s10928	1	10	-- ulep pustynia
+	7	s10832	1	17	-- weapon low
+	8	s10833	1	8	-- weapon medium
+	9	s10822	1	17	-- armor low
+	10	s10823	1	8	-- armor medium
+	11	s10842	1	17	-- jewelry low
+	12	s10843	1	8	-- jewelry medium
+	13	s10813	1	20	-- subarmor medium
+	14	50723	10	7	-- Kwiat Kaki
+	15	50724	10	7	-- Korzen Gango
+	16	50725	10	7	-- Bez
+	17	50733	5	6	-- Bursztynowy Platek
+	18	50735	5	6	-- Korzen Weza
+	19	50736	5	6	-- Jaskiniowy Grzyb
+	20	s10986	1	16	-- Losowy Kd +0 do +2
+	21	70037	1	5	-- Ksiega Zapomnienia
+	22	71282	1	0	-- Ekstraktor Skaz
+	23	30376	1	2	-- Unknown Item
+} 
+Group QuestBook_Hard
+{
+	Vnum	50309	-- Księga Misji (trudna)
+	1	50300	1	30	-- Ksiega Umiejetnosci
+	2	s50901	1	15	-- receptury
+	3	s10992	1	10	-- Losowa_Ksiazka_Medium
+	4	s10927	1	24	-- ulepy hwang
+	5	s10929	1	24	-- ulepy sohan
+	6	s10926	1	8	-- ulep dolina
+	7	s10932	1	8	-- ulepy demon
+	8	s10834	1	18	-- weapon high
+	9	s10824	1	18	-- armor high
+	10	s10844	1	18	-- jewelry high
+	11	s10815	1	10	-- subarmor high
+	12	50724	10	5	-- Korzen Gango
+	13	50725	10	5	-- Bez
+	14	50725	10	5	-- Grzyb Tue
+	15	50732	5	5	-- Sniezny Kwiat
+	16	50734	5	5	-- Perlowe Wiechy
+	17	s10987	1	15	-- Losowy Kd +0 do +3
+	18	70037	1	5	-- Ksiega Zapomnienia
+	19	71282	1	0	-- Ekstraktor Skaz
+	20	30370	1	15	-- Pozwolenie na Zaczar. Przedmiotu
+	21	s10990	1	2	-- przetopy
+	22	50513	1	4	-- Kamień Duchowy
+	23	25040	1	5	-- Zwój Błogosławieństwa
+	24	71201	1	1	-- Zwój Egzorcyzmu
+	25	s50902	1	5	-- super receptury
+}
+Group QuestBook_Expert
+{
+	Vnum	50310	-- Księga Misji (ekspert)
+	1	50300	1	40	-- Ksiega Umiejetnosci
+	2	s50901	1	20	-- receptury
+	3	s50902	1	10	-- super receptury
+	4	s10993	1	20	-- Losowa_Ksiazka_High
+	5	s10930	1	20	-- ulepy pieklo
+	6	s10931	1	10	-- ulepy las
+	7	s10932	1	30	-- ulepy demon
+	8	s10835	1	30	-- weapon very high
+	9	s10825	1	30	-- armor very high
+	10	s10845	1	30	-- jewelry very high
+	11	s10817	1	18	-- subarmor very high
+	12	50727	10	8	-- alpejska
+	13	50728	10	8	-- morwa
+	14	50729	10	8	-- mniszek lekarski
+	15	50730	5	7	-- oset
+	16	50731	5	7	-- gwiazda nocy
+	17	s10988	1	30	-- Losowy Kd +2 do +4
+	18	70037	1	10	-- Ksiega Zapomnienia
+	19	71282	1	0	-- Ekstraktor Skaz
+	20	30370	1	40	-- Pozwolenie na Zaczar. Przedmiotu
+	21	30368	1	10	-- Pozwolenie na Wzmocn. Przedmiotu
+	22	s10990	1	4	-- przetopy
+	23	50513	1	8	-- Kamień Duchowy
+	24	70102	2	15	-- fasolka zen
+	25	70038	20	5	-- Peleryna Męstwa
+	26	25040	1	8	-- Zwój Błogosławieństwa
+	27	71201	1	2	-- Zwój Egzorcyzmu
+	28	71094	1	1	-- Rada Pustelnika
+	29	71026	1	1	-- Magiczny Metal
+}
+Group	Herbs_M1
+{			
+	Vnum	10701	-- Unknown Vnum
+	1	50721	5	1	-- Kwiat Brzoskwini
+	2	50722	5	1	-- Pokrzywa
+}
+Group	Herbs_M2
+{			
+	Vnum	10702	-- Unknown Vnum
+	1	50721	5	2	-- Kwiat Brzoskwini
+	2	50722	5	2	-- Pokrzywa
+	3	50723	5	1	-- Kwiat Kaki
+}
+Group	Herbs_M3
+{			
+	Vnum	10703	-- Unknown Vnum
+	1	50721	5	3	-- Kwiat Brzoskwini
+	2	50722	5	3	-- Pokrzywa
+	3	50723	5	2	-- Kwiat Kaki
+	4	50724	5	1	-- Korzeń Gango
+}
+Group	Herbs_Orc
+{			
+	Vnum	10704	-- Unknown Vnum
+	1	50721	5	1	-- Kwiat Brzoskwini
+	2	50722	5	1	-- Pokrzywa
+	3	50723	5	1	-- Kwiat Kaki
+	4	50724	5	4	-- Korzeń Gango
+	5	50725	5	2	-- Bez
+	6	50733	3	1	-- Bursztynowy Płatek
+}
+Group	Herbs_Desert
+{			
+	Vnum	10705	-- Unknown Vnum
+	1	50721	5	1	-- Kwiat Brzoskwini
+	2	50722	5	1	-- Pokrzywa
+	3	50723	5	1	-- Kwiat Kaki
+	4	50724	5	4	-- Korzeń Gango
+	5	50725	5	2	-- Bez
+	6	50735	3	1	-- Korzeń Węża
+}
+Group	Herbs_Sohan
+{			
+	Vnum	10706	-- Unknown Vnum
+	1	50723	5	1	-- Kwiat Kaki
+	2	50724	5	1	-- Korzeń Gango
+	3	50725	5	4	-- Bez
+	4	50726	5	2	-- Grzyb Tue
+	5	50732	3	1	-- Śnieżny Kwiat
+}
+Group	Herbs_Temple
+{			
+	Vnum	10707	-- Unknown Vnum
+	1	50723	5	1	-- Kwiat Kaki
+	2	50724	5	1	-- Korzeń Gango
+	3	50725	5	5	-- Bez
+	4	50726	5	3	-- Grzyb Tue
+	5	50734	3	2	-- Perłowe Wiechy
+}
+Group	Herbs_Hell
+{			
+	Vnum	10708	-- Unknown Vnum
+	1	50723	5	1	-- Kwiat Kaki
+	2	50724	5	1	-- Korzeń Gango
+	3	50725	5	2	-- Bez
+	4	50726	5	3	-- Grzyb Tue
+	5	50727	5	4	-- Róża Alpejska
+	6	50728	5	4	-- Morwa
+	7	50729	5	4	-- Mniszek Lekarski
+}
+Group	Herbs_Forest
+{			
+	Vnum	10709	-- Unknown Vnum
+	1	50724	5	1	-- Korzeń Gango
+	2	50725	5	1	-- Bez
+	3	50726	5	1	-- Grzyb Tue
+	4	50727	5	4	-- Róża Alpejska
+	5	50728	5	2	-- Morwa
+}
+Group	Herbs_RedForest
+{			
+	Vnum	10710	-- Unknown Vnum
+	1	50725	5	1	-- Bez
+	2	50726	5	1	-- Grzyb Tue
+	3	50727	5	1	-- Róża Alpejska
+	4	50728	5	6	-- Morwa
+	5	50729	5	4	-- Mniszek Lekarski
+	6	50731	3	2	-- Gwiazda Nocy
+}
+Group	Herbs_Giant
+{			
+	Vnum	10711	-- Unknown Vnum
+	1	50728	5	1	-- Morwa
+	2	50729	5	1	-- Mniszek Lekarski
+	3	50730	5	4	-- Oset
+}
+Group	Potion_Staty_Low
+{
+	Vnum	10721	-- Unknown Vnum
+	1	51700	2	1	-- Pomarańczowy Sok
+	2	51705	2	1	-- Żółty Sok
+	3	51710	2	1	-- Cyjanowy Sok
+	4	51715	2	1	-- Niebieski Sok
+}
+Group	Potion_Bonusy_Low
+{
+	Vnum	10722	-- Unknown Vnum
+	1	51720	2	2	-- Zielony Sok
+	2	51725	2	2	-- Platynowy Sok
+	3	51735	2	2	-- Czerwony Sok
+	4	51740	2	2	-- Fioletowy Sok
+	5	51745	2	1	-- Karmazynowy Sok
+	6	51750	2	1	-- Szary Sok
+	7	27103	5	1
+	8	27100	5	1
+}
+Group	Potion_Low
+{
+	Vnum	10723	-- Unknown Vnum
+	1	s10721	1	2	-- Unknown Item
+	2	s10722	1	1	-- Unknown Item
+}
+Group	Potion_Staty_Medium
+{
+	Vnum	10724	-- Unknown Vnum
+	1	51701	2	1	-- Pomarańczowa Woda
+	2	51706	2	1	-- Żółta Woda
+	3	51711	2	1	-- Cyjanowa Woda
+	4	51716	2	1	-- Niebieska Woda
+}
+Group	Potion_Bonusy_Medium
+{
+	Vnum	10725	-- Unknown Vnum
+	1	51721	2	2	-- Zielona Woda
+	2	51726	2	2	-- Platynowa Woda
+	3	51736	2	2	-- Czerwona Woda
+	4	51741	2	2	-- Fioletowa Woda
+	5	51746	2	1	-- Karmazynowa Woda
+	6	51751	2	1	-- Szara Woda
+	7	27104	5	1
+	8	27101	5	1
+}
+Group	Potion_Medium
+{
+	Vnum	10726	-- Unknown Vnum
+	1	s10724	1	4	-- Unknown Item
+	2	s10725	1	2	-- Unknown Item
+	3	s10723	1	1	-- Unknown Item
+}
+Group	Potion_Staty_High
+{
+	Vnum	10727	-- Unknown Vnum
+	1	51702	2	1	-- Pomarańczowa Rosa
+	2	51707	2	1	-- Żółta Rosa
+	3	51712	2	1	-- Cyjanowa Rosa
+	4	51717	2	1	-- Niebieska Rosa
+}
+Group	Potion_Bonusy_High
+{
+	Vnum	10728	-- Unknown Vnum
+	1	51722	2	2	-- Zielona Rosa
+	2	51727	2	2	-- Platynowa Rosa
+	3	51737	2	2	-- Czerwona Rosa
+	4	51742	2	2	-- Fioletowa Rosa
+	5	51747	2	1	-- Karmazynowa Rosa
+	6	51752	2	1	-- Biała Rosa
+	7	27105	5	1
+	8	27102	5	1
+}
+Group	Potion_High
+{
+	Vnum	10729	-- Unknown Vnum
+	1	s10727	1	4	-- Unknown Item
+	2	s10728	1	2	-- Unknown Item
+	3	s10726	1	1	-- regresja
+}
+Group	Boss_LowTier
+{			
+	Vnum	10741	-- Unknown Vnum
+	1	25040 	1	20	-- Zwój błogosławieństwa
+	2	70038	1	15	-- Peleryna Męstwa
+	3	71282	1	0	-- Ekstraktor Skaz
+	4	s50901	1	10	-- Receptury
+	5	30370	1	12	-- Pozwolenie na Zaczar. Przedmiotu
+	6	30376	1	1	-- Drewniany Klucz
+	7	s10704	1	7	-- Herbs Dolina
+	8	s10834	1	45	-- weapon high
+	9	s10823	1	20	-- armor medium
+	10	50513	1	1	-- Kamień Duchowy
+	11	30373	1	3	-- Księga Erudyty
+}
+Group	Boss_MediumTier
+{			
+	Vnum	10742	-- Unknown Vnum
+	1	25040 	1	20	-- Zwój błogosławieństwa
+	2	70038	1	15	-- Peleryna Męstwa
+	3	71282	1	0	-- Ekstraktor Skaz
+	4	s50901	1	12	-- Receptury
+	5	30370	1	30	-- Pozwolenie na Zaczar. Przedmiotu
+	6	30373	1	5	-- Księga Erudyty
+	7	s10704	1	12	-- Herbs Dolina
+	8	s10834	1	44	-- weapon high
+	9	s10824	1	22	-- armor high
+	10	50513	1	5	-- Kamień Duchowy
+	11	70102	1	7	-- Fasolka Zen
+	12	71026	1	3	-- Magiczny Metal
+	13	s50902	1	3	-- super receptury
+}
+Group	Boss_HighTier
+{			
+	Vnum	10743	-- Unknown Vnum
+	1	25040 	1	22	-- Zwój błogosławieństwa
+	2	70038	1	15	-- Peleryna Męstwa
+	3	71282	1	0	-- Ekstraktor Skaz
+	4	s50901	1	15	-- Receptury
+	5	30370	1	32	-- Pozwolenie na Zaczar. Przedmiotu
+	6	30373	1	8	-- Księga Erudyty
+	7	30374	1	5	-- Pióro Mędrca
+	8	s10704	1	10	-- Herbs Dolina
+	9	s10835	1	44	-- weapon very high
+	10	s10825	1	21	-- armor very high
+	11	50513	1	5	-- Kamień Duchowy
+	12	70102	1	7	-- Fasolka Zen
+	13	71026	1	3	-- Magiczny Metal
+	14	s50902	1	5	-- super receptury
+	15	30368	1	5	-- Pozwolenie na Wzmocn. Przedmiotu
+	16	30375	1	5	-- Magiczna Ruda
+}
+Group	Boss_VeryHighTier
+{			
+	Vnum	10744	-- Unknown Vnum
+	1	25040 	1	22	-- Zwój błogosławieństwa
+	2	70038	1	15	-- Peleryna Męstwa
+	3	71282	1	0	-- Ekstraktor Skaz
+	4	s50901	1	15	-- Receptury
+	5	30370	1	32	-- Pozwolenie na Zaczar. Przedmiotu
+	6	30373	1	8	-- Księga Erudyty
+	7	30374	1	5	-- Pióro Mędrca
+	8	s10704	1	10	-- Herbs Dolina
+	9	s10836	1	44	-- weapon very high plus
+	10	s10826	1	21	-- armor very high plus
+	11	50513	1	5	-- Kamień Duchowy
+	12	70102	1	7	-- Fasolka Zen
+	13	71026	1	3	-- Magiczny Metal
+	14	s50902	1	5	-- super receptury
+	15	30368	1	5	-- Pozwolenie na Wzmocn. Przedmiotu
+	16	30375	1	5	-- Magiczna Ruda
+}
+Group	MiniBoss_VeryLowTier
+{			
+	Vnum	10750	-- Unknown Vnum
+	1	s50901	1	15	-- receptury
+	2	50300	1	20	-- KU
+	3	50307	1	15	-- Księga Misji Łatwa
+	4	s10831	1	75	-- weapon verylow
+	5	s10832	1	36	-- weapon low
+	6	s10821	1	36	-- armor verylow
+	7	s10841	1	32	-- jewelry verylow
+	8	s10811	1	20	-- subarmor low
+	9	s10702	1	30	-- herbs m2
+	10	30376	1	5	-- Drewniany Klucz
+}
+Group	MiniBoss_LowTier
+{			
+	Vnum	10751	-- Unknown Vnum
+	1	s50901	1	20	-- receptury
+	2	50300	1	30	-- KU
+	3	25040	1	5	-- Bodzio
+	4	70037	1	15	-- OZ
+	5	71282	1	0	-- Ekstraktor Skaz
+	6	30376	1	8	-- Drewniany Klucz
+	7	50308	1	16	-- Księga Misji Normalna
+	8	s10832	1	69	-- weapon low
+	9	s10833	1	37	-- weapon medium
+	10	s10822	1	34	-- armor low
+	11	s10823	1	18	-- armor medium
+	12	s10842	1	30	-- jewelry low
+	13	s10843	1	16	-- jewelry medium
+	14	s10812	1	21	-- subarmor lowplus
+	15	s10813	1	12	-- subarmor medium
+	16	s10703	1	35	-- herbs m3
+	17	s10923	1	30	-- ulepy m2
+	18	s10991	1	10	-- low ksiazki
+}
+Group	MiniBoss_MedTier
+{			
+	Vnum	10752	-- Unknown Vnum
+	1	s50901	1	25	-- receptury
+	2	50300	1	25	-- KU
+	3	25040	1	10	-- Bodzio
+	4	70037	1	15	-- OZ
+	5	71282	1	0	-- Ekstraktor Skaz
+	6	30376	1	8	-- Drewniany Klucz
+	7	50308	1	15	-- Księga Misji Normalna
+	8	30373	1	1	-- Ksiega Erudyty
+	9	70040	1	10	-- Upartość Orków
+	10	s10833	1	47	-- weapon medium
+	11	s10834	1	20	-- weapon high
+	12	s10823	1	36	-- armor medium
+	13	s10843	1	36	-- jewelry medium
+	14	s10813	1	22	-- subarmor medium
+	15	s10704	1	35	-- herbs dolina
+	16	s10924	1	30	-- ulepy dolina
+	17	s10991	1	10	-- low ksiazki
+	18	s10987	1	12	-- KD 0 do 3
+}
+Group	MiniBoss_HighTier
+{			
+	Vnum	10753	-- Unknown Vnum
+	1	s50901	1	30	-- receptury
+	2	s50902	1	6	-- super receptury
+	3	50300	1	25	-- KU
+	4	25040	1	16	-- Bodzio
+	5	70037	1	11	-- OZ
+	6	71282	1	0	-- Ekstraktor Skaz
+	7	30376	1	4	-- Drewniany Klucz
+	8	50309	1	16	-- Księga Misji Trudna
+	9	30373	1	2	-- Ksiega Erudyty
+	10	30374	1	1	-- Pióro Mędrca
+	11	30370	1	24	-- pozwolenie zmianka
+	12	70014	1	5	-- pigulka krwi
+	13	70042	1	6	-- zaczarowana rekawica
+	14	70102	1	12	-- fasolka zen
+	15	50513	1	5	-- Kamień Duchowy
+	16	s10834	1	45	-- weapon high
+	17	s10824	1	23	-- armor high
+	18	s10843	1	38	-- jewelry medium
+	19	s10844	1	18	-- jewelry high
+	20	s10815	1	15	-- subarmor high
+	21	s10992	1	10	-- med ksiazki
+	22	s10987	1	10	-- KD 0 do 3
+}
+Group	MiniBoss_HighTierPlus
+{
+	Vnum	10754	-- Unknown Vnum
+	1	s10753	1	96	-- MiniBoss_HighTier
+	2	30375	1	1	-- Magiczna Ruda
+	3	71026	1	2	-- Magiczny Metal
+	4	25100	1	1	-- Zwój Kamienia Duszy
+}
+Group	MiniBoss_VeryHighTier
+{
+	Vnum	10755	-- Unknown Vnum
+	1	s50901	1	35	-- receptury
+	2	s50902	1	10	-- super receptury
+	3	50300	1	25	-- KU
+	4	25040	1	16	-- Bodzio
+	5	71026	1	4	-- Magiczny Metal
+	6	70037	1	5	-- OZ
+	7	71282	1	0	-- Ekstraktor Skaz
+	8	50310	1	15	-- Księga Misji Ekspert
+	9	30373	1	3	-- Ksiega Erudyty
+	10	30374	1	2	-- Pióro Mędrca
+	11	30375	1	2	-- Magiczna Ruda
+	12	30370	1	28	-- pozwolenie zmianka
+	13	30368	1	2	-- pozwolenie dodanie
+	14	70014	1	5	-- pigulka krwi
+	15	70042	1	5	-- zaczarowana rekawica
+	16	70102	2	10	-- fasolka zen
+	17	50513	1	10	-- Kamień Duchowy
+	18	s10835	1	44	-- weapon veryhigh
+	19	s10825	1	21	-- armor veryhigh
+	20	s10845	1	20	-- jewelry veryhigh
+	21	s10819	1	15	-- SubArmor_VeryHighPack
+	22	s10993	1	10	-- high ksiazki
+	23	s10988	1	12	-- KD2 do 4
+	24	70038	1	5	-- Peleryna Męstwa
+	25	25100	1	3	-- Zwój Kamienia Duszy
+}
+Group	WorldBoss1
+{
+	Vnum	10761	-- Unknown Vnum
+	1	30368	1	6	-- Pozwolenie na Wzmocn. Przedmiotu
+	2	30370	2	10	-- Pozwolenie na Zaczar. Przedmiotu
+	3	s50901	1	10	-- receptury
+	4	s50902	1	6	-- super receptury
+	5	50300	1	8	-- Księga Umiejętności
+	6	25040	1	8	-- Zwój Błogosławieństwa
+	7	25045	1	10	-- Zwój Boga Smoków
+	8	25043	1	5	-- Podręcznik Kowala
+	9	50513	1	10	-- Kamień Duchowy
+	10	71282	1	0	-- Ekstraktor Skaz
+	11	30373	1	10	-- Księga Erudyty
+	12	30374	1	10	-- Pióro Mędrca
+	13	30375	1	10	-- Magiczna Ruda
+	14	70038	1	10	-- Peleryna Męstwa
+}
+Group	PustyniaSkrzynia
+{
+	Vnum	50217	-- Unknown Vnum
+	1	s50901	1	40	-- receptury
+	2	s50902	1	10	-- super receptury
+	3	50300	1	25	-- KU
+	4	25040	1	25	-- Bodzio
+	5	70037	1	10	-- OZ
+	6	71282	1	0	-- Ekstraktor Skaz
+	7	30376	1	4	-- Drewniany Klucz
+	8	50309	1	15	-- Księga Misji Trudna
+	9	30373	1	6	-- Ksiega Erudyty
+	10	30374	1	4	-- Pióro Mędrca
+	11	30370	1	24	-- pozwolenie zmianka
+	12	70014	1	5	-- pigulka krwi
+	13	70042	1	5	-- zaczarowana rekawica
+	14	70102	1	16	-- fasolka zen
+	15	50513	1	5	-- Kamień Duchowy
+	16	s10834	1	33	-- weapon high
+	17	s10824	1	16	-- armor high
+	18	s10843	1	27	-- jewelry medium
+	19	s10844	1	12	-- jewelry high
+	20	s10815	1	12	-- subarmor high
+	21	s10726	1	24	-- med potiony
+	22	s10992	1	8	-- med ksiazki
+	23	s10982	1	4	-- KD +2
+	24	s10983	1	4	-- KD +3
+	25	30368	1	1	-- pozwolenie dodanie
+	26	gold	250000	5
+}
+Group	OrcValleySkrzynia
+{			
+	Vnum	50218	-- Unknown Vnum
+	1	s50901	1	40	-- receptury
+	2	50300	1	30	-- KU
+	3	25040	1	25	-- Bodzio
+	4	70037	1	10	-- OZ
+	5	71282	1	0	-- Ekstraktor Skaz
+	6	30376	1	8	-- Drewniany Klucz
+	7	50308	1	15	-- Księga Misji Normalna
+	8	s10833	1	32	-- weapon medium
+	9	s10823	1	20	-- armor medium
+	10	s10842	1	15	-- jewelry low
+	11	s10843	1	7	-- jewelry medium
+	12	s10812	1	10	-- subarmor lowplus
+	13	s10813	1	5	-- subarmor medium
+	14	s10723	1	15	-- low potiony
+	15	s10703	1	15	-- herbs m3
+	16	s10923	1	15	-- ulepy m2
+	17	s10991	1	10	-- low ksiazki
+	18	s10982	1	4	-- KD +2
+	19	s10983	1	4	-- KD +3
+	20	gold	100000	4
+	21	70102	1	16	-- fasolka zen
+	22	50513	1	1	-- Kamień Duchowy
+	23	30370	1	3	-- pozwolenie zmianka
+}
+Group	InstrukcjeBody
+{
+	Vnum	50401
+	1	50401	1	1
+	2	50402	1	1
+	3	50403	1	1
+	4	50404	1	1
+	5	50405	1	1
+}
+Group	InstrukcjeMental
+{
+	Vnum	50402
+	1	50416	1	1
+	2	50417	1	1
+	3	50418	1	1
+	4	50419	1	1
+	5	50420	1	1
+}
+Group	InstrukcjeWojownik
+{
+	Vnum	50411
+	1	s50401	1	1
+	2	s50402	1	1
+}
+Group	InstrukcjeDagger
+{
+	Vnum	50403
+	1	50431	1	1
+	2	50432	1	1
+	3	50433	1	1
+	4	50434	1	1
+	5	50435	1	1
+}
+Group	InstrukcjeArcher
+{
+	Vnum	50404
+	1	50446	1	1
+	2	50447	1	1
+	3	50448	1	1
+	4	50449	1	1
+	5	50450	1	1
+}
+Group	InstrukcjeNinja
+{
+	Vnum	50412
+	1	s50403	1	1
+	2	s50404	1	1
+}
+Group	InstrukcjeWP
+{
+	Vnum	50405
+	1	50461	1	1
+	2	50462	1	1
+	3	50463	1	1
+	4	50464	1	1
+	5	50465	1	1
+	6	50466	1	1
+}
+Group	InstrukcjeBM
+{
+	Vnum	50406
+	1	50476	1	1
+	2	50477	1	1
+	3	50478	1	1
+	4	50479	1	1
+	5	50480	1	1
+	6	50481	1	1
+}
+Group	InstrukcjeSura
+{
+	Vnum	50413
+	1	s50405	1	1
+	2	s50406	1	1
+}
+Group	InstrukcjeSmok
+{
+	Vnum	50407
+	1	50491	1	1
+	2	50492	1	1
+	3	50493	1	1
+	4	50494	1	1
+	5	50495	1	1
+	6	50496	1	1
+}
+Group	InstrukcjeHealer
+{
+	Vnum	50408
+	1	50506	1	1
+	2	50507	1	1
+	3	50508	1	1
+	4	50509	1	1
+	5	50510	1	1
+	6	50511	1	1
+}
+Group	InstrukcjeSzaman
+{
+	Vnum	50414
+	1	s50407	1	1
+	2	s50408	1	1
+}
+Group	Sub_Armor_&Armor_Pack_Very_low
+{
+	Vnum	50501
+	1	s10811	1	1	--SubArmor_Low
+	2	s10821	1	1	--Armor_VeryLow
+}
+Group	InstrukcjeSzaman
+{
+	Vnum	50414
+	1	s50407	1	1
+	2	s50408	1	1
+}
+Group	Shop_StarszaPani_Item61
+{
+	Vnum	71069
+	1	30003	8	8	-- Nos Świni
+	2	30004	8	8	-- Ząb Dzika
+	3	30010	5	8	-- Żółć Niedźwiedzia
+	4	30023	5	8	-- Futro Białego Tygrysa
+	5	30027	8	8	-- Futro Wilka
+	6	30028	5	8	-- Szpon Wilka
+	7	30037	8	8	-- Szpon Tygrysa
+	8	30038	10	8	-- Skóra Tygrysa
+	9	30053	6	8	-- Niedźwiedzia Skóra
+	10	30069	5	8	-- Szpon Wilka+
+	11	30070	10	8	-- Futro Wilka+
+	12	30071	6	8	-- Żółć Niedźwiedzia+
+	13	30072	6	8	-- Niedźwiedzia Skóra+
+	14	30346	5	8	-- Niedzwiedzina
+	15	30347	5	8	-- Gourou
+	16	30353	5	8	-- Wieprzowina
+	17	30011	5	8	-- Kłąb
+	18	30017	5	8	-- Ozdobna Spinka Do Włosów
+	19	30018	5	8	-- Czerwona Wstęga
+	20	30031	8	8	-- Ornament
+	21	30034	8	8	-- Biała Wstęga
+	22	30035	5	8	-- Krem Do Twarzy
+	23	30073	5	8	-- Biała Wstęga+
+	24	30356	5	8	-- Waleczna Dusza
+	25	30005	5	8	-- Kawałek Zepsutej Zbroi
+	26	30021	5	8	-- Kawałek Klejnotu
+	27	30030	5	8	-- Zardzewiałe Ostrze
+	28	30032	5	8	-- Czarny Uniform
+	29	30033	10	8	-- Stłuczona Porcelana
+	30	30041	5	8	-- Shuriken
+	31	30052	5	8	-- Flaga
+	32	30074	5	8	-- Czarny Uniform+
+	33	30075	5	1	-- Shuriken+
+	34	30092	5	8	-- Zdobycz Dzikusa
+	35	30357	5	3	-- Amulet wojownika
+	36	30007	5	4	-- Amulet Orka
+	37	30076	8	4	-- Amulet Orka+
+	38	30352	5	4	-- Orkowe Jądra
+	39	30006	5	4	-- Ząb Orka
+	40	30077	5	4	-- Ząb Orka+
+	41	30008	5	8	-- Ezoteryczny Przewodnik
+	42	30078	8	8	-- Ezoteryczny Przewodnik+
+	43	30051	5	8	-- Nieznany Talizman
+	44	30079	5	8	-- Nieznany Talizman+
+	45	30047	5	2	-- Księga Klątw
+	46	30040	5	2	-- Liść
+	47	30060	5	2	-- Język Żaby
+	48	30061	5	2	-- Żabie Udka
+	49	30080	5	2	-- Księga Klątw+
+	50	30344	5	2	-- Wysuszone Oczy
+	51	30345	5	1	-- Ezoteryczne Drewno
+	52	30022	5	2	-- Ogon Węża
+	53	30025	5	2	-- Worek z Pajęczą Trucizną
+	54	30045	5	2	-- Igła Skorpiona
+	55	30046	6	4	-- Ogon Skorpiona
+	56	30081	5	2	-- Ogon Skorpiona+
+	57	30055	5	2	-- Szpon Skorpiona
+	58	30056	5	2	-- Pajęcza Sieć
+	59	30057	8	4	-- Oczy Pająka
+	60	30058	5	2	-- Worek Z Pajęcz. Jajami
+	61	30059	5	1	-- Nogi Pająka
+	62	30067	5	2	-- Skóra Węża
+	63	30359	5	2	-- Piasek Pustyni
+	64	30082	5	1	-- Ogon Węża+
+	65	30009	5	2	-- Nieznane Lekarstwo
+	66	30014	5	2	-- Futro Yeti
+	67	30039	5	2	-- Kawałek Płótna
+	68	30048	5	2	-- Kawałek Lodu
+	69	30049	5	2	-- Lodowy Róg Wieloryba
+	70	30050	5	2	-- Matowy Lód
+	71	30083	5	2	-- Nieznane Lekarstwo+
+	72	30085	5	2	-- Kawałek Płótna+
+	73	30088	5	2	-- Kawałek Lodu+
+	74	30089	5	2	-- Futro Yeti+
+	75	30090	5	2	-- Matowy Lód+
+	76	30348	5	2	-- Lodowata Maź
+	77	30355	5	2	-- Zgniłe Mięso
+	78	30019	5	1	-- Płonąca Grzywa
+	79	30042	5	1	-- Pazur Tygrysa
+	80	30091	5	1	-- Symbol Wojownika
+	81	30367	5	1	-- Łuski Smoka
+	82	30015	5	1	-- Pamiątka Po Demonie
+	83	30087	5	1	-- Klejnot Demona+
+	84	30016	5	1	-- Klejnot Demona
+	85	30086	5	1	-- Pamiątka Po Demonie+
+	86	30343	5	1	-- Mięso Demona
+}
+Group	Shop_DevilTower_Item71
+{
+	Vnum	30377
+	1	30003	3	8	-- Nos Świni
+	2	30004	3	8	-- Ząb Dzika
+	3	30010	3	8	-- Żółć Niedźwiedzia
+	4	30023	3	8	-- Futro Białego Tygrysa
+	5	30027	3	8	-- Futro Wilka
+	6	30028	3	8	-- Szpon Wilka
+	7	30037	3	8	-- Szpon Tygrysa
+	8	30038	3	8	-- Skóra Tygrysa
+	9	30053	3	8	-- Niedźwiedzia Skóra
+	10	30069	3	8	-- Szpon Wilka+
+	11	30070	3	8	-- Futro Wilka+
+	12	30071	3	8	-- Żółć Niedźwiedzia+
+	13	30072	3	8	-- Niedźwiedzia Skóra+
+	14	30346	3	8	-- Dziczyzna
+	15	30347	3	8	-- Gourou
+	16	30353	3	8	-- Wieprzowina
+	17	30011	3	8	-- Kłąb
+	18	30017	3	8	-- Ozdobna Spinka Do Włosów
+	19	30018	3	8	-- Czerwona Wstęga
+	20	30031	3	8	-- Ornament
+	21	30034	3	8	-- Biała Wstęga
+	22	30035	3	8	-- Krem Do Twarzy
+	23	30073	3	8	-- Biała Wstęga+
+	24	30356	3	8	-- Waleczna Dusza
+	25	30005	3	8	-- Kawałek Zepsutej Zbroi
+	26	30021	3	8	-- Kawałek Klejnotu
+	27	30030	3	8	-- Zardzewiałe Ostrze
+	28	30032	3	8	-- Czarny Uniform
+	29	30033	3	8	-- Stłuczona Porcelana
+	30	30041	3	8	-- Shuriken
+	31	30052	3	8	-- Flaga
+	32	30074	3	8	-- Czarny Uniform+
+	33	30075	3	1	-- Shuriken+
+	34	30092	3	8	-- Zdobycz Dzikusa
+	35	30357	3	3	-- Amulet wojownika
+	36	30007	3	4	-- Amulet Orka
+	37	30076	3	4	-- Amulet Orka+
+	38	30352	3	4	-- Orkowe Jądra
+	39	30006	3	4	-- Ząb Orka
+	40	30077	3	4	-- Ząb Orka+
+	41	30008	3	8	-- Ezoteryczny Przewodnik
+	42	30078	3	8	-- Ezoteryczny Przewodnik+
+	43	30051	3	8	-- Nieznany Talizman
+	44	30079	3	8	-- Nieznany Talizman+
+	45	30047	3	2	-- Księga Klątw
+	46	30040	3	2	-- Liść
+	47	30060	3	2	-- Język Żaby
+	48	30061	3	2	-- Żabie Udka
+	49	30080	3	2	-- Księga Klątw+
+	50	30344	3	2	-- Wysuszone Oczy
+	51	30345	3	1	-- Ezoteryczne Drewno
+	52	30022	3	2	-- Ogon Węża
+	53	30025	3	2	-- Worek z Pajęczą Trucizną
+	54	30045	3	2	-- Igła Skorpiona
+	55	30046	3	4	-- Ogon Skorpiona
+	56	30081	3	2	-- Ogon Skorpiona+
+	57	30055	3	2	-- Szpon Skorpiona
+	58	30056	3	2	-- Pajęcza Sieć
+	59	30057	3	4	-- Oczy Pająka
+	60	30058	3	2	-- Worek Z Pajęcz. Jajami
+	61	30059	3	1	-- Nogi Pająka
+	62	30067	3	2	-- Skóra Węża
+	63	30359	3	2	-- Piasek Pustyni
+	64	30082	3	1	-- Ogon Węża+
+	65	30009	3	2	-- Nieznane Lekarstwo
+	66	30014	3	2	-- Futro Yeti
+	67	30039	3	2	-- Kawałek Płótna
+	68	30048	3	2	-- Kawałek Lodu
+	69	30049	3	2	-- Lodowy Róg Wieloryba
+	70	30050	3	2	-- Matowy Lód
+	71	30083	3	2	-- Nieznane Lekarstwo+
+	72	30085	3	2	-- Kawałek Płótna+
+	73	30088	3	2	-- Kawałek Lodu+
+	74	30089	3	2	-- Futro Yeti+
+	75	30090	3	2	-- Matowy Lód+
+	76	30348	3	2	-- Lodowata Maź
+	77	30355	3	2	-- Zgniłe Mięso
+	78	30019	3	1	-- Płonąca Grzywa
+	79	30042	3	1	-- Pazur Tygrysa
+	80	30091	3	1	-- Symbol Wojownika
+	81	30367	3	1	-- Łuski Smoka
+	82	30015	3	1	-- Pamiątka Po Demonie
+	83	30087	3	1	-- Klejnot Demona+
+	84	30016	3	1	-- Klejnot Demona
+	85	30086	3	1	-- Pamiątka Po Demonie+
+	86	30343	3	1	-- Mięso Demona
+}
+Group	CungMok_Ulepszacz
+{
+	Vnum	151
+	1	30347	1	1
+	2	30069	1	1
+	3	30027	1	1
+}
+Group	MuRang_Ulepszacz
+{
+	Vnum	152
+	1	30028	1	1
+	2	30070	1	1
+	3	30347	1	1
+}
+Group	JugHyul_Ulepszacz
+{
+	Vnum	153
+	1	30003	1	1
+	2	30004	1	1
+	3	30353	1	1
+}
+Group	YoungJi_Ulepszacz
+{
+	Vnum	154
+	1	30010	1	1
+	2	30053	1	1
+	3	30346	1	1
+}
+Group	LiAn_Ulepszacz
+{
+	Vnum	155
+	1	30023	1	1
+	2	30037	1	1
+}
+Group	Metin_5lvl_Trash
+{
+	Vnum	8001
+	1	20	1	20	-- Długi Miecz+0
+	2	4000	1	20	-- Amija+0
+	3	3010	1	20	-- Włócznia+0
+	4	2010	1	20	-- Długi Łuk+0
+	5	7010	1	20	-- Żelazny Wachlarz+0
+	6	11200	1	20	-- Mnisia Zbr. Płyt.+0
+	7	11400	1	20	-- Błękitne Ubranie+0
+	8	11600	1	20	-- Żałobna Zbr. Płyt.+0
+	9	22	1	15	-- Długi Miecz+2
+	10	4002	1	15	-- Amija+2
+	11	3012	1	15	-- Włócznia+2
+	12	2012	1	15	-- Długi Łuk+2
+	13	7012	1	15	-- Żelazny Wachlarz+2
+	14	11202	1	15	-- Mnisia Zbr. Płyt.+2
+	15	11402	1	15	-- Błękitne Ubranie+2
+	16	11602	1	15	-- Żałobna Zbr. Płyt.+2
+	17	11802	1	15	-- Błękitna Szata+2
+}
+Group	Metin_10lvl_Trash
+{
+	Vnum	8002
+	1	5000	1	20	-- Miedziany Dzwon+0
+	2	11210	1	20	-- Żelazna Zbr. Płyt.+0
+	3	11410	1	20	-- Kremowe Ubranie+0
+	4	11610	1	20	-- Burzowa Zbroj. Płyt.+0
+	5	11810	1	20	-- Turkusowa Szata+0
+	6	30	1	20	-- Sejmitar+0
+	7	1010	1	20	-- Sztylet Kobry+0
+	8	3020	1	20	-- Gilotynowe Ostrze+0
+	9	2020	1	20	-- Kompozytowy Łuk+0
+	10	7020	1	20	-- Wachlarz Czarn. Tygr.+0
+	11	5001	1	15	-- Miedziany Dzwon+1
+	12	11211	1	15	-- Żelazna Zbr. Płyt.+1
+	13	11411	1	15	-- Kremowe Ubranie+1
+	14	11611	1	15	-- Burzowa Zbroj. Płyt.+1
+	15	11811	1	15	-- Turkusowa Szata+1
+	16	31	1	15	-- Sejmitar+1
+	17	1011	1	15	-- Sztylet Kobry+1
+	18	3021	1	15	-- Gilotynowe Ostrze+1
+	19	2021	1	15	-- Kompozytowy Łuk+1
+	20	7021	1	15	-- Wachlarz Czarn. Tygr.+1
+	21	5002	1	10	-- Miedziany Dzwon+2
+	22	11212	1	10	-- Żelazna Zbr. Płyt.+2
+	23	11412	1	10	-- Kremowe Ubranie+2
+	24	11612	1	10	-- Burzowa Zbroj. Płyt.+2
+	25	11812	1	10	-- Turkusowa Szata+2
+	26	32	1	5	-- Sejmitar+2
+	27	1012	1	5	-- Sztylet Kobry+2
+	28	3022	1	5	-- Gilotynowe Ostrze+2
+	29	2022	1	5	-- Kompozytowy Łuk+2
+	30	7022	1	5	-- Wachlarz Czarn. Tygr.+2
+}
+Group	Metin_15lvl_Trash
+{
+	Vnum	8003
+	1	40	1	20	-- Stożkowy Miecz+0
+	2	4010	1	20	-- Dziewięć Ostrzy+0
+	3	3030	1	20	-- Pajęcza Włócznia+0
+	4	2030	1	20	-- Bojowy Łuk+0
+	5	7030	1	20	-- Żurawi Wachlarz+0
+	6	5011	1	20	-- Srebrny Dzwon+1
+	7	11210	1	20	-- Żelazna Zbr. Płyt.+0
+	8	11410	1	20	-- Kremowe Ubranie+0
+	9	11610	1	20	-- Burzowa Zbroj. Płyt.+0
+	10	11810	1	20	-- Turkusowa Szata+0
+	11	41	1	10	-- Stożkowy Miecz+1
+	12	4011	1	10	-- Dziewięć Ostrzy+1
+	13	3031	1	10	-- Pajęcza Włócznia+1
+	14	2031	1	10	-- Bojowy Łuk+1
+	15	7031	1	10	-- Żurawi Wachlarz+1
+	16	5010	1	10	-- Srebrny Dzwon+0
+	17	11211	1	15	-- Żelazna Zbr. Płyt.+1
+	18	11411	1	15	-- Kremowe Ubranie+1
+	19	11611	1	15	-- Burzowa Zbroj. Płyt.+1
+	20	11811	1	15	-- Turkusowa Szata+1
+	21	42	1	5	-- Stożkowy Miecz+2
+	22	4012	1	5	-- Dziewięć Ostrzy+2
+	23	3032	1	5	-- Pajęcza Włócznia+2
+	24	2032	1	5	-- Bojowy Łuk+2
+	25	7032	1	5	-- Żurawi Wachlarz+2
+	26	5011	1	5	-- Srebrny Dzwon+1
+	27	11212	1	10	-- Żelazna Zbr. Płyt.+2
+	28	11412	1	10	-- Kremowe Ubranie+2
+	29	11612	1	10	-- Burzowa Zbroj. Płyt.+2
+	30	11812	1	10	-- Turkusowa Szata+2
+}
+Group	Metin_20lvl_Trash
+{
+	Vnum	8004
+	1	50	1	20	-- Szeroki Miecz+0
+	2	1020	1	20	-- Sztylet Nożycowy+0
+	3	3040	1	20	-- Gizarma+0
+	4	2040	1	20	-- Długi Łuk Jeźdźcy+0
+	5	5021	1	20	-- Złoty Dzwon+1
+	6	7041	1	20	-- Pawi Wachlarz+1
+	7	51	1	15	-- Szeroki Miecz+1
+	8	1021	1	15	-- Sztylet Nożycowy+1
+	9	3041	1	15	-- Gizarma+1
+	10	2041	1	15	-- Długi Łuk Jeźdźcy+1
+	11	5020	1	15	-- Złoty Dzwon+0
+	12	7041	1	15	-- Pawi Wachlarz+1
+	13	52	1	10	-- Szeroki Miecz+2
+	14	1022	1	10	-- Sztylet Nożycowy+2
+	15	3042	1	10	-- Gizarma+2
+	16	2042	1	10	-- Długi Łuk Jeźdźcy+2
+	17	5021	1	10	-- Złoty Dzwon+1
+	18	7041	1	10	-- Pawi Wachlarz+1
+	19	11220	1	15	-- Zbr. Płyt. Tygrysa+0
+	20	11420	1	15	-- Czerwone Ubranie+0
+	21	11620	1	15	-- Nieszczęsna Zbr. Płyt.+0
+	22	11820	1	15	-- Różowa Szata+0
+	23	11221	1	10	-- Zbr. Płyt. Tygrysa+1
+	24	11421	1	10	-- Czerwone Ubranie+1
+	25	11621	1	10	-- Nieszczęsna Zbr. Płyt.+1
+	26	11821	1	10	-- Różowa Szata+1
+}
+Group	Metin_20lvl_Trash_M3
+{
+	Vnum	8028
+	1	60	1	20	-- Srebrny Miecz+0
+	2	4020	1	20	-- Krótki Nóż+0
+	3	3050	1	20	-- Kosa Bojowa+0
+	4	2050	1	20	-- Bojowy Łuk Jeźdźcy+0
+	5	7050	1	20	-- Wodny Wachlarz+0
+	6	61	1	15	-- Srebrny Miecz+1
+	7	4021	1	15	-- Krótki Nóż+1
+	8	3051	1	15	-- Kosa Bojowa+1
+	9	2051	1	15	-- Bojowy Łuk Jeźdźcy+1
+	10	7051	1	15	-- Wodny Wachlarz+1
+	11	62	1	10	-- Srebrny Miecz+2
+	12	4022	1	10	-- Krótki Nóż+2
+	13	3052	1	10	-- Kosa Bojowa+2
+	14	2052	1	10	-- Bojowy Łuk Jeźdźcy+2
+	15	7052	1	10	-- Wodny Wachlarz+2
+	16	11220	1	20	-- Zbr. Płyt. Tygrysa+0
+	17	11420	1	20	-- Czerwone Ubranie+0
+	18	11620	1	20	-- Nieszczęsna Zbr. Płyt.+0
+	19	11820	1	20	-- Różowa Szata+0
+	20	11221	1	15	-- Zbr. Płyt. Tygrysa+1
+	21	11421	1	15	-- Czerwone Ubranie+1
+	22	11621	1	15	-- Nieszczęsna Zbr. Płyt.+1
+	23	11821	1	15	-- Różowa Szata+1
+	24	11222	1	10	-- Zbr. Płyt. Tygrysa+2
+	25	11422	1	10	-- Czerwone Ubranie+2
+	26	11622	1	10	-- Nieszczęsna Zbr. Płyt.+2
+	27	11822	1	10	-- Różowa Szata+2
+}
+Group	Metin_25lvl_Trash
+{
+	Vnum	8005
+	1	60	1	20	-- Srebrny Miecz+0
+	2	4020	1	20	-- Krótki Nóż+0
+	3	3050	1	20	-- Kosa Bojowa+0
+	4	2050	1	20	-- Bojowy Łuk Jeźdźcy+0
+	5	7050	1	20	-- Wodny Wachlarz+0
+	6	61	1	15	-- Srebrny Miecz+1
+	7	4021	1	15	-- Krótki Nóż+1
+	8	3051	1	15	-- Kosa Bojowa+1
+	9	2051	1	15	-- Bojowy Łuk Jeźdźcy+1
+	10	7051	1	15	-- Wodny Wachlarz+1
+	11	62	1	10	-- Srebrny Miecz+2
+	12	4022	1	10	-- Krótki Nóż+2
+	13	3052	1	10	-- Kosa Bojowa+2
+	14	2052	1	10	-- Bojowy Łuk Jeźdźcy+2
+	15	7052	1	10	-- Wodny Wachlarz+2
+	16	11220	1	20	-- Zbr. Płyt. Tygrysa+0
+	17	11420	1	20	-- Czerwone Ubranie+0
+	18	11620	1	20	-- Nieszczęsna Zbr. Płyt.+0
+	19	11820	1	20	-- Różowa Szata+0
+	20	11221	1	15	-- Zbr. Płyt. Tygrysa+1
+	21	11421	1	15	-- Czerwone Ubranie+1
+	22	11621	1	15	-- Nieszczęsna Zbr. Płyt.+1
+	23	11821	1	15	-- Różowa Szata+1
+	24	11222	1	10	-- Zbr. Płyt. Tygrysa+2
+	25	11422	1	10	-- Czerwone Ubranie+2
+	26	11622	1	10	-- Nieszczęsna Zbr. Płyt.+2
+	27	11822	1	10	-- Różowa Szata+2
+}
+Group	Metin_30lvl_Trash
+{
+	Vnum	8006
+	1	70	1	20	-- Miecz Storczykowy+0
+	2	1030	1	20	-- Nóż Szczęścia+0
+	3	3060	1	20	-- Trójząb+0
+	4	2060	1	20	-- Miedziany Łuk+0
+	5	7060	1	20	-- Kamienny Wachlarz+0
+	6	5030	1	20	-- Jadeitowy Dzwon+0
+	7	71	1	15	-- Miecz Storczykowy+1
+	8	1031	1	15	-- Nóż Szczęścia+1
+	9	3061	1	15	-- Trójząb+1
+	10	2061	1	15	-- Miedziany Łuk+1
+	11	7061	1	15	-- Kamienny Wachlarz+1
+	12	5030	1	20	-- Jadeitowy Dzwon+0
+	13	11230	1	20	-- Lwia Zbroja Płytowa+0
+	14	11430	1	20	-- Czer. Ubranie Mrówki+0
+	15	11630	1	20	-- Upiorna Zbroja Płyt.+0
+	16	11830	1	20	-- Miłosna Szata+0
+	17	72	1	10	-- Miecz Storczykowy+2
+	18	1032	1	10	-- Nóż Szczęścia+2
+	19	3062	1	10	-- Trójząb+2
+	20	2062	1	10	-- Miedziany Łuk+2
+	21	7062	1	10	-- Kamienny Wachlarz+2
+	22	5031	1	10	-- Jadeitowy Dzwon+1
+	23	11231	1	10	-- Lwia Zbroja Płytowa+1
+	24	11431	1	10	-- Czer. Ubranie Mrówki+1
+	25	11631	1	10	-- Upiorna Zbroja Płyt.+1
+	26	11831	1	10	-- Miłosna Szata+1
+}
+Group	Metin_35lvl_Trash
+{
+	Vnum	8007
+	1	11230	1	20	-- Lwia Zbroja Płytowa+0
+	2	11430	1	20	-- Czer. Ubranie Mrówki+0
+	3	11630	1	20	-- Upiorna Zbroja Płyt.+0
+	4	11830	1	20	-- Miłosna Szata+0
+	5	80	1	20	-- Miecz Półtoraręczny+0
+	6	1040	1	20	-- Ukąszenie Kota+0
+	7	3070	1	20	-- Halabarda+0
+	8	2070	1	20	-- Łuk Czarnych Ruin+0
+	9	7070	1	20	-- Oceaniczny Wachlarz+0
+	10	5040	1	20	-- Dzwon Fontanny+0
+	11	11231	1	15	-- Lwia Zbroja Płytowa+1
+	12	11431	1	15	-- Czer. Ubranie Mrówki+1
+	13	11631	1	15	-- Upiorna Zbroja Płyt.+1
+	14	11831	1	15	-- Miłosna Szata+1
+	15	81	1	15	-- Miecz Półtoraręczny+1
+	16	1041	1	15	-- Ukąszenie Kota+1
+	17	3071	1	15	-- Halabarda+1
+	18	2071	1	15	-- Łuk Czarnych Ruin+1
+	19	7071	1	15	-- Oceaniczny Wachlarz+1
+	20	5041	1	15	-- Dzwon Fontanny+1
+	21	11232	1	10	-- Lwia Zbroja Płytowa+2
+	22	11432	1	10	-- Czer. Ubranie Mrówki+2
+	23	11632	1	10	-- Upiorna Zbroja Płyt.+2
+	24	11832	1	10	-- Miłosna Szata+2
+}
+Group	Metin_40lvl_Trash
+{
+	Vnum	8008
+	1	11240	1	20	-- Śmiert. Zbroja Płytowa+0
+	2	11440	1	20	-- Ubranie Lwiej Mrówki+0
+	3	11640	1	20	-- Zbroja Płyt. Yin-Yang+0
+	4	11840	1	20	-- Szata Zach. Nieba+0
+	5	90	1	20	-- Miecz Barbarzyńcy+0
+	6	1050	1	20	-- Twarz Diabła+0
+	7	3080	1	20	-- Olbrz. Topór+0
+	8	2080	1	20	-- Łuk Czerwonego Oka+0
+	9	7080	1	20	-- Żądłowy Wachlarz+0
+	10	5050	1	20	-- Morelowy Dzwon+0
+	11	11241	1	15	-- Śmiert. Zbroja Płytowa+1
+	12	11441	1	15	-- Ubranie Lwiej Mrówki+1
+	13	11641	1	15	-- Zbroja Płyt. Yin-Yang+1
+	14	11841	1	15	-- Szata Zach. Nieba+1
+	15	91	1	15	-- Miecz Barbarzyńcy+1
+	16	1051	1	15	-- Twarz Diabła+1
+	17	3081	1	15	-- Olbrz. Topór+1
+	18	2081	1	15	-- Łuk Czerwonego Oka+1
+	19	7081	1	15	-- Żądłowy Wachlarz+1
+	20	5051	1	15	-- Morelowy Dzwon+1
+	21	11242	1	10	-- Śmiert. Zbroja Płytowa+2
+	22	11442	1	10	-- Ubranie Lwiej Mrówki+2
+	23	11642	1	10	-- Zbroja Płyt. Yin-Yang+2
+	24	11842	1	10	-- Szata Zach. Nieba+2
+}
+Group	Metin_45lvl_Trash
+{
+	Vnum	8009
+	1	5050	1	20	-- Morelowy Dzwon+0
+	2	100	1	20	-- Krwawy Miecz+0
+	3	1060	1	20	-- Sztylet Pięści Diab.+0
+	4	2090	1	20	-- Łuk Kolczastego Liś.+0
+	5	7090	1	20	-- Wachlarz Feniksa+0
+	6	5051	1	20	-- Morelowy Dzwon+1
+	7	11250	1	15	-- Smocza Zbroja Płytowa+0
+	8	11450	1	15	-- Ubranie Zabójcy+0
+	9	11650	1	15	-- Mistyczna Zbroja Płyt.+0
+	10	11850	1	15	-- Szata Słońca+0
+	11	101	1	15	-- Krwawy Miecz+1
+	12	1061	1	15	-- Sztylet Pięści Diab.+1
+	13	2091	1	15	-- Łuk Kolczastego Liś.+1
+	14	7091	1	15	-- Wachlarz Feniksa+1
+	15	5052	1	15	-- Morelowy Dzwon+2
+	16	11251	1	15	-- Smocza Zbroja Płytowa+1
+	17	11451	1	15	-- Ubranie Zabójcy+1
+	18	11651	1	15	-- Mistyczna Zbroja Płyt.+1
+	19	11851	1	15	-- Szata Słońca+1
+	20	102	1	10	-- Krwawy Miecz+2
+	21	1062	1	10	-- Sztylet Pięści Diab.+2
+	22	2092	1	10	-- Łuk Kolczastego Liś.+2
+	23	7092	1	10	-- Wachlarz Feniksa+2
+	24	11252	1	10	-- Smocza Zbroja Płytowa+2
+	25	11452	1	10	-- Ubranie Zabójcy+2
+	26	11652	1	10	-- Mistyczna Zbroja Płyt.+2
+	27	11852	1	10	-- Szata Słońca+2
+}
+Group	Metin_50lvl_Trash
+{
+	Vnum	8010
+	1	11250	1	20	-- Smocza Zbroja Płytowa+0
+	2	11450	1	20	-- Ubranie Zabójcy+0
+	3	11650	1	20	-- Mistyczna Zbroja Płyt.+0
+	4	11850	1	20	-- Szata Słońca+0
+	5	110	1	20	-- Wielki Miecz+0
+	6	1070	1	20	-- Krwawy Sztylet+0
+	7	2100	1	20	-- Łuk z rogu byka+0
+	8	7100	1	20	-- Potrójny Wachlarz+0
+	9	5060	1	20	-- Magiczny Dzwon+0
+	10	11251	1	15	-- Smocza Zbroja Płytowa+1
+	11	11451	1	15	-- Ubranie Zabójcy+1
+	12	11651	1	15	-- Mistyczna Zbroja Płyt.+1
+	13	11851	1	15	-- Szata Słońca+1
+	14	111	1	15	-- Wielki Miecz+1
+	15	1071	1	15	-- Krwawy Sztylet+1
+	16	2101	1	15	-- Łuk z rogu byka+1
+	17	7101	1	15	-- Potrójny Wachlarz+1
+	18	5061	1	15	-- Magiczny Dzwon+1
+	19	11252	1	10	-- Smocza Zbroja Płytowa+2
+	20	11452	1	10	-- Ubranie Zabójcy+2
+	21	11652	1	10	-- Mistyczna Zbroja Płyt.+2
+	22	11852	1	10	-- Szata Słońca+2
+}
+Group	Metin_55lvl_Trash
+{
+	Vnum	8011
+	1	120	1	30	-- Miecz Lat. Maga+0
+	2	1080	1	30	-- Żebrowy Nóż+0
+	3	2110	1	30	-- Łuk Jednorożca+0
+	4	7110	1	30	-- Brwisty Wachlarz+0
+	5	5070	1	30	-- Złoty Robaczy Dzwon+0
+	6	121	1	20	-- Miecz Lat. Maga+1
+	7	1081	1	20	-- Żebrowy Nóż+1
+	8	2111	1	20	-- Łuk Jednorożca+1
+	9	7111	1	20	-- Brwisty Wachlarz+1
+	10	5071	1	20	-- Złoty Robaczy Dzwon+1
+	11	122	1	15	-- Miecz Lat. Maga+2
+	12	1082	1	15	-- Żebrowy Nóż+2
+	13	2112	1	15	-- Łuk Jednorożca+2
+	14	7112	1	15	-- Brwisty Wachlarz+2
+	15	5072	1	15	-- Złoty Robaczy Dzwon+2
+}
+Group	Metin_60lvl_Trash
+{
+	Vnum	8012
+	1	130	1	30	-- Pół-księżycowy Miecz+0
+	2	1090	1	30	-- Chakram+0
+	3	2120	1	30	-- Olbrz. Skrzydl. Łuk+0
+	4	7120	1	30	-- Czarny Słon. Wachlarz+0
+	5	5080	1	30	-- Stalowy Robaczy Dzwon+0
+	6	131	1	20	-- Pół-księżycowy Miecz+1
+	7	1091	1	20	-- Chakram+1
+	8	2121	1	20	-- Olbrz. Skrzydl. Łuk+1
+	9	7121	1	20	-- Czarny Słon. Wachlarz+1
+	10	5081	1	20	-- Stalowy Robaczy Dzwon+1
+	11	132	1	15	-- Pół-księżycowy Miecz+2
+	12	1092	1	15	-- Chakram+2
+	13	2122	1	15	-- Olbrz. Skrzydl. Łuk+2
+	14	7122	1	15	-- Czarny Słon. Wachlarz+2
+	15	5082	1	15	-- Stalowy Robaczy Dzwon+2
+}
+Group	Metin_65lvl_Trash
+{
+	Vnum	8013
+	1	120	1	25	-- Miecz Lat. Maga+0
+	2	1080	1	25	-- Żebrowy Nóż+0
+	3	2110	1	25	-- Łuk Jednorożca+0
+	4	7110	1	25	-- Brwisty Wachlarz+0
+	5	5070	1	25	-- Złoty Robaczy Dzwon+0
+	6	121	1	20	-- Miecz Lat. Maga+1
+	7	1081	1	20	-- Żebrowy Nóż+1
+	8	2111	1	20	-- Łuk Jednorożca+1
+	9	7111	1	20	-- Brwisty Wachlarz+1
+	10	5071	1	20	-- Złoty Robaczy Dzwon+1
+	11	122	1	15	-- Miecz Lat. Maga+2
+	12	1082	1	15	-- Żebrowy Nóż+2
+	13	2112	1	15	-- Łuk Jednorożca+2
+	14	7112	1	15	-- Brwisty Wachlarz+2
+	15	5072	1	15	-- Złoty Robaczy Dzwon+2
+}
+Group	Metin_70lvl_Trash
+{
+	Vnum	8014
+	1	130	1	25	-- Pół-księżycowy Miecz+0
+	2	1090	1	25	-- Chakram+0
+	3	2120	1	25	-- Olbrz. Skrzydl. Łuk+0
+	4	7120	1	25	-- Czarny Słon. Wachlarz+0
+	5	5080	1	25	-- Stalowy Robaczy Dzwon+0
+	6	131	1	20	-- Pół-księżycowy Miecz+1
+	7	1091	1	20	-- Chakram+1
+	8	2121	1	20	-- Olbrz. Skrzydl. Łuk+1
+	9	7121	1	20	-- Czarny Słon. Wachlarz+1
+	10	5081	1	20	-- Stalowy Robaczy Dzwon+1
+	11	132	1	15	-- Pół-księżycowy Miecz+2
+	12	1092	1	15	-- Chakram+2
+	13	2122	1	15	-- Olbrz. Skrzydl. Łuk+2
+	14	7122	1	15	-- Czarny Słon. Wachlarz+2
+	15	5082	1	15	-- Stalowy Robaczy Dzwon+2
+}
+Group	Metin_75lvl_Trash
+{
+	Vnum	8024
+	1	3140	1	10	-- Magnetyczne Ostrze+0
+	2	3141	1	5	-- Magnetyczne Ostrze+1
+	3	1110	1	10	-- Nóż Błyskawicy+0
+	4	1111	1	5	-- Nóż Błyskawicy+1
+	5	2130	1	10	-- Boski Łuk Moreli+0
+	6	2131	1	5	-- Boski Łuk Moreli+1
+	7	7140	1	10	-- Wachlarz Zbawienia+0
+	8	7141	1	5	-- Wachlarz Zbawienia+1
+	9	5100	1	10	-- Dzwon Nieba I Ziemi+0
+	10	5101	1	5	-- Dzwon Nieba I Ziemi+1
+	11	160	1	10	-- Miecz Nimfy+0
+	12	161	1	5	-- Miecz Nimfy+1
+	13	240	1	10	-- Miecz Egzorcysty+0
+	14	241	1	5	-- Miecz Egzorcysty+1
+}
+Group	Metin_80lvl_Trash
+{
+	Vnum	8025
+	1	3141	1	10	-- Magnetyczne Ostrze+1
+	2	3142	1	5	-- Magnetyczne Ostrze+2
+	3	1111	1	10	-- Nóż Błyskawicy+1
+	4	1112	1	5	-- Nóż Błyskawicy+2
+	5	2131	1	10	-- Boski Łuk Moreli+1
+	6	2132	1	5	-- Boski Łuk Moreli+2
+	7	7141	1	10	-- Wachlarz Zbawienia+1
+	8	7142	1	5	-- Wachlarz Zbawienia+2
+	9	5101	1	10	-- Dzwon Nieba I Ziemi+1
+	10	5102	1	5	-- Dzwon Nieba I Ziemi+2
+	11	161	1	10	-- Miecz Nimfy+1
+	12	162	1	5	-- Miecz Nimfy+2
+	13	241	1	10	-- Miecz Egzorcysty+1
+	14	242	1	5	-- Miecz Egzorcysty+2
+}
+Group	Metin_85lvl_Trash
+{
+	Vnum	8026
+	1	3142	1	10	-- Magnetyczne Ostrze+2
+	2	3143	1	25	-- Magnetyczne Ostrze+3
+	3	1112	1	15	-- Nóż Błyskawicy+2
+	4	1113	1	10	-- Nóż Błyskawicy+3
+	5	2132	1	25	-- Boski Łuk Moreli+2
+	6	2133	1	15	-- Boski Łuk Moreli+3
+	7	7142	1	10	-- Wachlarz Zbawienia+2
+	8	7143	1	25	-- Wachlarz Zbawienia+3
+	9	5102	1	15	-- Dzwon Nieba I Ziemi+2
+	10	5103	1	10	-- Dzwon Nieba I Ziemi+3
+	11	162	1	25	-- Miecz Nimfy+2
+	12	163	1	15	-- Miecz Nimfy+3
+	13	242	1	10	-- Miecz Egzorcysty+2
+	14	243	1	25	-- Miecz Egzorcysty+3
+	15	11681	1	15	-- Duchowa Zbroja Płyt.+1
+	16	11682	1	10	-- Duchowa Zbroja Płyt.+2
+	17	11881	1	25	-- Szata Baronów+1
+	18	11882	1	15	-- Szata Baronów+2
+	19	11481	1	10	-- Ubranie Fuksyjne+1
+	20	11482	1	25	-- Ubranie Fuksyjne+2
+	21	11281	1	15	-- Zbroja Boga Smoków+1
+	22	11282	1	9	-- Zbroja Boga Smoków+2
+}
+Group	Metin_90lvl_Trash
+{
+	Vnum	8027
+	1	151	1	5	-- Miecz Szponu Ducha+1
+	2	152	1	15	-- Miecz Szponu Ducha+2
+	3	153	1	10	-- Miecz Szponu Ducha+3
+	4	5091	1	5	-- Dzwon Burzowego Ptaka+1
+	5	5092	1	15	-- Dzwon Burzowego Ptaka+2
+	6	5093	1	10	-- Dzwon Burzowego Ptaka+3
+	7	141	1	5	-- Miecz Bojowy+1
+	8	142	1	15	-- Miecz Bojowy+2
+	9	143	1	10	-- Miecz Bojowy+3
+	10	3131	1	5	-- Partyzana+1
+	11	3132	1	15	-- Partyzana+2
+	12	3133	1	10	-- Partyzana+3
+	13	1101	1	5	-- Smoczy Nóż+1
+	14	1102	1	15	-- Smoczy Nóż+2
+	15	1103	1	10	-- Smoczy Nóż+3
+	16	7131	1	5	-- Niebiań. Ptasi Wachl.+1
+	17	7132	1	15	-- Niebiań. Ptasi Wachl.+2
+	18	7133	1	10	-- Niebiań. Ptasi Wachl.+3
+	19	2141	1	5	-- Olbrz. Łuk Żółt. Smoka+1
+	20	2142	1	15	-- Olbrz. Łuk Żółt. Smoka+2
+	21	2143	1	10	-- Olbrz. Łuk Żółt. Smoka+3
+	22	11681	1	5	-- Duchowa Zbroja Płyt.+1
+	23	11682	1	15	-- Duchowa Zbroja Płyt.+2
+	24	11683	1	10	-- Duchowa Zbroja Płyt.+3
+	25	11881	1	5	-- Szata Baronów+1
+	26	11882	1	15	-- Szata Baronów+2
+	27	11883	1	10	-- Szata Baronów+3
+	28	11481	1	5	-- Ubranie Fuksyjne+1
+	29	11482	1	15	-- Ubranie Fuksyjne+2
+	30	11483	1	10	-- Ubranie Fuksyjne+3
+	31	11281	1	5	-- Zbroja Boga Smoków+1
+	32	11282	1	15	-- Zbroja Boga Smoków+2
+	33	11283	1	10	-- Zbroja Boga Smoków+3
+	34	17164	1	9	-- Kryształowe Kolczyki+4
+	35	17165	1	24	-- Kryształowe Kolczyki+5
+	36	17166	1	14	-- Kryształowe Kolczyki+6
+	37	16164	1	9	-- Kryształowy Naszyjnik+4
+	38	16165	1	24	-- Kryształowy Naszyjnik+5
+	39	16166	1	14	-- Kryształowy Naszyjnik+6
+	40	14164	1	9	-- Kryształowa Bransoleta+4
+	41	14165	1	24	-- Kryształowa Bransoleta+5
+	42	14166	1	14	-- Kryształowa Bransoleta+6
+}
+Group	용혼원석-보상용_기본
+{
+	Vnum	50255 -- Cor Draconis (Rough)
+	1	110000	1	1 -- Rough Dragon Diamond
+	2	120000	1	1 -- Rough Dragon Ruby
+	3	130000	1	1 -- Rough Dragon Jade
+	4	140000	1	1 -- Rough Dragon Sapphire
+	5	150000	1	1 -- Rough Dragon Garnet
+	6	160000	1	1 -- Rough Dragon Onyx
+	7	170000	1	1 -- Rough Dragon Amethyst
+}
+Group	용혼원석-기본_판매용
+{
+	Vnum	50260 -- Cor Draconis (Rough)
+	1	110000	1	1 -- Rough Dragon Diamond
+	2	120000	1	1 -- Rough Dragon Ruby
+	3	130000	1	1 -- Rough Dragon Jade
+	4	140000	1	1 -- Rough Dragon Sapphire
+	5	150000	1	1 -- Rough Dragon Garnet
+	6	160000	1	1 -- Rough Dragon Onyx
+	7	170000	1	1 -- Rough Dragon Amethyst
+}
+
+# The Moonlight Treasure Chest (50011), replacing the stock group: what the
+# stock one held - kingdom languages, a fugitive's cape, Lucy's ring - is
+# nothing a character in this world can use. One line is drawn per chest, by
+# weight. Bonus scrolls first, because a full bonus line is the largest single
+# step a character takes between two refines; then the speed potions, the
+# boosters and the big potions the bots already know how to drink; a blessing
+# scroll for the blacksmith; and now and then a skill book.
+Group	MoonlightChest
+{
+	Vnum	50011
+	1	71084	1	14
+	2	71085	1	12
+	3	27101	5	14
+	4	27104	5	12
+	5	71044	3	10
+	6	71045	3	10
+	7	71018	3	8
+	8	71020	3	8
+	9	25040	1	6
+	10	50300	1	6
+}
+# The starter chest chain, as r40250's special_item_group.txt defines it
+# (rendered by linux-port-mt2009/port/shareify.py). The playerbot seed puts
+# the lv1 chest in every bot's bag; the package has no group for it.
+Group	lv1(sura_warrior)
+{
+	Vnum	50187
+	Type	Pct
+	1	50188	1	100
+	2	10	1	100
+	3	27051	20	100
+	4	27052	10	100
+	5	27053	5	100
+	6	27054	5	100
+}
+Group	lv1(assassin)
+{
+	Vnum	50212
+	Type	Pct
+	1	50188	1	100
+	2	1000	1	100
+	3	27051	20	100
+	4	27052	10	100
+	5	27053	5	100
+	6	27054	5	100
+}
+Group	lv1(shaman)
+{
+	Vnum	50213
+	Type	Pct
+	1	50188	1	100
+	2	7000	1	100
+	3	27051	20	100
+	4	27052	10	100
+	5	27053	5	100
+	6	27054	5	100
+}
+Group	lv10
+{
+	Vnum	50188
+	Type	Pct
+	1	76012	3	100
+	2	76017	3	100
+	3	76021	1	100
+	4	76008	3	100
+	5	50189	1	100
+}
+Group	lv20
+{
+	Vnum	50189
+	Type	Pct
+	1	76012	3	100
+	2	76017	3	100
+	3	76004	1	100
+	4	76006	1	100
+	5	50190	1	100
+	6	76023	3	100
+	7	76024	3	100
+}
+Group	lv30
+{
+	Vnum	50190
+	Type	Pct
+	1	76012	3	100
+	2	76017	3	100
+	3	76011	1	100
+	4	50191	1	100
+}
+Group	lv40
+{
+	Vnum	50191
+	Type	Pct
+	1	76012	3	100
+	2	76018	3	100
+	3	71153	1	100
+	4	76011	1	100
+	5	50192	1	100
+}
+Group	lv50
+{
+	Vnum	50192
+	Type	Pct
+	1	76003	3	100
+	2	76018	3	100
+	3	76007	20	100
+	4	76019	5	100
+	5	70058	1	100
+	6	50193	1	100
+}
+Group	lv60
+{
+	Vnum	50193
+	Type	Pct
+	1	76003	3	100
+	2	76018	3	100
+	3	76000	5	100
+	4	50194	1	100
+}
+Group	lv70
+{
+	Vnum	50194
+	Type	Pct
+	1	76003	3	100
+	2	76018	3	100
+	3	76013	3	100
+	4	76014	3	100
+	5	76001	1	100
+	6	50195	1	100
+}
+Group	lv80
+{
+	Vnum	50195
+	Type	Pct
+	1	76003	3	100
+	2	76018	3	100
+	3	76005	1	100
+	4	76020	3	100
+	5	50196	1	100
+}
+Group	lv90
+{
+	Vnum	50196
+	Type	Pct
+	1	76022	1	100
+	2	76015	1	100
+	3	76010	3	100
+	4	76002	3	100
+}
+# Two boss caskets the package has no group for, as r40250's share defines
+# them (its names resolved to vnums: this reader takes numbers only, and one
+# name it cannot find fails the whole file). Skrzynia Azraela (50186) is
+# Azrael's, the Catacombs' last boss; Skrzynia Mroku (50254) drops from the
+# Gnoll Lord, his guard, Arges and Polifem on maps 301-304 - hosted, so a
+# player of a hundred who broke one open got "nic nie otrzymales" and
+# nothing (26 September).
+Group	box_50186
+{
+	Vnum	50186
+	Type	Pct
+	1	172	1	25	-- Miecz Zadlo+2
+	2	252	1	25	-- Demoniczne Ostrze+2
+	3	1122	1	25	-- Noz Siamese+2
+	4	2182	1	25	-- Luk Niebieskiego Smoka+2
+	5	3152	1	25	-- Zlodziej Dusz+2
+	6	7152	1	25	-- Ekstazyjny Wachlarz+2
+	7	11291	1	30	-- Zbroja Z Czarnej Stali+1
+	8	11292	1	20	-- Zbroja Z Czarnej Stali+2
+	9	11491	1	30	-- Ubranie Czarn. Wiatru+1
+	10	11492	1	20	-- Ubranie Czarn. Wiatru+2
+	11	11691	1	30	-- Zbr. Plyt. Czar. Magii+1
+	12	11692	1	20	-- Zbr. Plyt. Czar. Magii+2
+	13	11891	1	30	-- Czarna Szata+1
+	14	11892	1	20	-- Czarna Szata+2
+	15	17204	1	30	-- Kolczyki Z Niebian.Lez+4
+	16	17205	1	20	-- Kolczyki Z Niebian.Lez+5
+	17	17206	1	10	-- Kolczyki Z Niebian.Lez+6
+	18	16204	1	30	-- Naszyj. Z Niebian.Lez+4
+	19	16205	1	20	-- Naszyj. Z Niebian.Lez+5
+	20	16206	1	10	-- Naszyj. Z Niebian.Lez+6
+	21	14204	1	30	-- Bransol. Z Niebian.Lez+4
+	22	14205	1	20	-- Bransol. Z Niebian.Lez+5
+	23	14206	1	10	-- Bransol. Z Niebian.Lez+6
+	24	12260	1	7	-- Maska Strachu+0
+	25	12280	1	5	-- Helm Mistrza Wojny+0
+	26	12390	1	7	-- Orkowy Kaptur+0
+	27	12400	1	5	-- Pajeczy Kaptur+0
+	28	12530	1	7	-- Rogowy Helm+0
+	29	12540	1	5	-- Magiczny Helm+0
+	30	12670	1	7	-- Kapelusz Kardynala+0
+	31	12680	1	5	-- Kapelusz Duszy+0
+	32	13140	1	5	-- Tarcza Tytanow+0
+	33	14220	1	5	-- Opaska Krysztalu Duszy+0
+	34	16220	1	5	-- Naszyjnik Krysz. Duszy+0
+	35	17220	1	5	-- Kolczyki Krysz. Duszy+0
+	36	gold	500000	40	-- gold
+	37	27002	200	100	-- Czerwona Mikstura(S)
+	38	27003	100	100	-- Czerwona Mikstura(D)
+	39	27005	200	100	-- Niebieska Mikstura(S)
+	40	27006	100	100	-- Niebieska Mikstura(D)
+	41	39004	1	5	-- Marmur Blogoslawienstwa
+}
+Group	box_50254
+{
+	Vnum	50254
+	1	174	1	25	-- Miecz Zadlo+4
+	2	254	1	25	-- Demoniczne Ostrze+4
+	3	1124	1	25	-- Noz Siamese+4
+	4	2184	1	25	-- Luk Niebieskiego Smoka+4
+	5	3154	1	25	-- Zlodziej Dusz+4
+	6	7154	1	25	-- Ekstazyjny Wachlarz+4
+	7	11293	1	30	-- Zbroja Z Czarnej Stali+3
+	8	11294	1	20	-- Zbroja Z Czarnej Stali+4
+	9	11493	1	30	-- Ubranie Czarn. Wiatru+3
+	10	11494	1	20	-- Ubranie Czarn. Wiatru+4
+	11	11693	1	30	-- Zbr. Plyt. Czar. Magii+3
+	12	11694	1	20	-- Zbr. Plyt. Czar. Magii+4
+	13	11893	1	30	-- Czarna Szata+3
+	14	11894	1	20	-- Czarna Szata+4
+	15	17205	1	30	-- Kolczyki Z Niebian.Lez+5
+	16	17206	1	20	-- Kolczyki Z Niebian.Lez+6
+	17	17207	1	10	-- Kolczyki Z Niebian.Lez+7
+	18	16205	1	30	-- Naszyj. Z Niebian.Lez+5
+	19	16206	1	20	-- Naszyj. Z Niebian.Lez+6
+	20	16207	1	10	-- Naszyj. Z Niebian.Lez+7
+	21	14205	1	30	-- Bransol. Z Niebian.Lez+5
+	22	14206	1	20	-- Bransol. Z Niebian.Lez+6
+	23	14207	1	10	-- Bransol. Z Niebian.Lez+7
+	24	12260	1	7	-- Maska Strachu+0
+	25	12280	1	5	-- Helm Mistrza Wojny+0
+	26	12390	1	7	-- Orkowy Kaptur+0
+	27	12400	1	5	-- Pajeczy Kaptur+0
+	28	12530	1	7	-- Rogowy Helm+0
+	29	12540	1	5	-- Magiczny Helm+0
+	30	12670	1	7	-- Kapelusz Kardynala+0
+	31	12680	1	5	-- Kapelusz Duszy+0
+	32	13140	1	5	-- Tarcza Tytanow+0
+	33	14220	1	5	-- Opaska Krysztalu Duszy+0
+	34	16220	1	5	-- Naszyjnik Krysz. Duszy+0
+	35	17220	1	5	-- Kolczyki Krysz. Duszy+0
+	36	155	1	7	-- Miecz Szponu Ducha+5
+	37	156	1	6	-- Miecz Szponu Ducha+6
+	38	157	1	5	-- Miecz Szponu Ducha+7
+	39	1105	1	7	-- Smoczy Noz+5
+	40	1106	1	6	-- Smoczy Noz+6
+	41	1107	1	5	-- Smoczy Noz+7
+	42	2145	1	7	-- Olbrz. Luk Zolt. Smoka+5
+	43	2146	1	6	-- Olbrz. Luk Zolt. Smoka+6
+	44	2147	1	5	-- Olbrz. Luk Zolt. Smoka+7
+	45	3145	1	7	-- Magnetyczne Ostrze+5
+	46	3146	1	6	-- Magnetyczne Ostrze+6
+	47	3147	1	5	-- Magnetyczne Ostrze+7
+	48	5105	1	7	-- Dzwon Nieba I Ziemi+5
+	49	5106	1	6	-- Dzwon Nieba I Ziemi+6
+	50	5107	1	5	-- Dzwon Nieba I Ziemi+7
+	51	7145	1	7	-- Wachlarz Zbawienia+5
+	52	7146	1	6	-- Wachlarz Zbawienia+6
+	53	7147	1	5	-- Wachlarz Zbawienia+7
+	54	11295	1	7	-- Zbroja Z Czarnej Stali+5
+	55	11296	1	6	-- Zbroja Z Czarnej Stali+6
+	56	11297	1	5	-- Zbroja Z Czarnej Stali+7
+	57	11495	1	7	-- Ubranie Czarn. Wiatru+5
+	58	11496	1	6	-- Ubranie Czarn. Wiatru+6
+	59	11497	1	5	-- Ubranie Czarn. Wiatru+7
+	60	11695	1	7	-- Zbr. Plyt. Czar. Magii+5
+	61	11696	1	6	-- Zbr. Plyt. Czar. Magii+6
+	62	11697	1	5	-- Zbr. Plyt. Czar. Magii+7
+	63	11895	1	7	-- Czarna Szata+5
+	64	11896	1	6	-- Czarna Szata+6
+	65	11897	1	5	-- Czarna Szata+7
+	66	460	1	1	-- Runiczny Miecz+0
+	67	470	1	1	-- Klinga Smoczego Kla+0
+	68	1340	1	1	-- Kolec Pieciu Elementow+0
+	69	2370	1	1	-- Luk Feniksa+0
+	70	3190	1	1	-- Ostrze Slonca+0
+	71	5340	1	1	-- Dzwon Smoczego Ducha+0
+	72	7370	1	1	-- Wachlarz Lezac. Smoka+0
+	73	20000	1	1	-- Pancerz Diabel. Rogu+0
+	74	20250	1	1	-- Szata Smoczego Jezdzca+0
+	75	20500	1	1	-- Pancerz Koscioplytowy+0
+	76	20750	1	1	-- Zlote Ubranie+0
+	77	14500	1	3	-- Rubinowa Bransoleta+0
+	78	14520	1	3	-- Granatowa Bransoleta+0
+	79	14540	1	3	-- Szmaragdowa Bransoleta+0
+	80	14560	1	3	-- Szafirowa Bransoleta+0
+	81	16500	1	3	-- Rubinowy Naszyjnik+0
+	82	16520	1	3	-- Granatowy Naszyjnik+0
+	83	16540	1	3	-- Szmaragdowy Naszyjnik+0
+	84	16560	1	3	-- Szafirowy Naszyjnik+0
+	85	17500	1	3	-- Rubinowe Kolczyki+0
+	86	17520	1	3	-- Granatowe Kolczyki+0
+	87	17540	1	3	-- Szmaragdowe Kolczyki+0
+	88	17560	1	3	-- Szafirowe Kolczyki+0
+	89	exp	50000	70	-- exp
+	90	exp	100000	60	-- exp
+	91	exp	200000	50	-- exp
+	92	exp	300000	40	-- exp
+	93	exp	400000	30	-- exp
+	94	exp	500000	20	-- exp
+	95	gold	500000	40	-- gold
+	96	27002	200	100	-- Czerwona Mikstura(S)
+	97	27003	100	100	-- Czerwona Mikstura(D)
+	98	27005	200	100	-- Niebieska Mikstura(S)
+	99	27006	100	100	-- Niebieska Mikstura(D)
+	100	39004	1	5	-- Marmur Blogoslawienstwa
+	101	71130	1	5	-- Przepustka
+}

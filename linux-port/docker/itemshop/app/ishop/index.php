@@ -36,6 +36,10 @@
 			if (hash_equals($expected, $sas)) {
 				$_SESSION['id'] = $row['login'];
 				$_SESSION['acc_id'] = $row['account_id'];
+				// The character the shop was opened from: category.php shows only
+				// what this class and gender can wear (custom-patches/itemshop).
+				$_SESSION['pid'] = $pid;
+				unset($_SESSION['ishop_all']);
 				$ok = true;
 			} else {
 				$failReason = 'sas mismatch for pid=' . $pid . ' aid=' . $row['account_id'];

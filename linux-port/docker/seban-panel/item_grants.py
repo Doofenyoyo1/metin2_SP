@@ -49,6 +49,30 @@ OFFLINE_PROBES_PER_TICK = 2
 OFFLINE_MAX_PENDING = 4       # offline probes may hold this many of MAX_PENDING's places at once
 
 
+# Smocze Monety (SM) dla wszystkich botow, jako Kupony SM przez to samo
+# nadawanie co przedmioty (web_seban_grants -> kolejka gry -> quest). Kwota
+# rozklada sie na najwieksze kupony: 1750 SM to 1000 + 500 + 250. Bot
+# realizuje kazdy kupon w plecaku przy najblizszej wizycie w ItemShopie
+# (playerbot_itemshop.h), wiec SM laduja na koncie bota tak, jak gdyby kliknal
+# kupony sam.
+SM_COUPONS = ((80016, 1000), (80015, 500), (80018, 250), (80014, 100), (80017, 50))
+SM_MAX = 1000000
+
+
+def sm_coupons(amount):
+    """[(vnum, count), ...] for an amount of SM, largest coupons first, each
+    count at most MAX_ITEM_COUNT (a stack the game hands out at once)."""
+    if amount <= 0 or amount % 50:
+        raise ValueError("amount")
+    lines = []
+    for vnum, value in SM_COUPONS:
+        count, amount = divmod(amount, value)
+        while count > 0:
+            lines.append((vnum, min(count, MAX_ITEM_COUNT)))
+            count -= MAX_ITEM_COUNT
+    return lines
+
+
 def init(cur):
     cur.execute("""CREATE TABLE IF NOT EXISTS player.web_seban_grants (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, batch CHAR(32) NOT NULL,
@@ -296,6 +320,43 @@ def install(app, db, login_required, game_text):
             return render_template("item_grants.html", item=item, vnum=vnum, quantity=quantity, criteria=criteria,
                 recipients=recipients, only_missing=only_missing, history=history, labels=LABELS, csrf=token, jobs=JOBS,
                 criteria_text=criteria_text, stats=stats)
+
+
+    @app.route("/manage/sm", methods=["POST"])
+    @login_required
+    def manage_bulk_sm():
+        """Daj wszystkim botom SM w wysokosci X: kupony przez nadawanie."""
+        supplied, expected = request.form.get("sm_csrf", ""), session.get("seban_update_csrf", "")
+        if not expected or not secrets.compare_digest(supplied, expected):
+            abort(400, "Odśwież stronę i spróbuj ponownie.")
+        amount = number(request.form.get("amount"), "Kwota SM", SM_MAX, False)
+        try: lines = sm_coupons(amount)
+        except ValueError: abort(400, "Kwota SM musi być wielokrotnością 50 (najmniejszy kupon to 50 SM).")
+        with db() as con, con.cursor() as cur:
+            init(cur)
+            cur.execute("SELECT GET_LOCK('seban_item_grants',10) AS acquired")
+            if cur.fetchone()["acquired"] != 1: abort(409, "Inne nadanie jest właśnie zapisywane.")
+            try:
+                con.begin()
+                recipients = candidates(cur, 0, {}, False)
+                # One batch per coupon line: a batch holds a character once
+                # (batch_player), and each can be cancelled on its own.
+                for vnum, count in lines:
+                    batch = secrets.token_hex(16)
+                    for row in recipients:
+                        cur.execute("""INSERT INTO player.web_seban_grants
+                          (batch,player_id,player_name,vnum,quantity,criteria,only_missing)
+                          VALUES(%s,%s,%s,%s,%s,'{}',0)""", (batch, row["id"], row["name"], vnum, count))
+                con.commit()
+            except Exception:
+                con.rollback(); raise
+            finally:
+                cur.execute("SELECT RELEASE_LOCK('seban_item_grants')")
+        values = dict(SM_COUPONS)
+        text = " + ".join(f"{count}× {values[vnum]}" for vnum, count in lines)
+        flash(f"Zlecono {amount} SM dla {len(recipients)} botów (kupony: {text}). "
+              "Bot realizuje kupony przy najbliższej wizycie w ItemShopie.")
+        return redirect(url_for("manage_items", vnum=lines[0][0]))
 
 
 def tick(con):

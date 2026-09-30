@@ -128,6 +128,26 @@
 .log-lines .gear-vendor b,.log-lines .gear-stall-sold b{color:#f2c34d}
 .log-lines .gear-equip b,.log-lines .gear-gift-in b,.log-lines .gear-gift-out b,.log-lines .gear-safebox b,.log-lines .gear-bonus b{color:#82b6ff}
 .log-lines span small{color:var(--muted);margin-left:4px}
+
+/* Costume box under the inventory art, in the inventory's own colours:
+   body, hair, weapon skin / sash, mount, pet. */
+.costume-row{box-sizing:border-box;width:min(337px,100%);margin:8px 0 4px;padding:26px 10px 10px;position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:8px 6px;background:linear-gradient(#1b1610,#100e0b);border:1px solid #6b5a36;border-radius:3px;box-shadow:inset 0 0 0 1px #000,0 2px 6px rgba(0,0,0,.5)}
+.costume-row::before{content:"Kostiumy";position:absolute;left:0;right:0;top:0;height:20px;line-height:20px;text-align:center;font:bold 12px Georgia,serif;color:#f2df9a;text-shadow:1px 1px #000;background:linear-gradient(#3a2f1d,#221b10);border-bottom:1px solid #6b5a36}
+.costume-slot{display:grid;justify-items:center;gap:4px}
+.costume-icon{position:relative;display:grid;place-items:center;width:44px;height:44px;background:#0b0906;border:1px solid #4d4128;box-shadow:inset 0 0 0 1px #000,inset 0 0 8px rgba(0,0,0,.9)}
+.costume-slot:not(.empty) .costume-icon{border-color:#8a7443}
+.costume-icon img{max-width:40px;max-height:40px;object-fit:contain;image-rendering:pixelated}
+.costume-icon>span{font-size:9px;color:#c8b48a}
+.costume-slot small{font:11px Tahoma,Arial,sans-serif;color:#c8b48a;text-shadow:1px 1px #000;text-align:center;line-height:1.1}
+.costume-slot.empty small{color:#6f6450}
+.costume-icon:hover{z-index:5}
+.costume-icon:hover .item-tip{display:block}
+@media(max-width:650px){.costume-row{margin:8px auto 4px}}
+
+/* Dragon Stones worn (deck I, deck II when used): the costume row's frame,
+   four to a line and its own title. */
+.alchemy-row{grid-template-columns:repeat(4,1fr)}
+.alchemy-row::before{content:attr(data-title)}
 .gear-history-filters{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 12px}
 .gear-history-filters button{min-height:34px;padding:7px 12px;border:1px solid var(--border);border-radius:7px;background:var(--panel);color:var(--muted);font-weight:700;cursor:pointer}
 .gear-history-filters button:hover,.gear-history-filters button.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--panel));color:var(--text)}

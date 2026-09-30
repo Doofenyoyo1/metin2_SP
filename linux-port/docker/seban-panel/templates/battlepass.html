@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Battle Pass · {{ panel_brand }}{% endblock %}
+{% block content %}
+<style>
+.bp-table input,.bp-table select{padding:7px 8px;font-size:13px}
+.bp-table td{vertical-align:top;padding:9px 6px}
+.bp-table .bp-num{width:96px}.bp-table .bp-cnt{width:68px}
+.bp-table .bp-text{width:190px}
+.bp-reward{display:flex;gap:4px;align-items:center;margin-bottom:4px}
+.bp-hint{display:block;font-size:11px;color:var(--muted);max-width:220px;margin-top:3px}
+.bp-final{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end}
+.bp-final label{display:grid;gap:5px;color:var(--muted);font-size:13px}
+.bp-new td{background:color-mix(in srgb,var(--blue2) 7%,transparent)}
+.bp-off td{opacity:.55}
+.bp-table .bp-lvl{width:64px;margin-top:4px}
+.bp-table .bp-req{max-width:190px}
+</style>
+<p class="eyebrow">MT2009 PLUS · NAGRODY SEZONU</p>
+<h1>🏆 Battle Pass</h1>
+<p class="muted">Misje i nagrody Battle Passa w grze. Sezon trwa miesiąc kalendarzowy i od 1. dnia postęp liczy się od nowa. Boty nie biorą udziału. Gra wczytuje zmiany z tej strony w ciągu 30 sekund – restart nie jest potrzebny.</p>
+
+<section class="cards compact">
+<article><span>Sezon</span><strong>{{ '%02d'|format(season % 100) }}.{{ season // 100 }}</strong><small>do końca {{ days_left }} dni</small></article>
+<article><span>Misje aktywne</span><strong>{{ missions|selectattr('active')|list|length }}</strong><small>wszystkich: {{ missions|length }}</small></article>
+<article><span>Postacie z postępem</span><strong>{{ stats.players }}</strong><small>gracze i boty, w tym sezonie</small></article>
+<article><span>Ukończyli wszystko</span><strong>{{ stats.finished }}</strong><small>nagroda końcowa odebrana: {{ stats.final }}</small></article>
+</section>
+
+<section class="panel">
+<h2>Nagroda końcowa sezonu</h2>
+<p class="muted">Dostaje ją gracz, który ukończy wszystkie aktywne misje (przycisk w oknie Battle Passa). Do trzech przedmiotów; puste pole = brak.</p>
+<form method="post" class="bp-final">
+<input type="hidden" name="battlepass_csrf" value="{{ battlepass_csrf }}">
+{% for vnum, count, name in finals %}
+<label>Przedmiot {{ loop.index }} (VNUM)<input name="final{{ loop.index }}_vnum" type="number" min="0" value="{{ vnum or '' }}" class="bp-num"><small>{{ name or ('—' if not vnum else 'nieznany VNUM') }}</small></label>
+<label>Ilość<input name="final{{ loop.index }}_count" type="number" min="0" max="60000" value="{{ count or '' }}" class="bp-cnt"></label>
+{% endfor %}
+<button name="action" value="final">Zapisz nagrodę końcową</button>
+</form>
+</section>
+
+<section class="panel">
+<h2>Misje</h2>
+<p class="muted">Każda misja ma rodzaj, cel (0 = dowolny; przy potworach, Metinach i bossach VNUM potwora, przy „Użyj przedmiotu” VNUM przedmiotu), poziom celu (przy potworach, Metinach i bossach: liczą się tylko cele tego poziomu, 0 = dowolny), wymaganą ilość, misję, którą trzeba najpierw ukończyć (łańcuch – do tego czasu misja jest zablokowana i nic się nie liczy) i do trzech nagród, które trafiają do ekwipunku od razu po ukończeniu misji. Nazwa i opis są opcjonalne – bez nazwy gra sama opisze misję. W opisie <code>//</code> łamie linię. Nowe misje wpisz w puste wiersze na dole.</p>
+<form method="post">
+<input type="hidden" name="battlepass_csrf" value="{{ battlepass_csrf }}">
+<input type="hidden" name="row_count" value="{{ missions|length + new_rows }}">
+<div class="table-wrap"><table class="bp-table">
+<thead><tr><th>#</th><th>Aktywna</th><th>Rodzaj</th><th>Cel (VNUM) / poziom</th><th>Ilość</th><th>Wymaga misji</th><th>Nagrody (VNUM × ilość)</th><th>Nazwa i opis</th><th>Usuń</th></tr></thead>
+<tbody>
+{% for m in missions %}{% set i = loop.index0 %}
+<tr class="{{ '' if m.active else 'bp-off' }}">
+<td>{{ m.id }}<input type="hidden" name="m{{ i }}_id" value="{{ m.id }}"></td>
+<td><input type="checkbox" name="m{{ i }}_active" value="1" {% if m.active %}checked{% endif %}></td>
+<td><select name="m{{ i }}_type">{% for t, label, kind in types %}<option value="{{ t }}" {% if t == m.type %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><span class="bp-hint">W grze: {{ m.auto_name }}</span></td>
+<td><input name="m{{ i }}_target" type="number" min="0" value="{{ m.target }}" class="bp-num">{% if m.target_name %}<span class="bp-hint">{{ m.target_name }}</span>{% elif m.target and type_target.get(m.type) %}<span class="bp-hint">nieznany VNUM</span>{% elif not type_target.get(m.type) %}<span class="bp-hint">bez celu</span>{% else %}<span class="bp-hint">dowolny</span>{% endif %}{% if type_target.get(m.type) == 'mob' %}<input name="m{{ i }}_target_level" type="number" min="0" max="255" value="{{ m.target_level }}" class="bp-lvl" title="Poziom celu (0 = dowolny)"><span class="bp-hint">poziom: {{ m.target_level or 'dowolny' }}</span>{% endif %}</td>
+<td><input name="m{{ i }}_count" type="number" min="1" value="{{ m.count }}" class="bp-num"></td>
+<td><select name="m{{ i }}_requires" class="bp-req"><option value="0">— brak —</option>{% for o in missions if o.id != m.id %}<option value="{{ o.id }}" {% if o.id == m.requires_id %}selected{% endif %}>#{{ o.id }} {{ o.name or o.auto_name }}</option>{% endfor %}</select></td>
+<td>{% for vnum, count, name in m.rewards %}{% set k = '' if loop.first else loop.index|string %}<div class="bp-reward"><input name="m{{ i }}_reward{{ k }}_vnum" type="number" min="0" value="{{ vnum or '' }}" class="bp-num" placeholder="VNUM">×<input name="m{{ i }}_reward{{ k }}_count" type="number" min="0" max="60000" value="{{ count or '' }}" class="bp-cnt"></div>{% if vnum %}<span class="bp-hint">{{ name or 'nieznany VNUM' }}</span>{% endif %}{% endfor %}</td>
+<td><input name="m{{ i }}_name" maxlength="60" value="{{ m.name }}" class="bp-text" placeholder="(nazwa z gry)"><br><input name="m{{ i }}_description" maxlength="200" value="{{ m.description }}" class="bp-text" placeholder="opis (opcjonalny)" style="margin-top:4px"></td>
+<td><input type="checkbox" name="m{{ i }}_delete" value="1"></td>
+</tr>
+{% endfor %}
+{% for n in range(new_rows) %}{% set i = missions|length + n %}
+<tr class="bp-new">
+<td>nowa</td>
+<td><input type="checkbox" name="m{{ i }}_active" value="1" checked></td>
+<td><select name="m{{ i }}_type"><option value="0" selected>— pusty wiersz —</option>{% for t, label, kind in types %}<option value="{{ t }}">{{ label }}</option>{% endfor %}</select></td>
+<td><input name="m{{ i }}_target" type="number" min="0" value="0" class="bp-num"><input name="m{{ i }}_target_level" type="number" min="0" max="255" value="0" class="bp-lvl" title="Poziom celu (0 = dowolny)"></td>
+<td><input name="m{{ i }}_count" type="number" min="1" value="1" class="bp-num"></td>
+<td><select name="m{{ i }}_requires" class="bp-req"><option value="0">— brak —</option>{% for o in missions %}<option value="{{ o.id }}">#{{ o.id }} {{ o.name or o.auto_name }}</option>{% endfor %}</select></td>
+<td>{% for k in ['', '2', '3'] %}<div class="bp-reward"><input name="m{{ i }}_reward{{ k }}_vnum" type="number" min="0" class="bp-num" placeholder="VNUM">×<input name="m{{ i }}_reward{{ k }}_count" type="number" min="0" max="60000" class="bp-cnt"></div>{% endfor %}</td>
+<td><input name="m{{ i }}_name" maxlength="60" class="bp-text" placeholder="(nazwa z gry)"><br><input name="m{{ i }}_description" maxlength="200" class="bp-text" placeholder="opis (opcjonalny)" style="margin-top:4px"></td>
+<td></td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+<p><button name="action" value="missions">Zapisz misje</button></p>
+</form>
+<p class="muted">Przykładowe VNUMy: Kupon SM (50) – 80017, (100) – 80014, (250) – 80018, (500) – 80015, (1000) – 80016. Nazwy przedmiotów i potworów znajdziesz w <a href="{{ url_for('items_database') }}">Bazie przedmiotów</a>.</p>
+</section>
+{% endblock %}

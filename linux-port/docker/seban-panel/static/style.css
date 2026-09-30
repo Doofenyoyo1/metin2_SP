@@ -258,7 +258,21 @@ body[data-cursor="custom"]{cursor:url('cursor.cur'),auto}
 html,body{max-width:100%;overflow-x:hidden}
 main{min-width:0;width:auto}
 aside.site-nav{min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable}
-aside.site-nav nav{min-height:0;padding-bottom:12px}
+/* The nav must not shrink: a shrunk nav let its last links overflow under
+   "Wyloguj" (margin-top:auto), which then sat above the external links.
+   The rail scrolls instead, and "Wyloguj" stays the last entry. */
+aside.site-nav nav{min-height:0;padding-bottom:12px;flex:0 0 auto}
+aside.site-nav>form{flex:0 0 auto}
+/* Seban 1.100.8: "Wyloguj" keeps its own place under the whole navigation at
+   1080 px too - pushed to the bottom when there is room, right under the last
+   link when a submenu is open - and the rail gets a thin scrollbar. */
+aside.site-nav .nav-logout{flex:0 0 auto;margin-top:auto;padding-top:4px}
+aside.site-nav .nav-logout .quiet{margin-top:0}
+aside.site-nav{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--blue2) 78%,var(--text)) color-mix(in srgb,var(--panel) 82%,transparent)}
+aside.site-nav::-webkit-scrollbar{width:8px}
+aside.site-nav::-webkit-scrollbar-track{background:color-mix(in srgb,var(--panel) 82%,transparent);border-radius:999px}
+aside.site-nav::-webkit-scrollbar-thumb{background:linear-gradient(180deg,color-mix(in srgb,var(--blue2) 72%,var(--text)),var(--blue2));border:2px solid color-mix(in srgb,var(--panel) 82%,transparent);border-radius:999px}
+aside.site-nav::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,color-mix(in srgb,var(--blue2) 58%,var(--text)),color-mix(in srgb,var(--blue2) 88%,var(--text)))}
 aside.site-nav nav a,aside.site-nav nav summary{min-width:0;overflow-wrap:anywhere}
 .panel,.live-shell,.cards article{min-width:0}
 table{max-width:100%}

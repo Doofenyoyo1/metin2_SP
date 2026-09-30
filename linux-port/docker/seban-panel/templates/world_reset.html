@@ -1,0 +1,80 @@
+{% extends 'base.html' %}{% block title %}Reset świata · {{ panel_brand }}{% endblock %}{% block content %}
+<p class="eyebrow">ZAAWANSOWANE · ZARZĄDZANIE ŚWIATEM</p><h1>Reset świata</h1>
+<p class="muted">Obie operacje są nieodwracalne dla świata gry. Przed każdą serwer zatrzymuje się i zapisuje kopię baz <code>account</code>, <code>common</code>, <code>player</code> i <code>itemshop</code> do folderu <code>backups\reset-swiata</code> serwera. Do wykonania resetu potrzebne jest hasło do bazy danych (<code>M2_DB_PASSWORD</code> w pliku <code>linux-port\docker\.env</code>).</p>
+
+<section class="panel world-reset-status" id="world-reset-status"{% if not status.state %} hidden{% endif %}>
+<p class="eyebrow">OSTATNI RESET</p>
+<div class="world-reset-status-line"><b id="wr-kind">{{ status.kind_label }}</b><span class="world-reset-state state-{{ status.state }}" id="wr-state">{% if status.busy %}⏳ {% elif status.state == 'done' %}✓ {% elif status.state == 'failed' %}✗ {% endif %}{{ status.label }}</span><small class="muted" id="wr-when">{{ status.when }}</small></div>
+<p id="wr-message">{{ status.message }}</p>
+<p class="muted small" id="wr-backup"{% if not status.backup %} hidden{% endif %}>Kopia bazy: <code>{{ status.backup }}</code></p>
+</section>
+
+<div class="world-reset-grid">
+<section class="panel world-reset-card">
+<p class="eyebrow">BOTY</p><h2>🔄 Reset świata botów</h2>
+<p>Wszystkie boty ({{ '{:,}'.format(bots).replace(',', ' ') }}) od razu zaczynają nową grę – tak jak po emeryturze:</p>
+<ul>
+<li>każdy bot wraca na <b>1 poziom</b> w pierwszej wiosce swojego królestwa, z podstawowym ekwipunkiem, bez umiejętności, punktów i yang;</li>
+<li>zachowuje nick, klasę, wygląd i królestwo;</li>
+<li><b>znikają wszystkie sklepy botów</b> i ich towar, przedmioty z <b>magazynów</b> botów, questy i efekty;</li>
+<li><b>gildie botów są rozwiązywane</b>, ich ziemia wraca do puli, a budynki znikają; boty wychodzą z gildii graczy.</li>
+</ul>
+<p class="muted">Postacie graczy zostają bez zmian (także Twój Towarzysz). Gracz w gildii botów traci tę gildię.</p>
+<form method="post" action="{{ url_for('world_reset_start') }}" class="world-reset-form" data-confirm="Na pewno zresetować WSZYSTKIE boty do 1 poziomu? Tego nie da się cofnąć w grze.">
+<input type="hidden" name="reset_csrf" value="{{ reset_csrf }}"><input type="hidden" name="kind" value="bots">
+<label><span>Hasło do bazy danych</span><input type="password" name="db_password" autocomplete="off" required></label>
+<label><span>Wpisz <b>RESET</b>, aby potwierdzić</span><input type="text" name="confirm" autocomplete="off" pattern="RESET" required></label>
+<button type="submit" class="danger"{% if status.busy %} disabled{% endif %}>Zresetuj świat botów</button>
+</form>
+</section>
+
+<section class="panel world-reset-card world-reset-all">
+<p class="eyebrow">CAŁY ŚWIAT</p><h2>💥 Reset całego świata</h2>
+<p>Baza danych wraca do stanu <b>świeżej instalacji</b> – dokładnie jak „Zacznij od zera” w launcherze:</p>
+<ul>
+<li>znikają <b>wszystkie konta i postacie graczy</b> ({{ players }}), ich ekwipunek, magazyny, sklepy i Smocze Monety;</li>
+<li>znikają wszystkie boty, gildie, ziemie, sklepy i historia świata; boty są zasiewane od nowa;</li>
+<li>zostają konta testowe (admin / admin) i postacie GM ze świeżej instalacji;</li>
+<li>zostają ustawienia tego panelu i ustawienia serwera z pliku <code>.env</code>.</li>
+</ul>
+<p class="muted">Pierwszy start po resecie trwa dłużej: baza jest importowana od nowa, a boty zasiewane.</p>
+<form method="post" action="{{ url_for('world_reset_start') }}" class="world-reset-form" data-confirm="Na pewno skasować CAŁY świat razem z kontami i postaciami graczy? Tego nie da się cofnąć w grze.">
+<input type="hidden" name="reset_csrf" value="{{ reset_csrf }}"><input type="hidden" name="kind" value="all">
+<label><span>Hasło do bazy danych</span><input type="password" name="db_password" autocomplete="off" required></label>
+<label><span>Wpisz <b>RESET</b>, aby potwierdzić</span><input type="text" name="confirm" autocomplete="off" pattern="RESET" required></label>
+<button type="submit" class="danger"{% if status.busy %} disabled{% endif %}>Zresetuj cały świat</button>
+</form>
+</section>
+</div>
+
+<script>
+document.querySelectorAll('.world-reset-form').forEach(function (form) {
+  form.addEventListener('submit', function (event) {
+    if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+  });
+});
+(function poll() {
+  var box = document.getElementById('world-reset-status');
+  var busy = {{ 'true' if status.busy else 'false' }};
+  if (!busy) return;
+  function refresh() {
+    fetch('{{ url_for("world_reset_status_json") }}', {credentials: 'same-origin'})
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        box.hidden = false;
+        document.getElementById('wr-kind').textContent = s.kind_label || '';
+        document.getElementById('wr-state').textContent = (s.busy ? '⏳ ' : (s.state === 'done' ? '✓ ' : (s.state === 'failed' ? '✗ ' : ''))) + (s.label || '');
+        document.getElementById('wr-state').className = 'world-reset-state state-' + (s.state || '');
+        document.getElementById('wr-when').textContent = s.when || '';
+        document.getElementById('wr-message').textContent = s.message || '';
+        var backup = document.getElementById('wr-backup');
+        if (s.backup) { backup.hidden = false; backup.querySelector('code').textContent = s.backup; }
+        if (s.busy) { setTimeout(refresh, 3000); }
+        else { document.querySelectorAll('.world-reset-form button').forEach(function (b) { b.disabled = false; }); }
+      })
+      .catch(function () { setTimeout(refresh, 5000); });
+  }
+  setTimeout(refresh, 3000);
+})();
+</script>
+{% endblock %}

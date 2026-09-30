@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_CHEST_EDITOR_V1: the "Szkatułki" page (app.py, chests / chest_edit). #}
+{% block title %}Szkatułki · {{ panel_brand }}{% endblock %}
+{% block content %}
+<style>
+.ch-status{border-left:4px solid var(--muted);padding:12px 16px}
+.ch-status.ok{border-left-color:#39e890}.ch-status.pending{border-left-color:#f5b83d}.ch-status.error{border-left-color:#ff5757}.ch-status.unknown{border-left-color:#8aa0ff}
+.ch-status p{margin:.3em 0}
+.ch-tools{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.ch-tools form{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.ch-tools label{display:grid;gap:4px;color:var(--muted);font-size:13px}
+.ch-table td{vertical-align:middle;padding:7px 6px}
+.ch-table input,.ch-table select{padding:6px 7px;font-size:13px}
+.ch-table .ch-item{width:130px}.ch-table .ch-num{width:96px}.ch-table .ch-rare{width:64px}
+.ch-name{display:flex;gap:8px;align-items:center;min-width:220px}
+.ch-name img{width:32px;height:32px;image-rendering:pixelated}
+.ch-bad{color:#ff5757;font-weight:600}
+.ch-chance{font-variant-numeric:tabular-nums;white-space:nowrap}
+.ch-bar{display:block;height:4px;border-radius:2px;background:#39e890;margin-top:3px;max-width:120px}
+.ch-tag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;background:color-mix(in srgb,var(--blue2) 18%,transparent);margin-left:4px}
+.ch-tag.custom{background:#f5b83d33;color:#f5b83d}.ch-tag.new{background:#39e89033;color:#39e890}
+.ch-featured td{background:color-mix(in srgb,#f5b83d 9%,transparent)}
+.ch-del td{opacity:.4;text-decoration:line-through}
+.ch-help{font-size:13px}
+.ch-help code{font-size:12px}
+.ch-search{min-width:260px}
+</style>
+<p class="eyebrow">MT2009 PLUS · ZAWARTOŚĆ SZKATUŁEK</p>
+<h1>🎁 Szkatułki</h1>
+
+<section class="panel ch-status {{ state.live.kind }}">
+  <p><b>Stan w grze:</b> {{ state.live.text }}{% if state.live.time %} <small class="muted">(raport gry: {{ state.live.time.strftime('%Y-%m-%d %H:%M:%S') }})</small>{% endif %}</p>
+  <p class="muted">Plik bazowy: {% if state.source == 'game' %}special_item_group.txt z obrazu gry{% else %}kopia wbudowana w panel (gra nie opublikowała jeszcze swojego pliku){% endif %}{% if state.base_time %}, {{ state.base_time.strftime('%Y-%m-%d %H:%M') }}{% endif %}. Zmienione grupy: {{ state.custom|length }}. <a href="{{ url_for('chest_file_view') }}" target="_blank">Podgląd pliku zmian</a></p>
+</section>
+
+{% if edit is defined %}
+{# ---------------------------------------------------------------- edit --- #}
+<p><a href="{{ url_for('chests') }}">← Wszystkie szkatułki</a></p>
+<section class="panel">
+  <h2>{% if item_name %}{{ item_name }}{% else %}Grupa {{ edit.name }}{% endif %} <small class="muted">Vnum {{ vnum }} · grupa „{{ edit.name }}”</small>{% if custom %}<span class="ch-tag custom">zmieniona w panelu</span>{% endif %}{% if not has_base %}<span class="ch-tag new">nowa</span>{% endif %}</h2>
+  {% if edit.type == 'pct' %}
+  <p class="muted">Grupa procentowa: <b>każda pozycja losowana osobno</b> – „Szansa” to procent (0–100), a jedno otwarcie może dać kilka rzeczy albo nic.</p>
+  {% elif edit.type in ('quest', 'special', 'attr') %}
+  <p class="muted">Grupa typu „{{ types.get(edit.type, edit.type) }}” – rodzaj zostaje bez zmian.</p>
+  {% else %}
+  <p class="muted">Zwykła grupa: jedno otwarcie daje <b>dokładnie jedną pozycję</b>, losowaną według wag w kolumnie „Szansa (waga)”. Procent obok liczy się sam: waga ÷ suma wag.</p>
+  {% endif %}
+  {% if edit.type == 'attr' %}
+  <p class="ch-bad">Grupy bonusów (attr) nie edytuje się tutaj.</p>
+  {% else %}
+  <form method="post" id="ch-form">
+    <input type="hidden" name="chest_csrf" value="{{ chest_csrf }}">
+    <input type="hidden" name="row_count" id="ch-rows" value="{{ entries|length + 3 }}">
+    {% if edit.type in ('', 'pct') %}
+    <p><label class="muted">Rodzaj losowania
+      <select name="group_type" id="ch-type">
+        <option value="" {% if edit.type == '' %}selected{% endif %}>{{ types[''] }}</option>
+        <option value="pct" {% if edit.type == 'pct' %}selected{% endif %}>{{ types['pct'] }}</option>
+      </select></label></p>
+    {% else %}<input type="hidden" name="group_type" value="{{ edit.type }}">{% endif %}
+    <div class="table-wrap"><table class="ch-table">
+      <thead><tr><th>#</th><th>Przedmiot (VNUM lub słowo)</th><th>Nazwa</th><th>Ilość</th><th id="ch-prob-head">{% if edit.type == 'pct' %}Szansa (%){% else %}Szansa (waga){% endif %}</th><th>Wychodzi</th><th title="Szansa (%) na przedmiot z dodatkowymi bonusami">Rare %</th><th>Usuń</th></tr></thead>
+      <tbody id="ch-body">
+      {% for e in entries %}{% set i = loop.index0 %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><input name="r{{ i }}_item" value="{{ e.item }}" class="ch-item" list="ch-items"></td>
+        <td><span class="ch-name">{% if e.icon %}<img src="{{ e.icon }}" alt="">{% endif %}<span class="{{ 'ch-bad' if e.label in ('NIEZNANY PRZEDMIOT', '?') or 'BRAK' in e.label else '' }}">{% if e.nested %}<a href="{{ url_for('chest_edit', vnum=e.nested) }}">{{ e.label }}</a>{% else %}{{ e.label }}{% endif %}</span></span></td>
+        <td><input name="r{{ i }}_count" type="number" min="0" value="{{ e.count }}" class="ch-num"></td>
+        <td><input name="r{{ i }}_prob" type="number" min="0" value="{{ e.prob }}" class="ch-num ch-prob"></td>
+        <td class="ch-chance"><span class="ch-pct">{{ '%.2f'|format(e.chance) }}%</span><i class="ch-bar" style="width:{{ [e.chance, 100]|min * 1.2 }}px"></i></td>
+        <td><input name="r{{ i }}_rare" type="number" min="0" max="100" value="{{ e.rare }}" class="ch-rare"></td>
+        <td><input type="checkbox" name="r{{ i }}_delete" value="1" class="ch-delete"></td>
+      </tr>
+      {% endfor %}
+      {% for n in range(3) %}{% set i = entries|length + n %}
+      <tr class="ch-new">
+        <td>nowa</td>
+        <td><input name="r{{ i }}_item" value="" class="ch-item" list="ch-items" placeholder="VNUM"></td>
+        <td><span class="ch-name"><span class="muted">wpisz VNUM lub nazwę</span></span></td>
+        <td><input name="r{{ i }}_count" type="number" min="0" value="1" class="ch-num"></td>
+        <td><input name="r{{ i }}_prob" type="number" min="0" value="1" class="ch-num ch-prob"></td>
+        <td class="ch-chance"><span class="ch-pct"></span></td>
+        <td><input name="r{{ i }}_rare" type="number" min="0" max="100" value="0" class="ch-rare"></td>
+        <td></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <datalist id="ch-items"></datalist>
+    <p class="ch-tools">
+      <button type="button" id="ch-add">+ Dodaj wiersz</button>
+      <button name="action" value="save">💾 Zapisz szkatułkę</button>
+      {% if custom and has_base %}<button name="action" value="reset" formnovalidate onclick="return confirm('Przywrócić zawartość z obrazu gry? Twoje zmiany tej grupy trafią do kopii zapasowej.')">↺ Przywróć z obrazu gry</button>{% endif %}
+      {% if custom and not has_base %}<button name="action" value="reset" formnovalidate onclick="return confirm('Usunąć tę nową grupę?')">✖ Usuń nową grupę</button>{% endif %}
+    </p>
+  </form>
+  <div class="ch-help muted">
+    <p><b>Przedmiot:</b> VNUM przedmiotu (np. <code>71084</code>) albo słowo: <code>gold</code> (yang, kwota w „Ilość”), <code>exp</code> (doświadczenie), <code>mob</code> (potwór – VNUM w „Ilość”), <code>group</code>, <code>slow</code>, <code>poison</code>, <code>drain_hp</code>, albo <code>s</code>+numer grupy (np. <code>s50011</code>) – losowanie z innej grupy. Pustą nazwę wiersza się pomija, zaznaczone „Usuń” znikają, numeracja układa się sama.</p>
+    <p><b>Zapis</b> sprawdza każdy VNUM w item_proto (zły numer zatrzymałby serwer przy starcie) i trafia do pliku zmian w wolumenie gry. Poprzednia wersja zawsze idzie do kopii zapasowej. Gra wczytuje szkatułki przy starcie rdzeni – po zapisie użyj „Zastosuj teraz” na liście szkatułek albo poczekaj do najbliższego restartu. Okno podglądu szkatułki w grze pokaże nową zawartość po restarcie.</p>
+  </div>
+  {% endif %}
+</section>
+<script data-page-script>
+(() => {
+  const body = document.getElementById('ch-body'); if (!body) return;
+  const rows = document.getElementById('ch-rows'), type = document.getElementById('ch-type'), head = document.getElementById('ch-prob-head');
+  const list = document.getElementById('ch-items');
+  const isPct = () => (type ? type.value : '{{ edit.type }}') === 'pct';
+  function recalc() {
+    const trs = [...body.querySelectorAll('tr')];
+    let total = 0;
+    trs.forEach(tr => { const del = tr.querySelector('.ch-delete'), item = tr.querySelector('.ch-item'), p = tr.querySelector('.ch-prob');
+      tr.classList.toggle('ch-del', !!(del && del.checked));
+      if (item && item.value.trim() && !(del && del.checked)) total += Math.max(0, parseInt(p.value || '0', 10) || 0); });
+    trs.forEach(tr => { const del = tr.querySelector('.ch-delete'), item = tr.querySelector('.ch-item'), p = tr.querySelector('.ch-prob'), out = tr.querySelector('.ch-pct'); if (!out) return;
+      const v = Math.max(0, parseInt(p.value || '0', 10) || 0);
+      if (!item.value.trim() || (del && del.checked)) { out.textContent = ''; return; }
+      const c = isPct() ? Math.min(100, v) : (total ? 100 * v / total : 0);
+      out.textContent = c.toFixed(2) + '%'; const bar = tr.querySelector('.ch-bar'); if (bar) bar.style.width = (Math.min(100, c) * 1.2) + 'px'; });
+    if (head) head.textContent = isPct() ? 'Szansa (%)' : 'Szansa (waga)';
+  }
+  body.addEventListener('input', recalc); body.addEventListener('change', recalc); if (type) type.addEventListener('change', recalc);
+  document.getElementById('ch-add').addEventListener('click', () => {
+    const i = parseInt(rows.value, 10); rows.value = i + 1;
+    const tr = document.createElement('tr'); tr.className = 'ch-new';
+    tr.innerHTML = `<td>nowa</td><td><input name="r${i}_item" class="ch-item" list="ch-items" placeholder="VNUM"></td><td><span class="ch-name"><span class="muted">wpisz VNUM lub nazwę</span></span></td><td><input name="r${i}_count" type="number" min="0" value="1" class="ch-num"></td><td><input name="r${i}_prob" type="number" min="0" value="1" class="ch-num ch-prob"></td><td class="ch-chance"><span class="ch-pct"></span></td><td><input name="r${i}_rare" type="number" min="0" max="100" value="0" class="ch-rare"></td><td></td>`;
+    body.appendChild(tr); tr.querySelector('.ch-item').focus();
+  });
+  let timer = null;
+  body.addEventListener('input', ev => {
+    if (!ev.target.classList.contains('ch-item')) return;
+    const input = ev.target, q = input.value.trim(); clearTimeout(timer);
+    const name = input.closest('tr').querySelector('.ch-name');
+    const known = [...list.options].find(o => o.value === q);
+    if (known) { name.innerHTML = ''; name.textContent = known.label; }
+    if (q.length < 2) return;
+    timer = setTimeout(() => fetch('{{ url_for('api_chest_items') }}?q=' + encodeURIComponent(q)).then(r => r.json()).then(d => {
+      list.innerHTML = ''; (d.items || []).forEach(it => { const o = document.createElement('option'); o.value = it.vnum; o.label = it.vnum + ' – ' + it.name; o.textContent = it.vnum + ' – ' + it.name; list.appendChild(o); });
+      const hit = (d.items || []).find(it => String(it.vnum) === q); if (hit) name.textContent = hit.name;
+      else if (/^\d+$/.test(q)) { name.innerHTML = '<span class="ch-bad">NIEZNANY PRZEDMIOT</span>'; }
+    }).catch(() => {}), 250);
+  });
+  recalc();
+})();
+</script>
+
+{% else %}
+{# ---------------------------------------------------------------- list --- #}
+<section class="panel">
+  <p class="muted">Tu ustawiasz, co wypada ze szkatułek – przede wszystkim ze <b>Szkatułki Blasku Księżyca</b> (Vnum 50011), ale też z każdej innej grupy <code>special_item_group.txt</code>. Zmieniasz tylko wybrane grupy; reszta zostaje taka, jak w obrazie gry, więc aktualizacje serwera dalej ją poprawiają.</p>
+  <div class="ch-tools">
+    <label>Szukaj<input type="search" id="ch-filter" class="ch-search" placeholder="nazwa, Vnum, grupa…"></label>
+    <label><span><input type="checkbox" id="ch-only-boxes" checked> tylko przedmioty (szkatułki, skrzynie)</span></label>
+    <form method="post" action="{{ url_for('chest_new') }}">
+      <input type="hidden" name="chest_csrf" value="{{ chest_csrf }}">
+      <label>Nowa szkatułka (VNUM przedmiotu bez grupy)<input name="vnum" type="number" min="1" required></label>
+      <button>+ Utwórz</button>
+    </form>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Zastosuj w grze</h2>
+  <p class="muted">Rdzenie gry czytają szkatułki tylko przy starcie. „Zastosuj teraz” restartuje rdzenie (jak restart w „Gra i serwer”): gracze online zostaną rozłączeni na mniej więcej minutę. Bez tego zmiany wejdą przy najbliższym restarcie serwera. Postęp restartu: {{ restart.stage }}{% if restart.percent is defined %} ({{ restart.percent }}%){% endif %}.</p>
+  <form method="post" action="{{ url_for('chest_apply') }}" class="ch-tools">
+    <input type="hidden" name="chest_csrf" value="{{ chest_csrf }}">
+    <label>Wpisz RESTART<input name="confirmation" autocomplete="off" placeholder="RESTART"></label>
+    <button>↻ Zastosuj teraz (restart rdzeni)</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="table-wrap"><table class="ch-table" id="ch-list">
+    <thead><tr><th>Vnum</th><th>Przedmiot</th><th>Grupa w pliku</th><th>Losowanie</th><th>Pozycji</th><th></th></tr></thead>
+    <tbody>
+    {% for g in groups %}
+    <tr class="{{ 'ch-featured' if g.featured else '' }}" data-item="{{ '1' if g.is_item else '0' }}" data-text="{{ (g.vnum|string + ' ' + g.item_name + ' ' + g.group_name)|lower }}">
+      <td>{{ g.vnum }}</td>
+      <td><span class="ch-name">{% if g.is_item and item_icon(g.vnum) %}<img src="{{ item_icon(g.vnum) }}" alt="">{% endif %}<span>{{ g.item_name or '—' }}{% if g.featured %} ⭐{% endif %}</span></span></td>
+      <td>{{ g.group_name }}{% if g.custom %}<span class="ch-tag custom">zmieniona</span>{% endif %}{% if g.new %}<span class="ch-tag new">nowa</span>{% endif %}</td>
+      <td>{{ 'każda osobno (%)' if g.type == 'pct' else ('1 z wag' if not g.type else g.type) }}</td>
+      <td>{{ g.lines }}</td>
+      <td><a href="{{ url_for('chest_edit', vnum=g.vnum) }}">Edytuj →</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+
+<section class="panel">
+  <h2>Kopie zapasowe</h2>
+  <p class="muted">Każdy zapis odkłada poprzednią wersję pliku zmian (najnowsze {{ backups|length }} z maks. 100). Przywrócenie też najpierw robi kopię obecnego stanu.</p>
+  {% if backups %}
+  <div class="table-wrap"><table class="ch-table">
+    <thead><tr><th>Kopia z</th><th>Zmienione grupy w tej wersji</th><th></th></tr></thead>
+    <tbody>
+    {% for b in backups %}
+    <tr><td>{{ b.time.strftime('%Y-%m-%d %H:%M:%S') }}</td><td>{{ b.groups }}</td>
+      <td class="ch-tools"><a href="{{ url_for('chest_backup_view', name=b.name) }}" target="_blank">Podgląd</a>
+        <form method="post" action="{{ url_for('chest_restore') }}" onsubmit="return confirm('Przywrócić tę wersję?')"><input type="hidden" name="chest_csrf" value="{{ chest_csrf }}"><input type="hidden" name="backup" value="{{ b.name }}"><button>Przywróć</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">Jeszcze nic nie zapisano.</p>{% endif %}
+</section>
+<script data-page-script>
+(() => {
+  const filter = document.getElementById('ch-filter'), only = document.getElementById('ch-only-boxes');
+  const trs = [...document.querySelectorAll('#ch-list tbody tr')];
+  function apply() { const q = filter.value.trim().toLowerCase();
+    trs.forEach(tr => { tr.style.display = ((!only.checked || tr.dataset.item === '1' || q) && (!q || tr.dataset.text.includes(q))) ? '' : 'none'; }); }
+  filter.addEventListener('input', apply); only.addEventListener('change', apply); apply();
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DROP_EDITOR_V1: the "Drop z potworów" page (app.py, drops / drop_edit). #}
+{% block title %}Drop z potworów · {{ panel_brand }}{% endblock %}
+{% block content %}
+<style>
+.dr-status{border-left:4px solid var(--muted);padding:12px 16px}
+.dr-status.ok{border-left-color:#39e890}.dr-status.pending{border-left-color:#f5b83d}.dr-status.error{border-left-color:#ff5757}.dr-status.unknown{border-left-color:#8aa0ff}
+.dr-status p{margin:.3em 0}
+.dr-tools{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.dr-tools form{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.dr-tools label{display:grid;gap:4px;color:var(--muted);font-size:13px}
+.dr-table td{vertical-align:middle;padding:7px 6px}
+.dr-table input,.dr-table select{padding:6px 7px;font-size:13px}
+.dr-table .dr-item{width:120px}.dr-table .dr-num{width:90px}.dr-table .dr-rare{width:60px}
+.dr-name{display:flex;gap:8px;align-items:center;min-width:200px}
+.dr-name img{width:32px;height:32px;image-rendering:pixelated}
+.dr-bad{color:#ff5757;font-weight:600}
+.dr-chance{font-variant-numeric:tabular-nums;white-space:nowrap}
+.dr-chance small{display:block;color:var(--muted)}
+.dr-bar{display:block;height:4px;border-radius:2px;background:#39e890;margin-top:3px;max-width:120px}
+.dr-tag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;background:color-mix(in srgb,var(--blue2) 18%,transparent);margin-left:4px}
+.dr-tag.custom{background:#f5b83d33;color:#f5b83d}.dr-tag.new{background:#39e89033;color:#39e890}.dr-tag.gone{background:#ff575733;color:#ff5757}
+.dr-tag.metin{background:#8aa0ff33;color:#8aa0ff}.dr-tag.boss{background:#ff575733;color:#ff9a9a}
+.dr-del td{opacity:.4;text-decoration:line-through}
+.dr-help{font-size:13px}
+.dr-params{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin:.5em 0}
+.dr-params label{display:grid;gap:4px;color:var(--muted);font-size:13px}
+.dr-params input{width:110px}
+.dr-kinds{display:flex;gap:8px;flex-wrap:wrap;margin:.3em 0 .8em}
+.dr-kinds a{padding:4px 10px;border-radius:12px;background:color-mix(in srgb,var(--blue2) 14%,transparent);font-size:13px}
+.dr-search{min-width:260px}
+</style>
+<p class="eyebrow">MT2009 PLUS · DROP Z POTWORÓW, METINÓW I BOSSÓW</p>
+<h1>💀 Drop z potworów</h1>
+
+<section class="panel dr-status {{ state.live.kind }}">
+  <p><b>Stan w grze:</b> {{ state.live.text }}{% if state.live.time %} <small class="muted">(raport gry: {{ state.live.time.strftime('%Y-%m-%d %H:%M:%S') }})</small>{% endif %}</p>
+  <p class="muted">Plik bazowy: {% if state.has_base %}mob_drop_item.txt z obrazu gry{% if state.base_time %}, {{ state.base_time.strftime('%Y-%m-%d %H:%M') }}{% endif %} ({{ state.base|length }} grup){% else %}<b>gra nie opublikowała jeszcze swojego pliku</b> – widać tylko zmiany z panelu{% endif %}. Zmienione grupy: {{ state.custom|length }}. <a href="{{ url_for('drop_file_view') }}" target="_blank">Podgląd pliku zmian</a></p>
+</section>
+
+{% if edit is defined %}
+{# ---------------------------------------------------------------- edit --- #}
+<p><a href="{{ url_for('drops') }}">← Szukaj innego potwora</a></p>
+<section class="panel">
+  <h2>{{ mob.name or '—' }} <small class="muted">VNUM {{ mob.vnum }} · poziom {{ mob.level }} · ranga: {{ mob.rank_name }}</small>
+    <span class="dr-tag {{ mob.kind }}">{{ mob.kind_name }}</span></h2>
+  <p class="muted">Szanse podane „na jedno zabicie” – tak, jak liczy je silnik (CreateDropItem) dla zabójcy na poziomie potwora, bez premium, rękawic i eventów.
+    Druga liczba uwzględnia obecną stawkę dropu serwera ({{ rates.get('drop', 100) }}%). Zabójca dużo wyżej od potwora dostaje mniej (tabela różnicy poziomów).</p>
+  <div class="dr-kinds">{% for s in sections %}<a href="#k-{{ s.kind }}">{{ s.kind }}{% if s.entries %} ({{ s.entries|length }}){% elif s.data and s.data.removed %} (usunięta){% else %} (brak){% endif %}</a>{% endfor %}<a href="#other">inne źródła dropu</a></div>
+</section>
+
+{% for s in sections %}
+<section class="panel" id="k-{{ s.kind }}">
+  <h2>{{ s.label }} <small class="muted">Type {{ s.kind }}</small>
+    {% if s.custom and s.data and s.data.removed %}<span class="dr-tag gone">usunięta w panelu</span>{% elif s.custom %}<span class="dr-tag custom">zmieniona w panelu</span>{% endif %}
+    {% if s.custom and not s.has_base and not (s.data and s.data.removed) %}<span class="dr-tag new">nowa</span>{% endif %}</h2>
+  <p class="muted">{% if s.kind == 'drop' %}Każda pozycja losowana <b>osobno</b> przy każdym zabiciu. „Wartość” w pliku to procent × 4: <code>4</code> = 1% na zabicie, <code>0.4</code> = 0,1%, <code>400</code> = 100%. Wpis <code>s50011</code> losuje jedną pozycję z grupy szkatułki.
+  {% elif s.kind == 'kill' %}Co N zabójstw (średnio) wypada <b>jeden</b> przedmiot z tej listy, wybrany według wag. Szansa na zabicie = 1/N × waga ÷ suma wag. Rare = szansa (%) na dodatkowe bonusy.
+  {% elif s.kind == 'limit' %}Tylko dla gracza z poziomem co najmniej „od poziomu”. Każda pozycja osobno, wartość to <b>procent wprost</b> (bez różnicy poziomów i stawki dropu).
+  {% else %}Dodatkowy drop tylko dla gracza z premium lub rękawicami złodzieja. Wartość jak w „drop”: procent × 4.{% endif %}</p>
+
+  {% if s.data and s.data.groups %}
+    {% if s.data.base|length > 1 and s.kind == 'drop' and not s.custom %}<p class="muted">W obrazie gry ten potwór ma {{ s.data.base|length }} grupy „drop” ({{ s.group_names|join(', ') }}) – silnik je łączy. Zapis zastąpi je wszystkie jedną grupą.</p>{% endif %}
+    {% if s.data.ignored %}<p class="dr-bad">Uwaga: w obrazie jest jeszcze {{ s.data.ignored|length }} grupa „{{ s.kind }}” tego potwora, której silnik NIE używa (bierze tylko pierwszą). Zapis zastąpi obie.</p>{% endif %}
+  <form method="post" class="dr-form" action="{{ url_for('drop_save', mob=mob.vnum) }}">
+    <input type="hidden" name="drop_csrf" value="{{ drop_csrf }}">
+    <input type="hidden" name="kind" value="{{ s.kind }}">
+    <input type="hidden" name="row_count" class="dr-rows" value="{{ s.entries|length + 2 }}">
+    {% if s.kind == 'kill' %}<div class="dr-params"><label>Co ile zabójstw (kill_drop)<input name="kill_drop" type="number" min="1" value="{{ s.kill_drop }}" class="dr-killdrop"></label></div>{% endif %}
+    {% if s.kind == 'limit' %}<div class="dr-params"><label>Od poziomu gracza (level_limit)<input name="level_limit" type="number" min="0" max="250" value="{{ s.level_limit }}"></label></div>{% endif %}
+    <div class="table-wrap"><table class="dr-table" data-kind="{{ s.kind }}" data-rate="{{ rates.get('drop', 100) }}">
+      <thead><tr><th>#</th><th>Przedmiot (VNUM{% if s.kind == 'drop' %} lub sNNNN{% endif %})</th><th>Nazwa</th><th>Ilość</th><th>{% if s.kind == 'kill' %}Waga{% elif s.kind == 'limit' %}Szansa (%){% else %}Wartość (% × 4){% endif %}</th><th>Na zabicie</th>{% if s.kind == 'kill' %}<th title="Szansa (%) na przedmiot z dodatkowymi bonusami">Rare %</th>{% endif %}<th>Usuń</th></tr></thead>
+      <tbody class="dr-body">
+      {% for e in s.entries %}{% set i = loop.index0 %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><input name="r{{ i }}_item" value="{{ e.item }}" class="dr-item" list="dr-items"></td>
+        <td><span class="dr-name">{% if e.icon %}<img src="{{ e.icon }}" alt="">{% endif %}<span class="{{ 'dr-bad' if e.label in ('NIEZNANY PRZEDMIOT', '?') or 'BRAK' in e.label else '' }}">{% if e.nested %}<a href="{{ url_for('chest_edit', vnum=e.nested) }}">{{ e.label }}</a>{% else %}{{ e.label }}{% endif %}</span></span></td>
+        <td><input name="r{{ i }}_count" type="number" min="1" value="{{ e.count }}" class="dr-num"></td>
+        <td><input name="r{{ i }}_prob" value="{{ e.prob }}" class="dr-num dr-prob" inputmode="decimal"></td>
+        <td class="dr-chance"><span class="dr-pct">{{ '%.4g'|format(e.chance) }}%</span>{% if s.kind != 'limit' %}<small class="dr-pct-rate">{{ '%.4g'|format(e.chance_rate) }}% ze stawką</small>{% endif %}{% if e.share is not none %}<small>{{ '%.1f'|format(e.share) }}% puli</small>{% endif %}<i class="dr-bar" style="width:{{ [e.chance, 100]|min * 1.2 }}px"></i></td>
+        {% if s.kind == 'kill' %}<td><input name="r{{ i }}_rare" type="number" min="0" max="100" value="{{ e.rare }}" class="dr-rare"></td>{% endif %}
+        <td><input type="checkbox" name="r{{ i }}_delete" value="1" class="dr-delete"></td>
+      </tr>
+      {% endfor %}
+      {% for n in range(2) %}{% set i = s.entries|length + n %}
+      <tr class="dr-new">
+        <td>nowa</td>
+        <td><input name="r{{ i }}_item" value="" class="dr-item" list="dr-items" placeholder="VNUM"></td>
+        <td><span class="dr-name"><span class="muted">wpisz VNUM lub nazwę</span></span></td>
+        <td><input name="r{{ i }}_count" type="number" min="1" value="1" class="dr-num"></td>
+        <td><input name="r{{ i }}_prob" value="{{ '1' if s.kind in ('kill', 'limit') else '4' }}" class="dr-num dr-prob" inputmode="decimal"></td>
+        <td class="dr-chance"><span class="dr-pct"></span></td>
+        {% if s.kind == 'kill' %}<td><input name="r{{ i }}_rare" type="number" min="0" max="100" value="0" class="dr-rare"></td>{% endif %}
+        <td></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="dr-tools">
+      <button type="button" class="dr-add">+ Dodaj wiersz</button>
+      <button name="action" value="save">💾 Zapisz grupę „{{ s.kind }}”</button>
+      {% if s.custom and s.has_base %}<button name="action" value="reset" formnovalidate onclick="return confirm('Przywrócić tę grupę z obrazu gry? Obecny stan trafi do kopii zapasowej.')">↺ Przywróć z obrazu gry</button>{% endif %}
+      <button name="action" value="remove" formnovalidate onclick="return confirm('Usunąć grupę „{{ s.kind }}” tego potwora? Potwór przestanie dropić te przedmioty (także po aktualizacjach).')">✖ Usuń grupę</button>
+    </p>
+  </form>
+  {% else %}
+    {% if s.data and s.data.removed %}<p>Ta grupa została <b>usunięta w panelu</b> – gra wycina ją z pliku z obrazu przy każdym starcie.</p>{% else %}<p class="muted">Ten potwór nie ma grupy „{{ s.kind }}”.</p>{% endif %}
+  <form method="post" class="dr-tools" action="{{ url_for('drop_save', mob=mob.vnum) }}">
+    <input type="hidden" name="drop_csrf" value="{{ drop_csrf }}"><input type="hidden" name="kind" value="{{ s.kind }}">
+    <button name="action" value="create">+ Utwórz grupę „{{ s.kind }}”</button>
+    {% if s.custom and s.has_base %}<button name="action" value="reset">↺ Przywróć z obrazu gry</button>{% endif %}
+  </form>
+  {% endif %}
+</section>
+{% endfor %}
+<datalist id="dr-items"></datalist>
+
+<section class="panel" id="other">
+  <h2>Inne źródła dropu <small class="muted">tylko do odczytu</small></h2>
+  <p class="muted">To, co ten potwór może dać poza mob_drop_item.txt: wpisane na stałe w silniku gry (CreateDropItem), ustawiane w CONFIG gry albo w osobnych plikach. Tutaj się ich nie zmienia.</p>
+  <div class="table-wrap"><table class="dr-table">
+    <thead><tr><th>Przedmiot</th><th>Szansa</th><th>Skąd / warunki</th></tr></thead>
+    <tbody>
+    {% for o in other %}
+    <tr><td><span class="dr-name">{% if o.icon %}<img src="{{ o.icon }}" alt="">{% endif %}<span>{{ o.name or '—' }}{% if o.item %} <small class="muted">{{ o.item }}</small>{% endif %}</span></span></td><td class="dr-chance">{{ o.chance }}</td><td class="muted">{{ o.note }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if common %}
+  <details><summary>Wspólny drop dla rangi „{{ mob.rank_name }}” (common_drop_item.txt, {{ common|length }} pozycji – zależnie od poziomu ZABÓJCY)</summary>
+  <div class="table-wrap"><table class="dr-table">
+    <thead><tr><th>Przedmiot</th><th>Poziom zabójcy</th><th>Na zabicie</th></tr></thead>
+    <tbody>{% for c in common %}<tr><td><span class="dr-name">{% if c.icon %}<img src="{{ c.icon }}" alt="">{% endif %}<span>{{ c.name or 'NIEZNANY' }} <small class="muted">{{ c.item }}</small></span></span></td><td>{{ c.levels }}</td><td class="dr-chance">{{ '%.4g'|format(c.chance) }}%</td></tr>{% endfor %}</tbody>
+  </table></div></details>
+  {% endif %}
+</section>
+
+<section class="panel dr-help muted">
+  <p><b>Zapis</b> sprawdza każdy VNUM w item_proto i wszystko, na czym rdzeń gry by się wywrócił przy starcie (zły przedmiot, ilość 0, waga 0 w „kill”, brak pola rare). Trafia do pliku zmian w wolumenie gry – nie do plików z aktualizacji – i zastępuje wszystkie grupy tego potwora tego samego rodzaju z obrazu gry, więc <b>aktualizacja serwera go nie nadpisze</b>. Poprzednia wersja zawsze idzie do kopii zapasowej. Gra wczytuje drop przy starcie rdzeni – po zapisie użyj „Zastosuj teraz” na liście albo poczekaj do najbliższego restartu. Podgląd dropu potwora w grze pokaże nową zawartość po restarcie.</p>
+</section>
+<script data-page-script>
+(() => {
+  const list = document.getElementById('dr-items');
+  document.querySelectorAll('.dr-form').forEach(form => {
+    const body = form.querySelector('.dr-body'), rows = form.querySelector('.dr-rows'), table = form.querySelector('.dr-table');
+    const kind = table.dataset.kind, rate = (parseFloat(table.dataset.rate) || 100) / 100;
+    const killDrop = form.querySelector('.dr-killdrop');
+    const num = v => { const n = parseFloat(String(v || '').replace(',', '.')); return isFinite(n) && n > 0 ? n : 0; };
+    function recalc() {
+      const trs = [...body.querySelectorAll('tr')];
+      const live = tr => { const del = tr.querySelector('.dr-delete'), item = tr.querySelector('.dr-item'); tr.classList.toggle('dr-del', !!(del && del.checked)); return item.value.trim() && !(del && del.checked); };
+      let total = 0; trs.forEach(tr => { if (live(tr)) total += num(tr.querySelector('.dr-prob').value); });
+      const every = killDrop ? Math.max(1, parseInt(killDrop.value || '1', 10) || 1) : 1;
+      trs.forEach(tr => { const out = tr.querySelector('.dr-pct'); if (!out) return;
+        const small = tr.querySelector('.dr-pct-rate');
+        if (!live(tr)) { out.textContent = ''; if (small) small.textContent = ''; return; }
+        const v = num(tr.querySelector('.dr-prob').value);
+        let c = kind === 'kill' ? (total ? 100 * v / total / every : 0) : kind === 'limit' ? Math.min(100, v) : Math.min(100, v / 4);
+        out.textContent = (+c.toPrecision(4)) + '%';
+        if (small) small.textContent = (+Math.min(100, c * rate).toPrecision(4)) + '% ze stawką';
+        const bar = tr.querySelector('.dr-bar'); if (bar) bar.style.width = (Math.min(100, c) * 1.2) + 'px'; });
+    }
+    form.addEventListener('input', recalc); form.addEventListener('change', recalc);
+    form.querySelector('.dr-add').addEventListener('click', () => {
+      const i = parseInt(rows.value, 10); rows.value = i + 1;
+      const tr = document.createElement('tr'); tr.className = 'dr-new';
+      tr.innerHTML = `<td>nowa</td><td><input name="r${i}_item" class="dr-item" list="dr-items" placeholder="VNUM"></td><td><span class="dr-name"><span class="muted">wpisz VNUM lub nazwę</span></span></td><td><input name="r${i}_count" type="number" min="1" value="1" class="dr-num"></td><td><input name="r${i}_prob" value="${kind === 'drop' || kind === 'thiefgloves' ? 4 : 1}" class="dr-num dr-prob" inputmode="decimal"></td><td class="dr-chance"><span class="dr-pct"></span></td>` + (kind === 'kill' ? `<td><input name="r${i}_rare" type="number" min="0" max="100" value="0" class="dr-rare"></td>` : '') + `<td></td>`;
+      body.appendChild(tr); tr.querySelector('.dr-item').focus();
+    });
+    let timer = null;
+    body.addEventListener('input', ev => {
+      if (!ev.target.classList.contains('dr-item')) return;
+      const input = ev.target, q = input.value.trim(); clearTimeout(timer);
+      const name = input.closest('tr').querySelector('.dr-name');
+      const known = [...list.options].find(o => o.value === q);
+      if (known) { name.textContent = known.label; }
+      if (q.length < 2) return;
+      timer = setTimeout(() => fetch('{{ url_for('api_chest_items') }}?q=' + encodeURIComponent(q)).then(r => r.json()).then(d => {
+        list.innerHTML = ''; (d.items || []).forEach(it => { const o = document.createElement('option'); o.value = it.vnum; o.label = it.vnum + ' – ' + it.name; o.textContent = it.vnum + ' – ' + it.name; list.appendChild(o); });
+        const hit = (d.items || []).find(it => String(it.vnum) === q); if (hit) name.textContent = hit.name;
+        else if (/^\d+$/.test(q)) { name.innerHTML = '<span class="dr-bad">NIEZNANY PRZEDMIOT</span>'; }
+      }).catch(() => {}), 250);
+    });
+    recalc();
+  });
+})();
+</script>
+
+{% else %}
+{# ---------------------------------------------------------------- list --- #}
+<section class="panel">
+  <p class="muted">Podaj VNUM albo nazwę potwora, Metina lub bossa i ustaw, co z niego wypada. Zmieniasz tylko wybrane grupy (potwór + rodzaj: drop / kill / limit / thiefgloves); reszta zostaje taka, jak w obrazie gry, więc aktualizacje serwera dalej ją poprawiają – a <b>Twoich zmian nie nadpisują</b>.</p>
+  <form method="get" class="dr-tools">
+    <label>Potwór (VNUM lub nazwa)<input type="search" name="q" value="{{ query }}" class="dr-search" placeholder="np. 8001 albo Metin Walki" autofocus></label>
+    <label>Rodzaj<select name="kind"><option value="">wszystkie</option><option value="metin" {% if kind == 'metin' %}selected{% endif %}>tylko Metiny</option><option value="boss" {% if kind == 'boss' %}selected{% endif %}>tylko bossy</option></select></label>
+    <button>🔍 Szukaj</button>
+  </form>
+</section>
+
+{% if query or kind %}
+<section class="panel">
+  <h2>Wyniki <small class="muted">{{ found|length }}{% if found|length >= 300 %}+ (zawęź wyszukiwanie){% endif %}</small></h2>
+  {% if found %}
+  <div class="table-wrap"><table class="dr-table">
+    <thead><tr><th>VNUM</th><th>Nazwa</th><th>Poziom</th><th>Ranga</th><th>Rodzaj</th><th>Grup w pliku</th><th></th></tr></thead>
+    <tbody>
+    {% for m in found %}
+    <tr><td>{{ m.vnum }}</td><td>{{ m.name or '—' }}</td><td>{{ m.level }}</td><td>{{ m.rank_name }}</td><td><span class="dr-tag {{ m.kind }}">{{ m.kind_name }}</span></td>
+      <td>{{ counts.get(m.vnum, 0) }}{% for k in types %}{% if (m.vnum, k) in custom_keys %}<span class="dr-tag custom">{{ k }} zmieniona</span>{% endif %}{% endfor %}</td>
+      <td><a href="{{ url_for('drop_edit', mob=m.vnum) }}">Edytuj drop →</a></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">Nic nie znaleziono.</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Zmienione w panelu</h2>
+  {% if changed %}
+  <div class="table-wrap"><table class="dr-table">
+    <thead><tr><th>VNUM</th><th>Nazwa</th><th>Poziom</th><th>Rodzaj</th><th>Zmienione grupy</th><th></th></tr></thead>
+    <tbody>
+    {% for m in changed %}
+    <tr><td>{{ m.vnum }}</td><td>{{ m.name }}</td><td>{{ m.level }}</td><td>{{ m.kind_name }}</td>
+      <td>{% for k in types %}{% if (m.vnum, k) in custom_keys %}<span class="dr-tag {{ 'gone' if not custom_keys[(m.vnum, k)]['items'] else 'custom' }}">{{ k }}{% if not custom_keys[(m.vnum, k)]['items'] %} usunięta{% endif %}</span>{% endif %}{% endfor %}</td>
+      <td><a href="{{ url_for('drop_edit', mob=m.vnum) }}">Edytuj →</a></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">Brak – cały drop jest taki, jak w obrazie gry.</p>{% endif %}
+</section>
+
+<section class="panel">
+  <h2>Zastosuj w grze</h2>
+  <p class="muted">Rdzenie gry czytają drop tylko przy starcie. „Zastosuj teraz” restartuje rdzenie (jak restart w „Gra i serwer”): gracze online zostaną rozłączeni na mniej więcej minutę. Bez tego zmiany wejdą przy najbliższym restarcie serwera. Postęp restartu: {{ restart.stage }}{% if restart.percent is defined %} ({{ restart.percent }}%){% endif %}.</p>
+  <div class="dr-tools">
+  <form method="post" action="{{ url_for('drop_apply') }}">
+    <input type="hidden" name="drop_csrf" value="{{ drop_csrf }}">
+    <label>Wpisz RESTART<input name="confirmation" autocomplete="off" placeholder="RESTART"></label>
+    <button>↻ Zastosuj teraz (restart rdzeni)</button>
+  </form>
+  {% if state.custom %}
+  <form method="post" action="{{ url_for('drop_reset_all') }}">
+    <input type="hidden" name="drop_csrf" value="{{ drop_csrf }}">
+    <label>Wpisz OBRAZ<input name="confirmation" autocomplete="off" placeholder="OBRAZ"></label>
+    <button>↺ Przywróć cały drop z obrazu gry</button>
+  </form>
+  {% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Kopie zapasowe</h2>
+  <p class="muted">Każdy zapis odkłada poprzednią wersję pliku zmian (najnowsze {{ backups|length }} z maks. 100). Przywrócenie też najpierw robi kopię obecnego stanu.</p>
+  {% if backups %}
+  <div class="table-wrap"><table class="dr-table">
+    <thead><tr><th>Kopia z</th><th>Zmienione grupy w tej wersji</th><th></th></tr></thead>
+    <tbody>
+    {% for b in backups %}
+    <tr><td>{{ b.time.strftime('%Y-%m-%d %H:%M:%S') }}</td><td>{{ b.groups }}</td>
+      <td class="dr-tools"><a href="{{ url_for('drop_backup_view', name=b.name) }}" target="_blank">Podgląd</a>
+        <form method="post" action="{{ url_for('drop_restore') }}" onsubmit="return confirm('Przywrócić tę wersję?')"><input type="hidden" name="drop_csrf" value="{{ drop_csrf }}"><input type="hidden" name="backup" value="{{ b.name }}"><button>Przywróć</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">Jeszcze nic nie zapisano.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

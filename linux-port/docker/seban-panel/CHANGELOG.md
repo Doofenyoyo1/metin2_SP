@@ -531,6 +531,14 @@
 - Karta gracza: pokazuje aktualny kanał na żywo (📡) albo ostatni znany kanał zapisany w historii pozycji, gdy bot jest offline (💤).
 - `/maps` ("Aktywność map"): zakładki Wszystkie/CH1/CH2/... przełączają wykres i tabelę natężenia bez przeładowania strony.
 - `web_seban_map_snapshot` i `web_seban_bot_position_snapshot` (kolektor) zyskały kolumnę `channel`; stara historia (sprzed tej aktualizacji, cała z CH1) jest zachowana, nowe wiersze są już tagowane kanałem.
+## 2026-09-17 01:05 CEST · 1.55.0 · Playerbots 2.x i ItemShop
+
+- `/manage`: dodano plan wejścia botów — okno wejścia kohorty, liczbę późno dołączających botów oraz czas ich wejścia. Zapis ustawia parametry Playerbots 2.x i odtwarza wyłącznie kontener gry.
+- Gildie: rozbudowano zestawienie o dane mechanizmu doboru, aktywność i czytelniejsze sortowanie zgodne z aktualizacjami Playerbots 2.x.
+- Eventy: dodano planer oraz obsługę zdarzeń z panelu Playerbots.
+- ItemShop: saldo obejmuje konta botów działające i zablokowane, a Smocze Znaki są liczone z `account.cash_mark`.
+- ItemShop: ostatnie zakupy i popularność przedmiotów korzystają z natywnego dziennika `log.itemshop`; w paczce znajduje się bezpieczny generator brakującej tabeli.
+- Naprawiono konfigurację referencyjnej instalacji wędkarstwa: karta wędkarska 27620 ma ponownie właściwy typ przedmiotu i może zostać wyposażona przez boty.
 
 ## 2026-09-17 01:05 CEST · 1.55.0 · Playerbots 2.x i ItemShop
 

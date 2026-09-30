@@ -74,5 +74,53 @@ class FormTests(unittest.TestCase):
         self.assertEqual(params, [10, 2, 50823])
 
 
+class SmTests(unittest.TestCase):
+    def test_amount_splits_into_largest_coupons(self):
+        self.assertEqual(grants.sm_coupons(1750), [(80016, 1), (80015, 1), (80018, 1)])
+        self.assertEqual(grants.sm_coupons(50), [(80017, 1)])
+        self.assertEqual(grants.sm_coupons(2950), [(80016, 2), (80015, 1), (80018, 1), (80014, 2)])
+        self.assertEqual(grants.sm_coupons(2800), [(80016, 2), (80015, 1), (80018, 1), (80017, 1)])
+
+    def test_large_amount_is_split_into_full_stacks(self):
+        self.assertEqual(grants.sm_coupons(450000), [(80016, 200), (80016, 200), (80016, 50)])
+        total = sum(dict(grants.SM_COUPONS)[v] * n for v, n in grants.sm_coupons(grants.SM_MAX))
+        self.assertEqual(total, grants.SM_MAX)
+
+    def test_amount_not_in_coupons_is_refused(self):
+        for amount in (0, -50, 30, 1025):
+            with self.assertRaises(ValueError):
+                grants.sm_coupons(amount)
+
+    def test_form_without_token_never_touches_database(self):
+        app = Flask(__name__)
+        app.secret_key = 'test-only'
+        db = MagicMock()
+        grants.install(app, db, lambda fn: fn, str)
+        client = app.test_client()
+        self.assertEqual(client.post('/manage/sm', data={'amount': '1000'}).status_code, 400)
+        with client.session_transaction() as s:
+            s['seban_update_csrf'] = 'tok'
+        self.assertEqual(client.post('/manage/sm', data={'amount': '1025', 'sm_csrf': 'tok'}).status_code, 400)
+        db.assert_not_called()
+
+    def test_every_bot_gets_every_coupon_line(self):
+        app = Flask(__name__)
+        app.secret_key = 'test-only'
+        db = MagicMock()
+        cur = db.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value
+        cur.fetchone.return_value = {'acquired': 1}
+        bots = [{'id': 7, 'name': 'botA'}, {'id': 9, 'name': 'botB'}]
+        with patch.object(grants, 'candidates', return_value=bots), patch.object(grants, 'init'):
+            grants.install(app, db, lambda fn: fn, str)
+            client = app.test_client()
+            with client.session_transaction() as s:
+                s['seban_update_csrf'] = 'tok'
+            response = client.post('/manage/sm', data={'amount': '1500', 'sm_csrf': 'tok'})
+        self.assertEqual(response.status_code, 302)
+        inserts = [c.args[1] for c in cur.execute.call_args_list if 'INSERT INTO player.web_seban_grants' in c.args[0]]
+        self.assertEqual(sorted((r[1], r[3], r[4]) for r in inserts), [(7, 80015, 1), (7, 80016, 1), (9, 80015, 1), (9, 80016, 1)])
+        self.assertEqual(len({r[0] for r in inserts}), 2)
+
+
 if __name__ == '__main__':
     unittest.main()
