@@ -381,6 +381,8 @@ class SidebarWindow(ui.Window):
 		("battlepass", "Battle Pass", "OnClickBattlePass"),
 		("calendar", "Kalendarz event\xf3w (F11)", "OnClickEventCalendar"),
 		("wheel", "Ko\xb3o Fortuny (F12)", "OnClickWheel"),
+		# MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel (uidungeoninfo.py).
+		("dungeon", "Wyprawy (X)", "OnClickDungeonInfo"),
 	)
 
 	def __init__(self, wndInventory):
@@ -639,6 +641,10 @@ class SidebarWindow(ui.Window):
 	def OnClickWheel(self):
 		import uiwheel
 		uiwheel.ToggleWindow()
+
+	def OnClickDungeonInfo(self):
+		import uidungeoninfo
+		uidungeoninfo.ToggleWindow()
 
 class GridSlotStateManager():
 	SLOT_STATE_NONE = 0
