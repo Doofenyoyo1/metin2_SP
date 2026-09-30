@@ -72,8 +72,21 @@ jobs:
           print('upstream_client_sha=%s' % up_client_sha)
           print('prev_server_url=%s' % base_url)
           print('prev_server_sha=%s' % base_sha)
-          print('prev_client_url=%s' % m['client']['url'])
-          print('prev_client_sha=%s' % m['client']['sha256'])
+          # A client moved onto another line starts from that line's package
+          # once (tools/upstream-sync.json "client_rebase": its url, sha256
+          # and the commit whose client-root and client-locale equal its
+          # packs); remove the entry after that release.
+          rebase = {}
+          if os.path.isfile('tools/upstream-sync.json'):
+              rebase = json.load(open('tools/upstream-sync.json', encoding='utf-8')).get('client_rebase') or {}
+          if rebase:
+              print('prev_client_url=%s' % rebase['url'])
+              print('prev_client_sha=%s' % rebase['sha256'])
+              print('prev_client_since=%s' % rebase['since'])
+          else:
+              print('prev_client_url=%s' % m['client']['url'])
+              print('prev_client_sha=%s' % m['client']['sha256'])
+              print('prev_client_since=')
           # .../releases/download/<tag>/<file>: the release the previous client came in.
           print('prev_client_tag=%s' % m['client']['url'].split('/releases/download/')[1].split('/')[0])
           EOF
@@ -142,6 +155,7 @@ jobs:
           BUILD_SERVER: ${{ steps.v.outputs.build_server }}
           BUILD_CLIENT: ${{ steps.v.outputs.build_client }}
           PREV_CLIENT_TAG: ${{ steps.v.outputs.prev_client_tag }}
+          PREV_CLIENT_SINCE: ${{ steps.v.outputs.prev_client_since }}
         run: |
           set -euo pipefail
           mkdir -p out
@@ -149,8 +163,13 @@ jobs:
             python3 tools/build_mt2009_server_update.py --previous prev/server.zip --out out
           fi
           if [ "$BUILD_CLIENT" = true ]; then
-            since=$(git rev-parse "$PREV_CLIENT_TAG^{commit}")
-            echo "previous client from $PREV_CLIENT_TAG = $since"
+            if [ -n "$PREV_CLIENT_SINCE" ]; then
+              since="$PREV_CLIENT_SINCE"
+              echo "client rebased onto another line's package, from $since"
+            else
+              since=$(git rev-parse "$PREV_CLIENT_TAG^{commit}")
+              echo "previous client from $PREV_CLIENT_TAG = $since"
+            fi
             up=""
             [ -f prev/upstream-client.zip ] && up="--upstream prev/upstream-client.zip"
             python3 tools/build_mt2009_client_update.py --previous prev/client.zip --since "$since" $up --out out
