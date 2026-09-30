@@ -95,39 +95,67 @@ esac
 #     was made (M2_PLAYERBOT_CH2_SET_AT, SET_AT=). Decided here, once for every
 #     core: every core must give every bot the same channel, so nothing a core
 #     reads for itself later may differ from its neighbours'.
+#
+#     The third and fourth channels carry a fresh cohort of bots of their own
+#     when the operator asks (M2_PLAYERBOT_FRESH_CHANNELS 1 or 2, how many of
+#     them play PLAYERBOT_FRESH_COUNT; playerbot_channel_rules.h): the same two
+#     places, the same moment, the same newer-wins rule - a wish that does not
+#     name them leaves .env's. M2_CHANNELS is raised to cover them.
 # -----------------------------------------------------------------------------
 M2_PLAYERBOT_CH2="${M2_PLAYERBOT_CH2:-0}"
 PLAYERBOT_CH2_SHARE="${PLAYERBOT_CH2_SHARE:-40}"
+M2_PLAYERBOT_FRESH_CHANNELS="${M2_PLAYERBOT_FRESH_CHANNELS:-0}"
+PLAYERBOT_FRESH_COUNT="${PLAYERBOT_FRESH_COUNT:-200}"
 ch2_env_at="${M2_PLAYERBOT_CH2_SET_AT:-0}"
 case "$ch2_env_at" in ''|*[!0-9]*) ch2_env_at=0 ;; esac
+ch2_at="$ch2_env_at"
 ch2_source=env
 ch2_wish="$M2_RATES_SPOOL/channels.wanted"
 if [ -f "$ch2_wish" ]; then
   wish_on=$(sed -n 's/^CH2=\([01]\)\r\{0,1\}$/\1/p' "$ch2_wish" | head -n 1)
   wish_share=$(sed -n 's/^SHARE=\([0-9]\{1,3\}\)\r\{0,1\}$/\1/p' "$ch2_wish" | head -n 1)
+  wish_fresh=$(sed -n 's/^FRESH=\([0-9]\)\r\{0,1\}$/\1/p' "$ch2_wish" | head -n 1)
+  wish_fresh_count=$(sed -n 's/^FRESH_COUNT=\([0-9]\{1,5\}\)\r\{0,1\}$/\1/p' "$ch2_wish" | head -n 1)
   wish_at=$(sed -n 's/^SET_AT=\([0-9]\{1,12\}\)\r\{0,1\}$/\1/p' "$ch2_wish" | head -n 1)
   if [ -n "$wish_on" ] && [ -n "$wish_at" ] && [ "$wish_at" -gt "$ch2_env_at" ]; then
     M2_PLAYERBOT_CH2="$wish_on"
     [ -n "$wish_share" ] && PLAYERBOT_CH2_SHARE="$wish_share"
+    [ -n "$wish_fresh" ] && M2_PLAYERBOT_FRESH_CHANNELS="$wish_fresh"
+    [ -n "$wish_fresh_count" ] && PLAYERBOT_FRESH_COUNT="$wish_fresh_count"
+    ch2_at="$wish_at"
     ch2_source=panel
   fi
 fi
 case "$M2_PLAYERBOT_CH2" in 1) : ;; *) M2_PLAYERBOT_CH2=0 ;; esac
 case "$PLAYERBOT_CH2_SHARE" in ''|*[!0-9]*) PLAYERBOT_CH2_SHARE=40 ;; esac
+case "$M2_PLAYERBOT_FRESH_CHANNELS" in 1|2) : ;; *) M2_PLAYERBOT_FRESH_CHANNELS=0 ;; esac
+case "$PLAYERBOT_FRESH_COUNT" in ''|*[!0-9]*) PLAYERBOT_FRESH_COUNT=200 ;; esac
 if [ "$M2_PLAYERBOT_CH2" = 1 ] && [ "$M2_CHANNELS" -lt 2 ]; then
   M2_CHANNELS=2
 fi
+if [ "$M2_PLAYERBOT_FRESH_CHANNELS" -gt 0 ] && [ "$M2_CHANNELS" -lt $((2 + M2_PLAYERBOT_FRESH_CHANNELS)) ]; then
+  M2_CHANNELS=$((2 + M2_PLAYERBOT_FRESH_CHANNELS))
+fi
 [ "$M2_PLAYERBOT_CH2" = 1 ] \
   && log "second channel ON (from $ch2_source): ${PLAYERBOT_CH2_SHARE}% of the bots on CH2, shops on CH1 only"
-export M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_CHANNELS
+if [ "$M2_PLAYERBOT_FRESH_CHANNELS" = 2 ]; then
+  log "fresh cohort ON (from $ch2_source): ${PLAYERBOT_FRESH_COUNT} new bots from level 1 on CH3 and CH4, no shops there"
+elif [ "$M2_PLAYERBOT_FRESH_CHANNELS" = 1 ]; then
+  log "fresh cohort ON (from $ch2_source): ${PLAYERBOT_FRESH_COUNT} new bots from level 1 on CH3, no shops there"
+fi
+export M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_CHANNELS M2_PLAYERBOT_FRESH_CHANNELS PLAYERBOT_FRESH_COUNT
 # What the server runs with, for the panel (it reads this volume, not .env).
-# The published range says whether players can reach CH2: the launcher opens
-# 13000-13012 when it switches the channel on; a wish from the panel alone
-# brings the bots over at once and the players with the launcher's next start.
+# The published range says whether players can reach CH2 and the fresh
+# channels: the launcher opens 13000-13012 (13022, 13032) when it switches
+# them on; a wish from the panel alone brings the bots over at once and the
+# players with the launcher's next start. SET_AT is the moment of the choice
+# that won, so the panel can tell its own wish still waiting from one a later
+# choice in the launcher has overtaken.
 mkdir -p "$VAR_DIR"
-printf 'CH2=%s\nSHARE=%s\nCHANNELS=%s\nSOURCE=%s\nPORTS=%s\n' \
+printf 'CH2=%s\nSHARE=%s\nCHANNELS=%s\nSOURCE=%s\nPORTS=%s\nFRESH=%s\nFRESH_COUNT=%s\nSET_AT=%s\n' \
   "$M2_PLAYERBOT_CH2" "$PLAYERBOT_CH2_SHARE" "$M2_CHANNELS" "$ch2_source" \
-  "${M2_GAME_CONTAINER_PORT_RANGE:-13000-13002}" > "$VAR_DIR/channels.effective" 2>/dev/null || true
+  "${M2_GAME_CONTAINER_PORT_RANGE:-13000-13002}" "$M2_PLAYERBOT_FRESH_CHANNELS" \
+  "$PLAYERBOT_FRESH_COUNT" "$ch2_at" > "$VAR_DIR/channels.effective" 2>/dev/null || true
 
 if [ -z "$M2_PUBLIC_ADDRESS" ]; then
   log "WARNING: M2_PUBLIC_ADDRESS is not set."

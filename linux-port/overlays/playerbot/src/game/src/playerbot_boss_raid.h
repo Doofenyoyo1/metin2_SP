@@ -75,6 +75,13 @@ namespace
 		{ 1901,  61, 64, 81, 6, true },	// Nine Tails (72), Mount Sohan
 		{ 2206,  62, 65, 82, 5, true },	// Flame King (73), Doyyumhwaji
 		{ 1304,  65, 67, 84, 8, true },	// Yellow Tiger Spectre (75), Hwang
+		// The Spider Baroness, who drops the Stalki (the operator's decision of
+		// 28 September): the image stands her in V2's last room every four to
+		// five hours (special_spawns.baroness.txt) with her lair's arithmetic -
+		// her eggs broken, a blow on her counts ten times - or twenty percent
+		// of her health back every thirty seconds would outheal any crowd. Her
+		// raiders are brought past the desert (TransitionPlayerBotMap).
+		{ 2092,  71, 67, 84, 8, true },	// Spider Baroness (75), Spider Dungeon 2
 		// The Grotto of Exile (26 September). Both stand a maze's walk from
 		// where a bot comes in - the Ice Witch some two hundred kilometres -
 		// which is what the raid's own move to a spot is for. Yonghan's
@@ -501,10 +508,15 @@ namespace
 				if (row.bAnnounce)
 				{
 					char notice[200];
+					char noticeEn[200];
 					snprintf(notice, sizeof(notice), "Boty z krolestwa %s pokonaly: %s (%u min).",
 							GetPlayerBotKingdomName(raid.bEmpire), GetPlayerBotWorldBossName(row.wRace),
 							std::max(1U, minutes));
-					BroadcastNotice(notice);
+					snprintf(noticeEn, sizeof(noticeEn), "The bots of %s defeated: %s (%u min).",
+							GetPlayerBotKingdomName(raid.bEmpire),
+							GetPlayerBotMobNameEn(row.wRace, GetPlayerBotWorldBossName(row.wRace)),
+							std::max(1U, minutes));
+					BroadcastPlayerBotNotice(notice, noticeEn);
 				}
 				return true;
 			}

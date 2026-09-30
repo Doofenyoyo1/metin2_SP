@@ -392,6 +392,10 @@ namespace
 	// Monkey Dungeon for two hours after a medal that had no cell to land in
 	// ("eq pelne od dawna a on se napierdala 2 godziny malpy").
 	const int PLAYERBOT_BAG_FULL_PERCENT = 80;
+	// A dozen pieces of merchant scrap is a merchant round of its own under the
+	// old rules. Under Iwakura's the round waits for the bag above
+	// (PlayerBotWantsSellRun).
+	const size_t PLAYERBOT_SELL_RUN_JUNK_ITEMS = 12;
 	// The box's release to the counter (reason=market) fills a bag only this
 	// far. Up to just under the deposit's 80% it was, so the next pick-up sent
 	// the stack down again: 84% of 1615 such releases on m2zip in a day went
@@ -1309,7 +1313,10 @@ namespace
 	// spend kept them for good: one player's screenshot had a hundred and
 	// ninety in a single bag (Nagash, 19 September, "mozna by im chociaz
 	// pozwolic wystawiac te dodania i zmianki na sklep"). This many are kept
-	// for the bot's own rerolling and the rest are goods.
+	// for the bot's own rerolling and the rest are goods - once no piece of its
+	// own could take one now; while one could, every one is kept
+	// (GetPlayerBotBonusStoneKeep, blipu, 28 September: "zeby boty faktycznie
+	// to uzywaly").
 	const int PLAYERBOT_BONUS_STONE_KEEP = 10;
 	// How many refine-material cells a bot carries as stock for its own counter.
 	// They stack, so this is eight cells out of ninety however many pieces are
@@ -1331,29 +1338,57 @@ namespace
 	// sprzedaje u handlarza" - the +5 stays, PLAYERBOT_PRECIOUS_REFINE is four).
 	const int PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT = 10;
 	const int PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_STANDS = 4;
-	// Iwakura's supply and demand (13 September, both price documents): a thing
-	// that leaves the counter at once is put up dearer next time and keeps
-	// climbing with every quick sale, a thing that comes home unsold gets
-	// cheaper - both by ten to twenty-five percent.
+	// Iwakura's answer of 28 September, point 4: "To zbyt agresywne,
+	// zrobilbym 10% co 3h do max -40%". The markdown was ten percent every two
+	// hours to fifty on the offline stand, and on the classic stall a draw of
+	// ten to twenty-five percent a stand (his range of 13 September) to fifty.
+	// Both paths are ten percent a step and forty at most now: a step is
+	// PLAYERBOT_OFFLINE_UNSOLD_STEP_MS on the offline stand, whose line has a
+	// clock of its own, and a stand on the classic stall, which has none -
+	// PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_STANDS of them are the forty.
 	//
-	// The markdown already existed at a flat ten percent per stand; it is now
-	// his range, drawn per listing. He gave no ceiling for it, and four stands
-	// at twenty-five percent each would take a price to nothing, so the total
-	// is capped - a discount is off the margin, not off the item.
-	//
-	// Both are applied where the unsold markdown already is: AFTER the asking
-	// price is settled. LimitPlayerBotAskStep lets the market's anchor drift
-	// five percent per ten minutes on purpose, and a demand signal pushed
+	// Applied AFTER the asking price is settled, like the markup below.
+	// LimitPlayerBotAskStep lets the market's anchor drift five percent per ten
+	// minutes on purpose, and a keeper's markdown or a kind's shortage pushed
 	// through it would either be swallowed or would drag every other counter
-	// with it. This moves what this keeper asks, not what the market believes.
-	const int PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL = 50;
+	// with it. This moves what the keeper asks, not what the market believes -
+	// and a discount is off the margin, not off the item: never under
+	// GetPlayerBotListingFloor.
+	const int PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL = 40;
 	// The offline stand's version of the same markdown: a line nobody has
 	// bought comes down PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT for every
 	// PLAYERBOT_OFFLINE_UNSOLD_STEP_MS it has stood, to the same ceiling and
 	// never under the blacksmith's bill (16 September: "jesli nie
 	// schodza po obecnych cenach to zmniejszaj ceny stopniowo do jakiegos
-	// stopnia minimalnego").
-	const DWORD PLAYERBOT_OFFLINE_UNSOLD_STEP_MS = 2 * 60 * 60 * 1000;
+	// stopnia minimalnego"). Three hours since Iwakura's answer above.
+	const DWORD PLAYERBOT_OFFLINE_UNSOLD_STEP_MS = 3 * 60 * 60 * 1000;
+	// And the other side of it, his point 5 of the same answer: "jesli jakies
+	// przedmioty sprzedaja sie caly czas, np. medale konne, i ciagle ich
+	// brakuje na rynku, to cena rosnie o 10% do max 40%". A kind - a vnum, the
+	// ledger's own key - that keeps selling and keeps being missing from the
+	// counters asks PLAYERBOT_MARKET_SHORTAGE_STEP_PERCENT more for every
+	// PLAYERBOT_MARKET_SHORTAGE_WINDOW_MS of that, to
+	// PLAYERBOT_MARKET_SHORTAGE_MAX_PERCENT, and a step less for every window
+	// its stock stood on the counters. A window is judged whole
+	// (playerbot_price_rules::JudgeShortageWindow): missing is the ledger
+	// finding at most PLAYERBOT_MARKET_SHORTAGE_MISSING_UNITS of it on every
+	// counter at PLAYERBOT_MARKET_SHORTAGE_MISSING_PERCENT of its looks or
+	// more, selling is PLAYERBOT_MARKET_SHORTAGE_MIN_LINES_SOLD lines of it
+	// sold in the window - one an hour. The markup is the keeper's, like the
+	// markdown: a line being marked down never carries it
+	// (GetPlayerBotListingPrice, playerbot_price_rules::ListingPercent).
+	// This replaces his "wysoki popyt" of 13 September, ten to twenty-five
+	// percent a quick sale four deep and an hour's memory, which only ever
+	// reached a new stand's lines.
+	const DWORD PLAYERBOT_MARKET_SHORTAGE_WINDOW_MS = 3 * 60 * 60 * 1000;
+	const int PLAYERBOT_MARKET_SHORTAGE_STEP_PERCENT = 10;
+	const int PLAYERBOT_MARKET_SHORTAGE_MAX_PERCENT = 40;
+	const DWORD PLAYERBOT_MARKET_SHORTAGE_MIN_LINES_SOLD = 3;
+	const int PLAYERBOT_MARKET_SHORTAGE_MISSING_PERCENT = 50;
+	const DWORD PLAYERBOT_MARKET_SHORTAGE_MISSING_UNITS = 0;
+	// How many kinds a core watches at once: a bound for a world of every
+	// vnum sold at once, which no ledger has seen.
+	const size_t PLAYERBOT_MARKET_SHORTAGE_MAX_KINDS = 2048;
 	// How often a stand's lines are repriced, and how many at a time. Every
 	// step of a slice is a native edit and costs one of the core's offline
 	// mutations (BotOfflineBudget, one a second for every keeper together),
@@ -1371,22 +1406,21 @@ namespace
 	// would take a day to fill and never keep up with what sells ("wizyta w
 	// sklepie doklada kilka linii, a nie jedna", the operator's choice).
 	const DWORD PLAYERBOT_OFFLINE_RESTOCK_CHAIN = 3;
-	// And an offline counter carries at most this many lines of refine
-	// materials together - three fifths of its eighty cells. Every material over
-	// the anvil's reserve is goods since the same patch (point 5), in lines of
-	// one and two, and a bot holds some sixty kinds: without a share of its own
-	// the counter would fill with them and the books, the gear and the scrolls
-	// a bot finds later would find no cell (BotOfflineCounterRefuses).
-	const int PLAYERBOT_OFFLINE_MATERIAL_LINES_MAX = 48;
-	const int PLAYERBOT_MARKET_DEMAND_MIN_PERCENT = 10;
-	const int PLAYERBOT_MARKET_DEMAND_MAX_PERCENT = 25;
+	// And an offline counter carries at most this share of its cells in lines
+	// of refine materials together - three fifths: 48 lines of the eighty cells
+	// a counter had, 96 of a bot's two pages since 28 September
+	// (PLAYERBOT_OFFLINE_MATERIAL_LINES_MAX in playerbot_offline_shop.h). Every
+	// material over the anvil's reserve is goods since the same patch (point
+	// 5), in lines of one and two, and a bot holds some sixty kinds: without a
+	// share of its own the counter would fill with them and the books, the
+	// gear and the scrolls a bot finds later would find no cell
+	// (BotOfflineCounterRefuses).
+	const int PLAYERBOT_OFFLINE_MATERIAL_SHARE_PERCENT = 60;
 	// A stand runs PLAYERBOT_SHOP_MIN..MAX_DURATION (10-25 min), so "went at
-	// once" is a line gone within the first five minutes of being put up.
+	// once" is a line gone within the first five minutes of being put up: the
+	// classic stall's "fast sale" line. It no longer prices anything - the
+	// shortage markup above counts every sale, quick or not.
 	const DWORD PLAYERBOT_MARKET_FAST_SALE_MS = 300000;
-	// How far the climb goes, and how long a commodity stays hot: an hour with
-	// no quick sale and the market has forgotten the rush.
-	const BYTE PLAYERBOT_MARKET_DEMAND_MAX_STEPS = 4;
-	const DWORD PLAYERBOT_MARKET_DEMAND_DECAY = 3600000;
 	const int PLAYERBOT_SHOP_UNSOLD_SCRAP_STANDS = 6;
 	// Gear the merchant may never have (above PLAYERBOT_SHOP_UNSOLD_SCRAP_MAX_REFINE
 	// - a shaman's warrior steel +9) used to have no end at all: discounted to
@@ -1583,7 +1617,9 @@ namespace
 	const int PLAYERBOT_GUILD_WAR_CAMP_POTION_HP_PERCENT = 95;
 	const int PLAYERBOT_GUILD_WAR_CAMP_POTION_SP_PERCENT = 90;
 	// The muster: for this long after the war's start each side stands at its
-	// camp and buffs, and fights only a foe who comes within DEFEND_RANGE.
+	// camp and buffs, and fights only a person who comes within DEFEND_RANGE
+	// of the camp - never a bot, which stands at its own camp then (the break
+	// between two rounds holds the camps the same way).
 	const DWORD PLAYERBOT_GUILD_WAR_MUSTER_SECONDS = 20;
 	const long PLAYERBOT_GUILD_WAR_CAMP_DEFEND_RANGE = 900;
 	// A bot that fell stands up at its own camp, and once healed nobody picks
@@ -1638,15 +1674,32 @@ namespace
 	const int PLAYERBOT_GUILD_WAR_KEEP_BONUS = 300;
 	const DWORD PLAYERBOT_GUILD_WAR_RETARGET_MS = 4000;
 	// The war by class and path (playerbot_war_rules.h, prodnathin's proposal
-	// of 26 September) - a round, and what the roles do in it. A side that has
-	// knocked out the whole of the other walks back to its camp while the
-	// other stands up and buffs at its own, for REGROUP_MS - and up to
-	// REGROUP_EXTRA_MS more while nobody of the losers is up yet - and then
-	// both leave their camps again, one by one. A war's rounds are looked at
-	// every ROUND_CHECK_MS.
-	const DWORD PLAYERBOT_GUILD_WAR_REGROUP_MS = 25 * 1000;
-	const DWORD PLAYERBOT_GUILD_WAR_REGROUP_EXTRA_MS = 15 * 1000;
+	// of 26 September) - a round, and what the roles do in it. A round is
+	// fought until one side has nobody left in the fight, the fallen waiting
+	// at their camps, and it cannot hang: nobody going down for
+	// ROUND_STALL_MS, or ROUND_MAX_MS in all, ends it to the side with more
+	// standing. A round had no end but a whole side down, and one bot nobody
+	// could reach held Shinsoo's first war still for fifteen minutes; DUDU
+	// (28 September) wants a round to last about a minute. Then a break of
+	// BREAK_MS with everybody at the camps, up, whole and buffing - the half
+	// minute to buff he asked for between two rounds - and up to
+	// BREAK_EXTRA_MS more while anybody is still on the way there, and both
+	// leave their camps again, one by one. A war's rounds are looked at every
+	// ROUND_CHECK_MS.
+	const DWORD PLAYERBOT_GUILD_WAR_ROUND_STALL_MS = 60 * 1000;
+	const DWORD PLAYERBOT_GUILD_WAR_ROUND_MAX_MS = 3 * 60 * 1000;
+	const DWORD PLAYERBOT_GUILD_WAR_BREAK_MS = 30 * 1000;
+	const DWORD PLAYERBOT_GUILD_WAR_BREAK_EXTRA_MS = 15 * 1000;
 	const DWORD PLAYERBOT_GUILD_WAR_ROUND_CHECK_MS = 1000;
+	// A bot at war on ground no route joins to its camp's centre - a skill's
+	// knockback puts its victim down without asking what lies there - is put
+	// back at its camp after STRANDED_MS; the tick's own rescue from blocked
+	// ground runs below the war's pass. And a bot in the fight steps back no
+	// nearer the centre of its own camp than CAMP_KEEP_OUT (CAMP_RADIUS and
+	// a little): the camp is the fallen's while a round lasts, and a fight
+	// that followed a healer or an archer into it was fought among them.
+	const DWORD PLAYERBOT_GUILD_WAR_STRANDED_MS = 5 * 1000;
+	const long PLAYERBOT_GUILD_WAR_CAMP_KEEP_OUT = 700;
 	// A defensive healer keeps out of reach: a foe within HEALER_FLEE_RANGE
 	// sends it HEALER_FLEE_STEP back towards its camp, and it holds
 	// HEALER_BEHIND behind its side's pack; it looks for somebody to heal (Cure,
@@ -3665,19 +3718,31 @@ namespace
 	// proportion rather than a switch: "4 uzywaja do rozwijania postaci, 1
 	// sprzedaje - jak prawdziwy gracz". So one bot in five is a trader, drawn
 	// by pid the way the scrap keeper is, and the two roles are salted apart.
-	// A trader still opens chests and still refines - it simply keeps a much
-	// smaller reserve, so the surplus reaches a counter instead of the bag.
+	// A trader still refines - it simply keeps a much smaller reserve, so the
+	// surplus reaches a counter instead of the bag. Its Moonlight chests it
+	// opens like everybody (see PLAYERBOT_MOONLIGHT_CHEST_FLOOR_PERCENT).
 	const int PLAYERBOT_RESOURCE_TRADER_PERCENT = 20;
-	// What a trader keeps back: two of a chest stack (against five) and one
-	// safe refine scroll (against three).
+	// What a trader keeps back: two of a stack of boxes (against five) - the
+	// Moonlight chest excepted, which it opens - and one safe refine scroll
+	// (against three).
 	const DWORD PLAYERBOT_CHEST_TRADER_MIN_STACK = 2;
 	const int PLAYERBOT_REFINE_SCROLL_TRADER_KEEP = 1;
-	// How many Moonlight chests a trader holds unopened for its counter; past
-	// that it opens them like everyone else, so a counter nobody buys from does
-	// not fill its bag. Twenty put 3 000 chests on AkhiGubernator's counters in
-	// six hours with not one sold (15 September): a trader shows a few, and the
-	// rest are for opening.
-	const int PLAYERBOT_CHEST_TRADER_HOLD = 6;
+	// The least a Moonlight chest asks on any counter, in percent of what it
+	// holds by Iwakura's own sheet (GetPlayerBotMoonlightChestWorth, the
+	// group's lines at his prices): 534 940 at a yang rate of a hundred for the
+	// group this project ships, against his hundred thousand for the chest.
+	// The trader held six for its counter (PLAYERBOT_CHEST_TRADER_HOLD, gone),
+	// the dropper thirty, and on a hard world half an hour of a chest window
+	// put them in front of a player at the hundred thousand and the markdowns
+	// under it: "po pol godzinnym dropie mozna skupic ... mase szkatulek i
+	// wybonowac cale eq" (blipu, 28 September, the operator's "A tak"). The
+	// stones cannot go on a counter themselves (ANTI_MYSHOP on both engines),
+	// so the chest was the one way a stone reached a player for yang, at a
+	// fifth of the sheet's price. A trader opens its chests now, a dropper
+	// keeps its counter, and no markdown, clearance or sale memory takes a
+	// chest under this share of its worth: a player who buys one pays for
+	// what is in it, one stone in four.
+	const int PLAYERBOT_MOONLIGHT_CHEST_FLOOR_PERCENT = 100;
 	// A bot buys a Moonlight chest off a counter to open it
 	// (WantsPlayerBotMoonlightChest): from this level, while it holds fewer than
 	// PLAYERBOT_CHEST_BUY_HOLD, with this many free cells and this much gold, and
@@ -3687,10 +3752,12 @@ namespace
 	const int PLAYERBOT_CHEST_BUY_HOLD = 10;
 	const int PLAYERBOT_CHEST_BUY_MIN_FREE_CELLS = 10;
 	const long long PLAYERBOT_CHEST_BUY_MIN_GOLD = 1000000LL;
-	// ...and spare gold of this many times Iwakura's price for the chest, scaled
-	// by the yang rate: the counter asks round that, up to twice it where the
-	// ledger says the chests are short, and a bot sent to the market for a chest
-	// it could not pay for would walk there for nothing.
+	// ...and spare gold of this many times what a counter asks for a line of
+	// them (PLAYERBOT_CHEST_LINE_UNITS chests at GetPlayerBotMoonlightChestAskingBase,
+	// their worth by what they hold), scaled by the yang rate: the purchase pays
+	// a line from that share of the purse (CanPlayerBotPayForOffer), and a bot
+	// sent to the market for a chest it could not pay for would walk there for
+	// nothing.
 	const long long PLAYERBOT_CHEST_BUY_PRICE_MULTIPLE = 3;
 	// What the counters keep for the players: no bot buys a chest while the
 	// ledger counts this many or fewer on every counter of the world, and a
@@ -3710,7 +3777,8 @@ namespace
 	// mozliwosc podnoszenia tego i dawania na sklep", 15 September). It
 	// keeps this many unopened for its counter and opens the rest, so a counter
 	// it seldom serves - a medal dropper's is served out of its dungeon only -
-	// does not fill its bag.
+	// does not fill its bag. The only bot that keeps any since 28 September,
+	// and its chests ask what they hold (PLAYERBOT_MOONLIGHT_CHEST_FLOOR_PERCENT).
 	const int PLAYERBOT_CHEST_DROPPER_HOLD = 30;
 	// The engine's bag page: INVENTORY_PAGE_COLUMN x INVENTORY_PAGE_ROW on both
 	// lines. A giftbox wants three free cells in one column of one page.
@@ -4452,6 +4520,9 @@ namespace
 	// would have become an ordinary bot at the first start and its place gone
 	// to a character of level one, hours from the dungeon. The first layout's
 	// far end is searched first (CPlayerBotManager::SpawnMedalDropperCohort).
+	// Past 2.2.1's 4503 come the fresh cohort's 4504..6003, which are the
+	// third and fourth channels' alone and never on the first channel's
+	// registry the droppers are taken from (playerbot_channel_rules.h).
 	const DWORD PLAYERBOT_SEED_FIRST_LAYOUT_LAST_PID = 2503;
 	// A dropper serves its offline shop once in this long instead of every ten
 	// to fifteen minutes. The service is a walk to the village the shop stands
@@ -4653,6 +4724,14 @@ namespace
 	// mining::ORE_COUNT_FOR_REFINE. A hundred raw ore is one smelted piece.
 	const int PLAYERBOT_ORE_SMELT_COUNT = 100;
 	const DWORD PLAYERBOT_ORE_SMELT_FEE = 5000;
+	// A rod or a pickaxe that stands on its bot's own offline counter (the 2.x
+	// line) and nowhere else is fetched, never bought again
+	// (IsPlayerBotTackleOnOwnCounter): the session looks again this soon, and
+	// for this long the service visit comes for it at once, past a far stand's
+	// round (ManagePlayerBotOfflineService). The bots bought a new rod at the
+	// Rybak while their Wedka+4 stood on the counter (Octodan, 26 September).
+	const DWORD PLAYERBOT_TACKLE_HOME_RETRY_MS = 90000;
+	const DWORD PLAYERBOT_TACKLE_HOME_HOLD_MS = 15 * 60 * 1000;
 
 	// Two kingdoms meeting on shared ground. Only ever on a frontier map, only
 	// between bots, and only while the operator's KINGDOMPVP switch is above
@@ -6254,10 +6333,12 @@ namespace
 
 	BYTE GetPlayerBotPersonalityByPID(DWORD dwPID);
 
-	// The role a bot plays in its guild's war and whether its side is
-	// regrouping after a round (playerbot_guild_war.h), for the status line.
+	// The role a bot plays in its guild's war, whether its war is in the break
+	// between two rounds, and whether it sits out the round it fell in
+	// (playerbot_guild_war.h), for the status line.
 	const char* GetPlayerBotWarRoleName(LPCHARACTER ch, bool en);
-	bool IsPlayerBotWarRegrouping(LPCHARACTER ch);
+	bool IsPlayerBotWarOnBreak(LPCHARACTER ch);
+	bool IsPlayerBotWarWaitingOut(LPCHARACTER ch);
 
 	// The player's own companion (playerbot_sidekick.h, included after every
 	// fragment that asks these): whose it is, whether it stands at its
@@ -6375,6 +6456,12 @@ namespace
 	{
 		const DWORD grade = vnum % 10;
 		if (grade > (DWORD)PLAYERBOT_JUNK_WEAPON_MAX_REFINE)
+			return false;
+		// Lwi Miecz is on his list, and a level-75 weapon since the operator's
+		// decision of 28 September is never the merchant's and never capped off
+		// a counter (playerbot_stalki_rules.h): capped, a copy the junk rule no
+		// longer sells would ride in the bag for good.
+		if (playerbot_stalki_rules::IsStalki(vnum))
 			return false;
 		const DWORD base = vnum - grade;
 		for (size_t i = 0; i < sizeof(PLAYERBOT_JUNK_WEAPON_BASES) / sizeof(PLAYERBOT_JUNK_WEAPON_BASES[0]); ++i)
@@ -6563,6 +6650,27 @@ namespace
 	// which is what lets a bot twelve kilometres off set out at all.
 	const int PLAYERBOT_ANTIPK_GUILD_RANGE = 12000;
 	const DWORD PLAYERBOT_ANTIPK_GUILD_MEMORY_MS = 15000;
+	// And a person's guild for the person (Derpsonkowy95, 28 September;
+	// playerbot_guild_aid_rules.h): a bot of another kingdom striking a person
+	// of a guild calls the guild's bots within the range of the person - one
+	// for each bot striking it and never more than the kingdom's own six
+	// against an executioner - each for an attacker no more than this many
+	// levels over itself, from this share of its health up. The call stays
+	// open as long after an attacker's last blow as the bot guild's does; a
+	// second defender on one attacker costs this many units of distance at
+	// the pick; the person hears of the help once in this long, the log says
+	// who of the guild stayed away and why at most this often, and a call with
+	// no blow for this long is forgotten.
+	const int PLAYERBOT_GUILD_AID_RANGE = 3500;
+	const int PLAYERBOT_GUILD_AID_PER_ATTACKER = 1;
+	const int PLAYERBOT_GUILD_AID_DEFENDERS_MAX = 6;
+	const int PLAYERBOT_GUILD_AID_LEVEL_OVER = 10;
+	const int PLAYERBOT_GUILD_AID_MIN_HP_PERCENT = 50;
+	const DWORD PLAYERBOT_GUILD_AID_MEMORY_MS = PLAYERBOT_ANTIPK_GUILD_MEMORY_MS;
+	const int PLAYERBOT_GUILD_AID_CROWD_PENALTY = 1500;
+	const DWORD PLAYERBOT_GUILD_AID_TELL_MS = 60000;
+	const DWORD PLAYERBOT_GUILD_AID_REPORT_MS = 30000;
+	const DWORD PLAYERBOT_GUILD_AID_FORGET_MS = 60000;
 	// A person's truce with the bots (playerbot_truce_rules.h): asked for by a
 	// whisper, or given after the person's second death in a quarter of an
 	// hour while bots fought them. A surrender is not taken again for a while
@@ -6714,7 +6822,8 @@ namespace
 		BOT_FOE_STONE_RIVAL,  // another kingdom's, breaking this bot's stone
 		BOT_FOE_GUILD,        // a person who struck a member of this bot's guild
 		BOT_FOE_EXECUTOR,     // another kingdom's character an executioner falls on
-		BOT_FOE_DEFEND        // an executioner who struck this bot's kingdom
+		BOT_FOE_DEFEND,       // an executioner who struck this bot's kingdom
+		BOT_FOE_GUILD_AID     // another kingdom's bot striking a person of this bot's guild
 	};
 
 	// The gambler's plan for one piece (playerbot_gambler.h): the item, the

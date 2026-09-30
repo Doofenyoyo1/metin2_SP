@@ -7,11 +7,13 @@
 // (playerbot_chat_trade.h) comes here. This file is the only one that knows
 // both the conversation layer and the engine:
 //
-//   HandlePlayerBotConversation()  - the whisper hook: analyse now, queue the reply
+//   HandlePlayerBotConversationWith() - the whisper hook: analyse now, queue the reply
 //   PumpPlayerBotConversation()    - called by a short timer while replies are
 //                                    pending and by CPlayerBotManager::Update
 //   CPlayerBotConvHost             - builds the TBotSnapshot from the real AI state
-//                                    and character, sends the whisper, logs
+//                                    and character, sends the whisper, logs; the
+//                                    person may be on another core (the other
+//                                    channel), answered by the P2P relay
 //   DescribePlayerBotBuffs()       - a Shaman's three buffs, evaluated from the
 //                                    world's own skill_proto the way ComputeSkill does
 //   ManagePlayerBotSummon()        - "chodz do mnie": the walk to the person and a few
@@ -33,6 +35,15 @@
 // ledger, the party, the guild, the counter, the bag). It never writes to it,
 // but for the summon's walk and its guard, which drop the bot's own route and
 // target while a person has called it.
+//
+// A reply is in the language its reader reads (Jeremus-Sama, 28 September):
+// the person's own flag (IsPlayerBotPersonEnglish) goes into the pure layer as
+// CONV_LANG_EN or CONV_LANG_PL, and for a person another core holds, whose
+// flag this core cannot read, as CONV_LANG_UNKNOWN - that person is answered
+// in the language of their own lines. The snapshot and the world's answers
+// name items and monsters in the same language (PlayerBotConvItemNameIn,
+// PlayerBotConvMobNameIn), and each item's link is made under the name the
+// reply says.
 //
 // Runtime switches (files in the game core's working directory, checked every
 // 30 s, no restart needed):
@@ -220,11 +231,34 @@ namespace
 			int m_players;
 	};
 
-	std::string PlayerBotConvItemName(LPITEM item)
+	// An item's name in the reply's language: the official English one for an
+	// English reader where playerbot_language.h knows it (the names file, as
+	// GetPlayerBotItemNameIn reads it), the name the caller holds otherwise -
+	// so a Polish reader gets exactly the bytes it always got. Every item a
+	// reply names comes through here, and its link is made under what this
+	// returns.
+	std::string PlayerBotConvItemNameIn(DWORD dwVnum, const char* protoName, bool bEnglish)
+	{
+		if (bEnglish)
+			if (const char* en = FindPlayerBotItemNameEn(dwVnum))
+				return en;
+		return protoName ? std::string(protoName) : std::string();
+	}
+
+	// A monster's name in the reply's language: the English one where
+	// playerbot_language.h knows it (GetPlayerBotMobNameEn), the proto's
+	// Polish one otherwise.
+	std::string PlayerBotConvMobNameIn(DWORD dwVnum, const char* protoName, bool bEnglish)
+	{
+		const char* name = protoName ? protoName : "";
+		return bEnglish ? std::string(GetPlayerBotMobNameEn(dwVnum, name)) : std::string(name);
+	}
+
+	std::string PlayerBotConvItemName(LPITEM item, bool bEnglish)
 	{
 		if (!item || !item->GetProto())
 			return std::string();
-		std::string name = item->GetProto()->szLocaleName;
+		std::string name = PlayerBotConvItemNameIn(item->GetVnum(), item->GetProto()->szLocaleName, bEnglish);
 		// The table's name already carries the grade ("Pajecza Wlocznia+8"), so
 		// appending it said the plus twice.
 		if (item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR)
@@ -243,6 +277,34 @@ namespace
 	bool PlayerBotConvNameMatches(const char* protoName, const std::string& query)
 	{
 		return playerbot_conv::ItemNameMatches(protoName, query);
+	}
+
+	// The same for an item whose English name the person may have written:
+	// its Polish name and aliases first, then its English name where it has
+	// one of its own.
+	bool PlayerBotConvItemMatches(DWORD vnum, const char* protoName, const std::string& query)
+	{
+		if (PlayerBotConvNameMatches(protoName, query))
+			return true;
+		const std::string english = PlayerBotConvItemNameIn(vnum, protoName, true);
+		return english != (protoName ? protoName : "") && PlayerBotConvNameMatches(english.c_str(), query);
+	}
+
+	// A stall line's name in the reply's language. A book's line is named after
+	// its skill by the trade layer (GetPlayerBotStallLineName) and keeps that
+	// name: the item's own would lose the skill.
+	std::string PlayerBotConvLineName(const TPlayerBotStallLine& line, bool bEnglish)
+	{
+		if (line.skill != 0 || line.forget)
+			return line.name;
+		return PlayerBotConvItemNameIn(line.vnum, line.name.c_str(), bEnglish);
+	}
+
+	// The line's link under the name the reply gives the line, which is the
+	// line's own name for a Polish reader.
+	std::string PlayerBotConvLineLink(const TPlayerBotStallLine& line, const std::string& shown)
+	{
+		return shown == line.name ? line.link : playerbot_item_link::Rename(line.link, shown);
 	}
 
 	// The items a bot's conversation named, and the client's link for each
@@ -300,18 +362,69 @@ namespace
 	{
 		if (!bot || !to || !to->GetDesc() || !rawText || !*rawText)
 			return;
-		const std::string linked = LinkPlayerBotConvItems(bot, rawText);
-		const char* text = linked.c_str();
-		const size_t len = std::min<size_t>(strlen(text), CHAT_MAX_LEN);
-		TPacketGCWhisper pack;
-		pack.bHeader = HEADER_GC_WHISPER;
-		pack.bType = WHISPER_TYPE_NORMAL;
-		pack.wSize = (WORD)(sizeof(TPacketGCWhisper) + len);
-		strlcpy(pack.szNameFrom, bot->GetName(), sizeof(pack.szNameFrom));
-		TEMP_BUFFER tmpbuf;
-		tmpbuf.write(&pack, sizeof(pack));
-		tmpbuf.write(text, (int)len);
-		to->GetDesc()->Packet(tmpbuf.read_peek(), tmpbuf.size());
+		SendPlayerBotWhisperPacket(bot, to->GetDesc(), NULL, LinkPlayerBotConvItems(bot, rawText).c_str());
+	}
+
+	// The same to a person another core holds, through the P2P relay to that
+	// core (SendPlayerBotWhisperPacket).
+	void SendPlayerBotConvWhisperToPeer(LPCHARACTER bot, const CCI* to, const char* rawText)
+	{
+		if (!bot || !to || !to->pkDesc || !rawText || !*rawText)
+			return;
+		SendPlayerBotWhisperPacket(bot, to->pkDesc, to->szName, LinkPlayerBotConvItems(bot, rawText).c_str());
+	}
+
+	// The person of a conversation, looked up by pid whenever a reply is
+	// written and never held: a character of this core, or - for a person
+	// whose whisper came from another core by the P2P relay - that core's line
+	// in the P2P table. The bot lives here alone, so its answers are written
+	// here either way; the second kind goes back by the relay.
+	struct TPlayerBotConvPerson
+	{
+		LPCHARACTER local;
+		const CCI* peer;
+		TPlayerBotConvPerson() : local(NULL), peer(NULL) {}
+		const char* Name() const { return local ? local->GetName() : peer ? peer->szName : ""; }
+		// The channel the person plays on, 0 when there is no such person.
+		int Channel() const { return local ? (int)g_bChannel : peer ? (int)peer->bChannel : 0; }
+	};
+
+	bool FindPlayerBotConvPerson(DWORD pid, TPlayerBotConvPerson& out)
+	{
+		out = TPlayerBotConvPerson();
+		LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(pid);
+		if (ch)
+		{
+			// Here but on the way out of the game: nobody to answer.
+			if (ch->GetDesc())
+				out.local = ch;
+			return out.local != NULL;
+		}
+		out.peer = P2P_MANAGER::instance().FindByPID(pid);
+		return out.peer != NULL;
+	}
+
+	// The language the person reads, as the pure layer takes it: the flag of a
+	// person this core holds, CONV_LANG_UNKNOWN for one another core holds -
+	// the flag is a quest flag of that core's.
+	int GetPlayerBotConvPersonLanguage(const TPlayerBotConvPerson& person)
+	{
+		if (!person.local)
+			return playerbot_conv::CONV_LANG_UNKNOWN;
+		return IsPlayerBotPersonEnglish(person.local) ? playerbot_conv::CONV_LANG_EN : playerbot_conv::CONV_LANG_PL;
+	}
+
+	// The language a reply to the person is written in, decided as the pure
+	// layer decides it (playerbot_conv::ReaderEnglish): the flag, or without
+	// one the language of the person's own lines to this bot. The snapshot
+	// names things in it, and the world answers in it.
+	bool IsPlayerBotConvReplyEnglish(DWORD playerPID, DWORD botPID, const TPlayerBotConvPerson& person)
+	{
+		const int language = GetPlayerBotConvPersonLanguage(person);
+		if (language != playerbot_conv::CONV_LANG_UNKNOWN)
+			return language == playerbot_conv::CONV_LANG_EN;
+		const playerbot_conv::TConvPair* pair = s_PlayerBotConvEngine.FindPair(playerPID, botPID);
+		return pair && playerbot_conv::ReaderEnglish(language, pair->mem);
 	}
 
 	// ------------------------------------------------------ a Shaman's buffs
@@ -482,6 +595,10 @@ namespace
 			"a summon's walk must end inside the distance that counts as beside the person");
 	static_assert(PLAYERBOT_SUMMON_FOLLOW_DISTANCE > PLAYERBOT_SUMMON_STAY_DISTANCE,
 			"the walk resumes past the stop distance, or it starts and stops on one step");
+	// A guild's order may call a bot from another map of this core, and the
+	// move onto the person's map is tried on the bot's full tick, again this
+	// often while the walk's clock runs (playerbot_guild_orders.h).
+	const DWORD PLAYERBOT_SUMMON_CROSS_RETRY_MS = 5000;
 
 	struct TPlayerBotSummon
 	{
@@ -491,10 +608,20 @@ namespace
 		DWORD dwUntil;          // the stay ends then; set on arrival
 		DWORD dwNextGuardScanAt;
 		DWORD dwGuardVID;
-		long lMapIndex;         // the map it was called on; a bot moved off it is released
+		long lMapIndex;         // the map it was called on - the person's; a bot moved off it is released
 		bool bFollowing;        // after arrival: walking after the person until close again
+		// A guild's order (playerbot_guild_order_rules::EOrder, 0 for a
+		// whisper's "chodz do mnie"): its stay, its fight beside the person,
+		// and the move from another map of this core that only an order makes.
+		// bCrossed: on the map it was called to - from the call, or since the
+		// move - after which being moved off it is a better claim's doing.
+		BYTE bOrder;
+		DWORD dwStayMs;
+		DWORD dwNextCrossAt;
+		bool bCrossed;
 		TPlayerBotSummon() : dwPlayerPID(0), dwStartedAt(0), dwArrivedAt(0), dwUntil(0), dwNextGuardScanAt(0),
-			dwGuardVID(0), lMapIndex(0), bFollowing(false) {}
+			dwGuardVID(0), lMapIndex(0), bFollowing(false), bOrder(playerbot_guild_order_rules::ORDER_NONE),
+			dwStayMs(PLAYERBOT_SUMMON_STAY_MS), dwNextCrossAt(0), bCrossed(false) {}
 	};
 
 	typedef std::map<DWORD, TPlayerBotSummon> TPlayerBotSummonMap;
@@ -503,6 +630,11 @@ namespace
 
 	// Defined with the targeting (playerbot_targeting.h), which comes later.
 	bool ExecutePlayerBotBasicAttack(LPCHARACTER ch, LPCHARACTER target, TPlayerBotAIState& state, DWORD dwNow);
+	// What a bot called by a guild's order fights beside the person
+	// (playerbot_guild_orders.h, after the companion whose choice of foe and
+	// the tower whose fight it borrows).
+	bool FightPlayerBotGuildOrderFoe(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER person, BYTE order,
+			DWORD dwNow);
 
 	// Whether a bot is on its way to, or standing with, somebody who called it.
 	// The passes that would take it away - the market, the service walk to its
@@ -518,6 +650,15 @@ namespace
 	{
 		TPlayerBotSummonMap::const_iterator it = s_mapPlayerBotSummons.find(botPID);
 		return it != s_mapPlayerBotSummons.end() ? it->second.dwPlayerPID : 0;
+	}
+
+	// Whether any bot is still under one of this person's guild orders.
+	bool IsPlayerBotGuildOrderRunning(DWORD personPID)
+	{
+		for (TPlayerBotSummonMap::const_iterator it = s_mapPlayerBotSummons.begin(); it != s_mapPlayerBotSummons.end(); ++it)
+			if (it->second.dwPlayerPID == personPID && it->second.bOrder != playerbot_guild_order_rules::ORDER_NONE)
+				return true;
+		return false;
 	}
 
 	// A person in the bot's party who is not the one asking.
@@ -545,8 +686,12 @@ namespace
 	// Why the bot cannot come to `player` now (playerbot_conv::ESummonBlock).
 	// Everything here is something that owns the bot for a reason of its own:
 	// a counter it stands behind, a session at the water or the vein, a fight
-	// the engine made it part of, another person's claim.
-	int GetPlayerBotSummonBlock(LPCHARACTER bot, const TPlayerBotAIState& state, LPCHARACTER player, DWORD dwNow)
+	// the engine made it part of, another person's claim. A whisper reaches
+	// only a bot on the person's map; a guild's order asks with anyMap, and
+	// its own rule says which other maps of this core it may take a bot from
+	// (playerbot_guild_orders.h).
+	int GetPlayerBotSummonBlock(LPCHARACTER bot, const TPlayerBotAIState& state, LPCHARACTER player, DWORD dwNow,
+			bool anyMap = false)
 	{
 		using namespace playerbot_conv;
 		if (!bot || !player)
@@ -559,7 +704,7 @@ namespace
 			return SB_TOWER;
 		if (mapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN)
 			return SB_DUNGEON;
-		if (player->GetMapIndex() != mapIndex)
+		if (player->GetMapIndex() != mapIndex && !anyMap)
 			return SB_OTHER_MAP;
 		if (playerbot_pvp::IsInDuel(bot->GetPlayerID(), dwNow))
 			return SB_DUEL;
@@ -616,17 +761,48 @@ namespace
 			state.dwLastMeaningfulActivityTime = dwNow;
 			SetPlayerBotAction(state, BOT_ACTION_IDLE, dwNow);
 		}
-		sys_log(0, "PLAYERBOT_SUMMON: over pid=%u name=%s by=%s reason=%s walked_ms=%u stayed_ms=%u",
+		sys_log(0, "PLAYERBOT_SUMMON: over pid=%u name=%s by=%s reason=%s walked_ms=%u stayed_ms=%u order=%s",
 				botPID, bot ? bot->GetName() : "?", player ? player->GetName() : "?", SummonEndName(reason),
 				summon.dwArrivedAt ? summon.dwArrivedAt - summon.dwStartedAt : dwNow - summon.dwStartedAt,
-				summon.dwArrivedAt ? dwNow - summon.dwArrivedAt : 0);
+				summon.dwArrivedAt ? dwNow - summon.dwArrivedAt : 0,
+				playerbot_guild_order_rules::OrderName((playerbot_guild_order_rules::EOrder)summon.bOrder));
+		// A guild's order says it in one line of the person's own chat, in the
+		// person's language, and never as a whisper from every bot: an order is
+		// up to eight bots, and eight whisper windows opening at once is no
+		// answer. The end of the stay is said once, by the last of them.
+		if (summon.bOrder != playerbot_guild_order_rules::ORDER_NONE)
+		{
+			if (!bot || !player || !player->GetDesc())
+				return;
+			const bool en = IsPlayerBotPersonEnglish(player);
+			if (reason == SUMMON_END_UNREACHABLE)
+				TellPlayerBotPerson(player, PBT(en, "[Gildia] %s nie moze do ciebie dojsc.", "[Guild] %s cannot reach you."),
+						bot->GetName());
+			else if (reason == SUMMON_END_BLOCKED)
+				TellPlayerBotPerson(player, PBT(en, "[Gildia] %s musi odejsc - ma pilniejsza sprawe.",
+						"[Guild] %s has to go - something more urgent came up."), bot->GetName());
+			else if (reason == SUMMON_END_EXPIRED && !IsPlayerBotGuildOrderRunning(summon.dwPlayerPID))
+				TellPlayerBotPerson(player, "%s", PBT(en, "[Gildia] Boty gildii wracaja do swoich spraw.",
+						"[Guild] Your guild's bots go back to their own business."));
+			return;
+		}
+		// The rest of the conversation's whispers are the pure layer's; these
+		// four are said by the walk itself, in the language the person reads.
+		const bool en = IsPlayerBotPersonEnglish(player);
 		const char* words = NULL;
 		switch (reason)
 		{
-			case SUMMON_END_EXPIRED: words = "Dobra, musze wracac do swoich spraw. Na razie!"; break;
-			case SUMMON_END_UNREACHABLE: words = "Nie moge do ciebie dojsc, sorki. Wracam do swoich spraw."; break;
-			case SUMMON_END_BLOCKED: words = "Musze isc, cos mi wypadlo."; break;
-			case SUMMON_END_PLAYER_LEFT: words = "Poszedles gdzies, to wracam do swoich spraw."; break;
+			case SUMMON_END_EXPIRED:
+				words = PBT(en, "Dobra, musze wracac do swoich spraw. Na razie!", "Alright, gotta get back to my own stuff. See ya!");
+				break;
+			case SUMMON_END_UNREACHABLE:
+				words = PBT(en, "Nie moge do ciebie dojsc, sorki. Wracam do swoich spraw.",
+						"Can't get to you, sorry. Going back to my own stuff.");
+				break;
+			case SUMMON_END_BLOCKED: words = PBT(en, "Musze isc, cos mi wypadlo.", "Gotta go, something came up."); break;
+			case SUMMON_END_PLAYER_LEFT:
+				words = PBT(en, "Poszedles gdzies, to wracam do swoich spraw.", "You went off somewhere, so I'm back to my own stuff.");
+				break;
 			default: break;
 		}
 		if (words && bot && player && player->GetDesc())
@@ -635,8 +811,12 @@ namespace
 
 	// The conversation's "chodz do mnie": the gates asked once more, and the walk
 	// begins (playerbot_conv::ESummonStart). The same person calling again
-	// starts the stay over.
-	int StartPlayerBotSummon(LPCHARACTER bot, LPCHARACTER player, DWORD dwNow)
+	// starts the stay over. A guild's order (playerbot_guild_orders.h) is the
+	// same call with its order: the order's stay and fight, and a bot on
+	// another map of this core may answer it - the map called to is then the
+	// person's, and the pass below moves the bot there.
+	int StartPlayerBotSummon(LPCHARACTER bot, LPCHARACTER player, DWORD dwNow,
+			BYTE order = playerbot_guild_order_rules::ORDER_NONE)
 	{
 		using namespace playerbot_conv;
 		if (!bot || !player || !player->GetDesc())
@@ -645,16 +825,25 @@ namespace
 		if (st == s_mapPlayerBotAIStates.end())
 			return SUMMON_START_FAILED;
 		TPlayerBotAIState& state = st->second;
+		const bool guildOrder = order != playerbot_guild_order_rules::ORDER_NONE;
 		TPlayerBotSummonMap::iterator it = s_mapPlayerBotSummons.find(bot->GetPlayerID());
 		if (it != s_mapPlayerBotSummons.end() && it->second.dwPlayerPID == player->GetPlayerID())
 		{
+			// An order over a whisper's call, or over another order, is the
+			// new order's stay and fight from now on; a whisper keeps the order.
+			if (guildOrder)
+			{
+				it->second.bOrder = order;
+				it->second.dwStayMs = playerbot_guild_order_rules::StayMs((playerbot_guild_order_rules::EOrder)order);
+			}
 			if (it->second.dwArrivedAt != 0)
-				it->second.dwUntil = dwNow + PLAYERBOT_SUMMON_STAY_MS;
-			sys_log(0, "PLAYERBOT_SUMMON: renewed pid=%u name=%s by=%s arrived=%d",
-					bot->GetPlayerID(), bot->GetName(), player->GetName(), it->second.dwArrivedAt ? 1 : 0);
+				it->second.dwUntil = dwNow + it->second.dwStayMs;
+			sys_log(0, "PLAYERBOT_SUMMON: renewed pid=%u name=%s by=%s arrived=%d order=%s",
+					bot->GetPlayerID(), bot->GetName(), player->GetName(), it->second.dwArrivedAt ? 1 : 0,
+					playerbot_guild_order_rules::OrderName((playerbot_guild_order_rules::EOrder)it->second.bOrder));
 			return SUMMON_START_RENEWED;
 		}
-		const int block = GetPlayerBotSummonBlock(bot, state, player, dwNow);
+		const int block = GetPlayerBotSummonBlock(bot, state, player, dwNow, guildOrder);
 		if (block != SB_NONE)
 		{
 			sys_log(0, "PLAYERBOT_SUMMON: refused pid=%u name=%s by=%s reason=%s",
@@ -664,7 +853,11 @@ namespace
 		TPlayerBotSummon summon;
 		summon.dwPlayerPID = player->GetPlayerID();
 		summon.dwStartedAt = dwNow;
-		summon.lMapIndex = bot->GetMapIndex();
+		summon.lMapIndex = guildOrder ? player->GetMapIndex() : bot->GetMapIndex();
+		summon.bCrossed = bot->GetMapIndex() == summon.lMapIndex;
+		summon.bOrder = order;
+		if (guildOrder)
+			summon.dwStayMs = playerbot_guild_order_rules::StayMs((playerbot_guild_order_rules::EOrder)order);
 		s_mapPlayerBotSummons[bot->GetPlayerID()] = summon;
 		// The bot's own fight and route are dropped; its errands keep their
 		// flags and wait for the stay to end.
@@ -672,9 +865,11 @@ namespace
 		bot->SetVictim(NULL);
 		ClearPlayerBotRoute(state, true);
 		state.dwLastMeaningfulActivityTime = dwNow;
-		sys_log(0, "PLAYERBOT_SUMMON: called pid=%u name=%s by=%s map=%ld distance=%d",
-				bot->GetPlayerID(), bot->GetName(), player->GetName(), bot->GetMapIndex(),
-				DISTANCE_APPROX(bot->GetX() - player->GetX(), bot->GetY() - player->GetY()));
+		const bool sameMap = bot->GetMapIndex() == player->GetMapIndex();
+		sys_log(0, "PLAYERBOT_SUMMON: called pid=%u name=%s by=%s map=%ld to_map=%ld distance=%d order=%s",
+				bot->GetPlayerID(), bot->GetName(), player->GetName(), bot->GetMapIndex(), summon.lMapIndex,
+				sameMap ? DISTANCE_APPROX(bot->GetX() - player->GetX(), bot->GetY() - player->GetY()) : -1,
+				playerbot_guild_order_rules::OrderName((playerbot_guild_order_rules::EOrder)order));
 		return SUMMON_START_OK;
 	}
 
@@ -729,6 +924,52 @@ namespace
 		}
 	};
 
+	// The guard: a monster after the bot or the person, the one fight a bot on
+	// its way to somebody takes, and a whisper's called bot the whole time.
+	bool GuardPlayerBotSummon(LPCHARACTER ch, TPlayerBotAIState& state, TPlayerBotSummon& summon, LPCHARACTER player,
+			DWORD dwNow)
+	{
+		LPCHARACTER threat = summon.dwGuardVID ? CHARACTER_MANAGER::instance().Find(summon.dwGuardVID) : NULL;
+		if (threat && (threat->IsDead() || threat->GetMapIndex() != ch->GetMapIndex() ||
+				(threat->GetVictim() != ch && threat->GetVictim() != player)))
+			threat = NULL;
+		if (!threat && dwNow >= summon.dwNextGuardScanAt && ch->GetSectree())
+		{
+			summon.dwNextGuardScanAt = dwNow + PLAYERBOT_SUMMON_GUARD_SCAN_MS;
+			FPlayerBotSummonThreat finder(ch, player);
+			ch->GetSectree()->ForEachAround(finder);
+			threat = finder.m_best;
+		}
+		if (!threat && summon.dwGuardVID != 0)
+		{
+			if (state.dwTargetVID == summon.dwGuardVID)
+			{
+				state.dwTargetVID = 0;
+				ch->SetVictim(NULL);
+			}
+			summon.dwGuardVID = 0;
+		}
+		if (!threat)
+			return false;
+		summon.dwGuardVID = (DWORD)threat->GetVID();
+		state.dwTargetVID = summon.dwGuardVID;
+		if (ch->IsRiding() && !CanPlayerBotFightOnHorse(ch, threat))
+			SetPlayerBotRidingForTravel(ch, state, false, dwNow, "summon_guard");
+		LPITEM weapon = ch->GetWear(WEAR_WEAPON);
+		const bool bow = weapon && weapon->GetType() == ITEM_WEAPON && weapon->GetSubType() == WEAPON_BOW;
+		const int reach = bow ? 750 : 250;
+		if (DISTANCE_APPROX(ch->GetX() - threat->GetX(), ch->GetY() - threat->GetY()) > reach)
+			MovePlayerBot(ch, threat->GetX(), threat->GetY(), dwNow, 2, true, false, false, false);
+		else
+		{
+			if (ch->IsStateMove())
+				ch->Stop();
+			ExecutePlayerBotBasicAttack(ch, threat, state, dwNow);
+		}
+		SetPlayerBotAction(state, BOT_ACTION_FIGHT, dwNow);
+		return true;
+	}
+
 	// The summon's part of the tick, right after the follow pass
 	// (playerbot_manager.cpp). While a summon holds it claims every full tick,
 	// because everything below would take the bot somewhere of its own - the
@@ -738,6 +979,14 @@ namespace
 	// after the person. The light tick keeps walking the route and swinging at
 	// the guard's target between two full ticks. Standing beside the person is
 	// the errand, so the inactivity watchdog is told so every tick.
+	//
+	// A guild's order (playerbot_guild_orders.h) is this pass with three
+	// differences: a bot from another map of this core is first moved onto
+	// the person's map, the one move a bot makes for every map change
+	// (TransitionPlayerBotMap, as the follow pass makes it for a person's
+	// party); beside the person it fights what the order says
+	// (FightPlayerBotGuildOrderFoe) rather than only what is after the two of
+	// them; and it stays the order's time.
 	bool ManagePlayerBotSummon(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		using namespace playerbot_conv;
@@ -748,14 +997,18 @@ namespace
 			return false;
 		TPlayerBotSummon& summon = it->second;
 		LPCHARACTER player = CHARACTER_MANAGER::instance().FindByPID(summon.dwPlayerPID);
+		const bool guildOrder = summon.bOrder != playerbot_guild_order_rules::ORDER_NONE;
+		// Called by an order from another map and not moved yet: the one time a
+		// summoned bot may stand anywhere but on the map it was called to.
+		const bool crossing = guildOrder && !summon.bCrossed && ch->GetMapIndex() != summon.lMapIndex;
 		int end = SUMMON_END_NONE;
 		if (!player || !player->GetDesc())
 			end = SUMMON_END_PLAYER_GONE;
 		// Moved off the map it was called on - a warp, a dungeon's jump, a GM:
 		// whatever did it had the better claim.
-		else if (ch->GetMapIndex() != summon.lMapIndex)
+		else if (ch->GetMapIndex() != summon.lMapIndex && !crossing)
 			end = SUMMON_END_BLOCKED;
-		else if (player->GetMapIndex() != ch->GetMapIndex())
+		else if (player->GetMapIndex() != summon.lMapIndex)
 			end = SUMMON_END_PLAYER_LEFT;
 		else if (summon.dwArrivedAt == 0 && dwNow - summon.dwStartedAt > PLAYERBOT_SUMMON_WALK_MAX_MS)
 			end = SUMMON_END_UNREACHABLE;
@@ -763,7 +1016,7 @@ namespace
 			end = SUMMON_END_EXPIRED;
 		else
 		{
-			const int block = GetPlayerBotSummonBlock(ch, state, player, dwNow);
+			const int block = GetPlayerBotSummonBlock(ch, state, player, dwNow, guildOrder);
 			if (block != SB_NONE && block != SB_DEAD)
 				end = SUMMON_END_BLOCKED;
 		}
@@ -789,58 +1042,47 @@ namespace
 		state.lLastX = ch->GetX();
 		state.lLastY = ch->GetY();
 
-		// The guard: a monster after the bot or the person.
-		LPCHARACTER threat = summon.dwGuardVID ? CHARACTER_MANAGER::instance().Find(summon.dwGuardVID) : NULL;
-		if (threat && (threat->IsDead() || threat->GetMapIndex() != ch->GetMapIndex() ||
-				(threat->GetVictim() != ch && threat->GetVictim() != player)))
-			threat = NULL;
-		if (!threat && dwNow >= summon.dwNextGuardScanAt && ch->GetSectree())
+		// The move from another map of this core, onto the person's own spot -
+		// the order's rule has already said the map takes a bot from elsewhere.
+		// A person in the middle of a warp is on neither map yet. The walk's
+		// clock starts again on the person's map, and a move the transition
+		// refuses for the whole of it ends the call as a walk that never came.
+		if (crossing)
 		{
-			summon.dwNextGuardScanAt = dwNow + PLAYERBOT_SUMMON_GUARD_SCAN_MS;
-			FPlayerBotSummonThreat finder(ch, player);
-			ch->GetSectree()->ForEachAround(finder);
-			threat = finder.m_best;
-		}
-		if (!threat && summon.dwGuardVID != 0)
-		{
-			if (state.dwTargetVID == summon.dwGuardVID)
+			SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
+			if (dwNow < summon.dwNextCrossAt || player->IsWarping() || !player->GetSectree())
+				return true;
+			summon.dwNextCrossAt = dwNow + PLAYERBOT_SUMMON_CROSS_RETRY_MS;
+			if (TransitionPlayerBotMap(ch, state, summon.lMapIndex, player->GetX(), player->GetY(), dwNow, "guild_order"))
 			{
-				state.dwTargetVID = 0;
-				ch->SetVictim(NULL);
+				summon.bCrossed = true;
+				summon.dwStartedAt = dwNow;
 			}
-			summon.dwGuardVID = 0;
-		}
-		if (threat)
-		{
-			summon.dwGuardVID = (DWORD)threat->GetVID();
-			state.dwTargetVID = summon.dwGuardVID;
-			if (ch->IsRiding() && !CanPlayerBotFightOnHorse(ch, threat))
-				SetPlayerBotRidingForTravel(ch, state, false, dwNow, "summon_guard");
-			LPITEM weapon = ch->GetWear(WEAR_WEAPON);
-			const bool bow = weapon && weapon->GetType() == ITEM_WEAPON && weapon->GetSubType() == WEAPON_BOW;
-			const int reach = bow ? 750 : 250;
-			if (DISTANCE_APPROX(ch->GetX() - threat->GetX(), ch->GetY() - threat->GetY()) > reach)
-				MovePlayerBot(ch, threat->GetX(), threat->GetY(), dwNow, 2, true, false, false, false);
-			else
-			{
-				if (ch->IsStateMove())
-					ch->Stop();
-				ExecutePlayerBotBasicAttack(ch, threat, state, dwNow);
-			}
-			SetPlayerBotAction(state, BOT_ACTION_FIGHT, dwNow);
 			return true;
 		}
+
+		// Beside the person, an order's bot fights what the order says; on the
+		// way, and for a whisper's call throughout, the guard. With nothing to
+		// fight it keeps its place below.
+		if (guildOrder && summon.dwArrivedAt != 0)
+		{
+			if (FightPlayerBotGuildOrderFoe(ch, state, player, summon.bOrder, dwNow))
+				return true;
+		}
+		else if (GuardPlayerBotSummon(ch, state, summon, player, dwNow))
+			return true;
 
 		const int distance = DISTANCE_APPROX(ch->GetX() - player->GetX(), ch->GetY() - player->GetY());
 		if (summon.dwArrivedAt == 0 && distance <= PLAYERBOT_SUMMON_STAY_DISTANCE)
 		{
 			summon.dwArrivedAt = dwNow;
-			summon.dwUntil = dwNow + PLAYERBOT_SUMMON_STAY_MS;
+			summon.dwUntil = dwNow + summon.dwStayMs;
 			ClearPlayerBotRoute(state, true);
 			if (ch->IsStateMove())
 				ch->Stop();
-			sys_log(0, "PLAYERBOT_SUMMON: arrived pid=%u name=%s by=%s walk_ms=%u",
-					ch->GetPlayerID(), ch->GetName(), player->GetName(), dwNow - summon.dwStartedAt);
+			sys_log(0, "PLAYERBOT_SUMMON: arrived pid=%u name=%s by=%s walk_ms=%u order=%s",
+					ch->GetPlayerID(), ch->GetName(), player->GetName(), dwNow - summon.dwStartedAt,
+					playerbot_guild_order_rules::OrderName((playerbot_guild_order_rules::EOrder)summon.bOrder));
 		}
 		// After arrival the bot stays put while the person moves about near it,
 		// and once they are past PLAYERBOT_SUMMON_FOLLOW_DISTANCE it walks after
@@ -904,7 +1146,15 @@ namespace
 			return false;
 		LPCHARACTER player = CHARACTER_MANAGER::instance().FindByPID(it->second.dwPlayerPID);
 		const char* who = player ? player->GetName() : PBT(en, "gracza", "a player");
-		if (it->second.dwArrivedAt == 0)
+		// A guild's order says which: the help, or the hunt together.
+		const bool arrived = it->second.dwArrivedAt != 0;
+		if (it->second.bOrder == playerbot_guild_order_rules::ORDER_HELP)
+			snprintf(status, statusSize, arrived ? PBT(en, "%sPomagam %s", "%sHelping %s")
+					: PBT(en, "%sIde na pomoc %s", "%sComing to help %s"), prefix ? prefix : "", who);
+		else if (it->second.bOrder == playerbot_guild_order_rules::ORDER_HUNT)
+			snprintf(status, statusSize, arrived ? PBT(en, "%sExpie z %s", "%sHunting with %s")
+					: PBT(en, "%sIde expic z %s", "%sGoing to hunt with %s"), prefix ? prefix : "", who);
+		else if (!arrived)
 			snprintf(status, statusSize, PBT(en, "%sIde do %s", "%sGoing to %s"), prefix ? prefix : "", who);
 		else
 			snprintf(status, statusSize, PBT(en, "%sStoje przy %s", "%sStaying with %s"), prefix ? prefix : "", who);
@@ -915,7 +1165,7 @@ namespace
 
 	// The cheapest single-piece price of a matching line, per piece for stacks.
 	void NotePlayerBotConvMarketLines(const TPlayerBotStall& stall, const std::vector<std::string>& candidates,
-			DWORD skill, bool forget, std::string& outName, long long& outPrice, unsigned int& outSellers,
+			DWORD skill, bool forget, bool bEnglish, std::string& outName, long long& outPrice, unsigned int& outSellers,
 			DWORD& seenVnum, std::string& outLink)
 	{
 		for (size_t i = 0; i < stall.lines.size(); ++i)
@@ -931,8 +1181,8 @@ namespace
 			if (outPrice == 0 || unit < outPrice)
 			{
 				outPrice = unit;
-				outName = line.name;
-				outLink = line.link;
+				outName = PlayerBotConvLineName(line, bEnglish);
+				outLink = PlayerBotConvLineLink(line, outName);
 			}
 			return; // one line per stall is enough for "the cheapest"
 		}
@@ -941,8 +1191,17 @@ namespace
 	class CPlayerBotConvWorld : public playerbot_conv::IConvWorld
 	{
 		public:
-			CPlayerBotConvWorld() : m_bot(NULL), m_player(NULL) {}
-			void Bind(LPCHARACTER bot, LPCHARACTER player) { m_bot = bot; m_player = player; }
+			CPlayerBotConvWorld() : m_bot(NULL), m_player(NULL), m_channel(0), m_english(false) {}
+			// `player` is NULL for a person on another core; `channel` is the
+			// one the person plays on, whose counters "ile chodzi" reads;
+			// `english` the language of the reply the answers go into.
+			void Bind(LPCHARACTER bot, LPCHARACTER player, int channel, bool english)
+			{
+				m_bot = bot;
+				m_player = player;
+				m_channel = channel;
+				m_english = english;
+			}
 
 			bool FindItem(const std::string& query, std::string& outName, unsigned int& outCount)
 			{
@@ -951,9 +1210,9 @@ namespace
 				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 				{
 					LPITEM item = m_bot->GetInventoryItem(cell);
-					if (item && item->GetProto() && PlayerBotConvNameMatches(item->GetProto()->szLocaleName, query))
+					if (item && item->GetProto() && PlayerBotConvItemMatches(item->GetVnum(), item->GetProto()->szLocaleName, query))
 					{
-						outName = item->GetProto()->szLocaleName;
+						outName = PlayerBotConvItemNameIn(item->GetVnum(), item->GetProto()->szLocaleName, m_english);
 						outCount = (unsigned int)item->GetCount();
 						NotePlayerBotConvLink(m_bot->GetPlayerID(), outName, MakePlayerBotItemLink(item, outName.c_str()), true);
 						return true;
@@ -963,10 +1222,10 @@ namespace
 				for (size_t i = 0; i < sizeof(worn) / sizeof(worn[0]); ++i)
 				{
 					LPITEM item = m_bot->GetWear(worn[i]);
-					if (item && item->GetProto() && PlayerBotConvNameMatches(item->GetProto()->szLocaleName, query))
+					if (item && item->GetProto() && PlayerBotConvItemMatches(item->GetVnum(), item->GetProto()->szLocaleName, query))
 					{
-						const std::string named = PlayerBotConvItemName(item);
-						outName = named + " (na sobie)";
+						const std::string named = PlayerBotConvItemName(item, m_english);
+						outName = named + PBT(m_english, " (na sobie)", " (worn)");
 						outCount = 1;
 						NotePlayerBotConvLink(m_bot->GetPlayerID(), named, MakePlayerBotItemLink(item, named.c_str()), true);
 						return true;
@@ -994,18 +1253,18 @@ namespace
 				{
 					if (!PlayerBotStallLineMatches(stall.lines[i], candidates, skill != 0, forget, skill))
 						continue;
-					outName = stall.lines[i].name;
+					outName = PlayerBotConvLineName(stall.lines[i], m_english);
 					outPrice = stall.lines[i].price;
 					outCount = stall.lines[i].count;
-					NotePlayerBotConvLink(m_bot->GetPlayerID(), outName, stall.lines[i].link, true);
+					NotePlayerBotConvLink(m_bot->GetPlayerID(), outName, PlayerBotConvLineLink(stall.lines[i], outName), true);
 					return true;
 				}
 				return false;
 			}
 
-			// "ile chodzi X?": the cheapest line of X on this channel's stalls
-			// (the other bots' and, on mt2009, every offline shop), else the
-			// sale memory's median for it.
+			// "ile chodzi X?": the cheapest line of X on the asker's channel's
+			// stalls (the other bots' and, on mt2009, every offline shop), else
+			// the sale memory's median for it.
 			bool FindMarketPrice(const std::string& query, std::string& outName, long long& outPrice,
 					unsigned int& outSellers)
 			{
@@ -1026,19 +1285,23 @@ namespace
 					if (it->first == self)
 						continue;
 					LPCHARACTER keeper = CHARACTER_MANAGER::instance().FindByPID(it->first);
-					if (!keeper || !keeper->GetMyShop() || !GetPlayerBotStall(it->first, keeper, stall))
+					// A classic stall is this core's channel's.
+					if (!keeper || !keeper->GetMyShop() || !GetPlayerBotStall(it->first, keeper, stall) ||
+							stall.channel != m_channel)
 						continue;
-					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, outName, outPrice, outSellers, seenVnum, link);
+					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, m_english, outName, outPrice, outSellers,
+							seenVnum, link);
 				}
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
 				for (const auto& entry : ikashop::GetManager().GetPlayerBotOfflineShops())
 				{
 					if (entry.first == self || !entry.second || entry.second->GetDuration() == 0 ||
-							entry.second->GetSpawn().channel != g_bChannel)
+							entry.second->GetSpawn().channel != m_channel)
 						continue;
 					if (!GetPlayerBotStall(entry.first, NULL, stall))
 						continue;
-					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, outName, outPrice, outSellers, seenVnum, link);
+					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, m_english, outName, outPrice, outSellers,
+							seenVnum, link);
 				}
 #endif
 				if (outPrice > 0)
@@ -1071,20 +1334,21 @@ namespace
 				for (std::set<DWORD>::const_iterator it = materials.begin(); it != materials.end(); ++it)
 				{
 					const TItemTable* proto = ITEM_MANAGER::instance().GetTable(*it);
-					if (proto && PlayerBotConvNameMatches(proto->szLocaleName, query))
+					if (proto && PlayerBotConvItemMatches(*it, proto->szLocaleName, query))
 					{
 						wanted = *it;
 						break;
 					}
 				}
 				if (!wanted)
-					return "Tego raczej nie szukam.";
+					return PBT(m_english, "Tego raczej nie szukam.", "Not really looking for that.");
 				if (!PlayerBotNeedsRefineMaterial(m_bot, wanted))
-					return "Mam tego na razie dosc.";
+					return PBT(m_english, "Mam tego na razie dosc.", "Got enough of that for now.");
 				const TItemTable* proto = ITEM_MANAGER::instance().GetTable(wanted);
+				const std::string name = proto ? PlayerBotConvItemNameIn(wanted, proto->szLocaleName, m_english) : query;
 				char reply[CHAT_MAX_LEN + 1];
-				snprintf(reply, sizeof(reply), "O, %s mi sie przyda. Wystaw na straganie, na pewno zajrze.",
-						proto ? proto->szLocaleName : query.c_str());
+				snprintf(reply, sizeof(reply), PBT(m_english, "O, %s mi sie przyda. Wystaw na straganie, na pewno zajrze.",
+						"Oh, %s would come in handy. Put it up in your shop, I'll check it out for sure."), name.c_str());
 				return reply;
 			}
 
@@ -1110,6 +1374,8 @@ namespace
 		private:
 			LPCHARACTER m_bot;
 			LPCHARACTER m_player;
+			int m_channel;
+			bool m_english;
 	};
 
 	// ---------------------------------------------------------------- host
@@ -1121,9 +1387,12 @@ namespace
 			{
 				using namespace playerbot_conv;
 				LPCHARACTER bot = CHARACTER_MANAGER::instance().FindByPID(botPID);
-				LPCHARACTER player = CHARACTER_MANAGER::instance().FindByPID(playerPID);
-				if (!bot || !player || !player->GetDesc())
+				TPlayerBotConvPerson person;
+				if (!bot || !FindPlayerBotConvPerson(playerPID, person))
 					return false;
+				// NULL for a person on another core: of that one the P2P table
+				// has the name and the channel, and nothing of where it stands.
+				LPCHARACTER player = person.local;
 				TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.find(botPID);
 				if (it == s_mapPlayerBotAIStates.end())
 					return false;
@@ -1133,7 +1402,13 @@ namespace
 				s = TBotSnapshot();
 				s_mapPlayerBotConvLinks[botPID].clear();
 				s.name = bot->GetName();
-				s.askerName = player->GetName();
+				s.askerName = person.Name();
+				s.channel = g_bChannel;
+				s.askerChannel = person.Channel();
+				// The reader's language, and the one every name below is in.
+				s.askerLanguageKnown = GetPlayerBotConvPersonLanguage(person) != CONV_LANG_UNKNOWN;
+				s.askerEnglish = IsPlayerBotConvReplyEnglish(playerPID, botPID, person);
+				const bool en = s.askerEnglish;
 				s.level = bot->GetLevel();
 				s.job = bot->GetJob();
 				s.empire = bot->GetEmpire();
@@ -1154,7 +1429,13 @@ namespace
 					LPCHARACTER target = CHARACTER_MANAGER::instance().Find(state.dwTargetVID);
 					if (target && !target->IsDead())
 					{
-						s.targetName = target->GetName();
+						// A character is named by its name; a monster by its
+						// kind's, in the reader's language, with the proto's own
+						// kept for the family when the two differ.
+						s.targetName = target->IsPC() ? std::string(target->GetName())
+								: PlayerBotConvMobNameIn(target->GetRaceNum(), target->GetName(), en);
+						if (s.targetName != target->GetName())
+							s.targetProtoName = target->GetName();
 						s.targetStone = target->IsStone();
 						s.targetBoss = target->IsMonster() && target->GetMobRank() >= MOB_RANK_BOSS;
 						s.targetPlayer = target->IsPC();
@@ -1191,7 +1472,8 @@ namespace
 					LPCHARACTER leader = party->GetLeaderCharacter();
 					s.partyLeader = leader ? leader->GetName() : "";
 					s.leaderIsMe = party->GetLeaderPID() == botPID;
-					s.askerInParty = player->GetParty() == party;
+					// A party holds its members on every core (the P2P party).
+					s.askerInParty = player ? player->GetParty() == party : party->IsMember(playerPID);
 				}
 				CGuild* guild = bot->GetGuild();
 				if (guild)
@@ -1217,12 +1499,13 @@ namespace
 						{
 							if (!s.bagSummary.empty())
 								s.bagSummary += ", ";
-							s.bagSummary += PlayerBotConvItemName(item);
+							s.bagSummary += PlayerBotConvItemName(item, en);
 							++listed;
 							// Linked under the name without its " x3": the count
 							// stays beside the link.
 							const std::string named = item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR
-									? PlayerBotConvItemName(item) : std::string(item->GetProto()->szLocaleName);
+									? PlayerBotConvItemName(item, en)
+									: PlayerBotConvItemNameIn(item->GetVnum(), item->GetProto()->szLocaleName, en);
 							NotePlayerBotConvLink(botPID, named, MakePlayerBotItemLink(item, named.c_str()));
 						}
 					}
@@ -1230,7 +1513,7 @@ namespace
 				LPITEM weapon = bot->GetWear(WEAR_WEAPON);
 				if (weapon && weapon->GetProto())
 				{
-					s.weaponName = weapon->GetProto()->szLocaleName;
+					s.weaponName = PlayerBotConvItemNameIn(weapon->GetVnum(), weapon->GetProto()->szLocaleName, en);
 					s.weaponPlus = weapon->GetRefineLevel();
 					s.weaponLevel = weapon->GetLevelLimit();
 					// $WEAPON prints GearName (playerbot_conv_say.h).
@@ -1250,7 +1533,8 @@ namespace
 						const TItemTable* goalProto = ITEM_MANAGER::instance().GetTable(goal.family->dwBaseVnum);
 						if (goalProto)
 						{
-							s.weaponGoal = playerbot_conv::GearName(goalProto->szLocaleName, 0);
+							s.weaponGoal = playerbot_conv::GearName(
+									PlayerBotConvItemNameIn(goal.family->dwBaseVnum, goalProto->szLocaleName, en), 0);
 							s.weaponGoalPrice = (long long)GetPlayerBotWeaponGoalPrice(goal.family);
 						}
 						s.weaponIsGoal = hand && hand->GetVnum() - (DWORD)hand->GetRefineLevel() == goal.family->dwBaseVnum;
@@ -1269,7 +1553,7 @@ namespace
 				LPITEM body = bot->GetWear(WEAR_BODY);
 				if (body && body->GetProto())
 				{
-					s.armorName = body->GetProto()->szLocaleName;
+					s.armorName = PlayerBotConvItemNameIn(body->GetVnum(), body->GetProto()->szLocaleName, en);
 					s.armorPlus = body->GetRefineLevel();
 					const std::string named = GearName(s.armorName, s.armorPlus);
 					NotePlayerBotConvLink(botPID, named, MakePlayerBotItemLink(body, named.c_str()));
@@ -1286,7 +1570,7 @@ namespace
 					const TItemTable* proto = wanted ? ITEM_MANAGER::instance().GetTable(wanted) : NULL;
 					if (proto)
 					{
-						s.bioWanted = proto->szLocaleName;
+						s.bioWanted = PlayerBotConvItemNameIn(wanted, proto->szLocaleName, en);
 						break;
 					}
 				}
@@ -1296,7 +1580,7 @@ namespace
 					const CMob* mob = huntVnum ? CMobManager::instance().Get(huntVnum) : NULL;
 					if (mob)
 					{
-						s.huntMob = mob->m_table.szLocaleName;
+						s.huntMob = PlayerBotConvMobNameIn(huntVnum, mob->m_table.szLocaleName, en);
 						s.huntRemaining = remaining;
 					}
 				}
@@ -1314,17 +1598,19 @@ namespace
 					{
 						s.shopOpen = true;
 						s.shopMapIndex = stall.mapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN ? stall.mapIndex / 10000 : stall.mapIndex;
-						s.shopOtherChannel = stall.channel != g_bChannel;
+						// Another channel than the asker's, who may be on either.
+						s.shopOtherChannel = stall.channel != s.askerChannel;
 						s.shopItems = (int)stall.lines.size();
 						for (size_t i = 0; i < stall.lines.size() && i < PLAYERBOT_CONV_SHOP_SUMMARY_ITEMS; ++i)
 						{
 							if (!s.shopSummary.empty())
 								s.shopSummary += ", ";
-							s.shopSummary += stall.lines[i].name;
-							NotePlayerBotConvLink(botPID, stall.lines[i].name, stall.lines[i].link);
+							const std::string shown = PlayerBotConvLineName(stall.lines[i], en);
+							s.shopSummary += shown;
+							NotePlayerBotConvLink(botPID, shown, PlayerBotConvLineLink(stall.lines[i], shown));
 							if (stall.lines[i].count > 1)
 								s.shopSummary += " x" + ToString((long long)stall.lines[i].count);
-							s.shopSummary += " za ";
+							s.shopSummary += en ? " for " : " za ";
 							s.shopSummary += FormatYang(stall.lines[i].price);
 						}
 					}
@@ -1359,12 +1645,14 @@ namespace
 					if (s.minutesSinceDeath < 60)
 						s.recentDeaths = state.bDeathCount > 0 ? state.bDeathCount : 1;
 				}
-				s.askerLevel = player->GetLevel();
-				s.askerNear = player->GetMapIndex() == mapIndex &&
+				// A person on another core is on another map, or on the other
+				// channel's copy of this one - never near, never on this map.
+				s.askerLevel = player ? player->GetLevel() : 0;
+				s.askerNear = player && player->GetMapIndex() == mapIndex &&
 						DISTANCE_APPROX(player->GetX() - bot->GetX(), player->GetY() - bot->GetY()) <= PLAYERBOT_CONV_NEAR_RADIUS;
 				// "chodz do mnie": where the person is, whether the bot is already
 				// called, and what would stop it coming now.
-				s.askerOnMap = player->GetMapIndex() == mapIndex;
+				s.askerOnMap = player && player->GetMapIndex() == mapIndex;
 				s.askerDistance = s.askerOnMap
 						? DISTANCE_APPROX(player->GetX() - bot->GetX(), player->GetY() - bot->GetY()) : -1;
 				{
@@ -1381,7 +1669,12 @@ namespace
 						}
 					}
 				}
-				s.summonBlock = GetPlayerBotSummonBlock(bot, state, player, now);
+				// No walk reaches another core: the other channel's, or a map
+				// this one does not host.
+				if (player)
+					s.summonBlock = GetPlayerBotSummonBlock(bot, state, player, now);
+				else
+					s.summonBlock = AskerOnOtherChannel(s) ? SB_OTHER_CHANNEL : SB_OTHER_MAP;
 				s.afk = state.persona.dwAfkUntil != 0 && now < state.persona.dwAfkUntil;
 				{
 					const time_t t = time(0);
@@ -1393,17 +1686,34 @@ namespace
 
 			playerbot_conv::IConvWorld* World(playerbot_conv::u32 playerPID, playerbot_conv::u32 botPID)
 			{
-				m_world.Bind(CHARACTER_MANAGER::instance().FindByPID(botPID),
-						CHARACTER_MANAGER::instance().FindByPID(playerPID));
+				TPlayerBotConvPerson person;
+				FindPlayerBotConvPerson(playerPID, person);
+				const int channel = person.Channel();
+				m_world.Bind(CHARACTER_MANAGER::instance().FindByPID(botPID), person.local,
+						channel ? channel : (int)g_bChannel, IsPlayerBotConvReplyEnglish(playerPID, botPID, person));
 				return &m_world;
+			}
+
+			// The flag of the person writing, for the line's own reading: a line
+			// whose words say nothing either way is read in it.
+			int AskerLanguage(playerbot_conv::u32 playerPID, playerbot_conv::u32 botPID)
+			{
+				(void)botPID;
+				TPlayerBotConvPerson person;
+				FindPlayerBotConvPerson(playerPID, person);
+				return GetPlayerBotConvPersonLanguage(person);
 			}
 
 			void Send(playerbot_conv::u32 playerPID, playerbot_conv::u32 botPID, const std::string& text)
 			{
 				LPCHARACTER bot = CHARACTER_MANAGER::instance().FindByPID(botPID);
-				LPCHARACTER player = CHARACTER_MANAGER::instance().FindByPID(playerPID);
-				if (bot && player)
-					SendPlayerBotConvWhisper(bot, player, text.c_str());
+				TPlayerBotConvPerson person;
+				if (!bot || !FindPlayerBotConvPerson(playerPID, person))
+					return;
+				if (person.local)
+					SendPlayerBotConvWhisper(bot, person.local, text.c_str());
+				else
+					SendPlayerBotConvWhisperToPeer(bot, person.peer, text.c_str());
 			}
 
 			void Log(const std::string& line)
@@ -1473,20 +1783,29 @@ namespace
 
 	// ---------------------------------------------------------------- hook
 
-	// A whisper from a person to a bot. Always true when the bot is ours: the
-	// line is analysed at once and answered from the queue, never dropped.
-	bool HandlePlayerBotConversation(LPCHARACTER player, LPCHARACTER bot, const char* text)
+	// A whisper from a person to a bot, the person by pid and name: a
+	// character of this core or of another (HandlePlayerWhisperFromPeer),
+	// found again by pid for every reply. Always true when the bot is ours:
+	// the line is analysed at once and answered from the queue, never dropped.
+	bool HandlePlayerBotConversationWith(DWORD playerPID, const char* playerName, LPCHARACTER bot, const char* text)
 	{
-		if (!player || !bot || !text || !*text)
+		if (!playerPID || !bot || !text || !*text)
 			return false;
 		if (s_mapPlayerBotAIStates.find(bot->GetPlayerID()) == s_mapPlayerBotAIStates.end())
 			return false;
 		const DWORD now = get_dword_time();
 		RefreshPlayerBotConvSwitches(now);
-		s_PlayerBotConvEngine.OnPlayerLine(s_PlayerBotConvHost, player->GetPlayerID(), bot->GetPlayerID(),
-				text, now, player->GetName(), bot->GetName());
+		s_PlayerBotConvEngine.OnPlayerLine(s_PlayerBotConvHost, playerPID, bot->GetPlayerID(),
+				text, now, playerName, bot->GetName());
 		EnsurePlayerBotConvTimer();
 		return true;
+	}
+
+	// The same for a character of this core. Inline because the whisper path
+	// asks the one above, and a build that calls this nowhere must not warn.
+	inline bool HandlePlayerBotConversation(LPCHARACTER player, LPCHARACTER bot, const char* text)
+	{
+		return player && HandlePlayerBotConversationWith(player->GetPlayerID(), player->GetName(), bot, text);
 	}
 }
 

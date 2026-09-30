@@ -12,6 +12,13 @@ import player
 import net
 import chr
 import constInfo
+import playerbot_lang
+
+# A bot's offline shop is a person's grid twice over, side by side: one
+# grid twenty columns wide, cells 80-159 its right half row for row
+# (playerbot_offline::BOT_SHOP_PAGES on the server). A person's shop is the
+# stock grid.
+SHOP_BLOCKS_MAX = 2
 
 def IsPressingCTRL():
 	return app.IsPressed(app.DIK_LCONTROL) or app.IsPressed(app.DIK_RCONTROL)
@@ -35,6 +42,9 @@ class OfflineShopGuest(ui.ScriptWindow):
 		self.shopInfo = None
 		self.xShopStart = 0
 		self.yShopStart = 0
+		self.activeCells = []
+		self.wideSlot = None
+		self.shopWide = False
 
 	@ui.WindowDestroy
 	def Destroy(self):
@@ -82,6 +92,95 @@ class OfflineShopGuest(ui.ScriptWindow):
 		except:
 			import exception
 			exception.Abort("OfflineShopManage.LoadDialog.BindObject")
+
+		self.__CreateWideSlot()
+
+	# A shop's cell and the grid it is drawn in: the first block's cells in
+	# the stock grid, the second block's in the one beside it (wideSlot),
+	# which shows while a line stands past the first block.
+	def __BlockCells(self):
+		return shop.SHOP_PLAYER_WIDTH * shop.SHOP_PLAYER_HEIGHT
+
+	def __SlotOf(self, cell):
+		block = cell // self.__BlockCells()
+		if block == 0:
+			return (self.itemSlot, cell)
+		if block < SHOP_BLOCKS_MAX and getattr(self, "shopWide", False) and getattr(self, "wideSlot", None):
+			return (self.wideSlot, cell - block * self.__BlockCells())
+		return (None, -1)
+
+	def __RefreshGrids(self):
+		self.itemSlot.RefreshSlot()
+		if getattr(self, "wideSlot", None):
+			self.wideSlot.RefreshSlot()
+
+	# Read from the cells: a classic stall's and a person's all lie in the
+	# first block.
+	def __WantsWide(self):
+		if not self.shopInfo or not self.shopInfo.get("items"):
+			return False
+		return max(self.shopInfo["items"].keys()) >= self.__BlockCells()
+
+	# Made after the stock script's try: a failure here costs the second
+	# block, never the window - an error inside that try aborts the client.
+	def __CreateWideSlot(self):
+		self.wideSlot = None
+		self.shopWide = False
+		try:
+			self.narrowSize = (self.GetWidth(), self.GetHeight())
+			slot = ui.GridSlotWindow()
+			slot.SetParent(self.board)
+			slot.ArrangeSlot(0, shop.SHOP_PLAYER_WIDTH, shop.SHOP_PLAYER_HEIGHT, 32, 32, 0, 0)
+			slot.SetSlotBaseImage("d:/ymir work/ui/public/Slot_Base.sub")
+			slot.SetSlotStyle(wndMgr.SLOT_STYLE_NONE)
+			slot.SAFE_SetButtonEvent("LEFT", "EXIST", self.__SelectWideSlot)
+			slot.SAFE_SetButtonEvent("RIGHT", "EXIST", self.__SelectWideSlot)
+			slot.SetOverInItemEvent(ui.__mem_func__(self.__OverInWideItem))
+			slot.SetOverOutItemEvent(ui.__mem_func__(self.__OverOutItem))
+			slot.Hide()
+			self.wideSlot = slot
+		except Exception as e:
+			import dbg
+			dbg.TraceError("offlineshopguest: no second block: %s" % e)
+			self.wideSlot = None
+
+	def __SelectWideSlot(self, slot):
+		self.__SelectItemSlot(slot + self.__BlockCells())
+
+	def __OverInWideItem(self, slot):
+		self.__OverInItem(slot + self.__BlockCells())
+
+	# The window a grid wider for the second block beside the first, or the
+	# stock one; kept on the screen.
+	def __SetWide(self, wide):
+		wide = bool(wide) and getattr(self, "wideSlot", None) is not None
+		if wide == getattr(self, "shopWide", False):
+			return
+		self.shopWide = wide
+		try:
+			(width, height) = self.narrowSize
+			gridWidth = shop.SHOP_PLAYER_WIDTH * 32
+			if wide:
+				width += gridWidth
+			self.SetSize(width, height)
+			self.board.SetSize(width, height)
+			self.titleBar.SetWidth(width - 15)
+			if wide:
+				left = (self.narrowSize[0] - gridWidth) // 2
+				self.itemSlot.SetWindowHorizontalAlignLeft()
+				self.itemSlot.SetPosition(left, 30)
+				self.wideSlot.SetPosition(left + gridWidth, 30)
+				self.wideSlot.Show()
+			else:
+				self.wideSlot.Hide()
+				self.itemSlot.SetWindowHorizontalAlignCenter()
+				self.itemSlot.SetPosition(0, 30)
+			(x, y) = self.GetGlobalPosition()
+			self.SetPosition(max(0, min(x, wndMgr.GetScreenWidth() - width)), y)
+			self.UpdateRect()
+		except Exception as e:
+			import dbg
+			dbg.TraceError("offlineshopguest: second block: %s" % e)
 
 	def __ShowTimeToolTip(self):
 		if self.tooltip:
@@ -230,22 +329,32 @@ class OfflineShopGuest(ui.ScriptWindow):
 		self.popupDialog = dialog
 
 	def RefreshItemDeposit(self):
+		self.__SetWide(self.__WantsWide())
 		self.ClearItemStock()
-		for slotIdx,data in self.shopInfo["items"].iteritems():
+		activeCells = getattr(self, "activeCells", [])
+		for slotIdx,data in self.shopInfo["items"].items():
+			(grid, local) = self.__SlotOf(slotIdx)
+			if grid is None:
+				continue
+
 			count = data["count"]
 			if count < 2:
 				count = 0
 
 			socket = tuple(data["sockets"])
-			self.itemSlot.SetItemSlot(slotIdx, data["vnum"], count, socket=socket)
+			grid.SetItemSlot(local, data["vnum"], count, socket=socket)
+			if slotIdx in activeCells:
+				grid.ActivateSlot(local)
 
-
-		self.itemSlot.RefreshSlot()
+		self.__RefreshGrids()
 
 	def ClearItemStock(self):
+		wideSlot = getattr(self, "wideSlot", None)
 		for x in range(shop.SHOP_PLAYER_WIDTH):
 			for y in range(shop.SHOP_PLAYER_HEIGHT):
 				self.itemSlot.ClearSlot(x + shop.SHOP_PLAYER_WIDTH * y)
+				if wideSlot:
+					wideSlot.ClearSlot(x + shop.SHOP_PLAYER_WIDTH * y)
 
 	def SetTitle(self, ownerName):
 		self.titleLabel.SetText(localeInfo.PLAYER_SHOP_TITLE % ownerName)
@@ -266,17 +375,28 @@ class OfflineShopGuest(ui.ScriptWindow):
 			self.whisperButton.Hide()
 
 	def ActivateItems(self, itemSlots):
+		if not hasattr(self, "activeCells"):
+			self.activeCells = []
 		for slot in itemSlots:
-			if self.shopInfo["items"].has_key(slot):
-				self.itemSlot.ActivateSlot(slot)
-		self.itemSlot.RefreshSlot()
+			if slot in self.shopInfo["items"]:
+				if slot not in self.activeCells:
+					self.activeCells.append(slot)
+				(grid, local) = self.__SlotOf(slot)
+				if grid is not None:
+					grid.ActivateSlot(local)
+		self.__RefreshGrids()
 
 	def DeactivateItems(self, itemSlots):
-		if self.shopInfo and self.shopInfo.has_key("items"):
+		for slot in itemSlots:
+			if slot in getattr(self, "activeCells", []):
+				self.activeCells.remove(slot)
+		if self.shopInfo and "items" in self.shopInfo:
 			for slot in itemSlots:
-				if self.shopInfo["items"].has_key(slot):
-					self.itemSlot.DeactivateSlot(slot)
-			self.itemSlot.RefreshSlot()
+				if slot in self.shopInfo["items"]:
+					(grid, local) = self.__SlotOf(slot)
+					if grid is not None:
+						grid.DeactivateSlot(local)
+			self.__RefreshGrids()
 
 	def OnPressEscapeKey(self):
 		self.Close()
@@ -380,6 +500,7 @@ class OfflineShopGuest(ui.ScriptWindow):
 		isOwner = player.IsMainCharacterIndex(vid)
 		shop.Open(True, isOwner)
 		self.isNormalShop = True
+		self.activeCells = []
 		self.__PrepareNormalShopInfo(vid)
 		self.SetTitle(self.shopInfo["ownerName"])
 		self.RefreshItemDeposit()
@@ -469,6 +590,7 @@ class OfflineShopGuest(ui.ScriptWindow):
 
 					slotList.append(slotIdx)
 
+		# What a search found, lit in whichever grid it stands.
 		self.ActivateItems(slotList)
 
 	def SetWholeOwnerName(self, pid, name):
@@ -491,7 +613,11 @@ class OfflineShopGuest(ui.ScriptWindow):
 	def OpenShopGuest(self, data):
 		data["ownerName"] = self.__WholeOwnerName(data)
 		data['items'] = {item['cell']: item for item in data['items']}
+		previous = getattr(self, "shopInfo", None)
+		sameShop = bool(previous) and previous.get("id") == data.get("id")
 		self.shopInfo = data
+		if not sameShop:
+			self.activeCells = []
 		self.SetView(False)
 		self.SetTitle(data["ownerName"])
 		self.SetTime(data["duration"])
@@ -509,9 +635,11 @@ class OfflineShopGuest(ui.ScriptWindow):
 		self.Close()
 
 	def ShopGuestRemoveItem(self, itemid):
-		for i, v in self.shopInfo["items"].iteritems():
+		for i, v in self.shopInfo["items"].items():
 			if v["id"] == itemid:
-				self.itemSlot.ClearSlot(i)
+				(grid, local) = self.__SlotOf(i)
+				if grid is not None:
+					grid.ClearSlot(local)
 				self.shopInfo["items"].pop(i)
 				break
 

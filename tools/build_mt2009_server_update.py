@@ -52,7 +52,12 @@ ENGINE_EDITS = ['apply_costume_mount_allowed', 'apply_ride_seal_equip', 'apply_s
                 'apply_shaman_party_buff', 'apply_chest_mob_preview',
                 'apply_auto_hunt_item_switch', 'apply_auto_hunt_loot_kinds', 'apply_refine_chance_shown',
                 'apply_flea_market_fill_dispatch', 'apply_build_refusals_spoken',
-                'apply_all_three_smiths', 'apply_build_refusal_reason', 'apply_boss_last_blow']
+                'apply_all_three_smiths', 'apply_build_refusal_reason', 'apply_boss_last_blow',
+                'apply_guild_person_struck', 'apply_person_language_texts', 'apply_person_language_names',
+                'apply_person_language', 'apply_guild_bot_orders', 'apply_guild_war_answer_type',
+                'apply_flea_price_range', 'apply_bot_shop_two_pages', 'apply_autospawn_bootstrap_once',
+                'apply_quest_warp_channel', 'apply_mob_preview_stone_kinds', 'apply_peer_whisper_to_bot',
+                'apply_spider_baroness_damage', 'apply_target_hp_values']
 # Files an upstream package carries that this repository does not publish. An
 # update never deletes a file, so a player who took the upstream package keeps
 # it; the drop check below is for paths this repository's own list lost.

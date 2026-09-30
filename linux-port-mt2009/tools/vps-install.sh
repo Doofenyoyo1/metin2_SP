@@ -753,6 +753,7 @@ cmd_status() {
         printf 'auth_port=%s\n' "$(env_get M2_AUTH_PORT)"
         printf 'game_port_range=%s\n' "$(env_get M2_GAME_PORT_RANGE)"
         printf 'ch2=%s\n' "$(env_get M2_PLAYERBOT_CH2)"
+        printf 'fresh_channels=%s\n' "$(env_get M2_PLAYERBOT_FRESH_CHANNELS)"
         printf 'panel_port=%s\n' "$(env_get M2_PANEL_PUBLIC_PORT)"
         printf 'seban_panel_port=%s\n' "$(env_get M2_SEBAN_PANEL_PORT)"
         printf 'itemshop_port=%s\n' "$(env_get M2_ITEMSHOP_PUBLIC_PORT)"

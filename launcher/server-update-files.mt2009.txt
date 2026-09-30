@@ -54,6 +54,10 @@ linux-port-mt2009/docker/game/mob_drop_item.m3.append.txt
 linux-port-mt2009/docker/game/special_item_group.moonlight.txt
 linux-port-mt2009/docker/game/special_item_group.starter.txt
 linux-port-mt2009/docker/game/cube.seon_pyeong.txt
+linux-port-mt2009/docker/game/special_spawns.baroness.txt
+# The official English names of this world's items and monsters, which the image
+# copies into its share (tools/generate_english_names.py, playerbot_language.h).
+linux-port-mt2009/docker/game/playerbot_names_en.tsv
 
 # ---- the launcher and the package's own bookkeeping --------------------------
 # The line's own version and package note, published under the root names.
@@ -128,6 +132,7 @@ linux-port-mt2009/docker/game/src/server/game/src/input.h
 linux-port-mt2009/docker/game/src/server/game/src/input_db.cpp
 linux-port-mt2009/docker/game/src/server/game/src/input_login.cpp
 linux-port-mt2009/docker/game/src/server/game/src/input_main.cpp
+linux-port-mt2009/docker/game/src/server/game/src/input_p2p.cpp
 linux-port-mt2009/docker/game/src/server/game/src/item.cpp
 linux-port-mt2009/docker/game/src/server/game/src/item_manager.cpp
 linux-port-mt2009/docker/game/src/server/game/src/item_manager.h
@@ -157,6 +162,7 @@ linux-port-mt2009/docker/game/src/server/game/src/regen.cpp
 linux-port-mt2009/docker/game/src/server/game/src/shop.h
 linux-port-mt2009/docker/game/src/server/game/src/shop_manager.cpp
 linux-port-mt2009/docker/game/src/server/game/src/shop_manager.h
+linux-port-mt2009/docker/game/src/server/game/src/special_spawn.cpp
 linux-port-mt2009/docker/game/src/server/game/src/stdafx.h
 linux-port-mt2009/docker/game/src/server/game/src/utils.cpp
 linux-port-mt2009/docker/game/src/server/game/src/utils.h

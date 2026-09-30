@@ -8,11 +8,16 @@
 #include "playerbot_persona_rules.h"
 #include "playerbot_lure_order_rules.h"
 #include "playerbot_truce_rules.h"
+#include "playerbot_guild_aid_rules.h"
 #include "playerbot_war_rules.h"
 #include "playerbot_item_link_rules.h"
 #include "playerbot_price_rules.h"
 #include "playerbot_bonus_rules.h"
 #include "playerbot_refine_rules.h"
+#include "playerbot_moonlight_rules.h"
+#include "playerbot_stalki_rules.h"
+#include "playerbot_guild_order_rules.h"
+#include "playerbot_name_rules.h"
 
 #include "char.h"
 #include "skill.h"
@@ -53,6 +58,7 @@
 #include "utils.h"
 #include <queue>
 #include <set>
+#include <unordered_map>
 #include <deque>
 #include <algorithm>
 #include <cstdlib>
@@ -115,6 +121,9 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_persona_tables.h"
 #include "playerbot_weapon_atlas.h"
 #include "playerbot_log.h"
+// Which language a person reads, and what is said to one person or to all in
+// it: early, so anything may speak to a person.
+#include "playerbot_language.h"
 #include "playerbot_config.h"
 #include "playerbot_events.h"
 // Iwakura's Bot Mood System: the moods and the notes the loot, the chests,
@@ -127,6 +136,9 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_combat_value_policy.h"
 #include "playerbot_battle_horse.h"
 #include "playerbot_gear.h"
+// The Stalki - the level-66 armours and the level-75 weapons - as the bots
+// keep and buy them: after the gear, whose candidate test and score it asks.
+#include "playerbot_stalki.h"
 #include "playerbot_consumables.h"
 #include "playerbot_activities.h"
 #include "playerbot_mining.h"
@@ -163,7 +175,7 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_offline_market.h"
 // Forward declaration: the trade layer falls through to the deterministic
 // conversation layer for ordinary whispers.
-namespace { bool HandlePlayerBotConversation(LPCHARACTER player, LPCHARACTER bot, const char* text); }
+namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* playerName, LPCHARACTER bot, const char* text); }
 #include "playerbot_chat_trade.h"
 #include "playerbot_loot.h"
 #include "playerbot_survival.h"
@@ -196,6 +208,11 @@ namespace { bool HandlePlayerBotConversation(LPCHARACTER player, LPCHARACTER bot
 // Iwakura's social personalities: the companion's phase and its invitations
 // to people, a companion Shaman's party buffs, and the mercenary's contracts.
 #include "playerbot_companions.h"
+// A person's orders to the bots of the person's guild ("/gildia_boty", the
+// guild window's buttons): who comes, and what it fights there. After the
+// companions, whose "held for company" it asks, the companion, whose choice
+// of foe it borrows, and the tower, whose fight.
+#include "playerbot_guild_orders.h"
 #include "playerbot_lure.h"
 #include "playerbot_admin.h"
 
@@ -459,8 +476,9 @@ namespace
 		if (IsPlayerBotSidekickPID(ch->GetPlayerID()) && !IsPlayerBotSidekickInviteFromOwner(ch, leader))
 		{
 			if (leader->GetDesc() && !leader->GetDesc()->IsBot())
-				leader->ChatPacket(CHAT_TYPE_INFO, "%s jest czyims towarzyszem i nie dolaczy do twojej grupy.",
-						ch->GetName());
+				TellPlayerBotPerson(leader, PBT(IsPlayerBotPersonEnglish(leader),
+						"%s jest czyims towarzyszem i nie dolaczy do twojej grupy.",
+						"%s is somebody's companion and will not join your party."), ch->GetName());
 			return;
 		}
 		// Joining is a thing the bot is now doing: an errand it was walking to
@@ -757,23 +775,31 @@ namespace
 			// A person is told why; a bot has nobody to read it.
 			if (challenger->GetDesc() && !challenger->GetDesc()->IsBot())
 			{
+				const bool en = IsPlayerBotPersonEnglish(challenger);
 				if (!strcmp(refusal, "level"))
-					challenger->ChatPacket(CHAT_TYPE_INFO, "%s nie przyjmie pojedynku ponizej %d poziomu.",
-							ch->GetName(), (int)PK_PROTECT_LEVEL);
+					TellPlayerBotPerson(challenger, PBT(en, "%s nie przyjmie pojedynku ponizej %d poziomu.",
+							"%s accepts no duel below level %d."), ch->GetName(), (int)PK_PROTECT_LEVEL);
 				else if (!strcmp(refusal, "safe_zone"))
-					challenger->ChatPacket(CHAT_TYPE_INFO, "%s nie walczy w strefie bezpiecznej.", ch->GetName());
+					TellPlayerBotPerson(challenger, PBT(en, "%s nie walczy w strefie bezpiecznej.",
+							"%s does not fight in a safe zone."), ch->GetName());
 				else if (!strcmp(refusal, "fishing"))
-					challenger->ChatPacket(CHAT_TYPE_INFO, "%s lowi ryby i nie przyjmie teraz pojedynku.", ch->GetName());
+					TellPlayerBotPerson(challenger, PBT(en, "%s lowi ryby i nie przyjmie teraz pojedynku.",
+							"%s is fishing and accepts no duel now."), ch->GetName());
 				else if (!strcmp(refusal, "mining"))
-					challenger->ChatPacket(CHAT_TYPE_INFO, "%s kopie rude i nie przyjmie teraz pojedynku.", ch->GetName());
+					TellPlayerBotPerson(challenger, PBT(en, "%s kopie rude i nie przyjmie teraz pojedynku.",
+							"%s is mining and accepts no duel now."), ch->GetName());
 				else if (!strcmp(refusal, "companion"))
-					challenger->ChatPacket(CHAT_TYPE_INFO, "%s jest czyims towarzyszem i nie bierze udzialu w pojedynkach.", ch->GetName());
+					TellPlayerBotPerson(challenger, PBT(en, "%s jest czyims towarzyszem i nie bierze udzialu w pojedynkach.",
+							"%s is somebody's companion and takes no part in duels."), ch->GetName());
 				else if (!strcmp(refusal, "raid"))
-					challenger->ChatPacket(CHAT_TYPE_INFO, "%s idzie z rajdem i nie przyjmie teraz pojedynku.", ch->GetName());
+					TellPlayerBotPerson(challenger, PBT(en, "%s idzie z rajdem i nie przyjmie teraz pojedynku.",
+							"%s is going with a raid and accepts no duel now."), ch->GetName());
 				else if (!strcmp(refusal, "summoned"))
-					challenger->ChatPacket(CHAT_TYPE_INFO, "%s idzie do kogos, kto go zawolal, i nie przyjmie teraz pojedynku.", ch->GetName());
+					TellPlayerBotPerson(challenger, PBT(en, "%s idzie do kogos, kto go zawolal, i nie przyjmie teraz pojedynku.",
+							"%s is going to somebody who called it and accepts no duel now."), ch->GetName());
 				else
-					challenger->ChatPacket(CHAT_TYPE_INFO, "%s nie ma broni w reku i nie przyjmie pojedynku.", ch->GetName());
+					TellPlayerBotPerson(challenger, PBT(en, "%s nie ma broni w reku i nie przyjmie pojedynku.",
+							"%s has no weapon in hand and accepts no duel."), ch->GetName());
 			}
 			return;
 		}
@@ -2940,7 +2966,7 @@ bool CPlayerBotManager::LoadRegisteredBots()
 	// a GM's spawn - can start another channel's bot here.
 	m_bSecondChannel = false;
 	m_iSecondChannelShare = playerbot_channel_rules::CH2_SHARE_DEFAULT;
-	for (int c = 0; c < 3; ++c)
+	for (int c = 0; c <= playerbot_channel_rules::MAX_CHANNELS; ++c)
 		for (int e = 0; e < 4; ++e)
 		{
 			m_aChannelIdentities[c][e] = 0;
@@ -2952,13 +2978,27 @@ bool CPlayerBotManager::LoadRegisteredBots()
 	const char* secondShare = std::getenv("PLAYERBOT_CH2_SHARE");
 	if (secondShare && *secondShare)
 		m_iSecondChannelShare = playerbot_channel_rules::ClampShare(std::atoi(secondShare));
+	// The fresh cohort of the third and fourth channels, from the same
+	// environment: how many channels carry it and how many of it play. Off
+	// (0) its identities are nobody's, on every core alike.
+	m_iFreshChannels = 0;
+	m_iFreshCount = playerbot_channel_rules::FRESH_COUNT_DEFAULT;
+	const char* freshChannels = std::getenv("M2_PLAYERBOT_FRESH_CHANNELS");
+	if (freshChannels && *freshChannels)
+		m_iFreshChannels = playerbot_channel_rules::ClampFreshChannels(std::atoi(freshChannels));
+	const char* freshCount = std::getenv("PLAYERBOT_FRESH_COUNT");
+	if (freshCount && *freshCount)
+		m_iFreshCount = playerbot_channel_rules::ClampFreshCount(std::atoi(freshCount));
+	const bool freshCore = g_bChannel >= playerbot_channel_rules::FIRST_FRESH_CHANNEL;
 	// With the second channel on and offline shops in the world, the channels
 	// come from the assignment table (the two channels with moves, mt2009):
 	// the pins stood every bot that ever kept a shop on the first channel for
-	// good, which on a world that has played is nearly every bot.
+	// good, which on a world that has played is nearly every bot. The table
+	// is the first two channels' alone: a core of the third or the fourth
+	// has nobody to be moved to it and nothing to coordinate.
 	m_bChannelTable = false;
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
-	if (m_bSecondChannel)
+	if (m_bSecondChannel && !freshCore)
 	{
 		// Both tables are the migrator's too (apply.sh); asked for here as
 		// well, so a core that starts before a migrator of this version has run
@@ -2983,7 +3023,10 @@ bool CPlayerBotManager::LoadRegisteredBots()
 	}
 #endif
 	std::set<DWORD> pins;
-	const bool pinsKnown = m_bChannelTable || !m_bSecondChannel || LoadPlayerBotChannelPins(pins);
+	// A core of a fresh channel starts none of the world's bots, pinned or
+	// not, so it neither reads the pins nor adds to them.
+	const bool pinsKnown = m_bChannelTable || !m_bSecondChannel || freshCore ||
+			LoadPlayerBotChannelPins(pins);
 	// Without the pins a pinned bot's channel cannot be told, so the second
 	// channel takes nobody and the first takes only whom the spread gives it:
 	// a bot may then start nowhere, and never twice.
@@ -3063,7 +3106,11 @@ bool CPlayerBotManager::LoadRegisteredBots()
 			m_setAllRegisteredBots.insert(pid);
 			int channel = 0;
 			unsigned int readyIn = 0;
-			if (m_bChannelTable)
+			// The fresh cohort's channel is its pid's before any table is
+			// asked: no row, no spread, no pin - and none at all while the
+			// cohort is off (playerbot_channel_rules::IdentityChannelOf).
+			const bool fresh = playerbot_channel_rules::IsFreshCohortPid(pid);
+			if (m_bChannelTable && !fresh)
 			{
 				unsigned int rowChannel = 0;
 				if (row[5])
@@ -3074,8 +3121,8 @@ bool CPlayerBotManager::LoadRegisteredBots()
 						: playerbot_channel_rules::ChannelOf(pid, true, m_iSecondChannelShare, false);
 			}
 			else
-				channel = playerbot_channel_rules::ChannelOf(pid, m_bSecondChannel,
-						m_iSecondChannelShare, pins.find(pid) != pins.end());
+				channel = playerbot_channel_rules::IdentityChannelOf(pid, m_bSecondChannel,
+						m_iSecondChannelShare, pins.find(pid) != pins.end(), m_iFreshChannels);
 			++m_aChannelIdentities[channel][empire];
 			const bool here = channel == (int)g_bChannel && (m_bChannelTable || pinsKnown || g_bChannel == 1);
 			if (here)
@@ -3084,7 +3131,8 @@ bool CPlayerBotManager::LoadRegisteredBots()
 				++otherChannel;
 			// With the table every identity keeps its record whatever its
 			// channel: a move may bring it here, and it must be known by then.
-			if (!here && !m_bChannelTable)
+			// Not a fresh one, which no move ever brings to the first two.
+			if (!here && (!m_bChannelTable || fresh))
 				continue;
 			TPlayerBotAccount account;
 			account.dwID = 0;
@@ -3114,6 +3162,17 @@ bool CPlayerBotManager::LoadRegisteredBots()
 				m_aChannelIdentities[1][1], m_aChannelIdentities[1][2], m_aChannelIdentities[1][3],
 				m_aChannelIdentities[2][1], m_aChannelIdentities[2][2], m_aChannelIdentities[2][3],
 				(unsigned int)pins.size(), pinsKnown ? 1 : 0);
+	// The fresh cohort, whenever it is on or the world holds any of it.
+	const int reservedFresh = m_aChannelIdentities[0][1] + m_aChannelIdentities[0][2] +
+			m_aChannelIdentities[0][3];
+	if (m_iFreshChannels > 0 || reservedFresh > 0)
+		sys_log(0, "PLAYERBOT_CHANNEL: fresh cohort channels=%d count=%d here=%d "
+				"ch3=%d/%d/%d ch4=%d/%d/%d reserved=%d/%d/%d",
+				m_iFreshChannels, m_iFreshCount,
+				playerbot_channel_rules::IsFreshChannel((int)g_bChannel, m_iFreshChannels) ? 1 : 0,
+				m_aChannelIdentities[3][1], m_aChannelIdentities[3][2], m_aChannelIdentities[3][3],
+				m_aChannelIdentities[4][1], m_aChannelIdentities[4][2], m_aChannelIdentities[4][3],
+				m_aChannelIdentities[0][1], m_aChannelIdentities[0][2], m_aChannelIdentities[0][3]);
 
 	m_bRegistryAvailable = !m_setRegisteredBots.empty();
 	if (!m_bRegistryAvailable)
@@ -3254,11 +3313,62 @@ static int GetPlayerBotMedalDroppersAsked()
 	return droppers;
 }
 
+// The fresh cohort's part of this core, the first time a fresh channel's
+// bootstrap asks (SplitForThisChannel): the operator's fresh number between
+// the kingdoms over the cohort's identities on every fresh channel - evenly,
+// as the world's number is - and each kingdom's part half and half between
+// the third and the fourth. The world's number and its late joiners are the
+// first two channels' business and never reach here; neither do the medal
+// droppers (SpawnMedalDropperCohort starts only on the first channel).
+void CPlayerBotManager::PlanFreshCohortHere(const int* registeredHere, int* want)
+{
+	for (int e = 0; e < playerbot_empire_rules::EMPIRE_COUNT; ++e)
+		want[e] = 0;
+	if (m_bFreshCohortGiven)
+		return;
+	m_bFreshCohortGiven = true;
+	if (!playerbot_channel_rules::IsFreshChannel((int)g_bChannel, m_iFreshChannels) || m_iFreshCount <= 0)
+		return;
+	// A kingdom M2_PLAYERBOT_KINGDOMS=0 leaves out has no share here either.
+	const char* kingdoms = std::getenv("M2_PLAYERBOT_KINGDOMS");
+	const bool chunjoOnly = kingdoms && *kingdoms && std::atoi(kingdoms) == 0;
+	const int third = playerbot_channel_rules::FIRST_FRESH_CHANNEL;
+	const int fourth = third + 1;
+	int world[playerbot_empire_rules::EMPIRE_COUNT] = { 0, 0, 0, 0 };
+	int worldWant[playerbot_empire_rules::EMPIRE_COUNT];
+	for (int e = playerbot_empire_rules::EMPIRE_SHINSOO; e <= playerbot_empire_rules::EMPIRE_JINNO; ++e)
+		if (!chunjoOnly || e == playerbot_empire_rules::EMPIRE_CHUNJO)
+			world[e] = m_aChannelIdentities[third][e] + m_aChannelIdentities[fourth][e];
+	playerbot_empire_rules::SplitPopulation(m_iFreshCount, world, worldWant);
+	int onThird[playerbot_empire_rules::EMPIRE_COUNT] = { 0, 0, 0, 0 };
+	int onFourth[playerbot_empire_rules::EMPIRE_COUNT] = { 0, 0, 0, 0 };
+	for (int e = playerbot_empire_rules::EMPIRE_SHINSOO; e <= playerbot_empire_rules::EMPIRE_JINNO; ++e)
+	{
+		playerbot_channel_rules::SplitFreshBetweenChannels(worldWant[e], m_iFreshChannels,
+				m_aChannelIdentities[third][e], m_aChannelIdentities[fourth][e], onThird[e], onFourth[e]);
+		m_aChannelPlanned[third][e] = onThird[e];
+		m_aChannelPlanned[fourth][e] = onFourth[e];
+		const int here = (int)g_bChannel == third ? onThird[e] : onFourth[e];
+		want[e] = std::min(here, std::max(0, registeredHere[e]));
+	}
+	sys_log(0, "PLAYERBOT: fresh cohort world=%d, channel %u starts %d/%d/%d (world split %d/%d/%d, ch3 %d/%d/%d, ch4 %d/%d/%d)",
+			m_iFreshCount, (unsigned int)g_bChannel, want[1], want[2], want[3],
+			worldWant[1], worldWant[2], worldWant[3],
+			onThird[1], onThird[2], onThird[3], onFourth[1], onFourth[2], onFourth[3]);
+}
+
 void CPlayerBotManager::SplitForThisChannel(int total, const int* registeredHere, int* want)
 {
 	LoadRegisteredBots();
 	if (!want || !registeredHere)
 		return;
+	// A fresh channel starts the fresh cohort and nothing of the world's
+	// number, whatever the second channel's switch says.
+	if (g_bChannel >= playerbot_channel_rules::FIRST_FRESH_CHANNEL)
+	{
+		PlanFreshCohortHere(registeredHere, want);
+		return;
+	}
 	if (!m_bSecondChannel)
 	{
 		if (g_bChannel != 1)
@@ -3310,6 +3420,19 @@ int CPlayerBotManager::ScaleToThisChannel(int total, BYTE bEmpire)
 	// own must still learn that it takes nothing, so the load is asked for
 	// that whatever it answers.
 	LoadRegisteredBots();
+	// A fresh channel's number is the fresh cohort's own (PlanFreshCohortHere,
+	// which the bootstrap's SplitForThisChannel ran first): the operator's
+	// numbers per kingdom are the world's bots', so here each kingdom keeps
+	// its fresh plan and nothing of them.
+	if (g_bChannel >= playerbot_channel_rules::FIRST_FRESH_CHANNEL)
+	{
+		if (g_bChannel > playerbot_channel_rules::MAX_CHANNELS)
+			return 0;
+		if (bEmpire >= 1 && bEmpire <= 3)
+			return m_aChannelPlanned[g_bChannel][bEmpire];
+		return m_aChannelPlanned[g_bChannel][1] + m_aChannelPlanned[g_bChannel][2] +
+				m_aChannelPlanned[g_bChannel][3];
+	}
 	// One kingdom, the operator's own number for it: split as the cohort is
 	// (SplitForThisChannel), and this is the plan for that kingdom now - it
 	// replaces the share of the one number the bootstrap asked for first.
@@ -3501,6 +3624,11 @@ void CPlayerBotManager::SetSpawnWindow(DWORD dwWindowMs)
 size_t CPlayerBotManager::ScheduleLateJoiners(size_t count, BYTE bEmpire, DWORD dwWindowMs)
 {
 	if (count == 0 || bEmpire < 1 || bEmpire > 3 || !LoadRegisteredBots())
+		return 0;
+	// The fresh cohort has no late joiners: its channels start the operator's
+	// fresh number at once, and nothing after it (SplitForThisChannel hands
+	// them none; this is the belt).
+	if (g_bChannel >= playerbot_channel_rules::FIRST_FRESH_CHANNEL)
 		return 0;
 	const DWORD maxMs = PLAYERBOT_LATE_JOIN_MAX_HOURS * 60U * 60U * 1000U;
 	if (dwWindowMs < 60000U)
@@ -3785,6 +3913,11 @@ void CPlayerBotManager::OnSidekickCommand(LPCHARACTER ch, const char* szArgument
 	HandlePlayerBotSidekickCommand(ch, szArgument);
 }
 
+void CPlayerBotManager::OnGuildBotOrder(LPCHARACTER ch, const char* szArgument)
+{
+	HandlePlayerBotGuildOrder(ch, szArgument);
+}
+
 // A companion is saved where it last stood, and that can be a map another
 // core hosts: it followed its owner there, and the owner came back. The
 // engine's load refused it before anything of ours could put it beside its
@@ -3829,6 +3962,81 @@ LPCHARACTER CPlayerBotManager::GetSidekickKillCredit(LPCHARACTER killer, LPCHARA
 				PLAYERBOT_SIDEKICK_KILL_CREDIT_RANGE)
 		return NULL;
 	return owner;
+}
+
+// The client's answer to the login quest's question (playerbot_lang.quest,
+// playerbot_language.h): its language, kept as the character's quest flag.
+// Set through GetPCForce, as it is read: the command may arrive while a quest
+// runs for this player, and GetPC would move the quest manager's current
+// character. PC::SetFlag saves only a changed value, so the answer at every
+// warp costs the database nothing once it has been said.
+void CPlayerBotManager::OnPersonLanguage(LPCHARACTER ch, const char* szArgument)
+{
+	if (!ch || !ch->IsPC() || !ch->GetDesc() || ch->GetDesc()->IsBot() || !szArgument)
+		return;
+	char arg[16];
+	one_argument(szArgument, arg, sizeof(arg));
+	int english;
+	if (!strcasecmp(arg, "en"))
+		english = 1;
+	else if (!strcasecmp(arg, "pl"))
+		english = 0;
+	else
+		return;
+	quest::PC* pc = quest::CQuestManager::instance().GetPCForce(ch->GetPlayerID());
+	if (!pc)
+		return;
+	if ((pc->GetFlag(PLAYERBOT_PERSON_ENGLISH_FLAG) > 0) != (english > 0))
+		sys_log(0, "PLAYERBOT_LANG: pid=%u name=%s reads %s", ch->GetPlayerID(), ch->GetName(),
+				english ? "english" : "polish");
+	pc->SetFlag(PLAYERBOT_PERSON_ENGLISH_FLAG, english);
+}
+
+// A bots' notice comes as two, a half per language behind its mark
+// (BroadcastPlayerBotNotice): the half a person does not read is not for them,
+// and the one they do is shown without its mark. Every other notice - a GM's,
+// a quest's - is everybody's as it is.
+bool CPlayerBotManager::ShowsNoticeTo(LPCHARACTER ch, const char*& text)
+{
+	if (!text || (text[0] != PLAYERBOT_NOTICE_POLISH_MARK && text[0] != PLAYERBOT_NOTICE_ENGLISH_MARK))
+		return true;
+	const bool englishHalf = text[0] == PLAYERBOT_NOTICE_ENGLISH_MARK;
+	if (englishHalf != IsPlayerBotPersonEnglish(ch))
+		return false;
+	++text;
+	return true;
+}
+
+// The engine's own files cannot reach the overlay's anonymous namespace, so
+// the lines our edits of them say ask here (playerbotify.py,
+// apply_person_language_texts).
+bool CPlayerBotManager::ReadsEnglish(LPCHARACTER ch)
+{
+	return IsPlayerBotPersonEnglish(ch);
+}
+
+// Asked for every NPC that comes into a person's view, so the cheap question
+// first: most races have an English name, most people read Polish, and the
+// name is a lookup where the language is a quest flag's.
+const char* CPlayerBotManager::GetNpcNameFor(LPCHARACTER viewer, DWORD dwRace)
+{
+	const char* en = FindPlayerBotMobNameEn(dwRace);
+	return en && IsPlayerBotPersonEnglish(viewer) ? en : NULL;
+}
+
+// Asked for every stand that comes into a person's view and every stand a
+// person opens: the language first, then whether the stand is a bot's.
+bool CPlayerBotManager::GetShopNameFor(LPCHARACTER viewer, DWORD dwOwnerPID, const char* szName,
+		char* szOut, size_t outSize)
+{
+	if (!szName || !*szName || !szOut || outSize == 0 || !IsPlayerBotPersonEnglish(viewer) ||
+			!instance().IsRegisteredBotPID(dwOwnerPID))
+		return false;
+	std::string en;
+	if (!GetPlayerBotShopNameEn(szName, en))
+		return false;
+	strlcpy(szOut, en.c_str(), outSize);
+	return true;
 }
 
 bool CPlayerBotManager::IsRestingBot(DWORD dwPlayerID) const
@@ -4456,7 +4664,14 @@ void CPlayerBotManager::SeedChannelAssignments()
 	std::vector<std::pair<DWORD, BYTE> > rows;
 	rows.reserve(m_mapBotAccounts.size());
 	for (TPlayerBotAccountMap::const_iterator it = m_mapBotAccounts.begin(); it != m_mapBotAccounts.end(); ++it)
+	{
+		// The fresh cohort has no row: its channel is its pid's and never
+		// moves (a companion taken from it is the one record that could be
+		// here, and it stands where its owner is anyway).
+		if (playerbot_channel_rules::IsFreshCohortPid(it->first))
+			continue;
 		rows.push_back(std::make_pair(it->first, it->second.bChannel));
+	}
 	for (size_t off = 0; off < rows.size(); off += PLAYERBOT_CHANNEL_CHUNK)
 	{
 		const size_t end = std::min(rows.size(), off + PLAYERBOT_CHANNEL_CHUNK);
@@ -4635,10 +4850,13 @@ void CPlayerBotManager::CoordinateChannelSwaps(DWORD dwNow)
 	m_dwNextChannelCoordinatorTime = dwNow + PLAYERBOT_CHANNEL_COORDINATOR_INTERVAL;
 	m_bChannelCoordInFlight = true;
 	const std::string shop = std::to_string(playerbot_channel_rules::SHOP_CHANNEL);
+	// The bots that play are the first two channels' (channel IN (1,2)): the
+	// fresh cohort of the third and fourth has no row, and a row of any other
+	// channel must never count towards the shop channel's cap.
 	SendChannelSql(PB_CHSQL_CENSUS, 0, 0, 0, 0,
 			"SELECT COALESCE((SELECT TIMESTAMPDIFF(SECOND,last_batch,NOW()) "
 			"FROM common.playerbot_channel_control WHERE id=1),999999),"
-			"COALESCE(SUM(" + PlayerBotChannelSeen() + "),0),"
+			"COALESCE(SUM(channel IN (1,2) AND " + PlayerBotChannelSeen() + "),0),"
 			"COALESCE(SUM(channel=" + shop + " AND " + PlayerBotChannelSeen() + "),0),"
 			"COALESCE(SUM(channel<>" + shop + " AND requested_channel=" + shop +
 			" AND " + PlayerBotChannelRequestReady() + "),0) "
@@ -4839,7 +5057,8 @@ void CPlayerBotManager::OnChannelAssignments(void* pvMsg)
 		if (r[0]) str_to_number(pid, r[0]);
 		if (r[1]) str_to_number(channel, r[1]);
 		if (r[2]) str_to_number(readyIn, r[2]);
-		if (channel != 1 && channel != 2)
+		// A fresh identity's channel is its pid's, whatever a row might say.
+		if ((channel != 1 && channel != 2) || playerbot_channel_rules::IsFreshCohortPid(pid))
 			continue;
 		TPlayerBotAccountMap::iterator x = m_mapBotAccounts.find(pid);
 		if (x == m_mapBotAccounts.end())
@@ -5926,8 +6145,10 @@ WritePlayerBotGuildStatus(dwNow);
 					IsPlayerBotGambling(state, dwNow);
 			const bool bNeedsGearUpgrade = bNeedsCoreGear || NeedsPlayerBotArrows(ch);
 			// The Trader's merchant round comes with the eighty percent above,
-			// not with a dozen pieces of junk.
-			const bool bNeedsSellRun = !personaOn && CountPlayerBotJunkItems(ch) >= 12;
+			// not with a dozen pieces of junk. The first village's hold on a
+			// departure asks the same function, or it waits for a visit this
+			// line never starts.
+			const bool bNeedsSellRun = PlayerBotWantsSellRun(ch);
 			const bool bNeedsPotionCleanup = HasPlayerBotExcessPotions(ch);
 			// What the box gives back - the list's pieces the gambler no longer
 			// keeps, the refine materials for the counter (Patch 4, point 5) -
@@ -6514,21 +6735,89 @@ bool CPlayerBotManager::IsManaged(DWORD dwPlayerID) const
 	return m_mapBots.find(dwPlayerID) != m_mapBots.end();
 }
 
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+// Piciu713's market range for the Dom Towarowy's hint (28 September): the
+// cheapest and the dearest listing of the same thing on every other offline
+// shop - players' and bots', what the Dom Towarowy's catalogue lists - each
+// priced for the stack being put up, so fifty arrows are held against fifty
+// whatever stack the other counter keeps them in. A book whose skill is its
+// socket 0 (50300 and the two forgetting books, 70037 and 70055 - the
+// catalogue's own list) is the same thing only with the same skill; any other
+// book's skill is its vnum. Three things are left out. The asker's own
+// counter: the line being repriced is on it, so the range always held that
+// line's own price, and "Minimalna" could only ever go down. A bot's slip
+// still standing (Iwakura's "ludzka pomylka", a zero too many): no buyer takes
+// it, and "Maksymalna" would copy it. And a shop that ran out or is being
+// edited, which nobody can buy from. Zeros: nothing comparable is listed.
+static void GetPlayerBotFleaMarketRange(LPCHARACTER ch, LPITEM item,
+		unsigned long long& minPrice, unsigned long long& maxPrice)
+{
+	minPrice = 0;
+	maxPrice = 0;
+	const DWORD vnum = item->GetVnum();
+	const bool skillInSocket = vnum == 50300 || vnum == 70037 || vnum == 70055;
+	const unsigned long long targetCount = std::max<DWORD>(1, item->GetCount());
+	for (const auto& [ownerPID, shop] : ikashop::GetManager().GetPlayerBotOfflineShops())
+	{
+		if (!shop || shop->GetOwnerPID() == ch->GetPlayerID() || shop->GetDuration() == 0
+				|| shop->IsEditMode())
+			continue;
+		for (const auto& [lineID, line] : shop->GetItems())
+		{
+			if (!line)
+				continue;
+			const auto& info = line->GetInfo();
+			if (info.vnum != vnum || (skillInSocket && info.alSockets[0] != item->GetSocket(0)))
+				continue;
+			const long long totalYang = info.price.GetTotalYangAmount();
+			if (totalYang <= 0)
+				continue;
+			// Only a drawn line of one unit can be a slip, one in a thousand of
+			// them, so only that one is looked at closer - as the ledger does.
+			if (info.count == 1 && IsPlayerBotPriceSlipDrawn(lineID))
+			{
+				bool slip = false;
+				if (LPITEM preview = BotOfflinePreview(*line))
+				{
+					slip = IsPlayerBotStandingPriceSlip(preview, totalYang);
+					M2_DELETE(preview);
+				}
+				if (slip)
+					continue;
+			}
+			const unsigned long long listedCount = std::max<DWORD>(1, info.count);
+			const unsigned long long stackPrice = std::max<unsigned long long>(1,
+					(unsigned long long)totalYang * targetCount / listedCount);
+			if (minPrice == 0 || stackPrice < minPrice)
+				minPrice = stackPrice;
+			if (stackPrice > maxPrice)
+				maxPrice = stackPrice;
+		}
+	}
+}
+#endif
+
 // Uxie [DSO]'s price hint for the Dom Towarowy (27 September): a player putting
 // an item on its own offline shop's counter is told what a bot would ask for
 // it (the asking price every bot's counter uses) and what the bots have been
 // paid for one lately, with the number of sales behind that. A bot has no
 // counter window to show it in. Zeros say there is nothing to go by.
-void CPlayerBotManager::SendFleaMarketPriceQuote(LPCHARACTER ch, BYTE bWindow,
-		WORD wCell, DWORD dwRequestID)
+//
+// With bRange the market's range for such a stack goes first, as
+// "FleaPriceRange" (Piciu713, 28 September), and only to a client that asked
+// for it by the request's fourth number (playerbotify apply_flea_price_range):
+// a client's handler of a server command takes exactly the numbers it was
+// written for - the published 2.0.49 one four, and a fifth is a TypeError in
+// its syserr and no hint at all - so FleaPriceQuote keeps its four, and a
+// client that knows no FleaPriceRange is never sent one.
+static void SendPlayerBotFleaMarketQuote(LPCHARACTER ch, LPITEM item,
+		DWORD dwRequestID, bool bRange)
 {
-	if (!ch || IsManaged(ch->GetPlayerID()))
-		return;
-
 	DWORD suggestedPrice = 0;
 	DWORD observedPrice = 0;
 	DWORD sampleCount = 0;
-	LPITEM item = ch->GetItem(TItemPos(bWindow, wCell));
+	unsigned long long marketMinPrice = 0;
+	unsigned long long marketMaxPrice = 0;
 	if (item)
 	{
 		suggestedPrice = GetPlayerBotShopAskingPrice(item);
@@ -6539,15 +6828,88 @@ void CPlayerBotManager::SendFleaMarketPriceQuote(LPCHARACTER ch, BYTE bWindow,
 				item->GetRefineLevel(), get_dword_time(), &samples, skillVnum);
 		observedPrice = observedUnitPrice * std::max<DWORD>(1, item->GetCount());
 		sampleCount = (DWORD)samples;
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+		if (bRange)
+			GetPlayerBotFleaMarketRange(ch, item, marketMinPrice, marketMaxPrice);
+#endif
 	}
 
+	if (bRange)
+		ch->ChatPacket(CHAT_TYPE_COMMAND, "FleaPriceRange %u %llu %llu",
+				dwRequestID, marketMinPrice, marketMaxPrice);
 	ch->ChatPacket(CHAT_TYPE_COMMAND, "FleaPriceQuote %u %u %u %u",
 			dwRequestID, suggestedPrice, observedPrice, sampleCount);
+}
+
+void CPlayerBotManager::SendFleaMarketPriceQuote(LPCHARACTER ch, BYTE bWindow,
+		WORD wCell, DWORD dwRequestID, bool bRange)
+{
+	if (!ch || IsManaged(ch->GetPlayerID()))
+		return;
+
+	SendPlayerBotFleaMarketQuote(ch, ch->GetItem(TItemPos(bWindow, wCell)), dwRequestID, bRange);
+}
+
+// The same hint for a line already on the asker's own offline shop (Piciu713,
+// 28 September): the edit-price window asks for it by the line's item id. The
+// line is read as BotOfflinePreview reads a stand's - an item the item manager
+// never sees, with no id taken, nothing queued for a save and no event. His
+// version made a real one (CShopItem::CreateItem) under the line's own id and
+// destroyed it in the same call with the save skipped: for that moment the id
+// of the piece on the counter is registered in the item manager and queued
+// for a save, CreateItem refuses outright (ITEM_ID_DUP) whenever the id is
+// held there already, and without the SetSkipSave before M2_DESTROY_ITEM the
+// destroy sends the db core HEADER_GD_ITEM_DESTROY for that id. A line that
+// is gone, or a shop that is not the asker's, is answered with nothing, and
+// the window stays as a world with the Dom Towarowy off leaves it. Nothing on
+// r40250.
+void CPlayerBotManager::SendFleaMarketShopItemPriceQuote(LPCHARACTER ch,
+		DWORD dwShopItemID, DWORD dwRequestID, bool bRange)
+{
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+	if (!ch || IsManaged(ch->GetPlayerID()))
+		return;
+	auto shop = ikashop::GetManager().GetShopByOwnerID(ch->GetPlayerID());
+	if (!shop)
+		return;
+	auto line = shop->GetItem(dwShopItemID);
+	if (!line)
+		return;
+	LPITEM preview = BotOfflinePreview(*line);
+	if (!preview)
+		return;
+	SendPlayerBotFleaMarketQuote(ch, preview, dwRequestID, bRange);
+	M2_DELETE(preview);
+#else
+	(void)ch;
+	(void)dwShopItemID;
+	(void)dwRequestID;
+	(void)bRange;
+#endif
 }
 
 size_t CPlayerBotManager::GetCount() const
 {
 	return m_mapBots.size();
+}
+
+// The bootstrap in input_db.cpp's MapLocations runs once a core. The db core
+// sends MapLocations again whenever another core sets up - on the 2.x line to
+// every core of every channel (ENABLE_MOVE_CHANNEL) - and the guard used to be
+// "no bot in the world yet". A start whose first batch put nobody in - the
+// bots held at the door on a new world, or a first batch the channel table
+// refused - answered yes at every one of them, and each run scheduled the
+// kingdom's next identities after the ones already queued: a new world on
+// four channels started every identity it had, 5 000 bots for the 2 500 asked
+// and still coming ("jak limit 2500 botow to jakim cudem mam juz 3200 prawie i
+// ciagle rosnie", Latarka, 28 September). Whoever goes missing afterwards is
+// TopUpMissingBots' job, never the bootstrap's again.
+bool CPlayerBotManager::TakeAutospawnBootstrap()
+{
+	if (m_bAutospawnBootstrapTaken)
+		return false;
+	m_bAutospawnBootstrapTaken = true;
+	return m_mapBots.empty();
 }
 
 void CPlayerBotManager::GetAvailableBots(std::vector<DWORD>& out, size_t limit)
@@ -6623,22 +6985,41 @@ bool CPlayerBotManager::TransferBot(LPCHARACTER bot, LPCHARACTER to)
 	const DWORD dwNow = get_dword_time();
 	const long mapIndex = to->GetMapIndex();
 	TPlayerBotAIStateMap::iterator it = s_mapPlayerBotAIStates.find(bot->GetPlayerID());
+	// The GM is told in the language it reads; the log keeps the Polish.
+	const bool en = IsPlayerBotPersonEnglish(to);
 	const char* refusal = NULL;
+	const char* refusalEn = NULL;
 	if (it == s_mapPlayerBotAIStates.end())
+	{
 		refusal = "bot jeszcze nie wszedl do gry";
+		refusalEn = "the bot is not in the game yet";
+	}
 	else if (bot->IsDead())
+	{
 		refusal = "bot nie zyje";
+		refusalEn = "the bot is dead";
+	}
 	else if (mapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN)
+	{
 		refusal = "bot nie wejdzie do lochu z osobna instancja";
+		refusalEn = "a bot does not enter a dungeon of its own instance";
+	}
 	else if (!IsPlayerBotMapHostedHere(mapIndex))
+	{
 		refusal = "tej mapy nie hostuje rdzen bota";
+		refusalEn = "the bot's core does not host this map";
+	}
 	else if (!TransitionPlayerBotMap(bot, it->second, mapIndex, to->GetX(), to->GetY(),
 			dwNow, "gm_transfer"))
+	{
 		refusal = "bot nie moze stanac na tej mapie";
+		refusalEn = "the bot cannot stand on this map";
+	}
 	if (refusal)
-		to->ChatPacket(CHAT_TYPE_INFO, "Nie przeniesiono bota %s: %s.", bot->GetName(), refusal);
+		TellPlayerBotPerson(to, PBT(en, "Nie przeniesiono bota %s: %s.", "The bot %s was not moved: %s."),
+				bot->GetName(), PBT(en, refusal, refusalEn));
 	else
-		to->ChatPacket(CHAT_TYPE_INFO, "Przeniesiono bota %s do Ciebie.", bot->GetName());
+		TellPlayerBotPerson(to, PBT(en, "Przeniesiono bota %s do Ciebie.", "The bot %s was moved to you."), bot->GetName());
 	sys_log(0, "PLAYERBOT_WORLD: gm transfer pid=%u name=%s gm=%s map=%ld pos=(%ld,%ld) result=%s",
 			bot->GetPlayerID(), bot->GetName(), to->GetName(), mapIndex, to->GetX(), to->GetY(),
 			refusal ? refusal : "ok");
@@ -6667,9 +7048,10 @@ void CPlayerBotManager::OnPlayerFieldWarEntry(LPCHARACTER ch, DWORD dwMyGuild, D
 	EnterPlayerBotFieldWar(ch, dwMyGuild, dwOppGuild);
 }
 
-// A player's blow at a bot, or at a person in a party (CHARACTER::Damage,
-// mt2009 via playerbotify.py): the one thing the engine does not remember
-// about a fight, and the one the Anti-PK protocol needs (playerbot_anti_pk.h).
+// A player's blow at a bot, or at a person in a party or a guild
+// (CHARACTER::Damage, mt2009 via playerbotify.py): the one thing the engine
+// does not remember about a fight, and the one the Anti-PK protocol needs
+// (playerbot_anti_pk.h).
 void CPlayerBotManager::OnPlayerStruck(LPCHARACTER victim, LPCHARACTER attacker)
 {
 	NotePlayerBotStruck(victim, attacker, get_dword_time());
@@ -6748,6 +7130,14 @@ void CPlayerBotManager::OnPlayerWhisper(LPCHARACTER from, LPCHARACTER bot, const
 	if (HandlePlayerBotSidekickWhisper(from, bot, szText))
 		return;
 	HandlePlayerWhisperToBot(from, bot, szText);
+}
+
+// The companion's orders need the owner at its side, so an owner on another
+// core - for the few seconds before the companion follows it there - is
+// answered by the conversation, as anybody is.
+void CPlayerBotManager::OnPeerWhisper(const char* szFrom, LPCHARACTER bot, const char* szText)
+{
+	HandlePlayerWhisperFromPeer(szFrom, bot, szText);
 }
 
 // --- The F9 panel's two entry points ---------------------------------------

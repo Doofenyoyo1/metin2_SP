@@ -16,6 +16,14 @@
 //   FUZZY  - the word itself or one typo away (5+ letters),
 //   PHRASE - several words in a row, matched on word boundaries,
 //   SUFFIX - any word of 5+ letters ending with the stem ("bys" -> zrobilbys).
+//
+// An English line (TTokens::english, playerbot_conv_text.h) is read with a
+// second table on top, GetLexiconEn, into the same concepts - "where do you
+// hunt" is {C_WHERE, C_YOU, C_EXP} as "gdzie expisz" is, so every intent rule
+// and every generator works for it unchanged. The Polish table still reads
+// such a line, less the words it would read wrongly there
+// (IsEnglishFalseFriend: "to", "i", "no", "my", "rude" as ore, "walk" as a
+// fight), and a Polish line never meets the English table at all.
 
 #include "playerbot_conv_aliases.h"
 
@@ -626,6 +634,384 @@ namespace playerbot_conv
 		return kLex;
 	}
 
+	// The English words for the same concepts (Jeremus-Sama, 28 September),
+	// read only in a line that is English (ExtractConcepts). The words are as
+	// Normalize leaves them: an apostrophe is a space ("don t", "what s", "i
+	// m"), and the few words it rewrites into Polish are here in their Polish
+	// form ("hi" is "hej", "thanks" "dzieki", "party" "pt") - the Polish table
+	// has those already. Mostly exact words and phrases: a stem of six letters
+	// or more also takes one typo, and English has more words one letter from
+	// another than Polish chat does.
+	inline const TLexEntry* GetLexiconEn(size_t& count)
+	{
+		static const TLexEntry kLex[] = {
+			// ---- question words / pronouns
+			{ "what", C_WHAT, M_EXACT }, { "whats", C_WHAT, M_EXACT }, { "wat", C_WHAT, M_EXACT },
+			{ "wut", C_WHAT, M_EXACT }, { "wot", C_WHAT, M_EXACT },
+			{ "where", C_WHERE, M_EXACT }, { "wheres", C_WHERE, M_EXACT }, { "whr", C_WHERE, M_EXACT },
+			{ "how", C_HOW, M_EXACT }, { "hows", C_HOW, M_EXACT },
+			{ "how much", C_HOWMUCH, M_PHRASE }, { "how many", C_HOWMUCH, M_PHRASE },
+			{ "who", C_WHO, M_EXACT }, { "whos", C_WHO, M_EXACT }, { "whom", C_WHO, M_EXACT },
+			{ "why", C_WHY, M_EXACT }, { "how come", C_WHY, M_PHRASE },
+			{ "when", C_WHEN, M_EXACT }, { "which", C_WHICH, M_EXACT },
+			{ "you", C_YOU, M_EXACT }, { "your", C_YOU, M_EXACT }, { "yours", C_YOU, M_EXACT },
+			{ "yourself", C_YOU, M_EXACT }, { "youre", C_YOU, M_EXACT }, { "ur", C_YOU, M_EXACT },
+			{ "u", C_YOU, M_EXACT }, { "yall", C_YOU, M_EXACT },
+			{ "i", C_ME, M_EXACT }, { "me", C_ME, M_EXACT }, { "my", C_ME, M_EXACT }, { "mine", C_ME, M_EXACT },
+			{ "myself", C_ME, M_EXACT }, { "im", C_ME, M_EXACT }, { "ive", C_ME, M_EXACT },
+			{ "we", C_WE, M_EXACT }, { "us", C_WE, M_EXACT }, { "our", C_WE, M_EXACT },
+			{ "they", C_THEM, M_EXACT }, { "them", C_THEM, M_EXACT }, { "their", C_THEM, M_EXACT },
+			{ "this", C_THIS, M_EXACT }, { "that", C_THIS, M_EXACT }, { "these", C_THIS, M_EXACT },
+			{ "those", C_THIS, M_EXACT }, { "it", C_THIS, M_EXACT }, { "thats", C_THIS, M_EXACT },
+			{ "there", C_THERE, M_EXACT }, { "here", C_THERE, M_EXACT }, { "theres", C_THERE, M_EXACT },
+			{ "are", C_BE, M_EXACT }, { "am", C_BE, M_EXACT }, { "is", C_BE, M_EXACT }, { "was", C_BE, M_EXACT },
+			{ "were", C_BE, M_EXACT }, { "be", C_BE, M_EXACT }, { "been", C_BE, M_EXACT }, { "r", C_BE, M_EXACT },
+			{ "re", C_BE, M_EXACT }, { "m", C_BE, M_EXACT }, { "youre", C_BE, M_EXACT }, { "im", C_BE, M_EXACT },
+			{ "have", C_HAVE, M_EXACT }, { "has", C_HAVE, M_EXACT }, { "had", C_HAVE, M_EXACT },
+			{ "got", C_HAVE, M_EXACT }, { "own", C_HAVE, M_EXACT },
+			{ "can", C_CAN, M_EXACT }, { "could", C_CAN, M_EXACT }, { "may", C_CAN, M_EXACT },
+			{ "want", C_WANT, M_EXACT }, { "wants", C_WANT, M_EXACT }, { "wanna", C_WANT, M_EXACT },
+			{ "would like", C_WANT, M_PHRASE },
+			{ "and", C_AND, M_EXACT },
+			{ "what about", C_WHATWITH, M_PHRASE }, { "how about", C_WHATWITH, M_PHRASE },
+			{ "with who", C_WITHWHO, M_PHRASE }, { "with whom", C_WITHWHO, M_PHRASE }, { "who with", C_WITHWHO, M_PHRASE },
+			{ "who are you with", C_WITHWHO, M_PHRASE }, { "who r u with", C_WITHWHO, M_PHRASE },
+			{ "with you", C_WITHYOU, M_PHRASE }, { "with u", C_WITHYOU, M_PHRASE },
+			{ "with me", C_WITHME, M_PHRASE }, { "with us", C_WITHME, M_PHRASE },
+			{ "know", C_KNOW, M_EXACT }, { "knows", C_KNOW, M_EXACT }, { "heard", C_KNOW, M_EXACT },
+			{ "are you able", C_CANYOU, M_PHRASE }, { "able to", C_CANYOU, M_PHRASE },
+			{ "ever", C_EVER, M_EXACT },
+			{ "play", C_PLAY, M_EXACT }, { "playing", C_PLAY, M_EXACT }, { "plays", C_PLAY, M_EXACT },
+			// ---- time
+			{ "now", C_NOW, M_EXACT }, { "currently", C_NOW, M_EXACT }, { "rn", C_NOW, M_EXACT },
+			{ "atm", C_NOW, M_EXACT }, { "at the moment", C_NOW, M_PHRASE },
+			{ "next", C_NEXT, M_EXACT }, { "later", C_NEXT, M_EXACT }, { "then", C_NEXT, M_EXACT },
+			{ "afterwards", C_NEXT, M_EXACT }, { "tomorrow", C_NEXT, M_EXACT },
+			{ "today", C_TODAY, M_EXACT },
+			{ "how long", C_LONG, M_PHRASE }, { "since when", C_LONG, M_PHRASE }, { "for long", C_LONG, M_PHRASE },
+			{ "what time", C_WHENTIME, M_PHRASE },
+			// ---- game
+			{ "doing", C_DO, M_EXACT }, { "doin", C_DO, M_EXACT }, { "wyd", C_DO, M_EXACT }, { "wyd", C_WHAT, M_EXACT },
+			{ "busy", C_DO, M_EXACT }, { "up to", C_DO, M_PHRASE }, { "what do you do", C_DO, M_PHRASE },
+			{ "going to do", C_PLAN, M_PHRASE },
+			{ "goal", C_GOAL, M_EXACT }, { "goals", C_GOAL, M_EXACT }, { "aim", C_GOAL, M_EXACT },
+			{ "ambition", C_GOAL, M_EXACT },
+			{ "achieve", C_ACHIEVE, M_EXACT }, { "reach", C_ACHIEVE, M_EXACT },
+			{ "xp", C_EXP, M_EXACT }, { "hunt", C_EXP, M_EXACT }, { "hunting", C_EXP, M_EXACT }, { "hunts", C_EXP, M_EXACT },
+			{ "leveling", C_EXP, M_EXACT }, { "levelling", C_EXP, M_EXACT }, { "lvling", C_EXP, M_EXACT },
+			{ "exping", C_EXP, M_EXACT },
+			{ "hit", C_HIT, M_EXACT }, { "hitting", C_HIT, M_EXACT }, { "kill", C_HIT, M_EXACT },
+			{ "killing", C_HIT, M_EXACT }, { "kills", C_HIT, M_EXACT }, { "fight", C_HIT, M_EXACT },
+			{ "fighting", C_HIT, M_EXACT }, { "attack", C_HIT, M_EXACT }, { "attacking", C_HIT, M_EXACT },
+			{ "beating", C_HIT, M_EXACT }, { "slaying", C_HIT, M_EXACT },
+			{ "monster", C_MOB, M_EXACT }, { "monsters", C_MOB, M_EXACT }, { "creature", C_MOB, M_EXACT },
+			{ "creatures", C_MOB, M_EXACT }, { "enemies", C_MOB, M_EXACT },
+			{ "lots", C_MANY, M_EXACT }, { "lot", C_MANY, M_EXACT }, { "plenty", C_MANY, M_EXACT },
+			{ "few", C_MANY, M_EXACT }, { "many", C_MANY, M_EXACT }, { "crowded", C_MANY, M_EXACT },
+			{ "area", C_MAP, M_EXACT }, { "zone", C_MAP, M_EXACT },
+			{ "place", C_PLACE, M_EXACT }, { "places", C_PLACE, M_EXACT }, { "room", C_PLACE, M_EXACT },
+			{ "space", C_PLACE, M_EXACT },
+			{ "levels", C_LEVEL, M_EXACT },
+			{ "class", C_CLASS, M_EXACT }, { "classes", C_CLASS, M_EXACT }, { "warrior", C_CLASS, M_EXACT },
+			{ "shaman", C_CLASS, M_EXACT }, { "char", C_CLASS, M_EXACT }, { "what do you play", C_CLASS, M_PHRASE },
+			{ "what do u play", C_CLASS, M_PHRASE }, { "what u play", C_CLASS, M_PHRASE },
+			{ "kingdom", C_EMPIRE, M_EXACT }, { "kingdoms", C_EMPIRE, M_EXACT }, { "empire", C_EMPIRE, M_EXACT },
+			{ "realm", C_EMPIRE, M_EXACT }, { "faction", C_EMPIRE, M_EXACT },
+			{ "name", C_NAME, M_EXACT }, { "names", C_NAME, M_EXACT }, { "called", C_NAME, M_EXACT },
+			{ "health", C_HP, M_EXACT },
+			{ "rich", C_GOLD, M_EXACT }, { "cash", C_GOLD, M_EXACT }, { "wealthy", C_GOLD, M_EXACT },
+			{ "money", C_MONEY, M_EXACT },
+			{ "horse", C_HORSE, M_EXACT }, { "horses", C_HORSE, M_EXACT }, { "riding", C_HORSE, M_EXACT },
+			{ "inventory", C_EQ, M_EXACT }, { "bag", C_EQ, M_EXACT }, { "bags", C_EQ, M_EXACT },
+			{ "backpack", C_EQ, M_EXACT },
+			{ "free", C_FREE, M_EXACT }, { "full", C_FREE, M_EXACT },
+			{ "gear", C_GEAR, M_EXACT }, { "weapon", C_GEAR, M_EXACT }, { "weapons", C_GEAR, M_EXACT },
+			{ "armor", C_GEAR, M_EXACT }, { "armour", C_GEAR, M_EXACT }, { "sword", C_GEAR, M_EXACT },
+			{ "swords", C_GEAR, M_EXACT }, { "bow", C_GEAR, M_EXACT }, { "shield", C_GEAR, M_EXACT },
+			{ "boots", C_GEAR, M_EXACT }, { "necklace", C_GEAR, M_EXACT }, { "bracelet", C_GEAR, M_EXACT },
+			{ "earrings", C_GEAR, M_EXACT }, { "equipment", C_GEAR, M_EXACT }, { "equip", C_GEAR, M_EXACT },
+			{ "equipped", C_GEAR, M_EXACT }, { "wearing", C_GEAR, M_EXACT }, { "wear", C_GEAR, M_EXACT },
+			{ "spear", C_GEAR, M_EXACT }, { "fan", C_GEAR, M_EXACT }, { "bell", C_GEAR, M_EXACT },
+			{ "group", C_PARTY, M_EXACT }, { "groups", C_PARTY, M_EXACT }, { "grp", C_PARTY, M_EXACT },
+			{ "alone", C_ALONE, M_EXACT },
+			{ "join", C_JOIN, M_EXACT }, { "joining", C_JOIN, M_EXACT }, { "invite", C_JOIN, M_EXACT },
+			{ "inv", C_JOIN, M_EXACT }, { "come", C_JOIN, M_EXACT }, { "together", C_JOIN, M_EXACT },
+			{ "let s go", C_JOIN, M_PHRASE }, { "lets go", C_JOIN, M_PHRASE }, { "help me", C_JOIN, M_PHRASE },
+			{ "guilds", C_GUILD, M_EXACT }, { "clan", C_GUILD, M_EXACT }, { "clans", C_GUILD, M_EXACT },
+			{ "fish", C_FISH, M_EXACT }, { "fishing", C_FISH, M_EXACT }, { "fishes", C_FISH, M_EXACT },
+			{ "rod", C_FISH, M_EXACT },
+			{ "mining", C_MINE, M_EXACT }, { "ore", C_MINE, M_EXACT }, { "ores", C_MINE, M_EXACT },
+			{ "pickaxe", C_MINE, M_EXACT },
+			{ "herb", C_HERB, M_EXACT }, { "herbs", C_HERB, M_EXACT }, { "herbalism", C_HERB, M_EXACT },
+			{ "potion", C_HERB, M_EXACT }, { "potions", C_HERB, M_EXACT }, { "pots", C_HERB, M_EXACT },
+			{ "metins", C_METIN, M_EXACT }, { "stones", C_METIN, M_EXACT },
+			{ "war", C_WAR, M_EXACT }, { "wars", C_WAR, M_EXACT },
+			{ "mercenary", C_MERC, M_EXACT }, { "merc", C_MERC, M_EXACT }, { "contract", C_MERC, M_EXACT },
+			{ "trade", C_TRADE, M_EXACT }, { "trading", C_TRADE, M_EXACT }, { "market", C_TRADE, M_EXACT },
+			{ "prices", C_TRADE, M_EXACT },
+			{ "shops", C_SHOP, M_EXACT }, { "stall", C_SHOP, M_EXACT }, { "stalls", C_SHOP, M_EXACT },
+			{ "store", C_SHOP, M_EXACT }, { "counter", C_SHOP, M_EXACT },
+			{ "skills", C_SKILL, M_EXACT }, { "book", C_SKILL, M_EXACT }, { "books", C_SKILL, M_EXACT },
+			{ "fight me", C_PVP, M_PHRASE },
+			{ "going", C_TRAVEL, M_EXACT }, { "heading", C_TRAVEL, M_EXACT }, { "travel", C_TRAVEL, M_EXACT },
+			{ "moving", C_TRAVEL, M_EXACT }, { "on my way", C_TRAVEL, M_PHRASE },
+			{ "rest", C_REST, M_EXACT }, { "resting", C_REST, M_EXACT }, { "break", C_REST, M_EXACT },
+			{ "town", C_TOWN, M_EXACT }, { "city", C_TOWN, M_EXACT }, { "village", C_TOWN, M_EXACT },
+			{ "storage", C_TOWN, M_EXACT },
+			{ "drops", C_DROP, M_EXACT },
+			{ "luck", C_LUCK, M_EXACT }, { "lucky", C_LUCK, M_EXACT }, { "unlucky", C_LUCK, M_EXACT },
+			{ "upgrade", C_UPGRADE, M_EXACT }, { "upgrading", C_UPGRADE, M_EXACT }, { "refine", C_UPGRADE, M_EXACT },
+			{ "refining", C_UPGRADE, M_EXACT }, { "blacksmith", C_UPGRADE, M_EXACT }, { "smith", C_UPGRADE, M_EXACT },
+			{ "mission", C_QUEST, M_EXACT }, { "missions", C_QUEST, M_EXACT }, { "task", C_QUEST, M_EXACT },
+			{ "died", C_KILLED, M_EXACT }, { "die", C_KILLED, M_EXACT }, { "dead", C_KILLED, M_EXACT },
+			{ "death", C_KILLED, M_EXACT }, { "deaths", C_KILLED, M_EXACT },
+			{ "personality", C_CHARACTER, M_EXACT },
+			{ "mood", C_MOOD, M_EXACT }, { "feel", C_MOOD, M_EXACT }, { "feeling", C_MOOD, M_EXACT },
+			{ "did", C_DID, M_EXACT }, { "done", C_DID, M_EXACT },
+			// ---- social
+			{ "hiya", C_GREET, M_EXACT }, { "heya", C_GREET, M_EXACT }, { "howdy", C_GREET, M_EXACT },
+			{ "greetings", C_GREET, M_EXACT }, { "hai", C_GREET, M_EXACT }, { "good morning", C_GREET, M_PHRASE },
+			{ "good evening", C_GREET, M_PHRASE }, { "good afternoon", C_GREET, M_PHRASE },
+			{ "goodbye", C_BYE, M_EXACT }, { "gtg", C_BYE, M_EXACT }, { "g2g", C_BYE, M_EXACT },
+			{ "laters", C_BYE, M_EXACT }, { "farewell", C_BYE, M_EXACT }, { "see you", C_BYE, M_PHRASE },
+			{ "see ya", C_BYE, M_PHRASE }, { "see u", C_BYE, M_PHRASE }, { "good night", C_BYE, M_PHRASE },
+			{ "gn", C_BYE, M_EXACT }, { "got to go", C_BYE, M_PHRASE }, { "gotta go", C_BYE, M_PHRASE },
+			{ "take care", C_BYE, M_PHRASE },
+			{ "thank", C_THANKS, M_EXACT }, { "ty", C_THANKS, M_EXACT }, { "tyvm", C_THANKS, M_EXACT },
+			{ "tysm", C_THANKS, M_EXACT }, { "thnx", C_THANKS, M_EXACT }, { "thanx", C_THANKS, M_EXACT },
+			{ "tnx", C_THANKS, M_EXACT }, { "cheers", C_THANKS, M_EXACT }, { "appreciate", C_THANKS, M_EXACT },
+			{ "sry", C_SORRY, M_EXACT }, { "apologies", C_SORRY, M_EXACT }, { "apologize", C_SORRY, M_EXACT },
+			{ "my bad", C_SORRY, M_PHRASE }, { "mb", C_SORRY, M_EXACT },
+			{ "how are you", C_HOWAREYOU, M_PHRASE }, { "how r u", C_HOWAREYOU, M_PHRASE },
+			{ "how are u", C_HOWAREYOU, M_PHRASE }, { "how r you", C_HOWAREYOU, M_PHRASE },
+			{ "how are ya", C_HOWAREYOU, M_PHRASE }, { "how you doing", C_HOWAREYOU, M_PHRASE },
+			{ "how u doing", C_HOWAREYOU, M_PHRASE }, { "how is it going", C_HOWAREYOU, M_PHRASE },
+			{ "how s it going", C_HOWAREYOU, M_PHRASE }, { "hows it going", C_HOWAREYOU, M_PHRASE },
+			{ "how are things", C_HOWAREYOU, M_PHRASE }, { "how is life", C_HOWAREYOU, M_PHRASE },
+			{ "how s life", C_HOWAREYOU, M_PHRASE }, { "hows life", C_HOWAREYOU, M_PHRASE },
+			{ "what s up", C_HOWAREYOU, M_PHRASE }, { "whats up", C_HOWAREYOU, M_PHRASE },
+			{ "what is up", C_HOWAREYOU, M_PHRASE }, { "wassup", C_HOWAREYOU, M_EXACT }, { "sup", C_HOWAREYOU, M_EXACT },
+			{ "you ok", C_HOWAREYOU, M_PHRASE }, { "u ok", C_HOWAREYOU, M_PHRASE }, { "you good", C_HOWAREYOU, M_PHRASE },
+			{ "u good", C_HOWAREYOU, M_PHRASE }, { "all good", C_HOWAREYOU, M_PHRASE },
+			{ "how have you been", C_HOWAREYOU, M_PHRASE }, { "how is your day", C_HOWAREYOU, M_PHRASE },
+			{ "how s your day", C_HOWAREYOU, M_PHRASE }, { "how was your day", C_HOWAREYOU, M_PHRASE },
+			{ "help", C_HELP, M_EXACT }, { "commands", C_HELP, M_EXACT }, { "what can you do", C_HELP, M_PHRASE },
+			{ "what can i ask", C_HELP, M_PHRASE },
+			{ "bots", C_BOT, M_EXACT }, { "robot", C_BOT, M_EXACT }, { "human", C_BOT, M_EXACT },
+			{ "ai", C_BOT, M_EXACT }, { "real person", C_BOT, M_PHRASE }, { "real player", C_BOT, M_PHRASE },
+			{ "are you real", C_BOT, M_PHRASE },
+			{ "stupid", C_INSULT, M_EXACT }, { "dumb", C_INSULT, M_EXACT }, { "moron", C_INSULT, M_EXACT },
+			{ "loser", C_INSULT, M_EXACT }, { "retard", C_INSULT, M_EXACT }, { "trash", C_INSULT, M_EXACT },
+			{ "garbage", C_INSULT, M_EXACT }, { "useless", C_INSULT, M_EXACT }, { "suck", C_INSULT, M_EXACT },
+			{ "sucks", C_INSULT, M_EXACT }, { "dumbass", C_INSULT, M_EXACT }, { "clown", C_INSULT, M_EXACT },
+			{ "rude", C_INSULT, M_EXACT }, { "stfu", C_INSULT, M_EXACT }, { "gtfo", C_INSULT, M_EXACT },
+			{ "shut up", C_INSULT, M_PHRASE }, { "fuck you", C_INSULT, M_PHRASE }, { "f u", C_INSULT, M_PHRASE },
+			{ "screw you", C_INSULT, M_PHRASE },
+			{ "gj", C_PRAISE, M_EXACT }, { "congrats", C_PRAISE, M_EXACT }, { "congratulations", C_PRAISE, M_EXACT },
+			{ "respect", C_PRAISE, M_EXACT }, { "legend", C_PRAISE, M_EXACT }, { "good job", C_PRAISE, M_PHRASE },
+			{ "well done", C_PRAISE, M_PHRASE }, { "nice one", C_PRAISE, M_PHRASE }, { "you rock", C_PRAISE, M_PHRASE },
+			{ "great job", C_PRAISE, M_PHRASE }, { "good bot", C_PRAISE, M_PHRASE },
+			{ "age", C_AGE, M_EXACT }, { "how old", C_AGE, M_PHRASE },
+			{ "where are you from", C_ORIGIN, M_PHRASE }, { "where r u from", C_ORIGIN, M_PHRASE },
+			{ "where are u from", C_ORIGIN, M_PHRASE }, { "where you from", C_ORIGIN, M_PHRASE },
+			{ "where u from", C_ORIGIN, M_PHRASE }, { "where do you live", C_ORIGIN, M_PHRASE },
+			{ "where you live", C_ORIGIN, M_PHRASE },
+			{ "alright", C_ACK, M_EXACT }, { "aight", C_ACK, M_EXACT }, { "fine", C_ACK, M_EXACT },
+			{ "understood", C_ACK, M_EXACT }, { "got it", C_ACK, M_PHRASE }, { "i see", C_ACK, M_PHRASE },
+			{ "lmfao", C_LAUGH, M_EXACT }, { "kek", C_LAUGH, M_EXACT },
+			{ "really", C_SURPRISE, M_EXACT }, { "seriously", C_SURPRISE, M_EXACT }, { "rly", C_SURPRISE, M_EXACT },
+			{ "fr", C_SURPRISE, M_EXACT }, { "no way", C_SURPRISE, M_PHRASE }, { "for real", C_SURPRISE, M_PHRASE },
+			{ "yes", C_YES, M_EXACT }, { "yeah", C_YES, M_EXACT }, { "yep", C_YES, M_EXACT }, { "yup", C_YES, M_EXACT },
+			{ "ye", C_YES, M_EXACT }, { "yea", C_YES, M_EXACT }, { "sure", C_YES, M_EXACT },
+			{ "definitely", C_YES, M_EXACT }, { "absolutely", C_YES, M_EXACT }, { "of course", C_YES, M_PHRASE },
+			{ "ofc", C_YES, M_EXACT },
+			{ "no", C_NO, M_EXACT }, { "nah", C_NO, M_EXACT }, { "never", C_NO, M_EXACT },
+			{ "not really", C_NO, M_PHRASE }, { "no thanks", C_NO, M_PHRASE },
+			{ "bro", C_BUDDY, M_EXACT }, { "dude", C_BUDDY, M_EXACT }, { "mate", C_BUDDY, M_EXACT },
+			{ "buddy", C_BUDDY, M_EXACT }, { "pal", C_BUDDY, M_EXACT }, { "man", C_BUDDY, M_EXACT },
+			// ---- preferences / open questions
+			{ "like", C_LIKE, M_EXACT }, { "likes", C_LIKE, M_EXACT }, { "love", C_LIKE, M_EXACT },
+			{ "loves", C_LIKE, M_EXACT }, { "enjoy", C_LIKE, M_EXACT },
+			{ "hate", C_DISLIKE, M_EXACT }, { "hates", C_DISLIKE, M_EXACT }, { "dislike", C_DISLIKE, M_EXACT },
+			{ "don t like", C_DISLIKE, M_PHRASE }, { "dont like", C_DISLIKE, M_PHRASE },
+			{ "do not like", C_DISLIKE, M_PHRASE }, { "doesn t like", C_DISLIKE, M_PHRASE },
+			{ "don t you like", C_DISLIKE, M_PHRASE }, { "dont you like", C_DISLIKE, M_PHRASE },
+			{ "don t u like", C_DISLIKE, M_PHRASE }, { "dont u like", C_DISLIKE, M_PHRASE },
+			{ "do you not like", C_DISLIKE, M_PHRASE },
+			{ "favorite", C_FAV, M_EXACT }, { "favourite", C_FAV, M_EXACT }, { "fav", C_FAV, M_EXACT },
+			{ "fave", C_FAV, M_EXACT },
+			{ "prefer", C_PREFER, M_EXACT }, { "rather", C_PREFER, M_EXACT },
+			{ "if you could", C_HYPO, M_PHRASE }, { "if you were", C_HYPO, M_PHRASE }, { "if you had", C_HYPO, M_PHRASE },
+			{ "if you won", C_HYPO, M_PHRASE }, { "if u could", C_HYPO, M_PHRASE }, { "imagine", C_HYPO, M_EXACT },
+			{ "what if", C_HYPO, M_PHRASE }, { "suppose", C_HYPO, M_EXACT },
+			{ "dream", C_DREAM, M_EXACT }, { "dreams", C_DREAM, M_EXACT }, { "dreaming", C_DREAM, M_EXACT },
+			{ "afraid", C_FEAR, M_EXACT }, { "scared", C_FEAR, M_EXACT }, { "fear", C_FEAR, M_EXACT },
+			{ "fears", C_FEAR, M_EXACT }, { "scary", C_FEAR, M_EXACT },
+			{ "annoy", C_ANNOY, M_EXACT }, { "annoys", C_ANNOY, M_EXACT }, { "annoying", C_ANNOY, M_EXACT },
+			{ "annoyed", C_ANNOY, M_EXACT }, { "irritates", C_ANNOY, M_EXACT }, { "bothers", C_ANNOY, M_EXACT },
+			{ "makes you happy", C_JOY, M_PHRASE }, { "make you happy", C_JOY, M_PHRASE },
+			{ "think", C_THINK, M_EXACT }, { "thoughts", C_THINK, M_EXACT },
+			{ "or", C_OR, M_EXACT },
+			// ---- general topics
+			{ "weather", C_WEATHER, M_EXACT },
+			{ "cold", C_COLD, M_EXACT }, { "freezing", C_COLD, M_EXACT }, { "snow", C_COLD, M_EXACT },
+			{ "snowing", C_COLD, M_EXACT }, { "chilly", C_COLD, M_EXACT },
+			{ "warm", C_WARM, M_EXACT }, { "hot", C_WARM, M_EXACT }, { "sunny", C_WARM, M_EXACT },
+			{ "sun", C_WARM, M_EXACT }, { "heat", C_WARM, M_EXACT },
+			{ "rain", C_RAIN, M_EXACT }, { "raining", C_RAIN, M_EXACT }, { "rainy", C_RAIN, M_EXACT },
+			{ "storm", C_RAIN, M_EXACT },
+			{ "winter", C_SEASON, M_EXACT }, { "summer", C_SEASON, M_EXACT }, { "spring", C_SEASON, M_EXACT },
+			{ "autumn", C_SEASON, M_EXACT }, { "season", C_SEASON, M_EXACT }, { "seasons", C_SEASON, M_EXACT },
+			{ "morning", C_DAYTIME, M_EXACT }, { "evening", C_DAYTIME, M_EXACT }, { "night", C_DAYTIME, M_EXACT },
+			{ "tonight", C_DAYTIME, M_EXACT }, { "late", C_DAYTIME, M_EXACT }, { "early", C_DAYTIME, M_EXACT },
+			{ "midnight", C_DAYTIME, M_EXACT },
+			{ "sleep", C_SLEEP, M_EXACT }, { "sleeping", C_SLEEP, M_EXACT }, { "sleepy", C_SLEEP, M_EXACT },
+			{ "asleep", C_SLEEP, M_EXACT }, { "nap", C_SLEEP, M_EXACT },
+			{ "tired", C_TIRED, M_EXACT }, { "exhausted", C_TIRED, M_EXACT },
+			{ "bored", C_BORED, M_EXACT }, { "boring", C_BORED, M_EXACT },
+			{ "hobbies", C_HOBBY, M_EXACT }, { "free time", C_HOBBY, M_PHRASE }, { "spare time", C_HOBBY, M_PHRASE },
+			{ "food", C_FOOD, M_EXACT }, { "eat", C_FOOD, M_EXACT }, { "eating", C_FOOD, M_EXACT },
+			{ "ate", C_FOOD, M_EXACT }, { "hungry", C_FOOD, M_EXACT }, { "dinner", C_FOOD, M_EXACT },
+			{ "lunch", C_FOOD, M_EXACT }, { "breakfast", C_FOOD, M_EXACT }, { "snack", C_FOOD, M_EXACT },
+			{ "cook", C_FOOD, M_EXACT }, { "cooking", C_FOOD, M_EXACT },
+			{ "drink", C_DRINK, M_EXACT }, { "drinking", C_DRINK, M_EXACT }, { "coffee", C_DRINK, M_EXACT },
+			{ "tea", C_DRINK, M_EXACT }, { "beer", C_DRINK, M_EXACT }, { "juice", C_DRINK, M_EXACT },
+			{ "vacation", C_TRAVELG, M_EXACT }, { "holiday", C_TRAVELG, M_EXACT }, { "holidays", C_TRAVELG, M_EXACT },
+			{ "trip", C_TRAVELG, M_EXACT }, { "sea", C_TRAVELG, M_EXACT }, { "beach", C_TRAVELG, M_EXACT },
+			{ "mountains", C_TRAVELG, M_EXACT }, { "abroad", C_TRAVELG, M_EXACT },
+			{ "music", C_MUSIC, M_EXACT }, { "song", C_MUSIC, M_EXACT }, { "songs", C_MUSIC, M_EXACT },
+			{ "listen", C_MUSIC, M_EXACT }, { "listening", C_MUSIC, M_EXACT }, { "band", C_MUSIC, M_EXACT },
+			{ "movie", C_MOVIE, M_EXACT }, { "movies", C_MOVIE, M_EXACT }, { "series", C_MOVIE, M_EXACT },
+			{ "watch", C_MOVIE, M_EXACT }, { "watching", C_MOVIE, M_EXACT }, { "tv", C_MOVIE, M_EXACT },
+			{ "games", C_GAMES, M_EXACT }, { "gaming", C_GAMES, M_EXACT },
+			{ "joke", C_HUMOR, M_EXACT }, { "jokes", C_HUMOR, M_EXACT }, { "funny", C_HUMOR, M_EXACT },
+			{ "humor", C_HUMOR, M_EXACT }, { "humour", C_HUMOR, M_EXACT },
+			{ "friend", C_FRIEND, M_EXACT }, { "friends", C_FRIEND, M_EXACT },
+			{ "teamwork", C_TEAMWORK, M_EXACT },
+			{ "lonely", C_LONELY, M_EXACT },
+			{ "risk", C_RISK, M_EXACT }, { "risky", C_RISK, M_EXACT }, { "dangerous", C_RISK, M_EXACT },
+			{ "work", C_WORK, M_EXACT }, { "job", C_WORK, M_EXACT }, { "working", C_WORK, M_EXACT },
+			{ "school", C_SCHOOL, M_EXACT }, { "study", C_SCHOOL, M_EXACT }, { "studying", C_SCHOOL, M_EXACT },
+			{ "exam", C_SCHOOL, M_EXACT }, { "exams", C_SCHOOL, M_EXACT }, { "homework", C_SCHOOL, M_EXACT },
+			{ "university", C_SCHOOL, M_EXACT }, { "college", C_SCHOOL, M_EXACT },
+			{ "meaning of life", C_LIFEG, M_PHRASE }, { "life", C_LIFEG, M_EXACT },
+			{ "sad", C_SAD, M_EXACT }, { "depressed", C_SAD, M_EXACT }, { "upset", C_SAD, M_EXACT },
+			{ "bad day", C_SAD, M_PHRASE },
+			{ "happy", C_HAPPY, M_EXACT }, { "glad", C_HAPPY, M_EXACT },
+			{ "dog", C_ANIMAL, M_EXACT }, { "dogs", C_ANIMAL, M_EXACT }, { "cat", C_ANIMAL, M_EXACT },
+			{ "cats", C_ANIMAL, M_EXACT }, { "pet", C_ANIMAL, M_EXACT }, { "pets", C_ANIMAL, M_EXACT },
+			{ "animal", C_ANIMAL, M_EXACT }, { "animals", C_ANIMAL, M_EXACT },
+			{ "football", C_SPORT, M_EXACT }, { "soccer", C_SPORT, M_EXACT }, { "gym", C_SPORT, M_EXACT },
+			{ "basketball", C_SPORT, M_EXACT }, { "running", C_SPORT, M_EXACT },
+			{ "girlfriend", C_LOVE, M_EXACT }, { "boyfriend", C_LOVE, M_EXACT }, { "gf", C_LOVE, M_EXACT },
+			{ "bf", C_LOVE, M_EXACT }, { "crush", C_LOVE, M_EXACT }, { "dating", C_LOVE, M_EXACT },
+			{ "novel", C_BOOKS, M_EXACT }, { "novels", C_BOOKS, M_EXACT }, { "reading", C_BOOKS, M_EXACT },
+			{ "read", C_BOOKS, M_EXACT },
+			{ "forest", C_NATURE, M_EXACT }, { "forests", C_NATURE, M_EXACT }, { "lake", C_NATURE, M_EXACT },
+			{ "river", C_NATURE, M_EXACT }, { "woods", C_NATURE, M_EXACT },
+			{ "adventure", C_ADVENTURE, M_EXACT }, { "adventures", C_ADVENTURE, M_EXACT },
+			{ "color", C_COLOR, M_EXACT }, { "colour", C_COLOR, M_EXACT }, { "colors", C_COLOR, M_EXACT },
+			// ---- prices, the item shop, shorthand
+			{ "how much for", C_PRICEQ, M_PHRASE }, { "how much is", C_PRICEQ, M_PHRASE },
+			{ "how much are", C_PRICEQ, M_PHRASE }, { "how much does", C_PRICEQ, M_PHRASE },
+			{ "how much do you want", C_PRICEQ, M_PHRASE }, { "what s the price", C_PRICEQ, M_PHRASE },
+			{ "whats the price", C_PRICEQ, M_PHRASE }, { "price", C_PRICEQ, M_EXACT }, { "cost", C_PRICEQ, M_EXACT },
+			{ "costs", C_PRICEQ, M_EXACT }, { "worth", C_PRICEQ, M_EXACT },
+			{ "dragon coins", C_ITEMSHOP, M_PHRASE }, { "coins", C_ITEMSHOP, M_EXACT },
+			{ "kill steal", C_KS, M_PHRASE }, { "killsteal", C_KS, M_EXACT }, { "ksing", C_KS, M_EXACT },
+			{ "stealing", C_KS, M_EXACT }, { "steal", C_KS, M_EXACT },
+			{ "good luck", C_GOODLUCK, M_PHRASE }, { "have fun", C_GOODLUCK, M_PHRASE },
+			{ "be right back", C_BRB, M_PHRASE }, { "one sec", C_BRB, M_PHRASE }, { "1 sec", C_BRB, M_PHRASE },
+			{ "wait a sec", C_BRB, M_PHRASE }, { "hold on", C_BRB, M_PHRASE },
+			{ "bonuses", C_BONUS, M_EXACT }, { "stats", C_BONUS, M_EXACT }, { "crit", C_BONUS, M_EXACT },
+			{ "critical", C_BONUS, M_EXACT }, { "pierce", C_BONUS, M_EXACT }, { "piercing", C_BONUS, M_EXACT },
+			{ "damage", C_BONUS, M_EXACT }, { "defense", C_BONUS, M_EXACT }, { "defence", C_BONUS, M_EXACT },
+			{ "average", C_BONUS, M_EXACT }, { "avg", C_BONUS, M_EXACT }, { "resist", C_BONUS, M_EXACT },
+			// ---- a class's path, a Shaman's buffs
+			{ "path", C_BUILD, M_EXACT }, { "spec", C_BUILD, M_EXACT }, { "specialization", C_BUILD, M_EXACT },
+			{ "skill group", C_BUILD, M_PHRASE }, { "skillgroup", C_BUILD, M_EXACT },
+			{ "give", C_GIVE, M_EXACT }, { "gives", C_GIVE, M_EXACT }, { "boost", C_GIVE, M_EXACT },
+			{ "boosts", C_GIVE, M_EXACT }, { "increase", C_GIVE, M_EXACT }, { "increases", C_GIVE, M_EXACT },
+			// ---- "come to me", and go back to your own life
+			{ "come here", C_SUMMON, M_PHRASE }, { "come to me", C_SUMMON, M_PHRASE },
+			{ "come over", C_SUMMON, M_PHRASE }, { "get over here", C_SUMMON, M_PHRASE },
+			{ "over here", C_SUMMON, M_PHRASE }, { "follow me", C_SUMMON, M_PHRASE },
+			{ "come closer", C_SUMMON, M_PHRASE }, { "come back", C_SUMMON, M_PHRASE },
+			{ "you can go", C_DISMISS, M_PHRASE }, { "u can go", C_DISMISS, M_PHRASE },
+			{ "you can leave", C_DISMISS, M_PHRASE }, { "you may go", C_DISMISS, M_PHRASE },
+			{ "back to work", C_DISMISS, M_PHRASE }, { "carry on", C_DISMISS, M_PHRASE },
+			{ "that s all", C_DISMISS, M_PHRASE }, { "thats all", C_DISMISS, M_PHRASE },
+			{ "you re free", C_DISMISS, M_PHRASE }, { "dismissed", C_DISMISS, M_EXACT },
+			{ "stop following", C_DISMISS, M_PHRASE }, { "dont follow me", C_DISMISS, M_PHRASE },
+			{ "don t follow me", C_DISMISS, M_PHRASE },
+			// ---- a person talking at the bot
+			{ "stop writing", C_STOPTALK, M_PHRASE }, { "stop talking", C_STOPTALK, M_PHRASE },
+			{ "stop messaging", C_STOPTALK, M_PHRASE }, { "stop texting", C_STOPTALK, M_PHRASE },
+			{ "stop whispering", C_STOPTALK, M_PHRASE }, { "stop spamming", C_STOPTALK, M_PHRASE },
+			{ "stop pming", C_STOPTALK, M_PHRASE }, { "stop pm", C_STOPTALK, M_PHRASE },
+			{ "leave me alone", C_STOPTALK, M_PHRASE }, { "don t talk to me", C_STOPTALK, M_PHRASE },
+			{ "dont talk to me", C_STOPTALK, M_PHRASE }, { "don t write to me", C_STOPTALK, M_PHRASE },
+			{ "dont write to me", C_STOPTALK, M_PHRASE }, { "don t message me", C_STOPTALK, M_PHRASE },
+			{ "dont message me", C_STOPTALK, M_PHRASE }, { "stop bothering me", C_STOPTALK, M_PHRASE },
+			{ "go away", C_STOPTALK, M_PHRASE }, { "no more messages", C_STOPTALK, M_PHRASE },
+			{ "stop it", C_STOPTALK, M_PHRASE },
+			{ "banned", C_THREAT, M_EXACT }, { "reported", C_THREAT, M_EXACT }, { "admin", C_THREAT, M_EXACT },
+			{ "poor", C_MOCK, M_EXACT }, { "broke", C_MOCK, M_EXACT }, { "weak", C_MOCK, M_EXACT },
+			{ "weakling", C_MOCK, M_EXACT }, { "lame", C_MOCK, M_EXACT }, { "pathetic", C_MOCK, M_EXACT },
+			{ "cringe", C_MOCK, M_EXACT }, { "ez", C_MOCK, M_EXACT }, { "get lost", C_MOCK, M_PHRASE },
+			{ "worthless", C_MOCK, M_EXACT },
+			{ "go home", C_MOCK, M_PHRASE }, { "you re bad", C_MOCK, M_PHRASE }, { "so bad", C_MOCK, M_PHRASE },
+			{ "fuck", C_SWEAR, M_EXACT }, { "fucking", C_SWEAR, M_EXACT }, { "fck", C_SWEAR, M_EXACT },
+			{ "fk", C_SWEAR, M_EXACT }, { "shit", C_SWEAR, M_EXACT }, { "damn", C_SWEAR, M_EXACT },
+			{ "crap", C_SWEAR, M_EXACT },
+			// ---- the bot's gear argued about
+			{ "look", C_SHOWOFF, M_EXACT }, { "check", C_SHOWOFF, M_EXACT }, { "look at this", C_SHOWOFF, M_PHRASE },
+			{ "check this", C_SHOWOFF, M_PHRASE }, { "check out", C_SHOWOFF, M_PHRASE },
+			{ "change", C_SWAP, M_EXACT }, { "swap", C_SWAP, M_EXACT }, { "switch", C_SWAP, M_EXACT },
+			{ "replace", C_SWAP, M_EXACT },
+			{ "should", C_ADVICE, M_EXACT }, { "shouldnt", C_ADVICE, M_EXACT }, { "shouldn", C_ADVICE, M_EXACT },
+			{ "better", C_ADVICE, M_EXACT }, { "best", C_ADVICE, M_EXACT }, { "recommend", C_ADVICE, M_EXACT },
+			{ "higher", C_ADVICE, M_EXACT }, { "you need", C_ADVICE, M_PHRASE }, { "buy yourself", C_ADVICE, M_PHRASE },
+			{ "get yourself", C_ADVICE, M_PHRASE },
+			{ "give you", C_GIFT, M_PHRASE }, { "for free", C_GIFT, M_PHRASE }, { "gift", C_GIFT, M_EXACT },
+			{ "you said", C_SAIDBEFORE, M_PHRASE }, { "u said", C_SAIDBEFORE, M_PHRASE },
+			{ "you told", C_SAIDBEFORE, M_PHRASE }, { "u told", C_SAIDBEFORE, M_PHRASE },
+			{ "liar", C_SAIDBEFORE, M_EXACT }, { "lying", C_SAIDBEFORE, M_EXACT }, { "lied", C_SAIDBEFORE, M_EXACT },
+			// ---- sentiment of a statement
+			{ "nice", C_POSITIVE, M_EXACT }, { "cool", C_POSITIVE, M_EXACT }, { "great", C_POSITIVE, M_EXACT },
+			{ "sweet", C_POSITIVE, M_EXACT }, { "yay", C_POSITIVE, M_EXACT }, { "finally", C_POSITIVE, M_EXACT },
+			{ "dropped", C_POSITIVE, M_EXACT }, { "leveled", C_POSITIVE, M_EXACT }, { "levelled", C_POSITIVE, M_EXACT },
+			{ "won", C_POSITIVE, M_EXACT }, { "awesome", C_POSITIVE, M_EXACT }, { "good", C_POSITIVE, M_EXACT },
+			{ "not bad", C_POSITIVE, M_PHRASE },
+			{ "bad", C_NEGATIVE, M_EXACT }, { "terrible", C_NEGATIVE, M_EXACT }, { "awful", C_NEGATIVE, M_EXACT },
+			{ "lost", C_NEGATIVE, M_EXACT }, { "burned", C_NEGATIVE, M_EXACT }, { "burnt", C_NEGATIVE, M_EXACT },
+			{ "failed", C_NEGATIVE, M_EXACT }, { "meh", C_NEGATIVE, M_EXACT },
+		};
+		count = sizeof(kLex) / sizeof(kLex[0]);
+		return kLex;
+	}
+
+	// English words the Polish table reads as something else: "to" is no
+	// "this", "i" no "and", "no" no "yeah", "my" no "we", "one" no "they",
+	// "rude" no ore, "walk" no fight, "low" no fishing, "many" no mana,
+	// "humor" no mood, "practice" no work (the stem "prac"), "parts" no
+	// Partyzana, "ribbon" no RIB. In an English line the Polish table passes
+	// them by; the English table has the ones worth reading.
+	inline bool IsEnglishFalseFriend(const std::string& w)
+	{
+		static const char* const kWords[] = {
+			"to", "i", "no", "my", "one", "ten", "ta", "ty", "cos", "sam", "git", "humor", "aura", "walk", "walks",
+			"walking", "walked", "low", "lower", "lowest", "many", "pic", "pics", "fart", "abs", "rude", "rudely",
+			"robot", "robots", "rob", "robbed", "nude", "nudes", "gory", "gown", "mature", "pa", "parts", "partner",
+			"partners", "parties", "ribbon", "ribbons", "ribs"
+		};
+		for (size_t i = 0; i < sizeof(kWords) / sizeof(kWords[0]); ++i)
+			if (w == kWords[i])
+				return true;
+		// "practice", "practical": the work stem "prac".
+		return StartsWith(w, "practi");
+	}
+
 	// Real words that sit one letter away from a stem of another meaning.
 	inline bool IsNoFuzzyWord(const std::string& w)
 	{
@@ -733,7 +1119,10 @@ namespace playerbot_conv
 			{ "heal", B_HEAL }, { "heala", B_HEAL }, { "healem", B_HEAL }, { "healer", B_HEAL },
 			{ "healera", B_HEAL }, { "healerem", B_HEAL }, { "healerka", B_HEAL }, { "hil", B_HEAL },
 			{ "hila", B_HEAL }, { "hilem", B_HEAL }, { "leczacy", B_HEAL }, { "leczaca", B_HEAL },
-			{ "leczacym", B_HEAL }, { "leczenie", B_HEAL }, { "leczeniem", B_HEAL }
+			{ "leczacym", B_HEAL }, { "leczenie", B_HEAL }, { "leczeniem", B_HEAL },
+			// and an English player's words: the client's own group names
+			// (Blade, Arc, Weapon, Magic, Healing) beside the ones everybody says
+			{ "archery", B_ARCHER }, { "arc", B_ARCHER }, { "weaponry", B_WEAPON }, { "healing", B_HEAL }
 		};
 		for (size_t i = 0; i < sizeof(kWords) / sizeof(kWords[0]); ++i)
 			if (w == kWords[i].word)
@@ -745,7 +1134,7 @@ namespace playerbot_conv
 	inline bool IsHealWord(const std::string& w)
 	{
 		return w == "heal" || w == "heala" || w == "healem" || w == "hil" || w == "hila" || w == "hilem" ||
-				w == "leczenie" || w == "leczeniem" || w == "leczenia";
+				w == "leczenie" || w == "leczeniem" || w == "leczenia" || w == "healing";
 	}
 
 	// Every path the line names, as a mask of 1 << EBuild, and the first word
@@ -768,6 +1157,28 @@ namespace playerbot_conv
 				build = B_BLACK_MAGIC;
 			if (build == B_NONE && StartsWith(w[i], "magiczn") && i + 1 < w.size() && StartsWith(w[i + 1], "bron"))
 				build = B_WEAPON;
+			// In English "black magic" is the path; "weapon" is one only beside
+			// a Sura or a word for a path ("weapon sura", "weapon build"), or
+			// "what weapon do you use" asks for the path.
+			if (tok.english)
+			{
+				if (build == B_NONE && w[i] == "black" && i + 1 < w.size() && w[i + 1] == "magic")
+					build = B_BLACK_MAGIC;
+				// "dragon's strength" is the buff (NamedBuffSkill).
+				if (build == B_DRAGON && i + 1 < w.size() && (w[i + 1] == "strength" || w[i + 1] == "aid" ||
+						(w[i + 1] == "s" && i + 2 < w.size() && (w[i + 2] == "strength" || w[i + 2] == "aid"))))
+					build = B_NONE;
+				if (build == B_WEAPON && w[i] == "weapon")
+				{
+					bool path = false;
+					for (int k = (int)i - 2; k <= (int)i + 2; ++k)
+						if (k >= 0 && k < (int)w.size() && k != (int)i &&
+								(w[k] == "sura" || w[k] == "build" || w[k] == "path" || w[k] == "spec" || w[k] == "bm"))
+							path = true;
+					if (!path)
+						build = B_NONE;
+				}
+			}
 			if (build == B_NONE)
 				continue;
 			mask |= 1u << build;
@@ -797,6 +1208,11 @@ namespace playerbot_conv
 				skill = 96;
 			else if (x == "gicheon")
 				skill = 96;
+			// "Dragon's Strength", the English client's name for it ("dragon s
+			// strength" once the apostrophe is a space), and "dragon's aid".
+			else if (StartsWith(x, "dragon") && (next == "strength" || next == "aid" ||
+					(next == "s" && i + 2 < w.size() && (w[i + 2] == "strength" || w[i + 2] == "aid"))))
+				skill = 96;
 			else if (IsHealWord(x) || x == "cure" || x == "uzdrawianie" || x == "leczysz")
 				skill = 109;
 			else if (StartsWith(x, "zwinnos") || x == "swiftness" || x == "swift" || x == "kwaesok")
@@ -816,11 +1232,23 @@ namespace playerbot_conv
 		return 0;
 	}
 
-	inline void ExtractConcepts(const TTokens& tok, TConceptSet& out)
+	// A phrase entry of the Polish table with a word it reads wrongly in
+	// English ("no i", "po to").
+	inline bool PhraseHasFalseFriend(const char* phrase)
 	{
-		out.Clear();
-		size_t count = 0;
-		const TLexEntry* lex = GetLexicon(count);
+		std::vector<std::string> pw;
+		SplitWords(phrase, pw);
+		for (size_t i = 0; i < pw.size(); ++i)
+			if (IsEnglishFalseFriend(pw[i]))
+				return true;
+		return false;
+	}
+
+	// One table's entries into the concept set. `skipFalseFriends` passes by
+	// the words the Polish table reads wrongly in an English line.
+	inline void ApplyLexicon(const TTokens& tok, const TLexEntry* lex, size_t count, bool skipFalseFriends,
+			TConceptSet& out)
+	{
 		const std::string padded = " " + tok.norm + " ";
 		std::string needle;
 		for (size_t e = 0; e < count; ++e)
@@ -828,6 +1256,8 @@ namespace playerbot_conv
 			const TLexEntry& entry = lex[e];
 			if (entry.mode == M_PHRASE)
 			{
+				if (skipFalseFriends && PhraseHasFalseFriend(entry.text))
+					continue;
 				// Word boundaries on the normalized line: " co tam " in " no co tam robisz ".
 				needle.assign(" ");
 				needle += entry.text;
@@ -845,6 +1275,8 @@ namespace playerbot_conv
 			}
 			for (size_t i = 0; i < tok.words.size(); ++i)
 			{
+				if (skipFalseFriends && IsEnglishFalseFriend(tok.words[i]))
+					continue;
 				if (LexWordMatches(tok.words[i], entry))
 				{
 					out.Set(entry.conceptId, (int)i);
@@ -852,10 +1284,237 @@ namespace playerbot_conv
 				}
 			}
 		}
+	}
+
+	// The subject of an English verb at `at`, looking back past the words
+	// that stand between them ("do you want to buy", "can i buy"): 'y' the
+	// bot, 'i' the person, 0 none ("selling fms 10kk", "buy fms?").
+	inline char EnglishSubjectOf(const std::vector<std::string>& w, size_t at)
+	{
+		for (size_t back = 1; back <= 5 && back <= at; ++back)
+		{
+			const std::string& x = w[at - back];
+			if (x == "you" || x == "u" || x == "ya" || x == "ur" || x == "youre" || x == "yall")
+				return 'y';
+			if (x == "i" || x == "im" || x == "ive" || x == "me" || x == "we" || x == "id")
+				return 'i';
+			if (x != "do" && x != "does" && x != "will" && x != "would" && x != "can" && x != "could" &&
+					x != "wanna" && x != "want" && x != "to" && x != "gonna" && x != "re" && x != "are" && x != "r" &&
+					x != "m" && x != "am" && x != "is" && x != "d" && x != "ll" && x != "like" && x != "prosze" &&
+					x != "also" && x != "still" && x != "just" && x != "let" && x != "maybe" && x != "really" &&
+					x != "got" && x != "was")
+				return 0;
+		}
+		return 0;
+	}
+
+	// What an English line says that a word alone does not (Jeremus-Sama, 28
+	// September). Who sells to whom is the subject's: "do you sell fms" and
+	// "sell me fms" are the Polish "sprzedasz mi", "selling fms" and "will you
+	// buy my fms" its "sprzedam"; "i have" and "i got" are the person's own
+	// news and no "masz"; "good morning", "good luck" and "nice one" are no
+	// news of the person's own either, "not bad" and "my bad" are none of the
+	// bad kind, and "how are you doing" / "how is it going" are a greeting, not
+	// an errand. The rest are the auxiliaries and set phrases Polish has no
+	// word for: "did you die", "what do you sell", "been to the demon tower".
+	inline void ApplyEnglishReadings(const TTokens& tok, TConceptSet& out)
+	{
+		const std::vector<std::string>& w = tok.words;
+		const size_t n = w.size();
+
+		// Buying and selling, by the subject.
+		int trade = 0;   // 1 the person buys (C_BUYME), 2 the person sells (C_SELLYOU)
+		int tradeWord = -1;
+		bool advice = false;
+		for (size_t i = 0; i < n && !trade; ++i)
+		{
+			const std::string& x = w[i];
+			const std::string next = i + 1 < n ? w[i + 1] : std::string();
+			const std::string next2 = i + 2 < n ? w[i + 2] : std::string();
+			const bool sell = x == "sell" || x == "selling" || x == "sells";
+			const bool buy = x == "buy" || x == "buying" || x == "buys";
+			if (!sell && !buy)
+				continue;
+			const char subject = EnglishSubjectOf(w, i);
+			if (buy && (next == "yourself" || next == "urself"))
+			{
+				advice = true;
+				break;
+			}
+			// "why don't you buy a rib" asks why the bot does not, as "czemu
+			// nie kupisz" does.
+			if (buy && subject == 'y' && out.Has(C_WHY))
+			{
+				advice = true;
+				break;
+			}
+			if (sell)
+				trade = (next == "me" || next == "us" || subject == 'y') ? 1 : 2;
+			else
+				trade = (next == "my" || (next == "from" && next2 == "me") || (next == "it" && next2 == "from") ||
+						subject == 'y') ? 2 : 1;
+			tradeWord = (int)i;
+		}
+		if (advice)
+		{
+			out.Unset(C_BUYME);
+			out.Unset(C_SELLYOU);
+		}
+		else if (trade)
+		{
+			out.Unset(C_BUYME);
+			out.Unset(C_SELLYOU);
+			out.Set(trade == 1 ? C_BUYME : C_SELLYOU, tradeWord);
+		}
+		// "do you have X for sale" is "masz na sprzedaz".
+		if (tok.norm.find("for sale") != std::string::npos && !out.Has(C_SELLYOU))
+			out.Set(C_BUYME, out.firstWord[C_HAVE] >= 0 ? out.firstWord[C_HAVE] : 0);
+
+		// "i have", "i got", "ive got": the person telling, not asking.
+		if (out.Has(C_HAVE))
+		{
+			bool asked = false, told = false;
+			for (size_t i = 0; i < n; ++i)
+			{
+				const std::string& x = w[i];
+				if (x != "have" && x != "has" && x != "got" && x != "had" && x != "own")
+					continue;
+				if (x == "got" && i + 1 < n && w[i + 1] == "it")
+				{
+					told = true;
+					continue;
+				}
+				const char subject = EnglishSubjectOf(w, i);
+				if (subject == 'i' || (i > 0 && w[i - 1] == "ive"))
+					told = true;
+				else
+					asked = true;
+			}
+			if (told && !asked)
+				out.Unset(C_HAVE);
+		}
+
+		// Set phrases a sentiment word is only part of.
+		if (out.Has(C_POSITIVE) || out.Has(C_NEGATIVE))
+		{
+			static const char* const kSet[] = { "morning", "evening", "afternoon", "night", "day", "luck", "job",
+				"one", "game", "bot", "work", "idea" };
+			bool freePositive = false, anyPositive = false;
+			for (size_t i = 0; i < n; ++i)
+			{
+				const std::string& x = w[i];
+				if (x != "good" && x != "nice" && x != "great" && x != "cool" && x != "sweet" && x != "awesome")
+					continue;
+				anyPositive = true;
+				bool setPhrase = false;
+				if (i + 1 < n)
+					for (size_t k = 0; k < sizeof(kSet) / sizeof(kSet[0]); ++k)
+						if (w[i + 1] == kSet[k])
+							setPhrase = true;
+				if (i > 0 && w[i - 1] == "not")
+					setPhrase = true;
+				if (!setPhrase)
+					freePositive = true;
+			}
+			if (anyPositive && !freePositive && tok.norm.find("not bad") == std::string::npos)
+				out.Unset(C_POSITIVE);
+			if (tok.norm.find("not bad") != std::string::npos)
+				out.Unset(C_NEGATIVE);
+			if (tok.norm.find("bad day") != std::string::npos || tok.norm.find("you re bad") != std::string::npos ||
+					tok.norm.find("so bad") != std::string::npos || tok.norm.find("my bad") != std::string::npos)
+				out.Unset(C_NEGATIVE);
+		}
+		// "good morning", "good night": a greeting and a goodbye, not a
+		// question about the time of day.
+		if (out.Has(C_DAYTIME) && (out.Has(C_GREET) || out.Has(C_BYE)))
+			for (size_t i = 1; i < n; ++i)
+				if (w[i - 1] == "good" && (w[i] == "morning" || w[i] == "evening" || w[i] == "afternoon" ||
+						w[i] == "night" || w[i] == "day"))
+					out.Unset(C_DAYTIME);
+
+		// "did you die", "what did you eat": "did" asks about the verb after
+		// the person, where "what did you do today" asks what was done.
+		if (out.Has(C_DID))
+			for (size_t i = 0; i + 2 < n; ++i)
+				if (w[i] == "did" && (w[i + 1] == "you" || w[i + 1] == "u" || w[i + 1] == "ya") &&
+						w[i + 2] != "do" && w[i + 2] != "get" && w[i + 2] != "make" && w[i + 2] != "achieve" &&
+						w[i + 2] != "finish" && w[i + 2] != "manage")
+					out.Unset(C_DID);
+
+		// "what do you sell?", "do you sell anything?", "what are you selling":
+		// the bot's counter asked about, as "co sprzedajesz?" is, when no item
+		// is named after the verb.
+		if (trade == 1 && tradeWord >= 0 && StartsWith(w[tradeWord], "sell") &&
+				EnglishSubjectOf(w, (size_t)tradeWord) == 'y')
+		{
+			const std::string after = (size_t)tradeWord + 1 < n ? w[tradeWord + 1] : std::string();
+			if (after.empty() || after == "anything" || after == "something" || after == "stuff" || after == "things" ||
+					(out.Has(C_WHAT) && out.firstWord[C_WHAT] < tradeWord))
+			{
+				out.Unset(C_BUYME);
+				out.Set(C_SHOP, tradeWord);
+			}
+		}
+
+		// "i died again", "i got killed": the person's own bad news, as
+		// "zginalem" is, and no question about the bot's deaths.
+		for (size_t i = 0; i < n; ++i)
+			if ((w[i] == "died" || w[i] == "killed" || w[i] == "dead") && EnglishSubjectOf(w, i) == 'i')
+			{
+				out.Set(C_NEGATIVE, (int)i);
+				break;
+			}
+
+		// "how much does blessing give?" asks what a buff gives, as "ile daje
+		// blogoslawienstwo?" does, not what it costs.
+		if (out.Has(C_PRICEQ) && out.Has(C_GIVE))
+		{
+			int buffWord = -1;
+			if (NamedBuffSkill(tok, buffWord) != 0 || out.Has(C_BUFF))
+				out.Unset(C_PRICEQ);
+		}
+
+		// "have you been to the demon tower", "going to the demon tower?": the
+		// tower as a run, as "byles w wiezy?" is, and not a map the bot stands
+		// on - unless the line asks where.
+		if (out.Has(C_DT) && out.Has(C_MAPNAME) && !out.Has(C_WHERE))
+		{
+			size_t at = 0;
+			if (FindMapAlias(w, at) == 66)
+				out.Unset(C_MAPNAME);
+		}
+
+		// "how are you doing", "how is it going": the greeting's own words.
+		if (out.Has(C_HOWAREYOU))
+		{
+			for (size_t i = 1; i < n; ++i)
+			{
+				if (w[i] == "doing" && (w[i - 1] == "you" || w[i - 1] == "u" || w[i - 1] == "ya") && !out.Has(C_WHAT))
+					out.Unset(C_DO);
+				if (w[i] == "going" && (w[i - 1] == "it" || w[i - 1] == "s" || w[i - 1] == "things"))
+					out.Unset(C_TRAVEL);
+			}
+		}
+		// "be right back" is no "are you".
+		if (out.Has(C_BRB))
+			out.Unset(C_BE);
+	}
+
+	inline void ExtractConcepts(const TTokens& tok, TConceptSet& out)
+	{
+		out.Clear();
+		size_t count = 0;
+		const TLexEntry* lex = GetLexicon(count);
+		ApplyLexicon(tok, lex, count, tok.english, out);
+		if (tok.english)
+		{
+			const TLexEntry* en = GetLexiconEn(count);
+			ApplyLexicon(tok, en, count, false, out);
+		}
 
 		// The players' names for items and places (playerbot_conv_aliases.h).
 		for (size_t i = 0; i < tok.words.size(); ++i)
-			if (IsItemAliasWord(tok.words[i]))
+			if (IsItemAliasWord(tok.words[i]) && !(tok.english && IsEnglishFalseFriend(tok.words[i])))
 			{
 				out.Set(C_ITEMWORD, (int)i);
 				break;
@@ -876,8 +1535,10 @@ namespace playerbot_conv
 			for (size_t i = 0; i < tok.words.size(); ++i)
 			{
 				const std::string& w = tok.words[i];
+				// "rod" is also the Polish "rod" (a family) once folded.
 				if (StartsWith(w, "lowi") || StartsWith(w, "lowie") || StartsWith(w, "ryb") ||
-						StartsWith(w, "wedk") || w == "low" || StartsWith(w, "lowic"))
+						StartsWith(w, "wedk") || w == "low" || StartsWith(w, "lowic") ||
+						(tok.english && (StartsWith(w, "fish") || w == "rod")))
 					real = true;
 			}
 			if (!real)
@@ -946,6 +1607,8 @@ namespace playerbot_conv
 		if (out.Has(C_HORSE) && out.Has(C_HIT) && !out.Has(C_YOU) && !out.Has(C_WHAT) &&
 				!out.Has(C_HOWMUCH) && !out.Has(C_WHICH) && !out.Has(C_HAVE) && !out.Has(C_LEVEL))
 			out.Unset(C_HORSE);
+		if (tok.english)
+			ApplyEnglishReadings(tok, out);
 
 		// A path named by its own word ("body", "archerem", "smok") and a buff
 		// named by its own ("odbicie", "pomoc smoka"). "heal" and "leczenie"

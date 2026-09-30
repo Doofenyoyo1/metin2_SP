@@ -112,6 +112,10 @@ namespace {
     bool PlayerBotNeedsProgressionShopping(LPCHARACTER ch) {
         if (!ch || !ch->IsItemLoaded()) return false;
         if (PlayerBotScrollRuleSupplyExists(ch)) return true;
+        // A Stalki its first village's counters hold for it, the scroll rule's
+        // way: the bots of sixty-four and more hunt on the frontier and meet
+        // those counters on a trip or not at all (playerbot_stalki.h).
+        if (PlayerBotStalkiSupplyExists(ch)) return true;
         if (!ch->GetSkillGroup()) return false;
         const TJobSkillBuild build = GetPlayerBotSkillBuild(ch->GetJob(), ch->GetSkillGroup(), ch->GetPlayerID());
         const bool studies = PlayerBotStudiesAtTheMarket(ch);
@@ -149,7 +153,7 @@ namespace {
             const TPlayerBotMarketLedgerEntry* supply = GetPlayerBotMarketLedgerEntry(vnum);
             if (supply && supply->dwSupplyUnits > 0 && GetPlayerBotBiologistPurchaseNeed(ch, vnum) > 0) return true;
         }
-        return PlayerBotScrollRuleSupplyExists(ch);
+        return PlayerBotScrollRuleSupplyExists(ch) || PlayerBotStalkiSupplyExists(ch);
     }
     // Who is out on a trip now, pid -> when it ends. A map rather than a count,
     // so a bot that despawns mid-trip frees its place when the trip would have
@@ -212,10 +216,10 @@ namespace {
         if (CountPlayerBotProgressionTrips(now) >= cap) return false;
         state.dwProgressionTripUntil = now + PLAYERBOT_PROGRESSION_TRIP_MS;
         s_mapPlayerBotProgressionTrip[ch->GetPlayerID()] = state.dwProgressionTripUntil;
-        sys_log(0, "PLAYERBOT_MARKET: progression trip pid=%u name=%s map=%ld level=%d gold=%lld trips=%u cap=%u scroll_rule=%d",
+        sys_log(0, "PLAYERBOT_MARKET: progression trip pid=%u name=%s map=%ld level=%d gold=%lld trips=%u cap=%u scroll_rule=%d stalki=%d",
             ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), (int)ch->GetLevel(),
             (long long)ch->GetGold(), (unsigned)s_mapPlayerBotProgressionTrip.size(), (unsigned)cap,
-            PlayerBotScrollRuleSupplyExists(ch) ? 1 : 0);
+            PlayerBotScrollRuleSupplyExists(ch) ? 1 : 0, PlayerBotStalkiSupplyExists(ch) ? 1 : 0);
         return true;
     }
 }

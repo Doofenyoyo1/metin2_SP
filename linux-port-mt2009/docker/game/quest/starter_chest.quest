@@ -10,19 +10,21 @@
 -- One chest per character, at the first login of a character still at the
 -- level a fresh one is. The class decides the chest, exactly as the seed
 -- and special_item_group.starter.txt do: warrior and sura 50187, assassin
--- 50212, shaman 50213. A bot logging in at that level gets one too - the
--- quest cannot tell a bot from a player - which is one chest more on a
--- handful of level-5 bots and nothing else.
+-- 50212, shaman 50213. Never a bot's: its chest is the seed's, and a bot at
+-- level five or under got a second one here until the seed marked them
+-- (Iwakura, 26 September) - pc.is_playerbot() says so whatever the marks.
 --
--- And only while the world gives it: M2_STARTER_CHEST=0 in .env (the launcher
--- asks with the rates when a world is made) has the migrator raise the event
--- flag m2_starter_chest_off, and a character that logs in meanwhile is not
--- marked - it gets its chest on a later login if the chest is switched back
--- on before it passes level five.
+-- And only while the world gives it: the event flag m2_starter_chest_off,
+-- one switch for people and bots alike. The migrator raises it from
+-- M2_STARTER_CHEST=0 in .env (the launcher's difficulty window and new-world
+-- dialog) and both panels set it live (web_admin.quest STARTER_CHEST), so it
+-- is asked at every login. A character that logs in meanwhile is not marked
+-- - it gets its chest on a later login if the chest is switched back on
+-- before it passes level five.
 quest starter_chest begin
 	state start begin
 		when login with pc.getqf("given") == 0 and pc.get_level() <= 5 and
-				game.get_event_flag("m2_starter_chest_off") == 0 begin
+				game.get_event_flag("m2_starter_chest_off") == 0 and not pc.is_playerbot() begin
 			local job = pc.get_job()
 			local vnum = 50187
 			if job == 1 then

@@ -29,6 +29,9 @@ runtime stage of docker/game/Dockerfile:
 
   * cube.seon_pyeong.txt - Seon-Pyeong's recipes by the Grotto of Exile,
     appended to the share's cube.txt (SEON_PYEONG_RECIPES).
+  * special_spawns.baroness.txt - the Spider Baroness in the second Spider
+    Dungeon, appended to the share's special_spawns.txt (upstream 2.2.36);
+    and the step that copies playerbot_names_en.tsv into the share.
 
 Idempotent: re-run after editing an original.
 """
@@ -637,6 +640,69 @@ RUN set -eu; C=/opt/metin2/share/locale/poland/cube.txt; A=/tmp/cube-add/cube.se
 """
 
 
+# The Spider Baroness (2092, level 75), who drops the Stalki (upstream 2.2.36,
+# playerbot_stalki.h): the package spawns her nowhere, so she stands in the
+# second Spider Dungeon's last room every four to five hours, appended to the
+# share's special_spawns.txt. Her lair's damage multiplier goes with her
+# (playerbotify apply_spider_baroness_damage).
+SPIDER_BARONESS_VNUM = 2092
+SPIDER_BARONESS_SPAWN = (
+    "# The Spider Baroness (2092) in the second Spider Dungeon's last room, who\n"
+    '# drops the Stalki (rendered by linux-port-mt2009/port/shareify.py and\n'
+    "# appended to special_spawns.txt; the operator's decision of 28 September).\n"
+    'Group\tBoss_SpiderBaroness\n'
+    '{\n'
+    '\tvnum\t2092\n'
+    '\tspawn_vnum\t2092\n'
+    '\tspawn_type\tmob\n'
+    '\tchannel\t0\n'
+    '\tmap_index\t71\n'
+    '\ttime\t14400-18000\n'
+    '\ttime_type\tnormal\n'
+    '\tcount\t1\n'
+    '\tsave_kill\t1\n'
+    '\tinitial_delay\t900-1500\n'
+    '\t1\t384\t874\t0\n'
+    '\t2\t380\t880\t0\n'
+    '\t3\t390\t870\t0\n'
+    '}\n'
+)
+
+DOCKERFILE_BARONESS_ANCHOR = ' && echo "share: Seon-Pyeong\'s recipes appended to cube.txt ($n)"\n'
+DOCKERFILE_BARONESS_MARKER = 'echo "share: the Spider Baroness spawns in the second Spider Dungeon"'
+DOCKERFILE_BARONESS_STEP = r"""
+# The Spider Baroness (port/shareify.py renders special_spawns.baroness.txt and
+# this step): the level-75 boss who drops the Stalki, stood in the second
+# Spider Dungeon's last room every four to five hours (the operator's decision
+# of 28 September). The package spawns her nowhere; the damage multiplier her
+# lair would give her is the engine's (playerbotify apply_spider_baroness_damage).
+COPY special_spawns.baroness.txt /tmp/spawn-add/
+RUN set -eu; S=/opt/metin2/share/locale/poland/special_spawns.txt; A=/tmp/spawn-add/special_spawns.baroness.txt \
+ && ! grep -q -E '^[[:blank:]]*vnum[[:blank:]]+2092[[:space:]]*$' "$S" \
+ && sed -i 's/\r$//; s/$/\r/' "$A" \
+ && { [ -z "$(tail -c 1 "$S")" ] || printf '\r\n' >> "$S"; } \
+ && cat "$A" >> "$S" \
+ && rm -rf /tmp/spawn-add \
+ && test "$(grep -c -E '^[[:blank:]]*spawn_vnum[[:blank:]]+2092[[:space:]]*$' "$S")" -eq 1 \
+ && echo "share: the Spider Baroness spawns in the second Spider Dungeon"
+"""
+
+# The official English names (playerbot_language.h), copied into the share for
+# every core to read once.
+DOCKERFILE_ENGLISH_NAMES_ANCHOR = ' && echo "share: the Spider Baroness spawns in the second Spider Dungeon"\n'
+DOCKERFILE_ENGLISH_NAMES_MARKER = 'COPY playerbot_names_en.tsv /opt/metin2/share/playerbot_names_en.tsv'
+DOCKERFILE_ENGLISH_NAMES_STEP = r"""
+# The official English names of this world's items and monsters, rendered by
+# upstream's tools/generate_english_names.py from Gameforge's own tables (2.2.36;
+# the tool is not in this repository, its output is): what the core
+# names an item, a monster or an NPC by for a person whose client reads English
+# - a bot's chat line, its shout, its shop's title, an NPC over its head
+# (playerbot_language.h). Read once from here by every core; without it every
+# name is the proto's Polish one.
+COPY playerbot_names_en.tsv /opt/metin2/share/playerbot_names_en.tsv
+"""
+
+
 def main():
     items = dump_vnums('item_proto')
     mobs = dump_vnums('mob_proto')
@@ -664,6 +730,11 @@ def main():
     with io.open(os.path.join(GAME, 'cube.seon_pyeong.txt'), 'w', encoding='ascii', newline='\n') as f:
         f.write(seon_pyeong_cube())
     print('shareify: cube.seon_pyeong.txt written')
+    if SPIDER_BARONESS_VNUM not in mobs:
+        raise SystemExit('shareify: special_spawns.baroness.txt names a mob the package lacks: %d' % SPIDER_BARONESS_VNUM)
+    with io.open(os.path.join(GAME, 'special_spawns.baroness.txt'), 'w', encoding='ascii', newline='\n') as f:
+        f.write(SPIDER_BARONESS_SPAWN)
+    print('shareify: special_spawns.baroness.txt written')
 
     moonlight = io.open(os.path.join(GAME, 'special_item_group.moonlight.txt'), encoding='latin-1', newline='').read()
     cut = '|'.join(str(v) for v in group_vnums(moonlight) + group_vnums(STARTER))
@@ -710,7 +781,11 @@ def main():
             (DOCKERFILE_GROTTO_MARKER, DOCKERFILE_GROTTO_ANCHOR, DOCKERFILE_GROTTO_STEP, 'Grotto of Exile entrance'),
             (DOCKERFILE_CATACOMB_MARKER, DOCKERFILE_CATACOMB_ANCHOR, DOCKERFILE_CATACOMB_STEP, "Devil's Catacomb"),
             (DOCKERFILE_SEON_PYEONG_MARKER, DOCKERFILE_SEON_PYEONG_ANCHOR, DOCKERFILE_SEON_PYEONG_STEP,
-             "Seon-Pyeong's recipes")):
+             "Seon-Pyeong's recipes"),
+            (DOCKERFILE_BARONESS_MARKER, DOCKERFILE_BARONESS_ANCHOR, DOCKERFILE_BARONESS_STEP,
+             "Spider Baroness"),
+            (DOCKERFILE_ENGLISH_NAMES_MARKER, DOCKERFILE_ENGLISH_NAMES_ANCHOR, DOCKERFILE_ENGLISH_NAMES_STEP,
+             "English names")):
         if marker in s:
             print('shareify: Dockerfile already carries the %s step' % what)
         else:

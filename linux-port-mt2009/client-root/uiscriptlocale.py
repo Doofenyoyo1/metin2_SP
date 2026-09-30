@@ -92,6 +92,13 @@ globals().setdefault('CHARACTER_ATTRIBUTES_TITLE', 'Atrybuty')
 globals().setdefault('ITEMSHOP_CATEGORIES', 'Kategorie')
 globals().setdefault('ITEMSHOP_ACCOUNT_STATE', 'Stan Konta')
 
+# Our own windows' texts that a uiscript names: Polish, or English for a
+# client set to any other language, as everything of ours (playerbot_lang.py).
+import playerbot_lang
+CHEST_PREVIEW_TOOLTIP = playerbot_lang.T('Podgl\xb9d skrzynki', 'Chest preview')
+SIDEKICK_TASKBAR_TOOLTIP = playerbot_lang.T('Towarzysz (P)', 'Companion (P)')
+AUTOHUNT_TASKBAR_TOOLTIP = playerbot_lang.T('Auto \xa3owy (K)', 'Auto Hunt (K)')
+
 if systemSetting.GetLanguage() == "en":
 	import english_gui
 	globals().update(english_gui.UI)

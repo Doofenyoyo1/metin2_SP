@@ -221,7 +221,9 @@ RUN set -eux; \
     # pc.is_playerbot for the Devil's Catacomb's bot branches (2.2.22).
     # affect.get_duration and pc.has_affect for the ItemShop's Auto Lowy ticket
     # and anti-experience ring (autohunt_time, antiexp_ring; 2.2.27).
-    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.mount item.get_vnum pc.is_playerbot affect.get_duration pc.has_affect; do \
+    # pc.warp_channel for the panels' teleport to a bot on another channel
+    # (web_admin; 2.2.42).
+    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.mount item.get_vnum pc.is_playerbot affect.get_duration pc.has_affect pc.warp_channel; do \
       grep -qx "$fn" /tmp/qc-work/quest_functions || echo "$fn" >> /tmp/qc-work/quest_functions; \
     done; \
     # pony_levelup is the package's own stable-keeper quest with the 18-hour
@@ -261,7 +263,9 @@ RUN set -eux; \
     # appended to the share's cube.txt below; NerrVoVy, 27 September).
     # flea_market is the Dom Towarowy's two options at the miscellaneous
     # merchant in M1, offered only while M2_FLEA_MARKET is on (Uxie [DSO]).
-    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears autohunt_time antiexp_ring seon_pyeong flea_market; do \
+    # playerbot_lang asks a player's client at every login which language it
+    # reads, and our quests and the AI answer in it (playerbot_language.h).
+    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears autohunt_time antiexp_ring seon_pyeong flea_market playerbot_lang; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \
@@ -450,6 +454,30 @@ RUN set -eu; C=/opt/metin2/share/locale/poland/cube.txt; A=/tmp/cube-add/cube.se
  && rm -rf /tmp/cube-add \
  && test "$(grep -c -E '^npc[[:blank:]]+20091[[:space:]]*$' "$C")" -eq "$n" \
  && echo "share: Seon-Pyeong's recipes appended to cube.txt ($n)"
+
+# The Spider Baroness (port/shareify.py renders special_spawns.baroness.txt and
+# this step): the level-75 boss who drops the Stalki, stood in the second
+# Spider Dungeon's last room every four to five hours (the operator's decision
+# of 28 September). The package spawns her nowhere; the damage multiplier her
+# lair would give her is the engine's (playerbotify apply_spider_baroness_damage).
+COPY special_spawns.baroness.txt /tmp/spawn-add/
+RUN set -eu; S=/opt/metin2/share/locale/poland/special_spawns.txt; A=/tmp/spawn-add/special_spawns.baroness.txt \
+ && ! grep -q -E '^[[:blank:]]*vnum[[:blank:]]+2092[[:space:]]*$' "$S" \
+ && sed -i 's/\r$//; s/$/\r/' "$A" \
+ && { [ -z "$(tail -c 1 "$S")" ] || printf '\r\n' >> "$S"; } \
+ && cat "$A" >> "$S" \
+ && rm -rf /tmp/spawn-add \
+ && test "$(grep -c -E '^[[:blank:]]*spawn_vnum[[:blank:]]+2092[[:space:]]*$' "$S")" -eq 1 \
+ && echo "share: the Spider Baroness spawns in the second Spider Dungeon"
+
+# The official English names of this world's items and monsters, rendered by
+# upstream's tools/generate_english_names.py from Gameforge's own tables (2.2.36;
+# the tool is not in this repository, its output is): what the core
+# names an item, a monster or an NPC by for a person whose client reads English
+# - a bot's chat line, its shout, its shop's title, an NPC over its head
+# (playerbot_language.h). Read once from here by every core; without it every
+# name is the proto's Polish one.
+COPY playerbot_names_en.tsv /opt/metin2/share/playerbot_names_en.tsv
 
 # The cores run unprivileged and read this tree by path; a directory only root
 # can enter costs every quest below it, silently. Repair, then assert.

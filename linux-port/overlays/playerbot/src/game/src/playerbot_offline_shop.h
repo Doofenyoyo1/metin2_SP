@@ -4,6 +4,17 @@
 // Included once after playerbot_town.h. All transfers use native Ikarus.
 namespace {
     using NativeShop = ikashop::CShopManager::SHOP_HANDLE;
+    // A bot's stand is playerbot_offline::BOT_SHOP_PAGES pages of a person's
+    // grid, one under the other (prodnathin, 28 September; the engine's add
+    // path is playerbotify's apply_bot_shop_two_pages): the second page is
+    // cells 80 to 159, and a line never stands across two pages
+    // (playerbot_offline::FitsOnPage). The stand's create goes through the
+    // classic OpenMyShop, whose grid is the first page alone.
+    const int PLAYERBOT_OFFLINE_SHOP_PAGE_CELLS = SHOP_PLAYER_WIDTH * SHOP_PLAYER_HEIGHT;
+    const int PLAYERBOT_OFFLINE_SHOP_CELLS = PLAYERBOT_OFFLINE_SHOP_PAGE_CELLS * playerbot_offline::BOT_SHOP_PAGES;
+    // The refine materials' share of those cells (BotOfflineCounterRefuses).
+    const int PLAYERBOT_OFFLINE_MATERIAL_LINES_MAX =
+        PLAYERBOT_OFFLINE_SHOP_CELLS * PLAYERBOT_OFFLINE_MATERIAL_SHARE_PERCENT / 100;
     // The core's offline-shop mutations, as a bucket: one token every
     // PLAYERBOT_OFFLINE_MUTATION_MS, at most PLAYERBOT_OFFLINE_MUTATION_BURST
     // in hand. It was one a second with nothing saved, so two visits asking in
@@ -92,6 +103,16 @@ namespace {
     }
     bool BotOfflineBusy(LPCHARACTER ch, const TPlayerBotAIState& state) {
         return BotOfflineBusyReason(ch, state) != NULL;
+    }
+    // A rod or a pickaxe the owner's session is waiting for, found on this
+    // counter and nowhere else (AskPlayerBotTackleHome): the visit that
+    // fetches it does not wait out a far stand's round.
+    bool IsPlayerBotTackleAskedHome(DWORD pid, DWORD now) {
+        auto asked = s_mapPlayerBotTackleAskedAt.find(pid);
+        if (asked == s_mapPlayerBotTackleAskedAt.end()) return false;
+        if (now - asked->second < PLAYERBOT_TACKLE_HOME_HOLD_MS) return true;
+        s_mapPlayerBotTackleAskedAt.erase(asked);
+        return false;
     }
     // The wait before the next service visit: the long one for a dropper
     // (PLAYERBOT_DROPPER_SHOP_SERVICE_MIN_MS), ten to fifteen minutes for
@@ -244,22 +265,25 @@ namespace {
 #ifdef ENABLE_SOULBIND_SYSTEM
         if (item->IsSealed()) return false;
 #endif
-        return playerbot_offline::Fits(cell, item->GetSize(), SHOP_PLAYER_WIDTH,
-                SHOP_PLAYER_HOST_ITEM_MAX_NUM) && ch->CanAddItemToShop(item, BYTE(cell));
+        return playerbot_offline::FitsOnPage(cell, item->GetSize(), SHOP_PLAYER_WIDTH, SHOP_PLAYER_HEIGHT,
+                playerbot_offline::BOT_SHOP_PAGES) && ch->CanAddItemToShop(item, BYTE(cell));
     }
     // Where a new line goes. Iwakura's Patch 3, point 6: between the lines of
     // the categories before its own (GetPlayerBotShopCategory) and those after
     // it, where the grid has room; failing that after the ones before it;
     // failing that wherever it fits, as it always went. A counter changes a
-    // line a visit, so the order is kept as it grows rather than rebuilt.
+    // line a visit, so the order is kept as it grows rather than rebuilt -
+    // over both pages, in reading order: the second page goes on from where
+    // the first ends.
     int BotOfflineSlot(LPCHARACTER ch, NativeShop shop, LPITEM item) {
-        bool used[SHOP_PLAYER_HOST_ITEM_MAX_NUM]{};
+        bool used[PLAYERBOT_OFFLINE_SHOP_CELLS]{};
         const int category = GetPlayerBotShopCategory(item);
-        int lastLower = -1, firstHigher = SHOP_PLAYER_HOST_ITEM_MAX_NUM;
+        int lastLower = -1, firstHigher = PLAYERBOT_OFFLINE_SHOP_CELLS;
         if (shop) for (const auto& [id, line] : shop->GetItems()) {
             if (!line || !line->GetTable()) continue;
             int pos = line->GetInfo().pos, size = line->GetTable()->bSize;
-            if (!playerbot_offline::Fits(pos, size, SHOP_PLAYER_WIDTH, SHOP_PLAYER_HOST_ITEM_MAX_NUM)) return -1;
+            if (!playerbot_offline::FitsOnPage(pos, size, SHOP_PLAYER_WIDTH, SHOP_PLAYER_HEIGHT,
+                    playerbot_offline::BOT_SHOP_PAGES)) return -1;
             for (int y = 0; y < size; ++y) used[pos + y * SHOP_PLAYER_WIDTH] = true;
             const int other = GetPlayerBotShopCategoryOf(line->GetTable()->bType,
                 line->GetTable()->bSubType, line->GetInfo().vnum);
@@ -267,7 +291,7 @@ namespace {
             else if (other > category) firstHigher = std::min(firstHigher, pos);
         }
         int afterLower = -1, anywhere = -1;
-        for (int pos = 0; pos < SHOP_PLAYER_HOST_ITEM_MAX_NUM; ++pos) {
+        for (int pos = 0; pos < PLAYERBOT_OFFLINE_SHOP_CELLS; ++pos) {
             if (!BotOfflineValid(ch, item, pos)) continue;
             bool free = true;
             for (int y = 0; y < item->GetSize(); ++y) free &= !used[pos + y * SHOP_PLAYER_WIDTH];
@@ -344,7 +368,7 @@ namespace {
                 M2_DELETE(preview);
                 continue;
             }
-            normal = std::max<long long>(GetPlayerBotShopAskingPrice(preview), GetPlayerBotRefineInvestment(preview));
+            normal = std::max<long long>(GetPlayerBotShopAskingPrice(preview), GetPlayerBotListingFloor(preview));
             ageMin = slippedAt ? (int)((now - slippedAt) / 60000U) : -1;
             M2_DELETE(preview);
             return id;
@@ -365,6 +389,59 @@ namespace {
         if (known != state.offlineShop.listed.end()) known->second.slippedAt = 0;
         sys_log(0, "PLAYERBOT_OFFLINE: price slip put right pid=%u name=%s item=%u price=%lld age_min=%d",
             ch->GetPlayerID(), ch->GetName(), itemid, normal, ageMin);
+        return true;
+    }
+    // The first line of the keeper's running stand that asks less than its
+    // floor (GetPlayerBotListingFloor, playerbot_moonlight_rules::UnderFloor),
+    // and the price it should ask: what the keeper asks for it now, never under
+    // the floor. Only the Moonlight chest and the bonus items have a floor over
+    // the blacksmith's bill, so only their lines are looked at. The chests the
+    // traders and the droppers put up before 28 September asked the sheet's
+    // hundred thousand and the markdowns under it (blipu's report); the hourly
+    // reprice reaches a line in hours, and a player empties a counter in
+    // minutes.
+    DWORD BotOfflineUnderFloorLine(LPCHARACTER ch, NativeShop shop, long long& price, long long& was,
+            DWORD& vnum) {
+        price = was = 0;
+        vnum = 0;
+        if (!ch || !shop || shop->GetDuration() == 0) return 0;
+        TPlayerBotPricingKeeper pricing(ch->GetPlayerID());
+        for (const auto& [id, line] : shop->GetItems()) {
+            if (!line || !line->GetTable()) continue;
+            const BYTE type = line->GetTable()->bType;
+            const BYTE sub = line->GetTable()->bSubType;
+            if (line->GetInfo().vnum != PLAYERBOT_MOONLIGHT_CHEST_VNUM &&
+                    !(type == ITEM_USE && (sub == USE_CHANGE_ATTRIBUTE || sub == USE_ADD_ATTRIBUTE ||
+                        sub == USE_ADD_ATTRIBUTE2)))
+                continue;
+            LPITEM preview = BotOfflinePreview(*line);
+            if (!preview) continue;
+            const long long asked = (long long)line->GetPrice().GetTotalYangAmount();
+            const long long least = (long long)GetPlayerBotListingFloor(preview);
+            if (!playerbot_moonlight_rules::UnderFloor(asked, least)) {
+                M2_DELETE(preview);
+                continue;
+            }
+            price = std::max<long long>(GetPlayerBotShopAskingPrice(preview), least);
+            was = asked;
+            vnum = preview->GetVnum();
+            M2_DELETE(preview);
+            return id;
+        }
+        return 0;
+    }
+    // That line up to its price, through the journal like every other edit of
+    // the board. True when the request reached the db core.
+    bool BotOfflineRaiseToFloor(LPCHARACTER ch, DWORD itemid, long long price, long long was, DWORD vnum,
+            DWORD now) {
+        using namespace playerbot_offline;
+        if (price <= 0 || price >= GOLD_MAX || !Begin(ch->GetPlayerID(), Edit, itemid, now)) return false;
+        ikashop::TPriceInfo info{};
+        info.yang = price;
+        ikashop::GetManager().RecvShopEditItemClientPacket(ch, itemid, info);
+        if (!EndCall(ch->GetPlayerID())) return false;
+        sys_log(0, "PLAYERBOT_OFFLINE: raised to its floor pid=%u name=%s item=%u vnum=%u price=%lld was=%lld",
+            ch->GetPlayerID(), ch->GetName(), itemid, vnum, price, was);
         return true;
     }
     bool SubmitPlayerBotOfflineShop(LPCHARACTER ch, TPlayerBotAIState& state,
@@ -400,13 +477,17 @@ namespace {
         }
         // Keep the existing prices and selection, but revalidate every line,
         // including vertical grid cells, before OpenMyShop removes anything.
+        // A new stand's lines are on its first page: OpenMyShop lays them out
+        // on the classic grid, which is that page, and refuses the whole
+        // stand over one line past it.
         std::set<WORD> cells;
-        bool grid[SHOP_PLAYER_HOST_ITEM_MAX_NUM]{};
+        bool grid[PLAYERBOT_OFFLINE_SHOP_CELLS]{};
         long long total = ch->GetGold();
         for (BYTE n = 0; n < count; ++n) {
             auto item = ch->GetItem(table[n].pos);
             int pos = table[n].display_pos;
-            if (!BotOfflineValid(ch, item, pos) || !cells.insert(table[n].pos.cell).second ||
+            if (pos >= PLAYERBOT_OFFLINE_SHOP_PAGE_CELLS ||
+                    !BotOfflineValid(ch, item, pos) || !cells.insert(table[n].pos.cell).second ||
                     table[n].price <= 0 || table[n].price >= GOLD_MAX) return false;
             for (int y = 0; y < item->GetSize(); ++y) {
                 int c = pos + y * SHOP_PLAYER_WIDTH;
@@ -500,8 +581,10 @@ namespace {
     // side that knows: the goods belong to the shop entity, so the classic
     // stall's "one pass over my own bag" cannot see it, and that whole branch
     // of ManagePlayerBotShopLifetime is unreachable on this engine anyway.
-    // Drained on the owner's own tick, so both the demand memory and the gear
-    // history get what the classic stall used to give them.
+    // Drained on the owner's own tick, so the gear history gets what the
+    // classic stall used to give it. The market's count of what keeps selling
+    // does not wait for an owner: NoteSold keeps it for every counter
+    // (UpdatePlayerBotShortageMarkups).
     void BotOfflineDrainSales(LPCHARACTER ch, TPlayerBotAIState& state, DWORD now) {
         auto it = playerbot_offline::sold.find(ch->GetPlayerID());
         if (it == playerbot_offline::sold.end()) return;
@@ -510,22 +593,9 @@ namespace {
             auto known = o.listed.find(line.item);
             const bool haveListing = known != o.listed.end();
             const DWORD vnum = haveListing && known->second.vnum ? known->second.vnum : line.vnum;
-            const BYTE refine = haveListing ? (BYTE)known->second.refine : (BYTE)0;
             const DWORD skill = haveListing ? (DWORD)known->second.skill : 0U;
-            // A slip a person paid - one zero too many - says nothing of what
-            // the market wants, however fast it went.
+            // A slip a person paid - one zero too many - says so on its line.
             const bool slip = haveListing && known->second.slippedAt != 0;
-            // A line that left within PLAYERBOT_MARKET_FAST_SALE_MS of going
-            // up is Iwakura's "wysoki popyt": the next counter carrying this
-            // thing asks more. A line whose listing time this core never saw -
-            // it went up before the last restart - is sold, but not timed.
-            if (haveListing && known->second.when != 0 && !slip &&
-                    now - known->second.when < PLAYERBOT_MARKET_FAST_SALE_MS) {
-                NotePlayerBotFastSale(vnum, refine, now, skill);
-                sys_log(0, "PLAYERBOT_MARKET: fast sale pid=%u name=%s vnum=%u+%u skill=%u in=%u s",
-                    ch->GetPlayerID(), ch->GetName(), vnum, (unsigned int)refine, skill,
-                    (unsigned int)((now - known->second.when) / 1000));
-            }
             char hint[64];
             snprintf(hint, sizeof(hint), "%u x%u za %lld", vnum,
                 (unsigned int)line.count, (long long)line.price);
@@ -561,10 +631,10 @@ namespace {
         // Moonlight chests stand on a counter in packs, and only on the counter
         // of a bot that sells them (IsPlayerBotSurplusChest): a line of eleven
         // to thirty never sold, and one a bot that opens its chests put up
-        // before 2.0.53 comes home to be opened.
+        // before 2.0.53 comes home to be opened - a resource trader's too since
+        // blipu's report of 28 September, when the trader stopped selling them.
         const DWORD owner = shop->GetOwnerPID();
-        const bool sellsChests = IsPlayerBotResourceTrader(owner) ||
-            IsPlayerBotDropper(GetPlayerBotPersonalityByPID(owner));
+        const bool sellsChests = IsPlayerBotMoonlightChestSeller(owner);
         // The mission books past the thirty its village's counters hold
         // (Iwakura's Patch 4, point 13) come home a line a visit; the ledger is
         // told of each at once (BotOfflineTakeOff), so the keepers of one
@@ -590,10 +660,26 @@ namespace {
         int marbles = 0;
         std::set<long> marbleMobs;
         std::map<DWORD, int> sameVnum;
+        // A rod or a pickaxe is its keeper's tool and never goods
+        // (ScorePlayerBotShopStock). The ones that went up - a rod's plus is in
+        // its name, so from Wedka+4 the precious-refine score took it for a
+        // spare - come home ahead of any other line while the bag has room for
+        // one, because its owner's next session waits for it rather than
+        // buying another at the Rybak (Octodan, 26 September); with no room,
+        // after the rest, so a tool the bag cannot take keeps nothing else on
+        // the counter. An item the operator put on "stall" stays.
+        DWORD tackleFits = 0, tackleAny = 0;
         for (const auto& [id, line] : shop->GetItems()) {
             if (!line) continue;
             LPITEM preview = BotOfflinePreview(*line);
             if (!preview) continue;
+            if ((preview->GetType() == ITEM_ROD || preview->GetType() == ITEM_PICK) &&
+                    GetPlayerBotItemPolicy(preview) != PLAYERBOT_ITEM_POLICY_STALL) {
+                if (!tackleAny) tackleAny = id;
+                if (!tackleFits && ch && ch->GetEmptyInventory(preview->GetSize()) >= 0) tackleFits = id;
+                M2_DELETE(preview);
+                continue;
+            }
             // A piece Iwakura's list keeps for the storekeeper comes home, one a
             // visit, and goes down on the next Trader's visit (playerbot_lpp.h).
             if (IsPlayerBotLppKeptItem(ch, preview)) {
@@ -778,6 +864,10 @@ namespace {
             }
             M2_DELETE(preview);
         }
+        if (tackleFits || (!unwanted && tackleAny)) {
+            unwanted = tackleFits ? tackleFits : tackleAny;
+            reason = "tackle";
+        }
         if (why) *why = reason;
         return unwanted;
     }
@@ -813,6 +903,9 @@ namespace {
             if (line != state.offlineShop.listed.end())
                 NotePlayerBotLowArmourOnCounter(line->second.vnum, -1);
         }
+        // A tool on its way home is no longer waited for (AskPlayerBotTackleHome).
+        if (why && strcmp(why, "tackle") == 0)
+            s_mapPlayerBotTackleAskedAt.erase(ch->GetPlayerID());
         state.offlineShop.listed.erase(itemid);
         sys_log(0, "PLAYERBOT_OFFLINE: took off pid=%u name=%s item=%u low_gear_kept=%d reason=%s",
             ch->GetPlayerID(), ch->GetName(), itemid, lowGear, why);
@@ -961,7 +1054,7 @@ namespace {
         if (item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM &&
                 BotOfflineLinesOf(shop, item->GetVnum()) >= PLAYERBOT_CHEST_COUNTER_LINES) return true;
         // Nor a refine material past the materials' share of the counter
-        // (PLAYERBOT_OFFLINE_MATERIAL_LINES_MAX).
+        // (PLAYERBOT_OFFLINE_MATERIAL_LINES_MAX, three fifths of its cells).
         if (IsPlayerBotTradeableMaterial(item) && !IsPlayerBotSafeRefineScroll(item->GetVnum()) &&
                 BotOfflineMaterialLines(shop) >= PLAYERBOT_OFFLINE_MATERIAL_LINES_MAX) return true;
         // Nor a mission book past the thirty of its village (Patch 4, point 13).
@@ -1338,9 +1431,11 @@ namespace {
         // every keeper out on the frontier was most of the gates' traffic. An
         // empty hand with a weapon on its own counter does not wait (the
         // reclaim probe above), nor does the first visit after a start, nor a
-        // slipped price whose time is out (the slip probe above).
+        // slipped price whose time is out (the slip probe above), nor a rod or
+        // a pickaxe the owner's session is waiting for (AskPlayerBotTackleHome).
         if (!o.visiting && ch->GetMapIndex() != serviceMap && ch->GetWear(WEAR_WEAPON) &&
-                o.lastServedAt != 0 && !Due(now, o.lastServedAt + PLAYERBOT_OFFLINE_FAR_SERVICE_MIN_MS)) {
+                o.lastServedAt != 0 && !Due(now, o.lastServedAt + PLAYERBOT_OFFLINE_FAR_SERVICE_MIN_MS) &&
+                !IsPlayerBotTackleAskedHome(ch->GetPlayerID(), now)) {
             long long normal = 0;
             int ageMin = -1;
             if (!BotOfflineDueSlipLine(ch, state, shop, now, normal, ageMin)) {
@@ -1374,11 +1469,15 @@ namespace {
         // once on the same test - so it cuts no line: the cut would only be
         // poured back by the merge pass, after a whole bag's scoring for it.
         // Nor does one that puts a slipped price right (below, once the board
-        // is open).
+        // is open), nor one that lifts a chest or a bonus item to its floor.
         long long slipNormal = 0;
         int slipAgeMin = -1;
         const DWORD dueSlip = BotOfflineDueSlipLine(ch, state, shop, now, slipNormal, slipAgeMin);
-        if (dueSlip || (!o.restockTurn && o.nextReprice && Due(now, o.nextReprice) && !shop->GetItems().empty()))
+        long long raisePrice = 0, raiseWas = 0;
+        DWORD raiseVnum = 0;
+        const DWORD dueRaise = dueSlip ? 0 : BotOfflineUnderFloorLine(ch, shop, raisePrice, raiseWas, raiseVnum);
+        if (dueSlip || dueRaise ||
+                (!o.restockTurn && o.nextReprice && Due(now, o.nextReprice) && !shop->GetItems().empty()))
             o.preparedItem = 0;
         else
             BotOfflinePrepareVisitLine(ch, state, shop);
@@ -1537,6 +1636,15 @@ namespace {
                 return false;
             }
         }
+        // A Moonlight chest or a bonus item that asks less than its floor goes
+        // up to it before anything goes on (BotOfflineUnderFloorLine), a step
+        // of its own like the slip's. After the take-off, so a trader's chest
+        // line comes home to be opened rather than being lifted first.
+        if (dueRaise && BotOfflineRaiseToFloor(ch, dueRaise, raisePrice, raiseWas, raiseVnum, now)) {
+            BotOfflineFinishVisit(ch, state, now);
+            BotOfflineChainVisit(state, now);
+            return false;
+        }
         std::vector<std::pair<int, WORD> > scored;
         CollectPlayerBotShopItems(ch, scored, IsPlayerBotStallKeeper(state), lowGearOnCounter);
         // The line cut before the board opened goes first, whatever it scores
@@ -1576,7 +1684,17 @@ namespace {
             item = ch->GetInventoryItem(at);
             if (!item || !BotOfflineValid(ch, item, pos)) continue;
             ikashop::TPriceInfo price{};
-            price.yang = std::max(GetPlayerBotShopAskingPrice(item), GetPlayerBotRefineInvestment(item));
+            // A new line is marked down by nothing, so it asks its kind's
+            // markup when the market keeps selling the kind and keeps running
+            // out of it (Iwakura, 28 September; GetPlayerBotListingPrice).
+            int markup = 0;
+            price.yang = std::max(GetPlayerBotListingPrice(item, GetPlayerBotShopAskingPrice(item), 0, &markup),
+                    GetPlayerBotListingFloor(item));
+            if (markup > 0)
+                PlayerBotLogThrottled("offline_markup", now,
+                        "PLAYERBOT_OFFLINE: marked up pid=%u name=%s item=%u vnum=%u markup=%d%% price=%lld at=add",
+                        ch->GetPlayerID(), ch->GetName(), item->GetID(), item->GetVnum(), markup,
+                        (long long)price.yang);
             // Iwakura's "ludzka pomylka" (BotOfflineSlipPrice): a single book
             // or a single refine material drawn to slip asks one zero too many.
             // No bot buys it (IsPlayerBotPriceSlipOffer), and it stands four
@@ -1637,10 +1755,15 @@ namespace {
                     TPlayerBotPricingKeeper pricing(ch->GetPlayerID());
                     ikashop::TPriceInfo price{};
                     // A line nobody has bought comes down a step for every
-                    // PLAYERBOT_OFFLINE_UNSOLD_STEP_MS it has stood, to the ceiling
-                    // the classic stall's markdown has and never under what the
-                    // blacksmith was paid (16 September). The clock is the
-                    // listing's own (o.listed); a line from before this core
+                    // PLAYERBOT_OFFLINE_UNSOLD_STEP_MS it has stood - ten percent
+                    // every three hours to forty since Iwakura's answer of 28
+                    // September - to the ceiling the classic stall's markdown has
+                    // and never under what the blacksmith was paid (16
+                    // September), nor under what a Moonlight chest holds or a
+                    // bonus item is worth (GetPlayerBotListingFloor, blipu, 28
+                    // September). A line not marked down asks its kind's markup
+                    // instead, never both (GetPlayerBotListingPrice). The clock is
+                    // the listing's own (o.listed); a line from before this core
                     // started is clocked from the first visit that sees it.
                     auto listed = o.listed.find(it->first);
                     if (listed == o.listed.end())
@@ -1653,15 +1776,21 @@ namespace {
                         listed->second.observedSince = now;
                     const uint32_t since = listed->second.when ? listed->second.when : listed->second.observedSince;
                     const uint32_t standing = now - since;
-                    int discount = (int)(standing / PLAYERBOT_OFFLINE_UNSOLD_STEP_MS) * PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT;
-                    if (discount > PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL)
-                        discount = PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL;
-                    const long long asking = (long long)GetPlayerBotShopAskingPrice(preview) * (100 - discount) / 100;
-                    price.yang = std::max(asking, (long long)GetPlayerBotRefineInvestment(preview));
+                    const int discount = playerbot_price_rules::UnsoldMarkdownPercent(standing,
+                            PLAYERBOT_OFFLINE_UNSOLD_STEP_MS, PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT,
+                            PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL);
+                    int markup = 0;
+                    const long long asking = GetPlayerBotListingPrice(preview,
+                            GetPlayerBotShopAskingPrice(preview), discount, &markup);
+                    price.yang = std::max(asking, (long long)GetPlayerBotListingFloor(preview));
                     if (discount > 0 && price.yang != it->second->GetPrice().yang)
                         PlayerBotLogThrottled("offline_markdown", now, "PLAYERBOT_OFFLINE: marked down pid=%u name=%s item=%u vnum=%u standing_min=%u discount=%d%% price=%lld",
                                 ch->GetPlayerID(), ch->GetName(), it->first, preview->GetVnum(),
                                 standing / 60000U, discount, (long long)price.yang);
+                    if (markup > 0 && price.yang != it->second->GetPrice().yang)
+                        PlayerBotLogThrottled("offline_markup", now, "PLAYERBOT_OFFLINE: marked up pid=%u name=%s item=%u vnum=%u markup=%d%% price=%lld at=reprice",
+                                ch->GetPlayerID(), ch->GetName(), it->first, preview->GetVnum(),
+                                markup, (long long)price.yang);
                     M2_DELETE(preview);
                     if (price.yang > 0 && price.yang < GOLD_MAX && price.yang != it->second->GetPrice().yang &&
                             Begin(ch->GetPlayerID(), Edit, it->first, now)) {

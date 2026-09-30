@@ -8,6 +8,7 @@ import app
 import localeInfo
 import uiCommon
 from _weakref import proxy
+from playerbot_lang import T
 
 YANG_PER_CHEQUE = 100000000
 
@@ -91,12 +92,45 @@ CATEGORY_VNUM_RANGE_OVERRIDES = (
 
 # (klucz, nazwa na przycisku, kod sortowania po stronie serwera: 0 cena rosnaco, 1 cena malejaco, 2 cena za sztuke)
 SORT_MODES = (
-    ("price_asc", "Cena: rosnaco", 0),
-    ("price_desc", "Cena: malejaco", 1),
-    ("unit_asc", "Cena za sztuke", 2),
-    ("name", "Nazwa A-Z", 0),
-    ("seller", "Sprzedawca A-Z", 0),
+    ("price_asc", T("Cena: rosnaco", "Price: low to high"), 0),
+    ("price_desc", T("Cena: malejaco", "Price: high to low"), 1),
+    ("unit_asc", T("Cena za sztuke", "Price per piece"), 2),
+    ("name", T("Nazwa A-Z", "Name A-Z"), 0),
+    ("seller", T("Sprzedawca A-Z", "Seller A-Z"), 0),
 )
+
+# A category's Polish label is its key - the vnum overrides above name it - and
+# a client set to any language but Polish shows this English name for it
+# (playerbot_lang.T).
+CATEGORY_NAMES_EN = {
+    "Wszystko": "All",
+    "Bron": "Weapons",
+    "Miecze jednoreczne": "One-handed swords",
+    "Miecze dwureczne": "Two-handed swords",
+    "Luki": "Bows",
+    "Sztylety": "Daggers",
+    "Dzwony": "Bells",
+    "Wachlarze": "Fans",
+    "Zbroje": "Armour",
+    "Helmy": "Helmets",
+    "Tarcze": "Shields",
+    "Buty": "Shoes",
+    "Bransolety": "Bracelets",
+    "Naszyjniki": "Necklaces",
+    "Kolczyki": "Earrings",
+    "Ksiegi": "Skill books",
+    "Ksiegi zapomnienia": "Forgetting books",
+    "Kamienie duszy": "Spirit stones",
+    "Rudy i przetopy": "Ores",
+    "Dopalacze": "Potions",
+    "Uzywalne": "Usable items",
+    "Ulepszacze": "Upgrade items",
+    "Inne": "Other",
+}
+
+
+def CategoryName(label):
+    return T(label, CATEGORY_NAMES_EN.get(label, label))
 
 
 # Etykiety kategorii, do ktorych vnum-owe wyjatki (patrz CATEGORY_VNUM_OVERRIDES/_RANGE_OVERRIDES
@@ -253,7 +287,7 @@ class FleaRow(ui.Window):
         self.buyButton.SetUpVisual("d:/ymir work/ui/public/middle_button_01.sub")
         self.buyButton.SetOverVisual("d:/ymir work/ui/public/middle_button_02.sub")
         self.buyButton.SetDownVisual("d:/ymir work/ui/public/middle_button_03.sub")
-        self.buyButton.SetText("Kup")
+        self.buyButton.SetText(T("Kup", "Buy"))
         self.buyButton.SetEvent(self.__OnBuy)
         self.buyButton.Show()
 
@@ -301,16 +335,16 @@ class FleaRow(ui.Window):
             self.countText.Hide()
 
         self.nameText.SetText(self.market.GetItemName(data))
-        self.sellerText.SetText("Sprzedawca: %s" % data["seller_name"])
+        self.sellerText.SetText(T("Sprzedawca: %s", "Seller: %s") % data["seller_name"])
         bonuses = self.market.CountBonuses(data)
         if bonuses > 0:
-            self.bonusText.SetText("Bonusy: %d" % bonuses)
+            self.bonusText.SetText(T("Bonusy: %d", "Bonuses: %d") % bonuses)
         else:
             self.bonusText.SetText("")
         self.quantityText.SetText("x%d" % count if count > 1 else "")
         self.priceText.SetText(self.market.FormatPrice(data))
         if count > 1:
-            self.unitText.SetText("%s / szt." % self.market.FormatUnitPrice(data))
+            self.unitText.SetText(T("%s / szt.", "%s / pc.") % self.market.FormatUnitPrice(data))
         else:
             self.unitText.SetText("")
         self.__RefreshBackground()
@@ -385,13 +419,13 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.SetSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.AddFlag("movable")
         self.AddFlag("float")
-        self.SetTitleName("Dom Towarowy")
+        self.SetTitleName(T("Dom Towarowy", "Flea Market"))
         self.SetCloseEvent(self.Close)
 
         # panel kategorii
         self.__MakeCard(SIDEBAR_X, SIDEBAR_Y, SIDEBAR_WIDTH, len(self.categories) * CATEGORY_HEIGHT + 8)
         for index, category in enumerate(self.categories):
-            button = FleaCategoryButton(self, index, category["label"], category["indent"])
+            button = FleaCategoryButton(self, index, CategoryName(category["label"]), category["indent"])
             button.SetParent(self)
             button.SetPosition(SIDEBAR_X + 6, SIDEBAR_Y + 4 + index * CATEGORY_HEIGHT)
             button.Show()
@@ -399,19 +433,19 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.categoryButtons[0].SetSelected(True)
 
         # pasek wyszukiwania
-        label = self.__MakeText(MAIN_X, SIDEBAR_Y + 3, "Nazwa:")
+        label = self.__MakeText(MAIN_X, SIDEBAR_Y + 3, T("Nazwa:", "Name:"))
         label.SetPackedFontColor(COLOR_HEAD)
         self.searchEdit = self.__MakeEdit(MAIN_X + 46, SIDEBAR_Y, 330, 32)
         self.searchEdit.OnIMEUpdate = ui.__mem_func__(self.__OnSearchTextChanged)
         self.searchEdit.SAFE_SetReturnEvent(self.Search)
-        self.searchButton = self.__MakeButton(MAIN_X + 384, SIDEBAR_Y - 2, 84, "Szukaj", self.Search)
-        self.refreshButton = self.__MakeButton(MAIN_X + 474, SIDEBAR_Y - 2, 84, "Odswiez", self.Refresh)
-        self.clearButton = self.__MakeButton(MAIN_X + 564, SIDEBAR_Y - 2, 104, "Wyczysc filtry", self.ClearFilters)
+        self.searchButton = self.__MakeButton(MAIN_X + 384, SIDEBAR_Y - 2, 84, T("Szukaj", "Search"), self.Search)
+        self.refreshButton = self.__MakeButton(MAIN_X + 474, SIDEBAR_Y - 2, 84, T("Odswiez", "Refresh"), self.Refresh)
+        self.clearButton = self.__MakeButton(MAIN_X + 564, SIDEBAR_Y - 2, 104, T("Wyczysc filtry", "Clear filters"), self.ClearFilters)
 
-        label = self.__MakeText(MAIN_X, SIDEBAR_Y + 31, "Cena od:")
+        label = self.__MakeText(MAIN_X, SIDEBAR_Y + 31, T("Cena od:", "Price:"))
         label.SetPackedFontColor(COLOR_HEAD)
         self.priceMinEdit = self.__MakeEdit(MAIN_X + 56, SIDEBAR_Y + 28, 110, 12, True)
-        label = self.__MakeText(MAIN_X + 176, SIDEBAR_Y + 31, "do:")
+        label = self.__MakeText(MAIN_X + 176, SIDEBAR_Y + 31, T("do:", "to:"))
         label.SetPackedFontColor(COLOR_HEAD)
         self.priceMaxEdit = self.__MakeEdit(MAIN_X + 198, SIDEBAR_Y + 28, 110, 12, True)
         self.sortButton = self.__MakeButton(MAIN_X + 330, SIDEBAR_Y + 26, 150, SORT_MODES[0][1], self.CycleSort)
@@ -433,9 +467,9 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
 
         # naglowek listy
         self.__MakeBar(MAIN_X, ROWS_Y - 20, ROW_WIDTH, 18, 0x33FFFFFF)
-        self.__MakeText(MAIN_X + 60, ROWS_Y - 18, "Przedmiot").SetPackedFontColor(COLOR_HEAD)
-        self.__MakeText(MAIN_X + 340, ROWS_Y - 18, "Ilosc").SetPackedFontColor(COLOR_HEAD)
-        priceHead = self.__MakeText(102, ROWS_Y - 18, "Cena")
+        self.__MakeText(MAIN_X + 60, ROWS_Y - 18, T("Przedmiot", "Item")).SetPackedFontColor(COLOR_HEAD)
+        self.__MakeText(MAIN_X + 340, ROWS_Y - 18, T("Ilosc", "Quantity")).SetPackedFontColor(COLOR_HEAD)
+        priceHead = self.__MakeText(102, ROWS_Y - 18, T("Cena", "Price"))
         priceHead.SetWindowHorizontalAlignRight()
         priceHead.SetHorizontalAlignRight()
         priceHead.SetPosition(114, ROWS_Y - 18)
@@ -459,8 +493,8 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         footerY = ROWS_Y + ROWS_PER_PAGE * ROW_HEIGHT + 8
         self.statusText = self.__MakeText(MAIN_X + 4, footerY + 4, "")
         self.statusText.SetPackedFontColor(COLOR_DIM)
-        self.previousButton = self.__MakeButton(MAIN_RIGHT - 190, footerY, 90, "< Poprzednia", self.PreviousPage)
-        self.nextButton = self.__MakeButton(MAIN_RIGHT - 94, footerY, 90, "Nastepna >", self.NextPage)
+        self.previousButton = self.__MakeButton(MAIN_RIGHT - 190, footerY, 90, T("< Poprzednia", "< Previous"), self.PreviousPage)
+        self.nextButton = self.__MakeButton(MAIN_RIGHT - 94, footerY, 90, T("Nastepna >", "Next >"), self.NextPage)
         self.pageText = self.__MakeText(MAIN_RIGHT - 300, footerY + 4, "")
         self.pageText.SetPackedFontColor(COLOR_TEXT)
 
@@ -885,11 +919,13 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
     # ---- wyswietlanie -------------------------------------------------------------------
     def __UpdateStatus(self):
         if self.isLoading:
-            self.statusText.SetText("Wczytywanie ofert... pobrano %d" % len(self.pendingItems))
+            self.statusText.SetText(T("Wczytywanie ofert... pobrano %d", "Loading offers... %d received") % len(self.pendingItems))
         elif len(self.allItems) >= MAX_LISTINGS:
-            self.statusText.SetText("Pokazano %d ofert (limit) - zawez wyszukiwanie, zeby zobaczyc reszte." % len(self.allItems))
+            self.statusText.SetText(T("Pokazano %d ofert (limit) - zawez wyszukiwanie, zeby zobaczyc reszte.",
+                "Showing %d offers (the limit) - narrow the search to see the rest.") % len(self.allItems))
         else:
-            self.statusText.SetText("Ofert: %d (pasuje do filtrow: %d)" % (len(self.allItems), len(self.items)))
+            self.statusText.SetText(T("Ofert: %d (pasuje do filtrow: %d)", "Offers: %d (matching the filters: %d)")
+                % (len(self.allItems), len(self.items)))
 
     def __RefreshRows(self):
         first = self.page * ROWS_PER_PAGE
@@ -900,7 +936,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             else:
                 self.rows[index].Clear()
         pageCount = (len(self.items) + ROWS_PER_PAGE - 1) // ROWS_PER_PAGE
-        self.pageText.SetText("Strona %d / %d" % (self.page + 1 if pageCount else 0, pageCount))
+        self.pageText.SetText(T("Strona %d / %d", "Page %d / %d") % (self.page + 1 if pageCount else 0, pageCount))
         if self.page > 0:
             self.previousButton.Enable()
         else:
@@ -912,9 +948,9 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         if self.items:
             self.emptyText.SetText("")
         elif self.isLoading:
-            self.emptyText.SetText("Wczytywanie ofert...")
+            self.emptyText.SetText(T("Wczytywanie ofert...", "Loading offers..."))
         else:
-            self.emptyText.SetText("Brak ofert spelniajacych kryteria")
+            self.emptyText.SetText(T("Brak ofert spelniajacych kryteria", "No offers match the filters"))
         self.__UpdateStatus()
 
     def PreviousPage(self):
@@ -976,7 +1012,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             return
         item.SelectItem(data["vnum"])
         dialog = uiCommon.QuestionDialog()
-        dialog.SetText("Kupic %s za %s?" % (item.GetItemName(), self.FormatPrice(data)))
+        dialog.SetText(T("Kupic %s za %s?", "Buy %s for %s?") % (item.GetItemName(), self.FormatPrice(data)))
         dialog.acceptButton.SAFE_SetEvent(self.__AcceptBuy)
         dialog.SetDefaultCancelEvent()
         dialog.Open()

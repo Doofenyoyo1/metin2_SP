@@ -17,6 +17,217 @@ every version here.
 
 ---
 
+## 2.2.42 — 2026-09-30
+
+Serwer 2.2.42 i klient 2.0.54: zaktualizuj oba („AKTUALIZUJ wszystko”
+w launcherze). Na VPS: `sh linux-port/tools/update.sh`. Gra, launcher i
+panel klasyczny mówią po angielsku do tego, kto wybrał angielski, a dla
+angielskiego gracza serwer mówi po angielsku: nazwy NPC, okrzyki, szepty i
+sklepy botów. Okno Towarzysza to okno postaci z czterema zakładkami, boty z
+gildii gracza pomagają mu w walce i słuchają rozkazów z okna gildii, rundy
+wojen gildii mają koniec i przerwę, sklepy botów są dwa razy większe, a
+Auto-Cena pokazuje zakres cen z rynku. Do tego Stalki u botów, Baronowa
+Pająków w V2, opcjonalne kanały 3 i 4 ze świeżymi botami i jeden
+przełącznik Skrzyń Ucznia, który obejmuje też boty. Zawiera wszystko z
+2.2.38.
+
+Ta wersja przenosi na naszą 2.2.38 wersje 2.2.36, 2.2.37 i 2.2.38 projektu
+źródłowego (serwer) i jego klienty 2.0.50, 2.0.51 i 2.0.52, wzięte z jego
+paczek aktualizacji. Zostaje wszystko, co dodaliśmy wcześniej: trzej kowale
+gildii i powody odrzucenia budynku, okno zmiany bonusów pod klawiszem U,
+wierzchowce z pieczęci w ItemShopie, hostowanie w COOP bez hasła, serwer na
+VPS i linki do naszego repozytorium. Od 2.2.39 projekt źródłowy wydaje
+serwer już tylko jako gotowe programy, bez kodu, więc tamtych wersji nie
+da się przenieść tą drogą.
+
+### Po angielsku
+
+Dla gracza, którego klient jest ustawiony na inny język niż polski.
+Wszystkie nazwy są oficjalnymi angielskimi nazwami z Metina: pochodzą z
+angielskiego pakietu klienta, a czego tam nie ma, zostaje po polsku. Gracz
+grający po polsku dostaje dokładnie to, co dotąd.
+
+- **Gra.** Po angielsku jest wszystko, co nasze: okna (Auto Łowy,
+  Towarzysz, podglądy, sortowanie ekwipunku, Dom Towarowy, Auto-Cena,
+  autologin), ogłoszenia botów, to, co bot mówi do jednej osoby, questy
+  serwera i odpowiedź gildii botów na wypowiedzenie wojny. Serwer pyta
+  klienta o język przy każdym wejściu do gry; stary klient o nic nie jest
+  pytany i zostaje przy polskim.
+- **Nazwy NPC nad głowami.** Serwer wysyła każdemu graczowi nazwę NPC w jego
+  języku; nazwy potworów klient brał już z własnego pakietu. (Jeremus-Sama)
+- **Boty.** Okrzyki o ich ladach i potrzebach każdy czyta w swoim języku,
+  sklepy botów mają angielskie nazwy dla angielskiego gracza (sklepy graczy
+  się nie zmieniają), wołania botów na czacie gildii (boss, wieża, Metin) są
+  w języku mistrza gildii, a w szeptach bot rozmawia po angielsku: rozumie
+  angielskie pytania (poziom, klasa, gdzie expi, buffy, „come here”, grupa,
+  ceny) i WTB, WTS, buy i sell w handlu.
+- **Towarzysz** słucha też angielskich rozkazów w szepcie („defend me”,
+  „to me”, „play alone”, „report” i reszta) i komendy `/towarzysz` z
+  angielskimi słowami. List Towarzysza ma angielski tytuł.
+- **Pasek efektów w kliencie**: nazwy i opisy buffów, ich bonusy, „efekt
+  minął” i efekty przedmiotów z ItemShopu. W angielskim pakiecie brakowało
+  tych tekstów i klient brał polskie.
+- **Launcher.** Przełącznik języka tłumaczy teraz wszystko: okna i pytania,
+  komunikaty akcji w logu, błędy i porady diagnostyki, aktualizacje, kopie
+  zapasowe, paczkę pomocy, COOP i SERWER NA VPS.
+- **Panel klasyczny** mówi w czterech językach (polski, angielski,
+  niemiecki, turecki) na każdej stronie, łącznie z mapą na żywo i opisami
+  przedmiotów.
+- Poprawione przy okazji: bot z misją polowania mówił „Zostało mi Czarny
+  OrkN sztuk” zamiast liczby.
+
+### Towarzysz
+
+- **Okno jak okno postaci** (Piciu713, prodnathin). Okno Towarzysza (P) to
+  teraz zwykłe okno postaci z czterema zakładkami: Status (statystyki z „+”,
+  Ctrl+klik pyta o liczbę, PŻ, PE, atak, obrona, szybkości i przycisk
+  „Plecak”), Umiejętności (jak u gracza, z przełącznikiem rozdawania punktów
+  i „Zeruj”), Polecenia (co robi, gdzie, mikstury, Yang, rozkazy, postawa,
+  podnoszenie) i Opcje (straż, buffy, lurowanie, „Gra beze mnie”, skrzynie,
+  grupa). Osobne okna statystyk i umiejętności zniknęły; plecak zostaje.
+- **P zamyka wszystko** Towarzysza naraz, także plecak (blasty).
+- **Towarzysz nie traci fryzury, broni ani szarfy po zmianie zbroi.**
+  Towarzysz jest dla klienta NPC-em tylko na moment sprawdzania kolizji,
+  więc dalej można przez niego przechodzić, a jego model buduje się w
+  całości.
+
+### Gildie
+
+- **Boty z gildii gracza pomagają mu w walce** (Derpsonkowy95). Gdy boty z
+  innego królestwa atakują gracza, który jest w gildii, boty jego gildii w
+  pobliżu ruszają mu na pomoc: po jednym na każdego atakującego, najwyżej
+  sześć, a gracz dostaje wiadomość „[Gildia] X z twojej gildii rusza ci na
+  pomoc.”. Boty bronią tylko przed botami: w walkę dwóch graczy się nie
+  mieszają.
+- **Komendy dla botów w oknie gildii** (Derpsonkowy95). Na stronie
+  informacji gildii jest przycisk „Boty gildii” z trzema rozkazami:
+  „Pomocy!” (do 8 botów o poziomie co najmniej twój minus 10, na 5 minut),
+  „Expimy razem” (do 4 botów ±10 poziomów, na 15 minut) i „Wracajcie”. Boty
+  przychodzą tam, gdzie stoi twoja postać. Rozkazy wydaje mistrz gildii albo
+  ranga, której mistrz dał prawo używania umiejętności gildii.
+- **Wojnę gildii da się przyjąć** (xXxDaronxXx). Paczka mt2009 odrzucała
+  każde „OK” mistrza gildii na wypowiedzenie wojny, bez słowa, a propozycja
+  wracała po każdym teleporcie. Odpowiedź dotyczy teraz tej wojny, którą
+  wypowiedziano. Wypowiedzenie wojny gildii botów działa jak dotąd.
+- **Runda wojny gildii kończy się sama, a polegli czekają w obozie** (DUDU).
+  Bot, który padł, wstaje w swoim obozie i do końca rundy nie bierze udziału
+  w walce: nikogo nie atakuje i nikt go nie atakuje. Runda, w której nikt
+  nie pada przez minutę albo która trwa 3 minuty, kończy się wygraną strony
+  z większą liczbą stojących (przy równej liczbie remisem); bot zepchnięty
+  umiejętnością między skały wraca do obozu po 5 sekundach. Między rundami
+  jest 30 sekund przerwy w obozach, wszyscy stoją pełni i nakładają buffy.
+- **Boty odpisują na szepty z innego kanału.** Szept do bota na CH2 wysłany
+  z CH1 (i na odwrót) zostawał bez odpowiedzi. Teraz bot odpowiada, a gdy
+  prosisz go, żeby przyszedł, mówi, na którym kanale jest.
+
+### Rynek i sklepy
+
+- **Auto-Cena** (Piciu713). Pod podpowiedzią ceny w sklepie offline jest
+  trzecia linia: najtańsza i najdroższa taka sama oferta na rynku, liczona
+  na tę liczbę sztuk. Przycisk „Auto-cena” ma cztery ustawienia:
+  Sugerowana, Minimalna, Maksymalna i Nieaktywna (domyślnie Nieaktywna,
+  stare „tak” to Sugerowana). Ta sama podpowiedź i Auto-cena są też w oknie
+  zmiany ceny przedmiotu, który już stoi w sklepie. Ceny wpisanej ręcznie
+  nigdy nie nadpisuje.
+- **Sklep bota to jedno duże okno ze 160 polami** (prodnathin). Sklep
+  offline bota ma 160 pól zamiast 80, w jednej siatce 20×8: druga połowa
+  stoi obok pierwszej, a okno rozszerza się tylko wtedy, gdy sklep ma coś w
+  drugiej połowie. Sklepy graczy wyglądają jak dawniej, a towar w sklepach
+  zostaje tam, gdzie był.
+- **Ceny według Iwakury.** Niesprzedany towar tanieje o 10% co 3 godziny,
+  najwyżej o 40% (było co 2 godziny, do 50%). Towar, który się ciągle
+  sprzedaje, a na rynku go brakuje, drożeje o 10% za każde takie 3 godziny,
+  najwyżej o 40%, i tanieje z powrotem, gdy znów leży na ladach.
+- **Szkatułki Blasku** (blipu). Boty same otwierają swoje Szkatułki Blasku i
+  używają tego, co z nich wypadnie. Szkatułki na lady wystawiają tylko
+  droperzy, a cena szkatułki nie spada poniżej tego, co w niej jest warte.
+- **Boty nie wystawiają już wędek ani kilofów** (Octodan). Wędka od +4
+  szła na ladę pierwsza, a bot kupował sobie potem nową u Rybaka. Teraz
+  wędka i kilof nigdy nie trafiają na ladę, te, które już na niej stoją,
+  wracają do plecaka przy najbliższej obsłudze sklepu, a bot, którego wędka
+  stoi na ladzie, zabiera ją zamiast kupować nową. Drugą, gorszą wędkę
+  sprzedaje u handlarza.
+
+### Stalki i Baronowa Pająków
+
+- **Stalki u botów.** Zbroje z Czarnej Stali (66) i bronie na 75 poziom boty
+  trzymają na zapas: jedną na miejsce, swojej klasy, do 8 poziomów przed
+  czasem, i zakładają ją, gdy tylko mogą. Od 2 poziomów przed kupują taką z
+  rynku, jeśli nie mają żadnej, za najwyżej dwa razy tyle, ile wynosi cena z
+  cennika. Żadnego Stalka nie sprzedają handlarzowi; resztę wystawiają.
+- **Baronowa Pająków** stoi w ostatniej komnacie drugiego Lochu Pająków (V2)
+  co 4-5 godzin. Ciosy w nią liczą się dziesięć razy, jak w jej leżu po
+  rozbiciu jaj, a boty z przedziału 67-84 zbierają się na nią w rajd.
+
+### Kanały 3 i 4 ze świeżymi botami (do wyboru)
+
+- W launcherze w oknie botów zamiast „Drugi kanał” jest lista „Kanały gry
+  (1-4)”, to samo w panelu klasycznym. Przy 3 i 4 kanałach na CH3 (i CH4)
+  grają świeże boty od 1 poziomu: osobne postacie, po 500 na królestwo,
+  tworzone przy pierwszym starcie z tym ustawieniem. Nie przechodzą na CH1 i
+  CH2, a na CH3 i CH4 nie ma sklepów, gildii botów, wojen, Wieży ani
+  wydarzeń. Domyślnie wszystko zostaje jak było.
+- Każdy kanał to ok. 2,5 GB RAM (zmierzone przy 4 kanałach). Launcher
+  ostrzega już od dwóch kanałów, gdy połowa pamięci komputera (tyle zwykle
+  dostaje Docker) jest mniejsza, niż potrzebują wybrane kanały. (Piciu97)
+- Klient pokazuje na liście kanałów CH3 i CH4, gdy odpowiadają, a okno
+  zmiany kanału w grze ma przycisk tylko dla działających kanałów. Kanał po
+  wyborze serwera zmienia się przyciskiem „Wybierz” obok jego nazwy.
+- **Liczba botów nie rośnie już ponad ustawienie** (Latarka). Na nowym
+  świecie każdy rdzeń uruchamiał wejście botów od nowa za każdym razem, gdy
+  podłączał się kolejny rdzeń, więc przy 4 kanałach wchodziło ponad 5000
+  botów zamiast 2500. Teraz każdy rdzeń wpuszcza boty tylko raz.
+- **„Teleportuj mnie” przenosi też na kanał bota** (prodnathin). Gdy bot
+  jest na innym kanale, postać przechodzi na jego kanał, tak jak przy
+  `/warp` GM-a do postaci na innym kanale.
+
+### Świat
+
+- **Skrzynie Ucznia mają jeden przełącznik, który obejmuje też boty**
+  (seban latino). Dotąd wyłączenie działało tylko na postacie graczy: każdy
+  nowy bot i tak dostawał Skrzynię Ucznia I, a przełącznik w panelu Sebana
+  zapisywał ustawienie, którego gra nie czytała. Teraz jest jedno
+  ustawienie: w launcherze (okno trudności), w obu panelach (działa od razu,
+  bez restartu) i w `.env`. Wyłączone znaczy: nikt nie dostaje skrzyni, nowe
+  boty powstają bez niej, a boty już w świecie tracą wszystkie skrzynie z
+  łańcucha (ucznia, eksperta, mistrza). Skrzynie graczy zostają. Włączone
+  działa jak dotąd.
+- **Boty nie kręcą się już przy wyjściu z pierwszej wioski** (blasty). Boty
+  od 30 poziomu trzymane w M1 jeździły co półtorej minuty przez całą wioskę
+  po materiał do wilka 3-4 poziomu, z którego materiał prawie nie wypada.
+  Teraz bot idzie po materiał tylko do potwora, który może mu go jeszcze
+  dać, a bot z tuzinem śmieci w plecaku nie czeka już w M1 na wizytę u
+  handlarza, której nic nie uruchamiało.
+- **Samo kliknięcie gracza nie robi z nikogo zabójcy.** Pokazywanie PŻ
+  zaznaczonego gracza albo bota sprawdzało, czy można go zaatakować, tak jak
+  prawdziwy cios: w trybie wolnym albo gildyjnym oznaczało to postać jako
+  zabójcę na ok. 30 sekund, a w pojedynku samo patrzenie przedłużało jego
+  zegar. Teraz to pytanie niczego nie zmienia.
+
+### Klient i panele
+
+- **Tablica celu ma szerokość nazwy celu** (St_August, DUDU). Nie rozciąga
+  się już przez cały ekran i nie jest węższa niż jej przyciski.
+- **Ekran logowania wypełnia cały ekran w każdej rozdzielczości** (Latarka,
+  GorącyDelfin). W 2K i 4K reszta ekranu pokazywała obraz schowanego okna
+  wyboru serwera.
+- **Podgląd Metina pokazuje, co może wypaść** (blipu): wszystkie Kamienie
+  Duchowe na wszystkich poziomach, jakie ten Metin może dać, a nie ten
+  jeden, który już wylosował.
+- **Klawisz U** dalej otwiera u nas okno zmiany bonusów. Projekt źródłowy
+  dał na U okno zmiany kanału; u nas otwiera się je z menu systemowego.
+- **Panele: gracze w rankingach** (blipu). W obu panelach rankingi liczą też
+  postacie graczy (bez postaci GM-ów), z ikoną 👤 i przełącznikiem „Tylko
+  gracze”. Strony gildii pokazują też gildie prowadzone przez graczy.
+- **Panel Sebana w wersji 1.100.6**: stronicowanie rankingów, przetopy w
+  tooltipach, boty na kanałach na dashboardzie, szybsze ładowanie, teleport
+  na kanał bota, Tanaka i Zuo na wybranej mapie.
+- **Tunel SERWER NA VPS nie zabiera portów serwera na tym samym
+  komputerze** (Sudak). Gdy w folderze launchera jest też serwer, panele VPS
+  otwierają się na 17788, 17790 i 17791, a tunel otwarty przez starszy
+  launcher na portach serwera jest zamykany przed startem i aktualizacją
+  serwera; otwórz go wtedy ponownie.
+
 ## 2.2.38 — 2026-09-28
 
 Serwer 2.2.38 i klient 2.0.50: zaktualizuj oba („AKTUALIZUJ wszystko”

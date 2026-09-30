@@ -19,6 +19,7 @@ import special_flags
 import player
 import ikashop
 import shoppricepump
+import playerbot_lang
 import mouseModule
 import offlineShopSearch
 import flamewindPath
@@ -28,33 +29,71 @@ EVENT_CLOSE_MYSHOP_SHOP_MANAGE = "EVENT_CLOSE_MYSHOP_SHOP_MANAGE" # args |
 
 AUTO_PRICE_FILE = "shop_auto_price.cfg"
 AUTO_PRICE_KEY = "auto_price"
+AUTO_PRICE_SUGGESTED = "suggested"
+AUTO_PRICE_MINIMUM = "minimum"
+AUTO_PRICE_MAXIMUM = "maximum"
+AUTO_PRICE_INACTIVE = "inactive"
+AUTO_PRICE_MODES = (
+	AUTO_PRICE_SUGGESTED,
+	AUTO_PRICE_MINIMUM,
+	AUTO_PRICE_MAXIMUM,
+	AUTO_PRICE_INACTIVE,
+)
 
-def IsAutoPriceOn():
+# /flea_price <request> <window> <cell> <version>: version 2 asks for the
+# market's range as well, and window 255 is a line of the player's own
+# offline shop, named by its item id. A server that knows neither ignores
+# the fourth number and answers window 255 with nothing.
+FLEA_PRICE_REQUEST_VERSION = 2
+FLEA_PRICE_OWN_SHOP_WINDOW = 255
+
+def GetAutoPriceMode():
 	try:
 		f = open(AUTO_PRICE_FILE, "r")
 		try:
 			for line in f.readlines():
 				key, sep, value = line.partition("=")
 				if sep and key.strip() == AUTO_PRICE_KEY:
-					return value.strip() == "1"
+					value = value.strip().lower()
+					if value in AUTO_PRICE_MODES:
+						return value
+					if value == "1":
+						return AUTO_PRICE_SUGGESTED
+					if value == "0":
+						return AUTO_PRICE_INACTIVE
 		finally:
 			f.close()
 	except (IOError, OSError):
 		pass
-	return False
+	return AUTO_PRICE_INACTIVE
 
-def SetAutoPriceOn(on):
+def SetAutoPriceMode(mode):
+	if mode not in AUTO_PRICE_MODES:
+		mode = AUTO_PRICE_INACTIVE
 	try:
 		f = open(AUTO_PRICE_FILE, "w")
 		try:
-			f.write("%s=%d\n" % (AUTO_PRICE_KEY, 1 if on else 0))
+			f.write("%s=%s\n" % (AUTO_PRICE_KEY, mode))
 		finally:
 			f.close()
 	except (IOError, OSError):
 		pass
 
-def GetAutoPriceText(on):
-	return "Auto cena: %s" % ("tak" if on else "nie")
+def GetAutoPriceText(mode):
+	labels = {
+		AUTO_PRICE_SUGGESTED: playerbot_lang.T("Sugerowana", "Suggested"),
+		AUTO_PRICE_MINIMUM: playerbot_lang.T("Minimalna", "Minimum"),
+		AUTO_PRICE_MAXIMUM: playerbot_lang.T("Maksymalna", "Maximum"),
+		AUTO_PRICE_INACTIVE: playerbot_lang.T("Nieaktywna", "Inactive"),
+	}
+	return labels.get(mode, labels[AUTO_PRICE_INACTIVE])
+
+def GetNextAutoPriceMode(mode):
+	try:
+		index = AUTO_PRICE_MODES.index(mode)
+	except ValueError:
+		index = len(AUTO_PRICE_MODES) - 1
+	return AUTO_PRICE_MODES[(index + 1) % len(AUTO_PRICE_MODES)]
 
 g_isEditingPrivateShop = False
 def IsEditingPrivateShop():
@@ -211,6 +250,7 @@ class OfflineShopManage(ui.ScriptWindow):
 		self.addItemDialog = None
 		self.fleaPriceDialog = None
 		self.fleaPriceRequestID = 0
+		self.fleaPriceRange = None
 		self.closeShopDialog = None
 		self.editSignDialog = None
 		self.endTime = 0
@@ -507,13 +547,15 @@ class OfflineShopManage(ui.ScriptWindow):
 			# ikashop.SendRequestEdit(True)
 			self.addItemDialog = dialog
 			self.ActivateItems(itemSlotList)
+			dialog.SetValue(itemData["price"])
+			self.__RequestFleaMarketPrice(FLEA_PRICE_OWN_SHOP_WINDOW, itemData["id"])
 
 	def __CloseAddInput(self):
 		self.fleaPriceDialog = None
 		self.addItemDialog.Close()
 		return True
 
-	def __SetFleaMarketPriceHint(self, dialog, primaryText, secondaryText):
+	def __SetFleaMarketPriceHint(self, dialog, primaryText, secondaryText, rangeText=""):
 		if not hasattr(dialog, "fleaMarketPriceHint"):
 			dialog.fleaMarketPriceHint = ui.TextLine()
 			dialog.fleaMarketPriceHint.SetParent(dialog.board)
@@ -529,6 +571,13 @@ class OfflineShopManage(ui.ScriptWindow):
 			dialog.fleaMarketPriceHistory.SetPackedFontColor(0xFFA8D8FF)
 			dialog.fleaMarketPriceHistory.Show()
 
+			dialog.fleaMarketPriceRange = ui.TextLine()
+			dialog.fleaMarketPriceRange.SetParent(dialog.board)
+			dialog.fleaMarketPriceRange.SetWindowHorizontalAlignCenter()
+			dialog.fleaMarketPriceRange.SetHorizontalAlignCenter()
+			dialog.fleaMarketPriceRange.SetPackedFontColor(0xFFA8E6A3)
+			dialog.fleaMarketPriceRange.Show()
+
 		if app.ENABLE_CHEQUE_SYSTEM:
 			hintY = 112
 			buttonY = 145
@@ -537,29 +586,89 @@ class OfflineShopManage(ui.ScriptWindow):
 			buttonY = 112
 
 		if not hasattr(dialog, "fleaAutoPriceButton"):
-			button = ui.Button()
+			button = ui.ExpandedImageBox()
 			button.SetParent(dialog.board)
-			button.SetUpVisual("d:/ymir work/ui/public/large_button_01.sub")
-			button.SetOverVisual("d:/ymir work/ui/public/large_button_02.sub")
-			button.SetDownVisual("d:/ymir work/ui/public/large_button_03.sub")
-			button.SetWindowHorizontalAlignCenter()
-			button.SetToolTipText("Wpisuje sugestie botow jako cene")
-			button.SAFE_SetEvent(self.__OnToggleAutoPrice)
+			button.LoadImage("d:/ymir work/ui/public/middle_button_01.sub")
+			imageWidth = button.GetWidth()
+			imageHeight = button.GetHeight()
+			if imageWidth <= 0:
+				imageWidth = 1
+			button.SetSize(imageWidth, imageHeight)
+			button.SetScale(1.0, 1.0)
+			button.SetEvent(ui.__mem_func__(self.__OnAutoPriceButtonClick), "mouse_click")
+			button.SAFE_SetStringEvent("MOUSE_OVER_IN", self.__OnAutoPriceButtonHoverIn)
+			button.SAFE_SetStringEvent("MOUSE_OVER_OUT", self.__OnAutoPriceButtonHoverOut)
+			button.SAFE_SetStringEvent("MOUSE_LEFT_BUTTON", self.__OnAutoPriceButtonMouseDown)
 			button.Show()
 			dialog.fleaAutoPriceButton = button
-		dialog.fleaAutoPriceButton.SetPosition(0, hintY + 34)
-		dialog.fleaAutoPriceButton.SetText(GetAutoPriceText(IsAutoPriceOn()))
-		buttonY += 27
+			dialog.fleaAutoPriceButtonImageWidth = imageWidth
+			dialog.fleaAutoPriceButtonImageHeight = imageHeight
+			dialog.fleaAutoPriceTitle = ui.TextLine()
+			dialog.fleaAutoPriceTitle.SetParent(dialog.board)
+			dialog.fleaAutoPriceTitle.AddFlag("not_pick")
+			dialog.fleaAutoPriceTitle.SetWindowHorizontalAlignCenter()
+			dialog.fleaAutoPriceTitle.SetHorizontalAlignCenter()
+			dialog.fleaAutoPriceTitle.SetPackedFontColor(0xFFFFFFFF)
+			dialog.fleaAutoPriceTitle.SetText(playerbot_lang.T("Auto-cena:", "Auto price:"))
+			dialog.fleaAutoPriceTitle.Show()
+			dialog.fleaAutoPriceButtonText = ui.TextLine()
+			dialog.fleaAutoPriceButtonText.SetParent(dialog.board)
+			dialog.fleaAutoPriceButtonText.AddFlag("not_pick")
+			dialog.fleaAutoPriceButtonText.SetWindowHorizontalAlignCenter()
+			dialog.fleaAutoPriceButtonText.SetHorizontalAlignCenter()
+			dialog.fleaAutoPriceButtonText.SetVerticalAlignCenter()
+			dialog.fleaAutoPriceButtonText.Show()
+		dialog.fleaAutoPriceButtonText.SetText(GetAutoPriceText(GetAutoPriceMode()))
+		buttonY += 64
 
 		dialog.fleaMarketPriceHint.SetPosition(0, hintY)
 		dialog.fleaMarketPriceHistory.SetPosition(0, hintY + 16)
+		dialog.fleaMarketPriceRange.SetPosition(0, hintY + 32)
 		dialog.fleaMarketPriceHint.SetText(primaryText)
 		dialog.fleaMarketPriceHistory.SetText(secondaryText)
-		dialog.SetSize(280, buttonY + 32)
-		dialog.board.SetSize(280, buttonY + 32)
+		dialog.fleaMarketPriceRange.SetText(rangeText)
+		dialog.SetSize(320, buttonY + 32)
+		dialog.board.SetSize(320, buttonY + 32)
+		dialog.fleaAutoPriceTitle.SetWindowHorizontalAlignCenter()
+		dialog.fleaAutoPriceTitle.SetPosition(0, hintY + 48)
+		dialog.fleaAutoPriceButtonY = hintY + 67
+		dialog.fleaAutoPriceButton.SetPosition(
+			(dialog.board.GetWidth() - dialog.fleaAutoPriceButtonImageWidth) // 2,
+			dialog.fleaAutoPriceButtonY)
+		dialog.fleaAutoPriceButtonText.SetWindowHorizontalAlignCenter()
+		dialog.fleaAutoPriceButtonText.SetPosition(0, hintY + 67 + dialog.fleaAutoPriceButtonImageHeight // 2)
 		dialog.acceptButton.SetPosition(-36, buttonY)
 		dialog.cancelButton.SetPosition(35, buttonY)
 		dialog.SetCenterPosition()
+
+	def __SetAutoPriceButtonVisual(self, visualName):
+		dialog = self.addItemDialog
+		if not dialog or not getattr(dialog, "board", None) or not hasattr(dialog, "fleaAutoPriceButton"):
+			return
+		button = dialog.fleaAutoPriceButton
+		button.LoadImage("d:/ymir work/ui/public/middle_button_%s.sub" % visualName)
+		imageWidth = max(1, button.GetWidth())
+		imageHeight = max(1, button.GetHeight())
+		button.SetSize(dialog.fleaAutoPriceButtonImageWidth, dialog.fleaAutoPriceButtonImageHeight)
+		button.SetScale(
+			float(dialog.fleaAutoPriceButtonImageWidth) / imageWidth,
+			float(dialog.fleaAutoPriceButtonImageHeight) / imageHeight)
+		button.SetPosition(
+			(dialog.board.GetWidth() - dialog.fleaAutoPriceButtonImageWidth) // 2,
+			dialog.fleaAutoPriceButtonY)
+
+	def __OnAutoPriceButtonHoverIn(self):
+		self.__SetAutoPriceButtonVisual("02")
+
+	def __OnAutoPriceButtonHoverOut(self):
+		self.__SetAutoPriceButtonVisual("01")
+
+	def __OnAutoPriceButtonMouseDown(self):
+		self.__SetAutoPriceButtonVisual("03")
+
+	def __OnAutoPriceButtonClick(self):
+		self.__OnToggleAutoPrice()
+		self.__SetAutoPriceButtonVisual("02")
 
 	def __RequestFleaMarketPrice(self, inventoryWindowType, inventorySlotIndex):
 		self.fleaPriceRequestID += 1
@@ -567,9 +676,15 @@ class OfflineShopManage(ui.ScriptWindow):
 			self.fleaPriceRequestID = 1
 
 		self.fleaPriceDialog = self.addItemDialog
+		self.fleaPriceRange = None
 		self.addItemDialog.fleaOpenText = self.addItemDialog.GetText()
-		net.SendChatPacket("/flea_price %d %d %d" % (
-			self.fleaPriceRequestID, inventoryWindowType, inventorySlotIndex))
+		net.SendChatPacket("/flea_price %d %d %d %d" % (
+			self.fleaPriceRequestID, inventoryWindowType, inventorySlotIndex,
+			FLEA_PRICE_REQUEST_VERSION))
+
+	def SetFleaMarketPriceRange(self, requestID, minPrice, maxPrice):
+		if requestID == self.fleaPriceRequestID:
+			self.fleaPriceRange = (minPrice, maxPrice)
 
 	def SetFleaMarketPriceQuote(self, requestID, suggestedPrice, observedPrice, sampleCount):
 		if requestID != self.fleaPriceRequestID:
@@ -580,36 +695,60 @@ class OfflineShopManage(ui.ScriptWindow):
 			return
 
 		if suggestedPrice > 0:
-			primary = "Sugestia botow: " + localeInfo.NumberToMoneyString(suggestedPrice)
+			primary = playerbot_lang.T("Sugestia botow: ", "The bots suggest: ") + localeInfo.NumberToMoneyString(suggestedPrice)
 		else:
-			primary = "Boty nie maja jeszcze wyceny tego przedmiotu."
+			primary = playerbot_lang.T("Boty nie maja jeszcze wyceny tego przedmiotu.", "The bots have no price for this item yet.")
 
 		if observedPrice > 0 and sampleCount > 0:
-			secondary = "Ostatnia cena botow: %s (probki: %d)" % (
+			secondary = playerbot_lang.T("Ostatnia cena botow: %s (probki: %d)", "The bots' last price: %s (samples: %d)") % (
 				localeInfo.NumberToMoneyString(observedPrice), sampleCount)
 		else:
-			secondary = "Brak historii transakcji - pokazana cena bazowa."
+			secondary = playerbot_lang.T("Brak historii transakcji - pokazana cena bazowa.", "No sales yet - this is the base price.")
 
-		self.__SetFleaMarketPriceHint(self.addItemDialog, primary, secondary)
+		# No range at all is a server that sent none: it knows no
+		# FleaPriceRange, and the line stays empty.
+		marketMinPrice, marketMaxPrice = self.fleaPriceRange or (0, 0)
+		if not self.fleaPriceRange:
+			marketRange = ""
+		elif marketMinPrice > 0 and marketMaxPrice >= marketMinPrice:
+			marketRange = playerbot_lang.T("Rynek dla takiego stosu: %s - %s", "The market for such a stack: %s - %s") % (
+				localeInfo.NumberToMoneyString(marketMinPrice),
+				localeInfo.NumberToMoneyString(marketMaxPrice))
+		else:
+			marketRange = playerbot_lang.T("Rynek: brak porownywalnych ofert.", "The market: no comparable offers.")
+		self.fleaPriceRange = None
+
+		self.__SetFleaMarketPriceHint(self.addItemDialog, primary, secondary, marketRange)
 		self.addItemDialog.fleaSuggestedPrice = suggestedPrice
-		if IsAutoPriceOn():
+		self.addItemDialog.fleaMarketMinPrice = marketMinPrice
+		self.addItemDialog.fleaMarketMaxPrice = marketMaxPrice
+		if GetAutoPriceMode() != AUTO_PRICE_INACTIVE:
 			self.__FillSuggestedPrice(self.addItemDialog)
 
 	def __FillSuggestedPrice(self, dialog):
-		suggested = getattr(dialog, "fleaSuggestedPrice", 0)
-		if suggested <= 0 or dialog.GetText() != getattr(dialog, "fleaOpenText", None):
+		mode = GetAutoPriceMode()
+		if mode == AUTO_PRICE_SUGGESTED:
+			price = getattr(dialog, "fleaSuggestedPrice", 0)
+		elif mode == AUTO_PRICE_MINIMUM:
+			price = getattr(dialog, "fleaMarketMinPrice", 0)
+		elif mode == AUTO_PRICE_MAXIMUM:
+			price = getattr(dialog, "fleaMarketMaxPrice", 0)
+		else:
 			return
-		dialog.SetValue(min(suggested, player.GOLD_MAX))
+
+		if price <= 0 or dialog.GetText() != getattr(dialog, "fleaOpenText", None):
+			return
+		dialog.SetValue(min(price, player.GOLD_MAX))
 		dialog.fleaOpenText = dialog.GetText()
 
 	def __OnToggleAutoPrice(self):
-		on = not IsAutoPriceOn()
-		SetAutoPriceOn(on)
+		mode = GetNextAutoPriceMode(GetAutoPriceMode())
+		SetAutoPriceMode(mode)
 		dialog = self.addItemDialog
-		if not dialog or not hasattr(dialog, "fleaAutoPriceButton"):
+		if not dialog or not hasattr(dialog, "fleaAutoPriceButtonText"):
 			return
-		dialog.fleaAutoPriceButton.SetText(GetAutoPriceText(on))
-		if on:
+		dialog.fleaAutoPriceButtonText.SetText(GetAutoPriceText(mode))
+		if mode != AUTO_PRICE_INACTIVE:
 			self.__FillSuggestedPrice(dialog)
 
 	def ShowAddItemDialog(self, inventorySlotIndex, shopSlotIndex, inventoryWindowType, itemVnum, itemCount):

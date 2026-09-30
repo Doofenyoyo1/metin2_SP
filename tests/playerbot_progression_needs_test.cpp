@@ -77,6 +77,9 @@ void CollectPlayerBotScrollRuleMissing(LPCHARACTER, std::map<DWORD,int>& out){ou
 namespace playerbot_empire_rules { enum { MAP_ROLE_M1 = 1 };
     long GetHomeMap(int empire, int role){return role==MAP_ROLE_M1 ? (empire==2 ? 21 : 1) : 0;} }
 DWORD GetPlayerBotMarketLocalSupply(long map, DWORD v){askedVillage=map; return (DWORD)villageSupply[v];}
+// A Stalki a first village's counters hold for the bot (playerbot_stalki.h,
+// upstream 2.2.36): none here, so the checks below are the scroll rule's.
+bool PlayerBotStalkiSupplyExists(LPCHARACTER){return false;}
 #include "../linux-port/overlays/playerbot/src/game/src/playerbot_progression_needs.h"
 int main(){
     Character c; c.mastery[1]=SKILL_MASTER;

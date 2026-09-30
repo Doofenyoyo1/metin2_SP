@@ -16,7 +16,8 @@
 # about to change.
 #
 # The texts are CP1250, the client's own, written as escapes so the file stays
-# ASCII. Python 2.7 as the client has it.
+# ASCII, each a Polish and English pair (playerbot_lang.T): English for a
+# client set to any language but Polish. Python 2.7 as the client has it.
 
 import app
 import clientclock
@@ -24,6 +25,7 @@ import chat
 import mouseModule
 import net
 import uiPrivateShopBuilder
+from playerbot_lang import T
 
 PENDING_TIMEOUT = 5.0
 
@@ -38,16 +40,21 @@ RESULT_INCONSISTENT = 6
 RESULT_UNSUPPORTED = 7
 RESULT_BAD_REQUEST = 8
 
-MSG_DONE = 'Uporz\xb9dkowano ekwipunek: przestawiono %d, scalono stos\xf3w: %d.'
-MSG_NOTHING = 'Ekwipunek jest ju\xbf uporz\xb9dkowany.'
-MSG_BUSY = 'Nie mo\xbfna teraz uporz\xb9dkowa\xe6 ekwipunku - zamknij handel, sklep lub inne okno.'
-MSG_COOLDOWN = 'Odczekaj chwil\xea przed kolejnym porz\xb9dkowaniem.'
-MSG_NO_LAYOUT = 'Nie uda\xb3o si\xea u\xb3o\xbfy\xe6 ekwipunku - nic nie zmieniono.'
-MSG_DEAD = 'Nie mo\xbfesz porz\xb9dkowa\xe6 ekwipunku po \x9cmierci.'
-MSG_INCONSISTENT = 'Ekwipunek jest w nieoczekiwanym stanie - nic nie zmieniono. Zg\xb3o\x9c to na GitHubie.'
-MSG_UNSUPPORTED = 'Serwer nie obs\xb3uguje porz\xb9dkowania ekwipunku.'
-MSG_ATTACHED = 'Od\xb3\xf3\xbf najpierw przedmiot trzymany kursorem.'
-MSG_SHOP = 'Nie mo\xbfna porz\xb9dkowa\xe6 ekwipunku podczas otwierania sklepu.'
+MSG_DONE = T('Uporz\xb9dkowano ekwipunek: przestawiono %d, scalono stos\xf3w: %d.',
+	'Inventory sorted: %d moved, %d stacks merged.')
+MSG_NOTHING = T('Ekwipunek jest ju\xbf uporz\xb9dkowany.', 'The inventory is already sorted.')
+MSG_BUSY = T('Nie mo\xbfna teraz uporz\xb9dkowa\xe6 ekwipunku - zamknij handel, sklep lub inne okno.',
+	'The inventory cannot be sorted now - close the trade, the shop or the other window.')
+MSG_COOLDOWN = T('Odczekaj chwil\xea przed kolejnym porz\xb9dkowaniem.', 'Wait a moment before sorting again.')
+MSG_NO_LAYOUT = T('Nie uda\xb3o si\xea u\xb3o\xbfy\xe6 ekwipunku - nic nie zmieniono.',
+	'The inventory could not be laid out - nothing was changed.')
+MSG_DEAD = T('Nie mo\xbfesz porz\xb9dkowa\xe6 ekwipunku po \x9cmierci.', 'You cannot sort the inventory while dead.')
+MSG_INCONSISTENT = T('Ekwipunek jest w nieoczekiwanym stanie - nic nie zmieniono. Zg\xb3o\x9c to na GitHubie.',
+	'The inventory is in an unexpected state - nothing was changed. Please report it on GitHub.')
+MSG_UNSUPPORTED = T('Serwer nie obs\xb3uguje porz\xb9dkowania ekwipunku.', 'The server cannot sort the inventory.')
+MSG_ATTACHED = T('Od\xb3\xf3\xbf najpierw przedmiot trzymany kursorem.', 'Put down the item on your cursor first.')
+MSG_SHOP = T('Nie mo\xbfna porz\xb9dkowa\xe6 ekwipunku podczas otwierania sklepu.',
+	'The inventory cannot be sorted while a shop is being opened.')
 
 _state = {'pendingUntil': 0.0}
 

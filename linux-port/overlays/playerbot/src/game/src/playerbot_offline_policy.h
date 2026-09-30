@@ -37,8 +37,19 @@ struct SoldLine {
     long long price = 0;
 };
 inline std::map<uint32_t, std::vector<SoldLine> > sold;
+// And every line sold, by vnum, until the market ledger takes them
+// (UpdatePlayerBotShortageMarkups, once a minute): what the markup of a kind
+// the market keeps running out of counts as "sells all the time" (Iwakura,
+// 28 September). The db core sends a purchase to every game core of every
+// channel (SendIkarusShopBuyItemPacket walks all its peers), so every core
+// counts every sale of every counter in the world, a player's purchase
+// included - the one buyer the ledger could never see. Bounded for a core
+// whose ledger never runs.
+inline std::map<uint32_t, uint32_t> soldLinesByVnum;
 inline void NoteSold(uint32_t ownerid, uint32_t item, uint32_t vnum, uint32_t count, long long price) {
     if (!ownerid) return;
+    if (vnum && (soldLinesByVnum.size() < 4096 || soldLinesByVnum.count(vnum)))
+        ++soldLinesByVnum[vnum];
     auto& lines = sold[ownerid];
     // An owner nobody drains - a real player, or a bot that has left the
     // world - must not grow this without bound.
@@ -157,6 +168,42 @@ struct State {
 inline bool Fits(int cell, int height, int width, int cells) {
     return width > 0 && height > 0 && cell >= 0 && cell < cells &&
         height <= cells / width && cell + (height - 1) * width < cells;
+}
+// A bot's offline stand is this many pages of a person's grid: cell = page *
+// width * rows + row * width + column. A person's has the first page alone,
+// the one the client's owner window lays out, and the guest window shows a
+// bot's pages side by side, one grid twenty columns wide (clientrootify's
+// offlineshopguest.py; since client 2.0.51 - 2.0.50 showed a page at a time
+// behind tabs, and the operator wanted one bigger page). Players asked for it: a bot
+// cannot stand a second character's shop beside its first ("boty to nie
+// ludzie wiec nie postawia sobie drugiej postaci zeby otworzyc sklepik",
+// prodnathin, 28 September). The engine's add path (playerbotify's
+// apply_bot_shop_two_pages) reads this same number, so the two sides cannot
+// disagree.
+constexpr int BOT_SHOP_PAGES = 2;
+// Whether a line `height` cells tall at `cell` stands inside one page of a
+// shop of `pages` pages `width` wide and `rows` tall. Never across two: the
+// window draws each page in a grid of its own, side by side, and a page's
+// last row was the bottom of the whole counter before there was a second.
+inline bool FitsOnPage(int cell, int height, int width, int rows, int pages) {
+    if (width <= 0 || rows <= 0 || pages <= 0 || height <= 0 || height > rows) return false;
+    const int pageCells = width * rows;
+    return cell >= 0 && cell < pageCells * pages &&
+        cell % pageCells + (height - 1) * width < pageCells;
+}
+// Whether a line `height` tall at `cell` would cover a cell of a line already
+// standing, each given as a pair (cell, height), on a grid `width` wide. A line
+// takes its own column, one cell a row.
+template<class Lines>
+inline bool Overlaps(const Lines& lines, int cell, int height, int width) {
+    if (width <= 0) return true;
+    const int column = cell % width, top = cell / width;
+    for (const auto& line : lines) {
+        if (line.first < 0 || line.first % width != column) continue;
+        const int lineTop = line.first / width;
+        if (lineTop < top + height && top < lineTop + line.second) return true;
+    }
+    return false;
 }
 inline int64_t Affordable(int64_t wallet, int64_t reserve, int64_t floor) {
     return wallet > reserve + floor ? wallet - reserve - floor : 0;

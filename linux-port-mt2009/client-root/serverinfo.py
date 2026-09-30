@@ -53,9 +53,12 @@ SERVER_PRODUCTION = {
 	"auth_count": 1,
 	"channel_base_port": 13000,
 	"channel_port_increment": 10,
-	# The second channel is the server's to switch on (M2_PLAYERBOT_CH2, the
-	# launcher's bot dialog): intrologin lists it only while it answers.
-	"channel_count": 2,
+	# Every channel past the first is the server's to switch on - the second
+	# (M2_PLAYERBOT_CH2) and the fresh cohort's third and fourth
+	# (M2_PLAYERBOT_FRESH_CHANNELS), the launcher's "Kanaly gry 1-4":
+	# intrologin lists one only while it answers, and finds the selected one
+	# by its channel, not by its line.
+	"channel_count": 4,
 	"mark":13000,
 	"mark_name": "10",
 	"premium_channels": (),

@@ -932,6 +932,9 @@ class ShopSearchWindow(ui.ScriptWindow):
 		return True
 
 
+import playerbot_lang
+
+
 class FleaMarketQuantityDialog(ui.BoardWithTitleBar):
 	# A small stock-UI dialog for a listing that is a stack. The amount is
 	# always the offer's own, and the Dom Towarowy buys a stack whole.
@@ -943,12 +946,12 @@ class FleaMarketQuantityDialog(ui.BoardWithTitleBar):
 		self.SetSize(360, 190)
 		self.AddFlag("movable")
 		self.AddFlag("float")
-		self.SetTitleName("Kup czesc stacka")
+		self.SetTitleName(playerbot_lang.T("Kup czesc stacka", "Buy part of a stack"))
 		self.SetCloseEvent(self.Close)
 
 		self.itemLine = self.__MakeText(18, 42)
 		self.availableLine = self.__MakeText(18, 66)
-		self.__MakeText(18, 96, "Ile sztuk kupic:")
+		self.__MakeText(18, 96, playerbot_lang.T("Ile sztuk kupic:", "How many to buy:"))
 
 		self.inputBar = ui.SlotBar()
 		self.inputBar.SetParent(self)
@@ -968,8 +971,8 @@ class FleaMarketQuantityDialog(ui.BoardWithTitleBar):
 		self.quantityEdit.Show()
 
 		self.totalLine = self.__MakeText(18, 124)
-		self.buyButton = self.__MakeButton(118, 153, "Kup", self.Accept)
-		self.cancelButton = self.__MakeButton(204, 153, "Anuluj", self.Close)
+		self.buyButton = self.__MakeButton(118, 153, playerbot_lang.T("Kup", "Buy"), self.Accept)
+		self.cancelButton = self.__MakeButton(204, 153, playerbot_lang.T("Anuluj", "Cancel"), self.Close)
 		self.Hide()
 
 	def __MakeText(self, x, y, text=""):
@@ -1011,12 +1014,13 @@ class FleaMarketQuantityDialog(ui.BoardWithTitleBar):
 			return
 		quantity = self.__GetQuantity()
 		price = self.market.GetStackPurchasePrice(self.data, quantity)
-		self.totalLine.SetText("Do zaplaty za %d szt.: %s" % (quantity, self.market.FormatPrice(price)))
+		self.totalLine.SetText(playerbot_lang.T("Do zaplaty za %d szt.: %s", "To pay for %d pcs.: %s")
+			% (quantity, self.market.FormatPrice(price)))
 
 	def Open(self, data):
 		self.data = data
 		self.itemLine.SetText(self.market.GetItemName(data))
-		self.availableLine.SetText("W stacku jest: %d szt." % data["count"])
+		self.availableLine.SetText(playerbot_lang.T("W stacku jest: %d szt.", "In the stack: %d pcs.") % data["count"])
 		self.quantityEdit.SetText(str(data["count"]))
 		self.__UpdatePrice()
 		self.Show()

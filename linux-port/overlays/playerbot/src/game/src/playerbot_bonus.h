@@ -1727,13 +1727,67 @@ namespace
 				CanPlayerBotSpendGreenBonusStoneOn(ch->GetWear(WEAR_BODY)));
 	}
 
+	// Whether a piece of this bot's own could take a stone of this one's kind
+	// now: the pass's own question (playerbot_bonus_rules::StepFor over the
+	// pieces CollectPlayerBotBonusTargets names, the young bot's rule, the
+	// categories and the rest of the gear included), asked with a bag that
+	// holds this kind alone. "Zeby boty faktycznie to uzywaly zamiast wystawiac
+	// za grosze na rynek" (blipu, 28 September): what the bot would spend
+	// itself is not goods.
+	bool PlayerBotCanSpendBonusStoneKind(LPCHARACTER ch, LPITEM stone)
+	{
+		if (!ch || !stone || stone->GetType() != ITEM_USE)
+			return false;
+		playerbot_bonus_rules::TBag kind = { false, false, false, false, false };
+		const bool green = IsPlayerBotGreenBonusStone(stone->GetVnum());
+		switch (stone->GetSubType())
+		{
+			case USE_ADD_ATTRIBUTE:
+				if (green)
+					kind.greenAdd = true;
+				else
+					kind.plainAdd = true;
+				break;
+			case USE_CHANGE_ATTRIBUTE:
+				if (green)
+					kind.greenChange = true;
+				else
+					kind.plainChange = true;
+				break;
+			case USE_ADD_ATTRIBUTE2:
+				kind.marble = true;
+				break;
+			default:
+				return false;
+		}
+		std::vector<TPlayerBotBonusTarget> targets;
+		CollectPlayerBotBonusTargets(ch, targets);
+		if (targets.empty())
+			return false;
+		std::vector<playerbot_bonus_rules::TPiece> pieces;
+		pieces.reserve(targets.size());
+		for (size_t i = 0; i < targets.size(); ++i)
+			pieces.push_back(BuildPlayerBotBonusPiece(ch, targets[i]));
+		const playerbot_bonus_rules::TLimits limits = GetPlayerBotBonusLimits();
+		const unsigned restOpen = playerbot_bonus_rules::RestOpen(&pieces[0], (int)pieces.size(), kind, limits);
+		for (size_t i = 0; i < pieces.size(); ++i)
+			if (playerbot_bonus_rules::StepFor(pieces[i], kind, limits, restOpen, false).step !=
+					playerbot_bonus_rules::STEP_NONE)
+				return true;
+		return false;
+	}
+
 	// What a bag keeps of a bonus stone kind back from a counter: the
-	// counter's keep and the cut asks it (playerbot_economy.h).
+	// counter's keep and the cut asks it (playerbot_economy.h). Every one
+	// while a piece of the bot's own could take one now, none of a green one
+	// past its band, PLAYERBOT_BONUS_STONE_KEEP otherwise
+	// (playerbot_moonlight_rules::BonusGoodsKeep).
 	int GetPlayerBotBonusStoneKeep(LPCHARACTER ch, LPITEM item)
 	{
-		if (item && IsPlayerBotGreenBonusStone(item->GetVnum()) && !PlayerBotKeepsGreenBonusStones(ch))
-			return 0;
-		return PLAYERBOT_BONUS_STONE_KEEP;
+		const bool greenPastBand = item && IsPlayerBotGreenBonusStone(item->GetVnum()) &&
+				!PlayerBotKeepsGreenBonusStones(ch);
+		return playerbot_moonlight_rules::BonusGoodsKeep(PlayerBotCanSpendBonusStoneKind(ch, item),
+				greenPastBand, PLAYERBOT_BONUS_STONE_KEEP);
 	}
 }
 

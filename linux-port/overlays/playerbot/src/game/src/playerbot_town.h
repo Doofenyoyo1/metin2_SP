@@ -207,6 +207,11 @@ namespace
 				continue;
 			if (IsPlayerBotWearableUpgrade(ch, item, cell))
 				continue;
+			// Nor the Stalki a bot keeps for its next levels, which a stand before
+			// the keep existed may have counted unsold: the box would give it
+			// straight back (PlayerBotWantsStalkiFromBox).
+			if (IsPlayerBotKeptStalki(ch, item))
+				continue;
 			if (IsPlayerBotPersonaEnabled())
 			{
 				const DWORD family = GetPlayerBotLppFamily(item);
@@ -498,6 +503,17 @@ namespace
 					wanted = freeAfter > PLAYERBOT_BAG_PRESSURE_FREE_CELLS;
 					why = "gamble";
 				}
+			}
+			else if (!pGambler && IsPlayerBotStalkiItem(item) && !IsPlayerBotLppKeptItem(ch, item) &&
+					PlayerBotWantsStalkiFromBox(ch, item))
+			{
+				// A Stalki the bot would keep for its next levels or wear now - put
+				// down before the keep, or by a rule that did not know it - comes
+				// out, into a bag that stays clear of pressure (playerbot_stalki.h).
+				// Not one Iwakura's list keeps down there for a gambler.
+				const int freeAfter = CountPlayerBotFreeInventoryCells(ch) - (int)item->GetSize();
+				wanted = freeAfter > PLAYERBOT_BAG_PRESSURE_FREE_CELLS;
+				why = "stalki";
 			}
 			else if (!pGambler && IsPlayerBotFinishedSpareGoods(ch, item) && PlayerBotHasCounter(ch))
 			{
@@ -1614,8 +1630,9 @@ namespace
 	// the share actually standing at any moment is smaller again.
 	// The centre of a town's stall ring, or false for a map that has none.
 	// Defined with the chat trade, which comes after the market: the keeper
-	// says on the world channel what it has just put up.
-	void AnnouncePlayerBotStall(LPCHARACTER ch, const char* pszItemName);
+	// says on the world channel what it has just put up - by vnum, so each
+	// reader has the item's name in its own language.
+	void AnnouncePlayerBotStall(LPCHARACTER ch, DWORD dwItemVnum);
 
 	bool GetPlayerBotShopCentre(long mapIndex, long& pitchX, long& pitchY)
 	{
@@ -1728,7 +1745,7 @@ namespace
 			return false;
 		int keys = 0, marbles = 0, chests = 0, scrolls = 0;
 		const bool trader = IsPlayerBotResourceTrader(ch->GetPlayerID());
-		const bool dropper = IsPlayerBotDropper(GetPlayerBotPersonalityByPID(ch->GetPlayerID()));
+		const bool chestSeller = IsPlayerBotMoonlightChestSeller(ch->GetPlayerID());
 		std::map<DWORD, int> materials;
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
@@ -1736,10 +1753,11 @@ namespace
 			if (!item || item->IsEquipped() || item->isLocked())
 				continue;
 			const int count = std::max<int>(1, item->GetCount());
-			// A resource trader's Moonlight chests and refine scrolls are its
-			// trade (IsPlayerBotResourceTrader): it keeps one scroll, and the
-			// chests it does not open.
-			if ((trader || dropper) && item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
+			// A resource trader's refine scrolls are its trade
+			// (IsPlayerBotResourceTrader): it keeps one. A dropper's Moonlight
+			// chests are its, the ones it does not open
+			// (IsPlayerBotMoonlightChestSeller); the trader opens its chests.
+			if (chestSeller && item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
 			{
 				if ((chests += count) >= PLAYERBOT_SHOP_HOARD_MARBLES)
 					return true;
@@ -2308,6 +2326,157 @@ namespace
 		return false;
 	}
 
+	// What one unit a special item group hands out is worth on Iwakura's sheet
+	// at this world's yang rate: his price by name (the change and add stones,
+	// the potions, the Blessing Scroll), the ordinary book's for a skill book -
+	// a chest's book is a skill drawn at random - a soul stone by its grade,
+	// and the gold line at its face. Nothing for what he does not price: the
+	// two boosters and the two blessings the Moonlight chest hands out carry
+	// ANTI_SELL and ANTI_MYSHOP, and are worth what their holder drinks. Nor
+	// for the engine's other codes - experience, a monster, a curse.
+	long long GetPlayerBotGroupUnitWorth(DWORD dwVnum)
+	{
+		if (dwVnum == (DWORD)CSpecialItemGroup::GOLD)
+			return 1;
+		if (dwVnum <= (DWORD)CSpecialItemGroup::MOB_GROUP)
+			return 0;
+		const TItemTable* proto = ITEM_MANAGER::instance().GetTable(dwVnum);
+		if (!proto)
+			return 0;
+		const DWORD sheet = GetPlayerBotMaterialAskingBase(dwVnum);
+		if (sheet != 0)
+			return sheet;
+		if (proto->bType == ITEM_SKILLBOOK)
+			return GetPlayerBotBookAskingBase(0);
+		if (proto->bType == ITEM_METIN)
+			return GetPlayerBotSoulStoneAskingBase(dwVnum);
+		return 0;
+	}
+
+	// The Moonlight chest's worth, kept for the price generation it was worked
+	// out under: the table version, the yang rate and the inflation are all
+	// that move a price on the sheet, and the group itself is loaded once.
+	DWORD s_dwPlayerBotChestWorthGeneration = 0;
+	DWORD s_dwPlayerBotChestWorth = 0;
+
+	// What a Moonlight chest is worth by what it holds: every line of the group
+	// the engine loaded for 50011 - ours, or the operator's
+	// special_item_group.moonlight.custom.txt - at the unit worth above,
+	// weighed by its chance (playerbot_moonlight_rules::ExpectedOpeningValue).
+	// 534 940 at a yang rate of a hundred for the group this project ships,
+	// where the sheet asks a hundred thousand for the chest. Nothing, and asked
+	// again next time, while the engine holds no group for it.
+	DWORD GetPlayerBotMoonlightChestWorth()
+	{
+		const DWORD generation = GetPlayerBotPriceGeneration();
+		if (s_dwPlayerBotChestWorthGeneration == generation)
+			return s_dwPlayerBotChestWorth;
+		const CSpecialItemGroup* group =
+				ITEM_MANAGER::instance().GetSpecialItemGroup(PLAYERBOT_MOONLIGHT_CHEST_VNUM);
+		if (!group)
+		{
+			PlayerBotLogThrottled("moonlight_chest_no_group", get_dword_time(),
+					"PLAYERBOT_MARKET: moonlight chest has no group, priced by the sheet alone");
+			return 0;
+		}
+		std::vector<playerbot_moonlight_rules::TGroupLine> lines;
+		for (size_t i = 0; i < group->m_vecItems.size() && i < group->m_vecProbs.size(); ++i)
+		{
+			playerbot_moonlight_rules::TGroupLine line;
+			line.cumulative = group->m_vecProbs[i];
+			line.count = group->m_vecItems[i].count;
+			line.unit = GetPlayerBotGroupUnitWorth(group->m_vecItems[i].vnum);
+#if defined(PLAYERBOT_ENGINE_MT2009)
+			// A line naming another group (the "s" prefix): a chest inside a
+			// chest is on nobody's sheet.
+			if (group->m_vecItems[i].isSpecial)
+				line.unit = 0;
+#endif
+			lines.push_back(line);
+		}
+		const long long worth = lines.empty() ? 0 : playerbot_moonlight_rules::ExpectedOpeningValue(
+				&lines[0], (int)lines.size(), group->m_bType == CSpecialItemGroup::PCT);
+		s_dwPlayerBotChestWorthGeneration = generation;
+		s_dwPlayerBotChestWorth = worth > 0xFFFFFFFFLL ? 0xFFFFFFFFU : (DWORD)std::max(0LL, worth);
+		sys_log(0, "PLAYERBOT_MARKET: moonlight chest worth=%u sheet=%u floor_percent=%d lines=%u",
+				s_dwPlayerBotChestWorth, GetPlayerBotMaterialAskingBase(PLAYERBOT_MOONLIGHT_CHEST_VNUM),
+				PLAYERBOT_MOONLIGHT_CHEST_FLOOR_PERCENT, (unsigned int)lines.size());
+		return s_dwPlayerBotChestWorth;
+	}
+
+	// Where a counter's price for the chest starts: Iwakura's number, or its
+	// worth when that is more (playerbot_moonlight_rules::ChestAskingBase).
+	DWORD GetPlayerBotMoonlightChestAskingBase()
+	{
+		const long long base = playerbot_moonlight_rules::ChestAskingBase(
+				GetPlayerBotMaterialAskingBase(PLAYERBOT_MOONLIGHT_CHEST_VNUM), GetPlayerBotMoonlightChestWorth());
+		return base > 0xFFFFFFFFLL ? 0xFFFFFFFFU : (DWORD)std::max(0LL, base);
+	}
+
+	// The least a unit of the Moonlight chest or of a bonus item asks on any
+	// counter, whatever a markdown, a poor keeper's clearance or the sale
+	// memory make of it (blipu, 28 September): the chest at
+	// PLAYERBOT_MOONLIGHT_CHEST_FLOOR_PERCENT of its worth; a change or an add
+	// stone at the sheet's price of its kind - a green one at its kind's, since
+	// on the gear it fits it does what the ordinary one does; and the marble at
+	// the hundred of the Alchemist's dust a bot pays to make one, which his
+	// sheet does not price. Of the stones only the green ones and the crafted
+	// marble and add (70124, 71285) can stand on a counter at all - 71084,
+	// 71085 and the rest carry ANTI_MYSHOP - so for them this is the rule for
+	// the day one gets there; for the chest it is the rule.
+	DWORD GetPlayerBotBonusGoodsFloorUnit(LPITEM item)
+	{
+		if (!item)
+			return 0;
+		long long unit = 0;
+		if (item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
+			unit = playerbot_moonlight_rules::ChestFloor(GetPlayerBotMoonlightChestWorth(),
+					PLAYERBOT_MOONLIGHT_CHEST_FLOOR_PERCENT);
+		else if (IsPlayerBotBonusStoneItem(item))
+		{
+			playerbot_moonlight_rules::EBonusKind kind = playerbot_moonlight_rules::BONUS_NONE;
+			switch (item->GetSubType())
+			{
+				case USE_CHANGE_ATTRIBUTE:
+					kind = playerbot_moonlight_rules::BONUS_CHANGE;
+					break;
+				case USE_ADD_ATTRIBUTE:
+					kind = playerbot_moonlight_rules::BONUS_ADD;
+					break;
+				case USE_ADD_ATTRIBUTE2:
+					kind = playerbot_moonlight_rules::BONUS_MARBLE;
+					break;
+				default:
+					break;
+			}
+			unit = playerbot_moonlight_rules::BonusGoodsFloorUnit(kind,
+					GetPlayerBotMaterialAskingBase(PLAYERBOT_BONUS_CHANGE_VNUM),
+					GetPlayerBotMaterialAskingBase(PLAYERBOT_BONUS_ADD_VNUM),
+					ScalePlayerBotIwakuraPrice(PLAYERBOT_PRIOR_MAGIC_DUST * (DWORD)PLAYERBOT_DUST_PER_MARBLE));
+		}
+		return unit > 0xFFFFFFFFLL ? 0xFFFFFFFFU : (DWORD)std::max(0LL, unit);
+	}
+
+	// The same for a whole counter line: a unit's floor times the line's count.
+	DWORD GetPlayerBotBonusGoodsFloor(LPITEM item)
+	{
+		if (!item)
+			return 0;
+		const unsigned long long line = (unsigned long long)GetPlayerBotBonusGoodsFloorUnit(item) *
+				(unsigned long long)std::max<DWORD>(1, item->GetCount());
+		return line > 0xFFFFFFFFULL ? 0xFFFFFFFFU : (DWORD)line;
+	}
+
+	// The least any line of this item asks once every markdown is done: what
+	// the blacksmith was paid to make it (GetPlayerBotRefineInvestment), and
+	// for the Moonlight chest and the bonus items the floor above. Every place
+	// that marks a line down or puts one up asks this, the classic stall and
+	// the offline stand alike.
+	DWORD GetPlayerBotListingFloor(LPITEM item)
+	{
+		return std::max(GetPlayerBotRefineInvestment(item), GetPlayerBotBonusGoodsFloor(item));
+	}
+
 	DWORD GetPlayerBotShopAskingPriceRaw(LPITEM item)
 	{
 		if (!item)
@@ -2352,7 +2521,10 @@ namespace
 		// had prices every rod from +7 up asked the 150 000 to 900 000 of a +7
 		// to +9 piece of gear - a +10 is 7 000 000 on his sheet, +11 to +19 ten
 		// million. Nothing else he prices by name carries a plus of seven.
-		const DWORD materialBase = GetPlayerBotMaterialAskingBase(item->GetVnum());
+		// The Moonlight chest starts from what it holds, where that is more than
+		// his number for it (GetPlayerBotMoonlightChestAskingBase).
+		const DWORD materialBase = item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM
+				? GetPlayerBotMoonlightChestAskingBase() : GetPlayerBotMaterialAskingBase(item->GetVnum());
 		if (materialBase == 0 && refine >= 9)
 			return ApplyPlayerBotPriceCompetition(item, ApplyPlayerBotBonusPremium(std::max(PLAYERBOT_SHOP_PRICE_PLUS9, investment), bonusPercent));
 		if (materialBase == 0 && refine == 8)
@@ -2559,6 +2731,12 @@ namespace
 		if (bookSkill != 0 || materialBase != 0 || iwakuraBase != 0)
 			unit = std::max<DWORD>(1, (DWORD)((unsigned long long)unit *
 					(unsigned long long)GetPlayerBotListingSpreadPercent(item, bookSkill) / 100ULL));
+		// And never under what a Moonlight chest holds, or what a bonus item
+		// is worth on the sheet (GetPlayerBotBonusGoodsFloorUnit): the memory
+		// of a hundred-thousand chest, the limiter's drift from it and the
+		// spread's lower fifth would each have asked less. The spread's upper
+		// quarter stays, so two keepers still ask two numbers.
+		unit = std::max(unit, GetPlayerBotBonusGoodsFloorUnit(item));
 		unit = ApplyPlayerBotBonusPremium(unit, bonusPercent);
 		const DWORD price = unit * (DWORD)item->GetCount();
 		return price == 0 ? 1U : price;
@@ -2571,6 +2749,39 @@ namespace
 	DWORD GetPlayerBotShopAskingPrice(LPITEM item)
 	{
 		return RoundPlayerBotPrice(GetPlayerBotShopAskingPriceRaw(item));
+	}
+
+	// What a keeper puts on a line, before the floor: the asking price moved
+	// by the line's own markdown or by its kind's markup, never both
+	// (playerbot_price_rules::ListingPercent - Iwakura's answer of 28
+	// September, points 4 and 5). Here rather than inside the asking price:
+	// the asking price is also every buyer's idea of a fair price, the slip's
+	// yardstick and the anchor the step limiter keeps, and neither a markdown
+	// nor a shortage is what the market believes - it is what this line asks.
+	// A marked-up price is rounded like every asking price; a marked-down one
+	// stays what it always was. A markup that would take a line to GOLD_MAX,
+	// which no counter takes (both engines refuse the add), is not asked. The
+	// markup the line got is handed back for the caller's log.
+	DWORD GetPlayerBotListingPrice(LPITEM item, DWORD asking, int markdownPercent,
+			int* markupOut = NULL)
+	{
+		int markup = markdownPercent > 0 || !item ? 0
+				: GetPlayerBotShortageMarkupPercent(item->GetVnum());
+		const long long moved = playerbot_price_rules::ApplyListingPercent((long long)asking,
+				playerbot_price_rules::ListingPercent(markdownPercent, markup));
+		DWORD price = moved > 0xFFFFFFFFLL ? 0xFFFFFFFFU : (DWORD)std::max(0LL, moved);
+		if (markup > 0)
+		{
+			price = RoundPlayerBotPrice(price);
+			if ((long long)price >= (long long)GOLD_MAX)
+			{
+				markup = 0;
+				price = asking;
+			}
+		}
+		if (markupOut)
+			*markupOut = markup;
+		return price;
 	}
 
 	// Iwakura's "ludzka pomylka" (Patch 4, point 4; Community Patch 5, point
@@ -2780,6 +2991,16 @@ namespace
 			if (policy != PLAYERBOT_ITEM_POLICY_NONE)
 				return -1;
 		}
+		// Nor is tackle, on any counter: a rod or a pickaxe is the tool of its
+		// bot's own sessions, and a second one is the merchant's
+		// (IsPlayerBotJunkItem). A rod's grade is the plus in its name, so from
+		// Wedka+4 the precious refine below scored it 1004 and up, over the
+		// prize score - the bot's only rod, stowed in the bag between two
+		// sessions, went up first on its counter, and the next session bought
+		// another at the Rybak: rods +4 and +5 on counter after counter
+		// (Octodan, 26 September). Only the operator's "stall", above, lists one.
+		if (item->GetType() == ITEM_ROD || item->GetType() == ITEM_PICK)
+			return -1;
 		// A retired item is nobody's goods (IsPlayerBotRetiredItem).
 		if (IsPlayerBotRetiredItem(item->GetVnum()))
 			return -1;
@@ -2849,6 +3070,20 @@ namespace
 		// slot from something that would sell.
 		if (IsPlayerBotMerchantOnlyForgetScroll(item))
 			return merchant ? 400 : -1;
+		// A Stalki (playerbot_stalki.h): the one a bot keeps for the level it is
+		// about to reach is not goods, nor the one the blacksmith is making into
+		// its next armour or weapon (IsPlayerBotHigherTierSpare); any other - of
+		// another class, too far ahead, a second copy - is this market's second
+		// prize at any plus, never capped off the counter and never the
+		// merchant's. Before the caps below, which would have sent Lwi Miecz
+		// home as one of the junk weapons and a black-steel armour at +0..+4 as
+		// one of a flooded family.
+		if (IsPlayerBotStalkiItem(item))
+		{
+			if (ch && (IsPlayerBotKeptStalki(ch, item) || IsPlayerBotHigherTierSpare(ch, item)))
+				return -1;
+			return PLAYERBOT_SHOP_STALKI_SCORE + item->GetRefineLevel();
+		}
 		// A weapon from the level-30 set is the prize of this whole market. It is
 		// worth a counter slot at any refine at all, unrefined included - except
 		// the one its keeper is grinding towards +9 itself.
@@ -3470,22 +3705,57 @@ namespace
 			"%s %s, chyba wystarczy tych prob na dzis"
 		};
 
+		// The same four, line for line, for a reader whose client reads
+		// English (SendPlayerBotShoutIn): the piece's official English name,
+		// then "from +6 to +7", then the reaction.
+		static const char* kPlus7En[] = {
+			"%s %s, the blacksmith is kind today",
+			"made it! %s %s",
+			"%s %s, could have been worse",
+			"done: %s %s!!!"
+		};
+		static const char* kPlus8En[] = {
+			"%s %s! my hands were shaking",
+			"yes! %s %s, push on?",
+			"%s %s, guess I'm lucky today",
+			"done: %s %s, off to work"
+		};
+		static const char* kPlus9En[] = {
+			"%s %s!!! I can't believe it",
+			"%s %s, who would have thought",
+			"a nine! %s %s, drinks on me today :D",
+			"%s %s, that's enough tries for today"
+		};
+
 		const char** pool = kPlus7;
+		const char** poolEn = kPlus7En;
 		if (newPlus >= 9)
+		{
 			pool = kPlus9;
+			poolEn = kPlus9En;
+		}
 		else if (newPlus == 8)
+		{
 			pool = kPlus8;
+			poolEn = kPlus8En;
+		}
 
 		char msg[CHAT_MAX_LEN + 1];
 		char body[CHAT_MAX_LEN + 1];
 		char step[32];
 		snprintf(step, sizeof(step), "z +%d na +%d", newPlus - 1, newPlus);
 		const std::string name = PlayerBotRefineBaseName(resultProto->szLocaleName);
-		snprintf(body, sizeof(body), pool[number(0, 3)], name.c_str(), step);
+		const int line = number(0, 3);
+		snprintf(body, sizeof(body), pool[line], name.c_str(), step);
 		snprintf(msg, sizeof(msg), "%s : %s", ch->GetName(), body);
+		char msgEn[CHAT_MAX_LEN + 1];
+		snprintf(step, sizeof(step), "from +%d to +%d", newPlus - 1, newPlus);
+		const std::string nameEn = PlayerBotRefineBaseName(GetPlayerBotItemNameIn(resultVnum, true).c_str());
+		snprintf(body, sizeof(body), poolEn[line], nameEn.c_str(), step);
+		snprintf(msgEn, sizeof(msgEn), "%s : %s", ch->GetName(), body);
 
 		s_dwLastShoutTime = dwNow;
-		SendPlayerBotShout(msg, ch->GetEmpire());
+		SendPlayerBotShoutIn(msg, msgEn, ch->GetEmpire());
 		sys_log(0, "PLAYERBOT_SHOUT: pid=%u plus=%d text=%s",
 				ch->GetPlayerID(), newPlus, msg);
 	}
@@ -3959,18 +4229,22 @@ namespace
 				if (!offer.bSoldLogged)
 				{
 					offer.bSoldLogged = true;
-					// Gone, and how fast. A line that left within
-					// PLAYERBOT_MARKET_FAST_SALE_MS of going up is Iwakura's
-					// "wysoki popyt": the next counter carrying this thing asks
-					// more. Read here because this is the one place that knows a
-					// line has sold - the item is already out of the bag, which
-					// is why the offer carries the book's skill.
+					// Gone: a line sold, which the market's count of what keeps
+					// selling takes (Iwakura's markup of 28 September,
+					// UpdatePlayerBotShortageMarkups). Read here because this is
+					// the one place that knows a line of a classic stall has sold -
+					// the item is already out of the bag, which is why the offer
+					// carries its vnum and the book's skill. An offline stand's
+					// sale is counted by the engine's own hook instead
+					// (playerbot_offline::NoteSold).
+					NotePlayerBotMarketLineSold(offer.dwVnum);
+					// And how fast, for the log: a line that left within
+					// PLAYERBOT_MARKET_FAST_SALE_MS of going up.
 					std::map<DWORD, DWORD>::const_iterator listed =
 							state.mapStockFirstListed.find(offer.dwItemID);
 					if (listed != state.mapStockFirstListed.end() &&
 							dwNow - listed->second < PLAYERBOT_MARKET_FAST_SALE_MS)
 					{
-						NotePlayerBotFastSale(offer.dwVnum, offer.bRefine, dwNow, offer.dwSkillVnum);
 						sys_log(0, "PLAYERBOT_MARKET: fast sale pid=%u name=%s vnum=%u+%u skill=%u in=%u s",
 								ch->GetPlayerID(), ch->GetName(), offer.dwVnum,
 								(unsigned int)offer.bRefine, offer.dwSkillVnum,
@@ -4326,9 +4600,9 @@ namespace
 		BYTE tableCount = 0;
 		int bestScore = 0;
 		// What the sign will be about: every line that makes the counter, for
-		// Iwakura's rules (playerbot_shop_signs.h), and the best line's name for
-		// the world channel. The counter is sorted best first.
-		const char* pszBestName = NULL;
+		// Iwakura's rules (playerbot_shop_signs.h), and the best line for the
+		// world channel. The counter is sorted best first.
+		DWORD dwBestVnum = 0;
 		std::vector<LPITEM> signGoods;
 		bool grid[PLAYERBOT_SHOP_GRID_CELLS];
 		memset(grid, 0, sizeof(grid));
@@ -4381,37 +4655,39 @@ namespace
 			DWORD price = GetPlayerBotShopAskingPrice(item);
 			// The clearance discount. Applied to the price as asked, so the sale
 			// memory still learns the real price the market would have paid.
+			// In 64 bits: a line of sixty-odd million wrapped in 32.
 			if (bPoor)
-				price = std::max<DWORD>(1, price * PLAYERBOT_SHOP_POOR_DISCOUNT_PERCENT / 100);
+				price = std::max<DWORD>(1, (DWORD)((unsigned long long)price *
+						PLAYERBOT_SHOP_POOR_DISCOUNT_PERCENT / 100ULL));
 			// Carried home unsold before: cheaper by the stand, after the price
 			// is asked so the sale memory learns the market and not the markdown.
-			// Iwakura's band, drawn per listing, and capped in total - four
-			// stands at his upper end would otherwise leave nothing to ask for.
+			// Ten percent a stand, four stands deep: Iwakura's forty at most of
+			// 28 September (PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL); a stand is
+			// this stall's step because its line has no clock of its own. And a
+			// line that is not being marked down asks its kind's markup - the
+			// market keeps selling it and keeps running out of it - but never
+			// both (GetPlayerBotListingPrice).
 			{
+				int cut = 0;
 				std::map<DWORD, BYTE>::const_iterator unsold = state.mapStallUnsold.find(item->GetID());
 				if (unsold != state.mapStallUnsold.end() && unsold->second > 0)
-				{
-					const int stands = std::min<int>(unsold->second, PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_STANDS);
-					const int cut = std::min(PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL,
-							stands * number(PLAYERBOT_MARKET_DEMAND_MIN_PERCENT,
-									PLAYERBOT_MARKET_DEMAND_MAX_PERCENT));
-					price = std::max<DWORD>(1, price * (100 - cut) / 100);
-				}
-			}
-			// And the other way: a thing buyers have been taking off the counter
-			// at once goes up. Applied here rather than inside the asking price
-			// so the market's own anchor is not dragged along with one keeper's
-			// luck - see PLAYERBOT_MARKET_DEMAND_MIN_PERCENT.
-			{
-				const int hot = GetPlayerBotDemandPercent(item->GetVnum(),
-						item->GetRefineLevel(), dwNow, GetPlayerBotSkillBookSkillVnum(item));
-				if (hot > 0)
-					price = std::max<DWORD>(1, (DWORD)((unsigned long long)price *
-							(unsigned long long)(100 + hot) / 100ULL));
+					cut = playerbot_price_rules::SteppedPercent(
+							std::min<int>(unsold->second, PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_STANDS),
+							PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT, PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL);
+				int markup = 0;
+				price = GetPlayerBotListingPrice(item, price, cut, &markup);
+				if (markup > 0)
+					PlayerBotLogThrottled("shop_markup", dwNow,
+							"PLAYERBOT_SHOP: marked up pid=%u name=%s item=%u vnum=%u markup=%d%% price=%u",
+							ch->GetPlayerID(), ch->GetName(), item->GetID(), item->GetVnum(), markup, price);
 			}
 			// Neither markdown goes under what the blacksmith was paid: a
 			// discount is off the margin, not off what the piece cost to make.
-			price = std::max(price, GetPlayerBotRefineInvestment(item));
+			// Nor under what a Moonlight chest holds or a bonus item is worth
+			// (GetPlayerBotListingFloor): a poor keeper's clearance and four
+			// unsold stands took a chest to a third of the sheet's hundred
+			// thousand, a fifteenth of what is in it.
+			price = std::max(price, GetPlayerBotListingFloor(item));
 			table[tableCount].vnum = item->GetVnum();
 			table[tableCount].count = item->GetCount();
 			table[tableCount].pos = TItemPos(INVENTORY, cell);
@@ -4436,8 +4712,8 @@ namespace
 			if (countedKind)
 				countedListed[countedKind] += (int)item->GetCount();
 
-			if (!pszBestName)
-				pszBestName = proto->szLocaleName;
+			if (!dwBestVnum)
+				dwBestVnum = proto->dwVnum;
 			signGoods.push_back(item);
 		}
 		// Asked again here rather than trusting the scan above: the inventory
@@ -4585,8 +4861,8 @@ namespace
 				offers[0].dwVnum, offers[0].dwPrice, ch->GetX(), ch->GetY(), sign);
 		// Worth crossing town for is worth a line on the world channel - the
 		// same bar the sign uses for a stall that carries one thing.
-		if (bestScore >= PLAYERBOT_SHOP_PRIZE_SCORE && pszBestName)
-			AnnouncePlayerBotStall(ch, pszBestName);
+		if (bestScore >= PLAYERBOT_SHOP_PRIZE_SCORE && dwBestVnum)
+			AnnouncePlayerBotStall(ch, dwBestVnum);
 		return true;
 	}
 

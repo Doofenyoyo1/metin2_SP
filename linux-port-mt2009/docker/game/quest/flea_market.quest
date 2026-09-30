@@ -9,15 +9,26 @@
 -- only in M1. Anywhere else, or off, neither option is offered, and a click
 -- on her opens her shop as it always did. The server asks the same two
 -- questions again at every /flea_ command.
+--
+-- The two options are Polish or English as the player's client asked
+-- (playerbot_lang.quest): the engine reads an option's words when she is
+-- clicked (NPC::OnChat, ScriptToString), with the clicking player's flag.
 quest flea_market begin
 	state start begin
-		when 9003.chat."Kup przedmioty" with game.get_event_flag("m2_flea_market_off") == 0 and
+		function t(pl, en)
+			if pc.getf("playerbot_lang", "en") == 1 then
+				return en
+			end
+			return pl
+		end
+
+		when 9003.chat.flea_market.t("Kup przedmioty", "Buy items") with game.get_event_flag("m2_flea_market_off") == 0 and
 				(pc.get_map_index() == 1 or pc.get_map_index() == 21 or pc.get_map_index() == 41) begin
 			setskin(NOWINDOW)
 			npc.open_shop()
 		end
 
-		when 9003.chat."Dom Towarowy" with game.get_event_flag("m2_flea_market_off") == 0 and
+		when 9003.chat.flea_market.t("Dom Towarowy", "Flea Market") with game.get_event_flag("m2_flea_market_off") == 0 and
 				(pc.get_map_index() == 1 or pc.get_map_index() == 21 or pc.get_map_index() == 41) begin
 			setskin(NOWINDOW)
 			cmdchat("FleaMarketOpen")

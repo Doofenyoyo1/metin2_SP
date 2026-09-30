@@ -164,7 +164,7 @@ window = {
 							"horizontal_align" : "right",
 							"vertical_align" : "bottom",
 
-							"tooltip_text" : "Podgl\xb9d skrzynki",
+							"tooltip_text" : uiScriptLocale.CHEST_PREVIEW_TOOLTIP,
 							"tooltip_x" : -30,
 							"tooltip_y" : -19,
 

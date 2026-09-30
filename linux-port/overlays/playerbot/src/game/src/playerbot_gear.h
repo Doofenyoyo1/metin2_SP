@@ -1678,6 +1678,29 @@ namespace
 		return 0;
 	}
 
+	// The apprentice chain: Skrzynia Ucznia I of the three kinds of class (50187
+	// a warrior's and a sura's, 50212 an assassin's, 50213 a shaman's) and the
+	// nine that come out of one another, each at its tenth level, up to
+	// Skrzynia Arcymistrza (50188-50196, special_item_group.starter.txt). What
+	// they hold is potions, elixirs, the green stones and the next chest -
+	// never a piece of gear above the class's +0 starter weapon.
+	bool IsPlayerBotApprenticeChestVnum(DWORD dwVnum)
+	{
+		return (dwVnum >= 50187 && dwVnum <= 50196) || dwVnum == 50212 || dwVnum == 50213;
+	}
+
+	// Whether the world gives the apprentice chest at all: the event flag
+	// m2_starter_chest_off, which the migrator writes from M2_STARTER_CHEST and
+	// both panels set live (web_admin.quest STARTER_CHEST). starter_chest.quest
+	// asks it at a person's first login and the seed at a bot's creation; off,
+	// no bot keeps or opens a chest of the chain either
+	// (ManagePlayerBotProgressionChests). r40250 never writes it, and its bots
+	// keep the chest the seed gives them. A map lookup.
+	bool IsPlayerBotApprenticeChestOff()
+	{
+		return quest::CQuestManager::instance().GetEventFlag("m2_starter_chest_off") > 0;
+	}
+
 	DWORD GetPlayerBotEmergencyWeaponVnum(LPCHARACTER ch)
 	{
 		if (!ch)
@@ -4377,7 +4400,11 @@ namespace
 		}
 
 		const DWORD dwStarterChestVnum = GetStarterChestVnum(ch->GetJob());
-		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		// With the world's apprentice chest off no chest of the chain is opened
+		// (the progression pass takes them out of the bag), a weapon's want
+		// included: the merchant trip below is the way to a weapon then.
+		const bool bApprenticeChestOff = IsPlayerBotApprenticeChestOff();
+		for (WORD cell = 0; !bApprenticeChestOff && cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
 			if (!item)
@@ -4556,6 +4583,36 @@ namespace
 		state.dwNextProgressionChestCheckTime = dwNow + 10000 +
 				(PlayerBotNavHash(ch->GetPlayerID()) % 5001U);
 
+		// The world's apprentice chest off (IsPlayerBotApprenticeChestOff): a
+		// bot keeps no chest of the chain and opens none. Every one in the bag
+		// is taken out through the engine, which is what makes it stay out - a
+		// DELETE on a running world is written back from the db core's cache
+		// (some twenty-five of the 3 510 seban latino took out by hand came
+		// back, 28 September) - and the migrator sweeps the bags of the bots
+		// that are not in the world before the cores start. A companion only
+		// stops opening them: its bag is its owner's as well, and a chest in
+		// it may be the owner's.
+		if (IsPlayerBotApprenticeChestOff())
+		{
+			if (IsPlayerBotSidekickPID(ch->GetPlayerID()))
+				return false;
+			DWORD takenUnits = 0;
+			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+			{
+				LPITEM item = ch->GetInventoryItem(cell);
+				if (!item || item->GetCell() != cell || !IsPlayerBotApprenticeChestVnum(item->GetVnum()) ||
+						item->isLocked() || item->IsExchanging())
+					continue;
+				takenUnits += std::max<DWORD>(1, item->GetCount());
+				ITEM_MANAGER::instance().RemoveItem(item, "PLAYERBOT_APPRENTICE_CHEST_OFF");
+			}
+			if (takenUnits > 0)
+				PlayerBotLogThrottled("apprentice_chest_off", dwNow,
+						"PLAYERBOT_GEAR: apprentice chest is off, taken out of the bag pid=%u name=%s units=%u",
+						ch->GetPlayerID(), ch->GetName(), takenUnits);
+			return false;
+		}
+
 		// The seed historically supplied one starter chest and the stock
 		// give_basic_weapon quest supplied another on first login. Since every
 		// apprentice chest contains the next tier, that duplicated the entire
@@ -4569,9 +4626,7 @@ namespace
 			if (!item)
 				continue;
 			const DWORD vnum = item->GetVnum();
-			const bool progression = (vnum >= 50187 && vnum <= 50196) ||
-					vnum == 50212 || vnum == 50213;
-			if (!progression)
+			if (!IsPlayerBotApprenticeChestVnum(vnum))
 				continue;
 
 			const DWORD count = std::max<DWORD>(1, item->GetCount());

@@ -235,11 +235,15 @@ namespace
 	}
 
 	// A body armour Iwakura's Patch 3, point 4 caps on the market: +0..+4, and
-	// not one rolled with prize lines, which is not what flooded it.
+	// not one rolled with prize lines, which is not what flooded it. Nor a
+	// black-steel armour of sixty-six (playerbot_stalki.h): the flood was the
+	// level-34 families, and a Stalki is never the merchant's, so one the cap
+	// sent home would stand in its bag for good.
 	bool IsPlayerBotCappedLowArmour(LPITEM item)
 	{
 		return item && item->GetType() == ITEM_ARMOR && item->GetSubType() == ARMOR_BODY &&
-				item->GetRefineLevel() <= PLAYERBOT_LOW_ARMOUR_MAX_PLUS && !IsPlayerBotPrizeItem(item);
+				item->GetRefineLevel() <= PLAYERBOT_LOW_ARMOUR_MAX_PLUS && !IsPlayerBotPrizeItem(item) &&
+				!IsPlayerBotStalkiItem(item);
 	}
 
 	// And a jewel his answer of 26 September holds to the same bound: +0..+3,
@@ -902,6 +906,22 @@ namespace
 					out.insert(vnum);
 			}
 		}
+	}
+
+	// Whether this monster can still give this bot a material at all.
+	// CreateDropItem multiplies every drop by the same PERCENT_LVDELTA as
+	// experience, so fifteen levels over a monster leave one percent of the
+	// chance, and under PLAYERBOT_MATERIAL_MIN_DROP_PERCENT a need is no
+	// reason to farm it. One question for the fight's material exception
+	// (BuildPlayerBotCombatContext) and for the errand that walks the bot to
+	// that fight (StartPlayerBotMaterialHunt): the errand asked nothing, and
+	// rode a bot of forty across its first village to a wolf of four that the
+	// fight then refused.
+	bool CanPlayerBotFarmMaterialFrom(LPCHARACTER ch, LPCHARACTER mob)
+	{
+		return ch && mob && mob->IsMonster() &&
+				PERCENT_LVDELTA(ch->GetLevel(), mob->GetLevel()) >=
+					PLAYERBOT_MATERIAL_MIN_DROP_PERCENT;
 	}
 
 	// Every material any recipe in the game consumes, collected once. There is
@@ -1595,6 +1615,14 @@ namespace
 		// bought off a counter was scrap to the rules below.
 		if (IsPlayerBotGambleForSale(ch, item) || IsPlayerBotRareGambleHeldBase(ch, item))
 			return false;
+		// Nor a Stalki, of any class and at any plus (the operator's decision of
+		// 28 September, playerbot_stalki.h): the one a bot keeps for its next
+		// levels waits in the bag and the rest are a counter's. The default
+		// below sold a level-75 weapon of another class at +0..+3 for a fifth
+		// of its merchant price, and the level rule under it sold the armour a
+		// bot of sixty-four had just picked up for the level it was reaching.
+		if (IsPlayerBotStalkiItem(item))
+			return false;
 
 		const DWORD vnum = item->GetVnum();
 
@@ -1800,6 +1828,35 @@ namespace
 				!IsPlayerBotUpgradeForSelf(ch, item))
 			return IsPlayerBotBagUnderPressure(ch) && !PlayerBotHasCounter(ch);
 
+		// Tackle: one rod is the angler's and one pickaxe the miner's, and a
+		// second of either is scrap - one that another of its kind, worn or in
+		// the bag, matches or beats in grade (the grades are consecutive vnums).
+		// The bots that bought a rod per session (see CountPlayerBotRods) were
+		// carrying fifteen, and a vendored rod or pickaxe (eighty thousand yang)
+		// would only be bought again for the next session. Above the refine keep
+		// below, because a tool's grade is the plus in its name: from Wedka+4 a
+		// second rod was never scrap, and the counter took any rod from +4 for a
+		// precious spare - the bot's only one too, stowed in the bag between two
+		// sessions, so the next session bought another at the Rybak (Octodan,
+		// 26 September). A tool is never counter goods now
+		// (ScorePlayerBotShopStock), so the merchant is where a second one goes,
+		// whatever its plus, or it would ride in the bag for good.
+		if (item->GetType() == ITEM_ROD || item->GetType() == ITEM_PICK)
+		{
+			const BYTE tool = item->GetType();
+			LPITEM worn = ch->GetWear(WEAR_WEAPON);
+			if (worn && worn != item && worn->GetType() == tool && worn->GetVnum() >= vnum)
+				return true;
+			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+			{
+				LPITEM other = ch->GetInventoryItem(cell);
+				if (other && other != item && other->GetType() == tool &&
+						(other->GetVnum() > vnum || (other->GetVnum() == vnum && other->GetID() < item->GetID())))
+					return true;
+			}
+			return false;
+		}
+
 		// Whatever else it is, a +5 or better is not something to hand an NPC for
 		// a fifth of the shop price. The reserve rule below keeps one spare per
 		// slot and sold the rest; that is how a Riba +9 went to a merchant
@@ -1875,50 +1932,14 @@ namespace
 		if (vnum == PLAYERBOT_MAGIC_DUST_VNUM)
 			return false;
 
-		// Fishing tackle and the catch worth keeping. Pearls are the entire point
-		// of a fishing trip -- they are what carries equipment to +7/+8/+9 -- and a
-		// vendored rod would simply have to be bought again for the next session.
-		// Ordinary fish and bones stay sellable: that is the angler's pocket money.
-		// One rod is tackle; a second one is scrap. The bots that bought a rod
-		// per session (see CountPlayerBotRods) are carrying fifteen, and the
-		// worst of them go to the merchant: a rod that another rod - worn or in
-		// the bag - matches or beats in grade.
-		if (item->GetType() == ITEM_ROD)
-		{
-			LPITEM worn = ch->GetWear(WEAR_WEAPON);
-			if (worn && worn != item && worn->GetType() == ITEM_ROD && worn->GetVnum() >= vnum)
-				return true;
-			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
-			{
-				LPITEM other = ch->GetInventoryItem(cell);
-				if (other && other != item && other->GetType() == ITEM_ROD &&
-						(other->GetVnum() > vnum || (other->GetVnum() == vnum && other->GetID() < item->GetID())))
-					return true;
-			}
-			return false;
-		}
+		// The catch worth keeping. Pearls are the entire point of a fishing trip
+		// -- they are what carries equipment to +7/+8/+9. Ordinary fish and bones
+		// stay sellable: that is the angler's pocket money. (The rod and the
+		// pickaxe are tackle, judged above the refine keep.)
 		if (vnum == PLAYERBOT_FISHING_BAIT_VNUM ||
 				vnum == PLAYERBOT_SHELLFISH_VNUM || vnum == PLAYERBOT_CAMPFIRE_VNUM ||
 				(vnum >= PLAYERBOT_PEARL_FIRST_VNUM && vnum <= PLAYERBOT_PEARL_LAST_VNUM))
 			return false;
-		// A pickaxe is tackle, exactly as a rod is, and the same rule applies:
-		// one is the tool, a second one is scrap. It costs eighty thousand yang
-		// and the junk rule's default is to sell, so without this a miner would
-		// vendor its pickaxe on the town trip after every session.
-		if (item->GetType() == ITEM_PICK)
-		{
-			LPITEM worn = ch->GetWear(WEAR_WEAPON);
-			if (worn && worn != item && worn->GetType() == ITEM_PICK && worn->GetVnum() >= vnum)
-				return true;
-			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
-			{
-				LPITEM other = ch->GetInventoryItem(cell);
-				if (other && other != item && other->GetType() == ITEM_PICK &&
-						(other->GetVnum() > vnum || (other->GetVnum() == vnum && other->GetID() < item->GetID())))
-					return true;
-			}
-			return false;
-		}
 		// Ore, raw and smelted. A hundred raw make one smelted piece and the
 		// smelted ones are what a player crosses a market for, so neither is
 		// ever the merchant's - they are the whole point of the digging, and
@@ -2138,6 +2159,18 @@ namespace
 			if (IsPlayerBotJunkItem(ch, ch->GetInventoryItem(cell)))
 				++count;
 		return count;
+	}
+
+	// A dozen pieces of scrap send a bot to the merchant under the old rules.
+	// Iwakura's Trader goes at eighty percent of the bag (IsPlayerBotBagFull),
+	// so under his system the scrap is sold on whatever visit comes and starts
+	// none. The town visit and the first village's hold on a departure ask
+	// this one function, because that hold is lifted by a visit: a need that
+	// holds the bot and starts no visit is lifted by nothing but a relog.
+	bool PlayerBotWantsSellRun(LPCHARACTER ch)
+	{
+		return !IsPlayerBotPersonaEnabled() &&
+				CountPlayerBotJunkItems(ch) >= PLAYERBOT_SELL_RUN_JUNK_ITEMS;
 	}
 
 	// Boosters nobody but their holder can use, past PLAYERBOT_BOOSTER_KEEP_PER_VNUM,

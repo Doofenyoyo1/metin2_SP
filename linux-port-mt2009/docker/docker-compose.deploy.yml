@@ -77,6 +77,11 @@ services:
       PLAYERBOT_SEED_STRICT: "${PLAYERBOT_SEED_STRICT:-0}"
       PLAYERBOT_EXPECT_MIN_EXISTING_BOTS: "${PLAYERBOT_EXPECT_MIN_EXISTING_BOTS:-0}"
       M2_PLAYERBOT_KINGDOMS: "${M2_PLAYERBOT_KINGDOMS:-1}"
+      # The fresh cohort of game channels 3 and 4: the seed creates its
+      # identities while they are on - this, or the web panel's wish in the
+      # spool when that is newer than the moment below (as the game decides).
+      M2_PLAYERBOT_FRESH_CHANNELS: "${M2_PLAYERBOT_FRESH_CHANNELS:-0}"
+      M2_PLAYERBOT_CH2_SET_AT: "${M2_PLAYERBOT_CH2_SET_AT:-0}"
       M2_PLAYERBOT_HUMAN_NAMES: "${M2_PLAYERBOT_HUMAN_NAMES:-1}"
       # The world's difficulty: apply.sh turns it into the event flags the
       # Biologist and the stable keeper read (quest/m2_difficulty.lua).
@@ -95,9 +100,13 @@ services:
       M2_RATE_DROP: "${M2_RATE_DROP:-100}"
       M2_RATE_YANG: "${M2_RATE_YANG:-100}"
       M2_PLAYERBOT_START_HELD: "${M2_PLAYERBOT_START_HELD:-0}"
-      # Whether a player's new character gets the apprentice chest (the
-      # launcher asks with the rates; starter_chest.quest reads the flag).
+      # Whether the world gives the apprentice chest, to a player's new
+      # character and to the bots alike (the launcher's difficulty window and
+      # new-world dialog; the migrator writes the flag the quest, the seed and
+      # the cores read). M2_PLAYERBOT_DISABLE_STUDENT_CHEST=1 is Seban's own
+      # integration's name for off, and is read as that.
       M2_STARTER_CHEST: "${M2_STARTER_CHEST:-1}"
+      M2_PLAYERBOT_DISABLE_STUDENT_CHEST: "${M2_PLAYERBOT_DISABLE_STUDENT_CHEST:-0}"
       # The world's ride seals in the ItemShop's "Wierzchowce" tab (apply.sh);
       # 0 leaves common.itemshop_items to the operator.
       M2_ITEMSHOP_MOUNTS: "${M2_ITEMSHOP_MOUNTS:-1}"
@@ -117,9 +126,11 @@ services:
 
     volumes:
       - ./mariadb/playerbot:/opt/playerbot:ro
-      # The spool, for one file: whether a world about to be made keeps its
-      # bots at the door until the operator lets them in. The migrator is the
-      # only step that runs before the cores and knows the world is fresh.
+      # The spool, for two files: whether a world about to be made keeps its
+      # bots at the door until the operator lets them in - the migrator is the
+      # only step that runs before the cores and knows the world is fresh -
+      # and the web panel's channel wish (channels.wanted), read only for
+      # whether the fresh cohort of channels 3 and 4 is seeded.
       - rates-spool:/opt/m2spool
 
     read_only: true
@@ -201,6 +212,11 @@ services:
       M2_PLAYERBOT_CH2: "${M2_PLAYERBOT_CH2:-0}"
       PLAYERBOT_CH2_SHARE: "${PLAYERBOT_CH2_SHARE:-40}"
       M2_PLAYERBOT_CH2_SET_AT: "${M2_PLAYERBOT_CH2_SET_AT:-0}"
+      # Channels 3 and 4 with a fresh cohort of bots from level one (1: CH3,
+      # 2: CH3 and CH4, 0 off); the entrypoint decides it with the second
+      # channel and raises M2_CHANNELS to cover it. No shops there.
+      M2_PLAYERBOT_FRESH_CHANNELS: "${M2_PLAYERBOT_FRESH_CHANNELS:-0}"
+      PLAYERBOT_FRESH_COUNT: "${PLAYERBOT_FRESH_COUNT:-200}"
       M2_GAME_CONTAINER_PORT_RANGE: "${M2_GAME_CONTAINER_PORT_RANGE:-13000-13002}"
       # m2-render-config writes these into CONFIG. Without a line here the
       # value in .env never reaches the container and the defaults stand, which
@@ -228,7 +244,8 @@ services:
       - "${M2_HOST_BIND_ADDRESS:-0.0.0.0}:${M2_AUTH_PORT:-11000}:11000/tcp"
       # The container side is a variable too: the launcher widens both to
       # 13000-13012 when it switches the second channel on (M2_PLAYERBOT_CH2),
-      # and a world without it publishes the first channel's three as before.
+      # to 13000-13022 or 13000-13032 for the fresh channels 3 and 4, and a
+      # world without them publishes the first channel's three as before.
       - "${M2_HOST_BIND_ADDRESS:-0.0.0.0}:${M2_GAME_PORT_RANGE:-13000-13002}:${M2_GAME_CONTAINER_PORT_RANGE:-13000-13002}/tcp"
       # never published: 12000, 14000-14002 (p2p), 15000 (the db core).
 
@@ -474,7 +491,7 @@ services:
       # server it is actually looking at rather than "nieustawiona".
       # The default is bumped with every release, so a world nobody has
       # configured still reports the version it is actually running.
-      PLAYERBOTS_VERSION: "${M2_PLAYERBOTS_VERSION:-2.2.38}"
+      PLAYERBOTS_VERSION: "${M2_PLAYERBOTS_VERSION:-2.2.42}"
       TZ: "${M2_TZ:-UTC}"
     ports:
       # 7790 outside: 7789 is the browser bridge's port in this stack.

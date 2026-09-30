@@ -177,10 +177,12 @@ namespace
 	const DWORD PLAYERBOT_SIDEKICK_FOE_MEMORY_EVERY_MS = 1000;
 	const size_t PLAYERBOT_SIDEKICK_FOE_MEMORY_MAX = 32;
 	const int PLAYERBOT_SIDEKICK_HANDOFF_RANGE = 2500;
-	// The owner spends the stat points (the window's "Statystyki"; Kiciamol,
+	// The owner spends the stat points (the window's status page; Kiciamol,
 	// 25 September: "Dodasz jeszcze mozliwosc dodawania statystyk przez
-	// gracza?" - the operator: "Tak"). One order adds at most this many points.
-	const int PLAYERBOT_SIDEKICK_STAT_ORDER_MAX = 10;
+	// gracza?" - the operator: "Tak"). One order adds at most this many points: the
+	// page's "+" is the player's own, whose Ctrl + click asks for a number of
+	// two digits, and ninety is what one stat can hold.
+	const int PLAYERBOT_SIDEKICK_STAT_ORDER_MAX = 90;
 	// "Lurowanie" in the window (the operator, 25 September: "towarzysz zbiera 3
 	// grupki mobow - moby zwykle sa w trojke/czworke, wiec niech jakos to
 	// odroznia i zbiera spoty"). A course wakes up to this many packs round
@@ -853,8 +855,8 @@ namespace
 		return rec && rec->bManualSkills;
 	}
 
-	// The owner spends its stat points (the window's "Statystyki"), and the
-	// stat pass (ManagePlayerBotStats) leaves them alone.
+	// The owner spends its stat points (the window's "Statystyki rozdaje sam"),
+	// and the stat pass (ManagePlayerBotStats) leaves them alone.
 	bool IsPlayerBotSidekickManualStats(LPCHARACTER ch)
 	{
 		if (!ch || s_mapPlayerBotSidekickOwner.empty())
@@ -870,23 +872,31 @@ namespace
 			pc->SetFlag(flag, value);
 	}
 
+	// A line of the companion's in its owner's chat, already in the owner's
+	// language (a PBT pair picked by IsPlayerBotPersonEnglish(owner)).
 	void SayPlayerBotSidekick(LPCHARACTER owner, const char* text)
 	{
 		if (owner && owner->GetDesc() && !owner->GetDesc()->IsBot())
-			owner->ChatPacket(CHAT_TYPE_INFO, "[Towarzysz] %s", text);
+			TellPlayerBotPerson(owner, PBT(IsPlayerBotPersonEnglish(owner), "[Towarzysz] %s", "[Companion] %s"), text);
 		// The self-test's owner is a bot with no client, and an order it gave
 		// that was refused would otherwise leave no trace at all.
 		else if (owner && s_bPlayerBotSidekickSelfTest)
 			sys_log(0, "PLAYERBOT_SIDEKICK: says owner=%u \"%s\"", owner->GetPlayerID(), text);
 	}
 
-	const char* GetPlayerBotSidekickStanceName(BYTE stance)
+	// The same, with both languages given: the owner reads its own.
+	void SayPlayerBotSidekick(LPCHARACTER owner, const char* pl, const char* english)
+	{
+		SayPlayerBotSidekick(owner, PBT(IsPlayerBotPersonEnglish(owner), pl, english));
+	}
+
+	const char* GetPlayerBotSidekickStanceName(BYTE stance, bool en = false)
 	{
 		switch (stance)
 		{
-			case PLAYERBOT_SIDEKICK_STANCE_DEFEND: return "nie atakuje pierwszy";
-			case PLAYERBOT_SIDEKICK_STANCE_PASSIVE: return "nie walczy, tylko sie broni";
-			default: return "atakuje wszystko w poblizu";
+			case PLAYERBOT_SIDEKICK_STANCE_DEFEND: return PBT(en, "nie atakuje pierwszy", "never attacks first");
+			case PLAYERBOT_SIDEKICK_STANCE_PASSIVE: return PBT(en, "nie walczy, tylko sie broni", "does not fight, only defends");
+			default: return PBT(en, "atakuje wszystko w poblizu", "attacks everything nearby");
 		}
 	}
 
@@ -1026,14 +1036,14 @@ namespace
 
 	// --------------------------------------------------------- being born
 
-	const char* GetPlayerBotSidekickClassName(BYTE race)
+	const char* GetPlayerBotSidekickClassName(BYTE race, bool en = false)
 	{
 		switch (race % 4)
 		{
-			case 0: return "Wojownik";
+			case 0: return PBT(en, "Wojownik", "Warrior");
 			case 1: return "Ninja";
 			case 2: return "Sura";
-			default: return "Szaman";
+			default: return PBT(en, "Szaman", "Shaman");
 		}
 	}
 
@@ -1091,9 +1101,16 @@ namespace
 				"AND l.pid NOT IN (SELECT owner FROM player.ikashop_offlineshop) "
 #endif
 				// A never-played identity first: a played one is one of the
-				// population's bots, taken out with everything it earned.
-				"ORDER BY (p.playtime > 0), (p.level > %d), ABS(CAST(p.level AS SIGNED) - %d), l.pid DESC LIMIT 120",
+				// population's bots, taken out with everything it earned. The
+				// fresh cohort's identities of the third and fourth channels
+				// come last of all (playerbot_channel_rules.h): never played
+				// either, and the highest pids, so without this they would
+				// have been the first taken - out of a cohort of 500 a kingdom
+				// that is held for its own channels whether it plays or not.
+				"ORDER BY (l.pid BETWEEN %u AND %u), (p.playtime > 0), (p.level > %d), "
+				"ABS(CAST(p.level AS SIGNED) - %d), l.pid DESC LIMIT 120",
 				(unsigned int)empire, (unsigned int)race, PLAYERBOT_SIDEKICK_IDENTITY_IDLE_MINUTES,
+				playerbot_channel_rules::FRESH_FIRST_PID, playerbot_channel_rules::FRESH_LAST_PID,
 				ownerLevel, ownerLevel);
 		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
 		if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
@@ -1142,17 +1159,18 @@ namespace
 		if (s_mapPlayerBotSidekicks.find(ownerPid) != s_mapPlayerBotSidekicks.end())
 		{
 			SetPlayerBotSidekickFlag(ownerPid, "towarzysz.created", 1);
-			SayPlayerBotSidekick(owner, "Masz juz towarzysza.");
+			SayPlayerBotSidekick(owner, "Masz juz towarzysza.", "You have a companion already.");
 			return false;
 		}
 		if (race < 0 || race > 7 || group < 1 || group > 2)
 		{
-			SayPlayerBotSidekick(owner, "Nie ma takiej klasy albo sciezki.");
+			SayPlayerBotSidekick(owner, "Nie ma takiej klasy albo sciezki.", "There is no such class or path.");
 			return false;
 		}
 		if (!IsPlayerBotSidekickNameAllowed(name))
 		{
-			SayPlayerBotSidekick(owner, "Ten nick nie pasuje: od 3 do 16 liter i cyfr, bez polskich znakow i spacji.");
+			SayPlayerBotSidekick(owner, "Ten nick nie pasuje: od 3 do 16 liter i cyfr, bez polskich znakow i spacji.",
+					"That name will not do: 3 to 16 letters and digits, no accents and no spaces.");
 			return false;
 		}
 		{
@@ -1163,7 +1181,8 @@ namespace
 			if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult ||
 					!(row = mysql_fetch_row(msg->Get()->pSQLResult)))
 			{
-				SayPlayerBotSidekick(owner, "Nie udalo sie sprawdzic nicku, sprobuj za chwile.");
+				SayPlayerBotSidekick(owner, "Nie udalo sie sprawdzic nicku, sprobuj za chwile.",
+						"The name could not be checked, try again in a moment.");
 				return false;
 			}
 			unsigned int taken = 0;
@@ -1171,14 +1190,15 @@ namespace
 				str_to_number(taken, row[0]);
 			if (taken != 0)
 			{
-				SayPlayerBotSidekick(owner, "Ten nick jest juz zajety - wybierz inny.");
+				SayPlayerBotSidekick(owner, "Ten nick jest juz zajety - wybierz inny.", "That name is taken - choose another.");
 				return false;
 			}
 		}
 		const DWORD pid = PickPlayerBotSidekickIdentity(owner->GetEmpire(), (BYTE)race, owner->GetLevel());
 		if (pid == 0)
 		{
-			SayPlayerBotSidekick(owner, "Nie ma teraz wolnej postaci tej klasy w twoim krolestwie - wybierz inna albo sprobuj pozniej.");
+			SayPlayerBotSidekick(owner, "Nie ma teraz wolnej postaci tej klasy w twoim krolestwie - wybierz inna albo sprobuj pozniej.",
+					"No character of that class is free in your kingdom now - choose another or try later.");
 			sys_log(0, "PLAYERBOT_SIDEKICK: no identity for owner=%u race=%d empire=%u",
 					ownerPid, race, (unsigned int)owner->GetEmpire());
 			return false;
@@ -1195,7 +1215,7 @@ namespace
 		std::unique_ptr<SQLMsg> rename(AccountDB::instance().DirectQuery(query));
 		if (!rename.get() || rename->uiSQLErrno != 0)
 		{
-			SayPlayerBotSidekick(owner, "Nie udalo sie nadac nicku - sprobuj innego.");
+			SayPlayerBotSidekick(owner, "Nie udalo sie nadac nicku - sprobuj innego.", "The name could not be given - try another.");
 			return false;
 		}
 		// And the storekeeper's box of the account it was: a companion on a town
@@ -1225,7 +1245,8 @@ namespace
 		std::unique_ptr<SQLMsg> insert(AccountDB::instance().DirectQuery(query));
 		if (!insert.get() || insert->uiSQLErrno != 0)
 		{
-			SayPlayerBotSidekick(owner, "Nie udalo sie zapisac towarzysza - sprobuj za chwile.");
+			SayPlayerBotSidekick(owner, "Nie udalo sie zapisac towarzysza - sprobuj za chwile.",
+					"The companion could not be saved - try again in a moment.");
 			return false;
 		}
 		TPlayerBotSidekick rec;
@@ -1240,12 +1261,16 @@ namespace
 		s_mapPlayerBotSidekicks[ownerPid] = rec;
 		s_mapPlayerBotSidekickOwner[pid] = ownerPid;
 		SetPlayerBotSidekickFlag(ownerPid, "towarzysz.created", 1);
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		char text[192];
-		snprintf(text, sizeof(text), "%s (%s) dolacza do ciebie - chwila i bedzie przy tobie.",
-				name, GetPlayerBotSidekickClassName((BYTE)race));
+		snprintf(text, sizeof(text), PBT(en, "%s (%s) dolacza do ciebie - chwila i bedzie przy tobie.",
+				"%s (%s) joins you - in a moment it will be at your side."),
+				name, GetPlayerBotSidekickClassName((BYTE)race, en));
 		SayPlayerBotSidekick(owner, text);
 		SayPlayerBotSidekick(owner, "Punkty umiejetnosci rozdajesz ty: okno towarzysza (P), Umiejetnosci. "
-				"Wolisz, zeby robil to sam? Ustaw tam \"Punkty rozdaje sam: nie\".");
+				"Wolisz, zeby robil to sam? Ustaw tam \"Punkty rozdaje sam: nie\".",
+				"You spend its skill points: the companion's window (P), Skills. "
+				"Rather it did that itself? Set \"I spend the points: no\" there.");
 		sys_log(0, "PLAYERBOT_SIDEKICK: created owner=%u owner_name=%s pid=%u name=%s race=%d group=%d level=%d",
 				ownerPid, owner->GetName(), pid, name, race, group, level);
 		CPlayerBotManager::instance().SpawnSidekick(pid);
@@ -1569,7 +1594,8 @@ namespace
 			PlacePlayerBotSidekick(ch, state, owner, dwNow, "sidekick_arrives");
 			KeepPlayerBotSidekickInParty(ch, owner, dwNow);
 			char text[128];
-			snprintf(text, sizeof(text), "%s jest przy tobie.", ch->GetName());
+			snprintf(text, sizeof(text), PBT(IsPlayerBotPersonEnglish(owner), "%s jest przy tobie.", "%s is at your side."),
+					ch->GetName());
 			SayPlayerBotSidekick(owner, text);
 		}
 		sys_log(0, "PLAYERBOT_SIDEKICK: entered pid=%u name=%s owner=%u mode=%u level=%d gifts=%u",
@@ -1586,8 +1612,8 @@ namespace
 	void HandlePlayerBotSidekickCommand(LPCHARACTER ch, const char* argument);
 	void SendPlayerBotSidekickWindow(LPCHARACTER owner, bool fullGear);
 	DWORD GetPlayerBotSidekickSkillBase(LPCHARACTER sk);
-	std::string GetPlayerBotSidekickWearRefusal(LPCHARACTER sk, LPITEM item, LPITEM replacing);
-	std::string GetPlayerBotSidekickHandOverRefusal(LPITEM item);
+	std::string GetPlayerBotSidekickWearRefusal(LPCHARACTER sk, LPITEM item, LPITEM replacing, bool en = false);
+	std::string GetPlayerBotSidekickHandOverRefusal(LPITEM item, bool en = false);
 	int CountPlayerBotSidekickChasers(LPCHARACTER ch);
 	int GetPlayerBotSidekickHealthPercent(LPCHARACTER ch);
 
@@ -2354,7 +2380,8 @@ namespace
 						sys_log(0, "PLAYERBOT_SIDEKICK: owner changed kingdom, logging out to follow pid=%u owner=%u empire=%u->%u",
 								rec.dwSidekickPID, rec.dwOwnerPID, (unsigned int)sk->GetEmpire(),
 								(unsigned int)owner->GetEmpire());
-						SayPlayerBotSidekick(owner, "Zmieniles krolestwo - ide za toba, zaraz bede.");
+						SayPlayerBotSidekick(owner, "Zmieniles krolestwo - ide za toba, zaraz bede.",
+								"You changed kingdoms - I'm following you, I'll be there soon.");
 						CPlayerBotManager::instance().Despawn(rec.dwSidekickPID);
 						s_mapPlayerBotSidekickRuntime.erase(rec.dwSidekickPID);
 						rec.dwNextSpawnTry = dwNow + PLAYERBOT_SIDEKICK_SPAWN_RETRY_MS;
@@ -2417,24 +2444,29 @@ namespace
 	void ReportPlayerBotSidekick(LPCHARACTER owner, const TPlayerBotSidekick& rec)
 	{
 		LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID);
-		const char* mode = rec.bMode == PLAYERBOT_SIDEKICK_FREE ? "wolna reka" : "przy tobie";
+		const bool en = IsPlayerBotPersonEnglish(owner);
+		const char* mode = rec.bMode == PLAYERBOT_SIDEKICK_FREE ? PBT(en, "wolna reka", "free hand") :
+				PBT(en, "przy tobie", "at your side");
 		char text[320];
 		if (!sk)
-			snprintf(text, sizeof(text), "Twoj towarzysz za chwile bedzie w grze (tryb: %s, walka: %s).", mode,
-					GetPlayerBotSidekickStanceName(rec.bStance));
+			snprintf(text, sizeof(text), PBT(en, "Twoj towarzysz za chwile bedzie w grze (tryb: %s, walka: %s).",
+					"Your companion will be in the game in a moment (mode: %s, fight: %s)."), mode,
+					GetPlayerBotSidekickStanceName(rec.bStance, en));
 		else
-			snprintf(text, sizeof(text), "%s - poziom %d, zycie %d%%, %s, tryb: %s, walka: %s.",
+			snprintf(text, sizeof(text), PBT(en, "%s - poziom %d, zycie %d%%, %s, tryb: %s, walka: %s.",
+					"%s - level %d, health %d%%, %s, mode: %s, fight: %s."),
 					sk->GetName(), sk->GetLevel(),
 					sk->GetMaxHP() > 0 ? (int)((long long)sk->GetHP() * 100 / sk->GetMaxHP()) : 0,
-					sk->GetMapIndex() == owner->GetMapIndex() ? "na twojej mapie" : "na innej mapie", mode,
-					GetPlayerBotSidekickStanceName(rec.bStance));
+					sk->GetMapIndex() == owner->GetMapIndex() ? PBT(en, "na twojej mapie", "on your map") :
+					PBT(en, "na innej mapie", "on another map"), mode,
+					GetPlayerBotSidekickStanceName(rec.bStance, en));
 		SayPlayerBotSidekick(owner, text);
 	}
 
 	// The stance, kept in the record at once: the table is read again every
 	// thirty seconds, and an order written behind that read would be undone by
 	// it. Answers with the companion's words for it.
-	const char* SetPlayerBotSidekickStance(TPlayerBotSidekick& rec, BYTE stance)
+	const char* SetPlayerBotSidekickStance(TPlayerBotSidekick& rec, BYTE stance, bool en = false)
 	{
 		stance = std::min<BYTE>(stance, PLAYERBOT_SIDEKICK_STANCE_PASSIVE);
 		if (rec.bStance != stance)
@@ -2453,26 +2485,37 @@ namespace
 		switch (stance)
 		{
 			case PLAYERBOT_SIDEKICK_STANCE_DEFEND:
-				return "Dobra, nie zaczynam walki. Bronie ciebie i siebie, a pomagam, kiedy ty juz walczysz.";
+				return PBT(en, "Dobra, nie zaczynam walki. Bronie ciebie i siebie, a pomagam, kiedy ty juz walczysz.",
+						"All right, I won't start a fight. I guard you and myself, and help once you are fighting.");
 			case PLAYERBOT_SIDEKICK_STANCE_PASSIVE:
-				return "Dobra, nie walcze. Oddam tylko temu, kto mnie uderzy.";
+				return PBT(en, "Dobra, nie walcze. Oddam tylko temu, kto mnie uderzy.",
+						"All right, I won't fight. I only hit back at whoever hits me.");
 			default:
-				return "Dobra, bije wszystko, co sie do nas zblizy.";
+				return PBT(en, "Dobra, bije wszystko, co sie do nas zblizy.", "All right, I hit everything that comes near us.");
 		}
 	}
 
 	bool PlayerBotSidekickHeard(const char* folded, const char* phrase);
 
 	// The stance a whisper asks for, or -1. The longer phrases first: "nie
-	// atakuj pierwszy" holds "nie atakuj" and "atakuj pierwszy" both.
+	// atakuj pierwszy" holds "nie atakuj" and "atakuj pierwszy" both, and
+	// "don't attack first" the English two. The English words (28 September)
+	// come after the Polish ones in each list; an apostrophe survives the
+	// folding, so "don't" and "dont" are both there. "Defend me" and not a bare
+	// "defend", which "only defend yourself" - the passive stance - holds too.
 	int GetPlayerBotSidekickStanceHeard(const char* folded)
 	{
 		static const char* const defendWords[] = { "nie atakuj pierwszy", "nie bij pierwszy", "nie zaczynaj",
-				"nie zaczepiaj", "bron mnie", "obronnie", "defensywnie" };
+				"nie zaczepiaj", "bron mnie", "obronnie", "defensywnie",
+				"don't attack first", "dont attack first", "do not attack first", "don't start", "dont start",
+				"do not start", "defend me", "guard me", "defensive", "defensively" };
 		static const char* const passiveWords[] = { "nie walcz", "nie atakuj", "nie bij", "tylko sie bron",
-				"pasywnie", "biernie" };
+				"pasywnie", "biernie",
+				"don't fight", "dont fight", "do not fight", "don't attack", "dont attack", "do not attack",
+				"stop fighting", "defend yourself", "passive", "passively" };
 		static const char* const attackWords[] = { "atakuj wszystko", "bij wszystko", "atakuj pierwszy", "atakuj",
-				"agresywnie", "walcz" };
+				"agresywnie", "walcz",
+				"attack everything", "attack all", "attack first", "attack", "aggressive", "aggressively", "fight" };
 		for (size_t i = 0; i < sizeof(defendWords) / sizeof(defendWords[0]); ++i)
 			if (PlayerBotSidekickHeard(folded, defendWords[i]))
 				return PLAYERBOT_SIDEKICK_STANCE_DEFEND;
@@ -2505,12 +2548,12 @@ namespace
 		TPlayerBotAIStateMap::iterator st = s_mapPlayerBotAIStates.find(rec.dwSidekickPID);
 		if (!sk || st == s_mapPlayerBotAIStates.end() || !owner->GetSectree())
 		{
-			SayPlayerBotSidekick(owner, "Juz ide - pojawie sie przy tobie za chwile.");
+			SayPlayerBotSidekick(owner, "Juz ide - pojawie sie przy tobie za chwile.", "On my way - I'll be at your side in a moment.");
 			return;
 		}
 		if (sk->IsDead())
 		{
-			SayPlayerBotSidekick(owner, "Najpierw musze wstac - zaraz bede.");
+			SayPlayerBotSidekick(owner, "Najpierw musze wstac - zaraz bede.", "I have to get up first - I'll be right there.");
 			return;
 		}
 		// Whatever it was doing on its own ends here.
@@ -2523,7 +2566,7 @@ namespace
 		PlacePlayerBotSidekick(sk, state, owner, dwNow, "sidekick_summoned");
 		KeepPlayerBotSidekickInParty(sk, owner, dwNow);
 		char text[128];
-		snprintf(text, sizeof(text), "%s: jestem!", sk->GetName());
+		snprintf(text, sizeof(text), PBT(IsPlayerBotPersonEnglish(owner), "%s: jestem!", "%s: here I am!"), sk->GetName());
 		SayPlayerBotSidekick(owner, text);
 	}
 
@@ -2544,7 +2587,8 @@ namespace
 		LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID);
 		if (sk && sk->GetParty() && owner->GetParty() == sk->GetParty())
 			LeavePlayerBotParty(sk);
-		SayPlayerBotSidekick(owner, "Ide expic po swojemu. Zawolaj mnie z listu Towarzysz, kiedy bede potrzebny.");
+		SayPlayerBotSidekick(owner, "Ide expic po swojemu. Zawolaj mnie z listu Towarzysz, kiedy bede potrzebny.",
+				"Off to level on my own. Call me from the Companion letter when you need me.");
 		sys_log(0, "PLAYERBOT_SIDEKICK: let off the leash owner=%u pid=%u", rec.dwOwnerPID, rec.dwSidekickPID);
 	}
 
@@ -2580,7 +2624,8 @@ namespace
 			s_mapPlayerBotSidekickBodySent.erase(body);
 		}
 #endif
-		SayPlayerBotSidekick(owner, "Towarzysz odszedl. Nowego mozesz wybrac w liscie Towarzysz.");
+		SayPlayerBotSidekick(owner, "Towarzysz odszedl. Nowego mozesz wybrac w liscie Towarzysz.",
+				"Your companion has left. You can choose a new one in the Companion letter.");
 		sys_log(0, "PLAYERBOT_SIDEKICK: dismissed owner=%u pid=%u", rec.dwOwnerPID, rec.dwSidekickPID);
 	}
 
@@ -2600,7 +2645,7 @@ namespace
 
 	// The lure switch, kept in the record at once (see the stance). Answers
 	// with the companion's words for it.
-	const char* SetPlayerBotSidekickLure(TPlayerBotSidekick& rec, bool lure)
+	const char* SetPlayerBotSidekickLure(TPlayerBotSidekick& rec, bool lure, bool en = false)
 	{
 		if (rec.bLure != lure)
 		{
@@ -2608,15 +2653,17 @@ namespace
 			SetPlayerBotSidekickSetting(rec, "lure", lure ? 1U : 0U);
 		}
 		if (!lure)
-			return "Dobra, nie luruje - walcze przy tobie.";
+			return PBT(en, "Dobra, nie luruje - walcze przy tobie.", "All right, no luring - I fight at your side.");
 		if (rec.bStance == PLAYERBOT_SIDEKICK_STANCE_PASSIVE)
-			return "Lurowanie wlaczone, ale teraz nie walcze - zmien walke na \"Atakuj\" albo \"Nie 1. atak\", a zaczne.";
-		return "Dobra, luruje: kiedy stoisz na spocie, sciagam do 3 grup potworow z okolicy i przyprowadzam je do ciebie.";
+			return PBT(en, "Lurowanie wlaczone, ale teraz nie walcze - zmien walke na \"Atakuj\" albo \"Nie 1. atak\", a zaczne.",
+					"Luring is on, but I'm not fighting now - set the fight to \"Attack\" or \"No 1st hit\" and I'll start.");
+		return PBT(en, "Dobra, luruje: kiedy stoisz na spocie, sciagam do 3 grup potworow z okolicy i przyprowadzam je do ciebie.",
+				"All right, I lure: while you stand on a spot, I pull up to 3 packs of monsters from around and bring them to you.");
 	}
 
 	// "Gra beze mnie", kept in the record at once (see the stance). Answers
 	// with the companion's words for it.
-	const char* SetPlayerBotSidekickSolo(TPlayerBotSidekick& rec, bool solo)
+	const char* SetPlayerBotSidekickSolo(TPlayerBotSidekick& rec, bool solo, bool en = false)
 	{
 		if (rec.bSolo != solo)
 		{
@@ -2624,14 +2671,17 @@ namespace
 			SetPlayerBotSidekickSetting(rec, "solo", solo ? 1U : 0U);
 		}
 		if (!solo)
-			return "Dobra, kiedy wyjdziesz z gry, wyjde razem z toba.";
-		return "Dobra, kiedy wyjdziesz z gry, gram dalej sam - najwyzej 30 poziomow ponad twoj, zebysmy dalej mogli "
-				"expic razem w druzynie.";
+			return PBT(en, "Dobra, kiedy wyjdziesz z gry, wyjde razem z toba.",
+					"All right, when you leave the game, I leave with you.");
+		return PBT(en, "Dobra, kiedy wyjdziesz z gry, gram dalej sam - najwyzej 30 poziomow ponad twoj, zebysmy dalej mogli "
+				"expic razem w druzynie.",
+				"All right, when you leave the game, I play on alone - at most 30 levels above yours, so we can still "
+				"level together in a party.");
 	}
 
 	// "Skrzynki", kept in the record at once (see the stance). Answers with the
 	// companion's words for it.
-	const char* SetPlayerBotSidekickChests(TPlayerBotSidekick& rec, bool open)
+	const char* SetPlayerBotSidekickChests(TPlayerBotSidekick& rec, bool open, bool en = false)
 	{
 		if (rec.bChests != open)
 		{
@@ -2639,14 +2689,16 @@ namespace
 			SetPlayerBotSidekickSetting(rec, "chests", open ? 1U : 0U);
 		}
 		if (open)
-			return "Dobra, sam otwieram skrzynie i szkatulki z torby.";
-		return "Dobra, nie otwieram skrzyn ani szkatulek - zostaja w mojej torbie, mozesz je wziac w oknie Towarzysza.";
+			return PBT(en, "Dobra, sam otwieram skrzynie i szkatulki z torby.",
+					"All right, I open the chests and boxes in my bag myself.");
+		return PBT(en, "Dobra, nie otwieram skrzyn ani szkatulek - zostaja w mojej torbie, mozesz je wziac w oknie Towarzysza.",
+				"All right, I don't open chests or boxes - they stay in my bag, you can take them in the Companion window.");
 	}
 
 	// "Grupa", kept in the record at once (see the stance): whether the
 	// companion follows its owner into a party somebody else leads. Answers
 	// with the companion's words for it.
-	const char* SetPlayerBotSidekickParty(TPlayerBotSidekick& rec, bool join)
+	const char* SetPlayerBotSidekickParty(TPlayerBotSidekick& rec, bool join, bool en = false)
 	{
 		if (rec.bParty != join)
 		{
@@ -2654,9 +2706,12 @@ namespace
 			SetPlayerBotSidekickSetting(rec, "party", join ? 1U : 0U);
 		}
 		if (join)
-			return "Dobra, dolaczam do twojej grupy, nawet gdy prowadzi ja ktos inny - jesli zostanie w niej miejsce "
-					"jeszcze dla jednej osoby.";
-		return "Dobra, do grupy, ktora prowadzi ktos inny, dolacze tylko na zaproszenie jej lidera.";
+			return PBT(en, "Dobra, dolaczam do twojej grupy, nawet gdy prowadzi ja ktos inny - jesli zostanie w niej miejsce "
+					"jeszcze dla jednej osoby.",
+					"All right, I join your party even when someone else leads it - if there is still room in it "
+					"for one more person.");
+		return PBT(en, "Dobra, do grupy, ktora prowadzi ktos inny, dolacze tylko na zaproszenie jej lidera.",
+				"All right, a party someone else leads I join only when its leader invites me.");
 	}
 
 	// The companion in this core's world with its state, or NULL with the owner
@@ -2668,12 +2723,12 @@ namespace
 		TPlayerBotAIStateMap::iterator st = s_mapPlayerBotAIStates.find(rec.dwSidekickPID);
 		if (!sk || st == s_mapPlayerBotAIStates.end() || !CPlayerBotManager::instance().IsManaged(rec.dwSidekickPID))
 		{
-			SayPlayerBotSidekick(owner, "Jeszcze mnie nie ma w grze - chwila.");
+			SayPlayerBotSidekick(owner, "Jeszcze mnie nie ma w grze - chwila.", "I'm not in the game yet - a moment.");
 			return NULL;
 		}
 		if (sk->IsDead())
 		{
-			SayPlayerBotSidekick(owner, "Najpierw musze wstac.");
+			SayPlayerBotSidekick(owner, "Najpierw musze wstac.", "I have to get up first.");
 			return NULL;
 		}
 		*state = &st->second;
@@ -2691,7 +2746,8 @@ namespace
 		TPlayerBotSidekickRuntime& rt = s_mapPlayerBotSidekickRuntime[rec.dwSidekickPID];
 		if (rt.bErrand)
 		{
-			SayPlayerBotSidekick(owner, "Jestem na zakupach. Zawolaj mnie, jesli mam wrocic wczesniej.");
+			SayPlayerBotSidekick(owner, "Jestem na zakupach. Zawolaj mnie, jesli mam wrocic wczesniej.",
+					"I'm out shopping. Call me if I should come back sooner.");
 			return;
 		}
 		if (rec.bMode != PLAYERBOT_SIDEKICK_FOLLOW)
@@ -2711,7 +2767,7 @@ namespace
 		rt.lHoldMap = sk->GetMapIndex();
 		rt.lHoldX = sk->GetX();
 		rt.lHoldY = sk->GetY();
-		SayPlayerBotSidekick(owner, "Czekam tutaj. Zawolaj mnie, kiedy bede potrzebny.");
+		SayPlayerBotSidekick(owner, "Czekam tutaj. Zawolaj mnie, kiedy bede potrzebny.", "I'm waiting here. Call me when you need me.");
 		sys_log(0, "PLAYERBOT_SIDEKICK: holds pid=%u owner=%u map=%ld x=%ld y=%ld", rec.dwSidekickPID, rec.dwOwnerPID,
 				rt.lHoldMap, rt.lHoldX, rt.lHoldY);
 	}
@@ -2731,13 +2787,16 @@ namespace
 		state.bTownVisitPhase = BOT_TOWN_PHASE_NONE;
 		state.bMarketTrip = false;
 		state.bFishingSession = false;
+		LPCHARACTER owner = GetPlayerBotSidekickOwnerChar(rec.dwOwnerPID);
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		char text[192];
 		if (!visited)
-			snprintf(text, sizeof(text), "Nie mialem nic do zalatwienia w miescie - wracam.");
+			snprintf(text, sizeof(text), "%s", PBT(en, "Nie mialem nic do zalatwienia w miescie - wracam.",
+					"I had nothing to do in town - coming back."));
 		else
-			snprintf(text, sizeof(text), "Wracam z zakupow: wydalem %lld yang, mam %u czerwonych i %u niebieskich mikstur.",
+			snprintf(text, sizeof(text), PBT(en, "Wracam z zakupow: wydalem %lld yang, mam %u czerwonych i %u niebieskich mikstur.",
+					"Back from shopping: I spent %lld yang and have %u red and %u blue potions."),
 					spent > 0 ? spent : 0LL, (unsigned int)red, (unsigned int)blue);
-		LPCHARACTER owner = GetPlayerBotSidekickOwnerChar(rec.dwOwnerPID);
 		if (owner)
 		{
 			SayPlayerBotSidekick(owner, text);
@@ -2766,19 +2825,20 @@ namespace
 		TPlayerBotSidekickRuntime& rt = s_mapPlayerBotSidekickRuntime[rec.dwSidekickPID];
 		if (rt.bErrand)
 		{
-			SayPlayerBotSidekick(owner, "Juz jestem na zakupach.");
+			SayPlayerBotSidekick(owner, "Juz jestem na zakupach.", "I'm out shopping already.");
 			return;
 		}
 		if (rec.bMode == PLAYERBOT_SIDEKICK_FREE)
 		{
-			SayPlayerBotSidekick(owner, "Gram teraz po swojemu, zakupy robie sam. Zawolaj mnie najpierw.");
+			SayPlayerBotSidekick(owner, "Gram teraz po swojemu, zakupy robie sam. Zawolaj mnie najpierw.",
+					"I'm playing on my own now and do my own shopping. Call me first.");
 			return;
 		}
 		long map = 0, x = 0, y = 0;
 		if (!GetPlayerBotVillageReturn(sk, playerbot_empire_rules::MAP_ROLE_M1, map, x, y) ||
 				!IsPlayerBotMapHostedHere(map))
 		{
-			SayPlayerBotSidekick(owner, "Stad nie dojde do swojego miasta.");
+			SayPlayerBotSidekick(owner, "Stad nie dojde do swojego miasta.", "I can't get to my town from here.");
 			return;
 		}
 		rt.bHold = false;
@@ -2792,7 +2852,7 @@ namespace
 		if (sk->GetMapIndex() != map && !TransitionPlayerBotMap(sk, *state, map, x, y, dwNow, "sidekick_errand"))
 		{
 			KeepPlayerBotSidekickInParty(sk, owner, dwNow);
-			SayPlayerBotSidekick(owner, "Nie udalo mi sie dojsc do miasta.");
+			SayPlayerBotSidekick(owner, "Nie udalo mi sie dojsc do miasta.", "I couldn't get to town.");
 			return;
 		}
 		rt.bErrand = true;
@@ -2812,7 +2872,10 @@ namespace
 			return;
 		}
 		char text[160];
-		snprintf(text, sizeof(text), "Ide na zakupy %s. Wroce, jak skoncze.", playerbot_conv::GetMapWords(map).to);
+		if (IsPlayerBotPersonEnglish(owner))
+			snprintf(text, sizeof(text), "Off %s to shop. Back when I'm done.", GetPlayerBotMapDestinationEn(map));
+		else
+			snprintf(text, sizeof(text), "Ide na zakupy %s. Wroce, jak skoncze.", playerbot_conv::GetMapWords(map).to);
 		SayPlayerBotSidekick(owner, text);
 	}
 
@@ -2823,15 +2886,59 @@ namespace
 	std::string EncodePlayerBotSidekickText(const char* text, size_t maxBytes)
 	{
 		static const char kDigits[] = "0123456789abcdef";
-		std::string out;
-		size_t n = 0;
-		for (const unsigned char* p = (const unsigned char*)(text ? text : ""); *p && n < maxBytes; ++p, ++n)
+		const char* src = text ? text : "";
+		size_t limit = 0;
+		while (src[limit] && limit < maxBytes)
+			++limit;
+		// A cut inside a placeholder of an English text ("{i27002}",
+		// GetPlayerBotSidekickItemName) would reach the window as "{i27": the
+		// text is cut before it instead.
+		if (src[limit])
 		{
-			const unsigned char c = (*p < 32 || *p == 127) ? '?' : *p;
+			size_t open = limit;
+			for (size_t i = 0; i < limit; ++i)
+				if (src[i] == '{')
+					open = i;
+				else if (src[i] == '}')
+					open = limit;
+			limit = open;
+		}
+		std::string out;
+		for (size_t i = 0; i < limit; ++i)
+		{
+			const unsigned char b = (unsigned char)src[i];
+			const unsigned char c = (b < 32 || b == 127) ? '?' : b;
 			out += kDigits[c >> 4];
 			out += kDigits[c & 15];
 		}
 		return out.empty() ? std::string("-") : out;
+	}
+
+	// An item's name in a text for the owner's windows. The server knows an
+	// item by its Polish proto name only, so an owner who reads English is sent
+	// "{i<vnum>}", the placeholder of the bots' English status line, and its
+	// client writes its own name for the item in (uisidekick.ExpandNames) -
+	// the name in the player's language. A client that says it reads English
+	// is one that knows the placeholder: the question came with it.
+	std::string GetPlayerBotSidekickItemName(LPITEM item, bool en)
+	{
+		if (!item)
+			return std::string();
+		if (en)
+		{
+			char token[24];
+			snprintf(token, sizeof(token), "{i%u}", (unsigned int)item->GetVnum());
+			return token;
+		}
+		return item->GetName() ? item->GetName() : "";
+	}
+
+	// A skill's name in the owner's language: the Polish is its skill book's
+	// (GetPlayerBotSkillName), the English the English client's
+	// (GetPlayerBotSkillNameEn).
+	const char* GetPlayerBotSidekickSkillName(DWORD vnum, bool en)
+	{
+		return en ? GetPlayerBotSkillNameEn(vnum, GetPlayerBotSkillName(vnum)) : GetPlayerBotSkillName(vnum);
 	}
 
 	// Every command to the window goes through here: refused rather than cut
@@ -2854,55 +2961,63 @@ namespace
 			sys_log(0, "PLAYERBOT_SIDEKICK: window %s", text);
 	}
 
-	// What the window says it is doing.
+	// What the window says it is doing. In English the status line of a
+	// companion on its own names its monster or item "{m<vnum>}"/"{i<vnum>}",
+	// as the status over a bot's head does, and the window fills the name in.
 	void DescribePlayerBotSidekickDoing(LPCHARACTER sk, const TPlayerBotAIState& state, const TPlayerBotSidekick& rec,
-			const TPlayerBotSidekickRuntime* rt, char* out, size_t size)
+			const TPlayerBotSidekickRuntime* rt, char* out, size_t size, bool en = false)
 	{
 		if (sk->IsDead())
 		{
-			snprintf(out, size, "lezy - zaraz wstanie");
+			snprintf(out, size, "%s", PBT(en, "lezy - zaraz wstanie", "down - getting up soon"));
 			return;
 		}
 		if (rt && rt->bErrand)
 		{
-			snprintf(out, size, "robi zakupy %s", playerbot_conv::GetMapWords(sk->GetMapIndex()).at);
+			if (!en)
+				snprintf(out, size, "robi zakupy %s", playerbot_conv::GetMapWords(sk->GetMapIndex()).at);
+			else if (*GetPlayerBotMapNameEn(sk->GetMapIndex()))
+				snprintf(out, size, "shopping in %s", GetPlayerBotMapNameEn(sk->GetMapIndex()));
+			else
+				snprintf(out, size, "shopping here");
 			return;
 		}
 		if (rec.bMode == PLAYERBOT_SIDEKICK_FREE)
 		{
 			char status[128] = "";
-			BuildPlayerBotStatusText(sk, state, status, sizeof(status), false);
+			BuildPlayerBotStatusText(sk, state, status, sizeof(status), en);
 			const char* text = status;
 			if (!strncmp(text, "[PT] ", 5))
 				text += 5;
-			snprintf(out, size, "%s", *text ? text : "gra po swojemu");
+			snprintf(out, size, "%s", *text ? text : PBT(en, "gra po swojemu", "playing on its own"));
 			return;
 		}
 		if (rt && rt->bLureStage == 1)
 		{
-			snprintf(out, size, "luruje potwory (%d/%d grup)", rt->iLurePacks, PLAYERBOT_SIDEKICK_LURE_PACKS);
+			snprintf(out, size, PBT(en, "luruje potwory (%d/%d grup)", "luring monsters (%d/%d packs)"), rt->iLurePacks,
+					PLAYERBOT_SIDEKICK_LURE_PACKS);
 			return;
 		}
 		if (rt && rt->bLureStage == 2)
 		{
-			snprintf(out, size, "wraca z potworami (%d grup)", rt->iLurePacks);
+			snprintf(out, size, PBT(en, "wraca z potworami (%d grup)", "coming back with monsters (%d packs)"), rt->iLurePacks);
 			return;
 		}
-		const char* what = "stoi przy tobie";
+		const char* what = PBT(en, "stoi przy tobie", "standing by you");
 		if (state.bCurrentAction == BOT_ACTION_FIGHT)
-			what = "walczy";
+			what = PBT(en, "walczy", "fighting");
 		else if (state.bCurrentAction == BOT_ACTION_LOOT)
-			what = "zbiera drop";
+			what = PBT(en, "zbiera drop", "picking up the drop");
 		else if (state.bCurrentAction == BOT_ACTION_REFINE)
-			what = "ulepsza u kowala";
+			what = PBT(en, "ulepsza u kowala", "upgrading at the blacksmith");
 		else if (state.bCurrentAction == BOT_ACTION_SHOP)
-			what = "u handlarza";
+			what = PBT(en, "u handlarza", "at a merchant");
 		else if (state.bRecoveringAfterDeath)
-			what = "wraca do sil";
+			what = PBT(en, "wraca do sil", "recovering");
 		else if (rt && rt->bHold)
-			what = "czeka w miejscu";
+			what = PBT(en, "czeka w miejscu", "waiting in place");
 		else if (state.bCurrentAction == BOT_ACTION_TRAVEL)
-			what = "idzie do ciebie";
+			what = PBT(en, "idzie do ciebie", "coming to you");
 		snprintf(out, size, "%s", what);
 	}
 
@@ -2960,22 +3075,24 @@ namespace
 				rec.bBuffs ? 1 : 0, inWorld ? (long long)sk->GetGold() : 0LL, (unsigned int)red, (unsigned int)blue,
 				inWorld && sk->IsDead() ? 1 : 0, rec.bLure ? 1 : 0, rt ? (int)rt->bLureStage : 0, rec.bSolo ? 1 : 0,
 				rec.bChests ? 1 : 0, rec.bParty ? 1 : 0);
+		// The texts in the owner's language (IsPlayerBotPersonEnglish).
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		char doing[96] = "";
 		char place[64] = "";
 		if (inWorld)
 		{
-			DescribePlayerBotSidekickDoing(sk, st->second, rec, rt, doing, sizeof(doing));
+			DescribePlayerBotSidekickDoing(sk, st->second, rec, rt, doing, sizeof(doing), en);
 			long map = sk->GetMapIndex();
 			if (map >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN)
 				map /= 10000;
-			const playerbot_conv::TMapWords& words = playerbot_conv::GetMapWords(map);
-			if (*words.name)
-				snprintf(place, sizeof(place), "%s", words.name);
+			const char* name = en ? GetPlayerBotMapNameEn(map) : playerbot_conv::GetMapWords(map).name;
+			if (*name)
+				snprintf(place, sizeof(place), "%s", name);
 			else
-				snprintf(place, sizeof(place), "mapa %ld", map);
+				snprintf(place, sizeof(place), PBT(en, "mapa %ld", "map %ld"), map);
 		}
 		else
-			snprintf(doing, sizeof(doing), "za chwile bedzie w grze");
+			snprintf(doing, sizeof(doing), "%s", PBT(en, "za chwile bedzie w grze", "in the game in a moment"));
 		SendPlayerBotSidekickCommand(owner, "SidekickNames %s %s %s",
 				EncodePlayerBotSidekickText(inWorld ? sk->GetName() : "", 24).c_str(),
 				EncodePlayerBotSidekickText(place, 40).c_str(),
@@ -2997,7 +3114,7 @@ namespace
 		{
 			LPITEM item = sk->GetWear(kWear[i]);
 			SendPlayerBotSidekickCommand(owner, "SidekickGear %d %s", i,
-					EncodePlayerBotSidekickText(item ? item->GetName() : "", 40).c_str());
+					EncodePlayerBotSidekickText(GetPlayerBotSidekickItemName(item, en).c_str(), 40).c_str());
 		}
 		if (rt)
 			rt->dwGearSent = hash;
@@ -3259,19 +3376,19 @@ namespace
 	// says (a blow a second ago). The engine says it to the companion's chat,
 	// which nobody reads. replacing: the piece a unique would take the place
 	// of, which is no obstacle.
-	std::string GetPlayerBotSidekickWearRefusal(LPCHARACTER sk, LPITEM item, LPITEM replacing)
+	std::string GetPlayerBotSidekickWearRefusal(LPCHARACTER sk, LPITEM item, LPITEM replacing, bool en)
 	{
 		if (!item->IsEquipable() || item->IsDragonSoul() || item->FindEquipCell(sk) < 0)
-			return "Tego nie da sie zalozyc.";
+			return PBT(en, "Tego nie da sie zalozyc.", "That cannot be worn.");
 #if defined(PLAYERBOT_ENGINE_MT2009)
 		if (item->GetType() == ITEM_COSTUME && item->GetSubType() != COSTUME_HAIR)
-			return "Kostiumy sa na tym serwerze wylaczone.";
+			return PBT(en, "Kostiumy sa na tym serwerze wylaczone.", "Costumes are switched off on this server.");
 #endif
 		if (!item->CanUsedBy(sk))
-			return "To nie jest dla klasy towarzysza.";
+			return PBT(en, "To nie jest dla klasy towarzysza.", "That is not for your companion's class.");
 		if ((IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_MALE) && GET_SEX(sk) == SEX_MALE) ||
 				(IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_FEMALE) && GET_SEX(sk) == SEX_FEMALE))
-			return "To nie jest dla plci towarzysza.";
+			return PBT(en, "To nie jest dla plci towarzysza.", "That is not for your companion's sex.");
 		char text[128];
 		const TItemTable* proto = item->GetProto();
 		for (int i = 0; proto && i < ITEM_LIMIT_MAX_NUM; ++i)
@@ -3283,19 +3400,20 @@ namespace
 				case LIMIT_LEVEL:
 					if (sk->GetLevel() < limit)
 					{
-						snprintf(text, sizeof(text), "Towarzysz ma za niski poziom (trzeba %ld, ma %d).", limit,
-								sk->GetLevel());
+						snprintf(text, sizeof(text), PBT(en, "Towarzysz ma za niski poziom (trzeba %ld, ma %d).",
+								"Your companion's level is too low (needs %ld, has %d)."), limit, sk->GetLevel());
 						return text;
 					}
 					break;
-				case LIMIT_STR: if (sk->GetPoint(POINT_ST) < limit) what = "sily"; break;
-				case LIMIT_INT: if (sk->GetPoint(POINT_IQ) < limit) what = "inteligencji"; break;
-				case LIMIT_DEX: if (sk->GetPoint(POINT_DX) < limit) what = "zrecznosci"; break;
-				case LIMIT_CON: if (sk->GetPoint(POINT_HT) < limit) what = "witalnosci"; break;
+				case LIMIT_STR: if (sk->GetPoint(POINT_ST) < limit) what = PBT(en, "sily", "strength"); break;
+				case LIMIT_INT: if (sk->GetPoint(POINT_IQ) < limit) what = PBT(en, "inteligencji", "intelligence"); break;
+				case LIMIT_DEX: if (sk->GetPoint(POINT_DX) < limit) what = PBT(en, "zrecznosci", "dexterity"); break;
+				case LIMIT_CON: if (sk->GetPoint(POINT_HT) < limit) what = PBT(en, "witalnosci", "vitality"); break;
 			}
 			if (what)
 			{
-				snprintf(text, sizeof(text), "Towarzysz ma za malo %s (trzeba %ld).", what, limit);
+				snprintf(text, sizeof(text), PBT(en, "Towarzysz ma za malo %s (trzeba %ld).",
+						"Your companion has too little %s (needs %ld)."), what, limit);
 				return text;
 			}
 		}
@@ -3304,7 +3422,8 @@ namespace
 			{
 				LPITEM worn = sk->GetWear(wear);
 				if (worn && worn != item && worn != replacing && worn->IsSameSpecialGroup(item))
-					return "Towarzysz nosi juz cos z tej samej grupy.";
+					return PBT(en, "Towarzysz nosi juz cos z tej samej grupy.",
+							"Your companion already wears something of the same group.");
 			}
 		return std::string();
 	}
@@ -3317,9 +3436,10 @@ namespace
 	int EquipPlayerBotSidekickForOwner(LPCHARACTER owner, LPCHARACTER sk, TPlayerBotAIState& state,
 			TPlayerBotSidekickRuntime& rt, LPITEM item, int wantWear, std::string& answer)
 	{
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		if (item->IsEquipped())
 		{
-			answer = "Towarzysz juz to nosi.";
+			answer = PBT(en, "Towarzysz juz to nosi.", "Your companion already wears that.");
 			return 0;
 		}
 		const int wear = item->FindEquipCell(sk);
@@ -3327,12 +3447,12 @@ namespace
 		const bool uniqueSlot = wantWear == WEAR_UNIQUE1 || wantWear == WEAR_UNIQUE2;
 		if (wantWear >= 0 && wear >= 0 && wear != wantWear && !(unique && uniqueSlot))
 		{
-			answer = "To nie pasuje w to miejsce.";
+			answer = PBT(en, "To nie pasuje w to miejsce.", "That does not go in that place.");
 			return 2;
 		}
 		const int slot = unique && uniqueSlot ? wantWear : wear;
 		LPITEM old = slot >= 0 ? sk->GetWear(slot) : NULL;
-		const std::string refusal = GetPlayerBotSidekickWearRefusal(sk, item, old);
+		const std::string refusal = GetPlayerBotSidekickWearRefusal(sk, item, old, en);
 		if (!refusal.empty())
 		{
 			answer = refusal;
@@ -3340,7 +3460,7 @@ namespace
 		}
 		if (old && IS_SET(old->GetFlag(), ITEM_FLAG_IRREMOVABLE))
 		{
-			answer = "Tego, co tam nosi, nie da sie zdjac.";
+			answer = PBT(en, "Tego, co tam nosi, nie da sie zdjac.", "What it wears there cannot be taken off.");
 			return 2;
 		}
 		SetPlayerBotSidekickPin(sk->GetPlayerID(), rt, item->GetID(), (BYTE)slot);
@@ -3370,7 +3490,7 @@ namespace
 			LogManager::instance().ItemLog(sk, item, "PLAYERBOT_SIDEKICK_WEAR", owner->GetName());
 			FlushPlayerBotItemRow(item);
 			FlushPlayerBotItemRow(old);
-			answer = "Zalozone. Tego towarzysz sam nie zdejmie.";
+			answer = PBT(en, "Zalozone. Tego towarzysz sam nie zdejmie.", "Put on. Your companion will not take it off by itself.");
 			return 0;
 		}
 		rt.dwEquipWaitUntil = now + PLAYERBOT_SIDEKICK_EQUIP_WAIT_MS;
@@ -3380,11 +3500,12 @@ namespace
 		// with no cell for what would come off - the equipment pass tries the
 		// engine's swap in place, which needs none, and keeps trying.
 		if (blowFresh)
-			answer = "Zalozy to, jak tylko skonczy cios.";
+			answer = PBT(en, "Zalozy to, jak tylko skonczy cios.", "It will put it on as soon as its blow is done.");
 		else if (old && sk->GetEmptyInventory(old->GetSize()) < 0)
-			answer = "Nie mam miejsca w plecaku na to, co zdejme. Zaloze, gdy tylko sie zwolni.";
+			answer = PBT(en, "Nie mam miejsca w plecaku na to, co zdejme. Zaloze, gdy tylko sie zwolni.",
+					"I have no room in my bag for what comes off. I'll put it on as soon as there is some.");
 		else
-			answer = "Nie moge tego teraz zalozyc - sprobuje za chwile.";
+			answer = PBT(en, "Nie moge tego teraz zalozyc - sprobuje za chwile.", "I can't put that on now - I'll try again in a moment.");
 		sys_log(0, "PLAYERBOT_SIDEKICK: equip waits pid=%u name=%s vnum=%u slot=%d blow=%d bag_room=%d",
 				sk->GetPlayerID(), sk->GetName(), item->GetVnum(), slot, blowFresh ? 1 : 0,
 				old && sk->GetEmptyInventory(old->GetSize()) < 0 ? 0 : 1);
@@ -3396,15 +3517,16 @@ namespace
 	int UnequipPlayerBotSidekickForOwner(LPCHARACTER owner, LPCHARACTER sk, TPlayerBotSidekickRuntime& rt, int wear,
 			int toCell, std::string& answer)
 	{
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		LPITEM worn = sk->GetWear(wear);
 		if (!worn)
 		{
-			answer = "Tam nic nie ma.";
+			answer = PBT(en, "Tam nic nie ma.", "There is nothing there.");
 			return 3;
 		}
 		if (IS_SET(worn->GetFlag(), ITEM_FLAG_IRREMOVABLE) || worn->isLocked())
 		{
-			answer = "Tego nie da sie zdjac.";
+			answer = PBT(en, "Tego nie da sie zdjac.", "That cannot be taken off.");
 			return 2;
 		}
 		bool done = false;
@@ -3415,33 +3537,35 @@ namespace
 			done = sk->GetEmptyInventory(worn->GetSize()) >= 0 && sk->UnequipItem(worn) && !worn->IsEquipped();
 		if (!done)
 		{
-			answer = sk->GetEmptyInventory(worn->GetSize()) < 0 ? "Towarzysz nie ma miejsca w torbie." :
-					"Nie da sie tego teraz zdjac - sprobuj za chwile.";
+			answer = sk->GetEmptyInventory(worn->GetSize()) < 0 ?
+					PBT(en, "Towarzysz nie ma miejsca w torbie.", "Your companion has no room in its bag.") :
+					PBT(en, "Nie da sie tego teraz zdjac - sprobuj za chwile.", "That cannot be taken off now - try again in a moment.");
 			return 2;
 		}
 		SetPlayerBotSidekickPin(sk->GetPlayerID(), rt, worn->GetID(), PLAYERBOT_SIDEKICK_PIN_UNWANTED);
 		LogManager::instance().ItemLog(sk, worn, "PLAYERBOT_SIDEKICK_UNWEAR", owner->GetName());
 		FlushPlayerBotItemRow(worn);
-		answer = "Zdjete. Towarzysz sam tego nie zalozy (odepnij, zeby znow mogl).";
+		answer = PBT(en, "Zdjete. Towarzysz sam tego nie zalozy (odepnij, zeby znow mogl).",
+				"Taken off. Your companion will not put it on by itself (unpin it so it can again).");
 		return 0;
 	}
 
 	// A move inside its bag, as the owner's own bag moves: onto an empty place,
 	// into a stack of the same thing, or - which the engine's own move does
 	// not do - swapped with a piece of the same size lying there.
-	int MovePlayerBotSidekickBagItem(LPCHARACTER sk, int from, int to, std::string& answer)
+	int MovePlayerBotSidekickBagItem(LPCHARACTER sk, int from, int to, std::string& answer, bool en = false)
 	{
 		LPITEM item = sk->GetInventoryItem(from);
 		if (!item || item->GetCell() != from)
 		{
-			answer = "Tam nic nie ma.";
+			answer = PBT(en, "Tam nic nie ma.", "There is nothing there.");
 			return 3;
 		}
 		if (from == to)
 			return 0;
 		if (item->isLocked() || item->IsExchanging())
 		{
-			answer = "Ten przedmiot jest teraz zajety.";
+			answer = PBT(en, "Ten przedmiot jest teraz zajety.", "That item is busy right now.");
 			return 2;
 		}
 		LPITEM other = sk->GetInventoryItem(to);
@@ -3450,28 +3574,28 @@ namespace
 		{
 			if (other->isLocked() || other->IsExchanging())
 			{
-				answer = "Ten przedmiot jest teraz zajety.";
+				answer = PBT(en, "Ten przedmiot jest teraz zajety.", "That item is busy right now.");
 				return 2;
 			}
 			item->RemoveFromCharacter();
 			other->RemoveFromCharacter();
 			item->AddToCharacter(sk, TItemPos(INVENTORY, to));
 			other->AddToCharacter(sk, TItemPos(INVENTORY, from));
-			answer = "Zamienione miejscami.";
+			answer = PBT(en, "Zamienione miejscami.", "Swapped.");
 			return 0;
 		}
 		const DWORD before = sameStack ? (DWORD)other->GetCount() : 0;
 		if (!sk->MoveItem(TItemPos(INVENTORY, from), TItemPos(INVENTORY, to), item->GetCount()))
 		{
-			answer = "Tam nie ma miejsca.";
+			answer = PBT(en, "Tam nie ma miejsca.", "There is no room there.");
 			return 2;
 		}
 		if (sameStack && (DWORD)other->GetCount() == before)
 		{
-			answer = "Ten stos jest juz pelny.";
+			answer = PBT(en, "Ten stos jest juz pelny.", "That stack is full already.");
 			return 2;
 		}
-		answer = sameStack ? "Polaczone." : "Przeniesione.";
+		answer = sameStack ? PBT(en, "Polaczone.", "Stacked.") : PBT(en, "Przeniesione.", "Moved.");
 		return 0;
 	}
 
@@ -3510,12 +3634,12 @@ namespace
 	// could not reach them (xxkld., 27 September; the operator: no block
 	// between a player and the companion). A trade still refuses them - the
 	// window is the way.
-	std::string GetPlayerBotSidekickHandOverRefusal(LPITEM item)
+	std::string GetPlayerBotSidekickHandOverRefusal(LPITEM item, bool en)
 	{
 		if (item->isLocked() || item->IsExchanging())
-			return "Ten przedmiot jest teraz zajety.";
+			return PBT(en, "Ten przedmiot jest teraz zajety.", "That item is busy right now.");
 		if (item->IsDragonSoul())
-			return "Kamieni smoka nie da sie tu przekazac.";
+			return PBT(en, "Kamieni smoka nie da sie tu przekazac.", "Dragon stones cannot be handed over here.");
 		return std::string();
 	}
 
@@ -3544,13 +3668,14 @@ namespace
 	int GivePlayerBotSidekickItem(LPCHARACTER owner, LPCHARACTER sk, TPlayerBotAIState& state,
 			TPlayerBotSidekickRuntime& rt, int fromCell, int to, std::string& answer)
 	{
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		LPITEM item = IsPlayerBotSidekickEqBagPos(fromCell) ? owner->GetInventoryItem(fromCell) : NULL;
 		if (!item || item->GetCell() != fromCell || item->GetWindow() != INVENTORY || item->IsEquipped())
 		{
-			answer = "Nie ma tego w twojej torbie.";
+			answer = PBT(en, "Nie ma tego w twojej torbie.", "That is not in your bag.");
 			return 3;
 		}
-		answer = GetPlayerBotSidekickHandOverRefusal(item);
+		answer = GetPlayerBotSidekickHandOverRefusal(item, en);
 		if (!answer.empty())
 			return 2;
 		const bool toWear = IsPlayerBotSidekickEqWearPos(to);
@@ -3563,15 +3688,14 @@ namespace
 					(wantWear == WEAR_UNIQUE1 || wantWear == WEAR_UNIQUE2);
 			if (wear >= 0 && wear != wantWear && !unique)
 			{
-				answer = "To nie pasuje w to miejsce.";
+				answer = PBT(en, "To nie pasuje w to miejsce.", "That does not go in that place.");
 				return 2;
 			}
-			answer = GetPlayerBotSidekickWearRefusal(sk, item, sk->GetWear(wantWear));
+			answer = GetPlayerBotSidekickWearRefusal(sk, item, sk->GetWear(wantWear), en);
 			if (!answer.empty())
 				return 2;
 		}
-		const char* name = item->GetName();
-		std::string pieceName = name ? name : "";
+		const std::string pieceName = GetPlayerBotSidekickItemName(item, en);
 		const DWORD vnum = item->GetVnum();
 		// Onto a stack of the same thing, as far as it takes.
 		LPITEM stack = IsPlayerBotSidekickEqBagPos(to) ? sk->GetInventoryItem(to) : NULL;
@@ -3584,20 +3708,22 @@ namespace
 				AddPlayerBotSidekickGift(sk->GetPlayerID(), rt, stack->GetID());
 				LogManager::instance().ItemLog(sk, stack, "PLAYERBOT_GIFT_IN", owner->GetName());
 				char text[160];
-				snprintf(text, sizeof(text), "Dolozone do stosu towarzysza: %d z %u.", poured, (unsigned int)count);
+				snprintf(text, sizeof(text), PBT(en, "Dolozone do stosu towarzysza: %d z %u.",
+						"Added to your companion's stack: %d of %u."), poured, (unsigned int)count);
 				answer = text;
 				return 0;
 			}
 			if (poured == 0)
 			{
-				answer = "Ten stos jest juz pelny.";
+				answer = PBT(en, "Ten stos jest juz pelny.", "That stack is full already.");
 				return 2;
 			}
 		}
 		const int cell = FindPlayerBotSidekickHandOverCell(sk, item, IsPlayerBotSidekickEqBagPos(to) ? to : -1);
 		if (cell < 0)
 		{
-			answer = IsPlayerBotSidekickEqBagPos(to) ? "Tam nie ma miejsca." : "Towarzysz nie ma miejsca w torbie.";
+			answer = IsPlayerBotSidekickEqBagPos(to) ? PBT(en, "Tam nie ma miejsca.", "There is no room there.") :
+					PBT(en, "Towarzysz nie ma miejsca w torbie.", "Your companion has no room in its bag.");
 			return 2;
 		}
 		HandPlayerBotSidekickItemOver(owner, sk, item, cell);
@@ -3610,11 +3736,11 @@ namespace
 		{
 			std::string worn;
 			const int code = EquipPlayerBotSidekickForOwner(owner, sk, state, rt, item, wantWear, worn);
-			answer = std::string("Dane: ") + pieceName + ". " + worn;
+			answer = std::string(PBT(en, "Dane: ", "Given: ")) + pieceName + ". " + worn;
 			return code;
 		}
 		state.dwNextEquipmentCheckTime = 0;
-		answer = std::string("Dane towarzyszowi: ") + pieceName + ".";
+		answer = std::string(PBT(en, "Dane towarzyszowi: ", "Given to your companion: ")) + pieceName + ".";
 		return 0;
 	}
 
@@ -3623,23 +3749,24 @@ namespace
 	int TakePlayerBotSidekickItem(LPCHARACTER owner, LPCHARACTER sk, TPlayerBotSidekickRuntime& rt, int from,
 			int toCell, std::string& answer)
 	{
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		const bool fromWear = IsPlayerBotSidekickEqWearPos(from);
 		LPITEM item = fromWear ? sk->GetWear(from - PLAYERBOT_SIDEKICK_EQ_WEAR_BASE)
 				: (IsPlayerBotSidekickEqBagPos(from) ? sk->GetInventoryItem(from) : NULL);
 		if (!item || (!fromWear && item->GetCell() != from))
 		{
-			answer = "Tam nic nie ma.";
+			answer = PBT(en, "Tam nic nie ma.", "There is nothing there.");
 			return 3;
 		}
-		answer = GetPlayerBotSidekickHandOverRefusal(item);
+		answer = GetPlayerBotSidekickHandOverRefusal(item, en);
 		if (!answer.empty())
 			return 2;
 		if (fromWear && IS_SET(item->GetFlag(), ITEM_FLAG_IRREMOVABLE))
 		{
-			answer = "Tego nie da sie zdjac.";
+			answer = PBT(en, "Tego nie da sie zdjac.", "That cannot be taken off.");
 			return 2;
 		}
-		std::string pieceName = item->GetName() ? item->GetName() : "";
+		const std::string pieceName = GetPlayerBotSidekickItemName(item, en);
 		// Onto a stack of the owner's of the same thing, as far as it takes.
 		LPITEM stack = IsPlayerBotSidekickEqBagPos(toCell) ? owner->GetInventoryItem(toCell) : NULL;
 		if (!fromWear && stack && stack->GetCell() == toCell)
@@ -3656,20 +3783,22 @@ namespace
 				}
 				LogManager::instance().ItemLog(owner, stack, "PLAYERBOT_SIDEKICK_TAKE", sk->GetName());
 				char text[160];
-				snprintf(text, sizeof(text), "Dolozone do twojego stosu: %d z %u.", poured, (unsigned int)count);
+				snprintf(text, sizeof(text), PBT(en, "Dolozone do twojego stosu: %d z %u.", "Added to your stack: %d of %u."),
+						poured, (unsigned int)count);
 				answer = text;
 				return 0;
 			}
 			if (poured == 0)
 			{
-				answer = "Twoj stos jest juz pelny.";
+				answer = PBT(en, "Twoj stos jest juz pelny.", "Your stack is full already.");
 				return 2;
 			}
 		}
 		const int cell = FindPlayerBotSidekickHandOverCell(owner, item, IsPlayerBotSidekickEqBagPos(toCell) ? toCell : -1);
 		if (cell < 0)
 		{
-			answer = IsPlayerBotSidekickEqBagPos(toCell) ? "Tam nie ma miejsca." : "Nie masz miejsca w torbie.";
+			answer = IsPlayerBotSidekickEqBagPos(toCell) ? PBT(en, "Tam nie ma miejsca.", "There is no room there.") :
+					PBT(en, "Nie masz miejsca w torbie.", "You have no room in your bag.");
 			return 2;
 		}
 		// A worn piece comes off into the companion's bag first: the engine
@@ -3678,8 +3807,9 @@ namespace
 		if (fromWear && (sk->GetEmptyInventory(item->GetSize()) < 0 || !sk->UnequipItem(item) || item->IsEquipped()))
 		{
 			answer = sk->GetEmptyInventory(item->GetSize()) < 0 ?
-					"Towarzysz nie ma miejsca w torbie, zeby to zdjac - wez najpierw cos z jego torby." :
-					"Nie da sie tego teraz zdjac - sprobuj za chwile.";
+					PBT(en, "Towarzysz nie ma miejsca w torbie, zeby to zdjac - wez najpierw cos z jego torby.",
+					"Your companion has no room in its bag to take that off - take something out of its bag first.") :
+					PBT(en, "Nie da sie tego teraz zdjac - sprobuj za chwile.", "That cannot be taken off now - try again in a moment.");
 			return 2;
 		}
 		const DWORD id = item->GetID();
@@ -3689,7 +3819,7 @@ namespace
 		LogManager::instance().ItemLog(owner, item, "PLAYERBOT_SIDEKICK_TAKE", sk->GetName());
 		sys_log(0, "PLAYERBOT_SIDEKICK: taken pid=%u owner=%u item=%u vnum=%u worn=%d cell=%d", sk->GetPlayerID(),
 				owner->GetPlayerID(), id, item->GetVnum(), fromWear ? 1 : 0, cell);
-		answer = std::string("Wziete od towarzysza: ") + pieceName + ".";
+		answer = std::string(PBT(en, "Wziete od towarzysza: ", "Taken from your companion: ")) + pieceName + ".";
 		return 0;
 	}
 
@@ -3748,22 +3878,25 @@ namespace
 	int MovePlayerBotSidekickYang(LPCHARACTER owner, LPCHARACTER sk, bool give, const char* amountText,
 			std::string& answer)
 	{
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		const long long amount = ParsePlayerBotSidekickYang(amountText);
 		if (amount <= 0)
 		{
-			answer = "Podaj kwote, np. 500000 albo 1.5kk.";
+			answer = PBT(en, "Podaj kwote, np. 500000 albo 1.5kk.", "Give an amount, e.g. 500000 or 1.5kk.");
 			return 9;
 		}
 		LPCHARACTER from = give ? owner : sk;
 		LPCHARACTER to = give ? sk : owner;
 		if ((long long)from->GetGold() < amount)
 		{
-			answer = give ? "Nie masz tyle yang." : "Towarzysz nie ma tyle yang.";
+			answer = give ? PBT(en, "Nie masz tyle yang.", "You don't have that much yang.") :
+					PBT(en, "Towarzysz nie ma tyle yang.", "Your companion doesn't have that much yang.");
 			return 2;
 		}
 		if ((long long)to->GetGold() + amount > (long long)GOLD_MAX)
 		{
-			answer = give ? "Towarzysz nie zmiesci tyle yang." : "Nie zmiescisz tyle yang.";
+			answer = give ? PBT(en, "Towarzysz nie zmiesci tyle yang.", "Your companion can't hold that much yang.") :
+					PBT(en, "Nie zmiescisz tyle yang.", "You can't hold that much yang.");
 			return 2;
 		}
 		PlayerBotChangeGold(from, -amount);
@@ -3773,8 +3906,8 @@ namespace
 		sys_log(0, "PLAYERBOT_SIDEKICK: yang %s pid=%u name=%s owner=%u amount=%lld owner_gold=%lld sidekick_gold=%lld",
 				give ? "given" : "taken", sk->GetPlayerID(), sk->GetName(), owner->GetPlayerID(), amount,
 				(long long)owner->GetGold(), (long long)sk->GetGold());
-		answer = std::string(give ? "Dano towarzyszowi " : "Wziete od towarzysza: ") +
-				playerbot_conv::FormatYang(amount) + " yang.";
+		answer = std::string(give ? PBT(en, "Dano towarzyszowi ", "Given to your companion: ") :
+				PBT(en, "Wziete od towarzysza: ", "Taken from your companion: ")) + playerbot_conv::FormatYang(amount) + " yang.";
 		return 0;
 	}
 
@@ -3795,12 +3928,13 @@ namespace
 			SendPlayerBotSidekickCommand(owner, "SidekickEqNone %d 0", PLAYERBOT_SIDEKICK_EQ_PROTOCOL);
 			return;
 		}
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec->second.dwSidekickPID);
 		TPlayerBotAIStateMap::iterator st = s_mapPlayerBotAIStates.find(rec->second.dwSidekickPID);
 		if (!sk || !sk->IsItemLoaded() || st == s_mapPlayerBotAIStates.end() ||
 				!CPlayerBotManager::instance().IsManaged(rec->second.dwSidekickPID))
 		{
-			AnswerPlayerBotSidekickEq(owner, 1, "Towarzysza nie ma teraz w grze.");
+			AnswerPlayerBotSidekickEq(owner, 1, PBT(en, "Towarzysza nie ma teraz w grze.", "Your companion is not in the game now."));
 			SendPlayerBotSidekickCommand(owner, "SidekickEqNone %d 1", PLAYERBOT_SIDEKICK_EQ_PROTOCOL);
 			return;
 		}
@@ -3809,7 +3943,8 @@ namespace
 		// about to remove.
 		if (!rec->second.bSetupDone)
 		{
-			AnswerPlayerBotSidekickEq(owner, 1, "Towarzysz jeszcze sie przygotowuje - sprobuj za chwile.");
+			AnswerPlayerBotSidekickEq(owner, 1, PBT(en, "Towarzysz jeszcze sie przygotowuje - sprobuj za chwile.",
+					"Your companion is still getting ready - try again in a moment."));
 			return;
 		}
 		TPlayerBotSidekickRuntime& rt = s_mapPlayerBotSidekickRuntime[sk->GetPlayerID()];
@@ -3824,40 +3959,43 @@ namespace
 			// A trade, a counter, the safebox open on either side: the
 			// engine's "busy", as for an item.
 			if (strcmp(a, "daj") && strcmp(a, "wez"))
-				answer = "Nieznane polecenie okna.";
+				answer = PBT(en, "Nieznane polecenie okna.", "Unknown window command.");
 			else if (!sk->CanHandleItem())
-				answer = "Towarzysz jest teraz zajety (handel, magazyn albo kowal) - sprobuj za chwile.";
+				answer = PBT(en, "Towarzysz jest teraz zajety (handel, magazyn albo kowal) - sprobuj za chwile.",
+						"Your companion is busy right now (a trade, the storeroom or the blacksmith) - try again in a moment.");
 			else if (!owner->CanHandleItem())
-				answer = "Zamknij najpierw handel, sklep albo magazyn.";
+				answer = PBT(en, "Zamknij najpierw handel, sklep albo magazyn.", "Close the trade, shop or storeroom first.");
 			else
 				code = MovePlayerBotSidekickYang(owner, sk, !strcmp(a, "daj"), b, answer);
 		}
 		else if (!strcmp(op, "ruch") || twoBags || !strcmp(op, "odepnij"))
 		{
 			if (from == INT_MIN || (strcmp(op, "odepnij") && to == INT_MIN))
-				answer = "Zle miejsce.";
+				answer = PBT(en, "Zle miejsce.", "Wrong place.");
 			// A trade, a counter, the safebox, the anvil: the engine's own
 			// "busy", for both of them.
 			else if (!sk->CanHandleItem())
-				answer = "Towarzysz jest teraz zajety (handel, magazyn albo kowal) - sprobuj za chwile.";
+				answer = PBT(en, "Towarzysz jest teraz zajety (handel, magazyn albo kowal) - sprobuj za chwile.",
+						"Your companion is busy right now (a trade, the storeroom or the blacksmith) - try again in a moment.");
 			// A worn piece taken off a transformed companion stays off until the
 			// transformation ends (IsPlayerBotGearFrozen).
 			else if (strcmp(op, "odepnij") && IsPlayerBotGearFrozen(sk) &&
 					(IsPlayerBotSidekickEqWearPos(from) || IsPlayerBotSidekickEqWearPos(to) ||
 					(!strcmp(op, "ruch") && to == -1)))
-				answer = "Towarzysz jest teraz przemieniony - zmiana sprzetu poczeka do konca przemiany.";
+				answer = PBT(en, "Towarzysz jest teraz przemieniony - zmiana sprzetu poczeka do konca przemiany.",
+						"Your companion is transformed right now - the gear change waits until the transformation ends.");
 			else if (twoBags && !owner->CanHandleItem())
-				answer = "Zamknij najpierw handel, sklep albo magazyn.";
+				answer = PBT(en, "Zamknij najpierw handel, sklep albo magazyn.", "Close the trade, shop or storeroom first.");
 			else if (!strcmp(op, "ruch"))
 			{
 				if (IsPlayerBotSidekickEqBagPos(from) && IsPlayerBotSidekickEqBagPos(to))
-					code = MovePlayerBotSidekickBagItem(sk, from, to, answer);
+					code = MovePlayerBotSidekickBagItem(sk, from, to, answer, en);
 				else if (IsPlayerBotSidekickEqBagPos(from) && (to == -1 || IsPlayerBotSidekickEqWearPos(to)))
 				{
 					LPITEM item = sk->GetInventoryItem(from);
 					if (!item || item->GetCell() != from)
 					{
-						answer = "Tam nic nie ma.";
+						answer = PBT(en, "Tam nic nie ma.", "There is nothing there.");
 						code = 3;
 					}
 					else
@@ -3868,19 +4006,19 @@ namespace
 					code = UnequipPlayerBotSidekickForOwner(owner, sk, rt, from - PLAYERBOT_SIDEKICK_EQ_WEAR_BASE, to,
 							answer);
 				else
-					answer = "Przeciagnij to do torby towarzysza.";
+					answer = PBT(en, "Przeciagnij to do torby towarzysza.", "Drag it into your companion's bag.");
 			}
 			else if (!strcmp(op, "daj"))
 			{
 				if (!IsPlayerBotSidekickEqBagPos(from))
-					answer = "Zle miejsce.";
+					answer = PBT(en, "Zle miejsce.", "Wrong place.");
 				else
 					code = GivePlayerBotSidekickItem(owner, sk, state, rt, from, to, answer);
 			}
 			else if (!strcmp(op, "wez"))
 			{
 				if (from == -1 || !(to == -1 || IsPlayerBotSidekickEqBagPos(to)))
-					answer = "Zle miejsce.";
+					answer = PBT(en, "Zle miejsce.", "Wrong place.");
 				else
 					code = TakePlayerBotSidekickItem(owner, sk, rt, from, to, answer);
 			}
@@ -3890,7 +4028,7 @@ namespace
 						: (IsPlayerBotSidekickEqBagPos(from) ? sk->GetInventoryItem(from) : NULL);
 				if (!item || (IsPlayerBotSidekickEqBagPos(from) && item->GetCell() != from))
 				{
-					answer = "Tam nic nie ma.";
+					answer = PBT(en, "Tam nic nie ma.", "There is nothing there.");
 					code = 3;
 				}
 				else
@@ -3898,14 +4036,16 @@ namespace
 					const bool unwanted = IsPlayerBotSidekickUnwanted(sk, item);
 					ClearPlayerBotSidekickPin(rt, item->GetID());
 					state.dwNextEquipmentCheckTime = 0;
-					answer = unwanted ? "Towarzysz moze to znow zalozyc sam." :
-							"Odpiete. Towarzysz znow sam wybiera, co tam nosi.";
+					answer = unwanted ? PBT(en, "Towarzysz moze to znow zalozyc sam.",
+							"Your companion may put that on by itself again.") :
+							PBT(en, "Odpiete. Towarzysz znow sam wybiera, co tam nosi.",
+							"Unpinned. Your companion chooses what it wears there by itself again.");
 					code = 0;
 				}
 			}
 		}
 		else
-			answer = "Nieznane polecenie okna.";
+			answer = PBT(en, "Nieznane polecenie okna.", "Unknown window command.");
 		sys_log(0, "PLAYERBOT_SIDEKICK: eq %s owner=%u pid=%u from=%s to=%s code=%d", op, owner->GetPlayerID(),
 				sk->GetPlayerID(), a, b, code);
 		AnswerPlayerBotSidekickEq(owner, code, answer.c_str());
@@ -3957,14 +4097,28 @@ namespace
 		const int magicAtt = 0;
 		const int skillDuration = 0;
 #endif
-		// And after those, the stat window's (StatWindow in
-		// uisidekickinventory.py): the points left, who spends them, whether the
-		// one free reset is still there, and the four stats as spent - the real
+		// And after those, the stat points of the window's status page
+		// (uisidekick.py): the points left, who spends them, whether the one
+		// free reset is still there, and the four stats as spent - the real
 		// points, without what the gear adds - in the order the character window
-		// shows them (vitality, intelligence, strength, dexterity). An older
-		// client reads none of it.
+		// shows them (vitality, intelligence, strength, dexterity).
+		//
+		// And last, what that page shows as the player's own character window
+		// shows it and the client cannot work out for another character
+		// (Piciu713, 28 September: "jaki zakres ataku ma moj towarzysz i ile ma
+		// obrony"): the experience and what the level needs, the attack the
+		// gear, the party and the monster grades add over the weapon's own
+		// (uicharacter.py's atkBonus and attackerBonus - the weapon's the
+		// client reads from its item table, as it does for the player), the
+		// defence boost in percent, and the moving speed. An older client reads
+		// none of it.
+		int attackBonus = (int)sk->GetPoint(POINT_ATT_GRADE_BONUS) + (int)sk->GetPoint(POINT_PARTY_ATTACKER_BONUS);
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		attackBonus += (int)sk->GetPoint(POINT_DAGGER_ATT_GRADE_MONSTER) + (int)sk->GetPoint(POINT_ATT_GRADE_MONSTER);
+#endif
 		SendPlayerBotSidekickCommand(owner,
-				"SidekickSkillBegin %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %u %d %d %d %d %d %d %d",
+				"SidekickSkillBegin %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %u %d %d %d %d %d %d %d "
+				"%u %u %d %d %d",
 				PLAYERBOT_SIDEKICK_EQ_PROTOCOL, (int)sk->GetPoint(POINT_SKILL), (int)sk->GetJob(),
 				(int)sk->GetSkillGroup(), rec->second.bManualSkills ? 1 : 0, (int)sk->GetLevel(),
 				(int)sk->GetPoint(POINT_ST), (int)sk->GetPoint(POINT_DX), (int)sk->GetPoint(POINT_HT),
@@ -3975,7 +4129,9 @@ namespace
 				weapon ? (unsigned int)weapon->GetVnum() : 0U,
 				(int)sk->GetPoint(POINT_STAT), rec->second.bManualStats ? 1 : 0, rec->second.bStatResetUsed ? 0 : 1,
 				(int)sk->GetRealPoint(POINT_HT), (int)sk->GetRealPoint(POINT_IQ), (int)sk->GetRealPoint(POINT_ST),
-				(int)sk->GetRealPoint(POINT_DX));
+				(int)sk->GetRealPoint(POINT_DX),
+				(unsigned int)sk->GetExp(), (unsigned int)sk->GetNextExp(), attackBonus,
+				(int)sk->GetPoint(POINT_DEF_BONUS), (int)sk->GetPoint(POINT_MOV_SPEED));
 		const DWORD base = GetPlayerBotSidekickSkillBase(sk);
 		for (DWORD vnum = base; base != 0 && vnum < base + 6; ++vnum)
 			if (CSkillManager::instance().Get(vnum))
@@ -4001,7 +4157,8 @@ namespace
 	// the scroll when they are too few, or for a Master; and nothing half-way:
 	// the owner asked for zero. The points wait in the window, the owner's to
 	// spend from then on, as after a "+".
-	bool ResetPlayerBotSidekickSkill(LPCHARACTER sk, TPlayerBotSidekick& rec, DWORD vnum, std::string& answer)
+	bool ResetPlayerBotSidekickSkill(LPCHARACTER sk, TPlayerBotSidekick& rec, DWORD vnum, std::string& answer,
+			bool en = false)
 	{
 		char text[192];
 		const int before = (int)sk->GetSkillLevel(vnum);
@@ -4046,35 +4203,44 @@ namespace
 				}
 			}
 			if (sk->GetSkillLevel(vnum) > 0)
-				snprintf(text, sizeof(text), "Przeczytane Ksiegi Zapomnienia: %d, %s stoi na %d - reszty silnik nie przyjal.",
-						read, GetPlayerBotSkillName(vnum), (int)sk->GetSkillLevel(vnum));
+				snprintf(text, sizeof(text), PBT(en, "Przeczytane Ksiegi Zapomnienia: %d, %s stoi na %d - reszty silnik nie przyjal.",
+						"Books of Forgetfulness read: %d, %s stands at %d - the engine would not take the rest."),
+						read, GetPlayerBotSidekickSkillName(vnum, en), (int)sk->GetSkillLevel(vnum));
 			else
-				snprintf(text, sizeof(text), "Przeczytane Ksiegi Zapomnienia: %d - %s od zera, punkty czekaja w oknie.",
-						read, GetPlayerBotSkillName(vnum));
+				snprintf(text, sizeof(text), PBT(en, "Przeczytane Ksiegi Zapomnienia: %d - %s od zera, punkty czekaja w oknie.",
+						"Books of Forgetfulness read: %d - %s from zero, the points wait in the window."),
+						read, GetPlayerBotSidekickSkillName(vnum, en));
 		}
 #if defined(PLAYERBOT_ENGINE_MT2009)
 		else if (scroll)
 		{
 			way = "scroll";
 			if (!sk->ResetOneSkill(vnum))
-				snprintf(text, sizeof(text), "Zwoj Powrotu Umiejetnosci nie zadzialal.");
+				snprintf(text, sizeof(text), "%s", PBT(en, "Zwoj Powrotu Umiejetnosci nie zadzialal.",
+						"The Skill Reset Document did not work."));
 			else
 			{
 				sk->SetQuestFlag("reset_status_items.force_to_master_skill",
 						sk->GetQuestFlag("reset_status_items.force_to_master_skill") + 1);
 				scroll->SetCount(scroll->GetCount() - 1);
 				sk->Save();
-				snprintf(text, sizeof(text), "Zwoj Powrotu Umiejetnosci uzyty: %s od zera, punkty czekaja w oknie. "
-						"Kolejna umiejetnosc na 17 zostanie mistrzem.", GetPlayerBotSkillName(vnum));
+				snprintf(text, sizeof(text), PBT(en, "Zwoj Powrotu Umiejetnosci uzyty: %s od zera, punkty czekaja w oknie. "
+						"Kolejna umiejetnosc na 17 zostanie mistrzem.",
+						"Skill Reset Document used: %s from zero, the points wait in the window. "
+						"The next skill to reach 17 becomes Master."), GetPlayerBotSidekickSkillName(vnum, en));
 			}
 		}
 #endif
 		else if (!normal)
-			snprintf(text, sizeof(text), "Mistrza nie cofnie Ksiega Zapomnienia - wloz do plecaka towarzysza "
-					"Zwoj Powrotu Umiejetnosci.");
+			snprintf(text, sizeof(text), "%s", PBT(en, "Mistrza nie cofnie Ksiega Zapomnienia - wloz do plecaka towarzysza "
+					"Zwoj Powrotu Umiejetnosci.",
+					"A Book of Forgetfulness does not take a Master back - put a Skill Reset Document in your "
+					"companion's bag."));
 		else
-			snprintf(text, sizeof(text), "Do zera trzeba %d Ksiag Zapomnienia tej umiejetnosci, w plecaku towarzysza "
-					"jest %d - albo wloz mu Zwoj Powrotu Umiejetnosci.", before, books);
+			snprintf(text, sizeof(text), PBT(en, "Do zera trzeba %d Ksiag Zapomnienia tej umiejetnosci, w plecaku towarzysza "
+					"jest %d - albo wloz mu Zwoj Powrotu Umiejetnosci.",
+					"Zero takes %d Books of Forgetfulness for this skill, your companion's bag holds %d - or put a "
+					"Skill Reset Document in it."), before, books);
 		answer = text;
 		const bool done = sk->GetSkillLevel(vnum) < before;
 		if (done && !rec.bManualSkills)
@@ -4099,9 +4265,10 @@ namespace
 		TPlayerBotSidekickMap::iterator rec = s_mapPlayerBotSidekicks.find(owner->GetPlayerID());
 		LPCHARACTER sk = rec == s_mapPlayerBotSidekicks.end() ? NULL :
 				CHARACTER_MANAGER::instance().FindByPID(rec->second.dwSidekickPID);
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		if (!sk || !CPlayerBotManager::instance().IsManaged(rec->second.dwSidekickPID))
 		{
-			AnswerPlayerBotSidekickEq(owner, 1, "Towarzysza nie ma teraz w grze.");
+			AnswerPlayerBotSidekickEq(owner, 1, PBT(en, "Towarzysza nie ma teraz w grze.", "Your companion is not in the game now."));
 			SendPlayerBotSidekickSkills(owner);
 			return;
 		}
@@ -4111,8 +4278,8 @@ namespace
 		if (!strcmp(op, "reczne") && (!strcmp(a, "0") || !strcmp(a, "1")))
 		{
 			SetPlayerBotSidekickManualSkills(rec->second, !strcmp(a, "1"));
-			answer = rec->second.bManualSkills ? "Punkty umiejetnosci rozdajesz teraz ty." :
-					"Punkty umiejetnosci rozdaje znow towarzysz.";
+			answer = rec->second.bManualSkills ? PBT(en, "Punkty umiejetnosci rozdajesz teraz ty.", "You spend the skill points now.") :
+					PBT(en, "Punkty umiejetnosci rozdaje znow towarzysz.", "Your companion spends the skill points again.");
 			code = 0;
 		}
 		else if (!strcmp(op, "dodaj"))
@@ -4121,15 +4288,18 @@ namespace
 			str_to_number(vnum, a);
 			const DWORD base = GetPlayerBotSidekickSkillBase(sk);
 			if (base == 0)
-				answer = "Towarzysz nie ma jeszcze sciezki (dostanie ja na 5 poziomie).";
+				answer = PBT(en, "Towarzysz nie ma jeszcze sciezki (dostanie ja na 5 poziomie).",
+						"Your companion has no path yet (it gets one at level 5).");
 			else if (vnum < base || vnum >= base + 6 || !CSkillManager::instance().Get(vnum))
-				answer = "To nie jest umiejetnosc towarzysza.";
+				answer = PBT(en, "To nie jest umiejetnosc towarzysza.", "That is not one of your companion's skills.");
 			else if (sk->GetPoint(POINT_SKILL) <= 0)
-				answer = "Towarzysz nie ma wolnych punktow umiejetnosci.";
+				answer = PBT(en, "Towarzysz nie ma wolnych punktow umiejetnosci.", "Your companion has no skill points left.");
 			else if (sk->GetSkillMasterType(vnum) != SKILL_NORMAL)
-				answer = "Te umiejetnosc rozwijaja juz tylko ksiegi i kamienie duchowe.";
+				answer = PBT(en, "Te umiejetnosc rozwijaja juz tylko ksiegi i kamienie duchowe.",
+						"Only books and spirit stones raise that skill now.");
 			else if (sk->GetSkillLevel(vnum) >= 17)
-				answer = "Na 17 poziomie umiejetnosc czeka na mistrza - dalej tylko ksiegi albo reset u Starszej Pani.";
+				answer = PBT(en, "Na 17 poziomie umiejetnosc czeka na mistrza - dalej tylko ksiegi albo reset u Starszej Pani.",
+						"At 17 a skill waits for its Master - from there only books, or a reset at the Old Woman.");
 			else
 			{
 				const int before = sk->GetSkillLevel(vnum);
@@ -4140,13 +4310,15 @@ namespace
 				{
 					if (!rec->second.bManualSkills)
 						SetPlayerBotSidekickManualSkills(rec->second, true);
-					snprintf(text, sizeof(text), "Umiejetnosc na poziomie %d%s. Punkty rozdajesz teraz ty.", after,
-							sk->GetSkillMasterType(vnum) != typeBefore ? " - mistrz!" : "");
+					snprintf(text, sizeof(text), PBT(en, "Umiejetnosc na poziomie %d%s. Punkty rozdajesz teraz ty.",
+							"Skill at level %d%s. You spend the points now."), after,
+							sk->GetSkillMasterType(vnum) != typeBefore ? PBT(en, " - mistrz!", " - Master!") : "");
 					answer = text;
 					code = 0;
 				}
 				else
-					answer = "Nie udalo sie - poziom towarzysza jest za niski na te umiejetnosc.";
+					answer = PBT(en, "Nie udalo sie - poziom towarzysza jest za niski na te umiejetnosc.",
+							"That did not work - your companion's level is too low for that skill.");
 			}
 			sys_log(0, "PLAYERBOT_SIDEKICK: skill up owner=%u pid=%u vnum=%u code=%d level=%d points=%d",
 					owner->GetPlayerID(), sk->GetPlayerID(), vnum, code, (int)sk->GetSkillLevel(vnum),
@@ -4158,18 +4330,20 @@ namespace
 			str_to_number(vnum, a);
 			const DWORD base = GetPlayerBotSidekickSkillBase(sk);
 			if (base == 0)
-				answer = "Towarzysz nie ma jeszcze sciezki (dostanie ja na 5 poziomie).";
+				answer = PBT(en, "Towarzysz nie ma jeszcze sciezki (dostanie ja na 5 poziomie).",
+						"Your companion has no path yet (it gets one at level 5).");
 			else if (vnum < base || vnum >= base + 6 || !CSkillManager::instance().Get(vnum))
-				answer = "To nie jest umiejetnosc towarzysza.";
+				answer = PBT(en, "To nie jest umiejetnosc towarzysza.", "That is not one of your companion's skills.");
 			else if (sk->GetSkillLevel(vnum) <= 0)
-				answer = "Ta umiejetnosc jest juz na zerze.";
+				answer = PBT(en, "Ta umiejetnosc jest juz na zerze.", "That skill is at zero already.");
 			else if (sk->IsPolymorphed() || sk->IsDead() || sk->GetExchange())
-				answer = "Nie teraz - sprobuj, gdy towarzysz nie walczy przemieniony, nie lezy i nie handluje.";
-			else if (ResetPlayerBotSidekickSkill(sk, rec->second, vnum, answer))
+				answer = PBT(en, "Nie teraz - sprobuj, gdy towarzysz nie walczy przemieniony, nie lezy i nie handluje.",
+						"Not now - try when your companion is not transformed, not down and not trading.");
+			else if (ResetPlayerBotSidekickSkill(sk, rec->second, vnum, answer, en))
 				code = 0;
 		}
 		else
-			answer = "Nieznane polecenie okna.";
+			answer = PBT(en, "Nieznane polecenie okna.", "Unknown window command.");
 		AnswerPlayerBotSidekickEq(owner, code, answer.c_str());
 		SendPlayerBotSidekickSkills(owner);
 	}
@@ -4200,9 +4374,10 @@ namespace
 		TPlayerBotSidekickMap::iterator rec = s_mapPlayerBotSidekicks.find(owner->GetPlayerID());
 		LPCHARACTER sk = rec == s_mapPlayerBotSidekicks.end() ? NULL :
 				CHARACTER_MANAGER::instance().FindByPID(rec->second.dwSidekickPID);
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		if (!sk || !CPlayerBotManager::instance().IsManaged(rec->second.dwSidekickPID))
 		{
-			AnswerPlayerBotSidekickEq(owner, 1, "Towarzysza nie ma teraz w grze.");
+			AnswerPlayerBotSidekickEq(owner, 1, PBT(en, "Towarzysza nie ma teraz w grze.", "Your companion is not in the game now."));
 			SendPlayerBotSidekickSkills(owner);
 			return;
 		}
@@ -4212,8 +4387,8 @@ namespace
 		if (!strcmp(op, "reczne") && (!strcmp(a, "0") || !strcmp(a, "1")))
 		{
 			SetPlayerBotSidekickManualStats(rec->second, !strcmp(a, "1"));
-			answer = rec->second.bManualStats ? "Punkty statystyk rozdajesz teraz ty." :
-					"Punkty statystyk rozdaje znow towarzysz.";
+			answer = rec->second.bManualStats ? PBT(en, "Punkty statystyk rozdajesz teraz ty.", "You spend the stat points now.") :
+					PBT(en, "Punkty statystyk rozdaje znow towarzysz.", "Your companion spends the stat points again.");
 			code = 0;
 		}
 		else if (!strcmp(op, "dodaj"))
@@ -4223,33 +4398,34 @@ namespace
 			if (!strcmp(a, "ht") || !strcmp(a, "wit"))
 			{
 				point = POINT_HT;
-				name = "witalnosc";
+				name = PBT(en, "witalnosc", "Vitality");
 			}
 			else if (!strcmp(a, "iq") || !strcmp(a, "int"))
 			{
 				point = POINT_IQ;
-				name = "inteligencja";
+				name = PBT(en, "inteligencja", "Intelligence");
 			}
 			else if (!strcmp(a, "st") || !strcmp(a, "sil"))
 			{
 				point = POINT_ST;
-				name = "sila";
+				name = PBT(en, "sila", "Strength");
 			}
 			else if (!strcmp(a, "dx") || !strcmp(a, "zr"))
 			{
 				point = POINT_DX;
-				name = "zrecznosc";
+				name = PBT(en, "zrecznosc", "Dexterity");
 			}
 			int wanted = 1;
 			if (*b)
 				str_to_number(wanted, b);
 			wanted = MINMAX(1, wanted, PLAYERBOT_SIDEKICK_STAT_ORDER_MAX);
 			if (point == 0)
-				answer = "Nieznana statystyka.";
+				answer = PBT(en, "Nieznana statystyka.", "Unknown stat.");
 			else if (sk->IsPolymorphed())
-				answer = "Towarzysz jest teraz przemieniony - statystyki poczekaja.";
+				answer = PBT(en, "Towarzysz jest teraz przemieniony - statystyki poczekaja.",
+						"Your companion is transformed right now - the stats will wait.");
 			else if (sk->GetPoint(POINT_STAT) <= 0)
-				answer = "Towarzysz nie ma wolnych punktow statystyk.";
+				answer = PBT(en, "Towarzysz nie ma wolnych punktow statystyk.", "Your companion has no stat points left.");
 			else
 			{
 				int added = 0;
@@ -4259,13 +4435,15 @@ namespace
 				{
 					if (!rec->second.bManualStats)
 						SetPlayerBotSidekickManualStats(rec->second, true);
-					snprintf(text, sizeof(text), "%s: +%d (teraz %d). Wolne punkty: %d. Rozdajesz je teraz ty.",
+					snprintf(text, sizeof(text), PBT(en, "%s: +%d (teraz %d). Wolne punkty: %d. Rozdajesz je teraz ty.",
+							"%s: +%d (now %d). Points left: %d. You spend them now."),
 							name, added, (int)sk->GetRealPoint(point), (int)sk->GetPoint(POINT_STAT));
 					answer = text;
 					code = 0;
 				}
 				else
-					answer = "Tej statystyki nie da sie juz podniesc (90 to najwiecej).";
+					answer = PBT(en, "Tej statystyki nie da sie juz podniesc (90 to najwiecej).",
+							"That stat cannot go any higher (90 is the most).");
 			}
 			sys_log(0, "PLAYERBOT_SIDEKICK: stat up owner=%u pid=%u point=%u code=%d value=%d points=%d",
 					owner->GetPlayerID(), sk->GetPlayerID(), (unsigned int)point, code,
@@ -4274,11 +4452,13 @@ namespace
 		else if (!strcmp(op, "odnow"))
 		{
 			if (rec->second.bStatResetUsed)
-				answer = "Darmowy reset statystyk towarzysz juz wykorzystal.";
+				answer = PBT(en, "Darmowy reset statystyk towarzysz juz wykorzystal.",
+						"Your companion has used its free stat reset already.");
 			else if (sk->IsDead())
-				answer = "Najpierw musi wstac.";
+				answer = PBT(en, "Najpierw musi wstac.", "It has to get up first.");
 			else if (sk->IsPolymorphed())
-				answer = "Towarzysz jest teraz przemieniony - reset poczeka.";
+				answer = PBT(en, "Towarzysz jest teraz przemieniony - reset poczeka.",
+						"Your companion is transformed right now - the reset will wait.");
 			else
 			{
 				const int before = (int)sk->GetPoint(POINT_STAT);
@@ -4287,7 +4467,8 @@ namespace
 				SetPlayerBotSidekickSetting(rec->second, "stat_reset", 1U);
 				if (!rec->second.bManualStats)
 					SetPlayerBotSidekickManualStats(rec->second, true);
-				snprintf(text, sizeof(text), "Statystyki wrocily do poczatkowych. Masz %d punktow do rozdania.",
+				snprintf(text, sizeof(text), PBT(en, "Statystyki wrocily do poczatkowych. Masz %d punktow do rozdania.",
+						"The stats are back where they started. You have %d points to spend."),
 						(int)sk->GetPoint(POINT_STAT));
 				answer = text;
 				code = 0;
@@ -4297,7 +4478,7 @@ namespace
 			}
 		}
 		else
-			answer = "Nieznane polecenie okna.";
+			answer = PBT(en, "Nieznane polecenie okna.", "Unknown window command.");
 		AnswerPlayerBotSidekickEq(owner, code, answer.c_str());
 		SendPlayerBotSidekickSkills(owner);
 	}
@@ -4331,11 +4512,15 @@ namespace
 			return false;
 		char folded[160];
 		FoldPlayerBotChatText(text, folded, sizeof(folded));
+		// The orders are understood in Polish and in English whatever the
+		// owner's client reads (an English speaker in a Polish client, and the
+		// other way round), and answered in the owner's language.
+		const bool en = IsPlayerBotPersonEnglish(from);
 		bool handled = false;
 		const int stance = GetPlayerBotSidekickStanceHeard(folded);
 		if (stance >= 0)
 		{
-			SendPlayerBotWhisper(bot, from, SetPlayerBotSidekickStance(*rec, (BYTE)stance));
+			SendPlayerBotWhisper(bot, from, SetPlayerBotSidekickStance(*rec, (BYTE)stance, en));
 			handled = true;
 		}
 		// The lure, in the words any bot is asked to lure with; a bare "stop"
@@ -4344,26 +4529,36 @@ namespace
 		if (lureOrder == playerbot_lure_rules::ORDER_START ||
 				(lureOrder == playerbot_lure_rules::ORDER_STOP && (rec->bLure || strstr(folded, "lur"))))
 		{
-			SendPlayerBotWhisper(bot, from, SetPlayerBotSidekickLure(*rec, lureOrder == playerbot_lure_rules::ORDER_START));
+			SendPlayerBotWhisper(bot, from, SetPlayerBotSidekickLure(*rec, lureOrder == playerbot_lure_rules::ORDER_START, en));
 			return true;
 		}
+		// The English words after the Polish ones (28 September). A bare
+		// "stay" is no hold: "stay with me" and "stay close" are a call, and
+		// are one here.
 		static const char* const summonWords[] = { "chodz", "do mnie", "wracaj", "wroc", "za mna", "przywolaj",
-				"tutaj", "come", "follow" };
+				"tutaj", "come", "follow", "to me", "stay with me", "stay close", "stick with me", "summon" };
 		static const char* const freeWords[] = { "graj sam", "graj po swojemu", "wolna reka", "idz expic",
-				"expij sam", "idz sam", "go play" };
+				"expij sam", "idz sam", "go play", "play alone", "play on your own", "free hand", "go level",
+				"level alone", "level on your own", "go farm" };
 		// Before the call, whose "tutaj" is in "czekaj tutaj".
-		static const char* const holdWords[] = { "czekaj", "zaczekaj", "poczekaj", "zostan", "stoj", "wait" };
+		static const char* const holdWords[] = { "czekaj", "zaczekaj", "poczekaj", "zostan", "stoj", "wait",
+				"stay here", "stay there", "stay put", "hold position", "stand still", "stand here" };
 		// "Zrob miejsce w eq" is what a player writes when the bag is full
 		// (a player's screenshot of 25 September: the companion answered it with
 		// talk, "Zero, EQ pelne"): the errand is where the merchant takes the junk.
+		// "shopping" was the first English word here, the one the letter's
+		// English names beside "come", "go play", "wait" and "status".
 		static const char* const errandWords[] = { "zakupy", "na zakupy", "do miasta", "idz do miasta",
-				"zrob miejsce", "oproznij", "wyczysc eq", "sprzedaj smieci" };
+				"zrob miejsce", "oproznij", "wyczysc eq", "sprzedaj smieci", "shopping", "to town", "make room",
+				"empty your bag", "clear your bag", "sell the junk", "sell junk" };
 		for (size_t i = 0; i < sizeof(freeWords) / sizeof(freeWords[0]); ++i)
 			if (PlayerBotSidekickHeard(folded, freeWords[i]))
 			{
 				SendPlayerBotWhisper(bot, from, rec->bMode == PLAYERBOT_SIDEKICK_FREE ?
-						"Juz gram po swojemu. Napisz \"chodz\", kiedy bede potrzebny." :
-						"Dobra, ide expic po swojemu. Napisz \"chodz\", kiedy bede potrzebny.");
+						PBT(en, "Juz gram po swojemu. Napisz \"chodz\", kiedy bede potrzebny.",
+						"I'm playing on my own already. Write \"come\" when you need me.") :
+						PBT(en, "Dobra, ide expic po swojemu. Napisz \"chodz\", kiedy bede potrzebny.",
+						"All right, off to level on my own. Write \"come\" when you need me."));
 				if (rec->bMode != PLAYERBOT_SIDEKICK_FREE)
 					FreePlayerBotSidekick(from, *rec);
 				return true;
@@ -4371,30 +4566,53 @@ namespace
 		for (size_t i = 0; i < sizeof(errandWords) / sizeof(errandWords[0]); ++i)
 			if (PlayerBotSidekickHeard(folded, errandWords[i]))
 			{
-				SendPlayerBotWhisper(bot, from, "Dobra, zaraz zobacze, co trzeba kupic.");
+				SendPlayerBotWhisper(bot, from, PBT(en, "Dobra, zaraz zobacze, co trzeba kupic.", "All right, I'll see what needs buying."));
 				SendPlayerBotSidekickShopping(from, *rec, get_dword_time());
 				return true;
 			}
 		for (size_t i = 0; i < sizeof(holdWords) / sizeof(holdWords[0]); ++i)
 			if (PlayerBotSidekickHeard(folded, holdWords[i]))
 			{
-				SendPlayerBotWhisper(bot, from, "Dobra, czekam.");
+				SendPlayerBotWhisper(bot, from, PBT(en, "Dobra, czekam.", "All right, I'll wait."));
 				HoldPlayerBotSidekick(from, *rec, get_dword_time());
 				return true;
 			}
 		for (size_t i = 0; i < sizeof(summonWords) / sizeof(summonWords[0]); ++i)
 			if (PlayerBotSidekickHeard(folded, summonWords[i]))
 			{
-				SendPlayerBotWhisper(bot, from, "Juz ide!");
+				SendPlayerBotWhisper(bot, from, PBT(en, "Juz ide!", "Coming!"));
 				SummonPlayerBotSidekick(from, *rec, get_dword_time());
 				return true;
 			}
-		if (PlayerBotSidekickHeard(folded, "stan") || PlayerBotSidekickHeard(folded, "status"))
+		if (PlayerBotSidekickHeard(folded, "stan") || PlayerBotSidekickHeard(folded, "status") ||
+				PlayerBotSidekickHeard(folded, "report"))
 		{
 			ReportPlayerBotSidekick(from, *rec);
 			return true;
 		}
 		return handled;
+	}
+
+	// The English words of the orders a person types (28 September): the
+	// letter and the window send the Polish ones, and a player of an English
+	// client may type either. Each becomes its Polish word before anything
+	// reads it, so every branch below stays the one branch it was. The
+	// window's own sub-orders (eq ruch, umiejetnosci dodaj, ...) are the
+	// window's to send and have none.
+	const char* GetPlayerBotSidekickCommandWord(const char* word)
+	{
+		static const char* const words[][2] = {
+			{ "create", "stworz" }, { "window", "okno" }, { "bag", "eq" }, { "skills", "umiejetnosci" },
+			{ "stats", "statystyki" }, { "summon", "przywolaj" }, { "come", "przywolaj" }, { "follow", "przywolaj" },
+			{ "free", "wolny" }, { "wait", "czekaj" }, { "stay", "czekaj" }, { "shopping", "zakupy" },
+			{ "shop", "zakupy" }, { "status", "stan" }, { "fight", "walka" }, { "stance", "walka" },
+			{ "loot", "zbieraj" }, { "protect", "ochrona" }, { "buffs", "buffy" }, { "buff", "buffy" },
+			{ "lure", "luruj" }, { "solo", "sam" }, { "alone", "sam" }, { "chests", "skrzynki" },
+			{ "party", "grupa" }, { "group", "grupa" }, { "dismiss", "odprawa" } };
+		for (size_t i = 0; i < sizeof(words) / sizeof(words[0]); ++i)
+			if (!strcasecmp(word, words[i][0]))
+				return words[i][1];
+		return word;
 	}
 
 	// /towarzysz stworz <rasa 0-7> <sciezka 1-2> <nick> | przywolaj | wolny | czekaj | zakupy | stan
@@ -4404,13 +4622,18 @@ namespace
 	//            | umiejetnosci [dodaj <vnum> | reczne <0|1>]
 	//            | statystyki [dodaj <ht|iq|st|dx> [ile] | reczne <0|1> | odnow]
 	//            | luruj <0|1>
+	// and in English (GetPlayerBotSidekickCommandWord): summon, free, wait,
+	// shopping, status, fight <attack|defend|passive>, loot, protect, buffs,
+	// lure, solo, chests, party, dismiss yes - on and off for 1 and 0.
 	void HandlePlayerBotSidekickCommand(LPCHARACTER ch, const char* argument)
 	{
 		if (!ch || !ch->GetDesc() || (ch->GetDesc()->IsBot() && !s_bPlayerBotSidekickSelfTest))
 			return;
+		const bool en = IsPlayerBotPersonEnglish(ch);
 		if (!EnsurePlayerBotSidekickTable())
 		{
-			SayPlayerBotSidekick(ch, "Towarzysze sa teraz niedostepni - baza nie odpowiada.");
+			SayPlayerBotSidekick(ch, PBT(en, "Towarzysze sa teraz niedostepni - baza nie odpowiada.",
+					"Companions are unavailable right now - the database does not answer."));
 			return;
 		}
 		char sub[32] = "";
@@ -4421,6 +4644,19 @@ namespace
 		rest = one_argument(rest, a1, sizeof(a1));
 		rest = one_argument(rest, a2, sizeof(a2));
 		one_argument(rest, a3, sizeof(a3));
+		// An English word is its Polish order from here on, and a switch's
+		// "on" and "off" are its 1 and 0.
+		const char* polishWord = GetPlayerBotSidekickCommandWord(sub);
+		if (polishWord != sub)
+			snprintf(sub, sizeof(sub), "%s", polishWord);
+		if (!strcmp(sub, "luruj") || !strcmp(sub, "sam") || !strcmp(sub, "skrzynki") || !strcmp(sub, "grupa") ||
+				!strcmp(sub, "ochrona") || !strcmp(sub, "buffy"))
+		{
+			if (!strcasecmp(a1, "on"))
+				snprintf(a1, sizeof(a1), "1");
+			else if (!strcasecmp(a1, "off"))
+				snprintf(a1, sizeof(a1), "0");
+		}
 		const DWORD dwNow = get_dword_time();
 		// The world's switch: the window is told (a third answer, "2"), and
 		// everything else - a new companion included - is refused.
@@ -4431,7 +4667,8 @@ namespace
 			else if (!strcmp(sub, "eq") || !strcmp(sub, "umiejetnosci") || !strcmp(sub, "statystyki"))
 				SendPlayerBotSidekickCommand(ch, "SidekickEqNone %d 2", PLAYERBOT_SIDEKICK_EQ_PROTOCOL);
 			else
-				SayPlayerBotSidekick(ch, "Towarzysze sa wylaczeni na tym serwerze (wlacza je wlasciciel serwera w launcherze).");
+				SayPlayerBotSidekick(ch, PBT(en, "Towarzysze sa wylaczeni na tym serwerze (wlacza je wlasciciel serwera w launcherze).",
+						"Companions are switched off on this server (the server owner turns them on in the launcher)."));
 			return;
 		}
 		if (!strcmp(sub, "stworz"))
@@ -4449,8 +4686,9 @@ namespace
 			SendPlayerBotSidekickWindow(ch, !strcmp(a1, "1"));
 			return;
 		}
-		// The bag window and the skills window (uisidekickinventory.py): each
-		// says for itself that there is no companion.
+		// The bag window (uisidekickinventory.py) and the status and skill pages
+		// of the companion's window (uisidekick.py): each answer says for
+		// itself that there is no companion.
 		if (!strcmp(sub, "eq"))
 		{
 			HandlePlayerBotSidekickEqCommand(ch, a1, a2, a3);
@@ -4470,7 +4708,8 @@ namespace
 		if (rec == s_mapPlayerBotSidekicks.end())
 		{
 			SetPlayerBotSidekickFlag(ch->GetPlayerID(), "towarzysz.created", 0);
-			SayPlayerBotSidekick(ch, "Nie masz jeszcze towarzysza - wybierz go w liscie Towarzysz.");
+			SayPlayerBotSidekick(ch, PBT(en, "Nie masz jeszcze towarzysza - wybierz go w liscie Towarzysz.",
+					"You have no companion yet - choose one in the Companion letter."));
 			return;
 		}
 		if (!strcmp(sub, "przywolaj"))
@@ -4484,31 +4723,35 @@ namespace
 		else if (!strcmp(sub, "luruj"))
 		{
 			if (!strcmp(a1, "0") || !strcmp(a1, "1"))
-				SayPlayerBotSidekick(ch, SetPlayerBotSidekickLure(rec->second, !strcmp(a1, "1")));
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickLure(rec->second, !strcmp(a1, "1"), en));
 			else
-				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz luruj 1 (lurowanie wlaczone) albo /towarzysz luruj 0");
+				SayPlayerBotSidekick(ch, PBT(en, "Uzyj: /towarzysz luruj 1 (lurowanie wlaczone) albo /towarzysz luruj 0",
+						"Use: /towarzysz lure on (luring on) or /towarzysz lure off"));
 		}
 		else if (!strcmp(sub, "sam"))
 		{
 			if (!strcmp(a1, "0") || !strcmp(a1, "1"))
-				SayPlayerBotSidekick(ch, SetPlayerBotSidekickSolo(rec->second, !strcmp(a1, "1")));
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickSolo(rec->second, !strcmp(a1, "1"), en));
 			else
-				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz sam 1 (gram dalej, kiedy wyjdziesz z gry) albo /towarzysz sam 0");
+				SayPlayerBotSidekick(ch, PBT(en, "Uzyj: /towarzysz sam 1 (gram dalej, kiedy wyjdziesz z gry) albo /towarzysz sam 0",
+						"Use: /towarzysz solo on (I play on when you leave the game) or /towarzysz solo off"));
 		}
 		else if (!strcmp(sub, "skrzynki"))
 		{
 			if (!strcmp(a1, "0") || !strcmp(a1, "1"))
-				SayPlayerBotSidekick(ch, SetPlayerBotSidekickChests(rec->second, !strcmp(a1, "1")));
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickChests(rec->second, !strcmp(a1, "1"), en));
 			else
-				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz skrzynki 1 (sam otwieram skrzynie) albo /towarzysz skrzynki 0");
+				SayPlayerBotSidekick(ch, PBT(en, "Uzyj: /towarzysz skrzynki 1 (sam otwieram skrzynie) albo /towarzysz skrzynki 0",
+						"Use: /towarzysz chests on (I open the chests myself) or /towarzysz chests off"));
 		}
 		else if (!strcmp(sub, "grupa"))
 		{
 			if (!strcmp(a1, "0") || !strcmp(a1, "1"))
-				SayPlayerBotSidekick(ch, SetPlayerBotSidekickParty(rec->second, !strcmp(a1, "1")));
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickParty(rec->second, !strcmp(a1, "1"), en));
 			else
-				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz grupa 1 (dolaczam do twojej grupy, kto by jej nie prowadzil) "
-						"albo /towarzysz grupa 0");
+				SayPlayerBotSidekick(ch, PBT(en, "Uzyj: /towarzysz grupa 1 (dolaczam do twojej grupy, kto by jej nie prowadzil) "
+						"albo /towarzysz grupa 0",
+						"Use: /towarzysz party on (I join your party whoever leads it) or /towarzysz party off"));
 		}
 		else if (!strcmp(sub, "zbieraj") || !strcmp(sub, "ochrona") || !strcmp(sub, "buffy"))
 		{
@@ -4520,52 +4763,59 @@ namespace
 			{
 				r.bLoot = (BYTE)value;
 				SetPlayerBotSidekickSetting(r, "loot", (unsigned int)value);
-				SayPlayerBotSidekick(ch, value == PLAYERBOT_SIDEKICK_LOOT_ALL ? "Zbieram caly drop: twoj i swoj." :
-						value == PLAYERBOT_SIDEKICK_LOOT_OWNERS ? "Zbieram tylko twoj drop." : "Nie zbieram dropu.");
+				SayPlayerBotSidekick(ch, value == PLAYERBOT_SIDEKICK_LOOT_ALL ?
+						PBT(en, "Zbieram caly drop: twoj i swoj.", "I pick up the whole drop: yours and mine.") :
+						value == PLAYERBOT_SIDEKICK_LOOT_OWNERS ? PBT(en, "Zbieram tylko twoj drop.", "I pick up only your drop.") :
+						PBT(en, "Nie zbieram dropu.", "I don't pick up the drop."));
 			}
 			else if (!strcmp(sub, "ochrona") && (value == 0 || value == 1))
 			{
 				r.bProtect = value == 1;
 				SetPlayerBotSidekickSetting(r, "protect", (unsigned int)value);
-				SayPlayerBotSidekick(ch, r.bProtect ? "Gdy bedziesz ginac, sciagne na siebie potwory." :
-						"Nie bede sciagac z ciebie potworow.");
+				SayPlayerBotSidekick(ch, r.bProtect ?
+						PBT(en, "Gdy bedziesz ginac, sciagne na siebie potwory.", "When you are about to die, I'll pull the monsters onto me.") :
+						PBT(en, "Nie bede sciagac z ciebie potworow.", "I won't pull monsters off you."));
 			}
 			else if (!strcmp(sub, "buffy") && (value == 0 || value == 1))
 			{
 				r.bBuffs = value == 1;
 				SetPlayerBotSidekickSetting(r, "buffs", (unsigned int)value);
-				SayPlayerBotSidekick(ch, r.bBuffs ? "Bede cie buffowac (jesli umiem)." : "Nie bede cie buffowac.");
+				SayPlayerBotSidekick(ch, r.bBuffs ? PBT(en, "Bede cie buffowac (jesli umiem).", "I'll buff you (if I can).") :
+						PBT(en, "Nie bede cie buffowac.", "I won't buff you."));
 			}
 			else
-				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz zbieraj 0|1|2, /towarzysz ochrona 0|1, /towarzysz buffy 0|1");
+				SayPlayerBotSidekick(ch, PBT(en, "Uzyj: /towarzysz zbieraj 0|1|2, /towarzysz ochrona 0|1, /towarzysz buffy 0|1",
+						"Use: /towarzysz loot 0|1|2, /towarzysz protect on|off, /towarzysz buffs on|off"));
 		}
 		else if (!strcmp(sub, "walka"))
 		{
 			int stance = -1;
-			if (!strcmp(a1, "atakuj") || !strcmp(a1, "atak"))
+			if (!strcmp(a1, "atakuj") || !strcmp(a1, "atak") || !strcasecmp(a1, "attack"))
 				stance = PLAYERBOT_SIDEKICK_STANCE_ATTACK;
-			else if (!strcmp(a1, "obrona") || !strcmp(a1, "bron"))
+			else if (!strcmp(a1, "obrona") || !strcmp(a1, "bron") || !strcasecmp(a1, "defend") ||
+					!strcasecmp(a1, "defence") || !strcasecmp(a1, "defense"))
 				stance = PLAYERBOT_SIDEKICK_STANCE_DEFEND;
-			else if (!strcmp(a1, "spokoj") || !strcmp(a1, "nie"))
+			else if (!strcmp(a1, "spokoj") || !strcmp(a1, "nie") || !strcasecmp(a1, "passive"))
 				stance = PLAYERBOT_SIDEKICK_STANCE_PASSIVE;
 			else if (*a1)
 				str_to_number(stance, a1);
 			if (stance < PLAYERBOT_SIDEKICK_STANCE_ATTACK || stance > PLAYERBOT_SIDEKICK_STANCE_PASSIVE)
 			{
 				char text[192];
-				snprintf(text, sizeof(text), "Teraz: %s. Zmien: /towarzysz walka atakuj | obrona | spokoj",
-						GetPlayerBotSidekickStanceName(rec->second.bStance));
+				snprintf(text, sizeof(text), PBT(en, "Teraz: %s. Zmien: /towarzysz walka atakuj | obrona | spokoj",
+						"Now: %s. Change: /towarzysz fight attack | defend | passive"),
+						GetPlayerBotSidekickStanceName(rec->second.bStance, en));
 				SayPlayerBotSidekick(ch, text);
 			}
 			else
-				SayPlayerBotSidekick(ch, SetPlayerBotSidekickStance(rec->second, (BYTE)stance));
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickStance(rec->second, (BYTE)stance, en));
 		}
 		else if (!strcmp(sub, "odprawa"))
 		{
-			if (!strcmp(a1, "tak"))
+			if (!strcmp(a1, "tak") || !strcasecmp(a1, "yes"))
 				DismissPlayerBotSidekick(ch, rec->second);
 			else
-				SayPlayerBotSidekick(ch, "Na pewno? Wpisz: /towarzysz odprawa tak");
+				SayPlayerBotSidekick(ch, PBT(en, "Na pewno? Wpisz: /towarzysz odprawa tak", "Sure? Type: /towarzysz dismiss yes"));
 		}
 		else
 			ReportPlayerBotSidekick(ch, rec->second);
@@ -4606,7 +4856,8 @@ namespace
 			if (gifts > 0)
 			{
 				SayPlayerBotSidekick(GetPlayerBotSidekickOwnerChar(rec.dwOwnerPID),
-						"Dzieki! Zachowam to, a co lepsze od mojego, zaraz zaloze.");
+						"Dzieki! Zachowam to, a co lepsze od mojego, zaraz zaloze.",
+						"Thanks! I'll keep it, and whatever beats mine I'll put on right away.");
 				state.dwNextEquipmentCheckTime = 0;
 				sys_log(0, "PLAYERBOT_SIDEKICK: gifts pid=%u name=%s items=%d", ch->GetPlayerID(), ch->GetName(),
 						gifts);
@@ -5167,6 +5418,7 @@ namespace
 		if (stuck.empty())
 			return;
 		LPCHARACTER owner = GetPlayerBotSidekickOwnerChar(rec.dwOwnerPID);
+		const bool en = IsPlayerBotPersonEnglish(owner);
 		char text[256];
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
@@ -5179,10 +5431,11 @@ namespace
 				if (rt.setForgetToldItems.insert(item->GetID()).second)
 				{
 					const bool mine = skill >= base && skill < base + 6;
-					snprintf(text, sizeof(text), "Ta Ksiega Zapomnienia jest do umiejetnosci %s, %s - zostaje w plecaku.%s",
-							skill ? GetPlayerBotSkillName(skill) : "(zadnej)",
-							mine ? "a ta nie stoi na 17" : "ktorej nie mam",
-							mine ? " Zeruj w oknie umiejetnosci ja zuzyje." : "");
+					snprintf(text, sizeof(text), PBT(en, "Ta Ksiega Zapomnienia jest do umiejetnosci %s, %s - zostaje w plecaku.%s",
+							"This Book of Forgetfulness is for the skill %s, %s - it stays in the bag.%s"),
+							skill ? GetPlayerBotSidekickSkillName(skill, en) : PBT(en, "(zadnej)", "(none)"),
+							mine ? PBT(en, "a ta nie stoi na 17", "which is not at 17") : PBT(en, "ktorej nie mam", "which I don't have"),
+							mine ? PBT(en, " Zeruj w oknie umiejetnosci ja zuzyje.", " \"Reset\" in the skill window uses it up.") : "");
 					SayPlayerBotSidekick(owner, text);
 				}
 				continue;
@@ -5209,14 +5462,19 @@ namespace
 					ch->GetPlayerID(), ch->GetName(), rec.dwOwnerPID, skill, before, after, rolled, master ? 1 : 0,
 					rec.bManualSkills ? 1 : 0, GetPlayerBotSidekickMasterChance(ch));
 			if (rec.bManualSkills)
-				snprintf(text, sizeof(text), "Ksiega Zapomnienia przeczytana: %s na %d. Dodaj punkt w oknie "
-						"umiejetnosci - to proba na mistrza (szansa %d%%).", GetPlayerBotSkillName(skill), after,
+				snprintf(text, sizeof(text), PBT(en, "Ksiega Zapomnienia przeczytana: %s na %d. Dodaj punkt w oknie "
+						"umiejetnosci - to proba na mistrza (szansa %d%%).",
+						"Book of Forgetfulness read: %s at %d. Add a point in the skill window - that is the try for "
+						"Master (chance %d%%)."), GetPlayerBotSidekickSkillName(skill, en), after,
 						GetPlayerBotSidekickMasterChance(ch));
 			else if (master)
-				snprintf(text, sizeof(text), "Ksiega Zapomnienia przeczytana: %s - mistrz!", GetPlayerBotSkillName(skill));
+				snprintf(text, sizeof(text), PBT(en, "Ksiega Zapomnienia przeczytana: %s - mistrz!",
+						"Book of Forgetfulness read: %s - Master!"), GetPlayerBotSidekickSkillName(skill, en));
 			else
-				snprintf(text, sizeof(text), "Ksiega Zapomnienia przeczytana: %s znow na %d, bez mistrza. "
-						"Kolejna ksiega to kolejna proba (szansa %d%%).", GetPlayerBotSkillName(skill), rolled,
+				snprintf(text, sizeof(text), PBT(en, "Ksiega Zapomnienia przeczytana: %s znow na %d, bez mistrza. "
+						"Kolejna ksiega to kolejna proba (szansa %d%%).",
+						"Book of Forgetfulness read: %s at %d again, no Master. The next book is the next try "
+						"(chance %d%%)."), GetPlayerBotSidekickSkillName(skill, en), rolled,
 						GetPlayerBotSidekickMasterChance(ch));
 			SayPlayerBotSidekick(owner, text);
 			rt.mapForgetAskedAt[skill] = dwNow;
@@ -5256,14 +5514,17 @@ namespace
 					ch->GetPlayerID(), ch->GetName(), rec.dwOwnerPID, skill, before, (int)ch->GetSkillLevel(skill),
 					master ? 1 : 0, rec.bManualSkills ? 1 : 0, (int)ch->GetPoint(POINT_SKILL));
 			if (rec.bManualSkills)
-				snprintf(text, sizeof(text), "Zwoj Powrotu Umiejetnosci uzyty: %s od zera, punkty czekaja w oknie "
+				snprintf(text, sizeof(text), PBT(en, "Zwoj Powrotu Umiejetnosci uzyty: %s od zera, punkty czekaja w oknie "
 						"umiejetnosci. Pierwsza umiejetnosc, ktora dojdzie do 17, zostanie mistrzem.",
-						GetPlayerBotSkillName(skill));
+						"Skill Reset Document used: %s from zero, the points wait in the skill window. The first "
+						"skill to reach 17 becomes Master."), GetPlayerBotSidekickSkillName(skill, en));
 			else if (master)
-				snprintf(text, sizeof(text), "Zwoj Powrotu Umiejetnosci uzyty: %s - mistrz!", GetPlayerBotSkillName(skill));
+				snprintf(text, sizeof(text), PBT(en, "Zwoj Powrotu Umiejetnosci uzyty: %s - mistrz!",
+						"Skill Reset Document used: %s - Master!"), GetPlayerBotSidekickSkillName(skill, en));
 			else
-				snprintf(text, sizeof(text), "Zwoj Powrotu Umiejetnosci uzyty: %s na %d. Mistrz przy 17.",
-						GetPlayerBotSkillName(skill), (int)ch->GetSkillLevel(skill));
+				snprintf(text, sizeof(text), PBT(en, "Zwoj Powrotu Umiejetnosci uzyty: %s na %d. Mistrz przy 17.",
+						"Skill Reset Document used: %s at %d. Master at 17."),
+						GetPlayerBotSidekickSkillName(skill, en), (int)ch->GetSkillLevel(skill));
 			SayPlayerBotSidekick(owner, text);
 			rt.mapForgetAskedAt[skill] = dwNow;
 			return;
@@ -5282,15 +5543,19 @@ namespace
 			rt.mapForgetAskedAt[*it] = dwNow;
 			if (!names.empty())
 				names += ", ";
-			names += GetPlayerBotSkillName(*it);
+			names += GetPlayerBotSidekickSkillName(*it, en);
 		}
 		if (names.empty())
 			return;
-		snprintf(text, sizeof(text), "Na 17 bez mistrza: %s. Daj mi Ksiege Zapomnienia tej umiejetnosci"
 #if defined(PLAYERBOT_ENGINE_MT2009)
-				" (albo Zwoj Powrotu Umiejetnosci)"
+		const char* const orScroll = PBT(en, " (albo Zwoj Powrotu Umiejetnosci)", " (or a Skill Reset Document)");
+#else
+		const char* const orScroll = "";
 #endif
-				" - uzyje jej i sprobuje mistrza (szansa %d%%).", names.c_str(),
+		snprintf(text, sizeof(text), PBT(en, "Na 17 bez mistrza: %s. Daj mi Ksiege Zapomnienia tej umiejetnosci%s"
+				" - uzyje jej i sprobuje mistrza (szansa %d%%).",
+				"At 17 without Master: %s. Give me a Book of Forgetfulness for that skill%s"
+				" - I'll read it and try for Master (chance %d%%)."), names.c_str(), orScroll,
 				GetPlayerBotSidekickMasterChance(ch));
 		SayPlayerBotSidekick(owner, text);
 	}
@@ -5947,7 +6212,9 @@ namespace
 		{
 			rt.dwBagFullToldAt = dwNow;
 			SayPlayerBotSidekick(owner, "Mam prawie pelny plecak. Stan przy handlarzu albo szepnij \"zakupy\" - "
-					"sprzedam zlom. Co chcesz zatrzymac, wez z mojego plecaka (okno Towarzysza).");
+					"sprzedam zlom. Co chcesz zatrzymac, wez z mojego plecaka (okno Towarzysza).",
+					"My bag is almost full. Stand by a merchant or press \"Go shopping\" (P) - I'll sell the junk. "
+					"Whatever you want to keep, take from my bag (the Companion window).");
 			sys_log(0, "PLAYERBOT_SIDEKICK: bag near full, owner told pid=%u name=%s free=%d", ch->GetPlayerID(),
 					ch->GetName(), CountPlayerBotFreeInventoryCells(ch));
 		}

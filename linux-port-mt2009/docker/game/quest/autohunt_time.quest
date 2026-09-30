@@ -8,15 +8,26 @@
 -- the classic panel; playerbotify apply_auto_hunt_item_switch). A world where
 -- everybody may hunt keeps the ticket. The ticket was the package's unused
 -- "Opaska Posz. Zlota" (migratorify.py renames it). Bots never come here.
+-- Polish or English as the player's client asked (playerbot_lang.quest); the
+-- English calls it Auto Hunt, as the client's window does.
 quest autohunt_time begin
     state start begin
+        function t(pl, en)
+            if pc.getf("playerbot_lang", "en") == 1 then
+                return en
+            end
+            return pl
+        end
+
         when 31073.use begin
             if game.get_event_flag("m2_autohunt_off") > 0 then
-                syschat("Auto Lowy sa na tym swiecie wylaczone - zachowaj bilet.")
+                syschat(autohunt_time.t("Auto Lowy sa na tym swiecie wylaczone - zachowaj bilet.",
+                    "Auto Hunt is switched off in this world - keep the ticket."))
                 return
             end
             if game.get_event_flag("m2_autohunt_item") == 0 then
-                syschat("Auto Lowy sa teraz dostepne dla kazdego - zachowaj bilet na pozniej.")
+                syschat(autohunt_time.t("Auto Lowy sa teraz dostepne dla kazdego - zachowaj bilet na pozniej.",
+                    "Auto Hunt is free for everybody now - keep the ticket for later."))
                 return
             end
             local left = affect.get_duration(560)
@@ -24,13 +35,14 @@ quest autohunt_time begin
                 left = 0
             end
             if left > 30 * 86400 then
-                syschat("Auto Lowy: masz juz ponad 30 dni czasu.")
+                syschat(autohunt_time.t("Auto Lowy: masz juz ponad 30 dni czasu.", "Auto Hunt: you have more than 30 days of it already."))
                 return
             end
             pc.remove_item(31073, 1)
             left = left + 8 * 3600
             affect.add_new(560, 0, 0, left, 0, true)
-            syschat(string.format("Auto Lowy: +8 h, razem %d h (liczy sie tylko czas w grze).", math.floor(left / 3600)))
+            syschat(string.format(autohunt_time.t("Auto Lowy: +8 h, razem %d h (liczy sie tylko czas w grze).",
+                "Auto Hunt: +8 h, %d h in all (only time in the game counts)."), math.floor(left / 3600)))
         end
     end
 end

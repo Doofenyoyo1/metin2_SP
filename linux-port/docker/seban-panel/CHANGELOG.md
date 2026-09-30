@@ -1,5 +1,199 @@
 > Odznaka `via` na dole każdego wpisu pokazuje, kto/co stoi za daną zmianą. Praca z asystą AI (Claude albo Codex) dostaje formę `![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)` albo `![via Codex by Seban](https://img.shields.io/badge/via-Codex%20by%20Seban-10A37F)` — w panelu "Seban" dostaje animowany, przelewający się kolor + gwiazdkę. Kod wniesiony wprost z panelu klasycznego (bez asysty AI) dostaje samo `via` bez "by".
 
+## 2026-09-28 · 1.100.6 · Gracze w rankingach, teleport na kanał bota i poprawki z kopii panelu w Playerbots
+
+- **Rankingi, karuzela na dashboardzie i sezon liczą boty razem z postaciami graczy, bez postaci GM-ów** (z rangą w `common.gmlist`, np. Admin, AdminNinja, AdminSura i AdminSzaman z konta admin — dotąd wykluczała je lista imion, która nie widziała GM-a założonego w panelu pod innym imieniem). Gracz ma 👤 i podświetloną linię, a „👤 Tylko gracze” pokazuje samych ludzi, ponumerowanych między sobą i ze stronicowaniem. Przełącznik „Prawdziwi gracze w rankingach” jest teraz domyślnie włączony (wyłącza go zapisane 0), bo panel klasyczny Playerbots czyta ten sam wiersz i oba panele mają liczyć to samo. Ranking „Broń 30 Lv” nie bierze już przedmiotów z magazynu (tam `owner_id` to konto, nie postać), a „Najwyższy poziom” w sezonie nie stoi na zawsze na 90 poziomie GM-ów. Zgłosił blipu.
+- **„Teleportuj mnie” przenosi postać na kanał bota**, nie tylko na jego współrzędne na kanale, na którym stała postać (zgłosił prodnathin). Działa z `web_admin.quest` z Playerbots 2.2.37; starszy quest odpowiada `bad_args`, a panel ponawia wtedy zwykły teleport na kanale postaci, jak dotąd.
+- **Tanaka i Zuo na wybranej mapie**, tak jak uruchamia je Playerbots od 2.2.28.
+- **Etykiety osobowości znają rzadkie osobowości (10–14) i czterech hazardzistów z Community Patch 5 (15–18)**, a karta bota pokazuje blokadę expa przy nastroju.
+- **Suwaki celów AI mają opis po najechaniu**: co dokładnie zmienia każdy i jak szybko. Kowal, Księgi, Biolog i Misje polowania kończą się na 100, bo przy 100 boty robią to już przy każdej okazji; „Wszystko na 100” nie rusza wrogości królestw, a zapis nie nadpisuje ustawień, których strona nie pokazuje.
+- **Strona gildii pokazuje też gildie prowadzone przez graczy** (zgłosił Derpsonkowy95).
+- **Sklep offline bota na karcie postaci ma 16 rzędów, gdy towar stoi też w polach 80–159**, zamiast rysować drugą połowę na pierwszej.
+- **Tooltip oferty podaje cenę za cały stos raz**, z liczbą sztuk.
+- **Zgodność z Playerbots 2.x trzymana dotąd tylko w kopii panelu w paczce Playerbots:** kolektor czyta `playerbot_status.tsv` po nagłówku (kolumny osobowości Iwakury) i liczy tylko oferty, które da się kupić; raty na mt2009 czytane z flag gry, z bazą eventu; brak tabeli przełączników, zrzutu sklepów czy skrzyni ucznia w bazie nie wywraca strony; Zarządzanie pokazuje liczbę botów na każdym kanale i link do masowego nadawania przedmiotów; obraz buduje się także bez wygenerowanego `VERSION`. Ranking „Polowanie” usunięty, bo `levelup.quest` nie działa na mt2009.
+
+![via Tieru](https://img.shields.io/badge/via-Tieru-f2c34d)
+
+## 2026-09-28 · 1.100.5 · Animacja ładowania dla statystyk "Stan serwera"
+
+- **Widget "Zalogowane boty wg kanału" dostał tę samą animację ładowania (shimmer) co "Zalogowane boty" wg królestw** — wcześniej mignął pusto zanim dane dotarły. Przy okazji ten sam efekt dostały też pozostałe liczby w karcie "Stan serwera" (botów w grze, śr. poziom, w grupach, maks. poziom, gildie botów), które wcześniej krótko pokazywały "0" zamiast animacji ładowania.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-28 · 1.100.4 · Nowy widget: zalogowane boty wg kanału
+
+- **Dashboard "PLAYERBOTS · ŚWIAT" ma teraz drugi widgecik pod rozkładem królestw: "Zalogowane boty wg kanału"** — pokazuje CH1–CH4 z kolorowymi kropkami identycznymi jak obwódki na mapie na żywo. Naprawiono też błąd, przez który widget początkowo pokazywał samą cyfrę zamiast rozbicia na kanały — oba widgety (królestwa i kanały) używały tej samej klasy CSS, więc skrypt dociągający dane na żywo aktualizował tylko pierwszy z nich.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-28 · 1.100.3 · Kolory CH3/CH4 na mapie na żywo
+
+- **Mapa świata botów, legenda i wykres "Rozkład kanałów" rozpoznają teraz kanały CH3 (biała obwódka) i CH4 (czarna obwódka)** — przygotowanie pod Playerbots 2.2.36, który pozwala włączyć dwa dodatkowe kanały. Reszta panelu (filtr kanałów, wybór na mapie, wykres botów wg kanału na mapach) już wcześniej skalowała się automatycznie do dowolnej liczby wykrytych kanałów.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-28 · 1.100.2 · Przetopy (gniazda akcesoriów) w tooltipach
+
+- **Tooltipy bransolet, naszyjników i kolczyków pokazują teraz włożone przetopy**: stopień gniazda (np. "Ebonit 2/2"), realny bonus jaki dają (np. Siła +2, Maks. PŻ +80 — zweryfikowane wprost w kodzie silnika i na żywych postaciach), pozostały czas do degradacji o jeden stopień oraz liczbę pustych, niewykorzystanych kieszeni. Ikona materiału pokazana dla kolczyków (potwierdzone jako "Ebonit"); dla bransolet/naszyjników pokazuje się sam bonus bez nazwy materiału, bo silnik jej nigdzie nie zapisuje.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-28 · 1.100.1 · Wybór miejsc legendarnych ogłoszeń
+
+- **Zarządzanie panelem pozwala niezależnie wybrać trzy miejsca dla ogłoszeń o bossach, rajdach i lochach:** Czat na żywo, Wieści ze świata oraz dolny pasek wiadomości. Można włączyć dowolny zestaw, wszystkie miejsca albo wyłączyć je całkowicie.
+- **Nowe i dotychczasowe instalacje domyślnie pokazują ogłoszenia wszędzie.** Wyłączenie dotyczy wyłącznie legendarnych komunikatów i nie ukrywa zwykłego czatu ani pozostałych wydarzeń świata.
+
+![via Codex by Seban](https://img.shields.io/badge/via-Codex%20by%20Seban-10A37F)
+
+## 2026-09-28 · 1.100.0 · Pełna zgodność funkcji administracyjnych z Playerbots 2.2.35
+
+- **Karta postaci otrzymała brakujące akcje z panelu Tieru:** wyszukiwarkę i kategorie przedmiotów, nadawanie Yang z presetami, zmianę poziomu, teleport do 11 lokacji oraz godzinny bonus szybkości biegu. Polecenia korzystają z tego samego interfejsu `web_admin_queue`, który obsługuje rdzeń gry.
+- **Zarządzanie grą ma presety rat, poziom trudności świata, konfigurację dostępu do autołowów oraz CH2.** Poziom trudności ustawia czasy Biologa, Stajennego i ksiąg osobno dla graczy i botów; CH2 zachowuje wybrany podział botów i wchodzi przy restarcie.
+- **Uzupełniono audyt ustawień AI z Playerbots 2.2.35:** twarde wyłączenie dropu Szkatułek Blasku z pamiętaniem obu szans, zakupy botów w M2 oraz czas i odstęp wojen gildii. Wrogość królestw, próg zwojów i wyprawy na Metiny były już obsługiwane i pozostały dostępne.
+- **Kartoteka Biologa rozpoznaje osiem klasycznych badań** od Zębów Orka do Notatek Przywódcy, pokazuje nazwę zbieranego przedmiotu, liczbę sztuk w ekwipunku i przejście do etapu poszukiwania właściwego Kamienia Duchowego.
+
+![via Codex by Seban](https://img.shields.io/badge/via-Codex%20by%20Seban-10A37F)
+
+## 2026-09-28 · 1.99.1 · Naprawiono etykietę wersji Playerbots na dashboardzie
+
+- **Dashboard pokazywał "Brak wersji lokalnej" pod poprawnie wyświetloną wersją Playerbots** (np. "2.2.33") — dashboard pomijał sprawdzenie GitHub dla przyspieszenia pierwszego renderu, co było zbędne odkąd te dane i tak ładują się asynchronicznie w tle (od 1.94.0). Dashboard znowu pokazuje realny stan, np. "Dostępna 2.2.34".
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-28 · 1.99.0 · Pełne dzienne osiągnięcia świata
+
+- **Podsumowanie dnia pokazuje teraz prawdziwe dzienne rekordy:** najwięcej pokonanych graczy, udanych ulepszeń, spalonych przedmiotów oraz największy zarobek netto ze sklepu offline.
+- **Dodano trzy najcenniejsze osiągnięcia +9 dnia:** broń poziomu 30/75 z co najmniej 40% średnich obrażeń, nowy rekord zbroi +9 oraz zdobycie odznaki Złotego Młota Kowala za pełny założony zestaw +9.
+- **Naprawiono najwyższy poziom dnia:** historyczny wynik pochodzi z logu awansów i pomija całe konta GM oraz stałych towarzyszy graczy. Dotychczasowe Lv 99 pochodziło właśnie z tych wykluczonych postaci.
+- **Duże liczniki ryb i rudy są formatowane czytelnie** z odstępami tysięcy; istniejące podsumowania również korzystają z nowych obliczeń po otwarciu.
+
+![via Codex by Seban](https://img.shields.io/badge/via-Codex%20by%20Seban-10A37F)
+
+## 2026-09-27 · 1.98.1 · Numerowane strony i pole "Idź do strony"
+
+- **Paginacja rankingów ma teraz numerowane strony** (1, 2, 3…ostatnia, ze zwijaniem "…" pomiędzy) zamiast samego Poprzednia/Następna, plus pole do wpisania numeru strony i przejścia od razu.
+- **Przyciski paginacji dopasowują się do aktywnego motywu** panelu (Ocean/Ember/Forest/Empire) zamiast sztywnego niebieskiego.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.98.0 · Gildia i paginacja w rankingach
+
+- **Rankingi botów pokazują teraz kolumnę "Gildia"** przy każdym graczu/bocie.
+- **Dodano stronicowanie** ("Poprzednia"/"Następna") zamiast sztywnych 100 pozycji.
+- **Dodano wybór liczby wyników na stronę**: 100 / 200 / 500 / 1000.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.97.1 · Naprawiono ranking zbroi
+
+- **Ranking `/rankings?type=armor` źle porównywał zbroje**: liczył `poziom_wymagany × 10 + stopień_ulepszenia`, więc np. zbroja poziom 42 +7 (realnie 97 obrony) wychodziła wyżej niż zbroja poziom 34 +9 (realnie 101 obrony). Naprawione na dokładny wzór gry: obrona = wartość bazowa zbroi + 6 punktów za każdy stopień ulepszenia — zweryfikowane wprost w bazie na graczach top1/top6 i zgodne z tabelą przysłaną przez operatora. Ranking pokazuje teraz realną wartość obrony zamiast wymaganego poziomu.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.97.0 · Gradientowa odznaka poziomu dla światowej top 10
+
+- **Postacie należące do pierwszej dziesiątki rankingu poziomu otrzymały rozpoznawalną odznakę poziomu:** ciemny gradientowy kafelek, pomarańczowy tekst i świetlista dolna krawędź odtwarzają wygląd przesłanego wzoru.
+- **Oznaczenie działa w całym panelu:** w głównym rankingu, karuzeli dashboardu, rankingu i podpisach mapy na żywo, profilu postaci, bazie graczy, kontach, gildiach, osobowościach, diagnostyce, sezonie oraz podglądzie odbiorców przedmiotów.
+- **Top 10 korzysta z tego samego źródła i kolejności co ranking poziomu:** poziom malejąco, następnie doświadczenie, z uwzględnieniem ustawienia dotyczącego prawdziwych graczy. Podpowiedź odznaki pokazuje dokładną pozycję od #1 do #10.
+
+![via Codex by Seban](https://img.shields.io/badge/via-Codex%20by%20Seban-10A37F)
+
+## 2026-09-27 · 1.96.0 · Prawdziwa mapa cieplna i porządki w tabelach
+
+- **Mapa cieplna na `/maps` i dashboardzie pokazuje teraz faktyczne zagęszczenie zdarzeń:** pojedyncze punkty zastąpiła płynna warstwa od niebieskiego przez zieleń i żółć do czerwieni. Ten sam renderer obsługuje zgony botów, rozbite Metiny i zabitych bossów.
+- **Dodano brakujące mapy Season 2 do wyboru mapy cieplnej:** Ognistą Ziemię, Loch Pająków V2 oraz obie Groty Wygnańców.
+- **Naprawiono poziome przepełnienia w `/manage`:** rajdy na Azraela i ustawienie prawdziwych graczy w rankingach mieszczą się w panelu także na węższych ekranach.
+- **Uporządkowano kolejkę nicków:** wolne nicki oczekujące na użycie są pierwsze, w kolejności priorytetu; zajęte i zablokowane pozycje trafiają niżej. Pole dodawania respektuje aktywny motyw, a kolumna akcji zachowuje wysokość pozostałych komórek.
+- **Wyrównano kolumnę wyniku w rankingach** dla wszystkich zestawień poza poziomem.
+- **Dodano informację o zgodności komend GM:** panel jasno zaznacza, że komendy pochodzące z ogólnych poradników mogą być niedostępne w konkretnej kompilacji rdzenia.
+
+![via Codex by Seban](https://img.shields.io/badge/via-Codex%20by%20Seban-10A37F)
+
+## 2026-09-27 · 1.95.0 · Koniec funkcji-widm na czystych instalacjach
+
+- **Pełny audyt zgodności z Playerbots 2.2.29:** sprawdzone zostały oficjalne archiwum serwera, compose, questy, rdzeń, panel Tieru i usługi dołączone do wydania. Wynik wraz z macierzą funkcji znajduje się w `AUDIT_COMPATIBILITY_2.2.29.md`.
+- **Nowa konsola zgodności w `/manage/panel`:** operator może osobno udostępnić sześć integracji, których czysta instalacja nie gwarantuje: docelową liczbę botów, plan wejścia, dokładne respawny map, skrzynię startową na żywo, ogłoszenia +9 i Aktualizator Seban. Każda karta podaje wymaganie oraz instrukcję wdrożenia.
+- **Funkcje-widma już nie udają działających:** wyłączone integracje pozostają widoczne na szaro z komunikatem „Wymaga akcji”, a backend blokuje również ręczne wywołanie ich endpointów. Czysta instalacja ma je domyślnie wyłączone.
+- **Bezpieczna migracja istniejącego serwera:** instalacje z `M2_PANEL_CUSTOM_PATCHES=1` zachowują dotychczasowe działanie. Po pierwszym zapisie konsoli każdą funkcją steruje już jej własny przełącznik.
+- **Funkcje natywne 2.2.29 pozostają dostępne:** raty, globalne respawny, zachowanie AI, ItemShop, rajdy, polityka przedmiotów, trzymanie botów przy wejściu, kolejka przedmiotów i monitoring nie dostały zbędnych blokad.
+
+![via Codex by Seban](https://img.shields.io/badge/via-Codex%20by%20Seban-10A37F)
+
+## 2026-09-27 · 1.94.8 · Naprawiono "Brak danych live" i plakietkę mapy
+
+- **Zielona plakietka "X botów na mapie" dublowała się z "Widoczne" obok mapy** — zamieniona na znacznik czasu ostatniej aktualizacji ("Zaktualizowano HH:MM:SS"), żeby potwierdzać że dane faktycznie odświeżają się na żywo.
+- **Znaleziono i naprawiono prawdziwą przyczynę "Brak danych live"**: szybka wersja dashboardu (1.94.0) wysyłała danym o czasach respawnu zły kształt, przez co JS rzucał błąd przy każdym odświeżeniu mapy (nie tylko przy realnych problemach z siecią) i przerywał całe renderowanie — obok plakietki gasły też diagramy "Respawny na mapie". Naprawione po stronie Python (poprawny domyślny kształt danych) i JS (dane respawnu wczytywane na bieżąco zamiast raz przy starcie strony, plus zabezpieczenie na przyszłość gdyby kształt znów się nie zgadzał).
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.94.7 · Ikonki botów i lista rankingu na węższych ekranach
+
+- **Ikonki botów na mapie skalują się teraz razem z mapą** zamiast być zawsze 18px — na węższych ekranach (np. 1366×768, gdzie mapa jest mniejsza) były nieproporcjonalnie duże i nakładały się na siebie.
+- **Naprawiono nakładanie się powiększonej mapy na diagramy** po kliknięciu "Diagramy mapy" — mapa przestała "wylewać się" poza swoją kolumnę siatki na węższych ekranach.
+- **Lista "Ranking na mapie"/"Aktywności na tej mapie" miała ledwie ~15-27px wysokości** na węższych ekranach (mapa, do której dopasowana była wysokość panelu bocznego, sama była bardzo niska) — panel boczny ma teraz minimalną wysokość, więc lista mieści kilka czytelnych pozycji nawet gdy mapa jest niska.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.94.6 · Mapa na 1920×1080 mieści się bez przewijania
+
+- **Poszerzona mapa (492×616px) była wyższa niż zostawało miejsca w jednym ekranie** na 1920×1080 — trzeba było przewijać stronę, żeby zobaczyć ją w całości. Wysokość mapy jest teraz ograniczona do ~520px z zachowaniem proporcji (szerokość dopasowuje się do wysokości, nie na odwrót) — cała mapa mieści się na ekranie bez przewijania w jej obrębie. Dotyczy tylko 1351–2199px, monitor 2K bez zmian.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.94.5 · Poprawki mapy tylko do 2199px, 2K bez zmian
+
+- **Dzisiejsze poprawki mapy (1.94.1–1.94.3) dotyczą teraz wyłącznie ekranów 1351–2199px.** Monitor 2K (2560×1440) wraca do dokładnie oryginalnego układu sprzed tych poprawek — bez zakładek Ranking/Aktywności, ten sam wzór skalowania mapy co wcześniej. Operator poprosił o to wprost: jego monitor nigdy nie miał problemu ze ściśniętą mapą, więc nie powinien dostawać zmian pomyślanych dla mniejszych ekranów (np. 1920×1080).
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.94.4 · Naprawiono cache przeglądarki dla stylów mapy
+
+- **`live-overrides.css` (style mapy świata botów) był ładowany z JS pod stałym adresem, bez numeru wersji w URL-u** — jedyny plik CSS w panelu pomijający mechanizm cache-busting. Przeglądarka mogła latami trzymać starą wersję tego pliku niezależnie od wdrożeń, przez co dzisiejsze poprawki mapy (1.94.1–1.94.3) mogły nie być widoczne bez twardego odświeżenia (Ctrl+Shift+R). Dołączony teraz normalnie w `base.html`, tak jak reszta arkuszy stylów.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.94.3 · Zakładki Ranking/Aktywności przy mapie
+
+- **Sekcja "Aktywności na tej mapie" znikała za rankingiem** na desktopie: ranking miał sztywne 380px, a aktywnościom zostawało ledwie ~30px (sam nagłówek, bez treści) — widoczne jako pusta "dziura" pod rankingiem, szczególnie po powiększeniu mapy. Panel boczny dostał zakładki "Ranking"/"Aktywności" (jak istniejący przycisk "Diagramy mapy") — aktywna zakładka zajmuje całą dostępną wysokość.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.94.2 · Pułap rozmiaru mapy na monitorach 2K+
+
+- **Mapa świata botów miała brak górnego limitu rozmiaru** po poprzedniej poprawce — na monitorze 2K (2560 px) rosła wraz z szerokością ekranu i robiła się zbyt duża. Obszar mapy jest teraz zamrożony na rozmiarze potwierdzonym jako dobry na 1920×1080; szersze ekrany dostają po prostu większy margines z prawej, a nie większą mapę.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.94.1 · Poprawka mapy na szerokich ekranach
+
+- **Naprawiono ściśniętą mapę świata botów na szerokich monitorach** (np. 1920×1080): siatka mapy rezerwowała widmową, niewykorzystywaną kolumnę 300px, a panel "Stan serwera" zabierał sztywno połowę szerokości strony, przez co mapa robiła się wąska i wysoka. Mapa dostaje teraz całą wolną przestrzeń, a diagramy (Rozkład kanałów, Respawny, Królestwa) na bardzo szerokich ekranach (≥1700px) mają własną kolumnę zamiast nachodzić na ranking.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.94.0 · Szybszy dashboard i ładowanie widgetów w tle
+
+- **Dashboard wysyła teraz szybki shell natychmiast po wejściu**, a cięższe rankingi, agregacje logów, snapshoty sklepów i monitoring są pobierane osobno po renderze.
+- **Widgety oczekujące na dane pokazują dopasowany do motywu skeleton shimmer**, zamiast blokować całą stronę pustym oczekiwaniem.
+- **Dane na żywo, mapy, monitoring i rankingi zachowują dotychczasowe funkcje**, ale pojawiają się stopniowo, gdy ich źródła zakończą pracę.
+
+![via Codex by Seban](https://img.shields.io/badge/via-Codex%20by%20Seban-10A37F)
+
+## 2026-09-27 · 1.93.1 · Poprawka wyceny sklepiku offline
+
+- **Naprawiono "Potencjalny zarobek" na karcie gracza**: cena z `ikashop_data` to cena za cały stos, nie za sztukę — panel mnożył ją jeszcze raz przez ilość, zawyżając sumę dla przedmiotów w stosach (mikstury, księgi, peleryny).
+- **Dodano odznakę stałego towarzysza przy nicku** na liście graczy; działa również dla towarzyszy offline i ma opis po najechaniu.
+
+![via Claude by Seban](https://img.shields.io/badge/via-Claude%20by%20Seban-D97757)
+
+## 2026-09-27 · 1.93.0 · Responsywność panelu i szybszy dashboard
+
+- **Nawigacja boczna jest przewijalna i responsywna** na mniejszych monitorach; poniżej 1100 px przechodzi w drawer, a długie menu nie jest już ucinane.
+- **Poprawiono responsywność stron panelu**: ograniczono poziome wypychanie layoutu, zabezpieczono szerokości paneli i tabel oraz dopasowano odstępy dla mniejszych ekranów.
+- **Dashboard ładuje się znacznie szybciej** — z pierwszego renderu usunięto blokujące sprawdzanie GitHub, a czas zimnego renderu spadł z około 9,7 s do około 0,9 s.
+- **Naprawiono wykresy gospodarki** na `/economy`, `/economy/shops` i `/economy/itemshop`; dane snapshotów collectora pozostały nienaruszone.
+
+![via Codex by Seban](https://img.shields.io/badge/via-Codex%20by%20Seban-10A37F)
+
 ## 2026-09-26 · 1.92.0 · Oryginalne mapy klienta i filtry historii ekwipunku
 
 - **Grota Wygnańców V1 i V2 korzysta teraz z prawdziwych minimap klienta gry**, złożonych z 36 kafli każda z paczki `season2`, zamiast poglądowych grafik generowanych przez AI.

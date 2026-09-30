@@ -12,12 +12,23 @@
 -- it. The engine keeps the shop's own limits; fishing still wants the
 -- Fisherman's introduction (fishing_onboarding) finished. Bots never come
 -- through here - they buy theirs in the AI (EnsurePlayerBotFishingPass).
+-- Polish or English as the player's client asked (playerbot_lang.quest). The
+-- English says "fishing pass" and not the English locale pack's "Fishing
+-- Book": every client names an item from the one gamedata item_proto, the
+-- package's Polish, so that name is one nobody sees.
 quest fishing_pass_shop begin
     state start begin
-        when 9009.chat."Karta Wedkarska" begin
+        function t(pl, en)
+            if pc.getf("playerbot_lang", "en") == 1 then
+                return en
+            end
+            return pl
+        end
+
+        when 9009.chat.fishing_pass_shop.t("Karta Wedkarska", "Fishing pass") begin
             if pc.get_level() < 30 then
                 npc_name()
-                say("Karte Wedkarska sprzedaje od 30 poziomu.")
+                say(fishing_pass_shop.t("Karte Wedkarska sprzedaje od 30 poziomu.", "I sell the fishing pass from level 30."))
                 return
             end
             setskin(NOWINDOW)

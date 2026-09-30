@@ -1489,6 +1489,19 @@ def main(root):
     apply_all_three_smiths(game)
     apply_build_refusal_reason(game)
     apply_boss_last_blow(game)
+    apply_guild_person_struck(game)
+    apply_person_language_texts(game)
+    apply_person_language_names(game)
+    apply_person_language(game)
+    apply_guild_bot_orders(game)
+    apply_guild_war_answer_type(game)
+    apply_flea_price_range(game)
+    apply_bot_shop_two_pages(game)
+    apply_autospawn_bootstrap_once(game)
+    apply_quest_warp_channel(game)
+    apply_mob_preview_stone_kinds(game)
+    apply_peer_whisper_to_bot(game)
+    apply_spider_baroness_damage(game)
     print('playerbotify: done')
 
 
@@ -3284,7 +3297,10 @@ def apply_playerbot_offline_shops(game, db):
          '\t\tvoid PutsAuction(const TAuctionInfo& auction);\n\t\tvoid PutsAuctionOffer(const TAuctionOfferInfo& offer);\n\n\t\tvoid PrepareShopSearchFilters();\n\n\t\t// Read-only native ledger, including owners currently absent from this map.\n\t\tconst SHOPMAP& GetPlayerBotOfflineShops() const { return m_mapShops; }\n\t\tSHOP_HANDLE GetShopByOwnerID(DWORD pid);\n\t\tSAFEBOX_HANDLE GetShopSafeboxByOwnerID(DWORD pid);\n\t\tAUCTION_HANDLE GetAuctionByOwnerID(DWORD pid);\n\n\t\t//offers\n')
     edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
          '\n#ifdef ENABLE_IKASHOP_RENEWAL\n\n#include "ikarus_shop.h"\n#include "ikarus_shop_manager.h"\n#include "shop.h"\n\ntemplate<class DerivedType, class BaseType>\nDerivedType DerivedFromBase(const BaseType& base) {\n\tstatic_assert(std::is_base_of<BaseType, DerivedType>::value); // DerivedType must be inherited by BaseType\n',
-         '\n#ifdef ENABLE_IKASHOP_RENEWAL\n\n#include "ikarus_shop.h"\n#include "ikarus_shop_manager.h"\n#include "playerbot_offline_policy.h"\n#include "shop.h"\n\ntemplate<class DerivedType, class BaseType>\nDerivedType DerivedFromBase(const BaseType& base) {\n\tstatic_assert(std::is_base_of<BaseType, DerivedType>::value); // DerivedType must be inherited by BaseType\n')
+         '\n#ifdef ENABLE_IKASHOP_RENEWAL\n\n#include "ikarus_shop.h"\n#include "ikarus_shop_manager.h"\n#include "playerbot_offline_policy.h"\n#include "shop.h"\n\ntemplate<class DerivedType, class BaseType>\nDerivedType DerivedFromBase(const BaseType& base) {\n\tstatic_assert(std::is_base_of<BaseType, DerivedType>::value); // DerivedType must be inherited by BaseType\n',
+         # One line: apply_person_language_texts puts the manager's header
+         # right under it, which a marker of the whole block never finds.
+         marker='#include "playerbot_offline_policy.h"\n')
     edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
          '\t\tif (ownerCh)\n\t\t{\n\t\t\tNotifyOwnerItemSold(ownerCh, shopItem->GetVnum(), shopItem->GetInfo().count, shopItem->GetPrice().GetTotalYangAmount());\n\t\t}\n\n\t\treturn true;\n\t}\n\n\tvoid CShopManager::SendShopEditItemDBPacket(DWORD ownerid, DWORD itemid, const TPriceInfo& price)\n\t{\n\t\tTPacketGDNewIkarusShop pack{};\n\t\tpack.bSubHeader\t= SUBHEADER_GD_EDIT_ITEM;\n\n\t\tTSubPacketGDEditItem subpack{};\n\t\tsubpack.ownerid = ownerid;\n',
          '\t\tif (ownerCh)\n\t\t{\n\t\t\tNotifyOwnerItemSold(ownerCh, shopItem->GetVnum(), shopItem->GetInfo().count, shopItem->GetPrice().GetTotalYangAmount());\n\t\t}\n\n\t\t// The one place that knows a line has gone. A playerbot keeper is off\n\t\t// hunting while its counter sells, and the goods belong to the shop\n\t\t// entity rather than to its bag, so nothing on the AI side can notice\n\t\t// this by looking at the owner. Recorded here, drained on the owner\'s\n\t\t// own tick (playerbot_offline_shop.h).\n\t\tplayerbot_offline::NoteSold(ownerid, itemid, shopItem->GetVnum(), shopItem->GetInfo().count, shopItem->GetPrice().GetTotalYangAmount());\n\t\tplayerbot_offline::Complete(buyerid, playerbot_offline::Buy, itemid);\n\t\treturn true;\n\t}\n\n\tvoid CShopManager::SendShopEditItemDBPacket(DWORD ownerid, DWORD itemid, const TPriceInfo& price)\n\t{\n\t\tplayerbot_offline::Sent(ownerid, playerbot_offline::Edit, itemid);\n\t\tTPacketGDNewIkarusShop pack{};\n\t\tpack.bSubHeader\t= SUBHEADER_GD_EDIT_ITEM;\n\n\t\tTSubPacketGDEditItem subpack{};\n\t\tsubpack.ownerid = ownerid;\n',
@@ -6000,7 +6016,116 @@ def apply_target_hp_values(game):
          '\t\t\t (target->IsPC() && target != this && battle_is_attackable(this, target))))\n'
          '\t\tChatPacket(CHAT_TYPE_COMMAND, "TargetHP %u %d %d", (unsigned int)vid, target->GetHP(), target->GetMaxHP());\n'
          '}\n'
-         '\n')
+         '\n',
+         marker='\t// player (apply_target_hp_values): uitarget.py writes "hp/max" on the\n')
+    # Another player's health is sent only while this one could strike them,
+    # asked without what battle_is_attackable does on the way: in the free
+    # and guild modes CPVPManager::CanAttack marks the asker a killer, and in
+    # a duel it restarts the idle clock. A look is not a blow (upstream 2.2.38).
+    edit(path,
+         '\n'
+         'void CHARACTER::SendTargetPacket(DWORD vid, BYTE hpPercent, BYTE subheader, LPCHARACTER target)\n',
+         '\n'
+         '// Whether ch could strike victim now, asked as battle_is_attackable and the\n'
+         '// CPVPManager::CanAttack it ends in ask it, but without what those two do on\n'
+         '// the way (apply_target_hp_values). CanAttack is a blow\'s own test: in the\n'
+         '// free and guild modes, and in revenge evil against good, it marks the asker\n'
+         '// a killer - an orange name for thirty seconds that anybody of the kingdom\n'
+         '// may strike in any mode and kill without losing alignment - and in an agreed\n'
+         '// duel it restarts the ten idle minutes after which CPVPManager::Process\n'
+         '// drops the duel. The target\'s health is sent at a click and at every change\n'
+         '// of it, and a look is not a blow. Only a player asks this, about another\n'
+         '// player, so their rules for a monster, a summoned horse, the castle\'s NPCs\n'
+         '// and two bots in the tower are left out.\n'
+         'static bool CouldStrikePlayerQuietly(LPCHARACTER ch, LPCHARACTER victim)\n'
+         '{\n'
+         '\t// battle_is_attackable\n'
+         '\tif (victim->IsDead() || victim->IsAffectFlag(AFF_REVIVE_INVISIBLE))\n'
+         '\t\treturn false;\n'
+         '\tif (ch->IsObserverMode() || victim->IsObserverMode())\n'
+         '\t\treturn false;\n'
+         '\tSECTREE* sectree = ch->GetSectree();\n'
+         '\tif (sectree && sectree->IsAttr(ch->GetX(), ch->GetY(), ATTR_BANPK))\n'
+         '\t\treturn false;\n'
+         '\tsectree = victim->GetSectree();\n'
+         '\tif (sectree && sectree->IsAttr(victim->GetX(), victim->GetY(), ATTR_BANPK))\n'
+         '\t\treturn false;\n'
+         '#ifdef NEW_ICEDAMAGE_SYSTEM\n'
+         '\tif (!battle_is_icedamage(ch, victim))\n'
+         '\t\treturn false;\n'
+         '#endif\n'
+         '\tif (ch->IsStun() || ch->IsDead())\n'
+         '\t\treturn false;\n'
+         '\tif (ch->GetGuild() && victim->GetGuild() && ch->GetGuild()->UnderWar(victim->GetGuild()->GetID()))\n'
+         '\t\treturn true;\n'
+         '\tif (CArenaManager::instance().CanAttack(ch, victim))\n'
+         '\t\treturn true;\n'
+         '\n'
+         '\t// CPVPManager::CanAttack, less its SetKillerMode and SetLastFightTime\n'
+         '\tif (ch->IsHorseRiding())\n'
+         '\t{\n'
+         '\t\tif (ch->GetHorseGrade() < 2)\n'
+         '\t\t\treturn false;\n'
+         '\t}\n'
+         '#ifndef ENABLE_NO_MOUNT_CHECK\n'
+         '\telse\n'
+         '\t{\n'
+         '\t\tswitch (GetMountLevelByVnum(ch->GetMountVnum(), false))\n'
+         '\t\t{\n'
+         '\t\t\tcase MOUNT_TYPE_NONE:\n'
+         '\t\t\tcase MOUNT_TYPE_COMBAT:\n'
+         '\t\t\tcase MOUNT_TYPE_MILITARY:\n'
+         '\t\t\t\tbreak;\n'
+         '\t\t\tdefault:\n'
+         '\t\t\t\treturn false;\n'
+         '\t\t}\n'
+         '\t}\n'
+         '#endif\n'
+         '\tconst BYTE bMapEmpire = SECTREE_MANAGER::instance().GetEmpireFromMapIndex(ch->GetMapIndex());\n'
+         '\tif ((ch->GetPKMode() == PK_MODE_PROTECT && ch->GetEmpire() == bMapEmpire) ||\n'
+         '\t\t\t(victim->GetPKMode() == PK_MODE_PROTECT && victim->GetEmpire() == bMapEmpire))\n'
+         '\t\treturn false;\n'
+         '\tif (ch->GetEmpire() != victim->GetEmpire())\n'
+         '\t\treturn ch->GetPKMode() != PK_MODE_PROTECT && victim->GetPKMode() != PK_MODE_PROTECT;\n'
+         '\tif (victim->GetParty() && victim->GetParty() == ch->GetParty())\n'
+         '\t\treturn false;\n'
+         '\tif (victim->IsKillerMode())\n'
+         '\t\treturn true;\n'
+         '\tif (g_protectNormalPlayer && ch->GetAlignment() < 0 && victim->GetAlignment() >= 0 &&\n'
+         '\t\t\tvictim->GetPKMode() == PK_MODE_PEACE)\n'
+         '\t\treturn false;\n'
+         '\tconst bool bSameGuild = victim->GetGuild() && victim->GetGuild() == ch->GetGuild();\n'
+         '\tswitch (ch->GetPKMode())\n'
+         '\t{\n'
+         '\t\tcase PK_MODE_REVENGE:\n'
+         '\t\t\t// evil against good or good against evil\n'
+         '\t\t\tif (!bSameGuild && (ch->GetAlignment() < 0) != (victim->GetAlignment() < 0))\n'
+         '\t\t\t\treturn true;\n'
+         '\t\t\tbreak;\n'
+         '\t\tcase PK_MODE_GUILD:\n'
+         '\t\t\tif (!bSameGuild)\n'
+         '\t\t\t\treturn true;\n'
+         '\t\t\tbreak;\n'
+         '\t\tcase PK_MODE_FREE:\n'
+         '\t\t\tif (!(bSameGuild && CWarMapManager::instance().IsWarMap(ch->GetMapIndex())))\n'
+         '\t\t\t\treturn true;\n'
+         '\t\t\tbreak;\n'
+         '\t}\n'
+         '\tCPVP kPVP(ch->GetPlayerID(), victim->GetPlayerID());\n'
+         '\tCPVP* pkPVP = CPVPManager::instance().Find(kPVP.GetCRC());\n'
+         '\treturn pkPVP && pkPVP->IsFight();\n'
+         '}\n'
+         '\n'
+         'void CHARACTER::SendTargetPacket(DWORD vid, BYTE hpPercent, BYTE subheader, LPCHARACTER target)\n',
+         marker='static bool CouldStrikePlayerQuietly(LPCHARACTER ch, LPCHARACTER victim)\n')
+    edit(path,
+         '\t\t\t(target->IsMonster() || target->IsStone() ||\n'
+         '\t\t\t (target->IsPC() && target != this && battle_is_attackable(this, target))))\n'
+         '\t\tChatPacket(CHAT_TYPE_COMMAND, "TargetHP %u %d %d", (unsigned int)vid, target->GetHP(), target->GetMaxHP());\n',
+         '\t\t\t(target->IsMonster() || target->IsStone() ||\n'
+         '\t\t\t (target->IsPC() && target != this && CouldStrikePlayerQuietly(this, target))))\n'
+         '\t\tChatPacket(CHAT_TYPE_COMMAND, "TargetHP %u %d %d", (unsigned int)vid, target->GetHP(), target->GetMaxHP());\n',
+         marker='\t\t\t (target->IsPC() && target != this && CouldStrikePlayerQuietly(this, target))))\n')
 
 
 def apply_item_drop_bonus(game):
@@ -6427,7 +6552,10 @@ def apply_flea_market(game):
          '\t\tif (fleaRemote && g_fleaBuyQuantity != 0 && g_fleaBuyQuantity != pitem->GetInfo().count)\n'
          '\t\t{\n'
          '\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Kupno czesci stosu nie jest dostepne - kup caly stos.");\n'
-         '\t\t\treturn false;\n')
+         '\t\t\treturn false;\n',
+         # One line: apply_person_language_texts rewrites a message inside this
+         # block, and a marker of the whole block is never found after it.
+         marker='\t\t// The Dom Towarowy buys whole listings only: a part of a stack is not\n')
     edit(path,
          '\t\tif (!ch)\n'
          '\t\t\treturn false;\n'
@@ -6582,7 +6710,10 @@ def apply_flea_market(game):
          '\t\t\treturn true;\n'
          '\t\t}\n'
          '\n'
-         '\t\tif (!ch->IkarusShopFloodCheck(SHOP_ACTION_WEIGHT_FILTER_REQUEST))\n')
+         '\t\tif (!ch->IkarusShopFloodCheck(SHOP_ACTION_WEIGHT_FILTER_REQUEST))\n',
+         # One line: apply_person_language_texts rewrites a message inside this
+         # block, and a marker of the whole block is never found after it.
+         marker='\t\t// The Dom Towarowy\'s catalogue (apply_flea_market). Nothing of this\n')
     edit(path,
          '// Files shared by GameCore.top\n',
          '// Files shared by GameCore.top\n'
@@ -6706,7 +6837,10 @@ def apply_flea_market(game):
          '\tfilter.maxPrice = std::max<long long>(0, atoll(maxArg));\n'
          '\tikashop::g_fleaFilter[ch->GetPlayerID()] = filter;\n'
          '}\n'
-         '#endif\n')
+         '#endif\n',
+         # One line: apply_person_language_texts rewrites a message inside this
+         # block, and a marker of the whole block is never found after it.
+         marker='// The Dom Towarowy\'s three commands (apply_flea_market), refused while the\n')
     path = os.path.join(game, 'cmd.cpp')
     edit(path,
          'ACMD(do_mob_count);\n'
@@ -6764,7 +6898,10 @@ def apply_flea_market(game):
          '\t\treturn;\n'
          '\n'
          '\tCPlayerBotManager::instance().SendFleaMarketPriceQuote(ch, INVENTORY, (WORD)cell, requestID);\n'
-         '}\n')
+         '}\n',
+         # One line: apply_person_language_texts rewrites a message inside this
+         # block, and a marker of the whole block is never found after it.
+         marker='// The Dom Towarowy\'s price hint (apply_flea_market): what the bots would ask\n')
 
 
 def apply_flea_market_fill_dispatch(game):
@@ -6978,6 +7115,619 @@ def apply_boss_last_blow(game):
          '\tbool isAgreedPVP = false;\n',
          marker='\t// (playerbotify apply_boss_last_blow).\n')
 
+
+def apply_guild_person_struck(game):
+    # A person struck by a player is told to the manager when the person is in a
+    # guild too, for whom the guild's bots answer (upstream 2.2.36,
+    # playerbot_guild_orders.h). Written inside apply_player_struck's text.
+    edit(os.path.join(game, 'char_battle.cpp'),
+         '\t// attacks a bot (playerbotify apply_player_struck).\n'
+         '\tif (pAttacker && pAttacker != this && pAttacker->IsPC() && IsPC() && GetDesc() &&\n'
+         '\t\t\t(GetDesc()->IsBot() || GetParty()))\n'
+         '\t\tCPlayerBotManager::instance().OnPlayerStruck(this, pAttacker);\n',
+         '\t// attacks a bot (playerbotify apply_player_struck).\n'
+         '\t// And at a person in a guild, for whom the guild\'s bots answer\n'
+         '\t// (playerbotify apply_guild_person_struck).\n'
+         '\tif (pAttacker && pAttacker != this && pAttacker->IsPC() && IsPC() && GetDesc() &&\n'
+         '\t\t\t(GetDesc()->IsBot() || GetParty() || GetGuild()))\n'
+         '\t\tCPlayerBotManager::instance().OnPlayerStruck(this, pAttacker);\n',
+         marker='\t// (playerbotify apply_guild_person_struck).\n')
+
+
+def apply_person_language_texts(game):
+    # The engine's own lines of ours in the language the player's client reads
+    # (upstream 2.2.36, playerbot_language.h): each Polish line gets its English
+    # twin through CPlayerBotManager::ReadsEnglish, and a file that asks needs the
+    # manager's header.
+    edit(os.path.join(game, 'char_item.cpp'),
+         '#include "questmanager.h"\n'
+         '// playerbot: defined in char_skill.cpp (playerbotify apply_book_wait).\n',
+         '#include "questmanager.h"\n'
+         '#include "playerbot_manager.h"\n'
+         '// playerbot: defined in char_skill.cpp (playerbotify apply_book_wait).\n',
+         marker='#include "playerbot_manager.h"\n')
+    edit(os.path.join(game, 'char_item.cpp'),
+         '\t\t\t\tif (questRunning)\n'
+         '\t\t\t\t\tChatPacket(CHAT_TYPE_INFO, "Najpierw zamknij otwarte okno zadania (albo zaloguj sie ponownie), potem uzyj przedmiotu.");\n'
+         '\t\t\t\t// Pierscien Teleportacji has one state. A __status that is not it\n',
+         '\t\t\t\tif (questRunning)\n'
+         '\t\t\t\t\tChatPacket(CHAT_TYPE_INFO, "%s", CPlayerBotManager::ReadsEnglish(this)\n'
+         '\t\t\t\t\t\t\t? "Close the open quest window first (or log in again), then use the item."\n'
+         '\t\t\t\t\t\t\t: "Najpierw zamknij otwarte okno zadania (albo zaloguj sie ponownie), potem uzyj przedmiotu.");\n'
+         '\t\t\t\t// Pierscien Teleportacji has one state. A __status that is not it\n',
+         marker='\t\t\t\t\t\t\t? "Close the open quest window first (or log in again), then use the item."\n')
+    edit(os.path.join(game, 'char_item.cpp'),
+         '\t{\n'
+         '\t\tChatPacket(CHAT_TYPE_INFO, "Kostiumy sa na tym serwerze wylaczone.");\n'
+         '\t\treturn false;\n',
+         '\t{\n'
+         '\t\tChatPacket(CHAT_TYPE_INFO, "%s", CPlayerBotManager::ReadsEnglish(this)\n'
+         '\t\t\t\t? "Costumes are switched off on this server." : "Kostiumy sa na tym serwerze wylaczone.");\n'
+         '\t\treturn false;\n',
+         marker='\t\t\t\t? "Costumes are switched off on this server." : "Kostiumy sa na tym serwerze wylaczone.");\n')
+    edit(os.path.join(game, 'char_skill.cpp'),
+         '#include "questmanager.h"\n'
+         '#include "../../common/CommonDefines.h"\n',
+         '#include "questmanager.h"\n'
+         '#include "playerbot_manager.h"\n'
+         '#include "../../common/CommonDefines.h"\n',
+         marker='#include "playerbot_manager.h"\n')
+    edit(os.path.join(game, 'char_skill.cpp'),
+         '\t\tif (GetLevel() <= 30)\n'
+         '\t\t\tChatPacket(CHAT_TYPE_INFO, "Do 30 poziomu umiejetnosci zresetuje Starsza Pani w pierwszej wiosce.");\n'
+         '\t\treturn;\n',
+         '\t\tif (GetLevel() <= 30)\n'
+         '\t\t\tChatPacket(CHAT_TYPE_INFO, "%s", CPlayerBotManager::ReadsEnglish(this)\n'
+         '\t\t\t\t\t? "Up to level 30 the Old Woman in the first village resets your skills."\n'
+         '\t\t\t\t\t: "Do 30 poziomu umiejetnosci zresetuje Starsza Pani w pierwszej wiosce.");\n'
+         '\t\treturn;\n',
+         marker='\t\t\t\t\t? "Up to level 30 the Old Woman in the first village resets your skills."\n')
+    edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
+         '#include "playerbot_offline_policy.h"\n'
+         '#include "shop.h"\n',
+         '#include "playerbot_offline_policy.h"\n'
+         '#include "playerbot_manager.h"\n'
+         '#include "shop.h"\n',
+         marker='#include "playerbot_manager.h"\n')
+    edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
+         '\t\t{\n'
+         '\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Sklep offline mozna otworzyc tylko na CH1.");\n'
+         '\t\t\treturn false;\n',
+         '\t\t{\n'
+         '\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "%s", CPlayerBotManager::ReadsEnglish(ch)\n'
+         '\t\t\t\t\t? "An offline shop can be opened on CH1 only." : "Sklep offline mozna otworzyc tylko na CH1.");\n'
+         '\t\t\treturn false;\n',
+         marker='\t\t\t\t\t? "An offline shop can be opened on CH1 only." : "Sklep offline mozna otworzyc tylko na CH1.");\n')
+    edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
+         '\t\t{\n'
+         '\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Kupno czesci stosu nie jest dostepne - kup caly stos.");\n'
+         '\t\t\treturn false;\n',
+         '\t\t{\n'
+         '\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "%s", CPlayerBotManager::ReadsEnglish(ch)\n'
+         '\t\t\t\t\t? "Buying part of a stack is not available - buy the whole stack."\n'
+         '\t\t\t\t\t: "Kupno czesci stosu nie jest dostepne - kup caly stos.");\n'
+         '\t\t\treturn false;\n',
+         marker='\t\t\t\t\t? "Buying part of a stack is not available - buy the whole stack."\n')
+    edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
+         '\t\t\tif (foundShops.size() > offlineShops)\n'
+         '\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Stragany botow z tym towarem: %d - kazdy oznaczony fajerwerkiem.",\n'
+         '\t\t\t\t\t\t(int)(foundShops.size() - offlineShops));\n',
+         '\t\t\tif (foundShops.size() > offlineShops)\n'
+         '\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, CPlayerBotManager::ReadsEnglish(ch)\n'
+         '\t\t\t\t\t\t? "Bot stalls with this item: %d - each marked with a firework."\n'
+         '\t\t\t\t\t\t: "Stragany botow z tym towarem: %d - kazdy oznaczony fajerwerkiem.",\n'
+         '\t\t\t\t\t\t(int)(foundShops.size() - offlineShops));\n',
+         marker='\t\t\t\t\t\t? "Bot stalls with this item: %d - each marked with a firework."\n')
+    edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
+         '\t\t\t{\n'
+         '\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "Dom Towarowy jest dostepny tylko w M1.");\n'
+         '\t\t\t\treturn false;\n',
+         '\t\t\t{\n'
+         '\t\t\t\tch->ChatPacket(CHAT_TYPE_INFO, "%s", CPlayerBotManager::ReadsEnglish(ch)\n'
+         '\t\t\t\t\t\t? "The Flea Market is open in M1 only." : "Dom Towarowy jest dostepny tylko w M1.");\n'
+         '\t\t\t\treturn false;\n')
+    edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
+         '\t{\n'
+         '\t\tch->ChatPacket(CHAT_TYPE_INFO, "Dom Towarowy jest wylaczony na tym swiecie.");\n'
+         '\t\treturn;\n',
+         '\t{\n'
+         '\t\tch->ChatPacket(CHAT_TYPE_INFO, "%s", CPlayerBotManager::ReadsEnglish(ch)\n'
+         '\t\t\t\t? "The Flea Market is switched off in this world." : "Dom Towarowy jest wylaczony na tym swiecie.");\n'
+         '\t\treturn;\n',
+         marker='\t\t\t\t? "The Flea Market is switched off in this world." : "Dom Towarowy jest wylaczony na tym swiecie.");\n')
+    edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
+         '\t{\n'
+         '\t\tch->ChatPacket(CHAT_TYPE_INFO, "Dom Towarowy jest dostepny tylko w M1.");\n'
+         '\t\treturn;\n',
+         '\t{\n'
+         '\t\tch->ChatPacket(CHAT_TYPE_INFO, "%s", CPlayerBotManager::ReadsEnglish(ch)\n'
+         '\t\t\t\t? "The Flea Market is open in M1 only." : "Dom Towarowy jest dostepny tylko w M1.");\n'
+         '\t\treturn;\n')
+
+
+def apply_person_language_names(game):
+    # Names in the viewer's language (upstream 2.2.36, playerbot_language.h): an
+    # NPC by its official English name for a client that reads English - a monster
+    # has no such packet, the client names it from its own tables - and a bot's
+    # stand, its sign and its window, by its English twin
+    # (playerbot_shop_name_rules.h); a person's stand keeps its title.
+    edit(os.path.join(game, 'char.cpp'),
+         '\t\t\tstrlcpy(addPacket.name, GetName(), sizeof(addPacket.name));\n'
+         '\n',
+         '\t\t\tstrlcpy(addPacket.name, GetName(), sizeof(addPacket.name));\n'
+         '\t\t\t// playerbot: an NPC the proto names is named in the viewer\'s\n'
+         '\t\t\t// language - its official English name for a client that reads\n'
+         '\t\t\t// English (playerbot_language.h). A character, and a horse or a pet\n'
+         '\t\t\t// somebody named (m_stName), keeps its name; a monster has no such\n'
+         '\t\t\t// packet - the client names it from its own tables.\n'
+         '\t\t\tif (!IsPC() && m_bCharType == CHAR_TYPE_NPC && m_stName.empty())\n'
+         '\t\t\t\tif (const char* szNameIn = CPlayerBotManager::GetNpcNameFor(ch, GetRaceNum()))\n'
+         '\t\t\t\t\tstrlcpy(addPacket.name, szNameIn, sizeof(addPacket.name));\n'
+         '\n',
+         marker='\t\t\t// playerbot: an NPC the proto names is named in the viewer\'s\n')
+    edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
+         '\t\tstr_to_cstring(subpack.ownerName, shop.GetOwnerName());\n'
+         '\n',
+         '\t\tstr_to_cstring(subpack.ownerName, shop.GetOwnerName());\n'
+         '\t\t// playerbot: a bot\'s stand is titled in the viewer\'s language - its\n'
+         '\t\t// English twin for a client that reads English\n'
+         '\t\t// (playerbot_shop_name_rules.h); a person\'s own stand keeps its title.\n'
+         '\t\t// GetShop() is not const, and only reads.\n'
+         '\t\tif (auto owned = const_cast<ShopEntity&>(shop).GetShop())\n'
+         '\t\t\tCPlayerBotManager::GetShopNameFor(ch, owned->GetOwnerPID(), shop.GetShopName(),\n'
+         '\t\t\t\t\tsubpack.name, sizeof(subpack.name));\n'
+         '\n',
+         marker='\t\t// playerbot: a bot\'s stand is titled in the viewer\'s language - its\n')
+    edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
+         '\t\tsubpack.shop.isPremium = shop->IsPremium();\n'
+         '\t\tstr_to_cstring(subpack.shop.name, shop->GetName());\n'
+         '\t\tstr_to_cstring(subpack.shop.ownerName, shop->GetOwnerName());\n'
+         '\n',
+         '\t\tsubpack.shop.isPremium = shop->IsPremium();\n'
+         '\t\tstr_to_cstring(subpack.shop.name, shop->GetName());\n'
+         '\t\t// playerbot: the stand\'s window is titled as its sign is, in the\n'
+         '\t\t// guest\'s language (playerbot_shop_name_rules.h).\n'
+         '\t\tCPlayerBotManager::GetShopNameFor(ch, shop->GetOwnerPID(), shop->GetName(),\n'
+         '\t\t\t\tsubpack.shop.name, sizeof(subpack.shop.name));\n'
+         '\t\tstr_to_cstring(subpack.shop.ownerName, shop->GetOwnerName());\n'
+         '\n',
+         marker='\t\t// playerbot: the stand\'s window is titled as its sign is, in the\n')
+
+
+def apply_person_language(game):
+    # The language a person's client reads (upstream 2.2.36, playerbot_language.h):
+    # /playerbot_lang, the client's answer to playerbot_lang.quest's question at
+    # every login; and a bots' notice and a bot's shout, which are two, a half per
+    # language, of which each player is handed the one its client reads
+    # (CPlayerBotManager::ShowsNoticeTo) - the notice on this core, the shout as
+    # another core relays it.
+    edit(os.path.join(game, 'cmd.cpp'),
+         'ACMD(do_towarzysz);\n',
+         'ACMD(do_towarzysz);\n'
+         'ACMD(do_playerbot_lang);\n',
+         marker='ACMD(do_playerbot_lang);\n')
+    edit(os.path.join(game, 'cmd.cpp'),
+         '\t{ "towarzysz",\tdo_towarzysz,\t0,\t\t\tPOS_DEAD,\tGM_PLAYER\t},\n',
+         '\t{ "towarzysz",\tdo_towarzysz,\t0,\t\t\tPOS_DEAD,\tGM_PLAYER\t},\n'
+         '\t{ "playerbot_lang",\tdo_playerbot_lang,\t0,\t\tPOS_DEAD,\tGM_PLAYER\t},\n',
+         marker='\t{ "playerbot_lang",\tdo_playerbot_lang,\t0,\t\tPOS_DEAD,\tGM_PLAYER\t},\n')
+    edit(os.path.join(game, 'cmd_general.cpp'),
+         '\tITEM_MANAGER::instance().SendMobDropPreview(ch, target);\n'
+         '}\n'
+         '\n',
+         '\tITEM_MANAGER::instance().SendMobDropPreview(ch, target);\n'
+         '}\n'
+         '\n'
+         '// The language a player\'s client reads (playerbot_language.h): the client\'s\n'
+         '// answer to the login quest\'s "PlayerBotLanguage" (playerbot_lang.quest). A\n'
+         '// client never sends it unasked, so a server without it never hears it.\n'
+         'ACMD(do_playerbot_lang)\n'
+         '{\n'
+         '\tif (!ch || !ch->GetDesc())\n'
+         '\t\treturn;\n'
+         '\tCPlayerBotManager::instance().OnPersonLanguage(ch, argument);\n'
+         '}\n'
+         '\n',
+         marker='ACMD(do_playerbot_lang)\n')
+    edit(os.path.join(game, 'cmd_gm.cpp'),
+         '\t\t\treturn;\n'
+         '#ifdef ENABLE_FULL_NOTICE\n'
+         '\t\td->GetCharacter()->ChatPacket(m_bChatType, "%s", m_str);\n'
+         '#else\n'
+         '\t\td->GetCharacter()->ChatPacket(CHAT_TYPE_NOTICE, "%s", m_str);\n'
+         '#endif\n',
+         '\t\t\treturn;\n'
+         '\t\t// playerbot: a bots\' notice is two, a half per language, and each\n'
+         '\t\t// player is handed the one its client reads (playerbot_language.h).\n'
+         '\t\tconst char* text = m_str;\n'
+         '\t\tif (!CPlayerBotManager::ShowsNoticeTo(d->GetCharacter(), text))\n'
+         '\t\t\treturn;\n'
+         '#ifdef ENABLE_FULL_NOTICE\n'
+         '\t\td->GetCharacter()->ChatPacket(m_bChatType, "%s", text);\n'
+         '#else\n'
+         '\t\td->GetCharacter()->ChatPacket(CHAT_TYPE_NOTICE, "%s", text);\n'
+         '#endif\n',
+         marker='\t\t// playerbot: a bots\' notice is two, a half per language, and each\n')
+    edit(os.path.join(game, 'input_p2p.cpp'),
+         '\n'
+         '\t\td->GetCharacter()->ChatPacket(m_bChatType, "%s", m_str);\n'
+         '\t}\n',
+         '\n'
+         '\t\t// playerbot: a bot\'s shout is two, a half per language, and each\n'
+         '\t\t// player is handed the one its client reads (playerbot_language.h,\n'
+         '\t\t// SendPlayerBotShoutIn); anybody else\'s shout is everybody\'s as it is.\n'
+         '\t\tconst char* text = m_str;\n'
+         '\t\tif (!CPlayerBotManager::ShowsNoticeTo(d->GetCharacter(), text))\n'
+         '\t\t\treturn;\n'
+         '\t\td->GetCharacter()->ChatPacket(m_bChatType, "%s", text);\n'
+         '\t}\n',
+         marker='\t\t// playerbot: a bot\'s shout is two, a half per language, and each\n')
+
+
+def apply_guild_bot_orders(game):
+    # A person's orders to the bots of the person's guild (upstream 2.2.36,
+    # playerbot_guild_orders.h): /gildia_boty pomoc|exp|wracajcie, sent by the
+    # guild window's buttons (uiguildbots.py). After apply_person_language, whose
+    # lines it follows.
+    edit(os.path.join(game, 'cmd.cpp'),
+         'ACMD(do_playerbot_lang);\n',
+         'ACMD(do_playerbot_lang);\n'
+         'ACMD(do_gildia_boty);\n',
+         marker='ACMD(do_gildia_boty);\n')
+    edit(os.path.join(game, 'cmd.cpp'),
+         '\t{ "playerbot_lang",\tdo_playerbot_lang,\t0,\t\tPOS_DEAD,\tGM_PLAYER\t},\n',
+         '\t{ "playerbot_lang",\tdo_playerbot_lang,\t0,\t\tPOS_DEAD,\tGM_PLAYER\t},\n'
+         '\t{ "gildia_boty",\tdo_gildia_boty,\t0,\t\tPOS_DEAD,\tGM_PLAYER\t},\n',
+         marker='\t{ "gildia_boty",\tdo_gildia_boty,\t0,\t\tPOS_DEAD,\tGM_PLAYER\t},\n')
+    edit(os.path.join(game, 'cmd_general.cpp'),
+         '\tCPlayerBotManager::instance().OnPersonLanguage(ch, argument);\n'
+         '}\n'
+         '\n',
+         '\tCPlayerBotManager::instance().OnPersonLanguage(ch, argument);\n'
+         '}\n'
+         '\n'
+         '// A person\'s orders to the bots of the person\'s guild (playerbot_guild_orders.h):\n'
+         '// "pomoc", "exp" or "wracajcie", sent by the guild window\'s buttons\n'
+         '// (uiguildbots.py). Where the bots go is where this character stands.\n'
+         'ACMD(do_gildia_boty)\n'
+         '{\n'
+         '\tif (!ch || !ch->GetDesc())\n'
+         '\t\treturn;\n'
+         '\tCPlayerBotManager::instance().OnGuildBotOrder(ch, argument);\n'
+         '}\n'
+         '\n',
+         marker='ACMD(do_gildia_boty)\n')
+
+
+def apply_guild_war_answer_type(game):
+    # An answer to a war declaration is to the war that was declared: the accept
+    # dialog sends "/war <guild>" with no type, which left type the field war that
+    # CanStartWar refuses on this engine (upstream 2.2.36).
+    edit(os.path.join(game, 'cmd_general.cpp'),
+         '\t\t\t\t\tg->RequestRefuseWar(opp_g->GetID());\n'
+         '\t\t\t\t\treturn;\n'
+         '\t\t\t\t}\n'
+         '\t\t\t}\n'
+         '\t\t\tbreak;\n'
+         '\n',
+         '\t\t\t\t\tg->RequestRefuseWar(opp_g->GetID());\n'
+         '\t\t\t\t\treturn;\n'
+         '\t\t\t\t}\n'
+         '\n'
+         '\t\t\t\t// Playerbot: an answer is to the war that was declared. The\n'
+         '\t\t\t\t// accept dialog sends "/war <guild>" with no type, so type is\n'
+         '\t\t\t\t// still the field war here, which CanStartWar refuses on this\n'
+         '\t\t\t\t// engine: no declaration could be accepted, and a guild that\n'
+         '\t\t\t\t// met every other rule was refused without a word\n'
+         '\t\t\t\t// (playerbotify.py, apply_guild_war_answer_type).\n'
+         '\t\t\t\ttype = g->GetGuildWarType(opp_g->GetID());\n'
+         '\t\t\t}\n'
+         '\t\t\tbreak;\n'
+         '\n',
+         marker='\t\t\t\t// Playerbot: an answer is to the war that was declared. The\n')
+
+
+def apply_flea_price_range(game):
+    # The price quote's market range and a line of the asker's own offline shop
+    # (upstream 2.2.36, Piciu713). A fourth number is the client's version of the
+    # request, so an old client is sent nothing new and a new client asks an old
+    # server nothing it lacks.
+    edit(os.path.join(game, 'cmd_gm.cpp'),
+         '\trest = one_argument(rest, windowArg, sizeof(windowArg));\n'
+         '\tone_argument(rest, cellArg, sizeof(cellArg));\n'
+         '\n'
+         '\tDWORD requestID = 0;\n'
+         '\tDWORD window = 0;\n'
+         '\tDWORD cell = 0;\n'
+         '\tstr_to_number(requestID, requestArg);\n'
+         '\tstr_to_number(window, windowArg);\n'
+         '\tstr_to_number(cell, cellArg);\n'
+         '\tif (requestID == 0 || window != INVENTORY || cell >= INVENTORY_AND_EQUIP_SLOT_MAX)\n'
+         '\t\treturn;\n'
+         '\n'
+         '\tCPlayerBotManager::instance().SendFleaMarketPriceQuote(ch, INVENTORY, (WORD)cell, requestID);\n'
+         '}\n',
+         '\trest = one_argument(rest, windowArg, sizeof(windowArg));\n'
+         '\trest = one_argument(rest, cellArg, sizeof(cellArg));\n'
+         '\t// Piciu713\'s market range and his own counter\'s lines (apply_flea_price_range,\n'
+         '\t// 28 September). A fourth number is the client\'s version of the request: 2\n'
+         '\t// asks for the range too, sent as "FleaPriceRange" before the quote, since a\n'
+         '\t// client\'s handler takes exactly the numbers it was written for and the\n'
+         '\t// quote keeps its four. And window 255 is a line on the asker\'s own offline\n'
+         '\t// shop, named by its item id. A server before this edit reads neither - it\n'
+         '\t// ignores the fourth and answers 255 with nothing - so a new client asks an\n'
+         '\t// old server no command it lacks, and an old client is sent none either.\n'
+         '\tconstexpr DWORD FLEA_PRICE_OWN_SHOP_WINDOW = 255;\n'
+         '\tchar versionArg[32];\n'
+         '\tone_argument(rest, versionArg, sizeof(versionArg));\n'
+         '\n'
+         '\tDWORD requestID = 0;\n'
+         '\tDWORD window = 0;\n'
+         '\tDWORD cell = 0;\n'
+         '\tDWORD version = 0;\n'
+         '\tstr_to_number(requestID, requestArg);\n'
+         '\tstr_to_number(window, windowArg);\n'
+         '\tstr_to_number(cell, cellArg);\n'
+         '\tstr_to_number(version, versionArg);\n'
+         '\tconst bool withRange = version >= 2;\n'
+         '\tif (requestID != 0 && window == FLEA_PRICE_OWN_SHOP_WINDOW)\n'
+         '\t{\n'
+         '\t\tCPlayerBotManager::instance().SendFleaMarketShopItemPriceQuote(ch, cell, requestID, withRange);\n'
+         '\t\treturn;\n'
+         '\t}\n'
+         '\tif (requestID == 0 || window != INVENTORY || cell >= INVENTORY_AND_EQUIP_SLOT_MAX)\n'
+         '\t\treturn;\n'
+         '\n'
+         '\tCPlayerBotManager::instance().SendFleaMarketPriceQuote(ch, INVENTORY, (WORD)cell, requestID, withRange);\n'
+         '}\n',
+         marker='\t// Piciu713\'s market range and his own counter\'s lines (apply_flea_price_range,\n')
+
+
+def apply_bot_shop_two_pages(game):
+    # A bot's offline shop has a second page, a person's has not: a line placed
+    # there is checked against the lines on that page alone
+    # (playerbot_offline_policy.h; upstream 2.2.36).
+    edit(os.path.join(game, 'ikarus_shop_manager.cpp'),
+         '\t\t// checking space\n'
+         '\t\tif (!shop->ReserveSpace(destPos, item->GetSize()))\n'
+         '\t\t{\n',
+         '\t\t// checking space\n'
+         '\t\t// playerbot: a shop\'s second page is a bot\'s alone\n'
+         '\t\t// (apply_bot_shop_two_pages): a person\'s lines stand on the page the\n'
+         '\t\t// client\'s owner window lays out. The shop\'s grid is that first page;\n'
+         '\t\t// a line on the second is checked against the lines standing there,\n'
+         '\t\t// and on one page, never across two (playerbot_offline_policy.h).\n'
+         '\t\tconst bool secondPage = destPos >= SHOP_PLAYER_WIDTH * SHOP_PLAYER_HEIGHT;\n'
+         '\t\tif (secondPage && !(ch->GetDesc() && ch->GetDesc()->IsBot()))\n'
+         '\t\t{\n'
+         '\t\t\tch->ChatPacket(CHAT_TYPE_INFO, LC_TEXT("SHOP_ITEM_WRONG_POS"));\n'
+         '\t\t\treturn false;\n'
+         '\t\t}\n'
+         '\t\tbool spaceFree = false;\n'
+         '\t\tif (secondPage)\n'
+         '\t\t{\n'
+         '\t\t\tstd::vector<std::pair<int, int>> lines;\n'
+         '\t\t\tfor (const auto& [lineId, line] : shop->GetItems())\n'
+         '\t\t\t\tif (line && line->GetTable())\n'
+         '\t\t\t\t\tlines.emplace_back((int)line->GetInfo().pos, (int)line->GetTable()->bSize);\n'
+         '\t\t\tspaceFree = playerbot_offline::FitsOnPage(destPos, item->GetSize(), SHOP_PLAYER_WIDTH,\n'
+         '\t\t\t\t\tSHOP_PLAYER_HEIGHT, playerbot_offline::BOT_SHOP_PAGES) &&\n'
+         '\t\t\t\t!playerbot_offline::Overlaps(lines, destPos, item->GetSize(), SHOP_PLAYER_WIDTH);\n'
+         '\t\t}\n'
+         '\t\telse\n'
+         '\t\t\tspaceFree = shop->ReserveSpace(destPos, item->GetSize());\n'
+         '\t\tif (!spaceFree)\n'
+         '\t\t{\n',
+         marker='\t\t// playerbot: a shop\'s second page is a bot\'s alone\n')
+
+
+def apply_autospawn_bootstrap_once(game):
+    # The autospawn bootstrap runs once a core: MapLocations comes again at every
+    # other core's setup, and while the bots waited at the door "no bot yet" was
+    # true each time, so each queued another cohort (upstream 2.2.37).
+    edit(os.path.join(game, 'input_db.cpp'),
+         '\tCPlayerBotManager::instance().StartWorldClock();\n'
+         '\tif (CPlayerBotManager::instance().GetCount() == 0)\n'
+         '\t{\n',
+         '\tCPlayerBotManager::instance().StartWorldClock();\n'
+         '\t// Once a core: the db core sends MapLocations again at every other\n'
+         '\t// core\'s setup, and "no bot in the world yet" was true at each of them\n'
+         '\t// while the bots waited at the door - every run queued another cohort\n'
+         '\t// (CPlayerBotManager::TakeAutospawnBootstrap).\n'
+         '\tif (CPlayerBotManager::instance().TakeAutospawnBootstrap())\n'
+         '\t{\n',
+         marker='\t// Once a core: the db core sends MapLocations again at every other\n')
+
+
+def apply_quest_warp_channel(game):
+    # pc.warp_channel(channel, x, y): the panels' teleport onto a bot on another
+    # channel, the channel move a GM's /warp takes (upstream 2.2.37, web_admin).
+    edit(os.path.join(game, 'questlua_pc.cpp'),
+         '#include "desc_client.h"\n'
+         '#include "messenger_manager.h"\n',
+         '#include "desc_client.h"\n'
+         '#include "map_location.h"\n'
+         '#include "messenger_manager.h"\n',
+         marker='#include "map_location.h"\n')
+    edit(os.path.join(game, 'questlua_pc.cpp'),
+         '\t\tlua_pushboolean(L, ch && ch->GetDesc() && ch->GetDesc()->IsBot());\n'
+         '\t\treturn 1;\n',
+         '\t\tlua_pushboolean(L, ch && ch->GetDesc() && ch->GetDesc()->IsBot());\n'
+         '\t\treturn 1;\n'
+         '\t}\n'
+         '\n'
+         '\t// playerbot: the panels\' "teleport me" onto a bot on another channel\n'
+         '\t// (web_admin.quest\'s WARP with a channel; playerbotify.py,\n'
+         '\t// apply_quest_warp_channel). pc.warp stays on this channel; this is the\n'
+         '\t// channel move with a destination a GM\'s /warp takes to a character on\n'
+         '\t// another one (CInputP2P::WarpCharacter).\n'
+         '\tALUA(pc_warp_channel)\n'
+         '\t{\n'
+         '#ifdef ENABLE_MOVE_CHANNEL\n'
+         '\t\tLPCHARACTER ch = CQuestManager::instance().GetCurrentCharacterPtr();\n'
+         '\t\tif (ch && ch->GetDesc() && lua_isnumber(L, 1) && lua_isnumber(L, 2) && lua_isnumber(L, 3))\n'
+         '\t\t{\n'
+         '\t\t\tconst int channel = (int)lua_tonumber(L, 1);\n'
+         '\t\t\tconst long x = (long)lua_tonumber(L, 2);\n'
+         '\t\t\tconst long y = (long)lua_tonumber(L, 3);\n'
+         '\t\t\tlong mapIndex = 0;\n'
+         '\t\t\tlong addr = 0;\n'
+         '\t\t\tWORD port = 0;\n'
+         '\t\t\tif (channel > 0 && channel < 99 && channel != (int)g_bChannel &&\n'
+         '\t\t\t\t\tCMapLocation::instance().Get(x, y, mapIndex, addr, port, (BYTE)channel))\n'
+         '\t\t\t{\n'
+         '\t\t\t\tTMoveChannel t{};\n'
+         '\t\t\t\tt.dwAID = ch->GetDesc()->GetAccountTable().id;\n'
+         '\t\t\t\tt.bChannel = (BYTE)channel;\n'
+         '\t\t\t\tt.lDestX = x;\n'
+         '\t\t\t\tt.lDestY = y;\n'
+         '\t\t\t\tt.lMapIndex = mapIndex;\n'
+         '\t\t\t\tdb_clientdesc->DBPacket(HEADER_GD_MOVE_CHANNEL, ch->GetDesc()->GetHandle(), &t, sizeof(t));\n'
+         '\t\t\t\tlua_pushboolean(L, true);\n'
+         '\t\t\t\treturn 1;\n'
+         '\t\t\t}\n'
+         '\t\t}\n'
+         '#endif\n'
+         '\t\tlua_pushboolean(L, false);\n'
+         '\t\treturn 1;\n',
+         marker='\tALUA(pc_warp_channel)\n')
+    edit(os.path.join(game, 'questlua_pc.cpp'),
+         '\t\t\t{ "is_playerbot",\t\tpc_is_playerbot\t},\n'
+         '\t\t\t{ "remove_polymorph",\tpc_remove_polymorph\t},\n',
+         '\t\t\t{ "is_playerbot",\t\tpc_is_playerbot\t},\n'
+         '\t\t\t{ "warp_channel",\t\tpc_warp_channel\t},\n'
+         '\t\t\t{ "remove_polymorph",\tpc_remove_polymorph\t},\n',
+         marker='\t\t\t{ "warp_channel",\t\tpc_warp_channel\t},\n')
+
+
+def apply_mob_preview_stone_kinds(game):
+    # A Metin's drop preview names every kind and grade of spirit stone it can
+    # carry, not the one this stone happens to hold (upstream 2.2.36).
+    edit(os.path.join(game, 'item_manager.cpp'),
+         '\n'
+         'void ITEM_MANAGER::SendMobDropPreview(LPCHARACTER viewer, LPCHARACTER mob)\n',
+         '\n'
+         '// The spirit stones CHARACTER::DetermineDropMetinStone draws from, the same\n'
+         '// list under the same switches (its own is a local of that function), so the\n'
+         '// preview can name every one of them (apply_mob_preview_stone_kinds).\n'
+         'static const DWORD PLAYERBOT_MOB_PREVIEW_METIN_STONES[] =\n'
+         '{\n'
+         '#if defined(ENABLE_WOLFMAN_CHARACTER) && defined(USE_WOLFMAN_STONES)\n'
+         '\t28012,\n'
+         '#endif\n'
+         '\t28030, 28031, 28032, 28033, 28034, 28035, 28036,\n'
+         '\t28037, 28038, 28039, 28040, 28041, 28042, 28043,\n'
+         '#if defined(ENABLE_MAGIC_REDUCTION_SYSTEM) && defined(USE_MAGIC_REDUCTION_STONES)\n'
+         '\t28044, 28045,\n'
+         '#endif\n'
+         '};\n'
+         '\n'
+         '// Every kind and grade the stone a Metin carries can be. The grade is drawn\n'
+         '// as DetermineDropMetinStone draws it: the first STONE_LEVEL_MAX_NUM portions\n'
+         '// of its aStoneDrop row in turn, and the top grade whatever they leave of a\n'
+         '// hundred; a portion nothing can reach is no grade.\n'
+         'static void AddMobPreviewMetinStones(std::vector<std::pair<DWORD, int> >& lines, DWORD race)\n'
+         '{\n'
+         '#ifdef ENABLE_NEWSTUFF\n'
+         '\tif (g_NoDropMetinStone)\n'
+         '\t\treturn;\n'
+         '#endif\n'
+         '\tconst int idx = std::lower_bound(aStoneDrop, aStoneDrop + STONE_INFO_MAX_NUM, race) - aStoneDrop;\n'
+         '\tif (idx >= STONE_INFO_MAX_NUM || aStoneDrop[idx].dwMobVnum != race || aStoneDrop[idx].iDropPct <= 0)\n'
+         '\t\treturn;\n'
+         '\tconst SStoneDropInfo& info = aStoneDrop[idx];\n'
+         '\tbool grades[STONE_LEVEL_MAX_NUM + 1] = {};\n'
+         '\tint used = 0;\n'
+         '\tfor (int grade = 0; grade < STONE_LEVEL_MAX_NUM; ++grade)\n'
+         '\t{\n'
+         '\t\tconst int portion = MIN(info.iLevelPct[grade], 100 - used);\n'
+         '\t\tgrades[grade] = portion > 0;\n'
+         '\t\tused += MAX(0, portion);\n'
+         '\t}\n'
+         '\tgrades[STONE_LEVEL_MAX_NUM] = used < 100;\n'
+         '\tfor (DWORD stone : PLAYERBOT_MOB_PREVIEW_METIN_STONES)\n'
+         '\t\tfor (int grade = 0; grade <= STONE_LEVEL_MAX_NUM; ++grade)\n'
+         '\t\t\tif (grades[grade])\n'
+         '\t\t\t\tAddMobPreviewItem(lines, stone + 100 * grade, 1);\n'
+         '}\n'
+         '\n'
+         'void ITEM_MANAGER::SendMobDropPreview(LPCHARACTER viewer, LPCHARACTER mob)\n',
+         marker='static void AddMobPreviewMetinStones(std::vector<std::pair<DWORD, int> >& lines, DWORD race)\n')
+    edit(os.path.join(game, 'item_manager.cpp'),
+         '\t\t{\n'
+         '\t\t\tif (mob->GetDropMetinStoneVnum() && mob->GetDropMetinStonePct() > 0)\n'
+         '\t\t\t\tAddMobPreviewItem(lines, mob->GetDropMetinStoneVnum(), 1);\n'
+         '\t\t\tif (viewer->GetLevel() <= mob->GetLevel() + PLAYERBOT_METIN_BOOK_LEVEL_DELTA)\n',
+         '\t\t{\n'
+         '\t\t\t// What the stone can hold, not what this one holds\n'
+         '\t\t\t// (apply_mob_preview_stone_kinds).\n'
+         '\t\t\tAddMobPreviewMetinStones(lines, race);\n'
+         '\t\t\tif (viewer->GetLevel() <= mob->GetLevel() + PLAYERBOT_METIN_BOOK_LEVEL_DELTA)\n',
+         marker='\t\t\t// (apply_mob_preview_stone_kinds).\n')
+
+
+def apply_peer_whisper_to_bot(game):
+    # A whisper to a playerbot from somebody another core holds is the bot's to
+    # answer; its descriptor has no client and dropped it (upstream 2.2.36).
+    edit(os.path.join(game, 'input_p2p.cpp'),
+         '#include "BanManager.h"\n'
+         '\n',
+         '#include "BanManager.h"\n'
+         '#include "playerbot_manager.h"\n'
+         '\n',
+         marker='#include "playerbot_manager.h"\n')
+    edit(os.path.join(game, 'input_p2p.cpp'),
+         '\t\treturn p->lSize;\n'
+         '\n',
+         '\t\treturn p->lSize;\n'
+         '\n'
+         '\t// playerbot: a whisper to a playerbot from somebody another core holds\n'
+         '\t// is the bot\'s to answer (playerbot_chat_trade.h); its descriptor has\n'
+         '\t// no client and would drop it. The type\'s high half is the sender\'s\n'
+         '\t// empire for the language rule below, which a bot does not read by;\n'
+         '\t// 0x0F is a system line, not a person\'s.\n'
+         '\tif (*c_pbData == HEADER_GC_WHISPER && pkChr->GetDesc() && pkChr->GetDesc()->IsBot())\n'
+         '\t{\n'
+         '\t\tconst TPacketGCWhisper* pkWhisper = (const TPacketGCWhisper*) c_pbData;\n'
+         '\t\tlong lTextLen = p->lSize;\n'
+         '\t\tif (lTextLen > (long) sizeof(TPacketGCWhisper) && (pkWhisper->bType & 0x0F) != 0x0F)\n'
+         '\t\t{\n'
+         '\t\t\tif ((long) pkWhisper->wSize < lTextLen)\n'
+         '\t\t\t\tlTextLen = (long) pkWhisper->wSize;\n'
+         '\t\t\tlTextLen -= (long) sizeof(TPacketGCWhisper);\n'
+         '\t\t\tif (lTextLen > CHAT_MAX_LEN)\n'
+         '\t\t\t\tlTextLen = CHAT_MAX_LEN;\n'
+         '\t\t\tif (lTextLen > 0)\n'
+         '\t\t\t{\n'
+         '\t\t\t\tchar szFrom[CHARACTER_NAME_MAX_LEN + 1];\n'
+         '\t\t\t\tmemcpy(szFrom, pkWhisper->szNameFrom, CHARACTER_NAME_MAX_LEN);\n'
+         '\t\t\t\tszFrom[CHARACTER_NAME_MAX_LEN] = \'\\0\';\n'
+         '\t\t\t\tchar szBotText[CHAT_MAX_LEN + 1];\n'
+         '\t\t\t\tmemcpy(szBotText, c_pbData + sizeof(TPacketGCWhisper), (size_t) lTextLen);\n'
+         '\t\t\t\tszBotText[lTextLen] = \'\\0\';\n'
+         '\t\t\t\tCPlayerBotManager::instance().OnPeerWhisper(szFrom, pkChr, szBotText);\n'
+         '\t\t\t}\n'
+         '\t\t}\n'
+         '\t\treturn p->lSize;\n'
+         '\t}\n'
+         '\n',
+         marker='\t// playerbot: a whisper to a playerbot from somebody another core holds\n')
+
+
+def apply_spider_baroness_damage(game):
+    # The Spider Baroness keeps her lair's damage multiplier where the special
+    # spawn puts her (upstream 2.2.36, Stalki).
+    edit(os.path.join(game, 'special_spawn.cpp'),
+         '\tif (ch) {\n'
+         '\n',
+         '\tif (ch) {\n'
+         '\n'
+         '\t\t// playerbot: the Spider Baroness takes her lair\'s damage multiplier\n'
+         '\t\t// with her (playerbotify apply_spider_baroness_damage).\n'
+         '\t\tif (ch->GetRaceNum() == 2092)\n'
+         '\t\t\tch->SetDamMul(10.0f);\n'
+         '\n',
+         marker='\t\t// playerbot: the Spider Baroness takes her lair\'s damage multiplier\n')
 
 if __name__ == '__main__':
     if len(sys.argv) != 2 or not os.path.isdir(os.path.join(sys.argv[1], 'game', 'src')):

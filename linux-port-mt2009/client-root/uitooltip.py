@@ -1044,9 +1044,12 @@ class ItemToolTip(ToolTip):
 
 
 		itemDesc = item.GetItemDescription()
+		import playerbot_lang
 		itemDesc = {
-			31073: "Bilet na Auto £owy: 8 godzin automatycznego polowania (klawisz K). Czas leci tylko wtedy, gdy jesteœ w grze; kolejne bilety siê sumuj¹ (do 30 dni). U¿yj z ekwipunku.",
-			40002: "U¿yj, aby w³¹czyæ albo wy³¹czyæ blokadê doœwiadczenia. Bez limitu czasu.",
+			31073: playerbot_lang.T("Bilet na Auto £owy: 8 godzin automatycznego polowania (klawisz K). Czas leci tylko wtedy, gdy jesteœ w grze; kolejne bilety siê sumuj¹ (do 30 dni). U¿yj z ekwipunku.",
+				"Auto Hunt ticket: 8 hours of automatic hunting (the K key). The time only runs while you are in the game; more tickets add up (up to 30 days). Use it from your inventory."),
+			40002: playerbot_lang.T("U¿yj, aby w³¹czyæ albo wy³¹czyæ blokadê doœwiadczenia. Bez limitu czasu.",
+				"Use it to switch the experience block on or off. No time limit."),
 		}.get(itemVnum, itemDesc)
 		itemSummary = item.GetItemSummary()
 

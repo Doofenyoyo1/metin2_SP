@@ -17,7 +17,8 @@
 # windows show it - and a refusal says why.
 #
 # The texts are CP1250, the client's own, written as escapes so the file stays
-# ASCII. Python 2.7 as the client has it.
+# ASCII, each a Polish and English pair (playerbot_lang.T): English for a
+# client set to any language but Polish. Python 2.7 as the client has it.
 
 import app
 import clientclock
@@ -26,6 +27,7 @@ import mouseModule
 import net
 import player
 import safebox
+from playerbot_lang import T
 
 PENDING_TIMEOUT = 5.0
 
@@ -58,26 +60,32 @@ TRANSFER_COOLDOWN = 8
 TRANSFER_UNSUPPORTED = 9
 TRANSFER_DEAD = 10
 
-MSG_ARRANGE_DONE = 'Uporz\xb9dkowano magazyn: przestawiono %d, scalono stos\xf3w: %d.'
-MSG_ARRANGE_NOTHING = 'Magazyn jest ju\xbf uporz\xb9dkowany.'
-MSG_ARRANGE_BUSY = 'Nie mo\xbfna teraz uporz\xb9dkowa\xe6 magazynu - zamknij handel, sklep lub inne okno.'
-MSG_ARRANGE_COOLDOWN = 'Odczekaj chwil\xea przed kolejnym porz\xb9dkowaniem.'
-MSG_ARRANGE_NO_LAYOUT = 'Nie uda\xb3o si\xea u\xb3o\xbfy\xe6 magazynu - nic nie zmieniono.'
-MSG_ARRANGE_DEAD = 'Nie mo\xbfesz porz\xb9dkowa\xe6 magazynu po \x9cmierci.'
-MSG_ARRANGE_INCONSISTENT = 'Magazyn jest w nieoczekiwanym stanie - nic nie zmieniono. Zg\xb3o\x9c to na GitHubie.'
-MSG_NO_SAFEBOX = 'Magazyn nie jest otwarty.'
-MSG_UNSUPPORTED = 'Serwer nie obs\xb3uguje tej funkcji magazynu.'
-MSG_ATTACHED = 'Od\xb3\xf3\xbf najpierw przedmiot trzymany kursorem.'
-MSG_SHOP = 'Nie mo\xbfna porz\xb9dkowa\xe6 magazynu podczas otwierania sklepu.'
+MSG_ARRANGE_DONE = T('Uporz\xb9dkowano magazyn: przestawiono %d, scalono stos\xf3w: %d.',
+	'Storage sorted: %d moved, %d stacks merged.')
+MSG_ARRANGE_NOTHING = T('Magazyn jest ju\xbf uporz\xb9dkowany.', 'The storage is already sorted.')
+MSG_ARRANGE_BUSY = T('Nie mo\xbfna teraz uporz\xb9dkowa\xe6 magazynu - zamknij handel, sklep lub inne okno.',
+	'The storage cannot be sorted now - close the trade, the shop or the other window.')
+MSG_ARRANGE_COOLDOWN = T('Odczekaj chwil\xea przed kolejnym porz\xb9dkowaniem.', 'Wait a moment before sorting again.')
+MSG_ARRANGE_NO_LAYOUT = T('Nie uda\xb3o si\xea u\xb3o\xbfy\xe6 magazynu - nic nie zmieniono.',
+	'The storage could not be laid out - nothing was changed.')
+MSG_ARRANGE_DEAD = T('Nie mo\xbfesz porz\xb9dkowa\xe6 magazynu po \x9cmierci.', 'You cannot sort the storage while dead.')
+MSG_ARRANGE_INCONSISTENT = T('Magazyn jest w nieoczekiwanym stanie - nic nie zmieniono. Zg\xb3o\x9c to na GitHubie.',
+	'The storage is in an unexpected state - nothing was changed. Please report it on GitHub.')
+MSG_NO_SAFEBOX = T('Magazyn nie jest otwarty.', 'The storage is not open.')
+MSG_UNSUPPORTED = T('Serwer nie obs\xb3uguje tej funkcji magazynu.', 'The server does not support this storage feature.')
+MSG_ATTACHED = T('Od\xb3\xf3\xbf najpierw przedmiot trzymany kursorem.', 'Put down the item on your cursor first.')
+MSG_SHOP = T('Nie mo\xbfna porz\xb9dkowa\xe6 magazynu podczas otwierania sklepu.',
+	'The storage cannot be sorted while a shop is being opened.')
 
-MSG_TRANSFER_BUSY = 'Nie mo\xbfna teraz przenie\x9c\xe6 przedmiotu - zamknij handel, sklep lub inne okno.'
-MSG_TRANSFER_NO_ITEM = 'Tego przedmiotu ju\xbf tam nie ma.'
-MSG_TRANSFER_OCCUPIED = 'Na tym polu le\xbfy inny przedmiot.'
-MSG_TRANSFER_FULL = 'Ten stos jest ju\xbf pe\xb3ny.'
-MSG_TRANSFER_REFUSED = 'Tego przedmiotu nie mo\xbfna tam prze\xb3o\xbfy\xe6.'
-MSG_TRANSFER_BAD_REQUEST = 'Nie mo\xbfna tam prze\xb3o\xbfy\xe6 przedmiotu.'
-MSG_TRANSFER_COOLDOWN = 'Za szybko - spr\xf3buj jeszcze raz.'
-MSG_TRANSFER_DEAD = 'Nie mo\xbfesz przek\xb3ada\xe6 przedmiot\xf3w po \x9cmierci.'
+MSG_TRANSFER_BUSY = T('Nie mo\xbfna teraz przenie\x9c\xe6 przedmiotu - zamknij handel, sklep lub inne okno.',
+	'The item cannot be moved now - close the trade, the shop or the other window.')
+MSG_TRANSFER_NO_ITEM = T('Tego przedmiotu ju\xbf tam nie ma.', 'That item is not there any more.')
+MSG_TRANSFER_OCCUPIED = T('Na tym polu le\xbfy inny przedmiot.', 'Another item lies in that slot.')
+MSG_TRANSFER_FULL = T('Ten stos jest ju\xbf pe\xb3ny.', 'That stack is full.')
+MSG_TRANSFER_REFUSED = T('Tego przedmiotu nie mo\xbfna tam prze\xb3o\xbfy\xe6.', 'That item cannot be put there.')
+MSG_TRANSFER_BAD_REQUEST = T('Nie mo\xbfna tam prze\xb3o\xbfy\xe6 przedmiotu.', 'No item can be put there.')
+MSG_TRANSFER_COOLDOWN = T('Za szybko - spr\xf3buj jeszcze raz.', 'Too fast - try again.')
+MSG_TRANSFER_DEAD = T('Nie mo\xbfesz przek\xb3ada\xe6 przedmiot\xf3w po \x9cmierci.', 'You cannot move items while dead.')
 
 _state = {'arrangeUntil': 0.0}
 

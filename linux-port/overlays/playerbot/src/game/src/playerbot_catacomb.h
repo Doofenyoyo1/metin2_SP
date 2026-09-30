@@ -554,10 +554,13 @@ namespace
 	void AnnouncePlayerBotAzrael(const TPlayerBotCatacombRaid& raid, DWORD dwNow)
 	{
 		char msg[220];
+		char msgEn[220];
 		LPCHARACTER leader = CHARACTER_MANAGER::instance().FindByPID(raid.dwLeader);
 		snprintf(msg, sizeof(msg), "Druzyna %s (%s) pokonala Azraela w Katakumbach Diabla!",
 				leader ? leader->GetName() : "?", GetPlayerBotKingdomName(raid.bEmpire));
-		BroadcastNotice(msg);
+		snprintf(msgEn, sizeof(msgEn), "The party of %s (%s) defeated Azrael in the Devil's Catacomb!",
+				leader ? leader->GetName() : "?", GetPlayerBotKingdomName(raid.bEmpire));
+		BroadcastPlayerBotNotice(msg, msgEn);
 		sys_log(0, "PLAYERBOT_CATACOMB: azrael down leader=%s empire=%u after_min=%u",
 				leader ? leader->GetName() : "?", (unsigned int)raid.bEmpire, (dwNow - raid.dwCalledAt) / 60000U);
 	}
@@ -663,9 +666,12 @@ namespace
 		++s_uPlayerBotCatacombRaids;
 		LPCHARACTER leader = CHARACTER_MANAGER::instance().FindByPID(raid.dwLeader);
 		char msg[220];
+		char msgEn[220];
 		snprintf(msg, sizeof(msg), "Druzyna %s (%s) zbiera sie przy Strazniku Katakumb w Swiatyni Hwang - rusza na Azraela.",
 				leader ? leader->GetName() : "?", GetPlayerBotKingdomName(empire));
-		BroadcastNotice(msg);
+		snprintf(msgEn, sizeof(msgEn), "The party of %s (%s) gathers at the Catacomb Guard in Hwang Temple - off to Azrael.",
+				leader ? leader->GetName() : "?", GetPlayerBotKingdomName(empire));
+		BroadcastPlayerBotNotice(msg, msgEn);
 		sys_log(0, "PLAYERBOT_CATACOMB: raid called empire=%u members=%u leader=%s eligible=%u shaman=%d why=%s",
 				(unsigned int)empire, (unsigned int)picked.size(), leader ? leader->GetName() : "?",
 				(unsigned int)all.size(), shaman ? 1 : 0, why);

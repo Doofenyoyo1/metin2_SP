@@ -323,10 +323,25 @@ quest web_admin begin
 										pc.set_level(lv)
 									end
 								elseif cmd == "WARP" then
+									-- arg2 is "y", or "y:channel" when the panel read the
+									-- bot on a channel: pc.warp stays on this one, so a bot
+									-- on another is reached with the engine's channel move
+									-- (pc.warp_channel, playerbotify.py; "teleportuje, ale
+									-- nie zmienia ch", prodnathin, 28 September).
 									local x = tonumber(arg1)
 									local y = tonumber(arg2)
+									local chan = nil
+									if y == nil and arg2 ~= nil then
+										local _, _, sy, sc = string.find(arg2, "^(%d+):(%d+)$")
+										y = tonumber(sy)
+										chan = tonumber(sc)
+									end
 									if x == nil or y == nil then
 										result = "bad_args"
+									elseif chan ~= nil and chan ~= pc.get_channel_id() then
+										if not pc.warp_channel(chan, x, y) then
+											result = "no_channel"
+										end
 									else
 										pc.warp(x, y)
 									end
@@ -591,6 +606,39 @@ quest web_admin begin
 								game.set_event_flag("m2_autohunt_item", hval)
 							end
 							wa_query("UPDATE player.web_admin_queue SET status='" .. hres .. "' WHERE id=" .. hqid .. " AND status='pending' LIMIT 1")
+						end
+					end
+				end
+			end
+
+			-- The apprentice chest on or off, the same way (the operator, 28
+			-- September): m2_starter_chest_off is one switch for people and
+			-- bots - starter_chest.quest asks it at a first login, the seed at
+			-- a bot's creation, and the cores take the chain out of the bots'
+			-- bags while it is raised (playerbot_gear.h). The panel has written
+			-- the row; this makes it live without a restart. arg1 = the flag,
+			-- "1" off or "0" on.
+			local srows = wa_query("SELECT id, arg1 FROM player.web_admin_queue WHERE status='pending' AND cmd='STARTER_CHEST' ORDER BY id ASC LIMIT 3")
+			if type(srows) == "table" then
+				local si
+				for si = 1, table.getn(srows) do
+					local sr = srows[si]
+					if type(sr) == "table" then
+						local sqid = tonumber(sr.id)
+						local sval = nil
+						if sr.arg1 == "0" or sr.arg1 == "1" then
+							sval = tonumber(sr.arg1)
+						end
+						if sqid ~= nil then
+							local sres = "done"
+							if sval == nil then
+								sres = "bad_args"
+							elseif game.set_event_flag == nil then
+								sres = "failed"
+							else
+								game.set_event_flag("m2_starter_chest_off", sval)
+							end
+							wa_query("UPDATE player.web_admin_queue SET status='" .. sres .. "' WHERE id=" .. sqid .. " AND status='pending' LIMIT 1")
 						end
 					end
 				end

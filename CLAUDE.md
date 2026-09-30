@@ -93,6 +93,8 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_movement.h` | Following a route: mounts, waypoints, portals, and the known-metin registry. |
 | `playerbot_gear.h` | What a bot wears and carries: equipment scoring, the progression ladder, arrows, potions. |
 | `playerbot_unique_slots.h` | The two unique slots: the uniques a bot never wears, and the rings and gloves on a clock it wears only while it hunts. |
+| `playerbot_stalki_rules.h` | "Stalki" (the black-steel armours of 66 and the weapons of 75) as pure policy (upstream 2.2.36): a piece of the bot's own build up to eight levels ahead is kept, one a slot, and bought off a counter from two levels ahead at up to twice Iwakura's price. Included first. |
+| `playerbot_stalki.h` | Its engine side: the junk rule, the counter, the loot, the purchase, the storekeeper and both anvils ask it. After gear.h. The Spider Baroness who drops them is `special_spawns.baroness.txt` in the image and a row of the boss raid. |
 | `playerbot_activities.h` | The horse, and fishing. Each owns the whole tick while it runs. |
 | `playerbot_missions.h` | The Biologist's collections and the level-up hunt, driven without a quest dialog. |
 | `playerbot_skills.h` | The character sheet: stat points, the job's skill order, keeping buffs up. |
@@ -102,6 +104,9 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_travel.h` | Where a bot ought to be, and crossing between maps. |
 | `playerbot_planner.h` | Which long-term goal wins: the candidates, their base priorities, and the three gates no weight can touch. |
 | `playerbot_guild.h` | Guilds by tier: a bot's strength, the kingdom's percentiles, founding, recruiting, promotion, the hourly experience offer, the master's skill points, the guild report - and who a bot has got on with. |
+| `playerbot_guild_order_rules.h` | A person's orders to the bots of the person's own guild as pure policy (upstream 2.2.36, Derpsonkowy95): "pomoc" (8 bots, level -10 and up, 5 minutes), "exp" (4 bots within 10 levels, 15 minutes), "wracajcie"; who may order is the engine's `GUILD_AUTH_USE_SKILL`. Included first. |
+| `playerbot_guild_orders.h` | Its engine side: `/gildia_boty` (playerbotify `apply_guild_bot_orders`), the bots walk to where the ordering character stands on the server - never a coordinate from the client - and fight there. The client half is `uiguildbots.py` behind the guild window's "Boty gildii". |
+| `playerbot_guild_aid_rules.h` | A person's guild answering for the person (upstream 2.2.36): bots of the person's guild nearby go for bots of another kingdom attacking the person, one each, six at most - never for a person. Engine side in anti_pk.h; playerbotify `apply_guild_person_struck` feeds it. Included first. |
 | `playerbot_town.h` | A town visit end to end, as a state machine that survives being interrupted. |
 | `playerbot_itemshop.h` | The 2.x line's in-game ItemShop: the Kupon SM vouchers cashed, the account's Dragon Coins and Marks, and the few things a bot buys with them. Empty on r40250. |
 | `playerbot_market.h` | Buying from another bot's counter: what is worth having, the walk to the stall, and the purchase. |
@@ -109,6 +114,8 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_item_link_rules.h` | An item as the client's Alt-click links it in a chat line (`item:` vnum, flags, sockets in hex, then every bonus), and a reply with the items it names linked, each once, only while the whole still fits the 255 bytes the client prints of a whisper line. No engine types, unit-tested (`tests/playerbot_item_link_rules_test.cpp`, ours - upstream shipped the header without it). The engine half is in chat_trade.h and chat_conversation.h. |
 | `playerbot_conv_*.h` | ĹŌŞƬĒĶ's conversation layer as pure code (text, aliases, lexicon, intents, memory, state, say, general, generator, engine): what a whisper means, what the bot remembers of the person, and the reply. `playerbot_conv_aliases.h` is the players' own words (FMS, KK, KD, bodzio; M1, V1, DT; 2kk) and is also included by `playerbot_chat_trade.h`. No engine types, unit-tested (`tests/playerbot_conversation_test.cpp`). Included by the next row only. |
 | `playerbot_chat_conversation.h` | The conversation's engine side: the snapshot of the bot it answers from, the whisper packet, the short timer while replies wait, a Shaman's buffs evaluated from `skill_proto`, and the summon ("chodz do mnie") with its pass in the tick. After status.h. |
+| `playerbot_language.h` | Which of a text's two languages a person reads (upstream 2.2.36): the login quest `playerbot_lang.quest` asks the client, a client set to anything but Polish answers "en", and the answer is the character's own quest flag; `PBT(en, pl, english)` picks the line, and NPC names, shouts, whispers and a bot's shop title follow it. An old client never answers and reads Polish. After status.h. |
+| `playerbot_name_rules.h` | The official English names of items and monsters as pure code: `linux-port-mt2009/docker/game/playerbot_names_en.tsv` (a line a vnum, with a hash of the Polish name it was matched to, so a renamed proto keeps its Polish name). No engine types. Upstream renders the file with a `tools/generate_english_names.py` it did not publish; the .tsv is taken as shipped. Included first. |
 | `playerbot_loot.h` | Picking things up, in and out of a fight, without sweeping the floor. |
 | `playerbot_lure_order_rules.h` | What a person's whisper to a bot means: "luruj" and "przestan lurowac". No engine types, unit-tested. Included first, with the other rules headers. |
 | `playerbot_truce_rules.h` | A person's truce with the bots: which whispers are a surrender, the truce's clock and the deaths that grant one. No engine types, unit-tested (`tests/playerbot_truce_rules_test.cpp`). Included first, with the other rules headers; the engine side is in `playerbot_anti_pk.h`. |
@@ -125,6 +132,7 @@ dependency order at the top of `playerbot_manager.cpp`:
 | `playerbot_persona_rules.h` | Iwakura's personality system as pure policy: the moods, the Grinder's tiers and the Law of Advancement, the gambler's ambitions, the Anti-PK window, the companion's draw, the mercenary's terms and the Useful Items List. No engine types, unit-tested (`tests/playerbot_persona_rules_test.cpp`). Included first, with the other rules headers. |
 | `playerbot_persona_tables.h` | Rendered from his document by `tools/generate_iwakura_persona.py`: the valuables whose drop lifts a mood, and the LPP's weapons by level band, target shields and target armours. |
 | `playerbot_price_rules.h` | Iwakura's Community Patch 5 on prices as pure arithmetic: the inflation compounded (x1.05 a step), the maximal lines' multiplier (x1.7/x2.5/x4.0), which bonus row prices a line. No engine types, unit-tested (`tests/playerbot_price_rules_test.cpp`, ours - upstream shipped the header without it). Engine side: `ScalePlayerBotIwakuraPrice`, `GetPlayerBotBonusPricePercent`. |
+| `playerbot_moonlight_rules.h` | The Moonlight chest and the bonus items out of it as pure policy (upstream 2.2.36, blipu): only droppers keep a chest for a counter, everybody else opens its own, and no markdown takes a chest under what it holds. Included first. Upstream's `tests/playerbot_moonlight_rules_test.cpp` did not come with the package. |
 | `playerbot_bonus_rules.h` | Which stone a bot puts on which piece next (Community Patch 5, points 5 and 9): the green round first, then the piece being worked, then filling before mixing, and the rest of the worn gear once no category piece can use a kind of stone. No engine types, unit-tested (`tests/playerbot_bonus_rules_test.cpp`, ours). `playerbot_bonus.h` is its engine half. |
 | `playerbot_refine_rules.h` | What a bot of thirty may fight with (no weapon of level ten or under), the scroll rule for its weapon and then its armour, the step taken inside a fight, and the backup weapon (Community Patch 5, points 2 and 4, audit R8). No engine types, unit-tested (`tests/playerbot_refine_rules_test.cpp`, ours). |
 | `playerbot_mood.h` | The Bot Mood System: what a mood is worth to whom, the drought, the euphoria, and the mood a bot plays by (NORMALNY in company, its own alone). |
@@ -9636,7 +9644,7 @@ upstream 2.1.0/client 2.0.26, the merge is 2.1.1/client 2.0.28, and the next
 sync (upstream 2.2.0-2.2.6, client 2.0.27-2.0.28, over our 2.1.5 / client
 2.0.30) is 2.2.7 / client 2.0.31, and the one after (upstream 2.2.7 /
 client 2.0.29, over our 2.2.7 / client 2.0.31) is 2.2.8 / client 2.0.32, and the one after (upstream 2.2.8, client
-unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38, and the one after (upstream 2.2.21 / client 2.0.38, over our 2.2.21 / client 2.0.38) is 2.2.22 / client 2.0.39, and the one after (upstream 2.2.22-2.2.23 / client 2.0.39-2.0.40, over our 2.2.22 / client 2.0.39) is 2.2.24 / client 2.0.41, and the one after (upstream 2.2.24-2.2.26 / client 2.0.41, over our 2.2.24 / client 2.0.41) is 2.2.27 / client 2.0.42, and the one after (upstream 2.2.27-2.2.29 / client 2.0.42-2.0.43, over our 2.2.27 / client 2.0.42) is 2.2.30 / client 2.0.44, and the one after (upstream 2.2.30-2.2.32 / client 2.0.44-2.0.46, over our 2.2.30 / client 2.0.44) is 2.2.33 / client 2.0.47, and the one after (upstream 2.2.33-2.2.35 / client 2.0.47-2.0.49, over our 2.2.37 / client 2.0.47) is 2.2.38 / client 2.0.50. Upstream's added attributions to its own
+unchanged, over our 2.2.8 / client 2.0.32) is 2.2.9 / client 2.0.32, and the one after (upstream 2.2.9-2.2.10 / client 2.0.30-2.0.31, over our 2.2.9 / client 2.0.33) is 2.2.11 / client 2.0.34, and the one after (upstream 2.2.11-2.2.12 / client 2.0.32, over our 2.2.11 / client 2.0.34) is 2.2.13 / client 2.0.35, and the one after (upstream 2.2.13-2.2.14 / client 2.0.33, over our 2.2.13 / client 2.0.35) is 2.2.15 / client 2.0.36, and the one after (upstream 2.2.15, client unchanged, over our 2.2.15 / client 2.0.36) is 2.2.16 / client 2.0.36, and the one after (upstream 2.2.16-2.2.20 / client 2.0.34-2.0.37, over our 2.2.16 / client 2.0.36) is 2.2.21 / client 2.0.38, and the one after (upstream 2.2.21 / client 2.0.38, over our 2.2.21 / client 2.0.38) is 2.2.22 / client 2.0.39, and the one after (upstream 2.2.22-2.2.23 / client 2.0.39-2.0.40, over our 2.2.22 / client 2.0.39) is 2.2.24 / client 2.0.41, and the one after (upstream 2.2.24-2.2.26 / client 2.0.41, over our 2.2.24 / client 2.0.41) is 2.2.27 / client 2.0.42, and the one after (upstream 2.2.27-2.2.29 / client 2.0.42-2.0.43, over our 2.2.27 / client 2.0.42) is 2.2.30 / client 2.0.44, and the one after (upstream 2.2.30-2.2.32 / client 2.0.44-2.0.46, over our 2.2.30 / client 2.0.44) is 2.2.33 / client 2.0.47, and the one after (upstream 2.2.33-2.2.35 / client 2.0.47-2.0.49, over our 2.2.37 / client 2.0.47) is 2.2.38 / client 2.0.50, and the one after (upstream 2.2.36-2.2.38 / client 2.0.50-2.0.52, over our 2.2.38 / client 2.0.50) is 2.2.42 / client 2.0.54 - above the 2.2.39-2.2.41 / client 2.0.53 upstream had published by then, which it could not be synced to (below). Upstream's added attributions to its own
 operator are scrubbed from comments and notes the way the first sync did; a
 player's or a contributor's name stays. An upstream `## x.y.z` CHANGELOG
 section whose number this repository already used moves under the new section,
@@ -9726,3 +9734,32 @@ uncommented case itself now, which both texts carry, so it says "already" on
 upstream's file and still edits the stock one. Run every name in
 `ENGINE_EDITS` twice over the new package's engine tree before a release:
 the first run may edit, the second must say "already" everywhere.
+
+**From 2.2.39 upstream ships no engine or overlay source at all.** Its
+"protected" packages (marker `linux-port/PROTECTED`, `serverProtected` and
+`protectedFrom: "2.2.39"` in its manifest) carry prebuilt, stripped `game`,
+`db` and `qc` binaries and a Dockerfile that copies them in; the playerbot
+overlay, the staged engine files and the port scripts are gone, and the AI
+lives in an anonymous namespace with no symbols. There is no licence lock -
+the binaries run anywhere - but nothing in them can be merged, so a package
+sync ends at 2.2.38. What such a release still carries that is not C++ (the
+launcher, the panels, the quests, the client root, the changelog) can be read
+and taken by hand; a C++ change is rewritten here from its changelog entry.
+Never ship upstream's binary in our package: it would replace our whole AI
+and our engine edits with its own.
+
+Three things the 2.2.36-2.2.38 sync taught. **Upstream's English edits write
+inside our older playerbotify blocks**, so every block they touched needed a
+one-line marker (the ikarus include, four `apply_flea_market` edits) or the
+second run stopped - run `ENGINE_EDITS` twice over the new package's engine
+tree, as always. **A key upstream takes may be ours**: upstream put its
+channel window on U (2.2.36), which has opened our bonus switcher since client
+2.0.33; the clientrootify pair that bound it was left out, and the channel
+window stays in the system menu. **A redesigned window takes its tests with
+it**: the companion's separate stat and skill windows became pages of the
+character window (client 2.0.51), so the skill tests moved from
+`tests/uisidekickinventory_test.py` to `tests/uisidekick_test.py`, which now
+loads the real bag module on loose stubs. The fresh cohort of channels 3-4 is
+1 500 more seeded identities (Chunjo 4504-5003, Shinsoo 5004-5503, Jinno
+5504-6003, `FRESH_COHORTS` in `generate_seed.py`), made only when a world asks
+for three or four channels.

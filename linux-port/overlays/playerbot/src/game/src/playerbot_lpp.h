@@ -600,8 +600,10 @@ namespace
 					cells.push_back(cell);
 				continue;
 			}
+			// Nor the Stalki kept for the level ahead (playerbot_stalki.h): the
+			// box would give it back after the session, a round trip for nothing.
 			if (item == backup || item == stoneWeapon || !IsPlayerBotLppKeptItem(ch, item) ||
-					IsPlayerBotKeptBackupArmour(ch, item))
+					IsPlayerBotKeptBackupArmour(ch, item) || IsPlayerBotKeptStalki(ch, item))
 				continue;
 			if (IsPlayerBotWearableUpgrade(ch, item, cell) || IsPlayerBotHigherTierSpare(ch, item) ||
 					IsPlayerBotRefineBagCandidate(ch, item))

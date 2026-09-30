@@ -58,13 +58,9 @@ namespace
 	// Romanian or a German reads before Polish ("Chat language", JFK, 23
 	// September). A monster's or an item's name in the English line is a
 	// "{m<vnum>}" or "{i<vnum>}" the client fills in from its own tables, in its
-	// own language; a player's and a guild's name stay what they are. The two
-	// formats of a pair must carry the same conversions: the English one is a
-	// runtime string, so the compiler checks neither against the arguments.
-	inline const char* PBT(bool en, const char* pl, const char* english)
-	{
-		return en ? english : pl;
-	}
+	// own language; a player's and a guild's name stay what they are. The pairs
+	// are PBT's (playerbot_language.h), whose two formats GCC checks against the
+	// arguments of the snprintf they are handed to.
 
 	// A monster's or a stone's name for the line: the server's own, or the
 	// placeholder the client fills in.
@@ -345,6 +341,9 @@ namespace
 	// (playerbot_chat_conversation.h, which comes after this file).
 	inline bool BuildPlayerBotSummonStatus(LPCHARACTER ch, const TPlayerBotAIState& state, const char* prefix,
 			char* status, size_t statusSize, bool en);
+	// The person of its guild a bot is fighting for (playerbot_anti_pk.h,
+	// which comes after this file), or NULL.
+	LPCHARACTER FindPlayerBotGuildAidPerson(DWORD defenderPid);
 
 	// What a Biologist row has the bot after right now, in the words over its
 	// head: the specimen, or in the row's second half the key the quest waits
@@ -425,8 +424,14 @@ namespace
 			if (startedAt != 0 && (DWORD)get_global_time() < startedAt + PLAYERBOT_GUILD_WAR_MUSTER_SECONDS)
 				snprintf(status, statusSize, PBT(en, "%sZbiorka przed wojna gildii z %s (%s)", "%sMustering for the guild war with %s (%s)"),
 						prefix, enemy ? enemy->GetName() : "?", role);
-			else if (IsPlayerBotWarRegrouping(ch))
-				snprintf(status, statusSize, PBT(en, "%sPrzegrupowanie w obozie - wojna z %s", "%sRegrouping at the camp - war with %s"),
+			// The two ways a bot at war stands still at its camp on purpose,
+			// said above it: from outside both looked like a war that had
+			// stopped (DUDU, 28 September).
+			else if (IsPlayerBotWarOnBreak(ch))
+				snprintf(status, statusSize, PBT(en, "%sPrzerwa miedzy rundami w obozie - wojna z %s", "%sBreak between rounds at the camp - war with %s"),
+						prefix, enemy ? enemy->GetName() : "?");
+			else if (IsPlayerBotWarWaitingOut(ch))
+				snprintf(status, statusSize, PBT(en, "%sPolegl, czeka w obozie na nastepna runde - wojna z %s", "%sFallen, waiting at the camp for the next round - war with %s"),
 						prefix, enemy ? enemy->GetName() : "?");
 			else
 				snprintf(status, statusSize, PBT(en, "%sWojna gildii z %s (%s)", "%sGuild war with %s (%s)"),
@@ -662,6 +667,16 @@ namespace
 							case BOT_FOE_GUILD:
 								snprintf(status, statusSize, PBT(en, "%sBronie gildii przed %s", "%sDefending the guild against %s"), prefix, target->GetName());
 								break;
+							case BOT_FOE_GUILD_AID:
+							{
+								LPCHARACTER person = FindPlayerBotGuildAidPerson(ch->GetPlayerID());
+								if (person)
+									snprintf(status, statusSize, PBT(en, "%sBronie %s przed %s", "%sDefending %s against %s"), prefix,
+											person->GetName(), target->GetName());
+								else
+									snprintf(status, statusSize, PBT(en, "%sBronie gildii przed %s", "%sDefending the guild against %s"), prefix, target->GetName());
+								break;
+							}
 							default:
 								snprintf(status, statusSize, PBT(en, "%sWalcze z %s", "%sFighting %s"), prefix, target->GetName());
 								break;

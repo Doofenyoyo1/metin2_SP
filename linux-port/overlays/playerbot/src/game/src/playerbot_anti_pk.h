@@ -25,12 +25,20 @@
 // them and comes back when they are gone; and a stone that has killed it more
 // than six times is given up.
 //
+// A guild answers for its own on both sides of such a fight: a bot's guild
+// for its bot against the person who struck it (BOT_FOE_GUILD), and since 28
+// September a person's guild - the bots people invite into theirs - for the
+// person against the bots of another kingdom striking it (BOT_FOE_GUILD_AID,
+// playerbot_guild_aid_rules.h: near the person, even sides, and never at a
+// person).
+//
 // Who struck a bot is the one thing the engine does not keep: CHARACTER::Damage
 // tells the manager on mt2009 (CPlayerBotManager::OnPlayerStruck, playerbotify
-// apply_player_struck). r40250 has no such call, so there the protocol never
-// hears of a blow - its fight back and its party's never start; the stone
-// hunter's rules and the capitulation's deaths (none counted as a player's
-// there, see WasPlayerBotKilledByPlayer) are all it has.
+// apply_player_struck, and apply_guild_person_struck for a person who stands
+// in a guild and no party). r40250 has no such call, so there the protocol
+// never hears of a blow - its fight back, its party's and both guilds' never
+// start; the stone hunter's rules and the capitulation's deaths (none counted
+// as a player's there, see WasPlayerBotKilledByPlayer) are all it has.
 //
 // An implementation fragment in the sense playerbot_types.h describes. Include
 // it exactly once, after playerbot_guild_war.h: the fight is the war's shape
@@ -52,6 +60,7 @@ namespace
 			case BOT_FOE_GUILD: return "guild";
 			case BOT_FOE_EXECUTOR: return "executor";
 			case BOT_FOE_DEFEND: return "defend";
+			case BOT_FOE_GUILD_AID: return "guild_aid";
 			default: return "none";
 		}
 	}
@@ -81,6 +90,31 @@ namespace
 		long lMapIndex;
 	};
 	std::map<DWORD, TPlayerBotGuildCall> s_mapPlayerBotGuildCall;
+
+	// And a person's guild's call for the person (Derpsonkowy95, 28 September;
+	// playerbot_guild_aid_rules.h is the policy), by the person's pid: the
+	// bots of another kingdom striking the person, the guild-mates that came
+	// with the attacker each took, and, for the log, what each guild-mate that
+	// looked and stayed away gave as its reason. A bot's blow opens this one -
+	// the reverse of the bot guild's, which only a person's does - and the
+	// escalation that rule guards against has nowhere to go: the answer is at
+	// the attackers, whose own guilds hear nothing of a bot's blow.
+	struct TPlayerBotGuildAidCall
+	{
+		DWORD dwPersonVID;
+		DWORD dwGuildID;
+		long lMapIndex;
+		DWORD dwLastBlowAt;
+		DWORD dwToldAt;
+		DWORD dwReportAt;
+		playerbot_guild_aid_rules::TAttackers attackers;
+		std::map<DWORD, DWORD> mapDefenders;
+		std::map<DWORD, BYTE> mapRefused;
+		TPlayerBotGuildAidCall() : dwPersonVID(0), dwGuildID(0), lMapIndex(0), dwLastBlowAt(0),
+			dwToldAt(0), dwReportAt(0) {}
+	};
+	std::map<DWORD, TPlayerBotGuildAidCall> s_mapPlayerBotGuildAidCall;
+	DWORD s_dwPlayerBotGuildAidPruneAt = 0;
 
 	// Iwakura's Patch 3, point 7: an executioner's last blow at a kingdom, by
 	// the victim's kingdom. Its bots near him come to the defence
@@ -174,6 +208,16 @@ namespace
 				s_mapPlayerBotHumanStruck.erase(it++);
 			else
 				++it;
+		// And the person's own guild's call: a person at peace with the bots
+		// has no fight for its guild to take up. Its defenders let go on their
+		// next pass (why=truce).
+		int aid = 0;
+		std::map<DWORD, TPlayerBotGuildAidCall>::iterator ownCall = s_mapPlayerBotGuildAidCall.find(pid);
+		if (ownCall != s_mapPlayerBotGuildAidCall.end())
+		{
+			aid = (int)ownCall->second.mapDefenders.size();
+			ownCall->second.attackers = playerbot_guild_aid_rules::TAttackers();
+		}
 		for (std::map<DWORD, TPlayerBotGrudge>::iterator it = s_mapPlayerBotGrudge.begin();
 				it != s_mapPlayerBotGrudge.end(); )
 			if (it->second.dwKillerPID == pid)
@@ -195,9 +239,10 @@ namespace
 			if (p.dwFoeVID != 0 && p.dwFoeVID == (DWORD)person->GetVID())
 				++holders;
 		}
-		sys_log(0, "PLAYERBOT_ANTIPK: truce pid=%u name=%s level=%u how=%s minutes=%u guild_calls=%d grudges=%d bots_fighting=%d map=%ld",
+		sys_log(0, "PLAYERBOT_ANTIPK: truce pid=%u name=%s level=%u how=%s minutes=%u guild_calls=%d grudges=%d bots_fighting=%d guild_aid=%d map=%ld",
 				pid, person->GetName(), (unsigned int)person->GetLevel(), how,
-				(unsigned int)(PLAYERBOT_ANTIPK_TRUCE_MS / 60000), calls, grudges, holders, person->GetMapIndex());
+				(unsigned int)(PLAYERBOT_ANTIPK_TRUCE_MS / 60000), calls, grudges, holders, aid,
+				person->GetMapIndex());
 	}
 
 	// The person's own aimed blow ends it (NotePlayerBotStruck decides that).
@@ -205,7 +250,9 @@ namespace
 	{
 		TPlayerBotPersonTruce& t = s_mapPlayerBotPersonTruce[person->GetPlayerID()];
 		playerbot_truce_rules::BreakTruce(t.truce, dwNow);
-		person->ChatPacket(CHAT_TYPE_INFO, "[Rozejm] Zaatakowano bota - rozejm z botami zerwany.");
+		TellPlayerBotPerson(person, "%s", PBT(IsPlayerBotPersonEnglish(person),
+				"[Rozejm] Zaatakowano bota - rozejm z botami zerwany.",
+				"[Truce] You attacked a bot - the truce with the bots is broken."));
 		sys_log(0, "PLAYERBOT_ANTIPK: truce broken pid=%u name=%s by_hitting_pid=%u by_hitting=%s map=%ld",
 				person->GetPlayerID(), person->GetName(), victim ? victim->GetPlayerID() : 0U,
 				victim ? victim->GetName() : "", person->GetMapIndex());
@@ -224,11 +271,10 @@ namespace
 			return;
 		playerbot_truce_rules::GrantTruce(t.truce, dwNow, PLAYERBOT_ANTIPK_TRUCE_MS);
 		SettlePlayerBotTruce(person, dwNow, "deaths");
-		char text[160];
-		snprintf(text, sizeof(text),
+		TellPlayerBotPerson(person, PBT(IsPlayerBotPersonEnglish(person),
 				"[Rozejm] Boty odpuszczaja ci na %u minut. Rozejm skonczy sie, jesli zaatakujesz ktoregos z nich.",
+				"[Truce] The bots leave you alone for %u minutes. The truce ends if you attack one of them."),
 				(unsigned int)(PLAYERBOT_ANTIPK_TRUCE_MS / 60000));
-		person->ChatPacket(CHAT_TYPE_INFO, "%s", text);
 		if (bot)
 			sys_log(0, "PLAYERBOT_ANTIPK: truce after deaths pid=%u name=%s last_seen_by_pid=%u last_seen_by=%s",
 					person->GetPlayerID(), person->GetName(), bot->GetPlayerID(), bot->GetName());
@@ -292,21 +338,25 @@ namespace
 		TPlayerBotPersonTruce& t = s_mapPlayerBotPersonTruce[player->GetPlayerID()];
 		unsigned int minutes = 0;
 		char reply[CHAT_MAX_LEN + 1];
+		const bool en = IsPlayerBotPersonEnglish(player);
 		switch (playerbot_truce_rules::AskTruce(t.truce, dwNow, PLAYERBOT_ANTIPK_TRUCE_MS,
 				PLAYERBOT_ANTIPK_TRUCE_REFUSE_MS, minutes))
 		{
 			case playerbot_truce_rules::ANSWER_GRANTED:
 				SettlePlayerBotTruce(player, dwNow, "whisper");
-				snprintf(reply, sizeof(reply),
+				snprintf(reply, sizeof(reply), PBT(en,
 						"Dobra, odpuszczamy. Przez %u minut zaden bot cie nie zaczepi - chyba ze zaatakujesz ktoregos z nas.",
+						"Fine, we let it go. For %u minutes no bot will pick on you - unless you attack one of us."),
 						minutes);
 				break;
 			case playerbot_truce_rules::ANSWER_ALREADY:
-				snprintf(reply, sizeof(reply),
-						"Rozejm trwa jeszcze %u min. Nikt cie nie ruszy, dopoki nie zaatakujesz ktoregos z nas.", minutes);
+				snprintf(reply, sizeof(reply), PBT(en,
+						"Rozejm trwa jeszcze %u min. Nikt cie nie ruszy, dopoki nie zaatakujesz ktoregos z nas.",
+						"The truce lasts %u more min. Nobody touches you until you attack one of us."), minutes);
 				break;
 			default:
-				snprintf(reply, sizeof(reply), "Rozejm zostal przed chwila zerwany. Pogadamy za %u min.", minutes);
+				snprintf(reply, sizeof(reply), PBT(en, "Rozejm zostal przed chwila zerwany. Pogadamy za %u min.",
+						"The truce was broken a moment ago. We'll talk in %u min."), minutes);
 				sys_log(0, "PLAYERBOT_ANTIPK: truce refused pid=%u name=%s minutes_left=%u", player->GetPlayerID(),
 						player->GetName(), minutes);
 				break;
@@ -330,8 +380,69 @@ namespace
 		return mine && theirs && mine != theirs && mine->UnderWar(theirs->GetID());
 	}
 
+	// A person's guild's call with no blow for PLAYERBOT_GUILD_AID_FORGET_MS
+	// goes: that fight is over, and the next blow opens a new one. On a clock,
+	// asked by the blow and by the guild's bots alike, so a world whose last
+	// fight is over forgets it too.
+	void PrunePlayerBotGuildAidCalls(DWORD dwNow)
+	{
+		if (s_mapPlayerBotGuildAidCall.empty() ||
+				(s_dwPlayerBotGuildAidPruneAt != 0 && dwNow - s_dwPlayerBotGuildAidPruneAt < 5000))
+			return;
+		s_dwPlayerBotGuildAidPruneAt = dwNow;
+		for (std::map<DWORD, TPlayerBotGuildAidCall>::iterator it = s_mapPlayerBotGuildAidCall.begin();
+				it != s_mapPlayerBotGuildAidCall.end(); )
+			if (dwNow - it->second.dwLastBlowAt >= PLAYERBOT_GUILD_AID_FORGET_MS)
+				s_mapPlayerBotGuildAidCall.erase(it++);
+			else
+				++it;
+	}
+
+	// The person's guild's half (Derpsonkowy95, 28 September): a bot's blow at
+	// a person of a guild - a meant one, NotePlayerBotStruck has asked - opens
+	// the guild's call for the person or renews it, and the guild's bots near
+	// the person answer it (FindPlayerBotGuildAidFoe). Whose blow may is
+	// playerbot_guild_aid_rules::OpensCall.
+	void NotePlayerBotGuildAidBlow(LPCHARACTER person, LPCHARACTER attacker, DWORD dwNow)
+	{
+		CGuild* guild = person->GetGuild();
+		if (!guild || !IsPlayerBotPersonaEnabled())
+			return;
+		CGuild* theirs = attacker->GetGuild();
+		const bool attackerIsBot = attacker->GetDesc() && attacker->GetDesc()->IsBot() &&
+				s_mapPlayerBotAIStates.find(attacker->GetPlayerID()) != s_mapPlayerBotAIStates.end();
+		if (!playerbot_guild_aid_rules::OpensCall(attackerIsBot, (int)attacker->GetEmpire(),
+				theirs ? (unsigned int)theirs->GetID() : 0U, (int)person->GetEmpire(),
+				(unsigned int)guild->GetID(), IsPlayerBotPersonTruced(person, dwNow)))
+			return;
+		PrunePlayerBotGuildAidCalls(dwNow);
+		TPlayerBotGuildAidCall& call = s_mapPlayerBotGuildAidCall[person->GetPlayerID()];
+		// Another guild, another map or another incarnation of the person - a
+		// warp is a logout and a login: what the old call held was another
+		// fight, and its defenders let go of it (why=no_call).
+		if (call.dwGuildID != guild->GetID() || call.lMapIndex != person->GetMapIndex() ||
+				call.dwPersonVID != (DWORD)person->GetVID())
+		{
+			call = TPlayerBotGuildAidCall();
+			call.dwGuildID = guild->GetID();
+			call.lMapIndex = person->GetMapIndex();
+			call.dwPersonVID = person->GetVID();
+		}
+		const bool fresh = playerbot_guild_aid_rules::FindAttacker(call.attackers, attacker->GetPlayerID()) < 0 ||
+				dwNow - call.dwLastBlowAt >= PLAYERBOT_GUILD_AID_MEMORY_MS;
+		playerbot_guild_aid_rules::NoteBlow(call.attackers, attacker->GetPlayerID(),
+				(unsigned int)attacker->GetVID(), dwNow);
+		call.dwLastBlowAt = dwNow;
+		if (fresh)
+			sys_log(0, "PLAYERBOT_ANTIPK: guild aid called person_pid=%u person=%s level=%u guild=%u by_pid=%u by=%s by_level=%u by_empire=%u attackers=%d map=%ld",
+					person->GetPlayerID(), person->GetName(), (unsigned int)person->GetLevel(), guild->GetID(),
+					attacker->GetPlayerID(), attacker->GetName(), (unsigned int)attacker->GetLevel(),
+					(unsigned int)attacker->GetEmpire(), call.attackers.count, person->GetMapIndex());
+	}
+
 	// CHARACTER::Damage, through the manager: a player's blow at a bot, or at a
-	// person who is in a party (a party with bots in it answers for its person).
+	// person who is in a party (a party with bots in it answers for its person)
+	// or in a guild (so does a guild).
 	void NotePlayerBotStruck(LPCHARACTER victim, LPCHARACTER attacker, DWORD dwNow)
 	{
 		if (!victim || !attacker || victim == attacker || !attacker->IsPC() ||
@@ -351,6 +462,17 @@ namespace
 				attackerState->second.dwTargetVID != (DWORD)victim->GetVID() &&
 				attackerState->second.persona.dwFoeVID != (DWORD)victim->GetVID())
 			return;
+		// A blow at a person of a guild: the guild's call for the person. A
+		// person who stands in a guild and in no party reaches this function
+		// for its guild alone (playerbotify apply_guild_person_struck), so the
+		// rest of it - a truce broken, an executioner's call, a party's memory -
+		// stays for such a person what it was before that edit: nothing.
+		if (IsPlayerBotPersonCharacter(victim) && victim->GetGuild())
+		{
+			NotePlayerBotGuildAidBlow(victim, attacker, dwNow);
+			if (!victim->GetParty())
+				return;
+		}
 		// A person under a truce with the bots (playerbot_truce_rules.h): a blow
 		// at the person's own selected target ends the truce and is answered as
 		// ever; the graze of an area skill cast at something else is nobody's
@@ -541,6 +663,299 @@ namespace
 		return attacker;
 	}
 
+	// A defender out of every call's roll. Its foe can also be cleared where
+	// this file does not look - a death at a player's hands, a capitulation -
+	// and the entry left behind would count it on a call it no longer fights
+	// for (CountPlayerBotGuildAidDefenders drops such an entry anyway).
+	void ReleasePlayerBotGuildAidDefender(DWORD pid)
+	{
+		for (std::map<DWORD, TPlayerBotGuildAidCall>::iterator it = s_mapPlayerBotGuildAidCall.begin();
+				it != s_mapPlayerBotGuildAidCall.end(); ++it)
+			it->second.mapDefenders.erase(pid);
+	}
+
+	// Whether an attacker of a person is still in the fight: its last blow
+	// recent, or the person still its foe in hand.
+	bool IsPlayerBotGuildAidAttackerLive(const playerbot_guild_aid_rules::TAttacker& a, DWORD personVID,
+			DWORD dwNow)
+	{
+		TPlayerBotAIStateMap::const_iterator st = s_mapPlayerBotAIStates.find(a.pid);
+		const bool onPerson = personVID != 0 && st != s_mapPlayerBotAIStates.end() &&
+				st->second.persona.dwFoeVID == personVID;
+		return playerbot_guild_aid_rules::IsLive(a, dwNow, PLAYERBOT_GUILD_AID_MEMORY_MS, onPerson);
+	}
+
+	int CountPlayerBotGuildAidLive(const TPlayerBotGuildAidCall& call, DWORD dwNow, bool* liveSlot)
+	{
+		int n = 0;
+		for (int i = 0; i < call.attackers.count; ++i)
+		{
+			const bool live = IsPlayerBotGuildAidAttackerLive(call.attackers.list[i], call.dwPersonVID, dwNow);
+			if (liveSlot)
+				liveSlot[i] = live;
+			if (live)
+				++n;
+		}
+		return n;
+	}
+
+	// The guild-mates answering a call now, and on which attacker's slot
+	// (onSlot, playerbot_guild_aid_rules::MAX_ATTACKERS long). An entry whose
+	// bot no longer holds that attacker for this reason - it let go, fell,
+	// left the world, took something else up - goes, so the cap counts the
+	// fight as it stands and not as it began.
+	int CountPlayerBotGuildAidDefenders(TPlayerBotGuildAidCall& call, int* onSlot)
+	{
+		int n = 0;
+		for (std::map<DWORD, DWORD>::iterator it = call.mapDefenders.begin(); it != call.mapDefenders.end(); )
+		{
+			const int slot = playerbot_guild_aid_rules::FindAttacker(call.attackers, it->second);
+			TPlayerBotAIStateMap::const_iterator st = s_mapPlayerBotAIStates.find(it->first);
+			if (slot < 0 || st == s_mapPlayerBotAIStates.end() ||
+					st->second.persona.bFoeReason != BOT_FOE_GUILD_AID ||
+					st->second.persona.dwFoeVID != call.attackers.list[slot].vid)
+			{
+				call.mapDefenders.erase(it++);
+				continue;
+			}
+			if (onSlot)
+				++onSlot[slot];
+			++n;
+			++it;
+		}
+		return n;
+	}
+
+	// Why the guild's answer is short, at most once in
+	// PLAYERBOT_GUILD_AID_REPORT_MS a call: each guild-mate that looked and
+	// stayed away, by its last reason. "The bot of my guild just stood there"
+	// is then a line of the log and not a guess - a conjunction that refuses
+	// says which clause did it.
+	void ReportPlayerBotGuildAid(DWORD personPid, TPlayerBotGuildAidCall& call, DWORD dwNow)
+	{
+		if (call.mapRefused.empty() ||
+				(call.dwReportAt != 0 && dwNow - call.dwReportAt < PLAYERBOT_GUILD_AID_REPORT_MS))
+			return;
+		const int defenders = CountPlayerBotGuildAidDefenders(call, NULL);
+		const int attackers = CountPlayerBotGuildAidLive(call, dwNow, NULL);
+		const int wanted = playerbot_guild_aid_rules::DefendersWanted(attackers,
+				PLAYERBOT_GUILD_AID_PER_ATTACKER, PLAYERBOT_GUILD_AID_DEFENDERS_MAX);
+		if (defenders < wanted)
+		{
+			int counts[playerbot_guild_aid_rules::REFUSE_COUNT] = { 0 };
+			for (std::map<DWORD, BYTE>::const_iterator it = call.mapRefused.begin(); it != call.mapRefused.end(); ++it)
+				if (it->second < playerbot_guild_aid_rules::REFUSE_COUNT)
+					++counts[it->second];
+			char reasons[256] = "";
+			size_t used = 0;
+			for (int r = 1; r < playerbot_guild_aid_rules::REFUSE_COUNT && used < sizeof(reasons); ++r)
+			{
+				if (counts[r] == 0)
+					continue;
+				const int w = snprintf(reasons + used, sizeof(reasons) - used, "%s%s=%d", used ? " " : "",
+						playerbot_guild_aid_rules::RefusalName(r), counts[r]);
+				if (w < 0)
+					break;
+				used += (size_t)w;
+			}
+			sys_log(0, "PLAYERBOT_ANTIPK: guild aid short person_pid=%u guild=%u map=%ld attackers=%d defenders=%d wanted=%d stayed_away: %s",
+					personPid, call.dwGuildID, call.lMapIndex, attackers, defenders, wanted, reasons);
+		}
+		call.mapRefused.clear();
+		call.dwReportAt = dwNow;
+	}
+
+	// Why this bot of the guild does not answer for the person now
+	// (playerbot_guild_aid_rules::WhyNot keeps the order). A town visit is one
+	// of the reasons, decided on purpose: the visit is how a bot restocks the
+	// potions it may have run out of, and three of its stops hold what a fight
+	// elsewhere would leave hanging - the safebox's window, a piece taken off
+	// at the anvil, a counter's line bought and not yet delivered. A stall and
+	// an offline stand's service, an open trade and a merchant's window are
+	// the same kind of thing. Help for somebody else is not worth that; a bot
+	// struck on its visit still fights back for itself (BOT_FOE_STRUCK).
+	playerbot_guild_aid_rules::ERefusal GetPlayerBotGuildAidRefusal(LPCHARACTER ch,
+			const TPlayerBotAIState& state, LPCHARACTER person, DWORD dwNow)
+	{
+		const DWORD pid = ch->GetPlayerID();
+		playerbot_guild_aid_rules::TAnswerer a;
+		a.onRaid = IsPlayerBotOnTowerBusiness(ch, state);
+		a.atWar = state.dwGuildWarEnemyGID != 0;
+		a.inDuel = playerbot_pvp::GetDuelOpponent(pid, dwNow) != 0;
+		a.companion = IsPlayerBotSidekickPID(pid);
+		// Called over by this very person ("chodz do mnie"), the bot is where
+		// the help is wanted; called by anybody else, or on a mercenary's
+		// contract, or in a person's company, it is somebody else's.
+		const DWORD summoner = GetPlayerBotSummonerPID(pid);
+		a.serving = summoner != 0
+				? (summoner != person->GetPlayerID() || IsPlayerBotOnMercContract(pid))
+				: IsPlayerBotHeldForCompany(ch);
+		a.inPersonParty = ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty());
+		a.onErrand = state.bVisitingShop || state.bTownVisitPhase != BOT_TOWN_PHASE_NONE ||
+				ch->GetMyShop() || ch->GetShop() || ch->GetExchange() || ch->GetSafebox();
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+		if (state.offlineShop.visiting)
+			a.onErrand = true;
+#endif
+		a.afk = state.persona.dwAfkUntil != 0 && dwNow < state.persona.dwAfkUntil;
+		a.recovering = state.bRecoveringAfterDeath || state.bTacticalRetreat;
+		a.hpPercent = ch->GetMaxHP() > 0 ? (int)((long long)ch->GetHP() * 100 / ch->GetMaxHP()) : 0;
+		a.distanceToPerson = DISTANCE_APPROX(ch->GetX() - person->GetX(), ch->GetY() - person->GetY());
+		return playerbot_guild_aid_rules::WhyNot(a, PLAYERBOT_GUILD_AID_MIN_HP_PERCENT, PLAYERBOT_GUILD_AID_RANGE);
+	}
+
+	// A person's guild for the person (Derpsonkowy95, 28 September): a bot of
+	// another kingdom striking a person of this bot's guild on this map, while
+	// the guild's answer is short of one bot for each attacker. The attacker
+	// the fewest of the guild are on, the nearest of those, within the level
+	// window; the first of the guild to come says so to the person.
+	LPCHARACTER FindPlayerBotGuildAidFoe(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		using namespace playerbot_guild_aid_rules;
+		if (!ch || s_mapPlayerBotGuildAidCall.empty())
+			return NULL;
+		PrunePlayerBotGuildAidCalls(dwNow);
+		CGuild* guild = ch->GetGuild();
+		if (!guild)
+			return NULL;
+		for (std::map<DWORD, TPlayerBotGuildAidCall>::iterator it = s_mapPlayerBotGuildAidCall.begin();
+				it != s_mapPlayerBotGuildAidCall.end(); ++it)
+		{
+			TPlayerBotGuildAidCall& call = it->second;
+			if (call.dwGuildID != guild->GetID() || call.lMapIndex != ch->GetMapIndex() ||
+					dwNow - call.dwLastBlowAt >= PLAYERBOT_GUILD_AID_FORGET_MS)
+				continue;
+			LPCHARACTER person = CHARACTER_MANAGER::instance().Find(call.dwPersonVID);
+			if (!person || person->GetPlayerID() != it->first || person->IsDead() ||
+					person->GetMapIndex() != ch->GetMapIndex() || person->GetEmpire() != ch->GetEmpire() ||
+					IsPlayerBotPersonTruced(person, dwNow))
+				continue;
+			ERefusal why = GetPlayerBotGuildAidRefusal(ch, state, person, dwNow);
+			LPCHARACTER foe = NULL;
+			int foeSlot = -1;
+			int attackers = 0;
+			int defenders = 0;
+			if (why == REFUSE_NONE)
+			{
+				int onSlot[MAX_ATTACKERS] = { 0 };
+				bool liveSlot[MAX_ATTACKERS] = { false };
+				defenders = CountPlayerBotGuildAidDefenders(call, onSlot);
+				attackers = CountPlayerBotGuildAidLive(call, dwNow, liveSlot);
+				if (attackers == 0)
+					continue;
+				if (defenders >= DefendersWanted(attackers, PLAYERBOT_GUILD_AID_PER_ATTACKER,
+						PLAYERBOT_GUILD_AID_DEFENDERS_MAX))
+					why = REFUSE_ENOUGH;
+				else
+				{
+					TCandidate candidates[MAX_ATTACKERS];
+					LPCHARACTER candidateCh[MAX_ATTACKERS];
+					int candidateSlot[MAX_ATTACKERS];
+					int n = 0;
+					bool overLevel = false;
+					for (int i = 0; i < call.attackers.count; ++i)
+					{
+						if (!liveSlot[i])
+							continue;
+						const TAttacker& a = call.attackers.list[i];
+						LPCHARACTER c = CHARACTER_MANAGER::instance().Find(a.vid);
+						// A bot, of another kingdom and guild: the call was opened
+						// on those terms, and the VID may have changed hands since.
+						if (!c || c->GetPlayerID() != a.pid || !c->GetDesc() || !c->GetDesc()->IsBot() ||
+								c->GetEmpire() == ch->GetEmpire() || c->GetGuild() == guild ||
+								!IsPlayerBotFoeFightable(ch, c, PLAYERBOT_GUILD_AID_RANGE))
+							continue;
+						if (!LevelAllows((int)ch->GetLevel(), (int)c->GetLevel(), PLAYERBOT_GUILD_AID_LEVEL_OVER))
+						{
+							overLevel = true;
+							continue;
+						}
+						candidates[n].distance = DISTANCE_APPROX(ch->GetX() - c->GetX(), ch->GetY() - c->GetY());
+						candidates[n].defenders = onSlot[i];
+						candidateCh[n] = c;
+						candidateSlot[n] = i;
+						++n;
+					}
+					const int pick = PickAttacker(candidates, n, PLAYERBOT_GUILD_AID_CROWD_PENALTY);
+					if (pick < 0)
+						why = overLevel ? REFUSE_LEVEL : REFUSE_NO_FOE;
+					else
+					{
+						foe = candidateCh[pick];
+						foeSlot = candidateSlot[pick];
+					}
+				}
+			}
+			if (!foe)
+			{
+				call.mapRefused[ch->GetPlayerID()] = (BYTE)why;
+				ReportPlayerBotGuildAid(it->first, call, dwNow);
+				continue;
+			}
+			// One call's defender at a time: an entry a death left on another
+			// call must not be read as this fight's.
+			ReleasePlayerBotGuildAidDefender(ch->GetPlayerID());
+			call.mapDefenders[ch->GetPlayerID()] = call.attackers.list[foeSlot].pid;
+			call.mapRefused.erase(ch->GetPlayerID());
+			if (call.dwToldAt == 0 || dwNow - call.dwToldAt >= PLAYERBOT_GUILD_AID_TELL_MS)
+			{
+				call.dwToldAt = dwNow;
+				TellPlayerBotPerson(person, PBT(IsPlayerBotPersonEnglish(person),
+						"[Gildia] %s z twojej gildii rusza ci na pomoc.",
+						"[Guild] %s of your guild is coming to help you."), ch->GetName());
+			}
+			sys_log(0, "PLAYERBOT_ANTIPK: guild aid pid=%u name=%s level=%u for_pid=%u for=%s foe_pid=%u foe=%s foe_level=%u foe_empire=%u attackers=%d defenders=%d dist=%d map=%ld",
+					ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), person->GetPlayerID(),
+					person->GetName(), foe->GetPlayerID(), foe->GetName(), (unsigned int)foe->GetLevel(),
+					(unsigned int)foe->GetEmpire(), attackers, defenders + 1,
+					(int)DISTANCE_APPROX(ch->GetX() - foe->GetX(), ch->GetY() - foe->GetY()), ch->GetMapIndex());
+			return foe;
+		}
+		return NULL;
+	}
+
+	// Whether this bot's fight for its guild's person goes on - the held foe
+	// in PickPlayerBotPersonaFoe, by playerbot_guild_aid_rules::Hold on the
+	// call it answered with this foe; why says what ended it.
+	bool IsPlayerBotGuildAidStillOn(LPCHARACTER ch, LPCHARACTER foe, DWORD dwNow, const char*& why)
+	{
+		for (std::map<DWORD, TPlayerBotGuildAidCall>::const_iterator it = s_mapPlayerBotGuildAidCall.begin();
+				foe && it != s_mapPlayerBotGuildAidCall.end(); ++it)
+		{
+			const TPlayerBotGuildAidCall& call = it->second;
+			std::map<DWORD, DWORD>::const_iterator d = call.mapDefenders.find(ch->GetPlayerID());
+			if (d == call.mapDefenders.end() || d->second != foe->GetPlayerID())
+				continue;
+			LPCHARACTER person = CHARACTER_MANAGER::instance().Find(call.dwPersonVID);
+			if (person && person->GetPlayerID() != it->first)
+				person = NULL;
+			const int slot = playerbot_guild_aid_rules::FindAttacker(call.attackers, foe->GetPlayerID());
+			const bool attackerLive = slot >= 0 && call.attackers.list[slot].vid == (DWORD)foe->GetVID() &&
+					IsPlayerBotGuildAidAttackerLive(call.attackers.list[slot], call.dwPersonVID, dwNow);
+			const playerbot_guild_aid_rules::EHold hold = playerbot_guild_aid_rules::Hold(
+					person && person->GetMapIndex() == ch->GetMapIndex(), person && !person->IsDead(),
+					person && IsPlayerBotPersonTruced(person, dwNow), attackerLive);
+			why = playerbot_guild_aid_rules::HoldName(hold);
+			return hold == playerbot_guild_aid_rules::HOLD_ON;
+		}
+		why = "no_call";
+		return false;
+	}
+
+	// The person a bot fights for, for the line over its head
+	// (playerbot_status.h, which comes before this file), or NULL.
+	LPCHARACTER FindPlayerBotGuildAidPerson(DWORD defenderPid)
+	{
+		for (std::map<DWORD, TPlayerBotGuildAidCall>::const_iterator it = s_mapPlayerBotGuildAidCall.begin();
+				it != s_mapPlayerBotGuildAidCall.end(); ++it)
+			if (it->second.mapDefenders.find(defenderPid) != it->second.mapDefenders.end())
+			{
+				LPCHARACTER person = CHARACTER_MANAGER::instance().Find(it->second.dwPersonVID);
+				return person && person->GetPlayerID() == it->first ? person : NULL;
+			}
+		return NULL;
+	}
+
 	// Iwakura's Patch 3, point 7: an executioner who has just struck this bot's
 	// kingdom, on this map and within PLAYERBOT_EGZEKUTOR_DEFENCE_RANGE of it,
 	// while fewer than PLAYERBOT_EGZEKUTOR_DEFENDERS_MAX already answer. The
@@ -652,12 +1067,14 @@ namespace
 		if (p.dwFoeVID != 0)
 		{
 			LPCHARACTER held = CHARACTER_MANAGER::instance().Find(p.dwFoeVID);
-			// A guild's aggressor is held from as far as the call reached, and
-			// an executioner by the kingdom that answers him from as far as its
-			// defence reached.
+			// A guild's aggressor is held from as far as the call reached, an
+			// executioner by the kingdom that answers him from as far as its
+			// defence reached, and a person's attacker by the person's guild
+			// from as far as its answer reaches.
 			bool keep = IsPlayerBotFoeFightable(ch, held, p.bFoeReason == BOT_FOE_GUILD
 					? PLAYERBOT_ANTIPK_GUILD_RANGE : (p.bFoeReason == BOT_FOE_DEFEND
-						? PLAYERBOT_EGZEKUTOR_DEFENCE_RANGE : PLAYERBOT_ANTIPK_FOE_RANGE));
+						? PLAYERBOT_EGZEKUTOR_DEFENCE_RANGE : (p.bFoeReason == BOT_FOE_GUILD_AID
+							? PLAYERBOT_GUILD_AID_RANGE : PLAYERBOT_ANTIPK_FOE_RANGE)));
 			// An executioner's prey is let go when the state ends.
 			if (keep && p.bFoeReason == BOT_FOE_EXECUTOR &&
 					!IsPlayerBotRareNow(p, playerbot_persona::RARE_EGZEKUTOR, dwNow))
@@ -679,11 +1096,17 @@ namespace
 				if (!keep)
 					why = "left_the_stone";
 			}
+			// Fought for the guild's person: while the person is here, standing
+			// and under no truce, and the attacker is still at the person.
+			if (keep && p.bFoeReason == BOT_FOE_GUILD_AID)
+				keep = IsPlayerBotGuildAidStillOn(ch, held, dwNow, why);
 			if (keep)
 				return held;
 			sys_log(0, "PLAYERBOT_ANTIPK: foe let go pid=%u name=%s reason=%s why=%s fought_s=%u hp=%d/%d",
 					ch->GetPlayerID(), ch->GetName(), GetPlayerBotFoeReasonName(p.bFoeReason), why,
 					(unsigned int)((dwNow - p.dwFoeSince) / 1000), ch->GetHP(), ch->GetMaxHP());
+			if (p.bFoeReason == BOT_FOE_GUILD_AID)
+				ReleasePlayerBotGuildAidDefender(ch->GetPlayerID());
 			p.dwFoeVID = 0;
 			p.bFoeReason = BOT_FOE_NONE;
 		}
@@ -698,6 +1121,12 @@ namespace
 			return BeginPlayerBotFoe(ch, state, aggressor, BOT_FOE_PARTY, dwNow);
 		if (LPCHARACTER aggressor = FindPlayerBotGuildAggressor(ch, dwNow))
 			return BeginPlayerBotFoe(ch, state, aggressor, BOT_FOE_GUILD, dwNow);
+		// A bot of another kingdom striking a person of this bot's guild, near
+		// the person: after the bot's own fight and its party's and guild's,
+		// before the kingdom's defence and a grudge. Its refusals keep a raider
+		// at its raid (GetPlayerBotGuildAidRefusal).
+		if (LPCHARACTER attacker = FindPlayerBotGuildAidFoe(ch, state, dwNow))
+			return BeginPlayerBotFoe(ch, state, attacker, BOT_FOE_GUILD_AID, dwNow);
 		// A bot on a raid - at its boss, or in the Demon Tower - answers the
 		// blows that land on it and its party and guild, and nothing it would
 		// have to leave its boss for: not another bot's call to defend the

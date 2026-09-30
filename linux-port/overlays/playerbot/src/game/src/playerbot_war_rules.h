@@ -22,6 +22,13 @@
 // z gildii pokona wszystkich przeciwnikow to jest cofana z powrotem do
 // miejsca startowego i daje czas na zregenerowanie sie przeciwnej gildii").
 //
+// That made a war rounds, and DUDU's report of 28 September (2.2.35) what a
+// round is now: the fallen take no part in it until the next one, a round
+// cannot hang - one side down, both, or its clock - and a break at the
+// camps comes between two, about thirty seconds for the bots to buff, as he
+// asked. The phases, a bot's stance in each, who is in the fight, how a
+// round ends and the break's end are below, with the rounds.
+//
 // No engine types: the job and the skill group come in as the engine's
 // numbers (JOB_WARRIOR 0, JOB_ASSASSIN 1, JOB_SURA 2, JOB_SHAMAN 3; group 1
 // or 2). The engine side is playerbot_guild_war.h. Tested in
@@ -273,6 +280,186 @@ namespace playerbot_war_rules
 		if (up1 == 0 && up0 > 0)
 			return 0;
 		return -1;
+	}
+
+	// ------------------------------------------------------------ the rounds
+	//
+	// After its muster a war is rounds: each fought until one side has nobody
+	// left in the fight, the fallen of both waiting at their own camps, then a
+	// break with everybody back at the camps before the next. DUDU on 2.2.35:
+	// after a round the two sides stood apart for fifteen minutes before the
+	// fight went on, and paused again in the next kingdom's war; and the fight
+	// that did go on moved onto one guild's camp, where the bots that had
+	// fallen joined it again and again.
+
+	enum EPhase
+	{
+		PHASE_MUSTER = 0,	// the war's first seconds, each side at its camp
+		PHASE_BREAK,		// between two rounds, each side at its camp
+		PHASE_ROUND			// the fight
+	};
+
+	// What one bot does in a phase.
+	enum EStance
+	{
+		STANCE_FIGHT = 0,	// in the round, at any foe the field offers
+		STANCE_CAMP,		// at its camp: the muster, the break, its own run-out delay
+		STANCE_OUT			// fell in this round: at its camp until the round is over
+	};
+
+	inline EStance StanceOf(EPhase phase, bool outOfRound, bool runOutPending)
+	{
+		if (phase != PHASE_ROUND)
+			return STANCE_CAMP;
+		if (outOfRound)
+			return STANCE_OUT;
+		return runOutPending ? STANCE_CAMP : STANCE_FIGHT;
+	}
+
+	// How far from the centre of its camp a bot at the camp answers anybody,
+	// 0 for the fight's no limit: the muster's reach while the camp holds a
+	// side, and the camp's own circle for the fallen.
+	inline long CampReach(EStance stance, long defendRange, long campRadius)
+	{
+		switch (stance)
+		{
+			case STANCE_CAMP: return defendRange;
+			case STANCE_OUT: return campRadius;
+			default: return 0;
+		}
+	}
+
+	// Whether a bot in its stance may take this foe on. In the round anybody
+	// the field offers. At the camp a person who has come within its reach,
+	// and never a bot: the other side is at its own camp then, or walking back
+	// to it past this one, and a fight with it was how the regroup after a
+	// round turned into a brawl at the losers' camp. Out of the round the
+	// same within the camp's own circle: the fallen stood "at the camp" in the
+	// muster's sense and took on every foe within 900 of themselves, while
+	// nobody may pick one out of the round - untouchable, they joined a fight
+	// that drifted near their camp again and again. No bot is a foe to them
+	// now, so a blow of the other side's lands on nobody who answers; a person
+	// is never held, and one who walks into a camp of the waiting is answered
+	// there and nowhere else.
+	inline bool MayTakeFoe(EStance stance, bool foeIsPerson, long foeFromCamp, long reach)
+	{
+		if (stance == STANCE_FIGHT)
+			return true;
+		return foeIsPerson && foeFromCamp <= reach;
+	}
+
+	// Whether a bot standing up now sits the round out: it fell in this round.
+	// One that fell before the round began - in the break, the muster, an
+	// earlier round, or out hunting before the war drafted it - stands up at
+	// its camp and plays. Both ages count back from now, so the wrap of the
+	// core's clock does not matter.
+	inline bool FellThisRound(EPhase phase, unsigned int sinceDeathMs, unsigned int sinceRoundStartMs)
+	{
+		return phase == PHASE_ROUND && sinceDeathMs <= sinceRoundStartMs;
+	}
+
+	// Who is in the fight: the one test for a round's count and for the foes a
+	// bot may pick, which used to be two. One standing where no blow lands (the
+	// safe zone) or off the field counted as up - its side had not lost the
+	// round - while no foe would pick it.
+	struct TFighter
+	{
+		bool dead;
+		bool recovering;	// standing up, invisible, or out of the round
+		bool safeZone;
+		bool offField;
+	};
+
+	inline bool InTheFight(const TFighter& f)
+	{
+		return !f.dead && !f.recovering && !f.safeZone && !f.offField;
+	}
+
+	enum ERoundEnd
+	{
+		ROUND_GOES_ON = 0,
+		ROUND_WON,			// one side has nobody left in the fight
+		ROUND_DRAWN,		// the last of both went down together
+		ROUND_STALLED,		// nobody went down for the stall time
+		ROUND_TIMED_OUT,	// the round's longest
+		ROUND_END_COUNT
+	};
+
+	inline const char* RoundEndName(ERoundEnd e)
+	{
+		static const char* const names[ROUND_END_COUNT] = { "on", "won", "drawn", "stalled", "timed_out" };
+		return e < ROUND_END_COUNT ? names[e] : "?";
+	}
+
+	// How a round stands. There is none while a side has nobody on the
+	// battlefield. It is won when one side has nobody left in the fight and
+	// drawn when neither has, and it cannot hang: after stallMs with nobody
+	// going down, or maxMs in all, it ends - to the side with more in the
+	// fight, drawn on a tie. A round had no end but a whole side down, so one
+	// bot nobody could reach (thrown into the rocks, off the field) held it
+	// open while everybody else stood: the fifteen minutes of Shinsoo's first
+	// war. winner is 0 or 1, and -1 for a draw and for a round that goes on.
+	inline ERoundEnd DecideRound(int up0, int present0, int up1, int present1, unsigned int roundMs,
+			unsigned int sinceFallMs, unsigned int maxMs, unsigned int stallMs, int& winner)
+	{
+		winner = -1;
+		if (present0 <= 0 || present1 <= 0)
+			return ROUND_GOES_ON;
+		if (up0 <= 0 && up1 <= 0)
+			return ROUND_DRAWN;
+		winner = RoundWinner(up0, present0, up1, present1);
+		if (winner >= 0)
+			return ROUND_WON;
+		const bool timedOut = maxMs > 0 && roundMs >= maxMs;
+		const bool stalled = stallMs > 0 && sinceFallMs >= stallMs;
+		if (!timedOut && !stalled)
+			return ROUND_GOES_ON;
+		winner = up0 > up1 ? 0 : (up1 > up0 ? 1 : -1);
+		return timedOut ? ROUND_TIMED_OUT : ROUND_STALLED;
+	}
+
+	// Whether the break between two rounds is over: its length, once every bot
+	// of the war stands up at its camp, and the extra time on top at most,
+	// wherever anybody stands.
+	inline bool BreakOver(unsigned int breakMs, int ready, int present, unsigned int lengthMs, unsigned int extraMs)
+	{
+		if (breakMs < lengthMs)
+			return false;
+		return ready >= present || breakMs - lengthMs >= extraMs;
+	}
+
+	// Where a bot in the fight may step back to: never into its own camp, which
+	// is the fallen's while the round lasts - a defensive healer or an archer
+	// stepped back towards it, its foe came after it, and the fight settled
+	// among the waiting. A point inside the circle goes out onto it along the
+	// line from the centre, the centre itself towards `to` (the middle); a
+	// radius of 0 keeps every point.
+	inline void KeepOutOfCircle(long x, long y, long cx, long cy, long radius, long toX, long toY,
+			long& outX, long& outY)
+	{
+		double dx = (double)(x - cx);
+		double dy = (double)(y - cy);
+		double len = std::sqrt(dx * dx + dy * dy);
+		if (radius <= 0 || len >= (double)radius)
+		{
+			outX = x;
+			outY = y;
+			return;
+		}
+		if (len < 1.0)
+		{
+			dx = (double)(toX - cx);
+			dy = (double)(toY - cy);
+			len = std::sqrt(dx * dx + dy * dy);
+		}
+		if (len < 1.0)
+		{
+			outX = x;
+			outY = y;
+			return;
+		}
+		outX = cx + std::lround(dx / len * (double)radius);
+		outY = cy + std::lround(dy / len * (double)radius);
 	}
 
 	// The distance from a point to the segment a-b: the field along the axis

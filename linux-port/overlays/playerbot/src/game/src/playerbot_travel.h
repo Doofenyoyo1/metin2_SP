@@ -1043,6 +1043,13 @@ namespace
 	// a party with a person in it keep their map (playerbot_companions.h).
 	bool IsPlayerBotHeldForCompany(LPCHARACTER ch);
 
+	// A move the boss raid makes for one of its members: playerbot_boss_raid.h
+	// passes "boss_raid", and "boss_raid_far" from the far end of the map.
+	bool IsPlayerBotBossRaidMove(const char* reason)
+	{
+		return reason && strncmp(reason, "boss_raid", 9) == 0;
+	}
+
 	bool TransitionPlayerBotMap(LPCHARACTER ch, TPlayerBotAIState& state,
 			long targetMap, long targetX, long targetY, DWORD dwNow, const char* reason)
 	{
@@ -1054,8 +1061,16 @@ namespace
 		// bot to the gate; a warp out of it becomes the desert's far corner and
 		// the walk back to the Bokjung gate. Both call back in here with the
 		// desert as the target, which neither rule touches.
+		// Except a raid member's way in to the Spider Baroness in V2 (the
+		// operator's decision of 28 September): the bots of her window hunt the
+		// two Forests, Sohan, Hwang and Doyyumhwaji, not V2, and the walk
+		// across the desert outlasts a gathering - so a raid brings them to
+		// their spots as it does on every other boss's map. The way out is the
+		// crossing as ever. V1's queen is the bots' already down there (the
+		// recruit's "far"), so her map keeps its crossing both ways.
+		const bool raidIntoV2 = targetMap == PLAYERBOT_MAP_SPIDER_V2 && IsPlayerBotBossRaidMove(reason);
 		if (IsPlayerBotSpiderMap(targetMap) && ch->GetMapIndex() != PLAYERBOT_MAP_DESERT &&
-				!IsPlayerBotSpiderMap(ch->GetMapIndex()))
+				!IsPlayerBotSpiderMap(ch->GetMapIndex()) && !raidIntoV2)
 		{
 			state.lDesertCrossingTo = targetMap;
 			state.lDesertCrossingX = targetX;
@@ -1798,8 +1813,18 @@ namespace
 			const bool townVisitRecentlyCompleted = state.dwNextShopCheckTime != 0 &&
 					dwNow < state.dwNextShopCheckTime;
 			const bool needsAnyRefine = HasPlayerBotRefineOpportunity(ch);
+			// Every need in this half of the hold has to be one the town visit
+			// starts for (CPlayerBotManager::Update asks the same functions),
+			// because only a visit's window lifts it - or a login's, which sets
+			// the same clock. The junk was not: Iwakura's Trader sells at eighty
+			// percent of the bag, the visit had been told so and this line had
+			// not, and a bot of forty back in its first village with a dozen
+			// pieces of scrap stayed there until its bag filled - on monsters
+			// fifteen levels under it, whose every drop is one percent, that is
+			// never - or until somebody kicked it ("pomaga tylko kick, po relogu
+			// sie naprawiaja", blasty, 28 September).
 			const bool needsTownPreparation = NeedsPlayerBotPotions(ch) ||
-					CountPlayerBotJunkItems(ch) >= 12 || needsAnyRefine;
+					PlayerBotWantsSellRun(ch) || needsAnyRefine;
 			// The soft needs get one town visit to be met. If the bot has just
 			// been shopping and still wants something, the town cannot supply it,
 			// and standing here is worse than moving on.

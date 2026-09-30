@@ -11,6 +11,7 @@
 .world-map[data-map-index="109"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/hard-monkey.webp')}
 .world-map[data-map-index="61"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/mount-sohan.png')}
 .world-map[data-map-index="62"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/doyyumhwaji.png')}
+.world-map[data-map-index="71"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/spider-dungeon-v1.png')}
 .world-map[data-map-index="64"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/orc-valley.png')}
 .world-map[data-map-index="63"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/yongbi-desert.png')}
 .world-map[data-map-index="104"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/spider-dungeon-v1.png')}
@@ -27,8 +28,27 @@
 .world-map[data-map-index="68"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/trent02-red-forest.png')}
 .world-map[data-map-index="72"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/grotto-v1.png')}
 .world-map[data-map-index="73"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/grotto-v2.png')}
+.density-heat-layer{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}.density-heat-dot{position:absolute;display:block;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none}
 .world-overview{min-height:510px;padding:17px;background:#0d1929;border:1px solid #294562;border-radius:7px}.world-overview h3{margin:3px 0 14px}.world-summary-grid{display:grid;grid-template-columns:1fr;gap:6px}.world-summary-grid>div{min-height:0;padding:9px 10px;border:1px solid #213852;border-radius:6px;background:#101d2d;display:flex;align-items:center;justify-content:space-between;gap:10px}.world-summary-grid b{order:2;color:#82b6ff;font-size:20px;overflow:hidden;text-overflow:ellipsis}.world-summary-grid span,.overview-restart span{display:block;color:#9db9de;font-size:11px}.overview-maps,.overview-restart,.overview-rates{margin-top:12px;padding-top:12px;border-top:1px solid #213852}.overview-maps h4,.overview-rates h4{margin:0 0 8px}.overview-maps-list{display:block}.overview-maps-list>div,.overview-rates div{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #213852;color:#9db9de;font-size:12px}.overview-maps b,.overview-rates b{color:#79e3af}.overview-restart b{display:block;margin-top:4px;font-size:12px;color:#dcecff}@media(max-width:1350px){.live-dashboard-grid{grid-template-columns:1fr}.world-overview{min-height:0}.live-grid{justify-content:start}}@media(max-width:1000px){.live-grid{grid-template-columns:1fr}.world-map{height:510px;max-width:510px;justify-self:center}}@media(max-width:520px){.world-map{height:440px}}
 @media(min-width:1351px){.live-shell{box-sizing:border-box;width:calc(66.666% - 9px);position:relative}.live-dashboard-grid{display:block}.world-overview{position:absolute;left:calc(100% + 18px);top:0;bottom:0;width:calc(50% - 9px);box-sizing:border-box;min-height:0}.live-map-section{width:100%}}
+/* 2026-09-27, [GA]Seban: the map fix below (and the ranking/activity tabs
+   further down) is scoped to 1351-2199px on purpose. The operator's own
+   monitor is 2560x1440 (~2554px viewport) and asked explicitly to keep that
+   exact resolution on the original, untouched rule above -- it was never the
+   one that looked broken; a 1920x1080 screen was. Everything from here down
+   only overrides the original for screens narrower than a real 2K monitor. */
+@media(min-width:1351px) and (max-width:2199px){
+/* The map card and "Stan serwera" card used a fixed 66.666%/50% split --
+   sized for a narrower layout where both roughly halve the width. On a wide
+   monitor that handed the status list (a simple label/value stack that never
+   needed more room) half the page, while the map -- the one thing meant to
+   grow -- was capped to two-thirds of what was left. Stan serwera gets a
+   fixed, generous-but-bounded width instead; the map claims everything else,
+   up to a cap matching what looked right on a 1920px screen. */
+.live-shell{box-sizing:border-box;width:calc(100% - 400px - 18px)!important;max-width:1130px!important;position:relative}
+.world-overview{position:absolute!important;left:calc(100% + 18px)!important;top:0;bottom:0;width:400px!important;box-sizing:border-box;min-height:0}
+.live-map-section{width:100%}
+}
 
 /* Seban Panel palette: the live widget no longer borrows the classic panel's gold/brown skin. */
 .live-shell{background:linear-gradient(135deg,#101d2d,#0c1726);border-color:#213852}
@@ -39,6 +59,16 @@
 .world-map[data-map-index="21"],.world-map[data-map-index="1"],.world-map[data-map-index="41"]{aspect-ratio:4/5}.world-map[data-map-index="23"],.world-map[data-map-index="24"],.world-map[data-map-index="25"],.world-map[data-map-index="61"],.world-map[data-map-index="62"],.world-map[data-map-index="63"],.world-map[data-map-index="64"],.world-map[data-map-index="104"],.world-map[data-map-index="108"],.world-map[data-map-index="109"],.world-map[data-map-index="65"],.world-map[data-map-index="4"],.world-map[data-map-index="44"],.world-map[data-map-index="5"],.world-map[data-map-index="45"],.world-map[data-map-index="3"],.world-map[data-map-index="43"],.world-map[data-map-index="67"],.world-map[data-map-index="68"]{aspect-ratio:1/1}
 /* Exact map canvases: image is never cropped or stretched. */
 .live-dashboard-grid{display:grid!important;grid-template-columns:minmax(0,1fr) 300px!important;gap:18px!important}.live-grid{grid-template-columns:minmax(0,1fr) 300px!important;justify-content:stretch!important}.world-map{height:auto!important;width:100%!important;background-size:100% 100%!important;background-repeat:no-repeat!important}.world-map[data-map-index="21"],.world-map[data-map-index="1"],.world-map[data-map-index="41"]{aspect-ratio:4/5!important}.world-map[data-map-index="23"],.world-map[data-map-index="24"],.world-map[data-map-index="25"],.world-map[data-map-index="61"],.world-map[data-map-index="63"],.world-map[data-map-index="64"],.world-map[data-map-index="104"],.world-map[data-map-index="108"],.world-map[data-map-index="109"],.world-map[data-map-index="65"],.world-map[data-map-index="4"],.world-map[data-map-index="44"],.world-map[data-map-index="5"],.world-map[data-map-index="45"],.world-map[data-map-index="3"],.world-map[data-map-index="43"],.world-map[data-map-index="67"],.world-map[data-map-index="68"]{aspect-ratio:1!important}.quick-leader a,.live-ranking .is-global-leader{color:#ffe28a!important;text-shadow:0 0 9px #edb637}.quick-leader a:after,.live-ranking .is-global-leader:before{content:' ✦';color:#ffe28a;animation:leader-star 1.8s ease-in-out infinite}@media(max-width:1350px){.live-dashboard-grid,.live-grid{grid-template-columns:1fr!important}.world-overview{position:static!important;width:auto!important}}
+/* .live-dashboard-grid has exactly one real child (.live-grid) -- .live-insights
+   escapes it via position:absolute (see the >=1700px rule further down), it's
+   never a real second grid column. The original "minmax(0,1fr) 300px" above
+   reserved a phantom 300px+gap column nothing used, quietly starving the map
+   of width (reported [GA]Seban 2026-09-27, a 1920x1080 screen: map rendered
+   at ~344px and turned tall and narrow). Scoped to 1351-2199px like the other
+   map fixes above -- must come after the original rule on this line so the
+   cascade (equal !important specificity, source order decides) picks this one
+   within that range; a real 2K monitor keeps the original untouched. */
+@media(min-width:1351px) and (max-width:2199px){.live-dashboard-grid{grid-template-columns:minmax(0,1fr)!important}}
 
 /* v1.39: live map uses the active panel theme, not fixed classic-panel blue. */
 :root{--live-surface:#0d1929;--live-surface-strong:#101d2d;--live-border:#294562;--live-line:#213852;--live-accent:#1f6fe5;--live-accent-text:#dcecff;--live-number:#82b6ff;--live-progress-end:#49d49a;--live-filter:#203d63}
@@ -64,6 +94,16 @@ body[data-theme="empire"]{--live-surface:#241a12;--live-surface-strong:#1a1109;-
 /* Flagi na żywej mapie: kanał świeci wyłącznie na obwódce, nigdy na fladze. */
 .bot-point{width:18px!important;height:18px!important;box-sizing:border-box!important;border:0!important;border-radius:50%!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;--map-channel-ring:#78b6ff}
 .bot-point.ch-1{--map-channel-ring:#43df91}.bot-point.ch-2{--map-channel-ring:#ef5ac9}
+/* CH3/CH4: added 2026-09-28 alongside Playerbots 2.2.36's optional 3rd/4th
+   channel. White/black per operator's request -- picked to stay clear of
+   both the existing CH1 green/CH2 pink rings and the empire flag colors
+   (Chunjo red, Shinsoo blue, Jinno gold). A literal black ring would be
+   invisible against the map's own dark background, so ch-4 gets an extra
+   white outline on top of its dark ring instead of relying on the ring glow
+   alone (which fades to nothing for a near-black color). */
+.bot-point.ch-3{--map-channel-ring:#f5f5f5}
+.bot-point.ch-4{--map-channel-ring:#2b2b30}
+.bot-point.ch-4::before{box-shadow:0 0 0 1px #fff,0 0 5px #fff9}
 .bot-point .bot-point-flag{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;position:relative;z-index:1}
 .bot-point::before{content:"";position:absolute;inset:-1px;z-index:2;border:1px solid var(--map-channel-ring);border-radius:inherit;box-shadow:0 0 3px color-mix(in srgb,var(--map-channel-ring) 85%,transparent),0 0 7px color-mix(in srgb,var(--map-channel-ring) 42%,transparent);pointer-events:none}
 .bot-point.is-pt,.bot-point.is-pt .bot-point-flag{border-radius:2px!important}.bot-point.is-stuck{background:transparent!important}
@@ -74,6 +114,8 @@ body[data-theme="empire"]{--live-surface:#241a12;--live-surface-strong:#1a1109;-
 .map-legend-marker::after{content:"";position:absolute;inset:-1px;border:1px solid var(--map-channel-ring);border-radius:inherit;box-shadow:0 0 3px color-mix(in srgb,var(--map-channel-ring) 86%,transparent),0 0 6px color-mix(in srgb,var(--map-channel-ring) 40%,transparent)}.map-legend-marker--ch2{--map-channel-ring:#ef5ac9}
 .map-legend-marker--party,.map-legend-marker--party img{border-radius:2px}.map-legend-marker--stuck b{position:absolute;z-index:2;right:-7px;top:-8px;color:#ff4a48;font:900 13px/1 Arial,sans-serif;text-shadow:0 0 3px #270000}
 .map-legend-channel{display:inline-block;width:11px;height:11px;box-sizing:border-box;margin-right:4px;vertical-align:-1px;border-radius:50%;border:2px solid #43df91;box-shadow:0 0 4px #43df91}.map-legend-channel--ch2{border-color:#ef5ac9;box-shadow:0 0 4px #ef5ac9}
+.map-legend-channel--ch3{border-color:#f5f5f5;box-shadow:0 0 4px #f5f5f5}
+.map-legend-channel--ch4{border-color:#2b2b30;box-shadow:0 0 0 1px #fff,0 0 4px #fff9}
 @media (prefers-reduced-motion:reduce){.bot-point.is-metin::before,.map-legend-marker--metin::after{animation:none}}
 
 /* v1.43: aktywny event czasowy (np. "podwójny drop na godzinę") na danej
@@ -136,6 +178,35 @@ body[data-theme="empire"]{--live-surface:#241a12;--live-surface-strong:#1a1109;-
 .live-sidebar .live-ranking{flex:1 1 auto!important;height:auto!important;max-height:none!important;min-height:0!important;overflow-y:auto!important}
 .live-activity{flex:1 1 auto!important;min-height:0!important;overflow:hidden!important}
 }
+/* Zakladki Ranking/Aktywnosci, tylko 1351-2199px (patrz uzasadnienie zakresu
+   przy .live-shell wyzej): na 2560px kolumna boczna byla juz dosc wysoka pod
+   starym, przywroconym powyzej podzialem 380px/reszta, wiec "dziura" pod
+   rankingiem nigdy tam realnie nie wystepowala -- problem byl tylko na
+   ekranach do ok. 2199px, gdzie mapa (a wiec i kolumna boczna) urosla po
+   poprawce powyzej. Zgloszone [GA]Seban 2026-09-27. */
+.live-sidebar-tabs{display:none}
+@media(min-width:1351px) and (max-width:2199px){
+/* JS mirrors .live-sidebar's height to the map's own (live-widget.js,
+   syncSidebarHeight) so they line up side by side -- fine on a wide screen,
+   but at ~1366px the map itself is short (its width, hence height via
+   aspect-ratio, is squeezed by the fixed 300px sidebar column), and
+   mini-stats (~163px) + the tabs bar (~53px incl. margin) alone ate almost
+   all of it, leaving the active tab (ranking or aktywnosci) too short to
+   show even one row (~15-27px measured). min-height overrides JS's inline
+   style height (CSS min/max-height always win over an explicit height,
+   inline or not), so the sidebar can be taller than a short map when needed
+   -- a short map next to a taller list is normal, nothing breaks visually.
+   Reported [GA]Seban 2026-09-27. */
+.live-sidebar{min-height:460px!important}
+.live-sidebar-tabs{display:flex;gap:6px;margin:10px 0}
+.live-sidebar-tabs button{flex:1;padding:7px;border:1px solid var(--live-border);border-radius:6px;background:var(--live-filter);color:var(--live-accent-text);font:inherit;font-size:12px;cursor:pointer}
+.live-sidebar-tabs button.active{background:var(--live-accent);color:#fff}
+.live-ranking-section,.live-activity{display:none!important}
+.live-sidebar[data-sidebar-tab="ranking"] .live-ranking-section{display:flex!important;flex:1 1 auto!important;max-height:none!important;min-height:0!important;overflow:hidden!important}
+.live-sidebar[data-sidebar-tab="ranking"] .live-ranking{flex:1 1 auto!important;height:auto!important;max-height:none!important;min-height:0!important;overflow-y:auto!important}
+.live-sidebar[data-sidebar-tab="activity"] .live-activity{display:flex!important;flex-direction:column;flex:1 1 auto!important;min-height:0!important;overflow:hidden!important}
+.live-sidebar[data-sidebar-tab="activity"] #live-activity{flex:1 1 auto!important;max-height:none!important;overflow-y:auto!important}
+}
 
 /* Lista "Boty na mapach" jest częścią panelu o stałej wysokości obok mapy.
    Gdy jest więcej map niż wolnego miejsca, przewija się tylko sama lista —
@@ -167,4 +238,69 @@ body[data-theme="empire"]{--live-surface:#241a12;--live-surface-strong:#1a1109;-
 .map-donut-legend i{width:7px;height:7px;border-radius:50%;background:var(--dot);flex:0 0 auto}
 .map-donut-legend b{margin-left:auto;color:var(--live-number)}
 @media(min-width:1700px){.live-insights{gap:11px!important;padding:0!important;border:0!important;background:transparent!important}.live-insights .map-insight-card{box-shadow:0 8px 18px #0002}.live-insights .map-respawn-summary>div{padding:8px}}
-.world-map[data-map-index="62"],.world-map[data-map-index="72"],.world-map[data-map-index="73"]{aspect-ratio:1!important}
+.world-map[data-map-index="62"],.world-map[data-map-index="71"],.world-map[data-map-index="72"],.world-map[data-map-index="73"]{aspect-ratio:1!important}
+
+/* v1.93.2: at >=1700px .live-insights (Rozklad kanalow / Respawny / Krolestwa)
+   used to float via position:absolute, pinned to .live-dashboard-grid's right
+   edge -- harmless while that edge sat in the unused phantom column above, but
+   now that the phantom column is gone, that same right edge lines up with the
+   real ranking sidebar and the floating panel would sit on top of it. Turned
+   into a real third grid column instead: map | ranking (300px) | insights
+   (260px), so nothing overlaps and the map still gets everything left over.
+   Reported [GA]Seban 2026-09-27 (1920x1080 monitor: map shrank to ~344px tall
+   and narrow, and unused gaps between the map/ranking and the insights cards,
+   and between the world-status card and the page edge). Scoped to max 2199px
+   for the same reason as the rules above -- a real 2K monitor keeps the
+   original, untouched >=1700px rule further up this file. */
+@media(min-width:1700px) and (max-width:2199px){
+  .live-grid{grid-template-columns:minmax(0,1fr) 300px 260px!important}
+  .live-grid>.live-sidebar{grid-column:2!important;grid-row:1!important}
+  .live-insights{position:static!important;inset:auto!important;top:auto!important;right:auto!important;bottom:auto!important;left:auto!important;grid-column:3!important;grid-row:1!important;width:auto!important;z-index:auto!important}
+  .live-grid>.map-legend{grid-column:1/3!important}
+}
+
+/* On a 1920x1080 screen the widened map (width:100% of a much bigger column
+   now that the phantom column is gone) came out ~616px tall for the 4:5-ratio
+   maps -- taller than the space left below the header/filters in one
+   viewport, so seeing the whole map needed scrolling mid-map. Reported
+   [GA]Seban 2026-09-27: "mapa jest wysoka a wąska że nie da się jej całej
+   wyświetlić". Capping height directly (letting width follow the aspect
+   ratio down, instead of the other way around) keeps the same proportions at
+   a size that fits. Same 1351-2199px scope as the rest of this session's
+   fixes -- a real 2K monitor is untouched. */
+@media(min-width:1351px) and (max-width:2199px){
+  .world-map{width:auto!important;max-height:520px!important}
+  /* max-width was a bare px cap -- fine on 1920px where the grid column is
+     wide, but at ~1366px (narrower column, sidebar still fixed at 300px) the
+     cap was WIDER than the actual column, so the aspect-ratio-sized map
+     (width:auto, sized off max-height) overflowed its grid cell sideways and
+     visually sat on top of the sidebar/insights next to it -- exactly the
+     "Diagramy mapy nie wyswietlaja sie" bug reported [GA]Seban 2026-09-27.
+     min(<cap>,100%) never exceeds the column's own width either. */
+  .world-map[data-map-index="21"],.world-map[data-map-index="1"],.world-map[data-map-index="41"]{max-width:min(416px,100%)!important}
+  .world-map[data-map-index="23"],.world-map[data-map-index="24"],.world-map[data-map-index="25"],.world-map[data-map-index="61"],.world-map[data-map-index="63"],.world-map[data-map-index="64"],.world-map[data-map-index="104"],.world-map[data-map-index="108"],.world-map[data-map-index="109"],.world-map[data-map-index="65"],.world-map[data-map-index="4"],.world-map[data-map-index="44"],.world-map[data-map-index="5"],.world-map[data-map-index="45"],.world-map[data-map-index="3"],.world-map[data-map-index="43"],.world-map[data-map-index="67"],.world-map[data-map-index="68"],.world-map[data-map-index="62"],.world-map[data-map-index="71"],.world-map[data-map-index="72"],.world-map[data-map-index="73"]{max-width:min(520px,100%)!important}
+}
+
+/* Bot markers (18x18px, fixed since the map was always ~500-1000px wide) were
+   never scaled to the map itself -- on a narrower rendered map (e.g. ~260px
+   at 1366px wide with the ranking sidebar showing) they turned into an
+   unreadable overlapping blob. container queries key off .world-map's own
+   rendered width, not the viewport, so this also helps the map at any other
+   narrow size (tablet, "Diagramy mapy" toggled, etc.) without a separate
+   breakpoint per case. Above ~600px the markers are untouched (matches the
+   size the map already had everywhere before today, including 2K). Reported
+   [GA]Seban 2026-09-27. */
+.world-map{container-type:inline-size}
+@container (max-width:320px){
+  .bot-point{width:11px!important;height:11px!important}
+  .bot-point em{font-size:8px!important;top:-12px!important;left:6px!important}
+  .bot-point-stuck{right:-5px!important;top:-6px!important;font-size:10px!important}
+}
+@container (min-width:321px) and (max-width:450px){
+  .bot-point{width:13px!important;height:13px!important}
+  .bot-point em{font-size:9px!important;top:-13px!important}
+  .bot-point-stuck{right:-6px!important;top:-7px!important;font-size:11px!important}
+}
+@container (min-width:451px) and (max-width:600px){
+  .bot-point{width:15px!important;height:15px!important}
+}

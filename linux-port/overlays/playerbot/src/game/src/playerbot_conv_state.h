@@ -91,6 +91,24 @@ namespace playerbot_conv
 		return build > B_NONE && build < B_COUNT ? k[build] : "";
 	}
 
+	// The same for an English reader: the players' words, and the English
+	// client's own names for the two groups of each class (its
+	// SKILL_GROUP_* texts: Body, Mental, Blade, Arc, Weapon, Magic, Dragon,
+	// Healing).
+	inline const char* BuildShortNameEn(int build)
+	{
+		static const char* const k[B_COUNT] = {
+			"", "body", "mental", "dagger", "archer", "WP", "BM", "dragon", "heal" };
+		return build > B_NONE && build < B_COUNT ? k[build] : "";
+	}
+
+	inline const char* BuildGameNameEn(int build)
+	{
+		static const char* const k[B_COUNT] = {
+			"", "Body", "Mental", "Blade", "Arc", "Weapon", "Magic", "Dragon", "Healing" };
+		return build > B_NONE && build < B_COUNT ? k[build] : "";
+	}
+
 	// The window's own grades: 1-19, M1-M10 from twenty, G1-G10 from thirty,
 	// P at forty.
 	inline std::string SkillGradeText(int level)
@@ -130,6 +148,36 @@ namespace playerbot_conv
 			if (k[i].vnum == vnum)
 				return k[i].name;
 		return "";
+	}
+
+	// The same skills by their English names, the English client's own
+	// (skilldesc.txt of its locale pack) - the list GetPlayerBotSkillNameEn
+	// has on the engine side (playerbot_language.h), which this layer cannot
+	// include. Keep the two the same.
+	inline const char* SkillNameOfEn(unsigned int vnum)
+	{
+		static const struct { unsigned int vnum; const char* name; } k[] = {
+			{ 1, "Three-Way Cut" }, { 2, "Sword Spin" }, { 3, "Berserk" }, { 4, "Aura of the Sword" }, { 5, "Dash" },
+			{ 16, "Spirit Strike (W)" }, { 17, "Bash" }, { 18, "Stump" }, { 19, "Strong Body" },
+			{ 20, "Sword Strike" }, { 31, "Ambush" }, { 32, "Fast Attack" }, { 33, "Rolling Dagger" },
+			{ 34, "Stealth" }, { 35, "Poisonous Cloud" }, { 46, "Repetitive Shot" }, { 47, "Arrow Shower" },
+			{ 48, "Fire Arrow" }, { 49, "Feather Walk" }, { 50, "Poison Arrow" }, { 61, "Finger Strike" },
+			{ 62, "Dragon Swirl" }, { 63, "Enchanted Blade" }, { 64, "Fear" }, { 65, "Enchanted Armour" },
+			{ 66, "Dispel" }, { 76, "Dark Strike" }, { 77, "Flame Strike" }, { 78, "Flame Spirit" },
+			{ 79, "Dark Protection" }, { 80, "Spirit Strike (S)" }, { 81, "Dark Orb" }, { 91, "Flying Talisman" },
+			{ 92, "Shooting Dragon" }, { 93, "Dragon's Roar" }, { 94, "Blessing" }, { 95, "Reflect" },
+			{ 96, "Dragon's Strength" }, { 106, "Lightning Throw" }, { 107, "Summon Lightning" },
+			{ 108, "Lightning Claw" }, { 109, "Cure" }, { 110, "Swiftness" }, { 111, "Attack Up" },
+		};
+		for (size_t i = 0; i < sizeof(k) / sizeof(k[0]); ++i)
+			if (k[i].vnum == vnum)
+				return k[i].name;
+		return "";
+	}
+
+	inline const char* SkillNameIn(bool en, unsigned int vnum)
+	{
+		return en ? SkillNameOfEn(vnum) : SkillNameOf(vnum);
 	}
 
 	// The Shaman's buffs, three to a path: the dragon's first, then healing.
@@ -199,6 +247,7 @@ namespace playerbot_conv
 		SB_OTHER_PARTY,    // with another person: their party, their order
 		SB_OTHER_SUMMON,   // already on its way to somebody else
 		SB_DEAD,
+		SB_OTHER_CHANNEL,  // the person plays on the other channel: another core's world
 		SB_COUNT
 	};
 
@@ -206,7 +255,7 @@ namespace playerbot_conv
 	{
 		static const char* const k[SB_COUNT] = {
 			"none", "other_map", "stall", "fishing", "mining", "duel", "guild_war", "tower", "dungeon",
-			"merc", "other_party", "other_summon", "dead" };
+			"merc", "other_party", "other_summon", "dead", "other_channel" };
 		return b >= 0 && b < SB_COUNT ? k[b] : "?";
 	}
 
@@ -340,6 +389,25 @@ namespace playerbot_conv
 		long long weaponGoalPrice;  // what it costs on a counter, 0 unknown
 		bool weaponOutclassed;      // the goal hits a third harder than the hand
 		bool weaponIsGoal;          // the hand already holds the goal's family
+		// The channel the bot plays on and the one the asker does, 0 unknown. A
+		// whisper can come from the other channel (the engine relays it between
+		// the two cores), and "w Joan" alone would send that person to their
+		// own channel's Joan, where the bot is not (AskerOnOtherChannel).
+		int channel;
+		int askerChannel;
+		// The language the asker reads our texts in (playerbot_language.h,
+		// IsPlayerBotPersonEnglish): English for a client set to anything but
+		// Polish (Jeremus-Sama, 28 September). askerLanguageKnown is false for
+		// a person whose flag this core cannot read - one on another core -
+		// who is answered in the language of their own lines
+		// (TConvMemory::writes); askerEnglish is then the engine side's reading
+		// of that same memory. The names this snapshot carries are already in
+		// the reply's language, as the engine side named them; targetProtoName
+		// is the target's own proto name when the name differs, which the
+		// family ("orki", "orcs") is read from whichever language the reply is in.
+		bool askerEnglish;
+		bool askerLanguageKnown;
+		std::string targetProtoName;
 
 		TBotSnapshot() : level(1), job(0), empire(0), mapIndex(0), inTown(false), safeZone(false),
 			inDungeon(false), action(A_IDLE), goal(G_LEVEL), travelMap(0), riding(false),
@@ -356,7 +424,8 @@ namespace playerbot_conv
 			askerNear(false), hour(12), afk(false), huntRemaining(0), dragonCoins(0), dragonKnown(false),
 			skillGroup(0), mainSkill(0), summonBlock(SB_NONE), summoned(false), summonedByAsker(false),
 			summonArrived(false), askerOnMap(false), askerDistance(-1), weaponLevel(0), weaponGoalPrice(0),
-			weaponOutclassed(false), weaponIsGoal(false)
+			weaponOutclassed(false), weaponIsGoal(false), channel(0), askerChannel(0), askerEnglish(false),
+			askerLanguageKnown(true)
 		{
 			for (int i = 0; i < 6; ++i)
 			{
@@ -367,6 +436,12 @@ namespace playerbot_conv
 
 		int Build() const { return BuildOf(job, skillGroup); }
 	};
+
+	// Whether the asker plays on the other channel than the bot.
+	inline bool AskerOnOtherChannel(const TBotSnapshot& s)
+	{
+		return s.channel > 0 && s.askerChannel > 0 && s.channel != s.askerChannel;
+	}
 
 	// Things only the engine can look up, asked for while a reply is written.
 	class IConvWorld
@@ -445,6 +520,55 @@ namespace playerbot_conv
 		return kUnknown;
 	}
 
+	// The same maps for an English reader, by the names the English game
+	// itself uses: the client's locale_game.txt (MAP_* - "Mount Sohan",
+	// "Doyyumhwan", "Red Forest", the guild maps Jungrang, Waryong and Imha,
+	// "Yayang", "Pyungmoo") and r40250's English quests where the client has
+	// none ("Orc Valley", "Ghost Forest", "Demon Tower", "Monkey Dungeon",
+	// "Spider Dungeon"); the numbers of the harder dungeons are the Polish
+	// line's own. `atShort` is the whole "at": English has no case that
+	// needs a shorter one, and the reply's check for a map it named reads it.
+	inline const TMapWords& GetMapWordsEn(long mapIndex)
+	{
+		static const TMapWords kMaps[] = {
+			{ 1, "Yongan", "in Yongan", "in Yongan", "to Yongan", true },
+			{ 2, "Waryong", "in Waryong", "in Waryong", "to Waryong", false },
+			{ 3, "Yayang", "in Yayang", "in Yayang", "to Yayang", true },
+			{ 4, "Jungrang", "in Jungrang", "in Jungrang", "to Jungrang", false },
+			{ 5, "Monkey Dungeon", "in the Monkey Dungeon", "in the Monkey Dungeon", "to the Monkey Dungeon", false },
+			{ 21, "Joan", "in Joan", "in Joan", "to Joan", true },
+			{ 23, "Bokjung", "in Bokjung", "in Bokjung", "to Bokjung", true },
+			{ 24, "Waryong", "in Waryong", "in Waryong", "to Waryong", false },
+			{ 25, "Monkey Dungeon", "in the Monkey Dungeon", "in the Monkey Dungeon", "to the Monkey Dungeon", false },
+			{ 41, "Pyungmoo", "in Pyungmoo", "in Pyungmoo", "to Pyungmoo", true },
+			{ 43, "Bakra", "in Bakra", "in Bakra", "to Bakra", true },
+			{ 44, "Imha", "in Imha", "in Imha", "to Imha", false },
+			{ 45, "Monkey Dungeon", "in the Monkey Dungeon", "in the Monkey Dungeon", "to the Monkey Dungeon", false },
+			{ 61, "Mount Sohan", "on Mount Sohan", "on Mount Sohan", "to Mount Sohan", false },
+			{ 62, "Doyyumhwan", "in Doyyumhwan", "in Doyyumhwan", "to Doyyumhwan", false },
+			{ 63, "Yongbi Desert", "in the Yongbi Desert", "in the Yongbi Desert", "to the Yongbi Desert", false },
+			{ 64, "Orc Valley", "in Orc Valley", "in Orc Valley", "to Orc Valley", false },
+			{ 65, "Hwang Temple", "in Hwang Temple", "in Hwang Temple", "to Hwang Temple", false },
+			{ 66, "Demon Tower", "in the Demon Tower", "in the Demon Tower", "to the Demon Tower", false },
+			{ 67, "Ghost Forest", "in the Ghost Forest", "in the Ghost Forest", "to the Ghost Forest", false },
+			{ 68, "Red Forest", "in the Red Forest", "in the Red Forest", "to the Red Forest", false },
+			{ 71, "Spider Dungeon 2", "in Spider Dungeon 2", "in Spider Dungeon 2", "to Spider Dungeon 2", false },
+			{ 104, "Spider Dungeon", "in the Spider Dungeon", "in the Spider Dungeon", "to the Spider Dungeon", false },
+			{ 108, "Monkey Dungeon II", "in Monkey Dungeon II", "in Monkey Dungeon II", "to Monkey Dungeon II", false },
+			{ 109, "Monkey Dungeon III", "in Monkey Dungeon III", "in Monkey Dungeon III", "to Monkey Dungeon III", false },
+		};
+		static const TMapWords kUnknown = { 0, "", "here", "here", "", false };
+		for (size_t i = 0; i < sizeof(kMaps) / sizeof(kMaps[0]); ++i)
+			if (kMaps[i].index == mapIndex)
+				return kMaps[i];
+		return kUnknown;
+	}
+
+	inline const TMapWords& MapWordsIn(bool en, long mapIndex)
+	{
+		return en ? GetMapWordsEn(mapIndex) : GetMapWords(mapIndex);
+	}
+
 	inline bool IsKnownMap(long mapIndex)
 	{
 		return GetMapWords(mapIndex).index != 0;
@@ -501,6 +625,32 @@ namespace playerbot_conv
 		}
 	}
 
+	// The English client's class names (JOB_WARRIOR, JOB_ASSASSIN, JOB_SURA,
+	// JOB_SHAMAN), and with an article for "I play a warrior".
+	inline const char* ClassNameEn(int job)
+	{
+		switch (job)
+		{
+			case 0: return "warrior";
+			case 1: return "ninja";
+			case 2: return "sura";
+			case 3: return "shaman";
+			default: return "character";
+		}
+	}
+
+	inline const char* ClassNameInstrEn(int job)
+	{
+		switch (job)
+		{
+			case 0: return "a warrior";
+			case 1: return "a ninja";
+			case 2: return "a sura";
+			case 3: return "a shaman";
+			default: return "my own character";
+		}
+	}
+
 	inline const char* EmpireName(int empire)
 	{
 		switch (empire)
@@ -525,6 +675,29 @@ namespace playerbot_conv
 			{ "upior", "upiory" }, { "drzew", "drzewce" }, { "kaplan", "kaplanow" }, { "bandyt", "bandytow" },
 			{ "lucznik", "lucznikow" }, { "wojownik", "wojownikow" }, { "lodow", "lodowe potwory" },
 			{ "ognist", "ogniste potwory" }, { "sura", "surow" }, { "nietoperz", "nietoperze" },
+		};
+		for (size_t i = 0; i < sizeof(kFam) / sizeof(kFam[0]); ++i)
+			if (foldedName.find(kFam[i][0]) != std::string::npos)
+				return kFam[i][1];
+		return "";
+	}
+
+	// The same families for an English reader, read from the same Polish
+	// proto name (the server knows its monsters by it): the plurals of the
+	// English game's own words for them - Orc, Wolf, Wild Boar, Fighter,
+	// Flame ... in r40250's mob_names.txt. In the same order as the Polish
+	// table, so a name finds the family it finds there.
+	inline const char* MobFamilyPluralEn(const std::string& foldedName)
+	{
+		static const char* const kFam[][2] = {
+			{ "ork", "orcs" }, { "pajak", "spiders" }, { "wilk", "wolves" }, { "niedzwied", "bears" },
+			{ "tygrys", "tigers" }, { "dzik", "boars" }, { "malp", "monkeys" }, { "szkielet", "skeletons" },
+			{ "duch", "ghosts" }, { "demon", "demons" }, { "zombi", "zombies" }, { "skorpion", "scorpions" },
+			{ "bestia", "beasts" }, { "zolnierz", "soldiers" }, { "yeti", "yetis" }, { "lisy", "foxes" }, { "lis ", "foxes" },
+			{ "jelen", "deer" }, { "waz", "snakes" }, { "zmij", "snakes" }, { "golem", "golems" },
+			{ "upior", "ghosts" }, { "drzew", "tree monsters" }, { "kaplan", "priests" }, { "bandyt", "bandits" },
+			{ "lucznik", "archers" }, { "wojownik", "fighters" }, { "lodow", "ice monsters" },
+			{ "ognist", "flame monsters" }, { "sura", "suras" }, { "nietoperz", "bats" },
 		};
 		for (size_t i = 0; i < sizeof(kFam) / sizeof(kFam[0]); ++i)
 			if (foldedName.find(kFam[i][0]) != std::string::npos)
