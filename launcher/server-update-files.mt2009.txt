@@ -147,6 +147,20 @@ linux-port-mt2009/docker/game/src/server/game/src/messenger_manager.cpp
 linux-port-mt2009/docker/game/src/server/game/src/mob_manager.h
 linux-port-mt2009/docker/game/src/server/game/src/p2p.cpp
 linux-port-mt2009/docker/game/src/server/game/src/p2p.h
+# Stock engine files MT2009 PLUS changed (its mounts, pets, alchemy, dungeons
+# and packets); they come out of its package like the rest.
+linux-port-mt2009/docker/game/src/server/common/CommonDefines.h
+linux-port-mt2009/docker/game/src/server/game/src/MountSystem.cpp
+linux-port-mt2009/docker/game/src/server/game/src/PetSystem.cpp
+linux-port-mt2009/docker/game/src/server/game/src/char_affect.cpp
+linux-port-mt2009/docker/game/src/server/game/src/char_player.cpp
+linux-port-mt2009/docker/game/src/server/game/src/dragon_soul_table.cpp
+linux-port-mt2009/docker/game/src/server/game/src/dungeon.cpp
+linux-port-mt2009/docker/game/src/server/game/src/input_auth.cpp
+linux-port-mt2009/docker/game/src/server/game/src/packet.h
+linux-port-mt2009/docker/game/src/server/game/src/packet_info.cpp
+linux-port-mt2009/docker/game/src/server/game/src/questlua_dungeon.cpp
+
 # Every Playerbot source has a build-context copy here, discovered like the
 # overlay above rather than listed: the r40250 list did this already (its
 # line 65) and this one enumerated thirty-six names, so the first new file

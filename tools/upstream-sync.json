@@ -1,15 +1,20 @@
 {
-  "repository": "https://github.com/TieruYT/metin2-playerbots",
+  "repository": "https://github.com/zaxerrrr-dot/mt2009-sp-plus",
   "branch": "main",
-  "synced_commit": "3641d410c6574c0ac04bc58587b264803114ce31",
-  "synced_version": "2.2.38",
+  "synced_commit": "1c36dd8b3eb2b71bd39852a229af2cf3a4816658",
+  "synced_version": "2.15.0",
   "engine_package": {
-    "url": "https://github.com/TieruYT/metin2-playerbots/releases/download/v2.2.38/metin2-server-update-2.2.38.zip",
-    "sha256": "ADB56D7349D24B5BBE5FB29189ADE2C5664CC9892C40D28F9B9D87624D7698D3"
+    "url": "https://raw.githubusercontent.com/zaxerrrr-dot/mt2009-sp-plus/1c36dd8b3eb2b71bd39852a229af2cf3a4816658/releases/metin2-server-update-2.15.0.zip",
+    "sha256": "12DF00A5EA109E78B0B5F93F04C82E188FC7C29A8A5320A5D98482063B8C674C"
   },
   "synced_client_package": {
-    "version": "2.0.52",
-    "url": "https://github.com/TieruYT/metin2-playerbots/releases/download/v2.2.38/metin2-client-update-2.0.52.zip",
-    "sha256": "97DB6E76FD1A947FC8B01D9654E8794226817D86044A53DE86D2C1E80D993737"
+    "version": "2.0.29",
+    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/klient-v2.0.29/metin2-client-update-2.0.29.zip",
+    "sha256": "9AFC96598AEF7A49A2B6DCE6371E387BF0136F666F4435D41E8C5E584BAAD412"
+  },
+  "previous_upstream": {
+    "repository": "https://github.com/TieruYT/metin2-playerbots",
+    "synced_version": "2.2.38",
+    "engine_package_sha256": "ADB56D7349D24B5BBE5FB29189ADE2C5664CC9892C40D28F9B9D87624D7698D3"
   }
 }
