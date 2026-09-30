@@ -9625,6 +9625,82 @@ renders which file, why the player's tree is still called `linux-port` (the
 
 ## Upstream sync and releases
 
+**Since 2.17.0 the upstream is MT2009 PLUS** (zaxerrrr-dot/mt2009-sp-plus,
+ZAXEP and SIZOWSKI), not Tieru's project. It started from Tieru's server,
+publishes its source in git under the same CC BY-NC-SA 4.0 (LICENSE and
+NOTICE.md name both projects, and the attribution lines stay), and keeps its
+releases in the repository itself: `releases/metin2-server-update-X.zip` in
+git and the client zips as GitHub releases `klient-vX`. What that changed:
+
+- **A sync is a three-way merge of its git**, base = the commit in
+  `tools/upstream-sync.json` (`synced_commit`), theirs = its new commit.
+  Export both with `git archive` (leave out `releases/` and
+  `client-patches/`, which hold hundreds of megabytes) and merge file by
+  file. Its layout is a package's, so map its `linux-port/docker/{game,
+  mariadb,ENGINE}`, `linux-port/docker/.env.example`, `linux-port/tools/`
+  and `linux-port/docker/docker-compose.yml` onto `linux-port-mt2009/...`
+  (the compose file onto `docker-compose.deploy.yml`). The shared
+  `linux-port/docker/{panel,itemshop,seban-panel,updater}` and the overlay
+  map onto themselves; its staged `panel/app/admin_panel.py` is
+  `files/admin_panel.py` here. `python tools/sync-upstream-git.py <clone>
+  <commit>` does all of it; run over the tree before the 2.16.0 sync, it
+  gave this repository's merge byte for byte. CHANGELOG, VERSION,
+  CLIENT_VERSION, MOD_VERSION,
+  its manifest, `client-files.json`, `launcher/server-update-files.mod.txt`
+  and `server-patches/` are read, not merged. The engine files come from its
+  release zip at that commit (`engine_package`), and a file its engine
+  changed must be in `launcher/server-update-files.mt2009.txt`.
+- **Its data ships byte for byte.** Its game data is CRLF and the engine's
+  readers have only met those bytes, so every data directory it adds gets a
+  `-text` line in `.gitattributes` (dungeons, ochao, treasure_hunt, arezzo,
+  the `.mt2009plus` SQL, `mod/*.sql`). After a merge, compare every file you
+  took with its bytes in the export. `git add` normalises a directory with
+  no such line.
+- **The generators are stale.** `apply.sh`, the seed, `.env.example`, both
+  compose files and the client root follow MT2009 PLUS directly now.
+  migratorify, seedify, envify, composify and clientrootify would render
+  over the merge and undo it, so do not run them. The dev compose file is
+  the deploy one without its three header lines, with the four shared
+  contexts pointed at `../../linux-port/docker/<name>`.
+- **The client is its client with ours on top.** `client-root`,
+  `client-locale` and `client-coop` are rebased onto each of its client
+  packages in two commits. The first sets every tracked file, plus every
+  file its new pack changed, to the pack's bytes (`git hash-object
+  --no-filters`, or the eol attributes rewrite the CRLF). The second is our
+  change on top, a three-way merge with the previous pack as the base. The
+  first commit is `client_rebase.since` in `tools/upstream-sync.json`, and
+  its package is `client_rebase.url`. The publish workflow builds the next
+  client from that package once, then from ours; remove `client_rebase`
+  after that release. `EXE_STRING_PATCHES` points its exe's Discord button
+  at GitHub, and its patcher (`MT2009-Patcher.exe`) is never shipped. Its
+  `pack/Index` lists `gf_official`, `lightbearer`, `acce` and
+  `death_ruler`, which no update zip carries. They are in the stock `*`
+  part of the Index, which is every player's base client; its own entries
+  are appended at the end.
+- **Polish only.** The English layer, the other languages and
+  `apply_person_language*` are gone (the user's decision). The notes below
+  about English status lines, `PBT(en, pl)`, `english_gui.py` and the
+  language quest describe code that is no longer here.
+- **Its ItemShop replaces ours.** `mod/10_ingame_itemshop.sql` rewrites
+  `common.itemshop_items` once per install. Our mount seals (801-899,
+  `mount_seals.quest`, `apply_ride_seal_equip`,
+  `apply_costume_mount_allowed`) are gone; its mounts are costumes.
+- **Keys:** U is its pet window and X its dungeon panel, so our bonus
+  switcher is on 0. Every letter is bound; take a key from what
+  `app.DIK_*` the exe exports (`strings` on `metin2client.exe`).
+- **Numbering:** above both lines. It released 2.16.0 / client 2.0.30 on the
+  day we moved (30 September), over our 2.2.42 / client 2.0.54, so the move
+  is 2.17.0 / client 2.0.55. Its changelog sections go under ours verbatim,
+  with a note that its client numbers are its own.
+- Keep ours: COOP ungated (it gates hosting behind a password too), our
+  update channel (the launcher, `update.sh` and the panels refuse both
+  upstreams), the three guild smiths and the build refusals (the only engine
+  edits its 2.16.0 package did not already carry), the bonus switcher, VPS,
+  and the refine dialog's cancel.
+
+What follows is the history of the Tieru line, kept because its traps still
+apply to code that came from there.
+
 This repository started as a copy of an upstream project that still releases
 on its own. `sh tools/sync-upstream.sh` brings its new commits in as one
 change (never its commit history), re-points its repository links here, and

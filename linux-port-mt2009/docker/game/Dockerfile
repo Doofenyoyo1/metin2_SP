@@ -223,7 +223,7 @@ RUN set -eux; \
     # and anti-experience ring (autohunt_time, antiexp_ring; 2.2.27).
     # pc.warp_channel for the panels' teleport to a bot on another channel
     # (web_admin; 2.2.42).
-    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.mount item.get_vnum pc.is_playerbot affect.get_duration pc.has_affect pc.warp_channel; do \
+    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.is_playerbot affect.get_duration pc.has_affect pc.warp_channel; do \
       grep -qx "$fn" /tmp/qc-work/quest_functions || echo "$fn" >> /tmp/qc-work/quest_functions; \
     done; \
     # pony_levelup is the package's own stable-keeper quest with the 18-hour
