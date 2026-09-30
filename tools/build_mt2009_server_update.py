@@ -66,7 +66,17 @@ ENGINE_EDITS = ['apply_sidekick_quest_kill_credit',
 # MT2009 PLUS's notes on its own releases and packaging (its update channel,
 # its mod list, its package list), which this project does not publish.
 NOT_OURS = {'AKTUALIZACJE_MOD.md', 'MODS_PL.md', 'MOD_VERSION', 'SERWER_PL.md',
-            'launcher/server-update-files.mod.txt'}
+            'launcher/server-update-files.mod.txt',
+            # Seban's host-side scripts and notes, which his own .gitignore
+            # keeps out of the panel: nothing in our images runs them.
+            'linux-port/docker/seban-panel/AKTUALIZATOR_PROSTO.md',
+            'linux-port/docker/seban-panel/UPDATER_VPS.md',
+            'linux-port/docker/seban-panel/deploy_map_names.sh',
+            'linux-port/docker/seban-panel/deploy_new_item_icons.sh',
+            'linux-port/docker/seban-panel/deploy_new_maps.sh',
+            'linux-port/docker/seban-panel/deploy_new_maps_v2.sh',
+            'linux-port/docker/seban-panel/patch_grant_quest.py',
+            'linux-port/docker/seban-panel/rebuild_item_icons_from_item_list.sh'}
 
 
 def published(rel):
