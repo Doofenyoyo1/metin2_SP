@@ -211,6 +211,79 @@ db -e "UPDATE world.shop_special_proto SET limitvalue0 = 30 WHERE item_vnum = 27
 # a player ("caly czas nie dziala pierscien teleportu", 16 September).
 # The ring is dragged onto nothing; the flag comes off. Idempotent.
 db -e "UPDATE world.item_proto SET flag = flag & ~8192 WHERE vnum = 70058 AND (flag & 8192) <> 0;"
+
+# MT2009 Plus: every item the mod's world has (item_proto.mt2009plus.sql,
+# the full package's world.item_proto), added where this world lacks it. A
+# world made from another dump - Tieru's, or one the launcher made anew when
+# it lost its identity - had no Amethyst (170000...), and every game core
+# died at boot on special_item_group.txt ("there is no item 170000"), so a
+# login got through the auth core and then nowhere. INSERT IGNORE: a row
+# that is there is never changed. Every start; a failure never stops it.
+if [ -s /opt/playerbot/item_proto.mt2009plus.sql ]; then
+    ip_before=$(db -N -e "SELECT COUNT(*) FROM world.item_proto" 2>/dev/null || echo 0)
+    if db < /opt/playerbot/item_proto.mt2009plus.sql; then
+        ip_after=$(db -N -e "SELECT COUNT(*) FROM world.item_proto" 2>/dev/null || echo 0)
+        echo "[playerbot-migrate] mod items: $((ip_after - ip_before)) missing item(s) added to world.item_proto ($ip_after in all)"
+    else
+        echo "[playerbot-migrate] WARNING: could not add the mod's items to world.item_proto" >&2
+    fi
+fi
+
+# MT2009 Plus: the monsters the same way (mob_proto.mt2009plus.sql, the full
+# package's world.mob_proto). A world from another dump had the costume
+# pack's mount and pet seals from the file above and not their monsters, so
+# a mount "failed to spawn (missing mob_proto row?)" and said "already on a
+# horse" the next time, and a pet never came (a player's support bundle,
+# 27 September). INSERT IGNORE: a row that is there is never changed.
+if [ -s /opt/playerbot/mob_proto.mt2009plus.sql ]; then
+    mp_before=$(db -N -e "SELECT COUNT(*) FROM world.mob_proto" 2>/dev/null || echo 0)
+    if db < /opt/playerbot/mob_proto.mt2009plus.sql; then
+        mp_after=$(db -N -e "SELECT COUNT(*) FROM world.mob_proto" 2>/dev/null || echo 0)
+        echo "[playerbot-migrate] mod monsters: $((mp_after - mp_before)) missing monster(s) added to world.mob_proto ($mp_after in all)"
+    else
+        echo "[playerbot-migrate] WARNING: could not add the mod's monsters to world.mob_proto" >&2
+    fi
+fi
+
+# MT2009 Plus: Cor Draconis and every sash may be handed to another player
+# and put in a private/offline shop.  The engine checks GIVE (1 << 13) for an
+# exchange and GIVE|MYSHOP (1 << 13, 1 << 16) for a shop, so clear precisely
+# those two bits and preserve DROP, PKDROP and every unrelated restriction.
+# Run this on every start rather than once: an upstream item_proto import may
+# restore the old flags, and the UPDATE is idempotent.
+trade_mask=$((8192 + 65536))
+db -e "
+    UPDATE world.item_proto
+       SET antiflag = antiflag & ~$trade_mask
+     WHERE (
+            vnum IN (
+                50252,50255,50256,50257,50258,50259,50260,
+                51501,51502,51503,51504,51505,51506,51507,51508,51509,51510,
+                51541,51548,51549,51562,51569,51576,51583,51590,51597,
+                51604,51611,51618,51625,51632,76040
+            )
+            OR vnum BETWEEN 85001 AND 85024
+            OR vnum BETWEEN 85101 AND 85104
+            OR vnum BETWEEN 86061 AND 86064
+       )
+       AND (antiflag & $trade_mask) <> 0;
+"
+echo "[playerbot-migrate] Cor Draconis and sashes: player trade enabled"
+
+# MT2009 Plus (26 September 2026): the Dragon Stones (110000-175499) trade and
+# go on a shop at every grade - the lower three carried GIVE|MYSHOP, so a
+# normal, brilliant or rare stone could be neither handed on nor sold - and
+# the Alchemist's Time Elixir (D) costs 5 000 000 instead of 10 000 000. Every
+# start, idempotent; the db core reads world.item_proto at boot.
+db -e "
+    UPDATE world.item_proto
+       SET antiflag = antiflag & ~$trade_mask
+     WHERE vnum BETWEEN 110000 AND 175499
+       AND (antiflag & $trade_mask) <> 0;
+    UPDATE world.item_proto SET gold = 5000000 WHERE vnum = 100002 AND gold <> 5000000;
+" && echo "[playerbot-migrate] alchemy: Dragon Stones tradeable, Time Elixir (D) 5 000 000" \
+  || echo "[playerbot-migrate] WARNING: alchemy item_proto changes failed" >&2
+
 # The Grotto of Exile's warp in Orc Valley's bottom-left corner (10077,
 # commented again since 2.2.22, when Koe-Pung took the way in; kept right for a
 # GM who puts it back) reads its target out of its own locale_name
@@ -262,6 +335,14 @@ db -e "UPDATE world.item_proto SET stack = 200 WHERE (type IN (17, 22) OR vnum =
 # up. ASCII names: db() speaks latin1 into the cp1250 columns. A line the
 # operator changed by hand is kept (INSERT IGNORE). Idempotent.
 db -e "UPDATE world.item_proto SET locale_name = 'Auto Lowy (8h)', flag = flag | 4, antiflag = 74112 WHERE vnum = 31073 AND locale_name <> 'Auto Lowy (8h)'; UPDATE world.item_proto SET locale_name = 'Pierscien Anty-Exp', flag = 0, antiflag = 41344 WHERE vnum = 40002 AND locale_name <> 'Pierscien Anty-Exp'; INSERT IGNORE INTO common.itemshop_items (\`index\`, vnum, count, price, currency, minLevel) VALUES (6, 31073, 1, 29, 'DRAGON_COIN', 0), (7, 40002, 1, 99, 'DRAGON_COIN', 0), (8, 70058, 1, 149, 'DRAGON_COIN', 30);" || echo "[playerbot-migrate] WARNING: could not add the ItemShop's Auto Lowy ticket and rings" >&2
+# Three names in the shipped dumps end in a line break (Magiczny Kamien 25042,
+# Gwiazda Nocy 50731, Sniezny Kwiat 50732: "\r\n" inside the quotes). A name
+# goes into server commands a client splits on whitespace, and the GM panel's
+# item list broke there ("__GMPanelItemListChunk() takes exactly 2 arguments
+# (3 given)", a player's syserr, 27 September). Control characters are taken
+# out of every name, on every start; a clean name is not touched.
+db -e "UPDATE world.item_proto SET locale_name = REGEXP_REPLACE(locale_name, '[[:cntrl:]]+', '') WHERE locale_name REGEXP '[[:cntrl:]]';" \
+    || echo "[playerbot-migrate] WARNING: could not clean the line breaks out of item names" >&2
 # Maska Sabaha left the world with the Hwang curse (playerbotify
 # apply_hwang_curse_removed, the share step of the game Dockerfile): the shop
 # that sold one sells it no more. The db core reads the shops at boot, so this
@@ -307,6 +388,14 @@ db -e "CREATE TABLE IF NOT EXISTS player.playerbot_guild (guild_id INT UNSIGNED 
 # restart every update makes.
 db -e "ALTER TABLE player.playerbot_guild ADD COLUMN IF NOT EXISTS last_war_at INT UNSIGNED NOT NULL DEFAULT 0;" \
     || echo "playerbot-migrate: could not add last_war_at to player.playerbot_guild" >&2
+# A bot guild's land and buildings (playerbot_guild_land.h): the fund for the
+# building materials its master holds, and every payment its members made to
+# a collection ("zrzutka") - who, how much, for what - for the panel and for
+# anybody who wants to check it was fair. Idempotent.
+db -e "ALTER TABLE player.playerbot_guild ADD COLUMN IF NOT EXISTS build_fund BIGINT NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS fund_holder INT UNSIGNED NOT NULL DEFAULT 0;" \
+    || echo "playerbot-migrate: could not add the building fund to player.playerbot_guild" >&2
+db -e "CREATE TABLE IF NOT EXISTS player.playerbot_guild_contribution (id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, guild_id INT UNSIGNED NOT NULL, pid INT UNSIGNED NOT NULL, amount BIGINT NOT NULL, purpose VARCHAR(24) NOT NULL, at DATETIME NOT NULL, KEY guild_at (guild_id, at)) ENGINE=InnoDB;" \
+    || echo "playerbot-migrate: could not create player.playerbot_guild_contribution" >&2
 # The second channel's pins (playerbot_channel_rules.h): every bot that has
 # ever kept an offline shop lives on the first channel for good, because the
 # shops are the first channel's. The table only grows - each core adds the
@@ -441,100 +530,11 @@ if [ "$rescue_done" = "0" ]; then
         echo "[playerbot-migrate] WARNING: could not move the characters out of the Grotto and the Catacomb" >&2
     fi
 fi
-# The bonus table as the global server has it (sosen's list, 27 September):
-# Max HP to 2000, Max SP to 80 (200 on a necklace), regeneration to 30, no
-# stamina, skill-duration, arrow-reflection or flat-experience lines, and fire,
-# lightning and wind resistance, the double-experience and the item-drop
-# chances added. Once, and only over the package's own values.
-attr_done=$(db -e "SELECT COUNT(*) FROM player.playerbot_migrations WHERE name = 'item_attr_global_2231';" 2>/dev/null || echo x)
-if [ "$attr_done" = "0" ]; then
-    if attr_out=$(db -e "
-        START TRANSACTION;
-        UPDATE world.item_attr SET prob = 35, lv1 = 500, lv2 = 500, lv3 = 1000, lv4 = 1500, lv5 = 2000
-         WHERE apply = 'POINT_MAX_HP' AND lv1 = 300 AND lv2 = 500 AND lv3 = 800 AND lv4 = 1000 AND lv5 = 1500;
-        UPDATE world.item_attr SET lv1 = 10, lv2 = 20, lv3 = 30, lv4 = 80, lv5 = 200, wrist = 4, foots = 4, neck = 5
-         WHERE apply = 'POINT_MAX_SP' AND lv1 = 20 AND lv2 = 50 AND lv3 = 90 AND lv4 = 140 AND lv5 = 250;
-        UPDATE world.item_attr SET lv1 = 4, lv2 = 8, lv3 = 12, lv4 = 20, lv5 = 30
-         WHERE apply IN ('POINT_HP_REGEN', 'POINT_SP_REGEN') AND lv1 = 2 AND lv2 = 4 AND lv3 = 6 AND lv4 = 8 AND lv5 = 12;
-        UPDATE world.item_attr SET weapon = 0, body = 0, wrist = 0, foots = 0, neck = 0, head = 0, shield = 0, ear = 0
-         WHERE apply IN ('POINT_MAX_STAMINA', 'POINT_ST_REGEN', 'POINT_SKILL_DURATION', 'POINT_REFLECT_ARROW', 'POINT_MALL_EXPBONUS');
-        INSERT INTO world.item_attr (apply, prob, lv1, lv2, lv3, lv4, lv5, weapon, body, wrist, foots, neck, head, shield, ear)
-        SELECT n.a, n.p, n.l1, n.l2, n.l3, n.l4, n.l5, n.w, n.b, n.wr, n.f, n.ne, n.h, n.s, n.e FROM (
-            SELECT 'POINT_RESIST_FIRE' AS a, 18 AS p, 2 AS l1, 4 AS l2, 6 AS l3, 10 AS l4, 15 AS l5, 0 AS w, 5 AS b, 5 AS wr, 0 AS f, 0 AS ne, 5 AS h, 0 AS s, 0 AS e
-            UNION ALL SELECT 'POINT_RESIST_ELEC', 18, 2, 4, 6, 10, 15, 0, 5, 5, 0, 0, 5, 0, 0
-            UNION ALL SELECT 'POINT_RESIST_WIND', 18, 2, 4, 6, 10, 15, 0, 5, 5, 0, 0, 5, 0, 0
-            UNION ALL SELECT 'POINT_EXP_DOUBLE_BONUS', 10, 2, 4, 6, 8, 20, 0, 0, 0, 5, 5, 0, 5, 0
-            UNION ALL SELECT 'POINT_ITEM_DROP_BONUS', 7, 2, 4, 6, 8, 20, 0, 0, 5, 0, 0, 0, 0, 5) AS n
-         WHERE NOT EXISTS (SELECT 1 FROM world.item_attr AS x WHERE x.apply = n.a);
-        SELECT ROW_COUNT();
-        INSERT IGNORE INTO player.playerbot_migrations (name, done_at) VALUES ('item_attr_global_2231', NOW());
-        COMMIT;
-    "); then
-        echo "[playerbot-migrate] bonus table as the global server has it: $(printf '%s' "$attr_out" | tr -d ' \r\n') line(s) added"
-    else
-        echo "[playerbot-migrate] WARNING: could not change the bonus table" >&2
-    fi
-fi
-# r40250's monster elements: lightning (bit 11) and wind (bit 14) back on the
-# monsters the official data gives them (47 and 63), off the ones the package
-# put the bits on. A resistance line works against a monster's element
-# (apply_elemental_resistances). Once.
-elem_done=$(db -e "SELECT COUNT(*) FROM player.playerbot_migrations WHERE name = 'mob_elements_r40250_2231';" 2>/dev/null || echo x)
-if [ "$elem_done" = "0" ]; then
-    if elem_out=$(db -e "
-        START TRANSACTION;
-        UPDATE world.mob_proto SET setRaceFlag = (setRaceFlag + 0) & ~2048
-         WHERE ((setRaceFlag + 0) & 2048) <> 0 AND vnum NOT IN (1306, 1307, 1308, 1309, 1310, 1334, 1401, 1402, 1403, 1601, 1602, 1603, 2401, 2402, 2403, 2404, 2411, 2412, 2413, 2414, 2431, 2432, 2433, 2434, 2451, 2452, 2453, 2454, 2491, 2492, 2493, 2494, 2495, 3101, 3102, 3103, 3104, 3105, 3190, 3191, 3551, 3552, 3553, 3554, 3555, 3595, 3596);
-        UPDATE world.mob_proto SET setRaceFlag = (setRaceFlag + 0) | 2048
-         WHERE vnum IN (1306, 1307, 1308, 1309, 1310, 1334, 1401, 1402, 1403, 1601, 1602, 1603, 2401, 2402, 2403, 2404, 2411, 2412, 2413, 2414, 2431, 2432, 2433, 2434, 2451, 2452, 2453, 2454, 2491, 2492, 2493, 2494, 2495, 3101, 3102, 3103, 3104, 3105, 3190, 3191, 3551, 3552, 3553, 3554, 3555, 3595, 3596);
-        UPDATE world.mob_proto SET setRaceFlag = (setRaceFlag + 0) & ~16384
-         WHERE ((setRaceFlag + 0) & 16384) <> 0 AND vnum NOT IN (701, 702, 703, 704, 705, 706, 707, 731, 732, 733, 734, 735, 736, 737, 751, 752, 753, 754, 755, 756, 757, 771, 772, 773, 774, 775, 776, 777, 791, 792, 793, 794, 795, 796, 1301, 1302, 1303, 1304, 1305, 1331, 1332, 1333, 1335, 2091, 2092, 2093, 2094, 2095, 2191, 2192, 3201, 3202, 3203, 3204, 3205, 3290, 3291, 3301, 3302, 3303, 3304, 3305, 3390);
-        UPDATE world.mob_proto SET setRaceFlag = (setRaceFlag + 0) | 16384
-         WHERE vnum IN (701, 702, 703, 704, 705, 706, 707, 731, 732, 733, 734, 735, 736, 737, 751, 752, 753, 754, 755, 756, 757, 771, 772, 773, 774, 775, 776, 777, 791, 792, 793, 794, 795, 796, 1301, 1302, 1303, 1304, 1305, 1331, 1332, 1333, 1335, 2091, 2092, 2093, 2094, 2095, 2191, 2192, 3201, 3202, 3203, 3204, 3205, 3290, 3291, 3301, 3302, 3303, 3304, 3305, 3390);
-        SELECT SUM(((setRaceFlag + 0) & 2048) <> 0), SUM(((setRaceFlag + 0) & 16384) <> 0) FROM world.mob_proto;
-        INSERT IGNORE INTO player.playerbot_migrations (name, done_at) VALUES ('mob_elements_r40250_2231', NOW());
-        COMMIT;
-    "); then
-        echo "[playerbot-migrate] monster elements as r40250 has them (lightning, wind): $(printf '%s' "$elem_out" | tr '\t\r\n' '   ')"
-    else
-        echo "[playerbot-migrate] WARNING: could not set the monster elements" >&2
-    fi
-fi
-# The bonus table back to the package's (the operator, 27 September), with
-# Max HP at 500, 1000, 1500 and 2000: what item_attr_global_2231 changed goes
-# back to world.sql's rows and its five added lines come out (an item that
-# rolled one keeps it). Only over what 2231 or the package wrote. Once.
-attr_back=$(db -e "SELECT COUNT(*) FROM player.playerbot_migrations WHERE name = 'item_attr_mt2009_2232';" 2>/dev/null || echo x)
-if [ "$attr_back" = "0" ]; then
-    if attr_back_out=$(db -e "
-        START TRANSACTION;
-        UPDATE world.item_attr SET prob = 28, lv1 = 500, lv2 = 500, lv3 = 1000, lv4 = 1500, lv5 = 2000
-         WHERE apply = 'POINT_MAX_HP' AND ((prob = 35 AND lv1 = 500 AND lv2 = 500 AND lv3 = 1000 AND lv4 = 1500 AND lv5 = 2000)
-            OR (lv1 = 300 AND lv2 = 500 AND lv3 = 800 AND lv4 = 1000 AND lv5 = 1500));
-        UPDATE world.item_attr SET lv1 = 20, lv2 = 50, lv3 = 90, lv4 = 140, lv5 = 250, wrist = 5, foots = 5, neck = 5
-         WHERE apply = 'POINT_MAX_SP' AND lv1 = 10 AND lv2 = 20 AND lv3 = 30 AND lv4 = 80 AND lv5 = 200;
-        UPDATE world.item_attr SET lv1 = 2, lv2 = 4, lv3 = 6, lv4 = 8, lv5 = 12
-         WHERE apply IN ('POINT_HP_REGEN', 'POINT_SP_REGEN') AND lv1 = 4 AND lv2 = 8 AND lv3 = 12 AND lv4 = 20 AND lv5 = 30;
-        UPDATE world.item_attr SET body = 5, wrist = 5, head = 5
-         WHERE apply IN ('POINT_MAX_STAMINA', 'POINT_ST_REGEN', 'POINT_SKILL_DURATION')
-           AND weapon = 0 AND body = 0 AND wrist = 0 AND foots = 0 AND neck = 0 AND head = 0 AND shield = 0 AND ear = 0;
-        UPDATE world.item_attr SET wrist = 5, ear = 5
-         WHERE apply = 'POINT_REFLECT_ARROW'
-           AND weapon = 0 AND body = 0 AND wrist = 0 AND foots = 0 AND neck = 0 AND head = 0 AND shield = 0 AND ear = 0;
-        UPDATE world.item_attr SET foots = 5, neck = 5, shield = 5
-         WHERE apply = 'POINT_MALL_EXPBONUS'
-           AND weapon = 0 AND body = 0 AND wrist = 0 AND foots = 0 AND neck = 0 AND head = 0 AND shield = 0 AND ear = 0;
-        DELETE FROM world.item_attr WHERE apply IN ('POINT_RESIST_FIRE', 'POINT_RESIST_ELEC', 'POINT_RESIST_WIND',
-            'POINT_EXP_DOUBLE_BONUS', 'POINT_ITEM_DROP_BONUS');
-        SELECT ROW_COUNT();
-        INSERT IGNORE INTO player.playerbot_migrations (name, done_at) VALUES ('item_attr_mt2009_2232', NOW());
-        COMMIT;
-    "); then
-        echo "[playerbot-migrate] bonus table as the package has it, Max HP 500-2000: $(printf '%s' "$attr_back_out" | tr -d ' \r\n') added line(s) taken out"
-    else
-        echo "[playerbot-migrate] WARNING: could not put the bonus table back" >&2
-    fi
-fi
+# Smoczy Skowyt (93) cast at a target (server-patches/dragonroartarget) hurts a
+# circle round that target of dwSplashRange: 500, the package's, left half a
+# pack standing ("nie wszystkie trafiaja", the operator, 28 September). 900,
+# only over the package's own 500; skill_proto is read at the cores' start.
+db -e "UPDATE world.skill_proto SET dwSplashRange = 900 WHERE dwVnum = 93 AND dwSplashRange = 500;" || echo "[playerbot-migrate] WARNING: could not widen Smoczy Skowyt's splash" >&2
 # Broszura Szermierki (70031), Seon-Pyeong's recipe material, stacks to the
 # 200 its row already says: the package left ITEM_FLAG_STACKABLE off, so
 # every brochure took a cell (NerrVoVy, 27 September), as Tanaka's ear did.
@@ -900,154 +900,6 @@ if [ "$(db -e "SELECT COUNT(*) FROM information_schema.tables
     fi
 fi
 
-# The world's mounts, in the in-game ItemShop (CItemShopManager, read by the
-# db core out of common.itemshop_items at boot), in the range 801-899 that the
-# client's shop window shows as "Wierzchowce" (uiitemshop.py).
-#
-# 2.1.2 put them at 701-799 and listed only ITEM_COSTUME / COSTUME_MOUNT (28/2).
-# Both were wrong for this package, measured on a player's world (23
-# September): its own Dragon Mark goods already stand at 701-713, so the tab
-# showed them a second time beside "Smocze znaki", and world.item_proto holds
-# no mount costume at all - costumes are subtype 0 (307) and 1 (395) only. Its
-# mounts are the ride seals, ITEM_UNIQUE / UNIQUE_SPECIAL_RIDE (16/2): worn in a
-# unique slot, EquipItem hands one to the quest as sig_use and mount_seals.quest
-# puts the rider on the animal. The four war seals are the ones whose animals
-# the world's mob_proto names (20115-20118); the other seals wait for theirs.
-#
-# A ride seal's value0 is its time in minutes, counted by unique_expire_event
-# only while it is worn, and ITEM_MANAGER::CreateItem copies it into the new
-# seal; M2_ITEMSHOP_MOUNT_HOURS sets it for the four (30 by default, the
-# package's 28800 minutes being twenty days). A seal already made keeps the
-# time it was made with. A costume mount, on a world that has one, is listed
-# as before. A mount already in the shop, at any index, is left where it is -
-# except a costume mount 2.1.2 put in the Dragon Mark range, which moves; one
-# the operator deleted comes back at the next start, unless .env says
-# M2_ITEMSHOP_MOUNTS=0. The price is M2_ITEMSHOP_MOUNT_PRICE Dragon Coins.
-#
-# The table's columns are not in any file this project carries (the db core's
-# loader ships only as a binary), so they are read from information_schema and
-# a new row is a copy of the shop's first hairstyle row - the kind the bots buy
-# and wear every day - with the index, the item, the count and the price put in
-# and any promotion or auction number cleared. A table this cannot read, or a
-# shop with no hairstyle to copy, is left untouched and says so.
-ishop_on=$(printf '%s' "${M2_ITEMSHOP_MOUNTS:-1}" | tr 'A-Z' 'a-z' | tr -d ' \r')
-ishop_price=$(printf '%s\n' "${M2_ITEMSHOP_MOUNT_PRICE:-500}" | tr -d ' \r' | awk '{ v = $1 + 0; if (v < 1 || v > 100000) v = 500; printf "%d", v }')
-ishop_hours=$(printf '%s\n' "${M2_ITEMSHOP_MOUNT_HOURS:-30}" | tr -d ' \r' | awk '{ v = $1 + 0; if (v < 1 || v > 8760) v = 30; printf "%d", v }')
-# The seals mount_seals.quest can put a rider on; keep the two lists together.
-ishop_seals='71125, 71126, 71127, 71128'
-# What the tab lists: a mount costume whose apply names a mount, or a ride seal
-# the quest knows.
-ishop_mount_items="((p.type = 28 AND p.subtype = 2
-                      AND EXISTS (SELECT 1 FROM world.mob_proto AS m
-                                   WHERE m.vnum >= 20000 AND m.vnum IN (p.applyvalue0, p.applyvalue1, p.applyvalue2)))
-                  OR (p.type = 16 AND p.subtype = 2 AND p.vnum IN ($ishop_seals)))"
-case "$ishop_on" in
-    0|off|no|false)
-        echo "[playerbot-migrate] ItemShop mounts: left to the operator (M2_ITEMSHOP_MOUNTS=0)"
-        ;;
-    *)
-        bq='`'
-        # One line a column, '|' between the fields: a tab is IFS whitespace, and
-        # read would fold the empty extra of an ordinary column away.
-        ishop_cols=$(db -e "SELECT CONCAT(column_name, '|', extra, '|', data_type) FROM information_schema.columns
-                             WHERE table_schema = 'common' AND table_name = 'itemshop_items'
-                             ORDER BY ordinal_position;" 2>/dev/null || true)
-        ishop_col() {
-            for want in "$@"; do
-                hit=$(printf '%s\n' "$ishop_cols" | awk -F'|' -v w="$want" 'tolower($1) == w { print $1; exit }')
-                if [ -n "$hit" ]; then
-                    printf '%s' "$hit"
-                    return 0
-                fi
-            done
-            return 1
-        }
-        c_idx=$(ishop_col index item_index idx id || true)
-        c_vnum=$(ishop_col vnum item_vnum || true)
-        c_count=$(ishop_col count item_count amount || true)
-        c_price=$(ishop_col price item_price || true)
-        if [ -z "$ishop_cols" ]; then
-            echo "[playerbot-migrate] ItemShop mounts: no common.itemshop_items on this world; nothing listed"
-        elif [ -z "$c_idx" ] || [ -z "$c_vnum" ] || [ -z "$c_count" ] || [ -z "$c_price" ]; then
-            echo "[playerbot-migrate] WARNING: ItemShop mounts: common.itemshop_items has columns this step does not know ($(printf '%s\n' "$ishop_cols" | awk -F'|' '{ printf "%s%s", s, $1; s = " " }')); nothing listed" >&2
-        else
-            ins=''
-            sel=''
-            while IFS='|' read -r col extra dtype; do
-                [ -n "$col" ] || continue
-                lc=$(printf '%s' "$col" | tr 'A-Z' 'a-z')
-                if [ "$col" = "$c_idx" ]; then
-                    v='n.idx'
-                elif [ "$col" = "$c_vnum" ]; then
-                    v='n.vnum'
-                elif [ "$col" = "$c_count" ]; then
-                    v='1'
-                elif [ "$col" = "$c_price" ]; then
-                    v="$ishop_price"
-                else
-                    case "$extra" in
-                        *auto_increment*) v='NULL' ;;
-                        *)
-                            case "$lc:$dtype" in
-                                *promo*:*int|*auction*:*int|*promo*:decimal|*auction*:decimal) v='0' ;;
-                                *) v="t.$bq$col$bq" ;;
-                            esac
-                            ;;
-                    esac
-                fi
-                ins="$ins${ins:+, }$bq$col$bq"
-                sel="$sel${sel:+, }$v"
-            done <<EOF
-$ishop_cols
-EOF
-            I="$bq$c_idx$bq"
-            V="$bq$c_vnum$bq"
-            # The seals' worn time, in minutes. Only while it is worn does it
-            # count (value2 = 0), and only a seal made from now on takes it.
-            db -e "UPDATE world.item_proto SET value0 = $ishop_hours * 60
-                    WHERE type = 16 AND subtype = 2 AND value2 = 0 AND vnum IN ($ishop_seals)
-                      AND value0 <> $ishop_hours * 60;" 2>/dev/null \
-                || echo "[playerbot-migrate] WARNING: ItemShop mounts: the seals' time could not be set" >&2
-            # 2.1.2 listed mount costumes at 701-799, where the package keeps its
-            # Dragon Mark goods; a row of ours there goes, to come back at 801.
-            # (A multi-table DELETE with an alias wants a default database, and
-            # the migrator runs with none.)
-            db -e "DELETE FROM common.itemshop_items
-                    WHERE $I BETWEEN 701 AND 799
-                      AND $V IN (SELECT vnum FROM world.item_proto WHERE type = 28 AND subtype = 2);" 2>/dev/null || true
-            mounts_in_world=$(db -e "SELECT COUNT(*) FROM world.item_proto AS p
-                 WHERE $ishop_mount_items;" 2>/dev/null || echo x)
-            ishop_template=$(db -e "SELECT MIN(i.$I) FROM common.itemshop_items AS i
-                                      JOIN world.item_proto AS h ON h.vnum = i.$V
-                                     WHERE h.type = 28 AND h.subtype = 1;" 2>/dev/null | tr -d '[:space:]')
-            case "$ishop_template" in
-                ''|NULL|*[!0-9]*) ishop_template= ;;
-            esac
-            if [ -z "$ishop_template" ]; then
-                echo "[playerbot-migrate] WARNING: ItemShop mounts: the shop has no hairstyle row to copy; nothing listed" >&2
-            elif ishop_added=$(db -e "
-                INSERT INTO common.itemshop_items ($ins)
-                SELECT $sel
-                  FROM (SELECT c.vnum, b.base + ROW_NUMBER() OVER (ORDER BY c.vnum) AS idx
-                          FROM (SELECT p.vnum FROM world.item_proto AS p
-                                 WHERE $ishop_mount_items
-                                   AND p.vnum NOT IN (SELECT $V FROM common.itemshop_items)) AS c
-                         CROSS JOIN (SELECT COALESCE(MAX($I), 800) AS base FROM common.itemshop_items
-                                      WHERE $I BETWEEN 801 AND 899) AS b) AS n
-                  JOIN common.itemshop_items AS t ON t.$I = $ishop_template
-                 WHERE n.idx <= 899;
-                SELECT ROW_COUNT();" 2>/tmp/ishop_mounts.err); then
-                ishop_added=$(printf '%s' "$ishop_added" | tr -d '[:space:]')
-                listed=$(db -e "SELECT COUNT(*) FROM common.itemshop_items WHERE $I BETWEEN 801 AND 899;" 2>/dev/null || echo '?')
-                echo "[playerbot-migrate] ItemShop mounts: ${mounts_in_world} in the world, ${ishop_added:-0} added, ${listed} in the Wierzchowce tab (${ishop_price} Dragon Coins each, ${ishop_hours} h worn)"
-            else
-                echo "[playerbot-migrate] WARNING: ItemShop mounts could not be listed:" >&2
-                head -3 /tmp/ishop_mounts.err >&2
-            fi
-        fi
-        ;;
-esac
-
 # Whether the world is played with Auto Lowy and with the companion
 # (Towarzysz): the launcher's difficulty window writes M2_AUTOHUNT and
 # M2_SIDEKICK, both on unless .env says 0 (25 September, for Drip's
@@ -1091,6 +943,27 @@ if [ "$autohunt_item_env" != "$((autohunt_item + 1))" ]; then
     fi
 fi
 
+# The rare goods' two world switches (server-patches/raretoggle and
+# dragon_soul.quest read them): m2_alchemy_off stops every new Cor Draconis,
+# m2_sash_off every new sash. The admin panel sets them live, so, as with the
+# difficulty, .env is applied only when it changed since the last start
+# (m2_rare_env holds what it said): a switch made in the panel survives a
+# restart until .env is changed, and the one changed last is kept.
+alchemy_off=$(feature_off "${M2_ALCHEMY:-1}")
+sash_off=$(feature_off "${M2_SASHES:-1}")
+rsig=$((alchemy_off * 2 + sash_off + 1))
+rprev=$(db -N -e "SELECT lValue FROM player.quest WHERE dwPID = 0 AND szName = 'm2_rare_env' LIMIT 1" 2>/dev/null | tr -d ' \r')
+if [ -n "$rprev" ] && [ "$rprev" = "$rsig" ]; then
+    echo "[playerbot-migrate] alchemy and sashes: .env unchanged since the last start - the switches stay as the panel or the last start left them"
+elif db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES
+        (0, 'm2_alchemy_off', '', $alchemy_off),
+        (0, 'm2_sash_off', '', $sash_off),
+        (0, 'm2_rare_env', '', $rsig);"; then
+    echo "[playerbot-migrate] alchemy: $([ "$alchemy_off" = 1 ] && echo off || echo on), sashes: $([ "$sash_off" = 1 ] && echo off || echo on)"
+else
+    echo "[playerbot-migrate] WARNING: could not write the alchemy and sash switches; they stay as they were" >&2
+fi
+
 echo "[playerbot-migrate] applying deterministic Playerbot seed (PID $first_pid..$last_pid)"
 result=/tmp/playerbot-seed.out
 trap 'rm -f "$result"' EXIT HUP INT TERM
@@ -1103,38 +976,11 @@ case "${M2_PLAYERBOT_KINGDOMS:-0}" in
     1|true|TRUE|yes|YES) kingdoms=1 ;;
 esac
 echo "[playerbot-migrate] kingdoms (Shinsoo/Jinno) cohorts: $kingdoms"
-# The fresh cohort of game channels 3 and 4 (playerbot_channel_rules.h):
-# its identities are created only while those channels are on - .env's
-# M2_PLAYERBOT_FRESH_CHANNELS, or the web panel's wish (channels.wanted,
-# FRESH= and SET_AT=) when that is newer, as the game container decides it.
-fresh_channels="${M2_PLAYERBOT_FRESH_CHANNELS:-0}"
-fresh_env_at="${M2_PLAYERBOT_CH2_SET_AT:-0}"
-case "$fresh_env_at" in ''|*[!0-9]*) fresh_env_at=0 ;; esac
-if [ -f /opt/m2spool/channels.wanted ]; then
-    wish_on=$(sed -n 's/^CH2=\([01]\)\r\{0,1\}$/\1/p' /opt/m2spool/channels.wanted | head -n 1)
-    wish_fresh=$(sed -n 's/^FRESH=\([0-9]\)\r\{0,1\}$/\1/p' /opt/m2spool/channels.wanted | head -n 1)
-    wish_at=$(sed -n 's/^SET_AT=\([0-9]\{1,12\}\)\r\{0,1\}$/\1/p' /opt/m2spool/channels.wanted | head -n 1)
-    if [ -n "$wish_on" ] && [ -n "$wish_fresh" ] && [ -n "$wish_at" ] && [ "$wish_at" -gt "$fresh_env_at" ]; then
-        fresh_channels="$wish_fresh"
-    fi
-fi
-fresh=0
-case "$fresh_channels" in
-    1|2) fresh=1 ;;
-esac
-fresh_range=$(grep -o 'the fresh cohort is not exactly PID [0-9]*\.\.[0-9]*' "$seed" | head -1 | sed 's/.*PID //')
-fresh_first=${fresh_range%%..*}
-fresh_last=${fresh_range##*..}
-case "${fresh_first:-}${fresh_last:-}" in
-    ''|*[!0-9]*) fresh=0 ;;
-esac
-echo "[playerbot-migrate] fresh cohort (channels 3-4): $fresh"
 # And whether a bot the seed makes now starts with its apprentice chest: the
 # world's switch as the step above left it (off gives none).
 if { printf 'SET @playerbot_seed_kingdoms = %s;
-SET @playerbot_seed_fresh = %s;
 SET @playerbot_seed_starter_chest = %s;
-' "$kingdoms" "$fresh" "$((1 - ${starter_off:-0}))"; cat "$seed"; } |
+' "$kingdoms" "$((1 - ${starter_off:-0}))"; cat "$seed"; } |
         db --show-warnings >"$result" 2>&1; then
     [ ! -s "$result" ] || cat "$result"
 else
@@ -1168,14 +1014,6 @@ if [ "$added" -gt 0 ]; then
     echo "[playerbot-migrate] created $added new bot character(s)"
 fi
 echo "[playerbot-migrate] seed complete: $count bot character(s) in PID $first_pid..$last_pid"
-if [ "$fresh" = 1 ]; then
-    fresh_count=$(db -e "
-        SELECT COUNT(*)
-          FROM common.playerbot_seed_state
-         WHERE pid BETWEEN $fresh_first AND $fresh_last AND state IN ('complete', 'adopted');
-" 2>/dev/null || echo "?")
-    echo "[playerbot-migrate] fresh cohort: $fresh_count identities in PID $fresh_first..$fresh_last (channels 3-4)"
-fi
 
 # ---------------------------------------------------------------------------
 # Human nicknames.
@@ -1264,3 +1102,367 @@ if [ "$gm_rows" = "0" ]; then
         echo "[playerbot-migrate] gmlist is empty and the admin account has no character yet; the first one it gets becomes GM on the next start"
     fi
 fi
+
+# ---------------------------------------------------------------------------
+# MT2009 Plus: our item-shop data (mod/*.sql, made by
+# custom-patches/package/build_release.sh). Each file runs ONCE per install --
+# the marker in player.playerbot_migrations keeps a player's own later shop
+# edits. As root: the web shop's database is created by the root-only schema
+# above. A failure is reported and never stops the server from starting.
+# ---------------------------------------------------------------------------
+for mod_sql in /opt/playerbot/mod/*.sql; do
+    [ -s "$mod_sql" ] || continue
+    mod_name="mod:$(basename "$mod_sql")"
+    mod_done=$(db -e "SELECT COUNT(*) FROM player.playerbot_migrations WHERE name = '$mod_name';" 2>/dev/null || echo x)
+    [ "$mod_done" = "0" ] || continue
+    if [ -z "${M2_DB_ROOT_PASSWORD:-}" ]; then
+        echo "[playerbot-migrate] WARNING: M2_DB_ROOT_PASSWORD not set; $mod_name skipped" >&2
+        continue
+    fi
+    if MYSQL_PWD="$M2_DB_ROOT_PASSWORD" mariadb --protocol=tcp --host="$M2_DB_HOST" \
+            --port="$M2_DB_PORT" --user=root --default-character-set=utf8mb4 \
+            < "$mod_sql" 2>/tmp/mod.err; then
+        db -e "INSERT IGNORE INTO player.playerbot_migrations (name, done_at) VALUES ('$mod_name', NOW());" || true
+        echo "[playerbot-migrate] $mod_name applied"
+    else
+        echo "[playerbot-migrate] WARNING: $mod_name failed:" >&2
+        head -3 /tmp/mod.err >&2 || true
+    fi
+done
+# The ended time auctions again, after the item-shop data: on a new install
+# mod/10_ingame_itemshop.sql runs after the cleanup further up and writes
+# 906-908 back into common.itemshop_time_auctions, whose player rows that
+# cleanup had just removed - and the db core then refused to start ("item_index
+# 906 not found in itemshop_time_auction in player database", 26 September,
+# every CH1 OFF on a fresh 2.8.0). Idempotent.
+db -e "DELETE FROM common.itemshop_time_auctions WHERE item_index IN (906, 907, 908) AND end_time < '2025-01-01'; DELETE FROM player.itemshop_time_auction WHERE item_index IN (906, 907, 908) AND item_index NOT IN (SELECT item_index FROM common.itemshop_time_auctions);" || echo "[playerbot-migrate] WARNING: could not end the ItemShop old time auctions" >&2
+# The ItemShop's Auto Lowy ticket and the two rings once more, after the
+# item-shop data: on a new install mod/10_ingame_itemshop.sql runs after the
+# lines further up, empties common.itemshop_items and writes it back without
+# them. INSERT IGNORE: a line the operator changed by hand is kept.
+db -e "INSERT IGNORE INTO common.itemshop_items (\`index\`, vnum, count, price, currency, minLevel) VALUES (6, 31073, 1, 29, 'DRAGON_COIN', 0), (7, 40002, 1, 99, 'DRAGON_COIN', 0), (8, 70058, 1, 149, 'DRAGON_COIN', 30);" || echo "[playerbot-migrate] WARNING: could not add the ItemShop's Auto Lowy ticket and rings" >&2
+# MT2009 PLUS New Pet System (playerbot_newpet.h, MT2009_PLUS_NEW_PET_V1):
+# the second pet, hatched from an egg and levelled by its owner's kills. Its
+# items (55001-55118, 55401-55411; type ITEM_PET = 37, handled by the game's
+# NewPetUseItem - the ItemShop seals keep PET_UPBRINGING/PET_PAY), the pet
+# mobs (34036-34083, clones of 34001 as the ItemShop pets are; the client's
+# npclist.txt has their models), the ItemShop's pet page lines 40901-40927
+# (eggs, supplies, the pet transporter). MT2009_PLUS_NEW_PET_SHOP_V1: no NPC
+# shop sells a new-pet item - they come from the ItemShop and the Metin drops
+# only (the owner, 29 September); 2.14.0 and older put the Proteinowa
+# Przekaska and the Transporter Peta on the General Store (shop 3, Handlarka),
+# the DELETE below takes them off on every existing install.
+# Last, after the item-shop data (mod/10_ingame_itemshop.sql rewrites
+# common.itemshop_items once per install). INSERT IGNORE: a row the operator
+# changed by hand is kept. The names are UTF-8 here, SET NAMES converts them
+# to the tables' CP1250. The db core reads the protos at boot. Idempotent.
+db -e "SET NAMES utf8mb4;
+DROP TEMPORARY TABLE IF EXISTS world.np_item;
+CREATE TEMPORARY TABLE world.np_item AS SELECT * FROM world.item_proto WHERE vnum = 50513 LIMIT 1;
+UPDATE world.np_item SET vnum = 55401, name = 'Jajo Małpki', locale_name = 'Jajo Małpki', type = 37, subtype = 0, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 5000, shop_buy_price = 5000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55402, name = 'Jajo Pajączka', locale_name = 'Jajo Pajączka', type = 37, subtype = 0, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 5000, shop_buy_price = 5000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55403, name = 'Jajo Mini Razadora', locale_name = 'Jajo Mini Razadora', type = 37, subtype = 0, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 5000, shop_buy_price = 5000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55404, name = 'Jajo Mini Nemere', locale_name = 'Jajo Mini Nemere', type = 37, subtype = 0, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 5000, shop_buy_price = 5000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55405, name = 'Jajo Smoczka', locale_name = 'Jajo Smoczka', type = 37, subtype = 0, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 5000, shop_buy_price = 5000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55406, name = 'Jajo Czerwonego Smoczka', locale_name = 'Jajo Czerwonego Smoczka', type = 37, subtype = 0, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 5000, shop_buy_price = 5000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55409, name = 'Jajo Baashido', locale_name = 'Jajo Baashido', type = 37, subtype = 0, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 5000, shop_buy_price = 5000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55410, name = 'Jajo Nessie', locale_name = 'Jajo Nessie', type = 37, subtype = 0, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 5000, shop_buy_price = 5000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55411, name = 'Jajo Exedyara', locale_name = 'Jajo Exedyara', type = 37, subtype = 0, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 5000, shop_buy_price = 5000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55001, name = 'Proteinowa Przekąska', locale_name = 'Proteinowa Przekąska', type = 37, subtype = 3, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 50000, shop_buy_price = 500, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55002, name = 'Transporter Peta', locale_name = 'Transporter Peta', type = 37, subtype = 2, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 500000, shop_buy_price = 5000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55007, name = 'Transporter z Petem', locale_name = 'Transporter z Petem', type = 37, subtype = 2, stack = 1, size = 1, antiflag = 33024, flag = 0, wearflag = 0, gold = 0, shop_buy_price = 0, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55008, name = 'Zwój Imienia Peta', locale_name = 'Zwój Imienia Peta', type = 37, subtype = 6, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 500, shop_buy_price = 500, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55009, name = 'Skrzynia Ksiąg Peta', locale_name = 'Skrzynia Ksiąg Peta', type = 37, subtype = 2, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55010, name = 'Sztuka Łowcy Metinów', locale_name = 'Sztuka Łowcy Metinów', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 1, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55011, name = 'Sztuka Łowcy Bossów', locale_name = 'Sztuka Łowcy Bossów', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 2, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55012, name = 'Sztuka Łowcy Nieumarłych', locale_name = 'Sztuka Łowcy Nieumarłych', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 3, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55013, name = 'Sztuka Bogobójcy', locale_name = 'Sztuka Bogobójcy', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 4, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55014, name = 'Sztuka Najwyższego Mędrca', locale_name = 'Sztuka Najwyższego Mędrca', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 5, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55015, name = 'Sztuka Łowcy Potworów', locale_name = 'Sztuka Łowcy Potworów', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 6, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55016, name = 'Sztuka Siły', locale_name = 'Sztuka Siły', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 7, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55017, name = 'Sztuka Wiedzy', locale_name = 'Sztuka Wiedzy', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 8, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55018, name = 'Sztuka Cienia', locale_name = 'Sztuka Cienia', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 9, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55019, name = 'Sztuka Łowcy Magii', locale_name = 'Sztuka Łowcy Magii', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 10, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55020, name = 'Sztuka Łowcy Broni', locale_name = 'Sztuka Łowcy Broni', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 11, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55021, name = 'Sztuka Świętej Ochrony', locale_name = 'Sztuka Świętej Ochrony', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 12, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55022, name = 'Sztuka Świętej Zbroi', locale_name = 'Sztuka Świętej Zbroi', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 13, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55023, name = 'Sztuka Bożego Błogosławieństwa', locale_name = 'Sztuka Bożego Błogosławieństwa', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 14, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55024, name = 'Sztuka Najwyższego Wojownika', locale_name = 'Sztuka Najwyższego Wojownika', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 15, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55025, name = 'Sztuka Mistrza Bossów', locale_name = 'Sztuka Mistrza Bossów', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 16, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55026, name = 'Sztuka Świętego Żywiołu', locale_name = 'Sztuka Świętego Żywiołu', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 17, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55027, name = 'Sztuka Mistrza Broni', locale_name = 'Sztuka Mistrza Broni', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 18, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55028, name = 'Sztuka Mistrza Magii', locale_name = 'Sztuka Mistrza Magii', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 19, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55029, name = 'Sztuka Mistrza Łowów', locale_name = 'Sztuka Mistrza Łowów', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 20, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55030, name = 'Sztuka Świętej Wody', locale_name = 'Sztuka Świętej Wody', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 21, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55031, name = 'Sztuka Życia', locale_name = 'Sztuka Życia', type = 37, subtype = 4, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 22, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55032, name = 'Smakołyk', locale_name = 'Smakołyk', type = 37, subtype = 7, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 500, shop_buy_price = 500, value0 = 800000, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55033, name = 'Pet Reverti', locale_name = 'Pet Reverti', type = 37, subtype = 8, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 500, shop_buy_price = 500, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55034, name = 'Pet Revertus', locale_name = 'Pet Revertus', type = 37, subtype = 5, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 500, shop_buy_price = 500, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55035, name = 'Smakołyk+', locale_name = 'Smakołyk+', type = 37, subtype = 9, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 500, shop_buy_price = 500, value0 = 5, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55036, name = 'Klucz Miejsca Umiejętności', locale_name = 'Klucz Miejsca Umiejętności', type = 37, subtype = 10, stack = 200, size = 1, antiflag = 0, flag = 4, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55101, name = 'Eliksir Witalności (S)', locale_name = 'Eliksir Witalności (S)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 0, value1 = 1, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55102, name = 'Eliksir Witalności (M)', locale_name = 'Eliksir Witalności (M)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 0, value1 = 2, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55103, name = 'Eliksir Witalności (L)', locale_name = 'Eliksir Witalności (L)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 0, value1 = 3, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55104, name = 'Eliksir Witalności (XL)', locale_name = 'Eliksir Witalności (XL)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 0, value1 = 4, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55108, name = 'Eliksir Walki (S)', locale_name = 'Eliksir Walki (S)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 1, value1 = 1, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55109, name = 'Eliksir Walki (M)', locale_name = 'Eliksir Walki (M)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 1, value1 = 2, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55110, name = 'Eliksir Walki (L)', locale_name = 'Eliksir Walki (L)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 1, value1 = 3, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55111, name = 'Eliksir Walki (XL)', locale_name = 'Eliksir Walki (XL)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 1, value1 = 4, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55115, name = 'Eliksir Mocy (S)', locale_name = 'Eliksir Mocy (S)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 2, value1 = 1, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55116, name = 'Eliksir Mocy (M)', locale_name = 'Eliksir Mocy (M)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 2, value1 = 2, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55117, name = 'Eliksir Mocy (L)', locale_name = 'Eliksir Mocy (L)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 2, value1 = 3, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.np_item SET vnum = 55118, name = 'Eliksir Mocy (XL)', locale_name = 'Eliksir Mocy (XL)', type = 37, subtype = 11, stack = 200, size = 1, antiflag = 0, flag = 516, wearflag = 0, gold = 1000, shop_buy_price = 1000, value0 = 2, value1 = 4, value2 = 0, value3 = 0, value4 = 0, value5 = 0;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.np_item;
+UPDATE world.item_proto SET gold = shop_buy_price WHERE vnum IN (55401, 55402, 55403, 55404, 55405, 55406, 55409, 55410, 55411, 55001, 55002, 55007, 55008, 55009, 55010, 55011, 55012, 55013, 55014, 55015, 55016, 55017, 55018, 55019, 55020, 55021, 55022, 55023, 55024, 55025, 55026, 55027, 55028, 55029, 55030, 55031, 55032, 55033, 55034, 55035, 55036, 55101, 55102, 55103, 55104, 55108, 55109, 55110, 55111, 55115, 55116, 55117, 55118) AND gold < shop_buy_price;
+DROP TEMPORARY TABLE IF EXISTS world.np_mob;
+CREATE TEMPORARY TABLE world.np_mob AS SELECT * FROM world.mob_proto WHERE vnum = 34001 LIMIT 1;
+UPDATE world.np_mob SET vnum = 34041, name = 'Małpka', locale_name = 'Małpka';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34042, name = 'Małpka (Heroiczna)', locale_name = 'Małpka (Heroiczna)';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34045, name = 'Pajączek', locale_name = 'Pajączek';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34046, name = 'Pajączek (Heroiczny)', locale_name = 'Pajączek (Heroiczny)';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34049, name = 'Mini Razador', locale_name = 'Mini Razador';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34050, name = 'Mini Razador (Heroiczny)', locale_name = 'Mini Razador (Heroiczny)';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34053, name = 'Mini Nemere', locale_name = 'Mini Nemere';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34054, name = 'Mini Nemere (Heroiczny)', locale_name = 'Mini Nemere (Heroiczny)';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34036, name = 'Smoczek', locale_name = 'Smoczek';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34037, name = 'Smoczek (Heroiczny)', locale_name = 'Smoczek (Heroiczny)';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34064, name = 'Czerwony Smoczek', locale_name = 'Czerwony Smoczek';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34065, name = 'Czerwony Smoczek (Hero)', locale_name = 'Czerwony Smoczek (Hero)';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34080, name = 'Mały Baashido', locale_name = 'Mały Baashido';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34081, name = 'Mały Baashido (Hero)', locale_name = 'Mały Baashido (Hero)';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34082, name = 'Nessie', locale_name = 'Nessie';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34083, name = 'Nessie (Heroiczna)', locale_name = 'Nessie (Heroiczna)';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34047, name = 'Pisklę Exedyara', locale_name = 'Pisklę Exedyara';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+UPDATE world.np_mob SET vnum = 34048, name = 'Pisklę Exedyara (Hero)', locale_name = 'Pisklę Exedyara (Hero)';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
+INSERT IGNORE INTO common.itemshop_items (\`index\`, vnum, count, price, currency, minLevel) VALUES (40901, 55401, 1, 29, 'DRAGON_COIN', 0), (40902, 55402, 1, 29, 'DRAGON_COIN', 0), (40903, 55403, 1, 29, 'DRAGON_COIN', 0), (40904, 55404, 1, 29, 'DRAGON_COIN', 0), (40905, 55405, 1, 29, 'DRAGON_COIN', 0), (40906, 55406, 1, 29, 'DRAGON_COIN', 0), (40907, 55409, 1, 29, 'DRAGON_COIN', 0), (40908, 55410, 1, 29, 'DRAGON_COIN', 0), (40909, 55411, 1, 29, 'DRAGON_COIN', 0), (40920, 55001, 10, 9, 'DRAGON_COIN', 0), (40921, 55032, 10, 19, 'DRAGON_COIN', 0), (40922, 55035, 5, 19, 'DRAGON_COIN', 0), (40923, 55009, 1, 15, 'DRAGON_COIN', 0), (40924, 55008, 1, 9, 'DRAGON_COIN', 0), (40925, 55033, 1, 9, 'DRAGON_COIN', 0), (40926, 55034, 1, 5, 'DRAGON_COIN', 0), (40927, 55036, 1, 49, 'DRAGON_COIN', 0), (40928, 55002, 1, 19, 'DRAGON_COIN', 0);
+DELETE FROM world.shop_item WHERE item_vnum BETWEEN 55001 AND 55999;" || echo "[playerbot-migrate] WARNING: could not add the New Pet System's items and mobs" >&2
+# MT2009_PLUS_WHEEL_V1: Bilet Kola Fortuny (80030), the Kolo Fortuny's ticket (playerbot_wheel.h,
+# "/kolo"): quest type, stacks to 200, tradeable, no drop/NPC sale (the SM coupon's antiflags); the
+# ItemShop's first page sells it for 25 Smocze Monety. PROTO_FROM_DB: read at the db core's boot. Idempotent.
+db -e "INSERT IGNORE INTO world.item_proto (vnum, name, locale_name, type, subtype, stack, weight, size, antiflag, flag, wearflag, immuneflag, gold, shop_buy_price, refined_vnum, refine_set, magic_pct, specular, socket_pct, addon_type, limittype0, limitvalue0, limittype1, limitvalue1, applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, value0, value1, value2, value3, value4, value5, socket0, socket1, socket2, socket3, socket4, socket5) VALUES (80030, 'Bilet Kola Fortuny', _cp1250 X'42696C6574204B6FB36120466F7274756E79', 18, 0, 200, 0, 1, 384, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1);" || echo "[playerbot-migrate] WARNING: could not add Bilet Kola Fortuny" >&2
+db -e "INSERT IGNORE INTO common.itemshop_items (\`index\`, vnum, count, price, currency, minLevel) VALUES (9, 80030, 1, 25, 'DRAGON_COIN', 0);" || echo "[playerbot-migrate] WARNING: could not add the wheel ticket to the ItemShop" >&2
+# MT2009_PLUS_OCHAO_V1 (db): Swiatynia Ochao (map 209, playerbot_ochao.h,
+# quest/temple_of_the_ochao.quest). The package's monsters on this world's
+# ladder - after the Grotto of Exile (81-97), level 98-105 - cloned from the
+# Mt Thunder lemurs they share their models with (3301-3305, 3390, 3391; the
+# En-Tai Guardian from 3304 with the tree beings' motions), the package's two
+# NPCs (Portal 20415; Straznik Swiatyni 20426 - the package's 20408 is this
+# world's Friendly Monkey) cloned from the Teleporter (9012), and the package's
+# mob skill 263 (SLOW4000) the three bosses use. INSERT IGNORE: a row the
+# operator changed by hand is kept. The db core reads the protos at boot.
+db -e "SET NAMES utf8mb4;
+INSERT IGNORE INTO world.skill_proto (dwVnum, szName, bType, bLevelStep, bMaxLevel, bLevelLimit, szPointOn, szPointPoly, szSPCostPoly, szDurationPoly, szDurationSPCostPoly, szCooldownPoly, szMasterBonusPoly, szAttackGradePoly, setFlag, setAffectFlag, szPointOn2, szPointPoly2, szDurationPoly2, setAffectFlag2, szPointOn3, szPointPoly3, szDurationPoly3, szGrandMasterAddSPCostPoly, prerequisiteSkillVnum, prerequisiteSkillLevel, eSkillType, iMaxHit, szSplashAroundDamageAdjustPoly, dwTargetRange, dwSplashRange) VALUES (263, 'SLOW4000', 0, 1, 1, 0, 'HP', '-5*k*atk', '', '', '', '12', '', '', 'ATTACK,USE_MELEE_DAMAGE,SPLASH', 'NONE', 'MOV_SPEED', '-70', '3', 'NONE', 'NONE', '', '', '', 0, 0, 'MELEE', 0, '1', 2000, 6000);
+DROP TEMPORARY TABLE IF EXISTS world.ochao_mob;
+CREATE TEMPORARY TABLE world.ochao_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3301 LIMIT 1;
+UPDATE world.ochao_mob SET vnum = 6301, name = 'Wojownik Ochao', locale_name = 'Wojownik Ochao', level = 98, max_hp = 18500, damage_min = 190, damage_max = 232, exp = 21000, gold_min = 1200, gold_max = 1800, def = 105, dam_multiply = 2.2, drop_item = 0, resurrection_vnum = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.ochao_mob;
+DELETE FROM world.ochao_mob; INSERT INTO world.ochao_mob SELECT * FROM world.mob_proto WHERE vnum = 3302 LIMIT 1;
+UPDATE world.ochao_mob SET vnum = 6302, name = 'Żołnierz Ochao', locale_name = 'Żołnierz Ochao', level = 99, max_hp = 23000, damage_min = 192, damage_max = 236, exp = 25000, gold_min = 1300, gold_max = 1950, def = 120, dam_multiply = 2.4, drop_item = 0, resurrection_vnum = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.ochao_mob;
+DELETE FROM world.ochao_mob; INSERT INTO world.ochao_mob SELECT * FROM world.mob_proto WHERE vnum = 3303 LIMIT 1;
+UPDATE world.ochao_mob SET vnum = 6303, name = 'Mag Ochao', locale_name = 'Mag Ochao', level = 100, max_hp = 22000, damage_min = 194, damage_max = 238, exp = 25500, gold_min = 1300, gold_max = 1950, def = 120, dam_multiply = 2.4, drop_item = 0, resurrection_vnum = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.ochao_mob;
+DELETE FROM world.ochao_mob; INSERT INTO world.ochao_mob SELECT * FROM world.mob_proto WHERE vnum = 3304 LIMIT 1;
+UPDATE world.ochao_mob SET vnum = 6304, name = 'Kat Ochao', locale_name = 'Kat Ochao', level = 101, max_hp = 52000, damage_min = 176, damage_max = 262, exp = 52000, gold_min = 2000, gold_max = 3000, def = 142, dam_multiply = 2.8, drop_item = 0, resurrection_vnum = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.ochao_mob;
+DELETE FROM world.ochao_mob; INSERT INTO world.ochao_mob SELECT * FROM world.mob_proto WHERE vnum = 3305 LIMIT 1;
+UPDATE world.ochao_mob SET vnum = 6305, name = 'Generał Ochao', locale_name = 'Generał Ochao', level = 102, max_hp = 95000, damage_min = 178, damage_max = 266, exp = 95000, gold_min = 2600, gold_max = 3900, def = 172, dam_multiply = 3.2, drop_item = 0, resurrection_vnum = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.ochao_mob;
+DELETE FROM world.ochao_mob; INSERT INTO world.ochao_mob SELECT * FROM world.mob_proto WHERE vnum = 3391 LIMIT 1;
+UPDATE world.ochao_mob SET vnum = 6311, name = 'Ochroniarz Ochao', locale_name = 'Ochroniarz Ochao', rank = 4, level = 103, max_hp = 500000, damage_min = 155, damage_max = 285, exp = 220000, gold_min = 30000, gold_max = 45000, def = 210, dam_multiply = 3.4, summon = 6304, skill_vnum0 = 263, skill_level0 = 20, skill_vnum1 = 0, skill_level1 = 0, drop_item = 0, resurrection_vnum = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.ochao_mob;
+DELETE FROM world.ochao_mob; INSERT INTO world.ochao_mob SELECT * FROM world.mob_proto WHERE vnum = 3390 LIMIT 1;
+UPDATE world.ochao_mob SET vnum = 6390, name = 'Władca Ochao', locale_name = 'Władca Ochao', rank = 5, level = 105, max_hp = 1100000, damage_min = 160, damage_max = 290, exp = 520000, gold_min = 50000, gold_max = 75000, def = 240, dam_multiply = 3.8, summon = 6304, skill_vnum0 = 263, skill_level0 = 20, drop_item = 0, resurrection_vnum = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.ochao_mob;
+DELETE FROM world.ochao_mob; INSERT INTO world.ochao_mob SELECT * FROM world.mob_proto WHERE vnum = 3304 LIMIT 1;
+UPDATE world.ochao_mob SET vnum = 6400, name = 'Strażnik En-Tai', locale_name = 'Strażnik En-Tai', rank = 4, level = 105, folder = 'trent_officer', max_hp = 600000, damage_min = 155, damage_max = 285, exp = 260000, gold_min = 20000, gold_max = 30000, def = 206, dam_multiply = 3.4, summon = 6302, skill_vnum0 = 263, skill_level0 = 20, regen_cycle = 10, regen_percent = 10, drop_item = 0, resurrection_vnum = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.ochao_mob;
+DELETE FROM world.ochao_mob; INSERT INTO world.ochao_mob SELECT * FROM world.mob_proto WHERE vnum = 9012 LIMIT 1;
+UPDATE world.ochao_mob SET vnum = 20415, name = 'Portal', locale_name = 'Portal', folder = '';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.ochao_mob;
+UPDATE world.ochao_mob SET vnum = 20426, name = 'Strażnik Świątyni', locale_name = 'Strażnik Świątyni';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.ochao_mob;
+DROP TEMPORARY TABLE IF EXISTS world.ochao_mob;" || echo "[playerbot-migrate] WARNING: could not add the Temple of Ochao's monsters, NPCs and mob skill" >&2
+# MT2009_PLUS_DUNGEONS_V1: the Razador (Czysciec Ognia, map 351, level 55) and Nemere (Lodowa
+# Kraina, map 352, level 75) dungeons (quest/razador_dungeon.quest, quest/nemere_dungeon.quest,
+# game/dungeons/). Their monsters get Polish names and the stats of their level band - harder
+# than the Demon Tower, Razador below and Nemere above Azrael's Catacomb (DT -> Razador ->
+# Azrael -> Nemere); the Metin of Frost (8058), the Ice Pillar (20399), the stone lion (20397)
+# and the ice seals (20398) are added as copies of the flame dungeon's rows, the three Nemere
+# keys (30760-30762) as copies of the Golden Cog Wheel (30329). PROTO_FROM_DB: read at the db
+# core's boot. Idempotent: the same values every start, rows added once.
+# MT2009_PLUS_DUNGEON_DROP_V1: Szel (6151) hits twice as hard, dam_multiply 2.6 -> 5.2 (the
+# owner, 29 September: +100% attack).
+db -e "UPDATE world.mob_proto SET name = _cp1250 X'447563682050B36F6D69656E6961', locale_name = _cp1250 X'447563682050B36F6D69656E6961', level = 56, st = 75, dx = 80, ht = 70, iq = 30, damage_min = 150, damage_max = 180, max_hp = 5500, def = 70, exp = 1100, dam_multiply = 1.5, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6001;
+UPDATE world.mob_proto SET name = _cp1250 X'50B36F6D69656E6E7920547967727973', locale_name = _cp1250 X'50B36F6D69656E6E7920547967727973', level = 57, st = 78, dx = 80, ht = 72, iq = 30, damage_min = 155, damage_max = 185, max_hp = 6500, def = 72, exp = 1200, dam_multiply = 1.5, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6002;
+UPDATE world.mob_proto SET name = _cp1250 X'50B36F6D69656E6E7920576F6A6F776E696B', locale_name = _cp1250 X'50B36F6D69656E6E7920576F6A6F776E696B', level = 58, st = 80, dx = 80, ht = 74, iq = 30, damage_min = 160, damage_max = 195, max_hp = 7500, def = 74, exp = 1350, dam_multiply = 1.6, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6003;
+UPDATE world.mob_proto SET name = _cp1250 X'50B36F6D69656E6E792052796365727A', locale_name = _cp1250 X'50B36F6D69656E6E792052796365727A', level = 59, st = 82, dx = 80, ht = 76, iq = 30, damage_min = 165, damage_max = 200, max_hp = 8500, def = 76, exp = 1450, dam_multiply = 1.6, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6004;
+UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C2050B36F6D69656E69', locale_name = _cp1250 X'4B72F36C2050B36F6D69656E69', level = 60, st = 85, dx = 85, ht = 80, iq = 30, damage_min = 170, damage_max = 210, max_hp = 10000, def = 78, exp = 2000, dam_multiply = 1.8, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6005;
+UPDATE world.mob_proto SET name = _cp1250 X'4F676E6973747920476F6C656D', locale_name = _cp1250 X'4F676E6973747920476F6C656D', level = 61, st = 88, dx = 85, ht = 84, iq = 30, damage_min = 175, damage_max = 220, max_hp = 11000, def = 80, exp = 2150, dam_multiply = 1.8, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6006;
+UPDATE world.mob_proto SET name = _cp1250 X'4F676E6973747920476F6C656D204D6167', locale_name = _cp1250 X'4F676E6973747920476F6C656D204D6167', level = 62, st = 90, dx = 85, ht = 88, iq = 35, damage_min = 180, damage_max = 230, max_hp = 12000, def = 82, exp = 2300, dam_multiply = 1.8, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6007;
+UPDATE world.mob_proto SET name = _cp1250 X'47656E657261B320476F6C656DF377', locale_name = _cp1250 X'47656E657261B320476F6C656DF377', level = 63, st = 95, dx = 90, ht = 94, iq = 35, damage_min = 190, damage_max = 240, max_hp = 14000, def = 85, exp = 3800, dam_multiply = 2.0, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6008;
+UPDATE world.mob_proto SET name = _cp1250 X'57F3647A20476F6C656DF377', locale_name = _cp1250 X'57F3647A20476F6C656DF377', level = 64, st = 100, dx = 90, ht = 100, iq = 35, damage_min = 195, damage_max = 250, max_hp = 15500, def = 88, exp = 4200, dam_multiply = 2.0, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6009;
+UPDATE world.mob_proto SET name = _cp1250 X'49676E69746F72', locale_name = _cp1250 X'49676E69746F72', level = 65, st = 110, dx = 95, ht = 110, iq = 40, damage_min = 210, damage_max = 270, max_hp = 120000, def = 90, exp = 30000, dam_multiply = 2.4, sp_berserk = 10, sp_stoneskin = 10, sp_deathblow = 10, sp_revive = 0 WHERE vnum = 6051;
+UPDATE world.mob_proto SET name = _cp1250 X'52617A61646F72', locale_name = _cp1250 X'52617A61646F72', level = 68, st = 125, dx = 100, ht = 130, iq = 45, damage_min = 230, damage_max = 310, max_hp = 700000, def = 95, exp = 180000, dam_multiply = 2.6, sp_berserk = 15, sp_stoneskin = 15, sp_deathblow = 10, sp_revive = 0 WHERE vnum = 6091;
+UPDATE world.mob_proto SET name = _cp1250 X'4D726F9F6E79204B7279737A7461B3', locale_name = _cp1250 X'4D726F9F6E79204B7279737A7461B3', level = 78, st = 115, dx = 100, ht = 100, iq = 40, damage_min = 240, damage_max = 290, max_hp = 9000, def = 90, exp = 950, dam_multiply = 1.6, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6101;
+UPDATE world.mob_proto SET name = _cp1250 X'4D726F9F6E79204F776164', locale_name = _cp1250 X'4D726F9F6E79204F776164', level = 79, st = 118, dx = 100, ht = 105, iq = 40, damage_min = 245, damage_max = 300, max_hp = 10500, def = 92, exp = 1050, dam_multiply = 1.6, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6102;
+UPDATE world.mob_proto SET name = _cp1250 X'4D726F9F6E7920437AB36F7769656B', locale_name = _cp1250 X'4D726F9F6E7920437AB36F7769656B', level = 80, st = 120, dx = 100, ht = 110, iq = 40, damage_min = 250, damage_max = 310, max_hp = 12000, def = 94, exp = 1200, dam_multiply = 1.7, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6103;
+UPDATE world.mob_proto SET name = _cp1250 X'4D726F9F6E792059657469', locale_name = _cp1250 X'4D726F9F6E792059657469', level = 81, st = 122, dx = 100, ht = 115, iq = 40, damage_min = 255, damage_max = 320, max_hp = 13500, def = 96, exp = 1300, dam_multiply = 1.7, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6104;
+UPDATE world.mob_proto SET name = _cp1250 X'4D726F9F6E7920476F6C656D', locale_name = _cp1250 X'4D726F9F6E7920476F6C656D', level = 82, st = 125, dx = 105, ht = 120, iq = 40, damage_min = 260, damage_max = 335, max_hp = 15000, def = 98, exp = 1750, dam_multiply = 1.9, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6105;
+UPDATE world.mob_proto SET name = _cp1250 X'4D726F9F6E792054726F6C6C', locale_name = _cp1250 X'4D726F9F6E792054726F6C6C', level = 83, st = 128, dx = 105, ht = 125, iq = 40, damage_min = 265, damage_max = 345, max_hp = 17000, def = 100, exp = 1850, dam_multiply = 1.9, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6106;
+UPDATE world.mob_proto SET name = _cp1250 X'4C6F646F777920476F6C656D204D6167', locale_name = _cp1250 X'4C6F646F777920476F6C656D204D6167', level = 84, st = 130, dx = 105, ht = 130, iq = 45, damage_min = 270, damage_max = 355, max_hp = 18500, def = 102, exp = 1950, dam_multiply = 1.9, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6107;
+UPDATE world.mob_proto SET name = _cp1250 X'4D726F9F6E792047656E657261B3', locale_name = _cp1250 X'4D726F9F6E792047656E657261B3', level = 86, st = 135, dx = 110, ht = 135, iq = 45, damage_min = 280, damage_max = 375, max_hp = 22000, def = 105, exp = 3400, dam_multiply = 2.1, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6108;
+UPDATE world.mob_proto SET name = _cp1250 X'57B361646361204D726F7A75', locale_name = _cp1250 X'57B361646361204D726F7A75', level = 88, st = 140, dx = 110, ht = 140, iq = 45, damage_min = 290, damage_max = 390, max_hp = 26000, def = 108, exp = 3700, dam_multiply = 2.1, sp_berserk = 0, sp_stoneskin = 0, sp_deathblow = 0, sp_revive = 0 WHERE vnum = 6109;
+UPDATE world.mob_proto SET name = _cp1250 X'537A656C', locale_name = _cp1250 X'537A656C', level = 88, st = 145, dx = 115, ht = 150, iq = 50, damage_min = 300, damage_max = 400, max_hp = 220000, def = 110, exp = 40000, dam_multiply = 5.2, sp_berserk = 15, sp_stoneskin = 15, sp_deathblow = 15, sp_revive = 0 WHERE vnum = 6151;
+UPDATE world.mob_proto SET name = _cp1250 X'4E656D657265', locale_name = _cp1250 X'4E656D657265', level = 95, st = 160, dx = 125, ht = 170, iq = 60, damage_min = 320, damage_max = 450, max_hp = 1500000, def = 115, exp = 420000, dam_multiply = 3.2, sp_berserk = 20, sp_stoneskin = 20, sp_deathblow = 15, sp_revive = 0 WHERE vnum = 6191;
+UPDATE world.mob_proto SET name = _cp1250 X'4D6574696E20437A799CE66361', locale_name = _cp1250 X'4D6574696E20437A799CE66361', level = 60, max_hp = 280000, def = 70, exp = 40 WHERE vnum = 8057;
+UPDATE world.mob_proto SET name = _cp1250 X'506F73B96720416D2D686568', locale_name = _cp1250 X'506F73B96720416D2D686568' WHERE vnum = 20385;
+UPDATE world.mob_proto SET name = _cp1250 X'5374656C61204973666574', locale_name = _cp1250 X'5374656C61204973666574' WHERE vnum = 20386;
+UPDATE world.mob_proto SET name = _cp1250 X'5A616D656B2050727A657A6E61637A656E6961', locale_name = _cp1250 X'5A616D656B2050727A657A6E61637A656E6961' WHERE vnum = 20387;
+UPDATE world.mob_proto SET name = _cp1250 X'536D6F637A61204272616D61', locale_name = _cp1250 X'536D6F637A61204272616D61' WHERE vnum = 20388;
+UPDATE world.mob_proto SET name = _cp1250 X'53747261BF6E696B204F676E697374656A205A69656D69', locale_name = _cp1250 X'53747261BF6E696B204F676E697374656A205A69656D69' WHERE vnum = 20394;
+UPDATE world.mob_proto SET name = _cp1250 X'53747261BF6E696B204C6F646F77656A204B7261696E79', locale_name = _cp1250 X'53747261BF6E696B204C6F646F77656A204B7261696E79' WHERE vnum = 20395;
+DROP TEMPORARY TABLE IF EXISTS world.dg_mob;
+CREATE TEMPORARY TABLE world.dg_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8057 LIMIT 1;
+UPDATE world.dg_mob SET vnum = 8058, name = _cp1250 X'4D6574696E204D726F7A75', locale_name = _cp1250 X'4D6574696E204D726F7A75', level = 85, max_hp = 450000, def = 85, exp = 55, ht = 100;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.dg_mob;
+DROP TEMPORARY TABLE world.dg_mob;
+CREATE TEMPORARY TABLE world.dg_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8057 LIMIT 1;
+UPDATE world.dg_mob SET vnum = 20399, name = _cp1250 X'4C6F646F77792046696C6172', locale_name = _cp1250 X'4C6F646F77792046696C6172', level = 85, max_hp = 350000, def = 85, exp = 55, ht = 100, folder = 'ice_stonepillar';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.dg_mob;
+DROP TEMPORARY TABLE world.dg_mob;
+CREATE TEMPORARY TABLE world.dg_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20385 LIMIT 1;
+UPDATE world.dg_mob SET vnum = 20397, name = _cp1250 X'4B616D69656E6E79204C6577', locale_name = _cp1250 X'4B616D69656E6E79204C6577', folder = 'ICE_lionstone';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.dg_mob;
+DROP TEMPORARY TABLE world.dg_mob;
+CREATE TEMPORARY TABLE world.dg_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20386 LIMIT 1;
+UPDATE world.dg_mob SET vnum = 20398, name = _cp1250 X'4C6F646F776120506965637AEAE6', locale_name = _cp1250 X'4C6F646F776120506965637AEAE6', folder = 'ice_keybox';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.dg_mob;
+DROP TEMPORARY TABLE world.dg_mob;
+DROP TEMPORARY TABLE IF EXISTS world.dg_item;
+CREATE TEMPORARY TABLE world.dg_item AS SELECT * FROM world.item_proto WHERE vnum = 30329 LIMIT 1;
+UPDATE world.dg_item SET vnum = 30760, name = _cp1250 X'4C6F646F7779204B6C75637A', locale_name = _cp1250 X'4C6F646F7779204B6C75637A', stack = 200, antiflag = 0, flag = 4;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.dg_item;
+DROP TEMPORARY TABLE world.dg_item;
+CREATE TEMPORARY TABLE world.dg_item AS SELECT * FROM world.item_proto WHERE vnum = 30329 LIMIT 1;
+UPDATE world.dg_item SET vnum = 30761, name = _cp1250 X'4B7279737A7461B3204C6F6475', locale_name = _cp1250 X'4B7279737A7461B3204C6F6475', stack = 200, antiflag = 0, flag = 4;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.dg_item;
+DROP TEMPORARY TABLE world.dg_item;
+CREATE TEMPORARY TABLE world.dg_item AS SELECT * FROM world.item_proto WHERE vnum = 30329 LIMIT 1;
+UPDATE world.dg_item SET vnum = 30762, name = _cp1250 X'4B6C75637A204D726F7A75', locale_name = _cp1250 X'4B6C75637A204D726F7A75', stack = 200, antiflag = 0, flag = 4;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.dg_item;
+DROP TEMPORARY TABLE world.dg_item;" || echo "[playerbot-migrate] WARNING: could not set up the Razador and Nemere dungeons' monsters and keys" >&2
+
+# MT2009_PLUS_GOBLIN_V1: the Treasure Hunt event (playerbot_goblin.h, the events
+# file's kind "goblin"): the Treasure Ticket (70617, from chests while the
+# event runs - it takes a player of level 70 to Treasure Island), the Goblin
+# Key (70618, a reward of the Doubloon board after its first) and the Goblin
+# Key Box (70619, eight keys, the fourth round's reward); the Treasure Goblin
+# (20856, a NPC the island's monsters strike) and the Giant Treasure Chest
+# (20857). Bound to the character, as the archive's. Idempotent: added once.
+db -e "INSERT IGNORE INTO world.item_proto (vnum, name, locale_name, type, subtype, stack, weight, size, antiflag, flag, wearflag, immuneflag, gold, shop_buy_price, refined_vnum, refine_set, magic_pct, specular, socket_pct, addon_type, limittype0, limitvalue0, limittype1, limitvalue1, applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, value0, value1, value2, value3, value4, value5, socket0, socket1, socket2, socket3, socket4, socket5) VALUES
+(70617, 'Treasure Ticket', _cp1250 X'42696C657420536B617262F377', 3, 10, 200, 0, 1, 221312, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 1, 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(70618, 'Goblin Key', _cp1250 X'4B6C75637A20476F626C696E61', 3, 10, 200, 0, 1, 221312, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(70619, 'Goblin Key Box', _cp1250 X'537A6B617475B36B61207A204B6C75637A616D6920476F626C696E61', 3, 10, 200, 0, 1, 221312, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1);
+DROP TEMPORARY TABLE IF EXISTS world.gob_mob;
+CREATE TEMPORARY TABLE world.gob_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20005 LIMIT 1;
+UPDATE world.gob_mob SET vnum = 20856, name = _cp1250 X'476F626C696E20536B617262F377', locale_name = _cp1250 X'476F626C696E20536B617262F377', rank = 0, type = 1, level = 1, ai_flag = '', setImmuneFlag = 'SLOW,TERROR', folder = 'treasure_hunt_goblin', on_click = 0, max_hp = 180000, regen_cycle = 0, regen_percent = 0, exp = 0, def = 0, move_speed = 100, attack_speed = 100;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.gob_mob;
+DROP TEMPORARY TABLE world.gob_mob;
+CREATE TEMPORARY TABLE world.gob_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20005 LIMIT 1;
+UPDATE world.gob_mob SET vnum = 20857, name = _cp1250 X'5769656C6B6120536B727A796E696120536B617262F377', locale_name = _cp1250 X'5769656C6B6120536B727A796E696120536B617262F377', rank = 0, type = 1, level = 1, ai_flag = 'NOMOVE', setImmuneFlag = 'STUN,SLOW,TERROR', folder = 'treasure_hunt_box', on_click = 0, exp = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.gob_mob;
+DROP TEMPORARY TABLE world.gob_mob;" || echo "[playerbot-migrate] WARNING: could not add the Treasure Hunt's items and its goblin" >&2
+
+# MT2009_PLUS_COSTUME_BONUS_V1: costume bonuses. The engine rolls a costume's
+# bonuses from item_attr's costume_body / costume_hair / costume_weapon sets
+# (ENABLE_ITEM_ATTR_COSTUME), and the base dump ships all three at zero: an
+# ItemShop costume "(bonus)" / "+" (magic_pct 100) came without a bonus and
+# Transformuj kostium (70063) rolled nothing ("PutAttributeWithLevel: Cannot put
+# item attribute 8 1" in syserr). Seeded once, only while every costume column
+# is still zero, from the sets costumes used before (body / head / weapon) -
+# the operator's own values are never overwritten. And the General Store
+# (shop 3, NPC 9003) sells the three costume items: 70063 Transformuj kostium,
+# 70064 Zaczaruj kostium, 70065 Transfer bonusow. Idempotent.
+db -e "SET @m2_costume_sets := (SELECT COALESCE(SUM(costume_body + costume_hair + costume_weapon), 0) FROM world.item_attr);
+UPDATE world.item_attr SET costume_body = body, costume_hair = head, costume_weapon = weapon WHERE @m2_costume_sets = 0;
+INSERT IGNORE INTO world.shop_item (shop_vnum, item_vnum, count) VALUES (3, 70065, 1), (3, 70064, 20), (3, 70063, 20);" || echo "[playerbot-migrate] WARNING: could not set up the costume bonus sets and the General Store's costume items" >&2
+
+# MT2009_PLUS_BOSS_CHESTS_V1: the Razador and Nemere dungeons' boss chests, at the
+# official vnums - Skrzynia Razadora (50270) and Skrzynia Nemere (50271), gift boxes
+# (type 23) that stack, opened by their special_item_group groups
+# (game/special_item_group.dungeons.txt); razador_dungeon.quest and nemere_dungeon.quest
+# hand them out when the boss dies. Idempotent: added once, never changed after.
+db -e "INSERT IGNORE INTO world.item_proto (vnum, name, locale_name, type, subtype, stack, weight, size, antiflag, flag, wearflag, immuneflag, gold, shop_buy_price, refined_vnum, refine_set, magic_pct, specular, socket_pct, addon_type, limittype0, limitvalue0, limittype1, limitvalue1, applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, value0, value1, value2, value3, value4, value5, socket0, socket1, socket2, socket3, socket4, socket5) VALUES
+(50270, 'Skrzynia Razadora', 'Skrzynia Razadora', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(50271, 'Skrzynia Nemere', 'Skrzynia Nemere', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1);" || echo "[playerbot-migrate] WARNING: could not add the Razador and Nemere boss chests" >&2

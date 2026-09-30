@@ -27,17 +27,6 @@
 # bsdtar. Windows PowerShell 5.1, StrictMode 2.0, like the other modules.
 Set-StrictMode -Version 2.0
 
-# A text in the launcher's language: .m2launcher.json's "language", which the
-# window and Metin2-Launcher.ps1 put into $env:M2_LAUNCHER_LANGUAGE for every
-# module and every action they start. The English one for 'en', otherwise the
-# Polish one, which is word for word what the launcher always said. Each
-# module keeps its own copy and none exports it.
-function UI-Text {
-    param([AllowEmptyString()][string]$Pl, [AllowEmptyString()][string]$En)
-    if ($env:M2_LAUNCHER_LANGUAGE -eq 'en' -and $En) { return $En }
-    return $Pl
-}
-
 $script:VpsStateFile = '.m2vps.json'
 $script:VpsDefaultRemoteDir = '/opt/metin2'
 $script:VpsDefaultWorldName = 'Serwer VPS'
@@ -165,10 +154,10 @@ function Test-M2VpsPrivateAddress {
 
 function Assert-M2VpsState {
     param([Parameter(Mandatory = $true)]$State)
-    if (-not (Test-M2VpsHostName ([string]$State.host))) { throw (UI-Text 'Podaj adres VPS: IPv4 (np. 203.0.113.7) albo nazwę domeny.' 'Enter the VPS address: an IPv4 address (e.g. 203.0.113.7) or a domain name.') }
-    if (-not (Test-M2VpsUserName ([string]$State.user))) { throw (UI-Text 'Podaj użytkownika VPS (małe litery, np. root, debian, ubuntu).' 'Enter the VPS user (lower case, e.g. root, debian, ubuntu).') }
-    if ([int]$State.port -lt 1 -or [int]$State.port -gt 65535) { throw (UI-Text 'Port SSH: liczba 1-65535 (zwykle 22).' 'SSH port: a number 1-65535 (usually 22).') }
-    if (-not (Test-M2VpsRemoteDir ([string]$State.remoteDir))) { throw (UI-Text 'Folder na VPS: ścieżka bezwzględna z co najmniej dwóch części, np. /opt/metin2.' 'Folder on the VPS: an absolute path of at least two parts, e.g. /opt/metin2.') }
+    if (-not (Test-M2VpsHostName ([string]$State.host))) { throw 'Podaj adres VPS: IPv4 (np. 203.0.113.7) albo nazwę domeny.' }
+    if (-not (Test-M2VpsUserName ([string]$State.user))) { throw 'Podaj użytkownika VPS (małe litery, np. root, debian, ubuntu).' }
+    if ([int]$State.port -lt 1 -or [int]$State.port -gt 65535) { throw 'Port SSH: liczba 1-65535 (zwykle 22).' }
+    if (-not (Test-M2VpsRemoteDir ([string]$State.remoteDir))) { throw 'Folder na VPS: ścieżka bezwzględna z co najmniej dwóch części, np. /opt/metin2.' }
 }
 
 # ---------------------------------------------------------------- processes
@@ -194,8 +183,8 @@ function Get-M2VpsTool {
     foreach ($candidate in $candidates) {
         if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) { return $candidate }
     }
-    if ($Name -eq 'tar') { throw (UI-Text 'Nie ma programu tar.exe (jest w Windows 10 od 2018 i w Windows 11) - zaktualizuj Windows.' 'tar.exe is missing (it comes with Windows 10 since 2018 and with Windows 11) - update Windows.') }
-    throw ((UI-Text 'Nie ma programu {0}.exe. Włącz Klienta OpenSSH: Ustawienia > Aplikacje > Funkcje opcjonalne > Dodaj funkcję > Klient OpenSSH.' '{0}.exe is missing. Turn on the OpenSSH Client: Settings > Apps > Optional features > Add a feature > OpenSSH Client.') -f $Name)
+    if ($Name -eq 'tar') { throw 'Nie ma programu tar.exe (jest w Windows 10 od 2018 i w Windows 11) - zaktualizuj Windows.' }
+    throw ('Nie ma programu {0}.exe. Włącz Klienta OpenSSH: Ustawienia > Aplikacje > Funkcje opcjonalne > Dodaj funkcję > Klient OpenSSH.' -f $Name)
 }
 
 function ConvertTo-M2VpsArgument {
@@ -368,18 +357,18 @@ function Get-M2VpsSshError {
     # with 255 on its own failures; anything else is the remote command's.
     param([AllowEmptyString()][string]$Text = '', [int]$ExitCode = 255, [AllowEmptyString()][string]$HostName = '')
     if ($Text -match 'REMOTE HOST IDENTIFICATION HAS CHANGED|Host key verification failed') {
-        return ((UI-Text 'Serwer {0} przedstawia inny klucz niż zapamiętany (VPS postawiony od nowa?). Jeśli to ten sam serwer, usuń stary wpis: ssh-keygen -R {0}' 'Server {0} shows a different key from the one remembered (was the VPS reinstalled?). If it is the same server, remove the old entry: ssh-keygen -R {0}') -f $HostName)
+        return ('Serwer {0} przedstawia inny klucz niż zapamiętany (VPS postawiony od nowa?). Jeśli to ten sam serwer, usuń stary wpis: ssh-keygen -R {0}' -f $HostName)
     }
-    if ($Text -match 'Permission denied') { return (UI-Text 'VPS nie wpuszcza klucza launchera - kliknij POŁĄCZ (KLUCZ SSH) i wpisz hasło do VPS.' 'The VPS does not let the launcher''s key in - click CONNECT (SSH KEY) and type the VPS password.') }
-    if ($Text -match 'Could not resolve hostname') { return ((UI-Text 'Nie znam adresu {0} - sprawdź pisownię.' 'The address {0} cannot be found - check the spelling.') -f $HostName) }
-    if ($Text -match 'Connection refused') { return ((UI-Text 'VPS {0} odrzuca połączenie SSH - sprawdź port (zwykle 22) i czy serwer działa.' 'VPS {0} refuses the SSH connection - check the port (usually 22) and that the server is running.') -f $HostName) }
-    if ($Text -match 'timed out|Connection timed out|Network is unreachable|No route to host') { return ((UI-Text 'VPS {0} nie odpowiada - sprawdź adres, internet i zaporę u dostawcy VPS.' 'VPS {0} does not answer - check the address, the internet connection and the VPS provider''s firewall.') -f $HostName) }
+    if ($Text -match 'Permission denied') { return 'VPS nie wpuszcza klucza launchera - kliknij POŁĄCZ (KLUCZ SSH) i wpisz hasło do VPS.' }
+    if ($Text -match 'Could not resolve hostname') { return ('Nie znam adresu {0} - sprawdź pisownię.' -f $HostName) }
+    if ($Text -match 'Connection refused') { return ('VPS {0} odrzuca połączenie SSH - sprawdź port (zwykle 22) i czy serwer działa.' -f $HostName) }
+    if ($Text -match 'timed out|Connection timed out|Network is unreachable|No route to host') { return ('VPS {0} nie odpowiada - sprawdź adres, internet i zaporę u dostawcy VPS.' -f $HostName) }
     if ($Text -match 'sudo: a password is required|sudo: a terminal is required') {
-        return (UI-Text 'Ten użytkownik potrzebuje hasła do sudo. Zaloguj się jako root albo daj mu sudo bez hasła (NOPASSWD).' 'This user needs a password for sudo. Log in as root, or give the user sudo without a password (NOPASSWD).')
+        return 'Ten użytkownik potrzebuje hasła do sudo. Zaloguj się jako root albo daj mu sudo bez hasła (NOPASSWD).'
     }
     if ($ExitCode -eq 255) {
         $first = (@($Text -split "`r?`n" | Where-Object { $_ }) | Select-Object -First 2) -join ' '
-        return ((UI-Text 'SSH nie połączył się z VPS: ' 'SSH could not connect to the VPS: ') + $first)
+        return ('SSH nie połączył się z VPS: ' + $first)
     }
     return ''
 }
@@ -402,7 +391,7 @@ function Invoke-M2Vps {
     $arguments = Get-M2VpsSshArguments -State $State -BatchMode -Command $remote
     $result = Invoke-M2VpsProcess -FilePath (Get-M2VpsTool 'ssh') -Arguments $arguments -InputText $InputText -TimeoutSeconds $TimeoutSeconds -Stream:$Stream
     if (-not $NoThrow) {
-        if ($result.TimedOut) { throw ((UI-Text 'VPS nie odpowiedział w {0} s.' 'The VPS did not answer within {0} s.') -f $TimeoutSeconds) }
+        if ($result.TimedOut) { throw ('VPS nie odpowiedział w {0} s.' -f $TimeoutSeconds) }
         if ($result.ExitCode -eq 255) { throw (Get-M2VpsSshError -Text ([string]$result.Error) -ExitCode 255 -HostName ([string]$State.host)) }
     }
     return $result
@@ -421,11 +410,11 @@ function New-M2VpsKey {
         $result = Invoke-M2VpsProcess -FilePath (Get-M2VpsTool 'ssh-keygen') -TimeoutSeconds 60 `
             -Arguments @('-q', '-t', 'ed25519', '-N', '', '-C', ('metin2-launcher@' + $computer), '-f', $KeyPath)
         if ($result.ExitCode -ne 0 -or -not (Test-Path -LiteralPath ($KeyPath + '.pub') -PathType Leaf)) {
-            throw ((UI-Text 'ssh-keygen nie utworzył klucza: ' 'ssh-keygen did not create the key: ') + ([string]$result.Error).Trim())
+            throw ('ssh-keygen nie utworzył klucza: ' + ([string]$result.Error).Trim())
         }
     }
     $public = ([IO.File]::ReadAllText($KeyPath + '.pub')).Trim()
-    if ($public -notmatch '^ssh-ed25519 [A-Za-z0-9+/=]+( [A-Za-z0-9@._-]+)?$') { throw ((UI-Text 'Klucz publiczny {0}.pub ma nieoczekiwaną postać.' 'The public key {0}.pub does not look as expected.') -f $KeyPath) }
+    if ($public -notmatch '^ssh-ed25519 [A-Za-z0-9+/=]+( [A-Za-z0-9@._-]+)?$') { throw ('Klucz publiczny {0}.pub ma nieoczekiwaną postać.' -f $KeyPath) }
     return $public
 }
 
@@ -440,21 +429,21 @@ function Get-M2VpsKeyInstallScript {
     $remote = "umask 077; mkdir -p ~/.ssh && touch ~/.ssh/authorized_keys && (grep -qxF '{0}' ~/.ssh/authorized_keys || printf '%%s\n' '{0}' >> ~/.ssh/authorized_keys) && echo KLUCZ-DODANY" -f $PublicKey
     $lines = @(
         '@echo off',
-        (UI-Text 'title Metin2 SinglePlayer - klucz SSH dla VPS' 'title Metin2 SinglePlayer - SSH key for the VPS'),
+        'title Metin2 SinglePlayer - klucz SSH dla VPS',
         'echo.',
-        ((UI-Text 'echo  Lacze sie z VPS {0} jako {1}.' 'echo  Connecting to the VPS {0} as {1}.') -f $State.host, $State.user),
-        (UI-Text 'echo  Wpisz haslo do VPS (znakow nie widac) i nacisnij Enter.' 'echo  Type the VPS password (the characters do not show) and press Enter.'),
-        (UI-Text 'echo  To jedyny raz: potem launcher laczy sie kluczem, bez hasla.' 'echo  This is the only time: after this the launcher connects with the key, without a password.'),
+        ('echo  Lacze sie z VPS {0} jako {1}.' -f $State.host, $State.user),
+        'echo  Wpisz haslo do VPS (znakow nie widac) i nacisnij Enter.',
+        'echo  To jedyny raz: potem launcher laczy sie kluczem, bez hasla.',
         'echo.',
         ('"{0}" -p {1} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 {2}@{3} "{4}"' -f $SshPath, [int]$State.port, $State.user, $State.host, $remote),
         'if errorlevel 1 goto failed',
         'echo.',
-        (UI-Text 'echo  Klucz dodany. To okno zamknie sie samo.' 'echo  Key added. This window will close by itself.'),
+        'echo  Klucz dodany. To okno zamknie sie samo.',
         'timeout /t 3 >nul',
         'exit /b 0',
         ':failed',
         'echo.',
-        (UI-Text 'echo  Nie udalo sie - sprawdz adres, uzytkownika i haslo, i sprobuj jeszcze raz.' 'echo  That did not work - check the address, the user and the password, and try again.'),
+        'echo  Nie udalo sie - sprawdz adres, uzytkownika i haslo, i sprobuj jeszcze raz.',
         'pause',
         'exit /b 1'
     )
@@ -562,36 +551,36 @@ function Get-M2VpsMachineVerdict {
     param([Parameter(Mandatory = $true)]$Probe, [string]$User = 'root')
     $blocking = @()
     $warnings = @()
-    if (-not $Probe.Answered) { $blocking += (UI-Text 'VPS nie odpowiedział na sprawdzenie (to nie jest zwykły Linux z sh?).' 'The VPS did not answer the check (is it not an ordinary Linux with sh?).') }
+    if (-not $Probe.Answered) { $blocking += 'VPS nie odpowiedział na sprawdzenie (to nie jest zwykły Linux z sh?).' }
     if ($Probe.Arch -and @('x86_64', 'amd64') -notcontains $Probe.Arch) {
-        $blocking += ((UI-Text 'Procesor {0}: rdzeń gry jest budowany jako 32-bitowy x86 i na ARM nie ruszy. Potrzebny VPS z procesorem Intel/AMD (x86_64).' 'Processor {0}: the game core is built as 32-bit x86 and will not run on ARM. You need a VPS with an Intel/AMD processor (x86_64).') -f $Probe.Arch)
+        $blocking += ('Procesor {0}: rdzeń gry jest budowany jako 32-bitowy x86 i na ARM nie ruszy. Potrzebny VPS z procesorem Intel/AMD (x86_64).' -f $Probe.Arch)
     }
     if (@('root', 'nopasswd') -notcontains $Probe.Sudo) {
-        $blocking += ((UI-Text 'Użytkownik {0} nie jest rootem i nie ma sudo bez hasła - zaloguj się jako root albo daj mu sudo z NOPASSWD.' 'User {0} is not root and has no sudo without a password - log in as root or give the user sudo with NOPASSWD.') -f $User)
+        $blocking += ('Użytkownik {0} nie jest rootem i nie ma sudo bez hasła - zaloguj się jako root albo daj mu sudo z NOPASSWD.' -f $User)
     }
-    if (-not $Probe.Tar) { $blocking += (UI-Text 'Na VPS nie ma programu tar.' 'There is no tar program on the VPS.') }
+    if (-not $Probe.Tar) { $blocking += 'Na VPS nie ma programu tar.' }
     if ($Probe.DiskMB -ge 0 -and $Probe.DiskMB -lt $script:VpsMinDiskMB) {
-        $blocking += ((UI-Text 'Na dysku VPS jest wolne {0} MB - obrazy i pierwsza budowa potrzebują co najmniej {1} MB (zalecane 60-80 GB).' 'The VPS disk has {0} MB free - the images and the first build need at least {1} MB (60-80 GB recommended).') -f $Probe.DiskMB, $script:VpsMinDiskMB)
+        $blocking += ('Na dysku VPS jest wolne {0} MB - obrazy i pierwsza budowa potrzebują co najmniej {1} MB (zalecane 60-80 GB).' -f $Probe.DiskMB, $script:VpsMinDiskMB)
     }
     elseif ($Probe.DiskMB -ge 0 -and $Probe.DiskMB -lt $script:VpsWarnDiskMB) {
-        $warnings += ((UI-Text 'Wolne {0} MB na dysku to mało - zalecane 60-80 GB.' '{0} MB free on the disk is not much - 60-80 GB recommended.') -f $Probe.DiskMB)
+        $warnings += ('Wolne {0} MB na dysku to mało - zalecane 60-80 GB.' -f $Probe.DiskMB)
     }
     $supported = @('debian:12', 'debian:13', 'ubuntu:22.04', 'ubuntu:24.04') -contains ('{0}:{1}' -f $Probe.OsId, $Probe.OsVersion)
     $aptFamily = (' {0} {1} ' -f $Probe.OsId, $Probe.OsLike) -match ' (debian|ubuntu) '
     if (-not $supported) {
         if (-not $aptFamily -and -not $Probe.Docker) {
-            $blocking += ((UI-Text 'System {0} nie jest Debianem ani Ubuntu i nie ma Dockera - zainstaluj Docker sam albo weź Debian 12/13 lub Ubuntu 22.04/24.04.' 'The system {0} is neither Debian nor Ubuntu and has no Docker - install Docker yourself or take Debian 12/13 or Ubuntu 22.04/24.04.') -f $Probe.OsName)
+            $blocking += ('System {0} nie jest Debianem ani Ubuntu i nie ma Dockera - zainstaluj Docker sam albo weź Debian 12/13 lub Ubuntu 22.04/24.04.' -f $Probe.OsName)
         }
-        else { $warnings += ((UI-Text 'System {0} nie był testowany (sprawdzone: Debian 12/13, Ubuntu 22.04/24.04).' 'The system {0} has not been tested (tested: Debian 12/13, Ubuntu 22.04/24.04).') -f $Probe.OsName) }
+        else { $warnings += ('System {0} nie był testowany (sprawdzone: Debian 12/13, Ubuntu 22.04/24.04).' -f $Probe.OsName) }
     }
     if ($Probe.MemMB -ge 0 -and $Probe.MemMB -lt $script:VpsWarnMemMB) {
         if ($Probe.MemMB -lt $script:VpsMinMemMB -and $Probe.SwapMB -le 0) {
-            $warnings += ((UI-Text 'Pamięci jest {0} MB - instalator założy plik wymiany 4 GB, a jeśli system na to nie pozwoli, odmówi (potrzebne co najmniej 4 GB, zalecane 8 GB).' 'There is {0} MB of memory - the installer will make a 4 GB swap file, and if the system does not allow that, it will refuse (at least 4 GB needed, 8 GB recommended).') -f $Probe.MemMB)
+            $warnings += ('Pamięci jest {0} MB - instalator założy plik wymiany 4 GB, a jeśli system na to nie pozwoli, odmówi (potrzebne co najmniej 4 GB, zalecane 8 GB).' -f $Probe.MemMB)
         }
-        else { $warnings += ((UI-Text 'Pamięci jest {0} MB - zalecane 8 GB; przy 4 GB mniej botów (instalator ustawi {1}).' 'There is {0} MB of memory - 8 GB recommended; with 4 GB there are fewer bots (the installer will set {1}).') -f $Probe.MemMB, (Get-M2VpsBotCount -MemMB $Probe.MemMB)) }
+        else { $warnings += ('Pamięci jest {0} MB - zalecane 8 GB; przy 4 GB mniej botów (instalator ustawi {1}).' -f $Probe.MemMB, (Get-M2VpsBotCount -MemMB $Probe.MemMB)) }
     }
     if (@('openvz', 'lxc', 'lxc-libvirt') -contains $Probe.Virt) {
-        $warnings += ((UI-Text 'VPS jest kontenerem ({0}) - Docker może w nim nie działać; najlepszy jest VPS KVM.' 'The VPS is a container ({0}) - Docker may not work in it; a KVM VPS is best.') -f $Probe.Virt)
+        $warnings += ('VPS jest kontenerem ({0}) - Docker może w nim nie działać; najlepszy jest VPS KVM.' -f $Probe.Virt)
     }
     $bots = $(if ($Probe.MemMB -ge 0) { Get-M2VpsBotCount -MemMB $Probe.MemMB } else { 0 })
     return [pscustomobject]@{ Ok = ($blocking.Count -eq 0); Blocking = $blocking; Warnings = $warnings; Bots = $bots }
@@ -609,13 +598,13 @@ function Format-M2VpsMachineReport {
     param([Parameter(Mandatory = $true)]$Machine)
     $p = $Machine.Probe
     $lines = @()
-    $lines += ('System: {0} ({1})' -f $(if ($p.OsName) { $p.OsName } else { (UI-Text 'nieznany' 'unknown') }), $p.Arch)
-    $lines += ((UI-Text 'Pamięć: {0} MB, plik wymiany: {1} MB, wolne na dysku: {2} MB' 'Memory: {0} MB, swap file: {1} MB, free on disk: {2} MB') -f $p.MemMB, $p.SwapMB, $p.DiskMB)
-    $lines += ((UI-Text 'Uprawnienia: {0}, Docker: {1}' 'Privileges: {0}, Docker: {1}') -f $(switch ($p.Sudo) { 'root' { 'root' } 'nopasswd' { (UI-Text 'sudo bez hasła' 'sudo without a password') } default { (UI-Text 'BRAK' 'NONE') } }), $(if ($p.Docker) { (UI-Text 'jest' 'installed') } else { (UI-Text 'brak (instalator go zainstaluje)' 'not installed (the installer will install it)') }))
-    if ($p.Installed) { $lines += ((UI-Text 'Na VPS jest już serwer w wersji {0}.' 'The VPS already has a server, version {0}.') -f $p.Installed) }
-    foreach ($b in @($Machine.Verdict.Blocking)) { $lines += ((UI-Text 'BŁĄD: ' 'ERROR: ') + $b) }
-    foreach ($w in @($Machine.Verdict.Warnings)) { $lines += ((UI-Text 'UWAGA: ' 'WARNING: ') + $w) }
-    if ($Machine.Verdict.Ok) { $lines += ((UI-Text 'Można instalować. Botów na start: {0}.' 'Ready to install. Bots at the start: {0}.') -f $Machine.Verdict.Bots) }
+    $lines += ('System: {0} ({1})' -f $(if ($p.OsName) { $p.OsName } else { 'nieznany' }), $p.Arch)
+    $lines += ('Pamięć: {0} MB, plik wymiany: {1} MB, wolne na dysku: {2} MB' -f $p.MemMB, $p.SwapMB, $p.DiskMB)
+    $lines += ('Uprawnienia: {0}, Docker: {1}' -f $(switch ($p.Sudo) { 'root' { 'root' } 'nopasswd' { 'sudo bez hasła' } default { 'BRAK' } }), $(if ($p.Docker) { 'jest' } else { 'brak (instalator go zainstaluje)' }))
+    if ($p.Installed) { $lines += ('Na VPS jest już serwer w wersji {0}.' -f $p.Installed) }
+    foreach ($b in @($Machine.Verdict.Blocking)) { $lines += ('BŁĄD: ' + $b) }
+    foreach ($w in @($Machine.Verdict.Warnings)) { $lines += ('UWAGA: ' + $w) }
+    if ($Machine.Verdict.Ok) { $lines += ('Można instalować. Botów na start: {0}.' -f $Machine.Verdict.Bots) }
     return $lines
 }
 
@@ -649,7 +638,7 @@ function Get-M2VpsUploadEntries {
     param([Parameter(Mandatory = $true)][string]$ServerRoot)
     foreach ($must in @('VERSION', 'linux-port\docker\docker-compose.yml', 'linux-port\docker\.env.example', ($script:VpsScript.Replace('/', '\')))) {
         if (-not (Test-Path -LiteralPath (Join-Path $ServerRoot $must) -PathType Leaf)) {
-            throw ((UI-Text 'W folderze serwera nie ma {0} - ta instalacja nie nadaje się na VPS (zaktualizuj serwer do wersji z opcją VPS).' 'The server folder has no {0} - this installation cannot go to a VPS (update the server to a version with the VPS option).') -f $must)
+            throw ('W folderze serwera nie ma {0} - ta instalacja nie nadaje się na VPS (zaktualizuj serwer do wersji z opcją VPS).' -f $must)
         }
     }
     return @(Get-ChildItem -LiteralPath $ServerRoot -Force | Where-Object { -not (Test-M2VpsUploadExcluded -Name $_.Name) } |
@@ -685,7 +674,7 @@ function Send-M2VpsServer {
     param([Parameter(Mandatory = $true)]$State, [Parameter(Mandatory = $true)][string]$ServerRoot)
     Assert-M2VpsState -State $State
     $entries = Get-M2VpsUploadEntries -ServerRoot $ServerRoot
-    Write-Host ((UI-Text 'Wysyłam folder serwera na VPS ({0}): {1}' 'Sending the server folder to the VPS ({0}): {1}') -f $State.remoteDir, ($entries -join ', '))
+    Write-Host ('Wysyłam folder serwera na VPS ({0}): {1}' -f $State.remoteDir, ($entries -join ', '))
     $tarInfo = New-Object Diagnostics.ProcessStartInfo
     $tarInfo.FileName = Get-M2VpsTool 'tar'
     $tarInfo.Arguments = ConvertTo-M2VpsCommandLine -Arguments (Get-M2VpsTarArguments -ServerRoot $ServerRoot -Entries $entries)
@@ -714,7 +703,7 @@ function Send-M2VpsServer {
             catch { $broken = $_.Exception.Message; break }
             $sent += $read
             if ($sent -ge $nextReport) {
-                Write-Host ((UI-Text '  wysłano {0} MB' '  sent {0} MB') -f [Math]::Round($sent / 1MB))
+                Write-Host ('  wysłano {0} MB' -f [Math]::Round($sent / 1MB))
                 $nextReport += 10MB
             }
         }
@@ -725,12 +714,12 @@ function Send-M2VpsServer {
         $tarText = [string]$tarErr.Result
         $sshText = ([string]$sshErr.Result) + ([string]$sshOut.Result)
         if ($ssh.ExitCode -eq 255) { throw (Get-M2VpsSshError -Text $sshText -ExitCode 255 -HostName ([string]$State.host)) }
-        if ($ssh.ExitCode -ne 0) { throw ((UI-Text 'Rozpakowanie na VPS nie powiodło się (kod {0}): {1}' 'Unpacking on the VPS failed (code {0}): {1}') -f $ssh.ExitCode, $sshText.Trim()) }
-        if ($broken) { throw ((UI-Text 'Połączenie z VPS zerwało się w trakcie wysyłania: ' 'The connection to the VPS broke during the upload: ') + $broken) }
+        if ($ssh.ExitCode -ne 0) { throw ('Rozpakowanie na VPS nie powiodło się (kod {0}): {1}' -f $ssh.ExitCode, $sshText.Trim()) }
+        if ($broken) { throw ('Połączenie z VPS zerwało się w trakcie wysyłania: ' + $broken) }
         # bsdtar ends with 1 when a file could not be read (open in another
         # program, say) and still writes the rest; that is a warning here.
-        if ($tar.ExitCode -ne 0) { Write-Host ((UI-Text 'UWAGA: tar zgłosił problem (kod {0}): {1}' 'WARNING: tar reported a problem (code {0}): {1}') -f $tar.ExitCode, $tarText.Trim()) -ForegroundColor Yellow }
-        Write-Host ((UI-Text 'Wysłano {0} MB (spakowane).' 'Sent {0} MB (compressed).') -f [Math]::Round($sent / 1MB, 1)) -ForegroundColor Green
+        if ($tar.ExitCode -ne 0) { Write-Host ('UWAGA: tar zgłosił problem (kod {0}): {1}' -f $tar.ExitCode, $tarText.Trim()) -ForegroundColor Yellow }
+        Write-Host ('Wysłano {0} MB (spakowane).' -f [Math]::Round($sent / 1MB, 1)) -ForegroundColor Green
         return $sent
     }
     finally {
@@ -776,8 +765,8 @@ function Get-M2VpsStatus {
     $result = Invoke-M2Vps -State $State -Command (Get-M2VpsScriptCommand -State $State -Arguments $arguments) -TimeoutSeconds 60
     if ($result.ExitCode -ne 0) {
         $why = ([string]$result.Error).Trim()
-        if ($why -match 'No such file|nie ma|can.t open') { throw (UI-Text 'Na VPS nie ma jeszcze serwera z tego launchera - najpierw ZAINSTALUJ NA VPS.' 'The VPS has no server from this launcher yet - click INSTALL ON VPS first.') }
-        throw ((UI-Text 'VPS nie podał stanu: ' 'The VPS did not report its state: ') + $why)
+        if ($why -match 'No such file|nie ma|can.t open') { throw 'Na VPS nie ma jeszcze serwera z tego launchera - najpierw ZAINSTALUJ NA VPS.' }
+        throw ('VPS nie podał stanu: ' + $why)
     }
     return (ConvertFrom-M2VpsStatus -Text ([string]$result.Output))
 }
@@ -806,8 +795,8 @@ function Wait-M2VpsJob {
         }
         catch {
             $failures++
-            Write-Host ((UI-Text 'Połączenie z VPS nie wyszło ({0}) - budowa na VPS trwa dalej, próbuję znowu.' 'The connection to the VPS failed ({0}) - the build on the VPS goes on, trying again.') -f $_.Exception.Message) -ForegroundColor Yellow
-            if ($failures -ge 30) { throw (UI-Text 'VPS nie odpowiada od kilku minut. Budowa mogła się dokończyć - sprawdź STAN VPS za chwilę.' 'The VPS has not answered for a few minutes. The build may have finished - check VPS STATUS in a moment.') }
+            Write-Host ('Połączenie z VPS nie wyszło ({0}) - budowa na VPS trwa dalej, próbuję znowu.' -f $_.Exception.Message) -ForegroundColor Yellow
+            if ($failures -ge 30) { throw 'VPS nie odpowiada od kilku minut. Budowa mogła się dokończyć - sprawdź STAN VPS za chwilę.' }
             Start-Sleep -Seconds $PollSeconds
             continue
         }
@@ -816,7 +805,7 @@ function Wait-M2VpsJob {
         if (@('done', 'failed', 'interrupted', 'none') -contains $status.State) { return $status }
         Start-Sleep -Seconds $PollSeconds
     }
-    throw ((UI-Text 'Budowa na VPS trwa dłużej niż {0} minut - sprawdź STAN VPS później.' 'The build on the VPS is taking longer than {0} minutes - check VPS STATUS later.') -f $TimeoutMinutes)
+    throw ('Budowa na VPS trwa dłużej niż {0} minut - sprawdź STAN VPS później.' -f $TimeoutMinutes)
 }
 
 function Get-M2VpsInstallAddressArgument {
@@ -839,7 +828,7 @@ function Install-M2Vps {
     Write-Host ('VPS: {0}@{1}:{2}, folder {3}' -f $State.user, $State.host, $State.port, $State.remoteDir)
     $machine = Test-M2VpsMachine -State $State
     foreach ($line in (Format-M2VpsMachineReport -Machine $machine)) { Write-Host $line }
-    if (-not $machine.Verdict.Ok) { throw (UI-Text 'VPS nie spełnia wymagań - szczegóły wyżej. Nic nie zostało wysłane.' 'The VPS does not meet the requirements - details above. Nothing was sent.') }
+    if (-not $machine.Verdict.Ok) { throw 'VPS nie spełnia wymagań - szczegóły wyżej. Nic nie zostało wysłane.' }
     $local = ''
     $versionFile = Join-Path $ServerRoot 'VERSION'
     if (Test-Path -LiteralPath $versionFile -PathType Leaf) { $local = ([IO.File]::ReadAllText($versionFile)).Trim() }
@@ -849,24 +838,24 @@ function Install-M2Vps {
     if ($machine.Probe.Script) {
         $status = Get-M2VpsStatus -State $State
         if ($status.State -eq 'running') {
-            Write-Host ((UI-Text 'Na VPS trwa już zadanie "{0}" - nie wysyłam plików, czekam na jego koniec.' 'A job "{0}" is already running on the VPS - not sending any files, waiting for it to end.') -f $status.Kind) -ForegroundColor Yellow
+            Write-Host ('Na VPS trwa już zadanie "{0}" - nie wysyłam plików, czekam na jego koniec.' -f $status.Kind) -ForegroundColor Yellow
             $final = Wait-M2VpsJob -State $State -From $status.LogLines
             return $final
         }
         $fromLine = [int]$status.LogLines
     }
     if ($machine.Probe.Installed -and (Compare-M2VpsVersion $machine.Probe.Installed $local) -gt 0) {
-        throw ((UI-Text 'Na VPS jest nowsza wersja ({0}) niż ta instalacja ({1}) - wysłanie cofnęłoby serwer. Użyj AKTUALIZUJ VPS albo najpierw zaktualizuj ten launcher.' 'The VPS has a newer version ({0}) than this installation ({1}) - sending it would take the server back. Use UPDATE VPS, or update this launcher first.') -f $machine.Probe.Installed, $local)
+        throw ('Na VPS jest nowsza wersja ({0}) niż ta instalacja ({1}) - wysłanie cofnęłoby serwer. Użyj AKTUALIZUJ VPS albo najpierw zaktualizuj ten launcher.' -f $machine.Probe.Installed, $local)
     }
     [void](Send-M2VpsServer -State $State -ServerRoot $ServerRoot)
-    Write-Host (UI-Text 'Uruchamiam instalator na VPS (Docker, plik wymiany, .env, budowa w tle)...' 'Starting the installer on the VPS (Docker, swap file, .env, build in the background)...')
+    Write-Host 'Uruchamiam instalator na VPS (Docker, plik wymiany, .env, budowa w tle)...'
     $arguments = 'install --no-follow' + (Get-M2VpsInstallAddressArgument -HostName ([string]$State.host))
     $start = Invoke-M2Vps -State $State -Command (Get-M2VpsScriptCommand -State $State -Arguments $arguments) -Stream -TimeoutSeconds 0
     if ($start.ExitCode -ne 0) {
         $why = ([string]$start.Error).Trim()
-        throw ((UI-Text 'Instalator na VPS przerwał (kod {0}){1}' 'The installer on the VPS stopped (code {0}){1}') -f $start.ExitCode, $(if ($why) { ': ' + $why } else { (UI-Text ' - powód jest wyżej.' ' - the reason is above.') }))
+        throw ('Instalator na VPS przerwał (kod {0}){1}' -f $start.ExitCode, $(if ($why) { ': ' + $why } else { ' - powód jest wyżej.' }))
     }
-    Write-Host (UI-Text 'Budowa trwa na VPS (pierwszy raz 15-40 minut). Postęp poniżej; zamknięcie launchera jej nie przerywa.' 'The build is running on the VPS (15-40 minutes the first time). Progress below; closing the launcher does not stop it.')
+    Write-Host 'Budowa trwa na VPS (pierwszy raz 15-40 minut). Postęp poniżej; zamknięcie launchera jej nie przerywa.'
     $final = Wait-M2VpsJob -State $State -From $fromLine
     $State.lastInstall = (Get-Date).ToString('s')
     $State.lastVersion = [string]$final.Version
@@ -879,12 +868,12 @@ function Update-M2Vps {
     param([Parameter(Mandatory = $true)]$State, [string]$ServerRoot = '')
     $status = Get-M2VpsStatus -State $State
     if ($status.State -eq 'running') {
-        Write-Host ((UI-Text 'Na VPS trwa już zadanie "{0}" - czekam na jego koniec.' 'A job "{0}" is already running on the VPS - waiting for it to end.') -f $status.Kind) -ForegroundColor Yellow
+        Write-Host ('Na VPS trwa już zadanie "{0}" - czekam na jego koniec.' -f $status.Kind) -ForegroundColor Yellow
         return (Wait-M2VpsJob -State $State -From $status.LogLines)
     }
-    Write-Host ((UI-Text 'Na VPS jest wersja {0}. Uruchamiam aktualizację (linux-port/tools/update.sh) w tle...' 'The VPS has version {0}. Starting the update (linux-port/tools/update.sh) in the background...') -f $status.Version)
+    Write-Host ('Na VPS jest wersja {0}. Uruchamiam aktualizację (linux-port/tools/update.sh) w tle...' -f $status.Version)
     $start = Invoke-M2Vps -State $State -Command (Get-M2VpsScriptCommand -State $State -Arguments 'update --no-follow') -Stream -TimeoutSeconds 0
-    if ($start.ExitCode -ne 0) { throw ((UI-Text 'Aktualizacja na VPS nie wystartowała (kod {0}): {1}' 'The update on the VPS did not start (code {0}): {1}') -f $start.ExitCode, ([string]$start.Error).Trim()) }
+    if ($start.ExitCode -ne 0) { throw ('Aktualizacja na VPS nie wystartowała (kod {0}): {1}' -f $start.ExitCode, ([string]$start.Error).Trim()) }
     $final = Wait-M2VpsJob -State $State -From $status.LogLines
     if ($ServerRoot) {
         $State.lastVersion = [string]$final.Version
@@ -947,7 +936,7 @@ function Get-M2VpsTunnelPlan {
             if ($candidate -gt 65535 -or $taken -contains $candidate -or $AvoidPorts -contains $candidate) { continue }
             if (& $IsFree $candidate) { $chosen = $candidate; break }
         }
-        if ($chosen -eq 0) { throw ((UI-Text 'Nie ma wolnego portu na tym komputerze dla panelu VPS {0}.' 'There is no free port on this computer for the VPS panel {0}.') -f $remote) }
+        if ($chosen -eq 0) { throw ('Nie ma wolnego portu na tym komputerze dla panelu VPS {0}.' -f $remote) }
         $taken += $chosen
         $plan += [pscustomobject]@{ remote = $remote; local = $chosen }
     }
@@ -1027,7 +1016,7 @@ function Open-M2VpsPanel {
     }
     if (-not $ready) {
         if (-not $process.HasExited) { try { $process.Kill() } catch { } }
-        throw (UI-Text 'Tunel do paneli nie wstał - sprawdź połączenie (SPRAWDŹ VPS) i czy klucz działa.' 'The tunnel to the panels did not come up - check the connection (CHECK VPS) and that the key works.')
+        throw 'Tunel do paneli nie wstał - sprawdź połączenie (SPRAWDŹ VPS) i czy klucz działa.'
     }
     $saved = Get-M2VpsState -ServerRoot $ServerRoot
     $saved.tunnelPid = $process.Id
@@ -1065,24 +1054,24 @@ function Get-M2VpsLogsScript {
         'c=$(docker ps -a --format ''{{.Names}}'' 2>/dev/null | grep -E -- ''-game$'' | head -n 1)',
         'if [ -z "$c" ]; then',
         '    [ -f "$s" ] && exit 0',
-        (UI-Text '    echo "Na VPS nie ma serwera w $d ani kontenera gry (zaden kontener *-game w docker ps -a)."' '    echo "There is no server in $d on the VPS and no game container (no *-game container in docker ps -a)."'),
-        (UI-Text '    echo "Jesli serwer stoi w innym folderze, wpisz ten folder w polu Folder na VPS."' '    echo "If the server is in another folder, type that folder into the Folder on the VPS field."'),
+        '    echo "Na VPS nie ma serwera w $d ani kontenera gry (zaden kontener *-game w docker ps -a)."',
+        '    echo "Jesli serwer stoi w innym folderze, wpisz ten folder w polu Folder na VPS."',
         '    exit 3',
         'fi',
         'if [ ! -f "$s" ]; then',
         '    w=$(docker inspect --format ''{{ index .Config.Labels "com.docker.compose.project.working_dir" }}'' "$c" 2>/dev/null)',
-        (UI-Text '    echo "--- serwer postawiony bez launchera: kontener $c, folder Compose ${w:-nieznany} ---"' '    echo "--- a server set up without the launcher: container $c, Compose folder ${w:-unknown} ---"'),
+        '    echo "--- serwer postawiony bez launchera: kontener $c, folder Compose ${w:-nieznany} ---"',
         '    if [ -n "$w" ] && [ -f "$w/../tools/vps-install.sh" ]; then',
-        (UI-Text '        echo "W polu Folder na VPS wpisz: $(cd "$w/../.." && pwd) - wtedy launcher obsluzy ten serwer w calosci."' '        echo "In the Folder on the VPS field type: $(cd "$w/../.." && pwd) - then the launcher will handle this server in full."'),
+        '        echo "W polu Folder na VPS wpisz: $(cd "$w/../.." && pwd) - wtedy launcher obsluzy ten serwer w calosci."',
         '    fi',
         '    p=${c%-game}',
         '    for x in "$c" "$p-playerbot-migrate" "$p-db"; do',
         '        docker inspect "$x" >/dev/null 2>&1 || continue',
-        (UI-Text '        echo "--- docker logs $x (ostatnie $n) ---"' '        echo "--- docker logs $x (last $n) ---"'),
+        '        echo "--- docker logs $x (ostatnie $n) ---"',
         '        docker logs --tail "$n" "$x" 2>&1 | mask',
         '    done',
         'fi',
-        (UI-Text 'echo "--- uklad swiata i boty na rdzeniach ---"' 'echo "--- world layout and the bots on the cores ---"'),
+        'echo "--- uklad swiata i boty na rdzeniach ---"',
         'docker logs "$c" 2>&1 | grep -a "world layout" | tail -n 1',
         'docker exec "$c" sh -c ''for f in /opt/metin2/var/channel*/*/syslog; do [ -f "$f" ] || continue; echo "== $f"; grep -a -e "PLAYERBOT: autospawn" -e "PLAYERBOT_AUTH: loaded" "$f" | tail -n 4; done'' 2>&1 | mask',
         'exit 0'
@@ -1125,7 +1114,7 @@ function Get-M2VpsAccounts {
     # In-process only - the window and the console show them, no log does.
     param([Parameter(Mandatory = $true)]$State)
     $result = Invoke-M2Vps -State $State -Command (Get-M2VpsScriptCommand -State $State -Arguments 'passwords --raw') -TimeoutSeconds 60
-    if ($result.ExitCode -ne 0) { throw ((UI-Text 'VPS nie podał haseł: ' 'The VPS did not return the passwords: ') + ([string]$result.Error).Trim()) }
+    if ($result.ExitCode -ne 0) { throw ('VPS nie podał haseł: ' + ([string]$result.Error).Trim()) }
     return @(ConvertFrom-M2VpsAccounts -Text ([string]$result.Output))
 }
 
@@ -1159,9 +1148,9 @@ function Write-M2VpsClientEntry {
     # entry, so a friend's world written there before is replaced - the
     # caller is told which.
     param([Parameter(Mandatory = $true)]$State, [Parameter(Mandatory = $true)][string]$ServerRoot, $Status = $null, [string]$ClientFolder = '')
-    if (-not (Get-Command Write-M2CoopClientConfig -ErrorAction SilentlyContinue)) { throw (UI-Text 'Brak modułu COOP (launcher\Metin2Launcher.Coop.psm1) - on zapisuje serwer w kliencie.' 'The COOP module (launcher\Metin2Launcher.Coop.psm1) is missing - it is what writes the server into the client.') }
+    if (-not (Get-Command Write-M2CoopClientConfig -ErrorAction SilentlyContinue)) { throw 'Brak modułu COOP (launcher\Metin2Launcher.Coop.psm1) - on zapisuje serwer w kliencie.' }
     if (-not $ClientFolder) { $ClientFolder = Get-M2CoopClientFolder -ServerRoot $ServerRoot }
-    if (-not $ClientFolder) { throw (UI-Text 'Nie wiem, gdzie jest klient - wskaż go przyciskiem WYBIERZ KLIENTA.' 'The launcher does not know where the client is - point to it with the CHOOSE CLIENT button.') }
+    if (-not $ClientFolder) { throw 'Nie wiem, gdzie jest klient - wskaż go przyciskiem WYBIERZ KLIENTA.' }
     if (-not $Status) { $Status = Get-M2VpsStatus -State $State }
     $ports = Get-M2VpsGamePorts -AuthPort ([int]$Status.AuthPort) -GamePortRange ([string]$Status.GamePortRange)
     $game = @($ports | Select-Object -Skip 1)
@@ -1190,7 +1179,7 @@ function Test-M2VpsInviteAccess {
 function Assert-M2VpsInviteAccess {
     param([Parameter(Mandatory = $true)][string]$ServerRoot)
     if (-not (Test-M2VpsInviteAccess -ServerRoot $ServerRoot)) {
-        throw (UI-Text 'Zaproszenia dla znajomych są niedostępne.' 'Invites for friends are not available.')
+        throw 'Zaproszenia dla znajomych są niedostępne.'
     }
 }
 
@@ -1213,14 +1202,14 @@ function New-M2VpsFriend {
     Assert-M2VpsInviteAccess -ServerRoot $ServerRoot
     $plain = ConvertTo-M2VpsAsciiName -Name $Name
     $base = ($plain.ToLowerInvariant() -replace '[^a-z0-9]', '')
-    if ($base.Length -lt 2) { throw (UI-Text 'Imię znajomego: co najmniej dwie litery lub cyfry.' 'Friend''s name: at least two letters or digits.') }
+    if ($base.Length -lt 2) { throw 'Imię znajomego: co najmniej dwie litery lub cyfry.' }
     if ($base.Length -gt 12) { $base = $base.Substring(0, 12) }
     $note = ('znajomy: ' + $plain)
     if ($note.Length -gt 40) { $note = $note.Substring(0, 40) }
     $result = Invoke-M2Vps -State $State -Command (Get-M2VpsScriptCommand -State $State -Arguments ("add-account {0} '{1}'" -f $base, $note)) -TimeoutSeconds 60
-    if ($result.ExitCode -ne 0) { throw ((UI-Text 'VPS nie założył konta: ' 'The VPS did not create the account: ') + ([string]$result.Error).Trim()) }
+    if ($result.ExitCode -ne 0) { throw ('VPS nie założył konta: ' + ([string]$result.Error).Trim()) }
     $v = ConvertFrom-M2VpsKeyValue -Text ([string]$result.Output)
-    if (-not ($v.Contains('login') -and $v.Contains('password'))) { throw (UI-Text 'VPS nie podał loginu i hasła nowego konta.' 'The VPS did not return the new account''s login and password.') }
+    if (-not ($v.Contains('login') -and $v.Contains('password'))) { throw 'VPS nie podał loginu i hasła nowego konta.' }
     return [pscustomobject]@{ name = $plain; login = [string]$v['login']; password = [string]$v['password']; socialId = $(if ($v.Contains('social_id')) { [string]$v['social_id'] } else { '' }) }
 }
 
@@ -1230,7 +1219,7 @@ function Get-M2VpsFriendInvite {
     param([Parameter(Mandatory = $true)]$State, [Parameter(Mandatory = $true)][string]$ServerRoot,
         [Parameter(Mandatory = $true)]$Account, $Status = $null)
     Assert-M2VpsInviteAccess -ServerRoot $ServerRoot
-    if (-not (Get-Command New-M2CoopInvite -ErrorAction SilentlyContinue)) { throw (UI-Text 'Brak modułu COOP (launcher\Metin2Launcher.Coop.psm1).' 'The COOP module (launcher\Metin2Launcher.Coop.psm1) is missing.') }
+    if (-not (Get-Command New-M2CoopInvite -ErrorAction SilentlyContinue)) { throw 'Brak modułu COOP (launcher\Metin2Launcher.Coop.psm1).' }
     if (-not $Status) { $Status = Get-M2VpsStatus -State $State }
     $ports = Get-M2VpsGamePorts -AuthPort ([int]$Status.AuthPort) -GamePortRange ([string]$Status.GamePortRange)
     $login = $(if (@($Account.PSObject.Properties.Name) -contains 'login') { [string]$Account.login } else { [string]$Account.Login })

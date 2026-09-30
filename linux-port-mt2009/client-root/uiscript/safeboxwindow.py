@@ -1,5 +1,4 @@
 import uiScriptLocale
-import flamewindPath
 
 window = {
 	"name" : "SafeboxWindow",
@@ -41,21 +40,6 @@ window = {
 					"children" :
 					(
 						{ "name":"TitleName", "type":"text", "x":77, "y":3, "text":uiScriptLocale.SAFE_TITLE, "text_horizontal_align":"center" },
-
-						{
-							"name" : "ArrangeButton",
-							"type" : "button",
-							"x" : 42,
-							"y" : -1,
-							"horizontal_align": "right",
-							"vertical_align": "center",
-							"default_image" : flamewindPath.GetInventory("autostack_01"),
-							"over_image" : flamewindPath.GetInventory("autostack_02"),
-							"down_image" : flamewindPath.GetInventory("autostack_03"),
-							"tooltip_text" : uiScriptLocale.INVENTORY_SORT_STACK,
-							"tooltip_y": -19,
-							"tooltip_x": -30,
-						},
 					),
 				},
 

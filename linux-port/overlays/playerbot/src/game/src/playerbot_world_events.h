@@ -109,10 +109,6 @@ namespace
 		const char* szAt;
 		const char* szFrom;
 		const char* szNameEn;
-		// The notices' "in <map>" and "from <map>" for a player who reads
-		// English (playerbot_language.h).
-		const char* szAtEn;
-		const char* szFromEn;
 		BYTE bMinLevel;
 		BYTE bMaxLevel;
 		BYTE bStoneMinLevel;
@@ -124,32 +120,19 @@ namespace
 
 	const TPlayerBotEventMap PLAYERBOT_EVENT_MAPS[] =
 	{
-		{ 21, "Joan", "w Joan", "z Joan", "Joan", "in Joan", "from Joan",
-				1, 35, 5, 30, false, false, { 191, 192, 193, 194, 0 } },
-		{ 1, "Yongan", "w Yongan", "z Yongan", "Yongan", "in Yongan", "from Yongan",
-				1, 35, 5, 30, false, false, { 191, 192, 193, 194, 0 } },
-		{ 41, "Pyongmoo", "w Pyongmoo", "z Pyongmoo", "Pyongmoo", "in Pyongmoo", "from Pyongmoo",
-				1, 35, 5, 30, false, false, { 191, 192, 193, 194, 0 } },
-		{ 23, "Bokjung", "w Bokjung", "z Bokjung", "Bokjung", "in Bokjung", "from Bokjung",
-				20, 45, 20, 40, false, false, { 491, 492, 493, 494, 591 } },
-		{ 3, "Jayang", "w Jayang", "z Jayang", "Jayang", "in Jayang", "from Jayang",
-				20, 45, 20, 40, false, false, { 491, 492, 493, 494, 591 } },
-		{ 43, "Bakra", "w Bakra", "z Bakra", "Bakra", "in Bakra", "from Bakra",
-				20, 45, 20, 40, false, false, { 491, 492, 493, 494, 591 } },
-		{ 64, "Dolina Orkow", "w Dolinie Orkow", "z Doliny Orkow", "Orc Valley", "in Orc Valley", "from Orc Valley",
-				28, 60, 30, 50, true, true, { 591, 681, 692, 691, 0 } },
-		{ 63, "Pustynia Yongbi", "na Pustyni Yongbi", "z Pustyni Yongbi", "Yongbi Desert", "in the Yongbi Desert",
-				"from the Yongbi Desert", 35, 65, 35, 55, true, true, { 2181, 691, 791, 2191, 0 } },
-		{ 61, "Gora Sohan", "na Gorze Sohan", "z Gory Sohan", "Mount Sohan", "on Mount Sohan", "from Mount Sohan",
-				45, 75, 45, 65, true, true, { 791, 1902, 1901, 0, 0 } },
-		{ 65, "Swiatynia Hwang", "w Swiatyni Hwang", "ze Swiatyni Hwang", "Hwang Temple", "in Hwang Temple",
-				"from Hwang Temple", 55, 85, 55, 75, false, true, { 791, 794, 792, 1304, 0 } },
-		{ 62, "Ognista Ziemia", "na Ognistej Ziemi", "z Ognistej Ziemi", "Doyyumhwaji", "in Doyyumhwaji",
-				"from Doyyumhwaji", 60, 90, 60, 80, true, true, { 2206, 2207, 1191, 0, 0 } },
-		{ 67, "Las Duchow", "w Lesie Duchow", "z Lasu Duchow", "Ghost Wood", "in the Ghost Wood", "from the Ghost Wood",
-				60, 95, 65, 85, false, false, { 1191, 2306, 1304, 0, 0 } },
-		{ 68, "Czerwony Las", "w Czerwonym Lesie", "z Czerwonego Lasu", "Red Wood", "in the Red Wood", "from the Red Wood",
-				65, 99, 70, 90, false, false, { 2306, 1192, 1191, 0, 0 } },
+		{ 21, "Joan", "w Joan", "z Joan", "Joan", 1, 35, 5, 30, false, false, { 191, 192, 193, 194, 0 } },
+		{ 1, "Yongan", "w Yongan", "z Yongan", "Yongan", 1, 35, 5, 30, false, false, { 191, 192, 193, 194, 0 } },
+		{ 41, "Pyongmoo", "w Pyongmoo", "z Pyongmoo", "Pyongmoo", 1, 35, 5, 30, false, false, { 191, 192, 193, 194, 0 } },
+		{ 23, "Bokjung", "w Bokjung", "z Bokjung", "Bokjung", 20, 45, 20, 40, false, false, { 491, 492, 493, 494, 591 } },
+		{ 3, "Jayang", "w Jayang", "z Jayang", "Jayang", 20, 45, 20, 40, false, false, { 491, 492, 493, 494, 591 } },
+		{ 43, "Bakra", "w Bakra", "z Bakra", "Bakra", 20, 45, 20, 40, false, false, { 491, 492, 493, 494, 591 } },
+		{ 64, "Dolina Orkow", "w Dolinie Orkow", "z Doliny Orkow", "Orc Valley", 28, 60, 30, 50, true, true, { 591, 681, 692, 691, 0 } },
+		{ 63, "Pustynia Yongbi", "na Pustyni Yongbi", "z Pustyni Yongbi", "Yongbi Desert", 35, 65, 35, 55, true, true, { 2181, 691, 791, 2191, 0 } },
+		{ 61, "Gora Sohan", "na Gorze Sohan", "z Gory Sohan", "Mount Sohan", 45, 75, 45, 65, true, true, { 791, 1902, 1901, 0, 0 } },
+		{ 65, "Swiatynia Hwang", "w Swiatyni Hwang", "ze Swiatyni Hwang", "Hwang Temple", 55, 85, 55, 75, false, true, { 791, 794, 792, 1304, 0 } },
+		{ 62, "Ognista Ziemia", "na Ognistej Ziemi", "z Ognistej Ziemi", "Doyyumhwaji", 60, 90, 60, 80, true, true, { 2206, 2207, 1191, 0, 0 } },
+		{ 67, "Las Duchow", "w Lesie Duchow", "z Lasu Duchow", "Ghost Wood", 60, 95, 65, 85, false, false, { 1191, 2306, 1304, 0, 0 } },
+		{ 68, "Czerwony Las", "w Czerwonym Lesie", "z Czerwonego Lasu", "Red Wood", 65, 99, 70, 90, false, false, { 2306, 1192, 1191, 0, 0 } },
 	};
 	const size_t PLAYERBOT_EVENT_MAP_COUNT = sizeof(PLAYERBOT_EVENT_MAPS) / sizeof(PLAYERBOT_EVENT_MAPS[0]);
 
@@ -278,12 +261,15 @@ namespace
 		return IsPlayerBotEventLeader();
 	}
 
-	// A notice of the event, each player's in its own language
-	// (BroadcastPlayerBotNotice); the log keeps the Polish.
-	void SayPlayerBotWorldEvent(const char* pl, const char* en)
+	void SayPlayerBotWorldEvent(const char* szFormat, ...)
 	{
-		BroadcastPlayerBotNotice(pl, en);
-		sys_log(0, "PLAYERBOT_EVENT: notice \"%s\"", pl);
+		char text[256];
+		va_list args;
+		va_start(args, szFormat);
+		vsnprintf(text, sizeof(text), szFormat, args);
+		va_end(args);
+		BroadcastNotice(text);
+		sys_log(0, "PLAYERBOT_EVENT: notice \"%s\"", text);
 	}
 
 	// A point as a player's minimap shows it: cells from the map's own corner.
@@ -544,11 +530,7 @@ namespace
 		if (!ev.filling && dwNow - ev.lastNoticeAt >= PLAYERBOT_TANAKA_NOTICE_GAP_MS)
 		{
 			ev.lastNoticeAt = dwNow;
-			char pl[256];
-			char en[256];
-			snprintf(pl, sizeof(pl), "Pirat Tanaka pojawil sie %s (%ld, %ld)!", row ? row->szAt : "", lx, ly);
-			snprintf(en, sizeof(en), "Pirate Tanaka appeared %s (%ld, %ld)!", row ? row->szAtEn : "", lx, ly);
-			SayPlayerBotWorldEvent(pl, en);
+			SayPlayerBotWorldEvent("Pirat Tanaka pojawil sie %s (%ld, %ld)!", row ? row->szAt : "", lx, ly);
 		}
 		return true;
 	}
@@ -638,11 +620,7 @@ namespace
 		GetPlayerBotEventLocal(lMap, cx, cy, lx, ly);
 		sys_log(0, "PLAYERBOT_EVENT: zuo wave %u map=%ld pos=(%ld,%ld) local=(%ld,%ld) stones=%d standing=%d",
 				ev.waves, lMap, cx, cy, lx, ly, made, CountPlayerBotStandingThings(ev, false));
-		char pl[256];
-		char en[256];
-		snprintf(pl, sizeof(pl), "Zuo: spadlo %d metinow %s, okolice (%ld, %ld)!", made, row->szAt, lx, ly);
-		snprintf(en, sizeof(en), "Zuo: %d Metin stones fell %s, near (%ld, %ld)!", made, row->szAtEn, lx, ly);
-		SayPlayerBotWorldEvent(pl, en);
+		SayPlayerBotWorldEvent("Zuo: spadlo %d metinow %s, okolice (%ld, %ld)!", made, row->szAt, lx, ly);
 	}
 
 	void SpawnPlayerBotZuoBosses(TPlayerBotWorldEvent& ev, DWORD dwNow)
@@ -666,7 +644,6 @@ namespace
 		if (!PickPlayerBotEventPoint(lMap, cx, cy))
 			return;
 		std::string names;
-		std::string namesEn;
 		int made = 0;
 		for (int i = 0; i < count; ++i)
 		{
@@ -676,12 +653,8 @@ namespace
 				continue;
 			++made;
 			if (!names.empty())
-			{
 				names += ", ";
-				namesEn += ", ";
-			}
 			names += boss->GetName();
-			namesEn += GetPlayerBotMobNameEn(race, boss->GetName());
 		}
 		if (made == 0)
 			return;
@@ -692,11 +665,7 @@ namespace
 		GetPlayerBotEventLocal(lMap, cx, cy, lx, ly);
 		sys_log(0, "PLAYERBOT_EVENT: zuo bosses map=%ld pos=(%ld,%ld) local=(%ld,%ld) count=%d",
 				lMap, cx, cy, lx, ly, made);
-		char pl[256];
-		char en[256];
-		snprintf(pl, sizeof(pl), "Zuo przyzwal: %s %s, okolice (%ld, %ld)!", names.c_str(), row->szAt, lx, ly);
-		snprintf(en, sizeof(en), "Zuo summoned: %s %s, near (%ld, %ld)!", namesEn.c_str(), row->szAtEn, lx, ly);
-		SayPlayerBotWorldEvent(pl, en);
+		SayPlayerBotWorldEvent("Zuo przyzwal: %s %s, okolice (%ld, %ld)!", names.c_str(), row->szAt, lx, ly);
 	}
 
 	// ------------------------------------------------------------------
@@ -732,21 +701,11 @@ namespace
 #endif
 						sys_log(0, "PLAYERBOT_EVENT: tanaka fell vid=%u map=%ld winner=%s killed=%u",
 								thing.vid, thing.map, winner ? winner : "?", ev.killed);
-						char pl[256];
-						char en[256];
 						if (winner)
-						{
-							snprintf(pl, sizeof(pl), "Pirat Tanaka padl %s - zwyciezca: %s!",
+							SayPlayerBotWorldEvent("Pirat Tanaka padl %s - zwyciezca: %s!",
 									row ? row->szAt : "", winner);
-							snprintf(en, sizeof(en), "Pirate Tanaka fell %s - the winner: %s!",
-									row ? row->szAtEn : "", winner);
-						}
 						else
-						{
-							snprintf(pl, sizeof(pl), "Pirat Tanaka padl %s!", row ? row->szAt : "");
-							snprintf(en, sizeof(en), "Pirate Tanaka fell %s!", row ? row->szAtEn : "");
-						}
-						SayPlayerBotWorldEvent(pl, en);
+							SayPlayerBotWorldEvent("Pirat Tanaka padl %s!", row ? row->szAt : "");
 					}
 					// The next one after a minute or two, wherever there are fewest.
 					const DWORD next = dwNow + (DWORD)number((int)PLAYERBOT_TANAKA_RESPAWN_MIN_MS,
@@ -760,13 +719,8 @@ namespace
 					{
 						++ev.bossesKilled;
 						const CMob* mob = CMobManager::instance().Get(thing.race);
-						const char* name = mob ? mob->m_table.szLocaleName : "boss";
-						char pl[256];
-						char en[256];
-						snprintf(pl, sizeof(pl), "Boss Zuo padl %s: %s.", row ? row->szAt : "", name);
-						snprintf(en, sizeof(en), "Zuo's boss fell %s: %s.", row ? row->szAtEn : "",
-								GetPlayerBotMobNameEn(thing.race, name));
-						SayPlayerBotWorldEvent(pl, en);
+						SayPlayerBotWorldEvent("Boss Zuo padl %s: %s.", row ? row->szAt : "",
+								mob ? mob->m_table.szLocaleName : "boss");
 					}
 					else
 						++ev.killed;
@@ -785,11 +739,7 @@ namespace
 				++ev.escaped;
 				sys_log(0, "PLAYERBOT_EVENT: tanaka escaped vid=%u map=%ld hp=%d/%d", thing.vid, thing.map,
 						hp, c->GetMaxHP());
-				char pl[256];
-				char en[256];
-				snprintf(pl, sizeof(pl), "Pirat Tanaka uciekl %s!", row ? row->szFrom : "");
-				snprintf(en, sizeof(en), "Pirate Tanaka escaped %s!", row ? row->szFromEn : "");
-				SayPlayerBotWorldEvent(pl, en);
+				SayPlayerBotWorldEvent("Pirat Tanaka uciekl %s!", row ? row->szFrom : "");
 				M2_DESTROY_CHARACTER(c);
 				ev.things.erase(ev.things.begin() + i);
 				const DWORD next = dwNow + (DWORD)number((int)PLAYERBOT_TANAKA_RESPAWN_MIN_MS,
@@ -990,7 +940,7 @@ namespace
 		}
 	}
 
-	std::string DescribePlayerBotWorldEventMaps(const TPlayerBotWorldEvent& ev, bool en = false)
+	std::string DescribePlayerBotWorldEventMaps(const TPlayerBotWorldEvent& ev)
 	{
 		std::string out;
 		for (size_t i = 0; i < ev.maps.size(); ++i)
@@ -1000,7 +950,7 @@ namespace
 				continue;
 			if (!out.empty())
 				out += ", ";
-			out += en ? row->szAtEn : row->szAt;
+			out += row->szAt;
 		}
 		return out;
 	}
@@ -1057,14 +1007,8 @@ namespace
 		{
 			ev.filling = true;
 			ev.nextSpawnAt = dwNow;
-			char pl[256];
-			char en[256];
-			snprintf(pl, sizeof(pl), "Event: Pirat Tanaka grasuje %s do %s! Kto go pokona, zgarnie jego yang, "
+			SayPlayerBotWorldEvent("Event: Pirat Tanaka grasuje %s do %s! Kto go pokona, zgarnie jego yang, "
 					"a Yonah w pierwszej wiosce da szkatulke za jego ucho.", where.c_str(), when);
-			snprintf(en, sizeof(en), "Event: Pirate Tanaka roams %s until %s! Whoever defeats him takes his yang, "
-					"and Yonah in the first village gives a chest for his ear.",
-					DescribePlayerBotWorldEventMaps(ev, true).c_str(), when);
-			SayPlayerBotWorldEvent(pl, en);
 		}
 		else
 		{
@@ -1073,13 +1017,8 @@ namespace
 			// again in the second half.
 			ev.nextSpawnAt = dwNow + PLAYERBOT_ZUO_FIRST_WAVE_MS;
 			ev.nextBossAt = dwNow + PLAYERBOT_ZUO_FIRST_WAVE_MS;
-			char pl[256];
-			char en[256];
-			snprintf(pl, sizeof(pl), "Event Zuo: deszcz metinow %s do %s! Od polowy eventu Zuo przyzywa bossow.",
+			SayPlayerBotWorldEvent("Event Zuo: deszcz metinow %s do %s! Od polowy eventu Zuo przyzywa bossow.",
 					row ? row->szAt : "", when);
-			snprintf(en, sizeof(en), "Zuo event: Metin stones rain %s until %s! From halfway through, Zuo summons bosses.",
-					row ? row->szAtEn : "", when);
-			SayPlayerBotWorldEvent(pl, en);
 		}
 	}
 
@@ -1123,24 +1062,12 @@ namespace
 		if (announce && !ev.maps.empty())
 		{
 			const std::string where = DescribePlayerBotWorldEventMaps(ev);
-			const std::string whereEn = DescribePlayerBotWorldEventMaps(ev, true);
-			char pl[256];
-			char en[256];
 			if (kind == playerbot_events::KIND_TANAKA)
-			{
-				snprintf(pl, sizeof(pl), "Event zakonczony: Pirat Tanaka odplynal (%s). Pokonany %u razy.",
+				SayPlayerBotWorldEvent("Event zakonczony: Pirat Tanaka odplynal (%s). Pokonany %u razy.",
 						where.c_str(), ev.killed);
-				snprintf(en, sizeof(en), "Event over: Pirate Tanaka sailed away (%s). Defeated %u times.",
-						whereEn.c_str(), ev.killed);
-			}
 			else
-			{
-				snprintf(pl, sizeof(pl), "Event Zuo %s zakonczony: rozbite metiny %u, pokonani bossowie %u z %u.",
+				SayPlayerBotWorldEvent("Event Zuo %s zakonczony: rozbite metiny %u, pokonani bossowie %u z %u.",
 						where.c_str(), ev.killed, ev.bossesKilled, ev.bossesSpawned);
-				snprintf(en, sizeof(en), "Zuo event %s over: Metin stones broken %u, bosses defeated %u of %u.",
-						whereEn.c_str(), ev.killed, ev.bossesKilled, ev.bossesSpawned);
-			}
-			SayPlayerBotWorldEvent(pl, en);
 		}
 		s_mapPlayerBotWorldEvents.erase(found);
 	}
@@ -1188,13 +1115,8 @@ namespace
 					ev.bossHalfAnnounced = true;
 					if (ev.nextBossAt < dwNow + 20000)
 						ev.nextBossAt = dwNow + 20000;
-					char pl[256];
-					char en[256];
-					snprintf(pl, sizeof(pl), "Zuo %s: metiny przestaja spadac - nadchodza bossowie!",
+					SayPlayerBotWorldEvent("Zuo %s: metiny przestaja spadac - nadchodza bossowie!",
 							DescribePlayerBotWorldEventMaps(ev).c_str());
-					snprintf(en, sizeof(en), "Zuo %s: the Metin stones stop falling - the bosses are coming!",
-							DescribePlayerBotWorldEventMaps(ev, true).c_str());
-					SayPlayerBotWorldEvent(pl, en);
 				}
 				if (dwNow >= ev.nextBossAt)
 				{
@@ -1216,23 +1138,12 @@ namespace
 			ev.nextReminderAt = dwNow + PLAYERBOT_WORLD_EVENT_REMINDER_MS;
 			char when[16];
 			FormatPlayerBotEventClock(ev.until, when, sizeof(when));
-			char pl[256];
-			char en[256];
 			if (kind == playerbot_events::KIND_TANAKA)
-			{
-				snprintf(pl, sizeof(pl), "Trwa event: Pirat Tanaka grasuje %s do %s. Pokonany juz %u razy.",
+				SayPlayerBotWorldEvent("Trwa event: Pirat Tanaka grasuje %s do %s. Pokonany juz %u razy.",
 						DescribePlayerBotWorldEventMaps(ev).c_str(), when, ev.killed);
-				snprintf(en, sizeof(en), "Event on: Pirate Tanaka roams %s until %s. Defeated %u times so far.",
-						DescribePlayerBotWorldEventMaps(ev, true).c_str(), when, ev.killed);
-			}
 			else
-			{
-				snprintf(pl, sizeof(pl), "Trwa event Zuo %s do %s: rozbite metiny %u, pokonani bossowie %u.",
+				SayPlayerBotWorldEvent("Trwa event Zuo %s do %s: rozbite metiny %u, pokonani bossowie %u.",
 						DescribePlayerBotWorldEventMaps(ev).c_str(), when, ev.killed, ev.bossesKilled);
-				snprintf(en, sizeof(en), "Zuo event on %s until %s: Metin stones broken %u, bosses defeated %u.",
-						DescribePlayerBotWorldEventMaps(ev, true).c_str(), when, ev.killed, ev.bossesKilled);
-			}
-			SayPlayerBotWorldEvent(pl, en);
 		}
 	}
 

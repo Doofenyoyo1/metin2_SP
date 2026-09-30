@@ -21,7 +21,7 @@
 # = POINT_*, 122 average damage, 121 skill damage), which is what
 # player.GetItemAttribute answers.
 #
-# game.py opens it with U and registers the switcher with its updateables
+# game.py opens it with X (U is the pet window) and registers the switcher with its updateables
 # the first time. Settings are kept in bonusswitch.cfg beside the client.
 # Python 2.7 as the client has it, and 3 for tests/uibonusswitch_test.py.
 # Player-visible strings are CP1250 escapes, so the file itself is ASCII.

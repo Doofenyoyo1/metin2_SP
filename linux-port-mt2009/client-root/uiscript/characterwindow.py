@@ -313,7 +313,7 @@ window = {
 							"children" :
 							(
 								{ "name":"Character_Bar_01", "type":"horizontalbar", "x":12, "y":8, "width":223, },
-								{ "name":"Character_Bar_01_Text", "type" : "text", "x" : 15, "y" : 8, "text" : uiScriptLocale.CHARACTER_STATUS_TITLE, "bold":True, "fontsize":"LARGE","r":0.9373, "g":0.8902, "b":0.7412, },
+								{ "name":"Character_Bar_01_Text", "type" : "text", "x" : 15, "y" : 8, "text" : "Status postaci", "bold":True, "fontsize":"LARGE","r":0.9373, "g":0.8902, "b":0.7412, },
 								# { "name":"Character_Bar_01_Text", "type" : "image", "x" : 13, "y" : 9, "image" : LOCALE_PATH+"label_std.sub", },
 
 								{
@@ -427,7 +427,7 @@ window = {
 
 								{ "name":"Status_Extent_Bar", "type":"horizontalbar", "x":12, "y":6, "width":223, },
 								# { "name":"Status_Extent_Label", "type" : "image", "x" : 13, "y" : 8, "image" : LOCALE_PATH+"label_ext.sub", },
-								{ "name":"Status_Extent_Label", "type" : "text", "x" : 15, "y" : 8, "text" : uiScriptLocale.CHARACTER_ATTRIBUTES_TITLE, "bold":True, "fontsize":"LARGE","r":0.9373, "g":0.8902, "b":0.7412, },
+								{ "name":"Status_Extent_Label", "type" : "text", "x" : 15, "y" : 8, "text" : "Atrybuty", "bold":True, "fontsize":"LARGE","r":0.9373, "g":0.8902, "b":0.7412, },
 
 								{
 									"name" : "AttributeListButton",

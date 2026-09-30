@@ -271,6 +271,65 @@ namespace
 		return s_iPlayerBotJunkWeaponsOnCounters >= PLAYERBOT_JUNK_WEAPON_MARKET_CAP;
 	}
 
+	// The bots' open offline counters on this core, and how many of them carry
+	// a Cor Draconis or a sash (GetPlayerBotRareGoodsKind): recounted with the
+	// ledger once a minute and moved at once by every counter that takes its
+	// first line of a kind in between.
+	int s_iPlayerBotRareGoodsBotShops = 0;
+	int s_aiPlayerBotShopsWithRareGoods[PLAYERBOT_RARE_GOODS_KINDS] = { 0 };
+
+	void ResetPlayerBotRareGoodsCensus()
+	{
+		s_iPlayerBotRareGoodsBotShops = 0;
+		for (int kind = 0; kind < PLAYERBOT_RARE_GOODS_KINDS; ++kind)
+			s_aiPlayerBotShopsWithRareGoods[kind] = 0;
+	}
+
+	void NotePlayerBotShopWithRareGoods(int kind)
+	{
+		if (kind > PLAYERBOT_RARE_GOODS_NONE && kind < PLAYERBOT_RARE_GOODS_KINDS)
+			++s_aiPlayerBotShopsWithRareGoods[kind];
+	}
+
+	// How many counters may carry the kind: its percent of the bots' counters,
+	// and at least one, so a small world still sells some.
+	int GetPlayerBotRareGoodsShopQuota(int kind)
+	{
+		return std::max(1, s_iPlayerBotRareGoodsBotShops * GetPlayerBotRareGoodsShopPercent(kind) / 100);
+	}
+
+	// Whether one more counter may take its first line of the kind.
+	bool IsPlayerBotRareGoodsShopQuotaFull(int kind)
+	{
+		if (kind <= PLAYERBOT_RARE_GOODS_NONE || kind >= PLAYERBOT_RARE_GOODS_KINDS)
+			return false;
+		return s_aiPlayerBotShopsWithRareGoods[kind] >= GetPlayerBotRareGoodsShopQuota(kind);
+	}
+
+	// A kind that came home from a counter unsold, by owner and vnum: the
+	// merchant's from that bag (IsPlayerBotJunkItem), and not the counter's
+	// again, for PLAYERBOT_RARE_GOODS_MERCHANT_HOLD_MS.
+	std::map<std::pair<DWORD, DWORD>, DWORD> s_mapPlayerBotRareGoodsForMerchant;
+
+	void NotePlayerBotRareGoodsUnsold(DWORD pid, DWORD vnum, DWORD dwNow)
+	{
+		s_mapPlayerBotRareGoodsForMerchant[std::make_pair(pid, vnum)] = dwNow ? dwNow : 1;
+	}
+
+	bool IsPlayerBotRareGoodsForMerchant(DWORD pid, DWORD vnum, DWORD dwNow)
+	{
+		std::map<std::pair<DWORD, DWORD>, DWORD>::iterator it =
+				s_mapPlayerBotRareGoodsForMerchant.find(std::make_pair(pid, vnum));
+		if (it == s_mapPlayerBotRareGoodsForMerchant.end())
+			return false;
+		if (dwNow - it->second >= PLAYERBOT_RARE_GOODS_MERCHANT_HOLD_MS)
+		{
+			s_mapPlayerBotRareGoodsForMerchant.erase(it);
+			return false;
+		}
+		return true;
+	}
+
 	// Iwakura's Patch 3, point 4: body armours at +0..+4 on the bots'
 	// counters, by family, counted the way the junk weapons are above - and
 	// since his answer of 26 September the jewellery at +0..+3 as well

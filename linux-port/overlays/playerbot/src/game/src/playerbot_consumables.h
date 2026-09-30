@@ -108,6 +108,10 @@ namespace
 		if (!ch || !item || (item->GetVnum() != PLAYERBOT_MOONLIGHT_CHEST_VNUM &&
 				item->GetType() != ITEM_GIFTBOX))
 			return false;
+		// A Cor Draconis is counter goods of its own (ScorePlayerBotShopStock),
+		// never a box.
+		if (GetPlayerBotRareGoodsKind(item->GetVnum()) != PLAYERBOT_RARE_GOODS_NONE)
+			return false;
 		if (IsPlayerBotChestLevelLocked(ch, item))
 			return true;
 		// A dropper's Moonlight chests are all goods: it keeps them for the
@@ -164,6 +168,25 @@ namespace
 			return 0;
 		int free = 0;
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+			if (ch->IsEmptyItemGrid(TItemPos(INVENTORY, cell), 1))
+				++free;
+		return free;
+	}
+
+	// The free cells of the saddlebag page (playerbot_saddlebag.h) while it is
+	// open: the rows unlocked, with the horse out or ridden. Only the bag's
+	// fullness asks it (IsPlayerBotBagFull, IsPlayerBotBagUnderPressure, the
+	// loot): the engine puts a drop there once the four pages are full, and
+	// the saddlebag pass moves it back down as a cell frees - every other rule
+	// counts the four pages it can see.
+	int CountPlayerBotSaddlebagFreeCells(LPCHARACTER ch)
+	{
+		if (!ch || !ch->CanUseHorseInventory() || ch->GetHorseInventoryUnlock() == 0)
+			return 0;
+		const int end = std::min<int>(INVENTORY_MAX_NUM,
+				INVENTORY_DEFAULT_MAX_NUM + INVENTORY_PAGE_COLUMN * ch->GetHorseInventoryUnlock());
+		int free = 0;
+		for (int cell = INVENTORY_DEFAULT_MAX_NUM; cell < end; ++cell)
 			if (ch->IsEmptyItemGrid(TItemPos(INVENTORY, cell), 1))
 				++free;
 		return free;
@@ -251,6 +274,7 @@ namespace
 		{
 			LPITEM box = ch->GetInventoryItem(boxCell);
 			if (!box || box->GetType() != ITEM_TREASURE_BOX || box->isLocked() ||
+					GetPlayerBotRareGoodsKind(box->GetVnum()) != PLAYERBOT_RARE_GOODS_NONE ||
 					IsPlayerBotChestRefused(ch->GetPlayerID(), box->GetVnum(), dwNow))
 				continue;
 			for (WORD keyCell = 0; keyCell < PLAYERBOT_BAG_CELLS; ++keyCell)
@@ -294,6 +318,10 @@ namespace
 			// Chief's, the Spider Queen's) - the engine opens both the same way.
 			if (!item || (item->GetVnum() != PLAYERBOT_MOONLIGHT_CHEST_VNUM &&
 					item->GetType() != ITEM_GIFTBOX))
+				continue;
+			// A Cor Draconis is never opened (MT2009 Plus): it is a player's
+			// goods, and goes on the counter or to the merchant.
+			if (GetPlayerBotRareGoodsKind(item->GetVnum()) != PLAYERBOT_RARE_GOODS_NONE)
 				continue;
 			// A box already on this bot's own counter. UseItem refuses a locked
 			// item, and that refusal is remembered by vnum for every bot in the
@@ -483,6 +511,40 @@ namespace
 			return (int)ch->GetLevel() + PLAYERBOT_GENERAL_BOOK_LEVEL_AHEAD >= (combo == 0 ? 30 : 50);
 		}
 		return false;
+	}
+
+	// The polymorph books (50314-50316) and the Mining Guide (50600, the
+	// engine's ITEM_MINING_SKILL_TRAIN_BOOK), read the way char_item.cpp
+	// reads them. They were goods for the counter and nothing else, so no bot
+	// ever raised either skill. The horse-taming book stays the players':
+	// a bot has that skill at 10 from the horse training alone.
+	bool IsPlayerBotExtraSkillBook(DWORD vnum)
+	{
+		return (vnum >= 50314 && vnum <= 50316) || vnum == 50600;
+	}
+
+	DWORD GetPlayerBotExtraSkillBookSkill(DWORD vnum)
+	{
+		return vnum == 50600 ? (DWORD)SKILL_MINING : (DWORD)SKILL_POLYMORPH;
+	}
+
+	// The engine's own tests: under 40 and the skill's own cap; a polymorph
+	// book for its range of the skill (value0..value1) from its level
+	// (value3).
+	bool CanPlayerBotReadExtraSkillBookNow(LPCHARACTER ch, DWORD vnum)
+	{
+		if (!ch || !IsPlayerBotExtraSkillBook(vnum))
+			return false;
+		const DWORD skill = GetPlayerBotExtraSkillBookSkill(vnum);
+		const int level = ch->GetSkillLevel(skill);
+		const CSkillProto* sk = CSkillManager::instance().Get(skill);
+		if (!sk || level >= 40 || level >= (int)sk->bMaxLevel)
+			return false;
+		if (vnum == 50600)
+			return true;
+		const TItemTable* proto = ITEM_MANAGER::instance().GetTable(vnum);
+		return proto && (int)ch->GetLevel() >= proto->alValues[3] &&
+				level >= proto->alValues[0] && level < proto->alValues[1];
 	}
 
 	bool IsPlayerBotMetinDetector(DWORD vnum)

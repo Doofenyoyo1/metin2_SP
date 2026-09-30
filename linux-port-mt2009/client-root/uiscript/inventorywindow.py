@@ -58,7 +58,7 @@ window = {
 							"default_image" : flamewindPath.GetInventory("autostack_01"),
 							"over_image" : flamewindPath.GetInventory("autostack_02"),
 							"down_image" : flamewindPath.GetInventory("autostack_03"),
-							"tooltip_text" : uiScriptLocale.INVENTORY_SORT_STACK,
+							"tooltip_text" : uiScriptLocale.INVENTORY_AUTOSTACK,
 							"tooltip_y": -19,
 							"tooltip_x": -30,
 						},
@@ -107,13 +107,13 @@ window = {
 							"name" : "InventoryAdditionalButtons",
 							"type" : "image",
 
-							"x" : 73,
-							"y" : 29,
+							"x" : 55,
+							"y" : 23,
 
 							"horizontal_align" : "right",
 							"vertical_align" : "bottom",
 
-							"image" : "playerbot_ui/inventory_buttons_slot.tga",
+							"image" : flamewindPath.GetInventory("inventory_buttons_slot"),
 							"children" : (
 								{
 									"name" : "HorseInventoryWindow",
@@ -123,54 +123,76 @@ window = {
 
 									"tooltip_text" : uiScriptLocale.HORSE_INVENTORY,
 
-									"default_image" : "playerbot_ui/horse_inv_btn1.tga",
-									"over_image" : "playerbot_ui/horse_inv_btn2.tga",
-									"down_image" : "playerbot_ui/horse_inv_btn3.tga",
+									"default_image" : flamewindPath.GetInventory("horse_inv_btn1"),
+									"over_image" : flamewindPath.GetInventory("horse_inv_btn2"),
+									"down_image" : flamewindPath.GetInventory("horse_inv_btn3"),
 								},
 								{
 									"name" : "DepositButton",
 									"type" : "button",
 
-									"x" : 24,"y" : 2,
+									"x" : 17,"y" : 2,
 
 									"tooltip_text" : uiScriptLocale.POCKET_DEPOSIT,
 
-									"default_image" : "playerbot_ui/deposit_btn1.tga",
-									"over_image" : "playerbot_ui/deposit_btn2.tga",
-									"down_image" : "playerbot_ui/deposit_btn3.tga",
+									"default_image" : flamewindPath.GetInventory("deposit_btn1"),
+									"over_image" : flamewindPath.GetInventory("deposit_btn2"),
+									"down_image" : flamewindPath.GetInventory("deposit_btn3"),
 								},
 								{
 									"name": "MyShopButton",
 									"type": "button",
 
-									"x": 46, "y": 2,
+									"x": 32, "y": 2,
 
 									"tooltip_text" : uiScriptLocale.SHOP_MANAGE,
 
-									"default_image": "playerbot_ui/myshop_btn1.tga",
-									"over_image": "playerbot_ui/myshop_btn2.tga",
-									"down_image": "playerbot_ui/myshop_btn3.tga",
+									"default_image": flamewindPath.GetInventory("myshop_btn1"),
+									"over_image": flamewindPath.GetInventory("myshop_btn2"),
+									"down_image": flamewindPath.GetInventory("myshop_btn3"),
 								},
 							),
+						},
+
+						## Dragon Soul Button
+						{
+							"name" : "DSSButton",
+							"type" : "button",
+							"x" : 114,
+							"y" : 120,
+							"tooltip_text" : uiScriptLocale.TASKBAR_DRAGON_SOUL,
+							"default_image" : "d:/ymir work/ui/dragonsoul/dss_inventory_button_01.tga",
+							"over_image" : "d:/ymir work/ui/dragonsoul/dss_inventory_button_02.tga",
+							"down_image" : "d:/ymir work/ui/dragonsoul/dss_inventory_button_03.tga",
+						},
+
+						## Costume Button
+						{
+							"name" : "CostumeButton",
+							"type" : "button",
+							"x" : 78,
+							"y" : 5,
+							"tooltip_text" : uiScriptLocale.COSTUME_TITLE,
+							"default_image" : "d:/ymir work/ui/game/costume_button_01.tga",
+							"over_image" : "d:/ymir work/ui/game/costume_button_02.tga",
+							"down_image" : "d:/ymir work/ui/game/costume_button_03.tga",
 						},
 
 						{
 							"name" : "ChestPreviewButton",
 							"type" : "button",
 
-							"x" : 33,
-							"y" : 68,
+							"x" : 70,
+							"y" : 21,
 
 							"horizontal_align" : "right",
 							"vertical_align" : "bottom",
 
-							"tooltip_text" : uiScriptLocale.CHEST_PREVIEW_TOOLTIP,
-							"tooltip_x" : -30,
-							"tooltip_y" : -19,
+							"tooltip_text" : "Podgl\xb9d skrzynki",
 
-							"default_image" : "playerbot_ui/chest_button_big.tga",
-							"over_image" : "playerbot_ui/chest_button_big.tga",
-							"down_image" : "playerbot_ui/chest_button_big.tga",
+							"default_image" : "playerbot_ui/chest_button.tga",
+							"over_image" : "playerbot_ui/chest_button.tga",
+							"down_image" : "playerbot_ui/chest_button.tga",
 						},
 
 						{
@@ -293,7 +315,7 @@ window = {
 					"default_image" : "d:/ymir work/ui/game/windows/tab_button_small_01.sub",
 					"over_image" : "d:/ymir work/ui/game/windows/tab_button_small_02.sub",
 					"down_image" : "d:/ymir work/ui/game/windows/tab_button_small_03.sub",
-					"tooltip_text" : uiScriptLocale.INVENTORY_PAGE_BUTTON_TOOLTIP_3,
+					"tooltip_text" : "3. Ekwipunek",
 
 					"children" :
 					(
@@ -320,7 +342,7 @@ window = {
 					"default_image" : "d:/ymir work/ui/game/windows/tab_button_small_01.sub",
 					"over_image" : "d:/ymir work/ui/game/windows/tab_button_small_02.sub",
 					"down_image" : "d:/ymir work/ui/game/windows/tab_button_small_03.sub",
-					"tooltip_text" : uiScriptLocale.INVENTORY_PAGE_BUTTON_TOOLTIP_4,
+					"tooltip_text" : "4. Ekwipunek",
 
 					"children" :
 					(

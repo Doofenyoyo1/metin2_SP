@@ -90,6 +90,14 @@ namespace
 		{ 1192,  72, 81, 98, 8, true },	// Ice Witch (89), Grotto of Exile
 		{ 2491,  73, 85, 102, 6, true },	// Yonghan's Commander (93), Grotto of Exile 2
 		{ 2492,  73, 87, 104, 10, true },	// Yonghan's General (95), raised by his fall
+		// MT2009_PLUS_OCHAO_BOTS_V1 (bosses): the Temple of Ochao, whose door is
+		// level 95 - so the window opens at the door, not eight under the boss.
+		// Its raids take only the bots already in the labyrinth, the nearest by
+		// the walk, and walk them there (playerbot_ochao_bots.h). Not Straznik
+		// En-Tai (6400): he is fought by whoever is near, as before (the owner,
+		// 30 September).
+		{ 6311, 209, 95, 120, 8, true },	// Ochroniarz Ochao (103), boss.txt, hourly
+		{ 6390, 209, 95, 120, 10, true },	// Wladca Ochao (105), boss.txt, hourly
 	};
 	const size_t PLAYERBOT_WORLD_BOSS_COUNT = sizeof(PLAYERBOT_WORLD_BOSSES) / sizeof(PLAYERBOT_WORLD_BOSSES[0]);
 
@@ -114,10 +122,18 @@ namespace
 		DWORD dwLastProgress;
 		bool bReinforced;
 		std::set<DWORD> members;
+		// MT2009_PLUS_OCHAO_BOTS_V1 (muster): in the temple the raid meets here,
+		// out of his group's reach, and goes in together; zero elsewhere.
+		long lMusterX;
+		long lMusterY;
+		long lMusterForX;	// where he stood when the muster was chosen
+		long lMusterForY;
+		DWORD dwNextTopUp;
 
 		TPlayerBotBossRaid() :
 			row(0), bEmpire(0), bPhase(BOSS_RAID_PHASE_GATHER), dwCalledAt(0), dwPhaseSince(0),
-			dwBossVID(0), lBossX(0), lBossY(0), iBestHP(0), dwLastProgress(0), bReinforced(false) {}
+			dwBossVID(0), lBossX(0), lBossY(0), iBestHP(0), dwLastProgress(0), bReinforced(false),
+			lMusterX(0), lMusterY(0), lMusterForX(0), lMusterForY(0), dwNextTopUp(0) {}
 	};
 
 	typedef std::pair<long, WORD> TPlayerBotBossKey;
@@ -178,6 +194,8 @@ namespace
 		state.wBossRaidRace = 0;
 		state.lBossRaidMap = 0;
 		state.dwNextBossRaidMoveTime = 0;
+		if (ch)
+			ForgetPlayerBotOchaoWalk(ch->GetPlayerID()); // MT2009_PLUS_OCHAO_BOTS_V1 (walk)
 		if (dwBossVID != 0 && state.dwTargetVID == dwBossVID)
 			state.dwTargetVID = 0;
 		if (ch && dwBossVID != 0 && ch->GetVictim() && (DWORD)ch->GetVictim()->GetVID() == dwBossVID)
@@ -195,6 +213,53 @@ namespace
 		const DWORD bossGround = nav ? navigation.GetComponentAtWorld(raid.lBossX, raid.lBossY, 12) : 0;
 		const long radius = PLAYERBOT_BOSS_RAID_RALLY_MIN +
 				(long)(PlayerBotNavHash(pid ^ 0x42524C5AU) % (DWORD)PLAYERBOT_BOSS_RAID_RALLY_SPREAD);
+		// MT2009_PLUS_OCHAO_BOTS_V1 (rally): the labyrinth is one piece of
+		// ground, so "joined" says nothing - a spot has to be in his corridor.
+		if (row.lMap == PLAYERBOT_MAP_OCHAO && nav && raid.lMusterX != 0)
+		{
+			// Round the muster, in its corridor.
+			static const long spread[2] = { 450, 250 };
+			const DWORD angle0 = PlayerBotNavHash(pid ^ 0x42524C59U) % 360U;
+			for (int r = 0; r < 2; ++r)
+				for (int attempt = 0; attempt < 8; ++attempt)
+				{
+					const double rad = (double)((angle0 + (DWORD)attempt * 45U) % 360U) * 3.14159265 / 180.0;
+					const long x = raid.lMusterX + (long)(cos(rad) * spread[r]);
+					const long y = raid.lMusterY + (long)(sin(rad) * spread[r]);
+					if (!IsPlayerBotPositionBlocked(row.lMap, x, y) &&
+							navigation.SegmentClearWorld(raid.lMusterX, raid.lMusterY, x, y))
+					{
+						outX = x;
+						outY = y;
+						return;
+					}
+				}
+			outX = raid.lMusterX;
+			outY = raid.lMusterY;
+			return;
+		}
+		if (row.lMap == PLAYERBOT_MAP_OCHAO && nav)
+		{
+			static const long radii[3] = { PLAYERBOT_BOSS_RAID_RALLY_MIN, 1500, 900 };
+			const DWORD angle0 = PlayerBotNavHash(pid ^ 0x42524C59U) % 360U;
+			for (int r = 0; r < 3; ++r)
+				for (int attempt = 0; attempt < 8; ++attempt)
+				{
+					const double rad = (double)((angle0 + (DWORD)attempt * 45U) % 360U) * 3.14159265 / 180.0;
+					const long x = raid.lBossX + (long)(cos(rad) * radii[r]);
+					const long y = raid.lBossY + (long)(sin(rad) * radii[r]);
+					if (!IsPlayerBotPositionBlocked(row.lMap, x, y) &&
+							navigation.SegmentClearWorld(raid.lBossX, raid.lBossY, x, y))
+					{
+						outX = x;
+						outY = y;
+						return;
+					}
+				}
+			outX = raid.lBossX;
+			outY = raid.lBossY;
+			return;
+		}
 		const DWORD firstAngle = PlayerBotNavHash(pid ^ 0x42524C59U) % 360U;
 		for (int attempt = 0; attempt < 8; ++attempt)
 		{
@@ -308,6 +373,21 @@ namespace
 				++inBand;
 			if (GetPlayerBotBossRaidRefusal(c, it->second, row, dwNow))
 				continue;
+			// MT2009_PLUS_OCHAO_BOTS_V1 (raid): a bot in the Temple of Ochao's
+			// labyrinth is minutes from its way out; the raid calls somebody nearer.
+			if (c->GetMapIndex() == PLAYERBOT_MAP_OCHAO && row.lMap != PLAYERBOT_MAP_OCHAO)
+				continue;
+			// And the other way round: the temple's own bosses are for the bots
+			// inside, within a walk that ends before the gathering does.
+			int ochaoWalk = 0;
+			if (row.lMap == PLAYERBOT_MAP_OCHAO)
+			{
+				if (c->GetMapIndex() != PLAYERBOT_MAP_OCHAO || !boss)
+					continue;
+				ochaoWalk = GetPlayerBotOchaoWalk(c, boss->GetX(), boss->GetY());
+				if (ochaoWalk > PLAYERBOT_OCHAO_RAID_WALK_MAX || IsPlayerBotOchaoLeaving(c))
+					continue;
+			}
 			TPlayerBotBossRecruit r;
 			r.pid = it->first;
 			r.empire = c->GetEmpire();
@@ -320,6 +400,11 @@ namespace
 			r.strength = GetPlayerBotStrengthCached(it->first);
 			if (r.strength <= 0)
 				r.strength = (int)c->GetLevel() * 1000;
+			// MT2009_PLUS_BP_BOTS_V1: a bot with a Battle Pass boss mission first.
+			r.strength += playerbot_bpbots::BossRecruitBonus(it->first, row.wRace);
+			// In the labyrinth the nearest by the walk first (a unit of walk
+			// weighs what a unit of strength does).
+			r.strength -= ochaoWalk;
 			out.push_back(r);
 		}
 		std::sort(out.begin(), out.end(), PlayerBotBossRecruitOrder);
@@ -336,6 +421,134 @@ namespace
 		st->second.lBossRaidMap = row.lMap;
 		// The departures spread over the first twenty seconds by pid.
 		st->second.dwNextBossRaidMoveTime = dwNow + PlayerBotNavHash(pid ^ 0x42535452U) % 20000U;
+	}
+
+	// MT2009_PLUS_OCHAO_BOTS_V1 (watch): the members of a temple raid at him.
+	int CountPlayerBotBossRaidAt(const TPlayerBotBossRaid& raid, LPCHARACTER boss)
+	{
+		int at = 0;
+		for (std::set<DWORD>::const_iterator m = raid.members.begin(); m != raid.members.end(); ++m)
+		{
+			LPCHARACTER c = CHARACTER_MANAGER::instance().FindByPID(*m);
+			if (c && !c->IsDead() && c->GetMapIndex() == boss->GetMapIndex() &&
+					DISTANCE_APPROX(c->GetX() - boss->GetX(), c->GetY() - boss->GetY()) <= PLAYERBOT_BOSS_RAID_ARRIVED_RANGE)
+				++at;
+		}
+		return at;
+	}
+
+	// MT2009_PLUS_OCHAO_BOTS_V1 (muster): the members of a temple raid at its
+	// muster, alive.
+	int CountPlayerBotOchaoRaidMustered(const TPlayerBotBossRaid& raid)
+	{
+		if (raid.lMusterX == 0)
+			return 0;
+		int at = 0;
+		for (std::set<DWORD>::const_iterator m = raid.members.begin(); m != raid.members.end(); ++m)
+		{
+			LPCHARACTER c = CHARACTER_MANAGER::instance().FindByPID(*m);
+			if (c && !c->IsDead() && c->GetMapIndex() == PLAYERBOT_MAP_OCHAO &&
+					DISTANCE_APPROX(c->GetX() - raid.lMusterX, c->GetY() - raid.lMusterY) <= PLAYERBOT_OCHAO_RAID_MUSTER_ARRIVED)
+				++at;
+		}
+		return at;
+	}
+
+	// MT2009_PLUS_OCHAO_BOTS_V1 (watch): a temple raid's members, each with
+	// its walk to him and the straight line (pid:walk:line:hp%, d = dead).
+	void LogPlayerBotOchaoRaidMembers(const char* what, const TPlayerBotBossRaid& raid, LPCHARACTER boss)
+	{
+		const TPlayerBotWorldBoss& row = PLAYERBOT_WORLD_BOSSES[raid.row];
+		std::string list;
+		for (std::set<DWORD>::const_iterator m = raid.members.begin(); m != raid.members.end(); ++m)
+		{
+			LPCHARACTER c = CHARACTER_MANAGER::instance().FindByPID(*m);
+			char one[64];
+			if (!c || c->GetMapIndex() != row.lMap || !boss)
+				snprintf(one, sizeof(one), " %u:away", *m);
+			else
+				snprintf(one, sizeof(one), " %u:%d:%d:%d%s", *m, GetPlayerBotOchaoWalk(c, boss->GetX(), boss->GetY()),
+						DISTANCE_APPROX(c->GetX() - boss->GetX(), c->GetY() - boss->GetY()),
+						c->GetMaxHP() > 0 ? (int)(c->GetHP() * 100LL / c->GetMaxHP()) : 0, c->IsDead() ? "d" : "");
+			list += one;
+		}
+		sys_log(0, "OCHAO_BOT: raid %s race=%u empire=%u after_s=%u members=%u at_him=%d at_muster=%d boss=(%ld,%ld) muster=(%ld,%ld) list=%s",
+				what, (unsigned int)row.wRace, (unsigned int)raid.bEmpire, (get_dword_time() - raid.dwCalledAt) / 1000U,
+				(unsigned int)raid.members.size(), boss ? CountPlayerBotBossRaidAt(raid, boss) : 0,
+				CountPlayerBotOchaoRaidMustered(raid), raid.lBossX, raid.lBossY, raid.lMusterX, raid.lMusterY, list.c_str());
+	}
+
+	// MT2009_PLUS_OCHAO_BOTS_V1 (watch): why the bots in the temple were not
+	// called, per kingdom.
+	void LogPlayerBotOchaoRaidRefusals(const TPlayerBotWorldBoss& row, LPCHARACTER boss, DWORD dwNow)
+	{
+		std::map<std::string, int> reasons[4];
+		int onMap[4] = { 0, 0, 0, 0 };
+		for (TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.begin();
+				it != s_mapPlayerBotAIStates.end(); ++it)
+		{
+			LPCHARACTER c = CHARACTER_MANAGER::instance().FindByPID(it->first);
+			if (!c || c->GetMapIndex() != PLAYERBOT_MAP_OCHAO || c->GetEmpire() < 1 || c->GetEmpire() > 3)
+				continue;
+			const int e = c->GetEmpire();
+			++onMap[e];
+			const char* why = GetPlayerBotBossRaidRefusal(c, it->second, row, dwNow);
+			if (!why && IsPlayerBotOchaoLeaving(c))
+				why = "leaving";
+			if (!why && boss && GetPlayerBotOchaoWalk(c, boss->GetX(), boss->GetY()) > PLAYERBOT_OCHAO_RAID_WALK_MAX)
+				why = "walk";
+			++reasons[e][why ? why : "free"];
+		}
+		for (int e = 1; e <= 3; ++e)
+		{
+			std::string list;
+			for (std::map<std::string, int>::const_iterator r = reasons[e].begin(); r != reasons[e].end(); ++r)
+			{
+				char one[48];
+				snprintf(one, sizeof(one), " %s=%d", r->first.c_str(), r->second);
+				list += one;
+			}
+			sys_log(0, "OCHAO_BOT: raid refusals race=%u empire=%d on_map=%d%s",
+					(unsigned int)row.wRace, e, onMap[e], list.c_str());
+		}
+	}
+
+	// MT2009_PLUS_OCHAO_BOTS_V1 (top-up): while a temple raid gathers, a
+	// member that is no longer within the walk (sent back to the gate after
+	// its deaths, or dead where it stands) is let go, and the raid is filled
+	// up again from the nearest free bots of its kingdom.
+	void TopUpPlayerBotOchaoRaid(TPlayerBotBossRaid& raid, LPCHARACTER boss, DWORD dwNow)
+	{
+		const TPlayerBotWorldBoss& row = PLAYERBOT_WORLD_BOSSES[raid.row];
+		int dropped = 0, added = 0;
+		for (std::set<DWORD>::iterator m = raid.members.begin(); m != raid.members.end();)
+		{
+			LPCHARACTER c = CHARACTER_MANAGER::instance().FindByPID(*m);
+			TPlayerBotAIStateMap::iterator st = s_mapPlayerBotAIStates.find(*m);
+			if (c && st != s_mapPlayerBotAIStates.end() && c->GetMapIndex() == row.lMap && !c->IsDead() &&
+					GetPlayerBotOchaoWalk(c, boss->GetX(), boss->GetY()) > PLAYERBOT_OCHAO_RAID_DROP_WALK)
+			{
+				ClearPlayerBotBossRaidState(st->second, c, raid.dwBossVID);
+				raid.members.erase(m++);
+				++dropped;
+			}
+			else
+				++m;
+		}
+		if (raid.members.size() < (size_t)row.bSize)
+		{
+			std::vector<TPlayerBotBossRecruit> pool;
+			int inBand = 0;
+			CollectPlayerBotBossRecruits(row, boss, raid.bEmpire, dwNow, pool, inBand);
+			for (size_t i = 0; i < pool.size() && raid.members.size() < (size_t)row.bSize; ++i)
+			{
+				EnlistPlayerBotBossRaider(raid, pool[i].pid, dwNow);
+				++added;
+			}
+		}
+		if (dropped || added)
+			sys_log(0, "OCHAO_BOT: raid top-up race=%u empire=%u dropped=%d added=%d members=%u",
+					(unsigned int)row.wRace, (unsigned int)raid.bEmpire, dropped, added, (unsigned int)raid.members.size());
 	}
 
 	// A boss standing with no raid on him: the kingdom with the most bots free
@@ -404,6 +617,8 @@ namespace
 				sys_log(0, "PLAYERBOT_RAID: nobody to call boss=%s race=%u map=%ld in_band=%d free=%d/%d/%d need=%d",
 						GetPlayerBotWorldBossName(row.wRace), (unsigned int)row.wRace, row.lMap, inBand,
 						perEmpire[1], perEmpire[2], perEmpire[3], need);
+				if (row.lMap == PLAYERBOT_MAP_OCHAO)
+					LogPlayerBotOchaoRaidRefusals(row, boss, dwNow);
 			}
 			return false;
 		}
@@ -419,6 +634,14 @@ namespace
 		raid.lBossY = boss->GetY();
 		raid.iBestHP = boss->GetHP();
 		raid.dwLastProgress = dwNow;
+		if (row.lMap == PLAYERBOT_MAP_OCHAO)
+		{
+			if (!GetPlayerBotOchaoMuster(raid.lBossX, raid.lBossY, raid.lMusterX, raid.lMusterY))
+				raid.lMusterX = raid.lMusterY = 0;
+			raid.lMusterForX = raid.lBossX;
+			raid.lMusterForY = raid.lBossY;
+			raid.dwNextTopUp = dwNow + PLAYERBOT_OCHAO_RAID_TOPUP_MS;
+		}
 		int onMap = 0;
 		bool withShaman = false;
 		for (size_t i = 0; i < chosen.size(); ++i)
@@ -430,6 +653,8 @@ namespace
 				withShaman = true;
 		}
 		++s_uPlayerBotBossRaidsFormed;
+		if (row.lMap == PLAYERBOT_MAP_OCHAO)
+			LogPlayerBotOchaoRaidMembers("formed", raid, boss);
 		sys_log(0, "PLAYERBOT_RAID: formed boss=%s race=%u map=%ld pos=(%ld,%ld) empire=%u members=%u on_map=%d shaman=%d need=%d in_band=%d",
 				GetPlayerBotWorldBossName(row.wRace), (unsigned int)row.wRace, row.lMap, raid.lBossX, raid.lBossY,
 				(unsigned int)empire, (unsigned int)raid.members.size(), onMap, withShaman ? 1 : 0, need, inBand);
@@ -479,16 +704,31 @@ namespace
 		// Members gone from the world, or taken off the raid by their own pass.
 		for (std::set<DWORD>::iterator m = raid.members.begin(); m != raid.members.end();)
 		{
-			TPlayerBotAIStateMap::const_iterator st = s_mapPlayerBotAIStates.find(*m);
-			if (!CHARACTER_MANAGER::instance().FindByPID(*m) || st == s_mapPlayerBotAIStates.end() ||
+			TPlayerBotAIStateMap::iterator st = s_mapPlayerBotAIStates.find(*m);
+			LPCHARACTER member = CHARACTER_MANAGER::instance().FindByPID(*m);
+			if (!member || st == s_mapPlayerBotAIStates.end() ||
 					st->second.wBossRaidRace != row.wRace || st->second.lBossRaidMap != row.lMap)
 				raid.members.erase(m++);
+			// MT2009_PLUS_OCHAO_BOTS_V1 (leaving): a member another pass has sent
+			// out of the temple walks out; it is no longer the raid's.
+			else if (row.lMap == PLAYERBOT_MAP_OCHAO && IsPlayerBotOchaoLeaving(member))
+			{
+				sys_log(0, "PLAYERBOT_RAID: member leaves the temple pid=%u name=%s race=%u",
+						*m, member->GetName(), (unsigned int)row.wRace);
+				ClearPlayerBotBossRaidState(st->second, member, raid.dwBossVID);
+				raid.members.erase(m++);
+			}
 			else
 				++m;
 		}
 		LPCHARACTER boss = GetPlayerBotBossRaidBoss(raid);
 		if (!boss)
 		{
+			// MT2009_PLUS_OCHAO_BOTS_V1 (kill): a member's kill between two looks at
+			// the gathering is the raid's kill, not somebody else's.
+			if (raid.bPhase == BOSS_RAID_PHASE_GATHER && row.lMap == PLAYERBOT_MAP_OCHAO &&
+					raid.members.count(GetPlayerBotOchaoBossKiller(raid.dwBossVID)) != 0)
+				raid.bPhase = BOSS_RAID_PHASE_FIGHT;
 			if (raid.bPhase == BOSS_RAID_PHASE_GATHER)
 			{
 				// Down before the raid got to him: somebody else's kill.
@@ -508,15 +748,10 @@ namespace
 				if (row.bAnnounce)
 				{
 					char notice[200];
-					char noticeEn[200];
 					snprintf(notice, sizeof(notice), "Boty z krolestwa %s pokonaly: %s (%u min).",
 							GetPlayerBotKingdomName(raid.bEmpire), GetPlayerBotWorldBossName(row.wRace),
 							std::max(1U, minutes));
-					snprintf(noticeEn, sizeof(noticeEn), "The bots of %s defeated: %s (%u min).",
-							GetPlayerBotKingdomName(raid.bEmpire),
-							GetPlayerBotMobNameEn(row.wRace, GetPlayerBotWorldBossName(row.wRace)),
-							std::max(1U, minutes));
-					BroadcastPlayerBotNotice(notice, noticeEn);
+					BroadcastNotice(notice);
 				}
 				return true;
 			}
@@ -536,6 +771,34 @@ namespace
 		}
 		if (raid.bPhase == BOSS_RAID_PHASE_GATHER)
 		{
+			// MT2009_PLUS_OCHAO_BOTS_V1 (top-up): the temple's raid let go of the
+			// members sent back to the gate and filled up again.
+			// MT2009_PLUS_OCHAO_BOTS_V1 (muster): he has walked off (a boss
+			// chases, a lone one wanders) - the muster goes with him.
+			if (row.lMap == PLAYERBOT_MAP_OCHAO &&
+					DISTANCE_APPROX(raid.lBossX - raid.lMusterForX, raid.lBossY - raid.lMusterForY) > PLAYERBOT_OCHAO_RAID_MUSTER_MOVE)
+			{
+				long mx = 0, my = 0;
+				if (GetPlayerBotOchaoMuster(raid.lBossX, raid.lBossY, mx, my))
+				{
+					sys_log(0, "OCHAO_BOT: raid muster moved race=%u boss=(%ld,%ld) muster=(%ld,%ld) -> (%ld,%ld)",
+							(unsigned int)row.wRace, raid.lBossX, raid.lBossY, raid.lMusterX, raid.lMusterY, mx, my);
+					raid.lMusterX = mx;
+					raid.lMusterY = my;
+				}
+				raid.lMusterForX = raid.lBossX;
+				raid.lMusterForY = raid.lBossY;
+			}
+			if (row.lMap == PLAYERBOT_MAP_OCHAO && dwNow >= raid.dwNextTopUp)
+			{
+				raid.dwNextTopUp = dwNow + PLAYERBOT_OCHAO_RAID_TOPUP_MS;
+				TopUpPlayerBotOchaoRaid(raid, boss, dwNow);
+				if (raid.members.empty())
+				{
+					EndPlayerBotBossRaid(it, dwNow, "no_members", PLAYERBOT_BOSS_RAID_TOO_FEW_COOLDOWN_MS);
+					return false;
+				}
+			}
 			int arrived = 0;
 			bool started = false;
 			LPCHARACTER victim = boss->GetVictim();
@@ -548,9 +811,19 @@ namespace
 					started = true;
 				if (DISTANCE_APPROX(c->GetX() - raid.lBossX, c->GetY() - raid.lBossY) <= PLAYERBOT_BOSS_RAID_ARRIVED_RANGE)
 					++arrived;
+				// MT2009_PLUS_OCHAO_BOTS_V1 (muster): or at the muster.
+				else if (raid.lMusterX != 0 &&
+						DISTANCE_APPROX(c->GetX() - raid.lMusterX, c->GetY() - raid.lMusterY) <= PLAYERBOT_OCHAO_RAID_MUSTER_ARRIVED)
+					++arrived;
 			}
-			const int need = std::max(2, ((int)row.bSize + 1) / 2);
-			const bool timeUp = dwNow - raid.dwPhaseSince >= PLAYERBOT_BOSS_RAID_GATHER_MS;
+			int need = std::max(2, ((int)row.bSize + 1) / 2);
+			const bool timeUp = dwNow - raid.dwPhaseSince >= (row.lMap == PLAYERBOT_MAP_OCHAO
+					? PLAYERBOT_OCHAO_RAID_GATHER_MS : PLAYERBOT_BOSS_RAID_GATHER_MS); // MT2009_PLUS_OCHAO_BOTS_V1
+			// MT2009_PLUS_OCHAO_BOTS_V1 (gather): in the labyrinth the walk is
+			// long and the packs on it many - at the end of the gathering two
+			// who have come go in, and the rest follow them to him.
+			if (row.lMap == PLAYERBOT_MAP_OCHAO && timeUp)
+				need = 2;
 			if (arrived >= (int)raid.members.size() || arrived >= (int)row.bSize || started ||
 					(timeUp && arrived >= need))
 			{
@@ -558,12 +831,16 @@ namespace
 				raid.dwPhaseSince = dwNow;
 				raid.iBestHP = boss->GetHP();
 				raid.dwLastProgress = dwNow;
+				if (row.lMap == PLAYERBOT_MAP_OCHAO)
+					LogPlayerBotOchaoRaidMembers("engaged", raid, boss);
 				sys_log(0, "PLAYERBOT_RAID: engaged boss=%s race=%u map=%ld arrived=%d of %u started_by_him=%d after_s=%u",
 						GetPlayerBotWorldBossName(row.wRace), (unsigned int)row.wRace, row.lMap, arrived,
 						(unsigned int)raid.members.size(), started ? 1 : 0, (dwNow - raid.dwCalledAt) / 1000U);
 			}
 			else if (timeUp)
 			{
+				if (row.lMap == PLAYERBOT_MAP_OCHAO)
+					LogPlayerBotOchaoRaidMembers("too_few_came", raid, boss);
 				++s_uPlayerBotBossRaidsTooFew;
 				EndPlayerBotBossRaid(it, dwNow, "too_few_came", PLAYERBOT_BOSS_RAID_TOO_FEW_COOLDOWN_MS);
 				return false;
@@ -578,6 +855,11 @@ namespace
 				raid.iBestHP = boss->GetHP();
 				raid.dwLastProgress = dwNow;
 			}
+			// MT2009_PLUS_OCHAO_BOTS_V1 (stall): in the labyrinth a fight he
+			// started on the first to come is a fight the rest are still
+			// walking to - the clock runs once one of them stands at him.
+			else if (row.lMap == PLAYERBOT_MAP_OCHAO && CountPlayerBotBossRaidAt(raid, boss) == 0)
+				raid.dwLastProgress = dwNow;
 			if (dwNow - raid.dwLastProgress >= PLAYERBOT_BOSS_RAID_STALL_MS)
 			{
 				if (!raid.bReinforced)
@@ -708,7 +990,9 @@ namespace
 		// From the far end of his own map the walk would outlast the gathering
 		// and come after the fight: brought to its spot, as a member from
 		// another map is.
-		if (distance > PLAYERBOT_BOSS_RAID_WALK_MAX)
+		// MT2009_PLUS_OCHAO_BOTS_V1 (walk): never inside the labyrinth - there
+		// the walk is the way, planned round its walls.
+		if (distance > PLAYERBOT_BOSS_RAID_WALK_MAX && row.lMap != PLAYERBOT_MAP_OCHAO)
 		{
 			SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
 			if (dwNow < state.dwNextBossRaidMoveTime)
@@ -734,6 +1018,11 @@ namespace
 				if (engaged && engaged != boss)
 					return FightPlayerBotTowerObjective(ch, state, engaged, dwNow);
 			}
+			// MT2009_PLUS_OCHAO_BOTS_V1 (walk): still far from him in the
+			// labyrinth - by its corners, not at him through the walls.
+			if (row.lMap == PLAYERBOT_MAP_OCHAO && distance > PLAYERBOT_OCHAO_RAID_FIGHT_WALK &&
+					WalkPlayerBotInOchao(ch, state, boss->GetX(), boss->GetY(), dwNow))
+				return true;
 			return FightPlayerBotTowerObjective(ch, state, boss, dwNow);
 		}
 		// Gathering: what attacks the bot is fought where it comes, the
@@ -761,6 +1050,13 @@ namespace
 		}
 		state.dwTargetVID = 0;
 		SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
+		// MT2009_PLUS_OCHAO_BOTS_V1 (walk): in the labyrinth by its corners.
+		if (row.lMap == PLAYERBOT_MAP_OCHAO)
+		{
+			if (toRally > 400)
+				WalkPlayerBotInOchao(ch, state, rallyX, rallyY, dwNow);
+			return true;
+		}
 		if (toRally > 400 && dwNow >= state.dwNextBossRaidMoveTime)
 		{
 			state.dwNextBossRaidMoveTime = dwNow + 2000;

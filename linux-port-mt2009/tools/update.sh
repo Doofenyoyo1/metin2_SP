@@ -70,7 +70,14 @@ else
     rm -f "$0" 2>/dev/null
 fi
 COMPOSE_DIR="$ROOT/linux-port/docker"
+# Written after an unpack, removed after a build that finished (build_and_start).
+BUILD_PENDING="$ROOT/.update-build-pending"
 REPO=${M2_UPDATE_REPO:-Doofenyoyo1/metin2_SP}
+case "$REPO" in
+    *TieruYT/metin2-playerbots*|*zaxerrrr-dot/mt2009-sp-plus*)
+        echo "M2_UPDATE_REPO wskazuje repozytorium projektu zrodlowego; ta paczka aktualizuje sie tylko z repozytorium Metin2 SinglePlayer (Doofenyoyo1/metin2_SP)."
+        exit 1 ;;
+esac
 BRANCH=${M2_UPDATE_BRANCH:-main}
 MANIFEST_NAME=update-manifest-mt2009.json
 SPOOL=${M2_UPDATE_SPOOL:-/opt/m2update}
@@ -377,8 +384,10 @@ migrate_blessing_scroll() {
     printf 'M2_BLESSING_SCROLL_STONE_PERMILLE_DEFAULTED=1\n' >> "$_env"
 }
 
-# Channel N listens on 13000+10*(N-1)..+2 inside the container, and compose
-# publishes M2_GAME_PORT_RANGE onto M2_GAME_CONTAINER_PORT_RANGE - so with the
+# Channel N listens on BASE+10*(N-1)..+2 inside the container (BASE is
+# M2_GAME_PORT_BASE, 13000 unless a second stack on the host moved it -
+# m2-render-config), and compose publishes M2_GAME_PORT_RANGE onto
+# M2_GAME_CONTAINER_PORT_RANGE - so with the
 # second channel on and the range left at 13000-13002 the cores are up, the
 # bots play on CH2 and nobody outside the machine can reach it. Only the
 # Windows launcher ever widened it, so a Linux host, or anyone who switched the
@@ -386,28 +395,21 @@ migrate_blessing_scroll() {
 # lecz ja nie moglem sie logowac" (GoracyDelfin, 19 September), fixed by hand
 # in .env. The wish the panel writes lives on a volume, so it is read from the
 # running container when there is one; .env alone answers otherwise.
-#
-# The channels that run are the entrypoint's: M2_CHANNELS, raised to two for
-# the second channel and to three or four for the fresh cohort of channels 3
-# and 4 (M2_PLAYERBOT_FRESH_CHANNELS) - so a world whose operator set
-# M2_CHANNELS=4 by hand keeps its ports, which the old two-way answer took
-# back to one channel's at every update. The panel's wish wins when it is
-# newer than .env's own moment (M2_PLAYERBOT_CH2_SET_AT), as it does in the
-# entrypoint, and a wish that does not name the fresh channels leaves .env's.
 sync_channel_ports() {
     _env="$COMPOSE_DIR/.env"
     [ -f "$_env" ] || return 0
     _ch2=$(kv "$_env" M2_PLAYERBOT_CH2 | tr -d ' \r')
-    _fresh=$(kv "$_env" M2_PLAYERBOT_FRESH_CHANNELS | tr -d ' \r')
     _channels=$(kv "$_env" M2_CHANNELS | tr -d ' \r')
     _env_at=$(kv "$_env" M2_PLAYERBOT_CH2_SET_AT | tr -d ' \r')
     case "$_env_at" in
         ''|*[!0-9]*) _env_at=0 ;;
     esac
+    # The panel's wish wins only when it is newer than .env's own moment
+    # (M2_PLAYERBOT_CH2_SET_AT), as it does in the entrypoint; a world whose
+    # operator set M2_CHANNELS=2 by hand keeps its ports.
     _wishes=$( (cd "$COMPOSE_DIR" && docker compose exec -T game cat /opt/m2spool/channels.wanted) 2>/dev/null |
         tr -d ' \r')
     _wish=$(printf '%s\n' "$_wishes" | sed -n 's/^CH2=//p' | head -n 1)
-    _wish_fresh=$(printf '%s\n' "$_wishes" | sed -n 's/^FRESH=//p' | head -n 1)
     _wish_at=$(printf '%s\n' "$_wishes" | sed -n 's/^SET_AT=//p' | head -n 1)
     case "$_wish_at" in
         ''|*[!0-9]*) _wish_at=0 ;;
@@ -416,12 +418,11 @@ sync_channel_ports() {
         0|1)
             if [ "$_wish_at" -gt "$_env_at" ]; then
                 _ch2="$_wish"
-                case "$_wish_fresh" in
-                    0|1|2) _fresh="$_wish_fresh" ;;
-                esac
             fi
             ;;
     esac
+    # Every channel the world runs keeps its ports: M2_CHANNELS (1-4), and
+    # at least two while the second channel is on.
     _need=1
     case "$_channels" in
         2|3|4) _need="$_channels" ;;
@@ -429,23 +430,43 @@ sync_channel_ports() {
     if [ "$_ch2" = 1 ] && [ "$_need" -lt 2 ]; then
         _need=2
     fi
-    case "$_fresh" in
-        1|2)
-            if [ "$_need" -lt $((2 + _fresh)) ]; then
-                _need=$((2 + _fresh))
-            fi
-            ;;
+    # The channels' first port inside the container: M2_GAME_PORT_BASE, which
+    # the cores listen on (13000 when .env does not say). It used to be
+    # 13000 here whatever the base was, and a world on 43000 got 13000-13012
+    # at its first update with the second channel on (vps4, 2.10 -> 2.14).
+    _base=$(kv "$_env" M2_GAME_PORT_BASE | tr -d ' \r')
+    case "$_base" in
+        ''|*[!0-9]*) _base=13000 ;;
     esac
-    _want=13000-$((13000 + 10 * (_need - 1) + 2))
+    [ "$_base" -gt 0 ] && [ "$_base" -lt 65500 ] || _base=13000
+    _span=$((10 * (_need - 1) + 2))
+    # The published side keeps its distance from the container's: a host that
+    # moved its ports (M2_GAME_PORT_RANGE 14000-..., container 13000-...)
+    # keeps them, and one whose two ranges were the same stays so.
+    _host_first=$(kv "$_env" M2_GAME_PORT_RANGE | tr -d ' \r' | sed -n 's/^\([0-9][0-9]*\).*/\1/p')
+    _cont_first=$(kv "$_env" M2_GAME_CONTAINER_PORT_RANGE | tr -d ' \r' | sed -n 's/^\([0-9][0-9]*\).*/\1/p')
+    [ -n "$_cont_first" ] || _cont_first=$_base
+    if [ -n "$_host_first" ]; then
+        _host_first=$((_host_first - _cont_first + _base))
+    else
+        _host_first=$_base
+    fi
+    if [ "$_host_first" -le 0 ] || [ "$_host_first" -ge 65500 ]; then
+        _host_first=$_base
+    fi
+    _want_host=$_host_first-$((_host_first + _span))
+    _want_cont=$_base-$((_base + _span))
+    _want="$_want_host (container $_want_cont)"
     _changed=0
     for _key in M2_GAME_PORT_RANGE M2_GAME_CONTAINER_PORT_RANGE; do
+        if [ "$_key" = M2_GAME_PORT_RANGE ]; then _want_one=$_want_host; else _want_one=$_want_cont; fi
         _cur=$(kv "$_env" "$_key" | tr -d ' \r')
-        [ "$_cur" = "$_want" ] && continue
+        [ "$_cur" = "$_want_one" ] && continue
         [ -n "$(tail -c 1 "$_env")" ] && printf '\n' >> "$_env"
         if grep -q "^$_key=" "$_env"; then
-            sed -i "s|^$_key=.*|$_key=$_want|" "$_env"
+            sed -i "s|^$_key=.*|$_key=$_want_one|" "$_env"
         else
-            printf '%s=%s\n' "$_key" "$_want" >> "$_env"
+            printf '%s=%s\n' "$_key" "$_want_one" >> "$_env"
         fi
         _changed=1
     done
@@ -462,7 +483,7 @@ sync_channel_ports() {
 # the keys named below, whose example value is the compose default (an
 # absent key already meant that), never a password, a port or an address;
 # a key already there, empty included, is the operator's and is left alone.
-ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_BLESSING_SCROLL_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_PLAYERBOT_FRESH_CHANNELS PLAYERBOT_FRESH_COUNT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_ITEMSHOP_MOUNTS M2_ITEMSHOP_MOUNT_PRICE M2_ITEMSHOP_MOUNT_HOURS M2_AUTOHUNT M2_SIDEKICK M2_AUTOHUNT_ITEM M2_FLEA_MARKET"
+ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_BLESSING_SCROLL_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_AUTOHUNT M2_SIDEKICK M2_ALCHEMY M2_SASHES M2_AUTOHUNT_ITEM M2_FLEA_MARKET"
 add_missing_env_keys() {
     _env="$COMPOSE_DIR/.env"
     _ex="$COMPOSE_DIR/.env.example"
@@ -485,6 +506,48 @@ add_missing_env_keys() {
         _added="$_added $_key"
     done < "$_ex"
     [ -n "$_added" ] && note "   new .env keys, at the example's defaults:$_added"
+    add_other_missing_env_keys
+    return 0
+}
+
+# Every other key of the example that .env lacks, so a reinstall or an update
+# leaves an .env that names every setting the release knows (it used to keep
+# only the list above). Added only where it changes nothing: the example's
+# value is empty (compose reads an empty key as an absent one) or is the very
+# default docker-compose.yml gives the key. Never a password, a secret or a
+# token, never a once-only marker (*_DEFAULTED, *_SET_AT: their absence is
+# what makes a migration run), and never a key .env already has, empty or not.
+add_other_missing_env_keys() {
+    _env="$COMPOSE_DIR/.env"
+    _ex="$COMPOSE_DIR/.env.example"
+    _compose="$COMPOSE_DIR/docker-compose.yml"
+    [ -f "$_env" ] && [ -f "$_ex" ] || return 0
+    _added=""
+    while IFS= read -r _line || [ -n "$_line" ]; do
+        _line=$(printf '%s' "$_line" | tr -d '\r')
+        case "$_line" in
+            [A-Z_0-9]*=*) ;;
+            *) continue ;;
+        esac
+        _key=${_line%%=*}
+        _val=${_line#*=}
+        case "$_key" in
+            *PASSWORD*|*SECRET*|*TOKEN*|*_DEFAULTED|*_SET_AT) continue ;;
+        esac
+        grep -q "^$_key=" "$_env" && continue
+        if [ -n "$_val" ]; then
+            [ -f "$_compose" ] || continue
+            # The key's compose defaults, ${KEY:-value}; one, and the same.
+            _defaults=$(grep -o "\${$_key:-[^}]*}" "$_compose" 2>/dev/null | sed "s/^\\\${$_key:-//; s/}\$//" | sort -u)
+            [ -n "$_defaults" ] || continue
+            [ "$(printf '%s\n' "$_defaults" | wc -l)" = 1 ] || continue
+            [ "$_defaults" = "$_val" ] || continue
+        fi
+        [ -n "$(tail -c 1 "$_env")" ] && printf '\n' >> "$_env"
+        printf '%s\n' "$_line" >> "$_env"
+        _added="$_added $_key"
+    done < "$_ex"
+    [ -n "$_added" ] && note "   .env keys it did not name, at what they already meant:$_added"
     return 0
 }
 
@@ -500,7 +563,10 @@ restore_empty_context_dirs() {
     # bare directory entry - git cannot carry one either - fails the build at
     # "failed to compute cache key" (dekri, 20 September, on Windows). Make it
     # rather than let the build die over a directory with nothing in it.
-    for d in "$COMPOSE_DIR/game/src/serverfiles/share/package"; do
+    # serverfiles/mark-default (the guild symbols' seed) is empty and COPYd
+    # the same way ("/src/serverfiles/mark-default: not found", 27 September).
+    for d in "$COMPOSE_DIR/game/src/serverfiles/share/package" \
+             "$COMPOSE_DIR/game/src/serverfiles/mark-default"; do
         [ -d "$d" ] || mkdir -p "$d" 2>/dev/null || true
     done
 }
@@ -553,6 +619,15 @@ run_update() {
     [ -n "$_ver" ] && [ -n "$_url" ] && [ -n "$_sha" ] || { fail "the manifest has no server version, url or sha256"; return 1; }
     note "   installed $(installed_version), published $_ver"
     if [ "$(installed_version)" = "$_ver" ] && [ "${FORCE:-0}" != 1 ]; then
+        # The files are this version, but the last run stopped before its
+        # build finished (BUILD_PENDING is written right after the unpack):
+        # VERSION alone said "nothing to do" and the server kept the old
+        # images for good ("already on 2.14.0", 29 September). Build now.
+        if [ -f "$BUILD_PENDING" ]; then
+            note "   the files are $_ver, but the last update did not finish building -- building now"
+            build_and_start
+            return $?
+        fi
         note "   already on $_ver -- nothing to do (FORCE=1 to unpack it again)"
         set_status ok "the server is running version $_ver"
         return 0
@@ -574,6 +649,45 @@ run_update() {
     step "unpacking $_ver over $ROOT"
     unpack_over "$WORK/update.zip" "$ROOT" || { fail "the zip could not be unpacked"; return 1; }
     note "   the folder now says version $(installed_version)"
+    # From here VERSION says the new version whatever happens to the build;
+    # this is what tells the next run to finish it.
+    : > "$BUILD_PENDING" 2>/dev/null || true
+    migrate_env
+    build_and_start
+}
+
+# The half of an update after the files: staged build inputs, then compose.
+# Also what a run that finds BUILD_PENDING does, so a build that failed (or
+# a VPS that rebooted halfway) is finished without downloading anything.
+build_and_start() {
+    # Before compose, because a published port range only changes at a recreate
+    # (migrate_env did it already on a full update; a pending build redoes it).
+    sync_channel_ports
+    restore_empty_context_dirs
+    stage_panel_context || { fail "the panel's build context could not be staged from files/"; return 1; }
+    step "building and starting the new version (docker compose up -d --build)"
+    # By hand the build talks to the terminal; under the panel it goes to the
+    # spool's log, which is what the panel's progress page tails.
+    if [ "$WATCHING" = 1 ]; then
+        ( cd "$COMPOSE_DIR" && docker compose up -d --build ) >> "$LOG" 2>&1
+    else
+        ( cd "$COMPOSE_DIR" && docker compose up -d --build )
+    fi || { fail "the new version was not built or not started -- the log says where it stopped; run this again to retry the build"; return 1; }
+    rm -f "$BUILD_PENDING" 2>/dev/null || true
+    note "the server is now running version $(installed_version)"
+    set_status ok "the server is running version $(installed_version)"
+    rm -rf "$WORK"
+    return 0
+}
+
+kv() { sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1; }
+
+# What an update does to .env once the new files are in place, in this order.
+# `sh update.sh env' runs it alone: vps-install.sh does when it installs over
+# a world that already has an .env (the launcher's "install" over an older
+# world on a VPS), so a new key, the channels' ports and the once-only flips
+# reach that world as they reach an updated one. Existing values stay.
+migrate_env() {
     migrate_timezone
     add_missing_env_keys
     # Before the layout, which reads the kingdoms' own counts.
@@ -585,23 +699,7 @@ run_update() {
     migrate_blessing_scroll
     # Before compose, because a published port range only changes at a recreate.
     sync_channel_ports
-    restore_empty_context_dirs
-    stage_panel_context || { fail "the panel's build context could not be staged from files/"; return 1; }
-    step "building and starting the new version (docker compose up -d --build)"
-    # By hand the build talks to the terminal; under the panel it goes to the
-    # spool's log, which is what the panel's progress page tails.
-    if [ "$WATCHING" = 1 ]; then
-        ( cd "$COMPOSE_DIR" && docker compose up -d --build ) >> "$LOG" 2>&1
-    else
-        ( cd "$COMPOSE_DIR" && docker compose up -d --build )
-    fi || { fail "the new version was not built or not started -- the log says where it stopped"; return 1; }
-    note "the server is now running version $(installed_version)"
-    set_status ok "the server is running version $(installed_version)"
-    rm -rf "$WORK"
-    return 0
 }
-
-kv() { sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1; }
 
 watch() {
     WATCHING=1
@@ -631,7 +729,8 @@ case "${1:-run}" in
     check) check_tree; fetch_manifest > "$WORK.m" && printf 'installed %s, published %s\n' "$(installed_version)" "$(manifest_field "$WORK.m" version)"; rm -f "$WORK.m" ;;
     watch) check_tree; watch ;;
     stage) check_tree; stage_panel_context && say "the panel's build context is staged from files/" || die "staging the panel's build context failed" ;;
-    *) printf 'usage: sh %s [run|check|watch|stage]\n' "$0"; exit 2 ;;
+    env)   check_tree; migrate_env ;;
+    *) printf 'usage: sh %s [run|check|watch|stage|env]\n' "$0"; exit 2 ;;
 esac
 exit $?
 }

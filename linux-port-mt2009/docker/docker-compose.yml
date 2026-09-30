@@ -65,7 +65,9 @@ services:
       mariadb:
         condition: service_healthy
 
-    environment:
+    # Anchored: the game container runs this same migrator after the advanced
+    # panel's whole-world reset (m2-world-reset), with the same settings.
+    environment: &migrate-env
       M2_DB_HOST: mariadb
       M2_DB_PORT: "3306"
       M2_DB_USER: "${M2_DB_USER:-metin2}"
@@ -74,11 +76,6 @@ services:
       PLAYERBOT_SEED_STRICT: "${PLAYERBOT_SEED_STRICT:-0}"
       PLAYERBOT_EXPECT_MIN_EXISTING_BOTS: "${PLAYERBOT_EXPECT_MIN_EXISTING_BOTS:-0}"
       M2_PLAYERBOT_KINGDOMS: "${M2_PLAYERBOT_KINGDOMS:-1}"
-      # The fresh cohort of game channels 3 and 4: the seed creates its
-      # identities while they are on - this, or the web panel's wish in the
-      # spool when that is newer than the moment below (as the game decides).
-      M2_PLAYERBOT_FRESH_CHANNELS: "${M2_PLAYERBOT_FRESH_CHANNELS:-0}"
-      M2_PLAYERBOT_CH2_SET_AT: "${M2_PLAYERBOT_CH2_SET_AT:-0}"
       M2_PLAYERBOT_HUMAN_NAMES: "${M2_PLAYERBOT_HUMAN_NAMES:-1}"
       # The world's difficulty: apply.sh turns it into the event flags the
       # Biologist and the stable keeper read (quest/m2_difficulty.lua).
@@ -103,12 +100,13 @@ services:
       # the cores read). M2_PLAYERBOT_DISABLE_STUDENT_CHEST=1 is Seban's own
       # integration's name for off, and is read as that.
       M2_STARTER_CHEST: "${M2_STARTER_CHEST:-1}"
+      # The world's switches for the Cor Draconis and the sashes (apply.sh
+      # writes m2_alchemy_off / m2_sash_off when .env changed).
+      M2_ALCHEMY: "${M2_ALCHEMY:-1}"
+      M2_SASHES: "${M2_SASHES:-1}"
       M2_PLAYERBOT_DISABLE_STUDENT_CHEST: "${M2_PLAYERBOT_DISABLE_STUDENT_CHEST:-0}"
       # The world's ride seals in the ItemShop's "Wierzchowce" tab (apply.sh);
       # 0 leaves common.itemshop_items to the operator.
-      M2_ITEMSHOP_MOUNTS: "${M2_ITEMSHOP_MOUNTS:-1}"
-      M2_ITEMSHOP_MOUNT_PRICE: "${M2_ITEMSHOP_MOUNT_PRICE:-500}"
-      M2_ITEMSHOP_MOUNT_HOURS: "${M2_ITEMSHOP_MOUNT_HOURS:-30}"
       # Whether the world is played with Auto Lowy and with the companion
       # (the launcher's difficulty window; the migrator writes the flags).
       M2_AUTOHUNT: "${M2_AUTOHUNT:-1}"
@@ -123,11 +121,9 @@ services:
 
     volumes:
       - ./mariadb/playerbot:/opt/playerbot:ro
-      # The spool, for two files: whether a world about to be made keeps its
-      # bots at the door until the operator lets them in - the migrator is the
-      # only step that runs before the cores and knows the world is fresh -
-      # and the web panel's channel wish (channels.wanted), read only for
-      # whether the fresh cohort of channels 3 and 4 is seeded.
+      # The spool, for one file: whether a world about to be made keeps its
+      # bots at the door until the operator lets them in. The migrator is the
+      # only step that runs before the cores and knows the world is fresh.
       - rates-spool:/opt/m2spool
 
     read_only: true
@@ -168,6 +164,9 @@ services:
         condition: service_completed_successfully
 
     environment:
+      # The migrator's settings too, for the whole-world reset of the advanced
+      # panel (m2-world-reset runs apply.sh from here); the keys below win.
+      <<: *migrate-env
       M2_DB_HOST: mariadb
       M2_DB_PORT: "3306"
       M2_DB_USER: "${M2_DB_USER:-metin2}"
@@ -189,6 +188,10 @@ services:
       PLAYERBOT_AUTOSPAWN_COUNT: "${PLAYERBOT_AUTOSPAWN_COUNT:-350}"
       PLAYERBOT_MEDAL_DROPPERS: "${PLAYERBOT_MEDAL_DROPPERS:-0}"
       PLAYERBOT_MEDAL_DROPPER_LEVEL: "${PLAYERBOT_MEDAL_DROPPER_LEVEL:-25}"
+      PLAYERBOT_RETIRE_COUNT: "${PLAYERBOT_RETIRE_COUNT:-0}"
+      PLAYERBOT_RETIRE_BATCH_ID: "${PLAYERBOT_RETIRE_BATCH_ID:-0}"
+      PLAYERBOT_RETIRE_WINDOW_MINUTES: "${PLAYERBOT_RETIRE_WINDOW_MINUTES:-1440}"
+      PLAYERBOT_RETIRE_SHOP_MINUTES: "${PLAYERBOT_RETIRE_SHOP_MINUTES:-60}"
       # The spawn plan (input_db.cpp): the cohort's window in minutes, and a
       # second cohort joining one at a time over hours.
       PLAYERBOT_SPAWN_WINDOW_MINUTES: "${PLAYERBOT_SPAWN_WINDOW_MINUTES:-1}"
@@ -209,12 +212,11 @@ services:
       M2_PLAYERBOT_CH2: "${M2_PLAYERBOT_CH2:-0}"
       PLAYERBOT_CH2_SHARE: "${PLAYERBOT_CH2_SHARE:-40}"
       M2_PLAYERBOT_CH2_SET_AT: "${M2_PLAYERBOT_CH2_SET_AT:-0}"
-      # Channels 3 and 4 with a fresh cohort of bots from level one (1: CH3,
-      # 2: CH3 and CH4, 0 off); the entrypoint decides it with the second
-      # channel and raises M2_CHANNELS to cover it. No shops there.
-      M2_PLAYERBOT_FRESH_CHANNELS: "${M2_PLAYERBOT_FRESH_CHANNELS:-0}"
-      PLAYERBOT_FRESH_COUNT: "${PLAYERBOT_FRESH_COUNT:-200}"
       M2_GAME_CONTAINER_PORT_RANGE: "${M2_GAME_CONTAINER_PORT_RANGE:-13000-13002}"
+      # The channels' first port inside the container (m2-render-config); the
+      # range above has to start there. 13000 unless a second stack on the same
+      # host needs another one.
+      M2_GAME_PORT_BASE: "${M2_GAME_PORT_BASE:-13000}"
       # m2-render-config writes these into CONFIG. Without a line here the
       # value in .env never reaches the container and the defaults stand, which
       # is what every 2.x world had until 2.0.52 (the 1.x compose passes them).
@@ -241,14 +243,19 @@ services:
       - "${M2_HOST_BIND_ADDRESS:-0.0.0.0}:${M2_AUTH_PORT:-11000}:11000/tcp"
       # The container side is a variable too: the launcher widens both to
       # 13000-13012 when it switches the second channel on (M2_PLAYERBOT_CH2),
-      # to 13000-13022 or 13000-13032 for the fresh channels 3 and 4, and a
-      # world without them publishes the first channel's three as before.
+      # and a world without it publishes the first channel's three as before.
       - "${M2_HOST_BIND_ADDRESS:-0.0.0.0}:${M2_GAME_PORT_RANGE:-13000-13002}:${M2_GAME_CONTAINER_PORT_RANGE:-13000-13002}/tcp"
       # never published: 12000, 14000-14002 (p2p), 15000 (the db core).
 
     volumes:
       - game-var:/opt/metin2/var
       - rates-spool:/opt/m2spool
+      # The advanced panel's resets (m2-world-reset): the dumps and the
+      # migrator a fresh database is made from, and the server folder's
+      # backups directory for the copy taken before a reset.
+      - ./mariadb/initdb.d:/opt/m2initdb:ro
+      - ./mariadb/playerbot:/opt/playerbot:ro
+      - "${M2_BACKUP_HOST_DIR:-../../backups}:/opt/m2backups"
 
     ulimits:
       nofile:
@@ -322,6 +329,14 @@ services:
       # front page leaves the line out entirely -- better than pointing your
       # players at whatever address happened to be in the source.
       M2_CONTACT_EMAIL: "${M2_CONTACT_EMAIL:-}"
+      # The supporters' password for /register. Empty = registration as before.
+      M2PANEL_REGISTER_ACCESS_CODE: "${M2_REGISTER_ACCESS_CODE:-}"
+      # What the supporters' sign-up page tells players to add in the launcher:
+      # the server address and the login / first channel port.
+      M2PANEL_REGISTER_GAME_ADDRESS: "${M2_REGISTER_GAME_ADDRESS:-}"
+      M2PANEL_GAME_ADDRESS: "${M2_CLIENT_ADDRESS:-${M2_PUBLIC_ADDRESS:-}}"
+      M2PANEL_LOGIN_PORT: "${M2_CLIENT_AUTH_PORT:-${M2_AUTH_PORT:-11000}}"
+      M2PANEL_GAME_PORT_RANGE: "${M2_GAME_PORT_RANGE:-13000-13002}"
 
       # ---- the client that runs in a browser ------------------------------
       # Off. With it off the panel offers nothing, serves nothing under /play

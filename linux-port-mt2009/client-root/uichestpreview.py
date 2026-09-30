@@ -1,5 +1,5 @@
 # Podglad skrzynki - what a chest can hand out (Gibon's window, 26 September:
-# "przeciagasz skrzynke, pokazuje ci co moze poleciec"; the operator: "kilka osob o
+# "przeciagasz skrzynke, pokazuje ci co moze poleciec"; "kilka osob o
 # tym pisalo").
 #
 # The small chest button beside the inventory's three opens it. A chest
@@ -18,16 +18,13 @@
 # Nothing about a chest is kept in the client, so what the window shows is
 # what the running server would hand out, an operator's edited group included.
 #
-# The texts are CP1250 escapes so the file stays ASCII, each a Polish and
-# English pair (playerbot_lang.T): English for a client set to any language
-# but Polish. The items' own names are the client's tables', in its own
-# language. Python 2.7 as the
+# The texts are CP1250 escapes so the file stays ASCII. Python 2.7 as the
 # client has it: every window here holds another through a weak proxy and
 # every event through ui.__mem_func__, because two windows with __del__ in a
 # cycle are never collected there and their C++ windows would stay for good.
 # And a window handed in may be a weak proxy already: ui.__mem_func__ runs an
 # event with self as one, and a proxy of a proxy is a TypeError - which is
-# how upstream's client 2.0.39's chest button opened nothing (WindowProxy, Gibon's fix).
+# how client 2.0.39's chest button opened nothing (WindowProxy, Gibon's fix).
 
 import math
 from _weakref import CallableProxyType, ProxyType, proxy
@@ -38,7 +35,6 @@ import mouseModule
 import net
 import player
 import ui
-from playerbot_lang import T
 
 def WindowProxy(window):
 	"""A weak proxy of the window - the window itself when it is one already.
@@ -54,8 +50,8 @@ def WindowProxy(window):
 SLOT_IMAGE = "playerbot_ui/chest_slot.tga"
 
 # CSpecialItemGroup::EGiveType - what an effect line gives.
-EFFECT_NAMES = {1: "Yang", 2: "EXP", 3: T("Potw\xf3r", "Monster"), 4: T("Spowol.", "Slow"),
-	5: T("Wyssanie", "Drain"), 6: T("Trucizna", "Poison"), 7: T("Grupa", "Group"), 8: T("Krwaw.", "Bleed")}
+EFFECT_NAMES = {1: "Yang", 2: "EXP", 3: "Potw\xf3r", 4: "Spowol.", 5: "Wyssanie",
+	6: "Trucizna", 7: "Grupa", 8: "Krwaw."}
 
 # The server stops at four hundred lines (playerbotify's apply_chest_preview).
 MAX_REWARDS = 400
@@ -73,15 +69,13 @@ class ChestInputSlot(ui.Window):
 		if not mouse.isAttached():
 			return
 		if mouse.GetAttachedType() != player.SLOT_TYPE_INVENTORY:
-			chat.AppendChat(chat.CHAT_TYPE_INFO, T("Przeci\xb9gnij skrzynk\xea z ekwipunku.",
-				"Drag a chest from your inventory."))
+			chat.AppendChat(chat.CHAT_TYPE_INFO, "Przeci\xb9gnij skrzynk\xea z ekwipunku.")
 			return
 		slot = mouse.GetAttachedSlotNumber()
 		vnum = mouse.GetAttachedItemIndex()
 		mouse.DeattachObject()
 		if slot < 0 or player.GetItemIndex(slot) != vnum:
-			chat.AppendChat(chat.CHAT_TYPE_INFO, T("Skrzynka musi by\xe6 w ekwipunku.",
-				"The chest has to be in your inventory."))
+			chat.AppendChat(chat.CHAT_TYPE_INFO, "Skrzynka musi by\xe6 w ekwipunku.")
 			return
 		self.owner.SetChest(slot, vnum)
 
@@ -200,10 +194,9 @@ class ChestPreviewWindow(ui.BoardWithTitleBar):
 		self.SetCenterPosition()
 		self.AddFlag("movable")
 		self.AddFlag("float")
-		self.SetTitleName(T("Podgl\xb9d skrzynki", "Chest preview"))
+		self.SetTitleName("Podgl\xb9d skrzynki")
 		self.SetCloseEvent(ui.__mem_func__(self.Close))
-		self.headerText = self.__Text(self.WIDTH // 2, 38, T("Przeci\xb9gnij tu skrzynk\xea z ekwipunku",
-			"Drag a chest here from your inventory"))
+		self.headerText = self.__Text(self.WIDTH // 2, 38, "Przeci\xb9gnij tu skrzynk\xea z ekwipunku")
 		self.headerText.SetHorizontalAlignCenter()
 		self.chestSlot = ChestInputSlot(self)
 		self.chestSlot.SetParent(self)
@@ -318,7 +311,7 @@ class ChestPreviewWindow(ui.BoardWithTitleBar):
 				label = ui.TextLine()
 				label.SetParent(slot)
 				label.SetPosition(2, 9)
-				label.SetText(str(vnum) if vnum > 0 else EFFECT_NAMES.get(-vnum, T("Inne", "Other")))
+				label.SetText(str(vnum) if vnum > 0 else EFFECT_NAMES.get(-vnum, "Inne"))
 				label.AddFlag("not_pick")
 				label.Show()
 				self.rewardWidgets.append(label)
@@ -332,7 +325,7 @@ class ChestPreviewWindow(ui.BoardWithTitleBar):
 				label.Show()
 				self.rewardWidgets.append(label)
 		if len(self.pages) > 1:
-			self.pageText.SetText(T("Strona %d/%d", "Page %d/%d") % (self.page + 1, len(self.pages)))
+			self.pageText.SetText("Strona %d/%d" % (self.page + 1, len(self.pages)))
 			self.pageText.Show()
 		else:
 			self.pageText.Hide()
@@ -398,7 +391,7 @@ class ChestPreviewWindow(ui.BoardWithTitleBar):
 	def SetChest(self, inventorySlot, vnum):
 		self.__Reset()
 		self.pendingVnum = vnum
-		self.status.SetText(T("Pobieram zawarto\x9c\xe6 z serwera...", "Asking the server what it holds..."))
+		self.status.SetText("Pobieram zawarto\x9c\xe6 z serwera...")
 		self.status.Show()
 		try:
 			item.SelectItem(vnum)
@@ -406,7 +399,7 @@ class ChestPreviewWindow(ui.BoardWithTitleBar):
 			self.chestIcon.LoadImage(item.GetIconImageFileName())
 			self.chestIcon.Show()
 		except Exception:
-			self.chestName.SetText(T("Skrzynka", "Chest"))
+			self.chestName.SetText("Skrzynka")
 			self.chestIcon.Hide()
 		net.SendChatPacket("/chest_preview %d" % inventorySlot)
 
@@ -450,7 +443,7 @@ class ChestPreviewWindow(ui.BoardWithTitleBar):
 			return
 		self.status.Hide()
 		if not self.rewards and not self.effects:
-			self.status.SetText(T("Ta skrzynka nic nie wydaje.", "This chest gives nothing."))
+			self.status.SetText("Ta skrzynka nic nie wydaje.")
 			self.status.Show()
 			return
 		self.__Arrange()
@@ -462,9 +455,9 @@ class ChestPreviewWindow(ui.BoardWithTitleBar):
 		self.chestIcon.Hide()
 		self.chestName.SetText("")
 		if data == "missing":
-			self.status.SetText(T("Serwer nie zna zawarto\x9cci tej skrzynki.", "The server does not know this chest."))
+			self.status.SetText("Serwer nie zna zawarto\x9cci tej skrzynki.")
 		else:
-			self.status.SetText(T("To nie jest skrzynka.", "That is not a chest."))
+			self.status.SetText("To nie jest skrzynka.")
 		self.status.Show()
 
 	def Open(self):

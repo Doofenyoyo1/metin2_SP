@@ -176,6 +176,10 @@ namespace {
         const DWORD boughtVnum = line->GetInfo().vnum;
         if (boughtVnum == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
             NotePlayerBotChestBought(ch->GetPlayerID(), now);
+        if (IsPlayerBotSashVnum(boughtVnum))
+            NotePlayerBotSashBought(ch, boughtVnum, (long long)price);
+        NotePlayerBotSaddlebagBought(ch, boughtVnum, (long long)price);
+        NotePlayerBotGuildMaterialBought(ch, boughtVnum, (long long)price);
         if (Begin(ch->GetPlayerID(), Buy, o.buyItem, now)) {
             auto& request = requests.at(ch->GetPlayerID());
             request.vnum = line->GetInfo().vnum;
@@ -212,6 +216,8 @@ namespace {
             const std::map<DWORD, int>& missing, long long cap, DWORD now);
     bool FindPlayerBotRareGamblerBasePick(LPCHARACTER ch, TPlayerBotAIState& state, long long cap, DWORD now);
     bool FindPlayerBotStalkiPick(LPCHARACTER ch, TPlayerBotAIState& state, long long cap, DWORD now);
+    bool FindPlayerBotBookPick(LPCHARACTER ch, TPlayerBotAIState& state, long long cap, DWORD now);
+    bool FindPlayerBotOutdatedGearPick(LPCHARACTER ch, TPlayerBotAIState& state, long long cap, DWORD now);
 
     bool ManagePlayerBotOfflineShopping(LPCHARACTER ch, TPlayerBotAIState& state, DWORD now) {
         using namespace playerbot_offline;
@@ -250,6 +256,19 @@ namespace {
         if (!o.buyOwner) {
             if (!Due(now, o.nextBrowse)) return false;
             o.nextBrowse = now + number(120000, 240000);
+            // A guild master whose next building lacks materials looks for
+            // them on every stand of the map, the gambler's way, paying out of
+            // the guild's fund - which the budget below leaves out, being
+            // reserved (playerbot_guild_land.h).
+            {
+                std::map<DWORD, int> missing;
+                const long long guildCap = CollectPlayerBotGuildMaterialMissing(ch, missing);
+                if (!missing.empty() && guildCap > 0 && FindPlayerBotGambleMaterialPick(ch, state, missing, guildCap, now)) {
+                    sys_log(0, "PLAYERBOT_GUILD_LAND: master goes for materials pid=%u name=%s owner=%u item=%u lacking=%u",
+                        ch->GetPlayerID(), ch->GetName(), o.buyOwner, o.buyItem, (unsigned int)missing.size());
+                    return RunPlayerBotOfflinePick(ch, state, now);
+                }
+            }
             const long long budget = Affordable(ch->GetGold(), GetPlayerBotReservedGold(ch), PLAYERBOT_SHOPPING_GOLD_FLOOR);
             if (budget <= 0) return false;
             // What the piece under Iwakura's scroll rule lacks for its next
@@ -274,6 +293,23 @@ namespace {
                     ch->GetPlayerID(), ch->GetName(), o.buyOwner, o.buyItem,
                     (unsigned int)state.persona.bGambleBuyCategory, (unsigned int)state.persona.bRareBought,
                     (unsigned int)state.persona.bRareBuyWant);
+                return RunPlayerBotOfflinePick(ch, state, now);
+            }
+            // The books of its own skills at Master: every stand of the map,
+            // not the browse's sixty-four lines a look. A bot on another
+            // channel finds its line on the shop channel's stands and asks to
+            // be moved there (RunPlayerBotOfflinePick).
+            if (FindPlayerBotBookPick(ch, state, budget, now)) {
+                sys_log(0, "PLAYERBOT_MARKET: goes for a skill book pid=%u name=%s owner=%u item=%u gold=%lld channel=%u",
+                    ch->GetPlayerID(), ch->GetName(), o.buyOwner, o.buyItem, (long long)ch->GetGold(),
+                    (unsigned int)g_bChannel);
+                return RunPlayerBotOfflinePick(ch, state, now);
+            }
+            // An outdated shield, helmet or body armour from level fifty: the
+            // piece that replaces it, on every stand of the map.
+            if (FindPlayerBotOutdatedGearPick(ch, state, budget, now)) {
+                sys_log(0, "PLAYERBOT_MARKET: goes for a piece over outdated gear pid=%u name=%s owner=%u item=%u level=%d",
+                    ch->GetPlayerID(), ch->GetName(), o.buyOwner, o.buyItem, (int)ch->GetLevel());
                 return RunPlayerBotOfflinePick(ch, state, now);
             }
             // And a bot in the market for a Stalki (playerbot_stalki.h) looks on
@@ -631,6 +667,122 @@ namespace {
         return true;
     }
 
+    // The books of its own skills at Master (PlayerBotWantsOwnBooks): the
+    // cheapest book a unit on a stand of its map the buyer would take on
+    // arrival, the purchase's own tests asked of the line, for no more than
+    // `cap`. Only a line whose proto is a skill book is built into an item.
+    bool FindPlayerBotBookPick(LPCHARACTER ch, TPlayerBotAIState& state, long long cap, DWORD now) {
+        using namespace playerbot_offline;
+        if (!ch || cap <= 0 || !PlayerBotWantsOwnBooks(ch)) return false;
+        const int shopChannel = CPlayerBotManager::instance().IsChannelTableMode()
+                ? playerbot_channel_rules::SHOP_CHANNEL : (int)g_bChannel;
+        CPlayerBotNavigation& navigation = CPlayerBotNavigation::instance(ch->GetMapIndex());
+        const bool haveNav = navigation.Init(ch->GetMapIndex());
+        DWORD bestOwner = 0, bestItem = 0;
+        long long bestUnit = 0;
+        for (const auto& [pid, shop] : ikashop::GetManager().GetPlayerBotOfflineShops()) {
+            if (!shop || pid == ch->GetPlayerID() || shop->GetDuration() == 0 || shop->IsEditMode()) continue;
+            const auto spawn = shop->GetSpawn();
+            if (spawn.map != ch->GetMapIndex() || (int)spawn.channel != shopChannel) continue;
+            int reach = -1;
+            for (const auto& [id, line] : shop->GetItems()) {
+                if (!line || !line->GetTable() || line->GetTable()->bType != ITEM_SKILLBOOK ||
+                        IsPlayerBotLineClaimedByOther(id, ch->GetPlayerID(), now))
+                    continue;
+                const auto& info = line->GetInfo();
+                const DWORD skill = info.vnum == 50300 ? (DWORD)info.alSockets[0] : (DWORD)line->GetTable()->alValues[0];
+                if (!IsPlayerBotOwnSkill(ch, skill) || ch->GetSkillMasterType(skill) != SKILL_MASTER) continue;
+                const long long price = (long long)line->GetPrice().GetTotalYangAmount();
+                if (price <= 0 || price > cap) continue;
+                const long long unit = price / std::max<long long>(1, (long long)info.count);
+                if (bestOwner && unit >= bestUnit) continue;
+                if (reach < 0)
+                    reach = !haveNav || navigation.CanReach(ch->GetX(), ch->GetY(), spawn.x, spawn.y) ? 1 : 0;
+                if (reach == 0) break;
+                LPITEM preview = BotOfflinePreview(*line);
+                if (!preview) continue;
+                const bool buyable = IsPlayerBotProgressionOffer(ch, preview) && WantsPlayerBotStallItem(ch, preview) &&
+                        CanPlayerBotPayForOffer(ch, preview, price) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
+                M2_DELETE(preview);
+                if (!buyable) continue;
+                bestOwner = shop->GetOwnerPID();
+                bestItem = id;
+                bestUnit = unit;
+            }
+        }
+        if (!bestOwner) return false;
+        auto& o = state.offlineShop;
+        o.buyOwner = bestOwner;
+        o.buyItem = bestItem;
+        o.buyUntil = now + PLAYERBOT_MARKET_FAR_PICK_WALK_MS;
+        o.farBuy = false;
+        ClaimPlayerBotLineUntil(bestItem, ch->GetPlayerID(), now, o.buyUntil);
+        return true;
+    }
+
+    // The piece that replaces an outdated shield, helmet or body armour
+    // (IsPlayerBotOutdatedGearOffer): a finished one at +6 or more first, then
+    // the highest level, then the cheapest - on a stand of the map the bot
+    // can walk to, for no more than `cap`.
+    bool FindPlayerBotOutdatedGearPick(LPCHARACTER ch, TPlayerBotAIState& state, long long cap, DWORD now) {
+        using namespace playerbot_offline;
+        if (!ch || cap <= 0 || (int)ch->GetLevel() < PLAYERBOT_OUTDATED_GEAR_MIN_LEVEL) return false;
+        bool outdated[3] = {
+            IsPlayerBotOutdatedGear(ch, ch->GetWear(WEAR_BODY)),
+            IsPlayerBotOutdatedGear(ch, ch->GetWear(WEAR_HEAD)),
+            IsPlayerBotOutdatedGear(ch, ch->GetWear(WEAR_SHIELD)) };
+        if (!outdated[0] && !outdated[1] && !outdated[2]) return false;
+        const int shopChannel = CPlayerBotManager::instance().IsChannelTableMode()
+                ? playerbot_channel_rules::SHOP_CHANNEL : (int)g_bChannel;
+        CPlayerBotNavigation& navigation = CPlayerBotNavigation::instance(ch->GetMapIndex());
+        const bool haveNav = navigation.Init(ch->GetMapIndex());
+        DWORD bestOwner = 0, bestItem = 0;
+        long long bestRank = -1, bestPrice = 0;
+        for (const auto& [pid, shop] : ikashop::GetManager().GetPlayerBotOfflineShops()) {
+            if (!shop || pid == ch->GetPlayerID() || shop->GetDuration() == 0 || shop->IsEditMode()) continue;
+            const auto spawn = shop->GetSpawn();
+            if (spawn.map != ch->GetMapIndex() || (int)spawn.channel != shopChannel) continue;
+            int reach = -1;
+            for (const auto& [id, line] : shop->GetItems()) {
+                const TItemTable* table = line ? line->GetTable() : NULL;
+                if (!table || table->bType != ITEM_ARMOR || line->GetInfo().count != 1 ||
+                        IsPlayerBotLineClaimedByOther(id, ch->GetPlayerID(), now))
+                    continue;
+                const int slot = table->bSubType == ARMOR_BODY ? 0 : table->bSubType == ARMOR_HEAD ? 1 :
+                        table->bSubType == ARMOR_SHIELD ? 2 : -1;
+                if (slot < 0 || !outdated[slot]) continue;
+                const int level = GetPlayerBotProtoLevelLimit(table);
+                if (level > (int)ch->GetLevel() || level + PLAYERBOT_OUTDATED_GEAR_LEVELS <= (int)ch->GetLevel()) continue;
+                const long long price = (long long)line->GetPrice().GetTotalYangAmount();
+                if (price <= 0 || price > cap) continue;
+                const int plus = (int)(line->GetInfo().vnum % 10);
+                const long long rank = (plus >= 6 ? 1000000LL : 0LL) + (long long)level * 100 + plus;
+                if (rank < bestRank || (rank == bestRank && price >= bestPrice)) continue;
+                if (reach < 0)
+                    reach = !haveNav || navigation.CanReach(ch->GetX(), ch->GetY(), spawn.x, spawn.y) ? 1 : 0;
+                if (reach == 0) break;
+                LPITEM preview = BotOfflinePreview(*line);
+                if (!preview) continue;
+                const bool buyable = IsPlayerBotOutdatedGearOffer(ch, preview) && WantsPlayerBotStallItem(ch, preview) &&
+                        CanPlayerBotPayForOffer(ch, preview, price) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
+                M2_DELETE(preview);
+                if (!buyable) continue;
+                bestOwner = shop->GetOwnerPID();
+                bestItem = id;
+                bestRank = rank;
+                bestPrice = price;
+            }
+        }
+        if (!bestOwner) return false;
+        auto& o = state.offlineShop;
+        o.buyOwner = bestOwner;
+        o.buyItem = bestItem;
+        o.buyUntil = now + PLAYERBOT_MARKET_FAR_PICK_WALK_MS;
+        o.farBuy = false;
+        ClaimPlayerBotLineUntil(bestItem, ch->GetPlayerID(), now, o.buyUntil);
+        return true;
+    }
+
     // Declared in playerbot_town.h: a gambler's session between the
     // storekeeper and the anvil (BOT_TOWN_PHASE_GAMBLE_MARKET), by Iwakura's
     // answer of 26 September - "Zabiera baze z magazynu do ekwipunku ... i
@@ -708,6 +860,7 @@ namespace {
             ++s_mapPlayerBotStallsByMap[shop->GetSpawn().map];
             if (IsPlayerBotM2Map(shop->GetSpawn().map)) ++s_iPlayerBotStallsInM2;
             const bool botShop = CPlayerBotManager::instance().IsRegisteredBotPID(shop->GetOwnerPID());
+            bool rareKinds[PLAYERBOT_RARE_GOODS_KINDS] = { false };
             for (const auto& [id, item] : shop->GetItems()) {
                 if (!item) continue;
                 // A slipped price is no bot's supply: no bot buys it (Community
@@ -729,7 +882,15 @@ namespace {
                     NotePlayerBotCappedLineOnCounter(item->GetVnum(), item->GetInfo().count);
                     NotePlayerBotMissionBooksOnCounter(shop->GetSpawn().map, item->GetVnum(), item->GetInfo().count);
                 }
+                rareKinds[GetPlayerBotRareGoodsKind(item->GetVnum())] = true;
                 ++lines;
+            }
+            // The bots' counters, and which of them carry a Cor Draconis or a
+            // sash (IsPlayerBotRareGoodsShopQuotaFull).
+            if (botShop) {
+                ++s_iPlayerBotRareGoodsBotShops;
+                for (int kind = PLAYERBOT_RARE_GOODS_NONE + 1; kind < PLAYERBOT_RARE_GOODS_KINDS; ++kind)
+                    if (rareKinds[kind]) NotePlayerBotShopWithRareGoods(kind);
             }
         }
     }
@@ -801,6 +962,18 @@ namespace {
             ++corrected;
             sys_log(0, "PLAYERBOT_OFFLINE: price slip put right by the core pid=%u name=%s item=%u vnum=%u from=%lld to=%lld why=%s",
                 slip.owner, shop->GetOwnerName(), slip.item, vnum, price, normal, why);
+            // The line's row (playerbot_explain.h): how long this core saw it
+            // stand, and why the core and not its keeper.
+            if (IsPlayerBotExplainOn()) {
+                const auto seenAt = s_mapPlayerBotSlipSeenAt.find(slip.item);
+                const long long minutes = seenAt != s_mapPlayerBotSlipSeenAt.end() ? (long long)((now - seenAt->second) / 60000U) : 0;
+                const int by = strcmp(why, "keeper_held") == 0 ? per::SLIP_BY_CORE_HELD
+                        : (strcmp(why, "keeper_late") == 0 ? per::SLIP_BY_CORE_LATE : per::SLIP_BY_CORE_AWAY);
+                std::vector<per::TPair> steps(1, per::Pair(per::STEP_SLIP_PUT_RIGHT, normal, price, minutes, by));
+                QueuePlayerBotListingEvent(slip.item, slip.owner, vnum, line->GetInfo().count, per::EVENT_SLIP_FIX_CORE,
+                    normal, price, per::EncodePairs(steps, per::STEPS_COLUMN), 0, 0,
+                    per::LFLAG_SLIP);
+            }
         }
     }
 }

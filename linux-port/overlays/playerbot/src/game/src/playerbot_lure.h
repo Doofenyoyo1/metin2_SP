@@ -565,13 +565,10 @@ namespace
 		if (player && player->GetDesc() && ch->GetParty() &&
 				ch->GetParty() == player->GetParty())
 		{
-			const bool en = IsPlayerBotPersonEnglish(player);
 			if (strcmp(reason, "player_too_far") == 0)
-				SendPlayerBotWhisper(ch, player, PBT(en, "Zgubilem cie - koncze lurowanie",
-						"I lost you - I'm done luring"));
+				SendPlayerBotWhisper(ch, player, "Zgubilem cie - koncze lurowanie");
 			else if (strcmp(reason, "order_expired") == 0)
-				SendPlayerBotWhisper(ch, player, PBT(en, "Koncze lurowanie. Napisz \"luruj\", jesli mam dalej",
-						"Done luring. Whisper \"lure\" if I should go on"));
+				SendPlayerBotWhisper(ch, player, "Koncze lurowanie. Napisz \"luruj\", jesli mam dalej");
 		}
 		state.dwLurePlayerPID = 0;
 		state.dwLurePlayerTime = 0;
@@ -1264,9 +1261,8 @@ namespace
 						state.iLureChasing = onOwner;
 					}
 					else if (unreachable > 0)
-						SendPlayerBotWhisper(ch, commander, PBT(IsPlayerBotPersonEnglish(commander),
-								"Nie moge ich na ciebie zrzucic - wyjdz ze strefy bezpieczenstwa",
-								"I can't hand them over to you - step out of the safe zone"));
+						SendPlayerBotWhisper(ch, commander,
+								"Nie moge ich na ciebie zrzucic - wyjdz ze strefy bezpieczenstwa");
 				}
 				if (dwNow - state.dwLureStageTime < (forPlayer
 						? PLAYERBOT_LURE_PLAYER_HANDOFF_WAIT : PLAYERBOT_LURE_HANDOFF_WAIT))

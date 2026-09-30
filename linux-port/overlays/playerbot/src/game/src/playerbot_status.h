@@ -58,9 +58,13 @@ namespace
 	// Romanian or a German reads before Polish ("Chat language", JFK, 23
 	// September). A monster's or an item's name in the English line is a
 	// "{m<vnum>}" or "{i<vnum>}" the client fills in from its own tables, in its
-	// own language; a player's and a guild's name stay what they are. The pairs
-	// are PBT's (playerbot_language.h), whose two formats GCC checks against the
-	// arguments of the snprintf they are handed to.
+	// own language; a player's and a guild's name stay what they are. The two
+	// formats of a pair must carry the same conversions: the English one is a
+	// runtime string, so the compiler checks neither against the arguments.
+	inline const char* PBT(bool en, const char* pl, const char* english)
+	{
+		return en ? english : pl;
+	}
 
 	// A monster's or a stone's name for the line: the server's own, or the
 	// placeholder the client fills in.
@@ -135,6 +139,7 @@ namespace
 			case PLAYERBOT_MAP_FIRE_LAND: return "do Doyyumhwaji";
 			case PLAYERBOT_MAP_GROTTO_V1: return "do Groty Wygnancow";
 			case PLAYERBOT_MAP_GROTTO_V2: return "do Groty Wygnancow 2";
+			case PLAYERBOT_MAP_OCHAO: return "do Swiatyni Ochao"; // MT2009_PLUS_OCHAO_BOTS_V1
 			default: return "";
 		}
 	}
@@ -170,6 +175,7 @@ namespace
 			case PLAYERBOT_MAP_FIRE_LAND: return "to Doyyumhwaji";
 			case PLAYERBOT_MAP_GROTTO_V1: return "to the Grotto of Exile";
 			case PLAYERBOT_MAP_GROTTO_V2: return "to the Grotto of Exile 2";
+			case PLAYERBOT_MAP_OCHAO: return "to the Temple of Ochao"; // MT2009_PLUS_OCHAO_BOTS_V1
 			default: return "";
 		}
 	}
@@ -379,6 +385,13 @@ namespace
 
 		const char* prefix = ch->GetParty() ? "[PT] " : "";
 		const char* goal = GetPlayerBotGoalLabel(state.bLongTermGoal, en);
+		// MT2009_PLUS_SHOUTERS_V1: a shouter at its level stands at its post
+		// (playerbot_shouters.h), whatever its planner last wanted.
+		if (ch->GetLevel() >= PLAYERBOT_SHOUTER_LEVEL && IsPlayerBotShouterPID(ch->GetPlayerID()))
+		{
+			snprintf(status, statusSize, "%s", PBT(en, "Stoje przy Handlarce", "Standing by the general store"));
+			return;
+		}
 		// The Demon Tower: the floor a bot is on, or the raid it is going to
 		// (playerbot_demon_tower.h).
 		if (IsPlayerBotDemonTowerInstance(ch->GetMapIndex()))
@@ -428,10 +441,10 @@ namespace
 			// said above it: from outside both looked like a war that had
 			// stopped (DUDU, 28 September).
 			else if (IsPlayerBotWarOnBreak(ch))
-				snprintf(status, statusSize, PBT(en, "%sPrzerwa miedzy rundami w obozie - wojna z %s", "%sBreak between rounds at the camp - war with %s"),
+				snprintf(status, statusSize, "%sPrzerwa miedzy rundami w obozie - wojna z %s",
 						prefix, enemy ? enemy->GetName() : "?");
 			else if (IsPlayerBotWarWaitingOut(ch))
-				snprintf(status, statusSize, PBT(en, "%sPolegl, czeka w obozie na nastepna runde - wojna z %s", "%sFallen, waiting at the camp for the next round - war with %s"),
+				snprintf(status, statusSize, "%sPolegl, czeka w obozie na nastepna runde - wojna z %s",
 						prefix, enemy ? enemy->GetName() : "?");
 			else
 				snprintf(status, statusSize, PBT(en, "%sWojna gildii z %s (%s)", "%sGuild war with %s (%s)"),
@@ -671,10 +684,10 @@ namespace
 							{
 								LPCHARACTER person = FindPlayerBotGuildAidPerson(ch->GetPlayerID());
 								if (person)
-									snprintf(status, statusSize, PBT(en, "%sBronie %s przed %s", "%sDefending %s against %s"), prefix,
+									snprintf(status, statusSize, "%sBronie %s przed %s", prefix,
 											person->GetName(), target->GetName());
 								else
-									snprintf(status, statusSize, PBT(en, "%sBronie gildii przed %s", "%sDefending the guild against %s"), prefix, target->GetName());
+									snprintf(status, statusSize, "%sBronie gildii przed %s", prefix, target->GetName());
 								break;
 							}
 							default:
@@ -708,6 +721,15 @@ namespace
 				if (state.bVisitingAlchemist)
 					snprintf(status, statusSize, PBT(en, "%sNiose Alchemikowi kamienie duszy na pyl",
 							"%sTaking soul stones to the Alchemist for dust"), prefix);
+				else if (state.bVisitingDsAlchemist)
+					snprintf(status, statusSize, PBT(en, "%sUlepszam kamienie alchemii u Alchemika",
+							"%sRefining Dragon Stones at the Alchemist"), prefix);
+				else if (state.bSaddlebagErrand != 0)
+					snprintf(status, statusSize, PBT(en, "%sPrzerabiam ulepszacze u Dozorcy",
+							"%sExchanging refine goods at the Keeper"), prefix);
+				else if (state.bVisitingUriel)
+					snprintf(status, statusSize, PBT(en, "%sIde do Uriela z szarfami",
+							"%sTaking my sashes to Uriel"), prefix);
 				else
 					snprintf(status, statusSize, PBT(en, "%sHandluje", "%sTrading"), prefix);
 				break;
@@ -755,7 +777,11 @@ namespace
 				const long stableX = haveStable ? svc.stableKeeper.x : ch->GetX();
 				const long stableY = haveStable ? svc.stableKeeper.y : ch->GetY();
 				const bool bFar = DISTANCE_APPROX(ch->GetX() - stableX, ch->GetY() - stableY) > 850;
-				if (IsPlayerBotBattleHorseEarned(ch))
+				if (state.bSaddlebagErrand != 0)
+					snprintf(status, statusSize, PBT(en, "%sOdblokowuje juki konne (%d/9)",
+							"%sOpening a saddlebag row (%d/9)"), prefix,
+							(int)ch->GetSpecialFlag("horse_inventory_slot") + 1);
+				else if (IsPlayerBotBattleHorseEarned(ch))
 					snprintf(status, statusSize, bFar ? PBT(en, "%sIde do Stajennego po konia bojowego", "%sGoing to the Stable Boy for a battle horse")
 							: PBT(en, "%sOdbieram konia bojowego u Stajennego", "%sCollecting a battle horse from the Stable Boy"), prefix);
 				else if (bFar)

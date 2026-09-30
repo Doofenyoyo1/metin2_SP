@@ -203,6 +203,18 @@ log "boot plan: ${CORE_ORDER[*]}"
 boot_cores() {
   local name rc=0
 
+  # MT2009_PLUS_CHEST_EDITOR_V1: the chests as the Seban panel saved them
+  # (m2-chests), put into special_item_group.txt before any core reads it -
+  # on the first boot and on every restart the panel asks for.
+  if [ "${HAVE_CHESTS:-0}" = "1" ]; then
+    m2-chests apply || log "the panel's chests could not be applied -- the image's chests stay"
+  fi
+  # MT2009_PLUS_DROP_EDITOR_V1: the monsters' drops as the Seban panel saved
+  # them (m2-drops), merged into mob_drop_item.txt the same way.
+  if [ "${HAVE_DROPS:-0}" = "1" ]; then
+    m2-drops apply || log "the panel's drops could not be applied -- the image's drops stay"
+  fi
+
   for name in "${CORE_ORDER[@]}"; do
     [ "$SHUTTING_DOWN" = "0" ] || return "$rc"
 
@@ -254,6 +266,36 @@ command -v m2-gm >/dev/null 2>&1 && HAVE_GM=1
 # only read them while they boot.
 HAVE_LANG=0
 command -v m2-lang >/dev/null 2>&1 && HAVE_LANG=1
+
+# MT2009_PLUS_CHEST_EDITOR_V1: what the chests hold, from the Seban panel's
+# "Szkatułki" page (m2-chests; boot_cores calls it). Absent on older images.
+HAVE_CHESTS=0
+command -v m2-chests >/dev/null 2>&1 && HAVE_CHESTS=1
+
+# MT2009_PLUS_DROP_EDITOR_V1: what the monsters drop, from the Seban panel's
+# "Drop z potworów" page (m2-drops; boot_cores calls it). Absent on older images.
+HAVE_DROPS=0
+command -v m2-drops >/dev/null 2>&1 && HAVE_DROPS=1
+
+# The advanced panel's two resets (the bots' new game, the whole world anew).
+# Done with every core down, so no core and no db cache writes the old world
+# back over the new one; m2-world-reset does the database, this the restart.
+HAVE_RESET=0
+command -v m2-world-reset >/dev/null 2>&1 && HAVE_RESET=1
+
+world_reset() {
+  local rc
+  log "world reset requested by the panel -- stopping the cores"
+  stop_cores
+  m2-world-reset apply || log "the world reset did not complete -- see $VAR_DIR/world-reset/reset.log"
+  boot_cores; rc=$?
+  if [ "$rc" = "0" ]; then
+    m2-world-reset publish
+  else
+    m2-world-reset publish no_restart
+  fi
+  return 0
+}
 
 lang_change() {
   local rc
@@ -317,8 +359,15 @@ if [ "$HAVE_LANG" = "1" ]; then
   m2-lang apply || log "the wanted language could not be applied -- see /var/log/m2lang.log"
 fi
 
+# A reset the panel asked for while this container was down (or restarting):
+# carried out before any core starts, if it is recent enough.
+if [ "$HAVE_RESET" = "1" ]; then
+  m2-world-reset poll; reset_rc=$?
+  [ "$reset_rc" = "10" ] && { m2-world-reset apply || log "the world reset did not complete"; }
+fi
 boot_cores; boot_rc=$?
 [ "$boot_rc" != "2" ] || exit 1
+[ "$HAVE_RESET" = "1" ] && m2-world-reset publish
 
 # Now that the cores are actually up, the rates that were just applied really
 # are live -- say so. Does nothing when no rates were ever set.
@@ -366,6 +415,12 @@ while :; do
     [ "$SHUTTING_DOWN" = "0" ] || break
   fi
 
+  # Did somebody ask for a world reset in the advanced panel?
+  if [ "$HAVE_RESET" = "1" ]; then
+    m2-world-reset poll; reset_rc=$?
+    [ "$reset_rc" = "10" ] && world_reset
+    [ "$SHUTTING_DOWN" = "0" ] || break
+  fi
   # Did somebody change a game master rank in the panel?  Unlike the rates this
   # needs no restart -- it is one text command on a core's admin socket -- so
   # m2-gm does the whole job itself and there is nothing to react to here.

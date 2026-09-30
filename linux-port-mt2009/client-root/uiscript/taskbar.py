@@ -494,34 +494,7 @@ window = {
 	),
 }
 
-# Towarzysz and Auto Lowy (uisidekick.py, uiautohunt.py), when the bar has
-# room for them - clientrootify.py.
-if SCREEN_WIDTH >= 940:
-	window["children"] = window["children"] + (
-		{
-			"name" : "SidekickButton",
-			"type" : "button",
-
-			"x" : SCREEN_WIDTH - 205,
-			"y" : 3 + Y_ADD_POSITION,
-
-			"tooltip_text" : uiScriptLocale.SIDEKICK_TASKBAR_TOOLTIP,
-
-			"default_image" : "playerbot_ui/sidekick_button_01.tga",
-			"over_image" : "playerbot_ui/sidekick_button_02.tga",
-			"down_image" : "playerbot_ui/sidekick_button_03.tga",
-		},
-		{
-			"name" : "AutoHuntButton",
-			"type" : "button",
-
-			"x" : SCREEN_WIDTH - 171,
-			"y" : 3 + Y_ADD_POSITION,
-
-			"tooltip_text" : uiScriptLocale.AUTOHUNT_TASKBAR_TOOLTIP,
-
-			"default_image" : "playerbot_ui/autohunt_button_01.tga",
-			"over_image" : "playerbot_ui/autohunt_button_02.tga",
-			"down_image" : "playerbot_ui/autohunt_button_03.tga",
-		},
-	)
+# Towarzysz, Auto Lowy, the event calendar and the Battle Pass had buttons
+# here. They are in the inventory's side bar now (uiinventory.SidebarWindow),
+# and P, K, F11 and "/battlepass" still open them, so the bar keeps only its
+# own four buttons (the owner, 30 September).

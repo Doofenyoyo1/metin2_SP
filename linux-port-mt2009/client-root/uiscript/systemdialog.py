@@ -68,7 +68,7 @@ window = {
 					"text_horizontal_align" : "center",
 					"bold": True,
 
-					"text": uiScriptLocale.SYSTEM_VERSION % (1, 0, 0, ""),
+					"text": "Wersja: 1.0.0",
 				},
 				{
 					"name" : "mall_button",

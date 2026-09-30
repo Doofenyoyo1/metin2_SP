@@ -19,6 +19,9 @@
 // CDungeon is only forward-declared by the engine headers the manager
 // includes; the floor helpers below need the class.
 #include "dungeon.h"
+#if defined(ENABLE_MOUNT_COSTUME_SYSTEM)
+#include "MountSystem.h"
+#endif
 
 namespace
 {
@@ -661,6 +664,10 @@ namespace
 		// Breaking one warps every PC on the killer's map into a new tower.
 		if (IsPlayerBotDungeonTriggerStone(stone->GetRaceNum()))
 			return false;
+		// MT2009_PLUS_BP_BOTS_V1: a stone its Battle Pass mission names, and
+		// one it can break, is worth it however far the bot has outgrown it.
+		if (playerbot_bpbots::WantsStone(ch, stone))
+			return true;
 		// Iwakura's stone hunter: ten levels either way, "aby zagwarantowac
 		// szanse na drop oraz upewnic sie, ze bot fizycznie da rade go zniszczyc".
 		if (IsPlayerBotPersonaEnabled())
@@ -801,6 +808,128 @@ namespace
 		}
 	}
 
+	// --- The ItemShop mount (MT2009 Plus, operator 24 September 2026) -----
+	//
+	// A bot that bought a mount seal (playerbot_itemshop.h) wears it in
+	// WEAR_COSTUME_MOUNT and rides it instead of the horse, which it still
+	// raises as before: the stable, the medals, the trial. On the trial it
+	// rides the horse (IsPlayerBotOnBattleHorseTrial). A mount is a battle
+	// horse to the engine (GetMountLevelByVnum: attack from the saddle, no
+	// class skill), so the bot keeps the horse's rules - climbs down for a
+	// skill or a buff, breaks a Metin from the saddle. A standing mount
+	// (races 40003-40007: the surfboard, the Wukong clouds, the drakkars)
+	// lets its rider cast every skill, and the bot never leaves it to fight.
+	bool IsPlayerBotOnBattleHorseTrial(LPCHARACTER ch);
+
+	LPITEM GetPlayerBotMountSeal(LPCHARACTER ch)
+	{
+#if defined(ENABLE_MOUNT_COSTUME_SYSTEM)
+		LPITEM seal = ch ? ch->GetWear(WEAR_COSTUME_MOUNT) : NULL;
+		if (seal && seal->GetValue(1) != 0 && !IsPlayerBotOnBattleHorseTrial(ch))
+			return seal;
+#endif
+		return NULL;
+	}
+
+	bool IsPlayerBotStandingMountRace(DWORD race)
+	{
+		return race >= 40003 && race <= 40007;
+	}
+
+	// On the seal's mount, not the horse.
+	bool IsPlayerBotOnCostumeMount(LPCHARACTER ch)
+	{
+		return ch && ch->GetMountVnum() != 0 && !ch->IsHorseRiding();
+	}
+
+	// Riding, and every skill still castable: a standing mount.
+	bool IsPlayerBotOnStandingMount(LPCHARACTER ch)
+	{
+		return IsPlayerBotOnCostumeMount(ch) && IsPlayerBotStandingMountRace(ch->GetMountVnum());
+	}
+
+	bool HasPlayerBotStandingMount(LPCHARACTER ch)
+	{
+		LPITEM seal = GetPlayerBotMountSeal(ch);
+		return seal && IsPlayerBotStandingMountRace((DWORD)seal->GetValue(1));
+	}
+
+	// The way do_ride mounts a worn seal: the actor following the rider is
+	// what CMountSystem::Mount turns into the saddle.
+	bool MountPlayerBotCostume(LPCHARACTER ch)
+	{
+#if defined(ENABLE_MOUNT_COSTUME_SYSTEM)
+		LPITEM seal = GetPlayerBotMountSeal(ch);
+		CMountSystem* mounts = ch ? ch->GetMountSystem() : NULL;
+		if (!seal || !mounts)
+			return false;
+		const DWORD race = (DWORD)seal->GetValue(1);
+		if (ch->IsHorseRiding())
+			ch->StopRiding();
+		if (mounts->CountSummoned() == 0)
+			mounts->Summon(race, seal, false);
+		if (!mounts->GetByVnum(race))
+			return false;
+		mounts->Mount(race, seal);
+		return ch->GetMountVnum() == race;
+#else
+		return false;
+#endif
+	}
+
+	bool DismountPlayerBotCostume(LPCHARACTER ch)
+	{
+#if defined(ENABLE_MOUNT_COSTUME_SYSTEM)
+		CMountSystem* mounts = ch ? ch->GetMountSystem() : NULL;
+		if (!IsPlayerBotOnCostumeMount(ch) || !mounts || !mounts->GetByVnum(ch->GetMountVnum()))
+			return false;
+		mounts->Unmount(ch->GetMountVnum());
+		return !IsPlayerBotOnCostumeMount(ch);
+#else
+		return false;
+#endif
+	}
+
+	void PutOnPlayerBotBagMountSeal(LPCHARACTER ch)
+	{
+#if defined(ENABLE_MOUNT_COSTUME_SYSTEM)
+		if (!ch || ch->GetWear(WEAR_COSTUME_MOUNT) || IsPlayerBotOnBattleHorseTrial(ch))
+			return;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetType() != ITEM_COSTUME || item->GetSubType() != COSTUME_MOUNT ||
+					item->GetValue(1) == 0 || item->isLocked() || item->IsExchanging() || !item->CanUsedBy(ch))
+				continue;
+			if (ch->EquipItem(item))
+				sys_log(0, "PLAYERBOT_ISHOP: look_mount on pid=%u name=%s vnum=%u (before riding)",
+						ch->GetPlayerID(), ch->GetName(), item->GetVnum());
+			return;
+		}
+#endif
+	}
+
+	// Off whatever the bot rides - the places that need it on foot whatever
+	// the saddle (a stall, a horse's level-up).
+	bool StopPlayerBotRiding(LPCHARACTER ch)
+	{
+		if (IsPlayerBotOnCostumeMount(ch))
+			return DismountPlayerBotCostume(ch);
+		return ch && ch->IsRiding() && ch->StopRiding();
+	}
+
+	// The reasons a standing mount's rider keeps it: it can cast and fight
+	// from it. It still climbs down for a rod, a pick or a guard's summons.
+	bool IsPlayerBotSaddleOnlyReason(const char* reason)
+	{
+		static const char* const s_aszKeep[] = { "buff", "leader_buff", "combat_ready",
+				"dismount_for_target", "duel", "anti_pk", "tower", "guild_war" };
+		for (size_t i = 0; reason && i < sizeof(s_aszKeep) / sizeof(s_aszKeep[0]); ++i)
+			if (!strcmp(reason, s_aszKeep[i]))
+				return true;
+		return false;
+	}
+
 	bool SetPlayerBotRidingForTravel(LPCHARACTER ch, TPlayerBotAIState& state,
 			bool shouldRide, DWORD dwNow, const char* reason)
 	{
@@ -811,9 +940,16 @@ namespace
 		{
 			if (!ch->IsRiding())
 				return false;
+			if (IsPlayerBotOnStandingMount(ch) && IsPlayerBotSaddleOnlyReason(reason))
+				return false;
 
 			ch->Stop();
-			if (!ch->StopRiding())
+			if (IsPlayerBotOnCostumeMount(ch))
+			{
+				if (!DismountPlayerBotCostume(ch))
+					return false;
+			}
+			else if (!ch->StopRiding())
 				return false;
 
 			// StopRiding summons the horse as a follower, so a bot that climbs
@@ -836,9 +972,16 @@ namespace
 			return true;
 		}
 
-		if (ch->IsRiding() || ch->GetHorseLevel() == 0 ||
-				ch->GetHorseHealth() <= 0 || ch->GetHorseStamina() <= 0 ||
-				dwNow < state.dwNextHorseRideCheckTime)
+		if (ch->IsRiding() || dwNow < state.dwNextHorseRideCheckTime)
+			return false;
+		// A seal bought and still in the bag goes on here, out of a fight:
+		// EquipItem refuses within a second and a half of a blow, and the
+		// ItemShop pass that bought it asks only every ten minutes.
+		PutOnPlayerBotBagMountSeal(ch);
+		// The seal's mount first: it wants no horse, no health, no stamina.
+		const bool bSeal = GetPlayerBotMountSeal(ch) != NULL;
+		if (!bSeal && (ch->GetHorseLevel() == 0 ||
+				ch->GetHorseHealth() <= 0 || ch->GetHorseStamina() <= 0))
 			return false;
 		// What CHARACTER::StartRiding refuses that this pass can see coming.
 		// IsBusy is the whole of it in practice: a counter open, another bot's
@@ -862,7 +1005,7 @@ namespace
 		}
 
 		ch->Stop();
-		if (!ch->StartRiding())
+		if (bSeal ? !MountPlayerBotCostume(ch) : !ch->StartRiding())
 		{
 			state.dwNextHorseRideCheckTime = dwNow + PLAYERBOT_HORSE_RIDE_RETRY_INTERVAL;
 			// Throttled, because what is left is whatever the engine refuses
@@ -880,8 +1023,9 @@ namespace
 		state.dwNextNavPlanTime = 0;
 		state.dwNextHorseRideCheckTime = dwNow + 1000;
 		state.dwLastMeaningfulActivityTime = dwNow;
-		sys_log(0, "PLAYERBOT_HORSE: mounted pid=%u name=%s horse_level=%u map=%ld pos=(%ld,%ld) reason=%s",
+		sys_log(0, "PLAYERBOT_HORSE: mounted pid=%u name=%s horse_level=%u mount=%u map=%ld pos=(%ld,%ld) reason=%s",
 				ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetHorseLevel(),
+				(unsigned int)(bSeal ? ch->GetMountVnum() : 0),
 				ch->GetMapIndex(), ch->GetX(), ch->GetY(), reason ? reason : "?");
 		return true;
 	}
@@ -929,7 +1073,8 @@ namespace
 	// shoots its stones on foot.
 	bool HasPlayerBotBattleHorse(LPCHARACTER ch)
 	{
-		if (!ch || ch->GetHorseLevel() < PLAYERBOT_BATTLE_HORSE_LEVEL)
+		// An ItemShop mount is one too (GetMountLevelByVnum: attack, no skill).
+		if (!ch || (ch->GetHorseLevel() < PLAYERBOT_BATTLE_HORSE_LEVEL && !GetPlayerBotMountSeal(ch)))
 			return false;
 		LPITEM weapon = ch->GetWear(WEAR_WEAPON);
 		return weapon && weapon->GetType() == ITEM_WEAPON &&
@@ -959,6 +1104,9 @@ namespace
 	{
 		if (ch && IsPlayerBotSidekickPID(ch->GetPlayerID()))
 			return false;
+		// A standing mount keeps every skill: nothing beats that saddle.
+		if (HasPlayerBotStandingMount(ch))
+			return true;
 		return HasPlayerBotBattleHorse(ch) && !PlayerBotSkillsBeatTheSaddle(ch);
 	}
 
@@ -976,6 +1124,8 @@ namespace
 		// target section and the tower mount for one (mounted_combat,
 		// tower_stone), and a missing buff still takes the rider down for a
 		// moment and puts it back (ManagePlayerBotCombatBuffs).
+		if (HasPlayerBotStandingMount(ch))
+			return true;
 		if (target && target->IsStone())
 			return HasPlayerBotBattleHorse(ch) && !IsPlayerBotSidekickPID(ch->GetPlayerID());
 		// A character - a player or another bot - is fought on foot

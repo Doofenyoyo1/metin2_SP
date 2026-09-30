@@ -11,7 +11,7 @@ MAP_TREE2 = "MAP_TREE2"
 BLEND_POTION_NO_TIME = "BLEND_POTION_NO_TIME"
 BLEND_POTION_NO_INFO = "BLEND_POTION_NO_INFO"
 
-APP_TITLE = "Metin2 SinglePlayer"
+APP_TITLE = "Mt2009"
 
 GUILD_HEADQUARTER = "Main Building"
 GUILD_FACILITY = "Facility"
@@ -205,19 +205,7 @@ if app.ENABLE_LOCALE_COMMON:
 	if app.ENABLE_IKASHOP_RENEWAL:
 		TryLoadLocaleFile("locale/common/locale_game_ikashop.txt")
 
-# Texts that stood in a script, as keys whose default is the Polish text:
-# every language but English (english_gui.py, below) reads what it read
-# before - clientrootify.py.
-globals().setdefault('AFFECT_INACTIVE', 'Nieaktywny')
 
-
-
-if systemSetting.GetLanguage() == "en":
-	import english_gui
-	for _key, _text in english_gui.GAME.items():
-		if callable(globals().get(_key)):
-			_text = ('%' in _text.replace('%%', '') and SA or SNA)(_text)
-		globals()[_key] = _text
 
 if app.ENABLE_CHEQUE_SYSTEM:
 	def NumberToGold(n) :
@@ -517,6 +505,9 @@ MINIMAP_ZONE_NAME_DICT = {
 	"metin2_map_Mt_Thunder" : MAP_THUNDER,
 	"metin2_map_dawnmistwood" : MAP_DAWN,
 	"metin2_map_BayBlackSand" : MAP_BAY,
+	# MT2009_PLUS_DUNGEONS_V1 (client): the two dungeons' names on the minimap
+	"metin2_map_n_flame_dungeon_01" : "Czy\x9c\xe6iec Ognia",
+	"metin2_map_n_snow_dungeon_01" : "Lodowa Kraina",
 }
 
 

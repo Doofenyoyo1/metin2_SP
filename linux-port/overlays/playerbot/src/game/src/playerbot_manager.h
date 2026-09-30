@@ -28,6 +28,9 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		void	CountRegisteredPerEmpire(int* out, int size);
 		void	SpawnPendingBatch(DWORD dwNow);
 		bool	Despawn(DWORD dwPlayerID);
+		void	TryScheduleRetirement(DWORD dwNow);
+		void	ProcessRetirementResets(DWORD dwNow);
+		void	OnRetirementPurgeAck(DWORD dwPlayerID);
 
 		void	OnPlayerLoaded(LPDESC d);
 		void	OnLoadFailed(DWORD dwHandle);
@@ -51,18 +54,27 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		void	OnPeerWhisper(const char* szFrom, LPCHARACTER bot, const char* szText);
 
 		bool	IsManaged(DWORD dwPlayerID) const;
+		// Whether the population's cohort or its top-up asked for this identity
+		// (the shouters' picker, playerbot_shouters.h, steps over it).
+		bool	IsScheduledBot(DWORD dwPlayerID) const;
+		// A shout another core sent over P2P (CInputP2P::Shout, mt2009 via
+		// server-patches/playerqol, MT2009_PLUS_SHOUTERS_V1): counted for the
+		// shouters of the first villages (playerbot_shouters.h).
+		void	OnPeerShout(BYTE bEmpire);
 		// The Dom Towarowy's price hint (/flea_price, playerbotify
 		// apply_flea_market): the bots' asking price for the item in that
 		// cell and what they have been paid for it, as "FleaPriceQuote";
 		// with bRange first the market's range for such a stack, as
 		// "FleaPriceRange" (Piciu713, apply_flea_price_range).
+		// With bSales (request version 3) "FleaPriceSales" goes before the
+		// quote: the bots' last sale and median for such a stack.
 		void	SendFleaMarketPriceQuote(LPCHARACTER ch, BYTE bWindow, WORD wCell,
-				DWORD dwRequestID, bool bRange = false);
+				DWORD dwRequestID, bool bRange = false, bool bSales = false);
 		// The same for a line already on the asker's own offline shop, named
 		// by the line's item id (/flea_price's window 255). Nothing on an
 		// engine without ikashop.
 		void	SendFleaMarketShopItemPriceQuote(LPCHARACTER ch, DWORD dwShopItemID,
-				DWORD dwRequestID, bool bRange = false);
+				DWORD dwRequestID, bool bRange = false, bool bSales = false);
 		bool	IsRegistered(DWORD dwPlayerID);
 		// The same question answered from the registry as it is, never by
 		// loading it: false until the bootstrap has loaded it. For callers
@@ -116,6 +128,11 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// via playerbotify.py).
 		bool	SpawnSidekick(DWORD dwPlayerID);
 		void	OnSidekickCommand(LPCHARACTER ch, const char* szArgument);
+		// The event calendar's schedule (client uieventcalendar.py, F11):
+		// the timed events the panels wrote, as this core read them
+		// (playerbot_events.h), for the /kalendarz command (cmd_general.cpp,
+		// server-patches/playerqol).
+		void	SendEventCalendar(LPCHARACTER ch);
 		// A person's order to the bots of the person's guild, "/gildia_boty
 		// pomoc|exp|wracajcie" - the guild window's buttons (cmd_general.cpp,
 		// mt2009 via playerbotify.py; playerbot_guild_orders.h). The place is
@@ -128,32 +145,6 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// The owner a companion's kill counts for in the quests, or NULL
 		// (CHARACTER::Dead, mt2009 via playerbotify.py).
 		LPCHARACTER	GetSidekickKillCredit(LPCHARACTER killer, LPCHARACTER victim);
-		// The language a person's client reads: "/playerbot_lang en|pl", its
-		// answer to the login quest's question (cmd_general.cpp, mt2009 via
-		// playerbotify.py; playerbot_language.h).
-		void	OnPersonLanguage(LPCHARACTER ch, const char* szArgument);
-		// Whether a bots' notice or shout is for this person - it comes as two
-		// halves, one per language (BroadcastPlayerBotNotice,
-		// SendPlayerBotShoutIn) - and the text without its mark; anybody
-		// else's is everybody's, untouched (notice_packet_func in cmd_gm.cpp,
-		// FuncShout in input_p2p.cpp, mt2009 via playerbotify.py).
-		static bool	ShowsNoticeTo(LPCHARACTER ch, const char*& text);
-		// Whether this person reads our texts in English, for the lines our
-		// engine edits say (mt2009 via playerbotify.py,
-		// apply_person_language_texts; playerbot_language.h).
-		static bool	ReadsEnglish(LPCHARACTER ch);
-		// The name an NPC of this race shows the viewer: its official English
-		// one for a person whose client reads English, NULL for the proto's own
-		// (CHARACTER::EncodeInsertPacket, mt2009 via playerbotify.py,
-		// apply_person_language_names; playerbot_language.h).
-		static const char*	GetNpcNameFor(LPCHARACTER viewer, DWORD dwRace);
-		// A bot's shop title for the viewer: its English twin into szOut for a
-		// person whose client reads English, true when it wrote one; a
-		// person's own shop, and anybody reading Polish, keep the title as it
-		// is (ikarus_shop_manager.cpp, the shop's entity and its window, mt2009
-		// via playerbotify.py; playerbot_shop_name_rules.h).
-		static bool	GetShopNameFor(LPCHARACTER viewer, DWORD dwOwnerPID, const char* szName,
-				char* szOut, size_t outSize);
 
 		// The operator's spawn plan (input_db.cpp through playerbotify.py): the
 		// window the cohort arrives over, and a second cohort that joins one at
@@ -171,9 +162,7 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// same share with the second channel on as off - and each kingdom's
 		// part between the channels, capped by this channel's identities.
 		// With the second channel off, want[] is left as it is on channel 1
-		// and emptied on any other. On a fresh channel (3, 4) it is the fresh
-		// cohort's own plan instead, handed out once: the first call is the
-		// cohort, every later one (the late joiners) gets nobody.
+		// and emptied on any other.
 		void	SplitForThisChannel(int total, const int* registeredHere, int* want);
 #if defined(PLAYERBOT_ENGINE_MT2009)
 		// The two channels with moves (playerbot_channel_rules.h): with the
@@ -220,9 +209,6 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		typedef std::map<DWORD, TPlayerBotAccount> TPlayerBotAccountMap;
 
 		bool	LoadRegisteredBots();
-		// The fresh cohort's part of a fresh channel's core, once
-		// (SplitForThisChannel on channels 3 and 4).
-		void	PlanFreshCohortHere(const int* registeredHere, int* want);
 		// Says in one line why the cohort is smaller than the seed.
 		void	ReportPlayerBotRegistryShortfall(unsigned int usable);
 		// Re-queues registered identities that are not in the world.
@@ -289,23 +275,14 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		TRegisteredPlayerBotSet m_setAllRegisteredBots;
 		TPlayerBotAccountMap	m_mapBotAccounts;
 		// The second channel's plan, read with the registry: the switch, the
-		// share, and the identities each channel holds per kingdom - 1 and 2
-		// the world's bots, 3 and 4 the fresh cohort, 0 a fresh identity
-		// while its cohort is off (playerbot_channel_rules.h).
+		// share, and the identities each channel (1, 2) holds per kingdom.
 		bool			m_bSecondChannel = false;
 		int			m_iSecondChannelShare = 40;
-		int			m_aChannelIdentities[5][4] = {};
+		int			m_aChannelIdentities[3][4] = {};
 		// What this start has given each channel of each kingdom so far - the
 		// cohort, then the late joiners (SplitForThisChannel). Every core
 		// computes the same plan from the same identities.
-		int			m_aChannelPlanned[5][4] = {};
-		// The fresh cohort of the third and fourth channels: how many channels
-		// carry it (M2_PLAYERBOT_FRESH_CHANNELS, 0 off), how many of it play
-		// (PLAYERBOT_FRESH_COUNT), and whether this core has handed its part
-		// out - the cohort once, and no late joiners after it.
-		int			m_iFreshChannels = 0;
-		int			m_iFreshCount = 200;
-		bool			m_bFreshCohortGiven = false;
+		int			m_aChannelPlanned[3][4] = {};
 		// Whether this core's autospawn bootstrap has run (TakeAutospawnBootstrap).
 		bool			m_bAutospawnBootstrapTaken = false;
 		// Whether the channels come from the assignment table (mt2009 with the

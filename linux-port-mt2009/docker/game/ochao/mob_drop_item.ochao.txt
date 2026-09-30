@@ -1,0 +1,163 @@
+Group	OchaoMonster1AType1
+{
+	Type	drop
+	mob	6301
+	1	50723	1	2.50
+}
+
+Group	OchaoMonster1AType2
+{
+	Type	kill
+	mob	6301
+	kill_drop	80
+	1	30075	1	10	5	-- Shuriken+ (za 30605)
+	2	30092	1	90	3	-- Zdobycz Dzikusa (za 30610)
+}
+
+Group	OchaoMonster1AType3
+{
+	Type	limit
+	mob	6301
+	level_limit	95
+	1	2173	1	0.50
+}
+
+Group	OchaoMonster2AType1
+{
+	Type	drop
+	mob	6302
+	1	50728	1	2.50
+	2	50007	1	1.50
+}
+
+Group	OchaoMonster2AType2
+{
+	Type	kill
+	mob	6302
+	kill_drop	80
+	1	30083	1	10	5	-- Nieznane Lekarstwo+ (za 30604)
+	2	30092	1	98	3	-- Zdobycz Dzikusa (za 30610)
+	3	30089	1	90	3	-- Futro Yeti+ (za 30606)
+	4	30079	1	90	3	-- Nieznany Talizman+ (za 30608)
+}
+
+Group	OchaoMonster2AType3
+{
+	Type	limit
+	mob	6302
+	level_limit	95
+	1	1125	1	0.50
+	2	15164	1	0.75
+	3	15184	1	0.75
+	4	17204	1	0.75
+}
+
+Group	OchaoMonster3AType1
+{
+	Type	drop
+	mob	6303
+	1	27053	1	2.50
+}
+
+Group	OchaoMonster3AType2
+{
+	Type	kill
+	mob	6303
+	kill_drop	80
+	1	50120	1	25	5
+	2	30082	1	90	3	-- Ogon Weza+ (za 30612)
+}
+
+Group	OchaoMonster3AType3
+{
+	Type	limit
+	mob	6303
+	level_limit	95
+	1	1125	1	0.50
+	2	1133	1	0.50
+	3	7124	1	0.75
+}
+
+Group	OchaoMonster4AType2
+{
+	Type	kill
+	mob	6304
+	kill_drop	80
+	1	30092	1	90	3	-- Zdobycz Dzikusa (za 30610)
+}
+
+Group	OchaoMonster4AType3
+{
+	Type	limit
+	mob	6304
+	level_limit	95
+	1	3164	1	0.50
+	2	5124	1	0.50
+}
+
+Group	OchaoMonster6BType3
+{
+	Type	limit
+	mob	6311
+	level_limit	95
+	1	50513	1	90
+}
+
+Group	OchaoMonster7BType1
+{
+	Type	drop
+	mob	6390
+	1	27002	50	60.0
+	2	27005	50	60.0
+	3	27003	20	60.0
+	4	27006	20	60.0
+	5	144	1	50.0
+	6	145	1	50.0
+	7	154	1	50.0
+	8	155	1	50.0
+	9	1104	1	50.0
+	10	1105	1	50.0
+	11	2144	1	50.0
+	12	2145	1	50.0
+	13	3134	1	50.0
+	14	3135	1	50.0
+	15	5094	1	50.0
+	16	5095	1	50.0
+	17	7134	1	50.0
+	18	7135	1	50.0
+	19	30518	1	50.0
+	20	30520	1	50.0
+	21	30519	1	50.0
+	22	71094	1	50.0	-- Rada Pustelnika (za 50323)
+	23	25040	1	50.0	-- Zwoj Blogoslawienstwa (za 50324)
+	24	72723	1	50.0	-- Eliksir Slonca (M) (za 50514)
+	25	72724	1	50.0	-- Eliksir Slonca (S) (za 50515)
+	26	50254	1	50.0
+	27	70005	1	50.0
+	28	70043	1	50.0
+	29	30092	1	30.0	-- Zdobycz Dzikusa (za 30610)
+	30	30082	1	30.0	-- Ogon Weza+ (za 30612)
+	31	30083	1	30.0	-- Nieznane Lekarstwo+ (za 30604)
+	32	71084	1	30.0	-- Zaczarowanie Przedmiotu (za 30619)
+	33	71032	1	15.0	-- Zwoj Boga Smokow (za 30616)
+	34	30075	1	20.0	-- Shuriken+ (za 30605)
+	35	30089	1	20.0	-- Futro Yeti+ (za 30606)
+	36	30076	1	20.0	-- Amulet Orka+ (za 30607)
+	37	30079	1	20.0	-- Nieznany Talizman+ (za 30608)
+}
+
+Group	OchaoMonster7BType3
+{
+	Type	limit
+	mob	6390
+	level_limit	95
+	1	50513	1	90
+}
+
+Group	OchaoMonster9BType3
+{
+	Type	limit
+	mob	6400
+	level_limit	95
+	1	50513	1	80
+}

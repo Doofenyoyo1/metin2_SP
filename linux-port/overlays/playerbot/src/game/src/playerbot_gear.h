@@ -346,6 +346,59 @@ namespace
 		return true;
 	}
 
+	// Outdated gear (BeakGo and other bots of seventy wore a level-1 shield
+	// +9): from PLAYERBOT_OUTDATED_GEAR_MIN_LEVEL a body armour, helmet or
+	// shield PLAYERBOT_OUTDATED_GEAR_LEVELS or more under the bot gives way
+	// to any wearable piece of its slot that is not outdated itself, whatever
+	// the two score - a +9 of level one out-scores a +0 of level sixty on its
+	// numbers, and the higher piece is refined from there. The market finds
+	// the new piece (FindPlayerBotOutdatedGearPick), a finished +6 first.
+	const int PLAYERBOT_OUTDATED_GEAR_MIN_LEVEL = 50;
+	const int PLAYERBOT_OUTDATED_GEAR_LEVELS = 30;
+	const int PLAYERBOT_OUTDATED_GEAR_BUDGET_PERCENT = 30;
+	const BYTE PLAYERBOT_OUTDATED_HELMET_PLUS = 6;
+
+	bool IsPlayerBotOutdatedGearSubType(BYTE subType)
+	{
+		return subType == ARMOR_BODY || subType == ARMOR_HEAD || subType == ARMOR_SHIELD;
+	}
+
+	bool IsPlayerBotOutdatedGear(LPCHARACTER ch, LPITEM item)
+	{
+		return ch && item && item->GetType() == ITEM_ARMOR && IsPlayerBotOutdatedGearSubType(item->GetSubType()) &&
+				(int)ch->GetLevel() >= PLAYERBOT_OUTDATED_GEAR_MIN_LEVEL &&
+				(int)item->GetLevelLimit() + PLAYERBOT_OUTDATED_GEAR_LEVELS <= (int)ch->GetLevel();
+	}
+
+	// Whether `worn` gives way to `item` by that rule.
+	bool PlayerBotOutdatedGearGivesWay(LPCHARACTER ch, LPITEM worn, LPITEM item)
+	{
+		return item && item->GetType() == ITEM_ARMOR && IsPlayerBotOutdatedGear(ch, worn) &&
+				!IsPlayerBotOutdatedGear(ch, item) && item->GetSubType() == worn->GetSubType() &&
+				(int)item->GetLevelLimit() <= (int)ch->GetLevel();
+	}
+
+	// A counter's piece that would replace an outdated one worn, for a bot
+	// with none such in its bag already.
+	bool IsPlayerBotOutdatedGearOffer(LPCHARACTER ch, LPITEM offer)
+	{
+		if (!ch || !offer || offer->GetType() != ITEM_ARMOR || !IsPlayerBotOutdatedGearSubType(offer->GetSubType()) ||
+				(int)ch->GetLevel() < PLAYERBOT_OUTDATED_GEAR_MIN_LEVEL || !IsPlayerBotEquipmentCandidate(ch, offer))
+			return false;
+		const int wearCell = offer->FindEquipCell(ch);
+		LPITEM worn = wearCell >= 0 && wearCell < WEAR_MAX_NUM ? ch->GetWear((BYTE)wearCell) : NULL;
+		if (!worn || !PlayerBotOutdatedGearGivesWay(ch, worn, offer))
+			return false;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM held = ch->GetInventoryItem(cell);
+			if (held && held != offer && held->GetCell() == cell && !held->IsEquipped() &&
+					PlayerBotOutdatedGearGivesWay(ch, worn, held) && IsPlayerBotEquipmentCandidate(ch, held))
+				return false;
+		}
+		return true;
+	}
+
 	// An item a wear slot points at that the engine really wears: owned by this
 	// character, flagged equipped, and in that slot's own cell. The first
 	// version of the emergency weapon purchase equipped whatever AutoGiveItem
@@ -655,8 +708,54 @@ namespace
 	// percent line multiplies what is left after it, so a big line on a weak
 	// base is worth less than it reads. assumedAverage stands in for the lines
 	// of a weapon nobody holds (item NULL).
+	// A stat as the character has it on foot. On a mount the engine lifts ST,
+	// DX, HT and IQ to the horse's (ComputePoints) and adds a share of the
+	// horse's level to the attack grade (ComputeBattlePoints), so every
+	// weapon read in the saddle was read against another body: two close
+	// weapons changed places at every mounting and dismounting. The base
+	// stat and the lines of what the character wears are the same on foot
+	// and in the saddle.
+	// Iwakura's tier of a weapon's family, a grade on its blow alone
+	// (GetPlayerBotEquipmentScore).
+	const int PLAYERBOT_WEAPON_TIER_BLOW_PERCENT = 2;
+
+	long PlayerBotFootStat(LPCHARACTER ch, BYTE point, BYTE applyType)
+	{
+		if (!ch)
+			return 0;
+		if (!ch->GetMountVnum())
+			return ch->GetPoint(point);
+		long value = ch->GetRealPoint(point);
+		for (int wear = 0; wear < WEAR_MAX_NUM; ++wear)
+			if (LPITEM worn = ch->GetWear(wear))
+				value += SumPlayerBotItemLines(worn, applyType);
+		return value;
+	}
+
+	// The attack grade the engine would give this character on foot: two a
+	// level, the class's own stats (ComputeBattlePoints) and the grade bonus.
+	long PlayerBotFootAttackGrade(LPCHARACTER ch)
+	{
+		if (!ch)
+			return 0;
+		if (!ch->GetMountVnum())
+			return ch->GetPoint(POINT_ATT_GRADE);
+		const long st = PlayerBotFootStat(ch, POINT_ST, APPLY_STR);
+		const long dx = PlayerBotFootStat(ch, POINT_DX, APPLY_DEX);
+		const long iq = PlayerBotFootStat(ch, POINT_IQ, APPLY_INT);
+		long stat = 2 * st;
+		switch (ch->GetJob())
+		{
+			case JOB_ASSASSIN: stat = dx + st; break;
+			case JOB_SHAMAN: stat = (5 * iq + st) / 3; break;
+			case JOB_SURA: stat = st + iq; break;
+			default: break;
+		}
+		return 2L * ch->GetLevel() + stat + ch->GetPoint(POINT_ATT_GRADE_BONUS);
+	}
+
 	long long GetPlayerBotWeaponHitDamageAt(LPITEM item, const TItemTable* proto, LPCHARACTER ch,
-			long assumedAverage = 0)
+			long assumedAverage = 0, TPlayerBotScoreTerms* parts = NULL)
 	{
 		if (!proto || proto->bType != ITEM_WEAPON)
 			return 0;
@@ -683,6 +782,9 @@ namespace
 		if (ch)
 		{
 			grade = PlayerBotPointWithoutWornWeapon(ch, POINT_ATT_GRADE, APPLY_ATT_GRADE_BONUS, kept);
+			// Read on foot whatever the bot is riding (PlayerBotFootAttackGrade).
+			if (ch->GetMountVnum())
+				grade += PlayerBotFootAttackGrade(ch) - ch->GetPoint(POINT_ATT_GRADE);
 			// No item carries an attack-percent line; POINT_ATT_BONUS comes from
 			// affects and skills alone, the same for every candidate.
 			attPct = ch->GetPoint(POINT_ATT_BONUS);
@@ -719,7 +821,7 @@ namespace
 
 		// The attack rating against a monster of the bot's own level, whose DX
 		// runs with its level: CalcAttackRating in thousandths.
-		const long dx = ch ? (long)ch->GetPoint(POINT_DX) : level;
+		const long dx = ch ? PlayerBotFootStat(ch, POINT_DX, APPLY_DEX) : level;
 		const long arSrc = std::min<long>(90, (dx * 4 + level * 2) / 6);
 		const long erSrc = std::min<long>(90, level);
 		const long long ar = std::max<long long>(100,
@@ -746,14 +848,37 @@ namespace
 		const long long hitShare = style > 0 ? PLAYERBOT_WEAPON_OTHER_LINE_PERCENT : PLAYERBOT_WEAPON_OWN_LINE_PERCENT;
 		const long long skillShare = style < 0 ? PLAYERBOT_WEAPON_OTHER_LINE_PERCENT : PLAYERBOT_WEAPON_OWN_LINE_PERCENT;
 		const long long total = (hit * hitShare + skill * skillShare) / (hitShare + skillShare);
+		// The blow's parts, for an explained equipment decision (playerbot_explain.h).
+		if (parts)
+		{
+			parts->Set(per::TERM_BLOW, total < 1 ? 1 : total);
+			parts->Set(per::TERM_ROLL, roll);
+			parts->Set(per::TERM_MAGIC_ROLL, magicRoll);
+			parts->Set(per::TERM_PLUS_ATTACK, plusAttack);
+			parts->Set(per::TERM_GRADE, grade);
+			parts->Set(per::TERM_ATT_PCT, attPct);
+			parts->Set(per::TERM_RACE_PCT, racePct);
+			parts->Set(per::TERM_AVG_PCT, avgPct);
+			parts->Set(per::TERM_SKILL_PCT, skillPct);
+			parts->Set(per::TERM_CRIT_PCT, critPct);
+			parts->Set(per::TERM_PEN_PCT, penPct);
+			parts->Set(per::TERM_LEVEL_BONUS_PCT, GetPlayerBotWeaponLevelBonusPercent(proto));
+			parts->Set(per::TERM_ATTACK, attack);
+			parts->Set(per::TERM_MOB_DEFENCE, defence);
+			parts->Set(per::TERM_HIT, hit);
+			parts->Set(per::TERM_SKILL_HIT, skill);
+			parts->Set(per::TERM_STYLE, style);
+			parts->Set(per::TERM_HIT_SHARE, hitShare);
+			parts->Set(per::TERM_SKILL_SHARE, skillShare);
+		}
 		return total < 1 ? 1 : total;
 	}
 
-	long long GetPlayerBotWeaponHitDamage(LPITEM item, LPCHARACTER ch)
+	long long GetPlayerBotWeaponHitDamage(LPITEM item, LPCHARACTER ch, TPlayerBotScoreTerms* parts = NULL)
 	{
 		if (!item || !item->GetProto() || item->GetType() != ITEM_WEAPON)
 			return 0;
-		return GetPlayerBotWeaponHitDamageAt(item, item->GetProto(), ch);
+		return GetPlayerBotWeaponHitDamageAt(item, item->GetProto(), ch, 0, parts);
 	}
 
 	// Iwakura's PvE tier of this piece's family for this character, or 0
@@ -892,36 +1017,81 @@ namespace
 	// used to put the defence at a thousand a point, which made the boots
 	// with the most of it the pair a bot wore whatever was rolled on the
 	// others.
-	long long GetPlayerBotBootsScore(LPITEM item, LPCHARACTER ch)
+	long long GetPlayerBotBootsScore(LPITEM item, LPCHARACTER ch, TPlayerBotScoreTerms* terms = NULL)
 	{
 		const int familyTier = std::max(1, GetPlayerBotItemTierOf(item, ch));
 		long long score = 1 + (long long)familyTier * PLAYERBOT_BOOTS_FAMILY_TIER_SCORE;
+		long long lines = 0;
 		for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
 		{
 			const BYTE t = item->GetAttributeType(i);
 			if (t == APPLY_NONE || GetPlayerBotBonusTier(t, (int)ch->GetJob(), false) < PLAYERBOT_BOOTS_MIN_LINE_TIER)
 				continue;
-			score += ScorePlayerBotApplyTiered(t, item->GetAttributeValue(i), ch);
+			lines += ScorePlayerBotApplyTiered(t, item->GetAttributeValue(i), ch);
 		}
+		score += lines;
 		score += (long long)item->GetLevelLimit() * PLAYERBOT_ARMOR_LEVEL_TIE_BREAK;
-		if (IsPlayerBotListedJewel(ch, item) && IsPlayerBotJewelListFollower(ch))
+		const bool listed = IsPlayerBotListedJewel(ch, item) && IsPlayerBotJewelListFollower(ch);
+		if (listed)
 			score = score * (100 + PLAYERBOT_JEWEL_LIST_PREFERENCE_PERCENT) / 100;
+		if (terms)
+		{
+			terms->Set(per::TERM_BOOTS_FAMILY, (long long)familyTier * PLAYERBOT_BOOTS_FAMILY_TIER_SCORE);
+			terms->Set(per::TERM_LINES, lines);
+			terms->Set(per::TERM_LEVEL_TIE, (long long)item->GetLevelLimit() * PLAYERBOT_ARMOR_LEVEL_TIE_BREAK);
+			if (listed)
+				terms->Set(per::TERM_LISTED_JEWEL_PCT, PLAYERBOT_JEWEL_LIST_PREFERENCE_PERCENT);
+			terms->Set(per::TERM_TOTAL, score);
+		}
 		return score;
 	}
 
+	// The score, and with `terms` its parts (playerbot_explain.h).
+	long long GetPlayerBotEquipmentScoreTerms(LPITEM item, LPCHARACTER ch, TPlayerBotScoreTerms* terms);
+
 	long long GetPlayerBotEquipmentScore(LPITEM item, LPCHARACTER ch = NULL)
+	{
+		return GetPlayerBotEquipmentScoreTerms(item, ch, NULL);
+	}
+
+	long long GetPlayerBotEquipmentScoreTerms(LPITEM item, LPCHARACTER ch, TPlayerBotScoreTerms* terms)
 	{
 		if (!item || !item->GetProto())
 			return 0;
+		if (terms)
+		{
+			terms->Set(per::TERM_LEVEL_LIMIT, item->GetLevelLimit());
+			terms->Set(per::TERM_PLUS, item->GetRefineLevel());
+		}
 		if (ch && item->GetType() == ITEM_ARMOR && item->GetSubType() == ARMOR_FOOTS)
-			return GetPlayerBotBootsScore(item, ch);
+			return GetPlayerBotBootsScore(item, ch, terms);
 
 		long long score = 1;
 		if (item->GetType() == ITEM_WEAPON)
 		{
 			// One expected hit, a thousand a point, so the flat lines and the
 			// class preferences below keep the proportions they always had.
-			score += GetPlayerBotWeaponHitDamage(item, ch) * 1000;
+			// Iwakura's tier of the family goes on the blow alone, and
+			// PLAYERBOT_WEAPON_TIER_BLOW_PERCENT a grade: at eight a grade on
+			// the whole score it outweighed the blow, and 32 of 99 weapon
+			// changes went to a weapon that hits softer. At an equal blow the
+			// better family wins (the tier as a tie-break).
+			long long blow = GetPlayerBotWeaponHitDamage(item, ch, terms) * 1000;
+			if (ch)
+			{
+				const int tier = GetPlayerBotItemTierOf(item, ch);
+				if (tier > 0)
+				{
+					blow = blow * (100 + (tier - 3) * PLAYERBOT_WEAPON_TIER_BLOW_PERCENT) / 100;
+					score += tier;
+					if (terms)
+						terms->Set(per::TERM_TIER_PCT, (tier - 3) * PLAYERBOT_WEAPON_TIER_BLOW_PERCENT);
+				}
+			}
+			score += blow;
+			if (terms)
+				terms->Set(per::TERM_BLOW_X1000, blow);
+			const long long beforePreference = score;
 
 			// A level-30 average-damage weapon used to be handed a flat 350000
 			// here. Damage is scored at a thousand a point, so that was more than
@@ -960,12 +1130,16 @@ namespace
 						score += 200000; // Prefer sword for Body Warrior
 				}
 			}
+			if (terms)
+				terms->Set(per::TERM_CLASS_PREF, score - beforePreference);
 		}
 		else if (item->GetType() == ITEM_ARMOR &&
 				(item->GetSubType() == ARMOR_BODY || item->GetSubType() == ARMOR_HEAD ||
 				 item->GetSubType() == ARMOR_FOOTS || item->GetSubType() == ARMOR_SHIELD))
 		{
 			score += (long long)(item->GetValue(1) + 2 * item->GetValue(5)) * 1000;
+			if (terms)
+				terms->Set(per::TERM_DEFENCE_X1000, (long long)(item->GetValue(1) + 2 * item->GetValue(5)) * 1000);
 			// A piece is worth what it gives, whatever level it asks for. An
 			// outgrown piece used to lose five percent of its defence for every
 			// level past twenty, to move a bot up the tiers, and so a bot of
@@ -981,33 +1155,45 @@ namespace
 			// until its own numbers win - the Pieciokatna at +6 does. The level
 			// only breaks a tie (PLAYERBOT_ARMOR_LEVEL_TIE_BREAK).
 			score += (long long)item->GetLevelLimit() * PLAYERBOT_ARMOR_LEVEL_TIE_BREAK;
+			if (terms)
+				terms->Set(per::TERM_LEVEL_TIE, (long long)item->GetLevelLimit() * PLAYERBOT_ARMOR_LEVEL_TIE_BREAK);
 		}
 
 		// A weapon's two damage-percent lines were folded into its attack
 		// above; everything else is a flat line.
 		const bool bWeaponHitDone = item->GetType() == ITEM_WEAPON;
+		long long protoLines = 0, rolledLines = 0;
 		for (int i = 0; i < ITEM_APPLY_MAX_NUM; ++i)
 		{
 			const BYTE t = item->GetProto()->aApplies[i].bType;
 			if (bWeaponHitDone && IsPlayerBotHitModelApply(t, ch))
 				continue;
-			score += ScorePlayerBotApplyTiered(t, item->GetProto()->aApplies[i].lValue, ch);
+			protoLines += ScorePlayerBotApplyTiered(t, item->GetProto()->aApplies[i].lValue, ch);
 		}
 		for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
 		{
 			const BYTE t = item->GetAttributeType(i);
 			if (bWeaponHitDone && IsPlayerBotHitModelApply(t, ch))
 				continue;
-			score += ScorePlayerBotApplyTiered(t, item->GetAttributeValue(i), ch);
+			rolledLines += ScorePlayerBotApplyTiered(t, item->GetAttributeValue(i), ch);
 		}
+		score += protoLines + rolledLines;
 		// The soul stones in its sockets are lines of the piece too: a weapon
 		// holding Potwora and Smierci +4 is a different weapon from the same
 		// one with the sockets open, and a swap for a bare one of a point
 		// more would throw both stones away.
-		score += ScorePlayerBotSeatedSoulStones(item, ch);
+		const long long seated = ScorePlayerBotSeatedSoulStones(item, ch);
+		score += seated;
 
 		if (item->GetImmuneFlag() != 0)
 			score += 1000;
+		if (terms)
+		{
+			terms->Set(per::TERM_PROTO_APPLIES, protoLines);
+			terms->Set(per::TERM_LINES, rolledLines);
+			terms->Set(per::TERM_SOUL_STONES, seated);
+			terms->Set(per::TERM_IMMUNE, item->GetImmuneFlag() != 0 ? 1000 : 0);
+		}
 
 		// A race-attack bonus is only worth carrying where that race is what you
 		// actually fight, and it is worth what share of the map that race is:
@@ -1026,6 +1212,7 @@ namespace
 				const BYTE wanted = GetPlayerBotRaceApplyType(dominant);
 				const long long perPoint = (long long)PLAYERBOT_GEAR_RACE_LINE_VALUE *
 						racePercent / 100;
+				const long long beforeRace = score;
 				for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
 				{
 					if (item->GetAttributeType(i) == wanted)
@@ -1036,6 +1223,8 @@ namespace
 					if (item->GetProto()->aApplies[i].bType == wanted)
 						score += (long long)item->GetProto()->aApplies[i].lValue * perPoint;
 				}
+				if (terms)
+					terms->Set(per::TERM_RACE_LINES, score - beforeRace);
 			}
 		}
 
@@ -1044,17 +1233,27 @@ namespace
 		// they are worth together, not a second count of them. Bounded by
 		// PLAYERBOT_TIER_SCORE_PERCENT a step so that a +9 with lines still
 		// beats a +1 of a better family with none.
-		if (ch)
+		// A weapon's tier went on its blow above.
+		if (ch && item->GetType() != ITEM_WEAPON)
 		{
 			const int tier = GetPlayerBotItemTierOf(item, ch);
 			if (tier > 0)
+			{
 				score = score * (100 + (tier - 3) * PLAYERBOT_TIER_SCORE_PERCENT) / 100;
+				if (terms)
+					terms->Set(per::TERM_TIER_PCT, (tier - 3) * PLAYERBOT_TIER_SCORE_PERCENT);
+			}
 		}
 		// And his list of the jewellery worth wearing, for the bots that go by
 		// it (IsPlayerBotJewelListFollower; Patch 4, point 1).
 		if (ch && IsPlayerBotListedJewel(ch, item) && IsPlayerBotJewelListFollower(ch))
+		{
 			score = score * (100 + PLAYERBOT_JEWEL_LIST_PREFERENCE_PERCENT) / 100;
-
+			if (terms)
+				terms->Set(per::TERM_LISTED_JEWEL_PCT, PLAYERBOT_JEWEL_LIST_PREFERENCE_PERCENT);
+		}
+		if (terms)
+			terms->Set(per::TERM_TOTAL, score);
 		return score;
 	}
 
@@ -1404,6 +1603,29 @@ namespace
 	int CountPlayerBotArrows(LPCHARACTER ch);
 	bool UpgradePlayerBotArrows(LPCHARACTER ch);
 
+	// A weapon change needs PLAYERBOT_WEAPON_SWAP_MARGIN_PERCENT over the
+	// weapon in the hand, and a return to the one taken off within
+	// PLAYERBOT_WEAPON_RETURN_WINDOW_MS PLAYERBOT_WEAPON_RETURN_MARGIN_PERCENT:
+	// two weapons a point apart took turns in the hand. Keyed by pid, what
+	// came off and when.
+	const int PLAYERBOT_WEAPON_SWAP_MARGIN_PERCENT = 1;
+	const int PLAYERBOT_WEAPON_RETURN_MARGIN_PERCENT = 5;
+	const DWORD PLAYERBOT_WEAPON_RETURN_WINDOW_MS = 60 * 60 * 1000;
+	std::map<DWORD, std::pair<DWORD, DWORD> > s_mapPlayerBotWeaponTakenOff;
+
+	bool PlayerBotWeaponSwapClears(LPCHARACTER ch, LPITEM item, long long itemScore, long long oldScore, DWORD dwNow)
+	{
+		if (oldScore <= 0)
+			return true;
+		int margin = PLAYERBOT_WEAPON_SWAP_MARGIN_PERCENT;
+		std::map<DWORD, std::pair<DWORD, DWORD> >::const_iterator off =
+				s_mapPlayerBotWeaponTakenOff.find(ch->GetPlayerID());
+		if (off != s_mapPlayerBotWeaponTakenOff.end() && off->second.first == item->GetID() &&
+				dwNow - off->second.second < PLAYERBOT_WEAPON_RETURN_WINDOW_MS)
+			margin = PLAYERBOT_WEAPON_RETURN_MARGIN_PERCENT;
+		return itemScore * 100 > oldScore * (100 + margin);
+	}
+
 	bool ManagePlayerBotEquipment(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!ch || !ch->IsItemLoaded() || IsPlayerBotGearFrozen(ch))
@@ -1448,6 +1670,9 @@ namespace
 
 		if (dwNow < state.dwNextEquipmentCheckTime && !state.bEquipPending)
 			return false;
+		// What each slot holds now, for the explanation of a later decision
+		// (CONTEXT_WENT_TO_COUNTER, playerbot_explain.h).
+		NotePlayerBotExplainWorn(ch);
 
 		// A better arrow goes in on this pass's clock: the quiver is never
 		// emptied, so running out no longer brings the next one to the slot.
@@ -1459,6 +1684,10 @@ namespace
 		int bestWearCell = -1;
 		long long bestImprovement = 0;
 		long long bestScore = 0;
+		// The rule that took the best candidate, and whether the worn piece's
+		// score was set to nothing by one (playerbot_explain.h).
+		int bestRule = per::RULE_SCORE_UPGRADE;
+		bool bestOldZeroed = false;
 
 		const bool stoneMode = IsPlayerBotArcherBuild(ch) && state.bMeleeForStone;
 		// The one stone weapon the bot has chosen (dagger first), not any
@@ -1476,6 +1705,7 @@ namespace
 			bestWearCell = pinnedWear;
 			bestImprovement = 1;
 			bestScore = GetPlayerBotEquipmentScore(pinned, ch);
+			bestRule = per::RULE_OWNER_PIN;
 		}
 		for (WORD cell = 0; !pinned && cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
@@ -1528,17 +1758,29 @@ namespace
 			// damage model it out-hits a level-30 weapon at +0, whose refine is
 			// the whole point, and any weapon over the line takes its place. The
 			// Archer's stone tool keeps its own rule (FindPlayerBotStoneWeapon).
+			// And an outdated shield, helmet or body armour gives way to any
+			// piece of its slot that is not (PlayerBotOutdatedGearGivesWay).
+			const bool outdatedGivesWay = oldItem && PlayerBotOutdatedGearGivesWay(ch, oldItem, item);
+			// Nor does an outdated piece ever go on over one that is not: the
+			// two took turns in the slot every second.
+			if (oldItem && PlayerBotOutdatedGearGivesWay(ch, item, oldItem))
+				continue;
+			// The same test as ever, its two halves kept apart for the explanation.
+			const bool oldDoesNotFit = oldItem && wearCell == WEAR_WEAPON && !PlayerBotWeaponFitsNow(ch, state, oldItem);
+			const bool oldBanned = oldItem && wearCell == WEAR_WEAPON && !oldDoesNotFit && !stoneMode &&
+					IsPlayerBotBannedLowWeapon(ch, oldItem);
 			const long long oldScore = oldItem
-					? ((wearCell == WEAR_WEAPON && (!PlayerBotWeaponFitsNow(ch, state, oldItem) ||
-							(!stoneMode && IsPlayerBotBannedLowWeapon(ch, oldItem))))
-						? 0 : GetPlayerBotEquipmentScore(oldItem, ch))
+					? ((oldDoesNotFit || oldBanned || outdatedGivesWay) ? 0 : GetPlayerBotEquipmentScore(oldItem, ch))
 					: 0;
 			if (oldItem && itemScore <= oldScore)
+				continue;
+			if (oldItem && wearCell == WEAR_WEAPON && !stoneMode &&
+					!PlayerBotWeaponSwapClears(ch, item, itemScore, oldScore, dwNow))
 				continue;
 			// A new piece waits in the bag while its lines are worth less than
 			// the worn one's and a stone can change that (community patch 2,
 			// point 3); the bonus pass works on it there.
-			if (oldItem && IsPlayerBotSwapHeldForBonus(ch, item, oldItem))
+			if (oldItem && !outdatedGivesWay && IsPlayerBotSwapHeldForBonus(ch, item, oldItem))
 			{
 				PlayerBotLogThrottled("swap_held_for_bonus", dwNow,
 						"PLAYERBOT_BONUS: new piece waits in the bag for its lines pid=%u name=%s wear=%d new_vnum=%u old_vnum=%u new_lines=%lld old_lines=%lld",
@@ -1567,6 +1809,10 @@ namespace
 				bestWearCell = wearCell;
 				bestImprovement = improvement;
 				bestScore = itemScore;
+				bestRule = !oldItem ? per::RULE_EMPTY_SLOT
+						: (oldDoesNotFit && IsPlayerBotArcherBuild(ch) ? per::RULE_ARCHER_STONE_SWITCH
+							: (oldBanned ? per::RULE_OLD_LOW_WEAPON_BANNED : per::RULE_SCORE_UPGRADE));
+				bestOldZeroed = oldItem && (oldDoesNotFit || oldBanned || outdatedGivesWay);
 			}
 		}
 
@@ -1600,6 +1846,11 @@ namespace
 		// no free one: taking the old piece off first did, and a companion that
 		// loots everything and never goes to town alone has a full bag - the
 		// piece its owner gave it waited for ever.
+		// The decision's explanation, read before anything moves (playerbot_explain.h).
+		TPlayerBotEquipExplain explained;
+		if (IsPlayerBotExplainOn())
+			PreparePlayerBotEquipExplain(explained, ch, bestWearCell, per::PATH_EQUIP_PASS, bestRule,
+					bestItem, bestOldItem, bestOldZeroed);
 		const bool swapped = pinned && bestOldItem && bestWearCell != WEAR_UNIQUE1 &&
 				bestWearCell != WEAR_UNIQUE2 && PlayerBotEquipItem(ch, bestItem) && bestItem->IsEquipped();
 		if (!swapped && bestOldItem)
@@ -1616,12 +1867,15 @@ namespace
 		{
 			sys_log(0, "PLAYERBOT_AI: equipped upgrade pid=%u name=%s wear=%d old_vnum=%u new_vnum=%u old_score=%lld new_score=%lld",
 					ch->GetPlayerID(), ch->GetName(), bestWearCell, oldVnum, newVnum, oldScore, bestScore);
+			if (bestWearCell == WEAR_WEAPON && bestOldItem)
+				s_mapPlayerBotWeaponTakenOff[ch->GetPlayerID()] = std::make_pair(bestOldItem->GetID(), dwNow);
 			// The one line a player asks about first - "why is my top Sura
 			// suddenly without her +8" - is the swap, so it goes to log.log
 			// with what came off.
 			char szHint[64];
 			snprintf(szHint, sizeof(szHint), "slot %d zamiast %u", bestWearCell, oldVnum);
 			LogManager::instance().ItemLog(ch, bestItem, "PLAYERBOT_EQUIP", szHint);
+			QueuePlayerBotEquip(explained);
 			// And the row is written now, not in seven minutes. The panel reads
 			// player.item, while the db core keeps a changed item in its cache
 			// for PLAYER_CACHE_FLUSH_SECONDS - so a bot that had just put a
@@ -1637,8 +1891,11 @@ namespace
 		}
 
 		state.dwNextEquipmentCheckTime = dwNow + PLAYERBOT_GEAR_LOG_INTERVAL;
-		sys_err("PLAYERBOT_AI: failed to equip upgrade pid=%u name=%s wear=%d vnum=%u",
-				ch->GetPlayerID(), ch->GetName(), bestWearCell, newVnum);
+		// Never leave the slot empty over a refusal: what came off goes back on.
+		const bool restored = bestOldItem && !bestOldItem->IsEquipped() && PlayerBotEquipItem(ch, bestOldItem);
+		sys_err("PLAYERBOT_AI: failed to equip upgrade pid=%u name=%s wear=%d vnum=%u old=%u restored=%d polymorphed=%d busy=%d",
+				ch->GetPlayerID(), ch->GetName(), bestWearCell, newVnum, oldVnum, restored ? 1 : 0,
+				ch->IsPolymorphed() ? 1 : 0, ch->IsBusy() ? 1 : 0);
 		return false;
 	}
 
@@ -1648,6 +1905,8 @@ namespace
 		// What the session took off goes back on here, so the pieces it
 		// remembers are the equipment pass's again (ManagePlayerBotRefining).
 		ClearPlayerBotRefineTakenOff(state);
+		// What goes on now goes on after the blacksmith (playerbot_explain.h).
+		NotePlayerBotExplainBlacksmith(ch ? ch->GetPlayerID() : 0, dwNow);
 		// A blacksmith session can temporarily remove more than one worn item.
 		// ManagePlayerBotEquipment intentionally equips only one upgrade per call,
 		// so force a short bounded pass before the bot leaves the NPC.  This makes
@@ -2287,6 +2546,9 @@ namespace
 	{
 		if (!ch || !item || !IsPlayerBotSpecialLevel30Weapon(item) || item->CanUsedBy(ch) ||
 				IsPlayerBotScrollOnlyWeapon(item) || !IsPlayerBotLevel30SaleDraw(ch, itemId))
+			return false;
+		// The bow or fan a keeper builds for its sash is not goods.
+		if (IsPlayerBotSashGrailProject(ch, item))
 			return false;
 		// Two of a family in the bag at most, and the rest are goods at once
 		// (PLAYERBOT_HELD_FAMILY_LIMIT): what a bot grinds for sale is still
@@ -3146,7 +3408,13 @@ namespace
 	// then agree that the step is wanted.
 	BYTE GetPlayerBotRefineTargetOwn(LPCHARACTER ch, LPITEM item)
 	{
-		const BYTE target = GetPlayerBotRefineTargetOwnBase(ch, item);
+		BYTE target = GetPlayerBotRefineTargetOwnBase(ch, item);
+		// The helmet worn from level fifty goes to +6 at least, past the
+		// persona's cap on the small pieces: it was the outdated gear's slot
+		// that never climbed (PLAYERBOT_OUTDATED_HELMET_PLUS).
+		if (ch && item && item->IsEquipped() && item->GetType() == ITEM_ARMOR && item->GetSubType() == ARMOR_HEAD &&
+				(int)ch->GetLevel() >= PLAYERBOT_OUTDATED_GEAR_MIN_LEVEL && target < PLAYERBOT_OUTDATED_HELMET_PLUS)
+			target = PLAYERBOT_OUTDATED_HELMET_PLUS;
 		return IsPlayerBotScrollRulePiece(ch, item)
 				? (BYTE)playerbot_refine_rules::ScrollRuleTarget((int)target) : target;
 	}
@@ -3158,6 +3426,10 @@ namespace
 	// plus left it in the bag for good.
 	BYTE GetPlayerBotRefineTarget(LPCHARACTER ch, LPITEM item)
 	{
+		// The sash's grail goes to PLAYERBOT_SASH_GRAIL_PLUS; the anvil's
+		// table and scrolls decide how (playerbot_sash.h).
+		if (IsPlayerBotSashGrailProject(ch, item))
+			return std::max<BYTE>(GetPlayerBotRefineTargetOwn(ch, item), PLAYERBOT_SASH_GRAIL_PLUS);
 		const BYTE target = GetPlayerBotRefineTargetOwn(ch, item);
 		if (!ch || !item || item->IsEquipped() || item->GetType() != ITEM_WEAPON)
 			return target;
@@ -3498,6 +3770,7 @@ namespace
 		// wrote nothing there: the card showed a piece that came from nowhere
 		// (B23 of Iwakura's audit of 26 September).
 		LogManager::instance().ItemLog(ch, item, "PLAYERBOT_NPC_BUY", item->GetName());
+		NotePlayerBotExplainOrigin(item, per::ORIGIN_NPC_LADDER, per::LadderCategoryCode(category));
 		sys_log(0, "PLAYERBOT_GEAR: bought progression %s pid=%u name=%s vnum=%u required_level=%d price=%lld",
 				category ? category : "gear", ch->GetPlayerID(), ch->GetName(), vnum,
 				item->GetLevelLimit(), price);
@@ -3858,10 +4131,25 @@ namespace
 		LPITEM worn = ch->GetWear((BYTE)wearCell);
 		if (worn && IS_SET(worn->GetFlag(), ITEM_FLAG_IRREMOVABLE))
 			return false;
+		// A bot with a rod or a pickaxe in the hand: the game refuses every
+		// equip while it fishes, so a weapon better than its own was taken
+		// for goods and went on the counter. Such a weapon is weighed against
+		// the weapon the bot goes back to - the best of its bag - instead.
+		if (wearCell == WEAR_WEAPON && item->GetType() == ITEM_WEAPON && worn &&
+				(worn->GetType() == ITEM_ROD || worn->GetType() == ITEM_PICK))
+		{
+			if ((int)item->GetLevelLimit() > (int)ch->GetLevel())
+				return false;
+			long long bestScore = 0;
+			LPITEM best = FindPlayerBotBestBagWeapon(ch, item, &bestScore);
+			return !best || GetPlayerBotEquipmentScore(item, ch) > bestScore;
+		}
 		if (!PlayerBotCanEquipNow(ch, item, TItemPos(INVENTORY, cell)))
 			return false;
-		return !worn || GetPlayerBotEquipmentScore(item, ch) >
-				GetPlayerBotEquipmentScore(worn, ch);
+		if (worn && PlayerBotOutdatedGearGivesWay(ch, item, worn))
+			return false;
+		return !worn || PlayerBotOutdatedGearGivesWay(ch, worn, item) ||
+				GetPlayerBotEquipmentScore(item, ch) > GetPlayerBotEquipmentScore(worn, ch);
 	}
 
 	enum EPlayerBotPotionSupply
@@ -3872,6 +4160,16 @@ namespace
 		PLAYERBOT_POTION_SUPPLY_PURPLE,
 		PLAYERBOT_POTION_SUPPLY_NONE
 	};
+
+	const DWORD PLAYERBOT_PERSONAL_GREEN_POTION_VNUM = 27101;
+	const DWORD PLAYERBOT_PERSONAL_PURPLE_POTION_VNUM = 27104;
+	const DWORD PLAYERBOT_PERSONAL_BUFF_POTION_KEEP = 200;
+
+	bool IsPlayerBotPersonalBuffPotion(DWORD vnum)
+	{
+		return vnum == PLAYERBOT_PERSONAL_GREEN_POTION_VNUM ||
+				vnum == PLAYERBOT_PERSONAL_PURPLE_POTION_VNUM;
+	}
 
 	EPlayerBotPotionSupply GetPlayerBotPotionSupply(DWORD vnum)
 	{
@@ -3921,15 +4219,33 @@ namespace
 		return count;
 	}
 
+	DWORD CountPlayerBotMerchantTrimSupply(LPCHARACTER ch,
+			EPlayerBotPotionSupply supply)
+	{
+		DWORD count = CountPlayerBotPotionSupply(ch, supply);
+		if (supply == PLAYERBOT_POTION_SUPPLY_GREEN)
+			count -= std::min<DWORD>(count,
+					ch->CountSpecifyItem(PLAYERBOT_PERSONAL_GREEN_POTION_VNUM));
+		else if (supply == PLAYERBOT_POTION_SUPPLY_PURPLE)
+			count -= std::min<DWORD>(count,
+					ch->CountSpecifyItem(PLAYERBOT_PERSONAL_PURPLE_POTION_VNUM));
+		return count;
+	}
+
 	bool HasPlayerBotExcessPotions(LPCHARACTER ch)
 	{
 		if (!ch || !ch->IsItemLoaded())
 			return false;
+		if (ch->CountSpecifyItem(PLAYERBOT_PERSONAL_GREEN_POTION_VNUM) >
+				PLAYERBOT_PERSONAL_BUFF_POTION_KEEP ||
+			ch->CountSpecifyItem(PLAYERBOT_PERSONAL_PURPLE_POTION_VNUM) >
+				PLAYERBOT_PERSONAL_BUFF_POTION_KEEP)
+			return true;
 		for (int supply = PLAYERBOT_POTION_SUPPLY_HP;
 				supply < PLAYERBOT_POTION_SUPPLY_NONE; ++supply)
 		{
 			const EPlayerBotPotionSupply kind = (EPlayerBotPotionSupply)supply;
-			if (CountPlayerBotPotionSupply(ch, kind) >
+			if (CountPlayerBotMerchantTrimSupply(ch, kind) >
 					GetPlayerBotPotionSupplyLimit(ch, kind))
 				return true;
 		}
@@ -4026,11 +4342,36 @@ namespace
 		};
 		DWORD soldUnits = 0;
 		long long earnedGold = 0;
+		const DWORD personalVnums[] = {
+			PLAYERBOT_PERSONAL_GREEN_POTION_VNUM,
+			PLAYERBOT_PERSONAL_PURPLE_POTION_VNUM
+		};
+		for (size_t v = 0; v < sizeof(personalVnums) / sizeof(personalVnums[0]); ++v)
+		{
+			DWORD total = ch->CountSpecifyItem(personalVnums[v]);
+			DWORD excess = total > PLAYERBOT_PERSONAL_BUFF_POTION_KEEP
+					? total - PLAYERBOT_PERSONAL_BUFF_POTION_KEEP : 0;
+			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && excess > 0; ++cell)
+			{
+				LPITEM item = ch->GetInventoryItem(cell);
+				if (!item || item->GetVnum() != personalVnums[v])
+					continue;
+				const DWORD unitPrice = GetPlayerBotNpcSellUnitPrice(item);
+				if (unitPrice == 0)
+					continue;
+				const DWORD count = std::min<DWORD>(excess, item->GetCount());
+				item->SetCount(item->GetCount() - count);
+				PlayerBotChangeGold(ch, (long long)unitPrice * count);
+				excess -= count;
+				soldUnits += count;
+				earnedGold += (long long)unitPrice * count;
+			}
+		}
 		for (int supply = PLAYERBOT_POTION_SUPPLY_HP;
 				supply < PLAYERBOT_POTION_SUPPLY_NONE; ++supply)
 		{
 			const EPlayerBotPotionSupply kind = (EPlayerBotPotionSupply)supply;
-			DWORD total = CountPlayerBotPotionSupply(ch, kind);
+			DWORD total = CountPlayerBotMerchantTrimSupply(ch, kind);
 			const DWORD keep = GetPlayerBotPotionSupplyLimit(ch, kind);
 			if (total <= keep)
 				continue;
@@ -4038,6 +4379,8 @@ namespace
 			for (size_t order = 0;
 					order < sizeof(saleOrder) / sizeof(saleOrder[0]) && excess > 0; ++order)
 			{
+				if (IsPlayerBotPersonalBuffPotion(saleOrder[order]))
+					continue;
 				if (GetPlayerBotPotionSupply(saleOrder[order]) != kind)
 					continue;
 				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && excess > 0; ++cell)
@@ -4211,6 +4554,7 @@ namespace
 		}
 		PlayerBotChangeGold(ch, -pick->llPrice);
 		LogManager::instance().ItemLog(ch, weapon, "PLAYERBOT_NPC_BUY", weapon->GetName());
+		NotePlayerBotExplainOrigin(weapon, per::ORIGIN_NPC_PROPER_WEAPON, pick->llPrice);
 		// The answer the ban gave a moment ago is the purse's and the bag's of
 		// a moment ago.
 		s_mapPlayerBotLowWeaponBan.erase(ch->GetPlayerID());
@@ -4258,8 +4602,14 @@ namespace
 			LPITEM item = ranked[i].second;
 			const DWORD vnum = item->GetVnum();
 			const bool low = IsPlayerBotLowWeaponFor(ch, item);
+			TPlayerBotEquipExplain explained;
+			if (IsPlayerBotExplainOn() && !ch->GetWear(WEAR_WEAPON))
+				PreparePlayerBotEquipExplain(explained, ch, WEAR_WEAPON, per::PATH_EMPTY_HAND,
+						low ? per::RULE_EMPTY_HAND_LOW_FALLBACK : per::RULE_EMPTY_HAND_BEST, item, NULL, false);
 			if (!PlayerBotEquipItem(ch, item))
 				continue;
+			if (item->IsEquipped())
+				QueuePlayerBotEquip(explained);
 			sys_log(0, "PLAYERBOT_AI: equipped weapon pid=%u name=%s vnum=%u",
 					ch->GetPlayerID(), ch->GetName(), vnum);
 			// A bot of thirty on the ban's way out: nothing over the line to
@@ -4347,7 +4697,14 @@ namespace
 
 		PlayerBotChangeGold(ch, -price);
 		LogManager::instance().ItemLog(ch, weapon, "PLAYERBOT_NPC_BUY", weapon->GetName());
+		NotePlayerBotExplainOrigin(weapon, per::ORIGIN_NPC_EMERGENCY, price);
+		TPlayerBotEquipExplain explained;
+		if (IsPlayerBotExplainOn())
+			PreparePlayerBotEquipExplain(explained, ch, WEAR_WEAPON, per::PATH_EMERGENCY_BUY,
+					per::RULE_EMERGENCY_WEAPON, weapon, NULL, false);
 		const bool equipped = PlayerBotEquipItem(ch, weapon);
+		if (equipped && weapon->IsEquipped())
+			QueuePlayerBotEquip(explained);
 
 		sys_log(0, "PLAYERBOT_AI: bought emergency weapon pid=%u name=%s vnum=%u price=%lld equipped=%d",
 				ch->GetPlayerID(), ch->GetName(), vnum, price, equipped ? 1 : 0);
@@ -4378,7 +4735,13 @@ namespace
 			const DWORD wrongVnum = equippedWeapon->GetVnum();
 			if (ch->GetEmptyInventory(equippedWeapon->GetSize()) >= 0)
 			{
+				TPlayerBotEquipExplain explained;
+				if (IsPlayerBotExplainOn())
+					PreparePlayerBotEquipExplain(explained, ch, WEAR_WEAPON, per::PATH_PROFESSION_OFF,
+							per::RULE_PROFESSION_MISMATCH, NULL, equippedWeapon, false);
 				ch->UnequipItem(equippedWeapon);
+				if (!ch->GetWear(WEAR_WEAPON))
+					QueuePlayerBotEquip(explained);
 				sys_log(0, "PLAYERBOT_AI: unequipped profession-incompatible weapon pid=%u name=%s vnum=%u group=%u",
 						ch->GetPlayerID(), ch->GetName(), wrongVnum, ch->GetSkillGroup());
 			}

@@ -114,9 +114,17 @@ namespace
 			if (ch->GetEmptyInventory(worn->GetSize()) < 0)
 				return;
 			const long remain = worn->GetSocket(ITEM_SOCKET_UNIQUE_REMAIN_TIME);
+			// A unique the bot never wears is a decision of its own (playerbot_explain.h).
+			TPlayerBotEquipExplain explained;
+			if (never && IsPlayerBotExplainOn())
+				PreparePlayerBotEquipExplain(explained, ch, wear, per::PATH_UNIQUE, per::RULE_UNIQUE_NEVER_WORN,
+						NULL, worn, false);
 			if (ch->UnequipItem(worn))
+			{
 				sys_log(0, "PLAYERBOT_GEAR: unique off pid=%u name=%s vnum=%u reason=%s remain_min=%ld",
 						ch->GetPlayerID(), ch->GetName(), vnum, never ? "never_worn" : idle, remain);
+				QueuePlayerBotEquip(explained);
+			}
 			return;
 		}
 		if (idle)

@@ -567,7 +567,64 @@ SHOP_SEARCH_FILTERS = {
 	},
 }
 
+# "MT2009 Plus" (the operator, 28 September): the Cor Draconis, the sashes
+# by grade whatever their look, and the ancient, legendary and mythic
+# alchemy whatever the stone and its steps - one category past the
+# package's last, which the server fills itself
+# (server-patches/playerqol, MT2009_PLUS_SHOP_SEARCH_PLUS_V1). The grid
+# shows a few icons of each; a result is matched by MatchPlus, not by them.
+SHOP_SEARCH_CATEGORY_PLUS = getattr(ikashop, 'SHOP_SEARCH_CATEGORY_JEWELRY_ATTR', 14) + 1
+
+# The Cor Draconis the operator keeps in this tab (28 September): the second
+# to the sixth of the grid it first had (the legendary last), the rest out.
+PLUS_CORS = (50255, 50256, 50257, 50258, 50259)
+
+
+def PlusSashGrade(vnum):
+	if 85001 <= vnum <= 85024 and vnum % 10 not in (9, 0):
+		return (vnum % 10 - 1) % 4 + 1
+	if 85101 <= vnum <= 85104:
+		return vnum - 85100
+	if 86061 <= vnum <= 86064:
+		return vnum - 86060
+	return 0
+
+
+def MatchPlus(sub_category, vnum):
+	if sub_category == 0:
+		return vnum in PLUS_CORS
+	if 1 <= sub_category <= 4:
+		return PlusSashGrade(vnum) == sub_category
+	if 5 <= sub_category <= 7:
+		return 110000 <= vnum < 170000 and (vnum // 1000) % 10 == sub_category - 2
+	return False
+
+
+def _PlusSashes(grade):
+	return [(vnum, 0) for vnum in (85001 + grade - 1, 85005 + grade - 1, 85011 + grade - 1,
+		85015 + grade - 1, 85021 + grade - 1, 85101 + grade - 1, 86061 + grade - 1)]
+
+
+def _PlusAlchemy(grade):
+	return [(kind * 10000 + grade * 1000, 0) for kind in xrange(11, 17)]
+
+
+SHOP_SEARCH_FILTERS[SHOP_SEARCH_CATEGORY_PLUS] = {
+	"name": "MT2009 Plus",
+	"sub": {
+		0: {"name": "Cor Draconis", "itemList": [(vnum, 0) for vnum in PLUS_CORS]},
+		1: {"name": "Szarfy proste", "itemList": _PlusSashes(1)},
+		2: {"name": "Szarfy dostojne", "itemList": _PlusSashes(2)},
+		3: {"name": "Szarfy zacne", "itemList": _PlusSashes(3)},
+		4: {"name": "Szarfy unikatowe", "itemList": _PlusSashes(4)},
+		5: {"name": "Alchemia antyczna", "itemList": _PlusAlchemy(3)},
+		6: {"name": "Alchemia legendarna", "itemList": _PlusAlchemy(4)},
+		7: {"name": "Alchemia mityczna", "itemList": _PlusAlchemy(5)},
+	},
+}
+
 SHOP_SEARCH_CATEGORY_SORT = [
+	SHOP_SEARCH_CATEGORY_PLUS,
 	ikashop.SHOP_SEARCH_CATEGORY_BOOKS,
 	ikashop.SHOP_SEARCH_CATEGORY_REFINE,
 	ikashop.SHOP_SEARCH_CATEGORY_SOULSTONE,
@@ -932,9 +989,6 @@ class ShopSearchWindow(ui.ScriptWindow):
 		return True
 
 
-import playerbot_lang
-
-
 class FleaMarketQuantityDialog(ui.BoardWithTitleBar):
 	# A small stock-UI dialog for a listing that is a stack. The amount is
 	# always the offer's own, and the Dom Towarowy buys a stack whole.
@@ -946,12 +1000,12 @@ class FleaMarketQuantityDialog(ui.BoardWithTitleBar):
 		self.SetSize(360, 190)
 		self.AddFlag("movable")
 		self.AddFlag("float")
-		self.SetTitleName(playerbot_lang.T("Kup czesc stacka", "Buy part of a stack"))
+		self.SetTitleName("Kup czesc stacka")
 		self.SetCloseEvent(self.Close)
 
 		self.itemLine = self.__MakeText(18, 42)
 		self.availableLine = self.__MakeText(18, 66)
-		self.__MakeText(18, 96, playerbot_lang.T("Ile sztuk kupic:", "How many to buy:"))
+		self.__MakeText(18, 96, "Ile sztuk kupic:")
 
 		self.inputBar = ui.SlotBar()
 		self.inputBar.SetParent(self)
@@ -971,8 +1025,8 @@ class FleaMarketQuantityDialog(ui.BoardWithTitleBar):
 		self.quantityEdit.Show()
 
 		self.totalLine = self.__MakeText(18, 124)
-		self.buyButton = self.__MakeButton(118, 153, playerbot_lang.T("Kup", "Buy"), self.Accept)
-		self.cancelButton = self.__MakeButton(204, 153, playerbot_lang.T("Anuluj", "Cancel"), self.Close)
+		self.buyButton = self.__MakeButton(118, 153, "Kup", self.Accept)
+		self.cancelButton = self.__MakeButton(204, 153, "Anuluj", self.Close)
 		self.Hide()
 
 	def __MakeText(self, x, y, text=""):
@@ -1014,13 +1068,12 @@ class FleaMarketQuantityDialog(ui.BoardWithTitleBar):
 			return
 		quantity = self.__GetQuantity()
 		price = self.market.GetStackPurchasePrice(self.data, quantity)
-		self.totalLine.SetText(playerbot_lang.T("Do zaplaty za %d szt.: %s", "To pay for %d pcs.: %s")
-			% (quantity, self.market.FormatPrice(price)))
+		self.totalLine.SetText("Do zaplaty za %d szt.: %s" % (quantity, self.market.FormatPrice(price)))
 
 	def Open(self, data):
 		self.data = data
 		self.itemLine.SetText(self.market.GetItemName(data))
-		self.availableLine.SetText(playerbot_lang.T("W stacku jest: %d szt.", "In the stack: %d pcs.") % data["count"])
+		self.availableLine.SetText("W stacku jest: %d szt." % data["count"])
 		self.quantityEdit.SetText(str(data["count"]))
 		self.__UpdatePrice()
 		self.Show()

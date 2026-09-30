@@ -1,6 +1,6 @@
 # The companion's window ("Towarzysz", playerbot_sidekick.h on the server), on
 # the P key and from the Towarzysz letter: the player's own character window
-# with the companion in it - "tak jak w oryginale nasza glowna postac" (the operator,
+# with the companion in it - "tak jak w oryginale nasza glowna postac" (upstream,
 # on Piciu713's and prodnathin's requests of 28 September: "jaki zakres ataku
 # ma moj towarzysz i ile ma obrony ... ile ma punktow inteligencji czy zycia z
 # uwzglednieniem ekwipunku ... wykorzystac taby 'Emocje' i 'Zadania' do
@@ -37,8 +37,8 @@
 # (locale/<lang>/ui/windows/tab_1..4.sub), and two of them are the player's
 # ("Emocje", "Zadania"); the client has no other. Each painted name is covered
 # with the stone's own colour and the tab's name written over it, so the strip
-# reads Status / Umiejetn. / Polecenia / Opcje, in English in an English
-# client, with the stock picture's pressed tab.
+# reads Status / Umiejetn. / Polecenia / Opcje, with the stock picture's
+# pressed tab.
 #
 # The server answers "/towarzysz okno" (and "okno 1" for the whole gear, which
 # the window asks for when it opens) with three commands, each far under the
@@ -50,7 +50,7 @@
 #   SidekickInfo <protocol> 1 <race> <group> <level> <exp%> <hp> <maxhp> <sp>
 #                <maxsp> <where> <dist> <mode> <stance> <loot> <protect>
 #                <buffs> <gold> <red> <blue> <dead> [<lure> <luring> [<solo> [<chests>
-#                [<party>]]]]
+#                [<lead> <role> <leadership> [<party>]]]]]
 #   SidekickNames <name> <place> <doing>            - hex of the CP1250 bytes
 #   SidekickGear <slot 0-7> <name>                  - hex, only when changed
 #
@@ -60,14 +60,17 @@
 # 2 everything. The orders are the letter's own commands, so the window adds
 # nothing the server did not already take from the quest: przywolaj, wolny,
 # czekaj, zakupy, stan, walka N, zbieraj N, ochrona N, buffy N, luruj N, sam N,
-# skrzynki N, grupa N, odprawa tak. lure (server 2.2.19): the companion wakes packs round
+# skrzynki N, grupa N, lider N, rola N, ryby, odprawa tak. lure (server 2.2.19): the companion wakes packs round
 # the owner and brings them over; luring: 0 no course, 1 out to a pack, 2 back
-# with them. solo (server 2.2.33, "Gra beze mnie"): with its owner out of the
+# with them. solo (server 2.2.30, "Gra beze mnie"): with its owner out of the
 # game it plays on alone, up to thirty levels over the owner's. chests (server
-# 2.2.33, "Skrzynki"): 1 it opens the chests in its bag, 0 it leaves them closed.
-# party (server 2.2.38, "Grupa"): 1 it joins its owner's party whoever leads it,
-# while a place stays free after it for one more person; 0 a party somebody
-# else leads only on that leader's invitation.
+# 2.2.31, "Skrzynki"): 1 it opens the chests in its bag, 0 it leaves them closed.
+# lead, role, leadership (server 2.12.0, "Lider grupy"): 1 the companion makes
+# the party and invites its owner; the bonus its Leadership gives the owner
+# (ROLES) and that skill's level. party (server 2.13.0, "Grupa"): 1 it joins
+# its owner's party whoever leads it, while a place stays free after it for
+# one more person; 0 a party somebody else leads only on that leader's
+# invitation.
 #
 # The status and skill pages read the answer to "/towarzysz umiejetnosci"
 # (SidekickSkillBegin with the stats, the skills, SidekickSkillEnd), which the
@@ -78,18 +81,14 @@
 # through the one queue below, because the server's limit is per character.
 #
 # Python 2.7 as the client has it; the Polish letters are CP1250 escapes.
-# Every text is a Polish and English pair (playerbot_lang.T), English for a
-# client set to any language but Polish; the tables below are read once, at
-# import. What the server writes into the window - the companion's place,
-# what it is doing, its gear - comes in the language the client told it
-# (PlayerBotLanguage, playerbot_lang.py); in English it names an item or a
-# monster "{i<vnum>}" or "{m<vnum>}", the placeholders of the bots' status
-# line, and the window writes the client's own name in (ExpandNames).
+# What the server writes into the window - the companion's place, what it is
+# doing, its gear - may name an item or a monster "{i<vnum>}" or "{m<vnum>}",
+# the placeholders of the bots' status line, and the window writes the
+# client's own name in (ExpandNames).
 
 import clientclock
 import net
 import ui
-from playerbot_lang import T
 
 PROTOCOL = 1
 POLL_INTERVAL = 1.5
@@ -106,27 +105,19 @@ COLOR_NORMAL = 0xffc2c2c2
 COLOR_BAD = 0xffe57975
 COLOR_HINT = 0xffd8c9a0
 
-JOBS = T(('Wojownik', 'Ninja', 'Sura', 'Szaman'), ('Warrior', 'Ninja', 'Sura', 'Shaman'))
-PATHS = T((
+JOBS = (('Wojownik', 'Ninja', 'Sura', 'Szaman'))
+PATHS = ((
 	('Cia\xb3o', 'Umys\xb3'),
 	('Skrytob\xf3jca', '\xa3ucznik'),
 	('Bro\xf1', 'Czarna magia'),
 	('Smok', 'Leczenie'),
-), (
-	('Body', 'Mental'),
-	('Assassin', 'Archer'),
-	('Weaponry', 'Black magic'),
-	('Dragon', 'Healing'),
 ))
-MODES = T(('przy tobie', 'wolna r\xeaka', 'czeka w miejscu', 'robi zakupy'),
-	('at your side', 'free hand', 'waiting here', 'shopping'))
-STANCES = T(('Atakuj', 'Nie 1. atak', 'Nie walcz'), ('Attack', 'No 1st hit', "Don't fight"))
-STANCE_HINTS = T(('bije wszystko w pobli\xbfu', 'nie zaczyna, broni ciebie i siebie', 'nie walczy wcale'),
-	('hits everything nearby', 'never first, guards you and itself', 'does not fight at all'))
-LOOTS = T(('Nic', 'Tw\xf3j drop', 'Wszystko'), ('Nothing', 'Your drop', 'Everything'))
-GEAR_LABELS = T(('Bro\xf1', 'Zbroja', 'He\xb3m', 'Tarcza', 'Buty', 'Bransoleta', 'Naszyjnik', 'Kolczyki'),
-	('Weapon', 'Armour', 'Helmet', 'Shield', 'Shoes', 'Bracelet', 'Necklace', 'Earrings'))
-YES_NO = T(('nie', 'tak'), ('no', 'yes'))
+MODES = (('przy tobie', 'wolna r\xeaka', 'czeka w miejscu', 'robi zakupy'))
+STANCES = (('Atakuj', 'Nie 1. atak', 'Nie walcz'))
+STANCE_HINTS = (('bije wszystko w pobli\xbfu', 'nie zaczyna, broni ciebie i siebie', 'nie walczy wcale'))
+LOOTS = (('Nic', 'Tw\xf3j drop', 'Wszystko'))
+GEAR_LABELS = (('Bro\xf1', 'Zbroja', 'He\xb3m', 'Tarcza', 'Buty', 'Bransoleta', 'Naszyjnik', 'Kolczyki'))
+YES_NO = (('nie', 'tak'))
 
 # ---------------------------------------------------------------- the pages
 
@@ -142,9 +133,8 @@ PAGES = (PAGE_STATUS, PAGE_SKILL, PAGE_ORDERS, PAGE_OPTIONS)
 TAB_IMAGES = ('Tab_01', 'Tab_02', 'Tab_03', 'Tab_04')
 TAB_BUTTONS = ('Tab_Button_01', 'Tab_Button_02', 'Tab_Button_03', 'Tab_Button_04')
 TITLE_BARS = ('Character_TitleBar', 'Skill_TitleBar', 'Emoticon_TitleBar', 'Quest_TitleBar')
-PAGE_TITLES = T(('Towarzysz', 'Umiej\xeatno\x9cci towarzysza', 'Polecenia', 'Opcje towarzysza'),
-	('Companion', "Companion's skills", 'Orders', "Companion's options"))
-TAB_LABELS = T(('Status', 'Umiej\xeatn.', 'Polecenia', 'Opcje'), ('Status', 'Skills', 'Orders', 'Options'))
+PAGE_TITLES = (('Towarzysz', 'Umiej\xeatno\x9cci towarzysza', 'Polecenia', 'Opcje towarzysza'))
+TAB_LABELS = (('Status', 'Umiej\xeatn.', 'Polecenia', 'Opcje'))
 
 # The painted name of a tab, measured on the four pictures: rows 14-26 of the
 # strip, inside the tab's frame. A cover of the stone's colour two pixels in
@@ -191,16 +181,16 @@ STAT_KEYS = (('HTH', 'ht'), ('INT', 'iq'), ('STR', 'st'), ('DEX', 'dx'))
 STATUS_VALUES = ('Level', 'Exp', 'RestExp', 'HP', 'SP', 'STR', 'DEX', 'HTH', 'INT', 'ATT', 'DEF', 'MATT', 'MDEF',
 	'ASPD', 'MSPD', 'CSPD', 'ER')
 STAT_NAMES = {
-	'ht': T('Witalno\x9c\xe6', 'Vitality'),
-	'iq': T('Inteligencja', 'Intelligence'),
-	'st': T('Si\xb3a', 'Strength'),
-	'dx': T('Zr\xeaczno\x9c\xe6', 'Dexterity'),
+	'ht': 'Witalno\x9c\xe6',
+	'iq': 'Inteligencja',
+	'st': 'Si\xb3a',
+	'dx': 'Zr\xeaczno\x9c\xe6',
 }
 STAT_HINTS = {
-	'ht': T('Podnosi P\xaf i obron\xea.', 'Raises HP and defence.'),
-	'iq': T('Podnosi PE i magiczny atak.', 'Raises SP and magic attack.'),
-	'st': T('Podnosi atak.', 'Raises attack.'),
-	'dx': T('Podnosi atak i uniki.', 'Raises attack and evasion.'),
+	'ht': 'Podnosi P\xaf i obron\xea.',
+	'iq': 'Podnosi PE i magiczny atak.',
+	'st': 'Podnosi atak.',
+	'dx': 'Podnosi atak i uniki.',
 }
 
 # The skill board: the path's skills in slots 1-8, the Master's column twenty
@@ -212,85 +202,90 @@ SKILL_GRADE_COLUMNS = 3
 # The options: the SidekickInfo word, the letter's order, what the switch is
 # when the server says nothing, the name and what it does.
 SWITCHES = (
-	('protect', 'ochrona', 1, T('Ochrona', 'Guard'),
-		T('Gdy masz ma\xb3o \xbfycia, bierze na siebie, co ci\xea bije.', 'When you are low on health it takes on what hits you.')),
-	('buffs', 'buffy', 1, T('Buffy', 'Buffs'),
-		T('Rzuca na ciebie swoje buffy.', 'Casts its buffs on you.')),
-	('lure', 'luruj', 0, T('Lurowanie', 'Luring'),
-		T('\x8cci\xb9ga do ciebie grupy potwor\xf3w z okolicy.', 'Brings you packs of monsters from around.')),
-	('solo', 'sam', 0, T('Gra beze mnie', 'Plays without me'),
-		T('Gra dalej, gdy wyjdziesz z gry - do twojego poziomu +30.', 'Plays on when you leave the game - up to your level +30.')),
-	('chests', 'skrzynki', 1, T('Skrzynki', 'Chests'),
-		T('Sam otwiera skrzynie z plecaka. Wy\xb3\xb9czone: zostawia je tobie.', 'Opens the chests in its bag. Off: it leaves them to you.')),
-	('party', 'grupa', 1, T('Grupa', 'Party'),
-		T('Do\xb3\xb9cza do twojej grupy, tak\xbfe prowadzonej przez kogo\x9c innego.', 'Joins your party, also one somebody else leads.')),
+	('protect', 'ochrona', 1, 'Ochrona',
+		'Gdy masz ma\xb3o \xbfycia, bierze na siebie, co ci\xea bije.'),
+	('buffs', 'buffy', 1, 'Buffy',
+		'Rzuca na ciebie swoje buffy.'),
+	('lure', 'luruj', 0, 'Lurowanie',
+		'\x8cci\xb9ga do ciebie grupy potwor\xf3w z okolicy.'),
+	('solo', 'sam', 0, 'Gra beze mnie',
+		'Gra dalej, gdy wyjdziesz z gry - do twojego poziomu +30.'),
+	('chests', 'skrzynki', 1, 'Skrzynki',
+		'Sam otwiera skrzynie z plecaka. Wy\xb3\xb9czone: zostawia je tobie.'),
+	('party', 'grupa', 1, 'Do\xb3\xb9cza do grupy',
+		'Do\xb3\xb9cza do twojej grupy, tak\xbfe prowadzonej przez kogo\x9c innego.'),
 )
+# "Lider grupy" (server 2.12.0): the companion makes the party and invites its
+# owner, and its Leadership (Dowodzenie) gives the owner the bonus chosen on
+# the same row.
+TEXT_LEAD = 'Lider grupy'
+TEXT_LEAD_HINT = 'Towarzysz zak\xb3ada grup\xea i ci\xea zaprasza.'
+TEXT_LEAD_LEADERSHIP = 'Lider (Dow. %s)'
+TEXT_ROLE_HINT = 'Bonus lidera: %s. Klik: nast\xeapny.'
+TEXT_ROLE_NOT_LEAD = 'Bonus dzia\xb3a, gdy liderem jest Towarzysz.'
+TEXT_ROLE_NEEDS = 'Bonus wymaga Dowodzenia %s - daj mu Ksi\xeag\xea Dowodzenia.'
 SWITCH_TOP = 28
 ROW_STEP = 22
 ROW_HEIGHT = 21
 
-TEXT_WAITING = T('Czekam na odpowied\x9f serwera...', 'Waiting for the server...')
-TEXT_NO_COMPANION = T(('Nie masz jeszcze towarzysza.', 'Wybierz go w li\x9ccie "Towarzysz".'),
-	('You have no companion yet.', 'Choose one in the "Companion" letter.'))
-TEXT_SWITCHED_OFF = T(('Towarzysze s\xb9 wy\xb3\xb9czeni na tym serwerze.', 'W\xb3\xb9cza je w\xb3a\x9cciciel serwera w launcherze.'),
-	('Companions are switched off on this server.', 'The server owner turns them on in the launcher.'))
-TEXT_COMING = T('Za chwil\xea b\xeadzie w grze.', 'In the game in a moment.')
-TEXT_PLUS_LABEL = T('|cffbc893adost\xeapne [|r%d|cffbc893a]|r', '|cffbc893aavailable [|r%d|cffbc893a]|r')
-TEXT_STAT_PLUS_CTRL = T('Ctrl + klik: kilka punkt\xf3w naraz', 'Ctrl + click: several points at once')
-TEXT_STAT_SPENT = T('Rozdane: %d', 'Spent: %d')
-TEXT_STAT_GEAR = T('Z ekwipunku: %+d', 'From the gear: %+d')
-TEXT_STAT_INPUT = T('%s: ile punkt\xf3w?', '%s: how many points?')
-TEXT_DEF_TIP = T('Bazowa obrona: %d (+%d%% wzmocnienia)', 'Base defence: %d (+%d%% boost)')
-TEXT_BAG_SHORT = T('Plecak', 'Bag')
-TEXT_WEARING = T('Na sobie', 'Wearing')
-TEXT_BAG_HINT = T('Klik: plecak towarzysza', "Click: the companion's bag")
-TEXT_SKILL_POINTS_BAR = T('Punkty rozdaj\xea sam:', 'I spend the points:')
-TEXT_CHOOSE_SKILL = T('Kliknij umiej\xeatno\x9c\xe6 powy\xbfej.', 'Click a skill above.')
-TEXT_RIGHT_CLICK_RESET = T('Prawy klik na niej: zeruj.', 'Right click on it: reset.')
-TEXT_SKILL_TIP_RESET = T('Prawy klik: zeruj', 'Right click: reset')
-TEXT_SKILL_LEVEL = T('Poziom: %s', 'Level: %s')
-TEXT_NO_PATH = T('Towarzysz dostanie \x9ccie\xbfk\xea na 5 poziomie.', 'Your companion gets a path at level 5.')
-TEXT_AI_SPENDS = T('Punkty rozdaje SI towarzysza.', "Your companion's AI spends the points.")
-TEXT_SKILL_RESET = T('Zeruj', 'Reset')
-TEXT_SKILL_RESET_ASK = T('Wyzerowa\xe6 %s?', 'Reset %s?')
-TEXT_SKILL_RESET_MASTER = T(' Mistrz przepadnie.', ' Its Master grade will be lost.')
-TEXT_SKILL_RESET_HOW = T('Towarzysz zu\xbfyje KZ albo Zw\xf3j Powrotu Umiej\xeatno\x9cci.',
-	'Your companion will use a Book of Forgetfulness or a Skill Reset Document.')
-TEXT_SECTION_DOING = T('Co robi', 'What it does')
-TEXT_SECTION_ORDERS = T('Polecenia', 'Orders')
-TEXT_SECTION_COMBAT = T('Walka', 'Combat')
-TEXT_SECTION_LOOT = T('Drop', 'Drop')
-TEXT_SECTION_BEHAVIOUR = T('Zachowanie', 'Behaviour')
-TEXT_SECTION_POINTS = T('Punkty', 'Points')
-TEXT_DOING = T('Teraz: %s', 'Now: %s')
-TEXT_DOWN = T('Teraz: le\xbfy, zaraz wstanie', 'Now: down, getting up soon')
-TEXT_WHERE = T('Gdzie: %s', 'Where: %s')
-TEXT_POTIONS = T('Mikstury: %d czerw. / %d nieb.', 'Potions: %d red / %d blue')
+TEXT_WAITING = 'Czekam na odpowied\x9f serwera...'
+TEXT_NO_COMPANION = (('Nie masz jeszcze towarzysza.', 'Wybierz go w li\x9ccie "Towarzysz".'))
+TEXT_SWITCHED_OFF = (('Towarzysze s\xb9 wy\xb3\xb9czeni na tym serwerze.', 'W\xb3\xb9cza je w\xb3a\x9cciciel serwera w launcherze.'))
+TEXT_COMING = 'Za chwil\xea b\xeadzie w grze.'
+TEXT_PLUS_LABEL = '|cffbc893adost\xeapne [|r%d|cffbc893a]|r'
+TEXT_STAT_PLUS_CTRL = 'Ctrl + klik: kilka punkt\xf3w naraz'
+TEXT_STAT_SPENT = 'Rozdane: %d'
+TEXT_STAT_GEAR = 'Z ekwipunku: %+d'
+TEXT_STAT_INPUT = '%s: ile punkt\xf3w?'
+TEXT_DEF_TIP = 'Bazowa obrona: %d (+%d%% wzmocnienia)'
+TEXT_BAG_SHORT = 'Plecak'
+TEXT_WEARING = 'Na sobie'
+TEXT_BAG_HINT = 'Klik: plecak towarzysza'
+TEXT_SKILL_POINTS_BAR = 'Punkty rozdaj\xea sam:'
+TEXT_CHOOSE_SKILL = 'Kliknij umiej\xeatno\x9c\xe6 powy\xbfej.'
+TEXT_RIGHT_CLICK_RESET = 'Prawy klik na niej: zeruj.'
+TEXT_SKILL_TIP_RESET = 'Prawy klik: zeruj'
+TEXT_SKILL_LEVEL = 'Poziom: %s'
+TEXT_NO_PATH = 'Towarzysz dostanie \x9ccie\xbfk\xea na 5 poziomie.'
+TEXT_AI_SPENDS = 'Punkty rozdaje SI towarzysza.'
+TEXT_SKILL_RESET = 'Zeruj'
+TEXT_SKILL_RESET_ASK = 'Wyzerowa\xe6 %s?'
+TEXT_SKILL_RESET_MASTER = ' Mistrz przepadnie.'
+TEXT_SKILL_RESET_HOW = 'Towarzysz zu\xbfyje KZ albo Zw\xf3j Powrotu Umiej\xeatno\x9cci.'
+TEXT_SECTION_DOING = 'Co robi'
+TEXT_SECTION_ORDERS = 'Polecenia'
+TEXT_SECTION_COMBAT = 'Walka'
+TEXT_SECTION_LOOT = 'Drop'
+TEXT_SECTION_BEHAVIOUR = 'Zachowanie'
+TEXT_SECTION_POINTS = 'Punkty'
+TEXT_DOING = 'Teraz: %s'
+TEXT_DOWN = 'Teraz: le\xbfy, zaraz wstanie'
+TEXT_WHERE = 'Gdzie: %s'
+TEXT_POTIONS = 'Mikstury: %d czerw. / %d nieb.'
 TEXT_GOLD = 'Yang: %s'
-TEXT_MODE = T('Tryb: %s', 'Mode: %s')
+TEXT_MODE = 'Tryb: %s'
 ORDERS = (
-	(T('Przywo\xb3aj', 'Call'), 'przywolaj'),
-	(T('Czekaj tu', 'Wait here'), 'czekaj'),
-	(T('Wolna r\xeaka', 'Free hand'), 'wolny'),
-	(T('Na zakupy', 'Shopping'), 'zakupy'),
-	(T('Raport', 'Report'), 'stan'),
+	('Przywo\xb3aj', 'przywolaj'),
+	('Czekaj tu', 'czekaj'),
+	('Wolna r\xeaka', 'wolny'),
+	('Na zakupy', 'zakupy'),
+	# "Na ryby": with the Fishing Card it carries, at the water until the
+	# card runs out ("Przywolaj" calls it back sooner).
+	('Na ryby', 'ryby'),
+	('Raport', 'stan'),
 )
-TEXT_DISMISS = T('Odpraw', 'Dismiss')
-TEXT_DISMISS_ASK = T('Odprawi\xe6 towarzysza na dobre? Tego nie da si\xea cofn\xb9\xe6.',
-	'Dismiss your companion for good? This cannot be undone.')
-TEXT_INVENTORY = T('Ekwipunek', 'Inventory')
-TEXT_STAT_MANUAL = T('Statystyki rozdaj\xea sam', 'I spend the stat points')
-TEXT_SKILL_MANUAL = T('Umiej\xeatno\x9cci rozdaj\xea sam', 'I spend the skill points')
-TEXT_STAT_MANUAL_HINT = T('Pierwszy "+" na zak\xb3adce Status te\xbf ci je daje.',
-	'The first "+" on the Status tab gives them to you too.')
-TEXT_SKILL_MANUAL_HINT = T('Pierwszy "+" na zak\xb3adce Umiej\xeatno\x9cci te\xbf ci je daje.',
-	'The first "+" on the Skills tab gives them to you too.')
-TEXT_STAT_RESET = T('Rozdaj od nowa (raz za darmo)', 'Spend again (once for free)')
-TEXT_STAT_RESET_HINT = T('Cofa wszystkie punkty statystyk - raz, za darmo.', 'Takes every stat point back - once, for free.')
-TEXT_STAT_RESET_ASK = T('Cofn\xb9\xe6 wszystkie punkty statystyk towarzysza, \xbfeby rozda\xe6 je od nowa? Darmowy reset jest tylko jeden.',
-	"Take back all your companion's stat points to spend them again? There is only one free reset.")
-TEXT_STAT_OLD_SERVER = T('Zaktualizuj serwer, \xbfeby rozdawa\xe6 statystyki.', 'Update the server to spend stats.')
-TEXT_STAT_AI_SPENDS = T('Punkty statystyk rozdaje SI towarzysza.', "Your companion's AI spends the stat points.")
+TEXT_DISMISS = 'Odpraw'
+TEXT_DISMISS_ASK = 'Odprawi\xe6 towarzysza na dobre? Tego nie da si\xea cofn\xb9\xe6.'
+TEXT_INVENTORY = 'Ekwipunek'
+TEXT_STAT_MANUAL = 'Statystyki rozdaj\xea sam'
+TEXT_SKILL_MANUAL = 'Umiej\xeatno\x9cci rozdaj\xea sam'
+TEXT_STAT_MANUAL_HINT = 'Pierwszy "+" na zak\xb3adce Status te\xbf ci je daje.'
+TEXT_SKILL_MANUAL_HINT = 'Pierwszy "+" na zak\xb3adce Umiej\xeatno\x9cci te\xbf ci je daje.'
+TEXT_STAT_RESET = 'Rozdaj od nowa (raz za darmo)'
+TEXT_STAT_RESET_HINT = 'Cofa wszystkie punkty statystyk - raz, za darmo.'
+TEXT_STAT_RESET_ASK = 'Cofn\xb9\xe6 wszystkie punkty statystyk towarzysza, \xbfeby rozda\xe6 je od nowa? Darmowy reset jest tylko jeden.'
+TEXT_STAT_OLD_SERVER = 'Zaktualizuj serwer, \xbfeby rozdawa\xe6 statystyki.'
+TEXT_STAT_AI_SPENDS = 'Punkty statystyk rozdaje SI towarzysza.'
 
 
 def DecodeText(value, limit=MAX_TEXT_BYTES):
@@ -415,9 +410,48 @@ def ParseInfo(args):
 		info['solo'] = ParseInt(values[len(names) + 2])
 	if len(values) >= len(names) + 4:
 		info['chests'] = ParseInt(values[len(names) + 3])
-	if len(values) >= len(names) + 5:
-		info['party'] = ParseInt(values[len(names) + 4])
+	# "Lider grupy", the owner's bonus and the companion's Leadership
+	# (server 2.12.0).
+	if len(values) >= len(names) + 7:
+		info['lead'] = ParseInt(values[len(names) + 4])
+		info['role'] = ParseInt(values[len(names) + 5])
+		info['leadership'] = ParseInt(values[len(names) + 6])
+	# "Grupa" (server 2.13.0): whether it joins its owner's party whoever
+	# leads it.
+	if len(values) >= len(names) + 8:
+		info['party'] = ParseInt(values[len(names) + 7])
 	return info
+
+
+# The owner's bonus from the companion's Leadership, as the party window
+# names the roles (localeInfo.PARTY_SET_*), with the level each wants
+# (CParty::Update) and the short name its button shows. The button steps
+# through them in this order.
+ROLES = (
+	(0, 'bez bonusu', 0, 'brak'),
+	(7, 'Obro\xf1ca (obrona)', 1, 'Obro\xf1ca'),
+	(2, 'Atakuj\xb9cy (atak)', 10, 'Atak'),
+	(4, 'Blokuj\xb9cy (czas trwania)', 10, 'Blok'),
+	(6, 'Berserker (szybko\x9c\xe6 ataku)', 15, 'Berserker'),
+	(3, 'Walcz\xb9cy w zwarciu (maks. P\xaf)', 20, 'Zwarcie'),
+	(5, 'Mistrz umiej\xeatno\x9cci', 20, 'Mistrz'),
+)
+
+
+def LeadershipText(level):
+	"""0-40 as the skill window writes it: 1-19, M1-M10, G1-G10, P."""
+	if level < 20:
+		return str(level)
+	if level < 30:
+		return 'M%d' % (level - 19)
+	if level < 40:
+		return 'G%d' % (level - 29)
+	return 'P'
+
+
+def RoleOf(info):
+	role = [r for r in ROLES if r[0] == info.get('role', 0)]
+	return role[0] if role else ROLES[0]
 
 
 def FormatGold(value):
@@ -461,14 +495,14 @@ def FaceImage(race):
 def PlaceText(info, place):
 	where = info.get('where', 0)
 	if where == 0:
-		return T('poza gr\xb9', 'out of the game')
+		return 'poza gr\xb9'
 	if where == 2:
-		return T('%s (inna mapa)', '%s (another map)') % (place or T('inna mapa', 'another map'))
+		return '%s (inna mapa)' % (place or 'inna mapa')
 	dist = info.get('dist', 0)
 	if dist < 1000:
-		near = T('obok ciebie', 'next to you')
+		near = 'obok ciebie'
 	else:
-		near = T('%d m od ciebie', '%d m from you') % (dist // 100)
+		near = '%d m od ciebie' % (dist // 100)
 	return '%s, %s' % (place, near) if place else near
 
 
@@ -870,7 +904,6 @@ class SidekickWindow(ui.ScriptWindow):
 			y = 108 + (i // 3) * 24
 			self.orderButtons.append(self._Btn(page, 'middle', x, y, text, self.OnOrder, order))
 		(self.summonButton, self.holdButton, self.freeButton) = self.orderButtons[:3]
-		self.dismissButton = self._Btn(page, 'middle', ORDER_COLUMNS[2], 132, TEXT_DISMISS, self.OnDismiss)
 		self._Section(page, 158, TEXT_SECTION_COMBAT)
 		self.stanceButtons = []
 		for i, text in enumerate(STANCES):
@@ -880,8 +913,10 @@ class SidekickWindow(ui.ScriptWindow):
 		self.lootButtons = []
 		for i, text in enumerate(LOOTS):
 			self.lootButtons.append(self._Btn(page, 'middle', ORDER_COLUMNS[i], 239, text, self.OnLoot, i))
-		self.inventoryButton = self._Btn(page, 'large', (PAGE_WIDTH - BUTTON_WIDTHS['large']) // 2, 266,
-			TEXT_INVENTORY, self.OnInventory)
+		# Six orders fill both rows: "Odpraw" stands beside the bag.
+		left = PAGE_WIDTH // 2 - BUTTON_WIDTHS['large'] - 4
+		self.inventoryButton = self._Btn(page, 'large', left, 266, TEXT_INVENTORY, self.OnInventory)
+		self.dismissButton = self._Btn(page, 'large', PAGE_WIDTH // 2 + 4, 266, TEXT_DISMISS, self.OnDismiss)
 		self.inventoryButton.ShowToolTip = ui.__mem_func__(self.OnOverBag)
 		self.inventoryButton.HideToolTip = ui.__mem_func__(self.HideToolTip)
 		self.ordersStatus = StatusLines([self._CenteredLabel(page, 291)], PAGE_WIDTH - 20)
@@ -913,18 +948,27 @@ class SidekickWindow(ui.ScriptWindow):
 		self.switchRows = {}
 		for i, (key, order, default, text, hint) in enumerate(SWITCHES):
 			self.switchRows[key] = self._Switch(page, SWITCH_TOP + i * ROW_STEP, i, text, hint, self.OnSwitch, key)
-		points = SWITCH_TOP + len(SWITCHES) * ROW_STEP + 4
+		# "Lider grupy": the switch and, beside it, the bonus its Leadership
+		# gives the owner.
+		leadY = SWITCH_TOP + len(SWITCHES) * ROW_STEP
+		self.leadRow = self._Switch(page, leadY, len(SWITCHES), TEXT_LEAD, TEXT_LEAD_HINT, self.OnLead)
+		self.roleButton = self._Btn(page, 'middle',
+			SECTION_X + SECTION_WIDTH - BUTTON_WIDTHS['small'] - BUTTON_WIDTHS['middle'] - 4, leadY - 1, '', self.OnRole)
+		self.roleButton.ShowToolTip = ui.__mem_func__(self.OnOverRole)
+		self.roleButton.HideToolTip = ui.__mem_func__(self.OnHoverOut)
+		points = leadY + ROW_STEP + 2
 		self._Section(page, points, TEXT_SECTION_POINTS)
 		self.statManualRow = self._Switch(page, points + 20, 0, TEXT_STAT_MANUAL, TEXT_STAT_MANUAL_HINT,
 			self.OnStatManual)
 		self.skillManualRow = self._Switch(page, points + 20 + ROW_STEP, 1, TEXT_SKILL_MANUAL,
 			TEXT_SKILL_MANUAL_HINT, self.OnSkillManual)
 		reset = (PAGE_WIDTH - BUTTON_WIDTHS['xlarge']) // 2
-		self.statResetButton = self._Btn(page, 'xlarge', reset, points + 20 + 2 * ROW_STEP + 4, TEXT_STAT_RESET,
+		self.statResetButton = self._Btn(page, 'xlarge', reset, points + 20 + 2 * ROW_STEP + 2, TEXT_STAT_RESET,
 			self.OnStatReset)
 		self._Hover(self.statResetButton, TEXT_STAT_RESET_HINT)
-		top = points + 20 + 2 * ROW_STEP + 36
-		self.optionsStatus = StatusLines([self._CenteredLabel(page, top), self._CenteredLabel(page, top + 14)],
+		# The tab strip starts where the page ends: the lines are packed.
+		top = points + 20 + 2 * ROW_STEP + 29
+		self.optionsStatus = StatusLines([self._CenteredLabel(page, top), self._CenteredLabel(page, top + 13)],
 			PAGE_WIDTH - 20)
 
 	# -------------------------------------------------------------- the server
@@ -1192,6 +1236,22 @@ class SidekickWindow(ui.ScriptWindow):
 				else:
 					widget.Hide()
 			button.SetText(YesNo(info.get(key, default)))
+		# "Lider grupy" and the bonus: shown by a server that sends them.
+		roleNote = ''
+		if 'lead' in info:
+			for widget in self.leadRow + (self.roleButton,):
+				widget.Show()
+			self.leadRow[1].SetText(TEXT_LEAD_LEADERSHIP % LeadershipText(info['leadership']))
+			self.leadRow[2].SetText(YesNo(info['lead']))
+			role = RoleOf(info)
+			self.roleButton.SetText(role[3])
+			if role[0] and not info['lead']:
+				roleNote = TEXT_ROLE_NOT_LEAD
+			elif role[2] > info['leadership']:
+				roleNote = TEXT_ROLE_NEEDS % LeadershipText(role[2])
+		else:
+			for widget in self.leadRow + (self.roleButton,):
+				widget.Hide()
 		model = self.SkillAnswer()
 		statInfo = model.statInfo if model else None
 		for row, value in ((self.statManualRow, statInfo['manual'] if statInfo else None),
@@ -1206,7 +1266,9 @@ class SidekickWindow(ui.ScriptWindow):
 			self.statResetButton.Show()
 		else:
 			self.statResetButton.Hide()
-		if model and statInfo is None:
+		if roleNote:
+			self.optionsStatus.SetIdle(roleNote, COLOR_HINT)
+		elif model and statInfo is None:
 			self.optionsStatus.SetIdle(TEXT_STAT_OLD_SERVER, COLOR_BAD)
 		elif statInfo and not statInfo['manual']:
 			self.optionsStatus.SetIdle(TEXT_STAT_AI_SPENDS)
@@ -1354,6 +1416,21 @@ class SidekickWindow(ui.ScriptWindow):
 				self.SendCommand('%s %d' % (order, 0 if value else 1))
 				self.nextPoll = 0.0
 				return
+
+	def OnLead(self):
+		lead = self.info.get('lead', 0) if self.info else 0
+		self.SendCommand('lider %d' % (0 if lead else 1))
+		self.nextPoll = 0.0
+
+	def OnRole(self):
+		current = self.info.get('role', 0) if self.info else 0
+		ids = [r[0] for r in ROLES]
+		nextRole = ids[(ids.index(current) + 1) % len(ids)] if current in ids else ids[0]
+		self.SendCommand('rola %d' % nextRole)
+		self.nextPoll = 0.0
+
+	def OnOverRole(self):
+		self.OnHover(TEXT_ROLE_HINT % RoleOf(self.info or {})[1])
 
 	def OnStatManual(self):
 		inv = _Inv()

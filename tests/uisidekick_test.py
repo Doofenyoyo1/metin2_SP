@@ -216,9 +216,12 @@ class ProtocolTest(unittest.TestCase):
 		self.assertNotIn('lure', info)
 
 	def test_the_words_a_newer_server_adds(self):
-		info = uisidekick.ParseInfo(info_line() + ['1', '0', '1', '0', '1'])
+		# MT2009 PLUS (server 2.12.0) puts the party leader, its role and the
+		# companion's Leadership before "Grupa".
+		info = uisidekick.ParseInfo(info_line() + ['1', '0', '1', '0', '1', '2', '17', '1'])
 		self.assertEqual((info['lure'], info['luring'], info['solo'], info['chests'], info['party']),
 			(1, 0, 1, 0, 1))
+		self.assertEqual((info['lead'], info['role'], info['leadership']), (1, 2, 17))
 		info = uisidekick.ParseInfo(info_line() + ['0', '1'])
 		self.assertEqual((info['lure'], info['luring']), (0, 1))
 		self.assertNotIn('solo', info)
@@ -375,7 +378,7 @@ class WindowTest(unittest.TestCase):
 
 	def test_every_order_button_is_a_command_the_server_knows(self):
 		self.assertEqual([order for text, order in uisidekick.ORDERS],
-			['przywolaj', 'czekaj', 'wolny', 'zakupy', 'stan'])
+			['przywolaj', 'czekaj', 'wolny', 'zakupy', 'ryby', 'stan'])
 		self.assertEqual([order for name, order, default, text, hint in uisidekick.SWITCHES],
 			['ochrona', 'buffy', 'luruj', 'sam', 'skrzynki', 'grupa'])
 

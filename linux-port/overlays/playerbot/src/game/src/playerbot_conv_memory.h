@@ -148,11 +148,6 @@ namespace playerbot_conv
 		u32 gearReasonAt;
 		// Generic answers in a row ("Aha, rozumiem."): the second one steers.
 		int fallbackStreak;
-		// The language the person's own lines were last in (CONV_LANG_*): what
-		// a person whose flag this core cannot read is answered in - one on
-		// another core, whose whisper came by the P2P relay. A line of neither
-		// ("ok", "fms?") leaves it as it was.
-		signed char writes;
 
 		TConvMemory() : playerPID(0), botPID(0), firstAt(0), lastPlayerAt(0), lastBotAt(0),
 			lastInitiativeAt(0), lastCheckAt(0), talks(0), sessions(0), positive(0), negative(0),
@@ -161,7 +156,7 @@ namespace playerbot_conv
 			botAskTopic(T_NONE), botAskAt(0), recentIndex(0), moodMentionAt(0), greetedAt(0),
 			lastKnownLevel(0), repeatCount(0), quietUntil(0), lastSaidMap(0), lastSaidMapAt(0),
 			prevSaidMap(0), prevSaidMapAt(0), levelSaidAt(0), levelSaid(0), gearSaidAt(0), gearReasonAt(0),
-			fallbackStreak(0), writes((signed char)CONV_LANG_UNKNOWN)
+			fallbackStreak(0)
 		{
 			for (size_t i = 0; i < CONV_RECENT_TEMPLATES; ++i)
 				recentTemplates[i] = 0;
@@ -268,16 +263,7 @@ namespace playerbot_conv
 		const TConceptSet& c = a.concepts;
 		return a.question || c.Has(C_WHAT) || c.Has(C_WHERE) || c.Has(C_WHY) || c.Has(C_WHO) ||
 				c.Has(C_WHICH) || c.Has(C_HOWMUCH) || c.Has(C_WHEN) || a.tokens.Has("czy") ||
-				(c.Has(C_HOW) && !c.Has(C_HOWAREYOU)) || IsEnglishQuestionStart(a.tokens);
-	}
-
-	// Whether the reply to this person is in English: the person's own flag
-	// when this core can read it, otherwise the language of their own lines.
-	inline bool ReaderEnglish(int knownLang, const TConvMemory& m)
-	{
-		if (knownLang != CONV_LANG_UNKNOWN)
-			return knownLang == CONV_LANG_EN;
-		return m.writes == CONV_LANG_EN;
+				(c.Has(C_HOW) && !c.Has(C_HOWAREYOU));
 	}
 
 	// ------------------------------------------------------ context resolver
@@ -520,34 +506,6 @@ namespace playerbot_conv
 					m.playerLikes = obj;
 			}
 		}
-		// "i like winter", "i love cats", "i don't like rain" - in English.
-		if (a.tokens.english && lubie < 0)
-		{
-			const std::vector<std::string>& w = a.tokens.words;
-			for (size_t i = 1; i < w.size(); ++i)
-			{
-				if (w[i] != "like" && w[i] != "love")
-					continue;
-				const bool dont = i >= 2 && w[i - 1] == "t" && w[i - 2] == "don";
-				const bool plain = w[i - 1] == "i" || w[i - 1] == "really";
-				if (!dont && !plain && w[i - 1] != "dont")
-					continue;
-				const std::string obj = ExtractObjectAfter(a.tokens, (int)i, 2);
-				if (obj.empty())
-					break;
-				if (dont || w[i - 1] == "dont")
-					m.playerDislikes = obj;
-				else
-					m.playerLikes = obj;
-				break;
-			}
-		}
-		// The language of the person's own lines, for when their flag cannot
-		// be read (ReaderEnglish).
-		if (a.tokens.englishWords > a.tokens.polishWords)
-			m.writes = (signed char)CONV_LANG_EN;
-		else if (a.tokens.polishWords > a.tokens.englishWords)
-			m.writes = (signed char)CONV_LANG_PL;
 		// An answer closes the question, and so does a jibe or a "stop"
 		// instead of one; anything else lets it expire.
 		if (a.intent == I_ANSWER_TO_BOT || a.answeredAsk != ASK_NONE || now - m.botAskAt > CONV_BOT_ASK_TTL_MS)

@@ -250,9 +250,7 @@ namespace
 	{
 		TPlayerBotPersonTruce& t = s_mapPlayerBotPersonTruce[person->GetPlayerID()];
 		playerbot_truce_rules::BreakTruce(t.truce, dwNow);
-		TellPlayerBotPerson(person, "%s", PBT(IsPlayerBotPersonEnglish(person),
-				"[Rozejm] Zaatakowano bota - rozejm z botami zerwany.",
-				"[Truce] You attacked a bot - the truce with the bots is broken."));
+		person->ChatPacket(CHAT_TYPE_INFO, "[Rozejm] Zaatakowano bota - rozejm z botami zerwany.");
 		sys_log(0, "PLAYERBOT_ANTIPK: truce broken pid=%u name=%s by_hitting_pid=%u by_hitting=%s map=%ld",
 				person->GetPlayerID(), person->GetName(), victim ? victim->GetPlayerID() : 0U,
 				victim ? victim->GetName() : "", person->GetMapIndex());
@@ -271,10 +269,11 @@ namespace
 			return;
 		playerbot_truce_rules::GrantTruce(t.truce, dwNow, PLAYERBOT_ANTIPK_TRUCE_MS);
 		SettlePlayerBotTruce(person, dwNow, "deaths");
-		TellPlayerBotPerson(person, PBT(IsPlayerBotPersonEnglish(person),
+		char text[160];
+		snprintf(text, sizeof(text),
 				"[Rozejm] Boty odpuszczaja ci na %u minut. Rozejm skonczy sie, jesli zaatakujesz ktoregos z nich.",
-				"[Truce] The bots leave you alone for %u minutes. The truce ends if you attack one of them."),
 				(unsigned int)(PLAYERBOT_ANTIPK_TRUCE_MS / 60000));
+		person->ChatPacket(CHAT_TYPE_INFO, "%s", text);
 		if (bot)
 			sys_log(0, "PLAYERBOT_ANTIPK: truce after deaths pid=%u name=%s last_seen_by_pid=%u last_seen_by=%s",
 					person->GetPlayerID(), person->GetName(), bot->GetPlayerID(), bot->GetName());
@@ -338,25 +337,21 @@ namespace
 		TPlayerBotPersonTruce& t = s_mapPlayerBotPersonTruce[player->GetPlayerID()];
 		unsigned int minutes = 0;
 		char reply[CHAT_MAX_LEN + 1];
-		const bool en = IsPlayerBotPersonEnglish(player);
 		switch (playerbot_truce_rules::AskTruce(t.truce, dwNow, PLAYERBOT_ANTIPK_TRUCE_MS,
 				PLAYERBOT_ANTIPK_TRUCE_REFUSE_MS, minutes))
 		{
 			case playerbot_truce_rules::ANSWER_GRANTED:
 				SettlePlayerBotTruce(player, dwNow, "whisper");
-				snprintf(reply, sizeof(reply), PBT(en,
+				snprintf(reply, sizeof(reply),
 						"Dobra, odpuszczamy. Przez %u minut zaden bot cie nie zaczepi - chyba ze zaatakujesz ktoregos z nas.",
-						"Fine, we let it go. For %u minutes no bot will pick on you - unless you attack one of us."),
 						minutes);
 				break;
 			case playerbot_truce_rules::ANSWER_ALREADY:
-				snprintf(reply, sizeof(reply), PBT(en,
-						"Rozejm trwa jeszcze %u min. Nikt cie nie ruszy, dopoki nie zaatakujesz ktoregos z nas.",
-						"The truce lasts %u more min. Nobody touches you until you attack one of us."), minutes);
+				snprintf(reply, sizeof(reply),
+						"Rozejm trwa jeszcze %u min. Nikt cie nie ruszy, dopoki nie zaatakujesz ktoregos z nas.", minutes);
 				break;
 			default:
-				snprintf(reply, sizeof(reply), PBT(en, "Rozejm zostal przed chwila zerwany. Pogadamy za %u min.",
-						"The truce was broken a moment ago. We'll talk in %u min."), minutes);
+				snprintf(reply, sizeof(reply), "Rozejm zostal przed chwila zerwany. Pogadamy za %u min.", minutes);
 				sys_log(0, "PLAYERBOT_ANTIPK: truce refused pid=%u name=%s minutes_left=%u", player->GetPlayerID(),
 						player->GetName(), minutes);
 				break;
@@ -900,9 +895,7 @@ namespace
 			if (call.dwToldAt == 0 || dwNow - call.dwToldAt >= PLAYERBOT_GUILD_AID_TELL_MS)
 			{
 				call.dwToldAt = dwNow;
-				TellPlayerBotPerson(person, PBT(IsPlayerBotPersonEnglish(person),
-						"[Gildia] %s z twojej gildii rusza ci na pomoc.",
-						"[Guild] %s of your guild is coming to help you."), ch->GetName());
+				TellPlayerBotPerson(person, "[Gildia] %s z twojej gildii rusza ci na pomoc.", ch->GetName());
 			}
 			sys_log(0, "PLAYERBOT_ANTIPK: guild aid pid=%u name=%s level=%u for_pid=%u for=%s foe_pid=%u foe=%s foe_level=%u foe_empire=%u attackers=%d defenders=%d dist=%d map=%ld",
 					ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), person->GetPlayerID(),

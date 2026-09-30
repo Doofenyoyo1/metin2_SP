@@ -1,0 +1,58 @@
+Group	OchaoMonsters1
+{
+	Vnum	6301
+	Leader	"Ochao Warrior"	6301
+	1	"Ochao Warrior"	6301
+	2	"Ochao Warrior"	6301
+}
+
+Group	OchaoMonsters2
+{
+	Vnum	6302
+	Leader	"Ochao Soldier"	6302
+	1	"Ochao Warrior"	6301
+	2	"Ochao Warrior"	6301
+}
+
+Group	OchaoMonsters3
+{
+	Vnum	6303
+	Leader	"Ochao General"	6305
+	1	"Ochao Magician"	6303
+	2	"Ochao Executioner"	6304
+}
+
+Group	OchaoMonsters4
+{
+	Vnum	6304
+	Leader	"Ochao General"	6305
+	1	"Ochao Warrior"	6301
+	2	"Ochao Soldier"	6302
+}
+
+Group	OchaoMonsters5
+{
+	Vnum	6305
+	Leader	"Ochao Executioner"	6304
+	1	"Ochao Magician"	6303
+	2	"Ochao Magician"	6303
+}
+
+Group	OchaoMonsters6
+{
+	Vnum	6306
+	Leader	"Ochao Bodyguard"	6311
+	1	"Ochao General"	6305
+	2	"Ochao Executioner"	6304
+	3	"Ochao Executioner"	6304
+}
+
+Group	OchaoMonsters7
+{
+	Vnum	6307
+	Leader	"Ochao Lord"	6390
+	1	"Ochao General"	6305
+	2	"Ochao Executioner"	6304
+	3	"Ochao Executioner"	6304
+}
+

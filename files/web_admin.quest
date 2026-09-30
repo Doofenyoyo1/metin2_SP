@@ -331,59 +331,31 @@ quest web_admin begin
 										pc.warp(x, y)
 									end
 								elseif cmd == "SPEED" then
-									-- +arg1% movement for arg2 seconds.
-									-- apply.MOV_SPEED is 8; fall back to
-									-- the number if that table is ever
-									-- missing.
+									-- +arg1 movement for arg2 seconds, on an affect type of the
+									-- panel's own (9910) through affect.add_new. On this engine
+									-- affect.add allows one quest affect per point, which
+									-- speed_boost already holds, and add_collect sums into the one
+									-- collect affect a point has - the Biologist's movement reward
+									-- among them - so taking a panel speed off there took the
+									-- player's reward with it. Both also take a POINT_* number, and
+									-- the apply.MOV_SPEED this used is the APPLY_* 8, POINT_MAX_SP:
+									-- until 2.0.76 "Light Speed" gave a hundred SP and no speed at
+									-- all (archonek, 18 September).
 									local bonus = tonumber(arg1)
 									local secs = tonumber(arg2) or 3600
-									local mov = 8
-									if type(apply) == "table" then
-										if apply.MOV_SPEED ~= nil then
-											mov = apply.MOV_SPEED
-										end
+									local mov = 19
+									if POINT_MOV_SPEED ~= nil then
+										mov = POINT_MOV_SPEED
 									end
-									if bonus == nil then
+									if bonus == nil or bonus < 0 then
 										result = "bad_args"
 									else
-										-- Take our own effects off first.
-										-- add_collect only ever ADDS: setting
-										-- a second speed stacked it on the
-										-- first, and "Normal (reset)" sends a
-										-- bonus of 0, which added nothing and
-										-- removed nothing. Once fast, always
-										-- fast, and only ever faster.
-										--
-										-- remove_collect matches on the VALUE,
-										-- not just the apply type, so every
-										-- value this panel can send has to be
-										-- named here. They are the four in
-										-- SPEED_LOC in admin_panel.py, plus 0,
-										-- which the old code wrote on every
-										-- reset; add a preset there and it
-										-- belongs here too. Naming them rather
-										-- than using remove_all_collect is
-										-- deliberate: that would also strip
-										-- potions, buffs and anything else the
-										-- player earned.
-										--
-										-- The loop is not belt and braces: the
-										-- C++ side stops at the FIRST matching
-										-- affect and removes that one only, so
-										-- a character carrying a stack from
-										-- before this fix needs one pass per
-										-- row. Removing something that is not
-										-- there costs a list walk and nothing
-										-- else, so this also cleans up as a
-										-- side effect of the next speed change.
-										for wa_i = 1, 8 do
-											affect.remove_collect(mov, 0)
-											affect.remove_collect(mov, 30)
-											affect.remove_collect(mov, 60)
-											affect.remove_collect(mov, 100)
-										end
+										-- What the old code left: the SP it added by mistake, on
+										-- point 8, which is all it ever touched there.
+										affect.remove_collect(8, 0)
+										affect.remove_new(9910, mov)
 										if bonus > 0 then
-											affect.add_collect(mov, bonus, secs)
+											affect.add_new(9910, mov, bonus, secs)
 										end
 									end
 								elseif cmd == "GM_RELOAD" then
@@ -501,10 +473,180 @@ quest web_admin begin
 								game.set_event_flag("mob_item_buyer", rdrop)
 								game.set_event_flag("mob_gold", ryang)
 								game.set_event_flag("mob_gold_buyer", ryang)
+								-- While a timed event runs its base flag holds the
+								-- setting and the core keeps the live flag at the
+								-- boost of it (playerbot_events.h); a new setting
+								-- goes to the base too, or the core put the old
+								-- boost straight back over it.
+								local rbases = {
+									{"m2_event_exp_base", rexp}, {"m2_event_exp_base_buyer", rexp},
+									{"m2_event_drop_base", rdrop}, {"m2_event_drop_base_buyer", rdrop},
+									{"m2_event_yang_base", ryang}, {"m2_event_yang_base_buyer", ryang},
+								}
+								local rb
+								for rb = 1, table.getn(rbases) do
+									if game.get_event_flag(rbases[rb][1]) > 0 then
+										game.set_event_flag(rbases[rb][1], rbases[rb][2])
+									end
+								end
 							end
 							-- Out of pending in one statement, like the sweep: a
 							-- second core doing the same changes nothing.
 							wa_query("UPDATE player.web_admin_queue SET status='" .. rres .. "' WHERE id=" .. rqid .. " AND status='pending' LIMIT 1")
+						end
+					end
+				end
+			end
+
+			-- Respawn times, the same way: fastBossSpawn and fastMobSpawn
+			-- are read by the engine's regen_event as a percent of each
+			-- regen line's delay (0 = untouched), the map-less names being
+			-- the fallback playerbotify adds to Seban's per-map ones.
+			-- arg1 = "boss,mob", digits only, 0..100.
+			local grows = wa_query("SELECT id, arg1 FROM player.web_admin_queue WHERE status='pending' AND cmd='REGEN' ORDER BY id ASC LIMIT 3")
+			if type(grows) == "table" then
+				local gi
+				for gi = 1, table.getn(grows) do
+					local gr = grows[gi]
+					if type(gr) == "table" then
+						local gqid = tonumber(gr.id)
+						local gboss, gmob = nil, nil
+						if type(gr.arg1) == "string" then
+							local _, _, b1, b2 = string.find(gr.arg1, "^(%d+),(%d+)$")
+							gboss = tonumber(b1)
+							gmob = tonumber(b2)
+						end
+						if gqid ~= nil then
+							local gres = "done"
+							if gboss == nil or gmob == nil or gboss > 100 or gmob > 100 then
+								gres = "bad_args"
+							elseif game.set_event_flag == nil then
+								gres = "failed"
+							else
+								game.set_event_flag("fastBossSpawn", gboss)
+								game.set_event_flag("fastMobSpawn", gmob)
+							end
+							wa_query("UPDATE player.web_admin_queue SET status='" .. gres .. "' WHERE id=" .. gqid .. " AND status='pending' LIMIT 1")
+						end
+					end
+				end
+			end
+
+			-- How many a respawn line keeps standing, the same way
+			-- (Kiciamol, 18 September): m2_boss_count and m2_mob_count are
+			-- percents of each line's own count that regen_spawn tops up to
+			-- (regen_target_count; 100 = as the line says, 400 = four times).
+			-- arg1 = "boss,mob", digits only, 100..400.
+			local crows = wa_query("SELECT id, arg1 FROM player.web_admin_queue WHERE status='pending' AND cmd='REGEN_COUNT' ORDER BY id ASC LIMIT 3")
+			if type(crows) == "table" then
+				local ci
+				for ci = 1, table.getn(crows) do
+					local cr = crows[ci]
+					if type(cr) == "table" then
+						local cqid = tonumber(cr.id)
+						local cboss, cmob = nil, nil
+						if type(cr.arg1) == "string" then
+							local _, _, c1, c2 = string.find(cr.arg1, "^(%d+),(%d+)$")
+							cboss = tonumber(c1)
+							cmob = tonumber(c2)
+						end
+						if cqid ~= nil then
+							local cres = "done"
+							if cboss == nil or cmob == nil or cboss < 100 or cboss > 400 or cmob < 100 or cmob > 400 then
+								cres = "bad_args"
+							elseif game.set_event_flag == nil then
+								cres = "failed"
+							else
+								game.set_event_flag("m2_boss_count", cboss)
+								game.set_event_flag("m2_mob_count", cmob)
+							end
+							wa_query("UPDATE player.web_admin_queue SET status='" .. cres .. "' WHERE id=" .. cqid .. " AND status='pending' LIMIT 1")
+						end
+					end
+				end
+			end
+
+			-- The world's difficulty, the same way (drip9660, 23 September):
+			-- the level and seven waits in seconds - the Biologist's, the
+			-- stable keeper's four (m2_difficulty.lua), and the skill books'
+			-- for players (the engine, playerbotify apply_book_wait) and for
+			-- bots (the AI). The panel has written the rows; this makes them
+			-- live without a restart.
+			-- arg1 = "level,bio,hbuy,hup,htr,htr2,book,botbook", digits only,
+			-- level 0..3, each wait at most a year.
+			local drows = wa_query("SELECT id, arg1 FROM player.web_admin_queue WHERE status='pending' AND cmd='DIFFICULTY' ORDER BY id ASC LIMIT 3")
+			if type(drows) == "table" then
+				local di
+				for di = 1, table.getn(drows) do
+					local dr = drows[di]
+					if type(dr) == "table" then
+						local dqid = tonumber(dr.id)
+						local dv = nil
+						if type(dr.arg1) == "string" then
+							local _, _, d1, d2, d3, d4, d5, d6, d7, d8 = string.find(dr.arg1, "^(%d+),(%d+),(%d+),(%d+),(%d+),(%d+),(%d+),(%d+)$")
+							if d8 ~= nil then
+								dv = { tonumber(d1), tonumber(d2), tonumber(d3), tonumber(d4), tonumber(d5), tonumber(d6), tonumber(d7), tonumber(d8) }
+							end
+						end
+						if dqid ~= nil then
+							local dres = "done"
+							local dok = dv ~= nil and dv[1] <= 3
+							if dok then
+								local dj
+								for dj = 2, 8 do
+									if dv[dj] > 31536000 then dok = false end
+								end
+							end
+							if not dok then
+								dres = "bad_args"
+							elseif game.set_event_flag == nil then
+								dres = "failed"
+							else
+								game.set_event_flag("m2_difficulty", dv[1])
+								game.set_event_flag("m2_biologist_wait", dv[2])
+								game.set_event_flag("m2_horse_buy_wait", dv[3])
+								game.set_event_flag("m2_horse_upgrade_wait", dv[4])
+								game.set_event_flag("m2_horse_train_wait", dv[5])
+								game.set_event_flag("m2_horse_train2_wait", dv[6])
+								game.set_event_flag("m2_book_wait", dv[7])
+								game.set_event_flag("m2_bot_book_wait", dv[8])
+							end
+							wa_query("UPDATE player.web_admin_queue SET status='" .. dres .. "' WHERE id=" .. dqid .. " AND status='pending' LIMIT 1")
+						end
+					end
+				end
+			end
+
+			-- Easter event toggle. Same reasoning as RATES above:
+			-- game.set_event_flag() needs no current player, so this
+			-- lives in the server timer and works with nobody online.
+			-- arg1 = "drop,rabbit", both 0 or 1. arg2 unused.
+			local erows = wa_query("SELECT id, arg1, arg2 FROM player.web_admin_queue WHERE status='pending' AND cmd='EASTER' ORDER BY id ASC LIMIT 3")
+			if type(erows) == "table" then
+				local ei
+				for ei = 1, table.getn(erows) do
+					local er = erows[ei]
+					if type(er) == "table" then
+						local eqid = tonumber(er.id)
+						local edrop, erabbit = nil, nil
+						if type(er.arg1) == "string" then
+							local _, _, e1, e2 = string.find(er.arg1, "^(%d+),(%d+)$")
+							edrop = tonumber(e1)
+							erabbit = tonumber(e2)
+						end
+						if eqid ~= nil then
+							local eres = "done"
+							if edrop == nil or erabbit == nil then
+								eres = "bad_args"
+							elseif edrop < 0 or edrop > 1 or erabbit < 0 or erabbit > 1 then
+								eres = "bad_args"
+							elseif game.set_event_flag == nil then
+								eres = "failed"
+							else
+								game.set_event_flag("easter_drop", edrop)
+								game.set_event_flag("easter_rabbit", erabbit)
+							end
+							wa_query("UPDATE player.web_admin_queue SET status='" .. eres .. "' WHERE id=" .. eqid .. " AND status='pending' LIMIT 1")
 						end
 					end
 				end

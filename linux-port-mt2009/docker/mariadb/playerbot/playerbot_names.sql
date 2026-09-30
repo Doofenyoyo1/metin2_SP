@@ -5,7 +5,7 @@
 -- Applied by mariadb/playerbot/apply.sh after the seed, guarded by
 -- @playerbot_human_names, which apply.sh sets from M2_PLAYERBOT_HUMAN_NAMES:
 --
---   1        every bot wears a name from this pool, version c526f5d7fbe0 (default)
+--   1        every bot wears a name from this pool, version c526f5d7fbe0p1 (default)
 --   0        leave every name exactly as it is
 --   restore  put the seed names back and forget the renames
 --
@@ -41,7 +41,7 @@ ALTER TABLE common.playerbot_name_history
     ADD COLUMN IF NOT EXISTS pool_version VARCHAR(16) NOT NULL DEFAULT '';
 
 SET @playerbot_human_names = IFNULL(@playerbot_human_names, '1');
-SET @playerbot_pool_version = 'c526f5d7fbe0';
+SET @playerbot_pool_version = 'c526f5d7fbe0p1';
 
 -- --------------------------------------------------------------------------
 -- restore: the seed name goes back, and only onto a character that still
@@ -9169,6 +9169,74 @@ INSERT INTO playerbot_name_pool (n, empire, name) VALUES
     (9000,3,'szybkiDawidv6');
 
 -- --------------------------------------------------------------------------
+-- Priority nicknames (the operator, 27 September): on a new world these are
+-- the first names each kingdom deals - to its lowest PIDs, which are the
+-- first the autospawn starts and the last it would leave out (SpawnRegistered
+-- takes the registry from the front) - so they are always in the game. Dealt
+-- in turn to Chunjo, Shinsoo and Jinno, ahead of the whole pool, which moves
+-- back; a name the pool had already is taken out of it. Letters and digits
+-- only, as check_name_alphabet takes them: "anon." is anon, "Dobra Ciecz"
+-- DobraCiecz, "Hi im Yanner" HiImYanner, "MaTTIRo" and "Mikolaj" without
+-- their Polish letters. A world already named keeps its names.
+-- --------------------------------------------------------------------------
+DROP TEMPORARY TABLE IF EXISTS playerbot_name_priority;
+CREATE TEMPORARY TABLE playerbot_name_priority (
+    k    INT UNSIGNED NOT NULL PRIMARY KEY,
+    name VARCHAR(24) NOT NULL
+) ENGINE=MEMORY DEFAULT CHARSET=latin1;
+
+INSERT INTO playerbot_name_priority (k, name) VALUES
+    (1,'snajperekxd'),
+    (2,'Almette'),
+    (3,'anon'),
+    (4,'Arturo'),
+    (5,'BlacksonJD'),
+    (6,'DobraCiecz'),
+    (7,'Dresiwo'),
+    (8,'DziaDek'),
+    (9,'grzehv'),
+    (10,'HejterUkrainy'),
+    (11,'Heniula'),
+    (12,'HiImYanner'),
+    (13,'Inseqr'),
+    (14,'JaroszV2'),
+    (15,'Kasai'),
+    (16,'kwittimtine'),
+    (17,'MaTTIRo'),
+    (18,'Mikolaj'),
+    (19,'Nagash'),
+    (20,'OHYeahBunny'),
+    (21,'DesanT'),
+    (22,'Pacyna'),
+    (23,'Popapraniec'),
+    (24,'Ranzu'),
+    (25,'RekaWatykanu'),
+    (26,'Ryumey'),
+    (27,'Rzuta'),
+    (28,'Scrim'),
+    (29,'Shoosners'),
+    (30,'SIZOWSKI'),
+    (31,'SofciO'),
+    (32,'sTEfan'),
+    (33,'Strych'),
+    (34,'Tony'),
+    (35,'traviden'),
+    (36,'Tryn'),
+    (37,'Ulubieniec'),
+    (38,'unlucky'),
+    (39,'Vadu'),
+    (40,'Vicer'),
+    (41,'WariaTeK'),
+    (42,'Wojtek'),
+    (43,'wrrryN');
+
+DELETE np FROM playerbot_name_pool AS np
+  JOIN playerbot_name_priority AS pr ON LOWER(pr.name) = LOWER(np.name);
+UPDATE playerbot_name_pool SET n = n + 1000 ORDER BY n DESC;
+INSERT INTO playerbot_name_pool (n, empire, name)
+SELECT k, ELT(((k - 1) % 3) + 1, 2, 1, 3), name FROM playerbot_name_priority;
+
+-- --------------------------------------------------------------------------
 -- Who gets one, and which. Every bot without a name from the pool - no
 -- history row at all - waits, numbered by PID within its kingdom; every pool
 -- name of that kingdom's share not worn by anybody who is not waiting is free,
@@ -9244,7 +9312,7 @@ UPDATE player.player AS p
 
 -- HAVING, not WHERE: the aggregate returns one row over an empty plan, and a
 -- 'restore' run would otherwise report "gave 0" straight after "restored 2500".
-SELECT CONCAT('playerbot names: gave ', COUNT(*), ' bot(s) a name from pool c526f5d7fbe0')
+SELECT CONCAT('playerbot names: gave ', COUNT(*), ' bot(s) a name from pool c526f5d7fbe0p1')
        AS playerbot_names_note
   FROM playerbot_name_plan
 HAVING @playerbot_human_names = '1';

@@ -47,21 +47,36 @@ STAGED = 'linux-port-mt2009/docker/game/src/server/game/src'
 # port/playerbotify.py would never reach a player; each one named here is
 # applied to the filled tree. They are idempotent: a package that already
 # carries one finds it "already", and an anchor that moved stops the build.
-ENGINE_EDITS = ['apply_costume_mount_allowed', 'apply_ride_seal_equip', 'apply_sidekick_quest_kill_credit',
+# Since 2.16.0 the package is MT2009 PLUS's: its own mount and costume
+# system replaced apply_costume_mount_allowed and apply_ride_seal_equip, and
+# the project speaks Polish only, so the apply_person_language* edits went too.
+ENGINE_EDITS = ['apply_sidekick_quest_kill_credit',
                 'apply_quest_pc_is_playerbot', 'apply_drop_share_active', 'apply_tanaka_goblin',
                 'apply_shaman_party_buff', 'apply_chest_mob_preview',
                 'apply_auto_hunt_item_switch', 'apply_auto_hunt_loot_kinds', 'apply_refine_chance_shown',
                 'apply_flea_market_fill_dispatch', 'apply_build_refusals_spoken',
                 'apply_all_three_smiths', 'apply_build_refusal_reason', 'apply_boss_last_blow',
-                'apply_guild_person_struck', 'apply_person_language_texts', 'apply_person_language_names',
-                'apply_person_language', 'apply_guild_bot_orders', 'apply_guild_war_answer_type',
+                'apply_guild_person_struck', 'apply_guild_bot_orders', 'apply_guild_war_answer_type',
                 'apply_flea_price_range', 'apply_bot_shop_two_pages', 'apply_autospawn_bootstrap_once',
                 'apply_quest_warp_channel', 'apply_mob_preview_stone_kinds', 'apply_peer_whisper_to_bot',
                 'apply_spider_baroness_damage', 'apply_target_hp_values']
 # Files an upstream package carries that this repository does not publish. An
 # update never deletes a file, so a player who took the upstream package keeps
 # it; the drop check below is for paths this repository's own list lost.
-NOT_OURS = {'LICENSE-MIT.txt'}
+# MT2009 PLUS's notes on its own releases and packaging (its update channel,
+# its mod list, its package list), which this project does not publish.
+NOT_OURS = {'AKTUALIZACJE_MOD.md', 'MODS_PL.md', 'MOD_VERSION', 'SERWER_PL.md',
+            'launcher/server-update-files.mod.txt',
+            # Seban's host-side scripts and notes, which his own .gitignore
+            # keeps out of the panel: nothing in our images runs them.
+            'linux-port/docker/seban-panel/AKTUALIZATOR_PROSTO.md',
+            'linux-port/docker/seban-panel/UPDATER_VPS.md',
+            'linux-port/docker/seban-panel/deploy_map_names.sh',
+            'linux-port/docker/seban-panel/deploy_new_item_icons.sh',
+            'linux-port/docker/seban-panel/deploy_new_maps.sh',
+            'linux-port/docker/seban-panel/deploy_new_maps_v2.sh',
+            'linux-port/docker/seban-panel/patch_grant_quest.py',
+            'linux-port/docker/seban-panel/rebuild_item_icons_from_item_list.sh'}
 
 
 def published(rel):

@@ -35,7 +35,10 @@ REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
 # so nothing else in the image moves - which is why it is the profile and not
 # the repository, whose address is longer.
 EXE_STRING_PATCHES = [
-    (b'https://www.youtube.com/@tieru/\x00', b'https://github.com/Doofenyoyo1/\x00'),
+    # MT2009 PLUS's exe (client 2.0.29) sends its button to its Discord; our
+    # repository's address is longer than the 27 characters the string has,
+    # so the button goes to GitHub itself until the next build from source.
+    (b'https://metin2sp.pl/discord\x00', b'https://github.com/\x00\x00\x00\x00\x00\x00\x00\x00\x00'),
 ]
 PACKS = [('root', 'linux-port-mt2009/client-root'), ('locale', 'linux-port-mt2009/client-locale')]
 BESIDE = 'linux-port-mt2009/client-coop'
@@ -45,7 +48,11 @@ BESIDE = 'linux-port-mt2009/client-coop'
 # gamedata is the client's item_proto and skill table: the rod's level 30,
 # and the names of the ItemShop's Auto Lowy ticket and anti-experience ring
 # (upstream 2.0.41).
-UPSTREAM_PACKS = ['season2', 'gamedata']
+UPSTREAM_PACKS = []
+# The client moved onto MT2009 PLUS's line (2.0.55): its package carries its
+# own gamedata, and season2 is already on every player's client. Its patcher
+# updates from MT2009 PLUS's channel and is never shipped.
+DROP_FROM_PREVIOUS = {'MT2009-Patcher.exe', 'MT2009-Patcher.exe.config'}
 
 
 def git(*args):
@@ -69,7 +76,8 @@ def main():
     work = tempfile.mkdtemp(prefix='m2-client-')
     old_dir, new_dir = os.path.join(work, 'old'), os.path.join(work, 'new')
     old = zipfile.ZipFile(a.previous)
-    names = [i.filename for i in old.infolist() if not i.filename.endswith(('/', '\\'))]
+    names = [i.filename for i in old.infolist() if not i.filename.endswith(('/', '\\'))
+             and i.filename.replace('\\', '/') not in DROP_FROM_PREVIOUS]
     for n in names:
         p = os.path.join(old_dir, n.replace('\\', '/'))
         os.makedirs(os.path.dirname(p), exist_ok=True)

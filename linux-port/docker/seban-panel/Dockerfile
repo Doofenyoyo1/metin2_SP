@@ -13,7 +13,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # patterns match tolerates one that matches nothing, so the file is used
 # where it exists and missed where it does not - and app.py has always
 # answered "dev" when it cannot read it.
-COPY app.py collector.py item_grants.py gm_commands.txt CHANGELOG.md VERSION* ./
+# special_item_group.snapshot.txt (MT2009_PLUS_CHEST_EDITOR_V1): the chests page's
+# copy of the game's file, shown until the game publishes its own; starred
+# for the same reason as VERSION.
+COPY app.py collector.py item_grants.py gm_commands.txt CHANGELOG.md VERSION* special_item_group.snapshot*.txt ./
 COPY templates ./templates
 COPY static ./static
 ENV PYTHONUNBUFFERED=1

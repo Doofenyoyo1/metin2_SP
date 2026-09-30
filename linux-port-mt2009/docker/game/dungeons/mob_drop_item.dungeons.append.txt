@@ -1,0 +1,126 @@
+// MT2009_PLUS_DUNGEONS_V1 (nemere): the Nemere dungeon drops, mirrored from the package Razador groups
+// (6001-6009 kill groups -> 6101-6109). MT2009_PLUS_DUNGEON_DROP_V1: no drop group for Nemere (6191)
+// nor Razador (6091, the Dockerfile cuts the package one) - the bosses give only yang, the loot is
+// the 2-5 chests per player of the dungeon quests (the owner, 29 September).
+
+Group	MT2009_nemere_6101
+{
+	type 	kill
+	mob	6101
+	kill_drop	1000
+	1	30506	1	100	0	-- Szafirowy Ozdobny N贸偶
+	2	30510	1	100	0	-- Wytworny Naramiennik
+	3	30522	1	100	0	-- Ogniwa 臿艅cucha
+}
+
+
+Group	MT2009_nemere_6102
+{
+	type 	kill
+	mob	6102
+	kill_drop	1000
+	1	30504	1	100	0	-- Srebrny Zacisk
+	2	30516	1	100	0	-- Antyczny Naramiennik
+	3	30521	1	100	0	-- Element Pier艣cienia
+}
+
+
+Group	MT2009_nemere_6103
+{
+	type 	kill
+	mob	6103
+	kill_drop	500
+	1	30503	1	100	0	-- Ametystowy Ozdobny N贸偶
+	2	30509	1	100	0	-- Niebieska Smocza Stal
+	3	30513	1	100	0	-- Szlachetny Naramiennik
+}
+
+
+Group	MT2009_nemere_6104
+{
+	type 	kill
+	mob	6104
+	kill_drop	500
+	1	30506	1	100	0	-- Szafirowy Ozdobny N贸偶
+	2	30510	1	100	0	-- Wytworny Naramiennik
+	3	30522	1	100	0	-- Ogniwa 臿艅cucha
+}
+
+
+Group	MT2009_nemere_6105
+{
+	type 	kill
+	mob	6105
+	kill_drop	100
+	1	30504	1	100	0	-- Srebrny Zacisk
+	2	30516	1	100	0	-- Antyczny Naramiennik
+	3	30521	1	100	0	-- Element Pier艣cienia
+	4	30550	1	10	0	-- Niebieski Rzemyk
+}
+
+
+Group	MT2009_nemere_6106
+{
+	type 	kill
+	mob	6106
+	kill_drop	100
+	1	30503	1	100	0	-- Ametystowy Ozdobny N贸偶
+	2	30509	1	100	0	-- Niebieska Smocza Stal
+	3	30513	1	100	0	-- Szlachetny Naramiennik
+	4	30550	1	50	0	-- Niebieski Rzemyk
+}
+
+
+Group	MT2009_nemere_6107
+{
+	type 	kill
+	mob	6107
+	kill_drop	100
+	1	30506	1	100	0	-- Szafirowy Ozdobny N贸偶
+	2	30510	1	100	0	-- Wytworny Naramiennik
+	3	30522	1	100	0	-- Ogniwa 臿艅cucha
+	4	30550	1	60	0	-- Niebieski Rzemyk
+}
+
+
+Group	MT2009_nemere_6108
+{
+	type 	kill
+	mob	6108
+	kill_drop	50
+	1	30504	1	100	0	-- Srebrny Zacisk
+	2	30516	1	100	0	-- Antyczny Naramiennik
+	3	30521	1	100	0	-- Element Pier艣cienia
+	4	30550	1	80	0	-- Niebieski Rzemyk
+}
+
+
+Group	MT2009_nemere_6109
+{
+	type 	kill
+	mob	6109
+	kill_drop	50
+	1	30503	1	100	0	-- Ametystowy Ozdobny N贸偶
+	2	30509	1	100	0	-- Niebieska Smocza Stal
+	3	30513	1	100	0	-- Szlachetny Naramiennik
+	4	30550	1	100	0	-- Niebieski Rzemyk
+}
+
+
+// MT2009_PLUS_BOSS_CHESTS_V1: the boss chests (special_item_group.dungeons.txt). The dungeon
+// quests give 2-5 to every player of the party inside when the boss dies, so these lines drop
+// nothing (0%) - they only put the chest into the monster's drop preview (/mob_drop_preview).
+Group	MT2009_chest_preview_6091
+{
+	type	drop
+	Mob	6091	-- Razador
+	1	50270	1	0	-- Skrzynia Razadora (quest: razador_dungeon)
+}
+
+
+Group	MT2009_chest_preview_6191
+{
+	type	drop
+	Mob	6191	-- Nemere
+	1	50271	1	0	-- Skrzynia Nemere (quest: nemere_dungeon)
+}

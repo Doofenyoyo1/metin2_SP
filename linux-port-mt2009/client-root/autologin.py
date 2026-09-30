@@ -1,6 +1,6 @@
 # Autologin for Auto Lowy: after a dropped game the login window logs the
 # same account in again, the select window enters the same character, and a
-# hunt that was running goes on (24 September: "wprowadz funkcje auto
+# hunt that was running goes on (Tieru, 24 September: "wprowadz funkcje auto
 # loginu do auto lowow ... jako checkbox"). The switch is a row of the Auto
 # Lowy window, saved per character with its other settings. Nothing else is
 # written anywhere: the login and the password are the ones the network
@@ -31,12 +31,9 @@
 # of the game or when the autologin stops.
 #
 # Python 2.7 as the client has it, and 3 for tests/autologin_test.py.
-# Player-visible strings are CP1250 escapes, so the file itself is ASCII, and
-# a Polish and English pair (playerbot_lang.T): English for a client set to
-# any language but Polish.
+# Player-visible strings are CP1250 escapes, so the file itself is ASCII.
 
 import clientclock
-from playerbot_lang import T
 
 FIRST_DELAY = 3.0
 RETRY_DELAYS = (5.0, 10.0, 20.0, 30.0)
@@ -224,7 +221,7 @@ def _Left(now):
 
 
 def WaitText(left, attempt):
-	return T('Autologin: ponownie za %d s (pr\xf3ba %d)', 'Autologin: again in %d s (try %d)') % (left, attempt)
+	return 'Autologin: ponownie za %d s (pr\xf3ba %d)' % (left, attempt)
 
 
 def _ShowWaiting(win, now):
@@ -235,7 +232,7 @@ def _ShowWaiting(win, now):
 		import localeInfo
 		cancel = localeInfo.UI_CANCEL
 	except Exception:
-		cancel = T('Anuluj', 'Cancel')
+		cancel = 'Anuluj'
 	left = _Left(now)
 	_s['shownLeft'] = left
 	popup.Open(WaitText(left, _s['attempt'] + 1), Cancel, cancel)

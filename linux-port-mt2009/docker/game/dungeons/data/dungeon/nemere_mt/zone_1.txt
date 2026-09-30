@@ -1,0 +1,13 @@
+// MT2009_PLUS_DUNGEONS_V1 (nemere): room around (171,187) - moved onto the real room by server_attr (GF client attr.atr); groups of groups ice_dungeon_1..3 (group_group.txt 6051-6053)
+r	185	187	6	6	0	0	60s	100	1	6051
+r	192	199	6	6	0	0	60s	100	1	6051
+r	178	199	6	6	0	0	60s	100	1	6051
+r	171	211	6	6	0	0	60s	100	1	6051
+r	164	199	6	6	0	0	60s	100	1	6051
+r	150	199	6	6	0	0	60s	100	1	6051
+r	157	187	6	6	0	0	60s	100	1	6051
+r	150	175	6	6	0	0	60s	100	1	6051
+r	159	170	6	6	0	0	60s	100	1	6051
+r	171	163	6	6	0	0	60s	100	1	6051
+r	183	170	6	6	0	0	60s	100	1	6051
+r	192	175	6	6	0	0	60s	100	1	6051

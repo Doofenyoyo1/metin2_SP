@@ -22,7 +22,7 @@ window = {
 	"y" : 0,
 
 	"width" : 300,
-	"height" : 25*16+8+21,
+	"height" : 25*16+8,
 
 	"children" :
 	[
@@ -34,7 +34,7 @@ window = {
 			"y" : 0,
 
 			"width" : 300,
-			"height" : 25*16+8+21,
+			"height" : 25*16+8,
 
 			"children" :
 			[
@@ -655,46 +655,6 @@ window = {
 					"y" : 361,
 
 					"text" : uiScriptLocale.GAME_OPTIONS_FLOATING_TEXT_2,
-
-					"default_image" : ROOT_PATH + "middle_button_01.sub",
-					"over_image" : ROOT_PATH + "middle_button_02.sub",
-					"down_image" : ROOT_PATH + "middle_button_03.sub",
-				},
-
-				## BOT PERSONALITIES (playerbot_status_tail.py): shown in their own
-				## row over each bot's head, independent of the classic alignment
-				## title (ranga). The strings are CP1250 escapes so the file stays
-				## ASCII like the rest of the root.
-				{
-					"name" : "bot_title_text",
-					"type" : "text",
-
-					"x" : LINE_LABEL_X,
-					"y" : 382+2,
-
-					"text" : uiScriptLocale.BOT_TITLES_LABEL,
-				},
-				{
-					"name" : "bot_title_personality_button",
-					"type" : "radio_button",
-
-					"x" : LINE_DATA_X,
-					"y" : 382,
-
-					"text" : uiScriptLocale.BOT_TITLES_PERSONALITY,
-
-					"default_image" : ROOT_PATH + "middle_button_01.sub",
-					"over_image" : ROOT_PATH + "middle_button_02.sub",
-					"down_image" : ROOT_PATH + "middle_button_03.sub",
-				},
-				{
-					"name" : "bot_title_classic_button",
-					"type" : "radio_button",
-
-					"x" : LINE_DATA_X+MIDDLE_BUTTON_WIDTH,
-					"y" : 382,
-
-					"text" : uiScriptLocale.BOT_TITLES_OFF,
 
 					"default_image" : ROOT_PATH + "middle_button_01.sub",
 					"over_image" : ROOT_PATH + "middle_button_02.sub",

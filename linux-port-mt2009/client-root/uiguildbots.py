@@ -1,7 +1,7 @@
 # Orders to the bots of the player's guild - the guild window's "Boty gildii"
 # button and the small window it opens (Derpsonkowy95, 28 September: "bot
 # moglby reagowac na kluczowe slowa ... i przy podaniu lokalizacji bot moglby
-# tam przyjsc"; the operator: "warto zrobic to w GUI jako komendy gildyjne").
+# tam przyjsc"; upstream: "warto zrobic to w GUI jako komendy gildyjne").
 #
 # Three orders, each one command to the server and nothing else:
 #
@@ -25,14 +25,11 @@
 # the guild and destroys it with its own (four small insertions of
 # clientrootify.py into the stock script).
 #
-# Python 2.7 as the client has it; the Polish letters are CP1250 escapes, and
-# every text is a Polish and English pair (playerbot_lang.T), read when the
-# window is built.
+# Python 2.7 as the client has it; the Polish letters are CP1250 escapes.
 
 import clientclock
 import net
 import ui
-from playerbot_lang import T
 
 COMMAND = '/gildia_boty '
 ORDER_HELP = 'pomoc'
@@ -45,8 +42,11 @@ CLICK_SPACING = 1.0
 # The button's place on the guild window's info page (uiscript/
 # guildwindow_guildinfopage.py): the bottom row holds "Wyplac" at 78 and the
 # master's "Wypowiedz wojne" at 265, both 88 wide, and this one fits the gap.
-BUTTON_X = 171
-BUTTON_Y = 265
+# The row also holds the leader's "Obowiazki" in the gap at 172 (uiguild.py,
+# MT2009_PLUS_GUILD_DUTY_V1), so this one takes the free space left of
+# "Wyplac" as a middle button (61 wide): nothing on the row overlaps.
+BUTTON_X = 10
+BUTTON_Y = 264
 
 
 def MayOrder():
@@ -81,21 +81,20 @@ class GuildBotsWindow(ui.BoardWithTitleBar):
 		self.AddFlag('movable')
 		self.AddFlag('float')
 		self.SetSize(self.WIDTH, self.HEIGHT)
-		self.SetTitleName(T('Boty gildii', 'Guild bots'))
+		self.SetTitleName('Boty gildii')
 		self.SetCloseEvent(ui.__mem_func__(self.Close))
 		self.Build()
 		self.Refresh()
 
 	def Build(self):
-		self.introLine = self._Label(self.WIDTH // 2, 36, T('Wezwij wolne boty gildii z tej cz\xea\x9cci \x9cwiata.',
-			'Call the free bots of your guild near you.'))
+		self.introLine = self._Label(self.WIDTH // 2, 36, 'Wezwij wolne boty gildii z tej cz\xea\x9cci \x9cwiata.')
 		# Three large buttons (88 wide) a hundred apart, as in the companion's
 		# window. No tooltips: a button's is drawn nineteen pixels over it,
 		# on the line above, and the two lines under the buttons say what
 		# each order does.
-		self.helpButton = self._Btn(14, 58, T('Pomocy!', 'Help me!'), ORDER_HELP)
-		self.huntButton = self._Btn(114, 58, T('Expimy razem', 'Hunt with me'), ORDER_HUNT)
-		self.releaseButton = self._Btn(214, 58, T('Wracajcie', 'Go back'), ORDER_RELEASE)
+		self.helpButton = self._Btn(14, 58, 'Pomocy!', ORDER_HELP)
+		self.huntButton = self._Btn(114, 58, 'Expimy razem', ORDER_HUNT)
+		self.releaseButton = self._Btn(214, 58, 'Wracajcie', ORDER_RELEASE)
 		self.statusLine = self._Label(self.WIDTH // 2, 90, '')
 		self.detailLine = self._Label(self.WIDTH // 2, 106, '')
 
@@ -124,11 +123,11 @@ class GuildBotsWindow(ui.BoardWithTitleBar):
 
 	def Refresh(self):
 		if MayOrder():
-			self.SetStatus(T('Pomocy: walcz\xb9 z tym, co ci\xea atakuje.', 'Help: they fight what attacks you.'),
-				T('Expimy: poluj\xb9 wok\xf3\xb3 ciebie.', 'Hunt: they hunt around you.'))
+			self.SetStatus('Pomocy: walcz\xb9 z tym, co ci\xea atakuje.',
+				'Expimy: poluj\xb9 wok\xf3\xb3 ciebie.')
 		else:
-			self.SetStatus(T('Rozkazy wydaje mistrz gildii', 'Orders come from the guild master'),
-				T('i rangi z prawem do umiej\xeatno\x9cci gildii.', 'and the ranks allowed to use guild skills.'))
+			self.SetStatus('Rozkazy wydaje mistrz gildii',
+				'i rangi z prawem do umiej\xeatno\x9cci gildii.')
 
 	def SetStatus(self, status, detail):
 		self.statusLine.SetText(status)
@@ -137,11 +136,11 @@ class GuildBotsWindow(ui.BoardWithTitleBar):
 	def OnOrder(self, order):
 		now = clientclock.Now()
 		if self.lastSent is not None and now - self.lastSent < CLICK_SPACING:
-			self.SetStatus(T('Chwil\xea...', 'A moment...'), '')
+			self.SetStatus('Chwil\xea...', '')
 			return
 		self.lastSent = now
 		SendOrder(order)
-		self.SetStatus(T('Rozkaz wys\xb3any.', 'Order sent.'), T('Kto idzie, powie ci czat.', 'The chat says who is coming.'))
+		self.SetStatus('Rozkaz wys\xb3any.', 'Kto idzie, powie ci czat.')
 
 	def Open(self):
 		self.Refresh()
@@ -206,11 +205,11 @@ def MakeGuildWindowButton(page):
 	button = ui.Button()
 	button.SetParent(page)
 	button.SetPosition(BUTTON_X, BUTTON_Y)
-	button.SetUpVisual('d:/ymir work/ui/public/large_button_01.sub')
-	button.SetOverVisual('d:/ymir work/ui/public/large_button_02.sub')
-	button.SetDownVisual('d:/ymir work/ui/public/large_button_03.sub')
-	button.SetText(T('Boty gildii', 'Guild bots'))
-	button.SetToolTipText(T('Rozkazy dla bot\xf3w twojej gildii', "Orders to your guild's bots"))
+	button.SetUpVisual('d:/ymir work/ui/public/middle_button_01.sub')
+	button.SetOverVisual('d:/ymir work/ui/public/middle_button_02.sub')
+	button.SetDownVisual('d:/ymir work/ui/public/middle_button_03.sub')
+	button.SetText('Boty')
+	button.SetToolTipText('Rozkazy dla bot\xf3w twojej gildii')
 	button.SetEvent(ToggleWindow)
 	RefreshGuildWindowButton(button)
 	return button

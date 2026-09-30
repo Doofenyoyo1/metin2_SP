@@ -1,0 +1,132 @@
+# MT2009 Plus: the Dragon Soul (alchemy) bonuses, operator's balance of
+# 24 Sep 2026 (server-patches/dragonsoulbalance). Replaces the package's
+# BasicApplys and AdditionalApplys groups of dragon_soul_table.txt at image
+# build (game/Dockerfile). No elemental resistance; the 2nd basic bonus is a
+# race bonus (9 -> 15%, 6 -> 10% on a Myth stone at its highest step, +6:
+# value x 160%); Sungma bonuses gone. EUC-KR: the group names are the
+# package's own Korean stone names.
+Group BasicApplys
+{
+	# Diament
+	Group ¹é·æ¼®
+	{
+		#--#	Apply_Type	Apply_value
+		1	INT	8
+		2	ATTBONUS_MILGYO	9
+	}
+	# Rubin
+	Group È­·æ¼®
+	{
+		#--#	Apply_Type	Apply_value
+		1	STR	8
+		2	ATTBONUS_DEVIL	9
+	}
+	# Jadeit
+	Group Ç³·æ¼®
+	{
+		#--#	Apply_Type	Apply_value
+		1	MAX_SP	500
+		2	ATTBONUS_ANIMAL	9
+	}
+	# Szafir
+	Group Ã¶·æ¼®
+	{
+		#--#	Apply_Type	Apply_value
+		1	DEX	8
+		2	ATTBONUS_ORC	9
+	}
+	# Granat
+	Group ³ú·æ¼®
+	{
+		#--#	Apply_Type	Apply_value
+		1	MAX_HP	1000
+		2	ATTBONUS_HUMAN	6
+	}
+	# Onyks
+	Group Èæ·æ¼®
+	{
+		#--#	Apply_Type	Apply_value
+		1	CON	8
+		2	ATTBONUS_UNDEAD	9
+	}
+	# Ametyst
+	Group ¼ºÈ¥¼®
+	{
+		#--#	Apply_Type	Apply_value
+		1	ATTBONUS_MONSTER	6
+		2	ATTBONUS_STONE	6
+	}
+}
+
+Group AdditionalApplys
+{
+	# Diament
+	Group ¹é·æ¼®
+	{
+		#--#	Apply_Type	Apply_value	Prob
+		1	MAGIC_ATT_GRADE	10	10
+		2	MAGIC_DEF_GRADE	10	10
+		3	SKILL_DAMAGE_BONUS	10	10
+		4	SKILL_DEFEND_BONUS	10	10
+	}
+	# Rubin
+	Group È­·æ¼®
+	{
+		#--#	Apply_Type	Apply_value	Prob
+		1	ATT_BONUS	200	10
+		2	DEF_BONUS	150	10
+		3	NORMAL_HIT_DAMAGE_BONUS	10	10
+		4	NORMAL_HIT_DEFEND_BONUS	10	10
+	}
+	# Jadeit
+	Group Ç³·æ¼®
+	{
+		#--#	Apply_Type	Apply_value	Prob
+		1	MAX_HP	2000	10
+		2	HP_REGEN	10	10
+		3	STEAL_HP	6	10
+		4	KILL_HP_RECOVER	5	10
+		5	MAX_HP_PCT	12	10
+	}
+	# Szafir
+	Group Ã¶·æ¼®
+	{
+		#--#	Apply_Type	Apply_value	Prob
+		1	ATT_BONUS_TO_WARRIOR	10	10
+		2	ATT_BONUS_TO_ASSASSIN	10	10
+		3	ATT_BONUS_TO_SURA	10	10
+		4	ATT_BONUS_TO_SHAMAN	10	10
+		5	RESIST_WARRIOR	10	10
+		6	RESIST_ASSASSIN	10	10
+		7	RESIST_SURA	10	10
+		8	RESIST_SHAMAN	10	10
+	}
+	# Granat
+	Group ³ú·æ¼®
+	{
+		#--#	Apply_Type	Apply_value	Prob
+		1	MAX_SP	1500	10
+		2	SP_REGEN	10	10
+		3	STEAL_SP	10	10
+		4	KILL_SP_RECOVER	5	10
+		5	MAX_SP_PCT	20	10
+	}
+	# Onyks
+	Group Èæ·æ¼®
+	{
+		#--#	Apply_Type	Apply_value	Prob
+		1	BLOCK	8	10
+		2	DODGE	8	10
+		3	REFLECT_MELEE	6	10
+		4	RESIST_CRITICAL	8	10
+		5	RESIST_PENETRATE	8	10
+	}
+	# Ametyst
+	Group ¼ºÈ¥¼®
+	{
+		#--#	Apply_Type	Apply_value	Prob
+		1	CRITICAL_PCT	5	10
+		2	PENETRATE_PCT	5	10
+		3	ATT_BONUS	100	10
+	}
+}

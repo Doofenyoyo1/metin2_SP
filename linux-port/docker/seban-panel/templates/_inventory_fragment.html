@@ -7,6 +7,8 @@
     <div class="inventory-yang"><span>{{'{:,}'.format(gold or 0).replace(',', ' ')}} Yang</span></div>
   </div>
   <p id="inventory-empty" class="muted" hidden>Ta strona ekwipunku jest pusta.</p>
+  <div class="costume-row" aria-label="Kostiumy postaci">{% for slot, label in [('costume_body','Kostium'),('costume_hair','Fryzura'),('costume_weapon','Nakładka'),('costume_acce','Szarfa'),('costume_mount','Wierzchowiec'),('pet','Pet')] %}{% set item=costumes.get(slot) %}<div class="costume-slot{% if not item %} empty{% endif %}"><div class="costume-icon">{% if item %}{% if item_icon(item.vnum) %}<img src="{{item_icon(item.vnum)}}" alt="{{item.item_name}}">{% else %}<span>{{item.vnum}}</span>{% endif %}{{ tooltip(item) }}{% endif %}</div><small>{{label}}</small></div>{% endfor %}</div>
+  {% for deck in range(2) %}{% if deck == 0 or alchemy[deck] %}<div class="costume-row alchemy-row" data-title="{{ 'Alchemia' if deck == 0 else 'Alchemia - talia II' }}" aria-label="Alchemia postaci">{% for kind, label in [(0,'Diament'),(1,'Rubin'),(2,'Jadeit'),(3,'Szafir'),(4,'Granat'),(5,'Onyks'),(6,'Ametyst')] %}{% set item=alchemy[deck].get(kind) %}<div class="costume-slot{% if not item %} empty{% endif %}"><div class="costume-icon">{% if item %}{% if item_icon(item.vnum) %}<img src="{{item_icon(item.vnum)}}" alt="{{item.item_name}}">{% else %}<span>{{item.vnum}}</span>{% endif %}{{ tooltip(item) }}{% endif %}</div><small>{{label}}</small></div>{% endfor %}</div>{% endif %}{% endfor %}
 </div>
 <div id="safebox-storage" hidden>
   <div class="safebox-tabs"><button class="active" data-page="0">Strona I</button><button data-page="1">Strona II</button><button data-page="2">Strona III</button></div>

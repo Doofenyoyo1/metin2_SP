@@ -1,0 +1,13 @@
+ScriptType	MapSetting
+
+CellScale	200
+HeightScale	0.500000
+
+ViewRadius	512
+
+MapSize	3	3
+BasePosition	512000	1203200
+TextureSet	textureset\metin2_map_treasure_hunt.txt
+Environment	metin2_map_treasure_hunt.msenv
+terrainvisible	1
+

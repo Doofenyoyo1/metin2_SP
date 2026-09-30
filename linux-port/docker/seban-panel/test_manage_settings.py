@@ -128,7 +128,8 @@ with tempfile.TemporaryDirectory() as tmp, patch.object(panel,'RATES_SPOOL',Path
             assert html.index('restart-console') < html.index('id="restart-fill"')
         finally:panel.app.template_context_processors[None]=processors
     update_spool=Path(tmp)/'update-spool'; update_spool.mkdir(); (update_spool/'watcher').touch()
-    with patch.dict(panel.os.environ, {'PLAYERBOTS_VERSION':'1.30.12'}, clear=False):
+    with patch.dict(panel.os.environ, {'PLAYERBOTS_VERSION':'1.30.12'}, clear=False), \
+            patch.object(panel, 'baked_playerbots_version', return_value=None):
         panel.queue_tieru_update()
     update_request=(update_spool/'request').read_text()
     assert 'id=seban-' in update_request and 'version=1.30.12' in update_request

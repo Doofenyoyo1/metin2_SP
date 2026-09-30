@@ -246,8 +246,6 @@ RUN set -eux; \
     # collect_quest_lv85 is the Biologist's red-branch row with its hand-in
     # asking for the right item: the stock quest counted 30166, the level-80
     # row's, so nobody could hand in a single 30167 (2.0.95).
-    # mount_seals answers a worn ride seal's sig_use with pc.mount; the package
-    # ships no quest that does, so a seal put on did nothing (2.1.3).
     # towarzysz is the letter that makes and commands a player's companion
     # (playerbot_sidekick.h): class, path and name, then call, free, dismiss.
     # devilcatacomb_zone is the Devil's Catacomb, which the package kept in
@@ -263,9 +261,9 @@ RUN set -eux; \
     # appended to the share's cube.txt below; NerrVoVy, 27 September).
     # flea_market is the Dom Towarowy's two options at the miscellaneous
     # merchant in M1, offered only while M2_FLEA_MARKET is on (Uxie [DSO]).
-    # playerbot_lang asks a player's client at every login which language it
-    # reads, and our quests and the AI answer in it (playerbot_language.h).
-    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 mount_seals towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears autohunt_time antiexp_ring seon_pyeong flea_market playerbot_lang; do \
+    # temple_of_the_ochao is the Temple of Ochao's entrance (Straznik Swiatyni,
+    # 20426), its portal (20415) and the Bodyguard's reward (MT2009_PLUS_OCHAO_V1).
+    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears acce_costume_uriel ah_yu_shop costume_bonus_transfer dragon_soul dragon_soul_refine dragon_soul_shop autohunt_time antiexp_ring seon_pyeong flea_market temple_of_the_ochao razador_dungeon nemere_dungeon goblin_skarbow; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \
@@ -303,6 +301,7 @@ RUN dpkg --add-architecture i386 \
  && apt-get install -y --no-install-recommends \
         libc6:i386 libstdc++6:i386 libgcc-s1:i386 zlib1g:i386 libmd0:i386 \
         tzdata ca-certificates \
+        mariadb-client \
  && rm -rf /var/lib/apt/lists/*
 
 # Non-root: the game parses untrusted network input and needs no privilege
@@ -340,18 +339,44 @@ COPY src/serverfiles/share/package /opt/metin2/share/package
 #    26 September: an edit of the shipped file came back as the 16.09 one);
 #  * special_item_group.starter.txt - the starter chest chain the playerbot
 #    seed hands out and the package has no group for.
-COPY special_item_group.moonlight.custom*.txt mob_drop_item.m3.append.txt special_item_group.moonlight.txt special_item_group.starter.txt /tmp/share-add/
+#  * special_item_group.cors.txt - the higher Cor Draconis grades (50256-50259)
+#    open into dragon stones of their own grade (MT2009_PLUS_COR_GRADES_V1), and
+#    so does the newer series 51501-51646 (its grade ranges, colours, "+" and
+#    chests), which the stock file has no group for;
+#  * special_item_group.goblin.txt - the Goblin board's money pouch (50023),
+#    1 000 000 - 10 000 000 yang instead of the stock 10 000 - 50 000.
+#  * special_item_group.dungeons.txt - the Razador (50270) and Nemere (50271)
+#    boss chests the two dungeons' quests hand out (MT2009_PLUS_BOSS_CHESTS_V1).
+COPY special_item_group.moonlight.custom*.txt mob_drop_item.m3.append.txt special_item_group.moonlight.txt special_item_group.starter.txt special_item_group.cors.txt special_item_group.dungeons.txt special_item_group.goblin.txt /tmp/share-add/
 RUN set -eu; L=/opt/metin2/share/locale/poland \
  && for f in /tmp/share-add/*.txt; do sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/$/\r/' "$f"; done \
  && m=/tmp/share-add/special_item_group.moonlight.txt; c=/tmp/share-add/special_item_group.moonlight.custom.txt \
  && if [ -s "$c" ]; then grep -q -E '^[[:blank:]]*Vnum[[:blank:]]+50011[[:space:]]*$' "$c" || { echo "FATAL: $c defines no Vnum 50011" >&2; exit 1; }; m="$c"; echo "share: the operator's Moonlight chest"; fi \
  && cat /tmp/share-add/mob_drop_item.m3.append.txt >> "$L/mob_drop_item.txt" \
  && f="$L/special_item_group.txt" \
- && awk 'BEGIN{keep=1} /^Group/{blk=""; keep=1} {blk=blk $0 "\n"} /Vnum[ \t]+(50011|50187|50212|50213|50188|50189|50190|50191|50192|50193|50194|50195|50196|50186|50254)([^0-9]|$)/{keep=0} /^}/{ if (keep) printf "%s", blk; blk=""; keep=1 }' "$f" > "$f.new" \
- && cat "$m" /tmp/share-add/special_item_group.starter.txt >> "$f.new" \
+ && awk 'BEGIN{keep=1} /^Group/{blk=""; keep=1} {blk=blk $0 "\n"} /Vnum[ \t]+(50011|50187|50212|50213|50188|50189|50190|50191|50192|50193|50194|50195|50196|50186|50254|50256|50257|50258|50259|50270|50271|50023|515[0-9][0-9]|516[0-4][0-9])([^0-9]|$)/{keep=0} /^}/{ if (keep) printf "%s", blk; blk=""; keep=1 }' "$f" > "$f.new" \
+ && cat "$m" /tmp/share-add/special_item_group.starter.txt /tmp/share-add/special_item_group.cors.txt /tmp/share-add/special_item_group.dungeons.txt /tmp/share-add/special_item_group.goblin.txt >> "$f.new" \
+ && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+(50270|50271)([^0-9]|$)' "$f.new")" = 2 \
+ && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+(515[0-9][0-9]|516[0-4][0-9])([^0-9]|$)' "$f.new")" = 146 \
+ && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+50023([^0-9]|$)' "$f.new")" = 1 \
  && mv "$f.new" "$f" \
  && rm -rf /tmp/share-add \
- && echo "share: moonlight + starter chests, M3 drops appended"
+ && echo "share: moonlight + starter + boss chests, M3 drops appended"
+
+# The alchemy bonuses (server-patches/dragonsoulbalance): the package's
+# BasicApplys and AdditionalApplys groups of dragon_soul_table.txt give way to
+# the MT2009 Plus balance - no elemental resistance, a race bonus instead of
+# the elemental one, the Amethyst's Sungma bonuses gone, the strong ones
+# smaller. The engine half (the apply names the table may use) is
+# dragon_soul_table.cpp, MT2009_PLUS_DS_APPLYS_V1.
+COPY dragon_soul_applys.mt2009plus.txt /tmp/dragon_soul_applys.txt
+RUN set -eu; f=/opt/metin2/share/locale/poland/dragon_soul_table.txt \
+ && sed -i 's/\r$//; s/$/\r/' /tmp/dragon_soul_applys.txt \
+ && awk -v add=/tmp/dragon_soul_applys.txt 'BEGIN{skip=0} /^Group[ \t]+BasicApplys/{ while ((getline l < add) > 0) print l; skip=1; next } skip && /^Group[ \t]+ApplyNumSettings/{ skip=0 } !skip{ print }' "$f" > "$f.new" \
+ && grep -q 'ATTBONUS_MILGYO' "$f.new" && grep -q '^Group[[:blank:]]*ApplyNumSettings' "$f.new" \
+ && ! grep -Eq '^[^#]*(RESIST_(ICE|FIRE|WIND|EARTH|ELEC|DARK)|ENCHANT_|SUNGMA_)' "$f.new" \
+ && mv "$f.new" "$f" && rm -f /tmp/dragon_soul_applys.txt \
+ && echo "share: MT2009 Plus alchemy bonuses"
 
 # Maska Sabaha goes with the Hwang curse (playerbotify apply_hwang_curse_removed,
 # port/shareify.py renders this step): its drop lines and the Hwang loot box roll
@@ -364,6 +389,48 @@ RUN set -eu; L=/opt/metin2/share/locale/poland \
  && ! grep -E '^[[:blank:]]*[0-9]+[[:blank:]]+7273[15][[:blank:]]+[0-9]+[[:blank:]]+[1-9]' "$L/mob_drop_item.txt" \
  && ! grep -q '{72731, 1}' "$L/quest/libs/other/reward_data.lua" \
  && echo "share: Maska Sabaha removed"
+
+# Costumes, mounts, pets and weapon skins come from the ItemShop only
+# (operator, 26 September 2026: players found mounts in Metin stones and
+# chests). The world's item table gave two vnums of the old drop lines to
+# ItemShop mounts - 71282 (Ekstraktor Skaz, gone) is the Niebieski Oldtimer
+# and 71294 (the ItemShop's Rada Pustelnika) the Feniks Zmierzchu - so every
+# kill, boss chest, mission book and fishing catch that rolled those rolled a
+# mount. 71294 becomes the Rada Pustelnika that exists (71094); 71282 and the
+# Pieczec Dzika Wojennego (71125) of the Tajemnicza Skrzynia roll at nothing -
+# a group stops reading at the first index it lacks, so a line is zeroed, not
+# deleted; the fishing table's row is commented out.
+RUN set -eu; L=/opt/metin2/share/locale/poland \
+ && for f in "$L/mob_drop_item.txt" "$L/special_item_group.txt"; do \
+      sed -i -E 's/^([[:blank:]]*[0-9]+[[:blank:]]+)71294([[:blank:]])/\171094\2/' "$f"; \
+      sed -i -E 's/^([[:blank:]]*[0-9]+[[:blank:]]+(71282|71125)[[:blank:]]+[0-9]+[[:blank:]]+)[0-9.]+/\10/' "$f"; \
+      if grep -Eq '^[[:blank:]]*[0-9]+[[:blank:]]+71294[[:blank:]]' "$f" || \
+         grep -Eq '^[[:blank:]]*[0-9]+[[:blank:]]+(71282|71125)[[:blank:]]+[0-9]+[[:blank:]]+[0-9.]*[1-9]' "$f"; then \
+        echo "share: a mount still drops in $f" >&2; exit 1; \
+      fi; \
+    done \
+ && F="$L/quest/libs/fishing/fishing_drop.lua" \
+ && sed -i -E 's/^([[:blank:]]*)(71282,[[:blank:]]*1,)/\1-- \2/' "$F" \
+ && ! grep -Eq '^[[:blank:]]*71282,' "$F" \
+ && echo "share: costumes and mounts from the ItemShop only"
+
+# MT2009_PLUS_GOBLIN_V1: Treasure Island (map 419) of the Treasure Hunt event
+# (playerbot_goblin.h) - the map from the "Official Treasure Hunt System"
+# archive, its line in the map index, and the Treasure Goblin's and the
+# Giant Treasure Chest's motions (treasure_hunt/README.txt). Which core hosts
+# it is m2-render-config's (MAPS_game2).
+COPY treasure_hunt/ /tmp/treasure_hunt/
+RUN set -eu; L=/opt/metin2/share/locale/poland; D=/opt/metin2/share/data/monster \
+ && rm -rf "$L/map/metin2_map_treasure_hunt" \
+ && cp -a /tmp/treasure_hunt/map/metin2_map_treasure_hunt "$L/map/metin2_map_treasure_hunt" \
+ && LC_ALL=C sed -i '/^419[[:blank:]]/d' "$L/map/index" \
+ && if [ -n "$(tail -c 1 "$L/map/index")" ]; then printf '\r\n' >> "$L/map/index"; fi \
+ && printf '419\tmetin2_map_treasure_hunt\r\n' >> "$L/map/index" \
+ && for m in treasure_hunt_goblin treasure_hunt_box; do rm -rf "$D/$m"; cp -a "/tmp/treasure_hunt/monster/$m" "$D/$m"; done \
+ && chmod -R a+rX "$L/map/metin2_map_treasure_hunt" "$D/treasure_hunt_goblin" "$D/treasure_hunt_box" \
+ && rm -rf /tmp/treasure_hunt \
+ && test -s "$L/map/metin2_map_treasure_hunt/server_attr" \
+ && echo "share: Treasure Island (419) and the goblin's motions"
 
 # The quest texts name this world, not Metin2009 (port/shareify.py renders this
 # step): the substitution l0st3k's translate.lua of 15 September makes, on both
@@ -401,6 +468,24 @@ RUN set -eu; O=/opt/metin2/share/locale/poland/quest/object \
  && ! find "$O" -path "$O/state" -prune -o -name 'monkey_curse*' -print | grep -q . \
  && echo "share: monkey curse removed ($n handlers)"
 
+# MT2009_PLUS_EASTER_METIN_CAP_V1: the package compiles three generations of
+# the Easter event - event_easter, event_easter_2012 and event_easter_2013 -
+# and all three answer the same easter_drop/easter_rabbit flags and the same
+# kill of an Easter metin (8041-8050): one kill put two or three new metins
+# down (_2013 on the killer's map, the other two on a map of the killer's
+# kingdom and level), paid out a basket twice and an egg besides, and _2013
+# put twelve more on a map at every login or map change while the Bunny was
+# on - "Metin na Metinie" on every map (a player, 29 September). event_easter
+# is the event the panel switches; the two older ones lose their handlers and
+# keep their state tables for the flags characters already carry. The
+# engine caps what is left per map (regen.cpp, EasterRegenMaySpawn).
+RUN set -eu; O=/opt/metin2/share/locale/poland/quest/object \
+ && n=$(find "$O" -path "$O/state" -prune -o -type f \( -name 'event_easter_2012.*' -o -name 'event_easter_2013.*' \) -print | wc -l) \
+ && find "$O" -path "$O/state" -prune -o -type f \( -name 'event_easter_2012.*' -o -name 'event_easter_2013.*' \) -exec rm -f {} + \
+ && ! find "$O" -path "$O/state" -prune -o -type f \( -name 'event_easter_2012.*' -o -name 'event_easter_2013.*' \) -print | grep -q . \
+ && test -f "$O/8043/kill/event_easter.start" \
+ && echo "share: old Easter event copies removed ($n handlers)"
+
 # The Grotto of Exile's entrance (port/shareify.py renders this step): the
 # package commented out Koe-Pung in Orc Valley's bottom-left corner (20093,
 # cell 282,1455) - the Dragon Order's guard, who lets a character of 75
@@ -433,12 +518,35 @@ RUN set -eu; L=/opt/metin2/share/locale/poland/map; N=$L/map_n_threeway/npc.txt 
 # the Dried Head (30319) the third floor takes one of from every member - as
 # r40250's Reaper does. It goes into his existing limit group, flat and certain
 # like his casket, because a second limit group for one monster is ignored.
+#
+# MT2009 Plus (26 September 2026): the Guardian stays commented out. The
+# MT2009 Plus client has no metin2_map_devilcatacomb (only the 7x7
+# metin2_map_devilscatacomb, and this server's map is 8x8), and a player
+# warped onto a map the client cannot load is thrown out at every login
+# after. The token drop stays; the Guardian comes back with the map.
 RUN set -eu; L=/opt/metin2/share/locale/poland \
- && sed -i -E 's#^//(m[[:blank:]]+548[[:blank:]]+494[[:blank:]].*[[:blank:]]20367[[:space:]]*)$#\1#' "$L/map/metin2_map_milgyo/npc.txt" \
- && grep -q -E '^m[[:blank:]]+548[[:blank:]]+494[[:blank:]].*[[:blank:]]20367' "$L/map/metin2_map_milgyo/npc.txt" \
  && sed -i -E '/^Group[[:blank:]]+RiperLimit/,/^}/ s/^([[:blank:]]+1[[:blank:]]+50082[[:blank:]]+1[[:blank:]]+100.*)$/&\n\t2\t30319\t1\t100\r/' "$L/mob_drop_item.txt" \
  && awk '/^Group[[:blank:]]+RiperLimit/{f=1} f&&/^}/{f=0} f&&/[[:blank:]]30319[[:blank:]]/{n++} END{exit n==1?0:1}' "$L/mob_drop_item.txt" \
- && echo "share: Devil's Catacomb opened (the Guardian in Hwang, the Reaper's token)"
+ && echo "share: the Reaper's token (Devil's Catacomb Guardian left out: no client map)"
+
+# MT2009 Plus (27 September 2026): the guild building materials - Kamien
+# Wegielny 90010, Pien 90011, Dykta 90012 - drop ten times as often from the
+# ordinary monsters that carry them (Mount Sohan's ice, the Fireland's fire,
+# the Hwang Temple's frogs: 0.09-0.4 in mob_drop_item.txt, one piece in
+# roughly a thousand to four thousand kills); the bosses' chances (40-300)
+# stay. The guilds build with them (playerbot_guild_land.h) and the guild
+# materials droppers farm them. Exactly fourteen lines, or the build stops.
+RUN set -eu; L=/opt/metin2/share/locale/poland \
+ && awk -F '\t' 'BEGIN{OFS="\t"} ($3 ~ /^9001[012]$/ && $5+0 > 0 && $5+0 < 1) {$5 = $5 * 10; n++} {print} END{print n > "/tmp/guildmat.count"}' "$L/mob_drop_item.txt" > /tmp/mob_drop_item.txt \
+ && [ "$(cat /tmp/guildmat.count)" = 14 ] \
+ && mv /tmp/mob_drop_item.txt "$L/mob_drop_item.txt" && rm -f /tmp/guildmat.count \
+ && echo "share: guild building materials x10 from ordinary monsters (14 lines)"
+
+# The costume sets (server-patches/playerqol, MT2009_PLUS_COSTUME_SET_V1): a
+# body and a hair of one line give +800 HP and +15 attack value. The game
+# reads it from its locale at the first equip; the client's tooltip has the
+# same lists in costume_sets.py.
+COPY costume_sets.txt /opt/metin2/share/locale/poland/costume_sets.txt
 
 # Seon-Pyeong's recipes (port/shareify.py renders cube.seon_pyeong.txt and this
 # step; the quest that opens his window is quest/seon_pyeong.quest above): a +9
@@ -455,6 +563,201 @@ RUN set -eu; C=/opt/metin2/share/locale/poland/cube.txt; A=/tmp/cube-add/cube.se
  && test "$(grep -c -E '^npc[[:blank:]]+20091[[:space:]]*$' "$C")" -eq "$n" \
  && echo "share: Seon-Pyeong's recipes appended to cube.txt ($n)"
 
+# MT2009_PLUS_OCHAO_V1 (share): Swiatynia Ochao, the Temple of Ochao of the
+# "Version 16.2" package - map 209, metin2_map_mt_th_dungeon_01, an open map
+# for level 95 and more, hosted on "first" (m2-render-config). Its server
+# files as the package ships them, its groups (group.ochao.txt) and drops
+# (mob_drop_item.ochao.txt: the package's vnums mapped to this world's), the
+# En-Tai Guardian's motions (data/monster/trent_officer) and the entrance NPC,
+# Straznik Swiatyni (20426): beside Koe-Pung in Orc Valley, on a cell measured
+# free on its server_attr, and where the package stands him in Dawnmistwood.
+# The Guardian's eleven rooms are playerbot_ochao.h; the NPCs' talk is
+# quest/temple_of_the_ochao.quest (compiled above).
+COPY ochao/ /tmp/ochao-add/
+RUN set -eu; L=/opt/metin2/share/locale/poland; A=/tmp/ochao-add \
+ && rm -rf "$L/map/metin2_map_mt_th_dungeon_01" && cp -a "$A/map/metin2_map_mt_th_dungeon_01" "$L/map/" \
+ && { [ -z "$(tail -c 1 "$L/map/index")" ] || printf '\n' >> "$L/map/index"; } \
+ && sed -i -E '/^209[[:blank:]]/d' "$L/map/index" && printf '209 metin2_map_mt_th_dungeon_01\n' >> "$L/map/index" \
+ && test "$(grep -c -E '^209[[:blank:]]+metin2_map_mt_th_dungeon_01' "$L/map/index")" -eq 1 \
+ && mkdir -p /opt/metin2/share/data/monster && rm -rf /opt/metin2/share/data/monster/trent_officer \
+ && cp -a "$A/data/monster/trent_officer" /opt/metin2/share/data/monster/ \
+ && ! grep -q -E '^Group[[:blank:]]+OchaoMonsters1[[:space:]]*$' "$L/group.txt" \
+ && { [ -z "$(tail -c 1 "$L/group.txt")" ] || printf '\n' >> "$L/group.txt"; } \
+ && sed 's/\r$//' "$A/group.ochao.txt" >> "$L/group.txt" \
+ && sed -i 's/\r$//; s/$/\r/' "$A/mob_drop_item.ochao.txt" \
+ && { [ -z "$(tail -c 1 "$L/mob_drop_item.txt")" ] || printf '\r\n' >> "$L/mob_drop_item.txt"; } \
+ && cat "$A/mob_drop_item.ochao.txt" >> "$L/mob_drop_item.txt" \
+ && for p in "map_n_threeway 289 1448 5" "metin2_map_dawnmistwood 1004 700 1"; do \
+      set -- $p; F="$L/map/$1/npc.txt"; \
+      [ -z "$(tail -c 1 "$F")" ] || printf '\n' >> "$F"; \
+      grep -q -E '[[:blank:]]20426[[:space:]]*$' "$F" || printf 'm\t%s\t%s\t0\t0\t0\t%s\t1m\t100\t1\t20426\n' "$2" "$3" "$4" >> "$F"; \
+      grep -q -E "^m[[:blank:]]+$2[[:blank:]]+$3[[:blank:]].*[[:blank:]]20426" "$F"; \
+    done \
+ && S="$L/settings.lua" \
+ && { LC_ALL=C grep -a -q 'add_goto_info("ochao"' "$S" || printf 'add_goto_info("ochao", 0, 209, 8537, 14164)\r\n' >> "$S"; } \
+ && rm -rf "$A" \
+ && echo "share: Swiatynia Ochao (map 209, groups, drops, Straznik Swiatyni, /goto ochao)"
+
+# MT2009_PLUS_DUNGEONS_V1: the Razador and Nemere dungeons (quest/razador_dungeon.quest and
+# quest/nemere_dungeon.quest, compiled above; their monsters, keys and names are apply.sh's
+# MT2009_PLUS_DUNGEONS_V1). Everything they need from the share goes in here:
+#  * metin2_map_n_snow_dungeon_01 (index 352, 4x3 at 512000 153600 - where the client's
+#    atlasinfo puts it) with its Setting/Town and a server_attr made by us (every cell
+#    walkable: the package never shipped the map, and the client's own attr decides where
+#    a player walks);
+#  * MT2009_PLUS_DUNGEON_DROP_V1: metin2_map_n_flame_dungeon_01's server_attr (351) made from the
+#    GF client's attr.atr (the one the 2.0.28 client walks on) with the package's no-PK cells
+#    kept - the package's own blocked the bridges' middles, so a player could not cross them
+#    (the owner, 29 September); 352's already is the client's;
+#  * the regen files of the two dungeons (data/dungeon/razador_mt: every fourth line of the
+#    package's flame_dungeon files, a party of level 55 and not the 100+ the package planned;
+#    data/dungeon/nemere_mt: the ice rooms, the package's ice_dungeon groups of groups);
+#  * the public copies of 351 and 352 are the lobbies (both maps on game2, see
+#    m2-render-config): nothing spawns there but the NPC that opens the instance - the
+#    Am-heh statue (20385) on 351, the stone lion (20397) on 352; the package's own
+#    npc.txt/regen.txt filled 351 with Razador's hourly group;
+#  * the two guards: the Fire Land's (20394) on map 62 at the archive's exit cell (91,916),
+#    the Ice Land's (20395) on Mount Sohan (61) at (738,119); both cells measured free;
+#  * the Nemere dungeon's drops, mirrored from the package's Razador groups;
+#  * MT2009_PLUS_NEMERE_GOLEM_MAG_V1: the Lodowy Golem Mag's (6107, icegolem_magician) run
+#    motion - the package's run.msa moves it BACKWARDS (Accumulation y +15.84, every other
+#    mob's is negative), so the server's move speed for it was negative and every chase got
+#    a move duration of ~4e9 ms (a negative int in a DWORD): its server position no longer
+#    matched the one the client drew, the player's hits landed out of range (no HP taken)
+#    and the player was pulled across the room. The client's run.msa
+#    (gf_nemere, the same run.GR2) has -310.21; the server takes the same number.
+# Older packages' shares (a VPS on 2.14.0, 29 September) list no 351 in map/index and
+# already carry a Mob 6191 group: the index line is added like 352's, and the awk below
+# drops any 6091/6191 group but the chest previews, so only our own groups guard against
+# a second append.
+COPY dungeons/ /tmp/dungeons-add/
+RUN set -eu; L=/opt/metin2/share/locale/poland; A=/tmp/dungeons-add \
+ && find "$A" -type f -name '*.txt' -exec sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/$/\r/' {} + \
+ && cp -a "$A/map/metin2_map_n_snow_dungeon_01" "$L/map/" \
+ && cp "$A/map/metin2_map_n_flame_dungeon_01/server_attr" "$L/map/metin2_map_n_flame_dungeon_01/server_attr" \
+ && { [ -z "$(tail -c 1 "$L/map/index")" ] || printf '\n' >> "$L/map/index"; } \
+ && { grep -q -E '^352[[:blank:]]' "$L/map/index" || printf '352 metin2_map_n_snow_dungeon_01\n' >> "$L/map/index"; } \
+ && { grep -q -E '^351[[:blank:]]' "$L/map/index" || printf '351 metin2_map_n_flame_dungeon_01\n' >> "$L/map/index"; } \
+ && test "$(grep -c -E '^352[[:blank:]]+metin2_map_n_snow_dungeon_01[[:space:]]*$' "$L/map/index")" = 1 \
+ && test "$(grep -c -E '^351[[:blank:]]+metin2_map_n_flame_dungeon_01[[:space:]]*$' "$L/map/index")" = 1 \
+ && mkdir -p /opt/metin2/share/data/dungeon \
+ && cp -a "$A/data/dungeon/razador_mt" "$A/data/dungeon/nemere_mt" /opt/metin2/share/data/dungeon/ \
+ && M=/opt/metin2/share/data/monster/icegolem_magician/run.msa \
+ && sed -i -E 's/^(Accumulation[[:blank:]]+)0\.00[[:blank:]]+15\.84[[:blank:]]+0\.00/\10.00\t-310.21\t0.00/' "$M" \
+ && grep -q -E '^Accumulation[[:blank:]]+0\.00[[:blank:]]+-310\.21[[:blank:]]+0\.00' "$M" \
+ && for f in regen.txt npc.txt boss.txt stone.txt; do : > "$L/map/metin2_map_n_flame_dungeon_01/$f"; done \
+ && printf 'm\t348\t578\t0\t0\t0\t0\t60s\t100\t1\t20385\r\n' > "$L/map/metin2_map_n_flame_dungeon_01/npc.txt" \
+ && for p in "metin2_map_n_flame_01 95 910 20394" "map_n_snowm_01 742 114 20395"; do \
+      set -- $p; F="$L/map/$1/npc.txt"; \
+      [ -z "$(tail -c 1 "$F")" ] || printf '\n' >> "$F"; \
+      grep -q -E "[[:blank:]]$4[[:space:]]*\$" "$F" || printf 'm\t%s\t%s\t0\t0\t0\t0\t60s\t100\t1\t%s\n' "$2" "$3" "$4" >> "$F"; \
+      grep -q -E "^m[[:blank:]]+$2[[:blank:]]+$3[[:blank:]].*[[:blank:]]$4" "$F"; \
+    done \
+ && ! grep -q -E '^Group[[:blank:]]+MT2009_nemere_' "$L/mob_drop_item.txt" \
+ && { [ -z "$(tail -c 1 "$L/mob_drop_item.txt")" ] || printf '\r\n' >> "$L/mob_drop_item.txt"; } \
+ && cat "$A/mob_drop_item.dungeons.append.txt" >> "$L/mob_drop_item.txt" \
+ && awk '/^Group/{inb=1; blk=""; cut=0; name=$2} \
+      inb { blk = blk $0 "\n"; if ($0 ~ /^[[:blank:]]*Mob[[:blank:]]+(6091|6191)([^0-9]|$)/ && name !~ /^MT2009_chest_preview_/) cut = 1; \
+            if ($0 ~ /^}/) { inb = 0; if (!cut) printf "%s", blk }; next } \
+      { print }' "$L/mob_drop_item.txt" > "$L/mob_drop_item.txt.new" && mv "$L/mob_drop_item.txt.new" "$L/mob_drop_item.txt" \
+ && test "$(grep -c -E '^[[:blank:]]*Mob[[:blank:]]+(6091|6191)([^0-9]|$)' "$L/mob_drop_item.txt")" = 2 \
+ && test "$(grep -c -E '^Group[[:blank:]]+MT2009_chest_preview_(6091|6191)' "$L/mob_drop_item.txt")" = 2 \
+ && test "$(grep -c -E '^Group[[:blank:]]+MT2009_nemere_' "$L/mob_drop_item.txt")" = 9 \
+ && test "$(od -An -tx1 -j4 -N4 "$L/map/metin2_map_n_snow_dungeon_01/server_attr" | tr -d ' ')" = 0c000000 \
+ && test "$(od -An -tx1 -N8 "$L/map/metin2_map_n_flame_dungeon_01/server_attr" | tr -d ' ')" = 0c0000000c000000 \
+ && rm -rf "$A" \
+ && echo "share: Razador (351) and Nemere (352) dungeons, their guards and the Nemere drops"
+# (MT2009_PLUS_DUNGEON_DROP_V1: Razador (6091) and Nemere (6191) drop only yang - the owner,
+# 29 September; their loot is the 2-5 chests per player of the quests - so every drop group
+# of theirs is cut whole above but the 0% chest previews; item_manager.cpp drops nothing
+# for them either.)
+# The level-75 weapons, the Reaper's and Azrael's, not the Spider Baroness's
+# (MT2009_PLUS_LEVEL75_DROP_V1; upstream 2.2.39, the operator's decision of
+# 29 September). Her limit group (mob 2092) loses its 12 lines of
+# level 75 - six families at +3 and +4 - and is numbered again: the reader
+# stops at the first index a group lacks, and the drop preview lists every
+# line whatever its chance. The Reaper (1093) and Azrael (2598) get the 7
+# families of 75, the fan of 75 among them, in their own limit groups (a second
+# one for a monster is ignored), numbered on from the last line - the Reaper's
+# Dried Head above included: the Reaper +3 at 10%, +4 at 5%; Azrael
+# +3 at 20%, +4 at 10%. The drop preview reads the loaded groups, so it follows.
+RUN set -eu; F=/opt/metin2/share/locale/poland/mob_drop_item.txt \
+ ; C='183 184 193 194 3163 3164 2173 2174 1133 1134 5123 5124' \
+ ; A='1093:183:10:Zatruty_miecz+3 1093:184:5:Zatruty_miecz+4 \
+      1093:193:10:Lwi_Miecz+3 1093:194:5:Lwi_Miecz+4 \
+      1093:3163:10:Miecz_Zalu+3 1093:3164:5:Miecz_Zalu+4 \
+      1093:2173:10:Stalowy_Luk_Kruka+3 1093:2174:5:Stalowy_Luk_Kruka+4 \
+      1093:1133:10:Skrzydla_Demona_Chakr.+3 1093:1134:5:Skrzydla_Demona_Chakr.+4 \
+      1093:7183:10:Wachlarz_8_Trigramow+3 1093:7184:5:Wachlarz_8_Trigramow+4 \
+      1093:5123:10:Bambusowy_Dzwon+3 1093:5124:5:Bambusowy_Dzwon+4 \
+      2598:183:20:Zatruty_miecz+3 2598:184:10:Zatruty_miecz+4 \
+      2598:193:20:Lwi_Miecz+3 2598:194:10:Lwi_Miecz+4 \
+      2598:3163:20:Miecz_Zalu+3 2598:3164:10:Miecz_Zalu+4 \
+      2598:2173:20:Stalowy_Luk_Kruka+3 2598:2174:10:Stalowy_Luk_Kruka+4 \
+      2598:1133:20:Skrzydla_Demona_Chakr.+3 2598:1134:10:Skrzydla_Demona_Chakr.+4 \
+      2598:7183:20:Wachlarz_8_Trigramow+3 2598:7184:10:Wachlarz_8_Trigramow+4 \
+      2598:5123:20:Bambusowy_Dzwon+3 2598:5124:10:Bambusowy_Dzwon+4' \
+ && awk -v from=2092 -v cut="$C" -v add="$A" ' \
+      function flush(   i, t, f, j, lead, mx, k, nm) { \
+        if (typ == "limit" && mob == from) { \
+          hits++; j = 0; \
+          for (i = 1; i <= nb; i++) { \
+            t = B[i]; sub(/\r$/, "", t); \
+            if (split(t, f) >= 2 && f[1] ~ /^[0-9]+$/) { \
+              if (f[2] in C) { gone++; continue; } \
+              match(B[i], /^[ \t]*[0-9]+/); lead = substr(B[i], 1, RLENGTH); sub(/[0-9]+$/, "", lead); \
+              print lead (++j) substr(B[i], RLENGTH + 1); \
+            } else print B[i]; \
+          } \
+        } else if (typ == "limit" && (mob in NA)) { \
+          got[mob]++; mx = 0; \
+          for (i = 1; i <= nb; i++) { \
+            t = B[i]; sub(/\r$/, "", t); \
+            if (split(t, f) >= 2 && f[1] ~ /^[0-9]+$/) { \
+              if (f[1] + 0 > mx) mx = f[1] + 0; \
+              for (k = 1; k <= NA[mob]; k++) if (AV[mob, k] == f[2]) twice++; \
+            } \
+            if (i < nb) print B[i]; \
+          } \
+          for (k = 1; k <= NA[mob]; k++) { nm = AN[mob, k]; gsub(/_/, " ", nm); printf "\t%d\t%s\t1\t%s\t-- %s\r\n", mx + k, AV[mob, k], AP[mob, k], nm; } \
+          print B[nb]; \
+        } else for (i = 1; i <= nb; i++) print B[i]; \
+      } \
+      BEGIN { nc = split(cut, c, " "); for (i = 1; i <= nc; i++) C[c[i]] = 1; n = split(add, a, " "); for (i = 1; i <= n; i++) { split(a[i], p, ":"); k = ++NA[p[1]]; AV[p[1], k] = p[2]; AP[p[1], k] = p[3]; AN[p[1], k] = p[4]; } } \
+      /^Group/ { inb = 1; nb = 0; mob = ""; typ = ""; } \
+      !inb { print; next; } \
+      { B[++nb] = $0; t = $0; sub(/\r$/, "", t); k = split(t, f); if (k >= 2 && tolower(f[1]) == "mob") mob = f[2]; if (k >= 2 && tolower(f[1]) == "type") typ = tolower(f[2]); } \
+      /^}/ { flush(); inb = 0; } \
+      END { if (inb) flush(); if (hits != 1 || gone != nc) { printf "share: %d limit groups of %s, %d of its %d lines of 75 cut\n", hits, from, gone, nc > "/dev/stderr"; bad = 1; } for (m in NA) if (got[m] != 1) { printf "share: %d limit groups of %s\n", got[m], m > "/dev/stderr"; bad = 1; } if (twice) { printf "share: %d lines of 75 were there already\n", twice > "/dev/stderr"; bad = 1; } exit bad; } \
+      ' "$F" > "$F.new" \
+ && mv "$F.new" "$F" \
+ && awk -v from=2092 -v cut="$C" -v add="$A" ' \
+      function check(   i, n, key, q) { \
+        seen[mob]++; \
+        for (i = 1; i <= nb; i++) if (I[i] != i) { printf "share: line %d of the limit group of %s is numbered %d\n", i, mob, I[i] > "/dev/stderr"; bad = 1; } \
+        if (mob == from) { for (i = 1; i <= nb; i++) if (V[i] in C) { printf "share: %s is still in the limit group of %s\n", V[i], mob > "/dev/stderr"; bad = 1; } return; } \
+        for (key in W) { split(key, q, SUBSEP); if (q[1] != mob) continue; n = 0; for (i = 1; i <= nb; i++) if (V[i] == q[2]) n++; if (n != 1) { printf "share: %s is %d times in the limit group of %s\n", q[2], n, mob > "/dev/stderr"; bad = 1; } } \
+      } \
+      BEGIN { nc = split(cut, c, " "); for (i = 1; i <= nc; i++) C[c[i]] = 1; n = split(add, a, " "); for (i = 1; i <= n; i++) { split(a[i], p, ":"); W[p[1], p[2]] = 1; M[p[1]] = 1; } } \
+      /^Group/ { mob = ""; typ = ""; nb = 0; } \
+      { t = $0; sub(/\r$/, "", t); k = split(t, f); if (k >= 2 && tolower(f[1]) == "mob") mob = f[2]; if (k >= 2 && tolower(f[1]) == "type") typ = tolower(f[2]); if (k >= 2 && f[1] ~ /^[0-9]+$/) { nb++; I[nb] = f[1] + 0; V[nb] = f[2]; } } \
+      /^}/ && typ == "limit" && (mob == from || (mob in M)) { check(); } \
+      END { if (seen[from] != 1) { printf "share: %d limit groups of %s\n", seen[from], from > "/dev/stderr"; bad = 1; } for (m in M) if (seen[m] != 1) { printf "share: %d limit groups of %s\n", seen[m], m > "/dev/stderr"; bad = 1; } exit bad; } \
+      ' "$F" \
+ && echo "share: the level-75 weapons are the Reaper's and Azrael's, not the Spider Baroness's"
+
+# A herbal recipe is read without a wait (port/shareify.py renders this step;
+# Iwakura for Derpsonkowy95, 29 September): crafting.learn_recipe wrote a wait
+# of SKILLBOOK_LEARN_DELAY - twenty-one hours - on every recipe a read took and
+# refused the next read until it ran out or an Exorcism Scroll was spent. It is
+# no longer written, and one written before is no longer asked.
+RUN set -eu; F=/opt/metin2/share/locale/poland/quest/libs/crafting/crafting.lua \
+ && LC_ALL=C sed -i -E 's/^([[:blank:]]*local is_delay = )delta_delay > 0([[:space:]]*)$/\1false\2/; s/^([[:blank:]]*set_flag\("learn_delay"\.\.vnum, )get_time\(\) \+ SKILLBOOK_LEARN_DELAY\)([[:space:]]*)$/\10)\2/' "$F" \
+ && test "$(LC_ALL=C grep -c -E '^[[:blank:]]*local is_delay = false[[:space:]]*$' "$F")" -eq 1 \
+ && test "$(LC_ALL=C grep -c -E 'set_flag\("learn_delay"\.\.vnum, 0\)' "$F")" -eq 1 \
+ && ! LC_ALL=C grep -q 'SKILLBOOK_LEARN_DELAY' "$F" \
+ && echo "share: a recipe is read without a wait"
+
 # The Spider Baroness (port/shareify.py renders special_spawns.baroness.txt and
 # this step): the level-75 boss who drops the Stalki, stood in the second
 # Spider Dungeon's last room every four to five hours (the operator's decision
@@ -469,15 +772,6 @@ RUN set -eu; S=/opt/metin2/share/locale/poland/special_spawns.txt; A=/tmp/spawn-
  && rm -rf /tmp/spawn-add \
  && test "$(grep -c -E '^[[:blank:]]*spawn_vnum[[:blank:]]+2092[[:space:]]*$' "$S")" -eq 1 \
  && echo "share: the Spider Baroness spawns in the second Spider Dungeon"
-
-# The official English names of this world's items and monsters, rendered by
-# upstream's tools/generate_english_names.py from Gameforge's own tables (2.2.36;
-# the tool is not in this repository, its output is): what the core
-# names an item, a monster or an NPC by for a person whose client reads English
-# - a bot's chat line, its shout, its shop's title, an NPC over its head
-# (playerbot_language.h). Read once from here by every core; without it every
-# name is the proto's Polish one.
-COPY playerbot_names_en.tsv /opt/metin2/share/playerbot_names_en.tsv
 
 # The cores run unprivileged and read this tree by path; a directory only root
 # can enter costs every quest below it, silently. Repair, then assert.

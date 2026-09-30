@@ -78,7 +78,8 @@ namespace
 	{
 		if (!ch || (int)ch->GetHorseLevel() >= level)
 			return;
-		const bool wasRiding = ch->IsRiding();
+		// The horse's own saddle only: a bot on its ItemShop mount stays on it.
+		const bool wasRiding = ch->IsHorseRiding();
 		if (wasRiding)
 			ch->StopRiding();
 		ch->SetHorseLevel(level);
@@ -104,8 +105,10 @@ namespace
 		const BYTE horseLevel = ch->GetHorseLevel();
 		const bool bBattleHorseWaiting = IsPlayerBotBattleHorseEarned(ch) &&
 				ch->GetGold() >= (int)PLAYERBOT_BATTLE_HORSE_FEE;
+		// The medals a due saddlebag row takes are the row's, not the horse's.
+		const int medalReserve = GetPlayerBotSaddlebagMedalReserve(ch);
 		if (!bBattleHorseWaiting && (!CanPlayerBotAdvanceHorse(ch) ||
-				ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) <= 0))
+				(int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) <= medalReserve))
 		{
 			state.bVisitingStable = false;
 			state.dwNextHorseActionTime = 0;
@@ -214,7 +217,7 @@ namespace
 			return false;
 		}
 
-		if (ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) <= 0)
+		if ((int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) <= GetPlayerBotSaddlebagMedalReserve(ch))
 		{
 			state.bVisitingStable = false;
 			state.dwNextHorseActionTime = 0;
@@ -241,7 +244,7 @@ namespace
 				ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM));
 
 		if (delivered >= 21 || !CanPlayerBotAdvanceHorse(ch) ||
-				ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) <= 0)
+				(int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) <= GetPlayerBotSaddlebagMedalReserve(ch))
 		{
 			state.bVisitingStable = false;
 			state.dwNextHorseActionTime = 0;
@@ -348,6 +351,9 @@ namespace
 		// the event is out on its own map (playerbot_world_events.h).
 		if (state.bWorldEventKind != 0)
 			return false;
+		// MT2009_PLUS_BP_BOTS_V1: gone fishing for a Battle Pass mission.
+		if (playerbot_bpbots::WantsFishing(ch))
+			return true;
 		if (IsPlayerBotPersonaEnabled() && state.persona.bRestored)
 			return IsPlayerBotRybakNow(ch, state, get_dword_time());
 		const DWORD roll = PlayerBotNavHash(ch->GetPlayerID() ^ 0x46495348U) % 100U;
@@ -1350,6 +1356,10 @@ namespace
 		}
 		if (!pass)
 		{
+			// One card a trip for a companion sent fishing: the owner's, never
+			// a bought one.
+			if (IsPlayerBotSidekickFishing(ch->GetPlayerID()))
+				return false;
 			if (ch->GetGold() < (int)(PLAYERBOT_FISHING_PASS_PRICE + GetPlayerBotReservedGold(ch)))
 				return false;
 			// AutoGiveItem drops what the bag cannot take at the bot's feet.
@@ -1490,7 +1500,10 @@ namespace
 
 		if (!state.bFishingSession)
 		{
-			if (dwNow < state.dwNextFishingCheckTime || !IsPlayerBotAngler(ch, state))
+			// A companion its owner sent fishing is an angler for as long as
+			// its card lasts (playerbot_sidekick.h, "Na ryby").
+			if (dwNow < state.dwNextFishingCheckTime ||
+					!(IsPlayerBotAngler(ch, state) || IsPlayerBotSidekickFishing(ch->GetPlayerID())))
 				return false;
 			// Never walk off mid-fight; finish the pack first.
 			LPCHARACTER victim = state.dwTargetVID != 0

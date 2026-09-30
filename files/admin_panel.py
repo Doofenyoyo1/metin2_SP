@@ -207,143 +207,6 @@ HUNTING_MOB_NAMES_PL = {
     5126: "Silna Złota Małpa",
 }
 
-# The level-up hunt's monsters in the page's language: Polish above, English
-# in HUNTING_MISSIONS, German and Turkish here (r40250 only - the hunt is in
-# quest/_unused on mt2009).
-HUNTING_MOB_NAMES_BY_LANG = {
- "pl": HUNTING_MOB_NAMES_PL,
- "de": {
-  171: "Hungriger Wilder Hund",
-  172: "Hungriger Wolf",
-  173: "Hungriger Alphawolf",
-  174: "Hungriger Blauer Wolf",
-  175: "Hungriger Blauer Alphawolf",
-  176: "Hungriger Grauer Wolf",
-  177: "Hungriger Grauer Alphawolf",
-  178: "Hungriges Wildschwein",
-  179: "Hungriges Rotes Wildschwein",
-  180: "Hungriger Bär",
-  181: "Hungriger Grizzly",
-  182: "Hungriger Schwarzbär",
-  183: "Hungriger Braunbär",
-  184: "Hungriger Tiger",
-  185: "Hungriger Weißer Tiger",
-  352: "Feiger Bogenschütze des Weißen Schwurs",
-  354: "Feiger Kommandant des Weißen Schwurs",
-  402: "Wahnsinniger des Schwarzen Windes",
-  451: "Böser Soldat des Schwarzen Sturms",
-  454: "Böser Joh-Hwan des Schwarzen Sturms",
-  456: "Böser Pho-Hwan des Schwarzen Sturms",
-  551: "Starker Wilder Infanterist",
-  552: "Starker Wilder Scherge",
-  554: "Starker Wilder General",
-  601: "Ork",
-  651: "Großer Kahler Ork",
-  652: "Großer Kahler Ork-Späher",
-  653: "Großer Kahler Ork-Kämpfer",
-  751: "Hoher Fanatiker",
-  752: "Hoher Arahan",
-  754: "Hoher Elite-Arahan",
-  756: "Hoher Peiniger",
-  757: "Hoher Beschwörer",
-  771: "Bestialischer Fanatiker",
-  772: "Bestialischer Arahan",
-  773: "Bestialischer Arahan-Kämpfer",
-  774: "Bestialischer Arahan-Häuptling",
-  775: "Bestialischer Scharfrichter",
-  776: "Bestialischer Peiniger",
-  777: "Bestialischer Beschwörer",
-  931: "Wütender Leichengeist",
-  932: "Wütender Verseuchter Hund",
-  933: "Wütender Verseuchter Mann",
-  934: "Wütender Verseuchter Kämpfer",
-  1001: "Dämonensoldat",
-  1301: "Laubfrosch-Soldat",
-  2003: "Rote Giftspinne",
-  2004: "Klauenspinne",
-  2005: "Soldatenspinne",
-  2031: "Junge Giftspinne",
-  2032: "Tödliche Giftspinne",
-  2033: "Wütende Rote Giftspinne",
-  2034: "Klauen-Giftspinne",
-  2051: "Gemeine Junge Giftspinne",
-  2052: "Gemeine Tödliche Giftspinne",
-  2102: "Fliegendes Wüstenauge",
-  2103: "Königsskorpion",
-  2106: "Schlangen-Schwertkämpfer",
-  2158: "Starker Wüstenbandit",
-  5123: "Starker Affenkämpfer",
-  5124: "Starker Affengeneral",
-  5125: "Starker Steinaffe",
-  5126: "Starker Goldaffe",
- },
- "tr": {
-  171: "Aç Vahşi Köpek",
-  172: "Aç Kurt",
-  173: "Aç Alfa Kurt",
-  174: "Aç Mavi Kurt",
-  175: "Aç Alfa Mavi Kurt",
-  176: "Aç Gri Kurt",
-  177: "Aç Alfa Gri Kurt",
-  178: "Aç Yaban Domuzu",
-  179: "Aç Kızıl Yaban Domuzu",
-  180: "Aç Ayı",
-  181: "Aç Boz Ayı",
-  182: "Aç Kara Ayı",
-  183: "Aç Kahverengi Ayı",
-  184: "Aç Kaplan",
-  185: "Aç Beyaz Kaplan",
-  352: "Korkak Beyaz Yemin Okçusu",
-  354: "Korkak Beyaz Yemin Komutanı",
-  402: "Kara Rüzgâr Delisi",
-  451: "Kötü Kara Fırtına Askeri",
-  454: "Kötü Kara Fırtına Joh-Hwan",
-  456: "Kötü Kara Fırtına Pho-Hwan",
-  551: "Güçlü Vahşi Piyade",
-  552: "Güçlü Vahşi Uşak",
-  554: "Güçlü Vahşi General",
-  601: "Ork",
-  651: "Büyük Kel Ork",
-  652: "Büyük Kel Ork İzcisi",
-  653: "Büyük Kel Ork Savaşçısı",
-  751: "Yüce Fanatik",
-  752: "Yüce Arahan",
-  754: "Yüce Seçkin Arahan",
-  756: "Yüce İşkenceci",
-  757: "Yüce Çağırıcı",
-  771: "Yırtıcı Fanatik",
-  772: "Yırtıcı Arahan",
-  773: "Yırtıcı Arahan Savaşçısı",
-  774: "Yırtıcı Arahan Şefi",
-  775: "Yırtıcı Cellat",
-  776: "Yırtıcı İşkenceci",
-  777: "Yırtıcı Çağırıcı",
-  931: "Öfkeli Ceset Hayaleti",
-  932: "Öfkeli Vebalı Köpek",
-  933: "Öfkeli Vebalı Adam",
-  934: "Öfkeli Vebalı Savaşçı",
-  1001: "Şeytan Askeri",
-  1301: "Ağaç Kurbağası Askeri",
-  2003: "Kızıl Zehirli Örümcek",
-  2004: "Pençeli Örümcek",
-  2005: "Asker Örümcek",
-  2031: "Yavru Zehirli Örümcek",
-  2032: "Ölümcül Zehirli Örümcek",
-  2033: "Öfkeli Kızıl Zehirli Örümcek",
-  2034: "Pençeli Zehirli Örümcek",
-  2051: "Hain Yavru Zehirli Örümcek",
-  2052: "Hain Ölümcül Zehirli Örümcek",
-  2102: "Uçan Çöl Gözü",
-  2103: "Kral Akrep",
-  2106: "Yılan Kılıç Ustası",
-  2158: "Güçlü Çöl Haydudu",
-  5123: "Güçlü Maymun Savaşçısı",
-  5124: "Güçlü Maymun Generali",
-  5125: "Güçlü Taş Maymun",
-  5126: "Güçlü Altın Maymun",
- },
-}
-
 # A skill book is vnum 50300 (or a named book) with the skill id in socket0;
 # the bag showed only "Ksiega Umiejetnosci" and nobody could tell which
 # skill it was (13 September). Flatten the per-class skill tables
@@ -363,7 +226,7 @@ def item_full_name(vnum, socket0, language=None):
         vt = 0
     # 17 = ITEM_SKILLBOOK. The skill id lives in socket0.
     if vt == 17 and int(socket0 or 0) > 0:
-        table = SKILL_NAMES_BY_LANG.get(language, SKILL_ID_NAMES)
+        table = SKILL_ID_NAMES_PL if language == "pl" else SKILL_ID_NAMES
         sk = table.get(int(socket0)) or SKILL_ID_NAMES.get(int(socket0))
         if sk:
             name = "%s: %s" % (name, sk)
@@ -382,7 +245,8 @@ def hunting_progress_label(current, selection, remain, complete, language=None):
     mission = HUNTING_MISSIONS.get(current)
     if mission:
         mob_vnum, mob_name, required = mission[selection - 1]
-        mob_name = HUNTING_MOB_NAMES_BY_LANG.get(language, {}).get(mob_vnum, mob_name)
+        if language == "pl":
+            mob_name = HUNTING_MOB_NAMES_PL.get(mob_vnum, mob_name)
         done = max(0, required - remain)
         return "Lv %d • %s: %d/%d" % (current, mob_name, done, required)
     messages = map_i18n(language)
@@ -410,14 +274,6 @@ PLAYERBOT_STATUS_PATHS = (
     "/opt/metin2/var/channel2/first/playerbot_status.tsv",
     "/opt/metin2/var/channel2/game1/playerbot_status.tsv",
     "/opt/metin2/var/channel2/game2/playerbot_status.tsv",
-    # And the fresh cohort's third and fourth (M2_PLAYERBOT_FRESH_CHANNELS). A
-    # channel switched off clears its files at the next start (m2-render-config).
-    "/opt/metin2/var/channel3/first/playerbot_status.tsv",
-    "/opt/metin2/var/channel3/game1/playerbot_status.tsv",
-    "/opt/metin2/var/channel3/game2/playerbot_status.tsv",
-    "/opt/metin2/var/channel4/first/playerbot_status.tsv",
-    "/opt/metin2/var/channel4/game1/playerbot_status.tsv",
-    "/opt/metin2/var/channel4/game2/playerbot_status.tsv",
 )
 _PLAYERBOT_STATUS_LOCK = threading.Lock()
 _PLAYERBOT_STATUS_CACHE_KEY = None
@@ -434,7 +290,7 @@ BOT_PERSONALITY_LABELS = {
         0: "Wytrwały poszukiwacz", 1: "Pogromca Metinów", 2: "Towarzysz drużyny",
         3: "Mistrz ekwipunku", 4: "Rozważny zbieracz", 5: "Handlarz",
         6: "Wędrowiec", 7: "Dropek Metinów", 8: "Dropek z M3",
-        9: "Dropek z M2", 10: "Dropek medali",
+        9: "Dropek z M2", 10: "Dropek medali", 11: "Dropek surowców",
     },
     "en": {
         0: "Steady adventurer", 1: "Metin breaker", 2: "Team companion",
@@ -442,12 +298,6 @@ BOT_PERSONALITY_LABELS = {
         6: "Wanderer", 7: "Metin dropper", 8: "M3 weapon dropper",
         9: "M2 Bestial dropper", 10: "Medal dropper",
     },
-    "de": {0: "Beharrlicher Abenteurer", 1: "Metinbrecher", 2: "Gruppengefährte",
-        3: "Ausrüstungsmeister", 4: "Umsichtiger Sammler", 5: "Händler", 6: "Wanderer",
-        7: "Metin-Farmer", 8: "M3-Waffen-Farmer", 9: "M2-Bestien-Farmer", 10: "Medaillen-Farmer"},
-    "tr": {0: "Azimli maceracı", 1: "Metin kırıcı", 2: "Grup arkadaşı", 3: "Ekipman ustası",
-        4: "Temkinli toplayıcı", 5: "Tüccar", 6: "Gezgin", 7: "Metin farmcısı",
-        8: "M3 silah farmcısı", 9: "M2 Yırtıcı farmcısı", 10: "Madalya farmcısı"},
 }
 # The status file's columns before Iwakura's personalities (2.0.85): a core of
 # that age writes these fourteen and no header row the parser can read by.
@@ -482,28 +332,14 @@ BOT_PERSONA_LABELS = {
         15: "Junior Gambler", 16: "Senior Gambler",
         17: "Chief Gambler", 18: "Mad Gambler",
     },
-    "de": {0: "Grinder", 1: "Eroberer", 2: "Händler", 3: "Zocker", 4: "Perfektionist",
-        5: "Metinbezwinger", 6: "Bergmann", 7: "Fischer", 8: "Söldner", 9: "Gefährte",
-        10: "Metinologe", 11: "Süchtiger", 12: "Verrückter Wissenschaftler", 13: "Vollstrecker",
-        14: "Verrückter Angler", 15: "Junior-Zocker", 16: "Senior-Zocker", 17: "Chefzocker",
-        18: "Verrückter Zocker"},
-    "tr": {0: "Kasıcı", 1: "Fatih", 2: "Tüccar", 3: "Kumarbaz", 4: "Mükemmeliyetçi",
-        5: "Metin avcısı", 6: "Madenci", 7: "Balıkçı", 8: "Paralı Asker", 9: "Yoldaş",
-        10: "Metinolog", 11: "Bağımlı", 12: "Çılgın Bilim Adamı", 13: "Cellat",
-        14: "Çılgın Oltacı", 15: "Acemi Kumarbaz", 16: "Kıdemli Kumarbaz", 17: "Baş Kumarbaz",
-        18: "Çılgın Kumarbaz"},
 }
 BOT_MOOD_LABELS = {
     "pl": {0: "Słaby", 1: "Normalny", 2: "Bardzo dobry"},
     "en": {0: "Poor", 1: "Normal", 2: "Very good"},
-    "de": {0: "Schwach", 1: "Normal", 2: "Sehr gut"},
-    "tr": {0: "Zayıf", 1: "Normal", 2: "Çok iyi"},
 }
 BOT_MOOD_LOCK_LABELS = {
     "pl": {1: "euforia po ulepszeniu", 2: "kapitulacja (Anty-PK)"},
     "en": {1: "refine euphoria", 2: "capitulation (anti-PK)"},
-    "de": {1: "Euphorie nach einer Verbesserung", 2: "Kapitulation (Anti-PK)"},
-    "tr": {1: "yükseltme coşkusu", 2: "teslimiyet (Anti-PK)"},
 }
 # The droppers (IsPlayerBotDropper in playerbot_types.h). A dropper farms one
 # thing for the market and takes neither the Biologist nor a horse trial -
@@ -520,10 +356,6 @@ BOT_AMBITION_LABELS = {
         0: "Level", 1: "Equipment", 2: "Metins", 3: "Horse",
         4: "Biologist", 5: "Skills", 6: "Trade",
     },
-    "de": {0: "Level", 1: "Ausrüstung", 2: "Metins", 3: "Pferd", 4: "Biologe", 5: "Fertigkeiten",
-        6: "Handel"},
-    "tr": {0: "Seviye", 1: "Ekipman", 2: "Metinler", 3: "At", 4: "Biyolog", 5: "Beceriler",
-        6: "Ticaret"},
 }
 BOT_GOAL_LABELS = {
     "pl": {
@@ -538,13 +370,6 @@ BOT_GOAL_LABELS = {
         6: "Improve skills", 7: "Hunt Metins", 8: "Party challenges",
         9: "Biologist mission", 10: "Hunting mission", 11: "Develop horse",
     },
-    "de": {0: "Leveln", 1: "Überleben", 2: "Spezialisierung wählen", 3: "Ausrüstung beschaffen",
-        4: "Vorräte auffüllen", 5: "EQ verbessern", 6: "Fertigkeiten ausbauen", 7: "Metins jagen",
-        8: "Starke Gegner in der Gruppe", 9: "Biologen-Mission", 10: "Jagdmission",
-        11: "Pferd ausbilden"},
-    "tr": {0: "Seviye atlama", 1: "Hayatta kalma", 2: "Uzmanlık seçimi", 3: "Ekipman edinme",
-        4: "Stok yenileme", 5: "EQ yükseltme", 6: "Beceri geliştirme", 7: "Metin avı",
-        8: "Grupla güçlü hedefler", 9: "Biyolog görevi", 10: "Av görevi", 11: "At geliştirme"},
 }
 # The action id a keeper reports while its stall stands. Must match
 # BOT_ACTION_STALL in playerbot_types.h - the id travels in the status file, so
@@ -571,19 +396,6 @@ BOT_ACTION_LABELS = {
         13: "Keeping a stall", 14: "Fishing", 15: "Browsing stalls",
         16: "Luring monsters", 17: "Resting in town", 18: "Mining ore",
     },
-    "de": {0: "Plant den nächsten Schritt", 1: "Reist", 2: "Kämpft", 3: "Hebt Beute auf",
-        4: "Regeneriert sich", 5: "Wählt eine Spezialisierung", 6: "Handelt", 7: "Verbessert EQ",
-        8: "Liest ein Fertigkeitsbuch", 9: "Setzt einen Geiststein ein",
-        10: "Stellt eine Gruppe zusammen", 11: "Erledigt die Biologen-Mission",
-        12: "Besucht den Stallburschen", 13: "Betreibt einen Stand", 14: "Angelt",
-        15: "Stöbert an Ständen", 16: "Lockt Monster an", 17: "Rastet in der Stadt",
-        18: "Baut Erz ab"},
-    "tr": {0: "Sonraki hamlesini planlıyor", 1: "Yolculuk ediyor", 2: "Savaşıyor",
-        3: "Ganimet topluyor", 4: "Toparlanıyor", 5: "Uzmanlık seçiyor", 6: "Ticaret yapıyor",
-        7: "EQ yükseltiyor", 8: "Beceri Kitabı okuyor", 9: "Ruh Taşı takıyor", 10: "Grup kuruyor",
-        11: "Biyolog görevini yapıyor", 12: "Seyis'i ziyaret ediyor", 13: "Tezgâh işletiyor",
-        14: "Balık tutuyor", 15: "Tezgâhlara göz atıyor", 16: "Canavar topluyor",
-        17: "Şehirde dinleniyor", 18: "Cevher kazıyor"},
 }
 
 
@@ -799,107 +611,6 @@ PLAYER_SKILLS_EN = {
              (110, "Swiftness"), (111, "Attack Up")),
 }
 
-# The skills and the paths in German and Turkish, by skill id and by (class,
-# path); Polish and English are the two tables above, flattened below.
-SKILL_NAMES_BY_LANG = {
- "de": {
-  1: "Dreiwege-Schnitt",
-  2: "Schwertwirbel",
-  3: "Kampfrausch",
-  4: "Aura des Schwertes",
-  5: "Ansturm",
-  16: "Geistesschlag",
-  17: "Wuchtschlag",
-  18: "Stampfen",
-  19: "Starker Körper",
-  20: "Schwertschlag",
-  31: "Hinterhalt",
-  32: "Schneller Angriff",
-  33: "Rollender Dolch",
-  34: "Tarnung",
-  35: "Giftwolke",
-  46: "Wiederholter Schuss",
-  47: "Pfeilregen",
-  48: "Feuerpfeil",
-  49: "Federschritt",
-  50: "Giftpfeil",
-  61: "Fingerschlag",
-  62: "Drachenwirbel",
-  63: "Verzauberte Klinge",
-  64: "Furcht",
-  65: "Verzauberte Rüstung",
-  66: "Magiebannung",
-  76: "Dunkler Schlag",
-  77: "Flammenschlag",
-  78: "Flammengeist",
-  79: "Dunkler Schutz",
-  80: "Geisterschlag",
-  81: "Dunkle Kugel",
-  91: "Fliegender Talisman",
-  92: "Schießender Drache",
-  93: "Drachengebrüll",
-  94: "Segen",
-  95: "Reflexion",
-  96: "Drachenhilfe",
-  106: "Blitzwurf",
-  107: "Blitzbeschwörung",
-  108: "Blitzkralle",
-  109: "Heilung",
-  110: "Schnelligkeit",
-  111: "Angriffssteigerung",
- },
- "tr": {
-  1: "Üç Yönlü Kesme",
-  2: "Kılıç Çevirme",
-  3: "Öfke",
-  4: "Kılıç Aurası",
-  5: "Hamle",
-  16: "Ruh Vuruşu",
-  17: "Şiddetli Vuruş",
-  18: "Tepme",
-  19: "Güçlü Beden",
-  20: "Kılıç Darbesi",
-  31: "Suikast",
-  32: "Hızlı Saldırı",
-  33: "Bıçak Çevirme",
-  34: "Kamuflaj",
-  35: "Zehirli Bulut",
-  46: "Tekrarlanan Atış",
-  47: "Ok Yağmuru",
-  48: "Ateşli Ok",
-  49: "Hafif Adım",
-  50: "Zehirli Ok",
-  61: "Parmak Darbesi",
-  62: "Ejderha Dönüşü",
-  63: "Büyülü Keskinlik",
-  64: "Dehşet",
-  65: "Büyülü Zırh",
-  66: "Büyü Çözme",
-  76: "Karanlık Vuruş",
-  77: "Ateş Vuruşu",
-  78: "Ateş Hayaleti",
-  79: "Karanlık Koruma",
-  80: "Hayalet Vuruşu",
-  81: "Karanlık Küre",
-  91: "Uçan Tılsım",
-  92: "Ejderha Atışı",
-  93: "Ejderha Kükremesi",
-  94: "Kutsama",
-  95: "Yansıtma",
-  96: "Ejderha Yardımı",
-  106: "Şimşek Atma",
-  107: "Şimşek Çağırma",
-  108: "Şimşek Pençesi",
-  109: "Tedavi",
-  110: "Hızlanma",
-  111: "Saldırı Artışı",
- },
-}
-SKILL_GROUP_NAMES_BY_LANG = {
- "de": {(0, 1): "Körper", (0, 2): "Geist", (1, 1): "Dolch", (1, 2): "Bogenschütze", (2, 1): "Waffenmagie", (2, 2): "Schwarze Magie", (3, 1): "Drachenkraft", (3, 2): "Heilkraft"},
- "tr": {(0, 1): "Beden", (0, 2): "Zihin", (1, 1): "Hançer", (1, 2): "Okçu", (2, 1): "Büyülü Silah", (2, 2): "Kara Büyü", (3, 1): "Ejderha", (3, 2): "İyileştirme"},
-}
-
 # Flatten the per-class skill tables into one id -> name map, so a skill book
 # (skill id in socket0) can spell its skill out in the inventory (item_full_name).
 for _grp in PLAYER_SKILLS.values():
@@ -908,10 +619,9 @@ for _grp in PLAYER_SKILLS.values():
 for _grp in PLAYER_SKILLS_EN.values():
     for _sid, _nm in _grp:
         SKILL_ID_NAMES[_sid] = _nm
-SKILL_NAMES_BY_LANG["pl"] = SKILL_ID_NAMES_PL
-SKILL_NAMES_BY_LANG["en"] = SKILL_ID_NAMES
-SKILL_GROUP_NAMES_BY_LANG["pl"] = SKILL_GROUP_NAMES
-SKILL_GROUP_NAMES_BY_LANG["en"] = SKILL_GROUP_NAMES_EN
+# By the page's language, for the explanations of the bots' decisions.
+SKILL_NAMES_BY_LANG = {"pl": SKILL_ID_NAMES_PL, "en": SKILL_ID_NAMES}
+SKILL_GROUP_NAMES_BY_LANG = {"pl": SKILL_GROUP_NAMES, "en": SKILL_GROUP_NAMES_EN}
 
 
 def skill_rank_label(master_type, level):
@@ -949,9 +659,8 @@ def parse_player_skills(raw, job, skill_group, language=None):
     base_job = int(job or 0) % 4
     group = int(skill_group or 0)
     result = []
-    names = SKILL_NAMES_BY_LANG.get(language, SKILL_ID_NAMES)
-    for vnum, english in PLAYER_SKILLS_EN.get((base_job, group), ()):
-        name = names.get(vnum, english)
+    skill_names = PLAYER_SKILLS if language == "pl" else PLAYER_SKILLS_EN
+    for vnum, name in skill_names.get((base_job, group), ()):
         offset = vnum * 6
         master_type = raw[offset] if offset < len(raw) else 0
         level = raw[offset + 1] if offset + 1 < len(raw) else 0
@@ -1443,12 +1152,20 @@ def read_ai_weights():
     # Iwakura's personalities and moods (playerbot_persona.h). On: the operator
     # asked for them (19 September); off is the world as it was before.
     vals["PERSONA"] = 1
+    # The three shouters of the first villages (playerbot_shouters.h,
+    # MT2009_PLUS_SHOUTERS_V1): on top of the bot count. On.
+    vals["SHOUTERS"] = 1
     vals["SCRAP"] = 0
     # Percent of bots that rest on the market ring after a town errand; 100 is
     # the author's town, 0 is "every bot hunting".
     vals["REST"] = 100
     # Percent of bots that pick fights with bots of another kingdom; 0 is off.
     vals["KINGDOMPVP"] = 0
+    # The three wills (playerbot_config.h): percent of what the build does -
+    # the Battle Pass errands, the sash keepers, the Dragon Soul users.
+    vals["BATTLEPASS"] = 100
+    vals["SASH"] = 100
+    vals["ALCHEMY"] = 100
     # The lowest plus a refine under a Blessing or Dragon God scroll may land
     # on; 1 is no floor, which is also what the core starts from.
     vals["SCROLL_FROM"] = 1
@@ -1461,6 +1178,10 @@ def read_ai_weights():
     # not know what CONFIG holds, and must not write a guess over it.
     vals["CHEST"] = None
     vals["CHEST_STONE"] = None
+    # How many days the core keeps its explanations of the bots' decisions
+    # (log.playerbot_listing, log.playerbot_equip; mt2009). None while the key
+    # is absent, which the core reads as seven days; 0 is off.
+    vals["EXPLAIN"] = None
     try:
         with open(AI_WEIGHTS, encoding="utf-8", errors="replace") as fh:
             for line in fh:
@@ -1501,6 +1222,9 @@ def read_ai_weights():
                 if name == "PERSONA":
                     vals["PERSONA"] = 0 if parts[1].strip() in ("0", "off", "no") else 1
                     continue
+                if name == "SHOUTERS":
+                    vals["SHOUTERS"] = 0 if parts[1].strip() in ("0", "off", "no") else 1
+                    continue
                 if name == "SCRAP":
                     try:
                         vals["SCRAP"] = max(0, min(100, int(parts[1])))
@@ -1516,6 +1240,12 @@ def read_ai_weights():
                 if name == "KINGDOMPVP":
                     try:
                         vals["KINGDOMPVP"] = max(0, min(100, int(parts[1])))
+                    except ValueError:
+                        pass
+                    continue
+                if name in ("BATTLEPASS", "SASH", "ALCHEMY"):
+                    try:
+                        vals[name] = max(0, min(100, int(parts[1])))
                     except ValueError:
                         pass
                     continue
@@ -1540,6 +1270,15 @@ def read_ai_weights():
                 if name in ("CHEST", "CHEST_STONE"):
                     try:
                         vals[name] = max(0, min(1000, int(parts[1])))
+                    except ValueError:
+                        pass
+                    continue
+                # Days, not a weight: without this `continue` the slider branch
+                # below would clamp it to 25..250 and the next save would write
+                # that ("A switch read in a loop of sliders has to continue").
+                if name == "EXPLAIN":
+                    try:
+                        vals["EXPLAIN"] = max(0, min(EXPLAIN_MAX_DAYS, int(parts[1])))
                     except ValueError:
                         pass
                     continue
@@ -1589,6 +1328,8 @@ def write_ai_weights(vals):
     body.append("SHOP_M2\t%d" % (1 if vals.get("SHOP_M2", 0) else 0))
     # Not a weight: Iwakura's personalities, moods and the Grinder's locks.
     body.append("PERSONA\t%d" % (1 if vals.get("PERSONA", 1) else 0))
+    # Not a weight: the three shouters of the first villages (1 = in the world).
+    body.append("SHOUTERS\t%d" % (1 if vals.get("SHOUTERS", 1) else 0))
     # Percent of stall keepers that sell scrap gear; 0 is off.
     body.append("SCRAP\t%d" % max(0, min(100, int(vals.get("SCRAP", 0)))))
     # Percent of bots that rest in town after an errand; 0 means nobody does.
@@ -1596,6 +1337,9 @@ def write_ai_weights(vals):
     # Percent of bots hostile to the other kingdoms; 0 means the world is at
     # peace with itself, which is the default the core also starts from.
     body.append("KINGDOMPVP\t%d" % max(0, min(100, int(vals.get("KINGDOMPVP", 0)))))
+    # The three wills, percent of the build's: 100 is the world as it was.
+    for key in ("BATTLEPASS", "SASH", "ALCHEMY"):
+        body.append("%s\t%d" % (key, max(0, min(100, int(vals.get(key, 100))))))
     # The lowest plus a scroll refine may land on; 1 leaves the bots' own
     # rules alone.
     body.append("SCROLL_FROM\t%d" % max(1, min(9, int(vals.get("SCROLL_FROM", 1)))))
@@ -1608,6 +1352,10 @@ def write_ai_weights(vals):
     for key in ("CHEST", "CHEST_STONE"):
         if vals.get(key) is not None:
             body.append("%s\t%d" % (key, max(0, min(1000, int(vals[key])))))
+    # The days the core keeps its explanations; written only once set, so an
+    # untouched install keeps the core's own default.
+    if vals.get("EXPLAIN") is not None:
+        body.append("EXPLAIN\t%d" % max(0, min(EXPLAIN_MAX_DAYS, int(vals["EXPLAIN"]))))
     # What the file holds beyond this page's keys stays: rewriting it from the
     # page's own list dropped a newer core's settings and a hand-set TICK_MS
     # at every save (the advanced panel already kept them).
@@ -1644,7 +1392,11 @@ CHEST_SWITCH = os.path.join(AI_SPOOL, "playerbot_chest_switch.tsv")
 # panel writes, the core stats the file every five seconds. The core answers
 # with playerbot_events_status.tsv beside its playerbot_status.tsv.
 EVENTS_FILE = os.path.join(AI_SPOOL, "playerbot_events.tsv")
-EVENT_KINDS = ("chest", "exp", "drop", "yang", "tanaka", "zuo")
+EVENT_KINDS = ("chest", "exp", "drop", "yang", "tanaka", "zuo", "bossloot", "metinloot",
+               "goblin")  # MT2009_PLUS_GOBLIN_V1: the Treasure Hunt (playerbot_goblin.h)
+# On or off, no figure: the Moonlight chests and the double loot of bosses and
+# Metins (MT2009_PLUS_LOOT_EVENTS_V1).
+EVENT_FLAG_KINDS = ("chest", "bossloot", "metinloot", "goblin")  # goblin: MT2009_PLUS_GOBLIN_V1
 # Tanaka and Zuo put something into the world (playerbot_world_events.h): their
 # value is a count - pirates at once, Metin stones a wave - and they carry a
 # map, 0 letting the event pick. The core holds the same bounds
@@ -1703,25 +1455,13 @@ def event_hhmm(text):
     return "%02d:%02d" % (h, mi)
 
 
-# The same maps in German and Turkish; a village keeps its name everywhere.
-EVENT_MAP_NAMES = {
-    "de": {64: "Orktal", 63: "Yongbi-Wüste", 61: "Berg Sohan", 65: "Hwang-Tempel",
-           67: "Geisterwald", 68: "Roter Wald"},
-    "tr": {64: "Ork Vadisi", 63: "Yongbi Çölü", 61: "Sohan Dağı", 65: "Hwang Tapınağı",
-           67: "Hayalet Ormanı", 68: "Kızıl Orman"},
-}
-
-
 def event_map_name(map_id):
     """A world event's map as the page names it; 0 is "the event picks"."""
     for mid, pl, en in EVENT_MAPS:
         if mid == map_id:
             if mid == 0:
                 return t("ev_map_auto")
-            language = lang()
-            if language == "pl":
-                return pl
-            return EVENT_MAP_NAMES.get(language, {}).get(mid) or en
+            return pl if lang() == "pl" else en
     return str(map_id)
 
 
@@ -1991,6 +1731,7 @@ def read_guild_status():
     minutes. Online bots and the experience offered are summed over the cores,
     everything else is the guild's own (the same on every core)."""
     guilds, newest = {}, 0
+    now = time.time()
     for path in GUILD_STATUS_FILES:
         try:
             mtime = os.path.getmtime(path)
@@ -1999,6 +1740,13 @@ def read_guild_status():
         except OSError:
             continue
         if not lines:
+            continue
+        # A core rewrites its report once a minute while it hosts bots; one
+        # that hosts none since a layout change never does, and its old report
+        # counted the same bots a second time (a guild of 16 with 40 online).
+        # The server clears those at start (m2-render-config); a report five
+        # minutes old is left out here all the same.
+        if now - mtime > 300:
             continue
         newest = max(newest, mtime)
         head = lines[0].rstrip("\r").split("\t")
@@ -2053,6 +1801,9 @@ def read_guild_status():
     out = []
     for g in guilds.values():
         g["avg_strength"] = g["strength_sum"] // g["online"] if g["online"] else 0
+        # Never more online than the guild has members.
+        if g.get("members", 0) > 0 and g["online"] > g["members"]:
+            g["online"] = g["members"]
         g["tier_key"] = GUILD_TIER_KEYS[min(max(g["tier"], 0), 3)]
         g["empire_key"] = GUILD_EMPIRE_KEYS.get(g["empire"], "gl_empire_unknown")
         out.append(g)
@@ -2423,13 +2174,22 @@ def _client_download_name(raw):
 # The name this server goes by, shown in the header and the browser tab. It is a
 # config key so a different install can call itself something else without the
 # panel needing to be edited.
-BRAND = str(CONF.get("brand", "") or "").strip() or "Singleplayer Official Metin2"
+# MT2009 Plus: the package's own name, unless the operator set another. The
+# names earlier builds wrote into a config count as unset.
+BRAND = str(CONF.get("brand", "") or "").strip()
+if BRAND in ("", "Singleplayer Official Metin2", "Metin2 Singleplayer", "Singleplayer Metin2", "Metin2"):
+    BRAND = "MT2009 PLUS"
 
 # The project's issue tracker. DELIBERATELY NOT CONFIGURABLE, and that is the
 # point: it is where this project posts what changed and where a player reports
 # a bug, so it is part of what the panel IS rather than something each install
 # decides. A different address is a change to the software and shows up as one.
 DISCORD_URL = "https://github.com/Doofenyoyo1/metin2_SP/issues"
+# The project's page, beside the issues in the footer and on the front page.
+WEBSITE_URL = "https://github.com/Doofenyoyo1/metin2_SP"
+# No donation link: this project asks for none. MT2009 PLUS's button shows
+# only where this is set.
+COFFEE_URL = ""
 
 CLIENT_NAME  = str(CONF.get("client_name", "Metin2 Client") or "").strip()
 CLIENT_FILE  = _client_download_name(CLIENT_NAME)
@@ -2761,12 +2521,14 @@ def local_changelog():
 # (archded, l0st3k, 12 September). The engine flag is read here, ahead of
 # the rest of the engine-specific setup below, because this URL needs it.
 UPDATE_ENGINE = os.environ.get("M2PANEL_ENGINE", "r40250").strip().lower()
+# MT2009 Plus: the mod's own repository, never upstream's. Its tree is the
+# player's tree, so the mt2009 VERSION is the root one.
 UPDATE_BASE_URL = _env_path(
     "M2PANEL_UPDATE_URL",
     "https://raw.githubusercontent.com/Doofenyoyo1/"
     "metin2_SP/main")
 # Where this engine's VERSION lives under that base; the changelog is shared.
-UPDATE_VERSION_PATH = "/linux-port-mt2009/VERSION" if UPDATE_ENGINE == "mt2009" else "/VERSION"
+UPDATE_VERSION_PATH = "/VERSION"
 # The other line's VERSION, so a 1.x panel can say that 2.x exists. Only the
 # r40250 line looks across: a 2.x install has nothing to move to.
 UPDATE_NEXT_LINE_PATH = "/linux-port-mt2009/VERSION" if UPDATE_ENGINE != "mt2009" else ""
@@ -2789,7 +2551,8 @@ _UPD = {"checked": 0.0,   # last SUCCESSFUL check
         "latest":  "",    # last version seen published
         "notes":   "",    # its changelog, fetched only when it is newer
         "error":   "",    # short, non-technical reason the last attempt failed
-        "next_line": ""}  # the 2.x line's version, seen from a 1.x panel
+        "next_line": "",  # the 2.x line's version, seen from a 1.x panel
+        "source": UPDATE_BASE_URL}  # where the above was read from
 
 _UPD_LOCK = threading.Lock()
 
@@ -2800,6 +2563,12 @@ def _upd_load():
     except (OSError, ValueError):
         return
     if not isinstance(saved, dict):
+        return
+    # MT2009 Plus: what was read from another repository - upstream's, before
+    # this panel pointed at the mod's - is not this source's answer. Kept, it
+    # showed upstream's version and changelog on /patchlog until the next
+    # daily check; dropped, the check runs at once.
+    if str(saved.get("source") or "") != UPDATE_BASE_URL:
         return
     with _UPD_LOCK:
         for key in ("checked", "tried"):
@@ -3607,6 +3376,9 @@ T = {
    "dc_btn":       {"pl":"🐙 Zgłoś błąd na GitHubie","en":"🐙 Report on GitHub",
                     "de":"🐙 Auf GitHub melden",
                     "tr":"🐙 GitHub'da bildir"},
+   "coffee_btn":   {"pl":"☕ Postaw kawkę","en":"☕ Buy me a coffee",
+                    "de":"☕ Spendiere einen Kaffee",
+                    "tr":"☕ Bir kahve ısmarla"},
  "rates_nav":    {"pl":"⚙️ Mnożniki serwera","en":"⚙️ Server rates","de":"⚙️ Server-Raten","tr":"⚙️ Sunucu oranları"},
  "rates_open":   {"pl":"⚙️ Otwórz mnożniki serwera","en":"⚙️ Open server rates","de":"⚙️ Server-Raten öffnen","tr":"⚙️ Sunucu oranlarını aç"},
  "rates_dash_hint":{"pl":"Spraw, by cały serwer dawał więcej doświadczenia, przedmiotów i yang — wygodne, jeśli wolisz robić zadania niż grindować.","en":"Make the whole server give more experience, more items and more yang — handy if you would rather do quests than grind.",
@@ -3643,6 +3415,45 @@ T = {
                   "de":"🚀 Schnell — Erfahrung 1000%, Gegenstände 500%, Yang 500%",
                   "tr":"🚀 Hızlı — tecrübe 1000%, eşya 500%, yang 500%"},
  "rates_save":   {"pl":"💾 Zapisz i zrestartuj serwer","en":"💾 Save and restart the server","de":"💾 Speichern und Server neu starten","tr":"💾 Kaydet ve sunucuyu yeniden başlat"},
+ "easter_nav":   {"pl":"🐇 Event wielkanocny","en":"🐇 Easter event","de":"🐇 Oster-Event","tr":"🐇 Paskalya etkinliği"},
+ "easter_open":  {"pl":"🐇 Otwórz event wielkanocny","en":"🐇 Open the Easter event","de":"🐇 Oster-Event öffnen","tr":"🐇 Paskalya etkinliğini aç"},
+ "tip_easter":   {"pl":"Metiny wielkanocne, jajka i Wielkanocny Zając. Włącza się od razu, bez restartu serwera.","en":"Easter metins, eggs and the Easter Bunny. Switches on immediately, no server restart.",
+                  "de":"Oster-Metins, Eier und der Osterhase. Schaltet sich sofort ein, kein Server-Neustart.",
+                  "tr":"Paskalya metinleri, yumurtalar ve Paskalya Tavşanı. Sunucu yeniden başlatmadan hemen açılır."},
+ "easter_dash_hint":{"pl":"Włącz albo wyłącz sezonowe metiny wielkanocne i Wielkanocnego Zająca.","en":"Turn the seasonal Easter metins and the Easter Bunny on or off.",
+                  "de":"Schalte die saisonalen Oster-Metins und den Osterhasen ein oder aus.",
+                  "tr":"Mevsimsel Paskalya metinlerini ve Paskalya Tavşanı'nı aç veya kapat."},
+ "easter_intro": {"pl":"Dwa niezależne przełączniki dla sezonowego eventu wielkanocnego. Zapis działa natychmiast, bez restartu serwera — nikt nie zostaje rozłączony.","en":"Two independent switches for the seasonal Easter event. Saving takes effect immediately, no server restart — nobody gets disconnected.",
+                  "de":"Zwei unabhängige Schalter für das saisonale Oster-Event. Speichern wirkt sofort, kein Server-Neustart — niemand wird getrennt.",
+                  "tr":"Mevsimsel Paskalya etkinliği için iki bağımsız anahtar. Kaydetmek hemen etkili olur, sunucu yeniden başlatılmaz — kimsenin bağlantısı kesilmez."},
+ "easter_drop":  {"pl":"Metiny wielkanocne","en":"Easter metins","de":"Oster-Metins","tr":"Paskalya metinleri"},
+ "easter_drop_help":{"pl":"Główny przełącznik eventu: zabicie metina lub zwykłego potwora ma szansę zespawnować metina wielkanocnego, który dropi jajka.","en":"The event's main switch: killing a metin or a regular monster has a chance to spawn an Easter metin, which drops eggs.",
+                  "de":"Der Hauptschalter des Events: das Töten eines Metins oder eines normalen Monsters kann einen Oster-Metin spawnen, der Eier fallen lässt.",
+                  "tr":"Etkinliğin ana anahtarı: bir metin ya da normal bir canavarı öldürmek, yumurta düşüren bir Paskalya metini spawn etme şansı verir."},
+ "easter_rabbit":{"pl":"Wielkanocny Zając","en":"Easter Bunny","de":"Osterhase","tr":"Paskalya Tavşanı"},
+ "easter_rabbit_help":{"pl":"Dodaje questodawcę na mapach 1/21/41, u którego gracze wymieniają zebrane jajka na nagrody.","en":"Adds a quest NPC on maps 1/21/41 where players trade collected eggs for rewards.",
+                  "de":"Fügt einen Quest-NPC auf den Karten 1/21/41 hinzu, bei dem Spieler gesammelte Eier gegen Belohnungen eintauschen.",
+                  "tr":"1/21/41 haritalarına, oyuncuların topladıkları yumurtaları ödüllerle takas ettiği bir görev NPC'si ekler."},
+ "easter_enable":{"pl":"Włączony","en":"Enabled","de":"Aktiviert","tr":"Etkin"},
+ "easter_on":    {"pl":"włączone","en":"on","de":"an","tr":"açık"},
+ "easter_off":   {"pl":"wyłączone","en":"off","de":"aus","tr":"kapalı"},
+ "easter_save":  {"pl":"💾 Zapisz — działa od razu","en":"💾 Save — takes effect immediately","de":"💾 Speichern — wirkt sofort","tr":"💾 Kaydet — hemen etkili olur"},
+ "easter_saved_live":{"pl":"Zapisano i włączono na żywo, przez pomocnika w grze. 🐇","en":"Saved and switched live, through the in-game helper. 🐇",
+                  "de":"Gespeichert und live umgeschaltet, über den In-Game-Helfer. 🐇",
+                  "tr":"Kaydedildi ve oyun içi yardımcı aracılığıyla canlı olarak değiştirildi. 🐇"},
+ "easter_saved_persisted":{"pl":"Zapisano w bazie. Nikt teraz online nie potwierdził zmiany na żywo — zadziała najpóźniej po najbliższym restarcie serwera gry.","en":"Saved to the database. Nobody confirmed it live just now — it will take effect at the latest on the game server's next restart.",
+                  "de":"In der Datenbank gespeichert. Gerade hat niemand die Änderung live bestätigt — sie wirkt spätestens beim nächsten Neustart des Spielservers.",
+                  "tr":"Veritabanına kaydedildi. Şu anda kimse canlı olarak onaylamadı — en geç oyun sunucusunun bir sonraki yeniden başlatmasında etkili olacak."},
+ "rare_nav":     {"pl":"🐉 Alchemia i szarfy","en":"🐉 Alchemy and sashes"},
+ "rare_open":    {"pl":"🐉 Otwórz alchemię i szarfy","en":"🐉 Open alchemy and sashes"},
+ "tip_rare":     {"pl":"Włącz albo wyłącz zdobywanie Cor Draconis i szarf. Działa od razu, bez restartu serwera.","en":"Switch getting Cor Draconis and sashes on or off. Takes effect immediately, no server restart."},
+ "rare_dash_hint":{"pl":"Czy na tym świecie wypadają Cor Draconis (alchemia) i szarfy.","en":"Whether Cor Draconis (alchemy) and sashes drop in this world."},
+ "rare_intro":   {"pl":"Dwa niezależne przełączniki. Wyłączenie zatrzymuje tylko nowe przedmioty — to, co gracze już mają, zostaje, a plecak alchemii dalej działa. Zapis działa od razu, bez restartu. Ustawienie z panelu zostaje po restarcie, dopóki ktoś nie zmieni M2_ALCHEMY / M2_SASHES w .env.","en":"Two independent switches. Switching off stops only new items — what players already have stays, and the alchemy bag keeps working. Saving takes effect immediately, no restart. The panel's setting survives restarts until M2_ALCHEMY / M2_SASHES in .env is changed."},
+ "rare_alchemy": {"pl":"Alchemia (Cor Draconis)","en":"Alchemy (Cor Draconis)"},
+ "rare_alchemy_help":{"pl":"Cor Draconis z Metinów i bossów, Odłamki Smoczego Kamienia z potworów oraz ich wymiana na Cory u Alchemika (quest od 30 poziomu).","en":"Cor Draconis from Metins and bosses, Dragon Stone Shards from monsters and their exchange for Cors at the Alchemist (the level-30 quest)."},
+ "rare_sashes":  {"pl":"Szarfy","en":"Sashes"},
+ "rare_sashes_help":{"pl":"Szarfy z bossów i ze skrzyń bossów. Łączenie szarf u Uriela działa zawsze.","en":"Sashes from bosses and boss chests. Combining sashes at Uriel always works."},
+ "rare_saved_live":{"pl":"Zapisano i przełączono na żywo, przez pomocnika w grze. 🐉","en":"Saved and switched live, through the in-game helper. 🐉"},
  "regen_title": {"pl":"Czas odradzania Metinów, bossów i potworów",
                  "en":"Respawn time of Metin stones, bosses and monsters"},
  "regen_help":  {"pl":"Procent zwykłego czasu odradzania: 100 = jak w grze, 50 = dwa razy szybciej, 10 = dziesięć razy szybciej. Działa od razu (przez pomocnika w grze), a po restarcie zostaje. Osobno dla Metinów i bossów, osobno dla zwykłych potworów.",
@@ -3723,36 +3534,23 @@ T = {
                       "en":"Saved. The game did not answer (the server is down or still starting) - the change applies at the next server start."},
  "ai_books_moved": {"pl":"Na tym serwerze ustawia to poziom trudności (Mnożniki serwera → Poziom trudności): osobno czas dla graczy, osobno dla botów; 0 = od razu.",
                     "en":"On this server the difficulty sets it (Server rates → Difficulty): one wait for the players, one for the bots; 0 = at once."},
- "ch2_title":   {"pl":"Kanały gry (CH1-CH4)", "en":"Game channels (CH1-CH4)", "de":"Spielkanäle (CH1-CH4)", "tr":"Oyun kanalları (CH1-CH4)"},
- "ch2_help":    {"pl":"Ile kanałów gry uruchamia serwer. Przy dwóch część botów gra na CH2, więc serwer rozkłada je na dwa rdzenie procesora i udźwignie więcej botów naraz. Wszystkie sklepy (botów i graczy) stoją tylko na CH1: bot z CH2, który chce otworzyć albo obsłużyć swój sklep albo coś kupić, przechodzi na CH1, a wolny bot z CH1 przechodzi na jego miejsce na CH2. Ustawiony udział to najmniej tyle botów na CH2; gdy nikt nie czeka na przejście, CH2 może przejąć do 10 punktów więcej. Przy trzech i czterech na CH3 (i CH4) grają do tego świeże boty od 1 poziomu: osobne postacie, po 500 na królestwo, tworzone przy pierwszym starcie z tym ustawieniem. Nie przechodzą na CH1 i CH2, a boty z CH1 i CH2 nie przychodzą do nich; na CH3 i CH4 nie ma sklepów, gildii botów, wojen, Wieży ani wydarzeń. Domyślnie jeden kanał.",
-                 "en":"How many game channels the server runs. With two, some of the bots play on CH2, so the server spreads them over two CPU cores and carries more bots at once. Every shop, bots' and players', stands on CH1: a bot on CH2 that wants to open or serve its shop or to buy something moves to CH1, and a free bot of CH1 moves to CH2 in its place. The share set here is the least CH2 carries; with nobody waiting to move, CH2 may take up to ten points more. With three and four, CH3 (and CH4) carry fresh bots from level one besides: characters of their own, 500 a kingdom, made at the first start with this setting. They never move to CH1 or CH2, and the bots of CH1 and CH2 never come to theirs; there are no shops, bot guilds, wars, tower or events on CH3 and CH4. One channel by default.", "de":"Wie viele Spielkanäle der Server betreibt. Bei zwei spielt ein Teil der Bots auf CH2, sodass der Server sie auf zwei CPU-Kerne verteilt und mehr Bots gleichzeitig trägt. Alle Läden, die der Bots und der Spieler, stehen nur auf CH1: Ein Bot auf CH2, der seinen Laden öffnen oder betreuen oder etwas kaufen will, wechselt auf CH1, und ein freier Bot von CH1 geht an seiner Stelle auf CH2. Der eingestellte Anteil ist das Mindeste, was CH2 trägt; wartet niemand auf einen Wechsel, darf CH2 bis zu zehn Punkte mehr übernehmen. Bei drei und vier spielen auf CH3 (und CH4) zusätzlich frische Bots ab Stufe 1: eigene Charaktere, 500 pro Königreich, beim ersten Start mit dieser Einstellung angelegt. Sie wechseln nie auf CH1 oder CH2, und die Bots von CH1 und CH2 kommen nie zu ihnen; auf CH3 und CH4 gibt es keine Läden, Bot-Gilden, Kriege, keinen Turm und keine Events. Standardmäßig ein Kanal.", "tr":"Sunucunun kaç oyun kanalı çalıştırdığı. İki kanalda botların bir kısmı CH2'de oynar; böylece sunucu onları iki işlemci çekirdeğine dağıtır ve aynı anda daha fazla bot taşır. Botların ve oyuncuların bütün dükkânları yalnızca CH1'dedir: dükkânını açmak, ona bakmak ya da bir şey satın almak isteyen CH2'deki bir bot CH1'e geçer, CH1'deki boşta bir bot da onun yerine CH2'ye geçer. Burada ayarlanan pay, CH2'nin taşıdığı en az miktardır; geçiş bekleyen kimse yoksa CH2 on puana kadar fazlasını alabilir. Üç ve dört kanalda CH3'te (ve CH4'te) ayrıca 1. seviyeden başlayan yeni botlar oynar: her krallık için 500 ayrı karakter, bu ayarla yapılan ilk başlatmada oluşturulur. Hiçbir zaman CH1'e veya CH2'ye geçmezler, CH1 ve CH2'nin botları da onlara gelmez; CH3 ve CH4'te dükkân, bot loncası, savaş, kule ve etkinlik yoktur. Varsayılan: tek kanal."},
- "ch_count":    {"pl":"Kanały gry", "en":"Game channels", "de":"Spielkanäle", "tr":"Oyun kanalları"},
- "ch_opt1":     {"pl":"1 - jeden kanał", "en":"1 - one channel", "de":"1 - ein Kanal", "tr":"1 - tek kanal"},
- "ch_opt2":     {"pl":"2 - drugi kanał (CH2) dla botów i graczy", "en":"2 - a second channel (CH2) for bots and players", "de":"2 - ein zweiter Kanal (CH2) für Bots und Spieler", "tr":"2 - botlar ve oyuncular için ikinci kanal (CH2)"},
- "ch_opt3":     {"pl":"3 - do tego CH3 ze świeżymi botami", "en":"3 - and CH3 with fresh bots", "de":"3 - dazu CH3 mit frischen Bots", "tr":"3 - ayrıca yeni botlarla CH3"},
- "ch_opt4":     {"pl":"4 - do tego CH3 i CH4 ze świeżymi botami", "en":"4 - and CH3 and CH4 with fresh bots", "de":"4 - dazu CH3 und CH4 mit frischen Bots", "tr":"4 - ayrıca yeni botlarla CH3 ve CH4"},
- "ch2_share":   {"pl":"Botów na CH2 (przy 2 kanałach i więcej)", "en":"Bots on CH2 (with two channels or more)", "de":"Bots auf CH2 (ab zwei Kanälen)", "tr":"CH2'deki botlar (iki veya daha fazla kanalda)"},
- "ch_fresh":    {"pl":"Świeżych botów na CH3 i CH4 razem (0-1500, przy 3 i 4 kanałach)", "en":"Fresh bots on CH3 and CH4 together (0-1500, with three or four channels)", "de":"Frische Bots auf CH3 und CH4 zusammen (0-1500, bei drei oder vier Kanälen)", "tr":"CH3 ve CH4'te toplam yeni bot (0-1500, üç veya dört kanalda)"},
- "ch_ram":      {"pl":"Każdy kanał to trzy rdzenie gry, ok. 2,5 GB RAM więcej. Porty: 13000-13002 jeden kanał, 13000-13012 dwa, 13000-13022 trzy, 13000-13032 cztery.",
-                 "en":"Every channel is three game cores, about 2.5 GB more RAM. Ports: 13000-13002 one channel, 13000-13012 two, 13000-13022 three, 13000-13032 four.", "de":"Jeder Kanal sind drei Spielkerne, etwa 2,5 GB mehr RAM. Ports: 13000-13002 ein Kanal, 13000-13012 zwei, 13000-13022 drei, 13000-13032 vier.", "tr":"Her kanal üç oyun çekirdeğidir, yaklaşık 2,5 GB daha fazla RAM. Portlar: tek kanal 13000-13002, iki kanal 13000-13012, üç kanal 13000-13022, dört kanal 13000-13032."},
- "ch2_save":    {"pl":"Zapisz (zadziała po restarcie serwera)", "en":"Save (applies after a server restart)", "de":"Speichern (gilt nach einem Serverneustart)", "tr":"Kaydet (sunucu yeniden başlatılınca geçerli olur)"},
- "ch2_now_off": {"pl":"Teraz: jeden kanał - wszystkie boty grają na CH1.", "en":"Now: one channel - every bot plays on CH1.", "de":"Jetzt: ein Kanal - alle Bots spielen auf CH1.", "tr":"Şimdi: tek kanal - bütün botlar CH1'de oynuyor."},
- "ch2_now_on":  {"pl":"Teraz: dwa kanały, na CH2 gra {share}% botów.", "en":"Now: two channels, {share}% of the bots play on CH2.", "de":"Jetzt: zwei Kanäle, {share}% der Bots spielen auf CH2.", "tr":"Şimdi: iki kanal, botların %{share}'i CH2'de oynuyor."},
- "ch_now3":     {"pl":"Teraz: trzy kanały, na CH2 gra {share}% botów, na CH3 {count} świeżych botów.", "en":"Now: three channels, {share}% of the bots on CH2 and {count} fresh bots on CH3.", "de":"Jetzt: drei Kanäle, {share}% der Bots auf CH2 und {count} frische Bots auf CH3.", "tr":"Şimdi: üç kanal, botların %{share}'i CH2'de ve {count} yeni bot CH3'te."},
- "ch_now4":     {"pl":"Teraz: cztery kanały, na CH2 gra {share}% botów, na CH3 i CH4 {count} świeżych botów.", "en":"Now: four channels, {share}% of the bots on CH2 and {count} fresh bots on CH3 and CH4.", "de":"Jetzt: vier Kanäle, {share}% der Bots auf CH2 und {count} frische Bots auf CH3 und CH4.", "tr":"Şimdi: dört kanal, botların %{share}'i CH2'de ve {count} yeni bot CH3 ile CH4'te."},
- "ch2_ports":   {"pl":"Gracze wejdą na nowe kanały po najbliższym uruchomieniu serwera z launchera (GRAJ) - launcher otworzy wtedy ich porty (13000-{end}). Boty grają na nich już teraz.",
-                 "en":"Players reach the new channels after the next start from the launcher (GRAJ), which opens their ports (13000-{end}) then. The bots play on them already.", "de":"Spieler erreichen die neuen Kanäle nach dem nächsten Start aus dem Launcher (GRAJ), der dann ihre Ports (13000-{end}) öffnet. Die Bots spielen schon jetzt darauf.", "tr":"Oyuncular yeni kanallara başlatıcıdan (GRAJ) bir sonraki başlatmadan sonra girer; başlatıcı o zaman portlarını (13000-{end}) açar. Botlar şimdiden orada oynuyor."},
- "ch2_pending": {"pl":"Zapisano w panelu: {what}. Zadziała po restarcie serwera.", "en":"Saved in the panel: {what}. Applies after a server restart.", "de":"Im Panel gespeichert: {what}. Gilt nach einem Serverneustart.", "tr":"Panelde kaydedildi: {what}. Sunucu yeniden başlatılınca geçerli olur."},
- "ch_words1":   {"pl":"jeden kanał", "en":"one channel", "de":"ein Kanal", "tr":"tek kanal"},
- "ch_words2":   {"pl":"dwa kanały, {share}% botów na CH2", "en":"two channels, {share}% of the bots on CH2", "de":"zwei Kanäle, {share}% der Bots auf CH2", "tr":"iki kanal, botların %{share}'i CH2'de"},
- "ch_words3":   {"pl":"trzy kanały, {share}% botów na CH2, {count} świeżych botów na CH3", "en":"three channels, {share}% of the bots on CH2, {count} fresh bots on CH3", "de":"drei Kanäle, {share}% der Bots auf CH2, {count} frische Bots auf CH3", "tr":"üç kanal, botların %{share}'i CH2'de, {count} yeni bot CH3'te"},
- "ch_words4":   {"pl":"cztery kanały, {share}% botów na CH2, {count} świeżych botów na CH3 i CH4", "en":"four channels, {share}% of the bots on CH2, {count} fresh bots on CH3 and CH4", "de":"vier Kanäle, {share}% der Bots auf CH2, {count} frische Bots auf CH3 und CH4", "tr":"dört kanal, botların %{share}'i CH2'de, {count} yeni bot CH3 ve CH4'te"},
- "ch_bad_count": {"pl":"Liczba kanałów musi być od 1 do 4. Nic nie zmieniono.", "en":"The number of channels has to be between 1 and 4. Nothing was changed.", "de":"Die Zahl der Kanäle muss zwischen 1 und 4 liegen. Nichts wurde geändert.", "tr":"Kanal sayısı 1 ile 4 arasında olmalı. Hiçbir şey değiştirilmedi."},
- "ch_fresh_bad": {"pl":"Liczba świeżych botów musi być od 0 do 1500. Nic nie zmieniono.", "en":"The number of fresh bots has to be between 0 and 1500. Nothing was changed.", "de":"Die Zahl der frischen Bots muss zwischen 0 und 1500 liegen. Nichts wurde geändert.", "tr":"Yeni bot sayısı 0 ile 1500 arasında olmalı. Hiçbir şey değiştirilmedi."},
+ "ch2_title":   {"pl":"Drugi kanał (CH2)", "en":"Second channel (CH2)"},
+ "ch2_help":    {"pl":"Drugi kanał gry. Część botów gra na CH2, więc serwer rozkłada je na dwa rdzenie procesora i udźwignie więcej botów naraz. Wszystkie sklepy (botów i graczy) stoją tylko na CH1: bot z CH2, który chce otworzyć albo obsłużyć swój sklep albo coś kupić, przechodzi na CH1, a wolny bot z CH1 przechodzi na jego miejsce na CH2. Ustawiony udział to najmniej tyle botów na CH2; gdy nikt nie czeka na przejście, CH2 może przejąć do 10 punktów więcej. Domyślnie wyłączony.",
+                 "en":"A second game channel. Some of the bots play on CH2, so the server spreads them over two CPU cores and carries more bots at once. Every shop, bots' and players', stands on CH1: a bot on CH2 that wants to open or serve its shop or to buy something moves to CH1, and a free bot of CH1 moves to CH2 in its place. The share set here is the least CH2 carries; with nobody waiting to move, CH2 may take up to ten points more. Off by default."},
+ "ch2_enable":  {"pl":"Włącz drugi kanał (CH2)", "en":"Switch the second channel on (CH2)"},
+ "ch2_share":   {"pl":"Botów na CH2", "en":"Bots on CH2"},
+ "ch2_save":    {"pl":"Zapisz (zadziała po restarcie serwera)", "en":"Save (applies after a server restart)"},
+ "ch2_now_off": {"pl":"Teraz: CH2 wyłączony - wszystkie boty grają na CH1.", "en":"Now: CH2 is off - every bot plays on CH1."},
+ "ch2_now_on":  {"pl":"Teraz: CH2 włączony, na CH2 gra {share}% botów.", "en":"Now: CH2 is on, {share}% of the bots play on it."},
+ "ch2_ports":   {"pl":"Gracze wejdą na CH2 po najbliższym uruchomieniu serwera z launchera (GRAJ) - launcher otworzy wtedy porty {ports}. Boty grają na CH2 już teraz.",
+                 "en":"Players reach CH2 after the next start from the launcher (GRAJ), which opens ports {ports} then. The bots play on CH2 already."},
+ "ch2_pending": {"pl":"Zapisano w panelu: {what}. Zadziała po restarcie serwera.", "en":"Saved in the panel: {what}. Applies after a server restart."},
+ "ch2_on_word": {"pl":"CH2 włączony, {share}% botów", "en":"CH2 on, {share}% of the bots"},
+ "ch2_off_word": {"pl":"CH2 wyłączony", "en":"CH2 off"},
  "ch2_saved":   {"pl":"✅ Zapisano. Zmiana kanałów zadziała po restarcie serwera (GRAJ w launcherze albo restart kontenera gry).",
-                 "en":"✅ Saved. The channel change applies after a server restart (GRAJ in the launcher or a restart of the game container).", "de":"✅ Gespeichert. Die Kanaländerung gilt nach einem Serverneustart (GRAJ im Launcher oder ein Neustart des Spielcontainers).", "tr":"✅ Kaydedildi. Kanal değişikliği sunucu yeniden başlatılınca geçerli olur (başlatıcıda GRAJ ya da oyun konteynerinin yeniden başlatılması)."},
- "ch2_bad":     {"pl":"Udział botów na CH2 musi być liczbą od 10 do 90. Nic nie zmieniono.", "en":"The share of bots on CH2 has to be between 10 and 90. Nothing was changed.", "de":"Der Anteil der Bots auf CH2 muss eine Zahl von 10 bis 90 sein. Nichts wurde geändert.", "tr":"CH2'deki bot payı 10 ile 90 arasında bir sayı olmalı. Hiçbir şey değiştirilmedi."},
- "ch2_failed":  {"pl":"Nie udało się zapisać ustawienia kanałów w katalogu wymiany z serwerem.", "en":"Could not write the channel setting into the spool shared with the server.", "de":"Die Kanaleinstellung konnte nicht in das mit dem Server geteilte Verzeichnis geschrieben werden.", "tr":"Kanal ayarı sunucuyla paylaşılan klasöre yazılamadı."},
+                 "en":"✅ Saved. The channel change applies after a server restart (GRAJ in the launcher or a restart of the game container)."},
+ "ch2_bad":     {"pl":"Udział botów na CH2 musi być liczbą od 10 do 90. Nic nie zmieniono.", "en":"The share of bots on CH2 has to be between 10 and 90. Nothing was changed."},
+ "ch2_failed":  {"pl":"Nie udało się zapisać ustawienia kanałów w katalogu wymiany z serwerem.", "en":"Could not write the channel setting into the spool shared with the server."},
  "rates_range":  {"pl":"Każda z trzech wartości musi być liczbą całkowitą od 1 do 10000. Nic nie zmieniono. 🙂","en":"Each of the three has to be a whole number between 1 and 10000. Nothing was changed. 🙂",
                   "de":"Alle drei müssen ganze Zahlen zwischen 1 und 10000 sein. Es wurde nichts geändert. 🙂",
                   "tr":"Üçü de 1 ile 10000 arasında tam sayı olmalı. Hiçbir şey değiştirilmedi. 🙂"},
@@ -4114,7 +3912,27 @@ T["logout"]["pl"] = "Wyloguj"
 T["back_front"]["pl"] = "← Strona główna"
 T["tip_lang"]["pl"] = "Zmień język tego panelu. Język w grze pozostaje bez zmian."
 T["tip_logout"]["pl"] = "Zakończ sesję administratora w panelu. Konto w grze pozostaje bez zmian."
-T["about_goal"]["pl"] = "Lokalny świat Metin2 rozwijany jako hobbystyczne środowisko dla autonomicznych botów graczy."
+# MT2009 Plus: what this server is, in place of the upstream project's words.
+T["about_goal"] = {
+    "pl": "MT2009 PLUS to lokalny świat Metin2 singleplayer na plikach serwerowych mt2009, pełen autonomicznych postaci (Playerbots): boty zdobywają poziomy, walczą solo i w grupach, ulepszają ekwipunek, polują na Metiny i handlują między sobą.",
+    "en": "MT2009 PLUS is a local singleplayer Metin2 world on the mt2009 server files, full of autonomous characters (Playerbots): the bots level up, fight solo and in parties, refine their gear, hunt Metin stones and trade with each other.",
+    "de": "MT2009 PLUS ist eine lokale Singleplayer-Welt von Metin2 auf den mt2009-Serverdateien, voller autonomer Charaktere (Playerbots): Die Bots steigen auf, kämpfen allein und in Gruppen, verbessern ihre Ausrüstung, jagen Metinsteine und handeln miteinander.",
+    "tr": "MT2009 PLUS, mt2009 sunucu dosyaları üzerinde çalışan yerel bir tek oyunculu Metin2 dünyasıdır ve otonom karakterlerle (Playerbots) doludur: botlar seviye atlar, tek başına ve grupla savaşır, ekipmanını geliştirir, Metin taşı avlar ve birbirleriyle ticaret yapar.",
+}
+T["about_hobby"] = {
+    "pl": "To paczka modyfikacji oficjalnego wydania Metin2 Playerbots od Tieru. Dodaje ponad 2200 nowych przedmiotów i systemów: kostiumy, fryzury, nakładki na broń, szarfy, mounty, pety i alchemię (Smocze Kamienie), a do tego ItemShop w grze i w przeglądarce.",
+    "en": "It is a modification pack of Tieru's official Metin2 Playerbots release. It adds over 2,200 new items and systems: costumes, hairstyles, weapon skins, sashes, mounts, pets and alchemy (Dragon Soul), plus an ItemShop in the game and in the browser.",
+    "de": "Es ist ein Modifikationspaket der offiziellen Metin2-Playerbots-Veröffentlichung von Tieru. Es bringt über 2.200 neue Gegenstände und Systeme: Kostüme, Frisuren, Waffenskins, Schärpen, Reittiere, Haustiere und Alchemie (Drachenstein), dazu einen ItemShop im Spiel und im Browser.",
+    "tr": "Tieru'nun resmî Metin2 Playerbots sürümünün bir modifikasyon paketidir. 2.200'den fazla yeni eşya ve sistem ekler: kostümler, saç modelleri, silah kaplamaları, kuşaklar, binekler, evcil hayvanlar ve simya (Ejderha Taşı), ayrıca oyun içi ve tarayıcıda ItemShop.",
+}
+T["about_oss"] = {
+    "pl": "Aktualizacje przychodzą przez launcher z repozytorium MT2009 PLUS, a nowości i pomoc znajdziesz na stronie projektu i na Discordzie.",
+    "en": "Updates arrive through the launcher from the MT2009 PLUS repository; news and help are on the project's website and on the Discord.",
+    "de": "Updates kommen über den Launcher aus dem MT2009-PLUS-Repository; Neuigkeiten und Hilfe gibt es auf der Projektseite und im Discord.",
+    "tr": "Güncellemeler başlatıcı üzerinden MT2009 PLUS deposundan gelir; haberler ve yardım proje sitesinde ve Discord'da.",
+}
+T["site_link"] = {"pl": "🌐 Strona projektu na GitHubie", "en": "🌐 The project on GitHub",
+                  "de": "🌐 Das Projekt auf GitHub", "tr": "🌐 GitHub'daki proje"}
 
 
 # --- Module 5: the goal weights. Four languages like the rest of the panel;
@@ -4212,6 +4030,11 @@ T.update({
                   "de":"Aus (Standard): ein Bot eröffnet seinen Stand nur in den ersten Dörfern, wo die Spieler einkaufen; ein abgelaufener Stand aus einem zweiten Dorf wird beim nächsten Besuch seines Besitzers auf dem Marktring des ersten Dorfes erneuert. An: die Stände stehen in beiden Dörfern, wie bisher.",
                   "tr":"Kapalı (varsayılan): bot tezgahını yalnızca oyuncuların alışveriş yaptığı ilk köylerde açar; ikinci köyde duran ve süresi dolan tezgah, sahibinin bir sonraki ziyaretinde ilk köyün pazar halkasında yenilenir. Açık: tezgahlar eskisi gibi iki köyde de durur."},
  "ai_shop_m2_on": {"en":"Allowed","pl":"Dozwolone","de":"Erlaubt","tr":"İzin verildi"},
+ "ai_shouters":  {"en":"Shouters in M1 (3 bots)","pl":"Krzykacze w M1 (3 boty)","de":"Schreier in M1 (3 Bots)","tr":"M1'de bağıranlar (3 bot)"},
+ "ai_shouters_help": {"en":"Three extra bots, one per kingdom (apka2009, appka2009, apppka2009), on top of the bot count. They level up to 15, then stand without weapon and armour by the general store of their kingdom's first village and now and then shout a line on the shout channel (once per 20-30 channel lines, at least 10 minutes apart). They answer nothing: no whispers, parties, trades or guilds. Off: they log out at once and do not come back until switched on again.",
+                  "pl":"Trzy dodatkowe boty, po jednym na królestwo (apka2009, appka2009, apppka2009), ponad liczbę botów. Wbijają 15 poziom, potem stoją bez broni i zbroi przy Handlarce w pierwszej wiosce swojego królestwa i co jakiś czas wołają na kanale wołaj (raz na 20–30 wiadomości kanału, nie częściej niż co 10 minut). Nie odpowiadają na szepty, grupy, handel ani gildie. Wyłączone: od razu się wylogowują i nie wracają, dopóki ich nie włączysz.",
+                  "de":"Drei zusätzliche Bots, einer pro Reich, über der Botanzahl. Sie leveln bis 15 und stehen dann ohne Waffe und Rüstung beim Gemischtwarenhändler im ersten Dorf und rufen ab und zu etwas in den Ruf-Kanal. Aus: sie loggen sofort aus.",
+                  "tr":"Her krallık için bir tane olmak üzere bot sayısının üstünde üç ek bot. 15. seviyeye kadar kasarlar, sonra ilk köyün genel mağazasının yanında silahsız ve zırhsız durup ara sıra bağırma kanalına yazarlar. Kapalı: hemen çıkış yaparlar."},
  "ai_persona":   {"en":"Bot personalities (Iwakura v2)","pl":"Osobowości botów (Iwakura v2)","de":"Bot-Persönlichkeiten (Iwakura v2)","tr":"Bot kişilikleri (Iwakura v2)"},
  "ai_persona_help": {"en":"Iwakura's personality system. A bot's personality follows its situation (Grinder, Conqueror, Trader, Gambler, Perfectionist, Metin slayer, Miner, Fisherman, Mercenary, Companion) and it has a mood (poor, normal, very good) shown on its card. A Grinder holds its level at its tier (15, 23, 30-35, 40-48, 55-62) until it wears a weapon +7, an armour +6 and a shield +6 for its level, and only then may level on as a Conqueror. A bot in a poor mood pauses between packs and goes AFK now and then; only such bots rest in town. Now and then a bot becomes one of five rare personalities for a while, shown in red: Metinologist, Addict, Mad Scientist, Executioner, Mad Angler - or, among the richest bots, one of four gamblers shown in purple: Junior, Senior, Chief and Mad Gambler. Off: the bots play as they did before, with their old personalities.",
                   "pl":"System osobowości Iwakury. Osobowość bota wynika z jego sytuacji (Grinder, Zdobywca, Handlarz, Hazardzista, Perfekcjonista, Pogromca metinów, Górnik, Rybak, Najemnik, Towarzysz), a bot ma nastrój (słaby, normalny, bardzo dobry) widoczny na jego karcie. Grinder trzyma poziom swojego tieru (15, 23, 30-35, 40-48, 55-62), dopóki nie założy broni +7, zbroi +6 i tarczy +6 na swój poziom - dopiero wtedy może dalej expić jako Zdobywca. Bot w słabym nastroju robi przerwy między grupami mobów i co jakiś czas odchodzi od komputera; tylko takie boty odpoczywają w mieście. Od czasu do czasu bot staje się na pewien czas jedną z pięciu rzadkich osobowości, widocznych na czerwono: Metinolog, Nałogowiec, Szalony Naukowiec, Egzekutor, Szalony Wędkarz - a wśród najbogatszych botów jednym z czterech Hazardzistów, widocznych na fioletowo: Młodszym, Starszym, Naczelnym i Szalonym. Wyłączone: boty grają jak wcześniej, ze starymi osobowościami.",
@@ -4233,6 +4056,19 @@ T.update({
                   "tr":"İlk köydeki işlerini bitirdikten sonra yaklaşık üç dakika pazar halkasında kalıp tezgâhlar arasında dolaşan botların payı. 0 - kimse dinlenmez: botlar sürekli avlanır, şehre yalnızca iş için gelir. Kaydırıcı ne derse desin 18. seviyenin altındaki bot asla dinlenmez, açık tezgâh yokken kimse tezgâhlara bakmaz. Bot kişilikleri açıkken yalnızca kötü ruh halindeki botlar dinlenir ve kaydırıcı onların payıdır."},
  "ai_rest_off":  {"en":"nobody rests","pl":"nikt nie odpoczywa","de":"niemand ruht","tr":"kimse dinlenmez"},
  "ai_rest_all":  {"en":"every bot","pl":"każdy bot","de":"jeder Bot","tr":"her bot"},
+ "ai_will_bp":   {"en":"Will to do the Battle Pass","pl":"Chęć robienia Battle Passa"},
+ "ai_will_bp_help": {"en":"Every 1.5-2.5 minutes a bot with nothing else to do draws whether it takes one of its open Battle Pass missions on as a goal for up to an hour: a trip to the map of the mission's Metin stone, fishing, the blacksmith, or a place in a boss raid. The slider multiplies that chance (at 100 it depends on the personality: 15-70%) and the chance of taking the next mission of a chain. 0 - no deliberate Battle Pass trips at all, and running ones end at the next check. Progress made by the way (monsters, Metins and fish met on the way, shouts on the chat) counts whatever the slider says. Applies at once.",
+                  "pl":"Co 1,5–2,5 minuty bot bez innego zajęcia losuje, czy weźmie jedną ze swoich otwartych misji Battle Passa jako cel na do godziny: wyprawa na mapę metina z misji, łowienie ryb, wizyta u kowala albo miejsce w rajdzie na bossa. Suwak mnoży tę szansę (przy 100 zależy od osobowości: 15–70%) i szansę wzięcia kolejnej misji z łańcucha. 0 - żadnych celowych wypraw po Battle Pass, a trwające kończą się przy następnym sprawdzeniu. Postęp „przy okazji” (potwory, metiny i ryby spotkane po drodze, okrzyki na czacie) liczy się niezależnie od suwaka. Działa od razu."},
+ "ai_will_bp_off": {"en":"only by the way","pl":"tylko przy okazji"},
+ "ai_will_all":  {"en":"as before","pl":"jak dotąd"},
+ "ai_will_sash": {"en":"Will to make sashes","pl":"Chęć robienia szarf"},
+ "ai_will_sash_help": {"en":"At 100, 80% of the bots of level 30 and up build sashes (chosen for good by the character number). A builder keeps its sashes, combines them at Uriel, absorbs a good weapon or armour into one, buys sashes and pieces to absorb off the market and wears the best one. The slider shrinks that pool: the bots outside it sell their sashes on their stalls, and a sash already worn stays on. Raising it brings the same bots back. Reaches a bot at its next sash check (3-6 minutes).",
+                  "pl":"Przy 100 szarfy buduje 80% botów od 30 poziomu (wybranych na stałe po numerze postaci). Budowniczy trzyma szarfy w plecaku, łączy je u Uriela, wchłania w nie dobrą broń lub zbroję, kupuje szarfy i przedmioty do wchłonięcia z rynku i zakłada najlepszą. Suwak zmniejsza tę pulę: boty spoza niej sprzedają szarfy na straganach, a założona szarfa zostaje na postaci. Podniesienie przywraca te same boty. Dociera do bota przy jego następnym sprawdzeniu szarf (3–6 minut)."},
+ "ai_will_sash_off": {"en":"nobody builds, all sell","pl":"nikt nie buduje, wszyscy sprzedają"},
+ "ai_will_alch": {"en":"Will to do alchemy","pl":"Chęć robienia alchemii"},
+ "ai_will_alch_help": {"en":"At 100, 75% of the bots of level 30 and up use Dragon Soul alchemy (chosen for good by the character number): they open Cor Draconis, wear the best dragon stones, refine them at the Alchemist, buy Cors, stones and the Time Elixir off the market. The slider shrinks that pool: the bots outside it sell their Cors and spare stones on their stalls. Every bot of 30 and up still gathers the shards and daily Cors whatever the slider says, and worn stones stay on. Raising it brings the same bots back. Applies at once.",
+                  "pl":"Przy 100 alchemii smoka używa 75% botów od 30 poziomu (wybranych na stałe po numerze postaci): otwierają Cor Draconis, zakładają najlepsze kamienie smoka, ulepszają je u Alchemika, kupują z rynku Cory, kamienie i Eliksir Czasu. Suwak zmniejsza tę pulę: boty spoza niej sprzedają Cory i zbędne kamienie na straganach. Odłamki i dzienne Cory zbiera każdy bot od 30 poziomu niezależnie od suwaka, a założone kamienie zostają. Podniesienie przywraca te same boty. Działa od razu."},
+ "ai_will_alch_off": {"en":"nobody uses, all sell","pl":"nikt nie używa, wszyscy sprzedają"},
  "ai_kpvp":      {"en":"Hostility between kingdoms","pl":"Wrogość między królestwami","de":"Feindschaft zwischen Königreichen","tr":"Krallıklar arası düşmanlık"},
  "ai_kpvp_help": {"en":"The share of bots that will start a duel with a bot of another kingdom when they meet on shared ground - Orc Valley, the desert, Mount Sohan, the dungeons. Never in a village, never against a player, and never against a bot that is hurt or already fighting one. Which bots are the aggressive ones is fixed per character, so the same ones quarrel after every restart. Off by default. It works only with the shared world layout (unified, the default up to 1500 bots): under split every core holds one kingdom's bots, so there is nobody to fight.",
                   "pl":"Udział botów, które zaczepią bota z innego królestwa, gdy spotkają go na wspólnym terenie - w Dolinie Orków, na pustyni, na Górze Sohan, w lochach. Nigdy w wiosce, nigdy na graczu i nigdy na bocie rannym albo już walczącym. To, które boty są agresywne, jest przypisane na stałe do postaci, więc po każdym restarcie zaczepiają te same. Domyślnie wyłączone. Działa tylko przy wspólnym układzie świata (unified, domyślny do 1500 botów): przy układzie split każdy rdzeń ma boty jednego królestwa i nie ma z kim walczyć.",
@@ -4283,9 +4119,9 @@ T.update({
  "gl_col_record":{"en":"W/D/L","pl":"Z/R/P","de":"S/U/N","tr":"G/B/M"},
  "gl_col_exp":   {"en":"Exp received","pl":"Otrzymany exp","de":"Erhaltene Erfahrung","tr":"Alınan tecrübe"},
  "gl_col_war":   {"en":"War","pl":"Wojna","de":"Krieg","tr":"Savaş"},
- "gl_players":   {"en":"Player guilds","pl":"Gildie graczy","de":"Spielergilden","tr":"Oyuncu loncaları"},
- "gl_players_note": {"en":"Guilds whose master is a person, from the database: no tier (that is the bots' percentile) and no online count.","pl":"Gildie, których mistrzem jest człowiek, z bazy danych: bez klasy (to percentyl botów) i bez liczby osób online.","de":"Gilden, deren Meister ein Mensch ist, aus der Datenbank: ohne Stufe (das ist das Perzentil der Bots) und ohne Online-Zahl.","tr":"Lideri bir insan olan loncalar, veritabanından: kademe yok (bu botların yüzdelik dilimi) ve çevrimiçi sayısı yok."},
- "gl_players_none": {"en":"No guild is led by a person yet.","pl":"Żadnej gildii nie prowadzi jeszcze człowiek.","de":"Noch keine Gilde wird von einem Menschen geführt.","tr":"Henüz bir insanın yönettiği lonca yok."},
+ "gl_players":   {"en":"Player guilds","pl":"Gildie graczy"},
+ "gl_players_note": {"en":"Guilds whose master is a person, from the database: no tier (that is the bots' percentile) and no online count.","pl":"Gildie, których mistrzem jest człowiek, z bazy danych: bez klasy (to percentyl botów) i bez liczby osób online."},
+ "gl_players_none": {"en":"No guild is led by a person yet.","pl":"Żadnej gildii nie prowadzi jeszcze człowiek."},
  "gl_war_with":  {"en":"vs","pl":"z","de":"gegen","tr":"vs"},
  "gl_next_war":  {"en":"Next bot guild war","pl":"Następna wojna gildii botów","de":"Nächster Bot-Gildenkrieg","tr":"Sonraki bot lonca savaşı"},
  "gl_next_war_now": {"en":"under way now (guild map)","pl":"trwa teraz (mapa gildyjna)","de":"läuft jetzt (Gildenkarte)","tr":"şu anda sürüyor (lonca haritası)"},
@@ -4303,6 +4139,9 @@ T.update({
  "ev_inactive":  {"en":"Not running","pl":"Nieaktywny","de":"L\u00e4uft nicht","tr":"\u00c7al\u0131\u015fm\u0131yor"},
  "ev_none":      {"en":"No window scheduled","pl":"Brak zaplanowanych okien","de":"Kein Fenster geplant","tr":"Planlanm\u0131\u015f pencere yok"},
  "ev_kind_chest":{"en":"Moonlight chests","pl":"Szkatu\u0142ki Blasku Ksi\u0119\u017cyca","de":"Mondschein-Truhen","tr":"Ay I\u015f\u0131\u011f\u0131 Sand\u0131klar\u0131"},
+ "ev_kind_bossloot":{"en":"Double boss loot","pl":"Podw\u00f3jny loot z boss\u00f3w","de":"Doppelte Boss-Beute","tr":"\u00c7ift boss ganimeti"},
+ "ev_kind_metinloot":{"en":"Double Metin loot","pl":"Podw\u00f3jny loot z Metin\u00f3w","de":"Doppelte Metin-Beute","tr":"\u00c7ift Metin ganimeti"},
+ "ev_kind_goblin":{"en":"Treasure Hunt (Goblin)","pl":"Poszukiwanie skarb\u00f3w (Goblin)","de":"Schatzsuche (Goblin)","tr":"Hazine Av\u0131 (Goblin)"},
  "ev_kind_exp":  {"en":"Experience","pl":"Do\u015bwiadczenie","de":"Erfahrung","tr":"Tecr\u00fcbe"},
  "ev_kind_drop": {"en":"Item drop","pl":"Drop przedmiot\u00f3w","de":"Item-Drop","tr":"E\u015fya d\u00fc\u015fmesi"},
  "ev_kind_yang": {"en":"Yang","pl":"Yang","de":"Yang","tr":"Yang"},
@@ -4476,215 +4315,123 @@ T.update({
 })
 
 
-# German and Turkish for the entries above that were written in Polish and
-# English only, so that a German or a Turkish page is not an English one
-# with the rest of the words in it ("Half a translation reads worse than either
-# language", docs/notes/panels.md). Kept apart from the entries, not merged into
-# them, so the lines above stay as they were written. The channel card's ch2_*
-# are not here: that card is being rewritten for more channels.
-for _key, _texts in {
- "regen_title": {"de": "Respawnzeit von Metinsteinen, Bossen und Monstern",
-       "tr": "Metin Taşları, bosslar ve canavarlar için yeniden doğma süresi"},
- "regen_help": {"de": "Prozent der normalen Respawnzeit: 100 = wie im Spiel, 50 = doppelt so schnell, 10 = zehnmal so schnell. Wirkt sofort (über den Ingame-Helfer) und bleibt nach einem Neustart erhalten. Getrennt einstellbar für Metinsteine und Bosse sowie für normale Monster.",
-       "tr": "Normal yeniden doğma süresinin yüzdesi: 100 = oyundaki gibi, 50 = iki kat hızlı, 10 = on kat hızlı. Hemen etkili olur (oyun içi yardımcı sayesinde) ve yeniden başlatmadan sonra da kalır. Metin Taşları ve bosslar için ayrı, normal canavarlar için ayrı ayarlanır."},
- "regen_boss": {"de": "Metinsteine und Bosse (% der Zeit)",
-       "tr": "Metin Taşları ve bosslar (sürenin %'si)"},
- "regen_mob": {"de": "Normale Monster (% der Zeit)",
-       "tr": "Normal canavarlar (sürenin %'si)"},
- "regen_faster": {"de": "Schneller:",
-       "tr": "Daha hızlı:"},
- "regen_mult": {"de": "≈ ×{n} schneller als im Spiel",
-       "tr": "≈ oyundakinden ×{n} daha hızlı"},
- "regen_save": {"de": "Respawnzeiten speichern",
-       "tr": "Yeniden doğma sürelerini kaydet"},
- "regen_range": {"de": "Beide Werte müssen ganze Zahlen von 10 bis 100 sein. Es wurde nichts geändert.",
-       "tr": "İki değer de 10 ile 100 arasında bir tam sayı olmalı. Hiçbir şey değiştirilmedi."},
- "regen_saved_live": {"de": "✅ Gespeichert! Die neuen Respawnzeiten gelten schon im Spiel, ohne Neustart.",
-       "tr": "✅ Kaydedildi! Yeniden doğma süreleri oyunda hemen güncellendi, yeniden başlatmaya gerek yok."},
- "regen_saved_restart": {"de": "Gespeichert. Niemand ist eingeloggt, deshalb hat der Ingame-Helfer nicht geantwortet — die neuen Zeiten gelten nach einem Neustart des Servers (oder speichere noch einmal, wenn jemand im Spiel ist).",
-       "tr": "Kaydedildi. Kimse giriş yapmamış, bu yüzden oyun içi yardımcı yanıt vermedi — yeni süreler sunucu yeniden başlatıldıktan sonra geçerli olur (ya da oyunda biri varken tekrar kaydet)."},
- "count_title": {"de": "Monsteranzahl pro Spawnpunkt",
-       "tr": "Doğma noktası başına canavar sayısı"},
- "count_help": {"de": "Wie viele Monster an jedem Spawnpunkt stehen: ×1 = wie im Spiel, ×2 = doppelt so viele, bis zu ×4. Kein Neustart nötig, und die Einstellung bleibt auch nach einem Neustart erhalten; die zusätzlichen Monster kommen beim nächsten Respawn des jeweiligen Punkts dazu (Metinsteine und Bosse nach ihrer eigenen Respawnzeit, meist 15–25 Minuten). Getrennt einstellbar für Metinsteine und Bosse sowie für normale Monster. NPCs (auch Erzadern und Kräuterbüsche), Portale, Dungeons und einmalige Spawns aus Quests bleiben unverändert.",
-       "tr": "Her doğma noktasında kaç canavar durduğu: ×1 = oyundaki gibi, ×2 = iki kat fazla, ×4'e kadar. Yeniden başlatma gerekmez ve ayar yeniden başlatmadan sonra da kalır; ek canavarlar o noktanın bir sonraki yeniden doğmasında gelir (Metin Taşları ve bosslar kendi yeniden doğma sürelerinden sonra, genellikle 15–25 dakika). Metin Taşları ve bosslar için ayrı, normal canavarlar için ayrı ayarlanır. NPC'ler (maden damarları ve ot çalıları da), portallar, zindanlar ve görevlerin tek seferlik doğmaları değişmeden kalır."},
- "count_warn": {"de": "Achtung: ×2 bedeutet doppelt so viele Monster auf jeder Map — der Server und die Bots haben dadurch mehr Arbeit. Wenn du den Multiplikator senkst, verschwinden die überzähligen Monster erst, wenn jemand sie tötet.",
-       "tr": "Dikkat: ×2, her haritada iki kat fazla canavar demektir — sunucu ve botlar bu yüzden daha çok çalışır. Çarpanı düşürdükten sonra fazla canavarlar ancak biri onları öldürünce kaybolur."},
- "count_boss": {"de": "Metinsteine und Bosse",
-       "tr": "Metin Taşları ve bosslar"},
- "count_mob": {"de": "Normale Monster",
-       "tr": "Normal canavarlar"},
- "count_save": {"de": "Monsteranzahl speichern",
-       "tr": "Canavar sayısını kaydet"},
- "count_range": {"de": "Wähle einen Multiplikator von ×1 bis ×4. Es wurde nichts geändert.",
-       "tr": "×1 ile ×4 arasında bir çarpan seç. Hiçbir şey değiştirilmedi."},
- "count_saved_live": {"de": "✅ Gespeichert! Die neue Monsteranzahl gilt schon im Spiel — sie wird beim nächsten Respawn aufgefüllt.",
-       "tr": "✅ Kaydedildi! Yeni canavar sayısı oyunda şimdiden geçerli — bir sonraki yeniden doğmada tamamlanır."},
- "count_saved_restart": {"de": "Gespeichert. Niemand ist eingeloggt, deshalb hat der Ingame-Helfer nicht geantwortet — die neue Monsteranzahl gilt nach einem Neustart des Servers (oder speichere noch einmal, wenn jemand im Spiel ist).",
-       "tr": "Kaydedildi. Kimse giriş yapmamış, bu yüzden oyun içi yardımcı yanıt vermedi — yeni canavar sayısı sunucu yeniden başlatıldıktan sonra geçerli olur (ya da oyunda biri varken tekrar kaydet)."},
- "diff_title": {"de": "Schwierigkeitsgrad",
-       "tr": "Zorluk seviyesi"},
- "diff_help": {"de": "Wie lange ein Spieler beim Biologen zwischen zwei Abgaben und beim Stallburschen wartet (Pony, Pferdebücher, Trainings mit Medaillen) und wie lange Spieler und Bots zwischen zwei Büchern derselben Fertigkeit warten — eine Exorzismus-Schriftrolle überspringt diese Wartezeit. Eine Änderung wirkt sofort, wenn jemand im Spiel ist, und bleibt nach einem Neustart erhalten, bis du den Schwierigkeitsgrad im Launcher änderst (Button SCHWIERIGKEITSGRAD).",
-       "tr": "Oyuncunun Biyolog'da iki teslim arasında ve Seyis'te (midilli, At Kitapları, madalyalı eğitimler) ne kadar beklediği ve oyuncularla botların aynı becerinin iki kitabı arasında ne kadar beklediği — Ayin Parşömeni bu beklemeyi ortadan kaldırır. Değişiklik, oyunda biri varken hemen etkili olur ve zorluğu başlatıcıda (ZORLUK düğmesi) değiştirene kadar yeniden başlatmadan sonra da kalır."},
- "diff_now": {"de": "Aktuell",
-       "tr": "Şu an"},
- "diff_level": {"de": "Stufe",
-       "tr": "Seviye"},
- "diff_level_easy": {"de": "Leicht — ohne Wartezeit",
-       "tr": "Kolay — beklemesiz"},
- "diff_level_medium": {"de": "Mittel — Biologe 8 h, Pferd 4–7 h, Bücher 7 h",
-       "tr": "Orta — Biyolog 8 h, at 4–7 h, kitaplar 7 h"},
- "diff_level_hard": {"de": "Schwer — wie im Original: Biologe 24 h, Pferd 12–21 h, Bücher 21 h",
-       "tr": "Zor — orijinaldeki gibi: Biyolog 24 h, at 12–21 h, kitaplar 21 h"},
- "diff_level_custom": {"de": "Benutzerdefiniert — die Stunden unten",
-       "tr": "Özel — aşağıdaki saatler"},
- "diff_bio": {"de": "Biologe",
-       "tr": "Biyolog"},
- "diff_horse": {"de": "Stallbursche (Pony / Buch / Trainings)",
-       "tr": "Seyis (midilli / kitap / eğitimler)"},
- "diff_books": {"de": "Bücher",
-       "tr": "kitaplar"},
- "diff_players": {"de": "Spieler",
-       "tr": "oyuncular"},
- "diff_bots": {"de": "Bots",
-       "tr": "botlar"},
- "diff_custom_help": {"de": "Die Stunden unten zählen nur bei der Stufe „Benutzerdefiniert“ (Kommazahlen erlaubt, 0 = keine Wartezeit). Für den Stallburschen gilt eine einzige Zahl für alle Wartezeiten: Pony, Pferdebuch und Trainings.",
-       "tr": "Aşağıdaki saatler yalnızca “Özel” seviyesinde geçerlidir (ondalıklı sayılar olabilir, 0 = beklemesiz). Seyis için tüm beklemelerde tek bir sayı geçerlidir: midilli, At Kitabı ve eğitimler."},
- "diff_bio_h": {"de": "Biologe — Stunden zwischen den Abgaben:",
-       "tr": "Biyolog — teslimler arasındaki saat:"},
- "diff_horse_h": {"de": "Stallbursche — Stunden für Pony, Buch und Training:",
-       "tr": "Seyis — midilli, kitap ve eğitim için saat:"},
- "diff_book_h": {"de": "Fertigkeitsbücher — Spieler, Stunden:",
-       "tr": "Beceri Kitapları — oyuncular, saat:"},
- "diff_bot_book_h": {"de": "Fertigkeitsbücher — Bots, Stunden:",
-       "tr": "Beceri Kitapları — botlar, saat:"},
- "diff_save": {"de": "Schwierigkeitsgrad speichern",
-       "tr": "Zorluk seviyesini kaydet"},
- "diff_range": {"de": "Wähle eine Stufe und gib Stunden von 0 bis 720 an. Es wurde nichts geändert.",
-       "tr": "Bir seviye seç ve 0 ile 720 arasında saat gir. Hiçbir şey değiştirilmedi."},
- "diff_saved_live": {"de": "✅ Gespeichert! Der neue Schwierigkeitsgrad gilt schon im Spiel.",
-       "tr": "✅ Kaydedildi! Yeni zorluk seviyesi oyunda şimdiden geçerli."},
- "diff_saved_restart": {"de": "Gespeichert. Niemand ist eingeloggt, deshalb hat der Ingame-Helfer nicht geantwortet — die neuen Wartezeiten gelten nach einem Neustart des Servers (oder speichere noch einmal, wenn jemand im Spiel ist).",
-       "tr": "Kaydedildi. Kimse giriş yapmamış, bu yüzden oyun içi yardımcı yanıt vermedi — yeni bekleme süreleri sunucu yeniden başlatıldıktan sonra geçerli olur (ya da oyunda biri varken tekrar kaydet)."},
- "ah_title": {"de": "Auto-Jagd-Panel",
-       "tr": "Otomatik Av paneli"},
- "ah_help": {"de": "Wer das Auto-Jagd-Fenster im Client benutzen darf. „Nur nach Kauf“ — ein Spieler kauft im ItemShop „Auto Lowy (8h)“ und benutzt es aus dem Inventar: 8 Stunden, die nur laufen, solange der Charakter im Spiel ist; weitere Tickets addieren sich (höchstens 30 Tage). Eine Änderung wirkt sofort, wenn jemand im Spiel ist, und bleibt nach einem Neustart erhalten, bis du sie im Launcher änderst (Button SCHWIERIGKEITSGRAD).",
-       "tr": "İstemcideki Otomatik Av penceresini kimlerin kullanabileceği. “Yalnızca satın alındıktan sonra” — oyuncu ItemShop'tan “Auto Lowy (8h)” satın alır ve envanterden kullanır: yalnızca karakter oyundayken işleyen 8 saat; sonraki biletler toplanır (en fazla 30 gün). Değişiklik, oyunda biri varken hemen etkili olur ve sen başlatıcıda (ZORLUK düğmesi) değiştirene kadar yeniden başlatmadan sonra da kalır."},
- "ah_all": {"de": "Auto-Jagd-Panel für alle verfügbar",
-       "tr": "Otomatik Av paneli herkese açık"},
- "ah_item": {"de": "Auto-Jagd-Panel nur nach Kauf des ItemShop-Gegenstands",
-       "tr": "Otomatik Av paneli yalnızca ItemShop'tan eşya satın alındıktan sonra açık"},
- "ah_off": {"de": "Die Auto-Jagd ist auf dieser Welt ausgeschaltet (Launcher: M2_AUTOHUNT=0), deshalb wirkt diese Auswahl erst, wenn du sie einschaltest.",
-       "tr": "Otomatik Av bu dünyada kapalı (başlatıcı: M2_AUTOHUNT=0), bu yüzden bu seçim ancak onu açtığında geçerli olur."},
- "ah_save": {"de": "Auto-Jagd-Zugang speichern",
-       "tr": "Otomatik Av erişimini kaydet"},
- "ah_saved_live": {"de": "✅ Gespeichert! Der neue Auto-Jagd-Zugang gilt schon im Spiel.",
-       "tr": "✅ Kaydedildi! Otomatik Av için yeni erişim oyunda şimdiden geçerli."},
- "ah_saved_restart": {"de": "Gespeichert. Niemand ist eingeloggt, deshalb hat der Ingame-Helfer nicht geantwortet — die Änderung gilt nach einem Neustart des Servers (oder speichere noch einmal, wenn jemand im Spiel ist).",
-       "tr": "Kaydedildi. Kimse giriş yapmamış, bu yüzden oyun içi yardımcı yanıt vermedi — değişiklik sunucu yeniden başlatıldıktan sonra geçerli olur (ya da oyunda biri varken tekrar kaydet)."},
- "sc_title": {"de": "Lehrlingstruhe",
-       "tr": "Çırak Sandığı"},
- "sc_help": {"de": "Die Kette der Lehrlingstruhen (von der Lehrlingstruhe I bis zur Großmeistertruhe: Tränke, Elixiere, grüne Steine und die nächste Truhe) - ein Schalter für Spieler und Bots. Ein: Ein neuer Charakter eines Spielers bekommt sie beim ersten Einloggen (bis Stufe 5), ein Bot hat seine von Anfang an und öffnet die nächsten Truhen auf ihrer Stufe. Aus: Niemand bekommt sie; die Bots verlieren die ungeöffneten Truhen der Kette, und neue Bots entstehen ohne. Truhen von Spielern werden nie angerührt. Eine Änderung gilt sofort und bleibt nach einem Neustart erhalten, bis du sie im Launcher änderst (Button SCHWIERIGKEITSGRAD, M2_STARTER_CHEST in der .env).",
-       "tr": "Çırak Sandığı zinciri (Çırak Sandığı I'den Büyük Usta Sandığı'na: iksirler, eliksirler, yeşil taşlar ve bir sonraki sandık) - oyuncular ve botlar için tek anahtar. Açık: bir oyuncunun yeni karakteri onu ilk girişinde alır (5. seviyeye kadar), bir botun kendi sandığı baştan vardır ve sonraki sandıkları seviyelerinde açar. Kapalı: kimse almaz; botlar zincirin açılmamış sandıklarını kaybeder ve yeni botlar sandıksız oluşturulur. Oyuncuların sandıklarına asla dokunulmaz. Değişiklik hemen geçerli olur ve sen başlatıcıda (ZORLUK düğmesi, .env içinde M2_STARTER_CHEST) değiştirene kadar yeniden başlatmadan sonra da kalır."},
- "sc_on": {"de": "Lehrlingstruhe im Spiel (Spieler und Bots)",
-       "tr": "Çırak Sandığı oyunda (oyuncular ve botlar)"},
- "sc_off": {"de": "Keine Lehrlingstruhe (weder für Spieler noch für Bots)",
-       "tr": "Çırak Sandığı yok (ne oyuncular ne de botlar için)"},
- "sc_save": {"de": "Lehrlingstruhe speichern",
-       "tr": "Çırak Sandığı'nı kaydet"},
- "sc_saved_live": {"de": "✅ Gespeichert! Die Änderung gilt schon im Spiel.",
-       "tr": "✅ Kaydedildi! Değişiklik oyunda şimdiden geçerli."},
- "sc_saved_restart": {"de": "Gespeichert. Das Spiel hat nicht geantwortet (der Server ist aus oder startet gerade) — die Änderung gilt beim nächsten Start des Servers.",
-       "tr": "Kaydedildi. Oyun yanıt vermedi (sunucu kapalı ya da henüz başlıyor) — değişiklik sunucunun bir sonraki başlatılışında geçerli olur."},
- "ai_books_moved": {"de": "Auf diesem Server legt das der Schwierigkeitsgrad fest (Server-Raten → Schwierigkeitsgrad): eine Wartezeit für die Spieler, eine für die Bots; 0 = sofort.",
-       "tr": "Bu sunucuda bunu zorluk seviyesi belirler (Sunucu oranları → Zorluk seviyesi): oyuncular için ayrı, botlar için ayrı bir süre; 0 = hemen."},
- "ai_items_open": {"de": "📦 Was die Bots verkaufen dürfen",
-       "tr": "📦 Botlar neleri satabilir"},
- "ai_items_nav": {"de": "📦 Gegenstandsregeln: Händler oder Stand",
-       "tr": "📦 Eşya kuralları: satıcı mı, tezgâh mı"},
- "ai_items_intro": {"de": "Eine Zeile pro Gegenstand: die Gegenstandsnummer (vnum) oder ein ganzer Typ (type:19), ein Leerzeichen oder Tabulator und ein Wort. keep (behalten) - verlässt nie das Inventar; stall (Stand) - Ware für den Stand, mit Vorrang vor allem anderen, aber höchstens 3 Einträge desselben Gegenstands im Stand (Verwandlungskugeln: 3, jede von einem anderen Monster), der Rest wartet im Inventar; merchant (Händler) - wird beim nächsten Stadtbesuch an den NPC-Händler verkauft; drop (wegwerfen) - wird beim Besuch beim Händler ohne Verkauf weggeworfen. Was hier nicht steht, folgt den eigenen Regeln der Bots. Nach dem Speichern erreicht es jeden Bot innerhalb von fünf Sekunden.",
-       "tr": "Eşya başına bir satır: eşya numarası (vnum) ya da bütün bir tür (type:19), bir boşluk veya sekme ve tek bir kelime. keep (sakla) - envanterden hiç çıkmaz; stall (tezgâh) - tezgâha konacak mal, her şeyden önce gelir, ama tezgâhta aynı eşyadan en fazla 3 ilan olur (dönüşüm küreleri: 3, her biri farklı bir canavarın), geri kalanı envanterde bekler; merchant (satıcı) - bir sonraki şehir ziyaretinde NPC satıcısına satılır; drop (yere at) - satıcı ziyaretinde satılmadan yere atılır. Burada yer almayan her şey botların kendi kurallarına uyar. Kaydedildikten sonra beş saniye içinde her bota ulaşır."},
- "ai_items_format": {"de": "Die Gegenstandsnummern zeigt dir die Suche auf der Seite zum Vergeben von Gegenständen; Typen: 5 Materialien, 18 Quest-Gegenstände, 19 Verwandlungskugeln, 17 Fertigkeitsbücher, 3 Gebrauchsgegenstände (Schriftrollen, Steine). Ein # leitet einen Kommentar ein.",
-       "tr": "Eşya numaralarını eşya verme sayfasındaki arama gösterir; türler: 5 malzemeler, 18 görev eşyaları, 19 dönüşüm küreleri, 17 Beceri Kitapları, 3 kullanılabilir eşyalar (parşömenler, taşlar). # işareti bir yorum başlatır."},
- "ai_items_bad": {"de": "Nicht gespeichert: Zeile(n) {n} entsprechen nicht dem Format '<vnum oder type:N> <keep|stall|merchant|drop>'.",
-       "tr": "Kaydedilmedi: şu satır(lar) '<vnum veya type:N> <keep|stall|merchant|drop>' biçiminde değil: {n}."},
- "ai_items_live": {"de": "Gespeichert. Die Bots lesen die Datei innerhalb von fünf Sekunden.",
-       "tr": "Kaydedildi. Botlar dosyayı beş saniye içinde okur."},
-}.items():
-    T[_key].update(_texts)
-
 # What used to be written where it stands - a flash in English on every page,
 # "← Back", "Map", "dni" - and the season's marks for people (28 September).
 T.update({
- "pl_map": {"pl": "Mapa", "en": "Map",
-       "de": "Karte", "tr": "Harita"},
- "se_days": {"pl": "{n} dni", "en": "{n} days",
-       "de": "{n} Tage", "tr": "{n} gün"},
- "unit_min": {"pl": "min", "en": "min",
-       "de": "Min.", "tr": "dk"},
- "ai_items_example": {"pl": "30048\tstall\t# Kawalek Lodu\ntype:19\tstall\t# marmury polimorfii\n50703\tdrop\t# Kwiat Kaki", "en": "30048\tstall\t# Piece of Ice\ntype:19\tstall\t# polymorph marbles\n50703\tdrop\t# Kaki Blossom",
-       "de": "30048\tstall\t# Eisstück\ntype:19\tstall\t# Verwandlungskugeln\n50703\tdrop\t# Kakiblüte", "tr": "30048\tstall\t# Buz Parçası\ntype:19\tstall\t# dönüşüm küreleri\n50703\tdrop\t# Kaki Çiçeği"},
- "login_locked": {"pl": "Zbyt wiele błędnych prób. Dla bezpieczeństwa odczekaj 15 minut. ⏳", "en": "Too many wrong attempts. Please wait 15 minutes for security. ⏳",
-       "de": "Zu viele falsche Versuche. Warte aus Sicherheitsgründen 15 Minuten. ⏳", "tr": "Çok fazla hatalı deneme. Güvenlik nedeniyle 15 dakika bekle. ⏳"},
- "login_wrong": {"pl": "Błędne hasło panelu, spróbuj jeszcze raz. 🙂", "en": "Wrong passphrase, try again. 🙂",
-       "de": "Falsches Panel-Passwort, versuch es noch einmal. 🙂", "tr": "Panel şifresi yanlış, tekrar dene. 🙂"},
- "too_many_tries": {"pl": "Zbyt wiele prób. Odczekaj chwilę. ⏳", "en": "Too many attempts. Please wait a while. ⏳",
-       "de": "Zu viele Versuche. Warte einen Moment. ⏳", "tr": "Çok fazla deneme. Biraz bekle. ⏳"},
- "dl_not_ready": {"pl": "Pobieranie gry nie jest jeszcze gotowe.", "en": "The game download is not ready yet.",
-       "de": "Der Download des Spiels ist noch nicht bereit.", "tr": "Oyun indirmesi henüz hazır değil."},
- "play_not_set": {"pl": "Gra w przeglądarce nie jest ustawiona na tym serwerze.", "en": "Playing in the browser is not set up on this server.",
-       "de": "Spielen im Browser ist auf diesem Server nicht eingerichtet.", "tr": "Bu sunucuda tarayıcıda oynama ayarlanmamış."},
- "reg_too_many": {"pl": "Z tego połączenia założono już zbyt wiele kont. Spróbuj ponownie później. ⏳", "en": "Too many accounts were created from this connection. Please try again later. ⏳",
-       "de": "Von dieser Verbindung aus wurden schon zu viele Konten erstellt. Versuch es später noch einmal. ⏳", "tr": "Bu bağlantıdan zaten çok fazla hesap açıldı. Daha sonra tekrar dene. ⏳"},
- "reg_bad_user": {"pl": "Nazwa użytkownika musi mieć 4-16 liter lub cyfr, bez spacji. 🙂", "en": "The username must be 4-16 letters/numbers, no spaces. 🙂",
-       "de": "Der Benutzername muss 4-16 Buchstaben oder Ziffern haben, ohne Leerzeichen. 🙂", "tr": "Kullanıcı adı boşluksuz, 4-16 harf veya rakamdan oluşmalı. 🙂"},
- "reg_bad_pw": {"pl": "Hasło musi mieć co najmniej 6 znaków. 🙂", "en": "The password must be at least 6 characters. 🙂",
-       "de": "Das Passwort muss mindestens 6 Zeichen haben. 🙂", "tr": "Şifre en az 6 karakter olmalı. 🙂"},
- "reg_pw_mismatch": {"pl": "Hasła się różnią — spróbuj jeszcze raz. 🙂", "en": "The two passwords don't match — try again. 🙂",
-       "de": "Die Passwörter stimmen nicht überein — versuch es noch einmal. 🙂", "tr": "Şifreler birbirini tutmuyor — tekrar dene. 🙂"},
- "reg_bad_social": {"pl": "Kod usuwania musi mieć dokładnie 7 cyfr (np. 1234567). 🙂", "en": "The delete code must be exactly 7 digits (e.g. 1234567). 🙂",
-       "de": "Der Löschcode muss genau 7 Ziffern haben (z. B. 1234567). 🙂", "tr": "Silme kodu tam olarak 7 rakamdan oluşmalı (örn. 1234567). 🙂"},
- "reg_name_taken": {"pl": "Ta nazwa użytkownika jest już zajęta — wybierz inną. 🙂", "en": "That username is already taken — pick another one. 🙂",
-       "de": "Dieser Benutzername ist schon vergeben — wähle einen anderen. 🙂", "tr": "Bu kullanıcı adı zaten alınmış — başka bir tane seç. 🙂"},
- "reg_failed": {"pl": "Nie udało się teraz założyć konta. Spróbuj ponownie za chwilę. 🙏", "en": "The account could not be created right now. Please try again in a bit. 🙏",
-       "de": "Das Konto konnte gerade nicht erstellt werden. Versuch es gleich noch einmal. 🙏", "tr": "Hesap şu an açılamadı. Birazdan tekrar dene. 🙏"},
- "acc_wrong": {"pl": "Błędna nazwa użytkownika lub hasło. 🙂", "en": "Wrong username or password. 🙂",
-       "de": "Falscher Benutzername oder falsches Passwort. 🙂", "tr": "Kullanıcı adı veya şifre yanlış. 🙂"},
- "acc_new_short": {"pl": "Nowe hasło musi mieć co najmniej 6 znaków. 🙂", "en": "The new password must be at least 6 characters. 🙂",
-       "de": "Das neue Passwort muss mindestens 6 Zeichen haben. 🙂", "tr": "Yeni şifre en az 6 karakter olmalı. 🙂"},
- "acc_new_mismatch": {"pl": "Nowe hasła się różnią. 🙂", "en": "The two new passwords don't match. 🙂",
-       "de": "Die neuen Passwörter stimmen nicht überein. 🙂", "tr": "Yeni şifreler birbirini tutmuyor. 🙂"},
- "acc_pw_changed": {"pl": "🔒 Hasło zostało zmienione! Przy następnym logowaniu do gry użyj nowego.", "en": "🔒 Your password was changed! Use the new one next time you log into the game.",
-       "de": "🔒 Dein Passwort wurde geändert! Benutze beim nächsten Einloggen ins Spiel das neue.", "tr": "🔒 Şifren değiştirildi! Oyuna bir sonraki girişinde yenisini kullan."},
- "acc_pw_wrong": {"pl": "Obecne hasło jest błędne. 🙂", "en": "The current password is wrong. 🙂",
-       "de": "Das aktuelle Passwort ist falsch. 🙂", "tr": "Mevcut şifre yanlış. 🙂"},
- "gold_1m": {"pl": "💰 1 milion", "en": "💰 1 Million",
-       "de": "💰 1 Million", "tr": "💰 1 milyon"},
- "gold_10m": {"pl": "💰 10 milionów", "en": "💰 10 Million",
-       "de": "💰 10 Millionen", "tr": "💰 10 milyon"},
- "gold_100m": {"pl": "💰 100 milionów", "en": "💰 100 Million",
-       "de": "💰 100 Millionen", "tr": "💰 100 milyon"},
- "gold_1b": {"pl": "👑 1 miliard", "en": "👑 1 Billion",
-       "de": "👑 1 Milliarde", "tr": "👑 1 milyar"},
- "win_inventory": {"pl": "ekwipunek", "en": "inventory",
-       "de": "Inventar", "tr": "envanter"},
- "win_equipment": {"pl": "założone", "en": "equipped",
-       "de": "angelegt", "tr": "kuşanılmış"},
- "win_safebox": {"pl": "magazyn", "en": "storage",
-       "de": "Lager", "tr": "depo"},
- "win_mall": {"pl": "magazyn ItemShopu", "en": "item-shop storage",
-       "de": "ItemShop-Lager", "tr": "ItemShop deposu"},
- "win_dragon_soul": {"pl": "kamienie smoka", "en": "dragon soul",
-       "de": "Drachensteine", "tr": "ejderha taşları"},
- "win_belt": {"pl": "pas", "en": "belt",
-       "de": "Gürtel", "tr": "kemer"},
- "win_offlineshop": {"pl": "sklep offline", "en": "offline shop",
-       "de": "Offline-Shop", "tr": "çevrimdışı dükkân"},
- "se_char": {"pl": "Postać", "en": "Character",
-       "de": "Charakter", "tr": "Karakter"},
- "se_people_note": {"pl": "👤 to postać gracza. Postaci GM-ów (common.gmlist) nie są liczone.", "en": "👤 marks a player's character. Game masters' characters (common.gmlist) are not counted.",
-       "de": "👤 kennzeichnet einen Spielercharakter. Charaktere von Spielleitern (common.gmlist) werden nicht gezählt.", "tr": "👤 bir oyuncu karakterini gösterir. Oyun yöneticilerinin karakterleri (common.gmlist) sayılmaz."},
- "se_people_more": {"pl": "Gracze spoza pierwszej pięćdziesiątki", "en": "Players outside the top fifty",
-       "de": "Spieler außerhalb der Top 50", "tr": "İlk ellinin dışındaki oyuncular"},
+ "pl_map": {"pl": "Mapa", "en": "Map"},
+ "se_days": {"pl": "{n} dni", "en": "{n} days"},
+ "unit_min": {"pl": "min", "en": "min"},
+ "ai_items_example": {"pl": "30048\tstall\t# Kawalek Lodu\ntype:19\tstall\t# marmury polimorfii\n50703\tdrop\t# Kwiat Kaki", "en": "30048\tstall\t# Piece of Ice\ntype:19\tstall\t# polymorph marbles\n50703\tdrop\t# Kaki Blossom"},
+ "login_locked": {"pl": "Zbyt wiele błędnych prób. Dla bezpieczeństwa odczekaj 15 minut. ⏳", "en": "Too many wrong attempts. Please wait 15 minutes for security. ⏳"},
+ "login_wrong": {"pl": "Błędne hasło panelu, spróbuj jeszcze raz. 🙂", "en": "Wrong passphrase, try again. 🙂"},
+ "too_many_tries": {"pl": "Zbyt wiele prób. Odczekaj chwilę. ⏳", "en": "Too many attempts. Please wait a while. ⏳"},
+ "dl_not_ready": {"pl": "Pobieranie gry nie jest jeszcze gotowe.", "en": "The game download is not ready yet."},
+ "play_not_set": {"pl": "Gra w przeglądarce nie jest ustawiona na tym serwerze.", "en": "Playing in the browser is not set up on this server."},
+ "reg_too_many": {"pl": "Z tego połączenia założono już zbyt wiele kont. Spróbuj ponownie później. ⏳", "en": "Too many accounts were created from this connection. Please try again later. ⏳"},
+ "reg_bad_user": {"pl": "Nazwa użytkownika musi mieć 4-16 liter lub cyfr, bez spacji. 🙂", "en": "The username must be 4-16 letters/numbers, no spaces. 🙂"},
+ "reg_bad_pw": {"pl": "Hasło musi mieć co najmniej 6 znaków. 🙂", "en": "The password must be at least 6 characters. 🙂"},
+ "reg_pw_mismatch": {"pl": "Hasła się różnią — spróbuj jeszcze raz. 🙂", "en": "The two passwords don't match — try again. 🙂"},
+ "reg_bad_social": {"pl": "Kod usuwania musi mieć dokładnie 7 cyfr (np. 1234567). 🙂", "en": "The delete code must be exactly 7 digits (e.g. 1234567). 🙂"},
+ "reg_name_taken": {"pl": "Ta nazwa użytkownika jest już zajęta — wybierz inną. 🙂", "en": "That username is already taken — pick another one. 🙂"},
+ "reg_failed": {"pl": "Nie udało się teraz założyć konta. Spróbuj ponownie za chwilę. 🙏", "en": "The account could not be created right now. Please try again in a bit. 🙏"},
+ "acc_wrong": {"pl": "Błędna nazwa użytkownika lub hasło. 🙂", "en": "Wrong username or password. 🙂"},
+ "acc_new_short": {"pl": "Nowe hasło musi mieć co najmniej 6 znaków. 🙂", "en": "The new password must be at least 6 characters. 🙂"},
+ "acc_new_mismatch": {"pl": "Nowe hasła się różnią. 🙂", "en": "The two new passwords don't match. 🙂"},
+ "acc_pw_changed": {"pl": "🔒 Hasło zostało zmienione! Przy następnym logowaniu do gry użyj nowego.", "en": "🔒 Your password was changed! Use the new one next time you log into the game."},
+ "acc_pw_wrong": {"pl": "Obecne hasło jest błędne. 🙂", "en": "The current password is wrong. 🙂"},
+ "gold_1m": {"pl": "💰 1 milion", "en": "💰 1 Million"},
+ "gold_10m": {"pl": "💰 10 milionów", "en": "💰 10 Million"},
+ "gold_100m": {"pl": "💰 100 milionów", "en": "💰 100 Million"},
+ "gold_1b": {"pl": "👑 1 miliard", "en": "👑 1 Billion"},
+ "win_inventory": {"pl": "ekwipunek", "en": "inventory"},
+ "win_equipment": {"pl": "założone", "en": "equipped"},
+ "win_safebox": {"pl": "magazyn", "en": "storage"},
+ "win_mall": {"pl": "magazyn ItemShopu", "en": "item-shop storage"},
+ "win_dragon_soul": {"pl": "kamienie smoka", "en": "dragon soul"},
+ "win_belt": {"pl": "pas", "en": "belt"},
+ "win_offlineshop": {"pl": "sklep offline", "en": "offline shop"},
+ "se_char": {"pl": "Postać", "en": "Character"},
+ "se_people_note": {"pl": "👤 to postać gracza. Postaci GM-ów (common.gmlist) nie są liczone.", "en": "👤 marks a player's character. Game masters' characters (common.gmlist) are not counted."},
+ "se_people_more": {"pl": "Gracze spoza pierwszej pięćdziesiątki", "en": "Players outside the top fifty"},
+})
+
+# The bots' decisions (28 September): the world page of what the core explains
+# - why a line went on a counter at its price, why a piece was put on - and the
+# AI page's switch for how long it keeps those rows.
+T.update({
+ "dc_nav": {"pl": "🔎 Decyzje botów", "en": "🔎 Bot decisions",
+       "de": "🔎 Entscheidungen der Bots", "tr": "🔎 Bot kararları"},
+ "dc_open": {"pl": "🔎 Otwórz decyzje botów", "en": "🔎 Open bot decisions",
+       "de": "🔎 Entscheidungen der Bots öffnen", "tr": "🔎 Bot kararlarını aç"},
+ "dc_dash_hint": {"pl": "Nietypowe decyzje botów z całego świata: co wystawiły i po ile, co założyły i dlaczego — żeby dziwne zachowanie dało się dokładnie zgłosić.",
+       "en": "The bots' unusual decisions across the world: what they listed and at what price, what they put on and why — so odd behaviour can be reported precisely.",
+       "de": "Ungewöhnliche Entscheidungen der Bots in der ganzen Welt: was sie eingestellt haben und zu welchem Preis, was sie angelegt haben und warum — damit seltsames Verhalten genau gemeldet werden kann.",
+       "tr": "Botların dünya genelindeki olağandışı kararları: neyi hangi fiyata tezgâha koydular, neyi neden kuşandılar — tuhaf davranışlar tam olarak bildirilebilsin diye."},
+ "dc_intro": {"pl": "Wiersze z ostatnich godzin, które rdzeń oznaczył flagą. „?” rozwija wyjaśnienie, „Kopiuj” daje je jako tekst do zgłoszenia, a nick bota otwiera jego kartę na mapie.",
+       "en": "Rows of the last hours the core flagged. “?” opens an explanation, “Copy” gives it as text for a report, and a bot's name opens its card on the map.",
+       "de": "Zeilen der letzten Stunden, die der Kern markiert hat. „?“ klappt eine Erklärung auf, „Kopieren“ gibt sie als Text für eine Meldung, und der Name eines Bots öffnet seine Karte auf der Karte.",
+       "tr": "Çekirdeğin son saatlerde işaretlediği satırlar. “?” bir açıklamayı açar, “Kopyala” onu bildirim için metin olarak verir, botun adı ise haritadaki kartını açar."},
+ "dc_state_on": {"pl": "Zapisywanie wyjaśnień: włączone, wiersze trzymane {n} dni.", "en": "Recording explanations: on, rows kept {n} days.",
+       "de": "Erklärungen aufzeichnen: an, Zeilen werden {n} Tage aufbewahrt.", "tr": "Açıklamaları kaydetme: açık, satırlar {n} gün saklanır."},
+ "dc_state_default": {"pl": " (domyślnie — w pliku wag nie ma klucza EXPLAIN)", "en": " (the default — the weights file has no EXPLAIN key)",
+       "de": " (Standard — die Gewichtsdatei hat keinen EXPLAIN-Schlüssel)", "tr": " (varsayılan — ağırlık dosyasında EXPLAIN anahtarı yok)"},
+ "dc_state_off": {"pl": "Zapisywanie wyjaśnień: wyłączone (EXPLAIN 0) — rdzeń nic nie zapisuje.",
+       "en": "Recording explanations: off (EXPLAIN 0) — the core records nothing.",
+       "de": "Erklärungen aufzeichnen: aus (EXPLAIN 0) — der Kern zeichnet nichts auf.",
+       "tr": "Açıklamaları kaydetme: kapalı (EXPLAIN 0) — çekirdek hiçbir şey kaydetmiyor."},
+ "dc_state_engine": {"pl": "Ten silnik (r40250) nie zapisuje wyjaśnień — robi to tylko linia 2.x.",
+       "en": "This engine (r40250) records no explanations — only the 2.x line does.",
+       "de": "Diese Engine (r40250) zeichnet keine Erklärungen auf — nur die 2.x-Linie tut das.",
+       "tr": "Bu motor (r40250) açıklama kaydetmez — bunu yalnızca 2.x hattı yapar."},
+ "dc_change": {"pl": "Zmień w zachowaniu botów", "en": "Change it in bot behaviour",
+       "de": "Im Bot-Verhalten ändern", "tr": "Bot davranışında değiştir"},
+ "dc_hours": {"pl": "Ostatnie", "en": "The last", "de": "Die letzten", "tr": "Son"},
+ "dc_hours_n": {"pl": "{n} godz.", "en": "{n} h", "de": "{n} Std.", "tr": "{n} sa"},
+ "dc_kind": {"pl": "Rodzaj", "en": "Kind", "de": "Art", "tr": "Tür"},
+ "dc_kind_all": {"pl": "Wszystko", "en": "Everything", "de": "Alles", "tr": "Hepsi"},
+ "dc_kind_equip": {"pl": "Ekwipunek", "en": "Equipment", "de": "Ausrüstung", "tr": "Ekipman"},
+ "dc_kind_listing": {"pl": "Lada", "en": "Counter", "de": "Ladentisch", "tr": "Tezgâh"},
+ "dc_flag": {"pl": "Flaga", "en": "Flag", "de": "Markierung", "tr": "İşaret"},
+ "dc_flag_unusual": {"pl": "Każda nietypowa", "en": "Any unusual", "de": "Jede ungewöhnliche", "tr": "Her olağandışı"},
+ "dc_flag_any": {"pl": "Każda flaga", "en": "Any flag", "de": "Jede Markierung", "tr": "Her işaret"},
+ "dc_show": {"pl": "Pokaż", "en": "Show", "de": "Anzeigen", "tr": "Göster"},
+ "dc_col_time": {"pl": "Czas", "en": "Time", "de": "Zeit", "tr": "Zaman"},
+ "dc_col_bot": {"pl": "Bot", "en": "Bot", "de": "Bot", "tr": "Bot"},
+ "dc_col_what": {"pl": "Co", "en": "What", "de": "Was", "tr": "Ne"},
+ "dc_col_flags": {"pl": "Flagi", "en": "Flags", "de": "Markierungen", "tr": "İşaretler"},
+ "dc_none": {"pl": "Brak oznaczonych decyzji w tym oknie czasu.", "en": "No flagged decisions in this window.",
+       "de": "Keine markierten Entscheidungen in diesem Zeitraum.", "tr": "Bu zaman aralığında işaretli karar yok."},
+ "dc_missing": {"pl": "W bazie nie ma jeszcze tabel wyjaśnień (log.playerbot_equip, log.playerbot_listing): starsza wersja świata albo rdzeń ich jeszcze nie utworzył.",
+       "en": "The database has no explanation tables yet (log.playerbot_equip, log.playerbot_listing): an older world, or the core has not created them yet.",
+       "de": "Die Datenbank hat noch keine Erklärungstabellen (log.playerbot_equip, log.playerbot_listing): eine ältere Welt, oder der Kern hat sie noch nicht angelegt.",
+       "tr": "Veritabanında henüz açıklama tabloları yok (log.playerbot_equip, log.playerbot_listing): daha eski bir dünya ya da çekirdek onları henüz oluşturmadı."},
+ "dc_count": {"pl": "Wierszy: {n}", "en": "Rows: {n}", "de": "Zeilen: {n}", "tr": "Satır: {n}"},
+ "dc_card": {"pl": "Karta bota na mapie", "en": "The bot's card on the map", "de": "Die Karte des Bots auf der Karte", "tr": "Botun haritadaki kartı"},
+ "dc_limit_note": {"pl": "pokazano najnowsze {n}; zawęź okno albo flagę, by zobaczyć starsze.",
+       "en": "the newest {n} are shown; narrow the window or the flag to see older ones.",
+       "de": "die neuesten {n} werden gezeigt; grenze Zeitraum oder Markierung ein, um ältere zu sehen.",
+       "tr": "en yeni {n} gösteriliyor; eskileri görmek için aralığı ya da işareti daralt."},
+ "ai_explain": {"pl": "Wyjaśnienia decyzji botów", "en": "Explanations of the bots' decisions",
+       "de": "Erklärungen der Bot-Entscheidungen", "tr": "Bot kararlarının açıklamaları"},
+ "ai_explain_help": {"pl": "Rdzeń zapisuje, dlaczego bot wystawił przedmiot i jak wyliczył cenę, oraz dlaczego zmienił założony przedmiot — do dymków w sklepie bota, historii ekwipunku i strony decyzji. 0 wyłącza zapis (nic nie jest liczone), 1–30 to liczba dni, przez które wiersze zostają w bazie; bez wpisu w pliku: 7 dni. Linii, które wciąż stoją na ladzie, nic nie kasuje. Działa w ciągu pięciu sekund.",
+       "en": "The core records why a bot listed an item and how it reached the price, and why it changed a worn piece — for the tooltips in a bot's shop, the equipment history and the decisions page. 0 switches recording off (nothing is computed), 1–30 is how many days the rows stay in the database; with no line in the file: 7 days. Lines still standing on a counter are never deleted. Applies within five seconds.",
+       "de": "Der Kern zeichnet auf, warum ein Bot einen Gegenstand eingestellt und wie er den Preis ermittelt hat, und warum er ein getragenes Stück gewechselt hat — für die Tooltips im Laden eines Bots, den Ausrüstungsverlauf und die Entscheidungsseite. 0 schaltet die Aufzeichnung aus (nichts wird berechnet), 1–30 ist die Zahl der Tage, die die Zeilen in der Datenbank bleiben; ohne Zeile in der Datei: 7 Tage. Zeilen, die noch auf einem Ladentisch stehen, werden nie gelöscht. Wirkt binnen fünf Sekunden.",
+       "tr": "Çekirdek, botun bir eşyayı neden tezgâha koyduğunu ve fiyata nasıl ulaştığını, giyili bir parçayı neden değiştirdiğini kaydeder — botun dükkânındaki ipuçları, ekipman geçmişi ve kararlar sayfası için. 0 kaydı kapatır (hiçbir şey hesaplanmaz), 1–30 satırların veritabanında kaç gün kalacağıdır; dosyada satır yoksa: 7 gün. Hâlâ tezgâhta duran satırlar asla silinmez. Beş saniye içinde etkili olur."},
+ "ai_explain_days": {"pl": "Dni przechowywania (0 = wyłączone):", "en": "Days kept (0 = off):",
+       "de": "Aufbewahrungstage (0 = aus):", "tr": "Saklama günü (0 = kapalı):"},
+ # The export for an analyst or a language model, and the page's two new
+ # filters: the anomalies the panel reads out of a row, and one bot.
+ "dc_flag_anomaly": {"pl": "Anomalie wykryte przez panel", "en": "Anomalies the panel found",
+       "de": "Vom Panel gefundene Auffälligkeiten", "tr": "Panelin bulduğu anormallikler"},
+ "dc_bot": {"pl": "Bot (pid albo nick)", "en": "Bot (pid or name)", "de": "Bot (PID oder Name)", "tr": "Bot (pid ya da ad)"},
+ "dc_bot_unknown": {"pl": "Nie ma takiego bota: {name}", "en": "No such bot: {name}", "de": "Kein solcher Bot: {name}",
+       "tr": "Böyle bir bot yok: {name}"},
+ "dc_copy_ai_all": {"pl": "📋 Kopiuj wszystkie dla AI ({n})", "en": "📋 Copy all for an AI ({n})",
+       "de": "📋 Alle für eine KI kopieren ({n})", "tr": "📋 Hepsini yapay zekâ için kopyala ({n})"},
+ "dc_ai_hint": {"pl": "„Kopiuj dla AI” daje decyzję albo wszystkie pokazane jako Markdown: każda liczba, nazwy kodów z gry, wartości odniesienia i krótki przewodnik — do wklejenia modelowi językowemu, który ma wskazać, gdzie bot się pogubił.",
+       "en": "“Copy for an AI” gives a decision, or all those shown, as Markdown: every number, the game's code names, the reference values and a short guide — to paste to a language model that is to find where a bot went wrong.",
+       "de": "„Für eine KI kopieren“ gibt eine Entscheidung oder alle gezeigten als Markdown: jede Zahl, die Code-Namen des Spiels, die Referenzwerte und eine kurze Anleitung — zum Einfügen bei einem Sprachmodell, das finden soll, wo sich ein Bot verrannt hat.",
+       "tr": "“Yapay zekâ için kopyala” bir kararı ya da gösterilenlerin hepsini Markdown olarak verir: her sayı, oyunun kod adları, referans değerleri ve kısa bir kılavuz — bir botun nerede yanıldığını bulacak bir dil modeline yapıştırmak için."},
 })
 
 CATS = ["all","weapon","armor","usable","ds","metin","special","other"]
@@ -4739,8 +4486,8 @@ def lang():
     panelu po angielsku polowe po polsku" - because this panel was only half
     translated then: 446 strings went through t() and about 530 more were
     written in Polish where they stood. Since 28 September every text a page
-    shows is in all four languages - T, MAP_I18N, the label tables and
-    APPLY_TEXTS - and a new one belongs in one of them, not in a template.
+    shows goes through T, MAP_I18N, the label tables or APPLY_TEXTS, and a new
+    one belongs in one of them, not in a template.
 
     So Polish is the default and the browser is not consulted at all. The
     switch in the header is how anyone changes it, and that choice is now
@@ -4761,6 +4508,8 @@ def t(key):
 
 app = Flask(__name__)
 app.jinja_env.globals["DISCORD"] = DISCORD_URL
+app.jinja_env.globals["WEBSITE"] = WEBSITE_URL
+app.jinja_env.globals["COFFEE"] = COFFEE_URL
 app.secret_key = CONF["flask_secret"]
 
 
@@ -4871,7 +4620,11 @@ def inject_i18n():
             "brand": BRAND, "srv": server_status(), "rates": public_rates(),
             "dlsize": human_size(_cf["size"]) if _cf["size"] else "",
             "dlsha": _cf["sha256"],
-            "local_only": bool(CONF.get("local_only", False)),
+            # What the pages show must follow what login_required does: on the
+            # mt2009 line local_open() is true even without the installer's
+            # local_only flag, and a page that still drew the passphrase box
+            # sent its POST to login(), which on an open panel just reloads.
+            "local_only": local_open(),
             "has_accounts": accounts_exist(),
             "pp_min": PASSPHRASE_MIN,
             "max_level": MAX_LEVEL,
@@ -4927,8 +4680,6 @@ JOB_EMOJI = {0:"⚔️",4:"⚔️",5:"🗡️",1:"🗡️",2:"🔮",6:"🔮",7:"
 CLASS_NAMES = {
     "pl": {0: "Wojownik", 1: "Ninja", 2: "Sura", 3: "Szaman", 8: "Lykan"},
     "en": {0: "Warrior", 1: "Ninja", 2: "Sura", 3: "Shaman", 8: "Lycan"},
-    "de": {0: "Krieger", 1: "Ninja", 2: "Sura", 3: "Schamane", 8: "Lykaner"},
-    "tr": {0: "Savaşçı", 1: "Ninja", 2: "Sura", 3: "Şaman", 8: "Lycan"},
 }
 
 
@@ -5283,6 +5034,58 @@ def persist_rates_mt2009(cur, vals):
         for base_flag in MT2009_RATE_BASE_FLAGS[name]:
             cur.execute("UPDATE player.quest SET lValue=%s WHERE dwPID=0 AND szName=%s AND lValue>0",
                         (int(vals[name]), base_flag))
+
+# ---- Easter event toggle, mt2009 line ---------------------------------------
+# Same event-flag mechanism as the rates above: event_easter.quest reads
+# easter_drop (the whole event: metin spawns + egg drops) and easter_rabbit
+# (the Osterhase NPC on maps 1/21/41) through game.get_event_flag(). Both are
+# plain 0/1 switches, so unlike rates there is nothing to validate but that.
+EASTER_FLAGS = ("easter_drop", "easter_rabbit")
+EASTER_LIVE_WAIT = 12.0
+
+def read_easter():
+    """The two switches as they stand in the database. 0 (off) if unset."""
+    vals = {n: 0 for n in EASTER_FLAGS}
+    with db() as c, c.cursor() as cur:
+        cur.execute("SELECT szName, lValue FROM player.quest WHERE dwPID=0 AND szName IN %s",
+                    (EASTER_FLAGS,))
+        for row in cur.fetchall():
+            if row["szName"] in vals:
+                try:
+                    vals[row["szName"]] = 1 if int(row["lValue"]) > 0 else 0
+                except (TypeError, ValueError):
+                    pass
+    return vals
+
+def persist_easter(cur, drop, rabbit):
+    """The two event-flag rows the db core reads at its next start."""
+    cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                "VALUES (0, 'easter_drop', '', %s)", (int(drop),))
+    cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                "VALUES (0, 'easter_rabbit', '', %s)", (int(rabbit),))
+
+RARE_LIVE_WAIT = 12.0
+
+def read_rare():
+    """Both switches as on (1) or off (0); a missing row reads as on."""
+    vals = {"alchemy": 1, "sashes": 1}
+    with db() as c, c.cursor() as cur:
+        cur.execute("SELECT szName, lValue FROM player.quest WHERE dwPID=0 "
+                    "AND szName IN ('m2_alchemy_off', 'm2_sash_off')")
+        for row in cur.fetchall():
+            try:
+                off = int(row["lValue"]) > 0
+            except (TypeError, ValueError):
+                continue
+            vals["alchemy" if row["szName"] == "m2_alchemy_off" else "sashes"] = 0 if off else 1
+    return vals
+
+def persist_rare(cur, alchemy, sashes):
+    """The two event-flag rows the db core reads at its next start."""
+    cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                "VALUES (0, 'm2_alchemy_off', '', %s)", (0 if alchemy else 1,))
+    cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                "VALUES (0, 'm2_sash_off', '', %s)", (0 if sashes else 1,))
 
 def gm_reload_mt2009():
     """Ask an online IMPLEMENTOR to run /reload a for us. True when one did.
@@ -5823,6 +5626,8 @@ pre.cmd{padding:12px;border:1px solid var(--line);background:#131007;color:#cdc5
    two, and on a local install it is the only route back. #}
 <div class="top"><h1 title="{{t('about_goal')}}"><a href="{{url_for('login')}}"><img src="/favicon.ico" alt="">{{brand}}</a> <a href="{{url_for('live_map')}}" style="font-size:14px;margin-left:14px;color:#e9b64b;text-decoration:none;font-weight:700;padding:3px 10px;background:rgba(233,182,75,0.12);border:1px solid rgba(233,182,75,0.3);border-radius:6px">🗺️ {{t('se_back_map')}}</a></h1>
 <div>
+{% if COFFEE %}<a class="btn" href="{{ COFFEE }}" target="_blank" rel="noopener noreferrer"
+   style="padding:7px 12px;font-size:13px;margin-right:10px">{{t('coffee_btn')}}</a>{% endif %}
 <span style="font-size:13px" title="{{t('tip_lang')}}">
 {% for code, name in langs.items() %}<a href="{{url_for('setlang', code=code)}}" title="{{name}}" style="margin:0 3px;{{'font-weight:700;text-decoration:underline' if code==curlang else 'opacity:.7'}}">{{code|upper}}</a>{% endfor %}
 </span>
@@ -5854,7 +5659,9 @@ __BODY__
 </span></div>
 <p class="muted" style="text-align:center;margin:26px 0 10px;font-size:12.5px">
 <a href="{{ DISCORD }}" target="_blank" rel="noopener noreferrer"
-   style="color:#7a86d6;text-decoration:none">💬 {{ t('dc_foot') }}</a></p>
+   style="color:#7a86d6;text-decoration:none">💬 {{ t('dc_foot') }}</a>
+&nbsp;·&nbsp; <a href="{{ WEBSITE }}" target="_blank" rel="noopener noreferrer"
+   style="color:#e9b64b;text-decoration:none">{{ t('site_link') }}</a></p>
 </body></html>"""
 
 TPL_LOGIN = BASE.replace("__BODY__", """
@@ -5886,6 +5693,8 @@ setInterval(function(){
 {% if browser_ready %}<p>{{t('about_web')}}</p>{% endif %}
 <p>{{t('about_uptime')}}</p>
 <p>{{t('about_oss')}}</p>
+<p><a href="{{ WEBSITE }}" target="_blank" rel="noopener noreferrer">{{t('site_link')}}</a> &nbsp;·&nbsp;
+<a href="{{ DISCORD }}" target="_blank" rel="noopener noreferrer">💬 Discord</a></p>
 {% if contact %}<p>{{t('about_contact')}} <a href="mailto:{{contact}}">{{contact}}</a>.</p>{% endif %}
 </div>
 <div class="card{% if not has_accounts %} onboard{% endif %}" style="max-width:380px;margin:0 auto 16px;text-align:center">
@@ -6209,6 +6018,16 @@ TPL_DASH = BASE.replace("__BODY__", """
 <a class="btn" href="{{url_for('rates')}}" title="{{t('tip_rates')}}">{{t('rates_open')}}</a>
 </div>
 <div class="card">
+<h3 class="help" title="{{t('tip_easter')}}">{{t('easter_nav')}}</h3>
+<p class="muted">{{t('easter_dash_hint')}}</p>
+<a class="btn" href="{{url_for('easter')}}" title="{{t('tip_easter')}}">{{t('easter_open')}}</a>
+</div>
+<div class="card">
+<h3 class="help" title="{{t('tip_rare')}}">{{t('rare_nav')}}</h3>
+<p class="muted">{{t('rare_dash_hint')}}</p>
+<a class="btn" href="{{url_for('rare')}}" title="{{t('tip_rare')}}">{{t('rare_open')}}</a>
+</div>
+<div class="card">
 <h3 class="help">{{t('se_nav')}}</h3>
 <p class="muted">{{t('se_dash_hint')}}</p>
 <a class="btn" href="{{url_for('season')}}">{{t('se_open')}}</a>
@@ -6228,6 +6047,14 @@ TPL_DASH = BASE.replace("__BODY__", """
 <p class="muted">{{t('gl_dash_hint')}}</p>
 <a class="btn" href="{{url_for('guilds_page')}}">{{t('gl_open')}}</a>
 </div>
+{# The bots' explained decisions: only the 2.x line's core records them. #}
+{% if engine_mt2009 %}
+<div class="card">
+<h3 class="help">{{t('dc_nav')}}</h3>
+<p class="muted">{{t('dc_dash_hint')}}</p>
+<a class="btn" href="{{url_for('decisions_page')}}">{{t('dc_open')}}</a>
+</div>
+{% endif %}
 <div class="card">
 <h3 class="help" title="{{t('tip_reset')}}">🔗 {{t('reset_title')}}</h3>
 <p class="muted">{{t('reset_hint')}}</p>
@@ -6580,26 +6407,69 @@ regenLabel("regen_boss");regenLabel("regen_mob");
 <input type="hidden" name="_csrf" value="{{csrf_token}}">
 <h3>🔀 {{t('ch2_title')}}</h3>
 <p class="muted">{{t('ch2_help')}}</p>
-<p>{{ channels.now }}</p>
-{% if channels.channels > 1 and not channels.ports_open %}<p class="muted">⚠️ {{ t('ch2_ports').replace('{end}', channels.ports_end|string) }}</p>{% endif %}
+<p>{% if channels.on %}{{ t('ch2_now_on').replace('{share}', channels.share|string) }}{% else %}{{t('ch2_now_off')}}{% endif %}</p>
+{% if channels.on and not channels.ports_open %}<p class="muted">⚠️ {{t('ch2_ports').replace('{ports}', channels.ch2_ports)}}</p>{% endif %}
 {% if channels.pending %}<p class="muted">🕓 {{ t('ch2_pending').replace('{what}', channels.pending) }}</p>{% endif %}
-<h3 style="margin-top:12px">{{t('ch_count')}}</h3>
-<select name="channels">
-{% for n in channels.channel_choices %}<option value="{{n}}"{% if channels.want_channels == n %} selected{% endif %}>{{ t('ch_opt' ~ n) }}</option>{% endfor %}
-</select>
+<label><input type="checkbox" name="ch2" value="1"{% if channels.want_on %} checked{% endif %}> {{t('ch2_enable')}}</label>
 <h3 style="margin-top:12px">{{t('ch2_share')}}</h3>
 <select name="share">
 {% for p in channels.choices %}<option value="{{p}}"{% if channels.want_share == p %} selected{% endif %}>{{p}}%</option>{% endfor %}
 </select>
-<h3 style="margin-top:12px">{{t('ch_fresh')}}</h3>
-<input type="number" name="fresh_count" min="0" max="{{channels.fresh_max}}" value="{{channels.want_fresh_count}}">
-<p class="muted">{{t('ch_ram')}}</p>
 <button class="big" style="margin-top:18px">{{t('ch2_save')}}</button>
 </form></div>
 {% endif %}""")
 
 # every state apply_rates.sh can leave behind has a sentence of its own
 RATE_STATES = ("running", "ok", "unsupported", "failed", "no_restart")
+
+# Two switches, no restart ever needed: game.set_event_flag() takes effect
+# immediately, so unlike rates this page has no script to run and no status
+# file to poll.
+TPL_EASTER = BASE.replace("__BODY__", """
+<p><a href="{{url_for('dash')}}">{{t('back_players')}}</a></p>
+<div class="card">
+<h3>{{t('easter_nav')}}</h3>
+<p class="muted">{{t('easter_intro')}}</p>
+<p><span class="badge">🥚 {{t('easter_drop')}} {{t('easter_on') if cur['easter_drop'] else t('easter_off')}}</span>
+   <span class="badge">🐇 {{t('easter_rabbit')}} {{t('easter_on') if cur['easter_rabbit'] else t('easter_off')}}</span></p>
+</div>
+
+<div class="card">
+<form method="post">
+<input type="hidden" name="_csrf" value="{{csrf_token}}">
+<h3>🥚 {{t('easter_drop')}}</h3>
+<p class="muted">{{t('easter_drop_help')}}</p>
+<label><input type="checkbox" name="drop" value="1" {% if cur['easter_drop'] %}checked{% endif %}> {{t('easter_enable')}}</label>
+<h3 style="margin-top:18px">🐇 {{t('easter_rabbit')}}</h3>
+<p class="muted">{{t('easter_rabbit_help')}}</p>
+<label><input type="checkbox" name="rabbit" value="1" {% if cur['easter_rabbit'] %}checked{% endif %}> {{t('easter_enable')}}</label>
+<button class="big" style="margin-top:18px">{{t('easter_save')}}</button>
+</form></div>""")
+
+# The rare goods' two switches: same live path as the Easter page, but the
+# flags say "off" (m2_alchemy_off, m2_sash_off - read by the engine patch
+# server-patches/raretoggle and by dragon_soul.quest), so a world without the
+# rows is a world with both on.
+TPL_RARE = BASE.replace("__BODY__", """
+<p><a href="{{url_for('dash')}}">{{t('back_players')}}</a></p>
+<div class="card">
+<h3>{{t('rare_nav')}}</h3>
+<p class="muted">{{t('rare_intro')}}</p>
+<p><span class="badge">🐉 {{t('rare_alchemy')}} {{t('easter_on') if cur['alchemy'] else t('easter_off')}}</span>
+   <span class="badge">🎗️ {{t('rare_sashes')}} {{t('easter_on') if cur['sashes'] else t('easter_off')}}</span></p>
+</div>
+
+<div class="card">
+<form method="post">
+<input type="hidden" name="_csrf" value="{{csrf_token}}">
+<h3>🐉 {{t('rare_alchemy')}}</h3>
+<p class="muted">{{t('rare_alchemy_help')}}</p>
+<label><input type="checkbox" name="alchemy" value="1" {% if cur['alchemy'] %}checked{% endif %}> {{t('easter_enable')}}</label>
+<h3 style="margin-top:18px">🎗️ {{t('rare_sashes')}}</h3>
+<p class="muted">{{t('rare_sashes_help')}}</p>
+<label><input type="checkbox" name="sashes" value="1" {% if cur['sashes'] %}checked{% endif %}> {{t('easter_enable')}}</label>
+<button class="big" style="margin-top:18px">{{t('easter_save')}}</button>
+</form></div>""")
 
 # The season table and the record tiles. Public, like the live map: this is the
 # page an operator links to, not an admin tool.
@@ -6702,9 +6572,9 @@ TPL_EVENTS = BASE.replace("__BODY__", """
 </div>{% endfor %}
 {% elif s and s.active and k in world_kinds %}<span class="badge">{{t('ev_active')}} {{s.until_text}} ({{map_name(s.map)}})</span>
 {% if s.host %}<br><small>{{t('ev_world_alive')}}: {{s.alive}} &middot; {{t('ev_world_killed')}}: {{s.killed}} &middot; {{t('ev_world_bots')}}: {{s.bots}}{% if s.phase == 'stones' %} &middot; {{t('ev_phase_stones')}}{% elif s.phase == 'bosses' %} &middot; {{t('ev_phase_bosses')}}{% endif %}</small>{% endif %}
-{% elif s and s.active %}<span class="badge">{{t('ev_active')}} {{s.until_text}}{% if s.value and k != 'chest' %} (+{{s.value}}%){% endif %}</span>
+{% elif s and s.active %}<span class="badge">{{t('ev_active')}} {{s.until_text}}{% if s.value and k not in ('chest', 'bossloot', 'metinloot', 'goblin') %} (+{{s.value}}%){% endif %}</span>
 {% elif s and s.next_start and k in world_kinds %}{{t('ev_next')}}: {{s.next_start_text}} ({{map_name(s.next_map)}})
-{% elif s and s.next_start %}{{t('ev_next')}}: {{s.next_start_text}}{% if s.next_value and k != 'chest' %} (+{{s.next_value}}%){% endif %}
+{% elif s and s.next_start %}{{t('ev_next')}}: {{s.next_start_text}}{% if s.next_value and k not in ('chest', 'bossloot', 'metinloot', 'goblin') %} (+{{s.next_value}}%){% endif %}
 {% elif s and s.scheduled %}{{t('ev_inactive')}}
 {% elif s %}{{t('ev_none')}}
 {% else %}-{% endif %}
@@ -6718,7 +6588,7 @@ TPL_EVENTS = BASE.replace("__BODY__", """
 <select name="minutes">{% for m in minutes %}<option value="{{m}}" {% if m == 60 %}selected{% endif %}>{{m}}</option>{% endfor %}</select>
 {% if k in world_kinds %}{{t('ev_now_' + k)}} <input type="number" name="value" min="1" max="{{world_max[k]}}" value="{{world_default[k]}}" style="width:60px">
 <select name="map">{% for m in maps %}<option value="{{m[0]}}">{{map_name(m[0])}}</option>{% endfor %}</select>
-{% elif k != 'chest' %}{{t('ev_now_value')}} <input type="number" name="value" min="1" max="1000" value="50" style="width:70px">{% endif %}
+{% elif k not in ('chest', 'bossloot', 'metinloot', 'goblin') %}{{t('ev_now_value')}} <input type="number" name="value" min="1" max="1000" value="50" style="width:70px">{% endif %}
 <button class="btn" type="submit">{{t('ev_now_go')}}</button>
 </form>
 {% if k in world_kinds %}<br><small class="muted">{{t('ev_world_many')}}</small>{% endif %}
@@ -6858,7 +6728,8 @@ TPL_AI = BASE.replace("__BODY__", """
 <p class="muted">{{t('ai_intro')}}</p>
 <p><a class="btn" href="{{url_for('ai_item_policy')}}">{{t('ai_items_open')}}</a>
    <a class="btn" href="{{url_for('events_page')}}">{{t('ev_open')}}</a>
-   <a class="btn" href="{{url_for('guilds_page')}}">{{t('gl_open')}}</a></p>
+   <a class="btn" href="{{url_for('guilds_page')}}">{{t('gl_open')}}</a>
+   {% if engine_mt2009 %}<a class="btn" href="{{url_for('decisions_page')}}">{{t('dc_open')}}</a>{% endif %}</p>
 </div>
 
 <div class="card">
@@ -6924,11 +6795,27 @@ TPL_AI = BASE.replace("__BODY__", """
   <p class="muted" style="margin:0 0 6px">{{t('ai_ishop_help')}}</p>
   <label><input type="checkbox" name="ISHOP" value="1" {% if cur.get('ISHOP', 1) %}checked{% endif %}> {{t('ai_ishop_on')}}</label>
 </div>
+{# Not a slider: 0 is off and 1-30 the days the core keeps its explanations;
+   an absent key is the core's own seven, and saving the page untouched keeps
+   it absent (ai_weights). #}
+<div style="margin-bottom:18px">
+  <h3 style="margin:0 0 2px">🔎 {{t('ai_explain')}}</h3>
+  <p class="muted" style="margin:0 0 6px">{{t('ai_explain_help')}}</p>
+  <label>{{t('ai_explain_days')}}
+    <input type="number" name="EXPLAIN" min="0" max="{{explain_max}}" step="1"
+           value="{{ cur.get('EXPLAIN') if cur.get('EXPLAIN') is not none else explain_default }}" style="width:110px"></label>
+  <a href="{{url_for('decisions_page')}}" style="margin-left:10px">{{t('dc_open')}}</a>
+</div>
 {% endif %}
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">🏪 {{t('ai_shop_m2')}}</h3>
   <p class="muted" style="margin:0 0 6px">{{t('ai_shop_m2_help')}}</p>
   <label><input type="checkbox" name="SHOP_M2" value="1" {% if cur.get('SHOP_M2', 0) %}checked{% endif %}> {{t('ai_shop_m2_on')}}</label>
+</div>
+<div style="margin-bottom:18px">
+  <h3 style="margin:0 0 2px">📢 {{t('ai_shouters')}}</h3>
+  <p class="muted" style="margin:0 0 6px">{{t('ai_shouters_help')}}</p>
+  <label><input type="checkbox" name="SHOUTERS" value="1" {% if cur.get('SHOUTERS', 1) %}checked{% endif %}> {{t('ai_persona_on')}}</label>
 </div>
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">♻️ {{t('ai_scrap')}}
@@ -6950,6 +6837,20 @@ TPL_AI = BASE.replace("__BODY__", """
     <span>0 — {{t('ai_rest_off')}}</span><span>100 — {{t('ai_rest_all')}}</span>
   </div>
 </div>
+{% if engine_mt2009 %}
+{% for wkey, wlabel, wicon, woff in [("BATTLEPASS", "ai_will_bp", "🎟️", "ai_will_bp_off"), ("SASH", "ai_will_sash", "🎀", "ai_will_sash_off"), ("ALCHEMY", "ai_will_alch", "🐉", "ai_will_alch_off")] %}
+<div style="margin-bottom:18px">
+  <h3 style="margin:0 0 2px">{{wicon}} {{t(wlabel)}}
+      <span class="badge" id="v_{{wkey}}">{{cur.get(wkey, 100)}}%</span></h3>
+  <p class="muted" style="margin:0 0 6px">{{t(wlabel + '_help')}}</p>
+  <input type="range" name="{{wkey}}" id="s_{{wkey}}" min="0" max="100" step="5" value="{{cur.get(wkey, 100)}}" style="width:100%"
+         oninput="document.getElementById('v_{{wkey}}').textContent=this.value+'%'">
+  <div class="muted" style="display:flex;justify-content:space-between;font-size:12px">
+    <span>0 — {{t(woff)}}</span><span>100 — {{t('ai_will_all')}}</span>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">⚔️ {{t('ai_kpvp')}}
       <span class="badge" id="v_KINGDOMPVP">{{cur.get('KINGDOMPVP', 0)}}%</span></h3>
@@ -7067,7 +6968,7 @@ MAP_I18N = {
   "hunt_done_through":"Ukończone do Lv {n}","hunt_not_started":"Jeszcze nierozpoczęte",
   "gh_sold_for":"{count} za {price} yang","gh_instead":"zamiast {item}","gh_paid":"za {price} yang","gh_from":"od {seller}",
   "warp_player_offline":"Żadna postać gracza nie jest teraz w grze.","warp_no_human":"Nie ma postaci gracza, którą można przenieść.",
-  "warp_timeout":"Gra nie odpowiedziała na czas."
+  "warp_timeout":"Gra nie odpowiedziała na czas.","saddlebags":"Juki"
  },
  "en": {
   "title":"Live world map — Chunjo","live":"LIVE (1.5 s)","subtitle":"Interactive real-time view of bot positions and progression",
@@ -7099,393 +7000,227 @@ MAP_I18N = {
   "hunt_done_through":"Completed through Lv {n}","hunt_not_started":"Not started yet",
   "gh_sold_for":"{count} for {price} yang","gh_instead":"instead of {item}","gh_paid":"for {price} yang","gh_from":"from {seller}",
   "warp_player_offline":"None of the players' characters is in the game right now.","warp_no_human":"There is no player's character to move.",
-  "warp_timeout":"The game did not answer in time."
- },
- "de": {
-  "title": "Live-Weltkarte — Chunjo",
-  "live": "LIVE (1,5 s)",
-  "subtitle": "Interaktive Echtzeit-Ansicht der Positionen und des Fortschritts der Bots",
-  "player_panel": "Spieler-Panel",
-  "play_browser": "Im Browser spielen",
-  "show_bots": "Bots anzeigen",
-  "names_levels": "Namen und Level",
-  "pt_only": "Nur in Gruppe (PT)",
-  "level": "Level",
-  "all": "Alle",
-  "map": "Karte",
-  "m1": "M1 — Joan (Chunjo)",
-  "m2": "M2 — Bokjung (Chunjo)",
-  "m3": "Gildenland Chunjo",
-  "s1": "M1 — Yongan (Shinsoo)",
-  "s2": "M2 — Jayang (Shinsoo)",
-  "s3": "Gildenland Shinsoo",
-  "smonkey": "Affendungeon Shinsoo",
-  "j1": "M1 — Pyongmoo (Jinno)",
-  "j2": "M2 — Bakra (Jinno)",
-  "j3": "Gildenland Jinno",
-  "jmonkey": "Affendungeon Jinno",
-  "monkey": "Affendungeon (leicht)",
-  "monkey_medium": "Affendungeon (mittel)",
-  "monkey_hard": "Affendungeon (schwer)",
-  "orc": "Orktal",
-  "desert": "Yongbi-Wüste",
-  "sohan": "Berg Sohan",
-  "spider": "Spinnendungeon V1",
-  "spider_v2": "Spinnendungeon V2",
-  "hwang": "Hwang-Tempel",
-  "forest": "Wald",
-  "red_forest": "Roter Wald",
-  "demon_tower": "Dämonenturm",
-  "fire_land": "Doyyumhwaji (Feuerland)",
-  "grotto": "Grotte der Verbannung V1",
-  "grotto2": "Grotte der Verbannung V2",
-  "heat": "Heatmap",
-  "heat_deaths": "Bot-Tode",
-  "heat_metins": "Zerstörte Metins",
-  "heat_skills": "Fertigkeitsaufstiege",
-  "search": "🔍 Bot suchen (z. B. botarek)...",
-  "solo_bot": "Solo-Bot",
-  "party_bot": "In Gruppe (PT)",
-  "metin_fight": "Kampf gegen Metinstein",
-  "loading": "Wird geladen...",
-  "world_stats": "Weltstatistiken",
-  "active_bots": "Aktive Bots",
-  "in_parties": "In Gruppen (PT)",
-  "avg_level": "Durchschnittslevel",
-  "max_level": "Max. Level",
-  "rankings": "Bot-Ranglisten",
-  "rank_level": "Level",
-  "rank_weapon": "Waffe",
-  "rank_armor": "Rüstung",
-  "rank_weapon30": "Waffen Lv 30",
-  "rank_items": "Gegenstände",
-  "rank_horse": "Pferd",
-  "rank_biologist": "Biologe",
-  "rank_hunting": "Jagd",
-  "rank_shops": "Offene Shops",
-  "rank_skills": "Fertigkeiten",
-  "rank_plus9": "Gegenstand +9",
-  "rank_stall_open": "Stand offen",
-  "rank_empty": "Keine Ranglistendaten.",
-  "rank_show": "Anzeigen",
-  "rank_search": "In der Rangliste suchen...",
-  "none": "Keine",
-  "items_short": "Gegenst.",
-  "horse_lv": "Pferd Lv",
-  "visible": "Sichtbar",
-  "characters": "Charaktere",
-  "in_group": "In Gruppe [PT]",
-  "solo": "Solo",
-  "player": "SPIELER",
-  "bot": "Bot",
-  "class": "Klasse",
-  "action": "Aktion",
-  "status": "Status",
-  "personality": "Persönlichkeit",
-  "mood": "Stimmung",
-  "charakter": "Charakter",
-  "ambition": "Ambition",
-  "current_goal": "Aktuelles Ziel",
-  "coordinates": "Koordinaten",
-  "open_inventory": "Klicke, um Inventar und EQ zu öffnen",
-  "loading_character": "Ausrüstung und Statuswerte des Charakters werden geladen",
-  "error": "Fehler",
-  "not_found": "Keine Daten gefunden",
-  "teleport_me": "Meinen Charakter im Spiel teleportieren (1 Klick)",
-  "position": "Position",
-  "horse": "Pferd",
-  "biologist": "Biologe",
-  "bio_stage": "Biologen-Stufe",
-  "hunting": "Jagd",
-  "no_data": "Keine Daten",
-  "stats": "Statuswerte",
-  "unspent_stats": "Nicht verteilt: {n} Statuspunkte",
-  "skills": "Fertigkeiten",
-  "profession_none": "Nicht gewählt",
-  "profession_pending": "Die Lehre wurde noch nicht gewählt.",
-  "depot": "Lager",
-  "depot_empty": "Das Lager ist leer.",
-  "shop": "Shop",
-  "shop_none": "Dieser Bot hat keinen offenen Shop.",
-  "shop_empty": "Der Shop ist leer.",
-  "shop_price": "Preis",
-  "shop_premium": "premium",
-  "shop_expired": "abgelaufen — niemand kann dort kaufen, bis der Bot ihn verlängert",
-  "unspent_skills": "Nicht verteilt: {n} Fertigkeitspunkte",
-  "equipped": "Angelegte Ausrüstung (EQ)",
-  "weapon": "Waffe",
-  "armor": "Rüstung",
-  "helmet": "Helm",
-  "shield": "Schild",
-  "bracelet": "Armband",
-  "boots": "Schuhe",
-  "necklace": "Halskette",
-  "earrings": "Ohrringe",
-  "empty": "Leer",
-  "inventory": "Inventarinhalt",
-  "items_count": "Gegenstände",
-  "inventory_empty": "Das Inventar ist leer.",
-  "quantity": "Anzahl",
-  "gear_history": "Ausrüstungsverlauf",
-  "gear_history_hint": "Handel, Boni und Verbesserung in eigenen Tabs — aus log.log und dem Protokoll der Offline-Shops",
-  "gear_history_loading": "Verlauf wird geladen...",
-  "gear_history_empty": "Keine Einträge in diesem Tab.",
-  "gear_history_more": "Ältere anzeigen",
-  "gear_tab_trade": "Handel",
-  "gear_tab_bonus": "Boni",
-  "gear_tab_refine": "Verbesserung",
-  "gear_tab_other": "Sonstiges",
-  "gear_tab_all": "Alles",
-  "event_log": "Ereignisprotokoll des Bots (Live-Logs)",
-  "track_live": "Live verfolgen",
-  "copy_logs": "Logs kopieren",
-  "loading_logs": "Lade Logs von",
-  "no_logs": "Keine aktuellen Log-Einträge für diesen Charakter.",
-  "log_error": "Fehler beim Lesen der Logs",
-  "network_error": "Netzwerkfehler",
-  "teleporting": "Dein Charakter im Spiel wird teleportiert...",
-  "teleported": "{name} wurde im Spiel zum Bot teleportiert!",
-  "you": "Dein Charakter",
-  "failure": "Fehlgeschlagen",
-  "copied": "Kopiert",
-  "paste": "im Spiel einfügen: [Enter] → Strg+V → [Enter]",
-  "solo_exp": "Solo — Erfahrung sammeln",
-  "party_exp": "[PT] In der Gruppe Erfahrung sammeln",
-  "metin_hunt": "Jagd auf Metinsteine",
-  "character_missing": "Charakter nicht gefunden",
-  "bio_next": "Nächste Mission ab Lv {level}: {name}",
-  "bio_key": "{name}{sep}{have}/{need}, wartet auf: {key}",
-  "bio_all": "Alle Grundmissionen abgeschlossen",
-  "bio_complete": "komplett",
-  "bio_done": "erledigt",
-  "bio_skipped": "zu niedrig für den Bot, übersprungen: {n}",
-  "bio_dropper": "entfällt — ein Dropper macht den Biologen nicht",
-  "bio_rank_now": "{done}/{total} erledigt • jetzt: {stage}",
-  "bio_rank_next": "{done}/{total} erledigt • {stage}",
-  "rankings_all": "Ranglisten",
-  "people_only": "Nur Spieler",
-  "people_only_hint": "Nur die Charaktere echter Spieler, ohne Bots, untereinander durchnummeriert.",
-  "person_mark": "Spielercharakter",
-  "ranking_people_note": "👤 Spielercharakter · Charaktere von Spielleitern werden nicht gezählt",
-  "rank_avg_short": "Durchschn.",
-  "rank_skill_short": "Fertigk.",
-  "bag": "Inventar",
-  "weapon30_one": "Waffe Lv 30",
-  "tt_req_level": "Benötigtes Level",
-  "tt_attack": "Angriffswert",
-  "tt_magic_attack": "Magischer Angriffswert",
-  "tt_attack_speed": "Angriffsgeschwindigkeit",
-  "tt_defense": "Verteidigung",
-  "tt_move_speed": "Bewegungsgeschwindigkeit",
-  "tt_broken_stone": "Zerbrochener Stein",
-  "tt_empty_socket": "Leerer Slot",
-  "tt_soul_stone": "Geiststein",
-  "item_n": "Gegenstand #{n}",
-  "bot_badge": "BOT",
-  "exp_hold": "EXP gesperrt bei Level {n}",
-  "hunt_done_through": "Abgeschlossen bis Lv {n}",
-  "hunt_not_started": "Noch nicht begonnen",
-  "gh_sold_for": "{count} für {price} Yang",
-  "gh_instead": "statt {item}",
-  "gh_paid": "für {price} Yang",
-  "gh_from": "von {seller}",
-  "warp_player_offline": "Gerade ist kein Spielercharakter im Spiel.",
-  "warp_no_human": "Es gibt keinen Spielercharakter, den man teleportieren kann.",
-  "warp_timeout": "Das Spiel hat nicht rechtzeitig geantwortet."
- },
- "tr": {
-  "title": "Canlı dünya haritası — Chunjo",
-  "live": "CANLI (1,5 s)",
-  "subtitle": "Botların konumunu ve gelişimini gerçek zamanlı gösteren etkileşimli görünüm",
-  "player_panel": "Oyuncu paneli",
-  "play_browser": "Tarayıcıda oyna",
-  "show_bots": "Botları göster",
-  "names_levels": "İsimler ve seviyeler",
-  "pt_only": "Sadece grupta (PT)",
-  "level": "Seviye",
-  "all": "Tümü",
-  "map": "Harita",
-  "m1": "M1 — Joan (Chunjo)",
-  "m2": "M2 — Bokjung (Chunjo)",
-  "m3": "Chunjo Lonca Toprağı",
-  "s1": "M1 — Yongan (Shinsoo)",
-  "s2": "M2 — Jayang (Shinsoo)",
-  "s3": "Shinsoo Lonca Toprağı",
-  "smonkey": "Shinsoo Maymun Zindanı",
-  "j1": "M1 — Pyongmoo (Jinno)",
-  "j2": "M2 — Bakra (Jinno)",
-  "j3": "Jinno Lonca Toprağı",
-  "jmonkey": "Jinno Maymun Zindanı",
-  "monkey": "Kolay Maymun Zindanı",
-  "monkey_medium": "Orta Maymun Zindanı",
-  "monkey_hard": "Zor Maymun Zindanı",
-  "orc": "Ork Vadisi",
-  "desert": "Yongbi Çölü",
-  "sohan": "Sohan Dağı",
-  "spider": "Örümcek Zindanı V1",
-  "spider_v2": "Örümcek Zindanı V2",
-  "hwang": "Hwang Tapınağı",
-  "forest": "Orman",
-  "red_forest": "Kızıl Orman",
-  "demon_tower": "Şeytan Kulesi",
-  "fire_land": "Doyyumhwaji (Ateş Ülkesi)",
-  "grotto": "Sürgün Mağarası V1",
-  "grotto2": "Sürgün Mağarası V2",
-  "heat": "Isı haritası",
-  "heat_deaths": "Bot ölümleri",
-  "heat_metins": "Kırılan Metinler",
-  "heat_skills": "Beceri artışları",
-  "search": "🔍 Bot ara (örn. botarek)...",
-  "solo_bot": "Solo bot",
-  "party_bot": "Grupta (PT)",
-  "metin_fight": "Metin Taşı ile savaş",
-  "loading": "Yükleniyor...",
-  "world_stats": "Dünya istatistikleri",
-  "active_bots": "Aktif botlar",
-  "in_parties": "Gruplarda (PT)",
-  "avg_level": "Ortalama seviye",
-  "max_level": "Maks. seviye",
-  "rankings": "Bot sıralamaları",
-  "rank_level": "Seviye",
-  "rank_weapon": "Silah",
-  "rank_armor": "Zırh",
-  "rank_weapon30": "Lv 30 Silahlar",
-  "rank_items": "Eşyalar",
-  "rank_horse": "At",
-  "rank_biologist": "Biyolog",
-  "rank_hunting": "Av",
-  "rank_shops": "Açık dükkânlar",
-  "rank_skills": "Beceriler",
-  "rank_plus9": "+9 Eşya",
-  "rank_stall_open": "Tezgâh açık",
-  "rank_empty": "Sıralama verisi yok.",
-  "rank_show": "Göster",
-  "rank_search": "Sıralamada ara...",
-  "none": "Yok",
-  "items_short": "eşya",
-  "horse_lv": "At Lv",
-  "visible": "Görünen",
-  "characters": "karakter",
-  "in_group": "Grupta [PT]",
-  "solo": "Solo",
-  "player": "OYUNCU",
-  "bot": "Bot",
-  "class": "Sınıf",
-  "action": "Eylem",
-  "status": "Durum",
-  "personality": "Kişilik",
-  "mood": "Ruh hâli",
-  "charakter": "Karakter",
-  "ambition": "Hırs",
-  "current_goal": "Mevcut hedef",
-  "coordinates": "Koordinatlar",
-  "open_inventory": "Envanteri ve EQ'yu açmak için tıkla",
-  "loading_character": "Karakterin ekipmanı ve istatistikleri yükleniyor",
-  "error": "Hata",
-  "not_found": "Veri bulunamadı",
-  "teleport_me": "Oyundaki karakterimi ışınla (1 tık)",
-  "position": "Konum",
-  "horse": "At",
-  "biologist": "Biyolog",
-  "bio_stage": "Biyolog aşaması",
-  "hunting": "Av",
-  "no_data": "Veri yok",
-  "stats": "İstatistikler",
-  "unspent_stats": "Dağıtılmamış: {n} stat puanı",
-  "skills": "Beceriler",
-  "profession_none": "Seçilmedi",
-  "profession_pending": "Beceri grubu henüz seçilmedi.",
-  "depot": "Depo",
-  "depot_empty": "Depo boş.",
-  "shop": "Dükkân",
-  "shop_none": "Bu botun açık dükkânı yok.",
-  "shop_empty": "Tezgâh boş.",
-  "shop_price": "Fiyat",
-  "shop_premium": "premium",
-  "shop_expired": "süresi doldu — bot yenileyene kadar kimse buradan alışveriş yapamaz",
-  "unspent_skills": "Dağıtılmamış: {n} beceri puanı",
-  "equipped": "Takılı ekipman (EQ)",
-  "weapon": "Silah",
-  "armor": "Zırh",
-  "helmet": "Kask",
-  "shield": "Kalkan",
-  "bracelet": "Bilezik",
-  "boots": "Ayakkabı",
-  "necklace": "Kolye",
-  "earrings": "Küpe",
-  "empty": "Boş",
-  "inventory": "Envanter içeriği",
-  "items_count": "eşya",
-  "inventory_empty": "Envanter boş.",
-  "quantity": "Adet",
-  "gear_history": "Ekipman geçmişi",
-  "gear_history_hint": "Ticaret, bonuslar ve yükseltme ayrı sekmelerde — log.log ve çevrimdışı dükkân günlüğünden",
-  "gear_history_loading": "Geçmiş yükleniyor...",
-  "gear_history_empty": "Bu sekmede kayıt yok.",
-  "gear_history_more": "Daha eskileri göster",
-  "gear_tab_trade": "Ticaret",
-  "gear_tab_bonus": "Bonuslar",
-  "gear_tab_refine": "Yükseltme",
-  "gear_tab_other": "Diğer",
-  "gear_tab_all": "Tümü",
-  "event_log": "Bot olay günlüğü (canlı loglar)",
-  "track_live": "Canlı takip et",
-  "copy_logs": "Logları kopyala",
-  "loading_logs": "Karakter logları yükleniyor:",
-  "no_logs": "Bu karakter için yeni log kaydı yok.",
-  "log_error": "Log okuma hatası",
-  "network_error": "Ağ hatası",
-  "teleporting": "Oyundaki karakterin ışınlanıyor...",
-  "teleported": "{name} oyunda botun yanına ışınlandı!",
-  "you": "Karakterin",
-  "failure": "Başarısız",
-  "copied": "Kopyalandı",
-  "paste": "oyunda yapıştır: [Enter] → Ctrl+V → [Enter]",
-  "solo_exp": "Solo — tecrübe kazanma",
-  "party_exp": "[PT] Grupta tecrübe kazanma",
-  "metin_hunt": "Metin Taşı avı",
-  "character_missing": "Karakter bulunamadı",
-  "bio_next": "Sıradaki görev Lv {level} itibarıyla: {name}",
-  "bio_key": "{name}{sep}{have}/{need}, beklenen: {key}",
-  "bio_all": "Tüm temel görevler tamamlandı",
-  "bio_complete": "tamam",
-  "bio_done": "tamamlandı",
-  "bio_skipped": "bot için fazla düşük, atlanan: {n}",
-  "bio_dropper": "geçerli değil — dropper Biyolog görevlerini yapmaz",
-  "bio_rank_now": "{done}/{total} tamamlandı • şimdi: {stage}",
-  "bio_rank_next": "{done}/{total} tamamlandı • {stage}",
-  "rankings_all": "Sıralamalar",
-  "people_only": "Yalnızca oyuncular",
-  "people_only_hint": "Yalnızca gerçek oyuncuların karakterleri, botlar hariç, kendi aralarında numaralandırılmış.",
-  "person_mark": "Oyuncu karakteri",
-  "ranking_people_note": "👤 oyuncu karakteri · oyun yöneticilerinin karakterleri sayılmaz",
-  "rank_avg_short": "Ort.",
-  "rank_skill_short": "Beceri",
-  "bag": "Çanta",
-  "weapon30_one": "Lv 30 silah",
-  "tt_req_level": "Gerekli Seviye",
-  "tt_attack": "Saldırı Değeri",
-  "tt_magic_attack": "Büyü Saldırı Değeri",
-  "tt_attack_speed": "Saldırı Hızı",
-  "tt_defense": "Savunma",
-  "tt_move_speed": "Hareket Hızı",
-  "tt_broken_stone": "Kırık Taş",
-  "tt_empty_socket": "Boş Yuva",
-  "tt_soul_stone": "Ruh Taşı",
-  "item_n": "Eşya #{n}",
-  "bot_badge": "BOT",
-  "exp_hold": "EXP {n}. seviyede kilitli",
-  "hunt_done_through": "Lv {n} dahil tamamlandı",
-  "hunt_not_started": "Henüz başlanmadı",
-  "gh_sold_for": "{count} adet, {price} yang karşılığında",
-  "gh_instead": "{item} yerine",
-  "gh_paid": "{price} yang karşılığında",
-  "gh_from": "satıcı: {seller}",
-  "warp_player_offline": "Şu anda oyunda hiçbir oyuncu karakteri yok.",
-  "warp_no_human": "Işınlanabilecek bir oyuncu karakteri yok.",
-  "warp_timeout": "Oyun zamanında yanıt vermedi."
+  "warp_timeout":"The game did not answer in time.","saddlebags":"Saddlebags"
  }
 }
+
+# The words around the bots' explanations - the shop's tooltip and its pinned
+# pane, the gear history's "?" and its decisions tab, the /decisions page - in
+# all four languages. The codes' own words are the DECISION_* tables beside
+# the gear history, and the server says an explanation whole; these are what
+# frames it.
+for _lang, _texts in {
+ "pl": {
+  "ex_why_counter": "Dlaczego na ladzie", "ex_how_price": "Jak powstała cena",
+  "ex_pin_hint": "Kliknij, aby przypiąć wyjaśnienie.", "ex_copy": "Kopiuj", "ex_copied": "Skopiowano wyjaśnienie",
+  "ex_close": "Zamknij", "ex_none": "Brak zapisanego wyjaśnienia tej linii.",
+  "ex_state_missing": "Ten świat nie ma jeszcze tabel wyjaśnień (starsza wersja albo rdzeń ich jeszcze nie utworzył).",
+  "ex_state_off": "Ten silnik nie zapisuje wyjaśnień decyzji botów.",
+  "ex_unusual": "nietypowe", "ex_unusual_only": "Tylko nietypowe",
+  "ex_col_step": "Krok", "ex_col_effect": "Zmiana", "ex_col_value": "Cena", "ex_col_term": "Składnik",
+  "ex_steps_cut": "… dalsze kroki ucięte (lista była za długa)", "ex_last_change": "Ostatnia zmiana",
+  "ex_changes": "zmian od wystawienia: {n}", "ex_was_now": "było {was} → jest {now}",
+  "ex_codes": "Kody", "ex_flags": "Flagi", "ex_list_price": "cena {price}", "ex_price": "{price} yang",
+  "ex_stand": "Sklep otwarty, bo: {reason}", "ex_pick": "Kandydat {rank}. z {n}",
+  "ex_pick_refused": ", lada odrzuciła {k} wyżej od niego", "ex_score": "wynik {score}",
+  "ex_cut": "{shape}: ze stosu {whole} szt. na ladę {take}, zapas trzymany w plecaku: {keep}",
+  "ex_held": "w plecaku łącznie {held}",
+  "ex_price_differs": "Cena na ladzie ({now}) różni się od wyjaśnionej ({explained}) — tej zmiany nic nie zapisało.",
+  "ex_end_sold": "Sprzedane za {price} yang", "ex_end_off": "Zdjęte z lady: {reason}",
+  "ex_context": "Okoliczności", "ex_origin": "Skąd nowy", "ex_roles": "Role", "ex_lines": "Bonusy",
+  "ex_stones": "Kamienie", "ex_old": "Stary", "ex_new": "Nowy", "ex_delta": "Różnica",
+  "ex_terms": "Składniki wyniku", "ex_blow": "Cios broni rozłożony na części", "ex_gain": "Zmiana wyniku",
+  "ex_score_word": "Wynik", "ex_bot": "Bot", "ex_item": "Przedmiot", "ex_time": "Czas", "ex_more": "Wyjaśnienie",
+  "ex_title_equip": "Dlaczego to założył", "ex_title_unequip": "Dlaczego to zdjął",
+  "ex_level_slot": "poziom {level}, slot: {slot}", "ex_suppressed": "limit pominął przedtem {n} wpisów tego bota",
+  "ex_wear_unique": "unikat", "ex_wear_slot": "slot {n}", "ex_mob_n": "potwór #{n}",
+  "ex_skill_n": "umiejętność #{n}", "ex_code_n": "kod {n}", "ex_nothing": "nic",
+  "gear_tab_decisions": "Decyzje", "gh_unequipped": "Zdjęte",
+ },
+ "en": {
+  "ex_why_counter": "Why on the counter", "ex_how_price": "How the price was reached",
+  "ex_pin_hint": "Click to pin the explanation.", "ex_copy": "Copy", "ex_copied": "Explanation copied",
+  "ex_close": "Close", "ex_none": "No explanation recorded for this line.",
+  "ex_state_missing": "This world has no explanation tables yet (an older version, or the core has not created them yet).",
+  "ex_state_off": "This engine does not record the bots' explanations.",
+  "ex_unusual": "unusual", "ex_unusual_only": "Unusual only",
+  "ex_col_step": "Step", "ex_col_effect": "Effect", "ex_col_value": "Price", "ex_col_term": "Term",
+  "ex_steps_cut": "… further steps cut (the list was too long)", "ex_last_change": "Last change",
+  "ex_changes": "changes since listing: {n}", "ex_was_now": "was {was} → now {now}",
+  "ex_codes": "Codes", "ex_flags": "Flags", "ex_list_price": "price {price}", "ex_price": "{price} yang",
+  "ex_stand": "Shop open because: {reason}", "ex_pick": "Candidate {rank} of {n}",
+  "ex_pick_refused": ", the counter refused {k} ranked above it", "ex_score": "score {score}",
+  "ex_cut": "{shape}: of a stack of {whole}, {take} to the counter; the reserve kept in the bag: {keep}",
+  "ex_held": "{held} in the bag in all",
+  "ex_price_differs": "The counter's price ({now}) differs from the explained one ({explained}) — nothing recorded that change.",
+  "ex_end_sold": "Sold for {price} yang", "ex_end_off": "Taken off the counter: {reason}",
+  "ex_context": "Context", "ex_origin": "Where the new piece came from", "ex_roles": "Roles", "ex_lines": "Bonus lines",
+  "ex_stones": "Stones", "ex_old": "Old", "ex_new": "New", "ex_delta": "Delta",
+  "ex_terms": "Score terms", "ex_blow": "The weapon's blow, broken down", "ex_gain": "Score change",
+  "ex_score_word": "Score", "ex_bot": "Bot", "ex_item": "Item", "ex_time": "Time", "ex_more": "Explanation",
+  "ex_title_equip": "Why it put this on", "ex_title_unequip": "Why it took this off",
+  "ex_level_slot": "level {level}, slot: {slot}", "ex_suppressed": "the budget dropped {n} of this bot's rows before this one",
+  "ex_wear_unique": "unique", "ex_wear_slot": "slot {n}", "ex_mob_n": "monster #{n}",
+  "ex_skill_n": "skill #{n}", "ex_code_n": "code {n}", "ex_nothing": "nothing",
+  "gear_tab_decisions": "Decisions", "gh_unequipped": "Taken off",
+ },
+ "de": {
+  "ex_why_counter": "Warum auf dem Ladentisch", "ex_how_price": "Wie der Preis zustande kam",
+  "ex_pin_hint": "Klicken, um die Erklärung anzuheften.", "ex_copy": "Kopieren", "ex_copied": "Erklärung kopiert",
+  "ex_close": "Schließen", "ex_none": "Für diese Zeile ist keine Erklärung aufgezeichnet.",
+  "ex_state_missing": "Diese Welt hat noch keine Erklärungstabellen (eine ältere Version, oder der Kern hat sie noch nicht angelegt).",
+  "ex_state_off": "Diese Engine zeichnet keine Erklärungen der Bots auf.",
+  "ex_unusual": "ungewöhnlich", "ex_unusual_only": "Nur ungewöhnliche",
+  "ex_col_step": "Schritt", "ex_col_effect": "Wirkung", "ex_col_value": "Preis", "ex_col_term": "Bestandteil",
+  "ex_steps_cut": "… weitere Schritte abgeschnitten (die Liste war zu lang)", "ex_last_change": "Letzte Änderung",
+  "ex_changes": "Änderungen seit dem Einstellen: {n}", "ex_was_now": "war {was} → jetzt {now}",
+  "ex_codes": "Codes", "ex_flags": "Markierungen", "ex_list_price": "Preis {price}", "ex_price": "{price} Yang",
+  "ex_stand": "Laden offen, weil: {reason}", "ex_pick": "Kandidat {rank} von {n}",
+  "ex_pick_refused": ", der Ladentisch lehnte {k} davor ab", "ex_score": "Wert {score}",
+  "ex_cut": "{shape}: von einem Stapel zu {whole} Stück {take} auf den Ladentisch; im Beutel gehaltene Reserve: {keep}",
+  "ex_held": "insgesamt {held} im Beutel",
+  "ex_price_differs": "Der Preis auf dem Ladentisch ({now}) weicht vom erklärten ({explained}) ab — diese Änderung wurde nicht aufgezeichnet.",
+  "ex_end_sold": "Verkauft für {price} Yang", "ex_end_off": "Vom Ladentisch genommen: {reason}",
+  "ex_context": "Umstände", "ex_origin": "Herkunft des neuen Stücks", "ex_roles": "Rollen", "ex_lines": "Bonuszeilen",
+  "ex_stones": "Steine", "ex_old": "Alt", "ex_new": "Neu", "ex_delta": "Differenz",
+  "ex_terms": "Bestandteile des Werts", "ex_blow": "Der Schlag der Waffe, aufgeschlüsselt", "ex_gain": "Wertänderung",
+  "ex_score_word": "Wert", "ex_bot": "Bot", "ex_item": "Gegenstand", "ex_time": "Zeit", "ex_more": "Erklärung",
+  "ex_title_equip": "Warum er das angelegt hat", "ex_title_unequip": "Warum er das abgelegt hat",
+  "ex_level_slot": "Level {level}, Platz: {slot}", "ex_suppressed": "das Budget ließ davor {n} Zeilen dieses Bots weg",
+  "ex_wear_unique": "Unikat", "ex_wear_slot": "Platz {n}", "ex_mob_n": "Monster #{n}",
+  "ex_skill_n": "Fertigkeit #{n}", "ex_code_n": "Code {n}", "ex_nothing": "nichts",
+  "gear_tab_decisions": "Entscheidungen", "gh_unequipped": "Abgelegt",
+ },
+ "tr": {
+  "ex_why_counter": "Neden tezgâhta", "ex_how_price": "Fiyat nasıl oluştu",
+  "ex_pin_hint": "Açıklamayı sabitlemek için tıkla.", "ex_copy": "Kopyala", "ex_copied": "Açıklama kopyalandı",
+  "ex_close": "Kapat", "ex_none": "Bu satır için kayıtlı açıklama yok.",
+  "ex_state_missing": "Bu dünyada henüz açıklama tabloları yok (eski bir sürüm ya da çekirdek onları henüz oluşturmadı).",
+  "ex_state_off": "Bu motor botların açıklamalarını kaydetmez.",
+  "ex_unusual": "olağandışı", "ex_unusual_only": "Yalnızca olağandışı",
+  "ex_col_step": "Adım", "ex_col_effect": "Etki", "ex_col_value": "Fiyat", "ex_col_term": "Bileşen",
+  "ex_steps_cut": "… sonraki adımlar kesildi (liste çok uzundu)", "ex_last_change": "Son değişiklik",
+  "ex_changes": "tezgâha konduktan beri değişiklik: {n}", "ex_was_now": "önce {was} → şimdi {now}",
+  "ex_codes": "Kodlar", "ex_flags": "İşaretler", "ex_list_price": "fiyat {price}", "ex_price": "{price} yang",
+  "ex_stand": "Dükkân açık, çünkü: {reason}", "ex_pick": "{n} aday içinde {rank}.",
+  "ex_pick_refused": ", tezgâh üstündeki {k} adayı reddetti", "ex_score": "puan {score}",
+  "ex_cut": "{shape}: {whole} adetlik yığından {take} tezgâha; çantada tutulan yedek: {keep}",
+  "ex_held": "çantada toplam {held}",
+  "ex_price_differs": "Tezgâhtaki fiyat ({now}) açıklanandan ({explained}) farklı — bu değişikliği hiçbir şey kaydetmedi.",
+  "ex_end_sold": "{price} yang karşılığında satıldı", "ex_end_off": "Tezgâhtan indirildi: {reason}",
+  "ex_context": "Bağlam", "ex_origin": "Yeni parçanın kaynağı", "ex_roles": "Roller", "ex_lines": "Bonus satırları",
+  "ex_stones": "Taşlar", "ex_old": "Eski", "ex_new": "Yeni", "ex_delta": "Fark",
+  "ex_terms": "Puan bileşenleri", "ex_blow": "Silahın darbesi, parçalarına ayrılmış", "ex_gain": "Puan değişimi",
+  "ex_score_word": "Puan", "ex_bot": "Bot", "ex_item": "Eşya", "ex_time": "Zaman", "ex_more": "Açıklama",
+  "ex_title_equip": "Bunu neden kuşandı", "ex_title_unequip": "Bunu neden çıkardı",
+  "ex_level_slot": "seviye {level}, yuva: {slot}", "ex_suppressed": "bütçe bundan önce bu botun {n} satırını atladı",
+  "ex_wear_unique": "eşsiz", "ex_wear_slot": "yuva {n}", "ex_mob_n": "canavar #{n}",
+  "ex_skill_n": "beceri #{n}", "ex_code_n": "kod {n}", "ex_nothing": "hiçbir şey",
+  "gear_tab_decisions": "Kararlar", "gh_unequipped": "Çıkarıldı",
+ },
+}.items():
+    # Only the languages this panel speaks (Polish and English): the German
+    # and Turkish words stay beside them for a panel that adds those.
+    if _lang in MAP_I18N:
+        MAP_I18N[_lang].update(_texts)
+
+# The export for an analyst or a language model (29 September, the operator:
+# "zebysmy mogli latwo widziec, gdzie sa bledy, i dawac je AI do analizy"): one
+# decision, a bot's decisions or a page of them as Markdown, with every number
+# the page shows, the header's code names beside the words, the values the rules
+# compared against and a short guide to reading it (exMarkdown, EXPLAIN_JS).
+for _lang, _texts in {
+ "pl": {
+  "ex_copy_ai": "Kopiuj dla AI", "ex_copied_ai": "Skopiowano jako Markdown dla AI",
+  "ex_anomalies": "Anomalie", "ex_ai_title": "Decyzje botów Metin2 — do analizy",
+  "ex_ai_guide": "Każda decyzja to wiersz zapisany przez rdzeń gry w chwili jej podjęcia (log.playerbot_equip, "
+                 "log.playerbot_listing); nazwy w `…` to kody z playerbot_explain_rules.h i stałe nakładki. Zmiana "
+                 "ekwipunku: przegląd zakłada rzecz, której wynik (TERM_TOTAL) przewyższa noszoną o SWAP_MARGIN_PERMILLE "
+                 "promili, a rzecz zdjętą w ciągu godziny dopiero o SWAP_BACK_MARGIN_PERCENT procent. Wynik broni to jej "
+                 "cios ×1000 (TERM_BLOW_X1000, model GetPlayerBotWeaponHitDamageAt: stopień ataku na piechotę, rzut broni, "
+                 "atak z plusa, obrona potwora na poziomie bota, średnie obrażenia i obrażenia umiejętności, ukryty bonus "
+                 "poziomu broni mt2009) ze stopniem Iwakury tylko na ciosie, i obok preferencja klasy i stałe bonusy; "
+                 "reszty ekwipunku — obrona, bonusy i kamienie razy stopień rodziny. Linia lady: kroki ceny w kolejności "
+                 "wyceny — arkusz Iwakury ze stawką yang i inflacją, bonusy, pamięć sprzedaży, rejestr rynku, ogranicznik "
+                 "kroku, rozrzut sprzedawcy, progi, zaokrąglenie. Flagi zapisał rdzeń, anomalie wyliczył panel.",
+  "ex_ai_ask": "Zadanie: wskaż decyzje sprzeczne z ich własnymi liczbami albo z celem bota, podaj regułę (nazwę kodu), "
+               "która je podjęła, i co by je naprawiło.",
+  "ex_ai_refs": "Wartości odniesienia (stałe z kodu)", "ex_ai_equip": "Zmiana ekwipunku", "ex_ai_listing": "Linia lady",
+  "ex_ai_now": "teraz", "ex_ai_decision": "Decyzja", "ex_ai_level_then": "poziom w chwili decyzji: {level}",
+  "ex_sheet_ratio": "cena za sztukę wobec arkusza: {unit} / {sheet} = {ratio}", "ex_ai_code": "kod",
+  "ex_ai_n": "Decyzji: {n}",
+ },
+ "en": {
+  "ex_copy_ai": "Copy for an AI", "ex_copied_ai": "Copied as Markdown for an AI",
+  "ex_anomalies": "Anomalies", "ex_ai_title": "Metin2 bot decisions — for analysis",
+  "ex_ai_guide": "Each decision is a row the game core wrote the moment it was taken (log.playerbot_equip, "
+                 "log.playerbot_listing); the names in `…` are the codes of playerbot_explain_rules.h and the overlay's "
+                 "constants. An equipment change: the pass puts on a piece whose score (TERM_TOTAL) beats the worn one's "
+                 "by SWAP_MARGIN_PERMILLE per mille, and a piece it took off within the hour only by "
+                 "SWAP_BACK_MARGIN_PERCENT percent. A weapon's score is its blow x1000 (TERM_BLOW_X1000, the model of "
+                 "GetPlayerBotWeaponHitDamageAt: the attack grade on foot, the weapon's roll, the plus's attack, a monster's "
+                 "defence at the bot's level, average and skill damage, mt2009's hidden bonus by the weapon's level) with "
+                 "Iwakura's tier on the blow alone, and beside it the class's preference and the fixed lines; the rest of "
+                 "the gear's is defence, lines and stones times the family's tier. A counter line: the price's steps in the "
+                 "order the pricing takes them - Iwakura's sheet at the yang rate and the inflation, the lines, the sale "
+                 "memory, the market ledger, the step limit, the keeper's spread, the floors, the rounding. The flags are "
+                 "the core's, the anomalies the panel's.",
+  "ex_ai_ask": "Task: point out the decisions that contradict their own numbers or the bot's goal, name the rule "
+               "(the code name) that took each, and say what would fix it.",
+  "ex_ai_refs": "Reference values (constants of the code)", "ex_ai_equip": "Equipment change", "ex_ai_listing": "Counter line",
+  "ex_ai_now": "now", "ex_ai_decision": "Decision", "ex_ai_level_then": "level at the decision: {level}",
+  "ex_sheet_ratio": "unit price against the sheet: {unit} / {sheet} = {ratio}", "ex_ai_code": "code",
+  "ex_ai_n": "Decisions: {n}",
+ },
+ "de": {
+  "ex_copy_ai": "Für eine KI kopieren", "ex_copied_ai": "Als Markdown für eine KI kopiert",
+  "ex_anomalies": "Auffälligkeiten", "ex_ai_title": "Entscheidungen der Metin2-Bots — zur Analyse",
+  "ex_ai_guide": "Jede Entscheidung ist eine Zeile, die der Spielkern im Moment der Entscheidung geschrieben hat "
+                 "(log.playerbot_equip, log.playerbot_listing); die Namen in `…` sind die Codes aus "
+                 "playerbot_explain_rules.h und Konstanten des Overlays. Ein Ausrüstungswechsel: der Durchlauf legt ein "
+                 "Stück an, dessen Wert (TERM_TOTAL) den des getragenen um SWAP_MARGIN_PERMILLE Promille übertrifft, ein "
+                 "innerhalb der Stunde abgelegtes Stück erst um SWAP_BACK_MARGIN_PERCENT Prozent. Der Wert einer Waffe ist "
+                 "ihr Schlag x1000 (TERM_BLOW_X1000, das Modell von GetPlayerBotWeaponHitDamageAt: Angriffsstufe zu Fuß, "
+                 "Wurf der Waffe, Angriff aus dem Plus, Verteidigung eines Monsters auf dem Level des Bots, "
+                 "Durchschnitts- und Fertigkeitsschaden, der versteckte Levelbonus der Waffe auf mt2009) mit Iwakuras Stufe "
+                 "nur auf dem Schlag, daneben die Klassenvorliebe und die festen Zeilen; der Rest der Ausrüstung: "
+                 "Verteidigung, Zeilen und Steine mal der Stufe der Familie. Eine Ladentischzeile: die Schritte des Preises "
+                 "in der Reihenfolge der Bepreisung - Iwakuras Liste zur Yang-Rate und Inflation, die Zeilen, das "
+                 "Verkaufsgedächtnis, das Marktbuch, die Schrittbegrenzung, die Spanne des Verkäufers, die Untergrenzen, "
+                 "die Rundung. Die Markierungen stammen vom Kern, die Auffälligkeiten vom Panel.",
+  "ex_ai_ask": "Aufgabe: zeige die Entscheidungen, die ihren eigenen Zahlen oder dem Ziel des Bots widersprechen, nenne "
+               "die Regel (den Code-Namen), die jede getroffen hat, und was sie beheben würde.",
+  "ex_ai_refs": "Referenzwerte (Konstanten des Codes)", "ex_ai_equip": "Ausrüstungswechsel", "ex_ai_listing": "Ladentischzeile",
+  "ex_ai_now": "jetzt", "ex_ai_decision": "Entscheidung", "ex_ai_level_then": "Level bei der Entscheidung: {level}",
+  "ex_sheet_ratio": "Stückpreis gegenüber der Liste: {unit} / {sheet} = {ratio}", "ex_ai_code": "Code",
+  "ex_ai_n": "Entscheidungen: {n}",
+ },
+ "tr": {
+  "ex_copy_ai": "Yapay zekâ için kopyala", "ex_copied_ai": "Yapay zekâ için Markdown olarak kopyalandı",
+  "ex_anomalies": "Anormallikler", "ex_ai_title": "Metin2 bot kararları — analiz için",
+  "ex_ai_guide": "Her karar, oyun çekirdeğinin karar anında yazdığı bir satırdır (log.playerbot_equip, "
+                 "log.playerbot_listing); `…` içindeki adlar playerbot_explain_rules.h kodları ve katmanın sabitleridir. "
+                 "Ekipman değişikliği: tarama, puanı (TERM_TOTAL) giyilenden SWAP_MARGIN_PERMILLE binde fazla olan parçayı "
+                 "kuşanır; son bir saatte çıkardığı parçayı ise ancak SWAP_BACK_MARGIN_PERCENT yüzde fazlaysa. Bir silahın "
+                 "puanı darbesi x1000'dir (TERM_BLOW_X1000, GetPlayerBotWeaponHitDamageAt modeli: yayan saldırı derecesi, "
+                 "silahın zarı, artıdan gelen saldırı, botun seviyesindeki bir canavarın savunması, ortalama ve beceri "
+                 "hasarı, mt2009'un silah seviyesine bağlı gizli bonusu), Iwakura kademesi yalnızca darbeye uygulanır, "
+                 "yanında sınıf tercihi ve sabit satırlar; ekipmanın geri kalanı: savunma, satırlar ve taşlar çarpı ailenin "
+                 "kademesi. Tezgâh satırı: fiyat adımları fiyatlama sırasıyla - yang oranı ve enflasyonla Iwakura'nın "
+                 "listesi, satırlar, satış hafızası, pazar defteri, adım sınırı, satıcı marjı, tabanlar, yuvarlama. "
+                 "İşaretler çekirdeğin, anormallikler panelin.",
+  "ex_ai_ask": "Görev: kendi sayılarıyla ya da botun hedefiyle çelişen kararları göster, her birini alan kuralı (kod "
+               "adını) belirt ve neyin düzelteceğini söyle.",
+  "ex_ai_refs": "Referans değerleri (kodun sabitleri)", "ex_ai_equip": "Ekipman değişikliği", "ex_ai_listing": "Tezgâh satırı",
+  "ex_ai_now": "şimdi", "ex_ai_decision": "Karar", "ex_ai_level_then": "karar anındaki seviye: {level}",
+  "ex_sheet_ratio": "adet fiyatı listeye göre: {unit} / {sheet} = {ratio}", "ex_ai_code": "kod",
+  "ex_ai_n": "Karar: {n}",
+ },
+}.items():
+    # Only the languages this panel speaks (Polish and English): the German
+    # and Turkish words stay beside them for a panel that adds those.
+    if _lang in MAP_I18N:
+        MAP_I18N[_lang].update(_texts)
 
 
 # Every bonus line the engine can roll, in the wording the game itself uses.
@@ -7494,8 +7229,7 @@ MAP_I18N = {
 # maps each number to a locale key, and the client's locale_game.txt holds the
 # text - the table that replaced a hand-made one with 71 and 72 the wrong way
 # round, the two post-kill recovery chances as plain numbers and no entry for
-# 87-91 ("Bonus #89"). German and Turkish (28 September) follow the German and
-# Turkish clients' wording where it is known, with the same placeholder.
+# 87-91 ("Bonus #89").
 #
 # The text keeps the client's own placeholder, and that is what says how to
 # print the value: %d%% is a percentage, %d a plain number, %.1f a multiplier,
@@ -7505,242 +7239,124 @@ MAP_I18N = {
 # POINT_TO_APPLY before it looks here. Only the page's own language goes into
 # the page (apply_meta_for), so an English page carries no Polish.
 APPLY_TEXTS = {
- 1: ("flat", {"pl": "Max PŻ: +%d", "en": "Max. HP +%d",
-         "de": "Max. TP +%d", "tr": "Max. HP +%d"}),
- 2: ("flat", {"pl": "Max PE: +%d", "en": "Max. SP +%d",
-         "de": "Max. MP +%d", "tr": "Max. SP +%d"}),
- 3: ("flat", {"pl": "Witalność +%d", "en": "Vitality +%d",
-         "de": "Vitalität +%d", "tr": "Canlılık +%d"}),
- 4: ("flat", {"pl": "Inteligencja +%d", "en": "Intelligence +%d",
-         "de": "Intelligenz +%d", "tr": "Zeka +%d"}),
- 5: ("flat", {"pl": "Siła: +%d", "en": "Strength +%d",
-         "de": "Stärke +%d", "tr": "Güç +%d"}),
- 6: ("flat", {"pl": "Zręczność +%d", "en": "Dexterity +%d",
-         "de": "Beweglichkeit +%d", "tr": "Çeviklik +%d"}),
- 7: ("percent", {"pl": "Szybkość Ataku +%d%%", "en": "Attack Speed +%d%%",
-         "de": "Angriffsgeschwindigkeit +%d%%", "tr": "Saldırı Hızı +%d%%"}),
- 8: ("percent", {"pl": "Szybkość Ruchu %d%%", "en": "Moving Speed %d%%",
-         "de": "Bewegungsgeschwindigkeit %d%%", "tr": "Hareket Hızı %d%%"}),
- 9: ("percent", {"pl": "Szybkość Zaklęcia +%d%%", "en": "Casting Speed +%d%%",
-         "de": "Zaubergeschwindigkeit +%d%%", "tr": "Büyü Hızı +%d%%"}),
- 10: ("percent", {"pl": "Regeneracja PŻ: +%d%%", "en": "HP Regeneration +%d%%",
-         "de": "TP-Regeneration +%d%%", "tr": "HP Üretimi +%d%%"}),
- 11: ("percent", {"pl": "Regeneracja PE: +%d%%", "en": "SP Regeneration +%d%%",
-         "de": "MP-Regeneration +%d%%", "tr": "SP Üretimi +%d%%"}),
- 12: ("percent", {"pl": "Szansa na Otrucie %d%%", "en": "Poisoning chance %d%%",
-         "de": "Vergiftungschance %d%%", "tr": "Zehirleme şansı %d%%"}),
- 13: ("percent", {"pl": "Szansa na Omdlenie %d%%", "en": "Blackout chance %d%%",
-         "de": "Ohnmachtschance %d%%", "tr": "Sersemletme şansı %d%%"}),
- 14: ("percent", {"pl": "Szansa na Spowolnienie %d%%", "en": "Slowing chance %d%%",
-         "de": "Verlangsamungschance %d%%", "tr": "Yavaşlatma şansı %d%%"}),
- 15: ("percent", {"pl": "Szansa na cios krytyczny +%d%%", "en": "Chance of critical hit +%d%% ",
-         "de": "Chance auf kritischen Treffer +%d%%", "tr": "Kritik vuruş şansı +%d%%"}),
- 16: ("percent", {"pl": "Szansa na przeszywające Uderzenie: %d%% ", "en": "%d%% Chance for piercing Hits",
-         "de": "Chance auf durchbohrenden Treffer %d%%", "tr": "Delici vuruş şansı %d%%"}),
- 17: ("percent", {"pl": "Silny przeciwko Ludziom +%d%%", "en": "Strong against Half Humans +%d%%",
-         "de": "Stark gegen Halbmenschen +%d%%", "tr": "Yarı insanlara karşı güçlü +%d%%"}),
- 18: ("percent", {"pl": "Silny przeciwko Zwierzętom +%d%%", "en": "Strong against Animals +%d%%",
-         "de": "Stark gegen Tiere +%d%%", "tr": "Hayvanlara karşı güçlü +%d%%"}),
- 19: ("percent", {"pl": "Silny przeciwko Orkom +%d%%", "en": "Strong against Orcs +%d%%",
-         "de": "Stark gegen Orks +%d%%", "tr": "Orklara karşı güçlü +%d%%"}),
- 20: ("percent", {"pl": "Silny przeciwko Mistykom +%d%%", "en": "Strong against Mystics +%d%%",
-         "de": "Stark gegen Esoterische +%d%%", "tr": "Mistiklere karşı güçlü +%d%%"}),
- 21: ("percent", {"pl": "Silny przeciwko Nieumarłym +%d%%", "en": "Strong against Undead +%d%%",
-         "de": "Stark gegen Untote +%d%%", "tr": "Ölümsüzlere karşı güçlü +%d%%"}),
- 22: ("percent", {"pl": "Silny przeciwko Diabłom +%d%%", "en": "Strong against Devils +%d%%",
-         "de": "Stark gegen Teufel +%d%%", "tr": "Şeytanlara karşı güçlü +%d%%"}),
- 23: ("percent", {"pl": "%d%% obrażeń będzie dodanych do PŻ", "en": "%d%% damage  will be absorbed by HP",
-         "de": "%d%% des Schadens wird als TP absorbiert", "tr": "%d%% hasar HP olarak emilir"}),
- 24: ("percent", {"pl": "%d%% obrażeń będzie dodanych do PE", "en": "%d%% damage will be absorbed by SP",
-         "de": "%d%% des Schadens wird als MP absorbiert", "tr": "%d%% hasar SP olarak emilir"}),
- 25: ("percent", {"pl": "%d%% Szansa na kradzież PE", "en": "%d%% chance to rob SP",
-         "de": "%d%% Chance, MP zu rauben", "tr": "%d%% şansla SP çalma"}),
- 26: ("percent", {"pl": "Szansa na odzyskanie PE: %d%%", "en": "%d%% Chance to get back SP when hit",
-         "de": "%d%% Chance, bei erlittenem Treffer MP zurückzuerhalten", "tr": "Vurulduğunda %d%% şansla SP geri kazanma"}),
- 27: ("percent", {"pl": "Szansa na blok ciosów %d%%", "en": "Chance to block a close-combat attack %d%% ",
-         "de": "Chance, Nahkampfangriffe abzublocken %d%%", "tr": "Yakın dövüş saldırısını engelleme şansı %d%%"}),
- 28: ("percent", {"pl": "Szansa na uniknięcie Strzały: %d%%", "en": "Chance to avoid Arrows %d%%",
-         "de": "Chance, Pfeilen auszuweichen %d%%", "tr": "Oklardan kaçınma şansı %d%%"}),
- 29: ("percent", {"pl": "Odporność na Miecze: %d%%", "en": "Sword Defence %d%%",
-         "de": "Schwertverteidigung %d%%", "tr": "Kılıç savunması %d%%"}),
- 30: ("percent", {"pl": "Odporność na Broń Dwuręczną: %d%%", "en": "Two-Handed Defence %d%%",
-         "de": "Zweihänderverteidigung %d%%", "tr": "Çift el savunması %d%%"}),
- 31: ("percent", {"pl": "Odporność na Sztylety: %d%%", "en": "Dagger Defence %d%%",
-         "de": "Dolchverteidigung %d%%", "tr": "Hançer savunması %d%%"}),
- 32: ("percent", {"pl": "Odporność na Dzwony: %d%%", "en": "Bell Defence %d%%",
-         "de": "Glockenverteidigung %d%%", "tr": "Çan savunması %d%%"}),
- 33: ("percent", {"pl": "Odporność na Wachlarze: %d%%", "en": "Fan Defence %d%%",
-         "de": "Fächerverteidigung %d%%", "tr": "Yelpaze savunması %d%%"}),
- 34: ("percent", {"pl": "Odporność na Strzały: %d%%", "en": "Arrow Resistance %d%%",
-         "de": "Pfeilwiderstand %d%%", "tr": "Oklara karşı dayanıklılık %d%%"}),
- 35: ("percent", {"pl": "Odporność na Ogień: %d%%", "en": "Fire Resistance %d%%",
-         "de": "Feuerwiderstand %d%%", "tr": "Ateşe karşı dayanıklılık %d%%"}),
- 36: ("percent", {"pl": "Odporność na Błyskawice: %d%%", "en": "Lightning Resistance %d%%",
-         "de": "Blitzwiderstand %d%%", "tr": "Şimşeğe karşı dayanıklılık %d%%"}),
- 37: ("percent", {"pl": "Odporność na Magię: %d%%", "en": "Magic Resistance %d%%",
-         "de": "Magiewiderstand %d%%", "tr": "Büyüye karşı dayanıklılık %d%%"}),
- 38: ("percent", {"pl": "Odporność na Wiatr: %d%%", "en": "Wind Resistance %d%%",
-         "de": "Windwiderstand %d%%", "tr": "Rüzgâra karşı dayanıklılık %d%%"}),
- 39: ("percent", {"pl": "%d%% Szansa na odbicie Ciosu", "en": "%d%% Chance to reflect close combat hits  ",
-         "de": "%d%% Chance, Nahkampftreffer zu reflektieren", "tr": "%d%% şansla yakın dövüş vuruşlarını yansıtma"}),
- 40: ("percent", {"pl": "Szansa na odbicie Klątwy: %d%%", "en": "Chance to reflect Curse: %d%%",
-         "de": "Chance, Flüche zu reflektieren: %d%%", "tr": "Laneti yansıtma şansı: %d%%"}),
- 41: ("percent", {"pl": "Odporność na Trucizny: %d%%", "en": "Poison Resistance %d%%",
-         "de": "Giftwiderstand %d%%", "tr": "Zehre karşı dayanıklılık %d%%"}),
- 42: ("percent", {"pl": "Szansa na odzyskanie PE: %d%%", "en": "%d%% Chance to restore SP",
-         "de": "%d%% Chance, MP wiederherzustellen", "tr": "%d%% şansla SP yenileme"}),
- 43: ("percent", {"pl": "Szansa na Bonus DOŚ: %d%%", "en": "%d%% Chance for EXP Bonus",
-         "de": "%d%% Chance auf EXP-Bonus", "tr": "%d%% şansla EXP bonusu"}),
- 44: ("percent", {"pl": "Szansa na podwójną ilość Yang: %d%%", "en": "%d%% Chance to drop double Yang",
-         "de": "%d%% Chance auf doppelten Yang-Drop", "tr": "%d%% şansla iki kat yang düşürme"}),
- 45: ("percent", {"pl": "Szansa na podwójną ilość Przedmiotów: %d%%", "en": "%d%% Chance to drop double the Items",
-         "de": "%d%% Chance auf doppelten Gegenstands-Drop", "tr": "%d%% şansla iki kat eşya düşürme"}),
- 46: ("percent", {"pl": "Mikstury %d%% efekt podniesiony", "en": "Potion %d%% effect raise",
-         "de": "Trankwirkung um %d%% erhöht", "tr": "İksir etkisi %d%% artar"}),
- 47: ("percent", {"pl": "Szansa na odzyskanie PŻ: %d%%", "en": "%d%% Chance, to restore HP",
-         "de": "%d%% Chance, TP wiederherzustellen", "tr": "%d%% şansla HP yenileme"}),
- 48: ("boolean", {"pl": "Odporność na Omdlenia", "en": "Defence against blackouts",
-         "de": "Abwehr gegen Ohnmacht", "tr": "Sersemletmeye karşı savunma"}),
- 49: ("boolean", {"pl": "Odporność na Spowolnienia", "en": "Defence against slowing",
-         "de": "Abwehr gegen Verlangsamung", "tr": "Yavaşlatmaya karşı savunma"}),
- 50: ("boolean", {"pl": "Niewrażliwy na Upadek", "en": "Immune against falling down",
-         "de": "Immun gegen Umfallen", "tr": "Yere düşmeye karşı bağışıklık"}),
- 52: ("flat", {"pl": "Zasięg Łuku +%dm", "en": "Arc Range +%dm",
-         "de": "Bogenreichweite +%dm", "tr": "Yay menzili +%dm"}),
- 53: ("flat", {"pl": "Wartość Ataku +%d", "en": "Attack Value +%d",
-         "de": "Angriffswert +%d", "tr": "Saldırı Değeri +%d"}),
- 54: ("flat", {"pl": "Obrona +%d", "en": "Defence +%d",
-         "de": "Verteidigung +%d", "tr": "Savunma +%d"}),
- 55: ("flat", {"pl": "Wartość Magicznego Ataku: +%d", "en": "Magical Attack Value +%d",
-         "de": "Magischer Angriffswert +%d", "tr": "Büyü Saldırı Değeri +%d"}),
- 56: ("flat", {"pl": "Magiczna Obrona: +%d", "en": "Magical Defence +%d",
-         "de": "Magische Verteidigung +%d", "tr": "Büyü Savunması +%d"}),
- 58: ("flat", {"pl": "Max Wytrzymałość: +%d", "en": "Max. Endurance +%d",
-         "de": "Max. Ausdauer +%d", "tr": "Max. Dayanıklılık +%d"}),
- 59: ("percent", {"pl": "Silny przeciwko Wojownikom +%d%%", "en": "Strong against Warriorr +%d%%",
-         "de": "Stark gegen Krieger +%d%%", "tr": "Savaşçılara karşı güçlü +%d%%"}),
- 60: ("percent", {"pl": "Silny przeciwko Ninja +%d%%", "en": "Strong against Ninjas +%d%%",
-         "de": "Stark gegen Ninjas +%d%%", "tr": "Ninjalara karşı güçlü +%d%%"}),
- 61: ("percent", {"pl": "Silny przeciwko Sura +%d%%", "en": "Strong against Sura +%d%%",
-         "de": "Stark gegen Sura +%d%%", "tr": "Suralara karşı güçlü +%d%%"}),
- 62: ("percent", {"pl": "Silny przeciwko Szamanom +%d%%", "en": "Strong against Shamans +%d%%",
-         "de": "Stark gegen Schamanen +%d%%", "tr": "Şamanlara karşı güçlü +%d%%"}),
- 63: ("percent", {"pl": "Silny przeciwko Potworom +%d%%", "en": "Strength against monsters +%d%%",
-         "de": "Stark gegen Monster +%d%%", "tr": "Canavarlara karşı güçlü +%d%%"}),
- 64: ("percent", {"pl": "Wartość Ataku: +%d%%", "en": "Attack Value +%d%%",
-         "de": "Angriffswert +%d%%", "tr": "Saldırı Değeri +%d%%"}),
- 65: ("percent", {"pl": "Obrona: +%d%%", "en": "Defence +%d%%",
-         "de": "Verteidigung +%d%%", "tr": "Savunma +%d%%"}),
- 66: ("percent", {"pl": "Punkty Doświadczenia: +%d%%", "en": "EXP +%d%%",
-         "de": "EXP +%d%%", "tr": "EXP +%d%%"}),
- 67: ("multiplier", {"pl": "Szansa na zdobycie Przedmiotów pomnożona o %.1f", "en": "Chance of capturing Items multiplied with %.1f",
-         "de": "Drop-Chance für Gegenstände multipliziert mit %.1f", "tr": "Eşya düşürme şansı %.1f ile çarpılır"}),
- 68: ("multiplier", {"pl": "Szansa na zdobycie Yang pomnożona o %.1f", "en": "Chance of capturing Yang multiplied with %.1f",
-         "de": "Drop-Chance für Yang multipliziert mit %.1f", "tr": "Yang düşürme şansı %.1f ile çarpılır"}),
- 69: ("percent", {"pl": "Maks. PŻ +%d%%", "en": "Max. HP +%d%%",
-         "de": "Max. TP +%d%%", "tr": "Max. HP +%d%%"}),
- 70: ("percent", {"pl": "Maks. PE +%d%% ", "en": "Max. SP +%d%% ",
-         "de": "Max. MP +%d%%", "tr": "Max. SP +%d%%"}),
- 71: ("percent", {"pl": "Obrażenie Umiejętności: %d%%", "en": "Skill Damage %d%%",
-         "de": "Fertigkeitsschaden %d%%", "tr": "Beceri hasarı %d%%"}),
- 72: ("percent", {"pl": "Średnie Obrażenia: %d%%", "en": "Average Damage %d%%",
-         "de": "Durchschnittsschaden %d%%", "tr": "Ortalama zarar %d%%"}),
- 73: ("percent", {"pl": "Odporność na Obrażenia Umiejętności %d%%", "en": "Resistance against Skill Damage %d%%",
-         "de": "Widerstand gegen Fertigkeitsschaden %d%%", "tr": "Beceri hasarına karşı dayanıklılık %d%%"}),
- 74: ("percent", {"pl": "Odporność na Obrażenia: %d%%", "en": "Average Damage Resistance %d%%",
-         "de": "Widerstand gegen Durchschnittsschaden %d%%", "tr": "Ortalama zarara karşı dayanıklılık %d%%"}),
- 75: ("percent", {"pl": "iCafe DOŚ Bonus +%d%%", "en": "iCafe EXP Bonus +%d%%",
-         "de": "iCafe EXP-Bonus +%d%%", "tr": "iCafe EXP bonusu +%d%%"}),
- 76: ("percent_decimal", {"pl": "iCafe Szansa na zdobycie Przedmiotów plus %.1f%%", "en": "iCafe Chance of capturing Items plus %.1f%%",
-         "de": "iCafe Drop-Chance für Gegenstände plus %.1f%%", "tr": "iCafe eşya düşürme şansı artı %.1f%%"}),
- 78: ("percent", {"pl": "Odporność na Wojowników: %d%%", "en": "Defence chance against warrior attacks: %d%%",
-         "de": "Abwehrchance gegen Kriegerangriffe: %d%%", "tr": "Savaşçı saldırılarına karşı savunma şansı: %d%%"}),
- 79: ("percent", {"pl": "Odporność na Ninja: %d%%", "en": "Defence chance against ninja attacks: %d%%",
-         "de": "Abwehrchance gegen Ninjaangriffe: %d%%", "tr": "Ninja saldırılarına karşı savunma şansı: %d%%"}),
- 80: ("percent", {"pl": "Odporność na Sura: %d%%", "en": "Defence chance against sura attacks: %d%%",
-         "de": "Abwehrchance gegen Suraangriffe: %d%%", "tr": "Sura saldırılarına karşı savunma şansı: %d%%"}),
- 81: ("percent", {"pl": "Odporność na Szamanów: %d%%", "en": "Defence chance against shaman attacks: %d%%",
-         "de": "Abwehrchance gegen Schamanenangriffe: %d%%", "tr": "Şaman saldırılarına karşı savunma şansı: %d%%"}),
- 82: ("flat", {"pl": "Energia %d", "en": "Energy %d ",
-         "de": "Energie %d", "tr": "Enerji %d"}),
- 84: ("percent", {"pl": "Bonus kostiumu %d%% ", "en": "Costume bonus %d%% ",
-         "de": "Kostümbonus %d%%", "tr": "Kostüm bonusu %d%%"}),
- 85: ("percent", {"pl": "Magiczny atak +%d%%", "en": "Magic attack +%d%%",
-         "de": "Magischer Angriff +%d%%", "tr": "Büyü saldırısı +%d%%"}),
- 86: ("percent", {"pl": "Magiczny/krótkodystansowy atak +%d%%", "en": "Magic/melee attack +%d%%",
-         "de": "Magie-/Nahkampfangriff +%d%%", "tr": "Büyü/yakın dövüş saldırısı +%d%%"}),
- 87: ("percent", {"pl": "Odporność na lód +%d%%", "en": "Ice resistance +%d%%",
-         "de": "Eiswiderstand +%d%%", "tr": "Buza karşı dayanıklılık +%d%%"}),
- 88: ("percent", {"pl": "Odporność na ziemię +%d%%", "en": "Earth resistance +%d%%",
-         "de": "Erdwiderstand +%d%%", "tr": "Toprağa karşı dayanıklılık +%d%%"}),
- 89: ("percent", {"pl": "Odporność na mrok +%d%%", "en": "Resistance against darkness +%d%%",
-         "de": "Widerstand gegen Dunkelheit +%d%%", "tr": "Karanlığa karşı dayanıklılık +%d%%"}),
- 90: ("percent", {"pl": "Odporność na cios krytyczny +%d%%", "en": "Resistance against critical hits +%d%%",
-         "de": "Widerstand gegen kritische Treffer +%d%%", "tr": "Kritik vuruşa karşı dayanıklılık +%d%%"}),
- 91: ("percent", {"pl": "Odporność na przeszywający cios +%d%%", "en": "Resistance against piercing hits +%d%%",
-         "de": "Widerstand gegen durchbohrende Treffer +%d%%", "tr": "Delici vuruşa karşı dayanıklılık +%d%%"}),
- 1138: ("percent", {"pl": "Terror +%d%%", "en": "Terror +%d%%",
-         "de": "Terror +%d%%", "tr": "Dehşet +%d%%"}),
- 1139: ("percent", {"pl": "Regeneracja wytrzymałości +%d%%", "en": "Stamina regeneration +%d%%",
-         "de": "Ausdauerregeneration +%d%%", "tr": "Dayanıklılık yenilenmesi +%d%%"}),
- 1140: ("flat", {"pl": "Atak sztyletem przeciw potworom +%d", "en": "Dagger attack against monsters +%d",
-         "de": "Dolchangriff gegen Monster +%d", "tr": "Canavarlara karşı hançer saldırısı +%d"}),
- 1141: ("flat", {"pl": "Wartość ataku przeciw potworom +%d", "en": "Attack value against monsters +%d",
-         "de": "Angriffswert gegen Monster +%d", "tr": "Canavarlara karşı saldırı değeri +%d"}),
- 1142: ("flat", {"pl": "Odporność na potwory +%d‰", "en": "Resistance against monsters +%d‰",
-         "de": "Widerstand gegen Monster +%d‰", "tr": "Canavarlara karşı dayanıklılık +%d‰"}),
- 1143: ("percent", {"pl": "Pochłanianie obrażeń +%d%%", "en": "Damage absorption +%d%%",
-         "de": "Schadensabsorption +%d%%", "tr": "Hasar emilimi +%d%%"}),
- 1144: ("percent", {"pl": "Pochłanianie obrażeń od potworów +%d%%", "en": "Damage absorption from monsters +%d%%",
-         "de": "Schadensabsorption gegen Monster +%d%%", "tr": "Canavarlardan gelen hasar emilimi +%d%%"}),
- 1145: ("boolean", {"pl": "Przełamanie odporności na ogłuszenie", "en": "Breaks stun immunity",
-         "de": "Durchbricht die Abwehr gegen Ohnmacht", "tr": "Sersemletmeye karşı savunmayı kırar"}),
- 1146: ("boolean", {"pl": "Przełamanie klątwy świątyni", "en": "Breaks the temple curse",
-         "de": "Bricht den Tempelfluch", "tr": "Tapınak lanetini kırar"}),
- 1147: ("percent", {"pl": "Czas trwania umiejętności +%d%%", "en": "Skill duration +%d%%",
-         "de": "Fertigkeitsdauer +%d%%", "tr": "Beceri süresi +%d%%"}),
- 1148: ("percent", {"pl": "Silny przeciw potworom z Doliny Orków +%d%%", "en": "Strong against Orc Valley monsters +%d%%",
-         "de": "Stark gegen Monster aus dem Orktal +%d%%", "tr": "Ork Vadisi canavarlarına karşı güçlü +%d%%"}),
- 1149: ("percent", {"pl": "Silny przeciw Metinom +%d%%", "en": "Strong against Metin stones +%d%%",
-         "de": "Stark gegen Metinsteine +%d%%", "tr": "Metin Taşlarına karşı güçlü +%d%%"}),
- 1150: ("percent", {"pl": "Silny przeciw bossom +%d%%", "en": "Strong against bosses +%d%%",
-         "de": "Stark gegen Bosse +%d%%", "tr": "Bosslara karşı güçlü +%d%%"}),
- 1151: ("percent", {"pl": "Magiczny atak przeciw potworom +%d%%", "en": "Magic attack against monsters +%d%%",
-         "de": "Magischer Angriff gegen Monster +%d%%", "tr": "Canavarlara karşı büyü saldırısı +%d%%"}),
- 1152: ("percent", {"pl": "Przełamanie odporności na miecz +%d%%", "en": "Breaks sword resistance +%d%%",
-         "de": "Durchbricht Schwertverteidigung +%d%%", "tr": "Kılıç savunmasını kırma +%d%%"}),
- 1153: ("percent", {"pl": "Przełamanie odporności na broń dwuręczną +%d%%", "en": "Breaks two-handed resistance +%d%%",
-         "de": "Durchbricht Zweihänderverteidigung +%d%%", "tr": "Çift el savunmasını kırma +%d%%"}),
- 1154: ("percent", {"pl": "Przełamanie odporności na sztylet +%d%%", "en": "Breaks dagger resistance +%d%%",
-         "de": "Durchbricht Dolchverteidigung +%d%%", "tr": "Hançer savunmasını kırma +%d%%"}),
- 1155: ("percent", {"pl": "Przełamanie odporności na dzwonek +%d%%", "en": "Breaks bell resistance +%d%%",
-         "de": "Durchbricht Glockenverteidigung +%d%%", "tr": "Çan savunmasını kırma +%d%%"}),
- 1156: ("percent", {"pl": "Przełamanie odporności na wachlarz +%d%%", "en": "Breaks fan resistance +%d%%",
-         "de": "Durchbricht Fächerverteidigung +%d%%", "tr": "Yelpaze savunmasını kırma +%d%%"}),
- 1157: ("percent", {"pl": "Przełamanie odporności na łuk +%d%%", "en": "Breaks bow resistance +%d%%",
-         "de": "Durchbricht Pfeilwiderstand +%d%%", "tr": "Ok dayanıklılığını kırma +%d%%"}),
- 1158: ("percent", {"pl": "Szansa na zbieranie +%d%%", "en": "Collecting chance +%d%%",
-         "de": "Sammelchance +%d%%", "tr": "Toplama şansı +%d%%"}),
- 1159: ("percent", {"pl": "Szansa na naukę +%d%%", "en": "Learning chance +%d%%",
-         "de": "Lernchance +%d%%", "tr": "Öğrenme şansı +%d%%"}),
- 1160: ("percent", {"pl": "Odporność na ludzi +%d%%", "en": "Resistance against humans +%d%%",
-         "de": "Widerstand gegen Halbmenschen +%d%%", "tr": "Yarı insanlara karşı dayanıklılık +%d%%"}),
- 1161: ("flat", {"pl": "Magiczny atak +%d", "en": "Magic attack +%d",
-         "de": "Magischer Angriff +%d", "tr": "Büyü saldırısı +%d"}),
- 1162: ("percent", {"pl": "Szansa na podpalenie +%d%%", "en": "Chance of burning +%d%%",
-         "de": "Chance auf Verbrennung +%d%%", "tr": "Yakma şansı +%d%%"}),
- 1163: ("percent", {"pl": "Zamiana obrażeń na PE +%d%%", "en": "Damage converted to SP +%d%%",
-         "de": "In MP umgewandelter Schaden +%d%%", "tr": "SP'ye dönüşen hasar +%d%%"}),
- 1164: ("percent", {"pl": "Szansa na rzadki łup +%d%%", "en": "Rare drop chance +%d%%",
-         "de": "Chance auf seltene Drops +%d%%", "tr": "Nadir eşya düşürme şansı +%d%%"}),
- 1165: ("flat", {"pl": "Magiczna wartość ataku przeciw potworom +%d", "en": "Magic attack value against monsters +%d",
-         "de": "Magischer Angriffswert gegen Monster +%d", "tr": "Canavarlara karşı büyü saldırı değeri +%d"}),
- 1166: ("percent", {"pl": "Szansa na unieruchomienie +%d%%", "en": "Chance of rooting +%d%%",
-         "de": "Chance auf Bewegungsunfähigkeit +%d%%", "tr": "Hareketsiz bırakma şansı +%d%%"}),
- 1167: ("flat", {"pl": "Atak specjalny +%d", "en": "Special attack +%d",
-         "de": "Spezialangriff +%d", "tr": "Özel saldırı +%d"}),
- 1168: ("percent", {"pl": "Kara za śmierć +%d%%", "en": "Death penalty +%d%%",
-         "de": "Strafe beim Tod +%d%%", "tr": "Ölüm cezası +%d%%"}),
+ 1: ("flat", {"pl": "Max PŻ: +%d", "en": "Max. HP +%d"}),
+ 2: ("flat", {"pl": "Max PE: +%d", "en": "Max. SP +%d"}),
+ 3: ("flat", {"pl": "Witalność +%d", "en": "Vitality +%d"}),
+ 4: ("flat", {"pl": "Inteligencja +%d", "en": "Intelligence +%d"}),
+ 5: ("flat", {"pl": "Siła: +%d", "en": "Strength +%d"}),
+ 6: ("flat", {"pl": "Zręczność +%d", "en": "Dexterity +%d"}),
+ 7: ("percent", {"pl": "Szybkość Ataku +%d%%", "en": "Attack Speed +%d%%"}),
+ 8: ("percent", {"pl": "Szybkość Ruchu %d%%", "en": "Moving Speed %d%%"}),
+ 9: ("percent", {"pl": "Szybkość Zaklęcia +%d%%", "en": "Casting Speed +%d%%"}),
+ 10: ("percent", {"pl": "Regeneracja PŻ: +%d%%", "en": "HP Regeneration +%d%%"}),
+ 11: ("percent", {"pl": "Regeneracja PE: +%d%%", "en": "SP Regeneration +%d%%"}),
+ 12: ("percent", {"pl": "Szansa na Otrucie %d%%", "en": "Poisoning chance %d%%"}),
+ 13: ("percent", {"pl": "Szansa na Omdlenie %d%%", "en": "Blackout chance %d%%"}),
+ 14: ("percent", {"pl": "Szansa na Spowolnienie %d%%", "en": "Slowing chance %d%%"}),
+ 15: ("percent", {"pl": "Szansa na cios krytyczny +%d%%", "en": "Chance of critical hit +%d%% "}),
+ 16: ("percent", {"pl": "Szansa na przeszywające Uderzenie: %d%% ", "en": "%d%% Chance for piercing Hits"}),
+ 17: ("percent", {"pl": "Silny przeciwko Ludziom +%d%%", "en": "Strong against Half Humans +%d%%"}),
+ 18: ("percent", {"pl": "Silny przeciwko Zwierzętom +%d%%", "en": "Strong against Animals +%d%%"}),
+ 19: ("percent", {"pl": "Silny przeciwko Orkom +%d%%", "en": "Strong against Orcs +%d%%"}),
+ 20: ("percent", {"pl": "Silny przeciwko Mistykom +%d%%", "en": "Strong against Mystics +%d%%"}),
+ 21: ("percent", {"pl": "Silny przeciwko Nieumarłym +%d%%", "en": "Strong against Undead +%d%%"}),
+ 22: ("percent", {"pl": "Silny przeciwko Diabłom +%d%%", "en": "Strong against Devils +%d%%"}),
+ 23: ("percent", {"pl": "%d%% obrażeń będzie dodanych do PŻ", "en": "%d%% damage  will be absorbed by HP"}),
+ 24: ("percent", {"pl": "%d%% obrażeń będzie dodanych do PE", "en": "%d%% damage will be absorbed by SP"}),
+ 25: ("percent", {"pl": "%d%% Szansa na kradzież PE", "en": "%d%% chance to rob SP"}),
+ 26: ("percent", {"pl": "Szansa na odzyskanie PE: %d%%", "en": "%d%% Chance to get back SP when hit"}),
+ 27: ("percent", {"pl": "Szansa na blok ciosów %d%%", "en": "Chance to block a close-combat attack %d%% "}),
+ 28: ("percent", {"pl": "Szansa na uniknięcie Strzały: %d%%", "en": "Chance to avoid Arrows %d%%"}),
+ 29: ("percent", {"pl": "Odporność na Miecze: %d%%", "en": "Sword Defence %d%%"}),
+ 30: ("percent", {"pl": "Odporność na Broń Dwuręczną: %d%%", "en": "Two-Handed Defence %d%%"}),
+ 31: ("percent", {"pl": "Odporność na Sztylety: %d%%", "en": "Dagger Defence %d%%"}),
+ 32: ("percent", {"pl": "Odporność na Dzwony: %d%%", "en": "Bell Defence %d%%"}),
+ 33: ("percent", {"pl": "Odporność na Wachlarze: %d%%", "en": "Fan Defence %d%%"}),
+ 34: ("percent", {"pl": "Odporność na Strzały: %d%%", "en": "Arrow Resistance %d%%"}),
+ 35: ("percent", {"pl": "Odporność na Ogień: %d%%", "en": "Fire Resistance %d%%"}),
+ 36: ("percent", {"pl": "Odporność na Błyskawice: %d%%", "en": "Lightning Resistance %d%%"}),
+ 37: ("percent", {"pl": "Odporność na Magię: %d%%", "en": "Magic Resistance %d%%"}),
+ 38: ("percent", {"pl": "Odporność na Wiatr: %d%%", "en": "Wind Resistance %d%%"}),
+ 39: ("percent", {"pl": "%d%% Szansa na odbicie Ciosu", "en": "%d%% Chance to reflect close combat hits  "}),
+ 40: ("percent", {"pl": "Szansa na odbicie Klątwy: %d%%", "en": "Chance to reflect Curse: %d%%"}),
+ 41: ("percent", {"pl": "Odporność na Trucizny: %d%%", "en": "Poison Resistance %d%%"}),
+ 42: ("percent", {"pl": "Szansa na odzyskanie PE: %d%%", "en": "%d%% Chance to restore SP"}),
+ 43: ("percent", {"pl": "Szansa na Bonus DOŚ: %d%%", "en": "%d%% Chance for EXP Bonus"}),
+ 44: ("percent", {"pl": "Szansa na podwójną ilość Yang: %d%%", "en": "%d%% Chance to drop double Yang"}),
+ 45: ("percent", {"pl": "Szansa na podwójną ilość Przedmiotów: %d%%", "en": "%d%% Chance to drop double the Items"}),
+ 46: ("percent", {"pl": "Mikstury %d%% efekt podniesiony", "en": "Potion %d%% effect raise"}),
+ 47: ("percent", {"pl": "Szansa na odzyskanie PŻ: %d%%", "en": "%d%% Chance, to restore HP"}),
+ 48: ("boolean", {"pl": "Odporność na Omdlenia", "en": "Defence against blackouts"}),
+ 49: ("boolean", {"pl": "Odporność na Spowolnienia", "en": "Defence against slowing"}),
+ 50: ("boolean", {"pl": "Niewrażliwy na Upadek", "en": "Immune against falling down"}),
+ 52: ("flat", {"pl": "Zasięg Łuku +%dm", "en": "Arc Range +%dm"}),
+ 53: ("flat", {"pl": "Wartość Ataku +%d", "en": "Attack Value +%d"}),
+ 54: ("flat", {"pl": "Obrona +%d", "en": "Defence +%d"}),
+ 55: ("flat", {"pl": "Wartość Magicznego Ataku: +%d", "en": "Magical Attack Value +%d"}),
+ 56: ("flat", {"pl": "Magiczna Obrona: +%d", "en": "Magical Defence +%d"}),
+ 58: ("flat", {"pl": "Max Wytrzymałość: +%d", "en": "Max. Endurance +%d"}),
+ 59: ("percent", {"pl": "Silny przeciwko Wojownikom +%d%%", "en": "Strong against Warriorr +%d%%"}),
+ 60: ("percent", {"pl": "Silny przeciwko Ninja +%d%%", "en": "Strong against Ninjas +%d%%"}),
+ 61: ("percent", {"pl": "Silny przeciwko Sura +%d%%", "en": "Strong against Sura +%d%%"}),
+ 62: ("percent", {"pl": "Silny przeciwko Szamanom +%d%%", "en": "Strong against Shamans +%d%%"}),
+ 63: ("percent", {"pl": "Silny przeciwko Potworom +%d%%", "en": "Strength against monsters +%d%%"}),
+ 64: ("percent", {"pl": "Wartość Ataku: +%d%%", "en": "Attack Value +%d%%"}),
+ 65: ("percent", {"pl": "Obrona: +%d%%", "en": "Defence +%d%%"}),
+ 66: ("percent", {"pl": "Punkty Doświadczenia: +%d%%", "en": "EXP +%d%%"}),
+ 67: ("multiplier", {"pl": "Szansa na zdobycie Przedmiotów pomnożona o %.1f", "en": "Chance of capturing Items multiplied with %.1f"}),
+ 68: ("multiplier", {"pl": "Szansa na zdobycie Yang pomnożona o %.1f", "en": "Chance of capturing Yang multiplied with %.1f"}),
+ 69: ("percent", {"pl": "Maks. PŻ +%d%%", "en": "Max. HP +%d%%"}),
+ 70: ("percent", {"pl": "Maks. PE +%d%% ", "en": "Max. SP +%d%% "}),
+ 71: ("percent", {"pl": "Obrażenie Umiejętności: %d%%", "en": "Skill Damage %d%%"}),
+ 72: ("percent", {"pl": "Średnie Obrażenia: %d%%", "en": "Average Damage %d%%"}),
+ 73: ("percent", {"pl": "Odporność na Obrażenia Umiejętności %d%%", "en": "Resistance against Skill Damage %d%%"}),
+ 74: ("percent", {"pl": "Odporność na Obrażenia: %d%%", "en": "Average Damage Resistance %d%%"}),
+ 75: ("percent", {"pl": "iCafe DOŚ Bonus +%d%%", "en": "iCafe EXP Bonus +%d%%"}),
+ 76: ("percent_decimal", {"pl": "iCafe Szansa na zdobycie Przedmiotów plus %.1f%%", "en": "iCafe Chance of capturing Items plus %.1f%%"}),
+ 78: ("percent", {"pl": "Odporność na Wojowników: %d%%", "en": "Defence chance against warrior attacks: %d%%"}),
+ 79: ("percent", {"pl": "Odporność na Ninja: %d%%", "en": "Defence chance against ninja attacks: %d%%"}),
+ 80: ("percent", {"pl": "Odporność na Sura: %d%%", "en": "Defence chance against sura attacks: %d%%"}),
+ 81: ("percent", {"pl": "Odporność na Szamanów: %d%%", "en": "Defence chance against shaman attacks: %d%%"}),
+ 82: ("flat", {"pl": "Energia %d", "en": "Energy %d "}),
+ 84: ("percent", {"pl": "Bonus kostiumu %d%% ", "en": "Costume bonus %d%% "}),
+ 85: ("percent", {"pl": "Magiczny atak +%d%%", "en": "Magic attack +%d%%"}),
+ 86: ("percent", {"pl": "Magiczny/krótkodystansowy atak +%d%%", "en": "Magic/melee attack +%d%%"}),
+ 87: ("percent", {"pl": "Odporność na lód +%d%%", "en": "Ice resistance +%d%%"}),
+ 88: ("percent", {"pl": "Odporność na ziemię +%d%%", "en": "Earth resistance +%d%%"}),
+ 89: ("percent", {"pl": "Odporność na mrok +%d%%", "en": "Resistance against darkness +%d%%"}),
+ 90: ("percent", {"pl": "Odporność na cios krytyczny +%d%%", "en": "Resistance against critical hits +%d%%"}),
+ 91: ("percent", {"pl": "Odporność na przeszywający cios +%d%%", "en": "Resistance against piercing hits +%d%%"}),
+ 1138: ("percent", {"pl": "Terror +%d%%", "en": "Terror +%d%%"}),
+ 1139: ("percent", {"pl": "Regeneracja wytrzymałości +%d%%", "en": "Stamina regeneration +%d%%"}),
+ 1140: ("flat", {"pl": "Atak sztyletem przeciw potworom +%d", "en": "Dagger attack against monsters +%d"}),
+ 1141: ("flat", {"pl": "Wartość ataku przeciw potworom +%d", "en": "Attack value against monsters +%d"}),
+ 1142: ("flat", {"pl": "Odporność na potwory +%d‰", "en": "Resistance against monsters +%d‰"}),
+ 1143: ("percent", {"pl": "Pochłanianie obrażeń +%d%%", "en": "Damage absorption +%d%%"}),
+ 1144: ("percent", {"pl": "Pochłanianie obrażeń od potworów +%d%%", "en": "Damage absorption from monsters +%d%%"}),
+ 1145: ("boolean", {"pl": "Przełamanie odporności na ogłuszenie", "en": "Breaks stun immunity"}),
+ 1146: ("boolean", {"pl": "Przełamanie klątwy świątyni", "en": "Breaks the temple curse"}),
+ 1147: ("percent", {"pl": "Czas trwania umiejętności +%d%%", "en": "Skill duration +%d%%"}),
+ 1148: ("percent", {"pl": "Silny przeciw potworom z Doliny Orków +%d%%", "en": "Strong against Orc Valley monsters +%d%%"}),
+ 1149: ("percent", {"pl": "Silny przeciw Metinom +%d%%", "en": "Strong against Metin stones +%d%%"}),
+ 1150: ("percent", {"pl": "Silny przeciw bossom +%d%%", "en": "Strong against bosses +%d%%"}),
+ 1151: ("percent", {"pl": "Magiczny atak przeciw potworom +%d%%", "en": "Magic attack against monsters +%d%%"}),
+ 1152: ("percent", {"pl": "Przełamanie odporności na miecz +%d%%", "en": "Breaks sword resistance +%d%%"}),
+ 1153: ("percent", {"pl": "Przełamanie odporności na broń dwuręczną +%d%%", "en": "Breaks two-handed resistance +%d%%"}),
+ 1154: ("percent", {"pl": "Przełamanie odporności na sztylet +%d%%", "en": "Breaks dagger resistance +%d%%"}),
+ 1155: ("percent", {"pl": "Przełamanie odporności na dzwonek +%d%%", "en": "Breaks bell resistance +%d%%"}),
+ 1156: ("percent", {"pl": "Przełamanie odporności na wachlarz +%d%%", "en": "Breaks fan resistance +%d%%"}),
+ 1157: ("percent", {"pl": "Przełamanie odporności na łuk +%d%%", "en": "Breaks bow resistance +%d%%"}),
+ 1158: ("percent", {"pl": "Szansa na zbieranie +%d%%", "en": "Collecting chance +%d%%"}),
+ 1159: ("percent", {"pl": "Szansa na naukę +%d%%", "en": "Learning chance +%d%%"}),
+ 1160: ("percent", {"pl": "Odporność na ludzi +%d%%", "en": "Resistance against humans +%d%%"}),
+ 1161: ("flat", {"pl": "Magiczny atak +%d", "en": "Magic attack +%d"}),
+ 1162: ("percent", {"pl": "Szansa na podpalenie +%d%%", "en": "Chance of burning +%d%%"}),
+ 1163: ("percent", {"pl": "Zamiana obrażeń na PE +%d%%", "en": "Damage converted to SP +%d%%"}),
+ 1164: ("percent", {"pl": "Szansa na rzadki łup +%d%%", "en": "Rare drop chance +%d%%"}),
+ 1165: ("flat", {"pl": "Magiczna wartość ataku przeciw potworom +%d", "en": "Magic attack value against monsters +%d"}),
+ 1166: ("percent", {"pl": "Szansa na unieruchomienie +%d%%", "en": "Chance of rooting +%d%%"}),
+ 1167: ("flat", {"pl": "Atak specjalny +%d", "en": "Special attack +%d"}),
+ 1168: ("percent", {"pl": "Kara za śmierć +%d%%", "en": "Death penalty +%d%%"}),
 }
 
 
@@ -7759,30 +7375,12 @@ JOB_NAMES_MAP = {
         2:"Sura (M)",6:"Sura (K)",3:"Szaman (M)",7:"Szamanka (K)"},
  "en": {0:"Warrior (M)",4:"Warrior (F)",1:"Ninja (M)",5:"Ninja (F)",
         2:"Sura (M)",6:"Sura (F)",3:"Shaman (M)",7:"Shaman (F)"},
- "de": {0: "Krieger (M)", 4: "Kriegerin (W)", 1: "Ninja (M)", 5: "Ninja (W)", 2: "Sura (M)",
-     6: "Sura (W)", 3: "Schamane (M)", 7: "Schamanin (W)"},
- "tr": {0: "Savaşçı (E)", 4: "Savaşçı (K)", 1: "Ninja (E)", 5: "Ninja (K)", 2: "Sura (E)",
-     6: "Sura (K)", 3: "Şaman (E)", 7: "Şaman (K)"},
 }
 BIOLOGIST_NAMES_EN = {
  "make_herb_lv4":"Peach Blossom","make_herb_lv7":"Bellflower",
  "make_herb_lv10":"Kaki Blossom","make_herb_lv15":"Gango Root",
  "make_herb_lv20":"Lilac","make_herb_lv25":"Tue Mushroom","collect_quest_lv30":"Orc Tooth",
  "collect_quest_lv40":"Curse Book","collect_quest_lv50":"Demon Souvenir",
-}
-
-# The Biologist's specimens in the other two languages (Polish is
-# BIOLOGIST_MISSIONS's own, English the table above).
-BIOLOGIST_NAMES_BY_LANG = {
- "en": BIOLOGIST_NAMES_EN,
- "de": {"make_herb_lv4":"Pfirsichblüte","make_herb_lv7":"Glockenblume",
-        "make_herb_lv10":"Kakiblüte","make_herb_lv15":"Gango-Wurzel",
-        "make_herb_lv20":"Flieder","make_herb_lv25":"Tue-Pilz","collect_quest_lv30":"Orkzahn",
-        "collect_quest_lv40":"Fluchbuch","collect_quest_lv50":"Dämonenandenken"},
- "tr": {"make_herb_lv4":"Şeftali Çiçeği","make_herb_lv7":"Çan Çiçeği",
-        "make_herb_lv10":"Hurma Çiçeği","make_herb_lv15":"Gango Kökü",
-        "make_herb_lv20":"Leylak","make_herb_lv25":"Tue Mantarı","collect_quest_lv30":"Ork Dişi",
-        "collect_quest_lv40":"Lanet Kitabı","collect_quest_lv50":"Şeytan Hatırası"},
 }
 
 def localized_job_name(job, language=None):
@@ -7792,10 +7390,7 @@ def localized_job_name(job, language=None):
 
 def localized_biologist_name(quest_name, polish_name, language=None):
     language = language or (lang() if has_request_context() else "en")
-    if language == "pl":
-        return polish_name
-    names = BIOLOGIST_NAMES_BY_LANG.get(language, BIOLOGIST_NAMES_EN)
-    return names.get(quest_name) or BIOLOGIST_NAMES_EN.get(quest_name, polish_name)
+    return polish_name if language == "pl" else BIOLOGIST_NAMES_EN.get(quest_name, polish_name)
 
 
 def biologist_progress(level, quest_flags, held, map_index, language=None):
@@ -7876,6 +7471,418 @@ def biologist_stage_text(stage, messages, separator):
         return messages["bio_key"].format(name=name, sep=separator, have=accepted,
                                           need=needed, key=key_name)
     return "%s%s%d/%d" % (name, separator, accepted, needed)
+
+
+# The bots' explanations laid out: the server says each one whole in the page's
+# language (explain_listing, explain_equip), and this is the one place that
+# draws it - for the live map's shop tooltip and pane and its gear history, and
+# for the /decisions page - and turns it into plain text for a report. It reads
+# the page's own I18N (map_i18n). Put into both templates as text, so it must
+# carry nothing Jinja would read: no double braces and no brace-hash.
+EXPLAIN_CSS = """
+.m2ex{font-size:11px;line-height:1.4;color:#d4d4d8;text-align:left}
+.m2ex-h{margin:6px 0 2px;color:#fbbf24;font-weight:700}
+.m2ex-muted{color:#a1a1aa}
+.m2ex-warn{color:#fca5a5;margin-top:3px}
+.m2ex-flags{margin:3px 0}
+.m2ex-flag{display:inline-block;margin:1px 3px 1px 0;padding:0 5px;border-radius:3px;border:1px solid #3f3f46;
+  background:#18181b;color:#d4d4d8;font-size:10px;font-weight:600;line-height:15px}
+.m2ex-flag.unusual{border-color:#ef4444;background:#3f1111;color:#fecaca}
+table.m2ex-t{border-collapse:collapse;width:100%;margin:3px 0}
+table.m2ex-t th,table.m2ex-t td{padding:1px 4px;border-bottom:1px solid #27272a;font-size:10px;line-height:1.35;
+  text-align:left;vertical-align:top;background:none;color:#d4d4d8}
+table.m2ex-t th{color:#a1a1aa;text-transform:none;letter-spacing:0}
+table.m2ex-t .n{text-align:right;white-space:nowrap}
+table.m2ex-t tr.m2ex-top td{background:rgba(251,191,36,.14);color:#fde68a;font-weight:700}
+.m2ex-cols{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0}
+.m2ex-piece{background:#101012;border:1px solid #27272a;border-radius:4px;padding:4px 5px}
+.m2ex-lines{color:#4ade80}
+.m2ex-codes{margin-top:5px;font-family:monospace;font-size:9px;color:#71717a;word-break:break-all}
+.m2ex-box{margin:3px 0 6px;padding:6px 8px;background:#0c0c0e;border:1px solid #3f3f46;border-radius:6px}
+button.m2ex-btn{padding:1px 8px;font-size:10px;background:#334155;color:#fff;border:none;border-radius:4px;
+  cursor:pointer;margin:0 0 0 4px;box-shadow:none;font-weight:600}
+button.m2ex-q{padding:0 6px;font-size:10px;line-height:15px;background:#1f2937;color:#fbbf24;border:1px solid #fbbf24;
+  border-radius:8px;cursor:pointer;margin:0 0 0 4px;box-shadow:none;font-weight:700}
+.m2ex-flag.anomaly{border-color:#f59e0b;background:#3a2606;color:#fde68a}
+"""
+
+# The numbers the equipment pass and the counter compare against, for the AI
+# export's reference block (exMarkdown): each a constant of the overlay under
+# the name it has there, with the header it is in. The test reads each out of
+# its header, so a change there not made here fails it.
+DECISION_REFERENCE = (
+    ("SWAP_MARGIN_PERMILLE", 10, "playerbot_swap_rules.h"),
+    ("SWAP_BACK_MARGIN_PERCENT", 5, "playerbot_swap_rules.h"),
+    ("WEAPON_TIER_STEP_PERCENT", 2, "playerbot_swap_rules.h"),
+    ("PLAYERBOT_TIER_SCORE_PERCENT", 8, "playerbot_types.h"),
+    ("PLAYERBOT_MONSTER_DEFENCE_OVER_LEVEL", 15, "playerbot_types.h"),
+    ("PLAYERBOT_WEAPON_OWN_LINE_PERCENT", 100, "playerbot_types.h"),
+    ("PLAYERBOT_WEAPON_OTHER_LINE_PERCENT", 35, "playerbot_types.h"),
+    ("LOW_WEAPON_BAN_FROM_LEVEL", 30, "playerbot_refine_rules.h"),
+    ("LOW_WEAPON_MAX_LEVEL", 10, "playerbot_refine_rules.h"),
+    ("ANVIL_LEVEL_BAND", 15, "playerbot_refine_rules.h"),
+    ("FLIP_FLOP_WINDOW_SECONDS", 3600, "playerbot_explain_rules.h"),
+)
+
+EXPLAIN_JS = """
+var EX_NL = String.fromCharCode(10);
+var EX_REFS = """ + json.dumps([list(r) for r in DECISION_REFERENCE]) + """;
+
+function exEsc(value) {
+  return String(value === undefined || value === null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function exFlagsHtml(flags) {
+  if (!flags || !flags.length) return '';
+  var html = '<div class="m2ex-flags">';
+  flags.forEach(function(f) {
+    html += '<span class="m2ex-flag' + (f.unusual ? ' unusual' : '') + '">' + exEsc(f.label) + '</span>';
+  });
+  return html + '</div>';
+}
+
+function exUnusualBadge(ex) {
+  return ex && ex.unusual ? ' <span class="m2ex-flag unusual">' + exEsc(I18N.ex_unusual) + '</span>' : '';
+}
+
+function exStepsHtml(steps, cut) {
+  if (!steps || !steps.length) return '';
+  var html = '<table class="m2ex-t"><tr><th>' + exEsc(I18N.ex_col_step) + '</th><th class="n">' +
+             exEsc(I18N.ex_col_effect) + '</th><th class="n">' + exEsc(I18N.ex_col_value) + '</th></tr>';
+  steps.forEach(function(s) {
+    html += '<tr><td><b>' + exEsc(s.label) + '</b>' +
+            (s.detail ? ' <span class="m2ex-muted">' + exEsc(s.detail) + '</span>' : '') +
+            '</td><td class="n">' + exEsc(s.effect) + '</td><td class="n">' + exEsc(s.value) + '</td></tr>';
+  });
+  html += '</table>';
+  if (cut) html += '<div class="m2ex-muted">' + exEsc(I18N.ex_steps_cut) + '</div>';
+  return html;
+}
+
+// Why a line is on its counter and how its price came about. `full` adds the
+// last change's own steps and the codes: the pane has room, a tooltip not.
+function exListingHtml(ex, full) {
+  if (!ex) return '<div class="m2ex m2ex-muted">' + exEsc(I18N.ex_none) + '</div>';
+  var html = '<div class="m2ex"><div class="m2ex-h">' + exEsc(I18N.ex_why_counter) + exUnusualBadge(ex) + '</div>';
+  html += '<div>' + exEsc(ex.goods) + '</div>';
+  ['stand', 'pick', 'cut', 'listed'].forEach(function(key) {
+    if (ex[key]) html += '<div class="m2ex-muted">' + exEsc(ex[key]) + '</div>';
+  });
+  html += exFlagsHtml(ex.flags) + exAnomaliesHtml(ex.anomalies);
+  html += '<div class="m2ex-h">' + exEsc(I18N.ex_how_price) + '</div>' + exStepsHtml(ex.steps, ex.steps_cut);
+  if (ex.sheet) html += '<div class="m2ex-muted">' + exEsc(ex.sheet) + '</div>';
+  if (ex.last) {
+    html += '<div class="m2ex-h">' + exEsc(I18N.ex_last_change) + ': ' + exEsc(ex.last.title) + '</div>' +
+            '<div class="m2ex-muted">' + exEsc(ex.last.line) + '</div>';
+    if (full) html += exStepsHtml(ex.last.steps, ex.last.steps_cut);
+  }
+  if (ex.end) html += '<div class="m2ex-warn">' + exEsc(ex.end) + '</div>';
+  if (ex.price_note) html += '<div class="m2ex-warn">' + exEsc(ex.price_note) + '</div>';
+  if (full && ex.codes) html += '<div class="m2ex-codes">' + exEsc(I18N.ex_codes) + ': ' + exEsc(ex.codes) + '</div>';
+  return html + '</div>';
+}
+
+function exPieceHtml(title, piece) {
+  var html = '<div class="m2ex-piece"><div class="m2ex-muted">' + exEsc(title) + '</div>';
+  if (!piece) return html + '<div>' + exEsc(I18N.ex_nothing) + '</div></div>';
+  html += '<div><b>' + exEsc(piece.name) + '</b></div>' +
+          '<div class="m2ex-muted">' + exEsc(I18N.ex_score_word) + ': ' + exEsc(piece.score) + '</div>';
+  if (piece.roles && piece.roles.length) {
+    html += '<div>' + piece.roles.map(function(r) { return '<span class="m2ex-flag">' + exEsc(r) + '</span>'; }).join('') + '</div>';
+  }
+  if (piece.lines && piece.lines.length) html += '<div class="m2ex-lines">' + piece.lines.map(exEsc).join('<br>') + '</div>';
+  if (piece.stones && piece.stones.length) {
+    html += '<div class="m2ex-muted">' + exEsc(I18N.ex_stones) + ': ' + piece.stones.map(exEsc).join(', ') + '</div>';
+  }
+  return html + '</div>';
+}
+
+function exTermsHtml(title, rows) {
+  if (!rows || !rows.length) return '';
+  var html = '<div class="m2ex-h">' + exEsc(title) + '</div><table class="m2ex-t"><tr><th>' + exEsc(I18N.ex_col_term) +
+             '</th><th class="n">' + exEsc(I18N.ex_old) + '</th><th class="n">' + exEsc(I18N.ex_new) +
+             '</th><th class="n">' + exEsc(I18N.ex_delta) + '</th></tr>';
+  rows.forEach(function(r) {
+    // m2ex-top and never "top", which is BASE's header bar (display:flex).
+    html += '<tr' + (r.top ? ' class="m2ex-top"' : '') + '><td>' + exEsc(r.label) + '</td><td class="n">' + exEsc(r.old) +
+            '</td><td class="n">' + exEsc(r.new) + '</td><td class="n">' + exEsc(r.delta) + '</td></tr>';
+  });
+  return html + '</table>';
+}
+
+// Why a piece went on or came off: the pass and rule, the two pieces side by
+// side, the score's terms old against new (the three that moved it most lit),
+// and a weapon's blow the same way.
+function exEquipHtml(ex, full) {
+  if (!ex) return '';
+  var html = '<div class="m2ex"><div class="m2ex-h">' + exEsc(ex.title) + exUnusualBadge(ex) + '</div>';
+  html += '<div><b>' + exEsc(ex.summary) + '</b></div><div class="m2ex-muted">' + exEsc(ex.slot) +
+          (ex.time ? ' · ' + exEsc(ex.time) : '') + '</div>';
+  if (ex.context) html += '<div class="m2ex-muted">' + exEsc(I18N.ex_context) + ': ' + exEsc(ex.context) + '</div>';
+  if (ex.origin) html += '<div class="m2ex-muted">' + exEsc(I18N.ex_origin) + ': ' + exEsc(ex.origin) + '</div>';
+  if (ex.gain) html += '<div>' + exEsc(I18N.ex_gain) + ': <b>' + exEsc(ex.gain) + '</b></div>';
+  if (ex.suppressed) html += '<div class="m2ex-warn">' + exEsc(ex.suppressed) + '</div>';
+  html += exFlagsHtml(ex.flags) + exAnomaliesHtml(ex.anomalies);
+  html += '<div class="m2ex-cols">' + exPieceHtml(I18N.ex_new, ex['new']) + exPieceHtml(I18N.ex_old, ex.old) + '</div>';
+  html += exTermsHtml(I18N.ex_terms, ex.terms);
+  html += exTermsHtml(I18N.ex_blow, ex.blow);
+  if (full && ex.codes) html += '<div class="m2ex-codes">' + exEsc(I18N.ex_codes) + ': ' + exEsc(ex.codes) + '</div>';
+  return html + '</div>';
+}
+
+function exHtml(ex, full) {
+  return ex && ex.kind === 'equip' ? exEquipHtml(ex, full) : exListingHtml(ex, full);
+}
+
+function exStepsText(steps, cut) {
+  var out = [];
+  (steps || []).forEach(function(s) {
+    out.push('  ' + s.label + (s.detail ? ' (' + s.detail + ')' : '') + (s.effect ? ' ' + s.effect : '') +
+             (s.value ? ' = ' + s.value : ''));
+  });
+  if (cut) out.push('  ' + I18N.ex_steps_cut);
+  return out;
+}
+
+function exTermsText(title, rows) {
+  if (!rows || !rows.length) return [];
+  var out = [title + ':'];
+  rows.forEach(function(r) {
+    out.push('  ' + (r.top ? '* ' : '') + r.label + ': ' + r.old + ' -> ' + r['new'] + (r.delta ? ' (' + r.delta + ')' : ''));
+  });
+  return out;
+}
+
+// An explanation as plain text for a report: the bot, the item, the time,
+// the words as the page shows them, and the codes the numbers came from.
+function exText(ex, botName, pid, itemName) {
+  var lines = [I18N.ex_bot + ': ' + (botName || '') + ' (pid ' + pid + ')'];
+  if (!ex) return lines.join(EX_NL);
+  if (ex.kind === 'equip') {
+    lines.push(I18N.ex_time + ': ' + ex.time);
+    lines.push(ex.title + ': ' + ex.summary + ' · ' + ex.slot);
+    if (ex.context) lines.push(I18N.ex_context + ': ' + ex.context);
+    if (ex.origin) lines.push(I18N.ex_origin + ': ' + ex.origin);
+    [[I18N.ex_new, ex['new']], [I18N.ex_old, ex.old]].forEach(function(pair) {
+      var p = pair[1];
+      lines.push(pair[0] + ': ' + (!p ? I18N.ex_nothing : p.name + ' · ' + I18N.ex_score_word + ' ' + p.score +
+                 (p.roles.length ? ' · ' + I18N.ex_roles + ': ' + p.roles.join(', ') : '') +
+                 (p.lines.length ? ' · ' + I18N.ex_lines + ': ' + p.lines.join('; ') : '') +
+                 (p.stones.length ? ' · ' + I18N.ex_stones + ': ' + p.stones.join(', ') : '')));
+    });
+    if (ex.gain) lines.push(I18N.ex_gain + ': ' + ex.gain);
+    if (ex.suppressed) lines.push(ex.suppressed);
+    lines = lines.concat(exTermsText(I18N.ex_terms, ex.terms), exTermsText(I18N.ex_blow, ex.blow));
+  } else {
+    lines.push(I18N.ex_item + ': ' + (itemName || '') + ' (id ' + ex.item_id + ')');
+    lines.push(I18N.ex_time + ': ' + ex.listed_time + (ex.last_time && ex.last_time !== ex.listed_time ? ' / ' + ex.last_time : ''));
+    lines.push(I18N.ex_why_counter + ': ' + ex.goods);
+    ['stand', 'pick', 'cut', 'listed'].forEach(function(key) { if (ex[key]) lines.push('  ' + ex[key]); });
+    lines.push(I18N.ex_how_price + ':');
+    lines = lines.concat(exStepsText(ex.steps, ex.steps_cut));
+    if (ex.sheet) lines.push('  ' + ex.sheet);
+    if (ex.last) {
+      lines.push(I18N.ex_last_change + ': ' + ex.last.title + ' · ' + ex.last.line);
+      lines = lines.concat(exStepsText(ex.last.steps, ex.last.steps_cut));
+    }
+    if (ex.end) lines.push(ex.end);
+    if (ex.price_note) lines.push(ex.price_note);
+  }
+  if (ex.flags && ex.flags.length) {
+    lines.push(I18N.ex_flags + ': ' + ex.flags.map(function(f) {
+      return f.label + (f.unusual ? ' [' + I18N.ex_unusual + ']' : '');
+    }).join(', '));
+  }
+  if (ex.anomalies && ex.anomalies.length) {
+    lines.push(I18N.ex_anomalies + ': ' + ex.anomalies.map(function(a) { return a.label; }).join('; '));
+  }
+  lines.push(I18N.ex_codes + ': ' + ex.codes);
+  return lines.join(EX_NL);
+}
+
+// The anomalies the panel read out of a row, beside the core's flags.
+function exAnomaliesHtml(anomalies) {
+  if (!anomalies || !anomalies.length) return '';
+  var html = '<div class="m2ex-flags">';
+  anomalies.forEach(function(a) {
+    html += '<span class="m2ex-flag anomaly">⚑ ' + exEsc(a.label) + '</span>';
+  });
+  return html + '</div>';
+}
+
+// ---- the export for an analyst or a language model -----------------------
+// Markdown with every number the page shows, the rules header's code names
+// beside the words, and a guide and the reference values once at the top.
+function exMdCell(value) {
+  return String(value === undefined || value === null ? '' : value).split('|').join('/').split(EX_NL).join(' ');
+}
+
+function exMdCode(name) {
+  return name ? ' (`' + name + '`)' : '';
+}
+
+function exMdBot(bot, ex) {
+  if (!bot) return '';
+  var parts = [];
+  if (bot.job) parts.push(bot.job + (bot.path ? ', ' + bot.path : ''));
+  if (ex && ex.kind === 'equip' && ex.level) parts.push(I18N.ex_ai_level_then.replace('{level}', ex.level));
+  var now = [];
+  if (bot.level) now.push(String(bot.level));
+  ['persona', 'mood', 'goal', 'map'].forEach(function(k) { if (bot[k]) now.push(bot[k]); });
+  if (now.length) parts.push(I18N.ex_ai_now + ': ' + now.join(', '));
+  if (bot.stats) parts.push(bot.stats);
+  return parts.length ? '- **' + I18N.ex_bot + ':** ' + exMdCell(parts.join(' · ')) : '';
+}
+
+function exMdFlags(ex) {
+  var out = [];
+  if (ex.flags && ex.flags.length) {
+    out.push('- **' + I18N.ex_flags + ':** ' + ex.flags.map(function(f) {
+      return exMdCell(f.label) + exMdCode(f.name) + (f.unusual ? ' [' + I18N.ex_unusual + ']' : '');
+    }).join(', '));
+  }
+  if (ex.anomalies && ex.anomalies.length) {
+    out.push('- **' + I18N.ex_anomalies + ':** ' + ex.anomalies.map(function(a) { return exMdCell(a.label); }).join('; '));
+  }
+  return out;
+}
+
+function exMdTerms(title, rows) {
+  if (!rows || !rows.length) return [];
+  var out = ['', '**' + title + '**', '',
+             '| ' + I18N.ex_col_term + ' | ' + I18N.ex_ai_code + ' | ' + I18N.ex_old + ' | ' + I18N.ex_new + ' | ' +
+             I18N.ex_delta + ' |', '|---|---|---:|---:|---:|'];
+  rows.forEach(function(r) {
+    var label = exMdCell(r.label);
+    out.push('| ' + (r.top ? '**' + label + '**' : label) + ' | `' + (r.name || r.code) + '` | ' + exMdCell(r.old) +
+             ' | ' + exMdCell(r['new']) + ' | ' + exMdCell(r.delta) + ' |');
+  });
+  return out;
+}
+
+function exMdSteps(steps, cut) {
+  if (!steps || !steps.length) return [];
+  var out = ['', '| # | ' + I18N.ex_col_step + ' | ' + I18N.ex_ai_code + ' | | ' + I18N.ex_col_effect + ' | ' +
+             I18N.ex_col_value + ' |', '|---:|---|---|---|---:|---:|'];
+  steps.forEach(function(s, i) {
+    out.push('| ' + (i + 1) + ' | ' + exMdCell(s.label) + ' | `' + (s.name || s.code) + '` | ' + exMdCell(s.detail) +
+             ' | ' + exMdCell(s.effect) + ' | ' + exMdCell(s.value) + ' |');
+  });
+  if (cut) out.push('', I18N.ex_steps_cut);
+  return out;
+}
+
+function exMdPiece(piece, field) {
+  if (!piece) return field === 'name' ? I18N.ex_nothing : '';
+  if (field === 'name') return piece.name + ' (vnum ' + piece.vnum + ', +' + piece.plus + ', id ' + piece.id + ')';
+  if (field === 'roles') {
+    return (piece.roles || []).map(function(r, i) {
+      return r + (piece.role_names && piece.role_names[i] ? ' `' + piece.role_names[i] + '`' : '');
+    }).join(', ');
+  }
+  var value = piece[field];
+  if (value && value.join) return value.join(', ');
+  return value === undefined || value === null ? '' : String(value);
+}
+
+// One decision as Markdown. bot: {name, job, path, level, persona, mood, goal,
+// map, stats} - what the page knows of the bot now; itemName for a counter line.
+function exMarkdownOne(ex, bot, itemName) {
+  if (!ex) return '';
+  var name = (bot && bot.name) || '';
+  var out = [];
+  if (ex.kind === 'equip') {
+    out.push('### ' + I18N.ex_ai_equip + ' E' + ex.id + ' · ' + ex.time + ' · ' + name + ' (pid ' + ex.pid + ')');
+    var botLine = exMdBot(bot, ex);
+    if (botLine) out.push(botLine);
+    var names = ex.names || {};
+    out.push('- **' + I18N.ex_ai_decision + ':** ' + exMdCell(ex.title + ': ' + ex.summary) + ' (`' + (names.path || '') +
+             '` · `' + (names.rule || '') + '`) · ' + exMdCell(ex.slot));
+    if (ex.context) out.push('- **' + I18N.ex_context + ':** ' + exMdCell(ex.context) + exMdCode(names.context));
+    if (ex.origin) out.push('- **' + I18N.ex_origin + ':** ' + exMdCell(ex.origin) + exMdCode(names.origin));
+    if (ex.gain) out.push('- **' + I18N.ex_gain + ':** ' + ex.gain);
+    out = out.concat(exMdFlags(ex));
+    if (ex.suppressed) out.push('- ' + exMdCell(ex.suppressed));
+    out.push('', '| | ' + I18N.ex_new + ' | ' + I18N.ex_old + ' |', '|---|---|---|');
+    [['ex_item', 'name'], ['ex_score_word', 'score'], ['ex_roles', 'roles'], ['ex_lines', 'lines'],
+     ['ex_stones', 'stones']].forEach(function(row) {
+      var a = exMdPiece(ex['new'], row[1]), b = exMdPiece(ex.old, row[1]);
+      if (row[1] === 'name' || a || b) out.push('| ' + I18N[row[0]] + ' | ' + exMdCell(a) + ' | ' + exMdCell(b) + ' |');
+    });
+    out = out.concat(exMdTerms(I18N.ex_terms, ex.terms), exMdTerms(I18N.ex_blow, ex.blow));
+  } else {
+    out.push('### ' + I18N.ex_ai_listing + ' L' + ex.item_id + ' · ' + ex.listed_time + ' · ' + name + ' (pid ' + ex.pid + ')');
+    var botLine2 = exMdBot(bot, ex);
+    if (botLine2) out.push(botLine2);
+    var ln = ex.names || {};
+    out.push('- **' + I18N.ex_item + ':** ' + exMdCell(itemName || '') + ' (vnum ' + ex.vnum + ', × ' + ex.count + ')');
+    out.push('- **' + I18N.ex_why_counter + ':** ' + exMdCell(ex.goods) + exMdCode(ln.goods));
+    ['stand', 'pick', 'cut', 'listed', 'sheet'].forEach(function(key) {
+      if (ex[key]) out.push('- ' + exMdCell(ex[key]) + (key === 'listed' ? exMdCode(ln.list_event) : ''));
+    });
+    out = out.concat(exMdFlags(ex));
+    out.push('', '**' + I18N.ex_how_price + '**');
+    out = out.concat(exMdSteps(ex.steps, ex.steps_cut));
+    if (ex.last) {
+      out.push('', '**' + I18N.ex_last_change + ':** ' + exMdCell(ex.last.title + ' · ' + ex.last.line) + exMdCode(ln.last_event));
+      out = out.concat(exMdSteps(ex.last.steps, ex.last.steps_cut));
+    }
+    if (ex.end) out.push('', '- ' + exMdCell(ex.end) + exMdCode(ln.off || ln.last_event));
+    if (ex.price_note) out.push('- ' + exMdCell(ex.price_note));
+  }
+  out.push('', I18N.ex_codes + ': `' + ex.codes + '`');
+  return out.join(EX_NL);
+}
+
+// A whole export: the title, the guide, the task, the reference values, and
+// every decision given as {ex, bot, item}.
+function exMarkdown(items) {
+  items = (items || []).filter(function(it) { return it && it.ex; });
+  var out = ['# ' + I18N.ex_ai_title, '', I18N.ex_ai_n.replace('{n}', items.length) + ' · ' + new Date().toISOString(),
+             '', I18N.ex_ai_guide, '', '**' + I18N.ex_ai_ask + '**', '', '## ' + I18N.ex_ai_refs, '',
+             '| | | |', '|---|---:|---|'];
+  EX_REFS.forEach(function(r) { out.push('| `' + r[0] + '` | ' + r[1] + ' | ' + r[2] + ' |'); });
+  items.forEach(function(it) {
+    out.push('', '---', '', exMarkdownOne(it.ex, it.bot, it.item));
+  });
+  return out.join(EX_NL) + EX_NL;
+}
+
+function exCopyAi(items) {
+  exCopy(exMarkdown(items), I18N.ex_copied_ai);
+}
+
+function exCopyFallback(text) {
+  var area = document.createElement('textarea');
+  area.value = text;
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(area);
+}
+
+// The clipboard API only exists on a secure page (https, or the loopback);
+// a panel opened over the network by its address falls back on the old way.
+function exCopy(text, message) {
+  var done = function() {
+    var toast = document.getElementById('mapToast');
+    if (!toast) return;
+    toast.innerText = '📋 ' + (message || I18N.ex_copied);
+    toast.style.display = 'block';
+    setTimeout(function() { toast.style.display = 'none'; }, 2500);
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done, function() { exCopyFallback(text); done(); });
+    return;
+  }
+  exCopyFallback(text);
+  done();
+}
+"""
 
 
 TPL_LIVE_MAP = BASE.replace("__BODY__", """
@@ -8061,6 +8068,7 @@ TPL_LIVE_MAP = BASE.replace("__BODY__", """
 </div>
 
 <style>
+""" + EXPLAIN_CSS + """
 .lvl-btn.active, .rank-tab.active { background: var(--gold) !important; color: #000 !important; font-weight: 700; }
 .heat-dot {
   position: absolute;
@@ -8330,6 +8338,18 @@ TPL_LIVE_MAP = BASE.replace("__BODY__", """
 .m2-shop-name { flex: 1; color: #d8c9a3; font-size: 11px; line-height: 1.2; }
 .m2-shop-count { color: #8a7b5c; font-size: 10px; }
 .m2-shop-price { color: var(--gold); font-size: 11px; white-space: nowrap; }
+/* A line that carries its explanation: hover shows it beside the item, a click
+   pins it under the counter, wider, with its steps, codes and a copy button. */
+.m2-shop-row.explained { cursor: pointer; }
+.m2-shop-row.explained:hover { background: rgba(251,191,36,0.06); }
+.m2-shop-row.unusual { box-shadow: inset 2px 0 0 #ef4444; }
+.m2-shop-mark { color: #fbbf24; font-size: 10px; font-weight: 700; }
+.m2-shop-window.m2-shop-wide { width: 440px; }
+.m2-shop-why { display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #3d3119;
+  max-height: 420px; overflow-y: auto; }
+.m2-shop-why-head { display: flex; justify-content: space-between; align-items: center; gap: 6px;
+  margin-bottom: 4px; color: #e6ca65; font-size: 11px; font-weight: 700; }
+#m2ItemTooltip.m2-tt-wide { max-width: 420px; }
 .m2-grid-frame {
   position: relative;
   width: 170px;
@@ -8525,6 +8545,7 @@ TPL_LIVE_MAP = BASE.replace("__BODY__", """
   <div id="m2ShopWhere" class="m2-shop-where"></div>
   <div id="m2ShopList" class="m2-shop-list"></div>
   <div id="m2ShopEmpty" class="m2-safebox-empty" style="display:none">{{m.shop_none}}</div>
+  <div id="m2ShopWhy" class="m2-shop-why"></div>
 </div>
 
 <div id="botModal" class="modal-overlay" onclick="if(event.target===this)closeBotModal()">
@@ -8538,6 +8559,10 @@ TPL_LIVE_MAP = BASE.replace("__BODY__", """
 
 <script>
 var I18N = {{m|tojson}};
+// Whether this engine records the bots' explanations (mt2009 only): the
+// decisions tab and the "unusual only" switch exist where it does.
+var EXPLAIN_ON = {{ 'true' if engine_mt2009 else 'false' }};
+""" + EXPLAIN_JS + """
 var g_bots = [];
 var g_selectedLevel = 'all';
 var g_selectedMap = 21;
@@ -9037,6 +9062,12 @@ function toggleBotSafeboxFromEl(el) {
 // window IKASHOP_OFFLINESHOP is the counter and each line's price is in that
 // item's ikashop_data (see /api/bot_shop).
 var g_currentShopPid = null;
+// The lines on show, the bot they belong to, and whether this world explains
+// them ("ok"), has no table for it yet ("missing") or never does ("off").
+var g_currentShopOffers = [];
+var g_currentShopName = '';
+var g_currentShopState = 'off';
+var g_shopWhyIndex = -1;
 
 function toggleBotShopFromEl(el) {
   var pid = parseInt(el.getAttribute('data-botpid'), 10);
@@ -9045,6 +9076,7 @@ function toggleBotShopFromEl(el) {
 
 function closeShopWindow() {
   var win = document.getElementById('m2ShopWindow');
+  closeShopWhy();
   if (win) win.style.display = 'none';
   g_currentShopPid = null;
 }
@@ -9054,6 +9086,9 @@ function renderShopWindow(shop) {
   var where = document.getElementById('m2ShopWhere');
   var empty = document.getElementById('m2ShopEmpty');
   if (!list || !where || !empty) return;
+  closeShopWhy();
+  g_currentShopOffers = [];
+  g_currentShopState = 'off';
   if (!shop) {
     list.innerHTML = '';
     where.textContent = '';
@@ -9062,11 +9097,13 @@ function renderShopWindow(shop) {
     return;
   }
   var offers = shop.offers || [];
+  g_currentShopState = shop.explain_state || 'off';
   where.textContent = (shop.name || '') +
       ' · ' + I18N.map + ' ' + shop.map_index +
       ' (' + shop.x + ', ' + shop.y + ')' +
       (shop.is_premium ? ' · ' + I18N.shop_premium : '') +
-      (shop.expired ? ' · ' + I18N.shop_expired : '');
+      (shop.expired ? ' · ' + I18N.shop_expired : '') +
+      (shop.explain_note ? ' · ' + shop.explain_note : '');
   if (!offers.length) {
     list.innerHTML = '';
     empty.textContent = I18N.shop_empty;
@@ -9074,17 +9111,79 @@ function renderShopWindow(shop) {
     return;
   }
   empty.style.display = 'none';
-  var html = '';
-  offers.forEach(function(offer) {
-    html += '<div class="m2-shop-row">' +
-            '<img src="' + getItemIconUrl(offer.vnum) + '" onerror="' + ICON_ONERROR + '" draggable="false">' +
+  g_currentShopOffers = offers;
+  list.innerHTML = '';
+  offers.forEach(function(offer, idx) {
+    var row = document.createElement('div');
+    var explained = !!offer.explain || g_currentShopState === 'ok';
+    row.className = 'm2-shop-row' + (explained ? ' explained' : '') +
+                    (offer.explain && offer.explain.unusual ? ' unusual' : '');
+    row.innerHTML = '<img src="' + getItemIconUrl(offer.vnum) + '" onerror="' + ICON_ONERROR + '" draggable="false">' +
             '<span class="m2-shop-name">' + escapeHtml(offer.name) +
             (offer.count > 1 ? ' <span class="m2-shop-count">x' + offer.count + '</span>' : '') +
             '</span>' +
-            '<span class="m2-shop-price">' + (offer.price || 0).toLocaleString() + '</span>' +
-            '</div>';
+            (offer.explain ? '<span class="m2-shop-mark" title="' + escapeHtml(I18N.ex_why_counter) + '">?</span>' : '') +
+            '<span class="m2-shop-price">' + (offer.price || 0).toLocaleString() + '</span>';
+    // The tooltip is the bag's, with its lines and stones, and the reason the
+    // line is on the counter and its price under them; a click keeps that
+    // open under the counter to be read and copied into a report.
+    row.onmouseenter = function(ev) { showShopTooltip(ev, idx); };
+    row.onmousemove = function(ev) { moveItemTooltip(ev); };
+    row.onmouseleave = function() { hideItemTooltip(); };
+    if (explained) row.onclick = function() { pinShopWhy(idx); };
+    list.appendChild(row);
   });
-  list.innerHTML = html;
+}
+
+function showShopTooltip(ev, idx) {
+  var offer = g_currentShopOffers[idx];
+  if (!offer) return;
+  var extra = '';
+  if (offer.explain) {
+    extra = exListingHtml(offer.explain, false) +
+            '<div class="m2ex-muted" style="margin-top:4px">' + escapeHtml(I18N.ex_pin_hint) + '</div>';
+  } else if (g_currentShopState === 'ok') {
+    extra = exListingHtml(null, false);
+  }
+  showItemTooltip(ev, offer, extra, !!offer.explain);
+}
+
+function pinShopWhy(idx) {
+  var pane = document.getElementById('m2ShopWhy');
+  var win = document.getElementById('m2ShopWindow');
+  var offer = g_currentShopOffers[idx];
+  if (!pane || !offer) return;
+  if (g_shopWhyIndex === idx && pane.style.display === 'block') {
+    closeShopWhy();
+    return;
+  }
+  hideItemTooltip();
+  g_shopWhyIndex = idx;
+  pane.innerHTML = '<div class="m2-shop-why-head"><span>' + escapeHtml(offer.name) +
+      (offer.count > 1 ? ' x' + offer.count : '') + '</span><span style="white-space:nowrap">' +
+      (offer.explain ? '<button type="button" class="m2ex-btn" onclick="copyShopWhy()">📋 ' + escapeHtml(I18N.ex_copy) + '</button>' : '') +
+      '<button type="button" class="m2ex-btn" onclick="closeShopWhy()">' + escapeHtml(I18N.ex_close) + '</button></span></div>' +
+      exListingHtml(offer.explain, true);
+  pane.style.display = 'block';
+  if (win) win.classList.add('m2-shop-wide');
+}
+
+function closeShopWhy() {
+  var pane = document.getElementById('m2ShopWhy');
+  var win = document.getElementById('m2ShopWindow');
+  if (pane) {
+    pane.style.display = 'none';
+    pane.innerHTML = '';
+  }
+  if (win) win.classList.remove('m2-shop-wide');
+  g_shopWhyIndex = -1;
+}
+
+function copyShopWhy() {
+  var offer = g_currentShopOffers[g_shopWhyIndex];
+  if (!offer || !offer.explain) return;
+  exCopy(exText(offer.explain, g_currentShopName, g_currentShopPid,
+                offer.name + (offer.count > 1 ? ' x' + offer.count : '')));
 }
 
 function toggleBotShop(pid, name) {
@@ -9098,6 +9197,7 @@ function toggleBotShop(pid, name) {
 
   win.style.display = 'block';
   g_currentShopPid = pid;
+  g_currentShopName = name || '';
   var titleEl = document.getElementById('m2ShopTitle');
   if (titleEl) titleEl.textContent = I18N.shop + (name ? ' — ' + name : '');
   renderShopWindow(null);
@@ -9257,7 +9357,9 @@ function showEquipTooltip(ev, el) {
   }
 }
 
-function showItemTooltip(ev, item) {
+// `extra` is more HTML under the item's own lines - a counter line's
+// explanation - and `wide` lets the tooltip grow to carry it.
+function showItemTooltip(ev, item, extra, wide) {
   var tt = document.getElementById('m2ItemTooltip');
   if (!tt || !item) return;
 
@@ -9267,6 +9369,17 @@ function showItemTooltip(ev, item) {
   var name = item.name || def.name || I18N.item_n.replace('{n}', item.vnum);
 
   var html = '<div class="m2-tt-name">' + name + '</div>';
+
+  // A sash: its grade is in its name, its absorption in socket0 and the
+  // piece it absorbed in socket1 (item_length.h ACCE_*).
+  var v = item.vnum || 0;
+  if (((v >= 85001 && v <= 85024) || (v >= 85101 && v <= 85104) || (v >= 86061 && v <= 86064)) && item.sockets) {
+    var absorbed = item.sockets[1] || 0;
+    var absorbedDef = absorbed ? ((g_itemDefs && g_itemDefs[String(absorbed)]) || {}) : null;
+    html += '<div class="m2-tt-stat">' + (lg === 'pl' ? 'Pochłanianie: ' : 'Absorption: ') + (item.sockets[0] || 0) + '%</div>';
+    html += '<div style="color:#a1a1aa;font-size:10px">' + (lg === 'pl' ? 'Pochłonięty przedmiot: ' : 'Absorbed item: ') +
+            '<b style="color:#e5e7eb">' + (absorbed ? (absorbedDef.name || ('#' + absorbed)) : (lg === 'pl' ? 'brak' : 'none')) + '</b></div>';
+  }
 
   if (def.level && def.level > 0) {
     html += '<div style="color:#a1a1aa;font-size:10px">' + I18N.tt_req_level + ': <b style="color:#e5e7eb">' + def.level + '</b></div>';
@@ -9355,7 +9468,10 @@ function showItemTooltip(ev, item) {
     if (hasSock) html += sockHtml;
   }
 
+  if (extra) html += '<div class="m2-tt-divider"></div>' + extra;
   tt.innerHTML = html;
+  if (wide) tt.classList.add('m2-tt-wide');
+  else tt.classList.remove('m2-tt-wide');
   tt.style.display = 'block';
   moveItemTooltip(ev);
 }
@@ -9536,7 +9652,8 @@ function openBotModal(pid) {
               '<div style="grid-column:1 / -1"><b>' + I18N.current_goal + ':</b> <span style="color:#60a5fa;font-weight:700">' + escapeHtml(p.goal) + '</span></div>' +
               '<div style="grid-column:1 / -1"><b>' + I18N.action + ':</b> <span style="color:#ffd700">' + escapeHtml(p.action) + '</span></div>'
               : '') +
-              '<div><b>' + I18N.horse + ':</b> <span style="color:#c084fc;font-weight:700">Lv ' + (p.horse_level || 0) + '</span></div>' +
+              '<div><b>' + I18N.horse + ':</b> <span style="color:#c084fc;font-weight:700">Lv ' + (p.horse_level || 0) + '</span>' +
+                (p.saddlebag_rows ? ' <span style="color:#a78bfa">| ' + I18N.saddlebags + ' ' + p.saddlebag_rows + '/9</span>' : '') + '</div>' +
               '<div><b>' + I18N.biologist + ':</b> <span style="color:#4ade80;font-weight:700">' + (p.biologist_completed || 0) + '/' + (p.biologist_total || 7) + (I18N.bio_done ? ' ' + I18N.bio_done : '') + '</span></div>' +
               '<div style="grid-column:1 / -1"><b>' + I18N.bio_stage + ':</b> <span style="color:#86efac">' + (p.biologist_label || I18N.no_data) + '</span></div>' +
               // Only when there is a hunt to report. On the mt2009 line
@@ -9581,15 +9698,31 @@ function openBotModal(pid) {
 
       // Equipment history: what this bot refined, burned, put on, gave away,
       // sold and stored - read out of log.log, where the engine and the core
-      // both write it. Filled on open, like the live log below.
+      // both write it. Filled on open, like the live log below. On mt2009 a
+      // line the core explained has a "?", and the decisions tab lists what it
+      // explained: its equipment decisions and its counter lines.
+      // What the AI export says of the bot now, beside what each decision
+      // recorded of it then (its level).
+      var gearStats = p.stats ? 'STR ' + p.stats.STR + ' VIT ' + p.stats.VIT + ' DEX ' + p.stats.DEX + ' INT ' + p.stats.INT : '';
+      g_gearBot = {pid: p.id, name: p.name, level: p.level, job: p.job_name || '', path: p.profession_name || '',
+                   persona: p.personality || '', mood: p.mood || '', goal: p.goal || '', stats: gearStats};
+      g_gearRows = [];
       html += '<div style="margin-top:14px;border-top:1px solid #332814;padding-top:10px">' +
-              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px">' +
               '<h4 style="margin:0;color:var(--gold);font-size:13px">📖 ' + I18N.gear_history + '</h4>' +
+              '<div style="display:flex;gap:8px;align-items:center">' +
+              (EXPLAIN_ON ? '<label style="font-size:11px;color:#fca5a5;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">' +
+                            '<input type="checkbox" id="botGearUnusual"' + (g_gearUnusual ? ' checked' : '') +
+                            ' onchange="setGearUnusual(' + p.id + ', this.checked)" style="width:auto;margin:0"> ⚠ ' +
+                            escapeHtml(I18N.ex_unusual_only) + '</label>' +
+                            '<button type="button" class="m2ex-btn" onclick="copyGearAi()" title="' + escapeHtml(I18N.ex_copy_ai) +
+                            '">📋 ' + escapeHtml(I18N.ex_copy_ai) + '</button>' : '') +
               '<button type="button" onclick="loadBotGearHistory(' + p.id + ', true)" style="padding:2px 8px;font-size:11px;background:#334155;color:#fff;border:none;border-radius:4px;cursor:pointer">' + I18N.gear_history_more + '</button>' +
+              '</div>' +
               '</div>' +
               '<div class="muted" style="font-size:10px;margin-bottom:6px">' + I18N.gear_history_hint + '</div>' +
               '<div id="botGearTabs" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">' + gearTabButtons(p.id) + '</div>' +
-              '<div id="botGearHistory" style="background:#09090b;border:1px solid #27272a;border-radius:6px;padding:6px 8px;max-height:220px;overflow-y:auto;font-size:11px;line-height:1.5">' +
+              '<div id="botGearHistory" style="background:#09090b;border:1px solid #27272a;border-radius:6px;padding:6px 8px;max-height:320px;overflow-y:auto;font-size:11px;line-height:1.5">' +
               I18N.gear_history_loading + '</div>' +
               '</div>';
 
@@ -9628,7 +9761,9 @@ function openBotModal(pid) {
         ear:    { left: 98, top: 6,  w: 34, h: 34,  watermark: '👂' },
         shield: { left: 98, top: 44, w: 34, h: 34,  watermark: '🛡️' },
         wrist:  { left: 98, top: 80, w: 34, h: 34,  watermark: '💍' },
-        neck:   { left: 98, top: 116,w: 34, h: 34,  watermark: '📿' }
+        neck:   { left: 98, top: 116,w: 34, h: 34,  watermark: '📿' },
+        // The sash (WEAR_COSTUME_ACCE), under the depot and the stall.
+        sash:   { left: 150, top: 86, w: 34, h: 34, watermark: '🎀' }
       };
 
       Object.keys(equipCoords).forEach(function(slotKey) {
@@ -9728,7 +9863,15 @@ var g_seenLogsSet = {};
 // of them is not a scroll through the other two. The tab chosen stays chosen
 // from one bot's card to the next.
 var GEAR_TABS = ['trade', 'bonus', 'refine', 'other', 'all'];
+// What the core explained - equipment decisions and counter lines - on a tab
+// of its own, where the core records it (mt2009).
+if (EXPLAIN_ON) GEAR_TABS.push('decisions');
 var g_gearTab = 'trade';
+// Only the lines whose explanation is flagged unusual; kept from one card to
+// the next like the tab.
+var g_gearUnusual = false;
+var g_gearRows = [];
+var g_gearBot = {pid: 0, name: ''};
 
 function gearTabButtons(pid) {
   var html = '';
@@ -9750,34 +9893,84 @@ function selectGearTab(pid, tab) {
   loadBotGearHistory(pid, false);
 }
 
+function setGearUnusual(pid, on) {
+  g_gearUnusual = !!on;
+  var box = document.getElementById('botGearHistory');
+  if (box) box.textContent = I18N.gear_history_loading;
+  loadBotGearHistory(pid, false);
+}
+
 function loadBotGearHistory(pid, older) {
   var box = document.getElementById('botGearHistory');
   if (!box) return;
   var limit = older ? 400 : 60;
   var tab = g_gearTab;
-  fetch('/api/bot_gear_history/' + pid + '?limit=' + limit + '&tab=' + tab)
+  var unusual = g_gearUnusual;
+  fetch('/api/bot_gear_history/' + pid + '?limit=' + limit + '&tab=' + tab + (unusual ? '&unusual=1' : ''))
     .then(function(res) { return res.json(); })
     .then(function(data) {
-      if (!box || tab !== g_gearTab) return;
+      if (!box || tab !== g_gearTab || unusual !== g_gearUnusual) return;
+      g_gearRows = [];
       if (!data || !data.ok || !data.rows || data.rows.length === 0) {
-        box.textContent = (data && data.error) ? data.error : I18N.gear_history_empty;
+        box.textContent = (data && data.error) ? data.error :
+            ((data && data.explain_state === 'missing' && tab === 'decisions') ? I18N.ex_state_missing : I18N.gear_history_empty);
         return;
       }
+      g_gearRows = data.rows;
       var colors = { refine_ok: '#4ade80', refine_fail: '#f87171', burned: '#f87171', equip: '#60a5fa',
+                     unequip: '#fb923c', listing: '#fbbf24',
                      gift_out: '#fbbf24', gift_in: '#fbbf24', stall_sold: '#a78bfa', bought: '#a78bfa',
                      vendor: '#94a3b8', bonus: '#f472b6', safebox: '#38bdf8', get: '#94a3b8', other: '#94a3b8' };
       var html = '';
-      data.rows.forEach(function(r) {
+      data.rows.forEach(function(r, i) {
         var c = colors[r.kind] || colors.other;
-        html += '<div style="display:flex;gap:8px;border-bottom:1px solid #1f1f23;padding:2px 0">' +
+        html += '<div style="border-bottom:1px solid #1f1f23;padding:2px 0' + (r.unusual ? ';box-shadow:inset 2px 0 0 #ef4444;padding-left:4px' : '') + '">' +
+                '<div style="display:flex;gap:8px">' +
                 '<span style="color:#71717a;white-space:nowrap">' + r.time + '</span>' +
                 '<span style="color:' + c + ';white-space:nowrap;min-width:110px">' + r.label + '</span>' +
-                '<span style="color:#e4e4e7">' + r.item + (r.detail ? ' <span style="color:#a1a1aa">' + r.detail + '</span>' : '') + '</span>' +
+                '<span style="color:#e4e4e7;flex:1">' + r.item + (r.detail ? ' <span style="color:#a1a1aa">' + r.detail + '</span>' : '') + '</span>' +
+                (r.why ? '<button type="button" class="m2ex-q" title="' + escapeHtml(I18N.ex_more) + '" onclick="toggleGearWhy(' + i + ')">?</button>' : '') +
+                '</div>' +
+                (r.why ? '<div id="gearWhy' + i + '" style="display:none"></div>' : '') +
                 '</div>';
       });
       box.innerHTML = html;
     })
     .catch(function() { if (box) box.textContent = I18N.gear_history_empty; });
+}
+
+// A line's "?": its explanation under it, with a copy button for a report.
+function toggleGearWhy(i) {
+  var el = document.getElementById('gearWhy' + i);
+  var r = g_gearRows[i];
+  if (!el || !r || !r.why) return;
+  if (el.style.display !== 'none') {
+    el.style.display = 'none';
+    return;
+  }
+  el.innerHTML = '<div class="m2ex-box">' + exHtml(r.why, true) +
+                 '<div style="text-align:right;margin-top:4px"><button type="button" class="m2ex-btn" onclick="copyGearWhy(' + i + ')">📋 ' +
+                 escapeHtml(I18N.ex_copy) + '</button><button type="button" class="m2ex-btn" onclick="copyGearAiOne(' + i + ')">🤖 ' +
+                 escapeHtml(I18N.ex_copy_ai) + '</button></div></div>';
+  el.style.display = 'block';
+}
+
+function copyGearWhy(i) {
+  var r = g_gearRows[i];
+  if (!r || !r.why) return;
+  exCopy(exText(r.why, g_gearBot.name, g_gearBot.pid, r.item));
+}
+
+// One of the card's explanations, or every one the tab shows, for an AI.
+function copyGearAiOne(i) {
+  var r = g_gearRows[i];
+  if (r && r.why) exCopyAi([{ex: r.why, bot: g_gearBot, item: r.item}]);
+}
+
+function copyGearAi() {
+  var items = [];
+  g_gearRows.forEach(function(r) { if (r && r.why) items.push({ex: r.why, bot: g_gearBot, item: r.item}); });
+  if (items.length) exCopyAi(items);
 }
 
 function fetchBotLogs(botName) {
@@ -9925,6 +10118,17 @@ function copyCommand(cmd) {
   }
 }
 
+// A link opens a bot's card: /map?bot=<pid>, and &gear=<tab> for the tab of
+// its equipment history - how the decisions page sends the operator to a bot.
+(function openBotFromLink() {
+  var query = new URLSearchParams(window.location.search);
+  var pid = parseInt(query.get('bot') || '', 10);
+  if (!(pid > 0)) return;
+  var gear = query.get('gear');
+  if (gear && GEAR_TABS.indexOf(gear) >= 0) g_gearTab = gear;
+  openBotModal(pid);
+})();
+
 // Initial fetch and 1.5s interval polling
 fetchBotPositions();
 setInterval(fetchBotPositions, 1500);
@@ -9938,7 +10142,7 @@ setInterval(fetchBotPositions, 1500);
 def live_map():
     language = lang()
     return render_template_string(TPL_LIVE_MAP,
-                                  brand=CONF.get("server_name", "Metin2"),
+                                  brand=CONF.get("server_name") or BRAND,
                                   browser_ready=browser_client_ready(),
                                   play_url=play_url(),
                                   m=map_i18n(language),
@@ -10199,42 +10403,24 @@ def log_text(value):
 
 
 GEAR_HISTORY_HOWS = {
-    "REFINE SUCCESS":        ("refine_ok",   {"pl": "Ulepszenie udane",   "en": "Refine succeeded",
-                             "de": "Verbesserung erfolgreich", "tr": "Yükseltme başarılı"}),
-    "REFINE FAIL":           ("refine_fail", {"pl": "Ulepszenie nieudane", "en": "Refine failed",
-                             "de": "Verbesserung fehlgeschlagen", "tr": "Yükseltme başarısız"}),
-    "REMOVE (REFINE FAIL)":  ("burned",      {"pl": "Spalone przy ulepszaniu", "en": "Burned in refine",
-                             "de": "Beim Verbessern zerstört", "tr": "Yükseltmede yandı"}),
-    "REFINE FISH_ROD SUCCESS": ("refine_ok", {"pl": "Wędka ulepszona",    "en": "Rod refined",
-                             "de": "Angel verbessert", "tr": "Olta yükseltildi"}),
-    "REFINE FISH_ROD FAIL":  ("refine_fail", {"pl": "Wędka nieulepszona", "en": "Rod refine failed",
-                             "de": "Angel nicht verbessert", "tr": "Olta yükseltilemedi"}),
-    "PLAYERBOT_EQUIP":       ("equip",       {"pl": "Założone",           "en": "Equipped",
-                             "de": "Angelegt", "tr": "Kuşanıldı"}),
-    "PLAYERBOT_GIFT_OUT":    ("gift_out",    {"pl": "Podarowane",         "en": "Given away",
-                             "de": "Verschenkt", "tr": "Hediye edildi"}),
-    "PLAYERBOT_GIFT_IN":     ("gift_in",     {"pl": "Dostane w prezencie", "en": "Received as gift",
-                             "de": "Als Geschenk erhalten", "tr": "Hediye olarak alındı"}),
-    "PLAYERBOT_STALL_SOLD":  ("stall_sold",  {"pl": "Sprzedane na straganie", "en": "Sold at the stall",
-                             "de": "Am Stand verkauft", "tr": "Tezgâhta satıldı"}),
-    "SHOP_BUY":              ("bought",      {"pl": "Kupione na straganie", "en": "Bought at a stall",
-                             "de": "An einem Stand gekauft", "tr": "Tezgâhtan satın alındı"}),
-    "PLAYERBOT_SHOP_SELL":   ("vendor",      {"pl": "Sprzedane handlarzowi", "en": "Sold to merchant",
-                             "de": "An einen Händler verkauft", "tr": "Satıcıya satıldı"}),
-    "PLAYERBOT_BONUS":       ("bonus",       {"pl": "Zużyte na przemianę bonusów", "en": "Used for a bonus reroll",
-                             "de": "Für eine Bonusänderung verbraucht", "tr": "Bonus değiştirmek için harcandı"}),
-    "PLAYERBOT_BONUS_ADD":   ("bonus",       {"pl": "Dodano bonus (Wzmocnienie)", "en": "Bonus line added",
-                             "de": "Bonus hinzugefügt (Gegenstand verstärken)", "tr": "Bonus eklendi (Güçlendirme Nesnesi)"}),
-    "PLAYERBOT_BONUS_CHANGE":("bonus",       {"pl": "Zmieniono bonusy (Zmiana)",  "en": "Bonus lines rerolled",
-                             "de": "Boni geändert (Gegenstand verzaubern)", "tr": "Bonuslar değiştirildi (Efsun Nesnesi)"}),
-    "PLAYERBOT_BONUS_MARBLE":("bonus",       {"pl": "Dodano 5. bonus (Marmur)",   "en": "Fifth line added (marble)",
-                             "de": "5. Bonus hinzugefügt (Marmor)", "tr": "5. bonus eklendi (Mermer)"}),
-    "SAFEBOX PUT":           ("safebox",     {"pl": "Do magazynu",        "en": "Into the safebox",
-                             "de": "Ins Lager", "tr": "Depoya"}),
-    "SAFEBOX GET":           ("safebox",     {"pl": "Z magazynu",         "en": "Out of the safebox",
-                             "de": "Aus dem Lager", "tr": "Depodan"}),
-    "MOONLIGHT_GET":         ("get",         {"pl": "Ze Szkatułki Blasku", "en": "From a Moonlight chest",
-                             "de": "Aus einer Mondlichtschatztruhe", "tr": "Ay Işığı Sandığından"}),
+    "REFINE SUCCESS":        ("refine_ok",   {"pl": "Ulepszenie udane",   "en": "Refine succeeded"}),
+    "REFINE FAIL":           ("refine_fail", {"pl": "Ulepszenie nieudane", "en": "Refine failed"}),
+    "REMOVE (REFINE FAIL)":  ("burned",      {"pl": "Spalone przy ulepszaniu", "en": "Burned in refine"}),
+    "REFINE FISH_ROD SUCCESS": ("refine_ok", {"pl": "Wędka ulepszona",    "en": "Rod refined"}),
+    "REFINE FISH_ROD FAIL":  ("refine_fail", {"pl": "Wędka nieulepszona", "en": "Rod refine failed"}),
+    "PLAYERBOT_EQUIP":       ("equip",       {"pl": "Założone",           "en": "Equipped"}),
+    "PLAYERBOT_GIFT_OUT":    ("gift_out",    {"pl": "Podarowane",         "en": "Given away"}),
+    "PLAYERBOT_GIFT_IN":     ("gift_in",     {"pl": "Dostane w prezencie", "en": "Received as gift"}),
+    "PLAYERBOT_STALL_SOLD":  ("stall_sold",  {"pl": "Sprzedane na straganie", "en": "Sold at the stall"}),
+    "SHOP_BUY":              ("bought",      {"pl": "Kupione na straganie", "en": "Bought at a stall"}),
+    "PLAYERBOT_SHOP_SELL":   ("vendor",      {"pl": "Sprzedane handlarzowi", "en": "Sold to merchant"}),
+    "PLAYERBOT_BONUS":       ("bonus",       {"pl": "Zużyte na przemianę bonusów", "en": "Used for a bonus reroll"}),
+    "PLAYERBOT_BONUS_ADD":   ("bonus",       {"pl": "Dodano bonus (Wzmocnienie)", "en": "Bonus line added"}),
+    "PLAYERBOT_BONUS_CHANGE":("bonus",       {"pl": "Zmieniono bonusy (Zmiana)",  "en": "Bonus lines rerolled"}),
+    "PLAYERBOT_BONUS_MARBLE":("bonus",       {"pl": "Dodano 5. bonus (Marmur)",   "en": "Fifth line added (marble)"}),
+    "SAFEBOX PUT":           ("safebox",     {"pl": "Do magazynu",        "en": "Into the safebox"}),
+    "SAFEBOX GET":           ("safebox",     {"pl": "Z magazynu",         "en": "Out of the safebox"}),
+    "MOONLIGHT_GET":         ("get",         {"pl": "Ze Szkatułki Blasku", "en": "From a Moonlight chest"}),
     # A bot's purchase from a village merchant and the marble a hundred Magic
     # Dust make (Iwakura's Patch 4, point 11): neither had a row the card read
     # (B23 of Iwakura's audit of 26 September).
@@ -10242,6 +10428,17 @@ GEAR_HISTORY_HOWS = {
                              "de": "Beim Händler gekauft", "tr": "Satıcıdan satın alındı"}),
     "PLAYERBOT_DUST_MARBLE": ("bonus",       {"pl": "Marmur z Magicznego Pyłu", "en": "Marble from Magic Dust",
                              "de": "Marmor aus Magischem Staub", "tr": "Sihirli Tozdan Mermer"}),
+    # Iwakura's exchange of surplus refine materials (29 September): the stone
+    # or the marble it gave, the reward a failed roll did not give, and the
+    # materials it took.
+    "PLAYERBOT_MATERIAL_EXCHANGE": ("bonus", {"pl": "Z wymiany ulepszaczy", "en": "From a material exchange",
+                             "de": "Aus einem Materialtausch", "tr": "Malzeme takasından"}),
+    "PLAYERBOT_MATERIAL_EXCHANGE_FAIL": ("refine_fail", {"pl": "Wymiana ulepszaczy nieudana",
+                             "en": "Material exchange failed", "de": "Materialtausch fehlgeschlagen",
+                             "tr": "Malzeme takası başarısız"}),
+    "PLAYERBOT_MATERIAL_EXCHANGE_IN": ("vendor", {"pl": "Oddane na wymianę ulepszaczy",
+                             "en": "Given in a material exchange", "de": "Für einen Materialtausch abgegeben",
+                             "tr": "Malzeme takasına verildi"}),
     "EXCHANGE_TAKE":         ("gift_in",     {"pl": "Z wymiany",          "en": "From a trade",
                              "de": "Aus einem Handel", "tr": "Ticaretten"}),
     "EXCHANGE_GIVE":         ("gift_out",    {"pl": "Oddane w wymianie",  "en": "Given in a trade",
@@ -10257,13 +10454,934 @@ GEAR_HISTORY_TABS = {
     "trade":  ("PLAYERBOT_STALL_SOLD", "SHOP_BUY", "PLAYERBOT_SHOP_SELL", "EXCHANGE_TAKE",
                "EXCHANGE_GIVE", "PLAYERBOT_GIFT_OUT", "PLAYERBOT_GIFT_IN", "PLAYERBOT_NPC_BUY"),
     "bonus":  ("PLAYERBOT_BONUS", "PLAYERBOT_BONUS_ADD", "PLAYERBOT_BONUS_CHANGE", "PLAYERBOT_BONUS_MARBLE",
-               "PLAYERBOT_DUST_MARBLE"),
+               "PLAYERBOT_DUST_MARBLE", "PLAYERBOT_MATERIAL_EXCHANGE", "PLAYERBOT_MATERIAL_EXCHANGE_FAIL",
+               "PLAYERBOT_MATERIAL_EXCHANGE_IN"),
     "refine": ("REFINE SUCCESS", "REFINE FAIL", "REMOVE (REFINE FAIL)", "REFINE FISH_ROD SUCCESS",
                "REFINE FISH_ROD FAIL"),
     "other":  ("PLAYERBOT_EQUIP", "SAFEBOX PUT", "SAFEBOX GET", "MOONLIGHT_GET"),
 }
-GEAR_HISTORY_OFFLINE_BUY = ("bought", {"pl": "Kupione w sklepie offline", "en": "Bought from an offline shop",
-                                       "de": "In einem Offline-Shop gekauft", "tr": "Çevrimdışı dükkândan satın alındı"})
+GEAR_HISTORY_OFFLINE_BUY = ("bought", {"pl": "Kupione w sklepie offline", "en": "Bought from an offline shop"})
+
+
+# ---- The bots' explanations ----------------------------------------------------
+# Why a bot put a line on its counter and how it reached the price, and why it
+# changed a worn piece ("why did it swap Miecz Pelni Ksiezyca +6 for Krwawy Miecz
+# +4" - the question the operator wants to be able to answer and report). The
+# mt2009 core writes two InnoDB tables in `log` beside the decisions themselves:
+# playerbot_listing, one row per counter line keyed by the line's item id, and
+# playerbot_equip, one row per equipment decision. It writes numbers only. Every
+# code below is a fixed number of playerbot_explain_rules.h (one enum entry per
+# line; a number never changes once shipped, a new one is appended), and this is
+# where they are said in the page's language - tests/admin_panel_decisions_test.py
+# reads that header and checks that each one has its four texts here, with the
+# parameters the design gives it.
+#
+# The two text encodings are the header's too: steps and terms are
+# "code=value[:a[:b[:c]]]" joined by ";" with trailing zero parameters left out
+# and ";~" when the column ran out of room; lines are "type:value" joined by ","
+# then "|" and the vnums of the seated stones. A line's type is the item's own
+# attrtype - a POINT number on mt2009 - so it goes through apply_key like every
+# other bonus line in this panel ("The panels' 71 and 72").
+#
+# What is explained is what a bot lists and what it wears, and nothing else:
+# the panel shows what the two tables hold and adds nothing to it.
+#
+# A template's placeholders are {a} {b} {c} and {value}; the kind of each says
+# how the number is written (_dx_param, beside the route that reads them).
+EXPLAIN_DEFAULT_DAYS = 7       # the core's own default while the key is absent
+EXPLAIN_MAX_DAYS = 30
+# The flags that make a row "unusual" (the rules header's masks).
+DECISION_LISTING_UNUSUAL = 1 | 4 | 8 | 16 | 512 | 2048
+DECISION_EQUIP_UNUSUAL = 1 | 2 | 4 | 8 | 16 | 64 | 128
+
+# How a line went up, changed or came down (EVENT_*).
+DECISION_EVENTS = {
+ 0: {"pl": "Nieznane zdarzenie", "en": "Unknown event", "de": "Unbekanntes Ereignis", "tr": "Bilinmeyen olay"},
+ 1: {"pl": "Wystawione przy otwarciu sklepu", "en": "Listed when the shop opened",
+     "de": "Beim Öffnen des Ladens eingestellt", "tr": "Dükkân açılırken tezgâha kondu"},
+ 2: {"pl": "Dołożone przy obsłudze sklepu", "en": "Added on a shop visit",
+     "de": "Bei einem Ladenbesuch hinzugefügt", "tr": "Dükkân ziyaretinde eklendi"},
+ 3: {"pl": "Wystawione na straganie", "en": "Listed on a stall", "de": "Am Stand eingestellt", "tr": "Tezgâha kondu"},
+ 4: {"pl": "Przecenione", "en": "Repriced", "de": "Neu bepreist", "tr": "Yeniden fiyatlandı"},
+ 5: {"pl": "Pomyłka w cenie poprawiona przez właściciela", "en": "Price slip put right by the keeper",
+     "de": "Preisfehler vom Besitzer korrigiert", "tr": "Fiyat hatası sahibi tarafından düzeltildi"},
+ 6: {"pl": "Pomyłka w cenie poprawiona przez rdzeń", "en": "Price slip put right by the core",
+     "de": "Preisfehler vom Kern korrigiert", "tr": "Fiyat hatası çekirdek tarafından düzeltildi"},
+ 7: {"pl": "Podniesione do progu", "en": "Raised to the floor", "de": "Auf die Untergrenze angehoben", "tr": "Tabana yükseltildi"},
+ 8: {"pl": "Zdjęte z lady", "en": "Taken off the counter", "de": "Vom Ladentisch genommen", "tr": "Tezgâhtan indirildi"},
+ 9: {"pl": "Zabrane z lady do założenia", "en": "Taken back to wear", "de": "Zum Anlegen zurückgenommen", "tr": "Giymek için geri alındı"},
+ 10: {"pl": "Sprzedane", "en": "Sold", "de": "Verkauft", "tr": "Satıldı"},
+}
+
+# Why the stand is open: EPlayerBotShopReason, playerbot_types.h, 0..9 as it is.
+DECISION_STAND = {
+ 0: {"pl": "powód nieznany", "en": "reason unknown", "de": "Grund unbekannt", "tr": "neden bilinmiyor"},
+ 1: {"pl": "osobowość Handlarz", "en": "the Merchant personality", "de": "die Händler-Persönlichkeit", "tr": "Tüccar kişiliği"},
+ 2: {"pl": "brak yang na mikstury", "en": "no yang for potions", "de": "kein Yang für Tränke", "tr": "iksir için yang yok"},
+ 3: {"pl": "pełny plecak", "en": "a full bag", "de": "ein voller Beutel", "tr": "dolu çanta"},
+ 4: {"pl": "dropper z pełnym plecakiem", "en": "a dropper with a full bag", "de": "ein Dropper mit vollem Beutel", "tr": "çantası dolu bir dropper"},
+ 5: {"pl": "nadmiar ksiąg", "en": "too many books", "de": "zu viele Bücher", "tr": "fazla kitap"},
+ 6: {"pl": "los droppera", "en": "a dropper's roll", "de": "der Wurf eines Droppers", "tr": "bir dropper'ın zarı"},
+ 7: {"pl": "los", "en": "chance", "de": "Zufall", "tr": "şans"},
+ 8: {"pl": "zbędny duplikat", "en": "a spare duplicate", "de": "ein überzähliges Duplikat", "tr": "fazla bir kopya"},
+ 9: {"pl": "nadmiar towaru", "en": "surplus goods", "de": "Warenüberschuss", "tr": "mal fazlası"},
+ # MT2009 Plus: a medal dropper standing with its stock (PLAYERBOT_SHOP_REASON_MEDALS).
+ 10: {"pl": "medale konne droppera", "en": "a medal dropper's medals", "de": "die Medaillen eines Medaillen-Droppers",
+      "tr": "bir madalya dropper'ının madalyaları"},
+}
+
+# What shape the line was cut to (SHAPE_*).
+DECISION_SHAPES = {
+ 0: {"pl": "cały stos", "en": "the whole stack", "de": "der ganze Stapel", "tr": "yığının tamamı"},
+ 1: {"pl": "naturalna porcja", "en": "a natural lot", "de": "eine natürliche Menge", "tr": "doğal bir parti"},
+ 2: {"pl": "paczka mikstur", "en": "a potion pack", "de": "ein Trankpaket", "tr": "iksir paketi"},
+ 3: {"pl": "paczka pyłu", "en": "a dust pack", "de": "ein Staubpaket", "tr": "toz paketi"},
+ 4: {"pl": "para medali", "en": "a pair of medals", "de": "ein Medaillenpaar", "tr": "madalya çifti"},
+ 5: {"pl": "sztuka ponad zapas", "en": "a single over the keep", "de": "ein Einzelstück über dem Vorrat", "tr": "stok üstü tek parça"},
+ 6: {"pl": "pojedynczy klucz", "en": "a single key", "de": "ein einzelner Schlüssel", "tr": "tek anahtar"},
+ 7: {"pl": "paczka szkatułek", "en": "a chest pack", "de": "ein Truhenpaket", "tr": "sandık paketi"},
+ 8: {"pl": "sztuka oddzielona na straganie", "en": "a single split off for a stall",
+     "de": "ein für den Stand abgeteiltes Einzelstück", "tr": "tezgâh için ayrılan tek parça"},
+}
+
+# Why a line came home (OFF_*): BotOfflineUnwantedLine's words, in its order.
+DECISION_OFF = {
+ 0: {"pl": "bez podanego powodu", "en": "no reason given", "de": "ohne angegebenen Grund", "tr": "neden belirtilmedi"},
+ 1: {"pl": "Lista Przydatnych Przedmiotów zatrzymuje go dla magazyniera", "en": "the Useful Items List keeps it for the storekeeper",
+     "de": "die Liste nützlicher Gegenstände behält es für den Lagerverwalter", "tr": "Faydalı Eşyalar Listesi onu depocu için tutuyor"},
+ 2: {"pl": "kamień duszy dla Alchemika (na pył)", "en": "a spirit stone for the Alchemist's dust",
+     "de": "ein Geiststein für den Staub des Alchemisten", "tr": "Simyacının tozu için bir ruh taşı"},
+ 3: {"pl": "za dużo marmurów albo drugi tego samego potwora", "en": "too many marbles, or a second of one monster",
+     "de": "zu viele Verwandlungskugeln oder eine zweite desselben Monsters", "tr": "fazla dönüşüm küresi ya da aynı canavarın ikincisi"},
+ 4: {"pl": "ponad limit linii tego samego przedmiotu", "en": "over the line cap of one item",
+     "de": "über der Zeilengrenze eines Gegenstands", "tr": "aynı eşyanın satır sınırının üstünde"},
+ 5: {"pl": "za dużo ksiąg misji w wiosce", "en": "too many mission books in the village",
+     "de": "zu viele Missionsbücher im Dorf", "tr": "köyde fazla görev kitabı"},
+ 6: {"pl": "za dużo słabych broni na ladach", "en": "too many junk weapons on the counters",
+     "de": "zu viele Schrottwaffen auf den Ladentischen", "tr": "tezgâhlarda fazla hurda silah"},
+ 7: {"pl": "niepełna paczka mikstur, do zlania", "en": "not a whole potion pack, to be poured together",
+     "de": "kein ganzes Trankpaket, wird zusammengeschüttet", "tr": "tam olmayan iksir paketi, birleştirilecek"},
+ 8: {"pl": "za dużo słabych zbroi tej rodziny", "en": "too many low armours of this family",
+     "de": "zu viele schwache Rüstungen dieser Familie", "tr": "bu aileden fazla düşük zırh"},
+ 9: {"pl": "za dużo słabej biżuterii tej rodziny", "en": "too many low jewels of this family",
+     "de": "zu viel schwacher Schmuck dieser Familie", "tr": "bu aileden fazla düşük takı"},
+ 10: {"pl": "farba z wody, do wyrzucenia", "en": "a dye from the water, to be thrown away",
+      "de": "eine Haarfarbe aus dem Wasser, wird weggeworfen", "tr": "sudan çıkan boya, atılacak"},
+ 11: {"pl": "broń 30 lv wraca pod kowadło", "en": "a level-30 weapon goes back to the anvil",
+      "de": "eine Waffe Lv 30 geht zurück zum Amboss", "tr": "30. seviye silah örse geri dönüyor"},
+ 12: {"pl": "szkatułki: bot ich nie sprzedaje albo linia za długa", "en": "chests: the bot does not sell them, or the line is too long",
+      "de": "Truhen: der Bot verkauft sie nicht, oder die Zeile ist zu lang", "tr": "sandıklar: bot onları satmıyor ya da satır çok uzun"},
+ 13: {"pl": "za długa linia Kamieni Duchowych", "en": "too long a line of Soul Stones",
+      "de": "zu lange Zeile Seelensteine", "tr": "fazla uzun bir Ruh Taşı satırı"},
+ 14: {"pl": "linia zwojów nie po 1, 2 lub 5", "en": "a scroll line not of 1, 2 or 5",
+      "de": "eine Schriftrollenzeile nicht zu 1, 2 oder 5", "tr": "1, 2 ya da 5 olmayan parşömen satırı"},
+ 15: {"pl": "za długa linia medali konnych", "en": "too long a line of horse medals",
+      "de": "zu lange Zeile Pferdemedaillen", "tr": "fazla uzun bir at madalyası satırı"},
+ 16: {"pl": "sterta nie w naturalnej porcji", "en": "a heap not in a natural lot",
+      "de": "ein Haufen nicht in natürlicher Menge", "tr": "doğal partide olmayan bir yığın"},
+ 17: {"pl": "materiał nie w naturalnej porcji", "en": "a material not in a natural lot",
+      "de": "ein Material nicht in natürlicher Menge", "tr": "doğal partide olmayan bir malzeme"},
+ 18: {"pl": "ekwipunek poniżej 30 lv za słaby albo ponad limit", "en": "gear under level 30 too low, or over its cap",
+      "de": "Ausrüstung unter Lv 30 zu schwach oder über der Grenze", "tr": "30. seviye altı ekipman çok zayıf ya da sınırın üstünde"},
+ 19: {"pl": "wędka lub kilof wraca do właściciela", "en": "a rod or a pickaxe goes back to its owner",
+      "de": "eine Angel oder Spitzhacke geht an ihren Besitzer zurück", "tr": "olta ya da kazma sahibine dönüyor"},
+ 20: {"pl": "zabrane do założenia", "en": "taken back to wear", "de": "zum Anlegen zurückgenommen", "tr": "giymek için geri alındı"},
+ # MT2009 Plus's own reasons (from 200, so an appended upstream code never clashes).
+ 200: {"pl": "własna mikstura bojowa bota (zielona lub fioletowa)", "en": "the bot's own combat potion (green or purple)",
+       "de": "der eigene Kampftrank des Bots (grün oder lila)", "tr": "botun kendi savaş iksiri (yeşil ya da mor)"},
+ 201: {"pl": "zwykły lub błyszczący kamień smoka to teraz materiał", "en": "an ordinary or brilliant Dragon Stone is material now",
+       "de": "ein gewöhnlicher oder glänzender Drachenstein ist jetzt Material", "tr": "sıradan ya da parlak Ejderha Taşı artık malzeme"},
+ 202: {"pl": "szarfa, którą bot chce dla siebie", "en": "a sash the bot wants for itself",
+       "de": "eine Schärpe, die der Bot selbst will", "tr": "botun kendisi için istediği bir kuşak"},
+ 203: {"pl": "towar rzemieślniczy się nie sprzedał — do wymiany u Dozorcy", "en": "crafting goods left unsold — for the Dozorca's exchange",
+       "de": "Handwerksware blieb unverkauft — für den Tausch beim Dozorca", "tr": "zanaat malı satılmadı — Dozorca takası için"},
+ 204: {"pl": "Cor Draconis lub szarfa nie sprzedała się po pełnej przecenie — do handlarza",
+       "en": "a Cor Draconis or a sash unsold through the whole markdown — for the merchant",
+       "de": "ein Cor Draconis oder eine Schärpe blieb trotz vollem Preisnachlass unverkauft — für den Händler",
+       "tr": "tam indirime rağmen satılmayan Cor Draconis ya da kuşak — satıcıya"},
+}
+
+# The small vocabularies a parameter can be one of ("enum:NAME").
+DECISION_ENUMS = {
+ # PLAYERBOT_ITEM_POLICY_*, the words of the item policy file.
+ "POLICY": {
+  1: {"pl": "zostaw", "en": "keep", "de": "behalten", "tr": "sakla"},
+  2: {"pl": "stragan", "en": "stall", "de": "Stand", "tr": "tezgâh"},
+  3: {"pl": "handlarz", "en": "merchant", "de": "Händler", "tr": "satıcı"},
+  4: {"pl": "wyrzuć", "en": "drop", "de": "wegwerfen", "tr": "yere at"},
+ },
+ "STALKI_WHY": {
+  1: {"pl": "innej klasy", "en": "another class's", "de": "einer anderen Klasse", "tr": "başka bir sınıfın"},
+  2: {"pl": "za daleko w przód", "en": "too far ahead", "de": "zu weit voraus", "tr": "çok ileride"},
+  3: {"pl": "druga sztuka", "en": "a second copy", "de": "ein zweites Exemplar", "tr": "ikinci bir kopya"},
+ },
+ # PlayerBotKeepsLevel30ForAnvil's why: 1, 2 and 6 keep the weapon, 3 to 5 let it go.
+ "L30_WHY": {
+  1: {"pl": "projekt", "en": "a project", "de": "ein Projekt", "tr": "bir proje"},
+  2: {"pl": "broń własnej klasy", "en": "the class's own", "de": "die der eigenen Klasse", "tr": "kendi sınıfının"},
+  3: {"pl": "innej klasy", "en": "another class's", "de": "einer anderen Klasse", "tr": "başka bir sınıfın"},
+  4: {"pl": "losowanie wskazało ladę", "en": "the draw said counter", "de": "die Auslosung sagte Ladentisch", "tr": "kura tezgâhı gösterdi"},
+  5: {"pl": "plecak trzyma już maksimum", "en": "the bag already keeps the maximum",
+      "de": "der Beutel hält schon das Maximum", "tr": "çanta zaten azami sayıyı tutuyor"},
+  6: {"pl": "zatrzymana losowaniem", "en": "kept by the draw", "de": "durch die Auslosung behalten", "tr": "kurayla tutuldu"},
+ },
+ "SCROLL_KEEP": {
+  0: {"pl": "nic nie czeka na zwój", "en": "nothing waits for a scroll", "de": "nichts wartet auf eine Schriftrolle", "tr": "parşömen bekleyen bir şey yok"},
+  1: {"pl": "noszony ekwipunek do ulepszenia", "en": "worn gear to refine", "de": "getragene Ausrüstung zum Verbessern", "tr": "yükseltilecek giyili ekipman"},
+  2: {"pl": "handlarz zasobami", "en": "a resource trader", "de": "ein Rohstoffhändler", "tr": "bir kaynak tüccarı"},
+  3: {"pl": "reguła zwojów", "en": "the scroll rule", "de": "die Schriftrollen-Regel", "tr": "parşömen kuralı"},
+ },
+ "MEDAL_WHY": {
+  1: {"pl": "Handlarz", "en": "a Merchant", "de": "ein Händler", "tr": "Tüccar"},
+  2: {"pl": "dropper medali", "en": "a medal dropper", "de": "ein Medaillen-Dropper", "tr": "madalya dropper'ı"},
+  3: {"pl": "ponad zapas", "en": "over the keep", "de": "über dem Vorrat", "tr": "stok üstü"},
+  4: {"pl": "koń na maksimum dla poziomu", "en": "the horse is maxed for the level",
+      "de": "das Pferd ist für das Level ausgereizt", "tr": "at, seviyesi için en üstte"},
+ },
+ "MAT_WHY": {
+  1: {"pl": "próba rynku", "en": "a market probe", "de": "ein Markttest", "tr": "piyasa denemesi"},
+  2: {"pl": "brak popytu", "en": "no demand", "de": "keine Nachfrage", "tr": "talep yok"},
+  3: {"pl": "nadmiar", "en": "overstock", "de": "Überbestand", "tr": "fazla stok"},
+ },
+ "VALUABLE": {
+  0: {"pl": "", "en": "", "de": "", "tr": ""},
+  1: {"pl": " (z cennym bonusem)", "en": " (with a valuable bonus)", "de": " (mit wertvollem Bonus)", "tr": " (değerli bonuslu)"},
+ },
+ "BOOK_USEFUL": {
+  0: {"pl": " (bot jej nie przeczyta)", "en": " (of no use to the bot)", "de": " (für den Bot nutzlos)", "tr": " (bota faydası yok)"},
+  1: {"pl": " (przydatna, ale ponad zapas)", "en": " (useful, but over the keep)",
+      "de": " (nützlich, aber über dem Vorrat)", "tr": " (faydalı, ama stok üstü)"},
+ },
+ "AT_TOP": {
+  0: {"pl": "", "en": "", "de": "", "tr": ""},
+  1: {"pl": " (na maksimum)", "en": " (at the top)", "de": " (am Maximum)", "tr": " (en üstte)"},
+ },
+ "PREVIEW": {
+  0: {"pl": "", "en": "", "de": "", "tr": ""},
+  1: {"pl": " (podgląd bez właściciela, więc bez wahania)", "en": " (a preview without its keeper, so no swing)",
+      "de": " (Vorschau ohne Besitzer, also keine Schwankung)", "tr": " (sahipsiz önizleme, bu yüzden dalgalanma yok)"},
+ },
+ "MARBLE_SRC": {
+  0: {"pl": "losowanie z przedziału", "en": "drawn from the band", "de": "aus dem Bereich gezogen", "tr": "aralıktan çekildi"},
+  1: {"pl": "wyjątek wymieniony z nazwy", "en": "a named exception", "de": "eine namentliche Ausnahme", "tr": "adıyla belirtilmiş istisna"},
+ },
+ "FIXED": {
+  1: {"pl": "biała perła", "en": "white pearl", "de": "weiße Perle", "tr": "beyaz inci"},
+  2: {"pl": "niebieska perła", "en": "blue pearl", "de": "blaue Perle", "tr": "mavi inci"},
+  3: {"pl": "czerwona perła", "en": "red pearl", "de": "rote Perle", "tr": "kırmızı inci"},
+  4: {"pl": "małża", "en": "shellfish", "de": "Muschel", "tr": "istiridye"},
+  5: {"pl": "medal konny", "en": "horse medal", "de": "Pferdemedaille", "tr": "at madalyası"},
+  6: {"pl": "Suszona Głowa", "en": "Dried Head", "de": "getrockneter Kopf", "tr": "Kurutulmuş Kafa"},
+  7: {"pl": "fryzura", "en": "hairstyle", "de": "Frisur", "tr": "saç modeli"},
+  8: {"pl": "Magiczny Pył", "en": "Magic Dust", "de": "Magischer Staub", "tr": "Sihirli Toz"},
+ },
+ "GRADE_TABLE": {
+  0: {"pl": "", "en": "", "de": "", "tr": ""},
+  1: {"pl": " (z tabeli stopni)", "en": " (from the grade table)", "de": " (aus der Stufentabelle)", "tr": " (derece tablosundan)"},
+ },
+ "CLOCK_UNIT": {
+  0: {"pl": "wystawień", "en": "stands", "de": "Standzeiten", "tr": "stant dönemi"},
+  1: {"pl": "min", "en": "min", "de": "Min.", "tr": "dk"},
+ },
+ "CLOCK_RESTART": {
+  0: {"pl": "", "en": "", "de": "", "tr": ""},
+  1: {"pl": " (zegar ruszył po restarcie)", "en": " (the clock began after a restart)",
+      "de": " (die Uhr begann nach einem Neustart)", "tr": " (saat yeniden başlatmadan sonra başladı)"},
+ },
+ "GENERATION": {
+  0: {"pl": "bieżące pokolenie", "en": "the current generation", "de": "die aktuelle Generation", "tr": "güncel kuşak"},
+  1: {"pl": "wycenione w innym pokoleniu (nadrabia tempo)", "en": "priced under another generation (catching up)",
+      "de": "unter einer anderen Generation bepreist (holt auf)", "tr": "başka bir kuşakta fiyatlanmış (yetişiyor)"},
+ },
+ "SLIP_BY": {
+  0: {"pl": "poprawił właściciel", "en": "the keeper put it right", "de": "der Besitzer hat ihn korrigiert", "tr": "sahibi düzeltti"},
+  1: {"pl": "poprawił rdzeń, bo właściciel był daleko", "en": "the core put it right, the keeper being away",
+      "de": "der Kern hat ihn korrigiert, weil der Besitzer weg war", "tr": "sahibi uzakta olduğu için çekirdek düzeltti"},
+  2: {"pl": "poprawił rdzeń, bo pomyłka była wstrzymana", "en": "the core put it right, the slip being held",
+      "de": "der Kern hat ihn korrigiert, weil der Fehler zurückgehalten war", "tr": "hata bekletildiği için çekirdek düzeltti"},
+  3: {"pl": "poprawił rdzeń, po czasie", "en": "the core put it right, late",
+      "de": "der Kern hat ihn korrigiert, verspätet", "tr": "çekirdek geç de olsa düzeltti"},
+ },
+ "LADDER_CAT": {
+  1: {"pl": "broń", "en": "weapon", "de": "Waffe", "tr": "silah"},
+  2: {"pl": "zbroja", "en": "armour", "de": "Rüstung", "tr": "zırh"},
+  3: {"pl": "tarcza", "en": "shield", "de": "Schild", "tr": "kalkan"},
+  4: {"pl": "hełm", "en": "helmet", "de": "Helm", "tr": "kask"},
+  5: {"pl": "buty", "en": "boots", "de": "Schuhe", "tr": "ayakkabı"},
+  6: {"pl": "bransoleta", "en": "bracelet", "de": "Armband", "tr": "bilezik"},
+  7: {"pl": "naszyjnik", "en": "necklace", "de": "Halskette", "tr": "kolye"},
+  8: {"pl": "kolczyki", "en": "earrings", "de": "Ohrringe", "tr": "küpe"},
+  9: {"pl": "broń zapasowa", "en": "backup weapon", "de": "Ersatzwaffe", "tr": "yedek silah"},
+  10: {"pl": "zbroja zapasowa", "en": "backup armour", "de": "Ersatzrüstung", "tr": "yedek zırh"},
+ },
+ "SAFEBOX_WHY": {
+  1: {"pl": "Stalka", "en": "a Stalki", "de": "eine Stalki", "tr": "bir Stalki"},
+  2: {"pl": "zwolnione z Listy Przydatnych Przedmiotów", "en": "released from the Useful Items List",
+      "de": "aus der Liste nützlicher Gegenstände freigegeben", "tr": "Faydalı Eşyalar Listesinden çıkarıldı"},
+  3: {"pl": "hazard", "en": "a gamble", "de": "ein Glücksspiel", "tr": "bir kumar"},
+  4: {"pl": "klucz", "en": "a key", "de": "ein Schlüssel", "tr": "bir anahtar"},
+  9: {"pl": "inne", "en": "other", "de": "anderes", "tr": "diğer"},
+ },
+}
+
+# Why an item is goods at all (GOODS_*): the branches of ScorePlayerBotShopStock,
+# code: (the kinds of a, b, c; the four texts).
+DECISION_GOODS = {
+ 0: ({}, {"pl": "Wystawione, zanim zaczęto zapisywać wyjaśnienia", "en": "Listed before explanations were recorded",
+          "de": "Eingestellt, bevor Erklärungen aufgezeichnet wurden", "tr": "Açıklamalar kaydedilmeye başlanmadan önce tezgâha kondu"}),
+ 1: ({"a": "enum:POLICY"},
+     {"pl": "Operator przypisał go ladzie (reguła „{a}”)", "en": "The operator sent it to the counter (rule “{a}”)",
+      "de": "Der Betreiber hat ihn dem Ladentisch zugewiesen (Regel „{a}“)", "tr": "Operatör onu tezgâha gönderdi (kural “{a}”)"}),
+ 2: ({"a": "plus"},
+     {"pl": "Towar hazardzisty z sesji przy kowadle ({a})", "en": "A gambler's goods from its session at the anvil ({a})",
+      "de": "Ware eines Glücksspielers aus seiner Sitzung am Amboss ({a})", "tr": "Kumarbazın örs başındaki oturumundan mal ({a})"}),
+ 3: ({"a": "int", "b": "int"},
+     {"pl": "Kamienie Duchowe ponad zapas: w plecaku {a}, zapas {b}", "en": "Soul Stones over the keep: {a} in the bag, keeps {b}",
+      "de": "Seelensteine über dem Vorrat: {a} im Beutel, behält {b}", "tr": "Stok üstü Ruh Taşları: çantada {a}, saklanan {b}"}),
+ 4: ({"a": "mob"},
+     {"pl": "Marmur polimorfii ({a}) — towar, nie złom", "en": "A polymorph marble ({a}) — goods, not scrap",
+      "de": "Eine Verwandlungskugel ({a}) — Ware, kein Schrott", "tr": "Bir dönüşüm küresi ({a}) — mal, hurda değil"}),
+ 5: ({}, {"pl": "Wykrywacz metinów — bot teraz nie poluje na kamienie", "en": "A Metin detector — the bot is not hunting stones now",
+          "de": "Ein Metin-Detektor — der Bot jagt gerade keine Steine", "tr": "Bir Metin dedektörü — bot şu an taş avlamıyor"}),
+ 6: ({}, {"pl": "Suszona Głowa — dla graczy idących do Katakumb", "en": "A Dried Head — for a player's run of the Catacomb",
+          "de": "Ein getrockneter Kopf — für den Katakomben-Lauf eines Spielers", "tr": "Bir Kurutulmuş Kafa — bir oyuncunun Yeraltı Mezarı koşusu için"}),
+ 7: ({"a": "int", "b": "int"},
+     {"pl": "Kamienie bonusów ponad zapas: w plecaku {a}, zapas {b}", "en": "Bonus stones over the keep: {a} in the bag, keeps {b}",
+      "de": "Bonussteine über dem Vorrat: {a} im Beutel, behält {b}", "tr": "Stok üstü bonus taşları: çantada {a}, saklanan {b}"}),
+ 8: ({"a": "skill"},
+     {"pl": "Zwój Zapomnienia ({a}) z listy „do handlarki” — wystawia go tylko Handlarz",
+      "en": "A Forgetting Scroll ({a}) of the merchant-only list — only a Merchant lists it",
+      "de": "Eine Schriftrolle des Vergessens ({a}) von der Nur-Händler-Liste — nur ein Händler stellt sie ein",
+      "tr": "Yalnız-satıcı listesinden bir Unutma Parşömeni ({a}) — onu yalnızca Tüccar satar"}),
+ 9: ({"a": "plus", "b": "level", "c": "enum:STALKI_WHY"},
+     {"pl": "Stalka, której bot nie zatrzymuje: {a}, poziom {b} — {c}", "en": "A Stalki the bot does not keep: {a}, level {b} — {c}",
+      "de": "Eine Stalki, die der Bot nicht behält: {a}, Level {b} — {c}", "tr": "Botun tutmadığı bir Stalki: {a}, seviye {b} — {c}"}),
+ 10: ({"a": "plus", "b": "pct", "c": "plus"},
+      {"pl": "Broń 30 lv innej klasy, gotowa na sprzedaż: {a}, średnie obrażenia {b}, cel {c}",
+       "en": "A level-30 weapon of another class, ready for sale: {a}, average damage {b}, target {c}",
+       "de": "Eine Waffe Lv 30 einer anderen Klasse, verkaufsbereit: {a}, Durchschnittsschaden {b}, Ziel {c}",
+       "tr": "Başka bir sınıfın 30. seviye silahı, satışa hazır: {a}, ortalama zarar {b}, hedef {c}"}),
+ 11: ({"a": "plus", "b": "pct", "c": "enum:L30_WHY"},
+      {"pl": "Broń 30 lv niezatrzymana do kowadła: {a}, średnie obrażenia {b} — {c}",
+       "en": "A level-30 weapon not kept for the anvil: {a}, average damage {b} — {c}",
+       "de": "Eine Waffe Lv 30, nicht für den Amboss behalten: {a}, Durchschnittsschaden {b} — {c}",
+       "tr": "Örs için tutulmayan 30. seviye silah: {a}, ortalama zarar {b} — {c}"}),
+ 12: ({"a": "plus", "b": "level"},
+      {"pl": "Zbroja lub biżuteria {a} poniżej 30 lv (poziom {b}) — towar każdego bota",
+       "en": "Armour or a jewel at {a} under level 30 (level {b}) — every bot's goods",
+       "de": "Rüstung oder Schmuck {a} unter Lv 30 (Level {b}) — Ware jedes Bots",
+       "tr": "30. seviye altında {a} zırh ya da takı (seviye {b}) — her botun malı"}),
+ 13: ({"a": "plus", "b": "plus", "c": "level"},
+      {"pl": "Ekwipunek poniżej 30 lv na minimalnym ulepszeniu: {a} (próg {b}), poziom {c}",
+       "en": "Gear under level 30 at its minimum refine: {a} (threshold {b}), level {c}",
+       "de": "Ausrüstung unter Lv 30 auf Mindestverbesserung: {a} (Schwelle {b}), Level {c}",
+       "tr": "Asgari yükseltmede 30. seviye altı ekipman: {a} (eşik {b}), seviye {c}"}),
+ 14: ({"a": "plus", "b": "enum:VALUABLE"},
+      {"pl": "Nadwyżka z Listy Przydatnych Przedmiotów: {a}{b}", "en": "Surplus of the Useful Items List: {a}{b}",
+       "de": "Überschuss der Liste nützlicher Gegenstände: {a}{b}", "tr": "Faydalı Eşyalar Listesi fazlası: {a}{b}"}),
+ 15: ({"a": "apply", "b": "applyval:a"},
+      {"pl": "Cenny bonus: {a} {b}", "en": "A valuable bonus: {a} {b}", "de": "Ein wertvoller Bonus: {a} {b}", "tr": "Değerli bir bonus: {a} {b}"}),
+ 16: ({"a": "plus"},
+      {"pl": "Ekwipunek z listy „do handlarza” ({a}) — wystawia go tylko Handlarz",
+       "en": "Gear of the merchant-only list ({a}) — only a Merchant lists it",
+       "de": "Ausrüstung von der Nur-Händler-Liste ({a}) — nur ein Händler stellt sie ein",
+       "tr": "Yalnız-satıcı listesinden ekipman ({a}) — onu yalnızca Tüccar satar"}),
+ 17: ({"a": "plus", "b": "item", "c": "plus"},
+      {"pl": "Cenny zapas {a}; bot nosi {b} ({c})", "en": "A precious spare at {a}; the bot wears {b} ({c})",
+       "de": "Ein wertvolles Ersatzstück {a}; der Bot trägt {b} ({c})", "tr": "Değerli bir yedek {a}; bot {b} ({c}) giyiyor"}),
+ 18: ({"a": "int", "b": "int", "c": "enum:SCROLL_KEEP"},
+      {"pl": "Zwoje ponad zapas: {a} w plecaku, zapas {b} ({c})", "en": "Scrolls over the keep: {a} in the bag, keeps {b} ({c})",
+       "de": "Schriftrollen über dem Vorrat: {a} im Beutel, behält {b} ({c})", "tr": "Stok üstü parşömenler: çantada {a}, saklanan {b} ({c})"}),
+ 19: ({"a": "int", "b": "int", "c": "enum:MEDAL_WHY"},
+      {"pl": "Medale konne: {a} w plecaku, zapas {b} ({c})", "en": "Horse medals: {a} in the bag, keeps {b} ({c})",
+       "de": "Pferdemedaillen: {a} im Beutel, behält {b} ({c})", "tr": "At madalyaları: çantada {a}, saklanan {b} ({c})"}),
+ 20: ({"a": "int", "b": "int", "c": "int"},
+      {"pl": "Materiał, którego wiosce brakuje dla graczy: {a} w plecaku, rezerwa kowadła {b}, podaż w wiosce {c}",
+       "en": "A material the village is short of for the players: {a} in the bag, anvil reserve {b}, village supply {c}",
+       "de": "Ein Material, das dem Dorf für die Spieler fehlt: {a} im Beutel, Amboss-Reserve {b}, Angebot im Dorf {c}",
+       "tr": "Köyün oyuncular için eksik olduğu malzeme: çantada {a}, örs rezervi {b}, köydeki arz {c}"}),
+ 21: ({"a": "int", "b": "int", "c": "int"},
+      {"pl": "Materiał, którego brakuje botom: {a} w plecaku, rezerwa {b}, brakuje {c} botom",
+       "en": "A material the bots are short of: {a} in the bag, reserve {b}, {c} bots short",
+       "de": "Ein Material, das den Bots fehlt: {a} im Beutel, Reserve {b}, {c} Bots fehlt es",
+       "tr": "Botların eksik olduğu malzeme: çantada {a}, rezerv {b}, {c} botta eksik"}),
+ 22: ({"a": "int", "b": "int", "c": "enum:MAT_WHY"},
+      {"pl": "Materiał ponad rezerwę: {a} w plecaku, rezerwa {b} ({c})", "en": "A material over the reserve: {a} in the bag, reserve {b} ({c})",
+       "de": "Material über der Reserve: {a} im Beutel, Reserve {b} ({c})", "tr": "Rezerv üstü malzeme: çantada {a}, rezerv {b} ({c})"}),
+ 23: ({"a": "plus"},
+      {"pl": "Towar zebrany z ziemi (siano, marchew, księgi misji), {a}", "en": "Pickup goods (hay, carrots, mission books), {a}",
+       "de": "Aufgesammelte Ware (Heu, Karotten, Missionsbücher), {a}", "tr": "Yerden toplanan mal (saman, havuç, görev kitapları), {a}"}),
+ 24: ({}, {"pl": "Mikstura z tablicy Baek-Go ponad zapas", "en": "A potion from Baek-Go's board, over the keep",
+           "de": "Ein Trank von Baek-Gos Tafel, über dem Vorrat", "tr": "Baek-Go'nun tahtasından stok üstü bir iksir"}),
+ 25: ({}, {"pl": "Receptura przeczytana do sufitu", "en": "A recipe already read to its ceiling",
+           "de": "Ein Rezept, schon bis zur Obergrenze gelesen", "tr": "Tavanına kadar okunmuş bir tarif"}),
+ 26: ({}, {"pl": "Farba do włosów z ItemShopu", "en": "An item-shop hair dye", "de": "Ein Haarfärbemittel aus dem ItemShop", "tr": "ItemShop saç boyası"}),
+ 27: ({}, {"pl": "Farba z wody zatrzymana na sprzedaż", "en": "A dye from the water kept for sale",
+           "de": "Eine Haarfarbe aus dem Wasser, für den Verkauf behalten", "tr": "Satış için tutulan sudan çıkma boya"}),
+ 28: ({}, {"pl": "Fryzura z ItemShopu, której bot nie założy", "en": "An item-shop hairstyle the bot cannot wear",
+           "de": "Eine ItemShop-Frisur, die der Bot nicht tragen kann", "tr": "Botun takamayacağı bir ItemShop saç modeli"}),
+ 29: ({"a": "skill"},
+      {"pl": "Zwój Zapomnienia — żadna umiejętność bota na niego nie czeka ({a})",
+       "en": "A Forgetting Scroll — none of the bot's skills waits for it ({a})",
+       "de": "Eine Schriftrolle des Vergessens — keine Fertigkeit des Bots wartet darauf ({a})",
+       "tr": "Bir Unutma Parşömeni — botun hiçbir becerisi onu beklemiyor ({a})"}),
+ 30: ({"a": "int", "b": "int"},
+      {"pl": "Magiczny Pył ponad zapas: {a} w plecaku, zapas {b}", "en": "Magic Dust over the keep: {a} in the bag, keeps {b}",
+       "de": "Magischer Staub über dem Vorrat: {a} im Beutel, behält {b}", "tr": "Stok üstü Sihirli Toz: çantada {a}, saklanan {b}"}),
+ 31: ({"a": "plus", "b": "int"},
+      {"pl": "Kamień duszy {a} (rodzaj {b}) — jeden z 15 na 100 zostawionych dla rynku",
+       "en": "A spirit stone {a} (kind {b}) — one of the 15 in 100 kept for the market",
+       "de": "Ein Geiststein {a} (Art {b}) — einer der 15 von 100, die für den Markt bleiben",
+       "tr": "Bir ruh taşı {a} (tür {b}) — pazar için ayrılan 100'de 15'ten biri"}),
+ 32: ({"a": "plus", "b": "int"},
+      {"pl": "Kamień duszy {a} (rodzaj {b}), którego bot nie osadzi", "en": "A spirit stone {a} (kind {b}) the bot cannot seat",
+       "de": "Ein Geiststein {a} (Art {b}), den der Bot nicht einsetzen kann", "tr": "Botun takamayacağı bir ruh taşı {a} (tür {b})"}),
+ 33: ({"a": "int", "b": "int", "c": "enum:BOOK_USEFUL"},
+      {"pl": "Księga ogólna: {a} przed nią w plecaku, zapas {b}{c}", "en": "A general book: {a} ahead of it in the bag, keeps {b}{c}",
+       "de": "Ein allgemeines Buch: {a} davor im Beutel, behält {b}{c}", "tr": "Genel bir kitap: çantada önünde {a}, saklanan {b}{c}"}),
+ 34: ({}, {"pl": "Wyceniony z nazwy w arkuszu Iwakury", "en": "Priced by name on Iwakura's sheet",
+           "de": "Auf Iwakuras Liste namentlich bepreist", "tr": "Iwakura'nın listesinde adıyla fiyatlanmış"}),
+ 35: ({"a": "skill", "b": "int"},
+      {"pl": "Księga ({a}) na ladzie droppera metinów, zapas {b}", "en": "A book ({a}) on a Metin dropper's counter, keeps {b}",
+       "de": "Ein Buch ({a}) auf dem Ladentisch eines Metin-Droppers, behält {b}", "tr": "Metin dropper'ının tezgâhında bir kitap ({a}), saklanan {b}"}),
+ 36: ({"a": "skill", "b": "int"},
+      {"pl": "Własna księga ({a}) ponad zapas {b}", "en": "Its own book ({a}) over the keep of {b}",
+       "de": "Ein eigenes Buch ({a}) über dem Vorrat von {b}", "tr": "Kendi kitabı ({a}), {b} stoğunun üstünde"}),
+ 37: ({"a": "skill"},
+      {"pl": "Księga innej ścieżki ({a})", "en": "Another build's book ({a})", "de": "Das Buch eines anderen Wegs ({a})", "tr": "Başka bir yolun kitabı ({a})"}),
+ 38: ({"a": "plus"},
+      {"pl": "Zbroja lub biżuteria {a} — towar każdego bota", "en": "Armour or a jewel at {a} — every bot's goods",
+       "de": "Rüstung oder Schmuck {a} — Ware jedes Bots", "tr": "{a} zırh ya da takı — her botun malı"}),
+ 39: ({"a": "plus"},
+      {"pl": "Słaby ekwipunek {a} na ladzie zbieracza złomu", "en": "Low gear {a} on a scrap keeper's counter",
+       "de": "Schwache Ausrüstung {a} auf dem Ladentisch eines Schrotthändlers", "tr": "Hurdacının tezgâhında zayıf ekipman {a}"}),
+ 40: ({"a": "int", "b": "int"},
+      {"pl": "Nieotwarta szkatułka ponad zapas: {a} w plecaku, zapas {b}", "en": "An unopened chest over the hold: {a} in the bag, holds {b}",
+       "de": "Eine ungeöffnete Truhe über dem Vorrat: {a} im Beutel, behält {b}", "tr": "Stok üstü açılmamış sandık: çantada {a}, saklanan {b}"}),
+ 41: ({"a": "int", "b": "int"},
+      {"pl": "Klucz bez skrzyni ponad zapas: {a} w plecaku, zapas {b}", "en": "A key with no chest, over the keep: {a} in the bag, keeps {b}",
+       "de": "Ein Schlüssel ohne Truhe, über dem Vorrat: {a} im Beutel, behält {b}", "tr": "Sandıksız anahtar, stok üstü: çantada {a}, saklanan {b}"}),
+ # MT2009 Plus's own goods (from 200).
+ 200: ({}, {"pl": "Cor Draconis albo szarfa — towar dla graczy", "en": "A Cor Draconis or a sash — goods for the players",
+            "de": "Ein Cor Draconis oder eine Schärpe — Ware für die Spieler", "tr": "Bir Cor Draconis ya da kuşak — oyuncular için mal"}),
+ 201: ({}, {"pl": "Materiał budowlany gildii, którego gildia bota nie trzyma", "en": "A guild building material the bot's guild does not keep",
+            "de": "Ein Gildenbaumaterial, das die Gilde des Bots nicht behält", "tr": "Botun loncasının tutmadığı bir lonca yapı malzemesi"}),
+ 202: ({}, {"pl": "Kamień smoka, którego bot nie użyje", "en": "A Dragon Stone the bot has no use for",
+            "de": "Ein Drachenstein, den der Bot nicht braucht", "tr": "Botun kullanmadığı bir Ejderha Taşı"}),
+}
+
+# One step of the price (STEP_*): code: (the kind of `value` when it is not the
+# price after the step - None when it is, and the value column shows it -, the
+# kinds of a, b, c, the step's name, the step's detail).
+DECISION_STEPS = {
+ 0: (None, {}, {"pl": "Nieznany krok", "en": "Unknown step", "de": "Unbekannter Schritt", "tr": "Bilinmeyen adım"},
+     {"pl": "", "en": "", "de": "", "tr": ""}),
+ 1: ("pct", {"a": "pct", "b": "x10000", "c": "int"},
+     {"pl": "Kontekst", "en": "Context", "de": "Kontext", "tr": "Bağlam"},
+     {"pl": "krzywa {value}, stawka yang {a}, inflacja {b} (kroków: {c})", "en": "curve {value}, yang rate {a}, inflation {b} ({c} steps)",
+      "de": "Kurve {value}, Yang-Rate {a}, Inflation {b} ({c} Schritte)", "tr": "eğri {value}, yang oranı {a}, enflasyon {b} ({c} adım)"}),
+ 2: ("x100", {"a": "apply", "b": "applyval:a", "c": "enum:AT_TOP"},
+     {"pl": "Linia bonusu", "en": "Bonus line", "de": "Bonuszeile", "tr": "Bonus satırı"},
+     {"pl": "{a} {b}{c}: {value}", "en": "{a} {b}{c}: {value}", "de": "{a} {b}{c}: {value}", "tr": "{a} {b}{c}: {value}"}),
+ 3: ("x100", {"a": "int"},
+     {"pl": "Linie na maksimum", "en": "Lines at the top", "de": "Zeilen am Maximum", "tr": "En üstteki satırlar"},
+     {"pl": "linii na maksimum: {a}, mnożnik {value}", "en": "{a} lines at the top, multiplier {value}",
+      "de": "{a} Zeilen am Maximum, Faktor {value}", "tr": "en üstte {a} satır, çarpan {value}"}),
+ 4: ("pct", {"a": "x100"},
+     {"pl": "Dopłata za bonusy", "en": "Bonus premium", "de": "Bonus-Aufschlag", "tr": "Bonus primi"},
+     {"pl": "dopłata {value} (iloczyn z limitem {a})", "en": "premium {value} (capped product {a})",
+      "de": "Aufschlag {value} (begrenztes Produkt {a})", "tr": "prim {value} (sınırlı çarpım {a})"}),
+ 5: ("yang", {"a": "plus"},
+     {"pl": "Wkład u kowala", "en": "The blacksmith's bill", "de": "Rechnung des Schmieds", "tr": "Demirci faturası"},
+     {"pl": "kowal dostał {value} za drogę do {a}", "en": "the blacksmith was paid {value} on the way to {a}",
+      "de": "der Schmied bekam {value} auf dem Weg zu {a}", "tr": "demirciye {a} yolunda {value} ödendi"}),
+ 6: (None, {"a": "yang", "b": "item", "c": "plus"},
+     {"pl": "Arkusz Iwakury (ekwipunek)", "en": "Iwakura's sheet (gear)", "de": "Iwakuras Liste (Ausrüstung)", "tr": "Iwakura'nın listesi (ekipman)"},
+     {"pl": "{b}, {c}: z arkusza {a}", "en": "{b}, {c}: sheet price {a}", "de": "{b}, {c}: Listenpreis {a}", "tr": "{b}, {c}: liste fiyatı {a}"}),
+ 7: ("pct", {"a": "int"},
+     {"pl": "Osadzone kamienie", "en": "Seated stones", "de": "Eingesetzte Steine", "tr": "Takılı taşlar"},
+     {"pl": "kamieni: {a}, dopłata {value}", "en": "{a} stones, premium {value}", "de": "{a} Steine, Aufschlag {value}", "tr": "{a} taş, prim {value}"}),
+ 8: (None, {"a": "plus"},
+     {"pl": "Cena stała za plus", "en": "Flat price for the plus", "de": "Festpreis für das Plus", "tr": "Artı için sabit fiyat"},
+     {"pl": "cena stała dla {a}", "en": "flat price for {a}", "de": "Festpreis für {a}", "tr": "{a} için sabit fiyat"}),
+ 9: (None, {"a": "yang", "b": "x100"},
+     {"pl": "Złom", "en": "Scrap", "de": "Schrott", "tr": "Hurda"},
+     {"pl": "cena handlarza {a}, mnożnik {b}", "en": "merchant price {a}, multiplier {b}",
+      "de": "Händlerpreis {a}, Faktor {b}", "tr": "satıcı fiyatı {a}, çarpan {b}"}),
+ 10: (None, {"a": "yang"},
+      {"pl": "Próg wkładu", "en": "Investment floor", "de": "Investitionsuntergrenze", "tr": "Yatırım tabanı"},
+      {"pl": "podniesiona do rachunku kowala {a}", "en": "raised to the blacksmith's bill {a}",
+       "de": "auf die Rechnung des Schmieds {a} angehoben", "tr": "demirci faturasına ({a}) yükseltildi"}),
+ 11: (None, {"a": "pct"},
+      {"pl": "Premia za bonusy", "en": "Bonus premium applied", "de": "Bonusprämie", "tr": "Uygulanan bonus primi"},
+      {"pl": "premia {a}", "en": "premium {a}", "de": "Prämie {a}", "tr": "prim {a}"}),
+ 12: (None, {"a": "pctsigned", "b": "enum:PREVIEW"},
+      {"pl": "Konkurencja", "en": "Competition", "de": "Konkurrenz", "tr": "Rekabet"},
+      {"pl": "odchylenie {a}{b}", "en": "swing {a}{b}", "de": "Schwankung {a}{b}", "tr": "sapma {a}{b}"}),
+ 13: (None, {"a": "mob", "b": "enum:MARBLE_SRC"},
+      {"pl": "Arkusz Iwakury (marmur)", "en": "Iwakura's sheet (marble)", "de": "Iwakuras Liste (Kugel)", "tr": "Iwakura'nın listesi (küre)"},
+      {"pl": "{a}: {b}", "en": "{a}: {b}", "de": "{a}: {b}", "tr": "{a}: {b}"}),
+ 14: (None, {"a": "int"},
+      {"pl": "Ilość", "en": "Count", "de": "Anzahl", "tr": "Adet"},
+      {"pl": "× {a} szt.", "en": "× {a}", "de": "× {a} Stück", "tr": "× {a} adet"}),
+ 15: (None, {"a": "yang", "b": "pct"},
+      {"pl": "Punkt wyjścia: handlarz", "en": "Starting point: the merchant", "de": "Ausgangspunkt: der Händler", "tr": "Başlangıç: satıcı"},
+      {"pl": "cena handlarza {a}, narzut {b}", "en": "merchant price {a}, markup {b}", "de": "Händlerpreis {a}, Aufschlag {b}", "tr": "satıcı fiyatı {a}, kâr payı {b}"}),
+ 16: (None, {},
+      {"pl": "Punkt wyjścia: broń 30 lv", "en": "Starting point: a level-30 weapon", "de": "Ausgangspunkt: eine Waffe Lv 30", "tr": "Başlangıç: 30. seviye silah"},
+      {"pl": "", "en": "", "de": "", "tr": ""}),
+ 17: (None, {"a": "skill", "b": "yang"},
+      {"pl": "Arkusz Iwakury (księga)", "en": "Iwakura's sheet (book)", "de": "Iwakuras Liste (Buch)", "tr": "Iwakura'nın listesi (kitap)"},
+      {"pl": "{a}: z arkusza {b}", "en": "{a}: sheet price {b}", "de": "{a}: Listenpreis {b}", "tr": "{a}: liste fiyatı {b}"}),
+ 18: (None, {"a": "item"},
+      {"pl": "Arkusz Iwakury (księga ogólna)", "en": "Iwakura's sheet (general book)",
+       "de": "Iwakuras Liste (allgemeines Buch)", "tr": "Iwakura'nın listesi (genel kitap)"},
+      {"pl": "{a}", "en": "{a}", "de": "{a}", "tr": "{a}"}),
+ 19: (None, {"a": "yang"},
+      {"pl": "Arkusz Iwakury (materiał)", "en": "Iwakura's sheet (material)", "de": "Iwakuras Liste (Material)", "tr": "Iwakura'nın listesi (malzeme)"},
+      {"pl": "z arkusza {a}", "en": "sheet price {a}", "de": "Listenpreis {a}", "tr": "liste fiyatı {a}"}),
+ 20: (None, {"a": "yang", "b": "yang"},
+      {"pl": "Wartość szkatułki", "en": "Chest worth", "de": "Truhenwert", "tr": "Sandık değeri"},
+      {"pl": "z arkusza {a}, wartość zawartości {b}", "en": "sheet {a}, worth by its contents {b}",
+       "de": "Liste {a}, Wert nach Inhalt {b}", "tr": "liste {a}, içeriğe göre değer {b}"}),
+ 21: (None, {"a": "skill"},
+      {"pl": "Arkusz Iwakury (Zwój Zapomnienia)", "en": "Iwakura's sheet (Forgetting Scroll)",
+       "de": "Iwakuras Liste (Schriftrolle des Vergessens)", "tr": "Iwakura'nın listesi (Unutma Parşömeni)"},
+      {"pl": "{a}", "en": "{a}", "de": "{a}", "tr": "{a}"}),
+ 22: (None, {"a": "enum:FIXED"},
+      {"pl": "Stała cena wyjściowa", "en": "Fixed starting price", "de": "Fester Ausgangspreis", "tr": "Sabit başlangıç fiyatı"},
+      {"pl": "{a}", "en": "{a}", "de": "{a}", "tr": "{a}"}),
+ 23: (None, {"a": "plus", "b": "int", "c": "enum:GRADE_TABLE"},
+      {"pl": "Arkusz Iwakury (kamień duszy)", "en": "Iwakura's sheet (spirit stone)", "de": "Iwakuras Liste (Geiststein)", "tr": "Iwakura'nın listesi (ruh taşı)"},
+      {"pl": "{a}, rodzaj {b}{c}", "en": "{a}, kind {b}{c}", "de": "{a}, Art {b}{c}", "tr": "{a}, tür {b}{c}"}),
+ 24: (None, {},
+      {"pl": "Brak ceny handlarza", "en": "No merchant price", "de": "Kein Händlerpreis", "tr": "Satıcı fiyatı yok"},
+      {"pl": "", "en": "", "de": "", "tr": ""}),
+ 25: (None, {"a": "yang", "b": "permille", "c": "pct"},
+      {"pl": "Portfele", "en": "Wallets", "de": "Geldbörsen", "tr": "Cüzdanlar"},
+      {"pl": "mediana portfela {a}, udział {b}, wartość {c}", "en": "median wallet {a}, share {b}, worth {c}",
+       "de": "mittlere Geldbörse {a}, Anteil {b}, Wert {c}", "tr": "ortanca cüzdan {a}, pay {b}, değer {c}"}),
+ 26: ("yang", {"a": "pct"},
+      {"pl": "Limit portfela na stos", "en": "Wallet cap for the stack", "de": "Geldbörsen-Grenze für den Stapel", "tr": "Yığın için cüzdan sınırı"},
+      {"pl": "limit {value} za sztukę, stos {a}", "en": "cap {value} a unit, stack {a}",
+       "de": "Grenze {value} pro Stück, Stapel {a}", "tr": "adet başına {value} sınır, yığın {a}"}),
+ 27: (None, {"a": "yang", "b": "int"},
+      {"pl": "Pamięć sprzedaży", "en": "Sale memory", "de": "Verkaufsgedächtnis", "tr": "Satış hafızası"},
+      {"pl": "mediana zapłaconej ceny {a}, sprzedaży: {b}", "en": "median paid {a}, {b} sales",
+       "de": "Median bezahlt {a}, {b} Verkäufe", "tr": "ödenen ortanca {a}, {b} satış"}),
+ 28: (None, {"a": "int", "b": "int", "c": "x100"},
+      {"pl": "Rejestr rynku", "en": "Market ledger", "de": "Marktbuch", "tr": "Pazar defteri"},
+      {"pl": "brakuje {a} botom, na ladach {b} szt., mnożnik {c}", "en": "{a} bots short, {b} units on counters, multiplier {c}",
+       "de": "{a} Bots fehlt es, {b} Stück auf Ladentischen, Faktor {c}", "tr": "{a} botta eksik, tezgâhlarda {b} adet, çarpan {c}"}),
+ 29: (None, {"a": "yang"},
+      {"pl": "Ogranicznik kroku", "en": "Step limit", "de": "Schrittbegrenzung", "tr": "Adım sınırı"},
+      {"pl": "chciał {a}", "en": "wanted {a}", "de": "wollte {a}", "tr": "istenen {a}"}),
+ 30: (None, {"a": "pct"},
+      {"pl": "Rozrzut sprzedawcy", "en": "The keeper's spread", "de": "Spanne des Verkäufers", "tr": "Satıcı marjı"},
+      {"pl": "{a}", "en": "{a}", "de": "{a}", "tr": "{a}"}),
+ 31: (None, {"a": "yang"},
+      {"pl": "Próg dla towaru z bonusem", "en": "Floor for bonus goods", "de": "Untergrenze für Bonusware", "tr": "Bonuslu mal tabanı"},
+      {"pl": "próg {a} za sztukę", "en": "floor {a} a unit", "de": "Untergrenze {a} pro Stück", "tr": "adet başına taban {a}"}),
+ 32: (None, {},
+      {"pl": "Zaokrąglenie", "en": "Rounded", "de": "Gerundet", "tr": "Yuvarlandı"},
+      {"pl": "", "en": "", "de": "", "tr": ""}),
+ 33: (None, {"a": "pct"},
+      {"pl": "Zniżka biedaka", "en": "A poor bot's discount", "de": "Rabatt eines armen Bots", "tr": "Yoksul bot indirimi"},
+      {"pl": "zniżka {a}", "en": "discount {a}", "de": "Rabatt {a}", "tr": "indirim {a}"}),
+ 34: (None, {"a": "int", "b": "enum:CLOCK_UNIT", "c": "enum:CLOCK_RESTART"},
+      {"pl": "Zegar przeceny", "en": "Markdown clock", "de": "Preisnachlass-Uhr", "tr": "İndirim saati"},
+      {"pl": "{a} {b}{c}", "en": "{a} {b}{c}", "de": "{a} {b}{c}", "tr": "{a} {b}{c}"}),
+ 35: (None, {"a": "pct"},
+      {"pl": "Przecena", "en": "Markdown", "de": "Preisnachlass", "tr": "İndirim"},
+      {"pl": "obniżka {a}", "en": "down {a}", "de": "minus {a}", "tr": "{a} düşüş"}),
+ 36: (None, {"a": "pct", "b": "pct", "c": "int"},
+      {"pl": "Podwyżka", "en": "Markup", "de": "Preisaufschlag", "tr": "Zam"},
+      {"pl": "podwyżka {a}: brakowało w {b} przeglądów, sprzedanych linii {c}", "en": "up {a}: missing in {b} of looks, {c} lines sold",
+       "de": "plus {a}: fehlte bei {b} der Blicke, {c} Zeilen verkauft", "tr": "{a} artış: bakışların {b} kadarında yoktu, {c} satır satıldı"}),
+ 37: (None, {"a": "pct"},
+      {"pl": "Podwyżka odrzucona", "en": "Markup refused", "de": "Aufschlag abgelehnt", "tr": "Zam reddedildi"},
+      {"pl": "{a} przekroczyłoby limit yang", "en": "{a} would pass the yang limit",
+       "de": "{a} würde die Yang-Grenze überschreiten", "tr": "{a} yang sınırını aşardı"}),
+ 38: (None, {"a": "yang"},
+      {"pl": "Próg wystawienia", "en": "Listing floor", "de": "Einstell-Untergrenze", "tr": "Listeleme tabanı"},
+      {"pl": "podniesiona do progu {a}", "en": "raised to the floor {a}", "de": "auf die Untergrenze {a} angehoben", "tr": "{a} tabanına yükseltildi"}),
+ 39: (None, {"a": "yang"},
+      {"pl": "Pomyłka w cenie", "en": "Price slip", "de": "Preisfehler", "tr": "Fiyat hatası"},
+      {"pl": "miało być {a}", "en": "meant {a}", "de": "gemeint war {a}", "tr": "olması gereken {a}"}),
+ 40: (None, {"a": "enum:GENERATION"},
+      {"pl": "Pokolenie cen", "en": "Price generation", "de": "Preisgeneration", "tr": "Fiyat kuşağı"},
+      {"pl": "{a}", "en": "{a}", "de": "{a}", "tr": "{a}"}),
+ 41: (None, {"a": "yang", "b": "minutes", "c": "enum:SLIP_BY"},
+      {"pl": "Pomyłka poprawiona", "en": "Slip put right", "de": "Preisfehler korrigiert", "tr": "Fiyat hatası düzeltildi"},
+      {"pl": "było {a} przez {b}; {c}", "en": "was {a} for {b}; {c}", "de": "war {a} für {b}; {c}", "tr": "{b} boyunca {a} idi; {c}"}),
+ 42: (None, {"a": "yang"},
+      {"pl": "Podniesione do progu", "en": "Raised to the floor", "de": "Auf die Untergrenze angehoben", "tr": "Tabana yükseltildi"},
+      {"pl": "było {a}", "en": "was {a}", "de": "war {a}", "tr": "önceden {a}"}),
+ # MT2009 Plus: Cor Draconis, a Dragon Stone, a sash, the crafting goods.
+ 200: (None, {"a": "yang"},
+       {"pl": "Cena operatora", "en": "The operator's price", "de": "Preis des Betreibers", "tr": "Operatörün fiyatı"},
+       {"pl": "{a} za sztukę", "en": "{a} a unit", "de": "{a} pro Stück", "tr": "adet başına {a}"}),
+}
+
+# The listing flags (LFLAG_*), bit: texts.
+DECISION_LFLAGS = {
+ 1: {"pl": "taniej niż u handlarza", "en": "under the merchant's price", "de": "unter dem Händlerpreis", "tr": "satıcı fiyatının altında"},
+ 2: {"pl": "cenę podniósł próg", "en": "a floor lifted the price", "de": "eine Untergrenze hob den Preis", "tr": "fiyatı bir taban yükseltti"},
+ 4: {"pl": "poniżej połowy arkusza", "en": "under half of the sheet", "de": "unter der Hälfte der Liste", "tr": "listenin yarısının altında"},
+ 8: {"pl": "ponad 3× arkusz", "en": "over 3× the sheet", "de": "über dem 3-Fachen der Liste", "tr": "listenin 3 katının üstünde"},
+ 16: {"pl": "pamięć sprzedaży mocno przesunęła cenę", "en": "the sale memory pulled the price hard",
+      "de": "das Verkaufsgedächtnis zog den Preis stark", "tr": "satış hafızası fiyatı sertçe çekti"},
+ 32: {"pl": "rejestr na granicy mnożnika", "en": "the ledger at its multiplier's edge",
+      "de": "das Marktbuch am Rand seines Faktors", "tr": "defter çarpanının sınırında"},
+ 64: {"pl": "przecena na maksimum", "en": "markdown at its maximum", "de": "Preisnachlass am Maximum", "tr": "indirim en üst düzeyde"},
+ 128: {"pl": "podwyżka na maksimum", "en": "markup at its maximum", "de": "Aufschlag am Maximum", "tr": "zam en üst düzeyde"},
+ 256: {"pl": "pomyłka w cenie", "en": "price slip", "de": "Preisfehler", "tr": "fiyat hatası"},
+ 512: {"pl": "lepsze od noszonego i wkrótce do założenia", "en": "better than the worn piece and wearable soon",
+       "de": "besser als das getragene Stück und bald tragbar", "tr": "giyilenden iyi ve yakında giyilebilir"},
+ 1024: {"pl": "lada odrzuciła wyższego kandydata", "en": "a higher-ranked candidate was refused",
+        "de": "ein höher eingestufter Kandidat wurde abgelehnt", "tr": "daha üst sıradaki bir aday reddedildi"},
+ 2048: {"pl": "przecena o ponad 50%", "en": "a reprice moved it over 50%", "de": "eine Neubepreisung um über 50%", "tr": "yeniden fiyatlama %50'den fazla oynattı"},
+}
+
+# The equipment flags (EFLAG_*), bit: texts.
+DECISION_EFLAGS = {
+ 1: {"pl": "plus spadł o 2 lub więcej", "en": "the plus fell by 2 or more", "de": "das Plus fiel um 2 oder mehr", "tr": "artı 2 ya da daha fazla düştü"},
+ 2: {"pl": "niższy wymagany poziom", "en": "a lower level limit", "de": "eine niedrigere Levelgrenze", "tr": "daha düşük seviye sınırı"},
+ 4: {"pl": "gorsze bonusy niż stary", "en": "worse lines than the old piece", "de": "schlechtere Zeilen als das alte Stück", "tr": "eskisinden kötü satırlar"},
+ 8: {"pl": "zysk poniżej 2%", "en": "a gain under 2%", "de": "ein Gewinn unter 2%", "tr": "%2'nin altında kazanç"},
+ 16: {"pl": "zamiana tam i z powrotem w godzinę", "en": "swapped back within the hour",
+      "de": "innerhalb einer Stunde zurückgetauscht", "tr": "bir saat içinde geri değiştirildi"},
+ 32: {"pl": "stary wyzerowany regułą", "en": "the old piece scored 0 by a rule", "de": "das alte Stück per Regel mit 0 bewertet", "tr": "eski parça bir kuralla 0 puan aldı"},
+ 64: {"pl": "zastąpiony projekt lub nagroda", "en": "a project or a prize replaced", "de": "ein Projekt oder ein Preis ersetzt", "tr": "bir proje ya da ödül değiştirildi"},
+ 128: {"pl": "limit pominął wcześniejsze wpisy", "en": "the budget dropped rows before this one",
+       "de": "das Budget ließ davor Zeilen weg", "tr": "bütçe bundan önce satırları atladı"},
+ 256: {"pl": "po spaleniu przy ulepszaniu", "en": "after a burn at the anvil", "de": "nach einem Verbrennen am Amboss", "tr": "örste yanmadan sonra"},
+}
+
+# Which pass decided it (PATH_*), the rule it followed (RULE_*) and the moment it
+# came at (CONTEXT_*).
+DECISION_PATHS = {
+ 0: {"pl": "Nieznana ścieżka", "en": "Unknown path", "de": "Unbekannter Pfad", "tr": "Bilinmeyen yol"},
+ 1: {"pl": "Przegląd ekwipunku", "en": "The equipment pass", "de": "Der Ausrüstungsdurchlauf", "tr": "Ekipman taraması"},
+ 2: {"pl": "Pusta ręka", "en": "An empty hand", "de": "Eine leere Hand", "tr": "Boş el"},
+ 3: {"pl": "Broń awaryjna od handlarza", "en": "An emergency weapon from the merchant", "de": "Eine Notfallwaffe vom Händler", "tr": "Satıcıdan acil silah"},
+ 4: {"pl": "Zdjęcie broni niepasującej do profesji", "en": "Taking off a weapon wrong for the profession",
+     "de": "Ablegen einer Waffe, die nicht zur Lehre passt", "tr": "Beceri grubuna uymayan silahın çıkarılması"},
+ 5: {"pl": "Zdjęcie przedmiotu unikalnego", "en": "Taking off a unique item", "de": "Ablegen eines Unikats", "tr": "Eşsiz bir eşyanın çıkarılması"},
+}
+DECISION_RULES = {
+ 0: {"pl": "nieznana reguła", "en": "unknown rule", "de": "unbekannte Regel", "tr": "bilinmeyen kural"},
+ 1: {"pl": "lepszy wynik", "en": "a better score", "de": "ein besserer Wert", "tr": "daha iyi puan"},
+ 2: {"pl": "pusty slot", "en": "an empty slot", "de": "ein leerer Platz", "tr": "boş yuva"},
+ 3: {"pl": "przypięte przez właściciela towarzysza", "en": "pinned by the companion's owner",
+     "de": "vom Besitzer des Begleiters festgelegt", "tr": "yoldaşın sahibi tarafından sabitlendi"},
+ 4: {"pl": "stara broń zakazana (słaba broń od 30 lv)", "en": "the old weapon banned (a low weapon from level 30)",
+     "de": "die alte Waffe verboten (eine schwache Waffe ab Lv 30)", "tr": "eski silah yasaklı (30. seviyeden itibaren zayıf silah)"},
+ 5: {"pl": "łucznik zmienia broń na kamień", "en": "an archer's switch for a stone", "de": "Wechsel eines Bogenschützen für einen Stein", "tr": "okçunun taş için silah değişimi"},
+ 6: {"pl": "najlepsza broń do pustej ręki", "en": "the best weapon for an empty hand", "de": "die beste Waffe für eine leere Hand", "tr": "boş el için en iyi silah"},
+ 7: {"pl": "słaba broń jako ostatnie wyjście", "en": "a low weapon as the last resort", "de": "eine schwache Waffe als letzter Ausweg", "tr": "son çare olarak zayıf silah"},
+ 8: {"pl": "broń awaryjna", "en": "an emergency weapon", "de": "eine Notfallwaffe", "tr": "acil silah"},
+ 9: {"pl": "broń nie pasuje do profesji", "en": "the weapon does not fit the profession", "de": "die Waffe passt nicht zur Lehre", "tr": "silah beceri grubuna uymuyor"},
+ 10: {"pl": "unikat, którego bot nigdy nie nosi", "en": "a unique the bot never wears", "de": "ein Unikat, das der Bot nie trägt", "tr": "botun asla takmadığı eşsiz eşya"},
+}
+DECISION_CONTEXTS = {
+ 0: {"pl": "bez szczególnych okoliczności", "en": "no particular moment", "de": "kein besonderer Moment", "tr": "özel bir an değil"},
+ 1: {"pl": "po wizycie u kowala", "en": "after the blacksmith", "de": "nach dem Schmied", "tr": "demirciden sonra"},
+ 2: {"pl": "po spaleniu noszonego przedmiotu", "en": "after the worn piece burned", "de": "nachdem das getragene Stück verbrannte", "tr": "giyili parça yandıktan sonra"},
+ 3: {"pl": "tuż po wejściu do gry (do 120 s)", "en": "just after spawning (120 s or less)", "de": "direkt nach dem Erscheinen (bis 120 s)", "tr": "oyuna girdikten hemen sonra (120 sn'ye kadar)"},
+ 4: {"pl": "po zabraniu z lady", "en": "back from the counter", "de": "vom Ladentisch zurück", "tr": "tezgâhtan dönünce"},
+ 5: {"pl": "po wystawieniu noszonego przedmiotu na własną ladę", "en": "after the worn piece went on the bot's own counter",
+     "de": "nachdem das getragene Stück auf den eigenen Ladentisch kam", "tr": "giyili parça botun kendi tezgâhına konduktan sonra"},
+}
+
+# Where the new piece came from (ORIGIN_*): code: (the kind of its ref, written
+# {a}; the four texts). Anything the core took no note of is "unknown".
+DECISION_ORIGINS = {
+ 0: ({}, {"pl": "nieznane (łup, skrzynia, wymiana)", "en": "unknown (a drop, a chest, a trade)",
+          "de": "unbekannt (Beute, Truhe, Handel)", "tr": "bilinmiyor (ganimet, sandık, takas)"}),
+ 1: ({"a": "enum:LADDER_CAT"},
+     {"pl": "kupione u handlarza z drabinki ({a})", "en": "bought from the merchant, off the ladder ({a})",
+      "de": "beim Händler gekauft, nach der Leiter ({a})", "tr": "satıcıdan merdivene göre alındı ({a})"}),
+ 2: ({"a": "yang"},
+     {"pl": "kupione awaryjnie u handlarza za {a}", "en": "bought in an emergency from the merchant for {a}",
+      "de": "im Notfall beim Händler gekauft für {a}", "tr": "satıcıdan acil olarak {a} karşılığında alındı"}),
+ 3: ({"a": "yang"},
+     {"pl": "kupione u handlarza jako właściwa broń za {a}", "en": "bought from the merchant as a proper weapon for {a}",
+      "de": "beim Händler als richtige Waffe gekauft für {a}", "tr": "satıcıdan uygun silah olarak {a} karşılığında alındı"}),
+ 4: ({"a": "int"},
+     {"pl": "ulepszone u kowala z przedmiotu #{a}", "en": "refined at the anvil from item #{a}",
+      "de": "am Amboss verbessert aus Gegenstand #{a}", "tr": "örste #{a} eşyasından yükseltildi"}),
+ 5: ({"a": "int"},
+     {"pl": "zabrane z lady do założenia (zysk {a})", "en": "taken back from the counter to wear (gain {a})",
+      "de": "vom Ladentisch zum Anlegen zurückgenommen (Gewinn {a})", "tr": "giymek için tezgâhtan geri alındı (kazanç {a})"}),
+ 6: ({"a": "enum:SAFEBOX_WHY"},
+     {"pl": "wyjęte z magazynu ({a})", "en": "taken out of the safebox ({a})", "de": "aus dem Lager genommen ({a})", "tr": "depodan alındı ({a})"}),
+ 7: ({"a": "int"},
+     {"pl": "zrobione przez hazardzistę (rodzaj {a})", "en": "made by a gambler (kind {a})",
+      "de": "von einem Glücksspieler gemacht (Art {a})", "tr": "bir kumarbaz yaptı (tür {a})"}),
+}
+
+# What a piece is to its bot (ROLE_* bits).
+DECISION_ROLES = {
+ 1: {"pl": "rodzina broni 30 lv", "en": "a level-30 weapon family", "de": "Waffenfamilie Lv 30", "tr": "30. seviye silah ailesi"},
+ 2: {"pl": "broń 30 lv tej klasy", "en": "the class's level-30 weapon", "de": "die Waffe Lv 30 der Klasse", "tr": "sınıfın 30. seviye silahı"},
+ 4: {"pl": "projekt broni 30 lv", "en": "a level-30 weapon project", "de": "Projekt Waffe Lv 30", "tr": "30. seviye silah projesi"},
+ 8: {"pl": "projekt bonusów", "en": "a lines project", "de": "Bonus-Projekt", "tr": "bonus projesi"},
+ 16: {"pl": "Stalka", "en": "Stalki", "de": "Stalki", "tr": "Stalki"},
+ 32: {"pl": "Stalka zatrzymana na poziom", "en": "Stalki kept for the level", "de": "Stalki für das Level behalten", "tr": "seviye için tutulan Stalki"},
+ 64: {"pl": "zapas na wyższy stopień", "en": "a higher-tier spare", "de": "Ersatz für eine höhere Stufe", "tr": "üst kademe yedeği"},
+ 128: {"pl": "zapas", "en": "a backup", "de": "Ersatz", "tr": "yedek"},
+ 256: {"pl": "przedmiot reguły zwojów", "en": "a scroll-rule piece", "de": "Stück der Schriftrollen-Regel", "tr": "parşömen kuralı parçası"},
+ 512: {"pl": "nagroda", "en": "a prize", "de": "ein Preis", "tr": "ödül"},
+ 1024: {"pl": "biżuteria z listy", "en": "a listed jewel", "de": "gelisteter Schmuck", "tr": "listelenmiş takı"},
+ 2048: {"pl": "z kamieniami duszy", "en": "with spirit stones", "de": "mit Geiststeinen", "tr": "ruh taşlı"},
+ 4096: {"pl": "zestaw hazardzisty", "en": "a gamble set", "de": "Glücksspiel-Satz", "tr": "kumar seti"},
+ 8192: {"pl": "przypięte przez właściciela", "en": "pinned by the owner", "de": "vom Besitzer festgelegt", "tr": "sahibi sabitledi"},
+ 16384: {"pl": "zakazana słaba broń", "en": "a banned low weapon", "de": "verbotene schwache Waffe", "tr": "yasaklı zayıf silah"},
+ 32768: {"pl": "broń tylko na zwoje", "en": "a scroll-only weapon", "de": "Waffe nur mit Schriftrollen", "tr": "yalnız parşömenli silah"},
+}
+
+# The score's terms and the weapon blow's (TERM_*): code: (the divisor the value
+# is written with - BLOW and DEFENCE are x1000 -, the four names). 20..38 are
+# the blow model's own (TPlayerBotBlowParts), shown beside each other.
+DECISION_TERMS = {
+ 0: (1, {"pl": "nieznany składnik", "en": "unknown term", "de": "unbekannter Bestandteil", "tr": "bilinmeyen bileşen"}),
+ 1: (1, {"pl": "Wynik", "en": "Score", "de": "Wert", "tr": "Puan"}),
+ 2: (1000, {"pl": "Cios", "en": "Blow", "de": "Schlag", "tr": "Darbe"}),
+ 3: (1, {"pl": "Preferencja klasy", "en": "Class preference", "de": "Klassenvorliebe", "tr": "Sınıf tercihi"}),
+ 4: (1000, {"pl": "Obrona", "en": "Defence", "de": "Verteidigung", "tr": "Savunma"}),
+ 5: (1, {"pl": "Rozstrzygnięcie poziomem", "en": "Level tie-break", "de": "Entscheidung nach Level", "tr": "Seviye eşitlik bozucu"}),
+ 6: (1, {"pl": "Stałe bonusy przedmiotu", "en": "The item's fixed bonuses", "de": "Feste Boni des Gegenstands", "tr": "Eşyanın sabit bonusları"}),
+ 7: (1, {"pl": "Linie bonusów", "en": "Bonus lines", "de": "Bonuszeilen", "tr": "Bonus satırları"}),
+ 8: (1, {"pl": "Kamienie duszy", "en": "Spirit stones", "de": "Geiststeine", "tr": "Ruh taşları"}),
+ 9: (1, {"pl": "Odporności", "en": "Immunities", "de": "Immunitäten", "tr": "Bağışıklıklar"}),
+ 10: (1, {"pl": "Linie na rasy", "en": "Race lines", "de": "Rassenzeilen", "tr": "Irk satırları"}),
+ 11: (1, {"pl": "Stopień z listy Iwakury (%)", "en": "Iwakura's tier (%)", "de": "Iwakuras Stufe (%)", "tr": "Iwakura'nın kademesi (%)"}),
+ 12: (1, {"pl": "Biżuteria z listy (%)", "en": "Listed jewel (%)", "de": "Gelisteter Schmuck (%)", "tr": "Listelenmiş takı (%)"}),
+ 13: (1, {"pl": "Rodzina butów", "en": "Boots family", "de": "Schuhfamilie", "tr": "Ayakkabı ailesi"}),
+ 14: (1, {"pl": "Wymagany poziom", "en": "Level limit", "de": "Levelgrenze", "tr": "Seviye sınırı"}),
+ 15: (1, {"pl": "Plus", "en": "Plus", "de": "Plus", "tr": "Artı"}),
+ 20: (1, {"pl": "Cios (razem)", "en": "Blow (total)", "de": "Schlag (gesamt)", "tr": "Darbe (toplam)"}),
+ 21: (1, {"pl": "Rzut ataku broni", "en": "Weapon attack roll", "de": "Angriffswurf der Waffe", "tr": "Silah saldırı zarı"}),
+ 22: (1, {"pl": "Rzut ataku magicznego", "en": "Magic attack roll", "de": "Magischer Angriffswurf", "tr": "Büyü saldırı zarı"}),
+ 23: (1, {"pl": "Atak z plusa", "en": "Attack from the plus", "de": "Angriff durch das Plus", "tr": "Artıdan gelen saldırı"}),
+ 24: (1, {"pl": "Stopień", "en": "Grade", "de": "Stufe", "tr": "Derece"}),
+ 25: (1, {"pl": "Wartość ataku %", "en": "Attack value %", "de": "Angriffswert %", "tr": "Saldırı değeri %"}),
+ 26: (1, {"pl": "Silny przeciw rasie %", "en": "Strong against the race %", "de": "Stark gegen die Rasse %", "tr": "Irka karşı güçlü %"}),
+ 27: (1, {"pl": "Średnie obrażenia %", "en": "Average damage %", "de": "Durchschnittsschaden %", "tr": "Ortalama zarar %"}),
+ 28: (1, {"pl": "Obrażenia umiejętności %", "en": "Skill damage %", "de": "Fertigkeitsschaden %", "tr": "Beceri hasarı %"}),
+ 29: (1, {"pl": "Cios krytyczny %", "en": "Critical hit %", "de": "Kritischer Treffer %", "tr": "Kritik vuruş %"}),
+ 30: (1, {"pl": "Przeszywające uderzenie %", "en": "Piercing hit %", "de": "Durchbohrender Treffer %", "tr": "Delici vuruş %"}),
+ 31: (1, {"pl": "Ukryty bonus poziomu %", "en": "Hidden level bonus %", "de": "Versteckter Levelbonus %", "tr": "Gizli seviye bonusu %"}),
+ 32: (1, {"pl": "Atak", "en": "Attack", "de": "Angriff", "tr": "Saldırı"}),
+ 33: (1, {"pl": "Obrona potwora", "en": "Monster defence", "de": "Monsterverteidigung", "tr": "Canavar savunması"}),
+ 34: (1, {"pl": "Zwykłe uderzenie", "en": "Plain hit", "de": "Normaler Treffer", "tr": "Normal vuruş"}),
+ 35: (1, {"pl": "Uderzenie umiejętnością", "en": "Skill hit", "de": "Fertigkeitstreffer", "tr": "Beceri vuruşu"}),
+ 36: (1, {"pl": "Styl walki", "en": "Fighting style", "de": "Kampfstil", "tr": "Dövüş tarzı"}),
+ 37: (1, {"pl": "Udział zwykłych uderzeń", "en": "Plain-hit share", "de": "Anteil normaler Treffer", "tr": "Normal vuruş payı"}),
+ 38: (1, {"pl": "Udział umiejętności", "en": "Skill share", "de": "Fertigkeitsanteil", "tr": "Beceri payı"}),
+ 40: (1, {"pl": "Linie wg stopni (ocena)", "en": "Tiered lines score", "de": "Zeilenwert nach Stufen", "tr": "Kademeli satır puanı"}),
+}
+DECISION_BLOW_TERMS = frozenset(range(20, 39))
+# The terms that add up to a score, and of the blow the ones that move it: the
+# three with the largest change are the ones a report should start from.
+DECISION_TERM_RANKED = frozenset((2, 3, 4, 5, 6, 7, 8, 9, 10, 13))
+DECISION_BLOW_RANKED = frozenset(range(21, 36))
+
+# What the code calls each number, for the export an analyst or a language
+# model reads ("Kopiuj dla AI", exMarkdown): the words above are the page's
+# language, and these are the rules header's own names, so a report that says
+# STEP_LEDGER or RULE_SCORE_UPGRADE can be looked up in
+# playerbot_explain_rules.h and in the pass that writes it.
+# tests/admin_panel_decisions_test.py checks every one against the header.
+DECISION_CODE_NAMES = {
+ "EVENT": {
+  1: "EVENT_LIST_CREATE", 2: "EVENT_LIST_ADD", 3: "EVENT_LIST_CLASSIC", 4: "EVENT_REPRICE", 5: "EVENT_SLIP_FIX",
+  6: "EVENT_SLIP_FIX_CORE", 7: "EVENT_RAISE_TO_FLOOR", 8: "EVENT_TAKE_OFF", 9: "EVENT_RECLAIM", 10: "EVENT_SOLD",
+ },
+ "GOODS": {
+  0: "GOODS_UNKNOWN", 1: "GOODS_POLICY_STALL", 2: "GOODS_GAMBLE_GOODS", 3: "GOODS_GM_STONE_SPARE", 4: "GOODS_MARBLE",
+  5: "GOODS_METIN_DETECTOR", 6: "GOODS_CATACOMB_HEAD", 7: "GOODS_BONUS_STONE_SPARE",
+  8: "GOODS_FORGET_SCROLL_MERCHANT_ONLY", 9: "GOODS_STALKI_OTHER", 10: "GOODS_LEVEL30_SALE_READY",
+  11: "GOODS_LEVEL30_NOT_KEPT", 12: "GOODS_LOW_LEVEL_LOW_PLUS", 13: "GOODS_LOW_LEVEL_REFINED",
+  14: "GOODS_LPP_SURPLUS", 15: "GOODS_VALUABLE_BONUS", 16: "GOODS_MERCHANT_ONLY_GEAR", 17: "GOODS_PRECIOUS_SPARE",
+  18: "GOODS_SAFE_SCROLL_OVER_KEEP", 19: "GOODS_HORSE_MEDAL", 20: "GOODS_MATERIAL_FLOOR", 21: "GOODS_MATERIAL_SHORT",
+  22: "GOODS_MATERIAL_OTHER", 23: "GOODS_PICKUP_GOODS", 24: "GOODS_SURPLUS_POTION", 25: "GOODS_SURPLUS_RECIPE",
+  26: "GOODS_HAIR_DYE_SHOP", 27: "GOODS_HAIR_DYE_FISHED_KEPT", 28: "GOODS_ISHOP_HAIRSTYLE",
+  29: "GOODS_FORGET_SCROLL", 30: "GOODS_MAGIC_DUST", 31: "GOODS_SOUL_STONE_LOW_MARKET", 32: "GOODS_SOUL_STONE",
+  33: "GOODS_GENERAL_BOOK", 34: "GOODS_SHEET_GOODS", 35: "GOODS_SKILL_BOOK_DROPPER",
+  36: "GOODS_SKILL_BOOK_OWN_SPARE", 37: "GOODS_SKILL_BOOK_OTHER_CLASS", 38: "GOODS_LOW_PLUS_GEAR",
+  39: "GOODS_SCRAP_KEEPER_LOW", 40: "GOODS_SURPLUS_CHEST", 41: "GOODS_SURPLUS_KEY",
+  200: "GOODS_RARE_GOODS", 201: "GOODS_GUILD_MATERIAL", 202: "GOODS_DRAGON_STONE_SPARE",
+ },
+ "SHAPE": {
+  0: "SHAPE_WHOLE_STACK", 1: "SHAPE_NATURAL_LINE", 2: "SHAPE_POTION_PACK", 3: "SHAPE_DUST_PACK",
+  4: "SHAPE_MEDAL_PAIR", 5: "SHAPE_COUNTED_SINGLE", 6: "SHAPE_KEY_SINGLE", 7: "SHAPE_CHEST_PACK",
+  8: "SHAPE_CLASSIC_SPLIT_SINGLE",
+ },
+ "OFF": {
+  1: "OFF_LPP", 2: "OFF_SOUL_STONE_DUST", 3: "OFF_MARBLE", 4: "OFF_SAME_VNUM", 5: "OFF_MISSION_BOOKS",
+  6: "OFF_JUNK_WEAPON", 7: "OFF_POTION_PACK", 8: "OFF_LOW_ARMOUR", 9: "OFF_LOW_JEWEL", 10: "OFF_HAIR_DYE",
+  11: "OFF_LEVEL30_ANVIL", 12: "OFF_CHEST_PACK", 13: "OFF_GM_STONE", 14: "OFF_SCROLL_PACK", 15: "OFF_MEDAL_PACK",
+  16: "OFF_HEAP_PACK", 17: "OFF_MATERIAL_PACK", 18: "OFF_LOW_GEAR", 19: "OFF_TACKLE", 20: "OFF_RECLAIM_TO_WEAR",
+  200: "OFF_BUFF_POTION", 201: "OFF_DS_LOW_GRADE", 202: "OFF_SASH_KEEPER", 203: "OFF_CRAFT_EXCHANGE", 204: "OFF_RARE_UNSOLD",
+ },
+ "STEP": {
+  1: "STEP_CONTEXT", 2: "STEP_BONUS_LINE", 3: "STEP_BONUS_MAX_LINES", 4: "STEP_BONUS_PERCENT", 5: "STEP_INVESTMENT",
+  6: "STEP_SHEET_GEAR", 7: "STEP_SOCKET_STONES", 8: "STEP_FLAT_PLUS", 9: "STEP_SCRAP", 10: "STEP_INVESTMENT_FLOOR",
+  11: "STEP_BONUS_PREMIUM", 12: "STEP_COMPETITION", 13: "STEP_SHEET_MARBLE", 14: "STEP_COUNT",
+  15: "STEP_PRIOR_MERCHANT", 16: "STEP_PRIOR_LEVEL30", 17: "STEP_SHEET_BOOK", 18: "STEP_SHEET_GENERAL_BOOK",
+  19: "STEP_SHEET_MATERIAL", 20: "STEP_CHEST_WORTH", 21: "STEP_SHEET_FORGET_SCROLL", 22: "STEP_FIXED_PRIOR",
+  23: "STEP_SHEET_SOUL_STONE", 24: "STEP_NO_MERCHANT_PRIOR", 25: "STEP_WALLET", 26: "STEP_WALLET_STACK_CAP",
+  27: "STEP_SALE_MEMORY", 28: "STEP_LEDGER", 29: "STEP_STEP_LIMIT", 30: "STEP_SPREAD", 31: "STEP_BONUS_GOODS_FLOOR",
+  32: "STEP_ROUND", 33: "STEP_POOR_DISCOUNT", 34: "STEP_MARKDOWN_CLOCK", 35: "STEP_MARKDOWN", 36: "STEP_MARKUP",
+  37: "STEP_MARKUP_REFUSED", 38: "STEP_LISTING_FLOOR", 39: "STEP_SLIP", 40: "STEP_GENERATION",
+  41: "STEP_SLIP_PUT_RIGHT", 42: "STEP_RAISED_TO_FLOOR", 200: "STEP_OPERATOR_PRICE",
+ },
+ "LFLAG": {
+  1: "LFLAG_UNDER_MERCHANT", 2: "LFLAG_FLOOR_BOUND", 4: "LFLAG_UNDER_SHEET_HALF", 8: "LFLAG_OVER_SHEET_3X",
+  16: "LFLAG_MEMORY_PULL", 32: "LFLAG_REGULATOR_EDGE", 64: "LFLAG_MARKDOWN_MAX", 128: "LFLAG_MARKUP_MAX",
+  256: "LFLAG_SLIP", 512: "LFLAG_BETTER_THAN_WORN_SOON", 1024: "LFLAG_LOW_RANK", 2048: "LFLAG_PRICE_JUMP",
+ },
+ "PATH": {
+  1: "PATH_EQUIP_PASS", 2: "PATH_EMPTY_HAND", 3: "PATH_EMERGENCY_BUY", 4: "PATH_PROFESSION_OFF", 5: "PATH_UNIQUE",
+ },
+ "RULE": {
+  1: "RULE_SCORE_UPGRADE", 2: "RULE_EMPTY_SLOT", 3: "RULE_OWNER_PIN", 4: "RULE_OLD_LOW_WEAPON_BANNED",
+  5: "RULE_ARCHER_STONE_SWITCH", 6: "RULE_EMPTY_HAND_BEST", 7: "RULE_EMPTY_HAND_LOW_FALLBACK",
+  8: "RULE_EMERGENCY_WEAPON", 9: "RULE_PROFESSION_MISMATCH", 10: "RULE_UNIQUE_NEVER_WORN",
+ },
+ "CONTEXT": {
+  0: "CONTEXT_NONE", 1: "CONTEXT_AFTER_BLACKSMITH", 2: "CONTEXT_AFTER_BURN", 3: "CONTEXT_AFTER_SPAWN",
+  4: "CONTEXT_RETURNED_FROM_COUNTER", 5: "CONTEXT_WENT_TO_COUNTER",
+ },
+ "ORIGIN": {
+  0: "ORIGIN_UNKNOWN", 1: "ORIGIN_NPC_LADDER", 2: "ORIGIN_NPC_EMERGENCY", 3: "ORIGIN_NPC_PROPER_WEAPON",
+  4: "ORIGIN_REFINED", 5: "ORIGIN_RECLAIMED", 6: "ORIGIN_SAFEBOX", 7: "ORIGIN_GAMBLER",
+ },
+ "ROLE": {
+  1: "ROLE_LEVEL30_FAMILY", 2: "ROLE_CLASS_LEVEL30", 4: "ROLE_LEVEL30_PROJECT", 8: "ROLE_LINES_PROJECT",
+  16: "ROLE_STALKI", 32: "ROLE_STALKI_KEPT", 64: "ROLE_HIGHER_TIER_SPARE", 128: "ROLE_BACKUP",
+  256: "ROLE_SCROLL_RULE_PIECE", 512: "ROLE_PRIZE", 1024: "ROLE_LISTED_JEWEL", 2048: "ROLE_SOUL_STONES",
+  4096: "ROLE_GAMBLE_SET", 8192: "ROLE_OWNER_PINNED", 16384: "ROLE_BANNED_LOW_WEAPON",
+  32768: "ROLE_SCROLL_ONLY_WEAPON",
+ },
+ "TERM": {
+  1: "TERM_TOTAL", 2: "TERM_BLOW_X1000", 3: "TERM_CLASS_PREF", 4: "TERM_DEFENCE_X1000", 5: "TERM_LEVEL_TIE",
+  6: "TERM_PROTO_APPLIES", 7: "TERM_LINES", 8: "TERM_SOUL_STONES", 9: "TERM_IMMUNE", 10: "TERM_RACE_LINES",
+  11: "TERM_TIER_PCT", 12: "TERM_LISTED_JEWEL_PCT", 13: "TERM_BOOTS_FAMILY", 14: "TERM_LEVEL_LIMIT", 15: "TERM_PLUS",
+  20: "TERM_BLOW", 21: "TERM_ROLL", 22: "TERM_MAGIC_ROLL", 23: "TERM_PLUS_ATTACK", 24: "TERM_GRADE",
+  25: "TERM_ATT_PCT", 26: "TERM_RACE_PCT", 27: "TERM_AVG_PCT", 28: "TERM_SKILL_PCT", 29: "TERM_CRIT_PCT",
+  30: "TERM_PEN_PCT", 31: "TERM_LEVEL_BONUS_PCT", 32: "TERM_ATTACK", 33: "TERM_MOB_DEFENCE", 34: "TERM_HIT",
+  35: "TERM_SKILL_HIT", 36: "TERM_STYLE", 37: "TERM_HIT_SHARE", 38: "TERM_SKILL_SHARE", 40: "TERM_LINES_TIERED",
+ },
+ "EFLAG": {
+  1: "EFLAG_PLUS_DOWN", 2: "EFLAG_LEVEL_DOWN", 4: "EFLAG_LINES_WORSE", 8: "EFLAG_SMALL_GAIN", 16: "EFLAG_FLIP_FLOP",
+  32: "EFLAG_OLD_ZEROED", 64: "EFLAG_PROJECT_REPLACED", 128: "EFLAG_SUPPRESSED_BEFORE", 256: "EFLAG_AFTER_BURN",
+ },
+}
+
+
+def decision_code_name(prefix, code):
+    """The header's name of a code ("STEP_LEDGER"), or PREFIX_<n> for one a
+    newer core wrote and this panel does not know yet."""
+    code = int(code or 0)
+    return DECISION_CODE_NAMES.get(prefix, {}).get(code) or "%s_%d" % (prefix, code)
+
+
+# What the panel reads out of a row beyond the core's own flags: the mistakes
+# the explanations found on 29 September, so the next of their kind shows at a
+# glance and can be filtered for on /decisions. A weapon put on over one whose
+# modelled blow was higher (the tier nudge that overruled the blow), a level-30
+# weapon taken off for another weapon (the operator's question: is it the model
+# or a rule?), and a weapon listed as a spare while a rod or a pickaxe was in
+# the hand (the bot's own weapon on its counter after fishing). {a} is the
+# numbers that make it one.
+DECISION_ANOMALIES = {
+ "blow_down": {"pl": "słabszy cios niż zdjęta broń: {a}", "en": "a weaker blow than the weapon taken off: {a}",
+               "de": "ein schwächerer Schlag als die abgelegte Waffe: {a}", "tr": "çıkarılan silahtan zayıf darbe: {a}"},
+ "level30_off": {"pl": "broń 30 lv zastąpiona inną bronią", "en": "a level-30 weapon replaced by another weapon",
+                 "de": "eine Waffe Lv 30 durch eine andere Waffe ersetzt", "tr": "30. seviye silah başka bir silahla değiştirildi"},
+ "tool_spare": {"pl": "wystawione jako zapas, gdy w ręce było narzędzie ({a})",
+                "en": "listed as a spare while a tool was in the hand ({a})",
+                "de": "als Ersatz eingestellt, während ein Werkzeug in der Hand war ({a})",
+                "tr": "elde bir alet varken yedek olarak tezgâha kondu ({a})"},
+ "worn_listed": {"pl": "noszony przedmiot trafił na własną ladę bota", "en": "the worn piece went on the bot's own counter",
+                 "de": "das getragene Stück kam auf den eigenen Ladentisch des Bots",
+                 "tr": "giyili parça botun kendi tezgâhına kondu"},
+}
+# A rod (27400..27599 on mt2009) or a pickaxe (29101..29199) in the weapon slot.
+DECISION_TOOL_RANGES = ((27400, 27599), (29101, 29199))
+
+
+def decision_is_tool(vnum):
+    vnum = int(vnum or 0)
+    return any(low <= vnum <= high for low, high in DECISION_TOOL_RANGES)
+
+
+def _dx_anomaly(code, a, language):
+    texts = DECISION_ANOMALIES[code]
+    return {"code": code, "label": _dx_pick(texts, language).replace("{a}", a)}
+
+
+def decision_equip_anomalies(row, new_terms, old_terms, language):
+    """The anomalies of an equipment row: a change after the worn piece went on
+    the bot's own counter (CONTEXT_WENT_TO_COUNTER), a weapon swap by score
+    whose new blow (TERM_BLOW) is under the old one's, and a level-30 weapon
+    taken off for a weapon of another family."""
+    out = []
+    if int(row.get("context") or 0) == 5:
+        out.append(_dx_anomaly("worn_listed", "", language))
+    if int(row.get("wear") or 0) != 4 or not int(row.get("new_vnum") or 0) or not int(row.get("old_vnum") or 0):
+        return out
+    new_blow, old_blow = new_terms.get(20), old_terms.get(20)
+    if int(row.get("path") or 0) == 1 and int(row.get("rule") or 0) == 1 and new_blow is not None \
+            and old_blow and new_blow < old_blow:
+        change = (new_blow - old_blow) * 100.0 / old_blow
+        tier_new, tier_old = new_terms.get(11), old_terms.get(11)
+        detail = "%d → %d (%s%%)" % (old_blow, new_blow, _dx_dec(change, 1, language))
+        if tier_new is not None and tier_old is not None and tier_new != tier_old:
+            detail += "; %s %+d%% / %+d%%" % (decision_code_name("TERM", 11), tier_old, tier_new)
+        out.append(_dx_anomaly("blow_down", detail, language))
+    if int(row.get("old_roles") or 0) & 1 and not int(row.get("new_roles") or 0) & 1:
+        out.append(_dx_anomaly("level30_off", "", language))
+    return out
+
+
+def decision_listing_anomalies(row, language):
+    """The anomalies of a counter line: a spare whose "worn piece" (why_b of
+    GOODS_PRECIOUS_SPARE) was a rod or a pickaxe - the weapon the hand takes
+    back after the session, put on the counter."""
+    out = []
+    if int(row.get("why") or 0) == 17 and decision_is_tool(row.get("why_b")):
+        out.append(_dx_anomaly("tool_spare", localized_item_name(int(row.get("why_b") or 0), language), language))
+    return out
+
+
+# The steps that give a line its sheet price for one unit (their value is the
+# price after them), and the one that puts the lines' premium on it.
+DECISION_SHEET_STEPS = frozenset((6, 13, 17, 18, 19, 20, 21, 23))
+
+
+def decision_sheet_ratio(row, steps):
+    """What one unit asks against the sheet's price for it, from the steps: the
+    first sheet step's value, with STEP_BONUS_PREMIUM's after it for gear, and
+    the unit the line meant (a slip's price meant, STEP_SLIP's a). None when
+    the price came from no sheet."""
+    sheet = None
+    meant = None
+    for code, value, a, _b, _c in steps:
+        if code in DECISION_SHEET_STEPS and sheet is None:
+            sheet = value
+        elif code == 11 and sheet:
+            sheet = value
+        elif code == 39:
+            meant = a
+    count = max(1, int(row.get("count") or 0))
+    price = meant or int(row.get("list_price") or 0)
+    if not sheet or not price:
+        return None
+    return {"unit": price // count, "sheet": sheet, "ratio": float(price) / count / sheet}
 
 
 def gear_history_offline_buys(cur, pid, limit):
@@ -10301,16 +11419,16 @@ def gear_history_offline_buys(cur, pid, limit):
 # POWER and every scroll SCROLL, or nothing when the SET column dropped its
 # name). 15.09: "w nawiasie pisz (Kowal, Zwoj Blogoslawienstwa, ...)".
 REFINE_WAY_LABELS = {
-    "POWER":      {"pl": "Kowal",                 "en": "Blacksmith", "de": "Schmied", "tr": "Demirci"},
-    "GUILD":      {"pl": "Kowal gildii",          "en": "Guild blacksmith", "de": "Gildenschmied", "tr": "Lonca demircisi"},
-    "DEVILTOWER": {"pl": "Kowal w Wieży Demonów", "en": "Demon Tower blacksmith", "de": "Schmied im Dämonenturm", "tr": "Şeytan Kulesi'ndeki demirci"},
-    "SCROLL":     {"pl": "zwój",                  "en": "scroll", "de": "Schriftrolle", "tr": "parşömen"},
+    "POWER":      {"pl": "Kowal",                 "en": "Blacksmith"},
+    "GUILD":      {"pl": "Kowal gildii",          "en": "Guild blacksmith"},
+    "DEVILTOWER": {"pl": "Kowal w Wieży Demonów", "en": "Demon Tower blacksmith"},
+    "SCROLL":     {"pl": "zwój",                  "en": "scroll"},
     # The names r40250's DoRefineWithScroll writes into the same column.
-    "HYUNIRON":      {"pl": "Magiczny Kamień",    "en": "Magic Stone", "de": "Magischer Stein", "tr": "Büyülü Taş"},
-    "GOD_SCROLL":    {"pl": "Zwój Boga Smoków",   "en": "Dragon God scroll", "de": "Drachengott-Schriftrolle", "tr": "Ejderha Tanrısı Parşömeni"},
-    "MUSIN_SCROLL":  {"pl": "Zwój Boga Wojny",    "en": "War God scroll", "de": "Kriegsgott-Schriftrolle", "tr": "Savaş Tanrısı Parşömeni"},
-    "YAGONG_SCROLL": {"pl": "Podręcznik Kowala",  "en": "Blacksmith's handbook", "de": "Schmiedehandbuch", "tr": "Demirci El Kitabı"},
-    "SOCKET":        {"pl": "gniazdo",            "en": "socket", "de": "Slot", "tr": "yuva"},
+    "HYUNIRON":      {"pl": "Magiczny Kamień",    "en": "Magic Stone"},
+    "GOD_SCROLL":    {"pl": "Zwój Boga Smoków",   "en": "Dragon God scroll"},
+    "MUSIN_SCROLL":  {"pl": "Zwój Boga Wojny",    "en": "War God scroll"},
+    "YAGONG_SCROLL": {"pl": "Podręcznik Kowala",  "en": "Blacksmith's handbook"},
+    "SOCKET":        {"pl": "gniazdo",            "en": "socket"},
 }
 REFINE_HOWS = ("REFINE SUCCESS", "REFINE FAIL", "REMOVE (REFINE FAIL)")
 
@@ -10371,6 +11489,674 @@ def match_refine_ways(cur, pid, rows):
     return ways
 
 
+# ---- reading and saying the explanations -------------------------------------
+# The wear slots the card knows, by the engine's wear number, and the word the
+# live map uses for each. One map for the inventory card and the explanations.
+WEAR_SLOT_KEYS = {
+    0: "body",       # Zbroja
+    1: "head",       # Hełm
+    2: "foots",      # Buty
+    3: "wrist",      # Bransoleta
+    4: "weapon",     # Broń
+    5: "neck",       # Naszyjnik
+    6: "ear",        # Kolczyki
+    10: "shield",    # Tarcza (WEAR_SHIELD; slot 7 is WEAR_UNIQUE1)
+}
+WEAR_SLOT_WORDS = {"body": "armor", "head": "helmet", "foots": "boots", "wrist": "bracelet",
+                   "weapon": "weapon", "neck": "necklace", "ear": "earrings", "shield": "shield"}
+WEAR_UNIQUE_SLOTS = frozenset((7, 8))
+
+
+def decode_explain_pairs(text):
+    """A steps or terms column as [(code, value, a, b, c)], and whether it ends
+    in the "~" that says the core ran out of room. A part it cannot read is
+    left out rather than taking the rest with it."""
+    out, cut = [], False
+    for part in str(text or "").split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        if part == "~":
+            cut = True
+            continue
+        code, sep, rest = part.partition("=")
+        if not sep:
+            continue
+        try:
+            numbers = [int(x) for x in rest.split(":")][:4]
+            code = int(code)
+        except ValueError:
+            continue
+        numbers += [0] * (4 - len(numbers))
+        out.append((code, numbers[0], numbers[1], numbers[2], numbers[3]))
+    return out, cut
+
+
+def decode_explain_lines(text):
+    """A lines column as ([(attrtype, value)], [seated stone vnums])."""
+    lines_part, _, stones_part = str(text or "").partition("|")
+    lines = []
+    for part in lines_part.split(","):
+        kind, sep, value = part.strip().partition(":")
+        if not sep:
+            continue
+        try:
+            lines.append((int(kind), int(value)))
+        except ValueError:
+            continue
+    stones = [int(p) for p in (s.strip() for s in stones_part.split(",")) if p.isdigit()]
+    return lines, stones
+
+
+def _dx_lang(language):
+    return language if language in LANGS else "en"
+
+
+def _dx_pick(texts, language):
+    """A text of a {pl, en, de, tr} dict, English when the language has none."""
+    return texts.get(language) or texts.get("en") or ""
+
+
+def _dx_int(value):
+    """A number the way this panel writes yang: thousands apart with a space."""
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return str(value)
+    return ("-" if n < 0 else "") + "{:,}".format(abs(n)).replace(",", " ")
+
+
+def _dx_dec(value, digits, language):
+    text = ("%." + str(int(digits)) + "f") % float(value)
+    return text if language == "en" else text.replace(".", ",")
+
+
+# A mob's name for the marbles, read lazily from the world's own mob_proto and
+# kept: a counter carries three marbles at most, so this is a handful of reads.
+_MOB_NAMES = {}
+_MOB_NAME_RETRY = 600
+
+
+def localized_mob_name(vnum, language=None):
+    language = _dx_lang(language or (lang() if has_request_context() else "en"))
+    vnum = int(vnum or 0)
+    if vnum <= 0:
+        return "—"
+    known = _MOB_NAMES.get(vnum)
+    if ENGINE_MT2009 and (known is None or (not known[0] and time.time() - known[1] > _MOB_NAME_RETRY)):
+        name = ""
+        try:
+            with db() as c, c.cursor() as cur:
+                # cp1250 like every name column, and latin1 on the way out: the
+                # bytes, decoded here (see _load_item_proto).
+                cur.execute("SELECT CAST(locale_name AS BINARY) AS name FROM player.mob_proto WHERE vnum = %s",
+                            (vnum,))
+                row = cur.fetchone()
+            name = log_text(row.get("name")).strip() if row else ""
+        except Exception:
+            name = ""
+        if len(_MOB_NAMES) < 8192:
+            _MOB_NAMES[vnum] = (name, time.time())
+        known = (name, time.time())
+    return (known[0] if known else "") or map_i18n(language)["ex_mob_n"].format(n=vnum)
+
+
+def _dx_skill(skill_id, language):
+    skill_id = int(skill_id or 0)
+    if skill_id <= 0:
+        return "—"
+    name = SKILL_NAMES_BY_LANG.get(language, {}).get(skill_id) or SKILL_ID_NAMES.get(skill_id)
+    return name or map_i18n(language)["ex_skill_n"].format(n=skill_id)
+
+
+# The value slot of a bonus line's text, with what is glued to it: "+%d%%",
+# ": %d", "%.1f", "+%dm", "+%d‰".
+_DX_APPLY_SLOT = re.compile(r"\s*:?\s*\+?%(?:\.1f|d|s)(?:%%|‰|m\b)?")
+
+
+def apply_name(attr_type, language):
+    """A bonus line's name without its value ("Średnie Obrażenia")."""
+    entry = APPLY_TEXTS.get(apply_key(attr_type))
+    if not entry:
+        return "Bonus #%d" % int(attr_type or 0)
+    text = _DX_APPLY_SLOT.sub("", _dx_pick(entry[1], language)).replace("%%", "%")
+    return re.sub(r"\s{2,}", " ", text).strip(" :")
+
+
+def apply_value_text(attr_type, value, language):
+    """A bonus line's value in its own unit, for beside apply_name."""
+    entry = APPLY_TEXTS.get(apply_key(attr_type))
+    fmt = entry[0] if entry else "flat"
+    value = int(value or 0)
+    if fmt == "boolean":
+        return ""
+    if fmt == "multiplier":
+        return "×" + _dx_dec(value, 1, language)
+    if fmt in ("percent", "percent_decimal"):
+        return "%s%d%%" % ("+" if value > 0 else "", value)
+    return "%s%d" % ("+" if value > 0 else "", value)
+
+
+def format_apply(attr_type, value, language):
+    """A whole bonus line as the tooltip's formatApply writes it."""
+    entry = APPLY_TEXTS.get(apply_key(attr_type))
+    value = int(value or 0)
+    if not entry:
+        return "Bonus #%d: %s%d" % (int(attr_type or 0), "+" if value > 0 else "", value)
+    fmt, texts = entry
+    text = _dx_pick(texts, language)
+    if fmt == "boolean":
+        return text
+    shown = _dx_dec(value, 1, "en") if fmt in ("multiplier", "percent_decimal") else str(value)
+
+    def slot(match):
+        if not match.group(0).startswith("+") or value < 0:
+            return shown
+        return "+" + shown
+    return re.sub(r"\+?%(?:\.1f|d|s)", slot, text, count=1).replace("%%", "%").strip()
+
+
+def _dx_param(kind, raw, params, language):
+    """One number of a code, written by its kind:
+    int, yang - a count or a price, thousands apart;
+    plus - "+7"; level - a bare number; pct, pctsigned, permille;
+    x100, x10000 - a multiplier stored as an integer ("×1,04");
+    minutes; item, skill, mob - a name; apply - a bonus line's name, and
+    applyval:<param> - its value in that line's unit;
+    enum:<NAME> - a word of DECISION_ENUMS."""
+    try:
+        raw = int(raw or 0)
+    except (TypeError, ValueError):
+        return str(raw)
+    if kind in ("int", "yang"):
+        return _dx_int(raw)
+    if kind == "plus":
+        return "+%d" % raw
+    if kind == "level":
+        return str(raw)
+    if kind == "pct":
+        return "%d%%" % raw
+    if kind == "pctsigned":
+        return ("+%d%%" % raw) if raw > 0 else ("%d%%" % raw)
+    if kind == "permille":
+        return "%d‰" % raw
+    if kind == "x100":
+        return "×" + _dx_dec(raw / 100.0, 2, language)
+    if kind == "x10000":
+        return "×" + _dx_dec(raw / 10000.0, 4, language)
+    if kind == "minutes":
+        return "%d %s" % (raw, _dx_pick(T["unit_min"], language))
+    if kind == "item":
+        return localized_item_name(raw, language) if raw > 0 else "—"
+    if kind == "skill":
+        return _dx_skill(raw, language)
+    if kind == "mob":
+        return localized_mob_name(raw, language)
+    if kind == "apply":
+        return apply_name(raw, language) if raw else "—"
+    if kind.startswith("applyval:"):
+        return apply_value_text(params.get(kind[len("applyval:"):], 0), raw, language)
+    if kind.startswith("enum:"):
+        entry = DECISION_ENUMS.get(kind[len("enum:"):], {}).get(raw)
+        return _dx_pick(entry, language) if entry else str(raw)
+    return str(raw)
+
+
+_DX_SLOT = re.compile(r"\{(a|b|c|value)\}")
+
+
+def _dx_fill(template, kinds, raw, language):
+    """A template with {a} {b} {c} {value} written from raw by their kinds."""
+    def one(match):
+        name = match.group(1)
+        return _dx_param(kinds.get(name, "int"), raw.get(name, 0), raw, language)
+    return _DX_SLOT.sub(one, template)
+
+
+def _dx_unknown(code, raw, language):
+    """A code this panel has no words for (a newer core's): said as a number
+    with its parameters, so a report still carries it."""
+    params = ", ".join("%s=%s" % (k, raw[k]) for k in ("value", "a", "b", "c") if raw.get(k))
+    return map_i18n(language)["ex_code_n"].format(n=code) + (" (" + params + ")" if params else "")
+
+
+def decision_label(table, code, language):
+    """The words of a code of one of the plain tables."""
+    entry = table.get(int(code or 0))
+    return _dx_pick(entry, language) if entry else _dx_unknown(code, {}, language)
+
+
+def decision_goods_text(code, a, b, c, language):
+    entry = DECISION_GOODS.get(int(code or 0))
+    raw = {"a": a or 0, "b": b or 0, "c": c or 0}
+    if not entry:
+        return _dx_unknown(code, raw, language)
+    kinds, texts = entry
+    return _dx_fill(_dx_pick(texts, language), kinds, raw, language)
+
+
+def decision_origin_text(code, ref, language):
+    entry = DECISION_ORIGINS.get(int(code or 0))
+    raw = {"a": ref or 0}
+    if not entry:
+        return _dx_unknown(code, raw, language)
+    kinds, texts = entry
+    return _dx_fill(_dx_pick(texts, language), kinds, raw, language)
+
+
+def _dx_change(before, after, language):
+    """How a step moved the price: a percentage, or a multiple when it is large."""
+    if not before or before == after:
+        return "=" if before else ""
+    ratio = float(after) / float(before)
+    if ratio >= 2.0 or ratio <= 0.5:
+        return "×" + _dx_dec(ratio, 2, language)
+    change = (ratio - 1.0) * 100.0
+    return ("+" if change > 0 else "") + _dx_dec(change, 1, language) + "%"
+
+
+def decision_step_rows(text, language):
+    """A steps column as rows of name, detail, effect on the price, and the
+    price after the step; and whether the column was cut."""
+    steps, cut = decode_explain_pairs(text)
+    rows, running = [], None
+    for code, value, a, b, c in steps:
+        raw = {"value": value, "a": a, "b": b, "c": c}
+        entry = DECISION_STEPS.get(code)
+        if entry:
+            value_kind, kinds, names, details = entry
+            kinds = dict(kinds)
+            if value_kind:
+                kinds["value"] = value_kind
+            label = _dx_pick(names, language)
+            detail = _dx_fill(_dx_pick(details, language), kinds, raw, language)
+        else:
+            # A step of a newer core: its value is most likely the price.
+            value_kind, label, detail = None, _dx_unknown(code, {}, language), _dx_unknown(code, raw, language)
+        effect = shown = ""
+        if value_kind is None:
+            shown = _dx_int(value)
+            effect = _dx_change(running, value, language) if running is not None else ""
+            running = value
+        rows.append({"code": code, "name": decision_code_name("STEP", code), "label": label, "detail": detail,
+                     "effect": effect, "value": shown})
+    return rows, cut
+
+
+def decision_flags(flags, table, unusual_mask, language, prefix=None):
+    """The flag badges of a row, each marked when it is one of the unusual,
+    with the header's name of the flag when the table's prefix is given."""
+    flags = int(flags or 0)
+    out = []
+    bit = 1
+    while bit <= flags:
+        if flags & bit:
+            entry = table.get(bit)
+            badge = {"code": bit, "label": _dx_pick(entry, language) if entry else "#%d" % bit,
+                     "unusual": bool(bit & unusual_mask)}
+            if prefix:
+                badge["name"] = decision_code_name(prefix, bit)
+            out.append(badge)
+        bit <<= 1
+    return out
+
+
+def decision_roles(roles, language):
+    roles = int(roles or 0)
+    out = []
+    bit = 1
+    while bit <= roles:
+        if roles & bit:
+            entry = DECISION_ROLES.get(bit)
+            out.append(_dx_pick(entry, language) if entry else "#%d" % bit)
+        bit <<= 1
+    return out
+
+
+def _dx_time(value, seconds=True):
+    if hasattr(value, "strftime"):
+        return value.strftime("%d.%m %H:%M:%S" if seconds else "%d.%m %H:%M")
+    return str(value or "")
+
+
+def listing_codes(row):
+    """A counter line's row as one line of numbers, for a report."""
+    g = lambda k: row.get(k) if row.get(k) is not None else 0
+    return ("L1 id=%s pid=%s v=%s n=%s ev=%s sr=%s why=%s:%s:%s:%s sc=%s rk=%s/%s rf=%s cut=%s:%s:%s held=%s "
+            "lp=%s ls=%s p=%s was=%s le=%s lst=%s ch=%s off=%s sold=%s f=%s at=%s/%s") % (
+        g("item_id"), g("pid"), g("vnum"), g("count"), g("list_event"), g("stand_reason"),
+        g("why"), g("why_a"), g("why_b"), g("why_c"), g("score"), g("pick_rank"), g("candidates"),
+        g("refused_above"), g("cut_shape"), g("cut_from"), g("cut_keep"), g("held"), g("list_price"),
+        row.get("list_steps") or "-", g("price"), g("was"), g("last_event"), row.get("last_steps") or "-",
+        g("changes"), g("off_reason"), g("sold_price"), g("flags"),
+        _dx_time(row.get("listed_at")).replace(" ", "_"), _dx_time(row.get("last_at")).replace(" ", "_"))
+
+
+def equip_codes(row):
+    """An equipment decision's row as one line of numbers, for a report."""
+    g = lambda k: row.get(k) if row.get(k) is not None else 0
+    return ("E1 id=%s t=%s pid=%s lv=%s w=%s path=%s rule=%s ctx=%s new=%s:%s:+%s:%s:%s:%s:%s nl=%s nt=%s "
+            "old=%s:%s:+%s:%s:%s ol=%s ot=%s sup=%s f=%s") % (
+        g("id"), _dx_time(row.get("time")).replace(" ", "_"), g("pid"), g("level"), g("wear"), g("path"),
+        g("rule"), g("context"), g("new_id"), g("new_vnum"), g("new_plus"), g("new_score"), g("new_roles"),
+        g("new_origin"), g("new_origin_ref"), row.get("new_lines") or "-", row.get("new_terms") or "-",
+        g("old_id"), g("old_vnum"), g("old_plus"), g("old_score"), g("old_roles"),
+        row.get("old_lines") or "-", row.get("old_terms") or "-", g("suppressed"), g("flags"))
+
+
+LISTING_CHANGE_EVENTS = frozenset((4, 5, 6, 7))
+LISTING_END_EVENTS = frozenset((8, 9, 10))
+
+
+def explain_listing(row, language, counter_price=None):
+    """One counter line's row of log.playerbot_listing, said in the page's
+    language: why it is goods and on this counter, how it was picked and cut,
+    the price step by step, what happened to it since, its flags, and the raw
+    codes for a report. counter_price is what the line asks now, when known."""
+    language = _dx_lang(language)
+    m = map_i18n(language)
+    count = int(row.get("count") or 0)
+    result = {"kind": "listing", "item_id": int(row.get("item_id") or 0), "pid": int(row.get("pid") or 0),
+              "vnum": int(row.get("vnum") or 0), "count": count}
+    goods = decision_goods_text(row.get("why"), row.get("why_a"), row.get("why_b"), row.get("why_c"), language)
+    if int(row.get("score") or 0):
+        goods += " · " + m["ex_score"].format(score=_dx_int(row.get("score")))
+    result["goods"] = goods
+    stand = int(row.get("stand_reason") or 0)
+    result["stand"] = m["ex_stand"].format(reason=decision_label(DECISION_STAND, stand, language)) if stand else ""
+    candidates = int(row.get("candidates") or 0)
+    pick = ""
+    if candidates:
+        # pick_rank is the index among the scored candidates, 0 the first.
+        pick = m["ex_pick"].format(rank=int(row.get("pick_rank") or 0) + 1, n=candidates)
+        if int(row.get("refused_above") or 0):
+            pick += m["ex_pick_refused"].format(k=int(row.get("refused_above") or 0))
+    result["pick"] = pick
+    cut = ""
+    if int(row.get("cut_from") or 0):
+        cut = m["ex_cut"].format(shape=decision_label(DECISION_SHAPES, row.get("cut_shape"), language),
+                                 whole=_dx_int(row.get("cut_from")), take=_dx_int(count),
+                                 keep=_dx_int(row.get("cut_keep")))
+    if int(row.get("held") or 0):
+        cut += ("; " if cut else "") + m["ex_held"].format(held=_dx_int(row.get("held")))
+    result["cut"] = cut
+    list_event = int(row.get("list_event") or 0)
+    list_price = int(row.get("list_price") or 0)
+    result["listed_time"] = _dx_time(row.get("listed_at"))
+    result["listed"] = " · ".join(p for p in (
+        decision_label(DECISION_EVENTS, list_event, language) if list_event else "",
+        result["listed_time"],
+        m["ex_list_price"].format(price=_dx_int(list_price)) if list_price else "") if p)
+    result["steps"], result["steps_cut"] = decision_step_rows(row.get("list_steps"), language)
+    last_event = int(row.get("last_event") or 0)
+    result["last_time"] = _dx_time(row.get("last_at"))
+    result["last"] = None
+    if last_event in LISTING_CHANGE_EVENTS:
+        steps, steps_cut = decision_step_rows(row.get("last_steps"), language)
+        line = m["ex_was_now"].format(was=_dx_int(row.get("was")), now=_dx_int(row.get("price")))
+        if int(row.get("changes") or 0):
+            line += " · " + m["ex_changes"].format(n=int(row.get("changes") or 0))
+        result["last"] = {"title": decision_label(DECISION_EVENTS, last_event, language) + " · " + result["last_time"],
+                          "line": line, "steps": steps, "steps_cut": steps_cut}
+    result["end"] = ""
+    if last_event in LISTING_END_EVENTS:
+        if last_event == 10:
+            end = m["ex_end_sold"].format(price=_dx_int(row.get("sold_price")))
+        else:
+            end = m["ex_end_off"].format(reason=decision_label(DECISION_OFF, row.get("off_reason"), language))
+        result["end"] = end + " · " + result["last_time"]
+    explained = int(row.get("price") or 0) or list_price
+    result["price"] = _dx_int(explained) if explained else ""
+    result["price_note"] = ""
+    if counter_price is not None and explained and int(counter_price or 0) != explained \
+            and last_event not in LISTING_END_EVENTS:
+        result["price_note"] = m["ex_price_differs"].format(now=_dx_int(counter_price), explained=_dx_int(explained))
+    flags = int(row.get("flags") or 0)
+    result["flags"] = decision_flags(flags, DECISION_LFLAGS, DECISION_LISTING_UNUSUAL, language, "LFLAG")
+    result["unusual"] = bool(flags & DECISION_LISTING_UNUSUAL)
+    result["codes"] = listing_codes(row)
+    # For the export: the header's names of what the row says, the anomalies
+    # the panel reads out of it, and the unit against the sheet.
+    result["names"] = {"goods": decision_code_name("GOODS", row.get("why")),
+                       "list_event": decision_code_name("EVENT", list_event) if list_event else "",
+                       "last_event": decision_code_name("EVENT", last_event) if last_event else "",
+                       "off": decision_code_name("OFF", row.get("off_reason"))
+                       if last_event in LISTING_END_EVENTS and last_event != 10 else ""}
+    result["anomalies"] = decision_listing_anomalies(row, language)
+    ratio = decision_sheet_ratio(row, decode_explain_pairs(row.get("list_steps"))[0])
+    result["sheet"] = m["ex_sheet_ratio"].format(unit=_dx_int(ratio["unit"]), sheet=_dx_int(ratio["sheet"]),
+                                                 ratio="×" + _dx_dec(ratio["ratio"], 2, language)) if ratio else ""
+    return result
+
+
+def _dx_wear_label(wear, language):
+    m = map_i18n(language)
+    key = WEAR_SLOT_KEYS.get(int(wear or 0))
+    if key:
+        return m[WEAR_SLOT_WORDS[key]]
+    if int(wear or 0) in WEAR_UNIQUE_SLOTS:
+        return m["ex_wear_unique"]
+    return m["ex_wear_slot"].format(n=int(wear or 0))
+
+
+def _dx_piece(row, side, language):
+    """The new or the old piece of an equipment row."""
+    item_id = int(row.get(side + "_id") or 0)
+    vnum = int(row.get(side + "_vnum") or 0)
+    if not item_id and not vnum:
+        return None
+    lines, stones = decode_explain_lines(row.get(side + "_lines"))
+    return {"id": item_id, "vnum": vnum,
+            "name": localized_item_name(vnum, language) if vnum else "#%d" % item_id,
+            "plus": int(row.get(side + "_plus") or 0),
+            "score": _dx_int(row.get(side + "_score") or 0),
+            "roles": decision_roles(row.get(side + "_roles"), language),
+            "lines": [format_apply(kind, value, language) for kind, value in lines],
+            "stones": [localized_item_name(v, language) for v in stones]}
+
+
+def _dx_term_value(value, scale, language):
+    if value is None:
+        return "—"
+    if scale == 1:
+        return _dx_int(value)
+    return _dx_dec(float(value) / scale, 1, language)
+
+
+def _dx_term_rows(codes, new_terms, old_terms, ranked, has_old, language):
+    """The old/new/delta rows of some terms, the three largest changes among
+    the ranked ones marked `top`."""
+    rows = []
+    for code in codes:
+        entry = DECISION_TERMS.get(code)
+        scale = entry[0] if entry else 1
+        new, old = new_terms.get(code), old_terms.get(code) if has_old else None
+        delta = None
+        if has_old and (new is not None or old is not None):
+            delta = (new or 0) - (old or 0)
+        rows.append({"code": code, "name": decision_code_name("TERM", code),
+                     "label": _dx_pick(entry[1], language) if entry else _dx_unknown(code, {}, language),
+                     "old": _dx_term_value(old, scale, language), "new": _dx_term_value(new, scale, language),
+                     "delta": "" if not delta else (("+" if delta > 0 else "") + _dx_term_value(delta, scale, language)),
+                     "top": False, "_delta": abs(delta or 0) if code in ranked else 0})
+    for row in sorted((r for r in rows if r["_delta"]), key=lambda r: -r["_delta"])[:3]:
+        row["top"] = True
+    for row in rows:
+        del row["_delta"]
+    return rows
+
+
+def explain_equip(row, language):
+    """One row of log.playerbot_equip, said in the page's language: which pass
+    and rule, when, the two pieces with their roles and lines, where the new
+    one came from, the score's terms old against new with the three that moved
+    it most, the weapon's blow beside each other, the flags, the raw codes."""
+    language = _dx_lang(language)
+    m = map_i18n(language)
+    new, old = _dx_piece(row, "new", language), _dx_piece(row, "old", language)
+    path = decision_label(DECISION_PATHS, row.get("path"), language)
+    rule = decision_label(DECISION_RULES, row.get("rule"), language)
+    context = int(row.get("context") or 0)
+    result = {"kind": "equip", "id": int(row.get("id") or 0), "pid": int(row.get("pid") or 0),
+              "time": _dx_time(row.get("time")),
+              "title": m["ex_title_equip"] if new else m["ex_title_unequip"],
+              "path": path, "rule": rule, "summary": path + " · " + rule,
+              "context": decision_label(DECISION_CONTEXTS, context, language) if context else "",
+              "slot": m["ex_level_slot"].format(level=int(row.get("level") or 0),
+                                                slot=_dx_wear_label(row.get("wear"), language)),
+              "origin": decision_origin_text(row.get("new_origin"), row.get("new_origin_ref"), language) if new else "",
+              "new": new, "old": old}
+    new_score, old_score = int(row.get("new_score") or 0), int(row.get("old_score") or 0)
+    result["gain"] = ""
+    if new and old and old_score > 0:
+        change = (new_score - old_score) * 100.0 / old_score
+        result["gain"] = ("+" if change > 0 else "") + _dx_dec(change, 1, language) + "%"
+    new_terms = {code: value for code, value, _a, _b, _c in decode_explain_pairs(row.get("new_terms"))[0]}
+    old_terms = {code: value for code, value, _a, _b, _c in decode_explain_pairs(row.get("old_terms"))[0]}
+    codes = sorted(set(new_terms) | set(old_terms))
+    result["terms"] = _dx_term_rows([c for c in codes if c not in DECISION_BLOW_TERMS], new_terms, old_terms,
+                                    DECISION_TERM_RANKED, bool(old), language)
+    result["blow"] = _dx_term_rows([c for c in codes if c in DECISION_BLOW_TERMS], new_terms, old_terms,
+                                   DECISION_BLOW_RANKED, bool(old), language)
+    flags = int(row.get("flags") or 0)
+    result["flags"] = decision_flags(flags, DECISION_EFLAGS, DECISION_EQUIP_UNUSUAL, language, "EFLAG")
+    result["unusual"] = bool(flags & DECISION_EQUIP_UNUSUAL)
+    suppressed = int(row.get("suppressed") or 0)
+    result["suppressed"] = m["ex_suppressed"].format(n=suppressed) if suppressed else ""
+    result["codes"] = equip_codes(row)
+    # For the export: the header's names, the level the bot had then, and
+    # what the panel reads out of the row beyond the core's flags.
+    result["names"] = {"path": decision_code_name("PATH", row.get("path")),
+                       "rule": decision_code_name("RULE", row.get("rule")),
+                       "context": decision_code_name("CONTEXT", context),
+                       "origin": decision_code_name("ORIGIN", row.get("new_origin")) if new else ""}
+    for side, piece in (("new", new), ("old", old)):
+        if piece:
+            roles = int(row.get(side + "_roles") or 0)
+            piece["role_names"] = [decision_code_name("ROLE", bit) for bit in (1 << k for k in range(16)) if roles & bit]
+    result["level"] = int(row.get("level") or 0)
+    result["anomalies"] = decision_equip_anomalies(row, new_terms, old_terms, language)
+    return result
+
+
+def _explain_rows(cur, sql, params):
+    """The rows of one of the two explanation tables and whether the table is
+    there: "ok", "missing" (MySQL's 1146: a world from before them, or a core
+    that has not created them yet) or "error". Never raises - an explanation
+    that cannot be read is no explanation, not a page that fails."""
+    try:
+        cur.execute(sql, params)
+        return list(cur.fetchall()), "ok"
+    except Exception as e:
+        code = e.args[0] if getattr(e, "args", None) else None
+        if code == 1146:
+            return [], "missing"
+        app.logger.warning("explanations: %s", e)
+        return [], "error"
+
+
+def _explain_state(*states):
+    """One state for several reads: missing only when every table is."""
+    states = [s for s in states if s]
+    if not states:
+        return "ok"
+    if all(s == "missing" for s in states):
+        return "missing"
+    if "ok" in states:
+        return "ok"
+    return states[0]
+
+
+def gear_history_equip_entry(row, language, messages, lang_key):
+    """An equipment decision as a line of the gear history, with its why."""
+    why = explain_equip(row, language)
+    t = row.get("time")
+    if why["new"]:
+        labels = GEAR_HISTORY_HOWS["PLAYERBOT_EQUIP"][1]
+        entry = {"kind": "equip", "label": labels.get(lang_key, labels["en"]), "item": why["new"]["name"],
+                 "detail": messages["gh_instead"].format(item=why["old"]["name"]) if why["old"] else ""}
+    else:
+        entry = {"kind": "unequip", "label": messages["gh_unequipped"],
+                 "item": why["old"]["name"] if why["old"] else "", "detail": ""}
+    entry.update({"time": _dx_time(t, seconds=False), "why": why, "unusual": why["unusual"]})
+    return (t, entry)
+
+
+def gear_history_listing_entry(row, language, messages):
+    """A counter line's last event as a line of the gear history, with its why."""
+    why = explain_listing(row, language)
+    event = int(row.get("last_event") or 0) or int(row.get("list_event") or 0)
+    count = int(row.get("count") or 0)
+    vnum = int(row.get("vnum") or 0)
+    if event == 10:
+        # The label already says "Sold": the line carries what it sold for.
+        detail = messages["ex_price"].format(price=_dx_int(row.get("sold_price")))
+    elif event in LISTING_END_EVENTS:
+        detail = decision_label(DECISION_OFF, row.get("off_reason"), language)
+    else:
+        detail = messages["ex_price"].format(price=why["price"]) if why["price"] else ""
+    t = row.get("last_at") or row.get("listed_at")
+    return (t, {"time": _dx_time(t, seconds=False), "kind": "listing",
+                "label": decision_label(DECISION_EVENTS, event, language),
+                "item": (localized_item_name(vnum, language) if vnum else "#%d" % why["item_id"]) +
+                        (" x%d" % count if count > 1 else ""),
+                "detail": detail, "why": why, "unusual": why["unusual"]})
+
+
+def attach_equip_explanations(entries, equip_log, equip_rows, floor, language, messages, lang_key):
+    """Give each PLAYERBOT_EQUIP line of log.log its explanation: the row of
+    log.playerbot_equip for the same new item id written within five seconds
+    (the closest when a pair was swapped back and forth). A row with no twin -
+    an empty hand, an emergency weapon, a piece taken off - is a line of its
+    own; one older than the oldest line read (`floor`) is left out, because
+    its twin was simply not read."""
+    used = set()
+    for index, t, what in equip_log:
+        best, best_gap = None, None
+        for j, er in enumerate(equip_rows):
+            if j in used or int(er.get("new_id") or 0) != what or not hasattr(er.get("time"), "strftime"):
+                continue
+            gap = abs((er["time"] - t).total_seconds())
+            if gap <= 5 and (best_gap is None or gap < best_gap):
+                best, best_gap = j, gap
+        if best is not None:
+            used.add(best)
+            why = explain_equip(equip_rows[best], language)
+            entries[index][1]["why"] = why
+            entries[index][1]["unusual"] = why["unusual"]
+    slack = datetime.timedelta(seconds=5)
+    for j, er in enumerate(equip_rows):
+        if j in used:
+            continue
+        t = er.get("time")
+        if floor is not None and hasattr(t, "strftime") and t < floor - slack:
+            continue
+        entries.append(gear_history_equip_entry(er, language, messages, lang_key))
+
+
+def gear_history_decisions(cur, pid, limit, unusual, language, messages, lang_key):
+    """The card's decisions tab: the bot's equipment decisions and its counter
+    lines by their last event, newest first. Unusual only filters in SQL, so the
+    limit counts the rows that are shown."""
+    equip_sql = "SELECT * FROM log.playerbot_equip WHERE pid = %s"
+    listing_sql = "SELECT * FROM log.playerbot_listing WHERE pid = %s"
+    equip_args, listing_args = [pid], [pid]
+    if unusual:
+        equip_sql += " AND (flags & %s) <> 0"
+        listing_sql += " AND (flags & %s) <> 0"
+        equip_args.append(DECISION_EQUIP_UNUSUAL)
+        listing_args.append(DECISION_LISTING_UNUSUAL)
+    # pid_time_idx and pid_last_idx carry these orders; LIMIT keeps it cheap.
+    equip_rows, equip_state = _explain_rows(cur, equip_sql + " ORDER BY `time` DESC, id DESC LIMIT %s",
+                                            tuple(equip_args + [limit]))
+    listing_rows, listing_state = _explain_rows(cur, listing_sql + " ORDER BY last_at DESC LIMIT %s",
+                                                tuple(listing_args + [limit]))
+    entries = [gear_history_equip_entry(r, language, messages, lang_key) for r in equip_rows]
+    entries += [gear_history_listing_entry(r, language, messages) for r in listing_rows]
+    entries.sort(key=lambda e: e[0] if hasattr(e[0], "strftime") else datetime.datetime.min, reverse=True)
+    return entries[:limit], _explain_state(equip_state, listing_state)
+
+
 @app.route("/api/bot_gear_history/<int:pid>")
 def api_bot_gear_history(pid):
     language = lang()
@@ -10381,19 +12167,33 @@ def api_bot_gear_history(pid):
     except (TypeError, ValueError):
         limit = 60
     tab = request.args.get("tab", "all")
+    # Only the lines that carry an explanation whose flags are unusual (the
+    # rules header's masks) - the card's "Tylko nietypowe".
+    unusual = request.args.get("unusual", "") in ("1", "true", "on")
     hows = list(GEAR_HISTORY_TABS[tab]) if tab in GEAR_HISTORY_TABS else list(GEAR_HISTORY_HOWS.keys())
     marks = ",".join(["%s"] * len(hows))
     try:
         with db() as c, c.cursor() as cur:
+            # The decisions tab: what the core explained, equipment and counter
+            # lines together. The explanations are mt2009's alone; r40250 shows
+            # none and asks for none.
+            if tab == "decisions":
+                if not ENGINE_MT2009:
+                    return jsonify({"ok": True, "pid": pid, "tab": tab, "rows": [], "explain_state": "off"})
+                entries, state = gear_history_decisions(cur, pid, limit, unusual, language, messages, lang_key)
+                return jsonify({"ok": True, "pid": pid, "tab": tab, "rows": [row for _, row in entries],
+                                "explain_state": state})
             # `who` is indexed; the IN list keeps the loot noise (GET, SET_SOCKET,
-            # GET_GOLD - millions of rows) out of the scan.
+            # GET_GOLD - millions of rows) out of the scan. `what` is the item's
+            # id, which is how an equip line finds its explanation.
             cur.execute(
-                "SELECT time, how, hint, vnum FROM log.log "
+                "SELECT time, how, hint, vnum, what FROM log.log "
                 "WHERE who = %s AND how IN (" + marks + ") "
                 "ORDER BY time DESC LIMIT %s",
                 tuple([pid] + hows + [limit]),
             )
             raw = list(cur.fetchall())
+            equip_log = []
             ways = match_refine_ways(cur, pid, raw)
             # A scroll that fails hands the piece back a grade down, and the
             # engine removes the old piece under the same reason as a burn: a
@@ -10432,11 +12232,13 @@ def api_bot_gear_history(pid):
                     # which the item column already shows; how the refine was
                     # made comes from log.refinelog.
                     detail = "(" + refine_way_label(ways[index], language) + ")" if index in ways else ""
-                elif how in ("SAFEBOX PUT", "SAFEBOX GET"):
+                elif how in ("SAFEBOX PUT", "SAFEBOX GET", "PLAYERBOT_MATERIAL_EXCHANGE_IN"):
                     parts = hint.rsplit(" ", 1)
                     if len(parts) == 2 and parts[1].isdigit() and int(parts[1]) > 1:
                         detail = "x" + parts[1]
                 t = r.get("time")
+                if how == "PLAYERBOT_EQUIP" and hasattr(t, "strftime") and int(r.get("what") or 0):
+                    equip_log.append((len(rows), t, int(r.get("what") or 0)))
                 rows.append((t, {
                     "time": t.strftime("%d.%m %H:%M") if hasattr(t, "strftime") else str(t),
                     "kind": kind,
@@ -10444,6 +12246,18 @@ def api_bot_gear_history(pid):
                     "item": item or ("#%d" % vnum if vnum else ""),
                     "detail": detail,
                 }))
+            explain_state = "off"
+            if ENGINE_MT2009 and tab in ("other", "all"):
+                # The explanations of the equip lines, and the decisions that
+                # have no line of log.log (log.playerbot_equip, pid_time_idx).
+                equip_rows, explain_state = _explain_rows(
+                    cur, "SELECT * FROM log.playerbot_equip WHERE pid = %s ORDER BY `time` DESC, id DESC LIMIT %s",
+                    (pid, limit))
+                times = [r.get("time") for r in raw if hasattr(r.get("time"), "strftime")]
+                floor = min(times) if len(raw) >= limit and times else None
+                attach_equip_explanations(rows, equip_log, equip_rows, floor, language, messages, lang_key)
+            if unusual:
+                rows = [e for e in rows if e[1].get("unusual")]
             if tab in ("trade", "all"):
                 kind, labels = GEAR_HISTORY_OFFLINE_BUY
                 for t, vnum, count, yang, seller in gear_history_offline_buys(cur, pid, limit):
@@ -10451,6 +12265,8 @@ def api_bot_gear_history(pid):
                         price="{:,}".format(yang).replace(",", " "))
                     if seller:
                         detail += " " + messages["gh_from"].format(seller=seller)
+                    if unusual:
+                        continue        # no explanation stands behind these lines
                     rows.append((t, {
                         "time": t.strftime("%d.%m %H:%M") if hasattr(t, "strftime") else str(t),
                         "kind": kind,
@@ -10458,9 +12274,10 @@ def api_bot_gear_history(pid):
                         "item": (localized_item_name(vnum, language) if vnum else "") or ("#%d" % vnum if vnum else ""),
                         "detail": detail,
                     }))
-                rows.sort(key=lambda e: e[0] if hasattr(e[0], "strftime") else datetime.datetime.min, reverse=True)
-                rows = rows[:limit]
-        return jsonify({"ok": True, "pid": pid, "tab": tab, "rows": [row for _, row in rows]})
+            rows.sort(key=lambda e: e[0] if hasattr(e[0], "strftime") else datetime.datetime.min, reverse=True)
+            rows = rows[:limit]
+        return jsonify({"ok": True, "pid": pid, "tab": tab, "rows": [row for _, row in rows],
+                        "explain_state": explain_state})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "rows": []})
 
@@ -10476,12 +12293,6 @@ def api_bot_logs(bot_name):
             "/opt/metin2/var/channel2/game1/syslog",
             "/opt/metin2/var/channel2/first/syslog",
             "/opt/metin2/var/channel2/game2/syslog",
-            "/opt/metin2/var/channel3/game1/syslog",
-            "/opt/metin2/var/channel3/first/syslog",
-            "/opt/metin2/var/channel3/game2/syslog",
-            "/opt/metin2/var/channel4/game1/syslog",
-            "/opt/metin2/var/channel4/first/syslog",
-            "/opt/metin2/var/channel4/game2/syslog",
         ]
         matched_lines = []
         # The whole name and not a prefix of one: "botgrom" used to match
@@ -14864,6 +16675,11 @@ def api_bot_inventory(pid):
                 return jsonify({"ok": False, "error": messages["character_missing"]})
 
             player["job_name"] = localized_job_name(player.get("job", 0), language)
+            # The horse saddlebags: rows open (special flag horse_inventory_slot,
+            # 0-9, five cells a row).
+            cur.execute("SELECT value FROM player.player_special_flag WHERE pid = %s AND flag = 'horse_inventory_slot'", (pid,))
+            srow = cur.fetchone()
+            player["saddlebag_rows"] = int(srow["value"]) if srow else 0
             player["in_pt"] = live.get("in_pt") if live else bot_in_party_cohort(pid)
             if live:
                 player["x"] = live.get("x", player.get("x"))
@@ -14879,7 +16695,7 @@ def api_bot_inventory(pid):
             player["goal"] = live_labels["goal"]
             player["live"] = bool(live)
             raw_skills = player.pop("skill_level", b"")
-            profession_names = SKILL_GROUP_NAMES_BY_LANG.get(language, SKILL_GROUP_NAMES_EN)
+            profession_names = SKILL_GROUP_NAMES if language == "pl" else SKILL_GROUP_NAMES_EN
             player["profession_name"] = profession_names.get(
                 (int(player.get("job") or 0) % 4, int(player.get("skill_group") or 0)),
                 messages["profession_none"])
@@ -14967,7 +16783,8 @@ def api_bot_inventory(pid):
                 4: "weapon",     # Broń
                 5: "neck",       # Naszyjnik
                 6: "ear",        # Kolczyki
-                10: "shield"     # Tarcza (WEAR_SHIELD; slot 7 is WEAR_UNIQUE1)
+                10: "shield",    # Tarcza (WEAR_SHIELD; slot 7 is WEAR_UNIQUE1)
+                22: "sash"       # Szarfa (WEAR_COSTUME_ACCE)
             }
             equipment = {}
             inventory = []
@@ -15074,7 +16891,12 @@ def api_bot_shop(pid):
     # its ikashop_data at once and the window changes when the game core saves
     # the item back - and read "0" as its price (6zmacko, 26 September), so it
     # is left out; duration 0 is a stand that ran out, which nobody can buy from.
+    # Each line carries its lines and stones for the tooltip, and on mt2009 why
+    # it is on the counter and how its price was reached: log.playerbot_listing,
+    # read by the lines' item ids in one query (its primary key), said in the
+    # page's language. A world without the table explains nothing.
     language = lang()
+    messages = map_i18n(language)
     try:
         with db() as c, c.cursor() as cur:
             cur.execute(
@@ -15090,7 +16912,10 @@ def api_bot_shop(pid):
                 return jsonify({"ok": True, "shop": None})
             cur.execute(
                 """
-                SELECT id, pos, `count`, vnum, socket0,
+                SELECT id, pos, `count`, vnum, socket0, socket1, socket2,
+                       attrtype0, attrvalue0, attrtype1, attrvalue1, attrtype2, attrvalue2,
+                       attrtype3, attrvalue3, attrtype4, attrvalue4, attrtype5, attrvalue5,
+                       attrtype6, attrvalue6,
                        CAST(JSON_UNQUOTE(JSON_EXTRACT(ikashop_data, '$.yang')) AS UNSIGNED) AS price
                   FROM player.item
                  WHERE owner_id = %s AND `window` = 'IKASHOP_OFFLINESHOP'
@@ -15099,16 +16924,37 @@ def api_bot_shop(pid):
                 """,
                 (pid,),
             )
+            lines = list(cur.fetchall())
+            explain_state, listing = "off", {}
+            if ENGINE_MT2009:
+                ids = sorted({int(it.get("id") or 0) for it in lines} - {0})
+                explain_state = "ok"
+                if ids:
+                    found, explain_state = _explain_rows(
+                        cur, "SELECT * FROM log.playerbot_listing WHERE item_id IN (" +
+                        ",".join(["%s"] * len(ids)) + ")", tuple(ids))
+                    listing = {int(r.get("item_id") or 0): r for r in found}
             offers = []
-            for it in cur.fetchall():
+            for it in lines:
                 vnum = it.get("vnum") or 0
+                attrs = []
+                for a_idx in range(7):
+                    atype = it.get("attrtype%d" % a_idx) or 0
+                    aval = it.get("attrvalue%d" % a_idx) or 0
+                    if atype != 0 and aval != 0:
+                        attrs.append({"type": atype, "val": aval})
+                price = int(it.get("price") or 0)
+                row = listing.get(int(it.get("id") or 0))
                 offers.append({
                     "id": it.get("id"),
                     "vnum": vnum,
                     "name": item_full_name(vnum, it.get("socket0"), language),
                     "count": it.get("count") or 1,
                     "pos": it.get("pos") or 0,
-                    "price": int(it.get("price") or 0),
+                    "price": price,
+                    "sockets": [it.get("socket0") or 0, it.get("socket1") or 0, it.get("socket2") or 0],
+                    "attrs": attrs,
+                    "explain": explain_listing(row, language, price) if row else None,
                 })
             return jsonify({"ok": True, "shop": {
                 # The banner is cp1250 like every other name column here.
@@ -15119,6 +16965,10 @@ def api_bot_shop(pid):
                 "is_premium": bool(shop.get("is_premium")),
                 "expired": int(shop.get("duration") or 0) == 0,
                 "offers": offers,
+                # "off" on r40250, which records nothing; "missing" on a world
+                # whose log database has no table yet.
+                "explain_state": explain_state,
+                "explain_note": messages["ex_state_missing"] if explain_state == "missing" else "",
             }})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -15508,6 +17358,93 @@ def api_bot_rankings():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "rankings": []})
 
+@app.route("/easter", methods=["GET", "POST"])
+@login_required
+def easter():
+    """The Easter event's two switches. Live immediately, no restart."""
+    if not ENGINE_MT2009:
+        flash(t("rates_no_script"), "error")
+        return redirect(url_for("dash"))
+    if request.method == "POST":
+        drop = 1 if request.form.get("drop") else 0
+        rabbit = 1 if request.form.get("rabbit") else 0
+        try:
+            with db() as c, c.cursor() as cur:
+                persist_easter(cur, drop, rabbit)
+        except Exception:
+            flash(t("db_down"), "error")
+            return redirect(url_for("easter"))
+        try:
+            status, qid = queue_and_wait("", "EASTER", "%d,%d" % (drop, rabbit), "",
+                                         wait=EASTER_LIVE_WAIT)
+        except Exception:
+            status, qid = "failed", 0
+        if status == "done":
+            flash(t("easter_saved_live"))
+        else:
+            if status == "timeout":
+                try:
+                    with db() as c, c.cursor() as cur:
+                        cur.execute("UPDATE player.web_admin_queue SET status='cancelled' "
+                                    "WHERE id=%s AND status='pending'", (qid,))
+                except Exception:
+                    pass
+            # Already persisted either way -- a game core still running the
+            # pre-patch quest, or nobody's helper up yet, picks it up on its
+            # own next restart.
+            flash(t("easter_saved_persisted"))
+        return redirect(url_for("easter"))
+
+    cur_easter = {n: 0 for n in EASTER_FLAGS}
+    try:
+        cur_easter = read_easter()
+    except pymysql.err.ProgrammingError:
+        flash(t("rates_no_table"), "error")
+    except Exception:
+        flash(t("db_down"), "error")
+    return render_template_string(TPL_EASTER, cur=cur_easter)
+
+@app.route("/rare", methods=["GET", "POST"])
+@login_required
+def rare():
+    """Alchemy and sashes on or off. Live immediately, no restart."""
+    if not ENGINE_MT2009:
+        flash(t("rates_no_script"), "error")
+        return redirect(url_for("dash"))
+    if request.method == "POST":
+        alchemy = 1 if request.form.get("alchemy") else 0
+        sashes = 1 if request.form.get("sashes") else 0
+        try:
+            with db() as c, c.cursor() as cur:
+                persist_rare(cur, alchemy, sashes)
+        except Exception:
+            flash(t("db_down"), "error")
+            return redirect(url_for("rare"))
+        try:
+            status, qid = queue_and_wait("", "RARE", "%d,%d" % (alchemy, sashes), "",
+                                         wait=RARE_LIVE_WAIT)
+        except Exception:
+            status, qid = "failed", 0
+        if status == "done":
+            flash(t("rare_saved_live"))
+        else:
+            if status == "timeout":
+                try:
+                    with db() as c, c.cursor() as cur:
+                        cur.execute("UPDATE player.web_admin_queue SET status='cancelled' "
+                                    "WHERE id=%s AND status='pending'", (qid,))
+                except Exception:
+                    pass
+            flash(t("easter_saved_persisted"))
+        return redirect(url_for("rare"))
+
+    cur_rare = {"alchemy": 1, "sashes": 1}
+    try:
+        cur_rare = read_rare()
+    except Exception:
+        flash(t("db_down"), "error")
+    return render_template_string(TPL_RARE, cur=cur_rare)
+
 @app.route("/rates", methods=["GET", "POST"])
 @login_required
 def rates():
@@ -15834,19 +17771,14 @@ def rates_starter_chest():
     return redirect(url_for("rates"))
 
 
-# The game channels, one choice of 1-4 (the operator's "Kanaly gry 1-4", 28
-# September): the second channel for the world's bots (M2_PLAYERBOT_CH2) and
-# the fresh cohort's CH3, or CH3 and CH4 (M2_PLAYERBOT_FRESH_CHANNELS 1/2,
-# PLAYERBOT_FRESH_COUNT of them). The game container decides it at every
+# The second channel (M2_PLAYERBOT_CH2). The game container decides it at every
 # start from .env (the launcher's) or from this panel's wish in the spool,
 # whichever was made later, and writes what it runs with beside the status
 # files. The panel cannot restart the container, so a change here applies at
-# the next start; the launcher reads the wish then and opens the ports.
+# the next start; the launcher reads the wish then and opens CH2's ports.
 CHANNELS_WISH = os.path.join(AI_SPOOL, "channels.wanted")
 CHANNELS_EFFECTIVE = "/opt/metin2/var/channels.effective"
 CH2_SHARE_CHOICES = (20, 30, 40, 50, 60, 70)
-CH_CHOICES = (1, 2, 3, 4)
-FRESH_COUNT_MAX = 1500
 
 
 def _read_kv(path):
@@ -15862,43 +17794,26 @@ def _read_kv(path):
     return out
 
 
-def _kv_int(values, key, default):
-    raw = values.get(key, "")
-    return int(raw) if raw.isdigit() else default
-
-
-def channels_words(key, n, share, count):
-    """A channel choice in words: key is "ch_words" (the pending line) or
-    "ch_now" (the running one)."""
-    if key == "ch_now":
-        if n <= 1:
-            return t("ch2_now_off")
-        if n == 2:
-            return t("ch2_now_on").replace("{share}", str(share))
-        return t("ch_now%d" % min(n, 4)).replace("{share}", str(share)).replace("{count}", str(count))
-    return (t("ch_words%d" % max(1, min(n, 4)))
-            .replace("{share}", str(share)).replace("{count}", str(count)))
-
-
 def read_channels_state():
     eff = _read_kv(CHANNELS_EFFECTIVE)
     wish = _read_kv(CHANNELS_WISH)
     on = eff.get("CH2") == "1"
-    share = _kv_int(eff, "SHARE", 40)
-    fresh = _kv_int(eff, "FRESH", 0)
-    fresh = fresh if fresh <= 2 else 0
-    count = _kv_int(eff, "FRESH_COUNT", 200)
-    channels = 2 + fresh if fresh else (2 if on else 1)
-    # The published range has to reach the last channel's third core; a range
-    # the panel cannot read counts as the first channel's.
-    m = re.match(r"^\s*(\d+)\s*-\s*(\d+)\s*$", eff.get("PORTS", "13000-13002"))
-    ports_end = int(m.group(2)) if m else 13002
-    need_end = 13000 + 10 * (channels - 1) + 2
-    state = {"on": on, "share": share, "channels": channels, "fresh_count": count,
-             "ports_open": ports_end >= need_end, "ports_end": need_end,
-             "want_on": on, "want_share": share, "want_channels": channels, "want_fresh_count": count,
-             "pending": "", "choices": CH2_SHARE_CHOICES, "channel_choices": CH_CHOICES,
-             "fresh_max": FRESH_COUNT_MAX, "now": channels_words("ch_now", channels, share, count)}
+    share = int(eff.get("SHARE", "40")) if eff.get("SHARE", "").isdigit() else 40
+    # The channels' first port is M2_GAME_PORT_BASE (13000 unless a second
+    # stack on the host moved it): the entrypoint writes it as BASE, and the
+    # container range starts there. CH2's cores listen on BASE+10..BASE+12,
+    # and the players reach them once the published range goes that far.
+    base = eff.get("BASE", "")
+    if not base.isdigit():
+        base = re.match(r"\s*(\d+)", eff.get("PORTS", ""))
+        base = base.group(1) if base else "13000"
+    base = int(base)
+    ports = eff.get("PORTS", "%d-%d" % (base, base + 2))
+    last = re.search(r"(\d+)\s*$", ports)
+    ports_open = bool(last) and int(last.group(1)) >= base + 12
+    state = {"on": on, "share": share, "ports_open": ports_open,
+             "ch2_ports": "%d-%d" % (base + 10, base + 12),
+             "want_on": on, "want_share": share, "pending": "", "choices": CH2_SHARE_CHOICES}
     # The wish, unless the server already runs a later choice (the launcher's,
     # written into .env after the panel's): the entrypoint notes the moment of
     # the choice that won, and a server from before that note shows the wish.
@@ -15906,55 +17821,29 @@ def read_channels_state():
                  and int(wish["SET_AT"]) < int(eff["SET_AT"]))
     if wish.get("CH2") in ("0", "1") and not overtaken:
         w_on = wish.get("CH2") == "1"
-        w_share = _kv_int(wish, "SHARE", 40)
-        # A wish from before the fresh channels names none: the running ones stay.
-        w_fresh = _kv_int(wish, "FRESH", fresh) if "FRESH" in wish else fresh
-        w_fresh = w_fresh if w_fresh <= 2 else 0
-        w_count = _kv_int(wish, "FRESH_COUNT", count)
-        w_channels = 2 + w_fresh if w_fresh else (2 if w_on else 1)
-        state.update(want_on=w_on, want_share=w_share, want_channels=w_channels, want_fresh_count=w_count)
+        w_share = int(wish.get("SHARE", "40")) if wish.get("SHARE", "").isdigit() else 40
+        state["want_on"], state["want_share"] = w_on, w_share
         # A wish the running server does not match yet.
-        if (w_channels != channels or (w_channels >= 2 and w_share != share)
-                or (w_channels >= 3 and w_count != count)):
-            state["pending"] = channels_words("ch_words", w_channels, w_share, w_count)
+        if w_on != on or (w_on and w_share != share):
+            state["pending"] = (t("ch2_on_word").replace("{share}", str(w_share)) if w_on
+                                else t("ch2_off_word"))
     if state["want_share"] not in CH2_SHARE_CHOICES:
         state["want_share"] = 40
-    if state["want_fresh_count"] > FRESH_COUNT_MAX:
-        state["want_fresh_count"] = FRESH_COUNT_MAX
     return state
 
 
 @app.post("/rates/channels")
 @login_required
 def rates_channels():
-    """The game channels (1-4), the second channel's share and the fresh
-    cohort's count, written for the next start."""
+    """The second channel's switch and share, written for the next start."""
     if not ENGINE_MT2009:
         return redirect(url_for("rates"))
-    raw_n = (request.form.get("channels", "") or "").strip()
-    if raw_n:
-        if not raw_n.isdigit() or int(raw_n) not in CH_CHOICES:
-            flash(t("ch_bad_count"), "error")
-            return redirect(url_for("rates"))
-        n = int(raw_n)
-    else:
-        # The form from before the fresh channels: the second channel's box.
-        n = 2 if request.form.get("ch2", "") == "1" else 1
+    on = request.form.get("ch2", "") == "1"
     raw = (request.form.get("share", "") or "").strip()
     if not raw.isdigit() or int(raw) not in CH2_SHARE_CHOICES:
         flash(t("ch2_bad"), "error")
         return redirect(url_for("rates"))
-    raw_c = (request.form.get("fresh_count", "") or "").strip()
-    if not raw_c:
-        count = read_channels_state()["want_fresh_count"]
-    elif not raw_c.isdigit() or int(raw_c) > FRESH_COUNT_MAX:
-        flash(t("ch_fresh_bad"), "error")
-        return redirect(url_for("rates"))
-    else:
-        count = int(raw_c)
-    on = n >= 2
-    body = "CH2=%d\nSHARE=%d\nFRESH=%d\nFRESH_COUNT=%d\nSET_AT=%d\n" % (
-        1 if on else 0, int(raw), max(0, n - 2), count, int(time.time()))
+    body = "CH2=%d\nSHARE=%d\nSET_AT=%d\n" % (1 if on else 0, int(raw), int(time.time()))
     tmp = CHANNELS_WISH + ".tmp"
     try:
         with open(tmp, "w", encoding="ascii") as fh:
@@ -15963,8 +17852,7 @@ def rates_channels():
     except OSError:
         flash(t("ch2_failed"), "error")
         return redirect(url_for("rates"))
-    app.logger.info("channels: %s channel(s), CH2=%s share=%s fresh_count=%s written for the next start",
-                    n, int(on), raw, count)
+    app.logger.info("channels: CH2=%s share=%s written for the next start", int(on), raw)
     flash(t("ch2_saved"))
     return redirect(url_for("rates"))
 
@@ -15988,6 +17876,297 @@ def guilds_page():
     next_war_rows = [(GUILD_EMPIRE_KEYS.get(e, "gl_empire_unknown"), s) for e, s in sorted(next_wars.items())]
     return render_template_string(TPL_GUILDS, guilds=guilds, tier_keys=GUILD_TIER_KEYS,
                                   next_wars=next_war_rows, player_guilds=read_player_guilds())
+
+
+# ---- the bots' decisions, world-wide ------------------------------------------
+# Every row the core flagged in the last hours, from both explanation tables
+# (log.playerbot_equip by `time`, log.playerbot_listing by `last_at`, each on
+# its own index and LIMITed), with the bot's name and a link to its card on
+# the live map, each explanation a "?" away and a click from being copied into
+# a report. mt2009 alone: r40250's core records nothing, and the page says so.
+DECISION_PAGE_HOURS = (1, 6, 24, 72, 168)
+DECISION_PAGE_LIMIT = 300
+
+TPL_DECISIONS = BASE.replace("__BODY__", """
+<style>""" + EXPLAIN_CSS + """
+/* The page's own rows only (a child, never a descendant): an explanation's
+   tables sit inside a cell of this one and keep their own small type. */
+table.dc-table > tbody > tr > td{font-size:13px;vertical-align:top}
+table.dc-table > tbody > tr.dc-unusual > td:first-child{box-shadow:inset 3px 0 0 #ef4444}
+table.dc-table > tbody > tr.dc-why > td{background:#0c0c0e}
+</style>
+<p><a href="{{url_for('dash')}}">{{t('back_players')}}</a></p>
+<div class="card">
+<h3>{{t('dc_nav')}}</h3>
+<p class="muted">{{t('dc_intro')}}</p>
+<p>{{state_text}}{% if engine_mt2009 %} <a href="{{url_for('ai_weights')}}">{{t('dc_change')}}</a>{% endif %}</p>
+</div>
+{% if engine_mt2009 %}
+<div class="card">
+<form method="get" action="{{url_for('decisions_page')}}" class="row" style="align-items:flex-end">
+  <label>{{t('dc_hours')}}
+    <select name="hours">{% for h in hour_choices %}<option value="{{h}}"{% if h == hours %} selected{% endif %}>{{ t('dc_hours_n').format(n=h) }}</option>{% endfor %}</select></label>
+  <label>{{t('dc_kind')}}
+    <select name="kind">{% for key, label in kind_choices %}<option value="{{key}}"{% if key == kind %} selected{% endif %}>{{label}}</option>{% endfor %}</select></label>
+  <label>{{t('dc_flag')}}
+    <select name="flag">{% for key, label in flag_choices %}<option value="{{key}}"{% if key == flag %} selected{% endif %}>{{label}}</option>{% endfor %}</select></label>
+  <label>{{t('dc_bot')}}
+    <input type="text" name="bot" value="{{bot_text}}" maxlength="32" style="width:130px"></label>
+  <button>{{t('dc_show')}}</button>
+</form>
+</div>
+<div class="card">
+{% if missing %}<p class="muted">{{t('dc_missing')}}</p>
+{% elif not rows %}<p class="muted">{{t('dc_none')}}</p>
+{% else %}
+<p class="muted">{{ t('dc_count').format(n=rows|length) }}{% if capped %} — {{ t('dc_limit_note').format(n=rows|length) }}{% endif %}</p>
+<p><button type="button" class="m2ex-btn" style="font-size:12px;padding:3px 10px" onclick="dcCopyAiAll()">{{ t('dc_copy_ai_all').format(n=rows|length) }}</button>
+  <span class="muted" style="font-size:12px">{{t('dc_ai_hint')}}</span></p>
+<div style="overflow-x:auto">
+<table class="dc-table">
+<tr><th>{{t('dc_col_time')}}</th><th>{{t('dc_col_bot')}}</th><th>{{t('dc_kind')}}</th><th>{{t('dc_col_what')}}</th><th>{{t('dc_col_flags')}}</th><th></th></tr>
+{% for r in rows %}
+<tr class="{{ 'dc-unusual' if r.unusual or r.why.anomalies else '' }}">
+  <td class="muted" style="white-space:nowrap">{{r.time}}</td>
+  <td><a href="{{url_for('live_map')}}?bot={{r.pid}}&amp;gear=decisions" title="{{t('dc_card')}}">{{r.name}}</a></td>
+  <td>{{r.kind_label}}</td>
+  <td>{{r.what}}</td>
+  <td>{% for f in r.why.flags %}<span class="m2ex-flag{{ ' unusual' if f.unusual else '' }}">{{f.label}}</span>{% endfor %}{% for a in r.why.anomalies %}<span class="m2ex-flag anomaly">⚑ {{a.label}}</span>{% endfor %}</td>
+  <td><button type="button" class="m2ex-q" title="{{m.ex_more}}" onclick="dcToggle({{loop.index0}})">?</button></td>
+</tr>
+<tr id="dcWhy{{loop.index0}}" class="dc-why" style="display:none"><td colspan="6"></td></tr>
+{% endfor %}
+</table>
+</div>
+{% endif %}
+</div>
+{% endif %}
+<div id="mapToast" style="display:none;position:fixed;bottom:25px;left:50%;transform:translateX(-50%);background:#1e293b;border:1px solid #38bdf8;color:#f8fafc;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:999999"></div>
+<script>
+var I18N = {{ m|tojson }};
+var DC_ROWS = {{ rows|tojson }};
+var DC_BOTS = {{ bots|tojson }};
+""" + EXPLAIN_JS + """
+function dcToggle(i) {
+  var row = document.getElementById('dcWhy' + i);
+  var r = DC_ROWS[i];
+  if (!row || !r) return;
+  if (row.style.display !== 'none') {
+    row.style.display = 'none';
+    return;
+  }
+  row.cells[0].innerHTML = '<div class="m2ex-box">' + exHtml(r.why, true) +
+      '<div style="text-align:right;margin-top:4px"><button type="button" class="m2ex-btn" onclick="dcCopy(' + i + ')">📋 ' +
+      exEsc(I18N.ex_copy) + '</button><button type="button" class="m2ex-btn" onclick="dcCopyAi(' + i + ')">🤖 ' +
+      exEsc(I18N.ex_copy_ai) + '</button></div></div>';
+  row.style.display = '';
+}
+
+function dcCopy(i) {
+  var r = DC_ROWS[i];
+  if (r) exCopy(exText(r.why, r.name, r.pid, r.item));
+}
+
+// For an AI: the bot as the page knows it now, beside each decision.
+function dcAiItem(r) {
+  return {ex: r.why, bot: DC_BOTS[String(r.pid)] || {pid: r.pid, name: r.name}, item: r.item};
+}
+
+function dcCopyAi(i) {
+  var r = DC_ROWS[i];
+  if (r) exCopyAi([dcAiItem(r)]);
+}
+
+function dcCopyAiAll() {
+  exCopyAi(DC_ROWS.map(dcAiItem));
+}
+</script>
+""")
+
+
+def explain_state_text():
+    """What the weights file says of the explanations, in the page's words."""
+    if not ENGINE_MT2009:
+        return t("dc_state_engine")
+    days = read_ai_weights().get("EXPLAIN")
+    if days is None:
+        # "... 7 days (the default - no EXPLAIN key)." - the note before the stop.
+        return t("dc_state_on").format(n=EXPLAIN_DEFAULT_DAYS).rstrip(".") + t("dc_state_default") + "."
+    if days == 0:
+        return t("dc_state_off")
+    return t("dc_state_on").format(n=days)
+
+
+def decision_page_masks(flag):
+    """The page's flag filter as (equipment mask, listing mask): every unusual
+    one, any flag at all, or one flag of one table ("e1", "l2048"). The
+    anomalies are not flags of the core's and have their own queries."""
+    if flag in ("any", "anomaly"):
+        return 0xFFFFFFFF, 0xFFFFFFFF
+    if flag and flag[0] in ("e", "l") and flag[1:].isdigit():
+        bit = int(flag[1:])
+        if flag[0] == "e" and bit in DECISION_EFLAGS:
+            return bit, 0
+        if flag[0] == "l" and bit in DECISION_LFLAGS:
+            return 0, bit
+    return DECISION_EQUIP_UNUSUAL, DECISION_LISTING_UNUSUAL
+
+
+# The anomalies are the panel's own reading of a row, so their rows are looked
+# for in a wider net and read one by one: every weapon change with two pieces
+# in the window, and every spare listed with a tool in the hand.
+DECISION_PAGE_SCAN = 3000
+
+
+def decision_page_bot(cur, text):
+    """The page's bot filter - a pid, or a character's exact name - as (pid,
+    found); (0, True) when there is none."""
+    text = (text or "").strip()
+    if not text:
+        return 0, True
+    if text.isdigit():
+        return int(text), True
+    try:
+        cur.execute("SELECT id FROM player.player WHERE name = %s LIMIT 1", (text,))
+        row = cur.fetchone()
+    except Exception:
+        row = None
+    return (int(row["id"]), True) if row and row.get("id") else (0, False)
+
+
+def decision_page_bots(rows_by_pid, language):
+    """What the AI export says of each bot on the page now: its class and path
+    and level from player.player, and from the core's status file the
+    personality, mood and goal it plays by."""
+    live_all = read_playerbot_live_status()
+    profession_names = SKILL_GROUP_NAMES_BY_LANG.get(language, SKILL_GROUP_NAMES_EN)
+    bots = {}
+    for pid, r in rows_by_pid.items():
+        bot = {"pid": pid, "name": log_text(r.get("pname")).strip() or "#%d" % pid}
+        job = r.get("pjob")
+        if job is not None:
+            bot["job"] = localized_job_name(job, language)
+            bot["path"] = profession_names.get((int(job or 0) % 4, int(r.get("psg") or 0)), "")
+        if r.get("plevel") is not None:
+            bot["level"] = int(r.get("plevel") or 0)
+        live = live_all.get(pid)
+        if live:
+            labels = playerbot_live_labels(live, language)
+            bot.update({"persona": labels["personality"], "mood": labels["mood"], "goal": labels["goal"]})
+        bots[str(pid)] = bot
+    return bots
+
+
+@app.route("/decisions")
+@login_required
+def decisions_page():
+    """The bots' flagged decisions of the last hours, both kinds, newest first:
+    by the core's flags, or by the anomalies the panel reads out of a row; for
+    every bot, or one."""
+    language = lang()
+    lang_key = _dx_lang(language)
+    messages = map_i18n(language)
+    try:
+        hours = int(request.args.get("hours", 24))
+    except (TypeError, ValueError):
+        hours = 24
+    if hours not in DECISION_PAGE_HOURS:
+        hours = 24
+    kind = request.args.get("kind", "all")
+    if kind not in ("all", "equip", "listing"):
+        kind = "all"
+    flag = request.args.get("flag", "unusual")
+    anomaly = flag == "anomaly"
+    equip_mask, listing_mask = decision_page_masks(flag)
+    if not anomaly and (equip_mask, listing_mask) == (DECISION_EQUIP_UNUSUAL, DECISION_LISTING_UNUSUAL):
+        flag = "unusual"
+    bot_text = (request.args.get("bot") or "").strip()[:32]
+    rows, states, capped, meta = [], [], False, {}
+    if ENGINE_MT2009:
+        try:
+            with db() as c, c.cursor() as cur:
+                pid, found_bot = decision_page_bot(cur, bot_text)
+                if not found_bot:
+                    flash(t("dc_bot_unknown").format(name=bot_text), "error")
+                pid_sql = " AND e.pid = %s" if pid else ""
+                pid_args = (pid,) if pid else ()
+                select_equip = ("SELECT e.*, CAST(p.name AS BINARY) AS pname, p.level AS plevel, p.job AS pjob, "
+                                "p.skill_group AS psg FROM log.playerbot_equip e LEFT JOIN player.player p ON p.id = e.pid ")
+                if found_bot and kind in ("all", "equip") and equip_mask:
+                    if anomaly:
+                        sql = (select_equip + "WHERE e.`time` >= NOW() - INTERVAL %s HOUR AND ((e.wear = 4 AND e.old_vnum <> 0 "
+                               "AND e.new_vnum <> 0) OR e.context = 5)" + pid_sql + " ORDER BY e.`time` DESC LIMIT %s")
+                        args, cap = (hours,) + pid_args + (DECISION_PAGE_SCAN,), DECISION_PAGE_SCAN
+                    else:
+                        sql = (select_equip + "WHERE e.`time` >= NOW() - INTERVAL %s HOUR AND (e.flags & %s) <> 0" + pid_sql +
+                               " ORDER BY e.`time` DESC LIMIT %s")
+                        args, cap = (hours, equip_mask) + pid_args + (DECISION_PAGE_LIMIT,), DECISION_PAGE_LIMIT
+                    found, state = _explain_rows(cur, sql, args)
+                    states.append(state)
+                    capped = capped or len(found) >= cap
+                    for r in found:
+                        why = explain_equip(r, language)
+                        if anomaly and not why["anomalies"]:
+                            continue
+                        piece = why["new"] or why["old"] or {}
+                        what = piece.get("name", "")
+                        if why["new"] and why["old"]:
+                            what += " " + messages["gh_instead"].format(item=why["old"]["name"])
+                        meta.setdefault(why["pid"], r)
+                        rows.append({"_t": r.get("time"), "time": _dx_time(r.get("time")),
+                                     "pid": why["pid"], "name": log_text(r.get("pname")).strip() or "#%d" % why["pid"],
+                                     "kind_label": t("dc_kind_equip"), "item": piece.get("name", ""),
+                                     "what": what + " · " + why["summary"], "unusual": why["unusual"], "why": why})
+                pid_sql = " AND l.pid = %s" if pid else ""
+                select_listing = ("SELECT l.*, CAST(p.name AS BINARY) AS pname, p.level AS plevel, p.job AS pjob, "
+                                  "p.skill_group AS psg FROM log.playerbot_listing l LEFT JOIN player.player p ON p.id = l.pid ")
+                if found_bot and kind in ("all", "listing") and listing_mask:
+                    if anomaly:
+                        tools = " OR ".join("l.why_b BETWEEN %d AND %d" % pair for pair in DECISION_TOOL_RANGES)
+                        sql = (select_listing + "WHERE l.last_at >= NOW() - INTERVAL %s HOUR AND l.why = 17 AND (" + tools +
+                               ")" + pid_sql + " ORDER BY l.last_at DESC LIMIT %s")
+                        args = (hours,) + pid_args + (DECISION_PAGE_LIMIT,)
+                    else:
+                        sql = (select_listing + "WHERE l.last_at >= NOW() - INTERVAL %s HOUR AND (l.flags & %s) <> 0" + pid_sql +
+                               " ORDER BY l.last_at DESC LIMIT %s")
+                        args = (hours, listing_mask) + pid_args + (DECISION_PAGE_LIMIT,)
+                    found, state = _explain_rows(cur, sql, args)
+                    states.append(state)
+                    capped = capped or len(found) >= DECISION_PAGE_LIMIT
+                    for r in found:
+                        entry = gear_history_listing_entry(r, language, messages)[1]
+                        why = entry["why"]
+                        if anomaly and not why["anomalies"]:
+                            continue
+                        meta.setdefault(why["pid"], r)
+                        rows.append({"_t": r.get("last_at") or r.get("listed_at"),
+                                     "time": _dx_time(r.get("last_at") or r.get("listed_at")),
+                                     "pid": why["pid"], "name": log_text(r.get("pname")).strip() or "#%d" % why["pid"],
+                                     "kind_label": t("dc_kind_listing"), "item": entry["item"],
+                                     "what": " · ".join(p for p in (entry["item"], entry["label"], entry["detail"]) if p),
+                                     "unusual": why["unusual"], "why": why})
+        except Exception:
+            app.logger.exception("decisions page")
+            flash(t("db_down"), "error")
+    rows.sort(key=lambda e: e["_t"] if hasattr(e["_t"], "strftime") else datetime.datetime.min, reverse=True)
+    capped = capped or len(rows) > DECISION_PAGE_LIMIT
+    rows = rows[:DECISION_PAGE_LIMIT]
+    for row in rows:
+        del row["_t"]
+    shown = {row["pid"] for row in rows}
+    bots = decision_page_bots({pid: r for pid, r in meta.items() if pid in shown}, language) if rows else {}
+    flag_choices = [("unusual", t("dc_flag_unusual")), ("any", t("dc_flag_any")), ("anomaly", t("dc_flag_anomaly"))]
+    flag_choices += [("e%d" % bit, t("dc_kind_equip") + ": " + _dx_pick(texts, lang_key))
+                     for bit, texts in sorted(DECISION_EFLAGS.items())]
+    flag_choices += [("l%d" % bit, t("dc_kind_listing") + ": " + _dx_pick(texts, lang_key))
+                     for bit, texts in sorted(DECISION_LFLAGS.items())]
+    return render_template_string(
+        TPL_DECISIONS, rows=rows, m=messages, engine_mt2009=ENGINE_MT2009, bots=bots, bot_text=bot_text,
+        missing=bool(states) and all(s == "missing" for s in states), capped=capped,
+        state_text=explain_state_text(), hours=hours, kind=kind, flag=flag,
+        hour_choices=DECISION_PAGE_HOURS,
+        kind_choices=[("all", t("dc_kind_all")), ("equip", t("dc_kind_equip")), ("listing", t("dc_kind_listing"))],
+        flag_choices=flag_choices)
 
 
 @app.route("/events", methods=["GET", "POST"])
@@ -16043,7 +18222,7 @@ def events_page():
                     if map_id not in EVENT_MAP_IDS:
                         map_id = 0
                 new_rows.append({"kind": kind, "days": days, "start": start, "end": end,
-                                 "value": 0 if kind == "chest" else value,
+                                 "value": 0 if kind in EVENT_FLAG_KINDS else value,
                                  "on": bool(request.form.get("r%d_on" % i)), "map": map_id})
             try:
                 write_events(new_rows, nows)
@@ -16075,7 +18254,7 @@ def events_page():
             # second map is a second event beside the first, the same map
             # again starts that one over.
             nows[event_now_key(kind, map_id)] = {"kind": kind, "until": started + minutes * 60,
-                                                "value": 0 if kind == "chest" else value,
+                                                "value": 0 if kind in EVENT_FLAG_KINDS else value,
                                                 "map": map_id, "since": started}
             try:
                 write_events(rows, nows)
@@ -16156,6 +18335,7 @@ def ai_weights():
             vals["ISHOP"] = old.get("ISHOP", 1)
         vals["SHOP_M2"] = 1 if request.form.get("SHOP_M2") else 0
         vals["PERSONA"] = 1 if request.form.get("PERSONA") else 0
+        vals["SHOUTERS"] = 1 if request.form.get("SHOUTERS") else 0
         try:
             vals["SCRAP"] = max(0, min(100, int(request.form.get("SCRAP", 0))))
         except (TypeError, ValueError):
@@ -16168,6 +18348,13 @@ def ai_weights():
             vals["KINGDOMPVP"] = max(0, min(100, int(request.form.get("KINGDOMPVP", 0))))
         except (TypeError, ValueError):
             vals["KINGDOMPVP"] = 0
+        # The three wills are on the mt2009 page alone; a form without them
+        # (r40250, or a tab opened before they existed) keeps the file's.
+        for key in ("BATTLEPASS", "SASH", "ALCHEMY"):
+            try:
+                vals[key] = max(0, min(100, int(request.form.get(key, old.get(key, 100)))))
+            except (TypeError, ValueError):
+                vals[key] = old.get(key, 100)
         try:
             vals["SCROLL_FROM"] = max(1, min(9, int(request.form.get("SCROLL_FROM", 1))))
         except (TypeError, ValueError):
@@ -16185,6 +18372,18 @@ def ai_weights():
                 vals[key] = max(0, min(1000, int(request.form.get(key))))
             except (TypeError, ValueError):
                 vals[key] = None
+        # The explanations' days: on the mt2009 page alone, which is the only
+        # core that records them; anywhere else, and for anything unreadable,
+        # the file's value stays. An absent key left at the default it shows
+        # stays absent, so saving the page never pins the core's own default.
+        vals["EXPLAIN"] = old.get("EXPLAIN")
+        if ENGINE_MT2009 and "EXPLAIN" in request.form:
+            try:
+                days = max(0, min(EXPLAIN_MAX_DAYS, int(request.form.get("EXPLAIN"))))
+            except (TypeError, ValueError):
+                days = old.get("EXPLAIN")
+            if not (old.get("EXPLAIN") is None and days == EXPLAIN_DEFAULT_DAYS):
+                vals["EXPLAIN"] = days
         # The chest switch: off writes zero for both figures and keeps the
         # sliders' values for the day it is switched back on.
         chest_off = bool(request.form.get("CHEST_OFF"))
@@ -16217,7 +18416,8 @@ def ai_weights():
     return render_template_string(TPL_AI, cur=cur, chest_off=chest_off,
                                   keys=keys, wmin=AI_W_MIN, bots_held=read_bot_hold(),
                                   wmax=AI_W_MAX, wneutral=AI_W_NEUTRAL, wcapped=AI_W_CAPPED,
-                                  engine_mt2009=ENGINE_MT2009)
+                                  engine_mt2009=ENGINE_MT2009,
+                                  explain_default=EXPLAIN_DEFAULT_DAYS, explain_max=EXPLAIN_MAX_DAYS)
 
 
 @app.route("/ai/tower_now", methods=["POST"])
@@ -17287,7 +19487,7 @@ def dash():
         players = []
     return render_template_string(TPL_DASH, players=players,
                                   emoji=lambda j: JOB_EMOJI.get(j, "🧑"),
-                                  jobname=class_name)
+                                  jobname=class_name, engine_mt2009=ENGINE_MT2009)
 
 # The window an item row sits in, in the page's language: the inventory card
 # used to print the raw column ("equipment", "inventory") on every page.

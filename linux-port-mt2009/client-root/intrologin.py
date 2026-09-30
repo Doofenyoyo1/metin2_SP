@@ -304,12 +304,6 @@ class LoginWindow(ui.ScriptWindow):
 		self.yServerBoard = 0
 
 		self.loadingImage = None
-		self.animatedBackground = False
-		self.backgroundFrame = 1
-		self.backgroundLastFrameTime = 0.0
-		self.backgroundPreloadFrames = []
-		self.backgroundPreloadIndex = 0
-		self.backgroundPreloadDone = True
 
 		# @fixme001 BEGIN (timeOutMsg and timeOutOk undefined)
 		self.timeOutMsg = False
@@ -459,7 +453,6 @@ class LoginWindow(ui.ScriptWindow):
 		self.inputDialog = None
 		self.connectingDialog = None
 		self.loadingImage = None
-		self.backgroundPreloadFrames = []
 
 		self.tooltip = None
 
@@ -874,10 +867,9 @@ class LoginWindow(ui.ScriptWindow):
 		# larger of the two the screen needs, and centred, so a picture of
 		# another shape than the screen loses a strip of its edges instead of
 		# being stretched. Asked after every LoadImage, whose new image
-		# instance is at a scale of one: the animation loads twelve frames a
-		# second, and the client never clears the screen, so a frame of its
-		# own size left the rest of a larger screen showing whatever had been
-		# drawn there last (clientrootify.py).
+		# instance is at a scale of one. The client never clears the screen, so
+		# a picture of its own size left the rest of a larger screen (2K, 4K)
+		# showing whatever had been drawn there last.
 		# The picture's own size - ExpandedImageBox.GetWidth is its window's,
 		# which a scale changes. A picture that did not load has none, and
 		# the black under it shows (uiscript/loginwindow.py).
@@ -893,32 +885,6 @@ class LoginWindow(ui.ScriptWindow):
 		# than all of it, so the far edge is always past the screen's.
 		self.background.SetPosition(-int(round((imageWidth * scale - screenWidth) / 2)),
 			-int(round((imageHeight * scale - screenHeight) / 2)))
-
-	def __PreloadAnimatedBackground(self):
-		# Only create the hidden ImageBox holders here. The actual texture
-		# uploads are streamed in gradually from OnUpdate (see
-		# __UpdateAnimatedBackgroundPreload) so opening the window doesn't
-		# block on 32 synchronous full-HD texture loads.
-		self.backgroundPreloadFrames = []
-		for frameNumber in xrange(1, 33):
-			frameImage = ui.ImageBox()
-			frameImage.SetParent(self.background)
-			frameImage.Hide()
-			self.backgroundPreloadFrames.append(frameImage)
-		self.backgroundPreloadIndex = 0
-		self.backgroundPreloadDone = False
-
-	def __UpdateAnimatedBackgroundPreload(self):
-		if self.backgroundPreloadDone:
-			return
-		framesPerTick = 2
-		for i in xrange(framesPerTick):
-			if self.backgroundPreloadIndex >= len(self.backgroundPreloadFrames):
-				self.backgroundPreloadDone = True
-				break
-			frameNumber = self.backgroundPreloadIndex + 1
-			self.backgroundPreloadFrames[self.backgroundPreloadIndex].LoadImage("locale/pl/ui/animated/login_big_%02d.dds" % frameNumber)
-			self.backgroundPreloadIndex += 1
 
 	def __LoadScript(self, fileName):
 		import dbg
@@ -957,15 +923,10 @@ class LoginWindow(ui.ScriptWindow):
 				self.__CreateSaveAccountBoard()
 
 			screen_width = wndMgr.GetScreenWidth()
-			screen_height = wndMgr.GetScreenHeight()
 			if screen_width < 1000:
 				self.background.LoadImage("locale/pl/ui/login_small.jpg")
 			elif screen_width > 1280:
-				self.background.LoadImage("locale/pl/ui/animated/login_big_01.jpg")
-				self.animatedBackground = True
-				self.backgroundFrame = 1
-				self.backgroundLastFrameTime = time.clock()
-				self.__PreloadAnimatedBackground()
+				self.background.LoadImage("locale/pl/ui/login_big.jpg")
 			# In between, the login_medium.jpg the script loaded.
 			self.__FitBackground()
 
@@ -1145,16 +1106,6 @@ class LoginWindow(ui.ScriptWindow):
 		ServerStateChecker.Update()
 		autologin.PumpLogin(self)
 
-		if self.animatedBackground and not self.backgroundPreloadDone:
-			self.__UpdateAnimatedBackgroundPreload()
-
-		# 32 frames, 12 FPS; enabled only for login_big (screen width > 1280 px).
-		if self.animatedBackground and time.clock() - self.backgroundLastFrameTime >= 0.083:
-			self.backgroundFrame = (self.backgroundFrame % 32) + 1
-			self.background.LoadImage("locale/pl/ui/animated/login_big_%02d.dds" % self.backgroundFrame)
-			self.__FitBackground()
-			self.backgroundLastFrameTime = time.clock()
-
 	def EmptyFunc(self):
 		pass
 
@@ -1172,23 +1123,13 @@ class LoginWindow(ui.ScriptWindow):
 	def __GetChannelID(self):
 		return self.channelList.GetSelectedItem()
 
-	def __SelectChannelLine(self, channelID):
-		# The channel list is keyed by line, and a channel past the first is
-		# missing from it while it does not answer - with CH2 off, CH3 is the
-		# second line. So a channel is selected by its key, never as a line.
-		for line, key in self.channelList.keyDict.items():
-			if key == channelID:
-				self.channelList.SelectItem(line)
-				return True
-		return False
-
 	def __OpenServerBoard(self):
 		serverIndex = self.__GetServerID()
 		channelIndex = self.__GetChannelID()
 		self.serverList.SelectItem(serverIndex)
 
 		if channelIndex >= 0:
-			self.__SelectChannelLine(channelIndex)
+			self.channelList.SelectItem(channelIndex)
 		else:
 			self.channelList.SelectItem(app.GetRandom(0, self.channelList.GetItemCount() - 1))
 
@@ -1292,17 +1233,9 @@ class LoginWindow(ui.ScriptWindow):
 		for channelID, channelDataDict in channelDict.items():
 			channelName = channelDataDict["name"]
 			channelState = channelDataDict["state"]
-			# A channel past the first runs only when the server switches it on
-			# (M2_PLAYERBOT_CH2, and the fresh bots' CH3 and CH4): listed once it
-			# answers, never as a dead line. CH1 is always listed.
-			if channelID > 0 and channelState in (serverInfo.STATE_NONE, serverInfo.STATE_DICT[0]):
-				continue
 			self.channelList.InsertItem(channelID, "%s %s" % (channelName, channelState))
 
-		# The list is keyed by line: the selection is found again by its
-		# channel, and CH1 takes it when that channel stopped answering.
-		if not self.__SelectChannelLine(bakChannelID):
-			self.__SelectChannelLine(0)
+		self.channelList.SelectItem(bakChannelID)
 
 	def NotifyChannelState(self, addrKey, state):
 		serverID = self.__GetServerID()

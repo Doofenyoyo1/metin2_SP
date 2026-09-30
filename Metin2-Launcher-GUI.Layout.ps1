@@ -113,7 +113,7 @@ public class M2LauncherArtPanel2 : Panel {
         # %TEMP% can refuse that, and it must cost the painting, not the
         # window: the panel below is then a plain one with the picture
         # stretched to it, or a plain colour.
-        Write-StartupFailure ((UI-Text 'Tlo launchera bez rysowania C#: ' 'Launcher background without C# drawing: ') + $_.Exception.Message)
+        Write-StartupFailure ('Tlo launchera bez rysowania C#: ' + $_.Exception.Message)
     }
 }
 
@@ -302,7 +302,7 @@ if (Test-Path -LiteralPath $scenePath -PathType Leaf) {
             else { $main.BackgroundImage = [Drawing.Bitmap]::new($sceneSource) }
         }
         finally { $sceneSource.Dispose() }
-    } catch { Write-LocalLog ((UI-Text 'Nie można wczytać tła launchera: ' 'Cannot load the launcher background: ') + $_.Exception.Message) }
+    } catch { Write-LocalLog ('Nie można wczytać tła launchera: ' + $_.Exception.Message) }
 }
 function Scroll-UILogToEnd {
     if ($script:logBox -and -not $script:logBox.IsDisposed -and $script:logBox.IsHandleCreated -and $script:logBox.Visible) {
@@ -493,6 +493,8 @@ UI-Card 'logs' $diagnosticsButton (UI-Text 'Sprawdź środowisko i możliwe przy
 UI-Card 'logs' $bundleButton (UI-Text 'Przygotuj paczkę logów do zgłoszenia.' 'Prepare a log bundle for a support request.')
 UI-Card 'logs' $openLogButton (UI-Text 'Otwórz bieżący dziennik w edytorze.' 'Open the current log in an editor.')
 UI-Card 'logs' $folderButton (UI-Text 'Przejdź do wszystkich zapisanych logów.' 'Browse all saved log files.')
+# ZGLOS / REPORT, when its module is there (Metin2-Launcher-GUI.ps1 makes the button).
+UI-Card 'logs' $reportButton (UI-Text 'Błąd albo pomysł - prosto do autora, z logami.' 'A bug or an idea - straight to the author, with the logs.') '#6E3A44'
 
 Show-UIPage 'home'
 $script:ui.VersionTip = [Windows.Forms.ToolTip]::new()
@@ -518,7 +520,7 @@ function Invoke-LayoutSelfTest([string]$OutputDirectory) {
     $script:form.ShowInTaskbar = $false
     $script:dockerStatus.Text = UI-Text 'Docker: podgląd UI' 'Docker: UI preview'
     $script:serverStatus.Text = UI-Text 'Serwer: podgląd UI' 'Server: UI preview'
-    $script:versionLabel.Text = (UI-Text "Serwer: 2.0.96   |   najnowszy: 2.0.96`r`nLauncher: 2.0.96   |   najnowszy: 2.0.96`r`nKlient: 2.0.25   |   najnowszy: 2.0.25" "Server: 2.0.96   |   latest: 2.0.96`r`nLauncher: 2.0.96   |   latest: 2.0.96`r`nClient: 2.0.25   |   latest: 2.0.25")
+    $script:versionLabel.Text = "Serwer: 2.0.96   |   najnowszy: 2.0.96`r`nLauncher: 2.0.96   |   najnowszy: 2.0.96`r`nKlient: 2.0.25   |   najnowszy: 2.0.25"
     $script:logBox.Text = UI-Text "[Test] Podgląd układu launchera.`r`n[Test] Akcje serwera nie zostały uruchomione." "[Test] Launcher layout preview.`r`n[Test] No server actions have been started."
     $previewLog = $script:logBox.Text
     $script:logBox.Text = ((1..100 | ForEach-Object { 'Scroll test line ' + $_ }) -join "`r`n")
@@ -587,6 +589,7 @@ function Invoke-LayoutSelfTest([string]$OutputDirectory) {
         $repairDbButton, $dbAccessButton, $gmPanelButton, $worldBackupButton, $difficultyButton, $languageButton, $ratesButton)
     if ($coopButton) { $expected += $coopButton }
     if ($vpsButton) { $expected += $vpsButton }
+    if ($reportButton) { $expected += $reportButton }
     foreach ($button in $expected) {
         if (@($script:ui.Cards | Where-Object { $_.Button -eq $button }).Count -ne 1) { throw "Missing/duplicate action: $($button.Text)" }
     }

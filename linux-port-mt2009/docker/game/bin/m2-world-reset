@@ -1,0 +1,408 @@
+#!/bin/bash
+# =============================================================================
+#  m2-world-reset -- the advanced panel's two resets (the operator, 27 Sept.)
+#
+#  RESET SWIATA BOTOW ("bots"): every bot starts a new game at level 1 the way
+#  a retired bot does - same account, name, class, look and kingdom, a new
+#  character in its kingdom's first village with the starter set, no skills,
+#  no points, no yang. Everything a bot owned goes: its items, its stalls and
+#  their stock, its safebox, its quests and affects. The bot guilds are
+#  disbanded, their land goes back to the pool and their buildings with it;
+#  bots leave the players' guilds. The players' characters are not touched,
+#  and neither are the players' companions (playerbot_sidekick).
+#
+#  RESET CALEGO SWIATA ("all"): the database a fresh install starts with - the
+#  shipped dumps imported again, the migrator (apply.sh) run again, which
+#  seeds a new cohort of bots and applies every addition of this package.
+#  Accounts and characters of players go with it.
+#
+#  Same spool protocol as m2-rates: the advanced panel checks the database
+#  password, writes $SPOOL/world-reset.request, m2-supervise polls, stops
+#  every core (so no core and no db cache writes an old world back), runs
+#  `apply' and boots the cores again; the panel reads $SPOOL/world-reset.status.
+#
+#  Before either reset the account, common, player and itemshop databases are
+#  dumped to a gzip file (without the panel's snapshot tables, which are only
+#  its history): /opt/m2backups when the server folder's backups directory is
+#  mounted and writable, the state volume's backups directory otherwise.
+#
+#      prepare   (root, from the entrypoint) the backup directory's owner
+#      poll      a new request?  exit 10 = yes, stop the cores and apply
+#      apply     the reset itself, with the cores down
+# =============================================================================
+set -uo pipefail
+LC_ALL=C
+export LC_ALL
+
+VAR_DIR="${M2_VAR_DIR:-/opt/metin2/var}"
+SPOOL="${M2_RATES_SPOOL:-/opt/m2spool}"
+STATE_DIR="$VAR_DIR/world-reset"
+LAST_ID="$STATE_DIR/last-id"
+WANTED="$STATE_DIR/wanted"
+LOG="$STATE_DIR/reset.log"
+REQUEST="$SPOOL/world-reset.request"
+STATUS="$SPOOL/world-reset.status"
+INITDB="${M2_INITDB_DIR:-/opt/m2initdb}"
+PLAYERBOT_DIR="${M2_PLAYERBOT_DIR:-/opt/playerbot}"
+BACKUP_MOUNT="${M2_BACKUP_DIR:-/opt/m2backups}"
+# A request older than this is not carried out: the panel said "now", and a
+# reset that waited for a server switched off at the time is nobody's wish.
+MAX_AGE="${M2_WORLD_RESET_MAX_AGE:-1800}"
+
+mkdir -p "$STATE_DIR" 2>/dev/null
+
+say()  { printf '%s [world-reset] %s\n' "$(date -u '+%Y-%m-%d %H:%M:%SZ')" "$1"; }
+note() { say "$1"; say "$1" >>"$LOG" 2>/dev/null; }
+
+kv() { # kv FILE KEY
+    sed -n "s/^$2=//p" "$1" 2>/dev/null | head -1 | tr -d '\r'
+}
+
+KIND=""
+REQ_ID=""
+BACKUP_FILE=""
+
+write_status() { # write_status STATE MESSAGE
+    local tmp="$STATUS.new.$$"
+    { printf 'state=%s\n' "$1"
+      printf 'kind=%s\n' "$KIND"
+      printf 'id=%s\n' "$REQ_ID"
+      printf 'time=%s\n' "$(date +%s)"
+      printf 'backup=%s\n' "$BACKUP_FILE"
+      printf 'message=%s\n' "$2"
+    } > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
+    chmod 0660 "$tmp" 2>/dev/null
+    mv "$tmp" "$STATUS" 2>/dev/null || { rm -f "$tmp"; return 1; }
+}
+
+db() { # the game's own SQL user, as every core uses it
+    MYSQL_PWD="$M2_DB_PASSWORD" mariadb --protocol=tcp --host="$M2_DB_HOST" \
+        --port="$M2_DB_PORT" --user="$M2_DB_USER" --default-character-set=latin1 \
+        --batch --skip-column-names "$@"
+}
+
+table_exists() { # table_exists SCHEMA TABLE
+    [ "$(db -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$1' AND table_name='$2'" 2>/dev/null)" = "1" ]
+}
+
+# -----------------------------------------------------------------------------
+cmd_prepare() {
+    mkdir -p "$STATE_DIR" 2>/dev/null
+    chown metin2:metin2 "$STATE_DIR" 2>/dev/null
+    if [ -d "$BACKUP_MOUNT" ]; then
+        mkdir -p "$BACKUP_MOUNT/reset-swiata" 2>/dev/null
+        chown metin2:metin2 "$BACKUP_MOUNT/reset-swiata" 2>/dev/null
+    fi
+    return 0
+}
+
+# -----------------------------------------------------------------------------
+cmd_poll() {
+    [ -f "$REQUEST" ] || return 0
+    local id kind at now seen=""
+    id=$(kv "$REQUEST" id); kind=$(kv "$REQUEST" kind); at=$(kv "$REQUEST" time)
+    [ -n "$id" ] || return 0
+    [ -f "$LAST_ID" ] && seen=$(cat "$LAST_ID" 2>/dev/null)
+    [ "$id" = "$seen" ] && return 0
+    printf '%s\n' "$id" > "$LAST_ID" 2>/dev/null || return 0
+    REQ_ID="$id"; KIND="$kind"
+    case "$kind" in
+        bots|all) ;;
+        *) note "unknown reset kind '$kind' (request $id) -- nothing done"
+           write_status failed "nieznany rodzaj resetu"; return 0 ;;
+    esac
+    now=$(date +%s)
+    case "${at:-x}" in ''|*[!0-9]*) at=0 ;; esac
+    if [ $(( now - at )) -gt "$MAX_AGE" ]; then
+        note "request $id ($kind) is $(( now - at ))s old -- not carried out"
+        write_status failed "prośba o reset była za stara (serwer był wyłączony) - nic nie zmieniono"
+        return 0
+    fi
+    { printf 'id=%s\nkind=%s\n' "$id" "$kind"; } > "$WANTED" 2>/dev/null
+    note "the panel asked for a reset: $kind (request $id) -- stopping the cores"
+    write_status stopping "zatrzymuję serwer"
+    return 10
+}
+
+# -----------------------------------------------------------------------------
+backup_dir() {
+    if [ -d "$BACKUP_MOUNT/reset-swiata" ] && [ -w "$BACKUP_MOUNT/reset-swiata" ]; then
+        echo "$BACKUP_MOUNT/reset-swiata"
+    else
+        mkdir -p "$VAR_DIR/backups" 2>/dev/null
+        echo "$VAR_DIR/backups"
+    fi
+}
+
+make_backup() {
+    local dir file dbs="" d ignore=""
+    dir=$(backup_dir)
+    file="$dir/przed-resetem-$KIND-$(date -u +%Y%m%d-%H%M%S).sql.gz"
+    for d in account common player itemshop; do
+        [ "$(db -e "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='$d'")" = "1" ] && dbs="$dbs $d"
+    done
+    for t in web_seban_bot_position_snapshot web_seban_item_snapshot web_seban_shop_item_snapshot \
+             web_seban_shop_snapshot web_seban_map_snapshot web_seban_metric_snapshot web_seban_system_snapshot; do
+        ignore="$ignore --ignore-table=player.$t"
+    done
+    note "backup of$dbs to $file"
+    write_status backup "zapisuję kopię bazy"
+    # shellcheck disable=SC2086
+    if ! MYSQL_PWD="$M2_DB_PASSWORD" mariadb-dump --protocol=tcp --host="$M2_DB_HOST" \
+            --port="$M2_DB_PORT" --user="$M2_DB_USER" --single-transaction --quick \
+            --default-character-set=latin1 $ignore --databases $dbs 2>>"$LOG" | gzip -6 > "$file"; then
+        rm -f "$file"
+        return 1
+    fi
+    [ -s "$file" ] || { rm -f "$file"; return 1; }
+    BACKUP_FILE="$file"
+    note "backup written: $(du -h "$file" | cut -f1)"
+    return 0
+}
+
+# -----------------------------------------------------------------------------
+#  The bots' new game, in one session (the temporary tables live in it).
+# -----------------------------------------------------------------------------
+bots_sql() {
+    local sidekick="" have
+    table_exists player playerbot_sidekick && \
+        sidekick="AND p.id NOT IN (SELECT sidekick_pid FROM player.playerbot_sidekick)"
+    cat <<SQL
+SET SESSION sql_mode='';
+-- DDL first: it would commit the transaction below.
+CREATE TABLE IF NOT EXISTS common.playerbot_retire_pick (
+    pid INT UNSIGNED NOT NULL PRIMARY KEY, batch_id INT UNSIGNED NOT NULL,
+    name VARCHAR(24) NOT NULL, level TINYINT UNSIGNED NOT NULL,
+    picked_at INT UNSIGNED NOT NULL, stage VARCHAR(16) NOT NULL DEFAULT 'shopping',
+    reset_at INT UNSIGNED NULL);
+DROP TEMPORARY TABLE IF EXISTS rb, rb2, rg, rl;
+CREATE TEMPORARY TABLE rb (
+    pid INT UNSIGNED NOT NULL PRIMARY KEY, aid INT UNSIGNED NOT NULL,
+    name VARCHAR(24) NOT NULL, job TINYINT UNSIGNED NOT NULL,
+    part_base TINYINT UNSIGNED NOT NULL, empire TINYINT UNSIGNED NOT NULL,
+    KEY (aid)) ENGINE=MEMORY;
+INSERT INTO rb
+SELECT p.id, p.account_id, p.name, p.job, p.part_base, pi.empire
+  FROM player.player p
+  JOIN account.account a ON a.id = p.account_id
+  JOIN player.player_index pi ON pi.id = p.account_id
+ WHERE BINARY a.login LIKE BINARY 'playerbot\\_%' AND pi.empire BETWEEN 1 AND 3 $sidekick;
+CREATE TEMPORARY TABLE rb2 (pid INT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=MEMORY;
+INSERT INTO rb2 SELECT pid FROM rb;
+
+-- The bot guilds: the ones the manager keeps and any guild a bot leads.
+CREATE TEMPORARY TABLE rg (guild_id INT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=MEMORY;
+SQL
+    table_exists player playerbot_guild && echo "INSERT IGNORE INTO rg SELECT guild_id FROM player.playerbot_guild;"
+    cat <<'SQL'
+INSERT IGNORE INTO rg SELECT g.id FROM player.guild g JOIN rb ON rb.pid = g.master;
+CREATE TEMPORARY TABLE rl (land_id INT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=MEMORY;
+INSERT IGNORE INTO rl SELECT gl.land_id FROM player.guild_land gl JOIN rg ON rg.guild_id = gl.guild_id;
+
+-- All or nothing: the client stops at the first error and a transaction
+-- never committed is rolled back.
+START TRANSACTION;
+
+DELETE o FROM player.object o JOIN rl ON rl.land_id = o.land_id;
+DELETE gl FROM player.guild_land gl JOIN rg ON rg.guild_id = gl.guild_id;
+DELETE gm FROM player.guild_member gm JOIN rg ON rg.guild_id = gm.guild_id;
+DELETE gm FROM player.guild_member gm JOIN rb ON rb.pid = gm.pid;
+DELETE x FROM player.guild_grade x JOIN rg ON rg.guild_id = x.guild_id;
+DELETE x FROM player.guild_comment x JOIN rg ON rg.guild_id = x.guild_id;
+DELETE x FROM player.guild_war x JOIN rg ON rg.guild_id = x.id_from;
+DELETE x FROM player.guild_war x JOIN rg ON rg.guild_id = x.id_to;
+DELETE x FROM player.guild_war_reservation x JOIN rg ON rg.guild_id = x.guild1;
+DELETE x FROM player.guild_war_reservation x JOIN rg ON rg.guild_id = x.guild2;
+DELETE g FROM player.guild g JOIN rg ON rg.guild_id = g.id;
+SQL
+    table_exists player playerbot_guild && echo "DELETE FROM player.playerbot_guild;"
+    table_exists player playerbot_guild_contribution && echo "DELETE FROM player.playerbot_guild_contribution;"
+    cat <<'SQL'
+
+-- What the bots own. item.owner_id is the character for its own windows and
+-- the ACCOUNT for SAFEBOX/MALL (see playerbot_retirement.h).
+DELETE i FROM player.item i JOIN rb ON rb.pid = i.owner_id WHERE i.`window` NOT IN ('SAFEBOX','MALL');
+DELETE i FROM player.item i JOIN rb ON rb.aid = i.owner_id WHERE i.`window` IN ('SAFEBOX','MALL');
+DELETE s FROM player.safebox s JOIN rb ON rb.aid = s.account_id;
+SQL
+    for spec in "ikashop_offlineshop owner" "ikashop_safebox owner" "ikashop_notification owner" \
+                "ikashop_private_offer seller" "ikashop_private_offer buyer" \
+                "ikashop_auction_offer seller" "ikashop_auction_offer buyer" \
+                "myshop_pricelist owner_id" "quest dwPID" "affect dwPID" "player_special_flag pid" \
+                "messenger_block_list pid" "marriage pid1" "marriage pid2" "horse_name id"; do
+        set -- $spec
+        table_exists player "$1" && echo "DELETE x FROM player.$1 x JOIN rb ON rb.pid = x.$2;"
+    done
+    cat <<'SQL'
+
+-- The new characters: NewPlayerTable2's level-1 values (JobInitialPoints,
+-- the kingdom's create position +-300), as ResetRetiredPlayerBotRow writes them.
+DELETE p FROM player.player p JOIN rb ON rb.pid = p.id;
+INSERT INTO player.player
+    (id, account_id, name, level, st, ht, dx, iq, job, voice, dir, x, y, z, map_index,
+     hp, mp, stamina, part_base, part_main, part_hair, part_acce, gold, playtime, exp, stat_point)
+SELECT rb.pid, rb.aid, rb.name, 1,
+       ELT(rb.job % 4 + 1, 6, 4, 5, 3), ELT(rb.job % 4 + 1, 4, 3, 3, 4),
+       ELT(rb.job % 4 + 1, 3, 6, 3, 3), ELT(rb.job % 4 + 1, 3, 3, 5, 6),
+       rb.job, 0, 0,
+       ELT(rb.empire, 459800, 52070, 957300) + FLOOR(RAND() * 601) - 300,
+       ELT(rb.empire, 953900, 166600, 255200) + FLOOR(RAND() * 601) - 300,
+       0, ELT(rb.empire, 1, 21, 41),
+       ELT(rb.job % 4 + 1, 760, 770, 770, 860), ELT(rb.job % 4 + 1, 260, 260, 300, 320), 800,
+       rb.part_base, rb.part_base, 0, 0, 0, 0, 0, 0
+  FROM rb;
+
+-- The login rewards claimed, so the starter set comes once, from the engine
+-- (GivePlayerBotRetireStarterKit), which numbers the items itself.
+INSERT INTO player.quest (dwPID, szName, szState, lValue)
+SELECT pid, 'give_basic_weapon', 'basic_weapon', 1 FROM rb
+ON DUPLICATE KEY UPDATE lValue = GREATEST(lValue, VALUES(lValue));
+INSERT INTO player.quest (dwPID, szName, szState, lValue)
+SELECT pid, 'starter_chest', 'given', 1 FROM rb2
+ON DUPLICATE KEY UPDATE lValue = GREATEST(lValue, VALUES(lValue));
+
+-- Every bot is a recreated identity: the engine gives it the starter set on
+-- its first tick and treats it as a new adventurer (playerbot_retirement.h).
+SQL
+    table_exists common playerbot_retire_control && echo "DELETE FROM common.playerbot_retire_control;"
+    table_exists common playerbot_retire_item && echo "DELETE FROM common.playerbot_retire_item;"
+    cat <<'SQL'
+DELETE FROM common.playerbot_retire_pick;
+INSERT INTO common.playerbot_retire_pick (pid, batch_id, name, level, picked_at, stage, reset_at)
+SELECT pid, 0, name, 1, UNIX_TIMESTAMP(), 'reset', UNIX_TIMESTAMP() FROM rb;
+COMMIT;
+
+SELECT CONCAT('bots=', (SELECT COUNT(*) FROM rb), ' guilds=', (SELECT COUNT(*) FROM rg),
+              ' lands=', (SELECT COUNT(*) FROM rl));
+SQL
+}
+
+reset_bots() {
+    local out
+    write_status resetting "resetuję boty"
+    out=$(bots_sql | db player 2>>"$LOG") || return 1
+    note "bots reset: $out"
+    RESULT_TEXT="$out"
+    return 0
+}
+
+# -----------------------------------------------------------------------------
+#  The whole world: what MariaDB's first run and the migrator do, again.
+# -----------------------------------------------------------------------------
+reset_all() {
+    local d f missing=""
+    for d in account common player log world; do
+        [ -s "$INITDB/dumps/$d.sql" ] || missing="$missing $d.sql"
+    done
+    if [ -n "$missing" ]; then
+        note "the dumps are not all here ($INITDB/dumps:$missing) -- nothing deleted"
+        RESULT_TEXT="brakuje zrzutów bazy:$missing (linux-port/docker/mariadb/initdb.d/dumps) - nic nie skasowano"
+        return 2
+    fi
+    [ -s "$PLAYERBOT_DIR/apply.sh" ] || {
+        RESULT_TEXT="brakuje linux-port/docker/mariadb/playerbot - nic nie skasowano"
+        return 2
+    }
+    # The advanced panel's own settings (its password, name, look) are not the
+    # world's: kept across the reset, so the panel does not ask to be set up again.
+    local keep="$STATE_DIR/panel-settings.sql"
+    rm -f "$keep"
+    if table_exists player web_seban_settings; then
+        MYSQL_PWD="$M2_DB_PASSWORD" mariadb-dump --protocol=tcp --host="$M2_DB_HOST" \
+            --port="$M2_DB_PORT" --user="$M2_DB_USER" --default-character-set=utf8mb4 \
+            player web_seban_settings > "$keep" 2>>"$LOG" || rm -f "$keep"
+    fi
+    write_status resetting "kasuję bazę i importuję ją od nowa"
+    for d in account common player log world itemshop hotbackup; do
+        db -e "DROP DATABASE IF EXISTS \`$d\`" 2>>"$LOG" || note "could not drop $d"
+    done
+    for d in account common player log world hotbackup; do
+        db -e "CREATE DATABASE IF NOT EXISTS \`$d\` DEFAULT CHARACTER SET cp1250 COLLATE cp1250_general_ci" 2>>"$LOG" || return 1
+    done
+    for d in account common player log world; do
+        note "importing $d"
+        db "$d" < "$INITDB/dumps/$d.sql" 2>>"$LOG" || { note "import of $d failed"; return 1; }
+    done
+    db 2>>"$LOG" <<'SQL' || return 1
+CREATE OR REPLACE VIEW player.item_proto AS SELECT * FROM world.item_proto;
+CREATE OR REPLACE VIEW player.mob_proto  AS SELECT * FROM world.mob_proto;
+ALTER TABLE account.account MODIFY social_id VARCHAR(18) NOT NULL DEFAULT '';
+ALTER TABLE account.account ADD COLUMN IF NOT EXISTS mileage INT NOT NULL DEFAULT 0;
+ALTER TABLE account.account ADD COLUMN IF NOT EXISTS jackpot INT NOT NULL DEFAULT 0;
+SQL
+    [ -s "$INITDB/20-log-schema.sql" ] && { db < "$INITDB/20-log-schema.sql" 2>>"$LOG" || note "log schema: see $LOG"; }
+    if [ "${M2_KEEP_DEMO_ACCOUNTS:-1}" != "0" ]; then
+        db 2>>"$LOG" <<'SQL'
+INSERT INTO account.account (login, password, social_id, status)
+VALUES ('admin', CONCAT('*', UPPER(SHA1(UNHEX(SHA1('admin'))))), '1234567', 'OK'),
+       ('test',  CONCAT('*', UPPER(SHA1(UNHEX(SHA1('test'))))),  '1234567', 'OK')
+ON DUPLICATE KEY UPDATE status = 'OK';
+SQL
+        [ -s "$PLAYERBOT_DIR/gm_characters.sql" ] && db < "$PLAYERBOT_DIR/gm_characters.sql" 2>>"$LOG"
+    fi
+    write_status resetting "zasiewam boty i dodatki MT2009 PLUS"
+    note "running the migrator (apply.sh)"
+    if ! M2_DB_HOST="$M2_DB_HOST" sh "$PLAYERBOT_DIR/apply.sh" >>"$LOG" 2>&1; then
+        note "the migrator failed -- see $LOG"
+        RESULT_TEXT="baza zaimportowana, ale migrator zgłosił błąd (log: $LOG)"
+        return 1
+    fi
+    if [ -s "$keep" ]; then
+        MYSQL_PWD="$M2_DB_PASSWORD" mariadb --protocol=tcp --host="$M2_DB_HOST" --port="$M2_DB_PORT" \
+            --user="$M2_DB_USER" --default-character-set=utf8mb4 player < "$keep" 2>>"$LOG" \
+            || note "the panel's settings could not be put back -- it will ask to be set up"
+        rm -f "$keep"
+    fi
+    RESULT_TEXT="nowa baza jak po instalacji"
+    return 0
+}
+
+# -----------------------------------------------------------------------------
+cmd_apply() {
+    [ -f "$WANTED" ] || return 0
+    REQ_ID=$(kv "$WANTED" id); KIND=$(kv "$WANTED" kind)
+    rm -f "$WANTED"
+    RESULT_TEXT=""
+    note "reset '$KIND' (request $REQ_ID) with the cores down"
+    if ! make_backup; then
+        note "the backup failed -- nothing was reset"
+        write_status failed "nie udało się zapisać kopii bazy - nic nie zmieniono (log: $LOG)"
+        return 1
+    fi
+    local rc=0
+    case "$KIND" in
+        bots) reset_bots; rc=$? ;;
+        all)  reset_all;  rc=$? ;;
+    esac
+    # A new game: the achievements of the old one ("the first to ...") go too.
+    if [ "$rc" = "0" ]; then
+        find "$VAR_DIR" -maxdepth 3 -name 'playerbot_achievements.tsv' -delete 2>/dev/null
+        write_status starting "reset gotowy ($RESULT_TEXT), uruchamiam serwer"
+        printf 'state=ok\nmessage=%s\n' "$RESULT_TEXT" > "$STATE_DIR/last-result" 2>/dev/null
+        return 0
+    fi
+    [ -n "$RESULT_TEXT" ] || RESULT_TEXT="błąd SQL (log: $LOG)"
+    note "reset '$KIND' failed: $RESULT_TEXT"
+    write_status failed "$RESULT_TEXT; kopia: $BACKUP_FILE"
+    printf 'state=failed\nmessage=%s\n' "$RESULT_TEXT" > "$STATE_DIR/last-result" 2>/dev/null
+    return 1
+}
+
+cmd_publish() { # after the cores are back: done (or what went wrong)
+    [ -f "$STATE_DIR/last-result" ] || return 0
+    [ "$(kv "$STATUS" state)" = "starting" ] || return 0
+    KIND=$(kv "$STATUS" kind); REQ_ID=$(kv "$STATUS" id); BACKUP_FILE=$(kv "$STATUS" backup)
+    if [ "${1:-}" = "no_restart" ]; then
+        write_status failed "reset wykonany, ale nie wszystkie rdzenie wstały - uruchom serwer ponownie"
+    else
+        write_status done "$(kv "$STATE_DIR/last-result" message)"
+    fi
+}
+
+case "${1:-}" in
+    prepare) cmd_prepare ;;
+    poll)    cmd_poll ;;
+    apply)   cmd_apply ;;
+    publish) shift; cmd_publish "$@" ;;
+    *) echo "usage: m2-world-reset prepare|poll|apply|publish" >&2; exit 2 ;;
+esac

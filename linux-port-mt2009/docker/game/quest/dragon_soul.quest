@@ -1,0 +1,223 @@
+-- Dragon Soul / Alchemy: main qualification + fragment-farming quest.
+-- Adapted 17 September 2026 from the operator-supplied reference package.
+-- Two changes from the reference: (1) every "define X Y" inlined as a
+-- literal -- this qc does not read `define` at all (confirmed by
+-- new_quest_lv19.quest's own comment in this same directory; qc rejected
+-- the reference's defines with "must start with 'quest'" the first time
+-- this was tried, unmodified, in this pipeline); gemstone=30270,
+-- alchemist=20001, reward_box=50255, gemstone_need_count=10,
+-- gemstone_trade_max_per_day=5 (brief's own instruction, was 10),
+-- dragon_soul_can_use_level=30, drop_flag="ds_drop". (2) every
+-- "gameforge.dragon_soul._NNNN_purpose" locale reference replaced with a
+-- literal Polish string -- that locale mechanism does not exist anywhere
+-- in this codebase (no matching Lua table, DB table, or file found after
+-- an extensive search; see custom-patches/README.md's Dragon Soul section
+-- for the full trail), so referencing it would only fail at runtime the
+-- first time the quest actually fires, not at compile time.
+-- MT2009 Plus: the world's alchemy switch (M2_ALCHEMY=0 in .env, or the
+-- admin panel, sets the event flag m2_alchemy_off). While it is off no
+-- fragment drops, the Alchemist trades none for a Cor Draconis and the
+-- level-30 letter is not sent; stones and Cors a player has are untouched.
+quest dragon_soul begin
+	state start begin
+		when levelup or letter with pc.level >= 30 begin
+			if game.get_event_flag("m2_alchemy_off") != 0 then
+				return
+			end
+			send_letter("Alchemik chce z Toba porozmawiac o Duszach Smokow.")
+			local v = find_npc_by_vnum(20001)
+
+			if 0 != v then
+				target.vid("__TARGET__", v, mob_name(20001))
+			end
+		end
+		when info or button begin
+			say("Odwiedz Alchemika, gdy osiagniesz 30 poziom.")
+		end
+
+		when 20001.chat."Rozmawiaj o Duszach Smokow" with pc.level >= 30 and game.get_event_flag("m2_alchemy_off") == 0 begin
+			target.delete("__TARGET__")
+
+			say_title(mob_name(20001))
+			say("Witaj, podrozniku. Slyszalem, ze interesujesz sie Duszami Smokow.")
+			set_state(state_learning)
+		end
+	end
+	state state_learning begin
+		when letter begin
+			send_letter("Zbierz 10 Odlamkow Smoczego Kamienia i wroc do Alchemika.")
+		end
+		when info or button begin
+			say("Zbieraj Odlamki Smoczego Kamienia z pokonanych potworow.")
+		end
+		when kill begin
+			if npc.is_pc() then
+				return
+			end
+
+			-- Bots must not be able to farm/drop alchemy materials (operator's
+			-- explicit instruction, 17 September 2026).
+			if pc.is_bot() then
+				return
+			end
+
+			if game.get_event_flag("m2_alchemy_off") != 0 then
+				return
+			end
+
+			-- Only a monster at most 15 levels under the character, or any
+			-- higher (operator, 27 September 2026).
+			if npc.get_level0() < pc.get_level() - 15 then
+				return
+			end
+
+			if pc.count_item(30270) < 10 then
+				if drop_gamble_with_flag("ds_drop") then
+					game.drop_item_with_ownership(30270, 1, 300)
+				end
+			end
+		end
+		when 20001.chat."Oddaj Odlamki Smoczego Kamienia" begin
+			if game.get_event_flag("m2_alchemy_off") != 0 then
+				say_title(mob_name(20001))
+				say("Alchemia jest wylaczona na tym swiecie.")
+				return
+			end
+			say_title(mob_name(20001))
+			if pc.count_item(30270) >= 10 then
+				say("Doskonale! Oto Twoja kwalifikacja do Alchemii Smoczych Kamieni.")
+				pc.remove_item(30270, 10)
+				ds.give_qualification()
+				char_log(pc.get_player_id(), 'DS_QUALIFICATION', 'SUCCESS')
+				pc.give_item2(50255)
+				local today = math.floor(get_global_time() / 86400)
+				pc.setf("dragon_soul", "eye_timestamp", today)
+				pc.setf("dragon_soul", "eye_left", 4)
+				set_state(state_farming)
+			else
+				say("Potrzebuje jeszcze 10 Odlamkow Smoczego Kamienia.")
+			end
+		end
+	end
+	state state_farming begin
+		when letter begin
+			send_letter("Odlamki Smoczego Kamienia -> Cor Draconis u Alchemika")
+		end
+		when info or button begin
+			say("Pozostalo dzisiaj wymian: " .. pc.getf("dragon_soul", "eye_left"))
+		end
+		when kill begin
+			if npc.is_pc() then
+				return
+			end
+
+			-- Bots must not be able to farm/drop alchemy materials (operator's
+			-- explicit instruction, 17 September 2026).
+			if pc.is_bot() then
+				return
+			end
+
+			if game.get_event_flag("m2_alchemy_off") != 0 then
+				return
+			end
+
+			-- Only a monster at most 15 levels under the character, or any
+			-- higher (operator, 27 September 2026).
+			if npc.get_level0() < pc.get_level() - 15 then
+				return
+			end
+
+			if drop_gamble_with_flag("ds_drop") then
+				local eye_left = pc.getf("dragon_soul", "eye_left")
+				local haved_gemstone_number = pc.count_item(30270)
+
+				if eye_left > haved_gemstone_number / 10 then
+					game.drop_item_with_ownership(30270, 1, 300)
+				end
+			end
+		end
+		when 30270.pick begin
+			if game.get_event_flag("m2_alchemy_off") != 0 then
+				return
+			end
+			local eye_left = pc.getf("dragon_soul", "eye_left")
+			if eye_left <= 0 then
+				return
+			end
+
+			if pc.count_item(30270) >= 10 then
+				pc.setf("dragon_soul", "eye_left", eye_left - 1)
+				pc.remove_item(30270, 10)
+				pc.give_item2(50255)
+				if 1 == eye_left then
+					notice_multiline("Wykorzystales dzisiejszy limit wymian Cor Draconis. Wroc jutro.", notice)
+					set_state(state_closed_season)
+				end
+			end
+		end
+		when 20001.chat."Porozmawiaj z Alchemikiem" begin
+			if game.get_event_flag("m2_alchemy_off") != 0 then
+				say_title(mob_name(20001))
+				say("Alchemia jest wylaczona na tym swiecie.")
+				return
+			end
+			say_title(mob_name(20001))
+			local today = math.floor(get_global_time() / 86400)
+			if today == pc.getf("dragon_soul", "eye_timestamp") then
+				say("Wroc jutro po kolejne Cor Draconis.")
+			else
+				say("Nowy dzien, nowe Cor Draconis!")
+				pc.setf("dragon_soul", "eye_timestamp", today)
+				pc.setf("dragon_soul", "eye_left", 5)
+			end
+		end
+	end
+	state state_closed_season begin
+		when letter begin
+			send_letter("Dzisiejszy limit wymian zostal wykorzystany.")
+		end
+		when info or button begin
+			say("Wykorzystales dzisiejszy limit wymian.")
+			local today = math.floor(get_global_time() / 86400)
+			if today == pc.getf("dragon_soul", "eye_timestamp") then
+				say("Wroc jutro.")
+			else
+				say("Nowy dzien juz nastal -- odwiedz Alchemika ponownie.")
+			end
+		end
+
+		when 20001.chat."Porozmawiaj z Alchemikiem ponownie" begin
+			if game.get_event_flag("m2_alchemy_off") != 0 then
+				say_title(mob_name(20001))
+				say("Alchemia jest wylaczona na tym swiecie.")
+				return
+			end
+			say_title(mob_name(20001))
+			local today = math.floor(get_global_time() / 86400)
+			if today == pc.getf("dragon_soul", "eye_timestamp") then
+				say("Wroc jutro po kolejne Cor Draconis.")
+			else
+				say("Nowy dzien, nowe Cor Draconis!")
+				pc.setf("dragon_soul", "eye_timestamp", today)
+				pc.setf("dragon_soul", "eye_left", 5)
+				set_state(state_farming)
+			end
+		end
+	end
+	-- deprecated states. so, jump to new state.
+	state state_1 begin
+		when login begin
+			set_state(state_learning)
+		end
+	end
+	state state_2 begin
+		when login begin
+			set_state(state_learning)
+		end
+	end
+	state state_3 begin
+		when login begin
+			set_state(state_closed_season)
+		end
+	end
+end

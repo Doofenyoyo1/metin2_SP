@@ -24,7 +24,8 @@ PathMap. What the script does not merge, and says so:
     port-script edit (playerbotify.py, and ENGINE_EDITS in
     tools/build_mt2009_server_update.py), and the staged playerbot_* files are
     copies of the overlay, which is merged;
-  * files only upstream publishes (its licence files).
+  * the licence files: upstream's LICENSE and NOTICE are the terms this
+    project is shared under, so a change there is read and carried by hand.
 
 Rendered files (apply.sh, the seed, the Dockerfile's share steps, the compose
 deploy file) are merged like any other so the result can be read; the change
@@ -53,7 +54,7 @@ sys.path.insert(0, os.path.join(REPO, 'tools'))
 from build_mt2009_server_update import published, STAGED  # noqa: E402
 
 NOT_MERGED = {'CHANGELOG.md', 'linux-port-mt2009/VERSION'}
-UPSTREAM_ONLY = {'LICENSE', 'LICENSE-MIT.txt', 'NOTICE.md'}
+LICENCE_FILES = {'LICENSE', 'LICENSE-MIT.txt', 'NOTICE.md'}
 
 
 def unzip(path, dest):
@@ -128,8 +129,8 @@ def sync_server(base_zip, new_zip, work, report):
         if same(os.path.join(b, p), os.path.join(n, p)):
             continue
         r = rev.get(p)
-        if p in UPSTREAM_ONLY:
-            report.append('skipped (upstream only): ' + p)
+        if p in LICENCE_FILES:
+            report.append('LICENCE changed upstream, read it and carry it by hand: ' + p)
         elif r is None:
             report.append('UNMAPPED (not in our list): ' + p)
         elif r in NOT_MERGED:

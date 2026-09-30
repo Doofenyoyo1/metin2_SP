@@ -1,4 +1,4 @@
-# Walking through one's own companion (server 2.2.24; the operator, 26 September:
+# Walking through one's own companion (26 September:
 # "towarzysz jest dla naszej postaci nieblokujacym, zeby dalo sie przez niego
 # przenikac, bo jak expi sie z nim to on strasznie przeszkadza").
 #
@@ -20,7 +20,7 @@
 #
 # It used to stay an NPC from the moment the client had made it, and to this
 # client an NPC is a body and nothing else ("Napraw fryzury npc, bo szamanka
-# nie ma wlosow", the operator, 28 September: a Shaman companion, bald). Armour of
+# nie ma wlosow", 28 September: a Shaman companion, bald). Armour of
 # another shape - its gear pass, its owner's hand, a stone or the anvil taking
 # the piece off and back - comes as a character update, and
 # CInstanceBase::ChangeArmor builds the model again: SetRace, where
@@ -63,7 +63,9 @@ def ParseVid(value):
 	return vid if vid > 0 else 0
 
 
-def SetVid(value):
+def SetVid(value, *rest):
+	# Numbers after the VID (an older server's hair and sash, the keeper that
+	# put them back before the model was built as a player's) are not read.
 	_state['vid'] = ParseVid(value)
 	_state['hover'] = False
 	if _state['vid']:

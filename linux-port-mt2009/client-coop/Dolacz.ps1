@@ -51,6 +51,8 @@ function Write-CoopConfig {
     if (-not $name) { $name = [string]$Invite.host }
     $channels = [int]$Invite.channels
     if ($channels -lt 1) { $channels = 1 }
+    # The client's server list refuses a coop.cfg of more than two channels.
+    if ($channels -gt 2) { $channels = 2 }
     $target = $(if ($HostAddress) { $HostAddress } else { [string]$Invite.host })
     $lines = @(
         '# Metin2 SinglePlayer - swiat znajomego (zapisal Dolacz.ps1, kod zaproszenia)',

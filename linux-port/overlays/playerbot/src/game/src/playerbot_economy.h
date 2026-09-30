@@ -662,6 +662,12 @@ namespace
 			return PLAYERBOT_SHOP_HORSE_MEDAL_LINE_UNITS;
 		if (item->GetType() == ITEM_SKILLBOOK || item->GetVnum() == PLAYERBOT_GRAND_MASTER_STONE_VNUM)
 			return 1;
+		// A Cor Draconis goes up five and more a line (operator, 26 September
+		// 2026); a sash one at a time.
+		if (IsPlayerBotCorVnum(item->GetVnum()))
+			return 5;
+		if (GetPlayerBotRareGoodsKind(item->GetVnum()) != PLAYERBOT_RARE_GOODS_NONE)
+			return 1;
 		// A bean is bought a handful at a time (PLAYERBOT_ZEN_BEAN_LINE_UNITS).
 		if (item->GetVnum() == PLAYERBOT_ZEN_BEAN_VNUM)
 			return PLAYERBOT_ZEN_BEAN_LINE_UNITS;
@@ -824,6 +830,7 @@ namespace
 	// it. Without it a bot short by one bought a pack of two, was no longer
 	// short, and put both on its own counter at the price it had just paid
 	// (Zolc Niedzwiedzia x2, sizowski) - then was short again.
+	const int PLAYERBOT_MATERIAL_KEEP_LEVELS = 15;
 	int GetPlayerBotRefineMaterialReserve(LPCHARACTER ch, DWORD materialVnum)
 	{
 		if (!ch || materialVnum == 0)
@@ -842,12 +849,27 @@ namespace
 			if (IsPlayerBotEquipmentCandidate(ch, candidate))
 				gear.push_back(candidate);
 		}
+		// The level-30 weapon worked in the bag is kept for too, wherever it
+		// stands among the gear above.
+		TPlayerBotLevel30View level30;
+		ReadPlayerBotLevel30View(ch, level30);
+		if (level30.project && std::find(gear.begin(), gear.end(), level30.project) == gear.end())
+			gear.push_back(level30.project);
+		LPITEM hand = ch->GetWear(WEAR_WEAPON);
 		int reserve = 0;
 		for (size_t i = 0; i < gear.size(); ++i)
 		{
 			LPITEM item = gear[i];
 			if (!item || item->GetRefinedVnum() == 0 ||
 					item->GetRefineLevel() >= GetPlayerBotRefineTarget(ch, item))
+				continue;
+			// Materials only for pieces within PLAYERBOT_MATERIAL_KEEP_LEVELS
+			// of the bot's own level: what a lower map's gear takes goes on
+			// sale, at every look over the goods. Never the weapon in the hand
+			// nor the level-30 project: a bot of 46 with a weapon at +6..+8
+			// lost the materials of its next plus to that rule.
+			if (item != hand && item != level30.project &&
+					(int)item->GetLevelLimit() + PLAYERBOT_MATERIAL_KEEP_LEVELS < (int)ch->GetLevel())
 				continue;
 			const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(item->GetRefineSet());
 			if (!recipe)
@@ -1195,7 +1217,10 @@ namespace
 	{
 		if (!ch || !ch->IsItemLoaded())
 			return false;
-		const int occupied = PLAYERBOT_BAG_CELLS - CountPlayerBotFreeInventoryCells(ch);
+		// The saddlebags' free cells count as room: what lands there comes
+		// back down as the bag empties (playerbot_saddlebag.h).
+		const int occupied = PLAYERBOT_BAG_CELLS - CountPlayerBotFreeInventoryCells(ch) -
+				CountPlayerBotSaddlebagFreeCells(ch);
 		return occupied * 100 >= PLAYERBOT_BAG_CELLS * PLAYERBOT_BAG_FULL_PERCENT;
 	}
 
@@ -1211,7 +1236,8 @@ namespace
 	bool IsPlayerBotBagUnderPressure(LPCHARACTER ch)
 	{
 		return ch && ch->IsItemLoaded() &&
-				CountPlayerBotFreeInventoryCells(ch) <= PLAYERBOT_BAG_PRESSURE_FREE_CELLS;
+				CountPlayerBotFreeInventoryCells(ch) + CountPlayerBotSaddlebagFreeCells(ch) <=
+					PLAYERBOT_BAG_PRESSURE_FREE_CELLS;
 	}
 
 	// A bag piece this bot would put on: its slot is empty or it outscores
@@ -1604,6 +1630,11 @@ namespace
 				return false;
 		}
 
+		// The guild building materials are goods now (playerbot_guild_land.h):
+		// the counters, never the merchant.
+		if (IsPlayerBotGuildBuildMaterial(item->GetVnum()))
+			return false;
+
 		// A piece Iwakura's list keeps for the storekeeper is never the
 		// merchant's, whatever the rules below would make of it.
 		if (IsPlayerBotLppKeptItem(ch, item))
@@ -1623,6 +1654,21 @@ namespace
 		// bot of sixty-four had just picked up for the level it was reaching.
 		if (IsPlayerBotStalkiItem(item))
 			return false;
+
+		// A Cor Draconis or a sash (MT2009 Plus) is the counter's. The
+		// merchant takes it once a line of its kind came home from this bot's
+		// counter unsold (NotePlayerBotRareGoodsUnsold), and from a bag under
+		// pressure that has no counter for it: none at all, or the counters'
+		// share of the kind is taken (IsPlayerBotRareGoodsShopQuotaFull).
+		{
+			if (IsPlayerBotKeptSash(ch, item) || IsPlayerBotKeptCor(ch, item))
+				return false;
+			const int rareKind = GetPlayerBotRareGoodsKind(item->GetVnum());
+			if (rareKind != PLAYERBOT_RARE_GOODS_NONE)
+				return IsPlayerBotRareGoodsForMerchant(ch->GetPlayerID(), item->GetVnum(), get_dword_time()) ||
+						(IsPlayerBotBagUnderPressure(ch) &&
+						 (!PlayerBotHasCounter(ch) || IsPlayerBotRareGoodsShopQuotaFull(rareKind)));
+		}
 
 		const DWORD vnum = item->GetVnum();
 
@@ -1689,9 +1735,18 @@ namespace
 		// never the merchant's: he paid 194 yang for one.
 		if (vnum == PLAYERBOT_GRAND_MASTER_STONE_VNUM)
 			return false;
+		// A pet seal from the ItemShop (MT2009 Plus, playerbot_itemshop.h) is the
+		// bot's own pet, summoned from the bag: never the merchant's.
+		if (item->GetType() == ITEM_PET)
+			return false;
 		// A hairstyle from the ItemShop (playerbot_itemshop.h) is worn, not sold:
 		// the rule's default would vendor it on the next town trip.
 		if (item->GetType() == ITEM_COSTUME)
+			return false;
+		// The look's bonus reagents from Handlarka (70063/70064,
+		// ManagePlayerBotCostumeBonus) are bought for the bot's own costume.
+		if (item->GetType() == ITEM_USE && (item->GetSubType() == USE_CHANGE_COSTUME_ATTR ||
+				item->GetSubType() == USE_RESET_COSTUME_ATTR))
 			return false;
 
 		// Baek-Go's board (playerbot_herbalism.h) gave two kinds of item a
@@ -2054,6 +2109,12 @@ namespace
 		// from. The default below sold them all - on the test world some
 		// thousand of each in a day, for a few hundred yang against 40 000 to
 		// 135 000 on the sheet (18 September).
+		// A saddlebag bot's materials for its rows are nobody's scrap.
+		if (IsPlayerBotKeptCraftMaterial(ch, item))
+			return false;
+		// A polymorph book or a Mining Guide it can read is read, not sold.
+		if (IsPlayerBotExtraSkillBook(vnum) && CanPlayerBotReadExtraSkillBookNow(ch, vnum))
+			return false;
 		if (IsPlayerBotSheetGoods(item))
 			return IsPlayerBotBagUnderPressure(ch) && !PlayerBotHasCounter(ch);
 
@@ -2552,6 +2613,9 @@ namespace
 	{
 		if (!item || item->GetRefinedVnum() == 0 || IsPlayerBotSidekickPinned(ch, item))
 			return false;
+		// The bow or fan a keeper builds for its sash (playerbot_sash.h).
+		if (IsPlayerBotSashGrailProject(ch, item))
+			return item->GetRefineLevel() < GetPlayerBotRefineTarget(ch, item);
 		// The piece a blacksmith session took off is still the worn one (B12):
 		// the junk rule and the spare rules are not asked of it, as they are not
 		// of a piece on the bot. With a higher-tier spare beside it in the bag it
@@ -2983,6 +3047,11 @@ namespace
 			LPITEM item = candidates[i].item;
 			if (!item || item->GetRefinedVnum() == 0)
 				continue;
+			// A guild smith takes the gear of level thirty and up, and the plain
+			// blacksmith leaves it to one on this map (playerbot_guild_land.h).
+			LPCHARACTER guildSmith = NULL;
+			if (!PlayerBotRefineAnvilTakes(ch, state, item, &guildSmith))
+				continue;
 
 			const DWORD oldVnum = item->GetVnum();
 			const DWORD nextVnum = item->GetRefinedVnum();
@@ -3283,6 +3352,7 @@ namespace
 			const bool classLevel30 = IsPlayerBotClassLevel30Weapon(ch, item);
 			const long long goldBeforeAttempt = (long long)ch->GetGold();
 			const WORD cellBefore = item->GetCell();
+			const DWORD idBefore = item->GetID();
 			bool attempted = false;
 			if (scrollCell >= 0)
 			{
@@ -3291,7 +3361,15 @@ namespace
 				ch->ClearRefineMode();
 			}
 			else
+			{
+				// At a guild smith the engine's own rules: its fee, the
+				// guild's share of it, and ten points on the odds.
+				if (guildSmith)
+					ch->SetRefineNPC(guildSmith);
 				attempted = ch->DoRefine(item, false);
+				if (guildSmith)
+					ch->SetRefineNPC(NULL);
+			}
 			// The piece taken off for this step is still the worn one in the
 			// shape the anvil handed it back - a new item in the same cell,
 			// whatever the outcome - or gone (B12).
@@ -3300,6 +3378,12 @@ namespace
 				LPITEM after = ch->GetInventoryItem(cellBefore);
 				state.adwRefineTakenOffItem[wearCell] = after ? after->GetID() : 0;
 			}
+			// The piece the anvil handed back - a new item in the same cell -
+			// remembers what it was made from (playerbot_explain.h).
+			if (attempted && IsPlayerBotExplainOn())
+				if (LPITEM made = ch->GetInventoryItem(cellBefore))
+					if (made->GetID() != idBefore)
+						NotePlayerBotExplainOrigin(made, per::ORIGIN_REFINED, idBefore);
 			if (attempted)
 			{
 				// The step's fee goes on the level-30 weapon's budget.
@@ -3320,6 +3404,10 @@ namespace
 					// And a failure on the way to them costs a level of mood.
 					NotePlayerBotMoodRefineFailure(ch, (int)plusLevel + 1,
 							scrollCell >= 0 ? "downgraded" : "burned");
+					// A worn piece burned: what goes on in its slot next goes on
+					// after the burn (playerbot_explain.h).
+					if (scrollCell < 0 && wearCell < WEAR_MAX_NUM)
+						NotePlayerBotExplainBurn(ch->GetPlayerID(), wearCell, dwNow);
 					// A burnt class weapon is bought again straight away, while the
 					// bot still stands in the village ("bot ma obowiazek zakupic
 					// kolejna sztuke broni na 30. poziom z rynku, jesli pozwala na to

@@ -25,17 +25,6 @@
 # one address the server names (PROXY_IP) no longer has to fit everybody.
 Set-StrictMode -Version 2.0
 
-# A text in the launcher's language: .m2launcher.json's "language", which the
-# window and Metin2-Launcher.ps1 put into $env:M2_LAUNCHER_LANGUAGE for every
-# module and every action they start. The English one for 'en', otherwise the
-# Polish one, which is word for word what the launcher always said. Each
-# module keeps its own copy and none exports it.
-function UI-Text {
-    param([AllowEmptyString()][string]$Pl, [AllowEmptyString()][string]$En)
-    if ($env:M2_LAUNCHER_LANGUAGE -eq 'en' -and $En) { return $En }
-    return $Pl
-}
-
 $script:CoopDescription = 'Metin2 SinglePlayer COOP'
 $script:CoopFirewallRule = 'Metin2 SinglePlayer COOP'
 $script:CoopLeaseSeconds = 14400
@@ -46,6 +35,19 @@ $script:CoopInvitePrefix = 'M2COOP1:'
 function Get-M2CoopStatePath {
     param([Parameter(Mandatory = $true)][string]$ServerRoot)
     return (Join-Path $ServerRoot '.m2coop.json')
+}
+
+# Hosting is open on every install here. MT2009 PLUS and Tieru gate it behind
+# their testers' password; their launcher code asks these two, so they answer
+# yes for everybody and nothing is stored.
+function Test-M2CoopAccess {
+    param([Parameter(Mandatory = $true)][string]$ServerRoot)
+    return $true
+}
+
+function Grant-M2CoopAccess {
+    param([Parameter(Mandatory = $true)][string]$ServerRoot, [AllowEmptyString()][string]$Password)
+    return $true
 }
 
 function Read-M2CoopState {
@@ -94,19 +96,24 @@ function Get-M2CoopContainerPrefix {
 }
 
 # The ports a friend's client talks to: auth, then every game core the plan
-# runs - three a channel, from M2_GAME_PORT_RANGE (the second channel and the
-# fresh cohort's third and fourth widen it, up to 13000-13032). The ceiling
-# used to be twenty ports, which let a second channel through and gave a third
-# or a fourth no port at all - only auth was opened, and a friend could log in
-# and reach no channel.
+# runs - three a channel, from M2_GAME_PORT_RANGE (a second channel widens
+# it), and every channel .env switches on (M2_CHANNELS, M2_PLAYERBOT_CH2)
+# counted from the first port of that range - M2_GAME_PORT_BASE when the range
+# says nothing: a rule made for CH1 alone let a friend reach auth and CH1 and
+# no other channel.
 function Get-M2CoopGamePorts {
     param([Parameter(Mandatory = $true)][string]$ServerRoot)
     $auth = [int](Get-M2CoopEnvValue -ServerRoot $ServerRoot -Name 'M2_AUTH_PORT' -Default '11000')
-    $range = Get-M2CoopEnvValue -ServerRoot $ServerRoot -Name 'M2_GAME_PORT_RANGE' -Default '13000-13002'
+    $base = 13000
+    $baseText = Get-M2CoopEnvValue -ServerRoot $ServerRoot -Name 'M2_GAME_PORT_BASE' -Default '13000'
+    if ($baseText -match '^\s*(\d+)\s*$' -and [int]$Matches[1] -gt 0 -and [int]$Matches[1] -lt 65500) { $base = [int]$Matches[1] }
+    $range = Get-M2CoopEnvValue -ServerRoot $ServerRoot -Name 'M2_GAME_PORT_RANGE' -Default ('{0}-{1}' -f $base, ($base + 2))
     $ports = New-Object System.Collections.Generic.List[int]
     $ports.Add($auth)
+    $first = $base
     if ($range -match '^\s*(\d+)\s*-\s*(\d+)\s*$') {
         $from = [int]$Matches[1]; $to = [int]$Matches[2]
+        $first = $from
         if ($to -ge $from -and ($to - $from) -le 40) {
             foreach ($p in $from..$to) {
                 # 13003-13009 sit between two channels' cores and nothing listens there.
@@ -114,7 +121,16 @@ function Get-M2CoopGamePorts {
             }
         }
     }
-    else { foreach ($p in 13000..13002) { $ports.Add($p) } }
+    $channels = 1
+    $channelsText = Get-M2CoopEnvValue -ServerRoot $ServerRoot -Name 'M2_CHANNELS' -Default '1'
+    if ($channelsText -match '^\s*([1-4])\s*$') { $channels = [int]$Matches[1] }
+    if ((Get-M2CoopEnvValue -ServerRoot $ServerRoot -Name 'M2_PLAYERBOT_CH2' -Default '0') -eq '1' -and $channels -lt 2) { $channels = 2 }
+    for ($ch = 0; $ch -lt $channels; $ch++) {
+        foreach ($offset in 0..2) {
+            $p = $first + 10 * $ch + $offset
+            if (-not $ports.Contains($p)) { $ports.Add($p) }
+        }
+    }
     return @($ports)
 }
 
@@ -255,14 +271,14 @@ function Get-M2CoopUpnpRefusal {
     # the same as one that had not answered at all (Sudak, 24 September).
     param([int]$Code = -1, [int]$HttpStatus = 0)
     switch ($Code) {
-        606 { return (UI-Text 'router nie pozwala temu komputerowi na przekierowania (kod 606)' 'the router does not allow this computer to forward ports (code 606)') }
-        718 { return (UI-Text 'router ma juz ten port dla innego przekierowania (kod 718)' 'the router already uses this port for another port forward (code 718)') }
-        728 { return (UI-Text 'router nie ma miejsca na kolejne przekierowania (kod 728)' 'the router has no room for more port forwards (code 728)') }
-        729 { return (UI-Text 'router odmowil - konflikt z inna usluga routera (kod 729)' 'the router refused - conflict with another router service (code 729)') }
+        606 { return 'router nie pozwala temu komputerowi na przekierowania (kod 606)' }
+        718 { return 'router ma juz ten port dla innego przekierowania (kod 718)' }
+        728 { return 'router nie ma miejsca na kolejne przekierowania (kod 728)' }
+        729 { return 'router odmowil - konflikt z inna usluga routera (kod 729)' }
     }
-    if ($Code -ge 0) { return ((UI-Text 'router odmowil (kod {0})' 'the router refused (code {0})') -f $Code) }
-    if ($HttpStatus -gt 0) { return ((UI-Text 'router odmowil (HTTP {0})' 'the router refused (HTTP {0})') -f $HttpStatus) }
-    return (UI-Text 'router nie odpowiedzial' 'the router did not answer')
+    if ($Code -ge 0) { return ('router odmowil (kod {0})' -f $Code) }
+    if ($HttpStatus -gt 0) { return ('router odmowil (HTTP {0})' -f $HttpStatus) }
+    return 'router nie odpowiedzial'
 }
 
 function Get-M2CoopExternalAddress {
@@ -292,7 +308,7 @@ function Add-M2CoopPortMapping {
     # renewed.
     $existing = Get-M2CoopPortMapping -Gateway $Gateway -Port $Port
     if ($existing -and -not ($existing.Description -eq $script:CoopDescription -and $existing.InternalClient -eq $LanAddress)) {
-        return [pscustomobject]@{ Port = $Port; Ok = $false; Lease = 0; Reason = ((UI-Text 'port zajety przez inne przekierowanie ({0} -> {1})' 'port taken by another port forward ({0} -> {1})') -f $existing.Description, $existing.InternalClient) }
+        return [pscustomobject]@{ Port = $Port; Ok = $false; Lease = 0; Reason = ('port zajety przez inne przekierowanie ({0} -> {1})' -f $existing.Description, $existing.InternalClient) }
     }
     $lastCode = -1
     $lastStatus = 0
@@ -332,10 +348,10 @@ function Get-M2CoopNetworkReport {
     if ($gateway) { $wan = Get-M2CoopExternalAddress -Gateway $gateway }
     $verdict = 'unknown'
     $text = ''
-    if (-not $lan) { $verdict = 'no-lan'; $text = (UI-Text 'Nie znaleziono karty sieciowej z bramą domyślną.' 'No network adapter with a default gateway was found.') }
-    elseif (-not $public) { $verdict = 'offline'; $text = (UI-Text 'Nie udało się odczytać adresu publicznego (brak internetu?).' 'Could not read the public address (no Internet?).') }
-    elseif (Test-M2CoopCgnatAddress $public) { $verdict = 'cgnat'; $text = (UI-Text 'Operator daje adres CGNAT - znajomi nie połączą się bezpośrednio.' 'Your Internet provider gives a CGNAT address - friends cannot connect directly.') }
-    elseif (-not $gateway) { $verdict = 'no-upnp'; $text = (UI-Text 'Router nie odpowiada na UPnP - porty trzeba przekierować ręcznie w routerze.' 'The router does not answer UPnP - the ports have to be forwarded by hand in the router.') }
+    if (-not $lan) { $verdict = 'no-lan'; $text = 'Nie znaleziono karty sieciowej z bramą domyślną.' }
+    elseif (-not $public) { $verdict = 'offline'; $text = 'Nie udało się odczytać adresu publicznego (brak internetu?).' }
+    elseif (Test-M2CoopCgnatAddress $public) { $verdict = 'cgnat'; $text = 'Operator daje adres CGNAT - znajomi nie połączą się bezpośrednio.' }
+    elseif (-not $gateway) { $verdict = 'no-upnp'; $text = 'Router nie odpowiada na UPnP - porty trzeba przekierować ręcznie w routerze.' }
     # A router that answers the search and then tells nothing - no address of
     # its own - is either one that lets this machine do nothing (a FRITZ!Box
     # before "Selbstständige Portfreigaben" is allowed for it) or a line with
@@ -343,12 +359,12 @@ function Get-M2CoopNetworkReport {
     # where "powinno działać" was said and not one port was opened.
     elseif (-not $wan -or $wan -eq '0.0.0.0') {
         $verdict = 'no-wan'
-        $text = (UI-Text 'Router odpowiada na UPnP, ale nie podał swojego adresu w internecie - może nie pozwalać temu komputerowi na przekierowania albo łącze nie ma własnego IPv4 (DS-Lite).' 'The router answers UPnP but did not give its Internet address - it may not allow this computer to forward ports, or the connection has no IPv4 address of its own (DS-Lite).')
+        $text = 'Router odpowiada na UPnP, ale nie podał swojego adresu w internecie - może nie pozwalać temu komputerowi na przekierowania albo łącze nie ma własnego IPv4 (DS-Lite).'
     }
-    elseif (Test-M2CoopCgnatAddress $wan) { $verdict = 'cgnat'; $text = (UI-Text "Router ma adres CGNAT ($wan) - znajomi nie połączą się bezpośrednio." "The router has a CGNAT address ($wan) - friends cannot connect directly.") }
-    elseif (Test-M2CoopPrivateAddress $wan) { $verdict = 'double-nat'; $text = (UI-Text "Router ma adres prywatny ($wan): przed nim jest drugi router (podwójny NAT)." "The router has a private address ($wan): there is a second router in front of it (double NAT).") }
-    elseif ($wan -and $wan -ne $public) { $verdict = 'mismatch'; $text = (UI-Text "Router widzi $wan, a internet $public - możliwy CGNAT albo drugi router." "The router sees $wan and the Internet sees $public - possibly CGNAT or a second router.") }
-    else { $verdict = 'public'; $text = (UI-Text 'Publiczny adres IPv4 i UPnP w routerze - hostowanie powinno działać.' 'A public IPv4 address and UPnP in the router - hosting should work.') }
+    elseif (Test-M2CoopCgnatAddress $wan) { $verdict = 'cgnat'; $text = "Router ma adres CGNAT ($wan) - znajomi nie połączą się bezpośrednio." }
+    elseif (Test-M2CoopPrivateAddress $wan) { $verdict = 'double-nat'; $text = "Router ma adres prywatny ($wan): przed nim jest drugi router (podwójny NAT)." }
+    elseif ($wan -and $wan -ne $public) { $verdict = 'mismatch'; $text = "Router widzi $wan, a internet $public - możliwy CGNAT albo drugi router." }
+    else { $verdict = 'public'; $text = 'Publiczny adres IPv4 i UPnP w routerze - hostowanie powinno działać.' }
     return [pscustomobject]@{
         LanAddress    = $(if ($lan) { $lan.Address } else { '' })
         Gateway       = $(if ($lan) { $lan.Gateway } else { '' })
@@ -469,7 +485,7 @@ function Resolve-M2CoopHostingVia {
         }
         $product = Get-M2CoopVpnProduct -Kind $want
         $name = $(if ($product) { $product.Name } else { 'VPN' })
-        throw ((UI-Text "Nie widzę na tym komputerze połączonego {0} - uruchom go, dołącz do sieci i spróbuj jeszcze raz." "{0} is not connected on this computer - start it, join the network and try again.") -f $name)
+        throw ("Nie widzę na tym komputerze połączonego {0} - uruchom go, dołącz do sieci i spróbuj jeszcze raz." -f $name)
     }
     if (-not $unreachable) { return [pscustomobject]@{ Mode = 'internet'; Vpn = $null } }
     if ($vpns.Count -gt 0) { return [pscustomobject]@{ Mode = 'vpn'; Vpn = $vpns[0] } }
@@ -494,6 +510,27 @@ function Resolve-M2CoopRouterFallback {
     return [pscustomobject]@{ Mode = 'vpn'; Vpn = $vpns[0] }
 }
 
+function Resolve-M2CoopAdvertisedAddress {
+    # The address the cores name in every warp (PROXY_IP), decided after the
+    # router has been asked. Through a VPN the VPN's; over the Internet with a
+    # port opened the public one. A way left to the launcher ('auto') that got
+    # no port opened and has no VPN to fall back on takes the LAN address: the
+    # public one reaches nobody then - no friend through a closed router, and
+    # not the host either, whose warps would go out to its own public address
+    # and back in only through the router's NAT loopback. A host on such a
+    # router logged in, picked a character and landed back at the channel
+    # list (26 September: no UPnP, the public address changing every few
+    # minutes). With the LAN address the host and the computers at home play;
+    # a player who forwarded the ports by hand chooses "przez internet" and
+    # keeps the public address.
+    param([Parameter(Mandatory = $true)]$Via, [AllowEmptyString()][string]$Requested = 'auto',
+        [int]$Mapped = 0, [AllowEmptyString()][string]$PublicAddress = '', [AllowEmptyString()][string]$LanAddress = '')
+    $want = $(if ($Requested) { $Requested.ToLowerInvariant() } else { 'auto' })
+    if ([string]$Via.Mode -eq 'vpn' -and $Via.Vpn) { return [pscustomobject]@{ Address = [string]$Via.Vpn.Address; Lan = $false } }
+    if ($Mapped -le 0 -and $want -eq 'auto' -and $LanAddress) { return [pscustomobject]@{ Address = $LanAddress; Lan = $true } }
+    return [pscustomobject]@{ Address = $PublicAddress; Lan = $false }
+}
+
 function Get-M2CoopRouterHelp {
     # What to do when the router opened nothing, in the router's own words
     # where it is one people have: a FRITZ!Box answers the search and refuses
@@ -502,14 +539,14 @@ function Get-M2CoopRouterHelp {
     $lines = New-Object System.Collections.Generic.List[string]
     $portText = (@($Ports) -join ', ')
     if ($Router -match 'FRITZ|AVM') {
-        $lines.Add(((UI-Text 'FRITZ!Box: wejdź na http://fritz.box > Internet > Freigaben > Portfreigaben > Gerät für Freigaben hinzufügen > ten komputer ({0}) > zaznacz Selbstständige Portfreigaben für dieses Gerät erlauben > OK, potem HOSTUJ ŚWIAT jeszcze raz.' 'FRITZ!Box: go to http://fritz.box > Internet > Permit Access (Freigaben) > Port Sharing (Portfreigaben) > Add Device for Sharing (Geraet fuer Freigaben hinzufuegen) > this computer ({0}) > tick Permit independent port sharing for this device (Selbststaendige Portfreigaben fuer dieses Geraet erlauben) > OK, then HOST THE WORLD again.') -f $LanAddress))
-        $lines.Add(((UI-Text 'Albo tam samo Neue Freigabe > Portfreigabe: TCP {0} na ten komputer.' 'Or, in the same place, New Sharing (Neue Freigabe) > Port Sharing (Portfreigabe): TCP {0} to this computer.') -f $portText))
-        $lines.Add((UI-Text 'W FRITZ!Boxie: Internet > Online-Monitor - jeśli nie ma adresu IPv4 (tylko IPv6 albo DS-Lite), żadne przekierowanie nie zadziała.' 'On the FRITZ!Box: Internet > Online Monitor (Online-Monitor) - if there is no IPv4 address (only IPv6 or DS-Lite), no port forward will work.'))
+        $lines.Add(('FRITZ!Box: wejdź na http://fritz.box > Internet > Freigaben > Portfreigaben > Gerät für Freigaben hinzufügen > ten komputer ({0}) > zaznacz Selbstständige Portfreigaben für dieses Gerät erlauben > OK, potem HOSTUJ ŚWIAT jeszcze raz.' -f $LanAddress))
+        $lines.Add(('Albo tam samo Neue Freigabe > Portfreigabe: TCP {0} na ten komputer.' -f $portText))
+        $lines.Add('W FRITZ!Boxie: Internet > Online-Monitor - jeśli nie ma adresu IPv4 (tylko IPv6 albo DS-Lite), żadne przekierowanie nie zadziała.')
     }
     else {
-        $lines.Add(((UI-Text 'W ustawieniach routera zezwól temu komputerowi na UPnP (przekierowania portów) albo przekieruj ręcznie TCP {0} na {1}, potem HOSTUJ ŚWIAT jeszcze raz.' 'In the router''s settings allow UPnP (port forwarding) for this computer, or forward TCP {0} to {1} by hand, then HOST THE WORLD again.') -f $portText, $LanAddress))
+        $lines.Add(('W ustawieniach routera zezwól temu komputerowi na UPnP (przekierowania portów) albo przekieruj ręcznie TCP {0} na {1}, potem HOSTUJ ŚWIAT jeszcze raz.' -f $portText, $LanAddress))
     }
-    $lines.Add((UI-Text 'Gdy łącze nie ma własnego adresu IPv4 (DS-Lite, CGNAT), zainstalujcie Radmin VPN, połączcie się w jednej sieci i hostuj przez niego - launcher wybierze go sam.' 'When the connection has no IPv4 address of its own (DS-Lite, CGNAT): you and your friends install Radmin VPN and join one network, then host through it - the launcher picks it by itself.'))
+    $lines.Add('Gdy łącze nie ma własnego adresu IPv4 (DS-Lite, CGNAT), zainstalujcie Radmin VPN, połączcie się w jednej sieci i hostuj przez niego - launcher wybierze go sam.')
     return @($lines.ToArray())
 }
 
@@ -537,22 +574,68 @@ function Test-M2CoopHostAnswers {
 # ---------------------------------------------------------------- firewall
 
 function Test-M2CoopFirewallRule {
-    $rule = Get-NetFirewallRule -DisplayName $script:CoopFirewallRule -ErrorAction SilentlyContinue
-    return [bool]$rule
+    # Whether our rule is there - and, given the ports, whether it lets every
+    # one of them in. The rule was made once, with the ports of the channels
+    # that ran that day, and nothing widened it after: a host who switched
+    # the second channel on later kept a rule for 11000 and 13000-13002, and a
+    # friend whose host has no rule of Docker's own reached auth and CH1 and
+    # no other channel. Rules of the same name (a netsh line added by hand
+    # beside the first one) count together.
+    param([int[]]$Ports = @())
+    $rules = @(Get-NetFirewallRule -DisplayName $script:CoopFirewallRule -ErrorAction SilentlyContinue)
+    if ($rules.Count -eq 0) { return $false }
+    if (@($Ports).Count -eq 0) { return $true }
+    $allowed = New-Object 'System.Collections.Generic.HashSet[int]'
+    foreach ($filter in @($rules | Get-NetFirewallPortFilter -ErrorAction SilentlyContinue)) {
+        foreach ($entry in @($filter.LocalPort)) {
+            $text = ([string]$entry).Trim()
+            if ($text -eq 'Any') { return $true }
+            if ($text -match '^(\d+)-(\d+)$') { foreach ($p in ([int]$Matches[1])..([int]$Matches[2])) { [void]$allowed.Add($p) } }
+            elseif ($text -match '^\d+$') { [void]$allowed.Add([int]$text) }
+        }
+    }
+    foreach ($port in @($Ports)) { if (-not $allowed.Contains([int]$port)) { return $false } }
+    return $true
 }
 
 function Add-M2CoopFirewallRule {
     param([Parameter(Mandatory = $true)][int[]]$Ports)
-    if (Test-M2CoopFirewallRule) { return $true }
-    # The rule is the operating system's; adding it takes the administrator's
-    # consent, asked by Windows itself (UAC), never assumed.
+    $global:M2CoopFirewallError = ''
+    if (Test-M2CoopFirewallRule -Ports $Ports) { return $true }
+    # The rule is the operating system's; adding or widening it takes the
+    # administrator's consent, asked by Windows itself (UAC), never assumed.
+    # A rule an earlier hosting made without a channel's ports gets the whole
+    # list in the same elevated call, rather than a second rule beside it.
     $list = ($Ports | Sort-Object -Unique) -join ','
-    $command = "New-NetFirewallRule -DisplayName '$script:CoopFirewallRule' -Direction Inbound -Protocol TCP -LocalPort $list -Action Allow -Profile Any | Out-Null"
+    $name = $script:CoopFirewallRule
+    # MT2009_PLUS_COOP_FIREWALL_V1: the elevated PowerShell runs with its own
+    # execution policy bypassed, falls back to netsh when New-NetFirewallRule
+    # fails, and its result is kept in $global:M2CoopFirewallError for the log.
+    # Every failure used to be logged as "odmowa zgody" - a cancelled question
+    # and a command that failed alike - while a host hosted six times without
+    # the rule and no friend's connection ever reached the auth core (bundle
+    # of 28 September, Radmin VPN).
+    $command = "if (Get-NetFirewallRule -DisplayName '$name' -ErrorAction SilentlyContinue) { " +
+        "try { Set-NetFirewallRule -DisplayName '$name' -Protocol TCP -LocalPort $list -ErrorAction Stop; exit 0 } catch { netsh advfirewall firewall set rule 'name=$name' new localport=$list | Out-Null; exit `$LASTEXITCODE } } " +
+        "else { try { New-NetFirewallRule -DisplayName '$name' -Direction Inbound -Protocol TCP -LocalPort $list -Action Allow -Profile Any -ErrorAction Stop | Out-Null; exit 0 } catch { netsh advfirewall firewall add rule 'name=$name' dir=in action=allow protocol=TCP localport=$list profile=any | Out-Null; exit `$LASTEXITCODE } }"
     try {
-        $p = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-Command', $command) -Verb RunAs -Wait -PassThru -WindowStyle Hidden
-        [void]$p
-    } catch { return $false }
-    return (Test-M2CoopFirewallRule)
+        $p = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $command) -Verb RunAs -Wait -PassThru -WindowStyle Hidden
+        if ($p -and $p.ExitCode -ne 0) { $global:M2CoopFirewallError = ('polecenie zapory zakonczone kodem {0}' -f $p.ExitCode) }
+    } catch {
+        $global:M2CoopFirewallError = ('Windows: {0}' -f $_.Exception.Message)
+        return $false
+    }
+    $ok = [bool](Test-M2CoopFirewallRule -Ports $Ports)
+    if (-not $ok -and -not $global:M2CoopFirewallError) { $global:M2CoopFirewallError = 'regula nie pojawila sie w zaporze albo nie obejmuje wszystkich portow gry' }
+    return $ok
+}
+
+# The same rule by hand, for an account without the administrator's rights
+# or a question that never shows: one line for an administrator's Command
+# Prompt (MT2009_PLUS_COOP_FIREWALL_V1).
+function Get-M2CoopFirewallManualCommand {
+    param([Parameter(Mandatory = $true)][int[]]$Ports)
+    return ('netsh advfirewall firewall add rule name="{0}" dir=in action=allow protocol=TCP localport={1} profile=any' -f $script:CoopFirewallRule, (($Ports | Sort-Object -Unique) -join ','))
 }
 
 function Remove-M2CoopFirewallRule {
@@ -571,7 +654,7 @@ function Invoke-M2CoopSql {
     param([Parameter(Mandatory = $true)][string]$ServerRoot, [Parameter(Mandatory = $true)][string]$Query)
     # No double quote may reach docker from Windows PowerShell 5.1 (it ends the
     # argument): the query is its own argument and uses single quotes only.
-    if ($Query.Contains('"')) { throw (UI-Text 'Invoke-M2CoopSql: zapytanie nie moze zawierac cudzyslowu' 'Invoke-M2CoopSql: the query must not contain a double quote') }
+    if ($Query.Contains('"')) { throw 'Invoke-M2CoopSql: zapytanie nie moze zawierac cudzyslowu' }
     $container = (Get-M2CoopContainerPrefix -ServerRoot $ServerRoot) + '-db'
     # The query goes in on stdin and the root password comes from the
     # container's own MARIADB_ROOT_PASSWORD, so no secret is ever an argument
@@ -579,7 +662,7 @@ function Invoke-M2CoopSql {
     # pipeline: Windows PowerShell 5.1 turns each of its lines into an error
     # record, which stops a caller running with ErrorActionPreference Stop.
     $out = $Query | & docker exec -i $container sh -c 'MYSQL_PWD=$MARIADB_ROOT_PASSWORD exec mariadb -uroot -N -B' 2>$null
-    if ($LASTEXITCODE -ne 0) { throw ((UI-Text "Baza w kontenerze {0} nie wykonala zapytania (kod {1})." "The database in container {0} did not run the query (code {1}).") -f $container, $LASTEXITCODE) }
+    if ($LASTEXITCODE -ne 0) { throw ("Baza w kontenerze {0} nie wykonala zapytania (kod {1})." -f $container, $LASTEXITCODE) }
     return @($out | ForEach-Object { [string]$_ } | Where-Object { $_ -ne '' })
 }
 
@@ -606,14 +689,14 @@ function Get-M2CoopDefaultPasswordAccounts {
 
 function Set-M2CoopAccountPassword {
     param([Parameter(Mandatory = $true)][string]$ServerRoot, [Parameter(Mandatory = $true)][string]$Login, [Parameter(Mandatory = $true)][string]$Password)
-    if ($Login -notmatch '^[A-Za-z0-9]{2,16}$') { throw (UI-Text 'Login: tylko litery i cyfry, 2-16 znakow.' 'Login: letters and digits only, 2-16 characters.') }
-    if ($Password -notmatch '^[A-Za-z0-9]{6,16}$') { throw (UI-Text 'Haslo: tylko litery i cyfry, 6-16 znakow.' 'The password takes letters and digits only, 6-16 characters.') }
+    if ($Login -notmatch '^[A-Za-z0-9]{2,16}$') { throw 'Login: tylko litery i cyfry, 2-16 znakow.' }
+    if ($Password -notmatch '^[A-Za-z0-9]{6,16}$') { throw 'Haslo: tylko litery i cyfry, 6-16 znakow.' }
     Invoke-M2CoopSql -ServerRoot $ServerRoot -Query ("UPDATE account.account SET password=" + (Get-M2CoopHashExpression $Password) + " WHERE login='" + $Login + "'") | Out-Null
 }
 
 function Set-M2CoopAccountBlocked {
     param([Parameter(Mandatory = $true)][string]$ServerRoot, [Parameter(Mandatory = $true)][string]$Login, [bool]$Blocked = $true)
-    if ($Login -notmatch '^[A-Za-z0-9]{2,16}$') { throw (UI-Text 'Zly login.' 'Invalid login.') }
+    if ($Login -notmatch '^[A-Za-z0-9]{2,16}$') { throw 'Zly login.' }
     $status = $(if ($Blocked) { 'BLOCK' } else { 'OK' })
     Invoke-M2CoopSql -ServerRoot $ServerRoot -Query ("UPDATE account.account SET status='" + $status + "' WHERE login='" + $Login + "'") | Out-Null
 }
@@ -621,7 +704,7 @@ function Set-M2CoopAccountBlocked {
 function New-M2CoopFriend {
     param([Parameter(Mandatory = $true)][string]$ServerRoot, [Parameter(Mandatory = $true)][string]$Name)
     $base = ($Name.ToLowerInvariant() -replace '[^a-z0-9]', '')
-    if ($base.Length -lt 2) { throw (UI-Text 'Nazwa znajomego: co najmniej dwie litery lub cyfry.' 'Friend''s name: at least two letters or digits.') }
+    if ($base.Length -lt 2) { throw 'Nazwa znajomego: co najmniej dwie litery lub cyfry.' }
     if ($base.Length -gt 12) { $base = $base.Substring(0, 12) }
     $login = $base
     $taken = @(Invoke-M2CoopSql -ServerRoot $ServerRoot -Query ("SELECT login FROM account.account WHERE login LIKE '" + $base + "%'"))
@@ -677,7 +760,7 @@ function Set-M2CoopEnvValue {
     param([Parameter(Mandatory = $true)][string]$ServerRoot, [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Value)
     $envPath = Join-Path $ServerRoot 'linux-port\docker\.env'
-    if (-not (Test-Path -LiteralPath $envPath -PathType Leaf)) { throw (UI-Text "Brak pliku .env: $envPath" "Missing .env file: $envPath") }
+    if (-not (Test-Path -LiteralPath $envPath -PathType Leaf)) { throw "Brak pliku .env: $envPath" }
     $content = [IO.File]::ReadAllText($envPath)
     $pattern = '(?m)^' + [regex]::Escape($Name) + '=[^\r\n]*'
     $line = $Name + '=' + $Value
@@ -783,7 +866,7 @@ function Get-M2CoopJoinAdvice {
     foreach ($vpn in @(Get-M2CoopVpnAdapters)) { if ($vpn.Kind -eq $kind) { return '' } }
     $product = Get-M2CoopVpnProduct -Kind $kind
     $name = $(if ($product) { $product.Name } else { 'VPN' })
-    return ((UI-Text "Świat znajomego jest dostępny przez {0}. Zainstaluj {0} i dołącz do sieci znajomego (jak się nazywa i jakie ma hasło, powie Ci znajomy) - bez tego gra się nie połączy." "Your friend's world is reached through {0}. Install {0} and join your friend's network (your friend will tell you its name and password) - without it the game will not connect.") -f $name)
+    return ("Świat znajomego jest dostępny przez {0}. Zainstaluj {0} i dołącz do sieci znajomego (jak się nazywa i jakie ma hasło, powie Ci znajomy) - bez tego gra się nie połączy." -f $name)
 }
 
 # ---------------------------------------------------------------- invite
@@ -826,15 +909,15 @@ function New-M2CoopInvite {
 function Read-M2CoopInvite {
     param([Parameter(Mandatory = $true)][string]$Code)
     $text = $Code.Trim()
-    if (-not $text.StartsWith($script:CoopInvitePrefix)) { throw (UI-Text 'To nie jest kod zaproszenia COOP (powinien zaczynac sie od M2COOP1:).' 'This is not a COOP invite code (it should start with M2COOP1:).') }
+    if (-not $text.StartsWith($script:CoopInvitePrefix)) { throw 'To nie jest kod zaproszenia COOP (powinien zaczynac sie od M2COOP1:).' }
     $b64 = $text.Substring($script:CoopInvitePrefix.Length).Replace('-', '+').Replace('_', '/')
     switch ($b64.Length % 4) { 2 { $b64 += '==' } 3 { $b64 += '=' } }
-    try { $json = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)) } catch { throw (UI-Text 'Kod zaproszenia jest uszkodzony.' 'The invite code is damaged.') }
+    try { $json = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)) } catch { throw 'Kod zaproszenia jest uszkodzony.' }
     $invite = $json | ConvertFrom-Json
-    if ([string]$invite.host -notmatch '^[A-Za-z0-9.-]{1,253}$') { throw (UI-Text 'Kod zaproszenia: zly adres hosta.' 'Invite code: bad host address.') }
+    if ([string]$invite.host -notmatch '^[A-Za-z0-9.-]{1,253}$') { throw 'Kod zaproszenia: zly adres hosta.' }
     foreach ($field in @('auth', 'channel')) {
         $v = [int]$invite.$field
-        if ($v -le 0 -or $v -ge 65536) { throw (UI-Text "Kod zaproszenia: zly port ($field)." "Invite code: bad port ($field).") }
+        if ($v -le 0 -or $v -ge 65536) { throw "Kod zaproszenia: zly port ($field)." }
     }
     # Every invite leaves here with a vpn field, empty for an Internet one, so
     # a caller under StrictMode can read it; an unknown product counts as none.
@@ -908,12 +991,12 @@ function Get-M2CoopJoinNotes {
     # network taken, the world answering, or what to ask the host for.
     param([Parameter(Mandatory = $true)]$Choice)
     $notes = @()
-    if ($Choice.Lan) { $notes += ((UI-Text 'Jesteś w tej samej sieci domowej co host - gra połączy się przez jego adres w tej sieci ({0}), bez routera.' 'You are on the same home network as the host - the game will connect through the host''s address on that network ({0}), without the router.') -f $Choice.Host) }
-    elseif ($Choice.Answers) { $notes += (UI-Text 'Serwer znajomego odpowiada.' 'Your friend''s server answers.') }
+    if ($Choice.Lan) { $notes += ('Jesteś w tej samej sieci domowej co host - gra połączy się przez jego adres w tej sieci ({0}), bez routera.' -f $Choice.Host) }
+    elseif ($Choice.Answers) { $notes += 'Serwer znajomego odpowiada.' }
     elseif ($Choice.SameNetwork) {
-        $notes += ((UI-Text 'Jesteś w tej samej sieci domowej co host ({0}), ale jego serwer tu nie odpowiada. Host musi mieć włączone hostowanie i pozwolić Windows na regułę zapory (HOSTUJ ŚWIAT, w okienku Windows "Tak"). Potem wklej kod jeszcze raz.' 'You are on the same home network as the host ({0}), but the host''s server does not answer here. The host must have hosting on and allow the firewall rule in Windows (HOST THE WORLD, "Yes" in the Windows dialog). Then paste the code again.') -f $Choice.LanAddress)
+        $notes += ('Jesteś w tej samej sieci domowej co host ({0}), ale jego serwer tu nie odpowiada. Host musi mieć włączone hostowanie i pozwolić Windows na regułę zapory (HOSTUJ ŚWIAT, w okienku Windows "Tak"). Potem wklej kod jeszcze raz.' -f $Choice.LanAddress)
     }
-    else { $notes += (UI-Text 'Serwer znajomego teraz nie odpowiada - poproś, żeby uruchomił serwer (GRAJ) i włączył hostowanie.' 'Your friend''s server does not answer right now - ask them to start the server (PLAY) and turn on hosting.') }
+    else { $notes += 'Serwer znajomego teraz nie odpowiada - poproś, żeby uruchomił serwer (GRAJ) i włączył hostowanie.' }
     return $notes
 }
 
@@ -963,7 +1046,7 @@ function Test-M2CoopClientExeOld {
 }
 
 function Get-M2CoopOldClientNote {
-    return (UI-Text 'Twój metin2client.exe jest starszy niż klient 2.0.17 i nie umie wejść do gry na serwerze znajomego: po wyborze postaci łączy się z tym komputerem zamiast z serwerem i wraca do logowania, a w logach serwera nic nie ma. Zaktualizuj klienta w launcherze (AKTUALIZUJ KLIENTA) albo podmień metin2client.exe na ten z pełnej paczki gry (folder Klient).' 'Your metin2client.exe is older than client 2.0.17 and cannot enter the game on a friend''s server: after you choose a character it connects to this computer instead of the server and returns to the login screen, and the server''s logs show nothing. Update the client in the launcher (UPDATE CLIENT) or replace metin2client.exe with the one from the full game package (the Klient folder).')
+    return 'Twój metin2client.exe jest starszy niż klient 2.0.17 i nie umie wejść do gry na serwerze znajomego: po wyborze postaci łączy się z tym komputerem zamiast z serwerem i wraca do logowania, a w logach serwera nic nie ma. Podmień metin2client.exe na ten z pełnej paczki gry (folder Klient) - aktualizacje klienta nie przynoszą już pliku exe.'
 }
 
 function Write-M2CoopClientConfig {
@@ -987,14 +1070,15 @@ function Write-M2CoopClientConfig {
         ('host=' + $target),
         ('auth=' + [int]$Invite.auth),
         ('channel=' + [int]$Invite.channel),
-        ('channels=' + [int]$Invite.channels)
+        # The client's server list refuses a coop.cfg of more than two channels.
+        ('channels=' + [Math]::Min(2, [Math]::Max(1, [int]$Invite.channels)))
     )
     $path = Join-Path $ClientFolder 'coop.cfg'
     [IO.File]::WriteAllText($path, (($lines -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)
     return $path
 }
 
-Export-ModuleMember -Function Get-M2CoopStatePath, Read-M2CoopState, Save-M2CoopState, Get-M2CoopEnvValue, Get-M2CoopContainerPrefix,
+Export-ModuleMember -Function Test-M2CoopAccess, Grant-M2CoopAccess, Get-M2CoopStatePath, Read-M2CoopState, Save-M2CoopState, Get-M2CoopEnvValue, Get-M2CoopContainerPrefix,
     Get-M2CoopGamePorts, Get-M2CoopLanAddress, Get-M2CoopPublicAddress, Test-M2CoopPrivateAddress, Test-M2CoopCgnatAddress,
     Find-M2CoopGateway, Invoke-M2CoopUpnp, Get-M2CoopExternalAddress, Get-M2CoopPortMapping, Add-M2CoopPortMapping,
     Remove-M2CoopPortMapping, Get-M2CoopNetworkReport, Test-M2CoopFirewallRule, Add-M2CoopFirewallRule, Remove-M2CoopFirewallRule,
@@ -1004,6 +1088,7 @@ Export-ModuleMember -Function Get-M2CoopStatePath, Read-M2CoopState, Save-M2Coop
     Get-M2CoopWorldName, Get-M2CoopFriendInvite,
     Get-M2CoopVpnProduct, Select-M2CoopVpnAdapters, Get-M2CoopVpnAdapters, Get-M2CoopVpnKindForAddress, Resolve-M2CoopHostingVia,
     Test-M2CoopHostAnswers, Get-M2CoopInviteTarget, Get-M2CoopJoinAdvice,
-    Get-M2CoopUpnpRefusal, Resolve-M2CoopRouterFallback, Get-M2CoopRouterHelp,
+    Get-M2CoopUpnpRefusal, Resolve-M2CoopRouterFallback, Resolve-M2CoopAdvertisedAddress, Get-M2CoopRouterHelp,
     Test-M2CoopLanInviteAddress, Test-M2CoopSameNetwork, Select-M2CoopJoinHost, Get-M2CoopLocalAddresses,
-    Resolve-M2CoopJoinHost, Get-M2CoopJoinNotes, Test-M2CoopClientExeOld, Get-M2CoopOldClientNote
+    Resolve-M2CoopJoinHost, Get-M2CoopJoinNotes, Test-M2CoopClientExeOld, Get-M2CoopOldClientNote,
+    Get-M2CoopFirewallManualCommand

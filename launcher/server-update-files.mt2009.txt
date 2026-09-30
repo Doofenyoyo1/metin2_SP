@@ -55,9 +55,24 @@ linux-port-mt2009/docker/game/special_item_group.moonlight.txt
 linux-port-mt2009/docker/game/special_item_group.starter.txt
 linux-port-mt2009/docker/game/cube.seon_pyeong.txt
 linux-port-mt2009/docker/game/special_spawns.baroness.txt
-# The official English names of this world's items and monsters, which the image
-# copies into its share (tools/generate_english_names.py, playerbot_language.h).
-linux-port-mt2009/docker/game/playerbot_names_en.tsv
+# MT2009 PLUS's data: the costume sets, the alchemy table, the Cor, dungeon and
+# goblin item groups, the Razador and Nemere dungeons, the Temple of Ochao and
+# the treasure hunt (maps, regens, monsters), and the items, monsters and
+# ItemShop offers its client knows.
+linux-port-mt2009/docker/game/costume_sets.txt
+linux-port-mt2009/docker/game/dragon_soul_applys.mt2009plus.txt
+linux-port-mt2009/docker/game/special_item_group.cors.txt
+linux-port-mt2009/docker/game/special_item_group.dungeons.txt
+linux-port-mt2009/docker/game/special_item_group.goblin.txt
+linux-port-mt2009/docker/game/dungeons/*
+linux-port-mt2009/docker/game/ochao/*
+linux-port-mt2009/docker/game/treasure_hunt/*
+linux-port-mt2009/docker/mariadb/playerbot/item_proto.mt2009plus.sql
+linux-port-mt2009/docker/mariadb/playerbot/mob_proto.mt2009plus.sql
+linux-port-mt2009/docker/mariadb/playerbot/mod/*
+linux-port/overlays/playerbot/serverfiles/mob_drop_item.m3.append.txt
+linux-port/overlays/playerbot/serverfiles/special_item_group.moonlight.txt
+linux-port/overlays/playerbot/serverfiles/player_autohunt_commands.inc
 
 # ---- the launcher and the package's own bookkeeping --------------------------
 # The line's own version and package note, published under the root names.
@@ -66,6 +81,7 @@ CHANGELOG.md
 linux-port-mt2009/VERSION
 # This repository's own terms, over whatever an upstream package left there.
 LICENSE
+LICENSE-MIT.txt
 NOTICE.md
 start-server.ps1
 start.bat
@@ -80,6 +96,7 @@ launcher/Metin2Launcher.psm1
 launcher/Metin2Launcher.Diagnostics.psm1
 launcher/Metin2Launcher.Coop.psm1
 launcher/Metin2Launcher.Vps.psm1
+launcher/Metin2Launcher.Report.psm1
 launcher/launcher.config.example.json
 launcher/update-manifest.example.json
 launcher/server-update-files.mt2009.txt
@@ -146,6 +163,20 @@ linux-port-mt2009/docker/game/src/server/game/src/messenger_manager.cpp
 linux-port-mt2009/docker/game/src/server/game/src/mob_manager.h
 linux-port-mt2009/docker/game/src/server/game/src/p2p.cpp
 linux-port-mt2009/docker/game/src/server/game/src/p2p.h
+# Stock engine files MT2009 PLUS changed (its mounts, pets, alchemy, dungeons
+# and packets); they come out of its package like the rest.
+linux-port-mt2009/docker/game/src/server/common/CommonDefines.h
+linux-port-mt2009/docker/game/src/server/game/src/MountSystem.cpp
+linux-port-mt2009/docker/game/src/server/game/src/PetSystem.cpp
+linux-port-mt2009/docker/game/src/server/game/src/char_affect.cpp
+linux-port-mt2009/docker/game/src/server/game/src/char_player.cpp
+linux-port-mt2009/docker/game/src/server/game/src/dragon_soul_table.cpp
+linux-port-mt2009/docker/game/src/server/game/src/dungeon.cpp
+linux-port-mt2009/docker/game/src/server/game/src/input_auth.cpp
+linux-port-mt2009/docker/game/src/server/game/src/packet.h
+linux-port-mt2009/docker/game/src/server/game/src/packet_info.cpp
+linux-port-mt2009/docker/game/src/server/game/src/questlua_dungeon.cpp
+
 # Every Playerbot source has a build-context copy here, discovered like the
 # overlay above rather than listed: the r40250 list did this already (its
 # line 65) and this one enumerated thirty-six names, so the first new file

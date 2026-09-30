@@ -5,7 +5,10 @@ OVERRIDE_DIR=os.environ.get("SEBAN_OVERRIDE_DIR", os.path.dirname(os.path.abspat
 HOOK=os.path.join(OVERRIDE_DIR,"apply-seban-overrides.sh")
 PROJECT=os.environ.get("SEBAN_COMPOSE_PROJECT", "metin2")
 UPDATE_PANEL=os.environ.get("SEBAN_UPDATE_PANEL", "0") == "1"
-MANIFEST="https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/update-manifest-mt2009.json"
+# This project's own channel, never an upstream's: their packages would
+# overwrite this project's changes.
+MANIFEST=os.environ.get("SEBAN_UPDATE_MANIFEST", "https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/update-manifest-mt2009.json")
+if "TieruYT/metin2-playerbots" in MANIFEST or "zaxerrrr-dot/mt2009-sp-plus" in MANIFEST: raise SystemExit("ERROR: SEBAN_UPDATE_MANIFEST wskazuje repozytorium projektu zrodlowego; ta paczka aktualizuje sie tylko z repozytorium Metin2 SinglePlayer.")
 SPOOL=os.environ.get("SEBAN_UPDATE_SPOOL", "/var/lib/docker/volumes/metin2_update-spool/_data")
 def progress(step, message):
     tmp=os.path.join(SPOOL, "update.status.new")

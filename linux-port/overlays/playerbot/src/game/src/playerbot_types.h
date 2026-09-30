@@ -1971,11 +1971,23 @@ namespace
 	// read is a synchronous query. The catalogue is rebuilt hourly from the
 	// manager's table, whose indices run to a few hundred on this package.
 	const DWORD PLAYERBOT_ISHOP_CHECK_INTERVAL = 10 * 60 * 1000;
+	// Vouchers are looked for every minute, whatever the bot is doing.
+	const DWORD PLAYERBOT_ISHOP_VOUCHER_CHECK_INTERVAL = 60 * 1000;
 	const DWORD PLAYERBOT_ISHOP_BUY_INTERVAL = 60 * 60 * 1000;
+	// A shopping session (operator, 24 Sep 2026): a bot with the coins buys
+	// every missing piece of its look in one go, not one an hour. The next
+	// piece waits a few seconds: the engine takes one purchase a second per
+	// character (ePulse::ItemShopBuy), and the charge of the last one goes
+	// through the db core before BuyItem reads the account again.
+	const DWORD PLAYERBOT_ISHOP_SESSION_STEP = 5 * 1000;
 	const DWORD PLAYERBOT_ISHOP_BALANCE_INTERVAL = 60 * 60 * 1000;
 	const DWORD PLAYERBOT_ISHOP_CATALOGUE_INTERVAL = 60 * 60 * 1000;
 	const DWORD PLAYERBOT_ISHOP_CENSUS_INTERVAL = 10 * 60 * 1000;
-	const int PLAYERBOT_ISHOP_MAX_INDEX = 2000;
+	// MT2009 Plus: the mod's own offers sit far above the package's (hair to
+	// 10397, costumes 20000+, weapon skins 30000+, pets 40000+, mounts
+	// 50000+), and a bound of 2000 never saw them. An hourly look-up of every
+	// index in a std::map is cheap.
+	const int PLAYERBOT_ISHOP_MAX_INDEX = 65535;
 	// Kupon SM 50/100/500/1000/250 (80017/80014/80015/80016/80018).
 	const DWORD PLAYERBOT_ISHOP_VOUCHER_MIN_VNUM = 80014;
 	const DWORD PLAYERBOT_ISHOP_VOUCHER_MAX_VNUM = 80018;
@@ -1991,8 +2003,28 @@ namespace
 	const DWORD PLAYERBOT_ISHOP_EXORCISM_VNUM = 71001;
 	const int PLAYERBOT_ISHOP_EXORCISM_MIN_WAIT_SECONDS = 2 * 60 * 60;
 	// One bot in this many buys a hairstyle, once, from this level.
+	// (MT2009 Plus: no longer used for a bot's own look - see below; the
+	// level floor is still the look's.)
 	const DWORD PLAYERBOT_ISHOP_HAIR_SHARE = 4;
 	const BYTE PLAYERBOT_ISHOP_HAIR_MIN_LEVEL = 30;
+	// MT2009 Plus (operator, 24 September 2026): every bot with Dragon Coins
+	// dresses itself from the ItemShop, one piece at a time and in this
+	// order - costume, hairstyle, weapon skin, pet (no mount) - and wears
+	// what it bought. A piece that runs out (REAL_TIME) leaves its slot empty
+	// and is bought again on a later look. The order is strict: a bot saves
+	// for the costume before it spends on a hairstyle.
+	enum EPlayerBotItemShopLook
+	{
+		PLAYERBOT_ISHOP_LOOK_BODY,
+		PLAYERBOT_ISHOP_LOOK_HAIR,
+		PLAYERBOT_ISHOP_LOOK_WEAPON,
+		PLAYERBOT_ISHOP_LOOK_PET,
+		// The mount seal (operator, 24 September): after the pet, ridden in
+		// place of the horse (playerbot_movement.h, GetPlayerBotMountSeal).
+		PLAYERBOT_ISHOP_LOOK_MOUNT,
+		PLAYERBOT_ISHOP_LOOK_COUNT
+	};
+	const BYTE PLAYERBOT_ISHOP_LOOK_MIN_LEVEL = PLAYERBOT_ISHOP_HAIR_MIN_LEVEL;
 	// And one keeper in PLAYERBOT_ISHOP_HAIR_TRADE_SHARE buys a head it cannot
 	// wear, for its counter, when its coins are wanted for nothing of its own:
 	// the item shop's hairstyles are what a player should find on a counter,
@@ -2146,6 +2178,36 @@ namespace
 	// Effectively once per town visit. A four-second cadence like the refiner's
 	// would let one stop at the blacksmith burn a quarter of a million yang.
 	const DWORD PLAYERBOT_BONUS_INTERVAL = 300000;
+	// The ItemShop look's bonuses (operator, 24 Sep 2026; playerbot_bonus.h,
+	// ManagePlayerBotCostumeBonus): Handlarka Roznosci (9003) sells 70063
+	// "Transformuj kostium" (1-3 new lines) and 70064 "Zaczaruj kostium" (new
+	// lines, same count), twenty a stack at 125 000 and 250 000 yang apiece.
+	// The engine's odds (CItem::AlterToMagicItem): a second line one in ten, a
+	// third one in fifty on a body costume and one in a hundred elsewhere - so
+	// two lines take about nine rolls (1.1M, one stack is enough nine times in
+	// ten), three take five hundred to a thousand (60-125M a piece). Mixing two
+	// lines until both are worth keeping takes some twenty to forty changes,
+	// 5-10M. A bot starts at 20M and buys freely down to 10M (operator,
+	// 24 Sep 2026), and chases the third line only from 150M.
+	const DWORD PLAYERBOT_COSTUME_RESET_VNUM = 70063;
+	const DWORD PLAYERBOT_COSTUME_CHANGE_VNUM = 70064;
+	const DWORD PLAYERBOT_COSTUME_REAGENT_STACK = 20;
+	const BYTE PLAYERBOT_COSTUME_BONUS_MIN_LEVEL = 30;
+	const long long PLAYERBOT_COSTUME_BONUS_START_GOLD = 20000000LL;
+	const long long PLAYERBOT_COSTUME_BONUS_RESERVE_GOLD = 10000000LL;
+	const long long PLAYERBOT_COSTUME_BONUS_THREE_LINES_GOLD = 150000000LL;
+	// A costume that runs out within a week is not worth a stack.
+	const long PLAYERBOT_COSTUME_BONUS_MIN_SECONDS_LEFT = 7L * 24 * 3600;
+	// A line worth keeping (ScorePlayerBotCostumeLine): 1000 health, 30 attack
+	// value, 5% critical, 8 of the school's stat, the map's race at 20%.
+	const int PLAYERBOT_COSTUME_GOOD_LINE_SCORE = 100;
+	// Three stacks of changes on one piece, then it stays as it is until it
+	// runs out: 15M is a costume's worth.
+	const int PLAYERBOT_COSTUME_MAX_CHANGES = 60;
+	const int PLAYERBOT_COSTUME_ROLLS_PER_PASS = 5;
+	const DWORD PLAYERBOT_COSTUME_BONUS_STEP_MS = 1500;
+	// How long a merchant visit may run on for the costume's rolls.
+	const DWORD PLAYERBOT_COSTUME_BONUS_VISIT_MS = 45000;
 	const DWORD PLAYERBOT_INACTIVITY_RESET_TIME = 90000;
 	const DWORD PLAYERBOT_WANDER_INTERVAL = 8000;
 	const DWORD PLAYERBOT_PARTY_CHECK_INTERVAL = 10000;
@@ -3467,6 +3529,19 @@ namespace
 	// is drawn by: V1's ice of 81, V2's Setaou of 87.
 	const BYTE PLAYERBOT_GROTTO_V1_MIN_LEVEL = 78;
 	const BYTE PLAYERBOT_GROTTO_V2_MIN_LEVEL = 84;
+	// MT2009_PLUS_OCHAO_BOTS_V1 (map): the Temple of Ochao (map 209,
+	// metin2_map_mt_th_dungeon_01), entered from Orc Valley through Straznik
+	// Swiatyni from level 95 (temple_of_the_ochao.quest) and left through the
+	// Teleporter (9012) in its middle hall - a labyrinth, walked by
+	// playerbot_ochao_bots.h. The arrival is the quest's gate (Town.txt 89,84),
+	// the exit the Teleporter's cell (npc.txt 400,385), both cell centres with
+	// four open cells all round on the map's server_attr.
+	const long PLAYERBOT_MAP_OCHAO = 209;
+	const long PLAYERBOT_OCHAO_ARRIVAL_X = 853725;
+	const long PLAYERBOT_OCHAO_ARRIVAL_Y = 1416425;
+	const long PLAYERBOT_OCHAO_EXIT_X = 884825;
+	const long PLAYERBOT_OCHAO_EXIT_Y = 1446525;
+	const BYTE PLAYERBOT_OCHAO_MIN_LEVEL = 95;
 	// The Demon Tower is not a frontier and has no hub table: a bot goes there
 	// for the Biologist's level-50 specimen and comes back. 1001-1004 stand in
 	// two clusters and this is the denser one.
@@ -3498,6 +3573,7 @@ namespace
 			case PLAYERBOT_MAP_FIRE_LAND: outX = PLAYERBOT_FIRE_LAND_ARRIVAL_X; outY = PLAYERBOT_FIRE_LAND_ARRIVAL_Y; return true;
 			case PLAYERBOT_MAP_GROTTO_V1: outX = PLAYERBOT_GROTTO_V1_ARRIVAL_X; outY = PLAYERBOT_GROTTO_V1_ARRIVAL_Y; return true;
 			case PLAYERBOT_MAP_GROTTO_V2: outX = PLAYERBOT_GROTTO_V2_ARRIVAL_X; outY = PLAYERBOT_GROTTO_V2_ARRIVAL_Y; return true;
+			case PLAYERBOT_MAP_OCHAO: outX = PLAYERBOT_OCHAO_ARRIVAL_X; outY = PLAYERBOT_OCHAO_ARRIVAL_Y; return true; // MT2009_PLUS_OCHAO_BOTS_V1
 			default: return false;
 		}
 	}
@@ -3518,6 +3594,7 @@ namespace
 			case PLAYERBOT_MAP_FIRE_LAND: outX = PLAYERBOT_FIRE_LAND_EXIT_X; outY = PLAYERBOT_FIRE_LAND_EXIT_Y; return true;
 			case PLAYERBOT_MAP_GROTTO_V1: outX = PLAYERBOT_GROTTO_V1_EXIT_X; outY = PLAYERBOT_GROTTO_V1_EXIT_Y; return true;
 			case PLAYERBOT_MAP_GROTTO_V2: outX = PLAYERBOT_GROTTO_V2_EXIT_X; outY = PLAYERBOT_GROTTO_V2_EXIT_Y; return true;
+			case PLAYERBOT_MAP_OCHAO: outX = PLAYERBOT_OCHAO_EXIT_X; outY = PLAYERBOT_OCHAO_EXIT_Y; return true; // MT2009_PLUS_OCHAO_BOTS_V1
 			default: return false;
 		}
 	}
@@ -3540,7 +3617,8 @@ namespace
 				mapIndex == PLAYERBOT_MAP_SPIDER_V2 || mapIndex == PLAYERBOT_MAP_HWANG ||
 				mapIndex == PLAYERBOT_MAP_FOREST || mapIndex == PLAYERBOT_MAP_RED_FOREST ||
 				mapIndex == PLAYERBOT_MAP_FIRE_LAND ||
-				mapIndex == PLAYERBOT_MAP_GROTTO_V1 || mapIndex == PLAYERBOT_MAP_GROTTO_V2;
+				mapIndex == PLAYERBOT_MAP_GROTTO_V1 || mapIndex == PLAYERBOT_MAP_GROTTO_V2 ||
+				mapIndex == PLAYERBOT_MAP_OCHAO; // MT2009_PLUS_OCHAO_BOTS_V1
 	}
 
 	// Both Spider Dungeons: the ones reached across the desert and entered
@@ -3566,6 +3644,7 @@ namespace
 			case PLAYERBOT_MAP_FIRE_LAND: return "fire_land";
 			case PLAYERBOT_MAP_GROTTO_V1: return "grotto_v1";
 			case PLAYERBOT_MAP_GROTTO_V2: return "grotto_v2";
+			case PLAYERBOT_MAP_OCHAO: return "ochao"; // MT2009_PLUS_OCHAO_BOTS_V1
 			default: return "frontier";
 		}
 	}
@@ -4487,6 +4566,25 @@ namespace
 	const BYTE PLAYERBOT_EXP_LOCK_M3_DROPPER = 30;
 	const BYTE PLAYERBOT_EXP_LOCK_M2_DROPPER = 36;
 	const BYTE PLAYERBOT_EXP_LOCK_MEDAL_DROPPER = 33;
+	// The guild materials dropper (BOT_PERSONALITY_GUILD_DROPPER): one bot in
+	// this many of those the draw reaches (not a party fighter or a stone
+	// hunter by role, not an extra medal dropper) that has not outgrown its
+	// ground - about one in forty of all bots, as the operator asked; at 40
+	// it came to one in 84 on the test world (21 of 1761). A ground by pid - the log on
+	// Mount Sohan (ice, 62-66), the cornerstone in the Fireland (69-73), the
+	// plywood in the Hwang Temple (frogs, 57-61) - where it hunts from
+	// minLevel and holds at lock, the same under the personalities.
+	const DWORD PLAYERBOT_GUILD_DROPPER_SHARE = 19;
+	struct TPlayerBotGuildDropperGround { DWORD vnum; long map; BYTE minLevel; BYTE lock; };
+	const TPlayerBotGuildDropperGround PLAYERBOT_GUILD_DROPPER_GROUNDS[3] = {
+		{ 90011, PLAYERBOT_MAP_SOHAN, 60, 66 },
+		{ 90010, PLAYERBOT_MAP_FIRE_LAND, 67, 72 },
+		{ 90012, PLAYERBOT_MAP_HWANG, 56, 61 },
+	};
+	const TPlayerBotGuildDropperGround& GetPlayerBotGuildDropperGround(DWORD pid)
+	{
+		return PLAYERBOT_GUILD_DROPPER_GROUNDS[((pid ^ 0x47445250U) * 2654435761U >> 16) % 3U];
+	}
 	// Iwakura's community patch 2, point 4 ("Grinder Lochu Malp", Tier 4).
 	// Under the personalities a drawn medal dropper stays one (it used to
 	// become a Wanderer, and 26 bots in a thousand farmed medals), and this
@@ -4520,9 +4618,6 @@ namespace
 	// would have become an ordinary bot at the first start and its place gone
 	// to a character of level one, hours from the dungeon. The first layout's
 	// far end is searched first (CPlayerBotManager::SpawnMedalDropperCohort).
-	// Past 2.2.1's 4503 come the fresh cohort's 4504..6003, which are the
-	// third and fourth channels' alone and never on the first channel's
-	// registry the droppers are taken from (playerbot_channel_rules.h).
 	const DWORD PLAYERBOT_SEED_FIRST_LAYOUT_LAST_PID = 2503;
 	// A dropper serves its offline shop once in this long instead of every ten
 	// to fifteen minutes. The service is a walk to the village the shop stands
@@ -4593,6 +4688,7 @@ namespace
 		PLAYERBOT_SHOP_REASON_ROLL,
 		PLAYERBOT_SHOP_REASON_SPARE,
 		PLAYERBOT_SHOP_REASON_HOARD,
+		PLAYERBOT_SHOP_REASON_MEDALS,
 		PLAYERBOT_SHOP_REASON_MAX
 	};
 	const DWORD PLAYERBOT_SHOP_REEVALUATE_SPREAD_MS = 300000;   // 5 min
@@ -4618,6 +4714,7 @@ namespace
 			case PLAYERBOT_SHOP_REASON_ROLL:             return en ? "chance" : "los";
 			case PLAYERBOT_SHOP_REASON_SPARE:            return en ? "spare duplicate" : "zbedny duplikat";
 			case PLAYERBOT_SHOP_REASON_HOARD:            return en ? "surplus goods" : "nadmiar towaru";
+			case PLAYERBOT_SHOP_REASON_MEDALS:           return en ? "dropper, horse medals" : "dropper, medale konne";
 			default:                                     return "?";
 		}
 	}
@@ -5017,9 +5114,19 @@ namespace
 	// counter stock, not an errand at the stable, and the count the exit reads
 	// is the whole bag - at five, a dropper already holding five walked in and
 	// straight back out nine seconds later, with nothing to stop it doing so
-	// again. A full stack is the number; the half hour above, the potions and a
-	// bag with no cell left end the visit.
-	const int PLAYERBOT_MEDAL_DROPPER_MEDAL_STOCK = 200;
+	// again. The half hour above, the potions and a bag with no cell left end
+	// the visit too.
+	// Fifty, not a full stack of two hundred: at two hundred no dropper ever
+	// left to sell - 699 of the world's 814 medals sat in 109 droppers' bags,
+	// not one on a counter, and no bot of 35+ had a horse above five, so the
+	// battle horse trial never began (rakso7064; the operator, 25 September).
+	// At fifty the dropper goes to its first village and opens a stand with
+	// the medals on it (IsPlayerBotMedalStockReady, playerbot_town.h).
+	const int PLAYERBOT_MEDAL_DROPPER_MEDAL_STOCK = 50;
+	// Lines of medals (two a line) a medal dropper's counter carries, over
+	// PLAYERBOT_SHOP_SAME_VNUM_LINES for everybody else: the medals are what
+	// its stand is for.
+	const int PLAYERBOT_MEDAL_DROPPER_MEDAL_LINES = 8;
 	// Which Monkey Dungeon a level is sent to. The medal is a "kill" drop group
 	// (mob_drop_item.txt: one medal per 550 soldiers, 500 fighters, 200 generals)
 	// and CreateDropItem scales every kill-group roll by aiPercentByDeltaLev -
@@ -6320,7 +6427,12 @@ namespace
 		BOT_PERSONALITY_METIN_DROPPER,
 		BOT_PERSONALITY_M3_DROPPER,
 		BOT_PERSONALITY_M2_DROPPER,
-		BOT_PERSONALITY_MEDAL_DROPPER
+		BOT_PERSONALITY_MEDAL_DROPPER,
+		// The guild materials dropper ("Dropek surowcow", the operator, 27
+		// September): farms Kamien Wegielny, Pien or Dykta for the guilds'
+		// buildings (PLAYERBOT_GUILD_DROPPER_GROUNDS) and sells them on the
+		// counters. Appended, never inserted - the panels read the id.
+		BOT_PERSONALITY_GUILD_DROPPER
 	};
 
 	bool IsPlayerBotDropper(BYTE personality)
@@ -6328,7 +6440,8 @@ namespace
 		return personality == BOT_PERSONALITY_METIN_DROPPER ||
 				personality == BOT_PERSONALITY_M3_DROPPER ||
 				personality == BOT_PERSONALITY_M2_DROPPER ||
-				personality == BOT_PERSONALITY_MEDAL_DROPPER;
+				personality == BOT_PERSONALITY_MEDAL_DROPPER ||
+				personality == BOT_PERSONALITY_GUILD_DROPPER;
 	}
 
 	BYTE GetPlayerBotPersonalityByPID(DWORD dwPID);
@@ -6344,6 +6457,13 @@ namespace
 	// fragment that asks these): whose it is, whether it stands at its
 	// owner's side, and what its owner handed it.
 	bool IsPlayerBotSidekickPID(DWORD pid);
+	// MT2009_PLUS_SHOUTERS_V1: the three shouters of the first villages
+	// (playerbot_shouters.h), kept out of everything the population does.
+	bool IsPlayerBotShouterPID(DWORD pid);
+	// The level it levels to and then stands at its post.
+	const BYTE PLAYERBOT_SHOUTER_LEVEL = 15;
+	// Sent fishing by its owner (playerbot_sidekick.h, "Na ryby").
+	bool IsPlayerBotSidekickFishing(DWORD pid);
 	bool IsPlayerBotSidekickKeepingChests(LPCHARACTER ch);
 	bool IsPlayerBotSidekickLeashed(LPCHARACTER ch);
 	bool IsPlayerBotSidekickHolding(LPCHARACTER ch);
@@ -6468,6 +6588,151 @@ namespace
 			if (PLAYERBOT_JUNK_WEAPON_BASES[i] == base)
 				return true;
 		return false;
+	}
+
+	// MT2009 Plus: Cor Draconis and sashes are goods. A bot picks them up and
+	// puts them on its offline counter - but an alchemy bot opens its Cors
+	// (playerbot_alchemy.h) and a sash keeper builds and wears its sash
+	// (playerbot_sash.h), keeping what it needs; a line that
+	// has stood through the whole unsold markdown comes home and goes to the
+	// merchant. Only a share of the bots' counters carries each kind at once
+	// (PLAYERBOT_RARE_GOODS_SHOP_PERCENT_*), so the market is not flooded.
+	enum
+	{
+		PLAYERBOT_RARE_GOODS_NONE = 0,
+		PLAYERBOT_RARE_GOODS_COR = 1,
+		PLAYERBOT_RARE_GOODS_SASH = 2,
+		PLAYERBOT_RARE_GOODS_KINDS = 3
+	};
+	// Every "Cor Draconis" of the item table; not the Cor Draconis chest
+	// (83014) nor the recipe (30650).
+	const DWORD PLAYERBOT_COR_DRACONIS_VNUMS[] = {
+		50252, 50255, 50256, 50257, 50258, 50259, 50260,
+		51501, 51502, 51503, 51504, 51505, 51506, 51507, 51508, 51509, 51510,
+		51541, 51548, 51549, 51562, 51569,
+		51576, 51583, 51590, 51597, 51604, 51611, 51618, 51625, 51632,
+		76040
+	};
+	// The asking price of one unit at a yang rate of 100%, before the market
+	// moves it: ScalePlayerBotIwakuraPrice (yang rate and inflation), the sale
+	// memory and fast sales raise it, the unsold markdown lowers it.
+	const DWORD PLAYERBOT_COR_DRACONIS_PRICE = 100000; // a piece, as it stands (operator, 26 September 2026)
+	const DWORD PLAYERBOT_SASH_PRICE = 700000;
+	// The share of the bots' offline counters that may carry the kind at once,
+	// in percent (never fewer than one counter). A counter that already has a
+	// line of it may add more, up to PLAYERBOT_RARE_GOODS_LINES_PER_SHOP.
+	const int PLAYERBOT_RARE_GOODS_SHOP_PERCENT_COR = 20;
+	const int PLAYERBOT_RARE_GOODS_SHOP_PERCENT_SASH = 20;
+	const int PLAYERBOT_RARE_GOODS_LINES_PER_SHOP = 3;
+	// Where it ranks among a counter's goods: under a level-30 weapon (2000),
+	// over a big bonus roll (1500).
+	const int PLAYERBOT_SHOP_RARE_GOODS_SCORE = 1700;
+	// A line nobody bought through the whole offline markdown
+	// (PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL in steps of
+	// PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT, one per
+	// PLAYERBOT_OFFLINE_UNSOLD_STEP_MS) and one step more comes home, and the
+	// kind goes to the merchant from that bag for
+	// PLAYERBOT_RARE_GOODS_MERCHANT_HOLD_MS rather than back on the counter.
+	const DWORD PLAYERBOT_RARE_GOODS_MERCHANT_AFTER_MS =
+			(DWORD)(PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL / PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT + 1) *
+			PLAYERBOT_OFFLINE_UNSOLD_STEP_MS;
+	const DWORD PLAYERBOT_RARE_GOODS_MERCHANT_HOLD_MS = 24 * 60 * 60 * 1000;
+
+	bool IsPlayerBotCorDraconisVnum(DWORD vnum)
+	{
+		for (size_t i = 0; i < sizeof(PLAYERBOT_COR_DRACONIS_VNUMS) / sizeof(PLAYERBOT_COR_DRACONIS_VNUMS[0]); ++i)
+			if (PLAYERBOT_COR_DRACONIS_VNUMS[i] == vnum)
+				return true;
+		return false;
+	}
+
+	// The sashes of the item table: four grades each of five classic kinds
+	// (85001..85024 less the unused 85009, 85010, 85019, 85020), Death Ruler
+	// (85101..85104) and the Herzband (86061..86064).  Death Ruler no longer
+	// drops, but copies already owned remain ordinary trade goods.
+	bool IsPlayerBotSashVnum(DWORD vnum)
+	{
+		if (vnum >= 86061 && vnum <= 86064)
+			return true;
+		if (vnum >= 85101 && vnum <= 85104)
+			return true;
+		if (vnum < 85001 || vnum > 85024)
+			return false;
+		const DWORD grade = vnum % 10;
+		return grade != 9 && grade != 0;
+	}
+
+	// The sashes a bot builds for itself (playerbot_sash.h, included after the
+	// counters and the market that ask these).
+	bool IsPlayerBotKeptSash(LPCHARACTER ch, LPITEM item);
+	bool WantsPlayerBotSashOffer(LPCHARACTER ch, LPITEM offer);
+	bool CanPlayerBotPayForSashOffer(LPCHARACTER ch, LPITEM offer, long long price);
+	// And the weapon or body armour it buys to absorb into one.
+	bool WantsPlayerBotSashPieceOffer(LPCHARACTER ch, LPITEM offer);
+	// The sash's grail - the level-30 bow, or the fan for a magic school - a
+	// rich keeper buys and takes to this plus before absorbing it
+	// (playerbot_sash.h): refined at the blacksmith, never ground for sale.
+	const BYTE PLAYERBOT_SASH_GRAIL_PLUS = 6;
+	bool IsPlayerBotSashGrailProject(LPCHARACTER ch, LPITEM item);
+	bool CanPlayerBotPayForSashPiece(LPCHARACTER ch, LPITEM offer, long long price);
+	bool PlayerBotWantsSashPieceFromMarket(LPCHARACTER ch);
+	// Its price (cost to make + 25%) and whether it is a released lone sash.
+	DWORD GetPlayerBotSashPrice(LPITEM item);
+	bool IsPlayerBotSashReleased(DWORD itemId);
+	bool PlayerBotWantsSashFromMarket(LPCHARACTER ch);
+	void NotePlayerBotSashBought(LPCHARACTER ch, DWORD vnum, long long price);
+	void LogPlayerBotSashCensus();
+
+	// The horse saddlebags and the Dozorca's exchange (playerbot_saddlebag.h).
+	const DWORD PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED = 30378;
+	const DWORD PLAYERBOT_CRAFT_MATERIAL_UNIT_PRICE = 100000;
+	const DWORD PLAYERBOT_CRAFT_UNSOLD_RECALL_MS_PRE = 12 * 60 * 60 * 1000;
+	bool IsPlayerBotSaddlebagKeeperPID(DWORD pid);
+	int GetPlayerBotSaddlebagMedalReserve(LPCHARACTER ch);
+	bool IsPlayerBotCraftExchangeStock(LPCHARACTER ch, LPITEM item);
+	bool IsPlayerBotKeptCraftMaterial(LPCHARACTER ch, LPITEM item);
+	bool IsPlayerBotCraftExchangeVnum(DWORD vnum);
+	void NotePlayerBotCraftRecalled(DWORD pid, DWORD itemId);
+	bool WantsPlayerBotCraftMaterialOffer(LPCHARACTER ch, LPITEM offer);
+	bool WantsPlayerBotCraftGoodsOffer(LPCHARACTER ch, LPITEM offer);
+	bool CanPlayerBotPayForCraftMaterial(LPCHARACTER ch, LPITEM item, long long price);
+	bool CanPlayerBotPayForCraftGoods(LPCHARACTER ch, LPITEM item, long long price);
+	bool PlayerBotSaddlebagWantsMedal(LPCHARACTER ch);
+	bool PlayerBotWantsSaddlebagGoods(LPCHARACTER ch);
+	void NotePlayerBotSaddlebagBought(LPCHARACTER ch, DWORD vnum, long long price);
+	void LogPlayerBotSaddlebagCensus();
+
+	// Alchemy and the daily Cors (playerbot_alchemy.h).
+	void NotePlayerBotDragonShardKill(LPCHARACTER ch, LPCHARACTER victim);
+	bool IsPlayerBotKeptCor(LPCHARACTER ch, LPITEM item);
+	bool IsPlayerBotCorStackShort(LPCHARACTER ch, LPITEM item);
+	bool IsPlayerBotCorVnum(DWORD vnum);
+	DWORD GetPlayerBotDragonSoulPrice(LPITEM item);
+	void LogPlayerBotAlchemyCensus();
+
+	int GetPlayerBotRareGoodsKind(DWORD vnum)
+	{
+		if (IsPlayerBotCorDraconisVnum(vnum))
+			return PLAYERBOT_RARE_GOODS_COR;
+		if (IsPlayerBotSashVnum(vnum))
+			return PLAYERBOT_RARE_GOODS_SASH;
+		return PLAYERBOT_RARE_GOODS_NONE;
+	}
+
+	DWORD GetPlayerBotRareGoodsBasePrice(DWORD vnum)
+	{
+		switch (GetPlayerBotRareGoodsKind(vnum))
+		{
+			case PLAYERBOT_RARE_GOODS_COR: return PLAYERBOT_COR_DRACONIS_PRICE;
+			case PLAYERBOT_RARE_GOODS_SASH: return PLAYERBOT_SASH_PRICE;
+			default: return 0;
+		}
+	}
+
+	int GetPlayerBotRareGoodsShopPercent(int kind)
+	{
+		return kind == PLAYERBOT_RARE_GOODS_COR ? PLAYERBOT_RARE_GOODS_SHOP_PERCENT_COR
+				: kind == PLAYERBOT_RARE_GOODS_SASH ? PLAYERBOT_RARE_GOODS_SHOP_PERCENT_SASH : 0;
 	}
 
 	// A bot that has been AFK and was struck puts the next stop off this long.
@@ -7157,6 +7422,10 @@ namespace
 			dwRefineTakenOffAt(0),
 			dwNextBonusCheckTime(0),
 			dwBonusFocusItem(0),
+			dwNextCostumeBonusTime(0),
+			dwCostumeBonusFocusItem(0),
+			iCostumeChangesSpent(0),
+			dwCostumeBonusVisitEnd(0),
 			dwNextChatTime(0),
 			dwLastStatusChatTime(0),
 			dwNextStatusProbeTime(0),
@@ -7167,6 +7436,14 @@ namespace
 			dwNextHerbalistActionTime(0),
 			dwNextAlchemistCheckTime(0),
 			dwNextAlchemistActionTime(0),
+			dwNextSashCheckTime(0),
+			dwNextSashActionTime(0),
+			dwNextSaddlebagCheckTime(0),
+			dwNextSaddlebagActionTime(0),
+			dwNextSaddlebagMoveTime(0),
+			dwNextDsCheckTime(0),
+			dwNextDsActionTime(0),
+			dwNextDsLocalTime(0),
 			dwNextHorseCheckTime(0),
 			dwNextHorseActionTime(0),
 			dwNextHorseRideCheckTime(0),
@@ -7270,6 +7547,11 @@ namespace
 			bVisitingBiologist(false),
 			bVisitingHerbalist(false),
 			bVisitingAlchemist(false),
+			bVisitingUriel(false),
+			bSashVisitSteps(0),
+			bSaddlebagErrand(0),
+			bVisitingDsAlchemist(false),
+			bDsVisitSteps(0),
 			bVisitingStable(false),
 			bFishingSession(false),
 			bIsFishing(false),
@@ -7310,6 +7592,7 @@ namespace
 			bLastStatusTownPhase(255),
 			bLastStatusParty(255),
 			dwNextGuildCheckTime(0),
+			dwRefineGuildSmithVID(0),
 			dwLastKillCreditedVID(0),
 			bFoundedGuild(false),
 			dwNextGuildExpOfferTime(0),
@@ -7330,7 +7613,10 @@ namespace
 			bDragonBalanceKnown(false),
 			bBoughtHairstyle(false),
 			dwNextItemShopCheckTime(0),
+			dwNextVoucherCheckTime(0),
+			dwNextMountRewearTime(0),
 			dwNextItemShopBuyTime(0),
+			bItemShopLookSession(false),
 			dwNextItemShopBalanceTime(0),
 			dwNextMaterialScanTime(0),
 			dwMaterialHuntVnum(0),
@@ -7461,6 +7747,15 @@ namespace
 		// The piece the bonus pass is working on (its item id), kept until it
 		// is done or no stone in the bag fits it (ManagePlayerBotBonusReroll).
 		DWORD dwBonusFocusItem;
+		// The costume the look's bonus pass is working on (playerbot_bonus.h,
+		// ManagePlayerBotCostumeBonus), the changes spent on it, the pieces
+		// given up on (kept as they are until they run out) and the end of the
+		// merchant visit the rolls may stretch.
+		DWORD dwNextCostumeBonusTime;
+		DWORD dwCostumeBonusFocusItem;
+		int iCostumeChangesSpent;
+		DWORD dwCostumeBonusVisitEnd;
+		std::vector<DWORD> vecCostumeBonusDone;
 		DWORD dwNextChatTime;
 		DWORD dwLastStatusChatTime;
 		DWORD dwNextStatusProbeTime;
@@ -7475,6 +7770,17 @@ namespace
 		// again: soul stones of a banned grade for Magiczny Pyl.
 		DWORD dwNextAlchemistCheckTime;
 		DWORD dwNextAlchemistActionTime;
+		// Uriel's sash work (ManagePlayerBotSash), the same shape again.
+		DWORD dwNextSashCheckTime;
+		DWORD dwNextSashActionTime;
+		// The saddlebags' errands and the page's move-back (playerbot_saddlebag.h).
+		DWORD dwNextSaddlebagCheckTime;
+		DWORD dwNextSaddlebagActionTime;
+		DWORD dwNextSaddlebagMoveTime;
+		// Alchemy (playerbot_alchemy.h): the Alchemist's visit and the local work.
+		DWORD dwNextDsCheckTime;
+		DWORD dwNextDsActionTime;
+		DWORD dwNextDsLocalTime;
 		DWORD dwNextHorseCheckTime;
 		DWORD dwNextHorseActionTime;
 		DWORD dwNextHorseRideCheckTime;
@@ -7644,6 +7950,11 @@ namespace
 		bool bVisitingBiologist;
 		bool bVisitingHerbalist;
 		bool bVisitingAlchemist;
+		bool bVisitingUriel;
+		BYTE bSashVisitSteps;
+		BYTE bSaddlebagErrand;
+		bool bVisitingDsAlchemist;
+		BYTE bDsVisitSteps;
 		bool bVisitingStable;
 		// The bot has committed to a fishing trip: it carries a rod in the weapon
 		// slot and skips combat and gear swaps until the session ends.
@@ -7710,6 +8021,9 @@ namespace
 		// a bot that has not met anybody yet is.
 		std::vector<TPlayerBotFriend> vecFriends;
 		DWORD dwNextGuildCheckTime;
+		// The guild smith this blacksmith visit goes to (playerbot_guild_land.h):
+		// 0 undecided, ~0 the plain blacksmith, else the smith's VID.
+		DWORD dwRefineGuildSmithVID;
 		// The last corpse this bot was credited for. The engine has no "you
 		// killed it" hook, so a kill is read off a target that has gone from
 		// alive to dead under the bot's own blow - and a bot standing over the
@@ -7780,7 +8094,13 @@ namespace
 		bool bDragonBalanceKnown;
 		bool bBoughtHairstyle;
 		DWORD dwNextItemShopCheckTime;
+		// Vouchers on a clock of their own (CashPlayerBotVouchers).
+		DWORD dwNextVoucherCheckTime;
+		// A mount seal taken off at death (server-patches/mountdeath) goes back
+		// on from the bag within seconds, not at the next ItemShop look.
+		DWORD dwNextMountRewearTime;
 		DWORD dwNextItemShopBuyTime;
+		bool bItemShopLookSession;
 		DWORD dwNextItemShopBalanceTime;
 		// Where this bot has been standing, since when, and whether it is
 		// currently being walked off it. See ManagePlayerBotRelocation.
@@ -7994,7 +8314,8 @@ namespace
 		return !IsPlayerBotSpiderMap(mapIndex) && !IsPlayerBotMonkeyMap(mapIndex) &&
 				mapIndex != PLAYERBOT_MAP_FOREST && mapIndex != PLAYERBOT_MAP_RED_FOREST &&
 				mapIndex != PLAYERBOT_MAP_DEMON_TOWER &&
-				mapIndex != PLAYERBOT_MAP_GROTTO_V1 && mapIndex != PLAYERBOT_MAP_GROTTO_V2;
+				mapIndex != PLAYERBOT_MAP_GROTTO_V1 && mapIndex != PLAYERBOT_MAP_GROTTO_V2 &&
+				mapIndex != PLAYERBOT_MAP_OCHAO; // MT2009_PLUS_OCHAO_BOTS_V1: its stone.txt is empty
 	}
 
 	// Hunting stones right now: by role for life, or by expedition for half an
@@ -8082,6 +8403,20 @@ namespace
 		state.bCurrentAction = action;
 		state.dwActionChangedTime = dwNow;
 	}
+
+	// A guild's land and buildings (playerbot_guild_land.h), asked before it.
+	long long GetPlayerBotGuildFundReserve(DWORD pid);
+	bool IsPlayerBotGuildBuildMaterial(DWORD vnum);
+	bool IsPlayerBotKeptGuildMaterial(LPCHARACTER ch, LPITEM item);
+	int GetPlayerBotGuildMaterialWant(LPCHARACTER ch, DWORD vnum);
+	bool CanPlayerBotPayForGuildMaterial(LPCHARACTER ch, LPITEM item, long long price);
+	void NotePlayerBotGuildMaterialBought(LPCHARACTER ch, DWORD vnum, long long price);
+	LPCHARACTER ChoosePlayerBotRefineGuildSmith(LPCHARACTER ch, TPlayerBotAIState& state);
+	bool PlayerBotRefineAnvilTakes(LPCHARACTER ch, const TPlayerBotAIState& state, LPITEM item, LPCHARACTER* pSmith);
+	void ManagePlayerBotGuildLand(LPCHARACTER master, CGuild* guild, DWORD dwNow);
+	long GetPlayerBotGuildErrandMap(LPCHARACTER ch);
+	long long CollectPlayerBotGuildMaterialMissing(LPCHARACTER ch, std::map<DWORD, int>& out);
+	DWORD GetPlayerBotGuildMaterialBasePrice();
 }
 
 #endif

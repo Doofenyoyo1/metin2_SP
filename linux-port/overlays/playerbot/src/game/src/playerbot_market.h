@@ -183,6 +183,36 @@ namespace
 		if (!ch || !offer)
 			return false;
 
+		// Cor Draconis and Dragon Stones, for an alchemy bot (playerbot_alchemy.h).
+		if (IsPlayerBotCorVnum(offer->GetVnum()) || offer->IsDragonSoul())
+			return WantsPlayerBotAlchemyOffer(ch, offer);
+
+		// The guild building materials, for a master whose next building
+		// lacks them (playerbot_guild_land.h); nobody else buys them.
+		if (IsPlayerBotGuildBuildMaterial(offer->GetVnum()))
+			return GetPlayerBotGuildMaterialWant(ch, offer->GetVnum()) > 0;
+
+		// Materialy Rzemieslnicze and the refine goods that make them, for a
+		// saddlebag bot short of its next row (playerbot_saddlebag.h).
+		if (offer->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED)
+			return WantsPlayerBotCraftMaterialOffer(ch, offer);
+		if (IsPlayerBotCraftExchangeVnum(offer->GetVnum()) && WantsPlayerBotCraftGoodsOffer(ch, offer) &&
+				!PlayerBotNeedsRefineMaterial(ch, offer->GetVnum()))
+			return true;
+
+		// A sash, for a bot that builds its own (playerbot_sash.h).
+		if (offer->GetType() == ITEM_COSTUME && IsPlayerBotSashVnum(offer->GetVnum()))
+			return WantsPlayerBotSashOffer(ch, offer);
+		// A weapon or body armour worth absorbing into that sash, for a
+		// keeper with nothing in its bag for it (playerbot_sash.h).
+		if (WantsPlayerBotSashPieceOffer(ch, offer))
+			return true;
+
+		// The piece over an outdated shield, helmet or body armour
+		// (IsPlayerBotOutdatedGearOffer, playerbot_gear.h).
+		if (IsPlayerBotOutdatedGearOffer(ch, offer))
+			return true;
+
 		// Development demand is shared with the journey and own-shop reclaim.
 		if (offer->GetType() == ITEM_SKILLBOOK || offer->GetVnum() == PLAYERBOT_GRAND_MASTER_STONE_VNUM)
 			return IsPlayerBotProgressionOffer(ch, offer);
@@ -198,6 +228,10 @@ namespace
 		// A Moonlight chest, to open (WantsPlayerBotMoonlightChest).
 		if (offer->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
 			return WantsPlayerBotMoonlightChest(ch);
+
+		// A flooded material for the refiners' exchange (playerbot_bonus.h).
+		if (IsPlayerBotExchangeBuyOffer(ch, offer))
+			return true;
 
 		// A material it is short of right now. This is the whole reason a bot
 		// walks the market: the alternative is farming the same material for an
@@ -235,7 +269,7 @@ namespace
 		// A horse medal, if this bot still has a horse to raise. Buying one is
 		// hours of the Monkey Dungeon it does not have to run.
 		if (offer->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM)
-			return CanPlayerBotAdvanceHorse(ch);
+			return CanPlayerBotAdvanceHorse(ch) || PlayerBotSaddlebagWantsMedal(ch);
 
 		// A Forgetting Scroll, while a skill stands at seventeen unmastered.
 		if (offer->GetVnum() == PLAYERBOT_SKILL_FORGET_SCROLL_VNUM)
@@ -398,6 +432,15 @@ namespace
 		// A horse medal, while there is still a horse to raise.
 		if (CanPlayerBotAdvanceHorse(ch))
 			return true;
+		// Sashes for the one it builds, and the piece to fill it (playerbot_sash.h).
+		if (PlayerBotWantsSashFromMarket(ch) || PlayerBotWantsSashPieceFromMarket(ch))
+			return true;
+		// Medals and materials for a saddlebag row (playerbot_saddlebag.h).
+		if (PlayerBotWantsSaddlebagGoods(ch))
+			return true;
+		// Cors for an alchemy bot (playerbot_alchemy.h).
+		if (PlayerBotWantsAlchemyFromMarket(ch))
+			return true;
 		// A Forgetting Scroll for a skill stuck at seventeen.
 		if (GetPlayerBotStuckSkill(ch) != 0)
 			return true;
@@ -472,15 +515,45 @@ namespace
 		// caps further down refused most of them already; the ban does not
 		// hang on what any one of those caps is set to.
 		if (IsPlayerBotPriceSlipOffer(item, price)) return false;
+		// A master's building materials come out of its guild's fund, which
+		// the reserve below keeps from everything else (playerbot_guild_land.h).
+		if (IsPlayerBotGuildBuildMaterial(item->GetVnum()))
+			return CanPlayerBotPayForGuildMaterial(ch, item, price);
 		const long long spare = (long long)ch->GetGold() - GetPlayerBotReservedGold(ch) - PLAYERBOT_SHOPPING_GOLD_FLOOR;
 		if (price > spare) return false;
+		if (item->GetType() == ITEM_COSTUME && IsPlayerBotSashVnum(item->GetVnum()))
+			return CanPlayerBotPayForSashOffer(ch, item, price);
+		if (WantsPlayerBotSashPieceOffer(ch, item))
+			return CanPlayerBotPayForSashPiece(ch, item, price);
+		if (item->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED)
+			return CanPlayerBotPayForCraftMaterial(ch, item, price);
+		if (IsPlayerBotCorVnum(item->GetVnum()) || item->IsDragonSoul())
+			return CanPlayerBotPayForAlchemyOffer(ch, item, price);
+		if (IsPlayerBotCraftExchangeVnum(item->GetVnum()) && WantsPlayerBotCraftGoodsOffer(ch, item) &&
+				!PlayerBotNeedsRefineMaterial(ch, item->GetVnum()))
+			return CanPlayerBotPayForCraftGoods(ch, item, price);
 		if (IsPlayerBotProgressionOffer(ch, item)) {
 			const long long fair = GetPlayerBotShopAskingPrice(item);
 			// A book comes out of the visit's book purse (community patch 2,
 			// point 5), which counts what the visit has already spent on books.
+			// Or out of what the bot holds over PLAYERBOT_BOOK_SURPLUS_GOLD.
 			if (item->GetType() == ITEM_SKILLBOOK)
-				return fair > 0 && price <= fair * 2 && price <= GetPlayerBotBookBudgetLeft(ch);
+				return fair > 0 && price <= fair * 2 &&
+						price <= std::max(GetPlayerBotBookBudgetLeft(ch), GetPlayerBotBookSurplus(ch));
 			return fair > 0 && price <= fair * 2 && price <= spare * 30 / 100;
+		}
+		// A flooded material for the exchange: at no more than the flood's
+		// price a piece, out of PLAYERBOT_EXCHANGE_BUY_PERCENT of the spare.
+		if (IsPlayerBotExchangeBuyOffer(ch, item) && !PlayerBotNeedsRefineMaterial(ch, item->GetVnum()))
+			return price / std::max<long long>(1, (long long)item->GetCount()) <=
+					(long long)ScalePlayerBotIwakuraPrice(PLAYERBOT_EXCHANGE_UNIT_PRICE_MAX) &&
+					price <= spare * PLAYERBOT_EXCHANGE_BUY_PERCENT / 100;
+		// The piece over outdated gear: PLAYERBOT_OUTDATED_GEAR_BUDGET_PERCENT
+		// of what the bot can spend, near the market's price for it.
+		if (IsPlayerBotOutdatedGearOffer(ch, item)) {
+			const long long fair = GetPlayerBotShopAskingPrice(item);
+			return (fair <= 0 || price <= fair * 2) &&
+					price <= spare * PLAYERBOT_OUTDATED_GEAR_BUDGET_PERCENT / 100;
 		}
 		// The class's level-30 weapon has its own share (community patch 2,
 		// point 1): PLAYERBOT_LEVEL30_BUDGET_PERCENT for the purchase and the
@@ -734,6 +807,7 @@ namespace
 			NotePlayerBotChestBought(ch->GetPlayerID(), get_dword_time());
 		// A gambler's purchase is charged to the session's budget.
 		NotePlayerBotGamblePurchase(ch, paid);
+		NotePlayerBotGuildMaterialBought(ch, pick.dwVnum, paid);
 		if (gambleBase)
 			NotePlayerBotGambleBaseBought(ch, pick.dwVnum, paid);
 		sys_log(0, "PLAYERBOT_MARKET: bought pid=%u name=%s from=%s slot=%u vnum=%u refine=%u count=%u asked=%u paid=%lld gold=%lld",
@@ -1233,6 +1307,7 @@ namespace
 		s_mapMarketLocalSupply.clear();
 		s_mapPlayerBotMissionBooksByMap.clear();
 		s_iPlayerBotJunkWeaponsOnCounters = 0;
+		ResetPlayerBotRareGoodsCensus();
 		s_mapPlayerBotLowArmourOnCounters.clear();
 		RefreshPlayerBotWorldYang(dwNow);
 
@@ -1326,13 +1401,17 @@ namespace
 		}
 		// Who is trading and why, against the TRADE weight in force: the number
 		// an operator needs before deciding the slider "does nothing".
-		sys_log(0, "PLAYERBOT_SHOP: census stalls=%u trade_weight=%d merchant=%u poor=%u bag_full=%u dropper_pressure=%u books=%u dropper_roll=%u roll=%u spare=%u hoard=%u",
+		sys_log(0, "PLAYERBOT_SHOP: census stalls=%u trade_weight=%d merchant=%u poor=%u bag_full=%u dropper_pressure=%u books=%u dropper_roll=%u roll=%u spare=%u hoard=%u medals=%u",
 				stalls, GetPlayerBotWeight(PLAYERBOT_WEIGHT_TRADE),
 				auStallsByReason[PLAYERBOT_SHOP_REASON_MERCHANT], auStallsByReason[PLAYERBOT_SHOP_REASON_POOR],
 				auStallsByReason[PLAYERBOT_SHOP_REASON_BAG_FULL], auStallsByReason[PLAYERBOT_SHOP_REASON_DROPPER_PRESSURE],
 				auStallsByReason[PLAYERBOT_SHOP_REASON_BOOKS], auStallsByReason[PLAYERBOT_SHOP_REASON_DROPPER_ROLL],
 				auStallsByReason[PLAYERBOT_SHOP_REASON_ROLL], auStallsByReason[PLAYERBOT_SHOP_REASON_SPARE],
-				auStallsByReason[PLAYERBOT_SHOP_REASON_HOARD]);
+				auStallsByReason[PLAYERBOT_SHOP_REASON_HOARD],
+				auStallsByReason[PLAYERBOT_SHOP_REASON_MEDALS]);
+		LogPlayerBotSashCensus();
+		LogPlayerBotSaddlebagCensus();
+		LogPlayerBotAlchemyCensus();
 		ReportPlayerBotWeaponGoals(dwNow);
 		ReportPlayerBotLevel30Census();
 		ReportPlayerBotStalkiCensus();
@@ -1377,6 +1456,14 @@ namespace
 				s_auMarketDecisions[PLAYERBOT_LIST_FLOOR], top.c_str());
 		for (int d = 0; d < PLAYERBOT_LIST_DECISIONS; ++d)
 			s_auMarketDecisions[d] = 0;
+		sys_log(0, "PLAYERBOT_MARKET: rare goods bot_shops=%d cor=%d/%d sash=%d/%d cor_price=%u sash_price=%u",
+				s_iPlayerBotRareGoodsBotShops,
+				s_aiPlayerBotShopsWithRareGoods[PLAYERBOT_RARE_GOODS_COR],
+				GetPlayerBotRareGoodsShopQuota(PLAYERBOT_RARE_GOODS_COR),
+				s_aiPlayerBotShopsWithRareGoods[PLAYERBOT_RARE_GOODS_SASH],
+				GetPlayerBotRareGoodsShopQuota(PLAYERBOT_RARE_GOODS_SASH),
+				ScalePlayerBotIwakuraPrice(PLAYERBOT_COR_DRACONIS_PRICE),
+				ScalePlayerBotIwakuraPrice(PLAYERBOT_SASH_PRICE));
 	}
 }
 

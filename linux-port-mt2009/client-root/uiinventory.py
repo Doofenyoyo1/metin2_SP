@@ -65,6 +65,14 @@ def GetGlobalSlotFromLocalSlotAndTab(localSlot, tab):
 
 	return localSlot + player.INVENTORY_PAGE_SIZE * tab
 
+def CanAccessHorseInventory():
+	"""Allow horse bags while riding either a horse or a seal mount."""
+	try:
+		horseLevel = player.GetSkillGrade(109) * 20 + player.GetSkillLevel(109)
+		return horseLevel >= 1 and (constInfo.IS_HORSE_SUMMONED or player.IsMountingHorse())
+	except:
+		return False
+
 class CostumeWindow(ui.ScriptWindow):
 
 	def __init__(self, wndInventory):
@@ -90,11 +98,17 @@ class CostumeWindow(ui.ScriptWindow):
 
 	@ui.WindowDestroy
 	def Destroy(self):
+		if getattr(self, "hideButton", None):
+			import uicostumehide
+			uicostumehide.RemoveButton(self.hideButton)
+			self.hideButton = None
 		self.ClearDictionary()
 		self.wndInventory = None
 
 	def Show(self):
 		self.__LoadWindow()
+		if self.isLoaded != 1 or not hasattr(self, "wndEquip"):
+			return
 		self.RefreshCostumeSlot()
 
 		ui.ScriptWindow.Show(self)
@@ -111,17 +125,19 @@ class CostumeWindow(ui.ScriptWindow):
 		try:
 			pyScrLoader = ui.PythonScriptLoader()
 			pyScrLoader.LoadScriptFile(self, "UIScript/CostumeWindow.py")
-		except:
-			import exception
-			exception.Abort("CostumeWindow.LoadWindow.LoadObject")
+		except Exception, e:
+			dbg.TraceError("CostumeWindow.LoadWindow.LoadObject: %s" % str(e))
+			self.isLoaded = 0
+			return
 
 		try:
 			wndEquip = self.GetChild("CostumeSlot")
 			self.GetChild("TitleBar").SetCloseEvent(ui.__mem_func__(self.Close))
 
-		except:
-			import exception
-			exception.Abort("CostumeWindow.LoadWindow.BindObject")
+		except Exception, e:
+			dbg.TraceError("CostumeWindow.LoadWindow.BindObject: %s" % str(e))
+			self.isLoaded = 0
+			return
 
 		## Equipment
 		wndEquip.SetOverInItemEvent(ui.__mem_func__(self.wndInventory.OverInItem))
@@ -132,6 +148,30 @@ class CostumeWindow(ui.ScriptWindow):
 		wndEquip.SetSelectItemSlotEvent(ui.__mem_func__(self.wndInventory.SelectItemSlot))
 
 		self.wndEquip = wndEquip
+		self.__AddHideButton()
+
+	# Ukryj kostiumy (uicostumehide.py): a button under the slots; the window
+	# and its board grow to hold it.
+	def __AddHideButton(self):
+		try:
+			import uicostumehide
+			board = self.GetChild("board")
+			width = self.GetWidth()
+			height = self.GetHeight()
+			self.SetSize(width, height + 26)
+			board.SetSize(width, height + 26)
+			button = ui.Button()
+			button.SetParent(board)
+			button.SetUpVisual("d:/ymir work/ui/public/large_button_01.sub")
+			button.SetOverVisual("d:/ymir work/ui/public/large_button_02.sub")
+			button.SetDownVisual("d:/ymir work/ui/public/large_button_03.sub")
+			button.SetPosition((width - button.GetWidth()) / 2, height - 4)
+			button.SetEvent(uicostumehide.Toggle)
+			button.Show()
+			uicostumehide.AddButton(button)
+			self.hideButton = button
+		except Exception, e:
+			dbg.TraceError("CostumeWindow.AddHideButton: %s" % str(e))
 
 	def RefreshCostumeSlot(self):
 		getItemVNum=player.GetItemIndex
@@ -212,6 +252,10 @@ class BeltInventoryWindow(ui.ScriptWindow):
 
 	def GetBasePosition(self):
 		x, y = self.wndInventory.GetGlobalPosition()
+		# The icon sidebar stands between the inventory and the belt.
+		wndSideBar = getattr(self.wndInventory, "wndSideBar", None)
+		if wndSideBar:
+			x -= wndSideBar.GetLeftOffset()
 		return x - 148, y + 241
 
 	def AdjustPositionAndSize(self):
@@ -290,6 +334,311 @@ class BeltInventoryWindow(ui.ScriptWindow):
 				self.wndBeltInventorySlot.DisableCoverButton(slotNumber)
 
 		self.wndBeltInventorySlot.RefreshSlot()
+
+# Pasek ikon przy ekwipunku (the operator, 28 September: "zajmij sie tym
+# sidebarem z boku ... Towarzysz, Autolowy, Sortowanie autopickup, Kosz,
+# Wyszukiwarka sklepow, Battlepass, Kalendarz eventow"). A board on the
+# inventory's left, as the reference sidebar has it: one 32x32 button per
+# window, opened the way its hotkey opens it. It shows and hides with the
+# inventory and follows it wherever it goes - dragged, or put back by
+# uiwindowpos. With no room on the left (the inventory at the screen's left
+# edge) it stands on the right instead.
+#
+# It folds (the owner, 30 September: "mozliwosc zwiniecia i rozwiniecia"): a
+# tab on the board's outer edge, as the belt window has one, folds the board
+# away and leaves only the tab against the inventory; the tab unfolds it
+# again. Folded or not is kept for the character with the window positions
+# (uiwindowpos, key FOLDED_KEY).
+#
+# The icons are mt2009_ui/sidebar/<name>_01/02/03.tga (normal/over/down),
+# one frame for all eight (the Kolo Fortuny's wheel added later), and the
+# tab's arrows mt2009_ui/sidebar/tab_left|tab_right_01/02/03.tga.
+SIDEBAR_IMAGE = "mt2009_ui/sidebar/%s_%02d.tga"
+
+class SidebarWindow(ui.Window):
+	BUTTON_WIDTH = 32
+	BUTTON_HEIGHT = 32
+	BUTTON_GAP_X = 16
+	BUTTON_GAP_Y = 10
+
+	# The fold tab: beside the first icon, on the board's outer edge.
+	TAB_WIDTH = 14
+	TAB_HEIGHT = 44
+	TAB_Y = 4
+
+	# CP1250, as the tooltips below.
+	TOOLTIP_FOLD = "Zwi\xf1 pasek"
+	TOOLTIP_UNFOLD = "Rozwi\xf1 pasek"
+	FOLDED_KEY = "pasek_boczny_zwiniety"
+
+	# (image, tooltip, handler) - the tooltips are CP1250.
+	BUTTONS = (
+		("companion", "Towarzysz (P)", "OnClickCompanion"),
+		("autohunt", "Auto\xb3owy (K)", "OnClickAutoHunt"),
+		("pickup", "Sortowanie autopickup (Ctrl+Z)", "OnClickPickupFilter"),
+		("trash", "Kosz (J)", "OnClickGarbageBin"),
+		("shopsearch", "Wyszukiwarka sklep\xf3w (F5)", "OnClickShopSearch"),
+		("battlepass", "Battle Pass", "OnClickBattlePass"),
+		("calendar", "Kalendarz event\xf3w (F11)", "OnClickEventCalendar"),
+		("wheel", "Ko\xb3o Fortuny (F12)", "OnClickWheel"),
+	)
+
+	def __init__(self, wndInventory):
+		ui.Window.__init__(self)
+		self.AddFlag("float")
+		# A frame round the board and the tab: only they take the mouse, and
+		# a click on the rest of it (the strip over a folded tab) goes through.
+		self.AddFlag("not_pick")
+		# Held weakly: the inventory holds this bar, and ui.Window has a
+		# __del__, so a cycle through the two would never be collected.
+		self.wndInventory = proxy(wndInventory)
+		self.lastLayout = None
+		self.folded = False
+		self.foldedLoaded = False
+		self.buttons = []
+		self.board = None
+		self.tab = None
+		self.__CreateBoard()
+		self.__CreateTab()
+		self.fullWidth = self.TAB_WIDTH + self.board.GetWidth()
+
+	def __del__(self):
+		ui.Window.__del__(self)
+
+	def Destroy(self):
+		for button in self.buttons:
+			button.Hide()
+		self.buttons = []
+		if self.tab:
+			self.tab.Hide()
+			self.tab = None
+		if self.board:
+			self.board.Hide()
+			self.board = None
+		self.wndInventory = None
+		self.lastLayout = None
+
+	def __CreateBoard(self):
+		board = ui.Board()
+		board.SetParent(self)
+		self.board = board
+
+		y = self.BUTTON_GAP_Y
+		for name, text, handler in self.BUTTONS:
+			button = ui.Button()
+			button.SetParent(board)
+			button.SetUpVisual(SIDEBAR_IMAGE % (name, 1))
+			button.SetOverVisual(SIDEBAR_IMAGE % (name, 2))
+			button.SetDownVisual(SIDEBAR_IMAGE % (name, 3))
+			button.SetToolTipText(text)
+			# The windows behind these are built on their first click; the
+			# costume button has MSS32 crash on its click sample in that
+			# case, so these open without it too.
+			button.disableClickSound = True
+			button.SAFE_SetEvent(getattr(self, handler))
+			button.SetPosition(self.BUTTON_GAP_X, y)
+			button.Show()
+			self.buttons.append(button)
+			y += self.BUTTON_HEIGHT + self.BUTTON_GAP_Y
+
+		board.SetSize(self.BUTTON_GAP_X + self.BUTTON_WIDTH + self.BUTTON_GAP_X, y)
+		board.Show()
+
+	def __CreateTab(self):
+		tab = ui.Button()
+		tab.SetParent(self)
+		tab.disableClickSound = True
+		tab.SAFE_SetEvent(self.OnClickFold)
+		self.tab = tab
+		self.__SetTabArrow("left")
+		tab.SetToolTipText(self.TOOLTIP_FOLD)
+		tab.Show()
+
+	def __SetTabArrow(self, direction):
+		name = "tab_" + direction
+		self.tab.SetUpVisual(SIDEBAR_IMAGE % (name, 1))
+		self.tab.SetOverVisual(SIDEBAR_IMAGE % (name, 2))
+		self.tab.SetDownVisual(SIDEBAR_IMAGE % (name, 3))
+
+	# Folded or not, as the character left it. Read once there is a
+	# character to read it for (uiwindowpos keeps one file per character).
+	def __LoadFolded(self):
+		if self.foldedLoaded:
+			return
+		try:
+			import uiwindowpos
+			value = uiwindowpos.GetValue(self.FOLDED_KEY, 0)
+		except Exception:
+			value = None
+		if value is None:
+			return
+		self.folded = bool(value)
+		self.foldedLoaded = True
+
+	def IsFolded(self):
+		self.__LoadFolded()
+		return self.folded
+
+	def Show(self):
+		self.__LoadFolded()
+		ui.Window.Show(self)
+		self.AdjustPosition()
+
+	def Close(self):
+		self.Hide()
+
+	def __GetInventoryRect(self):
+		try:
+			x, y = self.wndInventory.GetGlobalPosition()
+			return x, y, self.wndInventory.GetWidth()
+		except (ReferenceError, AttributeError):
+			return None
+
+	# The side is chosen by the unfolded width, so folding and unfolding
+	# never move the bar across the inventory.
+	def __IsOnLeft(self, x):
+		return x - self.fullWidth >= 0
+
+	# How far the bar reaches out on the inventory's left: the board and its
+	# tab, the tab alone when folded, or nothing when it stands on the right.
+	# The belt window hangs past it.
+	def GetLeftOffset(self):
+		self.__LoadFolded()
+		rect = self.__GetInventoryRect()
+		if rect is None or not self.__IsOnLeft(rect[0]):
+			return 0
+		if self.folded:
+			return self.TAB_WIDTH
+		return self.fullWidth
+
+	def __GetLayout(self):
+		rect = self.__GetInventoryRect()
+		if rect is None:
+			return None
+		return rect + (self.__IsOnLeft(rect[0]), self.folded)
+
+	def AdjustPosition(self):
+		layout = self.__GetLayout()
+		if layout is None or not self.board or not self.tab:
+			return
+		x, y, width, onLeft, folded = layout
+		boardWidth = self.board.GetWidth()
+
+		if folded:
+			self.board.Hide()
+			self.SetSize(self.TAB_WIDTH, self.TAB_Y + self.TAB_HEIGHT)
+			self.tab.SetPosition(0, self.TAB_Y)
+			frameWidth = self.TAB_WIDTH
+		else:
+			self.SetSize(self.fullWidth, max(self.board.GetHeight(), self.TAB_Y + self.TAB_HEIGHT))
+			if onLeft:
+				self.tab.SetPosition(0, self.TAB_Y)
+				self.board.SetPosition(self.TAB_WIDTH, 0)
+			else:
+				self.board.SetPosition(0, 0)
+				self.tab.SetPosition(boardWidth, self.TAB_Y)
+			self.board.Show()
+			frameWidth = self.fullWidth
+
+		if onLeft:
+			self.SetPosition(x - frameWidth, y)
+		else:
+			self.SetPosition(x + width, y)
+
+		# The arrow points where the board goes: towards the inventory to
+		# fold it, away from it to unfold it.
+		if onLeft == folded:
+			self.__SetTabArrow("left")
+		else:
+			self.__SetTabArrow("right")
+		if folded:
+			self.tab.SetToolTipText(self.TOOLTIP_UNFOLD)
+		else:
+			self.tab.SetToolTipText(self.TOOLTIP_FOLD)
+
+		self.lastLayout = layout
+
+	def OnClickFold(self):
+		self.__LoadFolded()
+		self.folded = not self.folded
+		try:
+			import uiwindowpos
+			uiwindowpos.SetValue(self.FOLDED_KEY, 1 if self.folded else 0)
+		except Exception:
+			pass
+		self.AdjustPosition()
+		# The belt hangs past the bar and moves with it.
+		try:
+			wndBelt = getattr(self.wndInventory, "wndBelt", None)
+			if wndBelt and wndBelt.IsShow():
+				wndBelt.AdjustPositionAndSize()
+		except ReferenceError:
+			pass
+
+	def OnUpdate(self):
+		# The inventory is moved by more than a drag (uiwindowpos restores it
+		# after its Show); the bar keeps up with it every frame.
+		try:
+			if not self.wndInventory.IsShow():
+				self.Hide()
+				return
+		except (ReferenceError, AttributeError):
+			return
+		if self.__GetLayout() != self.lastLayout:
+			self.AdjustPosition()
+
+	def __GetInterface(self):
+		try:
+			return getattr(self.wndInventory, "interface", None)
+		except ReferenceError:
+			return None
+
+	# Towarzysz - as the taskbar's button and the P key open it.
+	def OnClickCompanion(self):
+		import uisidekick
+		uisidekick.ToggleWindow()
+
+	# Autolowy - as the K key and the taskbar's button.
+	def OnClickAutoHunt(self):
+		import uiautohunt
+		uiautohunt.ToggleWindow()
+
+	# Filtr podnoszenia (Ctrl+Z).
+	def OnClickPickupFilter(self):
+		import uipickupfilter
+		uipickupfilter.ToggleWindow()
+
+	# Kosz (J).
+	def OnClickGarbageBin(self):
+		interface = self.__GetInterface()
+		if interface is not None:
+			interface.ToggleGarbageBinWindow()
+
+	# Wyszukiwarka sklepow - opened and closed as F5 does (game.py).
+	def OnClickShopSearch(self):
+		interface = self.__GetInterface()
+		search = getattr(interface, "offlineShopSearch", None) if interface is not None else None
+		if search is None:
+			return
+		if search.IsShow():
+			search.Close()
+		else:
+			search.Open()
+
+	# Battle Pass - as the taskbar's button.
+	def OnClickBattlePass(self):
+		import uibattlepass
+		uibattlepass.ToggleWindow()
+
+	# Kalendarz eventow - as F11 and the taskbar's button.
+	def OnClickEventCalendar(self):
+		import uieventcalendar
+		uieventcalendar.ToggleWindow()
+
+	# Kolo Fortuny - as the F12 key (uiwheel.py, "/kolo").
+	def OnClickWheel(self):
+		import uiwheel
+		uiwheel.ToggleWindow()
 
 class GridSlotStateManager():
 	SLOT_STATE_NONE = 0
@@ -605,6 +954,7 @@ class InventoryWindow(ui.ScriptWindow):
 	tooltipItem = None
 	wndCostume = None
 	wndBelt = None
+	wndSideBar = None
 	dlgPickMoney = None
 	if app.ENABLE_CHEQUE_SYSTEM:
 		dlgPickETC = None
@@ -669,6 +1019,9 @@ class InventoryWindow(ui.ScriptWindow):
 
 		if self.wndBelt:
 			self.wndBelt.Show(self.isOpenedBeltWindowWhenClosingInventory)
+
+		if self.wndSideBar:
+			self.wndSideBar.Show()
 
 	def BindInterfaceClass(self, interface):
 		self.interface = interface
@@ -746,10 +1099,20 @@ class InventoryWindow(ui.ScriptWindow):
 			import exception
 			exception.Abort("InventoryWindow.LoadWindow.BindObject")
 
+		# Icon sidebar (SidebarWindow); the inventory goes on without it
+		# should it fail.
+		self.wndSideBar = None
+		try:
+			self.wndSideBar = SidebarWindow(self)
+			self.wndSideBar.Hide()
+		except Exception, e:
+			dbg.TraceError("InventoryWindow.LoadWindow.SideBar: %s" % str(e))
+			self.wndSideBar = None
+
 		## Item
 		wndItem.SetSelectEmptySlotEvent(ui.__mem_func__(self.SelectEmptySlot))
 		wndItem.SetSelectItemSlotEvent(ui.__mem_func__(self.SelectItemSlot))
-		wndItem.SetUnselectItemSlotEvent(ui.__mem_func__(self.UseItemSlot))
+		wndItem.SetUnselectItemSlotEvent(ui.__mem_func__(self.OnRightClickBagItem))
 		wndItem.SetUseSlotEvent(ui.__mem_func__(self.UseItemSlot))
 		wndItem.SetOverInItemEvent(ui.__mem_func__(self.OverInItem))
 		wndItem.SetOverOutItemEvent(ui.__mem_func__(self.OverOutItem))
@@ -823,8 +1186,10 @@ class InventoryWindow(ui.ScriptWindow):
 		if self.DSSButton:
 			self.DSSButton.SetEvent(ui.__mem_func__(self.ClickDSSButton))
 
-		# Costume Button
+		# Costume Button.  MSS32 crashes on this client's click sample for this
+		# lazily-created window, so invoke only this button without that sample.
 		if self.costumeButton:
+			self.costumeButton.disableClickSound = True
 			self.costumeButton.SetEvent(ui.__mem_func__(self.ClickCostumeButton))
 
 		self.wndCostume = None
@@ -886,6 +1251,11 @@ class InventoryWindow(ui.ScriptWindow):
 			self.wndBelt.Destroy()
 			self.wndBelt = None
 
+		if self.wndSideBar:
+			self.wndSideBar.Hide()
+			self.wndSideBar.Destroy()
+			self.wndSideBar = None
+
 		if app.ENABLE_ACCE_COSTUME_SYSTEM:
 			self.wndAcceCombine = None
 			self.wndAcceAbsorption = None
@@ -915,6 +1285,9 @@ class InventoryWindow(ui.ScriptWindow):
 			self.isOpenedBeltWindowWhenClosingInventory = self.wndBelt.IsOpeningInventory()
 			print "Is Opening Belt Inven?? ", self.isOpenedBeltWindowWhenClosingInventory
 			self.wndBelt.Close()
+
+		if self.wndSideBar:
+			self.wndSideBar.Hide()
 
 		if self.dlgPickMoney:
 			self.dlgPickMoney.Close()
@@ -990,17 +1363,25 @@ class InventoryWindow(ui.ScriptWindow):
 				self.wndCostume.Show()
 		else:
 			self.wndCostume = CostumeWindow(self)
+			# First opened (no place kept for it yet): past the icon sidebar,
+			# not under it.
+			if self.wndSideBar:
+				x, y = self.GetGlobalPosition()
+				x -= self.wndSideBar.GetLeftOffset() + self.wndCostume.GetWidth()
+				self.wndCostume.SetPosition(max(0, x), y)
+			import uiwindowpos
+			uiwindowpos.Track(self.wndCostume, "kostiumy")
 			self.wndCostume.Show()
 
 
 	def __OnAutoStackButton(self):
 		import inventoryarrange
-		inventoryarrange.Request()
+		inventoryarrange.OpenChoice()
 
 	def __OnAutoStackButtonByMoves(self):
 		import autostackpump
 		moves = []
-		TOTAL_SLOTS = player.INVENTORY_MAX_NUM
+		TOTAL_SLOTS = player.INVENTORY_DEFAULT_MAX_NUM
 		for sourceSlot in range(TOTAL_SLOTS):
 			srcItemVnum = player.GetItemIndex(sourceSlot)
 
@@ -1227,7 +1608,7 @@ class InventoryWindow(ui.ScriptWindow):
 
 		self.wndEquip.RefreshSlot()
 
-		if self.wndCostume:
+		if self.wndCostume and hasattr(self.wndCostume, "wndEquip"):
 			self.wndCostume.RefreshCostumeSlot()
 
 	def RefreshItemSlot(self):
@@ -1291,7 +1672,6 @@ class InventoryWindow(ui.ScriptWindow):
 			if uisidekickinventory.DropIntoPlayerBag(attachedSlotType, attachedSlotPos, selectedSlotPos):
 				mouseModule.mouseController.DeattachObject()
 				return
-
 			if player.SLOT_TYPE_INVENTORY == attachedSlotType:
 				#@fixme011 BEGIN (block ds equip)
 				attachedInvenType = player.SlotTypeToInvenType(attachedSlotType)
@@ -1320,8 +1700,7 @@ class InventoryWindow(ui.ScriptWindow):
 					snd.PlaySound("sound/ui/money.wav")
 
 				else:
-					import safeboxtransfer
-					safeboxtransfer.DropIntoBag(attachedSlotPos, selectedSlotPos, attachedItemCount, False)
+					net.SendSafeboxCheckoutPacket(attachedSlotPos, selectedSlotPos)
 
 			elif player.SLOT_TYPE_MALL == attachedSlotType:
 				net.SendMallCheckoutPacket(attachedSlotPos, selectedSlotPos)
@@ -1332,7 +1711,7 @@ class InventoryWindow(ui.ScriptWindow):
 		if constInfo.GET_ITEM_QUESTION_DIALOG_STATUS() == 1:
 			return
 
-		if itemSlotIndex >= player.INVENTORY_DEFAULT_MAX_NUM and itemSlotIndex < player.INVENTORY_MAX_NUM and not constInfo.IS_HORSE_SUMMONED:
+		if itemSlotIndex >= player.INVENTORY_DEFAULT_MAX_NUM and itemSlotIndex < player.INVENTORY_MAX_NUM and not CanAccessHorseInventory():
 			return
 
 		itemSlotIndex = self.__InventoryLocalSlotPosToGlobalSlotPos(itemSlotIndex)
@@ -1356,10 +1735,6 @@ class InventoryWindow(ui.ScriptWindow):
 					return
 				#@fixme011 END
 				self.__DropSrcItemToDestItemInInventory(attachedItemVID, attachedSlotPos, itemSlotIndex)
-
-			elif player.SLOT_TYPE_SAFEBOX == attachedSlotType and player.ITEM_MONEY != attachedItemVID:
-				import safeboxtransfer
-				safeboxtransfer.DropIntoBag(attachedSlotPos, itemSlotIndex, mouseModule.mouseController.GetAttachedItemCount(), True)
 
 			mouseModule.mouseController.DeattachObject()
 
@@ -1445,6 +1820,19 @@ class InventoryWindow(ui.ScriptWindow):
 
 	def __DropSrcItemToDestItemInInventory(self, srcItemVID, srcItemSlotPos, dstItemSlotPos):
 		if srcItemSlotPos == dstItemSlotPos:
+			return
+
+		# Cor Draconis containers are stackable, but some client item-proto
+		# variants classify them as use-to-item objects.  Merge identical Cors
+		# before the generic use-item dispatch can intercept the drop.
+		COR_DRACONIS_VNUMS = (
+			50252, 50255, 50256, 50257, 50258, 50259, 50260,
+			51501, 51502, 51503, 51504, 51505, 51506, 51507, 51508, 51509, 51510,
+			51541, 51548, 51549, 51562, 51569, 51576, 51583, 51590, 51597,
+			51604, 51611, 51618, 51625, 51632, 76040,
+		)
+		if srcItemVID in COR_DRACONIS_VNUMS and player.GetItemIndex(dstItemSlotPos) == srcItemVID:
+			self.__SendMoveItemPacket(srcItemSlotPos, dstItemSlotPos, 0)
 			return
 
 		# cyh itemseal 2013 11 08
@@ -1860,12 +2248,35 @@ class InventoryWindow(ui.ScriptWindow):
 				self.tooltipItem.AppendTextLine(localeInfo.QUICK_ADD_TO_MYSHOP)
 
 	def OnTop(self):
+		# The sidebar first: the item tooltip stays over it.
+		if self.wndSideBar:
+			self.wndSideBar.SetTop()
 		if None != self.tooltipItem:
 			self.tooltipItem.SetTop()
 
 	def OnPressEscapeKey(self):
 		self.Close()
 		return True
+
+	def OnRightClickBagItem(self, slotIndex):
+		garbageBin = getattr(self.interface, "wndGarbageBin", None)
+		if garbageBin and garbageBin.IsShow():
+			# An open bin consumes this click even when adding is rejected.
+			if mouseModule.mouseController.isAttached() or constInfo.GET_ITEM_QUESTION_DIALOG_STATUS():
+				return
+			if app.GetCursor() == app.SELL:
+				return
+			if any(getattr(self, flag, False) for flag in ("isExchangeDialogOpen", "isOfflineShopBuilderOpen", "isOfflineShopManageOpen", "isSafeboxOpen", "isExchangeItemOpen", "isRechargePotion")):
+				return
+			if app.ENABLE_DRAGON_SOUL_SYSTEM and self.wndDragonSoulRefine.IsShow():
+				return
+			if app.ENABLE_ACCE_COSTUME_SYSTEM and self.isShowAcceWindow():
+				return
+			globalSlot = self.__InventoryLocalSlotPosToGlobalSlotPos(slotIndex)
+			garbageBin.AddItemToGarbageBin(player.INVENTORY, globalSlot)
+			self.OverOutItem()
+			return
+		self.UseItemSlot(slotIndex)
 
 	def UseItemSlot(self, slotIndex):
 		curCursorNum = app.GetCursor()
@@ -1963,11 +2374,23 @@ class InventoryWindow(ui.ScriptWindow):
 		if app.ENABLE_DRAGON_SOUL_SYSTEM:
 			self.wndDragonSoulRefine = wndDragonSoulRefine
 
+	def IsDlgQuestionShow(self):
+		return bool(self.questionDialog and self.questionDialog.IsShow())
+
+	def CancelDlgQuestion(self):
+		self.OnCloseQuestionDialog()
+
+	def SetUseItemMode(self, bUse):
+		if self.wndItem:
+			self.wndItem.SetUseMode(bUse)
+
 	def OnMoveWindow(self, x, y):
 		# print "Inventory Global Pos : ", self.GetGlobalPosition()
 		if self.wndBelt:
 			# print "Belt Global Pos : ", self.wndBelt.GetGlobalPosition()
 			self.wndBelt.AdjustPositionAndSize()
+		if self.wndSideBar:
+			self.wndSideBar.AdjustPosition()
 
 	if app.ENABLE_ACCE_COSTUME_SYSTEM:
 		def SetAcceWindow(self, wndAcceCombine, wndAcceAbsorption):

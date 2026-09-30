@@ -46,3 +46,6 @@
 .calendar-event-body b,.calendar-event-legend b{font-size:19px;line-height:1}.calendar-event-tanaka{background:#51451ee8!important;border-color:#e4bc45!important}.calendar-event-zuo{background:#693c27e8!important;border-color:#ff8a55!important}.calendar-legend-tanaka{color:#ffe391;background:#8f6a2433}.calendar-legend-zuo{color:#ffb28f;background:#b24a2433}.calendar-editor-map.is-hidden{display:none}
 @media(max-width:760px){.event-bot-share{grid-template-columns:1fr}.event-bot-share button{width:100%}}
 .calendar-event .calendar-event-body b,.calendar-event-legend b{display:inline}
+.calendar-event-bossloot{background:#6b2330e8!important;border-color:#ff6b81!important}.calendar-event-metinloot{background:#3f3a5ae8!important;border-color:#a99bff!important}.calendar-legend-bossloot{color:#ff9aa9;background:#9c2a3c33}.calendar-legend-metinloot{color:#c9bfff;background:#4b3f9a33}
+/* MT2009_PLUS_GOBLIN_V1: the Treasure Hunt (goblin) */
+.calendar-event-goblin{background:#5e4a14e8!important;border-color:#ffd24a!important}.calendar-legend-goblin{color:#ffe08a;background:#9c7a2a33}

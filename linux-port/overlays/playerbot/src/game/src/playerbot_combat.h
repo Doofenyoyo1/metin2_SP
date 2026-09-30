@@ -324,7 +324,7 @@ namespace
 			// (PLAYERBOT_HORSE_TRAVEL_FLIP_HOLD_MS against a cast every
 			// PLAYERBOT_BUFF_RECHECK_FAST), and the target section puts it back
 			// in the saddle afterwards.
-			if (ch->IsRiding())
+			if (ch->IsRiding() && !IsPlayerBotOnStandingMount(ch))
 			{
 				if (!fighting || IsPlayerBotOutOfCombatBuff(buffVnum))
 					continue;
@@ -480,7 +480,7 @@ namespace
 			// From any saddle: a battle horse casts no skill of a class either
 			// (PLAYERBOT_SADDLE_SKILL_LEVEL), and the cast below would be
 			// refused without a word.
-			if (ch->IsRiding())
+			if (ch->IsRiding() && !IsPlayerBotOnStandingMount(ch))
 			{
 				SetPlayerBotRidingForTravel(ch, state, false, dwNow, dismountReason);
 				return 1;
@@ -886,7 +886,7 @@ namespace
 		const DWORD skill = GetPlayerBotDuelGapCloser(ch);
 		if (!ch || !foe || skill == 0 || distance < PLAYERBOT_DUEL_CHARGE_MIN_RANGE ||
 				distance > PLAYERBOT_DUEL_CHARGE_RANGE || ch->GetSkillLevel(skill) == 0 ||
-				ch->IsRiding() || ch->IsPolymorphed() ||
+				(ch->IsRiding() && !IsPlayerBotOnStandingMount(ch)) || ch->IsPolymorphed() ||
 				dwNow < state.dwNextSkillCastTime || dwNow < state.dwNextAttackTime ||
 				!IsPlayerBotSkillReady(state, skill, dwNow) || !CanPlayerBotStrikeCharacter(ch, foe))
 			return false;

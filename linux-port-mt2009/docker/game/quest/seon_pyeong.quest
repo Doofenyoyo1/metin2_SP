@@ -5,27 +5,18 @@
 -- to the share's cube.txt (port/shareify.py); Cube_open refuses an NPC that has
 -- no recipe there. NerrVoVy's quest and recipes (26-27 September), the text
 -- without diacritics like the rest of ours, and a word on what the anvil keeps.
--- Polish or English as the player's client asked (playerbot_lang.quest), the
--- option on his list included (NPC::OnChat reads it for the clicking player).
 quest seon_pyeong begin
 	state start begin
-		function t(pl, en)
-			if pc.getf("playerbot_lang", "en") == 1 then
-				return en
-			end
-			return pl
-		end
-
-		when 20091.chat.seon_pyeong.t("Wytwarzanie Ekwipunku", "Equipment Crafting") begin
+		when 20091.chat."Wytwarzanie Ekwipunku" begin
 			say_title(mob_name(20091)..":")
-			say(seon_pyeong.t("Witaj! Potrafie przekuc na wyzsze poziomy bron", "Welcome! I can forge weapons and armour"))
-			say(seon_pyeong.t("oraz zbroje w legendarny, potezniejszy ekwipunek.", "up into legendary, mightier equipment."))
-			say(seon_pyeong.t("Czy przyniosles ze soba odpowiednie przedmioty,", "Have you brought the right items, the"))
-			say(seon_pyeong.t("ulepszacze oraz wystarczajaca ilosc Yang?", "upgrade materials and enough Yang?"))
+			say("Witaj! Potrafie przekuc na wyzsze poziomy bron")
+			say("oraz zbroje w legendarny, potezniejszy ekwipunek.")
+			say("Czy przyniosles ze soba odpowiednie przedmioty,")
+			say("ulepszacze oraz wystarczajaca ilosc Yang?")
 			say("")
-			say(seon_pyeong.t("Bonusy i kamienie oddanego przedmiotu przepadaja.", "The bonuses and stones of the item you give are lost."))
+			say("Bonusy i kamienie oddanego przedmiotu przepadaja.")
 			say("")
-			local s = select(seon_pyeong.t("Otworz okno ulepszania", "Open the upgrade window"), seon_pyeong.t("Anuluj", "Cancel"))
+			local s = select("Otworz okno ulepszania", "Anuluj")
 			if s == 1 then
 				setskin(NOWINDOW)
 				command("cube open")

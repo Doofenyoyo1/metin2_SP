@@ -1,0 +1,350 @@
+# MT2009_PLUS_BOSS_CHESTS_V1: the boss chests of the Razador (6091) and Nemere (6191)
+# dungeons (the operator, 29 September): Skrzynia Razadora (50270) and Skrzynia Nemere
+# (50271), the official vnums. razador_dungeon.quest / nemere_dungeon.quest give one to
+# every player of the party inside the instance when the boss dies. Each chest is a Pct
+# group: its lines roll one after another (percent, 1-100), each one opening a nested
+# group ("s<vnum>") that gives ONE item by weight:
+#   * the gear (always): Razador - the level-65 weapons and the level-61 armours,
+#     Nemere - the level-70 weapons and the Titan shield, +0..+4;
+#   * the filler (always, and a second one at 40% / 50%): the cheap part of the
+#     official chests (pl-wiki Skrzynia Razadora / Skrzynia Nemere), without the
+#     level-75 weapons, the level-66 armours ("stalki") and the Skrzynia Mroku;
+#   * a pet item (50% / 60%): the New Pet System's books, elixirs, snacks, the book
+#     chest and, rarely, the boss's own egg.
+# The nested groups' numbers (95027x) are no item: the reader keeps the first group
+# per number, and a number under 30000 would register the items as a unique group.
+Group	MT2009_chest_50270
+{
+	Vnum	50270 -- Skrzynia Razadora
+	Type	Pct
+	1	s950271	1	100 -- bron 65 / zbroja 61 (+0..+4)
+	2	s950272	1	100 -- zapychacz z wiki
+	3	s950272	1	40 -- drugi zapychacz
+	4	s950273	1	50 -- przedmiot do peta
+}
+Group	MT2009_chest_razador_gear
+{
+	Vnum	950271
+	1	140	1	30 -- Miecz Bojowy+0
+	2	141	1	25 -- Miecz Bojowy+1
+	3	142	1	20 -- Miecz Bojowy+2
+	4	143	1	15 -- Miecz Bojowy+3
+	5	144	1	10 -- Miecz Bojowy+4
+	6	150	1	30 -- Miecz Szponu Ducha+0
+	7	151	1	25 -- Miecz Szponu Ducha+1
+	8	152	1	20 -- Miecz Szponu Ducha+2
+	9	153	1	15 -- Miecz Szponu Ducha+3
+	10	154	1	10 -- Miecz Szponu Ducha+4
+	11	160	1	30 -- Miecz Nimfy+0
+	12	161	1	25 -- Miecz Nimfy+1
+	13	162	1	20 -- Miecz Nimfy+2
+	14	163	1	15 -- Miecz Nimfy+3
+	15	164	1	10 -- Miecz Nimfy+4
+	16	240	1	30 -- Miecz Egzorcysty+0
+	17	241	1	25 -- Miecz Egzorcysty+1
+	18	242	1	20 -- Miecz Egzorcysty+2
+	19	243	1	15 -- Miecz Egzorcysty+3
+	20	244	1	10 -- Miecz Egzorcysty+4
+	21	1100	1	30 -- Smoczy Noz+0
+	22	1101	1	25 -- Smoczy Noz+1
+	23	1102	1	20 -- Smoczy Noz+2
+	24	1103	1	15 -- Smoczy Noz+3
+	25	1104	1	10 -- Smoczy Noz+4
+	26	1110	1	30 -- Noz Blyskawicy+0
+	27	1111	1	25 -- Noz Blyskawicy+1
+	28	1112	1	20 -- Noz Blyskawicy+2
+	29	1113	1	15 -- Noz Blyskawicy+3
+	30	1114	1	10 -- Noz Blyskawicy+4
+	31	2130	1	30 -- Boski Luk Moreli+0
+	32	2131	1	25 -- Boski Luk Moreli+1
+	33	2132	1	20 -- Boski Luk Moreli+2
+	34	2133	1	15 -- Boski Luk Moreli+3
+	35	2134	1	10 -- Boski Luk Moreli+4
+	36	2140	1	30 -- Olbrz. Luk Zolt. Smoka+0
+	37	2141	1	25 -- Olbrz. Luk Zolt. Smoka+1
+	38	2142	1	20 -- Olbrz. Luk Zolt. Smoka+2
+	39	2143	1	15 -- Olbrz. Luk Zolt. Smoka+3
+	40	2144	1	10 -- Olbrz. Luk Zolt. Smoka+4
+	41	3130	1	30 -- Partyzana+0
+	42	3131	1	25 -- Partyzana+1
+	43	3132	1	20 -- Partyzana+2
+	44	3133	1	15 -- Partyzana+3
+	45	3134	1	10 -- Partyzana+4
+	46	3140	1	30 -- Magnetyczne Ostrze+0
+	47	3141	1	25 -- Magnetyczne Ostrze+1
+	48	3142	1	20 -- Magnetyczne Ostrze+2
+	49	3143	1	15 -- Magnetyczne Ostrze+3
+	50	3144	1	10 -- Magnetyczne Ostrze+4
+	51	5090	1	30 -- Dzwon Burzowego Ptaka+0
+	52	5091	1	25 -- Dzwon Burzowego Ptaka+1
+	53	5092	1	20 -- Dzwon Burzowego Ptaka+2
+	54	5093	1	15 -- Dzwon Burzowego Ptaka+3
+	55	5094	1	10 -- Dzwon Burzowego Ptaka+4
+	56	5100	1	30 -- Dzwon Nieba I Ziemi+0
+	57	5101	1	25 -- Dzwon Nieba I Ziemi+1
+	58	5102	1	20 -- Dzwon Nieba I Ziemi+2
+	59	5103	1	15 -- Dzwon Nieba I Ziemi+3
+	60	5104	1	10 -- Dzwon Nieba I Ziemi+4
+	61	7130	1	30 -- Niebian. Ptasi Wachl.+0
+	62	7131	1	25 -- Niebian. Ptasi Wachl.+1
+	63	7132	1	20 -- Niebian. Ptasi Wachl.+2
+	64	7133	1	15 -- Niebian. Ptasi Wachl.+3
+	65	7134	1	10 -- Niebian. Ptasi Wachl.+4
+	66	7140	1	30 -- Wachlarz Zbawienia+0
+	67	7141	1	25 -- Wachlarz Zbawienia+1
+	68	7142	1	20 -- Wachlarz Zbawienia+2
+	69	7143	1	15 -- Wachlarz Zbawienia+3
+	70	7144	1	10 -- Wachlarz Zbawienia+4
+	71	11280	1	70 -- Zbroja Boga Smokow+0
+	72	11281	1	58 -- Zbroja Boga Smokow+1
+	73	11282	1	47 -- Zbroja Boga Smokow+2
+	74	11283	1	35 -- Zbroja Boga Smokow+3
+	75	11284	1	23 -- Zbroja Boga Smokow+4
+	76	11480	1	70 -- Ubranie Fuksyjne+0
+	77	11481	1	58 -- Ubranie Fuksyjne+1
+	78	11482	1	47 -- Ubranie Fuksyjne+2
+	79	11483	1	35 -- Ubranie Fuksyjne+3
+	80	11484	1	23 -- Ubranie Fuksyjne+4
+	81	11680	1	70 -- Duchowa Zbroja Plyt.+0
+	82	11681	1	58 -- Duchowa Zbroja Plyt.+1
+	83	11682	1	47 -- Duchowa Zbroja Plyt.+2
+	84	11683	1	35 -- Duchowa Zbroja Plyt.+3
+	85	11684	1	23 -- Duchowa Zbroja Plyt.+4
+	86	11880	1	70 -- Szata Baronow+0
+	87	11881	1	58 -- Szata Baronow+1
+	88	11882	1	47 -- Szata Baronow+2
+	89	11883	1	35 -- Szata Baronow+3
+	90	11884	1	23 -- Szata Baronow+4
+}
+Group	MT2009_chest_razador_misc
+{
+	Vnum	950272
+	1	27002	100	50 -- Czerwona Mikstura(S)
+	2	27002	200	25 -- Czerwona Mikstura(S)
+	3	27003	100	50 -- Czerwona Mikstura(D)
+	4	27005	100	50 -- Niebieska Mikstura(S)
+	5	27005	200	25 -- Niebieska Mikstura(S)
+	6	27006	100	50 -- Niebieska Mikstura(D)
+	7	30516	1	35 -- Antyczny Naramiennik
+	8	30512	1	35 -- Czerwona Smocza Stal
+	9	30509	1	35 -- Niebieska Smocza Stal
+	10	30504	1	35 -- Srebrny Zacisk
+	11	30506	1	35 -- Szafirowy Ozdobny Noz
+	12	30513	1	35 -- Szlachetny Naramiennik
+	13	30518	1	35 -- Zlota Przedza
+	14	30520	1	35 -- Zlota Spinka
+	15	50726	1	25 -- Grzyb Tue
+	16	30524	1	25 -- Kamien Plomienia
+	17	50513	1	15 -- Kamien Duchowy
+	18	50300	1	40 -- Ksiega Umiejetnosci
+	19	17180	1	15 -- Ametystowe Kolczyki+0
+	20	14200	1	8 -- Bransol. Z Niebian. Lez+0
+	21	16200	1	8 -- Naszyj. Z Niebian. Lez+0
+	22	14163	1	12 -- Krysztalowa Bransoleta+3
+	23	17163	1	12 -- Krysztalowe Kolczyki+3
+	24	16163	1	12 -- Krysztalowy Naszyjnik+3
+	25	13060	1	8 -- Sokola Tarcza+0
+	26	13080	1	8 -- Tarcza Tygrysa+0
+	27	13100	1	8 -- Lwia Tarcza+0
+	28	13120	1	8 -- Tarcza Smoka+0
+	29	13160	1	10 -- Tarcza Trzech Wladcow+0
+	30	18000	1	12 -- Pas Lniany+0
+	31	18010	1	8 -- Pas Skorzany+0
+	32	18020	1	5 -- Pas Przepychu+0
+	33	18030	1	3 -- Pas Madrosci+0
+	34	18080	1	2 -- Pas Dusz+0
+	35	70058	1	15 -- Pierscien Teleportacji
+	36	71130	1	20 -- Przepustka
+	37	exp	800000	25 -- EXP 800 000
+	38	exp	1000000	15 -- EXP 1 000 000
+	39	gold	1000000	25 -- Yang 1 000 000
+}
+Group	MT2009_chest_razador_pet
+{
+	Vnum	950273
+	1	55010	1	10 -- Sztuka Lowcy Metinow
+	2	55011	1	10 -- Sztuka Lowcy Bossow
+	3	55012	1	10 -- Sztuka Lowcy Nieumarlych
+	4	55013	1	10 -- Sztuka Bogobojcy
+	5	55014	1	10 -- Sztuka Najwyzszego Medrca
+	6	55015	1	10 -- Sztuka Lowcy Potworow
+	7	55016	1	10 -- Sztuka Sily
+	8	55017	1	10 -- Sztuka Wiedzy
+	9	55018	1	10 -- Sztuka Cienia
+	10	55019	1	10 -- Sztuka Lowcy Magii
+	11	55020	1	10 -- Sztuka Lowcy Broni
+	12	55021	1	10 -- Sztuka Swietej Ochrony
+	13	55022	1	10 -- Sztuka Swietej Zbroi
+	14	55023	1	10 -- Sztuka Bozego Blogoslawienstwa
+	15	55024	1	10 -- Sztuka Najwyzszego Wojownika
+	16	55025	1	10 -- Sztuka Mistrza Bossow
+	17	55026	1	10 -- Sztuka Swietego Zywiolu
+	18	55027	1	10 -- Sztuka Mistrza Broni
+	19	55028	1	10 -- Sztuka Mistrza Magii
+	20	55029	1	10 -- Sztuka Mistrza Lowow
+	21	55030	1	10 -- Sztuka Swietej Wody
+	22	55031	1	10 -- Sztuka Zycia
+	23	55009	1	30 -- Skrzynia Ksiag Peta
+	24	55101	1	60 -- Eliksir Witalnosci (S)
+	25	55108	1	60 -- Eliksir Walki (S)
+	26	55115	1	60 -- Eliksir Mocy (S)
+	27	55102	1	30 -- Eliksir Witalnosci (M)
+	28	55109	1	30 -- Eliksir Walki (M)
+	29	55116	1	30 -- Eliksir Mocy (M)
+	30	55103	1	15 -- Eliksir Witalnosci (L)
+	31	55110	1	15 -- Eliksir Walki (L)
+	32	55117	1	15 -- Eliksir Mocy (L)
+	33	55104	1	3 -- Eliksir Witalnosci (XL)
+	34	55111	1	3 -- Eliksir Walki (XL)
+	35	55118	1	3 -- Eliksir Mocy (XL)
+	36	55001	1	216 -- Proteinowa Przekaska
+	37	55032	1	150 -- Smakolyk
+	38	55035	1	50 -- Smakolyk+
+	39	55403	1	10 -- Jajo Mini Razadora
+}
+Group	MT2009_chest_50271
+{
+	Vnum	50271 -- Skrzynia Nemere
+	Type	Pct
+	1	s950276	1	100 -- bron 70 / Tarcza Tytanow (+0..+4)
+	2	s950277	1	100 -- zapychacz z wiki
+	3	s950277	1	50 -- drugi zapychacz
+	4	s950278	1	60 -- przedmiot do peta
+}
+Group	MT2009_chest_nemere_gear
+{
+	Vnum	950276
+	1	170	1	30 -- Miecz Zadlo+0
+	2	171	1	25 -- Miecz Zadlo+1
+	3	172	1	20 -- Miecz Zadlo+2
+	4	173	1	15 -- Miecz Zadlo+3
+	5	174	1	10 -- Miecz Zadlo+4
+	6	250	1	30 -- Demoniczne Ostrze+0
+	7	251	1	25 -- Demoniczne Ostrze+1
+	8	252	1	20 -- Demoniczne Ostrze+2
+	9	253	1	15 -- Demoniczne Ostrze+3
+	10	254	1	10 -- Demoniczne Ostrze+4
+	11	1120	1	30 -- Noz Siamese+0
+	12	1121	1	25 -- Noz Siamese+1
+	13	1122	1	20 -- Noz Siamese+2
+	14	1123	1	15 -- Noz Siamese+3
+	15	1124	1	10 -- Noz Siamese+4
+	16	2180	1	30 -- Luk Niebieskiego Smoka+0
+	17	2181	1	25 -- Luk Niebieskiego Smoka+1
+	18	2182	1	20 -- Luk Niebieskiego Smoka+2
+	19	2183	1	15 -- Luk Niebieskiego Smoka+3
+	20	2184	1	10 -- Luk Niebieskiego Smoka+4
+	21	3150	1	30 -- Zlodziej Dusz+0
+	22	3151	1	25 -- Zlodziej Dusz+1
+	23	3152	1	20 -- Zlodziej Dusz+2
+	24	3153	1	15 -- Zlodziej Dusz+3
+	25	3154	1	10 -- Zlodziej Dusz+4
+	26	5130	1	30 -- Dzwon Smierci+0
+	27	5131	1	25 -- Dzwon Smierci+1
+	28	5132	1	20 -- Dzwon Smierci+2
+	29	5133	1	15 -- Dzwon Smierci+3
+	30	5134	1	10 -- Dzwon Smierci+4
+	31	7150	1	30 -- Ekstazyjny Wachlarz+0
+	32	7151	1	25 -- Ekstazyjny Wachlarz+1
+	33	7152	1	20 -- Ekstazyjny Wachlarz+2
+	34	7153	1	15 -- Ekstazyjny Wachlarz+3
+	35	7154	1	10 -- Ekstazyjny Wachlarz+4
+	36	13140	1	90 -- Tarcza Tytanow+0
+	37	13141	1	70 -- Tarcza Tytanow+1
+	38	13142	1	50 -- Tarcza Tytanow+2
+	39	13143	1	25 -- Tarcza Tytanow+3
+	40	13144	1	15 -- Tarcza Tytanow+4
+}
+Group	MT2009_chest_nemere_misc
+{
+	Vnum	950277
+	1	27002	100	50 -- Czerwona Mikstura(S)
+	2	27002	200	25 -- Czerwona Mikstura(S)
+	3	27003	100	50 -- Czerwona Mikstura(D)
+	4	27005	100	50 -- Niebieska Mikstura(S)
+	5	27005	200	25 -- Niebieska Mikstura(S)
+	6	27006	100	50 -- Niebieska Mikstura(D)
+	7	30503	1	25 -- Ametystowy Ozdobny Noz
+	8	30516	1	25 -- Antyczny Naramiennik
+	9	30512	1	25 -- Czerwona Smocza Stal
+	10	30511	1	25 -- Czerwony Material
+	11	30514	1	25 -- Fioletowy Material
+	12	30522	1	25 -- Ogniwa Lancucha
+	13	30502	1	25 -- Rubinowa Ozdoba
+	14	30500	1	25 -- Rubinowy Ozdobny Noz
+	15	30506	1	25 -- Szafirowy Ozdobny Noz
+	16	30513	1	25 -- Szlachetny Naramiennik
+	17	30510	1	25 -- Wytworny Naramiennik
+	18	30518	1	25 -- Zlota Przedza
+	19	30520	1	25 -- Zlota Spinka
+	20	30517	1	25 -- Zloty Material
+	21	30525	1	25 -- Kamien Lodowe. Plomienia
+	22	50300	1	40 -- Ksiega Umiejetnosci
+	23	70037	1	20 -- Ksiega Zapomnienia
+	24	25040	1	20 -- Zwoj Blogoslawienstwa
+	25	14180	1	15 -- Ametystowa Bransoleta+0
+	26	17163	1	12 -- Krysztalowe Kolczyki+3
+	27	16163	1	12 -- Krysztalowy Naszyjnik+3
+	28	16200	1	8 -- Naszyj. Z Niebian. Lez+0
+	29	13062	1	8 -- Sokola Tarcza+2
+	30	13080	1	8 -- Tarcza Tygrysa+0
+	31	13100	1	8 -- Lwia Tarcza+0
+	32	13120	1	8 -- Tarcza Smoka+0
+	33	13160	1	10 -- Tarcza Trzech Wladcow+0
+	34	7140	1	8 -- Wachlarz Zbawienia+0
+	35	18000	1	12 -- Pas Lniany+0
+	36	18010	1	8 -- Pas Skorzany+0
+	37	18020	1	5 -- Pas Przepychu+0
+	38	18030	1	3 -- Pas Madrosci+0
+	39	18080	1	2 -- Pas Dusz+0
+	40	70058	1	15 -- Pierscien Teleportacji
+	41	71130	1	20 -- Przepustka
+	42	exp	600000	25 -- EXP 600 000
+	43	exp	800000	20 -- EXP 800 000
+	44	exp	1000000	15 -- EXP 1 000 000
+	45	gold	800000	20 -- Yang 800 000
+	46	gold	1000000	15 -- Yang 1 000 000
+}
+Group	MT2009_chest_nemere_pet
+{
+	Vnum	950278
+	1	55010	1	12 -- Sztuka Lowcy Metinow
+	2	55011	1	12 -- Sztuka Lowcy Bossow
+	3	55012	1	12 -- Sztuka Lowcy Nieumarlych
+	4	55013	1	12 -- Sztuka Bogobojcy
+	5	55014	1	12 -- Sztuka Najwyzszego Medrca
+	6	55015	1	12 -- Sztuka Lowcy Potworow
+	7	55016	1	12 -- Sztuka Sily
+	8	55017	1	12 -- Sztuka Wiedzy
+	9	55018	1	12 -- Sztuka Cienia
+	10	55019	1	12 -- Sztuka Lowcy Magii
+	11	55020	1	12 -- Sztuka Lowcy Broni
+	12	55021	1	12 -- Sztuka Swietej Ochrony
+	13	55022	1	12 -- Sztuka Swietej Zbroi
+	14	55023	1	12 -- Sztuka Bozego Blogoslawienstwa
+	15	55024	1	12 -- Sztuka Najwyzszego Wojownika
+	16	55025	1	12 -- Sztuka Mistrza Bossow
+	17	55026	1	12 -- Sztuka Swietego Zywiolu
+	18	55027	1	12 -- Sztuka Mistrza Broni
+	19	55028	1	12 -- Sztuka Mistrza Magii
+	20	55029	1	12 -- Sztuka Mistrza Lowow
+	21	55030	1	12 -- Sztuka Swietej Wody
+	22	55031	1	12 -- Sztuka Zycia
+	23	55009	1	40 -- Skrzynia Ksiag Peta
+	24	55101	1	40 -- Eliksir Witalnosci (S)
+	25	55108	1	40 -- Eliksir Walki (S)
+	26	55115	1	40 -- Eliksir Mocy (S)
+	27	55102	1	40 -- Eliksir Witalnosci (M)
+	28	55109	1	40 -- Eliksir Walki (M)
+	29	55116	1	40 -- Eliksir Mocy (M)
+	30	55103	1	20 -- Eliksir Witalnosci (L)
+	31	55110	1	20 -- Eliksir Walki (L)
+	32	55117	1	20 -- Eliksir Mocy (L)
+	33	55104	1	5 -- Eliksir Witalnosci (XL)
+	34	55111	1	5 -- Eliksir Walki (XL)
+	35	55118	1	5 -- Eliksir Mocy (XL)
+	36	55001	1	160 -- Proteinowa Przekaska
+	37	55032	1	120 -- Smakolyk
+	38	55035	1	80 -- Smakolyk+
+	39	55404	1	15 -- Jajo Mini Nemere
+}

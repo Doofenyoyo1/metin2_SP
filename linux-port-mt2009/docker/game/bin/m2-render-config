@@ -86,6 +86,11 @@ PUBLIC_LINE="PUBLIC_IP: ${CONTAINER_IP}"
 # The CONFIG parser reads a line with fgets(buf, 256, fp); the longest line
 # below is well inside that.
 # -----------------------------------------------------------------------------
+# MT2009_PLUS_OCHAO_V1 (maps): 209, Swiatynia Ochao (metin2_map_mt_th_dungeon_01),
+# level 95+, entered from Orc Valley through the Temple Guardian. It sits on
+# game1 beside Orc Valley in both layouts (MT2009_PLUS_OCHAO_BOTS_V1): the bots
+# hunt it, and a bot cannot cross cores. game1 of the unified layout then hosts
+# 33 maps, so MAP_ALLOW_LIMIT is 48 (server-patches/playerqol, MT2009_PLUS_MAP_ALLOW_48_V1).
 MAPS_first="1 3 4 5 6 107 81 110 111 112 113 181 182 183 200 250 302 304"
 # 66, 67 and 68 - the Demon Tower, the Forest and the Red Forest - moved off
 # game2 the way 104 and 109 were moved before them: a bot cannot walk onto a map
@@ -97,8 +102,17 @@ MAPS_first="1 3 4 5 6 107 81 110 111 112 113 181 182 183 200 250 302 304"
 # the first Grotto of Exile, joined its second (73) here on 26 September: the
 # two are the 81-97 ground past the Red Forest, entered from Orc Valley, and a
 # grotto on game2 was a grotto no bot could stand in.
-MAPS_game1="21 23 24 25 26 61 62 63 64 65 66 67 68 69 70 71 104 108 109 79 216 217 72 73"
-MAPS_game2="41 43 44 45 46 90 208 301 303 351"
+# MT2009_PLUS_DUNGEONS_V1: 351 (Razador, metin2_map_n_flame_dungeon_01) and 352 (Nemere,
+# metin2_map_n_snow_dungeon_01) sit on game2, NOT on game1: a core announces at most
+# MAP_ALLOW_LIMIT (32) maps to the db core, taken from a sorted set, and game1 of the
+# unified layout already hosts 32 - two more there dropped 351/352 from the map
+# locations ("WarpSet: cannot find map location index 351", 28 September). The guards
+# on the Fire Land (62) and Mount Sohan (61) ask game2 for a new instance over P2P
+# (d.new_jump_pids, MT2009_PLUS_DUNGEON_ONE_WARP_V1) and game2 warps the players
+# straight into it - one loading screen, no lobby. Players only: no bot can stand on
+# a game2 map.
+MAPS_game1="21 23 24 25 26 61 62 63 64 65 66 67 68 69 70 71 104 108 109 79 216 217 72 73 209"
+MAPS_game2="41 43 44 45 46 90 208 301 303 351 352"
 
 # One world on one core, when the operator asks for it.
 #
@@ -120,11 +134,15 @@ M2_PLAYERBOT_WORLD_LAYOUT="${M2_PLAYERBOT_WORLD_LAYOUT:-split}"
 if [ "$M2_PLAYERBOT_WORLD_LAYOUT" = "unified" ]; then
   MAPS_game1="$MAPS_game1 1 3 4 5 41 43 44 45"
   MAPS_first="6 107 81 110 111 112 113 181 182 183 200 250 302 304"
-  MAPS_game2="46 90 208 301 303 351"
+  MAPS_game2="46 90 208 301 303 351 352"
   log "world layout: unified (all three kingdoms + frontier on game1)"
 else
   log "world layout: split (per-kingdom cores; Shinsoo/Jinno cap ~36)"
 fi
+# MT2009_PLUS_GOBLIN_V1: Treasure Island (419) - the Treasure Hunt event's
+# private copies (playerbot_goblin.h) - on game2 under either layout; a ticket
+# used on another core sends the player there first.
+MAPS_game2="$MAPS_game2 419"
 # The difficulty is acted on by the migrate service (event flags the quests
 # read); said here so a support bundle carries it next to the layout.
 log "difficulty: ${M2_DIFFICULTY:-easy} (Biologist and stable keeper waits; apply.sh writes the flags)"
@@ -191,6 +209,11 @@ EOF
 # points at the account database: auth authenticates, it loads no characters.
 # -----------------------------------------------------------------------------
 #
+# (client_version_gate_off.patch, 18 September 2026: server_version is 0 below, so
+# NO client is refused for its version. Upstream sets it to 1010100 - the client
+# with four inventory pages - and answers "UPDATE" to an older one. The operator
+# asked for that requirement to go: an older client now logs in, and draws this
+# world's third and fourth bag pages as its horse page and beyond.)
 # server_version is the oldest client the auth core lets in. The client sends
 # constInfo.GAME_VERSION before it logs in (expansion*10000 + major*100 +
 # minor, plus 1000000 for a release build) and CInputAuth::Login answers
@@ -207,7 +230,7 @@ render_auth() {
   cat > "$d/CONFIG" <<EOF
 CHANNEL: 1
 HOSTNAME: Auth01
-server_version: 1010100
+server_version: 0
 PORT: ${M2_AUTH_PORT}
 P2P_PORT: ${M2_AUTH_P2P_PORT}
 DB_ADDR: 127.0.0.1
@@ -234,10 +257,17 @@ EOF
 # a channel game core
 #   render_game <channel> <role: first|game1|game2>
 # -----------------------------------------------------------------------------
+# The channels' first port, 13000 unless M2_GAME_PORT_BASE says otherwise: a
+# second stack on the same host (the test server beside a public one) takes
+# another range, and a core must listen on the port the players reach, because
+# a warp between cores sends the client the target core's own PORT.
+M2_GAME_PORT_BASE="${M2_GAME_PORT_BASE:-13000}"
+case "$M2_GAME_PORT_BASE" in ''|*[!0-9]*) M2_GAME_PORT_BASE=13000 ;; esac
+
 render_game() {
   local ch="$1" role="$2"
   local d="$VAR_DIR/channel${ch}/${role}"
-  local base=$(( 13000 + (ch - 1) * 10 ))
+  local base=$(( M2_GAME_PORT_BASE + (ch - 1) * 10 ))
   local p2pbase=$(( 14000 + (ch - 1) * 10 ))
   local offset hostname maps
 
@@ -256,8 +286,13 @@ render_game() {
   # ends up hosting none (first/game2 under the unified layout, or after any
   # map move) never rewrites it, so a stale file from a previous layout would
   # leave the panel counting bots that are not there. Clear it on boot; a core
-  # with bots recreates it within a second.
-  rm -f "$d/playerbot_status.tsv" "$d/playerbot_status.tsv.tmp"
+  # with bots recreates it within a second. The guild and event reports the
+  # same way: both panels add every core's guild report up, so a first/game2
+  # report left from an earlier layout showed a guild with more bots online
+  # than members, and a core with bots writes its own again within a minute.
+  rm -f "$d/playerbot_status.tsv" "$d/playerbot_status.tsv.tmp" \
+    "$d/playerbot_guild_status.tsv" "$d/playerbot_guild_status.tsv.tmp" \
+    "$d/playerbot_events_status.tsv" "$d/playerbot_events_status.tsv.tmp"
 
   # Guild marks are player-created content. Seed once, then never touch.
   if [ ! -d "$d/mark" ]; then
@@ -325,7 +360,7 @@ for ch in $(seq 1 "${M2_CHANNELS}"); do
     render_game "$ch" "$role"
     case "$role" in first) off=0 ;; game1) off=1 ;; game2) off=2 ;; esac
     printf 'ch%s-%s|%s/channel%s/%s|game|%s|game\n' \
-      "$ch" "$role" "$VAR_DIR" "$ch" "$role" "$(( 13000 + (ch - 1) * 10 + off ))" >> "$PLAN"
+      "$ch" "$role" "$VAR_DIR" "$ch" "$role" "$(( M2_GAME_PORT_BASE + (ch - 1) * 10 + off ))" >> "$PLAN"
   done
 done
 

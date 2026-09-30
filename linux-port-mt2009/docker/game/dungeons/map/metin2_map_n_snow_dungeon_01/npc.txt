@@ -1,0 +1,2 @@
+// MT2009_PLUS_DUNGEONS_V1 (nemere): the lobby - Kamienny Lew opens the instance
+m	172	261	0	0	0	0	60s	100	1	20397

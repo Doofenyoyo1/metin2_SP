@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}Koło Fortuny · {{ panel_brand }}{% endblock %}
+{% block content %}
+<style>
+.wh-table input{padding:7px 8px;font-size:13px}
+.wh-table td{vertical-align:middle;padding:8px 6px}
+.wh-table .wh-num{width:96px}.wh-table .wh-cnt{width:76px}
+.wh-hint{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+.wh-form{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end}
+.wh-form label{display:grid;gap:5px;color:var(--muted);font-size:13px}
+.wh-new td{background:color-mix(in srgb,var(--blue2) 7%,transparent)}
+.wh-off td{opacity:.55}
+.wh-rare{color:#e0b000;font-weight:600}
+.wh-pct{font-variant-numeric:tabular-nums;white-space:nowrap}
+</style>
+<p class="eyebrow">MT2009 PLUS · KOŁO FORTUNY</p>
+<h1>🎡 Koło Fortuny</h1>
+<p class="muted">Gracz kręci kołem w grze (F12) za bilet. Nagrodę losuje serwer według wag z tabeli poniżej – szansa = waga ÷ suma wag aktywnych nagród. Pozostałe 9 pól koła to tylko podgląd puli. Nagroda „rzadka” świeci w oknie jako nagroda specjalna / JACKPOT. Gra wczytuje zmiany w ciągu 30 sekund – restart nie jest potrzebny. Boty nie kręcą.</p>
+
+<section class="cards compact">
+<article><span>Obroty dziś</span><strong>{{ stats.today or 0 }}</strong><small>7 dni: {{ stats.week or 0 }} · razem: {{ stats.total or 0 }}</small></article>
+<article><span>Gracze</span><strong>{{ stats.players or 0 }}</strong><small>kręcili choć raz</small></article>
+<article><span>Rzadkie nagrody (7 dni)</span><strong>{{ stats.rare_week or 0 }}</strong><small>oznaczone jako JACKPOT</small></article>
+<article><span>Nieodebrane</span><strong>{{ stats.pending or 0 }}</strong><small>gra wyda je sama (najpóźniej po 2 min w grze)</small></article>
+</section>
+
+<section class="panel">
+<h2>Koszt obrotu</h2>
+<p class="muted">Bilet to przedmiot zabierany z ekwipunku przy każdym obrocie (domyślnie <strong>Bilet Koła Fortuny</strong>, VNUM 80030).
+{% if ticket %}W ItemShopie: indeks {{ ticket['index'] }}, {{ ticket['count'] }} szt. za {{ ticket['price'] }} Smoczych Monet.{% else %}Tego przedmiotu nie ma w ItemShopie za Smocze Monety.{% endif %}</p>
+<form method="post" class="wh-form">
+<input type="hidden" name="wheel_csrf" value="{{ wheel_csrf }}">
+<label>Włączone<input type="checkbox" name="enabled" value="1" {% if config.enabled %}checked{% endif %}></label>
+<label>Bilet (VNUM)<input name="cost_vnum" type="number" min="1" value="{{ config.cost_vnum or 80030 }}" class="wh-num"><small>{{ config.cost_name or 'nieznany VNUM' }}</small></label>
+<label>Biletów na obrót<input name="cost_count" type="number" min="1" max="200" value="{{ config.cost_count or 1 }}" class="wh-cnt"></label>
+<button name="action" value="config">Zapisz koszt</button>
+</form>
+</section>
+
+<section class="panel">
+<h2>Pula nagród</h2>
+<p class="muted">VNUM przedmiotu, ilość, waga (0 = nie do wygrania) i znacznik „rzadka”. Procent liczony jest z aktywnych nagród (suma wag: {{ total }}). Jackpotem nie powinno być nic tańszego niż bilet. Nowe nagrody wpisz w puste wiersze na dole.</p>
+<form method="post">
+<input type="hidden" name="wheel_csrf" value="{{ wheel_csrf }}">
+<input type="hidden" name="row_count" value="{{ rewards|length + new_rows }}">
+<div class="table-wrap"><table class="wh-table">
+<thead><tr><th>#</th><th>Aktywna</th><th>Przedmiot (VNUM)</th><th>Ilość</th><th>Waga</th><th>Szansa</th><th>Rzadka</th><th>Usuń</th></tr></thead>
+<tbody>
+{% for r in rewards %}{% set i = loop.index0 %}
+<tr class="{{ '' if r.active else 'wh-off' }}">
+<td>{{ r.id }}<input type="hidden" name="r{{ i }}_id" value="{{ r.id }}"></td>
+<td><input type="checkbox" name="r{{ i }}_active" value="1" {% if r.active %}checked{% endif %}></td>
+<td><input name="r{{ i }}_vnum" type="number" min="1" value="{{ r.vnum }}" class="wh-num"><span class="wh-hint {{ 'wh-rare' if r.rare else '' }}">{{ r.name or 'nieznany VNUM' }}</span></td>
+<td><input name="r{{ i }}_count" type="number" min="1" max="60000" value="{{ r['count'] }}" class="wh-cnt"></td>
+<td><input name="r{{ i }}_weight" type="number" min="0" max="1000000" value="{{ r.weight }}" class="wh-cnt"></td>
+<td class="wh-pct">{{ '%.2f'|format(r.chance) }}%</td>
+<td><input type="checkbox" name="r{{ i }}_rare" value="1" {% if r.rare %}checked{% endif %}></td>
+<td><input type="checkbox" name="r{{ i }}_delete" value="1"></td>
+</tr>
+{% endfor %}
+{% for n in range(new_rows) %}{% set i = rewards|length + n %}
+<tr class="wh-new">
+<td>nowa</td>
+<td><input type="checkbox" name="r{{ i }}_active" value="1" checked></td>
+<td><input name="r{{ i }}_vnum" type="number" min="0" class="wh-num" placeholder="VNUM"></td>
+<td><input name="r{{ i }}_count" type="number" min="1" max="60000" value="1" class="wh-cnt"></td>
+<td><input name="r{{ i }}_weight" type="number" min="0" max="1000000" value="10" class="wh-cnt"></td>
+<td></td>
+<td><input type="checkbox" name="r{{ i }}_rare" value="1"></td>
+<td></td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+<button name="action" value="rewards">Zapisz pulę nagród</button>
+</form>
+</section>
+
+<section class="panel">
+<h2>Ostatnie obroty</h2>
+{% if recent %}
+<div class="table-wrap"><table>
+<thead><tr><th>#</th><th>Czas</th><th>Postać</th><th>Nagroda</th><th>Stan</th></tr></thead>
+<tbody>
+{% for s in recent %}
+<tr><td>{{ s.id }}</td><td>{{ s.created }}</td><td>{{ s.name }}</td><td class="{{ 'wh-rare' if s.rare else '' }}">{{ s['count'] }}× {{ s.item }}{% if s.rare %} (JACKPOT){% endif %}</td><td>{{ 'wydana' if s.state else 'czeka' }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{% else %}
+<p class="muted">Nikt jeszcze nie kręcił kołem.</p>
+{% endif %}
+</section>
+{% endblock %}

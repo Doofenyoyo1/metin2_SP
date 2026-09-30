@@ -442,6 +442,37 @@ namespace
 		return online;
 	}
 
+	// ------------------------------------------------ a player's invitation
+	//
+	// A person asks a bot by whisper to join their guild ("chodz do mnie do
+	// gildii", "dolaczysz do gildii?", HandlePlayerBotGuildRecruitWhisper in
+	// playerbot_chat_trade.h). A bot that says yes - one with no guild, or one
+	// of a bot guild below the elite that leaves it for this - waits
+	// PLAYERBOT_GUILD_RECRUIT_WAIT_MS for the person's invitation: no bot
+	// master takes it meanwhile and it founds no guild of its own.
+	const DWORD PLAYERBOT_GUILD_RECRUIT_WAIT_MS = 5 * 60 * 1000;
+	struct TPlayerBotGuildRecruit { DWORD dwPlayerPID; DWORD dwUntil; };
+	std::map<DWORD, TPlayerBotGuildRecruit> s_mapPlayerBotGuildRecruit;
+
+	bool IsPlayerBotAwaitingGuildInvite(DWORD botPID)
+	{
+		std::map<DWORD, TPlayerBotGuildRecruit>::iterator it = s_mapPlayerBotGuildRecruit.find(botPID);
+		if (it == s_mapPlayerBotGuildRecruit.end())
+			return false;
+		if (get_dword_time() >= it->second.dwUntil)
+		{
+			s_mapPlayerBotGuildRecruit.erase(it);
+			return false;
+		}
+		return true;
+	}
+
+	void NotePlayerBotAwaitingGuildInvite(DWORD botPID, DWORD playerPID)
+	{
+		TPlayerBotGuildRecruit wait = { playerPID, get_dword_time() + PLAYERBOT_GUILD_RECRUIT_WAIT_MS };
+		s_mapPlayerBotGuildRecruit[botPID] = wait;
+	}
+
 	// --------------------------------------------------------------- founding
 
 	// Founding is rare on purpose. Every eligible bot starting a guild of its
@@ -451,6 +482,9 @@ namespace
 	bool ShouldPlayerBotFoundGuild(LPCHARACTER ch, const TPlayerBotAIState& state, int& tierOut)
 	{
 		if (!ch || ch->GetGuild() != NULL || state.bFoundedGuild)
+			return false;
+		// Nor a bot that has just said yes to a person's guild.
+		if (IsPlayerBotAwaitingGuildInvite(ch->GetPlayerID()))
 			return false;
 		// Nor a dropper: see LeavePlayerBotGuildAsDropper.
 		if (IsPlayerBotDropper(state.bPersonality))
@@ -551,6 +585,9 @@ namespace
 			if (candidate->GetEmpire() != info.bEmpire)
 				continue;
 			if (IsPlayerBotDropper(it->second.bPersonality) || IsPlayerBotSidekickPID(it->first))
+				continue;
+			// Promised to a person's guild (HandlePlayerBotGuildRecruitWhisper).
+			if (IsPlayerBotAwaitingGuildInvite(it->first))
 				continue;
 			const int strength = GetPlayerBotStrengthCached(it->first);
 			if (floor > 0 && strength < floor)
@@ -787,11 +824,11 @@ namespace
 		if (!bot || !guild || bot->GetGuild())
 			return false;
 		guild->InviteAccept(bot);
+		s_mapPlayerBotGuildRecruit.erase(bot->GetPlayerID());
 		sys_log(0, "PLAYERBOT_GUILD: accepted a player's invitation pid=%u name=%s guild=%s inviter=%s",
 				bot->GetPlayerID(), bot->GetName(), guild->GetName(), inviter ? inviter->GetName() : "?");
 		if (inviter)
-			TellPlayerBotPerson(inviter, PBT(IsPlayerBotPersonEnglish(inviter), "%s przyjmuje zaproszenie do gildii %s.",
-					"%s accepts the invitation to the guild %s."), bot->GetName(), guild->GetName());
+			inviter->ChatPacket(CHAT_TYPE_INFO, "%s przyjmuje zaproszenie do gildii %s.", bot->GetName(), guild->GetName());
 		return true;
 	}
 
@@ -912,6 +949,8 @@ namespace
 		}
 		SpendPlayerBotGuildSkillPoints(ch, guild);
 		RecruitPlayerBotGuildMembers(ch, guild, *info, dwNow);
+		// The land and its buildings (playerbot_guild_land.h).
+		ManagePlayerBotGuildLand(ch, guild, dwNow);
 	}
 }
 

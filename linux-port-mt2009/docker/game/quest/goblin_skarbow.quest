@@ -1,0 +1,139 @@
+-- MT2009_PLUS_GOBLIN_V1: the Treasure Goblin (20856) on Treasure Island - the
+-- "Official Treasure Hunt System" archive's minigame_treasure_hunt.quest in
+-- Polish (its locale_quest lines 14262-14305 were not in the archive; these
+-- say what the official ones say). The island itself is the core's
+-- (playerbot_goblin.h): it sets goblin.phase (1 the story, 2 the blessings,
+-- 3 the escort, 4 the wrong chest, 5 the right chest, 6 the reward) and reads
+-- what this writes - goblin.req (1 blessings, 2 escort, 20 the wrong chest
+-- seen, 22 open the chest) and goblin.buffs (the blessings paid for: 1 life,
+-- 2 defence, 4 poison, 8 speed). The blessings cost the archive's yang.
+quest goblin_skarbow begin
+    state start begin
+        function has_bit(mask, bit)
+            return math.mod(math.floor(mask / bit), 2) == 1
+        end
+
+        function blessings()
+            local bits = {1, 2, 4, 8}
+            local costs = {500000, 500000, 500000, 1500000}
+            while true do
+                say_title("Goblin Skarbow:")
+                say("Zanim ruszymy, mozesz mnie poblogoslawic.")
+                say("Za troche yang bede silniejszy w drodze.")
+                say("")
+                local s = select("Wzmocnij goblina", "Ruszajmy w droge!", "Jeszcze chwile")
+                if s == 2 then
+                    pc.setf("goblin", "req", 2)
+                    say_title("Goblin Skarbow:")
+                    say("Dobrze, w takim razie chodz za mna!")
+                    say("Pilnuj, zeby potwory mnie nie dopadly.")
+                    return
+                elseif s ~= 1 then
+                    return
+                end
+                local b = select("Wiecej zycia (500 000 yang)", "Wiecej obrony (500 000 yang)",
+                        "Odpornosc na trucizne (500 000 yang)", "Wieksza szybkosc (1 500 000 yang)", "Wroc")
+                if b >= 1 and b <= 4 then
+                    say_title("Goblin Skarbow:")
+                    if b == 1 then
+                        say("Blogoslawienstwo zycia: moje punkty zycia")
+                        say("wzrosna o 20% (do 225 000).")
+                    elseif b == 2 then
+                        say("Blogoslawienstwo obrony: moja obrona")
+                        say("wzrosnie o 50.")
+                    elseif b == 3 then
+                        say("Blogoslawienstwo odpornosci: trucizna")
+                        say("nie bedzie mi szkodzic.")
+                    else
+                        say("Blogoslawienstwo szybkosci: bede chodzil")
+                        say("o 100 szybciej.")
+                    end
+                    say("")
+                    say("Koszt: " .. costs[b] .. " yang.")
+                    local c = select("Kup", "Wroc")
+                    if c == 1 then
+                        local mask = pc.getf("goblin", "buffs")
+                        say_title("Goblin Skarbow:")
+                        if goblin_skarbow.has_bit(mask, bits[b]) then
+                            say("Juz mam to blogoslawienstwo.")
+                        elseif pc.get_gold() < costs[b] then
+                            say("Nie masz tyle yang.")
+                        else
+                            pc.change_gold(-costs[b])
+                            pc.setf("goblin", "buffs", mask + bits[b])
+                            say("Czuje sie silniejszy! Dziekuje.")
+                        end
+                        wait()
+                    end
+                end
+            end
+        end
+
+        when 20856.click begin
+            local ph = pc.getf("goblin", "phase")
+            if ph == 1 then
+                say_title("Goblin Skarbow:")
+                say("Hej, ty! Tak, ty! Wygladasz na kogos, kto umie")
+                say("sie poslugiwac bronia.")
+                say("Jestem Goblinem Skarbow. Od lat szukam wielkiej")
+                say("skrzyni skarbow ukrytej na tej wyspie.")
+                wait()
+                say_title("Goblin Skarbow:")
+                say("Mam do niej klucz, ale nie wiem, ktora z")
+                say("trzech skrzyn jest ta wlasciwa. Wyspa roi sie")
+                say("od potworow, a ja sam nie dam im rady.")
+                wait()
+                say_title("Goblin Skarbow:")
+                say("Odprowadz mnie do skrzyn. Za kazdego potwora")
+                say("dostaniesz 1 Doblona, a gdy znajdziemy wlasciwa")
+                say("skrzynie - 100 Doblonow.")
+                say("Jesli ja albo ty zginiemy, wyprawa przepadnie.")
+                local s = select("Pomoge ci", "Nie teraz")
+                if s ~= 1 then
+                    say_title("Goblin Skarbow:")
+                    say("Szkoda... Porozmawiaj ze mna, gdy bedziesz gotowy.")
+                    return
+                end
+                pc.setf("goblin", "req", 1)
+                goblin_skarbow.blessings()
+            elseif ph == 2 then
+                goblin_skarbow.blessings()
+            elseif ph == 3 then
+                say_title("Goblin Skarbow:")
+                say("Szybko! Chron mnie przed potworami!")
+            elseif ph == 4 then
+                say_title("Goblin Skarbow:")
+                say("Moj klucz nie pasuje do tej skrzyni.")
+                say("To nie ta! Wracamy na poczatek i szukamy")
+                say("dalej.")
+                wait()
+                pc.setf("goblin", "req", 20)
+            elseif ph == 5 then
+                say_title("Goblin Skarbow:")
+                say("Moj klucz pasuje! To jest wlasciwa skrzynia!")
+                say("Dziekuje, ze mnie tu odprowadziles.")
+                local s = select("Otworz skrzynie", "Jeszcze chwile")
+                if s ~= 1 then
+                    return
+                end
+                pc.setf("goblin", "req", 22)
+                local c = pc.getf("goblin", "chests")
+                say_title("Goblin Skarbow:")
+                say("Oto twoja nagroda: 100 Doblonow!")
+                say("Odprowadziles mnie do wlasciwej skrzyni juz")
+                say(c .. " razy.")
+                if c > 0 and math.mod(c, 5) == 0 then
+                    say("Za kazde piec wypraw dostajesz ode mnie")
+                    say("Klucz Goblina!")
+                end
+                say("Za chwile odesle cie z wyspy. Do zobaczenia!")
+            elseif ph == 6 then
+                say_title("Goblin Skarbow:")
+                say("Dziekuje za pomoc! Za chwile wrocisz na lad.")
+            else
+                say_title("Goblin Skarbow:")
+                say("Nasza wyprawa sie skonczyla.")
+            end
+        end
+    end
+end

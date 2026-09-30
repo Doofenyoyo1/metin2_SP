@@ -483,6 +483,10 @@ namespace
 	{
 		if (!ch)
 			return 0;
+		// MT2009_PLUS_OCHAO_BOTS_V1 (test): a bot the operator sent to the
+		// Temple of Ochao hunts there until told to leave.
+		if (IsPlayerBotOchaoForced(ch) && WantsPlayerBotOchao(ch, 0, false))
+			return PLAYERBOT_MAP_OCHAO;
 		// The Metinolog skips the two errands below when they would take it to
 		// a map with no stone: from forty-eight the Biologist's row sent it to
 		// the Spider Dungeons and the military trial to the Demon Tower, and
@@ -507,6 +511,24 @@ namespace
 			if (rowHome != 0 && IsPlayerBotFrontierMapIndex(rowHome) && IsPlayerBotMapHostedHere(rowHome) &&
 					(!metinolog || PlayerBotMapHasMetinStones(rowHome)))
 				return rowHome;
+		}
+		// The guild materials dropper hunts its ground from its level for it.
+		{
+			TPlayerBotAIStateMap::const_iterator self = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
+			if (self != s_mapPlayerBotAIStates.end() && self->second.bPersonality == BOT_PERSONALITY_GUILD_DROPPER)
+			{
+				const TPlayerBotGuildDropperGround& ground = GetPlayerBotGuildDropperGround(ch->GetPlayerID());
+				if (ch->GetLevel() >= ground.minLevel && IsPlayerBotFrontierMapIndex(ground.map) &&
+						IsPlayerBotMapHostedHere(ground.map))
+					return ground.map;
+			}
+		}
+		// A guild's errand (playerbot_guild_land.h): where the material its
+		// next building lacks drops, for as long as the errand stands.
+		{
+			const long errandMap = GetPlayerBotGuildErrandMap(ch);
+			if (errandMap != 0 && IsPlayerBotFrontierMapIndex(errandMap) && IsPlayerBotMapHostedHere(errandMap))
+				return errandMap;
 		}
 		// And the military trial is in the Demon Tower, for the same reason: the
 		// bot hunts where the trial is, whatever its level would otherwise say.
@@ -555,6 +577,11 @@ namespace
 		// between the Forest's and the Red Forest's, on a map richer than both
 		// together, and it keeps its stones, so a Metin hunter may go too.
 		// Past eighty its monsters are too far under the bot to pay.
+		// MT2009_PLUS_OCHAO_BOTS_V1 (draw): ninety-five and up, the Temple of
+		// Ochao's 98-102 - the only ground past the Grotto's Setaou - takes two
+		// draws in three; the Grotto keeps the third and every stone hunter.
+		if (WantsPlayerBotOchao(ch, draw, stoneHunter))
+			return PLAYERBOT_MAP_OCHAO;
 		if (level >= PLAYERBOT_FIRE_LAND_MIN_LEVEL && level <= PLAYERBOT_FIRE_LAND_MAX_LEVEL &&
 				PlayerBotNavHash(ch->GetPlayerID() ^ 0x464c414dU) % 3U == 0)
 			return PLAYERBOT_MAP_FIRE_LAND;
@@ -642,6 +669,18 @@ namespace
 	// window, or 0 when its own village is still the right place for it.
 	long GetPlayerBotFrontierMapForLevel(LPCHARACTER ch)
 	{
+		// MT2009_PLUS_OCHAO_BOTS_V1 (test): a bot sent to the Temple of Ochao
+		// goes there before any errand's map.
+		if (IsPlayerBotOchaoForced(ch) && WantsPlayerBotOchao(ch, 0, false))
+			return PLAYERBOT_MAP_OCHAO;
+		// MT2009_PLUS_BP_BOTS_V1: a Battle Pass errand's stones name the map
+		// for its while - a shared one, or 0 for the bot's own villages
+		// (playerbot_bpbots.h).
+		{
+			long errandMap = 0;
+			if (playerbot_bpbots::GetErrandMap(ch, errandMap))
+				return IsPlayerBotMapHostedHere(errandMap) ? errandMap : 0;
+		}
 		long map = GetPlayerBotFrontierMapForLevelRaw(ch);
 		// Community Patch 5, point 8: "mapy Loch pajakow V1 oraz Loch pajakow
 		// V2 zostaja od teraz calkowicie zablokowane dla botow z osobowoscia
@@ -681,6 +720,8 @@ namespace
 		{
 			case BOT_PERSONALITY_WANDERER:
 				return 7; // explorer: almost always out on the far maps
+			case BOT_PERSONALITY_GUILD_DROPPER:
+				return 8; // its ground is out there: always
 			case BOT_PERSONALITY_METIN_BREAKER:
 				return 6; // both frontier maps carry their own Metin spawns
 			case BOT_PERSONALITY_GEAR_SPECIALIST:
@@ -749,6 +790,7 @@ namespace
 		switch (personality)
 		{
 			case BOT_PERSONALITY_WANDERER:
+			case BOT_PERSONALITY_GUILD_DROPPER:
 				return PLAYERBOT_FRONTIER_MAX_VISIT_TIME * 2;
 			case BOT_PERSONALITY_CAREFUL_COLLECTOR:
 				return PLAYERBOT_FRONTIER_MAX_VISIT_TIME / 2;
@@ -1055,6 +1097,14 @@ namespace
 	{
 		if (!ch)
 			return false;
+		// MT2009_PLUS_OCHAO_BOTS_V1 (route): the Temple of Ochao is entered from
+		// level 95 through Straznik Swiatyni in Orc Valley, and every way out is
+		// written down (playerbot_ochao_bots.h).
+		{
+			const int ochao = RoutePlayerBotOchaoTransition(ch, state, targetMap, targetX, targetY, dwNow, reason);
+			if (ochao >= 0)
+				return ochao != 0;
+		}
 		// V1 lies across the desert - see PLAYERBOT_DESERT_V1_GATE_X. A warp into
 		// it from anywhere but the desert becomes a warp onto the desert with the
 		// real destination remembered, and ManagePlayerBotWorldTravel walks the
@@ -1105,7 +1155,13 @@ namespace
 		}
 
 		const long oldMap = ch->GetMapIndex();
-		const bool wasRiding = ch->IsRiding();
+		// The horse only: an ItemShop mount (AFFECT_MOUNT) goes through the
+		// warp as it is, and StartRiding on top of it put its rider on a
+		// horse and a mount at once - two mount vnums fighting in every
+		// ComputePoints, which recomputed itself from inside RefreshAffect and
+		// counted the affects twice ("MALL_BONUS exceeded over 100", a Snow
+		// Tiger's +30% experience three times over).
+		const bool wasRiding = ch->IsHorseRiding();
 		// A bot party is one camp and ends with the map. A player's party is the
 		// player's: a bot off to town, or put back on its feet by the sectree
 		// rescue, is still in it - the rescue after a Demon Tower warp left a
@@ -1138,6 +1194,9 @@ namespace
 		state.bVisitingBiologist = false;
 		state.bVisitingStable = false;
 		state.bVisitingAlchemist = false;
+		state.bVisitingUriel = false;
+		state.bSaddlebagErrand = 0;
+		state.bVisitingDsAlchemist = false;
 		if (!ch->Show(targetMap, targetX, targetY, 0))
 		{
 			if (wasRiding && !ch->IsRiding())
@@ -1281,10 +1340,26 @@ namespace
 		return answer.bFound;
 	}
 
+	// Every village's Teleporter, not only Chunjo's two: the Shinsoo and Jinno
+	// bots rode for free and at any level because the fee knew Chunjo's points
+	// alone (upstream 2.2.39). Their points are the town table's (9012).
 	bool IsPlayerBotTeleporterPoint(long x, long y)
 	{
-		return (x == PLAYERBOT_M1_TELEPORTER_X && y == PLAYERBOT_M1_TELEPORTER_Y) ||
-				(x == PLAYERBOT_M2_TO_M3_TELEPORTER_X && y == PLAYERBOT_M2_TO_M3_TELEPORTER_Y);
+		// MT2009_PLUS_OCHAO_BOTS_V1 (fee): the Temple of Ochao's Teleporter.
+		if (x == PLAYERBOT_OCHAO_EXIT_X && y == PLAYERBOT_OCHAO_EXIT_Y)
+			return true;
+		if ((x == PLAYERBOT_M1_TELEPORTER_X && y == PLAYERBOT_M1_TELEPORTER_Y) ||
+				(x == PLAYERBOT_M2_TO_M3_TELEPORTER_X && y == PLAYERBOT_M2_TO_M3_TELEPORTER_Y))
+			return true;
+		static const long villages[] = { 1, 3, 21, 23, 41, 43 };
+		for (unsigned int i = 0; i < sizeof(villages) / sizeof(villages[0]); ++i)
+		{
+			playerbot_empire_rules::TTownServices svc;
+			if (playerbot_empire_rules::GetTownServices(villages[i], svc) &&
+					svc.teleporter.x == x && svc.teleporter.y == y)
+				return true;
+		}
+		return false;
 	}
 
 	int GetPlayerBotTeleporterFee(LPCHARACTER ch)
@@ -1292,6 +1367,28 @@ namespace
 		return std::max(PLAYERBOT_TELEPORTER_FEE_PER_FIVE_LEVELS,
 				((int)ch->GetLevel() / 5) * PLAYERBOT_TELEPORTER_FEE_PER_FIVE_LEVELS);
 	}
+
+	bool TryPlayerBotTeleportRingHome(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow,
+			long destMap, long destX, long destY, const char* reason);
+
+	// Where the Teleport Ring takes a bot home from: every map but the villages
+	// themselves and the dungeons (an instance, the Demon Tower, the Catacomb,
+	// the Monkey Dungeons) - upstream 2.2.39; it used to be read on the
+	// frontier only, for a bot out of potions or a weapon.
+	bool IsPlayerBotRingRecallMap(long mapIndex)
+	{
+		return mapIndex > 0 && mapIndex < PLAYERBOT_INSTANCE_MAP_INDEX_MIN &&
+				!IsPlayerBotVillageMap(mapIndex) && !IsPlayerBotMonkeyMap(mapIndex) &&
+				mapIndex != PLAYERBOT_MAP_DEMON_TOWER && mapIndex != PLAYERBOT_MAP_CATACOMB;
+	}
+
+	// A portal walk that stalled waits here PLAYERBOT_PORTAL_STALL_WAIT_MS plus
+	// up to as much again, and then plans afresh, rather than handing the tick
+	// back at once: the hunt that took the tick walked the bot back to its
+	// hunting ground and the next travel pass back to the portal, round and
+	// round (upstream 2.2.39). A fight still takes the tick meanwhile.
+	const DWORD PLAYERBOT_PORTAL_STALL_WAIT_MS = 30000;
+	std::map<DWORD, DWORD> s_mapPlayerBotPortalStallUntil;
 
 	bool MovePlayerBotToWorldPortal(LPCHARACTER ch, TPlayerBotAIState& state,
 			long portalX, long portalY, long targetMap, long targetX, long targetY,
@@ -1302,6 +1399,32 @@ namespace
 		SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
 		state.dwTargetVID = 0;
 		ch->SetVictim(NULL);
+
+		// Home to its own village (M1 or M2) with the Teleport Ring, when it
+		// holds one and the ring is off its cooldown, rather than on foot.
+		if (targetMap != ch->GetMapIndex() && IsPlayerBotRingRecallMap(ch->GetMapIndex()) &&
+				(targetMap == GetPlayerBotHomeMap(ch, playerbot_empire_rules::MAP_ROLE_M1) ||
+				 targetMap == GetPlayerBotHomeMap(ch, playerbot_empire_rules::MAP_ROLE_M2)) &&
+				TryPlayerBotTeleportRingHome(ch, state, dwNow, targetMap, targetX, targetY, reason))
+			return true;
+
+		{
+			std::map<DWORD, DWORD>::iterator stall = s_mapPlayerBotPortalStallUntil.find(ch->GetPlayerID());
+			if (stall != s_mapPlayerBotPortalStallUntil.end())
+			{
+				if ((int)(stall->second - dwNow) > 0)
+				{
+					if (state.dwLastCombatActionTime != 0 &&
+							dwNow - state.dwLastCombatActionTime <= PLAYERBOT_TRAVEL_ENGAGED_WINDOW)
+						return false;
+					if (ch->IsStateMove())
+						ch->Stop();
+					return true;
+				}
+				s_mapPlayerBotPortalStallUntil.erase(stall);
+				ClearPlayerBotRoute(state, false);
+			}
+		}
 
 		// Through the Teleporter, at his price, or through the gate where it
 		// actually stands.
@@ -1429,6 +1552,21 @@ namespace
 			const int segClear = diagNav.Init(ch->GetMapIndex())
 					? (diagNav.SegmentClearWorld(ch->GetX(), ch->GetY(), portalX, portalY) ? 1 : 0)
 					: -1;
+			// Ground the portal is not on at all: a pocket of the map no walk
+			// leaves - Hwang Temple (map 65) around (544000-554000, 74000-94000),
+			// where the boss raid puts a bot down, 382 "unreachable" plans and
+			// 86 stalls in one night, every one of them the same bot walking
+			// into the same wall. The walk cannot end; the move is made the way
+			// the stranded recovery makes it, straight to where the portal leads.
+			if (diagNav.Init(ch->GetMapIndex()) &&
+					!diagNav.CanReach(ch->GetX(), ch->GetY(), portalX, portalY) &&
+					TransitionPlayerBotMap(ch, state, targetMap, targetX, targetY, dwNow, reason))
+			{
+				sys_log(0, "PLAYERBOT_WORLD: cut off from the portal, moved pid=%u name=%s map=%ld pos=(%ld,%ld) portal=(%ld,%ld) to=%ld reason=%s",
+						ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), ch->GetX(), ch->GetY(),
+						portalX, portalY, targetMap, reason ? reason : "?");
+				return true;
+			}
 			// Tagged by the portal, not by the whole subsystem: one tag for
 			// every portal in the world meant one line a minute between them,
 			// and the busiest one hid the other nine behind its own count.
@@ -1443,7 +1581,10 @@ namespace
 					ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), ch->GetX(), ch->GetY(),
 					portalX, portalY, distance, reason ? reason : "?", ch->IsRiding() ? 1 : 0,
 					(unsigned int)state.bLastNavOutcome);
-			PlayerBotLogThrottled(szStuckTag, dwNow,
+			// Its own tag: sharing the syserr line's, this one was never written.
+			char szDiagTag[64];
+			snprintf(szDiagTag, sizeof(szDiagTag), "portal_diag:%s", reason ? reason : "?");
+			PlayerBotLogThrottled(szDiagTag, dwNow,
 					"PLAYERBOT_WORLD: portal walk stalled pid=%u name=%s map=%ld pos=(%ld,%ld) portal=(%ld,%ld) distance=%d reason=%s "
 					"ticks=%u route=%u/%u plan_in=%d defer=%u stuck=%u seg=%d riding=%d last=%u",
 					ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(),
@@ -1454,7 +1595,14 @@ namespace
 					(unsigned int)state.bNavDeferredCount, (unsigned int)state.bStuckCounter,
 					segClear, ch->IsRiding() ? 1 : 0,
 					(unsigned int)state.bLastNavOutcome);
-			return false;
+			const DWORD wait = PLAYERBOT_PORTAL_STALL_WAIT_MS +
+					PlayerBotNavHash(ch->GetPlayerID() ^ dwNow) % (PLAYERBOT_PORTAL_STALL_WAIT_MS + 1);
+			s_mapPlayerBotPortalStallUntil[ch->GetPlayerID()] = dwNow + wait;
+			sys_log(0, "PLAYERBOT_WORLD: portal walk waits pid=%u name=%s map=%ld wait_s=%u reason=%s",
+					ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), wait / 1000U, reason ? reason : "?");
+			if (ch->IsStateMove())
+				ch->Stop();
+			return true;
 		}
 
 		// Mounted all the way up to it. A teleporter is scenery to a bot - the warp
@@ -1478,8 +1626,10 @@ namespace
 		CPlayerBotNavigation& portalNav = CPlayerBotNavigation::instance(ch->GetMapIndex());
 		if (portalNav.Init(ch->GetMapIndex()))
 			portalNav.CellCentreWorld(portalX, portalY, walkX, walkY);
+		s_bPlayerBotNavPortalPlan = state.bNavDeferredCount >= 2;
 		MovePlayerBot(ch, walkX, walkY, dwNow, PLAYERBOT_PORTAL_SNAP_CELLS,
 				true, true, false, true);
+		s_bPlayerBotNavPortalPlan = false;
 		return true;
 	}
 
@@ -1570,6 +1720,12 @@ namespace
 
 	// Defined in playerbot_gambler.h, after the town visit that runs it.
 	bool IsPlayerBotGambling(const TPlayerBotAIState& state, DWORD dwNow);
+
+	// Since when a bot with somewhere to go has been held in M1 by the hold of
+	// the world travel below; 1 once PLAYERBOT_M1_HOLD_RELEASE_MS let it go,
+	// until it leaves M1.
+	const DWORD PLAYERBOT_M1_HOLD_RELEASE_MS = 20 * 60 * 1000;
+	std::map<DWORD, DWORD> s_mapPlayerBotM1HeldSince;
 
 	bool ManagePlayerBotWorldTravel(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
@@ -1804,6 +1960,16 @@ namespace
 					dwNow, toV1 ? "desert_gate_to_v1" : "desert_gate_to_bokjung");
 		}
 
+		// MT2009_PLUS_OCHAO_BOTS_V1 (crossing): in Orc Valley on the way to the
+		// Temple of Ochao, the walk to Straznik Swiatyni beside Koe-Pung.
+		{
+			const int ochao = ManagePlayerBotOchaoCrossing(ch, state, dwNow);
+			if (ochao >= 0)
+				return ochao != 0;
+		}
+
+		if (!IsPlayerBotM1Map(mapIndex))
+			s_mapPlayerBotM1HeldSince.erase(ch->GetPlayerID());
 		if (IsPlayerBotM1Map(mapIndex))
 		{
 			// Compact and sell an oversized potion reserve before the first trip to
@@ -1831,16 +1997,62 @@ namespace
 			// A herb row of the Biologist is hunted here and nowhere else, so it
 			// holds the bot exactly as the errand that brought it (see
 			// PlayerBotHuntsVillageHerbs for the four-second Joan <-> Bokjung loop).
-			if (holdsMedalToHandIn || BlocksPlayerBotTravel(ch) || needsM1OnlyServices ||
-					PlayerBotHuntsVillageHerbs(ch) || HasPlayerBotExcessPotions(ch) ||
-					// One of Community Patch 5's four gamblers buys its bases on
-					// this village's stands and works them at its anvil: a town
-					// visit just behind it is no reason to walk off to M2, which
-					// has no bot stand, in the middle of its three hours.
-					PlayerBotRareGamblerWantsTown(ch, false) ||
-					((needsTownPreparation || needsCriticalTownServices) &&
-					 !townVisitRecentlyCompleted))
-				return false;
+			// A full bag the town visit could not empty (the drop at 300% fills
+			// the storeroom too) and a potion reserve over its limit (the
+			// Moonlight caskets top it up past it) held bots of thirty and more
+			// in M1 for good: once a visit has been made they no longer hold.
+			// And a hold nothing lifts lets the bot go after
+			// PLAYERBOT_M1_HOLD_RELEASE_MS (upstream 2.2.39), with a line in the
+			// log saying what held it.
+			const bool bagBlocks = ch->IsItemLoaded() && ch->GetEmptyInventory(3) < 0 &&
+					!townVisitRecentlyCompleted;
+			const bool fightBlocks = ch->IsItemLoaded() &&
+					(ch->GetWear(WEAR_WEAPON) == NULL || ch->GetWear(WEAR_BODY) == NULL ||
+					 NeedsPlayerBotEmergencyPotions(ch) || NeedsPlayerBotArrows(ch));
+			const bool potionsBlock = HasPlayerBotExcessPotions(ch) && !townVisitRecentlyCompleted;
+			const bool herbs = PlayerBotHuntsVillageHerbs(ch);
+			// One of Community Patch 5's four gamblers buys its bases on
+			// this village's stands and works them at its anvil: a town
+			// visit just behind it is no reason to walk off to M2, which
+			// has no bot stand, in the middle of its three hours.
+			const bool gambler = PlayerBotRareGamblerWantsTown(ch, false);
+			const bool townNeeds = (needsTownPreparation || needsCriticalTownServices) &&
+					!townVisitRecentlyCompleted;
+			if (holdsMedalToHandIn || fightBlocks || bagBlocks || needsM1OnlyServices ||
+					herbs || potionsBlock || gambler || townNeeds)
+			{
+				// Only a bot with somewhere to go is being held.
+				const bool hasDestination = needsHorseExpedition || m2LevelingCohort || wantsM3 ||
+						GetPlayerBotFrontierMapForLevel(ch) != 0 || IsPlayerBotPastM2Ceiling(ch);
+				DWORD& heldSince = s_mapPlayerBotM1HeldSince[ch->GetPlayerID()];
+				if (!hasDestination)
+				{
+					heldSince = 0;
+					return false;
+				}
+				if (heldSince == 0)
+					heldSince = dwNow;
+				if (dwNow - heldSince < PLAYERBOT_M1_HOLD_RELEASE_MS)
+				{
+					PlayerBotLogThrottled("m1_hold", dwNow,
+							"PLAYERBOT_WORLD: m1 hold pid=%u name=%s level=%u held_s=%u medal=%d fight=%d bag=%d m1_services=%d herbs=%d potions=%d gambler=%d town=%d visited=%d",
+							ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), (dwNow - heldSince) / 1000U,
+							holdsMedalToHandIn ? 1 : 0, fightBlocks ? 1 : 0, bagBlocks ? 1 : 0,
+							needsM1OnlyServices ? 1 : 0, herbs ? 1 : 0, potionsBlock ? 1 : 0,
+							gambler ? 1 : 0, townNeeds ? 1 : 0, townVisitRecentlyCompleted ? 1 : 0);
+					return false;
+				}
+				if (heldSince != 1)
+					sys_log(0, "PLAYERBOT_WORLD: m1 hold released pid=%u name=%s level=%u held_s=%u medal=%d fight=%d bag=%d m1_services=%d herbs=%d potions=%d gambler=%d town=%d",
+							ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), (dwNow - heldSince) / 1000U,
+							holdsMedalToHandIn ? 1 : 0, fightBlocks ? 1 : 0, bagBlocks ? 1 : 0,
+							needsM1OnlyServices ? 1 : 0, herbs ? 1 : 0, potionsBlock ? 1 : 0,
+							gambler ? 1 : 0, townNeeds ? 1 : 0);
+				// Released until the bot has left M1 (the entry is dropped off it).
+				heldSince = 1;
+			}
+			else
+				s_mapPlayerBotM1HeldSince.erase(ch->GetPlayerID());
 			// The M2 cohort ends at 35, but the frontier maps begin at 30 and run
 			// far past it. Testing only the cohort here meant a level 36+ bot fell
 			// out of this gate on every tick and stayed in Joan for good, hunting
@@ -2179,11 +2391,15 @@ namespace
 					IsPlayerBotOnBattleHorseTrial(ch);
 			// The personality's visit clock ended a trial two-thirds done
 			// ("frontier_visit_complete" after 41 minutes, m2zip 17 September).
-			const bool visitExpired = !onBattleTrialHere && stayed >=
-					GetPlayerBotFrontierVisitTime(state.bPersonality);
+			const bool visitExpired = (!onBattleTrialHere && stayed >=
+					GetPlayerBotFrontierVisitTime(state.bPersonality)) ||
+					(mapIndex == PLAYERBOT_MAP_OCHAO && IsPlayerBotOchaoLeaveOrdered(ch)); // MT2009_PLUS_OCHAO_BOTS_V1 (test)
 			// Two minutes of actually playing here before anything but a real
 			// emergency may send the bot home again.
-			const bool settledIn = stayed >= PLAYERBOT_FRONTIER_MIN_VISIT_TIME;
+			// MT2009_PLUS_OCHAO_BOTS_V1 (stay): the temple is a long way in and out,
+			// so only what stops the fight takes a bot out of it sooner.
+			const bool settledIn = stayed >= (mapIndex == PLAYERBOT_MAP_OCHAO
+					? PLAYERBOT_OCHAO_MIN_VISIT_TIME : PLAYERBOT_FRONTIER_MIN_VISIT_TIME);
 			// Outgrowing the map matters as much as running out of potions: neither
 			// Orc Valley nor the Desert has a merchant, a blacksmith or a trainer.
 			const bool outOfBand = GetPlayerBotFrontierMapForLevel(ch) != mapIndex;
@@ -2272,6 +2488,10 @@ namespace
 			// Out of potions or a weapon far from town: the ring recalls now.
 			if (blocked && TryPlayerBotTeleportRingHome(ch, state, dwNow, destMap, destX, destY, reason))
 				return true;
+			// MT2009_PLUS_OCHAO_BOTS_V1 (exit): out of the labyrinth by its corners
+			// to the Teleporter, or through the Guardian's Portal while it stands.
+			if (mapIndex == PLAYERBOT_MAP_OCHAO)
+				return MovePlayerBotOutOfOchao(ch, state, destMap, destX, destY, dwNow, reason);
 			return MovePlayerBotToWorldPortal(ch, state, exitX, exitY,
 					destMap, destX, destY, dwNow, reason);
 		}

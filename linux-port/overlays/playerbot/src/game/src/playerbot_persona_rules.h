@@ -1297,10 +1297,13 @@ namespace playerbot_persona
 			case RARE_NAUKOWIEC:    return TRareRule{ PERSONA_NAUKOWIEC, 500, 480, 90, 90, false };
 			case RARE_EGZEKUTOR:    return TRareRule{ PERSONA_EGZEKUTOR, 400, 300, 120, 120, false };
 			case RARE_WEDKARZ:      return TRareRule{ PERSONA_WEDKARZ, 600, 720, 360, 360, false };
-			case RARE_HAZ_MLODSZY:  return TRareRule{ PERSONA_HAZ_MLODSZY, 250, 240, 180, 180, true };
-			case RARE_HAZ_STARSZY:  return TRareRule{ PERSONA_HAZ_STARSZY, 300, 360, 180, 180, true };
-			case RARE_HAZ_NACZELNY: return TRareRule{ PERSONA_HAZ_NACZELNY, 350, 480, 180, 180, true };
-			case RARE_HAZ_SZALONY:  return TRareRule{ PERSONA_HAZ_SZALONY, 1000, 960, 240, 240, true };
+			// Iwakura: the gamblers more often - one in 200, 250,
+			// 300 and 400 of the bots that qualify, pauses of two, four,
+			// eight and eight hours.
+			case RARE_HAZ_MLODSZY:  return TRareRule{ PERSONA_HAZ_MLODSZY, 200, 120, 180, 180, true };
+			case RARE_HAZ_STARSZY:  return TRareRule{ PERSONA_HAZ_STARSZY, 250, 240, 180, 180, true };
+			case RARE_HAZ_NACZELNY: return TRareRule{ PERSONA_HAZ_NACZELNY, 300, 480, 180, 180, true };
+			case RARE_HAZ_SZALONY:  return TRareRule{ PERSONA_HAZ_SZALONY, 400, 480, 240, 240, true };
 			default:                return TRareRule{ PERSONA_GRINDER, 0, 0, 0, 0, false };
 		}
 	}

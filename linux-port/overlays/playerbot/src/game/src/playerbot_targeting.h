@@ -183,6 +183,31 @@ namespace
 		return finder.GetTarget();
 	}
 
+	// A monster standing on ground no walk from the bot reaches - one that
+	// respawns inside the blocked gorge west of Pyongmoo's 20-25 grounds and
+	// strikes every bot passing by - is no target, even while it hits the bot:
+	// the bot tried to walk to it for good (upstream 2.2.39). A bow in reach
+	// still shoots it from the edge.
+	bool IsPlayerBotMonsterOutOfWalk(LPCHARACTER ch, LPCHARACTER target)
+	{
+		if (!ch || !target || !target->IsMonster() || target->GetMapIndex() != ch->GetMapIndex())
+			return false;
+		// The walk grid's answer only: without one there is no telling.
+		CPlayerBotNavigation& navigation = CPlayerBotNavigation::instance(ch->GetMapIndex());
+		// And a bot standing off the grid itself (CanReach from its own spot to
+		// its own spot fails) cannot be told either.
+		if (!navigation.Init(ch->GetMapIndex()) ||
+				navigation.CanReach(ch->GetX(), ch->GetY(), target->GetX(), target->GetY()) ||
+				!navigation.CanReach(ch->GetX(), ch->GetY(), ch->GetX(), ch->GetY()))
+			return false;
+		LPITEM weapon = ch->GetWear(WEAR_WEAPON);
+		const bool bowInReach = !IsPlayerBotFightingAsMonster(ch) && weapon &&
+				weapon->GetType() == ITEM_WEAPON && weapon->GetSubType() == WEAPON_BOW &&
+				DISTANCE_APPROX(ch->GetX() - target->GetX(), ch->GetY() - target->GetY()) <=
+					GetPlayerBotBowRange(ch->GetMapIndex());
+		return !bowInReach;
+	}
+
 	class CFindPlayerBotEngagedTarget
 	{
 		public:
@@ -222,6 +247,8 @@ namespace
 				const int distance = DISTANCE_APPROX(m_owner->GetX() - candidate->GetX(),
 						m_owner->GetY() - candidate->GetY());
 				if (distance > 2500)
+					return true;
+				if (IsPlayerBotMonsterOutOfWalk(m_owner, candidate))
 					return true;
 				const int priority = (attacksOwner ? 100000 : 50000) - distance;
 				if (!m_target || priority > m_bestPriority)
@@ -1322,9 +1349,11 @@ namespace
 
 				// Component reachability lets the bot route around a wall while still
 				// rejecting monsters on disconnected islands or terrain components.
+				// Nor one that has turned on the bot from there
+				// (IsPlayerBotMonsterOutOfWalk).
 				if (!IsPlayerBotReachable(m_owner->GetMapIndex(), m_owner->GetX(), m_owner->GetY(), candidate->GetX(), candidate->GetY()))
 				{
-					if (candidate->GetVictim() != m_owner)
+					if (candidate->GetVictim() != m_owner || IsPlayerBotMonsterOutOfWalk(m_owner, candidate))
 						return false;
 				}
 
@@ -1439,6 +1468,8 @@ namespace
 					}
 				}
 
+				// MT2009_PLUS_BP_BOTS_V1: what a Battle Pass mission names (playerbot_bpbots.h).
+				baseScore += playerbot_bpbots::TargetBonus(m_owner, candidate);
 				// Distance penalty: only 2 points per unit so level-appropriate mobs within 2000 distance beat low-level dogs
 				tc.score = baseScore - (distance * 2);
 				m_targets.push_back(tc);

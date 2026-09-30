@@ -140,12 +140,13 @@ import player
 def CountItemCountInInventory(item_vnum):
 	total_count = 0
 
-	# Every bag page, and the horse page while the horse is out.
-	slotCount = player.INVENTORY_DEFAULT_MAX_NUM
+	# INVENTORY_PAGE_COUNT includes the optional horse inventory page.
+	# The regular MT2009 Plus inventory occupies the preceding four pages.
+	pageCount = player.INVENTORY_PAGE_COUNT - 1
 	if constInfo.IS_HORSE_SUMMONED:
-		slotCount = player.INVENTORY_MAX_NUM
+		pageCount += 1
 
-	for i in xrange(slotCount):
+	for i in xrange(player.INVENTORY_PAGE_SIZE * pageCount):
 		if player.GetItemIndex(i) == item_vnum:
 			total_count += player.GetItemCount(i)
 

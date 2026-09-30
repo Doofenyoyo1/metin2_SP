@@ -38,6 +38,11 @@ struct TResult {
 // pass keeps its own clock.
 TResult ArrangeInventory(LPCHARACTER ch, bool fromPlayer);
 
+// The stacks poured together and nothing else moved - "/inventory_arrange
+// merge" ("samo laczenie w stacki bez sortowania", the operator, 28
+// September). The same pours ArrangeInventory makes, on the same clock.
+TResult MergeInventoryStacks(LPCHARACTER ch, bool fromPlayer);
+
 // The open safebox's pages, poured and laid out the same way
 // (/safebox_arrange, answered "SafeboxArrangeResult"; the bots at the end of
 // their safebox visit). `items` counts the safebox's items, and RESULT_BUSY
