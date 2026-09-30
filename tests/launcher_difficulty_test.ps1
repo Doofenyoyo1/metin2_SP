@@ -32,7 +32,7 @@ function Check {
 $errors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($launcher, [ref]$null, [ref]$errors)
 if ($errors -and @($errors).Count -gt 0) { throw "Metin2-Launcher.ps1 does not parse" }
-foreach ($name in @('UI-Text', 'Test-DifficultyHours', 'Set-DifficultyAction')) {
+foreach ($name in @('Test-DifficultyHours', 'Set-DifficultyAction')) {
     $fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
     if (-not $fn) { throw "no function $name in the launcher" }
     . ([scriptblock]::Create($fn.Extent.Text))

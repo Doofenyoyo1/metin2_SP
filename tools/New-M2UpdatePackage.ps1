@@ -133,6 +133,16 @@ try {
                "another name - give it its own PathMap row: " +
                "'linux-port-mt2009/VERSION' = 'VERSION'.")
     }
+    # The updaters compare the installed VERSION with the manifest's version
+    # for equality: a zip whose VERSION says something else than -Version is
+    # installed again on every run, or never.
+    if ($Type -eq 'server') {
+        $versionSource = Join-Path $source (($sourceOf['VERSION']) -replace '/', [IO.Path]::DirectorySeparatorChar)
+        $packagedVersion = ([IO.File]::ReadAllText($versionSource)).Trim()
+        if ($packagedVersion -ne $Version.Trim()) {
+            throw "VERSION in the source says '$packagedVersion' but -Version is '$Version'. Put the new version into VERSION first."
+        }
+    }
 
 
     # The overlay sources and the staged build context are two copies of the
@@ -206,6 +216,54 @@ try {
         }
     }
 
+    # MT2009 Plus ships its engine changes the way Tieru ships his: patched
+    # once, at release time (tools\port\Apply-MT2009PlusEngine.ps1), and
+    # carried in the zip - a player's start-server.ps1 no longer patches
+    # anything. An engine file listed here without its marks would take the
+    # change away from every player who installs the package.
+    if ($Type -eq 'server') {
+        $engineMarks = [ordered]@{
+            'linux-port/docker/game/src/server/game/src/item_manager.cpp' = @(
+                'MT2009_PLUS_BOT_RARE_DROP_V1', 'MT2009_PLUS_BOT_RARE_DROP_V2', 'MT2009_PLUS_BOT_RARE_DROP_V3',
+                'MT2009_PLUS_RARE_LEVEL_V1', 'MT2009_PLUS_DROP_PREVIEW_MIN_V1', 'MT2009_PLUS_RARE_TOGGLE_V1', 'MT2009_PLUS_BOT_SASH_DROP_V1', 'MT2009_PLUS_PREVIEW_RARE_V1', 'MT2009_PLUS_LOOT_EVENTS_V1', 'MT2009_PLUS_DUNGEON_DROP_V1 (boss)', 'MT2009_PLUS_DUNGEON_DROP_V1 (specials)', 'MT2009_PLUS_DUNGEON_DROP_V1 (specials end)', 'MT2009_PLUS_DUNGEON_DROP_V1 (preview book)', 'MT2009_PLUS_DUNGEON_DROP_V1 (preview)')
+            'linux-port/docker/game/src/server/game/src/ikarus_shop_manager.cpp' = @('MT2009_PLUS_SHOP_SEARCH_ITEM_V1', 'MT2009_PLUS_SHOP_SEARCH_PLUS_V1 (bound)', 'MT2009_PLUS_SALE_ONCE_V1')
+            'linux-port/docker/game/src/server/game/src/PetSystem.cpp' = @('MT2009_PLUS_PET_STAYS_ON_DEATH_V1')
+            'linux-port/docker/game/src/server/game/src/input_auth.cpp' = @('MT2009_PLUS_LOGIN_UNDERSCORE_V1')
+            'linux-port/docker/game/src/server/game/src/char_item.cpp' = @('IsStackableCorDraconisVnum', 'MT2009_PLUS_RARE_TOGGLE_V1', 'MT2009_PLUS_COR_AUTOSTACK_V1', 'MT2009_PLUS_DS_TRACE_PLAYERS_V1', 'MT2009_PLUS_BOT_SASH_DROP_V1', 'MT2009_PLUS_COR_PARTY_PICKUP_V1', 'MT2009_PLUS_PICKUP_FILTER_V1 (collect)', 'MT2009_PLUS_MOUNT_ON_EQUIP_V1 (ride)', 'MT2009_PLUS_BATTLE_PASS_V1 (use)', 'MT2009_PLUS_BATTLE_PASS_V1 (refine try)', 'MT2009_PLUS_BATTLE_PASS_V1 (refine try scroll)', 'MT2009_PLUS_NEW_PET_V1 (use)', 'MT2009_PLUS_GOBLIN_V1 (use)', 'MT2009_PLUS_GOBLIN_V1 (refine free)', 'MT2009_PLUS_PICKUP_FILTER_V1 (party)')
+            'linux-port/docker/game/src/server/game/src/pvp.cpp' = @('MT2009_PLUS_GOBLIN_V1 (attack)')
+            'linux-port/docker/game/src/server/game/src/input_main.cpp' = @('MT2009_PLUS_SPEEDHACK_CLOCK_V1', 'MT2009_PLUS_FLEA_FILL_V1', 'MT2009_PLUS_BATTLE_PASS_V1 (shout)')
+            'linux-port/docker/game/src/server/game/src/dragon_soul_table.cpp' = @('MT2009_PLUS_DS_APPLYS_V1')
+            'linux-port/docker/game/src/server/game/src/char_affect.cpp' = @('MT2009_PLUS_DS_QUALIFY_ON_LOGIN_V1', 'MT2009_PLUS_COSTUME_SET_V1 (no save)')
+            'linux-port/docker/game/src/server/game/src/cmd_general.cpp' = @('ACMD(do_autohunt_target)', 'ACMD(do_autohunt_loot)', 'MT2009_PLUS_GARBAGE_BATCH_V1', 'MT2009_PLUS_PICKUP_FILTER_V1 (commands)', 'MT2009_PLUS_ARRANGE_MERGE_V1', 'MT2009_PLUS_COSTUME_HIDE_V1 (command)', 'MT2009_PLUS_EVENT_CALENDAR_V1 (command)', 'MT2009_PLUS_BATTLE_PASS_V1 (command)', 'MT2009_PLUS_WHEEL_V1 (command)', 'MT2009_PLUS_GUILD_DUTY_V1 (command)', 'MT2009_PLUS_GOBLIN_V1 (command)')
+            'linux-port/docker/game/src/server/game/src/cmd_gm.cpp' = @('MT2009_PLUS_DS_PLAYER_CMD_V1', 'MT2009_PLUS_FLEA_SALES_V1')
+            'linux-port/docker/game/src/server/game/src/char.cpp' = @('MT2009_PLUS_MAGIC_ATT_PER_V1', 'MT2009_PLUS_SADDLEBAG_MOUNT_V1', 'MT2009_PLUS_STONE_STILL_V1', 'MT2009_PLUS_BATTLE_PASS_V1 (stat)', 'MT2009_PLUS_NEW_PET_V1 (points)')
+            'linux-port/docker/game/src/server/game/src/char_state.cpp' = @('MT2009_PLUS_STONE_STILL_V1')
+            'linux-port/docker/game/src/server/game/src/char_skill.cpp' = @('MT2009_PLUS_DRAGON_ROAR_TARGET_V1', 'MT2009_PLUS_MOUNT_HORSE_SKILLS_V1', 'MT2009_PLUS_DRAGON_ROAR_EFFECT_V1', 'MT2009_PLUS_SKILL_DURATION_V1', 'MT2009_PLUS_SKILL_DURATION_V1 (at position)', 'MT2009_PLUS_SKILL_DURATION_V1 (compute)')
+            'linux-port/docker/game/src/server/game/src/regen.cpp' = @('MT2009_PLUS_EASTER_METIN_CAP_V1', 'MT2009_PLUS_EASTER_METIN_CAP_V1 (spawn)')
+            'linux-port/docker/game/src/server/game/src/char_player.cpp' = @('MT2009_PLUS_MOUNT_SPEED_V1')
+            'linux-port/docker/game/src/server/game/src/packet.h' = @('MT2009_PLUS_DUNGEON_ONE_WARP_V1 (header)', 'MT2009_PLUS_DUNGEON_ONE_WARP_V1 (packet)')
+            'linux-port/docker/game/src/server/game/src/packet_info.cpp' = @('MT2009_PLUS_DUNGEON_ONE_WARP_V1 (info)')
+            'linux-port/docker/game/src/server/game/src/input_p2p.cpp' = @('MT2009_PLUS_DUNGEON_ONE_WARP_V1 (decl)', 'MT2009_PLUS_DUNGEON_ONE_WARP_V1 (case)', 'MT2009_PLUS_SHOUTERS_V1 (p2p)')
+            'linux-port/docker/game/src/server/game/src/questlua_dungeon.cpp' = @('MT2009_PLUS_DUNGEON_ONE_WARP_V1 (lua)', 'MT2009_PLUS_DUNGEON_ONE_WARP_V1 (table)')
+            'linux-port/docker/game/src/server/game/src/dungeon.cpp' = @('MT2009_PLUS_DUNGEON_RETURN_V1')
+            'linux-port/docker/game/src/server/db/src/ClientManagerIkarusShop.cpp' = @('MT2009_PLUS_SHOP_LOCK_OWNER_V1 (map)', 'MT2009_PLUS_SHOP_LOCK_OWNER_V1 (lock)', 'MT2009_PLUS_SHOP_LOCK_OWNER_V1 (settle)')
+            'linux-port/docker/game/src/server/common/CommonDefines.h' = @('MT2009_PLUS_MAP_ALLOW_48_V1')
+            'linux-port/docker/game/src/server/game/src/char_battle.cpp' = @('MT2009_PLUS_BOT_RARE_SHARE_V1', 'MT2009_PLUS_MOUNT_DEATH_UNEQUIP_V1', 'MT2009_PLUS_BATTLE_PASS_V1 (kill)', 'MT2009_PLUS_NEW_PET_V1 (exp given)', 'MT2009_PLUS_BATTLE_PASS_V1 (kill share)')
+            'linux-port/docker/game/src/server/game/src/MountSystem.cpp' = @('MT2009_PLUS_MOUNT_BONUS_ONCE_V1', 'MT2009_PLUS_MOUNT_PERMANENT_V1')
+            'linux-port/docker/game/src/server/game/src/item.cpp' = @('MT2009_PLUS_COSTUME_HIDE_V1 (hook)', 'MT2009_PLUS_COSTUME_SET_V1 (hook)', 'MT2009_PLUS_COSTUME_SET_V1 (sets)')
+            'linux-port/docker/game/src/server/game/src/cmd.cpp' = @('"autohunt_target"', '"autohunt_loot"', 'MT2009_PLUS_DS_PLAYER_CMD_V1', '"chest_preview"', 'MT2009_PLUS_PICKUP_FILTER_V1 (table)', 'MT2009_PLUS_COSTUME_HIDE_V1 (table)', 'MT2009_PLUS_EVENT_CALENDAR_V1 (table)', 'MT2009_PLUS_BATTLE_PASS_V1 (table)', 'MT2009_PLUS_WHEEL_V1 (table)', 'MT2009_PLUS_NEW_PET_V1 (table)', 'MT2009_PLUS_GUILD_DUTY_V1 (table)', 'MT2009_PLUS_GOBLIN_V1 (table)')
+        }
+        foreach ($enginePublished in $engineMarks.Keys) {
+            if (-not ($published -contains $enginePublished)) { continue }
+            $engineText = [IO.File]::ReadAllText((Join-Path $source ($sourceOf[$enginePublished] -replace '/', [IO.Path]::DirectorySeparatorChar)))
+            foreach ($mark in $engineMarks[$enginePublished]) {
+                if (-not $engineText.Contains($mark)) {
+                    throw "$enginePublished has no $mark. Run tools\port\Apply-MT2009PlusEngine.ps1 -ServerRoot $source first."
+                }
+            }
+        }
+    }
+
     foreach ($relativeInput in $entries) {
         $relative = $relativeInput.Replace('/', '\').TrimStart('\')
         if ([IO.Path]::IsPathRooted($relative) -or $relative.Split('\') -contains '..') {
@@ -223,6 +281,18 @@ try {
         }
         if (-not (Test-Path -LiteralPath $sourceFile -PathType Leaf)) {
             throw "Listed file does not exist: $relative"
+        }
+        # Windows PowerShell 5.1 reads a script without a byte order mark as
+        # the ANSI code page: "ł" turns into "Ĺ‚", whose second character is a
+        # quotation mark to the parser, and the whole module fails to load -
+        # the launcher then cannot even install the update that would fix it
+        # (MT2009 Plus 2.2.3, launcher/Metin2Launcher.psm1).
+        if ($relative -match '\.(ps1|psm1)$') {
+            $scriptBytes = [IO.File]::ReadAllBytes($sourceFile)
+            $hasBom = $scriptBytes.Length -ge 3 -and $scriptBytes[0] -eq 0xEF -and $scriptBytes[1] -eq 0xBB -and $scriptBytes[2] -eq 0xBF
+            if (-not $hasBom -and @($scriptBytes | Where-Object { $_ -gt 127 }).Count -gt 0) {
+                throw "PowerShell script has non-ASCII characters but no UTF-8 BOM: $relative. Save it as 'UTF-8 with BOM' before packaging."
+            }
         }
         $destination = Join-Path $temp ((Get-PublishedPath $relative).Replace('/', '\'))
         New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null

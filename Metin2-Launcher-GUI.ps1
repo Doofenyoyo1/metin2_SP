@@ -20,29 +20,6 @@ $cliLauncher = Join-Path $root 'Metin2-Launcher.ps1'
 $modulePath = Join-Path $root 'launcher\Metin2Launcher.psm1'
 $diagnosticsModulePath = Join-Path $root 'launcher\Metin2Launcher.Diagnostics.psm1'
 $configPath = Join-Path $root '.m2launcher.json'
-# The window's language, read before anything can go wrong: the refusals below
-# come before the module that reads the configuration is loaded. Polish unless
-# .m2launcher.json says 'en' (the test window takes -UiLanguage). The process
-# environment carries it to the modules' UI-Text and to every action started
-# from here; Metin2-Launcher.ps1 reads the same file to the same answer.
-$script:Lang = 'pl'
-try {
-    if (Test-Path -LiteralPath $configPath -PathType Leaf) {
-        $storedConfig = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($storedConfig -and $storedConfig.PSObject.Properties['language'] -and [string]$storedConfig.language -eq 'en') { $script:Lang = 'en' }
-    }
-}
-catch { }
-if ($UiSelfTest) { $script:Lang = $UiLanguage }
-$env:M2_LAUNCHER_LANGUAGE = $script:Lang
-
-# A text in both languages where it is used, for everything outside the table
-# below: the dialogs, the status lines, the log's own lines. The same pair the
-# layout file defines for its pages (it keeps its own copy for an older GUI).
-function UI-Text([string]$Pl, [string]$En) {
-    if ($script:Lang -eq 'en') { return $En }
-    return $Pl
-}
 $logDirectory = Join-Path $root 'launcher-logs'
 if ($UiSelfTest) {
     if (-not $UiTestOutput) { throw 'UiTestOutput is required for UiSelfTest.' }
@@ -61,7 +38,7 @@ function Write-StartupFailure {
     try {
         New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
         [IO.File]::AppendAllText($sessionLog,
-            ((UI-Text '{0}  BLAD LAUNCHERA: {1}' '{0}  LAUNCHER ERROR: {1}') -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Text) + [Environment]::NewLine,
+            ('{0}  BLAD LAUNCHERA: {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Text) + [Environment]::NewLine,
             [Text.UTF8Encoding]::new($false))
     }
     catch { }
@@ -78,8 +55,8 @@ trap {
     try {
         Add-Type -AssemblyName System.Windows.Forms
         [Windows.Forms.MessageBox]::Show(
-            ((UI-Text "Launcher nie wystartowal:`r`n`r`n{0}`r`n`r`nSzczegoly sa w folderze launcher-logs." "The launcher did not start:`r`n`r`n{0}`r`n`r`nThe details are in the launcher-logs folder.") -f $_.Exception.Message),
-            (UI-Text 'Blad launchera' 'Launcher error'), 'OK', 'Error') | Out-Null
+            ("Launcher nie wystartowal:`r`n`r`n{0}`r`n`r`nSzczegoly sa w folderze launcher-logs." -f $_.Exception.Message),
+            'Blad launchera', 'OK', 'Error') | Out-Null
     }
     catch { }
     break
@@ -102,13 +79,13 @@ foreach ($required in @($cliLauncher, $modulePath, $diagnosticsModulePath, $comp
                 ForEach-Object { [string]$_.displayName } | Where-Object { $_ }) | Sort-Object -Unique) -join ', '
         }
         catch { }
-        throw ((UI-Text "Brakuje pliku launchera: $required`r`n" "A launcher file is missing: $required`r`n") +
-            $(if ($antivirus) { (UI-Text "Antywirus w systemie: $antivirus`r`n" "Antivirus on this system: $antivirus`r`n") } else { '' }) + "`r`n" +
-            (UI-Text "Launcher sam go nie usuwa - najczesciej zabiera go antywirus (falszywy alarm na skrypt, ktory pobiera i uruchamia serwer).`r`n`r`n" "The launcher never deletes it itself - as a rule an antivirus takes it (a false alarm on a script that downloads and starts a server).`r`n`r`n") +
-            (UI-Text "1. Zajrzyj do kwarantanny antywirusa. W Windows: Zabezpieczenia Windows > Ochrona przed wirusami i zagrozeniami > Historia ochrony. " "1. Look in the antivirus quarantine. In Windows: Windows Security > Virus & threat protection > Protection history. ") +
-            (UI-Text "Przywroc plik i dodaj folder $root do wykluczen.`r`n" "Restore the file and add the folder $root to the exclusions.`r`n") +
-            (UI-Text "2. Jesli nie da sie go przywrocic: pobierz z GitHuba (Doofenyoyo1/metin2_SP, Releases) paczke metin2-server-update-<wersja>.zip " "2. If it cannot be restored: download the package metin2-server-update-<version>.zip from GitHub (Doofenyoyo1/metin2_SP, Releases) ") +
-            (UI-Text "i wyjmij z niej $relative do $root. Najpierw dodaj wykluczenie, inaczej antywirus zabierze go znowu." "and take $relative out of it into $root. Add the exclusion first, or the antivirus takes it again."))
+        throw ("Brakuje pliku launchera: $required`r`n" +
+            $(if ($antivirus) { "Antywirus w systemie: $antivirus`r`n" } else { '' }) + "`r`n" +
+            "Launcher sam go nie usuwa - najczesciej zabiera go antywirus (falszywy alarm na skrypt, ktory pobiera i uruchamia serwer).`r`n`r`n" +
+            "1. Zajrzyj do kwarantanny antywirusa. W Windows: Zabezpieczenia Windows > Ochrona przed wirusami i zagrozeniami > Historia ochrony. " +
+            "Przywroc plik i dodaj folder $root do wykluczen.`r`n" +
+            "2. Jesli nie da sie go przywrocic: pobierz z GitHuba (Doofenyoyo1/metin2_SP, Releases) paczke metin2-server-update-<wersja>.zip " +
+            "i wyjmij z niej $relative do $root. Najpierw dodaj wykluczenie, inaczej antywirus zabierze go znowu.")
     }
 }
 
@@ -124,11 +101,11 @@ Add-Type -AssemblyName Microsoft.VisualBasic
 [Windows.Forms.Application]::SetUnhandledExceptionMode([Windows.Forms.UnhandledExceptionMode]::CatchException)
 [Windows.Forms.Application]::add_ThreadException([System.Threading.ThreadExceptionEventHandler]{
     param($sender, $eventArgs)
-    Write-StartupFailure ((UI-Text 'w oknie: ' 'in the window: ') + $eventArgs.Exception.ToString())
+    Write-StartupFailure ('w oknie: ' + $eventArgs.Exception.ToString())
     try {
         [Windows.Forms.MessageBox]::Show(
-            ((UI-Text "Blad w oknie launchera:`r`n`r`n{0}`r`n`r`nSzczegoly sa w folderze launcher-logs. Okno dziala dalej." "An error in the launcher window:`r`n`r`n{0}`r`n`r`nThe details are in the launcher-logs folder. The window keeps working.") -f $eventArgs.Exception.Message),
-            (UI-Text 'Blad launchera' 'Launcher error'), 'OK', 'Error') | Out-Null
+            ("Blad w oknie launchera:`r`n`r`n{0}`r`n`r`nSzczegoly sa w folderze launcher-logs. Okno dziala dalej." -f $eventArgs.Exception.Message),
+            'Blad launchera', 'OK', 'Error') | Out-Null
     }
     catch { }
 })
@@ -408,6 +385,15 @@ $script:Strings = @{
     }
 }
 
+$script:Lang = 'pl'
+try {
+    $storedLang = (Get-LauncherConfig).language
+    if ($storedLang -eq 'en') { $script:Lang = 'en' }
+}
+catch { }
+
+if ($UiSelfTest) { $script:Lang = $UiLanguage }
+
 function T {
     param([Parameter(Mandatory = $true)][string]$Key)
     $table = $script:Strings[$script:Lang]
@@ -420,7 +406,6 @@ function Switch-LauncherLanguage {
     $config.language = if ($script:Lang -eq 'en') { 'pl' } else { 'en' }
     Save-M2LauncherConfig -Config $config -ConfigPath $configPath
     $script:Lang = $config.language
-    $env:M2_LAUNCHER_LANGUAGE = $script:Lang
     Write-LocalLog ("Language: {0}" -f $config.language)
     [Windows.Forms.MessageBox]::Show((T 'langSwitched'), (T 'formTitle'),
         [Windows.Forms.MessageBoxButtons]::OK,
@@ -433,7 +418,7 @@ function Save-ClientExecutable {
     $config.clientExecutable = [IO.Path]::GetFullPath($Executable)
     $config.clientRoot = [IO.Path]::GetFullPath((Split-Path -Parent $Executable))
     Save-M2LauncherConfig -Config $config -ConfigPath $configPath
-    Write-LocalLog (UI-Text "Wybrano klienta: $([IO.Path]::GetFileName($Executable))" "Client chosen: $([IO.Path]::GetFileName($Executable))")
+    Write-LocalLog "Wybrano klienta: $([IO.Path]::GetFileName($Executable))"
 }
 
 function Select-ClientExecutable {
@@ -451,6 +436,32 @@ function Select-ClientExecutable {
         return $dialog.FileName
     }
     return ''
+}
+
+# Before a client update: the saved client folder must exist. One that was
+# moved, renamed or deleted since it was chosen is asked for again with the
+# file dialog, and the update goes where the player points - rather than the
+# action ending in "Nie znaleziono folderu klienta" (23-24 September).
+function Confirm-ClientForUpdate {
+    $config = Get-LauncherConfig
+    $clientFolder = [string]$config.clientRoot
+    if ($clientFolder -and (Test-Path -LiteralPath $clientFolder -PathType Container)) { return $true }
+    $text = if ($clientFolder) {
+        "Nie znaleziono folderu klienta:`r`n$clientFolder`r`n`r`nWskaż plik metin2client.exe w aktualnym folderze klienta - aktualizacja zostanie zainstalowana tam."
+    }
+    else {
+        "Nie wskazano jeszcze klienta gry.`r`n`r`nWskaż plik metin2client.exe - aktualizacja zostanie zainstalowana w jego folderze."
+    }
+    $answer = [Windows.Forms.MessageBox]::Show($text, 'Gdzie jest klient?', 'OKCancel', 'Question')
+    if ($answer -ne [Windows.Forms.DialogResult]::OK) {
+        Write-LocalLog 'Aktualizacja klienta anulowana - nie wskazano klienta.'
+        return $false
+    }
+    if (-not (Select-ClientExecutable)) {
+        Write-LocalLog 'Aktualizacja klienta anulowana - nie wskazano klienta.'
+        return $false
+    }
+    return $true
 }
 
 # The game client keeps its language in game1.cfg beside the exe, one line
@@ -576,7 +587,7 @@ function Start-ConfiguredClient {
         # file that is no longer there.
         $gone = [string](Get-LauncherConfig).clientExecutable
         if ($gone -and (Test-Path -LiteralPath (Split-Path -Parent $gone) -PathType Container)) {
-            Write-LocalLog (UI-Text "Brak pliku klienta: $gone" "The client file is missing: $gone")
+            Write-LocalLog "Brak pliku klienta: $gone"
             [Windows.Forms.MessageBox]::Show(((T 'clientMissing') -f [IO.Path]::GetFileName($gone)),
                 (T 'clientBlockedTitle'), 'OK', 'Warning') | Out-Null
             return
@@ -600,16 +611,16 @@ function Start-ConfiguredClient {
         $repointed = Find-ClientExecutable
         if ($repointed) { $executable = $repointed }
     }
-    catch { Write-LocalLog (UI-Text "Porządki w plikach klienta nieudane: $($_.Exception.Message)" "Tidying up the client files failed: $($_.Exception.Message)") }
+    catch { Write-LocalLog "Porządki w plikach klienta nieudane: $($_.Exception.Message)" }
     if (Start-ClientExeRepairIfWanted -LaunchClient) { return }
     Confirm-ClientLanguageForLauncher -Executable $executable
     try {
         Start-Process -FilePath $executable -WorkingDirectory (Split-Path -Parent $executable)
-        Write-LocalLog (UI-Text "Uruchomiono klienta: $([IO.Path]::GetFileName($executable))" "Client started: $([IO.Path]::GetFileName($executable))")
+        Write-LocalLog "Uruchomiono klienta: $([IO.Path]::GetFileName($executable))"
     }
     catch {
         $startError = $_
-        Write-LocalLog (UI-Text "BŁĄD uruchamiania klienta: $($startError.Exception.Message)" "ERROR starting the client: $($startError.Exception.Message)")
+        Write-LocalLog "BŁĄD uruchamiania klienta: $($startError.Exception.Message)"
         switch (Get-ClientStartBlock -ErrorRecord $startError) {
             'policy' { [Windows.Forms.MessageBox]::Show((T 'clientBlockedPolicy'), (T 'clientBlockedTitle'), 'OK', 'Warning') | Out-Null }
             'virus'  { [Windows.Forms.MessageBox]::Show((T 'clientBlockedVirus'), (T 'clientBlockedTitle'), 'OK', 'Warning') | Out-Null }
@@ -649,10 +660,10 @@ function Refresh-Status {
         $engineResult = Invoke-QuickProcess -FileName 'docker.exe' -Arguments 'info --format "{{.ServerVersion}}"' -TimeoutMs 2500
         $dockerEngineReady = $engineResult.ExitCode -eq 0
     }
-    $script:dockerStatus.Text = if (-not $dockerInstalled) { (UI-Text 'Docker: NIEZAINSTALOWANY' 'Docker: NOT INSTALLED') }
-        elseif ($dockerEngineReady) { (UI-Text 'Docker: GOTOWY' 'Docker: READY') }
-        elseif ($dockerProcessesRunning) { (UI-Text 'Docker: STARTUJE / WYMAGA NAPRAWY' 'Docker: STARTING / NEEDS REPAIR') }
-        else { (UI-Text 'Docker: ZATRZYMANY' 'Docker: STOPPED') }
+    $script:dockerStatus.Text = if (-not $dockerInstalled) { 'Docker: NIEZAINSTALOWANY' }
+        elseif ($dockerEngineReady) { 'Docker: GOTOWY' }
+        elseif ($dockerProcessesRunning) { 'Docker: STARTUJE / WYMAGA NAPRAWY' }
+        else { 'Docker: ZATRZYMANY' }
     $script:dockerStatus.ForeColor = if ($dockerEngineReady) { [Drawing.Color]::LightGreen }
         elseif ($dockerInstalled) { [Drawing.Color]::Gold }
         else { [Drawing.Color]::Tomato }
@@ -664,7 +675,7 @@ function Refresh-Status {
             'compose --project-directory "{0}" -f "{1}" ps --services --status running' -f $composeDirectory, $composeFile) -TimeoutMs 1800
         $serverRunning = $result.ExitCode -eq 0 -and $result.Output -match '(?m)^game\s*$'
     }
-    $script:serverStatus.Text = if ($serverRunning) { (UI-Text 'Serwer: DZIAŁA' 'Server: RUNNING') } else { (UI-Text 'Serwer: ZATRZYMANY' 'Server: STOPPED') }
+    $script:serverStatus.Text = if ($serverRunning) { 'Serwer: DZIAŁA' } else { 'Serwer: ZATRZYMANY' }
     $script:serverStatus.ForeColor = if ($serverRunning) { [Drawing.Color]::LightGreen } else { [Drawing.Color]::Silver }
 
     if ($script:versionLabel) { Update-VersionFooter }
@@ -722,9 +733,9 @@ function Get-BuildStepLabel {
     # so a slow one read as a hang ("wiecznie zatrzymuje sie na 67 procentach",
     # Drip, 24 September).
     param([Parameter(Mandatory = $true)][string]$Line)
-    if ($Line -match 'make -C game/src') { return (UI-Text 'kompilacja rdzenia gry' 'compiling the game core') }
-    if ($Line -match 'make -C db/src') { return (UI-Text 'kompilacja rdzenia bazy' 'compiling the database core') }
-    if ($Line -match 'make -C liblua') { return (UI-Text 'kompilacja bibliotek' 'compiling the libraries') }
+    if ($Line -match 'make -C game/src') { return 'kompilacja rdzenia gry' }
+    if ($Line -match 'make -C db/src') { return 'kompilacja rdzenia bazy' }
+    if ($Line -match 'make -C liblua') { return 'kompilacja bibliotek' }
     return ''
 }
 
@@ -744,7 +755,7 @@ function Update-ActionPhase {
         Set-ActionPhase $step.Groups[1].Value ([int]$step.Groups[2].Value) ([int]$step.Groups[3].Value) (Get-BuildStepLabel -Line $Line)
         if (-not $script:activeBuildNoticed) {
             $script:activeBuildNoticed = $true
-            Write-LocalLog (UI-Text 'Trwa budowanie obrazów serwera. Przy pierwszym uruchomieniu to normalnie kilkanaście–kilkadziesiąt minut — nie przerywaj.' 'Building the server images. On the first start this normally takes anything from ten minutes to an hour - do not interrupt it.')
+            Write-LocalLog 'Trwa budowanie obrazów serwera. Przy pierwszym uruchomieniu to normalnie kilkanaście–kilkadziesiąt minut — nie przerywaj.'
         }
         return
     }
@@ -757,32 +768,32 @@ function Update-ActionPhase {
     # September): it says RAM now, and the log says once what it means.
     if ($Line -match 'UWAGA: w maszynie Dockera wolne jest tylko') {
         if (-not $script:activeLowMemory) {
-            Write-LocalLog (UI-Text 'Maszynie Dockera brakuje teraz wolnej pamięci RAM (to nie jest miejsce na dysku - dysku nie trzeba czyścić). Zwykle dlatego, że aktualizacja kompiluje serwer, gdy stary serwer z botami wciąż działa. Kompilacja potrwa dłużej, ale skończy się - nie przerywaj. Przy następnej aktualizacji kliknij najpierw ZATRZYMAJ I ZAPISZ.' 'The Docker machine is short of free RAM right now (this is not disk space - the disk does not need cleaning). Usually because the update compiles the server while the old server with the bots is still running. The compile takes longer, but it will finish - do not interrupt it. Before the next update, click STOP AND SAVE first.')
+            Write-LocalLog 'Maszynie Dockera brakuje teraz wolnej pamięci RAM (to nie jest miejsce na dysku - dysku nie trzeba czyścić). Zwykle dlatego, że aktualizacja kompiluje serwer, gdy stary serwer z botami wciąż działa. Kompilacja potrwa dłużej, ale skończy się - nie przerywaj. Przy następnej aktualizacji kliknij najpierw ZATRZYMAJ I ZAPISZ.'
         }
         $script:activeLowMemory = $true
         return
     }
-    if ($Line -match '^\[(?:faza|phase)\]\s*(.+?)\s*(\(|$)') {
+    if ($Line -match '^\[faza\]\s*(.+?)\s*(\(|$)') {
         Set-ActionPhase $Matches[1]
         return
     }
     if ($Line -match 'transferring context:\s*([\d.]+\s*[kKMG]?B)') {
-        Set-ActionPhase (UI-Text "przesyłanie plików do budowy ($($Matches[1]))" "sending the files to the build ($($Matches[1]))")
+        Set-ActionPhase "przesyłanie plików do budowy ($($Matches[1]))"
         return
     }
     # The database migration is where a start sits longest, and it says plainly
     # what it is waiting for. Show that instead of the last container line from
     # a minute ago, so "still waiting" cannot be mistaken for progress.
     if ($Line -match 'still waiting for the database \((\d+)s\)') {
-        Set-ActionPhase ((UI-Text 'migracja bazy czeka na bazę ({0} s)' 'database migration waiting for the database ({0} s)') -f $Matches[1])
+        Set-ActionPhase ('migracja bazy czeka na bazę ({0} s)' -f $Matches[1])
         return
     }
     if ($Line -match 'the database is not answering yet|Unknown server host') {
-        Set-ActionPhase (UI-Text 'migracja bazy: baza nie odpowiada' 'database migration: the database is not answering')
+        Set-ActionPhase 'migracja bazy: baza nie odpowiada'
         return
     }
     if ($Line -match 'waiting for the complete mt2009 schema') {
-        Set-ActionPhase (UI-Text 'migracja bazy: czekam na schemat' 'database migration: waiting for the schema')
+        Set-ActionPhase 'migracja bazy: czekam na schemat'
         return
     }
     $container = [Regex]::Match($Line, 'Container\s+(\S+)\s+(Creating|Created|Starting|Started|Waiting|Healthy|Recreate|Stopping|Stopped)')
@@ -794,7 +805,7 @@ function Update-ActionPhase {
 function Update-ActionStatusText {
     if (-not $script:activeProcess -or -not $script:actionStatus) { return }
     $elapsed = (Get-Date) - $script:activeStarted
-    $text = (UI-Text 'Trwa: {0}...  {1:mm\:ss}' 'Running: {0}...  {1:mm\:ss}') -f $script:activeAction, $elapsed
+    $text = 'Trwa: {0}...  {1:mm\:ss}' -f $script:activeAction, $elapsed
     if ($script:activePhaseTotal -gt 0) {
         $pct = [int](100 * $script:activePhaseStep / $script:activePhaseTotal)
         $pct = [Math]::Max(0, [Math]::Min(100, $pct))
@@ -805,13 +816,13 @@ function Update-ActionStatusText {
         $inStep = if ($script:activePhaseSince) { (Get-Date) - $script:activePhaseSince } else { [TimeSpan]::Zero }
         if ($script:activePhaseLabel) { $text += ' — {0} {1}' -f $script:activePhaseLabel, (Format-StepClock -Span $inStep) }
         else { $text += ' {0}' -f (Format-StepClock -Span $inStep) }
-        if ($script:activePhaseLabel -eq (UI-Text 'kompilacja rdzenia gry' 'compiling the game core')) {
+        if ($script:activePhaseLabel -eq 'kompilacja rdzenia gry') {
             $long = $inStep.TotalSeconds -ge $script:activeCompileHintSeconds
-            if ($script:activeLowMemory) { $text += (UI-Text '  ⚠ mało wolnego RAM-u w Dockerze (to nie dysk)' '  ⚠ little free RAM in Docker (not the disk)') }
-            elseif ($long) { $text += (UI-Text '  ⚠ dłużej niż zwykle' '  ⚠ longer than usual') }
+            if ($script:activeLowMemory) { $text += '  ⚠ mało wolnego RAM-u w Dockerze (to nie dysk)' }
+            elseif ($long) { $text += '  ⚠ dłużej niż zwykle' }
             if ($long -and -not $script:activeCompileHintNoticed) {
                 $script:activeCompileHintNoticed = $true
-                Write-LocalLog ((UI-Text 'Kompilacja rdzenia gry trwa już {0:N0} min, a zwykle zajmuje 1–5 min. Tak długo trwa najczęściej wtedy, gdy maszynie Dockera brakuje pamięci RAM (nie miejsca na dysku): aktualizacja kompiluje, kiedy stary serwer z botami wciąż działa. Nie przerywaj — restart zaczyna kompilację od nowa. Przy następnej aktualizacji kliknij najpierw ZATRZYMAJ I ZAPISZ.' 'The game core has been compiling for {0:N0} min, and it usually takes 1-5 min. It takes this long mostly when the Docker machine is short of RAM (not disk space): the update compiles while the old server with the bots is still running. Do not interrupt it - a restart begins the compile again. Before the next update, click STOP AND SAVE first.') -f $inStep.TotalMinutes)
+                Write-LocalLog ('Kompilacja rdzenia gry trwa już {0:N0} min, a zwykle zajmuje 1–5 min. Tak długo trwa najczęściej wtedy, gdy maszynie Dockera brakuje pamięci RAM (nie miejsca na dysku): aktualizacja kompiluje, kiedy stary serwer z botami wciąż działa. Nie przerywaj — restart zaczyna kompilację od nowa. Przy następnej aktualizacji kliknij najpierw ZATRZYMAJ I ZAPISZ.' -f $inStep.TotalMinutes)
             }
         }
         if ($script:progress.Style -ne 'Blocks') { $script:progress.Style = 'Blocks' }
@@ -824,10 +835,10 @@ function Update-ActionStatusText {
         $inPhase = if ($script:activePhaseSince) { (Get-Date) - $script:activePhaseSince } else { [TimeSpan]::Zero }
         $text += '   —   {0} ({1:mm\:ss})' -f $script:activePhase, $inPhase
         if ($inPhase.TotalSeconds -ge $script:activeStallSeconds) {
-            $text += (UI-Text '  ⚠ bez zmian — sprawdź DIAGNOSTYKA' '  ⚠ no change - check DIAGNOSTICS')
+            $text += '  ⚠ bez zmian — sprawdź DIAGNOSTYKA'
             if (-not $script:activeStallNoticed) {
                 $script:activeStallNoticed = $true
-                Write-LocalLog ((UI-Text "Od {0:N0} min nic się nie zmienia na etapie: {1}. To nie musi być awaria (duży świat wstaje wolno), ale jeśli potrwa dalej, użyj DIAGNOSTYKA i ZBIERZ LOGI." "Nothing has changed for {0:N0} min at the stage: {1}. That need not be a failure (a big world starts slowly), but if it goes on, use DIAGNOSTICS and COLLECT / SEND LOGS.") -f $inPhase.TotalMinutes, $script:activePhase)
+                Write-LocalLog ("Od {0:N0} min nic się nie zmienia na etapie: {1}. To nie musi być awaria (duży świat wstaje wolno), ale jeśli potrwa dalej, użyj DIAGNOSTYKA i ZBIERZ LOGI." -f $inPhase.TotalMinutes, $script:activePhase)
             }
         }
     }
@@ -903,14 +914,14 @@ function Complete-LauncherAction {
     $script:restartAfterUpdate = $false
     $script:progress.Style = 'Blocks'
     $script:progress.Value = 0
-    $script:actionStatus.Text = if ($exitCode -eq 0) { (UI-Text "Gotowe: $action" "Done: $action") } else { (UI-Text "Błąd: $action (kod $exitCode)" "Error: $action (code $exitCode)") }
+    $script:actionStatus.Text = if ($exitCode -eq 0) { "Gotowe: $action" } else { "Błąd: $action (kod $exitCode)" }
     $script:actionStatus.ForeColor = if ($exitCode -eq 0) { [Drawing.Color]::LightGreen } else { [Drawing.Color]::Tomato }
-    Write-LocalLog (UI-Text "Zakończono akcję $action, kod $exitCode." "Action $action finished, code $exitCode.")
+    Write-LocalLog "Zakończono akcję $action, kod $exitCode."
     Refresh-Status
 
     if ($exitCode -ne 0) {
         $guidance = Get-M2LauncherErrorGuidance -Text $output -ServerRoot $ServerRoot
-        $message = $guidance.Message + [Environment]::NewLine + [Environment]::NewLine + (UI-Text 'Jak naprawić:' 'How to fix it:') + [Environment]::NewLine + $guidance.Remedy
+        $message = $guidance.Message + [Environment]::NewLine + [Environment]::NewLine + 'Jak naprawić:' + [Environment]::NewLine + $guidance.Remedy
         [Windows.Forms.MessageBox]::Show(
             $message,
             $guidance.Title,
@@ -921,13 +932,13 @@ function Complete-LauncherAction {
         # The startup question said the launcher restarts by itself, and a
         # second question about it was what KamCio asked to be spared.
         if ($restartAfterUpdate) {
-            Write-LocalLog (UI-Text 'Launcher zaktualizowany - uruchamiam go ponownie.' 'Launcher updated - restarting it.')
+            Write-LocalLog 'Launcher zaktualizowany - uruchamiam go ponownie.'
             Restart-Launcher
             return
         }
         $answer = [Windows.Forms.MessageBox]::Show(
-            (UI-Text "Launcher zostal zaktualizowany.`r`n`r`nTo okno dziala jeszcze na starej wersji - nowe przyciski i poprawki pojawia sie dopiero po ponownym uruchomieniu.`r`n`r`nUruchomic launcher ponownie teraz?" "The launcher was updated.`r`n`r`nThis window still runs the old version - the new buttons and fixes appear only after a restart.`r`n`r`nRestart the launcher now?"),
-            (UI-Text 'Aktualizacja zainstalowana' 'Update installed'), 'YesNo', 'Information')
+            "Launcher zostal zaktualizowany.`r`n`r`nTo okno dziala jeszcze na starej wersji - nowe przyciski i poprawki pojawia sie dopiero po ponownym uruchomieniu.`r`n`r`nUruchomic launcher ponownie teraz?",
+            'Aktualizacja zainstalowana', 'YesNo', 'Information')
         if ($answer -eq [Windows.Forms.DialogResult]::Yes) {
             Restart-Launcher
             return
@@ -946,8 +957,8 @@ function Confirm-DockerReady {
     # "no databases found", which reads as data loss rather than a stopped engine.
     if (Test-M2DockerRunning) { return $true }
     [Windows.Forms.MessageBox]::Show(
-        (UI-Text "Silnik Dockera jest zatrzymany, wiec nie widac zadnych baz.`r`n`r`nKliknij przycisk URUCHOM DOCKER, poczekaj az status u gory zmieni sie na - Docker: GOTOWY - i sprobuj ponownie.`r`n`r`nZadne dane nie zginely: bazy sa na dysku, tylko Docker ich teraz nie pokazuje." "The Docker engine is stopped, so no database can be seen.`r`n`r`nClick the START DOCKER button, wait until the status at the top changes to - Docker: READY - and try again.`r`n`r`nNo data is lost: the databases are on the disk, Docker just does not show them now."),
-        (UI-Text 'Docker jest zatrzymany' 'Docker is stopped'), 'OK', 'Warning') | Out-Null
+        "Silnik Dockera jest zatrzymany, wiec nie widac zadnych baz.`r`n`r`nKliknij przycisk URUCHOM DOCKER, poczekaj az status u gory zmieni sie na - Docker: GOTOWY - i sprobuj ponownie.`r`n`r`nZadne dane nie zginely: bazy sa na dysku, tylko Docker ich teraz nie pokazuje.",
+        'Docker jest zatrzymany', 'OK', 'Warning') | Out-Null
     return $false
 }
 
@@ -955,7 +966,7 @@ function Get-SupportSettings {
     if ($null -eq $script:supportSettingsCache) {
         try { $script:supportSettingsCache = Get-M2SupportSettings -Config (Get-LauncherConfig) }
         catch {
-            Write-LocalLog (UI-Text "Nie udalo sie odczytac adresu zgloszen: $($_.Exception.Message)" "Could not read the support address: $($_.Exception.Message)") -FileOnly
+            Write-LocalLog "Nie udalo sie odczytac adresu zgloszen: $($_.Exception.Message)" -FileOnly
             $script:supportSettingsCache = [pscustomobject]@{ UploadUrl = ''; ContactUrl = 'https://github.com/Doofenyoyo1/metin2_SP/issues'; Source = 'none' }
         }
     }
@@ -997,11 +1008,8 @@ function Get-KingdomPlanFromEnv {
     # with nobody ("nowe postacie tworza sie tylko w Chunjo", NerrVoVy, 19
     # September). The 2.0.83 fix reached the text launcher alone, and only for a
     # .env without the keys, which start-server.ps1 adds at 0 to every one.
-    # The game channels as one choice ("Kanaly gry 1-4"): 1, 2 with the second
-    # channel, or 2 and the fresh cohort's CH3 (and CH4), with its count.
     $envPath = Join-Path $root 'linux-port\docker\.env'
-    $plan = @{ PerKingdom = $false; Shinsoo = 0; Chunjo = 0; Jinno = 0; Channel2 = $false; Channel2Share = 40
-        GameChannels = 1; FreshCount = 200 }
+    $plan = @{ PerKingdom = $false; Shinsoo = 0; Chunjo = 0; Jinno = 0; Channel2 = $false; Channel2Share = 40 }
     if (Test-Path -LiteralPath $envPath -PathType Leaf) {
         $content = [IO.File]::ReadAllText($envPath)
         $m = [Regex]::Match($content, '(?m)^PLAYERBOT_AUTOSPAWN_PER_KINGDOM=(\d+)\s*$')
@@ -1020,12 +1028,6 @@ function Get-KingdomPlanFromEnv {
         if ($m.Success) { $plan.Channel2 = $m.Groups[1].Value -eq '1' }
         $m = [Regex]::Match($content, '(?m)^PLAYERBOT_CH2_SHARE=(\d+)\s*$')
         if ($m.Success) { $plan.Channel2Share = [int]$m.Groups[1].Value }
-        $fresh = 0
-        $m = [Regex]::Match($content, '(?m)^M2_PLAYERBOT_FRESH_CHANNELS=(\d+)\s*$')
-        if ($m.Success -and [int]$m.Groups[1].Value -le 2) { $fresh = [int]$m.Groups[1].Value }
-        $m = [Regex]::Match($content, '(?m)^PLAYERBOT_FRESH_COUNT=(\d+)\s*$')
-        if ($m.Success) { $plan.FreshCount = [int]$m.Groups[1].Value }
-        $plan.GameChannels = if ($fresh -gt 0) { 2 + $fresh } elseif ($plan.Channel2) { 2 } else { 1 }
     }
     return $plan
 }
@@ -1090,16 +1092,16 @@ function Show-DifficultyDialog {
     $dialog.MinimizeBox = $false
 
     $info = [Windows.Forms.Label]::new()
-    $info.Text = (UI-Text "Ile czeka się u Biologa, u Stajennego (kucyk, Księgi Konia, treningi medalami) i na kolejną księgę umiejętności? Biolog i Stajenny dotyczą graczy; księgi mają osobny czas dla graczy i dla botów.`r`nZmiana wymaga restartu serwera (panel WWW zmienia to samo od razu)." "How long is the wait at the Biologist, the Stable Keeper (pony, Horse Books, medal trainings) and for the next skill book? The Biologist and the Stable Keeper concern players; the books have separate waits for players and for bots.`r`nA change needs a server restart (the web panel changes the same at once).")
+    $info.Text = "Ile czeka się u Biologa, u Stajennego (kucyk, Księgi Konia, treningi medalami) i na kolejną księgę umiejętności? Biolog i Stajenny dotyczą graczy; księgi mają osobny czas dla graczy i dla botów.`r`nZmiana wymaga restartu serwera (panel WWW zmienia to samo od razu)."
     $info.Location = [Drawing.Point]::new(14, 12)
     $info.Size = [Drawing.Size]::new(520, 58)
     $dialog.Controls.Add($info)
 
     $labels = @{
-        easy   = (UI-Text 'Łatwy - bez czekania u Biologa, Stajennego i na księgi (tak jak dotąd)' 'Easy - no waiting at the Biologist, the Stable Keeper or for books (as until now)')
-        medium = (UI-Text 'Średni - Biolog 8 h; kucyk i Księgi Konia 4 h; treningi 6/7 h; księgi 7 h' 'Medium - Biologist 8 h; pony and Horse Books 4 h; trainings 6/7 h; books 7 h')
-        hard   = (UI-Text 'Trudny - jak w oryginale: Biolog 24 h; kucyk i Księgi 12 h; treningi 18/21 h; księgi 21 h' 'Hard - as in the original: Biologist 24 h; pony and Books 12 h; trainings 18/21 h; books 21 h')
-        custom = (UI-Text 'Własny - godziny poniżej' 'Custom - the hours below')
+        easy   = 'Łatwy - bez czekania u Biologa, Stajennego i na księgi (tak jak dotąd)'
+        medium = 'Średni - Biolog 8 h; kucyk i Księgi Konia 4 h; treningi 6/7 h; księgi 7 h'
+        hard   = 'Trudny - jak w oryginale: Biolog 24 h; kucyk i Księgi 12 h; treningi 18/21 h; księgi 21 h'
+        custom = 'Własny - godziny poniżej'
     }
     $radios = @{}
     $y = 76
@@ -1116,7 +1118,7 @@ function Show-DifficultyDialog {
     }
 
     $bioLabel = [Windows.Forms.Label]::new()
-    $bioLabel.Text = (UI-Text 'Biolog: godzin między oddaniami' 'Biologist: hours between hand-ins')
+    $bioLabel.Text = 'Biolog: godzin między oddaniami'
     $bioLabel.Location = [Drawing.Point]::new(40, $y + 8)
     $bioLabel.Size = [Drawing.Size]::new(260, 22)
     $dialog.Controls.Add($bioLabel)
@@ -1131,7 +1133,7 @@ function Show-DifficultyDialog {
     $dialog.Controls.Add($bioBox)
 
     $horseLabel = [Windows.Forms.Label]::new()
-    $horseLabel.Text = (UI-Text 'Stajenny: godzin na kucyka, Księgę i trening' 'Stable Keeper: hours for pony, Book, training')
+    $horseLabel.Text = 'Stajenny: godzin na kucyka, Księgę i trening'
     $horseLabel.Location = [Drawing.Point]::new(40, $y + 38)
     $horseLabel.Size = [Drawing.Size]::new(260, 22)
     $dialog.Controls.Add($horseLabel)
@@ -1146,7 +1148,7 @@ function Show-DifficultyDialog {
     $dialog.Controls.Add($horseBox)
 
     $bookLabel = [Windows.Forms.Label]::new()
-    $bookLabel.Text = (UI-Text 'Księgi umiejętności - gracze: godzin' 'Skill books - players: hours')
+    $bookLabel.Text = 'Księgi umiejętności - gracze: godzin'
     $bookLabel.Location = [Drawing.Point]::new(40, $y + 68)
     $bookLabel.Size = [Drawing.Size]::new(260, 22)
     $dialog.Controls.Add($bookLabel)
@@ -1161,7 +1163,7 @@ function Show-DifficultyDialog {
     $dialog.Controls.Add($bookBox)
 
     $botBookLabel = [Windows.Forms.Label]::new()
-    $botBookLabel.Text = (UI-Text 'Księgi umiejętności - boty: godzin' 'Skill books - bots: hours')
+    $botBookLabel.Text = 'Księgi umiejętności - boty: godzin'
     $botBookLabel.Location = [Drawing.Point]::new(40, $y + 98)
     $botBookLabel.Size = [Drawing.Size]::new(260, 22)
     $dialog.Controls.Add($botBookLabel)
@@ -1211,7 +1213,7 @@ function Show-DifficultyDialog {
     # Whatever the level: the two features a world may be played without.
     $autoHuntCheck = [Windows.Forms.CheckBox]::new()
     $autoHuntCheck.Name = 'autoHunt'
-    $autoHuntCheck.Text = (UI-Text 'Auto Łowy - automatyczne polowanie w kliencie (klawisz K)' 'Auto Hunt - automatic hunting in the client (key K)')
+    $autoHuntCheck.Text = 'Auto Łowy - automatyczne polowanie w kliencie (klawisz K)'
     $autoHuntCheck.Location = [Drawing.Point]::new(18, $y + 136)
     $autoHuntCheck.Size = [Drawing.Size]::new(516, 24)
     $autoHuntCheck.Checked = ($Current.AutoHunt -ne $false)
@@ -1222,11 +1224,11 @@ function Show-DifficultyDialog {
     $autoHuntItemPanel.Location = [Drawing.Point]::new(36, $y + 160)
     $autoHuntItemPanel.Size = [Drawing.Size]::new(498, 50)
     $autoHuntAllRadio = [Windows.Forms.RadioButton]::new()
-    $autoHuntAllRadio.Text = (UI-Text 'Panel Autołowy dostępny dla każdego' 'Auto Hunt panel available to everybody')
+    $autoHuntAllRadio.Text = 'Panel Autołowy dostępny dla każdego'
     $autoHuntAllRadio.Location = [Drawing.Point]::new(0, 2)
     $autoHuntAllRadio.Size = [Drawing.Size]::new(496, 22)
     $autoHuntItemRadio = [Windows.Forms.RadioButton]::new()
-    $autoHuntItemRadio.Text = (UI-Text 'Panel Autołowy dostępny tylko po kupnie przedmiotu z ItemShop (8 h gry)' 'Auto Hunt panel only after buying the ItemShop item (8 h of play)')
+    $autoHuntItemRadio.Text = 'Panel Autołowy dostępny tylko po kupnie przedmiotu z ItemShop (8 h gry)'
     $autoHuntItemRadio.Location = [Drawing.Point]::new(0, 26)
     $autoHuntItemRadio.Size = [Drawing.Size]::new(496, 22)
     $autoHuntItemRadio.Checked = ($Current.AutoHuntItem -eq $true)
@@ -1241,7 +1243,7 @@ function Show-DifficultyDialog {
     })
     $sidekickCheck = [Windows.Forms.CheckBox]::new()
     $sidekickCheck.Name = 'sidekick'
-    $sidekickCheck.Text = (UI-Text 'Towarzysz - stały kompan gracza (list "Towarzysz" i okno P)' 'Companion - the player''s permanent companion (the "Companion" letter and window P)')
+    $sidekickCheck.Text = 'Towarzysz - stały kompan gracza (list "Towarzysz" i okno P)'
     $sidekickCheck.Location = [Drawing.Point]::new(18, $y + 214)
     $sidekickCheck.Size = [Drawing.Size]::new(516, 24)
     $sidekickCheck.Checked = ($Current.Sidekick -ne $false)
@@ -1250,14 +1252,14 @@ function Show-DifficultyDialog {
     $starterCheck.Name = 'starterChest'
     # One switch for people and bots: off, a player's new character gets no
     # chest, a bot is made without one and loses the ones in its bag.
-    $starterCheck.Text = (UI-Text 'Skrzynia Ucznia w grze - nowe postacie graczy i boty' 'Apprentice Chest in the game - players'' new characters and bots')
+    $starterCheck.Text = 'Skrzynia Ucznia w grze - nowe postacie graczy i boty'
     $starterCheck.Location = [Drawing.Point]::new(18, $y + 240)
     $starterCheck.Size = [Drawing.Size]::new(516, 24)
     $starterCheck.Checked = ($Current.Starter -ne $false)
     $dialog.Controls.Add($starterCheck)
     $fleaCheck = [Windows.Forms.CheckBox]::new()
     $fleaCheck.Name = 'fleaMarket'
-    $fleaCheck.Text = (UI-Text 'Dom Towarowy - oferty wszystkich sklepów u Handlarki Różności w M1' 'Flea Market - every shop''s offers at the General Store merchant in M1')
+    $fleaCheck.Text = 'Dom Towarowy - oferty wszystkich sklepów u Handlarki Różności w M1'
     $fleaCheck.Location = [Drawing.Point]::new(18, $y + 266)
     $fleaCheck.Size = [Drawing.Size]::new(516, 24)
     $fleaCheck.Checked = ($Current.Flea -ne $false)
@@ -1306,7 +1308,7 @@ function Show-FreshWorldDialog {
     # the apprentice chest (seban latino, 22 September). Returns
     # @{ Exp; Drop; Yang; Hold; Starter } or $null.
     $dialog = [Windows.Forms.Form]::new()
-    $dialog.Text = (UI-Text 'Nowy świat - ustawienia na start' 'New world - starting settings')
+    $dialog.Text = 'Nowy świat - ustawienia na start'
     $dialog.Size = [Drawing.Size]::new(560, 426)
     $dialog.StartPosition = 'CenterParent'
     $dialog.FormBorderStyle = 'FixedDialog'
@@ -1314,17 +1316,17 @@ function Show-FreshWorldDialog {
     $dialog.MinimizeBox = $false
 
     $info = [Windows.Forms.Label]::new()
-    $info.Text = ((UI-Text "Jak szybko ma iść nowy świat? 100% to tyle, ile w oryginalnej grze.`r`n" "How fast should the new world go? 100% is as much as in the original game.`r`n") +
-                  (UI-Text "Te liczby wchodzą w życie, zanim pojawi się pierwszy bot - później zmienia się je w panelu." "These numbers take effect before the first bot appears - later they are changed in the panel."))
+    $info.Text = ("Jak szybko ma iść nowy świat? 100% to tyle, ile w oryginalnej grze.`r`n" +
+                  "Te liczby wchodzą w życie, zanim pojawi się pierwszy bot - później zmienia się je w panelu.")
     $info.Location = [Drawing.Point]::new(14, 12)
     $info.Size = [Drawing.Size]::new(520, 44)
     $dialog.Controls.Add($info)
 
     $presets = @(
-        @{ Key = 'normal'; Text = (UI-Text 'Normalnie - 100% doświadczenia, 100% dropu, 100% yang' 'Normal - 100% experience, 100% drop, 100% yang'); Exp = 100; Drop = 100; Yang = 100 },
-        @{ Key = 'relaxed'; Text = (UI-Text 'Spokojnie - 300% / 200% / 200%' 'Relaxed - 300% / 200% / 200%'); Exp = 300; Drop = 200; Yang = 200 },
-        @{ Key = 'fast'; Text = (UI-Text 'Szybko - 1000% / 500% / 500%' 'Fast - 1000% / 500% / 500%'); Exp = 1000; Drop = 500; Yang = 500 },
-        @{ Key = 'custom'; Text = (UI-Text 'Własne liczby - poniżej' 'Your own numbers - below'); Exp = 0; Drop = 0; Yang = 0 }
+        @{ Key = 'normal'; Text = 'Normalnie - 100% doświadczenia, 100% dropu, 100% yang'; Exp = 100; Drop = 100; Yang = 100 },
+        @{ Key = 'relaxed'; Text = 'Spokojnie - 300% / 200% / 200%'; Exp = 300; Drop = 200; Yang = 200 },
+        @{ Key = 'fast'; Text = 'Szybko - 1000% / 500% / 500%'; Exp = 1000; Drop = 500; Yang = 500 },
+        @{ Key = 'custom'; Text = 'Własne liczby - poniżej'; Exp = 0; Drop = 0; Yang = 0 }
     )
     $radios = @{}
     $y = 62
@@ -1343,7 +1345,7 @@ function Show-FreshWorldDialog {
     $boxes = @{}
     $x = 40
     foreach ($field in @(
-            @{ Name = 'exp'; Label = (UI-Text 'Doświadczenie %' 'Experience %') },
+            @{ Name = 'exp'; Label = 'Doświadczenie %' },
             @{ Name = 'drop'; Label = 'Drop %' },
             @{ Name = 'yang'; Label = 'Yang %' })) {
         $label = [Windows.Forms.Label]::new()
@@ -1366,7 +1368,7 @@ function Show-FreshWorldDialog {
     $y += 70
 
     $holdBox = [Windows.Forms.CheckBox]::new()
-    $holdBox.Text = (UI-Text 'Wstrzymaj boty po starcie (wpuszczę je sam, przyciskiem w panelu)' 'Hold the bots after the start (I let them in myself, with a panel button)')
+    $holdBox.Text = 'Wstrzymaj boty po starcie (wpuszczę je sam, przyciskiem w panelu)'
     $holdBox.Location = [Drawing.Point]::new(18, $y + 6)
     $holdBox.Size = [Drawing.Size]::new(516, 26)
     $holdBox.Checked = $false
@@ -1377,7 +1379,7 @@ function Show-FreshWorldDialog {
     # for everybody who had switched it off and clicked through the dialog -
     # one way "the apprentice chests come back" (the operator, 28 September).
     $starterBox = [Windows.Forms.CheckBox]::new()
-    $starterBox.Text = (UI-Text 'Skrzynia Ucznia w grze - nowe postacie graczy i boty' 'Apprentice Chest in the game - players'' new characters and bots')
+    $starterBox.Text = 'Skrzynia Ucznia w grze - nowe postacie graczy i boty'
     $starterBox.Location = [Drawing.Point]::new(18, $y + 6)
     $starterBox.Size = [Drawing.Size]::new(516, 26)
     $starterBox.Checked = ((Get-DifficultyFromEnv).Starter -ne $false)
@@ -1395,7 +1397,7 @@ function Show-FreshWorldDialog {
     foreach ($box in $boxes.Values) { $box.Enabled = $false }
 
     $okButton = [Windows.Forms.Button]::new()
-    $okButton.Text = (UI-Text 'Dalej' 'Next')
+    $okButton.Text = 'Dalej'
     $okButton.Location = [Drawing.Point]::new(332, $y + 16)
     $okButton.Size = [Drawing.Size]::new(100, 32)
     $okButton.DialogResult = [Windows.Forms.DialogResult]::OK
@@ -1470,7 +1472,7 @@ function Restart-Launcher {
         }
         catch {
             $lastError = $_.Exception.Message
-            Write-LocalLog ((UI-Text "Restart launchera przez {0} nieudany: {1}" "Restarting the launcher through {0} failed: {1}") -f $attempt[0], $lastError)
+            Write-LocalLog ("Restart launchera przez {0} nieudany: {1}" -f $attempt[0], $lastError)
             continue
         }
         $deadline = [DateTime]::UtcNow.AddSeconds(4)
@@ -1479,16 +1481,16 @@ function Restart-Launcher {
             Start-Sleep -Milliseconds 200
         }
         if (-not $started -or -not $started.HasExited -or $started.ExitCode -eq 0) {
-            Write-LocalLog (UI-Text 'Uruchamiam launcher ponownie po aktualizacji.' 'Restarting the launcher after the update.')
+            Write-LocalLog 'Uruchamiam launcher ponownie po aktualizacji.'
             $script:form.Close()
             return
         }
-        $lastError = (UI-Text 'kod 0x{0:X8}' 'code 0x{0:X8}') -f $started.ExitCode
-        Write-LocalLog ((UI-Text "Nowy launcher ({0}) zakonczyl sie od razu, {1}." "The new launcher ({0}) ended at once, {1}.") -f $attempt[0], $lastError)
+        $lastError = 'kod 0x{0:X8}' -f $started.ExitCode
+        Write-LocalLog ("Nowy launcher ({0}) zakonczyl sie od razu, {1}." -f $attempt[0], $lastError)
     }
     [Windows.Forms.MessageBox]::Show(
-        ((UI-Text "Nie udalo sie uruchomic launchera ponownie ({0}).`r`n`r`nZamknij to okno i uruchom launcher skrotem z pulpitu." "Could not restart the launcher ({0}).`r`n`r`nClose this window and start the launcher from its desktop shortcut.") -f $lastError),
-        (UI-Text 'Restart launchera' 'Launcher restart'), 'OK', 'Warning') | Out-Null
+        ("Nie udalo sie uruchomic launchera ponownie ({0}).`r`n`r`nZamknij to okno i uruchom launcher skrotem z pulpitu." -f $lastError),
+        'Restart launchera', 'OK', 'Warning') | Out-Null
 }
 
 function Get-InstalledServerVersion {
@@ -1597,7 +1599,7 @@ function Get-ClientUpdateOffer {
     if ((Read-DeclinedOffers).client -eq $available) { return $null }
     $config = Get-LauncherConfig
     if (-not [string]$config.clientRoot) {
-        Write-LocalLog (UI-Text "Dostepna wersja klienta $available, ale folder klienta nie jest ustawiony - pomijam pytanie." "Client version $available is available, but no client folder is set - skipping the question.")
+        Write-LocalLog "Dostepna wersja klienta $available, ale folder klienta nie jest ustawiony - pomijam pytanie."
         return $null
     }
     return @{ Available = $available; Installed = $installed }
@@ -1707,14 +1709,14 @@ function Invoke-ClientStrayCleanup {
             Write-LocalLog $note
         }
     }
-    catch { Write-LocalLog (UI-Text "Porządki w plikach klienta nieudane: $($_.Exception.Message)" "Tidying up the client files failed: $($_.Exception.Message)") }
+    catch { Write-LocalLog "Porządki w plikach klienta nieudane: $($_.Exception.Message)" }
 }
 
 function Start-ClientExeRepairIfWanted {
     param([switch]$LaunchClient)
     if (-not (Test-ClientExeRepairWanted)) { return $false }
     $script:clientExeRepairTried = $true
-    Write-LocalLog (UI-Text 'Klient ma stary metin2client.exe (sprzed czterech stron ekwipunku) - podmieniam go na aktualny.' 'The client has an old metin2client.exe (from before the four inventory pages) - replacing it with the current one.')
+    Write-LocalLog 'Klient ma stary metin2client.exe (sprzed czterech stron ekwipunku) - podmieniam go na aktualny.'
     $null = Start-LauncherAction -Action 'RepairClientExe' -Yes -LaunchClient:$LaunchClient
     return $true
 }
@@ -1736,15 +1738,17 @@ function Offer-StartupUpdates {
     if ($choice -eq 'all') {
         if ($server) {
             $script:restartAfterUpdate = $true
-            if ($client) { Start-LauncherAction -Action 'UpdateAll' -Yes }
+            # A moved client folder is asked for first (Confirm-ClientForUpdate);
+            # cancelled, the server still updates.
+            if ($client -and (Confirm-ClientForUpdate)) { Start-LauncherAction -Action 'UpdateAll' -Yes }
             else { Start-LauncherAction -Action 'UpdateServer' -Yes }
         }
-        else { Start-LauncherAction -Action 'UpdateClient' -Yes }
+        elseif (Confirm-ClientForUpdate) { Start-LauncherAction -Action 'UpdateClient' -Yes }
         return
     }
     if ($choice -eq 'server') {
         Save-DeclinedOffer -Component 'client' -Version $client.Available
-        Write-LocalLog (UI-Text "Aktualizacja klienta $($client.Available) odlozona - wybrano tylko serwer." "Client update $($client.Available) put off - only the server was chosen.")
+        Write-LocalLog "Aktualizacja klienta $($client.Available) odlozona - wybrano tylko serwer."
         $script:restartAfterUpdate = $true
         Start-LauncherAction -Action 'UpdateServer' -Yes
         return
@@ -1752,11 +1756,11 @@ function Offer-StartupUpdates {
     if ($choice -eq 'later') {
         if ($server) {
             Save-DeclinedOffer -Component 'server' -Version $server.Available
-            Write-LocalLog (UI-Text "Aktualizacja serwera $($server.Available) odlozona." "Server update $($server.Available) put off.")
+            Write-LocalLog "Aktualizacja serwera $($server.Available) odlozona."
         }
         if ($client) {
             Save-DeclinedOffer -Component 'client' -Version $client.Available
-            Write-LocalLog (UI-Text "Aktualizacja klienta $($client.Available) odlozona." "Client update $($client.Available) put off.")
+            Write-LocalLog "Aktualizacja klienta $($client.Available) odlozona."
         }
         [void](Start-ClientExeRepairIfWanted)
     }
@@ -1772,40 +1776,34 @@ function Update-BotDialogValueLabel {
     if (-not $label -or -not $check) { return }
     if ($check.Checked) {
         $sum = [int]$Form.Controls['shinsooBox'].Value + [int]$Form.Controls['chunjoBox'].Value + [int]$Form.Controls['jinnoBox'].Value
-        $label.Text = (UI-Text "Boty: $sum (osobno dla królestw)" "Bots: $sum (per kingdom)")
+        $label.Text = "Boty: $sum (osobno dla królestw)"
     }
-    else { $label.Text = (UI-Text "Boty: $([int]$Form.Controls['botBar'].Value)" "Bots: $([int]$Form.Controls['botBar'].Value)") }
+    else { $label.Text = "Boty: $([int]$Form.Controls['botBar'].Value)" }
 }
 
-function Update-BotDialogChannels {
-    # The channel choice of the bot dialog: the share box while there is a
-    # second channel, the fresh count while there is a third, and a line on
-    # what the choice runs - its ports, its RAM, and a warning when Docker's
-    # machine is likely too small for a third or a fourth channel
+function Update-BotDialogChannel {
+    # The second channel's part of the bot dialog: the share box while it is
+    # on, and a line on what it runs - its ports, its RAM, and a warning when
+    # Docker's machine is likely too small for two channels
     # (Get-M2ChannelMemoryWarning: half of the computer's memory under what
     # the channels take, about 2.6 GB each and 1.5 GB for the rest).
     param($Form)
     if (-not $Form) { return }
-    $box = $Form.Controls['channelsBox']
+    $check = $Form.Controls['channelCheck']
     $info = $Form.Controls['channelInfo']
-    if (-not $box -or -not $info) { return }
-    $channels = [int]$box.SelectedIndex + 1
-    $Form.Controls['channelShareBox'].Enabled = $channels -ge 2
-    $Form.Controls['freshCountBox'].Enabled = $channels -ge 3
-    $text = switch ($channels) {
-        1 { (UI-Text 'Jeden kanał (CH1). Porty 13000-13002.' 'One channel (CH1). Ports 13000-13002.') }
-        2 { (UI-Text "Dwa kanały: boty rozkładają się na CH1 i CH2, sklepy stoją tylko na CH1.`r`nOk. 2,5 GB RAM więcej. Porty 13000-13012." "Two channels: the bots spread over CH1 and CH2, shops stand on CH1 only.`r`nAbout 2.5 GB more RAM. Ports 13000-13012.") }
-        3 { (UI-Text "Trzy kanały: boty świata na CH1 i CH2 (sklepy tylko na CH1), na CH3 świeże`r`nboty od 1 poziomu (bez sklepów, gildii i wojen). Ok. 5 GB RAM więcej.`r`nPorty 13000-13022." "Three channels: the world's bots on CH1 and CH2 (shops on CH1 only), fresh bots`r`nfrom level 1 on CH3 (no shops, guilds or wars). About 5 GB more RAM.`r`nPorts 13000-13022.") }
-        default { (UI-Text "Cztery kanały: boty świata na CH1 i CH2 (sklepy tylko na CH1), na CH3 i CH4`r`nświeże boty od 1 poziomu (bez sklepów, gildii i wojen). Ok. 7,5 GB RAM więcej.`r`nPorty 13000-13032." "Four channels: the world's bots on CH1 and CH2 (shops on CH1 only), fresh bots`r`nfrom level 1 on CH3 and CH4 (no shops, guilds or wars). About 7.5 GB more RAM.`r`nPorts 13000-13032.") }
-    }
-    # The computer's memory is asked of Windows once a session, not at every
-    # change of the list; 0 when it would not say, which warns about nothing.
-    if ($null -eq $script:botDialogTotalMemory) {
-        try { $script:botDialogTotalMemory = [long](Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop).TotalPhysicalMemory }
-        catch { $script:botDialogTotalMemory = 0L }
-    }
+    if (-not $check -or -not $info) { return }
+    $Form.Controls['channelShareBox'].Enabled = $check.Checked
+    $text = "Serwer rozkłada wtedy boty na dwa rdzenie procesora. Wszystkie sklepy`r`n(botów i graczy) stoją tylko na CH1. Ok. 2,5 GB RAM więcej. Porty 13010-13012."
     $warning = ''
-    try { $warning = [string](Get-M2ChannelMemoryWarning -Channels $channels -TotalBytes $script:botDialogTotalMemory) } catch { $warning = '' }
+    if ($check.Checked) {
+        # The computer's memory is asked of Windows once a session; 0 when it
+        # would not say, which warns about nothing.
+        if ($null -eq $script:botDialogTotalMemory) {
+            try { $script:botDialogTotalMemory = [long](Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop).TotalPhysicalMemory }
+            catch { $script:botDialogTotalMemory = 0L }
+        }
+        try { $warning = [string](Get-M2ChannelMemoryWarning -Channels 2 -TotalBytes $script:botDialogTotalMemory) } catch { $warning = '' }
+    }
     if ($warning) {
         $text = $text + "`r`n" + $warning
         $info.ForeColor = [Drawing.Color]::FromArgb(170, 60, 0)
@@ -1863,17 +1861,14 @@ function Show-BotCountDialog {
     # Under the slider, the spawn plan: the window the cohort arrives over and
     # the second cohort with its hours - "1000 w 15 minut, a dodatkowe 500 w
     # ciagu 24 godzin". Below that, the operator's own number per kingdom
-    # (Greess's "Indywidualne wartosci dla krolestw") and the game channels as
-    # one choice, "Kanaly gry 1-4" (the second channel's share, and on the 2.x
-    # line the fresh cohort's CH3/CH4 with its count).
+    # (Greess's "Indywidualne wartosci dla krolestw") and the second channel.
     # Returns @{ Count; Minutes; Late; Hours; PerKingdom; Shinsoo; Chunjo;
-    # Jinno; Channel2; Channel2Share; GameChannels; FreshCount } or $null.
+    # Jinno; Channel2; Channel2Share } or $null.
     param([int]$Current = 350, [hashtable]$Plan = @{ Minutes = 1; Late = 0; Hours = 24 },
-        [hashtable]$Kingdoms = @{ PerKingdom = $false; Shinsoo = 0; Chunjo = 0; Jinno = 0; Channel2 = $false; Channel2Share = 40
-            GameChannels = 1; FreshCount = 200 })
+        [hashtable]$Kingdoms = @{ PerKingdom = $false; Shinsoo = 0; Chunjo = 0; Jinno = 0; Channel2 = $false; Channel2Share = 40 })
     $dialog = [Windows.Forms.Form]::new()
     $dialog.Text = (T 'botDialog')
-    $dialog.Size = [Drawing.Size]::new(480, 690)
+    $dialog.Size = [Drawing.Size]::new(480, 662)
     $dialog.StartPosition = 'CenterParent'
     $dialog.FormBorderStyle = 'FixedDialog'
     $dialog.MaximizeBox = $false
@@ -1887,17 +1882,16 @@ function Show-BotCountDialog {
     $tip.InitialDelay = 250
     $tip.ReshowDelay = 100
     $tip.ShowAlways = $true
-    $helpCount = (UI-Text "Ile botów gra na serwerze jednocześnie.`r`n`r`nLiczba dzieli się po równo między trzy królestwa:`r`nnp. 900 to po 300 botów w Shinsoo, Chunjo i Jinno.`r`nKażde królestwo ma 1500 postaci botów, więcej się nie da.`r`n`r`nWięcej botów to więcej pracy dla komputera.`r`nZmiana działa po restarcie serwera." "How many bots play on the server at the same time.`r`n`r`nThe number is split equally between the three kingdoms:`r`ne.g. 900 is 300 bots each in Shinsoo, Chunjo and Jinno.`r`nEach kingdom has 1500 bot characters, more is not possible.`r`n`r`nMore bots means more work for the computer.`r`nA change works after a server restart.")
-    $helpMinutes = (UI-Text "W ile minut od startu serwera wchodzą do gry`r`nboty z suwaka.`r`n`r`n1 = prawie wszystkie naraz: szybko, ale przez pierwszą`r`nminutę serwer mocno pracuje.`r`n15 = boty schodzą się przez kwadrans, jak gracze`r`npo otwarciu serwera, a start jest lżejszy dla komputera." "Within how many minutes of the server start the slider's`r`nbots enter the game.`r`n`r`n1 = almost all at once: fast, but for the first minute`r`nthe server works hard.`r`n15 = the bots gather over a quarter of an hour, like players`r`nafter a server opens, and the start is lighter on the computer.")
-    $helpLate = (UI-Text "Ilu botów dołączy PÓŹNIEJ, ponad liczbę z suwaka.`r`nWchodzą pojedynczo, równo rozłożone na liczbę godzin`r`nz pola poniżej.`r`n`r`n0 = żadnych, grają tylko boty z suwaka.`r`nNp. suwak 1000 i tu 500: po starcie wchodzi 1000 botów,`r`na przez kolejne godziny dochodzi jeszcze 500, po jednym.`r`n`r`nKrólestwo nie da więcej botów, niż ma postaci (1500)." "How many bots join LATER, on top of the slider's number.`r`nThey enter one at a time, spread evenly over the hours`r`nin the field below.`r`n`r`n0 = none, only the slider's bots play.`r`nE.g. slider 1000 and 500 here: 1000 bots enter after the start,`r`nand over the next hours 500 more arrive, one at a time.`r`n`r`nA kingdom gives no more bots than it has characters (1500).")
-    $helpHours = (UI-Text "W ciągu ilu godzin dochodzą dodatkowe boty z pola`r`nwyżej. Rozkładają się równo na ten czas.`r`n`r`nNp. 500 botów w ciągu 24 h to mniej więcej jeden bot`r`nco 3 minuty. Liczy się od startu serwera, więc restart`r`nzaczyna ten plan od nowa.`r`n`r`nNie ma znaczenia, gdy dodatkowych botów jest 0." "Over how many hours the extra bots from the field`r`nabove arrive. They are spread evenly over that time.`r`n`r`nE.g. 500 bots over 24 h is roughly one bot`r`nevery 3 minutes. It counts from the server start, so a restart`r`nbegins this plan again.`r`n`r`nIt does not matter when there are 0 extra bots.")
-    $helpKingdoms = (UI-Text "Zamiast jednej liczby z suwaka ustawiasz osobno, ile`r`nbotów gra w każdym królestwie (0-1500). Suwak jest wtedy`r`nwyłączony, a u góry widać sumę.`r`n`r`nNp. Chunjo 1000, Shinsoo 0, Jinno 0 = boty grają tylko`r`nw żółtym królestwie. Królestwo z 0 nie ma żadnego bota." "Instead of one number from the slider you set, for each`r`nkingdom, how many bots play in it (0-1500). The slider is then`r`noff, and the sum shows at the top.`r`n`r`nE.g. Chunjo 1000, Shinsoo 0, Jinno 0 = bots play only`r`nin the yellow kingdom. A kingdom with 0 has no bot at all.")
-    $helpChannel = (UI-Text "Ile kanałów gry uruchamia serwer. Przy logowaniu`r`nwybierasz kanał.`r`n`r`n1 = jeden kanał.`r`n2 = drugi kanał (CH2): część botów gra na nim, serwer rozkłada`r`nje na dwa rdzenie procesora. Sklepy (botów i graczy) stoją`r`ntylko na CH1: bot z CH2, który chce handlować, na chwilę`r`nprzechodzi na CH1.`r`n3 i 4 = do tego CH3 (i CH4) ze świeżymi botami od 1 poziomu,`r`nosobnymi od botów z CH1 i CH2. Tam nie ma sklepów, gildii`r`nbotów ani wojen - świeże boty sprzedają u handlarza.`r`n`r`nKażdy kanał to ok. 2,5 GB RAM. Otwiera porty 13000-13012`r`n(2 kanały), 13022 (3) albo 13032 (4). Zmiana działa po`r`nrestarcie serwera. Kanały 3 i 4 są tylko na linii 2.x." "How many game channels the server runs. At the login`r`nyou choose a channel.`r`n`r`n1 = one channel.`r`n2 = a second channel (CH2): some of the bots play on it, and the server`r`nspreads them over two processor cores. Shops (the bots' and the players')`r`nstand on CH1 only: a bot on CH2 that wants to trade moves`r`nto CH1 for a moment.`r`n3 and 4 = and CH3 (and CH4) with fresh bots from level 1,`r`napart from the bots of CH1 and CH2. There are no shops, bot`r`nguilds or wars there - the fresh bots sell to the merchant.`r`n`r`nEvery channel is about 2.5 GB of RAM. Opens ports 13000-13012`r`n(2 channels), 13022 (3) or 13032 (4). A change works after`r`na server restart. Channels 3 and 4 are on the 2.x line only.")
-    $helpShare = (UI-Text "Jaka część botów z CH1 i CH2 gra na CH2.`r`nNp. 40 = mniej więcej 4 boty na 10 grają na CH2,`r`nreszta na CH1.`r`n`r`nDziała przy 2 kanałach i więcej." "What share of the bots of CH1 and CH2 plays on CH2.`r`nE.g. 40 = roughly 4 bots in 10 play on CH2,`r`nthe rest on CH1.`r`n`r`nWorks with 2 channels or more.")
-    $helpFresh = (UI-Text "Ilu świeżych botów gra naraz na CH3 i CH4 - osobne`r`npostacie od 1 poziomu, po 500 na królestwo, tworzone przy`r`npierwszym starcie z 3 albo 4 kanałami. Liczba dzieli się`r`npo równo na królestwa i pół na pół między CH3 i CH4.`r`n`r`nTo osobna liczba od suwaka: boty z CH1 i CH2 zostają`r`njak były. Działa przy 3 i 4 kanałach." "How many fresh bots play at once on CH3 and CH4 - characters`r`nof their own from level 1, 500 a kingdom, made at the`r`nfirst start with 3 or 4 channels. The number is split equally`r`nbetween the kingdoms and half and half between CH3 and CH4.`r`n`r`nIt is a number apart from the slider: the bots of CH1 and CH2`r`nstay as they were. Works with 3 and 4 channels.")
+    $helpCount = "Ile botów gra na serwerze jednocześnie.`r`n`r`nLiczba dzieli się po równo między trzy królestwa:`r`nnp. 900 to po 300 botów w Shinsoo, Chunjo i Jinno.`r`nKażde królestwo ma 1500 postaci botów, więcej się nie da.`r`n`r`nWięcej botów to więcej pracy dla komputera.`r`nZmiana działa po restarcie serwera."
+    $helpMinutes = "W ile minut od startu serwera wchodzą do gry`r`nboty z suwaka.`r`n`r`n1 = prawie wszystkie naraz: szybko, ale przez pierwszą`r`nminutę serwer mocno pracuje.`r`n15 = boty schodzą się przez kwadrans, jak gracze`r`npo otwarciu serwera, a start jest lżejszy dla komputera."
+    $helpLate = "Ilu botów dołączy PÓŹNIEJ, ponad liczbę z suwaka.`r`nWchodzą pojedynczo, równo rozłożone na liczbę godzin`r`nz pola poniżej.`r`n`r`n0 = żadnych, grają tylko boty z suwaka.`r`nNp. suwak 1000 i tu 500: po starcie wchodzi 1000 botów,`r`na przez kolejne godziny dochodzi jeszcze 500, po jednym.`r`n`r`nKrólestwo nie da więcej botów, niż ma postaci (1500)."
+    $helpHours = "W ciągu ilu godzin dochodzą dodatkowe boty z pola`r`nwyżej. Rozkładają się równo na ten czas.`r`n`r`nNp. 500 botów w ciągu 24 h to mniej więcej jeden bot`r`nco 3 minuty. Liczy się od startu serwera, więc restart`r`nzaczyna ten plan od nowa.`r`n`r`nNie ma znaczenia, gdy dodatkowych botów jest 0."
+    $helpKingdoms = "Zamiast jednej liczby z suwaka ustawiasz osobno, ile`r`nbotów gra w każdym królestwie (0-1500). Suwak jest wtedy`r`nwyłączony, a u góry widać sumę.`r`n`r`nNp. Chunjo 1000, Shinsoo 0, Jinno 0 = boty grają tylko`r`nw żółtym królestwie. Królestwo z 0 nie ma żadnego bota."
+    $helpChannel = "Uruchamia drugi kanał gry (CH2). Część botów gra na nim,`r`na przy logowaniu wybierasz CH1 albo CH2.`r`n`r`nSerwer rozkłada wtedy boty na dwa rdzenie procesora,`r`nwięc przy dużej liczbie botów działa płynniej.`r`nSklepy (botów i graczy) stoją tylko na CH1: bot z CH2,`r`nktóry chce handlować, na chwilę przechodzi na CH1.`r`n`r`nWłączenie otwiera też porty 13010-13012.`r`nZmiana działa po restarcie serwera."
+    $helpShare = "Jaka część wszystkich botów gra na CH2.`r`nNp. 40 = mniej więcej 4 boty na 10 grają na CH2,`r`nreszta na CH1.`r`n`r`nDziała tylko przy włączonym drugim kanale."
 
     $info = [Windows.Forms.Label]::new()
-    $info.Text = (UI-Text "Ilu botów ma grać jednocześnie?`r`nKażde królestwo ma 1500 postaci botów. Liczba z suwaka dzieli się po równo`r`nmiędzy królestwa, najwyżej 2500 naraz. Zmiana wymaga restartu serwera." "How many bots should play at the same time?`r`nEach kingdom has 1500 bot characters. The slider's number is split equally`r`nbetween the kingdoms, at most 2500 at once. A change needs a server restart.")
+    $info.Text = "Ilu botów ma grać jednocześnie?`r`nKażde królestwo ma 1500 postaci botów. Liczba z suwaka dzieli się po równo`r`nmiędzy królestwa, najwyżej 2500 naraz. Zmiana wymaga restartu serwera."
     $info.Location = [Drawing.Point]::new(14, 12)
     $info.Size = [Drawing.Size]::new(440, 54)
     $dialog.Controls.Add($info)
@@ -1920,27 +1914,27 @@ function Show-BotCountDialog {
     $bar.Size = [Drawing.Size]::new(442, 45)
     $bar.Value = [Math]::Max(0, [Math]::Min(2500, $Current))
     $dialog.Controls.Add($bar)
-    Add-BotDialogHelp -Dialog $dialog -Tip $tip -Title (UI-Text 'Liczba botów' 'Bot count') -Text $helpCount -X 420 -Y 74 -Also @($valueLabel, $bar)
-    $valueLabel.Text = (UI-Text "Boty: $($bar.Value)" "Bots: $($bar.Value)")
+    Add-BotDialogHelp -Dialog $dialog -Tip $tip -Title 'Liczba botów' -Text $helpCount -X 420 -Y 74 -Also @($valueLabel, $bar)
+    $valueLabel.Text = "Boty: $($bar.Value)"
     # $this/FindForm keeps the handler independent of captured locals.
     $bar.Add_ValueChanged({
             $form = $this.FindForm()
             if ($form) {
                 $label = $form.Controls['valueLabel']
-                if ($label) { $label.Text = (UI-Text "Boty: $($this.Value)" "Bots: $($this.Value)") }
+                if ($label) { $label.Text = "Boty: $($this.Value)" }
             }
         })
 
     $planInfo = [Windows.Forms.Label]::new()
-    $planInfo.Text = (UI-Text "Jak boty wchodzą do gry po starcie serwera. Przy każdym polu jest przycisk ?`r`n- najedź na niego myszką albo kliknij, żeby zobaczyć, co to pole robi." "How the bots enter the game after the server start. Each field has a ? button`r`n- hover over it with the mouse or click it to see what the field does.")
+    $planInfo.Text = "Jak boty wchodzą do gry po starcie serwera. Przy każdym polu jest przycisk ?`r`n- najedź na niego myszką albo kliknij, żeby zobaczyć, co to pole robi."
     $planInfo.Location = [Drawing.Point]::new(14, 150)
     $planInfo.Size = [Drawing.Size]::new(440, 34)
     $dialog.Controls.Add($planInfo)
 
     $rows = @(
-        @{ Name = 'minutesBox'; Text = (UI-Text 'Boty z suwaka wchodzą w ciągu (min, 1-180):' 'The slider''s bots enter within (min, 1-180):'); Min = 1; Max = 180; Value = [int]$Plan.Minutes; Y = 188; Title = (UI-Text 'Wejście botów po starcie' 'Bots entering after the start'); Help = $helpMinutes },
-        @{ Name = 'lateBox';    Text = (UI-Text 'Dodatkowe boty później (0-2500):' 'Extra bots later (0-2500):'); Min = 0; Max = 2500; Value = [int]$Plan.Late; Y = 218; Title = (UI-Text 'Dodatkowe boty później' 'Extra bots later'); Help = $helpLate },
-        @{ Name = 'hoursBox';   Text = (UI-Text 'Dodatkowe boty dochodzą przez (h, 1-168):' 'Extra bots arrive over (h, 1-168):'); Min = 1; Max = 168; Value = [int]$Plan.Hours; Y = 248; Title = (UI-Text 'Czas dochodzenia dodatkowych botów' 'Time over which the extra bots arrive'); Help = $helpHours }
+        @{ Name = 'minutesBox'; Text = 'Boty z suwaka wchodzą w ciągu (min, 1-180):'; Min = 1; Max = 180; Value = [int]$Plan.Minutes; Y = 188; Title = 'Wejście botów po starcie'; Help = $helpMinutes },
+        @{ Name = 'lateBox';    Text = 'Dodatkowe boty później (0-2500):'; Min = 0; Max = 2500; Value = [int]$Plan.Late; Y = 218; Title = 'Dodatkowe boty później'; Help = $helpLate },
+        @{ Name = 'hoursBox';   Text = 'Dodatkowe boty dochodzą przez (h, 1-168):'; Min = 1; Max = 168; Value = [int]$Plan.Hours; Y = 248; Title = 'Czas dochodzenia dodatkowych botów'; Help = $helpHours }
     )
     foreach ($row in $rows) {
         $label = [Windows.Forms.Label]::new()
@@ -1965,16 +1959,16 @@ function Show-BotCountDialog {
     # and 729 asked for came out as 500 with no word why, kavvaski).
     $kingdomCheck = [Windows.Forms.CheckBox]::new()
     $kingdomCheck.Name = 'kingdomCheck'
-    $kingdomCheck.Text = (UI-Text 'Indywidualne wartości dla królestw' 'Individual numbers for the kingdoms')
+    $kingdomCheck.Text = 'Indywidualne wartości dla królestw'
     $kingdomCheck.Location = [Drawing.Point]::new(14, 282)
     $kingdomCheck.Size = [Drawing.Size]::new(380, 24)
     $kingdomCheck.Checked = [bool]$Kingdoms.PerKingdom
     $dialog.Controls.Add($kingdomCheck)
-    Add-BotDialogHelp -Dialog $dialog -Tip $tip -Title (UI-Text 'Osobno dla królestw' 'Per kingdom') -Text $helpKingdoms -X 400 -Y 282 -Also @($kingdomCheck)
+    Add-BotDialogHelp -Dialog $dialog -Tip $tip -Title 'Osobno dla królestw' -Text $helpKingdoms -X 400 -Y 282 -Also @($kingdomCheck)
     $kingdomRows = @(
-        @{ Name = 'shinsooBox'; Text = (UI-Text 'Shinsoo (czerwone, 0-1500):' 'Shinsoo (red, 0-1500):'); Color = [Drawing.Color]::FromArgb(220, 40, 40); Value = [int]$Kingdoms.Shinsoo; Y = 310 },
-        @{ Name = 'chunjoBox';  Text = (UI-Text 'Chunjo (żółte, 0-1500):' 'Chunjo (yellow, 0-1500):');     Color = [Drawing.Color]::FromArgb(235, 200, 30); Value = [int]$Kingdoms.Chunjo; Y = 340 },
-        @{ Name = 'jinnoBox';   Text = (UI-Text 'Jinno (niebieskie, 0-1500):' 'Jinno (blue, 0-1500):'); Color = [Drawing.Color]::FromArgb(40, 110, 220); Value = [int]$Kingdoms.Jinno; Y = 370 }
+        @{ Name = 'shinsooBox'; Text = 'Shinsoo (czerwone, 0-1500):'; Color = [Drawing.Color]::FromArgb(220, 40, 40); Value = [int]$Kingdoms.Shinsoo; Y = 310 },
+        @{ Name = 'chunjoBox';  Text = 'Chunjo (żółte, 0-1500):';     Color = [Drawing.Color]::FromArgb(235, 200, 30); Value = [int]$Kingdoms.Chunjo; Y = 340 },
+        @{ Name = 'jinnoBox';   Text = 'Jinno (niebieskie, 0-1500):'; Color = [Drawing.Color]::FromArgb(40, 110, 220); Value = [int]$Kingdoms.Jinno; Y = 370 }
     )
     foreach ($row in $kingdomRows) {
         $swatch = [Windows.Forms.Panel]::new()
@@ -2012,28 +2006,17 @@ function Show-BotCountDialog {
     $bar.Enabled = -not $kingdomCheck.Checked
     Update-BotDialogValueLabel $dialog
 
-    # The game channels, one choice (the operator's "Kanaly gry 1-4", 28
-    # September): 1, 2 with the second channel for the world's bots and
-    # players (shops on the first only), 3 and 4 that and the fresh cohort's
-    # CH3 (and CH4) - bots of their own from level one. Only the 2.x line has
-    # the fresh cohort, so r40250's list stops at two.
-    $maxChannels = if ((Get-M2ServerEngine -ServerRoot $root) -eq 'r40250') { 2 } else { 4 }
-    $channelsLabel = [Windows.Forms.Label]::new()
-    $channelsLabel.Text = (UI-Text 'Kanały gry (1-4):' 'Game channels (1-4):')
-    $channelsLabel.Location = [Drawing.Point]::new(14, 409)
-    $channelsLabel.Size = [Drawing.Size]::new(280, 22)
-    $dialog.Controls.Add($channelsLabel)
-    $channelsBox = [Windows.Forms.ComboBox]::new()
-    $channelsBox.Name = 'channelsBox'
-    $channelsBox.DropDownStyle = 'DropDownList'
-    foreach ($n in 1..$maxChannels) { [void]$channelsBox.Items.Add([string]$n) }
-    $channelsBox.SelectedIndex = [Math]::Max(1, [Math]::Min($maxChannels, [int]$Kingdoms.GameChannels)) - 1
-    $channelsBox.Location = [Drawing.Point]::new(300, 406)
-    $channelsBox.Size = [Drawing.Size]::new(90, 24)
-    $dialog.Controls.Add($channelsBox)
-    Add-BotDialogHelp -Dialog $dialog -Tip $tip -Title (UI-Text 'Kanały gry' 'Game channels') -Text $helpChannel -X 400 -Y 406 -Also @($channelsLabel, $channelsBox)
+    # The second channel: bots and players, shops on the first channel only.
+    $channelCheck = [Windows.Forms.CheckBox]::new()
+    $channelCheck.Name = 'channelCheck'
+    $channelCheck.Text = 'Drugi kanał (CH2) dla botów i graczy'
+    $channelCheck.Location = [Drawing.Point]::new(14, 406)
+    $channelCheck.Size = [Drawing.Size]::new(380, 24)
+    $channelCheck.Checked = [bool]$Kingdoms.Channel2
+    $dialog.Controls.Add($channelCheck)
+    Add-BotDialogHelp -Dialog $dialog -Tip $tip -Title 'Drugi kanał (CH2)' -Text $helpChannel -X 400 -Y 406 -Also @($channelCheck)
     $shareLabel = [Windows.Forms.Label]::new()
-    $shareLabel.Text = (UI-Text 'Ile procent botów gra na CH2 (10-90):' 'Percent of the bots on CH2 (10-90):')
+    $shareLabel.Text = 'Ile procent botów gra na CH2 (10-90):'
     $shareLabel.Location = [Drawing.Point]::new(34, 437)
     $shareLabel.Size = [Drawing.Size]::new(260, 22)
     $dialog.Controls.Add($shareLabel)
@@ -2044,40 +2027,27 @@ function Show-BotCountDialog {
     $shareBox.Value = [Math]::Max(10, [Math]::Min(90, [int]$Kingdoms.Channel2Share))
     $shareBox.Location = [Drawing.Point]::new(300, 434)
     $shareBox.Size = [Drawing.Size]::new(90, 24)
+    $shareBox.Enabled = $channelCheck.Checked
     $dialog.Controls.Add($shareBox)
-    Add-BotDialogHelp -Dialog $dialog -Tip $tip -Title (UI-Text 'Boty na CH2' 'Bots on CH2') -Text $helpShare -X 400 -Y 434 -Also @($shareLabel, $shareBox)
-    $freshLabel = [Windows.Forms.Label]::new()
-    $freshLabel.Text = (UI-Text 'Świeże boty od 1 poz. na CH3/CH4 (0-1500):' 'Fresh bots from level 1 on CH3/CH4 (0-1500):')
-    $freshLabel.Location = [Drawing.Point]::new(34, 465)
-    $freshLabel.Size = [Drawing.Size]::new(264, 22)
-    $dialog.Controls.Add($freshLabel)
-    $freshBox = [Windows.Forms.NumericUpDown]::new()
-    $freshBox.Name = 'freshCountBox'
-    $freshBox.Minimum = 0
-    $freshBox.Maximum = 1500
-    $freshBox.Value = [Math]::Max(0, [Math]::Min(1500, [int]$Kingdoms.FreshCount))
-    $freshBox.Location = [Drawing.Point]::new(300, 462)
-    $freshBox.Size = [Drawing.Size]::new(90, 24)
-    $dialog.Controls.Add($freshBox)
-    Add-BotDialogHelp -Dialog $dialog -Tip $tip -Title (UI-Text 'Świeże boty na CH3 i CH4' 'Fresh bots on CH3 and CH4') -Text $helpFresh -X 400 -Y 462 -Also @($freshLabel, $freshBox)
+    Add-BotDialogHelp -Dialog $dialog -Tip $tip -Title 'Boty na CH2' -Text $helpShare -X 400 -Y 434 -Also @($shareLabel, $shareBox)
     $channelInfo = [Windows.Forms.Label]::new()
     $channelInfo.Name = 'channelInfo'
-    $channelInfo.Location = [Drawing.Point]::new(14, 494)
-    $channelInfo.Size = [Drawing.Size]::new(440, 98)
+    $channelInfo.Location = [Drawing.Point]::new(14, 466)
+    $channelInfo.Size = [Drawing.Size]::new(440, 92)
     $dialog.Controls.Add($channelInfo)
-    Update-BotDialogChannels $dialog
-    $channelsBox.Add_SelectedIndexChanged({ Update-BotDialogChannels $this.FindForm() })
+    Update-BotDialogChannel $dialog
+    $channelCheck.Add_CheckedChanged({ Update-BotDialogChannel $this.FindForm() })
 
     $okButton = [Windows.Forms.Button]::new()
     $okButton.Text = (T 'apply')
-    $okButton.Location = [Drawing.Point]::new(252, 598)
+    $okButton.Location = [Drawing.Point]::new(252, 570)
     $okButton.Size = [Drawing.Size]::new(100, 32)
     $okButton.DialogResult = [Windows.Forms.DialogResult]::OK
     $dialog.Controls.Add($okButton)
 
     $cancelButton = [Windows.Forms.Button]::new()
     $cancelButton.Text = (T 'cancel')
-    $cancelButton.Location = [Drawing.Point]::new(358, 598)
+    $cancelButton.Location = [Drawing.Point]::new(358, 570)
     $cancelButton.Size = [Drawing.Size]::new(96, 32)
     $cancelButton.DialogResult = [Windows.Forms.DialogResult]::Cancel
     $dialog.Controls.Add($cancelButton)
@@ -2094,10 +2064,8 @@ function Show-BotCountDialog {
         Shinsoo       = [int]$dialog.Controls['shinsooBox'].Value
         Chunjo        = [int]$dialog.Controls['chunjoBox'].Value
         Jinno         = [int]$dialog.Controls['jinnoBox'].Value
-        GameChannels  = [int]$dialog.Controls['channelsBox'].SelectedIndex + 1
-        Channel2      = ([int]$dialog.Controls['channelsBox'].SelectedIndex + 1) -ge 2
+        Channel2      = [bool]$dialog.Controls['channelCheck'].Checked
         Channel2Share = [int]$dialog.Controls['channelShareBox'].Value
-        FreshCount    = [int]$dialog.Controls['freshCountBox'].Value
     }
     $tip.Dispose()
     $dialog.Dispose()
@@ -2133,7 +2101,7 @@ function Start-LauncherAction {
         [string[]]$ExtraArgs = @()
     )
     if ($script:activeProcess -and -not $script:activeProcess.HasExited) {
-        [Windows.Forms.MessageBox]::Show((UI-Text 'Poczekaj na zakończenie bieżącej operacji.' 'Wait for the current operation to finish.'), (UI-Text 'Launcher pracuje' 'The launcher is busy'), 'OK', 'Information') | Out-Null
+        [Windows.Forms.MessageBox]::Show('Poczekaj na zakończenie bieżącej operacji.', 'Launcher pracuje', 'OK', 'Information') | Out-Null
         return
     }
 
@@ -2155,7 +2123,7 @@ function Start-LauncherAction {
         if ($text -match '^-[A-Za-z]') { $arguments += $text }
         else { $arguments += ('"{0}"' -f ($text -replace '"', '\"')) }
     }
-    Write-LocalLog (UI-Text "Rozpoczęto akcję $Action." "Action $Action started.")
+    Write-LocalLog "Rozpoczęto akcję $Action."
     $script:activeAction = $Action
     $script:launchClientAfterAction = [bool]$LaunchClient
     $script:openSupportAfterAction = [bool]$OpenSupport
@@ -2180,7 +2148,7 @@ function Start-LauncherAction {
     $script:activeCompileHintSeconds = 600
     $script:activeCompileHintNoticed = $false
     $script:activeLowMemory = $false
-    $script:actionStatus.Text = (UI-Text "Trwa: $Action..." "Running: $Action...")
+    $script:actionStatus.Text = "Trwa: $Action..."
     $script:actionStatus.ForeColor = [Drawing.Color]::Gold
     $script:progress.Style = 'Marquee'
     $script:activeProcess = Start-Process -FilePath 'powershell.exe' `
@@ -2201,14 +2169,14 @@ function Install-Or-Prepare {
     # found" at exactly the player whose package was incomplete.
     $missing = @(@($cliLauncher, $composeFile, $modulePath) | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
     if ($missing.Count -gt 0) {
-        [Windows.Forms.MessageBox]::Show((UI-Text 'Paczka jest niekompletna. Rozpakuj ponownie całe archiwum RAR.' 'The package is incomplete. Unpack the whole RAR archive again.'), (UI-Text 'Brak plików' 'Files missing'), 'OK', 'Error') | Out-Null
+        [Windows.Forms.MessageBox]::Show('Paczka jest niekompletna. Rozpakuj ponownie całe archiwum RAR.', 'Brak plików', 'OK', 'Error') | Out-Null
         return
     }
 
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         $answer = [Windows.Forms.MessageBox]::Show(
-            (UI-Text 'Docker Desktop nie jest zainstalowany. Czy otworzyć oficjalną stronę pobierania?' 'Docker Desktop is not installed. Open the official download page?'),
-            (UI-Text 'Wymagany Docker Desktop' 'Docker Desktop required'), 'YesNo', 'Question')
+            'Docker Desktop nie jest zainstalowany. Czy otworzyć oficjalną stronę pobierania?',
+            'Wymagany Docker Desktop', 'YesNo', 'Question')
         if ($answer -eq [Windows.Forms.DialogResult]::Yes) {
             Start-Process 'https://www.docker.com/products/docker-desktop/'
         }
@@ -2219,8 +2187,8 @@ function Install-Or-Prepare {
     Write-LocalLog (Format-M2DockerPreflightReport -Report $preflight)
     if (-not $preflight.CanStart) {
         [Windows.Forms.MessageBox]::Show(
-            ((@($preflight.BlockingIssues) -join [Environment]::NewLine) + [Environment]::NewLine + [Environment]::NewLine + (UI-Text 'Po naprawie uruchom launcher ponownie.' 'After the repair, start the launcher again.')),
-            (UI-Text 'Komputer nie jest jeszcze gotowy' 'The computer is not ready yet'),
+            ((@($preflight.BlockingIssues) -join [Environment]::NewLine) + [Environment]::NewLine + [Environment]::NewLine + 'Po naprawie uruchom launcher ponownie.'),
+            'Komputer nie jest jeszcze gotowy',
             'OK',
             'Warning') | Out-Null
         return
@@ -2236,7 +2204,7 @@ function Install-Or-Prepare {
     # could not have, this is not the installer. Say which it is.
     $gameContext = Join-Path $root 'linux-port\docker\game\src'
     foreach ($made in @(Restore-M2EmptyGameContextDirs -ServerRoot $root)) {
-        Write-LocalLog ((UI-Text "Odtworzono pusty katalog budowy: " "Recreated an empty build folder: ") + $made)
+        Write-LocalLog ("Odtworzono pusty katalog budowy: " + $made)
     }
     $requiredContext = @(Get-M2RequiredGameContext -ServerRoot $root)
     $missingContext = @($requiredContext | Where-Object { -not (Test-Path -LiteralPath (Join-Path $gameContext $_)) })
@@ -2246,17 +2214,17 @@ function Install-Or-Prepare {
     $missingContext += @(Get-M2MissingSqlDumps -ServerRoot $root | ForEach-Object { 'mariadb\initdb.d\dumps\' + $_ })
     if ($missingContext.Count -gt 0) {
         $installerPath = Join-Path $root 'installer\install.ps1'
-        Write-LocalLog ((UI-Text "Brak zrodel gry w " "Game sources missing in ") + $gameContext + ": " + ($missingContext -join ', '))
+        Write-LocalLog ("Brak zrodel gry w " + $gameContext + ": " + ($missingContext -join ', '))
         [Windows.Forms.MessageBox]::Show(
-            ((UI-Text "Ten przycisk przygotowuje paczke, ktora ma juz na dysku zrodla gry - a tu ich nie ma." "This button prepares a package that already has the game sources on disk - and here they are not.") + [Environment]::NewLine +
-             (UI-Text "Brakuje: " "Missing: ") + ($missingContext -join ', ') + [Environment]::NewLine + [Environment]::NewLine +
-             (UI-Text "Zrodla pochodza z Twojej wlasnej paczki serwera r40250 i zaden przycisk launchera ani zadna aktualizacja ich nie pobiera - " "The sources come from your own r40250 server package, and no launcher button and no update downloads them - ") +
-             (UI-Text "robi to wylacznie instalator, ktory wyciaga z tej paczki to, czego trzeba." "only the installer does, taking what it needs out of that package.") + [Environment]::NewLine + [Environment]::NewLine +
-             (UI-Text "Uruchom w PowerShell jako administrator:" "Run in PowerShell as administrator:") + [Environment]::NewLine +
-             (UI-Text "  `$env:M2_SRC_ARCHIVE = 'C:\sciezka\do\paczki-r40250.zip'" "  `$env:M2_SRC_ARCHIVE = 'C:\path\to\package-r40250.zip'") + [Environment]::NewLine +
+            ("Ten przycisk przygotowuje paczke, ktora ma juz na dysku zrodla gry - a tu ich nie ma." + [Environment]::NewLine +
+             "Brakuje: " + ($missingContext -join ', ') + [Environment]::NewLine + [Environment]::NewLine +
+             "Zrodla pochodza z Twojej wlasnej paczki serwera r40250 i zaden przycisk launchera ani zadna aktualizacja ich nie pobiera - " +
+             "robi to wylacznie instalator, ktory wyciaga z tej paczki to, czego trzeba." + [Environment]::NewLine + [Environment]::NewLine +
+             "Uruchom w PowerShell jako administrator:" + [Environment]::NewLine +
+             "  `$env:M2_SRC_ARCHIVE = 'C:\sciezka\do\paczki-r40250.zip'" + [Environment]::NewLine +
              "  & '" + $installerPath + "'" + [Environment]::NewLine + [Environment]::NewLine +
-             (UI-Text "Baza, postacie i ustawienia zostaja nietkniete." "The database, characters and settings stay untouched.")),
-            (UI-Text 'Brak zrodel gry - potrzebny instalator' 'Game sources missing - the installer is needed'), 'OK', 'Warning') | Out-Null
+             "Baza, postacie i ustawienia zostaja nietkniete."),
+            'Brak zrodel gry - potrzebny instalator', 'OK', 'Warning') | Out-Null
         return
     }
 
@@ -2270,12 +2238,12 @@ function Install-Or-Prepare {
         $shortcut.WorkingDirectory = $root
         $shortcut.Description = 'Metin2 Singleplayer Playerbots'
         $shortcut.Save()
-        Write-LocalLog (UI-Text 'Sprawdzono paczkę i utworzono skrót na pulpicie.' 'Package checked and a desktop shortcut created.')
+        Write-LocalLog 'Sprawdzono paczkę i utworzono skrót na pulpicie.'
     }
-    catch { Write-LocalLog (UI-Text "Nie udało się utworzyć skrótu: $($_.Exception.Message)" "Could not create the shortcut: $($_.Exception.Message)") }
+    catch { Write-LocalLog "Nie udało się utworzyć skrótu: $($_.Exception.Message)" }
     [Windows.Forms.MessageBox]::Show(
-        (UI-Text 'Paczka jest gotowa. Utworzono skrót na pulpicie. Kliknij GRAJ, aby uruchomić Docker, serwer i klienta.' 'The package is ready. A desktop shortcut was created. Click PLAY to start Docker, the server and the client.'),
-        (UI-Text 'Gotowe' 'Done'), 'OK', 'Information') | Out-Null
+        'Paczka jest gotowa. Utworzono skrót na pulpicie. Kliknij GRAJ, aby uruchomić Docker, serwer i klienta.',
+        'Gotowe', 'OK', 'Information') | Out-Null
 }
 
 $script:launcherFingerprint = Get-LauncherFingerprint
@@ -2341,8 +2309,8 @@ $script:launchClientCheck.Add_CheckedChanged({
     Save-M2LauncherConfig -Config $config -ConfigPath $configPath
     Update-PlayButtonLabel
     Write-LocalLog $(if ($script:launchClientCheck.Checked) {
-        (UI-Text 'GRAJ bedzie uruchamiac takze klienta gry.' 'PLAY will start the game client too.') } else {
-        (UI-Text 'GRAJ bedzie uruchamiac sam serwer - klient zostaje wylaczony.' 'PLAY will start the server only - the client stays off.') })
+        'GRAJ bedzie uruchamiac takze klienta gry.' } else {
+        'GRAJ bedzie uruchamiac sam serwer - klient zostaje wylaczony.' })
 })
 $script:form.Controls.Add($script:launchClientCheck)
 
@@ -2460,7 +2428,7 @@ function Get-LauncherVersionOnDisk {
         }
     }
     catch { }
-    return (UI-Text 'nieznana' 'unknown')
+    return 'nieznana'
 }
 $script:launcherVersion = Get-LauncherVersionOnDisk
 
@@ -2482,23 +2450,23 @@ function Update-VersionFooter {
     # once per session and whenever the player asks for a check - never on the
     # 8-second status timer, which would spend that budget for nothing.
     $installed = Get-InstalledServerVersion
-    $installedText = if ($installed -and $installed -ne 'unknown') { $installed } else { (UI-Text 'nieznana (przebudowa w toku)' 'unknown (rebuild in progress)') }
+    $installedText = if ($installed -and $installed -ne 'unknown') { $installed } else { 'nieznana (przebudowa w toku)' }
     $latestText = if ($script:latestServerVersion) { $script:latestServerVersion }
-        elseif ($script:latestVersionChecked) { (UI-Text 'nie udalo sie sprawdzic' 'could not check') }
-        else { (UI-Text 'sprawdzanie...' 'checking...') }
+        elseif ($script:latestVersionChecked) { 'nie udalo sie sprawdzic' }
+        else { 'sprawdzanie...' }
     $latestClientText = if ($script:latestClientVersion) { $script:latestClientVersion }
-        elseif ($script:latestVersionChecked) { (UI-Text 'nie udalo sie sprawdzic' 'could not check') }
-        else { (UI-Text 'sprawdzanie...' 'checking...') }
+        elseif ($script:latestVersionChecked) { 'nie udalo sie sprawdzic' }
+        else { 'sprawdzanie...' }
     # Three lines, asked for on the Discord: the server, the launcher itself
     # (its newest version is the server package's) and the client.
     $onDisk = Get-LauncherVersionOnDisk
     $launcherText = $script:launcherVersion
     if ($onDisk -ne $script:launcherVersion) {
-        $launcherText = (UI-Text '{0} (na dysku {1} - uruchom launcher ponownie)' '{0} (on disk {1} - restart the launcher)') -f $script:launcherVersion, $onDisk
+        $launcherText = '{0} (na dysku {1} - uruchom launcher ponownie)' -f $script:launcherVersion, $onDisk
     }
     $clientInstalled = Get-InstalledClientVersion
-    $clientText = if ($clientInstalled -and $clientInstalled -ne 'unknown') { $clientInstalled } else { (UI-Text 'nieznana' 'unknown') }
-    $script:versionLabel.Text = ((UI-Text "Serwer: {0}   |   najnowszy: {1}`r`nLauncher: {2}   |   najnowszy: {3}`r`nKlient: {4}   |   najnowszy: {5}" "Server: {0}   |   latest: {1}`r`nLauncher: {2}   |   latest: {3}`r`nClient: {4}   |   latest: {5}") -f
+    $clientText = if ($clientInstalled -and $clientInstalled -ne 'unknown') { $clientInstalled } else { 'nieznana' }
+    $script:versionLabel.Text = ("Serwer: {0}   |   najnowszy: {1}`r`nLauncher: {2}   |   najnowszy: {3}`r`nKlient: {4}   |   najnowszy: {5}" -f
         $installedText, $latestText, $launcherText, $latestText, $clientText, $latestClientText)
     $upToDate = $script:latestServerVersion -and $installed -and $installed -ne 'unknown' -and
         $installed.Equals($script:latestServerVersion, [StringComparison]::OrdinalIgnoreCase)
@@ -2516,12 +2484,12 @@ function Update-VersionFooter {
     # what this is for: the line says so in words as well.
     $script:updateAvailable = [bool]($serverBehind -or $clientBehind)
     if ($script:updateAvailable) {
-        $what = if ($serverBehind -and $clientBehind) { (UI-Text 'SERWERA I KLIENTA' 'SERVER AND CLIENT') }
-            elseif ($serverBehind) { (UI-Text 'SERWERA' 'SERVER') }
-            else { (UI-Text 'KLIENTA' 'CLIENT') }
+        $what = if ($serverBehind -and $clientBehind) { 'SERWERA I KLIENTA' }
+            elseif ($serverBehind) { 'SERWERA' }
+            else { 'KLIENTA' }
         # The button's own words (T 'update'): the line used to send players
         # to a "ZAINSTALUJ AKTUALIZACJE" nobody could find (Artur554, 25 September).
-        $script:versionLabel.Text = ((UI-Text "!! NOWA WERSJA {0} - kliknij {1}`r`n{2}" "!! NEW {0} VERSION - click {1}`r`n{2}") -f
+        $script:versionLabel.Text = ("!! NOWA WERSJA {0} - kliknij {1}`r`n{2}" -f
             $what, (T 'update'), $script:versionLabel.Text)
     }
     $script:versionBaseColor = if ($upToDate -and -not $clientBehind) { [Drawing.Color]::LightGreen }
@@ -2601,13 +2569,13 @@ function Show-PanelPasswordDialog {
     }
     if (-not $passphrase) {
         [Windows.Forms.MessageBox]::Show(
-            (UI-Text "W pliku .env nie ma jeszcze hasla do panelu.`r`n`r`nKliknij GRAJ raz - launcher je uzupelni i pokaze." "The .env file has no panel password yet.`r`n`r`nClick PLAY once - the launcher fills it in and shows it."),
-            (UI-Text 'Haslo do panelu' 'Panel password'), 'OK', 'Information') | Out-Null
+            "W pliku .env nie ma jeszcze hasla do panelu.`r`n`r`nKliknij GRAJ raz - launcher je uzupelni i pokaze.",
+            'Haslo do panelu', 'OK', 'Information') | Out-Null
         return
     }
 
     $dialog = [Windows.Forms.Form]::new()
-    $dialog.Text = (UI-Text 'Haslo do panelu WWW' 'Web panel password')
+    $dialog.Text = 'Haslo do panelu WWW'
     $dialog.Size = [Drawing.Size]::new(520, 250)
     $dialog.StartPosition = 'CenterParent'
     $dialog.FormBorderStyle = 'FixedDialog'
@@ -2615,7 +2583,7 @@ function Show-PanelPasswordDialog {
     $dialog.MinimizeBox = $false
 
     $info = [Windows.Forms.Label]::new()
-    $info.Text = (UI-Text 'Panel ma jedno haslo i nie ma loginu. Zaznacz je i skopiuj.' 'The panel has one password and no login. Select it and copy it.')
+    $info.Text = 'Panel ma jedno haslo i nie ma loginu. Zaznacz je i skopiuj.'
     $info.Location = [Drawing.Point]::new(16, 14)
     $info.Size = [Drawing.Size]::new(480, 20)
     $dialog.Controls.Add($info)
@@ -2629,22 +2597,22 @@ function Show-PanelPasswordDialog {
     $dialog.Controls.Add($box)
 
     $hint = [Windows.Forms.Label]::new()
-    $hint.Text = ((UI-Text 'Jesli panel go nie przyjmuje, zapamietal starsze haslo z pierwszego' 'If the panel rejects it, it kept an older password from its first') + [Environment]::NewLine +
-        (UI-Text 'uruchomienia. Reset kasuje jeden plik konfiguracyjny panelu i ustawia' 'start. The reset deletes one configuration file of the panel and sets') + [Environment]::NewLine +
-        (UI-Text 'haslo powyzej. Swiat, postacie i boty sa w bazie i nie sa tym ruszane.' 'the password above. The world, characters and bots are in the database, untouched.'))
+    $hint.Text = ('Jesli panel go nie przyjmuje, zapamietal starsze haslo z pierwszego' + [Environment]::NewLine +
+        'uruchomienia. Reset kasuje jeden plik konfiguracyjny panelu i ustawia' + [Environment]::NewLine +
+        'haslo powyzej. Swiat, postacie i boty sa w bazie i nie sa tym ruszane.')
     $hint.Location = [Drawing.Point]::new(16, 76)
     $hint.Size = [Drawing.Size]::new(480, 60)
     $dialog.Controls.Add($hint)
 
     $resetButton = [Windows.Forms.Button]::new()
-    $resetButton.Text = (UI-Text 'Zresetuj haslo panelu' 'Reset the panel password')
+    $resetButton.Text = 'Zresetuj haslo panelu'
     $resetButton.Location = [Drawing.Point]::new(16, 148)
     $resetButton.Size = [Drawing.Size]::new(230, 34)
     $resetButton.DialogResult = [Windows.Forms.DialogResult]::Yes
     $dialog.Controls.Add($resetButton)
 
     $closeButton = [Windows.Forms.Button]::new()
-    $closeButton.Text = (UI-Text 'Zamknij' 'Close')
+    $closeButton.Text = 'Zamknij'
     $closeButton.Location = [Drawing.Point]::new(396, 148)
     $closeButton.Size = [Drawing.Size]::new(100, 34)
     $closeButton.DialogResult = [Windows.Forms.DialogResult]::Cancel
@@ -2684,13 +2652,13 @@ function Show-CoopSecretDialog {
     $box.Font = [Drawing.Font]::new('Consolas', 10)
     $dialog.Controls.Add($box)
     $copy = [Windows.Forms.Button]::new()
-    $copy.Text = (UI-Text 'Kopiuj do schowka' 'Copy to clipboard')
+    $copy.Text = 'Kopiuj do schowka'
     $copy.Location = [Drawing.Point]::new(14, 202)
     $copy.Size = [Drawing.Size]::new(170, 32)
     $copy.Add_Click({ try { [Windows.Forms.Clipboard]::SetText($box.Text) } catch { } })
     $dialog.Controls.Add($copy)
     $close = [Windows.Forms.Button]::new()
-    $close.Text = (UI-Text 'Zamknij' 'Close')
+    $close.Text = 'Zamknij'
     $close.Location = [Drawing.Point]::new(434, 202)
     $close.Size = [Drawing.Size]::new(100, 32)
     $close.DialogResult = [Windows.Forms.DialogResult]::Cancel
@@ -2712,13 +2680,14 @@ function Show-CoopDialog {
     # Co-op over the Internet (experimental). Hosting and its end restart the
     # game container and so run as actions in the main window; everything else
     # here is quick and in-process, and nothing that shows a password is
-    # written to any log.
+    # written to any log. -JoinOnly shows only the joining tab.
+    param([switch]$JoinOnly)
     if (-not (Get-Command Get-M2CoopNetworkReport -ErrorAction SilentlyContinue)) {
-        [Windows.Forms.MessageBox]::Show((UI-Text 'Ta paczka nie ma modułu COOP.' 'This package has no COOP module.'), 'COOP', 'OK', 'Information') | Out-Null
+        [Windows.Forms.MessageBox]::Show('Ta paczka nie ma modułu COOP.', 'COOP', 'OK', 'Information') | Out-Null
         return
     }
     $dialog = [Windows.Forms.Form]::new()
-    $dialog.Text = (UI-Text 'COOP - gra ze znajomymi przez internet (eksperymentalne)' 'COOP - playing with friends over the Internet (experimental)')
+    $dialog.Text = $(if ($JoinOnly) { 'COOP - dołączam do świata znajomego' } else { 'COOP - gra ze znajomymi przez internet (eksperymentalne)' })
     $dialog.Size = [Drawing.Size]::new(660, 600)
     $dialog.StartPosition = 'CenterParent'
     $dialog.FormBorderStyle = 'FixedDialog'
@@ -2730,10 +2699,10 @@ function Show-CoopDialog {
     $tabs.Size = [Drawing.Size]::new(626, 500)
     $dialog.Controls.Add($tabs)
     $hostTab = [Windows.Forms.TabPage]::new()
-    $hostTab.Text = (UI-Text 'Hostuję swój świat' 'I host my world')
+    $hostTab.Text = 'Hostuję swój świat'
     $joinTab = [Windows.Forms.TabPage]::new()
-    $joinTab.Text = (UI-Text 'Dołączam do znajomego' 'I join a friend')
-    $tabs.TabPages.Add($hostTab)
+    $joinTab.Text = 'Dołączam do znajomego'
+    if (-not $JoinOnly) { $tabs.TabPages.Add($hostTab) }
     $tabs.TabPages.Add($joinTab)
 
     # ------------------------------------------------------------ host tab
@@ -2744,7 +2713,7 @@ function Show-CoopDialog {
     $hostTab.Controls.Add($status)
 
     $friendsLabel = [Windows.Forms.Label]::new()
-    $friendsLabel.Text = (UI-Text 'Znajomi (każdy ma własne konto w Twoim świecie):' 'Friends (each has their own account in your world):')
+    $friendsLabel.Text = 'Znajomi (każdy ma własne konto w Twoim świecie):'
     $friendsLabel.Location = [Drawing.Point]::new(12, 90)
     $friendsLabel.Size = [Drawing.Size]::new(400, 20)
     $hostTab.Controls.Add($friendsLabel)
@@ -2756,16 +2725,16 @@ function Show-CoopDialog {
     $list.MultiSelect = $false
     $list.Location = [Drawing.Point]::new(12, 112)
     $list.Size = [Drawing.Size]::new(430, 150)
-    [void]$list.Columns.Add((UI-Text 'Znajomy' 'Friend'), 170)
+    [void]$list.Columns.Add('Znajomy', 170)
     [void]$list.Columns.Add('Login', 130)
-    [void]$list.Columns.Add((UI-Text 'Stan' 'Status'), 110)
+    [void]$list.Columns.Add('Stan', 110)
     $hostTab.Controls.Add($list)
 
     # How the world is offered. A host the Internet cannot reach (CGNAT, a
     # second router) is offered through a VPN both players are in; the VPNs
     # are read off this machine's adapters when the window opens.
     $viaLabel = [Windows.Forms.Label]::new()
-    $viaLabel.Text = (UI-Text 'Połączenie:' 'Connection:')
+    $viaLabel.Text = 'Połączenie:'
     $viaLabel.Location = [Drawing.Point]::new(12, 276)
     $viaLabel.Size = [Drawing.Size]::new(80, 20)
     $hostTab.Controls.Add($viaLabel)
@@ -2777,14 +2746,14 @@ function Show-CoopDialog {
     $viaValues = New-Object System.Collections.Generic.List[string]
     # Auto takes the VPN also when the router opens no port at all
     # (Resolve-M2CoopRouterFallback), which the label has to say.
-    [void]$viaBox.Items.Add((UI-Text 'Automatycznie (internet, a gdy router nie da rady - VPN)' 'Automatic (Internet, and a VPN when the router cannot)'))
+    [void]$viaBox.Items.Add('Automatycznie (internet, a gdy router nie da rady - VPN)')
     $viaValues.Add('auto')
-    [void]$viaBox.Items.Add((UI-Text 'Internet (porty w routerze, UPnP)' 'Internet (router ports, UPnP)'))
+    [void]$viaBox.Items.Add('Internet (porty w routerze, UPnP)')
     $viaValues.Add('internet')
     $viaFound = @()
     try { $viaFound = @(Get-M2CoopVpnAdapters) } catch { $viaFound = @() }
     foreach ($vpn in $viaFound) {
-        [void]$viaBox.Items.Add(((UI-Text '{0} - adres {1}' '{0} - address {1}') -f $vpn.Name, $vpn.Address))
+        [void]$viaBox.Items.Add(('{0} - adres {1}' -f $vpn.Name, $vpn.Address))
         $viaValues.Add([string]$vpn.Kind)
     }
     $viaBox.SelectedIndex = 0
@@ -2799,33 +2768,33 @@ function Show-CoopDialog {
     catch { }
 
     $addButton = [Windows.Forms.Button]::new()
-    $addButton.Text = (UI-Text 'Dodaj znajomego' 'Add a friend')
+    $addButton.Text = 'Dodaj znajomego'
     $addButton.Location = [Drawing.Point]::new(452, 112)
     $addButton.Size = [Drawing.Size]::new(154, 32)
     $hostTab.Controls.Add($addButton)
     $inviteButton = [Windows.Forms.Button]::new()
-    $inviteButton.Text = (UI-Text 'Kod zaproszenia' 'Invite code')
+    $inviteButton.Text = 'Kod zaproszenia'
     $inviteButton.Location = [Drawing.Point]::new(452, 150)
     $inviteButton.Size = [Drawing.Size]::new(154, 32)
     $hostTab.Controls.Add($inviteButton)
     $blockButton = [Windows.Forms.Button]::new()
-    $blockButton.Text = (UI-Text 'Zablokuj / odblokuj' 'Block / unblock')
+    $blockButton.Text = 'Zablokuj / odblokuj'
     $blockButton.Location = [Drawing.Point]::new(452, 188)
     $blockButton.Size = [Drawing.Size]::new(154, 32)
     $hostTab.Controls.Add($blockButton)
     $secureButton = [Windows.Forms.Button]::new()
-    $secureButton.Text = (UI-Text 'Zabezpiecz konta' 'Secure the accounts')
+    $secureButton.Text = 'Zabezpiecz konta'
     $secureButton.Location = [Drawing.Point]::new(452, 232)
     $secureButton.Size = [Drawing.Size]::new(154, 32)
     $hostTab.Controls.Add($secureButton)
     $passwordsButton = [Windows.Forms.Button]::new()
-    $passwordsButton.Text = (UI-Text 'Moje hasła' 'My passwords')
+    $passwordsButton.Text = 'Moje hasła'
     $passwordsButton.Location = [Drawing.Point]::new(452, 270)
     $passwordsButton.Size = [Drawing.Size]::new(154, 32)
     $hostTab.Controls.Add($passwordsButton)
 
     $hostButton = [Windows.Forms.Button]::new()
-    $hostButton.Text = (UI-Text 'HOSTUJ ŚWIAT' 'HOST THE WORLD')
+    $hostButton.Text = 'HOSTUJ ŚWIAT'
     $hostButton.Location = [Drawing.Point]::new(12, 316)
     $hostButton.Size = [Drawing.Size]::new(200, 42)
     $hostButton.BackColor = [Drawing.Color]::FromArgb(27, 150, 88)
@@ -2834,7 +2803,7 @@ function Show-CoopDialog {
     $hostButton.Font = [Drawing.Font]::new('Segoe UI Semibold', 10)
     $hostTab.Controls.Add($hostButton)
     $stopButtonCoop = [Windows.Forms.Button]::new()
-    $stopButtonCoop.Text = (UI-Text 'ZAKOŃCZ HOSTOWANIE' 'STOP HOSTING')
+    $stopButtonCoop.Text = 'ZAKOŃCZ HOSTOWANIE'
     $stopButtonCoop.Location = [Drawing.Point]::new(222, 316)
     $stopButtonCoop.Size = [Drawing.Size]::new(200, 42)
     $stopButtonCoop.BackColor = [Drawing.Color]::FromArgb(180, 75, 55)
@@ -2843,18 +2812,18 @@ function Show-CoopDialog {
     $stopButtonCoop.Font = [Drawing.Font]::new('Segoe UI Semibold', 10)
     $hostTab.Controls.Add($stopButtonCoop)
     $checkButton = [Windows.Forms.Button]::new()
-    $checkButton.Text = (UI-Text 'Sprawdź sieć' 'Check the network')
+    $checkButton.Text = 'Sprawdź sieć'
     $checkButton.Location = [Drawing.Point]::new(452, 316)
     $checkButton.Size = [Drawing.Size]::new(154, 42)
     $hostTab.Controls.Add($checkButton)
 
     $hostHelp = [Windows.Forms.Label]::new()
-    $hostHelp.Text = ((UI-Text 'Kolejność: Zabezpiecz konta, Dodaj znajomego, HOSTUJ ŚWIAT, a potem Kod zaproszenia - ' 'Order: Secure the accounts, Add a friend, HOST THE WORLD, then Invite code - ') +
-        (UI-Text 'skopiuj go i wyślij znajomemu w prywatnej wiadomości (zawiera hasło). Hostowanie uruchamia ponownie ' 'copy it and send it to your friend in a private message (it holds the password). Hosting restarts ') +
-        (UI-Text 'serwer gry (około minuty) i prosi Windows o zgodę na regułę zapory dla portów 11000 i 13000-13002; ' 'the game server (about a minute) and asks Windows to allow a firewall rule for ports 11000 and 13000-13002; ') +
-        (UI-Text 'przez internet otwiera je w routerze (UPnP). Gdy operator nie daje publicznego adresu (CGNAT - częste ' 'over the Internet it opens them in the router (UPnP). When your provider gives no public address (CGNAT - common ') +
-        (UI-Text 'w internecie komórkowym), zainstalujcie Radmin VPN albo Tailscale i połączcie się w jednej sieci: ' 'on mobile Internet), both of you install Radmin VPN or Tailscale and join one network: ') +
-        (UI-Text 'launcher ją wykryje i hostuje przez nią, bez routera. Ty grasz dalej na serwerze 1, znajomy na serwerze Online.' 'the launcher detects it and hosts through it, without the router. You go on playing on server 1, your friend on the Online server.'))
+    $hostHelp.Text = ('Kolejność: Zabezpiecz konta, Dodaj znajomego, HOSTUJ ŚWIAT, a potem Kod zaproszenia - ' +
+        'skopiuj go i wyślij znajomemu w prywatnej wiadomości (zawiera hasło). Hostowanie uruchamia ponownie ' +
+        'serwer gry (około minuty) i prosi Windows o zgodę na regułę zapory dla portów 11000 i 13000-13002; ' +
+        'przez internet otwiera je w routerze (UPnP). Gdy operator nie daje publicznego adresu (CGNAT - częste ' +
+        'w internecie komórkowym), zainstalujcie Radmin VPN albo Tailscale i połączcie się w jednej sieci: ' +
+        'launcher ją wykryje i hostuje przez nią, bez routera. Ty grasz dalej na serwerze 1, znajomy na serwerze Online.')
     $hostHelp.Location = [Drawing.Point]::new(12, 368)
     $hostHelp.Size = [Drawing.Size]::new(594, 96)
     $hostHelp.ForeColor = [Drawing.Color]::DimGray
@@ -2862,8 +2831,8 @@ function Show-CoopDialog {
 
     # ------------------------------------------------------------ join tab
     $joinInfo = [Windows.Forms.Label]::new()
-    $joinInfo.Text = ((UI-Text 'Wklej kod zaproszenia, który dostałeś od znajomego (zaczyna się od M2COOP1:). ' 'Paste the invite code you got from your friend (it begins with M2COOP1:). ') +
-        (UI-Text 'Launcher dopisze jego świat do Twojego klienta jako drugi serwer na liście.' 'The launcher adds their world to your client as the second server on the list.'))
+    $joinInfo.Text = ('Wklej kod zaproszenia, który dostałeś od znajomego (zaczyna się od M2COOP1:). ' +
+        'Launcher dopisze jego świat do Twojego klienta jako drugi serwer na liście.')
     $joinInfo.Location = [Drawing.Point]::new(12, 12)
     $joinInfo.Size = [Drawing.Size]::new(594, 40)
     $joinTab.Controls.Add($joinInfo)
@@ -2876,12 +2845,12 @@ function Show-CoopDialog {
     $codeBox.Font = [Drawing.Font]::new('Consolas', 9)
     $joinTab.Controls.Add($codeBox)
     $joinButton = [Windows.Forms.Button]::new()
-    $joinButton.Text = (UI-Text 'Zapisz w kliencie' 'Save in the client')
+    $joinButton.Text = 'Zapisz w kliencie'
     $joinButton.Location = [Drawing.Point]::new(12, 176)
     $joinButton.Size = [Drawing.Size]::new(200, 36)
     $joinTab.Controls.Add($joinButton)
     $forgetButton = [Windows.Forms.Button]::new()
-    $forgetButton.Text = (UI-Text 'Usuń świat znajomego z listy' 'Remove the friend''s world from the list')
+    $forgetButton.Text = 'Usuń świat znajomego z listy'
     $forgetButton.Location = [Drawing.Point]::new(222, 176)
     $forgetButton.Size = [Drawing.Size]::new(220, 36)
     $joinTab.Controls.Add($forgetButton)
@@ -2892,7 +2861,7 @@ function Show-CoopDialog {
     $joinTab.Controls.Add($joinStatus)
 
     $closeButton = [Windows.Forms.Button]::new()
-    $closeButton.Text = (UI-Text 'Zamknij' 'Close')
+    $closeButton.Text = 'Zamknij'
     $closeButton.Location = [Drawing.Point]::new(536, 518)
     $closeButton.Size = [Drawing.Size]::new(100, 32)
     $closeButton.DialogResult = [Windows.Forms.DialogResult]::Cancel
@@ -2900,36 +2869,41 @@ function Show-CoopDialog {
     $dialog.CancelButton = $closeButton
 
     $refresh = {
-        $state = Read-M2CoopState -ServerRoot $root
-        $bindings = Get-M2CoopGameBindings -ServerRoot $root
-        $lines = @()
-        $ruleText = $(if (Test-M2CoopFirewallRule) { (UI-Text 'reguła zapory jest' 'the firewall rule is there') } else { (UI-Text 'BRAK reguły zapory - HOSTUJ ŚWIAT o nią poprosi' 'NO firewall rule - HOST THE WORLD will ask for it') })
-        if (-not $bindings.Running) { $lines += (UI-Text 'Serwer gry: nie działa - najpierw GRAJ.' 'Game server: not running - PLAY first.') }
-        elseif ($bindings.Public) { $lines += ((UI-Text 'Hostowanie: WŁĄCZONE - porty gry są otwarte dla sieci ({0}).' 'Hosting: ON - the game ports are open to the network ({0}).') -f $ruleText) }
-        else { $lines += (UI-Text 'Hostowanie: wyłączone - porty gry słuchają tylko na tym komputerze.' 'Hosting: off - the game ports listen on this computer only.') }
-        $public = ''; $viaName = ''
-        if ($state.hosting) {
-            $fields = @($state.hosting.PSObject.Properties.Name)
-            if (($fields -contains 'friendAddress') -and [string]$state.hosting.friendAddress) { $public = [string]$state.hosting.friendAddress }
-            elseif (($fields -contains 'publicAddress') -and [string]$state.hosting.publicAddress) { $public = [string]$state.hosting.publicAddress }
-            if (($fields -contains 'mode') -and [string]$state.hosting.mode -eq 'vpn' -and ($fields -contains 'vpnName')) { $viaName = [string]$state.hosting.vpnName }
-        }
-        if ($public -and $viaName) { $lines += ((UI-Text 'Adres dla znajomych (ostatnio): {0}, przez {1}' 'Address for friends (last time): {0}, through {1}') -f $public, $viaName) }
-        elseif ($public) { $lines += ((UI-Text 'Adres dla znajomych (ostatnio): {0}' 'Address for friends (last time): {0}') -f $public) }
-        $defaults = @()
-        try { $defaults = @(Get-M2CoopDefaultPasswordAccounts -ServerRoot $root) }
-        catch { $lines += (UI-Text 'Baza nie odpowiada - uruchom serwer (GRAJ).' 'The database is not answering - start the server (PLAY).') }
-        if ($defaults.Count -gt 0) { $lines += ((UI-Text 'UWAGA: konta {0} mają hasła z paczki - kliknij Zabezpiecz konta.' 'WARNING: the accounts {0} have the package''s passwords - click Secure the accounts.') -f ($defaults -join ', ')) }
-        else { $lines += (UI-Text 'Konta admin i test: hasła zmienione.' 'The admin and test accounts: passwords changed.') }
-        $status.Text = ($lines -join [Environment]::NewLine)
-        $status.ForeColor = $(if ($defaults.Count -gt 0) { [Drawing.Color]::DarkRed } else { [Drawing.Color]::Black })
-        $list.Items.Clear()
-        foreach ($f in @($state.friends)) {
-            $item = [Windows.Forms.ListViewItem]::new([string]$f.name)
-            [void]$item.SubItems.Add([string]$f.login)
-            [void]$item.SubItems.Add($(if ($f.blocked) { (UI-Text 'zablokowany' 'blocked') } else { (UI-Text 'aktywny' 'active') }))
-            $item.Tag = [string]$f.login
-            [void]$list.Items.Add($item)
+        if (-not $JoinOnly) {
+            $state = Read-M2CoopState -ServerRoot $root
+            $bindings = Get-M2CoopGameBindings -ServerRoot $root
+            $lines = @()
+            $gamePorts = @(Get-M2CoopGamePorts -ServerRoot $root)
+            $ruleText = $(if (Test-M2CoopFirewallRule -Ports $gamePorts) { 'reguła zapory jest' }
+                elseif (Test-M2CoopFirewallRule) { 'reguła zapory BEZ części portów gry - HOSTUJ ŚWIAT ją poprawi' }
+                else { 'BRAK reguły zapory - HOSTUJ ŚWIAT o nią poprosi' })
+            if (-not $bindings.Running) { $lines += 'Serwer gry: nie działa - najpierw GRAJ.' }
+            elseif ($bindings.Public) { $lines += ('Hostowanie: WŁĄCZONE - porty gry są otwarte dla sieci ({0}).' -f $ruleText) }
+            else { $lines += 'Hostowanie: wyłączone - porty gry słuchają tylko na tym komputerze.' }
+            $public = ''; $viaName = ''
+            if ($state.hosting) {
+                $fields = @($state.hosting.PSObject.Properties.Name)
+                if (($fields -contains 'friendAddress') -and [string]$state.hosting.friendAddress) { $public = [string]$state.hosting.friendAddress }
+                elseif (($fields -contains 'publicAddress') -and [string]$state.hosting.publicAddress) { $public = [string]$state.hosting.publicAddress }
+                if (($fields -contains 'mode') -and [string]$state.hosting.mode -eq 'vpn' -and ($fields -contains 'vpnName')) { $viaName = [string]$state.hosting.vpnName }
+            }
+            if ($public -and $viaName) { $lines += ('Adres dla znajomych (ostatnio): {0}, przez {1}' -f $public, $viaName) }
+            elseif ($public) { $lines += ('Adres dla znajomych (ostatnio): {0}' -f $public) }
+            $defaults = @()
+            try { $defaults = @(Get-M2CoopDefaultPasswordAccounts -ServerRoot $root) }
+            catch { $lines += 'Baza nie odpowiada - uruchom serwer (GRAJ).' }
+            if ($defaults.Count -gt 0) { $lines += ('UWAGA: konta {0} mają hasła z paczki - kliknij Zabezpiecz konta.' -f ($defaults -join ', ')) }
+            else { $lines += 'Konta admin i test: hasła zmienione.' }
+            $status.Text = ($lines -join [Environment]::NewLine)
+            $status.ForeColor = $(if ($defaults.Count -gt 0) { [Drawing.Color]::DarkRed } else { [Drawing.Color]::Black })
+            $list.Items.Clear()
+            foreach ($f in @($state.friends)) {
+                $item = [Windows.Forms.ListViewItem]::new([string]$f.name)
+                [void]$item.SubItems.Add([string]$f.login)
+                [void]$item.SubItems.Add($(if ($f.blocked) { 'zablokowany' } else { 'aktywny' }))
+                $item.Tag = [string]$f.login
+                [void]$list.Items.Add($item)
+            }
         }
         $client = Get-CoopClientFolder
         $cfg = $(if ($client) { Join-Path $client 'coop.cfg' } else { '' })
@@ -2938,17 +2912,17 @@ function Show-CoopDialog {
             $name = ''; $hostName = ''
             if ($text -match '(?m)^name=(.*)$') { $name = $Matches[1].Trim() }
             if ($text -match '(?m)^host=(.*)$') { $hostName = $Matches[1].Trim() }
-            $joinStatus.Text = ((UI-Text "W Twoim kliencie jest świat znajomego: {0} ({1}).`r`nW kliencie wybierz serwer 'Online: {0}'." "Your client has a friend's world: {0} ({1}).`r`nIn the client choose the server 'Online: {0}'.") -f $name, $hostName)
+            $joinStatus.Text = ("W Twoim kliencie jest świat znajomego: {0} ({1}).`r`nW kliencie wybierz serwer 'Online: {0}'." -f $name, $hostName)
             $joinVpn = Get-M2CoopVpnProduct -Kind (Get-M2CoopVpnKindForAddress $hostName)
-            if ($joinVpn) { $joinStatus.Text += ((UI-Text "`r`nTen adres jest w sieci {0} - gra połączy się, gdy {0} jest włączony i jesteś w sieci znajomego." "`r`nThis address is in the {0} network - the game connects when {0} is on and you are in your friend's network.") -f $joinVpn.Name) }
+            if ($joinVpn) { $joinStatus.Text += ("`r`nTen adres jest w sieci {0} - gra połączy się, gdy {0} jest włączony i jesteś w sieci znajomego." -f $joinVpn.Name) }
         }
-        elseif ($client) { $joinStatus.Text = (UI-Text 'W Twoim kliencie nie ma jeszcze świata znajomego.' 'Your client has no friend''s world yet.') }
-        else { $joinStatus.Text = (UI-Text 'Nie wiem, gdzie jest klient - wskaż go przyciskiem WYBIERZ KLIENTA w oknie launchera.' 'I do not know where the client is - point to it with the CHOOSE CLIENT button in the launcher window.') }
+        elseif ($client) { $joinStatus.Text = 'W Twoim kliencie nie ma jeszcze świata znajomego.' }
+        else { $joinStatus.Text = 'Nie wiem, gdzie jest klient - wskaż go przyciskiem WYBIERZ KLIENTA w oknie launchera.' }
     }
 
     $selectedFriend = {
         if ($list.SelectedItems.Count -eq 0) {
-            [Windows.Forms.MessageBox]::Show((UI-Text 'Zaznacz znajomego na liście.' 'Select a friend on the list.'), 'COOP', 'OK', 'Information') | Out-Null
+            [Windows.Forms.MessageBox]::Show('Zaznacz znajomego na liście.', 'COOP', 'OK', 'Information') | Out-Null
             return $null
         }
         $login = [string]$list.SelectedItems[0].Tag
@@ -2957,15 +2931,15 @@ function Show-CoopDialog {
     }
 
     $addButton.Add_Click({
-        $name = [Microsoft.VisualBasic.Interaction]::InputBox((UI-Text 'Imię albo nick znajomego (z niego powstanie login):' 'Your friend''s name or nick (the login is made from it):'), (UI-Text 'Dodaj znajomego' 'Add a friend'), '')
+        $name = [Microsoft.VisualBasic.Interaction]::InputBox('Imię albo nick znajomego (z niego powstanie login):', 'Dodaj znajomego', '')
         if (-not $name) { return }
         try {
             $friend = New-M2CoopFriend -ServerRoot $root -Name $name
-            Write-LocalLog ((UI-Text "COOP: dodano konto znajomego, login {0}." "COOP: a friend's account added, login {0}.") -f $friend.login)
+            Write-LocalLog ("COOP: dodano konto znajomego, login {0}." -f $friend.login)
             & $refresh
-            Show-CoopSecretDialog -Title (UI-Text 'Nowy znajomy' 'New friend') `
-                -Intro ((UI-Text "Konto gotowe. Login i hasło są też w kodzie zaproszenia - wyślij znajomemu kod (przycisk Kod zaproszenia) po włączeniu hostowania." "The account is ready. The login and password are also in the invite code - send your friend the code (the Invite code button) once hosting is on.")) `
-                -Secret ((UI-Text "Login: {0}`r`nHasło: {1}`r`nKod usuwania postaci: {2}" "Login: {0}`r`nPassword: {1}`r`nCharacter deletion code: {2}") -f $friend.login, $friend.password, $friend.socialId)
+            Show-CoopSecretDialog -Title 'Nowy znajomy' `
+                -Intro ("Konto gotowe. Login i hasło są też w kodzie zaproszenia - wyślij znajomemu kod (przycisk Kod zaproszenia) po włączeniu hostowania.") `
+                -Secret ("Login: {0}`r`nHasło: {1}`r`nKod usuwania postaci: {2}" -f $friend.login, $friend.password, $friend.socialId)
         }
         catch { [Windows.Forms.MessageBox]::Show($_.Exception.Message, 'COOP', 'OK', 'Error') | Out-Null }
     })
@@ -2973,21 +2947,21 @@ function Show-CoopDialog {
     $inviteButton.Add_Click({
         $friend = & $selectedFriend
         if (-not $friend) { return }
-        if ($friend.blocked) { [Windows.Forms.MessageBox]::Show((UI-Text 'To konto jest zablokowane - najpierw je odblokuj.' 'This account is blocked - unblock it first.'), 'COOP', 'OK', 'Information') | Out-Null; return }
+        if ($friend.blocked) { [Windows.Forms.MessageBox]::Show('To konto jest zablokowane - najpierw je odblokuj.', 'COOP', 'OK', 'Information') | Out-Null; return }
         $dialog.Cursor = [Windows.Forms.Cursors]::WaitCursor
         $target = Get-M2CoopInviteTarget -ServerRoot $root
         $dialog.Cursor = [Windows.Forms.Cursors]::Default
         if (-not $target.Address) {
-            $why = $(if ($target.Vpn) { ((UI-Text 'Nie udało się odczytać Twojego adresu w {0} - uruchom go i spróbuj jeszcze raz.' 'Could not read your address in {0} - start it and try again.') -f $target.VpnName) } else { (UI-Text 'Nie udało się odczytać Twojego adresu w internecie.' 'Could not read your address on the Internet.') })
+            $why = $(if ($target.Vpn) { ('Nie udało się odczytać Twojego adresu w {0} - uruchom go i spróbuj jeszcze raz.' -f $target.VpnName) } else { 'Nie udało się odczytać Twojego adresu w internecie.' })
             [Windows.Forms.MessageBox]::Show($why, 'COOP', 'OK', 'Warning') | Out-Null
             return
         }
         $code = Get-M2CoopFriendInvite -ServerRoot $root -Friend $friend -HostAddress $target.Address -Vpn $target.Vpn -Lan $target.Lan
         try { [Windows.Forms.Clipboard]::SetText($code) } catch { }
-        Write-LocalLog ((UI-Text "COOP: skopiowano kod zaproszenia dla loginu {0}." "COOP: the invite code copied for the login {0}.") -f $friend.login)
-        $intro = (UI-Text 'Kod jest już w schowku. Wyślij go znajomemu w prywatnej wiadomości - zawiera jego hasło. Znajomy wkleja go w swoim launcherze (przycisk COOP) albo w pliku Dolacz.bat w folderze klienta.' 'The code is already in the clipboard. Send it to your friend in a private message - it holds their password. Your friend pastes it in their launcher (the COOP button) or into Dolacz.bat in the client folder.')
-        if ($target.Vpn) { $intro = ((UI-Text 'Kod jest już w schowku i prowadzi na Twój adres w {0}: znajomy musi najpierw dołączyć do Twojej sieci {0}. Wyślij mu kod w prywatnej wiadomości - zawiera jego hasło.' 'The code is already in the clipboard and leads to your address in {0}: your friend must first join your {0} network. Send them the code in a private message - it holds their password.') -f $target.VpnName) }
-        Show-CoopSecretDialog -Title ((UI-Text 'Kod zaproszenia - ' 'Invite code - ') + [string]$friend.name) -Intro $intro -Secret $code
+        Write-LocalLog ("COOP: skopiowano kod zaproszenia dla loginu {0}." -f $friend.login)
+        $intro = 'Kod jest już w schowku. Wyślij go znajomemu w prywatnej wiadomości - zawiera jego hasło. Znajomy wkleja go w swoim launcherze (przycisk COOP) albo w pliku Dolacz.bat w folderze klienta.'
+        if ($target.Vpn) { $intro = ('Kod jest już w schowku i prowadzi na Twój adres w {0}: znajomy musi najpierw dołączyć do Twojej sieci {0}. Wyślij mu kod w prywatnej wiadomości - zawiera jego hasło.' -f $target.VpnName) }
+        Show-CoopSecretDialog -Title ('Kod zaproszenia - ' + [string]$friend.name) -Intro $intro -Secret $code
     })
 
     $blockButton.Add_Click({
@@ -2995,7 +2969,7 @@ function Show-CoopDialog {
         if (-not $friend) { return }
         try {
             Set-M2CoopFriendBlocked -ServerRoot $root -Login ([string]$friend.login) -Blocked (-not [bool]$friend.blocked)
-            Write-LocalLog ((UI-Text "COOP: konto {0} {1}." "COOP: account {0} {1}.") -f $friend.login, $(if ($friend.blocked) { (UI-Text 'odblokowane' 'unblocked') } else { (UI-Text 'zablokowane' 'blocked') }))
+            Write-LocalLog ("COOP: konto {0} {1}." -f $friend.login, $(if ($friend.blocked) { 'odblokowane' } else { 'zablokowane' }))
             & $refresh
         }
         catch { [Windows.Forms.MessageBox]::Show($_.Exception.Message, 'COOP', 'OK', 'Error') | Out-Null }
@@ -3007,13 +2981,13 @@ function Show-CoopDialog {
             $names = @($changed.PSObject.Properties | ForEach-Object { $_.Name })
             & $refresh
             if ($names.Count -eq 0) {
-                [Windows.Forms.MessageBox]::Show((UI-Text 'Konta admin i test nie mają już haseł z paczki.' 'The admin and test accounts no longer have the package''s passwords.'), 'COOP', 'OK', 'Information') | Out-Null
+                [Windows.Forms.MessageBox]::Show('Konta admin i test nie mają już haseł z paczki.', 'COOP', 'OK', 'Information') | Out-Null
                 return
             }
-            Write-LocalLog ((UI-Text "COOP: zmieniono hasła kont {0}." "COOP: the passwords of the accounts {0} changed.") -f ($names -join ', '))
-            $text = ($names | ForEach-Object { (UI-Text "Konto {0}: hasło {1}" "Account {0}, password: {1}") -f $_, $changed.$_ }) -join "`r`n"
-            Show-CoopSecretDialog -Title (UI-Text 'Nowe hasła' 'New passwords') `
-                -Intro (UI-Text 'Od teraz logujesz się na te konta tymi hasłami (w kliencie wpisz je zamiast starych). Launcher je pamięta - przycisk Moje hasła.' 'From now on you log in to these accounts with these passwords (type them in the client instead of the old ones). The launcher remembers them - the My passwords button.') `
+            Write-LocalLog ("COOP: zmieniono hasła kont {0}." -f ($names -join ', '))
+            $text = ($names | ForEach-Object { "Konto {0}: hasło {1}" -f $_, $changed.$_ }) -join "`r`n"
+            Show-CoopSecretDialog -Title 'Nowe hasła' `
+                -Intro 'Od teraz logujesz się na te konta tymi hasłami (w kliencie wpisz je zamiast starych). Launcher je pamięta - przycisk Moje hasła.' `
                 -Secret $text
         }
         catch { [Windows.Forms.MessageBox]::Show($_.Exception.Message, 'COOP', 'OK', 'Error') | Out-Null }
@@ -3023,42 +2997,43 @@ function Show-CoopDialog {
         $state = Read-M2CoopState -ServerRoot $root
         $lines = @()
         if ($state.PSObject.Properties.Name -contains 'accounts' -and $state.accounts) {
-            foreach ($p in $state.accounts.PSObject.Properties) { $lines += ((UI-Text "Konto {0}: hasło {1}" "Account {0}, password: {1}") -f $p.Name, $p.Value) }
+            foreach ($p in $state.accounts.PSObject.Properties) { $lines += ("Konto {0}: hasło {1}" -f $p.Name, $p.Value) }
         }
-        foreach ($f in @($state.friends)) { $lines += ((UI-Text "Znajomy {0}: login {1}, hasło {2}" "Friend {0}: login {1}, password: {2}") -f $f.name, $f.login, $f.password) }
-        if ($lines.Count -eq 0) { $lines += (UI-Text 'Launcher nie zmieniał jeszcze żadnego hasła.' 'The launcher has not changed any password yet.') }
-        Show-CoopSecretDialog -Title (UI-Text 'Hasła COOP' 'COOP passwords') -Intro (UI-Text 'Hasła kont zmienionych i założonych przez okno COOP.' 'Passwords of the accounts changed and created in the COOP window.') -Secret ($lines -join "`r`n")
+        foreach ($f in @($state.friends)) { $lines += ("Znajomy {0}: login {1}, hasło {2}" -f $f.name, $f.login, $f.password) }
+        if ($lines.Count -eq 0) { $lines += 'Launcher nie zmieniał jeszcze żadnego hasła.' }
+        Show-CoopSecretDialog -Title 'Hasła COOP' -Intro 'Hasła kont zmienionych i założonych przez okno COOP.' -Secret ($lines -join "`r`n")
     })
 
     $hostButton.Add_Click({
         try { $defaults = @(Get-M2CoopDefaultPasswordAccounts -ServerRoot $root) }
-        catch { [Windows.Forms.MessageBox]::Show((UI-Text 'Baza nie odpowiada - uruchom najpierw serwer (GRAJ).' 'The database is not answering - start the server first (PLAY).'), 'COOP', 'OK', 'Warning') | Out-Null; return }
+        catch { [Windows.Forms.MessageBox]::Show('Baza nie odpowiada - uruchom najpierw serwer (GRAJ).', 'COOP', 'OK', 'Warning') | Out-Null; return }
         if ($defaults.Count -gt 0) {
-            [Windows.Forms.MessageBox]::Show(((UI-Text 'Konta {0} mają hasła z paczki - każdy w internecie mógłby się na nie zalogować. Najpierw kliknij Zabezpiecz konta.' 'The accounts {0} have the package''s passwords - anybody on the Internet could log in to them. Click Secure the accounts first.') -f ($defaults -join ', ')), 'COOP', 'OK', 'Warning') | Out-Null
+            [Windows.Forms.MessageBox]::Show(('Konta {0} mają hasła z paczki - każdy w internecie mógłby się na nie zalogować. Najpierw kliknij Zabezpiecz konta.' -f ($defaults -join ', ')), 'COOP', 'OK', 'Warning') | Out-Null
             return
         }
         $via = $viaValues[[Math]::Max(0, $viaBox.SelectedIndex)]
-        $routerLine = (UI-Text "- otworzy te porty w routerze (UPnP), a gdy operator nie daje publicznego adresu (CGNAT), użyje VPN, jeśli go wykryje." "- open these ports in the router (UPnP), and when your provider gives no public address (CGNAT), use a VPN if it finds one.")
-        if ($via -eq 'internet') { $routerLine = (UI-Text '- otworzy te porty w routerze (UPnP).' '- open these ports in the router (UPnP).') }
+        $routerLine = "- otworzy te porty w routerze (UPnP), a gdy operator nie daje publicznego adresu (CGNAT), użyje VPN, jeśli go wykryje."
+        if ($via -eq 'internet') { $routerLine = '- otworzy te porty w routerze (UPnP).' }
         elseif ($via -ne 'auto') {
             $product = Get-M2CoopVpnProduct -Kind $via
-            $routerLine = ((UI-Text "- niczego nie otwiera w routerze: znajomi łączą się przez {0}, w Twojej sieci." "- open nothing in the router: friends connect through {0}, in your network.") -f $(if ($product) { $product.Name } else { 'VPN' }))
+            $routerLine = ("- niczego nie otwiera w routerze: znajomi łączą się przez {0}, w Twojej sieci." -f $(if ($product) { $product.Name } else { 'VPN' }))
         }
         $answer = [Windows.Forms.MessageBox]::Show(
-            ((UI-Text "Hostowanie:`r`n- uruchomi ponownie serwer gry (około minuty) - wyloguj się z gry,`r`n" "Hosting will:`r`n- restart the game server (about a minute) - log out of the game,`r`n") +
-             (UI-Text "- poprosi Windows o zgodę na regułę zapory dla portów gry (wybierz Tak),`r`n" "- ask Windows to allow a firewall rule for the game ports (choose Yes),`r`n") +
-             $routerLine + (UI-Text "`r`n`r`nKontynuować?" "`r`n`r`nContinue?")), (UI-Text 'Hostuj świat' 'Host the world'), 'YesNo', 'Question')
+            ("Hostowanie:`r`n- uruchomi ponownie serwer gry (około minuty) - wyloguj się z gry,`r`n" +
+             "- poprosi Windows o zgodę na regułę zapory dla portów gry (wybierz Tak),`r`n" +
+             $routerLine + "`r`n`r`nKontynuować?"), 'Hostuj świat', 'YesNo', 'Question')
         if ($answer -ne [Windows.Forms.DialogResult]::Yes) { return }
         # The rule is asked for here, by the window the player just clicked:
         # Windows puts the question of a process in front on the screen, and
         # the question of the hidden action only on the taskbar, where
         # xXxDaronxXx's went unanswered twice (24 September).
-        if (-not (Test-M2CoopFirewallRule)) {
+        if (-not (Test-M2CoopFirewallRule -Ports (Get-M2CoopGamePorts -ServerRoot $root))) {
             $dialog.Cursor = [Windows.Forms.Cursors]::WaitCursor
             $ruleAdded = $false
-            try { $ruleAdded = [bool](Add-M2CoopFirewallRule -Ports (Get-M2CoopGamePorts -ServerRoot $root)) } catch { $ruleAdded = $false }
+            try { $ruleAdded = [bool](Add-M2CoopFirewallRule -Ports (Get-M2CoopGamePorts -ServerRoot $root)) } catch { $ruleAdded = $false; $global:M2CoopFirewallError = [string]$_.Exception.Message }
             $dialog.Cursor = [Windows.Forms.Cursors]::Default
-            Write-LocalLog ((UI-Text "COOP: regula zapory {0}." "COOP: firewall rule {0}.") -f $(if ($ruleAdded) { (UI-Text 'dodana z okna' 'added from the window') } else { (UI-Text 'nie dodana (odmowa zgody)' 'not added (permission refused)') }))
+            # MT2009_PLUS_COOP_FIREWALL_V1: why it was not added, in the log.
+            Write-LocalLog ("COOP: regula zapory {0}." -f $(if ($ruleAdded) { 'dodana z okna' } else { 'nie dodana ({0})' -f $(if ($global:M2CoopFirewallError) { $global:M2CoopFirewallError } else { 'odmowa zgody' }) }))
         }
         $dialog.Close()
         Start-LauncherAction -Action 'CoopHost' -Yes -ExtraArgs @('-CoopVia', $via, '-CoopFirewallAsked')
@@ -3066,8 +3041,8 @@ function Show-CoopDialog {
 
     $stopButtonCoop.Add_Click({
         $answer = [Windows.Forms.MessageBox]::Show(
-            (UI-Text "Zakończenie hostowania zamknie porty w routerze i uruchomi ponownie serwer gry (około minuty). Znajomi zostaną rozłączeni.`r`n`r`nKontynuować?" "Stopping hosting closes the ports in the router and restarts the game server (about a minute). Your friends will be disconnected.`r`n`r`nContinue?"),
-            (UI-Text 'Zakończ hostowanie' 'Stop hosting'), 'YesNo', 'Question')
+            "Zakończenie hostowania zamknie porty w routerze i uruchomi ponownie serwer gry (około minuty). Znajomi zostaną rozłączeni.`r`n`r`nKontynuować?",
+            'Zakończ hostowanie', 'YesNo', 'Question')
         if ($answer -ne [Windows.Forms.DialogResult]::Yes) { return }
         $dialog.Close()
         Start-LauncherAction -Action 'CoopStop' -Yes
@@ -3082,7 +3057,7 @@ function Show-CoopDialog {
         try {
             $invite = Read-M2CoopInvite -Code $codeBox.Text
             $client = Get-CoopClientFolder
-            if (-not $client) { throw (UI-Text 'Nie wiem, gdzie jest klient - wskaż go przyciskiem WYBIERZ KLIENTA w oknie launchera.' 'I do not know where the client is - point to it with the CHOOSE CLIENT button in the launcher window.') }
+            if (-not $client) { throw 'Nie wiem, gdzie jest klient - wskaż go przyciskiem WYBIERZ KLIENTA w oknie launchera.' }
             # What this machine can tell before the client is started: the
             # host's home address answers here (the same house), a VPN world
             # needs that VPN here, and the world's auth either answers from
@@ -3092,23 +3067,23 @@ function Show-CoopDialog {
             $advice = $(if ($choice.Lan) { '' } else { Get-M2CoopJoinAdvice -Invite $invite })
             $dialog.Cursor = [Windows.Forms.Cursors]::Default
             $path = Write-M2CoopClientConfig -ClientFolder $client -Invite $invite -HostAddress $choice.Host
-            Write-LocalLog ((UI-Text "COOP: zapisano swiat znajomego w {0} (adres {1}{2})." "COOP: the friend's world saved in {0} (address {1}{2}).") -f $path, $choice.Host, $(if ($choice.Lan) { (UI-Text ', siec domowa' ', home network') } else { '' }))
+            Write-LocalLog ("COOP: zapisano swiat znajomego w {0} (adres {1}{2})." -f $path, $choice.Host, $(if ($choice.Lan) { ', siec domowa' } else { '' }))
             try { [Windows.Forms.Clipboard]::SetText([string]$invite.password) } catch { }
             $codeBox.Text = ''
             & $refresh
-            Write-LocalLog ((UI-Text "COOP: serwer znajomego {0}." "COOP: the friend's server {0}.") -f $(if ($choice.Answers) { (UI-Text 'odpowiada' 'answers') } else { (UI-Text 'nie odpowiada' 'does not answer') }))
-            $intro = ((UI-Text "Uruchom klienta i wybierz serwer 'Online: {0}'. Hasło jest w schowku." "Start the client and choose the server 'Online: {0}'. The password is in the clipboard.") -f $invite.name)
+            Write-LocalLog ("COOP: serwer znajomego {0}." -f $(if ($choice.Answers) { 'odpowiada' } else { 'nie odpowiada' }))
+            $intro = ("Uruchom klienta i wybierz serwer 'Online: {0}'. Hasło jest w schowku." -f $invite.name)
             if ($advice) { $intro = $advice + ' ' + $intro }
             else { $intro += ' ' + (@(Get-M2CoopJoinNotes -Choice $choice) -join ' ') }
             # A client exe from before 2.0.17 cannot enter a friend's world at
             # all (Test-M2CoopClientExeOld): said first, because nothing else
             # here helps until it is replaced.
             if (Test-M2CoopClientExeOld -ClientFolder $client) {
-                Write-LocalLog (UI-Text 'COOP: klient ma stary metin2client.exe (sprzed 2.0.17).' 'COOP: the client has an old metin2client.exe (from before 2.0.17).')
+                Write-LocalLog 'COOP: klient ma stary metin2client.exe (sprzed 2.0.17).'
                 $intro = (Get-M2CoopOldClientNote) + ' ' + $intro
             }
-            Show-CoopSecretDialog -Title (UI-Text 'Świat znajomego dodany' 'Friend''s world added') -Intro $intro `
-                -Secret ((UI-Text "Login: {0}`r`nHasło: {1}" "Login: {0}`r`nPassword: {1}") -f $invite.login, $invite.password)
+            Show-CoopSecretDialog -Title 'Świat znajomego dodany' -Intro $intro `
+                -Secret ("Login: {0}`r`nHasło: {1}" -f $invite.login, $invite.password)
         }
         catch { [Windows.Forms.MessageBox]::Show($_.Exception.Message, 'COOP', 'OK', 'Error') | Out-Null }
     })
@@ -3119,12 +3094,12 @@ function Show-CoopDialog {
         $cfg = Join-Path $client 'coop.cfg'
         if (Test-Path -LiteralPath $cfg -PathType Leaf) {
             [IO.File]::Delete($cfg)
-            Write-LocalLog (UI-Text 'COOP: usunieto swiat znajomego z klienta.' 'COOP: the friend''s world removed from the client.')
+            Write-LocalLog 'COOP: usunieto swiat znajomego z klienta.'
         }
         & $refresh
     })
 
-    try { & $refresh } catch { $status.Text = (UI-Text "Nie udało się odczytać stanu: $($_.Exception.Message)" "Could not read the state: $($_.Exception.Message)") }
+    try { & $refresh } catch { $status.Text = "Nie udało się odczytać stanu: $($_.Exception.Message)" }
     [void]$dialog.ShowDialog()
     $dialog.Dispose()
 }
@@ -3137,12 +3112,12 @@ function Show-VpsDialog {
     # progress. No password is written to any log. Installing, updating, the
     # panels and the invite codes are for everybody, like every COOP invite.
     if (-not (Get-Command Install-M2Vps -ErrorAction SilentlyContinue)) {
-        [Windows.Forms.MessageBox]::Show((UI-Text 'Ta paczka nie ma modułu VPS.' 'This package has no VPS module.'), 'VPS', 'OK', 'Information') | Out-Null
+        [Windows.Forms.MessageBox]::Show('Ta paczka nie ma modułu VPS.', 'VPS', 'OK', 'Information') | Out-Null
         return
     }
     $state = Get-M2VpsState -ServerRoot $root
     $dialog = [Windows.Forms.Form]::new()
-    $dialog.Text = (UI-Text 'Serwer na VPS - ten świat na wynajętym serwerze Linux' 'Server on a VPS - this world on a rented Linux server')
+    $dialog.Text = 'Serwer na VPS - ten świat na wynajętym serwerze Linux'
     $dialog.Size = [Drawing.Size]::new(700, 640)
     $dialog.StartPosition = 'CenterParent'
     $dialog.FormBorderStyle = 'FixedDialog'
@@ -3150,10 +3125,10 @@ function Show-VpsDialog {
     $dialog.MinimizeBox = $false
 
     $intro = [Windows.Forms.Label]::new()
-    $intro.Text = ((UI-Text 'Launcher wyśle folder serwera na VPS przez SSH i zainstaluje go tam: Docker, plik wymiany, .env z losowymi hasłami, ' 'The launcher sends the server folder to the VPS over SSH and installs it there: Docker, a swap file, an .env with random passwords, ') +
-        (UI-Text 'budowa w tle (pierwszy raz 15-40 minut) i nowe hasła kont admin i test. Potrzebny VPS z Debian 12/13 albo Ubuntu 22.04/24.04, ' 'a build in the background (15-40 minutes the first time) and new passwords for the admin and test accounts. It needs a VPS with Debian 12/13 or Ubuntu 22.04/24.04, ') +
-        (UI-Text 'procesor x86_64 (Intel/AMD - nie ARM), 8 GB RAM (minimum 4 GB, wtedy mniej botów) i 60-80 GB dysku. ' 'an x86_64 processor (Intel/AMD - not ARM), 8 GB RAM (at least 4 GB, then fewer bots) and 60-80 GB of disk. ') +
-        (UI-Text 'Hasło do VPS wpisujesz raz, w oknie ssh - potem launcher łączy się kluczem.' 'You type the VPS password once, in the ssh window - then the launcher connects with a key.'))
+    $intro.Text = ('Launcher wyśle folder serwera na VPS przez SSH i zainstaluje go tam: Docker, plik wymiany, .env z losowymi hasłami, ' +
+        'budowa w tle (pierwszy raz 15-40 minut) i nowe hasła kont admin i test. Potrzebny VPS z Debian 12/13 albo Ubuntu 22.04/24.04, ' +
+        'procesor x86_64 (Intel/AMD - nie ARM), 8 GB RAM (minimum 4 GB, wtedy mniej botów) i 60-80 GB dysku. ' +
+        'Hasło do VPS wpisujesz raz, w oknie ssh - potem launcher łączy się kluczem.')
     $intro.Location = [Drawing.Point]::new(14, 10)
     $intro.Size = [Drawing.Size]::new(660, 76)
     $dialog.Controls.Add($intro)
@@ -3161,10 +3136,10 @@ function Show-VpsDialog {
     $fields = @{}
     $row = 94
     foreach ($field in @(
-            @('host', (UI-Text 'Adres VPS (IPv4 albo domena):' 'VPS address (IPv4 or domain):'), [string]$state.host, 250),
-            @('user', (UI-Text 'Użytkownik (root, debian, ubuntu...):' 'User (root, debian, ubuntu...):'), [string]$state.user, 160),
-            @('port', (UI-Text 'Port SSH:' 'SSH port:'), [string]$state.port, 70),
-            @('remoteDir', (UI-Text 'Folder na VPS:' 'Folder on the VPS:'), [string]$state.remoteDir, 250))) {
+            @('host', 'Adres VPS (IPv4 albo domena):', [string]$state.host, 250),
+            @('user', 'Użytkownik (root, debian, ubuntu...):', [string]$state.user, 160),
+            @('port', 'Port SSH:', [string]$state.port, 70),
+            @('remoteDir', 'Folder na VPS:', [string]$state.remoteDir, 250))) {
         $label = [Windows.Forms.Label]::new()
         $label.Text = $field[1]
         $label.Location = [Drawing.Point]::new(14, $row + 3)
@@ -3182,10 +3157,10 @@ function Show-VpsDialog {
 
     $buttons = @{}
     $grid = @(
-        @('connect', (UI-Text '1. POŁĄCZ (KLUCZ SSH)' '1. CONNECT (SSH KEY)'), 0, 0, '#2D6EBE'), @('check', (UI-Text 'SPRAWDŹ VPS' 'CHECK VPS'), 1, 0, ''), @('install', (UI-Text '2. ZAINSTALUJ NA VPS' '2. INSTALL ON VPS'), 2, 0, '#1B9658'),
-        @('update', (UI-Text 'AKTUALIZUJ VPS' 'UPDATE VPS'), 0, 1, ''), @('status', (UI-Text 'STAN VPS' 'VPS STATUS'), 1, 1, ''), @('logs', (UI-Text 'LOGI VPS' 'VPS LOGS'), 2, 1, ''),
-        @('panel', (UI-Text 'OTWÓRZ PANEL (TUNEL SSH)' 'OPEN PANEL (SSH TUNNEL)'), 0, 2, '#B47D23'), @('tunnelClose', (UI-Text 'ZAMKNIJ TUNEL' 'CLOSE TUNNEL'), 1, 2, ''), @('passwords', (UI-Text 'HASŁA KONT' 'ACCOUNT PASSWORDS'), 2, 2, ''),
-        @('client', (UI-Text 'DOPISZ DO KLIENTA GRY' 'ADD TO GAME CLIENT'), 0, 3, ''), @('invite', (UI-Text 'KOD DLA ZNAJOMEGO (COOP)' 'CODE FOR A FRIEND (CO-OP)'), 1, 3, '#28788F'))
+        @('connect', '1. POŁĄCZ (KLUCZ SSH)', 0, 0, '#2D6EBE'), @('check', 'SPRAWDŹ VPS', 1, 0, ''), @('install', '2. ZAINSTALUJ NA VPS', 2, 0, '#1B9658'),
+        @('update', 'AKTUALIZUJ VPS', 0, 1, ''), @('status', 'STAN VPS', 1, 1, ''), @('logs', 'LOGI VPS', 2, 1, ''),
+        @('panel', 'OTWÓRZ PANEL (TUNEL SSH)', 0, 2, '#B47D23'), @('tunnelClose', 'ZAMKNIJ TUNEL', 1, 2, ''), @('passwords', 'HASŁA KONT', 2, 2, ''),
+        @('client', 'DOPISZ DO KLIENTA GRY', 0, 3, ''), @('invite', 'KOD DLA ZNAJOMEGO (COOP)', 1, 3, '#28788F'))
     foreach ($spec in $grid) {
         $button = [Windows.Forms.Button]::new()
         $button.Text = $spec[1]
@@ -3202,9 +3177,9 @@ function Show-VpsDialog {
     }
 
     $help = [Windows.Forms.Label]::new()
-    $help.Text = ((UI-Text 'Kolejność: POŁĄCZ, SPRAWDŹ VPS, ZAINSTALUJ. Gracze łączą się z adresem VPS (porty 11000 i 13000-13002 muszą być otwarte ' 'Order: CONNECT, CHECK VPS, INSTALL. Players connect to the VPS address (ports 11000 and 13000-13002 must be open ') +
-        (UI-Text 'w zaporze dostawcy VPS, jeśli ją ma). Panele WWW słuchają tylko na VPS - otwiera je tunel SSH (przycisk OTWÓRZ PANEL). ' 'in the VPS provider''s firewall, if it has one). The web panels listen on the VPS only - an SSH tunnel opens them (the OPEN PANEL button). ') +
-        (UI-Text 'DOPISZ DO KLIENTA dodaje VPS jako drugi serwer na liście w Twoim kliencie. KOD DLA ZNAJOMEGO robi zaproszenie do świata na VPS.' 'ADD TO GAME CLIENT adds the VPS as the second server on the list in your client. CODE FOR A FRIEND makes an invite to the world on the VPS.'))
+    $help.Text = ('Kolejność: POŁĄCZ, SPRAWDŹ VPS, ZAINSTALUJ. Gracze łączą się z adresem VPS (porty 11000 i 13000-13002 muszą być otwarte ' +
+        'w zaporze dostawcy VPS, jeśli ją ma). Panele WWW słuchają tylko na VPS - otwiera je tunel SSH (przycisk OTWÓRZ PANEL). ' +
+        'DOPISZ DO KLIENTA dodaje VPS jako drugi serwer na liście w Twoim kliencie. KOD DLA ZNAJOMEGO robi zaproszenie do świata na VPS.')
     $help.Location = [Drawing.Point]::new(14, 412)
     $help.Size = [Drawing.Size]::new(660, 62)
     $help.ForeColor = [Drawing.Color]::DimGray
@@ -3217,7 +3192,7 @@ function Show-VpsDialog {
     $dialog.Controls.Add($status)
 
     $closeButton = [Windows.Forms.Button]::new()
-    $closeButton.Text = (UI-Text 'Zamknij' 'Close')
+    $closeButton.Text = 'Zamknij'
     $closeButton.Location = [Drawing.Point]::new(574, 556)
     $closeButton.Size = [Drawing.Size]::new(100, 32)
     $closeButton.DialogResult = [Windows.Forms.DialogResult]::Cancel
@@ -3228,11 +3203,11 @@ function Show-VpsDialog {
         $lines = @()
         $current = Get-M2VpsState -ServerRoot $root
         if ($current.host) { $lines += ('VPS: {0}@{1}, folder {2}.' -f $current.user, $current.host, $current.remoteDir) }
-        else { $lines += (UI-Text 'Wpisz adres VPS i użytkownika, potem POŁĄCZ.' 'Enter the VPS address and the user, then CONNECT.') }
-        if ($current.lastInstall) { $lines += ((UI-Text 'Ostatnia instalacja z tego launchera: {0} (wersja {1}).' 'Last install from this launcher: {0} (version {1}).') -f $current.lastInstall, $current.lastVersion) }
+        else { $lines += 'Wpisz adres VPS i użytkownika, potem POŁĄCZ.' }
+        if ($current.lastInstall) { $lines += ('Ostatnia instalacja z tego launchera: {0} (wersja {1}).' -f $current.lastInstall, $current.lastVersion) }
         $tunnel = Get-M2VpsTunnelProcess -State $current
         if ($tunnel -and @($current.tunnelPorts).Count -gt 0) {
-            $lines += ((UI-Text 'Tunel do paneli otwarty: http://127.0.0.1:{0}/map' 'Tunnel to the panels open: http://127.0.0.1:{0}/map') -f @($current.tunnelPorts)[0].local)
+            $lines += ('Tunel do paneli otwarty: http://127.0.0.1:{0}/map' -f @($current.tunnelPorts)[0].local)
         }
         $status.Text = ($lines -join [Environment]::NewLine)
     }
@@ -3267,13 +3242,13 @@ function Show-VpsDialog {
     $buttons['connect'].Add_Click({
         $vps = & $saveFields
         if (-not $vps) { return }
-        [Windows.Forms.MessageBox]::Show(((UI-Text "Otworzy się czarne okno ssh. Wpisz w nim hasło do VPS ({0}@{1}) i naciśnij Enter - znaków nie widać.`r`n`r`nTo jedyny raz: ssh doda klucz tego launchera na VPS i potem launcher łączy się bez hasła. Launcher tego hasła nie widzi i nigdzie go nie zapisuje." "A black ssh window opens. Type the VPS password ({0}@{1}) in it and press Enter - the characters do not show.`r`n`r`nThis is the only time: ssh adds this launcher's key on the VPS, and then the launcher connects without a password. The launcher does not see this password and saves it nowhere.") -f $vps.user, $vps.host),
-            (UI-Text 'Połączenie z VPS' 'Connecting to the VPS'), 'OK', 'Information') | Out-Null
+        [Windows.Forms.MessageBox]::Show(("Otworzy się czarne okno ssh. Wpisz w nim hasło do VPS ({0}@{1}) i naciśnij Enter - znaków nie widać.`r`n`r`nTo jedyny raz: ssh doda klucz tego launchera na VPS i potem launcher łączy się bez hasła. Launcher tego hasła nie widzi i nigdzie go nie zapisuje." -f $vps.user, $vps.host),
+            'Połączenie z VPS', 'OK', 'Information') | Out-Null
         & $runQuick {
             $works = Install-M2VpsKey -State $vps
-            Write-LocalLog ((UI-Text 'VPS: klucz SSH dla {0}@{1} {2}.' 'VPS: SSH key for {0}@{1} {2}.') -f $vps.user, $vps.host, $(if ($works) { (UI-Text 'dziala' 'works') } else { (UI-Text 'NIE dziala' 'does NOT work') }))
-            if ($works) { [Windows.Forms.MessageBox]::Show((UI-Text 'Klucz działa - launcher łączy się z VPS bez hasła. Teraz SPRAWDŹ VPS.' 'The key works - the launcher connects to the VPS without a password. Now CHECK VPS.'), 'VPS', 'OK', 'Information') | Out-Null }
-            else { [Windows.Forms.MessageBox]::Show((UI-Text 'Klucz nie działa - sprawdź adres, użytkownika i hasło, i spróbuj jeszcze raz.' 'The key does not work - check the address, the user and the password, and try again.'), 'VPS', 'OK', 'Warning') | Out-Null }
+            Write-LocalLog ('VPS: klucz SSH dla {0}@{1} {2}.' -f $vps.user, $vps.host, $(if ($works) { 'dziala' } else { 'NIE dziala' }))
+            if ($works) { [Windows.Forms.MessageBox]::Show('Klucz działa - launcher łączy się z VPS bez hasła. Teraz SPRAWDŹ VPS.', 'VPS', 'OK', 'Information') | Out-Null }
+            else { [Windows.Forms.MessageBox]::Show('Klucz nie działa - sprawdź adres, użytkownika i hasło, i spróbuj jeszcze raz.', 'VPS', 'OK', 'Warning') | Out-Null }
         }
     })
 
@@ -3283,8 +3258,8 @@ function Show-VpsDialog {
         & $runQuick {
             $machine = Test-M2VpsMachine -State $vps
             $report = (Format-M2VpsMachineReport -Machine $machine) -join "`r`n"
-            Write-LocalLog ((UI-Text 'VPS: sprawdzenie {0} - {1}.' 'VPS: check of {0} - {1}.') -f $vps.host, $(if ($machine.Verdict.Ok) { (UI-Text 'mozna instalowac' 'ready to install') } else { (UI-Text 'nie spelnia wymagan' 'does not meet the requirements') }))
-            [Windows.Forms.MessageBox]::Show($report, (UI-Text 'Sprawdzenie VPS' 'VPS check'), 'OK', $(if ($machine.Verdict.Ok) { 'Information' } else { 'Warning' })) | Out-Null
+            Write-LocalLog ('VPS: sprawdzenie {0} - {1}.' -f $vps.host, $(if ($machine.Verdict.Ok) { 'mozna instalowac' } else { 'nie spelnia wymagan' }))
+            [Windows.Forms.MessageBox]::Show($report, 'Sprawdzenie VPS', 'OK', $(if ($machine.Verdict.Ok) { 'Information' } else { 'Warning' })) | Out-Null
         }
     })
 
@@ -3292,8 +3267,8 @@ function Show-VpsDialog {
         $vps = & $saveFields
         if (-not $vps) { return }
         $answer = [Windows.Forms.MessageBox]::Show(
-            ((UI-Text "Zainstalować ten świat na VPS {0}?`r`n`r`n- folder serwera pójdzie na VPS (około 100 MB, bez .env, kopii, logów i klienta),`r`n- VPS dostanie Dockera, plik wymiany (przy małej pamięci) i swój .env z losowymi hasłami,`r`n- pierwsza budowa trwa tam 15-40 minut - postęp w logu launchera; zamknięcie launchera jej nie przerywa,`r`n- konta admin i test dostaną nowe hasła (przycisk HASŁA KONT).`r`n`r`nKontynuować?" "Install this world on the VPS {0}?`r`n`r`n- the server folder goes to the VPS (about 100 MB, without .env, backups, logs and the client),`r`n- the VPS gets Docker, a swap file (with little memory) and its own .env with random passwords,`r`n- the first build there takes 15-40 minutes - progress in the launcher log; closing the launcher does not stop it,`r`n- the admin and test accounts get new passwords (the ACCOUNT PASSWORDS button).`r`n`r`nContinue?") -f $vps.host),
-            (UI-Text 'Zainstaluj na VPS' 'Install on the VPS'), 'YesNo', 'Question')
+            ("Zainstalować ten świat na VPS {0}?`r`n`r`n- folder serwera pójdzie na VPS (około 100 MB, bez .env, kopii, logów i klienta),`r`n- VPS dostanie Dockera, plik wymiany (przy małej pamięci) i swój .env z losowymi hasłami,`r`n- pierwsza budowa trwa tam 15-40 minut - postęp w logu launchera; zamknięcie launchera jej nie przerywa,`r`n- konta admin i test dostaną nowe hasła (przycisk HASŁA KONT).`r`n`r`nKontynuować?" -f $vps.host),
+            'Zainstaluj na VPS', 'YesNo', 'Question')
         if ($answer -ne [Windows.Forms.DialogResult]::Yes) { return }
         $dialog.Close()
         Start-LauncherAction -Action 'VpsInstall' -Yes
@@ -3303,8 +3278,8 @@ function Show-VpsDialog {
         $vps = & $saveFields
         if (-not $vps) { return }
         $answer = [Windows.Forms.MessageBox]::Show(
-            ((UI-Text "Zaktualizować serwer na VPS {0} do najnowszej wersji z GitHuba?`r`n`r`nAktualizacja pobiera paczkę na VPS i przebudowuje serwer w tle; postacie i boty zostają. Postęp w logu launchera." "Update the server on the VPS {0} to the newest version from GitHub?`r`n`r`nThe update downloads the package onto the VPS and rebuilds the server in the background; characters and bots stay. Progress in the launcher log.") -f $vps.host),
-            (UI-Text 'Aktualizuj VPS' 'Update the VPS'), 'YesNo', 'Question')
+            ("Zaktualizować serwer na VPS {0} do najnowszej wersji z GitHuba?`r`n`r`nAktualizacja pobiera paczkę na VPS i przebudowuje serwer w tle; postacie i boty zostają. Postęp w logu launchera." -f $vps.host),
+            'Aktualizuj VPS', 'YesNo', 'Question')
         if ($answer -ne [Windows.Forms.DialogResult]::Yes) { return }
         $dialog.Close()
         Start-LauncherAction -Action 'VpsUpdate' -Yes
@@ -3330,10 +3305,10 @@ function Show-VpsDialog {
         $addresses = $script:vpsPanelAddresses
         $script:vpsPanelAddresses = $null
         if (-not $addresses) { return }
-        Write-LocalLog ((UI-Text 'VPS: tunel do paneli otwarty ({0}).' 'VPS: tunnel to the panels open ({0}).') -f $addresses.ClassicUrl)
+        Write-LocalLog ('VPS: tunel do paneli otwarty ({0}).' -f $addresses.ClassicUrl)
         $url = Show-PanelChoiceDialog -Addresses $addresses
         if ($url -eq 'panel-password') {
-            [Windows.Forms.MessageBox]::Show((UI-Text 'Panele na VPS słuchają tylko na samym VPS i otwierają się bez hasła - dojść do nich można wyłącznie przez ten tunel SSH.' 'The panels on the VPS listen on the VPS itself only and open without a password - they can be reached only through this SSH tunnel.'), 'VPS', 'OK', 'Information') | Out-Null
+            [Windows.Forms.MessageBox]::Show('Panele na VPS słuchają tylko na samym VPS i otwierają się bez hasła - dojść do nich można wyłącznie przez ten tunel SSH.', 'VPS', 'OK', 'Information') | Out-Null
             $url = $addresses.ClassicUrl
         }
         if ($url) { Start-Process $url }
@@ -3341,7 +3316,7 @@ function Show-VpsDialog {
 
     $buttons['tunnelClose'].Add_Click({
         $closed = Close-M2VpsPanel -ServerRoot $root
-        Write-LocalLog ((UI-Text 'VPS: tunel do paneli {0}.' 'VPS: tunnel to the panels {0}.') -f $(if ($closed) { (UI-Text 'zamkniety' 'closed') } else { (UI-Text 'nie byl otwarty' 'was not open') }))
+        Write-LocalLog ('VPS: tunel do paneli {0}.' -f $(if ($closed) { 'zamkniety' } else { 'nie byl otwarty' }))
         & $showStatus
     })
 
@@ -3351,11 +3326,11 @@ function Show-VpsDialog {
         & $runQuick {
             $accounts = @(Get-M2VpsAccounts -State $vps)
             if ($accounts.Count -eq 0) {
-                [Windows.Forms.MessageBox]::Show((UI-Text 'Na VPS nie ma jeszcze pliku z hasłami - powstaje, gdy po instalacji wstanie baza.' 'The VPS has no password file yet - it appears when the database comes up after the install.'), 'VPS', 'OK', 'Information') | Out-Null
+                [Windows.Forms.MessageBox]::Show('Na VPS nie ma jeszcze pliku z hasłami - powstaje, gdy po instalacji wstanie baza.', 'VPS', 'OK', 'Information') | Out-Null
                 return
             }
-            $text = ($accounts | ForEach-Object { (UI-Text 'login {0}   hasło {1}{2}' 'login {0}   password: {1}{2}') -f $_.Login, $_.Password, $(if ($_.Note) { '   (' + $_.Note + ')' } else { '' }) }) -join "`r`n"
-            Show-CoopSecretDialog -Title (UI-Text 'Hasła kont gry na VPS' 'Game account passwords on the VPS') -Intro (UI-Text 'Tymi loginami i hasłami logujesz się na serwer na VPS. Leżą też na VPS w /root/metin2-accounts.txt (tylko dla roota).' 'You log in to the server on the VPS with these logins and passwords. They are also on the VPS in /root/metin2-accounts.txt (for root only).') -Secret $text
+            $text = ($accounts | ForEach-Object { 'login {0}   hasło {1}{2}' -f $_.Login, $_.Password, $(if ($_.Note) { '   (' + $_.Note + ')' } else { '' }) }) -join "`r`n"
+            Show-CoopSecretDialog -Title 'Hasła kont gry na VPS' -Intro 'Tymi loginami i hasłami logujesz się na serwer na VPS. Leżą też na VPS w /root/metin2-accounts.txt (tylko dla roota).' -Secret $text
         }
     })
 
@@ -3364,10 +3339,10 @@ function Show-VpsDialog {
         if (-not $vps) { return }
         & $runQuick {
             $result = Write-M2VpsClientEntry -State $vps -ServerRoot $root -ClientFolder (Get-CoopClientFolder)
-            Write-LocalLog ((UI-Text 'VPS: zapisano serwer VPS w kliencie ({0}).' 'VPS: the VPS server saved in the client ({0}).') -f $result.Path)
-            $text = ((UI-Text "W kliencie wybierz serwer 'Online: {0}' ({1})." "In the client choose the server 'Online: {0}' ({1}).") -f $result.Name, $result.Host)
-            if ($result.Replaced) { $text += ((UI-Text "`r`n`r`nZastąpił świat znajomego '{0}' - klient ma jedno takie miejsce, a kod zaproszenia wpisze go z powrotem." "`r`n`r`nIt replaced the friend's world '{0}' - the client has one such place, and the invite code puts it back.") -f $result.Replaced) }
-            [Windows.Forms.MessageBox]::Show($text, (UI-Text 'VPS w kliencie' 'VPS in the client'), 'OK', 'Information') | Out-Null
+            Write-LocalLog ('VPS: zapisano serwer VPS w kliencie ({0}).' -f $result.Path)
+            $text = ("W kliencie wybierz serwer 'Online: {0}' ({1})." -f $result.Name, $result.Host)
+            if ($result.Replaced) { $text += ("`r`n`r`nZastąpił świat znajomego '{0}' - klient ma jedno takie miejsce, a kod zaproszenia wpisze go z powrotem." -f $result.Replaced) }
+            [Windows.Forms.MessageBox]::Show($text, 'VPS w kliencie', 'OK', 'Information') | Out-Null
         }
     })
 
@@ -3375,14 +3350,14 @@ function Show-VpsDialog {
         $vps = & $saveFields
         if (-not $vps) { return }
         if (-not (Get-Command Read-M2CoopInvite -ErrorAction SilentlyContinue)) {
-            [Windows.Forms.MessageBox]::Show((UI-Text 'Ta paczka nie ma modułu COOP, a kody zaproszeń idą przez niego.' 'This package has no COOP module, and the invite codes go through it.'), 'VPS', 'OK', 'Information') | Out-Null
+            [Windows.Forms.MessageBox]::Show('Ta paczka nie ma modułu COOP, a kody zaproszeń idą przez niego.', 'VPS', 'OK', 'Information') | Out-Null
             return
         }
-        $name = [Microsoft.VisualBasic.Interaction]::InputBox((UI-Text "Imię albo nick znajomego - z niego powstanie jego login na VPS.`r`n`r`nPuste pole pokaże kody dla znajomych, którzy już mają konta." "Your friend's name or nick - their login on the VPS is made from it.`r`n`r`nAn empty field shows the codes for friends who already have accounts."), (UI-Text 'Kod dla znajomego (VPS)' 'Code for a friend (VPS)'), '')
+        $name = [Microsoft.VisualBasic.Interaction]::InputBox("Imię albo nick znajomego - z niego powstanie jego login na VPS.`r`n`r`nPuste pole pokaże kody dla znajomych, którzy już mają konta.", 'Kod dla znajomego (VPS)', '')
         # InputBox answers "" for Cancel and for an empty OK alike, and what
         # the empty one shows is every friend's password: ask which it was.
         if (-not $name) {
-            $showAll = [Windows.Forms.MessageBox]::Show((UI-Text 'Pokazać kody dla znajomych, którzy już mają konta na VPS?' 'Show the codes for friends who already have accounts on the VPS?'), (UI-Text 'Kod dla znajomego (VPS)' 'Code for a friend (VPS)'), 'YesNo', 'Question')
+            $showAll = [Windows.Forms.MessageBox]::Show('Pokazać kody dla znajomych, którzy już mają konta na VPS?', 'Kod dla znajomego (VPS)', 'YesNo', 'Question')
             if ($showAll -ne [Windows.Forms.DialogResult]::Yes) { return }
         }
         & $runQuick {
@@ -3390,28 +3365,28 @@ function Show-VpsDialog {
             $codes = @()
             if ($name) {
                 $friend = New-M2VpsFriend -State $vps -ServerRoot $root -Name $name
-                Write-LocalLog ((UI-Text 'VPS: konto znajomego na VPS, login {0}.' 'VPS: a friend''s account on the VPS, login {0}.') -f $friend.login)
-                $codes += ((UI-Text '{0} (login {1}, hasło {2}):' '{0} (login {1}, password: {2}):') -f $friend.name, $friend.login, $friend.password)
+                Write-LocalLog ('VPS: konto znajomego na VPS, login {0}.' -f $friend.login)
+                $codes += ('{0} (login {1}, hasło {2}):' -f $friend.name, $friend.login, $friend.password)
                 $codes += (Get-M2VpsFriendInvite -State $vps -ServerRoot $root -Account $friend -Status $vpsStatus)
             }
             else {
                 foreach ($account in @(Get-M2VpsAccounts -State $vps | Where-Object { $_.Note -like 'znajomy*' })) {
-                    $codes += ((UI-Text '{0} (login {1}, hasło {2}):' '{0} (login {1}, password: {2}):') -f $account.Note, $account.Login, $account.Password)
+                    $codes += ('{0} (login {1}, hasło {2}):' -f $account.Note, $account.Login, $account.Password)
                     $codes += (Get-M2VpsFriendInvite -State $vps -ServerRoot $root -Account $account -Status $vpsStatus)
                     $codes += ''
                 }
             }
             if ($codes.Count -eq 0) {
-                [Windows.Forms.MessageBox]::Show((UI-Text 'Na VPS nie ma jeszcze kont znajomych - wpisz imię, żeby założyć pierwsze.' 'The VPS has no friends'' accounts yet - enter a name to create the first one.'), 'VPS', 'OK', 'Information') | Out-Null
+                [Windows.Forms.MessageBox]::Show('Na VPS nie ma jeszcze kont znajomych - wpisz imię, żeby założyć pierwsze.', 'VPS', 'OK', 'Information') | Out-Null
                 return
             }
-            Show-CoopSecretDialog -Title (UI-Text 'Kod zaproszenia na VPS' 'Invite code for the VPS') `
-                -Intro (UI-Text 'Wyślij kod znajomemu w prywatnej wiadomości - zawiera jego hasło. Znajomy wkleja go w swoim launcherze (COOP > Dołączam do znajomego) albo w Dolacz.bat w folderze klienta.' 'Send the code to your friend in a private message - it holds their password. Your friend pastes it in their launcher (COOP > I join a friend) or into Dolacz.bat in the client folder.') `
+            Show-CoopSecretDialog -Title 'Kod zaproszenia na VPS' `
+                -Intro 'Wyślij kod znajomemu w prywatnej wiadomości - zawiera jego hasło. Znajomy wkleja go w swoim launcherze (COOP > Dołączam do znajomego) albo w Dolacz.bat w folderze klienta.' `
                 -Secret ($codes -join "`r`n")
         }
     })
 
-    try { & $showStatus } catch { $status.Text = (UI-Text "Nie udało się odczytać stanu: $($_.Exception.Message)" "Could not read the state: $($_.Exception.Message)") }
+    try { & $showStatus } catch { $status.Text = "Nie udało się odczytać stanu: $($_.Exception.Message)" }
     [void]$dialog.ShowDialog()
     $dialog.Dispose()
 }
@@ -3488,7 +3463,7 @@ $panelButton.Add_Click({
         return
     }
     if ($url) {
-        Write-LocalLog (UI-Text "Otwieram panel: $url" "Opening the panel: $url")
+        Write-LocalLog "Otwieram panel: $url"
         Start-Process $url
     }
 })
@@ -3497,28 +3472,28 @@ $updateButton.Add_Click({
     # One button for the whole flow: check in-process, and only offer to install
     # when there really is something newer.
     $installed = Get-InstalledServerVersion
-    Write-LocalLog (UI-Text "Sprawdzam aktualizacje (zainstalowana wersja: $installed)..." "Checking for updates (installed version: $installed)...")
+    Write-LocalLog "Sprawdzam aktualizacje (zainstalowana wersja: $installed)..."
     $manifest = $null
     try {
         $config = Get-M2LauncherConfig -ServerRoot $root -ConfigPath $configPath
         $manifest = Get-M2UpdateManifest -Source ([string]$config.manifestUrl)
     }
     catch {
-        Write-LocalLog (UI-Text "Nie udało się sprawdzić aktualizacji: $($_.Exception.Message)" "Could not check for updates: $($_.Exception.Message)")
+        Write-LocalLog "Nie udało się sprawdzić aktualizacji: $($_.Exception.Message)"
         [Windows.Forms.MessageBox]::Show(
-            (UI-Text "Nie udało się sprawdzić aktualizacji.`r`n`r`n$($_.Exception.Message)" "Could not check for updates.`r`n`r`n$($_.Exception.Message)"),
-            (UI-Text 'Sprawdzanie aktualizacji' 'Checking for updates'), 'OK', 'Warning') | Out-Null
+            "Nie udało się sprawdzić aktualizacji.`r`n`r`n$($_.Exception.Message)",
+            'Sprawdzanie aktualizacji', 'OK', 'Warning') | Out-Null
         return
     }
     $server = $null
     $serverProperty = $manifest.PSObject.Properties['server']
     if ($serverProperty -and $serverProperty.Value) { $server = $serverProperty.Value }
     if (-not $server -or -not [string]$server.version) {
-        $message = (UI-Text 'Kanał aktualizacji nie podał wersji serwera. Twoja instalacja pozostaje bez zmian.' 'The update channel gave no server version. Your installation stays as it is.')
+        $message = 'Kanał aktualizacji nie podał wersji serwera. Twoja instalacja pozostaje bez zmian.'
         $statusProperty = $manifest.PSObject.Properties['statusMessage']
         if ($statusProperty -and [string]$statusProperty.Value) { $message = [string]$statusProperty.Value }
         Write-LocalLog $message
-        [Windows.Forms.MessageBox]::Show($message, (UI-Text 'Brak aktualizacji' 'No update'), 'OK', 'Information') | Out-Null
+        [Windows.Forms.MessageBox]::Show($message, 'Brak aktualizacji', 'OK', 'Information') | Out-Null
         return
     }
     $available = ([string]$server.version).Trim()
@@ -3527,16 +3502,16 @@ $updateButton.Add_Click({
     Set-LatestVersionsFromManifest -Manifest $manifest
     $script:latestVersionChecked = $true
     Update-VersionFooter
-    Write-LocalLog (UI-Text "Dostępna wersja serwera: $available" "Available server version: $available")
+    Write-LocalLog "Dostępna wersja serwera: $available"
     if ($installed -and $installed -ne 'unknown' -and $installed.Equals($available, [StringComparison]::OrdinalIgnoreCase)) {
-        [Windows.Forms.MessageBox]::Show((UI-Text "Masz już najnowszą wersję ($available)." "You already have the newest version ($available)."), (UI-Text 'Aktualizacje' 'Updates'), 'OK', 'Information') | Out-Null
+        [Windows.Forms.MessageBox]::Show("Masz już najnowszą wersję ($available).", 'Aktualizacje', 'OK', 'Information') | Out-Null
         return
     }
     $answer = [Windows.Forms.MessageBox]::Show(
-        (UI-Text "Znaleziono nową wersję serwera: $available`r`n(zainstalowana: $installed)`r`n`r`nZainstalować teraz?`r`n`r`nTwoje postacie, przedmioty i boty pozostaną bez zmian. Aktualizacja przebudowuje serwer lokalnie — przy pierwszym razie może to potrwać kilkanaście–kilkadziesiąt minut. Postęp zobaczysz w logu poniżej." "A new server version was found: $available`r`n(installed: $installed)`r`n`r`nInstall it now?`r`n`r`nYour characters, items and bots stay as they are. The update rebuilds the server locally - the first time this can take anything from ten minutes to an hour. You will see the progress in the log below."),
-        (UI-Text 'Dostępna aktualizacja' 'Update available'), 'YesNo', 'Question')
+        "Znaleziono nową wersję serwera: $available`r`n(zainstalowana: $installed)`r`n`r`nZainstalować teraz?`r`n`r`nTwoje postacie, przedmioty i boty pozostaną bez zmian. Aktualizacja przebudowuje serwer lokalnie — przy pierwszym razie może to potrwać kilkanaście–kilkadziesiąt minut. Postęp zobaczysz w logu poniżej.",
+        'Dostępna aktualizacja', 'YesNo', 'Question')
     if ($answer -ne [Windows.Forms.DialogResult]::Yes) {
-        Write-LocalLog (UI-Text 'Aktualizacja odłożona na później.' 'Update put off until later.')
+        Write-LocalLog 'Aktualizacja odłożona na później.'
         return
     }
     # The server only. The client half of the GM panel is experimental and
@@ -3544,22 +3519,21 @@ $updateButton.Add_Click({
     Start-LauncherAction -Action 'UpdateServer' -Yes
 })
 $gmPanelButton.Add_Click({
+    # A missing or moved client folder is asked for first, so the question
+    # below names the folder the update will really go to.
+    if (-not (Confirm-ClientForUpdate)) { return }
     $config = Get-M2LauncherConfig -ServerRoot $root -ConfigPath $configPath
-    if (-not [string]$config.clientRoot) {
-        [Windows.Forms.MessageBox]::Show((UI-Text 'Najpierw wskaż folder klienta przyciskiem WYBIERZ KLIENTA.' 'First point to the client folder with the CHOOSE CLIENT button.'), (UI-Text 'Brak klienta' 'No client'), 'OK', 'Information') | Out-Null
-        return
-    }
     if ($script:clientUpdateIsPlain) {
         $answer = [Windows.Forms.MessageBox]::Show(
-            (UI-Text "Zaktualizować klienta w $($config.clientRoot)?`r`n`r`nPodmienia pack\root.index i pack\root.data (skrypty gry). Poprzednie wersje trafiają do backups\client w folderze serwera." "Update the client in $($config.clientRoot)?`r`n`r`nReplaces pack\root.index and pack\root.data (the game scripts). The previous versions go to backups\client in the server folder."),
-            (UI-Text 'Aktualizacja klienta' 'Client update'), 'YesNo', 'Question')
+            "Zaktualizować klienta w $($config.clientRoot)?`r`n`r`nPodmienia pack\root.index i pack\root.data (skrypty gry). Poprzednie wersje trafiają do backups\client w folderze serwera.",
+            'Aktualizacja klienta', 'YesNo', 'Question')
         if ($answer -ne [Windows.Forms.DialogResult]::Yes) { return }
         Start-LauncherAction -Action 'UpdateClient' -Yes
         return
     }
     $answer = [Windows.Forms.MessageBox]::Show(
-        (UI-Text "Panel GM na F9 (autor: OskarPWA) to funkcja MOCNO EKSPERYMENTALNA.`r`n`r`nInstalacja podmienia w kliencie dwa pliki: pack\root.eix i pack\root.epk (skrypty gry). Poprzednie wersje trafiają do kopii zapasowej w folderze serwera (backups\client), więc da się wrócić.`r`n`r`nPanel otwiera tylko postać z uprawnieniami GM klawiszem F9. Jeśli po instalacji gra nie wczytuje się do końca, przywróć pliki z kopii i zgłoś to na GitHubie.`r`n`r`nZainstalować teraz?" "The GM panel on F9 (by OskarPWA) is a HIGHLY EXPERIMENTAL feature.`r`n`r`nThe install replaces two files in the client: pack\root.eix and pack\root.epk (the game scripts). The previous versions go to a backup in the server folder (backups\client), so you can go back.`r`n`r`nThe panel opens only for a character with GM rights, with the F9 key. If the game does not load fully after the install, restore the files from the backup and report it on GitHub.`r`n`r`nInstall now?"),
-        (UI-Text 'Panel GM F9 - wersja testowa' 'GM panel F9 - test version'), 'YesNo', 'Warning')
+        "Panel GM na F9 (autor: OskarPWA) to funkcja MOCNO EKSPERYMENTALNA.`r`n`r`nInstalacja podmienia w kliencie dwa pliki: pack\root.eix i pack\root.epk (skrypty gry). Poprzednie wersje trafiają do kopii zapasowej w folderze serwera (backups\client), więc da się wrócić.`r`n`r`nPanel otwiera tylko postać z uprawnieniami GM klawiszem F9. Jeśli po instalacji gra nie wczytuje się do końca, przywróć pliki z kopii i zgłoś to na GitHubie.`r`n`r`nZainstalować teraz?",
+        'Panel GM F9 - wersja testowa', 'YesNo', 'Warning')
     if ($answer -ne [Windows.Forms.DialogResult]::Yes) { return }
     Start-LauncherAction -Action 'UpdateClient' -Yes
 })
@@ -3570,8 +3544,8 @@ $bundleButton.Add_Click({
     $support = Get-SupportSettings
     if ($support.UploadUrl) {
         $answer = [Windows.Forms.MessageBox]::Show(
-            (UI-Text "Spakowac logi i wyslac je od razu do autora projektu?`r`n`r`nPaczka zawiera logi Dockera i konfiguracje z usunietymi haslami.`r`n`r`nNIE = tylko zapisz ZIP na dysku." "Pack the logs and send them straight to the project's author?`r`n`r`nThe package holds the Docker logs and the configuration with the passwords removed.`r`n`r`nNO = only save the ZIP on disk."),
-            (UI-Text 'Wyslij logi' 'Send logs'), 'YesNoCancel', 'Question')
+            "Spakowac logi i wyslac je od razu do autora projektu?`r`n`r`nPaczka zawiera logi Dockera i konfiguracje z usunietymi haslami.`r`n`r`nNIE = tylko zapisz ZIP na dysku.",
+            'Wyslij logi', 'YesNoCancel', 'Question')
         if ($answer -eq [Windows.Forms.DialogResult]::Cancel) { return }
         if ($answer -eq [Windows.Forms.DialogResult]::Yes) {
             Start-LauncherAction -Action 'SendLogs' -Yes
@@ -3580,14 +3554,14 @@ $bundleButton.Add_Click({
     }
     else {
         [Windows.Forms.MessageBox]::Show(
-            (UI-Text "Zapisze paczke ZIP z logami i otworze jej folder - dolacz ja do zgloszenia na GitHubie.`r`n`r`nOtworze tez strone zgloszen." "I will save a ZIP package with the logs and open its folder - attach it to a report on GitHub.`r`n`r`nI will also open the reports page."),
-            (UI-Text 'Logi' 'Logs'), 'OK', 'Information') | Out-Null
+            "Zapisze paczke ZIP z logami i otworze jej folder - dolacz ja do zgloszenia na GitHubie.`r`n`r`nOtworze tez strone zgloszen.",
+            'Logi', 'OK', 'Information') | Out-Null
         $script:openContactAfterAction = $support.ContactUrl
     }
     Start-LauncherAction -Action 'Logs' -OpenSupport
 })
 $openLogButton.Add_Click({
-    if (-not (Test-Path -LiteralPath $sessionLog -PathType Leaf)) { Write-LocalLog (UI-Text 'Utworzono dziennik launchera.' 'Launcher log created.') }
+    if (-not (Test-Path -LiteralPath $sessionLog -PathType Leaf)) { Write-LocalLog 'Utworzono dziennik launchera.' }
     Start-Process notepad.exe -ArgumentList ('"{0}"' -f $sessionLog)
 })
 $folderButton.Add_Click({
@@ -3604,26 +3578,21 @@ $botCountButton.Add_Click({
     $extra = @('-BotCount', "$count", '-SpawnMinutes', "$($chosen.Minutes)", '-LateJoiners', "$($chosen.Late)", '-LateHours', "$($chosen.Hours)",
         '-PerKingdom', $(if ($chosen.PerKingdom) { '1' } else { '0' }),
         '-ShinsooBots', "$($chosen.Shinsoo)", '-ChunjoBots', "$($chosen.Chunjo)", '-JinnoBots', "$($chosen.Jinno)",
-        '-GameChannels', "$($chosen.GameChannels)", '-Channel2Share', "$($chosen.Channel2Share)", '-FreshCount', "$($chosen.FreshCount)")
+        '-Channel2', $(if ($chosen.Channel2) { '1' } else { '0' }), '-Channel2Share', "$($chosen.Channel2Share)")
     $what = if ($chosen.PerKingdom) {
-        (UI-Text "osobno dla królestw: Shinsoo $($chosen.Shinsoo), Chunjo $($chosen.Chunjo), Jinno $($chosen.Jinno)" "per kingdom: Shinsoo $($chosen.Shinsoo), Chunjo $($chosen.Chunjo), Jinno $($chosen.Jinno)")
+        "osobno dla królestw: Shinsoo $($chosen.Shinsoo), Chunjo $($chosen.Chunjo), Jinno $($chosen.Jinno)"
     }
-    else { (UI-Text "$count grających botów" "$count playing bots") }
-    $channelWhat = switch ([int]$chosen.GameChannels) {
-        1 { '' }
-        2 { (UI-Text ", dwa kanały ($($chosen.Channel2Share)% botów na CH2)" ", two channels ($($chosen.Channel2Share)% of the bots on CH2)") }
-        3 { (UI-Text ", trzy kanały ($($chosen.Channel2Share)% botów na CH2, $($chosen.FreshCount) świeżych botów na CH3)" ", three channels ($($chosen.Channel2Share)% of the bots on CH2, $($chosen.FreshCount) fresh bots on CH3)") }
-        default { (UI-Text ", cztery kanały ($($chosen.Channel2Share)% botów na CH2, $($chosen.FreshCount) świeżych botów na CH3 i CH4)" ", four channels ($($chosen.Channel2Share)% of the bots on CH2, $($chosen.FreshCount) fresh bots on CH3 and CH4)") }
-    }
+    else { "$count grających botów" }
+    $channelWhat = if ($chosen.Channel2) { ", drugi kanał włączony ($($chosen.Channel2Share)% botów na CH2)" } else { '' }
     # A kingdom at zero starts nobody, and said so only in the text launcher.
     $emptyKingdoms = @()
     if ($chosen.PerKingdom) {
         foreach ($k in @('Shinsoo', 'Chunjo', 'Jinno')) { if ([int]$chosen.$k -le 0) { $emptyKingdoms += $k } }
     }
-    $emptyWhat = if ($emptyKingdoms.Count -gt 0) { (UI-Text "`n`nUWAGA: " "`n`nWARNING: ") + ($emptyKingdoms -join (UI-Text ' i ' ' and ')) + (UI-Text ' nie wystartuje żadnego bota.' ' will start no bot.') } else { '' }
+    $emptyWhat = if ($emptyKingdoms.Count -gt 0) { "`n`nUWAGA: " + ($emptyKingdoms -join ' i ') + ' nie wystartuje żadnego bota.' } else { '' }
     $answer = [Windows.Forms.MessageBox]::Show(
-        (UI-Text "Ustawić $what (wejście w $($chosen.Minutes) min, $($chosen.Late) dodatkowych w ciągu $($chosen.Hours) h)$channelWhat i zrestartować serwer teraz, aby zastosować? Baza i postęp botów pozostaną bez zmian.$emptyWhat" "Set $what (entry within $($chosen.Minutes) min, $($chosen.Late) extra over $($chosen.Hours) h)$channelWhat and restart the server now to apply it? The database and the bots' progress stay as they are.$emptyWhat"),
-        (UI-Text 'Liczba botów' 'Bot count'), 'YesNoCancel', 'Question')
+        "Ustawić $what (wejście w $($chosen.Minutes) min, $($chosen.Late) dodatkowych w ciągu $($chosen.Hours) h)$channelWhat i zrestartować serwer teraz, aby zastosować? Baza i postęp botów pozostaną bez zmian.$emptyWhat",
+        'Liczba botów', 'YesNoCancel', 'Question')
     if ($answer -eq [Windows.Forms.DialogResult]::Cancel) { return }
     if ($answer -eq [Windows.Forms.DialogResult]::Yes) {
         Start-LauncherAction -Action 'SetBots' -Yes -ExtraArgs $extra
@@ -3637,15 +3606,15 @@ $difficultyButton.Add_Click({
     $chosen = Show-DifficultyDialog -Current $current
     if ($null -eq $chosen) { return }
     $what = switch ($chosen.Level) {
-        'easy' { (UI-Text 'łatwy (bez czekania)' 'easy (no waiting)') }
-        'medium' { (UI-Text 'średni (Biolog 8 h, koń 4-7 h, księgi 7 h)' 'medium (Biologist 8 h, horse 4-7 h, books 7 h)') }
-        'hard' { (UI-Text 'trudny (Biolog 24 h, koń 12-21 h, księgi 21 h)' 'hard (Biologist 24 h, horse 12-21 h, books 21 h)') }
-        default { (UI-Text "własny (Biolog $($chosen.Biologist) h, Stajenny $($chosen.Horse) h, księgi: gracze $($chosen.Book) h, boty $($chosen.BotBook) h)" "custom (Biologist $($chosen.Biologist) h, Stable Keeper $($chosen.Horse) h, books: players $($chosen.Book) h, bots $($chosen.BotBook) h)") }
+        'easy' { 'łatwy (bez czekania)' }
+        'medium' { 'średni (Biolog 8 h, koń 4-7 h, księgi 7 h)' }
+        'hard' { 'trudny (Biolog 24 h, koń 12-21 h, księgi 21 h)' }
+        default { "własny (Biolog $($chosen.Biologist) h, Stajenny $($chosen.Horse) h, księgi: gracze $($chosen.Book) h, boty $($chosen.BotBook) h)" }
     }
-    $features = (UI-Text "Auto Łowy $(if (-not $chosen.AutoHunt) { 'wyłączone' } elseif ($chosen.AutoHuntItem) { 'włączone (tylko po kupnie z ItemShop)' } else { 'włączone (dla każdego)' }), Towarzysz $(if ($chosen.Sidekick) { 'włączony' } else { 'wyłączony' }), Skrzynia Ucznia $(if ($chosen.Starter) { 'tak' } else { 'nie' }), Dom Towarowy $(if ($chosen.Flea) { 'włączony' } else { 'wyłączony' })" "Auto Hunt $(if (-not $chosen.AutoHunt) { 'off' } elseif ($chosen.AutoHuntItem) { 'on (only after an ItemShop purchase)' } else { 'on (for everybody)' }), Companion $(if ($chosen.Sidekick) { 'on' } else { 'off' }), Apprentice Chest $(if ($chosen.Starter) { 'yes' } else { 'no' }), Flea Market $(if ($chosen.Flea) { 'on' } else { 'off' })")
+    $features = "Auto Łowy $(if (-not $chosen.AutoHunt) { 'wyłączone' } elseif ($chosen.AutoHuntItem) { 'włączone (tylko po kupnie z ItemShop)' } else { 'włączone (dla każdego)' }), Towarzysz $(if ($chosen.Sidekick) { 'włączony' } else { 'wyłączony' }), Skrzynia Ucznia $(if ($chosen.Starter) { 'tak' } else { 'nie' }), Dom Towarowy $(if ($chosen.Flea) { 'włączony' } else { 'wyłączony' })"
     $answer = [Windows.Forms.MessageBox]::Show(
-        (UI-Text "Ustawić poziom trudności: $what; $features - i zrestartować serwer teraz, aby zastosować? Baza i postęp botów pozostaną bez zmian." "Set the difficulty: $what; $features - and restart the server now to apply it? The database and the bots' progress stay as they are."),
-        (UI-Text 'Poziom trudności' 'Difficulty'), 'YesNoCancel', 'Question')
+        "Ustawić poziom trudności: $what; $features - i zrestartować serwer teraz, aby zastosować? Baza i postęp botów pozostaną bez zmian.",
+        'Poziom trudności', 'YesNoCancel', 'Question')
     if ($answer -eq [Windows.Forms.DialogResult]::Cancel) { return }
     $extra = @('-Difficulty', $chosen.Level, '-BiologistHours', "$($chosen.Biologist)", '-HorseHours', "$($chosen.Horse)",
         '-BookHours', "$($chosen.Book)", '-BotBookHours', "$($chosen.BotBook)",
@@ -3668,7 +3637,7 @@ $importDbButton.Add_Click({
     $sources = @()
     try { $sources = @(Get-M2DbDataVolumes | Where-Object { $_.Name -ne $target }) } catch { $sources = @() }
     if (-not $sources -or $sources.Count -eq 0) {
-        [Windows.Forms.MessageBox]::Show((UI-Text 'Nie znaleziono innej bazy Docker do importu na tym komputerze.' 'No other Docker database to import was found on this computer.'), (UI-Text 'Import bazy' 'Database import'), 'OK', 'Information') | Out-Null
+        [Windows.Forms.MessageBox]::Show('Nie znaleziono innej bazy Docker do importu na tym komputerze.', 'Import bazy', 'OK', 'Information') | Out-Null
         return
     }
     $dlg = [Windows.Forms.Form]::new()
@@ -3690,7 +3659,7 @@ $importDbButton.Add_Click({
     # that tells one install from another.
     foreach ($item in $sources) {
         $label = $item.Project
-        if ($item.CreatedAt) { $label = (UI-Text '{0}   (utworzona {1:yyyy-MM-dd HH:mm})' '{0}   (created {1:yyyy-MM-dd HH:mm})') -f $item.Project, $item.CreatedAt }
+        if ($item.CreatedAt) { $label = '{0}   (utworzona {1:yyyy-MM-dd HH:mm})' -f $item.Project, $item.CreatedAt }
         [void]$list.Items.Add($label)
     }
     $list.SelectedIndex = 0
@@ -3715,8 +3684,8 @@ $importDbButton.Add_Click({
     $dlg.Dispose()
     if ($result -ne [Windows.Forms.DialogResult]::OK -or -not $picked) { return }
     $confirm = [Windows.Forms.MessageBox]::Show(
-        (UI-Text "Zaimportować świat z '$picked' do bieżącej instalacji?`r`n`r`nObecny świat zostanie ZASTĄPIONY (kopia trafi do folderu 'backups'), a serwer zostanie zatrzymany na czas importu. Źródło pozostanie nietknięte." "Import the world from '$picked' into this installation?`r`n`r`nThe current world will be REPLACED (a backup goes to the 'backups' folder), and the server is stopped for the import. The source stays untouched."),
-        (UI-Text 'Potwierdź import bazy' 'Confirm the database import'), 'YesNo', 'Warning')
+        "Zaimportować świat z '$picked' do bieżącej instalacji?`r`n`r`nObecny świat zostanie ZASTĄPIONY (kopia trafi do folderu 'backups'), a serwer zostanie zatrzymany na czas importu. Źródło pozostanie nietknięte.",
+        'Potwierdź import bazy', 'YesNo', 'Warning')
     if ($confirm -ne [Windows.Forms.DialogResult]::Yes) { return }
     Start-LauncherAction -Action 'ImportDb' -Yes -ExtraArgs @('-ImportSource', "$picked")
 })
@@ -3786,13 +3755,13 @@ $worldBackupButton.Add_Click({
         $picker = [Windows.Forms.OpenFileDialog]::new()
         $picker.Title = (T 'backupPick')
         $picker.InitialDirectory = $backupRoot
-        $picker.Filter = (UI-Text 'Kopia swiata (db-backup-*.zip)|db-backup-*.zip|ZIP|*.zip' 'World backup (db-backup-*.zip)|db-backup-*.zip|ZIP|*.zip')
+        $picker.Filter = 'Kopia swiata (db-backup-*.zip)|db-backup-*.zip|ZIP|*.zip'
         if ($picker.ShowDialog() -ne [Windows.Forms.DialogResult]::OK) { $picker.Dispose(); return }
         $file = $picker.FileName
         $picker.Dispose()
         $confirm = [Windows.Forms.MessageBox]::Show(
-            (UI-Text "Przywrócić świat z '$([IO.Path]::GetFileName($file))'?`r`n`r`nObecny świat zostanie ZASTĄPIONY. Zanim to nastąpi, launcher zapisze go do własnej kopii w folderze 'backups', więc da się cofnąć." "Restore the world from '$([IO.Path]::GetFileName($file))'?`r`n`r`nThe current world will be REPLACED. Before that, the launcher saves it to a backup of its own in the 'backups' folder, so it can be undone."),
-            (UI-Text 'Potwierdź przywrócenie kopii' 'Confirm restoring the backup'), 'YesNo', 'Warning')
+            "Przywrócić świat z '$([IO.Path]::GetFileName($file))'?`r`n`r`nObecny świat zostanie ZASTĄPIONY. Zanim to nastąpi, launcher zapisze go do własnej kopii w folderze 'backups', więc da się cofnąć.",
+            'Potwierdź przywrócenie kopii', 'YesNo', 'Warning')
         if ($confirm -ne [Windows.Forms.DialogResult]::Yes) { return }
         Start-LauncherAction -Action 'RestoreDb' -Yes -ExtraArgs @('-RestoreSource', "$file")
         return
@@ -3800,12 +3769,12 @@ $worldBackupButton.Add_Click({
     # reset: the world is wiped and the server comes straight back up on the
     # fresh one (-ThenStart), so "wyzeruj i zacznij od nowa" is one decision.
     $confirm = [Windows.Forms.MessageBox]::Show(
-        (UI-Text "Wyzerować świat i zacząć od nowa?`r`n`r`nZniknie CAŁY obecny świat: postacie, poziomy, ekwipunek, boty i konta gry. Launcher najpierw zapisze go do kopii zip w folderze 'backups', więc da się do niego wrócić przyciskiem KOPIA SWIATA -> Przywroc swiat z kopii.`r`n`r`nPo wyzerowaniu serwer uruchomi się sam na nowym świecie. Ten start potrwa dłużej - baza powstaje od nowa i boty są zasiewane." "Wipe the world and start over?`r`n`r`nThe WHOLE current world goes: characters, levels, equipment, bots and game accounts. The launcher first saves it to a zip backup in the 'backups' folder, so you can go back to it with BACKUP / NEW WORLD -> Restore from a backup.`r`n`r`nAfter the wipe the server starts by itself on the new world. This start takes longer - the database is made anew and the bots are seeded."),
-        (UI-Text 'Potwierdź wyzerowanie świata' 'Confirm wiping the world'), 'YesNo', 'Warning')
+        "Wyzerować świat i zacząć od nowa?`r`n`r`nZniknie CAŁY obecny świat: postacie, poziomy, ekwipunek, boty i konta gry. Launcher najpierw zapisze go do kopii zip w folderze 'backups', więc da się do niego wrócić przyciskiem KOPIA SWIATA -> Przywroc swiat z kopii.`r`n`r`nPo wyzerowaniu serwer uruchomi się sam na nowym świecie. Ten start potrwa dłużej - baza powstaje od nowa i boty są zasiewane.",
+        'Potwierdź wyzerowanie świata', 'YesNo', 'Warning')
     if ($confirm -ne [Windows.Forms.DialogResult]::Yes) { return }
     $again = [Windows.Forms.MessageBox]::Show(
-        (UI-Text "Na pewno? To ostatnie pytanie.`r`n`r`nPo kliknięciu TAK obecny świat przestaje być światem tego serwera." "Are you sure? This is the last question.`r`n`r`nOnce you click YES, the current world is no longer this server's world."),
-        (UI-Text 'Wyzerowanie świata' 'Wiping the world'), 'YesNo', 'Warning')
+        "Na pewno? To ostatnie pytanie.`r`n`r`nPo kliknięciu TAK obecny świat przestaje być światem tego serwera.",
+        'Wyzerowanie świata', 'YesNo', 'Warning')
     if ($again -ne [Windows.Forms.DialogResult]::Yes) { return }
     # The new world's rates and whether its bots wait, asked before the old
     # one goes: this is the last moment they can be set with nothing yet
@@ -3890,11 +3859,58 @@ $dbAccessButton.Add_Click({
 $repairDbButton.Add_Click({
     if (-not (Confirm-DockerReady)) { return }
     $answer = [Windows.Forms.MessageBox]::Show(
-        (UI-Text "Naprawić dostęp do bazy?`r`n`r`nUżyj tego, gdy po imporcie serwer nie startuje (playerbot-migrate kończy się błędem) albo gdy Navicat/HeidiSQL odrzuca hasło z pliku .env. Odtwarza tylko techniczne konta bazy (gry i root) — postacie, przedmioty i boty pozostają BEZ ZMIAN. Serwer zostanie zatrzymany na czas naprawy." "Repair the database access?`r`n`r`nUse this when the server does not start after an import (playerbot-migrate ends with an error) or when Navicat/HeidiSQL rejects the password from the .env file. It restores only the database's technical accounts (the game's and root) - characters, items and bots stay UNCHANGED. The server is stopped for the repair."),
-        (UI-Text 'Napraw dostęp do bazy' 'Repair database access'), 'YesNo', 'Question')
+        "Naprawić dostęp do bazy?`r`n`r`nUżyj tego, gdy po imporcie serwer nie startuje (playerbot-migrate kończy się błędem) albo gdy Navicat/HeidiSQL odrzuca hasło z pliku .env. Odtwarza tylko techniczne konta bazy (gry i root) — postacie, przedmioty i boty pozostają BEZ ZMIAN. Serwer zostanie zatrzymany na czas naprawy.",
+        'Napraw dostęp do bazy', 'YesNo', 'Question')
     if ($answer -ne [Windows.Forms.DialogResult]::Yes) { return }
     Start-LauncherAction -Action 'RepairDb'
 })
+
+# ZGLOS / REPORT: a bug, a suggestion or anything else, to the MT2009 PLUS
+# owner with the logs unless the player unticks them. The form is the
+# module's (launcher\Metin2Launcher.Report.psm1); the Report action collects
+# and sends like every other action, one at a time, and leaves its answer in
+# a file beside the form it was handed, which the watch below shows. Only when
+# the module is there. The plain window has it at the top right, the title
+# making room; the layout puts it on the logs page.
+$reportModulePath = Join-Path $root 'launcher\Metin2Launcher.Report.psm1'
+$reportButton = $null
+if (Test-Path -LiteralPath $reportModulePath -PathType Leaf) {
+    Import-Module $reportModulePath -Force
+    $title.Width = 500
+    $reportButton = New-Button 'ZGŁOŚ BŁĄD / POMYSŁ' 536 20 190 36 ([Drawing.Color]::FromArgb(150, 62, 72))
+    $script:form.Controls.Add($reportButton)
+    $script:reportResultPath = ''
+    $script:reportWatch = [Windows.Forms.Timer]::new()
+    $script:reportWatch.Interval = 700
+    $script:reportWatch.Add_Tick({
+        $answer = $null
+        try { $answer = Read-M2ReportResult -Path $script:reportResultPath } catch { }
+        if ($answer) {
+            $script:reportWatch.Stop()
+            Show-M2ReportOutcome -Result $answer -Owner $script:form
+            return
+        }
+        # The action ended with no answer: it failed before writing one, and
+        # its own error dialog has said so.
+        if (-not $script:activeProcess) { $script:reportWatch.Stop() }
+    })
+    $reportButton.Add_Click({
+        if ($script:activeProcess -and -not $script:activeProcess.HasExited) {
+            [Windows.Forms.MessageBox]::Show('Poczekaj na zakończenie bieżącej operacji.', 'Launcher pracuje', 'OK', 'Information') | Out-Null
+            return
+        }
+        $request = Show-M2ReportDialog -ServerRoot $root -Owner $script:form -Config (Get-LauncherConfig) -Manifest $script:latestManifest
+        if (-not $request) { return }
+        $requestPath = Save-M2ReportRequest -ServerRoot $root -Request $request
+        $before = $script:activeProcess
+        Start-LauncherAction -Action 'Report' -Yes -ExtraArgs @('-ReportFile', $requestPath)
+        # A start the launcher refused leaves the request as the next draft.
+        if ($script:activeProcess -and -not [object]::ReferenceEquals($script:activeProcess, $before)) {
+            $script:reportResultPath = Get-M2ReportResultPath -RequestPath $requestPath
+            $script:reportWatch.Start()
+        }
+    })
+}
 
 # The window's layout - the menu of five pages, the cards, the painted
 # background (22 September) - is its own file and only moves the controls
@@ -3912,12 +3928,12 @@ if ((Test-Path -LiteralPath $layoutPath -PathType Leaf) -and
     }
     catch {
         if ($UiSelfTest) { throw }
-        Write-StartupFailure ((UI-Text 'Nowy wyglad launchera: ' 'The launcher''s new layout: ') + ($_ | Out-String))
+        Write-StartupFailure ('Nowy wyglad launchera: ' + ($_ | Out-String))
         if ($script:ui -and $script:ui.Cleared) {
             # The controls are half moved and there is no way back inside
             # this process; the next start opens the plain window.
             try { [IO.File]::WriteAllText($classicLayoutFlag, ($_ | Out-String)) } catch { }
-            throw ((UI-Text 'Nowy wyglad launchera nie uruchomil sie na tym komputerze ({0}). Uruchom launcher jeszcze raz - otworzy sie w poprzednim wygladzie.' 'The launcher''s new layout did not start on this computer ({0}). Start the launcher again - it opens in the previous layout.') -f $_.Exception.Message)
+            throw ('Nowy wyglad launchera nie uruchomil sie na tym komputerze ({0}). Uruchom launcher jeszcze raz - otworzy sie w poprzednim wygladzie.' -f $_.Exception.Message)
         }
     }
     if ($UiSelfTest) {
@@ -3995,8 +4011,8 @@ $script:form.Add_FormClosing({
     param($sender, $eventArgs)
     if ($script:activeProcess -and -not $script:activeProcess.HasExited) {
         $answer = [Windows.Forms.MessageBox]::Show(
-            (UI-Text 'Launcher nadal wykonuje operację. Czy na pewno zamknąć okno?' 'The launcher is still running an operation. Close the window anyway?'),
-            (UI-Text 'Operacja w toku' 'Operation in progress'), 'YesNo', 'Warning')
+            'Launcher nadal wykonuje operację. Czy na pewno zamknąć okno?',
+            'Operacja w toku', 'YesNo', 'Warning')
         if ($answer -ne [Windows.Forms.DialogResult]::Yes) { $eventArgs.Cancel = $true }
     }
 })
@@ -4005,7 +4021,7 @@ if (Test-Path -LiteralPath $sessionLog -PathType Leaf) {
     $tail = Get-Content -LiteralPath $sessionLog -Tail 12 -ErrorAction SilentlyContinue
     if ($tail) { $script:logBox.Text = ($tail -join [Environment]::NewLine) + [Environment]::NewLine }
 }
-Write-LocalLog (UI-Text 'Uruchomiono GUI launchera.' 'Launcher window started.')
+Write-LocalLog 'Uruchomiono GUI launchera.'
 Invoke-ClientStrayCleanup
 Update-VersionFooter
 Refresh-Status

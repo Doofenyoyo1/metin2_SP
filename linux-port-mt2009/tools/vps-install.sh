@@ -446,9 +446,11 @@ secure_existing_env() {
     say "linux-port/docker/.env jest - hasla bazy zostaja takie, jakie sa."
 }
 
+ENV_KEPT=0
 prepare_env() {
     if [ -f "$ENV_FILE" ]; then
         secure_existing_env
+        ENV_KEPT=1
     else
         write_new_env
     fi
@@ -460,6 +462,14 @@ prepare_env() {
 stage_context() {
     [ -f "$ROOT/linux-port/tools/update.sh" ] || die "nie ma linux-port/tools/update.sh - wgrany folder jest niekompletny"
     sh "$ROOT/linux-port/tools/update.sh" stage || die "nie udalo sie przygotowac kontekstu budowy panelu (update.sh stage)"
+    # An install over a world with an .env is an update by another name (the
+    # launcher's install over an older world): its .env gets what update.sh
+    # gives an updated one - the example's new keys (existing values stay as
+    # they are), the channels' ports counted from M2_GAME_PORT_BASE (CH2
+    # switched on in the panel) and the once-only flips.
+    if [ "$ENV_KEPT" = 1 ]; then
+        sh "$ROOT/linux-port/tools/update.sh" env || warn "nie udalo sie uzupelnic .env (update.sh env) - serwer ruszy z tym, co jest"
+    fi
     mkdir -p "$COMPOSE_DIR/game/src/serverfiles/share/package" 2>/dev/null || true
 }
 
@@ -560,6 +570,12 @@ run_job() {
             # September; 10-import-dumps.sh now puts its options back too).
             chmod a+x "$COMPOSE_DIR"/mariadb/initdb.d/*.sh 2>/dev/null || true
             job_phase build "budowa obrazow i start serwera (docker compose up -d --build) - pierwszy raz 15-40 minut"
+            # Two build inputs are empty directories, which git and some
+            # unpackers do not carry; the game Dockerfile COPYs both and the
+            # build dies at "failed to compute cache key ... not found"
+            # (serverfiles/mark-default, 27 September). Made, never demanded.
+            mkdir -p "$COMPOSE_DIR/game/src/serverfiles/share/package" \
+                     "$COMPOSE_DIR/game/src/serverfiles/mark-default" 2>/dev/null || true
             ( cd "$COMPOSE_DIR" && docker compose up -d --build )
             _rc=$?
             if [ "$_rc" -ne 0 ]; then
@@ -753,7 +769,6 @@ cmd_status() {
         printf 'auth_port=%s\n' "$(env_get M2_AUTH_PORT)"
         printf 'game_port_range=%s\n' "$(env_get M2_GAME_PORT_RANGE)"
         printf 'ch2=%s\n' "$(env_get M2_PLAYERBOT_CH2)"
-        printf 'fresh_channels=%s\n' "$(env_get M2_PLAYERBOT_FRESH_CHANNELS)"
         printf 'panel_port=%s\n' "$(env_get M2_PANEL_PUBLIC_PORT)"
         printf 'seban_panel_port=%s\n' "$(env_get M2_SEBAN_PANEL_PORT)"
         printf 'itemshop_port=%s\n' "$(env_get M2_ITEMSHOP_PUBLIC_PORT)"

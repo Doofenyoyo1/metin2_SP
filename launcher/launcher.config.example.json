@@ -3,5 +3,6 @@
   "manifestUrl": "https://raw.githubusercontent.com/Doofenyoyo1/metin2_SP/main/update-manifest.json",
   "clientRoot": "C:\\Metin2Client",
   "clientExecutable": "C:\\Metin2Client\\metin2client.exe",
-  "supportUploadUrl": ""
+  "supportUploadUrl": "",
+  "reportUrl": ""
 }
