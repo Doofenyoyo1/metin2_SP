@@ -16,10 +16,5 @@
     "repository": "https://github.com/TieruYT/metin2-playerbots",
     "synced_version": "2.2.38",
     "engine_package_sha256": "ADB56D7349D24B5BBE5FB29189ADE2C5664CC9892C40D28F9B9D87624D7698D3"
-  },
-  "client_rebase": {
-    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/klient-v2.0.30/metin2-client-update-2.0.30.zip",
-    "sha256": "2E56BC056458880DF03D87F96026E6B34A93B4C79DB88FC75B1920B29438E72C",
-    "since": "8babb6f473685e4db2dd2838485d43cae5ea575f"
   }
 }

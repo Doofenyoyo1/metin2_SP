@@ -2,7 +2,7 @@
   "schema": 1,
   "channel": "stable",
   "publishedAt": "2026-09-30T17:38:25Z",
-  "statusMessage": "2.0.98 (serwer 2.0.98, klient 2.0.27): COOP dla kazdego - hostowanie bez hasla. Klient 2.0.27: przycisk w statusie Discorda prowadzi na GitHuba projektu.",
+  "statusMessage": "2.17.0 (serwer 2.17.0, klient 2.0.55): pierwsze wydanie na MT2009 PLUS. Zaktualizuj serwer i klienta; klient ma okolo 300 MB.",
   "server": {
     "version": "2.17.0",
     "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.0/metin2-server-update-2.17.0.zip",
