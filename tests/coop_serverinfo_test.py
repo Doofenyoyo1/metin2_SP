@@ -77,11 +77,20 @@ check('serwer 2: wlasna nazwa znaczkow gildii', friend['mark']['mark'] == '20.tg
 check('serwer 2: nazwa inna niz serwera 1', friend['main']['name'] != servers[0]['main']['name']
       and 'Swiat Gospodarza' in friend['main']['name'])
 
-check('zly host (spacja, srednik) pominiety', len(load('host=1.2.3.4; rm\n')) == 1)
-check('port poza zakresem pominiety', len(load('host=1.2.3.4\nauth=70000\n')) == 1)
-check('port nie liczba pominiety', len(load('host=1.2.3.4\nchannel=abc\n')) == 1)
-check('nazwa hosta (DDNS) przyjeta', load('host=moj-swiat.ddns.net\n')[1]['main']['host'] == 'moj-swiat.ddns.net')
-check('kanalow najwyzej 4', load('host=1.2.3.4\nchannels=9\n')[1]['main']['channel_count'] == 4)
+# MT2009 PLUS's server list wants all five keys and at most two channels, and
+# refuses the file otherwise; the invite writers (Dolacz.ps1, the launcher)
+# write all five and clamp the channels.
+def cfg(**kw):
+    v = {'name': 'Swiat', 'host': '1.2.3.4', 'auth': '11000', 'channel': '13000', 'channels': '2'}
+    v.update(kw)
+    return ''.join('%s=%s\n' % (k, v[k]) for k in ('name', 'host', 'auth', 'channel', 'channels'))
+
+check('zly host (spacja, srednik) pominiety', len(load(cfg(host='1.2.3.4; rm'))) == 1)
+check('port poza zakresem pominiety', len(load(cfg(auth='70000'))) == 1)
+check('port nie liczba pominiety', len(load(cfg(channel='abc'))) == 1)
+check('brak klucza pominiety', len(load('host=1.2.3.4\n')) == 1)
+check('nazwa hosta (DDNS) przyjeta', load(cfg(host='moj-swiat.ddns.net'))[1]['main']['host'] == 'moj-swiat.ddns.net')
+check('kanalow najwyzej 2', len(load(cfg(channels='3'))) == 1 and load(cfg(channels='2'))[1]['main']['channel_count'] == 2)
 
 print('--- bledow: %d (python %s) ---' % (len(failures), sys.version.split()[0]))
 sys.exit(1 if failures else 0)

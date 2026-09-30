@@ -1070,7 +1070,8 @@ function Write-M2CoopClientConfig {
         ('host=' + $target),
         ('auth=' + [int]$Invite.auth),
         ('channel=' + [int]$Invite.channel),
-        ('channels=' + [int]$Invite.channels)
+        # The client's server list refuses a coop.cfg of more than two channels.
+        ('channels=' + [Math]::Min(2, [Math]::Max(1, [int]$Invite.channels)))
     )
     $path = Join-Path $ClientFolder 'coop.cfg'
     [IO.File]::WriteAllText($path, (($lines -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)

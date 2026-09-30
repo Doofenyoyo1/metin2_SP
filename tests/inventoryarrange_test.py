@@ -41,6 +41,10 @@ def install_stubs():
 	sys.modules['net'] = module('net', SendChatPacket=lambda text: STATE['commands'].append(text))
 	sys.modules['mouseModule'] = module('mouseModule', mouseController=StubMouse())
 	sys.modules['uiPrivateShopBuilder'] = module('uiPrivateShopBuilder', IsBuildingPrivateShop=lambda: STATE['building'])
+	# MT2009 PLUS's mode picker (arrange or merge only) is a ui window; these
+	# tests drive the answers, not the window.
+	sys.modules['ui'] = module('ui', ThinBoard=object)
+	sys.modules['wndMgr'] = module('wndMgr')
 
 
 reset_state()
