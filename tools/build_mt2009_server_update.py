@@ -61,7 +61,7 @@ ENGINE_EDITS = ['apply_costume_mount_allowed', 'apply_ride_seal_equip', 'apply_s
 # Files an upstream package carries that this repository does not publish. An
 # update never deletes a file, so a player who took the upstream package keeps
 # it; the drop check below is for paths this repository's own list lost.
-NOT_OURS = {'LICENSE-MIT.txt'}
+NOT_OURS = set()
 
 
 def published(rel):

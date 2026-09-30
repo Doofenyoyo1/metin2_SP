@@ -66,6 +66,7 @@ CHANGELOG.md
 linux-port-mt2009/VERSION
 # This repository's own terms, over whatever an upstream package left there.
 LICENSE
+LICENSE-MIT.txt
 NOTICE.md
 start-server.ps1
 start.bat

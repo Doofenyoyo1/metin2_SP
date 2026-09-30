@@ -2,6 +2,8 @@
 
 **Polski** | [English (README_EN.md)](README_EN.md)
 
+> Ten projekt jest przeróbką **[MT2009 PLUS](https://github.com/zaxerrrr-dot/mt2009-sp-plus)** (ZAXEP/SIZOWSKI), a ten – przeróbką **[Metin2 Playerbots](https://github.com/TieruYT/metin2-playerbots)** (Tieru). Udostępniany na licencji **CC BY-NC-SA 4.0**, jak oba projekty źródłowe: [LICENSE](LICENSE), [NOTICE.md](NOTICE.md).
+
 Lokalny świat Metin2 singleplayer, w którym po mapie biegają i autentycznie grają autonomiczne postacie (Playerbots): zdobywają poziomy, walczą solo i w party, zbierają łup, ulepszają ekwipunek u Kowala, polują na Metiny i zapisują swój postęp w standardowej bazie danych.
 
 ## Wersja 2.0 — nowe pliki serwerowe (mt2009)

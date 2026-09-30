@@ -2,6 +2,8 @@
 
 [Polski (README.md)](README.md) | **English**
 
+> This project is a modification of **[MT2009 PLUS](https://github.com/zaxerrrr-dot/mt2009-sp-plus)** (ZAXEP/SIZOWSKI), itself a modification of **[Metin2 Playerbots](https://github.com/TieruYT/metin2-playerbots)** (Tieru). It is shared under **CC BY-NC-SA 4.0**, like both of them: [LICENSE](LICENSE), [NOTICE.md](NOTICE.md).
+
 A local Metin2 singleplayer world populated by genuine, autonomous player characters (Playerbots): leveling up, grinding solo and in squads, looting items, refining gear at the Blacksmith, hunting Metin stones, and persisting their full progression in the standard database.
 
 ## 💬 Issues & Development

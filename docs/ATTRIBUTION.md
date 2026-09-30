@@ -1,5 +1,23 @@
 # Pochodzenie projektu i atrybucja / Project provenance and attribution
 
+## Linia 2.x / The 2.x line
+
+Linia 2.x jest przerobka **MT2009 PLUS** (ZAXEP/SIZOWSKI,
+https://github.com/zaxerrrr-dot/mt2009-sp-plus), a ten jest przerobka
+**Metin2 Playerbots** (Tieru, https://github.com/TieruYT/metin2-playerbots).
+Oba sa na licencji CC BY-NC-SA 4.0 i ten projekt tez: podajemy autorow, lista
+zmian jest w CHANGELOG.md, projekt nie sluzy celom komercyjnym.
+
+The 2.x line is a modification of **MT2009 PLUS** (ZAXEP/SIZOWSKI), itself a
+modification of **Metin2 Playerbots** (Tieru). Both are CC BY-NC-SA 4.0, and so
+is this project: the authors are credited, the changes are listed in
+CHANGELOG.md, and the project is non-commercial.
+
+    Metin2 Playerbots - Tieru - https://github.com/TieruYT/metin2-playerbots - CC BY-NC-SA 4.0
+    MT2009 PLUS - ZAXEP/SIZOWSKI - https://github.com/zaxerrrr-dot/mt2009-sp-plus - CC BY-NC-SA 4.0
+
+## Linia 1.x i baza / The 1.x line and its base
+
 ## Polski
 
 Metin2 Playerbots powstał na bazie publicznego projektu
