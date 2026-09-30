@@ -16,6 +16,7 @@ Updating never touches your database. Characters, accounts and settings survive
 every version here.
 
 ---
+## 2.3.00 — 2026-09-30
 
 ## 2.17.0 — 2026-09-30
 
