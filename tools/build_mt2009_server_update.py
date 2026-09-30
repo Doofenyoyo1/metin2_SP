@@ -63,7 +63,10 @@ ENGINE_EDITS = ['apply_sidekick_quest_kill_credit',
 # Files an upstream package carries that this repository does not publish. An
 # update never deletes a file, so a player who took the upstream package keeps
 # it; the drop check below is for paths this repository's own list lost.
-NOT_OURS = set()
+# MT2009 PLUS's notes on its own releases and packaging (its update channel,
+# its mod list, its package list), which this project does not publish.
+NOT_OURS = {'AKTUALIZACJE_MOD.md', 'MODS_PL.md', 'MOD_VERSION', 'SERWER_PL.md',
+            'launcher/server-update-files.mod.txt'}
 
 
 def published(rel):
