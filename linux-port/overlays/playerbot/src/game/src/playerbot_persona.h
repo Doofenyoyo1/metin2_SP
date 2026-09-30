@@ -70,6 +70,8 @@ namespace
 			// The medal dropper stays one: community patch 2, point 4 asks for
 			// four and a half times as many, where this line made none.
 			case BOT_PERSONALITY_MEDAL_DROPPER: return BOT_PERSONALITY_MEDAL_DROPPER;
+			// So does the guild materials dropper: the guilds build with it.
+			case BOT_PERSONALITY_GUILD_DROPPER: return BOT_PERSONALITY_GUILD_DROPPER;
 			default: return drawn;
 		}
 	}
@@ -707,7 +709,7 @@ namespace
 				? CHARACTER_MANAGER::instance().Find(state.dwTargetVID) : NULL;
 		const bool busy = (target && !target->IsDead()) || ch->GetVictim() != NULL ||
 				state.bVisitingShop || state.bVisitingBiologist || state.bVisitingStable ||
-				state.bVisitingHerbalist || state.bVisitingAlchemist || state.bMarketTrip || state.bFishingSession ||
+				state.bVisitingHerbalist || state.bVisitingAlchemist || state.bVisitingUriel || state.bSaddlebagErrand != 0 || state.bVisitingDsAlchemist || state.bMarketTrip || state.bFishingSession ||
 				state.bRecoveringAfterDeath || state.bTacticalRetreat || ch->GetMyShop() != NULL ||
 				IsPlayerBotMiningNow(ch->GetPlayerID(), dwNow) ||
 				(ch->GetMaxHP() > 0 && ch->GetHP() * 100 < ch->GetMaxHP() * PLAYERBOT_MOOD_AFK_MIN_HP_PERCENT);

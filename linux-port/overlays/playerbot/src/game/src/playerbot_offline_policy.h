@@ -46,10 +46,15 @@ inline std::map<uint32_t, std::vector<SoldLine> > sold;
 // included - the one buyer the ledger could never see. Bounded for a core
 // whose ledger never runs.
 inline std::map<uint32_t, uint32_t> soldLinesByVnum;
+// An owner of 0 counts the line and records no sale: the engine passes the
+// owner only on the core the owner is on (MT2009_PLUS_SALE_ONCE_V1,
+// ikarus_shop_manager.cpp). Every core recorded it, and a bot that changed
+// channel drained the same sale a second time where it arrived - twice in the
+// log and in the panel's gear history.
 inline void NoteSold(uint32_t ownerid, uint32_t item, uint32_t vnum, uint32_t count, long long price) {
-    if (!ownerid) return;
     if (vnum && (soldLinesByVnum.size() < 4096 || soldLinesByVnum.count(vnum)))
         ++soldLinesByVnum[vnum];
+    if (!ownerid) return;
     auto& lines = sold[ownerid];
     // An owner nobody drains - a real player, or a bot that has left the
     // world - must not grow this without bound.

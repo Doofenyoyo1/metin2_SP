@@ -184,9 +184,10 @@ namespace
 	// succeeds or not (the quest's item.remove(1)); the first build removed the
 	// whole stack, ten recipes for one roll.
 	//
-	// The wait is the bots' book wait (GetPlayerBotBookWaitSeconds), not the
-	// quest's twenty-one hours: it is the same number the operator set for the
-	// bots' skill books, and on the default world it is none. And a Hermit's
+	// There is no wait between reads: the quest's twenty-one hours are gone for
+	// players (the Dockerfile's crafting.lua step, upstream 2.2.39) and a bot
+	// reads the same way - the bots' book wait used to stand in for it here,
+	// and a wait flag written before is ignored as the quest ignores it. A Hermit's
 	// Advice waits: the quest takes it off at any recipe read without using it,
 	// and the book pass puts it on for the class book it is about to read.
 	bool ReadPlayerBotCraftRecipe(LPCHARACTER ch)
@@ -195,8 +196,6 @@ namespace
 			return false;
 		if (ch->FindAffect(AFFECT_SKILL_BOOK_BONUS))
 			return false;
-		const int wait = GetPlayerBotBookWaitSeconds();
-		const int now = (int) get_global_time();
 		for (int cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
@@ -213,19 +212,6 @@ namespace
 				continue;   // known to the ceiling: the stack is goods now
 			if (ch->GetLevel() < row->reqLevel)
 				continue;
-			if (wait > 0)
-			{
-				// A wait written under a longer setting ends where the current
-				// one would have ended it, as the book wait does.
-				int until = GetPlayerBotRecipeLearnDelay(ch, recipeVnum);
-				if (until > now + wait)
-				{
-					until = now + wait;
-					SetPlayerBotRecipeLearnDelay(ch, recipeVnum, until);
-				}
-				if (until > now)
-					continue;
-			}
 			const int bonus = ch->GetPoint(POINT_LEARN_CHANCE);
 			const int rolled = chance * (100 + bonus) / 100;
 			// The quest spends a learning potion's affect on any read.
@@ -236,8 +222,8 @@ namespace
 			if (learnt)
 			{
 				SetPlayerBotCraftProgress(ch, recipeVnum, progress + 1);
-				if (wait > 0)
-					SetPlayerBotRecipeLearnDelay(ch, recipeVnum, now + wait);
+				if (GetPlayerBotRecipeLearnDelay(ch, recipeVnum) != 0)
+					SetPlayerBotRecipeLearnDelay(ch, recipeVnum, 0);
 			}
 			const DWORD vnum = item->GetVnum();
 			const int left = (int) item->GetCount() - 1;

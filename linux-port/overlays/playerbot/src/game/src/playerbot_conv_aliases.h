@@ -66,17 +66,6 @@ namespace playerbot_conv
 			{ "bransa", "bransoleta" }, { "bransy", "bransoleta" }, { "bransoletka", "bransoleta" },
 			{ "kolce", "kolczyki" }, { "kolczyk", "kolczyki" },
 			{ "naszyjka", "naszyjnik" }, { "naszyjnik", "naszyjnik" },
-			// An English player's words for the same things (Jeremus-Sama, 28
-			// September): the official English names, r40250's item_names.txt,
-			// of what the server knows by its Polish name. FMS, KD and the rest
-			// above are both languages' shorthand already. "Soul Stone" is the
-			// Kamien Duchowy (50513); a Kamien Duszy is a "Stone of" something.
-			{ "full moon sword", "miecz pelni ksiezyca" }, { "blessing scroll", "zwoj blogoslawienstwa" },
-			{ "bless scroll", "zwoj blogoslawienstwa" }, { "skill book", "ksiega umiejetnosci" },
-			{ "book of forgetfulness", "ksiega zapomnienia" }, { "forget book", "ksiega zapomnienia" },
-			{ "soul stone", "kamien duchowy" }, { "magic stone", "magiczny kamien" },
-			{ "red potion", "czerwona mikstura" }, { "blue potion", "niebieska mikstura" },
-			{ "potion", "mikstura" }, { "pots", "mikstura" }, { "pearl", "perla" },
 		};
 		count = sizeof(kAliases) / sizeof(kAliases[0]);
 		return kAliases;
@@ -439,14 +428,6 @@ namespace playerbot_conv
 			{ "av", MAP_ALIAS_UNLISTED }, { "av1", MAP_ALIAS_UNLISTED }, { "av2", MAP_ALIAS_UNLISTED },
 			{ "atlantyda", MAP_ALIAS_UNLISTED }, { "atlantydzie", MAP_ALIAS_UNLISTED },
 			{ "grota", MAP_ALIAS_UNLISTED }, { "grocie", MAP_ALIAS_UNLISTED },
-			// The English client's names (its locale_game.txt and the r40250
-			// English quests) and the ones English players use for them.
-			{ "orc valley", 64 }, { "valley", 64 }, { "seungryong", 64 }, { "desert", 63 }, { "yongbi", 63 },
-			{ "mount sohan", 61 }, { "fire land", 62 }, { "fireland", 62 }, { "doyyumhwan", 62 },
-			{ "doyyumhwaji", 62 }, { "ghost forest", 67 }, { "ghost wood", 67 }, { "lungsam", 67 },
-			{ "red forest", 68 }, { "red wood", 68 }, { "hwang temple", 65 }, { "temple", 65 },
-			{ "demon tower", 66 }, { "spider dungeon", 104 }, { "yayang", 3 }, { "jungrang", 4 }, { "imha", 44 },
-			{ "guild land", MAP_ALIAS_M3 }, { "guild map", MAP_ALIAS_M3 }, { "grotto", MAP_ALIAS_UNLISTED },
 		};
 		for (size_t i = 0; i < words.size(); ++i)
 		{

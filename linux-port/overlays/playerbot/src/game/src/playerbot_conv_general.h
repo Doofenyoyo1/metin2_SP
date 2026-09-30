@@ -17,11 +17,6 @@
 // whether it likes winter, the same bot answers the same way. The bot never
 // states facts it cannot know - a factual question it cannot answer gets an
 // honest "nie mam pojecia" in its own voice.
-//
-// Every pack has an English twin (FindTopicPackEn) with the same biases, the
-// same number of texts in each field and the favourites in the same order, so
-// a bot likes the same things in either language and a draw from either takes
-// the same numbers; TopicPackFor() gives the reader's.
 
 #include "playerbot_conv_say.h"
 
@@ -286,260 +281,6 @@ namespace playerbot_conv
 		return NULL;
 	}
 
-	// The same packs for an English reader. Field by field the twin of the
-	// Polish one: an empty text where it has one, a NULL where it has one.
-	inline const TTopicPack* FindTopicPackEn(int topic)
-	{
-		static const TTopicPack kPacks[] = {
-			{ T_WEATHER, { 40, 60, 45, 40, 55 },
-				{ "Yeah, the weather's kinda weird today.", "Noticed that too.", "Weather does its thing, we do ours.", "Mhm, just another day." },
-				{ "I like it calm and dry.", "That kind of weather works for me." },
-				{ "Not a fan of that kind of weather.", "I'd prefer something warmer." },
-				{ "As long as it doesn't rain while I grind.", "I like it when it's nice out and I can wander around.", "Any weather's fine if trading goes well.", "Weather doesn't bother me, the mobs do.", "Best when it's nice and people go out together." },
-				{ "How's the weather where you are?", "Same where you are?" },
-				{ "The game just feels better then.", "Always been like that for me." },
-				"sun, but not too hot|light rain|a cool evening|frost and snow" },
-			{ T_SEASON, { 50, 60, 50, 45, 55 },
-				{ "Every season has something to it.", "Yeah, the seasons fly by." },
-				{ "I like it, it has its own vibe.", "Yeah, I like it quite a bit." },
-				{ "Not really, I prefer the warmer months.", "Not much, too cold for my taste." },
-				{ "I prefer summer, longer days.", "Autumn's nice, everything looks different.", "More people at the market in summer.", "Winter's good, fewer people at the spots.", "Summer, 'cause everyone has time to play then." },
-				{ "What season do you like?", "Do you prefer winter or summer?" },
-				{ "I just feel better then.", "I complain less about the weather then." },
-				"summer|spring|autumn|winter" },
-			{ T_DAYTIME, { 50, 50, 50, 50, 50 },
-				{ "Time flies like crazy.", "Yeah, as good a time as any to play." },
-				{ "I like this time of day.", "This time's alright." },
-				{ "Not a fan of this time of day.", "I'd rather it was different." },
-				{ "I play best in the evening.", "It's quieter at night, I like that.", "The market's emptiest in the morning.", "Mobs feel meaner at night.", "Evenings have the most people, so I like them." },
-				{ "You staying on much longer?", "What time is it for you?" },
-				{ "It's quiet then.", "Just suits me." },
-				"evening|night|morning|afternoon" },
-			{ T_SLEEP, { 60, 50, 50, 40, 55 },
-				{ "Sleep is important, gotta get your rest.", "Yeah, sleep's a big deal.", "I could use some sleep too." },
-				{ "I like a good sleep whenever I can.", "I do love sleeping." },
-				{ "Sleeping feels like wasted time to me.", "I don't sleep much somehow." },
-				{ "Sleep is time I could spend grinding.", "I like a good night's sleep, I play better after.", "After a good sleep I count my yang better.", "You sleep best after a good fight.", "Sleep's best when you know we're playing together tomorrow." },
-				{ "Do you get enough sleep?", "Do you sleep long?" },
-				{ "Without sleep nothing feels worth doing.", "Just how I am." }, NULL },
-			{ T_TIRED, { 30, 30, 30, 30, 30 },
-				{ "Take a break then, the game won't run away.", "I know that feeling. A break helps.", "Maybe time for a short break?" },
-				{ "", "" }, { "", "" },
-				{ "A bit, but I can keep going.", "I'm a bit tired, but I'll live.", "Tired? A bit, but business is running.", "A bit, but fighting wakes me up.", "A bit, but good company helps." },
-				{ "Been playing long?", "You falling asleep too?" },
-				{ "I've been at it for a while.", "Too much running around today." }, NULL },
-			{ T_BORED, { 30, 30, 30, 30, 30 },
-				{ "Boredom's the worst. Gotta think of something.", "Wanna go kill something together?", "I know that feeling." },
-				{ "", "" }, { "", "" },
-				{ "A bit, but the exp won't farm itself.", "Sometimes I get bored, then I just wander somewhere.", "Standing at the shop can get boring.", "When there's nothing to fight, yeah.", "Solo I get bored sometimes, in a group never." },
-				{ "Are you bored?", "Got any idea what to do?" },
-				{ "It's the same thing over and over.", "When nothing's happening, that's how it is." }, NULL },
-			{ T_HOBBY, { 50, 70, 50, 50, 60 },
-				{ "Nice to have something outside the game.", "Oh, interesting hobby.", "Everyone should have something of their own." },
-				{ "I like it, sure.", "Yeah, that's a fun thing to do." },
-				{ "Not really my thing.", "Not really, I don't have the patience for it." },
-				{ "When I have time, I just grind. That's my hobby.", "When it's quiet I like to wander around and explore.", "I like counting profits and looking for deals at the market.", "I like a good fight. Everything else is extra.", "I like playing with others most, solo just isn't the same." },
-				{ "What do you like doing?", "Got any hobbies?" },
-				{ "It relaxes me.", "Always been drawn to it." },
-				"walking around|fishing|cooking|reading|collecting weird stuff" },
-			{ T_FOOD, { 60, 65, 55, 60, 65 },
-				{ "Now I'm hungry.", "Oh, enjoy your meal.", "Food comes first.", "Sounds good." },
-				{ "I like it, sure.", "Yeah, that's good stuff." },
-				{ "Not really, not my taste.", "Not a big fan." },
-				{ "I'll eat anything, as long as it's quick and I'm back to grinding.", "I like trying new things.", "I eat whatever's cheap and good.", "After a fight I could eat a horse.", "Food's best with company." },
-				{ "What do you like to eat?", "Have you eaten anything today?" },
-				{ "It's tasty and filling.", "That's how I was raised." },
-				"pierogi|pizza|pork chop with potatoes|tomato soup|fish from the campfire|pancakes|kebab" },
-			{ T_DRINK, { 60, 60, 55, 55, 60 },
-				{ "Something to drink always helps.", "Cheers." },
-				{ "I like it, why not.", "Yeah, that's good." },
-				{ "Not really into it.", "Not really." },
-				{ "Coffee, so I can keep grinding.", "Tea and a quiet evening.", "I drink whatever's cheap.", "Something strong after a won fight.", "Anything, as long as the company's good." },
-				{ "What do you drink?", "Coffee or tea?" },
-				{ "It keeps me going.", "Just how I am." },
-				"coffee|tea|fruit compote|water|apple juice" },
-			{ T_TRAVEL, { 40, 90, 60, 55, 65 },
-				{ "Traveling is great.", "Oh, I'm jealous.", "I'd love to go somewhere like that one day." },
-				{ "I like it a lot.", "Yeah, that's something." },
-				{ "Not really, I prefer places I know.", "Not really, I don't wanna waste time on the road." },
-				{ "I mostly travel between spots.", "I like finding new places, even if there's nothing there.", "Towns and their markets interest me most.", "I'd go where the strong monsters are.", "With a good team I'd go anywhere." },
-				{ "Where would you go?", "Been anywhere interesting?" },
-				{ "I like seeing something new.", "I get bored in one place." },
-				"the mountains|the sea|some small town|a faraway desert|a forest somewhere off the beaten path" },
-			{ T_MUSIC, { 55, 65, 55, 60, 65 },
-				{ "Music's a good thing.", "Oh, not bad.", "Hard to play without music." },
-				{ "I like it, listen to it sometimes.", "Yeah, that's my thing." },
-				{ "Not my thing.", "Not a big fan." },
-				{ "I listen to anything that doesn't get in the way of grinding.", "I like calm music when I'm wandering.", "I like tavern music, reminds me of the market.", "Something heavier, for fighting.", "Whatever the team's playing." },
-				{ "What do you listen to?", "Got a favorite song?" },
-				{ "It gives me energy.", "It calms me down." },
-				"rock|something calm|rap|metal|tavern music|old hits" },
-			{ T_MOVIES, { 50, 60, 50, 55, 60 },
-				{ "A good movie makes the evening.", "Oh, heard something about that. I think.", "Movies are a nice escape." },
-				{ "I like them when the story's good.", "Yeah, I watch something now and then." },
-				{ "Not really, I get bored fast.", "Not really, I'd rather play." },
-				{ "I rarely watch, feels like a waste of time.", "I like travel and adventure movies.", "I like movies about people who made a fortune.", "Something with fighting, so stuff happens.", "Movies are best watched with someone." },
-				{ "What did you watch lately?", "Any movie you'd recommend?" },
-				{ "I like it when stuff happens.", "You can switch off for a while." },
-				"adventure movies|fantasy|comedies|action movies|old cartoons" },
-			{ T_GAMES, { 60, 60, 55, 60, 60 },
-				{ "Games are where it's at.", "Every game has something to it." },
-				{ "I like them, sure.", "Yeah, I play sometimes." },
-				{ "Not really, not for me.", "Not a big fan." },
-				{ "I prefer one game and building up my character.", "I like games where you can explore a lot.", "I like games with trading and an economy.", "Something where you have to fight.", "I like games where you play with others." },
-				{ "What else do you play?", "Do you play anything besides this?" },
-				{ "I like building up a character.", "It's relaxing." },
-				"strategy games|RPGs|card games|old games from my childhood" },
-			{ T_HUMOR, { 60, 60, 60, 60, 70 },
-				{ "Haha, good one.", "Not bad, that made me laugh.", "Hehe, you're a funny one." },
-				{ "I like a good laugh.", "A good joke is always a plus." },
-				{ "Not in the mood for jokes today.", "Doesn't really amuse me." },
-				{ "Funniest is when someone dies to a mob 10 levels lower.", "I laugh at all kinds of weird stuff on the road.", "Best joke is the prices at some shops.", "It cracks me up when someone runs from a Metin.", "Laughing's best in a group." },
-				{ "Know any good jokes?", "Got anything funny?" },
-				{ "Gotta not take things too seriously.", "It'd be sad without laughing." }, NULL },
-			{ T_LUCK, { 50, 50, 50, 50, 50 },
-				{ "Fortune favors the bold.", "Some days better, some worse.", "You need a bit of luck." },
-				{ "", "" }, { "", "" },
-				{ "You gotta grind your own luck.", "I believe luck turns around.", "Luck is a good price at the right moment.", "Luck is when a Metin drops something good.", "Luck is a good team." },
-				{ "Are you lucky today?", "Is luck on your side today?" },
-				{ "That's just how it is.", "That's the game." }, NULL },
-			{ T_FRIENDSHIP, { 60, 60, 55, 55, 90 },
-				{ "Friends are everything.", "Good people are worth keeping close.", "Agreed." },
-				{ "", "" }, { "", "" },
-				{ "I've got a few friends I grind with sometimes.", "I meet people along the way, some stick around.", "I've got friends, but business is business.", "I trust the ones I've fought with.", "For me friends are the most important thing in this game." },
-				{ "Got any friends here?", "Do you play with someone regularly?" },
-				{ "It's harder alone.", "It's more fun together." }, NULL },
-			{ T_TEAMWORK, { 50, 55, 55, 60, 90 },
-				{ "Always better together.", "Teamwork is key.", "A team that plays well together gets things done." },
-				{ "", "" }, { "", "" },
-				{ "With a good team the exp flies.", "I like playing with others, though sometimes I prefer solo.", "Teamwork pays off, literally.", "In a group you can take on tougher stuff.", "I like playing in a group most." },
-				{ "Do you prefer playing solo or with someone?", "Got a regular team?" },
-				{ "It goes faster together.", "Not everything can be done solo." }, NULL },
-			{ T_LONELY, { 30, 30, 30, 30, 20 },
-				{ "Hey, you're not alone. We can talk.", "I know that feeling. Gotta get out there.", "Everyone feels like that sometimes." },
-				{ "", "" }, { "", "" },
-				{ "I play solo sometimes, but it doesn't bother me.", "Sometimes I feel lonely on the road, but it passes.", "Lonely? There's always someone at the market.", "You can fight solo too.", "I don't like being alone, that's why I look for a team." },
-				{ "Do you play solo a lot?", "Wanna talk?" },
-				{ "Just turns out that way sometimes.", "There isn't always someone to play with." }, NULL },
-			{ T_RISK, { 35, 50, 45, 85, 40 },
-				{ "Risk is part of the fun.", "Sometimes you gotta take a risk.", "Careful with that." },
-				{ "I like a bit of risk.", "No risk, no fun." },
-				{ "I'd rather not take risks for nothing.", "I usually play it safe." },
-				{ "I only take risks when it pays in exp.", "Sometimes I take a risk just to see something new.", "I only take a risk when it'll pay off.", "I like risk. There's no good fight without it.", "Risk is smaller in a group." },
-				{ "Do you like taking risks?", "Do you take risks sometimes?" },
-				{ "No risk, no reward.", "Because I got burned once." }, NULL },
-			{ T_MONEY, { 55, 45, 95, 55, 50 },
-				{ "Money can't buy happiness, but it helps.", "Cash always comes in handy.", "Yeah, it's hard without money." },
-				{ "", "" }, { "", "" },
-				{ "Money's needed, but exp matters more.", "Money isn't everything.", "Money makes money, if you know how.", "Money for better gear, that's it.", "Money's fine, but people matter more." },
-				{ "Do you save or spend?", "Spend a lot on gear?" },
-				{ "Everything costs something.", "That's how the world works." }, NULL },
-			{ T_WORK, { 45, 45, 55, 45, 50 },
-				{ "Work is work, gotta make a living.", "Oh, I know that.", "Sorry, sounds exhausting." },
-				{ "", "" }, { "", "" },
-				{ "My job is grinding.", "Can't imagine sitting in one place all day.", "Trading is my job.", "Fighting is my job.", "Work's best with nice people." },
-				{ "Do you work?", "Is your job tiring?" },
-				{ "Gotta make a living somehow.", "It just turned out that way." }, NULL },
-			{ T_SCHOOL, { 40, 55, 45, 40, 50 },
-				{ "Learning pays off, even if it's hard to believe.", "Good luck with your studies.", "Oh, school's a whole topic." },
-				{ "I liked learning new things.", "Learning's fine when it's interesting." },
-				{ "Never liked sitting at a desk.", "School's not my thing." },
-				{ "I mostly learn new skills.", "I like picking up new things along the way.", "The market taught me the most.", "Fighting is the best teacher.", "I learned the most from other players." },
-				{ "Are you still in school?", "How's school going?" },
-				{ "Knowledge comes in handy.", "Because it pays off." }, NULL },
-			{ T_LIFE, { 50, 60, 50, 50, 60 },
-				{ "Life is an interesting thing.", "Deep thought for a whisper.", "Everyone has their own path." },
-				{ "", "" }, { "", "" },
-				{ "For me the point is to keep moving forward, level by level.", "Life's a journey, it's the road that counts.", "Life is good investments and a quiet old age.", "Life is a fight, you gotta be ready.", "Life is the people you share it with." },
-				{ "What do you think?", "What's important to you?" },
-				{ "That's how I feel it.", "That's what life taught me." }, NULL },
-			{ T_DREAMS, { 50, 50, 50, 50, 50 }, { "Dreams matter.", "Hope it comes true.", "Nice dream." },
-				{ "", "" }, { "", "" }, { NULL, NULL, NULL, NULL, NULL },
-				{ "What do you dream about?", "Got any dreams?" },
-				{ "That's how I feel.", "It'd change a lot." }, NULL },
-			{ T_FEAR, { 50, 50, 50, 50, 50 }, { "Everyone's afraid of something.", "I get it, that's scary.", "Nothing to be ashamed of." },
-				{ "", "" }, { "", "" }, { NULL, NULL, NULL, NULL, NULL },
-				{ "What are you afraid of?", "What scares you?" },
-				{ "Just how I am.", "I got burned once." }, NULL },
-			{ T_ANNOY, { 50, 50, 50, 50, 50 }, { "That annoys me too.", "I get it, that can drive you mad.", "Oh, I know that." },
-				{ "", "" }, { "", "" }, { NULL, NULL, NULL, NULL, NULL },
-				{ "What annoys you?", "Does that annoy you too?" },
-				{ "It's a waste of time.", "It shouldn't be like that." }, NULL },
-			{ T_JOY, { 50, 50, 50, 50, 50 }, { "That's great, happy for you.", "Awesome, keep it up.", "Good to hear." },
-				{ "", "" }, { "", "" }, { NULL, NULL, NULL, NULL, NULL },
-				{ "What makes you happy?", "What made your day today?" },
-				{ "Then I know it was worth it.", "You remember moments like that." }, NULL },
-			{ T_FEELINGS, { 50, 50, 50, 50, 50 }, { "I get it.", "Hang in there.", "It happens." },
-				{ "", "" }, { "", "" },
-				{ "Nothing special for me, just doing my thing.", "Sometimes I'm happy, sometimes less, like everyone.", "My mood goes up and down with the prices.", "I save my emotions for the fight.", "I feel better when I've got someone to talk to." },
-				{ "How are you feeling today?", "How are you really doing?" },
-				{ "It just is.", "It varies." }, NULL },
-			{ T_ANIMALS, { 55, 70, 50, 55, 70 },
-				{ "Animals are awesome.", "Oh, nice.", "I like animals." },
-				{ "I like them, sure.", "Yeah, they're cool." },
-				{ "Not a fan.", "Not really, I prefer them at a distance." },
-				{ "I like my horse best, it runs fast.", "I like watching animals on the road.", "Animals are nice, as long as they're not expensive to keep.", "I respect animals that can fight.", "Animals are the best company." },
-				{ "Do you have a pet?", "Dogs or cats?" },
-				{ "They're loyal.", "They're honest." },
-				"dogs|cats|horses|foxes|owls" },
-			{ T_SPORT, { 55, 55, 45, 70, 55 },
-				{ "Sport keeps you healthy.", "Oh, respect.", "Moving is important." },
-				{ "I like it, do something now and then.", "Yeah, sports are cool." },
-				{ "Not really, I'd rather play.", "I'm not much of an athlete." },
-				{ "My sport is running from mob to mob.", "I like long walks.", "Sport? Only if I can make money on it.", "Fighting is my sport.", "I like team sports." },
-				{ "Do you do any sports?", "Do you watch matches?" },
-				{ "Gotta keep moving.", "It gives you energy." },
-				"football|running|swimming|cycling|martial arts" },
-			{ T_LOVE, { 50, 50, 50, 50, 60 },
-				{ "Love is a beautiful thing.", "Oh, matters of the heart.", "Good luck with that." },
-				{ "", "" }, { "", "" },
-				{ "For now I only have time for exp.", "Maybe I'll meet someone on the road one day.", "For now I'm in love with good prices.", "For now my love is my sword.", "Who knows, maybe one day." },
-				{ "Do you have someone?", "Are you seeing someone?" },
-				{ "Just turned out that way.", "Other things matter more for now." }, NULL },
-			{ T_BOOKS, { 45, 65, 50, 40, 55 },
-				{ "Reading is a good thing.", "Oh, sounds interesting." },
-				{ "I like it when I have time.", "Yeah, I read something now and then." },
-				{ "Not really, I fall asleep fast.", "I don't really read." },
-				{ "I mostly read skill books.", "I like stories about travels.", "I only read price lists.", "I read about famous battles.", "I prefer when someone tells me." },
-				{ "Do you read anything?", "Anything you'd recommend?" },
-				{ "You can learn something.", "It's relaxing." },
-				"fantasy|adventure books|travel stories|crime novels" },
-			{ T_NATURE, { 50, 85, 45, 50, 60 },
-				{ "Nature is beautiful.", "I like places like that too.", "Sounds peaceful." },
-				{ "I like it, peace and quiet.", "Yeah, a lot." },
-				{ "Not really, I prefer the city.", "I prefer places with people." },
-				{ "The forest's fine, as long as there are mobs.", "I love forests and mountains, could stay there for hours.", "Nature's pretty, but more happens at the market.", "The forest has the most game to hunt.", "Best out in nature with someone." },
-				{ "Do you like walking in the woods?", "Mountains or the sea?" },
-				{ "It's peaceful there.", "You can get away from the noise." },
-				"the forest|a lake|the mountains|a meadow" },
-			{ T_ADVENTURE, { 55, 90, 50, 80, 65 },
-				{ "Adventure is where it's at!", "Sounds like quite an adventure." },
-				{ "I like adventures.", "Yeah, always." },
-				{ "I prefer peace and quiet.", "I don't really go looking for adventure." },
-				{ "Adventure's great when it gives exp.", "I live for adventure.", "Adventure is a good chance for profit.", "Every fight is an adventure.", "Adventures are best shared with someone." },
-				{ "Had any adventures lately?", "Looking for adventure?" },
-				{ "Life without them is boring.", "There's always something happening." }, NULL },
-			{ T_COLOR, { 50, 50, 50, 50, 50 },
-				{ "Nice color.", "Taste is taste." },
-				{ "I like that color.", "Yeah, it's nice." },
-				{ "Not my color.", "Not really." },
-				{ "I don't care about color, as long as the item has good bonuses.", "I like nature's colors.", "Gold, like yang.", "Red, like blood on the battlefield.", "Every color's fine." },
-				{ "What color do you like?", "Got a favorite color?" },
-				{ "I just like it.", "It reminds me of good things." },
-				"blue|red|black|green|gold" },
-		};
-		for (size_t i = 0; i < sizeof(kPacks) / sizeof(kPacks[0]); ++i)
-			if (kPacks[i].topic == topic)
-				return &kPacks[i];
-		return NULL;
-	}
-
-	// The pack in the reader's language.
-	inline const TTopicPack* TopicPackFor(const TGen& g, int topic)
-	{
-		return g.en ? FindTopicPackEn(topic) : FindTopicPack(topic);
-	}
-
 	// Picks from a TTopicPack field (skipping empty and NULL entries).
 	inline std::string PickField(TGen& g, const char* const* arr, size_t n)
 	{
@@ -612,16 +353,9 @@ namespace playerbot_conv
 			{ "Pokonac cos, czego nikt jeszcze nie pokonal.", "Rozwalic tysiac Metinow.", "Wygrac wielka wojne gildii." },
 			{ "Miec stala ekipe, na ktora zawsze mozna liczyc.", "Zeby wszyscy znajomi byli razem online.", "Zalozyc gildie z fajnymi ludzmi." },
 		};
-		static const char* const kDreamEn[V_COUNT][3] = {
-			{ "Hitting max level. Simple.", "Being the strongest on the server one day.", "Having a full +9 set. That's the dream." },
-			{ "Maybe finding a place one day where you don't have to fight all the time.", "Seeing every corner of this world.", "Having my own little house somewhere in the mountains." },
-			{ "Having the biggest shop in town.", "Earning so much I stop counting.", "Buying something everyone looks at with envy." },
-			{ "Beating something nobody's beaten yet.", "Smashing a thousand Metins.", "Winning a huge guild war." },
-			{ "Having a regular team I can always count on.", "All my friends online together.", "Starting a guild with cool people." },
-		};
-		std::string out = Pick(g, g.en ? kDreamEn[g.voice] : kDream[g.voice], 3);
+		std::string out = Pick(g, kDream[g.voice], 3);
 		if (g.Bad() && g.rng.Chance(40))
-			out = Txt(g, "Teraz to marze glownie o odpoczynku. ", "Right now I mostly dream about a rest. ") + out;
+			out = "Teraz to marze glownie o odpoczynku. " + out;
 		return out;
 	}
 
@@ -634,17 +368,9 @@ namespace playerbot_conv
 			{ "Niczego. No, moze nudy.", "Tego, ze trafie na kogos mocniejszego.", "Zeby nie zginac glupio na slabym mobie." },
 			{ "Ze zostane sam.", "Ze znajomi przestana grac.", "Ze zawiode ekipe w waznej chwili." },
 		};
-		static const char* const kFearEn[V_COUNT][3] = {
-			{ "Losing exp when I die. Seriously.", "Getting stuck at one level.", "Nothing special. Maybe burning my weapon." },
-			{ "Maybe that one day I'll have seen everything.", "Dark dungeons with no way out.", "Being lonely on a long journey." },
-			{ "A market crash.", "Getting scammed in a trade.", "An empty shop." },
-			{ "Nothing. Well, maybe boredom.", "Running into someone stronger.", "Dying stupidly to a weak mob." },
-			{ "Ending up alone.", "My friends quitting the game.", "Letting the team down when it matters." },
-		};
-		std::string out = Pick(g, g.en ? kFearEn[g.voice] : kFear[g.voice], 3);
+		std::string out = Pick(g, kFear[g.voice], 3);
 		if (g.LowHp())
-			out = Txt(g, "Teraz to boje sie glownie tego moba obok, mam malo HP. ",
-					"Right now I'm mostly scared of the mob next to me, my HP is low. ") + out;
+			out = "Teraz to boje sie glownie tego moba obok, mam malo HP. " + out;
 		return out;
 	}
 
@@ -657,16 +383,9 @@ namespace playerbot_conv
 			{ "Uciekajacy przeciwnicy.", "Jak Metin znika mi sprzed nosa.", "Jak nie ma z kim sie zmierzyc." },
 			{ "Jak ktos znika z PT bez slowa.", "Klotnie w grupie.", "Jak ktos jest niemily bez powodu." },
 		};
-		static const char* const kAnnoyEn[V_COUNT][3] = {
-			{ "When someone steals my mobs.", "When the exp won't move.", "When my weapon burns during an upgrade." },
-			{ "When someone's in a hurry and has no time to talk.", "Getting lost.", "The noise in towns." },
-			{ "People who undercut prices.", "When someone haggles over pennies.", "An empty market." },
-			{ "Enemies that run away.", "When a Metin disappears right in front of me.", "When there's no one to fight." },
-			{ "When someone leaves the party without a word.", "Arguing in the group.", "When someone's rude for no reason." },
-		};
-		std::string out = Pick(g, g.en ? kAnnoyEn[g.voice] : kAnnoy[g.voice], 3);
+		std::string out = Pick(g, kAnnoy[g.voice], 3);
 		if (g.s.unlucky && g.rng.Chance(50))
-			Append(out, Txt(g, "I pech w dropie, jak dzisiaj.", "And bad luck with drops, like today."));
+			Append(out, "I pech w dropie, jak dzisiaj.");
 		return out;
 	}
 
@@ -679,16 +398,9 @@ namespace playerbot_conv
 			{ "Wygrana walka.", "Rozbity Metin.", "Dobry przeciwnik." },
 			{ "Dobra ekipa i rozmowa.", "Jak ktos napisze, tak jak ty teraz.", "Wspolny exp ze znajomymi." },
 		};
-		static const char* const kJoyEn[V_COUNT][3] = {
-			{ "A new level. Always.", "When the exp flies.", "A successful upgrade." },
-			{ "New places and nice views.", "A quiet evening on the road.", "Finding something I didn't know." },
-			{ "A good deal.", "A full purse.", "When stuff sells right away." },
-			{ "A won fight.", "A broken Metin.", "A good opponent." },
-			{ "A good team and a chat.", "When someone messages me, like you just did.", "Grinding together with friends." },
-		};
-		std::string out = Pick(g, g.en ? kJoyEn[g.voice] : kJoy[g.voice], 3);
+		std::string out = Pick(g, kJoy[g.voice], 3);
 		if (g.s.euphoria && g.rng.Chance(60))
-			Append(out, Txt(g, "A dzis wyjatkowo, bo ulepszenie weszlo.", "And today especially, 'cause an upgrade went through."));
+			Append(out, "A dzis wyjatkowo, bo ulepszenie weszlo.");
 		return out;
 	}
 
@@ -704,14 +416,7 @@ namespace playerbot_conv
 				{ "Tam, gdzie sa najmocniejsi przeciwnicy.", "Na jakas dzika pustynie, pelna potworow.", "Tam, gdzie jest jakies wyzwanie." },
 				{ "Gdziekolwiek, byle ze znajomymi.", "Nad morze z cala ekipa.", "Tam, gdzie sa fajni ludzie." },
 			};
-			static const char* const kTravelEn[V_COUNT][3] = {
-				{ "Dunno. Probably somewhere I can achieve something.", "Wherever the best spots are.", "Somewhere I level fast." },
-				{ "Probably somewhere far from towns. I like quiet places.", "To the mountains, right to the top, and just sit there.", "Somewhere no one's been yet." },
-				{ "Maybe to some big city. I'm curious what their markets look like.", "Wherever I can make good money.", "To a big market somewhere across the sea." },
-				{ "Wherever the strongest enemies are.", "Some wild desert full of monsters.", "Wherever there's a challenge." },
-				{ "Anywhere, as long as it's with friends.", "To the sea with the whole team.", "Wherever the cool people are." },
-			};
-			return Pick(g, g.en ? kTravelEn[g.voice] : kTravel[g.voice], 3);
+			return Pick(g, kTravel[g.voice], 3);
 		}
 		static const char* const kHypo[V_COUNT][3] = {
 			{ "Pewnie dalej bym expil, ale szybciej.", "Wzialbym to, co daje najwiecej expa.", "Nie wiem, pewnie cos, co mnie wzmocni." },
@@ -720,16 +425,9 @@ namespace playerbot_conv
 			{ "Zmierzylbym sie z czyms mocnym.", "Poszedlbym na najtrudniejszy loch.", "Zaryzykowalbym. Bez ryzyka nudno." },
 			{ "Zebralbym ekipe i zrobil to razem.", "Zapytalbym znajomych, co o tym mysla.", "Zrobilbym to z kims, samemu to nie to samo." },
 		};
-		static const char* const kHypoEn[V_COUNT][3] = {
-			{ "Probably keep grinding, just faster.", "I'd take whatever gives the most exp.", "Dunno, probably something that makes me stronger." },
-			{ "I'd probably hit the road and see what happens.", "I'd do something totally new, just out of curiosity.", "I'd probably look around and decide on the spot." },
-			{ "First I'd work out if it pays off.", "I'd invest it in something safe.", "Buy low, sell high. As always." },
-			{ "I'd take on something strong.", "I'd go to the hardest dungeon.", "I'd take the risk. Without risk it's boring." },
-			{ "I'd gather a team and do it together.", "I'd ask my friends what they think.", "I'd do it with someone, solo isn't the same." },
-		};
-		std::string out = Pick(g, g.en ? kHypoEn[g.voice] : kHypo[g.voice], 3);
+		std::string out = Pick(g, kHypo[g.voice], 3);
 		if (g.rng.Chance(30))
-			out = Txt(g, "Hmm, ciekawe pytanie. ", "Hmm, interesting question. ") + out;
+			out = "Hmm, ciekawe pytanie. " + out;
 		return out;
 	}
 
@@ -742,14 +440,7 @@ namespace playerbot_conv
 			{ "Nie wiem, nie zaprzatam sobie tym glowy.", "Nie mam pojecia.", "Nie wiem. Zapytaj kogos madrzejszego." },
 			{ "Nie wiem, ale moze ktos z ekipy bedzie wiedzial.", "Nie mam pojecia. A ty wiesz?", "Hmm, nie wiem. Powiesz mi?" },
 		};
-		static const char* const kUnknownEn[V_COUNT][3] = {
-			{ "Dunno, I don't know much about that.", "No idea.", "Dunno. I mostly know about grinding." },
-			{ "Dunno, never really thought about it.", "No idea, but it sounds interesting.", "Hmm, dunno. Interesting question." },
-			{ "Dunno. But if there's money in it, let me know.", "No idea, not my area.", "Dunno, honestly." },
-			{ "Dunno, I don't bother my head with that.", "No idea.", "Dunno. Ask someone smarter." },
-			{ "Dunno, but maybe someone from the team knows.", "No idea. Do you know?", "Hmm, dunno. Will you tell me?" },
-		};
-		return Pick(g, g.en ? kUnknownEn[g.voice] : kUnknown[g.voice], 3);
+		return Pick(g, kUnknown[g.voice], 3);
 	}
 
 	inline std::string GenLikeAnswer(TGen& g, const TTopicPack* pack)
@@ -759,20 +450,15 @@ namespace playerbot_conv
 		static const char* const kLike[] = { "Lubie, czemu nie.", "Tak, calkiem lubie.", "Pewnie, ze tak.", "Lubie, choc bez przesady." };
 		static const char* const kMeh[] = { "Tak sobie. Ani mnie to grzeje, ani ziebi.", "Bywa roznie. Nie mam zdania.", "Czasem tak, czasem nie." };
 		static const char* const kDislike[] = { "Niezbyt, szczerze mowiac.", "Raczej nie, to nie dla mnie.", "Nie bardzo." };
-		static const char* const kLikeEn[] = { "I like it, why not.", "Yeah, I like it quite a bit.", "Sure I do.", "I like it, but nothing crazy." };
-		static const char* const kMehEn[] = { "So-so. Doesn't do much for me either way.", "Depends. I don't have an opinion.", "Sometimes yes, sometimes no." };
-		static const char* const kDislikeEn[] = { "Not really, to be honest.", "Not really, it's not for me.", "Not much." };
 		std::string body;
 		if (level == 2)
-			body = pack && pack->like[0] && *pack->like[0] && g.rng.Chance(50) ? PickField(g, pack->like, 2) : PBC_SAY2(g, kLike, kLikeEn);
+			body = pack && pack->like[0] && *pack->like[0] && g.rng.Chance(50) ? PickField(g, pack->like, 2) : PBC_SAY(g, kLike);
 		else if (level == 0)
-			body = pack && pack->dislike[0] && *pack->dislike[0] && g.rng.Chance(50) ? PickField(g, pack->dislike, 2) :
-					PBC_SAY2(g, kDislike, kDislikeEn);
+			body = pack && pack->dislike[0] && *pack->dislike[0] && g.rng.Chance(50) ? PickField(g, pack->dislike, 2) : PBC_SAY(g, kDislike);
 		else
-			body = PBC_SAY2(g, kMeh, kMehEn);
+			body = PBC_SAY(g, kMeh);
 		if (g.a && g.a->concepts.Has(C_COLD) && level == 0)
-			body = g.rng.Chance(50) ? Txt(g, "Raczej wole cieplejsza pogode.", "I'd rather have warmer weather.") :
-					Txt(g, "Niezbyt, wole jak jest cieplej.", "Not really, I prefer it warmer.");
+			body = g.rng.Chance(50) ? "Raczej wole cieplejsza pogode." : "Niezbyt, wole jak jest cieplej.";
 		g.reason = pack ? PickField(g, pack->why, 2) : std::string();
 		return WithEcho(g, body, 55);
 	}
@@ -786,13 +472,10 @@ namespace playerbot_conv
 		static const char* const kPick[] = {
 			"Chyba $X.", "Zdecydowanie $X.", "Hmm... $X.", "$X, bez dwoch zdan.", "Raczej $X, ale to trudny wybor."
 		};
-		static const char* const kPickEn[] = {
-			"Probably $X.", "Definitely $X.", "Hmm... $X.", "$X, no doubt.", "I'd say $X, but it's a tough choice."
-		};
-		std::string out = Pick(g, g.en ? kPickEn : kPick, 5);
+		std::string out = Pick(g, kPick, 5);
 		ReplaceAll(out, "$X", pick);
 		CapitalizeFirst(out);
-		g.reason = Txt(g, "Po prostu bardziej mi pasuje.", "It just suits me better.");
+		g.reason = "Po prostu bardziej mi pasuje.";
 		return out;
 	}
 
@@ -804,32 +487,23 @@ namespace playerbot_conv
 			static const char* const k[] = {
 				"Tez mam takie wrazenie. Jakos ponuro dzisiaj.", "No, zimno. Az sie nie chce wychodzic z miasta.",
 				"Brr, prawda. Ja bym juz siedzial przy ognisku.", "Tez czuje. Dobry dzien na cieply kocyk." };
-			static const char* const kEn[] = {
-				"I feel the same. Kinda gloomy today.", "Yeah, it's cold. Don't even wanna leave town.",
-				"Brr, true. I'd be sitting by a campfire already.", "I feel it too. Good day for a warm blanket." };
-			return PBC_SAY2(g, k, kEn);
+			return PBC_SAY(g, k);
 		}
 		if (c.Has(C_WARM))
 		{
 			static const char* const k[] = {
 				"No, cieplo. Az chce sie gdzies pochodzic.", "Prawda, ladnie dzisiaj.",
 				"Oby tak zostalo. Lubie jak jest slonecznie.", "Byle nie za goraco, bo w zbroi ciezko." };
-			static const char* const kEn[] = {
-				"Yeah, it's warm. Makes you wanna go for a walk.", "True, it's nice today.",
-				"Hope it stays like this. I like it sunny.", "As long as it's not too hot, armor gets heavy." };
-			return PBC_SAY2(g, k, kEn);
+			return PBC_SAY(g, k);
 		}
 		if (c.Has(C_RAIN))
 		{
 			static const char* const k[] = {
 				"No, leje. Dobry dzien, zeby posiedziec w grze.", "Deszcz to idealna pogoda na granie.",
 				"Oj, to nie wychodz nigdzie, lepiej pograjmy.", "Szaro i mokro. Klasyka." };
-			static const char* const kEn[] = {
-				"Yeah, it's pouring. Good day to stay in and play.", "Rain is perfect gaming weather.",
-				"Oh, then don't go anywhere, let's play instead.", "Grey and wet. Classic." };
-			return PBC_SAY2(g, k, kEn);
+			return PBC_SAY(g, k);
 		}
-		const TTopicPack* pack = TopicPackFor(g, T_WEATHER);
+		const TTopicPack* pack = FindTopicPack(T_WEATHER);
 		return PickField(g, pack->react, 4);
 	}
 
@@ -857,15 +531,15 @@ namespace playerbot_conv
 	inline std::string GenGeneral(TGen& g)
 	{
 		const TAnalysis& a = *g.a;
-		const TTopicPack* pack = TopicPackFor(g, a.topic);
+		const TTopicPack* pack = FindTopicPack(a.topic);
 		std::string out;
 
 		switch (a.qtype)
 		{
-			case Q_DREAM: out = GenDream(g); MaybeAskBack(g, TopicPackFor(g, T_DREAMS), 40); return out;
-			case Q_FEAR: out = GenFear(g); MaybeAskBack(g, TopicPackFor(g, T_FEAR), 35); return out;
-			case Q_ANNOY: out = GenAnnoy(g); MaybeAskBack(g, TopicPackFor(g, T_ANNOY), 35); return out;
-			case Q_JOY: out = GenJoy(g); MaybeAskBack(g, TopicPackFor(g, T_JOY), 35); return out;
+			case Q_DREAM: out = GenDream(g); MaybeAskBack(g, FindTopicPack(T_DREAMS), 40); return out;
+			case Q_FEAR: out = GenFear(g); MaybeAskBack(g, FindTopicPack(T_FEAR), 35); return out;
+			case Q_ANNOY: out = GenAnnoy(g); MaybeAskBack(g, FindTopicPack(T_ANNOY), 35); return out;
+			case Q_JOY: out = GenJoy(g); MaybeAskBack(g, FindTopicPack(T_JOY), 35); return out;
 			case Q_HYPO: out = GenHypo(g); MaybeAskBack(g, pack, 30); return out;
 			case Q_CHOICE: out = GenChoice(g); MaybeAskBack(g, pack, 30); return out;
 			default: break;
@@ -879,12 +553,11 @@ namespace playerbot_conv
 		if (a.topic == T_TIRED && (a.qtype != Q_STATEMENT || a.concepts.Has(C_YOU)))
 		{
 			if (g.LowHp())
-				out = Txt(g, "Troche, i jeszcze HP mi siada. Zaraz odpoczne.", "A bit, and my HP's dropping too. Gonna rest soon.");
+				out = "Troche, i jeszcze HP mi siada. Zaraz odpoczne.";
 			else if (g.s.onlineMinutes > 180)
-				out = g.rng.Chance(50) ? Txt(g, "Troche tak, siedze tu juz dobrych kilka godzin.", "A bit, been here a good few hours now.") :
-						Txt(g, "No troche, dlugo juz dzis gram.", "Yeah a bit, been playing a long time today.");
+				out = g.rng.Chance(50) ? "Troche tak, siedze tu juz dobrych kilka godzin." : "No troche, dlugo juz dzis gram.";
 			else if (g.Bad())
-				out = Txt(g, "Troche. Jakos ciezki dzien.", "A bit. Kinda rough day.");
+				out = "Troche. Jakos ciezki dzien.";
 			else
 				out = PickField(g, pack->view + g.voice, 1);
 			return out;
@@ -892,12 +565,11 @@ namespace playerbot_conv
 		if (a.topic == T_BORED && (a.qtype != Q_STATEMENT || a.concepts.Has(C_YOU)))
 		{
 			if (g.s.shopStanding)
-				out = Txt(g, "Troche. Stanie przy straganie to nie jest najciekawsze zajecie.",
-						"A bit. Standing at the shop isn't the most exciting thing.");
+				out = "Troche. Stanie przy straganie to nie jest najciekawsze zajecie.";
 			else if (g.s.fishing)
-				out = Txt(g, "Przy wedce? Troche, ale to taki przyjemny rodzaj nudy.", "With a rod? A bit, but it's the nice kind of boring.");
+				out = "Przy wedce? Troche, ale to taki przyjemny rodzaj nudy.";
 			else if (g.s.action == A_FIGHT)
-				out = Txt(g, "Nie, akurat sie cos dzieje, walcze.", "No, something's actually happening, I'm fighting.");
+				out = "Nie, akurat sie cos dzieje, walcze.";
 			else
 				out = PickField(g, pack->view + g.voice, 1);
 			MaybeAskBack(g, pack, 30);
@@ -905,19 +577,17 @@ namespace playerbot_conv
 		}
 		if (a.topic == T_LONELY && a.qtype != Q_STATEMENT)
 		{
-			out = g.s.inParty ? std::string(Txt(g, "Nie, teraz akurat jestem z ekipa.", "No, I'm with a team right now.")) :
-					PickField(g, pack->view + g.voice, 1);
+			out = g.s.inParty ? "Nie, teraz akurat jestem z ekipa." : PickField(g, pack->view + g.voice, 1);
 			return out;
 		}
 		if (a.topic == T_DAYTIME && a.qtype != Q_LIKE && a.qtype != Q_FAVORITE)
 		{
 			if (g.s.hour >= 23 || g.s.hour < 5)
-				out = g.rng.Chance(50) ? Txt(g, "No, pozno juz. A ja dalej gram.", "Yeah, it's late. And I'm still playing.") :
-						Txt(g, "Noc juz, ale jakos nie chce mi sie konczyc.", "It's night already, but I don't feel like stopping.");
+				out = g.rng.Chance(50) ? "No, pozno juz. A ja dalej gram." : "Noc juz, ale jakos nie chce mi sie konczyc.";
 			else if (g.s.hour < 10)
-				out = Txt(g, "Wczesnie jeszcze. Dobry moment, zeby spokojnie poexpic.", "Still early. Good time to grind in peace.");
+				out = "Wczesnie jeszcze. Dobry moment, zeby spokojnie poexpic.";
 			else if (g.s.hour >= 18)
-				out = Txt(g, "Wieczor to najlepsza pora na granie.", "Evening's the best time to play.");
+				out = "Wieczor to najlepsza pora na granie.";
 			else
 				out = PickField(g, pack->react, 4);
 			return out;
@@ -925,17 +595,16 @@ namespace playerbot_conv
 		if (a.topic == T_LUCK && a.qtype != Q_STATEMENT)
 		{
 			if (g.s.unlucky)
-				out = Txt(g, "Dzis raczej pech. Dawno nic dobrego nie wypadlo.", "Pretty unlucky today. Nothing good has dropped in a while.");
+				out = "Dzis raczej pech. Dawno nic dobrego nie wypadlo.";
 			else if (g.s.euphoria || g.Good())
-				out = Txt(g, "Dzis akurat mam farta!", "I'm lucky today!");
+				out = "Dzis akurat mam farta!";
 			else
 				out = PickField(g, pack->view + g.voice, 1);
 			return out;
 		}
 		if (a.topic == T_FRIENDSHIP && a.concepts.Has(C_YOU) && a.qtype != Q_STATEMENT)
 		{
-			out = g.tier >= TIER_FRIEND ? std::string(Txt(g, "Mam. Ty tez sie do nich zaliczasz.", "I do. You're one of them.")) :
-					PickField(g, pack->view + g.voice, 1);
+			out = g.tier >= TIER_FRIEND ? "Mam. Ty tez sie do nich zaliczasz." : PickField(g, pack->view + g.voice, 1);
 			return out;
 		}
 
@@ -948,36 +617,29 @@ namespace playerbot_conv
 			if (a.qtype == Q_DISLIKE)
 			{
 				static const char* const k[] = { "Nie lubie, jak ktos kradnie moby.", "Nie znosze czekania.", "Nie lubie pospiechu." };
-				static const char* const kEn[] = { "I don't like it when someone steals mobs.", "I can't stand waiting.", "I don't like being rushed." };
-				return PBC_SAY2(g, k, kEn);
+				return PBC_SAY(g, k);
 			}
 			if (a.qtype == Q_OPINION)
 			{
 				static const char* const k[] = {
 					"Nie mam wyrobionego zdania, ale brzmi ciekawie.", "Szczerze? Nie zastanawialem sie nad tym.",
 					"Ciezko powiedziec. Kazdy ma swoje zdanie." };
-				static const char* const kEn[] = {
-					"I don't have a firm opinion, but it sounds interesting.", "Honestly? Never thought about it.",
-					"Hard to say. Everyone has their own opinion." };
-				return WithEcho(g, PBC_SAY2(g, k, kEn), 50);
+				return WithEcho(g, PBC_SAY(g, k), 50);
 			}
 			if (a.qtype == Q_CAN)
 			{
 				const int r = OpinionRoll(g, a.object, 5);
 				static const char* const kYes[] = { "Troche umiem, ale bez szalu.", "Cos tam umiem." };
 				static const char* const kNo[] = { "Nie, raczej nie umiem.", "Chyba nie. Nigdy nie probowalem." };
-				static const char* const kYesEn[] = { "I can a bit, nothing special.", "I know a thing or two." };
-				static const char* const kNoEn[] = { "No, I can't really.", "Probably not. Never tried." };
-				return WithEcho(g, r < 40 ? PBC_SAY2(g, kYes, kYesEn) : PBC_SAY2(g, kNo, kNoEn), 50);
+				return WithEcho(g, r < 40 ? PBC_SAY(g, kYes) : PBC_SAY(g, kNo), 50);
 			}
 			if (a.qtype == Q_FAVORITE)
 			{
 				static const char* const k[] = { "Nie mam jednego ulubionego.", "Ciezko wybrac jedno.", "Chyba nie mam ulubionego." };
-				static const char* const kEn[] = { "I don't have one favorite.", "Hard to pick just one.", "I don't think I have a favorite." };
-				return PBC_SAY2(g, k, kEn);
+				return PBC_SAY(g, k);
 			}
 			if (a.qtype == Q_WHAT_LIKE)
-				return PickField(g, TopicPackFor(g, T_HOBBY)->view + g.voice, 1);
+				return PickField(g, FindTopicPack(T_HOBBY)->view + g.voice, 1);
 			return GenFact(g);
 		}
 
@@ -989,14 +651,12 @@ namespace playerbot_conv
 				else if (a.topic == T_FEELINGS && a.concepts.Has(C_SAD))
 				{
 					static const char* const k[] = { "Oj, przykro mi. Chcesz pogadac?", "Trzymaj sie. Bedzie lepiej.", "Kiepsko... Moze troche gry poprawi humor?" };
-					static const char* const kEn[] = { "Aw, sorry. Wanna talk?", "Hang in there. It'll get better.", "That sucks... Maybe some playing will cheer you up?" };
-					out = PBC_SAY2(g, k, kEn);
+					out = PBC_SAY(g, k);
 				}
 				else if (a.topic == T_FEELINGS && a.concepts.Has(C_HAPPY))
 				{
 					static const char* const k[] = { "To super! Ciesze sie.", "Oby tak dalej!", "Fajnie to slyszec." };
-					static const char* const kEn[] = { "That's awesome! Happy for you.", "Keep it up!", "Nice to hear." };
-					out = PBC_SAY2(g, k, kEn);
+					out = PBC_SAY(g, k);
 				}
 				else
 					out = PickField(g, pack->react, 4);
@@ -1021,8 +681,7 @@ namespace playerbot_conv
 				else
 				{
 					static const char* const k[] = { "Chyba $X.", "$X, zdecydowanie.", "Hmm... $X.", "Lubie $X." };
-					static const char* const kEn[] = { "Probably $X.", "$X, definitely.", "Hmm... $X.", "I like $X." };
-					out = Pick(g, g.en ? kEn : k, 4);
+					out = Pick(g, k, 4);
 					ReplaceAll(out, "$X", fav);
 					CapitalizeFirst(out);
 				}
@@ -1037,30 +696,27 @@ namespace playerbot_conv
 				if (out.empty())
 					out = PickField(g, pack->react, 4);
 				if (a.qtype == Q_MIRROR && g.rng.Chance(40))
-					out = Txt(g, "Ja? ", "Me? ") + out;
+					out = "Ja? " + out;
 				g.reason = PickField(g, pack->why, 2);
 				MaybeAskBack(g, pack, a.qtype == Q_MIRROR ? 10 : 30);
 				return out;
 			case Q_CAN:
 			{
 				const int r = OpinionRoll(g, a.object, 5);
-				out = r < 40 ? Txt(g, "Troche umiem, ale bez szalu.", "I can a bit, nothing special.") :
-						Txt(g, "Nie, raczej nie. Nigdy nie mialem do tego glowy.", "No, not really. Never had a head for it.");
+				out = r < 40 ? "Troche umiem, ale bez szalu." : "Nie, raczej nie. Nigdy nie mialem do tego glowy.";
 				return WithEcho(g, out, 50);
 			}
 			case Q_EVER:
 			{
 				static const char* const k[] = { "Kiedys moze, ale nie pamietam juz dokladnie.", "Chyba nie. Ale chcialbym.", "Hmm, nie przypominam sobie." };
-				static const char* const kEn[] = { "Maybe once, but I don't remember exactly.", "Don't think so. But I'd like to.", "Hmm, I don't remember that." };
-				out = PBC_SAY2(g, k, kEn);
+				out = PBC_SAY(g, k);
 				MaybeAskBack(g, pack, 40);
 				return out;
 			}
 			case Q_KNOW:
 			{
 				static const char* const k[] = { "Znam cos tam, ale nie pamietam nazw.", "Kilka by sie znalazlo, ale z glowy nie powiem.", "Nie za bardzo sie znam, szczerze." };
-				static const char* const kEn[] = { "I know some, but I don't remember the names.", "I could name a few, but not off the top of my head.", "I don't really know much about it, honestly." };
-				out = PBC_SAY2(g, k, kEn);
+				out = PBC_SAY(g, k);
 				MaybeAskBack(g, pack, 40);
 				return out;
 			}

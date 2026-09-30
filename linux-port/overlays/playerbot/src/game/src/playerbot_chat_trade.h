@@ -30,13 +30,6 @@
 // the player bothered with the diacritics. What a bot says is ASCII, as
 // everywhere else; the item names it quotes are the proto's own.
 //
-// And in the reader's language (Jeremus-Sama, 28 September): a person whose
-// client reads English, or who wrote the line in English ("WTB", "WTS",
-// "buy", "sell"), is answered in English with the items' official English
-// names (playerbot_language.h), and a line in English is matched against those
-// names as well as the Polish ones. A bot's shout is two, a half per language
-// (SendPlayerBotShoutIn), and every reader is handed its own.
-//
 // An implementation fragment in the sense playerbot_types.h describes:
 // include it exactly once, after playerbot_market.h - it reads the counters
 // the way a shopping bot does, and the market's own helpers for what a bot
@@ -84,14 +77,6 @@ namespace
 		}
 	}
 
-	// The villages have one name in both languages; "in town" is the other
-	// case's word.
-	const char* GetPlayerBotTownNameIn(long mapIndex, bool english)
-	{
-		const char* name = GetPlayerBotTownName(mapIndex);
-		return english && strcmp(name, "miescie") == 0 ? "town" : name;
-	}
-
 	// Lowercase ASCII from CP1250: the Polish letters go to their base, the
 	// rest of the high half to '?', so a name compares the same however it
 	// was typed.
@@ -136,6 +121,10 @@ namespace
 	// sender's core does not hold.
 	void SendPlayerBotWhisperPacket(LPCHARACTER bot, LPDESC desc, const char* relayTo, const char* text)
 	{
+		// MT2009_PLUS_SHOUTERS_V1: a shouter of the first villages whispers to
+		// nobody (playerbot_shouters.h).
+		if (!bot || IsPlayerBotShouterPID(bot->GetPlayerID()))
+			return;
 		const size_t len = std::min<size_t>(strlen(text), CHAT_MAX_LEN);
 		TPacketGCWhisper pack;
 		pack.bHeader = HEADER_GC_WHISPER;
@@ -185,11 +174,6 @@ namespace
 	// P2P table, reaches a bot here through the P2P relay (CInputP2P::Relay,
 	// OnPeerWhisper) and is answered the same way (SendPlayerBotWhisperTo). A
 	// bot lives on one core only, so the answer can only come from there.
-	// english: whether the person's client reads English (the flag its answer
-	// left, IsPlayerBotPersonEnglish). Known of a character of this core only:
-	// the flag is a quest flag of the core the person plays on, so a person
-	// another core holds reads Polish here unless the line itself is English
-	// (AnswerPlayerBotTradeLine).
 	struct TPlayerBotPerson
 	{
 		DWORD pid;
@@ -197,8 +181,7 @@ namespace
 		long mapIndex;
 		int channel;
 		LPCHARACTER local;
-		bool english;
-		TPlayerBotPerson() : pid(0), mapIndex(0), channel(0), local(NULL), english(false) {}
+		TPlayerBotPerson() : pid(0), mapIndex(0), channel(0), local(NULL) {}
 	};
 
 	TPlayerBotPerson GetPlayerBotLocalPerson(LPCHARACTER ch)
@@ -211,7 +194,6 @@ namespace
 		person.mapIndex = ch->GetMapIndex();
 		person.channel = g_bChannel;
 		person.local = ch;
-		person.english = IsPlayerBotPersonEnglish(ch);
 		return person;
 	}
 
@@ -291,12 +273,10 @@ namespace
 				playerbot_item_link::WhisperRoom(strlen(sender->GetName())));
 	}
 
-	// A line on the world channel in the bot's name, within the two throttles:
-	// the Polish and the English of it, each reader handed its own
-	// (SendPlayerBotShoutIn).
-	bool ShoutPlayerBotTrade(LPCHARACTER bot, const char* text, const char* textEn, DWORD dwNow)
+	// A line on the world channel in the bot's name, within the two throttles.
+	bool ShoutPlayerBotTrade(LPCHARACTER bot, const char* text, DWORD dwNow)
 	{
-		if (!bot || !text || !*text || !textEn || !*textEn)
+		if (!bot || !text || !*text)
 			return false;
 		if (s_dwPlayerBotTradeShoutTime != 0 &&
 				dwNow - s_dwPlayerBotTradeShoutTime < PLAYERBOT_TRADE_SHOUT_INTERVAL)
@@ -307,9 +287,8 @@ namespace
 		s_dwPlayerBotTradeShoutTime = last = dwNow;
 		char msg[CHAT_MAX_LEN + 1];
 		snprintf(msg, sizeof(msg), "%s : %s", bot->GetName(), text);
-		char msgEn[CHAT_MAX_LEN + 1];
-		snprintf(msgEn, sizeof(msgEn), "%s : %s", bot->GetName(), textEn);
-		SendPlayerBotShoutIn(msg, msgEn, bot->GetEmpire());
+		SendPlayerBotShout(msg, bot->GetEmpire());
+		BattlePassOnShout(bot); // MT2009_PLUS_BP_BOTS_V1: a shout for the Battle Pass
 		sys_log(0, "PLAYERBOT_TRADE: shout pid=%u name=%s text=\"%s\"",
 				bot->GetPlayerID(), bot->GetName(), text);
 		return true;
@@ -317,18 +296,14 @@ namespace
 
 	// The counter just opened with something worth crossing town for; the
 	// keeper says so. Called from the stall code with the headline item.
-	void AnnouncePlayerBotStall(LPCHARACTER ch, DWORD dwItemVnum)
+	void AnnouncePlayerBotStall(LPCHARACTER ch, const char* pszItemName)
 	{
-		const std::string name = GetPlayerBotItemNameIn(dwItemVnum, false);
-		if (!ch || name.empty())
+		if (!ch || !pszItemName || !*pszItemName)
 			return;
 		char text[CHAT_MAX_LEN + 1];
 		snprintf(text, sizeof(text), "Sprzedam %s - stragan w %s",
-				name.c_str(), GetPlayerBotTownName(ch->GetMapIndex()));
-		char textEn[CHAT_MAX_LEN + 1];
-		snprintf(textEn, sizeof(textEn), "Selling %s - stall in %s",
-				GetPlayerBotItemNameIn(dwItemVnum, true).c_str(), GetPlayerBotTownNameIn(ch->GetMapIndex(), true));
-		ShoutPlayerBotTrade(ch, text, textEn, get_dword_time());
+				pszItemName, GetPlayerBotTownName(ch->GetMapIndex()));
+		ShoutPlayerBotTrade(ch, text, get_dword_time());
 	}
 
 	// The bot walked the market for a material and found none: it asks. Called
@@ -354,10 +329,7 @@ namespace
 		char text[CHAT_MAX_LEN + 1];
 		snprintf(text, sizeof(text), "Kupie %s - kto ma, niech wystawi w %s",
 				proto->szLocaleName, GetPlayerBotTownName(ch->GetMapIndex()));
-		char textEn[CHAT_MAX_LEN + 1];
-		snprintf(textEn, sizeof(textEn), "Buying %s - whoever has it, put it up in %s",
-				GetPlayerBotItemNameIn(proto->dwVnum, true).c_str(), GetPlayerBotTownNameIn(ch->GetMapIndex(), true));
-		ShoutPlayerBotTrade(ch, text, textEn, get_dword_time());
+		ShoutPlayerBotTrade(ch, text, get_dword_time());
 	}
 
 	// The skill a folded name means, from the per-skill books' names.
@@ -381,30 +353,6 @@ namespace
 		return 0;
 	}
 
-	// The skill a folded English line means, by the English client's skill
-	// names (PLAYERBOT_SKILL_NAMES_EN): "wtb book aura of the sword".
-	DWORD FindPlayerBotSkillByEnglishName(const char* foldedQuery)
-	{
-		if (!foldedQuery || strlen(foldedQuery) < PLAYERBOT_TRADE_QUERY_MIN)
-			return 0;
-		for (size_t i = 0; i < sizeof(PLAYERBOT_SKILL_NAMES_EN) / sizeof(PLAYERBOT_SKILL_NAMES_EN[0]); ++i)
-		{
-			char name[64];
-			FoldPlayerBotChatText(PLAYERBOT_SKILL_NAMES_EN[i].name, name, sizeof(name));
-			if (strstr(name, foldedQuery) || strstr(foldedQuery, name))
-				return PLAYERBOT_SKILL_NAMES_EN[i].vnum;
-		}
-		return 0;
-	}
-
-	// The skill a book query names: an English line by the English names
-	// first, and by the Polish ones as every line always was.
-	DWORD FindPlayerBotSkillByNameIn(const char* foldedQuery, bool english)
-	{
-		const DWORD skill = english ? FindPlayerBotSkillByEnglishName(foldedQuery) : 0;
-		return skill ? skill : FindPlayerBotSkillByName(foldedQuery);
-	}
-
 	// The Polish name of a skill, for a bot's own line about it.
 	const char* GetPlayerBotSkillName(DWORD skillVnum)
 	{
@@ -416,34 +364,6 @@ namespace
 						? proto->szLocaleName + 7 : proto->szLocaleName;
 		}
 		return "?";
-	}
-
-	// A skill's book by its official English name ("Aura of the Sword
-	// Manual"), the name the English client gives the book the Polish one
-	// calls "Instr. Aura Miecza"; "" where there is none. Asked of every book
-	// line of every counter when an English line is matched, so each skill's
-	// answer is kept once the names are there.
-	std::string GetPlayerBotSkillBookNameEn(DWORD skillVnum)
-	{
-		static std::map<DWORD, std::string> s_mapBookNames;
-		std::map<DWORD, std::string>::const_iterator known = s_mapBookNames.find(skillVnum);
-		if (known != s_mapBookNames.end())
-			return known->second;
-		std::string name;
-		for (DWORD vnum = PLAYERBOT_TRADE_SKILL_BOOK_FIRST; vnum <= PLAYERBOT_TRADE_SKILL_BOOK_LAST; ++vnum)
-		{
-			const TItemTable* proto = ITEM_MANAGER::instance().GetTable(vnum);
-			if (proto && proto->bType == ITEM_SKILLBOOK && (DWORD)proto->alValues[0] == skillVnum)
-			{
-				const char* en = FindPlayerBotItemNameEn(vnum);
-				if (en)
-					name = en;
-				break;
-			}
-		}
-		if (s_PlayerBotEnglishNames.bLoaded)
-			s_mapBookNames[skillVnum] = name;
-		return name;
 	}
 
 	bool PlayerBotItemNameMatches(LPITEM item, const char* foldedQuery)
@@ -500,42 +420,6 @@ namespace
 						: std::string("Instr. ") + skillName;
 		}
 		return proto ? std::string(proto->szLocaleName) : std::string();
-	}
-
-	// A stall line's name for a reader of English: the book's official English
-	// name for a skill book, the item's with its skill's after it for a
-	// Forgetting Book, the item's otherwise - and the Polish line's name where
-	// the official English one is missing, never one of our own making.
-	std::string GetPlayerBotStallLineNameEn(const TPlayerBotStallLine& line)
-	{
-		if (line.skill && !line.forget)
-		{
-			const std::string book = GetPlayerBotSkillBookNameEn(line.skill);
-			return book.empty() ? line.name : book;
-		}
-		const char* en = FindPlayerBotItemNameEn(line.vnum);
-		if (!en)
-			return line.name;
-		if (line.forget && line.skill)
-		{
-			const char* skill = GetPlayerBotSkillNameEn(line.skill, NULL);
-			return skill ? std::string(en) + " (" + skill + ")" : line.name;
-		}
-		return en;
-	}
-
-	std::string GetPlayerBotStallLineNameIn(const TPlayerBotStallLine& line, bool english)
-	{
-		return english ? GetPlayerBotStallLineNameEn(line) : line.name;
-	}
-
-	// The line's link under that name, so a reply says it the way it links it.
-	std::string GetPlayerBotStallLineLinkIn(const TPlayerBotStallLine& line, bool english)
-	{
-		if (!english || line.link.empty())
-			return line.link;
-		const std::string name = GetPlayerBotStallLineNameEn(line);
-		return name == line.name ? line.link : playerbot_item_link::Rename(line.link, name);
 	}
 
 	// `keeper` may be NULL (the offline shop stands whether or not its owner
@@ -621,45 +505,17 @@ namespace
 	// for the other - or the name with the players' aliases ("fms", "12d",
 	// "bodzio"). A Forgetting Book answers to its own name only: its line's
 	// name carries the skill, and "kupie smoczy skowyt" means the skill book.
-	// A line in English (english) is matched against the official English
-	// name too - "wtb full moon sword" - and a Polish one as it always was.
 	bool PlayerBotStallLineMatches(const TPlayerBotStallLine& line, const std::vector<std::string>& candidates,
-			bool book, bool forget, DWORD skillVnum, bool english = false)
+			bool book, bool forget, DWORD skillVnum)
 	{
 		if (book)
 			return line.skill != 0 && line.skill == skillVnum && line.forget == forget;
-		if (english)
-		{
-			const char* en = FindPlayerBotItemNameEn(line.vnum);
-			if (!line.forget && line.skill)
-			{
-				const std::string bookEn = GetPlayerBotSkillBookNameEn(line.skill);
-				if (!bookEn.empty() && playerbot_conv::ItemNameMatchesAny(playerbot_conv::FoldName(bookEn.c_str()), candidates))
-					return true;
-			}
-			else if (en && playerbot_conv::ItemNameMatchesAny(playerbot_conv::FoldName(en), candidates))
-				return true;
-		}
 		if (line.forget)
 		{
 			const TItemTable* proto = ITEM_MANAGER::instance().GetTable(line.vnum);
 			return proto && playerbot_conv::ItemNameMatchesAny(playerbot_conv::FoldName(proto->szLocaleName), candidates);
 		}
 		return playerbot_conv::ItemNameMatchesAny(playerbot_conv::FoldName(line.name.c_str()), candidates);
-	}
-
-	// An item against a prepared query: by its official English name too for a
-	// line in English, by its proto's name as ever.
-	bool PlayerBotItemNameMatchesQuery(const TItemTable* proto, const std::vector<std::string>& candidates,
-			bool english)
-	{
-		if (!proto)
-			return false;
-		if (english)
-			if (const char* en = FindPlayerBotItemNameEn(proto->dwVnum))
-				if (playerbot_conv::ItemNameMatchesAny(playerbot_conv::FoldName(en), candidates))
-					return true;
-		return playerbot_conv::ItemNameMatchesAny(playerbot_conv::FoldName(proto->szLocaleName), candidates);
 	}
 
 	// "ku aura miecza" / "ksiege aura miecza": the skill a book query names, or 0.
@@ -713,36 +569,25 @@ namespace
 	// "Kupię KU Aura", "sprzedam kosc niedzwiedzia", "Szukam Amuletu Orka":
 	// the verb, whether a skill book is meant - or a Forgetting Book, "KZ
 	// Aura" and "ksiege zapomnienia Aura" (outForget) - and the rest folded.
-	// And the same in English, the words people trade in on an English
-	// server: "WTB"/"buy"/"buying"/"B>", "WTS"/"sell"/"selling", a "book" or
-	// "skill book" before a skill's English name, "book of forgetfulness"
-	// before a Forgetting Book's (outEnglish, which the answer is said in).
 	EPlayerBotTradeVerb ParsePlayerBotTradeText(const char* text, char* outQuery,
-			size_t size, bool& outBook, bool& outForget, bool* outEnglish = NULL)
+			size_t size, bool& outBook, bool& outForget)
 	{
 		outQuery[0] = 0;
 		outBook = false;
 		outForget = false;
-		if (outEnglish)
-			*outEnglish = false;
 		char folded[CHAT_MAX_LEN + 1];
 		FoldPlayerBotChatText(text, folded, sizeof(folded));
 		const char* p = folded;
 		while (*p && IsPlayerBotChatSeparator(*p))
 			++p;
-		static const struct { const char* word; EPlayerBotTradeVerb verb; bool english; } kVerbs[] = {
-			{ "kupie", PLAYERBOT_TRADE_BUY, false }, { "kupuje", PLAYERBOT_TRADE_BUY, false },
-			{ "szukam", PLAYERBOT_TRADE_BUY, false }, { "potrzebuje", PLAYERBOT_TRADE_BUY, false },
-			{ "sprzedam", PLAYERBOT_TRADE_SELL, false }, { "sprzedaje", PLAYERBOT_TRADE_SELL, false },
-			{ "oddam", PLAYERBOT_TRADE_SELL, false }, { "s>", PLAYERBOT_TRADE_SELL, false },
-			{ "k>", PLAYERBOT_TRADE_BUY, false },
-			{ "wtb", PLAYERBOT_TRADE_BUY, true }, { "buy", PLAYERBOT_TRADE_BUY, true },
-			{ "buying", PLAYERBOT_TRADE_BUY, true }, { "b>", PLAYERBOT_TRADE_BUY, true },
-			{ "wts", PLAYERBOT_TRADE_SELL, true }, { "sell", PLAYERBOT_TRADE_SELL, true },
-			{ "selling", PLAYERBOT_TRADE_SELL, true },
+		static const struct { const char* word; EPlayerBotTradeVerb verb; } kVerbs[] = {
+			{ "kupie", PLAYERBOT_TRADE_BUY }, { "kupuje", PLAYERBOT_TRADE_BUY },
+			{ "szukam", PLAYERBOT_TRADE_BUY }, { "potrzebuje", PLAYERBOT_TRADE_BUY },
+			{ "sprzedam", PLAYERBOT_TRADE_SELL }, { "sprzedaje", PLAYERBOT_TRADE_SELL },
+			{ "oddam", PLAYERBOT_TRADE_SELL }, { "s>", PLAYERBOT_TRADE_SELL },
+			{ "k>", PLAYERBOT_TRADE_BUY },
 		};
 		EPlayerBotTradeVerb verb = PLAYERBOT_TRADE_NONE;
-		bool english = false;
 		for (size_t i = 0; i < sizeof(kVerbs) / sizeof(kVerbs[0]); ++i)
 		{
 			const size_t len = strlen(kVerbs[i].word);
@@ -750,55 +595,36 @@ namespace
 					(p[len] == 0 || IsPlayerBotChatSeparator(p[len])))
 			{
 				verb = kVerbs[i].verb;
-				english = kVerbs[i].english;
 				p += len;
 				break;
 			}
 		}
 		if (verb == PLAYERBOT_TRADE_NONE)
 			return verb;
-		if (outEnglish)
-			*outEnglish = english;
 		while (*p && IsPlayerBotChatSeparator(*p))
 			++p;
-		// The longer words first: "book of forgetfulness" is no skill book.
-		static const struct { const char* words; bool forget; } kBooksEn[] = {
-			{ "book of forgetfulness", true }, { "forgetting book", true }, { "forget book", true },
-			{ "skill book", false }, { "skillbook", false }, { "book", false },
-		};
-		bool englishBook = false;
-		for (size_t i = 0; english && i < sizeof(kBooksEn) / sizeof(kBooksEn[0]) && !englishBook; ++i)
-			if (PlayerBotTextOpensWithWord(p, kBooksEn[i].words))
-			{
-				outBook = englishBook = true;
-				outForget = kBooksEn[i].forget;
-				p += strlen(kBooksEn[i].words);
-			}
-		if (!englishBook)
+		if (PlayerBotTextOpensWithWord(p, "kz"))
 		{
-			if (PlayerBotTextOpensWithWord(p, "kz"))
+			outBook = true;
+			outForget = true;
+			p += 2;
+		}
+		else if (strncmp(p, "ku ", 3) == 0)
+		{
+			outBook = true;
+			p += 3;
+		}
+		else if (strncmp(p, "ksiege ", 7) == 0 || strncmp(p, "ksiega ", 7) == 0 ||
+				strncmp(p, "ksiegi ", 7) == 0)
+		{
+			outBook = true;
+			p += 7;
+			while (*p && IsPlayerBotChatSeparator(*p))
+				++p;
+			if (PlayerBotTextOpensWithWord(p, "zapomnienia"))
 			{
-				outBook = true;
 				outForget = true;
-				p += 2;
-			}
-			else if (strncmp(p, "ku ", 3) == 0)
-			{
-				outBook = true;
-				p += 3;
-			}
-			else if (strncmp(p, "ksiege ", 7) == 0 || strncmp(p, "ksiega ", 7) == 0 ||
-					strncmp(p, "ksiegi ", 7) == 0)
-			{
-				outBook = true;
-				p += 7;
-				while (*p && IsPlayerBotChatSeparator(*p))
-					++p;
-				if (PlayerBotTextOpensWithWord(p, "zapomnienia"))
-				{
-					outForget = true;
-					p += 11;
-				}
+				p += 11;
 			}
 		}
 		while (*p && IsPlayerBotChatSeparator(*p))
@@ -815,11 +641,9 @@ namespace
 	}
 
 	// "Kupie X": the nearest open counter with X on it answers with where and
-	// how much. The player's own map first, then any. english: the answer and
-	// the item in it in English, and the query matched against the English
-	// names as well.
+	// how much. The player's own map first, then any.
 	bool AnswerPlayerBotBuyShout(const TPlayerBotPerson& player, const char* query, bool book, bool forget,
-			DWORD skillVnum, bool english)
+			DWORD skillVnum)
 	{
 		std::vector<std::string> candidates;
 		playerbot_conv::ExpandItemQuery(query ? query : "", candidates);
@@ -840,7 +664,7 @@ namespace
 			for (size_t k = 0; k < stall.lines.size(); ++k)
 			{
 				const TPlayerBotStallLine& line = stall.lines[k];
-				if (!PlayerBotStallLineMatches(line, candidates, book, forget, skillVnum, english))
+				if (!PlayerBotStallLineMatches(line, candidates, book, forget, skillVnum))
 					continue;
 				// Where on the map is known of a person here only; another
 				// core's person has its map, and a counter there comes first.
@@ -862,22 +686,19 @@ namespace
 		if (!bestKeeper)
 			return false;
 		char reply[CHAT_MAX_LEN + 1];
-		const std::string name = GetPlayerBotStallLineNameIn(bestLine, english);
 		if (bestLine.count > 1)
-			snprintf(reply, sizeof(reply), PBT(english, "Mam %s x%u na straganie w %s, %s yang za calosc",
-					"I have %s x%u on my stall in %s, %s yang for all of it"),
-					name.c_str(), bestLine.count, GetPlayerBotTownNameIn(bestMap, english),
+			snprintf(reply, sizeof(reply), "Mam %s x%u na straganie w %s, %s yang za calosc",
+					bestLine.name.c_str(), bestLine.count, GetPlayerBotTownName(bestMap),
 					playerbot_conv::FormatYang(bestLine.price).c_str());
 		else
-			snprintf(reply, sizeof(reply), PBT(english, "Mam %s na straganie w %s, %s yang",
-					"I have %s on my stall in %s, %s yang"),
-					name.c_str(), GetPlayerBotTownNameIn(bestMap, english),
+			snprintf(reply, sizeof(reply), "Mam %s na straganie w %s, %s yang",
+					bestLine.name.c_str(), GetPlayerBotTownName(bestMap),
 					playerbot_conv::FormatYang(bestLine.price).c_str());
 		// The line shown as the client shows a linked item: the piece itself,
-		// its grade and bonuses, on a click - under the name the reply says.
+		// its grade and bonuses, on a click.
 		std::vector<playerbot_item_link::TEntry> links(1);
-		links[0].name = name;
-		links[0].link = GetPlayerBotStallLineLinkIn(bestLine, english);
+		links[0].name = bestLine.name;
+		links[0].link = bestLine.link;
 		SendPlayerBotWhisperTo(bestKeeper, player, LinkPlayerBotTradeReply(bestKeeper, reply, links).c_str());
 		return true;
 	}
@@ -898,9 +719,8 @@ namespace
 
 	// "Sprzedam X": a bot that is short of X says it will buy, and where. The
 	// bot can: playerbot_market.h reads a player's counter like any other.
-	// english as for the buying answer.
 	bool AnswerPlayerBotSellShout(const TPlayerBotPerson& player, const char* query, bool book, bool forget,
-			DWORD skillVnum, bool english)
+			DWORD skillVnum)
 	{
 		// No bot buys a Forgetting Book off anybody (the few it reads it makes,
 		// BuyPlayerBotForgetScroll), so "Sprzedam KZ Aura" has nobody to answer
@@ -923,7 +743,7 @@ namespace
 				const TItemTable* proto = ITEM_MANAGER::instance().GetTable(*m);
 				if (!proto)
 					continue;
-				if (PlayerBotItemNameMatchesQuery(proto, candidates, english))
+				if (playerbot_conv::ItemNameMatchesAny(playerbot_conv::FoldName(proto->szLocaleName), candidates))
 				{
 					wantedVnum = *m;
 					pszName = proto->szLocaleName;
@@ -936,7 +756,7 @@ namespace
 				const TItemTable* proto = ITEM_MANAGER::instance().GetTable(vnum);
 				if (!proto)
 					continue;
-				if (PlayerBotItemNameMatchesQuery(proto, candidates, english))
+				if (playerbot_conv::ItemNameMatchesAny(playerbot_conv::FoldName(proto->szLocaleName), candidates))
 				{
 					wantedVnum = vnum;
 					pszName = proto->szLocaleName;
@@ -973,18 +793,7 @@ namespace
 		if (!buyer)
 			return false;
 		char reply[CHAT_MAX_LEN + 1];
-		if (english)
-		{
-			// The book by its official English name, and by the Polish one's
-			// words where the English client's table has none.
-			std::string what = book ? GetPlayerBotSkillBookNameEn(skillVnum)
-					: (wantedVnum ? GetPlayerBotItemNameIn(wantedVnum, true) : std::string(query ? query : ""));
-			if (what.empty())
-				what = std::string("KU ") + GetPlayerBotSkillName(skillVnum);
-			snprintf(reply, sizeof(reply), "I'll buy %s - put it on a stall in Joan or Bokjung, bots buy there",
-					what.c_str());
-		}
-		else if (book)
+		if (book)
 			snprintf(reply, sizeof(reply), "Kupie KU %s - wystaw na straganie w Joan albo Bokjung, boty tam kupuja",
 					GetPlayerBotSkillName(skillVnum));
 		else
@@ -1042,17 +851,11 @@ namespace
 			return false;
 		TPlayerBotAIState& state = it->second;
 		char reply[CHAT_MAX_LEN + 1];
-		// In the person's language, or in English for an order given in it
-		// ("lure", "pull"): a person another core holds has no flag here.
-		char folded[CHAT_MAX_LEN + 1];
-		FoldPlayerBotChatText(text, folded, sizeof(folded));
-		const bool en = player.english || strstr(folded, "lure") || strstr(folded, "luring") ||
-				strstr(folded, "pull");
 
 		if (order == PLAYERBOT_LURE_ORDER_STOP)
 		{
 			if (state.dwLurePlayerPID != player.pid)
-				snprintf(reply, sizeof(reply), "%s", PBT(en, "Nie luruje dla ciebie", "I'm not luring for you"));
+				snprintf(reply, sizeof(reply), "Nie luruje dla ciebie");
 			else
 			{
 				sys_log(0, "PLAYERBOT_LURE: order ended pid=%u name=%s player=%s held_ms=%u",
@@ -1060,7 +863,7 @@ namespace
 						state.dwLurePlayerTime != 0 ? dwNow - state.dwLurePlayerTime : 0);
 				state.dwLurePlayerPID = 0;
 				state.dwLurePlayerTime = 0;
-				snprintf(reply, sizeof(reply), "%s", PBT(en, "Dobra, koncze lurowanie", "All right, I'll stop luring"));
+				snprintf(reply, sizeof(reply), "Dobra, koncze lurowanie");
 			}
 			SendPlayerBotWhisperTo(bot, player, reply);
 			return true;
@@ -1074,24 +877,22 @@ namespace
 		// A person on another core is on another map, or on the other channel's
 		// copy of this one, and no party brings the bot across.
 		if (!player.local)
-			refuse = PBT(en, "Nie stoje na twojej mapie", "I'm not on your map");
+			refuse = "Nie stoje na twojej mapie";
 		else if (!bot->GetParty() || bot->GetParty() != player.local->GetParty())
-			refuse = PBT(en, "Najpierw zapros mnie do druzyny", "Invite me to your party first");
+			refuse = "Najpierw zapros mnie do druzyny";
 		else if (bot->GetMapIndex() != player.local->GetMapIndex())
-			refuse = PBT(en, "Nie stoje na twojej mapie", "I'm not on your map");
+			refuse = "Nie stoje na twojej mapie";
 		else if (!IsPlayerBotArcherBuild(bot))
-			refuse = PBT(en, "Nie jestem lucznikiem - lurowanie robie z luku",
-					"I'm no archer - I lure with a bow");
+			refuse = "Nie jestem lucznikiem - lurowanie robie z luku";
 		else if (!weapon || weapon->GetType() != ITEM_WEAPON ||
 				weapon->GetSubType() != WEAPON_BOW)
-			refuse = PBT(en, "Nie mam teraz luku w rece", "I have no bow in my hand right now");
+			refuse = "Nie mam teraz luku w rece";
 		// The course refuses a safe zone anyway - there is nothing there to
 		// pull - but it refuses it silently, and a person who typed "luruj" in
 		// a village and heard "jasne" would be waiting for something that can
 		// never happen.
 		else if (IsPlayerBotSafeZone(bot->GetMapIndex(), bot->GetX(), bot->GetY()))
-			refuse = PBT(en, "Jestesmy w strefie bezpieczenstwa - wyjdz na lowisko i powtorz",
-					"We're in a safe zone - go out to a hunting ground and ask again");
+			refuse = "Jestesmy w strefie bezpieczenstwa - wyjdz na lowisko i powtorz";
 		if (refuse)
 		{
 			SendPlayerBotWhisperTo(bot, player, refuse);
@@ -1103,7 +904,7 @@ namespace
 			// Asking again renews the order rather than restarting it: a person
 			// who types it twice does not want the course in progress dropped.
 			state.dwLurePlayerTime = dwNow;
-			snprintf(reply, sizeof(reply), "%s", PBT(en, "Juz dla ciebie luruje", "I'm already luring for you"));
+			snprintf(reply, sizeof(reply), "Juz dla ciebie luruje");
 		}
 		else
 		{
@@ -1114,9 +915,8 @@ namespace
 			sys_log(0, "PLAYERBOT_LURE: order taken pid=%u name=%s level=%u player=%s map=%ld",
 					bot->GetPlayerID(), bot->GetName(), bot->GetLevel(),
 					player.name.c_str(), bot->GetMapIndex());
-			snprintf(reply, sizeof(reply), "%s", PBT(en,
-					"Jasne. Stoj w miejscu, przyprowadze je na ciebie. Koniec: napisz \"przestan lurowac\"",
-					"Sure. Stand still, I'll bring them to you. To end it write \"stop luring\""));
+			snprintf(reply, sizeof(reply),
+					"Jasne. Stoj w miejscu, przyprowadze je na ciebie. Koniec: napisz \"przestan lurowac\"");
 		}
 		SendPlayerBotWhisperTo(bot, player, reply);
 		return true;
@@ -1140,22 +940,16 @@ namespace
 		char query[128];
 		bool book = false;
 		bool forget = false;
-		bool lineEnglish = false;
-		const EPlayerBotTradeVerb verb = ParsePlayerBotTradeText(text, query, sizeof(query), book, forget, &lineEnglish);
+		const EPlayerBotTradeVerb verb = ParsePlayerBotTradeText(text, query, sizeof(query), book, forget);
 		if (verb == PLAYERBOT_TRADE_NONE)
 			return false;
-		// The person's language, or English for a line written in it: a person
-		// another core holds has no flag here, and "WTB" says enough.
-		const bool english = player.english || lineEnglish;
-		const DWORD skillVnum = book ? FindPlayerBotSkillByNameIn(query, lineEnglish) : 0;
+		const DWORD skillVnum = book ? FindPlayerBotSkillByName(query) : 0;
 		if (book && skillVnum == 0)
 		{
 			// "Kupie ksiege misji" names an item whose name begins with the
 			// word, not a skill: it is searched as a name like any other. So
-			// is a Forgetting Book with no skill after it ("Kupie KZ"). An
-			// English line's words are English ones.
-			std::string named = lineEnglish ? (forget ? "book of forgetfulness" : "book")
-					: (forget ? "ksiega zapomnienia" : "ksiega");
+			// is a Forgetting Book with no skill after it ("Kupie KZ").
+			std::string named = forget ? "ksiega zapomnienia" : "ksiega";
 			if (query[0])
 			{
 				named += ' ';
@@ -1169,11 +963,11 @@ namespace
 		if (!PlayerBotTradeReplyAllowed(player.pid, dwNow))
 			return false;
 		const bool answered = verb == PLAYERBOT_TRADE_BUY
-				? AnswerPlayerBotBuyShout(player, query, book, forget, skillVnum, english)
-				: AnswerPlayerBotSellShout(player, query, book, forget, skillVnum, english);
-		sys_log(0, "PLAYERBOT_TRADE: shout from=%s verb=%s book=%d forget=%d en=%d query=\"%s\" answered=%d",
+				? AnswerPlayerBotBuyShout(player, query, book, forget, skillVnum)
+				: AnswerPlayerBotSellShout(player, query, book, forget, skillVnum);
+		sys_log(0, "PLAYERBOT_TRADE: shout from=%s verb=%s book=%d forget=%d query=\"%s\" answered=%d",
 				player.name.c_str(), verb == PLAYERBOT_TRADE_BUY ? "buy" : "sell",
-				book ? 1 : 0, forget ? 1 : 0, english ? 1 : 0, query, answered ? 1 : 0);
+				book ? 1 : 0, forget ? 1 : 0, query, answered ? 1 : 0);
 		return answered;
 	}
 
@@ -1189,6 +983,228 @@ namespace
 	// what its counter holds, or that it is out hunting.
 	// Defined in playerbot_anti_pk.h, which comes after this file.
 	bool HandlePlayerBotSurrenderWhisper(LPCHARACTER player, LPCHARACTER bot, const char* text, DWORD dwNow);
+
+	// A person asking a bot into their guild ("chodz do mnie do gildii",
+	// "chcesz do gildii?", "dolaczysz do gildii?", "dodac cie do gildii?"):
+	// a word of the guild and a word of asking, in one whisper.
+	// A person asking to join the bot's guild (the operator, 27 September):
+	// "dodasz mnie do gildii?", "a teraz mnie dodasz do gildii?", "przyjmiesz
+	// mnie do gildii", "moge dolaczyc do twojej gildii". The words in any
+	// order: "gild", "mnie" and a verb of taking someone in, or one of the
+	// phrases that ask for a place. Read before the invitation the other way
+	// round (IsPlayerBotGuildRecruitText), which "dodaj" and "dolacz" also
+	// match; "chodz do mnie do gildii" has none of these verbs.
+	bool IsPlayerBotGuildJoinText(const char* text)
+	{
+		char folded[CHAT_MAX_LEN + 1];
+		FoldPlayerBotChatText(text, folded, sizeof(folded));
+		if (!strstr(folded, "gild"))
+			return false;
+		static const char* const phrases[] = {
+			"moge dolaczyc", "moge do", "mozna dolaczyc", "mozna do", "chce dolaczyc", "chce do",
+			"chcialbym dolaczyc", "chcialabym dolaczyc", "chcialbym do", "chcialabym do",
+			"do twojej", "do waszej", "jest miejsce", "macie miejsce", "masz miejsce",
+		};
+		for (size_t i = 0; i < sizeof(phrases) / sizeof(phrases[0]); ++i)
+			if (strstr(folded, phrases[i]))
+				return true;
+		static const char* const verbs[] = {
+			"dodasz", "dodaj", "dodac", "dodal", "dodacie", "przyjmiesz", "przyjmij", "przyjac",
+			"przyjal", "przyjmiecie", "zaprosisz", "zapros", "zaprosic", "wezmiesz", "wez",
+			"wziac", "wezcie", "dopiszesz", "dopisz", "wpuscisz", "wpusc",
+		};
+		bool me = false, verb = false;
+		for (char* word = folded; *word; )
+		{
+			while (*word && !(*word >= 'a' && *word <= 'z'))
+				++word;
+			char* end = word;
+			while (*end >= 'a' && *end <= 'z')
+				++end;
+			const size_t len = end - word;
+			if (len == 4 && !strncmp(word, "mnie", 4))
+				me = true;
+			else if (len == 3 && !strncmp(word, "mie", 3))
+				me = true;
+			for (size_t i = 0; !verb && i < sizeof(verbs) / sizeof(verbs[0]); ++i)
+			{
+				const size_t vlen = strlen(verbs[i]);
+				// The word itself or the verb with its ending ("dodalbys").
+				if (len >= vlen && !strncmp(word, verbs[i], vlen) && len <= vlen + 4)
+					verb = true;
+			}
+			word = end;
+		}
+		return me && verb;
+	}
+
+	// The level a person needs to join a bot guild: above the average of the
+	// guild's bots (the operator: "jego poziom musi byc wyzszy niz sredni poziom
+	// botow w gildii"). 0 when the guild has no bot to count or the query fails.
+	int GetPlayerBotGuildJoinLevel(CGuild* guild)
+	{
+		if (!guild)
+			return 0;
+		char query[512];
+		snprintf(query, sizeof(query),
+				"SELECT AVG(p.level) FROM player.guild_member AS gm "
+				"JOIN player.player AS p ON p.id=gm.pid "
+				"JOIN account.account AS a ON a.id=p.account_id "
+				"WHERE gm.guild_id=%u AND BINARY a.login LIKE BINARY 'playerbot\\_%%'", guild->GetID());
+		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
+		MYSQL_ROW row = NULL;
+		if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult ||
+				!(row = mysql_fetch_row(msg->Get()->pSQLResult)) || !row[0])
+			return 0;
+		const double average = atof(row[0]);
+		return average > 0.0 ? (int)average + 1 : 0;
+	}
+
+	// The answer to it. A member points to the master, by name; the master of
+	// a bot guild says yes and invites (the engine's own window, which the
+	// person accepts or not) or says what is missing: the level above the
+	// bots' average, a place, the person's own guild, the kingdom.
+	bool HandlePlayerBotGuildJoinWhisper(LPCHARACTER player, LPCHARACTER bot, const char* text)
+	{
+		if (!player || !bot || !IsPlayerBotGuildJoinText(text))
+			return false;
+		if (IsPlayerBotSidekickPID(bot->GetPlayerID()))
+			return false;
+		CGuild* mine = bot->GetGuild();
+		char reply[CHAT_MAX_LEN + 1];
+		if (!mine)
+		{
+			SendPlayerBotWhisper(bot, player, "Nie mam gildii");
+			return true;
+		}
+		if (mine->GetMasterPID() != bot->GetPlayerID())
+		{
+			TGuildMember* master = mine->GetMember(mine->GetMasterPID());
+			if (master && !master->name.empty())
+				snprintf(reply, sizeof(reply), "Liderem jest %s, to on dodaje", master->name.c_str());
+			else
+				snprintf(reply, sizeof(reply), "Nie ja tu dodaje, napisz do lidera");
+			SendPlayerBotWhisper(bot, player, reply);
+			return true;
+		}
+		// The master of a person's guild is a bot only by accident; the bot
+		// guilds are the ones it speaks for.
+		const TPlayerBotGuildInfo* info = GetPlayerBotGuildInfo(mine);
+		const int needLevel = GetPlayerBotGuildJoinLevel(mine);
+		const char* refusal = NULL;
+		if (player->GetGuild() == mine)
+			refusal = "Przeciez juz jestes w mojej gildii";
+		else if (player->GetGuild())
+			refusal = "Najpierw wyjdz ze swojej gildii";
+		else if (!info)
+			refusal = "Nie przyjmuje nowych";
+		else if (player->GetEmpire() != bot->GetEmpire())
+			refusal = "Jestes z innego krolestwa, nie moge";
+		else if (mine->UnderAnyWar() != 0)
+			refusal = "Mamy teraz wojne, napisz pozniej";
+		else if (mine->GetMemberCount() >= GetPlayerBotGuildMemberCap(mine, info->bTier))
+			refusal = "Nie mam juz miejsca w gildii";
+		else if (get_global_time() - player->GetQuestFlag("guild_manage.new_withdraw_time") <
+				CGuildManager::instance().GetWithdrawDelay() ||
+				get_global_time() - player->GetQuestFlag("guild_manage.new_disband_time") <
+				CGuildManager::instance().GetDisbandDelay())
+			refusal = "Niedawno odszedles z gildii, jeszcze nie moge cie dodac";
+		if (refusal)
+		{
+			SendPlayerBotWhisper(bot, player, refusal);
+			return true;
+		}
+		if (needLevel > 0 && player->GetLevel() < needLevel)
+		{
+			sys_log(0, "PLAYERBOT_GUILD: refuses a player pid=%u name=%s guild=%s player=%s level=%u need=%d",
+					bot->GetPlayerID(), bot->GetName(), mine->GetName(), player->GetName(),
+					(unsigned int)player->GetLevel(), needLevel);
+			snprintf(reply, sizeof(reply), "Nie, nie dodam cie, musisz miec %d lvl", needLevel);
+			SendPlayerBotWhisper(bot, player, reply);
+			return true;
+		}
+		SendPlayerBotWhisper(bot, player, "Jasne, juz cie dodaje");
+		sys_log(0, "PLAYERBOT_GUILD: invites a player pid=%u name=%s guild=%s player=%s level=%u need=%d",
+				bot->GetPlayerID(), bot->GetName(), mine->GetName(), player->GetName(),
+				(unsigned int)player->GetLevel(), needLevel);
+		mine->Invite(bot, player);
+		return true;
+	}
+
+	bool IsPlayerBotGuildRecruitText(const char* text)
+	{
+		char folded[CHAT_MAX_LEN + 1];
+		FoldPlayerBotChatText(text, folded, sizeof(folded));
+		if (!strstr(folded, "gild"))
+			return false;
+		static const char* const asks[] = {
+			"chodz", "chcesz", "dolacz", "dodac", "dodam", "dodaj", "zapros", "zaprosze",
+			"wbij", "przyjdz", "wstap", "przyjm", "zostan", "zapisz", "do mnie", "do mojej",
+			"do nas", "moze do", "wejdz", "przejdz",
+		};
+		for (size_t i = 0; i < sizeof(asks) / sizeof(asks[0]); ++i)
+			if (strstr(folded, asks[i]))
+				return true;
+		return false;
+	}
+
+	// The answer to it (the operator, 27 September). A bot with no guild says
+	// yes at once; one of a bot guild below the elite leaves it for the
+	// person's and says yes; the elite's members, a guild's master and a
+	// member of another person's guild say no. A yes waits for the person's
+	// invitation (IsPlayerBotAwaitingGuildInvite), which AcceptPlayerBotGuildInvite
+	// takes as for any bot with no guild. In the person's guild it offers its
+	// experience as any member does.
+	bool HandlePlayerBotGuildRecruitWhisper(LPCHARACTER player, LPCHARACTER bot, const char* text)
+	{
+		if (!player || !bot || !IsPlayerBotGuildRecruitText(text))
+			return false;
+		// A companion belongs to its owner (playerbot_sidekick.h).
+		if (IsPlayerBotSidekickPID(bot->GetPlayerID()))
+			return false;
+		CGuild* theirs = player->GetGuild();
+		CGuild* mine = bot->GetGuild();
+		const char* reply = NULL;
+		bool leave = false;
+		if (!theirs)
+			reply = "Najpierw zaloz gildie";
+		else if (mine == theirs)
+			reply = "Przeciez juz jestem w twojej gildii";
+		else if (bot->GetEmpire() != player->GetEmpire())
+			reply = "Jestem z innego krolestwa, nie moge";
+		else if (!theirs->GetMember(player->GetPlayerID()) ||
+				!theirs->HasGradeAuth(theirs->GetMember(player->GetPlayerID())->grade, GUILD_AUTH_ADD_MEMBER))
+			reply = "Nie mozesz zapraszac do tej gildii";
+		else if (theirs->GetMemberCount() >= theirs->GetMaxMemberCount())
+			reply = "Twoja gildia jest pelna";
+		else if (mine)
+		{
+			const TPlayerBotGuildInfo* info = GetPlayerBotGuildInfo(mine);
+			if (mine->GetMasterPID() == bot->GetPlayerID())
+				reply = "Mam swoja gildie, jestem liderem";
+			else if (!info)
+				reply = "Jestem juz w gildii, zostaje w niej";
+			else if (info->bTier == GUILD_TIER_ELITE)
+				reply = "Sorry, moja gildia jest lepsza";
+			else if (mine->UnderAnyWar() != 0)
+				reply = "Moja gildia jest teraz na wojnie, napisz pozniej";
+			else
+				leave = true;
+		}
+		if (!reply)
+		{
+			if (leave)
+			{
+				sys_log(0, "PLAYERBOT_GUILD: leaves for a player's guild pid=%u name=%s from=%s to=%s player=%s",
+						bot->GetPlayerID(), bot->GetName(), mine->GetName(), theirs->GetName(), player->GetName());
+				mine->RequestRemoveMember(bot->GetPlayerID());
+			}
+			NotePlayerBotAwaitingGuildInvite(bot->GetPlayerID(), player->GetPlayerID());
+			reply = "Dobrze, dodawaj mnie";
+		}
+		SendPlayerBotWhisper(bot, player, reply);
+		return true;
+	}
 
 	// A whisper to a bot here, from a person here or on another core.
 	void AnswerPlayerBotWhisper(const TPlayerBotPerson& player, LPCHARACTER bot, const char* text)
@@ -1241,7 +1257,6 @@ namespace
 		TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.find(bot->GetPlayerID());
 		if (HandlePlayerBotConversationWith(player.pid, player.name.c_str(), bot, text))
 			return;
-		const bool en = player.english;
 		TPlayerBotStall stall;
 		if (GetPlayerBotStall(bot->GetPlayerID(), bot, stall) && !stall.lines.empty())
 		{
@@ -1251,33 +1266,37 @@ namespace
 			{
 				if (!goods.empty())
 					goods += ", ";
+				goods += stall.lines[k].name;
 				playerbot_item_link::TEntry entry;
-				entry.name = GetPlayerBotStallLineNameIn(stall.lines[k], en);
-				entry.link = GetPlayerBotStallLineLinkIn(stall.lines[k], en);
-				goods += entry.name;
+				entry.name = stall.lines[k].name;
+				entry.link = stall.lines[k].link;
 				links.push_back(entry);
 			}
-			snprintf(reply, sizeof(reply), PBT(en, "Mam stragan w %s, na nim: %s", "I have a stall in %s, on it: %s"),
-					GetPlayerBotTownNameIn(stall.mapIndex, en), goods.c_str());
+			snprintf(reply, sizeof(reply), "Mam stragan w %s, na nim: %s",
+					GetPlayerBotTownName(stall.mapIndex), goods.c_str());
 			SendPlayerBotWhisperTo(bot, player, LinkPlayerBotTradeReply(bot, reply, links).c_str());
 		}
 		else if (it != s_mapPlayerBotAIStates.end() && it->second.bMarketTrip)
 		{
-			snprintf(reply, sizeof(reply), PBT(en, "Wlasnie ide na targ w %s", "I'm just off to the market in %s"),
-					GetPlayerBotTownNameIn(bot->GetMapIndex(), en));
+			snprintf(reply, sizeof(reply), "Wlasnie ide na targ w %s", GetPlayerBotTownName(bot->GetMapIndex()));
 			SendPlayerBotWhisperTo(bot, player, reply);
 		}
 		else
 		{
-			snprintf(reply, sizeof(reply), "%s", PBT(en,
-					"Nie rozumiem. Zapytaj mnie, co robie, gdzie expie albo co mam na straganie.",
-					"I don't understand. Ask me what I'm doing, where I hunt or what I have on my stall."));
+			snprintf(reply, sizeof(reply), "Nie rozumiem. Zapytaj mnie, co robie, gdzie expie albo co mam na straganie.");
 			SendPlayerBotWhisperTo(bot, player, reply);
 		}
 	}
 
 	void HandlePlayerWhisperToBot(LPCHARACTER player, LPCHARACTER bot, const char* text)
 	{
+		// Before everything else: an invitation is not a trade or a talk, and
+		// a request to join is read before an invitation. A person of this
+		// core only: the guild's own calls need the character here.
+		if (HandlePlayerBotGuildJoinWhisper(player, bot, text))
+			return;
+		if (HandlePlayerBotGuildRecruitWhisper(player, bot, text))
+			return;
 		if (player)
 			AnswerPlayerBotWhisper(GetPlayerBotLocalPerson(player), bot, text);
 	}

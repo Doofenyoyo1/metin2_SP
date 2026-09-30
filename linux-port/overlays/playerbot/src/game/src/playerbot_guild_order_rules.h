@@ -72,7 +72,7 @@ namespace playerbot_guild_order_rules
 
 	// The first word of the command, folded by the caller to lowercase ASCII.
 	// The window sends "pomoc", "exp" and "wracajcie"; the rest are what a
-	// person typing the command by hand would write, in either language.
+	// person typing the command by hand would write.
 	// Whole words only: this is a command's argument, not a line of chat, and
 	// "exp" inside a longer word is somebody else's.
 	inline EOrder ParseOrder(const char* word)
@@ -89,11 +89,9 @@ namespace playerbot_guild_order_rules
 		struct TWord { const char* text; EOrder order; };
 		static const TWord kWords[] = {
 			{ "pomoc", ORDER_HELP }, { "pomocy", ORDER_HELP }, { "ratunku", ORDER_HELP },
-			{ "help", ORDER_HELP },
 			{ "exp", ORDER_HUNT }, { "expimy", ORDER_HUNT }, { "expic", ORDER_HUNT },
-			{ "poluj", ORDER_HUNT }, { "polujemy", ORDER_HUNT }, { "hunt", ORDER_HUNT },
+			{ "poluj", ORDER_HUNT }, { "polujemy", ORDER_HUNT },
 			{ "wracajcie", ORDER_RELEASE }, { "wracaj", ORDER_RELEASE }, { "odwolaj", ORDER_RELEASE },
-			{ "release", ORDER_RELEASE }, { "back", ORDER_RELEASE },
 		};
 		for (size_t i = 0; i < sizeof(kWords) / sizeof(kWords[0]); ++i)
 			if (strlen(kWords[i].text) == end && strncmp(word, kWords[i].text, end) == 0)

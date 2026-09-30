@@ -923,8 +923,9 @@ int main()
 		// capped by those, four, six, eight and sixteen hours apart.
 		const uint8_t kinds[4] = { RARE_HAZ_MLODSZY, RARE_HAZ_STARSZY, RARE_HAZ_NACZELNY, RARE_HAZ_SZALONY };
 		const uint8_t personas[4] = { PERSONA_HAZ_MLODSZY, PERSONA_HAZ_STARSZY, PERSONA_HAZ_NACZELNY, PERSONA_HAZ_SZALONY };
-		const uint32_t oneIn[4] = { 250, 300, 350, 1000 };
-		const uint32_t pause[4] = { 240, 360, 480, 960 };
+		// MT2009 PLUS (Iwakura): the gamblers more often.
+		const uint32_t oneIn[4] = { 200, 250, 300, 400 };
+		const uint32_t pause[4] = { 120, 240, 480, 480 };
 		const uint8_t top[4] = { 60, 40, 25, 15 };
 		const uint8_t budget[4] = { 80, 70, 60, 90 };
 		for (int i = 0; i < 4; ++i)

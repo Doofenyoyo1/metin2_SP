@@ -189,6 +189,8 @@ namespace
 		state.dwLastKillCreditedVID = vid;
 		// Under the same guard, so a corpse is one roll.
 		NotePlayerBotBiologistCarrierKill(ch, target);
+		// And a Dragon Stone Shard for the Alchemist's daily Cors (playerbot_alchemy.h).
+		NotePlayerBotDragonShardKill(ch, target);
 
 		// The military trial is credited from the same place and under the same
 		// VID guard. A second hook of its own would have had to share
@@ -249,6 +251,10 @@ namespace
 		// where the cohort ceiling forbids the hunting that would earn it back.
 		if (ch && GetPlayerBotFrontierMapForLevel(ch) != 0)
 			reserved += GetPlayerBotTeleporterFareEstimate(ch) * PLAYERBOT_TELEPORTER_FARE_RESERVE_COUNT;
+		// A guild master's purse holds its guild's fund for the building
+		// materials (playerbot_guild_land.h): not its own to spend.
+		if (ch)
+			reserved += (int)std::min<long long>(GetPlayerBotGuildFundReserve(ch->GetPlayerID()), 1000000000LL);
 		return reserved;
 	}
 
@@ -272,7 +278,8 @@ namespace
 		// horse.advance() is SetHorseLevel + ComputePoints + SkillLevelPacket,
 		// and the quest dismounts and remounts around it so the rider is sitting
 		// on the animal it just became.
-		const bool wasRiding = ch->IsRiding();
+		// The horse's own saddle only: a bot on its ItemShop mount stays on it.
+		const bool wasRiding = ch->IsHorseRiding();
 		if (wasRiding)
 			ch->StopRiding();
 		ch->SetHorseLevel(ch->GetHorseLevel() + 1);

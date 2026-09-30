@@ -9,13 +9,6 @@
 // variant the pair heard recently (TConvMemory::recentTemplates), and Fill()
 // puts the bot's real state into the $PLACEHOLDERS. Nothing here decides WHAT
 // to say - the generators do - only which of the equivalent ways to say it.
-//
-// Every set of variants has an English twin (Jeremus-Sama, 28 September),
-// and TGen::en - the reader's language, not the line's - picks which one is
-// drawn from: PBC_SAY2(g, k, kEn), Txt(g, "pl", "en"). A draw takes one
-// number from the pair's generator whichever set it is, so what a Polish
-// reader is told is drawn from the very sequence it always was
-// (TestPolishGolden pins it).
 
 #include "playerbot_conv_state.h"
 
@@ -43,17 +36,12 @@ namespace playerbot_conv
 		unsigned char askBackKind;
 		ETopic askBackTopic;
 		std::string reason;   // why - for a later "dlaczego?"
-		// The reply is in English: the reader's own flag, or for a person whose
-		// flag this core cannot read the language of their lines.
-		bool en;
 
 		TGen(const TBotSnapshot& snap, TConvMemory& mem, TRng& r, IConvWorld* w, u32 t)
 			: s(snap), m(mem), rng(r), world(w), a(NULL), tier(TIER_STRANGER),
 			voice(VoiceOf(snap.style)), now(t), index(0), groupSize(1), saidMap(false),
 			saidActivity(false), saidParty(false), saidGreeting(false), groupHasActivity(false), askBackKind(ASK_NONE),
-			askBackTopic(T_NONE),
-			en(ReaderEnglish(snap.askerLanguageKnown ? (snap.askerEnglish ? CONV_LANG_EN : CONV_LANG_PL) : CONV_LANG_UNKNOWN,
-					mem)) {}
+			askBackTopic(T_NONE) {}
 
 		bool Merged() const { return groupSize > 1; }
 		bool Bad() const { return s.mood == MOOD_BAD; }
@@ -82,104 +70,12 @@ namespace playerbot_conv
 	}
 
 #define PBC_PICK(g, arr) Pick((g), (arr), sizeof(arr) / sizeof((arr)[0]))
-// The reader's set of the two: a Polish one and its English twin.
-#define PBC_PICK2(g, arrPl, arrEn) ((g).en ? PBC_PICK((g), arrEn) : PBC_PICK((g), arrPl))
-
-	// One text of a pair, in the reader's language.
-	inline const char* Txt(const TGen& g, const char* pl, const char* en)
-	{
-		return g.en ? en : pl;
-	}
-
-	// The map words in the reader's language.
-	inline const TMapWords& MapWordsFor(const TGen& g, long mapIndex)
-	{
-		return MapWordsIn(g.en, mapIndex);
-	}
-
-	// The key the target's family is read from: its proto name when the
-	// snapshot names it in another language.
-	inline std::string FamilyKey(const TBotSnapshot& s)
-	{
-		return FoldName((s.targetProtoName.empty() ? s.targetName : s.targetProtoName).c_str());
-	}
-
-	// Fill() for an English reader: the same placeholders, English words.
-	inline std::string FillEn(const TGen& g, std::string out)
-	{
-		const TBotSnapshot& s = g.s;
-		const TMapWords& map = GetMapWordsEn(s.mapIndex);
-		const TMapWords& dest = GetMapWordsEn(s.travelMap);
-		ReplaceAll(out, "$WLVL", ToString((long long)s.weaponLevel));
-		ReplaceAll(out, "$GOALPRICE", FormatYang(s.weaponGoalPrice));
-		ReplaceAll(out, "$GOAL", s.weaponGoal.empty() ? std::string("something better") : s.weaponGoal);
-		// On the other channel "in Joan" alone sends the person to their own
-		// channel's Joan.
-		std::string mapIn = map.at;
-		std::string mapInShort = map.atShort;
-		if (AskerOnOtherChannel(s))
-		{
-			const std::string channel = "on CH" + ToString((long long)s.channel);
-			mapIn = IsKnownMap(s.mapIndex) ? mapIn + " " + channel : channel;
-			mapInShort = IsKnownMap(s.mapIndex) ? mapInShort + " " + channel : channel;
-		}
-		ReplaceAll(out, "$MAPINSHORT", mapInShort);
-		ReplaceAll(out, "$MAPIN", mapIn);
-		ReplaceAll(out, "$MAPNAME", *map.name ? map.name : "this map");
-		ReplaceAll(out, "$DEST", *dest.to ? dest.to : "further on");
-		ReplaceAll(out, "$TARGET", s.targetName.empty() ? std::string("mobs") : s.targetName);
-		{
-			const char* fam = MobFamilyPluralEn(FamilyKey(s));
-			ReplaceAll(out, "$FAMILY", *fam ? fam : "mobs");
-		}
-		ReplaceAll(out, "$NEXTLVL", ToString(s.level + 1));
-		ReplaceAll(out, "$LVL", ToString(s.level));
-		ReplaceAll(out, "$PLAYER", s.askerName);
-		ReplaceAll(out, "$NAME", s.name);
-		ReplaceAll(out, "$GOLD", FormatYang(s.gold));
-		ReplaceAll(out, "$PARTYN", ToString(s.partySize));
-		ReplaceAll(out, "$LEADER", s.partyLeader.empty() ? std::string("someone") : s.partyLeader);
-		ReplaceAll(out, "$GUILDN", ToString(s.guildMembers));
-		ReplaceAll(out, "$GUILD", s.guildName);
-		ReplaceAll(out, "$HORSELVL", ToString(s.horseLevel));
-		ReplaceAll(out, "$FREE", ToString(s.freeCells));
-		ReplaceAll(out, "$HP", ToString(s.hpPct));
-		ReplaceAll(out, "$SP", ToString(s.spPct));
-		ReplaceAll(out, "$CLASS", ClassNameEn(s.job));
-		ReplaceAll(out, "$EMPIRE", EmpireName(s.empire));
-		ReplaceAll(out, "$WEAPON", s.weaponName.empty() ? std::string("nothing") : GearName(s.weaponName, s.weaponPlus));
-		ReplaceAll(out, "$WPLUS", ToString(s.weaponPlus));
-		ReplaceAll(out, "$ARMOR", s.armorName.empty() ? std::string("nothing") : GearName(s.armorName, s.armorPlus));
-		ReplaceAll(out, "$APLUS", ToString(s.armorPlus));
-		ReplaceAll(out, "$BIO", s.bioWanted);
-		// $HUNTN before $HUNT, which is its first five letters.
-		ReplaceAll(out, "$HUNTN", ToString(s.huntRemaining));
-		ReplaceAll(out, "$HUNT", s.huntMob);
-		ReplaceAll(out, "$MOBS", ToString(s.mobsNear < 0 ? 0 : s.mobsNear));
-		{
-			const TMapWords& shopMap = GetMapWordsEn(s.shopMapIndex);
-			ReplaceAll(out, "$SHOPAT", *shopMap.name ? std::string(shopMap.at) : std::string("in town"));
-		}
-		ReplaceAll(out, "$SM", ToString(s.dragonCoins));
-		ReplaceAll(out, "$SHOPN", ToString(s.shopItems));
-		ReplaceAll(out, "$SHOP", s.shopSummary);
-		ReplaceAll(out, "$ONLINE", ToString((long long)s.onlineMinutes));
-		if (g.a)
-		{
-			ReplaceAll(out, "$OBJB", g.a->objectB);
-			ReplaceAll(out, "$OBJ", g.a->object);
-		}
-		ReplaceAll(out, "$LIKES", g.m.playerLikes);
-		return out;
-	}
 
 	inline std::string Fill(const TGen& g, const char* tpl)
 	{
 		std::string out = tpl ? tpl : "";
 		if (out.find('$') == std::string::npos)
 			return out;
-		if (g.en)
-			return FillEn(g, out);
 		const TBotSnapshot& s = g.s;
 		const TMapWords& map = GetMapWords(s.mapIndex);
 		const TMapWords& dest = GetMapWords(s.travelMap);
@@ -257,8 +153,6 @@ namespace playerbot_conv
 	}
 
 #define PBC_SAY(g, arr) Say((g), (arr), sizeof(arr) / sizeof((arr)[0]))
-// The reader's set of the two, filled.
-#define PBC_SAY2(g, arrPl, arrEn) ((g).en ? PBC_SAY((g), arrEn) : PBC_SAY((g), arrPl))
 
 	// Join two sentences with one space, each ending in punctuation.
 	inline void Append(std::string& out, const std::string& piece)

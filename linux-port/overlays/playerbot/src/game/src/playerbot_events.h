@@ -35,6 +35,10 @@
 // Metin rain - are judged here like the rest and run by
 // playerbot_world_events.h, which speaks for them itself, because only it
 // knows the map and what stands on it.
+// MT2009_PLUS_GOBLIN_V1: the Treasure Hunt's clock (playerbot_goblin.h, which
+// the manager includes after this file), asked once for every pass below.
+void GoblinEventTick(DWORD dwNow);
+
 namespace {
 	const char* const PLAYERBOT_EVENTS_DEFAULT_PATH = "/opt/m2spool/playerbot_events.tsv";
 	const char* const PLAYERBOT_EVENTS_STATUS_PATH = "playerbot_events_status.tsv";
@@ -202,15 +206,14 @@ namespace {
 		return s_iRate;
 	}
 
-	// Player-visible, so Polish and ASCII-only like every bot string, with its
-	// English twin (playerbot_language.h).
-	const char* PlayerBotEventRateWord(int kind, bool en = false)
+	// Player-visible, so Polish and ASCII-only like every bot string.
+	const char* PlayerBotEventRateWord(int kind)
 	{
 		switch (kind)
 		{
-			case playerbot_events::KIND_EXP: return PBT(en, "doswiadczenia", "experience");
-			case playerbot_events::KIND_DROP: return PBT(en, "szansy na drop", "drop chance");
-			case playerbot_events::KIND_YANG: return PBT(en, "yang z potworow", "yang from monsters");
+			case playerbot_events::KIND_EXP: return "doswiadczenia";
+			case playerbot_events::KIND_DROP: return "szansy na drop";
+			case playerbot_events::KIND_YANG: return "yang z potworow";
 		}
 		return "";
 	}
@@ -228,31 +231,29 @@ namespace {
 	void AnnouncePlayerBotEvent(int kind, int value, long until, EPlayerBotEventPhase phase)
 	{
 		char body[128];
-		char bodyEn[128];
 		if (kind == playerbot_events::KIND_CHEST)
-		{
 			snprintf(body, sizeof(body), "Szkatulki Blasku Ksiezyca dropia z potworow i metinow");
-			snprintf(bodyEn, sizeof(bodyEn), "Moonlight Treasure Chests drop from monsters and Metin stones");
-		}
+		else if (kind == playerbot_events::KIND_BOSS_LOOT)
+			snprintf(body, sizeof(body), "podwojny loot z bossow");
+		else if (kind == playerbot_events::KIND_METIN_LOOT)
+			snprintf(body, sizeof(body), "podwojny loot z Metinow");
+		else if (kind == playerbot_events::KIND_GOBLIN)
+			snprintf(body, sizeof(body), "Poszukiwanie skarbow z Goblinem Skarbow - Bilety Skarbow w skrzyniach");
 		else
-		{
 			snprintf(body, sizeof(body), "+%d%% %s", value, PlayerBotEventRateWord(kind));
-			snprintf(bodyEn, sizeof(bodyEn), "+%d%% %s", value, PlayerBotEventRateWord(kind, true));
-		}
 		char text[256];
-		char textEn[256];
 		if (phase == EVENT_PHASE_END)
 		{
 			if (kind == playerbot_events::KIND_CHEST)
-			{
 				snprintf(text, sizeof(text), "Event zakonczony: Szkatulki Blasku Ksiezyca juz nie dropia.");
-				snprintf(textEn, sizeof(textEn), "Event over: Moonlight Treasure Chests drop no more.");
-			}
+			else if (kind == playerbot_events::KIND_BOSS_LOOT)
+				snprintf(text, sizeof(text), "Event zakonczony: podwojny loot z bossow.");
+			else if (kind == playerbot_events::KIND_METIN_LOOT)
+				snprintf(text, sizeof(text), "Event zakonczony: podwojny loot z Metinow.");
+			else if (kind == playerbot_events::KIND_GOBLIN)
+				snprintf(text, sizeof(text), "Event zakonczony: Poszukiwanie skarbow z Goblinem Skarbow.");
 			else
-			{
 				snprintf(text, sizeof(text), "Event zakonczony: %s wraca do normy.", PlayerBotEventRateWord(kind));
-				snprintf(textEn, sizeof(textEn), "Event over: %s is back to normal.", PlayerBotEventRateWord(kind, true));
-			}
 		}
 		else
 		{
@@ -260,10 +261,8 @@ namespace {
 			FormatPlayerBotEventClock(until, when, sizeof(when));
 			snprintf(text, sizeof(text), "%s: %s do %s!",
 					phase == EVENT_PHASE_START ? "Event" : "Trwa event", body, when);
-			snprintf(textEn, sizeof(textEn), "%s: %s until %s!",
-					phase == EVENT_PHASE_START ? "Event" : "Event on", bodyEn, when);
 		}
-		BroadcastPlayerBotNotice(text, textEn);
+		BroadcastNotice(text);
 		sys_log(0, "PLAYERBOT_EVENT: notice \"%s\"", text);
 	}
 
@@ -558,5 +557,22 @@ namespace {
 			s_dwPlayerBotEventsNextStatus = dwNow + PLAYERBOT_EVENTS_STATUS_INTERVAL;
 			WritePlayerBotEventsStatus();
 		}
+		// MT2009_PLUS_GOBLIN_V1: the Treasure Hunt follows its kind's status
+		// (playerbot_goblin.h) - every core, like the double-loot events.
+		GoblinEventTick(dwNow);
 	}
+}
+
+// MT2009_PLUS_LOOT_EVENTS_V1: the double-loot events, asked by the engine's
+// CreateDropItem (item_manager.cpp) for every kill. Each core judges the
+// panel's file itself every second, so this is the core's own answer.
+bool Mt2009PlusDoubleLoot(LPCHARACTER victim)
+{
+	if (!victim || victim->IsPC())
+		return false;
+	if (victim->IsStone())
+		return s_aPlayerBotEventStatus[playerbot_events::KIND_METIN_LOOT].active;
+	if (victim->GetMobRank() >= MOB_RANK_BOSS)
+		return s_aPlayerBotEventStatus[playerbot_events::KIND_BOSS_LOOT].active;
+	return false;
 }

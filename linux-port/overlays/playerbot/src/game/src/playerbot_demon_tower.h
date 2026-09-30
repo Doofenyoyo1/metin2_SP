@@ -115,6 +115,7 @@ namespace
 		// told (AnnouncePlayerBotTowerReaper).
 		bool bReaperSeen;
 		bool bReaperDown;
+		DWORD dwReaperDownAt;
 		// The bots that have had their turn at the sixth floor's smith, and
 		// when each began its turn (PLAYERBOT_TOWER_SMITH_TURN_MS).
 		std::set<DWORD> smithServed;
@@ -129,7 +130,7 @@ namespace
 			iLevel(-1), iAlive(-1), dwEnteredAt(0), dwLevelSince(0), dwLastProgress(0),
 			dwSmithSince(0), bSmithDone(false), bEnding(false), pszEnd(""), dwNextReport(0),
 			bSeventhPhase(SEVENTH_UNKNOWN), dwSeventhPhaseSince(0), bReaperSeen(false), bReaperDown(false),
-			dwOnlyUnreachableSince(0) {}
+			dwReaperDownAt(0), dwOnlyUnreachableSince(0) {}
 	};
 	std::map<long, TPlayerBotTowerRun> s_mapPlayerBotTowerRuns;
 
@@ -171,6 +172,27 @@ namespace
 			return false;
 		std::map<DWORD, DWORD>::const_iterator it = run->second.unreachableUntil.find(vid);
 		return it != run->second.unreachableUntil.end() && dwNow < it->second;
+	}
+
+	// The Reaper is never taken off the whole run's pick: one bot that found no
+	// way to him put him out of every bot's reach for a minute, and the pack
+	// stood idle beside him with nothing else on the floor (upstream 2.2.39).
+	// Only the bot that missed him leaves him for PLAYERBOT_TOWER_REAPER_MISS_MS
+	// and walks to the pack meanwhile - the pack stands where he can be reached.
+	const DWORD PLAYERBOT_TOWER_REAPER_MISS_MS = 4000;
+	// After his fall the bots are out of the tower in PLAYERBOT_TOWER_REAPER_EXIT_MS.
+	const DWORD PLAYERBOT_TOWER_REAPER_EXIT_MS = 12 * 1000;
+	std::map<DWORD, DWORD> s_PlayerBotTowerReaperMissUntil;
+
+	bool IsPlayerBotTowerReaperMissed(LPCHARACTER ch, DWORD dwNow)
+	{
+		std::map<DWORD, DWORD>::iterator it = s_PlayerBotTowerReaperMissUntil.find(ch->GetPlayerID());
+		if (it == s_PlayerBotTowerReaperMissUntil.end())
+			return false;
+		if (dwNow < it->second)
+			return true;
+		s_PlayerBotTowerReaperMissUntil.erase(it);
+		return false;
 	}
 
 	bool IsPlayerBotGuildRaidingTower(DWORD dwGuildID)
@@ -528,13 +550,10 @@ namespace
 		CGuild* g = (raid.bPhase == TOWER_PHASE_INSIDE && raid.lInstance == map)
 				? CGuildManager::instance().FindGuild(raid.dwGuildID) : NULL;
 		char msg[256];
-		char msgEn[256];
 		std::string who;
 		if (g)
 		{
 			snprintf(msg, sizeof(msg), "Gildia %s (%s) pokonala Umarlego Rozpruwacza na dziewiatym pietrze Wiezy Demonow!",
-					g->GetName(), GetPlayerBotKingdomName(raid.bEmpire));
-			snprintf(msgEn, sizeof(msgEn), "The guild %s (%s) defeated the Death Reaper on the Demon Tower's ninth floor!",
 					g->GetName(), GetPlayerBotKingdomName(raid.bEmpire));
 			who = g->GetName();
 		}
@@ -549,29 +568,17 @@ namespace
 			}
 			CGuild* pg = person->GetGuild();
 			if (pg)
-			{
 				snprintf(msg, sizeof(msg), "Gildia %s pokonala Umarlego Rozpruwacza na dziewiatym pietrze Wiezy Demonow!",
 						pg->GetName());
-				snprintf(msgEn, sizeof(msgEn), "The guild %s defeated the Death Reaper on the Demon Tower's ninth floor!",
-						pg->GetName());
-			}
 			else
-			{
 				snprintf(msg, sizeof(msg), "Druzyna gracza %s pokonala Umarlego Rozpruwacza na dziewiatym pietrze Wiezy Demonow!",
 						person->GetName());
-				snprintf(msgEn, sizeof(msgEn), "The party of %s defeated the Death Reaper on the Demon Tower's ninth floor!",
-						person->GetName());
-			}
 			who = pg ? pg->GetName() : person->GetName();
 		}
 		std::string notice = msg;
-		std::string noticeEn = msgEn;
 		if (!lastBlow.empty())
-		{
 			notice += " Ostatni cios: " + lastBlow + ".";
-			noticeEn += " The last blow: " + lastBlow + ".";
-		}
-		BroadcastPlayerBotNotice(notice.c_str(), noticeEn.c_str());
+		BroadcastNotice(notice.c_str());
 		sys_log(0, "PLAYERBOT_TOWER: reaper down map=%ld told=1 who=%s last_blow=%s after_s=%u",
 				map, who.c_str(), lastBlow.empty() ? "-" : lastBlow.c_str(), (dwNow - run.dwEnteredAt) / 1000U);
 	}
@@ -591,6 +598,7 @@ namespace
 		if (!run.bReaperSeen || dwNow - run.dwLevelSince < PLAYERBOT_TOWER_SEVENTH_SETTLE_MS)
 			return;
 		run.bReaperDown = true;
+		run.dwReaperDownAt = dwNow;
 		AnnouncePlayerBotTowerReaper(map, run, dwNow);
 	}
 
@@ -706,6 +714,8 @@ namespace
 			// always the one wedged in the wall, and the pack stood before it
 			// while the floor's king stood unhit (NotePlayerBotTowerUnreachable).
 			if (!parterStone && IsPlayerBotTowerObjectiveUnreachable(ch->GetMapIndex(), e.vid, pickNow))
+				continue;
+			if (e.race == PLAYERBOT_TOWER_REAPER && IsPlayerBotTowerReaperMissed(ch, pickNow))
 				continue;
 			const long ex = c->GetX();
 			const long ey = c->GetY();
@@ -960,6 +970,16 @@ namespace
 		std::map<long, TPlayerBotTowerRun>::iterator run = s_mapPlayerBotTowerRuns.find(ch->GetMapIndex());
 		if (run == s_mapPlayerBotTowerRuns.end())
 			return;
+		if (foe->GetRaceNum() == PLAYERBOT_TOWER_REAPER)
+		{
+			PlayerBotLogThrottled("tower_reaper_miss", dwNow,
+					"PLAYERBOT_TOWER: no way to the Reaper, to the pack pid=%u name=%s at=(%ld,%ld) from=(%ld,%ld)",
+					ch->GetPlayerID(), ch->GetName(), foe->GetX(), foe->GetY(), ch->GetX(), ch->GetY());
+			s_PlayerBotTowerReaperMissUntil[ch->GetPlayerID()] = dwNow + PLAYERBOT_TOWER_REAPER_MISS_MS;
+			state.dwTargetVID = 0;
+			ch->SetVictim(NULL);
+			return;
+		}
 		DWORD& until = run->second.unreachableUntil[(DWORD)foe->GetVID()];
 		if (until <= dwNow)
 			PlayerBotLogThrottled("tower_unreachable", dwNow,
@@ -1771,6 +1791,11 @@ namespace
 				run.bEnding = true;
 				run.pszEnd = "run_timeout";
 			}
+			else if (run.bReaperDown && dwNow - run.dwReaperDownAt >= PLAYERBOT_TOWER_REAPER_EXIT_MS)
+			{
+				run.bEnding = true;
+				run.pszEnd = "reaper_down";
+			}
 			if (run.bEnding)
 			{
 				sys_log(0, "PLAYERBOT_TOWER: run ends map=%ld floor=%d reason=%s after_s=%u",
@@ -1967,6 +1992,19 @@ namespace
 			UnstickPlayerBotTowerMonsters(ch, run, scan, level, dwNow);
 			state.dwTargetVID = 0;
 			ch->SetVictim(NULL);
+			// A bot that found no way to the Reaper walks to the pack fighting
+			// him instead of standing (PLAYERBOT_TOWER_REAPER_MISS_MS).
+			if (level == 7 && scan->packN >= 2 && IsPlayerBotTowerReaperMissed(ch, dwNow) &&
+					DISTANCE_APPROX(ch->GetX() - scan->packX, ch->GetY() - scan->packY) > 400)
+			{
+				SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
+				if (dwNow >= state.dwNextTowerMoveTime)
+				{
+					state.dwNextTowerMoveTime = dwNow + 1000;
+					MovePlayerBot(ch, scan->packX, scan->packY, dwNow, 8, true, false);
+				}
+				return true;
+			}
 			if (ch->IsStateMove())
 				ch->Stop();
 			return true;
@@ -2330,18 +2368,12 @@ namespace
 		}
 		++s_uPlayerBotTowerRaids;
 		char msg[220];
-		// The stone by its official English name (8015, Metin of Toughness).
-		snprintf(msg, sizeof(msg), PBT(IsPlayerBotGuildMasterEnglish(e.guild),
-				"Wieza Demonow! Zbiorka na parterze wiezy przy Metinie Twardosci - za %u minut rozbijamy go razem.",
-				"Demon Tower! Gather on the tower's ground floor by the Metin of Toughness - in %u minutes we break it together."),
+		snprintf(msg, sizeof(msg), "Wieza Demonow! Zbiorka na parterze wiezy przy Metinie Twardosci - za %u minut rozbijamy go razem.",
 				(unsigned int)(PLAYERBOT_TOWER_GATHER_MS / 60000U));
 		e.guild->Chat(msg);
-		char msgEn[220];
 		snprintf(msg, sizeof(msg), "Gildia %s (%s) rusza na Wieze Demonow: zbiorka na parterze wiezy, start za %u minut. Kto stoi na parterze, wchodzi razem z nimi.",
 				e.guild->GetName(), GetPlayerBotKingdomName(e.empire), (unsigned int)(PLAYERBOT_TOWER_GATHER_MS / 60000U));
-		snprintf(msgEn, sizeof(msgEn), "The guild %s (%s) is off to the Demon Tower: gathering on the ground floor, start in %u minutes. Whoever stands there goes in with them.",
-				e.guild->GetName(), GetPlayerBotKingdomName(e.empire), (unsigned int)(PLAYERBOT_TOWER_GATHER_MS / 60000U));
-		BroadcastPlayerBotNotice(msg, msgEn);
+		BroadcastNotice(msg);
 		sys_log(0, "PLAYERBOT_TOWER: raid called guild=%s id=%u empire=%u members=%u upper=%d why=%s",
 				e.guild->GetName(), raid.dwGuildID, (unsigned int)e.empire,
 				(unsigned int)e.members.size(), e.upper, why);
@@ -2466,8 +2498,7 @@ namespace
 					{
 						raid.bPhase = TOWER_PHASE_STONE;
 						raid.dwPhaseSince = dwNow;
-						g->Chat(PBT(IsPlayerBotGuildMasterEnglish(g), "Rozbijamy Metin Twardosci!",
-								"Breaking the Metin of Toughness!"));
+						g->Chat("Rozbijamy Metin Twardosci!");
 						sys_log(0, "PLAYERBOT_TOWER: raid breaking the stone guild=%s on_ground=%d of %u",
 								g->GetName(), onGround, (unsigned int)raid.members.size());
 					}

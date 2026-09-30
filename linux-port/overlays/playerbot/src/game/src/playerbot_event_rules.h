@@ -19,6 +19,9 @@
 //   zuo	5	21:00	22:00	8	0	Friday, eight stones a wave, the map drawn
 //   now	drop	1758045600	30		+30% drop until that epoch second
 //   now	zuo	1758045600	8	63	1758042000	Zuo over the desert, begun then
+//   bossloot	*	20:00	22:00	0		every boss drops its loot twice
+//   metinloot	6	18:00	20:00	0		Saturday: every Metin drops its loot twice
+//   goblin	5,6,7	12:00	23:00	0		the Treasure Hunt (MT2009_PLUS_GOBLIN_V1)
 //   bots	50				half of the bots that could come to an event do
 //   #off	yang	*	12:00	13:00	25	a row the operator switched off
 //
@@ -43,7 +46,14 @@ enum Kind
 	// The two that put something into the world (playerbot_world_events.h).
 	KIND_TANAKA = 4,
 	KIND_ZUO = 5,
-	KIND_MAX = 6
+	// Every item a boss or a Metin stone drops, dropped twice
+	// (MT2009_PLUS_LOOT_EVENTS_V1, playerbot_events.h).
+	KIND_BOSS_LOOT = 6,
+	KIND_METIN_LOOT = 7,
+	// MT2009_PLUS_GOBLIN_V1: the Treasure Hunt with the Treasure Goblin - the
+	// tickets, the island and the Doubloon reward board (playerbot_goblin.h).
+	KIND_GOBLIN = 8,
+	KIND_MAX = 9
 };
 
 inline const char* KindName(int kind)
@@ -56,6 +66,9 @@ inline const char* KindName(int kind)
 		case KIND_YANG: return "yang";
 		case KIND_TANAKA: return "tanaka";
 		case KIND_ZUO: return "zuo";
+		case KIND_BOSS_LOOT: return "bossloot";
+		case KIND_METIN_LOOT: return "metinloot";
+		case KIND_GOBLIN: return "goblin";
 	}
 	return "";
 }

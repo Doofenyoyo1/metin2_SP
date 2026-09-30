@@ -695,7 +695,6 @@ namespace
 	{
 		if (!ch || !ch->IsPC() || !ch->GetDesc() || ch->GetDesc()->IsBot())
 			return;
-		const bool en = IsPlayerBotPersonEnglish(ch);
 		CGuild* mine = CGuildManager::instance().FindGuild(dwMyGuild);
 		CGuild* enemy = CGuildManager::instance().FindGuild(dwOppGuild);
 		BYTE empire = 0;
@@ -705,14 +704,12 @@ namespace
 			empire = GetPlayerBotGuildEmpire(mine);
 		if (empire == 0)
 		{
-			TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] To wojna w polu: walczycie tam, gdzie sie spotkacie.",
-					"[War] This is a field war: you fight wherever you meet."));
+			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] To wojna w polu: walczycie tam, gdzie sie spotkacie.");
 			return;
 		}
 		if (g_bChannel != 1)
 		{
-			TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] Boty walcza w wojnach gildii tylko na kanale 1 - zmien kanal i kliknij jeszcze raz.",
-					"[War] The bots fight guild wars on channel 1 only - change the channel and click again."));
+			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Boty walcza w wojnach gildii tylko na kanale 1 - zmien kanal i kliknij jeszcze raz.");
 			return;
 		}
 		const long battlefield = playerbot_empire_rules::GetHomeMap((int)empire, playerbot_empire_rules::MAP_ROLE_M3);
@@ -728,15 +725,13 @@ namespace
 			if (!playerbot_empire_rules::GetTeleportArrival((int)empire,
 					playerbot_empire_rules::TELEPORT_GUILD_MAP, town))
 			{
-				TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] Nie znam pola bitwy tej wojny.",
-						"[War] I do not know this war's battlefield."));
+				ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Nie znam pola bitwy tej wojny.");
 				return;
 			}
 			x = town.x;
 			y = town.y;
 		}
-		TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] Przenosze cie do obozu twojej gildii na mapie gildyjnej.",
-				"[War] Taking you to your guild's camp on the guild map."));
+		ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Przenosze cie do obozu twojej gildii na mapie gildyjnej.");
 		sys_log(0, "PLAYERBOT_GUILD: player joins the field war pid=%u name=%s guild=%u enemy=%u empire=%d map=%ld side=%d camp=%d to=(%ld,%ld)",
 				ch->GetPlayerID(), ch->GetName(), dwMyGuild, dwOppGuild, (int)empire, battlefield, side,
 				camp ? 1 : 0, x, y);
@@ -755,43 +750,35 @@ namespace
 	{
 		if (!ch || !mine || !opp || !IsPlayerBotGuild(opp) || IsPlayerBotGuild(mine))
 			return false;
-		const bool en = IsPlayerBotPersonEnglish(ch);
 		if (!IsPlayerBotGuildWarsEnabled())
 		{
-			TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] Wojny z gildiami botow sa wylaczone w panelu serwera.",
-					"[War] Wars on bot guilds are switched off in the server's panel."));
+			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wojny z gildiami botow sa wylaczone w panelu serwera.");
 			return true;
 		}
 		const BYTE empire = GetPlayerBotGuildEmpire(opp);
 		if (empire != 0 && empire != ch->GetEmpire())
 		{
-			TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] Wojne mozna wypowiedziec tylko gildii botow z twojego krolestwa.",
-					"[War] You can declare war only on a bot guild of your own kingdom."));
+			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wojne mozna wypowiedziec tylko gildii botow z twojego krolestwa.");
 			return true;
 		}
 		if (opp->UnderAnyWar() != 0)
 		{
-			TellPlayerBotPerson(ch, PBT(en, "[Wojna] Gildia %s walczy teraz w innej wojnie.",
-					"[War] The guild %s is fighting another war now."), opp->GetName());
+			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Gildia %s walczy teraz w innej wojnie.", opp->GetName());
 			return true;
 		}
 		const int stateNow = mine->GetGuildWarState(opp->GetID());
 		if (stateNow == GUILD_WAR_SEND_DECLARE)
 		{
-			TellPlayerBotPerson(ch, PBT(en, "[Wojna] Wojna gildii %s jest juz wypowiedziana - boty odpowiedza na czacie gildii.",
-					"[War] War on the guild %s is declared already - the bots will answer in the guild chat."), opp->GetName());
+			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wojna gildii %s jest juz wypowiedziana - boty odpowiedza na czacie gildii.", opp->GetName());
 			return true;
 		}
 		if (stateNow != GUILD_WAR_NONE)
 		{
-			TellPlayerBotPerson(ch, PBT(en, "[Wojna] Z gildia %s trwa juz wojna albo jej konczenie.",
-					"[War] A war with the guild %s is on already, or ending."), opp->GetName());
+			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Z gildia %s trwa juz wojna albo jej konczenie.", opp->GetName());
 			return true;
 		}
 		mine->RequestDeclareWar(opp->GetID(), GUILD_WAR_TYPE_FIELD);
-		TellPlayerBotPerson(ch, PBT(en, "[Wojna] Wypowiedziano wojne gildii botow %s. Z botami to zawsze wojna na mapie gildyjnej waszego krolestwa. Odpowiedz przyjdzie za kilka sekund na czacie gildii.",
-				"[War] War declared on the bot guild %s. With bots it is always a war on your kingdom's guild map. The answer comes in a few seconds in the guild chat."),
-				opp->GetName());
+		ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wypowiedziano wojne gildii botow %s. Z botami to zawsze wojna na mapie gildyjnej waszego krolestwa. Odpowiedz przyjdzie za kilka sekund na czacie gildii.", opp->GetName());
 		sys_log(0, "PLAYERBOT_GUILD: player war declared by pid=%u name=%s guild=%s on %s",
 				ch->GetPlayerID(), ch->GetName(), mine->GetName(), opp->GetName());
 		return true;
@@ -832,10 +819,6 @@ namespace
 		if (battlefield == 0 || !IsPlayerBotMapHostedHere(battlefield))
 			return;
 
-		// The answer goes to the whole guild's chat, in its master's language:
-		// a guild chat is one line for everybody, and a player's guild in this
-		// world is its master's. A master on another core reads Polish.
-		const bool en = IsPlayerBotPersonEnglish(CHARACTER_MANAGER::instance().FindByPID(person->GetMasterPID()));
 		char why[192] = "";
 		const DWORD stamp = (DWORD)get_global_time();
 		const BYTE personEmpire = GetPlayerBotPersonGuildEmpire(person);
@@ -844,48 +827,38 @@ namespace
 		std::map<DWORD, DWORD>::const_iterator personLast = s_mapPlayerBotPlayerGuildLastWarAt.find(offer.dwFrom);
 		const int online = CountPlayerBotGuildOnline(bots);
 		if (offer.bType != GUILD_WAR_TYPE_FIELD)
-			snprintf(why, sizeof(why), "%s", PBT(en, "boty walcza tylko w wojnie na mapie gildyjnej",
-					"bots fight only in a war on the guild map"));
+			snprintf(why, sizeof(why), "boty walcza tylko w wojnie na mapie gildyjnej");
 		else if (!IsPlayerBotGuildWarsEnabled())
-			snprintf(why, sizeof(why), "%s", PBT(en, "wojny z gildiami botow sa wylaczone w panelu serwera",
-					"wars on bot guilds are switched off in the server's panel"));
+			snprintf(why, sizeof(why), "wojny z gildiami botow sa wylaczone w panelu serwera");
 		else if (personEmpire != 0 && personEmpire != empire)
-			snprintf(why, sizeof(why), "%s", PBT(en, "walczymy tylko z gildiami z naszego krolestwa",
-					"we fight only guilds of our own kingdom"));
+			snprintf(why, sizeof(why), "walczymy tylko z gildiami z naszego krolestwa");
 		else if (bots->UnderAnyWar() != 0 || IsPlayerBotGuildRaidingTower(offer.dwTo))
-			snprintf(why, sizeof(why), "%s", PBT(en, "walczymy teraz gdzie indziej (wojna albo Wieza Demonow)",
-					"we are fighting elsewhere now (a war or the Demon Tower)"));
+			snprintf(why, sizeof(why), "walczymy teraz gdzie indziej (wojna albo Wieza Demonow)");
 		else if (slot != s_mapPlayerBotGuildWars.end())
 		{
 			CGuild* g1 = CGuildManager::instance().FindGuild(slot->second.dwGuild1);
 			CGuild* g2 = CGuildManager::instance().FindGuild(slot->second.dwGuild2);
 			const int left = slot->second.bStarted
 					? std::max(1, 30 - (int)((dwNow - slot->second.dwStartedAt) / 60000U)) : 31;
-			snprintf(why, sizeof(why), PBT(en, "na mapie gildyjnej trwa juz wojna %s kontra %s, sprobujcie za okolo %d min",
-					"there is a war on the guild map already, %s against %s, try again in about %d min"),
+			snprintf(why, sizeof(why), "na mapie gildyjnej trwa juz wojna %s kontra %s, sprobujcie za okolo %d min",
 					g1 ? g1->GetName() : "?", g2 ? g2->GetName() : "?", left);
 		}
 		else if (online < PLAYERBOT_GUILD_WAR_MIN_ONLINE)
-			snprintf(why, sizeof(why), PBT(en, "w grze jest nas za malo (%d z %d)", "too few of us are in the game (%d of %d)"),
-					online, PLAYERBOT_GUILD_WAR_MIN_ONLINE);
+			snprintf(why, sizeof(why), "w grze jest nas za malo (%d z %d)", online, PLAYERBOT_GUILD_WAR_MIN_ONLINE);
 		else if (botsLast != s_mapPlayerBotGuildLastWarAt.end() && stamp < botsLast->second + PLAYERBOT_GUILD_WAR_BOT_REST_SECONDS)
-			snprintf(why, sizeof(why), PBT(en, "odpoczywamy po ostatniej wojnie, sprobujcie za %u min",
-					"we are resting after the last war, try again in %u min"),
+			snprintf(why, sizeof(why), "odpoczywamy po ostatniej wojnie, sprobujcie za %u min",
 					(botsLast->second + PLAYERBOT_GUILD_WAR_BOT_REST_SECONDS - stamp + 59) / 60);
 		else if (personLast != s_mapPlayerBotPlayerGuildLastWarAt.end() && stamp < personLast->second + PLAYERBOT_GUILD_WAR_PLAYER_REST_SECONDS)
-			snprintf(why, sizeof(why), PBT(en, "wasza gildia walczyla z botami niedawno, sprobujcie za %u min",
-					"your guild fought the bots a short while ago, try again in %u min"),
+			snprintf(why, sizeof(why), "wasza gildia walczyla z botami niedawno, sprobujcie za %u min",
 					(personLast->second + PLAYERBOT_GUILD_WAR_PLAYER_REST_SECONDS - stamp + 59) / 60);
 		else if (!GetPlayerBotWarSides(battlefield, empire))
-			snprintf(why, sizeof(why), "%s", PBT(en, "na mapie gildyjnej nie ma gdzie walczyc",
-					"there is nowhere to fight on the guild map"));
+			snprintf(why, sizeof(why), "na mapie gildyjnej nie ma gdzie walczyc");
 
 		char chat[320];
 		if (why[0])
 		{
 			bots->RequestRefuseWar(offer.dwFrom);
-			snprintf(chat, sizeof(chat), PBT(en, "[Wojna] Gildia botow %s odmawia: %s.", "[War] The bot guild %s refuses: %s."),
-					bots->GetName(), why);
+			snprintf(chat, sizeof(chat), "[Wojna] Gildia botow %s odmawia: %s.", bots->GetName(), why);
 			person->Chat(chat);
 			sys_log(0, "PLAYERBOT_GUILD: player war refused %s -> %s empire=%d online=%d why=%s",
 					person->GetName(), bots->GetName(), (int)empire, online, why);
@@ -906,8 +879,7 @@ namespace
 		s_mapPlayerBotPlayerGuildLastWarAt[offer.dwFrom] = stamp;
 		DBManager::instance().Query("UPDATE player.playerbot_guild SET last_war_at=%u WHERE guild_id=%u",
 				stamp, offer.dwTo);
-		snprintf(chat, sizeof(chat), PBT(en, "[Wojna] Gildia botow %s przyjmuje wyzwanie! Pole bitwy: mapa gildyjna (%s), kanal 1. Boty buffuja sie %u s przy swoim obozie i ruszaja na srodek.",
-				"[War] The bot guild %s takes the challenge! Battlefield: the guild map (%s), channel 1. The bots buff for %u s at their camp and go for the middle."),
+		snprintf(chat, sizeof(chat), "[Wojna] Gildia botow %s przyjmuje wyzwanie! Pole bitwy: mapa gildyjna (%s), kanal 1. Boty buffuja sie %u s przy swoim obozie i ruszaja na srodek.",
 				bots->GetName(), GetPlayerBotKingdomName(empire), (unsigned int)PLAYERBOT_GUILD_WAR_MUSTER_SECONDS);
 		person->Chat(chat);
 		sys_log(0, "PLAYERBOT_GUILD: player war accepted %s -> %s empire=%d online=%d",
@@ -979,24 +951,14 @@ namespace
 						war.dwStartedAt = dwNow;
 						++s_uPlayerBotGuildWarsFought;
 						char notice[200];
-						char noticeEn[200];
 						if (war.bPlayerWar)
-						{
 							snprintf(notice, sizeof(notice), "Wojna gildii: %s kontra gildia botow %s! Pole bitwy: mapa gildyjna (%s), 30 minut.",
 									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire));
-							snprintf(noticeEn, sizeof(noticeEn), "Guild war: %s against the bot guild %s! Battlefield: the guild map (%s), 30 minutes.",
-									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire));
-						}
 						else
-						{
 							snprintf(notice, sizeof(notice), "Wojna gildii: %s kontra %s! Pole bitwy: mapa gildyjna (%s), %d minut.",
 									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire),
 									GetPlayerBotGuildWarMinutes());
-							snprintf(noticeEn, sizeof(noticeEn), "Guild war: %s against %s! Battlefield: the guild map (%s), %d minutes.",
-									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire),
-									GetPlayerBotGuildWarMinutes());
-						}
-						BroadcastPlayerBotNotice(notice, noticeEn);
+						BroadcastNotice(notice);
 						sys_log(0, "PLAYERBOT_GUILD: war on %s vs %s empire=%d battlefield=%ld online=%d/%d player=%d",
 								g1->GetName(), g2->GetName(), empire, battlefield,
 								CountPlayerBotGuildOnline(g1), CountPlayerBotGuildOnline(g2), (int)war.bPlayerWar);
@@ -1106,12 +1068,9 @@ namespace
 			// Said a minute or two before the blows, so a player who wants to
 			// watch has the time to get to the guild map.
 			char notice[200];
-			char noticeEn[200];
 			snprintf(notice, sizeof(notice), "Za chwile wojna gildii botow (%s): %s kontra %s. Pole bitwy: mapa gildyjna.",
 					GetPlayerBotKingdomName((BYTE)empire), a->GetName(), b->GetName());
-			snprintf(noticeEn, sizeof(noticeEn), "A bots' guild war begins soon (%s): %s against %s. Battlefield: the guild map.",
-					GetPlayerBotKingdomName((BYTE)empire), a->GetName(), b->GetName());
-			BroadcastPlayerBotNotice(notice, noticeEn);
+			BroadcastNotice(notice);
 		}
 	}
 

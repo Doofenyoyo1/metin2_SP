@@ -15,6 +15,11 @@
 // defines objects, relies on the engine headers playerbot_manager.cpp includes
 // above it, and reopens the same anonymous namespace. Include it exactly once.
 
+#if defined(PLAYERBOT_ENGINE_MT2009)
+// MT2009_PLUS_PICKUP_FILTER_V1 (char_item.cpp): the player's pick-up filter.
+bool Mt2009PlusPickupFilterAllows(LPCHARACTER ch, LPITEM item);
+#endif
+
 namespace
 {
 	// Dropped yang. ITEM_ELK is the money type, not a vnum: the drop is a real
@@ -84,24 +89,50 @@ namespace
 	class FPlayerBotPartyLootOwner
 	{
 		public:
-			FPlayerBotPartyLootOwner(LPITEM item) : m_item(item), m_bFound(false) {}
+			FPlayerBotPartyLootOwner(LPITEM item) : m_item(item), m_pkMember(NULL) {}
 
 			void operator () (LPCHARACTER member)
 			{
-				if (!m_bFound && member && m_item && m_item->IsOwnership(member))
-					m_bFound = true;
+				if (!m_pkMember && member && m_item && m_item->IsOwnership(member))
+					m_pkMember = member;
 			}
 
-			bool Found() const { return m_bFound; }
+			bool Found() const { return m_pkMember != NULL; }
+			LPCHARACTER Member() const { return m_pkMember; }
 
 		private:
 			LPITEM m_item;
-			bool m_bFound;
+			LPCHARACTER m_pkMember;
 	};
+
+	// MT2009_PLUS_PICKUP_FILTER_V1 (bots): the player's own pick-up filter
+	// (uipickupfilter.py, Ctrl+Z; char_item.cpp keeps it by player id) is also
+	// what a bot of the player's party or the player's companion lifts for the
+	// player - "jesli nie chcemy podnosic zbroi, to Towarzysz tez ich nie
+	// podnosi" (the operator, 28 September). A character with no filter, and
+	// yang, pass. The engine's party branch of PickupItem asks the same.
+	bool PlayerBotRecipientWantsDrop(LPCHARACTER recipient, LPITEM item)
+	{
+		if (!recipient || !item || !recipient->IsPC() ||
+				(recipient->GetDesc() && recipient->GetDesc()->IsBot()))
+			return true;
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		return Mt2009PlusPickupFilterAllows(recipient, item);
+#else
+		return true;
+#endif
+	}
+
+	// playerbot_sidekick.h: a companion's owner, whose filter it keeps.
+	LPCHARACTER GetPlayerBotSidekickFilterOwner(LPCHARACTER ch);
 
 	bool IsPlayerBotPartyLoot(LPCHARACTER owner, LPITEM item)
 	{
 		if (!owner || !item)
+			return false;
+		// MT2009_PLUS_PICKUP_FILTER_V1 (bots): a player's companion takes
+		// nothing its owner has filtered out, not even its own drop.
+		if (!PlayerBotRecipientWantsDrop(GetPlayerBotSidekickFilterOwner(owner), item))
 			return false;
 		if (item->IsOwnership(owner))
 			return true;
@@ -122,7 +153,9 @@ namespace
 		// soon as the individual owners moved toward another target.
 		FPlayerBotPartyLootOwner finder(item);
 		owner->GetParty()->ForEachOnlineMember(finder);
-		return finder.Found();
+		// MT2009_PLUS_PICKUP_FILTER_V1 (bots): not what the member it would go
+		// to has filtered out.
+		return finder.Found() && PlayerBotRecipientWantsDrop(finder.Member(), item);
 	}
 
 	// Whether a drop would land in a bag with no free cell: only by merging
@@ -198,6 +231,9 @@ namespace
 				!(IsPlayerBotPickupGear(item) &&
 				  ch->CountSpecifyItem(item->GetVnum()) >= PLAYERBOT_PICKUP_GEAR_BAG_KEEP))
 			return false;
+		// Nor a Cor Draconis or a sash: players' goods for the counter.
+		if (GetPlayerBotRareGoodsKind(item->GetVnum()) != PLAYERBOT_RARE_GOODS_NONE)
+			return false;
 		const long long unit = (long long)GetPlayerBotNpcSellUnitPrice(item);
 		if (unit <= 0 || unit * (long long)item->GetCount() >= PLAYERBOT_LOOT_CHOOSY_MAX_VALUE)
 			return false;
@@ -250,7 +286,8 @@ namespace
 		if (!ch || !item || !item->GetProto())
 			return false;
 		if (item->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM || item->GetType() == ITEM_SKILLBOOK ||
-				item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM || IsPlayerBotPickupGoods(item))
+				item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM || IsPlayerBotPickupGoods(item) ||
+				GetPlayerBotRareGoodsKind(item->GetVnum()) != PLAYERBOT_RARE_GOODS_NONE)
 			return true;
 		// A boss's casket opens by itself eight seconds later, and the dungeon's
 		// own bosses drop silver and gold chests, which the bag's key opens: the
@@ -260,6 +297,36 @@ namespace
 		if (item->GetType() == ITEM_TREASURE_BOX && PlayerBotHasTreasureKeyFor(ch, item))
 			return true;
 		return PlayerBotLootMergesIntoStack(ch, item);
+	}
+
+	// Whether this bot wants this thing at all - worth the step to it on the
+	// ground, worth a trade when a player hands it over
+	// (playerbot_gift_trade.h). Ownership, reach and room are the caller's.
+	// `cheap` says the one reason that is counted apart: merchant fodder a
+	// choosy looter is past.
+	bool IsPlayerBotWantedLootItem(LPCHARACTER ch, LPITEM item, bool choosy, bool medalDropper,
+			bool* cheap = NULL)
+	{
+		if (cheap)
+			*cheap = false;
+		if (!ch || !item)
+			return false;
+		// A key of the Demon Tower is the floor's, whoever the bot is
+		// (playerbot_demon_tower.h uses or hands it in).
+		const bool towerKey = IsPlayerBotDemonTowerKey(item->GetVnum()) ||
+				IsPlayerBotCatacombKey(item->GetVnum());
+		if (!towerKey && medalDropper && !IsPlayerBotMedalDropperLoot(ch, item))
+			return false;
+		// A cape or a symbol nobody wears (IsPlayerBotLeftOnGroundItem).
+		if (IsPlayerBotLeftOnGroundItem(item->GetVnum()))
+			return false;
+		if (!towerKey && choosy && IsPlayerBotLootBeneathBot(ch, item))
+		{
+			if (cheap)
+				*cheap = true;
+			return false;
+		}
+		return true;
 	}
 
 	class CCollectPlayerBotLoot
@@ -272,7 +339,7 @@ namespace
 				m_dwNow(dwNow),
 				// One count for the whole sweep: a full bag is a full bag for
 				// every drop in it.
-				m_bagFull(CountPlayerBotFreeInventoryCells(owner) == 0),
+				m_bagFull(CountPlayerBotFreeInventoryCells(owner) + CountPlayerBotSaddlebagFreeCells(owner) == 0),
 				m_skippedNoRoom(0),
 				// Inside the Demon Tower a bot picks up its own drop whatever it
 				// is worth (23 September: "niech tam drop swoj pilnuja,
@@ -310,18 +377,18 @@ namespace
 						m_owner->GetY() - item->GetY());
 				if (distance > m_maxDistance)
 					return true;
-				// A key of the Demon Tower is the floor's, whoever the bot is
-				// (playerbot_demon_tower.h uses or hands it in).
-				const bool towerKey = IsPlayerBotDemonTowerKey(item->GetVnum()) ||
-						IsPlayerBotCatacombKey(item->GetVnum());
-				if (!towerKey && m_medalDropper && !IsPlayerBotMedalDropperLoot(m_owner, item))
+				// A Cor Draconis on the ground is never a bot's: the engine refuses
+				// every bot's pickup of one (char_item.cpp, PickupItem), so a bot's
+				// own Cor goes straight into its bag and a player's stays his. As
+				// loot it held the bot standing over a player's Cor until the Cor
+				// vanished or the player took it (MT2009 Plus, 24 September).
+				if (item->GetVnum() == 50255)
 					return true;
-				// A cape or a symbol nobody wears (IsPlayerBotLeftOnGroundItem).
-				if (IsPlayerBotLeftOnGroundItem(item->GetVnum()))
-					return true;
-				if (!towerKey && m_choosy && IsPlayerBotLootBeneathBot(m_owner, item))
+				bool cheap = false;
+				if (!IsPlayerBotWantedLootItem(m_owner, item, m_choosy, m_medalDropper, &cheap))
 				{
-					++m_skippedCheap;
+					if (cheap)
+						++m_skippedCheap;
 					return true;
 				}
 				// A drop the bag cannot take is not loot: walking up to it,

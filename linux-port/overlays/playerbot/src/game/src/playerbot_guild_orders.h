@@ -172,7 +172,7 @@ namespace
 
 	// "Wracajcie": every bot this person called by an order goes back to its
 	// own life now. No right is asked: it touches the person's own calls only.
-	void ReleasePlayerBotGuildOrder(LPCHARACTER person, bool en, DWORD dwNow)
+	void ReleasePlayerBotGuildOrder(LPCHARACTER person, DWORD dwNow)
 	{
 		std::vector<DWORD> called;
 		for (TPlayerBotSummonMap::const_iterator it = s_mapPlayerBotSummons.begin(); it != s_mapPlayerBotSummons.end(); ++it)
@@ -194,11 +194,9 @@ namespace
 		sys_log(0, "PLAYERBOT_GUILD_ORDER: released pid=%u name=%s bots=%u",
 				person->GetPlayerID(), person->GetName(), (unsigned int)called.size());
 		if (called.empty())
-			TellPlayerBotPerson(person, "%s", PBT(en, "[Gildia] Zaden bot gildii nie szedl do ciebie.",
-					"[Guild] No guild bot was coming to you."));
+			TellPlayerBotPerson(person, "%s", "[Gildia] Zaden bot gildii nie szedl do ciebie.");
 		else
-			TellPlayerBotPerson(person, PBT(en, "[Gildia] Wracaja do swoich spraw (%u): %s.",
-					"[Guild] Going back to their own business (%u): %s."), (unsigned int)called.size(), names.c_str());
+			TellPlayerBotPerson(person, "[Gildia] Wracaja do swoich spraw (%u): %s.", (unsigned int)called.size(), names.c_str());
 	}
 
 	// "/gildia_boty <order>" (CPlayerBotManager::OnGuildBotOrder).
@@ -209,7 +207,6 @@ namespace
 				CPlayerBotManager::instance().IsRegisteredBotPID(person->GetPlayerID()))
 			return;
 		const DWORD dwNow = get_dword_time();
-		const bool en = IsPlayerBotPersonEnglish(person);
 		char word[32];
 		one_argument(argument ? argument : "", word, sizeof(word));
 		char folded[32];
@@ -217,22 +214,19 @@ namespace
 		const EOrder order = ParseOrder(folded);
 		if (order == ORDER_NONE)
 		{
-			TellPlayerBotPerson(person, "%s", PBT(en,
-					"[Gildia] Rozkazy dla botow gildii: /gildia_boty pomoc, /gildia_boty exp, /gildia_boty wracajcie.",
-					"[Guild] Orders to your guild's bots: /gildia_boty pomoc (help), exp (hunt with me), wracajcie (go back)."));
+			TellPlayerBotPerson(person, "%s", "[Gildia] Rozkazy dla botow gildii: /gildia_boty pomoc, /gildia_boty exp, /gildia_boty wracajcie.");
 			return;
 		}
 		if (order == ORDER_RELEASE)
 		{
-			ReleasePlayerBotGuildOrder(person, en, dwNow);
+			ReleasePlayerBotGuildOrder(person, dwNow);
 			return;
 		}
 
 		CGuild* guild = person->GetGuild();
 		if (!guild)
 		{
-			TellPlayerBotPerson(person, "%s", PBT(en, "[Gildia] Nie nalezysz do zadnej gildii.",
-					"[Guild] You are not in a guild."));
+			TellPlayerBotPerson(person, "%s", "[Gildia] Nie nalezysz do zadnej gildii.");
 			return;
 		}
 		// The engine's own ranks: the master, or a rank the master gave the
@@ -243,16 +237,13 @@ namespace
 				guild->HasGradeAuth(member->grade, GUILD_AUTH_USE_SKILL);
 		if (!MayOrder(isMaster, rankRight))
 		{
-			TellPlayerBotPerson(person, "%s", PBT(en,
-					"[Gildia] Botom gildii rozkazuje mistrz i rangi, ktorym dal prawo do umiejetnosci gildii (zakladka Rangi).",
-					"[Guild] The guild master gives the bots orders, and the ranks allowed to use the guild's skills (the Grades tab)."));
+			TellPlayerBotPerson(person, "%s", "[Gildia] Botom gildii rozkazuje mistrz i rangi, ktorym dal prawo do umiejetnosci gildii (zakladka Rangi).");
 			return;
 		}
 		const long mapIndex = person->GetMapIndex();
 		if (mapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN)
 		{
-			TellPlayerBotPerson(person, "%s", PBT(en, "[Gildia] Do lochu z wlasna instancja boty nie dojda.",
-					"[Guild] Bots cannot follow you into a dungeon instance."));
+			TellPlayerBotPerson(person, "%s", "[Gildia] Do lochu z wlasna instancja boty nie dojda.");
 			return;
 		}
 		// The tower's ground floor: the stone's jump takes everybody standing on
@@ -260,9 +251,7 @@ namespace
 		// calls a master's guild itself, from its level up.
 		if (mapIndex == PLAYERBOT_MAP_DEMON_TOWER)
 		{
-			TellPlayerBotPerson(person, "%s", PBT(en,
-					"[Gildia] Na parter Wiezy Demonow boty nie przyjda na rozkaz - kamien zabralby je na pietra.",
-					"[Guild] Bots do not come to the Demon Tower's ground floor on an order - the stone would take them up the floors."));
+			TellPlayerBotPerson(person, "%s", "[Gildia] Na parter Wiezy Demonow boty nie przyjda na rozkaz - kamien zabralby je na pietra.");
 			return;
 		}
 		std::map<DWORD, DWORD>::const_iterator last = s_mapPlayerBotGuildCallAt.find(person->GetPlayerID());
@@ -270,8 +259,7 @@ namespace
 				last != s_mapPlayerBotGuildCallAt.end() ? last->second : 0, dwNow))
 		{
 			const unsigned int wait = (CALL_COOLDOWN_MS - (dwNow - last->second) + 999) / 1000;
-			TellPlayerBotPerson(person, PBT(en, "[Gildia] Rozkaz juz poszedl - nastepny za %u s.",
-					"[Guild] The order is out - the next one in %u s."), wait);
+			TellPlayerBotPerson(person, "[Gildia] Rozkaz juz poszedl - nastepny za %u s.", wait);
 			return;
 		}
 		if (s_mapPlayerBotGuildCallAt.size() >= PLAYERBOT_GUILD_CALL_MEMORY_MAX)
@@ -347,27 +335,21 @@ namespace
 		if (answering > 0)
 		{
 			if (order == ORDER_HELP)
-				TellPlayerBotPerson(person, PBT(en, "[Gildia] Na pomoc ida (%u): %s.", "[Guild] Coming to help you (%u): %s."),
+				TellPlayerBotPerson(person, "[Gildia] Na pomoc ida (%u): %s.",
 						answering, names.c_str());
 			else
-				TellPlayerBotPerson(person, PBT(en, "[Gildia] Expic z toba ida (%u): %s.",
-						"[Guild] Coming to hunt with you (%u): %s."), answering, names.c_str());
+				TellPlayerBotPerson(person, "[Gildia] Expic z toba ida (%u): %s.", answering, names.c_str());
 			if (busy + outOfLevel + away > 0)
-				TellPlayerBotPerson(person, PBT(en, "[Gildia] Nie przyjda: zajete %u, poza poziomem %u, bez drogi tutaj %u.",
-						"[Guild] Not coming: %u busy, %u outside the level range, %u with no way here."),
+				TellPlayerBotPerson(person, "[Gildia] Nie przyjda: zajete %u, poza poziomem %u, bez drogi tutaj %u.",
 						busy, outOfLevel, away);
 			return;
 		}
 		if (here == 0)
-			TellPlayerBotPerson(person, "%s", PBT(en, "[Gildia] W tej czesci swiata nie ma teraz botow twojej gildii.",
-					"[Guild] No bot of your guild is in this part of the world right now."));
+			TellPlayerBotPerson(person, "%s", "[Gildia] W tej czesci swiata nie ma teraz botow twojej gildii.");
 		else if (busy + outOfLevel + away == 0)
-			TellPlayerBotPerson(person, "%s", PBT(en, "[Gildia] Boty twojej gildii juz sa przy tobie.",
-					"[Guild] Your guild's bots are already with you."));
+			TellPlayerBotPerson(person, "%s", "[Gildia] Boty twojej gildii juz sa przy tobie.");
 		else
-			TellPlayerBotPerson(person, PBT(en,
-					"[Gildia] Zaden bot gildii nie moze teraz przyjsc: zajete %u, poza poziomem %u, bez drogi tutaj %u.",
-					"[Guild] No guild bot can come now: %u busy, %u outside the level range, %u with no way here."),
+			TellPlayerBotPerson(person, "[Gildia] Zaden bot gildii nie moze teraz przyjsc: zajete %u, poza poziomem %u, bez drogi tutaj %u.",
 					busy, outOfLevel, away);
 	}
 }

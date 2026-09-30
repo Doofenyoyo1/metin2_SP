@@ -139,10 +139,8 @@ namespace playerbot_conv
 		int levelNamed;
 		bool itemLink;          // the item came as a shift-clicked link (or in brackets)
 		std::string itemShown;  // how a reply says it back: the link as it came, "FMS +9"
-		// I_MATH: the result as a person writes it ("4", "2,5"; for an English
-		// reader "2.5"), and why there is none.
+		// I_MATH: the result as a person writes it ("4", "2,5"), and why there is none.
 		std::string mathText;
-		std::string mathTextEn;
 		bool mathMixed;
 		bool mathDivZero;
 		bool mathTooBig;
@@ -562,27 +560,6 @@ namespace playerbot_conv
 		return false;
 	}
 
-	// The same in an English line: "do you like the winter?" is "winter".
-	inline bool IsFillerWordEn(const std::string& w)
-	{
-		static const char* const kFill[] = {
-			"the", "a", "an", "some", "any", "really", "very", "much", "so", "too", "also", "just", "about", "of",
-			"to", "it", "that", "this", "you", "u", "me", "my", "your", "ur", "is", "are", "r", "do", "does",
-			"doing", "go", "going", "get", "getting", "be", "being", "in", "on", "at", "for", "with", "still",
-			"ever", "now", "today", "bro", "dude", "mate", "man", "pls", "please", "prosze", "s", "t", "re", "m",
-			"d", "ll", "ve", "like", "kind", "sort", "stuff", "things", "thing", "lol", "haha", "xd"
-		};
-		for (size_t i = 0; i < sizeof(kFill) / sizeof(kFill[0]); ++i)
-			if (w == kFill[i])
-				return true;
-		return false;
-	}
-
-	inline bool IsFillerWordIn(const TTokens& tok, const std::string& w)
-	{
-		return tok.english ? IsFillerWordEn(w) : IsFillerWord(w);
-	}
-
 	// The words after the trigger word, up to three, without fillers at the
 	// ends. "czy lubisz bardzo zime ?" -> "zime".
 	inline std::string ExtractObjectAfter(const TTokens& tok, int triggerWord, size_t maxWords = 3)
@@ -593,16 +570,13 @@ namespace playerbot_conv
 		for (size_t i = (size_t)triggerWord + 1; i < tok.words.size() && picked.size() < maxWords; ++i)
 		{
 			const std::string& w = tok.words[i];
-			if (!tok.english && (w == "czy" || w == "albo" || w == "lub" || w == "bo" || w == "i"))
+			if (w == "czy" || w == "albo" || w == "lub" || w == "bo" || w == "i")
 				break;
-			if (tok.english && (w == "or" || w == "because" || w == "cuz" || w == "but" || w == "and" ||
-					w == "czy" || w == "albo"))
-				break;
-			if (picked.empty() && IsFillerWordIn(tok, w))
+			if (picked.empty() && IsFillerWord(w))
 				continue;
 			picked.push_back(w);
 		}
-		while (!picked.empty() && IsFillerWordIn(tok, picked.back()))
+		while (!picked.empty() && IsFillerWord(picked.back()))
 			picked.pop_back();
 		std::string out;
 		for (size_t i = 0; i < picked.size(); ++i)
@@ -634,18 +608,6 @@ namespace playerbot_conv
 			"zobacz", "sprawdz", "moglbys", "mozesz", "sprzedalbys", "wiesz", "chodza", "sa", "jakiegos", "jakas",
 			"gdzie"
 		};
-		// And the English: "how much is the fms", "do you sell a rib", "got any
-		// potions in your shop".
-		static const char* const kSkipEn[] = {
-			"how", "much", "many", "is", "are", "r", "for", "the", "a", "an", "price", "prices", "of", "does",
-			"do", "did", "cost", "costs", "you", "u", "ya", "ur", "your", "yours", "want", "wanna", "sell",
-			"selling", "sells", "buy", "buying", "buys", "have", "has", "got", "any", "some", "in", "on", "at",
-			"my", "me", "i", "im", "m", "can", "could", "would", "will", "please", "pls", "prosze", "whats",
-			"what", "s", "worth", "shop", "stall", "store", "counter", "sale", "to", "it", "that", "this", "hey",
-			"hej", "bro", "dude", "mate", "still", "there", "here", "now", "one", "looking", "need", "wtb",
-			"wts", "kupie", "sprzedam", "id", "d", "like", "let", "check", "show", "see", "offer", "which",
-			"anything", "something", "stuff", "things", "interesting"
-		};
 		size_t i = (size_t)from;
 		for (; i < tok.words.size(); ++i)
 		{
@@ -653,10 +615,6 @@ namespace playerbot_conv
 			for (size_t k = 0; k < sizeof(kSkip) / sizeof(kSkip[0]); ++k)
 				if (tok.words[i] == kSkip[k])
 					skip = true;
-			if (tok.english)
-				for (size_t k = 0; k < sizeof(kSkipEn) / sizeof(kSkipEn[0]); ++k)
-					if (tok.words[i] == kSkipEn[k])
-						skip = true;
 			if (!skip)
 				break;
 		}
@@ -667,17 +625,10 @@ namespace playerbot_conv
 			// "fms za 2kk": the price is not part of the name.
 			if (w == "za" || w == "po" || w == "czy" || w == "bo" || w == "i")
 				break;
-			// "fms for 2kk", "rib or fms", "pearls from you".
-			if (tok.english && (w == "for" || w == "or" || w == "and" || w == "from" || w == "at" || w == "because" ||
-					w == "pls" || w == "please" || w == "prosze" || w == "in" || w == "on" || w == "with"))
-				break;
 			std::vector<std::string> one(1, w);
 			if (ParseYangAmount(one) > 0)
 				break;
 			if (w == "teraz" || w == "jeszcze" || w == "moze" || w == "tam" || w == "prosze")
-				continue;
-			if (tok.english && (w == "now" || w == "still" || w == "maybe" || w == "there" || w == "the" || w == "a" ||
-					w == "an" || w == "any" || w == "some"))
 				continue;
 			if (!out.empty())
 				out += ' ';
@@ -691,28 +642,11 @@ namespace playerbot_conv
 		return c.Has(conceptId) ? c.firstWord[conceptId] : -1;
 	}
 
-	// An English question without its '?': "do you like cats", "are you
-	// there", "wanna hunt" - what "czy" is at the head of a Polish one.
-	inline bool IsEnglishQuestionStart(const TTokens& tok)
-	{
-		if (!tok.english || tok.words.empty())
-			return false;
-		static const char* const kWords[] = {
-			"do", "does", "did", "are", "is", "can", "could", "would", "will", "have", "has", "r", "wanna",
-			"should", "were", "was", "am", "got"
-		};
-		for (size_t i = 0; i < sizeof(kWords) / sizeof(kWords[0]); ++i)
-			if (tok.words[0] == kWords[i])
-				return true;
-		return false;
-	}
-
 	inline EQType DetectQType(const TAnalysis& a)
 	{
 		const TConceptSet& c = a.concepts;
 		const bool q = a.question || c.Has(C_WHAT) || c.Has(C_WHERE) || c.Has(C_HOW) || c.Has(C_WHY) ||
-				c.Has(C_WHO) || c.Has(C_WHICH) || c.Has(C_HOWMUCH) || c.Has(C_WHEN) || a.tokens.Has("czy") ||
-				IsEnglishQuestionStart(a.tokens);
+				c.Has(C_WHO) || c.Has(C_WHICH) || c.Has(C_HOWMUCH) || c.Has(C_WHEN) || a.tokens.Has("czy");
 		if (c.Has(C_HYPO)) return Q_HYPO;
 		if (c.Has(C_DREAM)) return Q_DREAM;
 		if (c.Has(C_FEAR) && q) return Q_FEAR;
@@ -752,31 +686,15 @@ namespace playerbot_conv
 			const int o = a.tokens.Find("o");
 			if (o > trig)
 				trig = o;
-			// "what do you think about cats", "your opinion of this map"
-			if (a.tokens.english)
-			{
-				static const char* const kAbout[] = { "about", "of", "on" };
-				for (size_t k = 0; k < 3; ++k)
-				{
-					const int at = a.tokens.Find(kAbout[k]);
-					if (at > trig)
-					{
-						trig = at;
-						break;
-					}
-				}
-			}
 		}
 		a.object = ExtractObjectAfter(a.tokens, trig);
-		if (a.qtype == Q_CHOICE || a.tokens.Has("czy") || a.tokens.Has("albo") || (a.tokens.english && a.tokens.Has("or")))
+		if (a.qtype == Q_CHOICE || a.tokens.Has("czy") || a.tokens.Has("albo"))
 		{
 			int sep = a.tokens.Find("czy");
 			if (sep <= trig)
 				sep = a.tokens.Find("albo");
 			if (sep <= trig)
 				sep = a.tokens.Find("lub");
-			if (sep <= trig && a.tokens.english)
-				sep = a.tokens.Find("or");
 			if (sep > trig)
 			{
 				a.objectB = ExtractObjectAfter(a.tokens, sep);
@@ -914,21 +832,12 @@ namespace playerbot_conv
 
 	// ------------------------------------------------------------- analysis
 
-	// "malo?", "pusto" - and in English "few?", "empty".
-	inline bool SaysFew(const TTokens& tok)
-	{
-		return tok.Has("malo") || tok.Has("pusto") || tok.Has("pustki") ||
-				(tok.english && (tok.Has("few") || tok.Has("empty")));
-	}
-
-	// The line on its own: no memory yet. `readerEnglish`: the person who
-	// wrote it reads English, which decides a line whose own words say
-	// nothing either way (Normalize).
-	inline void AnalyzeLine(const char* raw, TAnalysis& a, u32 now, bool readerEnglish = false)
+	// The line on its own: no memory yet.
+	inline void AnalyzeLine(const char* raw, TAnalysis& a, u32 now)
 	{
 		a = TAnalysis();
 		a.at = now;
-		Normalize(raw, a.tokens, readerEnglish);
+		Normalize(raw, a.tokens);
 		a.question = a.tokens.question;
 		ExtractConcepts(a.tokens, a.concepts);
 		const TConceptSet& c = a.concepts;
@@ -943,7 +852,7 @@ namespace playerbot_conv
 		// read as words it was "ile" and nothing, and the bot said "Ale czego?"
 		{
 			TArithmetic math;
-			if (ParseArithmetic(raw, math, a.tokens.english))
+			if (ParseArithmetic(raw, math))
 			{
 				a.intent = a.rawIntent = I_MATH;
 				a.score = 90;
@@ -952,10 +861,7 @@ namespace playerbot_conv
 				a.mathTooBig = math.tooBig;
 				a.mathMixed = math.mixed;
 				if (!math.divZero && !math.tooBig)
-				{
 					a.mathText = FormatNumberPl(math.value);
-					a.mathTextEn = FormatNumberEn(math.value);
-				}
 				return;
 			}
 		}
@@ -1030,7 +936,7 @@ namespace playerbot_conv
 		{
 			a.intent = a.rawIntent = I_FOLLOW_UP;
 			a.score = 50;
-			a.polarityNegative = SaysFew(a.tokens);
+			a.polarityNegative = a.tokens.Has("malo") || a.tokens.Has("pusto") || a.tokens.Has("pustki");
 			return;
 		}
 		a.follow = F_NONE;
@@ -1067,8 +973,7 @@ namespace playerbot_conv
 			else if (n == 0 && a.tokens.smile) a.intent = I_LAUGH;
 			else if (n == 0 && a.question) { a.intent = I_FOLLOW_UP; a.follow = F_WHAT; }
 			else if (a.question || c.Has(C_WHAT) || c.Has(C_WHO) || c.Has(C_HOWMUCH) || c.Has(C_WHY) ||
-					c.Has(C_WHEN) || c.Has(C_WHICH) || c.Has(C_HOW) || a.tokens.Has("czy") ||
-					IsEnglishQuestionStart(a.tokens))
+					c.Has(C_WHEN) || c.Has(C_WHICH) || c.Has(C_HOW) || a.tokens.Has("czy"))
 				a.intent = I_UNKNOWN_QUESTION;
 			else
 				a.intent = I_UNKNOWN_STATEMENT;
@@ -1086,8 +991,7 @@ namespace playerbot_conv
 			if (a.intent == I_UNKNOWN_QUESTION && a.qtype != Q_OPEN && a.qtype != Q_STATEMENT)
 				a.intent = a.rawIntent = I_GENERAL;
 		}
-		a.polarityNegative = a.tokens.Has("malo") || a.tokens.Has("pusto") || a.concepts.Has(C_DISLIKE) ||
-				(a.tokens.english && SaysFew(a.tokens));
+		a.polarityNegative = a.tokens.Has("malo") || a.tokens.Has("pusto") || a.concepts.Has(C_DISLIKE);
 		if (a.intent == I_ITEM_OWN)
 			a.object = ExtractTradeObject(a.tokens, FindWordIndexOfConcept(c, C_HAVE));
 		if (a.intent == I_SHOP || a.intent == I_PRICE)
@@ -1102,8 +1006,7 @@ namespace playerbot_conv
 		if (a.intent == I_GIFT_OFFER && a.offerYang > 0 && !a.tokens.Has("darmo") && !a.tokens.Has("free") &&
 				!a.tokens.Has("gratis"))
 		{
-			// "i'll give you 2kk for your fms" the same way.
-			const int za = a.tokens.english && a.tokens.Find("za") < 0 ? a.tokens.Find("for") : a.tokens.Find("za");
+			const int za = a.tokens.Find("za");
 			const std::string obj = za >= 0 ? ExtractTradeObject(a.tokens, za + 1) : std::string();
 			if (!obj.empty())
 			{

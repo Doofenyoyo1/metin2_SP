@@ -59,6 +59,26 @@ namespace {
     bool PlayerBotStudiesAtTheMarket(LPCHARACTER ch) {
         return !IsPlayerBotPersonaEnabled() || IsPlayerBotBigThreeAtPlus(ch, 7);
     }
+    // Skills at M and beyond: the +7 rule above let 5 bots of 284 from level
+    // fifty buy a book, so almost no bot ever had one for a skill at Master.
+    // A bot holding more than PLAYERBOT_BOOK_SURPLUS_GOLD - on the price
+    // sheet's scale (ScalePlayerBotIwakuraPrice) - buys the books of its own
+    // skills out of what it holds over that sum, whatever its gear.
+    const DWORD PLAYERBOT_BOOK_SURPLUS_GOLD = 10000000;
+    DWORD ScalePlayerBotIwakuraPrice(DWORD base);
+    long long GetPlayerBotBookSurplus(LPCHARACTER ch) {
+        if (!ch) return 0;
+        return std::max(0LL, (long long)ch->GetGold() -
+            (long long)ScalePlayerBotIwakuraPrice(PLAYERBOT_BOOK_SURPLUS_GOLD));
+    }
+    bool PlayerBotStudiesFromSurplus(LPCHARACTER ch) {
+        return GetPlayerBotBookSurplus(ch) > 0;
+    }
+    // Whoever buys the books of its own skills: the student above, the
+    // trader (community patch 2, point 5) and the bot with the surplus.
+    bool PlayerBotStudiesBooks(LPCHARACTER ch) {
+        return PlayerBotStudiesAtTheMarket(ch) || PlayerBotBuysBooksAsTrader(ch) || PlayerBotStudiesFromSurplus(ch);
+    }
     // Quantity needed, not a boolean reason to buy an arbitrarily large stack.
     int GetPlayerBotProgressionNeed(LPCHARACTER ch, LPITEM offer) {
         if (!ch || !offer || !ch->IsItemLoaded()) return 0;
@@ -70,7 +90,7 @@ namespace {
             // were for skills below seventeen, and 92 for one at Master.
             if (!ch->GetSkillGroup() || !IsPlayerBotOwnSkill(ch, skill) ||
                     ch->GetSkillMasterType(skill) != SKILL_MASTER ||
-                    !(PlayerBotStudiesAtTheMarket(ch) || PlayerBotBuysBooksAsTrader(ch))) return 0;
+                    !PlayerBotStudiesBooks(ch)) return 0;
             return std::max(0, GetPlayerBotBookKeepLimit(ch, skill) - CountPlayerBotOwnedSkillBooks(ch, skill));
         }
         if (offer->GetVnum() == PLAYERBOT_GRAND_MASTER_STONE_VNUM)
@@ -93,6 +113,11 @@ namespace {
                     CountPlayerBotOwnedSkillBooks(ch, skill) < GetPlayerBotBookKeepLimit(ch, skill)) return true;
         }
         return false;
+    }
+    // Such a skill, and a bot that buys its books: what the look over every
+    // stand of the map is for (FindPlayerBotBookPick).
+    bool PlayerBotWantsOwnBooks(LPCHARACTER ch) {
+        return PlayerBotStudiesBooks(ch) && PlayerBotNeedsMasterBooks(ch);
     }
     // Iwakura's scroll rule (IsPlayerBotScrollRulePiece): what the next step
     // of its weapon - or of its armour, once the weapon is at +8 - lacks, when
@@ -120,7 +145,7 @@ namespace {
         const TJobSkillBuild build = GetPlayerBotSkillBuild(ch->GetJob(), ch->GetSkillGroup(), ch->GetPlayerID());
         const bool studies = PlayerBotStudiesAtTheMarket(ch);
         // Books are the trader's too (community patch 2, point 5).
-        const bool studiesBooks = studies || PlayerBotBuysBooksAsTrader(ch);
+        const bool studiesBooks = studies || PlayerBotStudiesBooks(ch);
         for (BYTE i = 0; studiesBooks && i < build.bSkillCount; ++i) {
             DWORD skill = build.dwSkills[i];
             if (skill && ch->GetSkillMasterType(skill) == SKILL_MASTER &&
@@ -137,7 +162,7 @@ namespace {
         // The ledger is advisory; the actual offer is revalidated at purchase.
         const bool studies = PlayerBotStudiesAtTheMarket(ch);
         const TPlayerBotMarketLedgerEntry* books = GetPlayerBotMarketLedgerEntry(50300);
-        if ((studies || PlayerBotBuysBooksAsTrader(ch)) && books && books->dwSupplyUnits > 0 && ch->GetSkillGroup()) {
+        if (PlayerBotStudiesBooks(ch) && books && books->dwSupplyUnits > 0 && ch->GetSkillGroup()) {
             const TJobSkillBuild build = GetPlayerBotSkillBuild(ch->GetJob(), ch->GetSkillGroup(), ch->GetPlayerID());
             for (BYTE i = 0; i < build.bSkillCount; ++i) {
                 DWORD skill = build.dwSkills[i];

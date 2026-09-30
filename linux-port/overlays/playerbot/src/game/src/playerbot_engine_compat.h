@@ -220,6 +220,14 @@ inline void PlayerBotResetEquipPulse(LPCHARACTER ch)
 
 inline bool PlayerBotCanEquipNow(LPCHARACTER ch, LPITEM item, const TItemPos& srcCell = TItemPos())
 {
+	// EquipItem refuses every slot but the quiver to a transformed character
+	// ("You cannot change the equipped item while you are transformed"), and
+	// CanEquipNow does not ask - so a bot on a polymorph marble for a boss took
+	// its weapon off (UnequipItem does not ask either), was refused the new one
+	// and fought the boss bare-handed, "failed to equip upgrade" every ten
+	// seconds until the marble ran out (26 September).
+	if (ch->IsPolymorphed() && !(item && item->GetType() == ITEM_WEAPON && item->GetSubType() == WEAPON_ARROW))
+		return false;
 	PlayerBotResetEquipPulse(ch);
 	return ch->CanEquipNow(item, srcCell);
 }

@@ -127,12 +127,8 @@ namespace
 		call.dwGuild = ch->GetGuild()->GetID();
 		call.dwStamp = dwNow;
 		char msg[128];
-		// In the guild master's language (IsPlayerBotGuildMasterEnglish): a
-		// bot of a person's guild calls the person's guild.
-		const bool en = IsPlayerBotGuildMasterEnglish(ch->GetGuild());
-		const char* name = bossName && *bossName ? bossName : "Boss";
-		snprintf(msg, sizeof(msg), PBT(en, "%s stoi! Zbieramy sie na niego.", "%s is up! Gather on him."),
-				en ? GetPlayerBotMobNameEn(wRace, name) : name);
+		snprintf(msg, sizeof(msg), "%s stoi! Zbieramy sie na niego.",
+				bossName && *bossName ? bossName : "Boss");
 		ch->GetGuild()->Chat(msg);
 		sys_log(0, "PLAYERBOT_RAID: called pid=%u name=%s guild=%u race=%u boss=%s",
 				ch->GetPlayerID(), ch->GetName(), (unsigned int)call.dwGuild,
@@ -311,7 +307,10 @@ namespace
 				score = worth / (1 + others);
 			// Nearer is better, all else equal: a camp across the delta costs a
 			// route of two hundred milliseconds to plan and three minutes to walk.
-			const int distance = DISTANCE_APPROX(ch->GetX() - hub.x, ch->GetY() - hub.y);
+			// MT2009_PLUS_OCHAO_BOTS_V1 (walk): in the Temple of Ochao's labyrinth
+			// the walk, not the straight line (playerbot_ochao_bots.h).
+			const int distance = ch->GetMapIndex() == PLAYERBOT_MAP_OCHAO ? GetPlayerBotOchaoWalk(ch, hub.x, hub.y)
+					: DISTANCE_APPROX(ch->GetX() - hub.x, ch->GetY() - hub.y);
 			score = (int)((long long)score * PLAYERBOT_HUB_HALF_WORTH_DISTANCE /
 					(PLAYERBOT_HUB_HALF_WORTH_DISTANCE + distance));
 			score += (int)(PlayerBotNavHash(dwSeed ^ (DWORD)(i * 0x9e3779b9U)) % 150U);
@@ -1318,6 +1317,10 @@ namespace
 				hubs = grottoV2Hubs;
 				hubCount = sizeof(grottoV2Hubs) / sizeof(grottoV2Hubs[0]);
 			}
+			// MT2009_PLUS_OCHAO_BOTS_V1 (hubs): the Temple of Ochao's spots and
+			// its three bosses (playerbot_ochao_bots.h).
+			else if (ch->GetMapIndex() == PLAYERBOT_MAP_OCHAO)
+				hubs = GetPlayerBotOchaoHubs(hubCount);
 			const DWORD pid = ch->GetPlayerID();
 			// A stone anybody has seen on this map comes before any hub while the
 			// bot hunts stones - by role, or on an expedition. Off the town map

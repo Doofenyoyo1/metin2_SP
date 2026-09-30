@@ -254,6 +254,9 @@ namespace
 			if (PlayerBotNeedsRefineMaterial(ch, item->GetVnum()) ||
 					!IsPlayerBotSurplusMaterial(ch, item))
 				continue;
+			// Refine goods the Dozorca exchanges go to him, not into his box.
+			if (IsPlayerBotCraftExchangeStock(ch, item))
+				continue;
 			// A material is the counter's - while the bag can hold it. A counter
 			// lists a few lines, and a keeper of forty held 38 stacks of them in
 			// a bag of 94 cells with four items in the safebox, so every trip out
@@ -1560,6 +1563,8 @@ namespace
 	void FinishPlayerBotTownVisit(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow,
 			bool completed)
 	{
+		// The next visit chooses its blacksmith afresh (playerbot_guild_land.h).
+		state.dwRefineGuildSmithVID = 0;
 		// The Trader's visit is over: with a heavy purse and its own gear done
 		// it may turn gambler ("moze plynnie zmienic sie w Hazardziste"). The
 		// visit goes on to the storekeeper and the anvil instead of ending -
@@ -1630,9 +1635,8 @@ namespace
 	// the share actually standing at any moment is smaller again.
 	// The centre of a town's stall ring, or false for a map that has none.
 	// Defined with the chat trade, which comes after the market: the keeper
-	// says on the world channel what it has just put up - by vnum, so each
-	// reader has the item's name in its own language.
-	void AnnouncePlayerBotStall(LPCHARACTER ch, DWORD dwItemVnum);
+	// says on the world channel what it has just put up.
+	void AnnouncePlayerBotStall(LPCHARACTER ch, const char* pszItemName);
 
 	bool GetPlayerBotShopCentre(long mapIndex, long& pitchX, long& pitchY)
 	{
@@ -1664,6 +1668,27 @@ namespace
 	bool IsPlayerBotStallKeeper(const TPlayerBotAIState& state)
 	{
 		return IsPlayerBotMerchant(state) || IsPlayerBotDropper(state.bPersonality);
+	}
+
+	// A medal dropper with its stock in the bag (PLAYERBOT_MEDAL_DROPPER_MEDAL_STOCK)
+	// has a counter to put up. The Monkey Dungeon sends it out at that count
+	// and will not take it back until the medals have gone on a counter.
+	bool IsPlayerBotMedalStockReady(LPCHARACTER ch, const TPlayerBotAIState& state)
+	{
+		return ch && ch->IsItemLoaded() &&
+				state.bPersonality == BOT_PERSONALITY_MEDAL_DROPPER &&
+				(int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) >=
+					PLAYERBOT_MEDAL_DROPPER_MEDAL_STOCK;
+	}
+
+	// Lines of one vnum a counter carries: PLAYERBOT_SHOP_SAME_VNUM_LINES, and
+	// PLAYERBOT_MEDAL_DROPPER_MEDAL_LINES of medals on a medal dropper's.
+	int GetPlayerBotSameVnumLineCap(LPCHARACTER owner, LPITEM item)
+	{
+		if (owner && item && item->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM &&
+				GetPlayerBotPersonalityByPID(owner->GetPlayerID()) == BOT_PERSONALITY_MEDAL_DROPPER)
+			return PLAYERBOT_MEDAL_DROPPER_MEDAL_LINES;
+		return PLAYERBOT_SHOP_SAME_VNUM_LINES;
 	}
 
 	// Too poor for its own potions: see PLAYERBOT_SHOP_POOR_MIN_LEVEL.
@@ -1827,6 +1852,10 @@ namespace
 		// should put up, whatever the trade roll or bag pressure said.
 		if (HasPlayerBotSellableSpare(ch))
 			return PLAYERBOT_SHOP_REASON_SPARE;
+		// A medal dropper back from the dungeon with its stock sells it,
+		// whatever the TRADE roll says: the medals are the whole of its trade.
+		if (IsPlayerBotMedalStockReady(ch, state))
+			return PLAYERBOT_SHOP_REASON_MEDALS;
 		// And what a gambler's session made, the same way.
 		if (HasPlayerBotGambleGoods(ch, state))
 			return PLAYERBOT_SHOP_REASON_SPARE;
@@ -1946,7 +1975,11 @@ namespace
 		// families past 32 bits, and a cast would have wrapped it to pennies.
 		const unsigned long long premium = (unsigned long long)price *
 				(unsigned long long)(100 + bonusPercent) / 100ULL;
-		return std::max<DWORD>(1, premium > 0xFFFFFFFFULL ? 0xFFFFFFFFU : (DWORD)premium);
+		const DWORD after = std::max<DWORD>(1, premium > 0xFFFFFFFFULL ? 0xFFFFFFFFU : (DWORD)premium);
+		// The lines that made the premium, then the premium (playerbot_explain.h).
+		PlayerBotPriceFlushBonusSteps();
+		PlayerBotPriceStep(per::STEP_BONUS_PREMIUM, after, bonusPercent);
+		return after;
 	}
 
 	// The bot whose counter a price is for. An item in a bot's bag has its
@@ -2003,7 +2036,10 @@ namespace
 			return price;
 		LPCHARACTER owner = item->GetOwner();
 		if (!owner)
+		{
+			PlayerBotPriceStep(per::STEP_COMPETITION, price, 0, 1);
 			return price;
+		}
 		const DWORD span = 2U * PLAYERBOT_SHOP_PRICE_JITTER_PCT + 1U;
 		const int delta = (int)(PlayerBotNavHash(owner->GetPlayerID() ^
 				(item->GetVnum() * 2654435761U) ^
@@ -2011,7 +2047,10 @@ namespace
 				(int)PLAYERBOT_SHOP_PRICE_JITTER_PCT;
 		const unsigned long long swung = (unsigned long long)price *
 				(unsigned long long)(100 + delta) / 100ULL;
-		return std::max<DWORD>(1, swung > 0xFFFFFFFFULL ? 0xFFFFFFFFU : (DWORD)swung);
+		const DWORD after = std::max<DWORD>(1, swung > 0xFFFFFFFFULL ? 0xFFFFFFFFU : (DWORD)swung);
+		if (after != price)
+			PlayerBotPriceStep(per::STEP_COMPETITION, after, delta);
+		return after;
 	}
 
 	// The world's yang, for the inflation (PLAYERBOT_INFLATION_STEP_YANG). A
@@ -2077,10 +2116,10 @@ namespace
 	// his sheet sets goes through it: books, materials, gear, soul stones,
 	// marbles and scrolls. Until v1.0 the books had a line of their own
 	// (x1.1 at 100%) and the materials the bare rate.
-	DWORD ScalePlayerBotIwakuraPrice(DWORD base)
+	// The curve's multiplier at this world's yang rate, in percent: his points,
+	// read straight through between them and proportionally outside them.
+	long long GetPlayerBotPriceCurvePercent()
 	{
-		if (base == 0)
-			return 0;
 		// The world's rate, not a yang event's boost of it (playerbot_events.h).
 		const long long rate = std::max(1, GetPlayerBotPriceYangRate());
 		const size_t count = sizeof(PLAYERBOT_PRICE_RATE_POINTS) / sizeof(PLAYERBOT_PRICE_RATE_POINTS[0]);
@@ -2098,6 +2137,14 @@ namespace
 					pct = lo.iPct + (long long)(hi.iPct - lo.iPct) * (rate - lo.iRate) / (hi.iRate - lo.iRate);
 					break;
 				}
+		return pct;
+	}
+
+	DWORD ScalePlayerBotIwakuraPrice(DWORD base)
+	{
+		if (base == 0)
+			return 0;
+		const long long pct = GetPlayerBotPriceCurvePercent();
 		// And the inflation over the curve (community patch 2, point 8),
 		// compounded (community patch 5, point 10). A price the curve alone
 		// has taken past the type's ceiling stops there before the factor, so
@@ -2146,6 +2193,10 @@ namespace
 	// by name, or zero when he has not priced this one.
 	DWORD GetPlayerBotMaterialAskingBase(DWORD dwVnum)
 	{
+		// The guild building materials at the operator's price
+		// (playerbot_guild_land.h), through the same curve and inflation.
+		if (IsPlayerBotGuildBuildMaterial(dwVnum))
+			return ScalePlayerBotIwakuraPrice(GetPlayerBotGuildMaterialBasePrice());
 		DWORD base = 0;
 		for (size_t i = 0; i < sizeof(PLAYERBOT_MATERIAL_PRICES) / sizeof(PLAYERBOT_MATERIAL_PRICES[0]); ++i)
 			if (PLAYERBOT_MATERIAL_PRICES[i].dwVnum == dwVnum)
@@ -2216,7 +2267,9 @@ namespace
 		if (seated <= 0)
 			return 100;
 		const int counted = seated > 3 ? 3 : seated;
-		return percent * PLAYERBOT_SOCKET_COUNT_PERCENT[counted] / 100;
+		const int total = percent * PLAYERBOT_SOCKET_COUNT_PERCENT[counted] / 100;
+		PlayerBotPriceStep(per::STEP_SOCKET_STONES, total - 100, seated);
+		return total;
 	}
 
 	// Iwakura's price for this weapon or armour, or zero when his sheets do
@@ -2481,9 +2534,46 @@ namespace
 	{
 		if (!item)
 			return 1;
+		// Materialy Rzemieslnicze: the operator's price, a piece, as it stands
+		// (playerbot_saddlebag.h).
+		if (item->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED)
+		{
+			const DWORD craft = PLAYERBOT_CRAFT_MATERIAL_UNIT_PRICE * std::max<DWORD>(1, (DWORD)item->GetCount());
+			PlayerBotPriceStep(per::STEP_OPERATOR_PRICE, craft, PLAYERBOT_CRAFT_MATERIAL_UNIT_PRICE);
+			return craft;
+		}
+		// Cor Draconis and the Dragon Stones: the operator's prices as they
+		// stand (playerbot_alchemy.h, GetPlayerBotDragonSoulPrice).
+		if (IsPlayerBotCorVnum(item->GetVnum()))
+		{
+			const DWORD cor = PLAYERBOT_COR_DRACONIS_PRICE * std::max<DWORD>(1, (DWORD)item->GetCount());
+			PlayerBotPriceStep(per::STEP_OPERATOR_PRICE, cor, PLAYERBOT_COR_DRACONIS_PRICE);
+			return cor;
+		}
+		if (item->IsDragonSoul())
+		{
+			const DWORD stone = GetPlayerBotDragonSoulPrice(item);
+			PlayerBotPriceStep(per::STEP_OPERATOR_PRICE, stone, stone);
+			return stone;
+		}
+		// A sash: what it costs to make + 25% (playerbot_sash.h).
+		if (item->GetType() == ITEM_COSTUME && IsPlayerBotSashVnum(item->GetVnum()))
+		{
+			const DWORD sash = GetPlayerBotSashPrice(item);
+			if (sash != 0)
+			{
+				PlayerBotPriceStep(per::STEP_OPERATOR_PRICE, sash, sash);
+				return sash;
+			}
+		}
 		// The sale memory is read below before the step limiter would notice a
 		// new yang rate, so the rate is checked here first as well.
 		ForgetPlayerBotPricesOnRateChange();
+		// The explanation's first step: the curve, the rate and the inflation
+		// every price of the sheet goes through (playerbot_explain.h).
+		if (IsPlayerBotPriceTracing())
+			PlayerBotPriceStep(per::STEP_CONTEXT, GetPlayerBotPriceCurvePercent(), GetPlayerBotPriceYangRate(),
+					GetPlayerBotInflationFactor(), GetPlayerBotInflationSteps());
 		// What is rolled on this particular piece, worked out once and applied to
 		// every way out of this function. The three refine prices below are flat
 		// by design - a +7 has no merchant price to scale - and returning them
@@ -2495,6 +2585,8 @@ namespace
 		// prices, the scrap price, the prior, and the number the memory and
 		// the step limiter finally settle on.
 		const DWORD investment = GetPlayerBotRefineInvestment(item);
+		if (investment > 0)
+			PlayerBotPriceStep(per::STEP_INVESTMENT, investment, refine);
 		// Iwakura's own sheet for this family and this refine, where he has
 		// priced it - 147 families, every one of them resolved to a vnum by
 		// the generator rather than by hand. It wins over the three flat
@@ -2504,8 +2596,16 @@ namespace
 		// The stones seated in it are already in the number.
 		const DWORD gearBase = GetPlayerBotGearAskingBase(item);
 		if (gearBase != 0)
+		{
+			PlayerBotPriceStep(per::STEP_SHEET_GEAR, gearBase, gearBase, item->GetVnum() - refine, refine);
+			if (investment > gearBase)
+			{
+				PlayerBotPriceStep(per::STEP_INVESTMENT_FLOOR, investment, investment);
+				PlayerBotPriceFlag(per::LFLAG_FLOOR_BOUND);
+			}
 			return ApplyPlayerBotPriceCompetition(item,
 					ApplyPlayerBotBonusPremium(std::max(gearBase, investment), bonusPercent));
+		}
 		// A polymorph marble asks his number and nothing else (Community Patch
 		// 5, point 3): an exception its own, any other kind a draw from his
 		// band that stays with the marble. Every marble is one vnum whatever
@@ -2515,7 +2615,19 @@ namespace
 		// of its ends.
 		const DWORD marbleBase = GetPlayerBotMarbleAskingBase(item);
 		if (marbleBase != 0)
+		{
+			if (IsPlayerBotPriceTracing())
+			{
+				bool named = false;
+				for (size_t i = 0; i < sizeof(PLAYERBOT_MARBLE_PRICES) / sizeof(PLAYERBOT_MARBLE_PRICES[0]); ++i)
+					if (PLAYERBOT_MARBLE_PRICES[i].dwMob == (DWORD)item->GetSocket(0))
+						named = true;
+				PlayerBotPriceStep(per::STEP_SHEET_MARBLE, marbleBase, item->GetSocket(0), named ? 1 : 0);
+				if (item->GetCount() > 1)
+					PlayerBotPriceStep(per::STEP_COUNT, (long long)marbleBase * item->GetCount(), item->GetCount());
+			}
 			return marbleBase * std::max<DWORD>(1, item->GetCount());
+		}
 		// Whatever his sheet prices by name wins over the three flat refine
 		// prices: a fishing rod is "Wedka+10" to the engine, and until his rods
 		// had prices every rod from +7 up asked the 150 000 to 900 000 of a +7
@@ -2525,12 +2637,18 @@ namespace
 		// his number for it (GetPlayerBotMoonlightChestAskingBase).
 		const DWORD materialBase = item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM
 				? GetPlayerBotMoonlightChestAskingBase() : GetPlayerBotMaterialAskingBase(item->GetVnum());
-		if (materialBase == 0 && refine >= 9)
-			return ApplyPlayerBotPriceCompetition(item, ApplyPlayerBotBonusPremium(std::max(PLAYERBOT_SHOP_PRICE_PLUS9, investment), bonusPercent));
-		if (materialBase == 0 && refine == 8)
-			return ApplyPlayerBotPriceCompetition(item, ApplyPlayerBotBonusPremium(std::max(PLAYERBOT_SHOP_PRICE_PLUS8, investment), bonusPercent));
-		if (materialBase == 0 && refine == 7)
-			return ApplyPlayerBotPriceCompetition(item, ApplyPlayerBotBonusPremium(std::max(PLAYERBOT_SHOP_PRICE_PLUS7, investment), bonusPercent));
+		if (materialBase == 0 && refine >= 7)
+		{
+			const DWORD flat = refine >= 9 ? PLAYERBOT_SHOP_PRICE_PLUS9
+					: (refine == 8 ? PLAYERBOT_SHOP_PRICE_PLUS8 : PLAYERBOT_SHOP_PRICE_PLUS7);
+			PlayerBotPriceStep(per::STEP_FLAT_PLUS, flat, refine);
+			if (investment > flat)
+			{
+				PlayerBotPriceStep(per::STEP_INVESTMENT_FLOOR, investment, investment);
+				PlayerBotPriceFlag(per::LFLAG_FLOOR_BOUND);
+			}
+			return ApplyPlayerBotPriceCompetition(item, ApplyPlayerBotBonusPremium(std::max(flat, investment), bonusPercent));
+		}
 		// A skill book's own market, and the goods whose merchant price says
 		// nothing about what they are worth here. Both come from the audit of
 		// 8 September: the merchant charges a thousand yang for every book
@@ -2546,12 +2664,29 @@ namespace
 		if (!bLevel30 &&
 				(item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR) &&
 				refine < PLAYERBOT_SHOP_MIN_GEAR_REFINE)
-			return ApplyPlayerBotBonusPremium(
-					std::max(std::max<DWORD>(1, npcUnit * PLAYERBOT_SCRAP_PRICE_MULT), investment),
-					bonusPercent);
+		{
+			const DWORD scrap = std::max<DWORD>(1, npcUnit * PLAYERBOT_SCRAP_PRICE_MULT);
+			PlayerBotPriceStep(per::STEP_SCRAP, scrap, npcUnit, PLAYERBOT_SCRAP_PRICE_MULT * 100);
+			if (investment > scrap)
+			{
+				PlayerBotPriceStep(per::STEP_INVESTMENT_FLOOR, investment, investment);
+				PlayerBotPriceFlag(per::LFLAG_FLOOR_BOUND);
+			}
+			return ApplyPlayerBotBonusPremium(std::max(scrap, investment), bonusPercent);
+		}
 		DWORD unit = npcUnit * PLAYERBOT_SHOP_MATERIAL_MARKUP;
+		// Which prior below set the unit, for the explanation.
+		int priorStep = unit ? per::STEP_PRIOR_MERCHANT : 0;
+		long long priorA = npcUnit, priorB = PLAYERBOT_SHOP_MATERIAL_MARKUP * 100, priorC = 0;
 		if (bLevel30)
+		{
 			unit = std::max(unit, PLAYERBOT_PRIOR_LEVEL30_WEAPON);
+			if (unit == PLAYERBOT_PRIOR_LEVEL30_WEAPON)
+			{
+				priorStep = per::STEP_PRIOR_LEVEL30;
+				priorA = priorB = 0;
+			}
+		}
 		// The opening prices. Blended away by the sale memory below as real
 		// transactions accumulate - a prior is where a price starts, not where
 		// it stays.
@@ -2565,39 +2700,118 @@ namespace
 		// merchant thinks, as a marble is (above: a marble sold for three
 		// hundred yang before there was a table).
 		const DWORD iwakuraBase = GetPlayerBotForgetScrollAskingBase(item);
-		if (bookSkill != 0)
+		// A Cor Draconis or a sash: MT2009 Plus's own price per unit
+		// (PLAYERBOT_COR_DRACONIS_PRICE, PLAYERBOT_SASH_PRICE), on the same
+		// yang-rate curve and inflation as Iwakura's sheet. The sale memory,
+		// the step limiter and a fast sale move it from there, and the unsold
+		// markdown takes it down.
+		const DWORD rareBase = ScalePlayerBotIwakuraPrice(GetPlayerBotRareGoodsBasePrice(item->GetVnum()));
+		const int priorBefore = priorStep;
+		priorStep = per::STEP_FIXED_PRIOR;
+		priorA = priorB = priorC = 0;
+		if (rareBase != 0)
+		{
+			unit = rareBase;
+			priorStep = per::STEP_OPERATOR_PRICE;
+			priorA = rareBase;
+		}
+		else if (bookSkill != 0)
+		{
 			unit = GetPlayerBotBookAskingBase(bookSkill);
+			priorStep = per::STEP_SHEET_BOOK;
+			priorA = bookSkill;
+			priorB = unit;
+		}
 		else if (IsPlayerBotGeneralSkillBook(item->GetVnum()))
+		{
 			unit = ScalePlayerBotIwakuraPrice(PLAYERBOT_PRIOR_BOOK_ORDINARY *
 					(item->GetVnum() >= 50304 ? PLAYERBOT_GENERAL_BOOK_PRICE_MULT_COMBO
 						: PLAYERBOT_GENERAL_BOOK_PRICE_MULT_LEADERSHIP));
+			priorStep = per::STEP_SHEET_GENERAL_BOOK;
+			priorA = item->GetVnum();
+		}
 		else if (materialBase != 0)
+		{
 			unit = materialBase;
+			if (item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
+			{
+				priorStep = per::STEP_CHEST_WORTH;
+				if (IsPlayerBotPriceTracing())
+				{
+					priorA = GetPlayerBotMaterialAskingBase(PLAYERBOT_MOONLIGHT_CHEST_VNUM);
+					priorB = GetPlayerBotMoonlightChestWorth();
+				}
+			}
+			else
+			{
+				priorStep = per::STEP_SHEET_MATERIAL;
+				priorA = materialBase;
+			}
+		}
 		else if (iwakuraBase != 0)
+		{
 			unit = iwakuraBase;
+			priorStep = per::STEP_SHEET_FORGET_SCROLL;
+			priorA = item->GetSocket(0);
+		}
 		else if (item->GetVnum() == PLAYERBOT_PEARL_FIRST_VNUM)
+		{
 			unit = PLAYERBOT_PRIOR_PEARL_WHITE;
+			priorA = per::FIXED_PEARL_WHITE;
+		}
 		else if (item->GetVnum() == PLAYERBOT_PEARL_FIRST_VNUM + 1)
+		{
 			unit = PLAYERBOT_PRIOR_PEARL_BLUE;
+			priorA = per::FIXED_PEARL_BLUE;
+		}
 		else if (item->GetVnum() == PLAYERBOT_PEARL_LAST_VNUM)
+		{
 			unit = PLAYERBOT_PRIOR_PEARL_RED;
+			priorA = per::FIXED_PEARL_RED;
+		}
 		else if (item->GetVnum() == PLAYERBOT_SHELLFISH_VNUM)
+		{
 			unit = PLAYERBOT_PRIOR_SHELLFISH;
+			priorA = per::FIXED_SHELLFISH;
+		}
 		else if (item->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM)
+		{
 			unit = PLAYERBOT_PRIOR_HORSE_MEDAL;
+			priorA = per::FIXED_HORSE_MEDAL;
+		}
 		else if (IsPlayerBotCatacombHead(item->GetVnum()))
+		{
 			unit = ScalePlayerBotIwakuraPrice(PLAYERBOT_PRIOR_CATACOMB_HEAD);
+			priorA = per::FIXED_CATACOMB_HEAD;
+		}
+		else
+		{
+			// None of the above: the merchant's or the level-30 prior stands.
+			priorStep = priorBefore;
+			priorA = priorStep == per::STEP_PRIOR_MERCHANT ? npcUnit : 0;
+			priorB = priorStep == per::STEP_PRIOR_MERCHANT ? PLAYERBOT_SHOP_MATERIAL_MARKUP * 100 : 0;
+		}
 		// An item-shop head, at the price of the coins it cost
 		// (PLAYERBOT_PRIOR_ISHOP_HAIRSTYLE), whatever the wallets say.
 		const bool hairstyle = item->GetType() == ITEM_COSTUME && item->GetSubType() == COSTUME_HAIR;
 		if (hairstyle)
+		{
 			unit = ScalePlayerBotIwakuraPrice(PLAYERBOT_PRIOR_ISHOP_HAIRSTYLE);
+			priorStep = per::STEP_FIXED_PRIOR;
+			priorA = per::FIXED_HAIRSTYLE;
+			priorB = priorC = 0;
+		}
 		// Magiczny Pyl at what a dust costs to make (PLAYERBOT_PRIOR_MAGIC_DUST),
 		// through the yang curve like the stones it is made of; the merchant's
 		// fifty yang says nothing of it.
 		const bool magicDust = item->GetVnum() == PLAYERBOT_MAGIC_DUST_VNUM;
 		if (magicDust)
+		{
 			unit = ScalePlayerBotIwakuraPrice(PLAYERBOT_PRIOR_MAGIC_DUST);
+			priorStep = per::STEP_FIXED_PRIOR;
+			priorA = per::FIXED_MAGIC_DUST;
+			priorB = priorC = 0;
+		}
 		// A soul stone has no merchant price: the counter asks by grade. His
 		// table names every +4 by kind and three of the lower ones; the old
 		// per-grade array stays for a stone he has not priced.
@@ -2606,6 +2820,10 @@ namespace
 			const DWORD stoneBase = GetPlayerBotSoulStoneAskingBase(item->GetVnum());
 			unit = stoneBase != 0 ? stoneBase
 					: PLAYERBOT_SHOP_PRICE_SOUL_STONE[std::min(4, GetPlayerBotSoulStoneGrade(item->GetVnum()))];
+			priorStep = per::STEP_SHEET_SOUL_STONE;
+			priorA = GetPlayerBotSoulStoneGrade(item->GetVnum());
+			priorB = GetPlayerBotSoulStoneKind(item->GetVnum());
+			priorC = stoneBase != 0 ? 0 : 1;
 		}
 
 		// Anything the merchant refuses to buy has no prior at all, and the
@@ -2613,14 +2831,20 @@ namespace
 		// the first minute after every start. That pair is what put horse medals
 		// and unopened chests on the counters at one yang each.
 		if (unit == 0)
+		{
 			unit = PLAYERBOT_PRIOR_NO_MERCHANT_PRICE;
+			priorStep = per::STEP_NO_MERCHANT_PRIOR;
+			priorA = priorB = priorC = 0;
+		}
+		if (priorStep != 0)
+			PlayerBotPriceStep(priorStep, unit, priorA, priorB, priorC);
 
 		// And scaled to the buyers' wallets, where that is more - see the
 		// PLAYERBOT_MARKET_*_WALLET_* constants for why the merchant's markup
 		// alone was a giveaway. A soul stone keeps its grade table.
 		const DWORD wallet = GetPlayerBotMarketMedianWallet();
 		if (wallet > 0 && item->GetType() != ITEM_METIN && bookSkill == 0 &&
-				materialBase == 0 && iwakuraBase == 0 && !hairstyle && !magicDust)
+				materialBase == 0 && iwakuraBase == 0 && rareBase == 0 && !hairstyle && !magicDust)
 		{
 			DWORD permille = PLAYERBOT_MARKET_OTHER_WALLET_PERMILLE;
 			if (IsPlayerBotTradeableMaterial(item))
@@ -2649,9 +2873,21 @@ namespace
 					1000 * worthPercent / 100);
 			const DWORD stackCap = (DWORD)((unsigned long long)wallet *
 					PLAYERBOT_MARKET_STACK_WALLET_PERCENT / 100 / count);
+			const DWORD walletBefore = unit;
 			unit = std::max(unit, std::max<DWORD>(1, std::min(walletUnit, stackCap)));
+			if (unit != walletBefore)
+			{
+				if (walletUnit > stackCap)
+					PlayerBotPriceStep(per::STEP_WALLET_STACK_CAP, stackCap, PLAYERBOT_MARKET_STACK_WALLET_PERCENT);
+				PlayerBotPriceStep(per::STEP_WALLET, unit, wallet, permille, worthPercent);
+			}
 		}
 		// And never under what the blacksmith was paid.
+		if (investment > unit)
+		{
+			PlayerBotPriceStep(per::STEP_INVESTMENT_FLOOR, investment, investment);
+			PlayerBotPriceFlag(per::LFLAG_FLOOR_BOUND);
+		}
 		unit = std::max(unit, investment);
 		// That is the prior: what the counter asks before the market has said
 		// anything.
@@ -2688,6 +2924,9 @@ namespace
 				unit = (DWORD)(exp((1.0 - w) * log((double)prior) +
 						w * log((double)market)) + 0.5);
 			}
+			PlayerBotPriceStep(per::STEP_SALE_MEMORY, unit, paid, (long long)samples);
+			if (per::IsMemoryPull(prior, unit))
+				PlayerBotPriceFlag(per::LFLAG_MEMORY_PULL);
 		}
 
 		// Then the ledger, for a material: (D + q0) / (S + q0) to the fifth
@@ -2707,13 +2946,21 @@ namespace
 						std::min(PLAYERBOT_MARKET_REGULATOR_MAX,
 							pow(ratio, PLAYERBOT_MARKET_REGULATOR_EXPONENT)));
 				unit = std::max<DWORD>(1, (DWORD)(unit * mult + 0.5));
+				PlayerBotPriceStep(per::STEP_LEDGER, unit, entry->dwDemandBots, entry->dwSupplyUnits,
+						(long long)(mult * 100.0 + 0.5));
+				if (mult <= PLAYERBOT_MARKET_REGULATOR_MIN || mult >= PLAYERBOT_MARKET_REGULATOR_MAX)
+					PlayerBotPriceFlag(per::LFLAG_REGULATOR_EDGE);
 			}
 		}
 
 		// And a bounded step from wherever the last counter had it, so the
 		// market's price of a thing drifts rather than jumps.
-		unit = LimitPlayerBotAskStep(item->GetVnum(), refine, std::max<DWORD>(1, unit),
-				dwNow, bookSkill);
+		{
+			const DWORD wanted = std::max<DWORD>(1, unit);
+			unit = LimitPlayerBotAskStep(item->GetVnum(), refine, wanted, dwNow, bookSkill);
+			if (unit != wanted)
+				PlayerBotPriceStep(per::STEP_STEP_LIMIT, unit, wanted);
+		}
 		// And last, the lines rolled on it - on top of the step limiter rather
 		// than under it, because the limiter and the sale memory are both keyed
 		// by vnum and refine, the one pair that cannot tell two otherwise
@@ -2721,6 +2968,11 @@ namespace
 		// The memory may pull the number to a quarter of the prior and the
 		// limiter drifts from wherever the last counter had it; neither goes
 		// under the fees.
+		if (investment > unit)
+		{
+			PlayerBotPriceStep(per::STEP_INVESTMENT_FLOOR, investment, investment);
+			PlayerBotPriceFlag(per::LFLAG_FLOOR_BOUND);
+		}
 		unit = std::max(unit, investment);
 		// A book's market has some noise in it: a fifth under to a quarter
 		// over, one keeper's own (GetPlayerBotListingSpreadPercent). After the
@@ -2729,16 +2981,31 @@ namespace
 		// Iwakura asks for it on both tables, so two counters never show the
 		// same number for a Zab Orka either.
 		if (bookSkill != 0 || materialBase != 0 || iwakuraBase != 0)
+		{
+			const int spread = GetPlayerBotListingSpreadPercent(item, bookSkill);
 			unit = std::max<DWORD>(1, (DWORD)((unsigned long long)unit *
-					(unsigned long long)GetPlayerBotListingSpreadPercent(item, bookSkill) / 100ULL));
+					(unsigned long long)spread / 100ULL));
+			if (spread != 100)
+				PlayerBotPriceStep(per::STEP_SPREAD, unit, spread);
+		}
 		// And never under what a Moonlight chest holds, or what a bonus item
 		// is worth on the sheet (GetPlayerBotBonusGoodsFloorUnit): the memory
 		// of a hundred-thousand chest, the limiter's drift from it and the
 		// spread's lower fifth would each have asked less. The spread's upper
 		// quarter stays, so two keepers still ask two numbers.
-		unit = std::max(unit, GetPlayerBotBonusGoodsFloorUnit(item));
+		{
+			const DWORD floorUnit = GetPlayerBotBonusGoodsFloorUnit(item);
+			if (floorUnit > unit)
+			{
+				PlayerBotPriceStep(per::STEP_BONUS_GOODS_FLOOR, floorUnit, floorUnit);
+				PlayerBotPriceFlag(per::LFLAG_FLOOR_BOUND);
+			}
+			unit = std::max(unit, floorUnit);
+		}
 		unit = ApplyPlayerBotBonusPremium(unit, bonusPercent);
 		const DWORD price = unit * (DWORD)item->GetCount();
+		if (item->GetCount() > 1)
+			PlayerBotPriceStep(per::STEP_COUNT, price, item->GetCount());
 		return price == 0 ? 1U : price;
 	}
 
@@ -2748,7 +3015,16 @@ namespace
 	// (+7, +8, +9) as raw sums. Every caller goes through here.
 	DWORD GetPlayerBotShopAskingPrice(LPITEM item)
 	{
-		return RoundPlayerBotPrice(GetPlayerBotShopAskingPriceRaw(item));
+		// The explanation's steps are the ones of this pricing, not of one it
+		// asks on the way (TPlayerBotPriceDepth, playerbot_explain.h).
+		TPlayerBotPriceDepth depth;
+		if (IsPlayerBotPriceTracing())
+			s_pPlayerBotPriceTrace->npcUnit = GetPlayerBotNpcSellUnitPrice(item);
+		const DWORD raw = GetPlayerBotShopAskingPriceRaw(item);
+		const DWORD rounded = RoundPlayerBotPrice(raw);
+		if (rounded != raw)
+			PlayerBotPriceStep(per::STEP_ROUND, rounded);
+		return rounded;
 	}
 
 	// What a keeper puts on a line, before the floor: the asking price moved
@@ -2770,6 +3046,7 @@ namespace
 		const long long moved = playerbot_price_rules::ApplyListingPercent((long long)asking,
 				playerbot_price_rules::ListingPercent(markdownPercent, markup));
 		DWORD price = moved > 0xFFFFFFFFLL ? 0xFFFFFFFFU : (DWORD)std::max(0LL, moved);
+		const int markupAsked = markup;
 		if (markup > 0)
 		{
 			price = RoundPlayerBotPrice(price);
@@ -2778,6 +3055,31 @@ namespace
 				markup = 0;
 				price = asking;
 			}
+		}
+		// The explanation's steps of the listing (playerbot_explain.h).
+		if (IsPlayerBotListingTracing())
+		{
+			if (markdownPercent > 0)
+			{
+				PlayerBotListingStep(per::STEP_MARKDOWN, price, markdownPercent);
+				if (markdownPercent >= PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL)
+					PlayerBotListingFlag(per::LFLAG_MARKDOWN_MAX);
+			}
+			else if (markup > 0)
+			{
+				long long missing = 0, sold = 0;
+				TPlayerBotShortageMap::const_iterator kind = s_mapPlayerBotShortage.find(item->GetVnum());
+				if (kind != s_mapPlayerBotShortage.end())
+				{
+					missing = kind->second.looks ? (long long)kind->second.missingLooks * 100 / kind->second.looks : 0;
+					sold = kind->second.linesSold;
+				}
+				PlayerBotListingStep(per::STEP_MARKUP, price, markup, missing, sold);
+				if (markup >= PLAYERBOT_MARKET_SHORTAGE_MAX_PERCENT)
+					PlayerBotListingFlag(per::LFLAG_MARKUP_MAX);
+			}
+			else if (markupAsked > 0)
+				PlayerBotListingStep(per::STEP_MARKUP_REFUSED, price, markupAsked);
 		}
 		if (markupOut)
 			*markupOut = markup;
@@ -2825,7 +3127,7 @@ namespace
 	// Does this item carry a bonus line worth more than the item itself? A large
 	// health roll or a shield rolled with block or reflect is what a player looks
 	// for, and it is worth a counter slot at any refine.
-	bool HasPlayerBotValuableBonus(LPITEM item)
+	bool HasPlayerBotValuableBonus(LPITEM item, BYTE* typeOut = NULL, long* valueOut = NULL)
 	{
 		if (!item)
 			return false;
@@ -2835,15 +3137,20 @@ namespace
 			const long value = item->GetAttributeValue(i);
 			if (value <= 0)
 				continue;
-			if (type == APPLY_MAX_HP && value >= PLAYERBOT_VALUABLE_HP_BONUS)
-				return true;
 			// A shield is bought for what it stops, not for its defence number,
 			// and what it is bought for is immunity to stun - "NNO". This used to
 			// say block or reflect, which was a guess.
-			if (item->GetType() == ITEM_ARMOR &&
-					item->GetSubType() == ARMOR_SHIELD &&
-					type == APPLY_IMMUNE_STUN)
+			if ((type == APPLY_MAX_HP && value >= PLAYERBOT_VALUABLE_HP_BONUS) ||
+					(item->GetType() == ITEM_ARMOR && item->GetSubType() == ARMOR_SHIELD &&
+						type == APPLY_IMMUNE_STUN))
+			{
+				// The line that made it one, for the explanation.
+				if (typeOut)
+					*typeOut = type;
+				if (valueOut)
+					*valueOut = value;
 				return true;
+			}
 		}
 		return false;
 	}
@@ -2856,6 +3163,12 @@ namespace
 	{
 		if (merchant)
 			return true;
+		// A saddlebag bot's medals are its rows' and its horse's
+		// (playerbot_saddlebag.h): none is goods while either can use one.
+		if (ch && IsPlayerBotSaddlebagKeeperPID(ch->GetPlayerID()) &&
+				GetPlayerBotPersonalityByPID(ch->GetPlayerID()) != BOT_PERSONALITY_MEDAL_DROPPER &&
+				(GetPlayerBotSaddlebagMedalReserve(ch) > 0 || CanPlayerBotAdvanceHorse(ch)))
+			return false;
 		// The medal dropper is the medal shop: it farms them to put them up. It
 		// used to hold them while its own horse could use one, and a dropper of
 		// forty on a horse of ten - a battle horse candidate, forbidden to spend
@@ -2982,12 +3295,16 @@ namespace
 	{
 		if (!item)
 			return -1;
+		// Green 27101 and purple 27104 are the bot's personal combat reserve.
+		// They never become private-shop stock; only units over 200 go to an NPC.
+		if (IsPlayerBotPersonalBuffPotion(item->GetVnum()))
+			return -1;
 		// The operator's word first: stall goes up ahead of everything, the
 		// other three never do.
 		{
 			const BYTE policy = GetPlayerBotItemPolicy(item);
 			if (policy == PLAYERBOT_ITEM_POLICY_STALL)
-				return PLAYERBOT_SHOP_POLICY_STALL_SCORE;
+				return PlayerBotGoods(PLAYERBOT_SHOP_POLICY_STALL_SCORE, per::GOODS_POLICY_STALL, policy);
 			if (policy != PLAYERBOT_ITEM_POLICY_NONE)
 				return -1;
 		}
@@ -3004,16 +3321,44 @@ namespace
 		// A retired item is nobody's goods (IsPlayerBotRetiredItem).
 		if (IsPlayerBotRetiredItem(item->GetVnum()))
 			return -1;
+		// The guild building materials: a master keeps what its guild builds
+		// with, everybody else puts them up high (playerbot_guild_land.h).
+		if (IsPlayerBotGuildBuildMaterial(item->GetVnum()))
+			return (ch && IsPlayerBotKeptGuildMaterial(ch, item)) ? -1
+					: PlayerBotGoods(PLAYERBOT_SHOP_POLICY_STALL_SCORE - 50, per::GOODS_GUILD_MATERIAL);
 		// Nor a Rada Pustelnika or an Exorcism Scroll: the book pass reads
 		// with them (the item shop's copies are the ones a counter would take).
 		if (IsPlayerBotBookAffectItem(item))
 			return -1;
+		// A sash a keeper builds its own from (playerbot_sash.h) is not goods.
+		if (ch && IsPlayerBotKeptSash(ch, item))
+			return -1;
+		// Nor a Cor Draconis an alchemy bot opens itself, nor a Cor line under
+		// PLAYERBOT_COR_LINE_MIN_UNITS (playerbot_alchemy.h).
+		if (ch && (IsPlayerBotKeptCor(ch, item) || IsPlayerBotCorStackShort(ch, item)))
+			return -1;
+		// A Dragon Stone: an alchemy bot's spare, from its own counter pass
+		// (playerbot_offline_shop.h), never from the bag's.
+		if (item->IsDragonSoul())
+			return -1;
+		// Nor the materials a saddlebag bot keeps for its rows, nor refine goods
+		// on their way to the Dozorca (playerbot_saddlebag.h).
+		if (ch && (IsPlayerBotKeptCraftMaterial(ch, item) || IsPlayerBotCraftExchangeStock(ch, item)))
+			return -1;
+		// A Cor Draconis or a sash (MT2009 Plus) is a player's goods, high on
+		// the counter - unless a line of its kind came home unsold, when it is
+		// the merchant's (IsPlayerBotJunkItem). Which counters may carry it is
+		// the counter's own question (BotOfflineCounterRefuses).
+		if (GetPlayerBotRareGoodsKind(item->GetVnum()) != PLAYERBOT_RARE_GOODS_NONE)
+			return ch && IsPlayerBotRareGoodsForMerchant(ch->GetPlayerID(), item->GetVnum(), get_dword_time())
+					? -1 : PlayerBotGoods(PLAYERBOT_SHOP_RARE_GOODS_SCORE, per::GOODS_RARE_GOODS);
 		// Community Patch 5, point 1: what a gambler's session made, and the
 		// piece it took off for it, goes on the counter at any plus
 		// ("wszystkie ulepszone (nie wazny jest +) ida na sklep offline") -
 		// and the bases one of the four holds for its anvil do not, yet.
 		if (ch && IsPlayerBotGambleForSale(ch, item))
-			return PLAYERBOT_SHOP_GAMBLE_GOODS_SCORE + item->GetRefineLevel();
+			return PlayerBotGoods(PLAYERBOT_SHOP_GAMBLE_GOODS_SCORE + item->GetRefineLevel(), per::GOODS_GAMBLE_GOODS,
+					item->GetRefineLevel());
 		if (ch && IsPlayerBotRareGambleHeldBase(ch, item))
 			return -1;
 		// Nor is a piece Iwakura's list keeps for the storekeeper
@@ -3028,7 +3373,10 @@ namespace
 		// stack against a keep of three were ten kept.
 		if (item->GetVnum() == PLAYERBOT_GRAND_MASTER_STONE_VNUM)
 			return playerbot_stall_rules::HoldsSpare(CountPlayerBotVnumUnitsAhead(ch, item),
-					(int)item->GetCount(), GetPlayerBotCountedGoodsKeep(ch, item)) ? 800 : -1;
+					(int)item->GetCount(), GetPlayerBotCountedGoodsKeep(ch, item))
+					? PlayerBotGoods(800, per::GOODS_GM_STONE_SPARE,
+						IsPlayerBotGoodsExplaining() && ch ? (long long)ch->CountSpecifyItem(item->GetVnum()) : 0,
+						GetPlayerBotCountedGoodsKeep(ch, item)) : -1;
 		if (item->GetType() == ITEM_POLYMORPH || IsPlayerBotMetinDetector(item->GetVnum()))
 		{
 			// A detector is a stone hunter's own while it hunts them - the
@@ -3045,12 +3393,14 @@ namespace
 						 IsPlayerBotRareNow(hunter->second.persona, playerbot_persona::RARE_METINOLOG, now)))
 					return -1;
 			}
-			return PLAYERBOT_SHOP_POLYMORPH_SCORE;
+			return item->GetType() == ITEM_POLYMORPH
+					? PlayerBotGoods(PLAYERBOT_SHOP_POLYMORPH_SCORE, per::GOODS_MARBLE, item->GetSocket(0))
+					: PlayerBotGoods(PLAYERBOT_SHOP_POLYMORPH_SCORE, per::GOODS_METIN_DETECTOR);
 		}
 		// A Dried Head, for a player's run of the Catacomb
 		// (PLAYERBOT_PRIOR_CATACOMB_HEAD).
 		if (IsPlayerBotCatacombHead(item->GetVnum()))
-			return PLAYERBOT_SHOP_CATACOMB_HEAD_SCORE;
+			return PlayerBotGoods(PLAYERBOT_SHOP_CATACOMB_HEAD_SCORE, per::GOODS_CATACOMB_HEAD);
 		// A bonus stone over what the bot keeps for its own rerolling, above the
 		// books and below the materials, the way a marble sits. On this world it
 		// reaches no counter and that is the engine's word, not this branch's:
@@ -3063,13 +3413,15 @@ namespace
 		if (IsPlayerBotBonusStoneItem(item))
 			return playerbot_stall_rules::HoldsSpare(CountPlayerBotVnumUnitsAhead(ch, item),
 					(int)item->GetCount(), GetPlayerBotCountedGoodsKeep(ch, item))
-					? PLAYERBOT_SHOP_BONUS_STONE_SCORE : -1;
+					? PlayerBotGoods(PLAYERBOT_SHOP_BONUS_STONE_SCORE, per::GOODS_BONUS_STONE_SPARE,
+						IsPlayerBotGoodsExplaining() && ch ? (long long)ch->CountSpecifyItem(item->GetVnum()) : 0,
+						GetPlayerBotCountedGoodsKeep(ch, item)) : -1;
 		// Seven of the Forgetting Scrolls are marked "do sprzedazy u
 		// handlarki" on Iwakura's sheet - the ones whose skill nobody buys a
 		// scroll for. They keep their merchant price and never take a counter
 		// slot from something that would sell.
 		if (IsPlayerBotMerchantOnlyForgetScroll(item))
-			return merchant ? 400 : -1;
+			return merchant ? PlayerBotGoods(400, per::GOODS_FORGET_SCROLL_MERCHANT_ONLY, item->GetSocket(0)) : -1;
 		// A Stalki (playerbot_stalki.h): the one a bot keeps for the level it is
 		// about to reach is not goods, nor the one the blacksmith is making into
 		// its next armour or weapon (IsPlayerBotHigherTierSpare); any other - of
@@ -3082,7 +3434,12 @@ namespace
 		{
 			if (ch && (IsPlayerBotKeptStalki(ch, item) || IsPlayerBotHigherTierSpare(ch, item)))
 				return -1;
-			return PLAYERBOT_SHOP_STALKI_SCORE + item->GetRefineLevel();
+			// Why the bot does not keep it: another class's, too far ahead of
+			// its level, or a second copy.
+			const int stalkiWhy = !ch || !item->CanUsedBy(ch) ? per::STALKI_OTHER_CLASS
+					: (item->GetLevelLimit() > ch->GetLevel() ? per::STALKI_TOO_FAR : per::STALKI_SECOND_COPY);
+			return PlayerBotGoods(PLAYERBOT_SHOP_STALKI_SCORE + item->GetRefineLevel(), per::GOODS_STALKI_OTHER,
+					item->GetRefineLevel(), item->GetLevelLimit(), stalkiWhy);
 		}
 		// A weapon from the level-30 set is the prize of this whole market. It is
 		// worth a counter slot at any refine at all, unrefined included - except
@@ -3098,7 +3455,24 @@ namespace
 			// goods the moment it cannot.
 			if (PlayerBotRefinesLevel30ForSale(ch, item) && CanPlayerBotAttemptRefineItem(ch, item))
 				return -1;
-			return PlayerBotKeepsLevel30ForAnvil(ch, item) ? -1 : 2000;
+			if (PlayerBotKeepsLevel30ForAnvil(ch, item))
+				return -1;
+			if (!IsPlayerBotGoodsExplaining())
+				return 2000;
+			// Ground for sale as far as the anvil could take it, or not kept for
+			// the anvil at all: another class's, the draw said counter, or the
+			// bag already works on as many as it keeps.
+			const long long average = SumPlayerBotItemLines(item, APPLY_NORMAL_HIT_DAMAGE_BONUS);
+			if (PlayerBotRefinesLevel30ForSale(ch, item))
+				return PlayerBotGoods(2000, per::GOODS_LEVEL30_SALE_READY, item->GetRefineLevel(), average,
+						GetPlayerBotLevel30SaleTarget(item));
+			int l30Why = per::L30_BAG_FULL;
+			if (!IsPlayerBotClassLevel30Weapon(ch, item))
+				l30Why = per::L30_OTHER_CLASS;
+			else if ((int)(PlayerBotNavHash(ch->GetPlayerID() ^ (item->GetID() * 2654435761U)) % 100U) >=
+					PLAYERBOT_LEVEL30_KEEP_PERCENT)
+				l30Why = per::L30_DRAW_COUNTER;
+			return PlayerBotGoods(2000, per::GOODS_LEVEL30_NOT_KEPT, item->GetRefineLevel(), average, l30Why);
 		}
 		// Nor the weapon a bot keeps for its lines: it is on its way to the
 		// hand (FindPlayerBotLinesProject), not to a counter.
@@ -3128,26 +3502,44 @@ namespace
 		if (IsPlayerBotLowLevelGear(item))
 		{
 			if (IsPlayerBotLowPlusMarketGear(item))
-				return PLAYERBOT_SHOP_LOW_PLUS_GEAR_SCORE + item->GetRefineLevel();
+				return PlayerBotGoods(PLAYERBOT_SHOP_LOW_PLUS_GEAR_SCORE + item->GetRefineLevel(),
+						per::GOODS_LOW_LEVEL_LOW_PLUS, item->GetRefineLevel(), item->GetLevelLimit());
 			return item->GetRefineLevel() >= GetPlayerBotLowGearMinRefine(item)
-					? PLAYERBOT_SHOP_LOW_GEAR_SCORE + item->GetRefineLevel() : -1;
+					? PlayerBotGoods(PLAYERBOT_SHOP_LOW_GEAR_SCORE + item->GetRefineLevel(), per::GOODS_LOW_LEVEL_REFINED,
+						item->GetRefineLevel(), GetPlayerBotLowGearMinRefine(item), item->GetLevelLimit()) : -1;
 		}
 		// A piece of Iwakura's list past what the list keeps, at any refine:
 		// the gamblers' stock (community patch 2, point 9).
 		if (ch && IsPlayerBotLppSurplusGoods(ch, item))
-			return std::max<int>(PLAYERBOT_SHOP_LPP_SURPLUS_SCORE,
-					HasPlayerBotValuableBonus(item) ? 1500 : 0) + item->GetRefineLevel();
+			return PlayerBotGoods(std::max<int>(PLAYERBOT_SHOP_LPP_SURPLUS_SCORE,
+					HasPlayerBotValuableBonus(item) ? 1500 : 0) + item->GetRefineLevel(), per::GOODS_LPP_SURPLUS,
+					item->GetRefineLevel(), HasPlayerBotValuableBonus(item) ? 1 : 0);
 		// Then anything rolled with a bonus a player would go looking for.
-		if (HasPlayerBotValuableBonus(item))
-			return 1500;
+		{
+			BYTE valuableType = 0;
+			long valuableValue = 0;
+			if (HasPlayerBotValuableBonus(item, &valuableType, &valuableValue))
+				return PlayerBotGoods(1500, per::GOODS_VALUABLE_BONUS, valuableType, valuableValue);
+		}
 		// Below that, a piece his sheet sends to the merchant stays off the
 		// counter: a bracelet +2 with no line worth having is not goods.
 		if (IsPlayerBotMerchantOnlyGear(item))
-			return merchant ? 400 : -1;
+			return merchant ? PlayerBotGoods(400, per::GOODS_MERCHANT_ONLY_GEAR, item->GetRefineLevel()) : -1;
 		// A spare at +6 or better is worth walking across town for, and is the one
 		// thing that must never reach an NPC merchant for a fifth of its worth.
 		if (item->GetRefineLevel() >= PLAYERBOT_PRECIOUS_REFINE)
-			return 1000 + item->GetRefineLevel();
+		{
+			// What the bot wears in the slot this spare is for.
+			LPITEM wornThere = NULL;
+			if (IsPlayerBotGoodsExplaining() && ch)
+			{
+				const int wearCell = item->FindEquipCell(ch);
+				if (wearCell >= 0 && wearCell < WEAR_MAX_NUM)
+					wornThere = ch->GetWear((WORD)wearCell);
+			}
+			return PlayerBotGoods(1000 + item->GetRefineLevel(), per::GOODS_PRECIOUS_SPARE, item->GetRefineLevel(),
+					wornThere ? wornThere->GetVnum() : 0, wornThere ? wornThere->GetRefineLevel() : 0);
+		}
 		// A Blessing or Dragon God scroll is the bot's own ladder to +9 (it
 		// lifts GetPlayerBotRefineTarget while it is in the bag), so the first
 		// PLAYERBOT_REFINE_SCROLL_KEEP stay while a worn piece can still use
@@ -3174,9 +3566,16 @@ namespace
 			// 116 of those over the keep, and 5 stood on the counters of the
 			// whole world ("A bodzi jak nie bylo tak nie ma", 16 September).
 			const int keep = GetPlayerBotRefineScrollKeep(ch);
-			if (CountPlayerBotSafeRefineScrollsAhead(ch, item) + (int)item->GetCount() <= keep)
+			const int held = CountPlayerBotSafeRefineScrollsAhead(ch, item) + (int)item->GetCount();
+			if (held <= keep)
 				return -1;
-			return 800;
+			int scrollWhy = per::SCROLL_KEEP_NONE;
+			if (IsPlayerBotGoodsExplaining() && ch)
+				scrollWhy = PlayerBotHasScrollRuleWork(ch) ? per::SCROLL_KEEP_RULE
+						: (!PlayerBotWearsScrollWork(ch) ? per::SCROLL_KEEP_NONE
+							: (IsPlayerBotResourceTrader(ch->GetPlayerID()) ? per::SCROLL_KEEP_TRADER
+								: per::SCROLL_KEEP_WORN));
+			return PlayerBotGoods(800, per::GOODS_SAFE_SCROLL_OVER_KEEP, held, keep, scrollWhy);
 		}
 		// A material this bot is short of stays in its own bag.
 		// And nothing out of the reserve its own anvil wants: only what is
@@ -3189,7 +3588,16 @@ namespace
 		if (PlayerBotNeedsRefineMaterial(ch, item->GetVnum()))
 			return -1;
 		if (item->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM)
-			return CanPlayerBotSellHorseMedals(ch, merchant) ? 900 : -1;
+		{
+			if (!CanPlayerBotSellHorseMedals(ch, merchant))
+				return -1;
+			const int medals = ch ? (int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) : 0;
+			const int medalWhy = merchant ? per::MEDAL_MERCHANT
+					: (ch && GetPlayerBotPersonalityByPID(ch->GetPlayerID()) == BOT_PERSONALITY_MEDAL_DROPPER
+						? per::MEDAL_DROPPER : (medals > PLAYERBOT_HORSE_MEDAL_KEEP ? per::MEDAL_OVER_KEEP
+							: per::MEDAL_HORSE_TOP));
+			return PlayerBotGoods(900, per::GOODS_HORSE_MEDAL, medals, PLAYERBOT_HORSE_MEDAL_KEEP, medalWhy);
+		}
 		// Refine materials: what every other bot is short of and would otherwise
 		// have to farm for an hour. Only the ones some recipe actually consumes
 		// rank this high - the rest of ITEM_MATERIAL is scenery to an anvil.
@@ -3206,11 +3614,20 @@ namespace
 			// (PLAYERBOT_SHOP_FLOOR_SCORE says why), one the bots are short of
 			// next, the rest after it.
 			const int decision = DecidePlayerBotMaterialListing(ch, item, report);
+			const long long inBag = (long long)ch->CountSpecifyItem(item->GetVnum());
+			const long long reserve = IsPlayerBotGoodsExplaining()
+					? GetPlayerBotRefineMaterialReserve(ch, item->GetVnum()) : 0;
 			if (decision == PLAYERBOT_LIST_FLOOR)
-				return PLAYERBOT_SHOP_FLOOR_SCORE;
+				return PlayerBotGoods(PLAYERBOT_SHOP_FLOOR_SCORE, per::GOODS_MATERIAL_FLOOR, inBag, reserve,
+						GetPlayerBotMarketLocalSupply(ch->GetMapIndex(), item->GetVnum()));
 			if (decision == PLAYERBOT_LIST_LIST)
-				return 500;
-			return PLAYERBOT_SHOP_MATERIAL_SCORE;
+			{
+				const TPlayerBotMarketLedgerEntry* entry = GetPlayerBotMarketLedgerEntry(item->GetVnum());
+				return PlayerBotGoods(500, per::GOODS_MATERIAL_SHORT, inBag, reserve, entry ? entry->dwDemandBots : 0);
+			}
+			return PlayerBotGoods(PLAYERBOT_SHOP_MATERIAL_SCORE, per::GOODS_MATERIAL_OTHER, inBag, reserve,
+					decision == PLAYERBOT_LIST_PROBE ? per::MAT_PROBE
+						: (decision == PLAYERBOT_LIST_NO_DEMAND ? per::MAT_NO_DEMAND : per::MAT_OVERSTOCK));
 		}
 		// What a player crafts or refines further: the herbalist's herbs, the
 		// Crystal Earrings, the Ghost Face Armour, the level-65 weapons under +4
@@ -3240,34 +3657,50 @@ namespace
 		if (IsPlayerBotMissionBook(item->GetVnum()) && IsPlayerBotMissionBookMarketFull(ch))
 			return -1;
 		if (IsPlayerBotPickupGoods(item))
-			return PLAYERBOT_SHOP_PICKUP_GOODS_SCORE + item->GetRefineLevel();
+			return PlayerBotGoods(PLAYERBOT_SHOP_PICKUP_GOODS_SCORE + item->GetRefineLevel(), per::GOODS_PICKUP_GOODS,
+					item->GetRefineLevel());
 		// What Baek-Go's board made. A bot keeps a few for the fights that are
 		// worth a ten-minute buff and the rest is stock - and it is stock worth
 		// listing high, because this is the only place in the world a player can
 		// buy one: nothing else crafts, and the potions have no drop table.
 		// A recipe the bot has read to its ceiling is goods for the same reason.
 		if (IsPlayerBotSurplusPotion(ch, item))
-			return 950;
+			return PlayerBotGoods(950, per::GOODS_SURPLUS_POTION);
 		if (IsPlayerBotSurplusRecipe(ch, item))
-			return 900;
+			return PlayerBotGoods(900, per::GOODS_SURPLUS_RECIPE);
 		// Hair dye. The item shop's is stock worth a slot; one from the water
 		// is thrown away but for the few a bot keeps
 		// (PLAYERBOT_HAIR_DYE_KEEP_PERMILLE), and those go up last.
 		if (IsPlayerBotHairDye(item->GetVnum()))
 		{
 			if (!IsPlayerBotFishedHairDye(item->GetVnum()))
-				return 900;
-			return IsPlayerBotHairDyeKeptForSale(item) ? 200 : -1;
+				return PlayerBotGoods(900, per::GOODS_HAIR_DYE_SHOP);
+			return IsPlayerBotHairDyeKeptForSale(item) ? PlayerBotGoods(200, per::GOODS_HAIR_DYE_FISHED_KEPT) : -1;
 		}
+		// The bot's own look from the ItemShop (MT2009 Plus): a costume or a
+		// weapon skin waiting for its slot, and the pet seal it summons from,
+		// never go on the counter.
+		if (item->GetType() == ITEM_PET)
+			return -1;
+		// Nor the reagents it bought for that look's bonuses.
+		if (IsPlayerBotCostumeBonusReagent(item))
+			return -1;
+		if (item->GetType() == ITEM_COSTUME &&
+				(item->GetSubType() == COSTUME_BODY || item->GetSubType() == COSTUME_WEAPON
+#if defined(ENABLE_MOUNT_COSTUME_SYSTEM)
+				 || item->GetSubType() == COSTUME_MOUNT
+#endif
+				))
+			return -1;
 		// A hairstyle the bot cannot wear: an item-shop head a keeper bought
 		// for its counter (playerbot_itemshop.h). One it can wear is its own,
 		// on its way to its head.
 		if (item->GetType() == ITEM_COSTUME && item->GetSubType() == COSTUME_HAIR)
-			return item->CanUsedBy(ch) ? -1 : PLAYERBOT_SHOP_ISHOP_HAIR_SCORE;
+			return item->CanUsedBy(ch) ? -1 : PlayerBotGoods(PLAYERBOT_SHOP_ISHOP_HAIR_SCORE, per::GOODS_ISHOP_HAIRSTYLE);
 		// A Forgetting Scroll sells well; the keeper keeps it only while one of
 		// its own skills is waiting for it.
 		if (item->GetVnum() == PLAYERBOT_SKILL_FORGET_SCROLL_VNUM)
-			return GetPlayerBotStuckSkill(ch) != 0 ? -1 : 800;
+			return GetPlayerBotStuckSkill(ch) != 0 ? -1 : PlayerBotGoods(800, per::GOODS_FORGET_SCROLL, item->GetSocket(0));
 		// (A Blessing or Dragon God scroll was judged here, under the materials
 		// that took it first - see above the material reserve.)
 		// Magiczny Pyl, what the Alchemist gives for the banned soul stones:
@@ -3276,7 +3709,8 @@ namespace
 		// call a material no refine recipe names scenery.
 		if (item->GetVnum() == PLAYERBOT_MAGIC_DUST_VNUM)
 			return (int)ch->CountSpecifyItem(PLAYERBOT_MAGIC_DUST_VNUM) > GetPlayerBotStallBaseKeep(ch, item)
-					? PLAYERBOT_SHOP_LOW_SOUL_STONE_SCORE + 20 : -1;
+					? PlayerBotGoods(PLAYERBOT_SHOP_LOW_SOUL_STONE_SCORE + 20, per::GOODS_MAGIC_DUST,
+						(long long)ch->CountSpecifyItem(PLAYERBOT_MAGIC_DUST_VNUM), GetPlayerBotStallBaseKeep(ch, item)) : -1;
 		// An ITEM_MATERIAL no recipe consumes is scenery, not goods: it was put
 		// up for its type, and its type is not a reason anybody would buy it -
 		// unless Iwakura's sheet prices it, which is exactly that reason (the
@@ -3299,10 +3733,12 @@ namespace
 #if defined(PLAYERBOT_ENGINE_MT2009)
 			if (IsPlayerBotSoulStoneVnum(item->GetVnum()) &&
 					GetPlayerBotSoulStoneGrade(item->GetVnum()) <= PLAYERBOT_SOUL_STONE_DUST_MAX_GRADE)
-				return PLAYERBOT_SHOP_LOW_SOUL_STONE_SCORE +
-						GetPlayerBotSoulStoneGrade(item->GetVnum()) * 5;
+				return PlayerBotGoods(PLAYERBOT_SHOP_LOW_SOUL_STONE_SCORE +
+						GetPlayerBotSoulStoneGrade(item->GetVnum()) * 5, per::GOODS_SOUL_STONE_LOW_MARKET,
+						GetPlayerBotSoulStoneGrade(item->GetVnum()), GetPlayerBotSoulStoneKind(item->GetVnum()));
 #endif
-			return 700 + GetPlayerBotSoulStoneGrade(item->GetVnum()) * 100;
+			return PlayerBotGoods(700 + GetPlayerBotSoulStoneGrade(item->GetVnum()) * 100, per::GOODS_SOUL_STONE,
+					GetPlayerBotSoulStoneGrade(item->GetVnum()), GetPlayerBotSoulStoneKind(item->GetVnum()));
 		}
 		// Sztuka Combo and the Leadership books: kept while the bot can read
 		// them (a few of each), the rest goods like any other book.
@@ -3311,7 +3747,9 @@ namespace
 			if (IsPlayerBotGeneralSkillBookUseful(ch, item->GetVnum()) &&
 					CountPlayerBotVnumUnitsAhead(ch, item) < PLAYERBOT_GENERAL_BOOK_KEEP)
 				return -1;
-			return 400;
+			return PlayerBotGoods(400, per::GOODS_GENERAL_BOOK,
+					IsPlayerBotGoodsExplaining() ? CountPlayerBotVnumUnitsAhead(ch, item) : 0, PLAYERBOT_GENERAL_BOOK_KEEP,
+					IsPlayerBotGoodsExplaining() && IsPlayerBotGeneralSkillBookUseful(ch, item->GetVnum()) ? 1 : 0);
 		}
 		// What Iwakura's sheet prices by name and nothing above placed: the
 		// horse and polymorph books and the stone detachment scroll the junk
@@ -3319,8 +3757,13 @@ namespace
 		// merchant now - so they have to be goods here, or they would ride in
 		// the bag for good). After the Combo and Leadership books, which are
 		// on the sheet too and keep a few to read.
+		// A polymorph book or a Mining Guide the bot can read now stays in the
+		// bag for the book pass (IsPlayerBotExtraSkillBook), a few of them.
+		if (IsPlayerBotExtraSkillBook(item->GetVnum()) && CanPlayerBotReadExtraSkillBookNow(ch, item->GetVnum()) &&
+				CountPlayerBotVnumUnitsAhead(ch, item) < PLAYERBOT_GENERAL_BOOK_KEEP)
+			return -1;
 		if (IsPlayerBotSheetGoods(item))
-			return PLAYERBOT_SHOP_SHEET_GOODS_SCORE;
+			return PlayerBotGoods(PLAYERBOT_SHOP_SHEET_GOODS_SCORE, per::GOODS_SHEET_GOODS);
 		// Skill books. Stock for everyone; the Metin dropper's whole trade, so
 		// on its counter they go up beside the level-30 weapons.
 		if (item->GetType() == ITEM_SKILLBOOK)
@@ -3334,10 +3777,12 @@ namespace
 					(int)item->GetCount(), GetPlayerBotCountedGoodsKeep(ch, item)))
 				return -1;
 			if (GetPlayerBotPersonalityByPID(ch->GetPlayerID()) == BOT_PERSONALITY_METIN_DROPPER)
-				return 1800;
+				return PlayerBotGoods(1800, per::GOODS_SKILL_BOOK_DROPPER, skillVnum, GetPlayerBotCountedGoodsKeep(ch, item));
 			// Another build's book is somebody else's progress and nothing of
 			// this bot's: ahead of the ordinary goods (community patch 2, point 5).
-			return IsPlayerBotOwnSkill(ch, skillVnum) ? 400 : PLAYERBOT_SHOP_OTHER_CLASS_BOOK_SCORE;
+			return IsPlayerBotOwnSkill(ch, skillVnum)
+					? PlayerBotGoods(400, per::GOODS_SKILL_BOOK_OWN_SPARE, skillVnum, GetPlayerBotCountedGoodsKeep(ch, item))
+					: PlayerBotGoods(PLAYERBOT_SHOP_OTHER_CLASS_BOOK_SCORE, per::GOODS_SKILL_BOOK_OTHER_CLASS, skillVnum);
 		}
 
 		// Ordinary spare gear, and only if somebody could want it. This used to
@@ -3352,24 +3797,27 @@ namespace
 			// A body armour or a jewel at +0..+3 is every bot's goods since
 			// Iwakura's answer of 26 September (IsPlayerBotLowPlusMarketGear).
 			if (IsPlayerBotLowPlusMarketGear(item))
-				return PLAYERBOT_SHOP_LOW_PLUS_GEAR_SCORE + item->GetRefineLevel();
+				return PlayerBotGoods(PLAYERBOT_SHOP_LOW_PLUS_GEAR_SCORE + item->GetRefineLevel(), per::GOODS_LOW_PLUS_GEAR,
+						item->GetRefineLevel());
 			// A scrap keeper puts the other low refines out too, last in line
 			// after everything worth more: fodder for a player's blacksmith
 			// runs. From level thirty only - the gear under it never gets this
 			// far (see the top of this function), and nothing at +4 does either.
 			if (IsPlayerBotScrapKeeper(ch->GetPlayerID()) &&
 					item->GetRefineLevel() < PLAYERBOT_SHOP_MIN_GEAR_REFINE)
-				return 100 + item->GetRefineLevel();
+				return PlayerBotGoods(100 + item->GetRefineLevel(), per::GOODS_SCRAP_KEEPER_LOW, item->GetRefineLevel());
 			return -1;
 		}
 
 		// An unopened box. Ranked between the materials and the spare gear: it
 		// is a gamble somebody might want, not a thing anybody came for.
 		if (IsPlayerBotSurplusChest(ch, item))
-			return 350;
+			return PlayerBotGoods(350, per::GOODS_SURPLUS_CHEST, (long long)ch->CountSpecifyItem(item->GetVnum()));
 		// A key with no chest for it, past the ones the bot holds on to.
 		if (item->GetType() == ITEM_TREASURE_KEY)
-			return IsPlayerBotSurplusTreasureKey(ch, item) ? PLAYERBOT_SHOP_KEY_SCORE : -1;
+			return IsPlayerBotSurplusTreasureKey(ch, item)
+					? PlayerBotGoods(PLAYERBOT_SHOP_KEY_SCORE, per::GOODS_SURPLUS_KEY,
+						(long long)ch->CountSpecifyItem(item->GetVnum()), PLAYERBOT_TREASURE_KEY_KEEP) : -1;
 		// A specimen of a mission already handed in. The Orc Tooth never gets
 		// here: it is a refine material and the material branch above priced
 		// it, ledger and all.
@@ -3603,7 +4051,10 @@ namespace
 					}
 					else
 					{
-						const int cap = GetPlayerBotCounterLineCap(item);
+						// Its kind's lines, or a medal dropper's eight of medals
+						// (GetPlayerBotSameVnumLineCap, MT2009 Plus).
+						const int cap = std::max(GetPlayerBotCounterLineCap(item),
+								IsPlayerBotSameVnumCapped(item) ? GetPlayerBotSameVnumLineCap(ch, item) : 0);
 						if (cap > 0 && ++lines[item->GetVnum()] > cap)
 							continue;
 					}
@@ -3705,57 +4156,23 @@ namespace
 			"%s %s, chyba wystarczy tych prob na dzis"
 		};
 
-		// The same four, line for line, for a reader whose client reads
-		// English (SendPlayerBotShoutIn): the piece's official English name,
-		// then "from +6 to +7", then the reaction.
-		static const char* kPlus7En[] = {
-			"%s %s, the blacksmith is kind today",
-			"made it! %s %s",
-			"%s %s, could have been worse",
-			"done: %s %s!!!"
-		};
-		static const char* kPlus8En[] = {
-			"%s %s! my hands were shaking",
-			"yes! %s %s, push on?",
-			"%s %s, guess I'm lucky today",
-			"done: %s %s, off to work"
-		};
-		static const char* kPlus9En[] = {
-			"%s %s!!! I can't believe it",
-			"%s %s, who would have thought",
-			"a nine! %s %s, drinks on me today :D",
-			"%s %s, that's enough tries for today"
-		};
-
 		const char** pool = kPlus7;
-		const char** poolEn = kPlus7En;
 		if (newPlus >= 9)
-		{
 			pool = kPlus9;
-			poolEn = kPlus9En;
-		}
 		else if (newPlus == 8)
-		{
 			pool = kPlus8;
-			poolEn = kPlus8En;
-		}
 
 		char msg[CHAT_MAX_LEN + 1];
 		char body[CHAT_MAX_LEN + 1];
 		char step[32];
 		snprintf(step, sizeof(step), "z +%d na +%d", newPlus - 1, newPlus);
 		const std::string name = PlayerBotRefineBaseName(resultProto->szLocaleName);
-		const int line = number(0, 3);
-		snprintf(body, sizeof(body), pool[line], name.c_str(), step);
+		snprintf(body, sizeof(body), pool[number(0, 3)], name.c_str(), step);
 		snprintf(msg, sizeof(msg), "%s : %s", ch->GetName(), body);
-		char msgEn[CHAT_MAX_LEN + 1];
-		snprintf(step, sizeof(step), "from +%d to +%d", newPlus - 1, newPlus);
-		const std::string nameEn = PlayerBotRefineBaseName(GetPlayerBotItemNameIn(resultVnum, true).c_str());
-		snprintf(body, sizeof(body), poolEn[line], nameEn.c_str(), step);
-		snprintf(msgEn, sizeof(msgEn), "%s : %s", ch->GetName(), body);
 
 		s_dwLastShoutTime = dwNow;
-		SendPlayerBotShoutIn(msg, msgEn, ch->GetEmpire());
+		SendPlayerBotShout(msg, ch->GetEmpire());
+		BattlePassOnShout(ch); // MT2009_PLUS_BP_BOTS_V1: a shout for the Battle Pass
 		sys_log(0, "PLAYERBOT_SHOUT: pid=%u plus=%d text=%s",
 				ch->GetPlayerID(), newPlus, msg);
 	}
@@ -3938,8 +4355,13 @@ namespace
 		{
 			state.bShopStandsInRow = 0;
 			state.bShopLastStandSold = false;
-			state.dwNextShopKeepTime = dwNow +
-					number(PLAYERBOT_SHOP_REST_MIN, PLAYERBOT_SHOP_REST_MAX);
+			// No stand closed and a medal dropper with its stock: the map
+			// change (TransitionPlayerBotMap closes whatever stands) is the
+			// walk to its first village to open one, and the rest here held
+			// it off for half an hour to an hour once it got there.
+			if (bHadShop || !IsPlayerBotMedalStockReady(ch, state))
+				state.dwNextShopKeepTime = dwNow +
+						number(PLAYERBOT_SHOP_REST_MIN, PLAYERBOT_SHOP_REST_MAX);
 		}
 		if (bHadShop)
 		{
@@ -4010,9 +4432,20 @@ namespace
 					if (take <= 0 || take >= (int)item->GetCount())
 						break;
 					const int to = ch->GetEmptyInventory(item->GetSize());
+					const int before = (int)item->GetCount();
 					if (to < 0 || !ch->MoveItem(TItemPos(INVENTORY, item->GetCell()),
 							TItemPos(INVENTORY, (WORD)to), take))
 						break;
+					// The cut, for the line's explanation (playerbot_explain.h).
+					if (IsPlayerBotExplainOn())
+						if (LPITEM cutLine = ch->GetInventoryItem((WORD)to))
+						{
+							TPlayerBotLineCut cut;
+							cut.shape = per::SHAPE_NATURAL_LINE;
+							cut.from = before;
+							cut.keep = keep;
+							NotePlayerBotExplainCut(cutLine->GetID(), cut);
+						}
 					++lines;
 					if (take <= 2)
 						++small;
@@ -4048,9 +4481,19 @@ namespace
 			{
 				const int take = units;
 				const int to = ch->GetEmptyInventory(item->GetSize());
+				const int before = (int)item->GetCount();
 				if (to < 0 || !ch->MoveItem(TItemPos(INVENTORY, item->GetCell()),
 						TItemPos(INVENTORY, (WORD)to), (BYTE)take))
 					break;
+				if (IsPlayerBotExplainOn())
+					if (LPITEM cutLine = ch->GetInventoryItem((WORD)to))
+					{
+						TPlayerBotLineCut cut;
+						cut.shape = per::SHAPE_CLASSIC_SPLIT_SINGLE;
+						cut.from = before;
+						cut.keep = keep;
+						NotePlayerBotExplainCut(cutLine->GetID(), cut);
+					}
 				++lines;
 				++split;
 			}
@@ -4319,6 +4762,22 @@ namespace
 
 	bool ManagePlayerBotPrivateShop(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
+		// Where a medal dropper with its stock stands in this pass, once a
+		// minute for the whole core: the stand it should open is the medals'
+		// only way to the market.
+		if (IsPlayerBotMedalStockReady(ch, state))
+			PlayerBotLogThrottled("medal_stock_gate", dwNow,
+					"PLAYERBOT_SHOP: medal stock pid=%u name=%s map=%ld ch=%u medals=%d offline=%d my_shop=%d visiting=%d/%d/%d keep_in_s=%d",
+					ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), (unsigned int)g_bChannel,
+					(int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM),
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+					HasPlayerBotOfflineShop(ch) ? 1 : 0,
+#else
+					0,
+#endif
+					ch->GetMyShop() ? 1 : 0, state.bVisitingShop ? 1 : 0,
+					state.bVisitingBiologist ? 1 : 0, state.bVisitingStable ? 1 : 0,
+					state.dwNextShopKeepTime > dwNow ? (int)((state.dwNextShopKeepTime - dwNow) / 1000) : 0);
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
 		if (HasPlayerBotOfflineShop(ch)) return false;
 #endif
@@ -4369,10 +4828,55 @@ namespace
 		// reason, which reads the whole bag: this pass runs on every tick of
 		// every bot without a counter.
 		if (state.bVisitingShop || state.bVisitingBiologist || state.bVisitingStable ||
-				state.bVisitingAlchemist)
+				state.bVisitingAlchemist || state.bVisitingUriel || state.bSaddlebagErrand != 0 ||
+				state.bVisitingDsAlchemist)
 			return false;
 		if (state.dwNextShopKeepTime != 0 && dwNow < state.dwNextShopKeepTime)
 			return false;
+		// A medal dropper with its stock (IsPlayerBotMedalStockReady) does not
+		// wait for a town errand to stand it in a village: it goes to the
+		// pitch. The dungeon lets it out in the second village, which takes no
+		// stand while the SHOP_M2 switch is off, so it goes to its first
+		// village - straight from wherever it is, the dungeon included, since
+		// this pass runs before the world travel.
+		const bool medalStock = IsPlayerBotMedalStockReady(ch, state);
+		if (medalStock && !IsPlayerBotShopMapAllowed(ch->GetMapIndex()) &&
+				!IsPlayerBotHeldForCompany(ch))
+		{
+			long homeMap = 0, homeX = 0, homeY = 0;
+			if (!GetPlayerBotVillageReturn(ch, playerbot_empire_rules::MAP_ROLE_M1,
+						homeMap, homeX, homeY) ||
+					!IsPlayerBotMapHostedHere(homeMap) || !IsPlayerBotShopMapAllowed(homeMap))
+			{
+				state.dwNextShopKeepTime = dwNow + number(600000, 900000);
+				sys_log(0, "PLAYERBOT_SHOP: medal stock has no first village here pid=%u name=%s map=%ld home=%ld",
+						ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), homeMap);
+				return false;
+			}
+			SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
+			if (!TransitionPlayerBotMap(ch, state, homeMap, homeX, homeY, dwNow,
+						"medal_stall_to_m1"))
+			{
+				state.dwNextShopKeepTime = dwNow + number(120000, 240000);
+				return false;
+			}
+			return true;
+		}
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+		// In its first village, on the other channel: every stand is on the
+		// shop channel, so it asks to be moved and waits in town for it (the
+		// hold in the manager), rather than being walked back to its hunting
+		// ground before the move comes through.
+		if (medalStock && !IsPlayerBotHeldForCompany(ch) &&
+				g_bChannel != playerbot_channel_rules::SHOP_CHANNEL)
+		{
+			EnsurePlayerBotPrivateShopChannel(ch, state, dwNow, "medals");
+			sys_log(0, "PLAYERBOT_SHOP: medal stock waits for the shop channel pid=%u name=%s map=%ld medals=%d here=%u",
+					ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(),
+					(int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM), (unsigned int)g_bChannel);
+			return false;
+		}
+#endif
 		// ...but "in town with nothing to do" is a state that barely exists: a bot
 		// comes to Bokjung *because* it has an errand, and leaves the moment the
 		// errand is done. The stall therefore opens right after a completed town
@@ -4410,7 +4914,7 @@ namespace
 		const bool alreadyAtPitch =
 				DISTANCE_APPROX(ch->GetX() - pitchX, ch->GetY() - pitchY) <=
 					PLAYERBOT_SHOP_RING_RADIUS + PLAYERBOT_MARKET_ARRIVE;
-		if (!justFinishedInTown && !alreadyAtPitch)
+		if (!justFinishedInTown && !alreadyAtPitch && !medalStock)
 			return false;
 
 		const BYTE bShopReason = GetPlayerBotShopReason(ch, state);
@@ -4581,7 +5085,7 @@ namespace
 		// OpenMyShop refuses a character whose main part is not its own body, so
 		// the horse has to go before the stall can be set up.
 		if (ch->IsRiding())
-			ch->StopRiding();
+			StopPlayerBotRiding(ch);
 		ch->HorseSummon(false);
 		ch->SetVictim(NULL);
 		ch->Stop();
@@ -4600,9 +5104,9 @@ namespace
 		BYTE tableCount = 0;
 		int bestScore = 0;
 		// What the sign will be about: every line that makes the counter, for
-		// Iwakura's rules (playerbot_shop_signs.h), and the best line for the
-		// world channel. The counter is sorted best first.
-		DWORD dwBestVnum = 0;
+		// Iwakura's rules (playerbot_shop_signs.h), and the best line's name for
+		// the world channel. The counter is sorted best first.
+		const char* pszBestName = NULL;
 		std::vector<LPITEM> signGoods;
 		bool grid[PLAYERBOT_SHOP_GRID_CELLS];
 		memset(grid, 0, sizeof(grid));
@@ -4613,6 +5117,9 @@ namespace
 		// Units of each kind a bot keeps by count (a book's skill, the soul
 		// stone) this counter already carries.
 		std::map<DWORD, int> countedListed;
+		// The candidates the counter passed over before each line, for the
+		// line's explanation (playerbot_explain.h).
+		int explainRefused = 0;
 		for (size_t i = 0; i < scored.size(); ++i)
 		{
 			if (tableCount >= tableLimit)
@@ -4623,7 +5130,10 @@ namespace
 			const WORD cell = scored[i].second;
 			LPITEM item = ch->GetInventoryItem(cell);
 			if (!item || item->IsEquipped() || item->isLocked())
+			{
+				++explainRefused;
 				continue;
+			}
 			// A stack of a kind kept by count goes up whole here, so it goes up
 			// only while what stays in the bag still holds the keep: the scorer
 			// calls a stack goods once it holds one unit over it, and the split
@@ -4632,12 +5142,16 @@ namespace
 			if (countedKind && !playerbot_stall_rules::MayListWhole(
 					CountPlayerBotStallKindUnits(ch, item), countedListed[countedKind],
 					(int)item->GetCount(), GetPlayerBotCountedGoodsKeep(ch, item)))
+			{
+				++explainRefused;
 				continue;
+			}
 			const TItemTable* proto = item->GetProto();
 			if (!proto || IS_SET(proto->dwAntiFlags,
 					ITEM_ANTIFLAG_GIVE | ITEM_ANTIFLAG_MYSHOP))
 			{
 				++uAntiFlag;
+				++explainRefused;
 				continue;
 			}
 			// Placed on the engine's grid by height, or the engine drops the
@@ -4647,18 +5161,51 @@ namespace
 			if (slot < 0)
 			{
 				++uNoSlot;
+				++explainRefused;
 				continue;
 			}
 			PutPlayerBotShopSlot(grid, slot, height);
 			if (state.mapStockFirstListed.find(item->GetID()) == state.mapStockFirstListed.end())
 				state.mapStockFirstListed[item->GetID()] = dwNow;
+			// The price traced step by step, and why the line is goods, for its
+			// explanation (playerbot_explain.h) - kept until the stand is up.
+			// The goods rule is asked before the trace opens: it may price other
+			// things on its way.
+			TPlayerBotListingExplain explained;
+			if (IsPlayerBotExplainOn())
+			{
+				TPlayerBotGoodsWhy why;
+				int goodsScore = 0;
+				ExplainPlayerBotGoods(ch, item, IsPlayerBotStallKeeper(state), why, goodsScore);
+				explained.itemId = item->GetID();
+				explained.pid = ch->GetPlayerID();
+				explained.vnum = item->GetVnum();
+				explained.count = item->GetCount();
+				explained.standReason = bShopReason;
+				explained.why = why.code;
+				explained.whyA = why.a;
+				explained.whyB = why.b;
+				explained.whyC = why.c;
+				explained.score = goodsScore;
+				explained.pickRank = (int)i;
+				explained.candidates = (int)scored.size();
+				explained.refusedAbove = explainRefused;
+				if (explainRefused > 0)
+					explained.flags |= per::LFLAG_LOW_RANK;
+				FindPlayerBotExplainCut(item->GetID(), explained.cut);
+				explained.flags |= GetPlayerBotListingWornFlags(ch, item);
+			}
+			TPlayerBotPriceTraceScope priceTrace;
 			DWORD price = GetPlayerBotShopAskingPrice(item);
 			// The clearance discount. Applied to the price as asked, so the sale
 			// memory still learns the real price the market would have paid.
 			// In 64 bits: a line of sixty-odd million wrapped in 32.
 			if (bPoor)
+			{
 				price = std::max<DWORD>(1, (DWORD)((unsigned long long)price *
 						PLAYERBOT_SHOP_POOR_DISCOUNT_PERCENT / 100ULL));
+				priceTrace.Step(per::STEP_POOR_DISCOUNT, price, 100 - PLAYERBOT_SHOP_POOR_DISCOUNT_PERCENT);
+			}
 			// Carried home unsold before: cheaper by the stand, after the price
 			// is asked so the sale memory learns the market and not the markdown.
 			// Ten percent a stand, four stands deep: Iwakura's forty at most of
@@ -4671,9 +5218,12 @@ namespace
 				int cut = 0;
 				std::map<DWORD, BYTE>::const_iterator unsold = state.mapStallUnsold.find(item->GetID());
 				if (unsold != state.mapStallUnsold.end() && unsold->second > 0)
+				{
 					cut = playerbot_price_rules::SteppedPercent(
 							std::min<int>(unsold->second, PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_STANDS),
 							PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT, PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL);
+					priceTrace.Step(per::STEP_MARKDOWN_CLOCK, price, unsold->second, per::CLOCK_STANDS);
+				}
 				int markup = 0;
 				price = GetPlayerBotListingPrice(item, price, cut, &markup);
 				if (markup > 0)
@@ -4687,7 +5237,22 @@ namespace
 			// (GetPlayerBotListingFloor): a poor keeper's clearance and four
 			// unsold stands took a chest to a third of the sheet's hundred
 			// thousand, a fifteenth of what is in it.
-			price = std::max(price, GetPlayerBotListingFloor(item));
+			{
+				const DWORD floor = GetPlayerBotListingFloor(item);
+				if (floor > price)
+				{
+					priceTrace.Step(per::STEP_LISTING_FLOOR, floor, floor);
+					priceTrace.trace.flags |= per::LFLAG_FLOOR_BOUND;
+				}
+				price = std::max(price, floor);
+			}
+			if (priceTrace.On())
+			{
+				explained.listPrice = price;
+				explained.steps = priceTrace.trace.Encode();
+				explained.flags |= priceTrace.trace.flags | priceTrace.trace.PriceFlags(price, item->GetCount());
+				SetPlayerBotListingPending(explained);
+			}
 			table[tableCount].vnum = item->GetVnum();
 			table[tableCount].count = item->GetCount();
 			table[tableCount].pos = TItemPos(INVENTORY, cell);
@@ -4712,8 +5277,8 @@ namespace
 			if (countedKind)
 				countedListed[countedKind] += (int)item->GetCount();
 
-			if (!dwBestVnum)
-				dwBestVnum = proto->dwVnum;
+			if (!pszBestName)
+				pszBestName = proto->szLocaleName;
 			signGoods.push_back(item);
 		}
 		// Asked again here rather than trusting the scan above: the inventory
@@ -4861,8 +5426,8 @@ namespace
 				offers[0].dwVnum, offers[0].dwPrice, ch->GetX(), ch->GetY(), sign);
 		// Worth crossing town for is worth a line on the world channel - the
 		// same bar the sign uses for a stall that carries one thing.
-		if (bestScore >= PLAYERBOT_SHOP_PRIZE_SCORE && dwBestVnum)
-			AnnouncePlayerBotStall(ch, dwBestVnum);
+		if (bestScore >= PLAYERBOT_SHOP_PRIZE_SCORE && pszBestName)
+			AnnouncePlayerBotStall(ch, pszBestName);
 		return true;
 	}
 
@@ -5012,8 +5577,21 @@ namespace
 		const long armorNpcY = svc.armourMerchant.y;
 		const long miscNpcX = svc.miscMerchant.x;
 		const long miscNpcY = svc.miscMerchant.y;
-		const long blacksmithNpcX = svc.blacksmith.x;
-		const long blacksmithNpcY = svc.blacksmith.y;
+		long blacksmithNpcX = svc.blacksmith.x;
+		long blacksmithNpcY = svc.blacksmith.y;
+		// A guild smith on this map for the gear of level thirty and up
+		// (playerbot_guild_land.h), chosen once a visit.
+		if (state.bTownVisitPhase == BOT_TOWN_PHASE_BLACKSMITH ||
+				state.bTownVisitPhase == BOT_TOWN_PHASE_BLACKSMITH_WAIT)
+		{
+			if (LPCHARACTER guildSmith = ChoosePlayerBotRefineGuildSmith(ch, state))
+			{
+				blacksmithNpcX = guildSmith->GetX();
+				blacksmithNpcY = guildSmith->GetY();
+			}
+		}
+		else
+			state.dwRefineGuildSmithVID = 0;
 
 		if (state.bTownVisitPhase == BOT_TOWN_PHASE_TRAINER ||
 				state.bTownVisitPhase == BOT_TOWN_PHASE_TRAINER_WAIT ||
@@ -5523,6 +6101,12 @@ namespace
 				state.bTownNeedMisc = false;
 				state.dwTownWaitUntil = dwNow + number(
 						PLAYERBOT_MERCHANT_WAIT_MIN, PLAYERBOT_MERCHANT_WAIT_MAX);
+				// The look's bonuses (playerbot_bonus.h): a stack of what the
+				// costume needs, then rolls while the bot stands here.
+				BuyPlayerBotCostumeReagent(ch, state);
+				state.dwCostumeBonusVisitEnd = dwNow + PLAYERBOT_COSTUME_BONUS_VISIT_MS;
+				state.dwNextCostumeBonusTime = 0;
+				ManagePlayerBotCostumeBonus(ch, state, dwNow);
 				state.bTownVisitPhase = BOT_TOWN_PHASE_MISC_WAIT;
 				sys_log(0, "PLAYERBOT_TOWN: misc merchant visit pid=%u name=%s wait_ms=%u pos=(%ld,%ld)",
 						ch->GetPlayerID(), ch->GetName(), state.dwTownWaitUntil - dwNow,
@@ -5535,6 +6119,15 @@ namespace
 		{
 			ch->Stop();
 			ch->SetPosition(POS_STANDING);
+			// Rolling on at the counter while there is a reagent and work, for
+			// up to PLAYERBOT_COSTUME_BONUS_VISIT_MS; the one stack a visit
+			// buys was bought on arrival.
+			if (dwNow < state.dwCostumeBonusVisitEnd)
+			{
+				if (ManagePlayerBotCostumeBonus(ch, state, dwNow))
+					state.dwTownWaitUntil = std::max<DWORD>(state.dwTownWaitUntil,
+							std::min<DWORD>(dwNow + 2500, state.dwCostumeBonusVisitEnd));
+			}
 			if (dwNow >= state.dwTownWaitUntil)
 			{
 				state.bTownVisitPhase = state.bTownNeedBlacksmith

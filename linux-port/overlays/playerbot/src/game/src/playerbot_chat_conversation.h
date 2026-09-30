@@ -36,15 +36,6 @@
 // but for the summon's walk and its guard, which drop the bot's own route and
 // target while a person has called it.
 //
-// A reply is in the language its reader reads (Jeremus-Sama, 28 September):
-// the person's own flag (IsPlayerBotPersonEnglish) goes into the pure layer as
-// CONV_LANG_EN or CONV_LANG_PL, and for a person another core holds, whose
-// flag this core cannot read, as CONV_LANG_UNKNOWN - that person is answered
-// in the language of their own lines. The snapshot and the world's answers
-// name items and monsters in the same language (PlayerBotConvItemNameIn,
-// PlayerBotConvMobNameIn), and each item's link is made under the name the
-// reply says.
-//
 // Runtime switches (files in the game core's working directory, checked every
 // 30 s, no restart needed):
 //   playerbot_conv_debug   - exists: PLAYERBOT_CONV / _QUEUE / _REPLY lines in syslog
@@ -190,7 +181,8 @@ namespace
 			case BOT_PERSONALITY_METIN_DROPPER:
 			case BOT_PERSONALITY_M3_DROPPER:
 			case BOT_PERSONALITY_M2_DROPPER:
-			case BOT_PERSONALITY_MEDAL_DROPPER: return S_DROPPER;
+			case BOT_PERSONALITY_MEDAL_DROPPER:
+			case BOT_PERSONALITY_GUILD_DROPPER: return S_DROPPER;
 			default: return S_ADVENTURER;
 		}
 	}
@@ -231,34 +223,11 @@ namespace
 			int m_players;
 	};
 
-	// An item's name in the reply's language: the official English one for an
-	// English reader where playerbot_language.h knows it (the names file, as
-	// GetPlayerBotItemNameIn reads it), the name the caller holds otherwise -
-	// so a Polish reader gets exactly the bytes it always got. Every item a
-	// reply names comes through here, and its link is made under what this
-	// returns.
-	std::string PlayerBotConvItemNameIn(DWORD dwVnum, const char* protoName, bool bEnglish)
-	{
-		if (bEnglish)
-			if (const char* en = FindPlayerBotItemNameEn(dwVnum))
-				return en;
-		return protoName ? std::string(protoName) : std::string();
-	}
-
-	// A monster's name in the reply's language: the English one where
-	// playerbot_language.h knows it (GetPlayerBotMobNameEn), the proto's
-	// Polish one otherwise.
-	std::string PlayerBotConvMobNameIn(DWORD dwVnum, const char* protoName, bool bEnglish)
-	{
-		const char* name = protoName ? protoName : "";
-		return bEnglish ? std::string(GetPlayerBotMobNameEn(dwVnum, name)) : std::string(name);
-	}
-
-	std::string PlayerBotConvItemName(LPITEM item, bool bEnglish)
+	std::string PlayerBotConvItemName(LPITEM item)
 	{
 		if (!item || !item->GetProto())
 			return std::string();
-		std::string name = PlayerBotConvItemNameIn(item->GetVnum(), item->GetProto()->szLocaleName, bEnglish);
+		std::string name = item->GetProto()->szLocaleName;
 		// The table's name already carries the grade ("Pajecza Wlocznia+8"), so
 		// appending it said the plus twice.
 		if (item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR)
@@ -277,34 +246,6 @@ namespace
 	bool PlayerBotConvNameMatches(const char* protoName, const std::string& query)
 	{
 		return playerbot_conv::ItemNameMatches(protoName, query);
-	}
-
-	// The same for an item whose English name the person may have written:
-	// its Polish name and aliases first, then its English name where it has
-	// one of its own.
-	bool PlayerBotConvItemMatches(DWORD vnum, const char* protoName, const std::string& query)
-	{
-		if (PlayerBotConvNameMatches(protoName, query))
-			return true;
-		const std::string english = PlayerBotConvItemNameIn(vnum, protoName, true);
-		return english != (protoName ? protoName : "") && PlayerBotConvNameMatches(english.c_str(), query);
-	}
-
-	// A stall line's name in the reply's language. A book's line is named after
-	// its skill by the trade layer (GetPlayerBotStallLineName) and keeps that
-	// name: the item's own would lose the skill.
-	std::string PlayerBotConvLineName(const TPlayerBotStallLine& line, bool bEnglish)
-	{
-		if (line.skill != 0 || line.forget)
-			return line.name;
-		return PlayerBotConvItemNameIn(line.vnum, line.name.c_str(), bEnglish);
-	}
-
-	// The line's link under the name the reply gives the line, which is the
-	// line's own name for a Polish reader.
-	std::string PlayerBotConvLineLink(const TPlayerBotStallLine& line, const std::string& shown)
-	{
-		return shown == line.name ? line.link : playerbot_item_link::Rename(line.link, shown);
 	}
 
 	// The items a bot's conversation named, and the client's link for each
@@ -402,29 +343,6 @@ namespace
 		}
 		out.peer = P2P_MANAGER::instance().FindByPID(pid);
 		return out.peer != NULL;
-	}
-
-	// The language the person reads, as the pure layer takes it: the flag of a
-	// person this core holds, CONV_LANG_UNKNOWN for one another core holds -
-	// the flag is a quest flag of that core's.
-	int GetPlayerBotConvPersonLanguage(const TPlayerBotConvPerson& person)
-	{
-		if (!person.local)
-			return playerbot_conv::CONV_LANG_UNKNOWN;
-		return IsPlayerBotPersonEnglish(person.local) ? playerbot_conv::CONV_LANG_EN : playerbot_conv::CONV_LANG_PL;
-	}
-
-	// The language a reply to the person is written in, decided as the pure
-	// layer decides it (playerbot_conv::ReaderEnglish): the flag, or without
-	// one the language of the person's own lines to this bot. The snapshot
-	// names things in it, and the world answers in it.
-	bool IsPlayerBotConvReplyEnglish(DWORD playerPID, DWORD botPID, const TPlayerBotConvPerson& person)
-	{
-		const int language = GetPlayerBotConvPersonLanguage(person);
-		if (language != playerbot_conv::CONV_LANG_UNKNOWN)
-			return language == playerbot_conv::CONV_LANG_EN;
-		const playerbot_conv::TConvPair* pair = s_PlayerBotConvEngine.FindPair(playerPID, botPID);
-		return pair && playerbot_conv::ReaderEnglish(language, pair->mem);
 	}
 
 	// ------------------------------------------------------ a Shaman's buffs
@@ -774,35 +692,22 @@ namespace
 		{
 			if (!bot || !player || !player->GetDesc())
 				return;
-			const bool en = IsPlayerBotPersonEnglish(player);
 			if (reason == SUMMON_END_UNREACHABLE)
-				TellPlayerBotPerson(player, PBT(en, "[Gildia] %s nie moze do ciebie dojsc.", "[Guild] %s cannot reach you."),
+				TellPlayerBotPerson(player, "[Gildia] %s nie moze do ciebie dojsc.",
 						bot->GetName());
 			else if (reason == SUMMON_END_BLOCKED)
-				TellPlayerBotPerson(player, PBT(en, "[Gildia] %s musi odejsc - ma pilniejsza sprawe.",
-						"[Guild] %s has to go - something more urgent came up."), bot->GetName());
+				TellPlayerBotPerson(player, "[Gildia] %s musi odejsc - ma pilniejsza sprawe.", bot->GetName());
 			else if (reason == SUMMON_END_EXPIRED && !IsPlayerBotGuildOrderRunning(summon.dwPlayerPID))
-				TellPlayerBotPerson(player, "%s", PBT(en, "[Gildia] Boty gildii wracaja do swoich spraw.",
-						"[Guild] Your guild's bots go back to their own business."));
+				TellPlayerBotPerson(player, "%s", "[Gildia] Boty gildii wracaja do swoich spraw.");
 			return;
 		}
-		// The rest of the conversation's whispers are the pure layer's; these
-		// four are said by the walk itself, in the language the person reads.
-		const bool en = IsPlayerBotPersonEnglish(player);
 		const char* words = NULL;
 		switch (reason)
 		{
-			case SUMMON_END_EXPIRED:
-				words = PBT(en, "Dobra, musze wracac do swoich spraw. Na razie!", "Alright, gotta get back to my own stuff. See ya!");
-				break;
-			case SUMMON_END_UNREACHABLE:
-				words = PBT(en, "Nie moge do ciebie dojsc, sorki. Wracam do swoich spraw.",
-						"Can't get to you, sorry. Going back to my own stuff.");
-				break;
-			case SUMMON_END_BLOCKED: words = PBT(en, "Musze isc, cos mi wypadlo.", "Gotta go, something came up."); break;
-			case SUMMON_END_PLAYER_LEFT:
-				words = PBT(en, "Poszedles gdzies, to wracam do swoich spraw.", "You went off somewhere, so I'm back to my own stuff.");
-				break;
+			case SUMMON_END_EXPIRED: words = "Dobra, musze wracac do swoich spraw. Na razie!"; break;
+			case SUMMON_END_UNREACHABLE: words = "Nie moge do ciebie dojsc, sorki. Wracam do swoich spraw."; break;
+			case SUMMON_END_BLOCKED: words = "Musze isc, cos mi wypadlo."; break;
+			case SUMMON_END_PLAYER_LEFT: words = "Poszedles gdzies, to wracam do swoich spraw."; break;
 			default: break;
 		}
 		if (words && bot && player && player->GetDesc())
@@ -1149,11 +1054,11 @@ namespace
 		// A guild's order says which: the help, or the hunt together.
 		const bool arrived = it->second.dwArrivedAt != 0;
 		if (it->second.bOrder == playerbot_guild_order_rules::ORDER_HELP)
-			snprintf(status, statusSize, arrived ? PBT(en, "%sPomagam %s", "%sHelping %s")
-					: PBT(en, "%sIde na pomoc %s", "%sComing to help %s"), prefix ? prefix : "", who);
+			snprintf(status, statusSize, arrived ? "%sPomagam %s"
+					: "%sIde na pomoc %s", prefix ? prefix : "", who);
 		else if (it->second.bOrder == playerbot_guild_order_rules::ORDER_HUNT)
-			snprintf(status, statusSize, arrived ? PBT(en, "%sExpie z %s", "%sHunting with %s")
-					: PBT(en, "%sIde expic z %s", "%sGoing to hunt with %s"), prefix ? prefix : "", who);
+			snprintf(status, statusSize, arrived ? "%sExpie z %s"
+					: "%sIde expic z %s", prefix ? prefix : "", who);
 		else if (!arrived)
 			snprintf(status, statusSize, PBT(en, "%sIde do %s", "%sGoing to %s"), prefix ? prefix : "", who);
 		else
@@ -1165,7 +1070,7 @@ namespace
 
 	// The cheapest single-piece price of a matching line, per piece for stacks.
 	void NotePlayerBotConvMarketLines(const TPlayerBotStall& stall, const std::vector<std::string>& candidates,
-			DWORD skill, bool forget, bool bEnglish, std::string& outName, long long& outPrice, unsigned int& outSellers,
+			DWORD skill, bool forget, std::string& outName, long long& outPrice, unsigned int& outSellers,
 			DWORD& seenVnum, std::string& outLink)
 	{
 		for (size_t i = 0; i < stall.lines.size(); ++i)
@@ -1181,8 +1086,8 @@ namespace
 			if (outPrice == 0 || unit < outPrice)
 			{
 				outPrice = unit;
-				outName = PlayerBotConvLineName(line, bEnglish);
-				outLink = PlayerBotConvLineLink(line, outName);
+				outName = line.name;
+				outLink = line.link;
 			}
 			return; // one line per stall is enough for "the cheapest"
 		}
@@ -1191,16 +1096,14 @@ namespace
 	class CPlayerBotConvWorld : public playerbot_conv::IConvWorld
 	{
 		public:
-			CPlayerBotConvWorld() : m_bot(NULL), m_player(NULL), m_channel(0), m_english(false) {}
+			CPlayerBotConvWorld() : m_bot(NULL), m_player(NULL), m_channel(0) {}
 			// `player` is NULL for a person on another core; `channel` is the
-			// one the person plays on, whose counters "ile chodzi" reads;
-			// `english` the language of the reply the answers go into.
-			void Bind(LPCHARACTER bot, LPCHARACTER player, int channel, bool english)
+			// one the person plays on, whose counters "ile chodzi" reads.
+			void Bind(LPCHARACTER bot, LPCHARACTER player, int channel)
 			{
 				m_bot = bot;
 				m_player = player;
 				m_channel = channel;
-				m_english = english;
 			}
 
 			bool FindItem(const std::string& query, std::string& outName, unsigned int& outCount)
@@ -1210,9 +1113,9 @@ namespace
 				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 				{
 					LPITEM item = m_bot->GetInventoryItem(cell);
-					if (item && item->GetProto() && PlayerBotConvItemMatches(item->GetVnum(), item->GetProto()->szLocaleName, query))
+					if (item && item->GetProto() && PlayerBotConvNameMatches(item->GetProto()->szLocaleName, query))
 					{
-						outName = PlayerBotConvItemNameIn(item->GetVnum(), item->GetProto()->szLocaleName, m_english);
+						outName = item->GetProto()->szLocaleName;
 						outCount = (unsigned int)item->GetCount();
 						NotePlayerBotConvLink(m_bot->GetPlayerID(), outName, MakePlayerBotItemLink(item, outName.c_str()), true);
 						return true;
@@ -1222,10 +1125,10 @@ namespace
 				for (size_t i = 0; i < sizeof(worn) / sizeof(worn[0]); ++i)
 				{
 					LPITEM item = m_bot->GetWear(worn[i]);
-					if (item && item->GetProto() && PlayerBotConvItemMatches(item->GetVnum(), item->GetProto()->szLocaleName, query))
+					if (item && item->GetProto() && PlayerBotConvNameMatches(item->GetProto()->szLocaleName, query))
 					{
-						const std::string named = PlayerBotConvItemName(item, m_english);
-						outName = named + PBT(m_english, " (na sobie)", " (worn)");
+						const std::string named = PlayerBotConvItemName(item);
+						outName = named + " (na sobie)";
 						outCount = 1;
 						NotePlayerBotConvLink(m_bot->GetPlayerID(), named, MakePlayerBotItemLink(item, named.c_str()), true);
 						return true;
@@ -1253,10 +1156,10 @@ namespace
 				{
 					if (!PlayerBotStallLineMatches(stall.lines[i], candidates, skill != 0, forget, skill))
 						continue;
-					outName = PlayerBotConvLineName(stall.lines[i], m_english);
+					outName = stall.lines[i].name;
 					outPrice = stall.lines[i].price;
 					outCount = stall.lines[i].count;
-					NotePlayerBotConvLink(m_bot->GetPlayerID(), outName, PlayerBotConvLineLink(stall.lines[i], outName), true);
+					NotePlayerBotConvLink(m_bot->GetPlayerID(), outName, stall.lines[i].link, true);
 					return true;
 				}
 				return false;
@@ -1289,8 +1192,7 @@ namespace
 					if (!keeper || !keeper->GetMyShop() || !GetPlayerBotStall(it->first, keeper, stall) ||
 							stall.channel != m_channel)
 						continue;
-					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, m_english, outName, outPrice, outSellers,
-							seenVnum, link);
+					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, outName, outPrice, outSellers, seenVnum, link);
 				}
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
 				for (const auto& entry : ikashop::GetManager().GetPlayerBotOfflineShops())
@@ -1300,8 +1202,7 @@ namespace
 						continue;
 					if (!GetPlayerBotStall(entry.first, NULL, stall))
 						continue;
-					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, m_english, outName, outPrice, outSellers,
-							seenVnum, link);
+					NotePlayerBotConvMarketLines(stall, candidates, skill, forget, outName, outPrice, outSellers, seenVnum, link);
 				}
 #endif
 				if (outPrice > 0)
@@ -1334,21 +1235,20 @@ namespace
 				for (std::set<DWORD>::const_iterator it = materials.begin(); it != materials.end(); ++it)
 				{
 					const TItemTable* proto = ITEM_MANAGER::instance().GetTable(*it);
-					if (proto && PlayerBotConvItemMatches(*it, proto->szLocaleName, query))
+					if (proto && PlayerBotConvNameMatches(proto->szLocaleName, query))
 					{
 						wanted = *it;
 						break;
 					}
 				}
 				if (!wanted)
-					return PBT(m_english, "Tego raczej nie szukam.", "Not really looking for that.");
+					return "Tego raczej nie szukam.";
 				if (!PlayerBotNeedsRefineMaterial(m_bot, wanted))
-					return PBT(m_english, "Mam tego na razie dosc.", "Got enough of that for now.");
+					return "Mam tego na razie dosc.";
 				const TItemTable* proto = ITEM_MANAGER::instance().GetTable(wanted);
-				const std::string name = proto ? PlayerBotConvItemNameIn(wanted, proto->szLocaleName, m_english) : query;
 				char reply[CHAT_MAX_LEN + 1];
-				snprintf(reply, sizeof(reply), PBT(m_english, "O, %s mi sie przyda. Wystaw na straganie, na pewno zajrze.",
-						"Oh, %s would come in handy. Put it up in your shop, I'll check it out for sure."), name.c_str());
+				snprintf(reply, sizeof(reply), "O, %s mi sie przyda. Wystaw na straganie, na pewno zajrze.",
+						proto ? proto->szLocaleName : query.c_str());
 				return reply;
 			}
 
@@ -1375,7 +1275,6 @@ namespace
 			LPCHARACTER m_bot;
 			LPCHARACTER m_player;
 			int m_channel;
-			bool m_english;
 	};
 
 	// ---------------------------------------------------------------- host
@@ -1405,10 +1304,6 @@ namespace
 				s.askerName = person.Name();
 				s.channel = g_bChannel;
 				s.askerChannel = person.Channel();
-				// The reader's language, and the one every name below is in.
-				s.askerLanguageKnown = GetPlayerBotConvPersonLanguage(person) != CONV_LANG_UNKNOWN;
-				s.askerEnglish = IsPlayerBotConvReplyEnglish(playerPID, botPID, person);
-				const bool en = s.askerEnglish;
 				s.level = bot->GetLevel();
 				s.job = bot->GetJob();
 				s.empire = bot->GetEmpire();
@@ -1429,13 +1324,7 @@ namespace
 					LPCHARACTER target = CHARACTER_MANAGER::instance().Find(state.dwTargetVID);
 					if (target && !target->IsDead())
 					{
-						// A character is named by its name; a monster by its
-						// kind's, in the reader's language, with the proto's own
-						// kept for the family when the two differ.
-						s.targetName = target->IsPC() ? std::string(target->GetName())
-								: PlayerBotConvMobNameIn(target->GetRaceNum(), target->GetName(), en);
-						if (s.targetName != target->GetName())
-							s.targetProtoName = target->GetName();
+						s.targetName = target->GetName();
 						s.targetStone = target->IsStone();
 						s.targetBoss = target->IsMonster() && target->GetMobRank() >= MOB_RANK_BOSS;
 						s.targetPlayer = target->IsPC();
@@ -1499,13 +1388,12 @@ namespace
 						{
 							if (!s.bagSummary.empty())
 								s.bagSummary += ", ";
-							s.bagSummary += PlayerBotConvItemName(item, en);
+							s.bagSummary += PlayerBotConvItemName(item);
 							++listed;
 							// Linked under the name without its " x3": the count
 							// stays beside the link.
 							const std::string named = item->GetType() == ITEM_WEAPON || item->GetType() == ITEM_ARMOR
-									? PlayerBotConvItemName(item, en)
-									: PlayerBotConvItemNameIn(item->GetVnum(), item->GetProto()->szLocaleName, en);
+									? PlayerBotConvItemName(item) : std::string(item->GetProto()->szLocaleName);
 							NotePlayerBotConvLink(botPID, named, MakePlayerBotItemLink(item, named.c_str()));
 						}
 					}
@@ -1513,7 +1401,7 @@ namespace
 				LPITEM weapon = bot->GetWear(WEAR_WEAPON);
 				if (weapon && weapon->GetProto())
 				{
-					s.weaponName = PlayerBotConvItemNameIn(weapon->GetVnum(), weapon->GetProto()->szLocaleName, en);
+					s.weaponName = weapon->GetProto()->szLocaleName;
 					s.weaponPlus = weapon->GetRefineLevel();
 					s.weaponLevel = weapon->GetLevelLimit();
 					// $WEAPON prints GearName (playerbot_conv_say.h).
@@ -1533,8 +1421,7 @@ namespace
 						const TItemTable* goalProto = ITEM_MANAGER::instance().GetTable(goal.family->dwBaseVnum);
 						if (goalProto)
 						{
-							s.weaponGoal = playerbot_conv::GearName(
-									PlayerBotConvItemNameIn(goal.family->dwBaseVnum, goalProto->szLocaleName, en), 0);
+							s.weaponGoal = playerbot_conv::GearName(goalProto->szLocaleName, 0);
 							s.weaponGoalPrice = (long long)GetPlayerBotWeaponGoalPrice(goal.family);
 						}
 						s.weaponIsGoal = hand && hand->GetVnum() - (DWORD)hand->GetRefineLevel() == goal.family->dwBaseVnum;
@@ -1553,7 +1440,7 @@ namespace
 				LPITEM body = bot->GetWear(WEAR_BODY);
 				if (body && body->GetProto())
 				{
-					s.armorName = PlayerBotConvItemNameIn(body->GetVnum(), body->GetProto()->szLocaleName, en);
+					s.armorName = body->GetProto()->szLocaleName;
 					s.armorPlus = body->GetRefineLevel();
 					const std::string named = GearName(s.armorName, s.armorPlus);
 					NotePlayerBotConvLink(botPID, named, MakePlayerBotItemLink(body, named.c_str()));
@@ -1570,7 +1457,7 @@ namespace
 					const TItemTable* proto = wanted ? ITEM_MANAGER::instance().GetTable(wanted) : NULL;
 					if (proto)
 					{
-						s.bioWanted = PlayerBotConvItemNameIn(wanted, proto->szLocaleName, en);
+						s.bioWanted = proto->szLocaleName;
 						break;
 					}
 				}
@@ -1580,7 +1467,7 @@ namespace
 					const CMob* mob = huntVnum ? CMobManager::instance().Get(huntVnum) : NULL;
 					if (mob)
 					{
-						s.huntMob = PlayerBotConvMobNameIn(huntVnum, mob->m_table.szLocaleName, en);
+						s.huntMob = mob->m_table.szLocaleName;
 						s.huntRemaining = remaining;
 					}
 				}
@@ -1605,12 +1492,11 @@ namespace
 						{
 							if (!s.shopSummary.empty())
 								s.shopSummary += ", ";
-							const std::string shown = PlayerBotConvLineName(stall.lines[i], en);
-							s.shopSummary += shown;
-							NotePlayerBotConvLink(botPID, shown, PlayerBotConvLineLink(stall.lines[i], shown));
+							s.shopSummary += stall.lines[i].name;
+							NotePlayerBotConvLink(botPID, stall.lines[i].name, stall.lines[i].link);
 							if (stall.lines[i].count > 1)
 								s.shopSummary += " x" + ToString((long long)stall.lines[i].count);
-							s.shopSummary += en ? " for " : " za ";
+							s.shopSummary += " za ";
 							s.shopSummary += FormatYang(stall.lines[i].price);
 						}
 					}
@@ -1690,18 +1576,8 @@ namespace
 				FindPlayerBotConvPerson(playerPID, person);
 				const int channel = person.Channel();
 				m_world.Bind(CHARACTER_MANAGER::instance().FindByPID(botPID), person.local,
-						channel ? channel : (int)g_bChannel, IsPlayerBotConvReplyEnglish(playerPID, botPID, person));
+						channel ? channel : (int)g_bChannel);
 				return &m_world;
-			}
-
-			// The flag of the person writing, for the line's own reading: a line
-			// whose words say nothing either way is read in it.
-			int AskerLanguage(playerbot_conv::u32 playerPID, playerbot_conv::u32 botPID)
-			{
-				(void)botPID;
-				TPlayerBotConvPerson person;
-				FindPlayerBotConvPerson(playerPID, person);
-				return GetPlayerBotConvPersonLanguage(person);
 			}
 
 			void Send(playerbot_conv::u32 playerPID, playerbot_conv::u32 botPID, const std::string& text)

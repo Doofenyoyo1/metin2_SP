@@ -178,6 +178,13 @@ namespace
 	// same DEFERRED and the log could not tell them apart, so a deferral was
 	// read more than once as a destination with no route to it.
 	const char* s_szPlayerBotNavDeferReason = "none";
+	// A walk to a world portal (MovePlayerBotToWorldPortal) sets this for its
+	// one plan: such a plan is not queued behind the per-tick count nor the
+	// far plans of the minute - on the busiest channel those turned the long
+	// walks to the Teleporter away until the walk stalled and the bot went
+	// back to its hunting ground (upstream 2.2.39). The tick's microsecond
+	// budget still applies.
+	bool s_bPlayerBotNavPortalPlan = false;
 
 	enum EPlayerBotNavPlanResult
 	{
@@ -315,6 +322,7 @@ namespace
 						mapIndex != PLAYERBOT_MAP_FIRE_LAND &&
 						mapIndex != PLAYERBOT_MAP_GROTTO_V1 &&
 						mapIndex != PLAYERBOT_MAP_GROTTO_V2 &&
+						mapIndex != PLAYERBOT_MAP_OCHAO && // MT2009_PLUS_OCHAO_BOTS_V1
 						mapIndex != PLAYERBOT_MAP_CATACOMB)
 					return false;
 
@@ -772,12 +780,12 @@ namespace
 				// could not tell them apart - so "deferred" was read as "no way
 				// there" more than once. Say which one it was.
 				const int planCost = PLAYERBOT_NAV_PLAN_COST[planBucket];
-				const bool overCount = planCost > 0 && !starved &&
+				const bool overCount = planCost > 0 && !starved && !s_bPlayerBotNavPortalPlan &&
 						s_iPlayerBotNavHeavyPlansThisTick + planCost >
 							PLAYERBOT_NAV_MAX_HEAVY_PLANS_PER_TICK;
 				if (overCount ||
 						s_uPlayerBotNavPlanUsThisTick >= PLAYERBOT_NAV_PLAN_TIME_BUDGET_US ||
-						(planBucket == 3 &&
+						(planBucket == 3 && !s_bPlayerBotNavPortalPlan &&
 						 s_iPlayerBotNavFarPlansThisMinute >= PLAYERBOT_NAV_MAX_FAR_PLANS_PER_MINUTE))
 				{
 					s_szPlayerBotNavDeferReason = overCount
@@ -1230,6 +1238,13 @@ namespace
 								continue;
 							const int index = Index(x, y);
 							if (requiredComponent != 0 && m_component[index] != requiredComponent)
+								continue;
+							// MT2009_PLUS_NAV_LIVE_OBJECT_V1: and free in the live world
+							// too. A guild building (ATTR_OBJECT, placed long after this
+							// grid was built) left its footprint walkable here: a bot
+							// that walked to a guild smith inside it was "rescued" onto
+							// its own blocked cell every second and never moved again.
+							if (IsLiveBlockedCell(x, y))
 								continue;
 							const DWORD tie = PlayerBotNavHash(seed ^ (DWORD)index);
 							if (!found || tie < bestTie)

@@ -107,6 +107,28 @@ namespace
 	// author's town; zero is the operator who wants every bot hunting, asked
 	// for by name. The level floor beside it is PLAYERBOT_TOWN_REST_MIN_LEVEL.
 	int s_iPlayerBotRestPercent = 100;
+	// Three wills, in percent of what the build does (the operator, 29
+	// September: "suwaki: checi robienia Battle Passa, szarf, alchemii").
+	// A hundred is the world as it was and the default; zero is none of it.
+	//   BATTLEPASS - the draw a bot makes to take a Battle Pass mission on as
+	//     an errand (playerbot_bpbots.h AdoptChance, and the next errand of a
+	//     chain); what it does for the pass by the way still counts;
+	//   SASH - the share of the sash keepers (playerbot_sash.h
+	//     PLAYERBOT_SASH_KEEPER_PERCENT): the others sell their sashes;
+	//   ALCHEMY - the share of the Dragon Soul users (playerbot_alchemy.h
+	//     PLAYERBOT_ALCHEMY_PERCENT): the others sell their Cors and stones.
+	// Both shares go by player id, so raising the slider again brings back
+	// the same bots.
+	int s_iPlayerBotBattlePassPercent = 100;
+	int s_iPlayerBotSashPercent = 100;
+	int s_iPlayerBotAlchemyPercent = 100;
+	// How many days the explanations of the bots' decisions stay in the log
+	// database (EXPLAIN, playerbot_explain.h): why a line went on a counter and
+	// how its price was reached, why a worn piece was changed. Zero records
+	// nothing and computes nothing; with no line in the file, a week.
+	const int PLAYERBOT_EXPLAIN_DEFAULT_DAYS = 7;
+	const int PLAYERBOT_EXPLAIN_MAX_DAYS = 30;
+	int s_iPlayerBotExplainDays = PLAYERBOT_EXPLAIN_DEFAULT_DAYS;
 	// The manager tick's time budget per pass, in milliseconds (TICK_MS; see
 	// PLAYERBOT_TICK_BUDGET_MS_DEFAULT). Zero is no budget.
 	int s_iPlayerBotTickBudgetMs = PLAYERBOT_TICK_BUDGET_MS_DEFAULT;
@@ -173,6 +195,10 @@ namespace
 	// world as it was, whole, while a world is running.
 	bool s_bPlayerBotPersona = true;
 	bool s_bPlayerBotPersonaReported = true;
+	// MT2009_PLUS_SHOUTERS_V1: the three shouters of the first villages (the
+	// SHOUTERS key, playerbot_shouters.h). On by default; off logs them out.
+	bool s_bPlayerBotShouters = true;
+	bool s_bPlayerBotShoutersReported = true;
 	// What the clock last asked the DB core for, so a request is not repeated
 	// every minute while the round trip is still in flight, and so switching
 	// the clock off in the middle of a night lowers the flag it raised.
@@ -219,6 +245,10 @@ namespace
 		s_bPlayerBotOverheadChat = true;
 		s_iPlayerBotScrapPercent = 0;
 		s_iPlayerBotRestPercent = 100;
+		s_iPlayerBotBattlePassPercent = 100;
+		s_iPlayerBotSashPercent = 100;
+		s_iPlayerBotAlchemyPercent = 100;
+		s_iPlayerBotExplainDays = PLAYERBOT_EXPLAIN_DEFAULT_DAYS;
 		s_iPlayerBotTickBudgetMs = PLAYERBOT_TICK_BUDGET_MS_DEFAULT;
 		s_iPlayerBotKingdomPvpPercent = 0;
 		s_iPlayerBotScrollFromPlus = 1;
@@ -232,6 +262,7 @@ namespace
 		s_bPlayerBotCatacombRaids = true;
 		s_bPlayerBotItemShop = true;
 		s_bPlayerBotShopsInM2 = false;
+		s_bPlayerBotShouters = true;
 		s_bPlayerBotPersona = true;
 		if (s_iPlayerBotChestConfigPermille < 0)
 		{
@@ -380,6 +411,17 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			s_bPlayerBotItemShop = enabled;
 			return;
 		}
+		if (PlayerBotWeightNameEquals(szKey, "SHOUTERS"))
+		{
+			const bool enabled = value != 0;
+			if (enabled != s_bPlayerBotShoutersReported)
+			{
+				sys_log(0, "PLAYERBOT_CONFIG: shouters of the first villages %s", enabled ? "on" : "off");
+				s_bPlayerBotShoutersReported = enabled;
+			}
+			s_bPlayerBotShouters = enabled;
+			return;
+		}
 		if (PlayerBotWeightNameEquals(szKey, "PERSONA"))
 		{
 			const bool enabled = value != 0;
@@ -422,6 +464,33 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			if (percent != s_iPlayerBotRestPercent)
 				sys_log(0, "PLAYERBOT_CONFIG: town rest %d%%", percent);
 			s_iPlayerBotRestPercent = percent;
+			return;
+		}
+		if (PlayerBotWeightNameEquals(szKey, "BATTLEPASS") ||
+				PlayerBotWeightNameEquals(szKey, "SASH") ||
+				PlayerBotWeightNameEquals(szKey, "ALCHEMY"))
+		{
+			// 0-250 like the goal weights: above 100 the share grows (sashes
+			// 80% -> all bots from 125, alchemy 75% -> all from 134, the BP
+			// draw scaled); every consumer caps itself at all bots.
+			const int percent = value < 0 ? 0 : (value > 250 ? 250 : (int)value);
+			int& wanted = PlayerBotWeightNameEquals(szKey, "BATTLEPASS") ? s_iPlayerBotBattlePassPercent :
+					(PlayerBotWeightNameEquals(szKey, "SASH") ? s_iPlayerBotSashPercent : s_iPlayerBotAlchemyPercent);
+			// Against the default the reset put back, so the line is written
+			// only when the file asks for something else than the build does.
+			if (percent != wanted)
+				sys_log(0, "PLAYERBOT_CONFIG: will %s %d%%", szKey, percent);
+			wanted = percent;
+			return;
+		}
+		if (PlayerBotWeightNameEquals(szKey, "EXPLAIN"))
+		{
+			const int days = value < 0 ? 0 : (value > PLAYERBOT_EXPLAIN_MAX_DAYS
+					? PLAYERBOT_EXPLAIN_MAX_DAYS : (int)value);
+			if (days != s_iPlayerBotExplainDays)
+				sys_log(0, "PLAYERBOT_CONFIG: explanations of the bots' decisions %s%d%s",
+						days ? "kept " : "", days, days ? " days" : " (off, nothing recorded)");
+			s_iPlayerBotExplainDays = days;
 			return;
 		}
 		if (PlayerBotWeightNameEquals(szKey, "TICK_MS"))
@@ -578,10 +647,20 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			return s_bPlayerBotShopsInM2 ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "PERSONA"))
 			return s_bPlayerBotPersona ? 1 : 0;
+		if (PlayerBotWeightNameEquals(szKey, "SHOUTERS"))
+			return s_bPlayerBotShouters ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "SCRAP"))
 			return s_iPlayerBotScrapPercent;
 		if (PlayerBotWeightNameEquals(szKey, "REST"))
 			return s_iPlayerBotRestPercent;
+		if (PlayerBotWeightNameEquals(szKey, "BATTLEPASS"))
+			return s_iPlayerBotBattlePassPercent;
+		if (PlayerBotWeightNameEquals(szKey, "SASH"))
+			return s_iPlayerBotSashPercent;
+		if (PlayerBotWeightNameEquals(szKey, "ALCHEMY"))
+			return s_iPlayerBotAlchemyPercent;
+		if (PlayerBotWeightNameEquals(szKey, "EXPLAIN"))
+			return s_iPlayerBotExplainDays;
 		if (PlayerBotWeightNameEquals(szKey, "KINGDOMPVP"))
 			return s_iPlayerBotKingdomPvpPercent;
 		if (PlayerBotWeightNameEquals(szKey, "WAR_MINUTES"))
@@ -634,7 +713,8 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 				PlayerBotWeightNameEquals(szKey, "CATACOMB") ||
 				PlayerBotWeightNameEquals(szKey, "ISHOP") ||
 				PlayerBotWeightNameEquals(szKey, "SHOP_M2") ||
-				PlayerBotWeightNameEquals(szKey, "PERSONA"))
+				PlayerBotWeightNameEquals(szKey, "PERSONA") ||
+				PlayerBotWeightNameEquals(szKey, "SHOUTERS"))
 		{
 			value = value ? 1 : 0;
 			return true;
@@ -642,6 +722,18 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 		if (PlayerBotWeightNameEquals(szKey, "SCRAP"))
 		{
 			value = value < 0 ? 0 : (value > 100 ? 100 : value);
+			return true;
+		}
+		if (PlayerBotWeightNameEquals(szKey, "EXPLAIN"))
+		{
+			value = value < 0 ? 0 : (value > PLAYERBOT_EXPLAIN_MAX_DAYS ? PLAYERBOT_EXPLAIN_MAX_DAYS : value);
+			return true;
+		}
+		if (PlayerBotWeightNameEquals(szKey, "BATTLEPASS") ||
+				PlayerBotWeightNameEquals(szKey, "SASH") ||
+				PlayerBotWeightNameEquals(szKey, "ALCHEMY"))
+		{
+			value = value < 0 ? 0 : (value > 250 ? 250 : value);
 			return true;
 		}
 		if (PlayerBotWeightNameEquals(szKey, "CHEST") ||
@@ -1123,6 +1215,14 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 		if (!s_bPlayerBotWeightsInitialised)
 			ResetPlayerBotWeights();
 		return s_bPlayerBotPersona;
+	}
+
+	// MT2009_PLUS_SHOUTERS_V1: the SHOUTERS switch (playerbot_shouters.h).
+	bool IsPlayerBotShoutersEnabled()
+	{
+		if (!s_bPlayerBotWeightsInitialised)
+			ResetPlayerBotWeights();
+		return s_bPlayerBotShouters;
 	}
 
 	// The WARS switch, asked by ManagePlayerBotGuildWars.

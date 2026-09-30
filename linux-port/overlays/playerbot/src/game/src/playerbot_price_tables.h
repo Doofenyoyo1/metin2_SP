@@ -377,7 +377,7 @@ namespace
 		{ 27580, 10000000 },	// Wedka +18
 		{ 27590, 10000000 },	// Wedka +19
 		{ 27798,    15000 },	// Skamieniala Krewetka
-		{ 30378,    40000 },	// Materialy Rzemieslnicze
+		{ 30378,   100000 },	// Materialy Rzemieslnicze (operator, 25 September 2026)
 		{ 39002,   500000 },	// Pierscien Doswiadczenia
 		{ 39006,    55000 },	// Peleryna Mestwa
 		{ 39028,  2000000 },	// Zaczarowanie Przedmiotu
