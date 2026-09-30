@@ -555,6 +555,7 @@ quest devilcatacomb_zone begin
 		-- As on floor 6, when Azrael (2598) dies
 		-- floor 7's timer starts.
 		when devilcatacomb_devil_emperor.kill begin
+			d.update_ranking("katakumby") -- MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel's results (Azrael)
 			server_timer ("floor7_eli_check_timer_1", 5, d.get_map_index())
 		end
 		

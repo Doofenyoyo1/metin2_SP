@@ -1,0 +1,640 @@
+-- MT2009_PLUS_AREZZO_V1 (dzungla): Staro¿ytna D¿ungla - najtrudniejszy loch, od poziomu 95 (mapa 366,
+-- plechito_easter2023_dungeon z Arezzo), tylko dla graczy. Wzorzec biblioteka_wiedzy.quest (tools/questgen.py):
+-- Stra¿nik D¿ungli (20425) w Zaczarowanym Lesie. Etapy: 3 fale po 40 stworzeñ (Pieczêæ D¿ungli 30768),
+-- 6 Staro¿ytnych Kamieni, 3 Faethorny, 4 Pradawne Kamienie, Królewska Sowa, Królowa D¿ungli; potem 2-5 Skrzyñ
+-- D¿ungli (30776) dla ka¿dego gracza. Limit 60 minut, ponowne wejœcie po 60 minutach.
+quest starozytna_dzungla begin
+	state start begin
+		function cfg()
+			return {
+				map = 366,
+				base_x = 7680, base_y = 5376, size = 768,
+				entry = {384, 374},
+				exit_map = 362, exit_x = 3783, exit_y = 3954,
+				min_level = 95,
+				near = 30,
+				cooldown = 60 * 60,
+				limit_min = 60,
+				-- MT2009_PLUS_DUNGEON_FEE_V1: the price of a new expedition (each player, paid on entering it) and
+				-- how many new expeditions a player may start a day (Polish midnight).
+				fee = 15000000, fee_text = "15 000 000",
+				daily = 5,
+				wave_kills = 40,
+				seals = 3,
+				chests_min = 2, chests_max = 5,
+				path = "data/dungeon/starozytna_dzungla/",
+			}
+		end
+
+		-- MT2009_PLUS_DUNGEON_FEE_V1: the entry fee and the daily limit. Checked for everyone at the guard (with
+		-- the level and the rest), paid on the first login into a new instance (every way in:
+		-- the guard, the lobby, the lobby's own timer) - no money or no runs left there sends
+		-- the player out. "Wróæ do lochu" into the same instance costs nothing. GMs are free.
+		function today()
+			return math.floor((get_global_time() + 7200) / 86400)
+		end
+
+		function runs_today()
+			if pc.getf("starozytna_dzungla", "day") ~= starozytna_dzungla.today() then
+				return 0
+			end
+			return pc.getf("starozytna_dzungla", "runs")
+		end
+
+		function over_limit()
+			local c = starozytna_dzungla.cfg()
+			return not pc.is_gm() and starozytna_dzungla.runs_today() >= c.daily
+		end
+
+		function too_poor()
+			local c = starozytna_dzungla.cfg()
+			return not pc.is_gm() and pc.get_money() < c.fee
+		end
+
+		function pay_entry()
+			local c = starozytna_dzungla.cfg()
+			if pc.is_gm() or pc.is_playerbot() then
+				return true
+			end
+			if starozytna_dzungla.over_limit() then
+				syschat("Wykorzysta³eœ ju¿ dzisiejsze wyprawy do tego lochu ("..c.daily.."). Wróæ jutro.")
+				return false
+			end
+			if pc.get_money() < c.fee then
+				syschat("Wejœcie kosztuje "..c.fee_text.." Yang - nie masz tyle przy sobie.")
+				return false
+			end
+			pc.change_money(-c.fee)
+			local day = starozytna_dzungla.today()
+			if pc.getf("starozytna_dzungla", "day") ~= day then
+				pc.setf("starozytna_dzungla", "day", day)
+				pc.setf("starozytna_dzungla", "runs", 0)
+			end
+			pc.setf("starozytna_dzungla", "runs", pc.getf("starozytna_dzungla", "runs") + 1)
+			syschat("Op³ata za wejœcie: "..c.fee_text.." Yang. Dzisiejsza wyprawa "..pc.getf("starozytna_dzungla", "runs").."/"..c.daily..".")
+			return true
+		end
+
+		function inside()
+			local idx = pc.get_map_index()
+			return idx >= 366 * 10000 and idx < 367 * 10000
+		end
+
+		function entry_xy()
+			local c = starozytna_dzungla.cfg()
+			return (c.base_x + c.entry[1]) * 100, (c.base_y + c.entry[2]) * 100
+		end
+
+		function purge_mobs()
+			local c = starozytna_dzungla.cfg()
+			d.purge_area(c.base_x * 100, c.base_y * 100, (c.base_x + c.size) * 100, (c.base_y + c.size) * 100)
+		end
+
+		function stage_text(stage)
+			local c = starozytna_dzungla.cfg()
+			if stage == 1 then return "Pokonajcie 40 stworzeñ d¿ungli, a potem u¿yjcie Pieczêci D¿ungli ("..d.getf("seals").."/"..c.seals..")."
+			elseif stage == 2 then return "Zniszczcie 6 Staro¿ytnych Kamieni."
+			elseif stage == 3 then return "Pokonajcie 3 Faethorny."
+			elseif stage == 4 then return "Zniszczcie 4 Pradawne Kamienie."
+			elseif stage == 5 then return "Pokonajcie Królewsk¹ Sowê!"
+			elseif stage == 6 then return "Pokonajcie Królow¹ D¿ungli!"
+			end
+			return ""
+		end
+
+		function start_stage(stage)
+			local c = starozytna_dzungla.cfg()
+			d.clear_regen()
+			starozytna_dzungla.purge_mobs()
+			d.setf("stage", stage)
+			d.setf("kills", 0)
+			d.setf("seal_out", 0)
+			if stage == 1 then
+				d.set_regen_file(c.path.."wave.txt")
+			elseif stage == 2 then
+				d.setf("left", 6)
+				d.regen_file(c.path.."stones.txt")
+				d.set_regen_file(c.path.."guards.txt")
+			elseif stage == 3 then
+				d.setf("left", 3)
+				d.regen_file(c.path.."faethorns.txt")
+				d.set_regen_file(c.path.."guards.txt")
+			elseif stage == 4 then
+				d.setf("left", 4)
+				d.regen_file(c.path.."ancients.txt")
+				d.set_regen_file(c.path.."guards.txt")
+			elseif stage == 5 then
+				d.spawn_mob(9713, 385, 348)
+			elseif stage == 6 then
+				d.spawn_mob(9714, 385, 348)
+			end
+			d.notice("Staro¿ytna D¿ungla ("..stage.."/6): "..starozytna_dzungla.stage_text(stage))
+		end
+
+		function next_stage()
+			local stage = d.getf("stage") + 1
+			d.clear_regen()
+			starozytna_dzungla.purge_mobs()
+			d.setf("stage", 9 + stage)
+			d.notice("Staro¿ytna D¿ungla: Etap zaliczony. Za 5 sekund nastêpne wyzwanie.")
+			server_timer("dzungla_stage", 5, d.get_map_index())
+		end
+
+		function seal_used()
+			local c = starozytna_dzungla.cfg()
+			local s = d.getf("seals") + 1
+			d.setf("seals", s)
+			d.setf("seal_out", 0)
+			d.setf("kills", 0)
+			if s >= c.seals then
+				starozytna_dzungla.next_stage()
+			else
+				d.set_regen_file(c.path.."wave.txt")
+				d.notice("Staro¿ytna D¿ungla: Pieczêæ D¿ungli "..s.."/"..c.seals.." z³amana. Nadchodzi nastêpna fala!")
+			end
+		end
+
+		function init()
+			local c = starozytna_dzungla.cfg()
+			d.setf("init", 1)
+			d.setf("entered", 1)
+			-- MT2009_PLUS_DUNGEON_RETURN_V1: the instance outlives its players until the time limit.
+			d.setf("mt2009_keep_until", get_global_time() + c.limit_min * 60 + 60)
+			d.setf("start", get_global_time())
+			d.setf("stage", 10)
+			d.setf("seals", 0)
+			d.setf("minutes", c.limit_min)
+			d.notice("Staro¿ytna D¿ungla: Witajcie. Za 5 sekund d¿ungla siê przebudzi.")
+			server_timer("dzungla_stage", 5, d.get_map_index())
+			server_timer("dzungla_tick", 60, d.get_map_index())
+		end
+
+		function finish()
+			local c = starozytna_dzungla.cfg()
+			d.setf("closed", 1)
+			d.setf("mt2009_keep_until", 0)
+			d.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+			d.exit_all()
+		end
+
+		function reward()
+			local c = starozytna_dzungla.cfg()
+			local took = get_global_time() - d.getf("start")
+			local pids = {}
+			if party.is_party() then
+				pids = {party.get_member_pids()}
+			end
+			if table.getn(pids) == 0 then
+				pids = {pc.get_player_id()}
+			end
+			for i, pid in next, pids, nil do
+				q.begin_other_pc_block(pid)
+				if not pc.is_playerbot() then
+					local n = number(c.chests_min, c.chests_max)
+					pc.give_item2(30776, n)
+					syschat("Staro¿ytna D¿ungla: otrzymujesz skrzynie: "..n..".")
+				end
+				q.end_other_pc_block()
+			end
+			return took
+		end
+
+		when 20425.chat."Staro¿ytna D¿ungla" with pc.get_map_index() ~= 366 and not starozytna_dzungla.inside() begin
+			local c = starozytna_dzungla.cfg()
+			say_title(mob_name(20425))
+			if pc.is_playerbot() then
+				return
+			end
+			say("Za Zaczarowanym Lasem roœnie Staro¿ytna D¿ungla.")
+			say("Jej Królowa nie wypuœci³a jeszcze nikogo,")
+			say("kto wszed³ tam bez dru¿yny najlepszych wojowników.")
+			say("")
+			say_reward("Wymagany poziom: "..c.min_level..". Limit "..c.limit_min.." minut, ponowne wejœcie po "..math.floor(c.cooldown / 60).." minutach.")
+			say_reward("Loch jest tylko dla graczy - boty z dru¿yny zostaj¹ tutaj.")
+			say_reward("Wejœcie: "..c.fee_text.." Yang. Najwy¿ej "..c.daily.." wypraw dziennie (dziœ: "..starozytna_dzungla.runs_today().."/"..c.daily..").") -- MT2009_PLUS_DUNGEON_FEE_V1
+			if select("WejdŸ do lochu", "Nie teraz") ~= 1 then
+				return
+			end
+			if not pc.is_gm() and game.get_event_flag("mt2009_arezzo_closed") > 0 then
+				say_title(mob_name(20425))
+				say("Przejœcie jest jeszcze zamkniête. Wróæ póŸniej.")
+				return
+			end
+			local now = get_global_time()
+			local x, y = starozytna_dzungla.entry_xy()
+			local idx = pc.getf("starozytna_dzungla", "idx")
+			if idx > 0 and now - pc.getf("starozytna_dzungla", "entry") < c.limit_min * 60 then
+				say_title(mob_name(20425))
+				say("Twoja wyprawa wci¹¿ trwa. Czy chcesz do niej wróciæ?")
+				local s
+				if pc.is_gm() then
+					s = select("Wróæ do lochu", "Nowa wyprawa (GM)", "Nie teraz")
+				else
+					s = select("Wróæ do lochu", "Nie teraz")
+					if s == 2 then s = 3 end
+				end
+				if s == 3 then
+					return
+				elseif s == 1 then
+					if d.find(idx, x, y, pc.get_player_id()) then
+						pc.warp(x, y, idx)
+					else
+						say_title(mob_name(20425))
+						say("Jeœli wyprawa wci¹¿ trwa, przejœcie zaraz ciê zabierze.")
+					end
+					return
+				end
+			end
+			if party.is_party() and not party.is_leader() then
+				say_title(mob_name(20425))
+				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
+				say("Stañ przy mnie - przywódca zabierze dru¿ynê stoj¹c¹ obok.")
+				return
+			end
+			if pc.get_level() < c.min_level then
+				say_title(mob_name(20425))
+				say("Jesteœ za s³aby. Wróæ, gdy osi¹gniesz poziom "..c.min_level..".")
+				return
+			end
+			if not pc.can_warp() or pc.is_busy() then
+				say_title(mob_name(20425))
+				say("Poczekaj chwilê po handlu lub rozmowie i spróbuj ponownie.")
+				return
+			end
+			if now - pc.getf("starozytna_dzungla", "pending") < 10 then
+				say_title(mob_name(20425))
+				say("Przejœcie ju¿ siê otwiera. Poczekaj chwilê.")
+				return
+			end
+			local me = pc.get_player_id()
+			local humans = {me}
+			local low = {}
+			local wait = {}
+			local full = {} -- MT2009_PLUS_DUNGEON_FEE_V1
+			local poor = {}
+			if not pc.is_gm() and now - pc.getf("starozytna_dzungla", "entry") < c.cooldown then
+				table.insert(wait, pc.get_name())
+			end
+			if starozytna_dzungla.over_limit() then table.insert(full, pc.get_name()) end
+			if starozytna_dzungla.too_poor() then table.insert(poor, pc.get_name()) end
+			if party.is_party() then
+				local lmap, lx, ly = pc.get_map_index(), pc.get_x(), pc.get_y()
+				local pids = {party.get_member_pids()}
+				for i, pid in next, pids, nil do
+					if pid ~= me then
+						q.begin_other_pc_block(pid)
+						local dx, dy = pc.get_x() - lx, pc.get_y() - ly
+						if not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
+							table.insert(humans, pid)
+							if pc.get_level() < c.min_level then
+								table.insert(low, pc.get_name())
+							end
+							if not pc.is_gm() and now - pc.getf("starozytna_dzungla", "entry") < c.cooldown then
+								table.insert(wait, pc.get_name())
+							end
+							if starozytna_dzungla.over_limit() then table.insert(full, pc.get_name()) end
+							if starozytna_dzungla.too_poor() then table.insert(poor, pc.get_name()) end
+						end
+						q.end_other_pc_block()
+					end
+				end
+			end
+			if table.getn(low) > 0 then
+				say_title(mob_name(20425))
+				say("Za s³abi, by wejœæ (poziom "..c.min_level.."+):")
+				for i, n in next, low, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(full) > 0 then
+				say("Dzisiejsze wyprawy do tego lochu ju¿ wykorzystane ("..c.daily.." dziennie):")
+				for i, n in next, full, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(poor) > 0 then
+				say("Wejœcie kosztuje "..c.fee_text.." Yang - za ma³o przy sobie:")
+				for i, n in next, poor, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(wait) > 0 then
+				say_title(mob_name(20425))
+				say("Jeszcze nie odpoczêli po poprzedniej wyprawie:")
+				for i, n in next, wait, nil do say(color(1,1,0).."    "..n) end
+				local left = c.cooldown - (now - pc.getf("starozytna_dzungla", "entry"))
+				if left > 0 then
+					say("")
+					say("Ty mo¿esz wejœæ za "..math.ceil(left / 60).." min.")
+				end
+				return
+			end
+			local r = d.new_jump_pids(c.map, x, y, humans)
+			if r < 0 then
+				starozytna_dzungla.lobby()
+				return
+			end
+			pc.setf("starozytna_dzungla", "pending", now)
+			if r == 0 then
+				timer("dzungla_fallback", 5)
+			end
+		end
+
+		function lobby()
+			local c = starozytna_dzungla.cfg()
+			local x, y = starozytna_dzungla.entry_xy()
+			if party.is_party() then
+				local me = pc.get_player_id()
+				local lmap, lx, ly = pc.get_map_index(), pc.get_x(), pc.get_y()
+				local pids = {party.get_member_pids()}
+				for i, pid in next, pids, nil do
+					if pid ~= me then
+						q.begin_other_pc_block(pid)
+						local dx, dy = pc.get_x() - lx, pc.get_y() - ly
+						if not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
+							pc.warp(x, y)
+						end
+						q.end_other_pc_block()
+					end
+				end
+			else
+				pc.setf("starozytna_dzungla", "auto", 1)
+			end
+			pc.setf("starozytna_dzungla", "pending", 0)
+			pc.warp(x, y)
+		end
+
+		when dzungla_fallback.timer begin
+			local c = starozytna_dzungla.cfg()
+			if pc.get_map_index() ~= c.exit_map or pc.getf("starozytna_dzungla", "pending") == 0 then
+				return
+			end
+			syschat("Staro¿ytna D¿ungla: przejœcie prowadzi przez poczekalniê.")
+			starozytna_dzungla.lobby()
+		end
+
+		function lobby_create(humans)
+			local c = starozytna_dzungla.cfg()
+			local x, y = starozytna_dzungla.entry_xy()
+			local list = {pc.get_player_id()}
+			for i, pid in next, humans, nil do
+				if pid ~= list[1] then
+					table.insert(list, pid)
+				end
+			end
+			return d.new_jump_pids(c.map, x, y, list) > 0
+		end
+
+		when 20425.chat."Otwórz przejœcie" with pc.get_map_index() == 366 begin
+			local c = starozytna_dzungla.cfg()
+			say_title(mob_name(20425))
+			local now = get_global_time()
+			local idx = pc.getf("starozytna_dzungla", "idx")
+			if idx > 0 and now - pc.getf("starozytna_dzungla", "entry") < c.limit_min * 60 and d.find(idx) then
+				say("Twoja wyprawa wci¹¿ trwa. Czy chcesz do niej wróciæ?")
+				if select("Wróæ do lochu", "Nie teraz") == 1 then
+					local x, y = starozytna_dzungla.entry_xy()
+					pc.warp(x, y, idx)
+				end
+				return
+			end
+			if party.is_party() and not party.is_leader() then
+				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
+				say("Poczekaj tu na niego - zabierze ca³¹ dru¿ynê.")
+				return
+			end
+			local humans = {}
+			local low = {}
+			local wait = {}
+			local full = {} -- MT2009_PLUS_DUNGEON_FEE_V1
+			local poor = {}
+			if party.is_party() then
+				local pids = {party.get_member_pids()}
+				for i, pid in next, pids, nil do
+					q.begin_other_pc_block(pid)
+					if not pc.is_playerbot() then
+						table.insert(humans, pid)
+						if pc.get_level() < c.min_level then
+							table.insert(low, pc.get_name())
+						end
+						if not pc.is_gm() and now - pc.getf("starozytna_dzungla", "entry") < c.cooldown then
+							table.insert(wait, pc.get_name())
+						end
+						if starozytna_dzungla.over_limit() then table.insert(full, pc.get_name()) end
+						if starozytna_dzungla.too_poor() then table.insert(poor, pc.get_name()) end
+					end
+					q.end_other_pc_block()
+				end
+			else
+				table.insert(humans, pc.get_player_id())
+				if pc.get_level() < c.min_level then
+					table.insert(low, pc.get_name())
+				end
+				if not pc.is_gm() and now - pc.getf("starozytna_dzungla", "entry") < c.cooldown then
+					table.insert(wait, pc.get_name())
+				end
+				if starozytna_dzungla.over_limit() then table.insert(full, pc.get_name()) end
+				if starozytna_dzungla.too_poor() then table.insert(poor, pc.get_name()) end
+			end
+			if table.getn(low) > 0 then
+				say("Za s³abi, by wejœæ (poziom "..c.min_level.."+):")
+				for i, n in next, low, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(full) > 0 then
+				say("Dzisiejsze wyprawy do tego lochu ju¿ wykorzystane ("..c.daily.." dziennie):")
+				for i, n in next, full, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(poor) > 0 then
+				say("Wejœcie kosztuje "..c.fee_text.." Yang - za ma³o przy sobie:")
+				for i, n in next, poor, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(wait) > 0 then
+				say("Jeszcze nie odpoczêli po poprzedniej wyprawie:")
+				for i, n in next, wait, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			say("Dru¿yna na tej mapie wejdzie razem z tob¹.")
+			if select("Otwórz przejœcie", "Nie teraz") ~= 1 then
+				return
+			end
+			if not starozytna_dzungla.lobby_create(humans) then
+				say_title(mob_name(20425))
+				say("Nie uda³o siê otworzyæ przejœcia. Spróbuj ponownie za chwilê.")
+			end
+		end
+
+		when dzungla_auto.timer begin
+			local c = starozytna_dzungla.cfg()
+			if pc.get_map_index() ~= c.map or party.is_party() then
+				return
+			end
+			local now = get_global_time()
+			if pc.get_level() < c.min_level or (not pc.is_gm() and now - pc.getf("starozytna_dzungla", "entry") < c.cooldown) then
+				syschat("Staro¿ytna D¿ungla: porozmawiaj ze stra¿nikiem, aby otworzyæ przejœcie.")
+				return
+			end
+			if not starozytna_dzungla.lobby_create({pc.get_player_id()}) then
+				syschat("Staro¿ytna D¿ungla: nie uda³o siê otworzyæ przejœcia - porozmawiaj ze stra¿nikiem.")
+			end
+		end
+
+		when login begin
+			local c = starozytna_dzungla.cfg()
+			local idx = pc.get_map_index()
+			if idx == c.map then
+				if pc.is_playerbot() then
+					pc.warp(c.exit_x * 100, c.exit_y * 100)
+					return
+				end
+				pc.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+				pc.setf("starozytna_dzungla", "pending", 0)
+				if pc.getf("starozytna_dzungla", "auto") == 1 and not party.is_party() then
+					pc.setf("starozytna_dzungla", "auto", 0)
+					syschat("Staro¿ytna D¿ungla: przejœcie siê otwiera...")
+					timer("dzungla_auto", 1)
+				else
+					pc.setf("starozytna_dzungla", "auto", 0)
+					syschat("Staro¿ytna D¿ungla: porozmawiaj ze stra¿nikiem, aby otworzyæ przejœcie.")
+				end
+			elseif starozytna_dzungla.inside() then
+				if pc.is_playerbot() then
+					pc.warp(c.exit_x * 100, c.exit_y * 100)
+					return
+				end
+				pc.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+				pc.setf("starozytna_dzungla", "inside", 1)
+				pc.setf("starozytna_dzungla", "pending", 0)
+				if pc.getf("starozytna_dzungla", "idx") ~= idx then
+					if not starozytna_dzungla.pay_entry() then -- MT2009_PLUS_DUNGEON_FEE_V1
+						pc.warp(c.exit_x * 100, c.exit_y * 100)
+						return
+					end
+					pc.setf("starozytna_dzungla", "idx", idx)
+					pc.setf("starozytna_dzungla", "entry", get_global_time())
+				end
+				if d.getf("init") == 0 then
+					starozytna_dzungla.init()
+				end
+				if d.getf("closed") == 1 then
+					pc.warp(c.exit_x * 100, c.exit_y * 100)
+				end
+			elseif pc.getf("starozytna_dzungla", "inside") == 1 then
+				pc.setf("starozytna_dzungla", "inside", 0)
+				if pc.count_item(30768) > 0 then pc.remove_item(30768, pc.count_item(30768)) end
+			end
+		end
+
+		when dzungla_stage.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				if d.getf("closed") == 1 then
+					return
+				end
+				local s = d.getf("stage")
+				if s >= 10 then
+					starozytna_dzungla.start_stage(s - 9)
+				end
+			end
+		end
+
+		when dzungla_tick.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				if d.getf("closed") == 1 then
+					return
+				end
+				local left = d.getf("minutes") - 1
+				d.setf("minutes", left)
+				if left <= 0 then
+					d.notice("Staro¿ytna D¿ungla: Czas min¹³. Stra¿nik wyprowadza was z lochu.")
+					starozytna_dzungla.finish()
+					return
+				end
+				if d.getf("stage") == 1 and d.getf("seal_out") == 1 and get_global_time() - d.getf("seal_time") > 180 then
+					d.notice("Staro¿ytna D¿ungla: Pieczêæ D¿ungli zadzia³a³a sama.")
+					starozytna_dzungla.seal_used()
+				end
+				if left == 15 or left == 10 or left == 5 or left == 1 then
+					d.notice("Staro¿ytna D¿ungla: Pozosta³o "..left.." min.")
+				end
+				server_timer("dzungla_tick", 60, get_server_timer_arg())
+			end
+		end
+
+		when dzungla_end.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				starozytna_dzungla.finish()
+			end
+		end
+
+		when 9707.kill or 9708.kill or 9709.kill with starozytna_dzungla.inside() and d.getf("stage") == 1 and d.getf("seal_out") == 0 begin
+			local c = starozytna_dzungla.cfg()
+			local k = d.getf("kills") + 1
+			d.setf("kills", k)
+			if k >= c.wave_kills then
+				d.setf("seal_out", 1)
+				d.clear_regen()
+				starozytna_dzungla.purge_mobs()
+				d.setf("seal_time", get_global_time())
+				pc.give_item2(30768, 1)
+				d.notice("Staro¿ytna D¿ungla: "..pc.get_name().." zdobywa Pieczêæ D¿ungli. U¿yj jej, aby przyzwaæ nastêpn¹ falê.")
+			elseif math.mod(k, 20) == 0 then
+				d.notice("Staro¿ytna D¿ungla: Pokonane potwory: "..k.." / "..c.wave_kills)
+			end
+		end
+
+		when 30768.use begin
+			if not starozytna_dzungla.inside() or d.getf("stage") ~= 1 or d.getf("seal_out") ~= 1 then
+				syschat("Pieczêæ D¿ungli mo¿na u¿yæ tylko w lochu, po pokonaniu fali potworów.")
+				return
+			end
+			pc.remove_item(30768, 1)
+			starozytna_dzungla.seal_used()
+		end
+
+		when 9710.kill with starozytna_dzungla.inside() and d.getf("stage") == 2 begin
+			local left = d.getf("left") - 1
+			d.setf("left", left)
+			if left <= 0 then
+				starozytna_dzungla.next_stage()
+			else
+				d.notice("Staro¿ytna D¿ungla: Pozosta³o: "..left)
+			end
+		end
+
+		when 9712.kill with starozytna_dzungla.inside() and d.getf("stage") == 3 begin
+			local left = d.getf("left") - 1
+			d.setf("left", left)
+			if left <= 0 then
+				starozytna_dzungla.next_stage()
+			else
+				d.notice("Staro¿ytna D¿ungla: Pozosta³o: "..left)
+			end
+		end
+
+		when 9711.kill with starozytna_dzungla.inside() and d.getf("stage") == 4 begin
+			local left = d.getf("left") - 1
+			d.setf("left", left)
+			if left <= 0 then
+				starozytna_dzungla.next_stage()
+			else
+				d.notice("Staro¿ytna D¿ungla: Pozosta³o: "..left)
+			end
+		end
+
+		when 9713.kill with starozytna_dzungla.inside() and d.getf("stage") == 5 begin
+			starozytna_dzungla.next_stage()
+		end
+
+		when 9714.kill with starozytna_dzungla.inside() and d.getf("stage") == 6 begin
+			if d.getf("stage") == 6 then
+				d.setf("stage", 7)
+				d.clear_regen()
+				starozytna_dzungla.purge_mobs()
+				local took = starozytna_dzungla.reward()
+				d.update_ranking("dzungla", took) -- MT2009_PLUS_DUNGEON_PANEL_V1
+				d.notice(string.format("Królowa D¿ungli pokonany! Czas: %d:%02d. Za 60 sekund wszyscy wróc¹ do Zaczarowanego Lasu.", math.floor(took / 60), math.mod(took, 60)))
+				server_timer("dzungla_end", 60, d.get_map_index())
+				return
+			end
+		end
+	end
+end

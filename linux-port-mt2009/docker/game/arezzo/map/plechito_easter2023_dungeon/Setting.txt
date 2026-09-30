@@ -1,0 +1,11 @@
+ScriptType	MapSetting
+
+CellScale	200
+HeightScale	0.500000
+
+ViewRadius	128
+
+MapSize	3	3
+BasePosition	768000	537600
+TextureSet	textureset\plechito_easter2023_dungeon.txt
+Environment	plechito_easter2023_dungeon.msenv

@@ -1,0 +1,184 @@
+# MT2009_PLUS_AREZZO_V1: Skrzynia Biblioteki (30773), the Biblioteka Wiedzy boss chest
+# (quest/biblioteka_wiedzy.quest gives 1-3 to every player inside when the Baroness dies).
+# Like the Razador/Nemere chests (special_item_group.dungeons.txt): a Pct group opening nested
+# groups (95073x, no item): the level 30-36 weapons and the level-34 armours +0..+4, a filler
+# and, at 30%, a pet item.
+Group	MT2009_chest_30773
+{
+	Vnum	30773 -- Skrzynia Biblioteki
+	Type	Pct
+	1	s950731	1	100 -- bron 30-36 / zbroja 34 (+0..+4)
+	2	s950732	1	100 -- zapychacz
+	3	s950732	1	40 -- drugi zapychacz
+	4	s950733	1	30 -- przedmiot do peta
+}
+Group	MT2009_chest_biblioteka_gear
+{
+	Vnum	950731
+	1	70	1	30 -- Miecz Storczykowy+0
+	2	71	1	25 -- Miecz Storczykowy+1
+	3	72	1	20 -- Miecz Storczykowy+2
+	4	73	1	15 -- Miecz Storczykowy+3
+	5	74	1	10 -- Miecz Storczykowy+4
+	6	80	1	30 -- Miecz Poltorareczny+0
+	7	81	1	25 -- Miecz Poltorareczny+1
+	8	82	1	20 -- Miecz Poltorareczny+2
+	9	83	1	15 -- Miecz Poltorareczny+3
+	10	84	1	10 -- Miecz Poltorareczny+4
+	11	290	1	30 -- Miecz Pelni Ksiezyca+0
+	12	291	1	25 -- Miecz Pelni Ksiezyca+1
+	13	292	1	20 -- Miecz Pelni Ksiezyca+2
+	14	293	1	15 -- Miecz Pelni Ksiezyca+3
+	15	294	1	10 -- Miecz Pelni Ksiezyca+4
+	16	1030	1	30 -- Noz Szczescia+0
+	17	1031	1	25 -- Noz Szczescia+1
+	18	1032	1	20 -- Noz Szczescia+2
+	19	1033	1	15 -- Noz Szczescia+3
+	20	1034	1	10 -- Noz Szczescia+4
+	21	1040	1	30 -- Ukaszenie Kota+0
+	22	1041	1	25 -- Ukaszenie Kota+1
+	23	1042	1	20 -- Ukaszenie Kota+2
+	24	1043	1	15 -- Ukaszenie Kota+3
+	25	1044	1	10 -- Ukaszenie Kota+4
+	26	1170	1	30 -- Kozik Czar. Lis.+0
+	27	1171	1	25 -- Kozik Czar. Lis.+1
+	28	1172	1	20 -- Kozik Czar. Lis.+2
+	29	1173	1	15 -- Kozik Czar. Lis.+3
+	30	1174	1	10 -- Kozik Czar. Lis.+4
+	31	2060	1	30 -- Miedziany Luk+0
+	32	2061	1	25 -- Miedziany Luk+1
+	33	2062	1	20 -- Miedziany Luk+2
+	34	2063	1	15 -- Miedziany Luk+3
+	35	2064	1	10 -- Miedziany Luk+4
+	36	2070	1	30 -- Luk Czarnych Ruin+0
+	37	2071	1	25 -- Luk Czarnych Ruin+1
+	38	2072	1	20 -- Luk Czarnych Ruin+2
+	39	2073	1	15 -- Luk Czarnych Ruin+3
+	40	2074	1	10 -- Luk Czarnych Ruin+4
+	41	2150	1	30 -- Luk Z Rogu Jelenia+0
+	42	2151	1	25 -- Luk Z Rogu Jelenia+1
+	43	2152	1	20 -- Luk Z Rogu Jelenia+2
+	44	2153	1	15 -- Luk Z Rogu Jelenia+3
+	45	2154	1	10 -- Luk Z Rogu Jelenia+4
+	46	3060	1	30 -- Trojzab+0
+	47	3061	1	25 -- Trojzab+1
+	48	3062	1	20 -- Trojzab+2
+	49	3063	1	15 -- Trojzab+3
+	50	3064	1	10 -- Trojzab+4
+	51	3070	1	30 -- Halabarda+0
+	52	3071	1	25 -- Halabarda+1
+	53	3072	1	20 -- Halabarda+2
+	54	3073	1	15 -- Halabarda+3
+	55	3074	1	10 -- Halabarda+4
+	56	3210	1	30 -- Ostrze Z Czerw. Stali+0
+	57	3211	1	25 -- Ostrze Z Czerw. Stali+1
+	58	3212	1	20 -- Ostrze Z Czerw. Stali+2
+	59	3213	1	15 -- Ostrze Z Czerw. Stali+3
+	60	3214	1	10 -- Ostrze Z Czerw. Stali+4
+	61	5030	1	30 -- Jadeitowy Dzwon+0
+	62	5031	1	25 -- Jadeitowy Dzwon+1
+	63	5032	1	20 -- Jadeitowy Dzwon+2
+	64	5033	1	15 -- Jadeitowy Dzwon+3
+	65	5034	1	10 -- Jadeitowy Dzwon+4
+	66	5040	1	30 -- Dzwon Fontanny+0
+	67	5041	1	25 -- Dzwon Fontanny+1
+	68	5042	1	20 -- Dzwon Fontanny+2
+	69	5043	1	15 -- Dzwon Fontanny+3
+	70	5044	1	10 -- Dzwon Fontanny+4
+	71	5110	1	30 -- Antyczny Dzwon+0
+	72	5111	1	25 -- Antyczny Dzwon+1
+	73	5112	1	20 -- Antyczny Dzwon+2
+	74	5113	1	15 -- Antyczny Dzwon+3
+	75	5114	1	10 -- Antyczny Dzwon+4
+	76	7060	1	30 -- Kamienny Wachlarz+0
+	77	7061	1	25 -- Kamienny Wachlarz+1
+	78	7062	1	20 -- Kamienny Wachlarz+2
+	79	7063	1	15 -- Kamienny Wachlarz+3
+	80	7064	1	10 -- Kamienny Wachlarz+4
+	81	7070	1	30 -- Oceaniczny Wachlarz+0
+	82	7071	1	25 -- Oceaniczny Wachlarz+1
+	83	7072	1	20 -- Oceaniczny Wachlarz+2
+	84	7073	1	15 -- Oceaniczny Wachlarz+3
+	85	7074	1	10 -- Oceaniczny Wachlarz+4
+	86	7160	1	30 -- Wachlarz Jes. Wiatru+0
+	87	7161	1	25 -- Wachlarz Jes. Wiatru+1
+	88	7162	1	20 -- Wachlarz Jes. Wiatru+2
+	89	7163	1	15 -- Wachlarz Jes. Wiatru+3
+	90	7164	1	10 -- Wachlarz Jes. Wiatru+4
+	91	11240	1	30 -- Smiert. Zbroja Plytowa+0
+	92	11241	1	25 -- Smiert. Zbroja Plytowa+1
+	93	11242	1	20 -- Smiert. Zbroja Plytowa+2
+	94	11243	1	15 -- Smiert. Zbroja Plytowa+3
+	95	11244	1	10 -- Smiert. Zbroja Plytowa+4
+	96	11440	1	30 -- Ubranie Lwiej Mrowki+0
+	97	11441	1	25 -- Ubranie Lwiej Mrowki+1
+	98	11442	1	20 -- Ubranie Lwiej Mrowki+2
+	99	11443	1	15 -- Ubranie Lwiej Mrowki+3
+	100	11444	1	10 -- Ubranie Lwiej Mrowki+4
+	101	11640	1	30 -- Zbroja Plyt. Yin-Yang+0
+	102	11641	1	25 -- Zbroja Plyt. Yin-Yang+1
+	103	11642	1	20 -- Zbroja Plyt. Yin-Yang+2
+	104	11643	1	15 -- Zbroja Plyt. Yin-Yang+3
+	105	11644	1	10 -- Zbroja Plyt. Yin-Yang+4
+	106	11840	1	30 -- Szata Zach. Nieba+0
+	107	11841	1	25 -- Szata Zach. Nieba+1
+	108	11842	1	20 -- Szata Zach. Nieba+2
+	109	11843	1	15 -- Szata Zach. Nieba+3
+	110	11844	1	10 -- Szata Zach. Nieba+4
+}
+Group	MT2009_chest_biblioteka_misc
+{
+	Vnum	950732
+	1	27001	100	50 -- Czerwona Mikstura(M)
+	2	27002	50	50 -- Czerwona Mikstura(S)
+	3	27004	100	50 -- Niebieska Mikstura(M)
+	4	27005	50	50 -- Niebieska Mikstura(S)
+	5	50300	1	40 -- Ksiega Umiejetnosci
+	6	70037	1	10 -- Ksiega Zapomnienia
+	7	25040	1	8 -- Zwoj Blogoslawienstwa
+	8	70058	1	10 -- Pierscien Teleportacji
+	9	71130	1	10 -- Przepustka
+	10	14100	1	8 -- Ebonitowa Bransoleta+0
+	11	16100	1	8 -- Ebonitowy Naszyjnik+0
+	12	17100	1	8 -- Ebonitowe Kolczyki+0
+	13	15100	1	8 -- Zlote Buty+0
+	14	18000	1	8 -- Pas Lniany+0
+	15	exp	60000	25 -- EXP 60 000
+	16	gold	100000	25 -- Yang 100 000
+}
+Group	MT2009_chest_biblioteka_pet
+{
+	Vnum	950733
+	1	55010	1	10
+	2	55011	1	10
+	3	55012	1	10
+	4	55013	1	10
+	5	55014	1	10
+	6	55015	1	10
+	7	55016	1	10
+	8	55017	1	10
+	9	55018	1	10
+	10	55019	1	10
+	11	55020	1	10
+	12	55021	1	10
+	13	55022	1	10
+	14	55023	1	10
+	15	55024	1	10
+	16	55025	1	10
+	17	55026	1	10
+	18	55027	1	10
+	19	55028	1	10
+	20	55029	1	10
+	21	55030	1	10
+	22	55031	1	10
+	23	55009	1	30
+	24	55101	1	60
+	25	55108	1	60
+	26	55115	1	60
+	27	55102	1	30
+	28	55109	1	30
+	29	55116	1	30
+	30	55001	1	216
+	31	55032	1	150
+	32	55035	1	50
+}

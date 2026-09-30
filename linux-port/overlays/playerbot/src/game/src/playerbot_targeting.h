@@ -2100,7 +2100,8 @@ namespace
 		return hits;
 	}
 
-	DWORD AttackPlayerBotMeleeGroup(LPCHARACTER ch, LPCHARACTER primary)
+	DWORD AttackPlayerBotMeleeGroup(LPCHARACTER ch, LPCHARACTER primary,
+			const std::vector<DWORD>* extraArrows = NULL)
 	{
 		if (!ch || !primary || !ch->GetSectree())
 			return 0;
@@ -2164,6 +2165,27 @@ namespace
 		primary->SetSyncOwner(ch);
 		if (!primary->IsDead() && primary->CanBeginFight())
 			primary->BeginFight(ch);
+
+		// MT2009_PLUS_ARCHER_MULTISHOT_V1: the shot's extra arrows, already on
+		// their way in the clients (SendPlayerBotAttackPacket), on the engine's
+		// arrow damage for a shot at that many (CalcArrowDamage takes a share
+		// off an extra target, as it does for a player's), and no arrow spent.
+		if (isBow && !bIsDuel && extraArrows && !extraArrows->empty())
+		{
+			const int victims = (int)extraArrows->size() + 1;
+			for (size_t i = 0; i < extraArrows->size(); ++i)
+			{
+				LPCHARACTER extra = CHARACTER_MANAGER::instance().Find((*extraArrows)[i]);
+				if (!extra || extra == primary || extra->IsDead() || !battle_is_attackable(ch, extra))
+					continue;
+
+				extra->Damage(ch, CalcArrowDamage(ch, extra, weapon, arrow, false, 0, victims),
+						DAMAGE_TYPE_NORMAL);
+				if (!extra->IsDead() && extra->CanBeginFight())
+					extra->BeginFight(ch);
+				++hitCount;
+			}
+		}
 
 		// The sweep stays off a duel: it is a fight between two characters, and
 		// the monsters standing round them are nobody's business here - the
@@ -2337,8 +2359,13 @@ namespace
 		ch->SetRotationToXY(target->GetX(), target->GetY());
 		state.dwNextAttackTime = dwNow + hitInterval;
 		state.dwLastCombatActionTime = dwNow;
-		SendPlayerBotAttackPacket(ch, target, state.bComboMotion);
-		AttackPlayerBotMeleeGroup(ch, target);
+		// MT2009_PLUS_ARCHER_MULTISHOT_V1: an Archer's extra targets, chosen
+		// before the shot so the clients get their arrows with its motion.
+		std::vector<DWORD> extraArrows;
+		if (isBow)
+			CollectPlayerBotExtraArrows(ch, target, extraArrows);
+		SendPlayerBotAttackPacket(ch, target, state.bComboMotion, &extraArrows);
+		AttackPlayerBotMeleeGroup(ch, target, &extraArrows);
 
 		if (isBow)
 			state.bComboMotion = MOTION_COMBO_ATTACK_1;

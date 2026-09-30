@@ -30,8 +30,7 @@
   </form>
 </section>
 
-<section class="panel respawn-map-panel {{ '' if feature_enabled('map_respawns') else 'feature-locked' }}">
-  {% if not feature_enabled('map_respawns') %}<p class="feature-lock-note"><span>🔒 Dokładne czasy jednej mapy wymagają helpera <code>m2-map-regens</code>.</span><a href="{{ url_for('manage_panel') }}#compatibility">Wymaga akcji</a></p>{% endif %}
+{% if feature_enabled('map_respawns') %}<section class="panel respawn-map-panel">
   <div class="respawn-card-head"><span class="respawn-card-icon">⌖</span><div><p class="eyebrow">DOKŁADNA MAPA</p><h2>Własny czas respawnu</h2></div><span class="respawn-restart">↻ wymaga krótkiego restartu rdzeni</span></div>
   <p class="muted">To precyzyjne ustawienie nadpisuje czas w pliku wybranej mapy. Puste pole przywraca wartość dostarczoną z wydaniem Playerbots.</p>
   <form action="{{ url_for('respawns_map') }}" method="post" class="respawn-map-form">
@@ -41,7 +40,7 @@
     <button type="submit">Zapisz dla mapy</button>
   </form>
   <p class="respawn-map-hint" id="respawn-map-hint"></p>
-</section>
+</section>{% endif %}
 
 <section class="respawn-notes"><article><b>🗿 Metiny i bossy</b><span>Silnik MT2009 łączy je w jedną grupę. Ustawienie dotyczy obu naraz.</span></article><article><b>⚡ Zmiany live</b><span>Wpływają na następny respawn, nie tworzą dodatkowych jednostek natychmiast.</span></article><article><b>↻ Mapa</b><span>Indywidualne sekundy są plikową zmianą mapy, dlatego rdzenie odtwarzają się po zapisaniu.</span></article></section>
 <script data-page-script>

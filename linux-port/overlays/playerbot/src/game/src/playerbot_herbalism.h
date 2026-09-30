@@ -419,18 +419,47 @@ namespace
 	{
 		if (!IsPlayerBotPersonaEnabled())
 			return true;
-		if (!ch || (int)ch->GetLevel() < PLAYERBOT_ZIELARZ_MIN_LEVEL)
+		if (!ch)
+			return false;
+		// MT2009_PLUS_BOTLIFE_V1: over 100 the HERB slider ("Zielarstwo")
+		// brings a share of the other bots from Baek-Go's own level fifteen
+		// too - a fixed share by pid, every one of them at 250.
+		const int herb = GetPlayerBotWeight(PLAYERBOT_WEIGHT_HERB);
+		if (herb > PLAYERBOT_WEIGHT_NEUTRAL && ch->GetLevel() >= PLAYERBOT_HERBALISM_MIN_LEVEL &&
+				(int)(PlayerBotNavHash(ch->GetPlayerID() ^ 0x5a49454cU) % 100U) <
+					(herb - PLAYERBOT_WEIGHT_NEUTRAL) * 100 / (PLAYERBOT_WEIGHT_LIMIT - PLAYERBOT_WEIGHT_NEUTRAL))
+			return true;
+		if ((int)ch->GetLevel() < PLAYERBOT_ZIELARZ_MIN_LEVEL)
 			return false;
 		TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.find(ch->GetPlayerID());
 		return it != s_mapPlayerBotAIStates.end() && it->second.persona.bRestored &&
 				it->second.persona.bAdvanced;
 	}
 
+	// MT2009_PLUS_BOTLIFE_V1: under 100 the HERB slider closes the board to a
+	// share of the herbalists, half an hour at a time (the gate the REFINE and
+	// SKILL sliders close theirs with). Asked where a visit is decided, never
+	// by the rule that keeps a herbalist's herbs, which would otherwise take
+	// them in and out of the bag every half hour.
+	bool IsPlayerBotHerbBoardOpen(LPCHARACTER ch, DWORD dwNow)
+	{
+		return ch && IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_HERB,
+				PLAYERBOT_WEIGHT_GATE_SALT_HERB, dwNow);
+	}
+
+	// And the wait between two visits: shorter as the slider goes up.
+	DWORD DrawPlayerBotHerbalistVisitGap()
+	{
+		return ScalePlayerBotWaitByWeight((DWORD)number((int)PLAYERBOT_HERBALISM_VISIT_MIN_MS,
+				(int)PLAYERBOT_HERBALISM_VISIT_MAX_MS), PLAYERBOT_WEIGHT_HERB);
+	}
+
 	bool PlayerBotHasReadyCraftRow(LPCHARACTER ch)
 	{
 		if (!ch || !ch->IsItemLoaded() || !IsPlayerBotHerbalismUnlocked(ch))
 			return false;
-		if (ch->GetLevel() < PLAYERBOT_HERBALISM_MIN_LEVEL || !IsPlayerBotZielarz(ch))
+		if (ch->GetLevel() < PLAYERBOT_HERBALISM_MIN_LEVEL || !IsPlayerBotZielarz(ch) ||
+				!IsPlayerBotHerbBoardOpen(ch, get_dword_time()))
 			return false;
 		if (CountPlayerBotFreeInventoryCells(ch) < PLAYERBOT_HERBALISM_FREE_CELLS)
 			return false;

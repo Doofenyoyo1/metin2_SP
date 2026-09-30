@@ -1290,11 +1290,63 @@ namespace
 	// The goods a bot keeps by count over the whole bag and cuts lines of from
 	// what is over the keep: its own skill books, the soul stone and the Zen
 	// bean (GetPlayerBotCountedGoodsKeep).
+	// MT2009_PLUS_BOTLIFE_V1: the jewellery's refine stones ("przetopy"):
+	// the Diament opens a socket (USE_ADD_ACCESSORY_SOCKET), the Ebonit and
+	// the rest go into one (USE_PUT_INTO_ACCESSORY_SOCKET). By subtype, so
+	// every stone item_proto carries is one - 50621 and 50623-50638 here.
+	// They were never goods: the scorer had no branch for them and the junk
+	// rule keeps them from the merchant, so they rode in the bags for good
+	// (kuszaa, 30 September). Now a bot keeps what its own jewellery takes
+	// (GetPlayerBotAccessoryStoneKeep) and the rest is counted goods, a
+	// stone a line, at the price list's price.
+	bool IsPlayerBotAccessoryStoneOf(BYTE type, BYTE subType)
+	{
+		return type == ITEM_USE &&
+				(subType == USE_ADD_ACCESSORY_SOCKET || subType == USE_PUT_INTO_ACCESSORY_SOCKET);
+	}
+
+	bool IsPlayerBotAccessoryStone(LPITEM item)
+	{
+		return item && IsPlayerBotAccessoryStoneOf(item->GetType(), item->GetSubType());
+	}
+
+	bool IsPlayerBotAccessoryStoneVnum(DWORD vnum)
+	{
+		const TItemTable* proto = vnum ? ITEM_MANAGER::instance().GetTable(vnum) : NULL;
+		return proto && IsPlayerBotAccessoryStoneOf(proto->bType, proto->bSubType);
+	}
+
+	// How many of this stone the bot's own jewellery still takes: for a stone
+	// that goes into a socket, every socket of a worn earring, bracelet or
+	// necklace it fits (CItem::CanPutInto) that it does not fill yet - the
+	// ones still to be opened included, a Diament opens them - and for the
+	// Diament every socket still to be opened. The pieces the Gornik's own
+	// work fills (ManagePlayerBotAccessorySockets, playerbot_mining.h).
+	int GetPlayerBotAccessoryStoneKeep(LPCHARACTER ch, LPITEM stone)
+	{
+		if (!ch || !IsPlayerBotAccessoryStone(stone))
+			return 0;
+		static const BYTE slots[] = { WEAR_EAR, WEAR_WRIST, WEAR_NECK };
+		int keep = 0;
+		for (size_t s = 0; s < sizeof(slots) / sizeof(slots[0]); ++s)
+		{
+			LPITEM piece = ch->GetWear(slots[s]);
+			if (!piece || !piece->IsAccessoryForSocket())
+				continue;
+			if (stone->GetSubType() == USE_ADD_ACCESSORY_SOCKET)
+				keep += std::max(0, (int)ITEM_ACCESSORY_SOCKET_MAX_NUM - piece->GetAccessorySocketMaxGrade());
+			else if (stone->CanPutInto(piece))
+				keep += std::max(0, (int)ITEM_ACCESSORY_SOCKET_MAX_NUM - piece->GetAccessorySocketGrade());
+		}
+		return keep;
+	}
+
 	bool IsPlayerBotCountedSingleGoods(LPITEM item)
 	{
 		return item && (item->GetType() == ITEM_SKILLBOOK ||
 				item->GetVnum() == PLAYERBOT_GRAND_MASTER_STONE_VNUM ||
-				item->GetVnum() == PLAYERBOT_ZEN_BEAN_VNUM);
+				item->GetVnum() == PLAYERBOT_ZEN_BEAN_VNUM ||
+				IsPlayerBotAccessoryStone(item));   // MT2009_PLUS_BOTLIFE_V1
 	}
 
 	// What PLAYERBOT_SHOP_SAME_VNUM_LINES caps by vnum: everything but the
@@ -1334,6 +1386,9 @@ namespace
 	{
 		if (type == ITEM_SKILLBOOK)
 			return 0x80000000U | (DWORD)(vnum == 50300 ? socket0 : value0);
+		// MT2009_PLUS_BOTLIFE_V1: a refine stone's kind is its vnum.
+		if (type == ITEM_USE && IsPlayerBotAccessoryStoneVnum(vnum))
+			return vnum;
 		return vnum == PLAYERBOT_GRAND_MASTER_STONE_VNUM || vnum == PLAYERBOT_ZEN_BEAN_VNUM ? vnum : 0;
 	}
 
@@ -1374,6 +1429,9 @@ namespace
 			return GetPlayerBotZenBeanKeep(ch);
 		if (IsPlayerBotBonusStoneItem(item))
 			return GetPlayerBotBonusStoneKeep(ch, item);
+		// MT2009_PLUS_BOTLIFE_V1: what the bot's jewellery still takes.
+		if (IsPlayerBotAccessoryStone(item))
+			return GetPlayerBotAccessoryStoneKeep(ch, item);
 		return 0;
 	}
 
@@ -2000,6 +2058,10 @@ namespace
 		// ever the merchant's - they are the whole point of the digging, and
 		// the counter is where the operator asked the trade to happen.
 		if (IsPlayerBotRawOre(vnum) || IsPlayerBotSmeltedOre(vnum))
+			return false;
+		// MT2009_PLUS_BOTLIFE_V1: nor any refine stone of the jewellery, the
+		// ones no vein here gives included - the counter sells them.
+		if (IsPlayerBotAccessoryStone(item))
 			return false;
 		// Hair dye is never the merchant's: the item shop's is goods, and one
 		// from the water is thrown away (DiscardPlayerBotFishedDyes) but for

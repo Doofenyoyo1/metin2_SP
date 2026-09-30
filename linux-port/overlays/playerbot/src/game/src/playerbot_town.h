@@ -1284,6 +1284,9 @@ namespace
 		// (IsPlayerBotZielarz); a visit already walking finishes.
 		if (!state.bVisitingHerbalist && !IsPlayerBotZielarz(ch))
 			return false;
+		// MT2009_PLUS_BOTLIFE_V1: and the HERB slider's gate (playerbot_herbalism.h).
+		if (!state.bVisitingHerbalist && !IsPlayerBotHerbBoardOpen(ch, dwNow))
+			return false;
 		// A bot in somebody's party is theirs, and the board is an errand.
 		if (ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty()))
 			return false;
@@ -1310,15 +1313,13 @@ namespace
 		if (!wantsOnboarding && !row)
 		{
 			state.bVisitingHerbalist = false;
-			state.dwNextHerbalistCheckTime = dwNow + number(
-					PLAYERBOT_HERBALISM_VISIT_MIN_MS, PLAYERBOT_HERBALISM_VISIT_MAX_MS);
+			state.dwNextHerbalistCheckTime = dwNow + DrawPlayerBotHerbalistVisitGap();   // MT2009_PLUS_BOTLIFE_V1
 			return false;
 		}
 		if (CountPlayerBotFreeInventoryCells(ch) < PLAYERBOT_HERBALISM_FREE_CELLS)
 		{
 			state.bVisitingHerbalist = false;
-			state.dwNextHerbalistCheckTime = dwNow + number(
-					PLAYERBOT_HERBALISM_VISIT_MIN_MS, PLAYERBOT_HERBALISM_VISIT_MAX_MS);
+			state.dwNextHerbalistCheckTime = dwNow + DrawPlayerBotHerbalistVisitGap();   // MT2009_PLUS_BOTLIFE_V1
 			return false;
 		}
 
@@ -1394,8 +1395,7 @@ namespace
 
 		state.bVisitingHerbalist = false;
 		state.dwNextHerbalistActionTime = 0;
-		state.dwNextHerbalistCheckTime = dwNow + number(
-				PLAYERBOT_HERBALISM_VISIT_MIN_MS, PLAYERBOT_HERBALISM_VISIT_MAX_MS);
+		state.dwNextHerbalistCheckTime = dwNow + DrawPlayerBotHerbalistVisitGap();   // MT2009_PLUS_BOTLIFE_V1
 		ClearPlayerBotRoute(state, true);
 		sys_log(0, "PLAYERBOT_HERB: visit over pid=%u name=%s crafted=%d gold=%lld",
 				ch->GetPlayerID(), ch->GetName(), made, (long long) ch->GetGold());
@@ -1536,14 +1536,22 @@ namespace
 			for (size_t i = 0; i < taken.size(); ++i)
 				ITEM_MANAGER::instance().RemoveItem(taken[i], "PLAYERBOT_ALCHEMIST");
 			PlayerBotChangeGold(ch, -fee);
-			for (int left = dust; left > 0; )
+			// MT2009_PLUS_EXCHANGE_CHANCE_V1: a roll a dust, at the chance the
+			// players get (the world's difficulty); the fee is paid for every
+			// try, as the quest takes it.
+			const int chance = GetPlayerBotExchangeChance(PLAYERBOT_NPC_EXCHANGE_DUST);
+			int made = 0;
+			for (int i = 0; i < dust; ++i)
+				if (chance >= 100 || number(1, 100) <= chance)
+					++made;
+			for (int left = made; left > 0; )
 			{
 				const int chunk = std::min(left, 200);
 				ch->AutoGiveItem(PLAYERBOT_MAGIC_DUST_VNUM, chunk, -1, false);
 				left -= chunk;
 			}
-			sys_log(0, "PLAYERBOT_ALCHEMIST: exchanged pid=%u name=%s stones=%d dust=%d fee=%lld gold=%lld",
-					ch->GetPlayerID(), ch->GetName(), count, dust, fee, (long long)ch->GetGold());
+			sys_log(0, "PLAYERBOT_ALCHEMIST: exchanged pid=%u name=%s stones=%d dust=%d/%d chance=%d fee=%lld gold=%lld",
+					ch->GetPlayerID(), ch->GetName(), count, made, dust, chance, fee, (long long)ch->GetGold());
 		}
 
 		state.bVisitingAlchemist = false;
@@ -1818,6 +1826,35 @@ namespace
 		return false;
 	}
 
+	// MT2009_PLUS_BOTLIFE_V1: refine stones of the jewellery over the keep,
+	// enough of them for a counter on their own: a stone a line and at most
+	// PLAYERBOT_SHOP_COUNTED_SINGLE_LINES lines a kind, so a reason to open is
+	// never a walk to town for a stand that refuses.
+	bool HasPlayerBotSpareAccessoryStones(LPCHARACTER ch)
+	{
+		if (!ch || !ch->IsItemLoaded())
+			return false;
+		std::map<DWORD, int> held;
+		std::map<DWORD, LPITEM> sample;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetCell() != cell || item->IsEquipped() || item->isLocked() ||
+					!IsPlayerBotAccessoryStone(item))
+				continue;
+			held[item->GetVnum()] += std::max<int>(1, item->GetCount());
+			sample[item->GetVnum()] = item;
+		}
+		int lines = 0;
+		for (std::map<DWORD, int>::const_iterator it = held.begin(); it != held.end(); ++it)
+		{
+			const int spare = it->second - GetPlayerBotAccessoryStoneKeep(ch, sample[it->first]);
+			if (spare > 0)
+				lines += std::min(spare, PLAYERBOT_SHOP_COUNTED_SINGLE_LINES);
+		}
+		return (size_t)lines >= PLAYERBOT_SHOP_MIN_ITEMS;
+	}
+
 	// Iwakura's Patch 3, point 2: "postac ta powinna pamietac o wystawianiu na
 	// rynek przedmiotow ulepszonych do poziomow +7, +8 oraz +9" - and since
 	// Community Patch 5, point 1, "wszystkie ulepszone (nie wazny jest +) ida
@@ -1858,6 +1895,11 @@ namespace
 			return PLAYERBOT_SHOP_REASON_MEDALS;
 		// And what a gambler's session made, the same way.
 		if (HasPlayerBotGambleGoods(ch, state))
+			return PLAYERBOT_SHOP_REASON_SPARE;
+		// MT2009_PLUS_BOTLIFE_V1: and the jewellery's refine stones over what
+		// its own sockets take, a counter's worth of them - valuable spares,
+		// which the TRADE slider does not hold back either.
+		if (HasPlayerBotSpareAccessoryStones(ch))
 			return PLAYERBOT_SHOP_REASON_SPARE;
 		// A trader always has the stall open when it can. For everyone else it
 		// stays what it was: an occasional thing one bot in ten does with a spare.
@@ -3414,6 +3456,16 @@ namespace
 			return playerbot_stall_rules::HoldsSpare(CountPlayerBotVnumUnitsAhead(ch, item),
 					(int)item->GetCount(), GetPlayerBotCountedGoodsKeep(ch, item))
 					? PlayerBotGoods(PLAYERBOT_SHOP_BONUS_STONE_SCORE, per::GOODS_BONUS_STONE_SPARE,
+						IsPlayerBotGoodsExplaining() && ch ? (long long)ch->CountSpecifyItem(item->GetVnum()) : 0,
+						GetPlayerBotCountedGoodsKeep(ch, item)) : -1;
+		// MT2009_PLUS_BOTLIFE_V1: a refine stone of the jewellery (Diament,
+		// Ebonit and the others) over what the bot's own sockets take; a
+		// stack holding a stone over the keep is goods, and the cut takes a
+		// stone a line from what is over it (IsPlayerBotCountedSingleGoods).
+		if (IsPlayerBotAccessoryStone(item))
+			return playerbot_stall_rules::HoldsSpare(CountPlayerBotVnumUnitsAhead(ch, item),
+					(int)item->GetCount(), GetPlayerBotCountedGoodsKeep(ch, item))
+					? PlayerBotGoods(PLAYERBOT_SHOP_ACCESSORY_STONE_SCORE, per::GOODS_ACCESSORY_STONE_SPARE,
 						IsPlayerBotGoodsExplaining() && ch ? (long long)ch->CountSpecifyItem(item->GetVnum()) : 0,
 						GetPlayerBotCountedGoodsKeep(ch, item)) : -1;
 		// Seven of the Forgetting Scrolls are marked "do sprzedazy u

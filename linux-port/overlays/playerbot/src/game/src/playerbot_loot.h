@@ -41,6 +41,27 @@ namespace
 		return item && item->GetVnum() == PLAYERBOT_TANAKA_EAR_VNUM;
 	}
 
+	// MT2009_PLUS_BOT_PRIORITY_LOOT_V1: what a bot in a fight runs for
+	// (TryPlayerBotPriorityLootDash) - a Horse Medal or a skill book, the two
+	// drops of a Monkey Dungeon chamber worth leaving a foe for a moment.
+	bool IsPlayerBotCombatPriorityDrop(LPITEM item)
+	{
+		return item && (item->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM ||
+				item->GetType() == ITEM_SKILLBOOK);
+	}
+
+	// A Horse Medal lifted off the ground: the horse pass's count of real
+	// medals and where the last one came from. Returns the count.
+	int NotePlayerBotHorseMedalLooted(LPCHARACTER ch)
+	{
+		const int looted = std::max(0,
+				ch->GetQuestFlag(PLAYERBOT_HORSE_MEDALS_LOOTED_FLAG)) + 1;
+		ch->SetQuestFlag(PLAYERBOT_HORSE_MEDALS_LOOTED_FLAG, looted);
+		ch->SetQuestFlag(PLAYERBOT_HORSE_LAST_LOOT_MAP_FLAG, ch->GetMapIndex());
+		ch->SetQuestFlag(PLAYERBOT_HORSE_LAST_LOOT_TIME_FLAG, get_global_time());
+		return looted;
+	}
+
 	// Yang first, then by distance. A bot that walks past three coin piles to
 	// reach a hide, then walks back for each pile, spends its time crossing a
 	// field it has already cleared - and the yang is what pays for the potions
@@ -125,6 +146,9 @@ namespace
 
 	// playerbot_sidekick.h: a companion's owner, whose filter it keeps.
 	LPCHARACTER GetPlayerBotSidekickFilterOwner(LPCHARACTER ch);
+	// MT2009_PLUS_SIDEKICK_LOOT_OFF_V1 (playerbot_sidekick.h): a companion whose
+	// window says "Nic" - it picks nothing up, in any state.
+	bool IsPlayerBotSidekickLootOff(LPCHARACTER ch);
 
 	bool IsPlayerBotPartyLoot(LPCHARACTER owner, LPITEM item)
 	{
@@ -159,23 +183,37 @@ namespace
 	}
 
 	// Whether a drop would land in a bag with no free cell: only by merging
-	// into a stack of the same thing, the way the engine's own pickup does
-	// (same vnum, same sockets, room under ITEM_MAX_COUNT).
+	// into stacks of the same thing, the way the engine's own pickup does
+	// (AutoStackItem: same vnum, same sockets, poured over as many stacks as
+	// it takes).
+	//
+	// MT2009_PLUS_BOT_PRIORITY_LOOT_V1: the room is the proto's own stack
+	// size (PlayerBotMaxStack), not ITEM_MAX_COUNT. A Horse Medal stacks to
+	// twenty, and a bag of full medal stacks read as room for a hundred and
+	// eighty more: a bot with no free cell kept running for a medal the
+	// engine then refused, every five seconds (upstream 2.2.43).
 	bool PlayerBotLootMergesIntoStack(LPCHARACTER ch, LPITEM item)
 	{
-		if (!ch || !item || !item->IsStackable())
+		if (!ch || !item || !item->IsStackable() ||
+				IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_STACK))
 			return false;
+		long long room = 0;
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM held = ch->GetInventoryItem(cell);
-			if (!held || held->GetVnum() != item->GetVnum() ||
-					held->GetCount() + item->GetCount() > ITEM_MAX_COUNT)
+			if (!held || held == item || held->GetVnum() != item->GetVnum())
+				continue;
+			const int maxStack = PlayerBotMaxStack(held);
+			if ((int)held->GetCount() >= maxStack)
 				continue;
 			bool sameSockets = true;
 			for (int s = 0; s < ITEM_SOCKET_MAX_NUM; ++s)
 				if (held->GetSocket(s) != item->GetSocket(s))
 					sameSockets = false;
-			if (sameSockets)
+			if (!sameSockets)
+				continue;
+			room += maxStack - (int)held->GetCount();
+			if (room >= (long long)item->GetCount())
 				return true;
 		}
 		return false;
@@ -332,7 +370,8 @@ namespace
 	class CCollectPlayerBotLoot
 	{
 		public:
-			CCollectPlayerBotLoot(LPCHARACTER owner, int maxDistance, const std::map<DWORD, DWORD>& failedLoot, DWORD dwNow) :
+			CCollectPlayerBotLoot(LPCHARACTER owner, int maxDistance, const std::map<DWORD, DWORD>& failedLoot, DWORD dwNow,
+					bool priorityOnly = false) :
 				m_owner(owner),
 				m_maxDistance(maxDistance),
 				m_failedLoot(failedLoot),
@@ -352,16 +391,25 @@ namespace
 						!IsPlayerBotDemonTowerInstance(owner->GetMapIndex())),
 				m_skippedCheap(0),
 				m_medalDropper(owner && GetPlayerBotPersonalityByPID(owner->GetPlayerID()) ==
-						BOT_PERSONALITY_MEDAL_DROPPER)
+						BOT_PERSONALITY_MEDAL_DROPPER),
+				m_priorityOnly(priorityOnly),
+				// MT2009_PLUS_SIDEKICK_LOOT_OFF_V1: a companion set to "Nic" sees no
+				// loot at all - let off the leash, playing alone, sent to town or
+				// just summoned, in its owner's party or not.
+				m_lootOff(IsPlayerBotSidekickLootOff(owner))
 			{
 			}
 
 			bool operator () (LPENTITY entity)
 			{
-				if (!entity || !entity->IsType(ENTITY_ITEM))
+				if (m_lootOff || !entity || !entity->IsType(ENTITY_ITEM))
 					return false;
 
 				LPITEM item = static_cast<LPITEM>(entity);
+				// MT2009_PLUS_BOT_PRIORITY_LOOT_V1: the fight's run looks at a
+				// medal or a book and at nothing else, before any other test.
+				if (m_priorityOnly && !IsPlayerBotCombatPriorityDrop(item))
+					return true;
 				// Ground items in this source tree retain entity map index 0.
 				// Being in one of the owner's neighbouring sectrees is the reliable
 				// same-map test; checking item->GetMapIndex() rejects every drop.
@@ -432,6 +480,8 @@ namespace
 			bool m_choosy;
 			int m_skippedCheap;
 			bool m_medalDropper;
+			bool m_priorityOnly;
+			bool m_lootOff;
 			std::vector<std::pair<int, LPITEM> > m_items;
 	};
 
@@ -479,6 +529,9 @@ namespace
 	bool TryPlayerBotCombatPickup(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!ch || !ch->GetSectree() || dwNow < state.dwNextLootPickupTime)
+			return false;
+		// MT2009_PLUS_SIDEKICK_LOOT_OFF_V1: "Nic" in the companion's window.
+		if (IsPlayerBotSidekickLootOff(ch))
 			return false;
 
 		// Set the throttle before scanning.  An empty floor used to leave the
@@ -539,13 +592,7 @@ namespace
 			if (material)
 				RememberPlayerBotSpotDrop(ch->GetMapIndex(), ch->GetX(), ch->GetY(), itemVnum);
 			if (itemVnum == PLAYERBOT_HORSE_MEDAL_VNUM)
-			{
-				const int looted = std::max(0,
-						ch->GetQuestFlag(PLAYERBOT_HORSE_MEDALS_LOOTED_FLAG)) + 1;
-				ch->SetQuestFlag(PLAYERBOT_HORSE_MEDALS_LOOTED_FLAG, looted);
-				ch->SetQuestFlag(PLAYERBOT_HORSE_LAST_LOOT_MAP_FLAG, ch->GetMapIndex());
-				ch->SetQuestFlag(PLAYERBOT_HORSE_LAST_LOOT_TIME_FLAG, get_global_time());
-			}
+				NotePlayerBotHorseMedalLooted(ch);
 			sys_log(1, "PLAYERBOT_AI: combat-Z pickup pid=%u name=%s item_vid=%u vnum=%u visible_ms=%u",
 					ch->GetPlayerID(), ch->GetName(), itemVID, itemVnum,
 					(unsigned int)(dwNow - firstSeen));
@@ -557,9 +604,151 @@ namespace
 		return false;
 	}
 
+	// MT2009_PLUS_BOT_PRIORITY_LOOT_V1: forget the run for a medal or a book,
+	// hiding the drop from the next scans for `retryMs` when there is one.
+	void EndPlayerBotPriorityLootDash(TPlayerBotAIState& state, DWORD dwNow, DWORD retryMs)
+	{
+		if (state.dwPriorityLootVID != 0 && retryMs != 0)
+			state.mapFailedLootVIDs[state.dwPriorityLootVID] = dwNow + retryMs;
+		state.dwPriorityLootVID = 0;
+		state.dwPriorityLootStartTime = 0;
+	}
+
+	// MT2009_PLUS_BOT_PRIORITY_LOOT_V1: a Horse Medal or a skill book within
+	// PLAYERBOT_PRIORITY_LOOT_RANGE, taken in the middle of a fight
+	// (upstream 2.2.43, "Boty podnosza Medal Konny i ksiegi umiejetnosci w
+	// trakcie walki"). The fight's own pickup (TryPlayerBotCombatPickup) sees
+	// three metres; a bot in a chamber of the Monkey Dungeon never stops
+	// fighting, so a medal four metres off lay there until its owner's
+	// seconds were up and anybody took it. Only with the health for it
+	// (PLAYERBOT_PRIORITY_LOOT_MIN_HP_PERCENT), only what the ordinary search
+	// would take - its own, its party's for a member, or nobody's, never a
+	// drop the engine keeps for somebody else (IsPlayerBotPartyLoot) - and
+	// only what the bag has room for, a free cell or a stack with room under
+	// the proto's own size (PlayerBotBagTakesDrop). The bot keeps its foe:
+	// the run claims the tick, and once the drop is in the bag the fight
+	// below picks up where it left off.
+	bool TryPlayerBotPriorityLootDash(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		if (!ch || !ch->GetSectree())
+			return false;
+		const bool healthy = ch->GetMaxHP() > 0 &&
+				(long long)ch->GetHP() * 100 >=
+						(long long)ch->GetMaxHP() * PLAYERBOT_PRIORITY_LOOT_MIN_HP_PERCENT;
+		// A companion at its owner's side picks up by its window's setting,
+		// which its own pass keeps; a bot backing off or standing up after a
+		// death has its own business.
+		if (!healthy || state.bRecoveringAfterDeath || state.bTacticalRetreat ||
+				IsPlayerBotSidekickLeashed(ch))
+		{
+			EndPlayerBotPriorityLootDash(state, dwNow, 0);
+			return false;
+		}
+
+		LPITEM item = NULL;
+		if (state.dwPriorityLootVID != 0)
+		{
+			item = ITEM_MANAGER::instance().FindByVID(state.dwPriorityLootVID);
+			// Gone, somebody else's by now, no room for it any more (a stack
+			// filled on the way), or a run that is taking too long.
+			if (!item || !item->GetSectree() || !IsPlayerBotPartyLoot(ch, item) ||
+					!PlayerBotBagTakesDrop(ch, item) ||
+					dwNow - state.dwPriorityLootStartTime > PLAYERBOT_PRIORITY_LOOT_GIVE_UP_MS)
+			{
+				if (item && item->GetSectree())
+					PlayerBotLogThrottled("priority_loot_give_up", dwNow,
+							"PLAYERBOT_LOOT: gave up a fight's run pid=%u name=%s item_vid=%u vnum=%u run_ms=%u",
+							ch->GetPlayerID(), ch->GetName(), state.dwPriorityLootVID, item->GetVnum(),
+							(unsigned int)(dwNow - state.dwPriorityLootStartTime));
+				EndPlayerBotPriorityLootDash(state, dwNow,
+						item && item->GetSectree() ? PLAYERBOT_PRIORITY_LOOT_RETRY_MS : 0);
+				item = NULL;
+			}
+		}
+		if (!item)
+		{
+			if (dwNow < state.dwNextPriorityLootScanTime)
+				return false;
+			state.dwNextPriorityLootScanTime = dwNow + number(
+					PLAYERBOT_PRIORITY_LOOT_SCAN_INTERVAL_MIN,
+					PLAYERBOT_PRIORITY_LOOT_SCAN_INTERVAL_MAX);
+			CCollectPlayerBotLoot collector(ch, PLAYERBOT_PRIORITY_LOOT_RANGE,
+					state.mapFailedLootVIDs, dwNow, true);
+			ch->GetSectree()->ForEachAround(collector);
+			collector.Sort();
+			const std::vector<std::pair<int, LPITEM> >& items = collector.GetItems();
+			if (items.empty())
+				return false;
+			// Within the pickup circle the fight's own pickup takes it.
+			if (items.front().first <= PLAYERBOT_PICKUP_RANGE)
+				return false;
+			item = items.front().second;
+			if (!item || !item->GetSectree())
+				return false;
+			state.dwPriorityLootVID = item->GetVID();
+			state.dwPriorityLootStartTime = dwNow;
+			sys_log(0, "PLAYERBOT_LOOT: running for a %s in a fight pid=%u name=%s map=%ld item_vid=%u vnum=%u distance=%d hp=%d/%d",
+					item->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM ? "medal" : "book",
+					ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), item->GetVID(), item->GetVnum(),
+					items.front().first, (int)ch->GetHP(), (int)ch->GetMaxHP());
+		}
+
+		SetPlayerBotAction(state, BOT_ACTION_LOOT, dwNow);
+		const DWORD itemVID = item->GetVID();
+		const int distance = DISTANCE_APPROX(ch->GetX() - item->GetX(), ch->GetY() - item->GetY());
+		if (distance > PLAYERBOT_PICKUP_RANGE)
+		{
+			if (!MovePlayerBot(ch, item->GetX(), item->GetY(), dwNow) && state.bStuckCounter >= 3)
+			{
+				EndPlayerBotPriorityLootDash(state, dwNow, PLAYERBOT_PRIORITY_LOOT_RETRY_MS);
+				ClearPlayerBotRoute(state, true);
+				return false;
+			}
+			return true;
+		}
+
+		ch->Stop();
+		// mt2009's PickupItem takes one item a half second.
+		if (dwNow < state.dwNextLootPickupTime)
+			return true;
+		const DWORD itemVnum = item->GetVnum();
+		const long itemSocket0 = item->GetSocket(0);
+		const BYTE itemType = item->GetType();
+		state.dwNextLootPickupTime = dwNow + GetPlayerBotLootPickupInterval(item);
+		const DWORD runMs = dwNow - state.dwPriorityLootStartTime;
+		if (ch->PickupItem(itemVID))
+		{
+			NotePlayerBotMoodValuable(ch, itemVnum, itemSocket0, itemType, "pickup");
+			state.mapLootSeenSince.erase(itemVID);
+			if (itemVnum == PLAYERBOT_HORSE_MEDAL_VNUM)
+			{
+				const int looted = NotePlayerBotHorseMedalLooted(ch);
+				sys_log(0, "PLAYERBOT_HORSE: real medal looted pid=%u name=%s map=%ld total_looted=%d in_fight=1",
+						ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), looted);
+			}
+			sys_log(0, "PLAYERBOT_LOOT: fight's run picked up pid=%u name=%s item_vid=%u vnum=%u run_ms=%u back_to_target=%u",
+					ch->GetPlayerID(), ch->GetName(), itemVID, itemVnum, (unsigned int)runMs, state.dwTargetVID);
+			EndPlayerBotPriorityLootDash(state, dwNow, 0);
+			return true;
+		}
+		state.mapLootSeenSince.erase(itemVID);
+		EndPlayerBotPriorityLootDash(state, dwNow, 5000);
+		sys_log(1, "PLAYERBOT_AI: fight's run pickup failed pid=%u name=%s item_vid=%u vnum=%u -> retrying in 5s",
+				ch->GetPlayerID(), ch->GetName(), itemVID, itemVnum);
+		return true;
+	}
+
 	bool HandleLoot(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!ch || !ch->GetSectree())
+			return false;
+		// MT2009_PLUS_SIDEKICK_LOOT_OFF_V1: a companion set to "Nic" picks
+		// nothing up in any state. Let off the leash ("Wolna reka") this pass
+		// ran for it as for any bot, and in its owner's party the engine's party
+		// branch of PickupItem handed it the owner's drops as well - the owner's
+		// items went into its bag whatever the window said. Nor does it stand at
+		// a broken stone waiting for a drop it will not take.
+		if (IsPlayerBotSidekickLootOff(ch))
 			return false;
 
 		// Cleanup must also run for bots which spend minutes in continuous combat.
@@ -644,9 +833,17 @@ namespace
 						(long long)ch->GetMaxHP() * PLAYERBOT_TOWER_LOOT_MIN_HP_PERCENT;
 		if ((bFightingActiveTarget || state.bLootThreatNearby) && !metinDash && !towerDash)
 		{
+			// MT2009_PLUS_BOT_PRIORITY_LOOT_V1: a medal or a book a few metres
+			// off is worth the run (TryPlayerBotPriorityLootDash).
+			if (TryPlayerBotPriorityLootDash(ch, state, dwNow))
+				return true;
 			TryPlayerBotCombatPickup(ch, state, dwNow);
 			return false;
 		}
+		// MT2009_PLUS_BOT_PRIORITY_LOOT_V1: out of the fight the ordinary
+		// search below takes whatever the run was for.
+		if (state.dwPriorityLootVID != 0)
+			EndPlayerBotPriorityLootDash(state, dwNow, 0);
 		// Bots ran on the moment a stone broke and left its books on the ground
 		// ("boty za szybko odbiegaja po zbiciu metina", prodnathin). The first
 		// search after the break often finds nothing - the drop is another
@@ -751,11 +948,7 @@ namespace
 					RememberPlayerBotSpotDrop(ch->GetMapIndex(), ch->GetX(), ch->GetY(), itemVnum);
 				if (itemVnum == PLAYERBOT_HORSE_MEDAL_VNUM)
 				{
-					const int looted = std::max(0,
-							ch->GetQuestFlag(PLAYERBOT_HORSE_MEDALS_LOOTED_FLAG)) + 1;
-					ch->SetQuestFlag(PLAYERBOT_HORSE_MEDALS_LOOTED_FLAG, looted);
-					ch->SetQuestFlag(PLAYERBOT_HORSE_LAST_LOOT_MAP_FLAG, ch->GetMapIndex());
-					ch->SetQuestFlag(PLAYERBOT_HORSE_LAST_LOOT_TIME_FLAG, get_global_time());
+					const int looted = NotePlayerBotHorseMedalLooted(ch);
 					sys_log(0, "PLAYERBOT_HORSE: real medal looted pid=%u name=%s map=%ld total_looted=%d",
 							ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), looted);
 				}

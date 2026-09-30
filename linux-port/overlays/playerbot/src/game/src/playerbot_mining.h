@@ -245,7 +245,16 @@ namespace
 		const DWORD roll = PlayerBotNavHash(ch->GetPlayerID() ^ 0x4D494E45U) % 100U;
 		const int chance = state.bPersonality == BOT_PERSONALITY_CAREFUL_COLLECTOR
 				? PLAYERBOT_MINING_COLLECTOR_PERCENT : PLAYERBOT_MINING_PERCENT;
-		return roll < (DWORD)chance;
+		// MT2009_PLUS_BOTLIFE_V1: the share stretched or shrunk by the MINING
+		// slider ("Gornictwo"), the way the anglers' is by FISHING.
+		return PlayerBotWeightedRoll(roll, chance, PLAYERBOT_WEIGHT_MINING);
+	}
+
+	// MT2009_PLUS_BOTLIFE_V1: the rest between two sessions at the veins,
+	// shorter as the MINING slider goes up and longer as it goes down.
+	DWORD DrawPlayerBotMiningRest(DWORD dwMin, DWORD dwMax)
+	{
+		return ScalePlayerBotWaitByWeight((DWORD)number((int)dwMin, (int)dwMax), PLAYERBOT_WEIGHT_MINING);
 	}
 
 	bool IsPlayerBotHoldingPickaxe(LPCHARACTER ch)
@@ -482,7 +491,7 @@ namespace
 		if (worn && worn->GetType() == ITEM_PICK && !IsPlayerBotGearFrozen(ch))
 			ch->UnequipItem(worn);
 		s_mapPlayerBotMiningNext[pid] = dwNow + (dwRetry != 0 ? dwRetry :
-				(DWORD)number(PLAYERBOT_MINING_REST_MIN, PLAYERBOT_MINING_REST_MAX));
+				DrawPlayerBotMiningRest(PLAYERBOT_MINING_REST_MIN, PLAYERBOT_MINING_REST_MAX));
 		ClearPlayerBotRoute(state, true);
 		sys_log(0, "PLAYERBOT_MINING: session end pid=%u name=%s reason=%s",
 				pid, ch->GetName(), szReason ? szReason : "done");
@@ -574,6 +583,15 @@ namespace
 				return false;
 			if (!IsPlayerBotMiner(ch, state) && !(gornik && CountPlayerBotPickaxes(ch) > 0))
 				return false;
+			// MT2009_PLUS_BOTLIFE_V1: under 100 the MINING slider closes the
+			// veins to a share of the Gorniks, half an hour at a time
+			// (IsPlayerBotWeightGateOpen); the share above is its other half.
+			if (gornik && !IsPlayerBotWeightGateOpen(pid, PLAYERBOT_WEIGHT_MINING,
+					PLAYERBOT_WEIGHT_GATE_SALT_MINING, dwNow))
+			{
+				s_mapPlayerBotMiningNext[pid] = dwNow + PLAYERBOT_GORNIK_PROBE_MS;
+				return false;
+			}
 			// Never walk off mid-fight; finish what is already hitting back.
 			LPCHARACTER victim = state.dwTargetVID != 0
 					? CHARACTER_MANAGER::instance().Find(state.dwTargetVID) : NULL;
@@ -670,7 +688,7 @@ namespace
 			if (!vein || vein->IsDead() || !GetPlayerBotOreRowByVein(vein->GetRaceNum()))
 			{
 				EndPlayerBotMiningSession(ch, state, dwNow, "vein_gone",
-						(DWORD)number(PLAYERBOT_GORNIK_REST_MIN, PLAYERBOT_GORNIK_REST_MAX));
+						DrawPlayerBotMiningRest(PLAYERBOT_GORNIK_REST_MIN, PLAYERBOT_GORNIK_REST_MAX));
 				ManagePlayerBotAccessorySockets(ch, dwNow);
 				return false;
 			}

@@ -1,0 +1,11 @@
+ScriptType	MapSetting
+
+CellScale	200
+HeightScale	0.500000
+
+ViewRadius	128
+
+MapSize	4	4
+BasePosition	230400	384000
+TextureSet	textureset\pustynia.txt
+Environment	plechito_desert_map_01.msenv

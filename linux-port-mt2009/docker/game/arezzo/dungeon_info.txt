@@ -1,0 +1,63 @@
+# MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel ("Wyprawy", X / the sidebar) - one "dungeon" line per
+# dungeon, in the order the window lists them, and its "drop" lines (the boss's box in the window).
+# Read by the game core at the first "/lochy" and on "/lochy reload" (GM). Names: _ for a space.
+#
+# dungeon <key> <map> <type 0 global|1 party|2 guild> <xy|town> <entry map[/Chunjo/Jinno]> <x> <y>
+#         <lv min> <lv max, 0 = the world's> <party min> <party max> <boss> <cooldown quest.flag | -> <cooldown s>
+#         <required item> <count> <name> <entry name>
+#   xy: the entrance at x, y (world units / 100); town: the entry map's town position for the empire.
+#   The key names the results (dungeon_panel.<key>_f/_t/_d) the quests write with d.update_ranking(key).
+# drop <key> <vnum> <count> <percent>
+# MT2009_PLUS_DUNGEON_FEE_V1: cost <key> <yang> - the teleport's price (after the dungeon line);
+#   entry <key> <x y Shinsoo> <x y Chunjo> <x y Jinno> - an entrance per empire (xy mode).
+dungeon	biblioteka	363	1	xy	3/23/43	3568	8772	30	0	1	8	9706	biblioteka_wiedzy.entry	1800	0	0	Biblioteka_Wiedzy	M2
+entry	biblioteka	3568	8772	1369	2396	8668	2396
+cost	biblioteka	1000000
+drop	biblioteka	30773	3	100
+dungeon	wieza	66	1	xy	66	5900	1114	40	0	1	8	1093	-	0	0	0	Wie¿a_Demonów	Wie¿a_Demonów
+cost	wieza	5000000
+drop	wieza	183	1	10
+drop	wieza	184	1	5
+drop	wieza	193	1	10
+drop	wieza	194	1	5
+drop	wieza	3163	1	10
+drop	wieza	3164	1	5
+drop	wieza	2173	1	10
+drop	wieza	2174	1	5
+drop	wieza	1133	1	10
+drop	wieza	1134	1	5
+drop	wieza	7183	1	10
+drop	wieza	7184	1	5
+drop	wieza	5123	1	10
+drop	wieza	5124	1	5
+dungeon	wukong	364	1	xy	65	5537	1450	45	0	1	8	9682	wzgorze_wukonga.entry	1800	0	0	Wzgórze_Wukonga	Œwi¹tynia_Hwang
+cost	wukong	7000000
+drop	wukong	30774	3	100
+dungeon	razador	351	1	xy	62	5979	7060	55	0	1	8	6091	razador_dungeon.entry	3600	0	0	Czyœciec_Ognia_(Razador)	Doyyumhwaji
+cost	razador	10000000
+drop	razador	50270	5	100
+dungeon	skorpion	365	1	xy	62	5989	7058	65	0	1	8	9694	ruiny_skorpiona.entry	3600	0	0	Ruiny_Skorpiona	Doyyumhwaji
+cost	skorpion	12000000
+drop	skorpion	30775	4	100
+dungeon	katakumby	216	1	xy	65	5914	992	75	0	1	8	2598	devilcatacomb_zone.last_exit_time	1800	0	0	Katakumby_Diab³a	Œwi¹tynia_Hwang
+cost	katakumby	10000000
+drop	katakumby	183	1	20
+drop	katakumby	184	1	10
+drop	katakumby	193	1	20
+drop	katakumby	194	1	10
+drop	katakumby	3163	1	20
+drop	katakumby	3164	1	10
+drop	katakumby	2173	1	20
+drop	katakumby	2174	1	10
+drop	katakumby	1133	1	20
+drop	katakumby	1134	1	10
+drop	katakumby	7183	1	20
+drop	katakumby	7184	1	10
+drop	katakumby	5123	1	20
+drop	katakumby	5124	1	10
+dungeon	nemere	352	1	xy	61	4322	1655	75	0	1	8	6191	nemere_dungeon.entry	3600	0	0	Lodowa_Kraina_(Nemere)	Góra_Sohan
+cost	nemere	12000000
+drop	nemere	50271	5	100
+dungeon	dzungla	366	1	town	209	0	0	95	0	1	8	9714	starozytna_dzungla.entry	3600	0	0	Staro¿ytna_D¿ungla	Œwi¹tynia_Ochao
+cost	dzungla	12000000
+drop	dzungla	30776	5	100

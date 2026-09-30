@@ -322,6 +322,8 @@ BOT_PERSONA_LABELS = {
         # Community Patch 5, point 1: the four gamblers, drawn in purple.
         15: "Młodszy Hazardzista", 16: "Starszy Hazardzista",
         17: "Naczelny Hazardzista", 18: "Szalony Hazardzista",
+        # Baek-Go's herbalist (kuszaa, 30 September).
+        19: "Zielarz",
     },
     "en": {
         0: "Grinder", 1: "Conqueror", 2: "Trader", 3: "Gambler",
@@ -331,6 +333,7 @@ BOT_PERSONA_LABELS = {
         13: "Executioner", 14: "Mad Angler",
         15: "Junior Gambler", 16: "Senior Gambler",
         17: "Chief Gambler", 18: "Mad Gambler",
+        19: "Herbalist",
     },
 }
 BOT_MOOD_LABELS = {
@@ -1127,6 +1130,8 @@ AI_WEIGHT_KEYS = [
     ("LEVEL",   "⚔️"),
     ("FISHING", "🎣"),
     ("TRADE",   "🏪"),
+    ("MINING",  "⛏️"),
+    ("HERB",    "🌿"),
 ]
 
 
@@ -1138,6 +1143,9 @@ def read_ai_weights():
     vals["NIGHT"] = 1
     # "Boty graja jak zywi ludzie": sessions and rests. Experimental, off.
     vals["LIFE"] = 0
+    # Its hours of play a day (LIFE_HOURS, playerbot_life_rules.h); 0 is the
+    # key unset, the sessions and rests of before.
+    vals["LIFE_HOURS"] = 0
     # Guild wars between the bots' guilds (playerbot_guild_war.h). On.
     vals["WARS"] = 1
     vals["TOWER"] = 1
@@ -1203,6 +1211,12 @@ def read_ai_weights():
                     continue
                 if name == "LIFE":
                     vals["LIFE"] = 0 if parts[1].strip() in ("0", "off", "no") else 1
+                    continue
+                if name == "LIFE_HOURS":
+                    try:
+                        vals["LIFE_HOURS"] = max(0, min(LIFE_HOURS_MAX, int(parts[1])))
+                    except ValueError:
+                        pass
                     continue
                 if name == "WARS":
                     vals["WARS"] = 0 if parts[1].strip() in ("0", "off", "no") else 1
@@ -1317,6 +1331,10 @@ def write_ai_weights(vals):
     # Not a weight: whether bots play in sessions and log out to rest in
     # between (experimental, off by default).
     body.append("LIFE\t%d" % (1 if vals.get("LIFE", 0) else 0))
+    # Not a weight: the hours of play a day under LIFE, written only once
+    # set - without the key the core keeps the sessions and rests of before.
+    if vals.get("LIFE_HOURS"):
+        body.append("LIFE_HOURS\t%d" % max(1, min(LIFE_HOURS_MAX, int(vals["LIFE_HOURS"]))))
     # Not a weight: whether the bots' guilds fight field wars.
     body.append("WARS\t%d" % (1 if vals.get("WARS", 1) else 0))
     body.append("TOWER\t%d" % (1 if vals.get("TOWER", 1) else 0))
@@ -3454,6 +3472,14 @@ T = {
  "rare_sashes":  {"pl":"Szarfy","en":"Sashes"},
  "rare_sashes_help":{"pl":"Szarfy z bossów i ze skrzyń bossów. Łączenie szarf u Uriela działa zawsze.","en":"Sashes from bosses and boss chests. Combining sashes at Uriel always works."},
  "rare_saved_live":{"pl":"Zapisano i przełączono na żywo, przez pomocnika w grze. 🐉","en":"Saved and switched live, through the in-game helper. 🐉"},
+ "az_nav":       {"pl":"🗺️ Moduł Arezzo","en":"🗺️ Arezzo module"},
+ "az_open":      {"pl":"🗺️ Otwórz moduł Arezzo","en":"🗺️ Open the Arezzo module"},
+ "tip_az":       {"pl":"Włącz albo wyłącz nowe mapy i lochy z Arezzo. Działa od razu, bez restartu serwera.","en":"Switch the new Arezzo maps and dungeons on or off. Takes effect immediately, no server restart."},
+ "az_dash_hint": {"pl":"Czy na tym świecie są dostępne mapy i lochy z Arezzo (moduł dobrowolny).","en":"Whether the Arezzo maps and dungeons are open in this world (an optional module)."},
+ "az_intro":     {"pl":"Moduł dobrowolny: Dolina Cyklopów, Pustkowie Faraona, Zaczarowany Las oraz lochy Biblioteka Wiedzy, Wzgórze Wukonga, Ruiny Skorpiona i Starożytna Dżungla. Klient (2.0.30 i nowszy) ma wszystkie pliki zawsze — ten przełącznik decyduje tylko, czy serwer do nich prowadzi. Zapis działa od razu, bez restartu. Ustawienie z panelu zostaje po restarcie, dopóki ktoś nie zmieni M2_AREZZO w .env.","en":"An optional module: Dolina Cyklopow, Pustkowie Faraona, Zaczarowany Las and the dungeons Biblioteka Wiedzy, Wzgorze Wukonga, Ruiny Skorpiona and Starozytna Dzungla. The client (2.0.30 and newer) always has the files - this switch only decides whether the server leads there. Saving takes effect immediately, no restart. The panel's setting survives restarts until M2_AREZZO in .env is changed."},
+ "az_enable":    {"pl":"Moduł Arezzo włączony","en":"Arezzo module on"},
+ "az_help":      {"pl":"Włączony: strony w Teleporterze i Pierścieniu, portal do Zaczarowanego Lasu po Strażniku En-Tai, strażnicy wejść do lochów i lochy Arezzo w oknie „Wyprawy” (X). Wyłączony: nic z tego nie jest widoczne, a gracz, który stoi na mapie Arezzo albo jest w jej lochu, w ciągu kilku sekund wraca do miasta (GM może zostać).","en":"On: the Teleporter and ring pages, the Enchanted Forest portal after the En-Tai Guardian, the dungeon entrance guards and the Arezzo lines in the dungeon window (X). Off: none of it is visible, and a player standing on an Arezzo map or in one of its dungeons is sent to the town within seconds (a GM may stay)."},
+ "az_saved_live":{"pl":"Zapisano i przełączono na żywo, przez pomocnika w grze. 🗺️","en":"Saved and switched live, through the in-game helper. 🗺️"},
  "regen_title": {"pl":"Czas odradzania Metinów, bossów i potworów",
                  "en":"Respawn time of Metin stones, bosses and monsters"},
  "regen_help":  {"pl":"Procent zwykłego czasu odradzania: 100 = jak w grze, 50 = dwa razy szybciej, 10 = dziesięć razy szybciej. Działa od razu (przez pomocnika w grze), a po restarcie zostaje. Osobno dla Metinów i bossów, osobno dla zwykłych potworów.",
@@ -3504,6 +3530,11 @@ T = {
  "diff_book_h": {"pl":"Księgi umiejętności — gracze, godzin:", "en":"Skill books — players, hours:"},
  "diff_bot_book_h": {"pl":"Księgi umiejętności — boty, godzin:", "en":"Skill books — bots, hours:"},
  "diff_save":   {"pl":"Zapisz poziom trudności", "en":"Save the difficulty"},
+ # MT2009_PLUS_EXCHANGE_CHANCE_V1: the NPC exchanges' chances by the level.
+ "diff_exchange_now": {"pl":"Szanse wymiany u NPC (Magiczny Pył / Pergamin / Materiały Rzemieślnicze)",
+                       "en":"NPC exchange chances (Magic Dust / Parchment / Crafting Materials)"},
+ "diff_exchange": {"pl":"Poziom ustawia też szanse wymiany u NPC — kamieni duszy na Magiczny Pył, ksiąg na Pergamin i ulepszaczy na Materiały Rzemieślnicze: łatwy 100 / 100 / 55% (jak w paczce), średni 90 / 45 / 55%, trudny 55 / 40 / 55%. Poziom „Własny” bierze trzy liczby z .env serwera (M2_EXCHANGE_DUST_CHANCE, M2_EXCHANGE_PARCHMENT_CHANCE, M2_EXCHANGE_MATERIAL_CHANCE; 0 = jak w paczce), wczytywane przy każdym starcie. Okno wymiany pokazuje obowiązującą szansę, a boty wymieniają z tą samą.",
+                   "en":"The level also sets the NPC exchange chances - soul stones to Magic Dust, skill books to Parchment and upgrade items to Crafting Materials: easy 100 / 100 / 55% (as the package), medium 90 / 45 / 55%, hard 55 / 40 / 55%. The Custom level takes three numbers from the server's .env (M2_EXCHANGE_DUST_CHANCE, M2_EXCHANGE_PARCHMENT_CHANCE, M2_EXCHANGE_MATERIAL_CHANCE; 0 = as the package), read at every start. The exchange window shows the chance in force, and the bots exchange at the same one."},
  "diff_range":  {"pl":"Wybierz poziom i podaj godziny od 0 do 720. Nic nie zmieniono.",
                  "en":"Pick a level and hours from 0 to 720. Nothing was changed."},
  "diff_saved_live": {"pl":"✅ Zapisano! Nowy poziom trudności działa już w grze.",
@@ -3976,6 +4007,13 @@ T.update({
                   "de":"Experimentell. Jeder Bot spielt eine Sitzung von 3-6 Stunden (die erste nach einem Start ab einer halben Stunde), loggt sich aus, ruht 3-9 Stunden und kommt zurück; höchstens zwei von fünf Bots ruhen gleichzeitig, also sind mindestens drei von fünf online. Aus: alle Bots bleiben wie bisher in der Welt. Greift innerhalb einer Minute; Ausschalten holt die ruhenden Bots in wenigen Minuten zurück. Ein Bot in der Gruppe eines Spielers wartet mit dem Ausloggen.",
                   "tr":"Deneysel. Her bot 3-6 saatlik bir oturum oynar (başlangıçtan sonraki ilki yarım saatten itibaren), çıkış yapar, 3-9 saat dinlenir ve geri gelir; aynı anda en fazla beşte iki bot dinlenir, yani en az beşte üçü çevrimiçidir. Kapalıyken tüm botlar eskisi gibi dünyada kalır. Bir dakika içinde uygulanır; kapatmak dinlenen botları birkaç dakika içinde geri getirir. Bir oyuncunun grubundaki bot çıkış yapmadan bekler."},
  "ai_life_on":   {"en":"Enabled (experimental)","pl":"Włączone (eksperymentalne)","de":"Eingeschaltet (experimentell)","tr":"Açık (deneysel)"},
+ "ai_life_hours": {"en":"Hours of play a day","pl":"Godziny gry na dobę","de":"Spielstunden pro Tag","tr":"Günlük oyun saati"},
+ "ai_life_hours_default": {"en":"as before","pl":"jak dotąd","de":"wie bisher","tr":"eskisi gibi"},
+ "ai_life_hours_all_day": {"en":"all day, no rests","pl":"cała doba, bez przerw","de":"den ganzen Tag, ohne Pausen","tr":"bütün gün, molasız"},
+ "ai_life_hours_help": {"en":"Works while the switch above is on. How many hours a day each bot plays: sessions of 4 hours (the whole of a shorter day) with a rest between them that makes the day add up - 12 is about three sessions of 4 hours with 4 hours off, 2 is one session of 2 hours a day. Each session and rest is drawn a quarter either way, and at most the day's share of resting bots plus a tenth rest at once. 0 keeps the sessions of 3-6 hours and rests of 3-9 hours.",
+                  "pl":"Działa, gdy przełącznik wyżej jest włączony. Ile godzin na dobę gra każdy bot: sesje po 4 godziny (przy krótszej dobie cała doba w jednej sesji) z przerwą, która dopełnia dobę - 12 to około trzech sesji po 4 godziny z 4 godzinami przerwy, 2 to jedna dwugodzinna sesja na dobę. Każda sesja i przerwa losuje się o ćwierć w górę lub w dół, a naraz odpoczywa najwyżej tyle botów, ile wynika z doby, i jeszcze jedna dziesiąta. 0 zostawia sesje 3–6 godzin i przerwy 3–9 godzin.",
+                  "de":"Wirkt, solange der Schalter oben an ist. Wie viele Stunden am Tag jeder Bot spielt: Sitzungen von 4 Stunden (bei kürzerem Tag der ganze Tag in einer) mit einer Pause dazwischen, die den Tag auffüllt - 12 sind etwa drei Sitzungen von 4 Stunden mit 4 Stunden Pause, 2 eine zweistündige Sitzung am Tag. Jede Sitzung und Pause wird um ein Viertel nach oben oder unten gezogen, und gleichzeitig ruhen höchstens so viele Bots, wie der Tag vorgibt, plus ein Zehntel. 0 behält Sitzungen von 3-6 Stunden und Pausen von 3-9 Stunden.",
+                  "tr":"Yukarıdaki anahtar açıkken çalışır. Her botun günde kaç saat oynadığı: 4 saatlik oturumlar (daha kısa bir günde günün tamamı tek oturum) ve günü tamamlayan molalar - 12, 4 saat molayla yaklaşık üç adet 4 saatlik oturumdur, 2 günde tek bir 2 saatlik oturumdur. Her oturum ve mola dörtte bir yukarı veya aşağı çekilir ve aynı anda en fazla günün payı kadar bot, bir de onda biri dinlenir. 0, 3-6 saatlik oturumları ve 3-9 saatlik molaları korur."},
  "ai_wars":      {"en":"Guild wars between the bots","pl":"Wojny gildii botów","de":"Gildenkriege der Bots","tr":"Botların lonca savaşları"},
  "ai_wars_help": {"en":"Two bot guilds of one kingdom fight a field war on that kingdom's guild map, for as long and as often as set below (thirty minutes every two hours by default), with the game's own declaration and scoring and a notice on the chat when it starts. A guild needs eight bots online to be picked. Off: no new war is declared, and the bots of a war under way leave it within a minute.",
                   "pl":"Dwie gildie botów z jednego królestwa toczą wojnę polową na mapie gildyjnej tego królestwa, tak długo i tak często, jak ustawiono niżej (domyślnie trzydzieści minut co dwie godziny), z wypowiedzeniem i punktacją gry i komunikatem na czacie przy starcie. Gildia musi mieć osiem botów online, żeby ją wylosowano. Wyłączone: nowa wojna nie jest wypowiadana, a boty z trwającej wojny wycofują się w ciągu minuty.",
@@ -4036,10 +4074,10 @@ T.update({
                   "de":"Drei zusätzliche Bots, einer pro Reich, über der Botanzahl. Sie leveln bis 15 und stehen dann ohne Waffe und Rüstung beim Gemischtwarenhändler im ersten Dorf und rufen ab und zu etwas in den Ruf-Kanal. Aus: sie loggen sofort aus.",
                   "tr":"Her krallık için bir tane olmak üzere bot sayısının üstünde üç ek bot. 15. seviyeye kadar kasarlar, sonra ilk köyün genel mağazasının yanında silahsız ve zırhsız durup ara sıra bağırma kanalına yazarlar. Kapalı: hemen çıkış yaparlar."},
  "ai_persona":   {"en":"Bot personalities (Iwakura v2)","pl":"Osobowości botów (Iwakura v2)","de":"Bot-Persönlichkeiten (Iwakura v2)","tr":"Bot kişilikleri (Iwakura v2)"},
- "ai_persona_help": {"en":"Iwakura's personality system. A bot's personality follows its situation (Grinder, Conqueror, Trader, Gambler, Perfectionist, Metin slayer, Miner, Fisherman, Mercenary, Companion) and it has a mood (poor, normal, very good) shown on its card. A Grinder holds its level at its tier (15, 23, 30-35, 40-48, 55-62) until it wears a weapon +7, an armour +6 and a shield +6 for its level, and only then may level on as a Conqueror. A bot in a poor mood pauses between packs and goes AFK now and then; only such bots rest in town. Now and then a bot becomes one of five rare personalities for a while, shown in red: Metinologist, Addict, Mad Scientist, Executioner, Mad Angler - or, among the richest bots, one of four gamblers shown in purple: Junior, Senior, Chief and Mad Gambler. Off: the bots play as they did before, with their old personalities.",
-                  "pl":"System osobowości Iwakury. Osobowość bota wynika z jego sytuacji (Grinder, Zdobywca, Handlarz, Hazardzista, Perfekcjonista, Pogromca metinów, Górnik, Rybak, Najemnik, Towarzysz), a bot ma nastrój (słaby, normalny, bardzo dobry) widoczny na jego karcie. Grinder trzyma poziom swojego tieru (15, 23, 30-35, 40-48, 55-62), dopóki nie założy broni +7, zbroi +6 i tarczy +6 na swój poziom - dopiero wtedy może dalej expić jako Zdobywca. Bot w słabym nastroju robi przerwy między grupami mobów i co jakiś czas odchodzi od komputera; tylko takie boty odpoczywają w mieście. Od czasu do czasu bot staje się na pewien czas jedną z pięciu rzadkich osobowości, widocznych na czerwono: Metinolog, Nałogowiec, Szalony Naukowiec, Egzekutor, Szalony Wędkarz - a wśród najbogatszych botów jednym z czterech Hazardzistów, widocznych na fioletowo: Młodszym, Starszym, Naczelnym i Szalonym. Wyłączone: boty grają jak wcześniej, ze starymi osobowościami.",
-                  "de":"Iwakuras Persönlichkeitssystem. Die Persönlichkeit eines Bots folgt seiner Lage (Grinder, Eroberer, Händler, Spieler, Perfektionist, Metinjäger, Bergmann, Fischer, Söldner, Gefährte), und er hat eine Stimmung (schlecht, normal, sehr gut), die auf seiner Karte steht. Ein Grinder hält die Stufe seines Tiers (15, 23, 30-35, 40-48, 55-62), bis er eine Waffe +7, eine Rüstung +6 und einen Schild +6 für seine Stufe trägt, und erst dann darf er als Eroberer weiterleveln. Ein Bot in schlechter Stimmung macht Pausen zwischen den Gruppen und ist ab und zu AFK; nur solche Bots ruhen in der Stadt. Aus: die Bots spielen wie früher, mit ihren alten Persönlichkeiten.",
-                  "tr":"Iwakura'nın kişilik sistemi. Bir botun kişiliği durumuna göre değişir (Grinder, Fatih, Tüccar, Kumarbaz, Mükemmeliyetçi, Metin avcısı, Madenci, Balıkçı, Paralı asker, Yoldaş) ve kartında görünen bir ruh hali vardır (kötü, normal, çok iyi). Bir Grinder, seviyesine uygun +7 silah, +6 zırh ve +6 kalkan giyene kadar kademesinin seviyesinde (15, 23, 30-35, 40-48, 55-62) kalır, ancak ondan sonra Fatih olarak seviye atlayabilir. Kötü ruh halindeki bot gruplar arasında durur ve ara sıra AFK olur; yalnızca bu botlar şehirde dinlenir. Kapalı: botlar eski kişilikleriyle önceki gibi oynar."},
+ "ai_persona_help": {"en":"Iwakura's personality system. A bot's personality follows its situation (Grinder, Conqueror, Trader, Gambler, Perfectionist, Metin slayer, Miner, Herbalist, Fisherman, Mercenary, Companion) and it has a mood (poor, normal, very good) shown on its card. A Grinder holds its level at its tier (15, 23, 30-35, 40-48, 55-62) until it wears a weapon +7, an armour +6 and a shield +6 for its level, and only then may level on as a Conqueror. A bot in a poor mood pauses between packs and goes AFK now and then; only such bots rest in town. Now and then a bot becomes one of five rare personalities for a while, shown in red: Metinologist, Addict, Mad Scientist, Executioner, Mad Angler - or, among the richest bots, one of four gamblers shown in purple: Junior, Senior, Chief and Mad Gambler. Off: the bots play as they did before, with their old personalities.",
+                  "pl":"System osobowości Iwakury. Osobowość bota wynika z jego sytuacji (Grinder, Zdobywca, Handlarz, Hazardzista, Perfekcjonista, Pogromca metinów, Górnik, Zielarz, Rybak, Najemnik, Towarzysz), a bot ma nastrój (słaby, normalny, bardzo dobry) widoczny na jego karcie. Grinder trzyma poziom swojego progu (15, 23, 30-35, 40-48, 55-62), dopóki nie założy broni +7, zbroi +6 i tarczy +6 na swój poziom - dopiero wtedy może dalej expić jako Zdobywca. Bot w słabym nastroju robi przerwy między grupami mobów i co jakiś czas odchodzi od komputera; tylko takie boty odpoczywają w mieście. Od czasu do czasu bot staje się na pewien czas jedną z pięciu rzadkich osobowości, widocznych na czerwono: Metinolog, Nałogowiec, Szalony Naukowiec, Egzekutor, Szalony Wędkarz - a wśród najbogatszych botów jednym z czterech Hazardzistów, widocznych na fioletowo: Młodszym, Starszym, Naczelnym i Szalonym. Wyłączone: boty grają jak wcześniej, ze starymi osobowościami.",
+                  "de":"Iwakuras Persönlichkeitssystem. Die Persönlichkeit eines Bots folgt seiner Lage (Grinder, Eroberer, Händler, Spieler, Perfektionist, Metinjäger, Bergmann, Kräuterkundiger, Fischer, Söldner, Gefährte), und er hat eine Stimmung (schlecht, normal, sehr gut), die auf seiner Karte steht. Ein Grinder hält die Stufe seines Tiers (15, 23, 30-35, 40-48, 55-62), bis er eine Waffe +7, eine Rüstung +6 und einen Schild +6 für seine Stufe trägt, und erst dann darf er als Eroberer weiterleveln. Ein Bot in schlechter Stimmung macht Pausen zwischen den Gruppen und ist ab und zu AFK; nur solche Bots ruhen in der Stadt. Aus: die Bots spielen wie früher, mit ihren alten Persönlichkeiten.",
+                  "tr":"Iwakura'nın kişilik sistemi. Bir botun kişiliği durumuna göre değişir (Grinder, Fatih, Tüccar, Kumarbaz, Mükemmeliyetçi, Metin avcısı, Madenci, Bitkici, Balıkçı, Paralı asker, Yoldaş) ve kartında görünen bir ruh hali vardır (kötü, normal, çok iyi). Bir Grinder, seviyesine uygun +7 silah, +6 zırh ve +6 kalkan giyene kadar kademesinin seviyesinde (15, 23, 30-35, 40-48, 55-62) kalır, ancak ondan sonra Fatih olarak seviye atlayabilir. Kötü ruh halindeki bot gruplar arasında durur ve ara sıra AFK olur; yalnızca bu botlar şehirde dinlenir. Kapalı: botlar eski kişilikleriyle önceki gibi oynar."},
  "ai_persona_on": {"en":"Enabled","pl":"Włączone","de":"Eingeschaltet","tr":"Açık"},
  "ai_experimental": {"en":"experimental","pl":"eksperymentalne","de":"experimentell","tr":"deneysel"},
  "ai_scrap":     {"en":"Scrap keepers","pl":"Boty złomiarze","de":"Schrotthändler-Bots","tr":"Hurdacı botlar"},
@@ -4269,6 +4307,16 @@ T.update({
                  "de":"Wie viele Bots angeln. Mit eingeschalteten Persönlichkeiten (Standard) würfelt ein Bot ab Stufe 30, außerhalb einer Gruppe, jede halbe Stunde neu gegen den Regler und seine Stimmung - am häufigsten ein Bot in schlechter Stimmung; ohne sie angelt ein fester Anteil der Bots (Sammler öfter). Erhöhen wirkt binnen Sekunden; Senken lässt laufende Sitzungen erst zu Ende gehen (bis zu einer Stunde). Ein Bot, der nach fünf Toden an einem Ort ans Wasser geschickt wird (die Kapitulation), geht unabhängig vom Regler.",
                  "tr":"Kaç botun balık tuttuğu. Kişilikler açıkken (varsayılan) 30. seviye ve üstündeki, grupta olmayan bot yarım saatte bir kaydırıcıya ve ruh haline göre yeniden zar atar - en sık kötü ruh halindeki bot; kapalıyken botların sabit bir payı balık tutar (toplayıcılar daha sık). Yükseltmek saniyeler içinde işler; düşürmek süren oturumların önce bitmesine izin verir (bir saate kadar). Bir yerde beş kez öldükten sonra suya gönderilen bot (kapitülasyon) kaydırıcıdan bağımsız gider."},
  "aiw_TRADE":    {"en":"Market stalls","pl":"Stragany","de":"Marktstände","tr":"Pazar tezgahları"},
+ "aiw_MINING":   {"en":"Mining","pl":"Górnictwo","de":"Bergbau","tr":"Madencilik"},
+ "aih_MINING":  {"en":"How many bots dig ore and how long they rest from the veins. With the personalities on (the default) every bot of level 30 with a pickaxe digs a vein in sight - under 100 the slider closes the veins to a share of them, half an hour at a time; with them off a fixed share of the bots mines (collectors more often). The rest between two sessions shrinks as the slider goes up and grows as it goes down.",
+                 "pl":"Ilu botów kopie rudę i jak długo odpoczywa od żył. Przy włączonych osobowościach (domyślnie) każdy bot od 30 poziomu z kilofem kopie żyłę w zasięgu wzroku - poniżej 100 suwak zamyka żyły dla części z nich, na pół godziny; przy wyłączonych kopie stały udział botów (zbieracze częściej). Przerwa między sesjami skraca się, gdy suwak idzie w górę, i wydłuża, gdy idzie w dół.",
+                 "de":"Wie viele Bots Erz abbauen und wie lange sie von den Adern ruhen. Mit eingeschalteten Persönlichkeiten (Standard) baut jeder Bot ab Stufe 30 mit einer Spitzhacke eine Ader in Sichtweite ab - unter 100 schließt der Regler die Adern für einen Teil von ihnen, jeweils eine halbe Stunde; ohne sie baut ein fester Anteil der Bots ab (Sammler öfter). Die Pause zwischen zwei Sitzungen wird kürzer, wenn der Regler steigt, und länger, wenn er sinkt.",
+                 "tr":"Kaç botun cevher kazdığı ve damarlardan ne kadar dinlendiği. Kişilikler açıkken (varsayılan) kazması olan 30. seviye ve üstündeki her bot görüş alanındaki bir damarı kazar - 100 altında kaydırıcı damarları bir kısmına yarım saatliğine kapatır; kapalıyken botların sabit bir payı kazar (toplayıcılar daha sık). İki oturum arasındaki mola kaydırıcı yükseldikçe kısalır, düştükçe uzar."},
+ "aiw_HERB":     {"en":"Herbalism","pl":"Zielarstwo","de":"Kräuterkunde","tr":"Bitkicilik"},
+ "aih_HERB":    {"en":"How many bots work Baek-Go's herbalism board and how often. With the personalities on (the default) it is the Conqueror's errand from level 45; under 100 the board is closed to a share of them, half an hour at a time, and over 100 a share of the bots from level 15 comes too (all of them at 250). The wait between two visits shrinks as the slider goes up. Bots do not pick plants: the herbs come from the monsters' drops.",
+                 "pl":"Ilu botów pracuje przy stole zielarskim Baek-Go i jak często. Przy włączonych osobowościach (domyślnie) to zadanie Zdobywcy od 45 poziomu; poniżej 100 stół jest zamknięty dla części z nich, na pół godziny, a powyżej 100 dochodzi część botów od 15 poziomu (przy 250 wszystkie). Przerwa między wizytami skraca się, gdy suwak idzie w górę. Boty nie zbierają roślin: zioła mają z dropu potworów.",
+                 "de":"Wie viele Bots an Baek-Gos Kräutertisch arbeiten und wie oft. Mit eingeschalteten Persönlichkeiten (Standard) ist es die Aufgabe des Eroberers ab Stufe 45; unter 100 ist der Tisch für einen Teil von ihnen jeweils eine halbe Stunde geschlossen, und über 100 kommt ein Teil der Bots ab Stufe 15 hinzu (bei 250 alle). Die Pause zwischen zwei Besuchen wird kürzer, wenn der Regler steigt. Bots pflücken keine Pflanzen: Die Kräuter stammen aus der Beute der Monster.",
+                 "tr":"Kaç botun Baek-Go'nun bitki masasında çalıştığı ve ne sıklıkla. Kişilikler açıkken (varsayılan) 45. seviyeden itibaren Fatih'in işidir; 100 altında masa bir kısmına yarım saatliğine kapanır, 100 üstünde 15. seviyeden botların bir kısmı da gelir (250 değerinde hepsi). İki ziyaret arasındaki bekleme kaydırıcı yükseldikçe kısalır. Botlar bitki toplamaz: bitkiler canavarların düşürdüklerinden gelir."},
  "aih_TRADE":   {"en":"How many bots keep a stall. The slider does not touch a Merchant personality, a bot that cannot afford its potions, a full bag, a dropper under bag pressure, nor valuable spares and a gambler's goods (the counter is how they get rid of them). It moves the rest: the surplus-books stall (already every such bot at 100, so it only goes down), the dropper's roll and the one-in-ten. On r40250 standing stalls re-check within five minutes; on the 2.x line an offline stand is never closed early - a lower slider only stops its renewal when its eight hours run out. The status says why each one is open.",
                  "pl":"Ilu botów trzyma stragan. Suwak nie rusza osobowości Handlarz, bota bez yang na mikstury, pełnego plecaka, droppera pod presją plecaka ani cennych zapasowych rzeczy i towaru hazardzisty (lada to sposób, żeby się ich pozbyć). Rusza resztę: stragan z nadmiaru ksiąg (przy 100 ma go już każdy taki bot, więc działa tylko w dół), los droppera i „jeden na dziesięciu”. Na r40250 stojące stragany sprawdzają się ponownie do pięciu minut po zmianie; na linii 2.x sklep offline nie jest zamykany wcześniej - niższy suwak tylko wstrzymuje jego odnowienie po ośmiu godzinach. Status mówi, dlaczego każdy jest otwarty.",
                  "de":"Wie viele Bots einen Stand führen. Der Regler berührt weder die Händler-Persönlichkeit noch einen Bot ohne Yang für Tränke, einen vollen Beutel, einen Dropper unter Beuteldruck oder wertvolle Ersatzstücke und die Ware eines Glücksspielers (der Stand ist ihr Weg, sie loszuwerden). Er bewegt den Rest: den Bücher-Stand (bei 100 schon jeder solche Bot, also nur nach unten), den Dropper-Wurf und den Einen-von-zehn. Auf r40250 prüfen stehende Stände sich binnen fünf Minuten neu; auf der 2.x-Linie wird ein Offline-Laden nie früher geschlossen - ein niedrigerer Regler stoppt nur seine Verlängerung nach acht Stunden. Der Status sagt, warum jeder offen ist.",
@@ -4903,13 +4951,30 @@ DIFFICULTY_PRESETS = {
     "hard":   (86400, 43200, 43200, 64800, 75600, 75600, 75600),
 }
 DIFFICULTY_MAX_HOURS = 720
+# MT2009_PLUS_EXCHANGE_CHANCE_V1: the NPC exchanges' chances in percent -
+# Magiczny Pyl, Pergamin, Materialy Rzemieslnicze - by the level: the presets
+# follow m2_difficulty (quest/m2_difficulty.lua and playerbot_config.h's
+# GetPlayerBotExchangeChance carry the same tables), custom reads the flags the
+# migrator writes from .env's M2_EXCHANGE_*_CHANCE at every start, 0 being the
+# package's number. The card shows them; a level saved here applies its own.
+MT2009_EXCHANGE_FLAGS = ("m2_exchange_dust_chance", "m2_exchange_parchment_chance", "m2_exchange_material_chance")
+EXCHANGE_PACKAGE_CHANCES = (100, 100, 55)
+EXCHANGE_PRESETS = {"easy": (100, 100, 55), "medium": (90, 45, 55), "hard": (55, 40, 55)}
+
+def exchange_chances(level, custom):
+    """The three chances in force for a level name and the custom flags' values."""
+    if level in EXCHANGE_PRESETS:
+        return EXCHANGE_PRESETS[level]
+    return tuple(min(100, int(value)) if int(value or 0) > 0 else package
+                 for value, package in zip(custom, EXCHANGE_PACKAGE_CHANCES))
 
 def read_difficulty_mt2009():
     """The level and the waits as the card shows them (hours), from player.quest."""
-    raw = {flag: 0 for flag in MT2009_DIFFICULTY_FLAGS}
+    flags = MT2009_DIFFICULTY_FLAGS + MT2009_EXCHANGE_FLAGS
+    raw = {flag: 0 for flag in flags}
     with db() as c, c.cursor() as cur:
         cur.execute("SELECT szName, lValue FROM player.quest WHERE dwPID=0 AND szName IN (%s)"
-                    % ",".join(["%s"] * len(MT2009_DIFFICULTY_FLAGS)), MT2009_DIFFICULTY_FLAGS)
+                    % ",".join(["%s"] * len(flags)), flags)
         for row in cur.fetchall():
             name = row["szName"] if isinstance(row, dict) else row[0]
             value = row["lValue"] if isinstance(row, dict) else row[1]
@@ -4920,8 +4985,10 @@ def read_difficulty_mt2009():
     def hours(seconds):
         value = round(seconds / 3600.0, 1)
         return int(value) if value == int(value) else value
+    level_name = DIFFICULTY_LEVELS[level] if 0 <= level < len(DIFFICULTY_LEVELS) else "easy"
     return {
-        "level": DIFFICULTY_LEVELS[level] if 0 <= level < len(DIFFICULTY_LEVELS) else "easy",
+        "level": level_name,
+        "exchange": exchange_chances(level_name, [raw[flag] for flag in MT2009_EXCHANGE_FLAGS]),
         "bio": hours(raw["m2_biologist_wait"]),
         "horse_buy": hours(raw["m2_horse_buy_wait"]),
         "horse_upgrade": hours(raw["m2_horse_upgrade_wait"]),
@@ -5079,6 +5146,24 @@ def read_rare():
                 continue
             vals["alchemy" if row["szName"] == "m2_alchemy_off" else "sashes"] = 0 if off else 1
     return vals
+
+# MT2009_PLUS_AREZZO_MODULE_V1: the Arezzo module's switch, the event flag
+# mt2009_arezzo_closed (1 = off). No row yet reads as off: the module is
+# voluntary and apply.sh writes the row from M2_AREZZO (default 0) at a start.
+def read_arezzo():
+    with db() as c, c.cursor() as cur:
+        cur.execute("SELECT lValue FROM player.quest WHERE dwPID = 0 "
+                    "AND szName = 'mt2009_arezzo_closed' LIMIT 1")
+        row = cur.fetchone()
+    try:
+        return {"on": 0 if (row is None or int(row["lValue"]) > 0) else 1}
+    except (TypeError, ValueError, KeyError):
+        return {"on": 0}
+
+def persist_arezzo(cur, on):
+    """The event-flag row the db core reads at its next start."""
+    cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                "VALUES (0, 'mt2009_arezzo_closed', '', %s)", (0 if on else 1,))
 
 def persist_rare(cur, alchemy, sashes):
     """The two event-flag rows the db core reads at its next start."""
@@ -6028,6 +6113,11 @@ TPL_DASH = BASE.replace("__BODY__", """
 <a class="btn" href="{{url_for('rare')}}" title="{{t('tip_rare')}}">{{t('rare_open')}}</a>
 </div>
 <div class="card">
+<h3 class="help" title="{{t('tip_az')}}">{{t('az_nav')}}</h3>
+<p class="muted">{{t('az_dash_hint')}}</p>
+<a class="btn" href="{{url_for('arezzo')}}" title="{{t('tip_az')}}">{{t('az_open')}}</a>
+</div>
+<div class="card">
 <h3 class="help">{{t('se_nav')}}</h3>
 <p class="muted">{{t('se_dash_hint')}}</p>
 <a class="btn" href="{{url_for('season')}}">{{t('se_open')}}</a>
@@ -6366,6 +6456,8 @@ regenLabel("regen_boss");regenLabel("regen_mob");
 <p>{{t('diff_now')}}: <b>{{t('diff_level_' + difficulty.level)}}</b> — {{t('diff_bio')}} {{difficulty.bio}} h,
 {{t('diff_horse')}} {{difficulty.horse_buy}} / {{difficulty.horse_upgrade}} / {{difficulty.horse_train}} / {{difficulty.horse_train2}} h,
 {{t('diff_books')}}: {{t('diff_players')}} {{difficulty.book}} h, {{t('diff_bots')}} {{difficulty.bot_book}} h</p>
+<p>{{t('diff_exchange_now')}}: <b>{{difficulty.exchange[0]}}% / {{difficulty.exchange[1]}}% / {{difficulty.exchange[2]}}%</b></p>
+<p class="muted">{{t('diff_exchange')}}</p>
 <h3 style="margin-top:12px">{{t('diff_level')}}</h3>
 <select name="level">
 {% for lv in difficulty_levels %}<option value="{{lv}}"{% if difficulty.level == lv %} selected{% endif %}>{{t('diff_level_' + lv)}}</option>{% endfor %}
@@ -6468,6 +6560,23 @@ TPL_RARE = BASE.replace("__BODY__", """
 <h3 style="margin-top:18px">🎗️ {{t('rare_sashes')}}</h3>
 <p class="muted">{{t('rare_sashes_help')}}</p>
 <label><input type="checkbox" name="sashes" value="1" {% if cur['sashes'] %}checked{% endif %}> {{t('easter_enable')}}</label>
+<button class="big" style="margin-top:18px">{{t('easter_save')}}</button>
+</form></div>""")
+
+# MT2009_PLUS_AREZZO_MODULE_V1: the Arezzo module page, the rare page's shape.
+TPL_AREZZO = BASE.replace("__BODY__", """
+<p><a href="{{url_for('dash')}}">{{t('back_players')}}</a></p>
+<div class="card">
+<h3>{{t('az_nav')}}</h3>
+<p class="muted">{{t('az_intro')}}</p>
+<p><span class="badge">🗺️ {{t('az_nav')}}: {{t('easter_on') if cur['on'] else t('easter_off')}}</span></p>
+</div>
+
+<div class="card">
+<form method="post">
+<input type="hidden" name="_csrf" value="{{csrf_token}}">
+<p class="muted">{{t('az_help')}}</p>
+<label><input type="checkbox" name="on" value="1" {% if cur['on'] %}checked{% endif %}> {{t('az_enable')}}</label>
 <button class="big" style="margin-top:18px">{{t('easter_save')}}</button>
 </form></div>""")
 
@@ -6760,6 +6869,17 @@ TPL_AI = BASE.replace("__BODY__", """
   <h3 style="margin:0 0 2px">🧑‍💻 {{t('ai_life')}} <span class="badge">{{t('ai_experimental')}}</span></h3>
   <p class="muted" style="margin:0 0 6px">{{t('ai_life_help')}}</p>
   <label><input type="checkbox" name="LIFE" value="1" {% if cur.get('LIFE', 0) %}checked{% endif %}> {{t('ai_life_on')}}</label>
+  <div style="margin-top:10px">
+    <label>{{t('ai_life_hours')}}
+      <span class="badge" id="v_LIFE_HOURS">{% if cur.get('LIFE_HOURS', 0) %}{{cur.get('LIFE_HOURS')}} h{% else %}{{t('ai_life_hours_default')}}{% endif %}</span></label>
+    <input type="range" name="LIFE_HOURS" id="s_LIFE_HOURS" min="0" max="24" step="1" value="{{cur.get('LIFE_HOURS', 0)}}" style="width:100%"
+           data-default="{{t('ai_life_hours_default')}}"
+           oninput="document.getElementById('v_LIFE_HOURS').textContent=this.value=='0'?this.dataset.default:this.value+' h'">
+    <div class="muted" style="display:flex;justify-content:space-between;font-size:12px">
+      <span>0 — {{t('ai_life_hours_default')}}</span><span>24 — {{t('ai_life_hours_all_day')}}</span>
+    </div>
+    <p class="muted" style="margin:4px 0 0">{{t('ai_life_hours_help')}}</p>
+  </div>
 </div>
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">🛡 {{t('ai_wars')}}</h3>
@@ -10489,6 +10609,9 @@ GEAR_HISTORY_OFFLINE_BUY = ("bought", {"pl": "Kupione w sklepie offline", "en": 
 # A template's placeholders are {a} {b} {c} and {value}; the kind of each says
 # how the number is written (_dx_param, beside the route that reads them).
 EXPLAIN_DEFAULT_DAYS = 7       # the core's own default while the key is absent
+# The LIFE_HOURS slider: 0 the key unset, 1..24 the hours of play a day
+# (playerbot_life_rules.h; blipu, 30 September).
+LIFE_HOURS_MAX = 24
 EXPLAIN_MAX_DAYS = 30
 # The flags that make a row "unusual" (the rules header's masks).
 DECISION_LISTING_UNUSUAL = 1 | 4 | 8 | 16 | 512 | 2048
@@ -10868,6 +10991,12 @@ DECISION_GOODS = {
             "de": "Ein Gildenbaumaterial, das die Gilde des Bots nicht behält", "tr": "Botun loncasının tutmadığı bir lonca yapı malzemesi"}),
  202: ({}, {"pl": "Kamień smoka, którego bot nie użyje", "en": "A Dragon Stone the bot has no use for",
             "de": "Ein Drachenstein, den der Bot nicht braucht", "tr": "Botun kullanmadığı bir Ejderha Taşı"}),
+ # MT2009_PLUS_BOTLIFE_V1: a refine stone of the jewellery (Diament, Ebonit...).
+ 203: ({"a": "int", "b": "int"},
+      {"pl": "Przetop ponad to, co przyjmą gniazda biżuterii bota: {a} w plecaku, zapas {b}",
+       "en": "A refine stone over what the bot's jewellery sockets take: {a} in the bag, keeps {b}",
+       "de": "Ein Veredelungsstein über dem, was die Schmuckfassungen des Bots aufnehmen: {a} im Beutel, behält {b}",
+       "tr": "Botun takı yuvalarının alacağından fazla arıtma taşı: çantada {a}, saklanan {b}"}),
 }
 
 # One step of the price (STEP_*): code: (the kind of `value` when it is not the
@@ -11213,6 +11342,7 @@ DECISION_CODE_NAMES = {
   36: "GOODS_SKILL_BOOK_OWN_SPARE", 37: "GOODS_SKILL_BOOK_OTHER_CLASS", 38: "GOODS_LOW_PLUS_GEAR",
   39: "GOODS_SCRAP_KEEPER_LOW", 40: "GOODS_SURPLUS_CHEST", 41: "GOODS_SURPLUS_KEY",
   200: "GOODS_RARE_GOODS", 201: "GOODS_GUILD_MATERIAL", 202: "GOODS_DRAGON_STONE_SPARE",
+  203: "GOODS_ACCESSORY_STONE_SPARE",
  },
  "SHAPE": {
   0: "SHAPE_WHOLE_STACK", 1: "SHAPE_NATURAL_LINE", 2: "SHAPE_POTION_PACK", 3: "SHAPE_DUST_PACK",
@@ -17445,6 +17575,45 @@ def rare():
         flash(t("db_down"), "error")
     return render_template_string(TPL_RARE, cur=cur_rare)
 
+# MT2009_PLUS_AREZZO_MODULE_V1: the Arezzo module on or off. Live immediately, no restart.
+@app.route("/arezzo", methods=["GET", "POST"])
+@login_required
+def arezzo():
+    if not ENGINE_MT2009:
+        flash(t("rates_no_script"), "error")
+        return redirect(url_for("dash"))
+    if request.method == "POST":
+        on = 1 if request.form.get("on") else 0
+        try:
+            with db() as c, c.cursor() as cur:
+                persist_arezzo(cur, on)
+        except Exception:
+            flash(t("db_down"), "error")
+            return redirect(url_for("arezzo"))
+        try:
+            status, qid = queue_and_wait("", "AREZZO", str(on), "", wait=RARE_LIVE_WAIT)
+        except Exception:
+            status, qid = "failed", 0
+        if status == "done":
+            flash(t("az_saved_live"))
+        else:
+            if status == "timeout":
+                try:
+                    with db() as c, c.cursor() as cur:
+                        cur.execute("UPDATE player.web_admin_queue SET status='cancelled' "
+                                    "WHERE id=%s AND status='pending'", (qid,))
+                except Exception:
+                    pass
+            flash(t("easter_saved_persisted"))
+        return redirect(url_for("arezzo"))
+
+    cur_az = {"on": 0}
+    try:
+        cur_az = read_arezzo()
+    except Exception:
+        flash(t("db_down"), "error")
+    return render_template_string(TPL_AREZZO, cur=cur_az)
+
 @app.route("/rates", methods=["GET", "POST"])
 @login_required
 def rates():
@@ -18322,6 +18491,10 @@ def ai_weights():
         vals["BOOKS"] = 1 if request.form.get("BOOKS") else 0
         vals["NIGHT"] = 1 if request.form.get("NIGHT") else 0
         vals["LIFE"] = 1 if request.form.get("LIFE") else 0
+        try:
+            vals["LIFE_HOURS"] = max(0, min(LIFE_HOURS_MAX, int(request.form.get("LIFE_HOURS", old.get("LIFE_HOURS", 0)))))
+        except (TypeError, ValueError):
+            vals["LIFE_HOURS"] = old.get("LIFE_HOURS", 0)
         vals["WARS"] = 1 if request.form.get("WARS") else 0
         # The tower's, the Catacomb's and the ItemShop's boxes are on the
         # mt2009 page alone; elsewhere the values the file holds stay.
@@ -18405,7 +18578,9 @@ def ai_weights():
     # HUNTING drives the level-up mission goal, which is disabled on the mt2009
     # line (levelup.quest ships in quest/_unused - see playerbot_missions.h), so
     # the slider would do nothing there. LEVEL is the leveling control on 2.x.
-    keys = [k for k in AI_WEIGHT_KEYS if not (ENGINE_MT2009 and k[0] == "HUNTING")]
+    # HERB moves Baek-Go's herbalism, which only the mt2009 line has.
+    keys = [k for k in AI_WEIGHT_KEYS if not (ENGINE_MT2009 and k[0] == "HUNTING")
+            and not (not ENGINE_MT2009 and k[0] == "HERB")]
     cur = read_ai_weights()
     chest_off, chest_kill, chest_stone = read_chest_switch()
     if chest_off:

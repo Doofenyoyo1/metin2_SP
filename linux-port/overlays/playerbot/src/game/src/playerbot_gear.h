@@ -317,8 +317,11 @@ namespace
 		// the unique-slot pass's to put on and take off (playerbot_unique_slots.h):
 		// an empty unique slot took any unique here, which is how a ring that
 		// hides the level ended up on eleven bots.
+		// MT2009_PLUS_BOT_RANK_GLOVE_V1: so are the Prophecy King's Glove and
+		// Symbol, worn only at a negative rank (IsPlayerBotRankUnique).
 		if (item->GetType() == ITEM_UNIQUE &&
-				(IsPlayerBotNeverWornUnique(item->GetVnum()) || IsPlayerBotTimedUnique(item->GetVnum())))
+				(IsPlayerBotNeverWornUnique(item->GetVnum()) || IsPlayerBotTimedUnique(item->GetVnum()) ||
+				 IsPlayerBotRankUnique(item->GetVnum())))
 			return false;
 		// A ride seal is a player's mount: worn, it puts its wearer on the
 		// animal (mount_seals.quest), and a bot has no business riding a war
@@ -1744,7 +1747,10 @@ namespace
 #endif
 			// A ring or a glove on its clock comes off only through the
 			// unique-slot pass, which knows whether the bot is hunting.
-			if (oldItem && IsPlayerBotTimedUnique(oldItem->GetVnum()))
+			// MT2009_PLUS_BOT_RANK_GLOVE_V1: and so does the Prophecy King's
+			// Glove or Symbol, which it wears only at a negative rank.
+			if (oldItem && (IsPlayerBotTimedUnique(oldItem->GetVnum()) ||
+					IsPlayerBotRankUnique(oldItem->GetVnum())))
 				continue;
 
 			if (!PlayerBotCanEquipNow(ch, item, TItemPos(INVENTORY, cell)))

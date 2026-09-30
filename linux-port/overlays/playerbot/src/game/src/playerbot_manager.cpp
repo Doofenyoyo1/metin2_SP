@@ -17,6 +17,7 @@
 #include "playerbot_moonlight_rules.h"
 #include "playerbot_stalki_rules.h"
 #include "playerbot_guild_order_rules.h"
+#include "playerbot_life_rules.h" // MT2009_PLUS_BOTLIFE_V1: the LIFE_HOURS day
 
 #include "char.h"
 #include "skill.h"
@@ -142,6 +143,7 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_newpet.h"
 #include "playerbot_wheel.h" // Kolo Fortuny, "/kolo" (MT2009_PLUS_WHEEL_V1)
 #include "playerbot_goblin.h" // Poszukiwanie skarbow, "/goblin" (MT2009_PLUS_GOBLIN_V1)
+#include "playerbot_dungeon_panel.h" // the dungeon panel, "/lochy", d.update_ranking (MT2009_PLUS_DUNGEON_PANEL_V1)
 // Iwakura's Bot Mood System: the moods and the notes the loot, the chests,
 // the fishing and the blacksmith send it - early, so any of them may.
 #include "playerbot_mood.h"
@@ -2500,15 +2502,90 @@ namespace
 	// inactivity watchdog off a bot standing still on purpose. The Kamien
 	// Duchowy never takes a bot under zero, so this is the net for whatever
 	// else does.
+	//
+	// MT2009_PLUS_BOT_RANK_GLOVE_V1: only while the town can lift it. Standing
+	// in the ring lifts nothing by itself - the engine gives a negative rank
+	// back by the minute only outside a safe zone, and by the kill - so a bot
+	// with no bean, none it could pay for and none on any stall stood there
+	// for good (upstream 2.2.43). It waits for a bean it has, or for one the
+	// stalls hold and its purse reaches; with neither, or when
+	// PLAYERBOT_NEGATIVE_RANK_TOWN_PATIENCE_MS pass with its rank no higher,
+	// it hunts it back for PLAYERBOT_NEGATIVE_RANK_HUNT_MS with the Prophecy
+	// King's Glove on (playerbot_unique_slots.h) and then asks the town again.
+	const char* GetPlayerBotNegativeRankHuntReason(LPCHARACTER ch, bool inTown, DWORD dwNow)
+	{
+		TPlayerBotRankRecovery& rec = s_mapPlayerBotRankRecovery[ch->GetPlayerID()];
+		const int rank = ch->GetRealAlignment();
+		if (rec.dwHuntUntil != 0)
+		{
+			if (dwNow < rec.dwHuntUntil)
+				return "hunting";
+			// The hunt is over: the town is asked afresh.
+			rec.dwHuntUntil = 0;
+			rec.dwHoldSince = 0;
+		}
+		// A bean in the bag is eaten within PLAYERBOT_ZEN_BEAN_CHECK_INTERVAL.
+		if (ch->CountSpecifyItem(PLAYERBOT_ZEN_BEAN_VNUM) > 0)
+		{
+			rec.dwHoldSince = 0;
+			return NULL;
+		}
+		const char* reason = NULL;
+		const TPlayerBotMarketLedgerEntry* beans = GetPlayerBotMarketLedgerEntry(PLAYERBOT_ZEN_BEAN_VNUM);
+		// A line of beans at the sheet's price, out of what the shopping pass
+		// may spend (CanPlayerBotPayForOffer's purse).
+		const long long line = (long long)GetPlayerBotMaterialAskingBase(PLAYERBOT_ZEN_BEAN_VNUM) *
+				PLAYERBOT_ZEN_BEAN_LINE_UNITS;
+		const long long spare = (long long)ch->GetGold() - GetPlayerBotReservedGold(ch) -
+				(long long)PLAYERBOT_SHOPPING_GOLD_FLOOR;
+		if (!beans || beans->dwSupplyUnits == 0)
+			reason = "no_beans_on_stalls";
+		else if (spare <= 0 || (line > 0 && spare < line) || ch->GetEmptyInventory(2) < 0)
+			reason = "cannot_afford";
+		// The wait is counted in the village, not on the way there.
+		else if (!inTown)
+			return NULL;
+		else if (rec.dwHoldSince == 0 || rank > rec.iHoldRank)
+		{
+			// The wait starts, or starts over after a bean was eaten.
+			rec.dwHoldSince = dwNow;
+			rec.iHoldRank = rank;
+		}
+		else if (dwNow - rec.dwHoldSince >= PLAYERBOT_NEGATIVE_RANK_TOWN_PATIENCE_MS)
+			reason = "no_bean_bought";
+		if (!reason)
+			return NULL;
+		rec.dwHuntUntil = dwNow + PLAYERBOT_NEGATIVE_RANK_HUNT_MS;
+		rec.dwHoldSince = 0;
+		sys_log(0, "PLAYERBOT_AI: negative rank, hunting it back pid=%u name=%s map=%ld rank=%d reason=%s gold=%lld spare=%lld bean_line=%lld beans_on_stalls=%u glove=%d",
+				ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), rank, reason,
+				(long long)ch->GetGold(), spare, line, beans ? beans->dwSupplyUnits : 0U,
+				(int)ch->CountSpecifyItem(PLAYERBOT_RANK_GLOVE_VNUM));
+		return reason;
+	}
+
 	bool KeepPlayerBotNegativeRankInTown(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
-		if (!ch || ch->IsDead() || !ch->IsItemLoaded() || ch->GetRealAlignment() >= 0)
+		if (!ch || ch->IsDead() || !ch->IsItemLoaded())
 			return false;
+		if (ch->GetRealAlignment() >= 0)
+		{
+			// MT2009_PLUS_BOT_RANK_GLOVE_V1: back at zero, nothing to recover.
+			if (!s_mapPlayerBotRankRecovery.empty())
+				s_mapPlayerBotRankRecovery.erase(ch->GetPlayerID());
+			return false;
+		}
 		// A raider of the Demon Tower finishes the tower first.
 		if (IsPlayerBotOnTowerBusiness(ch, state))
 			return false;
 		const long map = ch->GetMapIndex();
-		if (IsPlayerBotSafeZone(map, ch->GetX(), ch->GetY()))
+		const bool inTown = IsPlayerBotSafeZone(map, ch->GetX(), ch->GetY());
+		// MT2009_PLUS_BOT_RANK_GLOVE_V1: no bean to be had - hunt it back. The
+		// wait is counted from the village map on: the pitch below may stand
+		// just outside the ring's attribute.
+		if (GetPlayerBotNegativeRankHuntReason(ch, inTown || IsPlayerBotVillageMap(map), dwNow))
+			return false;
+		if (inTown)
 		{
 			state.dwTownLingerUntil = dwNow + PLAYERBOT_NEGATIVE_RANK_HOLD_MS;
 			if (ch->IsStateMove())
@@ -2888,9 +2965,11 @@ CPlayerBotManager::~CPlayerBotManager()
 }
 
 #include "playerbot_ochao.h" // MT2009_PLUS_OCHAO_V1 (include): Swiatynia Ochao, the En-Tai Guardian's clock
+#include "playerbot_arezzo.h" // MT2009_PLUS_AREZZO_MODULE_V1 (include): the Arezzo module switch - guards and send-off
 void CPlayerBotManager::StartWorldClock()
 {
 	mt2009_ochao::Start(); // MT2009_PLUS_OCHAO_V1 (start): only where map 209 is hosted
+	mt2009_arezzo::Start(); // MT2009_PLUS_AREZZO_MODULE_V1 (start): every core
 	if (s_pkPlayerBotUpdateEvent || s_pkPlayerBotWorldEvent)
 		return;
 	playerbot_world_event_info* info = AllocEventInfo<playerbot_world_event_info>();
@@ -4472,11 +4551,17 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 	if (m_dwNextLifeCheckTime != 0 && dwNow < m_dwNextLifeCheckTime)
 		return;
 	m_dwNextLifeCheckTime = dwNow + PLAYERBOT_LIFE_CHECK_INTERVAL;
-	if (!IsPlayerBotLifeScheduleEnabled())
+	// MT2009_PLUS_BOTLIFE_V1: the hours of play a day (LIFE_HOURS,
+	// playerbot_life_rules.h). Zero keeps the free-running sessions and rests
+	// below; the whole day is no rests, which is the schedule off.
+	const int lifeHours = GetPlayerBotLifeHours();
+	const bool byHours = playerbot_life::Scheduled(lifeHours);
+	if (!IsPlayerBotLifeScheduleEnabled() || playerbot_life::AllDay(lifeHours))
 	{
 		if (!m_mapLifeSessionEnd.empty() || !m_mapLifeRestEnd.empty() || !m_setLifeReturning.empty())
 		{
-			sys_log(0, "PLAYERBOT_LIFE: schedule off, %u resting come back",
+			sys_log(0, "PLAYERBOT_LIFE: schedule %s, %u resting come back",
+					IsPlayerBotLifeScheduleEnabled() ? "all day" : "off",
 					(unsigned int)m_mapLifeRestEnd.size());
 			m_mapLifeSessionEnd.clear();
 			m_mapLifeRestEnd.clear();
@@ -4497,7 +4582,10 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 	// is that curve to the bot: 500 a kingdom at 14:30, 40 at 20:40, then
 	// back up to 270 and down again ("boty poszly na odpoczynek ale z niego
 	// nie wracaja"). They were coming back; too few at a time.
-	const size_t maxResting = m_setScheduledBots.size() * PLAYERBOT_LIFE_MAX_RESTING_PERCENT / 100;
+	// Under LIFE_HOURS the cap follows the day: its resting share and a
+	// tenth over it (playerbot_life::MaxRestingPercent).
+	const size_t maxResting = m_setScheduledBots.size() *
+			(byHours ? (size_t)playerbot_life::MaxRestingPercent(lifeHours) : PLAYERBOT_LIFE_MAX_RESTING_PERCENT) / 100;
 	unsigned int heldOn = 0;
 	for (TPlayerBotMap::const_iterator it = m_mapBots.begin(); it != m_mapBots.end(); ++it)
 	{
@@ -4512,6 +4600,22 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 			// Back from a rest: a whole session. Just started with the world:
 			// anything from half an hour, so the first log-outs spread.
 			const bool returning = m_setLifeReturning.erase(pid) > 0;
+			if (byHours)
+			{
+				// MT2009_PLUS_BOTLIFE_V1: a session of the day's length, a
+				// quarter either way; the first after a start anything from
+				// half an hour (or less, for a shorter session) up to it.
+				const DWORD nominal = playerbot_life::SessionMs(lifeHours);
+				const DWORD roll = PlayerBotNavHash(pid ^ (dwNow / 1000U) ^ 0x4c494645U);
+				DWORD length = playerbot_life::Spread(nominal, roll);
+				if (!returning)
+				{
+					const DWORD first = std::min<DWORD>(PLAYERBOT_LIFE_FIRST_SESSION_MIN_MS, nominal / 2);
+					length = first + (length > first ? roll % (length - first + 1) : 0);
+				}
+				m_mapLifeSessionEnd[pid] = dwNow + length;
+				continue;
+			}
 			const DWORD floor = returning ? PLAYERBOT_LIFE_SESSION_MIN_MS : PLAYERBOT_LIFE_FIRST_SESSION_MIN_MS;
 			const DWORD spread = PlayerBotNavHash(pid ^ (dwNow / 1000U) ^ 0x4c494645U) %
 					(PLAYERBOT_LIFE_SESSION_MAX_MS - floor);
@@ -4545,7 +4649,12 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 	for (size_t i = 0; i < leaving.size(); ++i)
 	{
 		const DWORD pid = leaving[i];
-		const DWORD rest = PLAYERBOT_LIFE_REST_MIN_MS +
+		// MT2009_PLUS_BOTLIFE_V1: under LIFE_HOURS the rest that makes the
+		// day add up, a quarter either way.
+		const DWORD rest = byHours
+				? std::max<DWORD>(PLAYERBOT_LIFE_CHECK_INTERVAL, playerbot_life::Spread(
+					playerbot_life::RestMs(lifeHours), PlayerBotNavHash(pid ^ dwNow ^ 0x52455354U)))
+				: PLAYERBOT_LIFE_REST_MIN_MS +
 				PlayerBotNavHash(pid ^ dwNow ^ 0x52455354U) %
 				(PLAYERBOT_LIFE_REST_MAX_MS - PLAYERBOT_LIFE_REST_MIN_MS);
 		char szName[CHARACTER_NAME_MAX_LEN + 1];
@@ -4589,10 +4698,10 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 	if (m_dwNextLifeCensusTime == 0 || dwNow >= m_dwNextLifeCensusTime)
 	{
 		m_dwNextLifeCensusTime = dwNow + PLAYERBOT_LIFE_CENSUS_INTERVAL;
-		sys_log(0, "PLAYERBOT_LIFE: census online=%u resting=%u returning=%u left_now=%u back_now=%u held_on=%u cap=%u",
+		sys_log(0, "PLAYERBOT_LIFE: census online=%u resting=%u returning=%u left_now=%u back_now=%u held_on=%u cap=%u hours=%d",
 				(unsigned int)m_mapBots.size(), (unsigned int)m_mapLifeRestEnd.size(),
 				(unsigned int)m_setLifeReturning.size(), (unsigned int)leaving.size(), back,
-				heldOn, (unsigned int)maxResting);
+				heldOn, (unsigned int)maxResting, lifeHours);
 	}
 }
 

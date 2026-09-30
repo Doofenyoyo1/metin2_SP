@@ -36,7 +36,109 @@ namespace
 		ch->PacketAround(&pack, sizeof(TPacketGCFlyTargeting), ch);
 	}
 
-	void SendPlayerBotAttackPacket(LPCHARACTER ch, LPCHARACTER target, BYTE comboMotion)
+	// MT2009_PLUS_ARCHER_MULTISHOT_V1 (bots): an Archer bot's plain shot hits
+	// what a player's does (CHARACTER::AnnounceShootTargets, char_battle.cpp):
+	// its target and up to two more - three and four with Sztuka Combo - of the
+	// monsters already attacking it, at most 10 m from the target, the nearest
+	// to the target first. A bot has no client to switch Combo on, so the skill
+	// learnt is the skill on (GetShootMaxTargetCount is 3 + the Combo level).
+	// The extra arrows are told to the clients between the fly target and the
+	// motion (SendPlayerBotAttackPacket), so they leave the bow with the main
+	// one, and struck with it (AttackPlayerBotMeleeGroup). Like the main one
+	// they spend no arrow: a bot's quiver never empties.
+	const int PLAYERBOT_EXTRA_ARROW_RANGE = 1000; // from the main target, as CFuncFindShootTargetsAround
+
+	int GetPlayerBotArrowTargetCount(LPCHARACTER ch)
+	{
+		const int combo = std::max<int>(ch->GetComboIndex(), ch->GetSkillLevel(PLAYERBOT_SKILL_COMBO_VNUM));
+		return 3 + std::min(2, std::max(0, combo));
+	}
+
+	class CCollectPlayerBotExtraArrowTargets
+	{
+		public:
+			CCollectPlayerBotExtraArrowTargets(LPCHARACTER archer, LPCHARACTER primary) :
+				m_archer(archer),
+				m_primary(primary),
+				// what CFuncShoot lets a player's arrow reach
+				m_reach(ATTACK_RANGE_MAX_DISTANCE + archer->GetPoint(POINT_BOW_DISTANCE) * 100)
+			{
+			}
+
+			void operator () (LPENTITY entity)
+			{
+				if (!entity || !entity->IsType(ENTITY_CHARACTER))
+					return;
+
+				LPCHARACTER candidate = static_cast<LPCHARACTER>(entity);
+				if (candidate == m_archer || candidate == m_primary || !candidate->IsMonster() ||
+						candidate->IsDead() || candidate->m_kVIDVictim != m_archer->GetVID() ||
+						candidate->GetMapIndex() != m_archer->GetMapIndex())
+					return;
+
+				const int fromPrimary = DISTANCE_APPROX(candidate->GetX() - m_primary->GetX(),
+						candidate->GetY() - m_primary->GetY());
+				if (fromPrimary > PLAYERBOT_EXTRA_ARROW_RANGE ||
+						DISTANCE_APPROX(candidate->GetX() - m_archer->GetX(),
+							candidate->GetY() - m_archer->GetY()) > m_reach ||
+						!battle_is_attackable(m_archer, candidate))
+					return;
+
+				m_targets.push_back(std::make_pair(fromPrimary, (DWORD)candidate->GetVID()));
+			}
+
+			std::vector<std::pair<int, DWORD> > m_targets;
+
+		private:
+			LPCHARACTER m_archer;
+			LPCHARACTER m_primary;
+			int m_reach;
+	};
+
+	void CollectPlayerBotExtraArrows(LPCHARACTER ch, LPCHARACTER primary, std::vector<DWORD>& extras)
+	{
+		extras.clear();
+		if (!ch || !primary || !ch->GetSectree() || ch->GetJob() != JOB_ASSASSIN ||
+				ch->GetSkillGroup() != 2 || (!primary->IsMonster() && !primary->IsStone()))
+			return;
+
+		CCollectPlayerBotExtraArrowTargets collector(ch, primary);
+		ch->GetSectree()->ForEachAround(collector);
+		std::sort(collector.m_targets.begin(), collector.m_targets.end());
+		const size_t cap = (size_t)(GetPlayerBotArrowTargetCount(ch) - 1);
+		for (size_t i = 0; i < collector.m_targets.size() && extras.size() < cap; ++i)
+			extras.push_back(collector.m_targets[i].second);
+	}
+
+	// What an earlier shot told and no motion drew is taken back first, as the
+	// engine's UseSkill does before an Archer skill.
+	void SendPlayerBotExtraArrowPackets(LPCHARACTER ch, const std::vector<DWORD>& extras)
+	{
+		if (!ch || extras.empty() || !ch->GetSectree())
+			return;
+
+		TPacketGCFlyClearTargeting clear;
+		clear.bHeader = HEADER_GC_CLEAR_FLY_SHOOT_TARGETING;
+		clear.dwShooterVID = ch->GetVID();
+		ch->PacketAround(&clear, sizeof(TPacketGCFlyClearTargeting), ch);
+
+		for (size_t i = 0; i < extras.size(); ++i)
+		{
+			LPCHARACTER extra = CHARACTER_MANAGER::instance().Find(extras[i]);
+			if (!extra)
+				continue;
+			TPacketGCFlyTargeting pack;
+			pack.bHeader = HEADER_GC_ADD_FLY_SHOOT_TARGETING;
+			pack.dwShooterVID = ch->GetVID();
+			pack.dwTargetVID = extra->GetVID();
+			pack.x = extra->GetX();
+			pack.y = extra->GetY();
+			ch->PacketAround(&pack, sizeof(TPacketGCFlyTargeting), ch);
+		}
+	}
+
+	void SendPlayerBotAttackPacket(LPCHARACTER ch, LPCHARACTER target, BYTE comboMotion,
+			const std::vector<DWORD>* extraArrows = NULL)
 	{
 		if (!ch || !ch->GetSectree())
 			return;
@@ -53,6 +155,10 @@ namespace
 			// through 2..4 selects missing motions and leaves the archer frozen.
 			comboMotion = MOTION_COMBO_ATTACK_1;
 			SendPlayerBotFlyTargetPacket(ch, target);
+			// MT2009_PLUS_ARCHER_MULTISHOT_V1: the extra arrows before the
+			// motion, so the clients draw them with the main one.
+			if (extraArrows)
+				SendPlayerBotExtraArrowPackets(ch, *extraArrows);
 		}
 		else if (comboMotion < MOTION_COMBO_ATTACK_1 || comboMotion > MOTION_COMBO_ATTACK_4)
 			comboMotion = MOTION_COMBO_ATTACK_1;

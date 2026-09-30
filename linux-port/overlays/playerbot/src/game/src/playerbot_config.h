@@ -45,6 +45,10 @@ namespace
 		PLAYERBOT_WEIGHT_LEVEL,         // plain grinding, the fallback goal
 		PLAYERBOT_WEIGHT_FISHING,       // how many bots take up fishing at all
 		PLAYERBOT_WEIGHT_TRADE,         // how many bots keep a market stall
+		// MT2009_PLUS_BOTLIFE_V1: appended, never inserted - the panels write
+		// the names, not the positions, but the F9 panel zips by position.
+		PLAYERBOT_WEIGHT_MINING,        // how many bots dig ore, and their rest from the veins
+		PLAYERBOT_WEIGHT_HERB,          // how many bots work Baek-Go's board, and how often
 		PLAYERBOT_WEIGHT_MAX
 	};
 
@@ -92,6 +96,9 @@ namespace
 		{ "LEVEL",   PLAYERBOT_WEIGHT_LEVEL   },
 		{ "FISHING", PLAYERBOT_WEIGHT_FISHING },
 		{ "TRADE",   PLAYERBOT_WEIGHT_TRADE   },
+		// MT2009_PLUS_BOTLIFE_V1: the panels' "Gornictwo" and "Zielarstwo".
+		{ "MINING",  PLAYERBOT_WEIGHT_MINING  },
+		{ "HERB",    PLAYERBOT_WEIGHT_HERB    },
 	};
 
 	int s_aiPlayerBotWeights[PLAYERBOT_WEIGHT_MAX];
@@ -169,6 +176,10 @@ namespace
 	// CPlayerBotManager::ManageLifeSchedule. Off until the panel says so.
 	bool s_bPlayerBotLifeSchedule = false;
 	bool s_bPlayerBotLifeScheduleReported = false;
+	// MT2009_PLUS_BOTLIFE_V1: the hours of play a day under LIFE (the
+	// LIFE_HOURS key, playerbot_life_rules.h). Zero is the key unset - the
+	// sessions of 3-6 hours and the rests of 3-9 of before; 24 is no rests.
+	int s_iPlayerBotLifeHours = 0;
 	// Guild wars between the bots' guilds (the WARS key), playerbot_guild_war.h.
 	bool s_bPlayerBotGuildWars = true;
 	bool s_bPlayerBotGuildWarsReported = true;
@@ -257,6 +268,7 @@ namespace
 		s_bPlayerBotFastBooks = true;
 		s_bPlayerBotNight = true;
 		s_bPlayerBotLifeSchedule = false;
+		s_iPlayerBotLifeHours = 0;
 		s_bPlayerBotGuildWars = true;
 		s_bPlayerBotTowerRaids = true;
 		s_bPlayerBotCatacombRaids = true;
@@ -354,6 +366,16 @@ namespace
 				s_bPlayerBotLifeScheduleReported = enabled;
 			}
 			s_bPlayerBotLifeSchedule = enabled;
+			return;
+		}
+		// MT2009_PLUS_BOTLIFE_V1: the hours a bot plays a day under LIFE.
+		if (PlayerBotWeightNameEquals(szKey, "LIFE_HOURS"))
+		{
+			const int hours = value < 0 ? 0 : (value > playerbot_life::HOURS_MAX ? playerbot_life::HOURS_MAX : (int)value);
+			if (hours != s_iPlayerBotLifeHours)
+				sys_log(0, "PLAYERBOT_CONFIG: life schedule %d hours of play a day%s", hours,
+						hours ? "" : " (the sessions and rests of before)");
+			s_iPlayerBotLifeHours = hours;
 			return;
 		}
 		if (PlayerBotWeightNameEquals(szKey, "SHOP_M2"))
@@ -635,6 +657,9 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			return s_bPlayerBotNight ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "LIFE"))
 			return s_bPlayerBotLifeSchedule ? 1 : 0;
+		// MT2009_PLUS_BOTLIFE_V1
+		if (PlayerBotWeightNameEquals(szKey, "LIFE_HOURS"))
+			return s_iPlayerBotLifeHours;
 		if (PlayerBotWeightNameEquals(szKey, "WARS"))
 			return s_bPlayerBotGuildWars ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "TOWER"))
@@ -727,6 +752,12 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 		if (PlayerBotWeightNameEquals(szKey, "EXPLAIN"))
 		{
 			value = value < 0 ? 0 : (value > PLAYERBOT_EXPLAIN_MAX_DAYS ? PLAYERBOT_EXPLAIN_MAX_DAYS : value);
+			return true;
+		}
+		// MT2009_PLUS_BOTLIFE_V1
+		if (PlayerBotWeightNameEquals(szKey, "LIFE_HOURS"))
+		{
+			value = value < 0 ? 0 : (value > playerbot_life::HOURS_MAX ? playerbot_life::HOURS_MAX : value);
 			return true;
 		}
 		if (PlayerBotWeightNameEquals(szKey, "BATTLEPASS") ||
@@ -1207,6 +1238,12 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 		return s_bPlayerBotLifeSchedule;
 	}
 
+	// MT2009_PLUS_BOTLIFE_V1: the LIFE_HOURS key, 0 while it is unset.
+	int GetPlayerBotLifeHours()
+	{
+		return s_iPlayerBotLifeHours;
+	}
+
 	// The PERSONA switch: Iwakura's personalities and moods
 	// (playerbot_mood.h, playerbot_persona.h). Every rule that behaves
 	// differently under them asks this, so off is today's world, whole.
@@ -1263,6 +1300,48 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 		return wait > 0 ? wait : 0;
 	}
 #endif
+
+	// MT2009_PLUS_EXCHANGE_CHANCE_V1: the NPC exchanges' chance in percent,
+	// for the bots' own side of item_exchange.lua - the Alchemist's dust
+	// (playerbot_town.h) and the Dozorca's materials (playerbot_saddlebag.h).
+	// The world's difficulty, the numbers the players roll
+	// (quest/m2_difficulty.lua, m2_difficulty.exchange_chance - keep the two
+	// tables alike): easy the package's 100 / 100 / 55, medium 90 / 45 / 55,
+	// hard 55 / 40 / 55, following the level flag the panel sets live; custom
+	// the migrator's m2_exchange_*_chance (.env M2_EXCHANGE_*_CHANCE), zero
+	// being the package's number. r40250 has no difficulty: the package's.
+	enum EPlayerBotNpcExchangeKind
+	{
+		PLAYERBOT_NPC_EXCHANGE_DUST = 1,
+		PLAYERBOT_NPC_EXCHANGE_PARCHMENT = 2,
+		PLAYERBOT_NPC_EXCHANGE_MATERIAL = 3,
+	};
+
+	int GetPlayerBotExchangeChance(int kind)
+	{
+		static const int s_package[3] = { 100, 100, 55 };
+		if (kind < PLAYERBOT_NPC_EXCHANGE_DUST || kind > PLAYERBOT_NPC_EXCHANGE_MATERIAL)
+			return 100;
+		const int packageChance = s_package[kind - 1];
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		static const int s_medium[3] = { 90, 45, 55 };
+		static const int s_hard[3] = { 55, 40, 55 };
+		static const char* const s_customFlags[3] = {
+			"m2_exchange_dust_chance", "m2_exchange_parchment_chance", "m2_exchange_material_chance" };
+		const int level = quest::CQuestManager::instance().GetEventFlag("m2_difficulty");
+		if (level == 1)
+			return s_medium[kind - 1];
+		if (level == 2)
+			return s_hard[kind - 1];
+		if (level == 3)
+		{
+			const int custom = quest::CQuestManager::instance().GetEventFlag(s_customFlags[kind - 1]);
+			if (custom > 0)
+				return custom > 100 ? 100 : custom;
+		}
+#endif
+		return packageChance;
+	}
 
 	bool IsPlayerBotFastBooksEnabled()
 	{
@@ -1390,6 +1469,19 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 	const DWORD PLAYERBOT_WEIGHT_GATE_SALT_SKILL = 0x534b494cU;
 	const DWORD PLAYERBOT_WEIGHT_GATE_SALT_BIOLOG = 0x42494f4cU;
 	const DWORD PLAYERBOT_WEIGHT_GATE_SALT_HUNTING = 0x48554e54U;
+	// MT2009_PLUS_BOTLIFE_V1: the veins and Baek-Go's board.
+	const DWORD PLAYERBOT_WEIGHT_GATE_SALT_MINING = 0x4d494e47U;
+	const DWORD PLAYERBOT_WEIGHT_GATE_SALT_HERB = 0x48455242U;
+
+	// MT2009_PLUS_BOTLIFE_V1: a wait between two sessions of an errand under
+	// its slider - shorter as the slider goes up, longer as it goes down (at
+	// 25 four times the wait, at 250 two fifths of it).
+	DWORD ScalePlayerBotWaitByWeight(DWORD dwWait, BYTE bWeight)
+	{
+		const int weight = std::max(1, GetPlayerBotWeight(bWeight));
+		const unsigned long long scaled = (unsigned long long)dwWait * PLAYERBOT_WEIGHT_NEUTRAL / (unsigned long long)weight;
+		return scaled > 0x7fffffffULL ? 0x7fffffffU : (DWORD)scaled;
+	}
 }
 
 #endif

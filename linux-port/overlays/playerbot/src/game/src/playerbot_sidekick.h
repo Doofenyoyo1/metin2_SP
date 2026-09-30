@@ -233,6 +233,10 @@ namespace
 	// change and again this often, for a command a loading screen swallowed
 	// (SendPlayerBotSidekickBody).
 	const DWORD PLAYERBOT_SIDEKICK_BODY_RESEND_MS = 60 * 1000;
+	// MT2009_PLUS_SIDEKICK_REDRESS_V1: how long after its bag has come the
+	// companion is shown to its viewers anew (ResendPlayerBotSidekickView) -
+	// time for the setup and the equipment pass to dress it.
+	const DWORD PLAYERBOT_SIDEKICK_VIEW_RESEND_MS = 3000;
 #if defined(PLAYERBOT_ENGINE_MT2009)
 	// The engine's refusal names two ways past seventeen - "Uzyj Zwoju Powrotu
 	// Um. lub Ksiegi Zapomnienia" - and the scroll is the ItemShop's:
@@ -412,6 +416,11 @@ namespace
 		// for as long as its Fishing Card lasts, and since when.
 		bool bFishing;
 		DWORD dwFishingSince;
+		// MT2009_PLUS_SIDEKICK_REDRESS_V1: when it is shown to its viewers again
+		// after its first dressing (ResendPlayerBotSidekickView), and whether it
+		// has been this time in the world.
+		DWORD dwViewResendAt;
+		bool bViewResent;
 		TPlayerBotSidekickRuntime()
 			: dwNextPartyCheck(0), dwNextService(0), dwNextLoot(0), dwNextCatchUp(0), dwLootVID(0),
 			  dwLootSince(0), dwNextProtect(0), bTrading(false), dwLastFoeVID(0), bHold(false), lHoldMap(0),
@@ -419,7 +428,8 @@ namespace
 			  dwGearSent(0), dwEqGen(0), llEqGoldSent(-1), dwEquipWaitUntil(0), dwOwnerFightSeenAt(0),
 			  dwNextFoeMemory(0), bLureStage(0), dwLureVID(0), iLurePacks(0), iLureMonsters(0), lLureAnchorX(0),
 			  lLureAnchorY(0), dwLureCourseSince(0), dwLureStageSince(0), dwNextLure(0), uLureCourses(0),
-			  dwNextForgetCheck(0), dwBagFullToldAt(0), bAlone(false), bFishing(false), dwFishingSince(0)
+			  dwNextForgetCheck(0), dwBagFullToldAt(0), bAlone(false), bFishing(false), dwFishingSince(0),
+			  dwViewResendAt(0), bViewResent(false)
 		{
 			memset(adwFoes, 0, sizeof(adwFoes));
 		}
@@ -661,6 +671,21 @@ namespace
 			return NULL;
 		const TPlayerBotSidekick* rec = FindPlayerBotSidekickOf(ch->GetPlayerID());
 		return rec ? CHARACTER_MANAGER::instance().FindByPID(rec->dwOwnerPID) : NULL;
+	}
+
+	// MT2009_PLUS_SIDEKICK_LOOT_OFF_V1: "Nic" means nothing (upstream 2.2.44,
+	// kuszaa and Tyrion). The window's setting held only at the owner's side,
+	// where this file's own pass picks the drops up; let off the leash ("Wolna
+	// reka") the ordinary loot pass ran for the companion as for any bot - and,
+	// still in its owner's party, took the owner's drops through the engine's
+	// party branch of PickupItem - and so it did in the moments after a
+	// summons. HandleLoot, the combat pick-up and the loot count ask this first.
+	bool IsPlayerBotSidekickLootOff(LPCHARACTER ch)
+	{
+		if (!ch || s_mapPlayerBotSidekickOwner.empty())
+			return false;
+		const TPlayerBotSidekick* rec = FindPlayerBotSidekickOf(ch->GetPlayerID());
+		return rec && rec->bLoot == PLAYERBOT_SIDEKICK_LOOT_NONE;
 	}
 
 	// The owner, when it is a person in this core's world (or a bot, under the
@@ -3634,6 +3659,100 @@ namespace
 		return std::string();
 	}
 
+	// MT2009_PLUS_SIDEKICK_HAIR_V1: the companion's hairstyle (upstream
+	// 2.2.44, busz30_04484). A hairstyle comes off with a Bleach (Wybielacz,
+	// 70201) or a hair dye (70202-70206) - the engine's own tools for it
+	// (UseItem_Common's NEW_HAIR_STYLE_ADD, which takes the costume off with
+	// the Bleach as its key). The owner lays one in the companion's bag and
+	// right-clicks it there (or drops it on the hair slot): the hairstyle goes
+	// into the bag, the tool is used up, and another hairstyle can be put on.
+	// With no hairstyle worn the tool does to the companion's own hair what it
+	// does to a player's. A hairstyle the engine would not let go said "sprobuj
+	// za chwile", which no wait changed; it says what the tool is now.
+	const char* const PLAYERBOT_SIDEKICK_NEEDS_BLEACH_TEXT =
+			"Fryzure zdejmuje Wybielacz (albo farba do wlosow): poloz go w torbie towarzysza i kliknij prawym przyciskiem.";
+
+	bool IsPlayerBotSidekickHairTool(LPITEM item)
+	{
+		// The engine's range (PLAYERBOT_HAIR_DYE_FIRST_VNUM is the Bleach).
+		return item && IsPlayerBotFishedHairDye(item->GetVnum());
+	}
+
+	bool IsPlayerBotSidekickHairstyle(LPITEM item)
+	{
+		return item && item->GetType() == ITEM_COSTUME && item->GetSubType() == COSTUME_HAIR;
+	}
+
+	// The Bleach or a dye in the companion's bag, used for its owner.
+	int UsePlayerBotSidekickHairTool(LPCHARACTER owner, LPCHARACTER sk, TPlayerBotSidekickRuntime& rt, LPITEM tool,
+			std::string& answer)
+	{
+		if (tool->isLocked() || tool->IsExchanging())
+		{
+			answer = "Ten przedmiot jest teraz zajety.";
+			return 2;
+		}
+		const DWORD vnum = tool->GetVnum();
+		const bool bleach = vnum == PLAYERBOT_HAIR_DYE_FIRST_VNUM;
+		LPITEM hair = sk->GetWear(WEAR_COSTUME_HAIR);
+		if (hair)
+		{
+			if (IS_SET(hair->GetFlag(), ITEM_FLAG_IRREMOVABLE))
+			{
+				answer = "Tej fryzury nie da sie zdjac.";
+				return 2;
+			}
+			if (sk->GetEmptyInventory(hair->GetSize()) < 0)
+			{
+				answer = "Towarzysz nie ma miejsca w torbie na fryzure - wez najpierw cos z jego torby.";
+				return 2;
+			}
+			// The engine's own unequip, the tool as its key. What refuses it now
+			// is a stun, a rod or a pickaxe at work (CanUnequipNow), which pass.
+			if (!sk->UnequipItem(hair, tool) || hair->IsEquipped())
+			{
+				answer = "Towarzysz jest teraz zajety (ogluszony, lowi albo kopie) - kliknij Wybielacz jeszcze raz.";
+				return 2;
+			}
+			const DWORD hairVnum = hair->GetVnum();
+			std::string hairName = hair->GetName() ? hair->GetName() : "";
+			// Off by its owner's hand: the AI does not put it back on.
+			SetPlayerBotSidekickPin(sk->GetPlayerID(), rt, hair->GetID(), PLAYERBOT_SIDEKICK_PIN_UNWANTED);
+			LogManager::instance().ItemLog(sk, hair, "PLAYERBOT_SIDEKICK_HAIR_OFF", owner->GetName());
+			FlushPlayerBotItemRow(hair);
+			LogManager::instance().ItemLog(sk, tool, "PLAYERBOT_SIDEKICK_HAIR_TOOL", owner->GetName());
+			tool->SetCount(tool->GetCount() - 1);
+			sys_log(0, "PLAYERBOT_SIDEKICK: hairstyle off pid=%u name=%s owner=%u hair=%u tool=%u", sk->GetPlayerID(),
+					sk->GetName(), owner->GetPlayerID(), hairVnum, vnum);
+			answer = std::string("Fryzura zdjeta: ") + hairName + " jest w torbie towarzysza. Mozesz zalozyc inna.";
+			return 0;
+		}
+		// No hairstyle: the companion's own hair, by the engine's rule for a
+		// player's - a colour once in three levels, the Bleach at any time.
+		const int lastDyeLevel = sk->GetQuestFlag("dyeing_hair.last_dye_level");
+		if (!bleach && lastDyeLevel != 0 && lastDyeLevel + 3 > sk->GetLevel())
+		{
+			char text[128];
+			snprintf(text, sizeof(text), "Towarzysz moze znowu farbowac wlosy od %d poziomu.", lastDyeLevel + 3);
+			answer = text;
+			return 2;
+		}
+		if (bleach && sk->GetPart(PART_HAIR) == 0)
+		{
+			answer = "Towarzysz nie ma fryzury ani farbowanych wlosow.";
+			return 2;
+		}
+		sk->SetPart(PART_HAIR, vnum - PLAYERBOT_HAIR_DYE_FIRST_VNUM);
+		sk->SetQuestFlag("dyeing_hair.last_dye_level", bleach ? 0 : sk->GetLevel());
+		LogManager::instance().ItemLog(sk, tool, "PLAYERBOT_SIDEKICK_HAIR_TOOL", owner->GetName());
+		tool->SetCount(tool->GetCount() - 1);
+		sk->UpdatePacket();
+		sys_log(0, "PLAYERBOT_SIDEKICK: hair %s pid=%u name=%s owner=%u tool=%u part=%d", bleach ? "bleached" : "dyed",
+				sk->GetPlayerID(), sk->GetName(), owner->GetPlayerID(), vnum, sk->GetPart(PART_HAIR));
+		answer = bleach ? "Wlosy towarzysza wrocily do naturalnego koloru." : "Wlosy towarzysza ufarbowane.";
+		return 0;
+	}
+
 	// Puts a piece of the companion's bag on for its owner, and pins it there.
 	// A piece the engine will not let on for the moment - a blow or a skill in
 	// the last second and a half, which it asks of every equip - is pinned all
@@ -3668,6 +3787,9 @@ namespace
 			answer = "Tego, co tam nosi, nie da sie zdjac.";
 			return 2;
 		}
+		// MT2009_PLUS_SIDEKICK_HAIR_V1: the worn piece's mark, which the pin below
+		// takes off it, for a hairstyle that stays on after all.
+		const int oldPin = GetPlayerBotSidekickPinOf(sk, old);
 		SetPlayerBotSidekickPin(sk->GetPlayerID(), rt, item->GetID(), (BYTE)slot);
 		const DWORD now = get_dword_time();
 		const bool blowFresh = IsPlayerBotEquipWindowShut(sk, state);
@@ -3708,6 +3830,18 @@ namespace
 			answer = "Zalozy to, jak tylko skonczy cios.";
 		else if (old && sk->GetEmptyInventory(old->GetSize()) < 0)
 			answer = "Nie mam miejsca w plecaku na to, co zdejme. Zaloze, gdy tylko sie zwolni.";
+		else if (IsPlayerBotSidekickHairstyle(old) && IsPlayerBotSidekickHairstyle(item))
+		{
+			// MT2009_PLUS_SIDEKICK_HAIR_V1: the hairstyle worn stays on until a
+			// Bleach takes it off - no wait mends that, so nothing waits.
+			ClearPlayerBotSidekickPin(rt, item->GetID());
+			if (oldPin >= 0)
+				SetPlayerBotSidekickPin(sk->GetPlayerID(), rt, old->GetID(), (BYTE)oldPin);
+			rt.dwEquipWaitUntil = 0;
+			state.bEquipPending = false;
+			answer = PLAYERBOT_SIDEKICK_NEEDS_BLEACH_TEXT;
+			return 2;
+		}
 		else
 			answer = "Nie moge tego teraz zalozyc - sprobuje za chwile.";
 		sys_log(0, "PLAYERBOT_SIDEKICK: equip waits pid=%u name=%s vnum=%u slot=%d blow=%d bag_room=%d",
@@ -3740,7 +3874,9 @@ namespace
 			done = sk->GetEmptyInventory(worn->GetSize()) >= 0 && sk->UnequipItem(worn) && !worn->IsEquipped();
 		if (!done)
 		{
+			// MT2009_PLUS_SIDEKICK_HAIR_V1: a hairstyle comes off with the Bleach.
 			answer = sk->GetEmptyInventory(worn->GetSize()) < 0 ? "Towarzysz nie ma miejsca w torbie." :
+					IsPlayerBotSidekickHairstyle(worn) ? PLAYERBOT_SIDEKICK_NEEDS_BLEACH_TEXT :
 					"Nie da sie tego teraz zdjac - sprobuj za chwile.";
 			return 2;
 		}
@@ -3880,7 +4016,10 @@ namespace
 			return 2;
 		const bool toWear = IsPlayerBotSidekickEqWearPos(to);
 		const int wantWear = toWear ? to - PLAYERBOT_SIDEKICK_EQ_WEAR_BASE : -1;
-		if (toWear)
+		// MT2009_PLUS_SIDEKICK_HAIR_V1: the Bleach or a dye dropped from the
+		// owner's bag on the hair slot goes into the companion's bag and is used.
+		const bool hairTool = wantWear == WEAR_COSTUME_HAIR && IsPlayerBotSidekickHairTool(item);
+		if (toWear && !hairTool)
 		{
 			// What the companion could never wear stays with the owner.
 			const int wear = item->FindEquipCell(sk);
@@ -3931,6 +4070,13 @@ namespace
 		LogManager::instance().ItemLog(sk, item, "PLAYERBOT_GIFT_IN", owner->GetName());
 		sys_log(0, "PLAYERBOT_SIDEKICK: given pid=%u owner=%u item=%u vnum=%u cell=%d", sk->GetPlayerID(),
 				owner->GetPlayerID(), item->GetID(), vnum, cell);
+		if (hairTool)
+		{
+			std::string used;
+			const int code = UsePlayerBotSidekickHairTool(owner, sk, rt, item, used);
+			answer = std::string("Dane: ") + pieceName + ". " + used;
+			return code;
+		}
 		if (toWear)
 		{
 			std::string worn;
@@ -4004,6 +4150,7 @@ namespace
 		{
 			answer = sk->GetEmptyInventory(item->GetSize()) < 0 ?
 					"Towarzysz nie ma miejsca w torbie, zeby to zdjac - wez najpierw cos z jego torby." :
+					IsPlayerBotSidekickHairstyle(item) ? PLAYERBOT_SIDEKICK_NEEDS_BLEACH_TEXT : // MT2009_PLUS_SIDEKICK_HAIR_V1
 					"Nie da sie tego teraz zdjac - sprobuj za chwile.";
 			return 2;
 		}
@@ -4185,6 +4332,11 @@ namespace
 						answer = "Tam nic nie ma.";
 						code = 3;
 					}
+					// MT2009_PLUS_SIDEKICK_HAIR_V1: the Bleach or a dye right-clicked
+					// in its bag, or dropped on the hair slot, is used.
+					else if (IsPlayerBotSidekickHairTool(item) &&
+							(to == -1 || to == PLAYERBOT_SIDEKICK_EQ_WEAR_BASE + WEAR_COSTUME_HAIR))
+						code = UsePlayerBotSidekickHairTool(owner, sk, rt, item, answer);
 					else
 						code = EquipPlayerBotSidekickForOwner(owner, sk, state, rt, item,
 								to == -1 ? -1 : to - PLAYERBOT_SIDEKICK_EQ_WEAR_BASE, answer);
@@ -6183,6 +6335,31 @@ namespace
 				ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), rec.dwOwnerPID);
 	}
 
+	// MT2009_PLUS_SIDEKICK_REDRESS_V1: bald after its first summons (upstream
+	// 2.2.44, urtopy). A companion comes into the world, and is shown to the
+	// players round it, as the character loads - before the db core has sent a
+	// single item - and is dressed a moment later: the setup's starter set, the
+	// equipment pass, a hairstyle. The client took the parts that followed as
+	// updates to a character it had already built and showed it bald. So once
+	// it is dressed it is sent to its viewers again, removed and inserted
+	// (CEntity::ViewReencode), as it is now - once each time in the world.
+	void ResendPlayerBotSidekickView(LPCHARACTER ch, TPlayerBotSidekickRuntime& rt, DWORD dwNow)
+	{
+		if (rt.bViewResent || !ch->IsItemLoaded() || !ch->GetSectree() || ch->IsDead())
+			return;
+		if (rt.dwViewResendAt == 0)
+		{
+			rt.dwViewResendAt = dwNow + PLAYERBOT_SIDEKICK_VIEW_RESEND_MS;
+			return;
+		}
+		if ((int)(dwNow - rt.dwViewResendAt) < 0)
+			return;
+		rt.bViewResent = true;
+		ch->ViewReencode();
+		sys_log(0, "PLAYERBOT_SIDEKICK: shown anew once dressed pid=%u name=%s body=%d hair=%d", ch->GetPlayerID(),
+				ch->GetName(), ch->GetPart(PART_MAIN), ch->GetPart(PART_HAIR));
+	}
+
 	bool ManagePlayerBotSidekick(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		TPlayerBotSidekick* rec = FindPlayerBotSidekickOf(ch->GetPlayerID());
@@ -6199,6 +6376,7 @@ namespace
 		KeepPlayerBotSidekickPath(ch, *rec);
 		TopUpPlayerBotSidekickSkillPoints(ch);
 		TPlayerBotSidekickRuntime& rt = s_mapPlayerBotSidekickRuntime[ch->GetPlayerID()];
+		ResendPlayerBotSidekickView(ch, rt, dwNow);	// MT2009_PLUS_SIDEKICK_REDRESS_V1
 		ReadPlayerBotSidekickForgetBook(ch, *rec, rt, dwNow);
 		if (HandlePlayerBotSidekickTrade(ch, state, *rec, rt, dwNow))
 			return true;

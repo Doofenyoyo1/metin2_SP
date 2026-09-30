@@ -1,0 +1,12 @@
+ScriptType	MapSetting
+
+CellScale	200
+HeightScale	0.500000
+
+ViewRadius	128
+
+MapSize	2	2
+BasePosition	844800	588800
+TextureSet	textureset\plechito_scorpion_dungeon.txt
+Environment	plechito_scorpion_dungeon.msenv
+TerrainVisible	0

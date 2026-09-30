@@ -6,6 +6,8 @@
 --  * the Portal (20415) opens for a minute where the En-Tai Guardian (6400)
 --    fell (playerbot_ochao.h). The package sent it to the Enchanted Forest
 --    (map 210), which this world does not have yet: here it is the way out;
+--    MT2009_PLUS_AREZZO_V1: the portal leads to the forest again - Zaczarowany Las
+--    (natural_map, 362, from the Arezzo files) - and to Orc Valley as the second choice;
 --  * the Ochao Bodyguard (6311) gives the package's reward list, with the
 --    Arboreal materials and the Lycan armour mapped to this world's items:
 --    30609 -> 30015 Pamiatka Po Demonie, 30612 -> 30082 Ogon Weza+,
@@ -43,21 +45,32 @@ quest temple_of_the_ochao begin
 			end
 		end
 
+		-- MT2009_PLUS_AREZZO_V1 (ochao portal): Zaczarowany Las (362, level 95+), landing where
+		-- Arezzo's portal does (cell 459, 106 of natural_map = 378700, 394600); Orc Valley stays.
 		when 20415.chat."Opusc Swiatynie" with pc.get_map_index() == 209 begin
 			say_title(mob_name(20415))
 			say("Portal pozostawiony przez Straznika En-Tai drga")
-			say("jeszcze przez chwile. Prowadzi z powrotem do")
-			say("Doliny Orkow.")
+			say("jeszcze przez chwile. Prowadzi do Zaczarowanego")
+			say("Lasu, najgrozniejszej krainy za Swiatynia, albo")
+			say("z powrotem do Doliny Orkow.")
 			say("")
-			say("(Zaczarowany Las, do ktorego wiodl kiedys, nie")
-			say("jest jeszcze otwarty.)")
-			say("")
-			local s = select("Przejdz przez portal", "Zostan w Swiatyni")
+			local s
+			if game.get_event_flag("mt2009_arezzo_closed") > 0 then
+				s = select("Dolina Orkow", "Zostan w Swiatyni") + 1
+			else
+				s = select("Zaczarowany Las", "Dolina Orkow", "Zostan w Swiatyni")
+			end
+			if s == 3 then
+				return
+			end
+			if not pc.can_warp() then
+				say_title(mob_name(20415))
+				say("Zakoncz najpierw handel i odczekaj chwile.")
+				return
+			end
 			if s == 1 then
-				if not pc.can_warp() then
-					say("Zakoncz najpierw handel i odczekaj chwile.")
-					return
-				end
+				pc.warp(378700, 394600)
+			else
 				pc.warp(284700, 810600)
 			end
 		end

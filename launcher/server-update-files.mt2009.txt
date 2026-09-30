@@ -65,6 +65,8 @@ linux-port-mt2009/docker/game/special_item_group.cors.txt
 linux-port-mt2009/docker/game/special_item_group.dungeons.txt
 linux-port-mt2009/docker/game/special_item_group.goblin.txt
 linux-port-mt2009/docker/game/dungeons/*
+# The Arezzo places (MT2009 PLUS 2.16.0, off unless M2_AREZZO=1).
+linux-port-mt2009/docker/game/arezzo/*
 linux-port-mt2009/docker/game/ochao/*
 linux-port-mt2009/docker/game/treasure_hunt/*
 linux-port-mt2009/docker/mariadb/playerbot/item_proto.mt2009plus.sql

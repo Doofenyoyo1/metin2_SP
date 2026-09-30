@@ -1,0 +1,129 @@
+
+Group	MT2009_arezzo_cyklopy_1
+{
+	Vnum	36001
+	Leader	"General Outis"	9605
+	1	"Cyklop Zolnierz"	9602
+	2	"Cyklop Zolnierz"	9602
+	3	"Cyklop Mag"	9603
+}
+
+Group	MT2009_arezzo_cyklopy_2
+{
+	Vnum	36002
+	Leader	"Cyklop Kat"	9604
+	1	"Jednooki Zabijaka"	9601
+	2	"Jednooki Zabijaka"	9601
+	3	"Cyklop Mag"	9603
+}
+
+Group	MT2009_arezzo_cyklopy_3
+{
+	Vnum	36003
+	Leader	"Jednooki Zabijaka"	9601
+	1	"Jednooki Zabijaka"	9601
+	2	"Cyklop Zolnierz"	9602
+}
+
+Group	MT2009_arezzo_piramida_1
+{
+	Vnum	36101
+	Leader	"Starozytny Horus"	9673
+	1	"Starozytny Robak"	9680
+	2	"Starozytny Wojownik"	9671
+	3	"Starozytna Mumia"	9672
+}
+
+Group	MT2009_arezzo_piramida_2
+{
+	Vnum	36102
+	Leader	"Starozytny Ozyrys"	9676
+	1	"Mumia Kaplanka"	9674
+	2	"Starozytny Skorpion"	9679
+	3	"Starozytny Robak"	9680
+}
+
+Group	MT2009_arezzo_piramida_3
+{
+	Vnum	36103
+	Leader	"Starozytny Wojownik"	9671
+	1	"Starozytna Mumia"	9672
+	2	"Starozytny Skorpion"	9679
+}
+
+Group	MT2009_arezzo_lemury_1
+{
+	Vnum	36201
+	Leader	"Lemur Kat"	9614
+	1	"Lemur Wojownik"	9611
+	2	"Lemur Zolnierz"	9612
+	3	"Lemur Mag"	9613
+}
+
+Group	MT2009_arezzo_lemury_2
+{
+	Vnum	36202
+	Leader	"Lemur General"	9615
+	1	"Lemur Zolnierz"	9612
+	2	"Lemur Mag"	9613
+	3	"Lemur Wojownik"	9611
+}
+
+Group	MT2009_arezzo_lemury_3
+{
+	Vnum	36203
+	Leader	"Lemur Wojownik"	9611
+	1	"Lemur Wojownik"	9611
+	2	"Lemur Zolnierz"	9612
+	3	"Lemur Mag"	9613
+}
+
+Group	MT2009_arezzo_wukong_1
+{
+	Vnum	36401
+	Leader	"Obronca Stylu Malp"	9691
+	1	"Wielka Malpa"	9690
+	2	"Wielka Malpa"	9690
+	3	"Uczony Stylu Malp"	9692
+}
+
+Group	MT2009_arezzo_wukong_2
+{
+	Vnum	36402
+	Leader	"Czarodziej Stylu Malp"	9693
+	1	"Wielka Malpa"	9690
+	2	"Uczony Stylu Malp"	9692
+}
+
+Group	MT2009_arezzo_skorpion_1
+{
+	Vnum	36501
+	Leader	"Duzy Skorpion"	9700
+	1	"Mlody Skorpion"	9697
+	2	"Niebieski Skorpion"	9698
+	3	"Czarny Skorpion"	9699
+}
+
+Group	MT2009_arezzo_skorpion_2
+{
+	Vnum	36502
+	Leader	"Czarny Skorpion"	9699
+	1	"Mlody Skorpion"	9697
+	2	"Niebieski Skorpion"	9698
+}
+
+Group	MT2009_arezzo_dzungla_1
+{
+	Vnum	36601
+	Leader	"Sowa Ksiezycowa"	9709
+	1	"Lesna Wrozka"	9707
+	2	"Sukkub Natury"	9708
+}
+
+Group	MT2009_arezzo_dzungla_2
+{
+	Vnum	36602
+	Leader	"Sukkub Natury"	9708
+	1	"Lesna Wrozka"	9707
+	2	"Lesna Wrozka"	9707
+}
