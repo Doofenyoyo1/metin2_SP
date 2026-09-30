@@ -344,10 +344,14 @@ namespace
 				item->GetOwner() != ch || item->GetWindow() != INVENTORY ||
 				item->GetCell() >= PLAYERBOT_BAG_CELLS || ch->GetInventoryItem(item->GetCell()) != item)
 			return false;
+		// Nor the Stalki it keeps for the level ahead (playerbot_stalki.h): the
+		// gambler's anvil burns what it fails on, and that piece is the bot's
+		// next armour or weapon, not its stake.
 		if (item == backup || IsPlayerBotKeptBackupArmour(ch, item) ||
 				IsPlayerBotWearableUpgrade(ch, item, item->GetCell()) ||
 				IsPlayerBotHigherTierSpare(ch, item) || IsPlayerBotLevel30Project(ch, item) ||
-				IsPlayerBotArcherStoneWeapon(ch, item) || IsPlayerBotRefineBagCandidate(ch, item))
+				IsPlayerBotArcherStoneWeapon(ch, item) || IsPlayerBotRefineBagCandidate(ch, item) ||
+				IsPlayerBotKeptStalki(ch, item))
 			return false;
 		// What an earlier session made is for sale as it is. The set that says
 		// so lives in the process, and after a restart it is empty: a piece at

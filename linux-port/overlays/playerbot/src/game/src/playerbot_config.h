@@ -958,18 +958,24 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 		ReadPlayerBotItemPolicyFile(PLAYERBOT_ITEM_POLICY_PATH);
 	}
 
-	// The vnum's word, else the type's, else nothing.
+	// The vnum's word, else the type's, else nothing. By vnum and type as well,
+	// for a line of an offline counter, which is no item until it is previewed.
+	BYTE GetPlayerBotItemPolicyOf(DWORD vnum, BYTE type)
+	{
+		std::map<DWORD, BYTE>::const_iterator v = s_mapPlayerBotItemPolicyByVnum.find(vnum);
+		if (v != s_mapPlayerBotItemPolicyByVnum.end())
+			return v->second;
+		std::map<BYTE, BYTE>::const_iterator t = s_mapPlayerBotItemPolicyByType.find(type);
+		if (t != s_mapPlayerBotItemPolicyByType.end())
+			return t->second;
+		return PLAYERBOT_ITEM_POLICY_NONE;
+	}
+
 	BYTE GetPlayerBotItemPolicy(LPITEM item)
 	{
 		if (!item)
 			return PLAYERBOT_ITEM_POLICY_NONE;
-		std::map<DWORD, BYTE>::const_iterator v = s_mapPlayerBotItemPolicyByVnum.find(item->GetVnum());
-		if (v != s_mapPlayerBotItemPolicyByVnum.end())
-			return v->second;
-		std::map<BYTE, BYTE>::const_iterator t = s_mapPlayerBotItemPolicyByType.find(item->GetType());
-		if (t != s_mapPlayerBotItemPolicyByType.end())
-			return t->second;
-		return PLAYERBOT_ITEM_POLICY_NONE;
+		return GetPlayerBotItemPolicyOf(item->GetVnum(), item->GetType());
 	}
 
 	DWORD GetPlayerBotWeightsGeneration()

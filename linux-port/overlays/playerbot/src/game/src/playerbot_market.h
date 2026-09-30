@@ -98,9 +98,14 @@ namespace
 	// (15 September: "wazne przedmioty dla botow, duzo fajnych itemow im
 	// z tego dropi"). No rule wanted one before: every chest a trader listed
 	// stayed listed - 3 000 on AkhiGubernator's counters and not one sold. Not a
-	// trader, which sells them; nobody under PLAYERBOT_CHEST_BUY_MIN_LEVEL or
-	// holding PLAYERBOT_CHEST_BUY_HOLD already; and only into a bag that takes
-	// the chest's whole group and the engine's free column of three.
+	// dropper, which sells them (IsPlayerBotMoonlightChestSeller; the resource
+	// trader opens its own since 28 September, so it may buy one too); nobody
+	// under PLAYERBOT_CHEST_BUY_MIN_LEVEL or holding PLAYERBOT_CHEST_BUY_HOLD
+	// already; only with PLAYERBOT_CHEST_BUY_PRICE_MULTIPLE times a counter's
+	// line of them in spare gold - a line asks the chests' worth by what they
+	// hold now (GetPlayerBotMoonlightChestAskingBase), and CanPlayerBotPayForOffer
+	// pays it from that share; and only into a bag that takes the chest's whole
+	// group and the engine's free column of three.
 	// When each bot last bought a chest, for PLAYERBOT_CHEST_BUY_COOLDOWN.
 	std::map<DWORD, DWORD> s_mapPlayerBotChestBoughtAt;
 
@@ -127,12 +132,11 @@ namespace
 				return false;
 		}
 		if (!ch || !ch->IsItemLoaded() || (int)ch->GetLevel() < PLAYERBOT_CHEST_BUY_MIN_LEVEL ||
-				IsPlayerBotResourceTrader(ch->GetPlayerID()) ||
-				IsPlayerBotDropper(GetPlayerBotPersonalityByPID(ch->GetPlayerID())) ||
+				IsPlayerBotMoonlightChestSeller(ch->GetPlayerID()) ||
 				(long long)ch->GetGold() - GetPlayerBotReservedGold(ch) -
 					(long long)PLAYERBOT_SHOPPING_GOLD_FLOOR <
 					MAX(PLAYERBOT_CHEST_BUY_MIN_GOLD, PLAYERBOT_CHEST_BUY_PRICE_MULTIPLE *
-						(long long)GetPlayerBotMaterialAskingBase(PLAYERBOT_MOONLIGHT_CHEST_VNUM)) ||
+						(long long)GetPlayerBotMoonlightChestAskingBase() * PLAYERBOT_CHEST_LINE_UNITS) ||
 				(int)ch->CountSpecifyItem(PLAYERBOT_MOONLIGHT_CHEST_VNUM) >= PLAYERBOT_CHEST_BUY_HOLD ||
 				CountPlayerBotFreeInventoryCells(ch) < PLAYERBOT_CHEST_BUY_MIN_FREE_CELLS ||
 				ch->GetEmptyInventory(3) < 0)
@@ -241,6 +245,16 @@ namespace
 		// it has open.
 		if (offer->GetType() == ITEM_METIN)
 			return WantsPlayerBotSoulStone(ch, offer->GetVnum(), (DWORD)offer->GetValue(5));
+
+		// A Stalki for its slot, while it holds nothing of the tier and is at
+		// the level or PLAYERBOT_STALKI_BUY_AHEAD_LEVELS short of it
+		// (playerbot_stalki.h): a project like the level-30 weapon, bought at
+		// any plus and made at the anvil, where the gear branch below takes a
+		// finished piece a bot can wear today and nothing else. The operator's
+		// decision of 28 September. Once it holds one it wants no other, so
+		// what it bought is its project and never the next counter's line.
+		if (IsPlayerBotStalkiProjectOffer(ch, offer))
+			return true;
 
 		// A level-30 weapon of its own class. This is the item bots cross the
 		// world to farm; buying one off a counter is the whole point of there
@@ -473,6 +487,14 @@ namespace
 		// anvil together.
 		if (IsPlayerBotClassLevel30Weapon(ch, item))
 			return price <= GetPlayerBotLevel30PurchaseCap(ch);
+		// A Stalki project comes out of the strategic share, the level-30
+		// weapon's and the horse medal's, and no nearer than
+		// PLAYERBOT_STALKI_FAIR_PRICE_PERCENT of what the market asks for the
+		// piece: the one purchase a bot of sixty-four saves for, and a keeper's
+		// one zero too many is not it.
+		if (IsPlayerBotStalkiProjectOffer(ch, item))
+			return playerbot_stalki_rules::WithinFairPrice(price, GetPlayerBotShopAskingPrice(item),
+					PLAYERBOT_STALKI_FAIR_PRICE_PERCENT) && price <= GetPlayerBotStalkiBudget(ch);
 		// A finished piece the market Perfectionist came for is paid from the
 		// Perfectionist's share (community patch 2, point 11).
 		if (IsPlayerBotReadyGearOffer(ch, item))
@@ -522,6 +544,18 @@ namespace
 			const long long fair = GetPlayerBotShopAskingPrice(item);
 			if (fair > 0 && price > fair * PLAYERBOT_MARKET_MATERIAL_FAIR_MULTIPLE)
 				return false;
+		}
+		// A Moonlight chest asks what it holds since 28 September, and a line of
+		// five is several times the median wallet's share below, so it is paid
+		// from the buyer's own spare gold - a line at most the share the want
+		// asked for (WantsPlayerBotMoonlightChest), or the walk to it would be
+		// made for a line the purse then refused - and never over a counter's
+		// price for it by the material's multiple.
+		if (item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
+		{
+			const long long fair = GetPlayerBotShopAskingPrice(item);
+			return fair > 0 && price <= fair * PLAYERBOT_MARKET_MATERIAL_FAIR_MULTIPLE &&
+					price <= spare / PLAYERBOT_CHEST_BUY_PRICE_MULTIPLE;
 		}
 		const long long cap = (long long)GetPlayerBotMarketMedianWallet() * PLAYERBOT_MARKET_STACK_WALLET_PERCENT / 100;
 		return cap <= 0 || price <= cap;
@@ -1129,6 +1163,66 @@ namespace
 				eligible, lacking, low, mid, auPlus[6], auPlus[7], auPlus[8], auPlus[9]);
 	}
 
+	// The Stalki (the operator's decision of 28 September) measured the same
+	// way, per kind: of the bots that are not droppers and are within the
+	// keep of the armour's level or past it, how many wear one, keep one for
+	// the level ahead, or are in the market for one; how many other pieces
+	// ride in their bags; and how many stand on the counters the ledger read.
+	// Under the market's tag, which the support bundle keeps.
+	void ReportPlayerBotStalkiCensus()
+	{
+		const int minLevel = playerbot_stalki_rules::ARMOUR_LEVEL - PLAYERBOT_STALKI_KEEP_AHEAD_LEVELS;
+		unsigned int bots = 0;
+		unsigned int auWorn[3] = { 0 }, auKept[3] = { 0 }, auShoppers[3] = { 0 }, auBag[3] = { 0 }, auCounters[3] = { 0 };
+		for (TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.begin();
+				it != s_mapPlayerBotAIStates.end(); ++it)
+		{
+			LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(it->first);
+			if (!ch || !ch->IsItemLoaded() || (int)ch->GetLevel() < minLevel ||
+					IsPlayerBotDropper(GetPlayerBotPersonalityByPID(it->first)))
+				continue;
+			++bots;
+			for (int k = playerbot_stalki_rules::KIND_ARMOUR; k <= playerbot_stalki_rules::KIND_WEAPON; ++k)
+			{
+				const playerbot_stalki_rules::EKind kind = (playerbot_stalki_rules::EKind)k;
+				LPITEM on = ch->GetWear((BYTE)GetPlayerBotStalkiWearCell(kind));
+				if (on && GetPlayerBotStalkiKind(on) == kind)
+					++auWorn[k];
+				if (FindPlayerBotKeptStalki(ch, kind))
+					++auKept[k];
+				if (IsPlayerBotStalkiShopperNow(ch, kind))
+					++auShoppers[k];
+			}
+			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+			{
+				LPITEM item = ch->GetInventoryItem(cell);
+				if (!item || item->GetCell() != cell || item->IsEquipped())
+					continue;
+				const playerbot_stalki_rules::EKind kind = GetPlayerBotStalkiKind(item);
+				if (kind != playerbot_stalki_rules::KIND_NONE && !IsPlayerBotKeptStalki(ch, item))
+					++auBag[kind];
+			}
+		}
+		for (int k = playerbot_stalki_rules::KIND_ARMOUR; k <= playerbot_stalki_rules::KIND_WEAPON; ++k)
+		{
+			const unsigned* families = k == playerbot_stalki_rules::KIND_ARMOUR
+					? playerbot_stalki_rules::ARMOUR_FAMILIES : playerbot_stalki_rules::WEAPON_FAMILIES;
+			const size_t count = k == playerbot_stalki_rules::KIND_ARMOUR
+					? sizeof(playerbot_stalki_rules::ARMOUR_FAMILIES) / sizeof(playerbot_stalki_rules::ARMOUR_FAMILIES[0])
+					: sizeof(playerbot_stalki_rules::WEAPON_FAMILIES) / sizeof(playerbot_stalki_rules::WEAPON_FAMILIES[0]);
+			for (size_t i = 0; i < count; ++i)
+				for (DWORD plus = 0; plus < playerbot_stalki_rules::FAMILY_GRADES; ++plus)
+				{
+					const TPlayerBotMarketLedgerEntry* entry = GetPlayerBotMarketLedgerEntry(families[i] + plus);
+					if (entry)
+						auCounters[k] += entry->dwSupplyUnits;
+				}
+		}
+		sys_log(0, "PLAYERBOT_MARKET: stalki census bots=%u armour_worn=%u armour_kept=%u armour_shoppers=%u armour_bag=%u armour_counters=%u weapon_worn=%u weapon_kept=%u weapon_shoppers=%u weapon_bag=%u weapon_counters=%u",
+				bots, auWorn[1], auKept[1], auShoppers[1], auBag[1], auCounters[1],
+				auWorn[2], auKept[2], auShoppers[2], auBag[2], auCounters[2]);
+	}
+
 	void RefreshPlayerBotMarketLedger(DWORD dwNow)
 	{
 		if (s_dwMarketLedgerTime != 0 &&
@@ -1198,6 +1292,10 @@ namespace
 			std::sort(wallets.begin(), wallets.end());
 			s_dwMarketMedianWallet = wallets[wallets.size() / 2];
 		}
+		// What the counts just made say of the kinds the market keeps selling:
+		// each is looked at against the supply this pass counted (Iwakura, 28
+		// September, point 5).
+		UpdatePlayerBotShortageMarkups(dwNow);
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
 		// The slips the pass above found, put right where no keeper will -
 		// priced against the ledger and the wallets as they now stand.
@@ -1237,6 +1335,7 @@ namespace
 				auStallsByReason[PLAYERBOT_SHOP_REASON_HOARD]);
 		ReportPlayerBotWeaponGoals(dwNow);
 		ReportPlayerBotLevel30Census();
+		ReportPlayerBotStalkiCensus();
 		// Iwakura's Patch 4, point 5: how much of the refine materials the bots
 		// hold stands on a counter - his mark is sixty-five percent ("przynajmniej
 		// 65% zmagazynowanych ulepszaczy"). The bags of this core's bots, their

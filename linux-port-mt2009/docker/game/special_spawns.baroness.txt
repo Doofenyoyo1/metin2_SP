@@ -1,0 +1,19 @@
+# The Spider Baroness (2092) in the second Spider Dungeon's last room, who
+# drops the Stalki (rendered by linux-port-mt2009/port/shareify.py and
+# appended to special_spawns.txt; the operator's decision of 28 September).
+Group	Boss_SpiderBaroness
+{
+	vnum	2092
+	spawn_vnum	2092
+	spawn_type	mob
+	channel	0
+	map_index	71
+	time	14400-18000
+	time_type	normal
+	count	1
+	save_kill	1
+	initial_delay	900-1500
+	1	384	874	0
+	2	380	880	0
+	3	390	870	0
+}

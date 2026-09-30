@@ -15,6 +15,16 @@
 // but only for words of five letters or more and only when the first letter
 // agrees - short words are too easy to confuse.
 //
+// A line is read in one of two languages (Jeremus-Sama, 28 September): the
+// words only English has against the words only Polish has, counted before
+// any rewrite, decide it, and a line that says nothing either way ("ok",
+// "fms?", "no") is read in the language of the person who wrote it. A Polish
+// line is read exactly as it always was; an English one gets the English
+// lexicon on top (playerbot_conv_lexicon.h) and keeps the few words the
+// Polish rewrites would turn into something else ("is" is no ItemShop there).
+// What language the ANSWER is in is not decided here: that is the reader's
+// own flag (TBotSnapshot::askerEnglish).
+//
 // Unit tested by tests/playerbot_conversation_test.cpp.
 
 #include <cstring>
@@ -29,6 +39,13 @@ namespace playerbot_conv
 	const size_t CONV_MAX_INPUT = 256;
 	const size_t CONV_MAX_WORDS = 32;
 
+	// The languages a person reads and writes. UNKNOWN is a person whose flag
+	// this core cannot read - one on another core, whose whisper came by the
+	// P2P relay - who is answered in the language of their own lines.
+	const int CONV_LANG_UNKNOWN = -1;
+	const int CONV_LANG_PL = 0;
+	const int CONV_LANG_EN = 1;
+
 	struct TTokens
 	{
 		std::string norm;               // "gdzie teraz expisz"
@@ -38,8 +55,15 @@ namespace playerbot_conv
 		bool smile;                     // :) :D xD ;) :P
 		bool sad;                       // :( ;(
 		size_t rawLength;
+		// The words only English has and those only Polish has (a Polish
+		// letter counts twice), before any rewrite - and whether the line is
+		// read the English way: more English, or neither and an English reader.
+		int englishWords;
+		int polishWords;
+		bool english;
 
-		TTokens() : question(false), exclaim(false), smile(false), sad(false), rawLength(0) {}
+		TTokens() : question(false), exclaim(false), smile(false), sad(false), rawLength(0), englishWords(0),
+			polishWords(0), english(false) {}
 
 		bool Has(const char* w) const
 		{
@@ -209,6 +233,70 @@ namespace playerbot_conv
 		return NULL;
 	}
 
+	// Words only an English line has: the function words, and the chat words
+	// no Polish player uses. Not the English loans Polish chat is full of
+	// (thx, sorry, ok, party, boss, drop, noob, sell ...), not what is a
+	// Polish word as well ("no", "to", "do", "i", "a", "my", "go", "on",
+	// "is" - the ItemShop -, "ty"), and not the pieces of an apostrophe
+	// that Polish has as words.
+	inline bool IsEnglishMarkerWord(const std::string& w)
+	{
+		static const char* const kWords[] = {
+			"you", "your", "yours", "youre", "yourself", "ur", "are", "am", "was", "were", "be", "been", "being",
+			"the", "an", "of", "in", "at", "with", "for", "from", "about", "what", "whats", "wat", "wut", "where",
+			"wheres", "when", "why", "who", "whos", "how", "hows", "which", "this", "that", "thats", "these",
+			"those", "there", "theres", "here", "it", "its", "me", "mine", "myself", "they", "them", "their", "he",
+			"she", "him", "her", "his", "does", "did", "doing", "done", "dont", "doesnt", "didnt", "cant", "wont",
+			"isnt", "arent", "wasnt", "not", "have", "has", "had", "having", "got", "get", "gets", "gonna",
+			"wanna", "gotta", "want", "wants", "can", "could", "would", "should", "will", "might", "must", "just",
+			"like", "likes", "love", "some", "any", "much", "more", "very", "really", "too", "so", "and", "or",
+			"but", "if", "than", "because", "cuz", "bro", "dude", "mate", "guys", "please", "thank", "yes",
+			"yeah", "yep", "yup", "nah", "come", "going", "hunting", "farming", "grinding", "buy", "buying",
+			"selling", "leave", "alone", "talk", "talking", "writing", "im", "ive", "lets", "m", "s", "t",
+			"re", "ll", "ve", "d", "don", "didn", "doesn", "isn", "aren", "wasn", "won", "wyd", "sup",
+			"wassup", "r", "we", "us", "our"
+		};
+		for (size_t i = 0; i < sizeof(kWords) / sizeof(kWords[0]); ++i)
+			if (w == kWords[i])
+				return true;
+		return false;
+	}
+
+	// Words only a Polish line has. A Polish letter counts on its own.
+	inline bool IsPolishMarkerWord(const std::string& w)
+	{
+		static const char* const kWords[] = {
+			"co", "gdzie", "jak", "jestes", "jest", "jestem", "sa", "masz", "mam", "macie", "ma", "czy", "sie",
+			"nie", "tak", "ze", "mnie", "ciebie", "cie", "tobie", "toba", "mi", "ci", "moze", "juz", "jeszcze",
+			"teraz", "bo", "ale", "tez", "tylko", "bardzo", "dzieki", "dziekuje", "siema", "czesc", "robisz",
+			"grasz", "ja", "ktory", "ktora", "jaki", "jaka", "jakie", "dlaczego", "czemu", "kiedy", "ile", "po",
+			"za", "na", "w", "z", "o", "od", "dla", "przez", "pod", "nad", "przy", "lub", "albo", "wiec", "chodz",
+			"daj", "prosze", "dobra", "dobrze", "nara", "hej", "kupie", "sprzedam", "expisz", "bijesz", "twoj",
+			"twoja", "twoje", "moj", "moja", "moje", "byl", "bylem", "sobie", "tu", "tam", "tutaj", "cos", "nic",
+			"wszystko", "kto", "czego", "czym", "gdzies", "bede", "bedzie", "musisz", "mozesz", "moge", "chce",
+			"chcesz", "wiesz", "wiem", "zobacz", "zoba", "lubisz", "lubie", "wolisz", "myslisz", "potem",
+			"dzisiaj", "dzis", "jutro", "wczoraj", "zaraz", "spoko", "siemka", "elo", "nwm", "serio", "naprawde",
+			"kurde", "kurwa", "ziomek", "mordo", "byku", "ziom", "mape", "mapie", "mapa", "poziom", "gildia",
+			"gildie", "gildii", "kasy", "kasa", "hajs", "kon", "konia", "bron", "broni", "potki", "gram", "grac",
+			"idziesz", "idz", "ide", "jade", "wracam", "wracaj", "przyjdz", "podejdz", "przestan", "pisac", "pisz",
+			"gadac", "zapros", "dolacz", "razem", "sam", "sama", "samemu", "czesto", "ktos", "jakis", "jakies"
+		};
+		for (size_t i = 0; i < sizeof(kWords) / sizeof(kWords[0]); ++i)
+			if (w == kWords[i])
+				return true;
+		return false;
+	}
+
+	// What an English line keeps as it is, because the Polish rewrite would
+	// make it something else: "is" is the ItemShop in Polish chat, "mb" maybe
+	// and "nw" I don't know - my bad and no worries in English - and "sell"
+	// says who sells only beside its subject (the English trade words,
+	// playerbot_conv_lexicon.h).
+	inline bool KeepEnglishWord(const std::string& w)
+	{
+		return w == "is" || w == "mb" || w == "nw" || w == "cb" || w == "cp" || w == "tb" || w == "sell";
+	}
+
 	inline void SplitWords(const std::string& s, std::vector<std::string>& out)
 	{
 		size_t i = 0;
@@ -225,8 +313,22 @@ namespace playerbot_conv
 		}
 	}
 
+	inline bool IsPolishLetterCp1250(unsigned char c)
+	{
+		switch (c)
+		{
+			case 0xA5: case 0xB9: case 0xC6: case 0xE6: case 0xCA: case 0xEA: case 0xA3: case 0xB3: case 0xD1:
+			case 0xF1: case 0xD3: case 0xF3: case 0x8C: case 0x9C: case 0x8F: case 0x9F: case 0xAF: case 0xBF:
+				return true;
+			default:
+				return false;
+		}
+	}
+
 	// The whole normalization. `in` is a raw whisper, CP1250 or UTF-8.
-	inline void Normalize(const char* in, TTokens& out)
+	// `readerEnglish`: the person who wrote it reads English, which decides a
+	// line whose words say nothing either way (TTokens::english).
+	inline void Normalize(const char* in, TTokens& out, bool readerEnglish = false)
 	{
 		out = TTokens();
 		if (!in)
@@ -238,6 +340,7 @@ namespace playerbot_conv
 			n = CONV_MAX_INPUT;
 		out.rawLength = n;
 		const unsigned char* p = (const unsigned char*)in;
+		int polishLetters = 0;
 
 		// Smileys before punctuation is dropped. "xd" is a word and survives.
 		for (size_t i = 0; i + 1 < n; ++i)
@@ -257,9 +360,13 @@ namespace playerbot_conv
 			{
 				const unsigned char f = FoldUtf8Pair(c, p[i + 1]);
 				++i;
+				if (f)
+					++polishLetters;
 				folded += f ? (char)f : ' ';
 				continue;
 			}
+			if (IsPolishLetterCp1250(c))
+				++polishLetters;
 			if (c == '?')
 			{
 				out.question = true;
@@ -353,6 +460,18 @@ namespace playerbot_conv
 			}
 			raw.swap(merged);
 		}
+		// Which language the line is in, from its own words before any
+		// rewrite: "hi" and "thanks" are rewritten into Polish below.
+		for (size_t i = 0; i < raw.size(); ++i)
+		{
+			if (IsEnglishMarkerWord(raw[i]))
+				++out.englishWords;
+			else if (IsPolishMarkerWord(raw[i]))
+				++out.polishWords;
+		}
+		if (polishLetters > 0)
+			out.polishWords += 2;
+		out.english = out.englishWords > out.polishWords || (out.englishWords == out.polishWords && readerEnglish);
 		const bool shortLine = raw.size() <= 2;
 		for (size_t i = 0; i < raw.size(); ++i)
 		{
@@ -364,10 +483,11 @@ namespace playerbot_conv
 			}
 			// "np" alone is "nie ma problemu"; inside a sentence it is "na
 			// przyklad" ("czemu nie wymienisz broni? np. rib ze srednimi"), and
-			// read as "spoko" it put an acknowledgement into an argument.
-			if (!shortLine && raw[i] == "np")
+			// read as "spoko" it put an acknowledgement into an argument. In
+			// English it is "no problem" wherever it stands.
+			if (!shortLine && raw[i] == "np" && !out.english)
 				continue;
-			const char* rw = RewriteWord(raw[i]);
+			const char* rw = out.english && KeepEnglishWord(raw[i]) ? NULL : RewriteWord(raw[i]);
 			if (rw)
 				SplitWords(rw, out.words);
 			else if (out.words.size() < CONV_MAX_WORDS)
@@ -533,7 +653,9 @@ namespace playerbot_conv
 
 	// The words a sum may be wrapped in. Anything else in the line - "mam 2+2
 	// miecze", "na 3-4 lvl", "fms +9" - makes it a line about something else.
-	inline bool IsArithmeticFiller(const std::string& w)
+	// An English line's own ("what is 2+2", "how much is 7 times 8") count in
+	// an English line only: "do" and "hey" are a Polish line's words too.
+	inline bool IsArithmeticFiller(const std::string& w, bool english = false)
 	{
 		static const char* const kWords[] = {
 			"ile", "to", "jest", "bedzie", "wynosi", "daje", "da", "a", "no", "hej", "siema", "policz", "oblicz",
@@ -542,26 +664,37 @@ namespace playerbot_conv
 			"xd", "haha", "hehe", "lol", "ok", "dobra", "zagadka", "pytanie", "matma", "matematyka", "matme",
 			"sprawdzmy", "sprawdze", "zobaczymy", "test", "testuje"
 		};
+		static const char* const kWordsEn[] = {
+			"what", "whats", "is", "s", "how", "much", "calculate", "calc", "solve", "equals", "equal", "quick",
+			"the", "answer", "please", "do", "you", "know", "can", "tell", "me", "hey", "hi", "yo", "bro", "dude",
+			"lets", "see", "math", "question", "quiz"
+		};
 		for (size_t i = 0; i < sizeof(kWords) / sizeof(kWords[0]); ++i)
 			if (w == kWords[i])
+				return true;
+		for (size_t i = 0; english && i < sizeof(kWordsEn) / sizeof(kWordsEn[0]); ++i)
+			if (w == kWordsEn[i])
 				return true;
 		return false;
 	}
 
-	inline char ArithmeticWordOperator(const std::string& w)
+	inline char ArithmeticWordOperator(const std::string& w, bool english = false)
 	{
 		if (w == "plus" || w == "dodac" || w == "dodaj")
 			return '+';
 		if (w == "minus" || w == "odjac" || w == "odejmij")
 			return '-';
-		if (w == "razy" || w == "x" || StartsWith(w, "pomnoz"))
+		if (w == "razy" || w == "x" || StartsWith(w, "pomnoz") || (english && (w == "times" || StartsWith(w, "multipl"))))
 			return '*';
-		if (w == "przez" || StartsWith(w, "podziel") || StartsWith(w, "dzielon") || w == "dzielic")
+		if (w == "przez" || StartsWith(w, "podziel") || StartsWith(w, "dzielon") || w == "dzielic" ||
+				(english && StartsWith(w, "divide")))
 			return '/';
 		return 0;
 	}
 
-	inline bool ParseArithmetic(const char* raw, TArithmetic& out)
+	// `english`: the line is read the English way (TTokens::english), and its
+	// English wrapping and operator words count.
+	inline bool ParseArithmetic(const char* raw, TArithmetic& out, bool english = false)
 	{
 		out = TArithmetic();
 		if (!raw)
@@ -664,10 +797,11 @@ namespace playerbot_conv
 						w += (char)f;
 					++i;
 				}
-				// "pomnozone przez", "podzielic na": the second word belongs to the first.
-				if ((w == "przez" || w == "na") && !toks.empty() && toks.back().kind == 'o')
+				// "pomnozone przez", "podzielic na", "divided by": the second word
+				// belongs to the first.
+				if ((w == "przez" || w == "na" || (english && w == "by")) && !toks.empty() && toks.back().kind == 'o')
 					continue;
-				const char op = ArithmeticWordOperator(w);
+				const char op = ArithmeticWordOperator(w, english);
 				TTok t;
 				t.kind = op ? 'o' : 'w';
 				t.num = 0;
@@ -700,7 +834,7 @@ namespace playerbot_conv
 		{
 			if (k >= start && k < end)
 				continue;
-			if (toks[k].kind != 'w' || !IsArithmeticFiller(toks[k].word))
+			if (toks[k].kind != 'w' || !IsArithmeticFiller(toks[k].word, english))
 				return false;
 		}
 
@@ -766,6 +900,16 @@ namespace playerbot_conv
 		for (size_t i = 0; i < s.size(); ++i)
 			if (s[i] == '.')
 				s[i] = ',';
+		return s;
+	}
+
+	// The same for an English reader: 2.5, with a point.
+	inline std::string FormatNumberEn(double v)
+	{
+		std::string s = FormatNumberPl(v);
+		for (size_t i = 0; i < s.size(); ++i)
+			if (s[i] == ',')
+				s[i] = '.';
 		return s;
 	}
 

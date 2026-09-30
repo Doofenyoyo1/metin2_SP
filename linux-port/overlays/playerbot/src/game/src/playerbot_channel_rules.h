@@ -25,7 +25,9 @@
 // the second channel can open a shop, so no second-channel bot can become
 // pinned while the other channel's cores are running.
 //
-// Only the first two channels carry bots. A third or fourth is players'.
+// The first two channels carry the world's bots. A third and a fourth carry
+// the fresh cohort when the operator asks for it (the end of this file), and
+// are players' alone when not.
 namespace playerbot_channel_rules
 {
 	// The share of the population on the second channel, clamped: the first
@@ -238,6 +240,130 @@ namespace playerbot_channel_rules
 			const int shortfall = first - left1;
 			first = left1;
 			second = second + shortfall < left2 ? second + shortfall : left2;
+		}
+	}
+
+	// ------------------------------------------------------------------
+	// Channels 3 and 4: a fresh cohort (the operator's "Tak" of 28
+	// September to the plan for them). The first two channels keep the
+	// world's bots as they are - the shops, the moves between the two, the
+	// guilds and their wars, the tower, the catacombs, the events and the
+	// medal droppers - and the third and the fourth carry a cohort of their
+	// own that starts at level one: 500 identities a kingdom, seeded for it
+	// alone and only when an operator asks (@playerbot_seed_fresh), after
+	// the 4 500 of the first layout and of 2.2.1 and below the GM
+	// characters' 9001-9004.
+	//
+	// Such a bot's channel is its pid's and nothing else's: the third with
+	// one fresh channel, the third or the fourth by a fixed hash with two.
+	// No row in common.playerbot_channel_assignment, no move and no roam, so
+	// every core gives the same answer without asking anybody - the rule
+	// the second channel's partition was built on. A fresh bot never plays
+	// on the first two channels and none of theirs plays on the fresh ones.
+	// With the cohort off its identities play nowhere: reserved, and never
+	// handed to the first two channels' split, so turning it on later finds
+	// every one of them at level one.
+	// ------------------------------------------------------------------
+	const int MAX_CHANNELS = 4;
+	const int FIRST_FRESH_CHANNEL = 3;
+	const int FRESH_CHANNELS_MAX = MAX_CHANNELS - FIRST_FRESH_CHANNEL + 1;
+	const unsigned int FRESH_FIRST_PID = 4504;
+	const unsigned int FRESH_PER_KINGDOM = 500;
+	const unsigned int FRESH_LAST_PID = FRESH_FIRST_PID + 3 * FRESH_PER_KINGDOM - 1;
+	// How many of them play (PLAYERBOT_FRESH_COUNT): the world's number for
+	// the fresh channels, split evenly between the kingdoms and half and
+	// half between the two channels. Its own number and not a share of the
+	// first two channels', because those already carry about as many bots
+	// as the CPU budget allows.
+	const int FRESH_COUNT_DEFAULT = 200;
+	const int FRESH_COUNT_MAX = 1500;
+
+	inline bool IsFreshCohortPid(unsigned int pid)
+	{
+		return pid >= FRESH_FIRST_PID && pid <= FRESH_LAST_PID;
+	}
+
+	// M2_PLAYERBOT_FRESH_CHANNELS: 0 (off), 1 (the third) or 2 (the third
+	// and the fourth).
+	inline int ClampFreshChannels(int count)
+	{
+		if (count < 0)
+			return 0;
+		return count > FRESH_CHANNELS_MAX ? FRESH_CHANNELS_MAX : count;
+	}
+
+	inline int ClampFreshCount(int count)
+	{
+		if (count < 0)
+			return 0;
+		return count > FRESH_COUNT_MAX ? FRESH_COUNT_MAX : count;
+	}
+
+	// Whether `channel` carries the fresh cohort.
+	inline bool IsFreshChannel(int channel, int freshChannels)
+	{
+		return channel >= FIRST_FRESH_CHANNEL &&
+				channel < FIRST_FRESH_CHANNEL + ClampFreshChannels(freshChannels);
+	}
+
+	// The channel a fresh identity lives on, 0 while the cohort is off. With
+	// two fresh channels the fourth takes the spread's lower half - the same
+	// mix as the second channel's, so the seed's runs of consecutive pids
+	// are split as evenly inside each kingdom.
+	inline int FreshChannelOf(unsigned int pid, int freshChannels)
+	{
+		freshChannels = ClampFreshChannels(freshChannels);
+		if (freshChannels == 0 || !IsFreshCohortPid(pid))
+			return 0;
+		if (freshChannels == 1)
+			return FIRST_FRESH_CHANNEL;
+		return SpreadPercent(pid) < 50U ? FIRST_FRESH_CHANNEL + 1 : FIRST_FRESH_CHANNEL;
+	}
+
+	// The channel an identity lives on without the assignment table: the
+	// fresh cohort's by its pid, everybody else's by the spread and the pins
+	// (ChannelOf). 0 is none - a fresh identity while its cohort is off.
+	inline int IdentityChannelOf(unsigned int pid, bool ch2Enabled, int sharePercent, bool pinned,
+			int freshChannels)
+	{
+		if (IsFreshCohortPid(pid))
+			return FreshChannelOf(pid, freshChannels);
+		return ChannelOf(pid, ch2Enabled, sharePercent, pinned);
+	}
+
+	// One kingdom's part of the fresh number between the fresh channels:
+	// half each (the odd one to the third) as far as each channel's
+	// identities go, and what one cannot start the other does. With one
+	// fresh channel the third takes it all, as far as it can.
+	inline void SplitFreshBetweenChannels(int total, int freshChannels, int left3, int left4,
+			int& third, int& fourth)
+	{
+		third = 0;
+		fourth = 0;
+		freshChannels = ClampFreshChannels(freshChannels);
+		if (total <= 0 || freshChannels == 0)
+			return;
+		if (left3 < 0)
+			left3 = 0;
+		if (left4 < 0)
+			left4 = 0;
+		if (freshChannels == 1)
+		{
+			third = total < left3 ? total : left3;
+			return;
+		}
+		fourth = total / 2;
+		third = total - fourth;
+		if (third > left3)
+		{
+			fourth += third - left3;
+			third = left3;
+		}
+		if (fourth > left4)
+		{
+			const int spill = fourth - left4;
+			fourth = left4;
+			third = third + spill < left3 ? third + spill : left3;
 		}
 	}
 }

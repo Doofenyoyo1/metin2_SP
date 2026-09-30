@@ -113,7 +113,7 @@ public class M2LauncherArtPanel2 : Panel {
         # %TEMP% can refuse that, and it must cost the painting, not the
         # window: the panel below is then a plain one with the picture
         # stretched to it, or a plain colour.
-        Write-StartupFailure ('Tlo launchera bez rysowania C#: ' + $_.Exception.Message)
+        Write-StartupFailure ((UI-Text 'Tlo launchera bez rysowania C#: ' 'Launcher background without C# drawing: ') + $_.Exception.Message)
     }
 }
 
@@ -302,7 +302,7 @@ if (Test-Path -LiteralPath $scenePath -PathType Leaf) {
             else { $main.BackgroundImage = [Drawing.Bitmap]::new($sceneSource) }
         }
         finally { $sceneSource.Dispose() }
-    } catch { Write-LocalLog ('Nie można wczytać tła launchera: ' + $_.Exception.Message) }
+    } catch { Write-LocalLog ((UI-Text 'Nie można wczytać tła launchera: ' 'Cannot load the launcher background: ') + $_.Exception.Message) }
 }
 function Scroll-UILogToEnd {
     if ($script:logBox -and -not $script:logBox.IsDisposed -and $script:logBox.IsHandleCreated -and $script:logBox.Visible) {
@@ -518,7 +518,7 @@ function Invoke-LayoutSelfTest([string]$OutputDirectory) {
     $script:form.ShowInTaskbar = $false
     $script:dockerStatus.Text = UI-Text 'Docker: podgląd UI' 'Docker: UI preview'
     $script:serverStatus.Text = UI-Text 'Serwer: podgląd UI' 'Server: UI preview'
-    $script:versionLabel.Text = "Serwer: 2.0.96   |   najnowszy: 2.0.96`r`nLauncher: 2.0.96   |   najnowszy: 2.0.96`r`nKlient: 2.0.25   |   najnowszy: 2.0.25"
+    $script:versionLabel.Text = (UI-Text "Serwer: 2.0.96   |   najnowszy: 2.0.96`r`nLauncher: 2.0.96   |   najnowszy: 2.0.96`r`nKlient: 2.0.25   |   najnowszy: 2.0.25" "Server: 2.0.96   |   latest: 2.0.96`r`nLauncher: 2.0.96   |   latest: 2.0.96`r`nClient: 2.0.25   |   latest: 2.0.25")
     $script:logBox.Text = UI-Text "[Test] Podgląd układu launchera.`r`n[Test] Akcje serwera nie zostały uruchomione." "[Test] Launcher layout preview.`r`n[Test] No server actions have been started."
     $previewLog = $script:logBox.Text
     $script:logBox.Text = ((1..100 | ForEach-Object { 'Scroll test line ' + $_ }) -join "`r`n")

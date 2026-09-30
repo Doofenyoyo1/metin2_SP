@@ -528,10 +528,13 @@ namespace
 		CGuild* g = (raid.bPhase == TOWER_PHASE_INSIDE && raid.lInstance == map)
 				? CGuildManager::instance().FindGuild(raid.dwGuildID) : NULL;
 		char msg[256];
+		char msgEn[256];
 		std::string who;
 		if (g)
 		{
 			snprintf(msg, sizeof(msg), "Gildia %s (%s) pokonala Umarlego Rozpruwacza na dziewiatym pietrze Wiezy Demonow!",
+					g->GetName(), GetPlayerBotKingdomName(raid.bEmpire));
+			snprintf(msgEn, sizeof(msgEn), "The guild %s (%s) defeated the Death Reaper on the Demon Tower's ninth floor!",
 					g->GetName(), GetPlayerBotKingdomName(raid.bEmpire));
 			who = g->GetName();
 		}
@@ -546,17 +549,29 @@ namespace
 			}
 			CGuild* pg = person->GetGuild();
 			if (pg)
+			{
 				snprintf(msg, sizeof(msg), "Gildia %s pokonala Umarlego Rozpruwacza na dziewiatym pietrze Wiezy Demonow!",
 						pg->GetName());
+				snprintf(msgEn, sizeof(msgEn), "The guild %s defeated the Death Reaper on the Demon Tower's ninth floor!",
+						pg->GetName());
+			}
 			else
+			{
 				snprintf(msg, sizeof(msg), "Druzyna gracza %s pokonala Umarlego Rozpruwacza na dziewiatym pietrze Wiezy Demonow!",
 						person->GetName());
+				snprintf(msgEn, sizeof(msgEn), "The party of %s defeated the Death Reaper on the Demon Tower's ninth floor!",
+						person->GetName());
+			}
 			who = pg ? pg->GetName() : person->GetName();
 		}
 		std::string notice = msg;
+		std::string noticeEn = msgEn;
 		if (!lastBlow.empty())
+		{
 			notice += " Ostatni cios: " + lastBlow + ".";
-		BroadcastNotice(notice.c_str());
+			noticeEn += " The last blow: " + lastBlow + ".";
+		}
+		BroadcastPlayerBotNotice(notice.c_str(), noticeEn.c_str());
 		sys_log(0, "PLAYERBOT_TOWER: reaper down map=%ld told=1 who=%s last_blow=%s after_s=%u",
 				map, who.c_str(), lastBlow.empty() ? "-" : lastBlow.c_str(), (dwNow - run.dwEnteredAt) / 1000U);
 	}
@@ -1465,9 +1480,12 @@ namespace
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
+			// Nor the Stalki kept for the level ahead (playerbot_stalki.h): that is
+			// the bot's next armour or weapon, not goods to try a step on.
 			if (!IsPlayerBotTowerSmithPiece(smithRace, item) || item->isLocked() || item->IsExchanging() ||
 					!IsPlayerBotTowerSmithRefineSet(item->GetRefineSet()) ||
-					GetPlayerBotItemPolicy(item) == PLAYERBOT_ITEM_POLICY_KEEP)
+					GetPlayerBotItemPolicy(item) == PLAYERBOT_ITEM_POLICY_KEEP ||
+					IsPlayerBotKeptStalki(ch, item))
 				continue;
 			const BYTE plus = item->GetRefineLevel();
 			const bool spareGear = IsPlayerBotHigherTierSpare(ch, item);
@@ -2312,12 +2330,18 @@ namespace
 		}
 		++s_uPlayerBotTowerRaids;
 		char msg[220];
-		snprintf(msg, sizeof(msg), "Wieza Demonow! Zbiorka na parterze wiezy przy Metinie Twardosci - za %u minut rozbijamy go razem.",
+		// The stone by its official English name (8015, Metin of Toughness).
+		snprintf(msg, sizeof(msg), PBT(IsPlayerBotGuildMasterEnglish(e.guild),
+				"Wieza Demonow! Zbiorka na parterze wiezy przy Metinie Twardosci - za %u minut rozbijamy go razem.",
+				"Demon Tower! Gather on the tower's ground floor by the Metin of Toughness - in %u minutes we break it together."),
 				(unsigned int)(PLAYERBOT_TOWER_GATHER_MS / 60000U));
 		e.guild->Chat(msg);
+		char msgEn[220];
 		snprintf(msg, sizeof(msg), "Gildia %s (%s) rusza na Wieze Demonow: zbiorka na parterze wiezy, start za %u minut. Kto stoi na parterze, wchodzi razem z nimi.",
 				e.guild->GetName(), GetPlayerBotKingdomName(e.empire), (unsigned int)(PLAYERBOT_TOWER_GATHER_MS / 60000U));
-		BroadcastNotice(msg);
+		snprintf(msgEn, sizeof(msgEn), "The guild %s (%s) is off to the Demon Tower: gathering on the ground floor, start in %u minutes. Whoever stands there goes in with them.",
+				e.guild->GetName(), GetPlayerBotKingdomName(e.empire), (unsigned int)(PLAYERBOT_TOWER_GATHER_MS / 60000U));
+		BroadcastPlayerBotNotice(msg, msgEn);
 		sys_log(0, "PLAYERBOT_TOWER: raid called guild=%s id=%u empire=%u members=%u upper=%d why=%s",
 				e.guild->GetName(), raid.dwGuildID, (unsigned int)e.empire,
 				(unsigned int)e.members.size(), e.upper, why);
@@ -2442,7 +2466,8 @@ namespace
 					{
 						raid.bPhase = TOWER_PHASE_STONE;
 						raid.dwPhaseSince = dwNow;
-						g->Chat("Rozbijamy Metin Twardosci!");
+						g->Chat(PBT(IsPlayerBotGuildMasterEnglish(g), "Rozbijamy Metin Twardosci!",
+								"Breaking the Metin of Toughness!"));
 						sys_log(0, "PLAYERBOT_TOWER: raid breaking the stone guild=%s on_ground=%d of %u",
 								g->GetName(), onGround, (unsigned int)raid.members.size());
 					}

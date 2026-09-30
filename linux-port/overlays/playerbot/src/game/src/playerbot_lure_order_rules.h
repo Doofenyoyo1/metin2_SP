@@ -52,14 +52,17 @@ namespace playerbot_lure_rules
 			return ORDER_NONE;
 
 		// "lur" catches lur, luruj, lurowac, lurowanie and the imperatives
-		// nobody spells the same way twice; the rest are what people wrote in
-		// the first week of asking for it.
+		// nobody spells the same way twice - and the English lure and luring;
+		// the rest are what people wrote in the first week of asking for it.
+		// The English refusals (28 September) come last: "don't lure" holds
+		// "lur" and nothing else of a refusal, so it started a course.
 		static const char* kLure[] = {
 			"lur", "pull", "przyciag", "ciagnij", "ciagnac", "przyprowadz"
 		};
 		static const char* kStop[] = {
 			"przestan", "przestac", "stop", "koniec", "dosc", "wystarczy",
-			"przerwij", "zostaw", "nie lur", "juz nie"
+			"przerwij", "zostaw", "nie lur", "juz nie",
+			"don't lur", "dont lur", "do not lur", "no more lur", "no lur", "enough"
 		};
 
 		bool lure = false;

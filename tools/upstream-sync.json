@@ -1,15 +1,15 @@
 {
   "repository": "https://github.com/TieruYT/metin2-playerbots",
   "branch": "main",
-  "synced_commit": "b444bc5e645193d8a7be8c95821f0c7ba798c759",
-  "synced_version": "2.2.35",
+  "synced_commit": "3641d410c6574c0ac04bc58587b264803114ce31",
+  "synced_version": "2.2.38",
   "engine_package": {
-    "url": "https://github.com/TieruYT/metin2-playerbots/releases/download/v2.2.35/metin2-server-update-2.2.35.zip",
-    "sha256": "42CAE71BAD7AD1CF3AD6D3939A402437DDDE299849C6F12AAD55DACBA2D860EF"
+    "url": "https://github.com/TieruYT/metin2-playerbots/releases/download/v2.2.38/metin2-server-update-2.2.38.zip",
+    "sha256": "ADB56D7349D24B5BBE5FB29189ADE2C5664CC9892C40D28F9B9D87624D7698D3"
   },
   "synced_client_package": {
-    "version": "2.0.49",
-    "url": "https://github.com/TieruYT/metin2-playerbots/releases/download/v2.2.35/metin2-client-update-2.0.49.zip",
-    "sha256": "DF0A24AF864D3C33795417D28E28530E9DBFB9F04009139A29DC2856F1FD2249"
+    "version": "2.0.52",
+    "url": "https://github.com/TieruYT/metin2-playerbots/releases/download/v2.2.38/metin2-client-update-2.0.52.zip",
+    "sha256": "97DB6E76FD1A947FC8B01D9654E8794226817D86044A53DE86D2C1E80D993737"
   }
 }

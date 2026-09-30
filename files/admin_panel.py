@@ -207,6 +207,143 @@ HUNTING_MOB_NAMES_PL = {
     5126: "Silna Złota Małpa",
 }
 
+# The level-up hunt's monsters in the page's language: Polish above, English
+# in HUNTING_MISSIONS, German and Turkish here (r40250 only - the hunt is in
+# quest/_unused on mt2009).
+HUNTING_MOB_NAMES_BY_LANG = {
+ "pl": HUNTING_MOB_NAMES_PL,
+ "de": {
+  171: "Hungriger Wilder Hund",
+  172: "Hungriger Wolf",
+  173: "Hungriger Alphawolf",
+  174: "Hungriger Blauer Wolf",
+  175: "Hungriger Blauer Alphawolf",
+  176: "Hungriger Grauer Wolf",
+  177: "Hungriger Grauer Alphawolf",
+  178: "Hungriges Wildschwein",
+  179: "Hungriges Rotes Wildschwein",
+  180: "Hungriger Bär",
+  181: "Hungriger Grizzly",
+  182: "Hungriger Schwarzbär",
+  183: "Hungriger Braunbär",
+  184: "Hungriger Tiger",
+  185: "Hungriger Weißer Tiger",
+  352: "Feiger Bogenschütze des Weißen Schwurs",
+  354: "Feiger Kommandant des Weißen Schwurs",
+  402: "Wahnsinniger des Schwarzen Windes",
+  451: "Böser Soldat des Schwarzen Sturms",
+  454: "Böser Joh-Hwan des Schwarzen Sturms",
+  456: "Böser Pho-Hwan des Schwarzen Sturms",
+  551: "Starker Wilder Infanterist",
+  552: "Starker Wilder Scherge",
+  554: "Starker Wilder General",
+  601: "Ork",
+  651: "Großer Kahler Ork",
+  652: "Großer Kahler Ork-Späher",
+  653: "Großer Kahler Ork-Kämpfer",
+  751: "Hoher Fanatiker",
+  752: "Hoher Arahan",
+  754: "Hoher Elite-Arahan",
+  756: "Hoher Peiniger",
+  757: "Hoher Beschwörer",
+  771: "Bestialischer Fanatiker",
+  772: "Bestialischer Arahan",
+  773: "Bestialischer Arahan-Kämpfer",
+  774: "Bestialischer Arahan-Häuptling",
+  775: "Bestialischer Scharfrichter",
+  776: "Bestialischer Peiniger",
+  777: "Bestialischer Beschwörer",
+  931: "Wütender Leichengeist",
+  932: "Wütender Verseuchter Hund",
+  933: "Wütender Verseuchter Mann",
+  934: "Wütender Verseuchter Kämpfer",
+  1001: "Dämonensoldat",
+  1301: "Laubfrosch-Soldat",
+  2003: "Rote Giftspinne",
+  2004: "Klauenspinne",
+  2005: "Soldatenspinne",
+  2031: "Junge Giftspinne",
+  2032: "Tödliche Giftspinne",
+  2033: "Wütende Rote Giftspinne",
+  2034: "Klauen-Giftspinne",
+  2051: "Gemeine Junge Giftspinne",
+  2052: "Gemeine Tödliche Giftspinne",
+  2102: "Fliegendes Wüstenauge",
+  2103: "Königsskorpion",
+  2106: "Schlangen-Schwertkämpfer",
+  2158: "Starker Wüstenbandit",
+  5123: "Starker Affenkämpfer",
+  5124: "Starker Affengeneral",
+  5125: "Starker Steinaffe",
+  5126: "Starker Goldaffe",
+ },
+ "tr": {
+  171: "Aç Vahşi Köpek",
+  172: "Aç Kurt",
+  173: "Aç Alfa Kurt",
+  174: "Aç Mavi Kurt",
+  175: "Aç Alfa Mavi Kurt",
+  176: "Aç Gri Kurt",
+  177: "Aç Alfa Gri Kurt",
+  178: "Aç Yaban Domuzu",
+  179: "Aç Kızıl Yaban Domuzu",
+  180: "Aç Ayı",
+  181: "Aç Boz Ayı",
+  182: "Aç Kara Ayı",
+  183: "Aç Kahverengi Ayı",
+  184: "Aç Kaplan",
+  185: "Aç Beyaz Kaplan",
+  352: "Korkak Beyaz Yemin Okçusu",
+  354: "Korkak Beyaz Yemin Komutanı",
+  402: "Kara Rüzgâr Delisi",
+  451: "Kötü Kara Fırtına Askeri",
+  454: "Kötü Kara Fırtına Joh-Hwan",
+  456: "Kötü Kara Fırtına Pho-Hwan",
+  551: "Güçlü Vahşi Piyade",
+  552: "Güçlü Vahşi Uşak",
+  554: "Güçlü Vahşi General",
+  601: "Ork",
+  651: "Büyük Kel Ork",
+  652: "Büyük Kel Ork İzcisi",
+  653: "Büyük Kel Ork Savaşçısı",
+  751: "Yüce Fanatik",
+  752: "Yüce Arahan",
+  754: "Yüce Seçkin Arahan",
+  756: "Yüce İşkenceci",
+  757: "Yüce Çağırıcı",
+  771: "Yırtıcı Fanatik",
+  772: "Yırtıcı Arahan",
+  773: "Yırtıcı Arahan Savaşçısı",
+  774: "Yırtıcı Arahan Şefi",
+  775: "Yırtıcı Cellat",
+  776: "Yırtıcı İşkenceci",
+  777: "Yırtıcı Çağırıcı",
+  931: "Öfkeli Ceset Hayaleti",
+  932: "Öfkeli Vebalı Köpek",
+  933: "Öfkeli Vebalı Adam",
+  934: "Öfkeli Vebalı Savaşçı",
+  1001: "Şeytan Askeri",
+  1301: "Ağaç Kurbağası Askeri",
+  2003: "Kızıl Zehirli Örümcek",
+  2004: "Pençeli Örümcek",
+  2005: "Asker Örümcek",
+  2031: "Yavru Zehirli Örümcek",
+  2032: "Ölümcül Zehirli Örümcek",
+  2033: "Öfkeli Kızıl Zehirli Örümcek",
+  2034: "Pençeli Zehirli Örümcek",
+  2051: "Hain Yavru Zehirli Örümcek",
+  2052: "Hain Ölümcül Zehirli Örümcek",
+  2102: "Uçan Çöl Gözü",
+  2103: "Kral Akrep",
+  2106: "Yılan Kılıç Ustası",
+  2158: "Güçlü Çöl Haydudu",
+  5123: "Güçlü Maymun Savaşçısı",
+  5124: "Güçlü Maymun Generali",
+  5125: "Güçlü Taş Maymun",
+  5126: "Güçlü Altın Maymun",
+ },
+}
+
 # A skill book is vnum 50300 (or a named book) with the skill id in socket0;
 # the bag showed only "Ksiega Umiejetnosci" and nobody could tell which
 # skill it was (13 September). Flatten the per-class skill tables
@@ -226,7 +363,7 @@ def item_full_name(vnum, socket0, language=None):
         vt = 0
     # 17 = ITEM_SKILLBOOK. The skill id lives in socket0.
     if vt == 17 and int(socket0 or 0) > 0:
-        table = SKILL_ID_NAMES_PL if language == "pl" else SKILL_ID_NAMES
+        table = SKILL_NAMES_BY_LANG.get(language, SKILL_ID_NAMES)
         sk = table.get(int(socket0)) or SKILL_ID_NAMES.get(int(socket0))
         if sk:
             name = "%s: %s" % (name, sk)
@@ -245,14 +382,13 @@ def hunting_progress_label(current, selection, remain, complete, language=None):
     mission = HUNTING_MISSIONS.get(current)
     if mission:
         mob_vnum, mob_name, required = mission[selection - 1]
-        if language == "pl":
-            mob_name = HUNTING_MOB_NAMES_PL.get(mob_vnum, mob_name)
+        mob_name = HUNTING_MOB_NAMES_BY_LANG.get(language, {}).get(mob_vnum, mob_name)
         done = max(0, required - remain)
         return "Lv %d • %s: %d/%d" % (current, mob_name, done, required)
+    messages = map_i18n(language)
     if complete:
-        return ("Ukończone do Lv %d" if language == "pl" else
-                "Completed through Lv %d") % complete
-    return "Jeszcze nierozpoczęte" if language == "pl" else "Not started yet"
+        return messages["hunt_done_through"].format(n=complete)
+    return messages["hunt_not_started"]
 
 # Party membership is intentionally restricted by the game core to this
 # deterministic ten-percent cohort.  Runtime parties are not persisted in the
@@ -274,6 +410,14 @@ PLAYERBOT_STATUS_PATHS = (
     "/opt/metin2/var/channel2/first/playerbot_status.tsv",
     "/opt/metin2/var/channel2/game1/playerbot_status.tsv",
     "/opt/metin2/var/channel2/game2/playerbot_status.tsv",
+    # And the fresh cohort's third and fourth (M2_PLAYERBOT_FRESH_CHANNELS). A
+    # channel switched off clears its files at the next start (m2-render-config).
+    "/opt/metin2/var/channel3/first/playerbot_status.tsv",
+    "/opt/metin2/var/channel3/game1/playerbot_status.tsv",
+    "/opt/metin2/var/channel3/game2/playerbot_status.tsv",
+    "/opt/metin2/var/channel4/first/playerbot_status.tsv",
+    "/opt/metin2/var/channel4/game1/playerbot_status.tsv",
+    "/opt/metin2/var/channel4/game2/playerbot_status.tsv",
 )
 _PLAYERBOT_STATUS_LOCK = threading.Lock()
 _PLAYERBOT_STATUS_CACHE_KEY = None
@@ -298,6 +442,12 @@ BOT_PERSONALITY_LABELS = {
         6: "Wanderer", 7: "Metin dropper", 8: "M3 weapon dropper",
         9: "M2 Bestial dropper", 10: "Medal dropper",
     },
+    "de": {0: "Beharrlicher Abenteurer", 1: "Metinbrecher", 2: "Gruppengefährte",
+        3: "Ausrüstungsmeister", 4: "Umsichtiger Sammler", 5: "Händler", 6: "Wanderer",
+        7: "Metin-Farmer", 8: "M3-Waffen-Farmer", 9: "M2-Bestien-Farmer", 10: "Medaillen-Farmer"},
+    "tr": {0: "Azimli maceracı", 1: "Metin kırıcı", 2: "Grup arkadaşı", 3: "Ekipman ustası",
+        4: "Temkinli toplayıcı", 5: "Tüccar", 6: "Gezgin", 7: "Metin farmcısı",
+        8: "M3 silah farmcısı", 9: "M2 Yırtıcı farmcısı", 10: "Madalya farmcısı"},
 }
 # The status file's columns before Iwakura's personalities (2.0.85): a core of
 # that age writes these fourteen and no header row the parser can read by.
@@ -332,14 +482,28 @@ BOT_PERSONA_LABELS = {
         15: "Junior Gambler", 16: "Senior Gambler",
         17: "Chief Gambler", 18: "Mad Gambler",
     },
+    "de": {0: "Grinder", 1: "Eroberer", 2: "Händler", 3: "Zocker", 4: "Perfektionist",
+        5: "Metinbezwinger", 6: "Bergmann", 7: "Fischer", 8: "Söldner", 9: "Gefährte",
+        10: "Metinologe", 11: "Süchtiger", 12: "Verrückter Wissenschaftler", 13: "Vollstrecker",
+        14: "Verrückter Angler", 15: "Junior-Zocker", 16: "Senior-Zocker", 17: "Chefzocker",
+        18: "Verrückter Zocker"},
+    "tr": {0: "Kasıcı", 1: "Fatih", 2: "Tüccar", 3: "Kumarbaz", 4: "Mükemmeliyetçi",
+        5: "Metin avcısı", 6: "Madenci", 7: "Balıkçı", 8: "Paralı Asker", 9: "Yoldaş",
+        10: "Metinolog", 11: "Bağımlı", 12: "Çılgın Bilim Adamı", 13: "Cellat",
+        14: "Çılgın Oltacı", 15: "Acemi Kumarbaz", 16: "Kıdemli Kumarbaz", 17: "Baş Kumarbaz",
+        18: "Çılgın Kumarbaz"},
 }
 BOT_MOOD_LABELS = {
     "pl": {0: "Słaby", 1: "Normalny", 2: "Bardzo dobry"},
     "en": {0: "Poor", 1: "Normal", 2: "Very good"},
+    "de": {0: "Schwach", 1: "Normal", 2: "Sehr gut"},
+    "tr": {0: "Zayıf", 1: "Normal", 2: "Çok iyi"},
 }
 BOT_MOOD_LOCK_LABELS = {
     "pl": {1: "euforia po ulepszeniu", 2: "kapitulacja (Anty-PK)"},
     "en": {1: "refine euphoria", 2: "capitulation (anti-PK)"},
+    "de": {1: "Euphorie nach einer Verbesserung", 2: "Kapitulation (Anti-PK)"},
+    "tr": {1: "yükseltme coşkusu", 2: "teslimiyet (Anti-PK)"},
 }
 # The droppers (IsPlayerBotDropper in playerbot_types.h). A dropper farms one
 # thing for the market and takes neither the Biologist nor a horse trial -
@@ -356,6 +520,10 @@ BOT_AMBITION_LABELS = {
         0: "Level", 1: "Equipment", 2: "Metins", 3: "Horse",
         4: "Biologist", 5: "Skills", 6: "Trade",
     },
+    "de": {0: "Level", 1: "Ausrüstung", 2: "Metins", 3: "Pferd", 4: "Biologe", 5: "Fertigkeiten",
+        6: "Handel"},
+    "tr": {0: "Seviye", 1: "Ekipman", 2: "Metinler", 3: "At", 4: "Biyolog", 5: "Beceriler",
+        6: "Ticaret"},
 }
 BOT_GOAL_LABELS = {
     "pl": {
@@ -370,6 +538,13 @@ BOT_GOAL_LABELS = {
         6: "Improve skills", 7: "Hunt Metins", 8: "Party challenges",
         9: "Biologist mission", 10: "Hunting mission", 11: "Develop horse",
     },
+    "de": {0: "Leveln", 1: "Überleben", 2: "Spezialisierung wählen", 3: "Ausrüstung beschaffen",
+        4: "Vorräte auffüllen", 5: "EQ verbessern", 6: "Fertigkeiten ausbauen", 7: "Metins jagen",
+        8: "Starke Gegner in der Gruppe", 9: "Biologen-Mission", 10: "Jagdmission",
+        11: "Pferd ausbilden"},
+    "tr": {0: "Seviye atlama", 1: "Hayatta kalma", 2: "Uzmanlık seçimi", 3: "Ekipman edinme",
+        4: "Stok yenileme", 5: "EQ yükseltme", 6: "Beceri geliştirme", 7: "Metin avı",
+        8: "Grupla güçlü hedefler", 9: "Biyolog görevi", 10: "Av görevi", 11: "At geliştirme"},
 }
 # The action id a keeper reports while its stall stands. Must match
 # BOT_ACTION_STALL in playerbot_types.h - the id travels in the status file, so
@@ -396,6 +571,19 @@ BOT_ACTION_LABELS = {
         13: "Keeping a stall", 14: "Fishing", 15: "Browsing stalls",
         16: "Luring monsters", 17: "Resting in town", 18: "Mining ore",
     },
+    "de": {0: "Plant den nächsten Schritt", 1: "Reist", 2: "Kämpft", 3: "Hebt Beute auf",
+        4: "Regeneriert sich", 5: "Wählt eine Spezialisierung", 6: "Handelt", 7: "Verbessert EQ",
+        8: "Liest ein Fertigkeitsbuch", 9: "Setzt einen Geiststein ein",
+        10: "Stellt eine Gruppe zusammen", 11: "Erledigt die Biologen-Mission",
+        12: "Besucht den Stallburschen", 13: "Betreibt einen Stand", 14: "Angelt",
+        15: "Stöbert an Ständen", 16: "Lockt Monster an", 17: "Rastet in der Stadt",
+        18: "Baut Erz ab"},
+    "tr": {0: "Sonraki hamlesini planlıyor", 1: "Yolculuk ediyor", 2: "Savaşıyor",
+        3: "Ganimet topluyor", 4: "Toparlanıyor", 5: "Uzmanlık seçiyor", 6: "Ticaret yapıyor",
+        7: "EQ yükseltiyor", 8: "Beceri Kitabı okuyor", 9: "Ruh Taşı takıyor", 10: "Grup kuruyor",
+        11: "Biyolog görevini yapıyor", 12: "Seyis'i ziyaret ediyor", 13: "Tezgâh işletiyor",
+        14: "Balık tutuyor", 15: "Tezgâhlara göz atıyor", 16: "Canavar topluyor",
+        17: "Şehirde dinleniyor", 18: "Cevher kazıyor"},
 }
 
 
@@ -416,6 +604,10 @@ def read_playerbot_live_status():
             if not modified or now - modified > 20:
                 continue
             skipped = 0
+            # The channel a bot is on is its file's: "teleport me" has to
+            # move a character on another channel there (api_admin_warp_me).
+            channel_match = re.search(r"/channel(\d+)/", path)
+            channel = int(channel_match.group(1)) if channel_match else 1
             try:
                 # The r40250 core and Polish locale tables use Windows-1250.
                 with open(path, "r", encoding="cp1250", errors="replace") as stream:
@@ -464,6 +656,7 @@ def read_playerbot_live_status():
                             "mood_id": None if mood == PLAYERBOT_PERSONA_NONE else mood,
                             "mood_lock": row.get("mood_lock", 0),
                             "lock_level": row.get("lock_level", 0),
+                            "channel": channel,
                             "status": parts[-1],
                         }
             except OSError:
@@ -513,7 +706,7 @@ def playerbot_mood_label(entry, language):
 
 
 def playerbot_live_labels(entry, language):
-    language = language if language in ("pl", "en") else "en"
+    language = language if language in BOT_PERSONALITY_LABELS else "en"
     if not entry:
         return {
             "personality": BOT_PERSONALITY_LABELS[language][0],
@@ -532,7 +725,7 @@ def playerbot_live_labels(entry, language):
     personality = BOT_PERSONA_LABELS[language].get(persona, old) if persona is not None else old
     hold = ""
     if persona is not None and entry.get("lock_level"):
-        hold = ("blokada expa na %d lvl" if language == "pl" else "exp held at level %d") % entry["lock_level"]
+        hold = map_i18n(language)["exp_hold"].format(n=entry["lock_level"])
     return {
         "personality": personality,
         "charakter": old if persona is not None else "",
@@ -606,6 +799,107 @@ PLAYER_SKILLS_EN = {
              (110, "Swiftness"), (111, "Attack Up")),
 }
 
+# The skills and the paths in German and Turkish, by skill id and by (class,
+# path); Polish and English are the two tables above, flattened below.
+SKILL_NAMES_BY_LANG = {
+ "de": {
+  1: "Dreiwege-Schnitt",
+  2: "Schwertwirbel",
+  3: "Kampfrausch",
+  4: "Aura des Schwertes",
+  5: "Ansturm",
+  16: "Geistesschlag",
+  17: "Wuchtschlag",
+  18: "Stampfen",
+  19: "Starker Körper",
+  20: "Schwertschlag",
+  31: "Hinterhalt",
+  32: "Schneller Angriff",
+  33: "Rollender Dolch",
+  34: "Tarnung",
+  35: "Giftwolke",
+  46: "Wiederholter Schuss",
+  47: "Pfeilregen",
+  48: "Feuerpfeil",
+  49: "Federschritt",
+  50: "Giftpfeil",
+  61: "Fingerschlag",
+  62: "Drachenwirbel",
+  63: "Verzauberte Klinge",
+  64: "Furcht",
+  65: "Verzauberte Rüstung",
+  66: "Magiebannung",
+  76: "Dunkler Schlag",
+  77: "Flammenschlag",
+  78: "Flammengeist",
+  79: "Dunkler Schutz",
+  80: "Geisterschlag",
+  81: "Dunkle Kugel",
+  91: "Fliegender Talisman",
+  92: "Schießender Drache",
+  93: "Drachengebrüll",
+  94: "Segen",
+  95: "Reflexion",
+  96: "Drachenhilfe",
+  106: "Blitzwurf",
+  107: "Blitzbeschwörung",
+  108: "Blitzkralle",
+  109: "Heilung",
+  110: "Schnelligkeit",
+  111: "Angriffssteigerung",
+ },
+ "tr": {
+  1: "Üç Yönlü Kesme",
+  2: "Kılıç Çevirme",
+  3: "Öfke",
+  4: "Kılıç Aurası",
+  5: "Hamle",
+  16: "Ruh Vuruşu",
+  17: "Şiddetli Vuruş",
+  18: "Tepme",
+  19: "Güçlü Beden",
+  20: "Kılıç Darbesi",
+  31: "Suikast",
+  32: "Hızlı Saldırı",
+  33: "Bıçak Çevirme",
+  34: "Kamuflaj",
+  35: "Zehirli Bulut",
+  46: "Tekrarlanan Atış",
+  47: "Ok Yağmuru",
+  48: "Ateşli Ok",
+  49: "Hafif Adım",
+  50: "Zehirli Ok",
+  61: "Parmak Darbesi",
+  62: "Ejderha Dönüşü",
+  63: "Büyülü Keskinlik",
+  64: "Dehşet",
+  65: "Büyülü Zırh",
+  66: "Büyü Çözme",
+  76: "Karanlık Vuruş",
+  77: "Ateş Vuruşu",
+  78: "Ateş Hayaleti",
+  79: "Karanlık Koruma",
+  80: "Hayalet Vuruşu",
+  81: "Karanlık Küre",
+  91: "Uçan Tılsım",
+  92: "Ejderha Atışı",
+  93: "Ejderha Kükremesi",
+  94: "Kutsama",
+  95: "Yansıtma",
+  96: "Ejderha Yardımı",
+  106: "Şimşek Atma",
+  107: "Şimşek Çağırma",
+  108: "Şimşek Pençesi",
+  109: "Tedavi",
+  110: "Hızlanma",
+  111: "Saldırı Artışı",
+ },
+}
+SKILL_GROUP_NAMES_BY_LANG = {
+ "de": {(0, 1): "Körper", (0, 2): "Geist", (1, 1): "Dolch", (1, 2): "Bogenschütze", (2, 1): "Waffenmagie", (2, 2): "Schwarze Magie", (3, 1): "Drachenkraft", (3, 2): "Heilkraft"},
+ "tr": {(0, 1): "Beden", (0, 2): "Zihin", (1, 1): "Hançer", (1, 2): "Okçu", (2, 1): "Büyülü Silah", (2, 2): "Kara Büyü", (3, 1): "Ejderha", (3, 2): "İyileştirme"},
+}
+
 # Flatten the per-class skill tables into one id -> name map, so a skill book
 # (skill id in socket0) can spell its skill out in the inventory (item_full_name).
 for _grp in PLAYER_SKILLS.values():
@@ -614,6 +908,10 @@ for _grp in PLAYER_SKILLS.values():
 for _grp in PLAYER_SKILLS_EN.values():
     for _sid, _nm in _grp:
         SKILL_ID_NAMES[_sid] = _nm
+SKILL_NAMES_BY_LANG["pl"] = SKILL_ID_NAMES_PL
+SKILL_NAMES_BY_LANG["en"] = SKILL_ID_NAMES
+SKILL_GROUP_NAMES_BY_LANG["pl"] = SKILL_GROUP_NAMES
+SKILL_GROUP_NAMES_BY_LANG["en"] = SKILL_GROUP_NAMES_EN
 
 
 def skill_rank_label(master_type, level):
@@ -651,8 +949,9 @@ def parse_player_skills(raw, job, skill_group, language=None):
     base_job = int(job or 0) % 4
     group = int(skill_group or 0)
     result = []
-    skill_names = PLAYER_SKILLS if language == "pl" else PLAYER_SKILLS_EN
-    for vnum, name in skill_names.get((base_job, group), ()):
+    names = SKILL_NAMES_BY_LANG.get(language, SKILL_ID_NAMES)
+    for vnum, english in PLAYER_SKILLS_EN.get((base_job, group), ()):
+        name = names.get(vnum, english)
         offset = vnum * 6
         master_type = raw[offset] if offset < len(raw) else 0
         level = raw[offset + 1] if offset + 1 < len(raw) else 0
@@ -1404,13 +1703,25 @@ def event_hhmm(text):
     return "%02d:%02d" % (h, mi)
 
 
+# The same maps in German and Turkish; a village keeps its name everywhere.
+EVENT_MAP_NAMES = {
+    "de": {64: "Orktal", 63: "Yongbi-Wüste", 61: "Berg Sohan", 65: "Hwang-Tempel",
+           67: "Geisterwald", 68: "Roter Wald"},
+    "tr": {64: "Ork Vadisi", 63: "Yongbi Çölü", 61: "Sohan Dağı", 65: "Hwang Tapınağı",
+           67: "Hayalet Ormanı", 68: "Kızıl Orman"},
+}
+
+
 def event_map_name(map_id):
     """A world event's map as the page names it; 0 is "the event picks"."""
     for mid, pl, en in EVENT_MAPS:
         if mid == map_id:
             if mid == 0:
                 return t("ev_map_auto")
-            return pl if lang() == "pl" else en
+            language = lang()
+            if language == "pl":
+                return pl
+            return EVENT_MAP_NAMES.get(language, {}).get(mid) or en
     return str(map_id)
 
 
@@ -1746,6 +2057,43 @@ def read_guild_status():
         g["empire_key"] = GUILD_EMPIRE_KEYS.get(g["empire"], "gl_empire_unknown")
         out.append(g)
     out.sort(key=lambda g: (g["tier"], -g["level"], -g["members"], g["name"]))
+    return out
+
+
+def read_player_guilds():
+    """The guilds people lead - a master whose account is not a bot's
+    (playerbot_NNN) - read from the database, because the cores report the
+    bot guilds alone (Derpsonkowy95, 28 September: the guild page "obecnie
+    wyswietla tylko gildie botow"). No tier and no online count: a tier is a
+    percentile of the bots, and the database cannot say who is in the game.
+    The names are CP1250 like every name column here."""
+    try:
+        with db() as c, c.cursor() as cur:
+            cur.execute(
+                "SELECT g.id AS guild_id, CAST(g.name AS BINARY) AS name, g.level, g.ladder_point AS ladder, "
+                "g.win AS wins, g.draw AS draws, g.loss AS losses, m.id AS master_pid, "
+                "CAST(m.name AS BINARY) AS master, COALESCE(pi.empire, 0) AS empire, "
+                "(SELECT COUNT(*) FROM player.guild_member gm WHERE gm.guild_id = g.id) AS members "
+                "FROM player.guild g "
+                "JOIN player.player m ON m.id = g.master "
+                "JOIN account.account a ON a.id = m.account_id "
+                "LEFT JOIN player.player_index pi ON pi.id = m.account_id "
+                "WHERE a.login NOT LIKE 'playerbot\\_%' "
+                "ORDER BY g.level DESC, g.ladder_point DESC, g.id")
+            found = cur.fetchall()
+    except Exception:
+        return []
+    out = []
+    for g in found:
+        g["name"] = log_text(g.get("name"))
+        g["master"] = log_text(g.get("master"))
+        for key in ("level", "ladder", "wins", "draws", "losses", "members", "empire"):
+            try:
+                g[key] = int(g.get(key) or 0)
+            except (TypeError, ValueError):
+                g[key] = 0
+        g["empire_key"] = GUILD_EMPIRE_KEYS.get(g["empire"], "gl_empire_unknown")
+        out.append(g)
     return out
 
 
@@ -2992,7 +3340,7 @@ def localized_item_name(vnum, language=None):
         return ITEM_NAMES_PL[int(vnum or 0)]
     name = ITEM_NAMES.get(vnum, "")
     if not name:
-        return ("Przedmiot #%d" if language == "pl" else "Item #%d") % int(vnum or 0)
+        return map_i18n(language)["item_n"].format(n=int(vnum or 0))
     if ENGINE_MT2009:
         return name          # the package's own name, in the package's language
     return translate_item_name_pl(name) if language == "pl" else name
@@ -3363,25 +3711,48 @@ T = {
                    "en":"✅ Saved! The new Auto Hunt access is live in game."},
  "ah_saved_restart": {"pl":"Zapisano. Nikt nie jest zalogowany, więc pomocnik w grze nie odpowiedział — zmiana zadziała po restarcie serwera (albo zapisz jeszcze raz, gdy ktoś będzie w grze).",
                       "en":"Saved. Nobody is logged in, so the in-game helper did not answer — the change applies after a server restart (or save again while somebody is in game)."},
+ "sc_title":    {"pl":"Skrzynia Ucznia", "en":"Apprentice Chest"},
+ "sc_help":     {"pl":"Łańcuch Skrzyń Ucznia (od Skrzyni Ucznia I po Skrzynię Arcymistrza: mikstury, eliksiry, zielone kamienie i następna skrzynia) — jeden przełącznik dla graczy i botów. Włączona: nowa postać gracza dostaje ją przy pierwszym logowaniu (do 5. poziomu), bot ma swoją od początku i otwiera kolejne skrzynie na ich poziomach. Wyłączona: nie dostaje jej nikt; boty tracą nieotwarte skrzynie z łańcucha, a nowe boty rodzą się bez niej. Skrzyń graczy nic nie rusza. Zmiana działa od razu i zostaje po restarcie, dopóki nie zmienisz jej w launcherze (przycisk POZIOM TRUDNOŚCI, M2_STARTER_CHEST w .env).",
+                 "en":"The Apprentice Chest chain (from Apprentice Chest I to the Grand Master Chest: potions, elixirs, green stones and the next chest) - one switch for players and bots. On: a player's new character gets it at its first login (up to level 5), a bot has its own from the start and opens the next chests at their levels. Off: nobody gets it; the bots lose the unopened chests of the chain and new bots are made without one. Players' chests are never touched. A change is live at once and stays across a restart until it is changed in the launcher (the DIFFICULTY button, M2_STARTER_CHEST in .env)."},
+ "sc_on":       {"pl":"Skrzynia Ucznia w grze (gracze i boty)", "en":"Apprentice Chest in the game (players and bots)"},
+ "sc_off":      {"pl":"Bez Skrzyni Ucznia (ani dla graczy, ani dla botów)", "en":"No Apprentice Chest (for neither players nor bots)"},
+ "sc_save":     {"pl":"Zapisz Skrzynię Ucznia", "en":"Save the Apprentice Chest"},
+ "sc_saved_live": {"pl":"✅ Zapisano! Zmiana działa już w grze.",
+                   "en":"✅ Saved! The change is live in game."},
+ "sc_saved_restart": {"pl":"Zapisano. Gra nie odpowiedziała (serwer jest wyłączony albo dopiero startuje) — zmiana zadziała przy następnym starcie serwera.",
+                      "en":"Saved. The game did not answer (the server is down or still starting) - the change applies at the next server start."},
  "ai_books_moved": {"pl":"Na tym serwerze ustawia to poziom trudności (Mnożniki serwera → Poziom trudności): osobno czas dla graczy, osobno dla botów; 0 = od razu.",
                     "en":"On this server the difficulty sets it (Server rates → Difficulty): one wait for the players, one for the bots; 0 = at once."},
- "ch2_title":   {"pl":"Drugi kanał (CH2)", "en":"Second channel (CH2)"},
- "ch2_help":    {"pl":"Drugi kanał gry. Część botów gra na CH2, więc serwer rozkłada je na dwa rdzenie procesora i udźwignie więcej botów naraz. Wszystkie sklepy (botów i graczy) stoją tylko na CH1: bot z CH2, który chce otworzyć albo obsłużyć swój sklep albo coś kupić, przechodzi na CH1, a wolny bot z CH1 przechodzi na jego miejsce na CH2. Ustawiony udział to najmniej tyle botów na CH2; gdy nikt nie czeka na przejście, CH2 może przejąć do 10 punktów więcej. Domyślnie wyłączony.",
-                 "en":"A second game channel. Some of the bots play on CH2, so the server spreads them over two CPU cores and carries more bots at once. Every shop, bots' and players', stands on CH1: a bot on CH2 that wants to open or serve its shop or to buy something moves to CH1, and a free bot of CH1 moves to CH2 in its place. The share set here is the least CH2 carries; with nobody waiting to move, CH2 may take up to ten points more. Off by default."},
- "ch2_enable":  {"pl":"Włącz drugi kanał (CH2)", "en":"Switch the second channel on (CH2)"},
- "ch2_share":   {"pl":"Botów na CH2", "en":"Bots on CH2"},
- "ch2_save":    {"pl":"Zapisz (zadziała po restarcie serwera)", "en":"Save (applies after a server restart)"},
- "ch2_now_off": {"pl":"Teraz: CH2 wyłączony - wszystkie boty grają na CH1.", "en":"Now: CH2 is off - every bot plays on CH1."},
- "ch2_now_on":  {"pl":"Teraz: CH2 włączony, na CH2 gra {share}% botów.", "en":"Now: CH2 is on, {share}% of the bots play on it."},
- "ch2_ports":   {"pl":"Gracze wejdą na CH2 po najbliższym uruchomieniu serwera z launchera (GRAJ) - launcher otworzy wtedy porty 13010-13012. Boty grają na CH2 już teraz.",
-                 "en":"Players reach CH2 after the next start from the launcher (GRAJ), which opens ports 13010-13012 then. The bots play on CH2 already."},
- "ch2_pending": {"pl":"Zapisano w panelu: {what}. Zadziała po restarcie serwera.", "en":"Saved in the panel: {what}. Applies after a server restart."},
- "ch2_on_word": {"pl":"CH2 włączony, {share}% botów", "en":"CH2 on, {share}% of the bots"},
- "ch2_off_word": {"pl":"CH2 wyłączony", "en":"CH2 off"},
+ "ch2_title":   {"pl":"Kanały gry (CH1-CH4)", "en":"Game channels (CH1-CH4)", "de":"Spielkanäle (CH1-CH4)", "tr":"Oyun kanalları (CH1-CH4)"},
+ "ch2_help":    {"pl":"Ile kanałów gry uruchamia serwer. Przy dwóch część botów gra na CH2, więc serwer rozkłada je na dwa rdzenie procesora i udźwignie więcej botów naraz. Wszystkie sklepy (botów i graczy) stoją tylko na CH1: bot z CH2, który chce otworzyć albo obsłużyć swój sklep albo coś kupić, przechodzi na CH1, a wolny bot z CH1 przechodzi na jego miejsce na CH2. Ustawiony udział to najmniej tyle botów na CH2; gdy nikt nie czeka na przejście, CH2 może przejąć do 10 punktów więcej. Przy trzech i czterech na CH3 (i CH4) grają do tego świeże boty od 1 poziomu: osobne postacie, po 500 na królestwo, tworzone przy pierwszym starcie z tym ustawieniem. Nie przechodzą na CH1 i CH2, a boty z CH1 i CH2 nie przychodzą do nich; na CH3 i CH4 nie ma sklepów, gildii botów, wojen, Wieży ani wydarzeń. Domyślnie jeden kanał.",
+                 "en":"How many game channels the server runs. With two, some of the bots play on CH2, so the server spreads them over two CPU cores and carries more bots at once. Every shop, bots' and players', stands on CH1: a bot on CH2 that wants to open or serve its shop or to buy something moves to CH1, and a free bot of CH1 moves to CH2 in its place. The share set here is the least CH2 carries; with nobody waiting to move, CH2 may take up to ten points more. With three and four, CH3 (and CH4) carry fresh bots from level one besides: characters of their own, 500 a kingdom, made at the first start with this setting. They never move to CH1 or CH2, and the bots of CH1 and CH2 never come to theirs; there are no shops, bot guilds, wars, tower or events on CH3 and CH4. One channel by default.", "de":"Wie viele Spielkanäle der Server betreibt. Bei zwei spielt ein Teil der Bots auf CH2, sodass der Server sie auf zwei CPU-Kerne verteilt und mehr Bots gleichzeitig trägt. Alle Läden, die der Bots und der Spieler, stehen nur auf CH1: Ein Bot auf CH2, der seinen Laden öffnen oder betreuen oder etwas kaufen will, wechselt auf CH1, und ein freier Bot von CH1 geht an seiner Stelle auf CH2. Der eingestellte Anteil ist das Mindeste, was CH2 trägt; wartet niemand auf einen Wechsel, darf CH2 bis zu zehn Punkte mehr übernehmen. Bei drei und vier spielen auf CH3 (und CH4) zusätzlich frische Bots ab Stufe 1: eigene Charaktere, 500 pro Königreich, beim ersten Start mit dieser Einstellung angelegt. Sie wechseln nie auf CH1 oder CH2, und die Bots von CH1 und CH2 kommen nie zu ihnen; auf CH3 und CH4 gibt es keine Läden, Bot-Gilden, Kriege, keinen Turm und keine Events. Standardmäßig ein Kanal.", "tr":"Sunucunun kaç oyun kanalı çalıştırdığı. İki kanalda botların bir kısmı CH2'de oynar; böylece sunucu onları iki işlemci çekirdeğine dağıtır ve aynı anda daha fazla bot taşır. Botların ve oyuncuların bütün dükkânları yalnızca CH1'dedir: dükkânını açmak, ona bakmak ya da bir şey satın almak isteyen CH2'deki bir bot CH1'e geçer, CH1'deki boşta bir bot da onun yerine CH2'ye geçer. Burada ayarlanan pay, CH2'nin taşıdığı en az miktardır; geçiş bekleyen kimse yoksa CH2 on puana kadar fazlasını alabilir. Üç ve dört kanalda CH3'te (ve CH4'te) ayrıca 1. seviyeden başlayan yeni botlar oynar: her krallık için 500 ayrı karakter, bu ayarla yapılan ilk başlatmada oluşturulur. Hiçbir zaman CH1'e veya CH2'ye geçmezler, CH1 ve CH2'nin botları da onlara gelmez; CH3 ve CH4'te dükkân, bot loncası, savaş, kule ve etkinlik yoktur. Varsayılan: tek kanal."},
+ "ch_count":    {"pl":"Kanały gry", "en":"Game channels", "de":"Spielkanäle", "tr":"Oyun kanalları"},
+ "ch_opt1":     {"pl":"1 - jeden kanał", "en":"1 - one channel", "de":"1 - ein Kanal", "tr":"1 - tek kanal"},
+ "ch_opt2":     {"pl":"2 - drugi kanał (CH2) dla botów i graczy", "en":"2 - a second channel (CH2) for bots and players", "de":"2 - ein zweiter Kanal (CH2) für Bots und Spieler", "tr":"2 - botlar ve oyuncular için ikinci kanal (CH2)"},
+ "ch_opt3":     {"pl":"3 - do tego CH3 ze świeżymi botami", "en":"3 - and CH3 with fresh bots", "de":"3 - dazu CH3 mit frischen Bots", "tr":"3 - ayrıca yeni botlarla CH3"},
+ "ch_opt4":     {"pl":"4 - do tego CH3 i CH4 ze świeżymi botami", "en":"4 - and CH3 and CH4 with fresh bots", "de":"4 - dazu CH3 und CH4 mit frischen Bots", "tr":"4 - ayrıca yeni botlarla CH3 ve CH4"},
+ "ch2_share":   {"pl":"Botów na CH2 (przy 2 kanałach i więcej)", "en":"Bots on CH2 (with two channels or more)", "de":"Bots auf CH2 (ab zwei Kanälen)", "tr":"CH2'deki botlar (iki veya daha fazla kanalda)"},
+ "ch_fresh":    {"pl":"Świeżych botów na CH3 i CH4 razem (0-1500, przy 3 i 4 kanałach)", "en":"Fresh bots on CH3 and CH4 together (0-1500, with three or four channels)", "de":"Frische Bots auf CH3 und CH4 zusammen (0-1500, bei drei oder vier Kanälen)", "tr":"CH3 ve CH4'te toplam yeni bot (0-1500, üç veya dört kanalda)"},
+ "ch_ram":      {"pl":"Każdy kanał to trzy rdzenie gry, ok. 2,5 GB RAM więcej. Porty: 13000-13002 jeden kanał, 13000-13012 dwa, 13000-13022 trzy, 13000-13032 cztery.",
+                 "en":"Every channel is three game cores, about 2.5 GB more RAM. Ports: 13000-13002 one channel, 13000-13012 two, 13000-13022 three, 13000-13032 four.", "de":"Jeder Kanal sind drei Spielkerne, etwa 2,5 GB mehr RAM. Ports: 13000-13002 ein Kanal, 13000-13012 zwei, 13000-13022 drei, 13000-13032 vier.", "tr":"Her kanal üç oyun çekirdeğidir, yaklaşık 2,5 GB daha fazla RAM. Portlar: tek kanal 13000-13002, iki kanal 13000-13012, üç kanal 13000-13022, dört kanal 13000-13032."},
+ "ch2_save":    {"pl":"Zapisz (zadziała po restarcie serwera)", "en":"Save (applies after a server restart)", "de":"Speichern (gilt nach einem Serverneustart)", "tr":"Kaydet (sunucu yeniden başlatılınca geçerli olur)"},
+ "ch2_now_off": {"pl":"Teraz: jeden kanał - wszystkie boty grają na CH1.", "en":"Now: one channel - every bot plays on CH1.", "de":"Jetzt: ein Kanal - alle Bots spielen auf CH1.", "tr":"Şimdi: tek kanal - bütün botlar CH1'de oynuyor."},
+ "ch2_now_on":  {"pl":"Teraz: dwa kanały, na CH2 gra {share}% botów.", "en":"Now: two channels, {share}% of the bots play on CH2.", "de":"Jetzt: zwei Kanäle, {share}% der Bots spielen auf CH2.", "tr":"Şimdi: iki kanal, botların %{share}'i CH2'de oynuyor."},
+ "ch_now3":     {"pl":"Teraz: trzy kanały, na CH2 gra {share}% botów, na CH3 {count} świeżych botów.", "en":"Now: three channels, {share}% of the bots on CH2 and {count} fresh bots on CH3.", "de":"Jetzt: drei Kanäle, {share}% der Bots auf CH2 und {count} frische Bots auf CH3.", "tr":"Şimdi: üç kanal, botların %{share}'i CH2'de ve {count} yeni bot CH3'te."},
+ "ch_now4":     {"pl":"Teraz: cztery kanały, na CH2 gra {share}% botów, na CH3 i CH4 {count} świeżych botów.", "en":"Now: four channels, {share}% of the bots on CH2 and {count} fresh bots on CH3 and CH4.", "de":"Jetzt: vier Kanäle, {share}% der Bots auf CH2 und {count} frische Bots auf CH3 und CH4.", "tr":"Şimdi: dört kanal, botların %{share}'i CH2'de ve {count} yeni bot CH3 ile CH4'te."},
+ "ch2_ports":   {"pl":"Gracze wejdą na nowe kanały po najbliższym uruchomieniu serwera z launchera (GRAJ) - launcher otworzy wtedy ich porty (13000-{end}). Boty grają na nich już teraz.",
+                 "en":"Players reach the new channels after the next start from the launcher (GRAJ), which opens their ports (13000-{end}) then. The bots play on them already.", "de":"Spieler erreichen die neuen Kanäle nach dem nächsten Start aus dem Launcher (GRAJ), der dann ihre Ports (13000-{end}) öffnet. Die Bots spielen schon jetzt darauf.", "tr":"Oyuncular yeni kanallara başlatıcıdan (GRAJ) bir sonraki başlatmadan sonra girer; başlatıcı o zaman portlarını (13000-{end}) açar. Botlar şimdiden orada oynuyor."},
+ "ch2_pending": {"pl":"Zapisano w panelu: {what}. Zadziała po restarcie serwera.", "en":"Saved in the panel: {what}. Applies after a server restart.", "de":"Im Panel gespeichert: {what}. Gilt nach einem Serverneustart.", "tr":"Panelde kaydedildi: {what}. Sunucu yeniden başlatılınca geçerli olur."},
+ "ch_words1":   {"pl":"jeden kanał", "en":"one channel", "de":"ein Kanal", "tr":"tek kanal"},
+ "ch_words2":   {"pl":"dwa kanały, {share}% botów na CH2", "en":"two channels, {share}% of the bots on CH2", "de":"zwei Kanäle, {share}% der Bots auf CH2", "tr":"iki kanal, botların %{share}'i CH2'de"},
+ "ch_words3":   {"pl":"trzy kanały, {share}% botów na CH2, {count} świeżych botów na CH3", "en":"three channels, {share}% of the bots on CH2, {count} fresh bots on CH3", "de":"drei Kanäle, {share}% der Bots auf CH2, {count} frische Bots auf CH3", "tr":"üç kanal, botların %{share}'i CH2'de, {count} yeni bot CH3'te"},
+ "ch_words4":   {"pl":"cztery kanały, {share}% botów na CH2, {count} świeżych botów na CH3 i CH4", "en":"four channels, {share}% of the bots on CH2, {count} fresh bots on CH3 and CH4", "de":"vier Kanäle, {share}% der Bots auf CH2, {count} frische Bots auf CH3 und CH4", "tr":"dört kanal, botların %{share}'i CH2'de, {count} yeni bot CH3 ve CH4'te"},
+ "ch_bad_count": {"pl":"Liczba kanałów musi być od 1 do 4. Nic nie zmieniono.", "en":"The number of channels has to be between 1 and 4. Nothing was changed.", "de":"Die Zahl der Kanäle muss zwischen 1 und 4 liegen. Nichts wurde geändert.", "tr":"Kanal sayısı 1 ile 4 arasında olmalı. Hiçbir şey değiştirilmedi."},
+ "ch_fresh_bad": {"pl":"Liczba świeżych botów musi być od 0 do 1500. Nic nie zmieniono.", "en":"The number of fresh bots has to be between 0 and 1500. Nothing was changed.", "de":"Die Zahl der frischen Bots muss zwischen 0 und 1500 liegen. Nichts wurde geändert.", "tr":"Yeni bot sayısı 0 ile 1500 arasında olmalı. Hiçbir şey değiştirilmedi."},
  "ch2_saved":   {"pl":"✅ Zapisano. Zmiana kanałów zadziała po restarcie serwera (GRAJ w launcherze albo restart kontenera gry).",
-                 "en":"✅ Saved. The channel change applies after a server restart (GRAJ in the launcher or a restart of the game container)."},
- "ch2_bad":     {"pl":"Udział botów na CH2 musi być liczbą od 10 do 90. Nic nie zmieniono.", "en":"The share of bots on CH2 has to be between 10 and 90. Nothing was changed."},
- "ch2_failed":  {"pl":"Nie udało się zapisać ustawienia kanałów w katalogu wymiany z serwerem.", "en":"Could not write the channel setting into the spool shared with the server."},
+                 "en":"✅ Saved. The channel change applies after a server restart (GRAJ in the launcher or a restart of the game container).", "de":"✅ Gespeichert. Die Kanaländerung gilt nach einem Serverneustart (GRAJ im Launcher oder ein Neustart des Spielcontainers).", "tr":"✅ Kaydedildi. Kanal değişikliği sunucu yeniden başlatılınca geçerli olur (başlatıcıda GRAJ ya da oyun konteynerinin yeniden başlatılması)."},
+ "ch2_bad":     {"pl":"Udział botów na CH2 musi być liczbą od 10 do 90. Nic nie zmieniono.", "en":"The share of bots on CH2 has to be between 10 and 90. Nothing was changed.", "de":"Der Anteil der Bots auf CH2 muss eine Zahl von 10 bis 90 sein. Nichts wurde geändert.", "tr":"CH2'deki bot payı 10 ile 90 arasında bir sayı olmalı. Hiçbir şey değiştirilmedi."},
+ "ch2_failed":  {"pl":"Nie udało się zapisać ustawienia kanałów w katalogu wymiany z serwerem.", "en":"Could not write the channel setting into the spool shared with the server.", "de":"Die Kanaleinstellung konnte nicht in das mit dem Server geteilte Verzeichnis geschrieben werden.", "tr":"Kanal ayarı sunucuyla paylaşılan klasöre yazılamadı."},
  "rates_range":  {"pl":"Każda z trzech wartości musi być liczbą całkowitą od 1 do 10000. Nic nie zmieniono. 🙂","en":"Each of the three has to be a whole number between 1 and 10000. Nothing was changed. 🙂",
                   "de":"Alle drei müssen ganze Zahlen zwischen 1 und 10000 sein. Es wurde nichts geändert. 🙂",
                   "tr":"Üçü de 1 ile 10000 arasında tam sayı olmalı. Hiçbir şey değiştirilmedi. 🙂"},
@@ -3912,6 +4283,9 @@ T.update({
  "gl_col_record":{"en":"W/D/L","pl":"Z/R/P","de":"S/U/N","tr":"G/B/M"},
  "gl_col_exp":   {"en":"Exp received","pl":"Otrzymany exp","de":"Erhaltene Erfahrung","tr":"Alınan tecrübe"},
  "gl_col_war":   {"en":"War","pl":"Wojna","de":"Krieg","tr":"Savaş"},
+ "gl_players":   {"en":"Player guilds","pl":"Gildie graczy","de":"Spielergilden","tr":"Oyuncu loncaları"},
+ "gl_players_note": {"en":"Guilds whose master is a person, from the database: no tier (that is the bots' percentile) and no online count.","pl":"Gildie, których mistrzem jest człowiek, z bazy danych: bez klasy (to percentyl botów) i bez liczby osób online.","de":"Gilden, deren Meister ein Mensch ist, aus der Datenbank: ohne Stufe (das ist das Perzentil der Bots) und ohne Online-Zahl.","tr":"Lideri bir insan olan loncalar, veritabanından: kademe yok (bu botların yüzdelik dilimi) ve çevrimiçi sayısı yok."},
+ "gl_players_none": {"en":"No guild is led by a person yet.","pl":"Żadnej gildii nie prowadzi jeszcze człowiek.","de":"Noch keine Gilde wird von einem Menschen geführt.","tr":"Henüz bir insanın yönettiği lonca yok."},
  "gl_war_with":  {"en":"vs","pl":"z","de":"gegen","tr":"vs"},
  "gl_next_war":  {"en":"Next bot guild war","pl":"Następna wojna gildii botów","de":"Nächster Bot-Gildenkrieg","tr":"Sonraki bot lonca savaşı"},
  "gl_next_war_now": {"en":"under way now (guild map)","pl":"trwa teraz (mapa gildyjna)","de":"läuft jetzt (Gildenkarte)","tr":"şu anda sürüyor (lonca haritası)"},
@@ -4073,10 +4447,10 @@ T.update({
                   "pl":"Kto zrobił najwięcej w tym tygodniu i wszystkie rekordy, jakie świat ustanowił.",
                   "de":"Wer diese Woche am meisten geschafft hat, und jeder Rekord, den die Welt je aufgestellt hat.",
                   "tr":"Bu hafta en çok kim başardı ve dünyanın şimdiye kadarki tüm rekorları."},
- "se_intro":     {"en":"Seven days of metins, bosses and refines that landed on +7 or better. Level, horse and gold are shown for context but are deliberately not scored: they are what a bot IS, not what it did this week.",
-                  "pl":"Siedem dni metinów, bossów i ulepszeń, które weszły na +7 lub wyżej. Poziom, koń i yang są pokazane dla kontekstu, ale celowo nie liczą się do wyniku: to jest to, KIM bot jest, a nie co zrobił w tym tygodniu.",
-                  "de":"Sieben Tage Metins, Bosse und Aufwertungen, die auf +7 oder besser gelandet sind. Level, Pferd und Yang stehen als Kontext dabei, zählen aber bewusst nicht: sie sagen, was ein Bot IST, nicht was er diese Woche getan hat.",
-                  "tr":"Yedi günlük metin, boss ve +7 ve üzerine oturan yükseltmeler. Seviye, at ve yang bağlam için gösterilir ama bilerek puana girmez: onlar botun NE olduğunu söyler, bu hafta ne yaptığını değil."},
+ "se_intro":     {"en":"Seven days of metins, bosses and refines that landed on +7 or better. Level, horse and gold are shown for context but are deliberately not scored: they are what a character IS, not what it did this week.",
+                  "pl":"Siedem dni metinów, bossów i ulepszeń, które weszły na +7 lub wyżej. Poziom, koń i yang są pokazane dla kontekstu, ale celowo nie liczą się do wyniku: to jest to, KIM postać jest, a nie co zrobiła w tym tygodniu.",
+                  "de":"Sieben Tage Metins, Bosse und Aufwertungen, die auf +7 oder besser gelandet sind. Level, Pferd und Yang stehen als Kontext dabei, zählen aber bewusst nicht: sie sagen, was ein Charakter IST, nicht was er diese Woche getan hat.",
+                  "tr":"Yedi günlük metin, boss ve +7 ve üzerine oturan yükseltmeler. Seviye, at ve yang bağlam için gösterilir ama bilerek puana girmez: onlar karakterin NE olduğunu söyler, bu hafta ne yaptığını değil."},
  "se_back_map":  {"en":"Live map","pl":"Mapa na żywo","de":"Live-Karte","tr":"Canlı harita"},
  "se_records":   {"en":"Server records","pl":"Rekordy serwera","de":"Serverrekorde","tr":"Sunucu rekorları"},
  "se_records_h": {"en":"All time, since the world was created.","pl":"Od początku istnienia świata.",
@@ -4099,6 +4473,218 @@ T.update({
  "se_r_refines": {"en":"Most +7 and up","pl":"Najwięcej +7 i wyżej","de":"Meiste +7 und mehr","tr":"En çok +7 ve üzeri"},
  "se_r_horse":   {"en":"Best horse","pl":"Najlepszy koń","de":"Bestes Pferd","tr":"En iyi at"},
  "se_r_gold":    {"en":"Most yang","pl":"Najwięcej yang","de":"Meiste Yang","tr":"En çok yang"},
+})
+
+
+# German and Turkish for the entries above that were written in Polish and
+# English only, so that a German or a Turkish page is not an English one
+# with the rest of the words in it ("Half a translation reads worse than either
+# language", docs/notes/panels.md). Kept apart from the entries, not merged into
+# them, so the lines above stay as they were written. The channel card's ch2_*
+# are not here: that card is being rewritten for more channels.
+for _key, _texts in {
+ "regen_title": {"de": "Respawnzeit von Metinsteinen, Bossen und Monstern",
+       "tr": "Metin Taşları, bosslar ve canavarlar için yeniden doğma süresi"},
+ "regen_help": {"de": "Prozent der normalen Respawnzeit: 100 = wie im Spiel, 50 = doppelt so schnell, 10 = zehnmal so schnell. Wirkt sofort (über den Ingame-Helfer) und bleibt nach einem Neustart erhalten. Getrennt einstellbar für Metinsteine und Bosse sowie für normale Monster.",
+       "tr": "Normal yeniden doğma süresinin yüzdesi: 100 = oyundaki gibi, 50 = iki kat hızlı, 10 = on kat hızlı. Hemen etkili olur (oyun içi yardımcı sayesinde) ve yeniden başlatmadan sonra da kalır. Metin Taşları ve bosslar için ayrı, normal canavarlar için ayrı ayarlanır."},
+ "regen_boss": {"de": "Metinsteine und Bosse (% der Zeit)",
+       "tr": "Metin Taşları ve bosslar (sürenin %'si)"},
+ "regen_mob": {"de": "Normale Monster (% der Zeit)",
+       "tr": "Normal canavarlar (sürenin %'si)"},
+ "regen_faster": {"de": "Schneller:",
+       "tr": "Daha hızlı:"},
+ "regen_mult": {"de": "≈ ×{n} schneller als im Spiel",
+       "tr": "≈ oyundakinden ×{n} daha hızlı"},
+ "regen_save": {"de": "Respawnzeiten speichern",
+       "tr": "Yeniden doğma sürelerini kaydet"},
+ "regen_range": {"de": "Beide Werte müssen ganze Zahlen von 10 bis 100 sein. Es wurde nichts geändert.",
+       "tr": "İki değer de 10 ile 100 arasında bir tam sayı olmalı. Hiçbir şey değiştirilmedi."},
+ "regen_saved_live": {"de": "✅ Gespeichert! Die neuen Respawnzeiten gelten schon im Spiel, ohne Neustart.",
+       "tr": "✅ Kaydedildi! Yeniden doğma süreleri oyunda hemen güncellendi, yeniden başlatmaya gerek yok."},
+ "regen_saved_restart": {"de": "Gespeichert. Niemand ist eingeloggt, deshalb hat der Ingame-Helfer nicht geantwortet — die neuen Zeiten gelten nach einem Neustart des Servers (oder speichere noch einmal, wenn jemand im Spiel ist).",
+       "tr": "Kaydedildi. Kimse giriş yapmamış, bu yüzden oyun içi yardımcı yanıt vermedi — yeni süreler sunucu yeniden başlatıldıktan sonra geçerli olur (ya da oyunda biri varken tekrar kaydet)."},
+ "count_title": {"de": "Monsteranzahl pro Spawnpunkt",
+       "tr": "Doğma noktası başına canavar sayısı"},
+ "count_help": {"de": "Wie viele Monster an jedem Spawnpunkt stehen: ×1 = wie im Spiel, ×2 = doppelt so viele, bis zu ×4. Kein Neustart nötig, und die Einstellung bleibt auch nach einem Neustart erhalten; die zusätzlichen Monster kommen beim nächsten Respawn des jeweiligen Punkts dazu (Metinsteine und Bosse nach ihrer eigenen Respawnzeit, meist 15–25 Minuten). Getrennt einstellbar für Metinsteine und Bosse sowie für normale Monster. NPCs (auch Erzadern und Kräuterbüsche), Portale, Dungeons und einmalige Spawns aus Quests bleiben unverändert.",
+       "tr": "Her doğma noktasında kaç canavar durduğu: ×1 = oyundaki gibi, ×2 = iki kat fazla, ×4'e kadar. Yeniden başlatma gerekmez ve ayar yeniden başlatmadan sonra da kalır; ek canavarlar o noktanın bir sonraki yeniden doğmasında gelir (Metin Taşları ve bosslar kendi yeniden doğma sürelerinden sonra, genellikle 15–25 dakika). Metin Taşları ve bosslar için ayrı, normal canavarlar için ayrı ayarlanır. NPC'ler (maden damarları ve ot çalıları da), portallar, zindanlar ve görevlerin tek seferlik doğmaları değişmeden kalır."},
+ "count_warn": {"de": "Achtung: ×2 bedeutet doppelt so viele Monster auf jeder Map — der Server und die Bots haben dadurch mehr Arbeit. Wenn du den Multiplikator senkst, verschwinden die überzähligen Monster erst, wenn jemand sie tötet.",
+       "tr": "Dikkat: ×2, her haritada iki kat fazla canavar demektir — sunucu ve botlar bu yüzden daha çok çalışır. Çarpanı düşürdükten sonra fazla canavarlar ancak biri onları öldürünce kaybolur."},
+ "count_boss": {"de": "Metinsteine und Bosse",
+       "tr": "Metin Taşları ve bosslar"},
+ "count_mob": {"de": "Normale Monster",
+       "tr": "Normal canavarlar"},
+ "count_save": {"de": "Monsteranzahl speichern",
+       "tr": "Canavar sayısını kaydet"},
+ "count_range": {"de": "Wähle einen Multiplikator von ×1 bis ×4. Es wurde nichts geändert.",
+       "tr": "×1 ile ×4 arasında bir çarpan seç. Hiçbir şey değiştirilmedi."},
+ "count_saved_live": {"de": "✅ Gespeichert! Die neue Monsteranzahl gilt schon im Spiel — sie wird beim nächsten Respawn aufgefüllt.",
+       "tr": "✅ Kaydedildi! Yeni canavar sayısı oyunda şimdiden geçerli — bir sonraki yeniden doğmada tamamlanır."},
+ "count_saved_restart": {"de": "Gespeichert. Niemand ist eingeloggt, deshalb hat der Ingame-Helfer nicht geantwortet — die neue Monsteranzahl gilt nach einem Neustart des Servers (oder speichere noch einmal, wenn jemand im Spiel ist).",
+       "tr": "Kaydedildi. Kimse giriş yapmamış, bu yüzden oyun içi yardımcı yanıt vermedi — yeni canavar sayısı sunucu yeniden başlatıldıktan sonra geçerli olur (ya da oyunda biri varken tekrar kaydet)."},
+ "diff_title": {"de": "Schwierigkeitsgrad",
+       "tr": "Zorluk seviyesi"},
+ "diff_help": {"de": "Wie lange ein Spieler beim Biologen zwischen zwei Abgaben und beim Stallburschen wartet (Pony, Pferdebücher, Trainings mit Medaillen) und wie lange Spieler und Bots zwischen zwei Büchern derselben Fertigkeit warten — eine Exorzismus-Schriftrolle überspringt diese Wartezeit. Eine Änderung wirkt sofort, wenn jemand im Spiel ist, und bleibt nach einem Neustart erhalten, bis du den Schwierigkeitsgrad im Launcher änderst (Button SCHWIERIGKEITSGRAD).",
+       "tr": "Oyuncunun Biyolog'da iki teslim arasında ve Seyis'te (midilli, At Kitapları, madalyalı eğitimler) ne kadar beklediği ve oyuncularla botların aynı becerinin iki kitabı arasında ne kadar beklediği — Ayin Parşömeni bu beklemeyi ortadan kaldırır. Değişiklik, oyunda biri varken hemen etkili olur ve zorluğu başlatıcıda (ZORLUK düğmesi) değiştirene kadar yeniden başlatmadan sonra da kalır."},
+ "diff_now": {"de": "Aktuell",
+       "tr": "Şu an"},
+ "diff_level": {"de": "Stufe",
+       "tr": "Seviye"},
+ "diff_level_easy": {"de": "Leicht — ohne Wartezeit",
+       "tr": "Kolay — beklemesiz"},
+ "diff_level_medium": {"de": "Mittel — Biologe 8 h, Pferd 4–7 h, Bücher 7 h",
+       "tr": "Orta — Biyolog 8 h, at 4–7 h, kitaplar 7 h"},
+ "diff_level_hard": {"de": "Schwer — wie im Original: Biologe 24 h, Pferd 12–21 h, Bücher 21 h",
+       "tr": "Zor — orijinaldeki gibi: Biyolog 24 h, at 12–21 h, kitaplar 21 h"},
+ "diff_level_custom": {"de": "Benutzerdefiniert — die Stunden unten",
+       "tr": "Özel — aşağıdaki saatler"},
+ "diff_bio": {"de": "Biologe",
+       "tr": "Biyolog"},
+ "diff_horse": {"de": "Stallbursche (Pony / Buch / Trainings)",
+       "tr": "Seyis (midilli / kitap / eğitimler)"},
+ "diff_books": {"de": "Bücher",
+       "tr": "kitaplar"},
+ "diff_players": {"de": "Spieler",
+       "tr": "oyuncular"},
+ "diff_bots": {"de": "Bots",
+       "tr": "botlar"},
+ "diff_custom_help": {"de": "Die Stunden unten zählen nur bei der Stufe „Benutzerdefiniert“ (Kommazahlen erlaubt, 0 = keine Wartezeit). Für den Stallburschen gilt eine einzige Zahl für alle Wartezeiten: Pony, Pferdebuch und Trainings.",
+       "tr": "Aşağıdaki saatler yalnızca “Özel” seviyesinde geçerlidir (ondalıklı sayılar olabilir, 0 = beklemesiz). Seyis için tüm beklemelerde tek bir sayı geçerlidir: midilli, At Kitabı ve eğitimler."},
+ "diff_bio_h": {"de": "Biologe — Stunden zwischen den Abgaben:",
+       "tr": "Biyolog — teslimler arasındaki saat:"},
+ "diff_horse_h": {"de": "Stallbursche — Stunden für Pony, Buch und Training:",
+       "tr": "Seyis — midilli, kitap ve eğitim için saat:"},
+ "diff_book_h": {"de": "Fertigkeitsbücher — Spieler, Stunden:",
+       "tr": "Beceri Kitapları — oyuncular, saat:"},
+ "diff_bot_book_h": {"de": "Fertigkeitsbücher — Bots, Stunden:",
+       "tr": "Beceri Kitapları — botlar, saat:"},
+ "diff_save": {"de": "Schwierigkeitsgrad speichern",
+       "tr": "Zorluk seviyesini kaydet"},
+ "diff_range": {"de": "Wähle eine Stufe und gib Stunden von 0 bis 720 an. Es wurde nichts geändert.",
+       "tr": "Bir seviye seç ve 0 ile 720 arasında saat gir. Hiçbir şey değiştirilmedi."},
+ "diff_saved_live": {"de": "✅ Gespeichert! Der neue Schwierigkeitsgrad gilt schon im Spiel.",
+       "tr": "✅ Kaydedildi! Yeni zorluk seviyesi oyunda şimdiden geçerli."},
+ "diff_saved_restart": {"de": "Gespeichert. Niemand ist eingeloggt, deshalb hat der Ingame-Helfer nicht geantwortet — die neuen Wartezeiten gelten nach einem Neustart des Servers (oder speichere noch einmal, wenn jemand im Spiel ist).",
+       "tr": "Kaydedildi. Kimse giriş yapmamış, bu yüzden oyun içi yardımcı yanıt vermedi — yeni bekleme süreleri sunucu yeniden başlatıldıktan sonra geçerli olur (ya da oyunda biri varken tekrar kaydet)."},
+ "ah_title": {"de": "Auto-Jagd-Panel",
+       "tr": "Otomatik Av paneli"},
+ "ah_help": {"de": "Wer das Auto-Jagd-Fenster im Client benutzen darf. „Nur nach Kauf“ — ein Spieler kauft im ItemShop „Auto Lowy (8h)“ und benutzt es aus dem Inventar: 8 Stunden, die nur laufen, solange der Charakter im Spiel ist; weitere Tickets addieren sich (höchstens 30 Tage). Eine Änderung wirkt sofort, wenn jemand im Spiel ist, und bleibt nach einem Neustart erhalten, bis du sie im Launcher änderst (Button SCHWIERIGKEITSGRAD).",
+       "tr": "İstemcideki Otomatik Av penceresini kimlerin kullanabileceği. “Yalnızca satın alındıktan sonra” — oyuncu ItemShop'tan “Auto Lowy (8h)” satın alır ve envanterden kullanır: yalnızca karakter oyundayken işleyen 8 saat; sonraki biletler toplanır (en fazla 30 gün). Değişiklik, oyunda biri varken hemen etkili olur ve sen başlatıcıda (ZORLUK düğmesi) değiştirene kadar yeniden başlatmadan sonra da kalır."},
+ "ah_all": {"de": "Auto-Jagd-Panel für alle verfügbar",
+       "tr": "Otomatik Av paneli herkese açık"},
+ "ah_item": {"de": "Auto-Jagd-Panel nur nach Kauf des ItemShop-Gegenstands",
+       "tr": "Otomatik Av paneli yalnızca ItemShop'tan eşya satın alındıktan sonra açık"},
+ "ah_off": {"de": "Die Auto-Jagd ist auf dieser Welt ausgeschaltet (Launcher: M2_AUTOHUNT=0), deshalb wirkt diese Auswahl erst, wenn du sie einschaltest.",
+       "tr": "Otomatik Av bu dünyada kapalı (başlatıcı: M2_AUTOHUNT=0), bu yüzden bu seçim ancak onu açtığında geçerli olur."},
+ "ah_save": {"de": "Auto-Jagd-Zugang speichern",
+       "tr": "Otomatik Av erişimini kaydet"},
+ "ah_saved_live": {"de": "✅ Gespeichert! Der neue Auto-Jagd-Zugang gilt schon im Spiel.",
+       "tr": "✅ Kaydedildi! Otomatik Av için yeni erişim oyunda şimdiden geçerli."},
+ "ah_saved_restart": {"de": "Gespeichert. Niemand ist eingeloggt, deshalb hat der Ingame-Helfer nicht geantwortet — die Änderung gilt nach einem Neustart des Servers (oder speichere noch einmal, wenn jemand im Spiel ist).",
+       "tr": "Kaydedildi. Kimse giriş yapmamış, bu yüzden oyun içi yardımcı yanıt vermedi — değişiklik sunucu yeniden başlatıldıktan sonra geçerli olur (ya da oyunda biri varken tekrar kaydet)."},
+ "sc_title": {"de": "Lehrlingstruhe",
+       "tr": "Çırak Sandığı"},
+ "sc_help": {"de": "Die Kette der Lehrlingstruhen (von der Lehrlingstruhe I bis zur Großmeistertruhe: Tränke, Elixiere, grüne Steine und die nächste Truhe) - ein Schalter für Spieler und Bots. Ein: Ein neuer Charakter eines Spielers bekommt sie beim ersten Einloggen (bis Stufe 5), ein Bot hat seine von Anfang an und öffnet die nächsten Truhen auf ihrer Stufe. Aus: Niemand bekommt sie; die Bots verlieren die ungeöffneten Truhen der Kette, und neue Bots entstehen ohne. Truhen von Spielern werden nie angerührt. Eine Änderung gilt sofort und bleibt nach einem Neustart erhalten, bis du sie im Launcher änderst (Button SCHWIERIGKEITSGRAD, M2_STARTER_CHEST in der .env).",
+       "tr": "Çırak Sandığı zinciri (Çırak Sandığı I'den Büyük Usta Sandığı'na: iksirler, eliksirler, yeşil taşlar ve bir sonraki sandık) - oyuncular ve botlar için tek anahtar. Açık: bir oyuncunun yeni karakteri onu ilk girişinde alır (5. seviyeye kadar), bir botun kendi sandığı baştan vardır ve sonraki sandıkları seviyelerinde açar. Kapalı: kimse almaz; botlar zincirin açılmamış sandıklarını kaybeder ve yeni botlar sandıksız oluşturulur. Oyuncuların sandıklarına asla dokunulmaz. Değişiklik hemen geçerli olur ve sen başlatıcıda (ZORLUK düğmesi, .env içinde M2_STARTER_CHEST) değiştirene kadar yeniden başlatmadan sonra da kalır."},
+ "sc_on": {"de": "Lehrlingstruhe im Spiel (Spieler und Bots)",
+       "tr": "Çırak Sandığı oyunda (oyuncular ve botlar)"},
+ "sc_off": {"de": "Keine Lehrlingstruhe (weder für Spieler noch für Bots)",
+       "tr": "Çırak Sandığı yok (ne oyuncular ne de botlar için)"},
+ "sc_save": {"de": "Lehrlingstruhe speichern",
+       "tr": "Çırak Sandığı'nı kaydet"},
+ "sc_saved_live": {"de": "✅ Gespeichert! Die Änderung gilt schon im Spiel.",
+       "tr": "✅ Kaydedildi! Değişiklik oyunda şimdiden geçerli."},
+ "sc_saved_restart": {"de": "Gespeichert. Das Spiel hat nicht geantwortet (der Server ist aus oder startet gerade) — die Änderung gilt beim nächsten Start des Servers.",
+       "tr": "Kaydedildi. Oyun yanıt vermedi (sunucu kapalı ya da henüz başlıyor) — değişiklik sunucunun bir sonraki başlatılışında geçerli olur."},
+ "ai_books_moved": {"de": "Auf diesem Server legt das der Schwierigkeitsgrad fest (Server-Raten → Schwierigkeitsgrad): eine Wartezeit für die Spieler, eine für die Bots; 0 = sofort.",
+       "tr": "Bu sunucuda bunu zorluk seviyesi belirler (Sunucu oranları → Zorluk seviyesi): oyuncular için ayrı, botlar için ayrı bir süre; 0 = hemen."},
+ "ai_items_open": {"de": "📦 Was die Bots verkaufen dürfen",
+       "tr": "📦 Botlar neleri satabilir"},
+ "ai_items_nav": {"de": "📦 Gegenstandsregeln: Händler oder Stand",
+       "tr": "📦 Eşya kuralları: satıcı mı, tezgâh mı"},
+ "ai_items_intro": {"de": "Eine Zeile pro Gegenstand: die Gegenstandsnummer (vnum) oder ein ganzer Typ (type:19), ein Leerzeichen oder Tabulator und ein Wort. keep (behalten) - verlässt nie das Inventar; stall (Stand) - Ware für den Stand, mit Vorrang vor allem anderen, aber höchstens 3 Einträge desselben Gegenstands im Stand (Verwandlungskugeln: 3, jede von einem anderen Monster), der Rest wartet im Inventar; merchant (Händler) - wird beim nächsten Stadtbesuch an den NPC-Händler verkauft; drop (wegwerfen) - wird beim Besuch beim Händler ohne Verkauf weggeworfen. Was hier nicht steht, folgt den eigenen Regeln der Bots. Nach dem Speichern erreicht es jeden Bot innerhalb von fünf Sekunden.",
+       "tr": "Eşya başına bir satır: eşya numarası (vnum) ya da bütün bir tür (type:19), bir boşluk veya sekme ve tek bir kelime. keep (sakla) - envanterden hiç çıkmaz; stall (tezgâh) - tezgâha konacak mal, her şeyden önce gelir, ama tezgâhta aynı eşyadan en fazla 3 ilan olur (dönüşüm küreleri: 3, her biri farklı bir canavarın), geri kalanı envanterde bekler; merchant (satıcı) - bir sonraki şehir ziyaretinde NPC satıcısına satılır; drop (yere at) - satıcı ziyaretinde satılmadan yere atılır. Burada yer almayan her şey botların kendi kurallarına uyar. Kaydedildikten sonra beş saniye içinde her bota ulaşır."},
+ "ai_items_format": {"de": "Die Gegenstandsnummern zeigt dir die Suche auf der Seite zum Vergeben von Gegenständen; Typen: 5 Materialien, 18 Quest-Gegenstände, 19 Verwandlungskugeln, 17 Fertigkeitsbücher, 3 Gebrauchsgegenstände (Schriftrollen, Steine). Ein # leitet einen Kommentar ein.",
+       "tr": "Eşya numaralarını eşya verme sayfasındaki arama gösterir; türler: 5 malzemeler, 18 görev eşyaları, 19 dönüşüm küreleri, 17 Beceri Kitapları, 3 kullanılabilir eşyalar (parşömenler, taşlar). # işareti bir yorum başlatır."},
+ "ai_items_bad": {"de": "Nicht gespeichert: Zeile(n) {n} entsprechen nicht dem Format '<vnum oder type:N> <keep|stall|merchant|drop>'.",
+       "tr": "Kaydedilmedi: şu satır(lar) '<vnum veya type:N> <keep|stall|merchant|drop>' biçiminde değil: {n}."},
+ "ai_items_live": {"de": "Gespeichert. Die Bots lesen die Datei innerhalb von fünf Sekunden.",
+       "tr": "Kaydedildi. Botlar dosyayı beş saniye içinde okur."},
+}.items():
+    T[_key].update(_texts)
+
+# What used to be written where it stands - a flash in English on every page,
+# "← Back", "Map", "dni" - and the season's marks for people (28 September).
+T.update({
+ "pl_map": {"pl": "Mapa", "en": "Map",
+       "de": "Karte", "tr": "Harita"},
+ "se_days": {"pl": "{n} dni", "en": "{n} days",
+       "de": "{n} Tage", "tr": "{n} gün"},
+ "unit_min": {"pl": "min", "en": "min",
+       "de": "Min.", "tr": "dk"},
+ "ai_items_example": {"pl": "30048\tstall\t# Kawalek Lodu\ntype:19\tstall\t# marmury polimorfii\n50703\tdrop\t# Kwiat Kaki", "en": "30048\tstall\t# Piece of Ice\ntype:19\tstall\t# polymorph marbles\n50703\tdrop\t# Kaki Blossom",
+       "de": "30048\tstall\t# Eisstück\ntype:19\tstall\t# Verwandlungskugeln\n50703\tdrop\t# Kakiblüte", "tr": "30048\tstall\t# Buz Parçası\ntype:19\tstall\t# dönüşüm küreleri\n50703\tdrop\t# Kaki Çiçeği"},
+ "login_locked": {"pl": "Zbyt wiele błędnych prób. Dla bezpieczeństwa odczekaj 15 minut. ⏳", "en": "Too many wrong attempts. Please wait 15 minutes for security. ⏳",
+       "de": "Zu viele falsche Versuche. Warte aus Sicherheitsgründen 15 Minuten. ⏳", "tr": "Çok fazla hatalı deneme. Güvenlik nedeniyle 15 dakika bekle. ⏳"},
+ "login_wrong": {"pl": "Błędne hasło panelu, spróbuj jeszcze raz. 🙂", "en": "Wrong passphrase, try again. 🙂",
+       "de": "Falsches Panel-Passwort, versuch es noch einmal. 🙂", "tr": "Panel şifresi yanlış, tekrar dene. 🙂"},
+ "too_many_tries": {"pl": "Zbyt wiele prób. Odczekaj chwilę. ⏳", "en": "Too many attempts. Please wait a while. ⏳",
+       "de": "Zu viele Versuche. Warte einen Moment. ⏳", "tr": "Çok fazla deneme. Biraz bekle. ⏳"},
+ "dl_not_ready": {"pl": "Pobieranie gry nie jest jeszcze gotowe.", "en": "The game download is not ready yet.",
+       "de": "Der Download des Spiels ist noch nicht bereit.", "tr": "Oyun indirmesi henüz hazır değil."},
+ "play_not_set": {"pl": "Gra w przeglądarce nie jest ustawiona na tym serwerze.", "en": "Playing in the browser is not set up on this server.",
+       "de": "Spielen im Browser ist auf diesem Server nicht eingerichtet.", "tr": "Bu sunucuda tarayıcıda oynama ayarlanmamış."},
+ "reg_too_many": {"pl": "Z tego połączenia założono już zbyt wiele kont. Spróbuj ponownie później. ⏳", "en": "Too many accounts were created from this connection. Please try again later. ⏳",
+       "de": "Von dieser Verbindung aus wurden schon zu viele Konten erstellt. Versuch es später noch einmal. ⏳", "tr": "Bu bağlantıdan zaten çok fazla hesap açıldı. Daha sonra tekrar dene. ⏳"},
+ "reg_bad_user": {"pl": "Nazwa użytkownika musi mieć 4-16 liter lub cyfr, bez spacji. 🙂", "en": "The username must be 4-16 letters/numbers, no spaces. 🙂",
+       "de": "Der Benutzername muss 4-16 Buchstaben oder Ziffern haben, ohne Leerzeichen. 🙂", "tr": "Kullanıcı adı boşluksuz, 4-16 harf veya rakamdan oluşmalı. 🙂"},
+ "reg_bad_pw": {"pl": "Hasło musi mieć co najmniej 6 znaków. 🙂", "en": "The password must be at least 6 characters. 🙂",
+       "de": "Das Passwort muss mindestens 6 Zeichen haben. 🙂", "tr": "Şifre en az 6 karakter olmalı. 🙂"},
+ "reg_pw_mismatch": {"pl": "Hasła się różnią — spróbuj jeszcze raz. 🙂", "en": "The two passwords don't match — try again. 🙂",
+       "de": "Die Passwörter stimmen nicht überein — versuch es noch einmal. 🙂", "tr": "Şifreler birbirini tutmuyor — tekrar dene. 🙂"},
+ "reg_bad_social": {"pl": "Kod usuwania musi mieć dokładnie 7 cyfr (np. 1234567). 🙂", "en": "The delete code must be exactly 7 digits (e.g. 1234567). 🙂",
+       "de": "Der Löschcode muss genau 7 Ziffern haben (z. B. 1234567). 🙂", "tr": "Silme kodu tam olarak 7 rakamdan oluşmalı (örn. 1234567). 🙂"},
+ "reg_name_taken": {"pl": "Ta nazwa użytkownika jest już zajęta — wybierz inną. 🙂", "en": "That username is already taken — pick another one. 🙂",
+       "de": "Dieser Benutzername ist schon vergeben — wähle einen anderen. 🙂", "tr": "Bu kullanıcı adı zaten alınmış — başka bir tane seç. 🙂"},
+ "reg_failed": {"pl": "Nie udało się teraz założyć konta. Spróbuj ponownie za chwilę. 🙏", "en": "The account could not be created right now. Please try again in a bit. 🙏",
+       "de": "Das Konto konnte gerade nicht erstellt werden. Versuch es gleich noch einmal. 🙏", "tr": "Hesap şu an açılamadı. Birazdan tekrar dene. 🙏"},
+ "acc_wrong": {"pl": "Błędna nazwa użytkownika lub hasło. 🙂", "en": "Wrong username or password. 🙂",
+       "de": "Falscher Benutzername oder falsches Passwort. 🙂", "tr": "Kullanıcı adı veya şifre yanlış. 🙂"},
+ "acc_new_short": {"pl": "Nowe hasło musi mieć co najmniej 6 znaków. 🙂", "en": "The new password must be at least 6 characters. 🙂",
+       "de": "Das neue Passwort muss mindestens 6 Zeichen haben. 🙂", "tr": "Yeni şifre en az 6 karakter olmalı. 🙂"},
+ "acc_new_mismatch": {"pl": "Nowe hasła się różnią. 🙂", "en": "The two new passwords don't match. 🙂",
+       "de": "Die neuen Passwörter stimmen nicht überein. 🙂", "tr": "Yeni şifreler birbirini tutmuyor. 🙂"},
+ "acc_pw_changed": {"pl": "🔒 Hasło zostało zmienione! Przy następnym logowaniu do gry użyj nowego.", "en": "🔒 Your password was changed! Use the new one next time you log into the game.",
+       "de": "🔒 Dein Passwort wurde geändert! Benutze beim nächsten Einloggen ins Spiel das neue.", "tr": "🔒 Şifren değiştirildi! Oyuna bir sonraki girişinde yenisini kullan."},
+ "acc_pw_wrong": {"pl": "Obecne hasło jest błędne. 🙂", "en": "The current password is wrong. 🙂",
+       "de": "Das aktuelle Passwort ist falsch. 🙂", "tr": "Mevcut şifre yanlış. 🙂"},
+ "gold_1m": {"pl": "💰 1 milion", "en": "💰 1 Million",
+       "de": "💰 1 Million", "tr": "💰 1 milyon"},
+ "gold_10m": {"pl": "💰 10 milionów", "en": "💰 10 Million",
+       "de": "💰 10 Millionen", "tr": "💰 10 milyon"},
+ "gold_100m": {"pl": "💰 100 milionów", "en": "💰 100 Million",
+       "de": "💰 100 Millionen", "tr": "💰 100 milyon"},
+ "gold_1b": {"pl": "👑 1 miliard", "en": "👑 1 Billion",
+       "de": "👑 1 Milliarde", "tr": "👑 1 milyar"},
+ "win_inventory": {"pl": "ekwipunek", "en": "inventory",
+       "de": "Inventar", "tr": "envanter"},
+ "win_equipment": {"pl": "założone", "en": "equipped",
+       "de": "angelegt", "tr": "kuşanılmış"},
+ "win_safebox": {"pl": "magazyn", "en": "storage",
+       "de": "Lager", "tr": "depo"},
+ "win_mall": {"pl": "magazyn ItemShopu", "en": "item-shop storage",
+       "de": "ItemShop-Lager", "tr": "ItemShop deposu"},
+ "win_dragon_soul": {"pl": "kamienie smoka", "en": "dragon soul",
+       "de": "Drachensteine", "tr": "ejderha taşları"},
+ "win_belt": {"pl": "pas", "en": "belt",
+       "de": "Gürtel", "tr": "kemer"},
+ "win_offlineshop": {"pl": "sklep offline", "en": "offline shop",
+       "de": "Offline-Shop", "tr": "çevrimdışı dükkân"},
+ "se_char": {"pl": "Postać", "en": "Character",
+       "de": "Charakter", "tr": "Karakter"},
+ "se_people_note": {"pl": "👤 to postać gracza. Postaci GM-ów (common.gmlist) nie są liczone.", "en": "👤 marks a player's character. Game masters' characters (common.gmlist) are not counted.",
+       "de": "👤 kennzeichnet einen Spielercharakter. Charaktere von Spielleitern (common.gmlist) werden nicht gezählt.", "tr": "👤 bir oyuncu karakterini gösterir. Oyun yöneticilerinin karakterleri (common.gmlist) sayılmaz."},
+ "se_people_more": {"pl": "Gracze spoza pierwszej pięćdziesiątki", "en": "Players outside the top fifty",
+       "de": "Spieler außerhalb der Top 50", "tr": "İlk ellinin dışındaki oyuncular"},
 })
 
 CATS = ["all","weapon","armor","usable","ds","metin","special","other"]
@@ -4150,9 +4736,11 @@ def lang():
     Polish player on an English-language Windows landed on an English page:
     Chrome sends "en-US,en;q=0.9,pl;q=0.8" and best_match picks English. What
     they then saw was worse than either language on its own - "mam polowe
-    panelu po angielsku polowe po polsku" - because this panel is only half
-    translated: 446 strings go through t() and about 530 more are written in
-    Polish where they stand, so an English page is a Polish page with holes.
+    panelu po angielsku polowe po polsku" - because this panel was only half
+    translated then: 446 strings went through t() and about 530 more were
+    written in Polish where they stood. Since 28 September every text a page
+    shows is in all four languages - T, MAP_I18N, the label tables and
+    APPLY_TEXTS - and a new one belongs in one of them, not in a template.
 
     So Polish is the default and the browser is not consulted at all. The
     switch in the header is how anyone changes it, and that choice is now
@@ -4334,10 +4922,24 @@ MAX_FAIL, LOCK_SEC = 5, 900
 FAILS = {}
 
 JOB_EMOJI = {0:"⚔️",4:"⚔️",5:"🗡️",1:"🗡️",2:"🔮",6:"🔮",7:"🌀",3:"🌀",8:"🐺"}
-JOB_NAME  = {0:"Warrior",4:"Warrior",5:"Ninja",1:"Ninja",2:"Sura",6:"Sura",7:"Shaman",3:"Shaman",8:"Lycan"}
+# The class a job is (job % 4, the Lycan apart), in the page's language: the
+# dashboard's list printed "Warrior" on a Polish page.
+CLASS_NAMES = {
+    "pl": {0: "Wojownik", 1: "Ninja", 2: "Sura", 3: "Szaman", 8: "Lykan"},
+    "en": {0: "Warrior", 1: "Ninja", 2: "Sura", 3: "Shaman", 8: "Lycan"},
+    "de": {0: "Krieger", 1: "Ninja", 2: "Sura", 3: "Schamane", 8: "Lykaner"},
+    "tr": {0: "Savaşçı", 1: "Ninja", 2: "Sura", 3: "Şaman", 8: "Lycan"},
+}
 
-GOLD_PRESETS = [("💰 1 Million", 1_000_000), ("💰 10 Million", 10_000_000),
-                ("💰 100 Million", 100_000_000), ("👑 1 Billion", 1_000_000_000)]
+
+def class_name(job):
+    names = CLASS_NAMES.get(lang(), CLASS_NAMES["en"])
+    job = int(job or 0)
+    return names.get(job if job == 8 else job % 4, "")
+
+
+GOLD_PRESETS = [("gold_1m", 1_000_000), ("gold_10m", 10_000_000),
+                ("gold_100m", 100_000_000), ("gold_1b", 1_000_000_000)]
 WARP_LOC = [  # (emoji, {lang:name}, coords)
   ("🏯", {"en":"Shinsoo City","pl":"Miasto Shinsoo","de":"Shinsoo-Stadt","tr":"Shinsoo Şehri"}, "474300 954800"),
   ("🏮", {"en":"Chunjo City","pl":"Miasto Chunjo","de":"Chunjo-Stadt","tr":"Chunjo Şehri"}, "65900 155600"),
@@ -4356,10 +4958,10 @@ WARP_LOC = [  # (emoji, {lang:name}, coords)
   ("🧊", {"en":"Grotto of Exile","pl":"Grota Wygnańców","de":"Grotte der Verbannung","tr":"Sürgün Mağarası"}, "10000 1207800"),
 ]
 SPEED_LOC = [
-  ("🚶", {"en":"Normal (reset)","de":"Normal (zurücksetzen)","tr":"Normal (sıfırla)"}, 0),
-  ("🏃", {"en":"Fast (+30%)","de":"Schnell (+30%)","tr":"Hızlı (+30%)"}, 30),
-  ("💨", {"en":"Very Fast (+60%)","de":"Sehr schnell (+60%)","tr":"Çok Hızlı (+60%)"}, 60),
-  ("⚡", {"en":"Light Speed (+100%)","de":"Lichtgeschwindigkeit (+100%)","tr":"Işık Hızı (+100%)"}, 100),
+  ("🚶", {"en":"Normal (reset)","pl":"Normalnie (reset)","de":"Normal (zurücksetzen)","tr":"Normal (sıfırla)"}, 0),
+  ("🏃", {"en":"Fast (+30%)","pl":"Szybko (+30%)","de":"Schnell (+30%)","tr":"Hızlı (+30%)"}, 30),
+  ("💨", {"en":"Very Fast (+60%)","pl":"Bardzo szybko (+60%)","de":"Sehr schnell (+60%)","tr":"Çok Hızlı (+60%)"}, 60),
+  ("⚡", {"en":"Light Speed (+100%)","pl":"Prędkość światła (+100%)","de":"Lichtgeschwindigkeit (+100%)","tr":"Işık Hızı (+100%)"}, 100),
 ]
 # The game master ranks, in the order the game itself grades them. The strings
 # are not ours to choose: common.gmlist.mAuthority is an ENUM, and a value the
@@ -4371,15 +4973,19 @@ SPEED_LOC = [
 # everyday commands and not the ones that rewrite the world.
 GM_RANKS = [
   ("LOW_WIZARD",  {"en":"Helper — the everyday commands",
+                   "pl":"Pomocnik — codzienne komendy",
                    "de":"Helfer — die alltäglichen Befehle",
                    "tr":"Yardımcı — günlük komutlar"}),
   ("GOD",         {"en":"Game master — nearly everything",
+                   "pl":"Mistrz gry — prawie wszystko",
                    "de":"Spielleiter — fast alles",
                    "tr":"Oyun yöneticisi — neredeyse her şey"}),
   ("HIGH_WIZARD", {"en":"High game master",
+                   "pl":"Starszy mistrz gry",
                    "de":"Oberspielleiter",
                    "tr":"Üst oyun yöneticisi"}),
   ("IMPLEMENTOR", {"en":"Owner — every command there is",
+                   "pl":"Właściciel — każda istniejąca komenda",
                    "de":"Betreiber — jeder existierende Befehl",
                    "tr":"Sahip — var olan her komut"}),
 ]
@@ -4606,6 +5212,21 @@ def read_autohunt_mt2009():
             out["item" if name == "m2_autohunt_item" else "off"] = 1 if int(value or 0) > 0 else 0
     return out
 
+# The apprentice chest (Skrzynia Ucznia, the chain up to Skrzynia Arcymistrza),
+# one switch for the whole world, people and bots alike: the event flag
+# m2_starter_chest_off, which starter_chest.quest asks at a person's first
+# login, the seed at a bot's creation, and the cores for the bots in the world
+# (off, a bot keeps and opens none of the chain). The migrator applies .env's
+# M2_STARTER_CHEST only when it changed since the last start, so what this card
+# writes stays until the launcher's choice changes (the operator, 28 September:
+# "czemu wracaja u niektorych"). No row reads as on, as the quest reads it.
+def read_starter_chest_mt2009():
+    with db() as c, c.cursor() as cur:
+        cur.execute("SELECT lValue FROM player.quest WHERE dwPID=0 AND szName='m2_starter_chest_off' LIMIT 1")
+        row = cur.fetchone()
+    value = (row["lValue"] if isinstance(row, dict) else row[0]) if row else 0
+    return {"off": 1 if int(value or 0) > 0 else 0}
+
 def read_regen_mt2009():
     """The two flags as the page shows them (100 = normal), from player.quest."""
     out = {name: 100 for name in MT2009_REGEN_FLAGS}
@@ -4701,7 +5322,7 @@ def gm_reload_mt2009():
     return done
 
 def gold_presets_i18n():
-    return GOLD_PRESETS
+    return [(t(key), amount) for key, amount in GOLD_PRESETS]
 def warp_presets_i18n():
     lg = lang()
     return [("%s %s" % (e, n.get(lg, n["en"])), xy) for e, n, xy in WARP_LOC]
@@ -5200,7 +5821,7 @@ pre.cmd{padding:12px;border:1px solid var(--line);background:#131007;color:#cdc5
 {# The title is the way home, as it is on every other site. Worth having even
    where a logout link exists: from a player page it is one click instead of
    two, and on a local install it is the only route back. #}
-<div class="top"><h1 title="{{t('about_goal')}}"><a href="{{url_for('login')}}"><img src="/favicon.ico" alt="">{{brand}}</a> <a href="{{url_for('live_map')}}" style="font-size:14px;margin-left:14px;color:#e9b64b;text-decoration:none;font-weight:700;padding:3px 10px;background:rgba(233,182,75,0.12);border:1px solid rgba(233,182,75,0.3);border-radius:6px">🗺️ {{'Mapa na żywo' if curlang == 'pl' else 'Live map'}}</a></h1>
+<div class="top"><h1 title="{{t('about_goal')}}"><a href="{{url_for('login')}}"><img src="/favicon.ico" alt="">{{brand}}</a> <a href="{{url_for('live_map')}}" style="font-size:14px;margin-left:14px;color:#e9b64b;text-decoration:none;font-weight:700;padding:3px 10px;background:rgba(233,182,75,0.12);border:1px solid rgba(233,182,75,0.3);border-radius:6px">🗺️ {{t('se_back_map')}}</a></h1>
 <div>
 <span style="font-size:13px" title="{{t('tip_lang')}}">
 {% for code, name in langs.items() %}<a href="{{url_for('setlang', code=code)}}" title="{{name}}" style="margin:0 3px;{{'font-weight:700;text-decoration:underline' if code==curlang else 'opacity:.7'}}">{{code|upper}}</a>{% endfor %}
@@ -5360,7 +5981,7 @@ TPL_DL_LIMIT = BASE.replace("__BODY__", """
 <div style="font-size:48px">⏳</div>
 <h3>{{t('dl_limit_title')}}</h3>
 <p class="muted" style="font-size:15px">{{ t('dl_limit_all' if scope == 'all' else 'dl_limit').replace('{h}', wait_h|string) }}</p>
-<p><a href="{{url_for('login')}}">← Back</a></p></div>""")
+<p><a href="{{url_for('login')}}">{{t('acc_back')}}</a></p></div>""")
 
 TPL_RESET = BASE.replace("__BODY__", """
 <div class="card" style="max-width:420px;margin:40px auto;text-align:center">
@@ -5374,12 +5995,12 @@ TPL_RESET = BASE.replace("__BODY__", """
 <button class="big">{{t('reset_set_btn')}}</button></form>
 {% else %}
 <p class="muted">{{t('reset_bad_link')}}</p>
-<p><a href="{{url_for('login')}}">← Back</a></p>
+<p><a href="{{url_for('login')}}">{{t('acc_back')}}</a></p>
 {% endif %}
 </div>""")
 
 TPL_REGISTER = BASE.replace("__BODY__", """
-<p><a href="{{url_for('login')}}">← Back</a></p>
+<p><a href="{{url_for('login')}}">{{t('acc_back')}}</a></p>
 <div class="card" style="max-width:440px;margin:20px auto">
 <h3>📝 {{t('reg_title')}}</h3>
 <p class="muted">{{t('reg_hint')}}</p>
@@ -5698,7 +6319,7 @@ TPL_PLAYER = BASE.replace("__BODY__", """
 <h3>{{emoji(p.job)}} {{p.name}}</h3>
 <span class="badge">{{t('level')}} {{p.level}}</span>
 <span class="badge">💰 {{"{:,}".format(p.gold)}} yang</span>
-<span class="badge">🗺️ Map {{p.map_index}}</span>
+<span class="badge">🗺️ {{t('pl_map')}} {{p.map_index}}</span>
 </div>
 
 <div class="card"><h3 class="help" title="{{t('tip_send_item')}}">{{t('give_item')}}</h3>
@@ -5823,7 +6444,7 @@ TPL_PLAYER = BASE.replace("__BODY__", """
 {% else %}
 <div style="max-height:320px;overflow:auto">
 <table>
-{% for it in inv %}<tr><td>{{it.name}}</td><td class="muted">×{{it.count}}</td><td class="muted">{{it.window}}</td></tr>{% endfor %}
+{% for it in inv %}<tr><td>{{it.name}}</td><td class="muted">×{{it.count}}</td><td class="muted">{{ t(WINDOW_KEYS[it.window]) if it.window in WINDOW_KEYS else it.window }}</td></tr>{% endfor %}
 </table></div>
 {% endif %}</div>""")
 
@@ -5942,20 +6563,37 @@ regenLabel("regen_boss");regenLabel("regen_mob");
 <button class="big" style="margin-top:12px">{{t('ah_save')}}</button>
 </form></div>
 {% endif %}
+{% if starter_chest %}
+<div class="card">
+<form method="post" action="{{url_for('rates_starter_chest')}}">
+<input type="hidden" name="_csrf" value="{{csrf_token}}">
+<h3>🎒 {{t('sc_title')}}</h3>
+<p class="muted">{{t('sc_help')}}</p>
+<p><label><input type="radio" name="off" value="0"{% if not starter_chest.off %} checked{% endif %}> {{t('sc_on')}}</label></p>
+<p><label><input type="radio" name="off" value="1"{% if starter_chest.off %} checked{% endif %}> {{t('sc_off')}}</label></p>
+<button class="big" style="margin-top:12px">{{t('sc_save')}}</button>
+</form></div>
+{% endif %}
 {% if channels %}
 <div class="card">
 <form method="post" action="{{url_for('rates_channels')}}">
 <input type="hidden" name="_csrf" value="{{csrf_token}}">
 <h3>🔀 {{t('ch2_title')}}</h3>
 <p class="muted">{{t('ch2_help')}}</p>
-<p>{% if channels.on %}{{ t('ch2_now_on').replace('{share}', channels.share|string) }}{% else %}{{t('ch2_now_off')}}{% endif %}</p>
-{% if channels.on and not channels.ports_open %}<p class="muted">⚠️ {{t('ch2_ports')}}</p>{% endif %}
+<p>{{ channels.now }}</p>
+{% if channels.channels > 1 and not channels.ports_open %}<p class="muted">⚠️ {{ t('ch2_ports').replace('{end}', channels.ports_end|string) }}</p>{% endif %}
 {% if channels.pending %}<p class="muted">🕓 {{ t('ch2_pending').replace('{what}', channels.pending) }}</p>{% endif %}
-<label><input type="checkbox" name="ch2" value="1"{% if channels.want_on %} checked{% endif %}> {{t('ch2_enable')}}</label>
+<h3 style="margin-top:12px">{{t('ch_count')}}</h3>
+<select name="channels">
+{% for n in channels.channel_choices %}<option value="{{n}}"{% if channels.want_channels == n %} selected{% endif %}>{{ t('ch_opt' ~ n) }}</option>{% endfor %}
+</select>
 <h3 style="margin-top:12px">{{t('ch2_share')}}</h3>
 <select name="share">
 {% for p in channels.choices %}<option value="{{p}}"{% if channels.want_share == p %} selected{% endif %}>{{p}}%</option>{% endfor %}
 </select>
+<h3 style="margin-top:12px">{{t('ch_fresh')}}</h3>
+<input type="number" name="fresh_count" min="0" max="{{channels.fresh_max}}" value="{{channels.want_fresh_count}}">
+<p class="muted">{{t('ch_ram')}}</p>
 <button class="big" style="margin-top:18px">{{t('ch2_save')}}</button>
 </form></div>
 {% endif %}""")
@@ -5992,28 +6630,36 @@ TPL_SEASON = BASE.replace("__BODY__", """
 </div>
 
 <div class="card">
-<h3>{{t('se_nav')}} &mdash; {{s.days}} dni</h3>
+<h3>{{t('se_nav')}} &mdash; {{t('se_days').format(n=s.days)}}</h3>
 {% if not s.rows %}
 <p class="muted">{{t('se_empty')}}</p>
 {% else %}
-<div style="overflow-x:auto">
-<table style="width:100%;border-collapse:collapse">
-<tr style="text-align:left">
-  <th>#</th><th>{{t('se_bot')}}</th><th>{{t('se_score')}}</th>
-  <th>{{t('se_metins')}}</th><th>{{t('se_bosses')}}</th><th>{{t('se_refines')}}</th>
-  <th>{{t('se_deaths')}}</th><th>{{t('se_level')}}</th><th>{{t('se_horse')}}</th>
-</tr>
-{% for r in s.rows %}
-<tr style="border-top:1px solid rgba(128,128,128,.25)">
-  <td class="muted">{{loop.index}}</td>
-  <td><b>{{r.name}}</b></td>
+{% if s.people %}<p class="muted">{{t('se_people_note')}}</p>{% endif %}
+{# A person's line is tinted and carries the mark, so it is found in a table of
+   bots at a glance; the ones below the fifty follow at their own places. #}
+{% macro season_row(r) %}
+<tr style="border-top:1px solid rgba(128,128,128,.25){% if not r.is_bot %};background:rgba(239,68,68,.10){% endif %}">
+  <td class="muted">{{r.place}}</td>
+  <td>{% if not r.is_bot %}<span title="{{t('se_char')}}">👤</span> {% endif %}<b>{{r.name}}</b></td>
   <td><b>{{r.score}}</b></td>
   <td>{{r.metins}}</td><td>{{r.bosses}}</td><td>{{r.refines}}</td>
   <td class="muted">{{r.deaths}}</td>
   <td class="muted">{{r.level}}</td>
   <td class="muted">{{r.horse}}</td>
 </tr>
-{% endfor %}
+{% endmacro %}
+<div style="overflow-x:auto">
+<table style="width:100%;border-collapse:collapse">
+<tr style="text-align:left">
+  <th>#</th><th>{{t('se_char')}}</th><th>{{t('se_score')}}</th>
+  <th>{{t('se_metins')}}</th><th>{{t('se_bosses')}}</th><th>{{t('se_refines')}}</th>
+  <th>{{t('se_deaths')}}</th><th>{{t('se_level')}}</th><th>{{t('se_horse')}}</th>
+</tr>
+{% for r in s.rows %}{{ season_row(r) }}{% endfor %}
+{% if s.people_below %}
+<tr><td colspan="9" class="muted" style="padding-top:14px">{{t('se_people_more')}}</td></tr>
+{% for r in s.people_below %}{{ season_row(r) }}{% endfor %}
+{% endif %}
 </table>
 </div>
 {% endif %}
@@ -6140,7 +6786,7 @@ TPL_GUILDS = BASE.replace("__BODY__", """
 <h3>{{t('gl_summary')}}{% if guilds %}: {{guilds|length}}
   {% for key in tier_keys %}{% set n = guilds|selectattr('tier_key', 'equalto', key)|list|length %}{% if n %}<span class="badge">{{t(key)}}: {{n}}</span> {% endif %}{% endfor %}{% endif %}</h3>
 {% if not guilds %}<p class="muted">{{t('gl_stale')}}</p>{% else %}
-{% if next_wars %}<p>\u2694 {{t('gl_next_war')}}: {% for key, s in next_wars %}<b>{{t(key)}}</b>: {% if s == 0 %}{{t('gl_next_war_now')}}{% elif s < 0 %}{{t('gl_next_war_off')}}{% else %}{{t('gl_next_war_in')}} {{(s // 60) + 1}} min{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+{% if next_wars %}<p>\u2694 {{t('gl_next_war')}}: {% for key, s in next_wars %}<b>{{t(key)}}</b>: {% if s == 0 %}{{t('gl_next_war_now')}}{% elif s < 0 %}{{t('gl_next_war_off')}}{% else %}{{t('gl_next_war_in')}} {{(s // 60) + 1}} {{t('unit_min')}}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
 <div style="overflow-x:auto">
 <table>
 <tr><th>{{t('gl_col_name')}}</th><th>{{t('gl_col_kingdom')}}</th><th>{{t('gl_col_tier')}}</th>
@@ -6161,6 +6807,31 @@ TPL_GUILDS = BASE.replace("__BODY__", """
   <td>{{g.wins}}/{{g.draws}}/{{g.losses}}</td>
   <td>{{g.exp_offered}}</td>
   <td>{% if g.war_with %}\u2694 {{t('gl_war_with')}} <b>{{g.war_with}}</b> {{g.war_score}}:{{g.war_enemy_score}}{% endif %}{% if g.tower_raid %} \u26e9 {{t('gl_tower')}}{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endif %}
+</div>
+
+<div class="card">
+<h3>{{t('gl_players')}}{% if player_guilds %}: {{player_guilds|length}}{% endif %}</h3>
+<p class="muted">{{t('gl_players_note')}}</p>
+{% if not player_guilds %}<p class="muted">{{t('gl_players_none')}}</p>{% else %}
+<div style="overflow-x:auto">
+<table>
+<tr><th>{{t('gl_col_name')}}</th><th>{{t('gl_col_kingdom')}}</th><th>{{t('gl_col_level')}}</th>
+    <th>{{t('gl_col_members')}}</th><th>{{t('gl_col_master')}}</th><th>{{t('gl_col_ladder')}}</th>
+    <th>{{t('gl_col_record')}}</th></tr>
+{% for g in player_guilds %}
+<tr>
+  <td><b>{{g.name}}</b></td>
+  <td>{{t(g.empire_key)}}</td>
+  <td>{{g.level}}</td>
+  <td>{{g.members}}</td>
+  <td>{{g.master}}</td>
+  <td>{{g.ladder}}</td>
+  <td>{{g.wins}}/{{g.draws}}/{{g.losses}}</td>
 </tr>
 {% endfor %}
 </table>
@@ -6359,7 +7030,7 @@ TPL_AI_ITEMS = BASE.replace("__BODY__", """
 <form method="post">
 <input type="hidden" name="_csrf" value="{{csrf_token}}">
 <textarea name="policy" rows="18" spellcheck="false" style="width:100%;font-family:monospace;font-size:13px"
-          placeholder="30048	stall	# Kawalek Lodu&#10;type:19	stall	# marmury polimorfii&#10;50703	drop	# Kwiat Kaki">{{policy}}</textarea>
+          placeholder="{{t('ai_items_example')}}">{{policy}}</textarea>
 <button class="big" style="margin-top:10px">{{t('ai_save')}}</button>
 </form></div>""")
 
@@ -6385,7 +7056,18 @@ MAP_I18N = {
   "copied":"Skopiowano","paste":"wklej w grze [Enter] → Ctrl+V → [Enter]","solo_exp":"Solo — zdobywanie doświadczenia","party_exp":"[PT] Zdobywanie doświadczenia w grupie","metin_hunt":"Polowanie na Metiny",
   "character_missing":"Postać nie znaleziona","bio_next":"Następna misja od Lv {level}: {name}","bio_key":"{name}{sep}{have}/{need}, czeka na: {key}",
   "bio_all":"Wszystkie podstawowe misje ukończone","bio_complete":"komplet","bio_done":"ukończone","bio_skipped":"za niskie dla bota, pominięte: {n}","bio_dropper":"nie dotyczy — dropper nie robi Biologa",
-  "bio_rank_now":"{done}/{total} ukończone • teraz: {stage}","bio_rank_next":"{done}/{total} ukończone • {stage}"
+  "bio_rank_now":"{done}/{total} ukończone • teraz: {stage}","bio_rank_next":"{done}/{total} ukończone • {stage}",
+  "rankings_all":"Rankingi","people_only":"Tylko gracze","people_only_hint":"Same postacie ludzi, bez botów, ponumerowane między sobą.",
+  "person_mark":"Postać gracza","ranking_people_note":"👤 postać gracza · postaci GM-ów nie są liczone",
+  "rank_avg_short":"ŚR","rank_skill_short":"UM","bag":"Plecak","weapon30_one":"Broń 30 Lv",
+  "tt_req_level":"Wymagany Poziom","tt_attack":"Wartość Ataku","tt_magic_attack":"Wartość Magicznego Ataku",
+  "tt_attack_speed":"Szybkość Ataku","tt_defense":"Obrona","tt_move_speed":"Szybkość Ruchu",
+  "tt_broken_stone":"Pęknięty Kamień","tt_empty_socket":"Czysty Slot","tt_soul_stone":"Kamień Duszy",
+  "item_n":"Przedmiot #{n}","bot_badge":"BOT","exp_hold":"blokada expa na {n} lvl",
+  "hunt_done_through":"Ukończone do Lv {n}","hunt_not_started":"Jeszcze nierozpoczęte",
+  "gh_sold_for":"{count} za {price} yang","gh_instead":"zamiast {item}","gh_paid":"za {price} yang","gh_from":"od {seller}",
+  "warp_player_offline":"Żadna postać gracza nie jest teraz w grze.","warp_no_human":"Nie ma postaci gracza, którą można przenieść.",
+  "warp_timeout":"Gra nie odpowiedziała na czas."
  },
  "en": {
   "title":"Live world map — Chunjo","live":"LIVE (1.5 s)","subtitle":"Interactive real-time view of bot positions and progression",
@@ -6406,9 +7088,667 @@ MAP_I18N = {
   "copied":"Copied","paste":"paste in game [Enter] → Ctrl+V → [Enter]","solo_exp":"Solo levelling","party_exp":"[PT] Party levelling","metin_hunt":"Hunting Metins",
   "character_missing":"Character not found","bio_next":"Next mission at Lv {level}: {name}","bio_key":"{name}{sep}{have}/{need}, waiting for: {key}",
   "bio_all":"All basic missions completed","bio_complete":"complete","bio_done":"done","bio_skipped":"outgrown, skipped: {n}","bio_dropper":"does not apply — a dropper does not do the Biologist",
-  "bio_rank_now":"{done}/{total} done • now: {stage}","bio_rank_next":"{done}/{total} done • {stage}"
+  "bio_rank_now":"{done}/{total} done • now: {stage}","bio_rank_next":"{done}/{total} done • {stage}",
+  "rankings_all":"Rankings","people_only":"Players only","people_only_hint":"People's characters only, without the bots, numbered among themselves.",
+  "person_mark":"A player's character","ranking_people_note":"👤 a player's character · game masters' characters are not counted",
+  "rank_avg_short":"AVG","rank_skill_short":"SKILL","bag":"Bag","weapon30_one":"Lv 30 weapon",
+  "tt_req_level":"Required Level","tt_attack":"Attack Value","tt_magic_attack":"Magic Attack Value",
+  "tt_attack_speed":"Attack Speed","tt_defense":"Defence","tt_move_speed":"Movement Speed",
+  "tt_broken_stone":"Broken Stone","tt_empty_socket":"Empty Socket","tt_soul_stone":"Spirit Stone",
+  "item_n":"Item #{n}","bot_badge":"BOT","exp_hold":"exp held at level {n}",
+  "hunt_done_through":"Completed through Lv {n}","hunt_not_started":"Not started yet",
+  "gh_sold_for":"{count} for {price} yang","gh_instead":"instead of {item}","gh_paid":"for {price} yang","gh_from":"from {seller}",
+  "warp_player_offline":"None of the players' characters is in the game right now.","warp_no_human":"There is no player's character to move.",
+  "warp_timeout":"The game did not answer in time."
+ },
+ "de": {
+  "title": "Live-Weltkarte — Chunjo",
+  "live": "LIVE (1,5 s)",
+  "subtitle": "Interaktive Echtzeit-Ansicht der Positionen und des Fortschritts der Bots",
+  "player_panel": "Spieler-Panel",
+  "play_browser": "Im Browser spielen",
+  "show_bots": "Bots anzeigen",
+  "names_levels": "Namen und Level",
+  "pt_only": "Nur in Gruppe (PT)",
+  "level": "Level",
+  "all": "Alle",
+  "map": "Karte",
+  "m1": "M1 — Joan (Chunjo)",
+  "m2": "M2 — Bokjung (Chunjo)",
+  "m3": "Gildenland Chunjo",
+  "s1": "M1 — Yongan (Shinsoo)",
+  "s2": "M2 — Jayang (Shinsoo)",
+  "s3": "Gildenland Shinsoo",
+  "smonkey": "Affendungeon Shinsoo",
+  "j1": "M1 — Pyongmoo (Jinno)",
+  "j2": "M2 — Bakra (Jinno)",
+  "j3": "Gildenland Jinno",
+  "jmonkey": "Affendungeon Jinno",
+  "monkey": "Affendungeon (leicht)",
+  "monkey_medium": "Affendungeon (mittel)",
+  "monkey_hard": "Affendungeon (schwer)",
+  "orc": "Orktal",
+  "desert": "Yongbi-Wüste",
+  "sohan": "Berg Sohan",
+  "spider": "Spinnendungeon V1",
+  "spider_v2": "Spinnendungeon V2",
+  "hwang": "Hwang-Tempel",
+  "forest": "Wald",
+  "red_forest": "Roter Wald",
+  "demon_tower": "Dämonenturm",
+  "fire_land": "Doyyumhwaji (Feuerland)",
+  "grotto": "Grotte der Verbannung V1",
+  "grotto2": "Grotte der Verbannung V2",
+  "heat": "Heatmap",
+  "heat_deaths": "Bot-Tode",
+  "heat_metins": "Zerstörte Metins",
+  "heat_skills": "Fertigkeitsaufstiege",
+  "search": "🔍 Bot suchen (z. B. botarek)...",
+  "solo_bot": "Solo-Bot",
+  "party_bot": "In Gruppe (PT)",
+  "metin_fight": "Kampf gegen Metinstein",
+  "loading": "Wird geladen...",
+  "world_stats": "Weltstatistiken",
+  "active_bots": "Aktive Bots",
+  "in_parties": "In Gruppen (PT)",
+  "avg_level": "Durchschnittslevel",
+  "max_level": "Max. Level",
+  "rankings": "Bot-Ranglisten",
+  "rank_level": "Level",
+  "rank_weapon": "Waffe",
+  "rank_armor": "Rüstung",
+  "rank_weapon30": "Waffen Lv 30",
+  "rank_items": "Gegenstände",
+  "rank_horse": "Pferd",
+  "rank_biologist": "Biologe",
+  "rank_hunting": "Jagd",
+  "rank_shops": "Offene Shops",
+  "rank_skills": "Fertigkeiten",
+  "rank_plus9": "Gegenstand +9",
+  "rank_stall_open": "Stand offen",
+  "rank_empty": "Keine Ranglistendaten.",
+  "rank_show": "Anzeigen",
+  "rank_search": "In der Rangliste suchen...",
+  "none": "Keine",
+  "items_short": "Gegenst.",
+  "horse_lv": "Pferd Lv",
+  "visible": "Sichtbar",
+  "characters": "Charaktere",
+  "in_group": "In Gruppe [PT]",
+  "solo": "Solo",
+  "player": "SPIELER",
+  "bot": "Bot",
+  "class": "Klasse",
+  "action": "Aktion",
+  "status": "Status",
+  "personality": "Persönlichkeit",
+  "mood": "Stimmung",
+  "charakter": "Charakter",
+  "ambition": "Ambition",
+  "current_goal": "Aktuelles Ziel",
+  "coordinates": "Koordinaten",
+  "open_inventory": "Klicke, um Inventar und EQ zu öffnen",
+  "loading_character": "Ausrüstung und Statuswerte des Charakters werden geladen",
+  "error": "Fehler",
+  "not_found": "Keine Daten gefunden",
+  "teleport_me": "Meinen Charakter im Spiel teleportieren (1 Klick)",
+  "position": "Position",
+  "horse": "Pferd",
+  "biologist": "Biologe",
+  "bio_stage": "Biologen-Stufe",
+  "hunting": "Jagd",
+  "no_data": "Keine Daten",
+  "stats": "Statuswerte",
+  "unspent_stats": "Nicht verteilt: {n} Statuspunkte",
+  "skills": "Fertigkeiten",
+  "profession_none": "Nicht gewählt",
+  "profession_pending": "Die Lehre wurde noch nicht gewählt.",
+  "depot": "Lager",
+  "depot_empty": "Das Lager ist leer.",
+  "shop": "Shop",
+  "shop_none": "Dieser Bot hat keinen offenen Shop.",
+  "shop_empty": "Der Shop ist leer.",
+  "shop_price": "Preis",
+  "shop_premium": "premium",
+  "shop_expired": "abgelaufen — niemand kann dort kaufen, bis der Bot ihn verlängert",
+  "unspent_skills": "Nicht verteilt: {n} Fertigkeitspunkte",
+  "equipped": "Angelegte Ausrüstung (EQ)",
+  "weapon": "Waffe",
+  "armor": "Rüstung",
+  "helmet": "Helm",
+  "shield": "Schild",
+  "bracelet": "Armband",
+  "boots": "Schuhe",
+  "necklace": "Halskette",
+  "earrings": "Ohrringe",
+  "empty": "Leer",
+  "inventory": "Inventarinhalt",
+  "items_count": "Gegenstände",
+  "inventory_empty": "Das Inventar ist leer.",
+  "quantity": "Anzahl",
+  "gear_history": "Ausrüstungsverlauf",
+  "gear_history_hint": "Handel, Boni und Verbesserung in eigenen Tabs — aus log.log und dem Protokoll der Offline-Shops",
+  "gear_history_loading": "Verlauf wird geladen...",
+  "gear_history_empty": "Keine Einträge in diesem Tab.",
+  "gear_history_more": "Ältere anzeigen",
+  "gear_tab_trade": "Handel",
+  "gear_tab_bonus": "Boni",
+  "gear_tab_refine": "Verbesserung",
+  "gear_tab_other": "Sonstiges",
+  "gear_tab_all": "Alles",
+  "event_log": "Ereignisprotokoll des Bots (Live-Logs)",
+  "track_live": "Live verfolgen",
+  "copy_logs": "Logs kopieren",
+  "loading_logs": "Lade Logs von",
+  "no_logs": "Keine aktuellen Log-Einträge für diesen Charakter.",
+  "log_error": "Fehler beim Lesen der Logs",
+  "network_error": "Netzwerkfehler",
+  "teleporting": "Dein Charakter im Spiel wird teleportiert...",
+  "teleported": "{name} wurde im Spiel zum Bot teleportiert!",
+  "you": "Dein Charakter",
+  "failure": "Fehlgeschlagen",
+  "copied": "Kopiert",
+  "paste": "im Spiel einfügen: [Enter] → Strg+V → [Enter]",
+  "solo_exp": "Solo — Erfahrung sammeln",
+  "party_exp": "[PT] In der Gruppe Erfahrung sammeln",
+  "metin_hunt": "Jagd auf Metinsteine",
+  "character_missing": "Charakter nicht gefunden",
+  "bio_next": "Nächste Mission ab Lv {level}: {name}",
+  "bio_key": "{name}{sep}{have}/{need}, wartet auf: {key}",
+  "bio_all": "Alle Grundmissionen abgeschlossen",
+  "bio_complete": "komplett",
+  "bio_done": "erledigt",
+  "bio_skipped": "zu niedrig für den Bot, übersprungen: {n}",
+  "bio_dropper": "entfällt — ein Dropper macht den Biologen nicht",
+  "bio_rank_now": "{done}/{total} erledigt • jetzt: {stage}",
+  "bio_rank_next": "{done}/{total} erledigt • {stage}",
+  "rankings_all": "Ranglisten",
+  "people_only": "Nur Spieler",
+  "people_only_hint": "Nur die Charaktere echter Spieler, ohne Bots, untereinander durchnummeriert.",
+  "person_mark": "Spielercharakter",
+  "ranking_people_note": "👤 Spielercharakter · Charaktere von Spielleitern werden nicht gezählt",
+  "rank_avg_short": "Durchschn.",
+  "rank_skill_short": "Fertigk.",
+  "bag": "Inventar",
+  "weapon30_one": "Waffe Lv 30",
+  "tt_req_level": "Benötigtes Level",
+  "tt_attack": "Angriffswert",
+  "tt_magic_attack": "Magischer Angriffswert",
+  "tt_attack_speed": "Angriffsgeschwindigkeit",
+  "tt_defense": "Verteidigung",
+  "tt_move_speed": "Bewegungsgeschwindigkeit",
+  "tt_broken_stone": "Zerbrochener Stein",
+  "tt_empty_socket": "Leerer Slot",
+  "tt_soul_stone": "Geiststein",
+  "item_n": "Gegenstand #{n}",
+  "bot_badge": "BOT",
+  "exp_hold": "EXP gesperrt bei Level {n}",
+  "hunt_done_through": "Abgeschlossen bis Lv {n}",
+  "hunt_not_started": "Noch nicht begonnen",
+  "gh_sold_for": "{count} für {price} Yang",
+  "gh_instead": "statt {item}",
+  "gh_paid": "für {price} Yang",
+  "gh_from": "von {seller}",
+  "warp_player_offline": "Gerade ist kein Spielercharakter im Spiel.",
+  "warp_no_human": "Es gibt keinen Spielercharakter, den man teleportieren kann.",
+  "warp_timeout": "Das Spiel hat nicht rechtzeitig geantwortet."
+ },
+ "tr": {
+  "title": "Canlı dünya haritası — Chunjo",
+  "live": "CANLI (1,5 s)",
+  "subtitle": "Botların konumunu ve gelişimini gerçek zamanlı gösteren etkileşimli görünüm",
+  "player_panel": "Oyuncu paneli",
+  "play_browser": "Tarayıcıda oyna",
+  "show_bots": "Botları göster",
+  "names_levels": "İsimler ve seviyeler",
+  "pt_only": "Sadece grupta (PT)",
+  "level": "Seviye",
+  "all": "Tümü",
+  "map": "Harita",
+  "m1": "M1 — Joan (Chunjo)",
+  "m2": "M2 — Bokjung (Chunjo)",
+  "m3": "Chunjo Lonca Toprağı",
+  "s1": "M1 — Yongan (Shinsoo)",
+  "s2": "M2 — Jayang (Shinsoo)",
+  "s3": "Shinsoo Lonca Toprağı",
+  "smonkey": "Shinsoo Maymun Zindanı",
+  "j1": "M1 — Pyongmoo (Jinno)",
+  "j2": "M2 — Bakra (Jinno)",
+  "j3": "Jinno Lonca Toprağı",
+  "jmonkey": "Jinno Maymun Zindanı",
+  "monkey": "Kolay Maymun Zindanı",
+  "monkey_medium": "Orta Maymun Zindanı",
+  "monkey_hard": "Zor Maymun Zindanı",
+  "orc": "Ork Vadisi",
+  "desert": "Yongbi Çölü",
+  "sohan": "Sohan Dağı",
+  "spider": "Örümcek Zindanı V1",
+  "spider_v2": "Örümcek Zindanı V2",
+  "hwang": "Hwang Tapınağı",
+  "forest": "Orman",
+  "red_forest": "Kızıl Orman",
+  "demon_tower": "Şeytan Kulesi",
+  "fire_land": "Doyyumhwaji (Ateş Ülkesi)",
+  "grotto": "Sürgün Mağarası V1",
+  "grotto2": "Sürgün Mağarası V2",
+  "heat": "Isı haritası",
+  "heat_deaths": "Bot ölümleri",
+  "heat_metins": "Kırılan Metinler",
+  "heat_skills": "Beceri artışları",
+  "search": "🔍 Bot ara (örn. botarek)...",
+  "solo_bot": "Solo bot",
+  "party_bot": "Grupta (PT)",
+  "metin_fight": "Metin Taşı ile savaş",
+  "loading": "Yükleniyor...",
+  "world_stats": "Dünya istatistikleri",
+  "active_bots": "Aktif botlar",
+  "in_parties": "Gruplarda (PT)",
+  "avg_level": "Ortalama seviye",
+  "max_level": "Maks. seviye",
+  "rankings": "Bot sıralamaları",
+  "rank_level": "Seviye",
+  "rank_weapon": "Silah",
+  "rank_armor": "Zırh",
+  "rank_weapon30": "Lv 30 Silahlar",
+  "rank_items": "Eşyalar",
+  "rank_horse": "At",
+  "rank_biologist": "Biyolog",
+  "rank_hunting": "Av",
+  "rank_shops": "Açık dükkânlar",
+  "rank_skills": "Beceriler",
+  "rank_plus9": "+9 Eşya",
+  "rank_stall_open": "Tezgâh açık",
+  "rank_empty": "Sıralama verisi yok.",
+  "rank_show": "Göster",
+  "rank_search": "Sıralamada ara...",
+  "none": "Yok",
+  "items_short": "eşya",
+  "horse_lv": "At Lv",
+  "visible": "Görünen",
+  "characters": "karakter",
+  "in_group": "Grupta [PT]",
+  "solo": "Solo",
+  "player": "OYUNCU",
+  "bot": "Bot",
+  "class": "Sınıf",
+  "action": "Eylem",
+  "status": "Durum",
+  "personality": "Kişilik",
+  "mood": "Ruh hâli",
+  "charakter": "Karakter",
+  "ambition": "Hırs",
+  "current_goal": "Mevcut hedef",
+  "coordinates": "Koordinatlar",
+  "open_inventory": "Envanteri ve EQ'yu açmak için tıkla",
+  "loading_character": "Karakterin ekipmanı ve istatistikleri yükleniyor",
+  "error": "Hata",
+  "not_found": "Veri bulunamadı",
+  "teleport_me": "Oyundaki karakterimi ışınla (1 tık)",
+  "position": "Konum",
+  "horse": "At",
+  "biologist": "Biyolog",
+  "bio_stage": "Biyolog aşaması",
+  "hunting": "Av",
+  "no_data": "Veri yok",
+  "stats": "İstatistikler",
+  "unspent_stats": "Dağıtılmamış: {n} stat puanı",
+  "skills": "Beceriler",
+  "profession_none": "Seçilmedi",
+  "profession_pending": "Beceri grubu henüz seçilmedi.",
+  "depot": "Depo",
+  "depot_empty": "Depo boş.",
+  "shop": "Dükkân",
+  "shop_none": "Bu botun açık dükkânı yok.",
+  "shop_empty": "Tezgâh boş.",
+  "shop_price": "Fiyat",
+  "shop_premium": "premium",
+  "shop_expired": "süresi doldu — bot yenileyene kadar kimse buradan alışveriş yapamaz",
+  "unspent_skills": "Dağıtılmamış: {n} beceri puanı",
+  "equipped": "Takılı ekipman (EQ)",
+  "weapon": "Silah",
+  "armor": "Zırh",
+  "helmet": "Kask",
+  "shield": "Kalkan",
+  "bracelet": "Bilezik",
+  "boots": "Ayakkabı",
+  "necklace": "Kolye",
+  "earrings": "Küpe",
+  "empty": "Boş",
+  "inventory": "Envanter içeriği",
+  "items_count": "eşya",
+  "inventory_empty": "Envanter boş.",
+  "quantity": "Adet",
+  "gear_history": "Ekipman geçmişi",
+  "gear_history_hint": "Ticaret, bonuslar ve yükseltme ayrı sekmelerde — log.log ve çevrimdışı dükkân günlüğünden",
+  "gear_history_loading": "Geçmiş yükleniyor...",
+  "gear_history_empty": "Bu sekmede kayıt yok.",
+  "gear_history_more": "Daha eskileri göster",
+  "gear_tab_trade": "Ticaret",
+  "gear_tab_bonus": "Bonuslar",
+  "gear_tab_refine": "Yükseltme",
+  "gear_tab_other": "Diğer",
+  "gear_tab_all": "Tümü",
+  "event_log": "Bot olay günlüğü (canlı loglar)",
+  "track_live": "Canlı takip et",
+  "copy_logs": "Logları kopyala",
+  "loading_logs": "Karakter logları yükleniyor:",
+  "no_logs": "Bu karakter için yeni log kaydı yok.",
+  "log_error": "Log okuma hatası",
+  "network_error": "Ağ hatası",
+  "teleporting": "Oyundaki karakterin ışınlanıyor...",
+  "teleported": "{name} oyunda botun yanına ışınlandı!",
+  "you": "Karakterin",
+  "failure": "Başarısız",
+  "copied": "Kopyalandı",
+  "paste": "oyunda yapıştır: [Enter] → Ctrl+V → [Enter]",
+  "solo_exp": "Solo — tecrübe kazanma",
+  "party_exp": "[PT] Grupta tecrübe kazanma",
+  "metin_hunt": "Metin Taşı avı",
+  "character_missing": "Karakter bulunamadı",
+  "bio_next": "Sıradaki görev Lv {level} itibarıyla: {name}",
+  "bio_key": "{name}{sep}{have}/{need}, beklenen: {key}",
+  "bio_all": "Tüm temel görevler tamamlandı",
+  "bio_complete": "tamam",
+  "bio_done": "tamamlandı",
+  "bio_skipped": "bot için fazla düşük, atlanan: {n}",
+  "bio_dropper": "geçerli değil — dropper Biyolog görevlerini yapmaz",
+  "bio_rank_now": "{done}/{total} tamamlandı • şimdi: {stage}",
+  "bio_rank_next": "{done}/{total} tamamlandı • {stage}",
+  "rankings_all": "Sıralamalar",
+  "people_only": "Yalnızca oyuncular",
+  "people_only_hint": "Yalnızca gerçek oyuncuların karakterleri, botlar hariç, kendi aralarında numaralandırılmış.",
+  "person_mark": "Oyuncu karakteri",
+  "ranking_people_note": "👤 oyuncu karakteri · oyun yöneticilerinin karakterleri sayılmaz",
+  "rank_avg_short": "Ort.",
+  "rank_skill_short": "Beceri",
+  "bag": "Çanta",
+  "weapon30_one": "Lv 30 silah",
+  "tt_req_level": "Gerekli Seviye",
+  "tt_attack": "Saldırı Değeri",
+  "tt_magic_attack": "Büyü Saldırı Değeri",
+  "tt_attack_speed": "Saldırı Hızı",
+  "tt_defense": "Savunma",
+  "tt_move_speed": "Hareket Hızı",
+  "tt_broken_stone": "Kırık Taş",
+  "tt_empty_socket": "Boş Yuva",
+  "tt_soul_stone": "Ruh Taşı",
+  "item_n": "Eşya #{n}",
+  "bot_badge": "BOT",
+  "exp_hold": "EXP {n}. seviyede kilitli",
+  "hunt_done_through": "Lv {n} dahil tamamlandı",
+  "hunt_not_started": "Henüz başlanmadı",
+  "gh_sold_for": "{count} adet, {price} yang karşılığında",
+  "gh_instead": "{item} yerine",
+  "gh_paid": "{price} yang karşılığında",
+  "gh_from": "satıcı: {seller}",
+  "warp_player_offline": "Şu anda oyunda hiçbir oyuncu karakteri yok.",
+  "warp_no_human": "Işınlanabilecek bir oyuncu karakteri yok.",
+  "warp_timeout": "Oyun zamanında yanıt vermedi."
  }
 }
+
+
+# Every bonus line the engine can roll, in the wording the game itself uses.
+# Polish and English were generated from three sources that have to agree:
+# the server's EApplyTypes enum fixes the numbers, the client's AFFECT_DICT
+# maps each number to a locale key, and the client's locale_game.txt holds the
+# text - the table that replaced a hand-made one with 71 and 72 the wrong way
+# round, the two post-kill recovery chances as plain numbers and no entry for
+# 87-91 ("Bonus #89"). German and Turkish (28 September) follow the German and
+# Turkish clients' wording where it is known, with the same placeholder.
+#
+# The text keeps the client's own placeholder, and that is what says how to
+# print the value: %d%% is a percentage, %d a plain number, %.1f a multiplier,
+# and no placeholder at all means the client shows the line with no number
+# after it. Ids the client has no text for are absent on purpose. The mt2009
+# engine numbers these lines as POINT_*; the live map puts a type through
+# POINT_TO_APPLY before it looks here. Only the page's own language goes into
+# the page (apply_meta_for), so an English page carries no Polish.
+APPLY_TEXTS = {
+ 1: ("flat", {"pl": "Max PŻ: +%d", "en": "Max. HP +%d",
+         "de": "Max. TP +%d", "tr": "Max. HP +%d"}),
+ 2: ("flat", {"pl": "Max PE: +%d", "en": "Max. SP +%d",
+         "de": "Max. MP +%d", "tr": "Max. SP +%d"}),
+ 3: ("flat", {"pl": "Witalność +%d", "en": "Vitality +%d",
+         "de": "Vitalität +%d", "tr": "Canlılık +%d"}),
+ 4: ("flat", {"pl": "Inteligencja +%d", "en": "Intelligence +%d",
+         "de": "Intelligenz +%d", "tr": "Zeka +%d"}),
+ 5: ("flat", {"pl": "Siła: +%d", "en": "Strength +%d",
+         "de": "Stärke +%d", "tr": "Güç +%d"}),
+ 6: ("flat", {"pl": "Zręczność +%d", "en": "Dexterity +%d",
+         "de": "Beweglichkeit +%d", "tr": "Çeviklik +%d"}),
+ 7: ("percent", {"pl": "Szybkość Ataku +%d%%", "en": "Attack Speed +%d%%",
+         "de": "Angriffsgeschwindigkeit +%d%%", "tr": "Saldırı Hızı +%d%%"}),
+ 8: ("percent", {"pl": "Szybkość Ruchu %d%%", "en": "Moving Speed %d%%",
+         "de": "Bewegungsgeschwindigkeit %d%%", "tr": "Hareket Hızı %d%%"}),
+ 9: ("percent", {"pl": "Szybkość Zaklęcia +%d%%", "en": "Casting Speed +%d%%",
+         "de": "Zaubergeschwindigkeit +%d%%", "tr": "Büyü Hızı +%d%%"}),
+ 10: ("percent", {"pl": "Regeneracja PŻ: +%d%%", "en": "HP Regeneration +%d%%",
+         "de": "TP-Regeneration +%d%%", "tr": "HP Üretimi +%d%%"}),
+ 11: ("percent", {"pl": "Regeneracja PE: +%d%%", "en": "SP Regeneration +%d%%",
+         "de": "MP-Regeneration +%d%%", "tr": "SP Üretimi +%d%%"}),
+ 12: ("percent", {"pl": "Szansa na Otrucie %d%%", "en": "Poisoning chance %d%%",
+         "de": "Vergiftungschance %d%%", "tr": "Zehirleme şansı %d%%"}),
+ 13: ("percent", {"pl": "Szansa na Omdlenie %d%%", "en": "Blackout chance %d%%",
+         "de": "Ohnmachtschance %d%%", "tr": "Sersemletme şansı %d%%"}),
+ 14: ("percent", {"pl": "Szansa na Spowolnienie %d%%", "en": "Slowing chance %d%%",
+         "de": "Verlangsamungschance %d%%", "tr": "Yavaşlatma şansı %d%%"}),
+ 15: ("percent", {"pl": "Szansa na cios krytyczny +%d%%", "en": "Chance of critical hit +%d%% ",
+         "de": "Chance auf kritischen Treffer +%d%%", "tr": "Kritik vuruş şansı +%d%%"}),
+ 16: ("percent", {"pl": "Szansa na przeszywające Uderzenie: %d%% ", "en": "%d%% Chance for piercing Hits",
+         "de": "Chance auf durchbohrenden Treffer %d%%", "tr": "Delici vuruş şansı %d%%"}),
+ 17: ("percent", {"pl": "Silny przeciwko Ludziom +%d%%", "en": "Strong against Half Humans +%d%%",
+         "de": "Stark gegen Halbmenschen +%d%%", "tr": "Yarı insanlara karşı güçlü +%d%%"}),
+ 18: ("percent", {"pl": "Silny przeciwko Zwierzętom +%d%%", "en": "Strong against Animals +%d%%",
+         "de": "Stark gegen Tiere +%d%%", "tr": "Hayvanlara karşı güçlü +%d%%"}),
+ 19: ("percent", {"pl": "Silny przeciwko Orkom +%d%%", "en": "Strong against Orcs +%d%%",
+         "de": "Stark gegen Orks +%d%%", "tr": "Orklara karşı güçlü +%d%%"}),
+ 20: ("percent", {"pl": "Silny przeciwko Mistykom +%d%%", "en": "Strong against Mystics +%d%%",
+         "de": "Stark gegen Esoterische +%d%%", "tr": "Mistiklere karşı güçlü +%d%%"}),
+ 21: ("percent", {"pl": "Silny przeciwko Nieumarłym +%d%%", "en": "Strong against Undead +%d%%",
+         "de": "Stark gegen Untote +%d%%", "tr": "Ölümsüzlere karşı güçlü +%d%%"}),
+ 22: ("percent", {"pl": "Silny przeciwko Diabłom +%d%%", "en": "Strong against Devils +%d%%",
+         "de": "Stark gegen Teufel +%d%%", "tr": "Şeytanlara karşı güçlü +%d%%"}),
+ 23: ("percent", {"pl": "%d%% obrażeń będzie dodanych do PŻ", "en": "%d%% damage  will be absorbed by HP",
+         "de": "%d%% des Schadens wird als TP absorbiert", "tr": "%d%% hasar HP olarak emilir"}),
+ 24: ("percent", {"pl": "%d%% obrażeń będzie dodanych do PE", "en": "%d%% damage will be absorbed by SP",
+         "de": "%d%% des Schadens wird als MP absorbiert", "tr": "%d%% hasar SP olarak emilir"}),
+ 25: ("percent", {"pl": "%d%% Szansa na kradzież PE", "en": "%d%% chance to rob SP",
+         "de": "%d%% Chance, MP zu rauben", "tr": "%d%% şansla SP çalma"}),
+ 26: ("percent", {"pl": "Szansa na odzyskanie PE: %d%%", "en": "%d%% Chance to get back SP when hit",
+         "de": "%d%% Chance, bei erlittenem Treffer MP zurückzuerhalten", "tr": "Vurulduğunda %d%% şansla SP geri kazanma"}),
+ 27: ("percent", {"pl": "Szansa na blok ciosów %d%%", "en": "Chance to block a close-combat attack %d%% ",
+         "de": "Chance, Nahkampfangriffe abzublocken %d%%", "tr": "Yakın dövüş saldırısını engelleme şansı %d%%"}),
+ 28: ("percent", {"pl": "Szansa na uniknięcie Strzały: %d%%", "en": "Chance to avoid Arrows %d%%",
+         "de": "Chance, Pfeilen auszuweichen %d%%", "tr": "Oklardan kaçınma şansı %d%%"}),
+ 29: ("percent", {"pl": "Odporność na Miecze: %d%%", "en": "Sword Defence %d%%",
+         "de": "Schwertverteidigung %d%%", "tr": "Kılıç savunması %d%%"}),
+ 30: ("percent", {"pl": "Odporność na Broń Dwuręczną: %d%%", "en": "Two-Handed Defence %d%%",
+         "de": "Zweihänderverteidigung %d%%", "tr": "Çift el savunması %d%%"}),
+ 31: ("percent", {"pl": "Odporność na Sztylety: %d%%", "en": "Dagger Defence %d%%",
+         "de": "Dolchverteidigung %d%%", "tr": "Hançer savunması %d%%"}),
+ 32: ("percent", {"pl": "Odporność na Dzwony: %d%%", "en": "Bell Defence %d%%",
+         "de": "Glockenverteidigung %d%%", "tr": "Çan savunması %d%%"}),
+ 33: ("percent", {"pl": "Odporność na Wachlarze: %d%%", "en": "Fan Defence %d%%",
+         "de": "Fächerverteidigung %d%%", "tr": "Yelpaze savunması %d%%"}),
+ 34: ("percent", {"pl": "Odporność na Strzały: %d%%", "en": "Arrow Resistance %d%%",
+         "de": "Pfeilwiderstand %d%%", "tr": "Oklara karşı dayanıklılık %d%%"}),
+ 35: ("percent", {"pl": "Odporność na Ogień: %d%%", "en": "Fire Resistance %d%%",
+         "de": "Feuerwiderstand %d%%", "tr": "Ateşe karşı dayanıklılık %d%%"}),
+ 36: ("percent", {"pl": "Odporność na Błyskawice: %d%%", "en": "Lightning Resistance %d%%",
+         "de": "Blitzwiderstand %d%%", "tr": "Şimşeğe karşı dayanıklılık %d%%"}),
+ 37: ("percent", {"pl": "Odporność na Magię: %d%%", "en": "Magic Resistance %d%%",
+         "de": "Magiewiderstand %d%%", "tr": "Büyüye karşı dayanıklılık %d%%"}),
+ 38: ("percent", {"pl": "Odporność na Wiatr: %d%%", "en": "Wind Resistance %d%%",
+         "de": "Windwiderstand %d%%", "tr": "Rüzgâra karşı dayanıklılık %d%%"}),
+ 39: ("percent", {"pl": "%d%% Szansa na odbicie Ciosu", "en": "%d%% Chance to reflect close combat hits  ",
+         "de": "%d%% Chance, Nahkampftreffer zu reflektieren", "tr": "%d%% şansla yakın dövüş vuruşlarını yansıtma"}),
+ 40: ("percent", {"pl": "Szansa na odbicie Klątwy: %d%%", "en": "Chance to reflect Curse: %d%%",
+         "de": "Chance, Flüche zu reflektieren: %d%%", "tr": "Laneti yansıtma şansı: %d%%"}),
+ 41: ("percent", {"pl": "Odporność na Trucizny: %d%%", "en": "Poison Resistance %d%%",
+         "de": "Giftwiderstand %d%%", "tr": "Zehre karşı dayanıklılık %d%%"}),
+ 42: ("percent", {"pl": "Szansa na odzyskanie PE: %d%%", "en": "%d%% Chance to restore SP",
+         "de": "%d%% Chance, MP wiederherzustellen", "tr": "%d%% şansla SP yenileme"}),
+ 43: ("percent", {"pl": "Szansa na Bonus DOŚ: %d%%", "en": "%d%% Chance for EXP Bonus",
+         "de": "%d%% Chance auf EXP-Bonus", "tr": "%d%% şansla EXP bonusu"}),
+ 44: ("percent", {"pl": "Szansa na podwójną ilość Yang: %d%%", "en": "%d%% Chance to drop double Yang",
+         "de": "%d%% Chance auf doppelten Yang-Drop", "tr": "%d%% şansla iki kat yang düşürme"}),
+ 45: ("percent", {"pl": "Szansa na podwójną ilość Przedmiotów: %d%%", "en": "%d%% Chance to drop double the Items",
+         "de": "%d%% Chance auf doppelten Gegenstands-Drop", "tr": "%d%% şansla iki kat eşya düşürme"}),
+ 46: ("percent", {"pl": "Mikstury %d%% efekt podniesiony", "en": "Potion %d%% effect raise",
+         "de": "Trankwirkung um %d%% erhöht", "tr": "İksir etkisi %d%% artar"}),
+ 47: ("percent", {"pl": "Szansa na odzyskanie PŻ: %d%%", "en": "%d%% Chance, to restore HP",
+         "de": "%d%% Chance, TP wiederherzustellen", "tr": "%d%% şansla HP yenileme"}),
+ 48: ("boolean", {"pl": "Odporność na Omdlenia", "en": "Defence against blackouts",
+         "de": "Abwehr gegen Ohnmacht", "tr": "Sersemletmeye karşı savunma"}),
+ 49: ("boolean", {"pl": "Odporność na Spowolnienia", "en": "Defence against slowing",
+         "de": "Abwehr gegen Verlangsamung", "tr": "Yavaşlatmaya karşı savunma"}),
+ 50: ("boolean", {"pl": "Niewrażliwy na Upadek", "en": "Immune against falling down",
+         "de": "Immun gegen Umfallen", "tr": "Yere düşmeye karşı bağışıklık"}),
+ 52: ("flat", {"pl": "Zasięg Łuku +%dm", "en": "Arc Range +%dm",
+         "de": "Bogenreichweite +%dm", "tr": "Yay menzili +%dm"}),
+ 53: ("flat", {"pl": "Wartość Ataku +%d", "en": "Attack Value +%d",
+         "de": "Angriffswert +%d", "tr": "Saldırı Değeri +%d"}),
+ 54: ("flat", {"pl": "Obrona +%d", "en": "Defence +%d",
+         "de": "Verteidigung +%d", "tr": "Savunma +%d"}),
+ 55: ("flat", {"pl": "Wartość Magicznego Ataku: +%d", "en": "Magical Attack Value +%d",
+         "de": "Magischer Angriffswert +%d", "tr": "Büyü Saldırı Değeri +%d"}),
+ 56: ("flat", {"pl": "Magiczna Obrona: +%d", "en": "Magical Defence +%d",
+         "de": "Magische Verteidigung +%d", "tr": "Büyü Savunması +%d"}),
+ 58: ("flat", {"pl": "Max Wytrzymałość: +%d", "en": "Max. Endurance +%d",
+         "de": "Max. Ausdauer +%d", "tr": "Max. Dayanıklılık +%d"}),
+ 59: ("percent", {"pl": "Silny przeciwko Wojownikom +%d%%", "en": "Strong against Warriorr +%d%%",
+         "de": "Stark gegen Krieger +%d%%", "tr": "Savaşçılara karşı güçlü +%d%%"}),
+ 60: ("percent", {"pl": "Silny przeciwko Ninja +%d%%", "en": "Strong against Ninjas +%d%%",
+         "de": "Stark gegen Ninjas +%d%%", "tr": "Ninjalara karşı güçlü +%d%%"}),
+ 61: ("percent", {"pl": "Silny przeciwko Sura +%d%%", "en": "Strong against Sura +%d%%",
+         "de": "Stark gegen Sura +%d%%", "tr": "Suralara karşı güçlü +%d%%"}),
+ 62: ("percent", {"pl": "Silny przeciwko Szamanom +%d%%", "en": "Strong against Shamans +%d%%",
+         "de": "Stark gegen Schamanen +%d%%", "tr": "Şamanlara karşı güçlü +%d%%"}),
+ 63: ("percent", {"pl": "Silny przeciwko Potworom +%d%%", "en": "Strength against monsters +%d%%",
+         "de": "Stark gegen Monster +%d%%", "tr": "Canavarlara karşı güçlü +%d%%"}),
+ 64: ("percent", {"pl": "Wartość Ataku: +%d%%", "en": "Attack Value +%d%%",
+         "de": "Angriffswert +%d%%", "tr": "Saldırı Değeri +%d%%"}),
+ 65: ("percent", {"pl": "Obrona: +%d%%", "en": "Defence +%d%%",
+         "de": "Verteidigung +%d%%", "tr": "Savunma +%d%%"}),
+ 66: ("percent", {"pl": "Punkty Doświadczenia: +%d%%", "en": "EXP +%d%%",
+         "de": "EXP +%d%%", "tr": "EXP +%d%%"}),
+ 67: ("multiplier", {"pl": "Szansa na zdobycie Przedmiotów pomnożona o %.1f", "en": "Chance of capturing Items multiplied with %.1f",
+         "de": "Drop-Chance für Gegenstände multipliziert mit %.1f", "tr": "Eşya düşürme şansı %.1f ile çarpılır"}),
+ 68: ("multiplier", {"pl": "Szansa na zdobycie Yang pomnożona o %.1f", "en": "Chance of capturing Yang multiplied with %.1f",
+         "de": "Drop-Chance für Yang multipliziert mit %.1f", "tr": "Yang düşürme şansı %.1f ile çarpılır"}),
+ 69: ("percent", {"pl": "Maks. PŻ +%d%%", "en": "Max. HP +%d%%",
+         "de": "Max. TP +%d%%", "tr": "Max. HP +%d%%"}),
+ 70: ("percent", {"pl": "Maks. PE +%d%% ", "en": "Max. SP +%d%% ",
+         "de": "Max. MP +%d%%", "tr": "Max. SP +%d%%"}),
+ 71: ("percent", {"pl": "Obrażenie Umiejętności: %d%%", "en": "Skill Damage %d%%",
+         "de": "Fertigkeitsschaden %d%%", "tr": "Beceri hasarı %d%%"}),
+ 72: ("percent", {"pl": "Średnie Obrażenia: %d%%", "en": "Average Damage %d%%",
+         "de": "Durchschnittsschaden %d%%", "tr": "Ortalama zarar %d%%"}),
+ 73: ("percent", {"pl": "Odporność na Obrażenia Umiejętności %d%%", "en": "Resistance against Skill Damage %d%%",
+         "de": "Widerstand gegen Fertigkeitsschaden %d%%", "tr": "Beceri hasarına karşı dayanıklılık %d%%"}),
+ 74: ("percent", {"pl": "Odporność na Obrażenia: %d%%", "en": "Average Damage Resistance %d%%",
+         "de": "Widerstand gegen Durchschnittsschaden %d%%", "tr": "Ortalama zarara karşı dayanıklılık %d%%"}),
+ 75: ("percent", {"pl": "iCafe DOŚ Bonus +%d%%", "en": "iCafe EXP Bonus +%d%%",
+         "de": "iCafe EXP-Bonus +%d%%", "tr": "iCafe EXP bonusu +%d%%"}),
+ 76: ("percent_decimal", {"pl": "iCafe Szansa na zdobycie Przedmiotów plus %.1f%%", "en": "iCafe Chance of capturing Items plus %.1f%%",
+         "de": "iCafe Drop-Chance für Gegenstände plus %.1f%%", "tr": "iCafe eşya düşürme şansı artı %.1f%%"}),
+ 78: ("percent", {"pl": "Odporność na Wojowników: %d%%", "en": "Defence chance against warrior attacks: %d%%",
+         "de": "Abwehrchance gegen Kriegerangriffe: %d%%", "tr": "Savaşçı saldırılarına karşı savunma şansı: %d%%"}),
+ 79: ("percent", {"pl": "Odporność na Ninja: %d%%", "en": "Defence chance against ninja attacks: %d%%",
+         "de": "Abwehrchance gegen Ninjaangriffe: %d%%", "tr": "Ninja saldırılarına karşı savunma şansı: %d%%"}),
+ 80: ("percent", {"pl": "Odporność na Sura: %d%%", "en": "Defence chance against sura attacks: %d%%",
+         "de": "Abwehrchance gegen Suraangriffe: %d%%", "tr": "Sura saldırılarına karşı savunma şansı: %d%%"}),
+ 81: ("percent", {"pl": "Odporność na Szamanów: %d%%", "en": "Defence chance against shaman attacks: %d%%",
+         "de": "Abwehrchance gegen Schamanenangriffe: %d%%", "tr": "Şaman saldırılarına karşı savunma şansı: %d%%"}),
+ 82: ("flat", {"pl": "Energia %d", "en": "Energy %d ",
+         "de": "Energie %d", "tr": "Enerji %d"}),
+ 84: ("percent", {"pl": "Bonus kostiumu %d%% ", "en": "Costume bonus %d%% ",
+         "de": "Kostümbonus %d%%", "tr": "Kostüm bonusu %d%%"}),
+ 85: ("percent", {"pl": "Magiczny atak +%d%%", "en": "Magic attack +%d%%",
+         "de": "Magischer Angriff +%d%%", "tr": "Büyü saldırısı +%d%%"}),
+ 86: ("percent", {"pl": "Magiczny/krótkodystansowy atak +%d%%", "en": "Magic/melee attack +%d%%",
+         "de": "Magie-/Nahkampfangriff +%d%%", "tr": "Büyü/yakın dövüş saldırısı +%d%%"}),
+ 87: ("percent", {"pl": "Odporność na lód +%d%%", "en": "Ice resistance +%d%%",
+         "de": "Eiswiderstand +%d%%", "tr": "Buza karşı dayanıklılık +%d%%"}),
+ 88: ("percent", {"pl": "Odporność na ziemię +%d%%", "en": "Earth resistance +%d%%",
+         "de": "Erdwiderstand +%d%%", "tr": "Toprağa karşı dayanıklılık +%d%%"}),
+ 89: ("percent", {"pl": "Odporność na mrok +%d%%", "en": "Resistance against darkness +%d%%",
+         "de": "Widerstand gegen Dunkelheit +%d%%", "tr": "Karanlığa karşı dayanıklılık +%d%%"}),
+ 90: ("percent", {"pl": "Odporność na cios krytyczny +%d%%", "en": "Resistance against critical hits +%d%%",
+         "de": "Widerstand gegen kritische Treffer +%d%%", "tr": "Kritik vuruşa karşı dayanıklılık +%d%%"}),
+ 91: ("percent", {"pl": "Odporność na przeszywający cios +%d%%", "en": "Resistance against piercing hits +%d%%",
+         "de": "Widerstand gegen durchbohrende Treffer +%d%%", "tr": "Delici vuruşa karşı dayanıklılık +%d%%"}),
+ 1138: ("percent", {"pl": "Terror +%d%%", "en": "Terror +%d%%",
+         "de": "Terror +%d%%", "tr": "Dehşet +%d%%"}),
+ 1139: ("percent", {"pl": "Regeneracja wytrzymałości +%d%%", "en": "Stamina regeneration +%d%%",
+         "de": "Ausdauerregeneration +%d%%", "tr": "Dayanıklılık yenilenmesi +%d%%"}),
+ 1140: ("flat", {"pl": "Atak sztyletem przeciw potworom +%d", "en": "Dagger attack against monsters +%d",
+         "de": "Dolchangriff gegen Monster +%d", "tr": "Canavarlara karşı hançer saldırısı +%d"}),
+ 1141: ("flat", {"pl": "Wartość ataku przeciw potworom +%d", "en": "Attack value against monsters +%d",
+         "de": "Angriffswert gegen Monster +%d", "tr": "Canavarlara karşı saldırı değeri +%d"}),
+ 1142: ("flat", {"pl": "Odporność na potwory +%d‰", "en": "Resistance against monsters +%d‰",
+         "de": "Widerstand gegen Monster +%d‰", "tr": "Canavarlara karşı dayanıklılık +%d‰"}),
+ 1143: ("percent", {"pl": "Pochłanianie obrażeń +%d%%", "en": "Damage absorption +%d%%",
+         "de": "Schadensabsorption +%d%%", "tr": "Hasar emilimi +%d%%"}),
+ 1144: ("percent", {"pl": "Pochłanianie obrażeń od potworów +%d%%", "en": "Damage absorption from monsters +%d%%",
+         "de": "Schadensabsorption gegen Monster +%d%%", "tr": "Canavarlardan gelen hasar emilimi +%d%%"}),
+ 1145: ("boolean", {"pl": "Przełamanie odporności na ogłuszenie", "en": "Breaks stun immunity",
+         "de": "Durchbricht die Abwehr gegen Ohnmacht", "tr": "Sersemletmeye karşı savunmayı kırar"}),
+ 1146: ("boolean", {"pl": "Przełamanie klątwy świątyni", "en": "Breaks the temple curse",
+         "de": "Bricht den Tempelfluch", "tr": "Tapınak lanetini kırar"}),
+ 1147: ("percent", {"pl": "Czas trwania umiejętności +%d%%", "en": "Skill duration +%d%%",
+         "de": "Fertigkeitsdauer +%d%%", "tr": "Beceri süresi +%d%%"}),
+ 1148: ("percent", {"pl": "Silny przeciw potworom z Doliny Orków +%d%%", "en": "Strong against Orc Valley monsters +%d%%",
+         "de": "Stark gegen Monster aus dem Orktal +%d%%", "tr": "Ork Vadisi canavarlarına karşı güçlü +%d%%"}),
+ 1149: ("percent", {"pl": "Silny przeciw Metinom +%d%%", "en": "Strong against Metin stones +%d%%",
+         "de": "Stark gegen Metinsteine +%d%%", "tr": "Metin Taşlarına karşı güçlü +%d%%"}),
+ 1150: ("percent", {"pl": "Silny przeciw bossom +%d%%", "en": "Strong against bosses +%d%%",
+         "de": "Stark gegen Bosse +%d%%", "tr": "Bosslara karşı güçlü +%d%%"}),
+ 1151: ("percent", {"pl": "Magiczny atak przeciw potworom +%d%%", "en": "Magic attack against monsters +%d%%",
+         "de": "Magischer Angriff gegen Monster +%d%%", "tr": "Canavarlara karşı büyü saldırısı +%d%%"}),
+ 1152: ("percent", {"pl": "Przełamanie odporności na miecz +%d%%", "en": "Breaks sword resistance +%d%%",
+         "de": "Durchbricht Schwertverteidigung +%d%%", "tr": "Kılıç savunmasını kırma +%d%%"}),
+ 1153: ("percent", {"pl": "Przełamanie odporności na broń dwuręczną +%d%%", "en": "Breaks two-handed resistance +%d%%",
+         "de": "Durchbricht Zweihänderverteidigung +%d%%", "tr": "Çift el savunmasını kırma +%d%%"}),
+ 1154: ("percent", {"pl": "Przełamanie odporności na sztylet +%d%%", "en": "Breaks dagger resistance +%d%%",
+         "de": "Durchbricht Dolchverteidigung +%d%%", "tr": "Hançer savunmasını kırma +%d%%"}),
+ 1155: ("percent", {"pl": "Przełamanie odporności na dzwonek +%d%%", "en": "Breaks bell resistance +%d%%",
+         "de": "Durchbricht Glockenverteidigung +%d%%", "tr": "Çan savunmasını kırma +%d%%"}),
+ 1156: ("percent", {"pl": "Przełamanie odporności na wachlarz +%d%%", "en": "Breaks fan resistance +%d%%",
+         "de": "Durchbricht Fächerverteidigung +%d%%", "tr": "Yelpaze savunmasını kırma +%d%%"}),
+ 1157: ("percent", {"pl": "Przełamanie odporności na łuk +%d%%", "en": "Breaks bow resistance +%d%%",
+         "de": "Durchbricht Pfeilwiderstand +%d%%", "tr": "Ok dayanıklılığını kırma +%d%%"}),
+ 1158: ("percent", {"pl": "Szansa na zbieranie +%d%%", "en": "Collecting chance +%d%%",
+         "de": "Sammelchance +%d%%", "tr": "Toplama şansı +%d%%"}),
+ 1159: ("percent", {"pl": "Szansa na naukę +%d%%", "en": "Learning chance +%d%%",
+         "de": "Lernchance +%d%%", "tr": "Öğrenme şansı +%d%%"}),
+ 1160: ("percent", {"pl": "Odporność na ludzi +%d%%", "en": "Resistance against humans +%d%%",
+         "de": "Widerstand gegen Halbmenschen +%d%%", "tr": "Yarı insanlara karşı dayanıklılık +%d%%"}),
+ 1161: ("flat", {"pl": "Magiczny atak +%d", "en": "Magic attack +%d",
+         "de": "Magischer Angriff +%d", "tr": "Büyü saldırısı +%d"}),
+ 1162: ("percent", {"pl": "Szansa na podpalenie +%d%%", "en": "Chance of burning +%d%%",
+         "de": "Chance auf Verbrennung +%d%%", "tr": "Yakma şansı +%d%%"}),
+ 1163: ("percent", {"pl": "Zamiana obrażeń na PE +%d%%", "en": "Damage converted to SP +%d%%",
+         "de": "In MP umgewandelter Schaden +%d%%", "tr": "SP'ye dönüşen hasar +%d%%"}),
+ 1164: ("percent", {"pl": "Szansa na rzadki łup +%d%%", "en": "Rare drop chance +%d%%",
+         "de": "Chance auf seltene Drops +%d%%", "tr": "Nadir eşya düşürme şansı +%d%%"}),
+ 1165: ("flat", {"pl": "Magiczna wartość ataku przeciw potworom +%d", "en": "Magic attack value against monsters +%d",
+         "de": "Magischer Angriffswert gegen Monster +%d", "tr": "Canavarlara karşı büyü saldırı değeri +%d"}),
+ 1166: ("percent", {"pl": "Szansa na unieruchomienie +%d%%", "en": "Chance of rooting +%d%%",
+         "de": "Chance auf Bewegungsunfähigkeit +%d%%", "tr": "Hareketsiz bırakma şansı +%d%%"}),
+ 1167: ("flat", {"pl": "Atak specjalny +%d", "en": "Special attack +%d",
+         "de": "Spezialangriff +%d", "tr": "Özel saldırı +%d"}),
+ 1168: ("percent", {"pl": "Kara za śmierć +%d%%", "en": "Death penalty +%d%%",
+         "de": "Strafe beim Tod +%d%%", "tr": "Ölüm cezası +%d%%"}),
+}
+
+
+def apply_meta_for(language):
+    """The bonus lines for the live map's JS, in one language: {id: {t, f}}."""
+    return {key: {"t": texts.get(language) or texts["en"], "f": fmt}
+            for key, (fmt, texts) in APPLY_TEXTS.items()}
+
 
 def map_i18n(language=None):
     language = language or (lang() if has_request_context() else "en")
@@ -6419,6 +7759,10 @@ JOB_NAMES_MAP = {
         2:"Sura (M)",6:"Sura (K)",3:"Szaman (M)",7:"Szamanka (K)"},
  "en": {0:"Warrior (M)",4:"Warrior (F)",1:"Ninja (M)",5:"Ninja (F)",
         2:"Sura (M)",6:"Sura (F)",3:"Shaman (M)",7:"Shaman (F)"},
+ "de": {0: "Krieger (M)", 4: "Kriegerin (W)", 1: "Ninja (M)", 5: "Ninja (W)", 2: "Sura (M)",
+     6: "Sura (W)", 3: "Schamane (M)", 7: "Schamanin (W)"},
+ "tr": {0: "Savaşçı (E)", 4: "Savaşçı (K)", 1: "Ninja (E)", 5: "Ninja (K)", 2: "Sura (E)",
+     6: "Sura (K)", 3: "Şaman (E)", 7: "Şaman (K)"},
 }
 BIOLOGIST_NAMES_EN = {
  "make_herb_lv4":"Peach Blossom","make_herb_lv7":"Bellflower",
@@ -6427,14 +7771,31 @@ BIOLOGIST_NAMES_EN = {
  "collect_quest_lv40":"Curse Book","collect_quest_lv50":"Demon Souvenir",
 }
 
+# The Biologist's specimens in the other two languages (Polish is
+# BIOLOGIST_MISSIONS's own, English the table above).
+BIOLOGIST_NAMES_BY_LANG = {
+ "en": BIOLOGIST_NAMES_EN,
+ "de": {"make_herb_lv4":"Pfirsichblüte","make_herb_lv7":"Glockenblume",
+        "make_herb_lv10":"Kakiblüte","make_herb_lv15":"Gango-Wurzel",
+        "make_herb_lv20":"Flieder","make_herb_lv25":"Tue-Pilz","collect_quest_lv30":"Orkzahn",
+        "collect_quest_lv40":"Fluchbuch","collect_quest_lv50":"Dämonenandenken"},
+ "tr": {"make_herb_lv4":"Şeftali Çiçeği","make_herb_lv7":"Çan Çiçeği",
+        "make_herb_lv10":"Hurma Çiçeği","make_herb_lv15":"Gango Kökü",
+        "make_herb_lv20":"Leylak","make_herb_lv25":"Tue Mantarı","collect_quest_lv30":"Ork Dişi",
+        "collect_quest_lv40":"Lanet Kitabı","collect_quest_lv50":"Şeytan Hatırası"},
+}
+
 def localized_job_name(job, language=None):
     language = language or (lang() if has_request_context() else "en")
     names = JOB_NAMES_MAP.get(language, JOB_NAMES_MAP["en"])
-    return names.get(int(job or 0), "Wojownik" if language == "pl" else "Warrior")
+    return names.get(int(job or 0), names[0])
 
 def localized_biologist_name(quest_name, polish_name, language=None):
     language = language or (lang() if has_request_context() else "en")
-    return polish_name if language == "pl" else BIOLOGIST_NAMES_EN.get(quest_name, polish_name)
+    if language == "pl":
+        return polish_name
+    names = BIOLOGIST_NAMES_BY_LANG.get(language, BIOLOGIST_NAMES_EN)
+    return names.get(quest_name) or BIOLOGIST_NAMES_EN.get(quest_name, polish_name)
 
 
 def biologist_progress(level, quest_flags, held, map_index, language=None):
@@ -6649,7 +8010,7 @@ TPL_LIVE_MAP = BASE.replace("__BODY__", """
       </div>
 
       <div class="card" style="padding:14px">
-        <h4 style="margin:0 0 10px;color:var(--gold2)">🏆 {{m.rankings}}</h4>
+        <h4 style="margin:0 0 10px;color:var(--gold2)">🏆 <span id="rankTitle">{{ m.rankings_all if people_ranked else m.rankings }}</span></h4>
         <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap">
           <button type="button" class="btn btn-sm rank-tab active" onclick="setRankCategory('level', this)" style="font-size:11px;padding:3px 6px">⭐ {{m.rank_level}}</button>
           <button type="button" class="btn btn-sm rank-tab" onclick="setRankCategory('gold', this)" style="font-size:11px;padding:3px 6px">💰 Yang</button>
@@ -6680,6 +8041,15 @@ TPL_LIVE_MAP = BASE.replace("__BODY__", """
               <option value="5000">5000</option>
             </select>
           </label>
+        </div>
+        {# People are ranked beside the bots (rankings_count_people), marked, and
+           this narrows the list to them, numbered among themselves. Hidden while
+           the rankings are the bots' alone. #}
+        <div id="rankPeopleBar" style="display:{{ 'flex' if people_ranked else 'none' }};justify-content:space-between;align-items:center;gap:8px;margin:-4px 0 10px;flex-wrap:wrap">
+          <label title="{{m.people_only_hint}}" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);white-space:nowrap;cursor:pointer">
+            <input type="checkbox" id="rankPeople" onchange="fetchRankings()" style="width:auto;margin:0"> 👤 {{m.people_only}}
+          </label>
+          <span class="muted" style="font-size:10px">{{m.ranking_people_note}}</span>
         </div>
         <div style="max-height:410px;overflow-y:auto" id="topBotsList">
           <p class="muted" style="font-size:12px;text-align:center">{{m.loading}}</p>
@@ -6763,6 +8133,8 @@ TPL_LIVE_MAP = BASE.replace("__BODY__", """
   transition: background 0.15s, border-color 0.15s;
 }
 .rank-row:hover { background: #241e12; border-color: var(--gold); }
+/* A person's line in a ranking of bots: the map's colour for a player. */
+.rank-row.person { background: #1f100d; border-color: #7f1d1d; box-shadow: inset 3px 0 0 #ef4444; }
 
 /* Modal Styles */
 .modal-overlay {
@@ -7302,12 +8674,30 @@ function showRankingNote(text) {
   if (listEl) listEl.innerHTML = '<p class="muted" style="font-size:12px;text-align:center">' + text + '</p>';
 }
 
+function rankPeopleOnly() {
+  var box = document.getElementById('rankPeople');
+  return !!(box && box.checked);
+}
+
+// Whether the rankings count people at all is the operator's switch (Seban's
+// panel, /manage); the answer comes with every ranking, so the title and the
+// "players only" box follow it without a reload.
+function applyRankScope(people) {
+  var bar = document.getElementById('rankPeopleBar');
+  if (bar) bar.style.display = people ? 'flex' : 'none';
+  var title = document.getElementById('rankTitle');
+  if (title) title.textContent = people ? I18N.rankings_all : I18N.rankings;
+  var box = document.getElementById('rankPeople');
+  if (box && !people) box.checked = false;
+}
+
 function fetchRankings() {
   fetch('/api/bot_rankings?type=' + encodeURIComponent(g_selectedRankCategory) +
-        '&limit=' + g_rankLimit)
+        '&limit=' + g_rankLimit + (rankPeopleOnly() ? '&people=1' : ''))
     .then(function(res) { return res.json(); })
     .then(function(data) {
       if (data && data.ok) {
+        applyRankScope(!!data.people);
         g_rankData = data.rankings || [];
         renderRankings();
       } else {
@@ -7358,17 +8748,20 @@ function renderRankings() {
       return;
     }
     var ptBadge = b.in_pt ? '<span style="color:#a855f7;font-weight:700">[PT]</span> ' : '';
+    // A person's character among the bots: marked, and its line tinted.
+    var isPerson = b.is_bot === false;
+    var personBadge = isPerson ? '<span title="' + escapeHtml(I18N.person_mark) + '">👤</span> ' : '';
     var detailStr = '';
     if (g_selectedRankCategory === 'gold') {
       detailStr = '<span style="color:#eab308;font-weight:700">' + (b.gold || 0).toLocaleString() + ' Yang</span>';
     } else if (g_selectedRankCategory === 'weapon30') {
-      var srStr = b.sr !== undefined ? '<span style="color:#4ade80;font-weight:700">ŚR: ' + (b.sr > 0 ? '+' : '') + b.sr + '%</span>' : '';
-      var umStr = b.um !== undefined && b.um !== 0 ? ' <span style="color:#38bdf8;font-weight:700">UM: ' + (b.um > 0 ? '+' : '') + b.um + '%</span>' : '';
+      var srStr = b.sr !== undefined ? '<span style="color:#4ade80;font-weight:700">' + I18N.rank_avg_short + ': ' + (b.sr > 0 ? '+' : '') + b.sr + '%</span>' : '';
+      var umStr = b.um !== undefined && b.um !== 0 ? ' <span style="color:#38bdf8;font-weight:700">' + I18N.rank_skill_short + ': ' + (b.um > 0 ? '+' : '') + b.um + '%</span>' : '';
       var winBadge = b.item_window === 'EQUIPMENT' ? '<span style="background:#15803d;color:#fff;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">EQ</span>'
-                                                   : '<span style="background:#374151;color:#bbb;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">Plecak</span>';
+                                                   : '<span style="background:#374151;color:#bbb;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">' + I18N.bag + '</span>';
       var iconUrl = b.weapon_vnum ? getItemIconUrl(b.weapon_vnum) : null;
       var iconImg = iconUrl ? '<img src="' + iconUrl + '" onerror="' + ICON_ONERROR + '" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;image-rendering:pixelated">' : '';
-      detailStr = '<div>' + iconImg + '<span style="color:#ffd700;font-weight:700">' + (b.weapon_name || 'Broń 30 Lv') + '</span> ' + winBadge + '</div><div>' + srStr + umStr + '</div>';
+      detailStr = '<div>' + iconImg + '<span style="color:#ffd700;font-weight:700">' + (b.weapon_name || I18N.weapon30_one) + '</span> ' + winBadge + '</div><div>' + srStr + umStr + '</div>';
     } else if (g_selectedRankCategory === 'weapon') {
       detailStr = '<span style="color:#38bdf8;font-weight:700">' + (b.weapon_name || I18N.none) + '</span>';
     } else if (g_selectedRankCategory === 'armor') {
@@ -7395,15 +8788,15 @@ function renderRankings() {
     } else if (g_selectedRankCategory === 'plus9') {
       var p9win = b.item_window === 'EQUIPMENT'
           ? '<span style="background:#15803d;color:#fff;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">EQ</span>'
-          : '<span style="background:#374151;color:#bbb;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">Plecak</span>';
+          : '<span style="background:#374151;color:#bbb;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">' + I18N.bag + '</span>';
       var p9icon = b.weapon_vnum ? '<img src="' + getItemIconUrl(b.weapon_vnum) + '" onerror="' + ICON_ONERROR + '" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;image-rendering:pixelated">' : '';
       detailStr = p9icon + '<span style="color:#f97316;font-weight:700">' + (b.weapon_name || '+9') + '</span>' + p9win;
     } else {
       detailStr = '<span style="color:var(--gold);font-weight:700">Lv ' + b.level + '</span>';
     }
 
-    rankHtml += '<div class="rank-row" onclick="openBotModal(' + b.id + ')">' +
-                '<div><b>#' + (idx+1) + '</b> ' + ptBadge + empireFlag(b.empire) + '<b>' + b.name + '</b> <span class="muted">(' + b.job + ')</span></div>' +
+    rankHtml += '<div class="rank-row' + (isPerson ? ' person' : '') + '" onclick="openBotModal(' + b.id + ')">' +
+                '<div><b>#' + (idx+1) + '</b> ' + ptBadge + personBadge + empireFlag(b.empire) + '<b>' + escapeHtml(b.name) + '</b> <span class="muted">(' + escapeHtml(b.job) + ')</span></div>' +
                 '<div style="text-align:right">' + detailStr + ' <span style="font-size:10px;color:#888">🔍</span></div>' +
                 '</div>';
   });
@@ -7525,156 +8918,24 @@ fetch('/static/item_icons.json')
   .then(function(data) { g_itemIcons = data; })
   .catch(function(err) { console.warn('Could not load item_icons.json:', err); });
 
-// Every bonus line the engine can roll, with the wording the game itself uses.
-// Generated from three sources that have to agree: the server's EApplyTypes
-// enum fixes the numbers, the client's AFFECT_DICT maps each number to a locale
-// key, and the client's locale_game.txt holds the text. Nothing here is
-// translated by hand, which is what the previous table did - it had 71 and 72
-// the wrong way round (71 is skill damage, 72 is average damage), classed the
-// two post-kill recovery chances as plain numbers rather than percentages, and
-// had no entry at all for 87-91, so an ice/earth/dark resistance showed up as
-// "Bonus #89".
-//
-// The text keeps the client's own placeholder, and that is what says how to
-// print the value: %d%% is a percentage, %d a plain number, %.1f a
-// multiplier, and no placeholder at all means the client shows the line with no
-// number after it. Ids the client has no text for are absent on purpose.
+// The bonus lines, in the page's language (APPLY_TEXTS, apply_meta_for).
 // The mt2009 engine numbers these lines as POINT_* (player.item.attrtype
 // carries a point there); APPLY_META is keyed by the APPLY_* numbers both
 // clients use, so a type goes through this table first. Empty on r40250.
 var POINT_TO_APPLY = {{ point_to_apply|tojson }};
 function applyKey(type) { var k = POINT_TO_APPLY[type]; return k === undefined ? type : k; }
 
-var APPLY_META = {
-  1: {pl: "Max PŻ: +%d", en: "Max. HP +%d", f: "flat"},
-  2: {pl: "Max PE: +%d", en: "Max. SP +%d", f: "flat"},
-  3: {pl: "Witalność +%d", en: "Vitality +%d", f: "flat"},
-  4: {pl: "Inteligencja +%d", en: "Intelligence +%d", f: "flat"},
-  5: {pl: "Siła: +%d", en: "Strength +%d", f: "flat"},
-  6: {pl: "Zręczność +%d", en: "Dexterity +%d", f: "flat"},
-  7: {pl: "Szybkość Ataku +%d%%", en: "Attack Speed +%d%%", f: "percent"},
-  8: {pl: "Szybkość Ruchu %d%%", en: "Moving Speed %d%%", f: "percent"},
-  9: {pl: "Szybkość Zaklęcia +%d%%", en: "Casting Speed +%d%%", f: "percent"},
-  10: {pl: "Regeneracja PŻ: +%d%%", en: "HP Regeneration +%d%%", f: "percent"},
-  11: {pl: "Regeneracja PE: +%d%%", en: "SP Regeneration +%d%%", f: "percent"},
-  12: {pl: "Szansa na Otrucie %d%%", en: "Poisoning chance %d%%", f: "percent"},
-  13: {pl: "Szansa na Omdlenie %d%%", en: "Blackout chance %d%%", f: "percent"},
-  14: {pl: "Szansa na Spowolnienie %d%%", en: "Slowing chance %d%%", f: "percent"},
-  15: {pl: "Szansa na cios krytyczny +%d%%", en: "Chance of critical hit +%d%% ", f: "percent"},
-  16: {pl: "Szansa na przeszywające Uderzenie: %d%% ", en: "%d%% Chance for piercing Hits", f: "percent"},
-  17: {pl: "Silny przeciwko Ludziom +%d%%", en: "Strong against Half Humans +%d%%", f: "percent"},
-  18: {pl: "Silny przeciwko Zwierzętom +%d%%", en: "Strong against Animals +%d%%", f: "percent"},
-  19: {pl: "Silny przeciwko Orkom +%d%%", en: "Strong against Orcs +%d%%", f: "percent"},
-  20: {pl: "Silny przeciwko Mistykom +%d%%", en: "Strong against Mystics +%d%%", f: "percent"},
-  21: {pl: "Silny przeciwko Nieumarłym +%d%%", en: "Strong against Undead +%d%%", f: "percent"},
-  22: {pl: "Silny przeciwko Diabłom +%d%%", en: "Strong against Devils +%d%%", f: "percent"},
-  23: {pl: "%d%% obrażeń będzie dodanych do PŻ", en: "%d%% damage  will be absorbed by HP", f: "percent"},
-  24: {pl: "%d%% obrażeń będzie dodanych do PE", en: "%d%% damage will be absorbed by SP", f: "percent"},
-  25: {pl: "%d%% Szansa na kradzież PE", en: "%d%% chance to rob SP", f: "percent"},
-  26: {pl: "Szansa na odzyskanie PE: %d%%", en: "%d%% Chance to get back SP when hit", f: "percent"},
-  27: {pl: "Szansa na blok ciosów %d%%", en: "Chance to block a close-combat attack %d%% ", f: "percent"},
-  28: {pl: "Szansa na uniknięcie Strzały: %d%%", en: "Chance to avoid Arrows %d%%", f: "percent"},
-  29: {pl: "Odporność na Miecze: %d%%", en: "Sword Defence %d%%", f: "percent"},
-  30: {pl: "Odporność na Broń Dwuręczną: %d%%", en: "Two-Handed Defence %d%%", f: "percent"},
-  31: {pl: "Odporność na Sztylety: %d%%", en: "Dagger Defence %d%%", f: "percent"},
-  32: {pl: "Odporność na Dzwony: %d%%", en: "Bell Defence %d%%", f: "percent"},
-  33: {pl: "Odporność na Wachlarze: %d%%", en: "Fan Defence %d%%", f: "percent"},
-  34: {pl: "Odporność na Strzały: %d%%", en: "Arrow Resistance %d%%", f: "percent"},
-  35: {pl: "Odporność na Ogień: %d%%", en: "Fire Resistance %d%%", f: "percent"},
-  36: {pl: "Odporność na Błyskawice: %d%%", en: "Lightning Resistance %d%%", f: "percent"},
-  37: {pl: "Odporność na Magię: %d%%", en: "Magic Resistance %d%%", f: "percent"},
-  38: {pl: "Odporność na Wiatr: %d%%", en: "Wind Resistance %d%%", f: "percent"},
-  39: {pl: "%d%% Szansa na odbicie Ciosu", en: "%d%% Chance to reflect close combat hits  ", f: "percent"},
-  40: {pl: "Szansa na odbicie Klątwy: %d%%", en: "Chance to reflect Curse: %d%%", f: "percent"},
-  41: {pl: "Odporność na Trucizny: %d%%", en: "Poison Resistance %d%%", f: "percent"},
-  42: {pl: "Szansa na odzyskanie PE: %d%%", en: "%d%% Chance to restore SP", f: "percent"},
-  43: {pl: "Szansa na Bonus DOŚ: %d%%", en: "%d%% Chance for EXP Bonus", f: "percent"},
-  44: {pl: "Szansa na podwójną ilość Yang: %d%%", en: "%d%% Chance to drop double Yang", f: "percent"},
-  45: {pl: "Szansa na podwójną ilość Przedmiotów: %d%%", en: "%d%% Chance to drop double the Items", f: "percent"},
-  46: {pl: "Mikstury %d%% efekt podniesiony", en: "Potion %d%% effect raise", f: "percent"},
-  47: {pl: "Szansa na odzyskanie PŻ: %d%%", en: "%d%% Chance, to restore HP", f: "percent"},
-  48: {pl: "Odporność na Omdlenia", en: "Defence against blackouts", f: "boolean"},
-  49: {pl: "Odporność na Spowolnienia", en: "Defence against slowing", f: "boolean"},
-  50: {pl: "Niewrażliwy na Upadek", en: "Immune against falling down", f: "boolean"},
-  52: {pl: "Zasięg Łuku +%dm", en: "Arc Range +%dm", f: "flat"},
-  53: {pl: "Wartość Ataku +%d", en: "Attack Value +%d", f: "flat"},
-  54: {pl: "Obrona +%d", en: "Defence +%d", f: "flat"},
-  55: {pl: "Wartość Magicznego Ataku: +%d", en: "Magical Attack Value +%d", f: "flat"},
-  56: {pl: "Magiczna Obrona: +%d", en: "Magical Defence +%d", f: "flat"},
-  58: {pl: "Max Wytrzymałość: +%d", en: "Max. Endurance +%d", f: "flat"},
-  59: {pl: "Silny przeciwko Wojownikom +%d%%", en: "Strong against Warriorr +%d%%", f: "percent"},
-  60: {pl: "Silny przeciwko Ninja +%d%%", en: "Strong against Ninjas +%d%%", f: "percent"},
-  61: {pl: "Silny przeciwko Sura +%d%%", en: "Strong against Sura +%d%%", f: "percent"},
-  62: {pl: "Silny przeciwko Szamanom +%d%%", en: "Strong against Shamans +%d%%", f: "percent"},
-  63: {pl: "Silny przeciwko Potworom +%d%%", en: "Strength against monsters +%d%%", f: "percent"},
-  64: {pl: "Wartość Ataku: +%d%%", en: "Attack Value +%d%%", f: "percent"},
-  65: {pl: "Obrona: +%d%%", en: "Defence +%d%%", f: "percent"},
-  66: {pl: "Punkty Doświadczenia: +%d%%", en: "EXP +%d%%", f: "percent"},
-  67: {pl: "Szansa na zdobycie Przedmiotów pomnożona o %.1f", en: "Chance of capturing Items multiplied with %.1f", f: "multiplier"},
-  68: {pl: "Szansa na zdobycie Yang pomnożona o %.1f", en: "Chance of capturing Yang multiplied with %.1f", f: "multiplier"},
-  69: {pl: "Maks. PŻ +%d%%", en: "Max. HP +%d%%", f: "percent"},
-  70: {pl: "Maks. PE +%d%% ", en: "Max. SP +%d%% ", f: "percent"},
-  71: {pl: "Obrażenie Umiejętności: %d%%", en: "Skill Damage %d%%", f: "percent"},
-  72: {pl: "Średnie Obrażenia: %d%%", en: "Average Damage %d%%", f: "percent"},
-  73: {pl: "Odporność na Obrażenia Umiejętności %d%%", en: "Resistance against Skill Damage %d%%", f: "percent"},
-  74: {pl: "Odporność na Obrażenia: %d%%", en: "Average Damage Resistance %d%%", f: "percent"},
-  75: {pl: "iCafe DOŚ Bonus +%d%%", en: "iCafe EXP Bonus +%d%%", f: "percent"},
-  76: {pl: "iCafe Szansa na zdobycie Przedmiotów plus %.1f%%", en: "iCafe Chance of capturing Items plus %.1f%%", f: "percent_decimal"},
-  78: {pl: "Odporność na Wojowników: %d%%", en: "Defence chance against warrior attacks: %d%%", f: "percent"},
-  79: {pl: "Odporność na Ninja: %d%%", en: "Defence chance against ninja attacks: %d%%", f: "percent"},
-  80: {pl: "Odporność na Sura: %d%%", en: "Defence chance against sura attacks: %d%%", f: "percent"},
-  81: {pl: "Odporność na Szamanów: %d%%", en: "Defence chance against shaman attacks: %d%%", f: "percent"},
-  82: {pl: "Energia %d", en: "Energy %d ", f: "flat"},
-  84: {pl: "Bonus kostiumu %d%% ", en: "Costume bonus %d%% ", f: "percent"},
-  85: {pl: "Magiczny atak +%d%%", en: "Magic attack +%d%%", f: "percent"},
-  86: {pl: "Magiczny/krótkodystansowy atak +%d%%", en: "Magic/melee attack +%d%%", f: "percent"},
-  87: {pl: "Odporność na lód +%d%%", en: "Ice resistance +%d%%", f: "percent"},
-  88: {pl: "Odporność na ziemię +%d%%", en: "Earth resistance +%d%%", f: "percent"},
-  89: {pl: "Odporność na mrok +%d%%", en: "Resistance against darkness +%d%%", f: "percent"},
-  90: {pl: "Odporność na cios krytyczny +%d%%", en: "Resistance against critical hits +%d%%", f: "percent"},
-  91: {pl: "Odporność na przeszywający cios +%d%%", en: "Resistance against piercing hits +%d%%", f: "percent"},
-  1138: {pl: "Terror +%d%%", en: "Terror +%d%%", f: "percent"},
-  1139: {pl: "Regeneracja wytrzymałości +%d%%", en: "Stamina regeneration +%d%%", f: "percent"},
-  1140: {pl: "Atak sztyletem przeciw potworom +%d", en: "Dagger attack against monsters +%d", f: "flat"},
-  1141: {pl: "Wartość ataku przeciw potworom +%d", en: "Attack value against monsters +%d", f: "flat"},
-  1142: {pl: "Odporność na potwory +%d‰", en: "Resistance against monsters +%d‰", f: "flat"},
-  1143: {pl: "Pochłanianie obrażeń +%d%%", en: "Damage absorption +%d%%", f: "percent"},
-  1144: {pl: "Pochłanianie obrażeń od potworów +%d%%", en: "Damage absorption from monsters +%d%%", f: "percent"},
-  1145: {pl: "Przełamanie odporności na ogłuszenie", en: "Breaks stun immunity", f: "boolean"},
-  1146: {pl: "Przełamanie klątwy świątyni", en: "Breaks the temple curse", f: "boolean"},
-  1147: {pl: "Czas trwania umiejętności +%d%%", en: "Skill duration +%d%%", f: "percent"},
-  1148: {pl: "Silny przeciw potworom z Doliny Orków +%d%%", en: "Strong against Orc Valley monsters +%d%%", f: "percent"},
-  1149: {pl: "Silny przeciw Metinom +%d%%", en: "Strong against Metin stones +%d%%", f: "percent"},
-  1150: {pl: "Silny przeciw bossom +%d%%", en: "Strong against bosses +%d%%", f: "percent"},
-  1151: {pl: "Magiczny atak przeciw potworom +%d%%", en: "Magic attack against monsters +%d%%", f: "percent"},
-  1152: {pl: "Przełamanie odporności na miecz +%d%%", en: "Breaks sword resistance +%d%%", f: "percent"},
-  1153: {pl: "Przełamanie odporności na broń dwuręczną +%d%%", en: "Breaks two-handed resistance +%d%%", f: "percent"},
-  1154: {pl: "Przełamanie odporności na sztylet +%d%%", en: "Breaks dagger resistance +%d%%", f: "percent"},
-  1155: {pl: "Przełamanie odporności na dzwonek +%d%%", en: "Breaks bell resistance +%d%%", f: "percent"},
-  1156: {pl: "Przełamanie odporności na wachlarz +%d%%", en: "Breaks fan resistance +%d%%", f: "percent"},
-  1157: {pl: "Przełamanie odporności na łuk +%d%%", en: "Breaks bow resistance +%d%%", f: "percent"},
-  1158: {pl: "Szansa na zbieranie +%d%%", en: "Collecting chance +%d%%", f: "percent"},
-  1159: {pl: "Szansa na naukę +%d%%", en: "Learning chance +%d%%", f: "percent"},
-  1160: {pl: "Odporność na ludzi +%d%%", en: "Resistance against humans +%d%%", f: "percent"},
-  1161: {pl: "Magiczny atak +%d", en: "Magic attack +%d", f: "flat"},
-  1162: {pl: "Szansa na podpalenie +%d%%", en: "Chance of burning +%d%%", f: "percent"},
-  1163: {pl: "Zamiana obrażeń na PE +%d%%", en: "Damage converted to SP +%d%%", f: "percent"},
-  1164: {pl: "Szansa na rzadki łup +%d%%", en: "Rare drop chance +%d%%", f: "percent"},
-  1165: {pl: "Magiczna wartość ataku przeciw potworom +%d", en: "Magic attack value against monsters +%d", f: "flat"},
-  1166: {pl: "Szansa na unieruchomienie +%d%%", en: "Chance of rooting +%d%%", f: "percent"},
-  1167: {pl: "Atak specjalny +%d", en: "Special attack +%d", f: "flat"},
-  1168: {pl: "Kara za śmierć +%d%%", en: "Death penalty +%d%%", f: "percent"}
-};
+var APPLY_META = {{ apply_meta|tojson }};
 
 // One formatter for both the fixed bonuses an item is made with and the random
 // lines rolled onto it, so the same id can never be worded or punctuated two
 // different ways. The sign lives in the client's own template: where it puts a
 // "+" the value is meant to read as a gain, so a negative value drops that "+"
 // instead of printing "+-10".
-function formatApply(type, val, lg) {
+function formatApply(type, val) {
   var meta = APPLY_META[applyKey(type)];
   if (!meta) return 'Bonus #' + type + ': ' + (val > 0 ? '+' : '') + val;
-  var text = meta[lg] || meta.en;
+  var text = meta.t;
   if (meta.f === 'boolean') return text;
   var shown = (meta.f === 'multiplier' || meta.f === 'percent_decimal')
       ? (Math.round(val * 10) / 10).toFixed(1)
@@ -7796,19 +9057,19 @@ function renderShopWindow(shop) {
   if (!shop) {
     list.innerHTML = '';
     where.textContent = '';
-    empty.textContent = I18N.shop_none || 'Ten bot nie ma otwartego sklepu.';
+    empty.textContent = I18N.shop_none;
     empty.style.display = 'block';
     return;
   }
   var offers = shop.offers || [];
   where.textContent = (shop.name || '') +
-      ' · ' + (I18N.map || 'Mapa') + ' ' + shop.map_index +
+      ' · ' + I18N.map + ' ' + shop.map_index +
       ' (' + shop.x + ', ' + shop.y + ')' +
-      (shop.is_premium ? ' · ' + (I18N.shop_premium || 'premium') : '') +
-      (shop.expired ? ' · ' + (I18N.shop_expired || 'wygasły') : '');
+      (shop.is_premium ? ' · ' + I18N.shop_premium : '') +
+      (shop.expired ? ' · ' + I18N.shop_expired : '');
   if (!offers.length) {
     list.innerHTML = '';
-    empty.textContent = I18N.shop_empty || 'Lada jest pusta.';
+    empty.textContent = I18N.shop_empty;
     empty.style.display = 'block';
     return;
   }
@@ -7838,7 +9099,7 @@ function toggleBotShop(pid, name) {
   win.style.display = 'block';
   g_currentShopPid = pid;
   var titleEl = document.getElementById('m2ShopTitle');
-  if (titleEl) titleEl.textContent = (I18N.shop || 'Sklep') + (name ? ' — ' + name : '');
+  if (titleEl) titleEl.textContent = I18N.shop + (name ? ' — ' + name : '');
   renderShopWindow(null);
 
   fetch('/api/bot_shop/' + pid, {cache:'no-store'})
@@ -7912,7 +9173,7 @@ function toggleBotSafebox(pid, name) {
   win.style.display = 'block';
   g_currentSafeboxPid = pid;
   var titleEl = document.getElementById('m2SafeboxTitle');
-  if (titleEl) titleEl.textContent = (I18N.depot || 'Magazyn') + (name ? ' — ' + name : '');
+  if (titleEl) titleEl.textContent = I18N.depot + (name ? ' — ' + name : '');
 
   renderSafeboxGrid([]);
   fetch('/api/bot_safebox/' + pid, {cache:'no-store'})
@@ -8000,14 +9261,15 @@ function showItemTooltip(ev, item) {
   var tt = document.getElementById('m2ItemTooltip');
   if (!tt || !item) return;
 
-  var lg = I18N.language || 'pl';
+  // The words are the page's (I18N); this used to read I18N.language, which
+  // the table never had, so every tooltip said "Wymagany Poziom" in English.
   var def = (g_itemDefs && g_itemDefs[String(item.vnum)]) || {};
-  var name = item.name || def.name || ('Item #' + item.vnum);
+  var name = item.name || def.name || I18N.item_n.replace('{n}', item.vnum);
 
   var html = '<div class="m2-tt-name">' + name + '</div>';
 
   if (def.level && def.level > 0) {
-    html += '<div style="color:#a1a1aa;font-size:10px">' + (lg === 'pl' ? 'Wymagany Poziom: ' : 'Required Level: ') + '<b style="color:#e5e7eb">' + def.level + '</b></div>';
+    html += '<div style="color:#a1a1aa;font-size:10px">' + I18N.tt_req_level + ': <b style="color:#e5e7eb">' + def.level + '</b></div>';
   }
 
   // Combat Stats (Attack / Defense)
@@ -8017,17 +9279,17 @@ function showItemTooltip(ev, item) {
     var minAtt = (def.value3 || 0) + (def.value5 || 0);
     var maxAtt = (def.value4 || 0) + (def.value5 || 0);
     if (minAtt > 0 || maxAtt > 0) {
-      statHtml += '<div class="m2-tt-stat">' + (lg === 'pl' ? 'Wartość Ataku: ' : 'Attack Value: ') + minAtt + ' - ' + maxAtt + '</div>';
+      statHtml += '<div class="m2-tt-stat">' + I18N.tt_attack + ': ' + minAtt + ' - ' + maxAtt + '</div>';
       hasStats = true;
     }
     var minMag = (def.value1 || 0) + (def.value5 || 0);
     var maxMag = (def.value2 || 0) + (def.value5 || 0);
     if (minMag > 0 || maxMag > 0) {
-      statHtml += '<div class="m2-tt-stat">' + (lg === 'pl' ? 'Wartość Magicznego Ataku: ' : 'Magic Attack Value: ') + minMag + ' - ' + maxMag + '</div>';
+      statHtml += '<div class="m2-tt-stat">' + I18N.tt_magic_attack + ': ' + minMag + ' - ' + maxMag + '</div>';
       hasStats = true;
     }
     if (def.value0 > 0) {
-      statHtml += '<div class="m2-tt-stat">' + (lg === 'pl' ? 'Szybkość Ataku: +' : 'Attack Speed: +') + def.value0 + '%</div>';
+      statHtml += '<div class="m2-tt-stat">' + I18N.tt_attack_speed + ': +' + def.value0 + '%</div>';
       hasStats = true;
     }
   } else if (def.type === 2) { // Armor / Equip
@@ -8038,11 +9300,11 @@ function showItemTooltip(ev, item) {
     else if (def.subtype === 4) defVal = (def.value1 || 0) + (def.value5 || 0); // Boots
 
     if (defVal > 0) {
-      statHtml += '<div class="m2-tt-stat">' + (lg === 'pl' ? 'Obrona: ' : 'Defense: ') + defVal + '</div>';
+      statHtml += '<div class="m2-tt-stat">' + I18N.tt_defense + ': ' + defVal + '</div>';
       hasStats = true;
     }
     if (def.value0 > 0) {
-      statHtml += '<div class="m2-tt-stat">' + (lg === 'pl' ? 'Szybkość Ruchu: ' : 'Movement Speed: ') + (def.subtype === 0 ? '-' : '+') + def.value0 + '%</div>';
+      statHtml += '<div class="m2-tt-stat">' + I18N.tt_move_speed + ': ' + (def.subtype === 0 ? '-' : '+') + def.value0 + '%</div>';
       hasStats = true;
     }
   }
@@ -8052,7 +9314,7 @@ function showItemTooltip(ev, item) {
     def.apply.forEach(function(ap) {
       if (ap.type && ap.val) {
         if (applyIsHidden(ap.type)) return;
-        statHtml += '<div class="m2-tt-stat">' + formatApply(ap.type, ap.val, lg) + '</div>';
+        statHtml += '<div class="m2-tt-stat">' + formatApply(ap.type, ap.val) + '</div>';
         hasStats = true;
       }
     });
@@ -8067,7 +9329,7 @@ function showItemTooltip(ev, item) {
     html += '<div class="m2-tt-divider"></div>';
     item.attrs.forEach(function(a) {
       if (applyIsHidden(a.type)) return;
-      html += '<div class="m2-tt-bonus">' + formatApply(a.type, a.val, lg) + '</div>';
+      html += '<div class="m2-tt-bonus">' + formatApply(a.type, a.val) + '</div>';
     });
   }
 
@@ -8079,12 +9341,12 @@ function showItemTooltip(ev, item) {
       if (sVal === 0 && def.type !== 1 && def.type !== 2) return;
       hasSock = true;
       if (sVal === 0) {
-        sockHtml += '<div class="m2-tt-socket" style="color:#71717a">⚪ ' + (lg === 'pl' ? 'Pęknięty Kamień' : 'Broken Stone') + '</div>';
+        sockHtml += '<div class="m2-tt-socket" style="color:#71717a">⚪ ' + I18N.tt_broken_stone + '</div>';
       } else if (sVal === 1) {
-        sockHtml += '<div class="m2-tt-socket" style="color:#94a3b8">⚪ ' + (lg === 'pl' ? 'Czysty Slot' : 'Empty Socket') + '</div>';
+        sockHtml += '<div class="m2-tt-socket" style="color:#94a3b8">⚪ ' + I18N.tt_empty_socket + '</div>';
       } else if (sVal >= 28000 && sVal <= 28999) {
         var sDef = (g_itemDefs && g_itemDefs[String(sVal)]) || {};
-        var sName = sDef.name || ('Kamień Duszy #' + sVal);
+        var sName = sDef.name || (I18N.tt_soul_stone + ' #' + sVal);
         sockHtml += '<div class="m2-tt-socket" style="color:#38bdf8">💎 ' + sName + '</div>';
       } else if (sVal > 1) {
         sockHtml += '<div class="m2-tt-socket" style="color:#94a3b8">⚙️ #' + sVal + '</div>';
@@ -8227,8 +9489,8 @@ function openBotModal(pid) {
       // The account decides, not the nickname: renaming a bot used to relabel
       // it GRACZ here while every other view still knew what it was.
       var isBot = !!p.is_bot;
-      var typeBadge = isBot ? '<span style="background:#2ecc71;color:#000;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700">BOT</span>'
-                            : '<span style="background:#ef4444;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700">GRACZ</span>';
+      var typeBadge = isBot ? '<span style="background:#2ecc71;color:#000;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700">' + I18N.bot_badge + '</span>'
+                            : '<span style="background:#ef4444;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700">' + I18N.player + '</span>';
 
       var html = '<div class="m2-modal-columns">';
 
@@ -8243,7 +9505,7 @@ function openBotModal(pid) {
       var wx = Math.floor(p.x / 100);
       var wy = Math.floor(p.y / 100);
       html += '<div style="margin-bottom:12px">' +
-              '<button type="button" class="btn btn-sm" onclick="warpMeToBot(' + p.x + ',' + p.y + ')" style="width:100%;margin-bottom:8px;background:#16a34a;color:#fff;font-weight:700;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-size:13px;box-shadow:0 0 10px rgba(22,163,74,0.5)">' +
+              '<button type="button" class="btn btn-sm" onclick="warpMeToBot(' + p.x + ',' + p.y + ',' + (p.channel || 0) + ')" style="width:100%;margin-bottom:8px;background:#16a34a;color:#fff;font-weight:700;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-size:13px;box-shadow:0 0 10px rgba(22,163,74,0.5)">' +
               '⚡ ' + I18N.teleport_me +
               '</button>' +
               '<div style="display:flex;gap:8px">' +
@@ -8260,6 +9522,10 @@ function openBotModal(pid) {
               '<div><b>HP:</b> <span style="color:#ef4444">' + (p.hp || 0) + '</span> / <b>MP:</b> <span style="color:#38bdf8">' + (p.mp || 0) + '</span></div>' +
               '<div><b>Yang:</b> <span style="color:#eab308;font-weight:700">' + (p.gold || 0).toLocaleString() + '</span></div>' +
               '<div><b>' + I18N.position + ':</b> (' + p.x + ', ' + p.y + ')</div>' +
+              // What the AI is doing is a bot's alone: a person reached from a
+              // ranking (blipu, 28 September) has no personality, goal or action,
+              // and the defaults read as though he had.
+              (isBot ?
               '<div><b>' + I18N.personality + ':</b> <span style="color:#c084fc;font-weight:700">' + escapeHtml(p.personality) + '</span>' +
                 (p.charakter ? ' <span style="color:#9ca3af">(' + I18N.charakter + ': ' + escapeHtml(p.charakter) + ')</span>' : '') + '</div>' +
               '<div><b>' + I18N.ambition + ':</b> <span style="color:#86efac;font-weight:700">' + escapeHtml(p.ambition) + '</span></div>' +
@@ -8268,7 +9534,8 @@ function openBotModal(pid) {
               (p.mood ? '<div style="grid-column:1 / -1"><b>' + I18N.mood + ':</b> <span style="color:#fbbf24;font-weight:700">' + escapeHtml(p.mood) + '</span>' +
                 (p.hold ? ' &nbsp;|&nbsp; <span style="color:#9ca3af">' + escapeHtml(p.hold) + '</span>' : '') + '</div>' : '') +
               '<div style="grid-column:1 / -1"><b>' + I18N.current_goal + ':</b> <span style="color:#60a5fa;font-weight:700">' + escapeHtml(p.goal) + '</span></div>' +
-              '<div style="grid-column:1 / -1"><b>' + I18N.action + ':</b> <span style="color:#ffd700">' + escapeHtml(p.action) + '</span></div>' +
+              '<div style="grid-column:1 / -1"><b>' + I18N.action + ':</b> <span style="color:#ffd700">' + escapeHtml(p.action) + '</span></div>'
+              : '') +
               '<div><b>' + I18N.horse + ':</b> <span style="color:#c084fc;font-weight:700">Lv ' + (p.horse_level || 0) + '</span></div>' +
               '<div><b>' + I18N.biologist + ':</b> <span style="color:#4ade80;font-weight:700">' + (p.biologist_completed || 0) + '/' + (p.biologist_total || 7) + (I18N.bio_done ? ' ' + I18N.bio_done : '') + '</span></div>' +
               '<div style="grid-column:1 / -1"><b>' + I18N.bio_stage + ':</b> <span style="color:#86efac">' + (p.biologist_label || I18N.no_data) + '</span></div>' +
@@ -8347,7 +9614,7 @@ function openBotModal(pid) {
       // RIGHT COLUMN: Authentic Metin2 Inventory Window
       html += '<div>';
       html += '<div class="m2-inv-window">' +
-              '<div class="m2-window-title">⚔️ ' + (I18N.inventory || 'Ekwipunek') + '</div>';
+              '<div class="m2-window-title">⚔️ ' + I18N.inventory + '</div>';
 
       // Equipment Section with Character Silhouette
       html += '<div class="m2-equip-container">' +
@@ -8384,7 +9651,7 @@ function openBotModal(pid) {
       // The depot is not a wear slot, so it has no entry in equipCoords. The
       // container is 200px wide and the eight real slots stop at x=132, so it
       // goes in that unused margin rather than overlapping any of them.
-      html += '<div class="m2-equip-slot" title="' + (I18N.depot || 'Magazyn') +
+      html += '<div class="m2-equip-slot" title="' + I18N.depot +
               '" style="left:150px;top:6px;width:34px;height:34px;cursor:pointer;' +
               'display:flex;align-items:center;justify-content:center;font-size:19px"' +
               ' data-botpid="' + p.id + '" data-botname="' + p.name + '"' +
@@ -8604,7 +9871,7 @@ function copyWarp(x, y) {
   copyCommand('/warp ' + x + ' ' + y);
 }
 
-function warpMeToBot(x, y) {
+function warpMeToBot(x, y, channel) {
   var t = document.getElementById('mapToast');
   if (t) {
     t.innerText = '⏳ ' + I18N.teleporting;
@@ -8616,7 +9883,8 @@ function warpMeToBot(x, y) {
     // 'auto' lets the server pick the character that actually played last.
     // This used to send a hardcoded name, so the button teleported that one
     // player on every installation and silently did nothing for everyone else.
-    body: JSON.stringify({ x: x, y: y, player_name: 'auto' })
+    // The bot's channel too: a character on another one is moved there.
+    body: JSON.stringify({ x: x, y: y, channel: channel || 0, player_name: 'auto' })
   })
   .then(function(res) { return res.json(); })
   .then(function(data) {
@@ -8627,7 +9895,12 @@ function warpMeToBot(x, y) {
       }
     } else {
       if (t) {
-        t.innerText = '❌ ' + I18N.error + ': ' + (data.error || data.status || I18N.failure);
+        // The server answers with a word (api_admin_warp_me); the three it
+        // says for a reason a person can act on are said in the page's words.
+        var why = (data && (data.error || data.status)) || '';
+        var said = {player_offline: I18N.warp_player_offline, no_human_player: I18N.warp_no_human,
+                    timeout: I18N.warp_timeout}[why];
+        t.innerText = '❌ ' + I18N.error + ': ' + (said || why || I18N.failure);
         setTimeout(function() { t.style.display = 'none'; }, 4000);
       }
     }
@@ -8669,6 +9942,7 @@ def live_map():
                                   browser_ready=browser_client_ready(),
                                   play_url=play_url(),
                                   m=map_i18n(language),
+                                  apply_meta=apply_meta_for(language),
                                   langs=LANGS,
                                   curlang=language,
                                   tile_version=PLAYERBOT_MAP_TILE_VERSION,
@@ -8678,6 +9952,7 @@ def live_map():
                                   # zero and the tab is a hundred rows of
                                   # nothing - hidden there, kept on r40250.
                                   engine_mt2009=ENGINE_MT2009,
+                                  people_ranked=rankings_count_people(),
                                   is_admin=bool(session.get("auth")))
 
 # ---------------------------------------------------------------------------
@@ -8749,6 +10024,80 @@ def bot_sql(query):
     return query
 
 
+# ---------------------------------------------------------------------------
+# Who a ranking counts: every character but a game master's (blipu, 28
+# September: "Wgl fajnie graczy dodac do wszystkich rankingow, jak gramy na coop
+# fajnie porownywac postep"). The rankings, the season and its records used to
+# ask <<BOT_2>>, so a person playing beside the bots was in none of them.
+#
+# A game master is a character with a rank in common.gmlist - the table the
+# engine reads to hand out the commands, and the one the player page's rank
+# card writes. That is what keeps Admin, AdminNinja, AdminSura and AdminSzaman
+# (gm_characters.sql: level 90, 500 000 000 yang and a full +9 set each) off
+# the first four places of every table. Not the admin account: the operator's
+# own character often lives on it, and it is a player's.
+# Not the names either: the r40250 package calls its GM [SA]Admin, and a rank
+# given in the panel goes to whatever character it is given to. A PLAYER row
+# is no rank (gm_rank_of); a GM whose rank is taken away is ranked again.
+#
+# Seban's panel has the switch (/manage, "Prawdziwi gracze w rankingach", a
+# common.m2_switches row), and this panel follows it, so the two cannot rank
+# different worlds. No row means people are in; only an explicit 0 takes them
+# out, and then the rankings are the bots' alone again.
+# ---------------------------------------------------------------------------
+RANKING_PEOPLE_SWITCH = "include_real_players_in_rankings"
+RANKING_PEOPLE_TTL = 30.0
+_RANKING_PEOPLE = {"at": 0.0, "on": True}
+
+
+def rankings_count_people():
+    """Whether the rankings count people's characters beside the bots."""
+    now = time.time()
+    if now - _RANKING_PEOPLE["at"] < RANKING_PEOPLE_TTL:
+        return _RANKING_PEOPLE["on"]
+    on = True
+    try:
+        with db() as c, c.cursor() as cur:
+            cur.execute("SELECT value FROM common.m2_switches WHERE name = %s",
+                        (RANKING_PEOPLE_SWITCH,))
+            row = cur.fetchone()
+        if row is not None:
+            on = str(row.get("value", "1")).strip() != "0"
+    except Exception:
+        # Seban's collector creates the table; before it has, and on a
+        # database it cannot create one in, nobody has said no.
+        on = True
+    _RANKING_PEOPLE.update(at=now, on=on)
+    return on
+
+
+def _not_game_master(alias):
+    ref = (alias + ".") if alias else ""
+    return ("NOT EXISTS (SELECT 1 FROM common.gmlist rg"
+            " WHERE rg.mName = " + ref + "name AND rg.mAuthority <> 'PLAYER')")
+
+
+def _ranked(alias, pct, people_only):
+    if not rankings_count_people():
+        # Bots only; and a people-only ranking of a world that ranks no people
+        # is empty rather than a list the switch said not to show.
+        return "(1 = 0)" if people_only else _bot_identity(alias, pct)
+    if people_only:
+        return ("(" + _not_game_master(alias) + " AND NOT "
+                + _bot_identity(alias, pct) + ")")
+    return _not_game_master(alias)
+
+
+def ranking_sql(query, people_only=False):
+    """Expand the ranking markers - <<RANKED_2>>, <<RANKED_1>>, <<RANKED_P_2>>,
+    <<RANKED_P_1>>, spelled as the bot markers are - then the bot markers."""
+    for marker, alias, pct in (("<<RANKED_P_2>>", "p", "%%"), ("<<RANKED_P_1>>", "p", "%"),
+                               ("<<RANKED_2>>", "", "%%"), ("<<RANKED_1>>", "", "%")):
+        if marker in query:
+            query = query.replace(marker, _ranked(alias, pct, people_only))
+    return bot_sql(query)
+
+
 @app.route("/api/admin/warp_me", methods=["POST"])
 def api_admin_warp_me():
     try:
@@ -8756,6 +10105,12 @@ def api_admin_warp_me():
         target_x = int(data.get("x", 0))
         target_y = int(data.get("y", 0))
         gm_name = data.get("player_name") or "auto"
+        # "y:channel" when the bot's channel is known: web_admin.quest moves a
+        # character on another channel there (pc.warp_channel), where a plain
+        # WARP stayed on the character's own ("teleportuje, ale nie zmienia
+        # ch", prodnathin, 28 September).
+        channel = int(data.get("channel") or 0)
+        target_arg2 = "%d:%d" % (target_y, channel) if channel > 0 else str(target_y)
 
         # "auto": whoever is in the game right now. The panel cannot ask the
         # database that - last_play is written when the character is saved,
@@ -8780,10 +10135,10 @@ def api_admin_warp_me():
                     # teleport succeeded. Say what is actually wrong instead.
                     return jsonify({"ok": False, "error": "no_human_player"}), 404
                 cur.executemany("INSERT INTO player.web_admin_queue (player_name,cmd,arg1,arg2) VALUES (%s,%s,%s,%s)",
-                                [(n, "WARP", str(target_x), str(target_y)) for n in names])
+                                [(n, "WARP", str(target_x), target_arg2) for n in names])
                 cur.execute("SELECT id, player_name FROM player.web_admin_queue WHERE cmd='WARP' AND status='pending'"
                             " AND arg1=%s AND arg2=%s AND player_name IN ({})".format(",".join(["%s"] * len(names))),
-                            (str(target_x), str(target_y)) + tuple(names))
+                            (str(target_x), target_arg2) + tuple(names))
                 rows = {r["id"]: r["player_name"] for r in cur.fetchall()}
             moved, st = None, "timeout"
             deadline = time.time() + 6.0
@@ -8811,7 +10166,7 @@ def api_admin_warp_me():
                                 "tried": names, "x": target_x, "y": target_y})
             return jsonify({"ok": st == "done", "status": st, "name": moved, "x": target_x, "y": target_y})
 
-        st, qid = queue_and_wait(gm_name, "WARP", target_x, target_y, wait=5.0)
+        st, qid = queue_and_wait(gm_name, "WARP", target_x, target_arg2, wait=5.0)
         if st == "timeout":
             # A WARP nobody answered must not wait for the next login.
             with db() as c, c.cursor() as cur:
@@ -8844,31 +10199,53 @@ def log_text(value):
 
 
 GEAR_HISTORY_HOWS = {
-    "REFINE SUCCESS":        ("refine_ok",   {"pl": "Ulepszenie udane",   "en": "Refine succeeded"}),
-    "REFINE FAIL":           ("refine_fail", {"pl": "Ulepszenie nieudane", "en": "Refine failed"}),
-    "REMOVE (REFINE FAIL)":  ("burned",      {"pl": "Spalone przy ulepszaniu", "en": "Burned in refine"}),
-    "REFINE FISH_ROD SUCCESS": ("refine_ok", {"pl": "Wędka ulepszona",    "en": "Rod refined"}),
-    "REFINE FISH_ROD FAIL":  ("refine_fail", {"pl": "Wędka nieulepszona", "en": "Rod refine failed"}),
-    "PLAYERBOT_EQUIP":       ("equip",       {"pl": "Założone",           "en": "Equipped"}),
-    "PLAYERBOT_GIFT_OUT":    ("gift_out",    {"pl": "Podarowane",         "en": "Given away"}),
-    "PLAYERBOT_GIFT_IN":     ("gift_in",     {"pl": "Dostane w prezencie", "en": "Received as gift"}),
-    "PLAYERBOT_STALL_SOLD":  ("stall_sold",  {"pl": "Sprzedane na straganie", "en": "Sold at the stall"}),
-    "SHOP_BUY":              ("bought",      {"pl": "Kupione na straganie", "en": "Bought at a stall"}),
-    "PLAYERBOT_SHOP_SELL":   ("vendor",      {"pl": "Sprzedane handlarzowi", "en": "Sold to merchant"}),
-    "PLAYERBOT_BONUS":       ("bonus",       {"pl": "Zużyte na przemianę bonusów", "en": "Used for a bonus reroll"}),
-    "PLAYERBOT_BONUS_ADD":   ("bonus",       {"pl": "Dodano bonus (Wzmocnienie)", "en": "Bonus line added"}),
-    "PLAYERBOT_BONUS_CHANGE":("bonus",       {"pl": "Zmieniono bonusy (Zmiana)",  "en": "Bonus lines rerolled"}),
-    "PLAYERBOT_BONUS_MARBLE":("bonus",       {"pl": "Dodano 5. bonus (Marmur)",   "en": "Fifth line added (marble)"}),
-    "SAFEBOX PUT":           ("safebox",     {"pl": "Do magazynu",        "en": "Into the safebox"}),
-    "SAFEBOX GET":           ("safebox",     {"pl": "Z magazynu",         "en": "Out of the safebox"}),
-    "MOONLIGHT_GET":         ("get",         {"pl": "Ze Szkatułki Blasku", "en": "From a Moonlight chest"}),
+    "REFINE SUCCESS":        ("refine_ok",   {"pl": "Ulepszenie udane",   "en": "Refine succeeded",
+                             "de": "Verbesserung erfolgreich", "tr": "Yükseltme başarılı"}),
+    "REFINE FAIL":           ("refine_fail", {"pl": "Ulepszenie nieudane", "en": "Refine failed",
+                             "de": "Verbesserung fehlgeschlagen", "tr": "Yükseltme başarısız"}),
+    "REMOVE (REFINE FAIL)":  ("burned",      {"pl": "Spalone przy ulepszaniu", "en": "Burned in refine",
+                             "de": "Beim Verbessern zerstört", "tr": "Yükseltmede yandı"}),
+    "REFINE FISH_ROD SUCCESS": ("refine_ok", {"pl": "Wędka ulepszona",    "en": "Rod refined",
+                             "de": "Angel verbessert", "tr": "Olta yükseltildi"}),
+    "REFINE FISH_ROD FAIL":  ("refine_fail", {"pl": "Wędka nieulepszona", "en": "Rod refine failed",
+                             "de": "Angel nicht verbessert", "tr": "Olta yükseltilemedi"}),
+    "PLAYERBOT_EQUIP":       ("equip",       {"pl": "Założone",           "en": "Equipped",
+                             "de": "Angelegt", "tr": "Kuşanıldı"}),
+    "PLAYERBOT_GIFT_OUT":    ("gift_out",    {"pl": "Podarowane",         "en": "Given away",
+                             "de": "Verschenkt", "tr": "Hediye edildi"}),
+    "PLAYERBOT_GIFT_IN":     ("gift_in",     {"pl": "Dostane w prezencie", "en": "Received as gift",
+                             "de": "Als Geschenk erhalten", "tr": "Hediye olarak alındı"}),
+    "PLAYERBOT_STALL_SOLD":  ("stall_sold",  {"pl": "Sprzedane na straganie", "en": "Sold at the stall",
+                             "de": "Am Stand verkauft", "tr": "Tezgâhta satıldı"}),
+    "SHOP_BUY":              ("bought",      {"pl": "Kupione na straganie", "en": "Bought at a stall",
+                             "de": "An einem Stand gekauft", "tr": "Tezgâhtan satın alındı"}),
+    "PLAYERBOT_SHOP_SELL":   ("vendor",      {"pl": "Sprzedane handlarzowi", "en": "Sold to merchant",
+                             "de": "An einen Händler verkauft", "tr": "Satıcıya satıldı"}),
+    "PLAYERBOT_BONUS":       ("bonus",       {"pl": "Zużyte na przemianę bonusów", "en": "Used for a bonus reroll",
+                             "de": "Für eine Bonusänderung verbraucht", "tr": "Bonus değiştirmek için harcandı"}),
+    "PLAYERBOT_BONUS_ADD":   ("bonus",       {"pl": "Dodano bonus (Wzmocnienie)", "en": "Bonus line added",
+                             "de": "Bonus hinzugefügt (Gegenstand verstärken)", "tr": "Bonus eklendi (Güçlendirme Nesnesi)"}),
+    "PLAYERBOT_BONUS_CHANGE":("bonus",       {"pl": "Zmieniono bonusy (Zmiana)",  "en": "Bonus lines rerolled",
+                             "de": "Boni geändert (Gegenstand verzaubern)", "tr": "Bonuslar değiştirildi (Efsun Nesnesi)"}),
+    "PLAYERBOT_BONUS_MARBLE":("bonus",       {"pl": "Dodano 5. bonus (Marmur)",   "en": "Fifth line added (marble)",
+                             "de": "5. Bonus hinzugefügt (Marmor)", "tr": "5. bonus eklendi (Mermer)"}),
+    "SAFEBOX PUT":           ("safebox",     {"pl": "Do magazynu",        "en": "Into the safebox",
+                             "de": "Ins Lager", "tr": "Depoya"}),
+    "SAFEBOX GET":           ("safebox",     {"pl": "Z magazynu",         "en": "Out of the safebox",
+                             "de": "Aus dem Lager", "tr": "Depodan"}),
+    "MOONLIGHT_GET":         ("get",         {"pl": "Ze Szkatułki Blasku", "en": "From a Moonlight chest",
+                             "de": "Aus einer Mondlichtschatztruhe", "tr": "Ay Işığı Sandığından"}),
     # A bot's purchase from a village merchant and the marble a hundred Magic
     # Dust make (Iwakura's Patch 4, point 11): neither had a row the card read
     # (B23 of Iwakura's audit of 26 September).
-    "PLAYERBOT_NPC_BUY":     ("bought",      {"pl": "Kupione u handlarza", "en": "Bought from a merchant"}),
-    "PLAYERBOT_DUST_MARBLE": ("bonus",       {"pl": "Marmur z Magicznego Pyłu", "en": "Marble from Magic Dust"}),
-    "EXCHANGE_TAKE":         ("gift_in",     {"pl": "Z wymiany",          "en": "From a trade"}),
-    "EXCHANGE_GIVE":         ("gift_out",    {"pl": "Oddane w wymianie",  "en": "Given in a trade"}),
+    "PLAYERBOT_NPC_BUY":     ("bought",      {"pl": "Kupione u handlarza", "en": "Bought from a merchant",
+                             "de": "Beim Händler gekauft", "tr": "Satıcıdan satın alındı"}),
+    "PLAYERBOT_DUST_MARBLE": ("bonus",       {"pl": "Marmur z Magicznego Pyłu", "en": "Marble from Magic Dust",
+                             "de": "Marmor aus Magischem Staub", "tr": "Sihirli Tozdan Mermer"}),
+    "EXCHANGE_TAKE":         ("gift_in",     {"pl": "Z wymiany",          "en": "From a trade",
+                             "de": "Aus einem Handel", "tr": "Ticaretten"}),
+    "EXCHANGE_GIVE":         ("gift_out",    {"pl": "Oddane w wymianie",  "en": "Given in a trade",
+                             "de": "Im Handel abgegeben", "tr": "Ticarette verildi"}),
 }
 
 # Iwakura's Patch 3, point 1: the card's tabs. Trade is what was sold and
@@ -8885,7 +10262,8 @@ GEAR_HISTORY_TABS = {
                "REFINE FISH_ROD FAIL"),
     "other":  ("PLAYERBOT_EQUIP", "SAFEBOX PUT", "SAFEBOX GET", "MOONLIGHT_GET"),
 }
-GEAR_HISTORY_OFFLINE_BUY = ("bought", {"pl": "Kupione w sklepie offline", "en": "Bought from an offline shop"})
+GEAR_HISTORY_OFFLINE_BUY = ("bought", {"pl": "Kupione w sklepie offline", "en": "Bought from an offline shop",
+                                       "de": "In einem Offline-Shop gekauft", "tr": "Çevrimdışı dükkândan satın alındı"})
 
 
 def gear_history_offline_buys(cur, pid, limit):
@@ -8923,22 +10301,22 @@ def gear_history_offline_buys(cur, pid, limit):
 # POWER and every scroll SCROLL, or nothing when the SET column dropped its
 # name). 15.09: "w nawiasie pisz (Kowal, Zwoj Blogoslawienstwa, ...)".
 REFINE_WAY_LABELS = {
-    "POWER":      {"pl": "Kowal",                 "en": "Blacksmith"},
-    "GUILD":      {"pl": "Kowal gildii",          "en": "Guild blacksmith"},
-    "DEVILTOWER": {"pl": "Kowal w Wieży Demonów", "en": "Demon Tower blacksmith"},
-    "SCROLL":     {"pl": "zwój",                  "en": "scroll"},
+    "POWER":      {"pl": "Kowal",                 "en": "Blacksmith", "de": "Schmied", "tr": "Demirci"},
+    "GUILD":      {"pl": "Kowal gildii",          "en": "Guild blacksmith", "de": "Gildenschmied", "tr": "Lonca demircisi"},
+    "DEVILTOWER": {"pl": "Kowal w Wieży Demonów", "en": "Demon Tower blacksmith", "de": "Schmied im Dämonenturm", "tr": "Şeytan Kulesi'ndeki demirci"},
+    "SCROLL":     {"pl": "zwój",                  "en": "scroll", "de": "Schriftrolle", "tr": "parşömen"},
     # The names r40250's DoRefineWithScroll writes into the same column.
-    "HYUNIRON":      {"pl": "Magiczny Kamień",    "en": "Magic Stone"},
-    "GOD_SCROLL":    {"pl": "Zwój Boga Smoków",   "en": "Dragon God scroll"},
-    "MUSIN_SCROLL":  {"pl": "Zwój Boga Wojny",    "en": "War God scroll"},
-    "YAGONG_SCROLL": {"pl": "Podręcznik Kowala",  "en": "Blacksmith's handbook"},
-    "SOCKET":        {"pl": "gniazdo",            "en": "socket"},
+    "HYUNIRON":      {"pl": "Magiczny Kamień",    "en": "Magic Stone", "de": "Magischer Stein", "tr": "Büyülü Taş"},
+    "GOD_SCROLL":    {"pl": "Zwój Boga Smoków",   "en": "Dragon God scroll", "de": "Drachengott-Schriftrolle", "tr": "Ejderha Tanrısı Parşömeni"},
+    "MUSIN_SCROLL":  {"pl": "Zwój Boga Wojny",    "en": "War God scroll", "de": "Kriegsgott-Schriftrolle", "tr": "Savaş Tanrısı Parşömeni"},
+    "YAGONG_SCROLL": {"pl": "Podręcznik Kowala",  "en": "Blacksmith's handbook", "de": "Schmiedehandbuch", "tr": "Demirci El Kitabı"},
+    "SOCKET":        {"pl": "gniazdo",            "en": "socket", "de": "Slot", "tr": "yuva"},
 }
 REFINE_HOWS = ("REFINE SUCCESS", "REFINE FAIL", "REMOVE (REFINE FAIL)")
 
 
 def refine_way_label(way, language):
-    lang_key = "pl" if language == "pl" else "en"
+    lang_key = language if language in LANGS else "en"
     kind, _, vnum = (way or "").strip().partition(":")
     if vnum.isdigit():
         name = localized_item_name(int(vnum), language)
@@ -8996,7 +10374,8 @@ def match_refine_ways(cur, pid, rows):
 @app.route("/api/bot_gear_history/<int:pid>")
 def api_bot_gear_history(pid):
     language = lang()
-    lang_key = "pl" if language == "pl" else "en"
+    lang_key = language if language in LANGS else "en"
+    messages = map_i18n(language)
     try:
         limit = max(10, min(400, int(request.args.get("limit", 60))))
     except (TypeError, ValueError):
@@ -9035,18 +10414,19 @@ def api_bot_gear_history(pid):
                 hint = log_text(r.get("hint")).strip()
                 detail = ""
                 if how in ("PLAYERBOT_GIFT_OUT",):
-                    detail = ("→ " if lang_key == "en" else "→ ") + hint
+                    detail = "→ " + hint
                 elif how in ("PLAYERBOT_GIFT_IN",):
-                    detail = ("← " if lang_key == "en" else "← ") + hint
+                    detail = "← " + hint
                 elif how == "PLAYERBOT_STALL_SOLD":
                     # "vnum xCOUNT za PRICE"
                     parts = hint.split()
                     if len(parts) >= 4:
-                        detail = parts[1] + (" for " if lang_key == "en" else " za ") + "{:,}".format(int(parts[3])).replace(",", " ") + " yang"
+                        detail = messages["gh_sold_for"].format(
+                            count=parts[1], price="{:,}".format(int(parts[3])).replace(",", " "))
                 elif how == "PLAYERBOT_EQUIP":
                     parts = hint.split()
                     if len(parts) >= 4 and parts[3].isdigit() and int(parts[3]) > 0:
-                        detail = ("instead of " if lang_key == "en" else "zamiast ") + localized_item_name(int(parts[3]), language)
+                        detail = messages["gh_instead"].format(item=localized_item_name(int(parts[3]), language))
                 elif how.startswith("REFINE") or how.startswith("REMOVE"):
                     # The engine's hint is the item's own name with its grade,
                     # which the item column already shows; how the refine was
@@ -9067,9 +10447,10 @@ def api_bot_gear_history(pid):
             if tab in ("trade", "all"):
                 kind, labels = GEAR_HISTORY_OFFLINE_BUY
                 for t, vnum, count, yang, seller in gear_history_offline_buys(cur, pid, limit):
-                    detail = ("x%d " % count if count > 1 else "") + ("for " if lang_key == "en" else "za ") +                         "{:,}".format(yang).replace(",", " ") + " yang"
+                    detail = ("x%d " % count if count > 1 else "") + messages["gh_paid"].format(
+                        price="{:,}".format(yang).replace(",", " "))
                     if seller:
-                        detail += (" from " if lang_key == "en" else " od ") + seller
+                        detail += " " + messages["gh_from"].format(seller=seller)
                     rows.append((t, {
                         "time": t.strftime("%d.%m %H:%M") if hasattr(t, "strftime") else str(t),
                         "kind": kind,
@@ -9095,6 +10476,12 @@ def api_bot_logs(bot_name):
             "/opt/metin2/var/channel2/game1/syslog",
             "/opt/metin2/var/channel2/first/syslog",
             "/opt/metin2/var/channel2/game2/syslog",
+            "/opt/metin2/var/channel3/game1/syslog",
+            "/opt/metin2/var/channel3/first/syslog",
+            "/opt/metin2/var/channel3/game2/syslog",
+            "/opt/metin2/var/channel4/game1/syslog",
+            "/opt/metin2/var/channel4/first/syslog",
+            "/opt/metin2/var/channel4/game2/syslog",
         ]
         matched_lines = []
         # The whole name and not a prefix of one: "botgrom" used to match
@@ -13482,6 +14869,7 @@ def api_bot_inventory(pid):
                 player["x"] = live.get("x", player.get("x"))
                 player["y"] = live.get("y", player.get("y"))
                 player["hp"] = live.get("hp", player.get("hp"))
+                player["channel"] = live.get("channel", 0)
             player["action"] = live_labels["action"]
             player["personality"] = live_labels["personality"]
             player["charakter"] = live_labels["charakter"]
@@ -13491,7 +14879,7 @@ def api_bot_inventory(pid):
             player["goal"] = live_labels["goal"]
             player["live"] = bool(live)
             raw_skills = player.pop("skill_level", b"")
-            profession_names = SKILL_GROUP_NAMES if language == "pl" else SKILL_GROUP_NAMES_EN
+            profession_names = SKILL_GROUP_NAMES_BY_LANG.get(language, SKILL_GROUP_NAMES_EN)
             player["profession_name"] = profession_names.get(
                 (int(player.get("job") or 0) % 4, int(player.get("skill_group") or 0)),
                 messages["profession_none"])
@@ -13749,20 +15137,30 @@ def api_bot_rankings():
         rank_limit = max(15, min(5000, int(request.args.get("limit", "15"))))
     except (TypeError, ValueError):
         rank_limit = 15
+    # "Tylko gracze": people's characters alone, numbered among themselves, so a
+    # person is found however far down the whole list they stand.
+    people_only = request.args.get("people") == "1"
+    people_ranked = rankings_count_people()
     language = lang()
     messages = map_i18n(language)
     try:
         with db() as c, c.cursor() as cur:
             if rtype == "gold":
-                cur.execute(bot_sql("""
+                cur.execute(ranking_sql("""
                     SELECT id, name, level, job, gold
                     FROM player.player
-                    WHERE <<BOT_2>>
+                    WHERE <<RANKED_2>>
                     ORDER BY gold DESC, level DESC
                     LIMIT %s
-                """), (rank_limit,))
+                """, people_only), (rank_limit,))
             elif rtype == "weapon30":
-                cur.execute(bot_sql("""
+                # What a character carries: the bag and the worn slots. A
+                # SAFEBOX or MALL row's owner_id is the ACCOUNT's id (see
+                # api_bot_safebox), so joined to player.id it put an account's
+                # depot on whichever character had that number - a person's
+                # depot on a bot, once people were ranked at all. A counter's
+                # line (IKASHOP_*) is for sale, not the keeper's weapon.
+                cur.execute(ranking_sql("""
                     SELECT p.id, p.name, p.level, p.job, p.gold,
                            i.vnum as weapon_vnum, i.window as item_window,
                            i.attrtype0, i.attrvalue0, i.attrtype1, i.attrvalue1,
@@ -13771,7 +15169,7 @@ def api_bot_rankings():
                            i.attrtype6, i.attrvalue6
                     FROM player.item i
                     JOIN player.player p ON p.id = i.owner_id
-                    WHERE <<BOT_P_2>> AND (
+                    WHERE <<RANKED_P_2>> AND i.window IN ('INVENTORY', 'EQUIPMENT') AND (
                         (i.vnum BETWEEN 290 AND 299) OR
                         (i.vnum BETWEEN 1170 AND 1179) OR
                         (i.vnum BETWEEN 2150 AND 2159) OR
@@ -13781,47 +15179,47 @@ def api_bot_rankings():
                     )
                     ORDER BY i.id DESC
                     LIMIT %s
-                """), (WEAPON30_RANK_SCAN,))
+                """, people_only), (WEAPON30_RANK_SCAN,))
             elif rtype == "weapon":
-                cur.execute(bot_sql("""
+                cur.execute(ranking_sql("""
                     SELECT p.id, p.name, p.level, p.job, p.gold, i.vnum as weapon_vnum
                     FROM player.player p
                     LEFT JOIN player.item i ON p.id = i.owner_id AND i.window = 'EQUIPMENT' AND i.pos = 4
-                    WHERE <<BOT_P_2>>
+                    WHERE <<RANKED_P_2>>
                     ORDER BY MOD(i.vnum, 10) DESC, i.vnum DESC, p.level DESC
                     LIMIT %s
-                """), (rank_limit,))
+                """, people_only), (rank_limit,))
             elif rtype == "armor":
-                cur.execute(bot_sql("""
+                cur.execute(ranking_sql("""
                     SELECT p.id, p.name, p.level, p.job, p.gold, i.vnum as armor_vnum
                     FROM player.player p
                     LEFT JOIN player.item i ON p.id = i.owner_id AND i.window = 'EQUIPMENT' AND i.pos = 0
-                    WHERE <<BOT_P_2>>
+                    WHERE <<RANKED_P_2>>
                     ORDER BY MOD(i.vnum, 10) DESC, i.vnum DESC, p.level DESC
                     LIMIT %s
-                """), (rank_limit,))
+                """, people_only), (rank_limit,))
             elif rtype == "items":
-                cur.execute(bot_sql("""
+                cur.execute(ranking_sql("""
                     SELECT p.id, p.name, p.level, p.job, p.gold, COUNT(i.id) as item_count
                     FROM player.player p
                     LEFT JOIN player.item i ON p.id = i.owner_id AND i.window = 'INVENTORY'
-                    WHERE <<BOT_P_2>>
+                    WHERE <<RANKED_P_2>>
                     GROUP BY p.id
                     ORDER BY item_count DESC, p.level DESC
                     LIMIT %s
-                """), (rank_limit,))
+                """, people_only), (rank_limit,))
             elif rtype == "horse":
-                cur.execute(bot_sql("""
+                cur.execute(ranking_sql("""
                     SELECT id, name, level, job, gold, horse_level
                     FROM player.player
-                    WHERE <<BOT_2>>
+                    WHERE <<RANKED_2>>
                     ORDER BY horse_level DESC, level DESC, exp DESC
                     LIMIT %s
-                """), (rank_limit,))
+                """, people_only), (rank_limit,))
             elif rtype == "biologist":
                 mission_names = tuple(m[0] for m in BIOLOGIST_MISSIONS)
                 placeholders = ",".join(["%s"] * len(mission_names))
-                ranking_sql = bot_sql("""
+                biologist_sql = ranking_sql("""
                     SELECT p.id, p.name, p.level, p.job, p.gold,
                            COUNT(DISTINCT CASE
                                WHEN q.szState = '__status' AND q.lValue = %s
@@ -13829,15 +15227,15 @@ def api_bot_rankings():
                     FROM player.player p
                     LEFT JOIN player.quest q
                       ON q.dwPID = p.id AND q.szName IN ({})
-                    WHERE <<BOT_P_2>>
+                    WHERE <<RANKED_P_2>>
                     GROUP BY p.id
                     ORDER BY biologist_completed DESC, p.level DESC, p.exp DESC
                     LIMIT %s
-                """).format(placeholders)
-                cur.execute(ranking_sql, (BIOLOGIST_COMPLETE_STATE,) + mission_names +
+                """, people_only).format(placeholders)
+                cur.execute(biologist_sql, (BIOLOGIST_COMPLETE_STATE,) + mission_names +
                             (rank_limit,))
             elif rtype == "hunting":
-                cur.execute(bot_sql("""
+                cur.execute(ranking_sql("""
                     SELECT p.id, p.name, p.level, p.job, p.gold,
                            MAX(CASE WHEN q.szState = 'complete' THEN q.lValue ELSE 0 END) AS hunting_complete,
                            MAX(CASE WHEN q.szState = 'current' THEN q.lValue ELSE 0 END) AS hunting_current,
@@ -13846,12 +15244,12 @@ def api_bot_rankings():
                     FROM player.player p
                     LEFT JOIN player.quest q
                       ON q.dwPID = p.id AND q.szName = 'levelup'
-                    WHERE <<BOT_P_2>>
+                    WHERE <<RANKED_P_2>>
                     GROUP BY p.id
                     ORDER BY hunting_complete DESC, hunting_current DESC,
                               hunting_remain ASC, p.level DESC
                     LIMIT %s
-                """), (rank_limit,))
+                """, people_only), (rank_limit,))
             elif rtype == "shops" and ENGINE_MT2009:
                 # On the 2.x line a bot's stall is a real offline shop (2.0.26):
                 # an independent entity the engine keeps in
@@ -13863,26 +15261,28 @@ def api_bot_rankings():
                 # from where the keeper happens to be hunting; the live entry is
                 # still read so the row can say what the keeper is doing now.
                 live = read_playerbot_live_status()
-                cur.execute(bot_sql("""
+                cur.execute(ranking_sql("""
                     SELECT p.id, p.name, p.level, p.job, p.gold,
                            s.map AS stall_map_index
                     FROM player.ikashop_offlineshop s
                     JOIN player.player p ON p.id = s.owner
-                    WHERE s.duration > 0 AND <<BOT_P_2>>
+                    WHERE s.duration > 0 AND <<RANKED_P_2>>
                     ORDER BY p.level DESC
                     LIMIT %s
-                """), (rank_limit,))
+                """, people_only), (rank_limit,))
             elif rtype == "shops":
                 # An open stall exists only in the game core's memory, so this is
                 # the one ranking the database cannot answer. The live status file
                 # can: a keeper reports BOT_ACTION_STALL for as long as its stall
                 # stands, which is what separates it from a bot merely visiting a
-                # merchant (BOT_ACTION_SHOP).
+                # merchant (BOT_ACTION_SHOP). A person's stall is in no file, so
+                # this one ranks the bots' stalls alone.
                 live = read_playerbot_live_status()
                 keeper_ids = [pid for pid, entry in live.items()
                               if entry.get("action_id") == BOT_ACTION_STALL_ID]
-                if not keeper_ids:
+                if not keeper_ids or people_only:
                     return jsonify({"ok": True, "type": rtype, "limit": rank_limit,
+                                    "people": people_ranked, "people_only": people_only,
                                     "rankings": []})
                 keeper_ids = keeper_ids[:rank_limit]
                 placeholders = ",".join(["%s"] * len(keeper_ids))
@@ -13901,11 +15301,11 @@ def api_bot_rankings():
                 # skill_level is a packed blob, so the whole set has to come
                 # back - two and a half thousand rows on a full world, which is
                 # what this page already reads for the live map.
-                cur.execute(bot_sql("""
+                cur.execute(ranking_sql("""
                     SELECT id, name, level, job, gold, skill_group, skill_level
                     FROM player.player
-                    WHERE <<BOT_2>> AND skill_group > 0
-                """))
+                    WHERE <<RANKED_1>> AND skill_group > 0
+                """, people_only))
             elif rtype == "plus9":
                 # Equipment stores its refine in the vnum: base + 0..9. Which
                 # vnums are equipment is a question for item_proto, not for a
@@ -13917,25 +15317,28 @@ def api_bot_rankings():
                 #
                 # type 1 is ITEM_WEAPON and 2 is ITEM_ARMOR (common/item_length.h),
                 # which is exactly the set whose refine chain runs base+0..9.
-                cur.execute(bot_sql("""
+                # The bag and the worn slots only, for the weapon30 ranking's
+                # reason: a depot row's owner is an account, not a character.
+                cur.execute(ranking_sql("""
                     SELECT p.id, p.name, p.level, p.job, p.gold,
                            i.vnum as weapon_vnum, i.window as item_window
                     FROM player.item i
                     JOIN player.player p ON p.id = i.owner_id
                     JOIN player.item_proto ip ON ip.vnum = i.vnum
-                    WHERE <<BOT_P_2>> AND ip.type IN (1, 2)
+                    WHERE <<RANKED_P_2>> AND i.window IN ('INVENTORY', 'EQUIPMENT')
+                      AND ip.type IN (1, 2)
                       AND MOD(i.vnum, 10) = 9
                     ORDER BY i.vnum DESC, p.level DESC
                     LIMIT %s
-                """), (rank_limit,))
+                """, people_only), (rank_limit,))
             else: # level
-                cur.execute(bot_sql("""
+                cur.execute(ranking_sql("""
                     SELECT id, name, level, job, exp, gold
                     FROM player.player
-                    WHERE <<BOT_2>>
+                    WHERE <<RANKED_2>>
                     ORDER BY level DESC, exp DESC
                     LIMIT %s
-                """), (rank_limit,))
+                """, people_only), (rank_limit,))
 
             rows = cur.fetchall()
             # The Biologist's ranking names the row each bot is on, as the card
@@ -13964,16 +15367,19 @@ def api_bot_rankings():
                 bio_live = read_playerbot_live_status()
             # One lookup for the whole page instead of a column in each of the
             # dozen ranking queries, which is also the only way it stays right
-            # when a new ranking is added.
-            empires = {}
+            # when a new ranking is added - the kingdom, and whether the row is
+            # a bot or a person, whom the list marks.
+            empires, bots = {}, set()
             if rows:
-                rank_ids = [r["id"] for r in rows]
+                rank_ids = sorted({r["id"] for r in rows})
                 cur.execute(
-                    bot_sql("SELECT id, <<EMPIRE>> AS empire FROM player.player"
+                    bot_sql("SELECT id, <<EMPIRE>> AS empire, <<BOT_2>> AS is_bot FROM player.player"
                             " WHERE id IN (" + ",".join(["%s"] * len(rank_ids)) + ")"),
                     rank_ids)
-                empires = {row["id"]: int(row["empire"] or 0)
-                           for row in cur.fetchall()}
+                for row in cur.fetchall():
+                    empires[row["id"]] = int(row["empire"] or 0)
+                    if int(row.get("is_bot") or 0):
+                        bots.add(row["id"])
             rankings = []
             for r in rows:
                 wv = r.get("weapon_vnum")
@@ -14078,7 +15484,10 @@ def api_bot_rankings():
                     "skill_rank_name": skill_name,
                     "skill_score": skill_score,
                     "stall_map": stall_map,
-                    "in_pt": bot_in_party_cohort(r["id"])
+                    "is_bot": r["id"] in bots,
+                    # The party cohort is the bots' (BOT_PARTY_MODULO); a
+                    # person's party is nothing the database holds.
+                    "in_pt": r["id"] in bots and bot_in_party_cohort(r["id"])
                 })
 
             if rtype == "weapon30":
@@ -14094,6 +15503,7 @@ def api_bot_rankings():
                 rankings = rankings[:rank_limit]
 
             return jsonify({"ok": True, "type": rtype, "limit": rank_limit,
+                            "people": people_ranked, "people_only": people_only,
                             "rankings": rankings})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "rankings": []})
@@ -14187,6 +15597,7 @@ def rates():
     regen_count = None
     difficulty = None
     autohunt = None
+    starter_chest = None
     if ENGINE_MT2009:
         try:
             regen = read_regen_mt2009()
@@ -14204,6 +15615,10 @@ def rates():
             autohunt = read_autohunt_mt2009()
         except Exception:
             autohunt = None
+        try:
+            starter_chest = read_starter_chest_mt2009()
+        except Exception:
+            starter_chest = None
     channels = None
     if ENGINE_MT2009:
         try:
@@ -14214,7 +15629,7 @@ def rates():
                                   regen_count=regen_count, count_choices=REGEN_COUNT_CHOICES,
                                   difficulty=difficulty, difficulty_levels=DIFFICULTY_LEVELS,
                                   difficulty_max=DIFFICULTY_MAX_HOURS, autohunt=autohunt,
-                                  channels=channels,
+                                  starter_chest=starter_chest, channels=channels,
                                   intro_key="rates_intro_mt2009" if ENGINE_MT2009 else "rates_intro",
                                   state_msg=t("rates_st_" + st) if st in RATE_STATES else "")
 
@@ -14383,14 +15798,55 @@ def rates_autohunt():
     return redirect(url_for("rates"))
 
 
-# The second channel (M2_PLAYERBOT_CH2). The game container decides it at every
+@app.post("/rates/starter_chest")
+@login_required
+def rates_starter_chest():
+    """The apprentice chest on or off, for people and bots alike. mt2009 only:
+    starter_chest.quest, the seed and the cores read the event flag. The row is
+    what a restart keeps; web_admin.quest's STARTER_CHEST makes it live."""
+    if not ENGINE_MT2009:
+        return redirect(url_for("rates"))
+    value = (request.form.get("off", "") or "").strip()
+    if value not in ("0", "1"):
+        return redirect(url_for("rates"))
+    try:
+        with db() as c, c.cursor() as cur:
+            cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                        "VALUES (0, 'm2_starter_chest_off', '', %s)", (int(value),))
+    except Exception:
+        flash(t("db_down"), "error")
+        return redirect(url_for("rates"))
+    try:
+        status, qid = queue_and_wait("", "STARTER_CHEST", value, "", wait=RATES_LIVE_WAIT)
+    except Exception:
+        status, qid = "failed", 0
+    if status == "done":
+        flash(t("sc_saved_live"))
+    else:
+        if status == "timeout":
+            try:
+                with db() as c, c.cursor() as cur:
+                    cur.execute("UPDATE player.web_admin_queue SET status='cancelled' "
+                                "WHERE id=%s AND status='pending'", (qid,))
+            except Exception:
+                pass
+        flash(t("sc_saved_restart"))
+    return redirect(url_for("rates"))
+
+
+# The game channels, one choice of 1-4 (the operator's "Kanaly gry 1-4", 28
+# September): the second channel for the world's bots (M2_PLAYERBOT_CH2) and
+# the fresh cohort's CH3, or CH3 and CH4 (M2_PLAYERBOT_FRESH_CHANNELS 1/2,
+# PLAYERBOT_FRESH_COUNT of them). The game container decides it at every
 # start from .env (the launcher's) or from this panel's wish in the spool,
 # whichever was made later, and writes what it runs with beside the status
 # files. The panel cannot restart the container, so a change here applies at
-# the next start; the launcher reads the wish then and opens CH2's ports.
+# the next start; the launcher reads the wish then and opens the ports.
 CHANNELS_WISH = os.path.join(AI_SPOOL, "channels.wanted")
 CHANNELS_EFFECTIVE = "/opt/metin2/var/channels.effective"
 CH2_SHARE_CHOICES = (20, 30, 40, 50, 60, 70)
+CH_CHOICES = (1, 2, 3, 4)
+FRESH_COUNT_MAX = 1500
 
 
 def _read_kv(path):
@@ -14406,39 +15862,99 @@ def _read_kv(path):
     return out
 
 
+def _kv_int(values, key, default):
+    raw = values.get(key, "")
+    return int(raw) if raw.isdigit() else default
+
+
+def channels_words(key, n, share, count):
+    """A channel choice in words: key is "ch_words" (the pending line) or
+    "ch_now" (the running one)."""
+    if key == "ch_now":
+        if n <= 1:
+            return t("ch2_now_off")
+        if n == 2:
+            return t("ch2_now_on").replace("{share}", str(share))
+        return t("ch_now%d" % min(n, 4)).replace("{share}", str(share)).replace("{count}", str(count))
+    return (t("ch_words%d" % max(1, min(n, 4)))
+            .replace("{share}", str(share)).replace("{count}", str(count)))
+
+
 def read_channels_state():
     eff = _read_kv(CHANNELS_EFFECTIVE)
     wish = _read_kv(CHANNELS_WISH)
     on = eff.get("CH2") == "1"
-    share = int(eff.get("SHARE", "40")) if eff.get("SHARE", "").isdigit() else 40
-    ports = eff.get("PORTS", "13000-13002")
-    state = {"on": on, "share": share, "ports_open": ports.endswith("13012"),
-             "want_on": on, "want_share": share, "pending": "", "choices": CH2_SHARE_CHOICES}
-    if wish.get("CH2") in ("0", "1"):
+    share = _kv_int(eff, "SHARE", 40)
+    fresh = _kv_int(eff, "FRESH", 0)
+    fresh = fresh if fresh <= 2 else 0
+    count = _kv_int(eff, "FRESH_COUNT", 200)
+    channels = 2 + fresh if fresh else (2 if on else 1)
+    # The published range has to reach the last channel's third core; a range
+    # the panel cannot read counts as the first channel's.
+    m = re.match(r"^\s*(\d+)\s*-\s*(\d+)\s*$", eff.get("PORTS", "13000-13002"))
+    ports_end = int(m.group(2)) if m else 13002
+    need_end = 13000 + 10 * (channels - 1) + 2
+    state = {"on": on, "share": share, "channels": channels, "fresh_count": count,
+             "ports_open": ports_end >= need_end, "ports_end": need_end,
+             "want_on": on, "want_share": share, "want_channels": channels, "want_fresh_count": count,
+             "pending": "", "choices": CH2_SHARE_CHOICES, "channel_choices": CH_CHOICES,
+             "fresh_max": FRESH_COUNT_MAX, "now": channels_words("ch_now", channels, share, count)}
+    # The wish, unless the server already runs a later choice (the launcher's,
+    # written into .env after the panel's): the entrypoint notes the moment of
+    # the choice that won, and a server from before that note shows the wish.
+    overtaken = (eff.get("SET_AT", "").isdigit() and wish.get("SET_AT", "").isdigit()
+                 and int(wish["SET_AT"]) < int(eff["SET_AT"]))
+    if wish.get("CH2") in ("0", "1") and not overtaken:
         w_on = wish.get("CH2") == "1"
-        w_share = int(wish.get("SHARE", "40")) if wish.get("SHARE", "").isdigit() else 40
-        state["want_on"], state["want_share"] = w_on, w_share
+        w_share = _kv_int(wish, "SHARE", 40)
+        # A wish from before the fresh channels names none: the running ones stay.
+        w_fresh = _kv_int(wish, "FRESH", fresh) if "FRESH" in wish else fresh
+        w_fresh = w_fresh if w_fresh <= 2 else 0
+        w_count = _kv_int(wish, "FRESH_COUNT", count)
+        w_channels = 2 + w_fresh if w_fresh else (2 if w_on else 1)
+        state.update(want_on=w_on, want_share=w_share, want_channels=w_channels, want_fresh_count=w_count)
         # A wish the running server does not match yet.
-        if w_on != on or (w_on and w_share != share):
-            state["pending"] = (t("ch2_on_word").replace("{share}", str(w_share)) if w_on
-                                else t("ch2_off_word"))
+        if (w_channels != channels or (w_channels >= 2 and w_share != share)
+                or (w_channels >= 3 and w_count != count)):
+            state["pending"] = channels_words("ch_words", w_channels, w_share, w_count)
     if state["want_share"] not in CH2_SHARE_CHOICES:
         state["want_share"] = 40
+    if state["want_fresh_count"] > FRESH_COUNT_MAX:
+        state["want_fresh_count"] = FRESH_COUNT_MAX
     return state
 
 
 @app.post("/rates/channels")
 @login_required
 def rates_channels():
-    """The second channel's switch and share, written for the next start."""
+    """The game channels (1-4), the second channel's share and the fresh
+    cohort's count, written for the next start."""
     if not ENGINE_MT2009:
         return redirect(url_for("rates"))
-    on = request.form.get("ch2", "") == "1"
+    raw_n = (request.form.get("channels", "") or "").strip()
+    if raw_n:
+        if not raw_n.isdigit() or int(raw_n) not in CH_CHOICES:
+            flash(t("ch_bad_count"), "error")
+            return redirect(url_for("rates"))
+        n = int(raw_n)
+    else:
+        # The form from before the fresh channels: the second channel's box.
+        n = 2 if request.form.get("ch2", "") == "1" else 1
     raw = (request.form.get("share", "") or "").strip()
     if not raw.isdigit() or int(raw) not in CH2_SHARE_CHOICES:
         flash(t("ch2_bad"), "error")
         return redirect(url_for("rates"))
-    body = "CH2=%d\nSHARE=%d\nSET_AT=%d\n" % (1 if on else 0, int(raw), int(time.time()))
+    raw_c = (request.form.get("fresh_count", "") or "").strip()
+    if not raw_c:
+        count = read_channels_state()["want_fresh_count"]
+    elif not raw_c.isdigit() or int(raw_c) > FRESH_COUNT_MAX:
+        flash(t("ch_fresh_bad"), "error")
+        return redirect(url_for("rates"))
+    else:
+        count = int(raw_c)
+    on = n >= 2
+    body = "CH2=%d\nSHARE=%d\nFRESH=%d\nFRESH_COUNT=%d\nSET_AT=%d\n" % (
+        1 if on else 0, int(raw), max(0, n - 2), count, int(time.time()))
     tmp = CHANNELS_WISH + ".tmp"
     try:
         with open(tmp, "w", encoding="ascii") as fh:
@@ -14447,7 +15963,8 @@ def rates_channels():
     except OSError:
         flash(t("ch2_failed"), "error")
         return redirect(url_for("rates"))
-    app.logger.info("channels: CH2=%s share=%s written for the next start", int(on), raw)
+    app.logger.info("channels: %s channel(s), CH2=%s share=%s fresh_count=%s written for the next start",
+                    n, int(on), raw, count)
     flash(t("ch2_saved"))
     return redirect(url_for("rates"))
 
@@ -14470,7 +15987,7 @@ def guilds_page():
             next_wars[g["empire"]] = nw
     next_war_rows = [(GUILD_EMPIRE_KEYS.get(e, "gl_empire_unknown"), s) for e, s in sorted(next_wars.items())]
     return render_template_string(TPL_GUILDS, guilds=guilds, tier_keys=GUILD_TIER_KEYS,
-                                  next_wars=next_war_rows)
+                                  next_wars=next_war_rows, player_guilds=read_player_guilds())
 
 
 @app.route("/events", methods=["GET", "POST"])
@@ -14835,7 +16352,8 @@ def season_data():
 
     since = (datetime.datetime.now()
              - datetime.timedelta(days=SEASON_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
-    out = {"rows": [], "records": {}, "days": SEASON_DAYS, "error": ""}
+    out = {"rows": [], "people_below": [], "people": True, "records": {},
+           "days": SEASON_DAYS, "error": ""}
     try:
         with db() as c, c.cursor() as cur:
             metins = _season_counts(cur, "STONE_KILL", since)
@@ -14846,13 +16364,15 @@ def season_data():
 
             # Only the characters that did something this week need naming: a
             # world with a thousand bots must not fetch a thousand rows to show
-            # fifty of them.
+            # fifty of them. People are ranked beside the bots and marked (see
+            # rankings_count_people); a game master's character is not.
             active = set(metins) | set(bosses) | set(refines)
             rows = []
             if active:
                 cur.execute(
-                    bot_sql("SELECT id, name, level, job, horse_level FROM player.player "
-                    "WHERE <<BOT_2>> AND id IN %s"), (tuple(sorted(active)),))
+                    ranking_sql("SELECT id, name, level, job, horse_level, <<BOT_2>> AS is_bot"
+                                " FROM player.player WHERE <<RANKED_2>> AND id IN %s"),
+                    (tuple(sorted(active)),))
                 for p in cur.fetchall():
                     pid = int(p["id"])
                     m = metins.get(pid, 0)
@@ -14863,26 +16383,33 @@ def season_data():
                         "name": p["name"],
                         "level": int(p["level"] or 0),
                         "horse": int(p["horse_level"] or 0),
+                        "is_bot": bool(int(p.get("is_bot") or 0)),
                         "metins": m, "bosses": b, "refines": r,
                         "deaths": deaths.get(pid, 0),
                         "score": (m * SEASON_POINTS_METIN + b * SEASON_POINTS_BOSS
                                   + r * SEASON_POINTS_REFINE),
                     })
             rows.sort(key=lambda x: (-x["score"], -x["metins"], x["name"]))
+            for place, row in enumerate(rows, 1):
+                row["place"] = place
             out["rows"] = rows[:50]
+            # A person below the fifty is still somebody looking for his own
+            # line: listed under them, at his own place.
+            out["people_below"] = [row for row in rows[50:] if not row["is_bot"]]
+            out["people"] = rankings_count_people()
 
             # --- the all-time records --------------------------------------
             # Every tile is {name, level}, whatever "level" means for that tile,
             # so the template does not need a branch per record.
             recs = {}
-            cur.execute(bot_sql("SELECT name, level FROM player.player "
-                        "WHERE <<BOT_1>> ORDER BY level DESC, exp DESC LIMIT 1"))
+            cur.execute(ranking_sql("SELECT name, level FROM player.player "
+                        "WHERE <<RANKED_1>> ORDER BY level DESC, exp DESC LIMIT 1"))
             recs["level"] = cur.fetchone()
-            cur.execute(bot_sql("SELECT name, horse_level AS level FROM player.player "
-                        "WHERE <<BOT_1>> ORDER BY horse_level DESC LIMIT 1"))
+            cur.execute(ranking_sql("SELECT name, horse_level AS level FROM player.player "
+                        "WHERE <<RANKED_1>> ORDER BY horse_level DESC LIMIT 1"))
             recs["horse"] = cur.fetchone()
-            cur.execute(bot_sql("SELECT name, gold AS level FROM player.player "
-                        "WHERE <<BOT_1>> ORDER BY gold DESC LIMIT 1"))
+            cur.execute(ranking_sql("SELECT name, gold AS level FROM player.player "
+                        "WHERE <<RANKED_1>> ORDER BY gold DESC LIMIT 1"))
             recs["gold"] = cur.fetchone()
             for key, how, extra in (
                     ("metins", "STONE_KILL", ""),
@@ -14890,9 +16417,9 @@ def season_data():
                     ("refines", "REFINE SUCCESS",
                      "AND l.hint REGEXP '" + SEASON_REFINE_PATTERN + "' ")):
                 cur.execute(
-                    bot_sql("SELECT p.name, COUNT(*) AS level FROM log.log l "
+                    ranking_sql("SELECT p.name, COUNT(*) AS level FROM log.log l "
                     "JOIN player.player p ON p.id = l.who "
-                    "WHERE l.how = %s AND <<BOT_P_2>> ") + extra +
+                    "WHERE l.how = %s AND <<RANKED_P_2>> ") + extra +
                     "GROUP BY l.who ORDER BY level DESC LIMIT 1", (how,))
                 recs[key] = cur.fetchone()
             out["records"] = {k: v for k, v in recs.items() if v}
@@ -15205,7 +16732,7 @@ def login():
     if request.method == "POST":
         cnt, lock = FAILS.get(ip, [0, 0])
         if time.time() < lock:
-            flash("Too many wrong attempts. Please wait 15 minutes for security. ⏳", "error")
+            flash(t("login_locked"), "error")
             return render_template_string(TPL_LOGIN, client_ready=os.path.exists(CLIENT_ZIP), client_name=CLIENT_LABEL,
                                   client_url=CLIENT_URL, browser_ready=browser_play_ready(),
                                   play_url=play_url())
@@ -15216,7 +16743,7 @@ def login():
         cnt += 1
         FAILS[ip] = [cnt, time.time() + LOCK_SEC if cnt >= MAX_FAIL else 0]
         time.sleep(1.5)
-        flash("Wrong passphrase, try again. 🙂", "error")
+        flash(t("login_wrong"), "error")
     return render_template_string(TPL_LOGIN, client_ready=os.path.exists(CLIENT_ZIP), client_name=CLIENT_LABEL,
                                   client_url=CLIENT_URL, browser_ready=browser_play_ready(),
                                   play_url=play_url())
@@ -15333,7 +16860,7 @@ def reset(token):
         return render_template_string(TPL_RESET, valid=False, login="")
     if request.method == "POST":
         if rate_limited("pwreset", 5, 900):
-            flash("Too many attempts. Please wait a while. ⏳", "error")
+            flash(t("too_many_tries"), "error")
             return render_template_string(TPL_RESET, valid=True, login=lg)
         new, new2 = request.form.get("new", ""), request.form.get("new2", "")
         if len(new) < 6:
@@ -15361,7 +16888,7 @@ def download():
     if CLIENT_URL:
         return redirect(CLIENT_URL)
     if not os.path.exists(CLIENT_ZIP):
-        flash("The game download is not ready yet.", "error")
+        flash(t("dl_not_ready"), "error")
         return redirect(url_for("login"))
     # A slot is spent only by a fresh fetch of the whole file. HEAD probes cost
     # nothing, and neither does resuming: a genuine resume asks for a Range that
@@ -15467,7 +16994,7 @@ def play_redirect():
 @app.route("/play/")
 def play():
     if not browser_client_ready():
-        flash("Playing in the browser is not set up on this server.", "error")
+        flash(t("play_not_set"), "error")
         return redirect(url_for("login"))
     resp = send_from_directory(browser_root(), "index.html")
     return _play_headers(resp, "no-cache")
@@ -15604,7 +17131,7 @@ def register():
     form = {"login": "", "social": ""}
     if request.method == "POST":
         if rate_limited("register", 3, 3600):
-            flash("Too many accounts were created from this connection. Please try again later. ⏳", "error")
+            flash(t("reg_too_many"), "error")
             return render_template_string(TPL_REGISTER, form=form)
         lg = request.form.get("login", "").strip()
         pw = request.form.get("pw", "")
@@ -15612,19 +17139,19 @@ def register():
         social = request.form.get("social", "").strip()
         form = {"login": lg, "social": social}
         if not (4 <= len(lg) <= 16 and lg.isalnum()):
-            flash("The username must be 4-16 letters/numbers, no spaces. 🙂", "error")
+            flash(t("reg_bad_user"), "error")
         elif len(pw) < 6:
-            flash("The password must be at least 6 characters. 🙂", "error")
+            flash(t("reg_bad_pw"), "error")
         elif pw != pw2:
-            flash("The two passwords don't match — try again. 🙂", "error")
+            flash(t("reg_pw_mismatch"), "error")
         elif not (social.isdigit() and len(social) == 7):
-            flash("The delete code must be exactly 7 digits (e.g. 1234567). 🙂", "error")
+            flash(t("reg_bad_social"), "error")
         else:
             try:
                 with db() as c, c.cursor() as cur:
                     cur.execute("SELECT 1 FROM account.account WHERE login=%s", (lg,))
                     if cur.fetchone():
-                        flash("That username is already taken — pick another one. 🙂", "error")
+                        flash(t("reg_name_taken"), "error")
                         return render_template_string(TPL_REGISTER, form=form)
                     cur.execute(
                         "INSERT INTO account.account (login,password,social_id,status) "
@@ -15636,14 +17163,14 @@ def register():
                                               browser_ready=browser_play_ready(),
                                               play_url=play_url())
             except Exception:
-                flash("The account could not be created right now. Please try again in a bit. 🙏", "error")
+                flash(t("reg_failed"), "error")
     return render_template_string(TPL_REGISTER, form=form)
 
 @app.route("/account", methods=["GET", "POST"])
 def account():
     if request.method == "POST":
         if rate_limited("acclogin", 8, 900):
-            flash("Too many attempts. Please wait a while. ⏳", "error")
+            flash(t("too_many_tries"), "error")
             return render_template_string(TPL_ACCOUNT_LOGIN)
         lg = request.form.get("login", "").strip()
         pw = request.form.get("pw", "")
@@ -15658,7 +17185,7 @@ def account():
             session["player"] = lg
         else:
             time.sleep(1.0)
-            flash("Wrong username or password. 🙂", "error")
+            flash(t("acc_wrong"), "error")
             return render_template_string(TPL_ACCOUNT_LOGIN)
     lg = session.get("player")
     if not lg:
@@ -15684,9 +17211,9 @@ def account_password():
         return redirect(url_for("account"))
     old, new, new2 = (request.form.get(k, "") for k in ("old", "new", "new2"))
     if len(new) < 6:
-        flash("The new password must be at least 6 characters. 🙂", "error")
+        flash(t("acc_new_short"), "error")
     elif new != new2:
-        flash("The two new passwords don't match. 🙂", "error")
+        flash(t("acc_new_mismatch"), "error")
     else:
         try:
             with db() as c, c.cursor() as cur:
@@ -15694,9 +17221,9 @@ def account_password():
                 row = cur.fetchone()
                 if row and hmac.compare_digest(row["password"], m2_hash(old)):
                     cur.execute("UPDATE account.account SET password=%s WHERE login=%s", (m2_hash(new), lg))
-                    flash("🔒 Your password was changed! Use the new one next time you log into the game.")
+                    flash(t("acc_pw_changed"))
                 else:
-                    flash("The current password is wrong. 🙂", "error")
+                    flash(t("acc_pw_wrong"), "error")
         except Exception:
             flash(t("db_down"), "error")
     return redirect(url_for("account"))
@@ -15760,7 +17287,16 @@ def dash():
         players = []
     return render_template_string(TPL_DASH, players=players,
                                   emoji=lambda j: JOB_EMOJI.get(j, "🧑"),
-                                  jobname=lambda j: JOB_NAME.get(j, ""))
+                                  jobname=class_name)
+
+# The window an item row sits in, in the page's language: the inventory card
+# used to print the raw column ("equipment", "inventory") on every page.
+ITEM_WINDOW_KEYS = {
+    "inventory": "win_inventory", "equipment": "win_equipment",
+    "safebox": "win_safebox", "mall": "win_mall",
+    "dragon_soul_inventory": "win_dragon_soul", "belt_inventory": "win_belt",
+    "ikashop_offlineshop": "win_offlineshop",
+}
 
 @app.route("/player/<int:pid>")
 @login_required
@@ -15773,7 +17309,7 @@ def player(pid):
         flash(t("db_down"), "error")
         return render_template_string(TPL_DASH, players=[],
                                       emoji=lambda j: JOB_EMOJI.get(j, "🧑"),
-                                      jobname=lambda j: JOB_NAME.get(j, ""))
+                                      jobname=class_name)
     if not p:
         flash(t("not_found"), "error")
         return redirect(url_for("dash"))
@@ -15790,6 +17326,7 @@ def player(pid):
         inv = None
     return render_template_string(TPL_PLAYER, p=p, inv=inv,
                                   emoji=lambda j: JOB_EMOJI.get(j, "🧑"),
+                                  WINDOW_KEYS=ITEM_WINDOW_KEYS,
                                   cats=CATS,
                                   gold_presets=gold_presets_i18n(), warp_presets=warp_presets_i18n(),
                                   speed_presets=speed_presets_i18n(),

@@ -790,7 +790,8 @@ namespace
 		sys_log(0, "PLAYERBOT_GUILD: accepted a player's invitation pid=%u name=%s guild=%s inviter=%s",
 				bot->GetPlayerID(), bot->GetName(), guild->GetName(), inviter ? inviter->GetName() : "?");
 		if (inviter)
-			inviter->ChatPacket(CHAT_TYPE_INFO, "%s przyjmuje zaproszenie do gildii %s.", bot->GetName(), guild->GetName());
+			TellPlayerBotPerson(inviter, PBT(IsPlayerBotPersonEnglish(inviter), "%s przyjmuje zaproszenie do gildii %s.",
+					"%s accepts the invitation to the guild %s."), bot->GetName(), guild->GetName());
 		return true;
 	}
 

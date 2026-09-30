@@ -265,29 +265,51 @@ WORLD_DIFFICULTY = (
 
 STARTER_CHEST = (
     '\n'
-    "# Whether a player's new character gets the apprentice chest at its first\n"
-    "# login (starter_chest.quest reads m2_starter_chest_off). Asked with the\n"
-    "# rates when a world is made (seban latino's idea, 22 September); on unless\n"
-    "# .env says M2_STARTER_CHEST=0. An event flag like the difficulty, so a\n"
-    "# change reaches the quests at the next start.\n"
-    'starter=$(printf \'%s\' "${M2_STARTER_CHEST:-1}" | tr \'A-Z\' \'a-z\' | tr -d \' \\r\')\n'
-    'case "$starter" in\n'
+    "# The apprentice chest (Skrzynia Ucznia) is the world's choice, one switch\n"
+    '# for people and bots alike: the event flag m2_starter_chest_off, which\n'
+    "# starter_chest.quest asks at a person's first login, the seed below asks\n"
+    '# for every bot it creates, and the cores ask for the bots in the world\n'
+    '# (off, a bot keeps and opens no chest of the chain: playerbot_gear.h).\n'
+    "# .env's M2_STARTER_CHEST (the launcher's difficulty window and new-world\n"
+    "# dialog, seban latino's idea of 22 September; on unless it says 0) - or\n"
+    "# M2_PLAYERBOT_DISABLE_STUDENT_CHEST=1, the name Seban's own integration\n"
+    '# gives the same choice - is applied only when it changed since the last\n'
+    '# start (m2_starter_chest_env holds what it said): both panels set the flag\n'
+    '# live (web_admin.quest STARTER_CHEST), and a choice made there outlives a\n'
+    "# restart until the launcher's is changed, the difficulty's rule. Until 28\n"
+    '# September the flag was written from .env at every start and the seed\n'
+    '# gave every bot its chest whatever it said.\n'
+    'starter_off=0\n'
+    'case "$(printf \'%s\' "${M2_STARTER_CHEST:-1}" | tr \'A-Z\' \'a-z\' | tr -d \' \\r\')" in\n'
     '    0|off|no|false) starter_off=1 ;;\n'
-    '    *)              starter_off=0 ;;\n'
     'esac\n'
-    'if db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES\n'
-    "        (0, 'm2_starter_chest_off', '', $starter_off);\"; then\n"
-    '    echo "[playerbot-migrate] apprentice chest for new characters: $([ "$starter_off" = 1 ] && echo off || echo on)"\n'
-    'else\n'
-    '    echo "[playerbot-migrate] WARNING: could not write the apprentice chest flag; the quest keeps the last one" >&2\n'
+    'case "$(printf \'%s\' "${M2_PLAYERBOT_DISABLE_STUDENT_CHEST:-0}" | tr \'A-Z\' \'a-z\' | tr -d \' \\r\')" in\n'
+    '    1|on|yes|true) starter_off=1 ;;\n'
+    'esac\n'
+    'starter_env=$(db -N -e "SELECT lValue FROM player.quest WHERE dwPID = 0 AND szName = \'m2_starter_chest_env\' LIMIT 1;" 2>/dev/null | tr -d \' \\r\')\n'
+    'if [ "$starter_env" != "$((starter_off + 1))" ]; then\n'
+    '    if db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES\n'
+    "            (0, 'm2_starter_chest_off', '', $starter_off),\n"
+    '            (0, \'m2_starter_chest_env\', \'\', $((starter_off + 1)));"; then\n'
+    '        echo "[playerbot-migrate] apprentice chest: $([ "$starter_off" = 1 ] && echo off || echo on) (from .env)"\n'
+    '    else\n'
+    '        echo "[playerbot-migrate] WARNING: could not write the apprentice chest flag; the quest keeps the last one" >&2\n'
+    '    fi\n'
     'fi\n'
+    "# What the world says now: .env's, or a panel's made since.\n"
+    'case "$(db -N -e "SELECT lValue FROM player.quest WHERE dwPID = 0 AND szName = \'m2_starter_chest_off\' LIMIT 1;" 2>/dev/null | tr -d \' \\r\')" in\n'
+    '    0) starter_off=0 ;;\n'
+    '    [1-9]*) starter_off=1 ;;\n'
+    'esac\n'
+    'echo "[playerbot-migrate] apprentice chest for people and bots: $([ "$starter_off" = 1 ] && echo off || echo on)"\n'
     "# A bot's apprentice chest is the seed's - Skrzynia Ucznia I lies in its\n"
     '# bag from the start - and the quest cannot tell a bot from a person, so a\n'
     '# bot still at level five or under at its first login got a second one: on\n'
     '# a new world, the whole cohort (Iwakura, 26 September). The seed marks the\n'
     '# bots it creates; this marks the ones seeded before it did, and changes\n'
     '# nothing on a start that finds them marked. A companion is one of these\n'
-    '# identities, so a player gets no chest by making one either.\n'
+    '# identities, so a player gets no chest by making one either. (The quest\n'
+    '# asks pc.is_playerbot() as well since 28 September.)\n'
     'if [ "$(db -e "SELECT COUNT(*) FROM information_schema.tables\n'
     '              WHERE table_schema=\'common\' AND table_name=\'playerbot_seed_state\';" 2>/dev/null)" = 1 ]; then\n'
     '    if db -e "INSERT INTO player.quest (dwPID, szName, szState, lValue)\n'
@@ -298,6 +320,39 @@ STARTER_CHEST = (
     '        echo "[playerbot-migrate] apprentice chest: a bot\'s is the one the seed gave it"\n'
     '    else\n'
     '        echo "[playerbot-migrate] WARNING: could not mark the bots\' apprentice chest as given" >&2\n'
+    '    fi\n'
+    '    # Off, no bot keeps a chest of the chain: every one in a registered\n'
+    "    # bot's bag goes before the cores start - the chest the seed gave each\n"
+    '    # identity that has never been in the world (1 955 on m2zip, every one of\n'
+    '    # them a bot that had never played: the rest had opened theirs), and the\n'
+    '    # chain the others carry. A core still running beside an update may\n'
+    '    # write back the few its online bots hold, and the cores take those out\n'
+    '    # themselves, through the engine (ManagePlayerBotProgressionChests): a\n'
+    "    # DELETE alone on a running world comes back from the db core's cache.\n"
+    "    # Never a person's, and never a companion's, whose bag is its owner's too.\n"
+    '    if [ "$starter_off" = 1 ]; then\n'
+    '        starter_keep=""\n'
+    '        if [ "$(db -e "SELECT COUNT(*) FROM information_schema.tables\n'
+    '                      WHERE table_schema=\'player\' AND table_name=\'playerbot_sidekick\';" 2>/dev/null)" = 1 ]; then\n'
+    '            starter_keep="AND l.pid NOT IN (SELECT k.sidekick_pid FROM player.playerbot_sidekick AS k)"\n'
+    '        fi\n'
+    '        if starter_gone=$(db -e "DELETE FROM player.item\n'
+    "                 WHERE window = 'INVENTORY'\n"
+    '                   AND (vnum BETWEEN 50187 AND 50196 OR vnum IN (50212, 50213))\n'
+    '                   AND owner_id IN (SELECT l.pid\n'
+    '                                      FROM common.playerbot_seed_state AS l\n'
+    '                                      JOIN player.player AS p ON p.id = l.pid\n'
+    '                                      JOIN account.account AS a ON a.id = p.account_id\n'
+    "                                     WHERE l.state IN ('complete', 'adopted')\n"
+    "                                       AND a.login LIKE 'playerbot%' $starter_keep);\n"
+    '                SELECT ROW_COUNT();"); then\n'
+    '            starter_gone=$(printf \'%s\' "$starter_gone" | tr -d \'[:space:]\')\n'
+    '            if [ -n "$starter_gone" ] && [ "$starter_gone" != 0 ]; then\n'
+    '                echo "[playerbot-migrate] apprentice chest off: $starter_gone chest(s) taken out of the bots\' bags"\n'
+    '            fi\n'
+    '        else\n'
+    '            echo "[playerbot-migrate] WARNING: could not take the apprentice chests out of the bots\' bags; the cores take them out as the bots come in" >&2\n'
+    '        fi\n'
     '    fi\n'
     'fi\n'
 )
@@ -495,6 +550,63 @@ GAME_FEATURES = (
     '    else\n'
     '        echo "[playerbot-migrate] WARNING: could not write the Auto Lowy ticket flag" >&2\n'
     '    fi\n'
+    'fi\n'
+)
+
+
+# The fresh cohort of game channels 3 and 4 (upstream 2.2.36,
+# playerbot_channel_rules.h): the seed creates its identities only while those
+# channels are on, and the migrator says how many there are. The seed call and
+# the count after it are r40250's apply.sh with this line's cohort added.
+FRESH_COHORT_SEED_OLD = (
+    'echo "[playerbot-migrate] kingdoms (Shinsoo/Jinno) cohorts: $kingdoms"\n'
+    "if { printf 'SET @playerbot_seed_kingdoms = %s;\n"
+    '\' "$kingdoms"; cat "$seed"; } |\n'
+)
+FRESH_COHORT_SEED = (
+    'echo "[playerbot-migrate] kingdoms (Shinsoo/Jinno) cohorts: $kingdoms"\n'
+    '# The fresh cohort of game channels 3 and 4 (playerbot_channel_rules.h):\n'
+    "# its identities are created only while those channels are on - .env's\n"
+    "# M2_PLAYERBOT_FRESH_CHANNELS, or the web panel's wish (channels.wanted,\n"
+    '# FRESH= and SET_AT=) when that is newer, as the game container decides it.\n'
+    'fresh_channels="${M2_PLAYERBOT_FRESH_CHANNELS:-0}"\n'
+    'fresh_env_at="${M2_PLAYERBOT_CH2_SET_AT:-0}"\n'
+    'case "$fresh_env_at" in \'\'|*[!0-9]*) fresh_env_at=0 ;; esac\n'
+    'if [ -f /opt/m2spool/channels.wanted ]; then\n'
+    "    wish_on=$(sed -n 's/^CH2=\\([01]\\)\\r\\{0,1\\}$/\\1/p' /opt/m2spool/channels.wanted | head -n 1)\n"
+    "    wish_fresh=$(sed -n 's/^FRESH=\\([0-9]\\)\\r\\{0,1\\}$/\\1/p' /opt/m2spool/channels.wanted | head -n 1)\n"
+    "    wish_at=$(sed -n 's/^SET_AT=\\([0-9]\\{1,12\\}\\)\\r\\{0,1\\}$/\\1/p' /opt/m2spool/channels.wanted | head -n 1)\n"
+    '    if [ -n "$wish_on" ] && [ -n "$wish_fresh" ] && [ -n "$wish_at" ] && [ "$wish_at" -gt "$fresh_env_at" ]; then\n'
+    '        fresh_channels="$wish_fresh"\n'
+    '    fi\n'
+    'fi\n'
+    'fresh=0\n'
+    'case "$fresh_channels" in\n'
+    '    1|2) fresh=1 ;;\n'
+    'esac\n'
+    'fresh_range=$(grep -o \'the fresh cohort is not exactly PID [0-9]*\\.\\.[0-9]*\' "$seed" | head -1 | sed \'s/.*PID //\')\n'
+    'fresh_first=${fresh_range%%..*}\n'
+    'fresh_last=${fresh_range##*..}\n'
+    'case "${fresh_first:-}${fresh_last:-}" in\n'
+    "    ''|*[!0-9]*) fresh=0 ;;\n"
+    'esac\n'
+    'echo "[playerbot-migrate] fresh cohort (channels 3-4): $fresh"\n'
+    '# And whether a bot the seed makes now starts with its apprentice chest: the\n'
+    "# world's switch as the step above left it (off gives none).\n"
+    "if { printf 'SET @playerbot_seed_kingdoms = %s;\n"
+    'SET @playerbot_seed_fresh = %s;\n'
+    'SET @playerbot_seed_starter_chest = %s;\n'
+    '\' "$kingdoms" "$fresh" "$((1 - ${starter_off:-0}))"; cat "$seed"; } |\n'
+)
+FRESH_COHORT_COUNT_ANCHOR = 'echo "[playerbot-migrate] seed complete: $count bot character(s) in PID $first_pid..$last_pid"\n'
+FRESH_COHORT_COUNT = (
+    'if [ "$fresh" = 1 ]; then\n'
+    '    fresh_count=$(db -e "\n'
+    '        SELECT COUNT(*)\n'
+    '          FROM common.playerbot_seed_state\n'
+    "         WHERE pid BETWEEN $fresh_first AND $fresh_last AND state IN ('complete', 'adopted');\n"
+    '" 2>/dev/null || echo "?")\n'
+    '    echo "[playerbot-migrate] fresh cohort: $fresh_count identities in PID $fresh_first..$fresh_last (channels 3-4)"\n'
     'fi\n'
 )
 
@@ -713,6 +825,11 @@ def main():
     n = s.count("table_name='speed_hack'")
     assert n == 1, n
     s = s.replace("table_name='speed_hack'", "table_name='hack_log'")
+
+    assert s.count(FRESH_COHORT_SEED_OLD) == 1
+    s = s.replace(FRESH_COHORT_SEED_OLD, FRESH_COHORT_SEED)
+    assert s.count(FRESH_COHORT_COUNT_ANCHOR) == 1
+    s = s.replace(FRESH_COHORT_COUNT_ANCHOR, FRESH_COHORT_COUNT_ANCHOR + FRESH_COHORT_COUNT)
 
     pat = re.compile(r"\(1, 3, 4, 5, 21, 23, 24, 25, 41, 43, 44, 45,\s+108, 109, 61, 63, 64, 104, 65, 71\)")
     s, n = pat.subn('(' + HOSTED + ')', s)

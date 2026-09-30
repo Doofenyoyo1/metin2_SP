@@ -9,5 +9,6 @@ cd /d "%~dp0linux-port\docker"
 docker compose stop
 echo.
 echo Serwer zostal zatrzymany.
+echo The server is stopped.
 echo ========================================================
 pause

@@ -31,13 +31,16 @@
 # changed yet is now looked at again every CHECK_EVERY seconds for up to
 # PATIENCE before it is sent again.
 #
-# Python 2.7 as the client has it.
+# Python 2.7 as the client has it. The one line it writes is a Polish and
+# English pair (playerbot_lang.T), English for a client set to any language
+# but Polish.
 
 import app
 import clientclock
 import chat
 import constInfo
 import ui
+from playerbot_lang import T
 import ikashop
 import offlineShopBuilder
 
@@ -159,7 +162,8 @@ class ShopPricePump(ui.Window):
 		self.asked = []
 		try:
 			chat.AppendChat(chat.CHAT_TYPE_INFO,
-					"Nie udalo sie zmienic ceny %d pozycji - sprobuj jeszcze raz." % len(missed))
+					T("Nie udalo sie zmienic ceny %d pozycji - sprobuj jeszcze raz.",
+						"The price of %d lines could not be changed - try again.") % len(missed))
 		except Exception:
 			pass
 

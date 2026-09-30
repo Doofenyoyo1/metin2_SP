@@ -72,6 +72,19 @@ inline std::string Format(unsigned int vnum, unsigned int flags, const long* soc
 	return out;
 }
 
+// The same link printed under another name - the item's name in the reader's
+// language: a line for an English reader names the piece by its official
+// English name, and its link has to say what the line says, or Substitute
+// finds nothing to put it on. "" for what is no link of Format's.
+inline std::string Rename(const std::string& link, const std::string& name)
+{
+	const size_t open = link.find("|h[");
+	const size_t close = link.rfind("]|h|r");
+	if (open == std::string::npos || close == std::string::npos || close < open + 3 || name.empty())
+		return std::string();
+	return link.substr(0, open + 3) + name + link.substr(close);
+}
+
 // A byte of a word: a letter, a digit, or the high half, where the Polish
 // letters of CP1250 are.
 inline bool IsWordByte(unsigned char c)

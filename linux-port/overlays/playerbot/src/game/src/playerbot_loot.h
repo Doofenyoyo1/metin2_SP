@@ -219,8 +219,12 @@ namespace
 				if (item->GetType() == ITEM_ARMOR &&
 						(item->GetSubType() == ARMOR_HEAD || item->GetSubType() == ARMOR_SHIELD))
 					return false;
+				// Nor a Stalki: the Baroness drops them for a crowd whose best is
+				// past sixty-six, and outgrown they are still a counter's second
+				// prize (PLAYERBOT_SHOP_STALKI_SCORE), never the merchant's.
 				if (item->GetRefineLevel() >= PLAYERBOT_PRECIOUS_REFINE ||
-						IsPlayerBotPrizeItem(item) || IsPlayerBotSpecialLevel30Weapon(item))
+						IsPlayerBotPrizeItem(item) || IsPlayerBotSpecialLevel30Weapon(item) ||
+						IsPlayerBotStalkiItem(item))
 					return false;
 				int levelLimit = 0;
 				for (int i = 0; i < ITEM_LIMIT_MAX_NUM; ++i)

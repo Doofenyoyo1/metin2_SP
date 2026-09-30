@@ -202,14 +202,15 @@ namespace {
 		return s_iRate;
 	}
 
-	// Player-visible, so Polish and ASCII-only like every bot string.
-	const char* PlayerBotEventRateWord(int kind)
+	// Player-visible, so Polish and ASCII-only like every bot string, with its
+	// English twin (playerbot_language.h).
+	const char* PlayerBotEventRateWord(int kind, bool en = false)
 	{
 		switch (kind)
 		{
-			case playerbot_events::KIND_EXP: return "doswiadczenia";
-			case playerbot_events::KIND_DROP: return "szansy na drop";
-			case playerbot_events::KIND_YANG: return "yang z potworow";
+			case playerbot_events::KIND_EXP: return PBT(en, "doswiadczenia", "experience");
+			case playerbot_events::KIND_DROP: return PBT(en, "szansy na drop", "drop chance");
+			case playerbot_events::KIND_YANG: return PBT(en, "yang z potworow", "yang from monsters");
 		}
 		return "";
 	}
@@ -227,17 +228,31 @@ namespace {
 	void AnnouncePlayerBotEvent(int kind, int value, long until, EPlayerBotEventPhase phase)
 	{
 		char body[128];
+		char bodyEn[128];
 		if (kind == playerbot_events::KIND_CHEST)
+		{
 			snprintf(body, sizeof(body), "Szkatulki Blasku Ksiezyca dropia z potworow i metinow");
+			snprintf(bodyEn, sizeof(bodyEn), "Moonlight Treasure Chests drop from monsters and Metin stones");
+		}
 		else
+		{
 			snprintf(body, sizeof(body), "+%d%% %s", value, PlayerBotEventRateWord(kind));
+			snprintf(bodyEn, sizeof(bodyEn), "+%d%% %s", value, PlayerBotEventRateWord(kind, true));
+		}
 		char text[256];
+		char textEn[256];
 		if (phase == EVENT_PHASE_END)
 		{
 			if (kind == playerbot_events::KIND_CHEST)
+			{
 				snprintf(text, sizeof(text), "Event zakonczony: Szkatulki Blasku Ksiezyca juz nie dropia.");
+				snprintf(textEn, sizeof(textEn), "Event over: Moonlight Treasure Chests drop no more.");
+			}
 			else
+			{
 				snprintf(text, sizeof(text), "Event zakonczony: %s wraca do normy.", PlayerBotEventRateWord(kind));
+				snprintf(textEn, sizeof(textEn), "Event over: %s is back to normal.", PlayerBotEventRateWord(kind, true));
+			}
 		}
 		else
 		{
@@ -245,8 +260,10 @@ namespace {
 			FormatPlayerBotEventClock(until, when, sizeof(when));
 			snprintf(text, sizeof(text), "%s: %s do %s!",
 					phase == EVENT_PHASE_START ? "Event" : "Trwa event", body, when);
+			snprintf(textEn, sizeof(textEn), "%s: %s until %s!",
+					phase == EVENT_PHASE_START ? "Event" : "Event on", bodyEn, when);
 		}
-		BroadcastNotice(text);
+		BroadcastPlayerBotNotice(text, textEn);
 		sys_log(0, "PLAYERBOT_EVENT: notice \"%s\"", text);
 	}
 

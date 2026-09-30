@@ -548,6 +548,69 @@ namespace
 		return rods;
 	}
 
+	// A rod or a pickaxe (ITEM_ROD, ITEM_PICK) of the bot's own standing on its
+	// offline counter - the 2.x line, where a line leaves the bag for the shop
+	// entity, so CountPlayerBotRods never sees it - on a stand this core serves
+	// (its channel, a map hosted here, its own kingdom's, as
+	// ManagePlayerBotOfflineService asks): a tool on a stand the bot cannot
+	// serve from here is not waited for, or a bot of another channel would
+	// never fish again. A line the operator put on "stall" is for sale by his
+	// word and not fetched. On r40250 a stall's lines are still in the bag.
+	bool IsPlayerBotTackleOnOwnCounter(LPCHARACTER ch, BYTE itemType)
+	{
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+		if (!ch)
+			return false;
+		auto shop = ikashop::GetManager().GetShopByOwnerID(ch->GetPlayerID());
+		if (!shop)
+			return false;
+		const auto spawn = shop->GetSpawn();
+		if (spawn.channel != g_bChannel || !IsPlayerBotMapHostedHere(spawn.map) ||
+				playerbot_empire_rules::GetMapOwnerEmpire(spawn.map) != ch->GetEmpire())
+			return false;
+		for (const auto& [id, line] : shop->GetItems())
+			if (line && line->GetTable() && line->GetTable()->bType == itemType &&
+					GetPlayerBotItemPolicyOf(line->GetInfo().vnum, itemType) != PLAYERBOT_ITEM_POLICY_STALL)
+				return true;
+#else
+		(void)ch;
+		(void)itemType;
+#endif
+		return false;
+	}
+
+	// When a session last found its tool on its counter and nowhere else, by
+	// pid: the service visit comes for it past a far stand's round while this
+	// is younger than PLAYERBOT_TACKLE_HOME_HOLD_MS (IsPlayerBotTackleAskedHome),
+	// and forgets it once the tool is home (BotOfflineTakeOff).
+	std::map<DWORD, DWORD> s_mapPlayerBotTackleAskedAt;
+
+	// Nothing is bought; the service visit is asked to bring the tool home -
+	// at once, and again only after PLAYERBOT_TACKLE_HOME_HOLD_MS, so a tool
+	// the bag has no room for cannot call its keeper to the counter every time
+	// the session looks. area is the log tag of the pass that asks.
+	void AskPlayerBotTackleHome(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow,
+			const char* area, const char* what)
+	{
+		if (!ch)
+			return;
+		std::map<DWORD, DWORD>::const_iterator asked = s_mapPlayerBotTackleAskedAt.find(ch->GetPlayerID());
+		if (asked != s_mapPlayerBotTackleAskedAt.end() && dwNow - asked->second < PLAYERBOT_TACKLE_HOME_HOLD_MS)
+			return;
+		s_mapPlayerBotTackleAskedAt[ch->GetPlayerID()] = dwNow;
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+		if (!state.offlineShop.visiting)
+			state.offlineShop.nextService = dwNow;
+#else
+		(void)state;
+#endif
+		char tag[48];
+		snprintf(tag, sizeof(tag), "tackle_on_counter_%s", what);
+		PlayerBotLogThrottled(tag, dwNow,
+				"%s: %s on its own counter pid=%u name=%s, fetched by the service visit, none bought",
+				area, what, ch->GetPlayerID(), ch->GetName());
+	}
+
 	bool EquipPlayerBotRod(LPCHARACTER ch)
 	{
 		if (!ch || IsPlayerBotGearFrozen(ch))
@@ -1135,6 +1198,24 @@ namespace
 		return false;
 	}
 
+	// A bot whose rod stands on its own counter and nowhere else waits for the
+	// service visit to bring it home, and buys none. The rod is stowed in the
+	// bag between two sessions, and from Wedka+4 the counter took it for a
+	// precious spare - so the next session bought a Wedka+1 at the Rybak and
+	// the counters filled with +4 and +5 rods (Octodan, 26 September). A
+	// session under way ends; the next look is PLAYERBOT_TACKLE_HOME_RETRY_MS on.
+	bool WaitPlayerBotRodFromCounter(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		if (!ch || IsPlayerBotHoldingRod(ch) || CountPlayerBotRods(ch) > 0 ||
+				!IsPlayerBotTackleOnOwnCounter(ch, ITEM_ROD))
+			return false;
+		if (state.bFishingSession)
+			EndPlayerBotFishingSession(ch, state, dwNow, "rod_on_counter");
+		AskPlayerBotTackleHome(ch, state, dwNow, "PLAYERBOT_FISHING", "rod");
+		state.dwNextFishingCheckTime = dwNow + PLAYERBOT_TACKLE_HOME_RETRY_MS;
+		return true;
+	}
+
 	// Rod and bait both come from the Rybak, who stands on the bank the bots fish
 	// from, so restocking and fishing share one walk.
 	// Buying one thing from the Rybak, and saying out loud when it will not
@@ -1416,6 +1497,10 @@ namespace
 					? CHARACTER_MANAGER::instance().Find(state.dwTargetVID) : NULL;
 			if (victim && !victim->IsDead())
 				return false;
+			// Nor start one whose rod is on the bot's own counter: it is fetched,
+			// not bought again (WaitPlayerBotRodFromCounter).
+			if (WaitPlayerBotRodFromCounter(ch, state, dwNow))
+				return false;
 #if defined(PLAYERBOT_ENGINE_MT2009)
 			// This engine's fishing() wants a level and the pass worn; a session
 			// begun without them walked to the stand and stood there two minutes
@@ -1474,6 +1559,13 @@ namespace
 			return EndPlayerBotFishingSession(ch, state, dwNow, "session_finished");
 		}
 
+		// A rod the bot has on its own counter is never bought again: a session
+		// that finds it there ends, and the service visit fetches it
+		// (WaitPlayerBotRodFromCounter) - the purchase below is the Rybak's.
+		const bool noRod = !IsPlayerBotHoldingRod(ch) && CountPlayerBotRods(ch) <= 0;
+		if (noRod && WaitPlayerBotRodFromCounter(ch, state, dwNow))
+			return false;
+
 		SetPlayerBotGoal(ch, state, BOT_GOAL_FISHING, dwNow);
 		SetPlayerBotAction(state, BOT_ACTION_FISHING, dwNow);
 		state.dwTargetVID = 0;
@@ -1481,8 +1573,7 @@ namespace
 
 		// Rod first, then worms: both come from the Rybak, who stands a short walk
 		// upstream of the bank. Running out of bait sends the bot back to him.
-		const bool needsTackle =
-				(!IsPlayerBotHoldingRod(ch) && CountPlayerBotRods(ch) <= 0) ||
+		const bool needsTackle = noRod ||
 				ch->CountSpecifyItem(PLAYERBOT_FISHING_BAIT_VNUM) <
 					PLAYERBOT_FISHING_BAIT_RESTOCK;
 

@@ -18,20 +18,26 @@
 // own on either side of it, and a war opens with a muster: each side at its
 // camp, buffing, for PLAYERBOT_GUILD_WAR_MUSTER_SECONDS. Then every bot goes
 // for the nearest enemy it can see, which brings the two sides together in
-// the middle; the dead stand up at their own camp and come back. "Potem
+// the middle, and the war is rounds: the dead stand up at their own camp and
+// wait there until one side has nobody left in the fight (or the round's
+// clock ends it), and a break with everybody at the camps comes before the
+// next round (playerbot_war_rules.h, "the rounds"). "Potem
 // stworzymy wojny gildii, gdzie beda chodzic na specjalna mape i walczyc jak
 // gracze miedzy soba" (16 September).
 //
 // A player's guild takes on a bot guild of its own kingdom by the master's
 // ordinary declaration (the guild window, or /war). The engine refuses a
-// player every field war (CGuild::CanStartWar) and an arena war needs the
-// arena's map on the player's own core, so the engine hands a declaration on
-// a bot guild here (playerbotify.py, apply_player_war_on_bot_guilds); it is
-// always a field war on the kingdom's guild map, and the bot guild answers it
-// on the guild chat, with a rest between wars for both sides. "Mozliwosc
-// rozpoczecia wojny gildii na gildie botow" (Remigiusz, 18 September). A
-// guild skill cannot be used here: CGuild::UseSkill only works inside a war
-// arena.
+// player every field war (CGuild::CanStartWar), and an arena war is fought on
+// 110 or 111, which only the first core hosts and no bot can reach - the
+// declaration itself goes out from any core, since every core loads their
+// regions - so the engine hands a declaration on a bot guild here
+// (playerbotify.py, apply_player_war_on_bot_guilds); it is always a field war
+// on the kingdom's guild map, and the bot guild answers it on the guild chat,
+// with a rest between wars for both sides. "Mozliwosc rozpoczecia wojny
+// gildii na gildie botow" (Remigiusz, 18 September). A war between two
+// people's guilds stays the engine's arena war, answered through do_war
+// (apply_guild_war_answer_type on mt2009). A guild skill cannot be used here:
+// CGuild::UseSkill only works inside a war arena.
 //
 // An implementation fragment in the sense playerbot_types.h describes: include
 // it exactly once, after playerbot_targeting.h (the blows are that file's) and
@@ -689,6 +695,7 @@ namespace
 	{
 		if (!ch || !ch->IsPC() || !ch->GetDesc() || ch->GetDesc()->IsBot())
 			return;
+		const bool en = IsPlayerBotPersonEnglish(ch);
 		CGuild* mine = CGuildManager::instance().FindGuild(dwMyGuild);
 		CGuild* enemy = CGuildManager::instance().FindGuild(dwOppGuild);
 		BYTE empire = 0;
@@ -698,12 +705,14 @@ namespace
 			empire = GetPlayerBotGuildEmpire(mine);
 		if (empire == 0)
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] To wojna w polu: walczycie tam, gdzie sie spotkacie.");
+			TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] To wojna w polu: walczycie tam, gdzie sie spotkacie.",
+					"[War] This is a field war: you fight wherever you meet."));
 			return;
 		}
 		if (g_bChannel != 1)
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Boty walcza w wojnach gildii tylko na kanale 1 - zmien kanal i kliknij jeszcze raz.");
+			TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] Boty walcza w wojnach gildii tylko na kanale 1 - zmien kanal i kliknij jeszcze raz.",
+					"[War] The bots fight guild wars on channel 1 only - change the channel and click again."));
 			return;
 		}
 		const long battlefield = playerbot_empire_rules::GetHomeMap((int)empire, playerbot_empire_rules::MAP_ROLE_M3);
@@ -719,13 +728,15 @@ namespace
 			if (!playerbot_empire_rules::GetTeleportArrival((int)empire,
 					playerbot_empire_rules::TELEPORT_GUILD_MAP, town))
 			{
-				ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Nie znam pola bitwy tej wojny.");
+				TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] Nie znam pola bitwy tej wojny.",
+						"[War] I do not know this war's battlefield."));
 				return;
 			}
 			x = town.x;
 			y = town.y;
 		}
-		ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Przenosze cie do obozu twojej gildii na mapie gildyjnej.");
+		TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] Przenosze cie do obozu twojej gildii na mapie gildyjnej.",
+				"[War] Taking you to your guild's camp on the guild map."));
 		sys_log(0, "PLAYERBOT_GUILD: player joins the field war pid=%u name=%s guild=%u enemy=%u empire=%d map=%ld side=%d camp=%d to=(%ld,%ld)",
 				ch->GetPlayerID(), ch->GetName(), dwMyGuild, dwOppGuild, (int)empire, battlefield, side,
 				camp ? 1 : 0, x, y);
@@ -744,35 +755,43 @@ namespace
 	{
 		if (!ch || !mine || !opp || !IsPlayerBotGuild(opp) || IsPlayerBotGuild(mine))
 			return false;
+		const bool en = IsPlayerBotPersonEnglish(ch);
 		if (!IsPlayerBotGuildWarsEnabled())
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wojny z gildiami botow sa wylaczone w panelu serwera.");
+			TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] Wojny z gildiami botow sa wylaczone w panelu serwera.",
+					"[War] Wars on bot guilds are switched off in the server's panel."));
 			return true;
 		}
 		const BYTE empire = GetPlayerBotGuildEmpire(opp);
 		if (empire != 0 && empire != ch->GetEmpire())
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wojne mozna wypowiedziec tylko gildii botow z twojego krolestwa.");
+			TellPlayerBotPerson(ch, "%s", PBT(en, "[Wojna] Wojne mozna wypowiedziec tylko gildii botow z twojego krolestwa.",
+					"[War] You can declare war only on a bot guild of your own kingdom."));
 			return true;
 		}
 		if (opp->UnderAnyWar() != 0)
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Gildia %s walczy teraz w innej wojnie.", opp->GetName());
+			TellPlayerBotPerson(ch, PBT(en, "[Wojna] Gildia %s walczy teraz w innej wojnie.",
+					"[War] The guild %s is fighting another war now."), opp->GetName());
 			return true;
 		}
 		const int stateNow = mine->GetGuildWarState(opp->GetID());
 		if (stateNow == GUILD_WAR_SEND_DECLARE)
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wojna gildii %s jest juz wypowiedziana - boty odpowiedza na czacie gildii.", opp->GetName());
+			TellPlayerBotPerson(ch, PBT(en, "[Wojna] Wojna gildii %s jest juz wypowiedziana - boty odpowiedza na czacie gildii.",
+					"[War] War on the guild %s is declared already - the bots will answer in the guild chat."), opp->GetName());
 			return true;
 		}
 		if (stateNow != GUILD_WAR_NONE)
 		{
-			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Z gildia %s trwa juz wojna albo jej konczenie.", opp->GetName());
+			TellPlayerBotPerson(ch, PBT(en, "[Wojna] Z gildia %s trwa juz wojna albo jej konczenie.",
+					"[War] A war with the guild %s is on already, or ending."), opp->GetName());
 			return true;
 		}
 		mine->RequestDeclareWar(opp->GetID(), GUILD_WAR_TYPE_FIELD);
-		ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wypowiedziano wojne gildii botow %s. Z botami to zawsze wojna na mapie gildyjnej waszego krolestwa. Odpowiedz przyjdzie za kilka sekund na czacie gildii.", opp->GetName());
+		TellPlayerBotPerson(ch, PBT(en, "[Wojna] Wypowiedziano wojne gildii botow %s. Z botami to zawsze wojna na mapie gildyjnej waszego krolestwa. Odpowiedz przyjdzie za kilka sekund na czacie gildii.",
+				"[War] War declared on the bot guild %s. With bots it is always a war on your kingdom's guild map. The answer comes in a few seconds in the guild chat."),
+				opp->GetName());
 		sys_log(0, "PLAYERBOT_GUILD: player war declared by pid=%u name=%s guild=%s on %s",
 				ch->GetPlayerID(), ch->GetName(), mine->GetName(), opp->GetName());
 		return true;
@@ -813,6 +832,10 @@ namespace
 		if (battlefield == 0 || !IsPlayerBotMapHostedHere(battlefield))
 			return;
 
+		// The answer goes to the whole guild's chat, in its master's language:
+		// a guild chat is one line for everybody, and a player's guild in this
+		// world is its master's. A master on another core reads Polish.
+		const bool en = IsPlayerBotPersonEnglish(CHARACTER_MANAGER::instance().FindByPID(person->GetMasterPID()));
 		char why[192] = "";
 		const DWORD stamp = (DWORD)get_global_time();
 		const BYTE personEmpire = GetPlayerBotPersonGuildEmpire(person);
@@ -821,38 +844,48 @@ namespace
 		std::map<DWORD, DWORD>::const_iterator personLast = s_mapPlayerBotPlayerGuildLastWarAt.find(offer.dwFrom);
 		const int online = CountPlayerBotGuildOnline(bots);
 		if (offer.bType != GUILD_WAR_TYPE_FIELD)
-			snprintf(why, sizeof(why), "boty walcza tylko w wojnie na mapie gildyjnej");
+			snprintf(why, sizeof(why), "%s", PBT(en, "boty walcza tylko w wojnie na mapie gildyjnej",
+					"bots fight only in a war on the guild map"));
 		else if (!IsPlayerBotGuildWarsEnabled())
-			snprintf(why, sizeof(why), "wojny z gildiami botow sa wylaczone w panelu serwera");
+			snprintf(why, sizeof(why), "%s", PBT(en, "wojny z gildiami botow sa wylaczone w panelu serwera",
+					"wars on bot guilds are switched off in the server's panel"));
 		else if (personEmpire != 0 && personEmpire != empire)
-			snprintf(why, sizeof(why), "walczymy tylko z gildiami z naszego krolestwa");
+			snprintf(why, sizeof(why), "%s", PBT(en, "walczymy tylko z gildiami z naszego krolestwa",
+					"we fight only guilds of our own kingdom"));
 		else if (bots->UnderAnyWar() != 0 || IsPlayerBotGuildRaidingTower(offer.dwTo))
-			snprintf(why, sizeof(why), "walczymy teraz gdzie indziej (wojna albo Wieza Demonow)");
+			snprintf(why, sizeof(why), "%s", PBT(en, "walczymy teraz gdzie indziej (wojna albo Wieza Demonow)",
+					"we are fighting elsewhere now (a war or the Demon Tower)"));
 		else if (slot != s_mapPlayerBotGuildWars.end())
 		{
 			CGuild* g1 = CGuildManager::instance().FindGuild(slot->second.dwGuild1);
 			CGuild* g2 = CGuildManager::instance().FindGuild(slot->second.dwGuild2);
 			const int left = slot->second.bStarted
 					? std::max(1, 30 - (int)((dwNow - slot->second.dwStartedAt) / 60000U)) : 31;
-			snprintf(why, sizeof(why), "na mapie gildyjnej trwa juz wojna %s kontra %s, sprobujcie za okolo %d min",
+			snprintf(why, sizeof(why), PBT(en, "na mapie gildyjnej trwa juz wojna %s kontra %s, sprobujcie za okolo %d min",
+					"there is a war on the guild map already, %s against %s, try again in about %d min"),
 					g1 ? g1->GetName() : "?", g2 ? g2->GetName() : "?", left);
 		}
 		else if (online < PLAYERBOT_GUILD_WAR_MIN_ONLINE)
-			snprintf(why, sizeof(why), "w grze jest nas za malo (%d z %d)", online, PLAYERBOT_GUILD_WAR_MIN_ONLINE);
+			snprintf(why, sizeof(why), PBT(en, "w grze jest nas za malo (%d z %d)", "too few of us are in the game (%d of %d)"),
+					online, PLAYERBOT_GUILD_WAR_MIN_ONLINE);
 		else if (botsLast != s_mapPlayerBotGuildLastWarAt.end() && stamp < botsLast->second + PLAYERBOT_GUILD_WAR_BOT_REST_SECONDS)
-			snprintf(why, sizeof(why), "odpoczywamy po ostatniej wojnie, sprobujcie za %u min",
+			snprintf(why, sizeof(why), PBT(en, "odpoczywamy po ostatniej wojnie, sprobujcie za %u min",
+					"we are resting after the last war, try again in %u min"),
 					(botsLast->second + PLAYERBOT_GUILD_WAR_BOT_REST_SECONDS - stamp + 59) / 60);
 		else if (personLast != s_mapPlayerBotPlayerGuildLastWarAt.end() && stamp < personLast->second + PLAYERBOT_GUILD_WAR_PLAYER_REST_SECONDS)
-			snprintf(why, sizeof(why), "wasza gildia walczyla z botami niedawno, sprobujcie za %u min",
+			snprintf(why, sizeof(why), PBT(en, "wasza gildia walczyla z botami niedawno, sprobujcie za %u min",
+					"your guild fought the bots a short while ago, try again in %u min"),
 					(personLast->second + PLAYERBOT_GUILD_WAR_PLAYER_REST_SECONDS - stamp + 59) / 60);
 		else if (!GetPlayerBotWarSides(battlefield, empire))
-			snprintf(why, sizeof(why), "na mapie gildyjnej nie ma gdzie walczyc");
+			snprintf(why, sizeof(why), "%s", PBT(en, "na mapie gildyjnej nie ma gdzie walczyc",
+					"there is nowhere to fight on the guild map"));
 
 		char chat[320];
 		if (why[0])
 		{
 			bots->RequestRefuseWar(offer.dwFrom);
-			snprintf(chat, sizeof(chat), "[Wojna] Gildia botow %s odmawia: %s.", bots->GetName(), why);
+			snprintf(chat, sizeof(chat), PBT(en, "[Wojna] Gildia botow %s odmawia: %s.", "[War] The bot guild %s refuses: %s."),
+					bots->GetName(), why);
 			person->Chat(chat);
 			sys_log(0, "PLAYERBOT_GUILD: player war refused %s -> %s empire=%d online=%d why=%s",
 					person->GetName(), bots->GetName(), (int)empire, online, why);
@@ -873,7 +906,8 @@ namespace
 		s_mapPlayerBotPlayerGuildLastWarAt[offer.dwFrom] = stamp;
 		DBManager::instance().Query("UPDATE player.playerbot_guild SET last_war_at=%u WHERE guild_id=%u",
 				stamp, offer.dwTo);
-		snprintf(chat, sizeof(chat), "[Wojna] Gildia botow %s przyjmuje wyzwanie! Pole bitwy: mapa gildyjna (%s), kanal 1. Boty buffuja sie %u s przy swoim obozie i ruszaja na srodek.",
+		snprintf(chat, sizeof(chat), PBT(en, "[Wojna] Gildia botow %s przyjmuje wyzwanie! Pole bitwy: mapa gildyjna (%s), kanal 1. Boty buffuja sie %u s przy swoim obozie i ruszaja na srodek.",
+				"[War] The bot guild %s takes the challenge! Battlefield: the guild map (%s), channel 1. The bots buff for %u s at their camp and go for the middle."),
 				bots->GetName(), GetPlayerBotKingdomName(empire), (unsigned int)PLAYERBOT_GUILD_WAR_MUSTER_SECONDS);
 		person->Chat(chat);
 		sys_log(0, "PLAYERBOT_GUILD: player war accepted %s -> %s empire=%d online=%d",
@@ -945,14 +979,24 @@ namespace
 						war.dwStartedAt = dwNow;
 						++s_uPlayerBotGuildWarsFought;
 						char notice[200];
+						char noticeEn[200];
 						if (war.bPlayerWar)
+						{
 							snprintf(notice, sizeof(notice), "Wojna gildii: %s kontra gildia botow %s! Pole bitwy: mapa gildyjna (%s), 30 minut.",
 									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire));
+							snprintf(noticeEn, sizeof(noticeEn), "Guild war: %s against the bot guild %s! Battlefield: the guild map (%s), 30 minutes.",
+									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire));
+						}
 						else
+						{
 							snprintf(notice, sizeof(notice), "Wojna gildii: %s kontra %s! Pole bitwy: mapa gildyjna (%s), %d minut.",
 									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire),
 									GetPlayerBotGuildWarMinutes());
-						BroadcastNotice(notice);
+							snprintf(noticeEn, sizeof(noticeEn), "Guild war: %s against %s! Battlefield: the guild map (%s), %d minutes.",
+									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire),
+									GetPlayerBotGuildWarMinutes());
+						}
+						BroadcastPlayerBotNotice(notice, noticeEn);
 						sys_log(0, "PLAYERBOT_GUILD: war on %s vs %s empire=%d battlefield=%ld online=%d/%d player=%d",
 								g1->GetName(), g2->GetName(), empire, battlefield,
 								CountPlayerBotGuildOnline(g1), CountPlayerBotGuildOnline(g2), (int)war.bPlayerWar);
@@ -1062,9 +1106,12 @@ namespace
 			// Said a minute or two before the blows, so a player who wants to
 			// watch has the time to get to the guild map.
 			char notice[200];
+			char noticeEn[200];
 			snprintf(notice, sizeof(notice), "Za chwile wojna gildii botow (%s): %s kontra %s. Pole bitwy: mapa gildyjna.",
 					GetPlayerBotKingdomName((BYTE)empire), a->GetName(), b->GetName());
-			BroadcastNotice(notice);
+			snprintf(noticeEn, sizeof(noticeEn), "A bots' guild war begins soon (%s): %s against %s. Battlefield: the guild map.",
+					GetPlayerBotKingdomName((BYTE)empire), a->GetName(), b->GetName());
+			BroadcastPlayerBotNotice(notice, noticeEn);
 		}
 	}
 
@@ -1101,8 +1148,10 @@ namespace
 	// round. It used to run straight back into this one, and a round ended
 	// only when a whole side happened to be down at the same moment - "biją
 	// się, padają i przychodzą od razu z powrotem, runda potrafi trwać nawet
-	// 15 minut" (DUDU, 27 September). Emptied when the round is won, when the
-	// war between the pair begins again, and for a bot that leaves the war.
+	// 15 minut" (DUDU, 27 September). Emptied when the round ends - won,
+	// drawn, or by its clock - when the war between the pair begins again,
+	// and for a bot that leaves the war. A bot out of the round fights nobody
+	// and is nobody's foe (playerbot_war_rules::MayTakeFoe, InTheFight).
 	std::map<DWORD, std::pair<DWORD, DWORD> > s_mapPlayerBotWarOut;
 
 	bool IsPlayerBotWarOut(DWORD pid)
@@ -1126,6 +1175,23 @@ namespace
 		TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.find(other->GetPlayerID());
 		return it != s_mapPlayerBotAIStates.end() &&
 				(it->second.bRecoveringAfterDeath || it->second.dwGuildWarCampUntil > get_dword_time());
+	}
+
+	// Who is in the war's fight (playerbot_war_rules::InTheFight): standing,
+	// up from its last death and not out of the round, where a blow lands,
+	// on the field. The one test for a round's count and for the foes a bot
+	// may pick: the count asked less than the foe search, so one bot no foe
+	// would pick - in the safe zone, off the field - kept its side's round
+	// from ending. state is the character's AI state, NULL for a person.
+	bool IsPlayerBotInWarFight(LPCHARACTER c, const TPlayerBotAIState* state)
+	{
+		playerbot_war_rules::TFighter f;
+		f.dead = c->IsDead();
+		f.recovering = c->IsAffectFlag(AFF_REVIVE_INVISIBLE) || IsPlayerBotWarOut(c->GetPlayerID()) ||
+				(state && state->bRecoveringAfterDeath);
+		f.safeZone = !IsPlayerBotWarTargetable(c);
+		f.offField = !IsPlayerBotOnWarField(c->GetMapIndex(), c->GetX(), c->GetY());
+		return playerbot_war_rules::InTheFight(f);
 	}
 
 	// What the tick does for a bot's life before a fight, which this pass
@@ -1187,20 +1253,30 @@ namespace
 
 	// ------------------------------------------------------------ the rounds
 
-	// A war's rounds on this core: a side that has knocked out the whole of
-	// the other walks back to its camp while the other stands up and buffs at
-	// its own, and then both come out again ("jesli jedna z gildii pokona
-	// wszystkich przeciwnikow to jest cofana z powrotem do miejsca startowego
-	// i daje czas na zregenerowanie sie przeciwnej gildii - bez tego nadal
-	// wojny do jednej bramki", prodnathin, 26 September). Per core, as the
+	// A war's rounds on this core. A round is fought until one side has
+	// nobody left in the fight, the fallen of both waiting at their camps
+	// (s_mapPlayerBotWarOut), and it cannot hang: nobody going down for
+	// PLAYERBOT_GUILD_WAR_ROUND_STALL_MS, or ROUND_MAX_MS in all, ends it to
+	// the side with more standing (playerbot_war_rules::DecideRound). Then the
+	// break: everybody back at its camp, up and whole, buffing, for
+	// BREAK_MS - the half minute to buff that DUDU asked for between two
+	// rounds (28 September) - and the next round, both sides out of their
+	// camps one by one. It began as prodnathin's "jesli jedna z gildii
+	// pokona wszystkich przeciwnikow to jest cofana z powrotem do miejsca
+	// startowego i daje czas na zregenerowanie sie przeciwnej gildii - bez
+	// tego nadal wojny do jednej bramki" (26 September). Per core, as the
 	// field is: each channel's bots fight their own copy of a war. Keyed by
 	// the pair of guilds, the lower id first.
 	struct TPlayerBotWarRound
 	{
 		DWORD dwWarStartedAt;
 		DWORD dwNextCheck;
-		DWORD dwRegroupUntil;	// 0 while no regroup runs
-		DWORD dwLoserGuild;
+		// The round under way since (0 while none: the muster, a break), the
+		// break under way since (0 while none), and the round's latest fall -
+		// the round's two clocks run from these.
+		DWORD dwRoundStartedAt;
+		DWORD dwBreakStartedAt;
+		DWORD dwLastFallAt;
 		unsigned int uRounds;
 		// Each side's pack, for its defensive healers: where its members
 		// that are up stand, on average.
@@ -1209,7 +1285,8 @@ namespace
 		int packN[2];
 		bool bPatternLogged[2];
 
-		TPlayerBotWarRound() : dwWarStartedAt(0), dwNextCheck(0), dwRegroupUntil(0), dwLoserGuild(0), uRounds(0)
+		TPlayerBotWarRound() : dwWarStartedAt(0), dwNextCheck(0), dwRoundStartedAt(0), dwBreakStartedAt(0),
+				dwLastFallAt(0), uRounds(0)
 		{
 			for (int s = 0; s < 2; ++s)
 			{
@@ -1221,7 +1298,7 @@ namespace
 	};
 	std::map<std::pair<DWORD, DWORD>, TPlayerBotWarRound> s_mapPlayerBotWarRounds;
 
-	// Every bot of this war back in the fight: the round is over.
+	// Every bot of this war back in the war: the round is over.
 	void ReleasePlayerBotWarOut(DWORD g0, DWORD g1)
 	{
 		const std::pair<DWORD, DWORD> pair = std::make_pair(g0, g1);
@@ -1247,18 +1324,28 @@ namespace
 			round.dwWarStartedAt = startedAt;
 			ReleasePlayerBotWarOut(g0, g1);
 		}
-		if (dwNow < round.dwNextCheck)
+		if (round.dwNextCheck != 0 && (int)(round.dwNextCheck - dwNow) > 0)
 			return round;
 		round.dwNextCheck = dwNow + PLAYERBOT_GUILD_WAR_ROUND_CHECK_MS;
 
 		CGuild* guilds[2] = { mine->GetID() == g0 ? mine : enemy, mine->GetID() == g0 ? enemy : mine };
+		// The camps, for who of the bots stands at its own in a break; side 0
+		// is the lower guild id, as GetPlayerBotWarCamp has it.
+		std::map<long, TPlayerBotWarSide>::const_iterator sidesIt = s_mapPlayerBotWarSides.find(battlefield);
+		const TPlayerBotWarSide* sides = sidesIt != s_mapPlayerBotWarSides.end() && sidesIt->second.bKnown
+				? &sidesIt->second : NULL;
 		int up[2] = { 0, 0 };
 		int present[2] = { 0, 0 };
+		int botsPresent = 0, botsReady = 0;
 		long sumX[2] = { 0, 0 };
 		long sumY[2] = { 0, 0 };
-		// Up is standing and not recovering: a bot that stood up at its camp is
-		// up, grace or no grace, or the end of a regroup would find the losers
-		// "all down" again the moment it began.
+		// The youngest fall of the war's bots here, as an age: a round nobody
+		// has gone down in for ROUND_STALL_MS is one nobody can finish.
+		DWORD youngestFall = 0xffffffffU;
+		// Up is in the fight (IsPlayerBotInWarFight), the same test the foe
+		// search asks: a bot that stood up at its camp is up, grace or no
+		// grace, or a break's end would find a side "all down" again the
+		// moment it began.
 		for (TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.begin();
 				it != s_mapPlayerBotAIStates.end(); ++it)
 		{
@@ -1271,14 +1358,20 @@ namespace
 			if (s < 0)
 				continue;
 			++present[s];
-			if (c->IsDead() || c->IsAffectFlag(AFF_REVIVE_INVISIBLE) || it->second.bRecoveringAfterDeath ||
-					IsPlayerBotWarOut(it->first))
+			++botsPresent;
+			if (it->second.dwLastDeathTime != 0 && dwNow - it->second.dwLastDeathTime < youngestFall)
+				youngestFall = dwNow - it->second.dwLastDeathTime;
+			if (!IsPlayerBotInWarFight(c, &it->second))
 				continue;
 			++up[s];
 			sumX[s] += c->GetX();
 			sumY[s] += c->GetY();
+			if (sides && DISTANCE_APPROX(c->GetX() - sides->campX[s], c->GetY() - sides->campY[s]) <=
+					PLAYERBOT_GUILD_WAR_CAMP_RADIUS)
+				++botsReady;
 		}
-		// A player's guild: its people on the field count too.
+		// A player's guild: its people on the field count too. Nobody holds a
+		// person, so the break does not wait for one.
 		for (int s = 0; s < 2; ++s)
 		{
 			if (IsPlayerBotGuild(guilds[s]))
@@ -1290,7 +1383,7 @@ namespace
 				if (!c || c->GetMapIndex() != battlefield || c->GetGuild() != guilds[s])
 					continue;
 				++present[s];
-				if (c->IsDead())
+				if (!IsPlayerBotInWarFight(c, NULL))
 					continue;
 				++up[s];
 				sumX[s] += c->GetX();
@@ -1304,51 +1397,65 @@ namespace
 			round.packY[s] = up[s] > 0 ? sumY[s] / up[s] : 0;
 		}
 
-		if (round.dwRegroupUntil != 0)
-		{
-			if (dwNow < round.dwRegroupUntil)
-				return round;
-			// Over when the last of the losers is up, not the first: the rest
-			// were still lying at their camp, and the round opened on a side
-			// short of them.
-			const int loser = round.dwLoserGuild == g0 ? 0 : 1;
-			if (up[loser] < present[loser] &&
-					dwNow < round.dwRegroupUntil + PLAYERBOT_GUILD_WAR_REGROUP_EXTRA_MS)
-				return round;
-			sys_log(0, "PLAYERBOT_GUILD: regroup over guilds=%s/%s round=%u up=%d/%d present=%d/%d",
-					guilds[0]->GetName(), guilds[1]->GetName(), round.uRounds, up[0], up[1], present[0], present[1]);
-			round.dwRegroupUntil = 0;
-			round.dwLoserGuild = 0;
-			return round;
-		}
 		if (IsPlayerBotWarMustering(mine, enemy))
 			return round;
-		const int winner = playerbot_war_rules::RoundWinner(up[0], present[0], up[1], present[1]);
-		if (winner < 0)
+		if (round.dwBreakStartedAt != 0)
 		{
-			// The last of both sides down at once: nobody won, and with every
-			// bot out of the round nobody would ever fight again this war.
-			if (up[0] == 0 && up[1] == 0 && present[0] > 0 && present[1] > 0)
-			{
-				ReleasePlayerBotWarOut(g0, g1);
-				PlayerBotLogThrottled("guild_war_draw", dwNow,
-						"PLAYERBOT_GUILD: round drawn guilds=%s/%s round=%u present=%d/%d map=%ld",
-						guilds[0]->GetName(), guilds[1]->GetName(), round.uRounds, present[0], present[1],
+			const DWORD breakMs = dwNow - round.dwBreakStartedAt;
+			if (!playerbot_war_rules::BreakOver(breakMs, botsReady, botsPresent,
+					PLAYERBOT_GUILD_WAR_BREAK_MS, PLAYERBOT_GUILD_WAR_BREAK_EXTRA_MS))
+				return round;
+			sys_log(0, "PLAYERBOT_GUILD: break over guilds=%s/%s after_round=%u ready=%d/%d break_s=%u map=%ld",
+					guilds[0]->GetName(), guilds[1]->GetName(), round.uRounds, botsReady, botsPresent,
+					breakMs / 1000U, battlefield);
+			round.dwBreakStartedAt = 0;
+			round.dwRoundStartedAt = 0;
+		}
+		// A round begins at the muster's end and at each break's. Its clocks
+		// wait while a side has nobody on the battlefield: there is no fight to
+		// finish then.
+		if (round.dwRoundStartedAt == 0 || present[0] <= 0 || present[1] <= 0)
+		{
+			if (round.dwRoundStartedAt == 0)
+				sys_log(0, "PLAYERBOT_GUILD: round begins guilds=%s/%s round=%u present=%d/%d map=%ld",
+						guilds[0]->GetName(), guilds[1]->GetName(), round.uRounds + 1, present[0], present[1],
 						battlefield);
-			}
+			round.dwRoundStartedAt = round.dwLastFallAt = dwNow;
 			return round;
 		}
+		if (youngestFall < dwNow - round.dwLastFallAt)
+			round.dwLastFallAt = dwNow - youngestFall;
+		int winner = -1;
+		const playerbot_war_rules::ERoundEnd end = playerbot_war_rules::DecideRound(up[0], present[0], up[1],
+				present[1], dwNow - round.dwRoundStartedAt, dwNow - round.dwLastFallAt,
+				PLAYERBOT_GUILD_WAR_ROUND_MAX_MS, PLAYERBOT_GUILD_WAR_ROUND_STALL_MS, winner);
+		if (end == playerbot_war_rules::ROUND_GOES_ON)
+			return round;
+		// Won, drawn, or ended by one of its clocks - a stalled or a timed-out
+		// round goes to the side with more standing, and the line says which.
 		++round.uRounds;
-		round.dwRegroupUntil = dwNow + PLAYERBOT_GUILD_WAR_REGROUP_MS;
-		round.dwLoserGuild = guilds[1 - winner]->GetID();
 		ReleasePlayerBotWarOut(g0, g1);
-		sys_log(0, "PLAYERBOT_GUILD: round won guild=%s over=%s round=%u up=%d present=%d/%d map=%ld",
-				guilds[winner]->GetName(), guilds[1 - winner]->GetName(), round.uRounds, up[winner],
-				present[winner], present[1 - winner], battlefield);
+		sys_log(0, "PLAYERBOT_GUILD: round %s guilds=%s/%s winner=%s round=%u up=%d/%d present=%d/%d round_s=%u since_fall_s=%u map=%ld",
+				playerbot_war_rules::RoundEndName(end), guilds[0]->GetName(), guilds[1]->GetName(),
+				winner < 0 ? "none" : guilds[winner]->GetName(), round.uRounds, up[0], up[1], present[0], present[1],
+				(dwNow - round.dwRoundStartedAt) / 1000U, (dwNow - round.dwLastFallAt) / 1000U, battlefield);
+		round.dwRoundStartedAt = 0;
+		round.dwBreakStartedAt = dwNow;
 		return round;
 	}
 
-	// When each bot at war leaves its camp after the muster or a regroup, by
+	// The war's phase for the pair: its muster, a round, or the break after
+	// one - and the second between the muster's end and the round's first
+	// look, which holds the camps as a break does.
+	playerbot_war_rules::EPhase GetPlayerBotWarPhase(CGuild* mine, CGuild* enemy, const TPlayerBotWarRound& round)
+	{
+		if (IsPlayerBotWarMustering(mine, enemy))
+			return playerbot_war_rules::PHASE_MUSTER;
+		return round.dwRoundStartedAt != 0 && round.dwBreakStartedAt == 0
+				? playerbot_war_rules::PHASE_ROUND : playerbot_war_rules::PHASE_BREAK;
+	}
+
+	// When each bot at war leaves its camp after the muster or a break, by
 	// pid: 0 while the camp holds it (RunOutDelayMs).
 	std::map<DWORD, DWORD> s_mapPlayerBotWarRunOutAt;
 
@@ -1372,7 +1479,9 @@ namespace
 		return playerbot_war_rules::RoleName(GetPlayerBotWarRole(ch, GetPlayerBotWarPattern(mine, enemy)), en);
 	}
 
-	bool IsPlayerBotWarRegrouping(LPCHARACTER ch)
+	// For the status line: the break between two rounds, and a bot out of the
+	// round it fell in - "stood still" is what both look like from outside.
+	bool IsPlayerBotWarOnBreak(LPCHARACTER ch)
 	{
 		CGuild* mine = ch ? ch->GetGuild() : NULL;
 		CGuild* enemy = mine ? GetPlayerBotWarEnemy(mine) : NULL;
@@ -1380,11 +1489,17 @@ namespace
 			return false;
 		std::map<std::pair<DWORD, DWORD>, TPlayerBotWarRound>::const_iterator it = s_mapPlayerBotWarRounds.find(
 				std::make_pair(std::min(mine->GetID(), enemy->GetID()), std::max(mine->GetID(), enemy->GetID())));
-		return it != s_mapPlayerBotWarRounds.end() && it->second.dwRegroupUntil != 0;
+		return it != s_mapPlayerBotWarRounds.end() && it->second.dwBreakStartedAt != 0;
+	}
+
+	bool IsPlayerBotWarWaitingOut(LPCHARACTER ch)
+	{
+		return ch && IsPlayerBotWarOut(ch->GetPlayerID());
 	}
 
 	// This bot's own side about it, within radius: bots and people of its
-	// guild, standing, the caller's own excluded.
+	// guild, standing, the caller's own excluded - and those out of the round,
+	// for whom a heal or a buff does nothing in the fight.
 	struct FPlayerBotWarSideAround
 	{
 		LPCHARACTER m_me;
@@ -1400,6 +1515,7 @@ namespace
 			LPCHARACTER c = (LPCHARACTER)ent;
 			if (c == m_me || !c->IsPC() || c->IsDead() || c->GetGuild() != m_guild ||
 					c->GetMapIndex() != m_me->GetMapIndex() || c->IsAffectFlag(AFF_REVIVE_INVISIBLE) ||
+					IsPlayerBotWarOut(c->GetPlayerID()) ||
 					DISTANCE_APPROX(c->GetX() - m_me->GetX(), c->GetY() - m_me->GetY()) > m_radius)
 				return;
 			m_side.push_back(c);
@@ -1417,8 +1533,9 @@ namespace
 	};
 
 	// "Buffuje sojusznikow na starcie wojny/po resecie": a Shaman at its camp
-	// while the camp holds the side - the muster, a regroup, the grace after a
-	// stand-up - puts its buffs on the side, the nearest first.
+	// while the camp holds the side - the muster, the break between two
+	// rounds, the grace after a stand-up - puts its buffs on the side, the
+	// nearest first. Not one out of the round: it does nothing for the fight.
 	bool BuffPlayerBotWarSide(LPCHARACTER ch, TPlayerBotAIState& state, CGuild* mine, DWORD dwNow)
 	{
 		static std::map<DWORD, DWORD> s_mapNext;
@@ -1443,19 +1560,26 @@ namespace
 		return done != 0;
 	}
 
-	// Below, with the fight.
+	// Below, with the fight. A bot in the fight (the default stance) takes any
+	// foe within maxDistance of itself, 0 for any; at its camp, only what its
+	// stance allows within maxDistance of the camp's centre.
 	LPCHARACTER FindPlayerBotGuildWarFoe(LPCHARACTER ch, CGuild* mine, CGuild* enemy, DWORD heldVID,
-			long maxDistance, playerbot_war_rules::ERole role, playerbot_war_rules::EPattern pattern, DWORD dwNow);
+			long maxDistance, playerbot_war_rules::ERole role, playerbot_war_rules::EPattern pattern, DWORD dwNow,
+			playerbot_war_rules::EStance stance = playerbot_war_rules::STANCE_FIGHT, long campX = 0, long campY = 0);
 
 	// The defensive healer's part: "biega dookola starajac sie unikac
 	// przeciwnikow oraz poszukuje sojusznikow z niskim zdrowiem, aby ich
 	// uleczyc" - and a healer that keeps back does nothing else ("kisi ogora
 	// gdzies z tylu i jedynie leczy"). The lowest of its side within Cure's
 	// reach first, then the side's buffs; a foe close by sends it back
-	// towards its camp; otherwise it holds behind its side's pack. With
-	// nobody of its side up it fights like anybody else (false).
+	// towards its camp; otherwise it holds behind its side's pack. Never into
+	// the camp (keepOut round its centre campX,campY): that is the fallen's
+	// while the round lasts, and its foes followed it in. With nobody of its
+	// side up, or cornered at the camp's edge with a foe on it, it fights like
+	// anybody else (false).
 	bool ManagePlayerBotWarHealer(LPCHARACTER ch, TPlayerBotAIState& state, CGuild* mine, CGuild* enemy,
-			const TPlayerBotWarRound& round, int side, long campX, long campY, DWORD dwNow)
+			const TPlayerBotWarRound& round, int side, long campX, long campY, long keepOut,
+			long middleX, long middleY, DWORD dwNow)
 	{
 		static std::map<DWORD, DWORD> s_mapLook;
 		DWORD& look = s_mapLook[ch->GetPlayerID()];
@@ -1515,13 +1639,15 @@ namespace
 			// image across it stands on - that is, towards the camp.
 			playerbot_war_rules::StepAway(round.packX[side], round.packY[side], round.packX[side] * 2 - campX,
 					round.packY[side] * 2 - campY, campX, campY, PLAYERBOT_GUILD_WAR_HEALER_BEHIND, toX, toY);
+		playerbot_war_rules::KeepOutOfCircle(toX, toY, campX, campY, keepOut, middleX, middleY, toX, toY);
 		long spotX = toX, spotY = toY;
 		if (!FindPlayerBotWarGround(ch->GetMapIndex(), toX, toY, 400, spotX, spotY) ||
 				!IsPlayerBotOnWarField(ch->GetMapIndex(), spotX, spotY))
-		{
-			spotX = campX;
-			spotY = campY;
-		}
+			// The camp's edge towards the middle, where the way back ends.
+			playerbot_war_rules::KeepOutOfCircle(campX, campY, campX, campY, keepOut, middleX, middleY,
+					spotX, spotY);
+		if (threat && DISTANCE_APPROX(ch->GetX() - spotX, ch->GetY() - spotY) <= 150)
+			return false;
 		state.dwTargetVID = 0;
 		if (DISTANCE_APPROX(ch->GetX() - spotX, ch->GetY() - spotY) > (threat ? 150 : 350))
 		{
@@ -1540,9 +1666,11 @@ namespace
 	}
 
 	// The archer keeps its distance: one step back from a foe that has come
-	// too close, a few at most in a while (PLAYERBOT_GUILD_WAR_ARCHER_*).
+	// too close, a few at most in a while (PLAYERBOT_GUILD_WAR_ARCHER_*), and
+	// never into its own camp (keepOut round its centre campX,campY), the
+	// fallen's while the round lasts - there it shoots where it stands.
 	bool StepPlayerBotWarArcherBack(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER foe,
-			long campX, long campY, DWORD dwNow)
+			long campX, long campY, long keepOut, long middleX, long middleY, DWORD dwNow)
 	{
 		static std::map<DWORD, std::pair<DWORD, int> > s_mapSteps;
 		std::pair<DWORD, int>& steps = s_mapSteps[ch->GetPlayerID()];
@@ -1556,6 +1684,9 @@ namespace
 		long toX = 0, toY = 0;
 		playerbot_war_rules::StepAway(ch->GetX(), ch->GetY(), foe->GetX(), foe->GetY(), campX, campY,
 				PLAYERBOT_GUILD_WAR_ARCHER_STEP, toX, toY);
+		playerbot_war_rules::KeepOutOfCircle(toX, toY, campX, campY, keepOut, middleX, middleY, toX, toY);
+		if (DISTANCE_APPROX(toX - ch->GetX(), toY - ch->GetY()) < PLAYERBOT_GUILD_WAR_ARCHER_STEP / 3)
+			return false;
 		long spotX = 0, spotY = 0;
 		if (!FindPlayerBotWarGround(ch->GetMapIndex(), toX, toY, 300, spotX, spotY) ||
 				!IsPlayerBotOnWarField(ch->GetMapIndex(), spotX, spotY))
@@ -1581,30 +1712,58 @@ namespace
 		return true;
 	}
 
-	// Whether this enemy may be chosen now: alive on the bot's map, where a
-	// blow lands, on the field, up from its last death and out of its grace.
+	// Whether this enemy may be chosen now: on the bot's map, in the fight
+	// (IsPlayerBotInWarFight - the round's own count asks the same) and out of
+	// its grace at its camp. otherState is its AI state, NULL for a person.
+	bool IsPlayerBotWarFoeUp(LPCHARACTER ch, LPCHARACTER other, const TPlayerBotAIState* otherState)
+	{
+		return other && other != ch && other->GetMapIndex() == ch->GetMapIndex() &&
+				IsPlayerBotInWarFight(other, otherState) &&
+				!(otherState && otherState->dwGuildWarCampUntil > get_dword_time());
+	}
+
 	bool IsPlayerBotWarFoeUp(LPCHARACTER ch, LPCHARACTER other)
 	{
-		return other && other != ch && !other->IsDead() && other->GetMapIndex() == ch->GetMapIndex() &&
-				IsPlayerBotWarTargetable(other) && !IsPlayerBotWarFoeRecovering(other) &&
-				IsPlayerBotOnWarField(other->GetMapIndex(), other->GetX(), other->GetY());
+		if (!other)
+			return false;
+		TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.find(other->GetPlayerID());
+		return IsPlayerBotWarFoeUp(ch, other, it != s_mapPlayerBotAIStates.end() ? &it->second : NULL);
+	}
+
+	// Whether a foe is one the bot's stance lets it take on: in the fight any,
+	// within maxDistance of the bot when that is given (the defensive healer's
+	// look round itself); at the camp what playerbot_war_rules::MayTakeFoe
+	// allows within maxDistance of the camp's centre - a person, never a bot.
+	bool IsPlayerBotWarFoeInStance(LPCHARACTER ch, LPCHARACTER foe, playerbot_war_rules::EStance stance,
+			long maxDistance, long campX, long campY)
+	{
+		if (stance == playerbot_war_rules::STANCE_FIGHT)
+			return maxDistance <= 0 ||
+					DISTANCE_APPROX(ch->GetX() - foe->GetX(), ch->GetY() - foe->GetY()) <= maxDistance;
+		const bool person = foe->GetDesc() && !foe->GetDesc()->IsBot();
+		return playerbot_war_rules::MayTakeFoe(stance, person,
+				DISTANCE_APPROX(foe->GetX() - campX, foe->GetY() - campY), maxDistance);
 	}
 
 	// A foe of the enemy guild - a bot, or a person of a player's guild - on
 	// the bot's map that a blow can reach, near and not already everybody's
-	// (PLAYERBOT_GUILD_WAR_CROWD_PENALTY and its neighbours), and within
-	// maxDistance of the bot when that is given (the muster defends its camp
-	// and charges nobody). One standing in the safe zone was chosen like any
-	// other, so its enemies walked in after it and swung at nothing for as
-	// long as it stood there: "sporo stalo w bezpiecznej czesci i inne boty
-	// nie mogly ich zaatakowac" (gregory_955, 17 September). The one pass over
-	// the roster both finds the enemies and counts the chooser's own side on
-	// each of them.
+	// (PLAYERBOT_GUILD_WAR_CROWD_PENALTY and its neighbours), and one the
+	// bot's stance allows (IsPlayerBotWarFoeInStance: the muster, the break
+	// and the fallen charge nobody). One standing in the safe zone was chosen
+	// like any other, so its enemies walked in after it and swung at nothing
+	// for as long as it stood there: "sporo stalo w bezpiecznej czesci i inne
+	// boty nie mogly ich zaatakowac" (gregory_955, 17 September). The one pass
+	// over the roster both finds the enemies and counts the chooser's own side
+	// on each of them.
 	LPCHARACTER FindPlayerBotGuildWarFoe(LPCHARACTER ch, CGuild* mine, CGuild* enemy, DWORD heldVID,
-			long maxDistance, playerbot_war_rules::ERole role, playerbot_war_rules::EPattern pattern, DWORD dwNow)
+			long maxDistance, playerbot_war_rules::ERole role, playerbot_war_rules::EPattern pattern, DWORD dwNow,
+			playerbot_war_rules::EStance stance, long campX, long campY)
 	{
 		std::vector<std::pair<LPCHARACTER, int> > foes;
 		std::map<DWORD, int> attackers;
+		// At the camp no bot is a foe at all; the pass still counts this
+		// side's targets for the crowd on a person.
+		const bool botsTaken = playerbot_war_rules::MayTakeFoe(stance, false, 0, maxDistance);
 		for (TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.begin();
 				it != s_mapPlayerBotAIStates.end(); ++it)
 		{
@@ -1619,13 +1778,12 @@ namespace
 				continue;
 			}
 			// A bot of the enemy left out of the draw is nobody's foe.
-			if (guild != enemy || it->second.dwGuildWarEnemyGID != mine->GetID() ||
-					!IsPlayerBotWarFoeUp(ch, other))
+			if (!botsTaken || guild != enemy || it->second.dwGuildWarEnemyGID != mine->GetID() ||
+					!IsPlayerBotWarFoeUp(ch, other, &it->second) ||
+					!IsPlayerBotWarFoeInStance(ch, other, stance, maxDistance, campX, campY))
 				continue;
-			const int distance = DISTANCE_APPROX(ch->GetX() - other->GetX(), ch->GetY() - other->GetY());
-			if (maxDistance > 0 && distance > maxDistance)
-				continue;
-			foes.push_back(std::make_pair(other, distance));
+			foes.push_back(std::make_pair(other,
+					DISTANCE_APPROX(ch->GetX() - other->GetX(), ch->GetY() - other->GetY())));
 		}
 		// A player's guild: its people too, not only its bots.
 		if (!IsPlayerBotGuild(enemy))
@@ -1634,12 +1792,11 @@ namespace
 			for (size_t i = 0; i < humans.size(); ++i)
 			{
 				LPCHARACTER other = CHARACTER_MANAGER::instance().FindByPID(humans[i]);
-				if (!IsPlayerBotWarFoeUp(ch, other) || other->GetGuild() != enemy)
+				if (!IsPlayerBotWarFoeUp(ch, other, NULL) || other->GetGuild() != enemy ||
+						!IsPlayerBotWarFoeInStance(ch, other, stance, maxDistance, campX, campY))
 					continue;
-				const int distance = DISTANCE_APPROX(ch->GetX() - other->GetX(), ch->GetY() - other->GetY());
-				if (maxDistance > 0 && distance > maxDistance)
-					continue;
-				foes.push_back(std::make_pair(other, distance));
+				foes.push_back(std::make_pair(other,
+						DISTANCE_APPROX(ch->GetX() - other->GetX(), ch->GetY() - other->GetY())));
 			}
 		}
 		LPCHARACTER best = NULL;
@@ -1666,7 +1823,8 @@ namespace
 		}
 		// Once a minute, how the chooser's side is spread over its enemies -
 		// the measure of "everybody on one", which deaths alone only hint at.
-		if (!attackers.empty())
+		// From a bot in the fight: one at its camp looks at no bot.
+		if (!attackers.empty() && stance == playerbot_war_rules::STANCE_FIGHT)
 		{
 			int attacking = 0, busiest = 0;
 			for (std::map<DWORD, int>::const_iterator a = attackers.begin(); a != attackers.end(); ++a)
@@ -1701,6 +1859,54 @@ namespace
 		return true;
 	}
 
+	// Since when each bot at war has stood on ground its camp is not joined
+	// to, by pid (PLAYERBOT_GUILD_WAR_STRANDED_MS).
+	std::map<DWORD, DWORD> s_mapPlayerBotWarStrandedSince;
+
+	// A bot at war thrown where no route reaches is put back at its camp. The
+	// mental warrior's Tupniecie (STUMP) and the archer's SPARK and
+	// POISON_ARROW carry SKILL_FLAG_CRUSH, which slides a character it hits
+	// 200 units without asking what lies there (FuncSplashDamage); the war's
+	// fields are plains walled by rock; and the tick's own rescue from
+	// blocked ground and pockets ("PLAYERBOT_NAV: locally rescued") runs
+	// below this pass, which claims the tick for every bot at war - so a bot
+	// pushed into the rocks stood there for the rest of the war. It was up to
+	// the round's count and out of every foe's reach, and it held its side's
+	// round open while both sides stood: the lone bots by the rocks on DUDU's
+	// screenshots of Shinsoo's and Jinno's wars (28 September). Asked of the
+	// navigation grid only - the guild maps have theirs - towards the camp's
+	// centre, which the grid joins to the middle by construction
+	// (FindPlayerBotWarCampPair).
+	bool RescuePlayerBotStrandedAtWar(LPCHARACTER ch, TPlayerBotAIState& state, CGuild* mine,
+			long centreX, long centreY, long campX, long campY, DWORD dwNow)
+	{
+		const DWORD pid = ch->GetPlayerID();
+		const long lMapIndex = ch->GetMapIndex();
+		CPlayerBotNavigation& navigation = CPlayerBotNavigation::instance(lMapIndex);
+		if (!navigation.Init(lMapIndex) || navigation.CanReach(ch->GetX(), ch->GetY(), centreX, centreY))
+		{
+			if (!s_mapPlayerBotWarStrandedSince.empty())
+				s_mapPlayerBotWarStrandedSince.erase(pid);
+			return false;
+		}
+		std::map<DWORD, DWORD>::iterator since = s_mapPlayerBotWarStrandedSince.find(pid);
+		if (since == s_mapPlayerBotWarStrandedSince.end())
+		{
+			s_mapPlayerBotWarStrandedSince[pid] = dwNow;
+			return false;
+		}
+		if (dwNow - since->second < PLAYERBOT_GUILD_WAR_STRANDED_MS)
+			return false;
+		s_mapPlayerBotWarStrandedSince.erase(since);
+		const long fromX = ch->GetX();
+		const long fromY = ch->GetY();
+		if (!PlacePlayerBotAtWarCamp(ch, state, campX, campY, dwNow))
+			return false;
+		sys_log(0, "PLAYERBOT_GUILD: stranded at war, back at the camp pid=%u name=%s guild=%s map=%ld from=(%ld,%ld) to=(%ld,%ld)",
+				pid, ch->GetName(), mine->GetName(), lMapIndex, fromX, fromY, campX, campY);
+		return true;
+	}
+
 	// A bot's part in its guild's war. Claims the tick for the war's whole
 	// half hour: the walk to the battlefield, the muster at the camp, the
 	// fight in the middle, the stand-up at the camp after every death; and the
@@ -1711,6 +1917,8 @@ namespace
 	void LeavePlayerBotGuildWar(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		s_mapPlayerBotWarOut.erase(ch->GetPlayerID());
+		if (!s_mapPlayerBotWarStrandedSince.empty())
+			s_mapPlayerBotWarStrandedSince.erase(ch->GetPlayerID());
 		if (state.dwGuildWarEnemyGID == 0)
 			return;
 		state.dwGuildWarEnemyGID = 0;
@@ -1808,8 +2016,16 @@ namespace
 		if (!GetPlayerBotWarCamp(battlefield, empire, side, pid, campX, campY) ||
 				!GetPlayerBotWarMiddle(battlefield, empire, pid, middleX, middleY))
 			return false;
+		// The camp's centre - campX,campY is this bot's own place in it - and
+		// how far a bot in the fight keeps from it
+		// (PLAYERBOT_GUILD_WAR_CAMP_KEEP_OUT): nothing where the ground left no
+		// room for camps and both sides share the middle.
+		const TPlayerBotWarSide* sides = GetPlayerBotWarSides(battlefield, empire);
+		const long centreX = sides->campX[side];
+		const long centreY = sides->campY[side];
+		const long keepOut = sides->bCamps ? PLAYERBOT_GUILD_WAR_CAMP_KEEP_OUT : 0;
 		// The side's pattern for this war and this bot's role in it, and the
-		// round (a regroup after one side was knocked out).
+		// round.
 		const playerbot_war_rules::EPattern pattern = GetPlayerBotWarPattern(mine, enemy);
 		const playerbot_war_rules::ERole role = GetPlayerBotWarRole(ch, pattern);
 		TPlayerBotWarRound& round = UpdatePlayerBotWarRound(mine, enemy, battlefield, dwNow);
@@ -1819,13 +2035,17 @@ namespace
 			sys_log(0, "PLAYERBOT_GUILD: war pattern guild=%s enemy=%s pattern=%s map=%ld",
 					mine->GetName(), enemy->GetName(), playerbot_war_rules::PatternName(pattern), battlefield);
 		}
-		// The camp holds the side while the muster or a regroup lasts, and
-		// each bot then leaves it on its own clock: one by one, the tank first
-		// ("x bot wyruszy za 0.5 sekundy, inny za 2 sekundy", prodnathin).
-		const bool held = IsPlayerBotWarMustering(mine, enemy) || round.dwRegroupUntil != 0;
-		// A bot that fell in this round stands up and waits at its camp for
-		// the next one, as the muster does (s_mapPlayerBotWarOut).
-		if (state.bRecoveringAfterDeath && !held && !IsPlayerBotWarOut(pid))
+		// The war's phase - its muster, a round, the break after one - and
+		// this bot's stance in it (playerbot_war_rules::StanceOf). The camp
+		// holds the side through the muster and a break, and each bot then
+		// leaves it on its own clock: one by one, the tank first ("x bot
+		// wyruszy za 0.5 sekundy, inny za 2 sekundy", prodnathin).
+		const playerbot_war_rules::EPhase phase = GetPlayerBotWarPhase(mine, enemy, round);
+		// A bot that fell in this round stands up at its camp and waits there
+		// until the round is over (s_mapPlayerBotWarOut): no foe, nobody's
+		// foe. One that fell before the round began plays it.
+		if (state.bRecoveringAfterDeath && !IsPlayerBotWarOut(pid) && state.dwLastDeathTime != 0 &&
+				playerbot_war_rules::FellThisRound(phase, dwNow - state.dwLastDeathTime, dwNow - round.dwRoundStartedAt))
 		{
 			s_mapPlayerBotWarOut[pid] = std::make_pair(std::min(mine->GetID(), enemy->GetID()),
 					std::max(mine->GetID(), enemy->GetID()));
@@ -1833,21 +2053,23 @@ namespace
 					"PLAYERBOT_GUILD: out for the round pid=%u name=%s guild=%s round=%u",
 					ch->GetPlayerID(), ch->GetName(), mine->GetName(), round.uRounds + 1);
 		}
-		const bool out = !held && IsPlayerBotWarOut(pid);
+		const bool out = phase == playerbot_war_rules::PHASE_ROUND && IsPlayerBotWarOut(pid);
 		DWORD& runOutAt = s_mapPlayerBotWarRunOutAt[pid];
-		if (held || out)
+		if (phase != playerbot_war_rules::PHASE_ROUND || out)
 			runOutAt = 0;
 		else if (runOutAt == 0)
 			runOutAt = dwNow + playerbot_war_rules::RunOutDelayMs(role, pattern, pid);
-		const bool mustering = held || out || (int)(runOutAt - dwNow) > 0;
+		const playerbot_war_rules::EStance stance = playerbot_war_rules::StanceOf(phase, out,
+				(int)(runOutAt - dwNow) > 0);
+		const bool atCampStance = stance != playerbot_war_rules::STANCE_FIGHT;
 
 		if (state.dwGuildWarEnemyGID != enemy->GetID())
 		{
 			state.dwGuildWarEnemyGID = enemy->GetID();
 			PlayerBotLogThrottled("guild_war_to", dwNow,
-					"PLAYERBOT_GUILD: to war pid=%u name=%s guild=%s enemy=%s map=%ld camp=(%ld,%ld) middle=(%ld,%ld) muster=%d",
+					"PLAYERBOT_GUILD: to war pid=%u name=%s guild=%s enemy=%s map=%ld camp=(%ld,%ld) middle=(%ld,%ld) stance=%d",
 					ch->GetPlayerID(), ch->GetName(), mine->GetName(), enemy->GetName(), ch->GetMapIndex(),
-					campX, campY, middleX, middleY, (int)mustering);
+					campX, campY, middleX, middleY, (int)stance);
 		}
 		SetPlayerBotAction(state, BOT_ACTION_FIGHT, dwNow);
 		ReadyPlayerBotHandForFight(ch, state, dwNow, "guild_war");
@@ -1916,9 +2138,14 @@ namespace
 		if (!atCamp)
 			state.dwGuildWarCampUntil = 0;
 
+		// Thrown where no route reaches (the rocks round the field): back to
+		// the camp, since nothing below this pass would get it out.
+		if (RescuePlayerBotStrandedAtWar(ch, state, mine, centreX, centreY, campX, campY, dwNow))
+			return true;
+
 		// Off the field - chased up a slope, arrived at the map's edge - the bot
 		// walks back before it looks for anybody (IsPlayerBotOnWarField): to its
-		// camp while the muster lasts, to the middle after.
+		// camp while the camp holds it, to the middle in the fight.
 		if (!IsPlayerBotOnWarField(ch->GetMapIndex(), ch->GetX(), ch->GetY()))
 		{
 			state.dwTargetVID = 0;
@@ -1926,49 +2153,55 @@ namespace
 			if (dwNow >= state.dwNextGuildWarMoveTime)
 			{
 				state.dwNextGuildWarMoveTime = dwNow + 2000;
-				MovePlayerBot(ch, mustering ? campX : middleX, mustering ? campY : middleY, dwNow, 8, true, false);
+				MovePlayerBot(ch, atCampStance ? campX : middleX, atCampStance ? campY : middleY, dwNow, 8, true, false);
 			}
 			return true;
 		}
 
-		// The whole set of buffs at the camp - while the muster lasts, and
-		// after every stand-up - before the run to the middle: "pare sekund na
-		// zbuffowanie sie i dopiero wtedy ogien" (prodnathin, 24 September).
+		// The whole set of buffs at the camp - in the muster, in the break
+		// between two rounds and after every stand-up - before the run to the
+		// middle: "pare sekund na zbuffowanie sie i dopiero wtedy ogien"
+		// (prodnathin, 24 September).
 		if (atCamp && ManagePlayerBotCombatBuffs(ch, state, dwNow, true))
 			return true;
-		// And a Shaman's on the side, while the camp holds it.
-		if (atCamp && (mustering || state.dwGuildWarCampUntil > dwNow) &&
+		// And a Shaman's on the side, while the camp holds it - not one out of
+		// the round, which does nothing for the fight.
+		if (atCamp && stance != playerbot_war_rules::STANCE_OUT &&
+				(atCampStance || state.dwGuildWarCampUntil > dwNow) &&
 				playerbot_war_rules::BuffsSide(role) && BuffPlayerBotWarSide(ch, state, mine, dwNow))
 			return true;
 		// The defensive healer keeps back and heals.
-		if (!mustering && role == playerbot_war_rules::ROLE_HEALER_GUARD &&
-				ManagePlayerBotWarHealer(ch, state, mine, enemy, round, side, campX, campY, dwNow))
+		if (stance == playerbot_war_rules::STANCE_FIGHT && role == playerbot_war_rules::ROLE_HEALER_GUARD &&
+				ManagePlayerBotWarHealer(ch, state, mine, enemy, round, side, centreX, centreY, keepOut,
+						middleX, middleY, dwNow))
 			return true;
 
 		// The foe in hand is kept while it stands on the field, and looked at
 		// again every PLAYERBOT_GUILD_WAR_RETARGET_MS: the search is every bot
 		// in the world, so not on every tick, but often enough for a bot to
 		// turn to the enemy who came up beside it and for the crowd on one
-		// enemy to thin out. While the muster lasts only a foe who has come up
-		// to the camp is fought - and where the map left room for camps only
-		// close together, a foe standing at his own camp has not.
-		long reach = 0;
-		if (mustering)
+		// enemy to thin out. While the camp holds a bot - the muster, the break,
+		// its run-out delay - it takes on only a person who has come up to the
+		// camp, and where the map left room for camps only close together, a
+		// person standing at his own camp has not; a bot out of the round only
+		// one inside its camp's own circle (playerbot_war_rules::CampReach,
+		// MayTakeFoe). No bot of the other side, ever: the fallen who fought
+		// what came near their camp, untouchable because nobody picks one out
+		// of the round, were the fight that kept joining without end in
+		// DUDU's report.
+		long reach = playerbot_war_rules::CampReach(stance, PLAYERBOT_GUILD_WAR_CAMP_DEFEND_RANGE,
+				PLAYERBOT_GUILD_WAR_CAMP_RADIUS);
+		if (stance == playerbot_war_rules::STANCE_CAMP && sides->bCamps)
 		{
-			reach = PLAYERBOT_GUILD_WAR_CAMP_DEFEND_RANGE;
-			const TPlayerBotWarSide* sides = GetPlayerBotWarSides(battlefield, empire);
-			if (sides && sides->bCamps)
-			{
-				const long half = DISTANCE_APPROX(sides->campX[0] - sides->campX[1], sides->campY[0] - sides->campY[1]) / 2;
-				reach = std::min(reach, std::max(200L, half - 200));
-			}
+			const long half = DISTANCE_APPROX(sides->campX[0] - sides->campX[1], sides->campY[0] - sides->campY[1]) / 2;
+			reach = std::min(reach, std::max(200L, half - 200));
 		}
 		LPCHARACTER foe = NULL;
 		if (state.dwTargetVID != 0)
 		{
 			LPCHARACTER held = CHARACTER_MANAGER::instance().Find(state.dwTargetVID);
 			if (held && held->GetGuild() == enemy && IsPlayerBotWarFoeUp(ch, held) &&
-					(reach == 0 || DISTANCE_APPROX(ch->GetX() - held->GetX(), ch->GetY() - held->GetY()) <= reach))
+					IsPlayerBotWarFoeInStance(ch, held, stance, reach, centreX, centreY))
 				foe = held;
 		}
 		DWORD& retargetAt = s_mapPlayerBotWarRetargetAt[pid];
@@ -1976,18 +2209,20 @@ namespace
 		{
 			retargetAt = dwNow + PLAYERBOT_GUILD_WAR_RETARGET_MS;
 			LPCHARACTER chosen = FindPlayerBotGuildWarFoe(ch, mine, enemy, foe ? (DWORD)foe->GetVID() : 0, reach,
-					role, pattern, dwNow);
+					role, pattern, dwNow, stance, centreX, centreY);
 			if (chosen)
 				foe = chosen;
 		}
 		if (!foe)
 		{
 			state.dwTargetVID = 0;
-			// Nobody to fight: the camp while the muster lasts, facing the
-			// middle; the middle after it, where the enemy comes.
-			const long spotX = mustering ? campX : middleX;
-			const long spotY = mustering ? campY : middleY;
-			if (DISTANCE_APPROX(ch->GetX() - spotX, ch->GetY() - spotY) > (mustering ? 200 : 600))
+			if (ch->GetVictim())
+				ch->SetVictim(NULL);
+			// Nobody to fight: the camp while it holds the bot, facing the
+			// middle; the middle in the fight, where the enemy comes.
+			const long spotX = atCampStance ? campX : middleX;
+			const long spotY = atCampStance ? campY : middleY;
+			if (DISTANCE_APPROX(ch->GetX() - spotX, ch->GetY() - spotY) > (atCampStance ? 200 : 600))
 			{
 				if (dwNow >= state.dwNextGuildWarMoveTime)
 				{
@@ -1995,7 +2230,7 @@ namespace
 					MovePlayerBot(ch, spotX, spotY, dwNow, 8, true, false);
 				}
 			}
-			else if (mustering)
+			else if (atCampStance)
 			{
 				if (ch->IsStateMove())
 					ch->Stop();
@@ -2025,11 +2260,11 @@ namespace
 		const bool caster = (ch->GetJob() == JOB_SHAMAN && role != playerbot_war_rules::ROLE_DRAGON) ||
 				(ch->GetJob() == JOB_SURA && ch->GetSkillGroup() == 2);
 		// The dagger goes in unseen, the bow keeps its distance.
-		if (!mustering && role == playerbot_war_rules::ROLE_ASSASSIN &&
+		if (!atCampStance && role == playerbot_war_rules::ROLE_ASSASSIN &&
 				distance > PLAYERBOT_GUILD_WAR_ASSASSIN_STEALTH_RANGE && TryPlayerBotWarStealth(ch, state, dwNow))
 			return true;
-		if (!mustering && isBow && distance < PLAYERBOT_GUILD_WAR_ARCHER_KEEP_AWAY &&
-				StepPlayerBotWarArcherBack(ch, state, foe, campX, campY, dwNow))
+		if (!atCampStance && isBow && distance < PLAYERBOT_GUILD_WAR_ARCHER_KEEP_AWAY &&
+				StepPlayerBotWarArcherBack(ch, state, foe, centreX, centreY, keepOut, middleX, middleY, dwNow))
 			return true;
 		// A bot standing in the safe zone - just arrived, or up again at the
 		// town point - cannot strike from there either, so it walks at its foe

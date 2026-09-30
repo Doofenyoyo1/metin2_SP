@@ -23,7 +23,9 @@
 # SendPlayerBotSidekickSkills). The skill power by level and the battle points
 # are worked out here as CPythonPlayer does it for the player
 # (LocaleService_GetSkillPower, __GetHitRate, __GetTotalAtk), from the level,
-# the stats and the weapon's vnum.
+# the stats and the weapon's vnum - and from the same battle points the
+# numbers of the companion's status page, which is the player's own
+# (CharacterNumbers, uisidekick.py).
 #
 # Python 2.7 as the client has it.
 
@@ -189,6 +191,36 @@ def CompanionStatus(stats, job, weapon=None):
 		'maxatk': 2 * level + (statAtk + 2 * (high + bonus)) * hit // 100,
 	})
 	return status
+
+
+def EvadeRate(dx):
+	"""CPythonPlayer::__GetEvadeRate: the character window's evasion."""
+	return 30 * (2 * dx + 5) // (dx + 95)
+
+
+def CharacterNumbers(stats, job, weapon=None, attackBonus=0, defenceBoost=0):
+	"""The status page of the player's character window (uicharacter.py) for
+	the companion: the attack range as __GetTotalAtkText adds it up - the
+	battle points the client works out itself, plus attackBonus, what the
+	server says the gear, the party and the monster grades add - the magic
+	attack range (the magic attack grade and the weapon's magic values), the
+	defence with its boost in percent and the boost apart, the magic defence
+	the window derives from the defence, and the evasion."""
+	status = CompanionStatus(stats, job, weapon)
+	magic = stats.get('mwep', 0)
+	defence = stats.get('def', 0)
+	boost = defence * defenceBoost // 100 if defenceBoost > 0 else 0
+	boosted = defence + boost
+	return {
+		'minatk': status['minatk'] + attackBonus,
+		'maxatk': status['maxatk'] + attackBonus,
+		'minmatk': magic + status['minmwep'],
+		'maxmatk': magic + status['maxmwep'],
+		'def': boosted,
+		'defboost': boost,
+		'mdef': min(350, boosted // 2),
+		'evade': EvadeRate(stats.get('dx', 0)),
+	}
 
 
 def FormulaVariables(status, power, realLevel=0):
@@ -539,3 +571,12 @@ def Show(toolTip, vnum, level, grade, step, stats, job):
 	desc, table = _LoadTables()
 	view = SkillView(vnum, level, grade, step, stats, job, WeaponValues(stats.get('weapon', 0)), desc, table)
 	ShowWithStandIns(toolTip, view, lambda: toolTip.SetSkillNew(view.slot, vnum, grade, step))
+
+
+def ShowName(toolTip, vnum, grade, stats, job):
+	"""The stock tooltip over a grade the companion's skill is not at: the
+	skill's name at that grade and its description, as the player's page shows
+	over the other grades' slots - the level limit's colour by the companion's
+	level, not the owner's."""
+	view = SkillView(vnum, 0, grade, 0, stats or {}, job)
+	ShowWithStandIns(toolTip, view, lambda: toolTip.SetSkillOnlyName(view.slot, vnum, grade))

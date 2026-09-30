@@ -386,20 +386,57 @@ migrate_blessing_scroll() {
 # lecz ja nie moglem sie logowac" (GoracyDelfin, 19 September), fixed by hand
 # in .env. The wish the panel writes lives on a volume, so it is read from the
 # running container when there is one; .env alone answers otherwise.
+#
+# The channels that run are the entrypoint's: M2_CHANNELS, raised to two for
+# the second channel and to three or four for the fresh cohort of channels 3
+# and 4 (M2_PLAYERBOT_FRESH_CHANNELS) - so a world whose operator set
+# M2_CHANNELS=4 by hand keeps its ports, which the old two-way answer took
+# back to one channel's at every update. The panel's wish wins when it is
+# newer than .env's own moment (M2_PLAYERBOT_CH2_SET_AT), as it does in the
+# entrypoint, and a wish that does not name the fresh channels leaves .env's.
 sync_channel_ports() {
     _env="$COMPOSE_DIR/.env"
     [ -f "$_env" ] || return 0
     _ch2=$(kv "$_env" M2_PLAYERBOT_CH2 | tr -d ' \r')
-    _wish=$( (cd "$COMPOSE_DIR" && docker compose exec -T game cat /opt/m2spool/channels.wanted) 2>/dev/null |
-        sed -n 's/^CH2=//p' | head -n 1 | tr -d ' \r')
-    case "$_wish" in
-        0|1) _ch2="$_wish" ;;
+    _fresh=$(kv "$_env" M2_PLAYERBOT_FRESH_CHANNELS | tr -d ' \r')
+    _channels=$(kv "$_env" M2_CHANNELS | tr -d ' \r')
+    _env_at=$(kv "$_env" M2_PLAYERBOT_CH2_SET_AT | tr -d ' \r')
+    case "$_env_at" in
+        ''|*[!0-9]*) _env_at=0 ;;
     esac
-    if [ "$_ch2" = 1 ]; then
-        _want=13000-13012
-    else
-        _want=13000-13002
+    _wishes=$( (cd "$COMPOSE_DIR" && docker compose exec -T game cat /opt/m2spool/channels.wanted) 2>/dev/null |
+        tr -d ' \r')
+    _wish=$(printf '%s\n' "$_wishes" | sed -n 's/^CH2=//p' | head -n 1)
+    _wish_fresh=$(printf '%s\n' "$_wishes" | sed -n 's/^FRESH=//p' | head -n 1)
+    _wish_at=$(printf '%s\n' "$_wishes" | sed -n 's/^SET_AT=//p' | head -n 1)
+    case "$_wish_at" in
+        ''|*[!0-9]*) _wish_at=0 ;;
+    esac
+    case "$_wish" in
+        0|1)
+            if [ "$_wish_at" -gt "$_env_at" ]; then
+                _ch2="$_wish"
+                case "$_wish_fresh" in
+                    0|1|2) _fresh="$_wish_fresh" ;;
+                esac
+            fi
+            ;;
+    esac
+    _need=1
+    case "$_channels" in
+        2|3|4) _need="$_channels" ;;
+    esac
+    if [ "$_ch2" = 1 ] && [ "$_need" -lt 2 ]; then
+        _need=2
     fi
+    case "$_fresh" in
+        1|2)
+            if [ "$_need" -lt $((2 + _fresh)) ]; then
+                _need=$((2 + _fresh))
+            fi
+            ;;
+    esac
+    _want=13000-$((13000 + 10 * (_need - 1) + 2))
     _changed=0
     for _key in M2_GAME_PORT_RANGE M2_GAME_CONTAINER_PORT_RANGE; do
         _cur=$(kv "$_env" "$_key" | tr -d ' \r')
@@ -412,7 +449,7 @@ sync_channel_ports() {
         fi
         _changed=1
     done
-    [ "$_changed" = 1 ] && note "   the channels' ports: $_want (second channel $([ "$_ch2" = 1 ] && echo on || echo off))"
+    [ "$_changed" = 1 ] && note "   the channels' ports: $_want ($_need channel(s), second channel $([ "$_ch2" = 1 ] && echo on || echo off))"
     return 0
 }
 
@@ -425,7 +462,7 @@ sync_channel_ports() {
 # the keys named below, whose example value is the compose default (an
 # absent key already meant that), never a password, a port or an address;
 # a key already there, empty included, is the operator's and is left alone.
-ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_BLESSING_SCROLL_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_ITEMSHOP_MOUNTS M2_ITEMSHOP_MOUNT_PRICE M2_ITEMSHOP_MOUNT_HOURS M2_AUTOHUNT M2_SIDEKICK M2_AUTOHUNT_ITEM M2_FLEA_MARKET"
+ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_BLESSING_SCROLL_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_PLAYERBOT_FRESH_CHANNELS PLAYERBOT_FRESH_COUNT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_ITEMSHOP_MOUNTS M2_ITEMSHOP_MOUNT_PRICE M2_ITEMSHOP_MOUNT_HOURS M2_AUTOHUNT M2_SIDEKICK M2_AUTOHUNT_ITEM M2_FLEA_MARKET"
 add_missing_env_keys() {
     _env="$COMPOSE_DIR/.env"
     _ex="$COMPOSE_DIR/.env.example"

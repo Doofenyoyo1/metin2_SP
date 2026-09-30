@@ -30,16 +30,17 @@
   </form>
 </section>
 
-<section class="panel respawn-map-panel">
+<section class="panel respawn-map-panel {{ '' if feature_enabled('map_respawns') else 'feature-locked' }}">
+  {% if not feature_enabled('map_respawns') %}<p class="feature-lock-note"><span>🔒 Dokładne czasy jednej mapy wymagają helpera <code>m2-map-regens</code>.</span><a href="{{ url_for('manage_panel') }}#compatibility">Wymaga akcji</a></p>{% endif %}
   <div class="respawn-card-head"><span class="respawn-card-icon">⌖</span><div><p class="eyebrow">DOKŁADNA MAPA</p><h2>Własny czas respawnu</h2></div><span class="respawn-restart">↻ wymaga krótkiego restartu rdzeni</span></div>
   <p class="muted">To precyzyjne ustawienie nadpisuje czas w pliku wybranej mapy. Puste pole przywraca wartość dostarczoną z wydaniem Playerbots.</p>
-{% if custom_patches_enabled %}  <form action="{{ url_for('respawns_map') }}" method="post" class="respawn-map-form">
+  <form action="{{ url_for('respawns_map') }}" method="post" class="respawn-map-form">
     <label><span>Mapa</span><select name="map_index" id="respawn-map">{% for index, label in map_options %}<option value="{{ index }}" data-stones="{{ '1' if index in stone_maps else '0' }}">{{ label }}</option>{% endfor %}</select></label>
     <label><span>Rodzaj</span><select name="target" id="respawn-target"><option value="mob">Potwory</option><option value="stone">Metiny</option></select></label>
     <label><span>Czas</span><span class="respawn-time-input"><input name="seconds" type="number" min="1" max="3600" placeholder="domyślny"><em>sekundy</em></span></label>
     <button type="submit">Zapisz dla mapy</button>
   </form>
-  <p class="respawn-map-hint" id="respawn-map-hint"></p>{% else %}<p class="muted">Ten serwer nie ma skryptu gry z integracji Sebana (m2-map-regens), który przepisuje plik respawnu jednej mapy, więc tu dokładnego czasu dla mapy nie ustawisz. Tempo i liczebność powyżej działają na żywo bez niego.</p>{% endif %}
+  <p class="respawn-map-hint" id="respawn-map-hint"></p>
 </section>
 
 <section class="respawn-notes"><article><b>🗿 Metiny i bossy</b><span>Silnik MT2009 łączy je w jedną grupę. Ustawienie dotyczy obu naraz.</span></article><article><b>⚡ Zmiany live</b><span>Wpływają na następny respawn, nie tworzą dodatkowych jednostek natychmiast.</span></article><article><b>↻ Mapa</b><span>Indywidualne sekundy są plikową zmianą mapy, dlatego rdzenie odtwarzają się po zapisaniu.</span></article></section>
@@ -50,7 +51,7 @@
   }));
   const map = document.getElementById('respawn-map'), target = document.getElementById('respawn-target'), hint = document.getElementById('respawn-map-hint');
   function updateMapTarget(){ const hasStones = map.options[map.selectedIndex].dataset.stones === '1'; target.querySelector('[value="stone"]').disabled = !hasStones; if (!hasStones && target.value === 'stone') target.value = 'mob'; hint.textContent = hasStones ? 'Możesz ustawić osobny czas dla potworów lub Metinów.' : 'Ta mapa nie ma osobnego pliku respawnu Metinów.'; }
-  if (map) { map.addEventListener('change', updateMapTarget); updateMapTarget(); }
+  map.addEventListener('change', updateMapTarget); updateMapTarget();
 })();
 </script>
 {% endblock %}

@@ -5,5 +5,6 @@ powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "%~dp0Metin2-Launch
 if errorlevel 1 (
   echo.
   echo Launcher zakonczyl sie bledem. Zrob zrzut tego okna lub uruchom opcje logow.
+  echo The launcher ended with an error. Take a screenshot of this window or use the logs option.
   pause
 )

@@ -89,6 +89,17 @@ namespace playerbot_conv
 			virtual IConvWorld* World(u32 playerPID, u32 botPID) = 0;
 			virtual void Send(u32 playerPID, u32 botPID, const std::string& text) = 0;
 			virtual void Log(const std::string& line) = 0;
+			// The language the person reads (CONV_LANG_*), asked when a line
+			// arrives: a line whose words say nothing either way ("no", "ty",
+			// "fms?") is read in it. CONV_LANG_UNKNOWN for a person whose flag
+			// this core cannot read. A host that does not say is Polish, as
+			// every line was read before.
+			virtual int AskerLanguage(u32 playerPID, u32 botPID)
+			{
+				(void)playerPID;
+				(void)botPID;
+				return CONV_LANG_PL;
+			}
 	};
 
 	// ---------------------------------------------------------- queue policy
@@ -227,6 +238,42 @@ namespace playerbot_conv
 		return out;
 	}
 
+	// The English replies' first words that stay a sentence after "Like I
+	// said, " once lowered. Never "I", "I'm" or a name: those keep their
+	// capital wherever they stand.
+	inline bool IsCommonStarterEn(const std::string& s)
+	{
+		static const char* const kWords[] = {
+			"Hunting", "Killing", "Hitting", "Fighting", "Grinding", "Farming", "Just", "Right", "Now", "Currently",
+			"Still", "Yeah", "Yep", "Yes", "Nope", "No", "Not", "Nothing", "Somewhere", "Level", "Lots", "Plenty",
+			"Quite", "A", "An", "The", "On", "In", "At", "Heading", "Walking", "Riding", "Resting", "Sitting",
+			"Standing", "Fishing", "Mining", "Trading", "Selling", "Buying", "Busy", "Solo", "Alone", "Full",
+			"Few", "Some", "Around", "About", "Maybe", "Probably", "Depends", "Pretty", "Doing", "Fine", "Good",
+			"Okay", "Only", "My", "Here", "There", "Over", "Almost", "Already", "Got", "Gotta", "Going",
+			"Breaking", "Smashing", "Looking", "Checking", "Waiting", "Collecting", "Picking", "Reading",
+			"Learning", "Upgrading", "Shopping", "Wandering", "Out", "Off", "Back", "Mostly", "Mainly",
+			"Loads", "Tons", "Dead", "Low", "Half", "Zero", "Enough", "Plus", "Up", "Down", "Normal", "Great",
+			"Bad", "Calm", "Nowhere", "Nobody", "Everything", "Each", "Cheapest", "Holding", "Weapon's", "Haven't",
+			"Don't", "Can't", "Saw", "Guildless", "Long", "Overall", "Later", "Next", "Once", "Keep"
+		};
+		const size_t end = s.find_first_of(" ,.!?:");
+		const std::string first = s.substr(0, end);
+		for (size_t i = 0; i < sizeof(kWords) / sizeof(kWords[0]); ++i)
+			if (first == kWords[i])
+				return true;
+		return false;
+	}
+
+	inline std::string LowerStarterIn(bool en, const std::string& s)
+	{
+		if (!en)
+			return LowerStarter(s);
+		std::string out = s;
+		if (!out.empty() && IsCommonStarterEn(out) && out[0] >= 'A' && out[0] <= 'Z')
+			out[0] = (char)(out[0] - 'A' + 'a');
+		return out;
+	}
+
 	// Split a long reply at the sentence boundary nearest the middle.
 	inline void SplitReply(const std::string& text, std::string& first, std::string& second)
 	{
@@ -333,14 +380,15 @@ namespace playerbot_conv
 		if (spam && items.size() >= 5)
 		{
 			static const char* const k[] = { "Spokojnie, nie nadazam pisac :D", "Po kolei, po kolei :)", "Wolniej troche :D" };
-			out = PBC_SAY(g, k);
+			static const char* const kEn[] = { "Easy, I can't type that fast :D", "One at a time :)", "Slow down a bit :D" };
+			out = PBC_SAY2(g, k, kEn);
 		}
 		if (anyQuestion && greet && !cold)
 		{
 			Append(out, GenGreeting(g, true));
 		}
 		if (anyQuestion && thanks && !greet && !cold)
-			Append(out, "Spoko.");
+			Append(out, Txt(g, "Spoko.", "No worries."));
 
 		bool returned = false;
 		for (size_t i = 0; i < todo.size(); ++i)
@@ -357,11 +405,13 @@ namespace playerbot_conv
 				continue;
 			CapitalizeFirst(piece);
 			if (a.repeated && mem.repeatCount >= 1 && g.rng.Chance(60))
-				piece = (mem.repeatCount >= 3 ? "Przeciez pisalem :) " : "Jak mowilem, ") + LowerStarter(piece);
+				piece = (mem.repeatCount >= 3 ? Txt(g, "Przeciez pisalem :) ", "I just told you :) ") :
+						Txt(g, "Jak mowilem, ", "Like I said, ")) + LowerStarterIn(g.en, piece);
 			else if (a.returnToTopic && !returned && IsGameIntent(a.intent) && g.rng.Chance(75))
 			{
 				static const char* const k[] = { "Wracajac do tego, ", "A wracajac do gry, ", "Wracajac do tematu - " };
-				piece = Pick(g, k, 3) + LowerStarter(piece);
+				static const char* const kEn[] = { "Anyway, ", "Back to the game, ", "Getting back to that, " };
+				piece = std::string(PBC_PICK2(g, k, kEn)) + LowerStarterIn(g.en, piece);
 				returned = true;
 			}
 			if (out.find(piece) != std::string::npos)
@@ -390,12 +440,13 @@ namespace playerbot_conv
 					moodSaid = true;
 			if (!moodSaid && g.Bad() && g.rng.Chance(30))
 			{
-				Append(out, g.s.unlucky ? "Swoja droga, dzis jakis pech mnie trzyma." : "Dzis jakos slabo mi idzie, swoja droga.");
+				Append(out, g.s.unlucky ? Txt(g, "Swoja droga, dzis jakis pech mnie trzyma.", "By the way, no luck at all today.") :
+						Txt(g, "Dzis jakos slabo mi idzie, swoja droga.", "Not really my day today, by the way."));
 				mem.moodMentionAt = now;
 			}
 			else if (!moodSaid && (g.Good() || g.s.euphoria) && g.rng.Chance(15))
 			{
-				Append(out, "Humor mi dzis dopisuje!");
+				Append(out, Txt(g, "Humor mi dzis dopisuje!", "I'm in a great mood today!"));
 				mem.moodMentionAt = now;
 			}
 			else if (moodSaid)
@@ -418,7 +469,7 @@ namespace playerbot_conv
 		mem.lastKnownLevel = snap.level;
 		// The map a reply named is what a teleport since will be measured
 		// against ("Bylem w Joan, teraz jestem juz w Dolinie Orkow").
-		if (IsKnownMap(snap.mapIndex) && out.find(GetMapWords(snap.mapIndex).atShort) != std::string::npos)
+		if (IsKnownMap(snap.mapIndex) && out.find(MapWordsFor(g, snap.mapIndex).atShort) != std::string::npos)
 			NoteSaidMap(mem, snap.mapIndex, now);
 		// Generic answers in a row: the next one steers (GenUnknown*).
 		if (res.answered > 0)
@@ -451,34 +502,38 @@ namespace playerbot_conv
 		if (m.lastKnownLevel > 0 && s.level > m.lastKnownLevel)
 		{
 			static const char* const k[] = { "Wbilem $LVL!", "O, $LVL poziom wpadl!" };
-			out = PBC_SAY(g, k);
+			static const char* const kEn[] = { "Just hit $LVL!", "Oh, level $LVL, finally!" };
+			out = PBC_SAY2(g, k, kEn);
 		}
 		else if (s.bagCells > 0 && s.freeCells <= 1 && !s.inTown && rng.Chance(60))
 		{
 			static const char* const k[] = { "Chyba zaraz bede wracal do miasta, EQ mam pelne.", "EQ pelne, lece zaraz sprzedac drop." };
-			out = PBC_SAY(g, k);
+			static const char* const kEn[] = { "Gonna head back to town soon, my bag's full.", "Bag's full, off to sell my drops." };
+			out = PBC_SAY2(g, k, kEn);
 		}
 		else if (s.action == A_RECOVER && s.hpPct < 40 && rng.Chance(50))
-			out = "Musialem sie wycofac, prawie mnie ubili.";
+			out = Txt(g, "Musialem sie wycofac, prawie mnie ubili.", "Had to pull back, they nearly killed me.");
 		else if (s.askerNear && !s.inParty && !s.askerInParty && !s.shopStanding && rng.Chance(35))
 		{
 			static const char* const k[] = { "$PLAYER, idziesz na exp?", "$PLAYER, moze razem pobijemy?" };
-			out = PBC_SAY(g, k);
+			static const char* const kEn[] = { "$PLAYER, going hunting?", "$PLAYER, wanna hunt together?" };
+			out = PBC_SAY2(g, k, kEn);
 			ask = ASK_JOIN;
 		}
 		else if (!m.playerLikes.empty() && rng.Chance(15))
 		{
-			out = Fill(g, "Ej $PLAYER, a ty dalej lubisz $LIKES?");
+			out = Fill(g, Txt(g, "Ej $PLAYER, a ty dalej lubisz $LIKES?", "Hey $PLAYER, still into $LIKES?"));
 			ask = ASK_TOPIC;
 		}
 		else if (rng.Chance(20))
 		{
 			static const char* const k[] = { "$PLAYER, znalazles cos ciekawego?", "$PLAYER, jak tam drop?" };
-			out = PBC_SAY(g, k);
+			static const char* const kEn[] = { "$PLAYER, found anything good?", "$PLAYER, how are the drops going?" };
+			out = PBC_SAY2(g, k, kEn);
 			ask = ASK_FOUND;
 		}
 		else if ((g.Good() || s.euphoria) && rng.Chance(30))
-			out = "Ale dzis leci drop!";
+			out = Txt(g, "Ale dzis leci drop!", "The drops are crazy today!");
 		if (out.empty())
 			return out;
 		CapitalizeFirst(out);
@@ -532,7 +587,10 @@ namespace playerbot_conv
 				TConvPair& pair = GetPair(playerPID, botPID, now);
 				TConvMemory& mem = pair.mem;
 				TAnalysis a;
-				AnalyzeLine(text, a, now);
+				// A line whose own words say nothing either way is read in the
+				// language its writer reads (Normalize).
+				const int lang = host.AskerLanguage(playerPID, botPID);
+				AnalyzeLine(text, a, now, ReaderEnglish(lang, mem));
 				a.gapBefore = mem.lastPlayerAt ? now - mem.lastPlayerAt : 0;
 				BeginPlayerLine(mem, now);
 				const TTurn* prev = mem.Prev(now, 0);
@@ -548,11 +606,12 @@ namespace playerbot_conv
 				{
 					char line[512];
 					snprintf(line, sizeof(line),
-							"PLAYERBOT_CONV: player=%s bot=%s text=\"%s\" intent=%s raw=%s context=%s follow=%s previous=%s topic=%s qtype=%d return=%d repeated=%d",
+							"PLAYERBOT_CONV: player=%s bot=%s text=\"%s\" intent=%s raw=%s context=%s follow=%s previous=%s topic=%s qtype=%d return=%d repeated=%d read=%s reader=%s",
 							playerName ? playerName : "?", botName ? botName : "?", a.tokens.norm.c_str(),
 							IntentName(a.intent), IntentName(a.rawIntent), IntentName(a.subject),
 							FollowName(a.follow), IntentName(previous), TopicName(a.topic), (int)a.qtype,
-							a.returnToTopic ? 1 : 0, a.repeated ? 1 : 0);
+							a.returnToTopic ? 1 : 0, a.repeated ? 1 : 0, a.tokens.english ? "en" : "pl",
+							lang == CONV_LANG_EN ? "en" : lang == CONV_LANG_PL ? "pl" : "unknown");
 					host.Log(line);
 					snprintf(line, sizeof(line), "PLAYERBOT_CONV_QUEUE: player=%s bot=%s queued=%u delay=%ums burst=%u spam=%d dropped=%u %s",
 							playerName ? playerName : "?", botName ? botName : "?",

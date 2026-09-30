@@ -3,14 +3,17 @@
 
 // The Moonlight Treasure Chest, and the boosters that come out of it.
 //
-// A chest is an ITEM_USE the engine opens itself - UseItem on 50011 draws one
-// line of the chest's special item group into the bag - so opening one is a
-// matter of noticing it is there. What it holds the bot already knows how to
-// spend: the bonus scrolls go through playerbot_bonus.h, which takes a scroll
-// from the bag before it buys one; the speed potions through UseUtilityPotions;
-// the big potions through the ordinary potion lists. The two boosters, Hand of
-// the Critic and Hand of Penetration, are new: a twenty-percent chance for ten
-// minutes, worth drinking when a fight starts and pointless at an NPC.
+// A chest is an item the engine opens itself (ITEM_USE on r40250, ITEM_GIFTBOX
+// on mt2009) - UseItem on 50011 draws one line of the chest's special item
+// group into the bag - so opening one is a matter of noticing it is there. What
+// it holds the bot already knows how to spend: the change and add stones go
+// through playerbot_bonus.h onto its own gear - a bot spends only the stones
+// it holds, and the chest is where most of them come from, so every bot but a
+// dropper opens every chest it gets (IsPlayerBotMoonlightChestSeller); the
+// speed potions through UseUtilityPotions; the big potions through the
+// ordinary potion lists. The two boosters, Hand of the Critic and Hand of
+// Penetration, are new: a twenty-percent chance for ten minutes, worth
+// drinking when a fight starts and pointless at an NPC.
 //
 // An implementation fragment in the sense playerbot_types.h describes: include
 // it exactly once, after playerbot_gear.h.
@@ -61,6 +64,34 @@ namespace
 		return ch && item && item->GetLevelLimit() > ch->GetLevel();
 	}
 
+	// Whether this bot keeps Moonlight chests for its counter rather than
+	// opening them: a dropper, whose counter is its trade, and nobody else
+	// since blipu's report of 28 September - the resource trader opens its
+	// chests like everybody (playerbot_moonlight_rules::KeepsChestClosed). The
+	// one question for the chest pass, the counter's scorer and its take-home,
+	// the hoard and the buyer, so none of them can hold a chest another opens.
+	bool IsPlayerBotMoonlightChestSeller(DWORD dwPID)
+	{
+		return IsPlayerBotDropper(GetPlayerBotPersonalityByPID(dwPID));
+	}
+
+	// The bonus items in the bag, in units (IsPlayerBotBonusStoneItem, defined
+	// with the economy further down the include order): what a chest has just
+	// handed out is the count after its use against the count before.
+	bool IsPlayerBotBonusStoneItem(LPITEM item);
+
+	int CountPlayerBotBonusItemUnits(LPCHARACTER ch)
+	{
+		int units = 0;
+		for (WORD cell = 0; ch && cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (item && item->GetCell() == cell && IsPlayerBotBonusStoneItem(item))
+				units += std::max<int>(1, (int)item->GetCount());
+		}
+		return units;
+	}
+
 	// Opens one chest per pass. UseItem refuses when the bag has no room, and
 	// says so in the engine's own log; the bot's next town visit makes room.
 	// A box that belongs on a counter rather than in the bot's own hands.
@@ -79,15 +110,16 @@ namespace
 			return false;
 		if (IsPlayerBotChestLevelLocked(ch, item))
 			return true;
-		// A resource trader's and a dropper's Moonlight chests are all goods: they
-		// keep them for the counter (ManagePlayerBotChests), so a stack of one is a
-		// line. Everybody else's are opened and never listed: a stack of five went
-		// up whole, a line nobody's cap reached stood unsold, and the bot that
+		// A dropper's Moonlight chests are all goods: it keeps them for the
+		// counter (ManagePlayerBotChests), so a stack of one is a line.
+		// Everybody else's are opened and never listed: a stack of five went up
+		// whole, a line nobody's cap reached stood unsold, and the bot that
 		// listed it had nothing left to open ("za malo z nich je otwiera, wiecej
-		// wystawiaja na sklepy", AkhiGubernator, 15 September).
+		// wystawiaja na sklepy", AkhiGubernator, 15 September). The resource
+		// trader's were goods too until blipu's report of 28 September: a player
+		// bought them up at a fifth of what they hold and bonused a whole set.
 		if (item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
-			return IsPlayerBotResourceTrader(ch->GetPlayerID()) ||
-					IsPlayerBotDropper(GetPlayerBotPersonalityByPID(ch->GetPlayerID()));
+			return IsPlayerBotMoonlightChestSeller(ch->GetPlayerID());
 		// A box the engine refused this bot stays goods; the retry clock is not
 		// consulted here - it exists to stop the asking, not to make the box
 		// valuable again.
@@ -269,25 +301,29 @@ namespace
 			// population opening that kind of box for the next few minutes.
 			if (item->isLocked())
 				continue;
+			// The apprentice chain is giftboxes too, and with the world's
+			// apprentice chest off none of it is opened: the progression pass
+			// (playerbot_gear.h) takes it out of the bag instead, and it runs
+			// later in the tick than this one.
+			if (IsPlayerBotApprenticeChestVnum(item->GetVnum()) && IsPlayerBotApprenticeChestOff())
+				continue;
 			// A dropper keeps its Moonlight chests for its counter, up to
-			// PLAYERBOT_CHEST_DROPPER_HOLD, and opens what is past that.
+			// PLAYERBOT_CHEST_DROPPER_HOLD, and opens what is past that. The
+			// resource trader kept six for its counter as well (2.0.31, after
+			// "nadal ... stan sklepow ze szkatami blasku: 0", sizowski) until
+			// blipu's report of 28 September: its chests stood on the counters
+			// at a fifth of what they hold, and a player bought a whole set's
+			// bonuses out of them after half an hour of a chest window. It opens
+			// every one now, and spends the stones on its own gear.
 			if (item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM &&
-					IsPlayerBotDropper(GetPlayerBotPersonalityByPID(ch->GetPlayerID())) &&
-					(int)ch->CountSpecifyItem(PLAYERBOT_MOONLIGHT_CHEST_VNUM) <= PLAYERBOT_CHEST_DROPPER_HOLD)
+					playerbot_moonlight_rules::KeepsChestClosed(
+						IsPlayerBotMoonlightChestSeller(ch->GetPlayerID()),
+						(int)ch->CountSpecifyItem(PLAYERBOT_MOONLIGHT_CHEST_VNUM), PLAYERBOT_CHEST_DROPPER_HOLD))
 				continue;
 			// A box above the bot's level is not asked for: the engine would
 			// refuse it, and remembering that refusal is what used to switch the
 			// chest off for everybody.
 			if (IsPlayerBotChestLevelLocked(ch, item))
-				continue;
-			// A resource trader keeps its Moonlight chests for the counter, up to
-			// PLAYERBOT_CHEST_TRADER_HOLD. 2.0.31 let it put a stack of two up, and
-			// it never had two: this pass opens a chest eight seconds after the
-			// drop, so the one bot in five that was to sell them opened them like
-			// the rest ("nadal ... stan sklepow ze szkatami blasku: 0", sizowski).
-			if (item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM &&
-					IsPlayerBotResourceTrader(ch->GetPlayerID()) &&
-					(int)ch->CountSpecifyItem(PLAYERBOT_MOONLIGHT_CHEST_VNUM) <= PLAYERBOT_CHEST_TRADER_HOLD)
 				continue;
 			if (IsPlayerBotChestRefused(ch->GetPlayerID(), item->GetVnum(), dwNow))
 				continue;
@@ -314,6 +350,7 @@ namespace
 			// its group at a time, and nothing else names it: the bag's
 			// valuables before and after are the Bot Mood System's news.
 			const int valuablesBefore = IsPlayerBotPersonaEnabled() ? CountPlayerBotMoodValuables(ch) : 0;
+			const int bonusBefore = CountPlayerBotBonusItemUnits(ch);
 			// By the chest's own cell: FreePlayerBotGiftboxColumn may have moved
 			// this very chest out of the column it made.
 			if (ch->UseItem(TItemPos(INVENTORY, item->GetCell())))
@@ -321,9 +358,18 @@ namespace
 				if (IsPlayerBotPersonaEnabled())
 					NotePlayerBotMoodValuableCount(ch,
 							CountPlayerBotMoodValuables(ch) - valuablesBefore, "chest");
-				sys_log(0, "PLAYERBOT_CHEST: opened pid=%u name=%s level=%u map=%ld vnum=%u boss=%d free_before=%d free_after=%d",
+				// A change or an add stone out of the chest is for the bot's own
+				// gear, so the bonus pass looks at it now rather than at the end
+				// of its five minutes (blipu: "zeby boty faktycznie to
+				// uzywaly") - only when one came out, or a bot opening a chest
+				// every eight seconds would weigh its whole gear as often.
+				const int bonusGained = CountPlayerBotBonusItemUnits(ch) - bonusBefore;
+				if (bonusGained > 0 && state.dwNextBonusCheckTime > dwNow)
+					state.dwNextBonusCheckTime = dwNow;
+				sys_log(0, "PLAYERBOT_CHEST: opened pid=%u name=%s level=%u map=%ld vnum=%u boss=%d free_before=%d free_after=%d bonus=%d",
 						ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), ch->GetMapIndex(), chestVnum,
-						IsPlayerBotBossCasketVnum(chestVnum) ? 1 : 0, before, ch->GetEmptyInventory(1));
+						IsPlayerBotBossCasketVnum(chestVnum) ? 1 : 0, before, ch->GetEmptyInventory(1),
+						bonusGained);
 				return true;
 			}
 			// Not the end of the pass: the next box in the bag may well open,

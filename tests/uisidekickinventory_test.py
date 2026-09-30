@@ -527,7 +527,11 @@ def install_stubs():
 	sys.modules['mouseModule'] = module('mouseModule', mouseController=None)
 	ui = module('ui', BoardWithTitleBar=StubBoard, ThinBoard=StubWindow, TextLine=StubTextLine, Button=StubButton,
 		RadioButton=StubButton, Gauge=StubGauge, ImageBox=StubImageBox, SlotWindow=StubSlotWindow,
-		GridSlotWindow=StubGridSlotWindow)
+		GridSlotWindow=StubGridSlotWindow,
+		# The companion's window (uisidekick.py, which this module imports) is
+		# the player's character window since client 2.0.51; its class needs
+		# the base to be defined, and nothing here builds one.
+		ScriptWindow=StubWindow)
 	setattr(ui, '__mem_func__', lambda func: func)
 	sys.modules['ui'] = ui
 	sys.modules['uiCommon'] = module('uiCommon', QuestionDialog=StubQuestion, MoneyInputDialog=StubMoneyInput)
@@ -1132,113 +1136,25 @@ class EquipmentWindowTest(Base):
 
 # ---------------------------------------------------------------- the skill window
 
-class SkillWindowTest(Base):
-	def setUp(self):
-		Base.setUp(self)
-		self.window = inv.GetSkillWindow()
-		STATE['skillNames'] = {106: 'Ci\xeacie', 107: 'Skok', 108: 'Szar\xbfa'}
-
-	def list(self, points=3, manual=0, skills=((106, 17, 0), (107, 25, 1), (108, 40, 3), (109, 5, 0))):
-		inv.OnSkillBegin('1', str(points), '0', '1', str(manual))
-		for vnum, level, grade in skills:
-			inv.OnSkill(str(vnum), str(level), str(grade))
-		inv.OnSkillEnd()
-
-	def test_opening_asks_for_the_list_and_then_polls(self):
-		inv.ToggleSkillWindow()
-		self.assertEqual(STATE['commands'], ['/towarzysz umiejetnosci'])
-		self.pump(self.window, 2.0)
-		self.assertEqual(len(STATE['commands']), 1)
-		self.pump(self.window, 1.1)
-		self.assertEqual(STATE['commands'][-1], '/towarzysz umiejetnosci')
-
-	def test_the_list(self):
-		inv.ToggleSkillWindow()
-		self.list()
-		w = self.window
-		self.assertEqual(w.classLine.text, 'Wojownik (Cia\xb3o)')
-		self.assertEqual(w.pointsLine.text, 'Wolne punkty: 3')
-		self.assertEqual([line.text for line in w.nameLines[:5]], ['Ci\xeacie', 'Skok', 'Szar\xbfa', 'Umiej\xeatno\x9c\xe6 109', ''])
-		self.assertEqual([line.text for line in w.levelLines[:5]], ['17', 'M6', 'P', '5', ''])
-		slots = w.skillSlots.slots
-		self.assertEqual(slots[1], {'skill': 107, 'grade': 1, 'countNew': (1, 6)})
-		self.assertEqual(slots[2]['countNew'], (3, 1))
-		self.assertNotIn(4, slots)
-		# "+" where a point can go: under seventeen, normal grade.
-		self.assertEqual(w.skillSlots.buttonsShown, set([3]))
-		self.assertEqual(w.skillSlots.buttonImages[0], 'd:/ymir work/ui/game/windows/btn_plus_up.sub')
-		self.advance(0.35)
-		w.skillSlots.events['pressedButton'](3)
-		self.assertEqual(STATE['commands'][-1], '/towarzysz umiejetnosci dodaj 109')
-		# No points, no "+".
-		self.list(points=0)
-		self.assertEqual(w.skillSlots.buttonsShown, set())
-
-	def test_who_spends_the_points(self):
-		inv.ToggleSkillWindow()
-		self.list(manual=0)
-		self.assertEqual(self.window.manualButton.text, 'Punkty rozdaj\xea sam: nie')
-		self.assertEqual(self.window.StatusText(), inv.TEXT_AI_SPENDS)
-		self.advance(0.35)
-		click(self.window.manualButton)
-		self.assertEqual(STATE['commands'][-1], '/towarzysz umiejetnosci reczne 1')
-		# The first "+" switches it to the owner; the server says so.
-		self.advance(0.35)
-		self.window.skillSlots.events['pressedButton'](3)
-		inv.OnEqResult('0', hexed('Od teraz ty rozdajesz punkty.'))
-		self.assertEqual(self.window.StatusText(), 'Od teraz ty rozdajesz punkty.')
-		self.list(manual=1)
-		self.assertEqual(self.window.manualButton.text, 'Punkty rozdaj\xea sam: tak')
-		self.advance(0.35)
-		click(self.window.manualButton)
-		self.assertEqual(STATE['commands'][-1], '/towarzysz umiejetnosci reczne 0')
-
-	def test_no_companion_answers_this_window_too(self):
-		inv.ToggleSkillWindow()
-		self.list()
-		inv.OnEqNone('1', '1')
-		self.assertEqual(self.window.StatusText(), 'Towarzysz nie jest teraz w grze.')
-		self.assertEqual(self.window.nameLines[0].text, '')
-		self.assertFalse(self.window.manualButton.shown)
-		inv.OnEqNone('1', '2')
-		self.assertEqual(self.window.StatusText(), inv.TEXT_NONE[2])
-
-	def test_results_go_to_the_window_that_gave_the_order(self):
-		inv.ToggleSkillWindow()
-		eq = inv.GetEquipmentWindow()
-		inv.ToggleEquipmentWindow()
-		self.list()
-		full_picture([item_line(3, 19)])
-		self.advance(0.35)
-		self.window.skillSlots.events['pressedButton'](3)
-		inv.OnEqResult('2', hexed('Nie ma punktow.'))
-		self.assertEqual(self.window.StatusText(), 'Nie ma punktow.')
-		self.assertNotEqual(eq.StatusText(), 'Nie ma punktow.')
-		self.advance(0.35)
-		eq.bagSlots.Click('unselectItem', 3)
-		inv.OnEqResult('0', hexed('Zalozone.'))
-		self.assertEqual(eq.StatusText(), 'Zalozone.')
-		self.assertEqual(self.window.StatusText(), 'Nie ma punktow.')
-
-
 # ---------------------------------------------------------------- one queue for all
 
 class QueueTest(Base):
 	def test_every_window_shares_the_spacing(self):
-		main = uisidekick.GetWindow()
-		uisidekick.ToggleWindow()
+		# The companion's own window (uisidekick_test.py) sends through the same
+		# queue; its orders are queued here as its buttons would.
 		inv.ToggleEquipmentWindow()
-		inv.ToggleSkillWindow()
-		self.assertEqual(STATE['commands'], ['/towarzysz okno 1'])
+		uisidekick.SendCommand('przywolaj')
+		uisidekick.SendCommand('walka 0')
+		self.assertEqual(STATE['commands'], ['/towarzysz eq 1'])
+		window = inv.GetEquipmentWindow()
 		times = []
 		for i in range(12):
 			before = len(STATE['commands'])
 			self.advance(0.1)
-			for window in (main, inv.GetEquipmentWindow(), inv.GetSkillWindow()):
-				window.OnUpdate()
+			window.OnUpdate()
 			if len(STATE['commands']) > before:
 				times.append(STATE['now'])
-		self.assertEqual(STATE['commands'][:3], ['/towarzysz okno 1', '/towarzysz eq 1', '/towarzysz umiejetnosci'])
+		self.assertEqual(STATE['commands'][:3], ['/towarzysz eq 1', '/towarzysz przywolaj', '/towarzysz walka 0'])
 		gaps = [round(b - a, 3) for a, b in zip(times, times[1:])]
 		self.assertTrue(all(gap >= 0.3 for gap in gaps), gaps)
 		# Never six in half a second.
@@ -1261,14 +1177,12 @@ class QueueTest(Base):
 
 	def test_the_keepers_take_the_windows_with_the_game(self):
 		inv.ToggleEquipmentWindow()
-		inv.ToggleSkillWindow()
 		full_picture([item_line(3, 19)])
 		inv.GetEquipmentWindow().bagSlots.Click('selectItem', 3)
 		keeper = inv.GetKeeper()
 		self.assertFalse(keeper.CanUpdate())
 		keeper.Destroy()
 		self.assertIsNone(inv._state['eqWindow'])
-		self.assertIsNone(inv._state['skillWindow'])
 		self.assertEqual(STATE['icons'], {})
 		self.assertEqual(inv._equipment.items, {})
 		# The companion's own keeper takes them too.
@@ -1276,17 +1190,16 @@ class QueueTest(Base):
 		uisidekick.GetKeeper().Destroy()
 		self.assertIsNone(inv._state['eqWindow'])
 
-	def test_the_companions_window_opens_both(self):
-		main = uisidekick.GetWindow()
-		uisidekick.ToggleWindow()
-		click(main.inventoryButton)
-		click(main.skillsButton)
-		self.assertTrue(inv.GetEquipmentWindow().IsShow())
-		self.assertTrue(inv.GetSkillWindow().IsShow())
-		# Beside it, one to each side where the screen allows.
-		self.assertEqual(inv.GetEquipmentWindow().x, main.x + main.WIDTH + 4)
-		click(main.inventoryButton)
-		self.assertFalse(inv.GetEquipmentWindow().IsShow())
+	def test_the_companions_window_opens_it_beside_itself(self):
+		anchor = StubWindow()
+		anchor.SetPosition(200, 100)
+		anchor.SetSize(352, 438)
+		inv.ToggleEquipmentWindow(anchor)
+		window = inv.GetEquipmentWindow()
+		self.assertTrue(window.IsShow())
+		self.assertEqual(window.x, 200 + 352 + 4)
+		inv.ToggleEquipmentWindow(anchor)
+		self.assertFalse(window.IsShow())
 
 
 # ---------------------------------------------------------------- the screen
@@ -1309,23 +1222,6 @@ class ScreenTest(Base):
 		full_picture([item_line(3, 19)], gold=999999999999)
 		inv.OnEqResult('2', hexed('Towarzysz nie ma miejsca w torbie.'))
 		self.check_fits(window, inv.EquipmentWindow.WIDTH, inv.EquipmentWindow.HEIGHT)
-
-	def test_the_skill_window_fits_800x600(self):
-		window = inv.GetSkillWindow()
-		STATE['skillNames'] = {106: 'Trzystronne Ci\xeacie'}
-		inv.OnSkillBegin('1', '3', '0', '1', '1')
-		for vnum in range(106, 106 + inv.MAX_SKILL_ROWS):
-			inv.OnSkill(str(vnum), '25', '1')
-		inv.OnSkillEnd()
-		self.check_fits(window, inv.SkillWindow.WIDTH, inv.SkillWindow.HEIGHT)
-
-	def test_the_companions_window_still_fits(self):
-		window = uisidekick.GetWindow()
-		# 581 since the "Gra beze mnie" and "Skrzynki" switches (upstream's
-		# client 2.0.44-2.0.45, our 2.0.47): still inside 800x600.
-		self.assertEqual((uisidekick.SidekickWindow.WIDTH, uisidekick.SidekickWindow.HEIGHT), (300, 581))
-		self.assertLessEqual(uisidekick.SidekickWindow.HEIGHT, 600)
-		self.check_fits(window, 300, 581)
 
 	def test_the_equipment_slots_are_the_players(self):
 		window = inv.GetEquipmentWindow()

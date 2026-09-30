@@ -80,6 +80,10 @@ namespace {
         // A finished piece the market Perfectionist's anvil waits for.
         if (want && priority < 300 && IsPlayerBotReadyGearOffer(ch, preview))
             priority = 300;
+        // A Stalki project (playerbot_stalki.h) under the level-30 weapon, the
+        // higher plus first.
+        if (want && IsPlayerBotStalkiProjectOffer(ch, preview))
+            priority = 350 + std::min<int>(9, (int)preview->GetRefineLevel());
         if (want && IsPlayerBotClassLevel30Weapon(ch, preview))
             priority = 400 + (int)std::min<long>(99, std::max<long>(0,
                 SumPlayerBotItemLines(preview, APPLY_NORMAL_HIT_DAMAGE_BONUS)));
@@ -207,6 +211,7 @@ namespace {
     bool FindPlayerBotGambleMaterialPick(LPCHARACTER ch, TPlayerBotAIState& state,
             const std::map<DWORD, int>& missing, long long cap, DWORD now);
     bool FindPlayerBotRareGamblerBasePick(LPCHARACTER ch, TPlayerBotAIState& state, long long cap, DWORD now);
+    bool FindPlayerBotStalkiPick(LPCHARACTER ch, TPlayerBotAIState& state, long long cap, DWORD now);
 
     bool ManagePlayerBotOfflineShopping(LPCHARACTER ch, TPlayerBotAIState& state, DWORD now) {
         using namespace playerbot_offline;
@@ -269,6 +274,15 @@ namespace {
                     ch->GetPlayerID(), ch->GetName(), o.buyOwner, o.buyItem,
                     (unsigned int)state.persona.bGambleBuyCategory, (unsigned int)state.persona.bRareBought,
                     (unsigned int)state.persona.bRareBuyWant);
+                return RunPlayerBotOfflinePick(ch, state, now);
+            }
+            // And a bot in the market for a Stalki (playerbot_stalki.h) looks on
+            // every stand of the map for one: the few lines of seven families
+            // stand among some ten thousand, where the browse reads sixty-four.
+            if (FindPlayerBotStalkiPick(ch, state, budget, now)) {
+                sys_log(0, "PLAYERBOT_MARKET: stalki goes for a piece pid=%u name=%s owner=%u item=%u level=%d gold=%lld",
+                    ch->GetPlayerID(), ch->GetName(), o.buyOwner, o.buyItem, (int)ch->GetLevel(),
+                    (long long)ch->GetGold());
                 return RunPlayerBotOfflinePick(ch, state, now);
             }
             std::vector<std::pair<int, NativeShop> > shops;
@@ -546,6 +560,65 @@ namespace {
                 bestItem = id;
                 bestPrice = price;
                 bestLevel = level;
+            }
+        }
+        if (!bestOwner) return false;
+        auto& o = state.offlineShop;
+        o.buyOwner = bestOwner;
+        o.buyItem = bestItem;
+        o.buyUntil = now + PLAYERBOT_MARKET_FAR_PICK_WALK_MS;
+        o.farBuy = false;
+        ClaimPlayerBotLineUntil(bestItem, ch->GetPlayerID(), now, o.buyUntil);
+        return true;
+    }
+
+    // A bot in the market for a Stalki (IsPlayerBotStalkiShopper): the best
+    // line of its own on a stand of its map it can walk to - the equipment
+    // pass's score, the cheaper on a tie - that the buyer would take on
+    // arrival, the purchase's own tests asked of the line, for no more than
+    // `cap`. Only a line whose vnum is one of the families is built into an
+    // item, so a look over the whole map costs a vnum test a line.
+    bool FindPlayerBotStalkiPick(LPCHARACTER ch, TPlayerBotAIState& state, long long cap, DWORD now) {
+        using namespace playerbot_offline;
+        if (!ch || cap <= 0 ||
+                (!IsPlayerBotStalkiShopper(ch, playerbot_stalki_rules::KIND_ARMOUR) &&
+                 !IsPlayerBotStalkiShopper(ch, playerbot_stalki_rules::KIND_WEAPON)))
+            return false;
+        const int shopChannel = CPlayerBotManager::instance().IsChannelTableMode()
+                ? playerbot_channel_rules::SHOP_CHANNEL : (int)g_bChannel;
+        CPlayerBotNavigation& navigation = CPlayerBotNavigation::instance(ch->GetMapIndex());
+        const bool haveNav = navigation.Init(ch->GetMapIndex());
+        DWORD bestOwner = 0, bestItem = 0;
+        long long bestPrice = 0, bestScore = 0;
+        for (const auto& [pid, shop] : ikashop::GetManager().GetPlayerBotOfflineShops()) {
+            if (!shop || pid == ch->GetPlayerID() || shop->GetDuration() == 0 || shop->IsEditMode()) continue;
+            const auto spawn = shop->GetSpawn();
+            if (spawn.map != ch->GetMapIndex() || (int)spawn.channel != shopChannel) continue;
+            int reach = -1;
+            for (const auto& [id, line] : shop->GetItems()) {
+                if (!line || line->GetInfo().count != 1 || !playerbot_stalki_rules::IsStalki(line->GetInfo().vnum) ||
+                        IsPlayerBotLineClaimedByOther(id, ch->GetPlayerID(), now))
+                    continue;
+                const long long price = (long long)line->GetPrice().GetTotalYangAmount();
+                if (price <= 0 || price > cap) continue;
+                LPITEM preview = BotOfflinePreview(*line);
+                if (!preview) continue;
+                const long long score = GetPlayerBotEquipmentScore(preview, ch);
+                const bool better = !bestOwner || score > bestScore || (score == bestScore && price < bestPrice);
+                bool buyable = false;
+                if (better && IsPlayerBotStalkiProjectOffer(ch, preview)) {
+                    if (reach < 0)
+                        reach = !haveNav || navigation.CanReach(ch->GetX(), ch->GetY(), spawn.x, spawn.y) ? 1 : 0;
+                    buyable = reach == 1 && WantsPlayerBotStallItem(ch, preview) &&
+                            CanPlayerBotPayForOffer(ch, preview, price) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
+                }
+                M2_DELETE(preview);
+                if (reach == 0) break;
+                if (!buyable) continue;
+                bestOwner = shop->GetOwnerPID();
+                bestItem = id;
+                bestPrice = price;
+                bestScore = score;
             }
         }
         if (!bestOwner) return false;

@@ -10,6 +10,30 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# The launcher's language, .m2launcher.json's "language": Metin2-Launcher.ps1
+# puts it into $env:M2_LAUNCHER_LANGUAGE before it runs this script, and this
+# script run on its own reads the file beside it.
+if (-not $env:M2_LAUNCHER_LANGUAGE) {
+    try {
+        $languageConfigPath = Join-Path $PSScriptRoot '.m2launcher.json'
+        if (Test-Path -LiteralPath $languageConfigPath -PathType Leaf) {
+            $languageConfig = Get-Content -LiteralPath $languageConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($languageConfig -and $languageConfig.PSObject.Properties['language'] -and [string]$languageConfig.language -eq 'en') {
+                $env:M2_LAUNCHER_LANGUAGE = 'en'
+            }
+        }
+    }
+    catch { }
+}
+
+# A text in that language: the English one for 'en', otherwise the Polish
+# one, which is word for word what this script always said.
+function UI-Text {
+    param([AllowEmptyString()][string]$Pl, [AllowEmptyString()][string]$En)
+    if ($env:M2_LAUNCHER_LANGUAGE -eq 'en' -and $En) { return $En }
+    return $Pl
+}
+
 function Test-DockerApi {
     $previousPreference = $ErrorActionPreference
     try {
@@ -76,7 +100,7 @@ function Add-MissingDotEnvKeys {
         $added.Add($name)
     }
     if ($added.Count -gt 0) {
-        Write-Host ("Dopisano do .env brakujace ustawienia: " + ($added -join ', ')) -ForegroundColor DarkGray
+        Write-Host ((UI-Text "Dopisano do .env brakujace ustawienia: " "Added the missing settings to .env: ") + ($added -join ', ')) -ForegroundColor DarkGray
     }
     return $Content
 }
@@ -276,12 +300,12 @@ function Find-CompatibleDockerInstallation {
         $details = ($unique | ForEach-Object {
             "  - $($_.projectName) ($($_.workingDirectory))"
         }) -join [Environment]::NewLine
-        throw "Znaleziono kilka instalacji Metin2. Launcher niczego nie zmienił. Uruchom go z folderu właściwej instalacji albo zatrzymaj pozostałe stosy:`n$details"
+        throw (UI-Text "Znaleziono kilka instalacji Metin2. Launcher niczego nie zmienił. Uruchom go z folderu właściwej instalacji albo zatrzymaj pozostałe stosy:`n$details" "Found several Metin2 installations. The launcher changed nothing. Run it from the folder of the right installation or stop the other stacks:`n$details")
     }
 
     $selected = $unique[0]
     if (-not $selected.environmentPath) {
-        throw "Znaleziono bazę $($selected.databaseVolume), ale nie znaleziono jej oryginalnego pliku .env w $($selected.workingDirectory). Nie uruchomiono drugiego serwera i nie zmieniono wolumenu. Ustaw M2_EXISTING_SERVER_DIR na stary folder serwera i spróbuj ponownie."
+        throw (UI-Text "Znaleziono bazę $($selected.databaseVolume), ale nie znaleziono jej oryginalnego pliku .env w $($selected.workingDirectory). Nie uruchomiono drugiego serwera i nie zmieniono wolumenu. Ustaw M2_EXISTING_SERVER_DIR na stary folder serwera i spróbuj ponownie." "Found the database $($selected.databaseVolume), but not its original .env file in $($selected.workingDirectory). No second server was started and the volume was not changed. Set M2_EXISTING_SERVER_DIR to the old server folder and try again.")
     }
     return $selected
 }
@@ -436,7 +460,7 @@ function Repair-DotEnvAfterCrash {
     if (-not (Test-FileZeroFilled -Bytes $bytes)) { return }
     $damaged = $EnvPath + '.damaged-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
     [IO.File]::Copy($EnvPath, $damaged, $true)
-    Write-Host "Plik .env jest uszkodzony: zamiast tresci ma zera, jak po naglym wylaczeniu komputera w trakcie zapisu. Kopia uszkodzonego pliku: $damaged" -ForegroundColor Yellow
+    Write-Host (UI-Text "Plik .env jest uszkodzony: zamiast tresci ma zera, jak po naglym wylaczeniu komputera w trakcie zapisu. Kopia uszkodzonego pliku: $damaged" "The .env file is damaged: it holds zeros instead of its contents, as when the computer is switched off suddenly while writing it. Copy of the damaged file: $damaged") -ForegroundColor Yellow
 
     $lastGood = $EnvPath + '.last-good'
     if (Test-Path -LiteralPath $lastGood -PathType Leaf) {
@@ -446,7 +470,7 @@ function Repair-DotEnvAfterCrash {
             if ((Get-DotEnvValue -Content $text -Name 'M2_DB_ROOT_PASSWORD') -and
                     (Get-DotEnvValue -Content $text -Name 'M2_DB_PASSWORD')) {
                 Write-FileDurable -Path $EnvPath -Content $text
-                Write-Host 'Przywrocono .env z kopii z ostatniego udanego startu (.env.last-good).' -ForegroundColor Green
+                Write-Host (UI-Text 'Przywrocono .env z kopii z ostatniego udanego startu (.env.last-good).' 'Restored .env from the backup of the last successful start (.env.last-good).') -ForegroundColor Green
                 return
             }
         }
@@ -495,7 +519,7 @@ function Repair-DotEnvAfterCrash {
         }
     }
     if ($recovered.Count -gt 0) {
-        Write-Host ('Odzyskano z kontenerow serwera: ' + ($recovered -join ', ')) -ForegroundColor Green
+        Write-Host ((UI-Text 'Odzyskano z kontenerow serwera: ' 'Recovered from the server''s containers: ') + ($recovered -join ', ')) -ForegroundColor Green
     }
     if (-not (Get-DotEnvValue -Content $text -Name 'M2_DB_ROOT_PASSWORD') -or
             -not (Get-DotEnvValue -Content $text -Name 'M2_DB_PASSWORD')) {
@@ -506,14 +530,14 @@ function Repair-DotEnvAfterCrash {
             $volumeExists = ($volume.ExitCode -eq 0)
         }
         if ($volumeExists) {
-            throw ("Plik .env jest uszkodzony, a hasel do bazy serwera nie udalo sie odzyskac z kontenerow. " +
-                "Przywroc .env z kopii (folder backups albo inny folder z serwerem). Uszkodzony plik: $damaged")
+            throw ((UI-Text "Plik .env jest uszkodzony, a hasel do bazy serwera nie udalo sie odzyskac z kontenerow. " "The .env file is damaged, and the passwords of the server's database could not be recovered from the containers. ") +
+                (UI-Text "Przywroc .env z kopii (folder backups albo inny folder z serwerem). Uszkodzony plik: $damaged" "Restore .env from a backup (the backups folder or another folder with the server). Damaged file: $damaged"))
         }
         $text = Set-DotEnvValue -Content $text -Name 'M2_DB_ROOT_PASSWORD' -Value (New-DotEnvSecret)
         $text = Set-DotEnvValue -Content $text -Name 'M2_DB_PASSWORD' -Value (New-DotEnvSecret)
     }
     Write-FileDurable -Path $EnvPath -Content $text
-    Write-Host 'Plik .env naprawiony.' -ForegroundColor Green
+    Write-Host (UI-Text 'Plik .env naprawiony.' 'The .env file has been repaired.') -ForegroundColor Green
 }
 
 function Initialize-DotEnvFile {
@@ -537,8 +561,8 @@ function Initialize-DotEnvFile {
         if ($known) {
             $volume = Invoke-DockerQuery @('volume', 'inspect', "${known}_db-data")
             if ($volume.ExitCode -eq 0) {
-                throw ("Brak pliku $EnvPath, a baza serwera '$known' juz istnieje. Hasla do niej byly tylko w tym pliku. " +
-                    "Przywroc .env z kopii (katalog backups lub inny folder), albo zacznij od nowa: usuniecie bazy kasuje wszystkie postacie.")
+                throw ((UI-Text "Brak pliku $EnvPath, a baza serwera '$known' juz istnieje. Hasla do niej byly tylko w tym pliku. " "The file $EnvPath is missing, and the server's database '$known' already exists. Its passwords were only in that file. ") +
+                    (UI-Text "Przywroc .env z kopii (katalog backups lub inny folder), albo zacznij od nowa: usuniecie bazy kasuje wszystkie postacie." "Restore .env from a backup (the backups folder or another folder), or start over: removing the database deletes all characters."))
             }
         }
     }
@@ -557,9 +581,9 @@ function Initialize-DotEnvFile {
         $content = Set-DotEnvValue -Content $content -Name $name -Value '127.0.0.1'
     }
     Write-FileDurable -Path $EnvPath -Content $content
-    Write-Host "Nie bylo pliku .env (instalator nie byl uruchamiany) - utworzono go z nowymi haslami." -ForegroundColor Yellow
-    Write-Host "Haslo do panelu administracyjnego: $panelPassword" -ForegroundColor Yellow
-    Write-Host "Zapisz je. Jest tez w pliku linux-port\docker\.env (M2_PANEL_PASSWORD)." -ForegroundColor Yellow
+    Write-Host (UI-Text "Nie bylo pliku .env (instalator nie byl uruchamiany) - utworzono go z nowymi haslami." "There was no .env file (the installer has not been run) - it was created with new passwords.") -ForegroundColor Yellow
+    Write-Host (UI-Text "Haslo do panelu administracyjnego: $panelPassword" "Admin panel password: $panelPassword") -ForegroundColor Yellow
+    Write-Host (UI-Text "Zapisz je. Jest tez w pliku linux-port\docker\.env (M2_PANEL_PASSWORD)." "Save it. It is also in the file linux-port\docker\.env (M2_PANEL_PASSWORD).") -ForegroundColor Yellow
 }
 
 function Get-DockerDesktopCandidates {
@@ -613,8 +637,8 @@ function Assert-KingdomsDefault {
     if ([Regex]::IsMatch($Content, '(?m)^M2_PLAYERBOT_KINGDOMS_DEFAULTED=')) { return $Content }
     $current = [Regex]::Match($Content, '(?m)^M2_PLAYERBOT_KINGDOMS=(.*)$')
     if ($current.Success -and $current.Groups[1].Value.Trim() -ne '1') {
-        Write-Host 'Trzy krolestwa: M2_PLAYERBOT_KINGDOMS przelaczone na 1 (Shinsoo, Chunjo i Jinno; boty dzielone po rowno).' -ForegroundColor Cyan
-        Write-Host '  Przy tym starcie migrator dosieje boty dwoch nowych krolestw - to potrwa chwile dluzej.' -ForegroundColor Gray
+        Write-Host (UI-Text 'Trzy krolestwa: M2_PLAYERBOT_KINGDOMS przelaczone na 1 (Shinsoo, Chunjo i Jinno; boty dzielone po rowno).' 'Three kingdoms: M2_PLAYERBOT_KINGDOMS switched to 1 (Shinsoo, Chunjo and Jinno; the bots split evenly).') -ForegroundColor Cyan
+        Write-Host (UI-Text '  Przy tym starcie migrator dosieje boty dwoch nowych krolestw - to potrwa chwile dluzej.' '  On this start the migrator seeds the bots of the two new kingdoms - it will take a little longer.') -ForegroundColor Gray
     }
     $Content = Set-DotEnvValue -Content $Content -Name 'M2_PLAYERBOT_KINGDOMS' -Value '1'
     return (Set-DotEnvValue -Content $Content -Name 'M2_PLAYERBOT_KINGDOMS_DEFAULTED' -Value '1')
@@ -658,14 +682,14 @@ function Assert-WorldLayoutDefault {
         if ($count.Success) { [int]::TryParse($count.Groups[1].Value.Trim(), [ref]$bots) | Out-Null }
     }
     if ($bots -gt 1500) {
-        Write-Host "Uklad swiata: zostaje split - ten swiat prosi o $bots botow, a przy takiej liczbie jeden rdzen bylby za wolny." -ForegroundColor Gray
+        Write-Host (UI-Text "Uklad swiata: zostaje split - ten swiat prosi o $bots botow, a przy takiej liczbie jeden rdzen bylby za wolny." "World layout: staying on split - this world asks for $bots bots, and with that many one core would be too slow.") -ForegroundColor Gray
         return (Set-DotEnvValue -Content $Content -Name 'M2_PLAYERBOT_WORLD_LAYOUT_DEFAULTED' -Value '1')
     }
     $current = [Regex]::Match($Content, '(?m)^M2_PLAYERBOT_WORLD_LAYOUT=(.*)$')
     if (-not $current.Success -or $current.Groups[1].Value.Trim() -ne 'unified') {
-        Write-Host 'Uklad swiata: M2_PLAYERBOT_WORLD_LAYOUT przelaczony na unified.' -ForegroundColor Cyan
-        Write-Host '  Wszystkie trzy krolestwa i caly front na jednym rdzeniu, wiec boty Shinsoo i Jinno' -ForegroundColor Gray
-        Write-Host '  przestaja konczyc na ~36 poziomie. Wroc na split w .env, jesli wolisz po staremu.' -ForegroundColor Gray
+        Write-Host (UI-Text 'Uklad swiata: M2_PLAYERBOT_WORLD_LAYOUT przelaczony na unified.' 'World layout: M2_PLAYERBOT_WORLD_LAYOUT switched to unified.') -ForegroundColor Cyan
+        Write-Host (UI-Text '  Wszystkie trzy krolestwa i caly front na jednym rdzeniu, wiec boty Shinsoo i Jinno' '  All three kingdoms and the whole frontier on one core, so the Shinsoo and Jinno bots') -ForegroundColor Gray
+        Write-Host (UI-Text '  przestaja konczyc na ~36 poziomie. Wroc na split w .env, jesli wolisz po staremu.' '  no longer stop at level ~36. Go back to split in .env if you prefer the old way.') -ForegroundColor Gray
     }
     $Content = Set-DotEnvValue -Content $Content -Name 'M2_PLAYERBOT_WORLD_LAYOUT' -Value 'unified'
     return (Set-DotEnvValue -Content $Content -Name 'M2_PLAYERBOT_WORLD_LAYOUT_DEFAULTED' -Value '1')
@@ -688,7 +712,7 @@ function Assert-BlessingScrollDefault {
     if ([Regex]::IsMatch($Content, '(?m)^M2_BLESSING_SCROLL_STONE_PERMILLE_DEFAULTED=')) { return $Content }
     $current = [Regex]::Match($Content, '(?m)^M2_BLESSING_SCROLL_STONE_PERMILLE=(.*)$')
     if ($current.Success -and $current.Groups[1].Value.Trim() -eq '50') {
-        Write-Host 'Zwoje Blogoslawienstwa z Metinow: szansa zmieniona z 5% na 1% (M2_BLESSING_SCROLL_STONE_PERMILLE=10).' -ForegroundColor Cyan
+        Write-Host (UI-Text 'Zwoje Blogoslawienstwa z Metinow: szansa zmieniona z 5% na 1% (M2_BLESSING_SCROLL_STONE_PERMILLE=10).' 'Blessing Scrolls from Metin stones: chance changed from 5% to 1% (M2_BLESSING_SCROLL_STONE_PERMILLE=10).') -ForegroundColor Cyan
         $Content = Set-DotEnvValue -Content $Content -Name 'M2_BLESSING_SCROLL_STONE_PERMILLE' -Value '10'
     }
     return (Set-DotEnvValue -Content $Content -Name 'M2_BLESSING_SCROLL_STONE_PERMILLE_DEFAULTED' -Value '1')
@@ -754,7 +778,7 @@ function Assert-TimezoneDefault {
     try { $zone = Get-M2HostTimeZoneName } catch { $zone = '' }
     if (-not $zone) { return $Content }
     if ($zone -ne 'UTC') {
-        Write-Host ('Strefa czasowa serwera: ' + $zone + ' (jak w Windows) - panel i logi pokaza godzine z Twojego zegara.') -ForegroundColor Cyan
+        Write-Host ((UI-Text 'Strefa czasowa serwera: ' 'Server time zone: ') + $zone + (UI-Text ' (jak w Windows) - panel i logi pokaza godzine z Twojego zegara.' ' (as in Windows) - the panel and the logs will show the time on your clock.')) -ForegroundColor Cyan
     }
     $Content = Set-DotEnvValue -Content $Content -Name 'M2_TZ' -Value $zone
     return (Set-DotEnvValue -Content $Content -Name 'M2_TZ_DEFAULTED' -Value '1')
@@ -806,7 +830,7 @@ function Initialize-InstallationIdentity {
         # The same crash as the .env's: the project is read back from .env or
         # from the containers instead.
         Move-Item -LiteralPath $statePath -Destination ($statePath + '.damaged-' + (Get-Date -Format 'yyyyMMdd-HHmmss')) -Force
-        Write-Host 'Plik .m2install.json byl uszkodzony (zera zamiast tresci) - odtwarzam go.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Plik .m2install.json byl uszkodzony (zera zamiast tresci) - odtwarzam go.' 'The .m2install.json file was damaged (zeros instead of its contents) - rebuilding it.') -ForegroundColor Yellow
     }
     if (Test-Path -LiteralPath $statePath -PathType Leaf) {
         try {
@@ -837,7 +861,7 @@ function Initialize-InstallationIdentity {
             $migratedFrom = [string]$existing.workingDirectory
             $databaseVolume = [string]$existing.databaseVolume
             $content = Merge-DotEnvFile -Content $content -SourcePath ([string]$existing.environmentPath)
-            Write-Host "Wykryto istniejący serwer '$project'. Launcher przejmuje go bez przenoszenia ani usuwania wolumenu $($existing.databaseVolume)." -ForegroundColor Yellow
+            Write-Host (UI-Text "Wykryto istniejący serwer '$project'. Launcher przejmuje go bez przenoszenia ani usuwania wolumenu $($existing.databaseVolume)." "Found an existing server '$project'. The launcher takes it over without moving or removing the volume $($existing.databaseVolume).") -ForegroundColor Yellow
         }
     }
 
@@ -889,13 +913,13 @@ function Initialize-InstallationIdentity {
     if ($panelGenerated) {
         Write-Host ''
         Write-Host '=============================================================' -ForegroundColor Yellow
-        Write-Host '  HASLO DO PANELU WWW (wygenerowane, bo w .env go nie bylo)' -ForegroundColor Yellow
+        Write-Host (UI-Text '  HASLO DO PANELU WWW (wygenerowane, bo w .env go nie bylo)' '  WEB PANEL PASSWORD (generated, because .env had none)') -ForegroundColor Yellow
         Write-Host ''
         Write-Host "      $panelGenerated" -ForegroundColor White
         Write-Host ''
-        Write-Host '  Jest tez w linux-port\docker\.env (M2_PANEL_PASSWORD).' -ForegroundColor Yellow
-        Write-Host '  Jesli panel go nie przyjmuje, to znaczy, ze zapamietal' -ForegroundColor Yellow
-        Write-Host '  starsze - uzyj przycisku HASLO DO PANELU w launcherze.' -ForegroundColor Yellow
+        Write-Host (UI-Text '  Jest tez w linux-port\docker\.env (M2_PANEL_PASSWORD).' '  It is also in linux-port\docker\.env (M2_PANEL_PASSWORD).') -ForegroundColor Yellow
+        Write-Host (UI-Text '  Jesli panel go nie przyjmuje, to znaczy, ze zapamietal' '  If the panel does not accept it, it has kept') -ForegroundColor Yellow
+        Write-Host (UI-Text '  starsze - uzyj przycisku HASLO DO PANELU w launcherze.' '  an older one - use the launcher''s "I cannot log in (panel password)" button.') -ForegroundColor Yellow
         Write-Host '=============================================================' -ForegroundColor Yellow
         Write-Host ''
     }
@@ -921,7 +945,7 @@ function Assert-NoForeignPortOwner {
         $owner = Get-ObjectPropertyValue $container.Config.Labels 'com.docker.compose.project'
         if ($owner -and -not $owner.Equals($Project, [StringComparison]::OrdinalIgnoreCase)) {
             $workingDirectory = Get-ObjectPropertyValue $container.Config.Labels 'com.docker.compose.project.working_dir'
-            throw "Port 127.0.0.1:$Port jest już używany przez inną instalację '$owner' ($workingDirectory). Launcher nie uruchomi drugiego serwera. Użyj istniejącej instalacji albo zatrzymaj ją bez opcji -v."
+            throw (UI-Text "Port 127.0.0.1:$Port jest już używany przez inną instalację '$owner' ($workingDirectory). Launcher nie uruchomi drugiego serwera. Użyj istniejącej instalacji albo zatrzymaj ją bez opcji -v." "Port 127.0.0.1:$Port is already used by another installation '$owner' ($workingDirectory). The launcher will not start a second server. Use the existing installation or stop it without the -v option.")
         }
     }
 
@@ -933,7 +957,7 @@ function Assert-NoForeignPortOwner {
         }
         catch { }
         if ($used) {
-            throw "Port 127.0.0.1:$Port jest już zajęty przez inny program. Launcher nie uruchomił drugiego serwera."
+            throw (UI-Text "Port 127.0.0.1:$Port jest już zajęty przez inny program. Launcher nie uruchomił drugiego serwera." "Port 127.0.0.1:$Port is already taken by another program. The launcher did not start a second server.")
         }
     }
 }
@@ -1044,7 +1068,7 @@ if (-not (Test-DockerApi)) {
         # ("C") instead of the first path.
         $desktopCandidates = @(Get-DockerDesktopCandidates)
         if ($desktopCandidates.Count -eq 0) {
-            throw 'Nie znaleziono programu Docker Desktop (szukano w Program Files, LOCALAPPDATA, obok docker.exe i w rejestrze). Uruchom Docker Desktop recznie i kliknij GRAJ.'
+            throw (UI-Text 'Nie znaleziono programu Docker Desktop (szukano w Program Files, LOCALAPPDATA, obok docker.exe i w rejestrze). Uruchom Docker Desktop recznie i kliknij GRAJ.' 'Docker Desktop was not found (looked in Program Files, LOCALAPPDATA, next to docker.exe and in the registry). Start Docker Desktop by hand and click PLAY.')
         }
         Start-Process -FilePath $desktopCandidates[0] -WindowStyle Hidden
     }
@@ -1214,7 +1238,7 @@ if ((Test-Path -LiteralPath $overlaySource -PathType Container) -and
         }
     }
     elseif (-not (Test-Path -LiteralPath $seedSource -PathType Leaf)) {
-        Write-Host "UWAGA: brak $seedSource - stragan botow nie zostanie odswiezony." -ForegroundColor Yellow
+        Write-Host (UI-Text "UWAGA: brak $seedSource - stragan botow nie zostanie odswiezony." "WARNING: $seedSource is missing - the bots' stall will not be refreshed.") -ForegroundColor Yellow
     }
 
     # The migrate container's first act is `[ -s playerbots_seed.sql ] || exit 1`.
@@ -1223,10 +1247,10 @@ if ((Test-Path -LiteralPath $overlaySource -PathType Container) -and
     # "exit 1". Refuse here, with the path, rather than let compose discover it.
     if (-not (Test-Path -LiteralPath $seedStaged -PathType Leaf) -or
         (Get-Item -LiteralPath $seedStaged).Length -eq 0) {
-        throw ("Brak pliku z postaciami botow: $seedStaged (lub jest pusty). " +
-               "Paczka jest niekompletna - uruchom aktualizacje z launchera albo " +
-               "rozpakuj archiwum serwera ponownie. Bez tego pliku playerbot-migrate " +
-               "konczy sie bledem exit 1 przy kazdym starcie.")
+        throw ((UI-Text "Brak pliku z postaciami botow: $seedStaged (lub jest pusty). " "The file with the bots' characters is missing: $seedStaged (or it is empty). ") +
+               (UI-Text "Paczka jest niekompletna - uruchom aktualizacje z launchera albo " "The package is incomplete - run the update from the launcher or ") +
+               (UI-Text "rozpakuj archiwum serwera ponownie. Bez tego pliku playerbot-migrate " "unpack the server archive again. Without this file playerbot-migrate ") +
+               (UI-Text "konczy sie bledem exit 1 przy kazdym starcie." "fails with exit 1 at every start."))
     }
 
     if ($syncedFiles -gt 0) {
@@ -1300,7 +1324,7 @@ $requiredDumps = if ((Get-ServerEngine) -eq 'mt2009') { @('account', 'common', '
 foreach ($db in $requiredDumps) {
     $f = Join-Path $dumpDir "$db.sql"
     if (-not (Test-Path -LiteralPath $f -PathType Leaf)) { $missingDumps += "$db.sql" }
-    elseif ($db -ne 'hotbackup' -and (Get-Item -LiteralPath $f).Length -eq 0) { $missingDumps += "$db.sql (pusty)" }
+    elseif ($db -ne 'hotbackup' -and (Get-Item -LiteralPath $f).Length -eq 0) { $missingDumps += (UI-Text "$db.sql (pusty)" "$db.sql (empty)") }
 }
 if ($missingDumps.Count -gt 0) {
     $dbVolumeInitialized = $false
@@ -1320,26 +1344,26 @@ if ($missingDumps.Count -gt 0) {
         }
     }
     if (-not $dbVolumeInitialized) {
-        throw ("Brakuje zrzutow bazy danych w " + $dumpDir + ".`n" +
-               "Brakuje: " + ($missingDumps -join ', ') + "`n`n" +
-               "Bez nich MariaDB uruchomi sie pusta (i zglosi 'healthy'), a playerbot-migrate " +
-               "bedzie czekal 30 minut na schemat, ktory nigdy nie powstanie. Zrzuty pochodza " +
-               "z Twojej paczki serwera r40250 (Server\metin2_mysql_dump.zip) i wystawia je " +
-               "instalator - aktualizacja ich nie przywraca.`n" +
-               "Uruchom ponownie instalator (installer\install.ps1), wskazujac paczke przez " +
-               "`$env:M2_SRC_ARCHIVE, albo rozpakuj metin2_mysql_dump.zip do tego katalogu " +
-               "(account.sql, common.sql, player.sql, log.sql, hotbackup.sql) i kliknij GRAJ jeszcze raz.")
+        throw ((UI-Text "Brakuje zrzutow bazy danych w " "Database dumps are missing in ") + $dumpDir + ".`n" +
+               (UI-Text "Brakuje: " "Missing: ") + ($missingDumps -join ', ') + "`n`n" +
+               (UI-Text "Bez nich MariaDB uruchomi sie pusta (i zglosi 'healthy'), a playerbot-migrate " "Without them MariaDB will start empty (and report 'healthy'), and playerbot-migrate ") +
+               (UI-Text "bedzie czekal 30 minut na schemat, ktory nigdy nie powstanie. Zrzuty pochodza " "will wait 30 minutes for a schema that will never be created. The dumps come ") +
+               (UI-Text "z Twojej paczki serwera r40250 (Server\metin2_mysql_dump.zip) i wystawia je " "from your r40250 server package (Server\metin2_mysql_dump.zip) and ") +
+               (UI-Text "instalator - aktualizacja ich nie przywraca.`n" "the installer puts them in place - an update does not restore them.`n") +
+               (UI-Text "Uruchom ponownie instalator (installer\install.ps1), wskazujac paczke przez " "Run the installer again (installer\install.ps1), pointing it to the package with ") +
+               (UI-Text "`$env:M2_SRC_ARCHIVE, albo rozpakuj metin2_mysql_dump.zip do tego katalogu " "`$env:M2_SRC_ARCHIVE, or unpack metin2_mysql_dump.zip into this folder ") +
+               (UI-Text "(account.sql, common.sql, player.sql, log.sql, hotbackup.sql) i kliknij GRAJ jeszcze raz." "(account.sql, common.sql, player.sql, log.sql, hotbackup.sql) and click PLAY again."))
     }
 }
 if ($missingContext.Count -gt 0) {
-    throw ("Niekompletne zrodla gry w " + $gameContext + ".`n" +
-           "Brakuje: " + ($missingContext -join ', ') + "`n`n" +
-           "To nie jest blad Dockera ani aktualizacji. Te pliki pochodza z Twojej " +
-           "wlasnej paczki serwera r40250 i sa rozpakowywane raz, przy instalacji - " +
-           "aktualizacja ich nie przywraca, bo nie wolno nam ich rozpowszechniac.`n" +
-           "Uruchom ponownie instalator (installer\install.ps1), ktory pobierze " +
-           "zrodla i odtworzy kontekst budowy. Twoja baza, postacie i ustawienia " +
-           "zostaja nietkniete.")
+    throw ((UI-Text "Niekompletne zrodla gry w " "Incomplete game sources in ") + $gameContext + ".`n" +
+           (UI-Text "Brakuje: " "Missing: ") + ($missingContext -join ', ') + "`n`n" +
+           (UI-Text "To nie jest blad Dockera ani aktualizacji. Te pliki pochodza z Twojej " "This is not a Docker error nor an update error. These files come from your ") +
+           (UI-Text "wlasnej paczki serwera r40250 i sa rozpakowywane raz, przy instalacji - " "own r40250 server package and are unpacked once, at installation - ") +
+           (UI-Text "aktualizacja ich nie przywraca, bo nie wolno nam ich rozpowszechniac.`n" "an update does not restore them, because we may not distribute them.`n") +
+           (UI-Text "Uruchom ponownie instalator (installer\install.ps1), ktory pobierze " "Run the installer again (installer\install.ps1); it will fetch ") +
+           (UI-Text "zrodla i odtworzy kontekst budowy. Twoja baza, postacie i ustawienia " "the sources and rebuild the build context. Your database, characters and settings ") +
+           (UI-Text "zostaja nietkniete." "stay untouched."))
 }
 
 Write-Host 'Starting Metin2 services...' -ForegroundColor Cyan
@@ -1410,14 +1434,14 @@ try {
         }
         if (-not $collides) { continue }
         $stoppedProjects += $project
-        Write-Host ("Inna instalacja serwera ('{0}') trzyma port tego serwera - zatrzymuje ja, zeby ten serwer mogl wstac." -f $project) -ForegroundColor Yellow
-        Write-Host '   Baza, wolumeny i postep tamtej instalacji pozostaja nietkniete.' -ForegroundColor DarkGray
+        Write-Host ((UI-Text "Inna instalacja serwera ('{0}') trzyma port tego serwera - zatrzymuje ja, zeby ten serwer mogl wstac." "Another server installation ('{0}') holds a port of this server - stopping it so this server can come up.") -f $project) -ForegroundColor Yellow
+        Write-Host (UI-Text '   Baza, wolumeny i postep tamtej instalacji pozostaja nietkniete.' '   The database, volumes and progress of that installation stay untouched.') -ForegroundColor DarkGray
         $ids = @(& docker ps -aq --filter ('label=com.docker.compose.project=' + $project) 2>$null | Where-Object { $_ })
         if ($ids.Count -gt 0) { & docker stop $ids 1>$null 2>$null }
     }
 }
 catch {
-    Write-Host ("Nie udalo sie sprawdzic zajetych portow: {0}" -f $_.Exception.Message) -ForegroundColor DarkYellow
+    Write-Host ((UI-Text "Nie udalo sie sprawdzic zajetych portow: {0}" "Could not check the ports in use: {0}") -f $_.Exception.Message) -ForegroundColor DarkYellow
 }
 finally { $ErrorActionPreference = $previousPreference }
 
@@ -1443,7 +1467,7 @@ try {
         # compose waits for the database to be healthy, the migrator to finish
         # and the game to answer its healthcheck before it returns; this one
         # number is "how long the server took to come up".
-        Write-Host ("[faza] docker compose up zakonczone po {0} s (kod {1})" -f [int]$composeWatch.Elapsed.TotalSeconds, $upExitCode) -ForegroundColor DarkCyan
+        Write-Host ((UI-Text "[faza] docker compose up zakonczone po {0} s (kod {1})" "[phase] docker compose up finished after {0} s (code {1})") -f [int]$composeWatch.Elapsed.TotalSeconds, $upExitCode) -ForegroundColor DarkCyan
         & docker compose ps
         $psExitCode = $LASTEXITCODE
     }
@@ -1457,7 +1481,7 @@ try {
         $previousPreference = $ErrorActionPreference
         try {
             $ErrorActionPreference = 'Continue'
-            Write-Host '--- ostatnie linie logow kontenerow ---' -ForegroundColor DarkGray
+            Write-Host (UI-Text '--- ostatnie linie logow kontenerow ---' '--- last lines of the container logs ---') -ForegroundColor DarkGray
             foreach ($svc in @('playerbot-migrate', 'mariadb', 'game', 'panel')) {
                 Write-Host "[$svc]" -ForegroundColor DarkGray
                 & docker compose logs --no-color --no-log-prefix --tail 40 $svc 2>&1 |
@@ -1473,12 +1497,12 @@ try {
         if ($composeText -match '(?i)ports are not available|forbidden by its access permissions|zabroniony przez uprawnienia|WSAEACCES|\b10013\b') {
             $port = if ($composeText -match '(?i)listen (?:tcp\d? )?[^\s:]+:(\d{2,5})') { $Matches[1] } else { '11000' }
             Write-Host ''
-            Write-Host "Windows zarezerwowal port $port dla siebie (Hyper-V/WSL), wiec Docker nie moze na nim nasluchiwac." -ForegroundColor Yellow
-            Write-Host 'To nie jest zajety port ani blad plikow serwera. Uruchom PowerShell jako administrator i wykonaj:' -ForegroundColor Yellow
+            Write-Host (UI-Text "Windows zarezerwowal port $port dla siebie (Hyper-V/WSL), wiec Docker nie moze na nim nasluchiwac." "Windows reserved port $port for itself (Hyper-V/WSL), so Docker cannot listen on it.") -ForegroundColor Yellow
+            Write-Host (UI-Text 'To nie jest zajety port ani blad plikow serwera. Uruchom PowerShell jako administrator i wykonaj:' 'This is not a port in use nor a fault of the server files. Start PowerShell as administrator and run:') -ForegroundColor Yellow
             Write-Host '    net stop winnat' -ForegroundColor Yellow
-            Write-Host 'potem kliknij GRAJ, a gdy serwer wstanie:' -ForegroundColor Yellow
+            Write-Host (UI-Text 'potem kliknij GRAJ, a gdy serwer wstanie:' 'then click PLAY, and once the server is up:') -ForegroundColor Yellow
             Write-Host '    net start winnat' -ForegroundColor Yellow
-            Write-Host 'Zwykle pomaga tez restart Windows. Zakresy: netsh interface ipv4 show excludedportrange protocol=tcp' -ForegroundColor Yellow
+            Write-Host (UI-Text 'Zwykle pomaga tez restart Windows. Zakresy: netsh interface ipv4 show excludedportrange protocol=tcp' 'A restart of Windows usually helps too. Ranges: netsh interface ipv4 show excludedportrange protocol=tcp') -ForegroundColor Yellow
         }
         throw "docker compose up failed with exit code $upExitCode"
     }

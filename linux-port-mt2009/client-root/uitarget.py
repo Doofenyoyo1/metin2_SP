@@ -102,6 +102,9 @@ class TargetBoard(ui.ThinBoard):
 						nonplayer.KING : localeInfo.TARGET_LEVEL_KING,
 					}
 	EXCHANGE_LIMIT_RANGE = 3000
+	HP_BOARD_MIN_WIDTH = 250
+	HP_BOARD_MAX_WIDTH = 560
+	wideNameReported = False
 
 	def __init__(self):
 		ui.ThinBoard.__init__(self)
@@ -366,6 +369,7 @@ class TargetBoard(ui.ThinBoard):
 
 		for btn in self.buttonDict.values():
 			btn.Hide()
+		self.showingButtonList = []
 
 		self.__Initialize()
 
@@ -439,14 +443,43 @@ class TargetBoard(ui.ThinBoard):
 
 	def __ShowHPBoard(self):
 		if not self.hpGauge.IsShow():
-			self.SetSize(200 + 7*self.nameLength, self.GetHeight())
 			self.name.SetPosition(23, 13)
 
 			self.name.SetWindowHorizontalAlignLeft()
 			self.name.SetHorizontalAlignLeft()
 			self.hpGauge.Show()
 			self.hpText.Show()
+			# Sized with the gauge up, which __GetBoardWidth counts.
+			self.SetSize(self.__GetBoardWidth(), self.GetHeight())
 			self.UpdatePosition()
+
+	# The board is as wide as the name draws, not seven pixels a character:
+	# a name longer than what it shows stretched it past the screen and put
+	# the HP bar under the minimap (St_August, 28 September).
+	def __GetHPBoardWidth(self):
+		stock = 200 + 7*self.nameLength
+		try:
+			drawn = 200 + self.name.GetTextSize()[0]
+		except Exception:
+			drawn = stock
+		if stock > self.HP_BOARD_MAX_WIDTH and not TargetBoard.wideNameReported:
+			TargetBoard.wideNameReported = True
+			import dbg
+			dbg.TraceError("TARGET_BOARD: wide name len=%d drawn=%d vid=%s name=%r" % (
+				self.nameLength, drawn, self.vid, self.nameString))
+		return max(self.HP_BOARD_MIN_WIDTH, min(drawn, self.HP_BOARD_MAX_WIDTH))
+
+	# ... and never narrower than the rest of what it shows: the row of
+	# buttons under the name, and the name and the gauge while the gauge is
+	# up. A right-click lays a character's buttons out and the server's
+	# TargetHP puts the gauge up a moment later; each sized the board alone,
+	# and the gauge left nine buttons hanging past a board 272 pixels wide
+	# (DUDU, 28 September).
+	def __GetBoardWidth(self):
+		width = max(150, len(self.showingButtonList) * 75)
+		if self.hpGauge.IsShow():
+			width = max(width, self.__GetHPBoardWidth())
+		return width
 
 	def SetHP(self, hpPercentage):
 		self.__ShowHPBoard()
@@ -661,7 +694,7 @@ class TargetBoard(ui.ThinBoard):
 
 		if player.IsPVPInstance(self.vid) or player.IsObserverMode():
 			# PVP_INFO_SIZE_BUG_FIX
-			self.SetSize(200 + 7*self.nameLength, 40)
+			self.SetSize(self.__GetHPBoardWidth(), 40)
 			self.UpdatePosition()
 			# END_OF_PVP_INFO_SIZE_BUG_FIX
 			return
@@ -737,7 +770,8 @@ class TargetBoard(ui.ThinBoard):
 			button.SetPosition(pos, 33)
 			pos += 68
 
-		self.SetSize(max(150, showingButtonCount * 75), 65)
+		# As wide as the row, and as the gauge's half while the gauge is up.
+		self.SetSize(self.__GetBoardWidth(), 65)
 		self.UpdatePosition()
 
 	def OnUpdate(self):

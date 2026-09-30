@@ -8,9 +8,23 @@
 -- may change while it stands open. The chest is not stackable, so it is given
 -- one at a time. Bots never come through here - they walk theirs to Yonah in
 -- the AI (ManagePlayerBotTanakaEars).
+--
+-- Polish or English as the player's client asked (playerbot_lang.quest); the
+-- option on Yonah's list too, which the engine reads when she is clicked
+-- (NPC::OnChat, ScriptToString), with the clicking player's flag. The English
+-- says what the items are and does not name them: every client names an item
+-- from the one gamedata item_proto, the package's Polish, so the English
+-- locale pack's names are names nobody sees.
 quest tanaka_ears begin
     state start begin
-        when 20005.chat."Uszy Pirata Tanaki" with pc.count_item(30202) > 0 begin
+        function t(pl, en)
+            if pc.getf("playerbot_lang", "en") == 1 then
+                return en
+            end
+            return pl
+        end
+
+        when 20005.chat.tanaka_ears.t("Uszy Pirata Tanaki", "Pirate Tanaka's Ears") with pc.count_item(30202) > 0 begin
             local ears = pc.count_item(30202)
             local room = pc.get_empty_inventory_count() - 1
             local n = ears
@@ -21,15 +35,15 @@ quest tanaka_ears begin
                 n = 20
             end
             say_title("Yonah:")
-            say("Pirat Tanaka to zmora naszych brzegow.")
-            say("Za kazde jego ucho dam ci Fioletowa Hebanowa")
-            say("Szkatulke.")
+            say(tanaka_ears.t("Pirat Tanaka to zmora naszych brzegow.", "Pirate Tanaka is the plague of our shores."))
+            say(tanaka_ears.t("Za kazde jego ucho dam ci Fioletowa Hebanowa", "For every ear of his I give you a purple"))
+            say(tanaka_ears.t("Szkatulke.", "ebony box."))
             say("")
             if n <= 0 then
-                say("Najpierw zrob miejsce w ekwipunku.")
+                say(tanaka_ears.t("Najpierw zrob miejsce w ekwipunku.", "Make room in your inventory first."))
                 return
             end
-            local s = select("Oddaj uszy: " .. n, "Nie teraz")
+            local s = select(tanaka_ears.t("Oddaj uszy: ", "Hand in ears: ") .. n, tanaka_ears.t("Nie teraz", "Not now"))
             if s ~= 1 then
                 return
             end
@@ -49,7 +63,7 @@ quest tanaka_ears begin
                 pc.give_item2(50115, 1)
             end
             say_title("Yonah:")
-            say("Dziekuje! Oto twoje szkatulki.")
+            say(tanaka_ears.t("Dziekuje! Oto twoje szkatulki.", "Thank you! Here are your boxes."))
         end
     end
 end

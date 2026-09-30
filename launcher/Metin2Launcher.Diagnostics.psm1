@@ -1,6 +1,17 @@
 ﻿Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+# A text in the launcher's language: .m2launcher.json's "language", which the
+# window and Metin2-Launcher.ps1 put into $env:M2_LAUNCHER_LANGUAGE for every
+# module and every action they start. The English one for 'en', otherwise the
+# Polish one, which is word for word what the launcher always said. Each
+# module keeps its own copy and none exports it.
+function UI-Text {
+    param([AllowEmptyString()][string]$Pl, [AllowEmptyString()][string]$En)
+    if ($env:M2_LAUNCHER_LANGUAGE -eq 'en' -and $En) { return $En }
+    return $Pl
+}
+
 function Invoke-M2DiagnosticProcess {
     param(
         [Parameter(Mandatory = $true)][string]$FileName,
@@ -25,7 +36,7 @@ function Invoke-M2DiagnosticProcess {
             return [pscustomobject]@{
                 ExitCode = -1
                 TimedOut = $true
-                Output = 'Polecenie nie odpowiedziało w wyznaczonym czasie.'
+                Output = (UI-Text 'Polecenie nie odpowiedziało w wyznaczonym czasie.' 'The command did not answer in time.')
             }
         }
         $stdout = $stdoutTask.GetAwaiter().GetResult()
@@ -93,7 +104,7 @@ function Get-M2OneDriveRemedy {
     # Single quotes and -f: PowerShell takes the typographic quotes of the
     # Polish text for string delimiters.
     $where = if ($OneDriveRoot) { ' (' + $OneDriveRoot + ')' } else { '' }
-    return ('Folder serwera leży w OneDrive{0}. Docker nie widzi części plików z folderów OneDrive, więc budowa serwera zatrzymuje się na pliku, którego „nie ma”, choć leży na dysku. Zamknij launcher i przenieś cały folder gry - ten, w którym są foldery Serwer i Klient - poza OneDrive, np. do C:\Metin2 Singleplayer. Potem uruchom Metin2-Launcher-GUI.bat z nowego miejsca (stary skrót na pulpicie wskazuje starą ścieżkę) i kliknij GRAJ. Świat, postacie i boty są w Dockerze i nic z nich nie zginie. Jeśli po przeniesieniu budowa dalej zgłasza brakujący plik, rozpakuj na folder Serwer pełną paczkę serwera, zostawiając swój plik .env.' -f $where)
+    return ((UI-Text 'Folder serwera leży w OneDrive{0}. Docker nie widzi części plików z folderów OneDrive, więc budowa serwera zatrzymuje się na pliku, którego „nie ma”, choć leży na dysku. Zamknij launcher i przenieś cały folder gry - ten, w którym są foldery Serwer i Klient - poza OneDrive, np. do C:\Metin2 Singleplayer. Potem uruchom Metin2-Launcher-GUI.bat z nowego miejsca (stary skrót na pulpicie wskazuje starą ścieżkę) i kliknij GRAJ. Świat, postacie i boty są w Dockerze i nic z nich nie zginie. Jeśli po przeniesieniu budowa dalej zgłasza brakujący plik, rozpakuj na folder Serwer pełną paczkę serwera, zostawiając swój plik .env.' 'The server folder is in OneDrive{0}. Docker does not see some of the files in OneDrive folders, so the server build stops at a file that "is not there" although it is on the disk. Close the launcher and move the whole game folder - the one holding the Serwer and Klient folders - out of OneDrive, e.g. to C:\Metin2 Singleplayer. Then start Metin2-Launcher-GUI.bat from the new place (the old desktop shortcut points to the old path) and click PLAY. The world, the characters and the bots are in Docker and nothing of them is lost. If the build still reports a missing file after the move, unpack the full server package over the Serwer folder, keeping your .env file.') -f $where)
 }
 
 function Get-M2LauncherErrorGuidance {
@@ -127,8 +138,8 @@ function Get-M2LauncherErrorGuidance {
         if ($oneDrive) {
             return [pscustomobject]@{
                 Code = 'ONEDRIVE_BUILD_CONTEXT'
-                Title = 'Folder serwera jest w OneDrive'
-                Message = 'Budowa serwera zatrzymała się na pliku, którego Docker nie dostał, choć jest w folderze serwera. Folder leży w OneDrive (zwykle dlatego, że OneDrive przeniósł do siebie Pulpit), a Docker nie widzi części plików z takich folderów. Baza i postęp są w porządku.'
+                Title = (UI-Text 'Folder serwera jest w OneDrive' 'The server folder is in OneDrive')
+                Message = (UI-Text 'Budowa serwera zatrzymała się na pliku, którego Docker nie dostał, choć jest w folderze serwera. Folder leży w OneDrive (zwykle dlatego, że OneDrive przeniósł do siebie Pulpit), a Docker nie widzi części plików z takich folderów. Baza i postęp są w porządku.' 'The server build stopped at a file Docker did not get, although it is in the server folder. The folder is in OneDrive (usually because OneDrive moved the Desktop into itself), and Docker does not see some of the files in such folders. The database and the progress are fine.')
                 Remedy = (Get-M2OneDriveRemedy -OneDriveRoot $oneDrive)
             }
         }
@@ -144,9 +155,9 @@ function Get-M2LauncherErrorGuidance {
         $modFile = $Matches[1]
         return [pscustomobject]@{
             Code = 'ENGINE_FILE_FROM_MOD'
-            Title = "Plik silnika $modFile pochodzi z innej przeróbki"
-            Message = "Budowa rdzenia gry zatrzymała się na pliku ${modFile}: woła funkcję botów, której w tej wersji nie ma. Ten plik pochodzi z cudzej przeróbki (modu) i aktualizacja go nie podmieniła. Baza i postęp są w porządku."
-            Remedy = "Przywróć fabryczny plik ${modFile}: skopiuj go z pełnej paczki serwera do folderu serwera, do podfolderu linux-port\docker\game\src\server\game\src, i kliknij ZAINSTALUJ AKTUALIZACJE albo GRAJ. Jeśli nie masz pełnej paczki, dołącz logi do zgłoszenia na GitHubie (ZBIERZ / WYŚLIJ LOGI)."
+            Title = (UI-Text "Plik silnika $modFile pochodzi z innej przeróbki" "The engine file $modFile comes from another mod")
+            Message = (UI-Text "Budowa rdzenia gry zatrzymała się na pliku ${modFile}: woła funkcję botów, której w tej wersji nie ma. Ten plik pochodzi z cudzej przeróbki (modu) i aktualizacja go nie podmieniła. Baza i postęp są w porządku." "The game core's build stopped at the file ${modFile}: it calls a bot function this version does not have. The file comes from somebody else's mod, and the update did not replace it. The database and the progress are fine.")
+            Remedy = (UI-Text "Przywróć fabryczny plik ${modFile}: skopiuj go z pełnej paczki serwera do folderu serwera, do podfolderu linux-port\docker\game\src\server\game\src, i kliknij ZAINSTALUJ AKTUALIZACJE albo GRAJ. Jeśli nie masz pełnej paczki, dołącz logi do zgłoszenia na GitHubie (ZBIERZ / WYŚLIJ LOGI)." "Put the factory file ${modFile} back: copy it from the full server package into the server folder, to the subfolder linux-port\docker\game\src\server\game\src, and click CHECK FOR UPDATES or PLAY. If you have no full package, attach the logs to a report on GitHub (COLLECT / SEND LOGS).")
         }
     }
 
@@ -155,13 +166,14 @@ function Get-M2LauncherErrorGuidance {
     # in a line of Get-M2ProgramPortAdvice's, and that line is the remedy. The
     # unknown case below shows the output's last line, which there is only
     # "the database is fine". Case-sensitive: the preflight's own check lines
-    # say "port" and are not advice.
-    $heldPorts = @([regex]::Matches($value, 'Port (\d{2,5}) \([^)\r\n]*\) zajmuje [^\r\n]+') | ForEach-Object { $_ })
+    # say "port" and are not advice. A launcher set to English words the same
+    # advice "Port <n> (<what>) is held by ..." (28 September).
+    $heldPorts = @([regex]::Matches($value, 'Port (\d{2,5}) \([^)\r\n]*\) (?:zajmuje|is held by) [^\r\n]+') | ForEach-Object { $_ })
     if ($heldPorts.Count -gt 0) {
         return [pscustomobject]@{
             Code = 'PORT_IN_USE'
-            Title = "Port $($heldPorts[0].Groups[1].Value) jest już zajęty"
-            Message = 'Inny program trzyma port serwera, więc serwer nie może na nim wystartować. Baza, postacie i ustawienia są w porządku.'
+            Title = (UI-Text "Port $($heldPorts[0].Groups[1].Value) jest już zajęty" "Port $($heldPorts[0].Groups[1].Value) is already in use")
+            Message = (UI-Text 'Inny program trzyma port serwera, więc serwer nie może na nim wystartować. Baza, postacie i ustawienia są w porządku.' 'Another program holds a server port, so the server cannot start on it. The database, the characters and the settings are fine.')
             Remedy = (@($heldPorts | ForEach-Object { $_.Value.Trim() } | Select-Object -Unique) -join [Environment]::NewLine)
         }
     }
@@ -172,9 +184,9 @@ function Get-M2LauncherErrorGuidance {
     # (WSAEADDRINUSE; in Polish "jednokrotne użycie") is a program on the port,
     # "forbidden by its access permissions" is Windows' own reservation. A MySQL
     # on 3306 was told the port was reserved, and which one it was not.
-    if ($value -match '(?i)port is already allocated|address already in use|only one usage of each socket address|jednokrotne u.ycie|WSAEADDRINUSE|\b10048\b|failed programming external connectivity|bind for .+ failed|port \d{2,5} (?:jest zajęty|zajmuje)') {
+    if ($value -match '(?i)port is already allocated|address already in use|only one usage of each socket address|jednokrotne u.ycie|WSAEADDRINUSE|\b10048\b|failed programming external connectivity|bind for .+ failed|port \d{2,5} (?:jest zajęty|zajmuje|is already in use|is held by)') {
         $holder = ''
-        $remedy = 'Kliknij GRAJ albo ZAINSTALUJ AKTUALIZACJE jeszcze raz - launcher sam znajdzie kontener innej instalacji trzymający ten port i zatrzyma go, nie ruszając bazy, wolumenów ani postępu (w wersji konsolowej robi to opcja 21, Zwolnij porty). Samo wyłączenie Docker Desktop nie pomaga: kontenery mają politykę restart=unless-stopped, więc wracają przy każdym starcie silnika i znów zajmują port. Nie usuwaj wolumenów Dockera.'
+        $remedy = (UI-Text 'Kliknij GRAJ albo ZAINSTALUJ AKTUALIZACJE jeszcze raz - launcher sam znajdzie kontener innej instalacji trzymający ten port i zatrzyma go, nie ruszając bazy, wolumenów ani postępu (w wersji konsolowej robi to opcja 21, Zwolnij porty). Samo wyłączenie Docker Desktop nie pomaga: kontenery mają politykę restart=unless-stopped, więc wracają przy każdym starcie silnika i znów zajmują port. Nie usuwaj wolumenów Dockera.' 'Click PLAY or CHECK FOR UPDATES again - the launcher finds the container of another installation that holds this port and stops it, without touching the database, the volumes or the progress (in the console launcher option 21, Free the ports, does it). Just turning Docker Desktop off does not help: the containers have the restart=unless-stopped policy, so they come back at every engine start and take the port again. Do not delete Docker''s volumes.')
         # A program of Windows' own on the port, not a container, is nothing
         # the launcher can stop, and "click GRAJ again" fails the same way:
         # name the program, and the line of .env that moves the port when the
@@ -183,7 +195,7 @@ function Get-M2LauncherErrorGuidance {
             $listener = $null
             try { $listener = Get-M2ListeningProcess -Port ([int]$port) } catch { }
             if ($listener -and $listener.Name -and $listener.Name -notmatch '(?i)^(com\.docker|docker|vpnkit|wslrelay)') {
-                $holder = " Trzyma go program $($listener.Name) (PID $($listener.Pid))."
+                $holder = (UI-Text " Trzyma go program $($listener.Name) (PID $($listener.Pid))." " The program $($listener.Name) (PID $($listener.Pid)) holds it.")
                 $entry = $null
                 try {
                     $entry = @(Get-M2StackHostPorts -ServerRoot $ServerRoot |
@@ -191,21 +203,21 @@ function Get-M2LauncherErrorGuidance {
                 }
                 catch { }
                 if ($entry -and -not $entry.ClientFixed -and $entry.Key) {
-                    $remedy = ('Zamknij program {0} (jeśli to usługa, np. MySQL, zatrzymaj ją w Usługach Windows) albo zmień w pliku linux-port\docker\.env wiersz {1}={2} na inny wolny port, np. {3}, i kliknij GRAJ. Baza i postęp są w porządku.' -f
+                    $remedy = ((UI-Text 'Zamknij program {0} (jeśli to usługa, np. MySQL, zatrzymaj ją w Usługach Windows) albo zmień w pliku linux-port\docker\.env wiersz {1}={2} na inny wolny port, np. {3}, i kliknij GRAJ. Baza i postęp są w porządku.' 'Close the program {0} (if it is a service, e.g. MySQL, stop it in Windows Services) or change the line {1}={2} in the file linux-port\docker\.env to another free port, e.g. {3}, and click PLAY. The database and the progress are fine.') -f
                         $listener.Name, $entry.Key, $port, ([int]$port + 1))
                 }
                 else {
-                    $remedy = ('Zamknij program {0} (Menedżer zadań, karta Szczegóły, Zakończ zadanie; jeśli to usługa, zatrzymaj ją w Usługach Windows) i kliknij GRAJ jeszcze raz. Baza i postęp są w porządku.' -f
+                    $remedy = ((UI-Text 'Zamknij program {0} (Menedżer zadań, karta Szczegóły, Zakończ zadanie; jeśli to usługa, zatrzymaj ją w Usługach Windows) i kliknij GRAJ jeszcze raz. Baza i postęp są w porządku.' 'Close the program {0} (Task Manager, the Details tab, End task; if it is a service, stop it in Windows Services) and click PLAY again. The database and the progress are fine.') -f
                         $listener.Name)
                 }
             }
         }
-        $title = if ($port) { "Port $port jest już zajęty" } else { 'Port serwera jest już zajęty' }
-        $which = if ($port) { "portu $port" } else { 'jednego z portów serwera' }
+        $title = if ($port) { (UI-Text "Port $port jest już zajęty" "Port $port is already in use") } else { (UI-Text 'Port serwera jest już zajęty' 'A server port is already in use') }
+        $which = if ($port) { (UI-Text "portu $port" "the port $port") } else { (UI-Text 'jednego z portów serwera' 'one of the server''s ports') }
         return [pscustomobject]@{
             Code = 'PORT_IN_USE'
             Title = $title
-            Message = "Inny program albo druga instalacja serwera używa $which.$holder Launcher nie uruchomi drugiego serwera na tym samym porcie."
+            Message = (UI-Text "Inny program albo druga instalacja serwera używa $which.$holder Launcher nie uruchomi drugiego serwera na tym samym porcie." "Another program or a second installation of the server uses $which.$holder The launcher will not start a second server on the same port.")
             Remedy = $remedy
         }
     }
@@ -216,49 +228,49 @@ function Get-M2LauncherErrorGuidance {
     # images are built with a message about access permissions. Five updates
     # in a row went that way for one player before this branch existed.
     if ($value -match '(?i)ports are not available|forbidden by its access permissions|zabroniony przez (?:jego )?uprawnienia|WSAEACCES|\b10013\b') {
-        $title = if ($port) { "Windows zarezerwował port $port" } else { 'Windows zarezerwował port serwera' }
-        $subject = if ($port) { "Port $port" } else { 'Port serwera' }
+        $title = if ($port) { (UI-Text "Windows zarezerwował port $port" "Windows has reserved the port $port") } else { (UI-Text 'Windows zarezerwował port serwera' 'Windows has reserved a server port') }
+        $subject = if ($port) { "Port $port" } else { (UI-Text 'Port serwera' 'A server port') }
         return [pscustomobject]@{
             Code = 'PORT_EXCLUDED'
             Title = $title
-            Message = "$subject nie jest zajęty przez program - jest w zakresie, który Windows (Hyper-V/WSL) zarezerwował dla siebie po ostatnim restarcie. Docker nie może na nim nasłuchiwać, więc serwer nie wstaje. Pliki serwera i baza są w porządku."
-            Remedy = 'Uruchom PowerShell jako administrator i wykonaj: net stop winnat, potem kliknij GRAJ w launcherze, a gdy serwer wstanie, wykonaj: net start winnat. Zwykle pomaga też zwykły restart Windows. Sprawdzenie zakresów: netsh interface ipv4 show excludedportrange protocol=tcp'
+            Message = (UI-Text "$subject nie jest zajęty przez program - jest w zakresie, który Windows (Hyper-V/WSL) zarezerwował dla siebie po ostatnim restarcie. Docker nie może na nim nasłuchiwać, więc serwer nie wstaje. Pliki serwera i baza są w porządku." "$subject is not held by a program - it is in a range Windows (Hyper-V/WSL) reserved for itself after the last restart. Docker cannot listen on it, so the server does not come up. The server files and the database are fine.")
+            Remedy = (UI-Text 'Uruchom PowerShell jako administrator i wykonaj: net stop winnat, potem kliknij GRAJ w launcherze, a gdy serwer wstanie, wykonaj: net start winnat. Zwykle pomaga też zwykły restart Windows. Sprawdzenie zakresów: netsh interface ipv4 show excludedportrange protocol=tcp' 'Start PowerShell as administrator and run: net stop winnat, then click PLAY in the launcher, and once the server is up, run: net start winnat. A plain restart of Windows usually helps too. To see the ranges: netsh interface ipv4 show excludedportrange protocol=tcp')
         }
     }
 
     if ($value -match '(?i)virtuali[sz]ation support (?:(?:wasn.t |was )?not )?detected|hardware.assisted virtuali[sz]ation|virtuali[sz]ation.*disabled') {
         return [pscustomobject]@{
             Code = 'VIRTUALIZATION_DISABLED'
-            Title = 'Wirtualizacja jest wyłączona'
-            Message = 'Docker Desktop nie wystartuje, dopóki wirtualizacja procesora nie będzie dostępna dla Windows.'
-            Remedy = 'W BIOS/UEFI włącz AMD SVM/AMD-V albo Intel VT-x. Następnie włącz funkcje „Virtual Machine Platform” i „Windows Subsystem for Linux”, uruchom jako administrator: wsl --install, po czym zrestartuj komputer.'
+            Title = (UI-Text 'Wirtualizacja jest wyłączona' 'Virtualization is turned off')
+            Message = (UI-Text 'Docker Desktop nie wystartuje, dopóki wirtualizacja procesora nie będzie dostępna dla Windows.' 'Docker Desktop will not start until the processor''s virtualization is available to Windows.')
+            Remedy = (UI-Text 'W BIOS/UEFI włącz AMD SVM/AMD-V albo Intel VT-x. Następnie włącz funkcje „Virtual Machine Platform” i „Windows Subsystem for Linux”, uruchom jako administrator: wsl --install, po czym zrestartuj komputer.' 'Turn on AMD SVM/AMD-V or Intel VT-x in the BIOS/UEFI. Then turn on the features "Virtual Machine Platform" and "Windows Subsystem for Linux", run as administrator: wsl --install, and restart the computer.')
         }
     }
 
     if ($value -match '(?i)there was a problem with wsl|wsl.+(?:error|failed|exit status)|Wsl/Service/|WSL 2 installation is incomplete|windows subsystem for linux.+(?:missing|disabled)') {
         return [pscustomobject]@{
             Code = 'WSL_BROKEN'
-            Title = 'WSL 2 wymaga naprawy'
-            Message = 'Docker Desktop nie może uruchomić swojego środowiska WSL 2.'
-            Remedy = 'Otwórz PowerShell jako administrator i wykonaj kolejno: wsl --status, wsl --update oraz wsl --install. Zrestartuj Windows. Jeżeli błąd pozostanie, sprawdź czy w BIOS/UEFI jest włączone AMD SVM/Intel VT-x.'
+            Title = (UI-Text 'WSL 2 wymaga naprawy' 'WSL 2 needs repairing')
+            Message = (UI-Text 'Docker Desktop nie może uruchomić swojego środowiska WSL 2.' 'Docker Desktop cannot start its WSL 2 environment.')
+            Remedy = (UI-Text 'Otwórz PowerShell jako administrator i wykonaj kolejno: wsl --status, wsl --update oraz wsl --install. Zrestartuj Windows. Jeżeli błąd pozostanie, sprawdź czy w BIOS/UEFI jest włączone AMD SVM/Intel VT-x.' 'Open PowerShell as administrator and run one after another: wsl --status, wsl --update and wsl --install. Restart Windows. If Docker still does not start, check that AMD SVM/Intel VT-x is on in the BIOS/UEFI.')
         }
     }
 
     if ($value -match '(?i)docker engine did not become ready|cannot connect to the docker daemon|open //./pipe/docker|docker desktop is unable to start|docker api is unavailable') {
         return [pscustomobject]@{
             Code = 'DOCKER_NOT_READY'
-            Title = 'Docker Engine nie jest jeszcze gotowy'
-            Message = 'Okno Docker Desktop może być otwarte, ale jego silnik nadal startuje albo zatrzymał się na błędzie.'
-            Remedy = 'Odczekaj chwilę i spróbuj ponownie. Jeśli status nie zmieni się na „GOTOWY”, otwórz Docker Desktop → Troubleshoot → Restart. Potem użyj w launcherze „Diagnostyka” i „Zbierz logi (ZIP)”.'
+            Title = (UI-Text 'Docker Engine nie jest jeszcze gotowy' 'Docker Engine is not ready yet')
+            Message = (UI-Text 'Okno Docker Desktop może być otwarte, ale jego silnik nadal startuje albo zatrzymał się na błędzie.' 'The Docker Desktop window may be open, but its engine is still starting or has stopped on an error.')
+            Remedy = (UI-Text 'Odczekaj chwilę i spróbuj ponownie. Jeśli status nie zmieni się na „GOTOWY”, otwórz Docker Desktop → Troubleshoot → Restart. Potem użyj w launcherze „Diagnostyka” i „Zbierz logi (ZIP)”.' 'Wait a moment and try again. If the status does not change to "READY", open Docker Desktop > Troubleshoot > Restart. Then use DIAGNOSTICS and "Collect logs (ZIP)" in the launcher.')
         }
     }
 
     if ($value -match '(?i)cannot overwrite non-directory.+artifacts\.json.+with directory') {
         return [pscustomobject]@{
             Code = 'LEGACY_INSTALLER_DESTINATION'
-            Title = 'Wybrany folder zawiera inną instalację'
-            Message = 'Stary install.ps1 próbuje skopiować paczkę na istniejący plik lub do niezgodnego układu katalogów.'
-            Remedy = 'Nie uruchamiaj starego install.ps1 na folderze obecnej paczki All-in-One. Rozpakuj pełną paczkę do pustego folderu i uruchom Metin2-Launcher-GUI.bat. Istniejącej bazy Dockera nie usuwaj.'
+            Title = (UI-Text 'Wybrany folder zawiera inną instalację' 'The chosen folder holds another installation')
+            Message = (UI-Text 'Stary install.ps1 próbuje skopiować paczkę na istniejący plik lub do niezgodnego układu katalogów.' 'The old install.ps1 tries to copy the package over an existing file or into a folder layout that does not match.')
+            Remedy = (UI-Text 'Nie uruchamiaj starego install.ps1 na folderze obecnej paczki All-in-One. Rozpakuj pełną paczkę do pustego folderu i uruchom Metin2-Launcher-GUI.bat. Istniejącej bazy Dockera nie usuwaj.' 'Do not run the old install.ps1 on the folder of the current All-in-One package. Unpack the full package into an empty folder and start Metin2-Launcher-GUI.bat. Do not delete the existing Docker database.')
         }
     }
 
@@ -276,17 +288,17 @@ function Get-M2LauncherErrorGuidance {
     if ($value -match '(?i)read-only file system|no space left on device|(?:/var/lib/(?:docker|desktop-containerd)|buildkit)[^\r\n]*input/output error|desktop-containerd.+meta\.db') {
         return [pscustomobject]@{
             Code = 'DOCKER_DISK_BROKEN'
-            Title = 'Dysk maszyny Dockera jest tylko do odczytu albo pełny'
-            Message = 'Docker nie mógł zapisać na swoim dysku (plik docker_data.vhdx) - komunikat „read-only file system”, „input/output error” albo „no space left on device”. Zwykle zabrakło miejsca na dysku Windows, na którym leży ten plik, albo Docker Desktop zamknął się nieczysto. Pliki serwera są w porządku; baza świata leży na tym samym dysku Dockera.'
+            Title = (UI-Text 'Dysk maszyny Dockera jest tylko do odczytu albo pełny' 'The Docker machine''s disk is read-only or full')
+            Message = (UI-Text 'Docker nie mógł zapisać na swoim dysku (plik docker_data.vhdx) - komunikat „read-only file system”, „input/output error” albo „no space left on device”. Zwykle zabrakło miejsca na dysku Windows, na którym leży ten plik, albo Docker Desktop zamknął się nieczysto. Pliki serwera są w porządku; baza świata leży na tym samym dysku Dockera.' 'Docker could not write to its disk (the file docker_data.vhdx) - the message "read-only file system", "input/output error" or "no space left on device". Usually the Windows drive holding that file ran out of room, or Docker Desktop closed uncleanly. The server files are fine; the world''s database is on the same Docker disk.')
             Remedy = (Get-M2DockerDiskRemedy)
         }
     }
     if ($value -match "(?i)playerbot-migrate.+didn.t complete successfully|database import was not ready after|user: 'unauthenticated'") {
         return [pscustomobject]@{
             Code = 'DB_USER_BROKEN'
-            Title = 'Serwer nie może zalogować się do własnej bazy'
-            Message = 'Baza działa, ale techniczne konto, którym łączy się serwer, nie jest rozpoznawane. Dlatego krok „playerbot-migrate” nie kończy się poprawnie, a gra i panel nie wstają. Twoje postacie, przedmioty i boty są bezpieczne.'
-            Remedy = 'W launcherze kliknij „NAPRAW DOSTĘP DO BAZY”, poczekaj na komunikat „Gotowe”, a potem kliknij „GRAJ”. Nie usuwaj wolumenów i nie używaj docker compose down -v.'
+            Title = (UI-Text 'Serwer nie może zalogować się do własnej bazy' 'The server cannot log in to its own database')
+            Message = (UI-Text 'Baza działa, ale techniczne konto, którym łączy się serwer, nie jest rozpoznawane. Dlatego krok „playerbot-migrate” nie kończy się poprawnie, a gra i panel nie wstają. Twoje postacie, przedmioty i boty są bezpieczne.' 'The database runs, but the technical account the server connects with is not recognised. So the "playerbot-migrate" step does not finish properly, and the game and the panel do not come up. Your characters, items and bots are safe.')
+            Remedy = (UI-Text 'W launcherze kliknij „NAPRAW DOSTĘP DO BAZY”, poczekaj na komunikat „Gotowe”, a potem kliknij „GRAJ”. Nie usuwaj wolumenów i nie używaj docker compose down -v.' 'In the launcher click REPAIR DATABASE ACCESS, wait for "Done", and then click PLAY. Do not delete the volumes and do not use docker compose down -v.')
         }
     }
 
@@ -298,9 +310,9 @@ function Get-M2LauncherErrorGuidance {
     if ($value -match '(?i)is not valid yet \(invalid for another') {
         return [pscustomobject]@{
             Code = 'CLOCK_BEHIND'
-            Title = 'Zegar komputera jest przestawiony'
-            Message = 'Budowa serwera zatrzymała się, bo zegar Windows - a za nim Docker - jest opóźniony względem prawdziwego czasu i serwer pakietów odrzucił pobieranie (komunikat „Release file ... is not valid yet”). Pliki serwera i baza są w porządku.'
-            Remedy = 'W Windows otwórz Ustawienia → Czas i język → Data i godzina, włącz „Ustaw czas automatycznie”, sprawdź strefę czasową (dla Polski: Warszawa) i kliknij „Synchronizuj teraz”. Potem zamknij Docker Desktop (ikona w zasobniku → Quit) i kliknij GRAJ.'
+            Title = (UI-Text 'Zegar komputera jest przestawiony' 'The computer''s clock is wrong')
+            Message = (UI-Text 'Budowa serwera zatrzymała się, bo zegar Windows - a za nim Docker - jest opóźniony względem prawdziwego czasu i serwer pakietów odrzucił pobieranie (komunikat „Release file ... is not valid yet”). Pliki serwera i baza są w porządku.' 'The server build stopped because the Windows clock - and Docker''s with it - is behind the real time, and the package server refused the download (the message "Release file ... is not valid yet"). The server files and the database are fine.')
+            Remedy = (UI-Text 'W Windows otwórz Ustawienia → Czas i język → Data i godzina, włącz „Ustaw czas automatycznie”, sprawdź strefę czasową (dla Polski: Warszawa) i kliknij „Synchronizuj teraz”. Potem zamknij Docker Desktop (ikona w zasobniku → Quit) i kliknij GRAJ.' 'In Windows open Settings > Time & language > Date & time, turn on "Set time automatically", check the time zone and click "Sync now". Then quit Docker Desktop (the tray icon > Quit) and click PLAY.')
         }
     }
 
@@ -311,9 +323,9 @@ function Get-M2LauncherErrorGuidance {
     if ($value -match '(?i)pull access denied for metin2/') {
         return [pscustomobject]@{
             Code = 'LOCAL_IMAGE_PULLED'
-            Title = 'Docker szukał w internecie obrazu, który serwer buduje sam'
-            Message = 'Starszy Docker Compose próbował pobrać z Docker Hub obraz panelu zaawansowanego (metin2/seban-panel), zanim go zbudował, i przerwał start. Pliki serwera i baza są w porządku.'
-            Remedy = 'Kliknij GRAJ jeszcze raz. Jeśli błąd wróci, otwórz PowerShell w folderze serwera, w podfolderze linux-port\docker, wykonaj: docker compose build seban-panel, a potem kliknij GRAJ. Logowanie do Docker Hub (docker login) niczego tu nie zmienia.'
+            Title = (UI-Text 'Docker szukał w internecie obrazu, który serwer buduje sam' 'Docker looked on the Internet for an image the server builds itself')
+            Message = (UI-Text 'Starszy Docker Compose próbował pobrać z Docker Hub obraz panelu zaawansowanego (metin2/seban-panel), zanim go zbudował, i przerwał start. Pliki serwera i baza są w porządku.' 'An older Docker Compose tried to pull the advanced panel''s image (metin2/seban-panel) from Docker Hub before building it, and stopped the start. The server files and the database are fine.')
+            Remedy = (UI-Text 'Kliknij GRAJ jeszcze raz. Jeśli błąd wróci, otwórz PowerShell w folderze serwera, w podfolderze linux-port\docker, wykonaj: docker compose build seban-panel, a potem kliknij GRAJ. Logowanie do Docker Hub (docker login) niczego tu nie zmienia.' 'Click PLAY again. If the error comes back, open PowerShell in the server folder, in the subfolder linux-port\docker, run: docker compose build seban-panel, and then click PLAY. Logging in to Docker Hub (docker login) changes nothing here.')
         }
     }
 
@@ -325,17 +337,17 @@ function Get-M2LauncherErrorGuidance {
     if ($value -match '(?i)update-manifest[^\r\n]*\b404\b|\b404\b[^\r\n]*update-manifest|not found[^\r\n]+update-manifest|update-manifest[^\r\n]+not found') {
         return [pscustomobject]@{
             Code = 'UPDATE_CHANNEL_UNPUBLISHED'
-            Title = 'Kanał aktualizacji nie został jeszcze opublikowany'
-            Message = 'Serwer GitHub nie ma obecnie manifestu aktualizacji. Nie oznacza to uszkodzenia zainstalowanego serwera.'
-            Remedy = 'Możesz nadal grać na obecnej wersji. Spróbuj ponownie później; launcher nie powinien niczego instalować ani tworzyć drugiego serwera.'
+            Title = (UI-Text 'Kanał aktualizacji nie został jeszcze opublikowany' 'The update channel has not been published yet')
+            Message = (UI-Text 'Serwer GitHub nie ma obecnie manifestu aktualizacji. Nie oznacza to uszkodzenia zainstalowanego serwera.' 'GitHub has no update manifest right now. That does not mean the installed server is damaged.')
+            Remedy = (UI-Text 'Możesz nadal grać na obecnej wersji. Spróbuj ponownie później; launcher nie powinien niczego instalować ani tworzyć drugiego serwera.' 'You can go on playing the current version. Try again later; the launcher should install nothing and make no second server meanwhile.')
         }
     }
 
     return [pscustomobject]@{
         Code = 'UNKNOWN'
-        Title = 'Operacja nie powiodła się'
-        Message = if ($value) { ($value -split '\r?\n' | Select-Object -Last 1) } else { 'Nie otrzymano szczegółów błędu.' }
-        Remedy = 'Uruchom „Diagnostyka”, następnie „Zbierz logi (ZIP)” i prześlij utworzony plik na kanał pomocy projektu.'
+        Title = (UI-Text 'Operacja nie powiodła się' 'The operation failed')
+        Message = if ($value) { ($value -split '\r?\n' | Select-Object -Last 1) } else { (UI-Text 'Nie otrzymano szczegółów błędu.' 'No details of the error came back.') }
+        Remedy = (UI-Text 'Uruchom „Diagnostyka”, następnie „Zbierz logi (ZIP)” i prześlij utworzony plik na kanał pomocy projektu.' 'Run DIAGNOSTICS, then "Collect logs (ZIP)", and send the file it makes to the project''s help channel.')
     }
 }
 
@@ -346,11 +358,11 @@ function Get-M2LauncherErrorGuidance {
 # and a sentence of this remedy printed by the preflight must not look like a
 # broken WSL to the rule above it.
 function Get-M2DockerDiskRemedy {
-    return ('1. Zwolnij miejsce na dysku z folderem Dockera (%LOCALAPPDATA%\Docker, zwykle C:) - budowa serwera potrzebuje ok. 15 GB.' + [Environment]::NewLine +
-            '2. Zamknij Docker Desktop (ikona w zasobniku → Quit) i w PowerShell wpisz: wsl --shutdown' + [Environment]::NewLine +
-            '3. Uruchom Docker Desktop, poczekaj na „Engine running” i kliknij GRAJ - launcher dokończy budowanie bez ponownego pobierania.' + [Environment]::NewLine +
-            'Jeśli to nie pomoże, a masz już świat z postaciami, nie używaj w Docker Desktop „Clean / Purge data” ani „Reset to factory defaults” (kasują bazę) - dołącz logi do zgłoszenia na GitHubie. ' +
-            'Na świeżej instalacji, która jeszcze ani razu nie wystartowała, Docker Desktop → Troubleshoot → Clean / Purge data niczego nie zabierze i zakłada Dockerowi nowy dysk.')
+    return ((UI-Text '1. Zwolnij miejsce na dysku z folderem Dockera (%LOCALAPPDATA%\Docker, zwykle C:) - budowa serwera potrzebuje ok. 15 GB.' '1. Free some room on the drive with Docker''s folder (%LOCALAPPDATA%\Docker, usually C:) - the server build needs about 15 GB.') + [Environment]::NewLine +
+            (UI-Text '2. Zamknij Docker Desktop (ikona w zasobniku → Quit) i w PowerShell wpisz: wsl --shutdown' '2. Quit Docker Desktop (the tray icon > Quit) and type in PowerShell: wsl --shutdown') + [Environment]::NewLine +
+            (UI-Text '3. Uruchom Docker Desktop, poczekaj na „Engine running” i kliknij GRAJ - launcher dokończy budowanie bez ponownego pobierania.' '3. Start Docker Desktop, wait for "Engine running" and click PLAY - the launcher finishes the build without downloading again.') + [Environment]::NewLine +
+            (UI-Text 'Jeśli to nie pomoże, a masz już świat z postaciami, nie używaj w Docker Desktop „Clean / Purge data” ani „Reset to factory defaults” (kasują bazę) - dołącz logi do zgłoszenia na GitHubie. ' 'If that does not help and you already have a world with characters, do not use "Clean / Purge data" or "Reset to factory defaults" in Docker Desktop (they delete the database) - attach the logs to a report on GitHub. ') +
+            (UI-Text 'Na świeżej instalacji, która jeszcze ani razu nie wystartowała, Docker Desktop → Troubleshoot → Clean / Purge data niczego nie zabierze i zakłada Dockerowi nowy dysk.' 'On a fresh install that has never started yet, Docker Desktop > Troubleshoot > Clean / Purge data takes nothing away and gives Docker a new disk.'))
 }
 
 function Format-M2Bytes {
@@ -454,11 +466,11 @@ function Get-M2DiskSpaceReport {
         return $Path
     }
     $lines = [Collections.Generic.List[string]]::new()
-    $lines.Add('Dyski Windows:')
+    $lines.Add((UI-Text 'Dyski Windows:' 'Windows drives:'))
     foreach ($drive in @([IO.DriveInfo]::GetDrives())) {
         try {
             if ($drive.DriveType -ne [IO.DriveType]::Fixed -or -not $drive.IsReady) { continue }
-            $lines.Add(('  {0} wolne {1} z {2}' -f $drive.Name.TrimEnd('\'), (Format-M2Bytes $drive.AvailableFreeSpace), (Format-M2Bytes $drive.TotalSize)))
+            $lines.Add(((UI-Text '  {0} wolne {1} z {2}' '  {0} free {1} of {2}') -f $drive.Name.TrimEnd('\'), (Format-M2Bytes $drive.AvailableFreeSpace), (Format-M2Bytes $drive.TotalSize)))
         }
         catch {}
     }
@@ -466,29 +478,29 @@ function Get-M2DiskSpaceReport {
     $lines.Add('Docker Desktop:')
     $data = Get-M2DockerDataLocation
     if ($data) {
-        $lines.Add('  folder dysku: ' + (& $hide $data.Directory))
-        if (@($data.Disks).Count -eq 0) { $lines.Add('  (nie znaleziono plikow .vhdx)') }
+        $lines.Add((UI-Text '  folder dysku: ' '  disk folder: ') + (& $hide $data.Directory))
+        if (@($data.Disks).Count -eq 0) { $lines.Add((UI-Text '  (nie znaleziono plikow .vhdx)' '  (no .vhdx files found)')) }
         foreach ($disk in @($data.Disks)) {
             $lines.Add(('  {0}: {1}' -f (& $hide $disk.Path), (Format-M2Bytes $disk.Bytes)))
         }
         if ($null -ne $data.FreeBytes) {
-            $lines.Add(('  wolne na dysku {0} {1}' -f $data.Drive, (Format-M2Bytes $data.FreeBytes)))
+            $lines.Add(((UI-Text '  wolne na dysku {0} {1}' '  free on the drive {0} {1}') -f $data.Drive, (Format-M2Bytes $data.FreeBytes)))
         }
     }
     else {
-        $lines.Add('  (nie ustalono folderu dysku)')
+        $lines.Add((UI-Text '  (nie ustalono folderu dysku)' '  (the disk folder was not found)'))
     }
     $lines.Add('')
-    $lines.Add('Kopie aktualizacji (backups):')
+    $lines.Add((UI-Text 'Kopie aktualizacji (backups):' 'Update backups (backups):'))
     $backups = Join-Path ([IO.Path]::GetFullPath($ServerRoot)) 'backups'
     if (Test-Path -LiteralPath $backups -PathType Container) {
         $copies = @(Get-ChildItem -LiteralPath $backups -Directory -ErrorAction SilentlyContinue)
         $bytes = 0L
         foreach ($file in @(Get-ChildItem -LiteralPath $backups -Recurse -File -Force -ErrorAction SilentlyContinue)) { $bytes += [long]$file.Length }
-        $lines.Add(('  {0} katalogow, razem {1}' -f $copies.Count, (Format-M2Bytes $bytes)))
+        $lines.Add(((UI-Text '  {0} katalogow, razem {1}' '  {0} folders, {1} in all') -f $copies.Count, (Format-M2Bytes $bytes)))
     }
     else {
-        $lines.Add('  (brak)')
+        $lines.Add((UI-Text '  (brak)' '  (none)'))
     }
     return ($lines -join [Environment]::NewLine)
 }
@@ -668,11 +680,11 @@ function Get-M2StackHostPorts {
     # database are reached through the port .env publishes.
     $ports = @()
     foreach ($entry in @(
-            @{ Key = 'M2_PANEL_PUBLIC_PORT'; Default = 7788; Name = 'panel WWW'; ClientFixed = $false },
-            @{ Key = 'M2_SEBAN_PANEL_PORT'; Default = 7790; Name = 'panel zaawansowany'; ClientFixed = $false },
+            @{ Key = 'M2_PANEL_PUBLIC_PORT'; Default = 7788; Name = (UI-Text 'panel WWW' 'web panel'); ClientFixed = $false },
+            @{ Key = 'M2_SEBAN_PANEL_PORT'; Default = 7790; Name = (UI-Text 'panel zaawansowany' 'advanced panel'); ClientFixed = $false },
             @{ Key = 'M2_ITEMSHOP_PUBLIC_PORT'; Default = 7791; Name = 'ItemShop'; ClientFixed = $false },
-            @{ Key = 'M2_AUTH_PORT'; Default = 11000; Name = 'serwer logowania'; ClientFixed = $true },
-            @{ Key = 'M2_DB_PUBLISH_PORT'; Default = 3306; Name = 'baza danych'; ClientFixed = $false })) {
+            @{ Key = 'M2_AUTH_PORT'; Default = 11000; Name = (UI-Text 'serwer logowania' 'login server'); ClientFixed = $true },
+            @{ Key = 'M2_DB_PUBLISH_PORT'; Default = 3306; Name = (UI-Text 'baza danych' 'database'); ClientFixed = $false })) {
         $value = [string]$values[$entry.Key]
         $number = [int]$entry.Default
         if ($value -match '^\d+$') { $number = [int]$value }
@@ -690,7 +702,7 @@ function Get-M2StackHostPorts {
     if ($last -lt $first) { $last = $first }
     if (($last - $first) -gt 32) { $last = $first + 32 }
     for ($p = $first; $p -le $last; $p++) {
-        $ports += [pscustomobject]@{ Port = [int]$p; Name = 'kanal gry'; ClientFixed = $true; Key = 'M2_GAME_PORT_RANGE' }
+        $ports += [pscustomobject]@{ Port = [int]$p; Name = (UI-Text 'kanal gry' 'game channel'); ClientFixed = $true; Key = 'M2_GAME_PORT_RANGE' }
     }
     return $ports
 }
@@ -723,11 +735,16 @@ function Get-M2ProgramPortAdvice {
         [Parameter(Mandatory = $true)]$Listener
     )
 
-    $who = if ($Listener.Name) { "proces $($Listener.Name), PID $($Listener.Pid)" } else { "PID $($Listener.Pid)" }
-    if ($ClientFixed -or -not $Key) {
-        return "Port $Port ($Name) zajmuje $who. Zamknij ten program (Menedżer zadań, karta Szczegóły, Zakończ zadanie) i spróbuj jeszcze raz. Nie zmieniaj tego portu w pliku .env: klient gry łączy się zawsze z portem 11000 i kanałami od 13000, więc po zmianie nie dałoby się zalogować."
+    $who = if ($Listener.Name) { (UI-Text "proces $($Listener.Name), PID $($Listener.Pid)" "the process $($Listener.Name), PID $($Listener.Pid)") } else { "PID $($Listener.Pid)" }
+    # An ssh on a panel port is as a rule the VPS window's tunnel, and moving
+    # the server's port is the wrong answer to it (Sudak, 28 September).
+    if ([string]$Listener.Name -match '^(?i)ssh$') {
+        return (UI-Text "Port $Port ($Name) zajmuje tunel SSH ($who). Jeśli to tunel do paneli z okna SERWER NA VPS, kliknij tam ZAMKNIJ TUNEL; inny tunel zamknij w Menedżerze zadań (karta Szczegóły, Zakończ zadanie). Potem spróbuj jeszcze raz." "Port $Port ($Name) is held by an SSH tunnel ($who). If it is the tunnel to the panels from the SERVER ON A VPS window, click CLOSE TUNNEL there; close any other tunnel in Task Manager (the Details tab, End task). Then try again.")
     }
-    return "Port $Port ($Name) zajmuje $who. Zamknij ten program (jeśli to usługa, np. MySQL, zatrzymaj ją w Usługach Windows) albo zmień w pliku linux-port\docker\.env wiersz $Key=$Port na inny wolny port, np. $($Port + 1)."
+    if ($ClientFixed -or -not $Key) {
+        return (UI-Text "Port $Port ($Name) zajmuje $who. Zamknij ten program (Menedżer zadań, karta Szczegóły, Zakończ zadanie) i spróbuj jeszcze raz. Nie zmieniaj tego portu w pliku .env: klient gry łączy się zawsze z portem 11000 i kanałami od 13000, więc po zmianie nie dałoby się zalogować." "Port $Port ($Name) is held by $who. Close that program (Task Manager, the Details tab, End task) and try again. Do not change this port in the .env file: the game client always connects to port 11000 and to the channels from 13000 on, so after a change nobody could log in.")
+    }
+    return (UI-Text "Port $Port ($Name) zajmuje $who. Zamknij ten program (jeśli to usługa, np. MySQL, zatrzymaj ją w Usługach Windows) albo zmień w pliku linux-port\docker\.env wiersz $Key=$Port na inny wolny port, np. $($Port + 1)." "Port $Port ($Name) is held by $who. Close that program (if it is a service, e.g. MySQL, stop it in Windows Services) or change the line $Key=$Port in the file linux-port\docker\.env to another free port, e.g. $($Port + 1).")
 }
 
 # The server's ports a program of Windows' own listens on. Not Docker: its
@@ -929,7 +946,7 @@ function Get-M2DockerPreflight {
     $dockerEngineReady = $false
 
     if ($dockerCliPresent) {
-        [void]$checks.Add('OK: Docker CLI jest zainstalowany.')
+        [void]$checks.Add((UI-Text 'OK: Docker CLI jest zainstalowany.' 'OK: the Docker CLI is installed.'))
         $dockerProbe = Invoke-M2DiagnosticProcess -FileName 'docker.exe' -Arguments 'info --format "{{.ServerVersion}}"' -TimeoutMilliseconds 3500
         $dockerProbeText = if ($null -ne $dockerProbe.Output) { $dockerProbe.Output.Trim() } else { '' }
         # `docker info` exits 0 and still prints the daemon's own refusal. "Error
@@ -952,30 +969,30 @@ function Get-M2DockerPreflight {
         }
         $dockerEngineReady = $dockerProbe.ExitCode -eq 0 -and -not $dockerProbe.TimedOut -and $dockerVersion -ne ''
         if ($dockerEngineReady) {
-            [void]$checks.Add("OK: Docker Engine odpowiada (wersja $dockerVersion).")
+            [void]$checks.Add((UI-Text "OK: Docker Engine odpowiada (wersja $dockerVersion)." "OK: Docker Engine answers (version $dockerVersion)."))
         }
         elseif ($dockerProbeText -and -not $dockerProbe.TimedOut) {
             # What the daemon said, not a tidy summary of it: the message names
             # the fault and the player pastes it straight into a report.
-            [void]$checks.Add("BLAD: Docker Engine nie odpowiada: $dockerProbeText")
-            [void]$warnings.Add("Silnik Dockera nie wystartowal: $dockerProbeText")
+            [void]$checks.Add((UI-Text "BLAD: Docker Engine nie odpowiada: $dockerProbeText" "ERROR: Docker Engine does not answer: $dockerProbeText"))
+            [void]$warnings.Add((UI-Text "Silnik Dockera nie wystartowal: $dockerProbeText" "The Docker engine did not start: $dockerProbeText"))
         }
         elseif ($dockerProcessesRunning) {
-            [void]$checks.Add('UWAGA: Docker Desktop jest otwarty, ale Engine jeszcze nie odpowiada.')
-            [void]$warnings.Add('Docker Desktop nadal startuje albo zatrzymał się na błędzie.')
+            [void]$checks.Add((UI-Text 'UWAGA: Docker Desktop jest otwarty, ale Engine jeszcze nie odpowiada.' 'WARNING: Docker Desktop is open, but the Engine does not answer yet.'))
+            [void]$warnings.Add((UI-Text 'Docker Desktop nadal startuje albo zatrzymał się na błędzie.' 'Docker Desktop is still starting or has stopped on an error.'))
         }
         else {
-            [void]$checks.Add('INFO: Docker Engine jest zatrzymany; launcher może go uruchomić.')
+            [void]$checks.Add((UI-Text 'INFO: Docker Engine jest zatrzymany; launcher może go uruchomić.' 'INFO: Docker Engine is stopped; the launcher can start it.'))
         }
     }
     else {
-        [void]$checks.Add('BŁĄD: nie znaleziono Docker CLI.')
-        [void]$blocking.Add('Zainstaluj Docker Desktop z oficjalnej strony i uruchom ponownie launcher.')
+        [void]$checks.Add((UI-Text 'BŁĄD: nie znaleziono Docker CLI.' 'ERROR: the Docker CLI was not found.'))
+        [void]$blocking.Add((UI-Text 'Zainstaluj Docker Desktop z oficjalnej strony i uruchom ponownie launcher.' 'Install Docker Desktop from its official website and start the launcher again.'))
     }
 
     $desktopCandidates = @(Get-DockerDesktopCandidates)
     if (-not $dockerEngineReady -and $desktopCandidates.Count -eq 0) {
-        [void]$blocking.Add('Nie znaleziono programu Docker Desktop. Zainstaluj go przed uruchomieniem serwera.')
+        [void]$blocking.Add((UI-Text 'Nie znaleziono programu Docker Desktop. Zainstaluj go przed uruchomieniem serwera.' 'Docker Desktop was not found. Install it before starting the server.'))
     }
 
     $virtualization = 'Unknown'
@@ -984,18 +1001,18 @@ function Get-M2DockerPreflight {
         $processor = Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop | Select-Object -First 1
         if ([bool]$computer.HypervisorPresent -or [bool]$processor.VirtualizationFirmwareEnabled) {
             $virtualization = 'Enabled'
-            [void]$checks.Add('OK: wirtualizacja procesora jest dostępna.')
+            [void]$checks.Add((UI-Text 'OK: wirtualizacja procesora jest dostępna.' 'OK: the processor''s virtualization is available.'))
         }
         elseif ($null -ne $processor.VirtualizationFirmwareEnabled) {
             $virtualization = 'Disabled'
-            [void]$checks.Add('BŁĄD: wirtualizacja procesora jest wyłączona w BIOS/UEFI.')
+            [void]$checks.Add((UI-Text 'BŁĄD: wirtualizacja procesora jest wyłączona w BIOS/UEFI.' 'ERROR: the processor''s virtualization is off in the BIOS/UEFI.'))
             if (-not $dockerEngineReady) {
-                [void]$blocking.Add('Włącz AMD SVM/AMD-V albo Intel VT-x w BIOS/UEFI, a następnie zrestartuj komputer.')
+                [void]$blocking.Add((UI-Text 'Włącz AMD SVM/AMD-V albo Intel VT-x w BIOS/UEFI, a następnie zrestartuj komputer.' 'Turn on AMD SVM/AMD-V or Intel VT-x in the BIOS/UEFI, then restart the computer.'))
             }
         }
     }
     catch {
-        [void]$checks.Add('INFO: Windows nie udostępnił stanu wirtualizacji; Docker zweryfikuje go przy starcie.')
+        [void]$checks.Add((UI-Text 'INFO: Windows nie udostępnił stanu wirtualizacji; Docker zweryfikuje go przy starcie.' 'INFO: Windows did not tell the state of virtualization; Docker checks it when it starts.'))
     }
 
     $wslState = 'Missing'
@@ -1004,20 +1021,20 @@ function Get-M2DockerPreflight {
         $wslProbe = Invoke-M2DiagnosticProcess -FileName 'wsl.exe' -Arguments '--status' -TimeoutMilliseconds 4500
         if ($wslProbe.ExitCode -eq 0) {
             $wslState = 'Ready'
-            [void]$checks.Add('OK: WSL odpowiada.')
+            [void]$checks.Add((UI-Text 'OK: WSL odpowiada.' 'OK: WSL answers.'))
         }
         else {
             $wslState = 'Error'
-            [void]$checks.Add('UWAGA: polecenie wsl --status nie działa poprawnie.')
+            [void]$checks.Add((UI-Text 'UWAGA: polecenie wsl --status nie działa poprawnie.' 'WARNING: the command wsl --status does not work properly.'))
             if (-not $dockerEngineReady) {
-                [void]$warnings.Add('Jeżeli Docker nie wystartuje, uruchom PowerShell jako administrator, wykonaj wsl --update i wsl --install, a następnie zrestartuj Windows.')
+                [void]$warnings.Add((UI-Text 'Jeżeli Docker nie wystartuje, uruchom PowerShell jako administrator, wykonaj wsl --update i wsl --install, a następnie zrestartuj Windows.' 'If Docker does not start, run PowerShell as administrator, run wsl --update and wsl --install, then restart Windows.'))
             }
         }
     }
     else {
-        [void]$checks.Add('UWAGA: Windows Subsystem for Linux nie jest zainstalowany lub nie jest widoczny.')
+        [void]$checks.Add((UI-Text 'UWAGA: Windows Subsystem for Linux nie jest zainstalowany lub nie jest widoczny.' 'WARNING: Windows Subsystem for Linux is not installed or cannot be seen.'))
         if (-not $dockerEngineReady) {
-            [void]$warnings.Add('Docker Desktop zwykle wymaga WSL 2. W razie błędu wykonaj jako administrator: wsl --install, a potem zrestartuj Windows.')
+            [void]$warnings.Add((UI-Text 'Docker Desktop zwykle wymaga WSL 2. W razie błędu wykonaj jako administrator: wsl --install, a potem zrestartuj Windows.' 'Docker Desktop usually needs WSL 2. If Docker does not start, run as administrator: wsl --install, then restart Windows.'))
         }
     }
 
@@ -1045,16 +1062,16 @@ function Get-M2DockerPreflight {
             $holders = @(Get-M2DockerPortHolders -Ports @($busy | ForEach-Object { [int]$_.Port }) -CurrentProject $currentProject)
         }
         if ($busy.Count -eq 0) {
-            [void]$checks.Add('OK: wszystkie porty serwera są wolne.')
+            [void]$checks.Add((UI-Text 'OK: wszystkie porty serwera są wolne.' 'OK: every server port is free.'))
         }
         foreach ($entry in $busy) {
             $holder = @($holders | Where-Object { $_.Ports -contains [int]$entry.Port }) | Select-Object -First 1
             if ($holder -and $holder.IsCurrentProject) {
-                [void]$checks.Add("OK: port $($entry.Port) ($($entry.Name)) należy do tej instalacji ($($holder.Container)).")
+                [void]$checks.Add((UI-Text "OK: port $($entry.Port) ($($entry.Name)) należy do tej instalacji ($($holder.Container))." "OK: port $($entry.Port) ($($entry.Name)) belongs to this installation ($($holder.Container))."))
             }
             elseif ($holder) {
                 $where = if ($holder.WorkingDir) { ", folder $($holder.WorkingDir)" } else { '' }
-                [void]$checks.Add("BŁĄD: port $($entry.Port) ($($entry.Name)) zajmuje kontener $($holder.Container) z innej instalacji (projekt $($holder.Project)$where).")
+                [void]$checks.Add((UI-Text "BŁĄD: port $($entry.Port) ($($entry.Name)) zajmuje kontener $($holder.Container) z innej instalacji (projekt $($holder.Project)$where)." "ERROR: port $($entry.Port) ($($entry.Name)) is held by the container $($holder.Container) of another installation (project $($holder.Project)$where)."))
                 $foreignHolders += $holder
             }
             elseif ($entry.Listener.Name -match '(?i)^(com\.docker|docker|vpnkit|wslrelay)') {
@@ -1063,12 +1080,12 @@ function Get-M2DockerPreflight {
                 # this check, never a reason to refuse the start: saying "close
                 # com.docker.backend" to somebody whose own server is running is
                 # advice that cannot be followed.
-                [void]$checks.Add("UWAGA: port $($entry.Port) ($($entry.Name)) trzyma Docker ($($entry.Listener.Name)); nie rozpoznano kontenera - zakladam, ze to ta instalacja.")
-                [void]$warnings.Add("Port $($entry.Port) jest zajety przez Dockera. Jesli serwer nie wstanie, sprawdz DIAGNOSTYKA i zatrzymaj inne instalacje.")
+                [void]$checks.Add((UI-Text "UWAGA: port $($entry.Port) ($($entry.Name)) trzyma Docker ($($entry.Listener.Name)); nie rozpoznano kontenera - zakladam, ze to ta instalacja." "WARNING: port $($entry.Port) ($($entry.Name)) is held by Docker ($($entry.Listener.Name)); the container was not recognised - taking it for this installation's."))
+                [void]$warnings.Add((UI-Text "Port $($entry.Port) jest zajety przez Dockera. Jesli serwer nie wstanie, sprawdz DIAGNOSTYKA i zatrzymaj inne instalacje." "Port $($entry.Port) is taken by Docker. If the server does not come up, check DIAGNOSTICS and stop the other installations."))
             }
             else {
-                $who = if ($entry.Listener.Name) { "proces $($entry.Listener.Name), PID $($entry.Listener.Pid)" } else { "PID $($entry.Listener.Pid)" }
-                [void]$checks.Add("BŁĄD: port $($entry.Port) ($($entry.Name)) zajmuje $who.")
+                $who = if ($entry.Listener.Name) { (UI-Text "proces $($entry.Listener.Name), PID $($entry.Listener.Pid)" "the process $($entry.Listener.Name), PID $($entry.Listener.Pid)") } else { "PID $($entry.Listener.Pid)" }
+                [void]$checks.Add((UI-Text "BŁĄD: port $($entry.Port) ($($entry.Name)) zajmuje $who." "ERROR: port $($entry.Port) ($($entry.Name)) is held by $who."))
                 [void]$blocking.Add((Get-M2ProgramPortAdvice -Port ([int]$entry.Port) -Name ([string]$entry.Name) `
                     -ClientFixed ([bool]$entry.ClientFixed) -Key ([string]$entry.Key) -Listener $entry.Listener))
             }
@@ -1080,12 +1097,12 @@ function Get-M2DockerPreflight {
             # launcher's own menu entry ends a double-quoted string mid-sentence
             # and the whole module stops parsing.
             [void]$blocking.Add(
-                ('Porty serwera trzyma inna instalacja tego samego serwera (projekt: {0}). ' +
-                 'Launcher zatrzymuje ją sam przy GRAJ i przy ZAINSTALUJ AKTUALIZACJE, a w wersji ' +
-                 'konsolowej jest to opcja 21 (Zwolnij porty) - bez ruszania bazy, wolumenów i postępu. ' +
-                 'Jeśli ten komunikat wraca mimo to, uruchom Docker Desktop i spróbuj ponownie. ' +
-                 'Samo wyłączenie Dockera nie pomaga: te kontenery mają politykę restart=unless-stopped, ' +
-                 'więc wracają przy każdym starcie silnika i znów zajmują porty.') -f ($projects -join ', '))
+                ((UI-Text 'Porty serwera trzyma inna instalacja tego samego serwera (projekt: {0}). ' 'Another installation of the same server holds the server''s ports (project: {0}). ') +
+                 (UI-Text 'Launcher zatrzymuje ją sam przy GRAJ i przy ZAINSTALUJ AKTUALIZACJE, a w wersji ' 'The launcher stops it by itself at PLAY and at CHECK FOR UPDATES, and in the ') +
+                 (UI-Text 'konsolowej jest to opcja 21 (Zwolnij porty) - bez ruszania bazy, wolumenów i postępu. ' 'console launcher it is option 21 (Free the ports) - without touching the database, the volumes or the progress. ') +
+                 (UI-Text 'Jeśli ten komunikat wraca mimo to, uruchom Docker Desktop i spróbuj ponownie. ' 'If this message comes back all the same, start Docker Desktop and try again. ') +
+                 (UI-Text 'Samo wyłączenie Dockera nie pomaga: te kontenery mają politykę restart=unless-stopped, ' 'Just turning Docker off does not help: these containers have the restart=unless-stopped policy, ') +
+                 (UI-Text 'więc wracają przy każdym starcie silnika i znów zajmują porty.' 'so they come back at every engine start and take the ports again.')) -f ($projects -join ', '))
         }
         # Kept for callers that only ask about the panel.
         $panelBusy = @($busy | Where-Object { [int]$_.Port -eq [int]$panelPort }) | Select-Object -First 1
@@ -1115,24 +1132,24 @@ function Get-M2DockerPreflight {
             if ($m) { $dbPort = [int]$m.Matches[0].Groups[1].Value }
         }
         $stackPorts = @(
-            @{ Port = $authPort; Name = 'serwer logowania' },
-            @{ Port = 13000; Name = 'kanal gry' },
-            @{ Port = 13001; Name = 'kanal gry' },
-            @{ Port = 13002; Name = 'kanal gry' },
-            @{ Port = $dbPort; Name = 'baza danych' },
+            @{ Port = $authPort; Name = (UI-Text 'serwer logowania' 'login server') },
+            @{ Port = 13000; Name = (UI-Text 'kanal gry' 'game channel') },
+            @{ Port = 13001; Name = (UI-Text 'kanal gry' 'game channel') },
+            @{ Port = 13002; Name = (UI-Text 'kanal gry' 'game channel') },
+            @{ Port = $dbPort; Name = (UI-Text 'baza danych' 'database') },
             @{ Port = [int]$panelPort; Name = 'panel' }
         )
         $hits = @()
         foreach ($p in $stackPorts) {
             $hit = Get-M2ExcludedPortHit -Port $p.Port -Ranges $excludedRanges
-            if ($hit) { $hits += "$($p.Port) ($($p.Name), zakres $($hit.Start)-$($hit.End))" }
+            if ($hit) { $hits += (UI-Text "$($p.Port) ($($p.Name), zakres $($hit.Start)-$($hit.End))" "$($p.Port) ($($p.Name), range $($hit.Start)-$($hit.End))") }
         }
         if ($hits.Count -gt 0) {
-            [void]$checks.Add("BŁĄD: Windows zarezerwował porty serwera: $($hits -join ', ').")
-            [void]$blocking.Add('Port serwera leży w zakresie zarezerwowanym przez Windows (Hyper-V/WSL), więc Docker nie może na nim nasłuchiwać. Uruchom PowerShell jako administrator: net stop winnat, kliknij GRAJ, a po starcie serwera: net start winnat. Zwykle pomaga też restart Windows.')
+            [void]$checks.Add((UI-Text "BŁĄD: Windows zarezerwował porty serwera: $($hits -join ', ')." "ERROR: Windows has reserved server ports: $($hits -join ', ')."))
+            [void]$blocking.Add((UI-Text 'Port serwera leży w zakresie zarezerwowanym przez Windows (Hyper-V/WSL), więc Docker nie może na nim nasłuchiwać. Uruchom PowerShell jako administrator: net stop winnat, kliknij GRAJ, a po starcie serwera: net start winnat. Zwykle pomaga też restart Windows.' 'A server port lies in a range Windows reserved (Hyper-V/WSL), so Docker cannot listen on it. Start PowerShell as administrator: net stop winnat, click PLAY, and once the server has started: net start winnat. A restart of Windows usually helps too.'))
         }
         else {
-            [void]$checks.Add('OK: żaden port serwera nie leży w zakresie zarezerwowanym przez Windows.')
+            [void]$checks.Add((UI-Text 'OK: żaden port serwera nie leży w zakresie zarezerwowanym przez Windows.' 'OK: no server port lies in a range Windows reserved.'))
         }
     }
 
@@ -1144,19 +1161,19 @@ function Get-M2DockerPreflight {
     $clockSkew = Get-M2InternetClockSkew
     if ($null -ne $clockSkew) {
         if ([Math]::Abs($clockSkew) -le 300) {
-            [void]$checks.Add('OK: zegar Windows zgadza się z internetem.')
+            [void]$checks.Add((UI-Text 'OK: zegar Windows zgadza się z internetem.' 'OK: the Windows clock agrees with the Internet.'))
         }
         else {
-            $which = $(if ($clockSkew -lt 0) { 'spóźnia się' } else { 'śpieszy się' })
-            [void]$checks.Add(('UWAGA: zegar Windows {0} o {1} względem internetu.' -f $which, (Get-M2ClockSkewText $clockSkew)))
-            [void]$warnings.Add('Zegar Windows jest przestawiony, a Docker bierze czas od Windows - budowa serwera może się zatrzymać na komunikacie „Release file ... is not valid yet”. Ustawienia → Czas i język → Data i godzina: włącz „Ustaw czas automatycznie”, sprawdź strefę czasową (dla Polski: Warszawa) i kliknij „Synchronizuj teraz”. Potem zamknij Docker Desktop (ikona w zasobniku → Quit) i kliknij GRAJ.')
+            $which = $(if ($clockSkew -lt 0) { (UI-Text 'spóźnia się' 'is behind') } else { (UI-Text 'śpieszy się' 'is ahead') })
+            [void]$checks.Add(((UI-Text 'UWAGA: zegar Windows {0} o {1} względem internetu.' 'WARNING: the Windows clock {0} by {1} against the Internet.') -f $which, (Get-M2ClockSkewText $clockSkew)))
+            [void]$warnings.Add((UI-Text 'Zegar Windows jest przestawiony, a Docker bierze czas od Windows - budowa serwera może się zatrzymać na komunikacie „Release file ... is not valid yet”. Ustawienia → Czas i język → Data i godzina: włącz „Ustaw czas automatycznie”, sprawdź strefę czasową (dla Polski: Warszawa) i kliknij „Synchronizuj teraz”. Potem zamknij Docker Desktop (ikona w zasobniku → Quit) i kliknij GRAJ.' 'The Windows clock is wrong, and Docker takes its time from Windows - the server build can stop at the message "Release file ... is not valid yet". Settings > Time & language > Date & time: turn on "Set time automatically", check the time zone and click "Sync now". Then quit Docker Desktop (the tray icon > Quit) and click PLAY.'))
         }
     }
     if ($dockerEngineReady) {
         $dockerSkew = Get-M2DockerClockSkew
         if ($null -ne $dockerSkew -and [Math]::Abs($dockerSkew) -gt 300) {
-            [void]$checks.Add(('UWAGA: zegar Dockera odbiega od zegara Windows o {0}.' -f (Get-M2ClockSkewText $dockerSkew)))
-            [void]$warnings.Add('Zegar maszyny Dockera rozjechał się z zegarem Windows (zdarza się po uśpieniu komputera). Zamknij Docker Desktop (ikona w zasobniku → Quit), uruchom go ponownie i kliknij GRAJ.')
+            [void]$checks.Add(((UI-Text 'UWAGA: zegar Dockera odbiega od zegara Windows o {0}.' 'WARNING: Docker''s clock differs from the Windows clock by {0}.') -f (Get-M2ClockSkewText $dockerSkew)))
+            [void]$warnings.Add((UI-Text 'Zegar maszyny Dockera rozjechał się z zegarem Windows (zdarza się po uśpieniu komputera). Zamknij Docker Desktop (ikona w zasobniku → Quit), uruchom go ponownie i kliknij GRAJ.' 'The Docker machine''s clock has drifted from the Windows clock (it happens after the computer sleeps). Quit Docker Desktop (the tray icon > Quit), start it again and click PLAY.'))
         }
     }
 
@@ -1169,11 +1186,11 @@ function Get-M2DockerPreflight {
     if ($dockerEngineReady) {
         $diskFault = Get-M2DockerDiskFault
         if ($diskFault) {
-            [void]$checks.Add("BŁĄD: dysk Dockera nie przyjmuje zapisu ($diskFault).")
-            [void]$blocking.Add('Dysk, na którym Docker Desktop trzyma obrazy i bazę świata (docker_data.vhdx), nie przyjmuje zapisu (read-only file system).' + [Environment]::NewLine + (Get-M2DockerDiskRemedy))
+            [void]$checks.Add((UI-Text "BŁĄD: dysk Dockera nie przyjmuje zapisu ($diskFault)." "ERROR: the Docker disk takes no writes ($diskFault)."))
+            [void]$blocking.Add((UI-Text 'Dysk, na którym Docker Desktop trzyma obrazy i bazę świata (docker_data.vhdx), nie przyjmuje zapisu (read-only file system).' 'The disk where Docker Desktop keeps the images and the world''s database (docker_data.vhdx) takes no writes (read-only file system).') + [Environment]::NewLine + (Get-M2DockerDiskRemedy))
         }
         else {
-            [void]$checks.Add('OK: dysk Dockera przyjmuje zapis.')
+            [void]$checks.Add((UI-Text 'OK: dysk Dockera przyjmuje zapis.' 'OK: the Docker disk takes writes.'))
         }
     }
     # A server folder OneDrive holds builds with files missing
@@ -1181,21 +1198,21 @@ function Get-M2DockerPreflight {
     # into placeholders yet still builds, and the move is the player's to make.
     $oneDrive = Get-M2OneDriveRootFor -Path $root
     if ($oneDrive) {
-        [void]$checks.Add("UWAGA: folder serwera leży w OneDrive ($oneDrive).")
+        [void]$checks.Add((UI-Text "UWAGA: folder serwera leży w OneDrive ($oneDrive)." "WARNING: the server folder is in OneDrive ($oneDrive)."))
         [void]$warnings.Add((Get-M2OneDriveRemedy -OneDriveRoot $oneDrive))
     }
     else {
-        [void]$checks.Add('OK: folder serwera nie leży w OneDrive.')
+        [void]$checks.Add((UI-Text 'OK: folder serwera nie leży w OneDrive.' 'OK: the server folder is not in OneDrive.'))
     }
     $dockerData = Get-M2DockerDataLocation
     if ($dockerData -and $null -ne $dockerData.FreeBytes) {
         $where = if ($dockerData.Drive) { $dockerData.Drive } else { $dockerData.Directory }
         if ($dockerData.FreeBytes -lt 15GB) {
-            [void]$checks.Add(('UWAGA: na dysku {0} zostało {1} wolnego miejsca, a tam Docker trzyma swój dysk.' -f $where, (Format-M2Bytes $dockerData.FreeBytes)))
-            [void]$warnings.Add(('Na dysku {0} zostało tylko {1} wolnego miejsca. Docker trzyma tam swój dysk (docker_data.vhdx), który rośnie przy budowie serwera - świeża budowa potrzebuje ok. 15 GB. Gdy miejsca zabraknie w trakcie budowy, dysk Dockera przechodzi w tryb tylko do odczytu. Zwolnij miejsce przed kliknięciem GRAJ albo ZAINSTALUJ AKTUALIZACJE.' -f $where, (Format-M2Bytes $dockerData.FreeBytes)))
+            [void]$checks.Add(((UI-Text 'UWAGA: na dysku {0} zostało {1} wolnego miejsca, a tam Docker trzyma swój dysk.' 'WARNING: the drive {0} has {1} of free room left, and Docker keeps its disk there.') -f $where, (Format-M2Bytes $dockerData.FreeBytes)))
+            [void]$warnings.Add(((UI-Text 'Na dysku {0} zostało tylko {1} wolnego miejsca. Docker trzyma tam swój dysk (docker_data.vhdx), który rośnie przy budowie serwera - świeża budowa potrzebuje ok. 15 GB. Gdy miejsca zabraknie w trakcie budowy, dysk Dockera przechodzi w tryb tylko do odczytu. Zwolnij miejsce przed kliknięciem GRAJ albo ZAINSTALUJ AKTUALIZACJE.' 'The drive {0} has only {1} of free room left. Docker keeps its disk there (docker_data.vhdx), which grows while the server builds - a fresh build needs about 15 GB. When the room runs out during a build, the Docker disk turns read-only. Free some room before you click PLAY or CHECK FOR UPDATES.') -f $where, (Format-M2Bytes $dockerData.FreeBytes)))
         }
         else {
-            [void]$checks.Add(('OK: na dysku {0} jest {1} wolnego miejsca dla Dockera.' -f $where, (Format-M2Bytes $dockerData.FreeBytes)))
+            [void]$checks.Add(((UI-Text 'OK: na dysku {0} jest {1} wolnego miejsca dla Dockera.' 'OK: the drive {0} has {1} of free room for Docker.') -f $where, (Format-M2Bytes $dockerData.FreeBytes)))
         }
     }
 
@@ -1219,20 +1236,20 @@ function Format-M2DockerPreflightReport {
     param([Parameter(Mandatory = $true)]$Report)
 
     $lines = [Collections.Generic.List[string]]::new()
-    $lines.Add('=== DIAGNOSTYKA METIN2 PLAYERBOTS ===')
+    $lines.Add((UI-Text '=== DIAGNOSTYKA METIN2 PLAYERBOTS ===' '=== METIN2 PLAYERBOTS DIAGNOSTICS ==='))
     foreach ($check in @($Report.Checks)) { $lines.Add([string]$check) }
     if (@($Report.Warnings).Count -gt 0) {
         $lines.Add('')
-        $lines.Add('Ostrzeżenia:')
+        $lines.Add((UI-Text 'Ostrzeżenia:' 'Warnings:'))
         foreach ($warning in @($Report.Warnings)) { $lines.Add("- $warning") }
     }
     if (@($Report.BlockingIssues).Count -gt 0) {
         $lines.Add('')
-        $lines.Add('Co trzeba zrobić:')
+        $lines.Add((UI-Text 'Co trzeba zrobić:' 'What to do:'))
         foreach ($issue in @($Report.BlockingIssues)) { $lines.Add("- $issue") }
     }
     $lines.Add('')
-    $lines.Add('Wynik: ' + $(if ($Report.CanStart) { 'można uruchomić serwer.' } else { 'najpierw usuń powyższy problem.' }))
+    $lines.Add((UI-Text 'Wynik: ' 'Result: ') + $(if ($Report.CanStart) { (UI-Text 'można uruchomić serwer.' 'the server can be started.') } else { (UI-Text 'najpierw usuń powyższy problem.' 'fix the problem above first.') }))
     return $lines -join [Environment]::NewLine
 }
 

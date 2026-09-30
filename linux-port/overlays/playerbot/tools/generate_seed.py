@@ -38,7 +38,19 @@ KINGDOM_COHORTS = (
     (1, 1000, 1, 473800, 952400),
     (3, 1000, 41, 958900, 266700),
 )
-BOT_COUNT = sum(block[1] for block in KINGDOM_COHORTS)
+# The fresh cohort of game channels 3 and 4 (upstream 2.2.36,
+# playerbot_channel_rules.h): 500 a kingdom after the registry, bots that start
+# at level one on channels of their own and never trade places with the world
+# of channels 1 and 2. The seed creates them only while the operator has
+# those channels on (@playerbot_seed_fresh); Chunjo's grid is its own, the
+# other two stand on the 2.2.1 grids of their villages.
+FRESH_COHORTS = (
+    (2, 500, 21, 62400, 165200),
+    (1, 500, 1, 473800, 952400),
+    (3, 500, 41, 958900, 266700),
+)
+REGISTRY_COUNT = sum(block[1] for block in KINGDOM_COHORTS)
+BOT_COUNT = REGISTRY_COUNT + sum(block[1] for block in FRESH_COHORTS)
 FIRST_PID = 4
 SEED_VERSION = 1
 
@@ -71,7 +83,7 @@ def cohort() -> list[dict[str, int | str]]:
     rows: list[dict[str, int | str]] = []
     blocks: list[tuple[int, int, int, int, int, int]] = []
     first_ordinal = 1
-    for empire, count, map_index, ax, ay in KINGDOM_COHORTS:
+    for empire, count, map_index, ax, ay in KINGDOM_COHORTS + FRESH_COHORTS:
         blocks.append((first_ordinal, first_ordinal + count - 1, empire, map_index, ax, ay))
         first_ordinal += count
     for ordinal in range(1, BOT_COUNT + 1):
@@ -132,7 +144,7 @@ def validate(rows: list[dict[str, int | str]]) -> None:
         raise ValueError("empire must be 1, 2 or 3")
     if any(kingdom_map[int(row["empire"])] != int(row["map_index"]) for row in rows):
         raise ValueError("a bot's village map does not belong to its kingdom")
-    chunjo = [row for row in rows if int(row["empire"]) == 2]
+    chunjo = [row for row in rows if int(row["empire"]) == 2 and int(row["pid"]) < FIRST_PID + REGISTRY_COUNT]
     if len(chunjo) != 1500 or int(chunjo[0]["pid"]) != FIRST_PID:
         raise ValueError("the original Chunjo cohort must stay PID 4 upwards, 1500 of them")
 
@@ -193,6 +205,16 @@ INSERT INTO playerbot_seed_spec
 VALUES
 @@VALUES@@;
 
+-- The fresh cohort of game channels 3 and 4 (PID @@FRESH_FIRST@@..@@FRESH_LAST@@) is
+-- created only when the operator turns those channels on: without
+-- @playerbot_seed_fresh the seed never looks at it, and whatever of it an
+-- earlier start created stays as it is - the cores keep it for its own
+-- channels and hand it to nobody else. The mt2009 wrapper sets the variable
+-- from M2_PLAYERBOT_FRESH_CHANNELS; r40250's never does.
+DELETE FROM playerbot_seed_spec
+ WHERE pid BETWEEN @@FRESH_FIRST@@ AND @@FRESH_LAST@@
+   AND COALESCE(@playerbot_seed_fresh, 0) = 0;
+
 -- The generated registry describes itself; validate that before looking at a
 -- single durable row.
 DELIMITER //
@@ -210,7 +232,8 @@ BEGIN NOT ATOMIC
 
     SELECT COUNT(*), COALESCE(MIN(pid), 0), COALESCE(MAX(pid), 0)
       INTO v_count, v_min_pid, v_max_pid
-      FROM playerbot_seed_spec;
+      FROM playerbot_seed_spec
+     WHERE pid < @@FRESH_FIRST@@;
     -- Either the whole registry, or the Chunjo cohort on its own when the
     -- kingdoms are not switched on. Anything else means the spec was edited.
     IF NOT ((v_count = @@COUNT@@ AND v_min_pid = @@FIRST@@ AND v_max_pid = @@LAST@@)
@@ -218,6 +241,21 @@ BEGIN NOT ATOMIC
                 AND v_max_pid = @@CHUNJO_LAST@@)) THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'playerbot seed: registry is not exactly PID @@FIRST@@..@@LAST@@';
+    END IF;
+
+    -- And the fresh cohort: none of it, all of it, or its Chunjo block alone
+    -- when the kingdoms are not switched on.
+    SELECT COUNT(*), COALESCE(MIN(pid), 0), COALESCE(MAX(pid), 0)
+      INTO v_count, v_min_pid, v_max_pid
+      FROM playerbot_seed_spec
+     WHERE pid >= @@FRESH_FIRST@@;
+    IF NOT (v_count = 0
+            OR (v_count = @@FRESH_COUNT@@ AND v_min_pid = @@FRESH_FIRST@@
+                AND v_max_pid = @@FRESH_LAST@@)
+            OR (v_count = @@FRESH_CHUNJO_COUNT@@ AND v_min_pid = @@FRESH_FIRST@@
+                AND v_max_pid = @@FRESH_CHUNJO_LAST@@)) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'playerbot seed: the fresh cohort is not exactly PID @@FRESH_FIRST@@..@@FRESH_LAST@@';
     END IF;
 
     -- The skip rules below read this ledger, so it is created here rather than
@@ -676,6 +714,11 @@ BEGIN NOT ATOMIC
         ON i.owner_id = s.pid AND i.window = 'INVENTORY' AND i.pos = 1
      WHERE i.id IS NULL;
 
+    -- The class's apprentice chest (Skrzynia Ucznia I) is the world's choice,
+    -- for people and bots alike: while the operator has it off
+    -- (M2_STARTER_CHEST, the event flag m2_starter_chest_off) the mt2009
+    -- wrapper sets @playerbot_seed_starter_chest to 0 and a bot made then
+    -- starts without one. r40250's never sets it, and every bot has its chest.
     INSERT INTO player.item (owner_id, window, pos, count, vnum)
     SELECT s.pid, 'INVENTORY', 2, 1,
            CASE
@@ -687,7 +730,8 @@ BEGIN NOT ATOMIC
       JOIN playerbot_seed_pending AS q ON q.pid = s.pid
       LEFT JOIN player.item AS i
         ON i.owner_id = s.pid AND i.window = 'INVENTORY' AND i.pos = 2
-     WHERE i.id IS NULL;
+     WHERE i.id IS NULL
+       AND COALESCE(@playerbot_seed_starter_chest, 1) <> 0;
 
     -- The seed already supplied the starter chest above. Mark the stock login
     -- reward as claimed so give_basic_weapon does not create a second chest and,
@@ -701,7 +745,8 @@ BEGIN NOT ATOMIC
     -- new character): it gives the chest at a first login at level five or
     -- under, and on a new world every bot's first login is at level one - so
     -- every bot had a second chest and a second starter weapon out of it
-    -- (Iwakura, 26 September).
+    -- (Iwakura, 26 September). Marked whether the seed gave one or not: a
+    -- bot made while the chest is off does not get one later either.
     INSERT INTO player.quest (dwPID, szName, szState, lValue)
     SELECT q.pid, 'starter_chest', 'given', 1
       FROM playerbot_seed_pending AS q
@@ -721,9 +766,9 @@ BEGIN NOT ATOMIC
         OR NOT EXISTS (
                SELECT 1 FROM player.item AS i
                 WHERE i.owner_id = q.pid AND i.window = 'INVENTORY' AND i.pos = 1)
-        OR NOT EXISTS (
+        OR (COALESCE(@playerbot_seed_starter_chest, 1) <> 0 AND NOT EXISTS (
                SELECT 1 FROM player.item AS i
-                WHERE i.owner_id = q.pid AND i.window = 'INVENTORY' AND i.pos = 2);
+                WHERE i.owner_id = q.pid AND i.window = 'INVENTORY' AND i.pos = 2));
     IF v_conflicts <> 0 THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'playerbot seed: starter slots are incomplete';
@@ -772,9 +817,17 @@ DROP TEMPORARY TABLE IF EXISTS playerbot_seed_spec;
     chunjo_count = next(block[1] for block in KINGDOM_COHORTS if block[0] == 2)
     sql = sql.replace("@@CHUNJO_COUNT@@", str(chunjo_count))
     sql = sql.replace("@@CHUNJO_LAST@@", str(FIRST_PID + chunjo_count - 1))
-    sql = sql.replace("@@COUNT@@", str(BOT_COUNT))
+    fresh_first = FIRST_PID + REGISTRY_COUNT
+    fresh_chunjo = next(block[1] for block in FRESH_COHORTS if block[0] == 2)
+    assert FRESH_COHORTS[0][0] == 2, "the fresh cohort's Chunjo block is its first"
+    sql = sql.replace("@@FRESH_COUNT@@", str(BOT_COUNT - REGISTRY_COUNT))
+    sql = sql.replace("@@FRESH_CHUNJO_COUNT@@", str(fresh_chunjo))
+    sql = sql.replace("@@FRESH_CHUNJO_LAST@@", str(fresh_first + fresh_chunjo - 1))
+    sql = sql.replace("@@FRESH_FIRST@@", str(fresh_first))
+    sql = sql.replace("@@FRESH_LAST@@", str(FIRST_PID + BOT_COUNT - 1))
+    sql = sql.replace("@@COUNT@@", str(REGISTRY_COUNT))
     sql = sql.replace("@@FIRST@@", str(FIRST_PID))
-    sql = sql.replace("@@LAST@@", str(FIRST_PID + BOT_COUNT - 1))
+    sql = sql.replace("@@LAST@@", str(FIRST_PID + REGISTRY_COUNT - 1))
     return sql.replace("@@VALUES@@", ",\n".join(values))
 
 

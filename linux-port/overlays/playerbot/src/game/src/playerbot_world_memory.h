@@ -497,51 +497,112 @@ namespace
 		return unit;
 	}
 
-	// How hot a commodity is: how many times in a row it has left a counter
-	// almost as soon as it was put there. Iwakura's "wysoki popyt" - the bot
-	// notices and asks more next time, and keeps asking more while it keeps
-	// happening.
+	// What the market is short of: Iwakura's answer of 28 September, point 5.
+	// A kind that keeps selling and keeps being missing from the counters asks
+	// more, ten percent for every three hours of that, to forty, and a step
+	// less for every three hours its stock stood unsold
+	// (playerbot_price_rules::NoteShortageLook has the whole rule). It replaces
+	// his "wysoki popyt" of 13 September - ten to twenty-five percent for every
+	// line gone within five minutes of going up, four deep, forgotten in an
+	// hour - which only a new stand's lines ever asked: neither a service
+	// visit's add nor the reprice did.
 	//
-	// Keyed like the sale memory, so a skill book counts per skill. This is a
-	// market-wide count on purpose: what it measures is how fast buyers take
-	// the thing, which is a fact about the thing and not about the keeper.
-	struct TPlayerBotDemandMemory
-	{
-		BYTE bFastSales;
-		DWORD dwLastFastSale;
-		TPlayerBotDemandMemory() : bFastSales(0), dwLastFastSale(0) {}
-	};
-	typedef std::map<DWORD, TPlayerBotDemandMemory> TPlayerBotDemandMap;
-	TPlayerBotDemandMap s_mapDemandMemory;
+	// Per vnum, the ledger's own key, so "missing" and "selling" count the same
+	// thing; a skill book is one kind here, as it is on the ledger. Missing is
+	// the ledger's count of the kind on every counter it sees. Selling is the
+	// lines sold: on the 2.x line every sale of every counter in the world, a
+	// player's purchase included, which the db core tells every core
+	// (playerbot_offline::soldLinesByVnum); on r40250 the lines that left a
+	// bot's classic stall, the only counters the ledger sees there.
+	// Shared by every keeper on the core, and in memory as the ledger is: a
+	// restart starts every kind at no markup. Kept on the shop channel's cores
+	// alone, where every stand stands and every line is priced - another
+	// channel's ledger counts that channel's few counters, and would call
+	// everything missing.
+	typedef std::map<DWORD, playerbot_price_rules::ShortageState> TPlayerBotShortageMap;
+	TPlayerBotShortageMap s_mapPlayerBotShortage;
+	// The lines that left a classic stall since the ledger last looked.
+	std::map<DWORD, DWORD> s_mapPlayerBotLinesSold;
 
-	void NotePlayerBotFastSale(DWORD vnum, BYTE refine, DWORD dwNow, DWORD skillVnum = 0)
+	void NotePlayerBotMarketLineSold(DWORD vnum)
 	{
-		if (vnum == 0)
+		if (vnum == 0 || (s_mapPlayerBotLinesSold.size() >= PLAYERBOT_MARKET_SHORTAGE_MAX_KINDS &&
+				s_mapPlayerBotLinesSold.find(vnum) == s_mapPlayerBotLinesSold.end()))
 			return;
-		TPlayerBotDemandMemory& mem = s_mapDemandMemory[PlayerBotSaleKey(vnum, refine, skillVnum)];
-		// A rush that stopped an hour ago is not a rush. Counted from the last
-		// quick sale rather than decremented on a timer, because nothing here
-		// runs on a clock of its own.
-		if (mem.dwLastFastSale != 0 && dwNow - mem.dwLastFastSale >= PLAYERBOT_MARKET_DEMAND_DECAY)
-			mem.bFastSales = 0;
-		if (mem.bFastSales < PLAYERBOT_MARKET_DEMAND_MAX_STEPS)
-			++mem.bFastSales;
-		mem.dwLastFastSale = dwNow;
+		++s_mapPlayerBotLinesSold[vnum];
 	}
 
-	// What to add to this keeper's asking price, in percent, or zero. Drawn per
-	// listing inside Iwakura's band, so two counters of a wanted thing do not
-	// show the same number.
-	int GetPlayerBotDemandPercent(DWORD vnum, BYTE refine, DWORD dwNow, DWORD skillVnum = 0)
+	// The markup of a kind, in percent, or zero.
+	int GetPlayerBotShortageMarkupPercent(DWORD vnum)
 	{
-		TPlayerBotDemandMap::const_iterator it =
-				s_mapDemandMemory.find(PlayerBotSaleKey(vnum, refine, skillVnum));
-		if (it == s_mapDemandMemory.end() || it->second.bFastSales == 0)
-			return 0;
-		if (dwNow - it->second.dwLastFastSale >= PLAYERBOT_MARKET_DEMAND_DECAY)
-			return 0;
-		return (int)it->second.bFastSales *
-				number(PLAYERBOT_MARKET_DEMAND_MIN_PERCENT, PLAYERBOT_MARKET_DEMAND_MAX_PERCENT);
+		TPlayerBotShortageMap::const_iterator it = s_mapPlayerBotShortage.find(vnum);
+		return it == s_mapPlayerBotShortage.end() ? 0 : it->second.markupPercent;
+	}
+
+	// Once a ledger pass, after the ledger has been counted: the sales since
+	// the last pass open or feed a kind's window, every watched kind is looked
+	// at, and a window that has run its three hours is judged. A kind whose
+	// markup moved says so on one line a pass.
+	void UpdatePlayerBotShortageMarkups(DWORD dwNow)
+	{
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+		for (std::map<uint32_t, uint32_t>::const_iterator it = playerbot_offline::soldLinesByVnum.begin();
+				it != playerbot_offline::soldLinesByVnum.end(); ++it)
+			s_mapPlayerBotLinesSold[it->first] += it->second;
+		playerbot_offline::soldLinesByVnum.clear();
+#endif
+		if (g_bChannel != playerbot_channel_rules::SHOP_CHANNEL)
+		{
+			s_mapPlayerBotLinesSold.clear();
+			s_mapPlayerBotShortage.clear();
+			return;
+		}
+		const playerbot_price_rules::ShortageRules rules = {
+			PLAYERBOT_MARKET_SHORTAGE_WINDOW_MS, PLAYERBOT_MARKET_SHORTAGE_STEP_PERCENT,
+			PLAYERBOT_MARKET_SHORTAGE_MAX_PERCENT, PLAYERBOT_MARKET_SHORTAGE_MIN_LINES_SOLD,
+			PLAYERBOT_MARKET_SHORTAGE_MISSING_PERCENT };
+		for (std::map<DWORD, DWORD>::const_iterator it = s_mapPlayerBotLinesSold.begin();
+				it != s_mapPlayerBotLinesSold.end(); ++it)
+		{
+			if (s_mapPlayerBotShortage.size() >= PLAYERBOT_MARKET_SHORTAGE_MAX_KINDS &&
+					s_mapPlayerBotShortage.find(it->first) == s_mapPlayerBotShortage.end())
+				continue;
+			playerbot_price_rules::NoteShortageSale(s_mapPlayerBotShortage[it->first], dwNow, it->second);
+		}
+		s_mapPlayerBotLinesSold.clear();
+
+		std::string changed;
+		unsigned int changes = 0;
+		for (TPlayerBotShortageMap::iterator it = s_mapPlayerBotShortage.begin();
+				it != s_mapPlayerBotShortage.end(); )
+		{
+			const TPlayerBotMarketLedgerEntry* entry = GetPlayerBotMarketLedgerEntry(it->first);
+			const bool missing = !entry || entry->dwSupplyUnits <= PLAYERBOT_MARKET_SHORTAGE_MISSING_UNITS;
+			const playerbot_price_rules::ShortageJudgement judged =
+					playerbot_price_rules::NoteShortageLook(it->second, dwNow, missing, rules);
+			if (judged.verdict != playerbot_price_rules::SHORTAGE_OPEN &&
+					judged.markupAfter != judged.markupBefore)
+			{
+				if (++changes <= 6)
+				{
+					char buf[96];
+					snprintf(buf, sizeof(buf), "%svnum=%u percent=%d was=%d sold=%u missing=%u%%",
+							changed.empty() ? "" : " | ", it->first, judged.markupAfter,
+							judged.markupBefore, judged.linesSold,
+							judged.looks ? judged.missingLooks * 100u / judged.looks : 0u);
+					changed += buf;
+				}
+			}
+			if (!it->second.watching)
+				s_mapPlayerBotShortage.erase(it++);
+			else
+				++it;
+		}
+		if (changes > 0)
+			PlayerBotLogThrottled("market_markup", dwNow,
+					"PLAYERBOT_MARKET: markup changed=%u watched=%u %s%s", changes,
+					(unsigned int)s_mapPlayerBotShortage.size(), changed.c_str(),
+					changes > 6 ? " | ..." : "");
 	}
 
 	// The race a map is made of, as the population has seen it, or

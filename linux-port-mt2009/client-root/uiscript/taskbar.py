@@ -505,7 +505,7 @@ if SCREEN_WIDTH >= 940:
 			"x" : SCREEN_WIDTH - 205,
 			"y" : 3 + Y_ADD_POSITION,
 
-			"tooltip_text" : "Towarzysz (P)",
+			"tooltip_text" : uiScriptLocale.SIDEKICK_TASKBAR_TOOLTIP,
 
 			"default_image" : "playerbot_ui/sidekick_button_01.tga",
 			"over_image" : "playerbot_ui/sidekick_button_02.tga",
@@ -518,7 +518,7 @@ if SCREEN_WIDTH >= 940:
 			"x" : SCREEN_WIDTH - 171,
 			"y" : 3 + Y_ADD_POSITION,
 
-			"tooltip_text" : "Auto \xa3owy (K)",
+			"tooltip_text" : uiScriptLocale.AUTOHUNT_TASKBAR_TOOLTIP,
 
 			"default_image" : "playerbot_ui/autohunt_button_01.tga",
 			"over_image" : "playerbot_ui/autohunt_button_02.tga",

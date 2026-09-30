@@ -1,6 +1,17 @@
 ﻿Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+# A text in the launcher's language: .m2launcher.json's "language", which the
+# window and Metin2-Launcher.ps1 put into $env:M2_LAUNCHER_LANGUAGE for every
+# module and every action they start. The English one for 'en', otherwise the
+# Polish one, which is word for word what the launcher always said. Each
+# module keeps its own copy and none exports it.
+function UI-Text {
+    param([AllowEmptyString()][string]$Pl, [AllowEmptyString()][string]$En)
+    if ($env:M2_LAUNCHER_LANGUAGE -eq 'en' -and $En) { return $En }
+    return $Pl
+}
+
 # Fallback used when the manifest carries no support block (offline, or an old manifest).
 $script:M2_DEFAULT_SUPPORT_CONTACT = 'https://github.com/Doofenyoyo1/metin2_SP/issues'
 
@@ -177,7 +188,7 @@ function Repair-M2ClientExecutables {
     if ($ExeComponent -and (Test-M2ClientExeOld -ClientFolder $folder -OldHashes $OldHashes)) {
         $running = @(Get-M2FolderProcesses -Root $folder)
         if ($running.Count -gt 0) {
-            $notes += "Klient ma stary metin2client.exe, ale gra jest uruchomiona ($($running -join ', ')) - zamknij ją, a launcher podmieni plik przy następnym uruchomieniu."
+            $notes += (UI-Text "Klient ma stary metin2client.exe, ale gra jest uruchomiona ($($running -join ', ')) - zamknij ją, a launcher podmieni plik przy następnym uruchomieniu." "The client has the old metin2client.exe, but the game is running ($($running -join ', ')) - close it, and the launcher replaces the file at its next start.")
         }
         else {
             $temp = Join-Path ([IO.Path]::GetTempPath()) ('m2-client-exe-' + [Guid]::NewGuid().ToString('N') + '.exe')
@@ -185,7 +196,7 @@ function Repair-M2ClientExecutables {
                 Get-M2Download -Source ([string]$ExeComponent.url) -Destination $temp
                 $hash = Get-M2FileSha256 -Path $temp
                 if ($hash -ne ([string]$ExeComponent.sha256).ToUpperInvariant()) {
-                    throw "błędna suma SHA-256 pobranego pliku ($hash)"
+                    throw (UI-Text "błędna suma SHA-256 pobranego pliku ($hash)" "the downloaded file has a wrong SHA-256 ($hash)")
                 }
                 if ($BackupRoot) {
                     $backup = Join-Path $BackupRoot ('exe-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
@@ -193,15 +204,15 @@ function Repair-M2ClientExecutables {
                     Copy-Item -LiteralPath $main -Destination (Join-Path $backup 'metin2client.exe') -Force
                 }
                 Copy-Item -LiteralPath $temp -Destination $main -Force
-                $notes += "Podmieniono stary metin2client.exe na aktualny (SHA-256 $($hash.Substring(0, 8))...)."
+                $notes += (UI-Text "Podmieniono stary metin2client.exe na aktualny (SHA-256 $($hash.Substring(0, 8))...)." "Replaced the old metin2client.exe with the current one (SHA-256 $($hash.Substring(0, 8))...).")
             }
             catch {
                 if (Test-M2AntivirusBlock -ErrorRecord $_) {
-                    $notes += ('Antywirus nie pozwolił zapisać aktualnego metin2client.exe (Windows Defender bierze go za zagrożenie - to fałszywy alarm), więc w folderze klienta został stary, z którym ekwipunek się rozjeżdża. ' +
-                        'Dodaj folder klienta do wykluczeń (Zabezpieczenia Windows > Ochrona przed wirusami i zagrożeniami > Zarządzaj ustawieniami > Wykluczenia) i uruchom launcher ponownie.')
+                    $notes += ((UI-Text 'Antywirus nie pozwolił zapisać aktualnego metin2client.exe (Windows Defender bierze go za zagrożenie - to fałszywy alarm), więc w folderze klienta został stary, z którym ekwipunek się rozjeżdża. ' 'An antivirus did not let the current metin2client.exe be written (Windows Defender takes it for a threat - a false alarm), so the client folder keeps the old one, with which the inventory goes wrong. ') +
+                        (UI-Text 'Dodaj folder klienta do wykluczeń (Zabezpieczenia Windows > Ochrona przed wirusami i zagrożeniami > Zarządzaj ustawieniami > Wykluczenia) i uruchom launcher ponownie.' 'Add the client folder to the exclusions (Windows Security > Virus & threat protection > Manage settings > Exclusions) and start the launcher again.'))
                 }
                 else {
-                    $notes += "Nie udało się podmienić starego metin2client.exe: $($_.Exception.Message)"
+                    $notes += (UI-Text "Nie udało się podmienić starego metin2client.exe: $($_.Exception.Message)" "Could not replace the old metin2client.exe: $($_.Exception.Message)")
                 }
             }
             finally {
@@ -223,7 +234,7 @@ function Repair-M2ClientExecutables {
             $config.clientExecutable = $main
             $config.clientRoot = $folder
             Save-M2LauncherConfig -Config $config -ConfigPath $ConfigPath
-            $notes += "Launcher uruchamiał $([IO.Path]::GetFileName($chosen)) - teraz uruchamia metin2client.exe."
+            $notes += (UI-Text "Launcher uruchamiał $([IO.Path]::GetFileName($chosen)) - teraz uruchamia metin2client.exe." "The launcher started $([IO.Path]::GetFileName($chosen)) - now it starts metin2client.exe.")
         }
     }
     foreach ($name in $script:M2StrayClientExeNames) {
@@ -231,10 +242,10 @@ function Repair-M2ClientExecutables {
         if (-not (Test-Path -LiteralPath $stray -PathType Leaf)) { continue }
         try {
             Remove-Item -LiteralPath $stray -Force
-            $notes += "Usunięto zbędny plik klienta: $name."
+            $notes += (UI-Text "Usunięto zbędny plik klienta: $name." "Deleted a client file nothing needs: $name.")
         }
         catch {
-            $notes += "Nie udało się usunąć $name ($($_.Exception.Message)) - spróbuję przy następnym uruchomieniu."
+            $notes += (UI-Text "Nie udało się usunąć $name ($($_.Exception.Message)) - spróbuję przy następnym uruchomieniu." "Could not delete $name ($($_.Exception.Message)) - trying again at the next start.")
         }
     }
     return $notes
@@ -258,16 +269,16 @@ function ConvertFrom-M2ManifestText {
     if ($clean.Length -gt 0 -and [int]$clean[0] -eq 0xFEFF) { $clean = $clean.Substring(1) }
     $clean = $clean.Trim()
     if (-not $clean) {
-        throw "Kanal aktualizacji ($Origin) zwrocil pusta odpowiedz. Twoja instalacja pozostaje bez zmian."
+        throw (UI-Text "Kanal aktualizacji ($Origin) zwrocil pusta odpowiedz. Twoja instalacja pozostaje bez zmian." "The update channel ($Origin) answered with nothing. Your installation stays as it is.")
     }
     try {
         $parsed = $clean | ConvertFrom-Json
     }
     catch {
-        throw "Kanal aktualizacji ($Origin) zwrocil plik, ktorego nie da sie odczytac jako JSON. To blad po stronie kanalu, nie Twojej instalacji - zglos to na GitHubie. Szczegoly: $($_.Exception.Message)"
+        throw (UI-Text "Kanal aktualizacji ($Origin) zwrocil plik, ktorego nie da sie odczytac jako JSON. To blad po stronie kanalu, nie Twojej instalacji - zglos to na GitHubie. Szczegoly: $($_.Exception.Message)" "The update channel ($Origin) answered with a file that cannot be read as JSON. That is the channel's fault, not your installation's - report it on GitHub. Details: $($_.Exception.Message)")
     }
     if ($parsed -isnot [psobject] -or $parsed -is [string]) {
-        throw "Kanal aktualizacji ($Origin) zwrocil cos, co nie jest manifestem. Twoja instalacja pozostaje bez zmian."
+        throw (UI-Text "Kanal aktualizacji ($Origin) zwrocil cos, co nie jest manifestem. Twoja instalacja pozostaje bez zmian." "The update channel ($Origin) answered with something that is not a manifest. Your installation stays as it is.")
     }
     return $parsed
 }
@@ -285,7 +296,7 @@ function Get-M2UpdateManifest {
 
     $uri = $null
     if (-not [Uri]::TryCreate($Source, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -ne 'https') {
-        throw 'Manifest musi być lokalnym plikiem albo adresem HTTPS.'
+        throw (UI-Text 'Manifest musi być lokalnym plikiem albo adresem HTTPS.' 'The manifest has to be a local file or an HTTPS address.')
     }
     # raw.githubusercontent.com is a CDN with a five-minute cache
     # (Cache-Control: max-age=300), and for a while after a release it hands
@@ -340,7 +351,7 @@ function Get-M2UpdateManifest {
         # transport error that came back ("Operacja nie powiodla sie") told them
         # nothing about waiting an hour - or that their install was fine.
         if ($statusCode -eq 403 -or $statusCode -eq 429) {
-            throw 'GitHub chwilowo ogranicza liczbe zapytan z Twojego adresu IP (limit anonimowy). Nie jest to blad Twojej instalacji - serwer dziala dalej. Sprobuj ponownie za kilkanascie minut.'
+            throw (UI-Text 'GitHub chwilowo ogranicza liczbe zapytan z Twojego adresu IP (limit anonimowy). Nie jest to blad Twojej instalacji - serwer dziala dalej. Sprobuj ponownie za kilkanascie minut.' 'GitHub is limiting the requests from your IP address for a while (the anonymous limit). That is not your installation''s fault - the server keeps running. Try again in a quarter of an hour or so.')
         }
 
         # The stable channel may intentionally be empty between releases. A
@@ -353,11 +364,11 @@ function Get-M2UpdateManifest {
                 publishedAt = $null
                 server = $null
                 client = $null
-                statusMessage = 'Kanał aktualizacji nie został jeszcze opublikowany. Obecna instalacja pozostaje bez zmian.'
+                statusMessage = (UI-Text 'Kanał aktualizacji nie został jeszcze opublikowany. Obecna instalacja pozostaje bez zmian.' 'The update channel has not been published yet. The installation stays as it is.')
             }
         }
 
-        throw "Nie można sprawdzić aktualizacji pod adresem $Source. Sprawdź internet, zaporę i ustawienia DNS. Szczegóły: $($_.Exception.Message)"
+        throw (UI-Text "Nie można sprawdzić aktualizacji pod adresem $Source. Sprawdź internet, zaporę i ustawienia DNS. Szczegóły: $($_.Exception.Message)" "Cannot check for updates at $Source. Check the Internet connection, the firewall and the DNS settings. Details: $($_.Exception.Message)")
     }
 }
 
@@ -389,12 +400,12 @@ function New-M2AntivirusError {
         [Parameter(Mandatory = $true)]$ErrorRecord
     )
 
-    return ("Antywirus zablokowal plik aktualizacji: $Path`n" +
-        "Windows zglosil: $($ErrorRecord.Exception.Message)`n" +
-        'Nic nie zostalo zainstalowane - poprzednia wersja serwera dziala dalej. ' +
-        'Dodaj katalog serwera do wykluczen w Zabezpieczeniach Windows (Ochrona przed ' +
-        'wirusami > Zarzadzaj ustawieniami > Wykluczenia) albo przeslij ten log, ' +
-        'zebysmy zobaczyli, o ktory plik chodzi.')
+    return ((UI-Text "Antywirus zablokowal plik aktualizacji: $Path`n" "An antivirus blocked an update file: $Path`n") +
+        (UI-Text "Windows zglosil: $($ErrorRecord.Exception.Message)`n" "Windows said: $($ErrorRecord.Exception.Message)`n") +
+        (UI-Text 'Nic nie zostalo zainstalowane - poprzednia wersja serwera dziala dalej. ' 'Nothing was installed - the previous server version keeps running. ') +
+        (UI-Text 'Dodaj katalog serwera do wykluczen w Zabezpieczeniach Windows (Ochrona przed ' 'Add the server folder to the exclusions in Windows Security (Virus & threat ') +
+        (UI-Text 'wirusami > Zarzadzaj ustawieniami > Wykluczenia) albo przeslij ten log, ' 'protection > Manage settings > Exclusions) or send this log, ') +
+        (UI-Text 'zebysmy zobaczyli, o ktory plik chodzi.' 'so that we can see which file it is.'))
 }
 
 function Get-M2FolderProcesses {
@@ -440,12 +451,12 @@ function New-M2FileInUseError {
 
     $holders = @(Get-M2FolderProcesses -Root $Root)
     $lines = @()
-    $lines += "Plik jest teraz uzywany przez uruchomiony program: $Path"
+    $lines += (UI-Text "Plik jest teraz uzywany przez uruchomiony program: $Path" "A running program is using the file now: $Path")
     if ($holders.Count -gt 0) {
-        $lines += "Z tego folderu dziala: $($holders -join ', ')."
+        $lines += (UI-Text "Z tego folderu dziala: $($holders -join ', ')." "Running from this folder: $($holders -join ', ').")
     }
-    $lines += 'Zamknij gre (sprawdz tez Menedzer zadan, czy metin2client.exe nie zostal w tle) i kliknij ZAINSTALUJ AKTUALIZACJE jeszcze raz.'
-    $lines += 'Nic nie zostalo zmienione - poprzednia wersja dziala dalej.'
+    $lines += (UI-Text 'Zamknij gre (sprawdz tez Menedzer zadan, czy metin2client.exe nie zostal w tle) i kliknij ZAINSTALUJ AKTUALIZACJE jeszcze raz.' 'Close the game (check Task Manager too, in case metin2client.exe stayed in the background) and click CHECK FOR UPDATES again.')
+    $lines += (UI-Text 'Nic nie zostalo zmienione - poprzednia wersja dziala dalej.' 'Nothing was changed - the previous version keeps running.')
     return ($lines -join [Environment]::NewLine)
 }
 
@@ -502,9 +513,9 @@ function New-M2AccessDeniedError {
     )
 
     $lines = @()
-    $lines += "Brak prawa zapisu do pliku: $Path"
-    $lines += "Windows zglosil: $($ErrorRecord.Exception.Message)"
-    $lines += 'Nic nie zostalo zmienione - poprzednia wersja dziala dalej.'
+    $lines += (UI-Text "Brak prawa zapisu do pliku: $Path" "No right to write the file: $Path")
+    $lines += (UI-Text "Windows zglosil: $($ErrorRecord.Exception.Message)" "Windows said: $($ErrorRecord.Exception.Message)")
+    $lines += (UI-Text 'Nic nie zostalo zmienione - poprzednia wersja dziala dalej.' 'Nothing was changed - the previous version keeps running.')
     $lines += ''
     $found = $false
 
@@ -517,8 +528,8 @@ function New-M2AccessDeniedError {
             Where-Object { $_.Path -and $_.Path.StartsWith($rootFull, [StringComparison]::OrdinalIgnoreCase) } |
             Select-Object -ExpandProperty Name -Unique)
         if ($holders.Count -gt 0) {
-            $lines += "* Z tego folderu dziala teraz: $($holders -join ', ')."
-            $lines += '  Zamknij gre (takze launcher gry, jesli go uzywasz) i sprobuj ponownie.'
+            $lines += (UI-Text "* Z tego folderu dziala teraz: $($holders -join ', ')." "* Running from this folder now: $($holders -join ', ').")
+            $lines += (UI-Text '  Zamknij gre (takze launcher gry, jesli go uzywasz) i sprobuj ponownie.' '  Close the game (and the game''s launcher too, if you use one) and try again.')
             $found = $true
         }
     }
@@ -530,7 +541,7 @@ function New-M2AccessDeniedError {
         if (Test-Path -LiteralPath $Path -PathType Leaf) {
             $attrs = (Get-Item -LiteralPath $Path -Force).Attributes
             if (([int]$attrs -band [int][IO.FileAttributes]::ReadOnly) -ne 0) {
-                $lines += '* Plik jest tylko do odczytu i nie dalo sie tego zdjac.'
+                $lines += (UI-Text '* Plik jest tylko do odczytu i nie dalo sie tego zdjac.' '* The file is read-only and that could not be taken off.')
                 $found = $true
             }
         }
@@ -543,9 +554,9 @@ function New-M2AccessDeniedError {
     try {
         $cfa = (Get-MpPreference -ErrorAction SilentlyContinue).EnableControlledFolderAccess
         if ($cfa -and [int]$cfa -ne 0) {
-            $lines += '* Wlaczona jest Ochrona folderow (Kontrolowany dostep do folderow) w Zabezpieczeniach Windows.'
-            $lines += '  Zabezpieczenia Windows > Ochrona przed wirusami i zagrozeniami > Ochrona przed'
-            $lines += '  ransomware > Zezwalaj aplikacji na dostep - dodaj powershell.exe, albo wylacz ochrone na czas aktualizacji.'
+            $lines += (UI-Text '* Wlaczona jest Ochrona folderow (Kontrolowany dostep do folderow) w Zabezpieczeniach Windows.' '* Folder protection (Controlled folder access) is on in Windows Security.')
+            $lines += (UI-Text '  Zabezpieczenia Windows > Ochrona przed wirusami i zagrozeniami > Ochrona przed' '  Windows Security > Virus & threat protection > Ransomware')
+            $lines += (UI-Text '  ransomware > Zezwalaj aplikacji na dostep - dodaj powershell.exe, albo wylacz ochrone na czas aktualizacji.' '  protection > Allow an app through Controlled folder access - add powershell.exe, or turn the protection off for the update.')
             $found = $true
         }
     }
@@ -559,13 +570,13 @@ function New-M2AccessDeniedError {
         try {
             [IO.File]::WriteAllText($probe, 'x')
             Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
-            $lines += "* Do folderu $parent mozna pisac, ale do samego pliku nie."
-            $lines += '  Kliknij plik prawym przyciskiem > Wlasciwosci > Zabezpieczenia i sprawdz, czy Twoje konto ma Zapis.'
+            $lines += (UI-Text "* Do folderu $parent mozna pisac, ale do samego pliku nie." "* The folder $parent can be written to, but the file itself cannot.")
+            $lines += (UI-Text '  Kliknij plik prawym przyciskiem > Wlasciwosci > Zabezpieczenia i sprawdz, czy Twoje konto ma Zapis.' '  Right-click the file > Properties > Security and check that your account has Write.')
         }
         catch {
-            $lines += "* Do folderu $parent nie mozna pisac w ogole - to uprawnienia NTFS, nie sam plik."
-            $lines += '  Kliknij folder prawym przyciskiem > Wlasciwosci > Zabezpieczenia > Edytuj i daj swojemu kontu Pelna kontrole,'
-            $lines += '  albo przenies klienta do folderu, ktorego jestes wlascicielem (np. C:\Gry\Metin2Client).'
+            $lines += (UI-Text "* Do folderu $parent nie mozna pisac w ogole - to uprawnienia NTFS, nie sam plik." "* The folder $parent cannot be written to at all - that is the NTFS permissions, not the file itself.")
+            $lines += (UI-Text '  Kliknij folder prawym przyciskiem > Wlasciwosci > Zabezpieczenia > Edytuj i daj swojemu kontu Pelna kontrole,' '  Right-click the folder > Properties > Security > Edit and give your account Full control,')
+            $lines += (UI-Text '  albo przenies klienta do folderu, ktorego jestes wlascicielem (np. C:\Gry\Metin2Client).' '  or move the client to a folder you own (e.g. C:\Games\Metin2Client).')
         }
     }
 
@@ -585,7 +596,7 @@ function Get-M2Download {
 
     $uri = $null
     if (-not [Uri]::TryCreate($Source, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -ne 'https') {
-        throw 'Pakiet aktualizacji musi pochodzić z lokalnego pliku albo adresu HTTPS.'
+        throw (UI-Text 'Pakiet aktualizacji musi pochodzić z lokalnego pliku albo adresu HTTPS.' 'The update package has to come from a local file or an HTTPS address.')
     }
     # Three attempts: a release asset on GitHub answered "(500) Wewnetrzny
     # blad serwera" and "Polaczenie zostalo nieoczekiwanie zakonczone" a
@@ -604,7 +615,7 @@ function Get-M2Download {
                 throw (New-M2AntivirusError -Path $Destination -ErrorRecord $_)
             }
             if ($attempt -ge $attempts) { throw }
-            Write-Warning ('Pobieranie nie powiodlo sie (proba ' + $attempt + ' z ' + $attempts + '): ' + $_.Exception.Message + ' - ponawiam za 5 s.')
+            Write-Warning ((UI-Text 'Pobieranie nie powiodlo sie (proba {0} z {1}): {2} - ponawiam za 5 s.' 'The download failed (attempt {0} of {1}): {2} - trying again in 5 s.') -f $attempt, $attempts, $_.Exception.Message)
             Remove-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 5
         }
@@ -626,12 +637,12 @@ function Expand-M2SafeZip {
             $relative = $entry.FullName.Replace('/', '\').TrimStart('\')
             if (-not $relative) { continue }
             if ([IO.Path]::IsPathRooted($relative) -or $relative.Split('\') -contains '..') {
-                throw "Niedozwolona ścieżka w ZIP: $($entry.FullName)"
+                throw (UI-Text "Niedozwolona ścieżka w ZIP: $($entry.FullName)" "A path not allowed in the ZIP: $($entry.FullName)")
             }
 
             $target = [IO.Path]::GetFullPath((Join-Path $root $relative))
             if (-not $target.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) {
-                throw "Plik ZIP wychodzi poza katalog docelowy: $($entry.FullName)"
+                throw (UI-Text "Plik ZIP wychodzi poza katalog docelowy: $($entry.FullName)" "The ZIP file reaches outside the target folder: $($entry.FullName)")
             }
 
             if (-not $entry.Name) {
@@ -702,12 +713,12 @@ function Invoke-M2PackageUpdate {
     $url = [string]$Component.url
     $expectedHash = ([string]$Component.sha256).ToUpperInvariant()
     if (-not $url -or -not (Test-M2Sha256 $expectedHash)) {
-        throw 'Manifest nie zawiera poprawnego URL i SHA-256 dla tej aktualizacji.'
+        throw (UI-Text 'Manifest nie zawiera poprawnego URL i SHA-256 dla tej aktualizacji.' 'The manifest has no valid URL and SHA-256 for this update.')
     }
 
     $target = [IO.Path]::GetFullPath($TargetRoot).TrimEnd('\')
     if (-not (Test-Path -LiteralPath $target -PathType Container)) {
-        throw "Katalog docelowy nie istnieje: $target"
+        throw (UI-Text "Katalog docelowy nie istnieje: $target" "The target folder does not exist: $target")
     }
 
     $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('m2-update-' + [Guid]::NewGuid().ToString('N'))
@@ -720,14 +731,14 @@ function Invoke-M2PackageUpdate {
         Get-M2Download -Source $url -Destination $download
         $actualHash = (Get-FileHash -LiteralPath $download -Algorithm SHA256).Hash.ToUpperInvariant()
         if ($actualHash -ne $expectedHash) {
-            throw "Błędna suma SHA-256. Oczekiwano $expectedHash, otrzymano $actualHash."
+            throw (UI-Text "Błędna suma SHA-256. Oczekiwano $expectedHash, otrzymano $actualHash." "Wrong SHA-256. Expected $expectedHash, got $actualHash.")
         }
         $downloadMb = [Math]::Round((Get-Item -LiteralPath $download).Length / 1MB, 1)
-        Write-Host ("[faza] pakiet pobrany i sprawdzony: {0} MB w {1} s" -f $downloadMb, [int]$downloadWatch.Elapsed.TotalSeconds) -ForegroundColor DarkCyan
+        Write-Host ((UI-Text "[faza] pakiet pobrany i sprawdzony: {0} MB w {1} s" "[phase] package downloaded and checked: {0} MB in {1} s") -f $downloadMb, [int]$downloadWatch.Elapsed.TotalSeconds) -ForegroundColor DarkCyan
 
         Expand-M2SafeZip -ArchivePath $download -Destination $expanded
         $files = @(Get-ChildItem -LiteralPath $expanded -Recurse -File -Force)
-        if ($files.Count -eq 0) { throw 'Pakiet aktualizacji jest pusty.' }
+        if ($files.Count -eq 0) { throw (UI-Text 'Pakiet aktualizacji jest pusty.' 'The update package is empty.') }
 
         $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
         $backup = Join-Path $BackupRoot ("update-$stamp")
@@ -737,11 +748,11 @@ function Invoke-M2PackageUpdate {
         foreach ($file in $files) {
             $relative = $file.FullName.Substring($expanded.Length).TrimStart('\')
             if (Test-M2ProtectedPath -RelativePath $relative) {
-                throw "Pakiet próbuje zmienić chroniony plik: $relative"
+                throw (UI-Text "Pakiet próbuje zmienić chroniony plik: $relative" "The package tries to change a protected file: $relative")
             }
             $destination = [IO.Path]::GetFullPath((Join-Path $target $relative))
             if (-not $destination.StartsWith($target + '\', [StringComparison]::OrdinalIgnoreCase)) {
-                throw "Niedozwolona ścieżka aktualizacji: $relative"
+                throw (UI-Text "Niedozwolona ścieżka aktualizacji: $relative" "An update path that is not allowed: $relative")
             }
             $changes += [pscustomobject]@{
                 Relative = $relative
@@ -922,7 +933,7 @@ function Invoke-M2EnginePatches {
         if ($checked -eq 0) { continue }
         if ($found -eq $checked) { continue }          # every hunk already in
         if ($found -gt 0) {
-            Write-Host "Latka $($p.Name) jest nalozona tylko czesciowo - pomijam ja, zeby nie pogorszyc." -ForegroundColor Yellow
+            Write-Host (UI-Text "Latka $($p.Name) jest nalozona tylko czesciowo - pomijam ja, zeby nie pogorszyc." "The patch $($p.Name) is applied only in part - skipping it so as not to make it worse.") -ForegroundColor Yellow
             continue
         }
         $pending += $p
@@ -953,7 +964,7 @@ function Invoke-M2EnginePatches {
         if ($exit -eq 0) {
             foreach ($line in @($output)) {
                 if ("$line" -match '^APPLIED (.+)$') {
-                    Write-Host "Nalozono latke silnika: $($Matches[1])" -ForegroundColor DarkGray
+                    Write-Host (UI-Text "Nalozono latke silnika: $($Matches[1])" "Applied the engine patch: $($Matches[1])") -ForegroundColor DarkGray
                     $count++
                 }
             }
@@ -962,12 +973,12 @@ function Invoke-M2EnginePatches {
             # Never fail quietly here: the stalls were broken for weeks because a
             # patch that never arrived looked exactly like one already applied.
             if ($text -match 'NOPATCH') {
-                Write-Host "Obraz $image nie zawiera narzedzia patch - latki silnika NIE zostaly nalozone." -ForegroundColor Yellow
+                Write-Host (UI-Text "Obraz $image nie zawiera narzedzia patch - latki silnika NIE zostaly nalozone." "The image $image has no patch tool - the engine patches were NOT applied.") -ForegroundColor Yellow
             }
             else {
-                Write-Host 'Nie udalo sie nalozyc latek silnika - serwer zbuduje sie bez nich.' -ForegroundColor Yellow
+                Write-Host (UI-Text 'Nie udalo sie nalozyc latek silnika - serwer zbuduje sie bez nich.' 'Could not apply the engine patches - the server builds without them.') -ForegroundColor Yellow
             }
-            Write-Host 'Prywatne stragany botow i graczy moga przez to nie dzialac.' -ForegroundColor Yellow
+            Write-Host (UI-Text 'Prywatne stragany botow i graczy moga przez to nie dzialac.' 'The private stalls of bots and players may not work because of that.') -ForegroundColor Yellow
             Write-Host $text -ForegroundColor DarkGray
         }
     }
@@ -1089,7 +1100,7 @@ function Sync-M2PlayerbotOverlay {
         # Silent before: a missing source left the staged copy as it was, and if
         # that was missing too the start failed a second after the database came
         # up, with "exit 1" and nothing else. Say which file, and where.
-        Write-Warning "Brak $seedSource - playerbots_seed.sql nie zostal odswiezony."
+        Write-Warning (UI-Text "Brak $seedSource - playerbots_seed.sql nie zostal odswiezony." "$seedSource is missing - playerbots_seed.sql was not refreshed.")
     }
 
     # The panel's build context, the same way. start-server.ps1 stages these
@@ -1202,10 +1213,12 @@ function Protect-M2LogContent {
         '$1<redacted>')
     # On the first panel start the generated administrator password is printed
     # on a line of its own, below a heading. It has no "password=" prefix, so
-    # the generic key/value rules above cannot recognize it.
+    # the generic key/value rules above cannot recognize it. In capitals only,
+    # as the panel prints it: the launcher's English "Admin panel password:"
+    # line carries its password itself.
     $safe = [Regex]::Replace(
         $safe,
-        '(?is)(ADMIN PANEL PASSWORD[^\r\n]*\r?\n\s*\r?\n\s*)[^\r\n]+',
+        '(?s)(ADMIN PANEL PASSWORD[^\r\n]*\r?\n\s*\r?\n\s*)[^\r\n]+',
         '$1<redacted>')
     # And the launcher's own lines, which are Polish and which the rules above
     # could not read: start-server.ps1 prints a freshly made panel password as
@@ -1217,10 +1230,13 @@ function Protect-M2LogContent {
     # where the value must be on the same line: \s crosses into the next
     # line's timestamp. A heading is a line that ends in ")" or ":" - the line
     # that carries the password itself ends in the password - and .NET's $
-    # stands before \n alone, so a CRLF line ends at \r?$.
+    # stands before \n alone, so a CRLF line ends at \r?$. The same headings
+    # in a launcher set to English say "web panel password" (28 September),
+    # and the password button's second print of it, "Gotowe. Zaloguj sie
+    # haslem:" / "Done. Log in with the web panel password:", is one too.
     $safe = [Regex]::Replace(
         $safe,
-        '(?im)(has[lł]o do panelu[^\r\n]*[):][ \t]*\r?\n(?:[ \t]*\r?\n)*(?:\d{4}-\d\d-\d\d \d\d:\d\d:\d\d  )?[ \t]*)(\S+)(?=[ \t]*\r?$)',
+        '(?im)((?:has[lł]o do panelu|zaloguj si[eę] has[lł]em|web panel password)[^\r\n]*[):][ \t]*\r?\n(?:[ \t]*\r?\n)*(?:\d{4}-\d\d-\d\d \d\d:\d\d:\d\d  )?[ \t]*)(\S+)(?=[ \t]*\r?$)',
         '$1<redacted>')
     $safe = [Regex]::Replace(
         $safe,
@@ -1249,7 +1265,10 @@ function Protect-M2SessionLogLine {
     # ends in ")" or ":", or the panel's own "ADMIN PANEL PASSWORD"; the line
     # that carries a password itself ends in the password. Before either may
     # stand the session log's timestamp and a container's "panel-1  | ", which
-    # is all an empty line of `docker compose logs` consists of.
+    # is all an empty line of `docker compose logs` consists of. In English
+    # the headings begin with "Web panel password", and the password button's
+    # "Gotowe. Zaloguj sie haslem:" is "Done. Log in with the web panel
+    # password:" - both of them headings of a password on the next line.
     param(
         [AllowEmptyString()][string]$Text,
         [hashtable]$State
@@ -1261,8 +1280,11 @@ function Protect-M2SessionLogLine {
         $State['redactNext'] = $false
         return $body.Groups[1].Value + '<redacted>'
     }
-    if ($State -and ($body.Groups[2].Value -match '(?i)^has[lł]o do panelu.*[):][ \t]*$' -or
-            $body.Groups[2].Value -match 'ADMIN PANEL PASSWORD')) {
+    # The panel's own heading is matched in capitals only: the English
+    # start-server line "Admin panel password: <it>" carries its password
+    # itself, and taken for the heading it masked the line after it.
+    if ($State -and ($body.Groups[2].Value -match '(?i)^(?:has[lł]o do panelu|web panel password|(?:gotowe\. )?zaloguj si[eę] has[lł]em|(?:done\. )?log in with the web panel password).*[):][ \t]*$' -or
+            $body.Groups[2].Value -cmatch 'ADMIN PANEL PASSWORD')) {
         $State['redactNext'] = $true
     }
     return (Protect-M2LogContent -Text $Text)
@@ -1331,21 +1353,21 @@ function New-M2SupportBundle {
         # so nobody spends an evening reading an empty report.
         $dockerUp = Test-M2DockerRunning
         $summary = @(
-            'Metin2 Playerbots - pakiet diagnostyczny',
-            "Utworzono: $([DateTime]::Now.ToString('s'))",
+            (UI-Text 'Metin2 Playerbots - pakiet diagnostyczny' 'Metin2 Playerbots - diagnostic bundle'),
+            (UI-Text "Utworzono: $([DateTime]::Now.ToString('s'))" "Made: $([DateTime]::Now.ToString('s'))"),
             "PowerShell: $($PSVersionTable.PSVersion)",
             "Windows: $([Environment]::OSVersion.VersionString)",
-            "Folder serwera: $([IO.Path]::GetFileName($root))",
-            "Silnik Dockera: $(if ($dockerUp) { 'dziala' } else { 'ZATRZYMANY' })"
+            (UI-Text "Folder serwera: $([IO.Path]::GetFileName($root))" "Server folder: $([IO.Path]::GetFileName($root))"),
+            (UI-Text "Silnik Dockera: $(if ($dockerUp) { 'dziala' } else { 'ZATRZYMANY' })" "Docker engine: $(if ($dockerUp) { 'running' } else { 'STOPPED' })")
         )
         if (-not $dockerUp) {
             $summary += @(
                 '',
-                'PACZKA NIEPELNA. Docker byl wylaczony, wiec nie ma w niej logow',
-                'kontenerow ani stanu uslug - a to zwykle jedyne miejsce, gdzie',
-                'widac przyczyne problemu.',
-                'Uruchom Docker (przycisk URUCHOM DOCKER), odtworz problem',
-                'i zbierz paczke ponownie.'
+                (UI-Text 'PACZKA NIEPELNA. Docker byl wylaczony, wiec nie ma w niej logow' 'INCOMPLETE BUNDLE. Docker was off, so it holds no logs of the'),
+                (UI-Text 'kontenerow ani stanu uslug - a to zwykle jedyne miejsce, gdzie' 'containers and no state of the services - which are usually the only'),
+                (UI-Text 'widac przyczyne problemu.' 'place that shows what caused the problem.'),
+                (UI-Text 'Uruchom Docker (przycisk URUCHOM DOCKER), odtworz problem' 'Start Docker (the START DOCKER button), make the problem happen again'),
+                (UI-Text 'i zbierz paczke ponownie.' 'and collect the bundle again.')
             )
         }
         $summary = $summary -join [Environment]::NewLine
@@ -1366,7 +1388,7 @@ function New-M2SupportBundle {
         # WriteAllLines refuses it: a player with no .env could not even send
         # the logs that would have shown it.
         [string[]]$safeEnv = @(Get-M2SanitizedEnv -EnvPath $envPath)
-        if ($safeEnv.Count -eq 0) { $safeEnv = @('(brak pliku .env)') }
+        if ($safeEnv.Count -eq 0) { $safeEnv = @((UI-Text '(brak pliku .env)' '(no .env file)')) }
         [IO.File]::WriteAllLines((Join-Path $work 'environment-redacted.txt'), $safeEnv, [Text.UTF8Encoding]::new($false))
 
         $composeDir = Join-Path $root 'linux-port\docker'
@@ -1425,23 +1447,29 @@ function New-M2SupportBundle {
             # per core, and the crash traces m2-supervise keeps beside the
             # syserr (crash-<stamp>.txt, 2.0.8) - the only way to see where a
             # player's core died.
-            # The second channel's cores too, when the server has run one
-            # (M2_PLAYERBOT_CH2): their files are named ch2-<core>.
+            # The other channels' cores too, when the server has run them - the
+            # second (M2_PLAYERBOT_CH2) and the fresh cohort's third and fourth
+            # (M2_PLAYERBOT_FRESH_CHANNELS): their files are named chN-<core>.
             $coreKeys = @('first', 'game1', 'game2')
             # A command that prints nothing gives $null, and [string] of that
             # is $null too in Windows PowerShell 5.1 - so .Trim() on it threw
             # "You cannot call a method on a null-valued expression" and the
             # whole bundle failed on every server without a second channel
             # (2.0.76: archonek, Urtopy). Joined and asked, never called.
-            $ch2Probe = $null
-            try { $ch2Probe = docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c 'ls /opt/metin2/var/channel2/game1/syslog 2>/dev/null' } catch { $ch2Probe = $null }
-            if (-not [string]::IsNullOrWhiteSpace([string](@($ch2Probe) -join ''))) { $coreKeys += @('ch2-first', 'ch2-game1', 'ch2-game2') }
+            $channelProbe = $null
+            try { $channelProbe = docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c 'ls /opt/metin2/var/channel2/game1/syslog /opt/metin2/var/channel3/game1/syslog /opt/metin2/var/channel4/game1/syslog 2>/dev/null' } catch { $channelProbe = $null }
+            $channelsSeen = "$(@($channelProbe) -join ' ')"
+            foreach ($n in 2..4) {
+                if ($channelsSeen.Contains('/channel' + $n + '/game1/syslog')) {
+                    $coreKeys += @(('ch' + $n + '-first'), ('ch' + $n + '-game1'), ('ch' + $n + '-game2'))
+                }
+            }
             foreach ($core in $coreKeys) {
                 $coreDir = '/opt/metin2/var/channel1/' + $core
-                if ($core -like 'ch2-*') { $coreDir = '/opt/metin2/var/channel2/' + $core.Substring(4) }
+                if ($core -match '^ch([2-4])-(.+)$') { $coreDir = '/opt/metin2/var/channel' + $Matches[1] + '/' + $Matches[2] }
                 Invoke-M2CapturedCommand -OutputPath (Join-Path $work ('playerbot-syslog-' + $core + '.txt')) -Command {
                     docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c `
-                        ('for f in ' + $coreDir + '/log/*/syslog.* ' + $coreDir + '/syslog; do [ -f $f ] && tail -n 400000 $f; done 2>/dev/null | grep -a -e PLAYERBOT_WORLD -e PLAYERBOT_PORTAL -e PLAYERBOT_NAV -e PLAYERBOT_WATCHDOG -e PLAYERBOT_GOAL -e PLAYERBOT_LOAD -e PLAYERBOT_SHOP -e PLAYERBOT_TOWN -e PLAYERBOT_DEPARTURE -e PLAYERBOT_HORSE -e PLAYERBOT_MONKEY -e PLAYERBOT_AUTH -e PLAYERBOT_CHANNEL -e PLAYERBOT_SERVICE -e PLAYERBOT_CONFIG -e PLAYERBOT_EVENT -e PLAYERBOT_LIFE -e PLAYERBOT_CHEST -e PLAYERBOT_COMBAT -e PLAYERBOT_STOCK -e PLAYERBOT_GUILD -e PLAYERBOT_TOWER -e PLAYERBOT_CATACOMB -e PLAYERBOT_ISHOP -e PLAYERBOT_OFFLINE -e PLAYERBOT_MARKET -e PLAYERBOT_BAG -e INVENTORY_ARRANGE -e PLAYERBOT_AI -e PLAYERBOT_ECONOMY -e PLAYERBOT_PVP -e PLAYERBOT_LOOT -e PLAYERBOT_MOOD -e PLAYERBOT_PERSONA -e PLAYERBOT_ANTIPK -e PLAYERBOT_MERC -e PLAYERBOT_LPP -e PLAYERBOT_ALCHEMIST -e PLAYERBOT_METIN:.detector -e PLAYERBOT_BONUS -e PLAYERBOT_PARTY:.accepted -e PLAYERBOT_PARTY:.asked -e PLAYERBOT_LURE:.order -e PLAYERBOT_LURE:.pack.handed -e PLAYERBOT_LURE:.waiting -e PLAYERBOT_CONV -e PLAYERBOT_SUMMON -e PLAYERBOT_SIDEKICK -e CAPE_PULL -e FLEA_MARKET -e QUEST_ITEM -e GMPANEL -e GM_PROFILE -e autospawn | tail -n 40000')
+                        ('for f in ' + $coreDir + '/log/*/syslog.* ' + $coreDir + '/syslog; do [ -f $f ] && tail -n 400000 $f; done 2>/dev/null | grep -a -e PLAYERBOT_WORLD -e PLAYERBOT_PORTAL -e PLAYERBOT_NAV -e PLAYERBOT_WATCHDOG -e PLAYERBOT_GOAL -e PLAYERBOT_LOAD -e PLAYERBOT_SHOP -e PLAYERBOT_TOWN -e PLAYERBOT_DEPARTURE -e PLAYERBOT_HORSE -e PLAYERBOT_MONKEY -e PLAYERBOT_AUTH -e PLAYERBOT_CHANNEL -e PLAYERBOT_SERVICE -e PLAYERBOT_CONFIG -e PLAYERBOT_EVENT -e PLAYERBOT_LIFE -e PLAYERBOT_CHEST -e PLAYERBOT_COMBAT -e PLAYERBOT_STOCK -e PLAYERBOT_GUILD -e PLAYERBOT_TOWER -e PLAYERBOT_CATACOMB -e PLAYERBOT_ISHOP -e PLAYERBOT_OFFLINE -e PLAYERBOT_MARKET -e PLAYERBOT_BAG -e INVENTORY_ARRANGE -e PLAYERBOT_AI -e PLAYERBOT_ECONOMY -e PLAYERBOT_PVP -e PLAYERBOT_LOOT -e PLAYERBOT_MOOD -e PLAYERBOT_PERSONA -e PLAYERBOT_ANTIPK -e PLAYERBOT_MERC -e PLAYERBOT_LPP -e PLAYERBOT_ALCHEMIST -e PLAYERBOT_METIN:.detector -e PLAYERBOT_BONUS -e PLAYERBOT_PARTY:.accepted -e PLAYERBOT_PARTY:.asked -e PLAYERBOT_LURE:.order -e PLAYERBOT_LURE:.pack.handed -e PLAYERBOT_LURE:.waiting -e PLAYERBOT_CONV -e PLAYERBOT_CHAT -e PLAYERBOT_SUMMON -e PLAYERBOT_SIDEKICK -e CAPE_PULL -e FLEA_MARKET -e QUEST_ITEM -e GMPANEL -e GM_PROFILE -e autospawn | tail -n 40000')
                 }
                 Invoke-M2CapturedCommand -OutputPath (Join-Path $work ('syserr-' + $core + '.txt')) -Command {
                     docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c `
@@ -1607,13 +1635,13 @@ function Send-M2SupportBundle {
 
     $uri = $null
     if (-not [Uri]::TryCreate($UploadUrl, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -ne 'https') {
-        throw 'Adres wysyłki logów musi używać HTTPS.'
+        throw (UI-Text 'Adres wysyłki logów musi używać HTTPS.' 'The address the logs are sent to has to use HTTPS.')
     }
     if ($uri.Host -ieq 'discord.gg') {
-        throw 'To jest zaproszenie na serwer Discord, a nie webhook. Adres webhooka wygląda tak: https://discord.com/api/webhooks/...'
+        throw (UI-Text 'To jest zaproszenie na serwer Discord, a nie webhook. Adres webhooka wygląda tak: https://discord.com/api/webhooks/...' 'That is an invitation to a Discord server, not a webhook. A webhook address looks like this: https://discord.com/api/webhooks/...')
     }
     if (-not (Test-Path -LiteralPath $BundlePath -PathType Leaf)) {
-        throw "Nie znaleziono paczki: $BundlePath"
+        throw (UI-Text "Nie znaleziono paczki: $BundlePath" "Bundle not found: $BundlePath")
     }
 
     $isDiscordWebhook =
@@ -1625,7 +1653,7 @@ function Send-M2SupportBundle {
         # does so after the whole upload, so check before wasting the transfer.
         $size = (Get-Item -LiteralPath $BundlePath).Length
         if ($size -gt 10MB) {
-            throw ('Paczka ma {0:N1} MB, a Discord przyjmuje do 10 MB. Wyślij ZIP ręcznie albo usuń starsze logi z folderu i zbierz paczkę ponownie.' -f ($size / 1MB))
+            throw ((UI-Text 'Paczka ma {0:N1} MB, a Discord przyjmuje do 10 MB. Wyślij ZIP ręcznie albo usuń starsze logi z folderu i zbierz paczkę ponownie.' 'The bundle is {0:N1} MB, and Discord takes up to 10 MB. Send the ZIP yourself, or delete older logs from the folder and collect the bundle again.') -f ($size / 1MB))
         }
     }
 
@@ -1650,7 +1678,7 @@ function Send-M2SupportBundle {
         $response = $client.PostAsync($uri, $form).GetAwaiter().GetResult()
         $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
         if (-not $response.IsSuccessStatusCode) {
-            throw "Serwer pomocy odrzucił paczkę: HTTP $([int]$response.StatusCode) $body"
+            throw (UI-Text "Serwer pomocy odrzucił paczkę: HTTP $([int]$response.StatusCode) $body" "The support server refused the bundle: HTTP $([int]$response.StatusCode) $body")
         }
         return $body
     }
@@ -1749,6 +1777,35 @@ function Get-M2ServerEngine {
     return 'r40250'
 }
 
+function Get-M2ChannelMemoryWarning {
+    <#
+        "Kanaly gry 1-4": every channel is three more game cores, and WSL 2
+        gives Docker's machine half of the computer's memory unless .wslconfig
+        says otherwise. A channel is about 2.6 GB there - measured on a test
+        world on 28 September at 1000 bots over four channels (unified): the
+        core hosting the villages and the frontier 2.5-2.8 GB, the two others
+        about 0.09 GB each, whatever the channel's bot count - and MariaDB, the
+        panels and Docker itself about 1.5 GB more. It said "about 1 GB" until
+        then, and a player whose machine ran out of memory at two channels was
+        never warned (Piciu97). Warns from the second channel when half the
+        computer's memory is under what the channels take. A warning and never
+        a refusal: the operator may have given Docker more by hand. TotalBytes
+        is the computer's memory, asked of Windows when not given; an empty
+        answer is no warning.
+    #>
+    param([int]$Channels, [long]$TotalBytes = -1)
+    if ($Channels -lt 2) { return '' }
+    if ($TotalBytes -lt 0) {
+        try { $TotalBytes = [long](Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop).TotalPhysicalMemory }
+        catch { return '' }
+    }
+    if ($TotalBytes -le 0) { return '' }
+    $dockerGb = [Math]::Round($TotalBytes / 2 / 1GB, 1)
+    $needGb = [Math]::Round(1.5 + 2.6 * $Channels, 1)
+    if ($dockerGb -ge $needGb) { return '' }
+    return ((UI-Text 'UWAGA: każdy kanał to ok. 2,5 GB RAM w maszynie Dockera, która dostaje zwykle połowę pamięci komputera - tu ok. {0} GB. {1} kanały potrzebują ok. {2} GB; bezpieczniej mniej kanałów albo więcej pamięci dla Dockera.' 'WARNING: every channel is about 2.5 GB of RAM in the Docker machine, which usually gets half of the computer memory - here about {0} GB. {1} channels need about {2} GB; fewer channels or more memory for Docker is safer.') -f $dockerGb, $Channels, $needGb)
+}
+
 function Get-M2RequiredSqlDumps {
     # The per-database dumps MariaDB imports on its first start. r40250's
     # package ships hotbackup (legitimately empty); mt2009's keeps the protos
@@ -1830,7 +1887,7 @@ function Get-M2MissingSqlDumps {
         if (-not (Test-Path -LiteralPath $f -PathType Leaf)) { $missing += "$db.sql"; continue }
         # hotbackup is legitimately empty (its Readme says so); the rest carry
         # the schema and must not be zero-length copies of nothing.
-        if ($db -ne 'hotbackup' -and (Get-Item -LiteralPath $f).Length -eq 0) { $missing += "$db.sql (pusty)" }
+        if ($db -ne 'hotbackup' -and (Get-Item -LiteralPath $f).Length -eq 0) { $missing += (UI-Text "$db.sql (pusty)" "$db.sql (empty)") }
     }
     return $missing
 }
@@ -1863,7 +1920,7 @@ function Start-M2ThrowawayDb {
         # the compose entrypoint never runs initdb.d again and the install is
         # permanently broken. Fail loudly instead.
         if (-not (Test-M2VolumeInitialized -Volume $Volume)) {
-            throw "Baza '$Volume' nie istnieje albo nie jest jeszcze zainicjalizowana. Uruchom najpierw serwer (GRAJ) choć raz, aby baza powstała poprawnie, i dopiero potem użyj tej funkcji."
+            throw (UI-Text "Baza '$Volume' nie istnieje albo nie jest jeszcze zainicjalizowana. Uruchom najpierw serwer (GRAJ) choć raz, aby baza powstała poprawnie, i dopiero potem użyj tej funkcji." "The database '$Volume' does not exist or is not initialised yet. Start the server (PLAY) once first so that the database is made properly, and only then use this.")
         }
         $container = 'm2dbimp-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
         # No MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: on an initialized volume the
@@ -1871,7 +1928,7 @@ function Start-M2ThrowawayDb {
         # makes the container refuse to start rather than silently create a
         # password-less database.
         $null = & docker run -d --name $container -v "${Volume}:/var/lib/mysql" $script:M2_DB_IMAGE --skip-grant-tables 2>$null
-        if ($LASTEXITCODE -ne 0) { throw "Nie udało się uruchomić kontenera bazy dla wolumenu '$Volume' (czy jest zajęty przez działający serwer?)." }
+        if ($LASTEXITCODE -ne 0) { throw (UI-Text "Nie udało się uruchomić kontenera bazy dla wolumenu '$Volume' (czy jest zajęty przez działający serwer?)." "Could not start a database container for the volume '$Volume' (is a running server holding it?).") }
         $deadline = (Get-Date).AddSeconds(120)
         do {
             & docker exec $container sh -c "mariadb -uroot -e 'SELECT 1'" 1>$null 2>$null
@@ -1879,7 +1936,7 @@ function Start-M2ThrowawayDb {
             Start-Sleep -Seconds 2
         } while ((Get-Date) -lt $deadline)
         & docker rm -f $container 1>$null 2>$null
-        throw "Baza dla wolumenu '$Volume' nie wystartowała w 120 s."
+        throw (UI-Text "Baza dla wolumenu '$Volume' nie wystartowała w 120 s." "The database of the volume '$Volume' did not start within 120 s.")
     }
     finally { $ErrorActionPreference = $previous }
 }
@@ -1950,8 +2007,8 @@ function Export-M2Database {
             if (Test-Path -LiteralPath $errFile) {
                 $why = ((Get-Content -LiteralPath $errFile -ErrorAction SilentlyContinue | Select-Object -First 3) -join ' ').Trim()
             }
-            if ($why) { throw "Zrzut bazy '$Database' nie powiódł się: $why" }
-            throw "Zrzut bazy '$Database' nie powiódł się."
+            if ($why) { throw (UI-Text "Zrzut bazy '$Database' nie powiódł się: $why" "The dump of the database '$Database' failed: $why") }
+            throw (UI-Text "Zrzut bazy '$Database' nie powiódł się." "The dump of the database '$Database' failed.")
         }
     }
     finally {
@@ -1967,7 +2024,7 @@ function Invoke-M2SqlFile {
         $target = if ($Database) { " $Database" } else { '' }
         $line = "docker exec -i $Container mariadb -uroot$target < `"$InFile`""
         & cmd.exe /c $line 2>$null
-        if ($LASTEXITCODE -ne 0) { throw "Wczytanie SQL nie powiodło się." }
+        if ($LASTEXITCODE -ne 0) { throw (UI-Text "Wczytanie SQL nie powiodło się." "Loading the SQL failed.") }
     }
     finally { $ErrorActionPreference = $previous }
 }
@@ -2033,7 +2090,7 @@ function Invoke-M2DatabaseImport {
         [string]$DbUser = 'metin2',
         [string]$DbPassword = ''
     )
-    if ($SourceVolume -eq $TargetVolume) { throw 'Źródło i cel to ten sam wolumen.' }
+    if ($SourceVolume -eq $TargetVolume) { throw (UI-Text 'Źródło i cel to ten sam wolumen.' 'The source and the target are the same volume.') }
     $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $work = Join-Path ([IO.Path]::GetTempPath()) ('m2dbimp-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
@@ -2170,19 +2227,19 @@ function New-M2DatabaseBackup {
                 $first = $_.Exception.Message
                 try {
                     Export-M2Database -Container $container -Database $db -OutFile $out -Force
-                    Write-Host "UWAGA: zrzut bazy 'log' wymagal pominiecia uszkodzonych tabel ($first)."
-                    $skipped += "log (czesciowo: $first)"
+                    Write-Host (UI-Text "UWAGA: zrzut bazy 'log' wymagal pominiecia uszkodzonych tabel ($first)." "WARNING: the dump of the 'log' database had to skip damaged tables ($first).")
+                    $skipped += (UI-Text "log (czesciowo: $first)" "log (in part: $first)")
                 }
                 catch {
                     if (Test-Path -LiteralPath $out) { Remove-Item -LiteralPath $out -Force -ErrorAction SilentlyContinue }
-                    Write-Host "UWAGA: pomijam baze 'log' w kopii - to tylko historia, gra jej nie czyta ($first)."
-                    $skipped += "log (pominieta: $first)"
+                    Write-Host (UI-Text "UWAGA: pomijam baze 'log' w kopii - to tylko historia, gra jej nie czyta ($first)." "WARNING: leaving the 'log' database out of the backup - it is history only, the game does not read it ($first).")
+                    $skipped += (UI-Text "log (pominieta: $first)" "log (left out: $first)")
                     continue
                 }
             }
             $sizes += [pscustomobject]@{ Name = $db; Bytes = (Get-Item -LiteralPath $out).Length }
         }
-        if ($sizes.Count -eq 0) { throw 'Nie znaleziono zadnej bazy gry do zapisania.' }
+        if ($sizes.Count -eq 0) { throw (UI-Text 'Nie znaleziono zadnej bazy gry do zapisania.' 'No game database to save was found.') }
         $stat = & docker exec $container sh -c "mariadb -uroot -N -B -e 'SELECT COUNT(*), IFNULL(MAX(level),0) FROM player.player'" 2>$null
         $players = 0; $maxLevel = 0
         if ($stat) {
@@ -2193,22 +2250,22 @@ function New-M2DatabaseBackup {
 
         # A backup that cannot be identified six months later is not a backup.
         $readme = New-Object System.Text.StringBuilder
-        [void]$readme.AppendLine('Kopia zapasowa swiata Metin2 Singleplayer')
+        [void]$readme.AppendLine((UI-Text 'Kopia zapasowa swiata Metin2 Singleplayer' 'Metin2 Singleplayer world backup'))
         [void]$readme.AppendLine('')
-        [void]$readme.AppendLine("Wykonana:      $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
-        [void]$readme.AppendLine("Wolumen:       $Volume")
-        [void]$readme.AppendLine("Postaci:       $players")
-        [void]$readme.AppendLine("Najwyzszy lvl: $maxLevel")
+        [void]$readme.AppendLine((UI-Text "Wykonana:      $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" "Made:          $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"))
+        [void]$readme.AppendLine((UI-Text "Wolumen:       $Volume" "Volume:        $Volume"))
+        [void]$readme.AppendLine((UI-Text "Postaci:       $players" "Characters:    $players"))
+        [void]$readme.AppendLine((UI-Text "Najwyzszy lvl: $maxLevel" "Highest level: $maxLevel"))
         [void]$readme.AppendLine('')
-        [void]$readme.AppendLine('Zawartosc (zrzuty mariadb-dump, latin1 jak w grze):')
+        [void]$readme.AppendLine((UI-Text 'Zawartosc (zrzuty mariadb-dump, latin1 jak w grze):' 'Contents (mariadb-dump dumps, latin1 as in the game):'))
         foreach ($s in $sizes) {
             [void]$readme.AppendLine(('  {0,-12} {1,12:N0} B' -f ($s.Name + '.sql'), $s.Bytes))
         }
         foreach ($k in $skipped) {
-            [void]$readme.AppendLine("  UWAGA: $k")
+            [void]$readme.AppendLine((UI-Text "  UWAGA: $k" "  WARNING: $k"))
         }
         [void]$readme.AppendLine('')
-        [void]$readme.AppendLine('Przywrocenie: launcher -> PRZYWROC KOPIE, i wskaz ten folder albo zip.')
+        [void]$readme.AppendLine((UI-Text 'Przywrocenie: launcher -> PRZYWROC KOPIE, i wskaz ten folder albo zip.' 'To restore it: launcher -> BACKUP / NEW WORLD -> Restore from a backup, and point to this folder or the zip.'))
         [IO.File]::WriteAllText((Join-Path $dir 'README.txt'), $readme.ToString(),
             [Text.UTF8Encoding]::new($false))
 
@@ -2261,7 +2318,7 @@ function Restore-M2DatabaseBackup {
             Expand-Archive -LiteralPath $BackupPath -DestinationPath $source -Force
         }
         if (-not (Test-Path -LiteralPath $source -PathType Container)) {
-            throw "Nie znaleziono kopii: $BackupPath"
+            throw (UI-Text "Nie znaleziono kopii: $BackupPath" "Backup not found: $BackupPath")
         }
         # A backup without player.sql is not this server's backup, and loading it
         # would leave the install with no world at all.
@@ -2270,7 +2327,7 @@ function Restore-M2DatabaseBackup {
             if (Test-Path -LiteralPath (Join-Path $source "$db.sql") -PathType Leaf) { $found += $db }
         }
         if ($found -notcontains 'player') {
-            throw "W kopii '$source' nie ma pliku player.sql - to nie jest kopia swiata tego serwera."
+            throw (UI-Text "W kopii '$source' nie ma pliku player.sql - to nie jest kopia swiata tego serwera." "The backup '$source' has no player.sql - it is not a backup of this server's world.")
         }
 
         # The world about to be replaced goes into its own backup first. The
@@ -2356,8 +2413,8 @@ function Reset-M2WorldToFreshInstall {
     # caller of this function.
     $missing = @(Get-M2MissingSqlDumps -ServerRoot $ServerRoot)
     if ($missing.Count -gt 0) {
-        throw ("Nie moge zresetowac swiata: brakuje zrzutow, z ktorych powstaje nowa baza (" +
-               ($missing -join ', ') + "). Znajduja sie w linux-port\docker\mariadb\initdb.d\dumps.")
+        throw ((UI-Text "Nie moge zresetowac swiata: brakuje zrzutow, z ktorych powstaje nowa baza (" "Cannot reset the world: the dumps a new database is made from are missing (") +
+               ($missing -join ', ') + (UI-Text "). Znajduja sie w linux-port\docker\mariadb\initdb.d\dumps." "). They belong in linux-port\docker\mariadb\initdb.d\dumps."))
     }
     $backup = $null
     if (Test-M2VolumeInitialized -Volume $Volume) {
@@ -2379,8 +2436,8 @@ function Reset-M2WorldToFreshInstall {
         & docker volume rm -f $Volume 1>$null 2>$null
         if ($LASTEXITCODE -ne 0) {
             $still = @(& docker ps -a --filter "volume=$Volume" --format '{{.Names}} ({{.Status}})' 2>$null | Where-Object { $_ })
-            $who = if ($still.Count -gt 0) { ' Wciaz uzywaja go: ' + ($still -join ', ') + '.' } else { '' }
-            throw ("Nie udalo sie usunac wolumenu '$Volume'.$who Zatrzymaj Docker Desktop, uruchom go ponownie i sprobuj jeszcze raz.")
+            $who = if ($still.Count -gt 0) { (UI-Text ' Wciaz uzywaja go: ' ' Still using it: ') + ($still -join ', ') + '.' } else { '' }
+            throw ((UI-Text "Nie udalo sie usunac wolumenu '$Volume'.$who Zatrzymaj Docker Desktop, uruchom go ponownie i sprobuj jeszcze raz." "Could not delete the volume '$Volume'.$who Stop Docker Desktop, start it again and try once more."))
         }
     }
     finally { $ErrorActionPreference = $previous }
@@ -2411,6 +2468,7 @@ Export-ModuleMember -Function @(
     'Test-M2VolumeInitialized',
     'Get-M2MissingSqlDumps',
     'Get-M2ServerEngine',
+    'Get-M2ChannelMemoryWarning',
     'Get-M2SiblingClientExecutable',
     'Get-M2RequiredSqlDumps',
     'Get-M2RequiredGameContext',

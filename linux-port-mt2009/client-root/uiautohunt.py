@@ -39,7 +39,10 @@
 #
 # game.py registers the Hunter with its updateables, K opens the windows.
 # Python 2.7 as the client has it, and 3 for tests/uiautohunt_test.py.
-# Player-visible strings are CP1250 escapes, so the file itself is ASCII.
+# Player-visible strings are CP1250 escapes, so the file itself is ASCII, and
+# each is a Polish and English pair (playerbot_lang.T): English for a client
+# set to any language but Polish. The labels of the module's tables are read
+# once, at import - the client's language changes only with a restart.
 
 import app
 import autologin
@@ -55,6 +58,7 @@ import player
 import skill
 import ui
 import wndMgr
+from playerbot_lang import T
 
 try:
     xrange
@@ -74,19 +78,19 @@ RANGES = (1000, 2000, 3000, 4000)
 # necklace and the earrings from the jewellery, which keeps what is left
 # (a pendant, gloves, rings, belts).
 LOOT_KINDS = (
-    ('loot_weapon',    'Bro\xf1',       1 << 0),
-    ('loot_armour',    'Zbroje',        1 << 1),
-    ('loot_helmet',    'He\xb3my',       1 << 7),
-    ('loot_shield',    'Tarcze',        1 << 8),
-    ('loot_bracelet',  'Bransolety',    1 << 9),
-    ('loot_shoes',     'Buty',          1 << 10),
-    ('loot_necklace',  'Naszyjniki',    1 << 11),
-    ('loot_earrings',  'Kolczyki',      1 << 12),
-    ('loot_jewellery', 'Ozdoby',        1 << 2),
-    ('loot_potion',    'Mikstury',      1 << 3),
-    ('loot_book',      'Ksi\xeagi',     1 << 4),
-    ('loot_stone',     'Kamienie',      1 << 5),
-    ('loot_other',     'Inne',          1 << 6),
+    ('loot_weapon',    T('Bro\xf1', 'Weapons'),         1 << 0),
+    ('loot_armour',    T('Zbroje', 'Armour'),           1 << 1),
+    ('loot_helmet',    T('He\xb3my', 'Helmets'),         1 << 7),
+    ('loot_shield',    T('Tarcze', 'Shields'),          1 << 8),
+    ('loot_bracelet',  T('Bransolety', 'Bracelets'),    1 << 9),
+    ('loot_shoes',     T('Buty', 'Shoes'),              1 << 10),
+    ('loot_necklace',  T('Naszyjniki', 'Necklaces'),    1 << 11),
+    ('loot_earrings',  T('Kolczyki', 'Earrings'),       1 << 12),
+    ('loot_jewellery', T('Ozdoby', 'Trinkets'),         1 << 2),
+    ('loot_potion',    T('Mikstury', 'Potions'),        1 << 3),
+    ('loot_book',      T('Ksi\xeagi', 'Books'),         1 << 4),
+    ('loot_stone',     T('Kamienie', 'Stones'),         1 << 5),
+    ('loot_other',     T('Inne', 'Other'),              1 << 6),
 )
 # Each split kind and the kind it came out of. A server before the split
 # reads only the seven, so the second field of /autohunt_loot keeps them:
@@ -453,10 +457,10 @@ def NeedsTarget(skillIndex):
     return answered or skillIndex not in STANDING_SKILLS
 
 def YesNo(value):
-    return 'tak' if value else 'nie'
+    return T('tak', 'yes') if value else T('nie', 'no')
 
 def WlWyl(value):
-    return 'W\xa3' if value else 'WY\xa3'
+    return T('W\xa3', 'ON') if value else T('WY\xa3', 'OFF')
 
 
 class Hunter(object):
@@ -534,7 +538,8 @@ class Hunter(object):
         if reconnected and name == self.configName:
             self.isLoaded = True
             autologin.SetArmed(self.config.get('autologin', 0))
-            chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: zalogowano ponownie po zerwaniu po\xb3\xb9czenia.')
+            chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: zalogowano ponownie po zerwaniu po\xb3\xb9czenia.',
+                'Auto Hunt: logged in again after the connection dropped.'))
             return
         self.configName = name
         self.LoadConfig()
@@ -547,7 +552,8 @@ class Hunter(object):
             autologin.DelayResume(2.0)
             return
         self.Start()
-        chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: wznowione po ponownym zalogowaniu.')
+        chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: wznowione po ponownym zalogowaniu.',
+            'Auto Hunt: resumed after logging in again.'))
 
     def OnUpdate(self):
         now = clientclock.Now()
@@ -610,9 +616,11 @@ class Hunter(object):
         (x, y, z) = player.GetMainCharacterPosition()
         self.anchor = (int(x), int(y))
         self.running = True
-        chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: start, zasi\xeag %d.' % self.config['range'])
+        chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: start, zasi\xeag %d.',
+            'Auto Hunt: started, range %d.') % self.config['range'])
         if not LootMask(self.config):
-            chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: podnoszenie jest wy\xb3\xb9czone.')
+            chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: podnoszenie jest wy\xb3\xb9czone.',
+                'Auto Hunt: picking up is switched off.'))
 
     def Stop(self, quiet=False):
         if not self.running:
@@ -624,7 +632,7 @@ class Hunter(object):
         self.lootSweeping = False
         self.lootSweepIdleSince = 0.0
         if not quiet:
-            chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: stop.')
+            chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: stop.', 'Auto Hunt: stopped.'))
 
     def OnServerOff(self, reason=''):
         # The world is played without Auto Lowy (M2_AUTOHUNT=0 on the server,
@@ -638,9 +646,11 @@ class Hunter(object):
             return
         self.Stop(quiet=True)
         if reason == 'item':
-            chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: brak czasu. Kup "Auto \xa3owy (8h)" w ItemShopie i u\xbfyj go z ekwipunku - czas leci tylko w grze.')
+            chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: brak czasu. Kup "Auto \xa3owy (8h)" w ItemShopie i u\xbfyj go z ekwipunku - czas leci tylko w grze.',
+                'Auto Hunt: no time left. Buy its 8-hour ticket in the ItemShop and use it from your inventory - the time only runs while you play.'))
             return
-        chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy s\xb9 wy\xb3\xb9czone na tym serwerze (ustawienia \x9cwiata w launcherze).')
+        chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy s\xb9 wy\xb3\xb9czone na tym serwerze (ustawienia \x9cwiata w launcherze).',
+            'Auto Hunt is switched off on this server (the world settings in the launcher).'))
 
     def OnServerTarget(self, value):
         if not self.running or not self.config.get('attack', 1):
@@ -1258,7 +1268,7 @@ class AutoHuntWindow(ui.BoardWithTitleBar):
         self.AddFlag('movable')
         self.AddFlag('float')
         self.SetSize(self.WIDTH, self.HEIGHT)
-        self.SetTitleName('Auto \xa3owy - Walka')
+        self.SetTitleName(T('Auto \xa3owy - Walka', 'Auto Hunt - Combat'))
         self.SetCloseEvent(ui.__mem_func__(self.Close))
         self.Build()
 
@@ -1276,7 +1286,7 @@ class AutoHuntWindow(ui.BoardWithTitleBar):
         sk_h = sk_e2_y + 18 + 7
 
         skBoard = self._Board(BL, y, BW, sk_h)
-        self._Label(skBoard, 14, 4, 'Umiej\xeatno\x9cci')
+        self._Label(skBoard, 14, 4, T('Umiej\xeatno\x9cci', 'Skills'))
 
         self.skillSlots1 = self._Slots(skBoard, SL, sk_r1_y, self.SLOTS_PER_ROW)
         self.skillSlots1.SetSelectEmptySlotEvent(ui.__mem_func__(self._EvSkill1))
@@ -1299,7 +1309,7 @@ class AutoHuntWindow(ui.BoardWithTitleBar):
         mk_h = mk_e1_y + 18 + 7
 
         mkBoard = self._Board(BL, y, BW, mk_h)
-        self._Label(mkBoard, 14, 4, 'Mikstury (% HP / PE)')
+        self._Label(mkBoard, 14, 4, T('Mikstury (% HP / PE)', 'Potions (% HP / SP)'))
 
         self.itemSlots1 = self._Slots(mkBoard, SL, mk_r1_y, self.SLOTS_PER_ROW)
         self.itemSlots1.SetSelectEmptySlotEvent(ui.__mem_func__(self._EvItem1))
@@ -1317,7 +1327,7 @@ class AutoHuntWindow(ui.BoardWithTitleBar):
         od_h = od_e2_y + 18 + 7
 
         odBoard = self._Board(BL, y, BW, od_h)
-        self._Label(odBoard, 14, 4, 'Odpa\xb3y (Sekundy)')
+        self._Label(odBoard, 14, 4, T('Odpa\xb3y (Sekundy)', 'Timed items (seconds)'))
 
         self.itemSlots2 = self._Slots(odBoard, SL, od_r1_y, self.SLOTS_PER_ROW)
         self.itemSlots2.SetSelectEmptySlotEvent(ui.__mem_func__(self._EvItem2))
@@ -1337,22 +1347,24 @@ class AutoHuntWindow(ui.BoardWithTitleBar):
 
         ROW_H = 19
         st_row_start = 22
+        # A label has the eighty pixels left of its switch: the English ones
+        # are cut to what the Polish ones take.
         settings_rows = [
-            ('Atak',           'attack',            'toggle'),
-            ('Umiej\xeatno\x9cci', 'use_skills',    'toggle'),
-            ('Wskrzeszenie',   'revive',            'toggle'),
-            ('HP po wskrz. %', 'revive_hp_percent', 'edit'),
-            ('Mikstury',       'use_potions',       'toggle'),
-            ('Odpa\xb3y',      'use_buffs',         'toggle'),
-            ('Wracaj',         'return',            'toggle'),
+            (T('Atak', 'Attack'),                  'attack',            'toggle'),
+            (T('Umiej\xeatno\x9cci', 'Skills'),    'use_skills',        'toggle'),
+            (T('Wskrzeszenie', 'Revive'),          'revive',            'toggle'),
+            (T('HP po wskrz. %', 'Revive HP %'),   'revive_hp_percent', 'edit'),
+            (T('Mikstury', 'Potions'),             'use_potions',       'toggle'),
+            (T('Odpa\xb3y', 'Timed items'),        'use_buffs',         'toggle'),
+            (T('Wracaj', 'Return'),                'return',            'toggle'),
             # The grid's eighth place, empty until then: the window keeps its
             # size and the switch looks like its neighbours (autologin.py).
-            ('Autologin',      'autologin',         'toggle'),
+            ('Autologin',                          'autologin',         'toggle'),
         ]
         st_h = st_row_start + 4 * ROW_H + 4
 
         stBoard = self._Board(BL, y, BW, st_h)
-        self._Label(stBoard, 14, 4, 'Ustawienia Walki')
+        self._Label(stBoard, 14, 4, T('Ustawienia Walki', 'Combat settings'))
 
         col_w = (BW - 8) // 2
         for idx, (lbl, key, kind) in enumerate(settings_rows):
@@ -1372,14 +1384,14 @@ class AutoHuntWindow(ui.BoardWithTitleBar):
         total = 3 * bw + 2 * gap
         bx = (self.WIDTH - total) // 2
 
-        self.statusText = self._Label(self, bx + 6, y, 'Wy\xb3\xb9czone')
+        self.statusText = self._Label(self, bx + 6, y, T('Wy\xb3\xb9czone', 'Off'))
         y += 18
 
-        self._Btn(self, 'large', bx, y, 'Zapisz', self.OnSave)
+        self._Btn(self, 'large', bx, y, T('Zapisz', 'Save'), self.OnSave)
         bx += bw + gap
         self.startButton = self._Btn(self, 'large', bx, y, 'Start', self.OnStart)
         bx += bw + gap
-        self.stopButton = self._Btn(self, 'large', bx, y, 'Zatrzymaj', self.OnStop)
+        self.stopButton = self._Btn(self, 'large', bx, y, T('Zatrzymaj', 'Stop'), self.OnStop)
 
     def _Board(self, x, y, w, h):
         board = ui.ThinBoard()
@@ -1464,7 +1476,7 @@ class AutoHuntWindow(ui.BoardWithTitleBar):
         btn.SetUpVisual('d:/ymir work/ui/public/small_button_01.sub')
         btn.SetOverVisual('d:/ymir work/ui/public/small_button_02.sub')
         btn.SetDownVisual('d:/ymir work/ui/public/small_button_03.sub')
-        btn.SetText('WY\xa3')
+        btn.SetText(WlWyl(0))
         btn.SAFE_SetEvent(self.OnToggle, key)
         btn.Show()
         self.widgets.append(btn)
@@ -1593,18 +1605,18 @@ class AutoHuntWindow(ui.BoardWithTitleBar):
     def RefreshStatus(self):
         hunter = self.hunter
         if not hunter.running:
-            self.statusText.SetText('Wy\xb3\xb9czone')
+            self.statusText.SetText(T('Wy\xb3\xb9czone', 'Off'))
             return
         if hunter.justRevived:
             pct = min(100, hunter.config.get('revive_hp_percent', 60))
-            self.statusText.SetText('Czekam na HP (%d%%)' % pct)
+            self.statusText.SetText(T('Czekam na HP (%d%%)', 'Waiting for HP (%d%%)') % pct)
             return
         if hunter.targetVid:
-            self.statusText.SetText('Cel: %s' % chr.GetNameByVID(hunter.targetVid))
+            self.statusText.SetText(T('Cel: %s', 'Target: %s') % chr.GetNameByVID(hunter.targetVid))
         elif hunter.lootVid:
-            self.statusText.SetText('Podnosz\xea przedmiot')
+            self.statusText.SetText(T('Podnosz\xea przedmiot', 'Picking up an item'))
         else:
-            self.statusText.SetText('Szukam potwork\xf3w')
+            self.statusText.SetText(T('Szukam potwork\xf3w', 'Looking for monsters'))
 
     def ReadEdits(self):
         for key, edit in self.edits.items():
@@ -1638,17 +1650,19 @@ class AutoHuntWindow(ui.BoardWithTitleBar):
         if key == 'autologin':
             autologin.SetArmed(self.hunter.config[key])
             if self.hunter.config[key]:
-                chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: autologin w\xb3\xb9czony - po zerwaniu po\xb3\xb9czenia gra sama zaloguje si\xea ponownie i wznowi \xb3owy. Zapisz, \xbfeby zapami\xeata\xe6 to na nast\xeapny raz.')
+                chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: autologin w\xb3\xb9czony - po zerwaniu po\xb3\xb9czenia gra sama zaloguje si\xea ponownie i wznowi \xb3owy. Zapisz, \xbfeby zapami\xeata\xe6 to na nast\xeapny raz.',
+                    'Auto Hunt: autologin on - if the connection drops, the game logs in again by itself and the hunt goes on. Save to keep it for next time.'))
             else:
-                chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: autologin wy\xb3\xb9czony.')
+                chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: autologin wy\xb3\xb9czony.', 'Auto Hunt: autologin off.'))
         self.Refresh()
 
     def OnSave(self):
         self.ReadEdits()
         if self.hunter.SaveConfig():
-            chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: ustawienia zapisane.')
+            chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: ustawienia zapisane.', 'Auto Hunt: settings saved.'))
         else:
-            chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: nie uda\xb3o si\xea zapisa\xe6 ustawie\xf1.')
+            chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: nie uda\xb3o si\xea zapisa\xe6 ustawie\xf1.',
+                'Auto Hunt: the settings could not be saved.'))
 
     def OnSkillSlot(self, index):
         attached = self.TakeAttached()
@@ -1715,7 +1729,7 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
         self.AddFlag('movable')
         self.AddFlag('float')
         self.SetSize(self.WIDTH, self.HEIGHT)
-        self.SetTitleName('Auto \xa3owy - Ustawienia')
+        self.SetTitleName(T('Auto \xa3owy - Ustawienia', 'Auto Hunt - Settings'))
         self.SetCloseEvent(ui.__mem_func__(self.Close))
         self.Build()
 
@@ -1727,10 +1741,10 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
         pd_btn_start = 24
         pd_h = pd_btn_start + LOOT_ROWS * 22 + 8
         pdBoard = self._Board(BL, y, BW, pd_h)
-        self._Label(pdBoard, 14, 4, 'Podnoszenie')
-        
+        self._Label(pdBoard, 14, 4, T('Podnoszenie', 'Pick-up'))
+
         pdy = pd_btn_start
-        self._FlagBtn(pdBoard, 4, pdy, 'Podnie\x9c', 'pickup')
+        self._FlagBtn(pdBoard, 4, pdy, T('Podnie\x9c', 'Pick up'), 'pickup')
         for idx, (key, label, bit) in enumerate(LOOT_KINDS):
             pos = idx + 1
             col = pos % 3
@@ -1742,15 +1756,15 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
         tg_btn_start = 24
         tg_h = tg_btn_start + 22 + 8
         tgBoard = self._Board(BL, y, BW, tg_h)
-        self._Label(tgBoard, 14, 4, 'Cele do atakowania')
-        
-        self._FlagBtn(tgBoard, 4 + 0 * 92, tg_btn_start, 'Moby', 'mobs')
-        self._FlagBtn(tgBoard, 4 + 1 * 92, tg_btn_start, 'Metiny', 'stones')
-        self._FlagBtn(tgBoard, 4 + 2 * 92, tg_btn_start, 'Bossy', 'bosses')
-        
+        self._Label(tgBoard, 14, 4, T('Cele do atakowania', 'What to attack'))
+
+        self._FlagBtn(tgBoard, 4 + 0 * 92, tg_btn_start, T('Moby', 'Monsters'), 'mobs')
+        self._FlagBtn(tgBoard, 4 + 1 * 92, tg_btn_start, T('Metiny', 'Metins'), 'stones')
+        self._FlagBtn(tgBoard, 4 + 2 * 92, tg_btn_start, T('Bossy', 'Bosses'), 'bosses')
+
         y += tg_h + 10
-            
-        self.rangeText = self._Label(self, self.WIDTH // 2, y, 'Zasi\xeag: 2000')
+
+        self.rangeText = self._Label(self, self.WIDTH // 2, y, T('Zasi\xeag: %d', 'Range: %d') % 2000)
         self.rangeText.SetHorizontalAlignCenter()
         
         self.rangeSlider = ui.SliderBar()
@@ -1803,7 +1817,7 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
         current_range = max(300, min(5000, config['range']))
         slider_pos = float(current_range - 300) / 4700.0
         self.rangeSlider.SetSliderPos(slider_pos)
-        self.rangeText.SetText('Zasi\xeag: %d' % current_range)
+        self.rangeText.SetText(T('Zasi\xeag: %d', 'Range: %d') % current_range)
         
         for key, (btn, label, wyl) in self.toggles.items():
             btn.SetText('%s: %s' % (label, YesNo(config[key])))
@@ -1815,7 +1829,7 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
         pos = self.rangeSlider.GetSliderPos()
         new_range = int(300 + (pos * 4700))
         self.hunter.config['range'] = new_range
-        self.rangeText.SetText('Zasi\xeag: %d' % new_range)
+        self.rangeText.SetText(T('Zasi\xeag: %d', 'Range: %d') % new_range)
         
         try:
             if self.hunter.running and self.hunter.config.get('return', 0):

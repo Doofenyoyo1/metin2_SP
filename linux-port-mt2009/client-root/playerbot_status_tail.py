@@ -189,9 +189,11 @@ PERSONALITY_TITLES = {
 	118: "Szalony Hazardzista",
 }
 
-# Iwakura's names are Polish, and the English client shows English ones.
-import systemSetting
-if systemSetting.GetLanguage() == "en":
+# Iwakura's names are Polish, and a client set to any other language shows
+# English ones - the rule of the status line under them (choose_status) and
+# of every other text of ours (playerbot_lang.py).
+import playerbot_lang
+if playerbot_lang.IsEnglish():
 	PERSONALITY_TITLES.update({0: 'Persistent Explorer', 1: 'Metin Slayer', 2: 'Team Player', 3: 'Equipment Master', 4: 'Careful Gatherer', 5: 'Trader', 6: 'Wanderer', 7: 'Metin Farmer', 8: 'M3 Farmer', 9: 'M2 Farmer', 10: 'Medal Farmer', 100: 'Grinder', 101: 'Conqueror', 102: 'Trader', 103: 'Gambler', 104: 'Perfectionist', 105: 'Metin Slayer', 106: 'Miner', 107: 'Fisher', 108: 'Mercenary', 109: 'Companion', 110: 'Metinologist', 111: 'Addict', 112: 'Mad Scientist', 113: 'Executioner', 114: 'Mad Angler', 115: 'Junior Gambler', 116: 'Senior Gambler', 117: 'Chief Gambler', 118: 'Mad Gambler'})
 
 PERSONALITY_COLOURS = {

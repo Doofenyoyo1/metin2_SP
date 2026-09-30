@@ -205,6 +205,11 @@ if app.ENABLE_LOCALE_COMMON:
 	if app.ENABLE_IKASHOP_RENEWAL:
 		TryLoadLocaleFile("locale/common/locale_game_ikashop.txt")
 
+# Texts that stood in a script, as keys whose default is the Polish text:
+# every language but English (english_gui.py, below) reads what it read
+# before - clientrootify.py.
+globals().setdefault('AFFECT_INACTIVE', 'Nieaktywny')
+
 
 
 if systemSetting.GetLanguage() == "en":

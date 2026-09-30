@@ -16,6 +16,13 @@ param(
     [int]$JinnoBots = -1,
     [int]$Channel2 = -1,
     [int]$Channel2Share = -1,
+    # SetBots: the game channels as one choice, "Kanaly gry 1-4" - 1 is one
+    # channel, 2 the second channel for the world's bots, 3 and 4 that and the
+    # fresh cohort's CH3, or CH3 and CH4 (the 2.x line only) - and how many
+    # fresh bots play there. -1 leaves .env as it is; -Channel2 is the older
+    # switch for the second channel alone.
+    [int]$GameChannels = -1,
+    [int]$FreshCount = -1,
     # SetDifficulty: easy | medium | hard | custom, and the hours custom reads.
     [string]$Difficulty = '',
     [string]$BiologistHours = '',
@@ -99,9 +106,33 @@ $statePath = Join-Path $serverRoot '.m2launcher-state.json'
 # VERSION file claims, and starting it would run the previous images.
 $rebuildMarkerPath = Join-Path $serverRoot '.m2launcher-rebuild-pending'
 
+# The launcher's language, .m2launcher.json's "language": English for 'en',
+# Polish otherwise. Read here rather than through the module, because the
+# first refusal below comes before the module is loaded. It goes into the
+# process environment, where the modules' UI-Text reads it and where
+# start-server.ps1, run from here, finds it; the window puts the same value
+# there for the actions it starts, which is what a missing file leaves.
+$launcherLanguage = [string]$env:M2_LAUNCHER_LANGUAGE
+try {
+    if (Test-Path -LiteralPath $configPath -PathType Leaf) {
+        $storedConfig = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($storedConfig -and $storedConfig.PSObject.Properties['language']) { $launcherLanguage = [string]$storedConfig.language }
+    }
+}
+catch { }
+$env:M2_LAUNCHER_LANGUAGE = $(if ($launcherLanguage -eq 'en') { 'en' } else { 'pl' })
+
+# A text in that language: the English one for 'en', otherwise the Polish
+# one, which is word for word what the launcher always said.
+function UI-Text {
+    param([AllowEmptyString()][string]$Pl, [AllowEmptyString()][string]$En)
+    if ($env:M2_LAUNCHER_LANGUAGE -eq 'en' -and $En) { return $En }
+    return $Pl
+}
+
 foreach ($requiredModule in @($modulePath, $diagnosticsModulePath)) {
     if (-not (Test-Path -LiteralPath $requiredModule -PathType Leaf)) {
-        throw "Brakuje modułu launchera: $requiredModule"
+        throw (UI-Text "Brakuje modułu launchera: $requiredModule" "A launcher module is missing: $requiredModule")
     }
 }
 Import-Module $modulePath -Force
@@ -115,7 +146,7 @@ Import-Module $modulePath -Force
 $script:phaseWatch = [Diagnostics.Stopwatch]::StartNew()
 function Write-Phase {
     param([Parameter(Mandatory = $true)][string]$Name)
-    Write-Host ("[faza] {0} (+{1} s od poczatku akcji)" -f $Name, [int]$script:phaseWatch.Elapsed.TotalSeconds) -ForegroundColor DarkCyan
+    Write-Host ((UI-Text "[faza] {0} (+{1} s od poczatku akcji)" "[phase] {0} (+{1} s since the action began)") -f $Name, [int]$script:phaseWatch.Elapsed.TotalSeconds) -ForegroundColor DarkCyan
 }
 Import-Module $diagnosticsModulePath -Force
 # COOP (experimental, the local branch "coop"): an optional module; without
@@ -130,7 +161,7 @@ if (Test-Path -LiteralPath $vpsModulePath -PathType Leaf) { Import-Module $vpsMo
 function Write-Header {
     Clear-Host
     Write-Host '========================================================' -ForegroundColor DarkYellow
-    Write-Host '  Metin2 Singleplayer - Launcher i aktualizacje' -ForegroundColor Yellow
+    Write-Host (UI-Text '  Metin2 Singleplayer - Launcher i aktualizacje' '  Metin2 Singleplayer - launcher and updates') -ForegroundColor Yellow
     Write-Host '========================================================' -ForegroundColor DarkYellow
     Write-Host ''
 }
@@ -229,7 +260,7 @@ function Test-InstalledVersion {
 function Confirm-Operation {
     param([Parameter(Mandatory = $true)][string]$Question)
     if ($Yes) { return $true }
-    $answer = Read-Host "$Question [t/N]"
+    $answer = Read-Host ("$Question " + (UI-Text '[t/N]' '[y/N]'))
     return $answer -match '^(t|tak|y|yes)$'
 }
 
@@ -260,15 +291,38 @@ function Assert-DockerDiskWritable {
     # running cannot be asked; Rebuild-Server starts it and asks again.
     # -KeepRebuildPending: the files are already the new ones, so a later
     # GRAJ must still finish the build.
-    param([switch]$KeepRebuildPending, [string]$Before = 'budowanie serwera')
+    param([switch]$KeepRebuildPending, [string]$Before = (UI-Text 'budowanie serwera' 'the server build'))
     if (-not (Test-M2DockerRunning)) { return }
     $fault = Get-M2DockerDiskFault
     if (-not $fault) { return }
     if ($KeepRebuildPending) {
         Set-Content -LiteralPath $rebuildMarkerPath -Value ([DateTime]::UtcNow.ToString('o')) -Encoding UTF8
     }
-    throw ("Przerywam $Before - dysk Dockera nie przyjmuje zapisu:" + [Environment]::NewLine +
+    throw ((UI-Text "Przerywam $Before - dysk Dockera nie przyjmuje zapisu:" "Stopping $Before - the Docker disk takes no writes:") + [Environment]::NewLine +
            $fault + [Environment]::NewLine + [Environment]::NewLine + (Get-M2DockerDiskRemedy))
+}
+
+function Close-VpsTunnelOnServerPorts {
+    # The VPS window's tunnel to the panels is this launcher's own ssh, and one
+    # opened while this PC's server was stopped took 127.0.0.1:7788, 7790 and
+    # 7791 - an update started meanwhile built its images and could not bind
+    # 7790, and every retry stopped at "port 7788 zajmuje proces ssh" (Sudak,
+    # 28 September). Since 2.2.36 the tunnel keeps off those ports; one that an
+    # older launcher opened on them is closed here, before a start or an update
+    # asks about the ports, because the server comes first and the VPS window
+    # opens the tunnel again ten thousand ports higher.
+    if (-not (Get-Command Get-M2VpsTunnelProcess -ErrorAction SilentlyContinue)) { return }
+    try {
+        $process = Get-M2VpsTunnelProcess -State (Get-M2VpsState -ServerRoot $serverRoot)
+        if (-not $process) { return }
+        $held = @(Get-M2ProgramPortConflicts -ServerRoot $serverRoot | Where-Object { [int]$_.Listener.Pid -eq [int]$process.Id })
+        if ($held.Count -eq 0) { return }
+        if (Close-M2VpsPanel -ServerRoot $serverRoot) {
+            Write-Host ((UI-Text 'Zamknięto tunel do paneli VPS - trzymał porty tego serwera ({0}). Panele VPS otworzysz znowu przyciskiem OTWÓRZ PANEL w oknie SERWER NA VPS.' 'Closed the tunnel to the VPS panels - it held this server''s ports ({0}). Open the VPS panels again with OPEN PANEL in the SERVER ON A VPS window.') -f
+                ((@($held) | ForEach-Object { [string]$_.Port }) -join ', ')) -ForegroundColor Yellow
+        }
+    }
+    catch { Write-Host (UI-Text "Nie udało się sprawdzić tunelu do paneli VPS: $($_.Exception.Message)" "Could not check the tunnel to the VPS panels: $($_.Exception.Message)") -ForegroundColor Yellow }
 }
 
 function Assert-ServerPortsFree {
@@ -280,15 +334,16 @@ function Assert-ServerPortsFree {
     # containers are not this check's: Clear-PortConflicts stops them.
     # -KeepRebuildPending: the files are already the new ones, so a later GRAJ
     # must still finish the build.
-    param([switch]$KeepRebuildPending, [string]$Before = 'budowanie serwera')
+    param([switch]$KeepRebuildPending, [string]$Before = (UI-Text 'budowanie serwera' 'the server build'))
+    Close-VpsTunnelOnServerPorts
     $conflicts = @(Get-M2ProgramPortConflicts -ServerRoot $serverRoot)
     if ($conflicts.Count -eq 0) { return }
     if ($KeepRebuildPending) {
         Set-Content -LiteralPath $rebuildMarkerPath -Value ([DateTime]::UtcNow.ToString('o')) -Encoding UTF8
     }
-    throw ("Przerywam $Before - port serwera zajmuje inny program:" + [Environment]::NewLine +
+    throw ((UI-Text "Przerywam $Before - port serwera zajmuje inny program:" "Stopping $Before - another program holds a server port:") + [Environment]::NewLine +
            ((@($conflicts) | ForEach-Object { [string]$_.Advice }) -join [Environment]::NewLine) +
-           [Environment]::NewLine + 'Baza, postacie i ustawienia są w porządku.')
+           [Environment]::NewLine + (UI-Text 'Baza, postacie i ustawienia są w porządku.' 'The database, the characters and the settings are fine.'))
 }
 
 function Start-Server {
@@ -296,29 +351,30 @@ function Start-Server {
     # ports back on every engine start, so a check that only names it leaves the
     # player exactly where they were.
     Clear-PortConflicts -Quiet | Out-Null
+    Close-VpsTunnelOnServerPorts
     Assert-DockerPrerequisites -CheckPanelPort
-    Write-Phase 'Docker sprawdzony'
+    Write-Phase (UI-Text 'Docker sprawdzony' 'Docker checked')
     # A second-channel wish left in the web panel, before .env is read.
     try { Sync-ChannelWishFromPanel }
-    catch { Write-Host "Nie udalo sie odczytac ustawienia kanalow z panelu WWW: $($_.Exception.Message)" -ForegroundColor Yellow }
+    catch { Write-Host (UI-Text "Nie udalo sie odczytac ustawienia kanalow z panelu WWW: $($_.Exception.Message)" "Could not read the channel setting from the web panel: $($_.Exception.Message)") -ForegroundColor Yellow }
     # start-server.ps1 brings the stack up from the images that already exist.
     # After an interrupted update those are the old ones, so finish the build
     # first - otherwise the player keeps running the previous server and the
     # website keeps showing the previous panel.
     if (Test-RebuildPending) {
-        Write-Host 'Poprzednia aktualizacja nie dokonczyla budowania. Dokancczam je teraz...' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Poprzednia aktualizacja nie dokonczyla budowania. Dokancczam je teraz...' 'The previous update did not finish its build. Finishing it now...') -ForegroundColor Yellow
         Rebuild-Server
-        Write-Host 'Budowanie zakonczone.' -ForegroundColor Green
+        Write-Host (UI-Text 'Budowanie zakonczone.' 'Build finished.') -ForegroundColor Green
     }
     $script = Join-Path $serverRoot 'start-server.ps1'
-    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw 'Brakuje start-server.ps1.' }
+    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw (UI-Text 'Brakuje start-server.ps1.' 'start-server.ps1 is missing.') }
     & $script
-    if ($LASTEXITCODE -ne 0) { throw "Uruchamianie serwera zakończyło się kodem $LASTEXITCODE." }
-    Write-Phase 'Serwer uruchomiony'
+    if ($LASTEXITCODE -ne 0) { throw (UI-Text "Uruchamianie serwera zakończyło się kodem $LASTEXITCODE." "Starting the server ended with code $LASTEXITCODE.") }
+    Write-Phase (UI-Text 'Serwer uruchomiony' 'Server started')
     # COOP: a world hosted before this start is still hosted - .env keeps the
     # address - so the router's four-hour lease is renewed here.
     try { Update-CoopHostingLease }
-    catch { Write-Host "COOP: nie udalo sie odnowic przekierowan w routerze: $($_.Exception.Message)" -ForegroundColor Yellow }
+    catch { Write-Host (UI-Text "COOP: nie udalo sie odnowic przekierowan w routerze: $($_.Exception.Message)" "COOP: could not renew the port forwarding in the router: $($_.Exception.Message)") -ForegroundColor Yellow }
 }
 
 function Stop-Server {
@@ -330,7 +386,7 @@ function Stop-Server {
     }
     finally { $ErrorActionPreference = $previousPreference }
     if (-not $dockerAvailable) {
-        Write-Host 'Docker jest już zatrzymany.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Docker jest już zatrzymany.' 'Docker is already stopped.') -ForegroundColor Yellow
         return
     }
     $composeDir = Join-Path $serverRoot 'linux-port\docker'
@@ -345,7 +401,7 @@ function Stop-Server {
         $stopExit = $LASTEXITCODE
     }
     finally { $ErrorActionPreference = $previousPreference }
-    if ($stopExit -ne 0) { throw "Zatrzymywanie serwera zakończyło się kodem $stopExit." }
+    if ($stopExit -ne 0) { throw (UI-Text "Zatrzymywanie serwera zakończyło się kodem $stopExit." "Stopping the server ended with code $stopExit.") }
 }
 
 # Another installation of this same server, sitting on the ports this one
@@ -362,18 +418,18 @@ function Clear-PortConflicts {
     $holders = @(Get-M2ForeignPortHolders -ServerRoot $serverRoot)
     if ($holders.Count -eq 0) {
         if (-not $Quiet) {
-            Write-Host 'Zadna inna instalacja nie trzyma portow tego serwera.' -ForegroundColor Green
+            Write-Host (UI-Text 'Zadna inna instalacja nie trzyma portow tego serwera.' 'No other installation holds this server''s ports.') -ForegroundColor Green
         }
         return 0
     }
     foreach ($holder in $holders) {
         $where = if ($holder.WorkingDir) { " (folder: $($holder.WorkingDir))" } else { '' }
-        Write-Host ("Port {0}: trzyma go kontener {1} z instalacji '{2}'{3}." -f
+        Write-Host ((UI-Text "Port {0}: trzyma go kontener {1} z instalacji '{2}'{3}." "Port {0}: held by the container {1} of the installation '{2}'{3}.") -f
             ((@($holder.Ports) | ForEach-Object { "$_" }) -join ', '), $holder.Container, $holder.Project, $where) -ForegroundColor Yellow
     }
     $stopped = @(Stop-M2ForeignPortHolders -ServerRoot $serverRoot)
     foreach ($entry in $stopped) {
-        Write-Host ("Zatrzymano instalacje '{0}' ({1} kontenerow). Baza, wolumeny i postep sa nietkniete." -f
+        Write-Host ((UI-Text "Zatrzymano instalacje '{0}' ({1} kontenerow). Baza, wolumeny i postep sa nietkniete." "Stopped the installation '{0}' ({1} containers). The database, the volumes and the progress are untouched.") -f
             $entry.Project, $entry.Containers) -ForegroundColor Green
     }
     return $stopped.Count
@@ -382,16 +438,16 @@ function Clear-PortConflicts {
 function Clear-PortConflictsAction {
     $freed = Clear-PortConflicts
     if ($freed -gt 0) {
-        Write-Host 'Porty zwolnione. Mozesz kliknac GRAJ albo ponowic aktualizacje.' -ForegroundColor Green
+        Write-Host (UI-Text 'Porty zwolnione. Mozesz kliknac GRAJ albo ponowic aktualizacje.' 'The ports are free. You can click PLAY or try the update again.') -ForegroundColor Green
     }
 }
 
 function Start-Docker {
     Assert-DockerPrerequisites
     $script = Join-Path $serverRoot 'start-server.ps1'
-    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw 'Brakuje start-server.ps1.' }
+    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw (UI-Text 'Brakuje start-server.ps1.' 'start-server.ps1 is missing.') }
     & $script -DockerOnly
-    if ($LASTEXITCODE -ne 0) { throw "Uruchamianie Docker Desktop zakończyło się kodem $LASTEXITCODE." }
+    if ($LASTEXITCODE -ne 0) { throw (UI-Text "Uruchamianie Docker Desktop zakończyło się kodem $LASTEXITCODE." "Starting Docker Desktop ended with code $LASTEXITCODE.") }
 }
 
 function Stop-DockerAndServer {
@@ -409,7 +465,7 @@ function Stop-DockerAndServer {
         Get-Process -Name 'Docker Desktop', 'com.docker.backend' -ErrorAction SilentlyContinue |
             Stop-Process -ErrorAction SilentlyContinue
     }
-    Write-Host 'Serwer i Docker Desktop zatrzymane. Dane pozostają zapisane w wolumenach.' -ForegroundColor Green
+    Write-Host (UI-Text 'Serwer i Docker Desktop zatrzymane. Dane pozostają zapisane w wolumenach.' 'The server and Docker Desktop are stopped. The data stays saved in the volumes.') -ForegroundColor Green
 }
 
 function Rebuild-Server {
@@ -423,7 +479,7 @@ function Rebuild-Server {
     # up, so "click GRAJ" only ever worked when Docker happened to be running.
     # Both paths go through here, so the engine is ensured here as well.
     if (-not (Test-M2DockerRunning)) {
-        Write-Host 'Silnik Dockera jest zatrzymany - uruchamiam go przed budowaniem.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Silnik Dockera jest zatrzymany - uruchamiam go przed budowaniem.' 'The Docker engine is stopped - starting it before the build.') -ForegroundColor Yellow
         Start-Docker
     }
     Assert-DockerDiskWritable -KeepRebuildPending
@@ -434,7 +490,7 @@ function Rebuild-Server {
     $identityScript = Join-Path $serverRoot 'start-server.ps1'
     if (Test-Path -LiteralPath $identityScript -PathType Leaf) {
         & $identityScript -IdentityOnly
-        if ($LASTEXITCODE -ne 0) { throw "Przygotowanie pliku .env zakonczylo sie kodem $LASTEXITCODE." }
+        if ($LASTEXITCODE -ne 0) { throw (UI-Text "Przygotowanie pliku .env zakonczylo sie kodem $LASTEXITCODE." "Preparing the .env file ended with code $LASTEXITCODE.") }
     }
     # The overlay is the source of truth; the build context is only a copy of
     # it. Refresh the copy before Docker reads it, or an update that added a
@@ -442,14 +498,14 @@ function Rebuild-Server {
     # a header that is not there at all.
     $synced = Sync-M2PlayerbotOverlay -ServerRoot $serverRoot
     if ($synced -gt 0) {
-        Write-Host "Zsynchronizowano $synced plik(ow) zrodlowych bota do kontekstu budowania." -ForegroundColor DarkGray
+        Write-Host (UI-Text "Zsynchronizowano $synced plik(ow) zrodlowych bota do kontekstu budowania." "Copied $synced bot source file(s) into the build context.") -ForegroundColor DarkGray
     }
-    Write-Phase 'Kontekst budowania przygotowany (.env, nakladka)'
+    Write-Phase (UI-Text 'Kontekst budowania przygotowany (.env, nakladka)' 'Build context ready (.env, overlay)')
     # The engine patches are part of the overlay too, and until now nothing on a
     # player's machine ever applied them.
     $patched = Invoke-M2EnginePatches -ServerRoot $serverRoot
     if ($patched -gt 0) {
-        Write-Host "Nalozono $patched latek silnika." -ForegroundColor DarkGray
+        Write-Host (UI-Text "Nalozono $patched latek silnika." "Applied $patched engine patch(es).") -ForegroundColor DarkGray
     }
     # And the sources the image is actually built from.
     #
@@ -485,28 +541,28 @@ function Rebuild-Server {
         $dbReady = $false
         if ($dbVolume) { $dbReady = Test-M2VolumeInitialized -Volume $dbVolume }
         if (-not $dbReady) {
-            throw ("Brakuje zrzutow bazy danych, wiec pierwsza baza powstalaby pusta.`n`n" +
-                   "Katalog: " + (Join-Path $serverRoot 'linux-port\docker\mariadb\initdb.d\dumps') + "`n" +
-                   "Brakuje: " + ($missingDumps -join ', ') + "`n`n" +
-                   "MariaDB wystartowalaby bez schematu gry (i zglosila 'healthy'), a playerbot-migrate " +
-                   "czekalby 30 minut na tabele, ktore nigdy nie powstana. Zrzuty pochodza z Twojej " +
-                   "paczki serwera r40250 (Server\metin2_mysql_dump.zip) i wystawia je wylacznie " +
-                   "instalator - zadna aktualizacja ich nie przywroci.`n`n" +
-                   "Uruchom ponownie instalator (installer\install.ps1) ze wskazana paczka " +
-                   "(`$env:M2_SRC_ARCHIVE), albo rozpakuj metin2_mysql_dump.zip do tego katalogu " +
-                   "i kliknij GRAJ jeszcze raz.")
+            throw ((UI-Text "Brakuje zrzutow bazy danych, wiec pierwsza baza powstalaby pusta.`n`n" "The database dumps are missing, so the first database would come up empty.`n`n") +
+                   (UI-Text "Katalog: " "Folder: ") + (Join-Path $serverRoot 'linux-port\docker\mariadb\initdb.d\dumps') + "`n" +
+                   (UI-Text "Brakuje: " "Missing: ") + ($missingDumps -join ', ') + "`n`n" +
+                   (UI-Text "MariaDB wystartowalaby bez schematu gry (i zglosila 'healthy'), a playerbot-migrate " "MariaDB would start without the game's schema (and report 'healthy'), and playerbot-migrate ") +
+                   (UI-Text "czekalby 30 minut na tabele, ktore nigdy nie powstana. Zrzuty pochodza z Twojej " "would wait 30 minutes for tables that never appear. The dumps come from your own ") +
+                   (UI-Text "paczki serwera r40250 (Server\metin2_mysql_dump.zip) i wystawia je wylacznie " "r40250 server package (Server\metin2_mysql_dump.zip), and only the installer ") +
+                   (UI-Text "instalator - zadna aktualizacja ich nie przywroci.`n`n" "puts them there - no update brings them back.`n`n") +
+                   (UI-Text "Uruchom ponownie instalator (installer\install.ps1) ze wskazana paczka " "Run the installer again (installer\install.ps1) with the package named in ") +
+                   (UI-Text "(`$env:M2_SRC_ARCHIVE), albo rozpakuj metin2_mysql_dump.zip do tego katalogu " "(`$env:M2_SRC_ARCHIVE), or unpack metin2_mysql_dump.zip into this folder ") +
+                   (UI-Text "i kliknij GRAJ jeszcze raz." "and click PLAY again."))
         }
     }
     if ($missingContext.Count -gt 0) {
-        throw ("Brakuje zrodel gry, wiec nie ma z czego zbudowac serwera.`n`n" +
-               "Katalog: " + $gameContext + "`n" +
-               "Brakuje: " + ($missingContext -join ', ') + "`n`n" +
-               "To nie jest blad Dockera, WSL ani tej aktualizacji. Te pliki pochodza " +
-               "z Twojej wlasnej paczki serwera r40250 i sa rozpakowywane raz, podczas " +
-               "instalacji - zadna aktualizacja ich nie przywroci, bo nie wolno nam ich " +
-               "rozpowszechniac.`n`n" +
-               "Uruchom ponownie instalator (installer\install.ps1). Pobierze zrodla i " +
-               "odtworzy kontekst budowania. Baza, postacie i ustawienia zostaja nietkniete.")
+        throw ((UI-Text "Brakuje zrodel gry, wiec nie ma z czego zbudowac serwera.`n`n" "The game sources are missing, so there is nothing to build the server from.`n`n") +
+               (UI-Text "Katalog: " "Folder: ") + $gameContext + "`n" +
+               (UI-Text "Brakuje: " "Missing: ") + ($missingContext -join ', ') + "`n`n" +
+               (UI-Text "To nie jest blad Dockera, WSL ani tej aktualizacji. Te pliki pochodza " "This is no fault of Docker, WSL or this update. These files come ") +
+               (UI-Text "z Twojej wlasnej paczki serwera r40250 i sa rozpakowywane raz, podczas " "from your own r40250 server package and are unpacked once, during ") +
+               (UI-Text "instalacji - zadna aktualizacja ich nie przywroci, bo nie wolno nam ich " "the installation - no update brings them back, because we may not ") +
+               (UI-Text "rozpowszechniac.`n`n" "distribute them.`n`n") +
+               (UI-Text "Uruchom ponownie instalator (installer\install.ps1). Pobierze zrodla i " "Run the installer again (installer\install.ps1). It fetches the sources and ") +
+               (UI-Text "odtworzy kontekst budowania. Baza, postacie i ustawienia zostaja nietkniete." "rebuilds the build context. The database, the characters and the settings stay untouched."))
     }
 
     # The update is where a port collision hurts most: the images build for
@@ -530,16 +586,16 @@ function Rebuild-Server {
         # the second click succeeded. Pull what is not built first; a failure
         # here is not final, `up` tries again.
         docker compose --project-directory $composeDir -f $composeFile pull --ignore-buildable 2>&1 | Out-Null
-        Write-Phase 'Obrazy bazowe pobrane, zaczynam docker compose up --build'
+        Write-Phase (UI-Text 'Obrazy bazowe pobrane, zaczynam docker compose up --build' 'Base images pulled, starting docker compose up --build')
         Set-M2PlayerbotsVersionEnvironment -ServerRoot $serverRoot
         docker compose --project-directory $composeDir -f $composeFile up -d --build
         $buildExit = $LASTEXITCODE
-        Write-Phase "docker compose up --build zakonczone (kod $buildExit)"
+        Write-Phase (UI-Text "docker compose up --build zakonczone (kod $buildExit)" "docker compose up --build finished (code $buildExit)")
     }
     finally { $ErrorActionPreference = $previousPreference }
     if ($buildExit -ne 0) {
         Set-Content -LiteralPath $rebuildMarkerPath -Value ([DateTime]::UtcNow.ToString('o')) -Encoding UTF8
-        throw 'Nowa wersja plików została zapisana, ale Docker nie zbudował serwera. Kliknij GRAJ — launcher dokończy budowanie. Kopia plików jest w katalogu backups.'
+        throw (UI-Text 'Nowa wersja plików została zapisana, ale Docker nie zbudował serwera. Kliknij GRAJ — launcher dokończy budowanie. Kopia plików jest w katalogu backups.' 'The new version''s files are saved, but Docker did not build the server. Click PLAY - the launcher finishes the build. A copy of the old files is in the backups folder.')
     }
     if (Test-RebuildPending) { Remove-Item -LiteralPath $rebuildMarkerPath -Force -ErrorAction SilentlyContinue }
 }
@@ -553,22 +609,22 @@ function Show-UpdateStatus {
     if ($null -ne $messageProperty -and [string]$messageProperty.Value) {
         Write-Host ([string]$messageProperty.Value) -ForegroundColor Yellow
     }
-    Write-Host "Zainstalowany serwer: $($state.server)" -ForegroundColor Gray
-    Write-Host "Dostępny serwer:     $(if ($serverComponent) { $serverComponent.version } else { 'brak w tym kanale' })" -ForegroundColor Cyan
-    Write-Host "Zainstalowany klient: $($state.client)" -ForegroundColor Gray
-    Write-Host "Dostępny klient:      $(if ($clientComponent) { $clientComponent.version } else { 'brak w tym kanale' })" -ForegroundColor Cyan
+    Write-Host (UI-Text "Zainstalowany serwer: $($state.server)" "Installed server: $($state.server)") -ForegroundColor Gray
+    Write-Host (UI-Text "Dostępny serwer:     $(if ($serverComponent) { $serverComponent.version } else { 'brak w tym kanale' })" "Available server: $(if ($serverComponent) { $serverComponent.version } else { 'none in this channel' })") -ForegroundColor Cyan
+    Write-Host (UI-Text "Zainstalowany klient: $($state.client)" "Installed client: $($state.client)") -ForegroundColor Gray
+    Write-Host (UI-Text "Dostępny klient:      $(if ($clientComponent) { $clientComponent.version } else { 'brak w tym kanale' })" "Available client: $(if ($clientComponent) { $clientComponent.version } else { 'none in this channel' })") -ForegroundColor Cyan
 }
 
 function Update-Server {
     param($RemoteManifest)
     $component = Get-ManifestComponent -RemoteManifest $RemoteManifest -Name 'server'
     if (-not $component) {
-        Write-Host 'Manifest nie zawiera aktualizacji serwera. Pomijam.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Manifest nie zawiera aktualizacji serwera. Pomijam.' 'The manifest has no server update. Skipping it.') -ForegroundColor Yellow
         return
     }
     $state = Read-State
     if (Test-InstalledVersion -Installed ([string]$state.server) -Available ([string]$component.version)) {
-        Write-Host "Serwer jest już aktualny (wersja $($component.version))." -ForegroundColor Green
+        Write-Host (UI-Text "Serwer jest już aktualny (wersja $($component.version))." "The server is up to date (version $($component.version)).") -ForegroundColor Green
         return
     }
     # A build that failed after the files were swapped leaves them at the new
@@ -577,20 +633,20 @@ function Update-Server {
     # were five downloads of 47.8 MB and five copies of 7042 files, on the
     # drive whose room was the likeliest cause of the failure. Finish the build.
     if ((Test-RebuildPending) -and (Test-InstalledVersion -Installed ([string](Read-RecordedState).server) -Available ([string]$component.version))) {
-        Write-Host "Pliki serwera w wersji $($component.version) są już na dysku - dokańczam budowanie bez ponownego pobierania." -ForegroundColor Yellow
+        Write-Host (UI-Text "Pliki serwera w wersji $($component.version) są już na dysku - dokańczam budowanie bez ponownego pobierania." "The server files of version $($component.version) are already on the disk - finishing the build without downloading them again.") -ForegroundColor Yellow
         Rebuild-Server
-        Write-Host "Serwer działa w wersji $($component.version)." -ForegroundColor Green
+        Write-Host (UI-Text "Serwer działa w wersji $($component.version)." "The server runs version $($component.version).") -ForegroundColor Green
         return
     }
-    Assert-DockerDiskWritable -Before 'aktualizację (niczego nie pobrano ani nie podmieniono)'
-    Assert-ServerPortsFree -Before 'aktualizację (niczego nie pobrano ani nie podmieniono)'
-    if (-not (Confirm-Operation 'Zaktualizować pliki serwera i przebudować kontenery? Baza postaci pozostanie bez zmian.')) {
-        Write-Host 'Anulowano.' -ForegroundColor Yellow
+    Assert-DockerDiskWritable -Before (UI-Text 'aktualizację (niczego nie pobrano ani nie podmieniono)' 'the update (nothing was downloaded or replaced)')
+    Assert-ServerPortsFree -Before (UI-Text 'aktualizację (niczego nie pobrano ani nie podmieniono)' 'the update (nothing was downloaded or replaced)')
+    if (-not (Confirm-Operation (UI-Text 'Zaktualizować pliki serwera i przebudować kontenery? Baza postaci pozostanie bez zmian.' 'Update the server files and rebuild the containers? The character database stays as it is.'))) {
+        Write-Host (UI-Text 'Anulowano.' 'Cancelled.') -ForegroundColor Yellow
         return
     }
     $result = Invoke-M2PackageUpdate -Component $component -TargetRoot $serverRoot -BackupRoot (Join-Path $serverRoot 'backups')
-    Write-Host "Podmieniono $($result.Files) plików. Kopia: $($result.Backup)" -ForegroundColor Green
-    Write-Phase 'Pliki aktualizacji pobrane i podmienione'
+    Write-Host (UI-Text "Podmieniono $($result.Files) plików. Kopia: $($result.Backup)" "Replaced $($result.Files) files. Backup: $($result.Backup)") -ForegroundColor Green
+    Write-Phase (UI-Text 'Pliki aktualizacji pobrane i podmienione' 'Update files downloaded and replaced')
     # From here the files on disk are the new version whatever happens to the
     # build, and VERSION on disk already says so. Recording it only after a
     # successful rebuild meant a deferred build left the launcher reporting the
@@ -599,7 +655,7 @@ function Update-Server {
     # tracks the build is the rebuild marker, not the version number.
     Save-State -ServerVersion $result.Version -ClientVersion ''
     Rebuild-Server
-    Write-Host "Serwer działa w wersji $($result.Version)." -ForegroundColor Green
+    Write-Host (UI-Text "Serwer działa w wersji $($result.Version)." "The server runs version $($result.Version).") -ForegroundColor Green
 }
 
 function Assert-ClientNotRunning {
@@ -614,7 +670,7 @@ function Assert-ClientNotRunning {
     if (-not $clientRoot -or -not (Test-Path -LiteralPath $clientRoot -PathType Container)) { return }
     $running = @(Get-M2FolderProcesses -Root $clientRoot)
     if ($running.Count -gt 0) {
-        throw ("Klient gry jest uruchomiony ({0}). Zamknij gre - sprawdz tez Menedzer zadan, czy metin2client.exe nie zostal w tle - i kliknij ZAINSTALUJ AKTUALIZACJE jeszcze raz." -f ($running -join ', '))
+        throw ((UI-Text "Klient gry jest uruchomiony ({0}). Zamknij gre - sprawdz tez Menedzer zadan, czy metin2client.exe nie zostal w tle - i kliknij ZAINSTALUJ AKTUALIZACJE jeszcze raz." "The game client is running ({0}). Close the game - check Task Manager too, in case metin2client.exe stayed in the background - and click CHECK FOR UPDATES again.") -f ($running -join ', '))
     }
 }
 
@@ -622,30 +678,30 @@ function Update-Client {
     param($RemoteManifest, $Config)
     $component = Get-ManifestComponent -RemoteManifest $RemoteManifest -Name 'client'
     if (-not $component) {
-        Write-Host 'Manifest nie zawiera aktualizacji klienta. Pomijam.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Manifest nie zawiera aktualizacji klienta. Pomijam.' 'The manifest has no client update. Skipping it.') -ForegroundColor Yellow
         return
     }
     $state = Read-State
     if (Test-InstalledVersion -Installed ([string]$state.client) -Available ([string]$component.version)) {
-        Write-Host "Klient jest już aktualny (wersja $($component.version))." -ForegroundColor Green
+        Write-Host (UI-Text "Klient jest już aktualny (wersja $($component.version))." "The client is up to date (version $($component.version)).") -ForegroundColor Green
         Repair-ClientExe -RemoteManifest $RemoteManifest -Config $Config
         return
     }
     $clientRoot = [string]$Config.clientRoot
     if (-not $clientRoot) {
-        throw 'Nie ustawiono folderu klienta. Uruchom launcher z akcją Configure.'
+        throw (UI-Text 'Nie ustawiono folderu klienta. Uruchom launcher z akcją Configure.' 'No client folder is set. Run the launcher with the Configure action.')
     }
     if (-not (Test-Path -LiteralPath $clientRoot -PathType Container)) {
-        throw "Nie znaleziono folderu klienta: $clientRoot"
+        throw (UI-Text "Nie znaleziono folderu klienta: $clientRoot" "Client folder not found: $clientRoot")
     }
     Assert-ClientNotRunning -Config $Config
-    if (-not (Confirm-Operation "Zaktualizować klienta w $clientRoot?")) {
-        Write-Host 'Anulowano.' -ForegroundColor Yellow
+    if (-not (Confirm-Operation (UI-Text "Zaktualizować klienta w $clientRoot?" "Update the client in $clientRoot?"))) {
+        Write-Host (UI-Text 'Anulowano.' 'Cancelled.') -ForegroundColor Yellow
         return
     }
     $result = Invoke-M2PackageUpdate -Component $component -TargetRoot $clientRoot -BackupRoot (Join-Path $serverRoot 'backups\client')
     Save-State -ServerVersion '' -ClientVersion $result.Version
-    Write-Host "Klient został zaktualizowany. Plików: $($result.Files), kopia: $($result.Backup)" -ForegroundColor Green
+    Write-Host (UI-Text "Klient został zaktualizowany. Plików: $($result.Files), kopia: $($result.Backup)" "The client is updated. Files: $($result.Files), backup: $($result.Backup)") -ForegroundColor Green
     Repair-ClientExe -RemoteManifest $RemoteManifest -Config $Config
 }
 
@@ -667,26 +723,32 @@ function Repair-ClientExe {
         -BackupRoot (Join-Path $serverRoot 'backups\client') -ServerRoot $serverRoot -ConfigPath $configPath)
     foreach ($note in $notes) { Write-Host $note -ForegroundColor Yellow }
     if (Test-M2ClientExeOld -ClientFolder $clientRoot) {
-        Write-Host 'metin2client.exe w folderze klienta jest nadal stary (sprzed czterech stron ekwipunku) - gra nie wpuści go do logowania, dopóki nie zostanie podmieniony.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'metin2client.exe w folderze klienta jest nadal stary (sprzed czterech stron ekwipunku) - gra nie wpuści go do logowania, dopóki nie zostanie podmieniony.' 'metin2client.exe in the client folder is still the old one (from before the four inventory pages) - the game will not let it log in until it is replaced.') -ForegroundColor Yellow
     }
 }
 
 function Configure-Launcher {
     $config = Get-Config
-    Write-Host 'Pozostaw puste pole, aby zachować dotychczasową wartość.' -ForegroundColor Gray
-    $manifestValue = Read-Host "Manifest aktualizacji [$($config.manifestUrl)]"
+    Write-Host (UI-Text 'Pozostaw puste pole, aby zachować dotychczasową wartość.' 'Leave a field empty to keep its current value.') -ForegroundColor Gray
+    $manifestValue = Read-Host (UI-Text "Manifest aktualizacji [$($config.manifestUrl)]" "Update manifest [$($config.manifestUrl)]")
     if ($manifestValue) { $config.manifestUrl = $manifestValue }
-    $clientValue = Read-Host "Folder klienta [$($config.clientRoot)]"
+    $clientValue = Read-Host (UI-Text "Folder klienta [$($config.clientRoot)]" "Client folder [$($config.clientRoot)]")
     if ($clientValue) { $config.clientRoot = [IO.Path]::GetFullPath($clientValue) }
-    $clientExeValue = Read-Host "Plik EXE klienta [$($config.clientExecutable)]"
+    $clientExeValue = Read-Host (UI-Text "Plik EXE klienta [$($config.clientExecutable)]" "Client EXE file [$($config.clientExecutable)]")
     if ($clientExeValue -eq '-') { $config.clientExecutable = '' }
     elseif ($clientExeValue) { $config.clientExecutable = [IO.Path]::GetFullPath($clientExeValue) }
-    $supportState = if ($config.supportUploadUrl) { 'ustawiony' } else { 'nieustawiony' }
-    $supportValue = Read-Host "Prywatny webhook Discord lub adres HTTPS pomocy [$supportState] (wpisz - aby usunąć)"
+    $supportState = if ($config.supportUploadUrl) { (UI-Text 'ustawiony' 'set') } else { (UI-Text 'nieustawiony' 'not set') }
+    $supportValue = Read-Host (UI-Text "Prywatny webhook Discord lub adres HTTPS pomocy [$supportState] (wpisz - aby usunąć)" "Private Discord webhook or HTTPS support address [$supportState] (type - to remove it)")
     if ($supportValue -eq '-') { $config.supportUploadUrl = '' }
     elseif ($supportValue) { $config.supportUploadUrl = $supportValue }
+    # The language the window's switch sets, asked here in both languages
+    # because whoever reads the menu may read only one of them. From the next
+    # line on the launcher speaks it.
+    $languageValue = Read-Host "Język / Language [$($config.language)] (pl / en)"
+    if ("$languageValue".Trim() -match '^(pl|en)$') { $config.language = $Matches[1] }
     Save-M2LauncherConfig -Config $config -ConfigPath $configPath
-    Write-Host "Zapisano konfigurację: $configPath" -ForegroundColor Green
+    $env:M2_LAUNCHER_LANGUAGE = $(if ([string]$config.language -eq 'en') { 'en' } else { 'pl' })
+    Write-Host (UI-Text "Zapisano konfigurację: $configPath" "Settings saved: $configPath") -ForegroundColor Green
 }
 
 function Get-PlayerbotEnvPath {
@@ -721,7 +783,7 @@ function Set-PlayerbotCount {
     if ($Count -gt 2500) { $Count = 2500 }
     $envPath = Get-PlayerbotEnvPath
     if (-not (Test-Path -LiteralPath $envPath -PathType Leaf)) {
-        throw "Brak pliku .env: $envPath. Uruchom najpierw serwer (GRAJ), aby go utworzyć."
+        throw (UI-Text "Brak pliku .env: $envPath. Uruchom najpierw serwer (GRAJ), aby go utworzyć." "There is no .env file: $envPath. Start the server (PLAY) first to create it.")
     }
     $content = [IO.File]::ReadAllText($envPath)
     $pattern = '(?m)^PLAYERBOT_AUTOSPAWN_COUNT=.*$'
@@ -818,41 +880,83 @@ function Set-KingdomCounts {
     return @{ Enabled = $Enabled; Shinsoo = $Shinsoo; Chunjo = $Chunjo; Jinno = $Jinno }
 }
 
-function Get-SecondChannelFromEnv {
+function Get-GameChannelsFromEnv {
+    # "Kanaly gry 1-4" as .env has it: the second channel (M2_PLAYERBOT_CH2)
+    # with its share, and the fresh cohort's channels 3 and 4
+    # (M2_PLAYERBOT_FRESH_CHANNELS) with how many of it play. Channels is the
+    # one number the choice shows: 1, 2, or 2 and the fresh channels.
     $share = 40
     [int]::TryParse((Get-DotEnvValue -Key 'PLAYERBOT_CH2_SHARE' -Default '40'), [ref]$share) | Out-Null
-    return @{ Enabled = (Get-DotEnvValue -Key 'M2_PLAYERBOT_CH2' -Default '0') -eq '1'; Share = $share }
+    $fresh = 0
+    [int]::TryParse((Get-DotEnvValue -Key 'M2_PLAYERBOT_FRESH_CHANNELS' -Default '0'), [ref]$fresh) | Out-Null
+    if ($fresh -lt 0 -or $fresh -gt 2) { $fresh = 0 }
+    $freshCount = 200
+    [int]::TryParse((Get-DotEnvValue -Key 'PLAYERBOT_FRESH_COUNT' -Default '200'), [ref]$freshCount) | Out-Null
+    $enabled = (Get-DotEnvValue -Key 'M2_PLAYERBOT_CH2' -Default '0') -eq '1'
+    $channels = if ($fresh -gt 0) { 2 + $fresh } elseif ($enabled) { 2 } else { 1 }
+    return @{ Channels = $channels; Enabled = $enabled; Share = $share; Fresh = $fresh; FreshCount = $freshCount }
 }
 
-function Set-SecondChannel {
-    # The second channel (M2_PLAYERBOT_CH2): the switch, the share of the bots
-    # that play on it, and the two port ranges compose publishes - 13000-13012
-    # while it is on (its cores listen on 13010-13012), the first channel's
-    # three otherwise. The host side keeps the first port a player may have
-    # moved. SetAt is when the choice was made: the game container compares it
-    # with the web panel's wish, and the newer of the two wins.
-    param([bool]$Enabled, [int]$Share = 40, [long]$SetAt = 0)
+function Set-GameChannels {
+    # One choice for the channels a world runs (the operator's "Kanaly gry
+    # 1-4", 28 September): 1 is the first channel alone; 2 the second channel
+    # for the world's bots and players (M2_PLAYERBOT_CH2, with the share of the
+    # bots on it); 3 and 4 that and the fresh cohort - bots of their own from
+    # level one - on CH3, or on CH3 and CH4 (M2_PLAYERBOT_FRESH_CHANNELS 1 or 2,
+    # PLAYERBOT_FRESH_COUNT of them at once). Only the 2.x line has the fresh
+    # cohort; r40250 stops at two. And the two port ranges compose publishes:
+    # channel N listens on 13000+10*(N-1)..+2, so 13000-13002 for one channel
+    # up to 13000-13032 for four - never fewer than an M2_CHANNELS the operator
+    # set by hand runs, which the old two-way answer took back to one channel's.
+    # The host side keeps the first port a player may have moved. SetAt is when
+    # the choice was made: the game container compares it with the web panel's
+    # wish, and the newer of the two wins.
+    param([int]$Channels, [int]$Share = 40, [int]$FreshCount = 200, [long]$SetAt = 0)
+    if ($Channels -lt 1) { $Channels = 1 }
+    if ($Channels -gt 4) { $Channels = 4 }
+    if ($Channels -gt 2 -and (Get-M2ServerEngine -ServerRoot $serverRoot) -eq 'r40250') { $Channels = 2 }
     if ($Share -lt 10) { $Share = 10 }
     if ($Share -gt 90) { $Share = 90 }
+    if ($FreshCount -lt 0) { $FreshCount = 0 }
+    if ($FreshCount -gt 1500) { $FreshCount = 1500 }
     if ($SetAt -le 0) { $SetAt = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() }
+    $fresh = if ($Channels -ge 3) { $Channels - 2 } else { 0 }
+    $running = $Channels
+    $configured = 1
+    if ([int]::TryParse((Get-DotEnvValue -Key 'M2_CHANNELS' -Default '1'), [ref]$configured) -and
+        $configured -gt $running -and $configured -le 4) { $running = $configured }
+    $span = 10 * ($running - 1) + 2
     $first = 13000
     $range = Get-DotEnvValue -Key 'M2_GAME_PORT_RANGE' -Default '13000-13002'
     if ($range -match '^\s*(\d+)') { $first = [int]$Matches[1] }
-    $span = if ($Enabled) { 12 } else { 2 }
-    Set-DotEnvValue -Key 'M2_PLAYERBOT_CH2' -Value $(if ($Enabled) { '1' } else { '0' })
+    Set-DotEnvValue -Key 'M2_PLAYERBOT_CH2' -Value $(if ($Channels -ge 2) { '1' } else { '0' })
     Set-DotEnvValue -Key 'PLAYERBOT_CH2_SHARE' -Value "$Share"
+    Set-DotEnvValue -Key 'M2_PLAYERBOT_FRESH_CHANNELS' -Value "$fresh"
+    Set-DotEnvValue -Key 'PLAYERBOT_FRESH_COUNT' -Value "$FreshCount"
     Set-DotEnvValue -Key 'M2_PLAYERBOT_CH2_SET_AT' -Value "$SetAt"
     Set-DotEnvValue -Key 'M2_GAME_PORT_RANGE' -Value ('{0}-{1}' -f $first, ($first + $span))
     Set-DotEnvValue -Key 'M2_GAME_CONTAINER_PORT_RANGE' -Value ('13000-{0}' -f (13000 + $span))
-    return @{ Enabled = $Enabled; Share = $Share }
+    return @{ Channels = $Channels; Enabled = ($Channels -ge 2); Share = $Share; Fresh = $fresh; FreshCount = $FreshCount }
+}
+
+function Format-GameChannelsChoice {
+    # The choice in words, for the confirmation lines.
+    param([Parameter(Mandatory = $true)][hashtable]$Choice)
+    switch ([int]$Choice.Channels) {
+        1 { return (UI-Text 'jeden kanał (CH1)' 'one channel (CH1)') }
+        2 { return (UI-Text "dwa kanały, $($Choice.Share)% botów na CH2" "two channels, $($Choice.Share)% of the bots on CH2") }
+        3 { return (UI-Text "trzy kanały, $($Choice.Share)% botów na CH2, $($Choice.FreshCount) świeżych botów na CH3" "three channels, $($Choice.Share)% of the bots on CH2, $($Choice.FreshCount) fresh bots on CH3") }
+        default { return (UI-Text "cztery kanały, $($Choice.Share)% botów na CH2, $($Choice.FreshCount) świeżych botów na CH3 i CH4" "four channels, $($Choice.Share)% of the bots on CH2, $($Choice.FreshCount) fresh bots on CH3 and CH4") }
+    }
 }
 
 function Sync-ChannelWishFromPanel {
-    # The web panel cannot write .env; it leaves its second-channel wish in the
+    # The web panel cannot write .env; it leaves its channel wish - the second
+    # channel with its share, and the fresh channels with their count - in the
     # spool the game container reads (channels.wanted, with SET_AT). The
     # container honours it for the bots at its next start whatever happens
-    # here, but only .env can publish the second channel's ports - so a wish
-    # newer than .env's own is copied into .env before the stack comes up.
+    # here, but only .env can publish the channels' ports - so a wish newer
+    # than .env's own is copied into .env before the stack comes up.
     # Only while the game container runs: its spool cannot be read otherwise.
     $envPath = Get-PlayerbotEnvPath
     if (-not (Test-Path -LiteralPath $envPath -PathType Leaf)) { return }
@@ -875,17 +979,22 @@ function Sync-ChannelWishFromPanel {
     $envAt = 0L
     [long]::TryParse((Get-DotEnvValue -Key 'M2_PLAYERBOT_CH2_SET_AT' -Default '0'), [ref]$envAt) | Out-Null
     if ($wish['SET_AT'] -le $envAt) { return }
+    $current = Get-GameChannelsFromEnv
     $share = if ($wish.ContainsKey('SHARE')) { [int]$wish['SHARE'] } else { 40 }
-    $applied = Set-SecondChannel -Enabled ($wish['CH2'] -eq 1) -Share $share -SetAt $wish['SET_AT']
-    $what = if ($applied.Enabled) { "wlaczony, $($applied.Share)% botow na CH2" } else { 'wylaczony' }
-    Write-Host "Drugi kanal ustawiony w panelu WWW: $what." -ForegroundColor Green
+    # A wish that does not name the fresh channels (a panel from before them)
+    # leaves .env's, as the game container does.
+    $fresh = if ($wish.ContainsKey('FRESH') -and $wish['FRESH'] -le 2) { [int]$wish['FRESH'] } else { [int]$current.Fresh }
+    $freshCount = if ($wish.ContainsKey('FRESH_COUNT')) { [int]$wish['FRESH_COUNT'] } else { [int]$current.FreshCount }
+    $channels = if ($fresh -gt 0) { 2 + $fresh } elseif ($wish['CH2'] -eq 1) { 2 } else { 1 }
+    $applied = Set-GameChannels -Channels $channels -Share $share -FreshCount $freshCount -SetAt $wish['SET_AT']
+    Write-Host (UI-Text "Kanaly gry ustawione w panelu WWW: $(Format-GameChannelsChoice -Choice $applied)." "Game channels set in the web panel: $(Format-GameChannelsChoice -Choice $applied).") -ForegroundColor Green
 }
 
 function Set-BotCountAction {
     $current = Get-PlayerbotCount
     $plan = Get-SpawnPlanFromEnv
-    Write-Host "Aktualnie gra: $current botów (efektywny limit = liczba botów w Twoim świecie; kanoniczna paczka ma 350)." -ForegroundColor Gray
-    Write-Host "Wchodzą w ciągu $($plan.Minutes) min od startu; dodatkowych botów dołączających stopniowo: $($plan.Late) w ciągu $($plan.Hours) h." -ForegroundColor Gray
+    Write-Host (UI-Text "Aktualnie gra: $current botów (efektywny limit = liczba botów w Twoim świecie; kanoniczna paczka ma 350)." "Playing now: $current bots (the real limit is the number of bots in your world; the canonical package has 350).") -ForegroundColor Gray
+    Write-Host (UI-Text "Wchodzą w ciągu $($plan.Minutes) min od startu; dodatkowych botów dołączających stopniowo: $($plan.Late) w ciągu $($plan.Hours) h." "They come in within $($plan.Minutes) min of the start; extra bots joining gradually: $($plan.Late) over $($plan.Hours) h.") -ForegroundColor Gray
 
     # -BotCount passed (from the GUI or scripting) is non-interactive: never call
     # Read-Host, because the GUI runs this in a hidden, non-interactive console.
@@ -893,13 +1002,13 @@ function Set-BotCountAction {
     # menu and can prompt for the numbers and the restart.
     if ($BotCount -ge 0) {
         $applied = Set-PlayerbotCount -Count $BotCount
-        Write-Host "Zapisano: $applied grających botów." -ForegroundColor Green
+        Write-Host (UI-Text "Zapisano: $applied grających botów." "Saved: $applied playing bots.") -ForegroundColor Green
         if ($SpawnMinutes -ge 0 -or $LateJoiners -ge 0 -or $LateHours -ge 0) {
             $m = if ($SpawnMinutes -ge 0) { $SpawnMinutes } else { [int]$plan.Minutes }
             $l = if ($LateJoiners -ge 0) { $LateJoiners } else { [int]$plan.Late }
             $h = if ($LateHours -ge 0) { $LateHours } else { [int]$plan.Hours }
             $p = Set-SpawnPlan -Minutes $m -Late $l -Hours $h
-            Write-Host "Zapisano: wejście w $($p.Minutes) min, $($p.Late) dodatkowych botów w ciągu $($p.Hours) h." -ForegroundColor Green
+            Write-Host (UI-Text "Zapisano: wejście w $($p.Minutes) min, $($p.Late) dodatkowych botów w ciągu $($p.Hours) h." "Saved: entry over $($p.Minutes) min, $($p.Late) extra bots over $($p.Hours) h.") -ForegroundColor Green
         }
         if ($PerKingdom -ge 0) {
             $k = Get-KingdomCountsFromEnv
@@ -908,7 +1017,7 @@ function Set-BotCountAction {
             $j = if ($JinnoBots -ge 0) { $JinnoBots } else { $k.Jinno }
             $kk = Set-KingdomCounts -Enabled ($PerKingdom -eq 1) -Shinsoo $s -Chunjo $c -Jinno $j
             if ($kk.Enabled) {
-                Write-Host "Zapisano: osobno dla królestw - Shinsoo $($kk.Shinsoo), Chunjo $($kk.Chunjo), Jinno $($kk.Jinno)." -ForegroundColor Green
+                Write-Host (UI-Text "Zapisano: osobno dla królestw - Shinsoo $($kk.Shinsoo), Chunjo $($kk.Chunjo), Jinno $($kk.Jinno)." "Saved: per kingdom - Shinsoo $($kk.Shinsoo), Chunjo $($kk.Chunjo), Jinno $($kk.Jinno).") -ForegroundColor Green
                 # A kingdom at zero starts nobody, and nothing in the game says
                 # so afterwards - the world simply has no bots there. It is a
                 # legitimate setting, so it is said out loud rather than
@@ -918,87 +1027,107 @@ function Set-BotCountAction {
                 if ($kk.Chunjo -le 0) { $empty += 'Chunjo' }
                 if ($kk.Jinno -le 0) { $empty += 'Jinno' }
                 if (@($empty).Count -gt 0) {
-                    Write-Host ("UWAGA: " + ($empty -join ' i ') + " nie wystartuje zadnego bota. Wpisz tam liczbe wieksza od zera albo wylacz indywidualne wartosci.") -ForegroundColor Yellow
+                    Write-Host ((UI-Text "UWAGA: " "WARNING: ") + ($empty -join (UI-Text ' i ' ' and ')) + (UI-Text " nie wystartuje zadnego bota. Wpisz tam liczbe wieksza od zera albo wylacz indywidualne wartosci." " will start no bot. Enter a number above zero there or turn the separate numbers off.")) -ForegroundColor Yellow
                 }
             }
-            else { Write-Host 'Zapisano: jedna liczba botów dzielona po równo na królestwa.' -ForegroundColor Green }
+            else { Write-Host (UI-Text 'Zapisano: jedna liczba botów dzielona po równo na królestwa.' 'Saved: one bot count, shared equally between the kingdoms.') -ForegroundColor Green }
         }
-        if ($Channel2 -ge 0) {
+        if ($GameChannels -ge 0 -or $Channel2 -ge 0) {
             # Written only when it changes, so the moment of the choice stays the
             # one it was made at and a wish from the web panel made after it is
             # not overwritten by a dialog that only changed the bot count.
-            $cur = Get-SecondChannelFromEnv
+            # -Channel2 alone is the older switch: on keeps whatever channels
+            # past the second there are, off is the first channel alone.
+            $cur = Get-GameChannelsFromEnv
+            $want = if ($GameChannels -ge 0) { $GameChannels } elseif ($Channel2 -eq 1) { [Math]::Max(2, [int]$cur.Channels) } else { 1 }
             $share = if ($Channel2Share -ge 0) { $Channel2Share } else { $cur.Share }
-            if (($Channel2 -eq 1) -ne $cur.Enabled -or (($Channel2 -eq 1) -and $share -ne $cur.Share)) {
-                $ch = Set-SecondChannel -Enabled ($Channel2 -eq 1) -Share $share
-                if ($ch.Enabled) { Write-Host "Zapisano: drugi kanał (CH2) włączony, $($ch.Share)% botów na CH2." -ForegroundColor Green }
-                else { Write-Host 'Zapisano: drugi kanał (CH2) wyłączony.' -ForegroundColor Green }
+            $count = if ($FreshCount -ge 0) { $FreshCount } else { $cur.FreshCount }
+            if ($want -ne $cur.Channels -or ($want -ge 2 -and $share -ne $cur.Share) -or
+                ($want -ge 3 -and $count -ne $cur.FreshCount)) {
+                $ch = Set-GameChannels -Channels $want -Share $share -FreshCount $count
+                Write-Host (UI-Text "Zapisano: $(Format-GameChannelsChoice -Choice $ch)." "Saved: $(Format-GameChannelsChoice -Choice $ch).") -ForegroundColor Green
+                if ($ch.Channels -lt $want) { Write-Host (UI-Text 'Kanały 3 i 4 ze świeżymi botami są tylko na linii 2.x - zostają dwa kanały.' 'Channels 3 and 4 with fresh bots are on the 2.x line only - two channels stay.') -ForegroundColor Yellow }
+                $memory = Get-M2ChannelMemoryWarning -Channels $ch.Channels
+                if ($memory) { Write-Host $memory -ForegroundColor Yellow }
             }
         }
         if ($Yes) {
             Start-Server
-            Write-Host "Serwer zrestartowany z liczbą botów: $applied." -ForegroundColor Green
+            Write-Host (UI-Text "Serwer zrestartowany z liczbą botów: $applied." "Server restarted with $applied bots.") -ForegroundColor Green
         }
         else {
-            Write-Host 'Zmiana zostanie zastosowana przy następnym starcie serwera.' -ForegroundColor Yellow
+            Write-Host (UI-Text 'Zmiana zostanie zastosowana przy następnym starcie serwera.' 'The change applies at the next server start.') -ForegroundColor Yellow
         }
         return
     }
 
-    $answer = Read-Host 'Ilu botów ma grać (0-2500)'
-    if ($answer -notmatch '^\d+$') { Write-Host 'Anulowano: to nie jest liczba.' -ForegroundColor Yellow; return }
+    $answer = Read-Host (UI-Text 'Ilu botów ma grać (0-2500)' 'How many bots should play (0-2500)')
+    if ($answer -notmatch '^\d+$') { Write-Host (UI-Text 'Anulowano: to nie jest liczba.' 'Cancelled: that is not a number.') -ForegroundColor Yellow; return }
     $applied = Set-PlayerbotCount -Count ([int]$answer)
-    Write-Host "Zapisano: $applied grających botów." -ForegroundColor Green
+    Write-Host (UI-Text "Zapisano: $applied grających botów." "Saved: $applied playing bots.") -ForegroundColor Green
     # The same words as the "?" of the window's bot dialog, shorter.
-    Write-Host 'Wejście: w ile minut od startu serwera wchodzą boty podane wyżej (1 = prawie od razu, 15 = stopniowo przez kwadrans).' -ForegroundColor Gray
-    Write-Host 'Dodatkowe boty: dołączają później pojedynczo, ponad liczbę wyżej, równo rozłożone na podane godziny (0 = bez dodatkowych).' -ForegroundColor Gray
-    $m = Read-Host "W ciągu ilu minut od startu mają wejść (1-180, Enter = $($plan.Minutes))"
-    $l = Read-Host "Ilu dodatkowych botów ma dołączać stopniowo później (0-2500, Enter = $($plan.Late))"
-    $h = Read-Host "W ciągu ilu godzin mają dołączać (1-168, Enter = $($plan.Hours))"
+    Write-Host (UI-Text 'Wejście: w ile minut od startu serwera wchodzą boty podane wyżej (1 = prawie od razu, 15 = stopniowo przez kwadrans).' 'Entry: within how many minutes of the server start the bots above come in (1 = almost at once, 15 = gradually over a quarter of an hour).') -ForegroundColor Gray
+    Write-Host (UI-Text 'Dodatkowe boty: dołączają później pojedynczo, ponad liczbę wyżej, równo rozłożone na podane godziny (0 = bez dodatkowych).' 'Extra bots: they join later one by one, on top of the number above, spread evenly over the hours given (0 = none).') -ForegroundColor Gray
+    $m = Read-Host (UI-Text "W ciągu ilu minut od startu mają wejść (1-180, Enter = $($plan.Minutes))" "Within how many minutes of the start should they come in (1-180, Enter = $($plan.Minutes))")
+    $l = Read-Host (UI-Text "Ilu dodatkowych botów ma dołączać stopniowo później (0-2500, Enter = $($plan.Late))" "How many extra bots should join gradually later (0-2500, Enter = $($plan.Late))")
+    $h = Read-Host (UI-Text "W ciągu ilu godzin mają dołączać (1-168, Enter = $($plan.Hours))" "Over how many hours should they join (1-168, Enter = $($plan.Hours))")
     if (-not "$m".Trim()) { $m = $plan.Minutes }
     if (-not "$l".Trim()) { $l = $plan.Late }
     if (-not "$h".Trim()) { $h = $plan.Hours }
     if ("$m" -notmatch '^\d+$' -or "$l" -notmatch '^\d+$' -or "$h" -notmatch '^\d+$') {
-        Write-Host 'Plan wejścia bez zmian: to nie są liczby.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Plan wejścia bez zmian: to nie są liczby.' 'Entry plan unchanged: those are not numbers.') -ForegroundColor Yellow
     }
     else {
         $p = Set-SpawnPlan -Minutes ([int]$m) -Late ([int]$l) -Hours ([int]$h)
-        Write-Host "Zapisano: wejście w $($p.Minutes) min, $($p.Late) dodatkowych botów w ciągu $($p.Hours) h." -ForegroundColor Green
+        Write-Host (UI-Text "Zapisano: wejście w $($p.Minutes) min, $($p.Late) dodatkowych botów w ciągu $($p.Hours) h." "Saved: entry over $($p.Minutes) min, $($p.Late) extra bots over $($p.Hours) h.") -ForegroundColor Green
     }
     $k = Get-KingdomCountsFromEnv
-    $kAnswer = Read-Host "Osobna liczba botów dla każdego królestwa? (t/n, Enter = $(if ($k.Enabled) { 't' } else { 'n' }))"
+    $kAnswer = Read-Host (UI-Text "Osobna liczba botów dla każdego królestwa? (t/n, Enter = $(if ($k.Enabled) { 't' } else { 'n' }))" "A separate bot count for each kingdom? (y/n, Enter = $(if ($k.Enabled) { 'y' } else { 'n' }))")
     if ("$kAnswer".Trim() -match '^[tTyY]') {
-        $sAnswer = Read-Host "Shinsoo, czerwone (0-1500, Enter = $($k.Shinsoo))"
-        $cAnswer = Read-Host "Chunjo, żółte (0-1500, Enter = $($k.Chunjo))"
-        $jAnswer = Read-Host "Jinno, niebieskie (0-1500, Enter = $($k.Jinno))"
+        $sAnswer = Read-Host (UI-Text "Shinsoo, czerwone (0-1500, Enter = $($k.Shinsoo))" "Shinsoo, red (0-1500, Enter = $($k.Shinsoo))")
+        $cAnswer = Read-Host (UI-Text "Chunjo, żółte (0-1500, Enter = $($k.Chunjo))" "Chunjo, yellow (0-1500, Enter = $($k.Chunjo))")
+        $jAnswer = Read-Host (UI-Text "Jinno, niebieskie (0-1500, Enter = $($k.Jinno))" "Jinno, blue (0-1500, Enter = $($k.Jinno))")
         $s = if ("$sAnswer".Trim() -match '^\d+$') { [int]$sAnswer } else { $k.Shinsoo }
         $c = if ("$cAnswer".Trim() -match '^\d+$') { [int]$cAnswer } else { $k.Chunjo }
         $j = if ("$jAnswer".Trim() -match '^\d+$') { [int]$jAnswer } else { $k.Jinno }
         $kk = Set-KingdomCounts -Enabled $true -Shinsoo $s -Chunjo $c -Jinno $j
-        Write-Host "Zapisano: Shinsoo $($kk.Shinsoo), Chunjo $($kk.Chunjo), Jinno $($kk.Jinno)." -ForegroundColor Green
+        Write-Host (UI-Text "Zapisano: Shinsoo $($kk.Shinsoo), Chunjo $($kk.Chunjo), Jinno $($kk.Jinno)." "Saved: Shinsoo $($kk.Shinsoo), Chunjo $($kk.Chunjo), Jinno $($kk.Jinno).") -ForegroundColor Green
     }
     elseif ("$kAnswer".Trim() -match '^[nN]') {
         Set-KingdomCounts -Enabled $false -Shinsoo $k.Shinsoo -Chunjo $k.Chunjo -Jinno $k.Jinno | Out-Null
-        Write-Host 'Zapisano: jedna liczba botów dzielona po równo na królestwa.' -ForegroundColor Green
+        Write-Host (UI-Text 'Zapisano: jedna liczba botów dzielona po równo na królestwa.' 'Saved: one bot count, shared equally between the kingdoms.') -ForegroundColor Green
     }
-    $ch2 = Get-SecondChannelFromEnv
-    $chAnswer = Read-Host "Drugi kanał (CH2) dla botów i graczy? Sklepy zostają na CH1 (t/n, Enter = $(if ($ch2.Enabled) { 't' } else { 'n' }))"
-    if ("$chAnswer".Trim() -match '^[tTyY]') {
-        $shAnswer = Read-Host "Ile procent botów na CH2 (10-90, Enter = $($ch2.Share))"
-        $share = if ("$shAnswer".Trim() -match '^\d+$') { [int]$shAnswer } else { $ch2.Share }
-        $applied2 = Set-SecondChannel -Enabled $true -Share $share
-        Write-Host "Zapisano: drugi kanał włączony, $($applied2.Share)% botów na CH2." -ForegroundColor Green
+    $gc = Get-GameChannelsFromEnv
+    # The same words as the "?" of the window's channel choice, shorter.
+    Write-Host (UI-Text 'Kanały gry: 1 = jeden kanał; 2 = drugi kanał dla botów i graczy (sklepy tylko na CH1); 3 i 4 = do tego kanały ze świeżymi botami od 1 poziomu (CH3, CH4; tylko linia 2.x). Każdy kanał to ok. 2,5 GB RAM.' 'Game channels: 1 = one channel; 2 = a second channel for bots and players (shops on CH1 only); 3 and 4 = and channels with fresh bots from level 1 (CH3, CH4; the 2.x line only). Every channel is about 2.5 GB of RAM.') -ForegroundColor Gray
+    $chAnswer = Read-Host (UI-Text "Ile kanałów gry (1-4, Enter = $($gc.Channels))" "How many game channels (1-4, Enter = $($gc.Channels))")
+    if ("$chAnswer".Trim() -match '^[1-4]$') {
+        $want = [int]"$chAnswer".Trim()
+        $share = $gc.Share
+        $count = $gc.FreshCount
+        if ($want -ge 2) {
+            $shAnswer = Read-Host (UI-Text "Ile procent botów na CH2 (10-90, Enter = $($gc.Share))" "What percentage of the bots on CH2 (10-90, Enter = $($gc.Share))")
+            if ("$shAnswer".Trim() -match '^\d+$') { $share = [int]$shAnswer }
+        }
+        if ($want -ge 3) {
+            $frAnswer = Read-Host (UI-Text "Ilu świeżych botów ma grać na CH3$(if ($want -ge 4) { ' i CH4' }) (0-1500, Enter = $($gc.FreshCount))" "How many fresh bots should play on CH3$(if ($want -ge 4) { ' and CH4' }) (0-1500, Enter = $($gc.FreshCount))")
+            if ("$frAnswer".Trim() -match '^\d+$') { $count = [int]$frAnswer }
+        }
+        $applied2 = Set-GameChannels -Channels $want -Share $share -FreshCount $count
+        Write-Host (UI-Text "Zapisano: $(Format-GameChannelsChoice -Choice $applied2)." "Saved: $(Format-GameChannelsChoice -Choice $applied2).") -ForegroundColor Green
+        if ($applied2.Channels -lt $want) { Write-Host (UI-Text 'Kanały 3 i 4 ze świeżymi botami są tylko na linii 2.x - zostają dwa kanały.' 'Channels 3 and 4 with fresh bots are on the 2.x line only - two channels stay.') -ForegroundColor Yellow }
+        $memory = Get-M2ChannelMemoryWarning -Channels $applied2.Channels
+        if ($memory) { Write-Host $memory -ForegroundColor Yellow }
     }
-    elseif ("$chAnswer".Trim() -match '^[nN]' -and $ch2.Enabled) {
-        Set-SecondChannel -Enabled $false -Share $ch2.Share | Out-Null
-        Write-Host 'Zapisano: drugi kanał wyłączony.' -ForegroundColor Green
+    elseif ("$chAnswer".Trim()) {
+        Write-Host (UI-Text 'Kanały bez zmian: to nie jest liczba od 1 do 4.' 'Channels unchanged: that is not a number from 1 to 4.') -ForegroundColor Yellow
     }
-    if (Confirm-Operation 'Zrestartować serwer teraz, aby zastosować zmianę? Baza i postęp botów pozostają bez zmian') {
+    if (Confirm-Operation (UI-Text 'Zrestartować serwer teraz, aby zastosować zmianę? Baza i postęp botów pozostają bez zmian' 'Restart the server now to apply the change? The database and the bots'' progress stay as they are')) {
         Start-Server
-        Write-Host "Serwer zrestartowany z liczbą botów: $applied." -ForegroundColor Green
+        Write-Host (UI-Text "Serwer zrestartowany z liczbą botów: $applied." "Server restarted with $applied bots.") -ForegroundColor Green
     }
     else {
-        Write-Host 'Zmiana zostanie zastosowana przy następnym starcie serwera.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Zmiana zostanie zastosowana przy następnym starcie serwera.' 'The change applies at the next server start.') -ForegroundColor Yellow
     }
 }
 
@@ -1034,7 +1163,7 @@ function Set-DotEnvValue {
     param([Parameter(Mandatory = $true)][string]$Key, [Parameter(Mandatory = $true)][string]$Value)
     $envPath = Get-PlayerbotEnvPath
     if (-not (Test-Path -LiteralPath $envPath -PathType Leaf)) {
-        throw "Brak pliku .env: $envPath. Uruchom najpierw serwer (GRAJ), aby go utworzyć."
+        throw (UI-Text "Brak pliku .env: $envPath. Uruchom najpierw serwer (GRAJ), aby go utworzyć." "There is no .env file: $envPath. Start the server (PLAY) first to create it.")
     }
     $content = [IO.File]::ReadAllText($envPath)
     $pattern = '(?m)^' + [Regex]::Escape($Key) + '=.*$'
@@ -1068,8 +1197,8 @@ function Set-DifficultyAction {
     $currentSidekick = (Get-DotEnvValue -Key 'M2_SIDEKICK' -Default '1') -ne '0'
     $currentStarter = (Get-DotEnvValue -Key 'M2_STARTER_CHEST' -Default '1') -ne '0'
     $currentFlea = (Get-DotEnvValue -Key 'M2_FLEA_MARKET' -Default '1') -ne '0'
-    Write-Host "Aktualny poziom trudności: $current (przy 'custom': Biolog $currentBio h, Stajenny $currentHorse h, księgi: gracze $currentBook h, boty $currentBotBook h)." -ForegroundColor Gray
-    Write-Host "Auto Łowy: $(if ($currentAutoHunt) { 'włączone' } else { 'wyłączone' }) ($(if ($currentAutoHuntItem) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($currentSidekick) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($currentStarter) { 'tak' } else { 'nie' }); Dom Towarowy: $(if ($currentFlea) { 'włączony' } else { 'wyłączony' })." -ForegroundColor Gray
+    Write-Host (UI-Text "Aktualny poziom trudności: $current (przy 'custom': Biolog $currentBio h, Stajenny $currentHorse h, księgi: gracze $currentBook h, boty $currentBotBook h)." "Current difficulty: $current (with 'custom': Biologist $currentBio h, Stable Keeper $currentHorse h, books: players $currentBook h, bots $currentBotBook h).") -ForegroundColor Gray
+    Write-Host (UI-Text "Auto Łowy: $(if ($currentAutoHunt) { 'włączone' } else { 'wyłączone' }) ($(if ($currentAutoHuntItem) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($currentSidekick) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($currentStarter) { 'tak' } else { 'nie' }); Dom Towarowy: $(if ($currentFlea) { 'włączony' } else { 'wyłączony' })." "Auto Hunt: $(if ($currentAutoHunt) { 'on' } else { 'off' }) ($(if ($currentAutoHuntItem) { 'only after buying the ItemShop item' } else { 'for everybody' })); Companion: $(if ($currentSidekick) { 'on' } else { 'off' }); Apprentice Chest: $(if ($currentStarter) { 'yes' } else { 'no' }); Flea Market: $(if ($currentFlea) { 'on' } else { 'off' }).") -ForegroundColor Gray
 
     # -Difficulty passed (from the GUI or scripting) is non-interactive, like
     # -BotCount: never Read-Host, restart only with -Yes.
@@ -1080,18 +1209,18 @@ function Set-DifficultyAction {
     $botBook = "$BotBookHours"
     $interactive = (-not $level)
     if ($interactive) {
-        Write-Host ' 1. easy   - bez czekania u Biologa, u Stajennego i na kolejną księgę (tak jak dotąd)'
-        Write-Host ' 2. medium - Biolog 8 h; kucyk i Księgi Konia 4 h; treningi konia 6 h (1-10) i 7 h (11-19); księgi 7 h'
-        Write-Host ' 3. hard   - jak w oryginale: Biolog 24 h; kucyk i Księgi 12 h; treningi 18 h i 21 h; księgi 21 h'
-        Write-Host ' 4. custom - własne godziny (Biolog, każde czekanie u Stajennego, księgi graczy i księgi botów)'
-        $answer = Read-Host 'Wybierz poziom (1-4)'
+        Write-Host (UI-Text ' 1. easy   - bez czekania u Biologa, u Stajennego i na kolejną księgę (tak jak dotąd)' ' 1. easy   - no waiting at the Biologist, at the Stable Keeper or for the next book (as before)')
+        Write-Host (UI-Text ' 2. medium - Biolog 8 h; kucyk i Księgi Konia 4 h; treningi konia 6 h (1-10) i 7 h (11-19); księgi 7 h' ' 2. medium - Biologist 8 h; pony and Horse Books 4 h; horse trainings 6 h (1-10) and 7 h (11-19); books 7 h')
+        Write-Host (UI-Text ' 3. hard   - jak w oryginale: Biolog 24 h; kucyk i Księgi 12 h; treningi 18 h i 21 h; księgi 21 h' ' 3. hard   - as in the original: Biologist 24 h; pony and Horse Books 12 h; trainings 18 h and 21 h; books 21 h')
+        Write-Host (UI-Text ' 4. custom - własne godziny (Biolog, każde czekanie u Stajennego, księgi graczy i księgi botów)' ' 4. custom - your own hours (Biologist, every wait at the Stable Keeper, players'' books and bots'' books)')
+        $answer = Read-Host (UI-Text 'Wybierz poziom (1-4)' 'Choose a level (1-4)')
         $level = switch ($answer) { '1' { 'easy' } '2' { 'medium' } '3' { 'hard' } '4' { 'custom' } default { '' } }
-        if (-not $level) { Write-Host 'Anulowano.' -ForegroundColor Yellow; return }
+        if (-not $level) { Write-Host (UI-Text 'Anulowano.' 'Cancelled.') -ForegroundColor Yellow; return }
         if ($level -eq 'custom') {
-            $bio = Read-Host 'Ile godzin czeka się u Biologa między oddaniami (0 = bez czekania, ułamki dozwolone)'
-            $horse = Read-Host 'Ile godzin czeka się u Stajennego na kucyka, Księgę Konia i trening (0 = bez czekania)'
-            $book = Read-Host 'Ile godzin gracz czeka między dwiema księgami tej samej umiejętności (0 = od razu)'
-            $botBook = Read-Host 'Ile godzin czekają na kolejną księgę boty (0 = od razu)'
+            $bio = Read-Host (UI-Text 'Ile godzin czeka się u Biologa między oddaniami (0 = bez czekania, ułamki dozwolone)' 'Hours of waiting at the Biologist between two hand-ins (0 = no waiting, fractions allowed)')
+            $horse = Read-Host (UI-Text 'Ile godzin czeka się u Stajennego na kucyka, Księgę Konia i trening (0 = bez czekania)' 'Hours of waiting at the Stable Keeper for the pony, a Horse Book and a training (0 = no waiting)')
+            $book = Read-Host (UI-Text 'Ile godzin gracz czeka między dwiema księgami tej samej umiejętności (0 = od razu)' 'Hours a player waits between two books of the same skill (0 = at once)')
+            $botBook = Read-Host (UI-Text 'Ile godzin czekają na kolejną księgę boty (0 = od razu)' 'Hours the bots wait for their next book (0 = at once)')
         }
     }
     # Auto Lowy, the companion, the apprentice chest and the Dom Towarowy:
@@ -1106,20 +1235,20 @@ function Set-DifficultyAction {
     $starterOn = $currentStarter
     $fleaOn = $currentFlea
     if ($interactive) {
-        $answer = Read-Host "Auto Łowy (automatyczne polowanie w kliencie, klawisz K) włączone? (T/n, Enter = $(if ($currentAutoHunt) { 'tak' } else { 'nie' }))"
+        $answer = Read-Host (UI-Text "Auto Łowy (automatyczne polowanie w kliencie, klawisz K) włączone? (T/n, Enter = $(if ($currentAutoHunt) { 'tak' } else { 'nie' }))" "Auto Hunt (automatic hunting in the client, the K key) on? (Y/n, Enter = $(if ($currentAutoHunt) { 'yes' } else { 'no' }))")
         if ("$answer".Trim()) { $autoHuntOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
         if ($autoHuntOn) {
             # The operator, 27 September: the panel for everybody, or only for
             # a character that bought "Auto Lowy (8h)" in the ItemShop.
-            $answer = Read-Host "Panel Autołowy: 1 = dostępny dla każdego, 2 = dostępny tylko po kupnie przedmiotu z ItemShop (Enter = $(if ($currentAutoHuntItem) { '2' } else { '1' }))"
+            $answer = Read-Host (UI-Text "Panel Autołowy: 1 = dostępny dla każdego, 2 = dostępny tylko po kupnie przedmiotu z ItemShop (Enter = $(if ($currentAutoHuntItem) { '2' } else { '1' }))" "Auto Hunt window: 1 = for everybody, 2 = only after buying the ItemShop item (Enter = $(if ($currentAutoHuntItem) { '2' } else { '1' }))")
             if ("$answer".Trim() -eq '1') { $autoHuntItemOn = $false }
             elseif ("$answer".Trim() -eq '2') { $autoHuntItemOn = $true }
         }
-        $answer = Read-Host "Towarzysz (stały kompan gracza, list i okno P) włączony? (T/n, Enter = $(if ($currentSidekick) { 'tak' } else { 'nie' }))"
+        $answer = Read-Host (UI-Text "Towarzysz (stały kompan gracza, list i okno P) włączony? (T/n, Enter = $(if ($currentSidekick) { 'tak' } else { 'nie' }))" "Companion (a player's own companion, the letter and the P window) on? (Y/n, Enter = $(if ($currentSidekick) { 'yes' } else { 'no' }))")
         if ("$answer".Trim()) { $sidekickOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
-        $answer = Read-Host "Skrzynia Ucznia dla nowych postaci graczy (przy pierwszym logowaniu)? (T/n, Enter = $(if ($currentStarter) { 'tak' } else { 'nie' }))"
+        $answer = Read-Host (UI-Text "Skrzynia Ucznia w grze - dla nowych postaci graczy i dla botów? (T/n, Enter = $(if ($currentStarter) { 'tak' } else { 'nie' }))" "Apprentice Chest in the game - for players' new characters and for the bots? (Y/n, Enter = $(if ($currentStarter) { 'yes' } else { 'no' }))")
         if ("$answer".Trim()) { $starterOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
-        $answer = Read-Host "Dom Towarowy (wszystkie oferty sklepów offline u Handlarki Różności w M1) włączony? (T/n, Enter = $(if ($currentFlea) { 'tak' } else { 'nie' }))"
+        $answer = Read-Host (UI-Text "Dom Towarowy (wszystkie oferty sklepów offline u Handlarki Różności w M1) włączony? (T/n, Enter = $(if ($currentFlea) { 'tak' } else { 'nie' }))" "Flea Market (every offline shop offer at the General Store merchant in M1) on? (Y/n, Enter = $(if ($currentFlea) { 'yes' } else { 'no' }))")
         if ("$answer".Trim()) { $fleaOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
     }
     else {
@@ -1130,7 +1259,7 @@ function Set-DifficultyAction {
         if ($FleaMarket -ge 0) { $fleaOn = ($FleaMarket -ne 0) }
     }
     if ($level -notin @('easy', 'medium', 'hard', 'custom')) {
-        throw "Nieznany poziom trudności: '$level'. Dozwolone: easy, medium, hard, custom."
+        throw (UI-Text "Nieznany poziom trudności: '$level'. Dozwolone: easy, medium, hard, custom." "Unknown difficulty: '$level'. Allowed: easy, medium, hard, custom.")
     }
     if ($level -ne 'custom') {
         $bio = $script:DifficultyPresets[$level].Biologist
@@ -1141,10 +1270,10 @@ function Set-DifficultyAction {
     # An older GUI passes no book hours for custom: what .env already says.
     if ("$book".Trim() -eq '') { $book = $currentBook }
     if ("$botBook".Trim() -eq '') { $botBook = $currentBotBook }
-    if (-not (Test-DifficultyHours $bio)) { throw "Godziny u Biologa: podaj liczbę od 0 do 720 (np. 12 albo 0.5), nie '$bio'." }
-    if (-not (Test-DifficultyHours $horse)) { throw "Godziny u Stajennego: podaj liczbę od 0 do 720 (np. 12 albo 0.5), nie '$horse'." }
-    if (-not (Test-DifficultyHours $book)) { throw "Godziny między księgami graczy: podaj liczbę od 0 do 720 (np. 21 albo 0.5), nie '$book'." }
-    if (-not (Test-DifficultyHours $botBook)) { throw "Godziny między księgami botów: podaj liczbę od 0 do 720 (np. 21 albo 0.5), nie '$botBook'." }
+    if (-not (Test-DifficultyHours $bio)) { throw (UI-Text "Godziny u Biologa: podaj liczbę od 0 do 720 (np. 12 albo 0.5), nie '$bio'." "Hours at the Biologist: give a number from 0 to 720 (e.g. 12 or 0.5), not '$bio'.") }
+    if (-not (Test-DifficultyHours $horse)) { throw (UI-Text "Godziny u Stajennego: podaj liczbę od 0 do 720 (np. 12 albo 0.5), nie '$horse'." "Hours at the Stable Keeper: give a number from 0 to 720 (e.g. 12 or 0.5), not '$horse'.") }
+    if (-not (Test-DifficultyHours $book)) { throw (UI-Text "Godziny między księgami graczy: podaj liczbę od 0 do 720 (np. 21 albo 0.5), nie '$book'." "Hours between players' books: give a number from 0 to 720 (e.g. 21 or 0.5), not '$book'.") }
+    if (-not (Test-DifficultyHours $botBook)) { throw (UI-Text "Godziny między księgami botów: podaj liczbę od 0 do 720 (np. 21 albo 0.5), nie '$botBook'." "Hours between bots' books: give a number from 0 to 720 (e.g. 21 or 0.5), not '$botBook'.") }
     $bio = "$bio".Trim().Replace(',', '.')
     $horse = "$horse".Trim().Replace(',', '.')
     $book = "$book".Trim().Replace(',', '.')
@@ -1159,19 +1288,19 @@ function Set-DifficultyAction {
     Set-DotEnvValue -Key 'M2_SIDEKICK' -Value $(if ($sidekickOn) { '1' } else { '0' })
     Set-DotEnvValue -Key 'M2_STARTER_CHEST' -Value $(if ($starterOn) { '1' } else { '0' })
     Set-DotEnvValue -Key 'M2_FLEA_MARKET' -Value $(if ($fleaOn) { '1' } else { '0' })
-    Write-Host "Zapisano: poziom trudności $level (Biolog $bio h, Stajenny $horse h, księgi: gracze $book h, boty $botBook h)." -ForegroundColor Green
-    Write-Host "Auto Łowy: $(if ($autoHuntOn) { 'włączone' } else { 'wyłączone' }) ($(if ($autoHuntItemOn) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($sidekickOn) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($starterOn) { 'tak' } else { 'nie' }); Dom Towarowy: $(if ($fleaOn) { 'włączony' } else { 'wyłączony' })." -ForegroundColor Green
+    Write-Host (UI-Text "Zapisano: poziom trudności $level (Biolog $bio h, Stajenny $horse h, księgi: gracze $book h, boty $botBook h)." "Saved: difficulty $level (Biologist $bio h, Stable Keeper $horse h, books: players $book h, bots $botBook h).") -ForegroundColor Green
+    Write-Host (UI-Text "Auto Łowy: $(if ($autoHuntOn) { 'włączone' } else { 'wyłączone' }) ($(if ($autoHuntItemOn) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($sidekickOn) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($starterOn) { 'tak' } else { 'nie' }); Dom Towarowy: $(if ($fleaOn) { 'włączony' } else { 'wyłączony' })." "Auto Hunt: $(if ($autoHuntOn) { 'on' } else { 'off' }) ($(if ($autoHuntItemOn) { 'only after buying the ItemShop item' } else { 'for everybody' })); Companion: $(if ($sidekickOn) { 'on' } else { 'off' }); Apprentice Chest: $(if ($starterOn) { 'yes' } else { 'no' }); Flea Market: $(if ($fleaOn) { 'on' } else { 'off' }).") -ForegroundColor Green
     if ($Yes) {
         Start-Server
-        Write-Host "Serwer zrestartowany z poziomem trudności: $level." -ForegroundColor Green
+        Write-Host (UI-Text "Serwer zrestartowany z poziomem trudności: $level." "Server restarted with difficulty: $level.") -ForegroundColor Green
         return
     }
-    if ($interactive -and (Confirm-Operation 'Zrestartować serwer teraz, aby zastosować zmianę? Baza i postęp botów pozostają bez zmian')) {
+    if ($interactive -and (Confirm-Operation (UI-Text 'Zrestartować serwer teraz, aby zastosować zmianę? Baza i postęp botów pozostają bez zmian' 'Restart the server now to apply the change? The database and the bots'' progress stay as they are'))) {
         Start-Server
-        Write-Host "Serwer zrestartowany z poziomem trudności: $level." -ForegroundColor Green
+        Write-Host (UI-Text "Serwer zrestartowany z poziomem trudności: $level." "Server restarted with difficulty: $level.") -ForegroundColor Green
         return
     }
-    Write-Host 'Zmiana zostanie zastosowana przy następnym starcie serwera.' -ForegroundColor Yellow
+    Write-Host (UI-Text 'Zmiana zostanie zastosowana przy następnym starcie serwera.' 'The change applies at the next server start.') -ForegroundColor Yellow
 }
 
 function Get-CurrentInstallTargetVolume {
@@ -1196,63 +1325,63 @@ function Get-CurrentInstallTargetVolume {
 
 function Import-DatabaseAction {
     if (-not (Test-M2DockerRunning)) {
-        Write-Host 'Silnik Dockera jest zatrzymany, więc nie widać żadnych baz.' -ForegroundColor Yellow
-        Write-Host 'Uruchom Docker (akcja StartDocker lub przycisk „URUCHOM DOCKER") i spróbuj ponownie.' -ForegroundColor Yellow
-        Write-Host 'Żadne dane nie zginęły — bazy są na dysku, tylko Docker ich teraz nie pokazuje.' -ForegroundColor Gray
+        Write-Host (UI-Text 'Silnik Dockera jest zatrzymany, więc nie widać żadnych baz.' 'The Docker engine is stopped, so no database can be seen.') -ForegroundColor Yellow
+        Write-Host (UI-Text 'Uruchom Docker (akcja StartDocker lub przycisk „URUCHOM DOCKER") i spróbuj ponownie.' 'Start Docker (the StartDocker action or the START DOCKER button) and try again.') -ForegroundColor Yellow
+        Write-Host (UI-Text 'Żadne dane nie zginęły — bazy są na dysku, tylko Docker ich teraz nie pokazuje.' 'No data was lost - the databases are on the disk, Docker just does not show them now.') -ForegroundColor Gray
         return
     }
     $target = Get-CurrentInstallTargetVolume
     if (-not $target) {
-        Write-Host 'Nie można ustalić bazy tej instalacji. Uruchom najpierw serwer (GRAJ) choć raz, aby utworzyć tożsamość i wolumen.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Nie można ustalić bazy tej instalacji. Uruchom najpierw serwer (GRAJ) choć raz, aby utworzyć tożsamość i wolumen.' 'Cannot tell which database is this installation''s. Start the server (PLAY) once first to create its identity and volume.') -ForegroundColor Yellow
         return
     }
-    Write-Host "Baza docelowa (ta instalacja): $target" -ForegroundColor Gray
+    Write-Host (UI-Text "Baza docelowa (ta instalacja): $target" "Target database (this installation): $target") -ForegroundColor Gray
     if (-not (Test-M2VolumeInitialized -Volume $target)) {
-        Write-Host 'Ta instalacja nie ma jeszcze gotowej bazy danych.' -ForegroundColor Yellow
-        Write-Host 'Najpierw kliknij GRAJ i pozwól serwerowi wystartować choć raz (utworzy bazę ze schematami gry),' -ForegroundColor Yellow
-        Write-Host 'a dopiero potem importuj świat. Import na pustą bazę zostawiłby instalację bez schematów.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Ta instalacja nie ma jeszcze gotowej bazy danych.' 'This installation has no database ready yet.') -ForegroundColor Yellow
+        Write-Host (UI-Text 'Najpierw kliknij GRAJ i pozwól serwerowi wystartować choć raz (utworzy bazę ze schematami gry),' 'First click PLAY and let the server start once (it creates the database with the game''s schemas),') -ForegroundColor Yellow
+        Write-Host (UI-Text 'a dopiero potem importuj świat. Import na pustą bazę zostawiłby instalację bez schematów.' 'and only then import the world. An import onto an empty database would leave the installation without schemas.') -ForegroundColor Yellow
         return
     }
     $sources = @(Get-M2DbDataVolumes | Where-Object { $_.Name -ne $target })
     if ($sources.Count -eq 0) {
-        Write-Host 'Nie znaleziono innej bazy Docker do importu na tym komputerze.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Nie znaleziono innej bazy Docker do importu na tym komputerze.' 'No other Docker database to import was found on this computer.') -ForegroundColor Yellow
         return
     }
 
     $chosen = $null
     if ($ImportSource) {
         $chosen = $sources | Where-Object { $_.Name -eq $ImportSource -or $_.Project -eq $ImportSource } | Select-Object -First 1
-        if (-not $chosen) { Write-Host "Nie znaleziono źródła do importu: $ImportSource" -ForegroundColor Red; return }
+        if (-not $chosen) { Write-Host (UI-Text "Nie znaleziono źródła do importu: $ImportSource" "Import source not found: $ImportSource") -ForegroundColor Red; return }
     }
     else {
-        Write-Host 'Dostępne bazy do importu:' -ForegroundColor Cyan
+        Write-Host (UI-Text 'Dostępne bazy do importu:' 'Databases available to import:') -ForegroundColor Cyan
         for ($i = 0; $i -lt $sources.Count; $i++) {
             $label = $sources[$i].Project
-            if ($sources[$i].CreatedAt) { $label = '{0}   (utworzona {1:yyyy-MM-dd HH:mm})' -f $label, $sources[$i].CreatedAt }
+            if ($sources[$i].CreatedAt) { $label = (UI-Text '{0}   (utworzona {1:yyyy-MM-dd HH:mm})' '{0}   (created {1:yyyy-MM-dd HH:mm})') -f $label, $sources[$i].CreatedAt }
             Write-Host ("  [{0}] {1}" -f ($i + 1), $label)
         }
-        $pick = Read-Host 'Wybierz numer źródła (Enter = anuluj)'
-        if ($pick -notmatch '^\d+$') { Write-Host 'Anulowano.' -ForegroundColor Yellow; return }
+        $pick = Read-Host (UI-Text 'Wybierz numer źródła (Enter = anuluj)' 'Choose the source''s number (Enter = cancel)')
+        if ($pick -notmatch '^\d+$') { Write-Host (UI-Text 'Anulowano.' 'Cancelled.') -ForegroundColor Yellow; return }
         $idx = [int]$pick - 1
-        if ($idx -lt 0 -or $idx -ge $sources.Count) { Write-Host 'Nieprawidłowy numer.' -ForegroundColor Yellow; return }
+        if ($idx -lt 0 -or $idx -ge $sources.Count) { Write-Host (UI-Text 'Nieprawidłowy numer.' 'Wrong number.') -ForegroundColor Yellow; return }
         $chosen = $sources[$idx]
     }
 
-    Write-Host "Sprawdzam świat źródłowy '$($chosen.Project)'..." -ForegroundColor Gray
+    Write-Host (UI-Text "Sprawdzam świat źródłowy '$($chosen.Project)'..." "Checking the source world '$($chosen.Project)'...") -ForegroundColor Gray
     $stats = Get-M2VolumeWorldStats -Volume $chosen.Name
     if ($stats.Ok) {
-        Write-Host ("Źródło: {0} postaci, najwyższy poziom {1}." -f $stats.Players, $stats.MaxLevel) -ForegroundColor Green
-        if ($stats.Created) { Write-Host ("  Baza utworzona: {0}" -f $stats.Created) -ForegroundColor Gray }
-        if ($stats.LastPlay -and $stats.LastPlay -ne '0') { Write-Host ("  Ostatnia gra: {0}" -f $stats.LastPlay) -ForegroundColor Gray }
+        Write-Host ((UI-Text "Źródło: {0} postaci, najwyższy poziom {1}." "Source: {0} characters, highest level {1}.") -f $stats.Players, $stats.MaxLevel) -ForegroundColor Green
+        if ($stats.Created) { Write-Host ((UI-Text "  Baza utworzona: {0}" "  Database created: {0}") -f $stats.Created) -ForegroundColor Gray }
+        if ($stats.LastPlay -and $stats.LastPlay -ne '0') { Write-Host ((UI-Text "  Ostatnia gra: {0}" "  Last played: {0}") -f $stats.LastPlay) -ForegroundColor Gray }
     }
     else {
-        Write-Host 'Nie udało się odczytać statystyk źródła (mimo to można spróbować importu).' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Nie udało się odczytać statystyk źródła (mimo to można spróbować importu).' 'Could not read the source''s statistics (the import can still be tried).') -ForegroundColor Yellow
     }
 
     Write-Host ''
-    Write-Host "UWAGA: import ZASTĄPI obecny świat tej instalacji światem ze źródła '$($chosen.Project)'." -ForegroundColor Yellow
-    Write-Host "Źródło pozostaje nietknięte. Obecny świat trafi do kopii w 'backups' przed nadpisaniem." -ForegroundColor Yellow
-    if (-not (Confirm-Operation "Kontynuować import z '$($chosen.Project)'?")) { Write-Host 'Anulowano.' -ForegroundColor Yellow; return }
+    Write-Host (UI-Text "UWAGA: import ZASTĄPI obecny świat tej instalacji światem ze źródła '$($chosen.Project)'." "WARNING: the import REPLACES this installation's current world with the world from '$($chosen.Project)'.") -ForegroundColor Yellow
+    Write-Host (UI-Text "Źródło pozostaje nietknięte. Obecny świat trafi do kopii w 'backups' przed nadpisaniem." "The source stays untouched. The current world goes into a backup in 'backups' before it is overwritten.") -ForegroundColor Yellow
+    if (-not (Confirm-Operation (UI-Text "Kontynuować import z '$($chosen.Project)'?" "Go on with the import from '$($chosen.Project)'?"))) { Write-Host (UI-Text 'Anulowano.' 'Cancelled.') -ForegroundColor Yellow; return }
 
     # Read this install's game DB user/password so the import can re-apply the
     # user and grants afterwards (guards against the migrator failing to
@@ -1267,52 +1396,52 @@ function Import-DatabaseAction {
         if ($passMatch.Success) { $dbPass = $passMatch.Groups[1].Value }
     }
 
-    Write-Host 'Zatrzymuję serwer, aby zwolnić bazę docelową...' -ForegroundColor Cyan
+    Write-Host (UI-Text 'Zatrzymuję serwer, aby zwolnić bazę docelową...' 'Stopping the server to free the target database...') -ForegroundColor Cyan
     Stop-Server
 
-    Write-Host 'Importuję bazę (to może potrwać chwilę)...' -ForegroundColor Cyan
+    Write-Host (UI-Text 'Importuję bazę (to może potrwać chwilę)...' 'Importing the database (this can take a while)...') -ForegroundColor Cyan
     $result = Invoke-M2DatabaseImport -SourceVolume $chosen.Name -TargetVolume $target -BackupRoot (Join-Path $serverRoot 'backups') -DbUser $dbUser -DbPassword $dbPass
-    Write-Host ("Gotowe. Zaimportowany świat: {0} postaci, najwyższy poziom {1}." -f $result.Players, $result.MaxLevel) -ForegroundColor Green
-    Write-Host ("Kopia poprzedniego świata: {0}" -f $result.Backup) -ForegroundColor Gray
-    Write-Host 'Kliknij GRAJ (lub akcja Start), aby uruchomić serwer z zaimportowanym światem.' -ForegroundColor Green
+    Write-Host ((UI-Text "Gotowe. Zaimportowany świat: {0} postaci, najwyższy poziom {1}." "Done. Imported world: {0} characters, highest level {1}.") -f $result.Players, $result.MaxLevel) -ForegroundColor Green
+    Write-Host ((UI-Text "Kopia poprzedniego świata: {0}" "Backup of the previous world: {0}") -f $result.Backup) -ForegroundColor Gray
+    Write-Host (UI-Text 'Kliknij GRAJ (lub akcja Start), aby uruchomić serwer z zaimportowanym światem.' 'Click PLAY (or the Start action) to start the server with the imported world.') -ForegroundColor Green
 }
 
 function Backup-DatabaseAction {
     # Everything the import path already did to protect a world, asked for on
     # purpose instead of as a side effect: five SQL dumps, a manifest and a zip.
     if (-not (Test-M2DockerRunning)) {
-        Write-Host 'Silnik Dockera jest zatrzymany, wiec nie da sie odczytac bazy.' -ForegroundColor Yellow
-        Write-Host 'Uruchom Docker (akcja StartDocker) i sprobuj ponownie. Nic nie zginelo.' -ForegroundColor Gray
+        Write-Host (UI-Text 'Silnik Dockera jest zatrzymany, wiec nie da sie odczytac bazy.' 'The Docker engine is stopped, so the database cannot be read.') -ForegroundColor Yellow
+        Write-Host (UI-Text 'Uruchom Docker (akcja StartDocker) i sprobuj ponownie. Nic nie zginelo.' 'Start Docker (the StartDocker action) and try again. Nothing was lost.') -ForegroundColor Gray
         return
     }
     $target = Get-CurrentInstallTargetVolume
     if (-not $target) {
-        Write-Host 'Nie mozna ustalic bazy tej instalacji. Uruchom najpierw serwer (GRAJ) choc raz.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Nie mozna ustalic bazy tej instalacji. Uruchom najpierw serwer (GRAJ) choc raz.' 'Cannot tell which database is this installation''s. Start the server (PLAY) once first.') -ForegroundColor Yellow
         return
     }
     if (-not (Test-M2VolumeInitialized -Volume $target)) {
-        Write-Host 'Ta instalacja nie ma jeszcze bazy danych - nie ma czego zapisac.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Ta instalacja nie ma jeszcze bazy danych - nie ma czego zapisac.' 'This installation has no database yet - there is nothing to save.') -ForegroundColor Yellow
         return
     }
-    Write-Host 'Zatrzymuję serwer, aby baza była spójna w chwili zapisu...' -ForegroundColor Cyan
+    Write-Host (UI-Text 'Zatrzymuję serwer, aby baza była spójna w chwili zapisu...' 'Stopping the server so that the database is consistent when it is saved...') -ForegroundColor Cyan
     Stop-Server
-    Write-Host 'Zapisuję kopię (to może potrwać chwilę)...' -ForegroundColor Cyan
+    Write-Host (UI-Text 'Zapisuję kopię (to może potrwać chwilę)...' 'Saving the backup (this can take a while)...') -ForegroundColor Cyan
     $result = New-M2DatabaseBackup -Volume $target -BackupRoot (Join-Path $serverRoot 'backups')
-    Write-Host ("Gotowe. Zapisany świat: {0} postaci, najwyższy poziom {1}." -f $result.Players, $result.MaxLevel) -ForegroundColor Green
+    Write-Host ((UI-Text "Gotowe. Zapisany świat: {0} postaci, najwyższy poziom {1}." "Done. Saved world: {0} characters, highest level {1}.") -f $result.Players, $result.MaxLevel) -ForegroundColor Green
     Write-Host ("  Folder: {0}" -f $result.Folder) -ForegroundColor Gray
-    Write-Host ("  Plik:   {0}  ({1:N0} MB)" -f $result.Zip, ($result.ZipBytes / 1MB)) -ForegroundColor Gray
-    Write-Host 'Ten jeden plik zip wystarczy, aby odtworzyć świat na tym albo na innym komputerze.' -ForegroundColor Gray
-    Write-Host 'Kliknij GRAJ, aby uruchomić serwer z powrotem.' -ForegroundColor Green
+    Write-Host ((UI-Text "  Plik:   {0}  ({1:N0} MB)" "  File:   {0}  ({1:N0} MB)") -f $result.Zip, ($result.ZipBytes / 1MB)) -ForegroundColor Gray
+    Write-Host (UI-Text 'Ten jeden plik zip wystarczy, aby odtworzyć świat na tym albo na innym komputerze.' 'This one zip file is enough to restore the world on this or another computer.') -ForegroundColor Gray
+    Write-Host (UI-Text 'Kliknij GRAJ, aby uruchomić serwer z powrotem.' 'Click PLAY to start the server again.') -ForegroundColor Green
 }
 
 function Restore-DatabaseAction {
     if (-not (Test-M2DockerRunning)) {
-        Write-Host 'Silnik Dockera jest zatrzymany. Uruchom Docker i spróbuj ponownie.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Silnik Dockera jest zatrzymany. Uruchom Docker i spróbuj ponownie.' 'The Docker engine is stopped. Start Docker and try again.') -ForegroundColor Yellow
         return
     }
     $target = Get-CurrentInstallTargetVolume
     if (-not $target) {
-        Write-Host 'Nie mozna ustalic bazy tej instalacji. Uruchom najpierw serwer (GRAJ) choc raz.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Nie mozna ustalic bazy tej instalacji. Uruchom najpierw serwer (GRAJ) choc raz.' 'Cannot tell which database is this installation''s. Start the server (PLAY) once first.') -ForegroundColor Yellow
         return
     }
     $picked = $RestoreSource
@@ -1324,40 +1453,40 @@ function Restore-DatabaseAction {
                        Sort-Object LastWriteTime -Descending)
         }
         if ($found.Count -eq 0) {
-            Write-Host "Nie znaleziono zadnej kopii w '$backupRoot'." -ForegroundColor Yellow
-            Write-Host 'Zrob najpierw kopie (akcja BackupDb), albo podaj sciezke: -RestoreSource "C:\...\db-backup-....zip"' -ForegroundColor Gray
+            Write-Host (UI-Text "Nie znaleziono zadnej kopii w '$backupRoot'." "No backup found in '$backupRoot'.") -ForegroundColor Yellow
+            Write-Host (UI-Text 'Zrob najpierw kopie (akcja BackupDb), albo podaj sciezke: -RestoreSource "C:\...\db-backup-....zip"' 'Make a backup first (the BackupDb action), or give a path: -RestoreSource "C:\...\db-backup-....zip"') -ForegroundColor Gray
             return
         }
-        Write-Host 'Dostępne kopie:' -ForegroundColor Cyan
+        Write-Host (UI-Text 'Dostępne kopie:' 'Available backups:') -ForegroundColor Cyan
         for ($i = 0; $i -lt $found.Count; $i++) {
             Write-Host ("  [{0}] {1}   ({2:yyyy-MM-dd HH:mm}, {3:N0} MB)" -f ($i + 1),
                 $found[$i].Name, $found[$i].LastWriteTime, ($found[$i].Length / 1MB))
         }
-        $pick = Read-Host 'Wybierz numer kopii (Enter = anuluj)'
-        if ($pick -notmatch '^\d+$') { Write-Host 'Anulowano.' -ForegroundColor Yellow; return }
+        $pick = Read-Host (UI-Text 'Wybierz numer kopii (Enter = anuluj)' 'Choose the backup''s number (Enter = cancel)')
+        if ($pick -notmatch '^\d+$') { Write-Host (UI-Text 'Anulowano.' 'Cancelled.') -ForegroundColor Yellow; return }
         $idx = [int]$pick - 1
-        if ($idx -lt 0 -or $idx -ge $found.Count) { Write-Host 'Nieprawidłowy numer.' -ForegroundColor Yellow; return }
+        if ($idx -lt 0 -or $idx -ge $found.Count) { Write-Host (UI-Text 'Nieprawidłowy numer.' 'Wrong number.') -ForegroundColor Yellow; return }
         $picked = $found[$idx].FullName
     }
     if (-not (Test-Path -LiteralPath $picked)) {
-        Write-Host "Nie znaleziono kopii: $picked" -ForegroundColor Red
+        Write-Host (UI-Text "Nie znaleziono kopii: $picked" "Backup not found: $picked") -ForegroundColor Red
         return
     }
     Write-Host ''
-    Write-Host "UWAGA: przywrócenie ZASTĄPI obecny świat tej instalacji zawartością kopii." -ForegroundColor Yellow
-    Write-Host 'Obecny świat zostanie najpierw zapisany do własnej kopii w folderze backups.' -ForegroundColor Yellow
-    if (-not (Confirm-Operation "Przywrócić świat z '$([IO.Path]::GetFileName($picked))'?")) {
-        Write-Host 'Anulowano.' -ForegroundColor Yellow; return
+    Write-Host (UI-Text "UWAGA: przywrócenie ZASTĄPI obecny świat tej instalacji zawartością kopii." "WARNING: the restore REPLACES this installation's current world with the backup's contents.") -ForegroundColor Yellow
+    Write-Host (UI-Text 'Obecny świat zostanie najpierw zapisany do własnej kopii w folderze backups.' 'The current world is saved to a backup of its own in the backups folder first.') -ForegroundColor Yellow
+    if (-not (Confirm-Operation (UI-Text "Przywrócić świat z '$([IO.Path]::GetFileName($picked))'?" "Restore the world from '$([IO.Path]::GetFileName($picked))'?"))) {
+        Write-Host (UI-Text 'Anulowano.' 'Cancelled.') -ForegroundColor Yellow; return
     }
     $creds = Get-InstallDbCredentials
-    Write-Host 'Zatrzymuję serwer, aby zwolnić bazę...' -ForegroundColor Cyan
+    Write-Host (UI-Text 'Zatrzymuję serwer, aby zwolnić bazę...' 'Stopping the server to free the database...') -ForegroundColor Cyan
     Stop-Server
-    Write-Host 'Przywracam kopię (to może potrwać chwilę)...' -ForegroundColor Cyan
+    Write-Host (UI-Text 'Przywracam kopię (to może potrwać chwilę)...' 'Restoring the backup (this can take a while)...') -ForegroundColor Cyan
     $result = Restore-M2DatabaseBackup -BackupPath $picked -TargetVolume $target `
         -BackupRoot (Join-Path $serverRoot 'backups') -DbUser $creds.User -DbPassword $creds.Password
-    Write-Host ("Gotowe. Przywrócony świat: {0} postaci, najwyższy poziom {1}." -f $result.Players, $result.MaxLevel) -ForegroundColor Green
-    Write-Host ("  Kopia poprzedniego świata: {0}" -f $result.Safety) -ForegroundColor Gray
-    Write-Host 'Kliknij GRAJ, aby uruchomić serwer z przywróconym światem.' -ForegroundColor Green
+    Write-Host ((UI-Text "Gotowe. Przywrócony świat: {0} postaci, najwyższy poziom {1}." "Done. Restored world: {0} characters, highest level {1}.") -f $result.Players, $result.MaxLevel) -ForegroundColor Green
+    Write-Host ((UI-Text "  Kopia poprzedniego świata: {0}" "  Backup of the previous world: {0}") -f $result.Safety) -ForegroundColor Gray
+    Write-Host (UI-Text 'Kliknij GRAJ, aby uruchomić serwer z przywróconym światem.' 'Click PLAY to start the server with the restored world.') -ForegroundColor Green
 }
 
 function Test-RatePercent {
@@ -1385,7 +1514,7 @@ function Set-FreshWorldSettings {
         Non-interactive when the numbers come in as parameters or -Yes is set,
         which is how the GUI calls every action; the console path asks.
     #>
-    param([string]$Reason = 'nowego świata')
+    param([string]$Reason = (UI-Text 'nowego świata' 'of the new world'))
 
     $exp = $RateExp
     $drop = $RateDrop
@@ -1395,51 +1524,52 @@ function Set-FreshWorldSettings {
     $interactive = (-not $Yes) -and $exp -lt 0 -and $drop -lt 0 -and $yang -lt 0 -and $hold -lt 0 -and $starter -lt 0
     if ($interactive) {
         Write-Host ''
-        Write-Host "Ustawienia $Reason - wchodzą w życie, zanim pojawi się pierwszy bot:" -ForegroundColor Cyan
-        Write-Host ' 1. Normalnie      - 100% doświadczenia, 100% dropu, 100% yang (tak, jak gra została stworzona)'
-        Write-Host ' 2. Spokojnie      - 300% / 200% / 200%'
-        Write-Host ' 3. Szybko         - 1000% / 500% / 500%'
-        Write-Host ' 4. Własne liczby'
-        Write-Host ' 5. Nie zmieniaj   - zostaw to, co jest w .env'
-        $answer = Read-Host 'Wybierz (1-5)'
+        Write-Host (UI-Text "Ustawienia $Reason - wchodzą w życie, zanim pojawi się pierwszy bot:" "Settings $Reason - they take effect before the first bot appears:") -ForegroundColor Cyan
+        Write-Host (UI-Text ' 1. Normalnie      - 100% doświadczenia, 100% dropu, 100% yang (tak, jak gra została stworzona)' ' 1. Normal         - 100% experience, 100% drops, 100% yang (the way the game was made)')
+        Write-Host (UI-Text ' 2. Spokojnie      - 300% / 200% / 200%' ' 2. Relaxed        - 300% / 200% / 200%')
+        Write-Host (UI-Text ' 3. Szybko         - 1000% / 500% / 500%' ' 3. Fast           - 1000% / 500% / 500%')
+        Write-Host (UI-Text ' 4. Własne liczby' ' 4. Your own numbers')
+        Write-Host (UI-Text ' 5. Nie zmieniaj   - zostaw to, co jest w .env' ' 5. No change      - keep what .env says')
+        $answer = Read-Host (UI-Text 'Wybierz (1-5)' 'Choose (1-5)')
         switch ($answer) {
             '1' { $exp = 100;  $drop = 100; $yang = 100 }
             '2' { $exp = 300;  $drop = 200; $yang = 200 }
             '3' { $exp = 1000; $drop = 500; $yang = 500 }
             '4' {
-                $exp = [int](Read-Host 'Doświadczenie w procentach (100 = normalnie)')
-                $drop = [int](Read-Host 'Drop przedmiotów w procentach')
-                $yang = [int](Read-Host 'Yang w procentach')
+                $exp = [int](Read-Host (UI-Text 'Doświadczenie w procentach (100 = normalnie)' 'Experience in percent (100 = normal)'))
+                $drop = [int](Read-Host (UI-Text 'Drop przedmiotów w procentach' 'Item drops in percent'))
+                $yang = [int](Read-Host (UI-Text 'Yang w procentach' 'Yang in percent'))
             }
             default { $exp = -1; $drop = -1; $yang = -1 }
         }
         Write-Host ''
-        Write-Host 'Boty mogą poczekać przy drzwiach, żeby dało się spokojnie ustawić resztę:' -ForegroundColor Cyan
-        if (Confirm-Operation 'Wstrzymać boty po starcie (wpuścisz je przyciskiem w panelu)?') {
+        Write-Host (UI-Text 'Boty mogą poczekać przy drzwiach, żeby dało się spokojnie ustawić resztę:' 'The bots can wait at the door, so that the rest can be set up in peace:') -ForegroundColor Cyan
+        if (Confirm-Operation (UI-Text 'Wstrzymać boty po starcie (wpuścisz je przyciskiem w panelu)?' 'Hold the bots after the start (you let them in with a button in the panel)?')) {
             $hold = 1
         }
         else {
             $hold = 0
         }
         Write-Host ''
-        Write-Host 'Skrzynia Ucznia to zestaw skrzyń, który prowadzi postać przez pierwsze wioski (boty też je mają):' -ForegroundColor Cyan
-        if (Confirm-Operation 'Czy nowe postacie graczy mają dostawać Skrzynię Ucznia przy pierwszym logowaniu?') {
-            $starter = 1
-        }
-        else {
-            $starter = 0
-        }
+        Write-Host (UI-Text 'Skrzynia Ucznia to zestaw skrzyń, który prowadzi postać przez pierwsze wioski - jeden przełącznik dla graczy i botów:' 'The Apprentice Chest is a set of chests that takes a character through the first villages - one switch for players and bots:') -ForegroundColor Cyan
+        # Enter keeps what the world had. A [t/N] question switched the chest off
+        # for everybody who pressed Enter, and the window ticked it back on for
+        # everybody who had it off - either way a wipe changed it unasked.
+        $starterNow = (Get-DotEnvValue -Key 'M2_STARTER_CHEST' -Default '1') -ne '0'
+        $answer = Read-Host (UI-Text "Skrzynia Ucznia w grze - dla nowych postaci graczy i dla botów? (T/n, Enter = $(if ($starterNow) { 'tak' } else { 'nie' }))" "Apprentice Chest in the game - for players' new characters and for the bots? (Y/n, Enter = $(if ($starterNow) { 'yes' } else { 'no' }))")
+        if ("$answer".Trim()) { $starterNow = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
+        $starter = $(if ($starterNow) { 1 } else { 0 })
     }
 
     $written = @()
     foreach ($pair in @(
-            @{ Key = 'M2_RATE_EXP';  Value = $exp;  Label = 'doświadczenie' },
+            @{ Key = 'M2_RATE_EXP';  Value = $exp;  Label = (UI-Text 'doświadczenie' 'experience') },
             @{ Key = 'M2_RATE_DROP'; Value = $drop; Label = 'drop' },
             @{ Key = 'M2_RATE_YANG'; Value = $yang; Label = 'yang' })) {
         $v = [int]$pair.Value
         if ($v -lt 0) { continue }
         if (-not (Test-RatePercent -Value $v)) {
-            throw ("{0}: podaj całe procenty od 1 do 10000, nie '{1}'." -f $pair.Label, $v)
+            throw ((UI-Text "{0}: podaj całe procenty od 1 do 10000, nie '{1}'." "{0}: give a whole percentage from 1 to 10000, not '{1}'.") -f $pair.Label, $v)
         }
         Set-DotEnvValue -Key $pair.Key -Value "$v"
         $written += ('{0} {1}%' -f $pair.Label, $v)
@@ -1447,15 +1577,15 @@ function Set-FreshWorldSettings {
     if ($hold -ge 0) {
         $heldValue = $(if ($hold -ge 1) { '1' } else { '0' })
         Set-DotEnvValue -Key 'M2_PLAYERBOT_START_HELD' -Value $heldValue
-        $written += $(if ($heldValue -eq '1') { 'boty czekają na wpuszczenie' } else { 'boty wchodzą od razu' })
+        $written += $(if ($heldValue -eq '1') { (UI-Text 'boty czekają na wpuszczenie' 'the bots wait to be let in') } else { (UI-Text 'boty wchodzą od razu' 'the bots come in at once') })
     }
     if ($starter -ge 0) {
         $starterValue = $(if ($starter -ge 1) { '1' } else { '0' })
         Set-DotEnvValue -Key 'M2_STARTER_CHEST' -Value $starterValue
-        $written += $(if ($starterValue -eq '1') { 'nowe postacie dostają Skrzynię Ucznia' } else { 'bez Skrzyni Ucznia dla nowych postaci' })
+        $written += $(if ($starterValue -eq '1') { (UI-Text 'Skrzynia Ucznia w grze' 'the Apprentice Chest in the game') } else { (UI-Text 'bez Skrzyni Ucznia (ani dla graczy, ani dla botów)' 'no Apprentice Chest (for neither players nor bots)') })
     }
     if ($written.Count -gt 0) {
-        Write-Host ('Zapisano: ' + ($written -join ', ') + '.') -ForegroundColor Green
+        Write-Host ((UI-Text 'Zapisano: ' 'Saved: ') + ($written -join ', ') + '.') -ForegroundColor Green
     }
 }
 
@@ -1464,45 +1594,45 @@ function Reset-WorldAction {
     # kept as a zip. The volume is deleted, because that is the only thing that
     # makes MariaDB import initdb.d again.
     if (-not (Test-M2DockerRunning)) {
-        Write-Host 'Silnik Dockera jest zatrzymany. Uruchom Docker i spróbuj ponownie.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Silnik Dockera jest zatrzymany. Uruchom Docker i spróbuj ponownie.' 'The Docker engine is stopped. Start Docker and try again.') -ForegroundColor Yellow
         return
     }
     $target = Get-CurrentInstallTargetVolume
     if (-not $target) {
-        Write-Host 'Nie mozna ustalic bazy tej instalacji.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Nie mozna ustalic bazy tej instalacji.' 'Cannot tell which database is this installation''s.') -ForegroundColor Yellow
         return
     }
     $missing = @(Get-M2MissingSqlDumps -ServerRoot $serverRoot)
     if ($missing.Count -gt 0) {
-        Write-Host 'Nie mogę zresetować świata: brakuje zrzutów, z których powstaje nowa baza.' -ForegroundColor Red
-        Write-Host ('  Brakuje: ' + ($missing -join ', ')) -ForegroundColor Red
-        Write-Host '  Miejsce: linux-port\docker\mariadb\initdb.d\dumps' -ForegroundColor Gray
-        Write-Host 'Bez nich skasowanie bazy zostawiłoby instalację bez świata i bez sposobu na nowy.' -ForegroundColor Gray
+        Write-Host (UI-Text 'Nie mogę zresetować świata: brakuje zrzutów, z których powstaje nowa baza.' 'Cannot reset the world: the dumps a new database is made from are missing.') -ForegroundColor Red
+        Write-Host ((UI-Text '  Brakuje: ' '  Missing: ') + ($missing -join ', ')) -ForegroundColor Red
+        Write-Host (UI-Text '  Miejsce: linux-port\docker\mariadb\initdb.d\dumps' '  Place: linux-port\docker\mariadb\initdb.d\dumps') -ForegroundColor Gray
+        Write-Host (UI-Text 'Bez nich skasowanie bazy zostawiłoby instalację bez świata i bez sposobu na nowy.' 'Without them, deleting the database would leave the installation with no world and no way to make a new one.') -ForegroundColor Gray
         return
     }
     Write-Host ''
-    Write-Host 'UWAGA: to kasuje CAŁY obecny świat - postacie, poziomy, ekwipunek, boty, konta gry.' -ForegroundColor Yellow
-    Write-Host 'Przed skasowaniem świat zostanie zapisany do kopii zip w folderze backups,' -ForegroundColor Yellow
-    Write-Host 'więc da się do niego wrócić akcją "Przywróć kopię".' -ForegroundColor Yellow
-    Write-Host 'Po resecie pierwszy start potrwa dłużej: baza powstaje od nowa i boty są zasiewane.' -ForegroundColor Gray
-    if (-not (Confirm-Operation 'Zresetować świat do stanu świeżej instalacji?')) {
-        Write-Host 'Anulowano.' -ForegroundColor Yellow; return
+    Write-Host (UI-Text 'UWAGA: to kasuje CAŁY obecny świat - postacie, poziomy, ekwipunek, boty, konta gry.' 'WARNING: this deletes the WHOLE current world - characters, levels, equipment, bots, game accounts.') -ForegroundColor Yellow
+    Write-Host (UI-Text 'Przed skasowaniem świat zostanie zapisany do kopii zip w folderze backups,' 'Before it is deleted, the world is saved to a zip backup in the backups folder,') -ForegroundColor Yellow
+    Write-Host (UI-Text 'więc da się do niego wrócić akcją "Przywróć kopię".' 'so you can go back to it with the "Restore from a backup" action.') -ForegroundColor Yellow
+    Write-Host (UI-Text 'Po resecie pierwszy start potrwa dłużej: baza powstaje od nowa i boty są zasiewane.' 'After the reset the first start takes longer: the database is made anew and the bots are seeded.') -ForegroundColor Gray
+    if (-not (Confirm-Operation (UI-Text 'Zresetować świat do stanu świeżej instalacji?' 'Reset the world to a fresh installation?'))) {
+        Write-Host (UI-Text 'Anulowano.' 'Cancelled.') -ForegroundColor Yellow; return
     }
-    Set-FreshWorldSettings -Reason 'nowego świata'
-    Write-Host 'Zatrzymuję serwer i Dockera po stronie stosu...' -ForegroundColor Cyan
+    Set-FreshWorldSettings -Reason (UI-Text 'nowego świata' 'of the new world')
+    Write-Host (UI-Text 'Zatrzymuję serwer i Dockera po stronie stosu...' 'Stopping the server and the stack''s containers...') -ForegroundColor Cyan
     Stop-Server
-    Write-Host 'Zapisuję kopię i kasuję bazę...' -ForegroundColor Cyan
+    Write-Host (UI-Text 'Zapisuję kopię i kasuję bazę...' 'Saving the backup and deleting the database...') -ForegroundColor Cyan
     $result = Reset-M2WorldToFreshInstall -Volume $target -ServerRoot $serverRoot `
         -BackupRoot (Join-Path $serverRoot 'backups')
     if ($result.Backup) {
-        Write-Host ("Kopia poprzedniego świata ({0} postaci): {1}" -f $result.Players, $result.Backup) -ForegroundColor Gray
+        Write-Host ((UI-Text "Kopia poprzedniego świata ({0} postaci): {1}" "Backup of the previous world ({0} characters): {1}") -f $result.Players, $result.Backup) -ForegroundColor Gray
     }
     if ($ThenStart) {
-        Write-Host 'Świat skasowany. Uruchamiam serwer z nowym światem - baza powstaje od nowa i boty są zasiewane, to potrwa dłużej niż zwykły start.' -ForegroundColor Green
+        Write-Host (UI-Text 'Świat skasowany. Uruchamiam serwer z nowym światem - baza powstaje od nowa i boty są zasiewane, to potrwa dłużej niż zwykły start.' 'World deleted. Starting the server with the new world - the database is made anew and the bots are seeded, which takes longer than a normal start.') -ForegroundColor Green
         Start-Server
         return
     }
-    Write-Host 'Świat skasowany. Kliknij GRAJ - serwer zbuduje bazę od nowa i zasieje boty.' -ForegroundColor Green
+    Write-Host (UI-Text 'Świat skasowany. Kliknij GRAJ - serwer zbuduje bazę od nowa i zasieje boty.' 'World deleted. Click PLAY - the server makes the database anew and seeds the bots.') -ForegroundColor Green
 }
 
 function Reset-PanelPasswordAction {
@@ -1522,24 +1652,24 @@ function Reset-PanelPasswordAction {
         if ($match.Success) { $panelPw = $match.Groups[1].Value }
     }
     if (-not $panelPw) {
-        Write-Host 'W pliku .env nie ma hasla do panelu. Uruchom raz GRAJ - launcher je uzupelni i pokaze.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'W pliku .env nie ma hasla do panelu. Uruchom raz GRAJ - launcher je uzupelni i pokaze.' 'The .env file has no panel password. Click PLAY once - the launcher fills it in and shows it.') -ForegroundColor Yellow
         return
     }
-    Write-Host 'Haslo do panelu WWW (z pliku linux-port\docker\.env):' -ForegroundColor Cyan
+    Write-Host (UI-Text 'Haslo do panelu WWW (z pliku linux-port\docker\.env):' 'Web panel password (from linux-port\docker\.env):') -ForegroundColor Cyan
     Write-Host "  $panelPw"
     Write-Host ''
-    Write-Host 'Jesli panel go nie przyjmuje, znaczy to, ze zapamietal starsze haslo.' -ForegroundColor Gray
-    Write-Host 'Reset kasuje jeden plik konfiguracyjny panelu; swiat, postacie i boty' -ForegroundColor Gray
-    Write-Host 'sa w bazie i nie sa tym ruszane. Wylogowuje otwarte sesje panelu.' -ForegroundColor Gray
-    if (-not (Confirm-Operation 'Zresetowac haslo panelu do tego z .env?')) {
-        Write-Host 'Anulowano - haslo wyzej pozostaje aktualne.' -ForegroundColor Yellow
+    Write-Host (UI-Text 'Jesli panel go nie przyjmuje, znaczy to, ze zapamietal starsze haslo.' 'If the panel does not take it, the panel remembers an older password.') -ForegroundColor Gray
+    Write-Host (UI-Text 'Reset kasuje jeden plik konfiguracyjny panelu; swiat, postacie i boty' 'The reset deletes one configuration file of the panel; the world, the characters and the bots') -ForegroundColor Gray
+    Write-Host (UI-Text 'sa w bazie i nie sa tym ruszane. Wylogowuje otwarte sesje panelu.' 'are in the database and are not touched. It logs out the panel''s open sessions.') -ForegroundColor Gray
+    if (-not (Confirm-Operation (UI-Text 'Zresetowac haslo panelu do tego z .env?' 'Reset the panel password to the one in .env?'))) {
+        Write-Host (UI-Text 'Anulowano - haslo wyzej pozostaje aktualne.' 'Cancelled - the password above is still the valid one.') -ForegroundColor Yellow
         return
     }
     # The panel's config volume is named after the same project as the database
     # volume, which the launcher already knows how to find.
     $dbVolume = Get-CurrentInstallTargetVolume
     if (-not $dbVolume -or -not $dbVolume.EndsWith('_db-data')) {
-        Write-Host 'Nie moge ustalic nazwy projektu tej instalacji. Uruchom raz GRAJ.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Nie moge ustalic nazwy projektu tej instalacji. Uruchom raz GRAJ.' 'Cannot tell this installation''s project name. Click PLAY once.') -ForegroundColor Yellow
         return
     }
     $volume = $dbVolume.Substring(0, $dbVolume.Length - '_db-data'.Length) + '_panel-conf'
@@ -1551,23 +1681,23 @@ function Reset-PanelPasswordAction {
         # docker compose writes progress to stderr; under 'Stop' that is a
         # terminating error even when the command worked. See Stop-Server.
         $ErrorActionPreference = 'Continue'
-        Write-Host 'Zatrzymuje panel...' -ForegroundColor Cyan
+        Write-Host (UI-Text 'Zatrzymuje panel...' 'Stopping the panel...') -ForegroundColor Cyan
         docker compose --project-directory $composeDir -f $composeFile stop panel 2>&1 | Out-Null
-        Write-Host 'Kasuje zapamietane haslo...' -ForegroundColor Cyan
+        Write-Host (UI-Text 'Kasuje zapamietane haslo...' 'Deleting the remembered password...') -ForegroundColor Cyan
         docker run --rm -v "${volume}:/etc/m2panel" alpine:3.20 rm -f /etc/m2panel/m2panel.conf 2>&1 | Out-Null
         $removeExit = $LASTEXITCODE
         if ($removeExit -ne 0) {
-            Write-Host "Nie udalo sie skasowac pliku (kod $removeExit). Panel zostaje bez zmian." -ForegroundColor Red
+            Write-Host (UI-Text "Nie udalo sie skasowac pliku (kod $removeExit). Panel zostaje bez zmian." "Could not delete the file (code $removeExit). The panel stays as it was.") -ForegroundColor Red
             docker compose --project-directory $composeDir -f $composeFile start panel 2>&1 | Out-Null
             return
         }
-        Write-Host 'Uruchamiam panel...' -ForegroundColor Cyan
+        Write-Host (UI-Text 'Uruchamiam panel...' 'Starting the panel...') -ForegroundColor Cyan
         docker compose --project-directory $composeDir -f $composeFile up -d --no-deps panel 2>&1 | Out-Null
     }
     finally { $ErrorActionPreference = $previousPreference }
 
     Write-Host ''
-    Write-Host 'Gotowe. Zaloguj sie haslem:' -ForegroundColor Green
+    Write-Host (UI-Text 'Gotowe. Zaloguj sie haslem:' 'Done. Log in with the web panel password:') -ForegroundColor Green
     Write-Host "  $panelPw"
 }
 
@@ -1601,60 +1731,60 @@ function Show-DatabaseAccessAction {
     # the .env is opened in Notepad instead.
     $creds = Get-InstallDbCredentials
     if (-not $creds.EnvPath) {
-        Write-Host 'Brak pliku linux-port\docker\.env — uruchom najpierw serwer (GRAJ), launcher go utworzy.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Brak pliku linux-port\docker\.env — uruchom najpierw serwer (GRAJ), launcher go utworzy.' 'No linux-port\docker\.env yet - start the server (PLAY) first, the launcher creates it.') -ForegroundColor Yellow
         return
     }
-    Write-Host 'Dane do połączenia z bazą (Navicat, HeidiSQL, DBeaver — typ MySQL/MariaDB):' -ForegroundColor Cyan
+    Write-Host (UI-Text 'Dane do połączenia z bazą (Navicat, HeidiSQL, DBeaver — typ MySQL/MariaDB):' 'Database connection details (Navicat, HeidiSQL, DBeaver - type MySQL/MariaDB):') -ForegroundColor Cyan
     Write-Host '  Host:      127.0.0.1'
     Write-Host "  Port:      $($creds.Port)"
-    Write-Host '  Konto 1:   root        — pełny dostęp; hasło: M2_DB_ROOT_PASSWORD w pliku .env'
-    Write-Host "  Konto 2:   $($creds.User)      — tylko bazy gry; hasło: M2_DB_PASSWORD w pliku .env"
-    Write-Host "  Plik .env: $($creds.EnvPath)"
+    Write-Host (UI-Text '  Konto 1:   root        — pełny dostęp; hasło: M2_DB_ROOT_PASSWORD w pliku .env' '  Account 1: root        - full access; its password is M2_DB_ROOT_PASSWORD in the .env file')
+    Write-Host (UI-Text "  Konto 2:   $($creds.User)      — tylko bazy gry; hasło: M2_DB_PASSWORD w pliku .env" "  Account 2: $($creds.User)      - the game databases only; its password is M2_DB_PASSWORD in the .env file")
+    Write-Host (UI-Text "  Plik .env: $($creds.EnvPath)" "  .env file: $($creds.EnvPath)")
     Write-Host ''
-    Write-Host 'Baza słucha tylko na tym komputerze (127.0.0.1), więc klient musi działać na nim.' -ForegroundColor Gray
+    Write-Host (UI-Text 'Baza słucha tylko na tym komputerze (127.0.0.1), więc klient musi działać na nim.' 'The database listens on this computer only (127.0.0.1), so the database client has to run on it.') -ForegroundColor Gray
     if ((Get-M2ServerEngine -ServerRoot $serverRoot) -ne 'r40250') {
-        Write-Host 'Na plikach 2.x przedmioty i potwory (item_proto, mob_proto) są w bazie world; player.item_proto' -ForegroundColor Gray
-        Write-Host 'i player.mob_proto to tylko widoki. Zmiany w world zostają po restarcie serwera.' -ForegroundColor Gray
+        Write-Host (UI-Text 'Na plikach 2.x przedmioty i potwory (item_proto, mob_proto) są w bazie world; player.item_proto' 'On the 2.x files items and monsters (item_proto, mob_proto) live in the world database; player.item_proto') -ForegroundColor Gray
+        Write-Host (UI-Text 'i player.mob_proto to tylko widoki. Zmiany w world zostają po restarcie serwera.' 'and player.mob_proto are only views. Changes in world survive a server restart.') -ForegroundColor Gray
     }
-    Write-Host 'Jeśli baza odrzuca hasło z .env („Access denied"), użyj akcji RepairDb (przycisk' -ForegroundColor Gray
-    Write-Host '„NAPRAW DOSTĘP DO BAZY"): ustawia konta root i metin2 na hasła z tego pliku.' -ForegroundColor Gray
-    Write-Host 'Nie wklejaj haseł z .env publicznie ani do paczki z logami.' -ForegroundColor Yellow
+    Write-Host (UI-Text 'Jeśli baza odrzuca hasło z .env („Access denied"), użyj akcji RepairDb (przycisk' 'If the database rejects the password from .env ("Access denied"), use the RepairDb action (the') -ForegroundColor Gray
+    Write-Host (UI-Text '„NAPRAW DOSTĘP DO BAZY"): ustawia konta root i metin2 na hasła z tego pliku.' 'REPAIR DATABASE ACCESS button): it sets the root and metin2 accounts to the passwords in that file.') -ForegroundColor Gray
+    Write-Host (UI-Text 'Nie wklejaj haseł z .env publicznie ani do paczki z logami.' 'Never paste the passwords from .env in public or into a log bundle.') -ForegroundColor Yellow
     if (-not $Yes) {
-        $answer = Read-Host 'Otworzyć plik .env w Notatniku, żeby skopiować hasła? [t/N]'
+        $answer = Read-Host (UI-Text 'Otworzyć plik .env w Notatniku, żeby skopiować hasła? [t/N]' 'Open the .env file in Notepad to copy the passwords? [y/N]')
         if ($answer -match '^[tTyY]') { Start-Process notepad.exe -ArgumentList ('"' + $creds.EnvPath + '"') }
     }
 }
 
 function Repair-DatabaseAction {
     if (-not (Test-M2DockerRunning)) {
-        Write-Host 'Silnik Dockera jest zatrzymany, więc nie widać żadnych baz.' -ForegroundColor Yellow
-        Write-Host 'Uruchom Docker (akcja StartDocker lub przycisk „URUCHOM DOCKER") i spróbuj ponownie.' -ForegroundColor Yellow
-        Write-Host 'Żadne dane nie zginęły — bazy są na dysku, tylko Docker ich teraz nie pokazuje.' -ForegroundColor Gray
+        Write-Host (UI-Text 'Silnik Dockera jest zatrzymany, więc nie widać żadnych baz.' 'The Docker engine is stopped, so no database can be seen.') -ForegroundColor Yellow
+        Write-Host (UI-Text 'Uruchom Docker (akcja StartDocker lub przycisk „URUCHOM DOCKER") i spróbuj ponownie.' 'Start Docker (the StartDocker action or the START DOCKER button) and try again.') -ForegroundColor Yellow
+        Write-Host (UI-Text 'Żadne dane nie zginęły — bazy są na dysku, tylko Docker ich teraz nie pokazuje.' 'No data was lost - the databases are on the disk, Docker just does not show them now.') -ForegroundColor Gray
         return
     }
     $target = Get-CurrentInstallTargetVolume
     if (-not $target) {
-        Write-Host 'Nie można ustalić bazy tej instalacji. Uruchom najpierw serwer (GRAJ) choć raz.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Nie można ustalić bazy tej instalacji. Uruchom najpierw serwer (GRAJ) choć raz.' 'Cannot tell which database is this installation''s. Start the server (PLAY) once first.') -ForegroundColor Yellow
         return
     }
     $creds = Get-InstallDbCredentials
     if (-not $creds.Password) {
-        Write-Host 'Brak M2_DB_PASSWORD w linux-port\docker\.env — nie mam czego przywrócić.' -ForegroundColor Red
+        Write-Host (UI-Text 'Brak M2_DB_PASSWORD w linux-port\docker\.env — nie mam czego przywrócić.' 'No M2_DB_PASSWORD in linux-port\docker\.env - there is nothing to restore.') -ForegroundColor Red
         return
     }
-    Write-Host "Naprawiam konta bazy dla instalacji: $target" -ForegroundColor Cyan
-    Write-Host 'To odtwarza wyłącznie użytkowników i uprawnienia bazy — konto gry i root — z hasłami z pliku .env. Postacie, przedmioty i boty pozostają bez zmian.' -ForegroundColor Gray
+    Write-Host (UI-Text "Naprawiam konta bazy dla instalacji: $target" "Repairing the database accounts of the installation: $target") -ForegroundColor Cyan
+    Write-Host (UI-Text 'To odtwarza wyłącznie użytkowników i uprawnienia bazy — konto gry i root — z hasłami z pliku .env. Postacie, przedmioty i boty pozostają bez zmian.' 'This restores only the database''s users and privileges - the game account and root - with the passwords from the .env file. Characters, items and bots stay as they are.') -ForegroundColor Gray
     if (-not $creds.RootPassword) {
-        Write-Host 'Brak M2_DB_ROOT_PASSWORD w .env — konto root zostanie pominięte.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Brak M2_DB_ROOT_PASSWORD w .env — konto root zostanie pominięte.' 'No M2_DB_ROOT_PASSWORD in .env - the root account is skipped.') -ForegroundColor Yellow
     }
-    Write-Host 'Zatrzymuję serwer, aby zwolnić bazę...' -ForegroundColor Cyan
+    Write-Host (UI-Text 'Zatrzymuję serwer, aby zwolnić bazę...' 'Stopping the server to free the database...') -ForegroundColor Cyan
     Stop-Server
     if (Repair-M2GameDbUser -Volume $target -DbUser $creds.User -DbPassword $creds.Password -RootPassword $creds.RootPassword) {
-        Write-Host 'Gotowe. Konta i uprawnienia bazy odtworzone. Kliknij GRAJ, aby uruchomić serwer.' -ForegroundColor Green
-        Write-Host "Do Navicat: host 127.0.0.1, port $($creds.Port), root albo $($creds.User) — hasła z .env (akcja DbAccess pokaże szczegóły)." -ForegroundColor Gray
+        Write-Host (UI-Text 'Gotowe. Konta i uprawnienia bazy odtworzone. Kliknij GRAJ, aby uruchomić serwer.' 'Done. The database accounts and privileges are restored. Click PLAY to start the server.') -ForegroundColor Green
+        Write-Host (UI-Text "Do Navicat: host 127.0.0.1, port $($creds.Port), root albo $($creds.User) — hasła z .env (akcja DbAccess pokaże szczegóły)." "For Navicat: host 127.0.0.1, port $($creds.Port), root or $($creds.User) - the passwords from .env (the DbAccess action shows the details).") -ForegroundColor Gray
     }
     else {
-        Write-Host 'Naprawa nie powiodła się. Zbierz logi (ZIP) i zgłoś problem.' -ForegroundColor Red
+        Write-Host (UI-Text 'Naprawa nie powiodła się. Zbierz logi (ZIP) i zgłoś problem.' 'The repair failed. Collect the logs (ZIP) and report the problem.') -ForegroundColor Red
     }
 }
 
@@ -1671,9 +1801,9 @@ function Create-Logs {
     # bundle could not answer it (pattsito, 23 September).
     $extra = @{}
     try { $extra['disk-space.txt'] = Get-M2DiskSpaceReport -ServerRoot $serverRoot }
-    catch { $extra['disk-space.txt'] = "Nie udalo sie odczytac miejsca na dyskach: $($_.Exception.Message)" }
+    catch { $extra['disk-space.txt'] = (UI-Text "Nie udalo sie odczytac miejsca na dyskach: $($_.Exception.Message)" "Could not read the free space on the drives: $($_.Exception.Message)") }
     $bundle = New-M2SupportBundle -ServerRoot $serverRoot -ExtraFiles $extra
-    Write-Host "Gotowa paczka diagnostyczna: $bundle" -ForegroundColor Green
+    Write-Host (UI-Text "Gotowa paczka diagnostyczna: $bundle" "Diagnostic bundle ready: $bundle") -ForegroundColor Green
     return $bundle
 }
 
@@ -1681,18 +1811,18 @@ function Send-Logs {
     $config = Get-Config
     $support = Get-M2SupportSettings -Config $config
     if (-not $support.UploadUrl) {
-        throw "Kanał zgłoszeń jest teraz niedostępny. Utwórz ZIP akcją Logs i dołącz go ręcznie do zgłoszenia: $($support.ContactUrl)"
+        throw (UI-Text "Kanał zgłoszeń jest teraz niedostępny. Utwórz ZIP akcją Logs i dołącz go ręcznie do zgłoszenia: $($support.ContactUrl)" "The report channel is not available now. Make the ZIP with the Logs action and attach it to a report yourself: $($support.ContactUrl)")
     }
     $bundle = Create-Logs
-    Write-Host 'Paczka zawiera logi Dockera i konfigurację z usuniętymi hasłami.' -ForegroundColor Yellow
-    $target = if ($support.Source -eq 'manifest') { 'kanału zgłoszeń autora' } else { $support.UploadUrl }
-    if (-not (Confirm-Operation "Wysłać $bundle do $target?")) {
-        Write-Host 'Nie wysłano. ZIP pozostał na dysku.' -ForegroundColor Yellow
+    Write-Host (UI-Text 'Paczka zawiera logi Dockera i konfigurację z usuniętymi hasłami.' 'The bundle holds Docker''s logs and the configuration with the passwords removed.') -ForegroundColor Yellow
+    $target = if ($support.Source -eq 'manifest') { (UI-Text 'kanału zgłoszeń autora' 'the author''s report channel') } else { $support.UploadUrl }
+    if (-not (Confirm-Operation (UI-Text "Wysłać $bundle do $target?" "Send $bundle to $target?"))) {
+        Write-Host (UI-Text 'Nie wysłano. ZIP pozostał na dysku.' 'Not sent. The ZIP stays on the disk.') -ForegroundColor Yellow
         return
     }
     $response = Send-M2SupportBundle -BundlePath $bundle -UploadUrl $support.UploadUrl
-    if ($response) { Write-Host "Wysłano. Odpowiedź serwera: $response" -ForegroundColor Green }
-    else { Write-Host 'Wysłano paczkę diagnostyczną.' -ForegroundColor Green }
+    if ($response) { Write-Host (UI-Text "Wysłano. Odpowiedź serwera: $response" "Sent. The server answered: $response") -ForegroundColor Green }
+    else { Write-Host (UI-Text 'Wysłano paczkę diagnostyczną.' 'The diagnostic bundle is sent.') -ForegroundColor Green }
 }
 
 # ---------------------------------------------------------------- co-op
@@ -1705,21 +1835,21 @@ function Send-Logs {
 
 function Assert-CoopModule {
     if (-not (Get-Command Get-M2CoopNetworkReport -ErrorAction SilentlyContinue)) {
-        throw 'Brak modułu launcher\Metin2Launcher.Coop.psm1 - ta paczka nie ma trybu COOP.'
+        throw (UI-Text 'Brak modułu launcher\Metin2Launcher.Coop.psm1 - ta paczka nie ma trybu COOP.' 'The launcher\Metin2Launcher.Coop.psm1 module is missing - this package has no COOP mode.')
     }
 }
 
 function Write-CoopNetworkReport {
     param($Report)
-    Write-Host ("Karta sieciowa: {0} ({1}), brama {2}" -f $Report.LanAddress, $Report.Interface, $Report.Gateway)
-    Write-Host ("Adres widziany z internetu: {0}" -f $(if ($Report.PublicAddress) { $Report.PublicAddress } else { 'nie odczytano' }))
-    if ($Report.Router) { Write-Host ("Router (UPnP): {0}, adres WAN {1}" -f $Report.Router, $Report.RouterWan) }
-    else { Write-Host 'Router: nie odpowiedział na UPnP' }
+    Write-Host ((UI-Text "Karta sieciowa: {0} ({1}), brama {2}" "Network adapter: {0} ({1}), gateway {2}") -f $Report.LanAddress, $Report.Interface, $Report.Gateway)
+    Write-Host ((UI-Text "Adres widziany z internetu: {0}" "Address the Internet sees: {0}") -f $(if ($Report.PublicAddress) { $Report.PublicAddress } else { (UI-Text 'nie odczytano' 'not read') }))
+    if ($Report.Router) { Write-Host ((UI-Text "Router (UPnP): {0}, adres WAN {1}" "Router (UPnP): {0}, WAN address {1}") -f $Report.Router, $Report.RouterWan) }
+    else { Write-Host (UI-Text 'Router: nie odpowiedział na UPnP' 'Router: did not answer UPnP') }
     $color = $(if ($Report.Verdict -eq 'public') { 'Green' } elseif (@('no-upnp', 'mismatch', 'no-wan') -contains $Report.Verdict) { 'Yellow' } else { 'Red' })
-    Write-Host ("Wynik: {0}" -f $Report.Text) -ForegroundColor $color
+    Write-Host ((UI-Text "Wynik: {0}" "Result: {0}") -f $Report.Text) -ForegroundColor $color
     $vpns = @($Report.Vpns)
-    foreach ($vpn in $vpns) { Write-Host ("Sieć VPN: {0}, adres {1} (karta {2})" -f $vpn.Name, $vpn.Address, $vpn.Interface) }
-    if ($vpns.Count -eq 0) { Write-Host 'Sieć VPN: nie wykryto (Radmin VPN, Tailscale, ZeroTier, Hamachi).' }
+    foreach ($vpn in $vpns) { Write-Host ((UI-Text "Sieć VPN: {0}, adres {1} (karta {2})" "VPN: {0}, address {1} (adapter {2})") -f $vpn.Name, $vpn.Address, $vpn.Interface) }
+    if ($vpns.Count -eq 0) { Write-Host (UI-Text 'Sieć VPN: nie wykryto (Radmin VPN, Tailscale, ZeroTier, Hamachi).' 'VPN: none found (Radmin VPN, Tailscale, ZeroTier, Hamachi).') }
 }
 
 function Get-CoopHostingField {
@@ -1734,53 +1864,53 @@ function Get-CoopHostingField {
 
 function Show-CoopCheckAction {
     Assert-CoopModule
-    Write-Phase 'sprawdzanie sieci'
+    Write-Phase (UI-Text 'sprawdzanie sieci' 'checking the network')
     $report = Get-M2CoopNetworkReport
     Write-CoopNetworkReport -Report $report
     if (@('cgnat', 'double-nat') -contains $report.Verdict) {
         $vpns = @($report.Vpns)
-        if ($vpns.Count -gt 0) { Write-Host ("Rozwiązanie: hostuj przez {0} - HOSTUJ ŚWIAT wybierze go sam." -f $vpns[0].Name) -ForegroundColor Yellow }
+        if ($vpns.Count -gt 0) { Write-Host ((UI-Text "Rozwiązanie: hostuj przez {0} - HOSTUJ ŚWIAT wybierze go sam." "The way out: host through {0} - HOST THE WORLD picks it by itself.") -f $vpns[0].Name) -ForegroundColor Yellow }
         else {
-            Write-Host ('Rozwiązanie: zainstaluj Radmin VPN albo Tailscale, połącz się ze znajomymi w jednej sieci i hostuj ponownie - ' +
-                'launcher wykryje VPN i użyje go zamiast routera.') -ForegroundColor Yellow
+            Write-Host ((UI-Text 'Rozwiązanie: zainstaluj Radmin VPN albo Tailscale, połącz się ze znajomymi w jednej sieci i hostuj ponownie - ' 'The way out: install Radmin VPN or Tailscale, join your friends in one network and host again - ') +
+                (UI-Text 'launcher wykryje VPN i użyje go zamiast routera.' 'the launcher finds the VPN and uses it instead of the router.')) -ForegroundColor Yellow
         }
     }
     $ports = Get-M2CoopGamePorts -ServerRoot $serverRoot
     if ($report.Verdict -eq 'no-wan') {
         $vpns = @($report.Vpns)
-        if ($vpns.Count -gt 0) { Write-Host ("Masz {0} - hostuj przez niego (HOSTUJ ŚWIAT wybierze go sam, gdy router nie otworzy portów)." -f $vpns[0].Name) -ForegroundColor Yellow }
+        if ($vpns.Count -gt 0) { Write-Host ((UI-Text "Masz {0} - hostuj przez niego (HOSTUJ ŚWIAT wybierze go sam, gdy router nie otworzy portów)." "You have {0} - host through it (HOST THE WORLD picks it by itself when the router opens no ports).") -f $vpns[0].Name) -ForegroundColor Yellow }
         foreach ($line in @(Get-M2CoopRouterHelp -Router $report.Router -LanAddress $report.LanAddress -Ports $ports)) { Write-Host $line -ForegroundColor Yellow }
     }
-    Write-Host ("Porty gry: {0}" -f ($ports -join ', '))
+    Write-Host ((UI-Text "Porty gry: {0}" "Game ports: {0}") -f ($ports -join ', '))
     $bindings = Get-M2CoopGameBindings -ServerRoot $serverRoot
-    if (-not $bindings.Running) { Write-Host 'Serwer gry nie działa (brak opublikowanych portów).' -ForegroundColor Yellow }
-    elseif ($bindings.Public) { Write-Host 'Porty gry są otwarte na wszystkich kartach sieciowych - świat jest hostowany.' -ForegroundColor Green }
-    else { Write-Host 'Porty gry słuchają tylko lokalnie (127.0.0.1) - świat nie jest hostowany.' }
+    if (-not $bindings.Running) { Write-Host (UI-Text 'Serwer gry nie działa (brak opublikowanych portów).' 'The game server is not running (no published ports).') -ForegroundColor Yellow }
+    elseif ($bindings.Public) { Write-Host (UI-Text 'Porty gry są otwarte na wszystkich kartach sieciowych - świat jest hostowany.' 'The game ports are open on every network adapter - the world is hosted.') -ForegroundColor Green }
+    else { Write-Host (UI-Text 'Porty gry słuchają tylko lokalnie (127.0.0.1) - świat nie jest hostowany.' 'The game ports listen locally only (127.0.0.1) - the world is not hosted.') }
     $hostingState = (Read-M2CoopState -ServerRoot $serverRoot).hosting
     if ((Get-CoopHostingField $hostingState 'mode') -eq 'vpn') {
-        Write-Host ("Ostatnie hostowanie: przez {0}, adres dla znajomych {1}." -f (Get-CoopHostingField $hostingState 'vpnName'), (Get-CoopHostingField $hostingState 'friendAddress'))
+        Write-Host ((UI-Text "Ostatnie hostowanie: przez {0}, adres dla znajomych {1}." "Last hosting: through {0}, address for friends {1}.") -f (Get-CoopHostingField $hostingState 'vpnName'), (Get-CoopHostingField $hostingState 'friendAddress'))
     }
     if ($report.GatewayInfo) {
         foreach ($port in $ports) {
             $m = Get-M2CoopPortMapping -Gateway $report.GatewayInfo -Port $port
             if ($m) { Write-Host ("  router: port {0} -> {1}:{2} ({3})" -f $port, $m.InternalClient, $m.InternalPort, $m.Description) }
-            else { Write-Host ("  router: port {0} bez przekierowania" -f $port) }
+            else { Write-Host ((UI-Text "  router: port {0} bez przekierowania" "  router: port {0} not forwarded") -f $port) }
         }
     }
-    Write-Host ("Reguła zapory Windows dla portów gry: {0}" -f $(if (Test-M2CoopFirewallRule) { 'jest' } else { 'brak (doda ją Hostuj)' }))
+    Write-Host ((UI-Text "Reguła zapory Windows dla portów gry: {0}" "Windows Firewall rule for the game ports: {0}") -f $(if (Test-M2CoopFirewallRule) { (UI-Text 'jest' 'present') } else { (UI-Text 'brak (doda ją Hostuj)' 'missing (HOST THE WORLD adds it)') }))
     foreach ($block in @(Get-M2CoopFirewallBlocks)) {
-        Write-Host ("  UWAGA: zapora blokuje program {0} (reguła '{1}', profil {2}) - taka reguła wygrywa z każdą regułą zezwalającą." -f $block.Program, $block.Name, $block.Profile) -ForegroundColor Yellow
+        Write-Host ((UI-Text "  UWAGA: zapora blokuje program {0} (reguła '{1}', profil {2}) - taka reguła wygrywa z każdą regułą zezwalającą." "  WARNING: the firewall blocks the program {0} (rule '{1}', profile {2}) - such a rule beats every rule that allows.") -f $block.Program, $block.Name, $block.Profile) -ForegroundColor Yellow
     }
     try {
         $defaults = @(Get-M2CoopDefaultPasswordAccounts -ServerRoot $serverRoot)
-        if ($defaults.Count -gt 0) { Write-Host ("Konta z hasłem z paczki: {0} - przed hostowaniem użyj 'Zabezpiecz konta'." -f ($defaults -join ', ')) -ForegroundColor Yellow }
-        else { Write-Host 'Konta admin i test nie mają haseł z paczki.' -ForegroundColor Green }
+        if ($defaults.Count -gt 0) { Write-Host ((UI-Text "Konta z hasłem z paczki: {0} - przed hostowaniem użyj 'Zabezpiecz konta'." "Accounts with the package's password: {0} - use 'Secure the accounts' before hosting.") -f ($defaults -join ', ')) -ForegroundColor Yellow }
+        else { Write-Host (UI-Text 'Konta admin i test nie mają haseł z paczki.' 'The admin and test accounts do not have the package''s passwords.') -ForegroundColor Green }
     }
-    catch { Write-Host "Baza nie odpowiada: $($_.Exception.Message)" -ForegroundColor Yellow }
+    catch { Write-Host (UI-Text "Baza nie odpowiada: $($_.Exception.Message)" "The database does not answer: $($_.Exception.Message)") -ForegroundColor Yellow }
     $state = Read-M2CoopState -ServerRoot $serverRoot
-    Write-Host ("Znajomi: {0}" -f @($state.friends).Count)
+    Write-Host ((UI-Text "Znajomi: {0}" "Friends: {0}") -f @($state.friends).Count)
     foreach ($f in @($state.friends)) {
-        Write-Host ("  {0}: login {1}{2}" -f $f.name, $f.login, $(if ($f.blocked) { ' (zablokowany)' } else { '' }))
+        Write-Host ("  {0}: login {1}{2}" -f $f.name, $f.login, $(if ($f.blocked) { (UI-Text ' (zablokowany)' ' (blocked)') } else { '' }))
     }
 }
 
@@ -1789,27 +1919,27 @@ function Protect-CoopAccountsAction {
     $changed = Protect-M2CoopAccounts -ServerRoot $serverRoot
     $names = @($changed.PSObject.Properties | ForEach-Object { $_.Name })
     if ($names.Count -eq 0) {
-        Write-Host 'Konta admin i test nie mają haseł z paczki - nic do zmiany.' -ForegroundColor Green
+        Write-Host (UI-Text 'Konta admin i test nie mają haseł z paczki - nic do zmiany.' 'The admin and test accounts do not have the package''s passwords - nothing to change.') -ForegroundColor Green
         return
     }
     foreach ($name in $names) {
-        Write-Host ("Nowe hasło konta {0}: {1}" -f $name, $changed.$name) -ForegroundColor Yellow
+        Write-Host ((UI-Text "Nowe hasło konta {0}: {1}" "Account {0}, new password: {1}") -f $name, $changed.$name) -ForegroundColor Yellow
     }
-    Write-Host 'Zapisz je - od teraz logujesz się nimi (okno COOP w launcherze też je pokazuje).'
+    Write-Host (UI-Text 'Zapisz je - od teraz logujesz się nimi (okno COOP w launcherze też je pokazuje).' 'Write them down - you log in with them from now on (the launcher''s COOP window shows them too).')
 }
 
 function Add-CoopFriendAction {
     Assert-CoopModule
     $name = $FriendName
-    if (-not $name) { $name = Read-Host 'Imię albo nick znajomego' }
-    if (-not $name) { throw 'Nie podano imienia znajomego.' }
+    if (-not $name) { $name = Read-Host (UI-Text 'Imię albo nick znajomego' 'Your friend''s name or nick') }
+    if (-not $name) { throw (UI-Text 'Nie podano imienia znajomego.' 'No friend''s name was given.') }
     $friend = New-M2CoopFriend -ServerRoot $serverRoot -Name $name
-    Write-Host ("Konto dla {0}: login {1}, hasło {2}, kod usuwania postaci {3}" -f $friend.name, $friend.login, $friend.password, $friend.socialId) -ForegroundColor Green
+    Write-Host ((UI-Text "Konto dla {0}: login {1}, hasło {2}, kod usuwania postaci {3}" "Account for {0}: login {1}, password: {2}, character deletion code {3}") -f $friend.name, $friend.login, $friend.password, $friend.socialId) -ForegroundColor Green
     $target = Get-M2CoopInviteTarget -ServerRoot $serverRoot
     if ($target.Address) {
-        Write-Host 'Kod zaproszenia (skopiuj i wyślij znajomemu):'
+        Write-Host (UI-Text 'Kod zaproszenia (skopiuj i wyślij znajomemu):' 'Invite code (copy it and send it to your friend):')
         Write-Host (Get-M2CoopFriendInvite -ServerRoot $serverRoot -Friend $friend -HostAddress $target.Address -Vpn $target.Vpn -Lan $target.Lan) -ForegroundColor Cyan
-        if ($target.Vpn) { Write-Host ("Znajomy musi być w Twojej sieci {0} - kod prowadzi na adres {1}." -f $target.VpnName, $target.Address) -ForegroundColor Yellow }
+        if ($target.Vpn) { Write-Host ((UI-Text "Znajomy musi być w Twojej sieci {0} - kod prowadzi na adres {1}." "Your friend has to be in your {0} network - the code leads to the address {1}.") -f $target.VpnName, $target.Address) -ForegroundColor Yellow }
     }
 }
 
@@ -1817,11 +1947,11 @@ function Set-CoopFriendBlockedAction {
     param([bool]$Blocked = $true)
     Assert-CoopModule
     $login = $FriendLogin
-    if (-not $login) { $login = Read-Host 'Login znajomego' }
-    if (-not $login) { throw 'Nie podano loginu.' }
+    if (-not $login) { $login = Read-Host (UI-Text 'Login znajomego' 'Your friend''s login') }
+    if (-not $login) { throw (UI-Text 'Nie podano loginu.' 'No login was given.') }
     Set-M2CoopFriendBlocked -ServerRoot $serverRoot -Login $login -Blocked $Blocked
-    if ($Blocked) { Write-Host "Konto $login zablokowane: nie zaloguje się, dopóki go nie odblokujesz." -ForegroundColor Green }
-    else { Write-Host "Konto $login odblokowane." -ForegroundColor Green }
+    if ($Blocked) { Write-Host (UI-Text "Konto $login zablokowane: nie zaloguje się, dopóki go nie odblokujesz." "Account $login blocked: it cannot log in until you unblock it.") -ForegroundColor Green }
+    else { Write-Host (UI-Text "Konto $login odblokowane." "Account $login unblocked.") -ForegroundColor Green }
 }
 
 function Show-CoopInviteAction {
@@ -1829,19 +1959,19 @@ function Show-CoopInviteAction {
     $state = Read-M2CoopState -ServerRoot $serverRoot
     $target = Get-M2CoopInviteTarget -ServerRoot $serverRoot
     if (-not $target.Address) {
-        if ($target.Vpn) { throw ("Nie udało się odczytać adresu {0} - uruchom go i spróbuj jeszcze raz." -f $target.VpnName) }
-        throw 'Nie udało się odczytać adresu publicznego (brak internetu?).'
+        if ($target.Vpn) { throw ((UI-Text "Nie udało się odczytać adresu {0} - uruchom go i spróbuj jeszcze raz." "Could not read the {0} address - start it and try again.") -f $target.VpnName) }
+        throw (UI-Text 'Nie udało się odczytać adresu publicznego (brak internetu?).' 'Could not read the public address (no Internet?).')
     }
     $shown = 0
     foreach ($f in @($state.friends)) {
         if ($FriendLogin -and [string]$f.login -ne $FriendLogin) { continue }
         if ($f.blocked) { continue }
-        Write-Host ("{0} (login {1}, hasło {2}):" -f $f.name, $f.login, $f.password)
+        Write-Host ((UI-Text "{0} (login {1}, hasło {2}):" "{0} (login {1}, password: {2}):") -f $f.name, $f.login, $f.password)
         Write-Host (Get-M2CoopFriendInvite -ServerRoot $serverRoot -Friend $f -HostAddress $target.Address -Vpn $target.Vpn -Lan $target.Lan) -ForegroundColor Cyan
         $shown++
     }
-    if ($shown -eq 0) { Write-Host 'Brak znajomych - dodaj ich najpierw.' -ForegroundColor Yellow }
-    elseif ($target.Vpn) { Write-Host ("Kody prowadzą na adres {0} w sieci {1} - znajomi muszą być w tej sieci." -f $target.Address, $target.VpnName) -ForegroundColor Yellow }
+    if ($shown -eq 0) { Write-Host (UI-Text 'Brak znajomych - dodaj ich najpierw.' 'No friends yet - add them first.') -ForegroundColor Yellow }
+    elseif ($target.Vpn) { Write-Host ((UI-Text "Kody prowadzą na adres {0} w sieci {1} - znajomi muszą być w tej sieci." "The codes lead to the address {0} in the {1} network - your friends have to be in that network.") -f $target.Address, $target.VpnName) -ForegroundColor Yellow }
 }
 
 function Invoke-CoopGameRecreate {
@@ -1863,7 +1993,7 @@ function Invoke-CoopGameRecreate {
         $exit = $LASTEXITCODE
     }
     finally { $ErrorActionPreference = $previousPreference }
-    if ($exit -ne 0) { throw "docker compose up game zakończył się kodem $exit." }
+    if ($exit -ne 0) { throw (UI-Text "docker compose up game zakończył się kodem $exit." "docker compose up game ended with code $exit.") }
 }
 
 function Test-CoopCoreAnswers {
@@ -1899,66 +2029,66 @@ function Wait-CoopGameReady {
         if ($pending.Count -eq 0) { return $true }
         Start-Sleep -Seconds 3
     }
-    Write-Host ("Nie odpowiadają jeszcze porty: {0}" -f ($pending -join ', ')) -ForegroundColor Yellow
+    Write-Host ((UI-Text "Nie odpowiadają jeszcze porty: {0}" "These ports do not answer yet: {0}") -f ($pending -join ', ')) -ForegroundColor Yellow
     return $false
 }
 
 function Start-CoopHostingAction {
     Assert-CoopModule
-    Write-Phase 'sprawdzanie sieci'
+    Write-Phase (UI-Text 'sprawdzanie sieci' 'checking the network')
     $report = Get-M2CoopNetworkReport
     Write-CoopNetworkReport -Report $report
     if (@('no-lan', 'offline') -contains $report.Verdict) {
-        throw 'Ten komputer nie ma połączenia z internetem - hostowanie przerwane, nic nie zmieniono.'
+        throw (UI-Text 'Ten komputer nie ma połączenia z internetem - hostowanie przerwane, nic nie zmieniono.' 'This computer has no Internet connection - hosting stopped, nothing was changed.')
     }
     # The text menu asks when there is a real choice - a VPN here and an
     # Internet that could work too; the window's button passes its own answer.
     $requested = $CoopVia
     $vpns = @($report.Vpns)
     if ($Action -eq 'Menu' -and $requested -eq 'auto' -and $vpns.Count -gt 0 -and -not (@('cgnat', 'double-nat') -contains $report.Verdict)) {
-        if (Confirm-Operation -Question ("Wykryto {0} (adres {1}). Hostować przez VPN zamiast przez internet?" -f $vpns[0].Name, $vpns[0].Address)) { $requested = $vpns[0].Kind }
+        if (Confirm-Operation -Question ((UI-Text "Wykryto {0} (adres {1}). Hostować przez VPN zamiast przez internet?" "Found {0} (address {1}). Host through the VPN instead of the Internet?") -f $vpns[0].Name, $vpns[0].Address)) { $requested = $vpns[0].Kind }
         else { $requested = 'internet' }
     }
     $via = Resolve-M2CoopHostingVia -Report $report -Requested $requested
     if ($via.Mode -eq 'blocked') {
-        throw ('Z tej sieci znajomi nie połączą się bezpośrednio (operator albo drugi router nie daje publicznego adresu) - hostowanie przerwane, nic nie zmieniono. ' +
-            'Zainstaluj Radmin VPN albo Tailscale, połącz się ze znajomymi w jednej sieci i hostuj ponownie: launcher wykryje VPN i użyje go zamiast routera.')
+        throw ((UI-Text 'Z tej sieci znajomi nie połączą się bezpośrednio (operator albo drugi router nie daje publicznego adresu) - hostowanie przerwane, nic nie zmieniono. ' 'Friends cannot connect straight to this network (the provider or a second router gives it no public address) - hosting stopped, nothing was changed. ') +
+            (UI-Text 'Zainstaluj Radmin VPN albo Tailscale, połącz się ze znajomymi w jednej sieci i hostuj ponownie: launcher wykryje VPN i użyje go zamiast routera.' 'Install Radmin VPN or Tailscale, join your friends in one network and host again: the launcher finds the VPN and uses it instead of the router.'))
     }
-    if ($via.Mode -eq 'vpn') { Write-Host ("Hostowanie przez {0}, adres {1}." -f $via.Vpn.Name, $via.Vpn.Address) -ForegroundColor Green }
+    if ($via.Mode -eq 'vpn') { Write-Host ((UI-Text "Hostowanie przez {0}, adres {1}." "Hosting through {0}, address {1}.") -f $via.Vpn.Name, $via.Vpn.Address) -ForegroundColor Green }
     $defaults = @(Get-M2CoopDefaultPasswordAccounts -ServerRoot $serverRoot)
     if ($defaults.Count -gt 0) {
-        throw ("Konta {0} mają hasła z paczki - każdy w internecie mógłby się na nie zalogować. Najpierw 'Zabezpiecz konta'." -f ($defaults -join ', '))
+        throw ((UI-Text "Konta {0} mają hasła z paczki - każdy w internecie mógłby się na nie zalogować. Najpierw 'Zabezpiecz konta'." "The accounts {0} have the package's passwords - anybody on the Internet could log in to them. First 'Secure the accounts'.") -f ($defaults -join ', '))
     }
     $ports = Get-M2CoopGamePorts -ServerRoot $serverRoot
     $bindings = Get-M2CoopGameBindings -ServerRoot $serverRoot
-    if ($bindings.Public) { Write-Host 'Porty gry są już otwarte na wszystkich kartach sieciowych.' -ForegroundColor Green }
+    if ($bindings.Public) { Write-Host (UI-Text 'Porty gry są już otwarte na wszystkich kartach sieciowych.' 'The game ports are already open on every network adapter.') -ForegroundColor Green }
     else {
-        Write-Phase 'porty gry dla sieci (restart serwera gry, około minuty)'
+        Write-Phase (UI-Text 'porty gry dla sieci (restart serwera gry, około minuty)' 'game ports for the network (the game server restarts, about a minute)')
         Invoke-CoopGameRecreate -BindAddress '0.0.0.0'
-        if (Wait-CoopGameReady) { Write-Host 'Serwer gry wstał.' -ForegroundColor Green }
-        else { Write-Host 'Serwer gry jeszcze wstaje - znajomi zalogują się za chwilę.' -ForegroundColor Yellow }
+        if (Wait-CoopGameReady) { Write-Host (UI-Text 'Serwer gry wstał.' 'The game server is up.') -ForegroundColor Green }
+        else { Write-Host (UI-Text 'Serwer gry jeszcze wstaje - znajomi zalogują się za chwilę.' 'The game server is still coming up - friends can log in in a moment.') -ForegroundColor Yellow }
     }
-    Write-Host ("Opublikowane: {0}" -f ((Get-M2CoopGameBindings -ServerRoot $serverRoot).Lines -join '; '))
-    Write-Phase 'zapora Windows'
+    Write-Host ((UI-Text "Opublikowane: {0}" "Published: {0}") -f ((Get-M2CoopGameBindings -ServerRoot $serverRoot).Lines -join '; '))
+    Write-Phase (UI-Text 'zapora Windows' 'Windows Firewall')
     # The window asks for the rule itself before it starts this action
     # (-CoopFirewallAsked): from here, a hidden process, Windows only blinks
     # its question on the taskbar, and xXxDaronxXx's (24 September) went
     # unanswered twice - the second time for two minutes - so nothing outside
     # his PC could reach the world.
     $firewallOk = [bool](Test-M2CoopFirewallRule)
-    if ($firewallOk) { Write-Host 'Reguła zapory dla portów gry już jest.' }
-    elseif ($CoopFirewallAsked) { Write-Host 'Reguły zapory nie dodano - okno launchera zapytało o nią Windows i nie dostało zgody.' -ForegroundColor Red }
+    if ($firewallOk) { Write-Host (UI-Text 'Reguła zapory dla portów gry już jest.' 'The firewall rule for the game ports is already there.') }
+    elseif ($CoopFirewallAsked) { Write-Host (UI-Text 'Reguły zapory nie dodano - okno launchera zapytało o nią Windows i nie dostało zgody.' 'The firewall rule was not added - the launcher window asked Windows for it and got no consent.') -ForegroundColor Red }
     else {
-        Write-Host 'Windows zapyta o zgodę administratora na regułę zapory dla portów gry - potwierdź (okienko Windows może tylko migać na pasku zadań).' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Windows zapyta o zgodę administratora na regułę zapory dla portów gry - potwierdź (okienko Windows może tylko migać na pasku zadań).' 'Windows asks for an administrator''s consent to the firewall rule for the game ports - confirm it (the Windows prompt may only blink on the taskbar).') -ForegroundColor Yellow
         $firewallOk = [bool](Add-M2CoopFirewallRule -Ports $ports)
-        if ($firewallOk) { Write-Host 'Reguła zapory dodana.' -ForegroundColor Green }
-        else { Write-Host 'Reguły zapory nie dodano (odmowa zgody albo brak odpowiedzi).' -ForegroundColor Red }
+        if ($firewallOk) { Write-Host (UI-Text 'Reguła zapory dodana.' 'Firewall rule added.') -ForegroundColor Green }
+        else { Write-Host (UI-Text 'Reguły zapory nie dodano (odmowa zgody albo brak odpowiedzi).' 'The firewall rule was not added (consent refused or no answer).') -ForegroundColor Red }
     }
     if (-not $firewallOk) {
-        Write-Host 'UWAGA: bez tej reguły zapora Windows może nie wpuścić nikogo spoza tego komputera - ani znajomych z internetu, ani laptopa w tym samym domu. Kliknij HOSTUJ ŚWIAT jeszcze raz i w okienku Windows wybierz "Tak".' -ForegroundColor Red
+        Write-Host (UI-Text 'UWAGA: bez tej reguły zapora Windows może nie wpuścić nikogo spoza tego komputera - ani znajomych z internetu, ani laptopa w tym samym domu. Kliknij HOSTUJ ŚWIAT jeszcze raz i w okienku Windows wybierz "Tak".' 'WARNING: without this rule Windows Firewall may let nobody in from outside this computer - neither friends from the Internet nor a laptop in the same home. Click HOST THE WORLD again and choose "Yes" in the Windows prompt.') -ForegroundColor Red
     }
     foreach ($block in @(Get-M2CoopFirewallBlocks)) {
-        Write-Host ("UWAGA: zapora blokuje program {0} (reguła '{1}') - usuń tę regułę w Zaporze Windows, inaczej znajomi się nie połączą." -f $block.Program, $block.Name) -ForegroundColor Yellow
+        Write-Host ((UI-Text "UWAGA: zapora blokuje program {0} (reguła '{1}') - usuń tę regułę w Zaporze Windows, inaczej znajomi się nie połączą." "WARNING: the firewall blocks the program {0} (rule '{1}') - remove that rule in Windows Firewall, or your friends cannot connect.") -f $block.Program, $block.Name) -ForegroundColor Yellow
     }
     $mapped = @()
     $routerRefused = $false
@@ -1970,21 +2100,21 @@ function Start-CoopHostingAction {
         $wasMapped = @()
         if ($state.hosting -and (@($state.hosting.PSObject.Properties.Name) -contains 'mapped')) { $wasMapped = @($state.hosting.mapped) }
         if ($report.GatewayInfo -and $wasMapped.Count -gt 0) {
-            Write-Phase 'router: zamykanie portów z hostowania przez internet'
+            Write-Phase (UI-Text 'router: zamykanie portów z hostowania przez internet' 'router: closing the ports of hosting over the Internet')
             foreach ($port in $wasMapped) {
-                if (Remove-M2CoopPortMapping -Gateway $report.GatewayInfo -Port ([int]$port) -LanAddress $report.LanAddress) { Write-Host "  port $port zamknięty" }
+                if (Remove-M2CoopPortMapping -Gateway $report.GatewayInfo -Port ([int]$port) -LanAddress $report.LanAddress) { Write-Host (UI-Text "  port $port zamknięty" "  port $port closed") }
             }
         }
-        Write-Host ("W routerze nic nie otwieram - znajomi łączą się przez {0}." -f $via.Vpn.Name)
+        Write-Host ((UI-Text "W routerze nic nie otwieram - znajomi łączą się przez {0}." "Opening nothing in the router - friends connect through {0}.") -f $via.Vpn.Name)
     }
     elseif ($report.GatewayInfo) {
-        Write-Phase 'przekierowania w routerze (UPnP)'
+        Write-Phase (UI-Text 'przekierowania w routerze (UPnP)' 'port forwarding in the router (UPnP)')
         foreach ($port in $ports) {
             $r = Add-M2CoopPortMapping -Gateway $report.GatewayInfo -Port $port -LanAddress $report.LanAddress
             if ($r.Ok) {
                 $mapped += $port
-                $lease = $(if ($r.Lease -gt 0) { "na $([int]($r.Lease / 3600)) h" } else { 'bez terminu' })
-                Write-Host ("  port {0}: otwarty ({1})" -f $port, $lease) -ForegroundColor Green
+                $lease = $(if ($r.Lease -gt 0) { (UI-Text "na $([int]($r.Lease / 3600)) h" "for $([int]($r.Lease / 3600)) h") } else { (UI-Text 'bez terminu' 'with no end') })
+                Write-Host ((UI-Text "  port {0}: otwarty ({1})" "  port {0}: open ({1})") -f $port, $lease) -ForegroundColor Green
             }
             else { Write-Host ("  port {0}: {1}" -f $port, $r.Reason) -ForegroundColor Red }
         }
@@ -1995,11 +2125,11 @@ function Start-CoopHostingAction {
         $fallback = Resolve-M2CoopRouterFallback -Via $via -Requested $requested -Vpns $vpns -Mapped $mapped.Count -Ports @($ports).Count
         if ($fallback.Mode -eq 'vpn' -and $via.Mode -ne 'vpn') {
             $via = $fallback
-            Write-Host ("Router nie otworzył żadnego portu - hostuję przez {0}, adres {1}." -f $via.Vpn.Name, $via.Vpn.Address) -ForegroundColor Yellow
+            Write-Host ((UI-Text "Router nie otworzył żadnego portu - hostuję przez {0}, adres {1}." "The router opened no port - hosting through {0}, address {1}.") -f $via.Vpn.Name, $via.Vpn.Address) -ForegroundColor Yellow
         }
         elseif ($mapped.Count -eq 0) {
             $routerRefused = $true
-            Write-Host 'UWAGA: router nie otworzył żadnego portu - znajomi z internetu się nie połączą (serwer będzie dla nich offline), chyba że porty są już przekierowane w routerze ręcznie.' -ForegroundColor Red
+            Write-Host (UI-Text 'UWAGA: router nie otworzył żadnego portu - znajomi z internetu się nie połączą (serwer będzie dla nich offline), chyba że porty są już przekierowane w routerze ręcznie.' 'WARNING: the router opened no port - friends from the Internet cannot connect (the server is offline for them), unless the ports are already forwarded in the router by hand.') -ForegroundColor Red
             foreach ($line in @(Get-M2CoopRouterHelp -Router $report.Router -LanAddress $report.LanAddress -Ports $ports)) { Write-Host $line -ForegroundColor Yellow }
         }
     }
@@ -2011,14 +2141,14 @@ function Start-CoopHostingAction {
         $fallback = Resolve-M2CoopRouterFallback -Via $via -Requested $requested -Vpns $vpns -Mapped 0 -Ports @($ports).Count
         if ($fallback.Mode -eq 'vpn' -and $via.Mode -ne 'vpn') {
             $via = $fallback
-            Write-Host ("Router nie odpowiada na UPnP - hostuję przez {0}, adres {1}." -f $via.Vpn.Name, $via.Vpn.Address) -ForegroundColor Yellow
+            Write-Host ((UI-Text "Router nie odpowiada na UPnP - hostuję przez {0}, adres {1}." "The router does not answer UPnP - hosting through {0}, address {1}.") -f $via.Vpn.Name, $via.Vpn.Address) -ForegroundColor Yellow
         }
         else {
             $routerRefused = $true
-            Write-Host 'UWAGA: router nie odpowiada na UPnP, więc launcher nie otworzył w nim żadnego portu - znajomi z internetu się nie połączą, dopóki nie przekierujesz portów ręcznie.' -ForegroundColor Red
+            Write-Host (UI-Text 'UWAGA: router nie odpowiada na UPnP, więc launcher nie otworzył w nim żadnego portu - znajomi z internetu się nie połączą, dopóki nie przekierujesz portów ręcznie.' 'WARNING: the router does not answer UPnP, so the launcher opened no port in it - friends from the Internet cannot connect until you forward the ports by hand.') -ForegroundColor Red
             foreach ($line in @(Get-M2CoopRouterHelp -Router '' -LanAddress $report.LanAddress -Ports $ports)) { Write-Host $line -ForegroundColor Yellow }
             if ($vpns.Count -gt 0) {
-                Write-Host ("Albo wybierz w oknie COOP połączenie {0} i hostuj jeszcze raz - wtedy router nie jest potrzebny." -f $vpns[0].Name) -ForegroundColor Yellow
+                Write-Host ((UI-Text "Albo wybierz w oknie COOP połączenie {0} i hostuj jeszcze raz - wtedy router nie jest potrzebny." "Or choose the {0} connection in the COOP window and host again - then no router is needed.") -f $vpns[0].Name) -ForegroundColor Yellow
             }
         }
     }
@@ -2032,20 +2162,20 @@ function Start-CoopHostingAction {
     Save-M2CoopState -ServerRoot $serverRoot -State $state
     Write-Host ''
     if ($via.Mode -eq 'vpn') {
-        Write-Host ("Hostowanie włączone przez {0}. Adres dla znajomych: {1}" -f $via.Vpn.Name, $friendAddress) -ForegroundColor Green
-        Write-Host ("Znajomi muszą dołączyć do Twojej sieci {0}, zanim wkleją kod zaproszenia." -f $via.Vpn.Name) -ForegroundColor Yellow
+        Write-Host ((UI-Text "Hostowanie włączone przez {0}. Adres dla znajomych: {1}" "Hosting is on, through {0}. Address for friends: {1}") -f $via.Vpn.Name, $friendAddress) -ForegroundColor Green
+        Write-Host ((UI-Text "Znajomi muszą dołączyć do Twojej sieci {0}, zanim wkleją kod zaproszenia." "Your friends have to join your {0} network before they paste the invite code.") -f $via.Vpn.Name) -ForegroundColor Yellow
     }
     elseif ($routerRefused) {
-        Write-Host ("Hostowanie włączone, ale bez portów w routerze (UWAGA wyżej). Adres dla znajomych: {0}" -f $friendAddress) -ForegroundColor Yellow
+        Write-Host ((UI-Text "Hostowanie włączone, ale bez portów w routerze (UWAGA wyżej). Adres dla znajomych: {0}" "Hosting is on, but with no ports in the router (WARNING above). Address for friends: {0}") -f $friendAddress) -ForegroundColor Yellow
     }
-    else { Write-Host ("Hostowanie włączone. Adres dla znajomych: {0}" -f $friendAddress) -ForegroundColor Green }
+    else { Write-Host ((UI-Text "Hostowanie włączone. Adres dla znajomych: {0}" "Hosting is on. Address for friends: {0}") -f $friendAddress) -ForegroundColor Green }
     if ($report.LanAddress) {
-        Write-Host ("W tej samej sieci domowej (drugi komputer, laptop na tym samym Wi-Fi) gra łączy się przez {0}, bez routera: kod zaproszenia ma też ten adres, a Dolacz.bat i launcher same go wybiorą." -f $report.LanAddress)
+        Write-Host ((UI-Text "W tej samej sieci domowej (drugi komputer, laptop na tym samym Wi-Fi) gra łączy się przez {0}, bez routera: kod zaproszenia ma też ten adres, a Dolacz.bat i launcher same go wybiorą." "In the same home network (a second computer, a laptop on the same Wi-Fi) the game connects through {0}, without the router: the invite code carries that address too, and Dolacz.bat and the launcher pick it by themselves.") -f $report.LanAddress)
     }
-    Write-Host 'Ty grasz dalej na serwerze 1 (Metin2 SinglePlayer). Kody zaproszeń dla znajomych są w oknie COOP.'
-    if (@($state.friends).Count -eq 0) { Write-Host 'Nie masz jeszcze znajomych - dodaj ich w oknie COOP.' -ForegroundColor Yellow }
+    Write-Host (UI-Text 'Ty grasz dalej na serwerze 1 (Metin2 SinglePlayer). Kody zaproszeń dla znajomych są w oknie COOP.' 'You go on playing on server 1 (Metin2 SinglePlayer). The invite codes for friends are in the COOP window.')
+    if (@($state.friends).Count -eq 0) { Write-Host (UI-Text 'Nie masz jeszcze znajomych - dodaj ich w oknie COOP.' 'You have no friends added yet - add them in the COOP window.') -ForegroundColor Yellow }
     if ($mapped.Count -gt 0 -and $mapped.Count -lt $ports.Count) {
-        Write-Host 'Nie wszystkie porty udało się otworzyć - bez nich znajomy utknie przy zmianie mapy.' -ForegroundColor Yellow
+        Write-Host (UI-Text 'Nie wszystkie porty udało się otworzyć - bez nich znajomy utknie przy zmianie mapy.' 'Not every port could be opened - without them a friend gets stuck at a map change.') -ForegroundColor Yellow
     }
 }
 
@@ -2057,24 +2187,24 @@ function Stop-CoopHostingAction {
     if ($lan) {
         $gateway = Find-M2CoopGateway -LanAddress $lan.Address
         if ($gateway) {
-            Write-Phase 'router: zamykanie portów'
+            Write-Phase (UI-Text 'router: zamykanie portów' 'router: closing the ports')
             foreach ($port in $ports) {
-                if (Remove-M2CoopPortMapping -Gateway $gateway -Port $port -LanAddress $lan.Address) { Write-Host "  port $port zamknięty" }
-                else { Write-Host "  port $port ma cudze przekierowanie - nie ruszam go" -ForegroundColor Yellow }
+                if (Remove-M2CoopPortMapping -Gateway $gateway -Port $port -LanAddress $lan.Address) { Write-Host (UI-Text "  port $port zamknięty" "  port $port closed") }
+                else { Write-Host (UI-Text "  port $port ma cudze przekierowanie - nie ruszam go" "  port $port is forwarded by somebody else - leaving it alone") -ForegroundColor Yellow }
             }
         }
     }
     $bindings = Get-M2CoopGameBindings -ServerRoot $serverRoot
     $previous = Get-DotEnvValue -Key 'M2_HOST_BIND_ADDRESS'
     if ($bindings.Public -or $previous -ne '127.0.0.1') {
-        Write-Phase 'porty gry tylko dla tego komputera (restart serwera gry, około minuty)'
+        Write-Phase (UI-Text 'porty gry tylko dla tego komputera (restart serwera gry, około minuty)' 'game ports for this computer only (the game server restarts, about a minute)')
         Invoke-CoopGameRecreate -BindAddress '127.0.0.1'
         [void](Wait-CoopGameReady)
     }
-    Write-Host ("Opublikowane: {0}" -f ((Get-M2CoopGameBindings -ServerRoot $serverRoot).Lines -join '; '))
+    Write-Host ((UI-Text "Opublikowane: {0}" "Published: {0}") -f ((Get-M2CoopGameBindings -ServerRoot $serverRoot).Lines -join '; '))
     if ($state.hosting) { $state.hosting.active = $false }
     Save-M2CoopState -ServerRoot $serverRoot -State $state
-    Write-Host 'Hostowanie wyłączone. Reguła zapory zostaje, ale porty słuchają już tylko na tym komputerze.' -ForegroundColor Green
+    Write-Host (UI-Text 'Hostowanie wyłączone. Reguła zapory zostaje, ale porty słuchają już tylko na tym komputerze.' 'Hosting is off. The firewall rule stays, but the ports listen on this computer only now.') -ForegroundColor Green
 }
 
 function Update-CoopHostingLease {
@@ -2093,22 +2223,22 @@ function Update-CoopHostingLease {
     foreach ($port in @(Get-M2CoopGamePorts -ServerRoot $serverRoot)) {
         if ((Add-M2CoopPortMapping -Gateway $gateway -Port $port -LanAddress $lan.Address).Ok) { $ok++ }
     }
-    Write-Host ("COOP: przekierowania w routerze odnowione ({0})." -f $ok)
+    Write-Host ((UI-Text "COOP: przekierowania w routerze odnowione ({0})." "COOP: port forwarding in the router renewed ({0}).") -f $ok)
 }
 
 function Join-CoopAction {
     Assert-CoopModule
     $code = $Invite
-    if (-not $code) { $code = Read-Host 'Wklej kod zaproszenia od znajomego' }
+    if (-not $code) { $code = Read-Host (UI-Text 'Wklej kod zaproszenia od znajomego' 'Paste the invite code from your friend') }
     $inv = Read-M2CoopInvite -Code $code
     $client = Get-M2CoopClientFolder -ServerRoot $serverRoot
-    if (-not $client) { throw 'Nie znaleziono folderu klienta (wskaż go przyciskiem WYBIERZ KLIENTA).' }
+    if (-not $client) { throw (UI-Text 'Nie znaleziono folderu klienta (wskaż go przyciskiem WYBIERZ KLIENTA).' 'The client folder was not found (point to it with the CHOOSE CLIENT button).') }
     # The host's home address when this machine is in that network and the
     # world answers there (Select-M2CoopJoinHost), the invite's own otherwise.
     $choice = Resolve-M2CoopJoinHost -Invite $inv
     $path = Write-M2CoopClientConfig -ClientFolder $client -Invite $inv -HostAddress $choice.Host
-    Write-Host ("Zapisano {0} (adres {1})" -f $path, $choice.Host) -ForegroundColor Green
-    Write-Host ("W kliencie wybierz serwer 'Online: {0}' i zaloguj się: login {1}, hasło {2}" -f $inv.name, $inv.login, $inv.password) -ForegroundColor Cyan
+    Write-Host ((UI-Text "Zapisano {0} (adres {1})" "Saved {0} (address {1})") -f $path, $choice.Host) -ForegroundColor Green
+    Write-Host ((UI-Text "W kliencie wybierz serwer 'Online: {0}' i zaloguj się: login {1}, hasło {2}" "In the client choose the server 'Online: {0}' and log in: login {1}, password: {2}") -f $inv.name, $inv.login, $inv.password) -ForegroundColor Cyan
     $advice = $(if ($choice.Lan) { '' } else { Get-M2CoopJoinAdvice -Invite $inv })
     if ($advice) { Write-Host $advice -ForegroundColor Yellow }
     foreach ($note in @(Get-M2CoopJoinNotes -Choice $choice)) {
@@ -2130,7 +2260,7 @@ function Join-CoopAction {
 
 function Assert-VpsModule {
     if (-not (Get-Command Install-M2Vps -ErrorAction SilentlyContinue)) {
-        throw 'Brak modułu launcher\Metin2Launcher.Vps.psm1 - ta paczka nie ma opcji VPS.'
+        throw (UI-Text 'Brak modułu launcher\Metin2Launcher.Vps.psm1 - ta paczka nie ma opcji VPS.' 'The launcher\Metin2Launcher.Vps.psm1 module is missing - this package has no VPS option.')
     }
 }
 
@@ -2145,11 +2275,11 @@ function Get-VpsStateForAction {
     if ($VpsPort -gt 0) { $state.port = $VpsPort }
     if ($VpsDir) { $state.remoteDir = $VpsDir.Trim() }
     if (($Ask -or -not $state.host) -and $Action -eq 'Menu') {
-        $answer = Read-Host ('Adres VPS (IPv4 albo domena){0}' -f $(if ($state.host) { ' [' + $state.host + ']' } else { '' }))
+        $answer = Read-Host ((UI-Text 'Adres VPS (IPv4 albo domena){0}' 'VPS address (IPv4 or domain){0}') -f $(if ($state.host) { ' [' + $state.host + ']' } else { '' }))
         if ($answer) { $state.host = $answer.Trim() }
-        $answer = Read-Host ('Użytkownik na VPS [{0}]' -f $state.user)
+        $answer = Read-Host ((UI-Text 'Użytkownik na VPS [{0}]' 'User on the VPS [{0}]') -f $state.user)
         if ($answer) { $state.user = $answer.Trim() }
-        $answer = Read-Host ('Port SSH [{0}]' -f $state.port)
+        $answer = Read-Host ((UI-Text 'Port SSH [{0}]' 'SSH port [{0}]') -f $state.port)
         $number = 0
         if ($answer -and [int]::TryParse($answer, [ref]$number)) { $state.port = $number }
     }
@@ -2162,75 +2292,75 @@ function Assert-VpsConsole {
     # Passwords go to a person and never into a file: the window runs actions
     # with their output redirected into launcher-logs.
     if ([Console]::IsOutputRedirected) {
-        throw 'To polecenie pokazuje hasła, więc działa w menu tekstowym albo w oknie VPS launchera, nie jako akcja w tle.'
+        throw (UI-Text 'To polecenie pokazuje hasła, więc działa w menu tekstowym albo w oknie VPS launchera, nie jako akcja w tle.' 'This command shows passwords, so it runs in the text menu or in the launcher''s VPS window, not as a background action.')
     }
 }
 
 function Connect-VpsAction {
     $state = Get-VpsStateForAction -Ask
-    Write-Host 'Otworzy się okno ssh - wpisz w nim hasło do VPS (tylko ten jeden raz; launcher go nie widzi).' -ForegroundColor Yellow
-    if (Install-M2VpsKey -State $state) { Write-Host ('Klucz działa: launcher łączy się z {0} bez hasła.' -f $state.host) -ForegroundColor Green }
-    else { throw 'Klucz nie działa - sprawdź adres, użytkownika i hasło, i spróbuj jeszcze raz.' }
+    Write-Host (UI-Text 'Otworzy się okno ssh - wpisz w nim hasło do VPS (tylko ten jeden raz; launcher go nie widzi).' 'An ssh window opens - type the VPS password in it (this one time only; the launcher never sees it).') -ForegroundColor Yellow
+    if (Install-M2VpsKey -State $state) { Write-Host ((UI-Text 'Klucz działa: launcher łączy się z {0} bez hasła.' 'The key works: the launcher connects to {0} without a password.') -f $state.host) -ForegroundColor Green }
+    else { throw (UI-Text 'Klucz nie działa - sprawdź adres, użytkownika i hasło, i spróbuj jeszcze raz.' 'The key does not work - check the address, the user and the password, and try again.') }
 }
 
 function Show-VpsCheckAction {
     $state = Get-VpsStateForAction
-    Write-Phase 'sprawdzanie VPS'
+    Write-Phase (UI-Text 'sprawdzanie VPS' 'checking the VPS')
     $machine = Test-M2VpsMachine -State $state
     foreach ($line in (Format-M2VpsMachineReport -Machine $machine)) { Write-Host $line }
-    if (-not $machine.Verdict.Ok) { throw 'VPS nie spełnia wymagań - szczegóły wyżej.' }
+    if (-not $machine.Verdict.Ok) { throw (UI-Text 'VPS nie spełnia wymagań - szczegóły wyżej.' 'The VPS does not meet the requirements - the details are above.') }
 }
 
 function Write-VpsOutcome {
-    param([Parameter(Mandatory = $true)]$Status, [Parameter(Mandatory = $true)]$State, [string]$What = 'Instalacja')
+    param([Parameter(Mandatory = $true)]$Status, [Parameter(Mandatory = $true)]$State, [string]$What = (UI-Text 'Instalacja' 'Installation'))
     if ($Status.State -ne 'done') {
-        throw ('{0} na VPS: {1} (etap {2}) - {3}. Szczegóły: LOGI VPS.' -f $What, $Status.State, $Status.Phase, $Status.Message)
+        throw ((UI-Text '{0} na VPS: {1} (etap {2}) - {3}. Szczegóły: LOGI VPS.' '{0} on the VPS: {1} (stage {2}) - {3}. Details: VPS LOGS.') -f $What, $Status.State, $Status.Phase, $Status.Message)
     }
-    Write-Host ('Serwer działa na VPS, wersja {0}.' -f $Status.Version) -ForegroundColor Green
-    Write-Host ('Gracze łączą się z {0} (porty TCP {1} i {2}; jeśli dostawca VPS ma własną zaporę, otwórz je tam).' -f (Get-M2VpsWorldAddress -State $State -Status $Status), $Status.AuthPort, $Status.GamePortRange)
-    Write-Host 'Panele słuchają tylko na VPS: otwiera je OTWÓRZ PANEL (tunel SSH). Hasła kont admin i test pokazuje HASŁA KONT - w tym logu ich nie ma.'
+    Write-Host ((UI-Text 'Serwer działa na VPS, wersja {0}.' 'The server runs on the VPS, version {0}.') -f $Status.Version) -ForegroundColor Green
+    Write-Host ((UI-Text 'Gracze łączą się z {0} (porty TCP {1} i {2}; jeśli dostawca VPS ma własną zaporę, otwórz je tam).' 'Players connect to {0} (TCP ports {1} and {2}; if the VPS provider has a firewall of its own, open them there too).') -f (Get-M2VpsWorldAddress -State $State -Status $Status), $Status.AuthPort, $Status.GamePortRange)
+    Write-Host (UI-Text 'Panele słuchają tylko na VPS: otwiera je OTWÓRZ PANEL (tunel SSH). Hasła kont admin i test pokazuje HASŁA KONT - w tym logu ich nie ma.' 'The panels listen on the VPS only: OPEN PANEL opens them (SSH tunnel). ACCOUNT PASSWORDS shows the admin and test passwords - they are not in this log.')
 }
 
 function Install-VpsAction {
     $state = Get-VpsStateForAction
-    if (-not (Confirm-Operation ('Zainstalować ten świat na VPS {0}? Folder serwera pójdzie na VPS (około 100 MB), a pierwsza budowa trwa tam 15-40 minut.' -f $state.host))) { return }
-    Write-Phase 'instalacja na VPS'
+    if (-not (Confirm-Operation ((UI-Text 'Zainstalować ten świat na VPS {0}? Folder serwera pójdzie na VPS (około 100 MB), a pierwsza budowa trwa tam 15-40 minut.' 'Install this world on the VPS {0}? The server folder goes to the VPS (about 100 MB), and the first build takes 15-40 minutes there.') -f $state.host))) { return }
+    Write-Phase (UI-Text 'instalacja na VPS' 'installing on the VPS')
     $final = Install-M2Vps -State $state -ServerRoot $serverRoot
     Write-VpsOutcome -Status $final -State $state
 }
 
 function Update-VpsAction {
     $state = Get-VpsStateForAction
-    if (-not (Confirm-Operation ('Zaktualizować serwer na VPS {0} do najnowszej wersji z GitHuba?' -f $state.host))) { return }
-    Write-Phase 'aktualizacja VPS'
+    if (-not (Confirm-Operation ((UI-Text 'Zaktualizować serwer na VPS {0} do najnowszej wersji z GitHuba?' 'Update the server on the VPS {0} to the newest version from GitHub?') -f $state.host))) { return }
+    Write-Phase (UI-Text 'aktualizacja VPS' 'updating the VPS')
     $final = Update-M2Vps -State $state -ServerRoot $serverRoot
-    Write-VpsOutcome -Status $final -State $state -What 'Aktualizacja'
+    Write-VpsOutcome -Status $final -State $state -What (UI-Text 'Aktualizacja' 'Update')
 }
 
 function Show-VpsStatusAction {
     $state = Get-VpsStateForAction
     $status = Get-M2VpsStatus -State $state
-    $words = @{ running = 'trwa'; done = 'gotowe'; failed = 'NIE UDAŁO SIĘ'; interrupted = 'PRZERWANE (VPS zrestartowany w trakcie? uruchom instalację jeszcze raz)'; none = 'nic jeszcze nie uruchomiono' }
+    $words = @{ running = (UI-Text 'trwa' 'running'); done = (UI-Text 'gotowe' 'done'); failed = (UI-Text 'NIE UDAŁO SIĘ' 'FAILED'); interrupted = (UI-Text 'PRZERWANE (VPS zrestartowany w trakcie? uruchom instalację jeszcze raz)' 'INTERRUPTED (was the VPS restarted meanwhile? run the installation again)'); none = (UI-Text 'nic jeszcze nie uruchomiono' 'nothing started yet') }
     $said = $(if ($words.ContainsKey($status.State)) { $words[$status.State] } else { $status.State })
-    Write-Host ('VPS {0}: wersja {1}, zadanie "{2}": {3}' -f $state.host, $status.Version, $status.Kind, $said)
-    if ($status.Message) { Write-Host ('  {0} (etap {1}, od {2}{3})' -f $status.Message, $status.Phase, $status.Started, $(if ($status.Finished) { ' do ' + $status.Finished } else { '' })) }
-    Write-Host ('Adres dla graczy: {0}, porty {1} i {2}; panele na {3}, gra na {4}; botów: {5}' -f $status.PublicAddress, $status.AuthPort, $status.GamePortRange, $status.PanelBind, $status.HostBind, $status.Bots)
-    if ($status.LogText) { Write-Host '--- koniec logu instalacji ---'; Write-Host $status.LogText }
-    if ($status.PsText) { Write-Host '--- kontenery ---'; Write-Host $status.PsText }
+    Write-Host ((UI-Text 'VPS {0}: wersja {1}, zadanie "{2}": {3}' 'VPS {0}: version {1}, job "{2}": {3}') -f $state.host, $status.Version, $status.Kind, $said)
+    if ($status.Message) { Write-Host ((UI-Text '  {0} (etap {1}, od {2}{3})' '  {0} (stage {1}, since {2}{3})') -f $status.Message, $status.Phase, $status.Started, $(if ($status.Finished) { (UI-Text ' do ' ' until ') + $status.Finished } else { '' })) }
+    Write-Host ((UI-Text 'Adres dla graczy: {0}, porty {1} i {2}; panele na {3}, gra na {4}; botów: {5}' 'Address for players: {0}, ports {1} and {2}; panels on {3}, the game on {4}; bots: {5}') -f $status.PublicAddress, $status.AuthPort, $status.GamePortRange, $status.PanelBind, $status.HostBind, $status.Bots)
+    if ($status.LogText) { Write-Host (UI-Text '--- koniec logu instalacji ---' '--- end of the installation log ---'); Write-Host $status.LogText }
+    if ($status.PsText) { Write-Host (UI-Text '--- kontenery ---' '--- containers ---'); Write-Host $status.PsText }
 }
 
 function Open-VpsPanelAction {
     $state = Get-VpsStateForAction
     $addresses = Open-M2VpsPanel -State $state -ServerRoot $serverRoot
-    Write-Host ('Tunel do paneli VPS działa: panel {0}, panel zaawansowany {1}, ItemShop {2}.' -f $addresses.ClassicUrl, $addresses.SebanUrl, $addresses.ItemShopUrl) -ForegroundColor Green
-    Write-Host 'Działa po zamknięciu launchera; kończy go ZAMKNIJ TUNEL albo zerwane połączenie.'
+    Write-Host ((UI-Text 'Tunel do paneli VPS działa: panel {0}, panel zaawansowany {1}, ItemShop {2}.' 'The tunnel to the VPS panels works: panel {0}, advanced panel {1}, ItemShop {2}.') -f $addresses.ClassicUrl, $addresses.SebanUrl, $addresses.ItemShopUrl) -ForegroundColor Green
+    Write-Host (UI-Text 'Działa po zamknięciu launchera; kończy go ZAMKNIJ TUNEL albo zerwane połączenie.' 'It keeps running after the launcher is closed; CLOSE TUNNEL or a broken connection ends it.')
     Start-Process $addresses.ClassicUrl
 }
 
 function Close-VpsPanelAction {
     Assert-VpsModule
-    if (Close-M2VpsPanel -ServerRoot $serverRoot) { Write-Host 'Tunel do paneli VPS zamknięty.' -ForegroundColor Green }
-    else { Write-Host 'Tunel do paneli VPS nie był otwarty.' }
+    if (Close-M2VpsPanel -ServerRoot $serverRoot) { Write-Host (UI-Text 'Tunel do paneli VPS zamknięty.' 'The tunnel to the VPS panels is closed.') -ForegroundColor Green }
+    else { Write-Host (UI-Text 'Tunel do paneli VPS nie był otwarty.' 'The tunnel to the VPS panels was not open.') }
 }
 
 function Show-VpsLogsAction {
@@ -2242,31 +2372,31 @@ function Show-VpsPasswordsAction {
     Assert-VpsConsole
     $state = Get-VpsStateForAction
     $accounts = @(Get-M2VpsAccounts -State $state)
-    if ($accounts.Count -eq 0) { Write-Host 'Na VPS nie ma jeszcze pliku z hasłami - powstaje, gdy baza wstanie po instalacji.' -ForegroundColor Yellow; return }
+    if ($accounts.Count -eq 0) { Write-Host (UI-Text 'Na VPS nie ma jeszcze pliku z hasłami - powstaje, gdy baza wstanie po instalacji.' 'The VPS has no password file yet - it is made when the database comes up after the installation.') -ForegroundColor Yellow; return }
     foreach ($account in $accounts) {
-        Write-Host ('  login {0,-14} hasło {1}{2}' -f $account.Login, $account.Password, $(if ($account.Note) { '   (' + $account.Note + ')' } else { '' })) -ForegroundColor Cyan
+        Write-Host ((UI-Text '  login {0,-14} hasło {1}{2}' '  login {0,-14} password: {1}{2}') -f $account.Login, $account.Password, $(if ($account.Note) { '   (' + $account.Note + ')' } else { '' })) -ForegroundColor Cyan
     }
-    Write-Host ('Te same hasła leżą na VPS w /root/metin2-accounts.txt (tylko dla roota).')
+    Write-Host ((UI-Text 'Te same hasła leżą na VPS w /root/metin2-accounts.txt (tylko dla roota).' 'The same passwords are on the VPS in /root/metin2-accounts.txt (for root only).'))
 }
 
 function Write-VpsClientAction {
     $state = Get-VpsStateForAction
     $result = Write-M2VpsClientEntry -State $state -ServerRoot $serverRoot
-    Write-Host ('Zapisano {0}: w kliencie wybierz serwer "Online: {1}" ({2}).' -f $result.Path, $result.Name, $result.Host) -ForegroundColor Green
-    if ($result.Replaced) { Write-Host ('Zastąpił świat znajomego "{0}" - klient ma jedno takie miejsce; kod zaproszenia wpisze go z powrotem.' -f $result.Replaced) -ForegroundColor Yellow }
+    Write-Host ((UI-Text 'Zapisano {0}: w kliencie wybierz serwer "Online: {1}" ({2}).' 'Saved {0}: in the client choose the server "Online: {1}" ({2}).') -f $result.Path, $result.Name, $result.Host) -ForegroundColor Green
+    if ($result.Replaced) { Write-Host ((UI-Text 'Zastąpił świat znajomego "{0}" - klient ma jedno takie miejsce; kod zaproszenia wpisze go z powrotem.' 'It replaced your friend''s world "{0}" - the client has one such place; the invite code puts it back.') -f $result.Replaced) -ForegroundColor Yellow }
 }
 
 function Show-VpsInviteAction {
     Assert-VpsConsole
-    Assert-CoopHostAccess
+    Assert-CoopModule
     $state = Get-VpsStateForAction
     $name = $FriendName
-    if (-not $name) { $name = Read-Host 'Imię albo nick znajomego (z niego powstanie login na VPS)' }
-    if (-not $name) { throw 'Nie podano imienia znajomego.' }
+    if (-not $name) { $name = Read-Host (UI-Text 'Imię albo nick znajomego (z niego powstanie login na VPS)' 'Your friend''s name or nick (the login on the VPS is made from it)') }
+    if (-not $name) { throw (UI-Text 'Nie podano imienia znajomego.' 'No friend''s name was given.') }
     $status = Get-M2VpsStatus -State $state
     $friend = New-M2VpsFriend -State $state -ServerRoot $serverRoot -Name $name
-    Write-Host ('Konto na VPS dla {0}: login {1}, hasło {2}' -f $friend.name, $friend.login, $friend.password) -ForegroundColor Green
-    Write-Host 'Kod zaproszenia (skopiuj i wyślij znajomemu w prywatnej wiadomości - zawiera hasło):'
+    Write-Host ((UI-Text 'Konto na VPS dla {0}: login {1}, hasło {2}' 'Account on the VPS for {0}: login {1}, password: {2}') -f $friend.name, $friend.login, $friend.password) -ForegroundColor Green
+    Write-Host (UI-Text 'Kod zaproszenia (skopiuj i wyślij znajomemu w prywatnej wiadomości - zawiera hasło):' 'Invite code (copy it and send it to your friend in a private message - it holds the password):')
     Write-Host (Get-M2VpsFriendInvite -State $state -ServerRoot $serverRoot -Account $friend -Status $status) -ForegroundColor Cyan
 }
 
@@ -2278,7 +2408,7 @@ function Invoke-Action {
         'Stop' {
             Stop-Server
             if (Test-M2DockerRunning) {
-                Write-Host 'Serwer zatrzymany, Docker Desktop działa dalej. Dane pozostają zapisane w wolumenach.' -ForegroundColor Green
+                Write-Host (UI-Text 'Serwer zatrzymany, Docker Desktop działa dalej. Dane pozostają zapisane w wolumenach.' 'Server stopped, Docker Desktop keeps running. The data stays saved in the volumes.') -ForegroundColor Green
             }
         }
         'StartDocker' { Start-Docker }
@@ -2346,60 +2476,60 @@ function Invoke-Action {
         'VpsPasswords' { Show-VpsPasswordsAction }
         'VpsClient' { Write-VpsClientAction }
         'VpsInvite' { Show-VpsInviteAction }
-        default { throw "Nieznana akcja: $SelectedAction" }
+        default { throw (UI-Text "Nieznana akcja: $SelectedAction" "Unknown action: $SelectedAction") }
     }
 }
 
 function Show-Menu {
     while ($true) {
         Write-Header
-        Write-Host '  1. Uruchom serwer'
-        Write-Host '  2. Zatrzymaj serwer'
-        Write-Host '  3. Uruchom tylko Docker Desktop'
-        Write-Host '  4. Zatrzymaj serwer i Docker (postęp zostaje)'
-        Write-Host '  5. Sprawdź aktualizacje'
-        Write-Host '  6. Aktualizuj serwer'
-        Write-Host '  7. Aktualizuj klienta'
-        Write-Host '  8. Aktualizuj wszystko'
-        Write-Host '  9. Sprawdź Docker, WSL, wirtualizację i porty'
-        Write-Host ' 10. Utwórz paczkę diagnostyczną ZIP'
-        Write-Host ' 11. Utwórz i wyślij logi (po potwierdzeniu)'
-        Write-Host ' 12. Konfiguracja launchera'
-        Write-Host ' 13. Ustaw liczbę grających botów (0-2500)'
-        Write-Host ' 14. Importuj bazę z innej instalacji (wyższe postacie)'
-        Write-Host ' 15. Zapisz kopię świata (backup do pliku zip)'
-        Write-Host ' 16. Przywróć świat z kopii'
-        Write-Host ' 17. Wyzeruj świat i zacznij od nowa (świeża instalacja; kopia zapisywana automatycznie)'
-        Write-Host ' 18. Napraw dostęp do bazy (gdy migrate/serwer nie startuje albo Navicat odrzuca hasło)'
-        Write-Host ' 19. Dane do połączenia z bazą (Navicat, HeidiSQL)'
-        Write-Host ' 20. Hasło do panelu WWW (pokaż / zresetuj)'
-        Write-Host ' 21. Zwolnij porty (gdy „port jest już zajęty” blokuje start lub aktualizację)'
-        Write-Host ' 22. Poziom trudności (czekanie u Biologa i Stajennego: easy / medium / hard / własne godziny)'
+        Write-Host (UI-Text '  1. Uruchom serwer' '  1. Start the server')
+        Write-Host (UI-Text '  2. Zatrzymaj serwer' '  2. Stop the server')
+        Write-Host (UI-Text '  3. Uruchom tylko Docker Desktop' '  3. Start Docker Desktop only')
+        Write-Host (UI-Text '  4. Zatrzymaj serwer i Docker (postęp zostaje)' '  4. Stop the server and Docker (the progress is kept)')
+        Write-Host (UI-Text '  5. Sprawdź aktualizacje' '  5. Check for updates')
+        Write-Host (UI-Text '  6. Aktualizuj serwer' '  6. Update the server')
+        Write-Host (UI-Text '  7. Aktualizuj klienta' '  7. Update the client')
+        Write-Host (UI-Text '  8. Aktualizuj wszystko' '  8. Update everything')
+        Write-Host (UI-Text '  9. Sprawdź Docker, WSL, wirtualizację i porty' '  9. Check Docker, WSL, virtualization and the ports')
+        Write-Host (UI-Text ' 10. Utwórz paczkę diagnostyczną ZIP' ' 10. Make a diagnostic ZIP bundle')
+        Write-Host (UI-Text ' 11. Utwórz i wyślij logi (po potwierdzeniu)' ' 11. Make and send the logs (after you confirm)')
+        Write-Host (UI-Text ' 12. Konfiguracja launchera' ' 12. Launcher settings')
+        Write-Host (UI-Text ' 13. Ustaw liczbę grających botów (0-2500)' ' 13. Set the number of playing bots (0-2500)')
+        Write-Host (UI-Text ' 14. Importuj bazę z innej instalacji (wyższe postacie)' ' 14. Import the database of another installation (higher characters)')
+        Write-Host (UI-Text ' 15. Zapisz kopię świata (backup do pliku zip)' ' 15. Save a backup of the world (to a zip file)')
+        Write-Host (UI-Text ' 16. Przywróć świat z kopii' ' 16. Restore the world from a backup')
+        Write-Host (UI-Text ' 17. Wyzeruj świat i zacznij od nowa (świeża instalacja; kopia zapisywana automatycznie)' ' 17. Wipe the world and start over (fresh install; a backup is saved automatically)')
+        Write-Host (UI-Text ' 18. Napraw dostęp do bazy (gdy migrate/serwer nie startuje albo Navicat odrzuca hasło)' ' 18. Repair database access (when migrate/the server does not start or Navicat rejects the password)')
+        Write-Host (UI-Text ' 19. Dane do połączenia z bazą (Navicat, HeidiSQL)' ' 19. Database connection details (Navicat, HeidiSQL)')
+        Write-Host (UI-Text ' 20. Hasło do panelu WWW (pokaż / zresetuj)' ' 20. Web panel password (show / reset)')
+        Write-Host (UI-Text ' 21. Zwolnij porty (gdy „port jest już zajęty” blokuje start lub aktualizację)' ' 21. Free the ports (when "port is already in use" blocks a start or an update)')
+        Write-Host (UI-Text ' 22. Poziom trudności (czekanie u Biologa i Stajennego: easy / medium / hard / własne godziny)' ' 22. Difficulty (the waits at the Biologist and the Stable Keeper: easy / medium / hard / your own hours)')
         if (Get-Command Get-M2CoopNetworkReport -ErrorAction SilentlyContinue) {
-            Write-Host ' 23. COOP: sprawdź sieć i stan hostowania (eksperymentalne)'
-            Write-Host ' 24. COOP: zabezpiecz konta admin i test (nowe hasła)'
-            Write-Host ' 25. COOP: dodaj znajomego (konto i kod zaproszenia)'
-            Write-Host ' 26. COOP: pokaż kody zaproszeń'
-            Write-Host ' 27. COOP: hostuj świat dla znajomych'
-            Write-Host ' 28. COOP: zakończ hostowanie'
-            Write-Host ' 29. COOP: dołącz do świata znajomego (wklej kod)'
+            Write-Host (UI-Text ' 23. COOP: sprawdź sieć i stan hostowania (eksperymentalne)' ' 23. COOP: check the network and the hosting (experimental)')
+            Write-Host (UI-Text ' 24. COOP: zabezpiecz konta admin i test (nowe hasła)' ' 24. COOP: secure the admin and test accounts (new passwords)')
+            Write-Host (UI-Text ' 25. COOP: dodaj znajomego (konto i kod zaproszenia)' ' 25. COOP: add a friend (an account and an invite code)')
+            Write-Host (UI-Text ' 26. COOP: pokaż kody zaproszeń' ' 26. COOP: show the invite codes')
+            Write-Host (UI-Text ' 27. COOP: hostuj świat dla znajomych' ' 27. COOP: host the world for friends')
+            Write-Host (UI-Text ' 28. COOP: zakończ hostowanie' ' 28. COOP: stop hosting')
+            Write-Host (UI-Text ' 29. COOP: dołącz do świata znajomego (wklej kod)' ' 29. COOP: join a friend''s world (paste the code)')
         }
         if (Get-Command Install-M2Vps -ErrorAction SilentlyContinue) {
-            Write-Host ' 30. VPS: adres i połączenie (klucz SSH; hasło do VPS wpisujesz raz)'
-            Write-Host ' 31. VPS: sprawdź serwer (procesor, pamięć, dysk, uprawnienia)'
-            Write-Host ' 32. VPS: zainstaluj ten świat na VPS'
-            Write-Host ' 33. VPS: aktualizuj serwer na VPS'
-            Write-Host ' 34. VPS: stan instalacji'
-            Write-Host ' 35. VPS: otwórz panel WWW (tunel SSH)'
-            Write-Host ' 36. VPS: zamknij tunel do paneli'
-            Write-Host ' 37. VPS: hasła kont gry (admin, test, znajomi)'
-            Write-Host ' 38. VPS: dopisz serwer VPS do klienta gry'
-            Write-Host ' 39. VPS: logi serwera'
-            Write-Host ' 40. VPS: konto i kod zaproszenia dla znajomego (COOP, dla patronów)'
+            Write-Host (UI-Text ' 30. VPS: adres i połączenie (klucz SSH; hasło do VPS wpisujesz raz)' ' 30. VPS: address and connection (SSH key; you type the VPS password once)')
+            Write-Host (UI-Text ' 31. VPS: sprawdź serwer (procesor, pamięć, dysk, uprawnienia)' ' 31. VPS: check the server (CPU, memory, disk, permissions)')
+            Write-Host (UI-Text ' 32. VPS: zainstaluj ten świat na VPS' ' 32. VPS: install this world on the VPS')
+            Write-Host (UI-Text ' 33. VPS: aktualizuj serwer na VPS' ' 33. VPS: update the server on the VPS')
+            Write-Host (UI-Text ' 34. VPS: stan instalacji' ' 34. VPS: installation status')
+            Write-Host (UI-Text ' 35. VPS: otwórz panel WWW (tunel SSH)' ' 35. VPS: open the web panel (SSH tunnel)')
+            Write-Host (UI-Text ' 36. VPS: zamknij tunel do paneli' ' 36. VPS: close the tunnel to the panels')
+            Write-Host (UI-Text ' 37. VPS: hasła kont gry (admin, test, znajomi)' ' 37. VPS: game account passwords (admin, test, friends)')
+            Write-Host (UI-Text ' 38. VPS: dopisz serwer VPS do klienta gry' ' 38. VPS: add the VPS server to the game client')
+            Write-Host (UI-Text ' 39. VPS: logi serwera' ' 39. VPS: server logs')
+            Write-Host (UI-Text ' 40. VPS: konto i kod zaproszenia dla znajomego (COOP)' ' 40. VPS: an account and an invite code for a friend (COOP)')
         }
-        Write-Host '  0. Wyjście'
+        Write-Host (UI-Text '  0. Wyjście' '  0. Exit')
         Write-Host ''
-        $choice = Read-Host 'Wybierz opcję'
+        $choice = Read-Host (UI-Text 'Wybierz opcję' 'Choose an option')
         $selected = switch ($choice) {
             '1' { 'Start' } '2' { 'Stop' } '3' { 'StartDocker' } '4' { 'StopAll' }
             '5' { 'Check' } '6' { 'UpdateServer' } '7' { 'UpdateClient' }
@@ -2437,9 +2567,9 @@ function Show-Menu {
         }
         if (-not $selected) { continue }
         try { Invoke-Action -SelectedAction $selected }
-        catch { Write-Host "BŁĄD: $($_.Exception.Message)" -ForegroundColor Red }
+        catch { Write-Host (UI-Text "BŁĄD: $($_.Exception.Message)" "ERROR: $($_.Exception.Message)") -ForegroundColor Red }
         Write-Host ''
-        Read-Host 'Naciśnij Enter, aby wrócić do menu' | Out-Null
+        Read-Host (UI-Text 'Naciśnij Enter, aby wrócić do menu' 'Press Enter to go back to the menu') | Out-Null
     }
 }
 
@@ -2448,6 +2578,6 @@ try {
     else { Invoke-Action -SelectedAction $Action }
 }
 catch {
-    Write-Host "BŁĄD: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host (UI-Text "BŁĄD: $($_.Exception.Message)" "ERROR: $($_.Exception.Message)") -ForegroundColor Red
     exit 1
 }

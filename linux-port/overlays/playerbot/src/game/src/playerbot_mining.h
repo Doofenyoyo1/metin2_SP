@@ -595,6 +595,15 @@ namespace
 				s_mapPlayerBotMiningNext[pid] = dwNow + PLAYERBOT_GORNIK_PROBE_MS;
 				return false;
 			}
+			// A pickaxe of its own on its counter is fetched by the service
+			// visit, never bought again - the rod's rule
+			// (WaitPlayerBotRodFromCounter).
+			if (CountPlayerBotPickaxes(ch) <= 0 && IsPlayerBotTackleOnOwnCounter(ch, ITEM_PICK))
+			{
+				AskPlayerBotTackleHome(ch, state, dwNow, "PLAYERBOT_MINING", "pickaxe");
+				s_mapPlayerBotMiningNext[pid] = dwNow + PLAYERBOT_TACKLE_HOME_RETRY_MS;
+				return false;
+			}
 			if (!EnsurePlayerBotPickaxe(ch, dwNow))
 			{
 				s_mapPlayerBotMiningNext[pid] = dwNow + PLAYERBOT_MINING_NO_PICK_RETRY;

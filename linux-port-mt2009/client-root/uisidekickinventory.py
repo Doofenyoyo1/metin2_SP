@@ -1,8 +1,10 @@
-# The companion's gear, skills and stats ("Towarzysz", playerbot_sidekick.h on
-# the server): its bag and what it wears, shown and handled the way the player's
-# own inventory is, its skills with the points to spend, and its stats with
-# theirs - the three windows the companion's window (uisidekick.py) opens with
-# its "Ekwipunek", "Umiejetnosci" and "Statystyki" buttons.
+# The companion's gear ("Towarzysz", playerbot_sidekick.h on the server): its
+# bag and what it wears, shown and handled the way the player's own inventory
+# is, in a window of its own that the companion's window (uisidekick.py) opens
+# with its "Plecak" and "Ekwipunek" buttons. And the answers about its skills
+# and stats, which the status and skill pages of that window show: this module
+# keeps what the server said (SkillModel) and routes the answer to every order
+# of either window to the one that gave it (OnEqResult).
 #
 # The server's answers (protocol v1, CHAT_TYPE_COMMAND through game.py):
 #
@@ -18,7 +20,7 @@
 #                                               refused, 3 nothing there, 9 a bad
 #                                               order; the text is hex CP1250
 #   SidekickSkillBegin <protocol> <points> <job> <group> <manual> [<stats>
-#                      [<statInfo>]]           stats since server 2.2.18: the
+#                      [<statInfo> [<status>]]] stats since server 2.2.18: the
 #                                               fifteen statuses the skill
 #                                               tooltip's numbers come from
 #                                               (sidekickskilltip.STAT_FIELDS);
@@ -26,7 +28,16 @@
 #                                               points left, who spends them,
 #                                               whether the free reset is left,
 #                                               and vitality, intelligence,
-#                                               strength, dexterity as spent
+#                                               strength, dexterity as spent;
+#                                               status from the server after
+#                                               2.2.35: what the status page
+#                                               needs and the client cannot
+#                                               work out - the experience and
+#                                               what the level needs, the attack
+#                                               the gear and the party add over
+#                                               the weapon's, the defence boost
+#                                               in percent and the moving speed
+#                                               (STATUS_FIELDS)
 #   SidekickSkill <vnum> <level> <grade>        level 0-40 as the engine keeps it
 #   SidekickSkillEnd
 #
@@ -62,6 +73,9 @@
 # uiinventory.py (DropIntoPlayerBag).
 #
 # Python 2.7 as the client has it; the Polish letters are CP1250 escapes.
+# Every text below is a Polish and English pair (playerbot_lang.T), English
+# for a client set to any language but Polish, read once at import; the
+# server's own result texts come in the language the client told it.
 
 import app
 import chat
@@ -76,6 +90,7 @@ import ui
 import uiToolTip
 import uisidekick
 import wndMgr
+from playerbot_lang import T
 
 EQ_PROTOCOL = 1
 SKILL_PROTOCOL = 1
@@ -108,7 +123,6 @@ RESULT_NOTHING_THERE = 3
 RESULT_BAD_ORDER = 9
 
 EQ_POLL_INTERVAL = 1.5
-SKILL_POLL_INTERVAL = 3.0
 STATUS_SECONDS = 8.0
 STATUS_LINES = 2
 STATUS_LINE_HEIGHT = 14
@@ -119,8 +133,6 @@ RESULT_TEXT_BYTES = 200
 
 # A normal skill takes points to seventeen; the Master grade comes from books.
 MAX_POINT_LEVEL = 17
-# The server sends the six skills of the path; two rows spare.
-MAX_SKILL_ROWS = 8
 
 WEAR_BODY = 0
 WEAR_HEAD = 1
@@ -160,9 +172,7 @@ TAB_WIDTH = 32
 TAB_HEIGHT = 19
 # The player's window puts its four tabs 40 pixels apart, 4 in from the grid.
 TAB_STEP = 40
-PLUS_IMAGE = 'd:/ymir work/ui/game/windows/btn_plus_%s.sub'
 BUTTON_IMAGE = 'd:/ymir work/ui/public/%s_button_%02d.sub'
-BUTTON_SIZES = {'small': (43, 21), 'middle': (61, 21), 'large': (88, 21), 'xlarge': (180, 25)}
 PAGE_NAMES = ('I', 'II', 'III', 'IV')
 
 # The owner's marks as a tint over the icon - no new picture.
@@ -181,83 +191,70 @@ STATE_OK = 1
 STATE_NONE = 2
 STATE_OTHER_PROTOCOL = 3
 
+# Who gave the order an answer is for: the bag window, the skill page, the
+# status page's "+" (which has no line for an answer: it goes to the chat, and
+# the number it changed says the rest), and the options page.
 ORIGIN_EQ = 'eq'
 ORIGIN_SKILL = 'skill'
 ORIGIN_STAT = 'stat'
+ORIGIN_OPTIONS = 'options'
 
-# The stat window's rows, in the character window's order: the server's key
-# for a point and the name.
-STAT_ROWS = (
-	('ht', 'Witalno\x9c\xe6'),
-	('iq', 'Inteligencja'),
-	('st', 'Si\xb3a'),
-	('dx', 'Zr\xeaczno\x9c\xe6'),
-)
 STAT_MAX = 90
 STAT_INFO_FIELDS = ('points', 'manual', 'reset', 'ht', 'iq', 'st', 'dx')
-# SidekickSkillBegin's words before the stat window's: the protocol, the four
+# SidekickSkillBegin's words before the stat points': the protocol, the four
 # of the skills and the tooltip's fifteen.
 STAT_INFO_OFFSET = 20
+# And after the stat points', what the status page needs from the server (the
+# words of SendPlayerBotSidekickSkills): the experience and what the level
+# needs, the attack over the weapon's, the defence boost in percent and the
+# moving speed.
+STATUS_FIELDS = ('exp', 'nextexp', 'attbonus', 'defbonus', 'movspeed')
+STATUS_OFFSET = STAT_INFO_OFFSET + len(STAT_INFO_FIELDS)
 
-# Every status text fits the line it is written on (FitText cuts the server's
-# own if it must, and then the chat carries it whole).
-TEXT_EQ_TITLE = 'Ekwipunek towarzysza'
-TEXT_SKILL_TITLE = 'Umiej\xeatno\x9cci towarzysza'
-TEXT_WAITING = 'Czekam na odpowied\x9f serwera...'
-TEXT_NONE = (
+# Every status text fits the line it is written on (uisidekick.FitText cuts the
+# server's own if it must, and then the chat carries it whole).
+TEXT_EQ_TITLE = T('Ekwipunek towarzysza', "Companion's inventory")
+TEXT_WAITING = T('Czekam na odpowied\x9f serwera...', 'Waiting for the server...')
+TEXT_NONE = T((
 	'Nie masz jeszcze towarzysza.',
 	'Towarzysz nie jest teraz w grze.',
 	'Towarzysze s\xb9 tu wy\xb3\xb9czeni.',
-)
-TEXT_OTHER_PROTOCOL = 'Zaktualizuj klienta i serwer.'
+), (
+	'You have no companion yet.',
+	'Your companion is not in the game.',
+	'Companions are switched off here.',
+))
+TEXT_OTHER_PROTOCOL = T('Zaktualizuj klienta i serwer.', 'Update the client and the server.')
 TEXT_GOLD = 'Yang: %s'
-TEXT_UNPIN = 'Odepnij'
-TEXT_UNPIN_HOW = 'Podnie\x9c go i kliknij Odepnij.'
-TEXT_NOT_PINNED = 'Tego nie trzeba odpina\xe6.'
-TEXT_WEAR_TO_WEAR = 'Zdejmij go najpierw do torby.'
-TEXT_ONLY_FROM_BAG = 'Daj mu przedmiot z torby.'
-TEXT_WHOLE_STACK = 'Towarzysz bierze tylko ca\xb3y stos.'
-TEXT_GIVE_YANG = 'Daj'
-TEXT_TAKE_YANG = 'We\x9f'
-TEXT_GIVE_YANG_TITLE = 'Daj yang towarzyszowi'
-TEXT_TAKE_YANG_TITLE = 'We\x9f yang od towarzysza'
-TEXT_YANG_AMOUNT = 'Kwota: '
-TEXT_ITEM_MOVED = 'Towarzysz ju\xbf go przestawi\xb3.'
+TEXT_UNPIN = T('Odepnij', 'Unpin')
+TEXT_UNPIN_HOW = T('Podnie\x9c go i kliknij Odepnij.', 'Pick it up and click Unpin.')
+TEXT_NOT_PINNED = T('Tego nie trzeba odpina\xe6.', 'Nothing to unpin there.')
+TEXT_WEAR_TO_WEAR = T('Zdejmij go najpierw do torby.', 'Take it off into the bag first.')
+TEXT_ONLY_FROM_BAG = T('Daj mu przedmiot z torby.', 'Give it an item from your bag.')
+TEXT_WHOLE_STACK = T('Towarzysz bierze tylko ca\xb3y stos.', 'Your companion takes whole stacks only.')
+TEXT_GIVE_YANG = T('Daj', 'Give')
+TEXT_TAKE_YANG = T('We\x9f', 'Take')
+TEXT_GIVE_YANG_TITLE = T('Daj yang towarzyszowi', 'Give yang to your companion')
+TEXT_TAKE_YANG_TITLE = T('We\x9f yang od towarzysza', 'Take yang from your companion')
+TEXT_YANG_AMOUNT = T('Kwota: ', 'Amount: ')
+TEXT_ITEM_MOVED = T('Towarzysz ju\xbf go przestawi\xb3.', 'Your companion has moved it already.')
 TEXT_RESULTS = {
-	RESULT_DONE: 'Gotowe.',
-	RESULT_NOT_IN_GAME: 'Towarzysz nie jest teraz w grze.',
-	RESULT_REFUSED: 'Towarzysz odm\xf3wi\xb3.',
-	RESULT_NOTHING_THERE: 'Tam nic nie ma.',
-	RESULT_BAD_ORDER: 'Z\xb3e polecenie.',
+	RESULT_DONE: T('Gotowe.', 'Done.'),
+	RESULT_NOT_IN_GAME: T('Towarzysz nie jest teraz w grze.', 'Your companion is not in the game.'),
+	RESULT_REFUSED: T('Towarzysz odm\xf3wi\xb3.', 'Your companion refused.'),
+	RESULT_NOTHING_THERE: T('Tam nic nie ma.', 'There is nothing there.'),
+	RESULT_BAD_ORDER: T('Z\xb3e polecenie.', 'A wrong order.'),
 }
-TEXT_REFUSED = 'Nie uda\xb3o si\xea.'
-TEXT_TIP_PINNED = 'Za\xb3o\xbfone przez ciebie - towarzysz tego nie zdejmie'
-TEXT_TIP_GIFT = 'Prezent od ciebie'
-TEXT_TIP_UNWANTED = 'Zdj\xeate przez ciebie - towarzysz sam tego nie za\xb3o\xbfy'
-TEXT_TIP_UNPIN = 'Ctrl + klik: odepnij'
-TEXT_TIP_EQUIP = 'Prawy klik: za\xb3\xf3\xbf'
-TEXT_TIP_UNEQUIP = 'Prawy klik: zdejmij'
-TEXT_POINTS = 'Wolne punkty: %d'
-TEXT_MANUAL = 'Punkty rozdaj\xea sam: %s'
-TEXT_AI_SPENDS = 'Punkty rozdaje SI towarzysza.'
-TEXT_SKILL_NAME = 'Umiej\xeatno\x9c\xe6 %d'
-TEXT_SKILL_RESET = 'Zeruj'
-TEXT_SKILL_RESET_ASK = 'Wyzerowa\xe6 %s?'
-TEXT_SKILL_RESET_MASTER = ' Mistrz przepadnie.'
-TEXT_SKILL_RESET_HOW = 'Towarzysz zu\xbfyje KZ albo Zw\xf3j Powrotu Umiej\xeatno\x9cci.'
-TEXT_STAT_TITLE = 'Statystyki towarzysza'
-TEXT_STAT_POINTS = 'Wolne punkty: %d'
-TEXT_STAT_LEVEL = 'Poziom %d'
-TEXT_STAT_MANUAL = 'Punkty rozdaj\xea sam: %s'
-TEXT_STAT_AI_SPENDS = 'Punkty rozdaje SI towarzysza. Pierwszy "+" daje je tobie.'
-TEXT_STAT_VALUE = '%d'
-TEXT_STAT_VALUE_GEAR = '%d (z ekw.: %d)'
-TEXT_STAT_BARS = 'Maks. P\xaf: %d    Maks. PE: %d'
-TEXT_STAT_RESET = 'Rozdaj od nowa (raz za darmo)'
-TEXT_STAT_RESET_ASK = 'Cofn\xb9\xe6 wszystkie punkty statystyk towarzysza, \xbfeby rozda\xe6 je od nowa? Darmowy reset jest tylko jeden.'
-TEXT_STAT_OLD_SERVER = 'Zaktualizuj serwer, \xbfeby rozdawa\xe6 statystyki.'
-TEXT_YES = 'tak'
-TEXT_NO = 'nie'
+TEXT_REFUSED = T('Nie uda\xb3o si\xea.', 'That did not work.')
+TEXT_TIP_PINNED = T('Za\xb3o\xbfone przez ciebie - towarzysz tego nie zdejmie',
+	'Put on by you - your companion will not take it off')
+TEXT_TIP_GIFT = T('Prezent od ciebie', 'A gift from you')
+TEXT_TIP_UNWANTED = T('Zdj\xeate przez ciebie - towarzysz sam tego nie za\xb3o\xbfy',
+	'Taken off by you - your companion will not put it on')
+TEXT_TIP_UNPIN = T('Ctrl + klik: odepnij', 'Ctrl + click: unpin')
+TEXT_TIP_EQUIP = T('Prawy klik: za\xb3\xf3\xbf', 'Right click: put on')
+TEXT_TIP_UNEQUIP = T('Prawy klik: zdejmij', 'Right click: take off')
+TEXT_SKILL_NAME = T('Umiej\xeatno\x9c\xe6 %d', 'Skill %d')
 
 
 # ---------------------------------------------------------------- parsing
@@ -328,7 +325,7 @@ def SkillLevelText(level, grade=0):
 
 
 def ParseStatInfo(args):
-	"""The stat window's words after the tooltip's, as a dict; None from a
+	"""The stat points' words after the tooltip's, as a dict; None from a
 	server that does not send them."""
 	if len(args) < len(STAT_INFO_FIELDS):
 		return None
@@ -341,14 +338,21 @@ def ParseStatInfo(args):
 	return info
 
 
+def ParseStatus(args):
+	"""The status page's words after the stat points', as a dict; None from a
+	server that does not send them."""
+	if len(args) < len(STATUS_FIELDS):
+		return None
+	status = {}
+	for name, value in zip(STATUS_FIELDS, args):
+		status[name] = ParseInt(value, 0)
+	for name in ('exp', 'nextexp', 'movspeed'):
+		status[name] = max(0, status[name])
+	return status
+
+
 def CanAddStatPoint(info, key):
 	return bool(info) and info.get('points', 0) > 0 and info.get(key, STAT_MAX) < STAT_MAX
-
-
-def StatValueText(real, total):
-	if total and total != real:
-		return TEXT_STAT_VALUE_GEAR % (real, total)
-	return TEXT_STAT_VALUE % real
 
 
 def CanAddSkillPoint(points, level, grade):
@@ -522,6 +526,11 @@ class EquipmentModel(object):
 
 
 class SkillModel(object):
+	"""What the server said of the companion's skills and stats: the list and
+	its points (the skill page), the fifteen statuses (the skill tooltip and
+	the status page), the stat points (the status page's "+" and the options)
+	and the status page's own numbers. Kept whether a window is open or not."""
+
 	def __init__(self):
 		self.Reset()
 
@@ -535,6 +544,7 @@ class SkillModel(object):
 		self.skills = []
 		self.stats = None
 		self.statInfo = None
+		self.status = None
 		self.incoming = None
 
 	def OnBegin(self, args):
@@ -553,6 +563,7 @@ class SkillModel(object):
 			'skills': [],
 			'stats': sidekickskilltip.ParseStats(args[5:]),
 			'statInfo': ParseStatInfo(args[STAT_INFO_OFFSET:]),
+			'status': ParseStatus(args[STATUS_OFFSET:]),
 		}
 		return True
 
@@ -584,6 +595,7 @@ class SkillModel(object):
 		self.skills = incoming['skills']
 		self.stats = incoming['stats']
 		self.statInfo = incoming['statInfo']
+		self.status = incoming['status']
 		self.state = STATE_OK
 		return True
 
@@ -595,13 +607,25 @@ class SkillModel(object):
 
 _equipment = EquipmentModel()
 _skills = SkillModel()
-_state = {'eqWindow': None, 'skillWindow': None, 'statWindow': None, 'icon': 0, 'lastOrigin': None}
+_state = {'eqWindow': None, 'icon': 0, 'lastOrigin': None}
+
+
+def GetSkillModel():
+	"""The skills and stats as the server last said them (the companion's
+	window, uisidekick.py, shows them)."""
+	return _skills
 
 
 # ---------------------------------------------------------------- the cursor
 
 def _Controller():
 	return getattr(mouseModule, 'mouseController', None)
+
+
+def IsCursorBusy():
+	"""Whether the cursor holds anything - no tooltip over a slot then."""
+	controller = _Controller()
+	return bool(controller) and controller.isAttached()
 
 
 def IsSidekickAttached():
@@ -706,51 +730,10 @@ def YangOrderText(text):
 	return body + 'k' * ks
 
 
-# ---------------------------------------------------------------- windows
-
-def TextWidth(line, text):
-	line.SetText(text)
-	try:
-		return line.GetTextSize()[0]
-	except Exception:
-		return 0
-
-
-def FitText(line, text, maxWidth):
-	"""Sets text, cut with '...' until the line is no wider than maxWidth;
-	returns what is shown."""
-	if TextWidth(line, text) <= maxWidth:
-		return text
-	cut = text
-	while cut and TextWidth(line, cut + '...') > maxWidth:
-		cut = cut[:-1].rstrip()
-	return cut + '...'
-
-
-def WrapText(lines, text, maxWidth):
-	"""Lays text out over the lines word by word, the last one cut with '...'
-	when it must be; True when all of it is shown. The server's texts run to
-	some eighty characters, two lines of these windows."""
-	words = text.split()
-	for i, line in enumerate(lines):
-		if i == len(lines) - 1:
-			rest = ' '.join(words)
-			return FitText(line, rest, maxWidth) == rest
-		taken = []
-		while words and TextWidth(line, ' '.join(taken + words[:1])) <= maxWidth:
-			taken.append(words.pop(0))
-		if not taken and words:
-			# One word wider than the line: cut there, nothing after it.
-			FitText(line, ' '.join(words), maxWidth)
-			for other in lines[i + 1:]:
-				other.SetText('')
-			return False
-		line.SetText(' '.join(taken))
-	return not words
-
+# ---------------------------------------------------------------- the window
 
 class _Window(ui.BoardWithTitleBar):
-	"""What the two windows share: the board, the widgets, the status line, the
+	"""The bag window's frame: the board, the widgets, the status lines, the
 	placement beside the companion's window."""
 
 	WIDTH = 220
@@ -814,7 +797,7 @@ class _Window(ui.BoardWithTitleBar):
 			return
 		for line in self.statusLines:
 			line.SetPackedFontColor(color)
-		if not WrapText(self.statusLines, text, self.WIDTH - 20) and toChat:
+		if not uisidekick.WrapText(self.statusLines, text, self.WIDTH - 20) and toChat:
 			chat.AppendChat(chat.CHAT_TYPE_INFO, text)
 		self.statusUntil = clientclock.Now() + seconds if seconds else 0.0
 
@@ -872,7 +855,7 @@ class _Window(ui.BoardWithTitleBar):
 		return True
 
 
-def _IdleText(model):
+def IdleText(model):
 	"""The status of a window with nothing to say but where its answer stands."""
 	if model.state == STATE_WAITING:
 		return TEXT_WAITING, COLOR_NORMAL
@@ -1035,7 +1018,7 @@ class EquipmentWindow(_Window):
 			slots.SetSlotMaskColorRaw(slot, 0.0, 0.0, 0.0, 0.0)
 
 	def RefreshIdleStatus(self):
-		text, color = _IdleText(_equipment)
+		text, color = IdleText(_equipment)
 		self.SetIdleStatus(text, color)
 
 	def CheckAttached(self):
@@ -1276,335 +1259,6 @@ class EquipmentWindow(_Window):
 		self.widgets = []
 
 
-class SkillWindow(_Window):
-	"""The companion's skills: the path's list with the level as the game writes
-	it, the points left, a "+" where a point can go, who spends the points (the
-	first "+" makes it the owner - the server says so), and "Zeruj" on a skill
-	with a level, asked about first: the companion takes it back to nothing with
-	the Forgetting Books or the skill reset scroll in its own bag (blasty, 28
-	September)."""
-
-	WIDTH = 260
-	ROW_HEIGHT = 34
-	ROWS_TOP = 84
-	HEIGHT = ROWS_TOP + MAX_SKILL_ROWS * ROW_HEIGHT + 44
-	TITLE = TEXT_SKILL_TITLE
-
-	def __init__(self):
-		_Window.__init__(self)
-		self.rows = []
-		self.tooltip = None
-		self.question = None
-		self.resetVnum = 0
-		self.Build()
-		self.Refresh()
-
-	def Build(self):
-		y = 32
-		self.classLine = self._Label(self, 14, y, '')
-		self.pointsLine = self._Label(self, self.WIDTH - 14, y, '')
-		self.pointsLine.SetHorizontalAlignRight()
-		y += 20
-		width = BUTTON_SIZES['xlarge'][0]
-		self.manualButton = self._Btn(self, 'xlarge', (self.WIDTH - width) // 2, y, '', self.OnManual)
-		slots = ui.SlotWindow()
-		slots.SetParent(self)
-		slots.SetPosition(14, self.ROWS_TOP)
-		slots.SetSize(CELL, (MAX_SKILL_ROWS - 1) * self.ROW_HEIGHT + CELL)
-		for i in range(MAX_SKILL_ROWS):
-			slots.AppendSlot(i, 0, i * self.ROW_HEIGHT, CELL, CELL)
-		slots.SetSlotBaseImage(SLOT_BASE_IMAGE, 1.0, 1.0, 1.0, 1.0)
-		# The character window's own "+" (uicharacter.py), after every slot.
-		slots.AppendSlotButton(PLUS_IMAGE % 'up', PLUS_IMAGE % 'over', PLUS_IMAGE % 'down')
-		slots.SetPressedSlotButtonEvent(ui.__mem_func__(self.OnPlus))
-		slots.SetOverInItemEvent(ui.__mem_func__(self.OnOverIn))
-		slots.SetOverOutItemEvent(ui.__mem_func__(self.OnOverOut))
-		slots.Show()
-		self.widgets.append(slots)
-		self.skillSlots = slots
-		self.nameLines = []
-		self.levelLines = []
-		self.resetButtons = []
-		resetX = self.WIDTH - 14 - BUTTON_SIZES['small'][0]
-		for i in range(MAX_SKILL_ROWS):
-			rowY = self.ROWS_TOP + i * self.ROW_HEIGHT
-			self.nameLines.append(self._Label(self, 54, rowY + 2, ''))
-			self.levelLines.append(self._Label(self, 54, rowY + 17, ''))
-			self.resetButtons.append(self._Btn(self, 'small', resetX, rowY + 6, TEXT_SKILL_RESET, self.OnReset, i))
-		self._StatusLines(self.ROWS_TOP + MAX_SKILL_ROWS * self.ROW_HEIGHT + 6)
-
-	def Refresh(self):
-		model = _skills
-		ok = model.state == STATE_OK
-		self.classLine.SetText(uisidekick.ClassText(model.job, model.group) if ok else '')
-		self.pointsLine.SetText(TEXT_POINTS % model.points if ok else '')
-		self.manualButton.SetText(TEXT_MANUAL % (TEXT_YES if model.manual else TEXT_NO))
-		if ok:
-			self.manualButton.Show()
-		else:
-			self.manualButton.Hide()
-		slots = self.skillSlots
-		slots.HideAllSlotButton()
-		self.rows = model.skills[:MAX_SKILL_ROWS] if ok else []
-		for i in range(MAX_SKILL_ROWS):
-			if i >= len(self.rows):
-				slots.ClearSlot(i)
-				self.nameLines[i].SetText('')
-				self.levelLines[i].SetText('')
-				self.resetButtons[i].Hide()
-				continue
-			vnum, level, grade = self.rows[i]
-			shownGrade, step = SkillGradeStep(level, grade)
-			slots.SetSkillSlotNew(i, vnum, shownGrade, step)
-			slots.SetSlotCountNew(i, shownGrade, step)
-			self.nameLines[i].SetText(SkillName(vnum, shownGrade))
-			self.levelLines[i].SetText(SkillLevelText(level, grade))
-			if CanAddSkillPoint(model.points, level, grade):
-				slots.ShowSlotButton(i)
-			if level > 0:
-				self.resetButtons[i].Show()
-			else:
-				self.resetButtons[i].Hide()
-		slots.RefreshSlot()
-		self.RefreshStatusFor(model)
-
-	def RefreshIdleStatus(self):
-		model = _skills
-		if model.state == STATE_OK:
-			self.SetIdleStatus('' if model.manual else TEXT_AI_SPENDS)
-		else:
-			text, color = _IdleText(model)
-			self.SetIdleStatus(text, color)
-
-	def OnPlus(self, slot):
-		if 0 <= slot < len(self.rows):
-			SendOrder(ORIGIN_SKILL, 'umiejetnosci dodaj %d' % self.rows[slot][0])
-
-	def OnManual(self):
-		SendOrder(ORIGIN_SKILL, 'umiejetnosci reczne %d' % (0 if _skills.manual else 1))
-
-	def OnReset(self, slot):
-		import uiCommon
-		self.OnResetCancel()
-		if not 0 <= slot < len(self.rows):
-			return
-		vnum, level, grade = self.rows[slot]
-		shownGrade, _ = SkillGradeStep(level, grade)
-		question = uiCommon.QuestionDialog2()
-		question.SetText1(TEXT_SKILL_RESET_ASK % SkillName(vnum, shownGrade) +
-			(TEXT_SKILL_RESET_MASTER if shownGrade > 0 else ''))
-		question.SetText2(TEXT_SKILL_RESET_HOW)
-		question.SetAcceptEvent(ui.__mem_func__(self.OnResetAccept))
-		question.SetCancelEvent(ui.__mem_func__(self.OnResetCancel))
-		question.Open()
-		self.question = question
-		self.resetVnum = vnum
-
-	def OnResetAccept(self):
-		if self.resetVnum:
-			SendOrder(ORIGIN_SKILL, 'umiejetnosci zeruj %d' % self.resetVnum)
-		self.OnResetCancel()
-
-	def OnResetCancel(self):
-		if self.question:
-			self.question.Close()
-		self.question = None
-		self.resetVnum = 0
-
-	def OnOverIn(self, slot):
-		"""The player's own skill tooltip, with the companion's skill and
-		numbers in it (sidekickskilltip.py)."""
-		if not 0 <= slot < len(self.rows):
-			return
-		controller = _Controller()
-		if controller and controller.isAttached():
-			return
-		if self.tooltip is None:
-			self.tooltip = uiToolTip.SkillToolTip()
-		vnum, level, grade = self.rows[slot]
-		shownGrade, step = SkillGradeStep(level, grade)
-		try:
-			sidekickskilltip.Show(self.tooltip, vnum, level, shownGrade, step, _skills.stats, _skills.job)
-		except Exception:
-			# A tooltip that cannot be drawn is no reason to lose the window.
-			self.tooltip.HideToolTip()
-
-	def OnOverOut(self):
-		if self.tooltip:
-			self.tooltip.HideToolTip()
-
-	def OnUpdate(self):
-		self.UpdateStatusClock()
-		if uisidekick.PumpCommands():
-			return
-		now = clientclock.Now()
-		if now >= self.nextPoll and uisidekick.TryPoll('umiejetnosci'):
-			self.nextPoll = now + SKILL_POLL_INTERVAL
-
-	def Open(self, anchor=None):
-		self.Place(anchor, False)
-		self.Show()
-		self.SetTop()
-		self.nextPoll = clientclock.Now() + SKILL_POLL_INTERVAL
-		self.Refresh()
-		SendOrder(ORIGIN_SKILL, 'umiejetnosci')
-
-	def Close(self):
-		self.OnOverOut()
-		self.OnResetCancel()
-		self.Hide()
-
-	def Destroy(self):
-		self.Close()
-		self.tooltip = None
-		self.widgets = []
-
-
-class StatWindow(_Window):
-	"""The companion's stats: the four as spent, a "+" and a "+5" where a point
-	can go, the points left, who spends them (the first "+" makes it the owner -
-	the server says so) and the one reset of them the server allows for nothing,
-	asked about first."""
-
-	WIDTH = 240
-	ROW_HEIGHT = 26
-	ROWS_TOP = 84
-	RESET_TOP = ROWS_TOP + 4 * ROW_HEIGHT + 22
-	HEIGHT = RESET_TOP + 32 + STATUS_LINES * STATUS_LINE_HEIGHT + 12
-	TITLE = TEXT_STAT_TITLE
-
-	def __init__(self):
-		_Window.__init__(self)
-		self.question = None
-		self.Build()
-		self.Refresh()
-
-	def Build(self):
-		y = 32
-		self.levelLine = self._Label(self, 14, y, '')
-		self.pointsLine = self._Label(self, self.WIDTH - 14, y, '')
-		self.pointsLine.SetHorizontalAlignRight()
-		y += 20
-		width = BUTTON_SIZES['xlarge'][0]
-		self.manualButton = self._Btn(self, 'xlarge', (self.WIDTH - width) // 2, y, '', self.OnManual)
-		self.valueLines = []
-		self.plusButtons = []
-		self.plusFiveButtons = []
-		for i, (key, name) in enumerate(STAT_ROWS):
-			rowY = self.ROWS_TOP + i * self.ROW_HEIGHT
-			self._Label(self, 14, rowY + 4, name)
-			self.valueLines.append(self._Label(self, 100, rowY + 4, ''))
-			plus = ui.Button()
-			plus.SetParent(self)
-			plus.SetPosition(self.WIDTH - 76, rowY + 2)
-			plus.SetUpVisual(PLUS_IMAGE % 'up')
-			plus.SetOverVisual(PLUS_IMAGE % 'over')
-			plus.SetDownVisual(PLUS_IMAGE % 'down')
-			plus.SAFE_SetEvent(self.OnPlus, key, 1)
-			plus.Show()
-			self.widgets.append(plus)
-			self.plusButtons.append(plus)
-			self.plusFiveButtons.append(self._Btn(self, 'small', self.WIDTH - 54, rowY, '+5', self.OnPlus, key, 5))
-		self.barsLine = self._Label(self, 14, self.ROWS_TOP + 4 * self.ROW_HEIGHT + 2, '')
-		self.resetButton = self._Btn(self, 'xlarge', (self.WIDTH - width) // 2, self.RESET_TOP, TEXT_STAT_RESET,
-				self.OnReset)
-		self._StatusLines(self.RESET_TOP + 32)
-
-	def Refresh(self):
-		model = _skills
-		info = model.statInfo if model.state == STATE_OK else None
-		stats = model.stats or {}
-		self.levelLine.SetText(TEXT_STAT_LEVEL % stats.get('lv', 0) if info and stats.get('lv') else '')
-		self.pointsLine.SetText(TEXT_STAT_POINTS % info['points'] if info else '')
-		self.manualButton.SetText(TEXT_STAT_MANUAL % (TEXT_YES if info and info['manual'] else TEXT_NO))
-		for button in (self.manualButton, self.resetButton):
-			if info:
-				button.Show()
-			else:
-				button.Hide()
-		if info and not info['reset']:
-			self.resetButton.Hide()
-		for i, (key, _) in enumerate(STAT_ROWS):
-			if not info:
-				self.valueLines[i].SetText('')
-				self.plusButtons[i].Hide()
-				self.plusFiveButtons[i].Hide()
-				continue
-			self.valueLines[i].SetText(StatValueText(info[key], stats.get(key, 0)))
-			if CanAddStatPoint(info, key):
-				self.plusButtons[i].Show()
-				self.plusFiveButtons[i].Show()
-			else:
-				self.plusButtons[i].Hide()
-				self.plusFiveButtons[i].Hide()
-		if info and stats:
-			self.barsLine.SetText(TEXT_STAT_BARS % (stats.get('maxhp', 0), stats.get('maxsp', 0)))
-		else:
-			self.barsLine.SetText('')
-		self.RefreshStatusFor(model)
-
-	def RefreshIdleStatus(self):
-		model = _skills
-		if model.state == STATE_OK:
-			if model.statInfo is None:
-				self.SetIdleStatus(TEXT_STAT_OLD_SERVER, COLOR_BAD)
-			else:
-				self.SetIdleStatus('' if model.statInfo['manual'] else TEXT_STAT_AI_SPENDS)
-		else:
-			text, color = _IdleText(model)
-			self.SetIdleStatus(text, color)
-
-	def OnPlus(self, key, count):
-		SendOrder(ORIGIN_STAT, 'statystyki dodaj %s %d' % (key, count))
-
-	def OnManual(self):
-		info = _skills.statInfo
-		SendOrder(ORIGIN_STAT, 'statystyki reczne %d' % (0 if info and info['manual'] else 1))
-
-	def OnReset(self):
-		import uiCommon
-		self.OnResetCancel()
-		question = uiCommon.QuestionDialog()
-		question.SetText(TEXT_STAT_RESET_ASK)
-		question.SetAcceptEvent(ui.__mem_func__(self.OnResetAccept))
-		question.SetCancelEvent(ui.__mem_func__(self.OnResetCancel))
-		question.Open()
-		self.question = question
-
-	def OnResetAccept(self):
-		SendOrder(ORIGIN_STAT, 'statystyki odnow')
-		self.OnResetCancel()
-
-	def OnResetCancel(self):
-		if self.question:
-			self.question.Close()
-		self.question = None
-
-	def OnUpdate(self):
-		self.UpdateStatusClock()
-		if uisidekick.PumpCommands():
-			return
-		now = clientclock.Now()
-		if now >= self.nextPoll and uisidekick.TryPoll('statystyki'):
-			self.nextPoll = now + SKILL_POLL_INTERVAL
-
-	def Open(self, anchor=None):
-		self.Place(anchor, False)
-		self.Show()
-		self.SetTop()
-		self.nextPoll = clientclock.Now() + SKILL_POLL_INTERVAL
-		self.Refresh()
-		SendOrder(ORIGIN_STAT, 'statystyki')
-
-	def Close(self):
-		self.OnResetCancel()
-		self.Hide()
-
-	def Destroy(self):
-		self.Close()
-		self.widgets = []
-
-
 def SkillName(vnum, grade=0):
 	# skill.GetSkillName raises for a skill the client does not know.
 	try:
@@ -1626,26 +1280,6 @@ def GetEquipmentWindow():
 	return _state['eqWindow']
 
 
-def GetSkillWindow():
-	if _state['skillWindow'] is None:
-		_state['skillWindow'] = SkillWindow()
-	return _state['skillWindow']
-
-
-def GetStatWindow():
-	if _state['statWindow'] is None:
-		_state['statWindow'] = StatWindow()
-	return _state['statWindow']
-
-
-def ToggleStatWindow(anchor=None):
-	window = GetStatWindow()
-	if window.IsShow():
-		window.Close()
-	else:
-		window.Open(anchor)
-
-
 def ToggleEquipmentWindow(anchor=None):
 	window = GetEquipmentWindow()
 	if window.IsShow():
@@ -1654,17 +1288,23 @@ def ToggleEquipmentWindow(anchor=None):
 		window.Open(anchor)
 
 
-def ToggleSkillWindow(anchor=None):
-	window = GetSkillWindow()
-	if window.IsShow():
-		window.Close()
-	else:
-		window.Open(anchor)
-
-
-def _Shown(key):
-	window = _state[key]
+def _Shown():
+	window = _state['eqWindow']
 	return window if window is not None and window.IsShow() else None
+
+
+def AnyShown():
+	"""Whether the companion's bag window is open."""
+	return _Shown() is not None
+
+
+def CloseAll():
+	"""The bag window closed with the companion's own: P closed that one
+	alone, and the bag stayed on the screen to be clicked shut (prodnathin,
+	28 September)."""
+	window = _Shown()
+	if window is not None:
+		window.Close()
 
 
 def _RefreshEquipment():
@@ -1673,10 +1313,8 @@ def _RefreshEquipment():
 
 
 def _RefreshSkills():
-	# The stat window reads the same answer as the skill window.
-	for key in ('skillWindow', 'statWindow'):
-		if _state[key] is not None:
-			_state[key].Refresh()
+	# The status, skill and options pages of the companion's window read it.
+	uisidekick.RefreshSkills()
 
 
 # ---------------------------------------------------------------- the server
@@ -1709,23 +1347,28 @@ def OnEqEnd(*args):
 
 
 def OnEqResult(*args):
-	"""The one answer to every order: in the status line of the window that gave
-	the last order, in every open one when that one is closed, in the chat with
-	none open."""
+	"""The one answer to every order, where the order was given: the bag
+	window's in its lines, the skill and options pages' in theirs
+	(uisidekick.ShowResult). The status page's "+" has no line for one: its
+	answer is the chat's, and the number it changed says the rest. When the
+	window that asked is closed, in whatever of the companion's is open, and in
+	the chat with none open. An item the answer names for an English client
+	comes as "{i<vnum>}" and is written in in the client's words
+	(uisidekick.ExpandNames)."""
 	code = ParseInt(args[0], -1) if args else -1
-	text = ResultText(code, uisidekick.DecodeText(args[1], RESULT_TEXT_BYTES) if len(args) > 1 else '')
+	text = ResultText(code, uisidekick.DecodeNamedText(args[1], RESULT_TEXT_BYTES) if len(args) > 1 else '')
 	color = COLOR_NORMAL if code == RESULT_DONE else COLOR_BAD
-	shown = []
-	for origin, key in ((ORIGIN_EQ, 'eqWindow'), (ORIGIN_SKILL, 'skillWindow'), (ORIGIN_STAT, 'statWindow')):
-		window = _Shown(key)
-		if window:
-			shown.append((origin, window))
-	targets = [window for origin, window in shown if origin == _state['lastOrigin']]
-	if not targets:
-		targets = [window for origin, window in shown]
-	for window in targets:
-		window.SetStatus(text, color)
-	if not targets:
+	origin = _state['lastOrigin']
+	bag = _Shown()
+	if origin == ORIGIN_STAT:
+		chat.AppendChat(chat.CHAT_TYPE_INFO, text)
+	elif origin == ORIGIN_EQ and bag is not None:
+		bag.SetStatus(text, color)
+	elif origin != ORIGIN_EQ and uisidekick.ShowResult(origin, text, color):
+		pass
+	elif bag is not None:
+		bag.SetStatus(text, color)
+	elif not uisidekick.ShowResult(None, text, color):
 		chat.AppendChat(chat.CHAT_TYPE_INFO, text)
 
 
@@ -1747,11 +1390,10 @@ def OnSkillEnd(*args):
 
 def Destroy():
 	ReleaseIcon(True)
-	for key in ('eqWindow', 'skillWindow', 'statWindow'):
-		window = _state[key]
-		if window is not None:
-			window.Destroy()
-		_state[key] = None
+	window = _state['eqWindow']
+	if window is not None:
+		window.Destroy()
+	_state['eqWindow'] = None
 	_state['lastOrigin'] = None
 	_equipment.Reset()
 	_skills.Reset()
@@ -1759,8 +1401,8 @@ def Destroy():
 
 class Keeper(object):
 	"""One of the game's updateables, for its Destroy alone: the game window's
-	Close destroys every updateable, and the two windows go with it rather than
-	stand over the character select. They update themselves while shown, and
+	Close destroys every updateable, and the bag window goes with it rather
+	than stand over the character select. It updates itself while shown, and
 	uisidekick.py's keeper sends what is still queued."""
 
 	def CanUpdate(self):

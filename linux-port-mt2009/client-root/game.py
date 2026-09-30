@@ -2708,6 +2708,7 @@ class GameWindow(ui.ScriptWindow):
 			"FleaMarketOpen"		: self.OpenFleaMarket,
 			"FleaPriceQuote"		: self.FleaPriceQuote,
 			"FleaMarketStackUpdate"	: self.FleaMarketStackUpdate,
+			"FleaPriceRange"		: self.FleaPriceRange,
 			"ShowMeMallPassword"	: self.AskMallPassword,
 			"item_mall"				: self.__ItemMall_Open,
 			# END_OF_ITEM_MALL
@@ -2811,6 +2812,7 @@ class GameWindow(ui.ScriptWindow):
 			"UpdateSpecialShop": self.UpdateSpecialShop,
 
 			"CloseBusyWindows": self.CloseBusyWindows,
+			"PlayerBotLanguage": self.__PlayerBotLanguage,
 
 			"maintenance": self.Maintenance,
 
@@ -2876,6 +2878,10 @@ class GameWindow(ui.ScriptWindow):
 			chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.SHOP_EDIT_MODE_ON)
 		else:
 			chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.SHOP_EDIT_MODE_OFF)
+
+	def __PlayerBotLanguage(self, *rest):
+		import playerbot_lang
+		playerbot_lang.AnswerServer()
 
 	def SprintOnboarding(self):
 		self.interface.ToggleCharacterWindow("SKILL")
@@ -3419,6 +3425,11 @@ class GameWindow(ui.ScriptWindow):
 		if self.interface:
 			self.interface.fleaMarket.UpdateStackOffer(
 				int(ownerID), int(itemID), int(remainingCount), int(remainingYang), int(remainingCheque))
+
+	def FleaPriceRange(self, requestID, minPrice, maxPrice, *rest):
+		if self.interface:
+			self.interface.offlineShopManage.SetFleaMarketPriceRange(
+				int(requestID), int(minPrice), int(maxPrice))
 
 	def __EnableTestServerFlag(self):
 		app.EnableTestServerFlag()

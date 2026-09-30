@@ -1006,10 +1006,11 @@ namespace
 		// particular monster can still yield it: CreateDropItem multiplies every
 		// drop by the same PERCENT_LVDELTA as experience, so fifteen levels
 		// above leaves one percent of the chance. A need is not a reason to farm
-		// something that will effectively never drop it.
-		if (wantedDrops && !wantedDrops->empty() && candidate->IsMonster() &&
-				PERCENT_LVDELTA(ch->GetLevel(), candidate->GetLevel()) >=
-					PLAYERBOT_MATERIAL_MIN_DROP_PERCENT)
+		// something that will effectively never drop it - and the errand that
+		// walks the bot to the monster asks the same function, or it walks to a
+		// refusal (StartPlayerBotMaterialHunt).
+		if (wantedDrops && !wantedDrops->empty() &&
+				CanPlayerBotFarmMaterialFrom(ch, candidate))
 		{
 			const DWORD drop = candidate->GetMobDropItemVnum();
 			if (drop != 0 && wantedDrops->find(drop) != wantedDrops->end())
@@ -1526,6 +1527,24 @@ namespace
 				}
 				const DWORD drop = mob->GetMobDropItemVnum();
 				if (drop == 0 || m_wanted.find(drop) == m_wanted.end())
+					return;
+				// Only a carrier the fight at the end of the walk will take.
+				// The errand asked nothing of the level, and the fight's
+				// material exception asks PERCENT_LVDELTA: a bot of thirty and
+				// more held in a first village - a herb row, the Biologist, the
+				// market - rode across the map every ninety seconds to a wolf
+				// of three or four for its Szpon Wilka+, arrived, passed it
+				// over at one percent, and set off for the next one. On m2zip
+				// that was 810 errands by 180 bots in 78 minutes, 751 of them
+				// to such a wolf, 16 700 units a ride, under a status that
+				// read "Ide przez portal do M2" or "Ide do Doliny Orkow"
+				// because the ride is travel and the words are the planner's
+				// ("kreca sie w kolko", blasty, 28 September); the herb row
+				// the bot was held for went undone meanwhile - 23 bots on the
+				// herb errand handed in 18 specimens in that hour. What the
+				// level curve leaves out is bought on the market or dropped
+				// where the bot hunts.
+				if (!CanPlayerBotFarmMaterialFrom(m_seeker, mob))
 					return;
 				const int distance = DISTANCE_APPROX(m_seeker->GetX() - mob->GetX(),
 						m_seeker->GetY() - mob->GetY());

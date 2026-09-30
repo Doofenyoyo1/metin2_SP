@@ -33,44 +33,55 @@ namespace
 	// "1500 HP" and "10 do PZ" (x% of the damage added to HP); the rest follow
 	// the same market habit, the number and then what it is. Only lines that
 	// can be worth x1.5 at their top roll are here - no other line is named.
-	struct TPlayerBotSignBonusLabel { BYTE bApply; const char* szLabel; bool bValue; };
+	// The last column is the same line for a title in English
+	// (TranslateSignName): ours, the short forms English players trade in.
+	struct TPlayerBotSignBonusLabel { BYTE bApply; const char* szLabel; bool bValue; const char* szLabelEn; };
 	const TPlayerBotSignBonusLabel PLAYERBOT_SIGN_BONUS_LABELS[] = {
-		{ APPLY_MAX_HP, "HP", true },
-		{ APPLY_STEAL_HP, "do P\xAF", true },
-		{ APPLY_ATTBONUS_HUMAN, "PL", true },
-		{ APPLY_ATTBONUS_ANIMAL, "zwierz", true },
-		{ APPLY_ATTBONUS_DEVIL, "diably", true },
-		{ APPLY_ATTBONUS_UNDEAD, "nieumarli", true },
-		{ APPLY_ATTBONUS_ORC, "orki", true },
-		{ APPLY_ATTBONUS_MILGYO, "mistyki", true },
-		{ APPLY_ATT_GRADE_BONUS, "WA", true },
-		{ APPLY_ATT_SPEED, "SA", true },
-		{ APPLY_CAST_SPEED, "SZ", true },
-		{ APPLY_MOV_SPEED, "SR", true },
-		{ APPLY_BLOCK, "blok", true },
-		{ APPLY_REFLECT_MELEE, "odbicie", true },
-		{ APPLY_STR, "Sila", true },
-		{ APPLY_INT, "Int", true },
-		{ APPLY_DEX, "Zr", true },
-		{ APPLY_CON, "Wit", true },
-		{ APPLY_CRITICAL_PCT, "kryt", true },
-		{ APPLY_PENETRATE_PCT, "przesz", true },
-		{ APPLY_STUN_PCT, "omdl", true },
-		{ APPLY_POISON_PCT, "otruc", true },
-		{ APPLY_DODGE, "unik", true },
-		{ APPLY_GOLD_DOUBLE_BONUS, "yang", true },
-		{ APPLY_MALL_EXPBONUS, "EXP", true },
-		{ APPLY_IMMUNE_STUN, "NNO", false },
-		{ APPLY_RESIST_BOW, "odp strzaly", true },
-		{ APPLY_RESIST_DAGGER, "odp sztylety", true },
-		{ APPLY_RESIST_SWORD, "odp miecze", true },
-		{ APPLY_RESIST_TWOHAND, "odp 2r", true },
-		{ APPLY_RESIST_BELL, "odp dzwony", true },
-		{ APPLY_RESIST_FAN, "odp wachlarze", true },
-		{ APPLY_RESIST_MAGIC, "odp magia", true },
-		{ APPLY_NORMAL_HIT_DAMAGE_BONUS, "sr", true },
-		{ APPLY_SKILL_DAMAGE_BONUS, "UM", true },
+		{ APPLY_MAX_HP, "HP", true, "HP" },
+		{ APPLY_STEAL_HP, "do P\xAF", true, "HP absorb" },
+		{ APPLY_ATTBONUS_HUMAN, "PL", true, "HH" },
+		{ APPLY_ATTBONUS_ANIMAL, "zwierz", true, "animals" },
+		{ APPLY_ATTBONUS_DEVIL, "diably", true, "devils" },
+		{ APPLY_ATTBONUS_UNDEAD, "nieumarli", true, "undead" },
+		{ APPLY_ATTBONUS_ORC, "orki", true, "orcs" },
+		{ APPLY_ATTBONUS_MILGYO, "mistyki", true, "esoterics" },
+		{ APPLY_ATT_GRADE_BONUS, "WA", true, "AV" },
+		{ APPLY_ATT_SPEED, "SA", true, "AS" },
+		{ APPLY_CAST_SPEED, "SZ", true, "CS" },
+		{ APPLY_MOV_SPEED, "SR", true, "MS" },
+		{ APPLY_BLOCK, "blok", true, "block" },
+		{ APPLY_REFLECT_MELEE, "odbicie", true, "reflect" },
+		{ APPLY_STR, "Sila", true, "STR" },
+		{ APPLY_INT, "Int", true, "INT" },
+		{ APPLY_DEX, "Zr", true, "DEX" },
+		{ APPLY_CON, "Wit", true, "VIT" },
+		{ APPLY_CRITICAL_PCT, "kryt", true, "crit" },
+		{ APPLY_PENETRATE_PCT, "przesz", true, "pierce" },
+		{ APPLY_STUN_PCT, "omdl", true, "stun" },
+		{ APPLY_POISON_PCT, "otruc", true, "poison" },
+		{ APPLY_DODGE, "unik", true, "dodge" },
+		{ APPLY_GOLD_DOUBLE_BONUS, "yang", true, "yang" },
+		{ APPLY_MALL_EXPBONUS, "EXP", true, "EXP" },
+		{ APPLY_IMMUNE_STUN, "NNO", false, "stun immune" },
+		{ APPLY_RESIST_BOW, "odp strzaly", true, "arrow res" },
+		{ APPLY_RESIST_DAGGER, "odp sztylety", true, "dagger res" },
+		{ APPLY_RESIST_SWORD, "odp miecze", true, "sword res" },
+		{ APPLY_RESIST_TWOHAND, "odp 2r", true, "2H res" },
+		{ APPLY_RESIST_BELL, "odp dzwony", true, "bell res" },
+		{ APPLY_RESIST_FAN, "odp wachlarze", true, "fan res" },
+		{ APPLY_RESIST_MAGIC, "odp magia", true, "magic res" },
+		{ APPLY_NORMAL_HIT_DAMAGE_BONUS, "sr", true, "avg dmg" },
+		{ APPLY_SKILL_DAMAGE_BONUS, "UM", true, "skill dmg" },
 	};
+
+	// A bonus line's label in English by its Polish one, or "".
+	std::string GetPlayerBotSignBonusLabelEn(const std::string& label)
+	{
+		for (size_t i = 0; i < sizeof(PLAYERBOT_SIGN_BONUS_LABELS) / sizeof(PLAYERBOT_SIGN_BONUS_LABELS[0]); ++i)
+			if (label == PLAYERBOT_SIGN_BONUS_LABELS[i].szLabel)
+				return PLAYERBOT_SIGN_BONUS_LABELS[i].szLabelEn;
+		return std::string();
+	}
 
 	const TPlayerBotSignBonusLabel* FindPlayerBotSignBonusLabel(BYTE bApply)
 	{
@@ -222,5 +233,39 @@ namespace
 		if (how)
 			*how = playerbot_shop_names::GetSignHowName(reason);
 		return true;
+	}
+
+	// A bot's shop title in English, for a person whose client reads English
+	// (CPlayerBotManager::GetShopNameFor): TranslateSignName over the official
+	// English item names and the labels above. False where the Polish title has
+	// to stand. Remembered by the title - a town's two hundred stands share a few
+	// hundred titles, and each is asked again for every viewer who walks up to
+	// it - but not before the names are there to be asked.
+	const size_t PLAYERBOT_SHOP_TITLE_EN_CACHE_MAX = 4096;
+
+	bool GetPlayerBotShopNameEn(const char* sign, std::string& out)
+	{
+		static std::unordered_map<std::string, std::string> s_mapTitles;
+		out.clear();
+		if (!sign || !*sign)
+			return false;
+		std::unordered_map<std::string, std::string>::const_iterator it = s_mapTitles.find(sign);
+		if (it != s_mapTitles.end())
+		{
+			out = it->second;
+			return !out.empty();
+		}
+		const bool ok = playerbot_shop_names::TranslateSignName(std::string(sign),
+				[](const std::string& polish) { return FindPlayerBotItemNameEnByPolish(polish); },
+				[](const std::string& label) { return GetPlayerBotSignBonusLabelEn(label); }, out);
+		if (!ok)
+			out.clear();
+		if (s_PlayerBotEnglishNames.bLoaded)
+		{
+			if (s_mapTitles.size() >= PLAYERBOT_SHOP_TITLE_EN_CACHE_MAX)
+				s_mapTitles.clear();
+			s_mapTitles[sign] = out;
+		}
+		return ok;
 	}
 }

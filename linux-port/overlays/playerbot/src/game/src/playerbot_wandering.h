@@ -127,8 +127,12 @@ namespace
 		call.dwGuild = ch->GetGuild()->GetID();
 		call.dwStamp = dwNow;
 		char msg[128];
-		snprintf(msg, sizeof(msg), "%s stoi! Zbieramy sie na niego.",
-				bossName && *bossName ? bossName : "Boss");
+		// In the guild master's language (IsPlayerBotGuildMasterEnglish): a
+		// bot of a person's guild calls the person's guild.
+		const bool en = IsPlayerBotGuildMasterEnglish(ch->GetGuild());
+		const char* name = bossName && *bossName ? bossName : "Boss";
+		snprintf(msg, sizeof(msg), PBT(en, "%s stoi! Zbieramy sie na niego.", "%s is up! Gather on him."),
+				en ? GetPlayerBotMobNameEn(wRace, name) : name);
 		ch->GetGuild()->Chat(msg);
 		sys_log(0, "PLAYERBOT_RAID: called pid=%u name=%s guild=%u race=%u boss=%s",
 				ch->GetPlayerID(), ch->GetName(), (unsigned int)call.dwGuild,
