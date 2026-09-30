@@ -10,6 +10,7 @@ import grpText
 import safebox
 import localeInfo
 import app
+import pack
 import background
 import nonplayer
 import chr
@@ -877,9 +878,9 @@ class ItemToolTip(ToolTip):
 
 		return "\n".join(formatted_lines)
 
-	def __AppendAttributeInformation(self, attrSlot, itemAbsChance = 0):
+	def __AppendAttributeInformation(self, attrSlot, itemAbsChance = 0, slotCount = player.ATTRIBUTE_SLOT_NORM_NUM):
 		if 0 != attrSlot:
-			for i in xrange(player.ATTRIBUTE_SLOT_NORM_NUM):
+			for i in xrange(slotCount):
 				type = attrSlot[i][0]
 				value = attrSlot[i][1]
 
@@ -1040,16 +1041,24 @@ class ItemToolTip(ToolTip):
 			self.AdditionalTips(window_type, itemVnum, metinSlot, slotIndex)
 			self.ShowToolTip()
 			return
+		# MT2009_PLUS_NEW_PET_V1: the New Pet System's pet in its transporter
+		# (uinewpet.py) - its name, species, level and evolution.
+		elif 55007 == itemVnum:
+			self.SetTitle(item.GetItemName())
+			if 0 != metinSlot:
+				for (petLine, petColor) in __import__("uinewpet").TransporterLines(metinSlot):
+					self.AppendTextLine(petLine, petColor)
+			self.AppendDescription(item.GetItemDescription(), 26)
+			self.AdditionalTips(window_type, itemVnum, metinSlot, slotIndex)
+			self.ShowToolTip()
+			return
 		###########################################################################################
 
 
 		itemDesc = item.GetItemDescription()
-		import playerbot_lang
 		itemDesc = {
-			31073: playerbot_lang.T("Bilet na Auto £owy: 8 godzin automatycznego polowania (klawisz K). Czas leci tylko wtedy, gdy jesteœ w grze; kolejne bilety siê sumuj¹ (do 30 dni). U¿yj z ekwipunku.",
-				"Auto Hunt ticket: 8 hours of automatic hunting (the K key). The time only runs while you are in the game; more tickets add up (up to 30 days). Use it from your inventory."),
-			40002: playerbot_lang.T("U¿yj, aby w³¹czyæ albo wy³¹czyæ blokadê doœwiadczenia. Bez limitu czasu.",
-				"Use it to switch the experience block on or off. No time limit."),
+			31073: "Bilet na Auto £owy: 8 godzin automatycznego polowania (klawisz K). Czas leci tylko wtedy, gdy jesteœ w grze; kolejne bilety siê sumuj¹ (do 30 dni). U¿yj z ekwipunku.",
+			40002: "U¿yj, aby w³¹czyæ albo wy³¹czyæ blokadê doœwiadczenia. Bez limitu czasu.",
 		}.get(itemVnum, itemDesc)
 		itemSummary = item.GetItemSummary()
 
@@ -1162,7 +1171,10 @@ class ItemToolTip(ToolTip):
 
 			self.__AppendAccessoryMetinSlotInfo(metinSlot, constInfo.GET_BELT_MATERIAL_VNUM(itemVnum))
 
-		elif app.ENABLE_PET_SYSTEM_EX and item.ITEM_TYPE_PET == itemType:
+		# Classic ITEM_PET/PET_PAY seals also carry REAL_TIME and ordinary
+		# applies.  Showing those values must not depend on the disabled growth
+		# pet UI flag.
+		elif item.ITEM_TYPE_PET == itemType:
 			self.__AppendLimitInformation()
 			self.__AppendAffectInformation()
 			self.__AppendAttributeInformation(attrSlot)
@@ -1172,6 +1184,8 @@ class ItemToolTip(ToolTip):
 		elif isCostumeItem:
 			self.__AppendLimitInformation()
 			self.__AppendAffectInformation()
+			if isCostumeBody or isCostumeHair:
+				self.__AppendCostumeSetInformation(itemVnum)
 			if app.ENABLE_ACCE_COSTUME_SYSTEM and isCostumeAcce:
 				## ABSORPTION RATE
 				absChance = int(metinSlot[acce.ABSORPTION_SOCKET])
@@ -1534,7 +1548,7 @@ class ItemToolTip(ToolTip):
 					self.__AppendLimitInformation()
 		elif item.ITEM_TYPE_DS == itemType:
 			self.AppendTextLine(self.__DragonSoulInfoString(itemVnum))
-			self.__AppendAttributeInformation(attrSlot)
+			self.__AppendAttributeInformation(attrSlot, 0, player.ATTRIBUTE_SLOT_MAX_NUM)
 		else:
 			self.__AppendLimitInformation()
 
@@ -1626,7 +1640,10 @@ class ItemToolTip(ToolTip):
 		if self.__IsOldHair(itemVnum):
 			itemImage.LoadImage(flamewindPath.GetHair(str(itemVnum)))
 		elif self.__IsNewHair3(itemVnum):
-			itemImage.LoadImage("icon/hair/%d.sub" % (itemVnum))
+			hairIcon = "icon/hair/%d.sub" % (itemVnum)
+			if not pack.Exist(hairIcon):
+				return
+			itemImage.LoadImage(hairIcon)
 		elif self.__IsNewHair(itemVnum):
 			itemImage.LoadImage(flamewindPath.GetHair(str(itemVnum-1000)))
 		elif self.__IsNewHair2(itemVnum):
@@ -1754,6 +1771,42 @@ class ItemToolTip(ToolTip):
 			hours, minutes = player.GetItemUnSealLeftTime(window_type, slotIndex)
 			self.AppendTextLine(localeInfo.TOOLTIP_UNSEAL_LEFT_TIME % (hours, minutes), self.NEGATIVE_COLOR)
 
+	# Zestawy kostiumow (costume_sets.py, the server's costume_sets.txt): a
+	# body and a hair of one set give +800 HP and +15 attack value
+	# (MT2009_PLUS_COSTUME_SET_V1). The tooltip names up to three partners.
+	def __AppendCostumeSetInformation(self, itemVnum):
+		try:
+			import costume_sets
+		except ImportError:
+			return
+		if itemVnum in costume_sets.BODY_SETS:
+			partners = [v for i in costume_sets.BODY_SETS[itemVnum] for v in costume_sets.SETS[i][1]]
+			line = 'Z pasuj\xb9c\xb9 fryzur\xb9: +800 P\xaf, +15 warto\x9cci ataku'
+		elif itemVnum in costume_sets.HAIR_SETS:
+			partners = [v for i in costume_sets.HAIR_SETS[itemVnum] for v in costume_sets.SETS[i][0]]
+			line = 'Z pasuj\xb9cym kostiumem: +800 P\xaf, +15 warto\x9cci ataku'
+		else:
+			return
+		names = []
+		more = False
+		for vnum in partners:
+			item.SelectItem(vnum)
+			name = item.GetItemName()
+			for tail in (' (m)', ' (k)', '(m)', '(k)'):
+				name = name.replace(tail, '')
+			name = name.replace('+', '').strip()
+			if name and name not in names:
+				if len(names) >= 3:
+					more = True
+					break
+				names.append(name)
+		item.SelectItem(itemVnum)
+		self.AppendSpace(5)
+		self.AppendTextLine('Zestaw kostium\xf3w', self.SPECIAL_TITLE_COLOR)
+		self.AppendTextLine(line, self.SPECIAL_POSITIVE_COLOR)
+		if names:
+			self.AppendTextLine('Pasuje: ' + ', '.join(names) + (' ...' if more else ''), self.CONDITION_COLOR)
+
 	def __AppendAffectInformation(self, attrList=None):
 		affectList = [item.GetAffect(i) for i in xrange(item.ITEM_APPLY_MAX_NUM)]
 		if attrList is not None and attrList:
@@ -1768,7 +1821,7 @@ class ItemToolTip(ToolTip):
 			 # = item.GetAffect(i)
 			if app.ENABLE_ACCE_COSTUME_SYSTEM and affectType==item.APPLY_ACCEDRAIN_RATE:
 				continue
-			if app.ENABLE_MOUNT_COSTUME_SYSTEM and affectType==item.APPLY_MOUNT:
+			if app.ENABLE_MOUNT_COSTUME_SYSTEM and hasattr(item, "APPLY_MOUNT") and affectType==item.APPLY_MOUNT:
 				continue
 			affectString = localeInfo.GetApplyString(affectType, affectValue)
 			if affectString:
@@ -1863,6 +1916,7 @@ class ItemToolTip(ToolTip):
 		time = item.GetValue(1)
 		point = item.GetValue(2)
 
+		# The exe exports no APPLY_* constants: 17 and 19 are the engine's values.
 		if abilityType == getattr(item, "APPLY_ATT_SPEED", 17):
 			self.AppendTextLine(localeInfo.TOOLTIP_POTION_PLUS_ATTACK_SPEED % point, self.GetChangeTextLineColor(point))
 		elif abilityType == getattr(item, "APPLY_MOV_SPEED", 19):
@@ -2885,6 +2939,11 @@ class SkillToolTip(ToolTip):
 
 		## Duration
 		duration = skill.GetDuration(skillIndex, skillPercentage)
+		# MT2009_PLUS_SKILL_DURATION_V1: the timed skills last half as long again
+		# from G1 (skill level 30) up - the server's char_skill.cpp
+		# (ApplyGrandMasterSkillDuration), on the formula's time before the items'.
+		if duration > 0 and skillLevel >= 30 and skillIndex in (3, 4, 19, 34, 49, 63, 64, 65, 78, 79, 94, 95, 96, 110, 111):
+			duration += duration / 2
 		if duration > 0:
 			duration += duration * player.GetStatus(player.POINT_SKILL_DURATION) / 100
 			duration += player.GetStatus(player.POINT_PARTY_BUFFER_BONUS)
@@ -3112,4 +3171,3 @@ def SetItemToolTipInstance(instance):
 		del _instanceItemToolTip
 
 	_instanceItemToolTip = instance
-

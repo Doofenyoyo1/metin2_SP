@@ -3,7 +3,7 @@ import flamewindPath
 import colorInfo
 
 WINDOW_WIDTH = 662
-WINDOW_HEIGHT = 464
+WINDOW_HEIGHT = 570
 
 CENTER_X = SCREEN_WIDTH/2 - WINDOW_WIDTH/2
 CENTER_Y = SCREEN_HEIGHT/2 - WINDOW_HEIGHT/2
@@ -131,7 +131,7 @@ window = {
 									"y" : 0,
 									"all_align" : True,
 									"color" : colorInfo.GetColorFromColorTuple(colorInfo.CHAT_RGB_NOTICE),
-									"text" : uiScriptLocale.ITEMSHOP_ACCOUNT_STATE,
+									"text" : "Stan Konta",
 									"bold" : True,
 									"fontsize" : "LARGE",
 								},
@@ -224,7 +224,7 @@ window = {
 									"y" : 0,
 									"all_align" : True,
 									"color" : colorInfo.GetColorFromColorTuple(colorInfo.CHAT_RGB_NOTICE),
-									"text" : uiScriptLocale.ITEMSHOP_CATEGORIES,
+									"text" : "Kategorie",
 									"bold" : True,
 									"fontsize" : "LARGE",
 								},

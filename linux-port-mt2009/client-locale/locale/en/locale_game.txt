@@ -145,7 +145,7 @@ GAME_INIT_ERROR_ITEM_PROTO	No Item data there.\nInstall the game again.
 GAME_INIT_ERROR_MAIN_WINDOW	Mainframe could not be established	
 GAME_INIT_ERROR_MOB_PROTO	No Monster Data there.\nInstall the game again.	
 GAME_INIT_ERROR_NETWORK	Network devices could not be established.\nCheck your internet connection.	
-GAME_PICK_MONEY	You have received %s.
+GAME_PICK_MONEY	You have received %d Yang.
 GUILDMARK_UPLOADER_ERROR_128_HEIGHT	Height is not 128 Pixel	
 GUILDMARK_UPLOADER_ERROR_12_HEIGHT	Height is not 12 Pixel
 GUILDMARK_UPLOADER_ERROR_16_WIDTH	Width is not 16 Pixel	
@@ -167,7 +167,7 @@ GUILD_CREATE_ERROR_INSULT_NAME	Guildname is not valid.
 GUILD_DEFAULT_GRADE	Guild members	
 GUILD_DELETE	Delete	
 GUILD_DEPOSIT	Deposit	
-GUILD_DO_YOU_HEAL_GSP	Do you want to spend %s Yang to restore %d units of Dragon Ghost?
+GUILD_DO_YOU_HEAL_GSP	Do you want to restore %d units of Dragon Ghost for %d Yang?
 GUILD_DO_YOU_JOIN	 has invited you. Do you want to join the guild?
 GUILD_EMPTY_AREA	Empty land	
 GUILD_ENEMY_GUILD_NAME	Guild name of the enemy	
@@ -415,7 +415,7 @@ REFINE_WARNING2	Do you want to continue?
 SAFEBOX_ERROR	You entered the wrong password.	
 SAFEBOX_SELL_DISABLE_SAFEITEM	You cannot sell any of the saved Items.	
 SAFEBOX_WRONG_PASSWORD	The passwords have to be identical.	
-SCREENSHOT_SAVE1	Screenshot saved to '%s'.	
+SCREENSHOT_SAVE1	is saved in	
 SCREENSHOT_SAVE2	Screenshot File	
 SCREENSHOT_SAVE_FAILURE	Saving of Screenshot failed.	
 SECOND	Sec	
@@ -615,7 +615,7 @@ TOOLTIP_APPLY_RESIST_SWORD	Sword Defence %d%%	SA
 TOOLTIP_APPLY_RESIST_TWOHAND	Two-Handed Defence %d%%	SA
 TOOLTIP_APPLY_RESIST_WARRIOR	Defence chance against warrior attacks: %d%%	SA
 TOOLTIP_APPLY_RESIST_WIND	Wind Resistance %d%%	SA
-TOOLTIP_APPLY_SKILL_BOOK_BONUS	Chance to learn from books upgraded by factor 2.5 .
+TOOLTIP_APPLY_SKILL_BOOK_BONUS	Chance to learn from books upgraded by factor 2.5 .	SNA
 TOOLTIP_APPLY_SKILL_BOOK_NO_DELAY	If learning fails you immediately have another try for free	SNA
 TOOLTIP_APPLY_SLOW_PCT	Slowing chance %d%%	SA
 TOOLTIP_APPLY_STEAL_HP	%d%% damage  will be absorbed by HP	SA
@@ -790,7 +790,7 @@ TOOLTIP_SURA	Sura
 TOOLTIP_TIME_CHARGER_FIX	Time charging %d sec.	SA
 TOOLTIP_TIME_CHARGER_PER	Time charging %d%%	SA
 TOOLTIP_UNIQUE	Unique	
-TOOLTIP_UNSEAL_LEFT_TIME	Unseals in %d hours and %d minutes.
+TOOLTIP_UNSEAL_LEFT_TIME	
 TOOLTIP_WARRIOR	Warrior	
 TOOLTIP_WEAPON	Weapon	
 TOOLTIP_WRISTLET	Wristlet	

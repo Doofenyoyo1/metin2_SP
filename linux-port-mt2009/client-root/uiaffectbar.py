@@ -20,6 +20,10 @@ from _weakref import proxy
 EVENT_ARRANGE_AFFECT_LIST = "EVENT_ARRANGE_AFFECT_LIST" # args | width: number, height: number
 
 AFFECT_SHOW_DATA = {
+	chr.NEW_AFFECT_DS_SET : {
+		"description" : "Bonus zestawu Smoczych Kamieni",
+		"icon" : "icon/item/110000.tga",
+	},
 	# PREMIUM VIP
 	chr.NEW_AFFECT_EXP_BONUS : {
 		"description" : localeInfo.TOOLTIP_MALL_EXPBONUS_STATIC,
@@ -748,7 +752,7 @@ class AffectImage(BarItem):
 				self.durationLabel = proxy(self.tooltip.AppendTextLine(self.GetDurationLabelValue(duration)))
 		elif IsVIPAffect(self.affect):
 			self.tooltip.AppendSpace(5)
-			self.tooltip.AppendTextLine(localeInfo.AFFECT_INACTIVE, grp.GenerateColor(1.0, 0.3745, 0.3627, 1.0))
+			self.tooltip.AppendTextLine("Nieaktywny", grp.GenerateColor(1.0, 0.3745, 0.3627, 1.0))
 
 		if self.affect in REMOVABLE_AFFECTS:
 			self.tooltip.AppendSpace(5)

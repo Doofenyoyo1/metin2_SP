@@ -36,6 +36,10 @@ ITEMSHOP_CATEGORY_TIMED_INDEX = 11
 ITEMSHOP_CATEGORY_MARK_INDEX = 6
 ITEMSHOP_CATEGORY_DRAGON_VOUCHER_INDEX = 15
 ITEMSHOP_CATEGORY_USE_VOUCHER = 16
+ITEMSHOP_CATEGORY_COSTUMES = 17
+ITEMSHOP_CATEGORY_WEAPON_SKINS = 18
+ITEMSHOP_CATEGORY_PETS = 19
+ITEMSHOP_CATEGORY_MOUNTS = 20
 
 ITEMSHOP_CATEGORIES_SORT = [
 	ITEMSHOP_CATEGORY_FEATURED_INDEX,
@@ -43,8 +47,11 @@ ITEMSHOP_CATEGORIES_SORT = [
 	14,
 	1,
 	2,
+	ITEMSHOP_CATEGORY_COSTUMES,
+	ITEMSHOP_CATEGORY_WEAPON_SKINS,
+	ITEMSHOP_CATEGORY_PETS,
+	ITEMSHOP_CATEGORY_MOUNTS,
 	3,
-	7,
 	5,
 	6,
 	ITEMSHOP_CATEGORY_DRAGON_VOUCHER_INDEX,
@@ -75,11 +82,47 @@ ITEMSHOP_CATEGORIES = {
 	},
 
 	2: {
-		"name": localeInfo.ITEMSHOP_CATEGORY_HAIR,
+		"name": localeInfo.ITEMSHOP_CATEGORY_HAIR_PLUS,
 		"action" : {
 			"type" : "items",
 			"items" : [],
-			"range": "301-450",
+			"ranges": ["301-450", "10000-19999"],
+		},
+	},
+
+	ITEMSHOP_CATEGORY_COSTUMES: {
+		"name": localeInfo.ITEMSHOP_CATEGORY_COSTUMES,
+		"action" : {
+			"type" : "items",
+			"items" : [],
+			"range": "20000-29999",
+		},
+	},
+
+	ITEMSHOP_CATEGORY_WEAPON_SKINS: {
+		"name": localeInfo.ITEMSHOP_CATEGORY_WEAPON_SKINS,
+		"action" : {
+			"type" : "items",
+			"items" : [],
+			"range": "30000-39999",
+		},
+	},
+
+	ITEMSHOP_CATEGORY_PETS: {
+		"name": localeInfo.ITEMSHOP_CATEGORY_PETS,
+		"action" : {
+			"type" : "items",
+			"items" : [],
+			"range": "40000-49999",
+		},
+	},
+
+	ITEMSHOP_CATEGORY_MOUNTS: {
+		"name": localeInfo.ITEMSHOP_CATEGORY_MOUNTS,
+		"action" : {
+			"type" : "items",
+			"items" : [],
+			"range": "50000-59999",
 		},
 	},
 
@@ -118,15 +161,6 @@ ITEMSHOP_CATEGORIES = {
 		},
 	},
 
-	7: {
-		"name": getattr(localeInfo, "ITEMSHOP_CATEGORY_MOUNTS", "Wierzchowce"),
-		"action" : {
-			"type" : "items",
-			"items": [],
-			"range": "801-899",
-		},
-	},
-
 	ITEMSHOP_CATEGORY_FEATURED_INDEX: {
 		"name": localeInfo.ITEMSHOP_CATEGORY_FEATURED,
 		"color": colorInfo.DRAGON_COIN_COLOR,
@@ -160,7 +194,7 @@ ITEMSHOP_CATEGORIES = {
 		"color": colorInfo.DRAGON_COIN_COLOR,
 		"action" : {
 			"type" : "open_url",
-			"value" : "https://github.com/Doofenyoyo1/metin2_SP"
+			"value" : "https://buycoffee.to/mt2009plus"
 		},
 	},
 
@@ -595,20 +629,33 @@ class ItemShopWindow(ui.ScriptWindow):
 		for catIndex in ITEMSHOP_CATEGORIES_SORT:
 			self.__CreateCategoryButton(catIndex)
 
-			actionData = ITEMSHOP_CATEGORIES[catIndex]["action"]
-			if actionData["type"] == "items":
-				if actionData.has_key("range"):
-					rangesplit = actionData["range"].split("-")
-					self.__ResetCategoryItems(catIndex)
-					for i in range(int(rangesplit[0]), int(rangesplit[1])+1):
-						actionData["items"].append(i)
+	def __GetCategoryItems(self, categoryIndex):
+		actionData = self.__GetCategoryAction(categoryIndex)
+		result = list(actionData.get("items", []))
+		ranges = list(actionData.get("ranges", []))
+		if actionData.has_key("range"):
+			ranges.append(actionData["range"])
+
+		parsedRanges = []
+		for value in ranges:
+			rangeSplit = value.split("-")
+			parsedRanges.append((int(rangeSplit[0]), int(rangeSplit[1])))
+
+		if parsedRanges:
+			for itemIndex in constInfo.ITEMSHOP_DATA.iterkeys():
+				for rangeStart, rangeEnd in parsedRanges:
+					if rangeStart <= itemIndex <= rangeEnd:
+						if itemIndex not in result:
+							result.append(itemIndex)
+						break
+		return result
 
 
 	def __CreateCategoryButton(self, catIndex):
 		categoryData = ITEMSHOP_CATEGORIES[catIndex]
 		category_button_start_position_y = 88
 		category_button_height = 23
-		category_button_step_y = category_button_height + 0.5
+		category_button_step_y = category_button_height + 2.5
 
 		btn = ui.Button()
 		btn.SetParent(self.menuPanel)
@@ -702,7 +749,7 @@ class ItemShopWindow(ui.ScriptWindow):
 
 	def __ShowCategoryItems(self, categoryIndex):
 		isDragonVouchersCategory = categoryIndex == ITEMSHOP_CATEGORY_DRAGON_VOUCHER_INDEX
-		self.shopContent.ShowItemList(self.__GetCategoryAction(categoryIndex)["items"], ITEMSHOP_SORT_TYPE_PRICE if isDragonVouchersCategory else 0)
+		self.shopContent.ShowItemList(self.__GetCategoryItems(categoryIndex), ITEMSHOP_SORT_TYPE_PRICE if isDragonVouchersCategory else 0)
 		self.currentContent = self.shopContent
 
 	def ShowItemsByInput(self, input):

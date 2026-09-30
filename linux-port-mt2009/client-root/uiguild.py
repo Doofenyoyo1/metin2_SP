@@ -942,6 +942,16 @@ class GuildWindow(ui.ScriptWindow):
 			page.uploadMarkButton.SetEvent(ui.__mem_func__(self.__OnClickSelectGuildMarkButton))
 			page.uploadSymbolButton.SetEvent(ui.__mem_func__(self.__OnClickSelectGuildSymbolButton))
 			page.declareWarButton.SetEvent(ui.__mem_func__(self.__OnClickDeclareWarButton))
+			# MT2009_PLUS_GUILD_DUTY_V1: the leader's duties panel (uiguildduty.py).
+			page.guildDutyButton = ui.Button()
+			page.guildDutyButton.SetParent(page)
+			page.guildDutyButton.SetPosition(172, 264)
+			page.guildDutyButton.SetUpVisual("d:/ymir work/ui/public/large_button_01.sub")
+			page.guildDutyButton.SetOverVisual("d:/ymir work/ui/public/large_button_02.sub")
+			page.guildDutyButton.SetDownVisual("d:/ymir work/ui/public/large_button_03.sub")
+			page.guildDutyButton.SetText("Obowi\xb9zki")
+			page.guildDutyButton.SetEvent(ui.__mem_func__(self.__OnClickGuildDutyButton))
+			page.guildDutyButton.Hide()
 			page.GetChild("OfferButton").SetEvent(ui.__mem_func__(self.__OnClickOfferButton))
 			page.GetChild("GuildWidthdrawMoney").SetEvent(ui.__mem_func__(self.__OnClickWithdrawButton))
 			page.GetChild("EnemyGuildCancel1").Hide()
@@ -1429,6 +1439,13 @@ class GuildWindow(ui.ScriptWindow):
 		mainCharacterName = player.GetMainCharacterName()
 		masterName = guild.GetGuildMasterName()
 
+		# MT2009_PLUS_GUILD_DUTY_V1: the duties panel's button, the leader's only.
+		if getattr(page, "guildDutyButton", None):
+			if mainCharacterName == masterName:
+				page.guildDutyButton.Show()
+			else:
+				page.guildDutyButton.Hide()
+
 		if mainCharacterName == masterName:
 			page.uploadMarkButton.Show()
 
@@ -1682,6 +1699,11 @@ class GuildWindow(ui.ScriptWindow):
 			self.symbolSelectDialog.Open()
 		else:
 			self.__PopupMessage(localeInfo.GUILD_NO_NOTICE_PERMISSION)
+
+	# MT2009_PLUS_GUILD_DUTY_V1: the leader's duties panel.
+	def __OnClickGuildDutyButton(self):
+		import uiguildduty
+		uiguildduty.ToggleWindow()
 
 	def __OnClickDeclareWarButton(self):
 		inputDialog = DeclareGuildWarDialog()

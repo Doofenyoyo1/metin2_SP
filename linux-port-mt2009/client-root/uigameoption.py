@@ -33,7 +33,6 @@ class OptionDialog(ui.ScriptWindow):
 		self.RefreshNightModeButtons()
 		self.RefreshQuestTextButtons()
 		self.RefreshFloatingTextButtons()
-		self.RefreshBotTitleButtons()
 
 	def __del__(self):
 		ui.ScriptWindow.__del__(self)
@@ -55,7 +54,6 @@ class OptionDialog(ui.ScriptWindow):
 		self.nightButtonList = []
 		self.questTextButtonList = []
 		self.floatingTextButtonList = []
-		self.botTitleButtonList = []
 		self.toolTip = None
 
 	@ui.WindowDestroy
@@ -132,9 +130,6 @@ class OptionDialog(ui.ScriptWindow):
 			self.floatingTextButtonList.append(GetObject("floating_text_right"))
 			self.floatingTextButtonList.append(GetObject("floating_text_off"))
 
-			self.botTitleButtonList.append(GetObject("bot_title_personality_button"))
-			self.botTitleButtonList.append(GetObject("bot_title_classic_button"))
-
 		except:
 			import exception
 			exception.Abort("OptionDialog.__Load_BindObject")
@@ -199,9 +194,6 @@ class OptionDialog(ui.ScriptWindow):
 		self.floatingTextButtonList[0].SAFE_SetEvent(self.__OnClickFloatingTextButton, 1)
 		self.floatingTextButtonList[1].SAFE_SetEvent(self.__OnClickFloatingTextButton, 2)
 		self.floatingTextButtonList[2].SAFE_SetEvent(self.__OnClickFloatingTextButton, 0)
-
-		self.botTitleButtonList[0].SAFE_SetEvent(self.__OnClickBotTitleButton, 1)
-		self.botTitleButtonList[1].SAFE_SetEvent(self.__OnClickBotTitleButton, 0)
 
 		for i in range(len(self.nightButtonList)):
 			self.nightButtonList[i].SAFE_SetEvent(self.__OnClickNightModeButton, i)
@@ -376,24 +368,6 @@ class OptionDialog(ui.ScriptWindow):
 	def __OnClickFloatingTextButton(self, state):
 		systemSetting.SetShowFloatingText(state)
 		self.RefreshFloatingTextButtons()
-
-	# Whether a bot's personality shows in its own row over its head
-	# (NerrVoVy, 15 September; that row moved off the ranga/title spot
-	# 2026-09-16 - see playerbot_status_tail.py). playerbot_titles.cfg keeps
-	# the choice; the classic alignment title (ranga) is unaffected either way.
-	def __OnClickBotTitleButton(self, enabled):
-		import playerbot_status_tail
-		playerbot_status_tail.SetTitlesEnabled(enabled)
-		self.RefreshBotTitleButtons()
-
-	def RefreshBotTitleButtons(self):
-		import playerbot_status_tail
-		for btn in self.botTitleButtonList:
-			btn.SetUp()
-		if playerbot_status_tail.TitlesEnabled():
-			self.botTitleButtonList[0].Down()
-		else:
-			self.botTitleButtonList[1].Down()
 
 	def __CheckPvPProtectedLevelPlayer(self):
 		if player.GetStatus(player.LEVEL)<constInfo.PVPMODE_PROTECTED_LEVEL:

@@ -5,7 +5,7 @@ import localeInfo
 import uiScriptLocale
 import file_utils
 
-RULES_VERSION = 5
+RULES_VERSION = 4
 
 class GameRulesDialog(ui.ScriptWindow):
 	def __init__(self):

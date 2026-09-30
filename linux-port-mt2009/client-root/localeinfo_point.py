@@ -159,7 +159,7 @@ POINT_1000PCT_Tuple = (
 )
 
 ATTR_MAX_VALUES = {
-	player.POINT_MAX_HP: 2000,
+	player.POINT_MAX_HP: 1500,
 	player.POINT_MAX_SP: 250,
 	player.POINT_HT: 12,
 	player.POINT_IQ: 12,
@@ -204,12 +204,6 @@ ATTR_MAX_VALUES = {
 	player.POINT_IMMUNE_STUN: 1,
 	player.POINT_IMMUNE_SLOW: 1,
 	player.POINT_ATT_GRADE_BONUS: 50,
-	# The bonus table as the global server has it (item_attr_global_2231).
-	player.POINT_RESIST_FIRE: 15,
-	player.POINT_RESIST_ELEC: 15,
-	player.POINT_RESIST_WIND: 15,
-	player.POINT_EXP_DOUBLE_BONUS: 20,
-	player.POINT_ITEM_DROP_BONUS: 20,
 }
 
 def Is1000PCT(affectType):

@@ -7,8 +7,9 @@ import net
 import app
 import localeInfo
 import uiCommon
+import player
+import chat
 from _weakref import proxy
-from playerbot_lang import T
 
 YANG_PER_CHEQUE = 100000000
 
@@ -41,6 +42,19 @@ BOOK_VNUMS = (50300,)
 # zapisuje blad w interpreterze i wywala pozniejszy, niezwiazany kod - wolno pytac tylko o te numery.
 SKILL_IDS = tuple(range(1, 6) + range(16, 21) + range(31, 36) + range(46, 51) + range(61, 67) + range(76, 82) + range(91, 97) + range(106, 112))
 APPLY_INTERVAL = 0.25
+# "Kup wiele" (the operator, 28 September: "zaznaczam, ktore przedmioty chce
+# kupic, potem 'Kup wszystko' i kupuja sie po kolei"). A box on every row, the
+# header's box for the page; the offers go one at a time through /flea_buy, the
+# single purchase's own command, the next one once the server has answered the
+# last: the offer taken off the list (DeleteSearchResultItem) - bought when the
+# Yang went down, gone to somebody else when it did not. No answer within
+# MULTI_BUY_TIMEOUT is a refusal (no room in the bag, a changed price, a shop
+# in edit - the server says why in the chat) and ends the run.
+CHECK_SIZE = 16
+ICON_X = 28
+TEXT_X = 82
+MULTI_BUY_TIMEOUT = 5.0
+MULTI_BUY_GAP = 0.35
 
 # (nazwa, wciecie, stala/e typu z modulu item (string albo krotka stringow) albo "OTHER", stala podtypu)
 CATEGORY_DEFS = (
@@ -92,45 +106,12 @@ CATEGORY_VNUM_RANGE_OVERRIDES = (
 
 # (klucz, nazwa na przycisku, kod sortowania po stronie serwera: 0 cena rosnaco, 1 cena malejaco, 2 cena za sztuke)
 SORT_MODES = (
-    ("price_asc", T("Cena: rosnaco", "Price: low to high"), 0),
-    ("price_desc", T("Cena: malejaco", "Price: high to low"), 1),
-    ("unit_asc", T("Cena za sztuke", "Price per piece"), 2),
-    ("name", T("Nazwa A-Z", "Name A-Z"), 0),
-    ("seller", T("Sprzedawca A-Z", "Seller A-Z"), 0),
+    ("price_asc", "Cena: rosnaco", 0),
+    ("price_desc", "Cena: malejaco", 1),
+    ("unit_asc", "Cena za sztuke", 2),
+    ("name", "Nazwa A-Z", 0),
+    ("seller", "Sprzedawca A-Z", 0),
 )
-
-# A category's Polish label is its key - the vnum overrides above name it - and
-# a client set to any language but Polish shows this English name for it
-# (playerbot_lang.T).
-CATEGORY_NAMES_EN = {
-    "Wszystko": "All",
-    "Bron": "Weapons",
-    "Miecze jednoreczne": "One-handed swords",
-    "Miecze dwureczne": "Two-handed swords",
-    "Luki": "Bows",
-    "Sztylety": "Daggers",
-    "Dzwony": "Bells",
-    "Wachlarze": "Fans",
-    "Zbroje": "Armour",
-    "Helmy": "Helmets",
-    "Tarcze": "Shields",
-    "Buty": "Shoes",
-    "Bransolety": "Bracelets",
-    "Naszyjniki": "Necklaces",
-    "Kolczyki": "Earrings",
-    "Ksiegi": "Skill books",
-    "Ksiegi zapomnienia": "Forgetting books",
-    "Kamienie duszy": "Spirit stones",
-    "Rudy i przetopy": "Ores",
-    "Dopalacze": "Potions",
-    "Uzywalne": "Usable items",
-    "Ulepszacze": "Upgrade items",
-    "Inne": "Other",
-}
-
-
-def CategoryName(label):
-    return T(label, CATEGORY_NAMES_EN.get(label, label))
 
 
 # Etykiety kategorii, do ktorych vnum-owe wyjatki (patrz CATEGORY_VNUM_OVERRIDES/_RANGE_OVERRIDES
@@ -236,6 +217,59 @@ class FleaCategoryButton(ui.Window):
         return True
 
 
+class FleaCheckBox(ui.Window):
+    def __init__(self, event):
+        ui.Window.__init__(self)
+        self.event = event
+        self.checked = False
+        self.hover = False
+        self.SetSize(CHECK_SIZE, CHECK_SIZE)
+        self.border = self.__MakeBar(0, 0, CHECK_SIZE, CHECK_SIZE)
+        self.fill = self.__MakeBar(1, 1, CHECK_SIZE - 2, CHECK_SIZE - 2)
+        self.mark = ui.ImageBox()
+        self.mark.SetParent(self)
+        self.mark.LoadImage("d:/ymir work/ui/public/check_image.sub")
+        self.mark.SetPosition((CHECK_SIZE - self.mark.GetWidth()) // 2, (CHECK_SIZE - self.mark.GetHeight()) // 2)
+        self.mark.AddFlag("not_pick")
+        self.__Refresh()
+
+    def __MakeBar(self, x, y, width, height):
+        bar = ui.Bar()
+        bar.SetParent(self)
+        bar.SetPosition(x, y)
+        bar.SetSize(width, height)
+        bar.AddFlag("not_pick")
+        bar.Show()
+        return bar
+
+    def SetChecked(self, checked):
+        checked = bool(checked)
+        if checked != self.checked:
+            self.checked = checked
+            self.__Refresh()
+
+    def __Refresh(self):
+        self.border.SetColor(COLOR_GREEN if self.checked or self.hover else 0xFF8A8A8A)
+        self.fill.SetColor(0xFF1E3A26 if self.checked else 0xFF0A0A0A)
+        if self.checked:
+            self.mark.Show()
+        else:
+            self.mark.Hide()
+
+    def OnMouseOverIn(self):
+        self.hover = True
+        self.__Refresh()
+
+    def OnMouseOverOut(self):
+        self.hover = False
+        self.__Refresh()
+
+    def OnMouseLeftButtonUp(self):
+        if self.event:
+            self.event()
+        return True
+
+
 class FleaRow(ui.Window):
     ICON_BOX = 44
 
@@ -248,23 +282,29 @@ class FleaRow(ui.Window):
         self.SetSize(ROW_WIDTH, ROW_HEIGHT - 2)
 
         self.bg = self.__MakeBar(0, 0, ROW_WIDTH, ROW_HEIGHT - 2, 0x14FFFFFF)
-        self.frame = self.__MakeBar(6, 4, self.ICON_BOX, self.ICON_BOX, 0xAA000000)
+        self.frame = self.__MakeBar(ICON_X, 4, self.ICON_BOX, self.ICON_BOX, 0xAA000000)
+
+        # "Kup wiele": the offer's box.
+        self.check = FleaCheckBox(ui.__mem_func__(self.__OnCheck))
+        self.check.SetParent(self)
+        self.check.SetPosition(6, (ROW_HEIGHT - 2 - CHECK_SIZE) // 2)
+        self.check.Show()
 
         self.icon = ui.ExpandedImageBox()
         self.icon.SetParent(self)
-        self.icon.SetPosition(6, 4)
+        self.icon.SetPosition(ICON_X, 4)
         self.icon.AddFlag("not_pick")
         self.icon.Show()
 
-        self.countText = self.__MakeText(6, 4)
+        self.countText = self.__MakeText(ICON_X, 4)
         self.countText.SetOutline()
         self.countText.SetPackedFontColor(COLOR_TEXT)
 
-        self.nameText = self.__MakeText(60, 6)
+        self.nameText = self.__MakeText(TEXT_X, 6)
         self.nameText.SetPackedFontColor(COLOR_TEXT)
-        self.sellerText = self.__MakeText(60, 21)
+        self.sellerText = self.__MakeText(TEXT_X, 21)
         self.sellerText.SetPackedFontColor(COLOR_DIM)
-        self.bonusText = self.__MakeText(60, 35)
+        self.bonusText = self.__MakeText(TEXT_X, 35)
         self.bonusText.SetPackedFontColor(COLOR_BONUS)
 
         self.quantityText = self.__MakeText(340, 18)
@@ -287,7 +327,7 @@ class FleaRow(ui.Window):
         self.buyButton.SetUpVisual("d:/ymir work/ui/public/middle_button_01.sub")
         self.buyButton.SetOverVisual("d:/ymir work/ui/public/middle_button_02.sub")
         self.buyButton.SetDownVisual("d:/ymir work/ui/public/middle_button_03.sub")
-        self.buyButton.SetText(T("Kup", "Buy"))
+        self.buyButton.SetText("Kup")
         self.buyButton.SetEvent(self.__OnBuy)
         self.buyButton.Show()
 
@@ -324,31 +364,40 @@ class FleaRow(ui.Window):
         if biggest > self.ICON_BOX - 2:
             scale = float(self.ICON_BOX - 2) / biggest
         self.icon.SetScale(scale, scale)
-        self.icon.SetPosition(6 + int((self.ICON_BOX - width * scale) / 2), 4 + int((self.ICON_BOX - height * scale) / 2))
+        self.icon.SetPosition(ICON_X + int((self.ICON_BOX - width * scale) / 2), 4 + int((self.ICON_BOX - height * scale) / 2))
 
         count = data["count"]
         if count > 1:
             self.countText.SetText("%d" % count)
-            self.countText.SetPosition(6 + self.ICON_BOX - 6 - len(self.countText.GetText()) * 6, 4 + self.ICON_BOX - 14)
+            self.countText.SetPosition(ICON_X + self.ICON_BOX - 6 - len(self.countText.GetText()) * 6, 4 + self.ICON_BOX - 14)
             self.countText.Show()
         else:
             self.countText.Hide()
 
         self.nameText.SetText(self.market.GetItemName(data))
-        self.sellerText.SetText(T("Sprzedawca: %s", "Seller: %s") % data["seller_name"])
+        self.sellerText.SetText("Sprzedawca: %s" % data["seller_name"])
         bonuses = self.market.CountBonuses(data)
         if bonuses > 0:
-            self.bonusText.SetText(T("Bonusy: %d", "Bonuses: %d") % bonuses)
+            self.bonusText.SetText("Bonusy: %d" % bonuses)
         else:
             self.bonusText.SetText("")
         self.quantityText.SetText("x%d" % count if count > 1 else "")
         self.priceText.SetText(self.market.FormatPrice(data))
         if count > 1:
-            self.unitText.SetText(T("%s / szt.", "%s / pc.") % self.market.FormatUnitPrice(data))
+            self.unitText.SetText("%s / szt." % self.market.FormatUnitPrice(data))
         else:
             self.unitText.SetText("")
+        self.check.SetChecked(self.market.IsSelected(data))
         self.__RefreshBackground()
         self.Show()
+
+    def RefreshCheck(self):
+        if self.data:
+            self.check.SetChecked(self.market.IsSelected(self.data))
+
+    def __OnCheck(self):
+        if self.data:
+            self.market.ToggleSelected(self.data)
 
     def Clear(self):
         self.data = None
@@ -407,6 +456,10 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.keepers = []
         self.itemNames = None
         self.suggestionNames = []
+        # "Kup wiele": the ticked offers by (owner, item id), and the run.
+        self.selected = {}
+        self.multiBuy = None
+        self.popupDialog = None
         self.quantityDialog = offlineshopsearch.FleaMarketQuantityDialog(self)
         self.__Build()
         self.Hide()
@@ -419,13 +472,13 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.SetSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.AddFlag("movable")
         self.AddFlag("float")
-        self.SetTitleName(T("Dom Towarowy", "Flea Market"))
+        self.SetTitleName("Dom Towarowy")
         self.SetCloseEvent(self.Close)
 
         # panel kategorii
         self.__MakeCard(SIDEBAR_X, SIDEBAR_Y, SIDEBAR_WIDTH, len(self.categories) * CATEGORY_HEIGHT + 8)
         for index, category in enumerate(self.categories):
-            button = FleaCategoryButton(self, index, CategoryName(category["label"]), category["indent"])
+            button = FleaCategoryButton(self, index, category["label"], category["indent"])
             button.SetParent(self)
             button.SetPosition(SIDEBAR_X + 6, SIDEBAR_Y + 4 + index * CATEGORY_HEIGHT)
             button.Show()
@@ -433,22 +486,25 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.categoryButtons[0].SetSelected(True)
 
         # pasek wyszukiwania
-        label = self.__MakeText(MAIN_X, SIDEBAR_Y + 3, T("Nazwa:", "Name:"))
+        label = self.__MakeText(MAIN_X, SIDEBAR_Y + 3, "Nazwa:")
         label.SetPackedFontColor(COLOR_HEAD)
         self.searchEdit = self.__MakeEdit(MAIN_X + 46, SIDEBAR_Y, 330, 32)
         self.searchEdit.OnIMEUpdate = ui.__mem_func__(self.__OnSearchTextChanged)
         self.searchEdit.SAFE_SetReturnEvent(self.Search)
-        self.searchButton = self.__MakeButton(MAIN_X + 384, SIDEBAR_Y - 2, 84, T("Szukaj", "Search"), self.Search)
-        self.refreshButton = self.__MakeButton(MAIN_X + 474, SIDEBAR_Y - 2, 84, T("Odswiez", "Refresh"), self.Refresh)
-        self.clearButton = self.__MakeButton(MAIN_X + 564, SIDEBAR_Y - 2, 104, T("Wyczysc filtry", "Clear filters"), self.ClearFilters)
+        self.searchButton = self.__MakeButton(MAIN_X + 384, SIDEBAR_Y - 2, 84, "Szukaj", self.Search)
+        self.refreshButton = self.__MakeButton(MAIN_X + 474, SIDEBAR_Y - 2, 84, "Odswiez", self.Refresh)
+        self.clearButton = self.__MakeButton(MAIN_X + 564, SIDEBAR_Y - 2, 104, "Wyczysc filtry", self.ClearFilters)
 
-        label = self.__MakeText(MAIN_X, SIDEBAR_Y + 31, T("Cena od:", "Price:"))
+        label = self.__MakeText(MAIN_X, SIDEBAR_Y + 31, "Cena od:")
         label.SetPackedFontColor(COLOR_HEAD)
         self.priceMinEdit = self.__MakeEdit(MAIN_X + 56, SIDEBAR_Y + 28, 110, 12, True)
-        label = self.__MakeText(MAIN_X + 176, SIDEBAR_Y + 31, T("do:", "to:"))
+        label = self.__MakeText(MAIN_X + 176, SIDEBAR_Y + 31, "do:")
         label.SetPackedFontColor(COLOR_HEAD)
         self.priceMaxEdit = self.__MakeEdit(MAIN_X + 198, SIDEBAR_Y + 28, 110, 12, True)
         self.sortButton = self.__MakeButton(MAIN_X + 330, SIDEBAR_Y + 26, 150, SORT_MODES[0][1], self.CycleSort)
+        # "Kup wiele"
+        self.buyAllButton = self.__MakeButton(MAIN_X + 488, SIDEBAR_Y + 26, 120, "Kup wszystko (0)", self.AskBuySelected)
+        self.unselectButton = self.__MakeButton(MAIN_X + 612, SIDEBAR_Y + 26, 56, "Odznacz", self.ClearSelection)
 
         # podpowiedzi nazw
         self.suggestionBackground = ui.SlotBar()
@@ -467,9 +523,13 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
 
         # naglowek listy
         self.__MakeBar(MAIN_X, ROWS_Y - 20, ROW_WIDTH, 18, 0x33FFFFFF)
-        self.__MakeText(MAIN_X + 60, ROWS_Y - 18, T("Przedmiot", "Item")).SetPackedFontColor(COLOR_HEAD)
-        self.__MakeText(MAIN_X + 340, ROWS_Y - 18, T("Ilosc", "Quantity")).SetPackedFontColor(COLOR_HEAD)
-        priceHead = self.__MakeText(102, ROWS_Y - 18, T("Cena", "Price"))
+        self.pageCheck = FleaCheckBox(ui.__mem_func__(self.SelectPage))
+        self.pageCheck.SetParent(self)
+        self.pageCheck.SetPosition(MAIN_X + 6, ROWS_Y - 19)
+        self.pageCheck.Show()
+        self.__MakeText(MAIN_X + TEXT_X, ROWS_Y - 18, "Przedmiot").SetPackedFontColor(COLOR_HEAD)
+        self.__MakeText(MAIN_X + 340, ROWS_Y - 18, "Ilosc").SetPackedFontColor(COLOR_HEAD)
+        priceHead = self.__MakeText(102, ROWS_Y - 18, "Cena")
         priceHead.SetWindowHorizontalAlignRight()
         priceHead.SetHorizontalAlignRight()
         priceHead.SetPosition(114, ROWS_Y - 18)
@@ -493,8 +553,8 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         footerY = ROWS_Y + ROWS_PER_PAGE * ROW_HEIGHT + 8
         self.statusText = self.__MakeText(MAIN_X + 4, footerY + 4, "")
         self.statusText.SetPackedFontColor(COLOR_DIM)
-        self.previousButton = self.__MakeButton(MAIN_RIGHT - 190, footerY, 90, T("< Poprzednia", "< Previous"), self.PreviousPage)
-        self.nextButton = self.__MakeButton(MAIN_RIGHT - 94, footerY, 90, T("Nastepna >", "Next >"), self.NextPage)
+        self.previousButton = self.__MakeButton(MAIN_RIGHT - 190, footerY, 90, "< Poprzednia", self.PreviousPage)
+        self.nextButton = self.__MakeButton(MAIN_RIGHT - 94, footerY, 90, "Nastepna >", self.NextPage)
         self.pageText = self.__MakeText(MAIN_RIGHT - 300, footerY + 4, "")
         self.pageText.SetPackedFontColor(COLOR_TEXT)
 
@@ -582,6 +642,11 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
 
     @ui.WindowDestroy
     def Destroy(self):
+        self.multiBuy = None
+        self.selected = {}
+        if self.popupDialog:
+            self.popupDialog.Hide()
+            self.popupDialog = None
         if self.questionDialog:
             self.questionDialog.Close()
             self.questionDialog = None
@@ -818,6 +883,8 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             self.dirty = False
             self.nextApply = now + APPLY_INTERVAL
             self.ApplyFilters()
+        if self.multiBuy is not None:
+            self.__UpdateMultiBuy(now)
 
     # ---- kategorie, sortowanie, filtry ------------------------------------------------
     def SetCategory(self, index):
@@ -914,18 +981,23 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
 
         self.items = items
         self.page = 0
+        if self.selected:
+            # A fresh catalogue's offer stands for the ticked one (its price,
+            # its stack); one no longer listed keeps what was seen.
+            for data in self.allItems:
+                key = (data["owner"], data["id"])
+                if key in self.selected:
+                    self.selected[key] = data
         self.__RefreshRows()
 
     # ---- wyswietlanie -------------------------------------------------------------------
     def __UpdateStatus(self):
         if self.isLoading:
-            self.statusText.SetText(T("Wczytywanie ofert... pobrano %d", "Loading offers... %d received") % len(self.pendingItems))
+            self.statusText.SetText("Wczytywanie ofert... pobrano %d" % len(self.pendingItems))
         elif len(self.allItems) >= MAX_LISTINGS:
-            self.statusText.SetText(T("Pokazano %d ofert (limit) - zawez wyszukiwanie, zeby zobaczyc reszte.",
-                "Showing %d offers (the limit) - narrow the search to see the rest.") % len(self.allItems))
+            self.statusText.SetText("Pokazano %d ofert (limit) - zawez wyszukiwanie, zeby zobaczyc reszte." % len(self.allItems))
         else:
-            self.statusText.SetText(T("Ofert: %d (pasuje do filtrow: %d)", "Offers: %d (matching the filters: %d)")
-                % (len(self.allItems), len(self.items)))
+            self.statusText.SetText("Ofert: %d (pasuje do filtrow: %d)" % (len(self.allItems), len(self.items)))
 
     def __RefreshRows(self):
         first = self.page * ROWS_PER_PAGE
@@ -936,7 +1008,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             else:
                 self.rows[index].Clear()
         pageCount = (len(self.items) + ROWS_PER_PAGE - 1) // ROWS_PER_PAGE
-        self.pageText.SetText(T("Strona %d / %d", "Page %d / %d") % (self.page + 1 if pageCount else 0, pageCount))
+        self.pageText.SetText("Strona %d / %d" % (self.page + 1 if pageCount else 0, pageCount))
         if self.page > 0:
             self.previousButton.Enable()
         else:
@@ -945,12 +1017,13 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             self.nextButton.Enable()
         else:
             self.nextButton.Disable()
+        self.__RefreshSelection()
         if self.items:
             self.emptyText.SetText("")
         elif self.isLoading:
-            self.emptyText.SetText(T("Wczytywanie ofert...", "Loading offers..."))
+            self.emptyText.SetText("Wczytywanie ofert...")
         else:
-            self.emptyText.SetText(T("Brak ofert spelniajacych kryteria", "No offers match the filters"))
+            self.emptyText.SetText("Brak ofert spelniajacych kryteria")
         self.__UpdateStatus()
 
     def PreviousPage(self):
@@ -989,6 +1062,8 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.Refresh()
 
     def Close(self):
+        if self.multiBuy is not None:
+            self.__StopMultiBuy("Okno zamkniete - zakupy przerwane.", False)
         if self.questionDialog:
             self.questionDialog.Close()
             self.questionDialog = None
@@ -1005,6 +1080,9 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
 
     # ---- zakup -----------------------------------------------------------------------------
     def AskBuy(self, data):
+        if self.multiBuy is not None:
+            chat.AppendChat(chat.CHAT_TYPE_INFO, "Dom Towarowy: trwa kupowanie zaznaczonych ofert.")
+            return
         if self.questionDialog:
             self.questionDialog.Close()
         if data["count"] > 1:
@@ -1012,7 +1090,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             return
         item.SelectItem(data["vnum"])
         dialog = uiCommon.QuestionDialog()
-        dialog.SetText(T("Kupic %s za %s?", "Buy %s for %s?") % (item.GetItemName(), self.FormatPrice(data)))
+        dialog.SetText("Kupic %s za %s?" % (item.GetItemName(), self.FormatPrice(data)))
         dialog.acceptButton.SAFE_SetEvent(self.__AcceptBuy)
         dialog.SetDefaultCancelEvent()
         dialog.Open()
@@ -1046,8 +1124,177 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.ApplyFilters()
 
     def DeleteSearchResultItem(self, itemID):
+        state = self.multiBuy
+        if state is not None and state["current"] is not None and state["current"]["id"] == itemID:
+            # The server's answer to the run's purchase: the offer is off the
+            # list. The Yang went down first (the lock takes it), so a lower
+            # purse is a purchase and an unchanged one somebody else's.
+            offer = state["current"]
+            state["current"] = None
+            state["next"] = app.GetTime() + MULTI_BUY_GAP
+            if player.GetElk() < state["gold"] or (offer["price"] == 0 and offer.get("cheque", 0)):
+                state["bought"] += 1
+                state["yang"] += offer["price"]
+                state["cheque"] += offer.get("cheque", 0)
+            else:
+                state["gone"] += 1
+        for key in [key for key in self.selected if key[1] == itemID]:
+            del self.selected[key]
         self.allItems = [data for data in self.allItems if data["id"] != itemID]
         self.ApplyFilters()
+
+    # ---- kup wiele ---------------------------------------------------------------------
+    def IsSelected(self, data):
+        return (data["owner"], data["id"]) in self.selected
+
+    def ToggleSelected(self, data):
+        if self.multiBuy is not None:
+            return
+        key = (data["owner"], data["id"])
+        if key in self.selected:
+            del self.selected[key]
+        else:
+            self.selected[key] = data
+        self.__RefreshSelection()
+
+    def __PageOffers(self):
+        return [row.data for row in self.rows if row.data]
+
+    def SelectPage(self):
+        # The header's box: the whole page ticked, or - all of it ticked
+        # already - the whole page cleared.
+        if self.multiBuy is not None:
+            return
+        offers = self.__PageOffers()
+        if offers and all(self.IsSelected(data) for data in offers):
+            for data in offers:
+                self.selected.pop((data["owner"], data["id"]), None)
+        else:
+            for data in offers:
+                self.selected[(data["owner"], data["id"])] = data
+        self.__RefreshSelection()
+
+    def ClearSelection(self):
+        if self.multiBuy is not None:
+            return
+        self.selected = {}
+        self.__RefreshSelection()
+
+    def __RefreshSelection(self):
+        for row in self.rows:
+            row.RefreshCheck()
+        offers = self.__PageOffers()
+        self.pageCheck.SetChecked(bool(offers) and all(self.IsSelected(data) for data in offers))
+        if self.multiBuy is not None:
+            state = self.multiBuy
+            left = len(state["queue"]) + (1 if state["current"] is not None else 0)
+            self.buyAllButton.SetText("Przerwij (%d)" % left)
+        else:
+            self.buyAllButton.SetText("Kup wszystko (%d)" % len(self.selected))
+
+    def __SelectedInOrder(self):
+        # As the list shows them, then the ticked ones the filters now hide.
+        offers = []
+        seen = set()
+        for data in self.items + self.allItems + self.selected.values():
+            key = (data["owner"], data["id"])
+            if key in self.selected and key not in seen:
+                seen.add(key)
+                offers.append(self.selected[key])
+        return offers
+
+    def AskBuySelected(self):
+        if self.multiBuy is not None:
+            self.__StopMultiBuy("Przerwano.")
+            return
+        offers = self.__SelectedInOrder()
+        if not offers:
+            chat.AppendChat(chat.CHAT_TYPE_INFO, "Dom Towarowy: zaznacz oferty (kwadrat przy ofercie), a potem Kup wszystko.")
+            return
+        if self.questionDialog:
+            self.questionDialog.Close()
+        yang = sum([data["price"] for data in offers])
+        cheque = sum([data.get("cheque", 0) for data in offers])
+        dialog = uiCommon.QuestionDialog2()
+        dialog.SetText1("Kupic %d ofert za lacznie %s?" % (len(offers), self.FormatPrice({"price": yang, "cheque": cheque})))
+        if yang > player.GetElk():
+            dialog.SetText2("Masz za malo Yang na wszystkie - zakupy stana, gdy zabraknie.")
+        else:
+            dialog.SetText2("Kupuja sie po kolei; blad przerywa zakupy.")
+        dialog.acceptButton.SAFE_SetEvent(self.__AcceptBuySelected)
+        dialog.SetDefaultCancelEvent()
+        dialog.Open()
+        self.questionDialog = dialog
+
+    def __AcceptBuySelected(self):
+        if self.questionDialog:
+            self.questionDialog.Close()
+            self.questionDialog = None
+        if self.multiBuy is not None:
+            return
+        offers = self.__SelectedInOrder()
+        if not offers:
+            return
+        self.multiBuy = {"queue": offers, "total": len(offers), "current": None, "deadline": 0.0,
+                         "next": 0.0, "gold": 0, "bought": 0, "gone": 0, "yang": 0, "cheque": 0}
+        self.__RefreshSelection()
+
+    def __UpdateMultiBuy(self, now):
+        state = self.multiBuy
+        current = state["current"]
+        if current is not None:
+            if now >= state["deadline"]:
+                self.__StopMultiBuy("Serwer nie potwierdzil zakupu: %s - powod jest na czacie "
+                                    "(brak miejsca, zmieniona cena, sklep w edycji)." % self.GetItemName(current))
+            return
+        if now < state["next"]:
+            return
+        while state["queue"]:
+            data = state["queue"].pop(0)
+            if (data["owner"], data["id"]) not in self.selected:
+                # Gone from the list since it was ticked: somebody bought it.
+                state["gone"] += 1
+                continue
+            if data["price"] > player.GetElk():
+                self.__StopMultiBuy("Brakuje Yang na: %s (%s)." % (self.GetItemName(data), self.FormatPrice(data)))
+                return
+            if data.get("cheque", 0) and data["cheque"] > player.GetCheque():
+                self.__StopMultiBuy("Brakuje Won na: %s (%s)." % (self.GetItemName(data), self.FormatPrice(data)))
+                return
+            state["current"] = data
+            state["gold"] = player.GetElk()
+            state["deadline"] = now + MULTI_BUY_TIMEOUT
+            # The whole listing, at the price seen - /flea_buy as the single purchase sends it.
+            net.SendChatPacket("/flea_buy %d %d %d %d" % (data["owner"], data["id"], max(1, data["count"]),
+                                                          self.__GetTotalPrice(data)))
+            self.__RefreshSelection()
+            return
+        self.__StopMultiBuy(None)
+
+    def __StopMultiBuy(self, reason, popup=True):
+        state = self.multiBuy
+        self.multiBuy = None
+        if state is None:
+            return
+        lines = ["Kupiono %d z %d ofert za %s." % (state["bought"], state["total"],
+                                                   self.FormatPrice({"price": state["yang"], "cheque": state["cheque"]}))]
+        if state["gone"]:
+            lines.append("Juz sprzedane (pominiete): %d." % state["gone"])
+        if reason:
+            lines.append(reason)
+            if state["current"] is not None:
+                lines.append("Ostatni zakup moze sie jeszcze dokonczyc.")
+        for line in lines:
+            chat.AppendChat(chat.CHAT_TYPE_INFO, "Dom Towarowy: %s" % line)
+        self.__RefreshSelection()
+        if not popup or not self.IsShow():
+            return
+        if self.popupDialog:
+            self.popupDialog.Hide()
+        popup = uiCommon.PopupDialog()
+        popup.SetText("[ENTER]".join(lines))
+        popup.Open()
+        self.popupDialog = popup
 
     # Serwer wprowadzil juz gracza do sklepu, gdy ten callback dochodzi. Nigdy go nie porzucamy:
     # niewidoczny sklep gosci blokuje NPC, zmiane kanalu i wylogowanie do ponownego polaczenia.

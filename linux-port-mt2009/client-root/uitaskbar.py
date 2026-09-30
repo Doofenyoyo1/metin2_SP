@@ -504,11 +504,8 @@ class TaskBar(ui.ScriptWindow):
 		wnd.GetChild("button_camera").SetEvent(lambda adir=dir, aevent=self.EVENT_CAMERA: self.SelectMouseButtonEvent(adir, aevent))
 
 		self.toggleButtonDict = toggleButtonDict
-		# Towarzysz and Auto Lowy, when the bar has room for them (uiscript/taskbar.py).
-		if self.IsChild("SidekickButton"):
-			self.GetChild("SidekickButton").SetEvent(ui.__mem_func__(self.__OnClickSidekick))
-		if self.IsChild("AutoHuntButton"):
-			self.GetChild("AutoHuntButton").SetEvent(ui.__mem_func__(self.__OnClickAutoHunt))
+		# Towarzysz, Auto Lowy, the event calendar and the Battle Pass are in the
+		# inventory's side bar (uiinventory.SidebarWindow), not on this bar.
 		self.expGauge = expGauge
 
 		self.itemShopButton = self.GetChild("ItemShopButton")
@@ -540,14 +537,6 @@ class TaskBar(ui.ScriptWindow):
 
 	def __RampageGauge_OverOut(self):
 		self.rampageGauge1.Show()
-
-	def __OnClickSidekick(self):
-		import uisidekick
-		uisidekick.ToggleWindow()
-
-	def __OnClickAutoHunt(self):
-		import uiautohunt
-		uiautohunt.ToggleWindow()
 
 	def __RampageGauge_Click(self):
 		eventManager.EventManager().send_event(uiItemShop.EVENT_OPEN_ITEMSHOP)

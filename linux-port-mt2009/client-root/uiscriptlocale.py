@@ -38,8 +38,10 @@ name = app.GetLocalePath()
 __IS_ARABIC		= "locale/ae" == app.GetLocalePath()
 if app.ENABLE_LOCALE_COMMON and not __IS_ARABIC:
 	LOCALE_UISCRIPT_PATH = "UIScript/"
+	LOCALE_COMMON_UISCRIPT_PATH = "locale/common/ui/"
 else:
 	LOCALE_UISCRIPT_PATH = "%s/ui/" % (name)
+	LOCALE_COMMON_UISCRIPT_PATH = "locale/common/ui/"
 LOGIN_PATH = "%s/ui/login/" % (name)
 EMPIRE_PATH = "%s/ui/empire/" % (name)
 if app.ENABLE_LOCALE_COMMON and not __IS_ARABIC:
@@ -77,28 +79,3 @@ if app.ENABLE_LOCALE_COMMON:
 			LoadLocaleFile(filename, globals())
 	TryLoadLocaleFile("locale/common/locale_interface_ex.txt")
 	TryLoadLocaleFile("%s/locale_interface_ex.txt" % app.GetLocalePath())
-
-# Napisy, ktore do tej pory staly w skryptach na sztywno. Wartosc
-# domyslna jest polska, wiec kazdy inny jezyk widzi to, co dotad.
-globals().setdefault('BOT_TITLES_LABEL', 'Tytu³y botów')
-globals().setdefault('BOT_TITLES_PERSONALITY', 'Osobowoœæ')
-globals().setdefault('BOT_TITLES_OFF', 'Wy³¹czone')
-globals().setdefault('SYSTEM_VERSION', 'Wersja: %d.%d.%d%s')
-globals().setdefault('INVENTORY_SORT_STACK', 'Scal i uporz¹dkuj')
-globals().setdefault('INVENTORY_PAGE_BUTTON_TOOLTIP_3', '3. Ekwipunek')
-globals().setdefault('INVENTORY_PAGE_BUTTON_TOOLTIP_4', '4. Ekwipunek')
-globals().setdefault('CHARACTER_STATUS_TITLE', 'Status postaci')
-globals().setdefault('CHARACTER_ATTRIBUTES_TITLE', 'Atrybuty')
-globals().setdefault('ITEMSHOP_CATEGORIES', 'Kategorie')
-globals().setdefault('ITEMSHOP_ACCOUNT_STATE', 'Stan Konta')
-
-# Our own windows' texts that a uiscript names: Polish, or English for a
-# client set to any other language, as everything of ours (playerbot_lang.py).
-import playerbot_lang
-CHEST_PREVIEW_TOOLTIP = playerbot_lang.T('Podgl\xb9d skrzynki', 'Chest preview')
-SIDEKICK_TASKBAR_TOOLTIP = playerbot_lang.T('Towarzysz (P)', 'Companion (P)')
-AUTOHUNT_TASKBAR_TOOLTIP = playerbot_lang.T('Auto \xa3owy (K)', 'Auto Hunt (K)')
-
-if systemSetting.GetLanguage() == "en":
-	import english_gui
-	globals().update(english_gui.UI)

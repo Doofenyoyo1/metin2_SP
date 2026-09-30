@@ -69,7 +69,7 @@ class SystemDialog(ui.ScriptWindow):
 		self.GetChild("cancel_button").SAFE_SetEvent(self.Close)
 
 		data = constInfo.GAME_VERSION
-		version_string = uiScriptLocale.SYSTEM_VERSION % (
+		version_string = "Wersja: %d.%d.%d%s" % (
 			data["expansion"], data["major"], data["minor"], "b" if data["is_beta"] else "")
 		self.GetChild("GameVersion").SetText(version_string)
 
@@ -168,7 +168,7 @@ class SystemDialog(ui.ScriptWindow):
 			self.eventOpenHelpWindow()
 
 	def __ClickSupportButton(self):
-		utils.open_url("https://github.com/Doofenyoyo1/metin2_SP/issues")
+		utils.open_url("https://discord.gg/pt5tvnrN6")
 
 	def __OnMouseOverSupportButton(self):
 		if self.toolTip:

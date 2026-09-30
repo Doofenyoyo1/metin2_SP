@@ -73,9 +73,6 @@
 # uiinventory.py (DropIntoPlayerBag).
 #
 # Python 2.7 as the client has it; the Polish letters are CP1250 escapes.
-# Every text below is a Polish and English pair (playerbot_lang.T), English
-# for a client set to any language but Polish, read once at import; the
-# server's own result texts come in the language the client told it.
 
 import app
 import chat
@@ -90,7 +87,6 @@ import ui
 import uiToolTip
 import uisidekick
 import wndMgr
-from playerbot_lang import T
 
 EQ_PROTOCOL = 1
 SKILL_PROTOCOL = 1
@@ -213,48 +209,42 @@ STATUS_OFFSET = STAT_INFO_OFFSET + len(STAT_INFO_FIELDS)
 
 # Every status text fits the line it is written on (uisidekick.FitText cuts the
 # server's own if it must, and then the chat carries it whole).
-TEXT_EQ_TITLE = T('Ekwipunek towarzysza', "Companion's inventory")
-TEXT_WAITING = T('Czekam na odpowied\x9f serwera...', 'Waiting for the server...')
-TEXT_NONE = T((
+TEXT_EQ_TITLE = 'Ekwipunek towarzysza'
+TEXT_WAITING = 'Czekam na odpowied\x9f serwera...'
+TEXT_NONE = ((
 	'Nie masz jeszcze towarzysza.',
 	'Towarzysz nie jest teraz w grze.',
 	'Towarzysze s\xb9 tu wy\xb3\xb9czeni.',
-), (
-	'You have no companion yet.',
-	'Your companion is not in the game.',
-	'Companions are switched off here.',
 ))
-TEXT_OTHER_PROTOCOL = T('Zaktualizuj klienta i serwer.', 'Update the client and the server.')
+TEXT_OTHER_PROTOCOL = 'Zaktualizuj klienta i serwer.'
 TEXT_GOLD = 'Yang: %s'
-TEXT_UNPIN = T('Odepnij', 'Unpin')
-TEXT_UNPIN_HOW = T('Podnie\x9c go i kliknij Odepnij.', 'Pick it up and click Unpin.')
-TEXT_NOT_PINNED = T('Tego nie trzeba odpina\xe6.', 'Nothing to unpin there.')
-TEXT_WEAR_TO_WEAR = T('Zdejmij go najpierw do torby.', 'Take it off into the bag first.')
-TEXT_ONLY_FROM_BAG = T('Daj mu przedmiot z torby.', 'Give it an item from your bag.')
-TEXT_WHOLE_STACK = T('Towarzysz bierze tylko ca\xb3y stos.', 'Your companion takes whole stacks only.')
-TEXT_GIVE_YANG = T('Daj', 'Give')
-TEXT_TAKE_YANG = T('We\x9f', 'Take')
-TEXT_GIVE_YANG_TITLE = T('Daj yang towarzyszowi', 'Give yang to your companion')
-TEXT_TAKE_YANG_TITLE = T('We\x9f yang od towarzysza', 'Take yang from your companion')
-TEXT_YANG_AMOUNT = T('Kwota: ', 'Amount: ')
-TEXT_ITEM_MOVED = T('Towarzysz ju\xbf go przestawi\xb3.', 'Your companion has moved it already.')
+TEXT_UNPIN = 'Odepnij'
+TEXT_UNPIN_HOW = 'Podnie\x9c go i kliknij Odepnij.'
+TEXT_NOT_PINNED = 'Tego nie trzeba odpina\xe6.'
+TEXT_WEAR_TO_WEAR = 'Zdejmij go najpierw do torby.'
+TEXT_ONLY_FROM_BAG = 'Daj mu przedmiot z torby.'
+TEXT_WHOLE_STACK = 'Towarzysz bierze tylko ca\xb3y stos.'
+TEXT_GIVE_YANG = 'Daj'
+TEXT_TAKE_YANG = 'We\x9f'
+TEXT_GIVE_YANG_TITLE = 'Daj yang towarzyszowi'
+TEXT_TAKE_YANG_TITLE = 'We\x9f yang od towarzysza'
+TEXT_YANG_AMOUNT = 'Kwota: '
+TEXT_ITEM_MOVED = 'Towarzysz ju\xbf go przestawi\xb3.'
 TEXT_RESULTS = {
-	RESULT_DONE: T('Gotowe.', 'Done.'),
-	RESULT_NOT_IN_GAME: T('Towarzysz nie jest teraz w grze.', 'Your companion is not in the game.'),
-	RESULT_REFUSED: T('Towarzysz odm\xf3wi\xb3.', 'Your companion refused.'),
-	RESULT_NOTHING_THERE: T('Tam nic nie ma.', 'There is nothing there.'),
-	RESULT_BAD_ORDER: T('Z\xb3e polecenie.', 'A wrong order.'),
+	RESULT_DONE: 'Gotowe.',
+	RESULT_NOT_IN_GAME: 'Towarzysz nie jest teraz w grze.',
+	RESULT_REFUSED: 'Towarzysz odm\xf3wi\xb3.',
+	RESULT_NOTHING_THERE: 'Tam nic nie ma.',
+	RESULT_BAD_ORDER: 'Z\xb3e polecenie.',
 }
-TEXT_REFUSED = T('Nie uda\xb3o si\xea.', 'That did not work.')
-TEXT_TIP_PINNED = T('Za\xb3o\xbfone przez ciebie - towarzysz tego nie zdejmie',
-	'Put on by you - your companion will not take it off')
-TEXT_TIP_GIFT = T('Prezent od ciebie', 'A gift from you')
-TEXT_TIP_UNWANTED = T('Zdj\xeate przez ciebie - towarzysz sam tego nie za\xb3o\xbfy',
-	'Taken off by you - your companion will not put it on')
-TEXT_TIP_UNPIN = T('Ctrl + klik: odepnij', 'Ctrl + click: unpin')
-TEXT_TIP_EQUIP = T('Prawy klik: za\xb3\xf3\xbf', 'Right click: put on')
-TEXT_TIP_UNEQUIP = T('Prawy klik: zdejmij', 'Right click: take off')
-TEXT_SKILL_NAME = T('Umiej\xeatno\x9c\xe6 %d', 'Skill %d')
+TEXT_REFUSED = 'Nie uda\xb3o si\xea.'
+TEXT_TIP_PINNED = 'Za\xb3o\xbfone przez ciebie - towarzysz tego nie zdejmie'
+TEXT_TIP_GIFT = 'Prezent od ciebie'
+TEXT_TIP_UNWANTED = 'Zdj\xeate przez ciebie - towarzysz sam tego nie za\xb3o\xbfy'
+TEXT_TIP_UNPIN = 'Ctrl + klik: odepnij'
+TEXT_TIP_EQUIP = 'Prawy klik: za\xb3\xf3\xbf'
+TEXT_TIP_UNEQUIP = 'Prawy klik: zdejmij'
+TEXT_SKILL_NAME = 'Umiej\xeatno\x9c\xe6 %d'
 
 
 # ---------------------------------------------------------------- parsing
@@ -947,9 +937,9 @@ class EquipmentWindow(_Window):
 		self.bagSlots = grid
 		y += GRID_ROWS * CELL + 4
 
-		# The companion's yang, and the two ways it moves (upstream's server
-		# 2.2.27, our 2.2.30): the amount to the left edge and the buttons to
-		# the right, on the one line the 590 pixels leave.
+		# The companion's yang, and the two ways it moves (server 2.2.27): the
+		# amount to the left edge and the buttons to the right, on the one line
+		# the 590 pixels leave.
 		self._Image(self, 14, y + 1, MONEY_ICON_IMAGE)
 		self.goldLine = self._Label(self, 34, y, '')
 		self.giveYangButton = self._Btn(self, 'small', self.WIDTH - 98, y - 2, TEXT_GIVE_YANG, self.OnGiveYang)
@@ -1352,8 +1342,8 @@ def OnEqResult(*args):
 	(uisidekick.ShowResult). The status page's "+" has no line for one: its
 	answer is the chat's, and the number it changed says the rest. When the
 	window that asked is closed, in whatever of the companion's is open, and in
-	the chat with none open. An item the answer names for an English client
-	comes as "{i<vnum>}" and is written in in the client's words
+	the chat with none open. An item the answer names as "{i<vnum>}" is
+	written in in the client's words
 	(uisidekick.ExpandNames)."""
 	code = ParseInt(args[0], -1) if args else -1
 	text = ResultText(code, uisidekick.DecodeNamedText(args[1], RESULT_TEXT_BYTES) if len(args) > 1 else '')

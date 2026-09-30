@@ -4,17 +4,10 @@ import net
 from constInfo import TextColor
 app.ServerName = None
 
-# The mt2009 client's server list, pointed at the Docker stack on this machine.
-#
-# The package shipped it aimed at the author's VPS (217.182.201.101, auth
-# 17105, channels from 28000). This stack keeps the r40250 numbers so the
-# launcher, the panels and every player's firewall rule stay as they were:
-# auth 11000, channel N on 13000 + 10 * (N - 1) (the "first" core; the other
-# two cores of a channel are reached through the server's own map hand-over),
-# guild marks from the same first core.
-#
-# tools/eterpack.py --profile mt2009 repack puts this file back into
-# pack/root.index + root.data; the client reads nothing else.
+# Local configuration.
+# Auth: 11000; CH1: 13000; CH2: 13010.
+# The remaining map cores are reached through the server's own map hand-over.
+# This file is stored in pack/root.data and pack/root.index.
 
 def GetServerID():
 	serverID = 0
@@ -44,8 +37,8 @@ STATE_DICT = {
 	3: TextColor(localeInfo.CHANNEL_STATUS_FULL, "ff8a08") 			#ORANGE
 }
 
-SERVER_PRODUCTION = {
-	"name":TextColor("Metin2 SinglePlayer", "ffd500"), #GOLD
+SERVER_LOCALHOST = {
+	"name":TextColor("mt2009 localhost", "ffd500"), #GOLD
 	"host":"127.0.0.1",
 	"auth_base_port": 11000,
 	"auth_port_increment": 0,
@@ -53,74 +46,121 @@ SERVER_PRODUCTION = {
 	"auth_count": 1,
 	"channel_base_port": 13000,
 	"channel_port_increment": 10,
-	# Every channel past the first is the server's to switch on - the second
-	# (M2_PLAYERBOT_CH2) and the fresh cohort's third and fourth
-	# (M2_PLAYERBOT_FRESH_CHANNELS), the launcher's "Kanaly gry 1-4":
-	# intrologin lists one only while it answers, and finds the selected one
-	# by its channel, not by its line.
-	"channel_count": 4,
+	"channel_count": 2,
 	"mark":13000,
 	"mark_name": "10",
 	"premium_channels": (),
 }
 
-__AddServerToServerList(SERVER_PRODUCTION)
 
-# A friend's world (co-op): the launcher's "Dolacz" writes coop.cfg beside
-# the client from the host's invitation - one "key=value" a line, ASCII:
-# name, host, auth, channel, channels. The client enters the world and follows
-# every warp at this host with the port the server names (clientify.py's
-# SetGameHost), so the host's address is all a friend needs. Guild marks get a
-# name of their own, or the friend's world would draw over this one's. A file
-# that is missing or does not read leaves the list as it was.
-def __ReadCoopServer(path):
-	values = {}
-	try:
-		f = open(path, "r")
-	except IOError:
-		return None
-	try:
-		for line in f.readlines():
-			line = line.strip()
-			if not line or line.startswith("#") or "=" not in line:
-				continue
-			key, value = line.split("=", 1)
-			values[key.strip().lower()] = value.strip()
-	finally:
-		f.close()
-	host = values.get("host", "")
+def __IsValidCoopHost(host):
 	if not host or len(host) > 253:
-		return None
-	for c in host:
-		if not (c.isalnum() or c in ".-"):
-			return None
-	try:
-		auth = int(values.get("auth", "11000"))
-		channel = int(values.get("channel", "13000"))
-		channels = int(values.get("channels", "1"))
-	except ValueError:
-		return None
-	if not (0 < auth < 65536 and 0 < channel < 65536):
-		return None
-	name = "".join([c for c in values.get("name", host) if 32 <= ord(c) < 127])[:32] or host
-	return {
-		"name": TextColor("Online: %s" % name, "7fd7ff"),
-		"host": host,
-		"auth_base_port": auth,
-		"auth_port_increment": 0,
-		"auth_port_channel_increment": 0,
-		"auth_count": 1,
-		"channel_base_port": channel,
-		"channel_port_increment": 10,
-		"channel_count": max(1, min(channels, 4)),
-		"mark": channel,
-		"mark_name": "20",
-		"premium_channels": (),
-	}
+		return False
 
-SERVER_COOP = __ReadCoopServer("coop.cfg")
+	allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
+	for character in host:
+		if character not in allowed:
+			return False
+
+	# A value made only from digits and dots is an IPv4 address, so validate
+	# all four octets instead of accepting malformed forms such as 999.1.1.1.
+	if host.replace(".", "").isdigit():
+		parts = host.split(".")
+		if len(parts) != 4:
+			return False
+		for part in parts:
+			if not part or len(part) > 3 or int(part) > 255:
+				return False
+		return True
+
+	# DNS names may contain letters, digits, dots and hyphens. Each label must
+	# start and end with a letter or digit.
+	labels = host.split(".")
+	for label in labels:
+		if not label or len(label) > 63:
+			return False
+		if not label[0].isalnum() or not label[-1].isalnum():
+			return False
+	return True
+
+
+# coop.cfg and coop2.cfg: up to two worlds besides localhost, each file one
+# world in the same format (Ustaw_serwery.bat writes both).
+def __LoadCoopServer(path="coop.cfg", mark_name="10"):
+	try:
+		coop_file = open(path, "r")
+		try:
+			contents = coop_file.read(8193)
+		finally:
+			coop_file.close()
+
+		if len(contents) > 8192:
+			return None
+
+		settings = {}
+		for raw_line in contents.splitlines():
+			line = raw_line.strip()
+			if not line or line.startswith("#"):
+				continue
+			if "=" not in line:
+				return None
+			key, value = line.split("=", 1)
+			key = key.strip().lower()
+			value = value.strip()
+			if not key or key in settings:
+				return None
+			settings[key] = value
+
+		for required_key in ("name", "host", "auth", "channel", "channels"):
+			if required_key not in settings or not settings[required_key]:
+				return None
+
+		name = settings["name"]
+		host = settings["host"]
+		auth_port = int(settings["auth"])
+		channel_port = int(settings["channel"])
+		channel_count = int(settings["channels"])
+
+		if "\x00" in name or not __IsValidCoopHost(host):
+			return None
+		if auth_port < 1 or auth_port > 65535:
+			return None
+		if channel_port < 1 or channel_port > 65535:
+			return None
+		if channel_count < 1 or channel_count > 2:
+			return None
+		if channel_port + (channel_count - 1) * 10 > 65535:
+			return None
+
+		return {
+			"name": TextColor("Online: " + name, "57c7ff"), #LIGHT BLUE
+			"host": host,
+			"auth_base_port": auth_port,
+			"auth_port_increment": 0,
+			"auth_port_channel_increment": 0,
+			"auth_count": 1,
+			"channel_base_port": channel_port,
+			"channel_port_increment": 10,
+			"channel_count": channel_count,
+			"mark": channel_port,
+			"mark_name": mark_name,
+			"premium_channels": (),
+		}
+	# coop.cfg is optional and must never prevent the client from starting.
+	except:
+		return None
+
+
+__AddServerToServerList(SERVER_LOCALHOST)
+
+SERVER_COOP = __LoadCoopServer()
 if SERVER_COOP:
 	__AddServerToServerList(SERVER_COOP)
+
+SERVER_COOP2 = __LoadCoopServer("coop2.cfg")
+if SERVER_COOP2:
+	__AddServerToServerList(SERVER_COOP2)
+
 
 ## channel data
 for server_id, server_data in SERVER_LIST.items():

@@ -4273,6 +4273,7 @@ class Interface(object):
 		self.wndTaskBar = None
 		self.wndCharacter = None
 		self.wndInventory = None
+		self.wndGarbageBin = None
 		self.wndGMPanel = None
 		self.wndTop1Badge = None
 		self.wndPlayerbotAdmin = None
@@ -4405,6 +4406,7 @@ class Interface(object):
 		wndInventory.BindInterfaceClass(self)
 		if app.ENABLE_DRAGON_SOUL_SYSTEM:
 			wndDragonSoul = uiDragonSoul.DragonSoulWindow()
+			wndDragonSoul.BindInterfaceClass(self)
 			wndDragonSoulRefine = uiDragonSoul.DragonSoulRefineWindow()
 		else:
 			wndDragonSoul = None
@@ -4460,6 +4462,15 @@ class Interface(object):
 
 		self.wndCharacter = wndCharacter
 		self.wndInventory = wndInventory
+
+		# Where the character left these windows (uiwindowpos.py); the belt
+		# hangs on the inventory and follows it.
+		import uiwindowpos
+		def _InventoryMoved(wnd):
+			if getattr(wnd, "wndBelt", None):
+				wnd.wndBelt.AdjustPositionAndSize()
+		uiwindowpos.Track(wndInventory, "ekwipunek", _InventoryMoved)
+		uiwindowpos.Track(wndCharacter, "postac")
 		self.wndDragonSoul = wndDragonSoul
 		self.wndDragonSoulRefine = wndDragonSoulRefine
 		self.wndMiniMap = wndMiniMap
@@ -4654,6 +4665,52 @@ class Interface(object):
 			for line in traceback.format_exc().splitlines():
 				dbg.TraceError("    " + line)
 
+	def ToggleGarbageBinWindow(self):
+		if player.IsObserverMode():
+			return
+		if self.wndGarbageBin is None:
+			import uigarbagebin
+			self.wndGarbageBin = uigarbagebin.GarbageBinWindow()
+			self.wndGarbageBin.BindInterface(self)
+			self.wndGarbageBin.SetItemToolTip(self.tooltipItem)
+		if self.wndGarbageBin.IsShow():
+			self.wndGarbageBin.Close()
+		else:
+			self.wndGarbageBin.Open()
+
+	def GarbageBinReady(self, version):
+		if self.wndGarbageBin:
+			self.wndGarbageBin.OnReady(version)
+
+	def GarbageBinPrepared(self, req, token):
+		if self.wndGarbageBin:
+			self.wndGarbageBin.OnPrepared(req, token)
+
+	def GarbageBinRejected(self, req, reason):
+		if self.wndGarbageBin:
+			self.wndGarbageBin.OnRejected(req, reason)
+
+	def GarbageBinResult(self, req, status):
+		if self.wndGarbageBin:
+			self.wndGarbageBin.OnResult(req, status)
+
+	# The bin by the batch (server-patches/playerqol, uigarbagebin.py).
+	def GarbageBinBatch(self, version="0", *rest):
+		if self.wndGarbageBin:
+			self.wndGarbageBin.OnBatch(version)
+
+	def GarbageBinPreparedMany(self, req="0", token="", count="0", *rest):
+		if self.wndGarbageBin:
+			self.wndGarbageBin.OnPreparedMany(req, token, count)
+
+	def GarbageBinRejectedMany(self, req="0", index="0", reason="?", *rest):
+		if self.wndGarbageBin:
+			self.wndGarbageBin.OnRejectedMany(req, index, reason)
+
+	def GarbageBinResultMany(self, req="0", status="?", done="0", *rest):
+		if self.wndGarbageBin:
+			self.wndGarbageBin.OnResultMany(req, status, done)
+
 	def MakeInterface(self):
 		self.__MakeMessengerWindow()
 		self.__MakeGuildWindow()
@@ -4800,6 +4857,10 @@ class Interface(object):
 
 		if self.wndCharacter:
 			self.wndCharacter.Destroy()
+
+		if self.wndGarbageBin:
+			self.wndGarbageBin.Destroy()
+			self.wndGarbageBin = None
 
 		if self.wndInventory:
 			self.wndInventory.Destroy()
@@ -5379,6 +5440,8 @@ class Interface(object):
 			self.wndExpandedTaskBar.SetTop()
 
 	def HideAllWindows(self):
+		if self.wndGarbageBin:
+			self.wndGarbageBin.Close()
 		if self.wndTaskBar:
 			self.wndTaskBar.Hide()
 
@@ -5646,6 +5709,10 @@ class Interface(object):
 		if app.ENABLE_DRAGON_SOUL_SYSTEM:
 			self.wndDragonSoul.DeactivateDragonSoul()
 
+	if app.ENABLE_DS_SET:
+		def DragonSoulSetGrade(self, grade):
+			self.wndDragonSoul.SetDSSetGrade(grade)
+
 	def Highligt_Item(self, inven_type, inven_pos):
 		if player.DRAGON_SOUL_INVENTORY == inven_type:
 			if app.ENABLE_DRAGON_SOUL_SYSTEM:
@@ -5659,6 +5726,25 @@ class Interface(object):
 		self.DRAGON_SOUL_IS_QUALIFIED = True
 		if self.wndExpandedTaskBar:
 			self.wndExpandedTaskBar.SetToolTipText(uiTaskBar.ExpandedTaskBar.BUTTON_DRAGON_SOUL, uiScriptLocale.TASKBAR_DRAGON_SOUL)
+
+	def IsShowDlgQuestionWindow(self):
+		if self.wndInventory and self.wndInventory.IsDlgQuestionShow():
+			return True
+		if self.wndDragonSoul and self.wndDragonSoul.IsDlgQuestionShow():
+			return True
+		return False
+
+	def CloseDlgQuestionWindow(self):
+		if self.wndInventory and self.wndInventory.IsDlgQuestionShow():
+			self.wndInventory.CancelDlgQuestion()
+		if self.wndDragonSoul and self.wndDragonSoul.IsDlgQuestionShow():
+			self.wndDragonSoul.CancelDlgQuestion()
+
+	def SetUseItemMode(self, bUse):
+		if self.wndInventory:
+			self.wndInventory.SetUseItemMode(bUse)
+		if self.wndDragonSoul:
+			self.wndDragonSoul.SetUseItemMode(bUse)
 
 	def ToggleDragonSoulWindow(self):
 		if False == player.IsObserverMode():
@@ -5698,10 +5784,11 @@ class Interface(object):
 				if True == self.wndDragonSoulRefine.IsShow():
 					self.wndDragonSoulRefine.RefineSucceed(inven_type, inven_pos)
 
-	def OpenDragonSoulRefineWindow(self):
+	def OpenDragonSoulRefineWindow(self, refineType=0):
 		if False == player.IsObserverMode():
 			if app.ENABLE_DRAGON_SOUL_SYSTEM:
 				if False == self.wndDragonSoulRefine.IsShow():
+					self.wndDragonSoulRefine.SetWindowType(refineType)
 					self.wndDragonSoulRefine.Show()
 					if None != self.wndDragonSoul:
 						if False == self.wndDragonSoul.IsShow():
@@ -5842,6 +5929,8 @@ class Interface(object):
 			self.wndInventory.RefreshBagSlotWindow()
 
 	def __HideWindows(self):
+		if self.wndGarbageBin:
+			self.wndGarbageBin.Close()
 		hideWindows = self.wndTaskBar,\
 						self.wndCharacter,\
 						self.wndInventory,\

@@ -12,7 +12,6 @@ import player
 import net
 import chr
 import constInfo
-import playerbot_lang
 
 # A bot's offline shop is a person's grid twice over, side by side: one
 # grid twenty columns wide, cells 80-159 its right half row for row
@@ -518,7 +517,15 @@ class OfflineShopGuest(ui.ScriptWindow):
 
 	def HighlightFoundItems(self):
 		slotList = []
+		import offlineShopSearch
+		plusWhole = (constInfo.OFFLINESHOP_LAST_SEARCHED_CATEGORY == offlineShopSearch.SHOP_SEARCH_CATEGORY_PLUS and
+			len(constInfo.OFFLINESHOP_LAST_SEARCHED_ITEMS) != 1)
 		for slotIdx, data in self.shopInfo["items"].items():
+			# The MT2009 Plus category: a whole grade, whatever the look.
+			if plusWhole:
+				if offlineShopSearch.MatchPlus(constInfo.OFFLINESHOP_LAST_SEARCHED_SUBCATEGORY, data["vnum"]):
+					slotList.append(slotIdx)
+				continue
 			if constInfo.OFFLINESHOP_LAST_SEARCHED_CATEGORY == ikashop.SHOP_SEARCH_CATEGORY_ARMOR:
 				if constInfo.OFFLINESHOP_LAST_SEARCH_IS_ATTR and len(data["attrs"]) > 0 and data["attrs"][0][0] == 0:
 					continue

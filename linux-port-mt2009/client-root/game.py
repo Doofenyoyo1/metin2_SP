@@ -102,25 +102,19 @@ class GameWindow(ui.ScriptWindow):
 		# postaciom, ktore naprawde maja gm_level > 0.
 		constInfo.IsGM = False
 
-		# Znaczek Top1 (serwer: top1_badge_event, playerbot_manager.cpp): postac z
-		# najwyzszym poziomem dostaje nieuzywana flage afektu AFF_HAIR (serwer nr 40,
-		# czyli bit 39). Klient numeruje flagi od zera (AFFECT_YMIR=0 ... FIRE=28,
-		# stad "28" dla AFF_FIRE=29 w starym uiAffectShower), wiec bit 39 = HAIR.
-		# UWAGA: chr.AFFECT_CHINA_FIREWORK w tym buildzie zwraca 224 - to NIE jest
-		# numer bitu, dlatego stala jest wpisana wprost. Tu doczepiamy do niej efekt
-		# TOP1.mse - ten sam mechanizm, ktorym silnik rysuje znak GM (gm.mse dla
-		# AFFECT_YMIR), wiec rozmiar i miganie sa identyczne.
-		TOP1_AFFECT_BIT = 39
+		# Znaczek Top1 to tablica nad glowa (Top1Badge, interfacemodule.py).
+		# Dawna rejestracja efektu afektu wskazywala d:/ymir work/effect/gm/top1.mse,
+		# ktorego nie ma w zadnej paczce: kazdy start dopisywal blad LoadScript i
+		# linie sledzenia do syserr.txt, a nic nie rysowal - usunieta.
+
+		# Zestaw kostiumow (serwer: MT2009_PLUS_COSTUME_SET_V1, afekt 545): postac
+		# z pelnym zestawem ma nieuzywana flage AFF_FIRE_RAGE (serwer nr 45, czyli
+		# bit 44). Aura to blask specjalnej zbroi (armor-4-2-2.mse na "Bip01").
+		COSTUME_SET_AFFECT_BIT = 44
 		try:
-			# Zaczepienie na korzeniu postaci (""): przesuniecie z top1.mse jest wtedy
-			# pionowe (z=110 wypadalo w pasie, z=240 = tuz nad nazwa). Na kosci glowy
-			# ("Bip01 Head") obraca sie z kostka i laduje z boku postaci.
-			chrmgr.RegisterEffect(chrmgr.EFFECT_AFFECT + TOP1_AFFECT_BIT, "", "d:/ymir work/effect/gm/top1.mse")
-			dbg.TraceError("Top1 effect registered for affect bit %d (EFFECT_AFFECT=%s, POISON=%s, STUN=%s, MOV_SPEED=%s, FISH_MIND=%s)" % (
-				TOP1_AFFECT_BIT, getattr(chrmgr, "EFFECT_AFFECT", "?"), getattr(chr, "AFFECT_POISON", "?"),
-				getattr(chr, "AFFECT_STUN", "?"), getattr(chr, "AFFECT_MOV_SPEED_POTION", "?"), getattr(chr, "AFFECT_FISH_MIND", "?")))
+			chrmgr.RegisterEffect(chrmgr.EFFECT_AFFECT + COSTUME_SET_AFFECT_BIT, "Bip01", "d:/ymir work/pc/common/effect/armor/armor-4-2-2.mse")
 		except Exception, e:
-			dbg.TraceError("Top1 effect register failed: %s" % e)
+			dbg.TraceError("Costume set effect register failed: %s" % e)
 
 		self.quickSlotPageIndex = 0
 		self.lastPKModeSendedTime = 0
@@ -428,11 +422,35 @@ class GameWindow(ui.ScriptWindow):
 
 		constInfo.SET_ITEM_QUESTION_DIALOG_STATUS(0)
 
+		# The small windows of 28 September have no parent to go with.
+		import inventoryarrange
+		import uipickupfilter
+		inventoryarrange.DestroyChoice()
+		uipickupfilter.DestroyWindow()
+		import uieventcalendar
+		uieventcalendar.DestroyWindow()
+		import uibattlepass
+		uibattlepass.DestroyWindow()
+		# MT2009_PLUS_WHEEL_V1: Kolo Fortuny (uiwheel.py).
+		import uiwheel
+		uiwheel.DestroyWindow()
+		# MT2009_PLUS_GOBLIN_V1: the Treasure Hunt's windows (uigoblin.py).
+		__import__("uigoblin").DestroyWindow()
+		# MT2009_PLUS_NEW_PET_V1: the New Pet System's window (uinewpet.py).
+		__import__("uinewpet").DestroyWindow()
+		# MT2009_PLUS_GUILD_DUTY_V1: the guild leader's panel.
+		import uiguildduty
+		uiguildduty.DestroyWindow()
+
 		print("---------------------------------------------------------------------------- CLOSE GAME WINDOW")
 
 	def CreateUpdateables(self):
 		self.updateable = []
 		self.RegisterUpdatable(updateable.PickUpOnDownKey())
+		import uipickupfilter
+		self.RegisterUpdatable(uipickupfilter.PickupFilterSync())
+		import uicostumehide
+		self.RegisterUpdatable(uicostumehide.CostumeHideSync())
 		import uiautohunt
 		self.RegisterUpdatable(uiautohunt.GetHunter())
 
@@ -566,8 +584,23 @@ class GameWindow(ui.ScriptWindow):
 				self.cinemachineWindow.Toggle()
 
 	def __PressF5Key(self):
-		self.interface.offlineShopSearch.Open()
-		self.interface.GetInterfaceWindow("GlobalRankingsManager").Open()
+		# The shop search, opened and closed. The rankings window this also
+		# opened is not in this client, and F5 was bound only inside the
+		# cinema-camera block, which not every exe has.
+		search = self.interface.offlineShopSearch
+		if search.IsShow():
+			search.Close()
+		else:
+			search.Open()
+
+	def __PressZKey(self):
+		# Ctrl+Z: the pick-up filter's window (uipickupfilter.py); Z alone
+		# picks up, through the filter when it is on.
+		import uipickupfilter
+		if app.IsPressed(app.DIK_LCONTROL) or app.IsPressed(app.DIK_RCONTROL):
+			uipickupfilter.ToggleWindow()
+			return
+		net.SendChatPacket("/pickup_nearby")
 
 	def __BuildKeyDict(self):
 		onPressKeyDict = {}
@@ -623,8 +656,9 @@ class GameWindow(ui.ScriptWindow):
 		onPressKeyDict[app.DIK_PGDN]		= lambda: app.MovieZoomCamera(app.CAMERA_TO_POSITIVE)
 		onPressKeyDict[app.DIK_NUMPAD8]		= lambda: app.MoviePitchCamera(app.CAMERA_TO_NEGATIVE)
 		onPressKeyDict[app.DIK_NUMPAD2]		= lambda: app.MoviePitchCamera(app.CAMERA_TO_POSITIVE)
-		onPressKeyDict[app.DIK_GRAVE]		= lambda : self.PickUpNearbyItems()
-		onPressKeyDict[app.DIK_Z]			= lambda : self.PickUpItem()
+		onPressKeyDict[app.DIK_GRAVE]		= lambda : self.PickUpItem()
+		onPressKeyDict[app.DIK_Z]			= lambda : self.__PressZKey()
+		onPressKeyDict[app.DIK_F5]			= lambda : self.__PressF5Key()
 		onPressKeyDict[app.DIK_C]			= lambda state = "STATUS": self.interface.ToggleCharacterWindow(state)
 		onPressKeyDict[app.DIK_V]			= lambda state = "SKILL": self.interface.ToggleCharacterWindow(state)
 		#onPressKeyDict[app.DIK_B]			= lambda state = "EMOTICON": self.interface.ToggleCharacterWindow(state)
@@ -641,12 +675,18 @@ class GameWindow(ui.ScriptWindow):
 		# OpenPlayerbotAdminWindow - zwyklemu graczowi nic sie nie otworzy.
 		onPressKeyDict[app.DIK_F9]			= lambda : net.SendChatPacket("/gmpanel_open")
 		onPressKeyDict[app.DIK_F10]			= lambda : net.SendChatPacket("/botadmin")
+		# F11: the event calendar (uieventcalendar.py).
+		onPressKeyDict[app.DIK_F11]			= lambda : __import__("uieventcalendar").ToggleWindow()
+		# MT2009_PLUS_WHEEL_V1: F12 - Kolo Fortuny (uiwheel.py).
+		onPressKeyDict[app.DIK_F12]			= lambda : __import__("uiwheel").ToggleWindow()
+		# MT2009_PLUS_NEW_PET_V1: U - the New Pet System's window (uinewpet.py).
+		onPressKeyDict[app.DIK_U]			= lambda : __import__("uinewpet").ToggleWindow()
 		onPressKeyDict[app.DIK_COMMA]		= lambda : self.ShowConsole()		# "`" key
 		onPressKeyDict[app.DIK_LSHIFT]		= lambda : self.__ToggleSprint()
 
 		onPressKeyDict[app.DIK_TAB]			 = self.__PressTABKey
 
-		onPressKeyDict[app.DIK_J]			= lambda : self.__PressJKey()
+		onPressKeyDict[app.DIK_J] = lambda : self.interface.ToggleGarbageBinWindow()
 		onPressKeyDict[app.DIK_H]			= lambda : self.__PressHKey()
 		onPressKeyDict[app.DIK_B]			= lambda : self.__PressBKey()
 		onPressKeyDict[app.DIK_F]			= lambda : self.__PressFKey()
@@ -659,7 +699,6 @@ class GameWindow(ui.ScriptWindow):
 
 
 
-		onPressKeyDict[app.DIK_U]			= lambda : self.__ToggleBonusSwitcher()
 		# CUBE_TEST
 		#onPressKeyDict[app.DIK_K]			= lambda : self.interface.OpenCubeWindow()
 		onPressKeyDict[app.DIK_K]			= lambda : self.__ToggleAutoHunt()
@@ -707,11 +746,34 @@ class GameWindow(ui.ScriptWindow):
 
 
 
+	def __QuickChangeChannel(self, channel):
+		import serverInfo
+		try:
+			server = serverInfo.SERVER_LIST[serverInfo.GetServerID()]
+			count = len(server["channel"])
+			premium = channel in server["main"]["premium_channels"]
+		except Exception:
+			count, premium = 2, False
+		if channel > count:
+			chat.AppendChat(chat.CHAT_TYPE_INFO, "Ten serwer nie ma kana\xb3u %d." % channel)
+			return
+		if premium and not (constInfo.AFFECT_DICT.has_key(chr.NEW_AFFECT_SUBSCRIPTION) or constInfo.IS_MARRIAGE_PREMIUM):
+			chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.CHANNEL_SWITCH_PREMIUM_ERROR)
+			return
+		chat.AppendChat(chat.CHAT_TYPE_INFO, "Zmiana kana\xb3u na CH%d..." % channel)
+		net.SendChatPacket("/change_channel %d" % channel)
+
 	def __PressNumKey(self,num):
 		if app.ENABLE_CINEMACHINE:
 			if self.isCinemaMode:
 				self.TestFreeCamera(num)
 				return
+
+		# Alt+1 / Alt+2: straight to channel 1 or 2, without the channel
+		# window (the operator, 28 September). The window's own command.
+		if (app.IsPressed(app.DIK_LALT) or app.IsPressed(app.DIK_RALT)) and num in (1, 2):
+			self.__QuickChangeChannel(num)
+			return
 
 		if app.IsPressed(app.DIK_LCONTROL) or app.IsPressed(app.DIK_RCONTROL):
 
@@ -759,7 +821,7 @@ class GameWindow(ui.ScriptWindow):
 		# The keeper ends with the game window; the next one hears the
 		# VID again, because a warp is a new login on the server.
 		import sidekickcollision
-		sidekickcollision.SetVid(vid)
+		sidekickcollision.SetVid(vid, *rest)
 		for keeper in self.updateable:
 			if isinstance(keeper, sidekickcollision.Keeper):
 				return
@@ -770,41 +832,6 @@ class GameWindow(ui.ScriptWindow):
 			net.SendChatPacket("/user_horse_feed")
 		else:
 			app.ZoomCamera(app.CAMERA_TO_POSITIVE)
-
-	def __KeepSidekickWindow(self):
-		# The keeper closes the companion's window with the game window.
-		import uisidekick
-		for keeper in self.updateable:
-			if isinstance(keeper, uisidekick.Keeper):
-				return
-		self.RegisterUpdatable(uisidekick.GetKeeper())
-
-	def __ToggleSidekick(self):
-		self.__KeepSidekickWindow()
-		import uisidekick
-		uisidekick.ToggleWindow()
-
-	def __SidekickWindow(self, *rest):
-		self.__KeepSidekickWindow()
-		import uisidekick
-		uisidekick.OpenWindow()
-
-	def __SidekickInfo(self, *args):
-		self.__KeepSidekickWindow()
-		import uisidekick
-		uisidekick.OnServerInfo(*args)
-
-	def __SidekickNames(self, name="-", place="-", doing="-", *rest):
-		import uisidekick
-		uisidekick.OnServerNames(name, place, doing)
-
-	def __SidekickGear(self, slot="0", name="-", *rest):
-		import uisidekick
-		uisidekick.OnServerGear(slot, name)
-
-	def __AutoHuntOff(self, *rest):
-		import uiautohunt
-		uiautohunt.OnServerOff(*rest)
 
 	def __PressGKey(self):
 		if app.IsPressed(app.DIK_LCONTROL) or app.IsPressed(app.DIK_RCONTROL):
@@ -891,6 +918,37 @@ class GameWindow(ui.ScriptWindow):
 		import uiautohunt
 		uiautohunt.ToggleWindow()
 
+	def __KeepSidekickWindow(self):
+		import uisidekick
+		for keeper in self.updateable:
+			if isinstance(keeper, uisidekick.Keeper):
+				return
+		self.RegisterUpdatable(uisidekick.GetKeeper())
+
+	def __ToggleSidekick(self):
+		self.__KeepSidekickWindow()
+		import uisidekick
+		uisidekick.ToggleWindow()
+
+	def __SidekickWindow(self, *rest):
+		self.__KeepSidekickWindow()
+		import uisidekick
+		uisidekick.OpenWindow()
+
+	def __SidekickInfo(self, *args):
+		self.__KeepSidekickWindow()
+		import uisidekick
+		uisidekick.OnServerInfo(*args)
+
+	def __SidekickNames(self, name="-", place="-", doing="-", *rest):
+		import uisidekick
+		uisidekick.OnServerNames(name, place, doing)
+
+	def __SidekickGear(self, slot="0", name="-", *rest):
+		import uisidekick
+		uisidekick.OnServerGear(slot, name)
+
+
 	def __AutoHuntTarget(self, vid="0", *rest):
 		import uiautohunt
 		uiautohunt.OnServerTarget(vid)
@@ -898,6 +956,10 @@ class GameWindow(ui.ScriptWindow):
 	def __AutoHuntLoot(self, vid="0", x="0", y="0", *rest):
 		import uiautohunt
 		uiautohunt.OnServerLoot(vid, x, y)
+
+	def __AutoHuntOff(self, *rest):
+		import uiautohunt
+		uiautohunt.OnServerOff(*rest)
 
 	def __ToggleSprint(self):
 		slotIndex = 105 # sprint slot index
@@ -1354,6 +1416,13 @@ class GameWindow(ui.ScriptWindow):
 
 		eventManager.EventManager().send_event(eventManager.ADD_AFFECT_EVENT, type, pointIdx, value, duration)
 
+		if chr.NEW_AFFECT_DRAGON_SOUL_DECK1 == type or chr.NEW_AFFECT_DRAGON_SOUL_DECK2 == type:
+			self.interface.DragonSoulActivate(type - chr.NEW_AFFECT_DRAGON_SOUL_DECK1)
+		elif chr.NEW_AFFECT_DRAGON_SOUL_QUALIFIED == type:
+			self.BINARY_DragonSoulGiveQuilification()
+		elif app.ENABLE_DS_SET and chr.NEW_AFFECT_DS_SET == type:
+			self.interface.DragonSoulSetGrade(value)
+
 	def BINARY_NEW_RemoveAffect(self, type, pointIdx):
 		self.affectBar.RemoveAffect(type, pointIdx)
 		if constInfo.AFFECT_DICT.has_key(type):
@@ -1361,6 +1430,11 @@ class GameWindow(ui.ScriptWindow):
 
 			if len(constInfo.AFFECT_DICT[type]) == 0:
 				constInfo.AFFECT_DICT.pop(type)
+
+		if chr.NEW_AFFECT_DRAGON_SOUL_DECK1 == type or chr.NEW_AFFECT_DRAGON_SOUL_DECK2 == type:
+			self.interface.DragonSoulDeactivate()
+		elif app.ENABLE_DS_SET and chr.NEW_AFFECT_DS_SET == type:
+			self.interface.DragonSoulSetGrade(0)
 
 	def BINARY_NEW_CurrentChannel(self, channelID):
 		if self.interface and self.interface.wndMiniMap:
@@ -1857,19 +1931,12 @@ class GameWindow(ui.ScriptWindow):
 	def StopRight(self):
 		player.SetSingleDIKKeyState(app.DIK_RIGHT, False)
 
-	def __ToggleBonusSwitcher(self):
-		import uibonusswitch
-		switcher = uibonusswitch.GetSwitcher()
-		if switcher not in self.updateable:
-			self.RegisterUpdatable(switcher)
-		uibonusswitch.ToggleWindow()
-
 	def PickUpItem(self):
+		import uipickupfilter
+		if uipickupfilter.IsActive():
+			net.SendChatPacket("/pickup_nearby")
+			return
 		player.PickCloseItem()
-
-	def PickUpNearbyItems(self):
-		import pickupnearby
-		pickupnearby.Request()
 
 	###############################################################################################
 	###############################################################################################
@@ -2239,6 +2306,10 @@ class GameWindow(ui.ScriptWindow):
 			if self.__gmCheckFrames > 300:
 				self.__gmCheckSent = True
 				net.SendChatPacket("/gmpanel_check_gm")
+				# The event calendar's mini icon and its schedule (uieventcalendar.py).
+				__import__("uieventcalendar").Start()
+				# MT2009_PLUS_NEW_PET_V1: the New Pet System's pet back after the loading screen.
+				__import__("uinewpet").Start()
 
 		constInfo.FIXED_TIME_SINCE_START += FIXED_TIMESTEP_UPDATE
 		self.oneSecondTimer += FIXED_TIMESTEP_UPDATE
@@ -2378,6 +2449,12 @@ class GameWindow(ui.ScriptWindow):
 		if app.IsPressed(app.DIK_LSHIFT):
 			self.interface.OpenWhisperDialogWithoutTarget()
 		else:
+			# MT2009_PLUS_COR_ENTER_V1: with the Cor Draconis (dragon soul) refine
+			# window open and its slots filled, Enter presses its refine button.
+			# An open chat input keeps the old behaviour (Enter closes the chat).
+			wndDSRefine = getattr(self.interface, "wndDragonSoulRefine", None) if self.interface else None
+			if wndDSRefine and not self.interface.IsOpenChat() and wndDSRefine.PressDoRefineByEnter():
+				return True
 			self.interface.ToggleChat()
 		return True
 
@@ -2571,8 +2648,8 @@ class GameWindow(ui.ScriptWindow):
 	def BINARY_DragonSoulGiveQuilification(self):
 		self.interface.DragonSoulGiveQuilification()
 
-	def BINARY_DragonSoulRefineWindow_Open(self):
-		self.interface.OpenDragonSoulRefineWindow()
+	def BINARY_DragonSoulRefineWindow_Open(self, refineType):
+		self.interface.OpenDragonSoulRefineWindow(refineType)
 
 	def BINARY_DragonSoulRefineWindow_RefineFail(self, reason, inven_type, inven_pos):
 		self.interface.FailDragonSoulRefine(reason, inven_type, inven_pos)
@@ -2683,6 +2760,39 @@ class GameWindow(ui.ScriptWindow):
 
 	def __ServerCommand_Build(self):
 		serverCommandList={
+			"OpenGarbageBin": self.interface.ToggleGarbageBinWindow,
+			"GarbageBin": self.interface.ToggleGarbageBinWindow,
+			"GarbageBinReady": self.interface.GarbageBinReady,
+			"GarbageBinPrepared": self.interface.GarbageBinPrepared,
+			"GarbageBinRejected": self.interface.GarbageBinRejected,
+			"GarbageBinResult": self.interface.GarbageBinResult,
+			"GarbageBinBatch": self.interface.GarbageBinBatch,
+			"GarbageBinPreparedMany": self.interface.GarbageBinPreparedMany,
+			"GarbageBinRejectedMany": self.interface.GarbageBinRejectedMany,
+			"GarbageBinResultMany": self.interface.GarbageBinResultMany,
+			"OpenPickupFilter": self.__OpenPickupFilter,
+			"PickupFilterAck": self.__PickupFilterAck,
+			# The event calendar's schedule (uieventcalendar.py).
+			"EventCalBegin": self.__EventCalBegin,
+			"EventCal": self.__EventCal,
+			"EventCalEnd": self.__EventCalEnd,
+			# The Battle Pass (uibattlepass.py).
+			"BPBegin": self.__BattlePassBegin,
+			"BPMission": self.__BattlePassMission,
+			"BPDesc": self.__BattlePassDesc,
+			"BPEnd": self.__BattlePassEnd,
+			"BPUpdate": self.__BattlePassUpdate,
+			# MT2009_PLUS_GUILD_DUTY_V1: the guild leader's panel (uiguildduty.py).
+			"GDBegin": self.__GuildDutyBegin,
+			"GDCollect": self.__GuildDutyCollect,
+			"GDDonor": self.__GuildDutyDonor,
+			"GDMission": self.__GuildDutyMission,
+			"GDWorker": self.__GuildDutyWorker,
+			"GDBank": self.__GuildDutyBank,
+			"GDTower": self.__GuildDutyTower,
+			"GDEnd": self.__GuildDutyEnd,
+			"GDUpdate": self.__GuildDutyUpdate,
+			"CostumeHiddenAck": self.__CostumeHiddenAck,
 			"ConsoleEnable"			: self.__Console_Enable,
 			"GameMaster"			: self.__GameMaster,
 			"DayMode"				: self.__DayMode_Update,
@@ -2709,6 +2819,7 @@ class GameWindow(ui.ScriptWindow):
 			"FleaPriceQuote"		: self.FleaPriceQuote,
 			"FleaMarketStackUpdate"	: self.FleaMarketStackUpdate,
 			"FleaPriceRange"		: self.FleaPriceRange,
+			"FleaPriceSales"		: self.FleaPriceSales,
 			"ShowMeMallPassword"	: self.AskMallPassword,
 			"item_mall"				: self.__ItemMall_Open,
 			# END_OF_ITEM_MALL
@@ -2754,7 +2865,6 @@ class GameWindow(ui.ScriptWindow):
 			"GMPanelAIWeightsResult"	: self.__GMPanelAIWeightsResult,
 			"GMPanelSetAIWeightResult"	: self.__GMPanelSetAIWeightResult,
 
-			"PlayerBotTitle"				: self.__PlayerBotTitle,
 			"OpenPlayerbotAdminWindow"			: self.__PlayerbotAdmin_Open,
 			"PlayerbotAdminStats"				: self.__PlayerbotAdmin_Stats,
 			"PlayerbotAdminBotRow"				: self.__PlayerbotAdmin_BotRow,
@@ -2764,21 +2874,23 @@ class GameWindow(ui.ScriptWindow):
 			"PlayerbotAdminAchievementRow"		: self.__PlayerbotAdmin_AchievementRow,
 			"PlayerbotAdminAchievementsEnd"	: self.__PlayerbotAdmin_AchievementsEnd,
 			"PlayerbotOverhead"				: self.__PlayerbotAdmin_Overhead,
+			"PlayerBotTitle"				: self.__PlayerBotTitle,
 			"PlayerBotStatus"				: self.__PlayerBotStatus,
 			"Top1Badge"							: self.__OnTop1Badge,
 			"AutoHuntTarget"				: self.__AutoHuntTarget,
 			"AutoHuntLoot"					: self.__AutoHuntLoot,
+			"AutoHuntOff"					: self.__AutoHuntOff,
+			"InventoryArrangeResult"		: self.__InventoryArrangeResult,
+			"SidekickInfo"					: self.__SidekickInfo,
+			"SidekickNames"					: self.__SidekickNames,
+			"SidekickGear"					: self.__SidekickGear,
+			"SidekickWindow"				: self.__SidekickWindow,
 
 			# fishing
 			"FishingGameStart": self.FishingGameStart,
 			"FishingGameStop": self.FishingGameStop,
 			"FishingGameCooldown": self.FishingGameCooldown,
 			"FishingGameEvent": self.FishingGameEvent,
-
-			# "Scal i uporzadkuj" (inventoryarrange.py)
-			"InventoryArrangeResult"	: self.__InventoryArrangeResult,
-			"SafeboxArrangeResult"	: self.__SafeboxArrangeResult,
-			"SafeboxTransferResult"	: self.__SafeboxTransferResult,
 
 			# WEDDING
 			"lover_login"			: self.__LoginLover,
@@ -2812,7 +2924,6 @@ class GameWindow(ui.ScriptWindow):
 			"UpdateSpecialShop": self.UpdateSpecialShop,
 
 			"CloseBusyWindows": self.CloseBusyWindows,
-			"PlayerBotLanguage": self.__PlayerBotLanguage,
 
 			"maintenance": self.Maintenance,
 
@@ -2822,11 +2933,6 @@ class GameWindow(ui.ScriptWindow):
 	        "event": self.__ProcessServerEvent,
 		}
 
-		serverCommandList["SidekickInfo"] = self.__SidekickInfo
-		serverCommandList["SidekickNames"] = self.__SidekickNames
-		serverCommandList["SidekickGear"] = self.__SidekickGear
-		serverCommandList["SidekickWindow"] = self.__SidekickWindow
-		serverCommandList["AutoHuntOff"] = self.__AutoHuntOff
 		serverCommandList["GlobalRankingWipe"] = self.__Global_Ranking__RecvWipe
 		serverCommandList["GlobalRankingUpdatePacket"] = self.__Global_Ranking__RecvData
 		serverCommandList["SidekickVid"] = self.__SidekickVid
@@ -2840,6 +2946,9 @@ class GameWindow(ui.ScriptWindow):
 		serverCommandList["SidekickSkillBegin"] = self.__SidekickSkillBegin
 		serverCommandList["SidekickSkill"] = self.__SidekickSkill
 		serverCommandList["SidekickSkillEnd"] = self.__SidekickSkillEnd
+		serverCommandList["WOF"] = self.__WheelOfFortune # MT2009_PLUS_WHEEL_V1
+		serverCommandList["NewPet"] = self.__NewPet # MT2009_PLUS_NEW_PET_V1
+		serverCommandList["GOB"] = self.__Goblin # MT2009_PLUS_GOBLIN_V1
 
 		self.serverCommander=stringCommander.Analyzer()
 		for serverCommandItem in serverCommandList.items():
@@ -2878,10 +2987,6 @@ class GameWindow(ui.ScriptWindow):
 			chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.SHOP_EDIT_MODE_ON)
 		else:
 			chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.SHOP_EDIT_MODE_OFF)
-
-	def __PlayerBotLanguage(self, *rest):
-		import playerbot_lang
-		playerbot_lang.AnswerServer()
 
 	def SprintOnboarding(self):
 		self.interface.ToggleCharacterWindow("SKILL")
@@ -3400,6 +3505,102 @@ class GameWindow(ui.ScriptWindow):
 	# HP_REAL_VALUES: serwer dosyla realne HP/MaxHP celu (obok zwyklego
 	# procentowego pakietu targetu), bo TPacketGCTarget przewozi tylko
 	# procent. Aktualizujemy tekst na pasku HP tylko jesli to nadal ten sam cel.
+	def __OpenPickupFilter(self, *rest):
+		import uipickupfilter
+		uipickupfilter.OpenWindow()
+
+	def __PickupFilterAck(self, *rest):
+		import uipickupfilter
+		uipickupfilter.OnAck(*rest)
+
+	def __EventCalBegin(self, *args):
+		import uieventcalendar
+		uieventcalendar.OnBegin(*args)
+
+	def __EventCal(self, *args):
+		import uieventcalendar
+		uieventcalendar.OnLine(*args)
+
+	def __EventCalEnd(self, *args):
+		import uieventcalendar
+		uieventcalendar.OnEnd(*args)
+
+	def __BattlePassBegin(self, *args):
+		import uibattlepass
+		uibattlepass.OnBegin(*args)
+
+	def __BattlePassMission(self, *args):
+		import uibattlepass
+		uibattlepass.OnMission(*args)
+
+	def __BattlePassDesc(self, *args):
+		import uibattlepass
+		uibattlepass.OnDesc(*args)
+
+	def __BattlePassEnd(self, *args):
+		import uibattlepass
+		uibattlepass.OnEnd(*args)
+
+	def __BattlePassUpdate(self, *args):
+		import uibattlepass
+		uibattlepass.OnUpdate(*args)
+
+	# MT2009_PLUS_WHEEL_V1: the Kolo Fortuny server's answers (uiwheel.py).
+	def __WheelOfFortune(self, *args):
+		import uiwheel
+		uiwheel.OnCommand(*args)
+
+	# MT2009_PLUS_NEW_PET_V1: the New Pet System's lines (uinewpet.py).
+	def __NewPet(self, *args):
+		import uinewpet
+		uinewpet.OnCommand(*args)
+
+	# MT2009_PLUS_GOBLIN_V1: the Treasure Hunt's lines (uigoblin.py).
+	def __Goblin(self, *args):
+		import uigoblin
+		uigoblin.OnCommand(self, *args)
+
+	# MT2009_PLUS_GUILD_DUTY_V1: the guild leader's panel (uiguildduty.py).
+	def __GuildDutyBegin(self, *args):
+		import uiguildduty
+		uiguildduty.OnBegin(*args)
+
+	def __GuildDutyCollect(self, *args):
+		import uiguildduty
+		uiguildduty.OnCollect(*args)
+
+	def __GuildDutyDonor(self, *args):
+		import uiguildduty
+		uiguildduty.OnDonor(*args)
+
+	def __GuildDutyMission(self, *args):
+		import uiguildduty
+		uiguildduty.OnMission(*args)
+
+	def __GuildDutyWorker(self, *args):
+		import uiguildduty
+		uiguildduty.OnWorker(*args)
+
+	def __GuildDutyBank(self, *args):
+		import uiguildduty
+		uiguildduty.OnBank(*args)
+
+	def __GuildDutyTower(self, *args):
+		import uiguildduty
+		uiguildduty.OnTower(*args)
+
+	def __GuildDutyEnd(self, *args):
+		import uiguildduty
+		uiguildduty.OnEnd(*args)
+
+	def __GuildDutyUpdate(self, *args):
+		import uiguildduty
+		uiguildduty.OnUpdate(*args)
+
+	def __CostumeHiddenAck(self, *rest):
+		import uicostumehide
+		uicostumehide.OnAck(*rest)
+
 	def __TargetHP(self, vid, hp, maxHp):
 		try:
 			vid = int(vid)
@@ -3408,6 +3609,10 @@ class GameWindow(ui.ScriptWindow):
 		except ValueError:
 			return
 		self.targetBoard.SetRealHP(vid, hp, maxHp)
+		# Auto Lowy let a target go at 0 HP: this exe has no
+		# player.IsTargetDead, and a corpse was hit until its model vanished.
+		import uiautohunt
+		uiautohunt.OnServerTargetHP(vid, hp, maxHp)
 
 	# The Dom Towarowy (Uxie [DSO]): the merchant opens its window, the
 	# counter gets its price hint, and a stack the market sold part of
@@ -3430,6 +3635,11 @@ class GameWindow(ui.ScriptWindow):
 		if self.interface:
 			self.interface.offlineShopManage.SetFleaMarketPriceRange(
 				int(requestID), int(minPrice), int(maxPrice))
+
+	def FleaPriceSales(self, requestID, lastSalePrice, medianPrice, medianUnits, *rest):
+		if self.interface:
+			self.interface.offlineShopManage.SetFleaMarketPriceSales(
+				int(requestID), int(lastSalePrice), int(medianPrice), int(medianUnits))
 
 	def __EnableTestServerFlag(self):
 		app.EnableTestServerFlag()
@@ -3617,6 +3827,10 @@ class GameWindow(ui.ScriptWindow):
 		if self.interface.wndPlayerbotAdmin:
 			self.interface.wndPlayerbotAdmin.OnAchievementRow(id, pid, name)
 
+	def __PlayerbotAdmin_AchievementsEnd(self):
+		if self.interface.wndPlayerbotAdmin:
+			self.interface.wndPlayerbotAdmin.OnAchievementsEnd()
+
 	def __PlayerBotTitle(self, vid="0", personality="-1", *rest):
 		# A bot's personality where a player's alignment title stands
 		# (playerbot_status_tail.py; ManagePlayerBotPersonalityTitle on the server).
@@ -3625,9 +3839,11 @@ class GameWindow(ui.ScriptWindow):
 			self.playerbotTitleKeeper = playerbot_status_tail.GetTitleKeeper()
 			self.RegisterUpdatable(self.playerbotTitleKeeper)
 
-	def __PlayerbotAdmin_AchievementsEnd(self):
-		if self.interface.wndPlayerbotAdmin:
-			self.interface.wndPlayerbotAdmin.OnAchievementsEnd()
+	def __PlayerBotStatus(self, vid="0", encodedText="", *rest):
+		# A bot's status as a text tail and nothing in the chat history
+		# (playerbot_status_tail.py; SendPlayerBotOverheadChat on the server).
+		import playerbot_status_tail
+		playerbot_status_tail.show(vid, encodedText, *rest)
 
 	def __PlayerbotAdmin_Overhead(self, vid, wire):
 		# Broadcast to everyone nearby the bot (see SendPlayerBotOverheadTail,
@@ -3637,12 +3853,6 @@ class GameWindow(ui.ScriptWindow):
 			if self.interface.wndPlayerbotAdmin:
 				self.interface.wndPlayerbotAdmin.OnOverheadTail(vid, wire)
 
-	def __PlayerBotStatus(self, vid="0", encodedText="", *rest):
-		# A bot's status as a text tail and nothing in the chat history
-		# (playerbot_status_tail.py; SendPlayerBotOverheadChat on the server).
-		import playerbot_status_tail
-		playerbot_status_tail.show(vid, encodedText, *rest)
-
 	# Same transport as PlayerbotOverhead above (SendPlayerBotOverheadTail),
 	# but not GM-gated - the "Top1" badge over the server's current highest
 	# level character is meant for everyone (top1_badge_event,
@@ -3650,14 +3860,6 @@ class GameWindow(ui.ScriptWindow):
 	def __OnTop1Badge(self, vid):
 		if self.interface.wndTop1Badge:
 			self.interface.wndTop1Badge.Refresh(vid)
-
-	def __SafeboxArrangeResult(self, code="0", moved="0", merged="0", units="0", *rest):
-		import safeboxtransfer
-		safeboxtransfer.OnArrangeResult(code, moved, merged, units)
-
-	def __SafeboxTransferResult(self, op="0", code="0", units="0", *rest):
-		import safeboxtransfer
-		safeboxtransfer.OnTransferResult(op, code, units)
 
 	def __InventoryArrangeResult(self, code="0", moved="0", merged="0", units="0", *rest):
 		import inventoryarrange

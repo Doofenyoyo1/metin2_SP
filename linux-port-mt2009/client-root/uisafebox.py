@@ -11,7 +11,6 @@ import uiScriptLocale
 import eventManager
 import uiInventory
 import item
-import safeboxtransfer
 
 EVENT_QUICK_REMOVE_SAFEBOX_ITEM = "EVENT_QUICK_REMOVE_SAFEBOX_ITEM" # args | type: string, slotNumber: number
 
@@ -231,9 +230,6 @@ class SafeboxWindow(ui.ScriptWindow):
 		if self.dlgPickMoney:
 			self.dlgPickMoney.Destroy()
 			self.dlgPickMoney = None
-		if getattr(self, "dlgPickItem", None):
-			self.dlgPickItem.Destroy()
-			self.dlgPickItem = None
 		if self.dlgChangePassword:
 			self.dlgChangePassword.Destroy()
 			self.dlgChangePassword = None
@@ -285,13 +281,6 @@ class SafeboxWindow(ui.ScriptWindow):
 		self.GetChild("TitleBar").SetCloseEvent(ui.__mem_func__(self.Close))
 		self.GetChild("ChangePasswordButton").SetEvent(ui.__mem_func__(self.OnChangePassword))
 		self.GetChild("ExitButton").SetEvent(ui.__mem_func__(self.Close))
-		# "Scal i uporzadkuj" (uiscript/safeboxwindow.py) and the count a
-		# stack is split with (safeboxtransfer.py).
-		try:
-			self.GetChild("ArrangeButton").SetEvent(ui.__mem_func__(self.__OnArrangeButton))
-		except KeyError:
-			pass
-		self.dlgPickItem = safeboxtransfer.MakePickDialog(ui.__mem_func__(self.__OnPickItem))
 
 		self.wndItem = wndItem
 		self.dlgPickMoney = dlgPickMoney
@@ -422,8 +411,6 @@ class SafeboxWindow(ui.ScriptWindow):
 
 		self.dlgPickMoney.Close()
 		self.dlgChangePassword.Close()
-		if getattr(self, "dlgPickItem", None):
-			self.dlgPickItem.Close()
 		self.Hide()
 
 	## Slot Event
@@ -438,7 +425,7 @@ class SafeboxWindow(ui.ScriptWindow):
 
 			if player.SLOT_TYPE_SAFEBOX == attachedSlotType:
 
-				safeboxtransfer.DropInSafebox(attachedSlotPos, selectedSlotPos, mouseModule.mouseController.GetAttachedItemCount(), False)
+				net.SendSafeboxItemMovePacket(attachedSlotPos, selectedSlotPos)
 				#snd.PlaySound("sound/ui/drop.wav")
 			else:
 				attachedInvenType = player.SlotTypeToInvenType(attachedSlotType)
@@ -450,7 +437,7 @@ class SafeboxWindow(ui.ScriptWindow):
 					snd.PlaySound("sound/ui/money.wav")
 
 				else:
-					safeboxtransfer.DropIntoSafebox(attachedInvenType, attachedSlotPos, selectedSlotPos, mouseModule.mouseController.GetAttachedItemCount(), False)
+					self.AddItemToSafebox(attachedInvenType, attachedSlotPos, selectedSlotPos)
 					#snd.PlaySound("sound/ui/drop.wav")
 
 			mouseModule.mouseController.DeattachObject()
@@ -471,11 +458,11 @@ class SafeboxWindow(ui.ScriptWindow):
 
 				else:
 					attachedSlotPos = mouseModule.mouseController.GetAttachedSlotNumber()
-					safeboxtransfer.DropIntoSafebox(player.INVENTORY, attachedSlotPos, selectedSlotPos, mouseModule.mouseController.GetAttachedItemCount(), True)
+					#net.SendSafeboxCheckinPacket(attachedSlotPos, selectedSlotPos)
 					#snd.PlaySound("sound/ui/drop.wav")
 			elif player.SLOT_TYPE_SAFEBOX == attachedSlotType:
 				attachedSlotPos = mouseModule.mouseController.GetAttachedSlotNumber()
-				safeboxtransfer.DropInSafebox(attachedSlotPos, selectedSlotPos, mouseModule.mouseController.GetAttachedItemCount(), True)
+				net.SendSafeboxItemMovePacket(attachedSlotPos, selectedSlotPos)
 
 			mouseModule.mouseController.DeattachObject()
 
@@ -488,9 +475,6 @@ class SafeboxWindow(ui.ScriptWindow):
 			elif app.BUY == curCursorNum:
 				chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.SHOP_BUY_INFO)
 
-			elif app.IsPressed(app.DIK_LSHIFT) and safebox.GetItemCount(selectedSlotPos) > 1:
-				self.__OpenPickItem(selectedSlotPos)
-
 			else:
 				selectedItemID = safebox.GetItemID(selectedSlotPos)
 				mouseModule.mouseController.AttachObject(self, player.SLOT_TYPE_SAFEBOX, selectedSlotPos, selectedItemID)
@@ -501,19 +485,6 @@ class SafeboxWindow(ui.ScriptWindow):
 
 	def RemoveItemFromSafebox(self, slotPos):
 		pass
-
-	def __OnArrangeButton(self):
-		safeboxtransfer.RequestArrange()
-
-	def __OpenPickItem(self, slotPos):
-		self.dlgPickItem.SetTitleName(localeInfo.PICK_ITEM_TITLE)
-		self.dlgPickItem.Open(safebox.GetItemCount(slotPos))
-		self.dlgPickItem.itemGlobalSlotIndex = slotPos
-
-	def __OnPickItem(self, count, *rest):
-		slotPos = self.dlgPickItem.itemGlobalSlotIndex
-		mouseModule.mouseController.AttachObject(self, player.SLOT_TYPE_SAFEBOX, slotPos, safebox.GetItemID(slotPos), count)
-		snd.PlaySound("sound/ui/pick.wav")
 
 	def OnQuickAddInventoryItem(self, type, slotNumber):
 		if type != "safebox":

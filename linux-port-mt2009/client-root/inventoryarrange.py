@@ -16,8 +16,7 @@
 # about to change.
 #
 # The texts are CP1250, the client's own, written as escapes so the file stays
-# ASCII, each a Polish and English pair (playerbot_lang.T): English for a
-# client set to any language but Polish. Python 2.7 as the client has it.
+# ASCII. Python 2.7 as the client has it.
 
 import app
 import clientclock
@@ -25,7 +24,8 @@ import chat
 import mouseModule
 import net
 import uiPrivateShopBuilder
-from playerbot_lang import T
+import ui
+import wndMgr
 
 PENDING_TIMEOUT = 5.0
 
@@ -40,23 +40,28 @@ RESULT_INCONSISTENT = 6
 RESULT_UNSUPPORTED = 7
 RESULT_BAD_REQUEST = 8
 
-MSG_DONE = T('Uporz\xb9dkowano ekwipunek: przestawiono %d, scalono stos\xf3w: %d.',
-	'Inventory sorted: %d moved, %d stacks merged.')
-MSG_NOTHING = T('Ekwipunek jest ju\xbf uporz\xb9dkowany.', 'The inventory is already sorted.')
-MSG_BUSY = T('Nie mo\xbfna teraz uporz\xb9dkowa\xe6 ekwipunku - zamknij handel, sklep lub inne okno.',
-	'The inventory cannot be sorted now - close the trade, the shop or the other window.')
-MSG_COOLDOWN = T('Odczekaj chwil\xea przed kolejnym porz\xb9dkowaniem.', 'Wait a moment before sorting again.')
-MSG_NO_LAYOUT = T('Nie uda\xb3o si\xea u\xb3o\xbfy\xe6 ekwipunku - nic nie zmieniono.',
-	'The inventory could not be laid out - nothing was changed.')
-MSG_DEAD = T('Nie mo\xbfesz porz\xb9dkowa\xe6 ekwipunku po \x9cmierci.', 'You cannot sort the inventory while dead.')
-MSG_INCONSISTENT = T('Ekwipunek jest w nieoczekiwanym stanie - nic nie zmieniono. Zg\xb3o\x9c to na GitHubie.',
-	'The inventory is in an unexpected state - nothing was changed. Please report it on GitHub.')
-MSG_UNSUPPORTED = T('Serwer nie obs\xb3uguje porz\xb9dkowania ekwipunku.', 'The server cannot sort the inventory.')
-MSG_ATTACHED = T('Od\xb3\xf3\xbf najpierw przedmiot trzymany kursorem.', 'Put down the item on your cursor first.')
-MSG_SHOP = T('Nie mo\xbfna porz\xb9dkowa\xe6 ekwipunku podczas otwierania sklepu.',
-	'The inventory cannot be sorted while a shop is being opened.')
+MSG_DONE = 'Uporz\xb9dkowano ekwipunek: przestawiono %d, scalono stos\xf3w: %d.'
+MSG_NOTHING = 'Ekwipunek jest ju\xbf uporz\xb9dkowany.'
+MSG_BUSY = 'Nie mo\xbfna teraz uporz\xb9dkowa\xe6 ekwipunku - zamknij handel, sklep lub inne okno.'
+MSG_COOLDOWN = 'Odczekaj chwil\xea przed kolejnym porz\xb9dkowaniem.'
+MSG_NO_LAYOUT = 'Nie uda\xb3o si\xea u\xb3o\xbfy\xe6 ekwipunku - nic nie zmieniono.'
+MSG_DEAD = 'Nie mo\xbfesz porz\xb9dkowa\xe6 ekwipunku po \x9cmierci.'
+MSG_INCONSISTENT = 'Ekwipunek jest w nieoczekiwanym stanie - nic nie zmieniono. Zg\xb3o\x9c to na Discordzie.'
+MSG_UNSUPPORTED = 'Serwer nie obs\xb3uguje porz\xb9dkowania ekwipunku.'
+MSG_ATTACHED = 'Od\xb3\xf3\xbf najpierw przedmiot trzymany kursorem.'
+MSG_SHOP = 'Nie mo\xbfna porz\xb9dkowa\xe6 ekwipunku podczas otwierania sklepu.'
 
-_state = {'pendingUntil': 0.0}
+MSG_MERGED = 'Po\xb3\xb9czono stosy: %d. Reszta ekwipunku zosta\xb3a na miejscu.'
+MSG_NOTHING_MERGE = 'Nie ma stos\xf3w do po\xb3\xb9czenia.'
+
+# "Uporzadkuj" or "tylko scal stosy" (the operator, 28 September: "mozna
+# wybrac albo samo ukladanie z laczeniem w stacki albo samo laczenie w
+# stacki bez sortowania"): the button opens ChoiceWindow, and the merge
+# asks "/inventory_arrange merge" (server-patches/playerqol).
+MODE_ARRANGE = 0
+MODE_MERGE = 1
+
+_state = {'pendingUntil': 0.0, 'mode': MODE_ARRANGE, 'choice': None}
 
 
 def _int(value):
@@ -70,7 +75,7 @@ def IsPending():
 	return clientclock.Now() < _state['pendingUntil']
 
 
-def Request():
+def Request(mode=MODE_ARRANGE):
 	if IsPending():
 		return False
 	if mouseModule.mouseController.isAttached():
@@ -80,8 +85,72 @@ def Request():
 		chat.AppendChat(chat.CHAT_TYPE_INFO, MSG_SHOP)
 		return False
 	_state['pendingUntil'] = clientclock.Now() + PENDING_TIMEOUT
-	net.SendChatPacket('/inventory_arrange')
+	_state['mode'] = mode
+	net.SendChatPacket('/inventory_arrange merge' if mode == MODE_MERGE else '/inventory_arrange')
 	return True
+
+
+class ChoiceWindow(ui.ThinBoard):
+	WIDTH = 196
+	HEIGHT = 70
+
+	def __init__(self):
+		ui.ThinBoard.__init__(self)
+		self.AddFlag('float')
+		self.SetSize(self.WIDTH, self.HEIGHT)
+		self.widgets = []
+		self._Btn(8, 8, 'U\xb3\xf3\xbf i scal', MODE_ARRANGE)
+		self._Btn(8, 36, 'Tylko scal stosy', MODE_MERGE)
+
+	def _Btn(self, x, y, text, mode):
+		button = ui.Button()
+		button.SetParent(self)
+		button.SetPosition(x, y)
+		button.SetUpVisual('d:/ymir work/ui/public/xlarge_button_01.sub')
+		button.SetOverVisual('d:/ymir work/ui/public/xlarge_button_02.sub')
+		button.SetDownVisual('d:/ymir work/ui/public/xlarge_button_03.sub')
+		button.SetText(text)
+		button.SAFE_SetEvent(self.OnChoose, mode)
+		button.Show()
+		self.widgets.append(button)
+
+	def OnChoose(self, mode):
+		self.Hide()
+		Request(mode)
+
+	def OpenAt(self, x, y):
+		(sw, sh) = (wndMgr.GetScreenWidth(), wndMgr.GetScreenHeight())
+		self.SetPosition(max(0, min(x - self.WIDTH // 2, sw - self.WIDTH)), max(0, min(y + 12, sh - self.HEIGHT)))
+		self.Show()
+		self.SetTop()
+
+	def OnPressEscapeKey(self):
+		self.Hide()
+		return True
+
+	def Destroy(self):
+		self.Hide()
+		self.widgets = []
+
+
+def OpenChoice():
+	"""The inventory's button: where the cursor is, the two ways to tidy."""
+	window = _state['choice']
+	if window is None:
+		window = ChoiceWindow()
+		_state['choice'] = window
+	if window.IsShow():
+		window.Hide()
+		return
+	(x, y) = wndMgr.GetMousePosition()
+	window.OpenAt(x, y)
+
+
+def DestroyChoice():
+	window = _state['choice']
+	_state['choice'] = None
+	if window is not None:
+		window.Destroy()
 
 
 def Message(code, moved, merged):
@@ -104,4 +173,11 @@ def Message(code, moved, merged):
 
 def OnResult(code='0', moved='0', merged='0', units='0'):
 	_state['pendingUntil'] = 0.0
-	chat.AppendChat(chat.CHAT_TYPE_INFO, Message(_int(code), max(0, _int(moved)), max(0, _int(merged))))
+	code = _int(code)
+	if _state['mode'] == MODE_MERGE and code == RESULT_DONE:
+		chat.AppendChat(chat.CHAT_TYPE_INFO, MSG_MERGED % max(0, _int(merged)))
+		return
+	if _state['mode'] == MODE_MERGE and code == RESULT_NOTHING:
+		chat.AppendChat(chat.CHAT_TYPE_INFO, MSG_NOTHING_MERGE)
+		return
+	chat.AppendChat(chat.CHAT_TYPE_INFO, Message(code, max(0, _int(moved)), max(0, _int(merged))))

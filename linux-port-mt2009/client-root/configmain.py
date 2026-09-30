@@ -390,17 +390,8 @@ class ConfigWindow(ui.ScriptWindow):
 			self.dest_texture = index
 
 	class LanguageConfig:
-		# Dostepne locale znajdujace sie w locale/locale/
-		LANGUAGE_OPTIONS = [
-			"Polski",
-			"English",
-			"Deutsch",
-			"Espanol",
-			"Italiano",
-			"Portugues",
-			"Romana",
-			"Turkce",
-		]
+		LANGUAGE_OPTIONS = [uiScriptLocale.LANGUAGE_OPTION_DEFAULT,
+							uiScriptLocale.LANGUAGE_OPTION_ENGLISH]
 
 		def __init__(self, config):
 			self.config = config
@@ -412,16 +403,15 @@ class ConfigWindow(ui.ScriptWindow):
 			self.languageList = None
 
 		def __IndexToLanguageCode(self, index):
-			language_codes = ["pl", "en", "de", "es", "it", "pt", "ro", "tr"]
-			if index < 0 or index >= len(language_codes):
+			if index == 1:
+				return "en"
+			else:
 				return "pl"
-			return language_codes[index]
 
 		def __LanguageCodeToIndex(self, lang):
-			language_codes = ["pl", "en", "de", "es", "it", "pt", "ro", "tr"]
-			try:
-				return language_codes.index(lang)
-			except ValueError:
+			if lang == "en":
+				return 1
+			else:
 				return 0
 
 		def Load(self):

@@ -1,12 +1,12 @@
 Postanowienia ogólne
-1.1. Metin2 Singleplayer to darmowy projekt fanowski: serwer dzia³a na Twoim komputerze, a œwiat zaludniaj¹ boty (Playerbots). Projekt nie jest powi¹zany z Gameforge ani Webzen.[ENTER]1.2. Kod projektu, launcher, panele i boty s¹ rozwijane publicznie na GitHubie: github.com/Doofenyoyo1/metin2_SP.[ENTER]1.3. Korzystasz z gry na w³asn¹ odpowiedzialnoœæ. Projekt jest dostarczany w stanie „jak jest”, bez gwarancji.
+1.1. MT2009 PLUS to darmowy projekt fanowski: serwer dzia³a na Twoim komputerze albo na VPS, a œwiat zaludniaj¹ boty. Projekt nie jest powi¹zany z Gameforge ani Webzen.[ENTER]1.2. Projekt jest rozwijany publicznie na GitHubie: github.com/zaxerrrr-dot/mt2009-sp-plus. Strona projektu i wiki: metin2sp.pl.[ENTER]1.3. Korzystasz z gry na w³asn¹ odpowiedzialnoœæ. Projekt jest dostarczany w stanie „jak jest”, bez gwarancji.
 Zasady
-2.1. Na w³asnym serwerze grasz, jak chcesz. Konto admin / admin jest kontem testowym Twojej instalacji.[ENTER]2.2. Je¿eli udostêpniasz serwer znajomym, to Ty jesteœ jego administratorem i odpowiadasz za porz¹dek: gra fair, szacunek dla innych, ¿adnych oszustw ani przeszkadzania w grze.[ENTER]2.3. Nie podawaj paczki jako w³asnej i nie sprzedawaj jej. Projekt jest i pozostaje darmowy.
+2.1. Na w³asnym serwerze grasz, jak chcesz. Konta admin i test s¹ kontami Twojej instalacji.[ENTER]2.2. Je¿eli udostêpniasz serwer znajomym, to Ty jesteœ jego administratorem i odpowiadasz za porz¹dek: gra fair, szacunek dla innych, ¿adnych oszustw ani przeszkadzania w grze.[ENTER]2.3. Nie podawaj paczki jako w³asnej i nie sprzedawaj jej. Projekt jest i pozostaje darmowy, na licencji CC BY-NC-SA 4.0 (szczegó³y w plikach paczki serwera).
 Wsparcie projektu
-3.1. Projekt jest darmowy i takim pozostaje. Nic w grze nie jest p³atne.[ENTER]3.2. Najlepsze wsparcie to zg³oszenia b³êdów, pomys³y i kod na GitHubie projektu.
+3.1. Rozwój, testy i serwery kosztuj¹ czas i pieni¹dze. Je¿eli projekt sprawia Ci radoœæ, mo¿esz postawiæ kawê na rozwój MT2009 PLUS: buycoffee.to/mt2009plus.[ENTER]3.2. Wsparcie jest ca³kowicie dobrowolne i niczego nie odblokowuje w grze.
 Spo³ecznoœæ i pomoc
-4.1. Zg³oszenia projektu: github.com/Doofenyoyo1/metin2_SP/issues — tam zg³aszaj b³êdy, pomys³y i pytania; informacje o nowych wersjach s¹ w wydaniach na GitHubie.[ENTER]4.2. Zg³aszaj¹c b³¹d, do³¹cz paczkê logów z launchera (przycisk „ZBIERZ LOGI”). Bez niej trudno cokolwiek naprawiæ.
+4.1. Discord MT2009 PLUS: discord.com/invite/vGE3T9gpm — tam zg³aszaj b³êdy, pomys³y i pytania, tam te¿ pojawiaj¹ siê informacje o nowych wersjach.[ENTER]4.2. Poradniki i opis wszystkich systemów znajdziesz na wiki: metin2sp.pl/wiki.[ENTER]4.3. Zg³aszaj¹c b³¹d, do³¹cz paczkê logów z launchera (przycisk „ZBIERZ LOGI”). Bez niej trudno cokolwiek naprawiæ.
 Prywatnoœæ
-5.1. Wszystko dzia³a lokalnie: klient ³¹czy siê wy³¹cznie z 127.0.0.1, serwer nie otwiera ¿adnych portów na zewn¹trz.[ENTER]5.2. Gra nie wysy³a nigdzie Twoich danych. Launcher ³¹czy siê z GitHubem tylko po to, ¿eby sprawdziæ, czy jest nowa wersja.
+5.1. Na serwerze lokalnym wszystko dzia³a na Twoim komputerze. Na serwerze online (VPS) Twoje konto i postacie s¹ zapisane u w³aœciciela tego serwera.[ENTER]5.2. Gra nie wysy³a nigdzie Twoich danych. Launcher i aktualizator ³¹cz¹ siê z GitHubem tylko po to, ¿eby sprawdziæ, czy jest nowa wersja.
 Zmiany regulaminu
 6.1. Nowa wersja gry mo¿e przynieœæ now¹ treœæ tego okna. Poka¿e siê ono ponownie przy najbli¿szym logowaniu.[ENTER]6.2. Mi³ej gry!

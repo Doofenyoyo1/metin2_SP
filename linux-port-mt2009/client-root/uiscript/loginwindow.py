@@ -35,10 +35,6 @@ window = {
 			"image" : "locale/pl/ui/login_medium.jpg",
 		},
 
-		{
-			"name" : "logo", "type" : "image", "x" : 0, "y" : 0,
-			"image" : "locale/pl/ui/logo.tga",
-		},
 
 		## ConnectBoard
 		{

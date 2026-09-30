@@ -17,9 +17,7 @@
 # fifty items and more, so the strip has pages. It follows the health bar and
 # closes when the target changes, dies or walks off (game.py's OnUpdate).
 #
-# The texts are CP1250 escapes so the file stays ASCII, each a Polish and
-# English pair (playerbot_lang.T): English for a client set to any language
-# but Polish. Python 2.7 as the
+# The texts are CP1250 escapes so the file stays ASCII. Python 2.7 as the
 # client has it; the windows it knows are weak proxies, made by
 # uichestpreview.WindowProxy, which takes a proxy as it is.
 
@@ -27,7 +25,6 @@ import net
 import ui
 
 import uichestpreview
-from playerbot_lang import T
 
 SLOT_IMAGE = uichestpreview.SLOT_IMAGE
 
@@ -123,7 +120,7 @@ class MobDropWindow(ui.ThinBoard):
 		self.FollowTarget()
 		self.Show()
 		self.SetTop()
-		self.__Label(T("Pobieram drop...", "Asking for the drop..."))
+		self.__Label("Pobieram drop...")
 		net.SendChatPacket("/mob_drop_preview %d" % vid)
 
 	def ReceiveBegin(self, data):
@@ -160,7 +157,7 @@ class MobDropWindow(ui.ThinBoard):
 			return
 		if self.IsShow() and self.currentVnum == vnum:
 			if not self.rewards:
-				self.__Label(T("Nic nie wypada z tabel dropu", "Nothing drops from the drop tables"))
+				self.__Label("Nic nie wypada z tabel dropu")
 				return
 			self.pages = uichestpreview.LayOut(self.rewards, self.COLS, self.MAX_ROWS)
 			self.page = 0
@@ -169,7 +166,7 @@ class MobDropWindow(ui.ThinBoard):
 	def ReceiveError(self, data):
 		if self.IsShow():
 			self.currentVnum = 0
-			self.__Label(T("Brak danych o dropie", "No drop data"))
+			self.__Label("Brak danych o dropie")
 
 	def __DrawPage(self):
 		self.__Clear()
@@ -222,7 +219,7 @@ class MobDropWindow(ui.ThinBoard):
 			self.prevButton.SetPosition(self.PAD, pagerY)
 			self.nextButton.SetPosition(self.GetWidth() - self.PAD - 43, pagerY)
 			self.pageText.SetPosition(self.GetWidth() // 2, pagerY + 3)
-			self.pageText.SetText(T("Strona %d/%d", "Page %d/%d") % (self.page + 1, len(self.pages)))
+			self.pageText.SetText("Strona %d/%d" % (self.page + 1, len(self.pages)))
 			self.pageText.Show()
 			if self.page > 0:
 				self.prevButton.Show()
