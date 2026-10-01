@@ -9650,6 +9650,30 @@ git and the client zips as GitHub releases `klient-vX`. What that changed:
   and `server-patches/` are read, not merged. The engine files come from its
   release zip at that commit (`engine_package`), and a file its engine
   changed must be in `launcher/server-update-files.mt2009.txt`.
+- **Its update packages assume its full package, so ours carry its whole
+  engine.** MT2009 PLUS ships an engine file in an update only while it is
+  changing it; what it changed earlier lives in its full package (its
+  Discord) and nowhere else - none of its 33 server packages ever held
+  `IkarusShopCache.h` or `DragonSoul.h`. 2.17.0 therefore stopped in the db
+  core on every one of our installs (`CSafeboxCache::EraseOwner`), all of
+  which began from Tieru's full package, and was withdrawn. `engine_base` in
+  `tools/upstream-sync.json` is that full package's `src/server`, uploaded
+  as our pre-release `engine-base`; `build_mt2009_server_update.py
+  --engine-base` lays it under git and `engine_package` (both win), leaves
+  its `playerbot_*` and its `serverfiles/` out, and the package carries the
+  whole tree (about 650 files, 3 MB). The full package it came from is older
+  than 2.16.0, so a file MT2009 PLUS changes later without shipping it would
+  break the same way: **compile before every release.** This session's
+  container can - `apt-get install g++-multilib libmd-dev`, the package's
+  engine tree with `extern/include` beside it as `Extern/include`, the
+  libraries the Dockerfile's way (liblua, then `make dep` and `make` in
+  libsql, libgame/src, libpoly, libthecore/src), `make -k CC=gcc CXX=g++
+  ENABLE_GCC_AUTODEPEND=0` in db/src and game/src, and a link against empty
+  archives (`ar rc`) in place of mysqlclient, IL, cryptopp, ssl, md and z:
+  every undefined reference left must belong to one of those (2.17.1: only
+  `mariadb_reconnect` and its kin). The Makefile compiles every `*.cpp` in
+  game/src, so a release that drops a source file must also check what a
+  player's older tree still holds.
 - **Its data ships byte for byte.** Its game data is CRLF and the engine's
   readers have only met those bytes, so every data directory it adds gets a
   `-text` line in `.gitattributes` (dungeons, ochao, treasure_hunt, arezzo,

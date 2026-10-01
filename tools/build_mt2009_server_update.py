@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """The mt2009 server update package, built on Linux from the previous one.
 
-    python tools/build_mt2009_server_update.py --previous <server-update-X.zip> --out <dir>
+    python tools/build_mt2009_server_update.py --previous <server-update-X.zip>
+        [--engine-base <server.zip>] --out <dir>
 
 tools/New-M2UpdatePackage.ps1 is the packager, and it needs Windows: it
 builds from a working tree that holds the staged engine and the panel's build
@@ -12,7 +13,10 @@ root, the overlay and staged playerbot_* sources identical. What git does not
 track comes out of the previous release's package - the engine files this
 repository never edits outside the port scripts, with the port-script edits
 named in ENGINE_EDITS applied over them - and the staged playerbot_*
-are HEAD's overlay, the panel files/admin_panel.py.
+are HEAD's overlay, the panel files/admin_panel.py. With --engine-base (the
+upstream full package's src/server, tools/upstream-sync.json "engine_base")
+every engine file that neither git nor the previous package holds comes from
+there, and the package carries the whole engine tree.
 
 It then compares the file set with the previous package and fails if one was
 dropped, because an update never deletes a file and a dropped one is almost
@@ -93,6 +97,8 @@ def bytecode(rel):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--previous', required=True, help='the previous release\'s server update zip')
+    ap.add_argument('--engine-base', help='the upstream full package\'s engine tree (server/...), '
+                                          'tools/upstream-sync.json "engine_base"')
     ap.add_argument('--out', required=True)
     a = ap.parse_args()
 
@@ -134,6 +140,36 @@ def main():
             open(os.path.join(src, keep), 'wb').write(old.read(old_raw[keep]))
             filled += 1
 
+    # MT2009 PLUS's update packages are made for its own full package and
+    # carry only the engine files it changed lately: what it changed earlier
+    # and never shipped (CSafeboxCache::EraseOwner, DSManager::
+    # RepairZeroAttributeItem) is in that full package alone, and on a tree
+    # that came from Tieru's full package - every one of ours - 2.17.0 stopped
+    # in the db core. The full package's whole engine tree is laid under what
+    # git and the update package already put there and ships with every
+    # release, so a player's tree is the one this code was written against
+    # whatever it started from. Its playerbot_* are left out (the overlay is
+    # ours) and so is the runtime data it keeps beside the sources.
+    base_files = []
+    if a.engine_base:
+        engine = STAGED.rsplit('/game/src', 1)[0] + '/'
+        bz = zipfile.ZipFile(a.engine_base)
+        for n in bz.namelist():
+            nn = n.replace('\\', '/')
+            if nn.endswith('/') or not nn.startswith('server/'):
+                continue
+            rel = nn[len('server/'):]
+            if rel.startswith('serverfiles/') or (
+                    rel.startswith('game/src/') and os.path.basename(rel).startswith('playerbot_')):
+                continue
+            base_files.append(engine + rel)
+            dst = os.path.join(src, engine + rel)
+            if not os.path.isfile(dst):
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                open(dst, 'wb').write(bz.read(n))
+        if not base_files:
+            sys.exit('the engine base holds no server/ tree: ' + a.engine_base)
+
     sys.path.insert(0, os.path.join(REPO, 'linux-port-mt2009', 'port'))
     import playerbotify
     for name in ENGINE_EDITS:
@@ -169,6 +205,7 @@ def main():
             sys.exit('pattern matched nothing: ' + e)
         files += kept
     files += [k for k in KEEP_FROM_PREVIOUS if os.path.isfile(os.path.join(src, k))]
+    files += base_files
 
     pub = {}
     for f in files:

@@ -17,6 +17,33 @@ every version here.
 
 ---
 
+## 2.17.1 — 2026-10-01
+
+Serwer 2.17.1, klient 2.0.55 (ten sam co w 2.17.0). To jest 2.17.0, która
+tym razem się buduje: wszystko, co przynosi, opisuje sekcja 2.17.0 niżej.
+
+**2.17.0 nie budowała się na żadnej z naszych instalacji i została
+wycofana.** Paczki aktualizacji MT2009 PLUS są robione pod jego własną pełną
+paczkę z Discorda i niosą tylko te pliki silnika, które zmienił ostatnio.
+To, co zmienił wcześniej i nigdy nie wysłał w aktualizacji, jest tylko w tej
+pełnej paczce, a nasze instalacje zaczynały od paczki Tieru. Rdzeń bazy
+danych zatrzymywał się na `CSafeboxCache::EraseOwner`, a rdzeń gry
+zatrzymałby się na `DSManager::RepairZeroAttributeItem`.
+
+- **Paczka niesie teraz cały silnik z pełnej paczki MT2009 PLUS**
+  (`src/server`), a na nim pliki z jego aktualizacji 2.16.0 i nasze zmiany.
+  Drzewo silnika u gracza jest takie, pod jakie napisano kod, niezależnie od
+  tego, od czego zaczynała instalacja.
+- **Rdzeń bazy danych i rdzeń gry zostały skompilowane (32-bit) przed
+  wydaniem**, na tym samym drzewie, które dostaje gracz. Świata testowego z
+  tą wersją jeszcze nie uruchomiono.
+- **Jeśli aktualizacja do 2.17.0 zatrzymała się na budowaniu:** serwer
+  działa dalej na poprzedniej wersji, nic nie zostało usunięte. Uruchom
+  aktualizację jeszcze raz (launcher: AKTUALIZUJ; VPS:
+  `sh linux-port/tools/update.sh`), a pobierze się 2.17.1 i zbuduje.
+- Klient 2.0.55 jest ten sam co w 2.17.0. Kto ma 2.3.00 i klienta 2.1.00,
+  dostanie go przy tej aktualizacji.
+
 ## 2.17.0 — 2026-09-30
 
 Serwer 2.17.0 i klient 2.0.55: zaktualizuj oba („AKTUALIZUJ wszystko”

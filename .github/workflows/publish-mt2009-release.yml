@@ -63,6 +63,14 @@ jobs:
               sync = json.load(open('tools/upstream-sync.json', encoding='utf-8'))
               base_url = sync['engine_package']['url']
               base_sha = sync['engine_package']['sha256']
+          # The upstream full package's engine tree, which its update packages
+          # assume and which ours carry whole (build_mt2009_server_update.py
+          # --engine-base).
+          eb = {}
+          if os.path.isfile('tools/upstream-sync.json'):
+              eb = json.load(open('tools/upstream-sync.json', encoding='utf-8')).get('engine_base') or {}
+          print('engine_base_url=%s' % eb.get('url', ''))
+          print('engine_base_sha=%s' % eb.get('sha256', ''))
           up_client_url = up_client_sha = ''
           if os.path.isfile('tools/upstream-sync.json'):
               uc = json.load(open('tools/upstream-sync.json', encoding='utf-8')).get('synced_client_package') or {}
@@ -128,6 +136,8 @@ jobs:
         env:
           SERVER_URL: ${{ steps.v.outputs.prev_server_url }}
           SERVER_SHA: ${{ steps.v.outputs.prev_server_sha }}
+          ENGINE_BASE_URL: ${{ steps.v.outputs.engine_base_url }}
+          ENGINE_BASE_SHA: ${{ steps.v.outputs.engine_base_sha }}
           CLIENT_URL: ${{ steps.v.outputs.prev_client_url }}
           CLIENT_SHA: ${{ steps.v.outputs.prev_client_sha }}
           UPSTREAM_CLIENT_URL: ${{ steps.v.outputs.upstream_client_url }}
@@ -140,6 +150,10 @@ jobs:
           if [ "$BUILD_SERVER" = true ]; then
             curl -fsSL --retry 4 -o prev/server.zip "$SERVER_URL"
             echo "$SERVER_SHA  prev/server.zip" | tr 'A-F' 'a-f' | sha256sum -c -
+            if [ -n "$ENGINE_BASE_URL" ]; then
+              curl -fsSL --retry 4 -o prev/engine-base.zip "$ENGINE_BASE_URL"
+              echo "$ENGINE_BASE_SHA  prev/engine-base.zip" | tr 'A-F' 'a-f' | sha256sum -c -
+            fi
           fi
           if [ "$BUILD_CLIENT" = true ]; then
             curl -fsSL --retry 4 -o prev/client.zip "$CLIENT_URL"
@@ -160,7 +174,9 @@ jobs:
           set -euo pipefail
           mkdir -p out
           if [ "$BUILD_SERVER" = true ]; then
-            python3 tools/build_mt2009_server_update.py --previous prev/server.zip --out out
+            base=""
+            [ -f prev/engine-base.zip ] && base="--engine-base prev/engine-base.zip"
+            python3 tools/build_mt2009_server_update.py --previous prev/server.zip $base --out out
           fi
           if [ "$BUILD_CLIENT" = true ]; then
             if [ -n "$PREV_CLIENT_SINCE" ]; then
