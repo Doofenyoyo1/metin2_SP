@@ -2,7 +2,7 @@
   "schema": 1,
   "channel": "stable",
   "publishedAt": "2026-10-01T05:24:21Z",
-  "statusMessage": "Wersja 2.17.0 jest wycofana: nie buduje sie na zwyklej instalacji. Poprawka jest w drodze - do tego czasu 2.3.00 jest aktualna.",
+  "statusMessage": "2.17.1 (serwer 2.17.1, klient 2.0.55): poprawka 2.17.0 - paczka niesie caly silnik MT2009 PLUS, wiec serwer sie buduje. Jesli 2.17.0 sie nie zbudowala, zaktualizuj jeszcze raz.",
   "server": {
     "version": "2.17.1",
     "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.1/metin2-server-update-2.17.1.zip",
