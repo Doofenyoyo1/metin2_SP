@@ -16,5 +16,15 @@
     "repository": "https://github.com/TieruYT/metin2-playerbots",
     "synced_version": "2.2.38",
     "engine_package_sha256": "ADB56D7349D24B5BBE5FB29189ADE2C5664CC9892C40D28F9B9D87624D7698D3"
+  },
+  "engine_base": {
+    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/engine-base/server.zip",
+    "sha256": "223B716B6C08CAB3E50AF1680654A6E04B122652016688A54C236CC9E296969B",
+    "note": "MT2009 PLUS's full package, linux-port/docker/game/src/server: the engine its update packages assume"
+  },
+  "client_rebase": {
+    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.0/metin2-client-update-2.0.55.zip",
+    "sha256": "6FCB7F927269A7F75690187D8C819103356FB79AA030B370D790AC1BCB8B1660",
+    "since": "18a256671220daab5fd355950ed50ae7047f7597"
   }
 }
