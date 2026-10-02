@@ -707,9 +707,24 @@ class GridSlotStateManager():
 
 	def RefreshAllSlots(self):
 		for i in range(len(self.slotStates)):
-			self.RefreshSlotState(i, i)
+			self.RefreshSlotState(i, i, False)
+		self.RefreshSlotWindows()
 
-	def RefreshSlotState(self, realSlotIndex, localSlotIndex=0):
+	# MT2009_PLUS_SLOT_REFRESH_ONCE_V1: a slot window's RefreshSlot also
+	# replays the mouse-over of the slot under the cursor (CSlotWindow::
+	# RefreshSlot: OnOverOutItem + OnOverInItem), i.e. the whole item tooltip
+	# is built anew. Called for every cell it rebuilt the tooltip ~90 times
+	# per inventory refresh while the cursor was over an item - the short
+	# client lag after every enchant (the cursor is always on the item then).
+	# The states are set cell by cell and each window is refreshed once.
+	def RefreshSlotWindows(self):
+		refreshed = []
+		for wnd in (self.slotWindow, self.secondSlotWindow):
+			if wnd and wnd not in refreshed:
+				refreshed.append(wnd)
+				wnd.RefreshSlot()
+
+	def RefreshSlotState(self, realSlotIndex, localSlotIndex=0, refresh=True):
 		state = self.slotStates[realSlotIndex]
 
 		if realSlotIndex >= player.INVENTORY_DEFAULT_MAX_NUM:
@@ -727,7 +742,8 @@ class GridSlotStateManager():
 		elif state == self.SLOT_STATE_NEW_ITEM:
 			self.GetSlotWindow(realSlotIndex).ActivateSlot(localSlotIndex)
 
-		self.GetSlotWindow(realSlotIndex).RefreshSlot()
+		if refresh:
+			self.GetSlotWindow(realSlotIndex).RefreshSlot()
 
 	def OnSlotMouseOverIn(self, slot):
 		pass
@@ -929,12 +945,14 @@ class InventorySlotManager(GridSlotStateManager):
 		for i in range(player.INVENTORY_PAGE_SIZE):
 			realSlot = player.INVENTORY_PAGE_SIZE * self.tab + i
 			self.FollowSlotLimits(realSlot)
-			self.RefreshSlotState(realSlot, i)
+			self.RefreshSlotState(realSlot, i, False)
 
 		for i in range(player.INVENTORY_PAGE_SIZE):
 			realSlot = player.INVENTORY_DEFAULT_MAX_NUM + i
 			self.FollowSlotLimits(realSlot)
-			self.RefreshSlotState(realSlot, i)
+			self.RefreshSlotState(realSlot, i, False)
+
+		self.RefreshSlotWindows() # MT2009_PLUS_SLOT_REFRESH_ONCE_V1
 
 	def HighlightSlot(self, inventorySlot):
 		if inventorySlot < len(self.slotStates):
@@ -1526,7 +1544,11 @@ class InventoryWindow(ui.ScriptWindow):
 				else:
 					wndSlot.DeactivateSlot(i)
 
-		wndSlot.RefreshSlot()
+		# MT2009_PLUS_SLOT_REFRESH_ONCE_V1: the bag's own slot window is
+		# refreshed by the state manager below (once, after the states) -
+		# each RefreshSlot rebuilds the tooltip of the item under the cursor.
+		if wndSlot is not self.wndItem:
+			wndSlot.RefreshSlot()
 
 		if self.wndBelt:
 			self.wndBelt.RefreshSlot()
@@ -2328,6 +2350,10 @@ class InventoryWindow(ui.ScriptWindow):
 
 	def __UseItem(self, slotIndex):
 		ItemVNum = player.GetItemIndex(slotIndex)
+		# MT2009_PLUS_FLOWER_V1: a flower that would replace another flower's
+		# buff asks first (uiflowerevent.py, Owsap's uiinventory question).
+		if __import__("uiflowerevent").ConfirmFlowerUse(slotIndex, ItemVNum):
+			return
 		item.SelectItem(ItemVNum)
 		if item.IsFlag(item.ITEM_FLAG_CONFIRM_WHEN_USE):
 			self.questionDialog = uiCommon.QuestionDialog()

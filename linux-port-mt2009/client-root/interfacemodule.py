@@ -4514,6 +4514,8 @@ class Interface(object):
 
 		self.tooltipItem = uiToolTip.ItemToolTip()
 		self.tooltipItem.Hide()
+		# MT2009_PLUS_EVENT_MANAGER_V1: the event hub's reward slots (uiingameevent.py).
+		__import__("uiingameevent").SetItemToolTip(self.tooltipItem)
 
 		self.tooltipSkill = uiToolTip.SkillToolTip()
 		self.tooltipSkill.Hide()
@@ -5417,7 +5419,19 @@ class Interface(object):
 		self.dlgRefineNew.AppendMaterial(vnum, count)
 
 	## Show & Hide
+	# MT2009_PLUS_EVENT_MANAGER_V1: Owsap's names for the event hub (uiMiniGame.py
+	# asks the interface for them), on uiingameevent.py.
+	def ShowInGameEvent(self):
+		__import__("uiingameevent").Toggle()
+
+	def ShowMiniMapInGameEventButton(self):
+		__import__("uiingameevent").SetButtonHidden(False)
+
+	def HideMiniMapInGameEventButton(self):
+		__import__("uiingameevent").SetButtonHidden(True)
+
 	def ShowDefaultWindows(self):
+		__import__("uiingameevent").SetButtonHidden(False) # MT2009_PLUS_EVENT_MANAGER_V1
 		self.wndTaskBar.Show()
 		self.wndMiniMap.Show()
 		self.wndMiniMap.ShowMiniMap()
@@ -5440,6 +5454,7 @@ class Interface(object):
 			self.wndExpandedTaskBar.SetTop()
 
 	def HideAllWindows(self):
+		__import__("uiingameevent").SetButtonHidden(True) # MT2009_PLUS_EVENT_MANAGER_V1
 		if self.wndGarbageBin:
 			self.wndGarbageBin.Close()
 		if self.wndTaskBar:

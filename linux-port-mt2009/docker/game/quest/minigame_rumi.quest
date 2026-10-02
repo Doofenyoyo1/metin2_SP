@@ -1,0 +1,154 @@
+-- MT2009_PLUS_RUMI_V1: the Okey table (20417) of Owsap's Rumi (Okey card game) -
+-- Owsap's minigame_rumi.quest (v6.2.6) in Polish, on this server's engine
+-- (playerbot_rumi.h, server-patches/rumi). The game itself is the client's
+-- window (uiminigamerumi.py, the "E" event list or "Zagraj" here); the table
+-- stands on maps 1/21/41 while the event and its 7-day reward window last
+-- (the event manager, playerbot_ingame_events.h).
+--
+-- Unlike Owsap's, the ranking is per season (an event and its reward window:
+-- the event flags mini_game_okey_season / _state / _kind, kept by the leading
+-- core) and the prize is taken once a season - both checked in the engine
+-- (game.minigame_rumi_claim), before the item is given.
+quest minigame_rumi begin
+    state start begin
+        -- Chests a game owes after a logout in the middle of it.
+        when login begin
+            local given = game.minigame_rumi_pending()
+            if given > 0 then
+                syschat("Otrzymujesz skrzynie z przerwanej gry w Okey: " .. given)
+            end
+        end
+
+        when 20417.chat."Zagraj w Okey" begin
+            cmdchat("MiniGameRumiOpen")
+        end
+
+        when 20417.chat."Odbierz nagrode za ranking" with game.get_event_flag("mini_game_okey_season_state") == 2 begin
+            say_title("Stol Okey:")
+            say("Tylko najlepsi utrzymaja sie na szczycie")
+            say("rankingu i odbiora najwieksze nagrody!")
+            say("Czy jestes jednym z nich?")
+            say("")
+            wait()
+            local code, vnum, count = game.minigame_rumi_claim()
+            say_title("Stol Okey:")
+            if code == 0 then
+                say_item_vnum(vnum)
+                say("")
+                say_reward("Otrzymujesz: " .. get_item_name(vnum) .. " x " .. count)
+            elseif code == 2 then
+                say("Odebrales juz swoja nagrode w tym sezonie.")
+            elseif code == 3 then
+                say("Niestety, nie ma cie w pierwszej dziesiatce")
+                say("rankingu calkowitych punktow.")
+            elseif code == 4 then
+                say("Zrob miejsce w ekwipunku i wroc do mnie.")
+            else
+                say("Czas odbioru nagrod juz minal.")
+            end
+            say("")
+        end
+
+        when 20417.chat."Pokaz nagrody" begin
+            local tiers = {
+                {"Zlota skrzynia (400 punktow i wiecej)", {950403, 950402}},
+                {"Srebrna skrzynia (300 - 399 punktow)", {950402, 950401}},
+                {"Brazowa skrzynia (do 299 punktow)", {950401}},
+            }
+            local names = {}
+            for i = 1, table.getn(tiers) do
+                table.insert(names, tiers[i][1])
+            end
+            table.insert(names, "Zamknij")
+            local sel = select_table(names)
+            if sel > table.getn(tiers) then
+                return
+            end
+            say_title(tiers[sel][1])
+            say("Koniec gry daje jedna skrzynie wedlug wyniku.")
+            say("W skrzyni moze byc:")
+            say("")
+            local shown = 0
+            local seen = {}
+            for p = 1, table.getn(tiers[sel][2]) do
+                local pool = {get_special_item_group(tiers[sel][2][p])}
+                for i = 1, table.getn(pool), 2 do
+                    local vnum = pool[i]
+                    local count = pool[i + 1]
+                    local key = vnum .. "x" .. count
+                    if seen[key] == nil then
+                        seen[key] = true
+                        say_reward(get_item_name(vnum) .. " x " .. count)
+                        shown = shown + 1
+                        if math.mod(shown, 8) == 0 then
+                            wait()
+                            say_title(tiers[sel][1])
+                        end
+                    end
+                end
+            end
+            say("")
+        end
+
+        when 20417.chat."Ranking Okey" begin
+            local sel = select("Nagrody dla najlepszych", "Suma punktow", "Najlepsza gra", "Zamknij")
+            if sel == 4 then
+                return
+            end
+            if sel == 1 then
+                local prize = get_item_name(game.minigame_rumi_prize())
+                say_title("Nagrody dla najlepszych")
+                say("Dziesieciu graczy z najwieksza suma punktow")
+                say("w sezonie odbierze tu dodatkowe nagrody")
+                say("przez 7 dni po koncu eventu:")
+                say("")
+                say_reward("1. miejsce: " .. prize .. " x 10")
+                say_reward("2. miejsce: " .. prize .. " x 5")
+                say_reward("3. miejsce: " .. prize .. " x 3")
+                say_reward("4. - 10. miejsce: " .. prize .. " x 1")
+                say("")
+                return
+            end
+            local total = sel == 2
+            local top = game.get_minigame_rumi_score(total)
+            if total then
+                say_title("Suma punktow")
+            else
+                say_title("Najlepsza gra")
+            end
+            if table.getn(top) == 0 then
+                say("Nikt jeszcze nie zagral w tym sezonie.")
+            end
+            for i = 1, table.getn(top) do
+                say(i .. ". " .. top[i][1] .. " - " .. top[i][2])
+            end
+            say("")
+            say_reward("Twoj wynik: " .. game.get_minigame_rumi_my_score(total))
+            say("")
+        end
+
+        when 20417.chat."Jak grac w Okey?" begin
+            say_title("Stol Okey:")
+            say("Pokonuj potwory w czasie eventu, aby zbierac")
+            say("karty Okey. 24 karty tworza zestaw kart.")
+            say("Gra kosztuje 30 000 yang i jeden zestaw kart.")
+            say("")
+            say("Kliknij talie, aby dobrac karty. Lewym")
+            say("przyciskiem kladziesz karte na stol, prawym")
+            say("ja wyrzucasz. Trzy karty o tej samej liczbie")
+            say("albo trzy kolejne liczby daja punkty - seria")
+            say("w jednym kolorze daje ich wiecej.")
+            wait()
+            say_title("Stol Okey:")
+            say("Gre konczysz, kiedy chcesz. Dostajesz skrzynie:")
+            say_reward("400 punktow i wiecej - zlota")
+            say_reward("300 - 399 punktow - srebrna")
+            say_reward("mniej - brazowa")
+            say("")
+            say("Wylogowanie albo zmiana mapy w trakcie gry")
+            say("konczy ja - skrzynie dostaniesz przy")
+            say("nastepnym logowaniu.")
+            say("")
+        end
+    end
+end

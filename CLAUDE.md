@@ -9715,7 +9715,20 @@ git and the client zips as GitHub releases `klient-vX`. What that changed:
 - **Numbering:** above both lines. It released 2.16.0 / client 2.0.30 on the
   day we moved (30 September), over our 2.2.42 / client 2.0.54, so the move
   is 2.17.0 / client 2.0.55. Its changelog sections go under ours verbatim,
-  with a note that its client numbers are its own.
+  with a note that its client numbers are its own. Its 2.17.0 and 2.17.1
+  (client 2.0.37, 1 October) then reused our numbers, so they became our
+  2.17.2 / client 2.0.56, and its sections went inside ours as `###
+  MT2009 PLUS ...` headings: the panels read only `## x.y.z`, and a second
+  `## 2.17.1` would be a release they cannot tell apart.
+- **Its git and its package agree on the overlay, and its tests do not
+  exist.** It ships no unit tests, so a default it changes in a pure header
+  breaks ours (2.17.1: the law of advancement by level,
+  `playerbot_progression_rules.h` behind the book rule) - fix the test to
+  the new default. Its client tests are ours too: since client 2.0.37 Auto
+  Lowy's pick-up kinds are `uipickupfilter.py`'s, and its packages carry a
+  CLIENT_VERSION beside the exe, which our client build overwrites with
+  ours. Its released client numbers skip (2.0.30, then 2.0.37): fetch
+  `klient-vX` for each one its CHANGELOG names, not for every number.
 - Keep ours: COOP ungated (it gates hosting behind a password too), our
   update channel (the launcher, `update.sh` and the panels refuse both
   upstreams), the three guild smiths and the build refusals (the only engine

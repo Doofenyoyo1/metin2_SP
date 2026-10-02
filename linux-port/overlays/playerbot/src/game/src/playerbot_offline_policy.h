@@ -35,6 +35,10 @@ inline std::map<uint32_t, Request> requests;
 struct SoldLine {
     uint32_t item = 0, vnum = 0, count = 0;
     long long price = 0;
+    // A part of the stack a player bought at the Dom Towarowy
+    // (MT2009_PLUS_SHOP_PART_STACK_V1, server-patches/shopsearch2): the rest
+    // of the line stays on the counter, and so does what the bot knows of it.
+    bool partial = false;
 };
 inline std::map<uint32_t, std::vector<SoldLine> > sold;
 // And every line sold, by vnum, until the market ledger takes them
@@ -51,7 +55,7 @@ inline std::map<uint32_t, uint32_t> soldLinesByVnum;
 // ikarus_shop_manager.cpp). Every core recorded it, and a bot that changed
 // channel drained the same sale a second time where it arrived - twice in the
 // log and in the panel's gear history.
-inline void NoteSold(uint32_t ownerid, uint32_t item, uint32_t vnum, uint32_t count, long long price) {
+inline void NoteSold(uint32_t ownerid, uint32_t item, uint32_t vnum, uint32_t count, long long price, bool partial = false) {
     if (vnum && (soldLinesByVnum.size() < 4096 || soldLinesByVnum.count(vnum)))
         ++soldLinesByVnum[vnum];
     if (!ownerid) return;
@@ -59,7 +63,7 @@ inline void NoteSold(uint32_t ownerid, uint32_t item, uint32_t vnum, uint32_t co
     // An owner nobody drains - a real player, or a bot that has left the
     // world - must not grow this without bound.
     if (lines.size() >= 32) lines.erase(lines.begin());
-    lines.push_back(SoldLine{item, vnum, count, price});
+    lines.push_back(SoldLine{item, vnum, count, price, partial});
 }
 // What the bot put on the counter and when, so the drain can say what sold
 // and how fast. Keyed by item id, kept in that bot's own state.

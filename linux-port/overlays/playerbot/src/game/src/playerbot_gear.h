@@ -2823,8 +2823,10 @@ namespace
 	// it would hit harder (IsPlayerBotBetterLevel30Offer).
 	bool IsPlayerBotMandatedLevel30Offer(LPCHARACTER ch, LPITEM offer)
 	{
+		// MT2009_PLUS_DROPPER_INVEST_V1: a dropper too, in its shopping window.
 		if (!IsPlayerBotClassLevel30Weapon(ch, offer) || offer->GetLevelLimit() > ch->GetLevel() ||
-				ch->GetLevel() < 30 || IsPlayerBotDropper(GetPlayerBotPersonalityByPID(ch->GetPlayerID())))
+				ch->GetLevel() < 30 || (IsPlayerBotDropper(GetPlayerBotPersonalityByPID(ch->GetPlayerID())) &&
+					!IsPlayerBotDropperShopping(ch->GetPlayerID(), get_dword_time())))
 			return false;
 		return GetPlayerBotBestClassLevel30Average(ch) < 0;
 	}

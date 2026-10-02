@@ -1,0 +1,170 @@
+-- MT2009_PLUS_YUTNORI_V1: the Yut Nori table (20502) - Owsap's minigame_yutnori.quest
+-- (v6.2.6) in Polish, without his shop, cube and Yut Nori Secret. The game itself is the
+-- client's window (the in-game event hub, or "Zagraj" here) and the core's
+-- (playerbot_yutnori.h). The scores are the event season's (the event flag
+-- mini_game_yutnori_season, the epoch the event began; table player.minigame_yutnori),
+-- so the ranking and its prizes start from nothing with every event. The prizes of the
+-- ten best (overall score) are taken here during the reward window
+-- (mini_game_yutnori_reward, 7 days after the event), once per season (reward_season).
+quest minigame_yutnori begin
+	state start begin
+		function season()
+			return game.get_event_flag("mini_game_yutnori_season")
+		end
+
+		-- The ten best of the season by column ("total_score" or "best_score"):
+		-- a list of {pid, name, score}, game masters ([...]) left out.
+		function ranking(column)
+			local s = minigame_yutnori.season()
+			if s <= 0 then
+				return {}
+			end
+			local q = string.format("SELECT y.pid AS pid, p.name AS name, y.%s AS score FROM player.minigame_yutnori y JOIN player.player p ON p.id = y.pid WHERE y.season = %d AND y.%s > 0 AND p.name NOT LIKE '[%%' ORDER BY y.%s DESC, y.last_play ASC LIMIT 10", column, s, column, column)
+			local n, rows = mysql_direct_query(q)
+			if rows == nil then
+				return {}
+			end
+			return rows
+		end
+
+		function my_score(column)
+			local s = minigame_yutnori.season()
+			if s <= 0 then
+				return 0
+			end
+			local q = string.format("SELECT %s AS score FROM player.minigame_yutnori WHERE season = %d AND pid = %d", column, s, pc.get_player_id())
+			local n, rows = mysql_direct_query(q)
+			if rows == nil or rows[1] == nil or rows[1].score == nil then
+				return 0
+			end
+			return rows[1].score
+		end
+
+		function prize_count(rank)
+			if rank == 1 then
+				return 10
+			elseif rank == 2 then
+				return 5
+			elseif rank == 3 then
+				return 3
+			end
+			return 1
+		end
+
+		function show_ranking(column, title)
+			say_title(title)
+			say("")
+			local rows = minigame_yutnori.ranking(column)
+			if table.getn(rows) == 0 then
+				say("Nikt jeszcze nie zagra³ w tym evencie.")
+			end
+			for i = 1, table.getn(rows) do
+				say(string.format("%d. %s - %d pkt", i, rows[i].name, rows[i].score))
+			end
+			say("")
+			say_reward(string.format("Twój wynik: %d pkt", minigame_yutnori.my_score(column)))
+		end
+
+		when 20502.chat."Zagraj w Yut Nori" with game.get_event_flag("mini_game_yutnori") > 0 begin
+			setskin(NOWINDOW)
+			cmdchat("YutnoriOpen")
+		end
+
+		when 20502.chat."Odbierz nagrodê z rankingu" with game.get_event_flag("mini_game_yutnori_reward") > get_time() begin
+			say_title("Stó³ do Yutnori")
+			say("Tylko najlepsi zostaj¹ na szczycie rankingu i")
+			say("odbieraj¹ g³ówne nagrody! Czy jesteœ jednym z nich?")
+			say("")
+			wait()
+			local s = minigame_yutnori.season()
+			if s <= 0 or game.get_event_flag("mini_game_yutnori_season_closed") == 0 then
+				say_title("Stó³ do Yutnori")
+				say("Ranking nie jest jeszcze zamkniêty.")
+				return
+			end
+			if pc.getqf("reward_season") == s then
+				say_title("Stó³ do Yutnori")
+				say("Nagrodê za ten event ju¿ odebra³eœ.")
+				return
+			end
+			local rank = 0
+			local rows = minigame_yutnori.ranking("total_score")
+			for i = 1, table.getn(rows) do
+				if rows[i].pid == pc.get_player_id() then
+					rank = i
+					break
+				end
+			end
+			if rank == 0 then
+				say_title("Stó³ do Yutnori")
+				say("Niestety, nie ma ciê w pierwszej dziesi¹tce rankingu.")
+				return
+			end
+			if not pc.enough_inventory(83030) then
+				say_title("Stó³ do Yutnori")
+				say("Zwolnij miejsce w ekwipunku i spróbuj ponownie.")
+				return
+			end
+			local count = minigame_yutnori.prize_count(rank)
+			pc.setqf("reward_season", s)
+			pc.give_item2(83030, count)
+			say_title("Stó³ do Yutnori")
+			say(string.format("Zaj¹³eœ %d. miejsce w rankingu!", rank))
+			say_item_vnum(83030)
+			say_reward(string.format("Otrzymujesz: %dx Z³ote Trofeum Yutnori", count))
+		end
+
+		when 20502.chat."Nagrody za grê Yut Nori" begin
+			local names = { "Z³ote Trofeum Yutnori", "Srebrne Trofeum Yutnori", "Br¹zowy Pakiet Yutnori", "Zamknij" }
+			local sel = select_table(names)
+			if sel == 4 then
+				return
+			end
+			say_title(names[sel])
+			if sel == 1 then
+				say_item_vnum(83030)
+				say("Za grê z wynikiem co najmniej 220 punktów.")
+				say("W œrodku: Z³oty Pakiet Yutnori i Cor Draconis")
+				say("(drogocenne). Pakiet mo¿e zawieraæ m.in.:")
+				say_reward("Planszê do Yutnori, Kamieñ Kowala, Zwój")
+				say_reward("B³ogos³awieñstwa, Zaczarowanie i Wzmocnienie")
+				say_reward("Przedmiotu, Buty Wiatru, Lizak Potêgi, Cor")
+				say_reward("Draconis (mityczne, drogocenne), per³y, kolczyki")
+				say_reward("z koœci tygrysa i smoka, Miksturê M¹droœci")
+			elseif sel == 2 then
+				say_item_vnum(83031)
+				say("Za grê z wynikiem od 150 do 219 punktów.")
+				say("W œrodku: Srebrny Pakiet Yutnori, czasem Zwój")
+				say("B³ogos³awieñstwa. Pakiet mo¿e zawieraæ m.in.:")
+				say_reward("100 000 - 500 000 yang lub doœwiadczenie,")
+				say_reward("Planszê do Yutnori, Zwój B³ogos³awieñstwa,")
+				say_reward("Zaczarowanie i Wzmocnienie Przedmiotu, Buty Wiatru,")
+				say_reward("Cor Draconis (zwyczajne, szlachetne), per³y,")
+				say_reward("Miksturê M¹droœci")
+			else
+				say_item_vnum(83034)
+				say("Za grê z wynikiem poni¿ej 150 punktów.")
+				say_reward("50 000 - 100 000 yang, doœwiadczenie albo")
+				say_reward("Planszê do Yutnori")
+			end
+		end
+
+		when 20502.chat."Ranking" begin
+			local sel = select("Nagrody za ranking", "£¹czny wynik", "Najlepsza gra", "Zamknij")
+			if sel == 1 then
+				say_title("Nagrody za ranking")
+				say("Dziesiêciu graczy z najwy¿szym ³¹cznym wynikiem")
+				say("eventu odbiera tu po jego koñcu (przez 7 dni):")
+				say("")
+				say_reward("1. miejsce: 10x Z³ote Trofeum Yutnori")
+				say_reward("2. miejsce: 5x Z³ote Trofeum Yutnori")
+				say_reward("3. miejsce: 3x Z³ote Trofeum Yutnori")
+				say_reward("4. - 10. miejsce: 1x Z³ote Trofeum Yutnori")
+			elseif sel == 2 then
+				minigame_yutnori.show_ranking("total_score", "£¹czny wynik")
+			elseif sel == 3 then
+				minigame_yutnori.show_ranking("best_score", "Najlepsza gra")
+			end
+		end
+	end
+end

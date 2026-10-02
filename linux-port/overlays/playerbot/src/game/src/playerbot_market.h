@@ -183,6 +183,17 @@ namespace
 		if (!ch || !offer)
 			return false;
 
+		// MT2009_PLUS_DROPPER_INVEST_V1: a dropper buys no medal off another
+		// dropper's counter, and in its shopping window wants the materials
+		// and scrolls of its next steps first.
+		if (IsPlayerBotDropper(GetPlayerBotPersonalityByPID(ch->GetPlayerID())))
+		{
+			if (offer->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM)
+				return false;
+			if (WantsPlayerBotDropperInvestOffer(ch, offer->GetVnum()))
+				return true;
+		}
+
 		// Cor Draconis and Dragon Stones, for an alchemy bot (playerbot_alchemy.h).
 		if (IsPlayerBotCorVnum(offer->GetVnum()) || offer->IsDragonSoul())
 			return WantsPlayerBotAlchemyOffer(ch, offer);
@@ -511,8 +522,40 @@ namespace
 					(long long)ScalePlayerBotIwakuraPrice(PLAYERBOT_LEVEL30_BASE_PRICE);
 	}
 
-	bool CanPlayerBotPayForOffer(LPCHARACTER ch, LPITEM item, long long price) {
+	// MT2009_PLUS_PERSON_PRICE_CAP_V1: a person's counter is never paid more
+	// than 1.5 to 2 times what the market asks for the piece (the server's own
+	// price, GetPlayerBotShopAskingPrice) - the more the bot needs it, the
+	// nearer to 2. A player bought the bots' horse medals at 160k and sold them
+	// back at 2M, and a 1.4M sword for 9M: the purses below had no fair price
+	// for the level-30 weapon, the medal and finished gear. A bot's counter
+	// has no cap: what bots ask of each other is their own economy.
+	int GetPlayerBotPersonPriceCapPercent(LPCHARACTER ch, LPITEM item)
+	{
+		int need = 0;
+		if (IsPlayerBotProgressionOffer(ch, item))
+			need = 100;
+		else if (IsPlayerBotClassLevel30Weapon(ch, item))
+			need = 80;
+		else if (item->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM || PlayerBotNeedsRefineMaterial(ch, item->GetVnum()))
+			need = 60;
+		else if (item->GetType() == ITEM_SKILLBOOK || IsPlayerBotStrategicPurchase(item->GetVnum()))
+			need = 40;
+		return 150 + need / 2;
+	}
+
+	bool IsPlayerBotPersonPriceFair(LPCHARACTER ch, LPITEM item, long long price)
+	{
+		const long long fair = (long long)GetPlayerBotShopAskingPrice(item);
+		if (fair <= 0)
+			return false;	// nothing to measure a person's price against
+		return price * 100 <= fair * GetPlayerBotPersonPriceCapPercent(ch, item);
+	}
+
+	bool CanPlayerBotPayForOffer(LPCHARACTER ch, LPITEM item, long long price, DWORD sellerPID) {
 		if (!ch || !item || price <= 0) return false;
+		if (sellerPID != 0 && !CPlayerBotManager::instance().IsRegisteredBotPID(sellerPID) &&
+				!IsPlayerBotPersonPriceFair(ch, item, price))
+			return false;
 		// Community Patch 5, point 6 - "Boty otrzymuja bezwzgledny zakaz
 		// kupowania takich przedmiotow": a line with a keeper's slip in its
 		// price, one zero too many, is never bought by a bot, before any of the
@@ -694,7 +737,7 @@ namespace
 				for (size_t k = 0; k < lines.size(); ++k)
 				{
 					const CShop::SHOP_ITEM& line = lines[k];
-					if (!line.pkItem || line.vnum == 0 || !CanPlayerBotPayForOffer(ch, line.pkItem, line.price))
+					if (!line.pkItem || line.vnum == 0 || !CanPlayerBotPayForOffer(ch, line.pkItem, line.price, keeper->GetPlayerID()))
 						continue;
 					TPlayerBotShopOffer offer;
 					offer.dwVnum = line.vnum;
@@ -736,7 +779,7 @@ namespace
 				// the keeper's bag to be looked at - or it is sold, and it is not.
 				LPITEM candidateItem = FindPlayerBotOfferItem(keeper, candidate);
 				if (!WantsPlayerBotStallItem(ch, candidateItem) ||
-						!CanPlayerBotPayForOffer(ch, candidateItem, candidate.dwPrice))
+						!CanPlayerBotPayForOffer(ch, candidateItem, candidate.dwPrice, keeper->GetPlayerID()))
 					continue;
 				// Room for this particular thing, not room in general. The engine
 				// refuses the whole purchase when the item does not fit, and a
@@ -777,7 +820,7 @@ namespace
 		if (pick.bSlot >= lines.size()) return false;
 		const CShop::SHOP_ITEM& line = lines[pick.bSlot];
 		if (!line.pkItem || line.price != pick.dwPrice || !WantsPlayerBotStallItem(ch, line.pkItem) ||
-				!CanPlayerBotPayForOffer(ch, line.pkItem, line.price)) return false;
+				!CanPlayerBotPayForOffer(ch, line.pkItem, line.price, pick.keeper->GetPlayerID())) return false;
 		if (!shop->AddGuest(ch, pick.keeper->GetVID(), false))
 			return false;
 
@@ -1067,8 +1110,11 @@ namespace
 		// reached the Monkey Dungeon ("lataja po m2", sizowski). A dropper
 		// standing out a negative rank in town may shop, for the bean that lifts
 		// it (KeepPlayerBotNegativeRankInTown).
-		if (IsPlayerBotDropper(state.bPersonality) &&
-				(ch->GetRealAlignment() >= 0 || IsPlayerBotRankHunting(ch, dwNow))) // MT2009_PLUS_BOT_RANK_GLOVE_V1
+		// MT2009_PLUS_DROPPER_INVEST_V1: in the window after its counter's
+		// service it shops at the stands round it - and makes no trip for it.
+		const bool dropperRefused = IsPlayerBotDropper(state.bPersonality) &&
+				(ch->GetRealAlignment() >= 0 || IsPlayerBotRankHunting(ch, dwNow)); // MT2009_PLUS_BOT_RANK_GLOVE_V1
+		if (dropperRefused && !IsPlayerBotDropperShopping(ch->GetPlayerID(), dwNow))
 		{
 			EndPlayerBotMarketTrip(ch, state, "dropper");
 			return false;
@@ -1077,6 +1123,11 @@ namespace
 		if (ManagePlayerBotOfflineShopping(ch, state, dwNow)) return true;
 		if (playerbot_offline::requests.count(ch->GetPlayerID())) return false;
 #endif
+		if (dropperRefused)
+		{
+			EndPlayerBotMarketTrip(ch, state, "dropper");
+			return false;
+		}
 		// A keeper minding its own counter is not also a customer.
 		if (ch->GetMyShop() || state.bVisitingBiologist || state.bVisitingStable ||
 				state.bRecoveringAfterDeath || state.bTacticalRetreat ||

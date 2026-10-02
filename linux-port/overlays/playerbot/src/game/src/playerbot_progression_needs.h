@@ -76,8 +76,12 @@ namespace {
     }
     // Whoever buys the books of its own skills: the student above, the
     // trader (community patch 2, point 5) and the bot with the surplus.
+    // MT2009_PLUS_PROGRESSION_V1: and the bot a gate of the checklist holds
+    // for its skills (playerbot_progression.h).
+    int GetPlayerBotProgressionNeeds(DWORD pid);
     bool PlayerBotStudiesBooks(LPCHARACTER ch) {
-        return PlayerBotStudiesAtTheMarket(ch) || PlayerBotBuysBooksAsTrader(ch) || PlayerBotStudiesFromSurplus(ch);
+        return PlayerBotStudiesAtTheMarket(ch) || PlayerBotBuysBooksAsTrader(ch) || PlayerBotStudiesFromSurplus(ch) ||
+            (ch && (GetPlayerBotProgressionNeeds(ch->GetPlayerID()) & playerbot_progression::NEED_SKILLS) != 0);
     }
     // Quantity needed, not a boolean reason to buy an arbitrarily large stack.
     int GetPlayerBotProgressionNeed(LPCHARACTER ch, LPITEM offer) {

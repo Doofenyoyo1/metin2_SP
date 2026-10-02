@@ -38,6 +38,16 @@
 // MT2009_PLUS_GOBLIN_V1: the Treasure Hunt's clock (playerbot_goblin.h, which
 // the manager includes after this file), asked once for every pass below.
 void GoblinEventTick(DWORD dwNow);
+// MT2009_PLUS_EVENT_MANAGER_V1: the in-game event manager
+// (playerbot_ingame_events.h, included after this file): the mini games'
+// event flags, their table NPCs and the players' event list, every pass.
+void InGameEventTick(DWORD dwNow);
+// MT2009_PLUS_RUMI_V1: Rumi's seasons and its games' upkeep (playerbot_rumi.h,
+// included after this file), every pass after the event manager.
+void RumiTick(DWORD dwNow);
+// MT2009_PLUS_CATCH_KING_V1: Catch the King's season (playerbot_catchking.h,
+// included after this file), every pass.
+void CatchKingTick(DWORD dwNow);
 
 namespace {
 	const char* const PLAYERBOT_EVENTS_DEFAULT_PATH = "/opt/m2spool/playerbot_events.tsv";
@@ -228,6 +238,38 @@ namespace {
 
 	enum EPlayerBotEventPhase { EVENT_PHASE_START, EVENT_PHASE_REMINDER, EVENT_PHASE_END };
 
+	// MT2009_PLUS_EVENT_MANAGER_V1: the mini games and Easter run for days, and
+	// a notice every fifteen minutes of a week would be the chat's whole text;
+	// they are reminded every two hours (their list is by the minimap anyway).
+	DWORD PlayerBotEventReminderInterval(int kind)
+	{
+		switch (kind)
+		{
+			case playerbot_events::KIND_CATCHKING:
+			case playerbot_events::KIND_RUMI:
+			case playerbot_events::KIND_YUTNORI:
+			case playerbot_events::KIND_FLOWER:
+			case playerbot_events::KIND_EASTER:
+				return 2 * 60 * 60 * 1000;
+		}
+		return PLAYERBOT_EVENTS_REMINDER_INTERVAL;
+	}
+
+	// MT2009_PLUS_EVENT_MANAGER_V1: the mini games' names in the notices, NULL
+	// for every other kind. Player-visible, so Polish and ASCII-only.
+	const char* PlayerBotMiniGameEventName(int kind)
+	{
+		switch (kind)
+		{
+			case playerbot_events::KIND_CATCHKING: return "Zlap Krola";
+			case playerbot_events::KIND_RUMI: return "Rumi (Okey)";
+			case playerbot_events::KIND_YUTNORI: return "Yut Nori";
+			case playerbot_events::KIND_FLOWER: return "Dzieci Kwiaty";
+			case playerbot_events::KIND_EASTER: return "Event wielkanocny (metiny wielkanocne i Wielkanocny Zajac)";
+		}
+		return NULL;
+	}
+
 	void AnnouncePlayerBotEvent(int kind, int value, long until, EPlayerBotEventPhase phase)
 	{
 		char body[128];
@@ -239,6 +281,8 @@ namespace {
 			snprintf(body, sizeof(body), "podwojny loot z Metinow");
 		else if (kind == playerbot_events::KIND_GOBLIN)
 			snprintf(body, sizeof(body), "Poszukiwanie skarbow z Goblinem Skarbow - Bilety Skarbow w skrzyniach");
+		else if (PlayerBotMiniGameEventName(kind))
+			snprintf(body, sizeof(body), "%s (lista eventow: przycisk przy minimapie)", PlayerBotMiniGameEventName(kind));
 		else
 			snprintf(body, sizeof(body), "+%d%% %s", value, PlayerBotEventRateWord(kind));
 		char text[256];
@@ -252,6 +296,12 @@ namespace {
 				snprintf(text, sizeof(text), "Event zakonczony: podwojny loot z Metinow.");
 			else if (kind == playerbot_events::KIND_GOBLIN)
 				snprintf(text, sizeof(text), "Event zakonczony: Poszukiwanie skarbow z Goblinem Skarbow.");
+			// MT2009_PLUS_CATCH_KING_V1: Catch the King's top ten collect too.
+			else if (kind == playerbot_events::KIND_RUMI || kind == playerbot_events::KIND_YUTNORI || kind == playerbot_events::KIND_CATCHKING)
+				snprintf(text, sizeof(text), "Event zakonczony: %s. Nagrody za ranking mozna odebrac przy stole przez 7 dni.",
+						PlayerBotMiniGameEventName(kind));
+			else if (PlayerBotMiniGameEventName(kind))
+				snprintf(text, sizeof(text), "Event zakonczony: %s.", PlayerBotMiniGameEventName(kind));
 			else
 				snprintf(text, sizeof(text), "Event zakonczony: %s wraca do normy.", PlayerBotEventRateWord(kind));
 		}
@@ -492,7 +542,7 @@ namespace {
 					state.active = true;
 					state.value = st.value;
 					state.until = st.until;
-					state.nextReminder = dwNow + PLAYERBOT_EVENTS_REMINDER_INTERVAL;
+					state.nextReminder = dwNow + PlayerBotEventReminderInterval(kind);
 					sys_log(0, "PLAYERBOT_EVENT: %s starts value=%d until=%ld map=%ld leader=%d",
 							playerbot_events::KindName(kind), st.value, st.until, st.map, leader ? 1 : 0);
 					if (leader && !world)
@@ -527,7 +577,7 @@ namespace {
 					state.until = st.until;
 					if (leader && !world && dwNow >= state.nextReminder)
 					{
-						state.nextReminder = dwNow + PLAYERBOT_EVENTS_REMINDER_INTERVAL;
+						state.nextReminder = dwNow + PlayerBotEventReminderInterval(kind);
 						AnnouncePlayerBotEvent(kind, st.value, st.until, EVENT_PHASE_REMINDER);
 					}
 				}
@@ -560,6 +610,13 @@ namespace {
 		// MT2009_PLUS_GOBLIN_V1: the Treasure Hunt follows its kind's status
 		// (playerbot_goblin.h) - every core, like the double-loot events.
 		GoblinEventTick(dwNow);
+		// MT2009_PLUS_EVENT_MANAGER_V1: the in-game event manager follows the
+		// mini games' kinds (playerbot_ingame_events.h) - every core.
+		InGameEventTick(dwNow);
+		// MT2009_PLUS_RUMI_V1: Rumi's season flags (the leader) and games (playerbot_rumi.h).
+		RumiTick(dwNow);
+		// MT2009_PLUS_CATCH_KING_V1: Catch the King's season flag (playerbot_catchking.h).
+		CatchKingTick(dwNow);
 	}
 }
 

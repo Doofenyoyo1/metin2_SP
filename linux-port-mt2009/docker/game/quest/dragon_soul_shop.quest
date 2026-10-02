@@ -8,9 +8,14 @@
 -- vnum=13, npc_vnum=20001, name="Alchemist" -- shop 13 was already
 -- registered (with 2 of its 9 items already in `shop_item`, likely from the
 -- original server data this deployment started from). Fixed to 13 to match.
+--
+-- 1 October 2026: the condition asks ds.is_qualified() != 0 - a bare
+-- "with ds.is_qualified()" is true in Lua for the 0 of an unqualified
+-- character too (every real player is qualified at login anyway,
+-- server-patches/dsqualification).
 quest dragon_soul_shop begin
 	state start begin
-		when 20001.chat."Kup materialy Alchemika" with ds.is_qualified() begin
+		when 20001.chat."Kup materialy Alchemika" with ds.is_qualified() != 0 begin
 			say("Oto moj sklep z materialami do Alchemii Smoczych Kamieni.")
 			npc.open_shop(13)
 		end

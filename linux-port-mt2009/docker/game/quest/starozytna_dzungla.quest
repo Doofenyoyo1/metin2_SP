@@ -173,7 +173,12 @@ quest starozytna_dzungla begin
 			local c = starozytna_dzungla.cfg()
 			d.setf("closed", 1)
 			d.setf("mt2009_keep_until", 0)
-			d.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+			if d.getf("mt2009_dgbot") == 1 then
+				-- MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1: the test cohort's run ends in its lobby (this map, game2).
+				d.set_warp_location(c.map, c.base_x + c.entry[1], c.base_y + c.entry[2])
+			else
+				d.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+			end
 			d.exit_all()
 		end
 
@@ -542,6 +547,10 @@ quest starozytna_dzungla begin
 					return
 				end
 				local left = d.getf("minutes") - 1
+				if d.getf("mt2009_dgbot") == 1 then
+					-- MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1: the test cohort's runs have no time limit.
+					left = d.getf("minutes")
+				end
 				d.setf("minutes", left)
 				if left <= 0 then
 					d.notice("Staro¿ytna D¿ungla: Czas min¹³. Stra¿nik wyprowadza was z lochu.")
@@ -556,6 +565,17 @@ quest starozytna_dzungla begin
 					d.notice("Staro¿ytna D¿ungla: Pozosta³o "..left.." min.")
 				end
 				server_timer("dzungla_tick", 60, get_server_timer_arg())
+			end
+		end
+
+		-- MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1: the start of a test cohort's run. The core makes the
+		-- instance itself (no guard, so no fee and no daily limit), marks it with the dungeon flag
+		-- mt2009_dgbot - nothing a player can set - and asks for this; a player's run starts in login.
+		when dzungla_dgbot.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				if d.getf("mt2009_dgbot") == 1 and d.getf("init") == 0 then
+					starozytna_dzungla.init()
+				end
 			end
 		end
 

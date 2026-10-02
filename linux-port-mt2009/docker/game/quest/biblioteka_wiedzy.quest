@@ -6,9 +6,10 @@
 -- dru¿yny stoj¹cymi obok (jedno ³adowanie, boty zostaj¹ na zewn¹trz). Etapy:
 --   1: zabij 60 paj¹ków (9703) - zabójca dostaje Pieczêæ Biblioteki (30765); u¿ycie
 --      pieczêci wzywa nastêpn¹ falê; trzy pieczêcie koñcz¹ etap (Arezzo: 150 x 5),
---   2: zniszcz 5 Pajêczych Jaj (9704),
+--   2: zniszcz 5 Metinów (8006, Metin Ciemnoœci, jak Metiny u Arezzo; do 1 paŸdziernika Pajêcze Jaja
+--      9704 z modelem spider_spawn, nie Metiny - "Dung 30 lvl nie ma metinów"),
 --   3: pokonaj 3 Królowe Paj¹ków (9705),
---   4: zniszcz 4 Pajêcze Jaja,
+--   4: zniszcz 4 Metiny,
 --   5: Baronówna Paj¹ków (9706); po jej œmierci ka¿dy gracz w lochu dostaje 1-3
 --      Skrzynie Biblioteki (30773), a wszyscy wychodz¹ po 60 sekundach.
 -- Limit 30 minut, ponowne wejœcie po 30 minutach od wejœcia. B³êdy questa Arezzo nie s¹
@@ -106,9 +107,9 @@ quest biblioteka_wiedzy begin
 		function stage_text(stage)
 			local c = biblioteka_wiedzy.cfg()
 			if stage == 1 then return "Pokonajcie "..c.wave_kills.." paj¹ków, a potem u¿yjcie Pieczêci Biblioteki ("..d.getf("seals").."/"..c.seals..")."
-			elseif stage == 2 then return "Zniszczcie 5 Pajêczych Jaj."
+			elseif stage == 2 then return "Zniszczcie 5 Metinów."
 			elseif stage == 3 then return "Pokonajcie 3 Królowe Paj¹ków."
-			elseif stage == 4 then return "Zniszczcie 4 Pajêcze Jaja."
+			elseif stage == 4 then return "Zniszczcie 4 Metiny."
 			end
 			return "Pokonajcie Baronównê Paj¹ków!"
 		end
@@ -632,14 +633,14 @@ quest biblioteka_wiedzy begin
 			biblioteka_wiedzy.seal_used()
 		end
 
-		-- Stages 2-5.
-		when 9704.kill with biblioteka_wiedzy.inside() and (d.getf("stage") == 2 or d.getf("stage") == 4) begin
+		-- Stages 2-5. Stages 2 and 4 are Metins, as in Arezzo (8006, a stone every client shows).
+		when 8006.kill with biblioteka_wiedzy.inside() and (d.getf("stage") == 2 or d.getf("stage") == 4) begin
 			local left = d.getf("left") - 1
 			d.setf("left", left)
 			if left <= 0 then
 				biblioteka_wiedzy.next_stage()
 			else
-				d.notice("Biblioteka Wiedzy: Pozosta³e jaja: "..left)
+				d.notice("Biblioteka Wiedzy: Pozosta³e Metiny: "..left)
 			end
 		end
 

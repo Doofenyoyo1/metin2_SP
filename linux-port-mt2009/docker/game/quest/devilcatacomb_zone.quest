@@ -183,6 +183,63 @@ quest devilcatacomb_zone begin
 			d.set_warp_location (0, 0, 0)
 		end
 
+	-- MT2009_PLUS_CATACOMB_PARTY_V1: the Guardian takes a leader's party down
+	-- with him. The stock dialog warps the one who clicked, and the statue's
+	-- d.new_jump_party moves only the members already on floor 1 (it walks the
+	-- clicker's map), so a party that waited by the Guardian stayed in Hwang and
+	-- its leader went through alone ("Wejscie do piekielnych katakumb nie
+	-- przenosi czlonkow grupy", xXxDaronxXx). A member on this map and core within
+	-- fifty metres of the leader - the party's own range - who passes the
+	-- Guardian's checks goes down with the leader; one who does not is told why
+	-- and stays, and the leader is told who stayed. Bots are left out: a bot of a
+	-- person's party follows its leader onto floor 1 by itself, a companion its
+	-- owner.
+	function take_party_down()
+		if not party.is_party() or not party.is_leader() then
+			return
+		end
+		local setting = devilcatacomb_zone.setting()
+		local leader = pc.get_player_id()
+		local lx = pc.get_x()
+		local ly = pc.get_y()
+		local pids = {party.get_member_pids()}
+		local stay = {}
+		for i = 1, table.getn(pids) do
+			local pid = pids[i]
+			if pid ~= leader then
+				q.begin_other_pc_block(pid)
+				if pc.get_player_id() == pid and not pc.is_playerbot() then
+					local dx = pc.get_x() - lx
+					local dy = pc.get_y() - ly
+					if dx * dx + dy * dy <= 50 * 50 then
+						local why = nil
+						if pc.is_dead() then
+							why = "nie zyjesz"
+						elseif pc.get_level() < 75 then
+							why = "potrzebny 75. poziom"
+						elseif pc.getf("deviltower_zone", "9_done") == 0 then
+							why = "najpierw 9. pietro Wiezy Demonow"
+						elseif get_global_time() - pc.getf("devilcatacomb_zone", "last_exit_time") < 1800 then
+							why = "nie minelo 30 minut od ostatniego wyjscia"
+						elseif not pc.can_warp() then
+							why = "odczekaj chwile po handlu, sklepie, magazynie lub ulepszaniu"
+						end
+						if why == nil then
+							pc.warp((setting.floor1_entry.x + setting.base.x) * 100, (setting.floor1_entry.y + setting.base.y) * 100)
+						else
+							syschat("Straznik Katakumb nie wpuszcza cie z grupa: " .. why)
+							table.insert(stay, pc.get_name())
+						end
+					end
+				end
+				q.end_other_pc_block()
+			end
+		end
+		if table.getn(stay) > 0 then
+			syschat("Przy Strazniku zostaja: " .. table.concat(stay, ", "))
+		end
+	end
+
 		when devilcatacomb_man.chat.gameforge.devilcatacomb_zone._100_npcChat with not devilcatacomb_zone.is_closed() begin
 			local setting = devilcatacomb_zone.setting()
 			if pc.get_level() < 75 then
@@ -195,6 +252,7 @@ quest devilcatacomb_zone begin
 				say(gameforge.devilcatacomb_zone._140_say)
 				local s = select(gameforge.devilcatacomb_zone._150_select, gameforge.devilcatacomb_zone._160_select)
 				if s == 1 then
+					devilcatacomb_zone.take_party_down()
 					pc.warp ((setting.floor1_entry.x + setting.base.x )* 100, (setting.floor1_entry.y + setting.base.y) * 100)
 				end
 			end

@@ -25,6 +25,17 @@ def reset_state():
 		'toggles': set(), 'bag_reads': 0, 'protos': {}, 'target': 0, 'cleared': 0,
 		'dead': set(), 'bow': False, 'circles': [],
 	})
+	if 'uipickupfilter' in sys.modules:
+		set_filter(0)
+
+
+def set_filter(on, kinds=None):
+	"""The pick-up filter (uipickupfilter.py, MT2009 PLUS 2.0.37) as if its
+	file said so; written straight into its state, so nothing is saved."""
+	import uipickupfilter
+	uipickupfilter._state.update({'loaded': True, 'file': True, 'on': on,
+		'kinds': uipickupfilter.ALL_KINDS if kinds is None else kinds})
+	return uipickupfilter
 
 
 def module(name, **attrs):
@@ -277,12 +288,17 @@ class HelpersTest(unittest.TestCase):
 		self.assertEqual(uiautohunt.ParseLoot('0', '100', '200'), (0, 0, 0))
 		self.assertEqual(uiautohunt.ParseLoot('7', 'x', '200'), (0, 0, 0))
 
-	def test_loot_mask_follows_the_toggles(self):
+	def test_loot_mask_follows_the_pickup_filter(self):
+		# Since MT2009 PLUS 2.0.37 the kinds are the pick-up filter's (the Z
+		# key, Auto Lowy and the companion share one); "Podnies" is the hunt's.
 		config = uiautohunt.DefaultConfig()
+		set_filter(0)
 		self.assertEqual(uiautohunt.LootMask(config), 8191)
-		config['loot_weapon'] = 0
-		config['loot_armour'] = 0
+		set_filter(1, 8191 & ~3)
 		self.assertEqual(uiautohunt.LootMask(config), 8188)
+		# A filter that keeps nothing still picks up yang.
+		set_filter(1, 0)
+		self.assertEqual(uiautohunt.LootMask(config), uiautohunt.LOOT_YANG_ONLY)
 		config['pickup'] = 0
 		self.assertEqual(uiautohunt.LootMask(config), 0)
 
@@ -291,13 +307,11 @@ class HelpersTest(unittest.TestCase):
 		# own since client 2.0.42; a server before 2.2.27 reads the second
 		# field only, where each of them still counts as armour or jewellery.
 		config = uiautohunt.DefaultConfig()
-		for key in ('loot_armour', 'loot_jewellery', 'loot_helmet', 'loot_shield',
-				'loot_bracelet', 'loot_necklace', 'loot_earrings'):
-			config[key] = 0
-		self.assertEqual(uiautohunt.LootMask(config), (1 << 10) | 1 | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6))
+		kept = 1 | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 10)
+		set_filter(1, kept)
+		self.assertEqual(uiautohunt.LootMask(config), kept)
 		self.assertEqual(uiautohunt.LootCoarseMask(config), 1 | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6))
-		config['loot_shoes'] = 0
-		config['loot_shield'] = 1
+		set_filter(1, (kept & ~(1 << 10)) | (1 << 8))
 		self.assertEqual(uiautohunt.LootCoarseMask(config), 1 | (1 << 1) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6))
 		config['pickup'] = 0
 		self.assertEqual(uiautohunt.LootCoarseMask(config), 0)
@@ -1145,9 +1159,13 @@ class WindowTest(unittest.TestCase):
 		hunter = uiautohunt.Hunter()
 		hunter.ToggleWindow()
 		loot = hunter.lootWindow
-		loot.OnToggle('loot_weapon')
-		self.assertEqual(hunter.config['loot_weapon'], 0)
-		self.assertEqual(loot.toggles['loot_weapon'][0].text, 'Bro\xf1: nie')
+		filt = set_filter(0)
+		loot.OnToggleKind(1 << 0)
+		# Leaving a kind out switches the filter on: the kind stays on the ground.
+		self.assertTrue(filt.IsActive())
+		self.assertEqual(filt.GetKinds() & 1, 0)
+		self.assertEqual(loot.kindToggles[1 << 0][0].text, 'Bro\xf1: nie')
+		self.assertEqual(loot.filterBtn.text, 'Filtr: tak')
 		loot.OnToggle('bosses')
 		self.assertEqual(hunter.config['bosses'], 1)
 		self.assertEqual(loot.toggles['bosses'][0].text, 'Bossy: tak')

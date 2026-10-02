@@ -3,6 +3,7 @@
 
 #include <set>
 #include <deque>
+#include "playerbot_session_rules.h" // MT2009_PLUS_BOT_SESSIONS_V1
 
 class CGuild;
 class CAsyncSQL;
@@ -20,6 +21,9 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// stops at (PLAYERBOT_MEDAL_DROPPERS, PLAYERBOT_MEDAL_DROPPER_LEVEL).
 		size_t	SpawnMedalDropperCohort(size_t count, BYTE bEmpire, BYTE bExpLockLevel);
 		bool	IsMedalDropperCohortPID(DWORD dwPlayerID) const;
+		// MT2009_PLUS_AREZZO_BOTS_V1 (cohort): these identities too, on top of
+		// the population; how many were queued now.
+		size_t	ScheduleExtraBots(const std::vector<DWORD>& pids);
 		BYTE	GetMedalDropperCohortLevel() const;
 		// The kingdom a registered PID belongs to, 0 when it is not registered.
 		BYTE	GetRegisteredEmpire(DWORD dwPlayerID);
@@ -27,7 +31,11 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// The bootstrap needs this before it can split one budget three ways.
 		void	CountRegisteredPerEmpire(int* out, int size);
 		void	SpawnPendingBatch(DWORD dwNow);
-		bool	Despawn(DWORD dwPlayerID);
+		// MT2009_PLUS_BOT_SESSIONS_V1: why the bot leaves, for its session
+		// row (playerbot_session_rules.h); an engine caller - a GM's command -
+		// gives none. dwRestSeconds only with OUT_REST: when it is due back.
+		bool	Despawn(DWORD dwPlayerID, BYTE bSessionOut = playerbot_session_rules::OUT_GM,
+				DWORD dwRestSeconds = 0);
 		void	TryScheduleRetirement(DWORD dwNow);
 		void	ProcessRetirementResets(DWORD dwNow);
 		void	OnRetirementPurgeAck(DWORD dwPlayerID);

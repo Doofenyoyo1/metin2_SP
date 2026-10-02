@@ -124,9 +124,10 @@ quest wzgorze_wukonga begin
 				d.regen_file(c.path.."eggs.txt")
 				d.set_regen_file(c.path.."guards.txt")
 			elseif stage == 5 then
-				d.spawn_mob(9684, 264, 273)
+				-- 1 October: the bosses no longer stand on the entry point (264,273) on top of the party.
+				d.spawn_mob(9684, 268, 256)
 			elseif stage == 6 then
-				d.spawn_mob(9682, 264, 272)
+				d.spawn_mob(9682, 268, 256)
 			end
 			d.notice("Wzgórze Wukonga ("..stage.."/6): "..wzgorze_wukonga.stage_text(stage))
 		end
@@ -173,7 +174,12 @@ quest wzgorze_wukonga begin
 			local c = wzgorze_wukonga.cfg()
 			d.setf("closed", 1)
 			d.setf("mt2009_keep_until", 0)
-			d.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+			if d.getf("mt2009_dgbot") == 1 then
+				-- MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1: the test cohort's run ends in its lobby (this map, game2).
+				d.set_warp_location(c.map, c.base_x + c.entry[1], c.base_y + c.entry[2])
+			else
+				d.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+			end
 			d.exit_all()
 		end
 
@@ -542,6 +548,10 @@ quest wzgorze_wukonga begin
 					return
 				end
 				local left = d.getf("minutes") - 1
+				if d.getf("mt2009_dgbot") == 1 then
+					-- MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1: the test cohort's runs have no time limit.
+					left = d.getf("minutes")
+				end
 				d.setf("minutes", left)
 				if left <= 0 then
 					d.notice("Wzgórze Wukonga: Czas min¹³. Stra¿nik wyprowadza was z lochu.")
@@ -556,6 +566,17 @@ quest wzgorze_wukonga begin
 					d.notice("Wzgórze Wukonga: Pozosta³o "..left.." min.")
 				end
 				server_timer("wukong_tick", 60, get_server_timer_arg())
+			end
+		end
+
+		-- MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1: the start of a test cohort's run. The core makes the
+		-- instance itself (no guard, so no fee and no daily limit), marks it with the dungeon flag
+		-- mt2009_dgbot - nothing a player can set - and asks for this; a player's run starts in login.
+		when wukong_dgbot.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				if d.getf("mt2009_dgbot") == 1 and d.getf("init") == 0 then
+					wzgorze_wukonga.init()
+				end
 			end
 		end
 

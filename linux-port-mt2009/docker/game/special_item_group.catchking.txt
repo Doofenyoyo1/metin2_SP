@@ -1,0 +1,64 @@
+# MT2009_PLUS_CATCH_KING_V1: the three King's Loots of Catch the King (playerbot_catchking.h):
+# a game's 10-399 points win a Brazowy, 400-549 a Srebrny, 550+ a Zloty Lup Krolewski - one per
+# deck bet; the season's top ten get Zlote (10/5/3/1) at the table NPC. Owsap's Loots were 50928-
+# 50930, this world's "Receptura" items: here 50968-50970. Owsap's contents rebuilt from this
+# world's items (no mounts, pets, sashes, costumes or Cor Draconis - those come from elsewhere);
+# each Loot gives ONE line, by weight (the last column).
+Group	MT2009_catchking_gold
+{
+	Vnum	50968 -- Zloty Lup Krolewski (550+ punktow)
+	1	25041	1	50 -- Zwoj Blogoslawienstwa
+	2	71084	3	100 -- Zaczarowanie Przedmiotu
+	3	71085	3	100 -- Wzmocnienie Przedmiotu
+	4	39015	1	30 -- Kamien Kowala
+	5	50513	1	40 -- Kamien Duchowy
+	6	50011	2	100 -- Szkatulka Blasku Ksiezyca
+	7	27992	1	30 -- Biala Perla
+	8	27993	1	30 -- Niebieska Perla
+	9	27994	1	30 -- Krwawa Perla
+	10	71153	1	60 -- Mikstura Madrosci
+	11	72726	1	50 -- Eliksir Slonca (S)
+	12	72730	1	50 -- Eliksir Ksiezyca (S)
+	13	50108	20	100 -- Fajerwerki
+	14	50107	20	100 -- Chinska Ognista Petarda
+	15	71027	3	100 -- Zycie Boga Smokow
+	16	71028	3	100 -- Atak Boga Smokow
+	17	71029	3	100 -- Inteligencja Boga Smokow
+	18	71030	3	100 -- Obrona Boga Smokow
+	19	79604	1	60 -- Talia Krolewska
+	20	gold	1000000	100 -- 1 000 000 yang
+	21	gold	2000000	50 -- 2 000 000 yang
+}
+Group	MT2009_catchking_silver
+{
+	Vnum	50969 -- Srebrny Lup Krolewski (400-549 punktow)
+	1	25041	1	30 -- Zwoj Blogoslawienstwa
+	2	71084	1	100 -- Zaczarowanie Przedmiotu
+	3	71085	1	100 -- Wzmocnienie Przedmiotu
+	4	50011	1	100 -- Szkatulka Blasku Ksiezyca
+	5	71153	1	60 -- Mikstura Madrosci
+	6	27993	1	30 -- Niebieska Perla
+	7	27994	1	30 -- Krwawa Perla
+	8	72725	1	60 -- Eliksir Slonca (D)
+	9	72729	1	60 -- Eliksir Ksiezyca (D)
+	10	76012	5	100 -- Mikstura Szybkosci
+	11	76003	5	100 -- Mikstura Pospiechu
+	12	71027	1	100 -- Zycie Boga Smokow
+	13	71028	1	100 -- Atak Boga Smokow
+	14	71029	1	100 -- Inteligencja Boga Smokow
+	15	71030	1	100 -- Obrona Boga Smokow
+	16	79604	1	60 -- Talia Krolewska
+	17	gold	500000	100 -- 500 000 yang
+	18	gold	300000	100 -- 300 000 yang
+	19	exp	100000	60 -- 100 000 doswiadczenia
+}
+Group	MT2009_catchking_bronze
+{
+	Vnum	50970 -- Brazowy Lup Krolewski (10-399 punktow)
+	1	gold	50000	100 -- 50 000 yang
+	2	gold	100000	100 -- 100 000 yang
+	3	exp	100000	100 -- 100 000 doswiadczenia
+	4	71084	1	30 -- Zaczarowanie Przedmiotu
+	5	71085	1	30 -- Wzmocnienie Przedmiotu
+	6	50011	1	20 -- Szkatulka Blasku Ksiezyca
+}

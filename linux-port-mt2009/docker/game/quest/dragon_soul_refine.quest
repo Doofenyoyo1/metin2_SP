@@ -1,13 +1,15 @@
 -- Dragon Soul / Alchemy: refine window (grade/step/strength) and attribute-
--- change window, both opened from the same Alchemist NPC (20001). See
--- dragon_soul.quest's own header comment for why `define` and
--- "gameforge.*" were both replaced (this qc does not read `define`; the
--- gameforge locale mechanism could not be found anywhere in this codebase).
+-- change window, both opened from the same Alchemist NPC (20001). qc does not
+-- read `define`; the refine option and its words are the package's own
+-- (gameforge.dragon_soul_refine.* in share/locale/poland/translate.lua, since
+-- 1 October 2026), the attribute change is MT2009 Plus's own option.
+-- Neither asks the world's alchemy switch (m2_alchemy_off): switched off, the
+-- stones a player already has keep working, refines included.
 quest dragon_soul_refine begin
 	state start begin
-		when 20001.chat."Uszlachetnij Dusze Smoka" with ds.is_qualified() != 0 begin
+		when 20001.chat.gameforge.dragon_soul_refine._010_npcChat with ds.is_qualified() != 0 begin
 			say_title(mob_name(20001))
-			say("Przynies Dusze Smoka i odpowiednie materialy, a je uszlachetnie.")
+			say(gameforge.dragon_soul_refine._020_say)
 			ds.open_refine_window()
 		end
 		when 20001.chat."Zmien wlasciwosci Duszy Smoka" with ds.is_qualified() != 0 begin

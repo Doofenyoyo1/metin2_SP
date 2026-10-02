@@ -291,9 +291,11 @@ namespace
 	// worth keeping a bot for either.
 	const BYTE PLAYERBOT_M2_COHORT_MAX_LEVEL = 35;
 
+	// MT2009_PLUS_PROGRESSION_V1: the second village's ceiling is the
+	// operator's ("m2" row of the panel's map table; 35 by default).
 	bool IsPlayerBotPastM2Ceiling(LPCHARACTER ch)
 	{
-		return ch && ch->GetLevel() > PLAYERBOT_M2_COHORT_MAX_LEVEL;
+		return ch && ch->GetLevel() > playerbot_progression::MapTo(playerbot_progression::MAP_M2);
 	}
 
 	// May this bot start an ordinary fight where it is standing?
@@ -335,12 +337,14 @@ namespace
 
 	bool IsPlayerBotM2LevelingCohort(LPCHARACTER ch)
 	{
-		if (!ch || ch->GetLevel() < 20 ||
-				ch->GetLevel() > PLAYERBOT_M2_COHORT_MAX_LEVEL)
+		// MT2009_PLUS_PROGRESSION_V1: from the "m2" row (20 and 35 by default).
+		const int m2From = playerbot_progression::MapFrom(playerbot_progression::MAP_M2);
+		if (!ch || (int)ch->GetLevel() < m2From ||
+				ch->GetLevel() > playerbot_progression::MapTo(playerbot_progression::MAP_M2))
 			return false;
 		// Levels 20-21 still have a little useful M1 progression, so retain a small
 		// stable minority there. At level 22 every ordinary leveler graduates to M2.
-		return ch->GetLevel() >= 22 ||
+		return (int)ch->GetLevel() >= m2From + 2 ||
 				(PlayerBotNavHash(ch->GetPlayerID() ^ 0x4d325850U) % 10U) != 0;
 	}
 
@@ -483,6 +487,13 @@ namespace
 	{
 		if (!ch)
 			return 0;
+		// MT2009_PLUS_AREZZO_BOTS_V1 (test): a bot the operator sent to an
+		// Arezzo map hunts there until told to leave.
+		{
+			const long arezzo = GetPlayerBotArezzoFrontier(ch);
+			if (arezzo != 0)
+				return arezzo;
+		}
 		// MT2009_PLUS_OCHAO_BOTS_V1 (test): a bot the operator sent to the
 		// Temple of Ochao hunts there until told to leave.
 		if (IsPlayerBotOchaoForced(ch) && WantsPlayerBotOchao(ch, 0, false))
@@ -535,6 +546,10 @@ namespace
 		if (IsPlayerBotOnMilitaryHorseTrial(ch) && !metinolog)
 			return PLAYERBOT_MAP_DEMON_TOWER;
 
+		// MT2009_PLUS_PROGRESSION_V1: every level below is the operator's
+		// (the panel's map table, playerbot_progression_rules.h); the
+		// defaults are the constants this used before.
+		using namespace playerbot_progression;
 		const BYTE level = ch->GetLevel();
 		const DWORD draw = PlayerBotNavHash(ch->GetPlayerID() ^ 0x45534f54U);
 		// Forty-eight and up: the Spider Dungeon for half, Mount Sohan for the
@@ -582,7 +597,7 @@ namespace
 		// draws in three; the Grotto keeps the third and every stone hunter.
 		if (WantsPlayerBotOchao(ch, draw, stoneHunter))
 			return PLAYERBOT_MAP_OCHAO;
-		if (level >= PLAYERBOT_FIRE_LAND_MIN_LEVEL && level <= PLAYERBOT_FIRE_LAND_MAX_LEVEL &&
+		if (level >= MapFrom(MAP_FIRE_LAND) && level <= MapTo(MAP_FIRE_LAND) &&
 				PlayerBotNavHash(ch->GetPlayerID() ^ 0x464c414dU) % 3U == 0)
 			return PLAYERBOT_MAP_FIRE_LAND;
 		// Seventy-eight and up: the Grotto of Exile, the only ground past the
@@ -594,17 +609,17 @@ namespace
 		// grotto this core does not host is passed over here rather than
 		// filtered to nothing after the draw, or a bot of eighty on such a core
 		// would have no frontier at all.
-		if (!stoneHunter && level >= PLAYERBOT_GROTTO_V2_MIN_LEVEL &&
+		if (!stoneHunter && level >= MapFrom(MAP_GROTTO2) &&
 				IsPlayerBotMapHostedHere(PLAYERBOT_MAP_GROTTO_V2))
 		{
 			if ((draw % 3U) != 2 || !IsPlayerBotMapHostedHere(PLAYERBOT_MAP_GROTTO_V1))
 				return PLAYERBOT_MAP_GROTTO_V2;
 			return PLAYERBOT_MAP_GROTTO_V1;
 		}
-		if (!stoneHunter && level >= PLAYERBOT_GROTTO_V1_MIN_LEVEL && (draw % 3U) != 2 &&
+		if (!stoneHunter && level >= MapFrom(MAP_GROTTO1) && (draw % 3U) != 2 &&
 				IsPlayerBotMapHostedHere(PLAYERBOT_MAP_GROTTO_V1))
 			return PLAYERBOT_MAP_GROTTO_V1;
-		if (level >= PLAYERBOT_RED_FOREST_MIN_LEVEL)
+		if (level >= MapFrom(MAP_RED_FOREST))
 		{
 			switch (draw % 3U)
 			{
@@ -614,7 +629,7 @@ namespace
 			}
 		}
 		// Sixty-two and up: the Forest, 65 to 71.
-		if (level >= PLAYERBOT_FOREST_MIN_LEVEL)
+		if (level >= MapFrom(MAP_FOREST))
 		{
 			switch (draw % 3U)
 			{
@@ -629,9 +644,9 @@ namespace
 		// PlayerBotMapHasMetinStones says no anyway, so nobody is sent there to
 		// break one - the operator asked that the dungeon stay unrun until it is
 		// worked out properly.
-		if (level >= PLAYERBOT_DEMON_TOWER_MIN_LEVEL && (draw % 4U) == 0 && !stoneHunter)
+		if (level >= MapFrom(MAP_DEMON_TOWER) && (draw % 4U) == 0 && !stoneHunter)
 			return PLAYERBOT_MAP_DEMON_TOWER;
-		if (level >= PLAYERBOT_SPIDER_V2_MIN_LEVEL)
+		if (level >= MapFrom(MAP_SPIDER2))
 		{
 			switch (draw % 3U)
 			{
@@ -640,7 +655,7 @@ namespace
 				default: return PLAYERBOT_MAP_HWANG;
 			}
 		}
-		if (level >= PLAYERBOT_HWANG_MIN_LEVEL)
+		if (level >= MapFrom(MAP_HWANG))
 		{
 			switch (draw % 3U)
 			{
@@ -649,19 +664,62 @@ namespace
 				default: return PLAYERBOT_MAP_HWANG;
 			}
 		}
-		if (level >= PLAYERBOT_SPIDER_MIN_LEVEL && level >= PLAYERBOT_SOHAN_MIN_LEVEL)
-			return (draw & 1U) != 0 && !stoneHunter ? PLAYERBOT_MAP_SPIDER_V1 : PLAYERBOT_MAP_SOHAN;
+		{
+			const bool sohanOpen = level >= MapFrom(MAP_SOHAN);
+			const bool spiderOpen = level >= MapFrom(MAP_SPIDER1);
+			if (sohanOpen && spiderOpen)
+				return (draw & 1U) != 0 && !stoneHunter ? PLAYERBOT_MAP_SPIDER_V1 : PLAYERBOT_MAP_SOHAN;
+			if (sohanOpen)
+				return PLAYERBOT_MAP_SOHAN;
+			if (spiderOpen && !stoneHunter)
+				return PLAYERBOT_MAP_SPIDER_V1;
+		}
 		// Thirty-six to forty-seven: the valley and the desert share them, the
 		// same way thirty to thirty-five already do. See
 		// PLAYERBOT_DESERT_MAX_LEVEL for what was sitting unused.
-		if (level >= PLAYERBOT_ORC_VALLEY_MIN_LEVEL && level <= PLAYERBOT_DESERT_MAX_LEVEL)
-			return (draw & 1U) != 0 ? PLAYERBOT_MAP_ORC_VALLEY : PLAYERBOT_MAP_DESERT;
-		if (level >= PLAYERBOT_ORC_VALLEY_MIN_LEVEL && level <= PLAYERBOT_ORC_VALLEY_MAX_LEVEL)
-			return PLAYERBOT_MAP_ORC_VALLEY;
 		// Thirty to thirty-five: the Fanatic islands and the desert share the
 		// population. Below thirty Bokjung keeps everyone.
-		if (level >= PLAYERBOT_ORC_VALLEY_ESOTERIC_MIN_LEVEL && level < PLAYERBOT_ORC_VALLEY_MIN_LEVEL)
-			return (draw & 1U) != 0 ? PLAYERBOT_MAP_ORC_VALLEY : PLAYERBOT_MAP_DESERT;
+		{
+			const bool valley = level >= MapFrom(MAP_ORC_VALLEY) && level <= MapTo(MAP_ORC_VALLEY);
+			const bool islands = level >= MapFrom(MAP_ISLANDS) && level <= MapTo(MAP_ISLANDS);
+			const bool desert = level >= MapFrom(MAP_DESERT) && level <= MapTo(MAP_DESERT);
+			if ((valley || islands) && desert)
+				return (draw & 1U) != 0 ? PLAYERBOT_MAP_ORC_VALLEY : PLAYERBOT_MAP_DESERT;
+			if (valley || islands)
+				return PLAYERBOT_MAP_ORC_VALLEY;
+			if (desert)
+				return PLAYERBOT_MAP_DESERT;
+		}
+		return 0;
+	}
+
+	// MT2009_PLUS_SIDEKICK_TRIP_V1: the frontier under a blocked one - the
+	// highest ground the level opens that this core hosts and the companion
+	// has not given up on too - or 0, its own village.
+	long GetPlayerBotFrontierFallback(LPCHARACTER ch, long blocked)
+	{
+		if (!ch)
+			return 0;
+		// MT2009_PLUS_PROGRESSION_V1: the operator's entry levels.
+		using namespace playerbot_progression;
+		const struct { long map; int minLevel; } rows[] = {
+			{ PLAYERBOT_MAP_GROTTO_V2, MapFrom(MAP_GROTTO2) },
+			{ PLAYERBOT_MAP_GROTTO_V1, MapFrom(MAP_GROTTO1) },
+			{ PLAYERBOT_MAP_RED_FOREST, MapFrom(MAP_RED_FOREST) },
+			{ PLAYERBOT_MAP_FOREST, MapFrom(MAP_FOREST) },
+			{ PLAYERBOT_MAP_SPIDER_V2, MapFrom(MAP_SPIDER2) },
+			{ PLAYERBOT_MAP_HWANG, MapFrom(MAP_HWANG) },
+			{ PLAYERBOT_MAP_SOHAN, MapFrom(MAP_SOHAN) },
+			{ PLAYERBOT_MAP_ORC_VALLEY, MapFrom(MAP_ORC_VALLEY) },
+		};
+		for (size_t i = 0; i < sizeof(rows) / sizeof(rows[0]); ++i)
+		{
+			if (rows[i].map == blocked || (int)ch->GetLevel() < rows[i].minLevel)
+				continue;
+			if (!IsPlayerBotMapHostedHere(rows[i].map) || IsPlayerBotSidekickTripBlocked(ch, rows[i].map))
+				continue;
+			return rows[i].map;
+		}
 		return 0;
 	}
 
@@ -669,6 +727,13 @@ namespace
 	// window, or 0 when its own village is still the right place for it.
 	long GetPlayerBotFrontierMapForLevel(LPCHARACTER ch)
 	{
+		// MT2009_PLUS_AREZZO_BOTS_V1 (test): a bot sent to an Arezzo map goes
+		// there before any errand's map.
+		{
+			const long arezzo = GetPlayerBotArezzoFrontier(ch);
+			if (arezzo != 0)
+				return arezzo;
+		}
 		// MT2009_PLUS_OCHAO_BOTS_V1 (test): a bot sent to the Temple of Ochao
 		// goes there before any errand's map.
 		if (IsPlayerBotOchaoForced(ch) && WantsPlayerBotOchao(ch, 0, false))
@@ -688,6 +753,10 @@ namespace
 		// map the draw above gives a stone hunter in their place.
 		if (IsPlayerBotSpiderMap(map) && IsPlayerBotMetinologNow(ch))
 			map = PLAYERBOT_MAP_SOHAN;
+		// MT2009_PLUS_SIDEKICK_TRIP_V1: a companion that could not get there
+		// takes the next ground down for a while.
+		if (map != 0 && IsPlayerBotSidekickTripBlocked(ch, map))
+			return GetPlayerBotFrontierFallback(ch, map);
 		return IsPlayerBotMapHostedHere(map) ? map : 0;
 	}
 
@@ -762,6 +831,9 @@ namespace
 	{
 		if (!ch || GetPlayerBotFrontierMapForLevel(ch) == 0)
 			return false;
+		// MT2009_PLUS_AREZZO_BOTS_V1 (test): the operator's send is no roll.
+		if (GetPlayerBotArezzoFrontier(ch) != 0)
+			return true;
 		TPlayerBotAIStateMap::const_iterator it =
 				s_mapPlayerBotAIStates.find(ch->GetPlayerID());
 		const BYTE personality = it != s_mapPlayerBotAIStates.end()
@@ -1100,6 +1172,15 @@ namespace
 		// MT2009_PLUS_OCHAO_BOTS_V1 (route): the Temple of Ochao is entered from
 		// level 95 through Straznik Swiatyni in Orc Valley, and every way out is
 		// written down (playerbot_ochao_bots.h).
+		// MT2009_PLUS_AREZZO_BOTS_V1 (route): the Arezzo maps and dungeons and
+		// the Blue Dragon's lair take no bot but the operator's test cohorts,
+		// the Las only through the temple's Portal, and each Arezzo map is
+		// left by its Teleporter (playerbot_arezzo_bots.h).
+		{
+			const int arezzo = RoutePlayerBotArezzoTransition(ch, state, targetMap, targetX, targetY, dwNow, reason);
+			if (arezzo >= 0)
+				return arezzo != 0;
+		}
 		{
 			const int ochao = RoutePlayerBotOchaoTransition(ch, state, targetMap, targetX, targetY, dwNow, reason);
 			if (ochao >= 0)
@@ -1347,6 +1428,11 @@ namespace
 	{
 		// MT2009_PLUS_OCHAO_BOTS_V1 (fee): the Temple of Ochao's Teleporter.
 		if (x == PLAYERBOT_OCHAO_EXIT_X && y == PLAYERBOT_OCHAO_EXIT_Y)
+			return true;
+		// MT2009_PLUS_AREZZO_BOTS_V1 (fee): the Arezzo maps' Teleporters.
+		if ((x == PLAYERBOT_AREZZO_CYCLOPS_EXIT_X && y == PLAYERBOT_AREZZO_CYCLOPS_EXIT_Y) ||
+				(x == PLAYERBOT_AREZZO_PHARAOH_EXIT_X && y == PLAYERBOT_AREZZO_PHARAOH_EXIT_Y) ||
+				(x == PLAYERBOT_AREZZO_FOREST_EXIT_X && y == PLAYERBOT_AREZZO_FOREST_EXIT_Y))
 			return true;
 		if ((x == PLAYERBOT_M1_TELEPORTER_X && y == PLAYERBOT_M1_TELEPORTER_Y) ||
 				(x == PLAYERBOT_M2_TO_M3_TELEPORTER_X && y == PLAYERBOT_M2_TO_M3_TELEPORTER_Y))
@@ -1710,7 +1796,12 @@ namespace
 				s_mapPlayerBotTeleportRingReady.find(ch->GetPlayerID());
 		if (it != s_mapPlayerBotTeleportRingReady.end() && dwNow < it->second)
 			return false;
-		if (!TransitionPlayerBotMap(ch, state, destMap, destX, destY, dwNow, reason))
+		// MT2009_PLUS_AREZZO_BOTS_V1 (ring): the Arezzo maps' gate lets the
+		// ring's warp through (RoutePlayerBotArezzoTransition asks this).
+		s_bPlayerBotArezzoRingWarp = true;
+		const bool moved = TransitionPlayerBotMap(ch, state, destMap, destX, destY, dwNow, reason);
+		s_bPlayerBotArezzoRingWarp = false;
+		if (!moved)
 			return false;
 		s_mapPlayerBotTeleportRingReady[ch->GetPlayerID()] = dwNow + PLAYERBOT_TELEPORT_RING_COOLDOWN_MS;
 		sys_log(0, "PLAYERBOT_WORLD: teleport ring home pid=%u name=%s to_map=%ld (%s)",
@@ -1726,6 +1817,31 @@ namespace
 	// until it leaves M1.
 	const DWORD PLAYERBOT_M1_HOLD_RELEASE_MS = 20 * 60 * 1000;
 	std::map<DWORD, DWORD> s_mapPlayerBotM1HeldSince;
+	// MT2009_PLUS_SIDEKICK_TRIP_V1: what held it there on the last pass, for
+	// the status line ("Ide do Groty..." over a bot held in Joan for an hour)
+	// and the companion's trip watch. Index into the tables below.
+	struct TPlayerBotM1HoldWhy { DWORD dwAt; BYTE bWhy; };
+	std::map<DWORD, TPlayerBotM1HoldWhy> s_mapPlayerBotM1HoldWhy;
+	const char* const PLAYERBOT_M1_HOLD_WHY_KEY[] = { "medal", "fight_gear", "bag", "m1_services", "biologist_herbs",
+			"potions", "gambler", "town" };
+	const char* const PLAYERBOT_M1_HOLD_WHY_PL[] = { "Medal Konny", "brak broni/zbroi lub mikstur", "pelny plecak",
+			"uslugi w wiosce", "misja Biologa w wiosce", "nadmiar mikstur", "kowal", "zakupy w wiosce" };
+
+	// The hold's reason seen in the last ten seconds, or -1.
+	int GetPlayerBotM1HoldWhy(DWORD pid, DWORD dwNow)
+	{
+		std::map<DWORD, TPlayerBotM1HoldWhy>::const_iterator it = s_mapPlayerBotM1HoldWhy.find(pid);
+		if (it == s_mapPlayerBotM1HoldWhy.end() || dwNow - it->second.dwAt > 10000)
+			return -1;
+		return it->second.bWhy;
+	}
+
+	// Lets a held bot go at once, as PLAYERBOT_M1_HOLD_RELEASE_MS would.
+	void ReleasePlayerBotM1Hold(DWORD pid)
+	{
+		s_mapPlayerBotM1HeldSince[pid] = 1;
+		s_mapPlayerBotM1HoldWhy.erase(pid);
+	}
 
 	bool ManagePlayerBotWorldTravel(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
@@ -1960,6 +2076,14 @@ namespace
 					dwNow, toV1 ? "desert_gate_to_v1" : "desert_gate_to_bokjung");
 		}
 
+		// MT2009_PLUS_AREZZO_BOTS_V1 (travel): an Arezzo map closing under the
+		// bot, and the way into the Las through the temple's Guardian and his
+		// Portal.
+		{
+			const int arezzo = ManagePlayerBotArezzoTravel(ch, state, dwNow);
+			if (arezzo >= 0)
+				return arezzo != 0;
+		}
 		// MT2009_PLUS_OCHAO_BOTS_V1 (crossing): in Orc Valley on the way to the
 		// Temple of Ochao, the walk to Straznik Swiatyni beside Koe-Pung.
 		{
@@ -2034,6 +2158,11 @@ namespace
 					heldSince = dwNow;
 				if (dwNow - heldSince < PLAYERBOT_M1_HOLD_RELEASE_MS)
 				{
+					// MT2009_PLUS_SIDEKICK_TRIP_V1: the first reason, in the hold's order.
+					TPlayerBotM1HoldWhy& why = s_mapPlayerBotM1HoldWhy[ch->GetPlayerID()];
+					why.dwAt = dwNow;
+					why.bWhy = holdsMedalToHandIn ? 0 : fightBlocks ? 1 : bagBlocks ? 2 : needsM1OnlyServices ? 3 :
+							herbs ? 4 : potionsBlock ? 5 : gambler ? 6 : 7;
 					PlayerBotLogThrottled("m1_hold", dwNow,
 							"PLAYERBOT_WORLD: m1 hold pid=%u name=%s level=%u held_s=%u medal=%d fight=%d bag=%d m1_services=%d herbs=%d potions=%d gambler=%d town=%d visited=%d",
 							ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), (dwNow - heldSince) / 1000U,
@@ -2064,7 +2193,8 @@ namespace
 				return false;
 			if (state.dwNextWorldTravelTime == 0)
 			{
-				const bool graduatedFromM1 = ch->GetLevel() >= 22 && !needsHorseExpedition;
+				const bool graduatedFromM1 = (int)ch->GetLevel() >=
+						playerbot_progression::MapFrom(playerbot_progression::MAP_M2) + 2 && !needsHorseExpedition;
 				const DWORD minDelay = needsHorseExpedition ? PLAYERBOT_HORSE_TRAVEL_MIN_DELAY :
 						(graduatedFromM1 ? PLAYERBOT_LEVEL22_TRAVEL_MIN_DELAY :
 						 PLAYERBOT_WORLD_TRAVEL_MIN_DELAY);
@@ -2393,13 +2523,16 @@ namespace
 			// ("frontier_visit_complete" after 41 minutes, m2zip 17 September).
 			const bool visitExpired = (!onBattleTrialHere && stayed >=
 					GetPlayerBotFrontierVisitTime(state.bPersonality)) ||
-					(mapIndex == PLAYERBOT_MAP_OCHAO && IsPlayerBotOchaoLeaveOrdered(ch)); // MT2009_PLUS_OCHAO_BOTS_V1 (test)
+					(mapIndex == PLAYERBOT_MAP_OCHAO && IsPlayerBotOchaoLeaveOrdered(ch)) || // MT2009_PLUS_OCHAO_BOTS_V1 (test)
+					(IsPlayerBotArezzoMap(mapIndex) && IsPlayerBotArezzoLeaveOrdered(ch)); // MT2009_PLUS_AREZZO_BOTS_V1 (test)
 			// Two minutes of actually playing here before anything but a real
 			// emergency may send the bot home again.
 			// MT2009_PLUS_OCHAO_BOTS_V1 (stay): the temple is a long way in and out,
 			// so only what stops the fight takes a bot out of it sooner.
+			// MT2009_PLUS_AREZZO_BOTS_V1 (stay): and the Las, reached the same way.
 			const bool settledIn = stayed >= (mapIndex == PLAYERBOT_MAP_OCHAO
-					? PLAYERBOT_OCHAO_MIN_VISIT_TIME : PLAYERBOT_FRONTIER_MIN_VISIT_TIME);
+					? PLAYERBOT_OCHAO_MIN_VISIT_TIME : (mapIndex == PLAYERBOT_MAP_AREZZO_FOREST
+						? PLAYERBOT_AREZZO_FOREST_MIN_VISIT_TIME : PLAYERBOT_FRONTIER_MIN_VISIT_TIME));
 			// Outgrowing the map matters as much as running out of potions: neither
 			// Orc Valley nor the Desert has a merchant, a blacksmith or a trainer.
 			const bool outOfBand = GetPlayerBotFrontierMapForLevel(ch) != mapIndex;
@@ -2453,6 +2586,12 @@ namespace
 					ch->GetParty() == NULL && WantsPlayerBotFishingTrip(ch, state, dwNow);
 			if (!visitExpired && !outOfBand && !needsTown && !wantsMedal && !wantsWeapon && !wantsFishing)
 				return false;
+			// MT2009_PLUS_AREZZO_BOTS_V1 (held): a bot the Arezzo test sent here
+			// stays until it is told to leave - the visit clock, the services,
+			// the medal, the weapon and the river wait; only what stops the
+			// fight (blocked) takes it home, and the order brings it back.
+			if (IsPlayerBotArezzoMap(mapIndex) && IsPlayerBotArezzoHeldHere(ch) && !IsPlayerBotArezzoTrulyBlocked(ch))
+				return false;
 
 			// A share of the bots keeps Joan as home: the services trip goes
 			// there, and only the services trip - a medal, a weapon hunt and
@@ -2492,6 +2631,9 @@ namespace
 			// to the Teleporter, or through the Guardian's Portal while it stands.
 			if (mapIndex == PLAYERBOT_MAP_OCHAO)
 				return MovePlayerBotOutOfOchao(ch, state, destMap, destX, destY, dwNow, reason);
+			// MT2009_PLUS_AREZZO_BOTS_V1 (exit): to the map's Teleporter by its routes.
+			if (IsPlayerBotArezzoMap(mapIndex))
+				return MovePlayerBotOutOfArezzo(ch, state, destMap, destX, destY, dwNow, reason);
 			return MovePlayerBotToWorldPortal(ch, state, exitX, exitY,
 					destMap, destX, destY, dwNow, reason);
 		}

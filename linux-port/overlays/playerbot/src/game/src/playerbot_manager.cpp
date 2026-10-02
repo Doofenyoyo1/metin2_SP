@@ -6,6 +6,7 @@
 #include "playerbot_event_rules.h"
 #include "playerbot_stall_rules.h"
 #include "playerbot_persona_rules.h"
+#include "playerbot_progression_rules.h" // MT2009_PLUS_PROGRESSION_V1: the operator's map levels, early holds and checklist
 #include "playerbot_lure_order_rules.h"
 #include "playerbot_truce_rules.h"
 #include "playerbot_guild_aid_rules.h"
@@ -136,6 +137,8 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 // log.playerbot_equip): the recorder here, the parts that read the whole AI
 // after it (playerbot_explain_late.h, below).
 #include "playerbot_explain.h"
+// MT2009_PLUS_BOT_SESSIONS_V1: the bots' sessions (log.playerbot_session).
+#include "playerbot_session.h"
 #include "playerbot_events.h"
 // The Battle Pass (the engine calls in through server-patches/playerqol).
 #include "playerbot_battlepass.h"
@@ -143,6 +146,12 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_newpet.h"
 #include "playerbot_wheel.h" // Kolo Fortuny, "/kolo" (MT2009_PLUS_WHEEL_V1)
 #include "playerbot_goblin.h" // Poszukiwanie skarbow, "/goblin" (MT2009_PLUS_GOBLIN_V1)
+#include "playerbot_ingame_events.h" // the in-game event manager, "/ingame_event" (MT2009_PLUS_EVENT_MANAGER_V1)
+#include "playerbot_seonhae.h" // Seon-Hae's 6th/7th bonus, "/seonhae" (MT2009_PLUS_SEONHAE_V1)
+#include "playerbot_flower.h" // the Flower Event "Dzieci Kwiaty", packets 187 (MT2009_PLUS_FLOWER_V1)
+#include "playerbot_rumi.h" // Owsap's Rumi (Okey card game), CG/GC 181 (MT2009_PLUS_RUMI_V1)
+#include "playerbot_catchking.h" // Catch the King, packets CG 226 / GC 238 (MT2009_PLUS_CATCH_KING_V1)
+#include "playerbot_yutnori.h" // Yut Nori, packets 182 (MT2009_PLUS_YUTNORI_V1)
 #include "playerbot_dungeon_panel.h" // the dungeon panel, "/lochy", d.update_ranking (MT2009_PLUS_DUNGEON_PANEL_V1)
 // Iwakura's Bot Mood System: the moods and the notes the loot, the chests,
 // the fishing and the blacksmith send it - early, so any of them may.
@@ -170,6 +179,7 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_bonus.h"
 #include "playerbot_ochao.h" // MT2009_PLUS_OCHAO_BOTS_V1 (include): the temple's map and clock, before the bots' knowledge of it
 #include "playerbot_ochao_bots.h" // MT2009_PLUS_OCHAO_BOTS_V1 (include): the bots in the Temple of Ochao
+#include "playerbot_arezzo_bots.h" // MT2009_PLUS_AREZZO_BOTS_V1 (include): the test cohorts on the Arezzo maps
 #include "playerbot_travel.h"
 #include "playerbot_planner.h"
 // Which of Iwakura's personalities claims a bot, the Grinder's lock and the
@@ -225,6 +235,9 @@ namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* pl
 // the Guardian, the key on the first floor and the six floors after it.
 // After boss_raid.h, beside the tower whose scan-free fight it borrows.
 #include "playerbot_catacomb.h"
+// MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1 (include): the test cohort that runs the
+// three Arezzo dungeons in a loop. After the Catacomb, whose fight it borrows.
+#include "playerbot_arezzo_dungeon_bots.h"
 // Pirate Tanaka and Zuo's Metin rain: what the timed events put into the
 // world, and the bots that answer them. After the raids, whose fight it
 // borrows and which it gives way to.
@@ -252,6 +265,9 @@ namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* pl
 #include "playerbot_bpbots.h"
 // MT2009_PLUS_SHOUTERS_V1: the three shouters of the first villages.
 #include "playerbot_shouters.h"
+// MT2009_PLUS_PROGRESSION_V1: the checklist before a level, after every
+// cohort it asks about and the whole bag it weighs.
+#include "playerbot_progression.h"
 
 namespace
 {
@@ -610,7 +626,10 @@ namespace
 		// (DistributeExp falls back to GetMostAttacked). It tells its owner.
 		LPCHARACTER ringOwner = sidekick ? GetPlayerBotSidekickOwnerHere(ch->GetPlayerID()) : NULL;
 		const bool ownerRing = ringOwner && ringOwner->FindAffect(AFFECT_EXP_BLOCK) != NULL;
-		const bool shouldLock = (lockLevel != 0 && ch->GetLevel() >= lockLevel) || ownerRing;
+		// MT2009_PLUS_PROGRESSION_V1: a gate of the checklist holds the bot
+		// where it stands until it has what the gate asks for.
+		const bool progressHeld = !sidekick && IsPlayerBotProgressionHeld(ch->GetPlayerID());
+		const bool shouldLock = (lockLevel != 0 && ch->GetLevel() >= lockLevel) || ownerRing || progressHeld;
 		const bool locked = ch->FindAffect(AFFECT_EXP_BLOCK) != NULL;
 		if (locked == shouldLock)
 			return;
@@ -628,7 +647,9 @@ namespace
 		if (ownerRing)
 			SayPlayerBotSidekick(ringOwner, "Masz Pierscien Anty-Exp, wiec ja tez nie zbieram doswiadczenia.");
 		sys_log(0, "PLAYERBOT_AI: exp locked for a %s pid=%u name=%s level=%u lock=%u personality=%u",
-				ownerRing ? "companion of an Anti-Exp Ring" : sidekick ? "companion playing alone" : persona ? "grinder" : "dropper", ch->GetPlayerID(),
+				ownerRing ? "companion of an Anti-Exp Ring" : sidekick ? "companion playing alone" :
+				(progressHeld && !(lockLevel != 0 && ch->GetLevel() >= lockLevel)) ? "progression gate" :
+				persona ? "grinder" : "dropper", ch->GetPlayerID(),
 				ch->GetName(), (unsigned)ch->GetLevel(),
 				(unsigned)lockLevel, (unsigned)state.bPersonality);
 #else
@@ -640,6 +661,41 @@ namespace
 		// world; the shared overlay simply does nothing here.
 		(void)shouldLock;
 #endif
+	}
+
+	// MT2009_PLUS_EXP_LOCK_SHOWN_V1: the lock the panel's "blokada expa na N"
+	// shows - the one in force, not the Grinder's lock written in the bot's
+	// persona: a player's companion (no lock while its owner plays), a guild or
+	// a medal dropper (its ground's lock), a bot that has advanced, all showed
+	// that written number below their level ("bot ma 32 a w opisie blokade na
+	// 26", the owner, 1 October). A bot the lock holds now is held where it
+	// stands; one it will hold shows where; any other shows none. Read only:
+	// the persona's own lock is decided by ManagePlayerBotExpLock.
+	unsigned int GetPlayerBotShownExpLock(LPCHARACTER ch, const TPlayerBotAIState& state)
+	{
+		if (!ch)
+			return 0;
+		if (ch->FindAffect(AFFECT_EXP_BLOCK) != NULL)
+			return (unsigned int)ch->GetLevel();
+		if (IsPlayerBotShouterPID(ch->GetPlayerID()))
+			return 0;
+		BYTE lockLevel = GetPlayerBotExpLockLevel(state.bPersonality);
+		const bool sidekick = IsPlayerBotSidekickPID(ch->GetPlayerID());
+		const bool cohort = !sidekick && CPlayerBotManager::instance().IsMedalDropperCohortPID(ch->GetPlayerID());
+		const bool persona = !cohort && !sidekick && IsPlayerBotPersonaEnabled();
+		if (state.bPersonality == BOT_PERSONALITY_GUILD_DROPPER)
+			lockLevel = GetPlayerBotGuildDropperGround(ch->GetPlayerID()).lock;
+		if (sidekick)
+			lockLevel = GetPlayerBotSidekickSoloLockLevel(ch, get_dword_time());
+		if (cohort)
+			lockLevel = CPlayerBotManager::instance().GetMedalDropperCohortLevel();
+		else if (persona && state.bPersonality == BOT_PERSONALITY_MEDAL_DROPPER)
+			lockLevel = PLAYERBOT_EXP_LOCK_MEDAL_DROPPER;
+		else if (persona && state.bPersonality == BOT_PERSONALITY_GUILD_DROPPER)
+			lockLevel = GetPlayerBotGuildDropperGround(ch->GetPlayerID()).lock;
+		else if (persona)
+			lockLevel = state.persona.bRestored && !state.persona.bAdvanced ? state.persona.bLockLevel : 0;
+		return lockLevel > ch->GetLevel() ? (unsigned int)lockLevel : 0U;
 	}
 
 	// A bot's level, where the panels read it. Both read player.player, and the
@@ -2106,7 +2162,10 @@ namespace
 	bool UsePlayerBotBook(LPCHARACTER ch, WORD cell)
 	{
 #if defined(PLAYERBOT_ENGINE_MT2009)
-		if (ch->FindAffect(AFFECT_EXP_BLOCK) && (long long)ch->GetExp() < PLAYERBOT_BOOK_READ_EXP)
+		// MT2009_PLUS_BOT_BOOK_NO_EXP_V1: no bot waits for the experience a read
+		// wants any more (the official 2.2.39: "czytanie ksiegi nie wymaga juz
+		// 20 000 doswiadczenia") - the bar is lent for the read and put back.
+		if ((long long)ch->GetExp() < PLAYERBOT_BOOK_READ_EXP)
 		{
 			const DWORD exp = ch->GetExp();
 			ch->SetExp(PLAYERBOT_BOOK_READ_EXP);
@@ -2212,10 +2271,12 @@ namespace
 #if defined(PLAYERBOT_ENGINE_MT2009)
 		// At the top level the engine asks nothing, and under the lock the
 		// read is paid by UsePlayerBotBook.
-		if (ch->GetLevel() >= gPlayerMaxLevel || ch->FindAffect(AFFECT_EXP_BLOCK))
-			return true;
-#endif
+		// MT2009_PLUS_BOT_BOOK_NO_EXP_V1: UsePlayerBotBook lends the bar to any bot.
+		(void)ch;
+		return true;
+#else
 		return (long long)ch->GetExp() >= PLAYERBOT_BOOK_READ_EXP;
+#endif
 	}
 
 	void ManagePlayerBotSkillBooks(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
@@ -2372,8 +2433,8 @@ namespace
 	// at G1..G10 on towards Perfect Master. The engine's half is
 	// LearnGrandMasterSkill (a thirty percent roll, four under the first reads);
 	// the rest is training_grandmaster_skill.quest, a dialog a bot cannot
-	// answer, so this pass does what the quest does - twelve hours between
-	// reads (waved away like the books' while the panel's BOOKS switch is on),
+	// answer, so this pass does what the quest does - the wait between reads
+	// (the difficulty's, at most twelve hours; r40250 twelve unless BOOKS is on),
 	// the stone spent either way, and the rank the training costs: 1000 plus
 	// 500 a grade over G1 on a success, a third to a half of that on a failure,
 	// twice as much for a rank already below zero. A bot trains only while the
@@ -2411,8 +2472,22 @@ namespace
 
 		const char* nextTimeFlag = "training_grandmaster_skill.next_time";
 		const int now = get_global_time();
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		// MT2009_PLUS_SOUL_STONE_WAIT_V1: the difficulty's wait, and a longer
+		// one already stored shortens to it.
+		const int stoneWait = GetPlayerBotSoulStoneWaitSeconds();
+		int readyAt = ch->GetQuestFlag(nextTimeFlag);
+		if (readyAt > now + stoneWait)
+		{
+			readyAt = now + stoneWait;
+			ch->SetQuestFlag(nextTimeFlag, readyAt);
+		}
+		if (now < readyAt)
+			return;
+#else
 		if (now < ch->GetQuestFlag(nextTimeFlag) && !IsPlayerBotFastBooksEnabled())
 			return;
+#endif
 
 		// The skill the books would pick: the build's primary first, then the
 		// highest grade.
@@ -2454,7 +2529,11 @@ namespace
 			stone->SetCount(stone->GetCount() - 1);
 		else
 			ITEM_MANAGER::instance().RemoveItem(stone, "PLAYERBOT_GRAND_MASTER_READ");
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		ch->SetQuestFlag(nextTimeFlag, now + stoneWait);
+#else
 		ch->SetQuestFlag(nextTimeFlag, now + PLAYERBOT_GRAND_MASTER_TRAIN_SECONDS);
+#endif
 		const bool learned = ch->LearnGrandMasterSkill(skillVnum);
 		ch->UpdateAlignment(-(learned ? cost : number(cost / 3, cost / 2)));
 		SetPlayerBotAction(state, BOT_ACTION_READ_BOOK, dwNow);
@@ -2970,6 +3049,8 @@ void CPlayerBotManager::StartWorldClock()
 {
 	mt2009_ochao::Start(); // MT2009_PLUS_OCHAO_V1 (start): only where map 209 is hosted
 	mt2009_arezzo::Start(); // MT2009_PLUS_AREZZO_MODULE_V1 (start): every core
+	StartPlayerBotArezzoWatch(); // MT2009_PLUS_AREZZO_BOTS_V1 (start): where 360-362 are hosted
+	StartPlayerBotArezzoDungeonWatch(); // MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1 (start): runs where 364-366 are hosted
 	if (s_pkPlayerBotUpdateEvent || s_pkPlayerBotWorldEvent)
 		return;
 	playerbot_world_event_info* info = AllocEventInfo<playerbot_world_event_info>();
@@ -2996,6 +3077,14 @@ bool CPlayerBotManager::Spawn(DWORD dwPlayerID, BYTE bEmpire)
 	// Being retired: out of the world until its character is new.
 	if (IsPlayerBotRetirementHold(dwPlayerID))
 		return false;
+	// MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1 (spawn): the Arezzo dungeon cohort lives
+	// on the core that hosts the dungeons; every other core leaves it alone.
+	if (IsPlayerBotArezzoDungeonReservedPID(dwPlayerID))
+	{
+		PlayerBotLogThrottled("arzdg_reserved", get_dword_time(),
+				"ARZ_DG: refused pid=%u here, the dungeon cohort's (playerbot_arezzo_dungeon_cohort.txt)", dwPlayerID);
+		return false;
+	}
 
 	// The kingdom comes from the registry, never from the caller. A PID whose
 	// seeded character is Jinno starts as Jinno or does not start at all -
@@ -3667,6 +3756,49 @@ size_t CPlayerBotManager::SpawnMedalDropperCohort(size_t count, BYTE bEmpire, BY
 	return selected;
 }
 
+// MT2009_PLUS_AREZZO_BOTS_V1 (cohort): named identities on top of the
+// population, as the medal droppers are (playerbot_arezzo_bots.h reads them
+// from playerbot_arezzo_cohort.txt): each one this channel has registered,
+// not banned and not yet asked for, goes into the spawn queue, and the top-up
+// keeps it in the world like the rest.
+size_t CPlayerBotManager::ScheduleExtraBots(const std::vector<DWORD>& pids)
+{
+	if (pids.empty() || !LoadRegisteredBots())
+		return 0;
+	size_t selected = 0, unknown = 0, already = 0;
+	for (size_t i = 0; i < pids.size(); ++i)
+	{
+		const DWORD pid = pids[i];
+		if (m_setRegisteredBots.find(pid) == m_setRegisteredBots.end() || GetRegisteredEmpire(pid) == 0)
+		{
+			++unknown;
+			continue;
+		}
+		if (m_setScheduledBots.find(pid) != m_setScheduledBots.end())
+		{
+			++already;
+			continue;
+		}
+		m_dequePendingSpawns.push_back(pid);
+		m_setScheduledBots.insert(pid);
+		++selected;
+	}
+	if (selected > 0)
+	{
+		const size_t batches = std::max<size_t>(1, m_dwSpawnWindowMs / PLAYERBOT_SPAWN_BATCH_INTERVAL);
+		m_uSpawnBatchSize = std::max<size_t>(m_uSpawnBatchSize,
+				std::max<size_t>(1, (selected + batches - 1) / batches));
+		m_dwSpawnWindowStarted = get_dword_time();
+		m_uSpawnWindowTotal = m_setScheduledBots.size();
+		m_dwNextSpawnBatchTime = 0;
+	}
+	sys_log(0, "PLAYERBOT: extra identities asked=%u scheduled=%u already=%u not_registered_here=%u",
+			(unsigned int)pids.size(), (unsigned int)selected, (unsigned int)already, (unsigned int)unknown);
+	if (selected > 0)
+		SpawnPendingBatch(get_dword_time());
+	return selected;
+}
+
 bool CPlayerBotManager::IsMedalDropperCohortPID(DWORD dwPlayerID) const
 {
 	return m_setMedalDropperCohort.find(dwPlayerID) != m_setMedalDropperCohort.end();
@@ -4104,6 +4236,8 @@ void CPlayerBotManager::TryScheduleRetirement(DWORD dwNow)
 // Called from Update before that loop.
 void CPlayerBotManager::ProcessRetirementResets(DWORD dwNow)
 {
+	// MT2009_PLUS_BOT_SESSIONS_V1: every log-out below ends the session as
+	// "koniec gry" (OUT_RETIRE).
 	if (s_mapPlayerBotRetiring.empty())
 		return;
 
@@ -4141,7 +4275,7 @@ void CPlayerBotManager::ProcessRetirementResets(DWORD dwNow)
 			if (entry.stage == PLAYERBOT_RETIRE_SELLING)
 			{
 				if (ch)
-					Despawn(pid);
+					Despawn(pid, playerbot_session_rules::OUT_RETIRE);
 				break;
 			}
 			if (entry.stage == PLAYERBOT_RETIRE_SHOPPING && !entry.bStallSeen &&
@@ -4157,7 +4291,7 @@ void CPlayerBotManager::ProcessRetirementResets(DWORD dwNow)
 			AuditPlayerBotRetireSales(pid, entry);
 			if (ch)
 			{
-				Despawn(pid);
+				Despawn(pid, playerbot_session_rules::OUT_RETIRE);
 				ch = NULL;
 			}
 			MonitorPlayerBotRetirementStall(pid, entry, dwNow);
@@ -4174,7 +4308,7 @@ void CPlayerBotManager::ProcessRetirementResets(DWORD dwNow)
 				if (state != s_mapPlayerBotAIStates.end())
 					BotOfflineDrainSales(ch, state->second, dwNow);
 				WipePlayerBotForRetirement(ch);
-				Despawn(pid);
+				Despawn(pid, playerbot_session_rules::OUT_RETIRE);
 			}
 			entry.stage = PLAYERBOT_RETIRE_DESPAWNED;
 			entry.dwPurgeAt = dwNow + PLAYERBOT_RETIRE_PURGE_DELAY_MS;
@@ -4184,7 +4318,7 @@ void CPlayerBotManager::ProcessRetirementResets(DWORD dwNow)
 			// Something spawned it again (a restart, a channel swap): out again.
 			if (ch)
 			{
-				Despawn(pid);
+				Despawn(pid, playerbot_session_rules::OUT_RETIRE);
 				entry.dwPurgeAt = dwNow + PLAYERBOT_RETIRE_PURGE_DELAY_MS;
 				break;
 			}
@@ -4208,7 +4342,7 @@ void CPlayerBotManager::ProcessRetirementResets(DWORD dwNow)
 			// resends this idempotent request.
 			if (ch)
 			{
-				Despawn(pid);
+				Despawn(pid, playerbot_session_rules::OUT_RETIRE);
 				entry.stage = PLAYERBOT_RETIRE_DESPAWNED;
 				entry.dwPurgeAt = dwNow + PLAYERBOT_RETIRE_PURGE_DELAY_MS;
 				break;
@@ -4224,7 +4358,7 @@ void CPlayerBotManager::ProcessRetirementResets(DWORD dwNow)
 		case PLAYERBOT_RETIRE_PURGED:
 			if (ch)
 			{
-				Despawn(pid);
+				Despawn(pid, playerbot_session_rules::OUT_RETIRE);
 				entry.stage = PLAYERBOT_RETIRE_DESPAWNED;
 				entry.dwPurgeAt = dwNow + PLAYERBOT_RETIRE_PURGE_DELAY_MS;
 				break;
@@ -4330,14 +4464,15 @@ void CPlayerBotManager::RefreshBannedBots(DWORD dwNow)
 	for (std::set<DWORD>::const_iterator it = m_setBannedBots.begin();
 			it != m_setBannedBots.end(); ++it)
 	{
-		if (CHARACTER_MANAGER::instance().FindByPID(*it) != NULL && Despawn(*it))
+		if (CHARACTER_MANAGER::instance().FindByPID(*it) != NULL &&
+				Despawn(*it, playerbot_session_rules::OUT_BAN)) // MT2009_PLUS_BOT_SESSIONS_V1
 			++despawned;
 	}
 	sys_log(0, "PLAYERBOT_AUTH: banned bots=%u despawned=%u",
 			(unsigned int)m_setBannedBots.size(), despawned);
 }
 
-bool CPlayerBotManager::Despawn(DWORD dwPlayerID)
+bool CPlayerBotManager::Despawn(DWORD dwPlayerID, BYTE bSessionOut, DWORD dwRestSeconds)
 {
 	TPlayerBotMap::iterator it = m_mapBots.find(dwPlayerID);
 	if (it == m_mapBots.end())
@@ -4345,6 +4480,9 @@ bool CPlayerBotManager::Despawn(DWORD dwPlayerID)
 
 	LPDESC d = it->second;
 	m_mapBots.erase(it);
+	// MT2009_PLUS_BOT_SESSIONS_V1: the session ends here, with its reason;
+	// the descriptor's end below no longer finds the bot.
+	ClosePlayerBotSession(dwPlayerID, bSessionOut, dwRestSeconds);
 	s_mapPlayerBotAIStates.erase(dwPlayerID);
 	// Its F10 history and its remembered level go with it.
 	ForgetPlayerBotAdminState(dwPlayerID);
@@ -4563,6 +4701,12 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 			sys_log(0, "PLAYERBOT_LIFE: schedule %s, %u resting come back",
 					IsPlayerBotLifeScheduleEnabled() ? "all day" : "off",
 					(unsigned int)m_mapLifeRestEnd.size());
+			// MT2009_PLUS_BOT_SESSIONS_V1: their rests end now, and their
+			// next entry is the end of one.
+			for (std::map<DWORD, DWORD>::const_iterator r = m_mapLifeRestEnd.begin(); r != m_mapLifeRestEnd.end(); ++r)
+				NotePlayerBotSessionRestOver(r->first);
+			if (!m_mapLifeRestEnd.empty())
+				EndPlayerBotSessionRests();
 			m_mapLifeSessionEnd.clear();
 			m_mapLifeRestEnd.clear();
 			m_setLifeReturning.clear();
@@ -4593,6 +4737,10 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 		// A player's companion keeps its owner's hours, not a schedule; a
 		// shouter of the first villages is always there.
 		if (IsPlayerBotSidekickPID(pid) || IsPlayerBotShouterPID(pid))
+			continue;
+		// MT2009_PLUS_AREZZO_BOTS_V1 (cohort): the Arezzo test's characters
+		// play for as long as the test runs.
+		if (IsPlayerBotArezzoCohortPID(pid) || IsPlayerBotArezzoDungeonCohortPID(pid)) // MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1
 			continue;
 		std::map<DWORD, DWORD>::iterator session = m_mapLifeSessionEnd.find(pid);
 		if (session == m_mapLifeSessionEnd.end())
@@ -4663,7 +4811,8 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 		if (bot != m_mapBots.end() && bot->second && bot->second->GetCharacter())
 			strlcpy(szName, bot->second->GetCharacter()->GetName(), sizeof(szName));
 		m_mapLifeSessionEnd.erase(pid);
-		if (!Despawn(pid))
+		// MT2009_PLUS_BOT_SESSIONS_V1: the session row says until when.
+		if (!Despawn(pid, playerbot_session_rules::OUT_REST, (rest + 999U) / 1000U))
 			continue;
 		m_mapLifeRestEnd[pid] = dwNow + rest;
 		sys_log(0, "PLAYERBOT_LIFE: logged out pid=%u name=%s rest=%umin",
@@ -4678,6 +4827,7 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 		{
 			sys_log(0, "PLAYERBOT_LIFE: back pid=%u", it->first);
 			m_setLifeReturning.insert(it->first);
+			NotePlayerBotSessionRestOver(it->first); // MT2009_PLUS_BOT_SESSIONS_V1
 			m_mapLifeRestEnd.erase(it++);
 			++back;
 		}
@@ -4808,6 +4958,8 @@ void CPlayerBotManager::OnPlayerLoaded(LPDESC d)
 				d->GetCharacter()->GetPlayerID(), d->GetCharacter()->GetName(),
 				(unsigned int)state.bBotRole, (unsigned int)state.bPersonality,
 				(unsigned int)state.bAmbition, d->GetCharacter()->GetMapIndex());
+		// MT2009_PLUS_BOT_SESSIONS_V1: its session begins, with why.
+		OpenPlayerBotSession(dwPID, TakePlayerBotSessionEntryReason(dwPID, IsPlayerBotSidekickPID(dwPID)));
 	}
 }
 
@@ -4834,9 +4986,14 @@ void CPlayerBotManager::OnDescriptorDestroyed(LPDESC d)
 	if (!d || !d->IsBot())
 		return;
 
+	// MT2009_PLUS_BOT_SESSIONS_V1: a descriptor that goes without Despawn
+	// (which forgets the bot first) is a kick, or the core stopping.
+	const BYTE sessionOut = g_bShutdown ? playerbot_session_rules::OUT_STOP
+			: playerbot_session_rules::OUT_DISCONNECT;
 	THandleToPlayerMap::iterator hit = m_mapHandles.find(d->GetHandle());
 	if (hit != m_mapHandles.end())
 	{
+		ClosePlayerBotSession(hit->second, sessionOut, 0);
 		s_mapPlayerBotAIStates.erase(hit->second);
 		m_mapBots.erase(hit->second);
 		m_mapHandles.erase(hit);
@@ -4847,6 +5004,7 @@ void CPlayerBotManager::OnDescriptorDestroyed(LPDESC d)
 	{
 		if (it->second == d)
 		{
+			ClosePlayerBotSession(it->first, sessionOut, 0);
 			s_mapPlayerBotAIStates.erase(it->first);
 			m_mapBots.erase(it);
 			return;
@@ -4950,6 +5108,8 @@ static void RunPlayerBotLightTick(LPDESC d, LPCHARACTER ch, TPlayerBotAIState& s
 	// monster. Without this line the battle horse trial counted roughly every
 	// other kill.
 	NotePlayerBotBattleHorseKill(ch, state, quickTarget);
+	// MT2009_PLUS_BOT_LOOT_PACE_V1: the drop the full tick queued at its feet.
+	TakePlayerBotQueuedLoot(ch, state, dwNow);
 }
 
 #if defined(PLAYERBOT_ENGINE_MT2009)
@@ -5629,7 +5789,7 @@ void CPlayerBotManager::OnChannelAssignments(void* pvMsg)
 	{
 		sys_log(0, "PLAYERBOT_CHANNEL: pid=%u moved to channel %u, logging out here",
 				leave[i], (unsigned int)m_mapBotAccounts[leave[i]].bChannel);
-		Despawn(leave[i]);
+		Despawn(leave[i], playerbot_session_rules::OUT_CHANNEL); // MT2009_PLUS_BOT_SESSIONS_V1
 	}
 	// Nobody moved away is this channel's to start or to top up any more.
 	for (TRegisteredPlayerBotSet::iterator i = m_setRegisteredBots.begin(); i != m_setRegisteredBots.end();)
@@ -5682,6 +5842,7 @@ void CPlayerBotManager::SpawnChannelArrivals(DWORD)
 		if (m_setScheduledBots.insert(*i).second)
 			m_dequePendingSpawns.push_back(*i);
 		sys_log(0, "PLAYERBOT_CHANNEL: pid=%u arrives on channel %u", *i, (unsigned int)g_bChannel);
+		NotePlayerBotSessionFromChannel(*i); // MT2009_PLUS_BOT_SESSIONS_V1
 		if (g_bChannel == playerbot_channel_rules::SHOP_CHANNEL)
 			m_setChannelMovedIn.insert(*i);
 		m_setChannelArrivals.erase(i++);
@@ -5741,9 +5902,14 @@ void CPlayerBotManager::Update()
 	// the last tick, and every bot planned below must see the same numbers.
 	RefreshPlayerBotWeights(dwNow);
 	RefreshPlayerBotItemPolicy(dwNow);
+	// MT2009_PLUS_PROGRESSION_V1: the panel's progression table and its status.
+	RefreshPlayerBotProgression(dwNow);
 	// The explanations of the bots' decisions: the queue to the log database,
 	// the cleanup EXPLAIN asks for, the minute's line (playerbot_explain.h).
 	ManagePlayerBotExplain(dwNow);
+	// MT2009_PLUS_BOT_SESSIONS_V1: the open sessions' heartbeat and the purge
+	// of rows past their days (playerbot_session.h).
+	ManagePlayerBotSessions(dwNow);
 	// The PERSONA switch moved: every bot goes back to the personality it
 	// drew, or on to the character that draw leans to, on this tick - and so
 	// do its ambition and, through ManagePlayerBotExpLock, its lock.
@@ -6000,6 +6166,12 @@ WritePlayerBotGuildStatus(dwNow);
 		if (ManagePlayerBotShouterTick(ch, state, dwNow))
 			continue;
 
+		// MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1 (tick): the Arezzo dungeon cohort on
+		// its dungeon's map - the lobby or a run - does nothing else, ahead of
+		// every errand, quarrel and guild war (playerbot_arezzo_dungeon_bots.h).
+		if (ManagePlayerBotArezzoDungeon(ch, state, dwNow))
+			continue;
+
 		// A stone this bot hurt within PLAYERBOT_METIN_LOOT_SHARE_MS is gone:
 		// the loot window opens here, at the top of the pass. Stamped where the
 		// target section notices a broken stone, it came after every errand
@@ -6123,6 +6295,10 @@ WritePlayerBotGuildStatus(dwNow);
 		// MT2009_PLUS_OCHAO_BOTS_V1 (walk out): a warp asked for in the Temple of
 		// Ochao's labyrinth waits for the walk to its Teleporter or Portal.
 		if (ManagePlayerBotOchaoPendingExit(ch, state, dwNow))
+			continue;
+		// MT2009_PLUS_AREZZO_BOTS_V1 (walk out): the same on the Arezzo maps,
+		// out by their Teleporter.
+		if (ManagePlayerBotArezzoPendingExit(ch, state, dwNow))
 			continue;
 
 		// Before anything that can claim the tick. An open stall is engine state
@@ -6428,6 +6604,9 @@ WritePlayerBotGuildStatus(dwNow);
 		// A dropper that has reached its band stops earning experience, and a
 		// marble is spent on the Reaper or a raid's boss. Both are cheap tests
 		// that end on the first lines for everybody they do not concern.
+		// MT2009_PLUS_PROGRESSION_V1: the checklist first - the lock below
+		// reads whether it holds this bot.
+		ManagePlayerBotProgression(ch, state, dwNow);
 		ManagePlayerBotExpLock(ch, state);
 		MirrorPlayerBotLevel(ch);
 		ManagePlayerBotPolymorph(ch, state, dwNow);
@@ -6875,7 +7054,7 @@ WritePlayerBotGuildStatus(dwNow);
 			continue;
 		}
 
-		UseHealthPotion(ch, state, dwNow);
+		UseHealthPotion(ch, state, dwNow, GetPlayerBotArezzoPotionPercent(ch)); // MT2009_PLUS_AREZZO_BOTS_V1 (las)
 		UseManaPotion(ch, state, dwNow);
 		UseUtilityPotions(ch, state, dwNow);
 		UsePlayerBotBoosters(ch, state, dwNow);
@@ -6903,9 +7082,31 @@ WritePlayerBotGuildStatus(dwNow);
 					stoneTarget->GetHP() * 100 <=
 						stoneTarget->GetMaxHP() * PLAYERBOT_STONE_FINISH_STONE_HP_PERCENT;
 		}
-		if (!bFinishingStone && !state.bRecoveringAfterDeath && ch->GetMaxHP() > 0 &&
+		// MT2009_PLUS_BOT_HELD_RETREAT_V1: a bot a monster holds retreats and
+		// drinks rather than going invisible beside it (playerbot_survival.h).
+		LPCHARACTER heldBy = NULL;
+		if (!state.bRecoveringAfterDeath)
+			s_setPlayerBotEmergencyRest.erase(ch->GetPlayerID());
+		if (!bFinishingStone && !state.bTacticalRetreat && ch->GetMaxHP() > 0 &&
+				(state.bRecoveringAfterDeath
+					? s_setPlayerBotEmergencyRest.count(ch->GetPlayerID()) != 0
+					: ch->GetHP() * 100 <= ch->GetMaxHP() * PLAYERBOT_RECOVERY_INITIAL_HP_PERCENT))
+			heldBy = FindPlayerBotHoldingMonster(ch);
+		if (heldBy)
+		{
+			if (state.bRecoveringAfterDeath)
+			{
+				s_setPlayerBotEmergencyRest.erase(ch->GetPlayerID());
+				ch->RemoveAffect(AFFECT_REVIVE_INVISIBLE);
+				EndPlayerBotRecovery(ch, state);
+			}
+			StartPlayerBotTacticalRetreat(ch, state, heldBy, dwNow);
+		}
+		if (!heldBy && !bFinishingStone && !state.bRecoveringAfterDeath && ch->GetMaxHP() > 0 &&
 				ch->GetHP() * 100 <= ch->GetMaxHP() * PLAYERBOT_RECOVERY_INITIAL_HP_PERCENT)
 		{
+			s_setPlayerBotEmergencyRest.insert(ch->GetPlayerID()); // MT2009_PLUS_BOT_HELD_RETREAT_V1
+			NotePlayerBotLootLeftBehind(ch, state, dwNow); // MT2009_PLUS_BOT_LOOT_PACE_V1
 			state.bRecoveringAfterDeath = true;
 			state.dwLastDeathTime = dwNow;
 			state.lDeathX = ch->GetX();
@@ -6926,7 +7127,7 @@ WritePlayerBotGuildStatus(dwNow);
 				: (state.dwTargetVID != 0 ? CHARACTER_MANAGER::instance().Find(state.dwTargetVID) : NULL);
 		if (!state.bTacticalRetreat && retreatThreat && retreatThreat->IsMonster() &&
 				!retreatThreat->IsDead() && ch->GetMaxHP() > 0 &&
-				ch->GetHP() * 100 <= ch->GetMaxHP() * PLAYERBOT_RETREAT_START_HP_PERCENT)
+				ch->GetHP() * 100 <= ch->GetMaxHP() * GetPlayerBotArezzoRetreatPercent(ch)) // MT2009_PLUS_AREZZO_BOTS_V1 (las)
 			StartPlayerBotTacticalRetreat(ch, state, retreatThreat, dwNow);
 		if (HandlePlayerBotTacticalRetreat(ch, state, dwNow))
 			continue;
@@ -7226,14 +7427,22 @@ WritePlayerBotGuildStatus(dwNow);
 		ch->SetPosition(POS_FIGHTING);
 		ch->SetRotationToXY(target->GetX(), target->GetY());
 
+		// MT2009_PLUS_BOT_PURGED_TARGET_V1: a blow can end a wave whose kill
+		// trigger purges the arena (d.purge_area) and frees the target with
+		// it, so the target is asked for again by its VID after each attack.
+		const DWORD dwAttackedVID = (DWORD)target->GetVID();
 		if (ExecutePlayerBotAttackSkill(ch, target, state, dwNow))
 		{
-			NotePlayerBotBattleHorseKill(ch, state, target);
+			target = CHARACTER_MANAGER::instance().Find(dwAttackedVID);
+			if (target)
+				NotePlayerBotBattleHorseKill(ch, state, target);
 			continue;
 		}
 
 		ExecutePlayerBotBasicAttack(ch, target, state, dwNow);
-		NotePlayerBotBattleHorseKill(ch, state, target);
+		target = CHARACTER_MANAGER::instance().Find(dwAttackedVID);
+		if (target)
+			NotePlayerBotBattleHorseKill(ch, state, target);
 
 	}
 
@@ -7338,7 +7547,7 @@ WritePlayerBotGuildStatus(dwNow);
 						personaShown ? (unsigned int)shownPersona.mood.mood : playerbot_persona::PERSONA_NONE,
 						personaShown && playerbot_persona::IsMoodLocked(shownPersona.mood)
 							? (unsigned int)shownPersona.mood.lockKind : 0U,
-						personaShown && !shownPersona.bAdvanced ? (unsigned int)shownPersona.bLockLevel : 0U,
+						GetPlayerBotShownExpLock(statusCh, statusState),
 						statusText);
 			}
 			fflush(snapshot);

@@ -29,9 +29,13 @@
 // buffs, and when enough have come - or he has started on one of them - they
 // all go at him with the tower's fight and the tower's keeping alive. A boss
 // who has not lost half a percent of his health in
-// PLAYERBOT_BOSS_RAID_STALL_MS gets a few more bots once, and after the
-// second such minute is given up for PLAYERBOT_BOSS_RAID_OUTPACED_COOLDOWN_MS.
-// After his fall the loot pass has its window and the raid disbands.
+// PLAYERBOT_BOSS_RAID_STALL_MS gets more bots, up to three rounds of four and
+// twice the raid's size (MT2009_PLUS_BOSS_RAID_V2, 2.2.51); once nobody is
+// left to call he is given up for PLAYERBOT_BOSS_RAID_OUTPACED_COOLDOWN_MS -
+// unless he is under PLAYERBOT_BOSS_RAID_FINISH_PERCENT, when he is finished
+// off. A bot at half its health comes (the walk is its time for the
+// potions), and so does an angler or a miner, the tool put away. After his
+// fall the loot pass has its window and the raid disbands.
 //
 // Not a party: a party's rules (the cohort, the straggler radius, the level
 // gap of six) are about camps, and a raid of eight from four maps would be
@@ -53,6 +57,9 @@ namespace
 		// Whether his fall is news for the whole world (a notice). The Bestial
 		// Captain falls three times an hour.
 		bool bAnnounce;
+		// MT2009_PLUS_BOSS_RAID_V2 (2.2.51): a raid of all three kingdoms, for
+		// a boss no one kingdom's bots of his window are enough for.
+		bool bAnyKingdom;
 	};
 
 	// The bosses, read off the world's own tables (mob_proto, boss.txt and
@@ -81,7 +88,12 @@ namespace
 		// her eggs broken, a blow on her counts ten times - or twenty percent
 		// of her health back every thirty seconds would outheal any crowd. Her
 		// raiders are brought past the desert (TransitionPlayerBotMap).
-		{ 2092,  71, 67, 84, 8, true },	// Spider Baroness (75), Spider Dungeon 2
+		// MT2009_PLUS_BOSS_RAID_V2 (2.2.51): no raid of eight broke her - the
+		// test world's two (29-30 September) gave her up at 11% and 67%, and
+		// from then on "nobody to call ... in_band=92 free=0/0/0" for a day,
+		// the window of 67 holding one bot outside the Arezzo cohort. Sixteen
+		// of every kingdom from level 60, as upstream's raid that broke her.
+		{ 2092,  71, 60, 84, 16, true, true },	// Spider Baroness (75), Spider Dungeon 2
 		// The Grotto of Exile (26 September). Both stand a maze's walk from
 		// where a bot comes in - the Ice Witch some two hundred kilometres -
 		// which is what the raid's own move to a spot is for. Yonghan's
@@ -98,6 +110,16 @@ namespace
 		// 30 September).
 		{ 6311, 209, 95, 120, 8, true },	// Ochroniarz Ochao (103), boss.txt, hourly
 		{ 6390, 209, 95, 120, 10, true },	// Wladca Ochao (105), boss.txt, hourly
+		// MT2009_PLUS_AREZZO_BOTS_V1 (bosses): the Arezzo maps' bosses
+		// (boss.txt of each), for the bots already on the map - for now the
+		// operator's test cohorts alone (playerbot_arezzo_bots.h). The windows
+		// open at each map's own floor, the size is what his health asks.
+		{ 9606, 360, 43, 61, 4, true },		// Arges (52), Dolina Cyklopow, 50-70 min
+		{ 9607, 360, 43, 64, 6, true },		// Polifem (55), 2-3 h
+		{ 9675, 361, 52, 69, 5, true },		// Bastet (60), Pustkowie Faraona, 50-70 min
+		{ 9681, 361, 54, 71, 6, true },		// Anubis (62), 2-3 h
+		{ 3390, 362, 95, 120, 8, true },	// Lemur Hrabia (103), Zaczarowany Las, 50-70 min
+		{ 3391, 362, 95, 120, 10, true },	// Straz Przyboczna Lemur (105), 2-3 h
 	};
 	const size_t PLAYERBOT_WORLD_BOSS_COUNT = sizeof(PLAYERBOT_WORLD_BOSSES) / sizeof(PLAYERBOT_WORLD_BOSSES[0]);
 
@@ -120,7 +142,12 @@ namespace
 		long lBossY;
 		int iBestHP;
 		DWORD dwLastProgress;
-		bool bReinforced;
+		// MT2009_PLUS_BOSS_RAID_V2: the rounds of reinforcements called
+		// (PLAYERBOT_BOSS_RAID_REINFORCE_ROUNDS at most).
+		BYTE bReinforced;
+		// A stall that found nobody to call and him over the finish line: the
+		// next such stall gives him up (one minute's grace, as before).
+		bool bStalledEmpty;
 		std::set<DWORD> members;
 		// MT2009_PLUS_OCHAO_BOTS_V1 (muster): in the temple the raid meets here,
 		// out of his group's reach, and goes in together; zero elsewhere.
@@ -132,7 +159,7 @@ namespace
 
 		TPlayerBotBossRaid() :
 			row(0), bEmpire(0), bPhase(BOSS_RAID_PHASE_GATHER), dwCalledAt(0), dwPhaseSince(0),
-			dwBossVID(0), lBossX(0), lBossY(0), iBestHP(0), dwLastProgress(0), bReinforced(false),
+			dwBossVID(0), lBossX(0), lBossY(0), iBestHP(0), dwLastProgress(0), bReinforced(0), bStalledEmpty(false),
 			lMusterX(0), lMusterY(0), lMusterForX(0), lMusterForY(0), dwNextTopUp(0) {}
 	};
 
@@ -196,6 +223,8 @@ namespace
 		state.dwNextBossRaidMoveTime = 0;
 		if (ch)
 			ForgetPlayerBotOchaoWalk(ch->GetPlayerID()); // MT2009_PLUS_OCHAO_BOTS_V1 (walk)
+		if (ch)
+			ForgetPlayerBotArezzoWalk(ch->GetPlayerID()); // MT2009_PLUS_AREZZO_BOTS_V1 (walk)
 		if (dwBossVID != 0 && state.dwTargetVID == dwBossVID)
 			state.dwTargetVID = 0;
 		if (ch && dwBossVID != 0 && ch->GetVictim() && (DWORD)ch->GetVictim()->GetVID() == dwBossVID)
@@ -302,9 +331,9 @@ namespace
 			return "person";
 		if (IsPlayerBotDropper(st.bPersonality))
 			return "dropper";
-		if (st.bFishingSession || IsPlayerBotAngler(c, st) || IsPlayerBotMiner(c, st) ||
-				IsPlayerBotMiningNow(pid, dwNow))
-			return "tool";
+		// MT2009_PLUS_BOSS_RAID_V2 (2.2.51): an angler or a miner comes too -
+		// it puts the rod or the pickaxe away when called
+		// (EnlistPlayerBotBossRaider); it used to be refused ("tool").
 		if (IsPlayerBotOnTowerBusiness(c, st) || st.dwGuildWarEnemyGID != 0 ||
 				playerbot_pvp::GetDuelOpponent(pid, dwNow) != 0)
 			return "busy";
@@ -377,6 +406,23 @@ namespace
 			// labyrinth is minutes from its way out; the raid calls somebody nearer.
 			if (c->GetMapIndex() == PLAYERBOT_MAP_OCHAO && row.lMap != PLAYERBOT_MAP_OCHAO)
 				continue;
+			// MT2009_PLUS_AREZZO_BOTS_V1 (raid): the Arezzo test's bots hunt
+			// their map's bosses and nobody else's; and nobody else hunts those.
+			int arezzoWalk = 0;
+			if (IsPlayerBotArezzoMap(row.lMap))
+			{
+				if (c->GetMapIndex() != row.lMap || !boss || IsPlayerBotArezzoLeaving(c))
+					continue;
+				arezzoWalk = GetPlayerBotArezzoWalk(c, boss->GetX(), boss->GetY());
+				if (arezzoWalk > (row.lMap == PLAYERBOT_MAP_AREZZO_FOREST
+						? PLAYERBOT_AREZZO_FOREST_RAID_WALK_MAX : PLAYERBOT_AREZZO_RAID_WALK_MAX))
+					continue;
+				// A long walk weighs a tenth: the nearest first, but a strong
+				// bot across the forest still comes.
+				arezzoWalk /= 10;
+			}
+			else if (IsPlayerBotArezzoMap(c->GetMapIndex()) || IsPlayerBotArezzoBound(c))
+				continue;
 			// And the other way round: the temple's own bosses are for the bots
 			// inside, within a walk that ends before the gathering does.
 			int ochaoWalk = 0;
@@ -405,6 +451,7 @@ namespace
 			// In the labyrinth the nearest by the walk first (a unit of walk
 			// weighs what a unit of strength does).
 			r.strength -= ochaoWalk;
+			r.strength -= arezzoWalk; // MT2009_PLUS_AREZZO_BOTS_V1
 			out.push_back(r);
 		}
 		std::sort(out.begin(), out.end(), PlayerBotBossRecruitOrder);
@@ -417,6 +464,12 @@ namespace
 		TPlayerBotAIStateMap::iterator st = s_mapPlayerBotAIStates.find(pid);
 		if (st == s_mapPlayerBotAIStates.end())
 			return;
+		// MT2009_PLUS_BOSS_RAID_V2 (2.2.51): an angler or a miner ends its
+		// session and goes with its weapon in the hand; a refused equip is
+		// tried again by the fight's own ReadyPlayerBotHandForFight.
+		LPCHARACTER c = CHARACTER_MANAGER::instance().FindByPID(pid);
+		if (c && (st->second.bFishingSession || IsPlayerBotMiningNow(pid, dwNow)))
+			ReadyPlayerBotHandForFight(c, st->second, dwNow, "boss_raid_called");
 		st->second.wBossRaidRace = row.wRace;
 		st->second.lBossRaidMap = row.lMap;
 		// The departures spread over the first twenty seconds by pid.
@@ -513,6 +566,64 @@ namespace
 		}
 	}
 
+	// MT2009_PLUS_AREZZO_BOTS_V1 (watch): why the bots on an Arezzo map were
+	// not called to its boss, counted by reason.
+	void LogPlayerBotArezzoRaidRefusals(const TPlayerBotWorldBoss& row, LPCHARACTER boss, DWORD dwNow)
+	{
+		std::map<std::string, int> why;
+		int onMap = 0;
+		for (TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.begin(); it != s_mapPlayerBotAIStates.end(); ++it)
+		{
+			LPCHARACTER c = CHARACTER_MANAGER::instance().FindByPID(it->first);
+			if (!c || c->GetMapIndex() != row.lMap)
+				continue;
+			++onMap;
+			const char* w = GetPlayerBotBossRaidRefusal(c, it->second, row, dwNow);
+			if (!w && IsPlayerBotArezzoLeaving(c))
+				w = "leaving";
+			if (!w && boss && GetPlayerBotArezzoWalk(c, boss->GetX(), boss->GetY()) >
+					(row.lMap == PLAYERBOT_MAP_AREZZO_FOREST ? PLAYERBOT_AREZZO_FOREST_RAID_WALK_MAX : PLAYERBOT_AREZZO_RAID_WALK_MAX))
+				w = "walk";
+			++why[w ? w : "free"];
+		}
+		std::string list;
+		for (std::map<std::string, int>::const_iterator w = why.begin(); w != why.end(); ++w)
+		{
+			char one[48];
+			snprintf(one, sizeof(one), " %s=%d", w->first.c_str(), w->second);
+			list += one;
+		}
+		sys_log(0, "ARZ_BOT: raid refusals race=%u map=%ld on_map=%d%s", (unsigned int)row.wRace, row.lMap, onMap, list.c_str());
+	}
+
+	// MT2009_PLUS_BOSS_RAID_V2 (watch): why the bots of his level window were
+	// not called to a world boss, counted by reason - "in_band=92 free=0"
+	// said nothing of why (the Baroness, 30 September - 1 October).
+	void LogPlayerBotBossRaidRefusals(const TPlayerBotWorldBoss& row, DWORD dwNow)
+	{
+		std::map<std::string, int> why;
+		for (TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.begin(); it != s_mapPlayerBotAIStates.end(); ++it)
+		{
+			LPCHARACTER c = CHARACTER_MANAGER::instance().FindByPID(it->first);
+			if (!c || (int)c->GetLevel() < (int)row.bMinLevel || (int)c->GetLevel() > (int)row.bMaxLevel)
+				continue;
+			const char* w = GetPlayerBotBossRaidRefusal(c, it->second, row, dwNow);
+			if (!w && (IsPlayerBotArezzoMap(c->GetMapIndex()) || IsPlayerBotArezzoBound(c)))
+				w = "arezzo";
+			if (!w && c->GetMapIndex() == PLAYERBOT_MAP_OCHAO)
+				w = "ochao";
+			++why[w ? w : "free"];
+		}
+		std::string list;
+		for (std::map<std::string, int>::const_iterator w = why.begin(); w != why.end(); ++w)
+		{
+			char one[48];
+			snprintf(one, sizeof(one), " %s=%d", w->first.c_str(), w->second);
+			list += one;
+		}
+		sys_log(0, "PLAYERBOT_RAID: refusals race=%u map=%ld%s", (unsigned int)row.wRace, row.lMap, list.c_str());
+	}
+
 	// MT2009_PLUS_OCHAO_BOTS_V1 (top-up): while a temple raid gathers, a
 	// member that is no longer within the walk (sent back to the gate after
 	// its deaths, or dead where it stands) is let go, and the raid is filled
@@ -566,7 +677,10 @@ namespace
 			if (pool[i].empire >= 1 && pool[i].empire <= 3)
 				++perEmpire[pool[i].empire];
 		BYTE empire = (BYTE)std::max(0, owner);
-		if (empire == 0)
+		// MT2009_PLUS_BOSS_RAID_V2: the strongest of every kingdom (empire 0).
+		if (row.bAnyKingdom)
+			empire = 0;
+		else if (empire == 0)
 		{
 			// Ties go round by the hour, so one kingdom does not take every
 			// boss it ties for.
@@ -586,7 +700,7 @@ namespace
 		const TPlayerBotBossRecruit* shaman = NULL;
 		for (size_t i = 0; i < pool.size(); ++i)
 		{
-			if (pool[i].empire != empire)
+			if (empire != 0 && pool[i].empire != empire)
 				continue;
 			if (chosen.size() < (size_t)row.bSize)
 				chosen.push_back(pool[i]);
@@ -604,7 +718,9 @@ namespace
 			if (!has)
 				chosen.back() = *shaman;
 		}
-		const int need = std::max(2, ((int)row.bSize + 1) / 2);
+		// MT2009_PLUS_AREZZO_BOTS_V1 (raid): on an Arezzo map two are enough to
+		// begin; the gathering calls more (the stall rule reinforces).
+		const int need = IsPlayerBotArezzoMap(row.lMap) ? 2 : std::max(2, ((int)row.bSize + 1) / 2);
 		if ((int)chosen.size() < need)
 		{
 			// Once in ten minutes a boss, each boss on its own: one throttle for
@@ -619,6 +735,10 @@ namespace
 						perEmpire[1], perEmpire[2], perEmpire[3], need);
 				if (row.lMap == PLAYERBOT_MAP_OCHAO)
 					LogPlayerBotOchaoRaidRefusals(row, boss, dwNow);
+				if (IsPlayerBotArezzoMap(row.lMap))
+					LogPlayerBotArezzoRaidRefusals(row, boss, dwNow); // MT2009_PLUS_AREZZO_BOTS_V1
+				else if (row.lMap != PLAYERBOT_MAP_OCHAO)
+					LogPlayerBotBossRaidRefusals(row, dwNow); // MT2009_PLUS_BOSS_RAID_V2
 			}
 			return false;
 		}
@@ -661,15 +781,21 @@ namespace
 		return true;
 	}
 
-	// A raid the boss is outpacing takes a few more of its kingdom once.
+	// A raid the boss is outpacing takes a few more of its kingdom (of every
+	// kingdom for a raid of all three) - MT2009_PLUS_BOSS_RAID_V2: a round of
+	// PLAYERBOT_BOSS_RAID_REINFORCEMENTS, never past twice the raid's size.
 	int ReinforcePlayerBotBossRaid(TPlayerBotBossRaid& raid, LPCHARACTER boss, DWORD dwNow)
 	{
 		const TPlayerBotWorldBoss& row = PLAYERBOT_WORLD_BOSSES[raid.row];
+		const int room = std::min(PLAYERBOT_BOSS_RAID_REINFORCEMENTS,
+				2 * (int)row.bSize - (int)raid.members.size());
+		if (room <= 0)
+			return 0;
 		std::vector<TPlayerBotBossRecruit> pool;
 		int inBand = 0;
 		CollectPlayerBotBossRecruits(row, boss, raid.bEmpire, dwNow, pool, inBand);
 		int added = 0;
-		for (size_t i = 0; i < pool.size() && added < PLAYERBOT_BOSS_RAID_REINFORCEMENTS; ++i)
+		for (size_t i = 0; i < pool.size() && added < room; ++i)
 		{
 			EnlistPlayerBotBossRaider(raid, pool[i].pid, dwNow);
 			++added;
@@ -711,7 +837,8 @@ namespace
 				raid.members.erase(m++);
 			// MT2009_PLUS_OCHAO_BOTS_V1 (leaving): a member another pass has sent
 			// out of the temple walks out; it is no longer the raid's.
-			else if (row.lMap == PLAYERBOT_MAP_OCHAO && IsPlayerBotOchaoLeaving(member))
+			else if ((row.lMap == PLAYERBOT_MAP_OCHAO && IsPlayerBotOchaoLeaving(member)) ||
+					(IsPlayerBotArezzoMap(row.lMap) && IsPlayerBotArezzoLeaving(member))) // MT2009_PLUS_AREZZO_BOTS_V1
 			{
 				sys_log(0, "PLAYERBOT_RAID: member leaves the temple pid=%u name=%s race=%u",
 						*m, member->GetName(), (unsigned int)row.wRace);
@@ -744,13 +871,17 @@ namespace
 				sys_log(0, "PLAYERBOT_RAID: killed boss=%s race=%u map=%ld empire=%u members=%u after_s=%u reinforced=%d",
 						GetPlayerBotWorldBossName(row.wRace), (unsigned int)row.wRace, row.lMap,
 						(unsigned int)raid.bEmpire, (unsigned int)raid.members.size(),
-						(dwNow - raid.dwCalledAt) / 1000U, raid.bReinforced ? 1 : 0);
+						(dwNow - raid.dwCalledAt) / 1000U, (int)raid.bReinforced);
 				if (row.bAnnounce)
 				{
 					char notice[200];
-					snprintf(notice, sizeof(notice), "Boty z krolestwa %s pokonaly: %s (%u min).",
-							GetPlayerBotKingdomName(raid.bEmpire), GetPlayerBotWorldBossName(row.wRace),
-							std::max(1U, minutes));
+					if (raid.bEmpire == 0) // MT2009_PLUS_BOSS_RAID_V2: every kingdom's raid
+						snprintf(notice, sizeof(notice), "Boty trzech krolestw pokonaly: %s (%u min).",
+								GetPlayerBotWorldBossName(row.wRace), std::max(1U, minutes));
+					else
+						snprintf(notice, sizeof(notice), "Boty z krolestwa %s pokonaly: %s (%u min).",
+								GetPlayerBotKingdomName(raid.bEmpire), GetPlayerBotWorldBossName(row.wRace),
+								std::max(1U, minutes));
 					BroadcastNotice(notice);
 				}
 				return true;
@@ -818,11 +949,13 @@ namespace
 			}
 			int need = std::max(2, ((int)row.bSize + 1) / 2);
 			const bool timeUp = dwNow - raid.dwPhaseSince >= (row.lMap == PLAYERBOT_MAP_OCHAO
-					? PLAYERBOT_OCHAO_RAID_GATHER_MS : PLAYERBOT_BOSS_RAID_GATHER_MS); // MT2009_PLUS_OCHAO_BOTS_V1
+					? PLAYERBOT_OCHAO_RAID_GATHER_MS : (row.lMap == PLAYERBOT_MAP_AREZZO_FOREST // MT2009_PLUS_AREZZO_BOTS_V1
+					? PLAYERBOT_AREZZO_FOREST_RAID_GATHER_MS : (IsPlayerBotArezzoMap(row.lMap)
+					? PLAYERBOT_AREZZO_RAID_GATHER_MS : PLAYERBOT_BOSS_RAID_GATHER_MS))); // MT2009_PLUS_OCHAO_BOTS_V1
 			// MT2009_PLUS_OCHAO_BOTS_V1 (gather): in the labyrinth the walk is
 			// long and the packs on it many - at the end of the gathering two
 			// who have come go in, and the rest follow them to him.
-			if (row.lMap == PLAYERBOT_MAP_OCHAO && timeUp)
+			if ((row.lMap == PLAYERBOT_MAP_OCHAO || IsPlayerBotArezzoMap(row.lMap)) && timeUp) // MT2009_PLUS_AREZZO_BOTS_V1
 				need = 2;
 			if (arrived >= (int)raid.members.size() || arrived >= (int)row.bSize || started ||
 					(timeUp && arrived >= need))
@@ -854,6 +987,7 @@ namespace
 			{
 				raid.iBestHP = boss->GetHP();
 				raid.dwLastProgress = dwNow;
+				raid.bStalledEmpty = false;
 			}
 			// MT2009_PLUS_OCHAO_BOTS_V1 (stall): in the labyrinth a fight he
 			// started on the first to come is a fight the rest are still
@@ -862,14 +996,41 @@ namespace
 				raid.dwLastProgress = dwNow;
 			if (dwNow - raid.dwLastProgress >= PLAYERBOT_BOSS_RAID_STALL_MS)
 			{
-				if (!raid.bReinforced)
+				// MT2009_PLUS_BOSS_RAID_V2 (2.2.51): up to three rounds, each
+				// counted only when somebody came; a round with nobody to call
+				// falls through to the finish rule below.
+				int added = 0;
+				if ((int)raid.bReinforced < PLAYERBOT_BOSS_RAID_REINFORCE_ROUNDS)
 				{
-					raid.bReinforced = true;
-					raid.dwLastProgress = dwNow;
-					const int added = ReinforcePlayerBotBossRaid(raid, boss, dwNow);
-					sys_log(0, "PLAYERBOT_RAID: outpaced, calling more boss=%s race=%u map=%ld hp=%d/%d added=%d members=%u",
+					added = ReinforcePlayerBotBossRaid(raid, boss, dwNow);
+					sys_log(0, "PLAYERBOT_RAID: outpaced, calling more boss=%s race=%u map=%ld hp=%d/%d added=%d members=%u round=%d",
 							GetPlayerBotWorldBossName(row.wRace), (unsigned int)row.wRace, row.lMap,
-							boss->GetHP(), boss->GetMaxHP(), added, (unsigned int)raid.members.size());
+							boss->GetHP(), boss->GetMaxHP(), added, (unsigned int)raid.members.size(),
+							(int)raid.bReinforced + (added > 0 ? 1 : 0));
+					if (added > 0)
+						++raid.bReinforced;
+				}
+				const bool finishing = boss->GetMaxHP() > 0 &&
+						(long long)boss->GetHP() * 100 < (long long)boss->GetMaxHP() * PLAYERBOT_BOSS_RAID_FINISH_PERCENT;
+				if (added > 0)
+				{
+					raid.dwLastProgress = dwNow;
+					raid.bStalledEmpty = false;
+				}
+				// MT2009_PLUS_BOSS_RAID_V2 (2.2.51): a boss under thirty percent
+				// is finished off - the raid gave the Baroness up at 11%
+				// (29 September). FIGHT_MAX_MS still ends it.
+				else if (finishing)
+				{
+					raid.dwLastProgress = dwNow;
+					sys_log(0, "PLAYERBOT_RAID: outpaced, finishing him boss=%s race=%u map=%ld hp=%d/%d members=%u",
+							GetPlayerBotWorldBossName(row.wRace), (unsigned int)row.wRace, row.lMap,
+							boss->GetHP(), boss->GetMaxHP(), (unsigned int)raid.members.size());
+				}
+				else if (!raid.bStalledEmpty)
+				{
+					raid.bStalledEmpty = true;
+					raid.dwLastProgress = dwNow;
 				}
 				else
 				{
@@ -992,7 +1153,9 @@ namespace
 		// another map is.
 		// MT2009_PLUS_OCHAO_BOTS_V1 (walk): never inside the labyrinth - there
 		// the walk is the way, planned round its walls.
-		if (distance > PLAYERBOT_BOSS_RAID_WALK_MAX && row.lMap != PLAYERBOT_MAP_OCHAO)
+		// MT2009_PLUS_AREZZO_BOTS_V1 (walk): nor on an Arezzo map - there the
+		// walk is its routes.
+		if (distance > PLAYERBOT_BOSS_RAID_WALK_MAX && row.lMap != PLAYERBOT_MAP_OCHAO && !IsPlayerBotArezzoMap(row.lMap))
 		{
 			SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
 			if (dwNow < state.dwNextBossRaidMoveTime)
@@ -1022,6 +1185,10 @@ namespace
 			// labyrinth - by its corners, not at him through the walls.
 			if (row.lMap == PLAYERBOT_MAP_OCHAO && distance > PLAYERBOT_OCHAO_RAID_FIGHT_WALK &&
 					WalkPlayerBotInOchao(ch, state, boss->GetX(), boss->GetY(), dwNow))
+				return true;
+			// MT2009_PLUS_AREZZO_BOTS_V1 (walk): on an Arezzo map by its routes.
+			if (IsPlayerBotArezzoMap(row.lMap) && distance > PLAYERBOT_AREZZO_RAID_FIGHT_WALK &&
+					WalkPlayerBotInArezzo(ch, state, boss->GetX(), boss->GetY(), dwNow))
 				return true;
 			return FightPlayerBotTowerObjective(ch, state, boss, dwNow);
 		}
@@ -1055,6 +1222,16 @@ namespace
 		{
 			if (toRally > 400)
 				WalkPlayerBotInOchao(ch, state, rallyX, rallyY, dwNow);
+			return true;
+		}
+		// MT2009_PLUS_AREZZO_BOTS_V1 (walk): on an Arezzo map by its routes.
+		if (IsPlayerBotArezzoMap(row.lMap))
+		{
+			if (toRally > 400 && dwNow >= state.dwNextBossRaidMoveTime)
+			{
+				state.dwNextBossRaidMoveTime = dwNow + 1000;
+				WalkPlayerBotInArezzo(ch, state, rallyX, rallyY, dwNow);
+			}
 			return true;
 		}
 		if (toRally > 400 && dwNow >= state.dwNextBossRaidMoveTime)

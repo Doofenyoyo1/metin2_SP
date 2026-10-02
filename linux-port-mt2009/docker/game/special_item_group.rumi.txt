@@ -1,0 +1,100 @@
+# MT2009_PLUS_RUMI_V1: the chests of Owsap's Rumi (Okey card game, playerbot_rumi.h).
+# A game ends with one chest by its score - 400+ gold, 300-399 silver, less bronze;
+# 50275-50277 while the scheduler's "rumi" runs, 50267-50269 (the same contents) for
+# the Christmas flag mini_game_okey. The season's top ten take gold chests at the table
+# (minigame_rumi.quest): 10, 5, 3 and 1 for ranks 1, 2, 3 and 4-10.
+# Owsap's chests held items this world does not have (pet eggs, (b) scrolls, ...), so
+# the contents are this world's: each chest is a Pct group whose lines roll one after
+# another (percent), each opening a nested pool ("s<vnum>") that gives ONE item by
+# weight. The pools' numbers (95040x) are no item. Edit freely - the quest's
+# "Pokaz nagrody" lists the pools from here.
+Group	MT2009_rumi_pool_bronze
+{
+	Vnum	950401
+	1	27987	1	30 -- Malz
+	2	71027	1	10 -- Zycie Boga Smokow
+	3	71028	1	10 -- Atak Boga Smokow
+	4	71029	1	10 -- Inteligencja Boga Smokow
+	5	71030	1	10 -- Obrona Boga Smokow
+	6	72723	1	15 -- Eliksir Slonca (M)
+	7	72727	1	15 -- Eliksir Ksiezyca (M)
+	8	70102	2	20 -- Fasolka Zen
+	9	71001	1	15 -- Zwoj Egzorcyzmu
+	10	71094	1	10 -- Rada Pustelnika
+	11	25040	1	15 -- Zwoj Blogoslawienstwa
+}
+Group	MT2009_rumi_pool_silver
+{
+	Vnum	950402
+	1	71084	5	25 -- Zaczarowanie Przedmiotu
+	2	71085	3	20 -- Wzmocnienie Przedmiotu
+	3	25040	3	20 -- Zwoj Blogoslawienstwa
+	4	72724	1	15 -- Eliksir Slonca (S)
+	5	72728	1	15 -- Eliksir Ksiezyca (S)
+	6	71044	1	10 -- Dlon Krytyka
+	7	71045	1	10 -- Dlon Przebicia
+	8	71153	1	10 -- Mikstura Madrosci
+	9	27992	1	8 -- Biala Perla
+	10	27993	1	8 -- Niebieska Perla
+	11	71107	1	5 -- Owoc Zycia
+}
+Group	MT2009_rumi_pool_gold
+{
+	Vnum	950403
+	1	71084	10	25 -- Zaczarowanie Przedmiotu
+	2	71085	5	20 -- Wzmocnienie Przedmiotu
+	3	25040	5	20 -- Zwoj Blogoslawienstwa
+	4	72725	1	12 -- Eliksir Slonca (D)
+	5	72729	1	12 -- Eliksir Ksiezyca (D)
+	6	27992	2	10 -- Biala Perla
+	7	27993	2	10 -- Niebieska Perla
+	8	27994	1	6 -- Krwawa Perla
+	9	71107	2	6 -- Owoc Zycia
+	10	50513	1	4 -- Kamien Duchowy
+}
+Group	MT2009_rumi_chest_50277
+{
+	Vnum	50277 -- Brazowa Skrzynia Okey
+	Type	Pct
+	1	s950401	1	100
+	2	s950401	1	30
+}
+Group	MT2009_rumi_chest_50276
+{
+	Vnum	50276 -- Srebrna Skrzynia Okey
+	Type	Pct
+	1	s950402	1	100
+	2	s950401	1	100
+	3	s950402	1	35
+}
+Group	MT2009_rumi_chest_50275
+{
+	Vnum	50275 -- Zlota Skrzynia Okey
+	Type	Pct
+	1	s950403	1	100
+	2	s950402	1	100
+	3	s950403	1	50
+}
+Group	MT2009_rumi_chest_50269
+{
+	Vnum	50269 -- Swiateczna Brazowa Skrzynia Okey
+	Type	Pct
+	1	s950401	1	100
+	2	s950401	1	30
+}
+Group	MT2009_rumi_chest_50268
+{
+	Vnum	50268 -- Swiateczna Srebrna Skrzynia Okey
+	Type	Pct
+	1	s950402	1	100
+	2	s950401	1	100
+	3	s950402	1	35
+}
+Group	MT2009_rumi_chest_50267
+{
+	Vnum	50267 -- Swiateczna Zlota Skrzynia Okey
+	Type	Pct
+	1	s950403	1	100
+	2	s950402	1	100
+	3	s950403	1	50
+}

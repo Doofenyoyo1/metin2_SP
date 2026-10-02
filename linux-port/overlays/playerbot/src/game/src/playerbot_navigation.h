@@ -323,6 +323,8 @@ namespace
 						mapIndex != PLAYERBOT_MAP_GROTTO_V1 &&
 						mapIndex != PLAYERBOT_MAP_GROTTO_V2 &&
 						mapIndex != PLAYERBOT_MAP_OCHAO && // MT2009_PLUS_OCHAO_BOTS_V1
+						!IsPlayerBotArezzoMap(mapIndex) && // MT2009_PLUS_AREZZO_BOTS_V1 (TransitionPlayerBotMap lets only the test cohorts in)
+						!(mapIndex >= 364 && mapIndex <= 366) && // MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1 (the dungeon cohort's lobbies and runs)
 						mapIndex != PLAYERBOT_MAP_CATACOMB)
 					return false;
 

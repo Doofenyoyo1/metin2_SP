@@ -36,6 +36,10 @@ param(
     # SetDifficulty: the Arezzo module (MT2009_PLUS_AREZZO_MODULE_V1 - the new maps and
     # dungeons): 1 = on, 0 = off, -1 keeps what .env says (off when .env has nothing).
     [int]$Arezzo = -1,
+    # SetDifficulty: the health of monsters, bosses and Metin stones - default
+    # (as the game made them), easy (80%) or a percent from 10 to 300; ''
+    # keeps what .env says.
+    [string]$MonsterHp = '',
     # The rates a fresh world starts on, asked for when one is about to be
     # made (ResetWorld, and the first start of an install that has no database
     # yet). -1 leaves .env as it is, which is what every other caller wants.
@@ -48,6 +52,9 @@ param(
     # And whether a player's new character there gets the apprentice chest:
     # 1 = yes, 0 = no, -1 leaves .env as it is.
     [int]$StarterChest = -1,
+    # And the starter kit its new characters and new bots start in: default,
+    # medium or easy; '' leaves .env as it is.
+    [string]$StarterKit = '',
     [string]$ImportSource = '',
     [string]$RestoreSource = '',
     # COOP (experimental): the friend's name for CoopAddFriend, a friend's
@@ -1203,6 +1210,20 @@ function Test-DifficultyHours {
     return ($ok -and $n -ge 0 -and $n -le 720)
 }
 
+function ConvertTo-MonsterHpSetting {
+    # M2_MONSTER_HP as the migrator reads it: default (100%, the game's own),
+    # easy (80%) or a whole percent from 10 to 300 - three times the strongest
+    # boss of this world is what the engine's own health arithmetic holds.
+    # 100 and 80 are written by their names.
+    param([string]$Text)
+    $value = "$Text".Trim().TrimEnd('%').Trim().ToLowerInvariant()
+    if ($value -in @('', 'default', 'normal', '100')) { return 'default' }
+    if ($value -in @('easy', '80')) { return 'easy' }
+    $n = 0
+    if ([int]::TryParse($value, [ref]$n) -and $n -ge 10 -and $n -le 300) { return "$n" }
+    throw "Życie potworów: podaj default, easy albo procent od 10 do 300, nie '$Text'."
+}
+
 function Set-DifficultyAction {
     $current = Get-DotEnvValue -Key 'M2_DIFFICULTY' -Default 'easy'
     $currentBio = Get-DotEnvValue -Key 'M2_BIOLOGIST_WAIT_HOURS' -Default '0'
@@ -1215,8 +1236,14 @@ function Set-DifficultyAction {
     $currentStarter = (Get-DotEnvValue -Key 'M2_STARTER_CHEST' -Default '1') -ne '0'
     $currentFlea = (Get-DotEnvValue -Key 'M2_FLEA_MARKET' -Default '1') -ne '0'
     $currentArezzo = (Get-DotEnvValue -Key 'M2_AREZZO' -Default '0') -eq '1'
+    # Monster health: what .env says, and the game's own for anything that
+    # does not read as a setting.
+    $currentMonsterHp = 'default'
+    try { $currentMonsterHp = ConvertTo-MonsterHpSetting (Get-DotEnvValue -Key 'M2_MONSTER_HP' -Default 'default') } catch { }
+    $currentMonsterPct = $(if ($currentMonsterHp -eq 'easy') { '80' } elseif ($currentMonsterHp -eq 'default') { '100' } else { $currentMonsterHp })
     Write-Host "Aktualny poziom trudności: $current (przy 'custom': Biolog $currentBio h, Stajenny $currentHorse h, księgi: gracze $currentBook h, boty $currentBotBook h)." -ForegroundColor Gray
     Write-Host "Auto Łowy: $(if ($currentAutoHunt) { 'włączone' } else { 'wyłączone' }) ($(if ($currentAutoHuntItem) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($currentSidekick) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($currentStarter) { 'tak' } else { 'nie' }); Dom Towarowy: $(if ($currentFlea) { 'włączony' } else { 'wyłączony' }); Moduł Arezzo: $(if ($currentArezzo) { 'włączony' } else { 'wyłączony' })." -ForegroundColor Gray
+    Write-Host "Życie potworów, bossów i Metinów: $currentMonsterPct% (100% = jak w grze)." -ForegroundColor Gray
 
     # -Difficulty passed (from the GUI or scripting) is non-interactive, like
     # -BotCount: never Read-Host, restart only with -Yes.
@@ -1227,9 +1254,9 @@ function Set-DifficultyAction {
     $botBook = "$BotBookHours"
     $interactive = (-not $level)
     if ($interactive) {
-        Write-Host ' 1. easy   - bez czekania u Biologa, u Stajennego i na kolejną księgę (tak jak dotąd)'
-        Write-Host ' 2. medium - Biolog 8 h; kucyk i Księgi Konia 4 h; treningi konia 6 h (1-10) i 7 h (11-19); księgi 7 h'
-        Write-Host ' 3. hard   - jak w oryginale: Biolog 24 h; kucyk i Księgi 12 h; treningi 18 h i 21 h; księgi 21 h'
+        Write-Host ' 1. easy   - bez czekania u Biologa, u Stajennego, na kolejną księgę i Kamień Duchowy (tak jak dotąd)'
+        Write-Host ' 2. medium - Biolog 8 h; kucyk i Księgi Konia 4 h; treningi konia 6 h (1-10) i 7 h (11-19); księgi i Kamienie Duchowe 7 h'
+        Write-Host ' 3. hard   - jak w oryginale: Biolog 24 h; kucyk i Księgi 12 h; treningi 18 h i 21 h; księgi 21 h, Kamienie Duchowe 12 h'
         Write-Host ' 4. custom - własne godziny (Biolog, każde czekanie u Stajennego, księgi graczy i księgi botów)'
         $customChances = Get-ExchangeChances -Level 'custom'
         Write-Host ("    Szanse wymiany u NPC (Magiczny Pył / Pergamin / Materiały Rzemieślnicze): easy 100/100/55%, medium 90/45/55%, hard 55/40/55%, custom - M2_EXCHANGE_* w .env (teraz {0}/{1}/{2}%)" -f $customChances[0], $customChances[1], $customChances[2])
@@ -1239,8 +1266,8 @@ function Set-DifficultyAction {
         if ($level -eq 'custom') {
             $bio = Read-Host 'Ile godzin czeka się u Biologa między oddaniami (0 = bez czekania, ułamki dozwolone)'
             $horse = Read-Host 'Ile godzin czeka się u Stajennego na kucyka, Księgę Konia i trening (0 = bez czekania)'
-            $book = Read-Host 'Ile godzin gracz czeka między dwiema księgami tej samej umiejętności (0 = od razu)'
-            $botBook = Read-Host 'Ile godzin czekają na kolejną księgę boty (0 = od razu)'
+            $book = Read-Host 'Ile godzin gracz czeka między dwiema księgami tej samej umiejętności i między Kamieniami Duchowymi, te najwyżej 12 h (0 = od razu)'
+            $botBook = Read-Host 'Ile godzin czekają na kolejną księgę i Kamień Duchowy boty, na Kamień najwyżej 12 h (0 = od razu)'
         }
     }
     # Auto Lowy, the companion, the apprentice chest and the Dom Towarowy:
@@ -1255,6 +1282,7 @@ function Set-DifficultyAction {
     $starterOn = $currentStarter
     $fleaOn = $currentFlea
     $arezzoOn = $currentArezzo
+    $monsterSetting = $currentMonsterHp
     if ($interactive) {
         $answer = Read-Host "Auto Łowy (automatyczne polowanie w kliencie, klawisz K) włączone? (T/n, Enter = $(if ($currentAutoHunt) { 'tak' } else { 'nie' }))"
         if ("$answer".Trim()) { $autoHuntOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
@@ -1273,6 +1301,9 @@ function Set-DifficultyAction {
         if ("$answer".Trim()) { $fleaOn = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
         $answer = Read-Host "Moduł Arezzo (nowe mapy: Dolina Cyklopów, Pustkowie Faraona, Zaczarowany Las i 4 lochy) włączony? (t/N, Enter = $(if ($currentArezzo) { 'tak' } else { 'nie' }))"
         if ("$answer".Trim()) { $arezzoOn = "$answer".Trim().ToLowerInvariant() -in @('t', 'tak', 'y', 'yes', '1') }
+        $answer = Read-Host "Życie potworów, bossów i Metinów: 1 = jak w grze (100%), 2 = łatwiej (80%) (Enter = $currentMonsterPct%)"
+        if ("$answer".Trim() -eq '1') { $monsterSetting = 'default' }
+        elseif ("$answer".Trim() -eq '2') { $monsterSetting = 'easy' }
     }
     else {
         if ($AutoHunt -ge 0) { $autoHuntOn = ($AutoHunt -ne 0) }
@@ -1281,6 +1312,8 @@ function Set-DifficultyAction {
         if ($StarterChest -ge 0) { $starterOn = ($StarterChest -ne 0) }
         if ($FleaMarket -ge 0) { $fleaOn = ($FleaMarket -ne 0) }
         if ($Arezzo -ge 0) { $arezzoOn = ($Arezzo -ne 0) }
+        # Read before anything is written, so a value it refuses leaves .env as it was.
+        if ("$MonsterHp".Trim()) { $monsterSetting = ConvertTo-MonsterHpSetting $MonsterHp }
     }
     if ($level -notin @('easy', 'medium', 'hard', 'custom')) {
         throw "Nieznany poziom trudności: '$level'. Dozwolone: easy, medium, hard, custom."
@@ -1313,9 +1346,12 @@ function Set-DifficultyAction {
     Set-DotEnvValue -Key 'M2_STARTER_CHEST' -Value $(if ($starterOn) { '1' } else { '0' })
     Set-DotEnvValue -Key 'M2_FLEA_MARKET' -Value $(if ($fleaOn) { '1' } else { '0' })
     Set-DotEnvValue -Key 'M2_AREZZO' -Value $(if ($arezzoOn) { '1' } else { '0' })
+    Set-DotEnvValue -Key 'M2_MONSTER_HP' -Value $monsterSetting
     $chances = Get-ExchangeChances -Level $level
     Write-Host "Zapisano: poziom trudności $level (Biolog $bio h, Stajenny $horse h, księgi: gracze $book h, boty $botBook h; wymiana u NPC: Magiczny Pył $($chances[0])%, Pergamin $($chances[1])%, Materiały $($chances[2])%)." -ForegroundColor Green
     Write-Host "Auto Łowy: $(if ($autoHuntOn) { 'włączone' } else { 'wyłączone' }) ($(if ($autoHuntItemOn) { 'tylko po kupnie przedmiotu z ItemShop' } else { 'dla każdego' })); Towarzysz: $(if ($sidekickOn) { 'włączony' } else { 'wyłączony' }); Skrzynia Ucznia: $(if ($starterOn) { 'tak' } else { 'nie' }); Dom Towarowy: $(if ($fleaOn) { 'włączony' } else { 'wyłączony' }); Moduł Arezzo: $(if ($arezzoOn) { 'włączony' } else { 'wyłączony' })." -ForegroundColor Green
+    $monsterPct = $(if ($monsterSetting -eq 'easy') { '80' } elseif ($monsterSetting -eq 'default') { '100' } else { $monsterSetting })
+    Write-Host "Życie potworów, bossów i Metinów: $monsterPct%." -ForegroundColor Green
     if ($Yes) {
         Start-Server
         Write-Host "Serwer zrestartowany z poziomem trudności: $level." -ForegroundColor Green
@@ -1547,7 +1583,8 @@ function Set-FreshWorldSettings {
     $yang = $RateYang
     $hold = $HoldBots
     $starter = $StarterChest
-    $interactive = (-not $Yes) -and $exp -lt 0 -and $drop -lt 0 -and $yang -lt 0 -and $hold -lt 0 -and $starter -lt 0
+    $kit = "$StarterKit".Trim().ToLowerInvariant()
+    $interactive = (-not $Yes) -and $exp -lt 0 -and $drop -lt 0 -and $yang -lt 0 -and $hold -lt 0 -and $starter -lt 0 -and -not $kit
     if ($interactive) {
         Write-Host ''
         Write-Host "Ustawienia $Reason - wchodzą w życie, zanim pojawi się pierwszy bot:" -ForegroundColor Cyan
@@ -1585,6 +1622,19 @@ function Set-FreshWorldSettings {
         $answer = Read-Host "Skrzynia Ucznia w grze - dla nowych postaci graczy i dla botów? (T/n, Enter = $(if ($starterNow) { 'tak' } else { 'nie' }))"
         if ("$answer".Trim()) { $starterNow = "$answer".Trim().ToLowerInvariant() -notin @('n', 'nie', 'no', '0') }
         $starter = $(if ($starterNow) { 1 } else { 0 })
+        Write-Host ''
+        Write-Host 'Zestaw startowy - co noszą nowe postacie graczy i boty nowego świata:' -ForegroundColor Cyan
+        Write-Host ' 1. Jak dotąd'
+        Write-Host ' 2. Średni - broń i zbroja swojej klasy +5'
+        Write-Host ' 3. Łatwy  - cały zestaw poziomu 1 na +9 (broń, zbroja, hełm, tarcza, buty, bransoleta, naszyjnik, kolczyki)'
+        $kitNow = (Get-DotEnvValue -Key 'M2_STARTER_KIT' -Default 'default').Trim().ToLowerInvariant()
+        $answer = Read-Host "Wybierz (1-3, Enter = $kitNow)"
+        switch ("$answer".Trim()) {
+            '1' { $kit = 'default' }
+            '2' { $kit = 'medium' }
+            '3' { $kit = 'easy' }
+            default { $kit = '' }
+        }
     }
 
     $written = @()
@@ -1609,6 +1659,17 @@ function Set-FreshWorldSettings {
         $starterValue = $(if ($starter -ge 1) { '1' } else { '0' })
         Set-DotEnvValue -Key 'M2_STARTER_CHEST' -Value $starterValue
         $written += $(if ($starterValue -eq '1') { 'Skrzynia Ucznia w grze' } else { 'bez Skrzyni Ucznia (ani dla graczy, ani dla botów)' })
+    }
+    if ($kit) {
+        if ($kit -notin @('default', 'medium', 'easy')) {
+            throw "Zestaw startowy: podaj default, medium albo easy, nie '$kit'."
+        }
+        Set-DotEnvValue -Key 'M2_STARTER_KIT' -Value $kit
+        $written += $(switch ($kit) {
+                'medium' { 'zestaw startowy: broń i zbroja +5' }
+                'easy' { 'zestaw startowy: cały zestaw +9' }
+                default { 'zestaw startowy jak dotąd' }
+            })
     }
     if ($written.Count -gt 0) {
         Write-Host ('Zapisano: ' + ($written -join ', ') + '.') -ForegroundColor Green

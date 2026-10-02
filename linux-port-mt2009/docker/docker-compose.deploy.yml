@@ -108,6 +108,10 @@ services:
       # the cores read). M2_PLAYERBOT_DISABLE_STUDENT_CHEST=1 is Seban's own
       # integration's name for off, and is read as that.
       M2_STARTER_CHEST: "${M2_STARTER_CHEST:-1}"
+      # The starter kit of a new character and of the bots the seed makes:
+      # default, medium (+5 weapon and armour) or easy (+9 set) - the
+      # launcher's new-world window; the migrator writes m2_starter_kit.
+      M2_STARTER_KIT: "${M2_STARTER_KIT:-default}"
       # The world's switches for the Cor Draconis and the sashes (apply.sh
       # writes m2_alchemy_off / m2_sash_off when .env changed).
       M2_ALCHEMY: "${M2_ALCHEMY:-1}"
@@ -125,6 +129,13 @@ services:
       # The Arezzo module (maps 360-366, their dungeons and guards): 1 on, 0 off
       # (apply.sh writes mt2009_arezzo_closed when .env changed; the panel switches it live).
       M2_AREZZO: "${M2_AREZZO:-0}"
+      # Seon-Hae's 6th/7th bonus at NPC 20095: 1 on, 0 off (apply.sh writes
+      # m2_seonhae_on when .env changed; the panel switches it live).
+      M2_SEONHAE: "${M2_SEONHAE:-0}"
+      # The health of monsters, bosses and Metin stones: default (100%), easy
+      # (80%) or a percent 10-300 (the launcher's difficulty window; the
+      # migrator writes m2_mob_hp when .env changed, the panel's card live).
+      M2_MONSTER_HP: "${M2_MONSTER_HP:-default}"
 
     entrypoint: ["/bin/sh", "/opt/playerbot/apply.sh"]
 
@@ -190,7 +201,7 @@ services:
       # the classic panel's character card, which the package pointed at its
       # author's own panel.mt2009.pl (playerbotify.py, apply_gm_panel_url).
       M2_GM_PANEL_URL: "${M2_GM_PANEL_URL:-http://127.0.0.1:${M2_PANEL_PUBLIC_PORT:-7788}/}"
-      M2_LOG_KEEP_DAYS: "${M2_LOG_KEEP_DAYS:-3}"
+      M2_LOG_KEEP_DAYS: "${M2_LOG_KEEP_DAYS:-7}"
       M2_TABLE_POSTFIX: "${M2_TABLE_POSTFIX:-}"
       M2_ADMINPAGE_PASSWORD: "${M2_ADMINPAGE_PASSWORD:-}"
       M2_CORE_DUMPS: "${M2_CORE_DUMPS:-0}"
@@ -512,7 +523,7 @@ services:
       # server it is actually looking at rather than "nieustawiona".
       # The default is bumped with every release, so a world nobody has
       # configured still reports the version it is actually running.
-      PLAYERBOTS_VERSION: "${M2_PLAYERBOTS_VERSION:-2.17.1}"
+      PLAYERBOTS_VERSION: "${M2_PLAYERBOTS_VERSION:-2.17.2}"
       TZ: "${M2_TZ:-UTC}"
     ports:
       # 7790 outside: 7789 is the browser bridge's port in this stack.

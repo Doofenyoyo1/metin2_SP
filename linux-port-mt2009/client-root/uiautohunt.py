@@ -1,6 +1,6 @@
 # Auto Hunt System
 # Created by SIZOWSKI (Thank you for the original code! Go subscribe to him on YouTube! https://www.youtube.com/@metin2singleplayer a.k.a "ZAXEP - METIN2 SINGLE PLAYER")
-# Modernized by Colide & Tieru (Uriel).
+# Modernized by Colide (Uriel).
 #
 # Auto Lowy 2.0 (Colide, 22 September). The official system's features for
 # free (pl-wiki, "System - Auto Lowy"): twelve skills on their own clocks
@@ -36,6 +36,14 @@
 # Hunter's CanUpdate is the one hook every frame of the game passes, so the
 # autologin learns there that the game is open again, and Destroy - the game
 # window closing - is where it hears that the game has gone.
+#
+# The pick-up's kinds are the pick-up filter's (uipickupfilter.py, one
+# filter for the Z key, Auto Lowy and the companion, the operator, 30
+# September): the "Podnoszenie" board shows and switches the same kinds as
+# the Ctrl+Z window, and its "Filtr" the same switch. "Podnies" stays Auto
+# Lowy's own - whether the hunt picks up at all. With the filter off the hunt
+# picks up every kind; the per-character loot_* keys of the older files are
+# read once, for a client with no filtr.cfg (Hunter.LoadConfig).
 #
 # game.py registers the Hunter with its updateables, K opens the windows.
 # Python 2.7 as the client has it, and 3 for tests/uiautohunt_test.py.
@@ -98,6 +106,10 @@ LOOT_SPLIT_FROM = (
     ('loot_bracelet', 'loot_jewellery'), ('loot_shoes', 'loot_jewellery'),
     ('loot_necklace', 'loot_jewellery'), ('loot_earrings', 'loot_jewellery'),
 )
+# Asked with the filter on and no kind kept: no kind of AutoHuntLootKind has
+# this bit, so the server (which answers nothing for no kinds at all) finds
+# yang only - "Yang zawsze", as for the Z key.
+LOOT_YANG_ONLY = 1 << 20
 
 TARGET_REQUEST_INTERVAL = 0.8
 LOOT_REQUEST_INTERVAL = 1.0
@@ -329,24 +341,36 @@ def ParseLoot(vid, x, y):
     except (TypeError, ValueError):
         return (0, 0, 0)
 
-def LootMask(config):
-    if not config.get('pickup'):
-        return 0
+def PickupFilter():
+    """uipickupfilter, imported when first asked: it imports this module."""
+    import uipickupfilter
+    return uipickupfilter
+
+def ConfigLootKinds(config):
+    """The kinds a character's file keeps (loot_*), from before the filter."""
     mask = 0
     for key, label, bit in LOOT_KINDS:
         if config.get(key):
             mask |= bit
     return mask
 
+def LootMask(config):
+    """What the hunt asks for: nothing without "Podnies", else the pick-up
+    filter's kinds (every kind with the filter off)."""
+    if not config.get('pickup'):
+        return 0
+    mask = PickupFilter().EffectiveKinds()
+    return mask if mask else LOOT_YANG_ONLY
+
 def LootCoarseMask(config):
     """LootMask in the seven kinds a server before the split reads."""
     bits = dict((key, bit) for key, label, bit in LOOT_KINDS)
     parents = dict(LOOT_SPLIT_FROM)
+    fine = LootMask(config)
     mask = 0
-    if config.get('pickup'):
-        for key, label, bit in LOOT_KINDS:
-            if config.get(key):
-                mask |= bits[parents.get(key, key)]
+    for key, label, bit in LOOT_KINDS:
+        if fine & bit:
+            mask |= bits[parents.get(key, key)]
     return mask
 
 def FacingDegree(fromX, fromY, toX, toY):
@@ -626,6 +650,8 @@ class Hunter(object):
         chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: start, zasi\xeag %d.' % self.config['range'])
         if not LootMask(self.config):
             chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: podnoszenie jest wy\xb3\xb9czone.')
+        elif PickupFilter().IsActive():
+            chat.AppendChat(chat.CHAT_TYPE_INFO, 'Auto \xa3owy: podnosz\xea wed\xb3ug filtra podnoszenia (Ctrl+Z).')
 
     def Stop(self, quiet=False):
         if not self.running:
@@ -1149,6 +1175,9 @@ class Hunter(object):
         try:
             with open(path, 'r') as handle:
                 self.config = ConfigFromText(handle.read())
+            # The kinds this character's file kept become the pick-up
+            # filter's, once, when the client has no filtr.cfg yet.
+            PickupFilter().AdoptAutoHuntKinds(ConfigLootKinds(self.config))
         except (IOError, OSError):
             pass
         autologin.SetArmed(self.config.get('autologin', 0))
@@ -1713,7 +1742,7 @@ class AutoHuntWindow(ui.BoardWithTitleBar):
         self.toggles = {}
 
 
-LOOT_ROWS = (len(LOOT_KINDS) + 1 + 2) // 3   # "Podnie\x9c" and the kinds, three a row
+LOOT_ROWS = (len(LOOT_KINDS) + 2 + 2) // 3   # "Podnie\x9c", the kinds and "Filtr", three a row
 
 
 class AutoHuntLootWindow(ui.BoardWithTitleBar):
@@ -1725,6 +1754,8 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
         self.hunter = hunter
         self.widgets = []
         self.toggles = {}
+        self.kindToggles = {}
+        self.filterBtn = None
         self.AddFlag('movable')
         self.AddFlag('float')
         self.SetSize(self.WIDTH, self.HEIGHT)
@@ -1740,15 +1771,20 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
         pd_btn_start = 24
         pd_h = pd_btn_start + LOOT_ROWS * 22 + 8
         pdBoard = self._Board(BL, y, BW, pd_h)
-        self._Label(pdBoard, 14, 4, 'Podnoszenie')
+        self._Label(pdBoard, 14, 4, 'Podnoszenie (filtr jak pod Ctrl+Z)')
 
+        # "Podnies" is Auto Lowy's own; the kinds and "Filtr" (the last cell
+        # of the last row) are the pick-up filter's (uipickupfilter.py).
         pdy = pd_btn_start
         self._FlagBtn(pdBoard, 4, pdy, 'Podnie\x9c', 'pickup')
         for idx, (key, label, bit) in enumerate(LOOT_KINDS):
             pos = idx + 1
             col = pos % 3
             row = pos // 3
-            self._FlagBtn(pdBoard, 4 + col * 92, pdy + row * 22, label, key)
+            self._KindBtn(pdBoard, 4 + col * 92, pdy + row * 22, label, bit)
+        pos = len(LOOT_KINDS) + 1
+        self.filterBtn = self._Btn(pdBoard, 'large', 4 + (pos % 3) * 92, pdy + (pos // 3) * 22,
+            '', self.OnToggleFilter)
 
         y += pd_h + 5
 
@@ -1810,6 +1846,11 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
         self.toggles[key] = (btn, label, False)
         return btn
 
+    def _KindBtn(self, parent, x, y, label, bit):
+        btn = self._Btn(parent, 'large', x, y, '', self.OnToggleKind, bit)
+        self.kindToggles[bit] = (btn, label)
+        return btn
+
     def Refresh(self):
         config = self.hunter.config
 
@@ -1820,6 +1861,12 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
 
         for key, (btn, label, wyl) in self.toggles.items():
             btn.SetText('%s: %s' % (label, YesNo(config[key])))
+
+        pickupFilter = PickupFilter()
+        kinds = pickupFilter.GetKinds()
+        for bit, (btn, label) in self.kindToggles.items():
+            btn.SetText('%s: %s' % (label, YesNo(kinds & bit)))
+        self.filterBtn.SetText('Filtr: %s' % YesNo(pickupFilter.IsActive()))
 
     def OnChangeRange(self):
         if self.hunter.mainWindow:
@@ -1845,6 +1892,21 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
         self.hunter.config[key] = 0 if self.hunter.config[key] else 1
         self.Refresh()
 
+    # The pick-up filter's kinds and switch: saved, sent to the server and
+    # shown in the Ctrl+Z window at once (uipickupfilter.Changed, which
+    # refreshes this window too).
+    def OnToggleKind(self, bit):
+        if self.hunter.mainWindow:
+            self.hunter.mainWindow.ReadEdits()
+        PickupFilter().ToggleKind(bit)
+        self.Refresh()
+
+    def OnToggleFilter(self):
+        if self.hunter.mainWindow:
+            self.hunter.mainWindow.ReadEdits()
+        PickupFilter().ToggleOn()
+        self.Refresh()
+
     def Close(self):
         try:
             player.SetAutoHuntRangeCircle(0)
@@ -1864,6 +1926,8 @@ class AutoHuntLootWindow(ui.BoardWithTitleBar):
         self.hunter = None
         self.widgets = []
         self.toggles = {}
+        self.kindToggles = {}
+        self.filterBtn = None
 
 
 _hunter = None

@@ -421,6 +421,12 @@ namespace
 		// has been this time in the world.
 		DWORD dwViewResendAt;
 		bool bViewResent;
+		// MT2009_PLUS_SIDEKICK_SERVICE_LOG_V1: what the last service at the
+		// npcs did, so an owner idling at the blacksmith is not logged every
+		// fifteen seconds (13 lines in 3 minutes with the purse unchanged,
+		// 1 October).
+		long long llLastServiceGold = -1;
+		DWORD dwLastServiceLog = 0;
 		TPlayerBotSidekickRuntime()
 			: dwNextPartyCheck(0), dwNextService(0), dwNextLoot(0), dwNextCatchUp(0), dwLootVID(0),
 			  dwLootSince(0), dwNextProtect(0), bTrading(false), dwLastFoeVID(0), bHold(false), lHoldMap(0),
@@ -1482,6 +1488,16 @@ namespace
 	bool PlacePlayerBotSidekickAt(LPCHARACTER ch, TPlayerBotAIState& state, long targetMap, long x, long y,
 			DWORD dwNow, const char* reason)
 	{
+		// MT2009_PLUS_AREZZO_BOTS_V1 (off limits): not into the new dungeons, the
+		// Blue Dragon's lair or the Arezzo maps - no bot goes there for now (the
+		// owner, 30 September). It waits where it is for its owner.
+		if (IsPlayerBotOffLimitsMap(targetMap))
+		{
+			PlayerBotLogThrottled("sidekick_off_limits", dwNow,
+					"PLAYERBOT_SIDEKICK: does not follow onto map=%ld pid=%u name=%s reason=%s",
+					targetMap, ch->GetPlayerID(), ch->GetName(), reason);
+			return false;
+		}
 		const long oldMap = ch->GetMapIndex();
 		const bool wasRiding = ch->IsRiding();
 		state.dwTargetVID = 0;
@@ -2415,6 +2431,54 @@ namespace
 	}
 #endif
 
+	// MT2009_PLUS_SIDEKICK_FREE_CORE_V1: a companion let off the leash ("wolna
+	// reka", fishing) plays in its own world, not its owner's. It used to be
+	// logged out and in behind every warp of its owner's across cores, and on
+	// a core that does not host its map the engine put it down wherever it
+	// could: "cannot find valid location 56973 x 167174", then the owner's
+	// Arezzo dungeon instance 3630000, from which no warp of a bot leads
+	// (warpset refused map=64, ~240 "target navigation unavailable" lines a
+	// minute, 30 September 14:09-14:19). Its saved map, read from the table
+	// at most every ten seconds: the core that hosts it - on the owner's
+	// channel - keeps it and spawns it, while the owner is anywhere in the game.
+	long GetPlayerBotSidekickSavedMap(DWORD sidekickPid, DWORD dwNow)
+	{
+		static std::map<DWORD, std::pair<long, DWORD> > s_cache;
+		std::pair<long, DWORD>& c = s_cache[sidekickPid];
+		if (c.second != 0 && dwNow - c.second < 10000)
+			return c.first;
+		c.second = dwNow | 1;
+		char query[128];
+		snprintf(query, sizeof(query), "SELECT map_index FROM player.player WHERE id=%u", sidekickPid);
+		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
+		MYSQL_ROW row = NULL;
+		if (msg.get() && msg->uiSQLErrno == 0 && msg->Get() && msg->Get()->pSQLResult &&
+				(row = mysql_fetch_row(msg->Get()->pSQLResult)) && row[0])
+		{
+			long map = 0;
+			str_to_number(map, row[0]);
+			c.first = map;
+		}
+		return c.first;
+	}
+
+	// Let off the leash and its world is this core's: its saved map is an
+	// ordinary one hosted here, and its owner plays on this channel.
+	bool IsPlayerBotSidekickFreeWorldHere(const TPlayerBotSidekick& rec, LPCHARACTER ownerHere, DWORD dwNow)
+	{
+		if (rec.bMode != PLAYERBOT_SIDEKICK_FREE)
+			return false;
+		if (!ownerHere)
+		{
+			CCI* cci = P2P_MANAGER::instance().FindByPID(rec.dwOwnerPID);
+			if (!cci || cci->bChannel != g_bChannel)
+				return false;
+		}
+		const long saved = GetPlayerBotSidekickSavedMap(rec.dwSidekickPID, dwNow);
+		return saved > 0 && saved < PLAYERBOT_INSTANCE_MAP_INDEX_MIN && !IsPlayerBotOffLimitsMap(saved) &&
+				IsPlayerBotMapHostedHere(saved);
+	}
+
 	// Once a second for the whole core: the table, and every companion in or
 	// out of the world by its owner's presence here.
 	void ManagePlayerBotSidekicks(DWORD dwNow)
@@ -2450,7 +2514,7 @@ namespace
 					}
 					sys_log(0, "PLAYERBOT_SIDEKICK: companions switched off, logging out pid=%u owner=%u",
 							rec.dwSidekickPID, rec.dwOwnerPID);
-					CPlayerBotManager::instance().Despawn(rec.dwSidekickPID);
+					CPlayerBotManager::instance().Despawn(rec.dwSidekickPID, playerbot_session_rules::OUT_SIDEKICK); // MT2009_PLUS_BOT_SESSIONS_V1
 					s_mapPlayerBotSidekickRuntime.erase(rec.dwSidekickPID);
 				}
 #if defined(PLAYERBOT_ENGINE_MT2009)
@@ -2481,13 +2545,29 @@ namespace
 								rec.dwSidekickPID, rec.dwOwnerPID, (unsigned int)sk->GetEmpire(),
 								(unsigned int)owner->GetEmpire());
 						SayPlayerBotSidekick(owner, "Zmieniles krolestwo - ide za toba, zaraz bede.");
-						CPlayerBotManager::instance().Despawn(rec.dwSidekickPID);
+						CPlayerBotManager::instance().Despawn(rec.dwSidekickPID, playerbot_session_rules::OUT_SIDEKICK); // MT2009_PLUS_BOT_SESSIONS_V1
 						s_mapPlayerBotSidekickRuntime.erase(rec.dwSidekickPID);
 						rec.dwNextSpawnTry = dwNow + PLAYERBOT_SIDEKICK_SPAWN_RETRY_MS;
 						continue;
 					}
 				}
-				if (!here && dwNow >= rec.dwNextSpawnTry)
+				// MT2009_PLUS_SIDEKICK_FREE_CORE_V1: off the leash, the core that
+				// hosts its saved map brings it in - this one only when that is
+				// here, or when nobody has for a minute.
+				bool spawnHere = true;
+				if (!here && rec.bMode == PLAYERBOT_SIDEKICK_FREE &&
+						!IsPlayerBotSidekickFreeWorldHere(rec, owner, dwNow))
+				{
+					const long saved = GetPlayerBotSidekickSavedMap(rec.dwSidekickPID, dwNow);
+					static std::map<DWORD, DWORD> s_mapWaitingSince;
+					DWORD& since = s_mapWaitingSince[rec.dwSidekickPID];
+					if (since == 0 || dwNow - since > 120000)
+						since = dwNow;
+					if (saved > 0 && saved < PLAYERBOT_INSTANCE_MAP_INDEX_MIN && !IsPlayerBotOffLimitsMap(saved) &&
+							dwNow - since < 60000)
+						spawnHere = false;
+				}
+				if (!here && spawnHere && dwNow >= rec.dwNextSpawnTry)
 				{
 					rec.dwNextSpawnTry = dwNow + PLAYERBOT_SIDEKICK_SPAWN_RETRY_MS;
 					// Still in another core's world: that core lets it go once it
@@ -2499,6 +2579,24 @@ namespace
 #if defined(PLAYERBOT_ENGINE_MT2009)
 				SendPlayerBotSidekickBody(owner, rec, dwNow);
 #endif
+			}
+			// MT2009_PLUS_SIDEKICK_FREE_CORE_V1: off the leash with its owner on
+			// another core of the game, it stays in this world - or comes into
+			// it, when its saved map is hosted here.
+			else if (rec.bMode == PLAYERBOT_SIDEKICK_FREE && P2P_MANAGER::instance().FindByPID(rec.dwOwnerPID) &&
+					(here || IsPlayerBotSidekickFreeWorldHere(rec, NULL, dwNow)))
+			{
+				if (!here && dwNow >= rec.dwNextSpawnTry)
+				{
+					rec.dwNextSpawnTry = dwNow + PLAYERBOT_SIDEKICK_SPAWN_RETRY_MS;
+					if (!P2P_MANAGER::instance().FindByPID(rec.dwSidekickPID) &&
+							!CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID))
+					{
+						sys_log(0, "PLAYERBOT_SIDEKICK: free, spawned in its own world pid=%u owner=%u map=%ld",
+								rec.dwSidekickPID, rec.dwOwnerPID, GetPlayerBotSidekickSavedMap(rec.dwSidekickPID, dwNow));
+						CPlayerBotManager::instance().SpawnSidekick(rec.dwSidekickPID);
+					}
+				}
 			}
 			// A record made in this very pass carries get_dword_time(), later
 			// than dwNow: seen just now, not four billion milliseconds ago.
@@ -2532,7 +2630,7 @@ namespace
 				}
 				sys_log(0, "PLAYERBOT_SIDEKICK: owner gone, logging out pid=%u owner=%u", rec.dwSidekickPID,
 						rec.dwOwnerPID);
-				CPlayerBotManager::instance().Despawn(rec.dwSidekickPID);
+				CPlayerBotManager::instance().Despawn(rec.dwSidekickPID, playerbot_session_rules::OUT_SIDEKICK); // MT2009_PLUS_BOT_SESSIONS_V1
 				s_mapPlayerBotSidekickRuntime.erase(rec.dwSidekickPID);
 			}
 		}
@@ -2694,7 +2792,7 @@ namespace
 			LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID);
 			if (sk && sk->GetParty())
 				LeavePlayerBotParty(sk);
-			CPlayerBotManager::instance().Despawn(rec.dwSidekickPID);
+			CPlayerBotManager::instance().Despawn(rec.dwSidekickPID, playerbot_session_rules::OUT_SIDEKICK); // MT2009_PLUS_BOT_SESSIONS_V1
 		}
 #if defined(PLAYERBOT_ENGINE_MT2009)
 		// The record goes with this call, so the owner's client hears of the
@@ -3278,7 +3376,10 @@ namespace
 		TPlayerBotSidekickRuntime* rt = rtIt == s_mapPlayerBotSidekickRuntime.end() ? NULL : &rtIt->second;
 		const bool inWorld = sk && st != s_mapPlayerBotAIStates.end() &&
 				CPlayerBotManager::instance().IsManaged(rec.dwSidekickPID);
-		int where = 0;
+		// MT2009_PLUS_SIDEKICK_FREE_CORE_V1: off the leash it may play in
+		// another core's world - in the game, elsewhere, not "about to come in".
+		const bool elsewhere = !inWorld && P2P_MANAGER::instance().FindByPID(rec.dwSidekickPID) != NULL;
+		int where = elsewhere ? 2 : 0;
 		long dist = 0;
 		int expPercent = 0;
 		size_t red = 0, blue = 0;
@@ -3299,8 +3400,11 @@ namespace
 			mode = 2;
 		// "Gra beze mnie", "Skrzynki" and "Grupa" last: a window older than they
 		// are reads the words it knows and leaves the rest (uisidekick.ParseInfo).
+		// MT2009_PLUS_SIDEKICK_RANK_V1: the companion's rank points after them
+		// (the alignment over ten, as the character packet carries it), for the
+		// rank title on its name in the window, as the player's own shows his.
 		SendPlayerBotSidekickCommand(owner,
-				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d %d %d %d %d %d %u %d %d",
+				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d %d %d %d %d %d %u %d %d %d",
 				PLAYERBOT_SIDEKICK_WINDOW_PROTOCOL,
 				inWorld ? (int)sk->GetRaceNum() : -1, inWorld ? (int)sk->GetSkillGroup() : 0,
 				inWorld ? sk->GetLevel() : 0, expPercent,
@@ -3310,7 +3414,8 @@ namespace
 				rec.bBuffs ? 1 : 0, inWorld ? (long long)sk->GetGold() : 0LL, (unsigned int)red, (unsigned int)blue,
 				inWorld && sk->IsDead() ? 1 : 0, rec.bLure ? 1 : 0, rt ? (int)rt->bLureStage : 0, rec.bSolo ? 1 : 0,
 				rec.bChests ? 1 : 0, rec.bLead ? 1 : 0, (unsigned int)rec.bRole,
-				inWorld ? sk->GetLeadershipSkillLevel() : 0, rec.bParty ? 1 : 0);
+				inWorld ? sk->GetLeadershipSkillLevel() : 0, rec.bParty ? 1 : 0,
+				inWorld ? sk->GetAlignment() / 10 : 0);
 		char doing[96] = "";
 		char place[64] = "";
 		if (inWorld)
@@ -3324,6 +3429,13 @@ namespace
 				snprintf(place, sizeof(place), "%s", words.name);
 			else
 				snprintf(place, sizeof(place), "mapa %ld", map);
+		}
+		else if (elsewhere)
+		{
+			snprintf(doing, sizeof(doing), "%s", rec.bMode == PLAYERBOT_SIDEKICK_FREE ? "gra po swojemu" : "idzie do ciebie");
+			const playerbot_conv::TMapWords& words =
+					playerbot_conv::GetMapWords(GetPlayerBotSidekickSavedMap(rec.dwSidekickPID, get_dword_time()));
+			snprintf(place, sizeof(place), "%s", *words.name ? words.name : "inna mapa");
 		}
 		else
 			snprintf(doing, sizeof(doing), "za chwile bedzie w grze");
@@ -5335,6 +5447,9 @@ namespace
 	{
 		ownerFighting = IsPlayerBotSidekickOwnerTargetInFight(ch, owner);
 		LPCHARACTER target = stance == PLAYERBOT_SIDEKICK_STANCE_PASSIVE ? NULL : owner->GetTarget();
+		// MT2009_PLUS_AREZZO_BOTS_V1 (events): the owner's Easter metin is the owner's.
+		if (target && target->IsStone() && IsPlayerBotEventStone(target->GetRaceNum()))
+			target = NULL;
 		if (target && target != ch && !target->IsDead() &&
 				(target->IsMonster() || target->IsStone() || IsPlayerBotSidekickWarFoe(owner, target)) &&
 				target->GetMapIndex() == owner->GetMapIndex() &&
@@ -5510,7 +5625,8 @@ namespace
 		}
 	};
 
-	bool ServePlayerBotSidekickAtNpcs(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER owner, DWORD dwNow)
+	bool ServePlayerBotSidekickAtNpcs(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER owner, DWORD dwNow,
+			TPlayerBotSidekickRuntime& rt)
 	{
 		if (!owner->GetSectree() || ch->GetExchange())
 			return false;
@@ -5528,15 +5644,35 @@ namespace
 		if (npcs.blacksmith)
 		{
 			state.dwNextRefineCheckTime = 0;
+			const bool hadWeapon = ch->GetWear(WEAR_WEAPON) != NULL;
+			const bool hadBody = ch->GetWear(WEAR_BODY) != NULL;
+			const bool hadShield = ch->GetWear(WEAR_SHIELD) != NULL;
 			did = ManagePlayerBotRefining(ch, state, dwNow) || did;
+			// MT2009_PLUS_BOSS_RAID_V2 (2.2.52, burn): a piece burnt at the
+			// anvil is replaced on the same look when the owner stands by the
+			// merchant too, not on the next service visit.
+			// (A piece the anvil only took off is still in the bag.)
+			if (npcs.weapons && hadWeapon && !PlayerBotHasPieceForSlot(ch, WEAR_WEAPON))
+				ManagePlayerBotWeaponMerchant(ch);
+			if (npcs.armour && ((hadBody && !PlayerBotHasPieceForSlot(ch, WEAR_BODY)) ||
+					(hadShield && !PlayerBotHasPieceForSlot(ch, WEAR_SHIELD))))
+				ManagePlayerBotArmorMerchant(ch);
 		}
 		if (did)
 		{
 			SetPlayerBotAction(state, npcs.blacksmith ? BOT_ACTION_REFINE : BOT_ACTION_SHOP, dwNow);
 			state.dwLastMeaningfulActivityTime = dwNow;
-			sys_log(0, "PLAYERBOT_SIDEKICK: served at the npcs pid=%u name=%s smith=%d weapons=%d armour=%d misc=%d gold=%lld",
-					ch->GetPlayerID(), ch->GetName(), npcs.blacksmith ? 1 : 0, npcs.weapons ? 1 : 0,
-					npcs.armour ? 1 : 0, npcs.misc ? 1 : 0, (long long)ch->GetGold());
+			// MT2009_PLUS_SIDEKICK_SERVICE_LOG_V1: a line when the purse moved, or
+			// every five minutes of the same.
+			const long long gold = (long long)ch->GetGold();
+			if (gold != rt.llLastServiceGold || dwNow - rt.dwLastServiceLog >= 300000)
+			{
+				rt.llLastServiceGold = gold;
+				rt.dwLastServiceLog = dwNow;
+				sys_log(0, "PLAYERBOT_SIDEKICK: served at the npcs pid=%u name=%s smith=%d weapons=%d armour=%d misc=%d gold=%lld",
+						ch->GetPlayerID(), ch->GetName(), npcs.blacksmith ? 1 : 0, npcs.weapons ? 1 : 0,
+						npcs.armour ? 1 : 0, npcs.misc ? 1 : 0, gold);
+			}
 		}
 		return did;
 	}
@@ -6335,6 +6471,123 @@ namespace
 				ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), rec.dwOwnerPID);
 	}
 
+	// MT2009_PLUS_SIDEKICK_TRIP_V1: a companion let off the leash ("wolna
+	// reka", or "Gra beze mnie" with its owner out) plays as a bot, and a bot of
+	// ninety wants the Grotto of Exile 2. The owner's (1 October) said "Ide do
+	// Groty Wygnancow 2" in Joan for an hour: the first village's hold kept it
+	// there - a companion made at ninety starts the Biologist at his first
+	// herb, whose wolves live round Joan (goal=9, make_herb_lv15/lv20, 30
+	// September) - and every relog behind its owner's warps started the trip's
+	// clocks again. The watch is kept here, outside the runtime a relog drops:
+	// held in the village past the first mark, the hold is lifted; still not
+	// there at the second, that ground is given up for an hour, the next one
+	// down is taken (GetPlayerBotFrontierFallback), and the log and the owner
+	// are told why.
+	const DWORD PLAYERBOT_SIDEKICK_TRIP_CHECK_MS = 5000;
+	const DWORD PLAYERBOT_SIDEKICK_TRIP_UNHOLD_MS = 8 * 60 * 1000;
+	const DWORD PLAYERBOT_SIDEKICK_TRIP_GIVE_UP_MS = 20 * 60 * 1000;
+	const DWORD PLAYERBOT_SIDEKICK_TRIP_BLOCK_MS = 60 * 60 * 1000;
+
+	struct TPlayerBotSidekickTrip
+	{
+		long lMap = 0;
+		long lFromMap = 0;
+		DWORD dwSince = 0;
+		DWORD dwNextCheck = 0;
+		bool bUnheld = false;
+		std::map<long, DWORD> mapBlockedUntil;
+	};
+	std::map<DWORD, TPlayerBotSidekickTrip> s_mapPlayerBotSidekickTrips;
+
+	bool IsPlayerBotSidekickTripBlocked(LPCHARACTER ch, long mapIndex)
+	{
+		if (!ch || s_mapPlayerBotSidekickTrips.empty())
+			return false;
+		std::map<DWORD, TPlayerBotSidekickTrip>::iterator trip = s_mapPlayerBotSidekickTrips.find(ch->GetPlayerID());
+		if (trip == s_mapPlayerBotSidekickTrips.end())
+			return false;
+		std::map<long, DWORD>::iterator blocked = trip->second.mapBlockedUntil.find(mapIndex);
+		if (blocked == trip->second.mapBlockedUntil.end())
+			return false;
+		const DWORD left = blocked->second - get_dword_time();
+		if (left == 0 || left > PLAYERBOT_SIDEKICK_TRIP_BLOCK_MS)
+		{
+			trip->second.mapBlockedUntil.erase(blocked);
+			return false;
+		}
+		return true;
+	}
+
+	void WatchPlayerBotSidekickTrip(LPCHARACTER ch, TPlayerBotAIState& state, const TPlayerBotSidekick& rec, DWORD dwNow)
+	{
+		if (!ch || ch->IsDead())
+			return;
+		TPlayerBotSidekickTrip& trip = s_mapPlayerBotSidekickTrips[ch->GetPlayerID()];
+		if (trip.dwNextCheck != 0 && dwNow - trip.dwNextCheck > 0x80000000U)
+			return;
+		trip.dwNextCheck = dwNow + PLAYERBOT_SIDEKICK_TRIP_CHECK_MS;
+		long here = ch->GetMapIndex();
+		if (here >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN)
+			here /= 10000;
+		const long want = ShouldPlayerBotLeaveForFrontier(ch) ? GetPlayerBotFrontierMapForLevel(ch) : 0;
+		if (want == 0 || want == here)
+		{
+			if (trip.lMap != 0 && trip.lMap == here)
+				sys_log(0, "PLAYERBOT_SIDEKICK: trip done pid=%u name=%s to=%ld from=%ld took_s=%u",
+						ch->GetPlayerID(), ch->GetName(), trip.lMap, trip.lFromMap, (dwNow - trip.dwSince) / 1000U);
+			trip.lMap = 0;
+			trip.bUnheld = false;
+			return;
+		}
+		if (want != trip.lMap)
+		{
+			trip.lMap = want;
+			trip.lFromMap = here;
+			trip.dwSince = dwNow;
+			trip.bUnheld = false;
+			sys_log(0, "PLAYERBOT_SIDEKICK: trip set pid=%u name=%s to=%ld from=%ld level=%u",
+					ch->GetPlayerID(), ch->GetName(), want, here, (unsigned int)ch->GetLevel());
+			return;
+		}
+		const DWORD waited = dwNow - trip.dwSince;
+		const int heldBy = IsPlayerBotM1Map(here) ? GetPlayerBotM1HoldWhy(ch->GetPlayerID(), dwNow) : -1;
+		if (!trip.bUnheld && heldBy >= 0 && waited >= PLAYERBOT_SIDEKICK_TRIP_UNHOLD_MS)
+		{
+			ReleasePlayerBotM1Hold(ch->GetPlayerID());
+			state.dwNextWorldTravelTime = dwNow;
+			trip.bUnheld = true;
+			sys_log(0, "PLAYERBOT_SIDEKICK: trip unheld pid=%u name=%s to=%ld map=%ld waited_s=%u held_by=%s",
+					ch->GetPlayerID(), ch->GetName(), want, here, waited / 1000U, PLAYERBOT_M1_HOLD_WHY_KEY[heldBy]);
+			return;
+		}
+		if (waited < PLAYERBOT_SIDEKICK_TRIP_GIVE_UP_MS)
+			return;
+		trip.mapBlockedUntil[want] = dwNow + PLAYERBOT_SIDEKICK_TRIP_BLOCK_MS;
+		trip.lMap = 0;
+		trip.bUnheld = false;
+		const long next = ShouldPlayerBotLeaveForFrontier(ch) ? GetPlayerBotFrontierMapForLevel(ch) : 0;
+		sys_log(0, "PLAYERBOT_SIDEKICK: trip given up pid=%u name=%s to=%ld from=%ld map=%ld pos=(%ld,%ld) waited_s=%u "
+				"held_by=%s hosted=%d gold=%lld fee=%d action=%u goal=%u shop=%d next=%ld blocked_min=%u",
+				ch->GetPlayerID(), ch->GetName(), want, trip.lFromMap, here, ch->GetX(), ch->GetY(), waited / 1000U,
+				heldBy >= 0 ? PLAYERBOT_M1_HOLD_WHY_KEY[heldBy] : "none", IsPlayerBotMapHostedHere(want) ? 1 : 0,
+				(long long)ch->GetGold(), GetPlayerBotTeleporterFee(ch), (unsigned int)state.bCurrentAction,
+				(unsigned int)state.bLongTermGoal, state.bVisitingShop ? 1 : 0, next,
+				PLAYERBOT_SIDEKICK_TRIP_BLOCK_MS / 60000U);
+		LPCHARACTER owner = GetPlayerBotSidekickOwnerChar(rec.dwOwnerPID);
+		if (owner)
+		{
+			char text[200];
+			const char* nextWords = next != 0 ? GetPlayerBotMapDestinationPl(next) : "";
+			if (nextWords[0])
+				snprintf(text, sizeof(text), "Od %u minut nie moge dojsc %s - na razie odpuszczam i ide %s.",
+						waited / 60000U, GetPlayerBotMapDestinationPl(want), nextWords);
+			else
+				snprintf(text, sizeof(text), "Od %u minut nie moge dojsc %s - na razie odpuszczam i expie tutaj.",
+						waited / 60000U, GetPlayerBotMapDestinationPl(want));
+			SayPlayerBotSidekick(owner, text);
+		}
+	}
+
 	// MT2009_PLUS_SIDEKICK_REDRESS_V1: bald after its first summons (upstream
 	// 2.2.44, urtopy). A companion comes into the world, and is shown to the
 	// players round it, as the character loads - before the db core has sent a
@@ -6383,12 +6636,23 @@ namespace
 		if (KeepPlayerBotSidekickFishing(ch, state, *rec, rt, dwNow))
 			return true;
 		if (rec->bMode != PLAYERBOT_SIDEKICK_FOLLOW)
+		{
+			WatchPlayerBotSidekickTrip(ch, state, *rec, dwNow);	// MT2009_PLUS_SIDEKICK_TRIP_V1
 			return false;
+		}
 		if (IsPlayerBotSidekickPlayingAlone(*rec, dwNow))
 		{
 			if (!rt.bAlone)
 				StartPlayerBotSidekickAlone(ch, *rec, rt);
+			WatchPlayerBotSidekickTrip(ch, state, *rec, dwNow);	// MT2009_PLUS_SIDEKICK_TRIP_V1
 			return false;
+		}
+		// MT2009_PLUS_SIDEKICK_TRIP_V1: at its owner's side no trip is under
+		// way; the next one let off the leash starts its clocks afresh.
+		{
+			std::map<DWORD, TPlayerBotSidekickTrip>::iterator trip = s_mapPlayerBotSidekickTrips.find(ch->GetPlayerID());
+			if (trip != s_mapPlayerBotSidekickTrips.end())
+				trip->second.lMap = 0;
 		}
 		if (rt.bAlone)
 			EndPlayerBotSidekickAlone(ch, state, *rec, rt);
@@ -6443,6 +6707,27 @@ namespace
 		// A dungeon instance too - the owner is its guide, which a bot on its
 		// own never has.
 		const bool otherMap = owner->GetMapIndex() != ch->GetMapIndex();
+		// MT2009_PLUS_AREZZO_BOTS_V1 (off limits): the owner in a new dungeon,
+		// the Blue Dragon's lair or on an Arezzo map: the companion waits here,
+		// as it does while its owner warps, and says so once.
+		if (otherMap && IsPlayerBotOffLimitsMap(owner->GetMapIndex()))
+		{
+			if (ch->IsStateMove())
+				ch->Stop();
+			ch->SetVictim(NULL);
+			state.dwTargetVID = 0;
+			state.dwLastMeaningfulActivityTime = dwNow;
+			SetPlayerBotAction(state, BOT_ACTION_IDLE, dwNow);
+			static std::map<DWORD, DWORD> s_mapToldAt;
+			std::map<DWORD, DWORD>::iterator told = s_mapToldAt.find(ch->GetPlayerID());
+			if (told == s_mapToldAt.end() || dwNow - told->second >= 600000)
+			{
+				owner->ChatPacket(CHAT_TYPE_INFO, "%s czeka na Ciebie tutaj - do tego miejsca towarzysz nie wchodzi.",
+						ch->GetName());
+				s_mapToldAt[ch->GetPlayerID()] = dwNow;
+			}
+			return true;
+		}
 		const int dist = otherMap ? INT_MAX
 				: DISTANCE_APPROX(ch->GetX() - owner->GetX(), ch->GetY() - owner->GetY());
 		if (otherMap || dist > PLAYERBOT_SIDEKICK_TELEPORT_DISTANCE)
@@ -6488,7 +6773,7 @@ namespace
 		if (dist <= PLAYERBOT_SIDEKICK_NPC_RANGE + PLAYERBOT_SIDEKICK_FOLLOW_DISTANCE && dwNow >= rt.dwNextService)
 		{
 			rt.dwNextService = dwNow + PLAYERBOT_SIDEKICK_SERVICE_INTERVAL_MS;
-			if (ServePlayerBotSidekickAtNpcs(ch, state, owner, dwNow))
+			if (ServePlayerBotSidekickAtNpcs(ch, state, owner, dwNow, rt))
 				return true;
 		}
 		if (dwNow >= rt.dwNextLoot)

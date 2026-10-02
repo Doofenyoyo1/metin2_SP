@@ -456,6 +456,7 @@ function Get-M2ReportVersionInfo {
         M2_CHANNELS                 = 'channels'
         M2_GAME_PORT_BASE           = 'gamePortBase'
         M2_DIFFICULTY               = 'difficulty'
+        M2_MONSTER_HP               = 'monsterHp'
     }
     if (Test-Path -LiteralPath $envPath -PathType Leaf) {
         $lines = @()

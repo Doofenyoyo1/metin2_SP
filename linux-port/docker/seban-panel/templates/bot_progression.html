@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block title %}Progresja botów · {{ panel_brand }}{% endblock %}
+{% block content %}
+<style>
+.pg-table input[type=number]{width:74px;padding:6px 7px;font-size:13px}
+.pg-table input.pg-flag{width:150px;padding:6px 7px;font-size:13px}
+.pg-table select{padding:6px 7px;font-size:13px}
+.pg-table td{vertical-align:middle;padding:7px 6px}
+.pg-hint{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+.pg-off td{opacity:.55}
+.pg-gate td{border-top:2px solid color-mix(in srgb,var(--blue2) 35%,transparent)}
+.pg-new td{background:color-mix(in srgb,var(--blue2) 7%,transparent)}
+.pg-settings{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.pg-settings label{display:grid;gap:5px;color:var(--muted);font-size:13px}
+.pg-settings input[type=number]{width:110px;padding:6px 7px}
+.pg-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+.pg-num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.pg-missing{font-size:12px;color:var(--muted)}
+</style>
+<p class="eyebrow">ZAAWANSOWANE · PLAYERBOTS</p>
+<h1>Progresja botów</h1>
+<p class="muted">Poziomy przejścia na kolejne mapy, postoje w wioskach (tiery Grindera i Prawo Awansu) oraz checklista — co bot musi zrobić, zanim przebije dany poziom. Bot dochodzi do poziomu bramki i dalej nie zbiera doświadczenia (ta sama blokada expa co u dropperów), dopóki nie spełni wymogów; w tym czasie jego cele (ambicja, Metiny, Biolog, kowal, księgi, bonusy, koń) pchają go do brakujących rzeczy. Nie dotyczy towarzysza gracza, krzykaczy, dropperów i kohort testowych Arezzo/Ochao. Rdzeń wczytuje zmiany w ciągu pięciu sekund — restart nie jest potrzebny.{% if not from_file %} <strong>Plik jeszcze nie istnieje — działają ustawienia domyślne.</strong>{% endif %}</p>
+
+<section class="cards compact">
+<article><span>Boty objęte checklistą</span><strong>{{ status.eligible }}</strong><small>{{ status.cores }} rdzeni{% if status.age is not none %} · dane sprzed {{ status.age }} s{% endif %}</small></article>
+<article><span>Zatrzymane na bramce</span><strong>{{ status.held }}</strong><small>{% for lv, n in status.gates|dictsort %}poz. {{ lv }}: {{ n }}{% if not loop.last %} · {% endif %}{% else %}nikt{% endfor %}</small></article>
+<article><span>Przepuszczone po limicie czasu</span><strong>{{ status.waived }}</strong><small>boty online z co najmniej jedną odpuszczoną bramką</small></article>
+<article><span>Łowiący</span><strong>{{ status.fish_rows|sum(attribute='fishing') }}</strong><small>limit: {{ config.settings.fish_cap_pct }}% pasma</small></article>
+</section>
+
+<section class="panel">
+<h2>Kto stoi i dlaczego</h2>
+{% if status.req_rows %}
+<div class="table-wrap"><table>
+<thead><tr><th>Bramka</th><th>Brakujący wymóg</th><th>Botów</th></tr></thead>
+<tbody>{% for row in status.req_rows %}<tr><td>poz. {{ row.gate }}</td><td>{{ row.req }}</td><td class="pg-num">{{ row.count }}</td></tr>{% endfor %}</tbody>
+</table></div>
+<h3>Najdłużej stojące boty</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Bot</th><th>Poziom</th><th>Bramka</th><th>Stoi (min)</th><th>Brakuje</th></tr></thead>
+<tbody>{% for bot in status.bots %}<tr><td>{{ bot.name }}</td><td>{{ bot.level }}</td><td>{{ bot.gate }}</td><td class="pg-num">{{ bot.minutes }}</td><td class="pg-missing">{{ bot.missing }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% else %}
+<p class="muted">Żaden bot nie stoi teraz na bramce (albo rdzeń jeszcze nie zapisał statusu — co 30 s).</p>
+{% endif %}
+{% if status.fish_rows %}
+<h3>Wędkowanie wg pasm poziomów</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Pasmo</th><th>Botów online</th><th>Łowi / idzie łowić</th><th>%</th></tr></thead>
+<tbody>{% for row in status.fish_rows %}<tr><td>{{ row.band }}–{{ row.band + 9 }}</td><td class="pg-num">{{ row.live }}</td><td class="pg-num">{{ row.fishing }}</td><td class="pg-num">{{ row.pct }}%</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+</section>
+
+<form method="post">
+<input type="hidden" name="progression_csrf" value="{{ progression_csrf }}">
+
+<section class="panel">
+<h2>Checklista przed poziomem</h2>
+<p class="muted">Każdy wiersz to jeden wymóg bramki „poziom”. Bot może osiągnąć ten poziom, ale nie przebije go, dopóki nie spełni wszystkich włączonych wymogów (albo nie minie limit czasu z ustawień poniżej). Puste wiersze na dole dodają nowe wymogi; nowy poziom = nowa bramka. Skróty: M1 = 21 … M4 = 24 … M10 = 30, G1 = 31, P = 40; koń 11 = bojowy, 21 = wojskowy.</p>
+<div class="table-wrap"><table class="pg-table">
+<thead><tr><th>Poziom</th><th>Wymóg</th><th>Włączony</th><th>Wartość A</th><th>Wartość B</th><th>Flaga questa</th><th>Usuń</th></tr></thead>
+<tbody>
+{% set ns = namespace(previous=None) %}
+{% for gate in config.gates %}{% set i = loop.index0 %}
+<tr class="{{ 'pg-gate' if gate.level != ns.previous else '' }} {{ '' if gate.on else 'pg-off' }}">
+<td><input type="number" name="g{{ i }}_level" min="1" max="250" value="{{ gate.level }}"></td>
+<td><select name="g{{ i }}_req">{% for key in req_order %}<option value="{{ key }}" {% if key == gate.req %}selected{% endif %}>{{ reqs[key][0] }}</option>{% endfor %}</select></td>
+<td><input type="checkbox" name="g{{ i }}_on" value="1" {% if gate.on %}checked{% endif %}></td>
+<td><input type="number" name="g{{ i }}_a" min="0" value="{{ gate.a }}"><span class="pg-hint">{{ reqs[gate.req][1] }}</span></td>
+<td><input type="number" name="g{{ i }}_b" min="0" max="255" value="{{ gate.b }}"><span class="pg-hint">{{ reqs[gate.req][2] }}</span></td>
+<td><input class="pg-flag" name="g{{ i }}_flag" value="{{ gate.flag }}" placeholder="quest.flaga"></td>
+<td><input type="checkbox" name="g{{ i }}_delete" value="1"></td>
+</tr>
+{% set ns.previous = gate.level %}
+{% endfor %}
+{% for n in range(new_gate_rows) %}{% set i = config.gates|length + n %}
+<tr class="pg-new">
+<td><input type="number" name="g{{ i }}_level" min="1" max="250" value=""></td>
+<td><select name="g{{ i }}_req">{% for key in req_order %}<option value="{{ key }}">{{ reqs[key][0] }}</option>{% endfor %}</select></td>
+<td><input type="checkbox" name="g{{ i }}_on" value="1" checked></td>
+<td><input type="number" name="g{{ i }}_a" min="0" value=""></td>
+<td><input type="number" name="g{{ i }}_b" min="0" max="255" value=""></td>
+<td><input class="pg-flag" name="g{{ i }}_flag" value="" placeholder="quest.flaga"></td>
+<td></td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+</section>
+
+<section class="panel">
+<h2>Ustawienia checklisty i wędkowania</h2>
+<div class="pg-settings">
+{% for key, label, default, low, high, kind, hint in prog_settings %}
+<label>{{ label }}
+{% if kind == 'bool' %}<input type="checkbox" name="set_{{ key }}" value="1" {% if config.settings[key] %}checked{% endif %}>
+{% else %}<input type="number" name="set_{{ key }}" min="{{ low }}" max="{{ high }}" value="{{ config.settings[key] }}">{% endif %}
+<small>{{ hint }}{% if hint %} {% endif %}Domyślnie: {{ default }}.</small></label>
+{% endfor %}
+</div>
+</section>
+
+<section class="panel">
+<h2>Przejścia na kolejne mapy</h2>
+<p class="muted">Od jakiego poziomu bot jest wysyłany na daną mapę (i do jakiego, tam gdzie mapa ma górną granicę). „Wioska 2 (M2)”: od = wejście z M1 (na poziomach od i od+1 część botów jeszcze zostaje w M1), do = sufit, powyżej którego bot opuszcza M2. Dolina i Pustynia dzielą się botami po połowie tam, gdzie ich zakresy się nakładają. Mapy otwarte niżej niż domyślnie dostają huby obniżone o tę różnicę.</p>
+<div class="table-wrap"><table class="pg-table">
+<thead><tr><th>Mapa / etap</th><th>Od poziomu</th><th>Do poziomu</th><th>Domyślnie</th></tr></thead>
+<tbody>
+{% for key, label, d_from, d_to, has_to, floor in maps %}
+<tr><td>{{ label }}</td>
+<td><input type="number" name="map_{{ key }}_from" min="{{ floor }}" max="250" value="{{ config.maps[key]['from'] }}"><span class="pg-hint">min. {{ floor }}</span></td>
+<td>{% if has_to %}<input type="number" name="map_{{ key }}_to" min="1" max="255" value="{{ config.maps[key]['to'] }}">{% else %}<span class="muted">—</span>{% endif %}</td>
+<td class="pg-num">{{ d_from }}{% if has_to %}–{{ d_to }}{% else %}+{% endif %}</td></tr>
+{% endfor %}
+</tbody></table></div>
+</section>
+
+<section class="panel">
+<h2>Postoje w wioskach (tiery Grindera)</h2>
+<p class="muted">Grinder dochodzi do wylosowanego poziomu postoju (z zakresu „postój od–do”) i trzyma się go, aż spełni Prawo Awansu z tabeli niżej — potem z pewną szansą rusza dalej. Wyłączony tier nikogo nie zatrzymuje. 13% botów nigdy się nie zatrzymuje, a {{ config.settings.tier1_skip_pct }}% pomija postój w M1.</p>
+<div class="table-wrap"><table class="pg-table">
+<thead><tr><th>Tier</th><th>Pasmo od</th><th>Pasmo do</th><th>Postój od</th><th>Postój do</th><th>Włączony</th></tr></thead>
+<tbody>
+{% for tier, bf, bt, lf, lt, label in tiers %}{% set row = config.tiers[tier] %}
+<tr class="{{ '' if row.on else 'pg-off' }}"><td>{{ tier }} · {{ label }}<span class="pg-hint">domyślnie {{ bf }}–{{ bt }}, postój {{ lf }}–{{ lt }}</span></td>
+<td><input type="number" name="tier_{{ tier }}_band_from" min="1" max="250" value="{{ row.band_from }}"></td>
+<td><input type="number" name="tier_{{ tier }}_band_to" min="1" max="250" value="{{ row.band_to }}"></td>
+<td><input type="number" name="tier_{{ tier }}_lock_from" min="1" max="250" value="{{ row.lock_from }}"></td>
+<td><input type="number" name="tier_{{ tier }}_lock_to" min="1" max="250" value="{{ row.lock_to }}"></td>
+<td><input type="checkbox" name="tier_{{ tier }}_on" value="1" {% if row.on %}checked{% endif %}></td></tr>
+{% endfor %}
+</tbody></table></div>
+<h3>Prawo Awansu (sprzęt potrzebny, żeby zejść z postoju)</h3>
+<p class="muted">Wiersz obowiązuje od podanego poziomu do następnego wiersza. 0 = tego przedmiotu nie wymaga. Przedmiot liczy się, jeśli jest „aktualny” (patrz okno poziomów w ustawieniach). Dawniej: +7/+6/+6 do 35 poziomu i +8/+6/+6/hełm +6 od 35 — w wioskach trzymało to boty godzinami (+7 to 50% szansy, materiał z dropu i ryzyko spalenia broni).</p>
+<div class="table-wrap"><table class="pg-table">
+<thead><tr><th>Od poziomu</th><th>Broń +</th><th>Zbroja +</th><th>Tarcza +</th><th>Hełm +</th><th>Usuń</th></tr></thead>
+<tbody>
+{% for law in config.laws %}{% set i = loop.index0 %}
+<tr><td><input type="number" name="law{{ i }}_from" min="0" max="250" value="{{ law['from'] }}"></td>
+<td><input type="number" name="law{{ i }}_weapon" min="0" max="9" value="{{ law.weapon }}"></td>
+<td><input type="number" name="law{{ i }}_armour" min="0" max="9" value="{{ law.armour }}"></td>
+<td><input type="number" name="law{{ i }}_shield" min="0" max="9" value="{{ law.shield }}"></td>
+<td><input type="number" name="law{{ i }}_helmet" min="0" max="9" value="{{ law.helmet }}"></td>
+<td><input type="checkbox" name="law{{ i }}_delete" value="1"></td></tr>
+{% endfor %}
+{% for n in range(new_law_rows) %}{% set i = config.laws|length + n %}
+<tr class="pg-new"><td><input type="number" name="law{{ i }}_from" min="0" max="250" value=""></td>
+<td><input type="number" name="law{{ i }}_weapon" min="0" max="9" value="0"></td>
+<td><input type="number" name="law{{ i }}_armour" min="0" max="9" value="0"></td>
+<td><input type="number" name="law{{ i }}_shield" min="0" max="9" value="0"></td>
+<td><input type="number" name="law{{ i }}_helmet" min="0" max="9" value="0"></td><td></td></tr>
+{% endfor %}
+</tbody></table></div>
+</section>
+
+<div class="pg-actions">
+<button name="action" value="save">Zapisz wszystko</button>
+<button name="action" value="reset" class="secondary" onclick="return confirm('Przywrócić wszystkie ustawienia progresji do domyślnych?')">Przywróć domyślne</button>
+</div>
+</form>
+{% endblock %}

@@ -6,7 +6,8 @@
 // Every bot of 30 and more does the Alchemist's daily errand the players do
 // (dragon_soul.quest, state_farming): a monster it kills drops a Dragon Stone
 // Shard one time in ten (drop_gamble_with_flag("ds_drop"), 10% unless the
-// flag says otherwise), ten shards are a Cor Draconis, five Cors a day. The
+// flag says otherwise), ten shards are a Cor Draconis, five Cors a day
+// unless the flag ds_cor_day says otherwise. The
 // quest skips bots (pc.is_bot), so the pass counts the shards itself instead
 // of filling a bag with them.
 //
@@ -36,6 +37,8 @@ namespace
 	const int PLAYERBOT_ALCHEMY_MIN_LEVEL = 30;
 	const DWORD PLAYERBOT_DS_SHARD_VNUM = 30270;
 	const int PLAYERBOT_DS_SHARDS_PER_COR = 10;
+	// Cors a day: the players' event flag ds_cor_day (dragon_soul.quest, the
+	// admin panel's alchemy page; 1-20), this when it is unset or out of range.
 	const int PLAYERBOT_DS_CORS_PER_DAY = 5;
 	const DWORD PLAYERBOT_COR_ROUGH_VNUM = 50255;
 	const int PLAYERBOT_COR_LINE_MIN_UNITS = 5;
@@ -151,6 +154,13 @@ namespace
 		return quest::CQuestManager::instance().GetEventFlag("m2_alchemy_off") != 0;
 	}
 
+	// The players' daily Cor count (dragon_soul.quest reads the same flag).
+	int GetPlayerBotDragonCorsPerDay()
+	{
+		const int n = quest::CQuestManager::instance().GetEventFlag("ds_cor_day");
+		return (n >= 1 && n <= 20) ? n : PLAYERBOT_DS_CORS_PER_DAY;
+	}
+
 	// The share scaled by the panel's ALCHEMY will (playerbot_config.h; 100 =
 	// the build's 75%), by player id, so the same bots come back when raised.
 	bool IsPlayerBotAlchemyUserPID(DWORD pid)
@@ -190,7 +200,7 @@ namespace
 		if (ch->GetQuestFlag(PLAYERBOT_DS_DAY_FLAG) != today)
 		{
 			ch->SetQuestFlag(PLAYERBOT_DS_DAY_FLAG, today);
-			ch->SetQuestFlag(PLAYERBOT_DS_LEFT_FLAG, PLAYERBOT_DS_CORS_PER_DAY);
+			ch->SetQuestFlag(PLAYERBOT_DS_LEFT_FLAG, GetPlayerBotDragonCorsPerDay());
 		}
 		const int left = ch->GetQuestFlag(PLAYERBOT_DS_LEFT_FLAG);
 		if (left <= 0)

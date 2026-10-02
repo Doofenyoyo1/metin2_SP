@@ -64,6 +64,11 @@ linux-port-mt2009/docker/game/dragon_soul_applys.mt2009plus.txt
 linux-port-mt2009/docker/game/special_item_group.cors.txt
 linux-port-mt2009/docker/game/special_item_group.dungeons.txt
 linux-port-mt2009/docker/game/special_item_group.goblin.txt
+# The mini games and the Flower Event (MT2009 PLUS 2.17.0).
+linux-port-mt2009/docker/game/special_item_group.rumi.txt
+linux-port-mt2009/docker/game/special_item_group.catchking.txt
+linux-port-mt2009/docker/game/special_item_group.yutnori.txt
+linux-port-mt2009/docker/game/special_item_group.flower.txt
 linux-port-mt2009/docker/game/dungeons/*
 # The Arezzo places (MT2009 PLUS 2.16.0, off unless M2_AREZZO=1).
 linux-port-mt2009/docker/game/arezzo/*
@@ -178,6 +183,16 @@ linux-port-mt2009/docker/game/src/server/game/src/input_auth.cpp
 linux-port-mt2009/docker/game/src/server/game/src/packet.h
 linux-port-mt2009/docker/game/src/server/game/src/packet_info.cpp
 linux-port-mt2009/docker/game/src/server/game/src/questlua_dungeon.cpp
+# The Blue Dragon, the mini games, the 6th/7th bonus pool and the entity
+# snapshot (MT2009 PLUS 2.17.0).
+linux-port-mt2009/docker/game/src/server/game/src/BlueDragon.cpp
+linux-port-mt2009/docker/game/src/server/game/src/BlueDragon.h
+linux-port-mt2009/docker/game/src/server/game/src/input.cpp
+linux-port-mt2009/docker/game/src/server/game/src/item_attribute.cpp
+linux-port-mt2009/docker/game/src/server/game/src/questlua_game.cpp
+linux-port-mt2009/docker/game/src/server/game/src/questlua_global.cpp
+linux-port-mt2009/docker/game/src/server/game/src/sectree.cpp
+linux-port-mt2009/docker/game/src/server/game/src/sectree.h
 
 # Every Playerbot source has a build-context copy here, discovered like the
 # overlay above rather than listed: the r40250 list did this already (its

@@ -1259,7 +1259,7 @@ def read_ai_weights():
                     continue
                 if name in ("BATTLEPASS", "SASH", "ALCHEMY"):
                     try:
-                        vals[name] = max(0, min(100, int(parts[1])))
+                        vals[name] = max(0, min(250, int(parts[1])))
                     except ValueError:
                         pass
                     continue
@@ -1357,7 +1357,7 @@ def write_ai_weights(vals):
     body.append("KINGDOMPVP\t%d" % max(0, min(100, int(vals.get("KINGDOMPVP", 0)))))
     # The three wills, percent of the build's: 100 is the world as it was.
     for key in ("BATTLEPASS", "SASH", "ALCHEMY"):
-        body.append("%s\t%d" % (key, max(0, min(100, int(vals.get(key, 100))))))
+        body.append("%s\t%d" % (key, max(0, min(250, int(vals.get(key, 100))))))
     # The lowest plus a scroll refine may land on; 1 leaves the bots' own
     # rules alone.
     body.append("SCROLL_FROM\t%d" % max(1, min(9, int(vals.get("SCROLL_FROM", 1)))))
@@ -1411,10 +1411,14 @@ CHEST_SWITCH = os.path.join(AI_SPOOL, "playerbot_chest_switch.tsv")
 # with playerbot_events_status.tsv beside its playerbot_status.tsv.
 EVENTS_FILE = os.path.join(AI_SPOOL, "playerbot_events.tsv")
 EVENT_KINDS = ("chest", "exp", "drop", "yang", "tanaka", "zuo", "bossloot", "metinloot",
-               "goblin")  # MT2009_PLUS_GOBLIN_V1: the Treasure Hunt (playerbot_goblin.h)
+               "goblin",  # MT2009_PLUS_GOBLIN_V1: the Treasure Hunt (playerbot_goblin.h)
+               # MT2009_PLUS_EVENT_MANAGER_V1: the in-game event manager's mini games and
+               # the Easter event (playerbot_ingame_events.h).
+               "catchking", "rumi", "yutnori", "flower", "easter")
 # On or off, no figure: the Moonlight chests and the double loot of bosses and
 # Metins (MT2009_PLUS_LOOT_EVENTS_V1).
-EVENT_FLAG_KINDS = ("chest", "bossloot", "metinloot", "goblin")  # goblin: MT2009_PLUS_GOBLIN_V1
+EVENT_FLAG_KINDS = ("chest", "bossloot", "metinloot", "goblin",  # goblin: MT2009_PLUS_GOBLIN_V1
+                    "catchking", "rumi", "yutnori", "flower", "easter")  # MT2009_PLUS_EVENT_MANAGER_V1
 # Tanaka and Zuo put something into the world (playerbot_world_events.h): their
 # value is a count - pirates at once, Metin stones a wave - and they carry a
 # map, 0 letting the event pick. The core holds the same bounds
@@ -3472,6 +3476,11 @@ T = {
  "rare_sashes":  {"pl":"Szarfy","en":"Sashes"},
  "rare_sashes_help":{"pl":"Szarfy z bossów i ze skrzyń bossów. Łączenie szarf u Uriela działa zawsze.","en":"Sashes from bosses and boss chests. Combining sashes at Uriel always works."},
  "rare_saved_live":{"pl":"Zapisano i przełączono na żywo, przez pomocnika w grze. 🐉","en":"Saved and switched live, through the in-game helper. 🐉"},
+ "rare_ds_title":{"pl":"Odłamki Smoczego Kamienia (Alchemik)","en":"Dragon Stone Shards (the Alchemist)"},
+ "rare_ds_help": {"pl":"Od 30 poziomu Alchemik (M1 każdego królestwa) daje Moc Smoczego Oka: potwory upuszczają Odłamki, a każde 10 podniesionych odłamków samo zamienia się w Cor Draconis — tyle razy dziennie, ile ustawisz niżej, odnawiane raz dziennie u Alchemika. Boty liczą tak samo (bez odłamków w plecaku). Działa od razu.","en":"From level 30 the Alchemist (each kingdom's M1) grants the Power of the Dragon Eye: monsters drop Shards, and every 10 shards picked up turn into a Cor Draconis by themselves — as many times a day as set below, renewed once a day at the Alchemist. Bots count the same way (without shards in the bag). Applies at once."},
+ "rare_ds_drop": {"pl":"Szansa na odłamek z potwora, % (1–100, domyślnie 10):","en":"Shard chance per kill, % (1-100, default 10):"},
+ "rare_ds_day":  {"pl":"Cor Draconis z odłamków dziennie (1–20, domyślnie 5):","en":"Cor Draconis from shards a day (1-20, default 5):"},
+ "rare_ds_range":{"pl":"Szansa na odłamek 1–100%, Cor dziennie 1–20. Nic nie zmieniono.","en":"Shard chance 1-100%, Cors a day 1-20. Nothing was changed."},
  "az_nav":       {"pl":"🗺️ Moduł Arezzo","en":"🗺️ Arezzo module"},
  "az_open":      {"pl":"🗺️ Otwórz moduł Arezzo","en":"🗺️ Open the Arezzo module"},
  "tip_az":       {"pl":"Włącz albo wyłącz nowe mapy i lochy z Arezzo. Działa od razu, bez restartu serwera.","en":"Switch the new Arezzo maps and dungeons on or off. Takes effect immediately, no server restart."},
@@ -3480,6 +3489,52 @@ T = {
  "az_enable":    {"pl":"Moduł Arezzo włączony","en":"Arezzo module on"},
  "az_help":      {"pl":"Włączony: strony w Teleporterze i Pierścieniu, portal do Zaczarowanego Lasu po Strażniku En-Tai, strażnicy wejść do lochów i lochy Arezzo w oknie „Wyprawy” (X). Wyłączony: nic z tego nie jest widoczne, a gracz, który stoi na mapie Arezzo albo jest w jej lochu, w ciągu kilku sekund wraca do miasta (GM może zostać).","en":"On: the Teleporter and ring pages, the Enchanted Forest portal after the En-Tai Guardian, the dungeon entrance guards and the Arezzo lines in the dungeon window (X). Off: none of it is visible, and a player standing on an Arezzo map or in one of its dungeons is sent to the town within seconds (a GM may stay)."},
  "az_saved_live":{"pl":"Zapisano i przełączono na żywo, przez pomocnika w grze. 🗺️","en":"Saved and switched live, through the in-game helper. 🗺️"},
+ "seon_nav":     {"pl":"💎 Seon-Hae: 6. i 7. bonus","en":"💎 Seon-Hae: 6th and 7th bonus"},
+ "seon_open":    {"pl":"💎 Otwórz Seon-Hae","en":"💎 Open Seon-Hae"},
+ "tip_seon":     {"pl":"Włącz albo wyłącz dodawanie 6. i 7. bonusu u Seon-Hae i ustaw czas, przez jaki trzyma przedmiot. Działa od razu, bez restartu serwera.","en":"Switch Seon-Hae's 6th and 7th bonus on or off and set how long he keeps an item. Takes effect immediately, no server restart."},
+ "seon_dash_hint":{"pl":"Czy Seon-Hae (NPC 20095) dodaje graczom 6. i 7. bonus (system dobrowolny).","en":"Whether Seon-Hae (NPC 20095) adds the 6th and 7th bonus for players (an optional system)."},
+ "seon_intro":   {"pl":"System dobrowolny (z Owsapa): gracz oddaje Seon-Hae (NPC 20095 w pierwszych wioskach) broń albo zbroję/biżuterię z pięcioma bonusami, Odłamki poziomu przedmiotu (39070–39077, 39081; 2% szansy za każdy, do 10) i Suplementy (72064–72067; do 5, do +50%). Seon-Hae trzyma przedmiot przez ustawiony czas i oddaje go z nowym bonusem albo bez. Wymaga klienta z oknem Seon-Hae. Zapis działa od razu, bez restartu. Włączenie z panelu zostaje po restarcie, dopóki ktoś nie zmieni M2_SEONHAE w .env.","en":"An optional system (from Owsap): a player hands Seon-Hae (NPC 20095 in the first villages) a weapon or an armour/jewel with five bonuses, Powershards of the item's level (39070-39077, 39081; 2% chance each, up to 10) and Additives (72064-72067; up to 5, up to +50%). Seon-Hae keeps the item for the set time and gives it back with a new bonus or without. Needs the client with the Seon-Hae window. Saving takes effect immediately, no restart. Switching on here survives restarts until M2_SEONHAE in .env is changed."},
+ "seon_enable":  {"pl":"Seon-Hae przyjmuje przedmioty","en":"Seon-Hae takes items"},
+ "seon_help":    {"pl":"Wyłączenie zatrzymuje tylko nowe zlecenia — przedmiot, który Seon-Hae już trzyma, zawsze można odebrać. Suplementy wypadają z Metinów i bossów, a Odłamki ze zwykłych potworów w Grocie Wygnańców, Świątyni Ochao i Zaczarowanym Lesie (reguły niżej).","en":"Switching off stops new hand-ins only - an item Seon-Hae already keeps can always be collected. The Additives drop from Metins and bosses, the Powershards from ordinary monsters, in the Grotto of Exile, the Temple of Ochao and the Enchanted Forest (the rules below)."},
+ "seon_wait":    {"pl":"Czas pracy Seon-Hae (minuty, 0 = 24 godziny)","en":"Seon-Hae's working time (minutes, 0 = 24 hours)"},
+ "seon_saved_live":{"pl":"Zapisano i przełączono na żywo, przez pomocnika w grze. 💎","en":"Saved and switched live, through the in-game helper. 💎"},
+ "seon_lv":      {"pl":"Szanse poziomów 6. i 7. bonusu","en":"Odds of each level of the 6th and 7th bonus"},
+ "seon_lv_help": {"pl":"Jak często wypada wartość lv1…lv5 z tabeli bonusów 6/7 (Seon-Hae i Zaczarowanie 71051). Liczby to wagi, najlepiej w sumie 100. Poziom nie przekroczy „maks. poziomu” bonusu dla typu przedmiotu. Działa od razu.","en":"How often the lv1…lv5 value of the 6/7 bonus table drops (Seon-Hae and the Enchant 71051). Weights, best summing to 100. Never above the bonus's max level for the item type. Works at once."},
+ "seon_drops":   {"pl":"Drop Odłamków i Suplementów","en":"Powershard and Additive drops"},
+ "seon_drops_help":{"pl":"Tylko dla prawdziwych graczy (nie botów) i tylko gdy Seon-Hae jest włączony. Suplementy: z Metinów i bossów map z wiersza additive_map, każde zabicie losuje additive_chance (%); wiersz mob <vnum potwora> <vnum suplementu> <liczba> dotyczy jednego potwora (dowolnej rangi, na każdej mapie) zamiast reguły jego mapy. Odłamki: ze zwykłych potworów (nie Metinów, nie bossów) map z wiersza shard_map, szansa shard_chance (%, ułamki dozwolone, np. 0.5), 1 odłamek, kolor według wag z wierszy shard <vnum> <waga>. Brak danego rodzaju wierszy = wartości domyślne; puste pole = same domyślne. Serwer czyta plik w ciągu kilku sekund, bez restartu.","en":"Real players only (not bots) and only while Seon-Hae is on. Additives: from Metins and bosses on the maps of an additive_map line, each kill rolling additive_chance (%); a mob <mob vnum> <additive vnum> <count> line names one monster (any rank, any map) and replaces its map's rule. Shards: from ordinary monsters (not Metins, not bosses) on the maps of a shard_map line, shard_chance (%, fractions allowed, e.g. 0.5), one shard, its colour by the weights of the shard <vnum> <weight> lines. A kind of line missing = the defaults; an empty box = the defaults only. The server reads the file within seconds, no restart."},
+ "seon_drops_bad":{"pl":"Nie zapisano reguł dropu - błędne wiersze: %s","en":"Drop rules not saved - wrong lines: %s"},
+ # MT2009_PLUS_FLOWER_V1: the Flower Event's settings and rewards (playerbot_flower.h).
+ "fl_nav":       {"pl":"🌸 Dzieci Kwiaty","en":"🌸 Flower Event"},
+ "fl_open":      {"pl":"🌸 Otwórz ustawienia Dzieci Kwiatów","en":"🌸 Open the Flower Event settings"},
+ "tip_fl":       {"pl":"Szanse, koszty i nagrody eventu Dzieci Kwiaty. Działa w ciągu 5 sekund, bez restartu.","en":"Chances, costs and rewards of the Flower Event. Takes effect within 5 seconds, no restart."},
+ "fl_dash_hint": {"pl":"Nasiona z potworów, wymiana na latorośle i nagrody za kwiaty. Kiedy event trwa, ustawiasz w „Eventach” (rodzaj „flower”).","en":"Seeds from monsters, the exchange for shoots and the rewards for flowers. When it runs is set on the Events page (kind \"flower\")."},
+ "fl_intro":     {"pl":"Gdy event trwa, każdy potwór zabity przez gracza (nie bota) może dać Nasiona Kwiatów. W oknie eventu nasiona zamieniają się w losowe latorośle pięciu kwiatów, a latorośle jednego kwiatu – w nagrodę za ten kwiat. Po końcu eventu przez 7 dni można jeszcze wymieniać to, co zostało. Zapis działa w ciągu 5 sekund, bez restartu.","en":"While the event runs, every monster a player (not a bot) kills may give Flower Seeds. In the event window seeds become random shoots of five flowers, and shoots of one flower become that flower's reward. For 7 days after the event what is left can still be exchanged. Saving takes effect within 5 seconds, no restart."},
+ "fl_drop":      {"pl":"Nasiona","en":"Seeds"},
+ "fl_seed_chance":{"pl":"Szansa na nasiono z potwora (setne części procenta, 100 = 1%; przy równym poziomie)","en":"Seed chance per monster (hundredths of a percent, 100 = 1%; at an equal level)"},
+ "fl_min_level": {"pl":"Najniższy poziom gracza","en":"Lowest player level"},
+ "fl_counter_max":{"pl":"Najwięcej nasion / latorośli jednego rodzaju","en":"Most seeds / shoots of one kind"},
+ "fl_exchange":  {"pl":"Wymiana","en":"Exchange"},
+ "fl_seeds_per_shoot":{"pl":"Nasion za 1 latorośl","en":"Seeds per shoot"},
+ "fl_shoots_per_reward":{"pl":"Latorośli jednego kwiatu za 1 nagrodę","en":"Shoots of one flower per reward"},
+ "fl_rewards":   {"pl":"Nagrody za kwiaty","en":"Rewards for the flowers"},
+ "fl_rewards_help":{"pl":"Co gracz dostaje za latorośle danego kwiatu (numer przedmiotu i ilość za jedną wymianę). Domyślnie pudełka 83023–83027; co jest w pudełkach, zmieniasz w panelu Sebana → „Szkatułki” (grupy 83023–83027, działa po restarcie rdzeni).","en":"What a player gets for the shoots of each flower (item number and count per exchange). By default the boxes 83023-83027; what the boxes hold is the Seban panel's \"Szkatulki\" page (groups 83023-83027, applied at a core restart)."},
+ "fl_item":      {"pl":"Przedmiot (VNUM)","en":"Item (VNUM)"},
+ "fl_count":     {"pl":"Ilość","en":"Count"},
+ "fl_buff":      {"pl":"Kwiaty (bonus na 12 h)","en":"Flowers (a 12 h bonus)"},
+ "fl_buff_help": {"pl":"Jeden bonus kwiatu naraz. Szansa w procentach; nieudana próba też zużywa kwiat. Wartości bonusów to wiersze item_proto 25121–25125 (value2 = poziom 1, value4 = za każdy poziom).","en":"One flower bonus at a time. Chances in percent; a failed try uses the flower up too. The bonus values are the item_proto rows 25121-25125 (value2 = level 1, value4 = per level)."},
+ "fl_add_rate":  {"pl":"Szansa – pierwszy kwiat (%)","en":"Chance - first flower (%)"},
+ "fl_change_rate":{"pl":"Szansa – zamiana na inny kwiat (%)","en":"Chance - switching to another flower (%)"},
+ "fl_upgrade_rate":{"pl":"Szansa – ten sam kwiat, poziom wyżej (%)","en":"Chance - the same flower one level up (%)"},
+ "fl_max_level": {"pl":"Najwyższy poziom bonusu","en":"Highest bonus level"},
+ "fl_use_after": {"pl":"Kwiaty działają też przez 7 dni po evencie","en":"Flowers work for 7 days after the event too"},
+ "fl_saved":     {"pl":"Zapisano – serwer użyje nowych ustawień w ciągu 5 sekund. 🌸","en":"Saved - the server uses the new settings within 5 seconds. 🌸"},
+ "fl_bad_item":  {"pl":"Nie ma przedmiotu o numerze {v} – ta nagroda nie została zmieniona.","en":"There is no item {v} - that reward was not changed."},
+ "fl_write_fail":{"pl":"Nie udało się zapisać pliku ustawień.","en":"Could not write the settings file."},
+ "fl_flower_1":  {"pl":"Chryzantema","en":"Chrysanthemum"},
+ "fl_flower_2":  {"pl":"Konwalia","en":"May Bell"},
+ "fl_flower_3":  {"pl":"Narcyz","en":"Daffodil"},
+ "fl_flower_4":  {"pl":"Lilia","en":"Lily"},
+ "fl_flower_5":  {"pl":"Słonecznik","en":"Sunflower"},
  "regen_title": {"pl":"Czas odradzania Metinów, bossów i potworów",
                  "en":"Respawn time of Metin stones, bosses and monsters"},
  "regen_help":  {"pl":"Procent zwykłego czasu odradzania: 100 = jak w grze, 50 = dwa razy szybciej, 10 = dziesięć razy szybciej. Działa od razu (przez pomocnika w grze), a po restarcie zostaje. Osobno dla Metinów i bossów, osobno dla zwykłych potworów.",
@@ -3510,13 +3565,13 @@ T = {
  "count_saved_restart": {"pl":"Zapisano. Nikt nie jest zalogowany, więc pomocnik w grze nie odpowiedział — nowa liczba potworów zadziała po restarcie serwera (albo zapisz jeszcze raz, gdy ktoś będzie w grze).",
                          "en":"Saved. Nobody is logged in, so the in-game helper did not answer — the new counts apply after a server restart (or save again while somebody is in game)."},
  "diff_title":  {"pl":"Poziom trudności", "en":"Difficulty"},
- "diff_help":   {"pl":"Ile gracz czeka u Biologa między oddaniami i u Stajennego (kucyk, Księgi Konia, treningi medalami), i ile gracze oraz boty czekają między dwiema księgami tej samej umiejętności — Zwój Egzorcyzmu pomija to czekanie. Zmiana działa od razu, gdy ktoś jest w grze, i zostaje po restarcie, dopóki nie zmienisz poziomu trudności w launcherze (przycisk POZIOM TRUDNOŚCI).",
-                 "en":"How long a player waits at the Biologist between hand-ins and at the stable keeper (the pony, the Horse Books, the medal trainings), and how long players and bots wait between two books of one skill - an Exorcism Scroll skips that wait. A change is live at once while somebody is in game, and it stays across a restart until the difficulty is changed in the launcher (the DIFFICULTY button)."},
+ "diff_help":   {"pl":"Ile gracz czeka u Biologa między oddaniami i u Stajennego (kucyk, Księgi Konia, treningi medalami), i ile gracze oraz boty czekają między dwiema księgami tej samej umiejętności i między dwoma Kamieniami Duchowymi (G1 → P, najwyżej 12 h) — Zwój Egzorcyzmu pomija to czekanie. Zmiana działa od razu, gdy ktoś jest w grze, i zostaje po restarcie, dopóki nie zmienisz poziomu trudności w launcherze (przycisk POZIOM TRUDNOŚCI).",
+                 "en":"How long a player waits at the Biologist between hand-ins and at the stable keeper (the pony, the Horse Books, the medal trainings), and how long players and bots wait between two books of one skill and between two Soul Stones (G1 to P, at most 12 h) - an Exorcism Scroll skips that wait. A change is live at once while somebody is in game, and it stays across a restart until the difficulty is changed in the launcher (the DIFFICULTY button)."},
  "diff_now":    {"pl":"Teraz", "en":"Now"},
  "diff_level":  {"pl":"Poziom", "en":"Level"},
  "diff_level_easy":   {"pl":"Łatwy — bez czekania", "en":"Easy — no waiting"},
- "diff_level_medium": {"pl":"Średni — Biolog 8 h, koń 4–7 h, księgi 7 h", "en":"Medium — Biologist 8 h, horse 4-7 h, books 7 h"},
- "diff_level_hard":   {"pl":"Trudny — jak w oryginale: Biolog 24 h, koń 12–21 h, księgi 21 h", "en":"Hard — as the original: Biologist 24 h, horse 12-21 h, books 21 h"},
+ "diff_level_medium": {"pl":"Średni — Biolog 8 h, koń 4–7 h, księgi i Kamienie Duchowe 7 h", "en":"Medium — Biologist 8 h, horse 4-7 h, books and Soul Stones 7 h"},
+ "diff_level_hard":   {"pl":"Trudny — jak w oryginale: Biolog 24 h, koń 12–21 h, księgi 21 h, Kamienie Duchowe 12 h", "en":"Hard — as the original: Biologist 24 h, horse 12-21 h, books 21 h, Soul Stones 12 h"},
  "diff_level_custom": {"pl":"Własny — godziny poniżej", "en":"Custom — the hours below"},
  "diff_bio":    {"pl":"Biolog", "en":"Biologist"},
  "diff_horse":  {"pl":"Stajenny (kucyk / Księga / treningi)", "en":"stable keeper (pony / book / trainings)"},
@@ -3527,8 +3582,8 @@ T = {
                       "en":"The hours below count for the Custom level only (fractions allowed, 0 = no waiting). The stable keeper takes one number for every wait: the pony, the Horse Book and the trainings."},
  "diff_bio_h":  {"pl":"Biolog — godzin między oddaniami:", "en":"Biologist — hours between hand-ins:"},
  "diff_horse_h":{"pl":"Stajenny — godzin na kucyka, Księgę i trening:", "en":"Stable keeper — hours for the pony, the book and a training:"},
- "diff_book_h": {"pl":"Księgi umiejętności — gracze, godzin:", "en":"Skill books — players, hours:"},
- "diff_bot_book_h": {"pl":"Księgi umiejętności — boty, godzin:", "en":"Skill books — bots, hours:"},
+ "diff_book_h": {"pl":"Księgi umiejętności i Kamienie Duchowe — gracze, godzin:", "en":"Skill books and Soul Stones — players, hours:"},
+ "diff_bot_book_h": {"pl":"Księgi umiejętności i Kamienie Duchowe — boty, godzin:", "en":"Skill books and Soul Stones — bots, hours:"},
  "diff_save":   {"pl":"Zapisz poziom trudności", "en":"Save the difficulty"},
  # MT2009_PLUS_EXCHANGE_CHANCE_V1: the NPC exchanges' chances by the level.
  "diff_exchange_now": {"pl":"Szanse wymiany u NPC (Magiczny Pył / Pergamin / Materiały Rzemieślnicze)",
@@ -3562,6 +3617,19 @@ T = {
  "sc_saved_live": {"pl":"✅ Zapisano! Zmiana działa już w grze.",
                    "en":"✅ Saved! The change is live in game."},
  "sc_saved_restart": {"pl":"Zapisano. Gra nie odpowiedziała (serwer jest wyłączony albo dopiero startuje) — zmiana zadziała przy następnym starcie serwera.",
+                      "en":"Saved. The game did not answer (the server is down or still starting) - the change applies at the next server start."},
+ "mh_title":    {"pl":"Wytrzymałość potworów", "en":"Monster health"},
+ "mh_help":     {"pl":"Ile życia mają potwory, bossowie i Metiny: 100% = jak w grze, 80% = łatwiej (każdy pada po mniejszej liczbie ciosów; doświadczenie i drop z jednego zabicia bez zmian, więc gra idzie szybciej — także botom). Postacie niezależne, żyły rud, krzaki ziół i bramy w lochach zostają bez zmian. Zmiana działa od razu — także na potwory, które już stoją (zachowują ten sam procent życia) — i zostaje po restarcie, dopóki nie zmienisz jej w launcherze (przycisk POZIOM TRUDNOŚCI, M2_MONSTER_HP w .env).",
+                 "en":"How much health monsters, bosses and Metin stones have: 100% = as in the game, 80% = easier (each one falls to fewer blows; the experience and the drop of one kill stay the same, so the game goes faster - for the bots too). NPCs, ore veins, herb bushes and dungeon gates stay as they are. A change is live at once - on the monsters already standing too, which keep the same share of their health - and stays across a restart until it is changed in the launcher (the DIFFICULTY button, M2_MONSTER_HP in .env)."},
+ "mh_100":      {"pl":"100% — jak w grze (domyślnie)", "en":"100% — as in the game (default)"},
+ "mh_80":       {"pl":"80% — łatwiej", "en":"80% — easier"},
+ "mh_custom":   {"pl":"{n}% — własne (z .env)", "en":"{n}% — your own (from .env)"},
+ "mh_save":     {"pl":"Zapisz wytrzymałość potworów", "en":"Save the monster health"},
+ "mh_range":    {"pl":"Wybierz wytrzymałość od 10 do 300%. Nic nie zmieniono.",
+                 "en":"Pick a health from 10 to 300%. Nothing was changed."},
+ "mh_saved_live": {"pl":"✅ Zapisano! Nowa wytrzymałość potworów działa już w grze.",
+                   "en":"✅ Saved! The new monster health is live in game."},
+ "mh_saved_restart": {"pl":"Zapisano. Gra nie odpowiedziała (serwer jest wyłączony albo dopiero startuje) — zmiana zadziała przy następnym starcie serwera.",
                       "en":"Saved. The game did not answer (the server is down or still starting) - the change applies at the next server start."},
  "ai_books_moved": {"pl":"Na tym serwerze ustawia to poziom trudności (Mnożniki serwera → Poziom trudności): osobno czas dla graczy, osobno dla botów; 0 = od razu.",
                     "en":"On this server the difficulty sets it (Server rates → Difficulty): one wait for the players, one for the bots; 0 = at once."},
@@ -4095,17 +4163,17 @@ T.update({
  "ai_rest_off":  {"en":"nobody rests","pl":"nikt nie odpoczywa","de":"niemand ruht","tr":"kimse dinlenmez"},
  "ai_rest_all":  {"en":"every bot","pl":"każdy bot","de":"jeder Bot","tr":"her bot"},
  "ai_will_bp":   {"en":"Will to do the Battle Pass","pl":"Chęć robienia Battle Passa"},
- "ai_will_bp_help": {"en":"Every 1.5-2.5 minutes a bot with nothing else to do draws whether it takes one of its open Battle Pass missions on as a goal for up to an hour: a trip to the map of the mission's Metin stone, fishing, the blacksmith, or a place in a boss raid. The slider multiplies that chance (at 100 it depends on the personality: 15-70%) and the chance of taking the next mission of a chain. 0 - no deliberate Battle Pass trips at all, and running ones end at the next check. Progress made by the way (monsters, Metins and fish met on the way, shouts on the chat) counts whatever the slider says. Applies at once.",
-                  "pl":"Co 1,5–2,5 minuty bot bez innego zajęcia losuje, czy weźmie jedną ze swoich otwartych misji Battle Passa jako cel na do godziny: wyprawa na mapę metina z misji, łowienie ryb, wizyta u kowala albo miejsce w rajdzie na bossa. Suwak mnoży tę szansę (przy 100 zależy od osobowości: 15–70%) i szansę wzięcia kolejnej misji z łańcucha. 0 - żadnych celowych wypraw po Battle Pass, a trwające kończą się przy następnym sprawdzeniu. Postęp „przy okazji” (potwory, metiny i ryby spotkane po drodze, okrzyki na czacie) liczy się niezależnie od suwaka. Działa od razu."},
+ "ai_will_bp_help": {"en":"The chance a bot with nothing to do deliberately takes a Battle Pass mission on (Metin, fishing, blacksmith, boss). 100 = as before (15-70% by personality), 250 = 2.5x that (at most every time), 0 = only progress by the way. Applies at once.",
+                  "pl":"Szansa, że bot bez zajęcia celowo weźmie misję Battle Passa (metin, ryby, kowal, boss). 100 = jak dotąd (15–70% wg osobowości), 250 = 2,5× tyle (najwyżej za każdym razem), 0 = tylko postęp przy okazji. Od razu."},
  "ai_will_bp_off": {"en":"only by the way","pl":"tylko przy okazji"},
  "ai_will_all":  {"en":"as before","pl":"jak dotąd"},
  "ai_will_sash": {"en":"Will to make sashes","pl":"Chęć robienia szarf"},
- "ai_will_sash_help": {"en":"At 100, 80% of the bots of level 30 and up build sashes (chosen for good by the character number). A builder keeps its sashes, combines them at Uriel, absorbs a good weapon or armour into one, buys sashes and pieces to absorb off the market and wears the best one. The slider shrinks that pool: the bots outside it sell their sashes on their stalls, and a sash already worn stays on. Raising it brings the same bots back. Reaches a bot at its next sash check (3-6 minutes).",
-                  "pl":"Przy 100 szarfy buduje 80% botów od 30 poziomu (wybranych na stałe po numerze postaci). Budowniczy trzyma szarfy w plecaku, łączy je u Uriela, wchłania w nie dobrą broń lub zbroję, kupuje szarfy i przedmioty do wchłonięcia z rynku i zakłada najlepszą. Suwak zmniejsza tę pulę: boty spoza niej sprzedają szarfy na straganach, a założona szarfa zostaje na postaci. Podniesienie przywraca te same boty. Dociera do bota przy jego następnym sprawdzeniu szarf (3–6 minut)."},
+ "ai_will_sash_help": {"en":"The pool of level 30+ bots that build sashes. 100 = 80% of them, 125 and up = all, 0 = none (the rest sell their sashes). At the next sash check (3-6 min).",
+                  "pl":"Pula botów od 30 lv, które budują szarfy. 100 = 80% z nich, od 125 = wszystkie, 0 = nikt (reszta sprzedaje szarfy). Przy następnym sprawdzeniu szarf (3–6 min)."},
  "ai_will_sash_off": {"en":"nobody builds, all sell","pl":"nikt nie buduje, wszyscy sprzedają"},
  "ai_will_alch": {"en":"Will to do alchemy","pl":"Chęć robienia alchemii"},
- "ai_will_alch_help": {"en":"At 100, 75% of the bots of level 30 and up use Dragon Soul alchemy (chosen for good by the character number): they open Cor Draconis, wear the best dragon stones, refine them at the Alchemist, buy Cors, stones and the Time Elixir off the market. The slider shrinks that pool: the bots outside it sell their Cors and spare stones on their stalls. Every bot of 30 and up still gathers the shards and daily Cors whatever the slider says, and worn stones stay on. Raising it brings the same bots back. Applies at once.",
-                  "pl":"Przy 100 alchemii smoka używa 75% botów od 30 poziomu (wybranych na stałe po numerze postaci): otwierają Cor Draconis, zakładają najlepsze kamienie smoka, ulepszają je u Alchemika, kupują z rynku Cory, kamienie i Eliksir Czasu. Suwak zmniejsza tę pulę: boty spoza niej sprzedają Cory i zbędne kamienie na straganach. Odłamki i dzienne Cory zbiera każdy bot od 30 poziomu niezależnie od suwaka, a założone kamienie zostają. Podniesienie przywraca te same boty. Działa od razu."},
+ "ai_will_alch_help": {"en":"The pool of level 30+ bots that use Dragon Soul alchemy. 100 = 75% of them, 135 and up = all, 0 = none (the rest sell Cors and spare stones). Applies at once.",
+                  "pl":"Pula botów od 30 lv, które używają alchemii smoka. 100 = 75% z nich, od 135 = wszystkie, 0 = nikt (reszta sprzedaje Cory i zbędne kamienie). Od razu."},
  "ai_will_alch_off": {"en":"nobody uses, all sell","pl":"nikt nie używa, wszyscy sprzedają"},
  "ai_kpvp":      {"en":"Hostility between kingdoms","pl":"Wrogość między królestwami","de":"Feindschaft zwischen Königreichen","tr":"Krallıklar arası düşmanlık"},
  "ai_kpvp_help": {"en":"The share of bots that will start a duel with a bot of another kingdom when they meet on shared ground - Orc Valley, the desert, Mount Sohan, the dungeons. Never in a village, never against a player, and never against a bot that is hurt or already fighting one. Which bots are the aggressive ones is fixed per character, so the same ones quarrel after every restart. Off by default. It works only with the shared world layout (unified, the default up to 1500 bots): under split every core holds one kingdom's bots, so there is nobody to fight.",
@@ -4180,6 +4248,11 @@ T.update({
  "ev_kind_bossloot":{"en":"Double boss loot","pl":"Podw\u00f3jny loot z boss\u00f3w","de":"Doppelte Boss-Beute","tr":"\u00c7ift boss ganimeti"},
  "ev_kind_metinloot":{"en":"Double Metin loot","pl":"Podw\u00f3jny loot z Metin\u00f3w","de":"Doppelte Metin-Beute","tr":"\u00c7ift Metin ganimeti"},
  "ev_kind_goblin":{"en":"Treasure Hunt (Goblin)","pl":"Poszukiwanie skarb\u00f3w (Goblin)","de":"Schatzsuche (Goblin)","tr":"Hazine Av\u0131 (Goblin)"},
+ "ev_kind_catchking":{"en":"Catch the King","pl":"Z\u0142ap Kr\u00f3la","de":"Fang den K\u00f6nig","tr":"Kral\u0131 Yakala"},
+ "ev_kind_rumi":{"en":"Rumi (Okey)","pl":"Rumi (Okey)","de":"Rumi (Okey)","tr":"Okey"},
+ "ev_kind_yutnori":{"en":"Yut Nori","pl":"Yut Nori","de":"Yut Nori","tr":"Yut Nori"},
+ "ev_kind_flower":{"en":"Flower Event","pl":"Dzieci Kwiaty","de":"Blumen-Event","tr":"\u00c7i\u00e7ek Etkinli\u011fi"},
+ "ev_kind_easter":{"en":"Easter event","pl":"Event wielkanocny","de":"Oster-Event","tr":"Paskalya etkinli\u011fi"},
  "ev_kind_exp":  {"en":"Experience","pl":"Do\u015bwiadczenie","de":"Erfahrung","tr":"Tecr\u00fcbe"},
  "ev_kind_drop": {"en":"Item drop","pl":"Drop przedmiot\u00f3w","de":"Item-Drop","tr":"E\u015fya d\u00fc\u015fmesi"},
  "ev_kind_yang": {"en":"Yang","pl":"Yang","de":"Yang","tr":"Yang"},
@@ -4482,6 +4555,78 @@ T.update({
        "tr": "“Yapay zekâ için kopyala” bir kararı ya da gösterilenlerin hepsini Markdown olarak verir: her sayı, oyunun kod adları, referans değerleri ve kısa bir kılavuz — bir botun nerede yanıldığını bulacak bir dil modeline yapıştırmak için."},
 })
 
+# MT2009_PLUS_BOT_SESSIONS_V1: a bot's sessions (30 September): the "Sesje
+# gry" card on a bot's page and its state in the list of characters, from
+# log.playerbot_session (playerbot_session.h).
+T.update({
+ "ss_title": {"pl": "🕒 Sesje gry", "en": "🕒 Play sessions", "de": "🕒 Spielsitzungen", "tr": "🕒 Oyun oturumları"},
+ "ss_state_in": {"pl": "🟢 W grze od {since}, kanał {channel}", "en": "🟢 In the game since {since}, channel {channel}",
+       "de": "🟢 Im Spiel seit {since}, Kanal {channel}", "tr": "🟢 {since} zamanından beri oyunda, kanal {channel}"},
+ "ss_state_in_now": {"pl": "🟢 W grze, kanał {channel}", "en": "🟢 In the game, channel {channel}",
+       "de": "🟢 Im Spiel, Kanal {channel}", "tr": "🟢 Oyunda, kanal {channel}"},
+ "ss_state_rest": {"pl": "💤 Odpoczywa do {until} (wylogował się {since})", "en": "💤 Resting until {until} (logged out {since})",
+       "de": "💤 Ruht bis {until} (abgemeldet {since})", "tr": "💤 {until} zamanına kadar dinleniyor ({since} çıkış yaptı)"},
+ "ss_state_out": {"pl": "⚪ Poza grą od {since}: {why}", "en": "⚪ Out of the game since {since}: {why}",
+       "de": "⚪ Nicht im Spiel seit {since}: {why}", "tr": "⚪ {since} zamanından beri oyunda değil: {why}"},
+ "ss_state_none": {"pl": "⚪ Poza grą — w ostatnich 7 dniach nie zapisano żadnej sesji.",
+       "en": "⚪ Out of the game — no session recorded in the last 7 days.",
+       "de": "⚪ Nicht im Spiel — in den letzten 7 Tagen wurde keine Sitzung erfasst.",
+       "tr": "⚪ Oyunda değil — son 7 günde hiçbir oturum kaydedilmedi."},
+ "ss_week": {"pl": "Ostatnie 7 dni: {played} w grze", "en": "Last 7 days: {played} in the game",
+       "de": "Letzte 7 Tage: {played} im Spiel", "tr": "Son 7 gün: {played} oyunda"},
+ "ss_total": {"pl": "łączny czas gry postaci: {played}", "en": "the character's total play time: {played}",
+       "de": "Gesamtspielzeit des Charakters: {played}", "tr": "karakterin toplam oyun süresi: {played}"},
+ "ss_strip_hint": {"pl": "Każdy pasek to doba od północy do północy, zielone odcinki to czas w grze, złoty to sesja, która trwa. Najedź na odcinek, żeby zobaczyć godziny.",
+       "en": "Each strip is a day from midnight to midnight; the green stretches are time in the game, the gold one a session still going on. Point at a stretch to see its hours.",
+       "de": "Jeder Streifen ist ein Tag von Mitternacht bis Mitternacht; grüne Abschnitte sind Zeit im Spiel, der goldene eine noch laufende Sitzung. Zeige auf einen Abschnitt, um seine Uhrzeiten zu sehen.",
+       "tr": "Her şerit gece yarısından gece yarısına bir gündür; yeşil bölümler oyunda geçen zaman, altın rengi olan hâlâ süren oturumdur. Saatlerini görmek için bir bölümün üzerine gel."},
+ "ss_col_in": {"pl": "Wejście", "en": "Logged in", "de": "Angemeldet", "tr": "Giriş"},
+ "ss_col_out": {"pl": "Wyjście", "en": "Logged out", "de": "Abgemeldet", "tr": "Çıkış"},
+ "ss_col_len": {"pl": "Czas", "en": "Length", "de": "Dauer", "tr": "Süre"},
+ "ss_col_ch": {"pl": "Kanał", "en": "Channel", "de": "Kanal", "tr": "Kanal"},
+ "ss_col_why": {"pl": "Dlaczego", "en": "Why", "de": "Warum", "tr": "Neden"},
+ "ss_ongoing": {"pl": "trwa", "en": "going on", "de": "läuft", "tr": "sürüyor"},
+ "ss_rest_until": {"pl": "odpoczynek do {until}", "en": "a rest until {until}", "de": "Pause bis {until}", "tr": "{until} zamanına kadar dinlenme"},
+ "ss_missing": {"pl": "Serwer nie zapisuje jeszcze sesji botów: rdzeń gry robi to od tej aktualizacji, od swojego pierwszego startu.",
+       "en": "The server does not record the bots' sessions yet: the game core does from this update on, from its first start.",
+       "de": "Der Server erfasst die Sitzungen der Bots noch nicht: der Spielkern tut es ab diesem Update, ab seinem ersten Start.",
+       "tr": "Sunucu botların oturumlarını henüz kaydetmiyor: oyun çekirdeği bunu bu güncellemeden itibaren, ilk başlatılışından sonra yapar."},
+ "ss_error": {"pl": "Nie udało się odczytać sesji z bazy.", "en": "The sessions could not be read from the database.",
+       "de": "Die Sitzungen konnten nicht aus der Datenbank gelesen werden.", "tr": "Oturumlar veritabanından okunamadı."},
+ "ss_today": {"pl": "dziś", "en": "today", "de": "heute", "tr": "bugün"},
+ "ss_yesterday": {"pl": "wczoraj", "en": "yesterday", "de": "gestern", "tr": "dün"},
+ "ss_tomorrow": {"pl": "jutro", "en": "tomorrow", "de": "morgen", "tr": "yarın"},
+ "ss_h_min": {"pl": "{h} h {m} min", "en": "{h} h {m} min", "de": "{h} Std. {m} Min.", "tr": "{h} sa {m} dk"},
+ "ss_min": {"pl": "{m} min", "en": "{m} min", "de": "{m} Min.", "tr": "{m} dk"},
+ "ss_in_0": {"pl": "wejście nieznane", "en": "an unknown login", "de": "unbekannte Anmeldung", "tr": "bilinmeyen giriş"},
+ "ss_in_1": {"pl": "start serwera lub uzupełnienie", "en": "server start or top-up", "de": "Serverstart oder Auffüllen", "tr": "sunucu başlangıcı veya tamamlama"},
+ "ss_in_2": {"pl": "po odpoczynku", "en": "after a rest", "de": "nach einer Pause", "tr": "dinlenmeden sonra"},
+ "ss_in_3": {"pl": "z innego kanału", "en": "from another channel", "de": "von einem anderen Kanal", "tr": "başka bir kanaldan"},
+ "ss_in_4": {"pl": "z właścicielem (Towarzysz)", "en": "with its owner (companion)", "de": "mit seinem Besitzer (Begleiter)", "tr": "sahibiyle (yoldaş)"},
+ "ss_out_0": {"pl": "nieznane (serwer nie zamknął sesji)", "en": "unknown (the server did not close the session)",
+       "de": "unbekannt (der Server hat die Sitzung nicht geschlossen)", "tr": "bilinmiyor (sunucu oturumu kapatmadı)"},
+ "ss_out_1": {"pl": "odpoczynek", "en": "a rest", "de": "Pause", "tr": "dinlenme"},
+ "ss_out_2": {"pl": "ban", "en": "a ban", "de": "Sperre", "tr": "yasak"},
+ "ss_out_3": {"pl": "przejście na inny kanał", "en": "moved to another channel", "de": "auf einen anderen Kanal gewechselt", "tr": "başka kanala geçti"},
+ "ss_out_4": {"pl": "wylogowany przez GM-a lub panel", "en": "logged out by a GM or the panel", "de": "von einem GM oder dem Panel abgemeldet", "tr": "GM veya panel tarafından çıkarıldı"},
+ "ss_out_5": {"pl": "z właścicielem (Towarzysz)", "en": "with its owner (companion)", "de": "mit seinem Besitzer (Begleiter)", "tr": "sahibiyle (yoldaş)"},
+ "ss_out_6": {"pl": "rozłączenie", "en": "disconnected", "de": "Verbindung getrennt", "tr": "bağlantı koptu"},
+ "ss_out_7": {"pl": "zatrzymanie serwera", "en": "the server stopped", "de": "Server gestoppt", "tr": "sunucu durduruldu"},
+ # "Koniec gry" (playerbot_retirement.h): this project's own reason.
+ "ss_out_8": {"pl": "koniec gry (sprzedał wszystko, nowa postać)", "en": "end of play (sold everything, a new character)",
+       "de": "Spielende (alles verkauft, neuer Charakter)", "tr": "oyunun sonu (her şeyi sattı, yeni karakter)"},
+ "ss_col_state": {"pl": "Stan", "en": "State", "de": "Status", "tr": "Durum"},
+ "ss_list_in": {"pl": "🟢 w grze, kanał {channel}", "en": "🟢 in the game, channel {channel}", "de": "🟢 im Spiel, Kanal {channel}", "tr": "🟢 oyunda, kanal {channel}"},
+ "ss_list_rest": {"pl": "💤 odpoczywa do {until}", "en": "💤 resting until {until}", "de": "💤 ruht bis {until}", "tr": "💤 {until} zamanına kadar dinleniyor"},
+ "ss_list_out": {"pl": "⚪ poza grą", "en": "⚪ out of the game", "de": "⚪ nicht im Spiel", "tr": "⚪ oyunda değil"},
+ "ss_only_bots": {"pl": "🤖 Tylko boty, z ich stanem", "en": "🤖 Bots only, with their state", "de": "🤖 Nur Bots, mit ihrem Status", "tr": "🤖 Yalnızca botlar, durumlarıyla"},
+ "ss_all_chars": {"pl": "👥 Wszystkie postacie", "en": "👥 All characters", "de": "👥 Alle Charaktere", "tr": "👥 Tüm karakterler"},
+ "ss_bots_count": {"pl": "Botów: {total} — w grze {in_game}, odpoczywa {resting}, poza grą {out}.",
+       "en": "Bots: {total} — {in_game} in the game, {resting} resting, {out} out of the game.",
+       "de": "Bots: {total} — {in_game} im Spiel, {resting} ruhen, {out} nicht im Spiel.",
+       "tr": "Botlar: {total} — {in_game} oyunda, {resting} dinleniyor, {out} oyunda değil."},
+})
+
 CATS = ["all","weapon","armor","usable","ds","metin","special","other"]
 
 # The two damage lines, by their engine numbers. common/length.h:
@@ -4658,6 +4803,12 @@ def csrf_protect():
     sent = request.form.get("_csrf", "")
     real = session.get("_csrf", "")
     if not (real and sent and hmac.compare_digest(sent, real)):
+        # Back to the form itself, not to the front page: a server that lets
+        # only /register through its gate would answer the front page with a
+        # 403, and the player would never see why the form did nothing.
+        if request.endpoint == "register":
+            flash(reg_msg("csrf_bad"), "error")
+            return redirect(url_for("register"))
         flash(t("csrf_bad"), "error")
         return redirect(url_for("login"))
 
@@ -5045,6 +5196,28 @@ def read_starter_chest_mt2009():
     value = (row["lValue"] if isinstance(row, dict) else row[0]) if row else 0
     return {"off": 1 if int(value or 0) > 0 else 0}
 
+# The health of monsters, bosses and Metin stones: a percent of the max_hp
+# each is born with - the event flag m2_mob_hp, which the engine applies at a
+# spawn and to every one standing when it moves (server-patches/mobhp,
+# MT2009_PLUS_MOB_HP_V1; 100, 0 or no row is the game as it was made,
+# 10..300 otherwise). The migrator applies .env's
+# M2_MONSTER_HP only when it changed since the last start (m2_mob_hp_env), so
+# what this card writes stays until the launcher's choice changes (the
+# operator, 30 September, for Frelik's "latwy 80%").
+MT2009_MOB_HP_FLAG = "m2_mob_hp"
+MOB_HP_CHOICES = (100, 80)
+MOB_HP_MIN_PERCENT, MOB_HP_MAX_PERCENT = 10, 300
+
+def read_mob_hp_mt2009():
+    """The percent as the card shows it and the choices it offers: 100 and 80,
+    and a percent of the operator's own from .env beside them."""
+    with db() as c, c.cursor() as cur:
+        cur.execute("SELECT lValue FROM player.quest WHERE dwPID=0 AND szName=%s LIMIT 1", (MT2009_MOB_HP_FLAG,))
+        row = cur.fetchone()
+    value = int((row["lValue"] if isinstance(row, dict) else row[0]) or 0) if row else 0
+    value = 100 if value <= 0 else max(MOB_HP_MIN_PERCENT, min(MOB_HP_MAX_PERCENT, value))
+    return {"pct": value, "choices": sorted(set(MOB_HP_CHOICES) | {value}, reverse=True)}
+
 def read_regen_mt2009():
     """The two flags as the page shows them (100 = normal), from player.quest."""
     out = {name: 100 for name in MT2009_REGEN_FLAGS}
@@ -5133,18 +5306,32 @@ def persist_easter(cur, drop, rabbit):
 
 RARE_LIVE_WAIT = 12.0
 
+RARE_DS_DROP_DEFAULT = 10
+RARE_DS_COR_DAY_DEFAULT = 5
+
 def read_rare():
-    """Both switches as on (1) or off (0); a missing row reads as on."""
-    vals = {"alchemy": 1, "sashes": 1}
+    """Both switches as on (1) or off (0); a missing row reads as on. Also the
+    Alchemist's shard chance (ds_drop, 1-100) and Cors a day (ds_cor_day,
+    1-20), read the way dragon_soul.quest reads them: out of range = default."""
+    vals = {"alchemy": 1, "sashes": 1,
+            "ds_drop": RARE_DS_DROP_DEFAULT, "ds_cor_day": RARE_DS_COR_DAY_DEFAULT}
     with db() as c, c.cursor() as cur:
-        cur.execute("SELECT szName, lValue FROM player.quest WHERE dwPID=0 "
-                    "AND szName IN ('m2_alchemy_off', 'm2_sash_off')")
+        cur.execute("SELECT szName, lValue FROM player.quest WHERE dwPID=0 AND szState='' "
+                    "AND szName IN ('m2_alchemy_off', 'm2_sash_off', 'ds_drop', 'ds_cor_day')")
         for row in cur.fetchall():
             try:
-                off = int(row["lValue"]) > 0
+                v = int(row["lValue"])
             except (TypeError, ValueError):
                 continue
-            vals["alchemy" if row["szName"] == "m2_alchemy_off" else "sashes"] = 0 if off else 1
+            name = row["szName"]
+            if name == "ds_drop":
+                if 1 <= v <= 100:
+                    vals["ds_drop"] = v
+            elif name == "ds_cor_day":
+                if 1 <= v <= 20:
+                    vals["ds_cor_day"] = v
+            else:
+                vals["alchemy" if name == "m2_alchemy_off" else "sashes"] = 0 if v > 0 else 1
     return vals
 
 # MT2009_PLUS_AREZZO_MODULE_V1: the Arezzo module's switch, the event flag
@@ -5165,12 +5352,143 @@ def persist_arezzo(cur, on):
     cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
                 "VALUES (0, 'mt2009_arezzo_closed', '', %s)", (0 if on else 1,))
 
-def persist_rare(cur, alchemy, sashes):
-    """The two event-flag rows the db core reads at its next start."""
+# MT2009_PLUS_SEONHAE_V1: Seon-Hae's 6th/7th bonus (playerbot_seonhae.h), the
+# event flags m2_seonhae_on (1 = on; no row = off, apply.sh writes it from
+# M2_SEONHAE, default 0) and m2_seonhae_wait_min (0 or no row = 24 h).
+SEONHAE_WAIT_MAX = 10080
+RARE_LEVEL_DEFAULT = (35, 30, 20, 10, 5)
+
+def read_seonhae():
+    with db() as c, c.cursor() as cur:
+        cur.execute("SELECT szName, lValue FROM player.quest WHERE dwPID = 0 "
+                    "AND szName IN ('m2_seonhae_on', 'm2_seonhae_wait_min', 'm2_rare_lv1', "
+                    "'m2_rare_lv2', 'm2_rare_lv3', 'm2_rare_lv4', 'm2_rare_lv5')")
+        rows = cur.fetchall()
+    vals = {"on": 0, "wait": 0}
+    for row in rows:
+        try:
+            v = int(row["lValue"])
+        except (TypeError, ValueError, KeyError):
+            continue
+        if row["szName"] == "m2_seonhae_on":
+            vals["on"] = 1 if v == 1 else 0
+        elif row["szName"] == "m2_seonhae_wait_min":
+            vals["wait"] = max(0, min(SEONHAE_WAIT_MAX, v))
+        elif row["szName"].startswith("m2_rare_lv"):
+            vals[row["szName"]] = max(0, min(100, v))
+    # MT2009_PLUS_RARE_LEVEL_ROLL_V1: the odds of each level of a 6th/7th
+    # bonus (all zero = the engine's default 35/30/20/10/5).
+    lv = [vals.get("m2_rare_lv%d" % i, 0) for i in range(1, 6)]
+    vals["lv"] = lv if sum(lv) > 0 else list(RARE_LEVEL_DEFAULT)
+    return vals
+
+# MT2009_PLUS_SEONHAE_V1 (drops): the drop rules playerbot_seonhae.h re-reads
+# when the file changes; no file = its built-in defaults (the same as below).
+SEONHAE_DROPS = os.path.join(AI_SPOOL, "seonhae_drops.tsv")
+SEONHAE_DROPS_DEFAULT = """# Seon-Hae drops (the owner, 1 October). Real players only, only while Seon-Hae is on.
+# ADDITIVES - Metins and bosses (rank boss/king) of these maps, each kill rolls additive_chance:
+additive_chance 60
+# additive_map <map> <additive vnum> <count>: Grotto of Exile V1 + V2 - 1 Medium, Enchanted Forest - 1 Large
+additive_map 72 72065 1
+additive_map 73 72065 1
+additive_map 362 72066 1
+# mob <mob vnum> <additive vnum> <count>: one monster (any rank, any map), instead of its map's rule
+# Beran-Setaou: 2 Medium
+mob 2493 72065 2
+# SHARDS - ordinary monsters (not Metins, not bosses) of these maps, 1 shard per hit of shard_chance %:
+shard_chance 0.5
+# Grotto of Exile V2, Temple of Ochao, Enchanted Forest
+shard_map 73
+shard_map 209
+shard_map 362
+# shard <vnum> <weight>: the shard's colour
+shard 39070 1
+shard 39071 1
+shard 39072 1
+shard 39073 1
+shard 39074 1
+shard 39075 1
+shard 39076 1
+shard 39077 1
+shard 39081 1
+"""
+SEONHAE_SHARDS = set(range(39070, 39078)) | {39081}
+SEONHAE_ADDITIVES = {72064, 72065, 72066, 72067}
+
+
+def read_seonhae_drops():
+    try:
+        with open(SEONHAE_DROPS, encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+    except OSError:
+        return SEONHAE_DROPS_DEFAULT
+
+
+def check_seonhae_drops(text):
+    """The line numbers the core would skip (its parser's rules)."""
+    bad = []
+    for no, raw in enumerate(text.splitlines(), 1):
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        parts = line.split()
+        key, args = parts[0], parts[1:]
+        ok = False
+        try:
+            if key in ("additive_chance", "shard_chance"):
+                ok = len(args) == 1 and 0.0 <= float(args[0]) <= 100.0
+            else:
+                nums = [int(x) for x in args]
+                if key in ("additive_map", "mob"):
+                    ok = len(nums) == 3 and nums[0] > 0 and nums[1] in SEONHAE_ADDITIVES and 1 <= nums[2] <= 50
+                elif key == "shard_map":
+                    ok = len(nums) == 1 and nums[0] > 0
+                elif key == "shard":
+                    ok = len(nums) == 2 and nums[0] in SEONHAE_SHARDS and nums[1] > 0
+        except ValueError:
+            ok = False
+        if not ok:
+            bad.append(no)
+    return bad
+
+
+def write_seonhae_drops(text):
+    os.makedirs(AI_SPOOL, exist_ok=True)
+    text = text.replace("\r\n", "\n").strip()
+    if not text:
+        try:
+            os.remove(SEONHAE_DROPS)
+        except OSError:
+            pass
+        return
+    tmp = SEONHAE_DROPS + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text + "\n")
+    os.replace(tmp, SEONHAE_DROPS)
+
+def persist_seonhae(cur, on, wait, lv=None):
+    """The event-flag rows the db core reads at its next start."""
+    cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                "VALUES (0, 'm2_seonhae_on', '', %s)", (1 if on else 0,))
+    cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                "VALUES (0, 'm2_seonhae_wait_min', '', %s)", (wait,))
+    if lv is not None:
+        for i, v in enumerate(lv):
+            cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                        "VALUES (0, %s, '', %s)", ("m2_rare_lv%d" % (i + 1), int(v)))
+
+def persist_rare(cur, alchemy, sashes, ds_drop=None, ds_cor_day=None):
+    """The event-flag rows the db core reads at its next start."""
     cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
                 "VALUES (0, 'm2_alchemy_off', '', %s)", (0 if alchemy else 1,))
     cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
                 "VALUES (0, 'm2_sash_off', '', %s)", (0 if sashes else 1,))
+    if ds_drop is not None:
+        cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                    "VALUES (0, 'ds_drop', '', %s)", (int(ds_drop),))
+    if ds_cor_day is not None:
+        cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                    "VALUES (0, 'ds_cor_day', '', %s)", (int(ds_cor_day),))
 
 def gm_reload_mt2009():
     """Ask an online IMPLEMENTOR to run /reload a for us. True when one did.
@@ -6009,6 +6327,248 @@ TPL_REG_DONE = BASE.replace("__BODY__", """
 
 <p style="margin-top:16px"><a href="{{url_for('login')}}">← {{brand}}</a></p></div>""")
 
+# The supporters' sign-up page: what /register shows when M2_REGISTER_ACCESS_CODE
+# is set. A page of its own rather than BASE, dressed like metin2sp.pl (the same
+# charcoal, ember and gold, the same artwork behind it) -- it is the page the
+# supporters' channel links to, and it should look like it belongs to the site
+# they came from. Self-contained: the artwork and the icon come from /register
+# itself (see REGISTER_ASSETS), fonts fall back to the system's, and there is no
+# link to any other page of this panel, which a gated server would refuse.
+#
+# done=True is the same page after a successful sign-up: the form gives way to
+# the "see you in the game" note and the how-to stays.
+TPL_REG_SUPPORTERS = """<!doctype html><html lang="pl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{% if done %}Konto gotowe{% else %}Załóż konto{% endif %} — MT2009 PLUS dla wspierających</title>
+<link rel="icon" type="image/png" href="{{ url_for('register', asset='ikona') }}">
+<style>
+:root{--bg:#0f0a08;--card:#1d1511;--card2:#261b15;--border:#4a3322;--border-soft:#2e2019;
+--text:#f1e7d6;--muted:#c1b299;--accent:#e2502a;--accent2:#e0b64a;--gold:#f0c878;--ok:#6cc46b;--bad:#ff8a7a;
+--chunjo:#f2c230;--radius:14px;--radius-sm:10px;
+--font-display:"Poppins","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+--font-body:"Inter","Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;color:var(--text);font-family:var(--font-body);line-height:1.6;-webkit-font-smoothing:antialiased;
+background:linear-gradient(rgba(12,8,6,.84),rgba(12,8,6,.95)),url("{{ url_for('register', asset='tlo') }}") center top/cover fixed,var(--bg)}
+@media (max-width:1024px){body{background-attachment:scroll,scroll}}
+h1,h2,h3{font-family:var(--font-display);font-weight:700;letter-spacing:-.01em}
+a{color:var(--accent2)}
+a:hover{color:#ffcf7a}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.topbar{position:sticky;top:0;z-index:10;background:rgba(10,8,7,.8);backdrop-filter:blur(14px) saturate(140%);
+-webkit-backdrop-filter:blur(14px) saturate(140%);border-bottom:1px solid var(--border-soft);
+box-shadow:0 1px 0 rgba(226,80,42,.45)}
+.topbar-inner{max-width:1180px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.logo{font-family:var(--font-display);font-size:1.3rem;font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:9px;color:var(--text);text-decoration:none}
+.logo-mark{display:inline-flex;width:32px;height:32px;border-radius:9px;align-items:center;justify-content:center;font-size:1rem;
+background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 4px 14px rgba(226,80,42,.35)}
+.logo-dot{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.top-note{color:var(--muted);font-size:.88rem;font-weight:600}
+.hero{position:relative;text-align:center;padding:56px 16px 30px}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+background:radial-gradient(700px 320px at 50% 30%,rgba(226,80,42,.22),transparent 70%)}
+.hero-inner{max-width:860px;margin:0 auto}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;color:var(--accent2);font-weight:700;font-size:.82rem;text-transform:uppercase;
+letter-spacing:.08em;background:rgba(226,80,42,.1);border:1px solid rgba(226,80,42,.3);padding:6px 14px;border-radius:999px}
+.hero h1{font-size:clamp(1.9rem,5vw,3.2rem);line-height:1.12;margin:16px 0 14px;text-shadow:0 0 22px rgba(226,80,42,.35)}
+.lead{font-size:1.12rem;max-width:720px;margin:0 auto}
+.chunjo{display:inline-flex;align-items:center;gap:14px;margin:26px auto 0;padding:12px 22px 12px 14px;text-align:left;
+background:linear-gradient(135deg,rgba(242,194,48,.16),rgba(29,21,17,.92));border:1px solid rgba(242,194,48,.55);
+border-radius:var(--radius);box-shadow:0 0 26px rgba(242,194,48,.14)}
+.chunjo-flag{flex:0 0 auto;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:1.35rem;
+background:radial-gradient(circle at 35% 30%,#ffe27a,var(--chunjo) 55%,#b8860b);box-shadow:0 0 0 3px rgba(242,194,48,.25),0 0 18px rgba(242,194,48,.45)}
+.chunjo strong{display:block;font-family:var(--font-display);font-size:1.35rem;color:var(--chunjo);line-height:1.2}
+.chunjo span{color:var(--muted);font-size:.93rem}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:999px;font-weight:700;
+border:none;cursor:pointer;font-size:.98rem;font-family:inherit;text-decoration:none;transition:transform .15s ease,box-shadow .15s ease,filter .15s ease}
+.btn:hover{text-decoration:none;transform:translateY(-2px)}
+.btn:active{transform:translateY(0) scale(.98)}
+.btn-main{width:100%;padding:14px 22px;font-size:1.05rem;color:#fff;background:linear-gradient(135deg,var(--accent),#c9722e);
+box-shadow:0 4px 16px rgba(226,80,42,.35)}
+.btn-main:hover{box-shadow:0 10px 26px rgba(226,80,42,.5);color:#fff}
+.btn-coffee{background:linear-gradient(135deg,#f5c24a,#e0913a);color:#1b0d06;box-shadow:0 4px 16px rgba(240,180,70,.3)}
+.btn-coffee:hover{color:#1b0d06;box-shadow:0 10px 26px rgba(240,180,70,.45)}
+.hero-actions{margin-top:22px}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 16px 48px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}
+.col{display:grid;gap:22px;min-width:0}
+.card{background:rgba(29,21,17,.93);border:1px solid var(--border);border-radius:var(--radius);padding:24px;
+box-shadow:0 8px 24px rgba(0,0,0,.45),inset 0 1px 0 rgba(240,200,120,.06)}
+.card h2{margin:0 0 6px;font-size:1.35rem;color:var(--gold)}
+.card>p{margin:0 0 14px;color:var(--muted)}
+.card.form-card{border-color:rgba(226,80,42,.55);box-shadow:0 0 26px rgba(226,80,42,.16),0 8px 24px rgba(0,0,0,.45)}
+label{display:block;font-weight:600;font-size:.93rem;margin:14px 0 6px}
+input[type=text],input[type=password]{width:100%;padding:12px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);
+background:rgba(12,8,6,.75);color:var(--text);font-size:1rem;font-family:inherit}
+input:focus{border-color:var(--accent2);outline:none;box-shadow:0 0 0 3px rgba(224,182,74,.18)}
+.field-code{padding:14px;margin-top:6px;border-radius:var(--radius-sm);border:1px dashed rgba(242,194,48,.5);background:rgba(242,194,48,.06)}
+.field-code label{margin-top:0;color:var(--chunjo)}
+.hint{font-size:.85rem;color:var(--muted);margin-top:5px;min-height:1em}
+.hint.ok{color:var(--ok)}.hint.bad{color:var(--bad)}
+.submit{margin-top:22px}
+.flash{border-radius:var(--radius-sm);padding:12px 14px;margin:0 0 14px;font-weight:600;border:1px solid}
+.flash.error{background:rgba(120,30,20,.45);border-color:rgba(255,120,100,.55);color:#ffd3cb}
+.flash.info{background:rgba(40,80,40,.4);border-color:rgba(108,196,107,.5);color:#d8f5d6}
+.steps{list-style:none;counter-reset:step;margin:14px 0 0;padding:0;display:grid;gap:18px}
+.steps>li{position:relative;padding:16px 16px 14px 58px;background:rgba(12,8,6,.5);border:1px solid var(--border-soft);border-radius:var(--radius-sm)}
+.steps>li::before{counter-increment:step;content:counter(step);position:absolute;left:14px;top:14px;width:30px;height:30px;border-radius:50%;
+display:grid;place-items:center;font-weight:800;color:#1b0d06;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+.steps h3{margin:0 0 4px;font-size:1.03rem}
+.steps p{margin:0;color:var(--muted);font-size:.95rem}
+.srv{margin:12px 0 4px;display:grid;gap:8px}
+.srv-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 10px 8px 12px;
+border-radius:8px;background:rgba(0,0,0,.35);border:1px solid rgba(240,200,120,.16)}
+.srv-row span{color:var(--muted);font-size:.9rem}
+.srv-row code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:1.02rem;color:var(--gold);font-weight:700;word-break:break-all}
+.srv-val{display:flex;align-items:center;gap:8px;margin-left:auto}
+.copy{font:inherit;font-size:.78rem;font-weight:700;padding:4px 10px;border-radius:999px;cursor:pointer;color:var(--text);
+background:var(--card2);border:1px solid var(--border)}
+.copy:hover{border-color:var(--accent2)}
+.done-card{text-align:center}
+.done-card .big{font-size:3rem;line-height:1}
+.footer{text-align:center;color:var(--muted);font-size:.88rem;padding:0 16px 34px}
+.footer a{color:var(--muted)}
+@media (max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){.steps>li{padding-left:52px}.steps>li::before{left:12px}.hero{padding:34px 16px 20px}.lead{font-size:1rem}.card{padding:18px}
+.chunjo{display:flex;width:100%}.hero-actions .btn{width:100%}.top-note{display:none}}
+</style></head><body>
+<header class="topbar"><div class="topbar-inner">
+<a class="logo" href="{{ WEBSITE }}" rel="noopener"><span class="logo-mark" aria-hidden="true">⚔️</span><span>MT2009 <span class="logo-dot">PLUS</span></span></a>
+<span class="top-note">Serwer dla wspierających</span>
+</div></header>
+
+<section class="hero"><div class="hero-inner">
+<span class="eyebrow">⚔️ Wspólny serwer dla wspierających</span>
+{% if done %}
+<h1>Konto {{ form.login }} jest gotowe!</h1>
+<p class="lead">Dziękuję, że jesteś z nami. Wejdź do gry według trzech kroków poniżej — do zobaczenia w Chunjo!
+Już nie mogę się doczekać, aż stoczymy jakieś PvP i razem przejdziemy nowe dungeony.</p>
+{% else %}
+<h1>Dziękuję za Twoje wsparcie!</h1>
+<p class="lead">Załóż konto i graj razem ze mną! Już nie mogę się doczekać, aż stoczymy jakieś PvP
+i razem przejdziemy nowe dungeony.</p>
+{% endif %}
+<div class="chunjo" role="note">
+<div class="chunjo-flag" aria-hidden="true">🏯</div>
+<div><strong>Gramy w Chunjo</strong><span>Przy tworzeniu pierwszej postaci wybierz królestwo Chunjo — tam się spotkamy.</span></div>
+</div>
+<div class="hero-actions">
+{% if COFFEE %}<a class="btn btn-coffee" href="{{ COFFEE }}" target="_blank" rel="noopener">☕ Postaw kawę na rozwój MT2009 PLUS</a>{% endif %}
+</div>
+</div></section>
+
+<main class="wrap">
+<div class="col">
+{% if done %}
+<div class="card done-card">
+<div class="big" aria-hidden="true">🎉</div>
+<h2>Witaj na serwerze!</h2>
+<p>Logujesz się w grze nazwą <strong>{{ form.login }}</strong> i hasłem, które przed chwilą wybrałeś.
+Zapisz je sobie, żeby nie zginęło.</p>
+</div>
+{% else %}
+<div class="card form-card">
+<h2>Załóż konto</h2>
+<p>Konto działa na tym serwerze — to nim logujesz się w grze.</p>
+{% with m = get_flashed_messages(with_categories=true) %}{% for c, msg in m %}
+<div class="flash {{ 'error' if c == 'error' else 'info' }}" role="alert">{{ msg }}</div>
+{% endfor %}{% endwith %}
+<form method="post" action="{{ url_for('register') }}" novalidate>
+<input type="hidden" name="_csrf" value="{{ csrf_token }}">
+<div class="field-code">
+<label for="accessCode">🔑 Hasło dla wspierających</label>
+<input type="password" name="access_code" id="accessCode" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+<div class="hint">Znajdziesz je na kanale dla wspierających. Bez niego konto nie powstanie.</div>
+</div>
+<label for="regName">Login</label>
+<input type="text" name="login" id="regName" value="{{ form.login }}" maxlength="16" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+<div class="hint" id="nameHint">4–16 liter lub cyfr, bez spacji i polskich znaków.</div>
+<label for="regPw">Hasło</label>
+<input type="password" name="pw" id="regPw" autocomplete="new-password" required>
+<div class="hint">Co najmniej 6 znaków.</div>
+<label for="regPw2">Powtórz hasło</label>
+<input type="password" name="pw2" id="regPw2" autocomplete="new-password" required>
+<div class="hint" id="pwHint"></div>
+<label for="regSocial">Kod usuwania postaci</label>
+<input type="text" name="social" id="regSocial" value="{{ form.social }}" maxlength="7" inputmode="numeric" pattern="[0-9]{7}" autocomplete="off" required>
+<div class="hint">Dowolne 7 cyfr, np. 1234567. Gra pyta o nie przy kasowaniu postaci — zapamiętaj je.</div>
+<div class="submit"><button class="btn btn-main" type="submit">Załóż konto i dołącz</button></div>
+</form>
+</div>
+{% endif %}
+</div>
+
+<div class="col">
+<div class="card">
+<h2>Jak zacząć grać</h2>
+<ol class="steps">
+<li><h3>Pobierz grę</h3>
+<p>Potrzebujesz klienta MT2009 PLUS.
+{% if client_url %}<a href="{{ client_url }}" rel="noopener noreferrer">Pobierz go stąd</a>{% else %}Link do pobrania jest na <a href="{{ WEBSITE }}" target="_blank" rel="noopener">GitHubie</a>{% endif %}.
+Masz go już? Uruchom <strong>MT2009-Aktualizator</strong>, żeby był aktualny.</p></li>
+<li><h3>Dodaj serwer</h3>
+<p>W MT2009-Aktualizatorze kliknij <strong>„Dodaj własny serwer VPS”</strong>, wpisz dowolną nazwę i te dane:</p>
+<div class="srv">
+<div class="srv-row"><span>Adres IP</span><div class="srv-val"><code>{{ game.address }}</code><button type="button" class="copy" data-copy="{{ game.address }}">Kopiuj</button></div></div>
+<div class="srv-row"><span>Port logowania</span><div class="srv-val"><code>{{ game.login_port }}</code><button type="button" class="copy" data-copy="{{ game.login_port }}">Kopiuj</button></div></div>
+<div class="srv-row"><span>Port kanału 1</span><div class="srv-val"><code>{{ game.channel_port }}</code><button type="button" class="copy" data-copy="{{ game.channel_port }}">Kopiuj</button></div></div>
+</div></li>
+<li><h3>Wejdź do gry</h3>
+<p>W grze wybierz serwer <strong>„Online: &lt;Twoja nazwa&gt;”</strong>, zaloguj się kontem z tej strony
+i stwórz postać w królestwie <strong style="color:var(--chunjo)">Chunjo</strong>.</p></li>
+</ol>
+</div>
+<div class="card">
+<h2>Wspólny serwer wspierających</h2>
+<p>To jeden, wspólny świat MT2009 PLUS dla osób, które wspierają rozwój projektu. Gramy tu razem —
+ja, Ty i inni wspierający — a obok nas setki botów, które grają jak ludzie: polują, handlują,
+zakładają gildie i biją bossów. Konto z tej strony działa tylko na tym serwerze.</p>
+</div>
+</div>
+</main>
+
+<footer class="footer">MT2009 PLUS · <a href="{{ WEBSITE }}" rel="noopener">GitHub</a> · <a href="{{ DISCORD }}" target="_blank" rel="noopener">Zgłoś błąd</a></footer>
+
+<script>
+(function(){
+ var n=document.getElementById('regName'),nh=document.getElementById('nameHint'),
+     p1=document.getElementById('regPw'),p2=document.getElementById('regPw2'),ph=document.getElementById('pwHint'),tmr=null;
+ if(n){
+  var base=nh.textContent;
+  n.addEventListener('input',function(){
+   clearTimeout(tmr); nh.textContent=base; nh.className='hint';
+   var v=n.value.trim();
+   if(!v) return;
+   if(!/^[A-Za-z0-9]{4,16}$/.test(v)){ if(v.length>=4){nh.textContent='Tylko litery i cyfry (bez polskich znaków), 4–16 znaków.';nh.className='hint bad';} return; }
+   tmr=setTimeout(function(){
+    fetch('/api/checkname?u='+encodeURIComponent(v)).then(function(r){return r.ok?r.json():null;}).then(function(d){
+     if(!d||!d.ok||n.value.trim()!==v) return;
+     nh.textContent=d.free?'✓ Login jest wolny':'✗ Ten login jest już zajęty';
+     nh.className='hint '+(d.free?'ok':'bad');
+    }).catch(function(){});
+   },350);
+  });
+  var pwc=function(){
+   if(!p2.value){ph.textContent='';ph.className='hint';return;}
+   var same=p1.value===p2.value;
+   ph.textContent=same?'✓ Hasła są zgodne':'✗ Hasła się różnią';
+   ph.className='hint '+(same?'ok':'bad');
+  };
+  p1.addEventListener('input',pwc); p2.addEventListener('input',pwc);
+ }
+ Array.prototype.forEach.call(document.querySelectorAll('.copy'),function(b){
+  b.addEventListener('click',function(){
+   var v=b.getAttribute('data-copy'),done=function(){b.textContent='Skopiowano';setTimeout(function(){b.textContent='Kopiuj';},1500);};
+   if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(v).then(done,function(){});return;}
+   var t=document.createElement('textarea');t.value=v;t.setAttribute('readonly','');t.style.position='fixed';t.style.opacity='0';
+   document.body.appendChild(t);t.select();try{document.execCommand('copy');done();}catch(e){}document.body.removeChild(t);
+  });
+ });
+})();
+</script>
+</body></html>"""
+
 TPL_ACCOUNT_LOGIN = BASE.replace("__BODY__", """
 <p><a href="{{url_for('login')}}">{{t('acc_back')}}</a></p>
 <div class="card" style="max-width:420px;margin:20px auto;text-align:center">
@@ -6118,6 +6678,16 @@ TPL_DASH = BASE.replace("__BODY__", """
 <a class="btn" href="{{url_for('arezzo')}}" title="{{t('tip_az')}}">{{t('az_open')}}</a>
 </div>
 <div class="card">
+<h3 class="help" title="{{t('tip_seon')}}">{{t('seon_nav')}}</h3>
+<p class="muted">{{t('seon_dash_hint')}}</p>
+<a class="btn" href="{{url_for('seonhae')}}" title="{{t('tip_seon')}}">{{t('seon_open')}}</a>
+</div>
+<div class="card">
+<h3 class="help" title="{{t('tip_fl')}}">{{t('fl_nav')}}</h3>
+<p class="muted">{{t('fl_dash_hint')}}</p>
+<a class="btn" href="{{url_for('flower_event')}}" title="{{t('tip_fl')}}">{{t('fl_open')}}</a>
+</div>
+<div class="card">
 <h3 class="help">{{t('se_nav')}}</h3>
 <p class="muted">{{t('se_dash_hint')}}</p>
 <a class="btn" href="{{url_for('season')}}">{{t('se_open')}}</a>
@@ -6156,15 +6726,18 @@ TPL_DASH = BASE.replace("__BODY__", """
 <div class="card">
 <h3 class="help" title="{{t('tip_players')}}">👥 {{t('players')}}</h3>
 <p class="muted">{{t('tap_hint')}}</p>
+{# MT2009_PLUS_BOT_SESSIONS_V1: "Tylko boty" - every bot with its state. #}
+<p>{% if bots_only %}<a href="/admin">{{t('ss_all_chars')}}</a>{% if bot_counts %} · <span class="muted">{{ t('ss_bots_count').format(**bot_counts) }}</span>{% endif %}{% else %}<a href="/admin?who=bots">{{t('ss_only_bots')}}</a>{% endif %}</p>
 {% if players %}<input id="pfilter" placeholder="{{t('search_players')}}" autocomplete="off" style="margin-bottom:8px">{% endif %}
 <table id="ptable">
-<tr><th>{{t('character')}}</th><th class="help" title="{{t('tip_acc_col')}}">{{t('acc_col')}}</th><th>{{t('level')}}</th><th>Yang</th><th>{{t('last_seen')}}</th></tr>
+<tr><th>{{t('character')}}</th><th class="help" title="{{t('tip_acc_col')}}">{{t('acc_col')}}</th><th>{{t('level')}}</th><th>Yang</th><th>{{t('ss_col_state')}}</th><th>{{t('last_seen')}}</th></tr>
 {% for p in players %}
 <tr data-k="{{ (p.name ~ ' ' ~ (p.account or ''))|lower }}">
 <td><a href="{{url_for('player', pid=p.id)}}" title="{{t('tip_player')}}">{% if p.active %}<span class="dot on" title="{{t('tip_active')}}"></span>{% endif %}{{emoji(p.job)}} <b>{{p.name}}</b></a>
 <div class="muted">{{jobname(p.job)}}</div></td>
 <td title="{{t('tip_acc_col')}}">👤 {{p.account or '—'}}</td>
 <td>{{p.level}}</td><td>{{"{:,}".format(p.gold)}}</td>
+<td>{{p.state_text}}</td>
 <td class="muted">{{p.last_play}}</td></tr>
 {% endfor %}</table>
 {% if not players %}<p>{{t('no_chars')}} 🙂</p>{% endif %}
@@ -6238,6 +6811,47 @@ TPL_PLAYER = BASE.replace("__BODY__", """
 <span class="badge">💰 {{"{:,}".format(p.gold)}} yang</span>
 <span class="badge">🗺️ {{t('pl_map')}} {{p.map_index}}</span>
 </div>
+
+{# MT2009_PLUS_BOT_SESSIONS_V1: a bot's hours of play (log.playerbot_session):
+   what it is doing now, a strip for each of the last seven days, and the
+   sessions themselves. #}
+{% if sessions %}
+<div class="card" id="sessions">
+<style>
+.ss-days{margin:10px 0 6px}
+.ss-row{display:flex;align-items:center;gap:8px;margin:3px 0}
+.ss-lab{width:64px;flex:none;font-size:12px;color:var(--muted);text-align:right}
+.ss-bar{position:relative;flex:1;height:14px;background:var(--card);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.ss-bar i{position:absolute;top:0;bottom:0;background:var(--green);opacity:.85}
+.ss-bar i.on{background:var(--gold)}
+.ss-sum{width:96px;flex:none;font-size:12px;color:var(--muted)}
+.ss-scale{position:relative;flex:1;height:14px;font-size:11px;color:var(--muted)}
+.ss-scale span{position:absolute;transform:translateX(-50%)}
+.ss-t{white-space:nowrap}
+</style>
+<h3>{{t('ss_title')}}</h3>
+<p><b>{{sessions.state_text}}</b></p>
+{% if sessions.table_state == 'missing' %}<p class="muted">{{t('ss_missing')}}</p>
+{% elif sessions.table_state == 'error' %}<p class="muted">{{t('ss_error')}}</p>
+{% else %}
+<p class="muted">{{sessions.week_text}}{% if sessions.total_text %} · {{sessions.total_text}}{% endif %}</p>
+<div class="ss-days">
+{% for d in sessions.strips %}
+<div class="ss-row"><span class="ss-lab">{{d.label}}</span><div class="ss-bar">{% for s in d.segments %}<i{% if s.ongoing %} class="on"{% endif %} style="left:{{s.left}}%;width:{{s.width}}%" title="{{s.title}}"></i>{% endfor %}</div><span class="ss-sum">{{d.total}}</span></div>
+{% endfor %}
+<div class="ss-row"><span class="ss-lab"></span><div class="ss-scale"><span style="left:0">0</span><span style="left:25%">6</span><span style="left:50%">12</span><span style="left:75%">18</span><span style="left:100%">24</span></div><span class="ss-sum"></span></div>
+</div>
+<p class="muted">{{t('ss_strip_hint')}}</p>
+{% if sessions.rows %}
+<table>
+<tr><th>{{t('ss_col_in')}}</th><th>{{t('ss_col_out')}}</th><th>{{t('ss_col_len')}}</th><th>{{t('ss_col_ch')}}</th><th>{{t('ss_col_why')}}</th></tr>
+{% for r in sessions.rows %}<tr><td class="ss-t">{{r.start}}</td><td class="ss-t">{{r.end}}</td><td class="ss-t">{{r.length}}</td><td>{{r.channel}}</td><td class="muted">{{r.why}}</td></tr>
+{% endfor %}</table>
+{% endif %}
+{% endif %}
+</div>
+{% endif %}
+
 
 <div class="card"><h3 class="help" title="{{t('tip_send_item')}}">{{t('give_item')}}</h3>
 <form method="post" action="{{url_for('action')}}" id="itemForm">
@@ -6493,6 +7107,18 @@ regenLabel("regen_boss");regenLabel("regen_mob");
 <button class="big" style="margin-top:12px">{{t('sc_save')}}</button>
 </form></div>
 {% endif %}
+{% if mob_hp %}
+<div class="card">
+<form method="post" action="{{url_for('rates_mob_hp')}}">
+<input type="hidden" name="_csrf" value="{{csrf_token}}">
+<h3>🛡️ {{t('mh_title')}}</h3>
+<p class="muted">{{t('mh_help')}}</p>
+{% for p in mob_hp.choices %}
+<p><label><input type="radio" name="pct" value="{{p}}"{% if mob_hp.pct == p %} checked{% endif %}> {{ t('mh_100') if p == 100 else (t('mh_80') if p == 80 else t('mh_custom').replace('{n}', p|string)) }}</label></p>
+{% endfor %}
+<button class="big" style="margin-top:12px">{{t('mh_save')}}</button>
+</form></div>
+{% endif %}
 {% if channels %}
 <div class="card">
 <form method="post" action="{{url_for('rates_channels')}}">
@@ -6560,6 +7186,10 @@ TPL_RARE = BASE.replace("__BODY__", """
 <h3 style="margin-top:18px">🎗️ {{t('rare_sashes')}}</h3>
 <p class="muted">{{t('rare_sashes_help')}}</p>
 <label><input type="checkbox" name="sashes" value="1" {% if cur['sashes'] %}checked{% endif %}> {{t('easter_enable')}}</label>
+<h3 style="margin-top:18px">💎 {{t('rare_ds_title')}}</h3>
+<p class="muted">{{t('rare_ds_help')}}</p>
+<label>{{t('rare_ds_drop')}} <input type="number" name="ds_drop" min="1" max="100" step="1" value="{{cur['ds_drop']}}" style="width:90px"></label><br>
+<label>{{t('rare_ds_day')}} <input type="number" name="ds_cor_day" min="1" max="20" step="1" value="{{cur['ds_cor_day']}}" style="width:90px"></label>
 <button class="big" style="margin-top:18px">{{t('easter_save')}}</button>
 </form></div>""")
 
@@ -6579,6 +7209,74 @@ TPL_AREZZO = BASE.replace("__BODY__", """
 <label><input type="checkbox" name="on" value="1" {% if cur['on'] %}checked{% endif %}> {{t('az_enable')}}</label>
 <button class="big" style="margin-top:18px">{{t('easter_save')}}</button>
 </form></div>""")
+
+# MT2009_PLUS_SEONHAE_V1: Seon-Hae's page, the Arezzo page's shape plus the time.
+TPL_SEONHAE = BASE.replace("__BODY__", """
+<p><a href="{{url_for('dash')}}">{{t('back_players')}}</a></p>
+<div class="card">
+<h3>{{t('seon_nav')}}</h3>
+<p class="muted">{{t('seon_intro')}}</p>
+<p><span class="badge">💎 {{t('seon_nav')}}: {{t('easter_on') if cur['on'] else t('easter_off')}}</span></p>
+</div>
+
+<div class="card">
+<form method="post">
+<input type="hidden" name="_csrf" value="{{csrf_token}}">
+<p class="muted">{{t('seon_help')}}</p>
+<label><input type="checkbox" name="on" value="1" {% if cur['on'] %}checked{% endif %}> {{t('seon_enable')}}</label>
+<p><label>{{t('seon_wait')}}<br><input type="number" name="wait" min="0" max="10080" step="1" value="{{cur['wait']}}"></label></p>
+<h3 style="margin-top:18px">{{t('seon_lv')}}</h3>
+<p class="muted">{{t('seon_lv_help')}}</p>
+<p>{% for i in range(5) %}<label style="margin-right:14px">lv{{i+1}} <input type="number" name="lv{{i+1}}" min="0" max="100" value="{{cur['lv'][i]}}" style="width:70px"> %</label>{% endfor %}</p>
+<h3 style="margin-top:18px">{{t('seon_drops')}}</h3>
+<p class="muted">{{t('seon_drops_help')}}</p>
+<textarea name="drops" rows="22" style="width:100%;font-family:monospace">{{drops}}</textarea>
+<button class="big" style="margin-top:18px">{{t('easter_save')}}</button>
+</form></div>""")
+# MT2009_PLUS_FLOWER_V1: the Flower Event page (flower_event.tsv, playerbot_flower.h).
+TPL_FLOWER = BASE.replace("__BODY__", """
+<p><a href="{{url_for('dash')}}">{{t('back_players')}}</a></p>
+<div class="card">
+<h3>{{t('fl_nav')}}</h3>
+<p class="muted">{{t('fl_intro')}}</p>
+</div>
+
+<form method="post">
+<input type="hidden" name="_csrf" value="{{csrf_token}}">
+<div class="card">
+<h3>🌱 {{t('fl_drop')}}</h3>
+<p><label>{{t('fl_seed_chance')}}<br><input type="number" name="seed_chance" min="0" max="10000" value="{{cur.seed_chance}}" style="width:110px"></label></p>
+<p><label>{{t('fl_min_level')}}<br><input type="number" name="min_level" min="1" max="250" value="{{cur.min_level}}" style="width:110px"></label></p>
+<p><label>{{t('fl_counter_max')}}<br><input type="number" name="counter_max" min="1" max="999999" value="{{cur.counter_max}}" style="width:110px"></label></p>
+<h3 style="margin-top:18px">🔁 {{t('fl_exchange')}}</h3>
+<p><label>{{t('fl_seeds_per_shoot')}}<br><input type="number" name="seeds_per_shoot" min="1" max="1000" value="{{cur.seeds_per_shoot}}" style="width:110px"></label></p>
+<p><label>{{t('fl_shoots_per_reward')}}<br><input type="number" name="shoots_per_reward" min="1" max="1000" value="{{cur.shoots_per_reward}}" style="width:110px"></label></p>
+</div>
+
+<div class="card">
+<h3>🎁 {{t('fl_rewards')}}</h3>
+<p class="muted">{{t('fl_rewards_help')}}</p>
+<table>
+<tr><th></th><th>{{t('fl_item')}}</th><th>{{t('fl_count')}}</th></tr>
+{% for i in range(1, 6) %}
+<tr><td>{{t('fl_flower_%d' % i)}}</td>
+<td><input type="number" name="reward_vnum_{{i}}" min="1" value="{{cur.rewards[i][0]}}" style="width:110px"></td>
+<td><input type="number" name="reward_count_{{i}}" min="1" max="1000" value="{{cur.rewards[i][1]}}" style="width:80px"></td></tr>
+{% endfor %}
+</table>
+</div>
+
+<div class="card">
+<h3>🌸 {{t('fl_buff')}}</h3>
+<p class="muted">{{t('fl_buff_help')}}</p>
+<p><label>{{t('fl_add_rate')}}<br><input type="number" name="add_rate" min="0" max="100" value="{{cur.add_rate}}" style="width:110px"></label></p>
+<p><label>{{t('fl_change_rate')}}<br><input type="number" name="change_rate" min="0" max="100" value="{{cur.change_rate}}" style="width:110px"></label></p>
+<p><label>{{t('fl_upgrade_rate')}}<br><input type="number" name="upgrade_rate" min="0" max="100" value="{{cur.upgrade_rate}}" style="width:110px"></label></p>
+<p><label>{{t('fl_max_level')}}<br><input type="number" name="max_level" min="1" max="20" value="{{cur.max_level}}" style="width:110px"></label></p>
+<label><input type="checkbox" name="use_after_event" value="1" {% if cur.use_after_event %}checked{% endif %}> {{t('fl_use_after')}}</label>
+<button class="big" style="margin-top:18px">{{t('easter_save')}}</button>
+</div>
+</form>""")
 
 # The season table and the record tiles. Public, like the live map: this is the
 # page an operator links to, not an admin tool.
@@ -6681,9 +7379,9 @@ TPL_EVENTS = BASE.replace("__BODY__", """
 </div>{% endfor %}
 {% elif s and s.active and k in world_kinds %}<span class="badge">{{t('ev_active')}} {{s.until_text}} ({{map_name(s.map)}})</span>
 {% if s.host %}<br><small>{{t('ev_world_alive')}}: {{s.alive}} &middot; {{t('ev_world_killed')}}: {{s.killed}} &middot; {{t('ev_world_bots')}}: {{s.bots}}{% if s.phase == 'stones' %} &middot; {{t('ev_phase_stones')}}{% elif s.phase == 'bosses' %} &middot; {{t('ev_phase_bosses')}}{% endif %}</small>{% endif %}
-{% elif s and s.active %}<span class="badge">{{t('ev_active')}} {{s.until_text}}{% if s.value and k not in ('chest', 'bossloot', 'metinloot', 'goblin') %} (+{{s.value}}%){% endif %}</span>
+{% elif s and s.active %}<span class="badge">{{t('ev_active')}} {{s.until_text}}{% if s.value and k not in ('chest', 'bossloot', 'metinloot', 'goblin', 'catchking', 'rumi', 'yutnori', 'flower', 'easter') %} (+{{s.value}}%){% endif %}</span>
 {% elif s and s.next_start and k in world_kinds %}{{t('ev_next')}}: {{s.next_start_text}} ({{map_name(s.next_map)}})
-{% elif s and s.next_start %}{{t('ev_next')}}: {{s.next_start_text}}{% if s.next_value and k not in ('chest', 'bossloot', 'metinloot', 'goblin') %} (+{{s.next_value}}%){% endif %}
+{% elif s and s.next_start %}{{t('ev_next')}}: {{s.next_start_text}}{% if s.next_value and k not in ('chest', 'bossloot', 'metinloot', 'goblin', 'catchking', 'rumi', 'yutnori', 'flower', 'easter') %} (+{{s.next_value}}%){% endif %}
 {% elif s and s.scheduled %}{{t('ev_inactive')}}
 {% elif s %}{{t('ev_none')}}
 {% else %}-{% endif %}
@@ -6697,7 +7395,7 @@ TPL_EVENTS = BASE.replace("__BODY__", """
 <select name="minutes">{% for m in minutes %}<option value="{{m}}" {% if m == 60 %}selected{% endif %}>{{m}}</option>{% endfor %}</select>
 {% if k in world_kinds %}{{t('ev_now_' + k)}} <input type="number" name="value" min="1" max="{{world_max[k]}}" value="{{world_default[k]}}" style="width:60px">
 <select name="map">{% for m in maps %}<option value="{{m[0]}}">{{map_name(m[0])}}</option>{% endfor %}</select>
-{% elif k not in ('chest', 'bossloot', 'metinloot', 'goblin') %}{{t('ev_now_value')}} <input type="number" name="value" min="1" max="1000" value="50" style="width:70px">{% endif %}
+{% elif k not in ('chest', 'bossloot', 'metinloot', 'goblin', 'catchking', 'rumi', 'yutnori', 'flower', 'easter') %}{{t('ev_now_value')}} <input type="number" name="value" min="1" max="1000" value="50" style="width:70px">{% endif %}
 <button class="btn" type="submit">{{t('ev_now_go')}}</button>
 </form>
 {% if k in world_kinds %}<br><small class="muted">{{t('ev_world_many')}}</small>{% endif %}
@@ -6957,20 +7655,6 @@ TPL_AI = BASE.replace("__BODY__", """
     <span>0 — {{t('ai_rest_off')}}</span><span>100 — {{t('ai_rest_all')}}</span>
   </div>
 </div>
-{% if engine_mt2009 %}
-{% for wkey, wlabel, wicon, woff in [("BATTLEPASS", "ai_will_bp", "🎟️", "ai_will_bp_off"), ("SASH", "ai_will_sash", "🎀", "ai_will_sash_off"), ("ALCHEMY", "ai_will_alch", "🐉", "ai_will_alch_off")] %}
-<div style="margin-bottom:18px">
-  <h3 style="margin:0 0 2px">{{wicon}} {{t(wlabel)}}
-      <span class="badge" id="v_{{wkey}}">{{cur.get(wkey, 100)}}%</span></h3>
-  <p class="muted" style="margin:0 0 6px">{{t(wlabel + '_help')}}</p>
-  <input type="range" name="{{wkey}}" id="s_{{wkey}}" min="0" max="100" step="5" value="{{cur.get(wkey, 100)}}" style="width:100%"
-         oninput="document.getElementById('v_{{wkey}}').textContent=this.value+'%'">
-  <div class="muted" style="display:flex;justify-content:space-between;font-size:12px">
-    <span>0 — {{t(woff)}}</span><span>100 — {{t('ai_will_all')}}</span>
-  </div>
-</div>
-{% endfor %}
-{% endif %}
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">⚔️ {{t('ai_kpvp')}}
       <span class="badge" id="v_KINGDOMPVP">{{cur.get('KINGDOMPVP', 0)}}%</span></h3>
@@ -7026,6 +7710,21 @@ TPL_AI = BASE.replace("__BODY__", """
   </div>
 </div>
 {% endfor %}
+{% if engine_mt2009 %}
+{# The three wills sit with the goal weights: 0-250, 100 = the build's share. #}
+{% for wkey, wlabel, wicon, woff in [("BATTLEPASS", "ai_will_bp", "🎟️", "ai_will_bp_off"), ("SASH", "ai_will_sash", "🎀", "ai_will_sash_off"), ("ALCHEMY", "ai_will_alch", "🐉", "ai_will_alch_off")] %}
+<div style="margin-bottom:18px">
+  <h3 style="margin:0 0 2px">{{wicon}} {{t(wlabel)}}
+      <span class="badge" id="v_{{wkey}}">{{cur.get(wkey, 100)}}</span></h3>
+  <p class="muted" style="margin:0 0 6px">{{t(wlabel + '_help')}}</p>
+  <input type="range" class="m2ai-goal" name="{{wkey}}" id="s_{{wkey}}" min="0" max="250" step="5" value="{{cur.get(wkey, 100)}}" style="width:100%"
+         oninput="document.getElementById('v_{{wkey}}').textContent=this.value">
+  <div class="muted" style="display:flex;justify-content:space-between;font-size:12px">
+    <span>0 — {{t(woff)}}</span><span>100 — {{t('ai_will_all')}}</span><span>250 — {{t('ai_often')}}</span>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
 <button type="button" onclick="m2aiReset()">{{t('ai_reset')}}</button>
 <button class="big" style="margin-top:10px">{{t('ai_save')}}</button>
 </form></div>
@@ -17545,13 +18244,23 @@ def rare():
         alchemy = 1 if request.form.get("alchemy") else 0
         sashes = 1 if request.form.get("sashes") else 0
         try:
+            ds_drop = int(request.form.get("ds_drop", RARE_DS_DROP_DEFAULT))
+            ds_cor_day = int(request.form.get("ds_cor_day", RARE_DS_COR_DAY_DEFAULT))
+        except (TypeError, ValueError):
+            ds_drop = ds_cor_day = -1
+        if not (1 <= ds_drop <= 100 and 1 <= ds_cor_day <= 20):
+            flash(t("rare_ds_range"), "error")
+            return redirect(url_for("rare"))
+        try:
             with db() as c, c.cursor() as cur:
-                persist_rare(cur, alchemy, sashes)
+                persist_rare(cur, alchemy, sashes, ds_drop, ds_cor_day)
         except Exception:
             flash(t("db_down"), "error")
             return redirect(url_for("rare"))
         try:
-            status, qid = queue_and_wait("", "RARE", "%d,%d" % (alchemy, sashes), "",
+            # arg2 = "shard chance,Cors a day" (web_admin.quest, RARE).
+            status, qid = queue_and_wait("", "RARE", "%d,%d" % (alchemy, sashes),
+                                         "%d,%d" % (ds_drop, ds_cor_day),
                                          wait=RARE_LIVE_WAIT)
         except Exception:
             status, qid = "failed", 0
@@ -17568,12 +18277,119 @@ def rare():
             flash(t("easter_saved_persisted"))
         return redirect(url_for("rare"))
 
-    cur_rare = {"alchemy": 1, "sashes": 1}
+    cur_rare = {"alchemy": 1, "sashes": 1,
+                "ds_drop": RARE_DS_DROP_DEFAULT, "ds_cor_day": RARE_DS_COR_DAY_DEFAULT}
     try:
         cur_rare = read_rare()
     except Exception:
         flash(t("db_down"), "error")
     return render_template_string(TPL_RARE, cur=cur_rare)
+
+# MT2009_PLUS_FLOWER_V1: the Flower Event's settings and rewards. The game cores
+# (playerbot_flower.h) stat /opt/m2spool/flower_event.tsv every five seconds; a
+# key left out is the core's default, so this page writes every key.
+FLOWER_FILE = os.path.join(AI_SPOOL, "flower_event.tsv")
+# key: (default, lowest, highest) - the core clamps to the same bounds.
+FLOWER_KEYS = (
+    ("seed_chance", 100, 0, 10000),
+    ("min_level", 1, 1, 250),
+    ("seeds_per_shoot", 1, 1, 1000),
+    ("shoots_per_reward", 10, 1, 1000),
+    ("add_rate", 50, 0, 100),
+    ("change_rate", 30, 0, 100),
+    ("upgrade_rate", 15, 0, 100),
+    ("max_level", 5, 1, 20),
+    ("counter_max", 99999, 1, 999999),
+)
+FLOWER_DEFAULT_REWARDS = {1: (83023, 1), 2: (83024, 1), 3: (83025, 1), 4: (83026, 1), 5: (83027, 1)}
+
+
+def read_flower():
+    cur = {k: d for k, d, lo, hi in FLOWER_KEYS}
+    cur["use_after_event"] = 1
+    cur["rewards"] = dict(FLOWER_DEFAULT_REWARDS)
+    try:
+        with open(FLOWER_FILE, "r", encoding="utf-8", errors="replace") as fh:
+            lines = fh.read().splitlines()
+    except OSError:
+        return cur
+    bounds = {k: (lo, hi) for k, d, lo, hi in FLOWER_KEYS}
+    for line in lines:
+        f = line.split("#", 1)[0].split()
+        if len(f) < 2:
+            continue
+        try:
+            nums = [int(x) for x in f[1:4]]
+        except ValueError:
+            continue
+        if f[0] in bounds:
+            lo, hi = bounds[f[0]]
+            cur[f[0]] = max(lo, min(hi, nums[0]))
+        elif f[0] == "use_after_event":
+            cur["use_after_event"] = 1 if nums[0] else 0
+        elif f[0] == "reward" and len(nums) == 3 and 1 <= nums[0] <= 5 and nums[1] > 0 and 1 <= nums[2] <= 1000:
+            cur["rewards"][nums[0]] = (nums[1], nums[2])
+    return cur
+
+
+def write_flower(cur):
+    body = ["# MT2009_PLUS_FLOWER_V1 - Dzieci Kwiaty, written by the panel (playerbot_flower.h reads it)"]
+    for k, d, lo, hi in FLOWER_KEYS:
+        body.append("%s %d" % (k, cur[k]))
+    body.append("use_after_event %d" % (1 if cur["use_after_event"] else 0))
+    for i in range(1, 6):
+        vnum, count = cur["rewards"][i]
+        body.append("reward %d %d %d" % (i, vnum, count))
+    tmp = FLOWER_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(body) + "\n")
+    os.replace(tmp, FLOWER_FILE)
+
+
+@app.route("/flower", methods=["GET", "POST"])
+@login_required
+def flower_event():
+    """The Flower Event's chances, costs and rewards. Live within 5 s."""
+    cur = read_flower()
+    if request.method == "POST":
+        for k, d, lo, hi in FLOWER_KEYS:
+            try:
+                cur[k] = max(lo, min(hi, int(request.form.get(k, cur[k]))))
+            except (TypeError, ValueError):
+                pass
+        cur["use_after_event"] = 1 if request.form.get("use_after_event") else 0
+        wanted = {}
+        for i in range(1, 6):
+            try:
+                vnum = int(request.form.get("reward_vnum_%d" % i, cur["rewards"][i][0]))
+                count = max(1, min(1000, int(request.form.get("reward_count_%d" % i, cur["rewards"][i][1]))))
+            except (TypeError, ValueError):
+                continue
+            if vnum > 0:
+                wanted[i] = (vnum, count)
+        # An item number the world lacks would only be skipped by the core:
+        # say so here and keep the old reward.
+        known = None
+        try:
+            with db() as c, c.cursor() as dbc:
+                vnums = sorted(set(v for v, n in wanted.values()))
+                if vnums:
+                    dbc.execute("SELECT vnum FROM world.item_proto WHERE vnum IN (%s)" % ",".join(["%s"] * len(vnums)), vnums)
+                    known = set(int(r[0] if not isinstance(r, dict) else r["vnum"]) for r in dbc.fetchall())
+        except Exception:
+            known = None
+        for i, (vnum, count) in wanted.items():
+            if known is not None and vnum not in known:
+                flash(t("fl_bad_item").replace("{v}", str(vnum)), "error")
+                continue
+            cur["rewards"][i] = (vnum, count)
+        try:
+            write_flower(cur)
+            flash(t("fl_saved"))
+        except OSError:
+            flash(t("fl_write_fail"), "error")
+        return redirect(url_for("flower_event"))
+    return render_template_string(TPL_FLOWER, cur=cur)
 
 # MT2009_PLUS_AREZZO_MODULE_V1: the Arezzo module on or off. Live immediately, no restart.
 @app.route("/arezzo", methods=["GET", "POST"])
@@ -17613,6 +18429,68 @@ def arezzo():
     except Exception:
         flash(t("db_down"), "error")
     return render_template_string(TPL_AREZZO, cur=cur_az)
+
+# MT2009_PLUS_SEONHAE_V1: Seon-Hae's 6th/7th bonus on or off and his time. Live immediately, no restart.
+@app.route("/seonhae", methods=["GET", "POST"])
+@login_required
+def seonhae():
+    if not ENGINE_MT2009:
+        flash(t("rates_no_script"), "error")
+        return redirect(url_for("dash"))
+    if request.method == "POST":
+        on = 1 if request.form.get("on") else 0
+        try:
+            wait = int(request.form.get("wait") or 0)
+        except (TypeError, ValueError):
+            wait = 0
+        wait = max(0, min(SEONHAE_WAIT_MAX, wait))
+        lv = []
+        for i in range(1, 6):
+            try:
+                lv.append(max(0, min(100, int(request.form.get("lv%d" % i) or 0))))
+            except (TypeError, ValueError):
+                lv.append(0)
+        if sum(lv) <= 0:
+            lv = list(RARE_LEVEL_DEFAULT)
+        drops = request.form.get("drops")
+        if drops is not None:
+            bad = check_seonhae_drops(drops)
+            if bad:
+                flash(t("seon_drops_bad") % ", ".join(str(n) for n in bad[:20]), "error")
+            else:
+                try:
+                    write_seonhae_drops(drops)
+                except OSError:
+                    flash(t("db_down"), "error")
+        try:
+            with db() as c, c.cursor() as cur:
+                persist_seonhae(cur, on, wait, lv)
+        except Exception:
+            flash(t("db_down"), "error")
+            return redirect(url_for("seonhae"))
+        try:
+            status, qid = queue_and_wait("", "SEONHAE", "%d,%d" % (on, wait), ",".join(str(v) for v in lv), wait=RARE_LIVE_WAIT)
+        except Exception:
+            status, qid = "failed", 0
+        if status == "done":
+            flash(t("seon_saved_live"))
+        else:
+            if status == "timeout":
+                try:
+                    with db() as c, c.cursor() as cur:
+                        cur.execute("UPDATE player.web_admin_queue SET status='cancelled' "
+                                    "WHERE id=%s AND status='pending'", (qid,))
+                except Exception:
+                    pass
+            flash(t("easter_saved_persisted"))
+        return redirect(url_for("seonhae"))
+
+    cur_se = {"on": 0, "wait": 0}
+    try:
+        cur_se = read_seonhae()
+    except Exception:
+        flash(t("db_down"), "error")
+    return render_template_string(TPL_SEONHAE, cur=cur_se, drops=read_seonhae_drops())
 
 @app.route("/rates", methods=["GET", "POST"])
 @login_required
@@ -17704,6 +18582,7 @@ def rates():
     difficulty = None
     autohunt = None
     starter_chest = None
+    mob_hp = None
     if ENGINE_MT2009:
         try:
             regen = read_regen_mt2009()
@@ -17725,6 +18604,10 @@ def rates():
             starter_chest = read_starter_chest_mt2009()
         except Exception:
             starter_chest = None
+        try:
+            mob_hp = read_mob_hp_mt2009()
+        except Exception:
+            mob_hp = None
     channels = None
     if ENGINE_MT2009:
         try:
@@ -17735,7 +18618,7 @@ def rates():
                                   regen_count=regen_count, count_choices=REGEN_COUNT_CHOICES,
                                   difficulty=difficulty, difficulty_levels=DIFFICULTY_LEVELS,
                                   difficulty_max=DIFFICULTY_MAX_HOURS, autohunt=autohunt,
-                                  starter_chest=starter_chest, channels=channels,
+                                  starter_chest=starter_chest, mob_hp=mob_hp, channels=channels,
                                   intro_key="rates_intro_mt2009" if ENGINE_MT2009 else "rates_intro",
                                   state_msg=t("rates_st_" + st) if st in RATE_STATES else "")
 
@@ -17937,6 +18820,45 @@ def rates_starter_chest():
             except Exception:
                 pass
         flash(t("sc_saved_restart"))
+    return redirect(url_for("rates"))
+
+
+@app.post("/rates/mob_hp")
+@login_required
+def rates_mob_hp():
+    """How much health monsters, bosses and Metin stones have. mt2009 only: the
+    engine reads the event flag at a spawn and rescales every one standing when
+    it moves. The row is what a restart keeps; web_admin.quest's MOB_HP makes
+    it live."""
+    if not ENGINE_MT2009:
+        return redirect(url_for("rates"))
+    raw = (request.form.get("pct", "") or "").strip()
+    if not raw.isdigit() or not MOB_HP_MIN_PERCENT <= int(raw) <= MOB_HP_MAX_PERCENT:
+        flash(t("mh_range"), "error")
+        return redirect(url_for("rates"))
+    value = int(raw)
+    try:
+        with db() as c, c.cursor() as cur:
+            cur.execute("REPLACE INTO player.quest (dwPID, szName, szState, lValue) "
+                        "VALUES (0, %s, '', %s)", (MT2009_MOB_HP_FLAG, value))
+    except Exception:
+        flash(t("db_down"), "error")
+        return redirect(url_for("rates"))
+    try:
+        status, qid = queue_and_wait("", "MOB_HP", str(value), "", wait=RATES_LIVE_WAIT)
+    except Exception:
+        status, qid = "failed", 0
+    if status == "done":
+        flash(t("mh_saved_live"))
+    else:
+        if status == "timeout":
+            try:
+                with db() as c, c.cursor() as cur:
+                    cur.execute("UPDATE player.web_admin_queue SET status='cancelled' "
+                                "WHERE id=%s AND status='pending'", (qid,))
+            except Exception:
+                pass
+        flash(t("mh_saved_restart"))
     return redirect(url_for("rates"))
 
 
@@ -18525,7 +19447,7 @@ def ai_weights():
         # (r40250, or a tab opened before they existed) keeps the file's.
         for key in ("BATTLEPASS", "SASH", "ALCHEMY"):
             try:
-                vals[key] = max(0, min(100, int(request.form.get(key, old.get(key, 100)))))
+                vals[key] = max(0, min(250, int(request.form.get(key, old.get(key, 100)))))
             except (TypeError, ValueError):
                 vals[key] = old.get(key, 100)
         try:
@@ -19501,45 +20423,203 @@ def crash_list():
     return jsonify(count=len(out), reports=out)
 
 # ---------------- Player registration & account ----------------
+#
+# The supporters' password (M2_REGISTER_ACCESS_CODE in .env). Empty: the page is
+# the ordinary registration form and nothing below changes a thing. Set: nobody
+# gets an account without typing it, and the page becomes the supporters'
+# sign-up page -- in Polish, because that is who it is for.
+#
+# Read from the environment on every request rather than once at import, so a
+# panel started before the operator set it cannot end up enforcing a stale one.
+def register_access_code():
+    return os.environ.get("M2PANEL_REGISTER_ACCESS_CODE", "").strip()
+
+def register_code_matches(sent, real):
+    """Constant time, and blind to the length too: both sides are hashed to the
+    same size before they are compared."""
+    a = hashlib.sha256(sent.encode("utf-8", "replace")).digest()
+    b = hashlib.sha256(real.encode("utf-8", "replace")).digest()
+    return hmac.compare_digest(a, b)
+
+# Wrong guesses. Per address: five in a quarter of an hour, then that address is
+# refused -- even with the right password, or a lockout would still answer
+# "yes" and be no lockout at all. Across all addresses: a ceiling per hour, so
+# guessing from many addresses at once stops too. Every wrong guess also costs
+# the guesser a second. What this bounds is the rate; the strength comes from
+# the password, which is why .env.example asks for ten characters or more.
+REG_CODE_IP_FAILS, REG_CODE_IP_WINDOW = 5, 900
+REG_CODE_ALL_FAILS, REG_CODE_ALL_WINDOW = 200, 3600
+_REG_CODE_FAILS = {}
+_REG_CODE_LOCK = threading.Lock()
+
+def _reg_code_prune(now):
+    for ip in list(_REG_CODE_FAILS):
+        kept = [ts for ts in _REG_CODE_FAILS[ip] if now - ts < REG_CODE_ALL_WINDOW]
+        if kept:
+            _REG_CODE_FAILS[ip] = kept
+        else:
+            del _REG_CODE_FAILS[ip]
+
+def register_code_blocked(ip):
+    now = time.time()
+    with _REG_CODE_LOCK:
+        _reg_code_prune(now)
+        mine = [ts for ts in _REG_CODE_FAILS.get(ip, []) if now - ts < REG_CODE_IP_WINDOW]
+        total = sum(len(v) for v in _REG_CODE_FAILS.values())
+    return len(mine) >= REG_CODE_IP_FAILS or total >= REG_CODE_ALL_FAILS
+
+def register_code_failed(ip):
+    with _REG_CODE_LOCK:
+        _REG_CODE_FAILS.setdefault(ip, []).append(time.time())
+        total = sum(len(v) for v in _REG_CODE_FAILS.values())
+    if total == REG_CODE_ALL_FAILS:
+        app.logger.warning("register: %d wrong supporters' passwords within an hour; "
+                           "the form refuses every password until they age out", total)
+
+def reg_msg(key):
+    """A message for the registration page: Polish when the supporters' page is
+    on (the whole page is Polish), otherwise in the visitor's language."""
+    if register_access_code():
+        return REG_SUP_MSG.get(key) or T.get(key, {}).get("pl") or t(key)
+    return t(key)
+
+REG_SUP_MSG = {
+    "reg_code_missing": "Wpisz hasło dla wspierających — bez niego nie założysz konta. "
+                        "Znajdziesz je na kanale dla wspierających.",
+    "reg_code_wrong":   "To nie jest poprawne hasło dla wspierających. Sprawdź, czy przepisałeś "
+                        "je dokładnie (wielkość liter ma znaczenie).",
+    "reg_code_locked":  "Za dużo błędnych prób hasła dla wspierających. Odczekaj 15 minut "
+                        "i spróbuj ponownie.",
+    "csrf_bad":         "Formularz wygasł albo nie przyszedł z tej strony. Wypełnij go jeszcze raz.",
+}
+
+# What the page tells a player to type into MT2009-Aktualizator ("Dodaj własny
+# serwer VPS"): the address and the two ports. The ports are the ones this
+# stack publishes (compose passes M2_CLIENT_AUTH_PORT / M2_AUTH_PORT and the
+# first port of M2_GAME_PORT_RANGE). The address, unless the operator names one,
+# is the one the player opened this page on -- the game runs on the same
+# machine, and unlike M2_PUBLIC_ADDRESS it cannot be left behind when a server
+# moves. A loopback or LAN address says nothing to anybody else, so then the
+# configured one is shown instead.
+def _is_public_host(host):
+    if not host or host == "localhost" or "." not in host and ":" not in host:
+        return False
+    try:
+        import ipaddress
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return True                    # a domain name
+    return not (ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_unspecified)
+
+def register_game_info():
+    host = (request.host or "").strip()
+    if host.startswith("["):
+        host = host[1:].split("]", 1)[0]
+    elif host.count(":") == 1:
+        host = host.rsplit(":", 1)[0]
+    named = os.environ.get("M2PANEL_REGISTER_GAME_ADDRESS", "").strip()
+    conf = os.environ.get("M2PANEL_GAME_ADDRESS", "").strip()
+    if named:
+        address = named
+    elif _is_public_host(host):
+        address = host
+    else:
+        address = conf or host
+
+    def _port(raw, default):
+        m = re.match(r"\s*(\d{1,5})", raw or "")
+        return int(m.group(1)) if m and 0 < int(m.group(1)) < 65536 else default
+    return {
+        "address": address,
+        "login_port": _port(os.environ.get("M2PANEL_LOGIN_PORT"), 11000),
+        "channel_port": _port(os.environ.get("M2PANEL_GAME_PORT_RANGE"), 13000),
+    }
+
+# The page's own pictures. Served from /register itself, with a query string,
+# because a public server may let exactly that one path through its gate
+# (nginx "location = /register") and nothing else -- not /static, not even
+# /favicon.ico. A fixed list: the name picks an entry, it is never a path.
+REGISTER_ASSETS = {
+    "tlo":   (os.path.join(_HERE, "register_assets", "mt2009plus-tlo.webp"), "image/webp"),
+    "ikona": (FAVICON, "image/png"),
+}
+
+def _register_asset(name):
+    entry = REGISTER_ASSETS.get(name)
+    if not entry or not os.path.exists(entry[0]):
+        return ("", 404)
+    resp = send_file(entry[0], mimetype=entry[1], conditional=True)
+    resp.headers["Cache-Control"] = "public, max-age=604800"
+    return resp
+
+def _render_register(form, done=False):
+    if register_access_code():
+        return render_template_string(TPL_REG_SUPPORTERS, form=form, done=done,
+                                      game=register_game_info(), client_url=CLIENT_URL)
+    return render_template_string(TPL_REGISTER, form=form)
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    if request.method == "GET" and request.args.get("asset"):
+        return _register_asset(request.args.get("asset", ""))
     form = {"login": "", "social": ""}
+    code = register_access_code()
     if request.method == "POST":
+        if code:
+            # First, before anything else is looked at: a locked-out address
+            # learns nothing, not even whether this guess would have been right.
+            ip = request.remote_addr or "?"
+            form = {"login": request.form.get("login", "").strip()[:32],
+                    "social": request.form.get("social", "").strip()[:16]}
+            if register_code_blocked(ip):
+                flash(reg_msg("reg_code_locked"), "error")
+                return _render_register(form)
+            sent = request.form.get("access_code", "").strip()
+            if not sent:
+                flash(reg_msg("reg_code_missing"), "error")
+                return _render_register(form)
+            if not register_code_matches(sent, code):
+                register_code_failed(ip)
+                time.sleep(1.0)
+                flash(reg_msg("reg_code_wrong"), "error")
+                return _render_register(form)
         if rate_limited("register", 3, 3600):
-            flash(t("reg_too_many"), "error")
-            return render_template_string(TPL_REGISTER, form=form)
+            flash(reg_msg("reg_too_many"), "error")
+            return _render_register(form)
         lg = request.form.get("login", "").strip()
         pw = request.form.get("pw", "")
         pw2 = request.form.get("pw2", "")
         social = request.form.get("social", "").strip()
         form = {"login": lg, "social": social}
         if not (4 <= len(lg) <= 16 and lg.isalnum()):
-            flash(t("reg_bad_user"), "error")
+            flash(reg_msg("reg_bad_user"), "error")
         elif len(pw) < 6:
-            flash(t("reg_bad_pw"), "error")
+            flash(reg_msg("reg_bad_pw"), "error")
         elif pw != pw2:
-            flash(t("reg_pw_mismatch"), "error")
+            flash(reg_msg("reg_pw_mismatch"), "error")
         elif not (social.isdigit() and len(social) == 7):
-            flash(t("reg_bad_social"), "error")
+            flash(reg_msg("reg_bad_social"), "error")
         else:
             try:
                 with db() as c, c.cursor() as cur:
                     cur.execute("SELECT 1 FROM account.account WHERE login=%s", (lg,))
                     if cur.fetchone():
-                        flash(t("reg_name_taken"), "error")
-                        return render_template_string(TPL_REGISTER, form=form)
+                        flash(reg_msg("reg_name_taken"), "error")
+                        return _render_register(form)
                     cur.execute(
                         "INSERT INTO account.account (login,password,social_id,status) "
                         "VALUES (%s,%s,%s,'OK')",
                         (lg, m2_hash(pw), social))
+                if code:
+                    return _render_register({"login": lg, "social": ""}, done=True)
                 return render_template_string(TPL_REG_DONE,
                                               client_ready=os.path.exists(CLIENT_ZIP),
                                               client_url=CLIENT_URL,
                                               browser_ready=browser_play_ready(),
                                               play_url=play_url())
             except Exception:
-                flash(t("reg_failed"), "error")
-    return render_template_string(TPL_REGISTER, form=form)
+                flash(reg_msg("reg_failed"), "error")
+    return _render_register(form)
 
 @app.route("/account", methods=["GET", "POST"])
 def account():
@@ -19624,22 +20704,55 @@ def dash():
     # "/" stays the dashboard you reach by entering the passphrase.
     if local_open() and request.path == "/":
         return redirect(url_for("login"))
+    # MT2009_PLUS_BOT_SESSIONS_V1: "Tylko boty": every bot with its state now
+    # - in the game, resting until when, or out (the operator, 30 September) -
+    # in that order.
+    bots_only = request.args.get("who") == "bots"
+    bot_counts = None
     try:
         with db() as c, c.cursor() as cur:
-            cur.execute("SELECT p.id, p.name, p.job, p.level, p.gold, p.last_play, "
-                        "a.login AS account "
-                        "FROM player.player p "
-                        "LEFT JOIN account.account a ON a.id = p.account_id "
-                        # People first, then the bots that fit: the list is
-                        # filtered in the browser, and a filter over the two
-                        # hundred most recent characters found nobody's own
-                        # once fifteen hundred bots had played more recently.
-                        "ORDER BY (a.login LIKE 'playerbot_%'), p.last_play DESC LIMIT 200")
+            if bots_only:
+                cur.execute("SELECT p.id, p.name, p.job, p.level, p.gold, p.last_play, "
+                            "a.login AS account "
+                            "FROM player.player p "
+                            "JOIN account.account a ON a.id = p.account_id "
+                            "WHERE LEFT(a.login, 10) = 'playerbot_' "
+                            "ORDER BY p.last_play DESC LIMIT %s", (BOT_LIST_LIMIT,))
+            else:
+                cur.execute("SELECT p.id, p.name, p.job, p.level, p.gold, p.last_play, "
+                            "a.login AS account "
+                            "FROM player.player p "
+                            "LEFT JOIN account.account a ON a.id = p.account_id "
+                            # People first, then the bots that fit: the list is
+                            # filtered in the browser, and a filter over the two
+                            # hundred most recent characters found nobody's own
+                            # once fifteen hundred bots had played more recently.
+                            "ORDER BY (a.login LIKE 'playerbot_%'), p.last_play DESC LIMIT 200")
             players = cur.fetchall()
+            states = bot_list_states(cur, [p["id"] for p in players
+                                           if str(p.get("account") or "").startswith("playerbot_")])
         # 'recently in the game' marker: last_play within the last 10 minutes.
         # The game stamps it at login/logout, so this is honest about what it
         # knows - the tooltip says 'was in the game', not 'is online'.
         now = datetime.datetime.now()
+        for p in players:
+            kind, value = states.get(p["id"], (None, None))
+            p["state"] = kind
+            if kind == "in":
+                p["state_text"] = t("ss_list_in").format(channel=value)
+            elif kind == "rest":
+                p["state_text"] = t("ss_list_rest").format(until=fmt_session_moment(value, now))
+            elif kind == "out":
+                p["state_text"] = t("ss_list_out")
+            else:
+                p["state_text"] = ""
+        if bots_only:
+            order = {"in": 0, "rest": 1, "out": 2}
+            players = sorted(players, key=lambda p: order.get(p["state"], 3))
+            bot_counts = {"total": len(players),
+                          "in_game": sum(1 for p in players if p["state"] == "in"),
+                          "resting": sum(1 for p in players if p["state"] == "rest"),
+                          "out": sum(1 for p in players if p["state"] == "out")}
         for p in players:
             lp = p.get("last_play")
             # A character who has never played carries MySQL's zero date,
@@ -19660,7 +20773,7 @@ def dash():
         app.logger.exception("dashboard query failed")
         flash(t("db_down"), "error")
         players = []
-    return render_template_string(TPL_DASH, players=players,
+    return render_template_string(TPL_DASH, players=players, bots_only=bots_only, bot_counts=bot_counts,
                                   emoji=lambda j: JOB_EMOJI.get(j, "🧑"),
                                   jobname=class_name, engine_mt2009=ENGINE_MT2009)
 
@@ -19672,6 +20785,204 @@ ITEM_WINDOW_KEYS = {
     "dragon_soul_inventory": "win_dragon_soul", "belt_inventory": "win_belt",
     "ikashop_offlineshop": "win_offlineshop",
 }
+
+# MT2009_PLUS_BOT_SESSIONS_V1: a bot's sessions (the operator, 30 September:
+# "czy przy kazdym bocie mozemy podejrzec ich godziny gry kiedy grali i czy
+# sa online"), from log.playerbot_session, which the game core writes
+# (playerbot_session.h): a row a session, opened as the bot comes into the
+# world and closed as it leaves, with why and - for a rest - until when. The
+# reasons are playerbot_session_rules.h's numbers, which never change (8,
+# "koniec gry", is this project's own).
+SESSION_DAYS = 7
+SESSION_LOGOUT_REST = 1
+# An open session the status files do not show is still believed while its
+# core's heartbeat (every five minutes) is this fresh.
+SESSION_OPEN_FRESH_SECONDS = 11 * 60
+# "Tylko boty" lists every bot of a world, both channels' thousands.
+BOT_LIST_LIMIT = 10000
+
+
+def read_bot_sessions(cur, pid, days=SESSION_DAYS):
+    """The bot's sessions that touch the last `days` days, newest first, the
+    table's state ("ok", "missing", "error") and the database's own now -
+    the rows are the database's clock, not this container's."""
+    rows, state = _explain_rows(
+        cur,
+        "SELECT login_at, channel, core, login_reason, seen_at, logout_at, logout_reason, rest_until "
+        "FROM log.playerbot_session WHERE pid = %s "
+        "AND (logout_at IS NULL OR logout_at >= NOW() - INTERVAL %s DAY) "
+        "ORDER BY login_at DESC LIMIT 300", (pid, days))
+    now = None
+    try:
+        cur.execute("SELECT NOW() AS now")
+        found = cur.fetchone()
+        now = found and found.get("now")
+    except Exception:
+        now = None
+    if not isinstance(now, datetime.datetime):
+        now = datetime.datetime.now()
+    return rows, state, now
+
+
+def summarize_bot_sessions(rows, now, live=None, days=SESSION_DAYS):
+    """The card's facts from the rows, newest first: the sessions with their
+    end - the newest open one runs to now while the status files show the
+    bot or its core said it was there a few minutes ago, any other open one
+    ended where it was last seen, why unknown -; the state now ("in", "rest",
+    "out", "none"); a strip for each of the last `days` days, today first,
+    each session's stretch of it in per cent of the day; and the seconds
+    played in those days."""
+    sessions = []
+    for r in rows:
+        start = r.get("login_at")
+        if not isinstance(start, datetime.datetime):
+            continue
+        end = r.get("logout_at")
+        seen = r.get("seen_at")
+        if not isinstance(seen, datetime.datetime):
+            seen = start
+        ongoing = False
+        if not isinstance(end, datetime.datetime):
+            if not sessions and (live or (now - seen).total_seconds() <= SESSION_OPEN_FRESH_SECONDS):
+                end, ongoing = now, True
+            else:
+                end = seen
+        end = max(end, start)
+        rest = r.get("rest_until")
+        sessions.append({
+            "start": start, "end": end, "ongoing": ongoing,
+            "channel": int(r.get("channel") or 0),
+            "login": int(r.get("login_reason") or 0),
+            "logout": 0 if ongoing else int(r.get("logout_reason") or 0),
+            "rest_until": rest if isinstance(rest, datetime.datetime) else None,
+            "seconds": int((end - start).total_seconds()),
+        })
+    latest = sessions[0] if sessions else None
+    if live:
+        state = {"kind": "in", "channel": int(live.get("channel") or (latest["channel"] if latest else 0)),
+                 "since": latest["start"] if latest and latest["ongoing"] else None}
+    elif latest and latest["ongoing"]:
+        state = {"kind": "in", "channel": latest["channel"], "since": latest["start"]}
+    elif (latest and latest["logout"] == SESSION_LOGOUT_REST and latest["rest_until"]
+          and latest["rest_until"] > now):
+        state = {"kind": "rest", "until": latest["rest_until"], "since": latest["end"]}
+    elif latest:
+        state = {"kind": "out", "since": latest["end"], "reason": latest["logout"]}
+    else:
+        state = {"kind": "none"}
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    strips = []
+    week = 0
+    for back in range(days):
+        day0 = today - datetime.timedelta(days=back)
+        day1 = day0 + datetime.timedelta(days=1)
+        segments, total = [], 0
+        for s in reversed(sessions):
+            a, b = max(s["start"], day0), min(s["end"], day1)
+            if b <= a:
+                continue
+            seconds = (b - a).total_seconds()
+            total += seconds
+            segments.append({"left": round(100.0 * (a - day0).total_seconds() / 86400.0, 3),
+                             "width": round(max(100.0 * seconds / 86400.0, 0.35), 3),
+                             "start": a, "end": b, "ongoing": s["ongoing"] and b >= s["end"]})
+        strips.append({"day": day0, "segments": segments, "seconds": int(total)})
+        week += total
+    return {"state": state, "sessions": sessions, "strips": strips, "week_seconds": int(week), "now": now}
+
+
+def fmt_session_duration(seconds):
+    hours, minutes = divmod(max(0, int(seconds)) // 60, 60)
+    if hours:
+        return t("ss_h_min").format(h=hours, m="%02d" % minutes)
+    return t("ss_min").format(m=minutes)
+
+
+def fmt_session_moment(when, now):
+    """"dzis 14:05", "wczoraj 09:12", "jutro 03:40" or "28.09 14:05"."""
+    if not isinstance(when, datetime.datetime):
+        return "—"
+    shift = (when.date() - now.date()).days
+    day = {0: t("ss_today"), -1: t("ss_yesterday"), 1: t("ss_tomorrow")}.get(shift, when.strftime("%d.%m"))
+    return "%s %s" % (day, when.strftime("%H:%M"))
+
+
+def bot_sessions_view(rows, table_state, now, live=None, playtime_minutes=None):
+    """The "Sesje gry" card as words in the page's language."""
+    facts = summarize_bot_sessions(rows, now, live)
+    state = facts["state"]
+    if state["kind"] == "in" and state.get("since"):
+        state_text = t("ss_state_in").format(since=fmt_session_moment(state["since"], now), channel=state["channel"])
+    elif state["kind"] == "in":
+        state_text = t("ss_state_in_now").format(channel=state["channel"])
+    elif state["kind"] == "rest":
+        state_text = t("ss_state_rest").format(until=fmt_session_moment(state["until"], now),
+                                               since=fmt_session_moment(state["since"], now))
+    elif state["kind"] == "out":
+        state_text = t("ss_state_out").format(since=fmt_session_moment(state["since"], now),
+                                              why=t("ss_out_%d" % state["reason"]) if ("ss_out_%d" % state["reason"]) in T else t("ss_out_0"))
+    else:
+        state_text = t("ss_state_none")
+    strips = []
+    for strip in facts["strips"]:
+        shift = (strip["day"].date() - now.date()).days
+        label = {0: t("ss_today"), -1: t("ss_yesterday")}.get(shift, strip["day"].strftime("%d.%m"))
+        strips.append({
+            "label": label,
+            "total": fmt_session_duration(strip["seconds"]) if strip["seconds"] else "",
+            "segments": [{"left": s["left"], "width": s["width"], "ongoing": s["ongoing"],
+                          "title": "%s–%s (%s)" % (s["start"].strftime("%H:%M"),
+                                                   t("ss_ongoing") if s["ongoing"] else s["end"].strftime("%H:%M"),
+                                                   fmt_session_duration((s["end"] - s["start"]).total_seconds()))}
+                         for s in strip["segments"]],
+        })
+    table = []
+    for s in facts["sessions"][:50]:
+        login = t("ss_in_%d" % s["login"]) if ("ss_in_%d" % s["login"]) in T else t("ss_in_0")
+        if s["ongoing"]:
+            logout = t("ss_ongoing")
+        else:
+            logout = t("ss_out_%d" % s["logout"]) if ("ss_out_%d" % s["logout"]) in T else t("ss_out_0")
+            if s["logout"] == SESSION_LOGOUT_REST and s["rest_until"]:
+                logout = t("ss_rest_until").format(until=fmt_session_moment(s["rest_until"], now))
+        table.append({
+            "start": fmt_session_moment(s["start"], now),
+            "end": t("ss_ongoing") if s["ongoing"] else fmt_session_moment(s["end"], now),
+            "length": fmt_session_duration(s["seconds"]),
+            "channel": s["channel"] or "—",
+            "why": "%s → %s" % (login, logout),
+        })
+    total_text = ""
+    if playtime_minutes:
+        total_text = t("ss_total").format(played=fmt_session_duration(int(playtime_minutes) * 60))
+    return {
+        "table_state": table_state, "state_text": state_text, "state": state["kind"],
+        "week_text": t("ss_week").format(played=fmt_session_duration(facts["week_seconds"])),
+        "total_text": total_text, "strips": strips, "rows": table,
+    }
+
+
+def bot_list_states(cur, pids):
+    """Each bot's state for the list of characters: in the game (the status
+    files, with its channel), resting until when (a rest the database holds
+    and the status files do not contradict), or out - {pid: (kind, value)}."""
+    live = read_playerbot_live_status()
+    resting = {}
+    if ENGINE_MT2009 and pids:
+        rows, _state = _explain_rows(
+            cur, "SELECT pid, MAX(rest_until) AS rest_until FROM log.playerbot_session "
+                 "WHERE rest_until > NOW() AND logout_reason = %s GROUP BY pid", (SESSION_LOGOUT_REST,))
+        resting = {int(r["pid"]): r["rest_until"] for r in rows if r.get("pid")}
+    out = {}
+    for pid in pids:
+        if pid in live:
+            out[pid] = ("in", live[pid].get("channel") or 1)
+        elif pid in resting:
+            out[pid] = ("rest", resting[pid])
+        else:
+            out[pid] = ("out", None)
+    return out
+
 
 @app.route("/player/<int:pid>")
 @login_required
@@ -19699,7 +21010,22 @@ def player(pid):
                    for r in cur.fetchall()]
     except Exception:
         inv = None
-    return render_template_string(TPL_PLAYER, p=p, inv=inv,
+    # MT2009_PLUS_BOT_SESSIONS_V1: a bot's hours of play; the game core
+    # writes them (playerbot_session.h).
+    sessions = None
+    if ENGINE_MT2009:
+        try:
+            with db() as c, c.cursor() as cur:
+                cur.execute(bot_sql("SELECT <<BOT_P_2>> AS bot FROM player.player p WHERE p.id = %s"), (pid,))
+                found = cur.fetchone()
+                if found and any(found.values()):
+                    rows, table_state, now = read_bot_sessions(cur, pid)
+                    sessions = bot_sessions_view(rows, table_state, now,
+                                                 read_playerbot_live_status().get(pid), p.get("playtime"))
+        except Exception:
+            app.logger.exception("bot sessions of %s", pid)
+            sessions = None
+    return render_template_string(TPL_PLAYER, p=p, inv=inv, sessions=sessions,
                                   emoji=lambda j: JOB_EMOJI.get(j, "🧑"),
                                   WINDOW_KEYS=ITEM_WINDOW_KEYS,
                                   cats=CATS,

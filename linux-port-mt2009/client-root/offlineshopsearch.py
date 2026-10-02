@@ -990,8 +990,9 @@ class ShopSearchWindow(ui.ScriptWindow):
 
 
 class FleaMarketQuantityDialog(ui.BoardWithTitleBar):
-	# A small stock-UI dialog for a listing that is a stack. The amount is
-	# always the offer's own, and the Dom Towarowy buys a stack whole.
+	# A small stock-UI dialog for a listing that is a stack: how many of it to
+	# buy, one to begin with and the whole stack at most (Uxie [DSO]'s part of
+	# a stack, 30 September).
 	def __init__(self, market):
 		ui.BoardWithTitleBar.__init__(self)
 		self.market = proxy(market)
@@ -1074,7 +1075,7 @@ class FleaMarketQuantityDialog(ui.BoardWithTitleBar):
 		self.data = data
 		self.itemLine.SetText(self.market.GetItemName(data))
 		self.availableLine.SetText("W stacku jest: %d szt." % data["count"])
-		self.quantityEdit.SetText(str(data["count"]))
+		self.quantityEdit.SetText("1")
 		self.__UpdatePrice()
 		self.Show()
 		self.SetTop()
