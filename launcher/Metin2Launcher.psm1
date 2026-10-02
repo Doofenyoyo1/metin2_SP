@@ -461,6 +461,28 @@ function Test-M2FileInUse {
     return $false
 }
 
+function Invoke-M2FileRetry {
+    # MT2009_PLUS_UPDATE_RETRY_V1: a file the antivirus (or Docker Desktop's
+    # file sharing) holds open for a moment - "Proces nie moze uzyskac dostepu
+    # do pliku, poniewaz jest on uzywany przez inny proces" on a different,
+    # random file at every try (JaroszV2, 30 September: 41083.png,
+    # playerbot_combat_value_policy.h, 02120.png, 86012.png). One such file used
+    # to end the whole update; now the same copy is tried again up to eight
+    # times, 0.5 s apart, and only a file still held after ~4 s stops it.
+    param([Parameter(Mandatory = $true)][scriptblock]$Action)
+
+    for ($attempt = 1; ; $attempt++) {
+        try {
+            & $Action
+            return
+        }
+        catch {
+            if ($attempt -ge 8 -or -not (Test-M2FileInUse -ErrorRecord $_)) { throw }
+            Start-Sleep -Milliseconds 500
+        }
+    }
+}
+
 function New-M2FileInUseError {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -675,7 +697,9 @@ function Expand-M2SafeZip {
                 # a nie cala paczke: skaner sprawdza plik przy zamknieciu uchwytu,
                 # wiec to tutaj wychodzi na jaw.
                 try {
-                    $output = [IO.File]::Open($target, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::None)
+                    $output = $null
+                    Invoke-M2FileRetry { $script:m2RetryOut = [IO.File]::Open($target, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::None) }
+                    $output = $script:m2RetryOut
                     try { $input.CopyTo($output) } finally { $output.Dispose() }
                 }
                 catch {
@@ -784,7 +808,7 @@ function Invoke-M2PackageUpdate {
             if ($change.Existed) {
                 $backupFile = Join-Path $backup $change.Relative
                 New-Item -ItemType Directory -Path (Split-Path -Parent $backupFile) -Force | Out-Null
-                Copy-Item -LiteralPath $change.Destination -Destination $backupFile -Force
+                Invoke-M2FileRetry { Copy-Item -LiteralPath $change.Destination -Destination $backupFile -Force }
             }
         }
 
@@ -798,7 +822,7 @@ function Invoke-M2PackageUpdate {
             foreach ($change in $changes) {
                 New-Item -ItemType Directory -Path (Split-Path -Parent $change.Destination) -Force | Out-Null
                 try {
-                    Copy-Item -LiteralPath $change.Source -Destination $change.Destination -Force
+                    Invoke-M2FileRetry { Copy-Item -LiteralPath $change.Source -Destination $change.Destination -Force }
                 }
                 catch {
                     if (Test-M2AntivirusBlock -ErrorRecord $_) {
@@ -1471,7 +1495,7 @@ function New-M2SupportBundle {
                 if ($core -like 'ch2-*') { $coreDir = '/opt/metin2/var/channel2/' + $core.Substring(4) }
                 Invoke-M2CapturedCommand -OutputPath (Join-Path $work ('playerbot-syslog-' + $core + '.txt')) -Command {
                     docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c `
-                        ('for f in ' + $coreDir + '/log/*/syslog.* ' + $coreDir + '/syslog; do [ -f $f ] && tail -n 400000 $f; done 2>/dev/null | grep -a -e PLAYERBOT_WORLD -e PLAYERBOT_PORTAL -e PLAYERBOT_NAV -e PLAYERBOT_WATCHDOG -e PLAYERBOT_GOAL -e PLAYERBOT_LOAD -e PLAYERBOT_SHOP -e PLAYERBOT_TOWN -e PLAYERBOT_DEPARTURE -e PLAYERBOT_HORSE -e PLAYERBOT_MONKEY -e PLAYERBOT_AUTH -e PLAYERBOT_CHANNEL -e PLAYERBOT_SERVICE -e PLAYERBOT_CONFIG -e PLAYERBOT_EVENT -e PLAYERBOT_LIFE -e PLAYERBOT_CHEST -e PLAYERBOT_COMBAT -e PLAYERBOT_STOCK -e PLAYERBOT_GUILD -e PLAYERBOT_TOWER -e PLAYERBOT_CATACOMB -e PLAYERBOT_ISHOP -e PLAYERBOT_OFFLINE -e PLAYERBOT_MARKET -e PLAYERBOT_BAG -e INVENTORY_ARRANGE -e PLAYERBOT_AI -e PLAYERBOT_ECONOMY -e PLAYERBOT_PVP -e PLAYERBOT_LOOT -e PLAYERBOT_MOOD -e PLAYERBOT_PERSONA -e PLAYERBOT_ANTIPK -e PLAYERBOT_MERC -e PLAYERBOT_LPP -e PLAYERBOT_ALCHEMIST -e PLAYERBOT_METIN:.detector -e PLAYERBOT_BONUS -e PLAYERBOT_PARTY:.accepted -e PLAYERBOT_PARTY:.asked -e PLAYERBOT_LURE:.order -e PLAYERBOT_LURE:.pack.handed -e PLAYERBOT_LURE:.waiting -e PLAYERBOT_CONV -e PLAYERBOT_CHAT -e PLAYERBOT_SUMMON -e PLAYERBOT_SIDEKICK -e PLAYERBOT_EXPLAIN -e CAPE_PULL -e FLEA_MARKET -e QUEST_ITEM -e GMPANEL -e GM_PROFILE -e autospawn | tail -n 40000')
+                        ('for f in ' + $coreDir + '/log/*/syslog.* ' + $coreDir + '/syslog; do [ -f $f ] && tail -n 400000 $f; done 2>/dev/null | grep -a -e PLAYERBOT_WORLD -e PLAYERBOT_PORTAL -e PLAYERBOT_NAV -e PLAYERBOT_WATCHDOG -e PLAYERBOT_GOAL -e PLAYERBOT_LOAD -e PLAYERBOT_SHOP -e PLAYERBOT_TOWN -e PLAYERBOT_DEPARTURE -e PLAYERBOT_HORSE -e PLAYERBOT_MONKEY -e PLAYERBOT_AUTH -e PLAYERBOT_CHANNEL -e PLAYERBOT_SERVICE -e PLAYERBOT_CONFIG -e PLAYERBOT_EVENT -e PLAYERBOT_LIFE -e PLAYERBOT_CHEST -e PLAYERBOT_COMBAT -e PLAYERBOT_STOCK -e PLAYERBOT_GUILD -e PLAYERBOT_TOWER -e PLAYERBOT_CATACOMB -e PLAYERBOT_ISHOP -e PLAYERBOT_OFFLINE -e PLAYERBOT_MARKET -e PLAYERBOT_BAG -e INVENTORY_ARRANGE -e PLAYERBOT_AI -e PLAYERBOT_ECONOMY -e PLAYERBOT_PVP -e PLAYERBOT_LOOT -e PLAYERBOT_MOOD -e PLAYERBOT_PERSONA -e PLAYERBOT_ANTIPK -e PLAYERBOT_MERC -e PLAYERBOT_LPP -e PLAYERBOT_ALCHEMIST -e PLAYERBOT_METIN:.detector -e PLAYERBOT_BONUS -e PLAYERBOT_PARTY:.accepted -e PLAYERBOT_PARTY:.asked -e PLAYERBOT_LURE:.order -e PLAYERBOT_LURE:.pack.handed -e PLAYERBOT_LURE:.waiting -e PLAYERBOT_CONV -e PLAYERBOT_CHAT -e PLAYERBOT_SUMMON -e PLAYERBOT_SIDEKICK -e PLAYERBOT_EXPLAIN -e CAPE_PULL -e FLEA_MARKET -e MOB_HP -e QUEST_ITEM -e GMPANEL -e GM_PROFILE -e autospawn | tail -n 40000')
                 }
                 Invoke-M2CapturedCommand -OutputPath (Join-Path $work ('syserr-' + $core + '.txt')) -Command {
                     docker compose --project-directory $composeDir -f $composeFile exec -T game sh -c `

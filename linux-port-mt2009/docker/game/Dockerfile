@@ -223,7 +223,7 @@ RUN set -eux; \
     # and anti-experience ring (autohunt_time, antiexp_ring; 2.2.27).
     # pc.warp_channel for the panels' teleport to a bot on another channel
     # (web_admin; 2.2.42).
-    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.is_playerbot affect.get_duration pc.has_affect pc.warp_channel; do \
+    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.is_playerbot affect.get_duration pc.has_affect pc.warp_channel game.get_catchking_score game.get_catchking_myscore game.catchking_claim_reward game.catchking_use_item game.catchking_deliver; do \
       grep -qx "$fn" /tmp/qc-work/quest_functions || echo "$fn" >> /tmp/qc-work/quest_functions; \
     done; \
     # pony_levelup is the package's own stable-keeper quest with the 18-hour
@@ -269,7 +269,21 @@ RUN set -eux; \
     # bosses of the open maps (MT2009_PLUS_DUNGEON_PANEL_V1, playerbot_dungeon_panel.h).
     # wzgorze_wukonga, ruiny_skorpiona and starozytna_dzungla are the Arezzo dungeons 364-366
     # (MT2009_PLUS_AREZZO_V1, phases 5-7).
-    for q in web_admin speed_boost starter_chest pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears acce_costume_uriel ah_yu_shop costume_bonus_transfer dragon_soul dragon_soul_refine dragon_soul_shop autohunt_time antiexp_ring seon_pyeong flea_market temple_of_the_ochao razador_dungeon nemere_dungeon goblin_skarbow biblioteka_wiedzy map_warp dungeon_panel wzgorze_wukonga ruiny_skorpiona starozytna_dzungla; do \
+    # blue_dragon_lair is the Blue Dragon lair (map 208) entered at the Sura's Ghost in the Grotto of
+    # Exile V2 (MT2009_PLUS_BLUE_DRAGON_V1).
+    # seonhae opens Seon-Hae's 6th/7th bonus window at 20095 while m2_seonhae_on is set
+    # (MT2009_PLUS_SEONHAE_V1, playerbot_seonhae.h).
+    # minigame_rumi is the Okey table (20417) of Owsap's Rumi: rankings, the top ten's prize, the
+    # chests a left game owes (MT2009_PLUS_RUMI_V1, playerbot_rumi.h).
+    # minigame_catchking is Catch the King's table NPC (20506: the prizes, the ranking, the top-10
+    # prize), its King Card and King Deck used from the bag and a left game's Loot at login
+    # (MT2009_PLUS_CATCH_KING_V1, playerbot_catchking.h; the game functions are added above).
+    # minigame_yutnori is the Yut Nori table's menu (20502): the ranking, its prizes and the
+    # game's window (MT2009_PLUS_YUTNORI_V1, playerbot_yutnori.h).
+    # starter_kit dresses a player's new character in the world's starter kit,
+    # M2_STARTER_KIT (the operator, 30 September, on Iwakura's proposal); the
+    # seed dresses the bots it makes.
+    for q in web_admin speed_boost starter_chest starter_kit pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears acce_costume_uriel ah_yu_shop costume_bonus_transfer dragon_soul dragon_soul_refine dragon_soul_shop autohunt_time antiexp_ring seon_pyeong flea_market temple_of_the_ochao razador_dungeon nemere_dungeon blue_dragon_lair goblin_skarbow biblioteka_wiedzy map_warp dungeon_panel wzgorze_wukonga ruiny_skorpiona starozytna_dzungla seonhae minigame_rumi minigame_catchking minigame_yutnori; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \
@@ -353,21 +367,62 @@ COPY src/serverfiles/share/package /opt/metin2/share/package
 #    1 000 000 - 10 000 000 yang instead of the stock 10 000 - 50 000.
 #  * special_item_group.dungeons.txt - the Razador (50270) and Nemere (50271)
 #    boss chests the two dungeons' quests hand out (MT2009_PLUS_BOSS_CHESTS_V1).
-COPY special_item_group.moonlight.custom*.txt mob_drop_item.m3.append.txt special_item_group.moonlight.txt special_item_group.starter.txt special_item_group.cors.txt special_item_group.dungeons.txt special_item_group.goblin.txt /tmp/share-add/
+#  * special_item_group.rumi.txt - the Okey chests of Owsap's Rumi (50267-50269,
+#    50275-50277) and their pools 950401-950403 (MT2009_PLUS_RUMI_V1).
+#  * special_item_group.catchking.txt - Catch the King's three King's Loots
+#    (50968-50970, MT2009_PLUS_CATCH_KING_V1).
+COPY special_item_group.moonlight.custom*.txt mob_drop_item.m3.append.txt special_item_group.moonlight.txt special_item_group.starter.txt special_item_group.cors.txt special_item_group.dungeons.txt special_item_group.goblin.txt special_item_group.rumi.txt special_item_group.catchking.txt /tmp/share-add/
 RUN set -eu; L=/opt/metin2/share/locale/poland \
  && for f in /tmp/share-add/*.txt; do sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/$/\r/' "$f"; done \
  && m=/tmp/share-add/special_item_group.moonlight.txt; c=/tmp/share-add/special_item_group.moonlight.custom.txt \
  && if [ -s "$c" ]; then grep -q -E '^[[:blank:]]*Vnum[[:blank:]]+50011[[:space:]]*$' "$c" || { echo "FATAL: $c defines no Vnum 50011" >&2; exit 1; }; m="$c"; echo "share: the operator's Moonlight chest"; fi \
  && cat /tmp/share-add/mob_drop_item.m3.append.txt >> "$L/mob_drop_item.txt" \
  && f="$L/special_item_group.txt" \
- && awk 'BEGIN{keep=1} /^Group/{blk=""; keep=1} {blk=blk $0 "\n"} /Vnum[ \t]+(50011|50187|50212|50213|50188|50189|50190|50191|50192|50193|50194|50195|50196|50186|50254|50256|50257|50258|50259|50270|50271|50023|515[0-9][0-9]|516[0-4][0-9])([^0-9]|$)/{keep=0} /^}/{ if (keep) printf "%s", blk; blk=""; keep=1 }' "$f" > "$f.new" \
- && cat "$m" /tmp/share-add/special_item_group.starter.txt /tmp/share-add/special_item_group.cors.txt /tmp/share-add/special_item_group.dungeons.txt /tmp/share-add/special_item_group.goblin.txt >> "$f.new" \
+ && awk 'BEGIN{keep=1} /^Group/{blk=""; keep=1} {blk=blk $0 "\n"} /Vnum[ \t]+(50011|50187|50212|50213|50188|50189|50190|50191|50192|50193|50194|50195|50196|50186|50254|50256|50257|50258|50259|50270|50271|50023|5026[789]|5027[567]|95040[123]|50968|50969|50970|515[0-9][0-9]|516[0-4][0-9])([^0-9]|$)/{keep=0} /^}/{ if (keep) printf "%s", blk; blk=""; keep=1 }' "$f" > "$f.new" \
+ && cat "$m" /tmp/share-add/special_item_group.starter.txt /tmp/share-add/special_item_group.cors.txt /tmp/share-add/special_item_group.dungeons.txt /tmp/share-add/special_item_group.goblin.txt /tmp/share-add/special_item_group.rumi.txt /tmp/share-add/special_item_group.catchking.txt >> "$f.new" \
+ && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+(50968|50969|50970)([^0-9]|$)' "$f.new")" = 3 \
  && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+(50270|50271)([^0-9]|$)' "$f.new")" = 2 \
  && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+(515[0-9][0-9]|516[0-4][0-9])([^0-9]|$)' "$f.new")" = 146 \
  && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+50023([^0-9]|$)' "$f.new")" = 1 \
+ && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+(5026[789]|5027[567]|95040[123])([^0-9]|$)' "$f.new")" = 9 \
  && mv "$f.new" "$f" \
  && rm -rf /tmp/share-add \
- && echo "share: moonlight + starter + boss chests, M3 drops appended"
+ && echo "share: moonlight + starter + boss chests + Okey chests, M3 drops appended"
+
+# MT2009_PLUS_DRAGON_NO_ROTTEN_CHEST_V1: Beran-Setaou / the Blue Dragon (2493) no longer drops the
+# Sprochniala Skrzynia (50124; the owner, 1 October). Its lines in the dragon's mob_drop_item groups
+# get a 0 chance (the group's numbering stays as it is); every other mob keeps the chest.
+RUN set -eu; F=/opt/metin2/share/locale/poland/mob_drop_item.txt \
+ && awk 'BEGIN{d=0} /^[[:blank:]]*Group/{d=0} /^[[:blank:]]*Mob[[:blank:]]+2493([^0-9]|$)/{d=1} { if (d && $2 == "50124" && $1 ~ /^[0-9]+$/) { sub(/[0-9.]+([[:blank:]]*(--.*)?\r?)$/, "0" substr($0, match($0, /[[:blank:]]*(--.*)?\r?$/))); n++ } print } END{ if (n < 1) { print "FATAL: no 50124 line under mob 2493" > "/dev/stderr"; exit 1 } }' "$F" > "$F.new" \
+ && mv "$F.new" "$F" \
+ && echo "share: 2493 no longer drops 50124"
+
+# MT2009_PLUS_FLOWER_V1: the Flower Event's five gift boxes (83023-83027, Pudelko z Chryzantema ..
+# ze Slonecznikiem; playerbot_flower.h gives them for 10 shoots of a flower), opened by their
+# special_item_group groups. Appended once; the Seban panel's "Szkatulki" page edits them like any
+# other chest (m2-chests). Their items and the five flowers 25121-25125 are mariadb/playerbot/apply.sh rows.
+COPY special_item_group.flower.txt /tmp/special_item_group.flower.txt
+RUN set -eu; f=/opt/metin2/share/locale/poland/special_item_group.txt; a=/tmp/special_item_group.flower.txt \
+ && sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/$/\r/' "$a" \
+ && if ! grep -q -E '^[[:blank:]]*Vnum[[:blank:]]+8302[3-7]([^0-9]|$)' "$f"; then \
+      { [ -z "$(tail -c 1 "$f")" ] || printf '\r\n' >> "$f"; }; cat "$a" >> "$f"; \
+    fi \
+ && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+8302[3-7]([^0-9]|$)' "$f")" = 5 \
+ && rm -f "$a" \
+ && echo "share: Flower Event gift boxes 83023-83027"
+
+# MT2009_PLUS_YUTNORI_V1: the Yut Nori trophies and bundles (83030-83034,
+# special_item_group.yutnori.txt; playerbot_yutnori.h hands them out). Appended
+# once, after any stock group of the same vnums is cut out (the reader keeps
+# the first group per vnum).
+COPY special_item_group.yutnori.txt /tmp/special_item_group.yutnori.txt
+RUN set -eu; f=/opt/metin2/share/locale/poland/special_item_group.txt; a=/tmp/special_item_group.yutnori.txt \
+ && sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/$/\r/' "$a" \
+ && awk 'BEGIN{keep=1} /^Group/{blk=""; keep=1} {blk=blk $0 "\n"} /Vnum[ \t]+(8303[0-4])([^0-9]|$)/{keep=0} /^}/{ if (keep) printf "%s", blk; blk=""; keep=1 }' "$f" > "$f.new" \
+ && cat "$a" >> "$f.new" \
+ && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+8303[0-4]([^0-9]|$)' "$f.new")" = 5 \
+ && mv "$f.new" "$f" && rm -f "$a" \
+ && echo "share: Yut Nori boxes 83030-83034"
 
 # The alchemy bonuses (server-patches/dragonsoulbalance): the package's
 # BasicApplys and AdditionalApplys groups of dragon_soul_table.txt give way to
@@ -549,15 +604,22 @@ RUN set -eu; L=/opt/metin2/share/locale/poland/map; N=$L/map_n_threeway/npc.txt 
 # r40250's Reaper does. It goes into his existing limit group, flat and certain
 # like his casket, because a second limit group for one monster is ignored.
 #
-# MT2009 Plus (26 September 2026): the Guardian stays commented out. The
-# MT2009 Plus client has no metin2_map_devilcatacomb (only the 7x7
-# metin2_map_devilscatacomb, and this server's map is 8x8), and a player
-# warped onto a map the client cannot load is thrown out at every login
-# after. The token drop stays; the Guardian comes back with the map.
+# MT2009 Plus (26 September 2026) kept the Guardian commented out while the
+# client could not show the map. MT2009_PLUS_CATACOMB_MAP_V1 (1 October 2026,
+# "Dodaj mape katakumb i calkowicie uruchom je na serwerze"): client 2.0.36
+# brings the map whole - the client finds map 216 by position in atlasinfo
+# (metin2_map_devilsCatacomb, 307200 1203200), its 7x7 terrain was already in
+# pack maps, and the new pack catacomb_map adds what it lacked (the textureset,
+# the environment, the floors' monsters, gates and statues). This server's
+# map is 8x8 at the same base, but nothing walkable lies outside the 7x7, so
+# the Guardian (20367, cell 548,494 of Hwang Temple) comes back.
 RUN set -eu; L=/opt/metin2/share/locale/poland \
+ && sed -i -E 's#^//(m[[:blank:]]+548[[:blank:]]+494[[:blank:]].*[[:blank:]]20367[[:space:]]*)$#\1#' "$L/map/metin2_map_milgyo/npc.txt" \
+ && grep -q -E '^m[[:blank:]]+548[[:blank:]]+494[[:blank:]].*[[:blank:]]20367' "$L/map/metin2_map_milgyo/npc.txt" \
+ && test "$(grep -c -E '^m[[:blank:]].*[[:blank:]]20367[[:space:]]*$' "$L/map/metin2_map_milgyo/npc.txt")" = 1 \
  && sed -i -E '/^Group[[:blank:]]+RiperLimit/,/^}/ s/^([[:blank:]]+1[[:blank:]]+50082[[:blank:]]+1[[:blank:]]+100.*)$/&\n\t2\t30319\t1\t100\r/' "$L/mob_drop_item.txt" \
  && awk '/^Group[[:blank:]]+RiperLimit/{f=1} f&&/^}/{f=0} f&&/[[:blank:]]30319[[:blank:]]/{n++} END{exit n==1?0:1}' "$L/mob_drop_item.txt" \
- && echo "share: the Reaper's token (Devil's Catacomb Guardian left out: no client map)"
+ && echo "share: Devil's Catacomb opened (the Guardian in Hwang, the Reaper's token)"
 
 # MT2009 Plus (27 September 2026): the guild building materials - Kamien
 # Wegielny 90010, Pien 90011, Dykta 90012 - drop ten times as often from the
@@ -697,6 +759,37 @@ RUN set -eu; L=/opt/metin2/share/locale/poland; A=/tmp/dungeons-add \
  && test "$(od -An -tx1 -N8 "$L/map/metin2_map_n_flame_dungeon_01/server_attr" | tr -d ' ')" = 0c0000000c000000 \
  && rm -rf "$A" \
  && echo "share: Razador (351) and Nemere (352) dungeons, their guards and the Nemere drops"
+
+# MT2009_PLUS_BLUE_DRAGON_V1: the Blue Dragon lair - Leze Smoka, map 208 (metin2_map_skipia_dungeon_boss,
+# 2x2, on game2), for a party of level 90 (quest/blue_dragon_lair.quest, compiled above; the dragon's
+# and the stones' numbers are apply.sh's MT2009_PLUS_BLUE_DRAGON_V1, the engine half - Beran-Setaou
+# takes no damage while a stone stands - is server-patches/bluedragon). The Sura's Ghost (30121, the
+# package's npc.txt line on map 73 at 266,175) asks game2 for an instance over P2P, like Razador's guard:
+#  * data/dungeon/bluedragon_mt/regen.txt - the lair's monsters, Owsap's data/dungeon/dragon_lair.txt
+#    without the stones and the dragon's group (the quest places both);
+#  * the map's instance_regen.txt (the guild lair's, CDragonLairManager - no active quest starts it)
+#    pointed seven lines at group_group 50000, which does not exist: now the lair's own packs with the
+#    dragon and his four stones;
+#  * the public copy of 208 is the fallback lobby, as Razador's 351: nothing spawns there but the
+#    Sura's Ghost (30121) at 246,173, which opens the instance (the package filled it with the lair's
+#    monsters and stones, regen.txt emptied);
+#  * BlueDragon.lua with Beran-Setaou's weaker skills (dungeons/BlueDragon.lua; settings.lua loads it).
+COPY dungeons/ /tmp/bluedragon-add/
+RUN set -eu; L=/opt/metin2/share/locale/poland; A=/tmp/bluedragon-add; M="$L/map/metin2_map_skipia_dungeon_boss" \
+ && test -d "$M" \
+ && grep -q -E '^208[[:blank:]]+metin2_map_skipia_dungeon_boss' "$L/map/index" \
+ && sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/$/\r/' "$A/data/dungeon/bluedragon_mt/regen.txt" "$A/map/metin2_map_skipia_dungeon_boss/instance_regen.txt" \
+ && mkdir -p /opt/metin2/share/data/dungeon && rm -rf /opt/metin2/share/data/dungeon/bluedragon_mt \
+ && cp -a "$A/data/dungeon/bluedragon_mt" /opt/metin2/share/data/dungeon/ \
+ && cp "$A/map/metin2_map_skipia_dungeon_boss/instance_regen.txt" "$M/instance_regen.txt" \
+ && ! grep -q -E '[[:blank:]]50000[[:space:]]*$' "$M/instance_regen.txt" \
+ && for f in regen.txt boss.txt stone.txt; do : > "$M/$f"; done \
+ && printf 'm\t246\t173\t0\t0\t0\t0\t60s\t100\t1\t30121\r\n' > "$M/npc.txt" \
+ && cp "$A/BlueDragon.lua" "$L/BlueDragon.lua" \
+ && grep -q 'MT2009_PLUS_BLUE_DRAGON_V1' "$L/BlueDragon.lua" \
+ && LC_ALL=C grep -a -q 'BlueDragon.lua' "$L/settings.lua" \
+ && rm -rf "$A" \
+ && echo "share: Blue Dragon lair (208): its regen, the lobby, instance_regen.txt and BlueDragon.lua"
 
 # MT2009_PLUS_AREZZO_V1 (share): the first three places from the Arezzo files (the owner has the
 # rights to them), for players - the bots come later:

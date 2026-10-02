@@ -535,6 +535,17 @@ fi
 # pack standing ("nie wszystkie trafiaja", the operator, 28 September). 900,
 # only over the package's own 500; skill_proto is read at the cores' start.
 db -e "UPDATE world.skill_proto SET dwSplashRange = 900 WHERE dwVnum = 93 AND dwSplashRange = 500;" || echo "[playerbot-migrate] WARNING: could not widen Smoczy Skowyt's splash" >&2
+# MT2009_PLUS_FIRE_ARROW_BALANCE_V1: Ognista Strzala (48, Ninja archer) back
+# to the official formula, the one world.skill_proto_copy_przed_zmianami_barabasza
+# still holds. The package's rework (1.5*atk -> 2*atk, + dex*2*k, all *1.35,
+# and the master poly raised to the normal one) made it about 1.55 times as
+# strong and the Ninja archers held the whole top of the skill damage ranking.
+# Players and bots alike: bots cast it through CHARACTER::UseSkill, which
+# evaluates this row. The rework's third point (ATT_SPECIAL 20*k, self only,
+# the bonus against Metins and bosses) and setFlag are left as they are.
+# Each column moves only from the package's exact text, so an operator's own
+# formula stays; skill_proto is read at the cores' start. Idempotent.
+db -e "UPDATE world.skill_proto SET szPointPoly = '-(1.5*atk + (2.8*atk + number(100, 300))*k)' WHERE dwVnum = 48 AND szPointPoly = '-(2*atk + (2.8*atk + number(100, 300))*k + dex*2*k)*1.35'; UPDATE world.skill_proto SET szMasterBonusPoly = '-(1.5*atk + (2.6*atk + number(100, 300))*k)' WHERE dwVnum = 48 AND szMasterBonusPoly = '-(2*atk + (2.8*atk + number(100, 300))*k + dex*2*k)*1.35';" || echo "[playerbot-migrate] WARNING: could not put Ognista Strzala back to its formula" >&2
 # Broszura Szermierki (70031), Seon-Pyeong's recipe material, stacks to the
 # 200 its row already says: the package left ITEM_FLAG_STACKABLE off, so
 # every brochure took a cell (NerrVoVy, 27 September), as Tanaka's ear did.
@@ -573,6 +584,16 @@ if [ -s /opt/playerbot/log_schema.sql ]; then
         head -3 /tmp/logschema.err >&2
     fi
 fi
+# MT2009_PLUS_BOT_SESSIONS_V1: the bots' sessions, one row a session, which
+# the game core writes (playerbot_session.h) and the classic panel's "Sesje
+# gry" card and "Tylko boty" list read. The table is log_schema.sql's too;
+# made here as well, so a log schema that failed above on another table does
+# not leave the cores without it. Kept eight days: the cores purge every hour
+# while they run, and this is the same purge at every start, for a world that
+# was down a while. A session still open and seen within the eight days
+# stays, however long ago it began. Idempotent.
+db -e "CREATE TABLE IF NOT EXISTS log.playerbot_session (pid int(10) unsigned NOT NULL, login_at datetime NOT NULL, channel tinyint(3) unsigned NOT NULL DEFAULT 0, core varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '', login_reason tinyint(3) unsigned NOT NULL DEFAULT 0, seen_at datetime DEFAULT NULL, logout_at datetime DEFAULT NULL, logout_reason tinyint(3) unsigned NOT NULL DEFAULT 0, rest_until datetime DEFAULT NULL, PRIMARY KEY (pid, login_at), KEY open_idx (channel, core, logout_at), KEY login_at_idx (login_at)) ENGINE=InnoDB DEFAULT CHARSET=ascii;" || echo "[playerbot-migrate] WARNING: could not create log.playerbot_session" >&2
+db -e "DELETE FROM log.playerbot_session WHERE login_at < NOW() - INTERVAL 8 DAY AND COALESCE(logout_at, seen_at, login_at) < NOW() - INTERVAL 8 DAY;" || echo "[playerbot-migrate] WARNING: could not purge the bots' old sessions" >&2
 
 itemshop_schema=/opt/playerbot/itemshop_schema.sql
 if [ -s "$itemshop_schema" ]; then
@@ -613,6 +634,9 @@ fi
 # gives up - the same two bots failed on all seventeen starts of one day, with
 # no way to recover because the AI tick only ever sees bots that did spawn.
 # Put them back on Bokjung's arrival point before the game core starts.
+# MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1: 364-366 are hosted (game2) and are the
+# save point of the Arezzo dungeon test cohort (its lobby); no other bot is
+# ever saved there.
 echo "[playerbot-migrate] checking for bots parked on maps this server does not host"
 stranded=$(db -e "
     SELECT COUNT(*)
@@ -621,7 +645,8 @@ stranded=$(db -e "
      WHERE LEFT(a.login, 10) = 'playerbot_'
        AND p.map_index NOT IN (1, 3, 4, 5, 6, 107, 81, 110, 111, 112, 113, 181, 182, 183, 200, 250, 302, 304,
                                21, 23, 24, 25, 26, 61, 63, 64, 65, 69, 70, 71, 104, 108, 109, 79, 216, 217, 73,
-                               41, 43, 44, 45, 46, 62, 66, 67, 68, 72, 90, 208, 301, 303, 351);
+                               41, 43, 44, 45, 46, 62, 66, 67, 68, 72, 90, 208, 301, 303, 351,
+                               364, 365, 366);
 ")
 if [ -n "$stranded" ] && [ "$stranded" -gt 0 ] 2>/dev/null; then
     # Back to its OWN kingdom's second map, not always Chunjo's: a Jinno bot
@@ -639,7 +664,8 @@ if [ -n "$stranded" ] && [ "$stranded" -gt 0 ] 2>/dev/null; then
          WHERE LEFT(a.login, 10) = 'playerbot_'
            AND p.map_index NOT IN (1, 3, 4, 5, 6, 107, 81, 110, 111, 112, 113, 181, 182, 183, 200, 250, 302, 304,
                                21, 23, 24, 25, 26, 61, 63, 64, 65, 69, 70, 71, 104, 108, 109, 79, 216, 217, 73,
-                               41, 43, 44, 45, 46, 62, 66, 67, 68, 72, 90, 208, 301, 303, 351);
+                               41, 43, 44, 45, 46, 62, 66, 67, 68, 72, 90, 208, 301, 303, 351,
+                               364, 365, 366);
     "
     echo "[playerbot-migrate] moved $stranded bot(s) back to their own kingdom"
 fi
@@ -988,6 +1014,20 @@ else
     echo "[playerbot-migrate] WARNING: could not write the alchemy and sash switches; they stay as they were" >&2
 fi
 
+# The Alchemist's two numbers (dragon_soul.quest, playerbot_alchemy.h; 1 October
+# 2026): ds_drop, a Dragon Stone Shard's chance a kill in percent (1-100, the
+# quest reads anything else as 10), and ds_cor_day, the Cors a day from shards
+# (1-20, anything else reads as 5). Written once with the defaults so the panel
+# and /e show them; what the panel or a game master set stays through every start.
+if db -e "INSERT IGNORE INTO player.quest (dwPID, szName, szState, lValue) VALUES
+        (0, 'ds_drop', '', 10),
+        (0, 'ds_cor_day', '', 5);"; then
+    ds_vals=$(db -N -e "SELECT GROUP_CONCAT(CONCAT(szName, '=', lValue) ORDER BY szName SEPARATOR ', ') FROM player.quest WHERE dwPID = 0 AND szState = '' AND szName IN ('ds_drop', 'ds_cor_day');" 2>/dev/null | tr -d '\r')
+    echo "[playerbot-migrate] alchemy shards: ${ds_vals:-ds_cor_day=5, ds_drop=10}"
+else
+    echo "[playerbot-migrate] WARNING: could not write the alchemy shard defaults; the quest takes 10% and 5 Cors a day" >&2
+fi
+
 # MT2009_PLUS_AREZZO_MODULE_V1: the Arezzo module (maps 360-366, their dungeons and entrance guards),
 # voluntary and off unless M2_AREZZO=1. One world flag, mt2009_arezzo_closed (1 = off), read by the
 # quests (Teleporter, ring, Ochao portal, dungeon guards) and the cores (playerbot_arezzo.h: the
@@ -1006,6 +1046,81 @@ else
     echo "[playerbot-migrate] WARNING: could not write the Arezzo module switch; it stays as it was" >&2
 fi
 
+# MT2009_PLUS_SEONHAE_V1: Seon-Hae's 6th/7th bonus (NPC 20095, quest seonhae,
+# playerbot_seonhae.h), voluntary and off unless M2_SEONHAE=1. One world flag,
+# m2_seonhae_on (1 = on); the panel switches it live (web_admin.quest SEONHAE,
+# with m2_seonhae_wait_min, the minutes Seon-Hae keeps an item - not in .env),
+# so .env is applied only when it changed since the last start (m2_seonhae_env =
+# what it said + 1). Off stops new hand-ins only; a kept item is always returned.
+case "$(printf '%s' "${M2_SEONHAE:-0}" | tr 'A-Z' 'a-z' | tr -d ' \r')" in 1|on|yes|true) seonhae_on=1 ;; *) seonhae_on=0 ;; esac
+seonhae_env=$(db -N -e "SELECT lValue FROM player.quest WHERE dwPID = 0 AND szName = 'm2_seonhae_env' LIMIT 1;" 2>/dev/null | tr -d ' \r')
+if [ -n "$seonhae_env" ] && [ "$seonhae_env" = "$((seonhae_on + 1))" ]; then
+    echo "[playerbot-migrate] Seon-Hae 6/7 bonus: .env unchanged since the last start - the switch stays as the panel or the last start left it"
+elif db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES
+        (0, 'm2_seonhae_on', '', $seonhae_on),
+        (0, 'm2_seonhae_env', '', $((seonhae_on + 1)));"; then
+    echo "[playerbot-migrate] Seon-Hae 6/7 bonus: $([ "$seonhae_on" = 1 ] && echo on || echo off) (from .env)"
+else
+    echo "[playerbot-migrate] WARNING: could not write the Seon-Hae switch; it stays as it was" >&2
+fi
+
+# The world's monster health (the operator, 30 September, for Frelik's
+# proposal): a percent of the max_hp of every monster, boss and Metin
+# stone, which the cores apply at a spawn and to every one standing when
+# the flag moves (m2_mob_hp; server-patches/mobhp, MT2009_PLUS_MOB_HP_V1).
+# .env's M2_MONSTER_HP - default (100, the game as it was made), easy (80)
+# or a percent from 10 to 300 - is applied only when it changed since the
+# last start (m2_mob_hp_env holds what it said): the classic panel's card
+# sets the flag live (web_admin.quest MOB_HP), and a choice made there
+# outlives a restart until the launcher's is changed, the difficulty's rule.
+mobhp=$(printf '%s' "${M2_MONSTER_HP:-default}" | tr 'A-Z' 'a-z' | tr -d ' \r%')
+case "$mobhp" in
+    ''|0|default|normal) mobhp=100 ;;
+    easy) mobhp=80 ;;
+    *[!0-9]*)
+        echo "[playerbot-migrate] WARNING: M2_MONSTER_HP=$mobhp is not default, easy or a percent; the monsters keep the game's health" >&2
+        mobhp=100 ;;
+    *) mobhp=$(printf '%s\n' "$mobhp" | awk '{ p = int($1 + 0); if (p < 10) p = 10; if (p > 300) p = 300; printf "%d", p }') ;;
+esac
+mobhp_env=$(db -N -e "SELECT lValue FROM player.quest WHERE dwPID = 0 AND szName = 'm2_mob_hp_env' LIMIT 1;" 2>/dev/null | tr -d ' \r')
+if [ "$mobhp_env" = "$mobhp" ]; then
+    echo "[playerbot-migrate] monster health: .env unchanged since the last start - the flag stays as the panel or the last start left it"
+elif db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES
+        (0, 'm2_mob_hp', '', $mobhp),
+        (0, 'm2_mob_hp_env', '', $mobhp);"; then
+    echo "[playerbot-migrate] monster health: ${mobhp}% of max_hp for monsters, bosses and Metin stones (from .env)"
+else
+    echo "[playerbot-migrate] WARNING: could not write the monster health flag; the cores keep the last one" >&2
+fi
+
+# The starter kit (the operator, 30 September, on Iwakura's proposal):
+# what a player's new character and a bot the seed makes from now on start
+# wearing - default nothing past what the game gives, medium the class's
+# level-1 weapon and body armour at +5, easy the whole level-1 set at +9.
+# .env's M2_STARTER_KIT, which the launcher's new-world window writes, is
+# the event flag m2_starter_kit (starter_kit.quest, a person's character at
+# level one) and the seed's @playerbot_seed_starter_kit below; the bots
+# already made are never pending again and keep what they have.
+kit_word=$(printf '%s' "${M2_STARTER_KIT:-default}" | tr 'A-Z' 'a-z' | tr -d ' \r')
+case "$kit_word" in
+    ''|0|default|none) starter_kit=0 ;;
+    1|medium) starter_kit=1 ;;
+    2|easy) starter_kit=2 ;;
+    *)
+        echo "[playerbot-migrate] WARNING: M2_STARTER_KIT=$kit_word is not default, medium or easy; no starter kit" >&2
+        starter_kit=0 ;;
+esac
+case "$starter_kit" in
+    1) kit_label='medium (the weapon and the body armour at +5)' ;;
+    2) kit_label='easy (the whole level-1 set at +9)' ;;
+    *) kit_label='none' ;;
+esac
+if db -e "REPLACE INTO player.quest (dwPID, szName, szState, lValue) VALUES (0, 'm2_starter_kit', '', $starter_kit);"; then
+    echo "[playerbot-migrate] starter kit: $kit_label, for new characters and the bots made from now on"
+else
+    echo "[playerbot-migrate] WARNING: could not write the starter kit flag; the cores keep the last one" >&2
+fi
+
 echo "[playerbot-migrate] applying deterministic Playerbot seed (PID $first_pid..$last_pid)"
 result=/tmp/playerbot-seed.out
 trap 'rm -f "$result"' EXIT HUP INT TERM
@@ -1019,10 +1134,12 @@ case "${M2_PLAYERBOT_KINGDOMS:-0}" in
 esac
 echo "[playerbot-migrate] kingdoms (Shinsoo/Jinno) cohorts: $kingdoms"
 # And whether a bot the seed makes now starts with its apprentice chest: the
-# world's switch as the step above left it (off gives none).
+# world's switch as the step above left it (off gives none); and in which
+# starter kit (STARTER_KIT above: 0 none, 1 medium, 2 easy).
 if { printf 'SET @playerbot_seed_kingdoms = %s;
 SET @playerbot_seed_starter_chest = %s;
-' "$kingdoms" "$((1 - ${starter_off:-0}))"; cat "$seed"; } |
+SET @playerbot_seed_starter_kit = %s;
+' "$kingdoms" "$((1 - ${starter_off:-0}))" "${starter_kit:-0}"; cat "$seed"; } |
         db --show-warnings >"$result" 2>&1; then
     [ ! -s "$result" ] || cat "$result"
 else
@@ -1583,6 +1700,9 @@ UPDATE world.item_proto SET name = _cp1250 X'536B727A796E6961204269626C696F74656
 # those numbers). The entrance guards 20423-20425 are copies of the Fire Land's; the seals 30766-30768 copies of
 # the Nemere key, the chests 30774-30776 of Razador's and Nemere's (special_item_group.arezzo2.txt). Rows are
 # added once; the values are written every start. Idempotent.
+# 1 October (owner): Ruiny Skorpiona (9694-9700) and Starozytna Dzungla (9707-9714) 25% easier - max_hp and
+# dam_multiply x0.75 (the Ruins' +50% of e57d4af becomes +12.5% over the band; the regen is a percent, so it
+# follows the HP).
 db -e "DROP TEMPORARY TABLE IF EXISTS world.az_mob;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3101 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9680;
@@ -1688,77 +1808,77 @@ CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum 
 UPDATE world.az_mob SET vnum = 9697;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'4DB36F647920536B6F7270696F6E', locale_name = _cp1250 X'4DB36F647920536B6F7270696F6E', folder = 'plechi_scorp_mon1', rank = 1, level = 66, st = 90, dx = 70, ht = 80, iq = 25, damage_min = 200, damage_max = 240, max_hp = 27000, def = 92, exp = 2500, gold_min = 500, gold_max = 750, drain_sp = 0, sp_stoneskin = 0, enchant_poison = 5, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 2.55, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9697;
+UPDATE world.mob_proto SET name = _cp1250 X'4DB36F647920536B6F7270696F6E', locale_name = _cp1250 X'4DB36F647920536B6F7270696F6E', folder = 'plechi_scorp_mon1', rank = 1, level = 66, st = 90, dx = 70, ht = 80, iq = 25, damage_min = 200, damage_max = 240, max_hp = 20250, def = 92, exp = 2500, gold_min = 500, gold_max = 750, drain_sp = 0, sp_stoneskin = 0, enchant_poison = 5, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 1.91, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9697;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3102 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9698;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'4E6965626965736B6920536B6F7270696F6E', locale_name = _cp1250 X'4E6965626965736B6920536B6F7270696F6E', folder = 'plechi_scorp_mon2', rank = 1, level = 67, st = 92, dx = 72, ht = 82, iq = 25, damage_min = 205, damage_max = 250, max_hp = 30000, def = 92, exp = 2800, gold_min = 520, gold_max = 780, drain_sp = 0, sp_stoneskin = 0, enchant_slow = 5, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 2.70, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9698;
+UPDATE world.mob_proto SET name = _cp1250 X'4E6965626965736B6920536B6F7270696F6E', locale_name = _cp1250 X'4E6965626965736B6920536B6F7270696F6E', folder = 'plechi_scorp_mon2', rank = 1, level = 67, st = 92, dx = 72, ht = 82, iq = 25, damage_min = 205, damage_max = 250, max_hp = 22500, def = 92, exp = 2800, gold_min = 520, gold_max = 780, drain_sp = 0, sp_stoneskin = 0, enchant_slow = 5, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 2.03, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9698;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3104 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9699;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'437A61726E7920536B6F7270696F6E', locale_name = _cp1250 X'437A61726E7920536B6F7270696F6E', folder = 'plechi_scorp_mon3', rank = 2, level = 68, st = 95, dx = 74, ht = 85, iq = 26, damage_min = 210, damage_max = 260, max_hp = 34500, def = 92, exp = 3100, gold_min = 560, gold_max = 840, drain_sp = 0, sp_deathblow = 0, enchant_poison = 10, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 2.85, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9699;
+UPDATE world.mob_proto SET name = _cp1250 X'437A61726E7920536B6F7270696F6E', locale_name = _cp1250 X'437A61726E7920536B6F7270696F6E', folder = 'plechi_scorp_mon3', rank = 2, level = 68, st = 95, dx = 74, ht = 85, iq = 26, damage_min = 210, damage_max = 260, max_hp = 25875, def = 92, exp = 3100, gold_min = 560, gold_max = 840, drain_sp = 0, sp_deathblow = 0, enchant_poison = 10, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 2.14, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9699;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3105 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9700;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'4475BF7920536B6F7270696F6E', locale_name = _cp1250 X'4475BF7920536B6F7270696F6E', folder = 'plechi_scorp_mon4', rank = 3, level = 70, st = 100, dx = 76, ht = 90, iq = 27, damage_min = 220, damage_max = 270, max_hp = 39000, def = 94, exp = 3500, gold_min = 620, gold_max = 930, drain_sp = 0, sp_revive = 0, enchant_poison = 10, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 3.00, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9700;
+UPDATE world.mob_proto SET name = _cp1250 X'4475BF7920536B6F7270696F6E', locale_name = _cp1250 X'4475BF7920536B6F7270696F6E', folder = 'plechi_scorp_mon4', rank = 3, level = 70, st = 100, dx = 76, ht = 90, iq = 27, damage_min = 220, damage_max = 270, max_hp = 29250, def = 94, exp = 3500, gold_min = 620, gold_max = 930, drain_sp = 0, sp_revive = 0, enchant_poison = 10, ai_flag = 'AGGR', setRaceFlag = 'DESERT,INSECT', dam_multiply = 2.25, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9700;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8009 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9696;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'4D6574696E20536B6F7270696F6E61', locale_name = _cp1250 X'4D6574696E20536B6F7270696F6E61', level = 68, max_hp = 525000, def = 80, exp = 50, summon = 9697, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9696;
+UPDATE world.mob_proto SET name = _cp1250 X'4D6574696E20536B6F7270696F6E61', locale_name = _cp1250 X'4D6574696E20536B6F7270696F6E61', level = 68, max_hp = 393750, def = 80, exp = 50, summon = 9697, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9696;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3190 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9695;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'437A6572776F6E7920536B6F7270696F6E', locale_name = _cp1250 X'437A6572776F6E7920536B6F7270696F6E', folder = 'plechi_scorp_boss1', rank = 4, level = 70, st = 110, dx = 80, ht = 100, iq = 30, damage_min = 250, damage_max = 320, max_hp = 270000, def = 98, exp = 30000, gold_min = 15000, gold_max = 22000, summon = 9698, drain_sp = 0, regen_cycle = 10, regen_percent = 5, sp_berserk = 15, sp_stoneskin = 10, sp_deathblow = 10, sp_revive = 0, enchant_poison = 20, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DESERT,INSECT', dam_multiply = 3.60, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9695;
+UPDATE world.mob_proto SET name = _cp1250 X'437A6572776F6E7920536B6F7270696F6E', locale_name = _cp1250 X'437A6572776F6E7920536B6F7270696F6E', folder = 'plechi_scorp_boss1', rank = 4, level = 70, st = 110, dx = 80, ht = 100, iq = 30, damage_min = 250, damage_max = 320, max_hp = 202500, def = 98, exp = 30000, gold_min = 15000, gold_max = 22000, summon = 9698, drain_sp = 0, regen_cycle = 10, regen_percent = 5, sp_berserk = 15, sp_stoneskin = 10, sp_deathblow = 10, sp_revive = 0, enchant_poison = 20, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DESERT,INSECT', dam_multiply = 2.70, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9695;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3191 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9694;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C20536B6F7270696F6EF377', locale_name = _cp1250 X'4B72F36C20536B6F7270696F6EF377', folder = 'plechi_scorp_mainboss', rank = 5, level = 72, st = 130, dx = 90, ht = 130, iq = 40, damage_min = 290, damage_max = 370, max_hp = 1650000, def = 105, exp = 250000, gold_min = 30000, gold_max = 45000, summon = 9700, drain_sp = 0, regen_cycle = 15, regen_percent = 5, sp_berserk = 20, sp_stoneskin = 15, sp_deathblow = 15, sp_revive = 0, enchant_poison = 25, enchant_slow = 15, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DESERT,INSECT', dam_multiply = 4.20, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9694;
+UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C20536B6F7270696F6EF377', locale_name = _cp1250 X'4B72F36C20536B6F7270696F6EF377', folder = 'plechi_scorp_mainboss', rank = 5, level = 72, st = 130, dx = 90, ht = 130, iq = 40, damage_min = 290, damage_max = 370, max_hp = 1237500, def = 105, exp = 250000, gold_min = 30000, gold_max = 45000, summon = 9700, drain_sp = 0, regen_cycle = 15, regen_percent = 5, sp_berserk = 20, sp_stoneskin = 15, sp_deathblow = 15, sp_revive = 0, enchant_poison = 25, enchant_slow = 15, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DESERT,INSECT', dam_multiply = 3.15, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9694;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3302 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9707;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'4C659C6E61205772F3BF6B61', locale_name = _cp1250 X'4C659C6E61205772F3BF6B61', folder = 'plechi_easter2023_monster8', rank = 1, level = 97, st = 120, dx = 95, ht = 100, iq = 35, damage_min = 300, damage_max = 350, max_hp = 40000, def = 135, exp = 8000, gold_min = 800, gold_max = 1200, drain_sp = 0, sp_revive = 0, ai_flag = 'AGGR', setRaceFlag = 'DEVIL', dam_multiply = 2.0, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9707;
+UPDATE world.mob_proto SET name = _cp1250 X'4C659C6E61205772F3BF6B61', locale_name = _cp1250 X'4C659C6E61205772F3BF6B61', folder = 'plechi_easter2023_monster8', rank = 1, level = 97, st = 120, dx = 95, ht = 100, iq = 35, damage_min = 300, damage_max = 350, max_hp = 30000, def = 135, exp = 8000, gold_min = 800, gold_max = 1200, drain_sp = 0, sp_revive = 0, ai_flag = 'AGGR', setRaceFlag = 'DEVIL', dam_multiply = 1.50, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9707;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3303 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9708;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'53756B6B7562204E6174757279', locale_name = _cp1250 X'53756B6B7562204E6174757279', folder = 'plechi_easter2023_monster6', rank = 2, level = 98, st = 95, dx = 120, ht = 100, iq = 40, damage_min = 310, damage_max = 365, max_hp = 45000, def = 135, exp = 9000, gold_min = 850, gold_max = 1270, drain_sp = 0, sp_stoneskin = 0, ai_flag = 'AGGR', setRaceFlag = 'DEVIL', dam_multiply = 2.1, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9708;
+UPDATE world.mob_proto SET name = _cp1250 X'53756B6B7562204E6174757279', locale_name = _cp1250 X'53756B6B7562204E6174757279', folder = 'plechi_easter2023_monster6', rank = 2, level = 98, st = 95, dx = 120, ht = 100, iq = 40, damage_min = 310, damage_max = 365, max_hp = 33750, def = 135, exp = 9000, gold_min = 850, gold_max = 1270, drain_sp = 0, sp_stoneskin = 0, ai_flag = 'AGGR', setRaceFlag = 'DEVIL', dam_multiply = 1.58, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9708;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3305 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9709;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'536F7761204B7369EABF79636F7761', locale_name = _cp1250 X'536F7761204B7369EABF79636F7761', folder = 'plechi_easter2023_monster5', rank = 3, level = 100, st = 125, dx = 100, ht = 125, iq = 40, damage_min = 320, damage_max = 380, max_hp = 50000, def = 138, exp = 10000, gold_min = 900, gold_max = 1350, drain_sp = 0, sp_deathblow = 0, ai_flag = 'AGGR', setRaceFlag = 'DEVIL,ANIMAL', dam_multiply = 2.2, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9709;
+UPDATE world.mob_proto SET name = _cp1250 X'536F7761204B7369EABF79636F7761', locale_name = _cp1250 X'536F7761204B7369EABF79636F7761', folder = 'plechi_easter2023_monster5', rank = 3, level = 100, st = 125, dx = 100, ht = 125, iq = 40, damage_min = 320, damage_max = 380, max_hp = 37500, def = 138, exp = 10000, gold_min = 900, gold_max = 1350, drain_sp = 0, sp_deathblow = 0, ai_flag = 'AGGR', setRaceFlag = 'DEVIL,ANIMAL', dam_multiply = 1.65, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9709;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8053 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9710;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'537461726FBF79746E79204B616D6965F1', locale_name = _cp1250 X'537461726FBF79746E79204B616D6965F1', level = 98, max_hp = 700000, def = 100, exp = 60, summon = 9707, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9710;
+UPDATE world.mob_proto SET name = _cp1250 X'537461726FBF79746E79204B616D6965F1', locale_name = _cp1250 X'537461726FBF79746E79204B616D6965F1', level = 98, max_hp = 525000, def = 100, exp = 60, summon = 9707, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9710;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 8053 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9711;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'5072616461776E79204B616D6965F1', locale_name = _cp1250 X'5072616461776E79204B616D6965F1', level = 100, max_hp = 900000, def = 105, exp = 70, summon = 9708, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9711;
+UPDATE world.mob_proto SET name = _cp1250 X'5072616461776E79204B616D6965F1', locale_name = _cp1250 X'5072616461776E79204B616D6965F1', level = 100, max_hp = 675000, def = 105, exp = 70, summon = 9708, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9711;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3390 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9712;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'46616574686F726E', locale_name = _cp1250 X'46616574686F726E', folder = 'plechi_easter2023_boss1', rank = 4, level = 102, st = 130, dx = 100, ht = 135, iq = 40, damage_min = 350, damage_max = 430, max_hp = 500000, def = 140, exp = 80000, gold_min = 20000, gold_max = 30000, summon = 9707, drain_sp = 0, regen_cycle = 10, regen_percent = 5, sp_berserk = 20, sp_stoneskin = 15, sp_deathblow = 15, sp_revive = 0, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DEVIL', dam_multiply = 2.8, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9712;
+UPDATE world.mob_proto SET name = _cp1250 X'46616574686F726E', locale_name = _cp1250 X'46616574686F726E', folder = 'plechi_easter2023_boss1', rank = 4, level = 102, st = 130, dx = 100, ht = 135, iq = 40, damage_min = 350, damage_max = 430, max_hp = 375000, def = 140, exp = 80000, gold_min = 20000, gold_max = 30000, summon = 9707, drain_sp = 0, regen_cycle = 10, regen_percent = 5, sp_berserk = 20, sp_stoneskin = 15, sp_deathblow = 15, sp_revive = 0, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DEVIL', dam_multiply = 2.10, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9712;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3391 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9713;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C6577736B6120536F7761', locale_name = _cp1250 X'4B72F36C6577736B6120536F7761', folder = 'plechi_easter2023_boss2', rank = 5, level = 104, st = 135, dx = 105, ht = 140, iq = 42, damage_min = 360, damage_max = 450, max_hp = 900000, def = 145, exp = 150000, gold_min = 25000, gold_max = 37000, summon = 9709, drain_sp = 0, regen_cycle = 15, regen_percent = 5, sp_berserk = 20, sp_stoneskin = 20, sp_deathblow = 15, sp_revive = 0, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DEVIL,ANIMAL', dam_multiply = 3.0, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9713;
+UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C6577736B6120536F7761', locale_name = _cp1250 X'4B72F36C6577736B6120536F7761', folder = 'plechi_easter2023_boss2', rank = 5, level = 104, st = 135, dx = 105, ht = 140, iq = 42, damage_min = 360, damage_max = 450, max_hp = 675000, def = 145, exp = 150000, gold_min = 25000, gold_max = 37000, summon = 9709, drain_sp = 0, regen_cycle = 15, regen_percent = 5, sp_berserk = 20, sp_stoneskin = 20, sp_deathblow = 15, sp_revive = 0, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DEVIL,ANIMAL', dam_multiply = 2.25, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9713;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3391 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9714;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C6F77612044BF756E676C69', locale_name = _cp1250 X'4B72F36C6F77612044BF756E676C69', folder = 'plechi_easter2023_bossmain', rank = 5, level = 106, st = 160, dx = 120, ht = 170, iq = 60, damage_min = 380, damage_max = 520, max_hp = 2800000, def = 150, exp = 700000, gold_min = 50000, gold_max = 75000, summon = 9708, drain_sp = 0, regen_cycle = 20, regen_percent = 5, sp_berserk = 25, sp_stoneskin = 20, sp_deathblow = 20, sp_revive = 0, enchant_poison = 15, enchant_slow = 15, enchant_stun = 10, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DEVIL', setImmuneFlag = 'STUN,SLOW,FALL,CURSE,POISON,TERROR', dam_multiply = 3.4, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9714;
+UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C6F77612044BF756E676C69', locale_name = _cp1250 X'4B72F36C6F77612044BF756E676C69', folder = 'plechi_easter2023_bossmain', rank = 5, level = 106, st = 160, dx = 120, ht = 170, iq = 60, damage_min = 380, damage_max = 520, max_hp = 2100000, def = 150, exp = 700000, gold_min = 50000, gold_max = 75000, summon = 9708, drain_sp = 0, regen_cycle = 20, regen_percent = 5, sp_berserk = 25, sp_stoneskin = 20, sp_deathblow = 20, sp_revive = 0, enchant_poison = 15, enchant_slow = 15, enchant_stun = 10, ai_flag = 'AGGR,BERSERK', setRaceFlag = 'DEVIL', setImmuneFlag = 'STUN,SLOW,FALL,CURSE,POISON,TERROR', dam_multiply = 2.55, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9714;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20394 LIMIT 1;
 UPDATE world.az_mob SET vnum = 20423;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
@@ -1849,3 +1969,192 @@ INSERT IGNORE INTO world.shop_item (shop_vnum, item_vnum, count) VALUES (3, 7006
 db -e "INSERT IGNORE INTO world.item_proto (vnum, name, locale_name, type, subtype, stack, weight, size, antiflag, flag, wearflag, immuneflag, gold, shop_buy_price, refined_vnum, refine_set, magic_pct, specular, socket_pct, addon_type, limittype0, limitvalue0, limittype1, limitvalue1, applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, value0, value1, value2, value3, value4, value5, socket0, socket1, socket2, socket3, socket4, socket5) VALUES
 (50270, 'Skrzynia Razadora', 'Skrzynia Razadora', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
 (50271, 'Skrzynia Nemere', 'Skrzynia Nemere', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1);" || echo "[playerbot-migrate] WARNING: could not add the Razador and Nemere boss chests" >&2
+
+# MT2009_PLUS_BLUE_DRAGON_V1: the Blue Dragon lair (Leze Smoka, map 208, quest/blue_dragon_lair.quest,
+# server-patches/bluedragon) for a party of level 90 - Beran-Setaou (2493) is brought down to the
+# band of the Grotto of Exile V2 (its boss 2491 is level 93): level 97 -> 93, HP 5 000 000 ->
+# 3 000 000, defence 739 -> 250, experience 3 564 000 -> 2 000 000, regeneration 5% every 35 s ->
+# 3% every 30 s; his damage stays. His four stones (8031-8034, which shield him while they stand):
+# level 60 -> 90, HP 250 000 -> 300 000, defence 80 -> 90. The lair's other monsters (2411-2414)
+# are the Grotto V2's own and stay as they are. PROTO_FROM_DB: read at the db core's boot.
+# Idempotent: the same values every start.
+db -e "UPDATE world.mob_proto SET level = 93, max_hp = 3000000, def = 250, exp = 2000000, regen_cycle = 30, regen_percent = 1 WHERE vnum = 2493;
+UPDATE world.mob_proto SET level = 90, max_hp = 300000, def = 90 WHERE vnum IN (8031, 8032, 8033, 8034);" || echo "[playerbot-migrate] WARNING: could not set up the Blue Dragon lair's dragon and stones" >&2
+
+# MT2009_PLUS_SEONHAE_V1: Seon-Hae's 6th/7th bonus materials (playerbot_seonhae.h) at Owsap's vnums -
+# the Powershards ("Odlamki", materials that stack; no drop, no PK drop, tradeable) by the item's level:
+# 39070 0-29, 39071 30-39, 39072 40-49, 39073 50-59, 39074 60-74, 39075 75-89, 39076 90-104,
+# 39077 105-119, 39081 120+ (Owsap's Lucent 39078-39080 belong to its special sets and are left out);
+# and the Additives ("Suplementy", bound to the character: no drop, give or private shop) 72064-72067,
+# +5/10/20/50 (value1 for the client; the core reads its own table). The additives drop from Metins
+# and bosses, the shards from ordinary monsters, in the Grotto of Exile, the Temple of Ochao and the
+# Enchanted Forest (playerbot_seonhae.h, /opt/m2spool/seonhae_drops.tsv); no shop, no ItemShop (the
+# owner, 1 October). The names are UTF-8
+# here, SET NAMES converts them to the tables' CP1250. Idempotent: added once, never changed after.
+db -e "SET NAMES utf8mb4;
+INSERT IGNORE INTO world.item_proto (vnum, name, locale_name, type, subtype, stack, weight, size, antiflag, flag, wearflag, immuneflag, gold, shop_buy_price, refined_vnum, refine_set, magic_pct, specular, socket_pct, addon_type, limittype0, limitvalue0, limittype1, limitvalue1, applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, value0, value1, value2, value3, value4, value5, socket0, socket1, socket2, socket3, socket4, socket5) VALUES
+(39070, 'Szary Odłamek', 'Szary Odłamek', 5, 0, 200, 0, 1, 16512, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(39071, 'Biały Odłamek', 'Biały Odłamek', 5, 0, 200, 0, 1, 16512, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(39072, 'Zielony Odłamek', 'Zielony Odłamek', 5, 0, 200, 0, 1, 16512, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(39073, 'Żółty Odłamek', 'Żółty Odłamek', 5, 0, 200, 0, 1, 16512, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(39074, 'Niebieski Odłamek', 'Niebieski Odłamek', 5, 0, 200, 0, 1, 16512, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(39075, 'Fioletowy Odłamek', 'Fioletowy Odłamek', 5, 0, 200, 0, 1, 16512, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(39076, 'Czerwony Odłamek', 'Czerwony Odłamek', 5, 0, 200, 0, 1, 16512, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(39077, 'Tęczowy Odłamek', 'Tęczowy Odłamek', 5, 0, 200, 0, 1, 16512, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(39081, 'Święty Odłamek', 'Święty Odłamek', 5, 0, 200, 0, 1, 16512, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(72064, 'Mały Suplement', 'Mały Suplement', 5, 0, 200, 0, 1, 90240, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(72065, 'Średni Suplement', 'Średni Suplement', 5, 0, 200, 0, 1, 90240, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(72066, 'Duży Suplement', 'Duży Suplement', 5, 0, 200, 0, 1, 90240, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(72067, 'Silny Suplement', 'Silny Suplement', 5, 0, 200, 0, 1, 90240, 8196, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1);" || echo "[playerbot-migrate] WARNING: could not add Seon-Hae's shards and additives" >&2
+# MT2009_PLUS_FLOWER_V1: the Flower Event "Dzieci Kwiaty" (playerbot_flower.h, server-patches/flower).
+# The five flowers 25121-25125 (Owsap's vnums; use type 3/8, value0 570 = the flower buff, value1 the
+# point - critical 40, mall attack 114, double exp 83, mall item 117, mall defence 115 - value2 the
+# level-1 value, value3 12 h, value4 the value per level, max level 5) and their gift boxes
+# 83023-83027 (type 23, opened by the special_item_group groups of game/special_item_group.flower.txt).
+# All four Owsap anti flags: no drop, give, private shop or storeroom - so no bot can be handed one.
+# The buff values are these rows (value2/value4); the chances and the rest are the classic panel's
+# "Dzieci Kwiaty" page (/opt/m2spool/flower_event.tsv). INSERT IGNORE: a row the operator changed by
+# hand is kept. UTF-8 here, SET NAMES converts to CP1250. Idempotent.
+db -e "SET NAMES utf8mb4;
+INSERT IGNORE INTO world.item_proto (vnum, name, locale_name, type, subtype, stack, weight, size, antiflag, flag, wearflag, immuneflag, gold, shop_buy_price, refined_vnum, refine_set, magic_pct, specular, socket_pct, addon_type, limittype0, limitvalue0, limittype1, limitvalue1, applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, value0, value1, value2, value3, value4, value5, socket0, socket1, socket2, socket3, socket4, socket5) VALUES
+(25121, 'Chryzantema', 'Chryzantema', 3, 8, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 570, 40, 1, 43200, 1, 0, -1, -1, -1, -1, -1, -1),
+(25122, 'Konwalia', 'Konwalia', 3, 8, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 570, 114, 2, 43200, 2, 0, -1, -1, -1, -1, -1, -1),
+(25123, 'Narcyz', 'Narcyz', 3, 8, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 570, 83, 5, 43200, 5, 0, -1, -1, -1, -1, -1, -1),
+(25124, 'Lilia', 'Lilia', 3, 8, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 570, 117, 5, 43200, 5, 0, -1, -1, -1, -1, -1, -1),
+(25125, 'Słonecznik', 'Słonecznik', 3, 8, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 570, 115, 2, 43200, 2, 0, -1, -1, -1, -1, -1, -1),
+(83023, 'Pudełko z Chryzantemą', 'Pudełko z Chryzantemą', 23, 0, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(83024, 'Pudełko z Konwalią', 'Pudełko z Konwalią', 23, 0, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(83025, 'Pudełko z Narcyzem', 'Pudełko z Narcyzem', 23, 0, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(83026, 'Pudełko z Lilią', 'Pudełko z Lilią', 23, 0, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(83027, 'Pudełko ze Słonecznikiem', 'Pudełko ze Słonecznikiem', 23, 0, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1);" || echo "[playerbot-migrate] WARNING: could not add the Flower Event's flowers and boxes" >&2
+# MT2009_PLUS_RUMI_V1: Owsap's Rumi (Okey card game) - playerbot_rumi.h, server-patches/rumi,
+# quest/minigame_rumi.quest. The card (79505, Karta Okey: +1 card towards a set while the event runs)
+# and the card set (79506, Zestaw kart Okey: +1 set), use items the engine's UseItemEx hook takes;
+# the chests a game ends with (gift boxes opened by special_item_group.rumi.txt): 50275-50277 gold,
+# silver and bronze while the scheduler's "rumi" runs, 50267-50269 the Christmas ones of the GM flag
+# mini_game_okey (Owsap's vnums, all free here); the table 20417 (Stol Okey, a copy of the NPC 20005,
+# model okey_npc) that the event manager (playerbot_ingame_events.h) puts on maps 1/21/41 while the
+# event and its reward window last; and the season scores (player.mt2009_rumi_score: a season is an
+# event and its reward window, the top ten take a prize once a season). Idempotent: added once.
+db -e "CREATE TABLE IF NOT EXISTS player.mt2009_rumi_score (pid INT UNSIGNED NOT NULL, season INT UNSIGNED NOT NULL, best_score INT UNSIGNED NOT NULL DEFAULT 0, total_score INT UNSIGNED NOT NULL DEFAULT 0, games INT UNSIGNED NOT NULL DEFAULT 0, last_play DATETIME NOT NULL, PRIMARY KEY (pid, season), KEY season_total (season, total_score), KEY season_best (season, best_score)) ENGINE=InnoDB;
+INSERT IGNORE INTO world.item_proto (vnum, name, locale_name, type, subtype, stack, weight, size, antiflag, flag, wearflag, immuneflag, gold, shop_buy_price, refined_vnum, refine_set, magic_pct, specular, socket_pct, addon_type, limittype0, limitvalue0, limittype1, limitvalue1, applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, value0, value1, value2, value3, value4, value5, socket0, socket1, socket2, socket3, socket4, socket5) VALUES
+(79505, _cp1250 X'4B61727461204F6B6579', _cp1250 X'4B61727461204F6B6579', 3, 10, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(79506, _cp1250 X'5A6573746177206B617274204F6B6579', _cp1250 X'5A6573746177206B617274204F6B6579', 3, 10, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(50275, _cp1250 X'5AB36F746120536B727A796E6961204F6B6579', _cp1250 X'5AB36F746120536B727A796E6961204F6B6579', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(50276, _cp1250 X'53726562726E6120536B727A796E6961204F6B6579', _cp1250 X'53726562726E6120536B727A796E6961204F6B6579', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(50277, _cp1250 X'4272B97A6F776120536B727A796E6961204F6B6579', _cp1250 X'4272B97A6F776120536B727A796E6961204F6B6579', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(50267, _cp1250 X'8C7769B97465637A6E61205AB36F746120536B727A796E6961204F6B6579', _cp1250 X'8C7769B97465637A6E61205AB36F746120536B727A796E6961204F6B6579', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(50268, _cp1250 X'8C7769B97465637A6E612053726562726E6120536B727A796E6961204F6B6579', _cp1250 X'8C7769B97465637A6E612053726562726E6120536B727A796E6961204F6B6579', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(50269, _cp1250 X'8C7769B97465637A6E61204272B97A6F776120536B727A796E6961204F6B6579', _cp1250 X'8C7769B97465637A6E61204272B97A6F776120536B727A796E6961204F6B6579', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1);
+DROP TEMPORARY TABLE IF EXISTS world.rumi_mob;
+CREATE TEMPORARY TABLE world.rumi_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20005 LIMIT 1;
+UPDATE world.rumi_mob SET vnum = 20417, name = _cp1250 X'5374F3B3204F6B6579', locale_name = _cp1250 X'5374F3B3204F6B6579', folder = 'okey_npc', ai_flag = 'NOMOVE', exp = 0, drop_item = 0, resurrection_vnum = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.rumi_mob;
+DROP TEMPORARY TABLE world.rumi_mob;" || echo "[playerbot-migrate] WARNING: could not add Rumi's score table, items and table NPC" >&2
+# MT2009_PLUS_CATCH_KING_V1: Catch the King (Zlap Krola, playerbot_catchking.h,
+# server-patches/catchking, quest/minigame_catchking.quest). Owsap's tokens keep
+# their vnums - Karta Krolewska (79603, +1 card when used during the event) and
+# Talia Krolewska (79604, +1 deck) - as quest-use items bound to the character;
+# Owsap's three King's Loots (50928-50930) are this world's "Receptura" items, so
+# the Loots take 50968 (Zloty, 550+ points), 50969 (Srebrny, 400-549) and 50970
+# (Brazowy, 10-399): gift boxes opened by special_item_group.catchking.txt. The
+# table NPC 20506 (Owsap's, model king_npc), a clone of the stock NPC 20005, stands
+# on maps 1/21/41 while the event runs and through its 7-day reward window
+# (playerbot_ingame_events.h). player.minigame_catchking holds the scores per
+# season (the event flag mini_game_catchking_season) and player id, and whether
+# the season's top-10 prize was taken. The names are UTF-8 here, SET NAMES converts
+# them to the tables' CP1250. Idempotent: added once, never changed after.
+db -e "SET NAMES utf8mb4;
+CREATE TABLE IF NOT EXISTS player.minigame_catchking (season INT UNSIGNED NOT NULL, pid INT UNSIGNED NOT NULL, name VARCHAR(24) NOT NULL DEFAULT '', empire TINYINT UNSIGNED NOT NULL DEFAULT 0, max_score INT UNSIGNED NOT NULL DEFAULT 0, total_score INT UNSIGNED NOT NULL DEFAULT 0, games INT UNSIGNED NOT NULL DEFAULT 0, claimed TINYINT UNSIGNED NOT NULL DEFAULT 0, last_play DATETIME NULL, PRIMARY KEY (season, pid), KEY season_total (season, total_score)) ENGINE=InnoDB;
+INSERT IGNORE INTO world.item_proto (vnum, name, locale_name, type, subtype, stack, weight, size, antiflag, flag, wearflag, immuneflag, gold, shop_buy_price, refined_vnum, refine_set, magic_pct, specular, socket_pct, addon_type, limittype0, limitvalue0, limittype1, limitvalue1, applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, value0, value1, value2, value3, value4, value5, socket0, socket1, socket2, socket3, socket4, socket5) VALUES
+(79603, 'Karta Królewska', 'Karta Królewska', 18, 0, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(79604, 'Talia Królewska', 'Talia Królewska', 18, 0, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(50968, 'Złoty Łup Królewski', 'Złoty Łup Królewski', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(50969, 'Srebrny Łup Królewski', 'Srebrny Łup Królewski', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(50970, 'Brązowy Łup Królewski', 'Brązowy Łup Królewski', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1);
+DROP TEMPORARY TABLE IF EXISTS world.ck_mob;
+CREATE TEMPORARY TABLE world.ck_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20005 LIMIT 1;
+UPDATE world.ck_mob SET vnum = 20506, name = 'Złap Króla', locale_name = 'Złap Króla', folder = 'king_npc';
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.ck_mob;
+DROP TEMPORARY TABLE world.ck_mob;" || echo "[playerbot-migrate] WARNING: could not add Catch the King's items, table NPC and score table" >&2
+# MT2009_PLUS_YUTNORI_V1: Yut Nori (Owsap's mini game; the engine half is
+# playerbot_yutnori.h and server-patches/yutnori, the table NPC's menu
+# quest/minigame_yutnori.quest). The scores per event season (the epoch the
+# event began, event flag mini_game_yutnori_season) and player; the items at
+# Owsap's vnums except his bundles 50920-50922, which are our Receptura items
+# here - the Golden/Silver/Bronze Yut Nori Bundle are 83032/83033/83034. The
+# tokens (Birch Branch 79507, Yut Nori Board 79508: ITEM_USE/USE_SPECIAL, no
+# drop/give/shop/storage) go into the game's counters when used; the trophies
+# and bundles are gift boxes (special_item_group.yutnori.txt). The table NPC
+# 20502 and the thrower 20505 (shown only in the client's window) are copies
+# of an NPC row (20094, a talk NPC). Idempotent: INSERT IGNORE keeps an
+# operator's change.
+db -e "CREATE TABLE IF NOT EXISTS player.minigame_yutnori (season INT UNSIGNED NOT NULL, pid INT UNSIGNED NOT NULL, best_score INT NOT NULL DEFAULT 0, total_score INT NOT NULL DEFAULT 0, games INT UNSIGNED NOT NULL DEFAULT 0, last_play DATETIME NOT NULL, PRIMARY KEY (season, pid), KEY season_total (season, total_score), KEY season_best (season, best_score)) ENGINE=InnoDB;" \
+  || echo "[playerbot-migrate] WARNING: could not create player.minigame_yutnori" >&2
+db -e "SET NAMES utf8mb4;
+INSERT IGNORE INTO world.item_proto (vnum, name, locale_name, type, subtype, stack, weight, size, antiflag, flag, wearflag, immuneflag, gold, shop_buy_price, refined_vnum, refine_set, magic_pct, specular, socket_pct, addon_type, limittype0, limitvalue0, limittype1, limitvalue1, applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, value0, value1, value2, value3, value4, value5, socket0, socket1, socket2, socket3, socket4, socket5) VALUES
+(79507, 'Pień Brzozy', 'Pień Brzozy', 3, 10, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(79508, 'Plansza do Yutnori', 'Plansza do Yutnori', 3, 10, 200, 0, 1, 204928, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(83030, 'Złote Trofeum Yutnori', 'Złote Trofeum Yutnori', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(83031, 'Srebrne Trofeum Yutnori', 'Srebrne Trofeum Yutnori', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(83032, 'Złoty Pakiet Yutnori', 'Złoty Pakiet Yutnori', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(83033, 'Srebrny Pakiet Yutnori', 'Srebrny Pakiet Yutnori', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(83034, 'Brązowy Pakiet Yutnori', 'Brązowy Pakiet Yutnori', 23, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1);
+DROP TEMPORARY TABLE IF EXISTS world.yut_mob;
+CREATE TEMPORARY TABLE world.yut_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20094 LIMIT 1;
+UPDATE world.yut_mob SET vnum = 20502, name = 'Stół do Yutnori', locale_name = 'Stół do Yutnori', rank = 0, type = 1, level = 1, ai_flag = 'NOMOVE', on_click = 2, exp = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.yut_mob;
+UPDATE world.yut_mob SET vnum = 20505, name = 'Pałeczki Yut', locale_name = 'Pałeczki Yut', on_click = 0;
+INSERT IGNORE INTO world.mob_proto SELECT * FROM world.yut_mob;
+DROP TEMPORARY TABLE world.yut_mob;" || echo "[playerbot-migrate] WARNING: could not add the Yut Nori items and NPCs" >&2
+
+# MT2009_PLUS_RARE_TABLE_V2: the 6th/7th bonus pool (world.item_attr_rare, read by Seon-Hae and
+# the Enchant 71051) as the owner set it on 1 October (Bonusy_6-7.xlsx): graded lv1-lv5 values and
+# seven more bonuses. The package's table named its bonuses by the old APPLY_* order (STR = 5),
+# while this engine stores and applies an item's bonus as a POINT_* number (POINT_ST = 12, 5 is the
+# current HP, 1 the level): a 6th/7th bonus from it changed the wrong point. The column takes
+# item_attr's POINT_* enum, so the db core's "apply+0" is the POINT_* the item keeps. Written ONCE
+# per world (marker rare_6_7_v2 in world.mt2009_plus_once), so a later hand edit stays.
+db -e "CREATE TABLE IF NOT EXISTS world.mt2009_plus_once (name VARCHAR(64) NOT NULL PRIMARY KEY, done_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);" || true
+if [ "$(db -N -e "SELECT COUNT(*) FROM world.mt2009_plus_once WHERE name = 'rare_6_7_v2'" 2>/dev/null || echo 1)" = 0 ]; then
+    m2_rare_apply_type=$(db -N -e "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = 'world' AND TABLE_NAME = 'item_attr' AND COLUMN_NAME = 'apply'" 2>/dev/null)
+    case "$m2_rare_apply_type" in
+        enum\(*POINT_ST*) ;;
+        *) m2_rare_apply_type="" ;;
+    esac
+    if [ -n "$m2_rare_apply_type" ] && db -e "DELETE FROM world.item_attr_rare;
+ALTER TABLE world.item_attr_rare MODIFY apply $m2_rare_apply_type NOT NULL;
+INSERT INTO world.item_attr_rare (apply,prob,lv1,lv2,lv3,lv4,lv5,weapon,body,wrist,foots,neck,head,shield,ear,costume_body,costume_hair,costume_weapon,pendant,glove) VALUES
+('POINT_MAX_HP',1,150,250,500,800,850,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_MAX_SP',1,100,150,250,500,600,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_HT',1,2,5,6,8,10,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_IQ',1,2,5,6,8,10,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_ST',1,2,5,6,8,10,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_DX',1,2,5,6,8,10,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_CRITICAL_PCT',1,2,5,6,8,10,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_PENETRATE_PCT',1,2,5,6,8,10,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_ATT_GRADE_BONUS',1,5,10,15,20,25,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_ATTBONUS_MONSTER',1,1,2,3,4,5,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_ATTBONUS_WARRIOR',1,1,2,3,4,5,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_ATTBONUS_ASSASSIN',1,1,2,3,4,5,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_ATTBONUS_SURA',1,1,2,3,4,5,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_ATTBONUS_SHAMAN',1,1,2,3,4,5,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_RESIST_WARRIOR',1,1,2,3,4,5,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_RESIST_ASSASSIN',1,1,2,3,4,5,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_RESIST_SURA',1,1,2,3,4,5,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_RESIST_SHAMAN',1,1,2,3,4,5,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_ATT_SPEED',1,1,1,1,2,2,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_MOV_SPEED',1,2,3,4,5,8,5,5,5,5,5,5,5,5,0,0,0,0,0),
+('POINT_BLOCK',1,1,2,3,5,8,0,0,0,0,0,0,5,0,0,0,0,0,0),
+('POINT_ATTBONUS_HUMAN',1,1,2,3,5,8,5,0,5,0,0,5,5,5,0,0,0,0,0),
+('POINT_ATTBONUS_ANIMAL',1,2,3,5,10,12,5,0,5,0,0,5,5,5,0,0,0,0,0),
+('POINT_ATTBONUS_ORC',1,2,3,5,10,12,5,0,5,0,0,5,5,5,0,0,0,0,0),
+('POINT_ATTBONUS_MILGYO',1,2,3,5,10,12,5,0,5,0,0,5,5,5,0,0,0,0,0),
+('POINT_ATTBONUS_UNDEAD',1,2,3,5,10,12,5,0,5,0,0,5,5,5,0,0,0,0,0),
+('POINT_ATTBONUS_DEVIL',1,2,3,5,10,12,5,0,5,0,0,5,5,5,0,0,0,0,0);
+INSERT INTO world.mt2009_plus_once (name) VALUES ('rare_6_7_v2');"; then
+        echo "[playerbot-migrate] 6th/7th bonus pool: the 1 October table (27 bonuses, POINT_* numbering)"
+    else
+        echo "[playerbot-migrate] WARNING: could not write the 6th/7th bonus pool" >&2
+    fi
+fi

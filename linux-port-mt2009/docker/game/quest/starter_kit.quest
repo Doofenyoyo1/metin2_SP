@@ -1,0 +1,110 @@
+-- The starter kit of a player's new character (the operator, 30 September,
+-- on Iwakura's proposal for the bots): the world's choice in the launcher's
+-- new-world window (M2_STARTER_KIT; the migrator writes the event flag
+-- m2_starter_kit at every start): 1 = the class's level-1 weapon and body
+-- armour at +5, 2 = the whole level-1 set at +9, 0 = nothing past what the
+-- game gives (give_basic_weapon's weapon and potions, the apprentice chest).
+--
+-- Given once and worn, at a login of a character still at level one. A
+-- character that logs in while the flag is 0 is not marked, so a world that
+-- chooses a kit later gives it to the characters still at one. Never a bot's:
+-- the seed dresses the bots it makes (generate_seed.py), and the bots already
+-- in the world keep what they have.
+--
+-- The engine admits five equips a half second per character (CanEquipNow's
+-- ItemEquip pulse), and the easy kit is eight pieces, so the login only gives
+-- them and a timer a second apart wears them, as gm_profile.quest does.
+quest starter_kit begin
+	state start begin
+		-- The kit of this character's class as { wear slot, vnum } pairs, the
+		-- wear slots of common/length.h (body 0, head 1, foots 2, wrist 3,
+		-- weapon 4, neck 5, ear 6, shield 10). The vnums are the level-1 bases
+		-- of item_proto - the apprentice chest's weapons, the seed's armours -
+		-- and +N is the base plus N; every piece is worn from level one.
+		function pieces(kit)
+			local job = pc.get_job()
+			local plus = 5
+			if kit >= 2 then
+				plus = 9
+			end
+			local weapon = 10
+			local body = 11200
+			local head = 12200
+			if job == 1 then
+				weapon = 1000
+				body = 11400
+				head = 12340
+			elseif job == 2 then
+				body = 11600
+				head = 12480
+			elseif job == 3 then
+				weapon = 7000
+				body = 11800
+				head = 12620
+			end
+			local list = { { 4, weapon + plus }, { 0, body + plus } }
+			if kit >= 2 then
+				table.insert(list, { 1, head + 9 })
+				table.insert(list, { 10, 13009 })
+				table.insert(list, { 2, 15009 })
+				table.insert(list, { 3, 14009 })
+				table.insert(list, { 5, 16009 })
+				table.insert(list, { 6, 17009 })
+			end
+			return list
+		end
+
+		function find_cell(vnum)
+			for cell = 0, 89 do
+				if item.select_cell(cell) then
+					if item.get_vnum() == vnum then
+						return cell
+					end
+				end
+			end
+			return -1
+		end
+
+		-- Every piece of the kit not yet worn, worn from the bag the login put
+		-- it in. Returns how many the engine refused this time.
+		function wear_all()
+			local list = starter_kit.pieces(pc.getqf("kit"))
+			local left = 0
+			for i = 1, table.getn(list) do
+				local slot = list[i][1]
+				local vnum = list[i][2]
+				if pc.get_wear(slot) ~= vnum then
+					local cell = starter_kit.find_cell(vnum)
+					if cell >= 0 then
+						if not pc.equip_slot(cell) or pc.get_wear(slot) ~= vnum then
+							left = left + 1
+						end
+					end
+				end
+			end
+			return left
+		end
+
+		when login with pc.getqf("given") == 0 and pc.get_level() == 1 and not pc.is_playerbot() and
+				game.get_event_flag("m2_starter_kit") > 0 begin
+			local kit = game.get_event_flag("m2_starter_kit")
+			local list = starter_kit.pieces(kit)
+			for i = 1, table.getn(list) do
+				pc.give_item2(list[i][2], 1)
+			end
+			pc.setqf("given", 1)
+			pc.setqf("kit", kit)
+			pc.setqf("tries", 0)
+			timer("starter_kit_wear", 1)
+		end
+
+		when starter_kit_wear.timer begin
+			local tries = pc.getqf("tries") + 1
+			pc.setqf("tries", tries)
+			local left = starter_kit.wear_all()
+			if left > 0 and tries < 5 then
+				timer("starter_kit_wear", 1)
+			end
+		end
+	end
+end

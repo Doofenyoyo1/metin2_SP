@@ -139,6 +139,13 @@ namespace {
     }
     void BotOfflineFinishVisit(LPCHARACTER ch, TPlayerBotAIState& state, DWORD now) {
         auto& o = state.offlineShop;
+        // MT2009_PLUS_DROPPER_INVEST_V1: a dropper whose counter was served
+        // has its shopping window at the stands round it.
+        if (o.visiting && ch && IsPlayerBotDropper(state.bPersonality) &&
+                o.lastServedAt != 0 && o.visitStarted != 0 && int32_t(o.lastServedAt - o.visitStarted) >= 0) {
+            OpenPlayerBotDropperShopping(ch->GetPlayerID(), now);
+            o.nextBrowse = now;
+        }
         if (o.visiting) {
             ikashop::GetManager().RecvCloseMyShopBoardClientPacket(ch);
             ikashop::GetManager().RecvShopSafeboxCloseClientPacket(ch);
@@ -705,7 +712,8 @@ namespace {
                 ch->GetPlayerID(), ch->GetName(), vnum, skill, (unsigned int)line.count,
                 (long long)line.price, haveListing && known->second.when != 0
                     ? (int)((now - known->second.when) / 1000) : -1, slip ? 1 : 0);
-            if (haveListing) o.listed.erase(known);
+            // A part of the stack sold: the rest of the line is still up.
+            if (haveListing && !line.partial) o.listed.erase(known);
         }
         playerbot_offline::sold.erase(it);
     }
@@ -1727,6 +1735,14 @@ namespace {
                 o.nextService = now + PLAYERBOT_OFFLINE_FAR_SERVICE_RETRY_MS;
                 return false;
             }
+        }
+        // MT2009_PLUS_AREZZO_BOTS_V1 (held): a bot the Arezzo test holds on its
+        // map (or on its road into the Las) serves its shop after the test.
+        if (ch->GetMapIndex() != serviceMap && IsPlayerBotArezzoHeldHere(ch)) {
+            if (o.visiting)
+                BotOfflineInterruptVisit(ch, state, now, "arezzo_test");
+            o.nextService = now + PLAYERBOT_OFFLINE_FAR_SERVICE_RETRY_MS;
+            return false;
         }
         if (!o.visiting) {
             o.visiting = true;

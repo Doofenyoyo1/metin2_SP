@@ -824,6 +824,59 @@ namespace
 		}
 	}
 
+	// MT2009_PLUS_DROPPER_INVEST_V1: what a dropper's next steps lack - the
+	// weapon, the body armour and the shield it wears, each up to +9 - by
+	// vnum: the recipes' materials over the Biologist's share, and a safe
+	// scroll for each step the bag has none for. Its shopping window buys
+	// these first (ManagePlayerBotOfflineShopping).
+	void CollectPlayerBotDropperInvestMissing(LPCHARACTER ch, std::map<DWORD, int>& missing)
+	{
+		missing.clear();
+		if (!ch || !ch->IsItemLoaded())
+			return;
+		const BYTE wears[] = { WEAR_WEAPON, WEAR_BODY, WEAR_SHIELD };
+		std::map<DWORD, int> need;
+		int steps = 0;
+		for (size_t i = 0; i < sizeof(wears) / sizeof(wears[0]); ++i)
+		{
+			LPITEM piece = ch->GetWear(wears[i]);
+			if (!piece || piece->GetRefinedVnum() == 0 ||
+					(int)piece->GetRefineLevel() >= PLAYERBOT_DROPPER_INVEST_MAX_PLUS ||
+					IsPlayerBotScrollFreeGear(piece))
+				continue;
+			const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(piece->GetRefineSet());
+			if (!recipe)
+				continue;
+			++steps;
+			for (int m = 0; m < recipe->material_count; ++m)
+				if (recipe->materials[m].vnum != 0 && recipe->materials[m].count > 0)
+					need[recipe->materials[m].vnum] += (int)recipe->materials[m].count;
+		}
+		for (std::map<DWORD, int>::const_iterator it = need.begin(); it != need.end(); ++it)
+		{
+			const int have = (int)ch->CountSpecifyItem(it->first) - GetPlayerBotBiologistReserve(ch, it->first);
+			if (have < it->second)
+				missing[it->first] = it->second - std::max(0, have);
+		}
+		const int scrolls = CountPlayerBotSafeRefineScrolls(ch);
+		if (steps > scrolls)
+		{
+			const DWORD scrollVnums[] = { PLAYERBOT_BLESSING_SCROLL_VNUM, 25041, 25043, 25045, 70039 };
+			for (size_t i = 0; i < sizeof(scrollVnums) / sizeof(scrollVnums[0]); ++i)
+				if (IsPlayerBotSafeRefineScroll(scrollVnums[i]))
+					missing[scrollVnums[i]] = steps - scrolls;
+		}
+	}
+
+	bool WantsPlayerBotDropperInvestOffer(LPCHARACTER ch, DWORD vnum)
+	{
+		if (!ch || !IsPlayerBotDropperShopping(ch->GetPlayerID(), get_dword_time()))
+			return false;
+		std::map<DWORD, int> missing;
+		CollectPlayerBotDropperInvestMissing(ch, missing);
+		return missing.find(vnum) != missing.end();
+	}
+
 	// How many units of a material this bot keeps back for its own anvil:
 	// twice the largest recipe count among the pieces it would raise - the
 	// same measure "short" uses above. The counter lists only what is over
@@ -2836,7 +2889,15 @@ namespace
 	// trip the wait asks for is what finds the counter.
 #if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
 	bool PlayerBotFindReadyGearToBuy(LPCHARACTER ch, TPlayerBotAIState& state, int wearCell);
+	// MT2009_PLUS_BOSS_RAID_V2 (2.2.52, burn): playerbot_offline_market.h.
+	bool PlayerBotFindBurnReplacementToBuy(LPCHARACTER ch, TPlayerBotAIState& state, int wearCell, int minLevel);
 #else
+	// Without the stands' lines the market trip is what finds a counter, and
+	// the merchant waits for it as before.
+	bool PlayerBotFindBurnReplacementToBuy(LPCHARACTER, TPlayerBotAIState&, int, int)
+	{
+		return true;
+	}
 	bool PlayerBotFindReadyGearToBuy(LPCHARACTER ch, TPlayerBotAIState&, int wearCell)
 	{
 		return PlayerBotMarketHasReadyGear(ch, wearCell);
@@ -2881,6 +2942,8 @@ namespace
 				IsPlayerBotReadyGearProto(ch, offer->GetProto(), offer->GetVnum(), wearCell) &&
 				offer->GetRefineLevel() >= PLAYERBOT_READY_GEAR_MIN_PLUS;
 	}
+
+	bool IsPlayerBotHeldForCompany(LPCHARACTER ch); // playerbot_companions.h
 
 	// Iwakura's Patch 4, point 7, "Protokol Odbudowy": a bot whose only weapon,
 	// body armour or shield burnt at the anvil looks at the market for a
@@ -3484,8 +3547,33 @@ namespace
 					}
 					// The only piece of its slot gone: the market first, now
 					// (IsPlayerBotRebuildingFromMarket; Patch 4, point 7).
-					if (scrollCell < 0 && (wearCell == WEAR_WEAPON || wearCell == WEAR_BODY ||
-							wearCell == WEAR_SHIELD) && !PlayerBotHasPieceForSlot(ch, wearCell))
+					// MT2009_PLUS_BOSS_RAID_V2 (2.2.52): and only while a stand of
+					// the map holds a replacement of the burnt piece's level that
+					// the bot can pay for - and never for the Companion or a bot
+					// held for company, which do not go to the stands at all
+					// (BotOfflineBusyReason "company"): their merchant's piece
+					// waited out the three minutes for a market they never saw.
+					const bool marketReplacement = scrollCell < 0 &&
+							(wearCell == WEAR_WEAPON || wearCell == WEAR_BODY || wearCell == WEAR_SHIELD) &&
+							!PlayerBotHasPieceForSlot(ch, wearCell) &&
+							!IsPlayerBotSidekickPID(ch->GetPlayerID()) && !IsPlayerBotHeldForCompany(ch) &&
+							PlayerBotFindBurnReplacementToBuy(ch, state, wearCell,
+									GetPlayerBotProtoLevelLimit(ITEM_MANAGER::instance().GetTable(oldVnum)));
+					if (scrollCell < 0 && !marketReplacement && (wearCell == WEAR_WEAPON ||
+							wearCell == WEAR_BODY || wearCell == WEAR_SHIELD) && !PlayerBotHasPieceForSlot(ch, wearCell))
+					{
+						// Straight to the merchant: the town visit's next look at
+						// him buys the plain piece, and the anvil's next pass
+						// raises it.
+						std::map<DWORD, TPlayerBotRebuild>::iterator stale = s_mapPlayerBotRebuild.find(ch->GetPlayerID());
+						if (stale != s_mapPlayerBotRebuild.end() && stale->second.bSlot == wearCell)
+							s_mapPlayerBotRebuild.erase(stale);
+						state.dwNextShoppingTime = 0;
+						sys_log(0, "PLAYERBOT_MARKET: no market replacement after a burn, merchant now pid=%u name=%s slot=%u vnum=%u plus=%u gold=%lld",
+								ch->GetPlayerID(), ch->GetName(), (unsigned int)wearCell, oldVnum,
+								(unsigned int)plusLevel, (long long)ch->GetGold());
+					}
+					if (marketReplacement)
 					{
 						TPlayerBotRebuild& rebuild = s_mapPlayerBotRebuild[ch->GetPlayerID()];
 						rebuild.dwUntil = dwNow + PLAYERBOT_REBUILD_MARKET_MS;

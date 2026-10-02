@@ -1,6 +1,6 @@
 -- MT2009_PLUS_AREZZO_V1 (skorpion): Ruiny Skorpiona - loch od poziomu 65, trudniejszy ni¿ Razador (mapa 365,
 -- plechito_scorpion_dungeon z Arezzo), tylko dla graczy. Wzorzec biblioteka_wiedzy.quest (tools/questgen.py):
--- Stra¿nik Ruin (20424) na Ognistej Ziemi obok stra¿nika Razadora. Etapy: 3 fale po 50 skorpionów (Pieczêæ Ruin
+-- Stra¿nik Ruin (20424) na Ognistej Ziemi obok stra¿nika Razadora. Etapy: 3 fale po 40 skorpionów (Pieczêæ Ruin
 -- 30767), 6 Metinów Skorpiona, 3 Czerwone Skorpiony, 4 Metiny, Król Skorpionów; potem 2-4 Skrzynie Skorpiona
 -- (30775) dla ka¿dego gracza. Limit 45 minut, ponowne wejœcie po 60 minutach.
 quest ruiny_skorpiona begin
@@ -19,7 +19,9 @@ quest ruiny_skorpiona begin
 				-- how many new expeditions a player may start a day (Polish midnight).
 				fee = 10000000, fee_text = "10 000 000",
 				daily = 5,
-				wave_kills = 50,
+				-- 1 October: 40 (was 50) - the waves (wave.txt: 8 groups every 30 s, was 16 every 15 s) for a
+				-- party at the entry level 65.
+				wave_kills = 40,
 				seals = 3,
 				chests_min = 2, chests_max = 4,
 				path = "data/dungeon/ruiny_skorpiona/",
@@ -92,7 +94,7 @@ quest ruiny_skorpiona begin
 
 		function stage_text(stage)
 			local c = ruiny_skorpiona.cfg()
-			if stage == 1 then return "Pokonajcie 50 skorpionów, a potem u¿yjcie Pieczêci Ruin ("..d.getf("seals").."/"..c.seals..")."
+			if stage == 1 then return "Pokonajcie "..c.wave_kills.." skorpionów, a potem u¿yjcie Pieczêci Ruin ("..d.getf("seals").."/"..c.seals..")."
 			elseif stage == 2 then return "Zniszczcie 6 Metinów Skorpiona."
 			elseif stage == 3 then return "Pokonajcie 3 Czerwone Skorpiony."
 			elseif stage == 4 then return "Zniszczcie 4 Metiny Skorpiona."
@@ -170,7 +172,12 @@ quest ruiny_skorpiona begin
 			local c = ruiny_skorpiona.cfg()
 			d.setf("closed", 1)
 			d.setf("mt2009_keep_until", 0)
-			d.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+			if d.getf("mt2009_dgbot") == 1 then
+				-- MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1: the test cohort's run ends in its lobby (this map, game2).
+				d.set_warp_location(c.map, c.base_x + c.entry[1], c.base_y + c.entry[2])
+			else
+				d.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+			end
 			d.exit_all()
 		end
 
@@ -539,6 +546,10 @@ quest ruiny_skorpiona begin
 					return
 				end
 				local left = d.getf("minutes") - 1
+				if d.getf("mt2009_dgbot") == 1 then
+					-- MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1: the test cohort's runs have no time limit.
+					left = d.getf("minutes")
+				end
 				d.setf("minutes", left)
 				if left <= 0 then
 					d.notice("Ruiny Skorpiona: Czas min¹³. Stra¿nik wyprowadza was z lochu.")
@@ -553,6 +564,17 @@ quest ruiny_skorpiona begin
 					d.notice("Ruiny Skorpiona: Pozosta³o "..left.." min.")
 				end
 				server_timer("skorpion_tick", 60, get_server_timer_arg())
+			end
+		end
+
+		-- MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1: the start of a test cohort's run. The core makes the
+		-- instance itself (no guard, so no fee and no daily limit), marks it with the dungeon flag
+		-- mt2009_dgbot - nothing a player can set - and asks for this; a player's run starts in login.
+		when skorpion_dgbot.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				if d.getf("mt2009_dgbot") == 1 and d.getf("init") == 0 then
+					ruiny_skorpiona.init()
+				end
 			end
 		end
 

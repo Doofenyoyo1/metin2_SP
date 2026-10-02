@@ -261,27 +261,33 @@ int main()
 
 	// --- the Law of Advancement -----------------------------------------------
 	{
+		// The law by level (MT2009_PLUS_PROGRESSION_V1's default rows): in a
+		// first village a weapon +5 and an armour +4, and no shield yet.
 		TAdvanceGear g;
 		g.level = 15;
-		g.weapon = TGearPiece(7, 10);
-		g.armour = TGearPiece(6, 9);
-		g.shield = TGearPiece(6, 1);
+		g.weapon = TGearPiece(5, 10);
+		g.armour = TGearPiece(4, 9);
+		g.wantsShield = true;
 		assert(AwansGaps(g) == 0);
 		// Each piece one grade short is its own gap.
-		g.weapon.plus = 6;
+		g.weapon.plus = 4;
 		assert(AwansGaps(g) == AWANS_GAP_WEAPON);
-		g.weapon.plus = 7;
-		g.armour.plus = 5;
-		g.shield.plus = 5;
-		assert(AwansGaps(g) == (AWANS_GAP_ARMOUR | AWANS_GAP_SHIELD));
+		g.weapon.plus = 5;
+		g.armour.plus = 3;
+		assert(AwansGaps(g) == AWANS_GAP_ARMOUR);
+		// From 19 the row asks +6/+5 and a shield at +4.
+		g.level = 19;
+		g.weapon = TGearPiece(6, 10);
+		g.armour = TGearPiece(5, 9);
+		assert(AwansGaps(g) == AWANS_GAP_SHIELD);
+		g.shield = TGearPiece(4, 1);
+		assert(AwansGaps(g) == 0);
+		g.shield.plus = 3;
+		assert(AwansGaps(g) == AWANS_GAP_SHIELD);
 		// A bow or a two-hander wants no shield.
-		g.armour.plus = 6;
 		g.wantsShield = false;
-		g.shield = TGearPiece();
 		assert(AwansGaps(g) == 0);
 		// Nothing worn is a gap.
-		g.wantsShield = true;
-		assert(AwansGaps(g) == AWANS_GAP_SHIELD);
 		g.weapon = TGearPiece();
 		assert(AwansGaps(g) & AWANS_GAP_WEAPON);
 	}

@@ -72,7 +72,7 @@ namespace {
         auto preview = BotOfflinePreview(*line);
         if (!preview) return -1;
         const bool want = WantsPlayerBotStallItem(ch, preview) &&
-            CanPlayerBotPayForOffer(ch, preview, price) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
+            CanPlayerBotPayForOffer(ch, preview, price, shop->GetOwnerPID()) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
         int priority = IsPlayerBotProgressionOffer(ch, preview) ? 200 : 0;
         // The class's level-30 weapon comes first, and of those the
         // highest average line, the price only breaking a tie: "12% za
@@ -162,7 +162,7 @@ namespace {
         auto price = line->GetPrice().GetTotalYangAmount();
         auto finalPreview = BotOfflinePreview(*line);
         const bool wanted = finalPreview && WantsPlayerBotStallItem(ch, finalPreview);
-        const bool payable = wanted && CanPlayerBotPayForOffer(ch, finalPreview, price);
+        const bool payable = wanted && CanPlayerBotPayForOffer(ch, finalPreview, price, shop->GetOwnerPID());
         const bool stillWanted = payable && ch->GetEmptyInventory(finalPreview->GetSize()) >= 0;
         if (finalPreview) M2_DELETE(finalPreview);
         if (!stillWanted) {
@@ -255,7 +255,11 @@ namespace {
         }
         if (!o.buyOwner) {
             if (!Due(now, o.nextBrowse)) return false;
-            o.nextBrowse = now + number(120000, 240000);
+            // MT2009_PLUS_DROPPER_INVEST_V1: a dropper's window is short, so
+            // it looks again soon while the window lasts.
+            const bool dropperWindow = IsPlayerBotDropper(state.bPersonality) &&
+                    IsPlayerBotDropperShopping(ch->GetPlayerID(), now);
+            o.nextBrowse = now + (dropperWindow ? PLAYERBOT_DROPPER_SHOP_BROWSE_MS : (DWORD)number(120000, 240000));
             // A guild master whose next building lacks materials looks for
             // them on every stand of the map, the gambler's way, paying out of
             // the guild's fund - which the budget below leaves out, being
@@ -271,6 +275,18 @@ namespace {
             }
             const long long budget = Affordable(ch->GetGold(), GetPlayerBotReservedGold(ch), PLAYERBOT_SHOPPING_GOLD_FLOOR);
             if (budget <= 0) return false;
+            // MT2009_PLUS_DROPPER_INVEST_V1: a dropper's own next steps first -
+            // the materials and scrolls of its weapon, armour and shield, up
+            // to +9 - on every stand of the map, the gambler's way.
+            if (dropperWindow) {
+                std::map<DWORD, int> missing;
+                CollectPlayerBotDropperInvestMissing(ch, missing);
+                if (!missing.empty() && FindPlayerBotGambleMaterialPick(ch, state, missing, budget, now)) {
+                    sys_log(0, "PLAYERBOT_MARKET: dropper invests in itself pid=%u name=%s owner=%u item=%u lacking=%u",
+                        ch->GetPlayerID(), ch->GetName(), o.buyOwner, o.buyItem, (unsigned int)missing.size());
+                    return RunPlayerBotOfflinePick(ch, state, now);
+                }
+            }
             // What the piece under Iwakura's scroll rule lacks for its next
             // step - the weapon, or the armour once the weapon is at +8 - is
             // looked for on every stand of the map, the gambler's way, before
@@ -481,7 +497,7 @@ namespace {
                 if (!preview) continue;
                 const bool buyable = preview->FindEquipCell(ch) == wearCell &&
                         IsPlayerBotReadyGearOffer(ch, preview) && WantsPlayerBotStallItem(ch, preview) &&
-                        CanPlayerBotPayForOffer(ch, preview, price);
+                        CanPlayerBotPayForOffer(ch, preview, price, shop->GetOwnerPID());
                 M2_DELETE(preview);
                 if (!buyable) continue;
                 auto& o = state.offlineShop;
@@ -493,6 +509,63 @@ namespace {
             }
         }
         return false;
+    }
+
+    // MT2009_PLUS_BOSS_RAID_V2 (2.2.52, burn): the replacement for a weapon,
+    // body armour or shield that has just burnt at the anvil, read on every
+    // stand of the bot's map at once - the best by the equipment score of the
+    // lines the bot can wear now, of the burnt piece's level or over, that
+    // the buyer would take and could pay for - and handed to the buyer as the
+    // anvil's finished piece is. False when the map has none: the merchant's
+    // piece is then bought at once instead of after the market's wait (a bot
+    // used to walk the merchants empty-handed for three minutes,
+    // KrwawyKarp46 on 1 October).
+    bool PlayerBotFindBurnReplacementToBuy(LPCHARACTER ch, TPlayerBotAIState& state, int wearCell, int minLevel) {
+        using namespace playerbot_offline;
+        if (!ch) return false;
+        const long long budget = Affordable(ch->GetGold(), GetPlayerBotReservedGold(ch), PLAYERBOT_SHOPPING_GOLD_FLOOR);
+        if (budget <= 0) return false;
+        const int shopChannel = CPlayerBotManager::instance().IsChannelTableMode()
+                ? playerbot_channel_rules::SHOP_CHANNEL : (int)g_bChannel;
+        const DWORD now = get_dword_time();
+        DWORD bestOwner = 0, bestItem = 0;
+        long long bestScore = 0;
+        for (const auto& [pid, shop] : ikashop::GetManager().GetPlayerBotOfflineShops()) {
+            if (!shop || pid == ch->GetPlayerID() || shop->GetDuration() == 0 || shop->IsEditMode()) continue;
+            const auto spawn = shop->GetSpawn();
+            if (spawn.map != ch->GetMapIndex() || (int)spawn.channel != shopChannel) continue;
+            for (const auto& [id, line] : shop->GetItems()) {
+                if (!line) continue;
+                const TItemTable* proto = ITEM_MANAGER::instance().GetTable(line->GetInfo().vnum);
+                if (!proto || (proto->bType != ITEM_WEAPON && proto->bType != ITEM_ARMOR)) continue;
+                const int level = GetPlayerBotProtoLevelLimit(proto);
+                if (level < minLevel || level > (int)ch->GetLevel() ||
+                        IsPlayerBotLineClaimedByOther(id, ch->GetPlayerID(), now))
+                    continue;
+                const long long price = (long long)line->GetPrice().GetTotalYangAmount();
+                if (price <= 0 || price > budget) continue;
+                LPITEM preview = BotOfflinePreview(*line);
+                if (!preview) continue;
+                long long score = 0;
+                const bool buyable = preview->FindEquipCell(ch) == wearCell &&
+                        IsPlayerBotEquipmentCandidate(ch, preview) && WantsPlayerBotStallItem(ch, preview) &&
+                        CanPlayerBotPayForOffer(ch, preview, price, shop->GetOwnerPID()) &&
+                        (score = GetPlayerBotEquipmentScore(preview, ch)) > bestScore;
+                M2_DELETE(preview);
+                if (!buyable) continue;
+                bestOwner = shop->GetOwnerPID();
+                bestItem = id;
+                bestScore = score;
+            }
+        }
+        if (!bestOwner) return false;
+        auto& o = state.offlineShop;
+        o.readyPickOwner = bestOwner;
+        o.readyPickItem = bestItem;
+        o.readyPickUntil = now + PLAYERBOT_REBUILD_MARKET_MS;
+        o.nextBrowse = 0;
+        ClaimPlayerBotLineUntil(bestItem, ch->GetPlayerID(), now, now + PLAYERBOT_REBUILD_MARKET_MS);
+        return true;
     }
 
     // The cheapest line a unit of a material the gambler lacks
@@ -530,7 +603,7 @@ namespace {
                 LPITEM preview = BotOfflinePreview(*line);
                 if (!preview) continue;
                 const bool buyable = WantsPlayerBotStallItem(ch, preview) &&
-                        CanPlayerBotPayForOffer(ch, preview, price) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
+                        CanPlayerBotPayForOffer(ch, preview, price, shop->GetOwnerPID()) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
                 M2_DELETE(preview);
                 if (!buyable) continue;
                 bestOwner = shop->GetOwnerPID();
@@ -587,7 +660,7 @@ namespace {
                     if (reach < 0)
                         reach = !haveNav || navigation.CanReach(ch->GetX(), ch->GetY(), spawn.x, spawn.y) ? 1 : 0;
                     buyable = reach == 1 && WantsPlayerBotStallItem(ch, preview) &&
-                            CanPlayerBotPayForOffer(ch, preview, price) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
+                            CanPlayerBotPayForOffer(ch, preview, price, shop->GetOwnerPID()) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
                 }
                 M2_DELETE(preview);
                 if (reach == 0) break;
@@ -646,7 +719,7 @@ namespace {
                     if (reach < 0)
                         reach = !haveNav || navigation.CanReach(ch->GetX(), ch->GetY(), spawn.x, spawn.y) ? 1 : 0;
                     buyable = reach == 1 && WantsPlayerBotStallItem(ch, preview) &&
-                            CanPlayerBotPayForOffer(ch, preview, price) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
+                            CanPlayerBotPayForOffer(ch, preview, price, shop->GetOwnerPID()) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
                 }
                 M2_DELETE(preview);
                 if (reach == 0) break;
@@ -702,7 +775,7 @@ namespace {
                 LPITEM preview = BotOfflinePreview(*line);
                 if (!preview) continue;
                 const bool buyable = IsPlayerBotProgressionOffer(ch, preview) && WantsPlayerBotStallItem(ch, preview) &&
-                        CanPlayerBotPayForOffer(ch, preview, price) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
+                        CanPlayerBotPayForOffer(ch, preview, price, shop->GetOwnerPID()) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
                 M2_DELETE(preview);
                 if (!buyable) continue;
                 bestOwner = shop->GetOwnerPID();
@@ -764,7 +837,7 @@ namespace {
                 LPITEM preview = BotOfflinePreview(*line);
                 if (!preview) continue;
                 const bool buyable = IsPlayerBotOutdatedGearOffer(ch, preview) && WantsPlayerBotStallItem(ch, preview) &&
-                        CanPlayerBotPayForOffer(ch, preview, price) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
+                        CanPlayerBotPayForOffer(ch, preview, price, shop->GetOwnerPID()) && ch->GetEmptyInventory(preview->GetSize()) >= 0;
                 M2_DELETE(preview);
                 if (!buyable) continue;
                 bestOwner = shop->GetOwnerPID();

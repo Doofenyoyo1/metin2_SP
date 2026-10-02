@@ -83,6 +83,10 @@ bool PlayerBotStalkiSupplyExists(LPCHARACTER){return false;}
 // MT2009 PLUS: a bot over PLAYERBOT_BOOK_SURPLUS_GOLD on the price sheet's
 // scale buys its books whatever its gear; the sheet's rate is 100% here.
 namespace { DWORD ScalePlayerBotIwakuraPrice(DWORD base){return base;} }
+// MT2009_PLUS_PROGRESSION_V1: a gate of the operator's checklist may hold a
+// bot for its skills (playerbot_progression.h); none does here.
+#include "../linux-port/overlays/playerbot/src/game/src/playerbot_progression_rules.h"
+namespace { int GetPlayerBotProgressionNeeds(DWORD){return 0;} }
 #include "../linux-port/overlays/playerbot/src/game/src/playerbot_progression_needs.h"
 int main(){
     Character c; c.mastery[1]=SKILL_MASTER;

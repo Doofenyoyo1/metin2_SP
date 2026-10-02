@@ -1870,11 +1870,15 @@ def queue_tieru_update(update_seban_panel=False):
 
 EVENTS_FILE = RATES_SPOOL / "playerbot_events.tsv"
 EVENT_KINDS = ("chest", "exp", "drop", "yang", "tanaka", "zuo", "bossloot", "metinloot",
-               "goblin")  # MT2009_PLUS_GOBLIN_V1: Poszukiwanie skarbów (playerbot_goblin.h)
+               "goblin",  # MT2009_PLUS_GOBLIN_V1: Poszukiwanie skarbów (playerbot_goblin.h)
+               # MT2009_PLUS_EVENT_MANAGER_V1: the in-game event manager's mini games and
+               # the Easter event (playerbot_ingame_events.h).
+               "catchking", "rumi", "yutnori", "flower", "easter")
 EVENT_WORLD_KINDS = ("tanaka", "zuo")
 # On or off, no figure: the Moonlight chests and the double loot of bosses and
 # Metins (MT2009_PLUS_LOOT_EVENTS_V1, playerbot_events.h).
-EVENT_FLAG_KINDS = ("chest", "bossloot", "metinloot", "goblin")  # goblin: MT2009_PLUS_GOBLIN_V1
+EVENT_FLAG_KINDS = ("chest", "bossloot", "metinloot", "goblin",  # goblin: MT2009_PLUS_GOBLIN_V1
+                    "catchking", "rumi", "yutnori", "flower", "easter")  # MT2009_PLUS_EVENT_MANAGER_V1
 EVENT_WORLD_DEFAULT = {"tanaka": 3, "zuo": 8}
 EVENT_WORLD_MAX = {"tanaka": 20, "zuo": 30}
 EVENT_BOTS_DEFAULT = 50
@@ -1897,9 +1901,16 @@ EVENT_LABELS = {
     "metinloot": "Podwójny loot z Metinów",
     # MT2009_PLUS_GOBLIN_V1: the Treasure Hunt with the Treasure Goblin.
     "goblin": "Poszukiwanie skarbów (Goblin)",
+    # MT2009_PLUS_EVENT_MANAGER_V1: the mini games and the Easter event.
+    "catchking": "Złap Króla",
+    "rumi": "Rumi (Okey)",
+    "yutnori": "Yut Nori",
+    "flower": "Dzieci Kwiaty",
+    "easter": "Event wielkanocny",
 }
 EVENT_ICONS = {"chest": "🎁", "exp": "⚡", "drop": "📦", "yang": "💰", "tanaka": "🏴‍☠️", "zuo": "☄️", "bossloot": "👹", "metinloot": "🪨",
-               "goblin": "🪙"}  # goblin: MT2009_PLUS_GOBLIN_V1
+               "goblin": "🪙",  # goblin: MT2009_PLUS_GOBLIN_V1
+               "catchking": "👑", "rumi": "🃏", "yutnori": "🎲", "flower": "🌸", "easter": "🐇"}  # MT2009_PLUS_EVENT_MANAGER_V1
 EVENT_DAY_NAMES = ("Pn", "Wt", "Śr", "Cz", "Pt", "Sb", "Nd")
 EVENT_NOW_MINUTES = (15, 30, 60, 120, 180, 360)
 EVENT_HHMM = re.compile(r"^([01]?\d|2[0-4]):([0-5]\d)$")
@@ -4006,6 +4017,366 @@ def bot_personalities():
     personalities = [{"id": pid, "label": label, "color": BOT_PERSONALITY_COLORS.get(pid, "#cfe1fb"), "count": counts.get(pid, 0)}
                       for pid, label in sorted(BOT_PERSONALITIES.items())]
     return render_template("bot_personalities.html", roster=roster, total=total, query=query, selected=selected, personalities=personalities)
+
+
+# MT2009_PLUS_PROGRESSION_V1: "Progresja botów" -- the map transition levels,
+# the early holds (Grinder tiers, Law of Advancement) and the checklist a bot
+# must meet before it may pass a level. The core re-reads the file within five
+# seconds (playerbot_progression.h) and writes playerbot_progression_status.tsv
+# beside playerbot_status.tsv every half minute. The defaults below mirror
+# playerbot_progression_rules.h; keep the two in step.
+PROGRESSION_FILE = RATES_SPOOL / "playerbot_progression.tsv"
+PROGRESSION_MAPS = [
+    # key, label, from, to, has_to, floor
+    ("m2", "Wioska 2 (M2) — wejście z M1 / sufit", 20, 35, True, 15),
+    ("islands", "Dolina Orków — wyspy Fanatyków", 30, 35, True, 25),
+    ("orc_valley", "Dolina Orków", 36, 55, True, 30),
+    ("desert", "Pustynia Yongbi", 30, 47, True, 25),
+    ("sohan", "Góra Sohan", 48, 75, False, 40),
+    ("spider1", "Loch Pająków V1", 48, 255, False, 42),
+    ("hwang", "Świątynia Hwang", 52, 255, False, 45),
+    ("spider2", "Loch Pająków V2", 54, 255, False, 48),
+    ("demon_tower", "Wieża Demonów", 57, 255, False, 50),
+    ("forest", "Zaczarowany Las", 62, 255, False, 55),
+    ("fire_land", "Ognista Ziemia (Doyyumhwaji)", 66, 80, True, 60),
+    ("red_forest", "Czerwony Las", 71, 255, False, 65),
+    ("grotto1", "Grota Wygnańców V1", 78, 255, False, 72),
+    ("grotto2", "Grota Wygnańców V2", 84, 255, False, 78),
+]
+PROGRESSION_REQS = {
+    # key: (label, a label, b label)
+    "weapon": ("Broń", "min. poziom przedmiotu", "min. +"),
+    "armour": ("Zbroja", "min. poziom przedmiotu", "min. +"),
+    "helmet": ("Hełm", "min. poziom przedmiotu", "min. +"),
+    "shield": ("Tarcza (gdy bot ją nosi)", "min. poziom przedmiotu", "min. +"),
+    "shoes": ("Buty", "min. poziom przedmiotu", "min. +"),
+    "bracelet": ("Bransoleta", "min. poziom przedmiotu", "min. +"),
+    "necklace": ("Naszyjnik", "min. poziom przedmiotu", "min. +"),
+    "earrings": ("Kolczyki", "min. poziom przedmiotu", "min. +"),
+    "all_worn": ("Cały założony ekwipunek", "min. poziom przedmiotu", "min. +"),
+    "hp": ("Dodatkowe PZ z przedmiotów", "min. PZ", ""),
+    "skills": ("Umiejętności", "ile umiejętności", "min. poziom (M1=21 … M4=24, G1=31, P=40)"),
+    "horse": ("Koń", "min. poziom konia (11 = bojowy, 21 = wojskowy)", ""),
+    "metins": ("Zbite Metiny", "ile kamieni", ""),
+    "orc_teeth": ("Zęby Orka oddane Biologowi", "", ""),
+    "quest_flag": ("Flaga questa", "min. wartość", ""),
+    "gold": ("Yang w ekwipunku", "min. yang", ""),
+}
+PROGRESSION_REQ_ORDER = ["weapon", "armour", "helmet", "shield", "shoes", "bracelet", "necklace", "earrings",
+                         "all_worn", "hp", "skills", "horse", "metins", "orc_teeth", "quest_flag", "gold"]
+PROGRESSION_DEFAULT_GATES = [
+    (35, "weapon", 15, 7, ""), (35, "armour", 15, 6, ""), (35, "horse", 11, 0, ""), (35, "metins", 50, 0, ""),
+    (45, "weapon", 25, 7, ""), (45, "armour", 26, 6, ""), (45, "hp", 2000, 0, ""), (45, "skills", 2, 24, ""),
+    (45, "orc_teeth", 1, 0, ""),
+    (55, "weapon", 30, 8, ""), (55, "armour", 34, 6, ""), (55, "helmet", 0, 6, ""), (55, "shield", 0, 6, ""),
+    (55, "hp", 2500, 0, ""), (55, "skills", 3, 24, ""),
+]
+PROGRESSION_DEFAULT_TIERS = [
+    # tier, band from, band to, lock from, lock to, label
+    (1, 10, 18, 13, 19, "Wioska 1 (M1)"),
+    (2, 19, 25, 19, 25, "M3 (przeklęte zwierzęta, bronie 30 lv)"),
+    (3, 26, 35, 30, 35, "Wioska 2 (M2)"),
+    (5, 36, 50, 40, 48, "Dolina Orków i Pustynia"),
+    (7, 51, 65, 55, 62, "Góra Sohan"),
+]
+PROGRESSION_DEFAULT_LAWS = [(0, 5, 4, 0, 0), (19, 6, 5, 4, 0), (26, 7, 5, 5, 0), (35, 8, 6, 6, 6)]
+PROGRESSION_SETTINGS = [
+    # key, label, default, min, max, kind, hint
+    ("enabled", "Checklista włączona", 1, 0, 1, "bool", "Mapy i postoje na tierach działają zawsze; to przełącza tylko checklistę."),
+    ("timeout_min", "Maks. postój na bramce (min)", 180, 10, 1440, "int", "Po tylu minutach gry bot przechodzi mimo braków (zapisywane w logu), żeby świat nie stanął."),
+    ("retro", "Bramka trzyma też do N poziomów wyżej", 9, 0, 255, "int", "Bot, który już przeskoczył bramkę, stoi na swoim poziomie, jeśli jest nie dalej niż N poziomów nad nią."),
+    ("fish_when_held", "Wędkowanie w trakcie postoju", 0, 0, 1, "bool", "Wyłączone: bot zatrzymany z brakami nie idzie łowić, tylko robi checklistę."),
+    ("fish_cap_pct", "Maks. % botów łowiących (w paśmie 10 poziomów)", 10, 0, 100, "int", "Np. 10 = najwyżej co dziesiąty bot z poziomów 40–49 naraz nad wodą. 100 = bez limitu."),
+    ("side_when_held", "Kopanie/zielarstwo w trakcie postoju", 0, 0, 1, "bool", ""),
+    ("tier1_skip_pct", "% botów pomijających postój w M1", 25, 0, 100, "int", ""),
+    ("law_window", "Prawo Awansu: przedmiot aktualny do N poziomów", 20, 0, 100, "int", "Broń/zbroja liczy się, jeśli jej poziom + N ≥ poziom bota."),
+    ("law_premium_window", "… broń specjalna 30 lv do N poziomów", 30, 0, 100, "int", ""),
+    ("advance_chance", "Szansa awansu po spełnieniu prawa (%)", 60, 1, 100, "int", "Charakter bota ją zmienia (specjalista od sprzętu połowa, wędrowiec 100%)."),
+    ("advance_first_min", "Pierwszy rzut awansu po (min)", 2, 0, 600, "int", ""),
+    ("advance_roll_min", "Kolejne rzuty awansu co (min)", 30, 1, 600, "int", "Dawniej 60."),
+]
+
+
+def progression_defaults():
+    return {
+        "maps": {key: {"from": f, "to": t} for key, _l, f, t, _h, _fl in PROGRESSION_MAPS},
+        "tiers": {tier: {"band_from": bf, "band_to": bt, "lock_from": lf, "lock_to": lt, "on": True}
+                  for tier, bf, bt, lf, lt, _l in PROGRESSION_DEFAULT_TIERS},
+        "laws": [{"from": f, "weapon": w, "armour": a, "shield": s, "helmet": h} for f, w, a, s, h in PROGRESSION_DEFAULT_LAWS],
+        "gates": [{"level": lv, "req": req, "on": True, "a": a, "b": b, "flag": flag} for lv, req, a, b, flag in PROGRESSION_DEFAULT_GATES],
+        "settings": {key: default for key, _l, default, _mn, _mx, _k, _h in PROGRESSION_SETTINGS},
+    }
+
+
+def read_progression():
+    config = progression_defaults()
+    try:
+        lines = PROGRESSION_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return config, False
+    gates, laws = None, None
+    maps_by_key = {row[0]: row for row in PROGRESSION_MAPS}
+    for raw in lines:
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        fields = line.split()
+        try:
+            if fields[0] == "map" and len(fields) >= 4 and fields[1] in maps_by_key:
+                config["maps"][fields[1]] = {"from": int(fields[2]), "to": int(fields[3])}
+            elif fields[0] == "tier" and len(fields) >= 6 and int(fields[1]) in config["tiers"]:
+                config["tiers"][int(fields[1])] = {"band_from": int(fields[2]), "band_to": int(fields[3]),
+                                                   "lock_from": int(fields[4]), "lock_to": int(fields[5]),
+                                                   "on": (fields[6] if len(fields) >= 7 else "on") != "off"}
+            elif fields[0] == "laws" and fields[1:2] == ["none"]:
+                laws = []
+            elif fields[0] == "law" and len(fields) >= 6:
+                laws = laws if laws is not None else []
+                laws.append({"from": int(fields[1]), "weapon": int(fields[2]), "armour": int(fields[3]),
+                             "shield": int(fields[4]), "helmet": int(fields[5])})
+            elif fields[0] == "gates" and fields[1:2] == ["none"]:
+                gates = []
+            elif fields[0] == "gate" and len(fields) >= 5 and fields[2] in PROGRESSION_REQS:
+                gates = gates if gates is not None else []
+                gates.append({"level": int(fields[1]), "req": fields[2], "on": fields[3] != "off", "a": int(fields[4]),
+                              "b": int(fields[5]) if len(fields) >= 6 else 0, "flag": fields[6] if len(fields) >= 7 else ""})
+            elif fields[0] == "set" and len(fields) >= 3:
+                config["settings"][fields[1]] = int(fields[2]) if fields[2].lstrip("-").isdigit() else (1 if fields[2] == "on" else 0)
+        except (ValueError, IndexError):
+            continue
+    if gates is not None:
+        config["gates"] = gates
+    if laws is not None:
+        config["laws"] = laws
+    config["gates"].sort(key=lambda g: (g["level"], PROGRESSION_REQ_ORDER.index(g["req"])))
+    config["laws"].sort(key=lambda law: law["from"])
+    return config, True
+
+
+def write_progression(config):
+    RATES_SPOOL.mkdir(parents=True, exist_ok=True)
+    body = ["# Metin2 Playerbots -- progresja botów (Seban Panel, MT2009_PLUS_PROGRESSION_V1).",
+            "# map <key> <od> <do> | tier <n> <pasmo od> <pasmo do> <postój od> <postój do> <on|off>",
+            "# law <od poziomu> <broń+> <zbroja+> <tarcza+> <hełm+> | gate <poziom> <wymóg> <on|off> <a> <b> [flaga]",
+            "# set <klucz> <wartość>", ""]
+    for key, _label, _f, _t, _has_to, _floor in PROGRESSION_MAPS:
+        row = config["maps"][key]
+        body.append("map\t%s\t%d\t%d" % (key, row["from"], row["to"]))
+    for tier, _bf, _bt, _lf, _lt, _label in PROGRESSION_DEFAULT_TIERS:
+        row = config["tiers"][tier]
+        body.append("tier\t%d\t%d\t%d\t%d\t%d\t%s" % (tier, row["band_from"], row["band_to"], row["lock_from"],
+                                                      row["lock_to"], "on" if row["on"] else "off"))
+    if not config["laws"]:
+        body.append("laws\tnone")
+    for law in config["laws"]:
+        body.append("law\t%d\t%d\t%d\t%d\t%d" % (law["from"], law["weapon"], law["armour"], law["shield"], law["helmet"]))
+    if not config["gates"]:
+        body.append("gates\tnone")
+    for gate in config["gates"]:
+        line = "gate\t%d\t%s\t%s\t%d\t%d" % (gate["level"], gate["req"], "on" if gate["on"] else "off", gate["a"], gate["b"])
+        if gate["req"] == "quest_flag":
+            line += "\t" + gate["flag"]
+        body.append(line)
+    for key, _l, _d, _mn, _mx, _kind, _h in PROGRESSION_SETTINGS:
+        body.append("set\t%s\t%d" % (key, int(config["settings"].get(key, _d))))
+    temporary = PROGRESSION_FILE.with_suffix(".tsv.new")
+    temporary.write_text("\n".join(body) + "\n", encoding="utf-8")
+    os.replace(temporary, PROGRESSION_FILE)
+
+
+def progression_form_int(form, name, low, high):
+    raw = (form.get(name) or "").strip()
+    value = int(raw)
+    if value < low or value > high:
+        raise ValueError(name)
+    return value
+
+
+def parse_progression_form(form):
+    """The posted form as a config, or raise ValueError(<Polish message>)."""
+    config = progression_defaults()
+    errors = []
+    for key, label, _f, default_to, has_to, floor in PROGRESSION_MAPS:
+        try:
+            start = progression_form_int(form, f"map_{key}_from", floor, 250)
+            end = progression_form_int(form, f"map_{key}_to", start, 255) if has_to else default_to
+        except ValueError:
+            errors.append(f"{label}: poziom „od” musi być w zakresie {floor}–250, a „do” nie mniejsze niż „od”.")
+            continue
+        config["maps"][key] = {"from": start, "to": end}
+    if not errors:
+        maps = config["maps"]
+        # Every level between the second village's ceiling and the far frontier
+        # needs somewhere to go, or the bots of that level stand in M2 for good.
+        far = min(maps["sohan"]["from"], maps["spider1"]["from"])
+        holes = [lv for lv in range(maps["m2"]["to"] + 1, far)
+                 if not any(maps[k]["from"] <= lv <= maps[k]["to"] for k in ("islands", "orc_valley", "desert"))]
+        if holes:
+            errors.append("Poziomy %d–%d nie mają żadnej mapy (sufit M2 = %d) — boty by utknęły. Popraw Dolinę/Pustynię albo sufit M2."
+                          % (holes[0], holes[-1], maps["m2"]["to"]))
+    previous_end = 0
+    for tier, _bf, _bt, _lf, _lt, label in PROGRESSION_DEFAULT_TIERS:
+        try:
+            band_from = progression_form_int(form, f"tier_{tier}_band_from", 1, 250)
+            band_to = progression_form_int(form, f"tier_{tier}_band_to", band_from, 250)
+            lock_from = progression_form_int(form, f"tier_{tier}_lock_from", band_from, 250)
+            lock_to = progression_form_int(form, f"tier_{tier}_lock_to", lock_from, band_to + 1)
+        except ValueError:
+            errors.append(f"Tier {tier} ({label}): pasmo od ≤ do, postój w paśmie (najwyżej 1 poziom nad nim).")
+            continue
+        if band_from <= previous_end:
+            errors.append(f"Tier {tier} ({label}): pasmo zachodzi na poprzedni tier.")
+        previous_end = band_to
+        config["tiers"][tier] = {"band_from": band_from, "band_to": band_to, "lock_from": lock_from,
+                                 "lock_to": lock_to, "on": bool(form.get(f"tier_{tier}_on"))}
+    laws = []
+    for index in range(12):
+        if form.get(f"law{index}_from") is None:
+            break
+        if form.get(f"law{index}_delete") or not (form.get(f"law{index}_from") or "").strip():
+            continue
+        try:
+            laws.append({"from": progression_form_int(form, f"law{index}_from", 0, 250),
+                         "weapon": progression_form_int(form, f"law{index}_weapon", 0, 9),
+                         "armour": progression_form_int(form, f"law{index}_armour", 0, 9),
+                         "shield": progression_form_int(form, f"law{index}_shield", 0, 9),
+                         "helmet": progression_form_int(form, f"law{index}_helmet", 0, 9)})
+        except ValueError:
+            errors.append(f"Prawo Awansu, wiersz {index + 1}: poziom 0–250, plusy 0–9.")
+    if len({law["from"] for law in laws}) != len(laws):
+        errors.append("Prawo Awansu: dwa wiersze od tego samego poziomu.")
+    if len(laws) > 8:
+        errors.append("Prawo Awansu: najwyżej 8 wierszy.")
+    config["laws"] = sorted(laws, key=lambda law: law["from"])
+    gates = []
+    for index in range(200):
+        req = form.get(f"g{index}_req")
+        if req is None:
+            break
+        if form.get(f"g{index}_delete") or not (form.get(f"g{index}_level") or "").strip() or req not in PROGRESSION_REQS:
+            continue
+        label = PROGRESSION_REQS[req][0]
+        try:
+            level = progression_form_int(form, f"g{index}_level", 1, 250)
+            a = int((form.get(f"g{index}_a") or "0").strip() or 0)
+            b = int((form.get(f"g{index}_b") or "0").strip() or 0)
+        except ValueError:
+            errors.append(f"Checklista, wiersz {index + 1} ({label}): poziom 1–250 i liczby całkowite.")
+            continue
+        flag = (form.get(f"g{index}_flag") or "").strip()
+        if a < 0 or b < 0 or a > 2000000000 or b > 255:
+            errors.append(f"Checklista, poziom {level}, {label}: wartości poza zakresem.")
+            continue
+        if req == "skills" and not (1 <= a <= 10 and 1 <= b <= 40):
+            errors.append(f"Checklista, poziom {level}: umiejętności — ile 1–10, poziom 1–40 (M4 = 24).")
+            continue
+        if req == "horse" and not 1 <= a <= 30:
+            errors.append(f"Checklista, poziom {level}: poziom konia 1–30.")
+            continue
+        if req in ("weapon", "armour", "helmet", "shield", "shoes", "bracelet", "necklace", "earrings", "all_worn") and (a > 120 or b > 9):
+            errors.append(f"Checklista, poziom {level}, {label}: poziom przedmiotu 0–120, plus 0–9.")
+            continue
+        if req == "quest_flag" and not re.fullmatch(r"[A-Za-z0-9_]+\.[A-Za-z0-9_]+", flag):
+            errors.append(f"Checklista, poziom {level}: flaga questa w postaci quest.flaga (litery, cyfry, _).")
+            continue
+        if req == "orc_teeth":
+            a, b = 1, 0
+        gates.append({"level": level, "req": req, "on": bool(form.get(f"g{index}_on")), "a": a, "b": b,
+                      "flag": flag if req == "quest_flag" else ""})
+    per_level = {}
+    for gate in gates:
+        per_level[gate["level"]] = per_level.get(gate["level"], 0) + 1
+    if any(count > 24 for count in per_level.values()):
+        errors.append("Checklista: najwyżej 24 wymogi na jeden poziom.")
+    gates.sort(key=lambda g: (g["level"], PROGRESSION_REQ_ORDER.index(g["req"])))
+    config["gates"] = gates
+    for key, label, default, low, high, kind, _hint in PROGRESSION_SETTINGS:
+        if kind == "bool":
+            config["settings"][key] = 1 if form.get(f"set_{key}") else 0
+            continue
+        try:
+            config["settings"][key] = progression_form_int(form, f"set_{key}", low, high)
+        except ValueError:
+            errors.append(f"{label}: wartość {low}–{high}.")
+    if errors:
+        raise ValueError("\n".join(errors))
+    return config
+
+
+def read_progression_status():
+    """Every core's playerbot_progression_status.tsv, summed."""
+    status = {"cores": 0, "eligible": 0, "held": 0, "waived": 0, "age": None, "gates": {}, "reqs": {}, "fish": {}, "bots": []}
+    for _channel, path in channel_paths("playerbot_progression_status.tsv"):
+        try:
+            stamp = path.stat().st_mtime
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        status["cores"] += 1
+        age = int(time.time() - stamp)
+        status["age"] = age if status["age"] is None else max(status["age"], age)
+        for line in lines:
+            if not line or line.startswith("#"):
+                continue
+            fields = line.split("\t")
+            try:
+                if fields[0] == "summary":
+                    status["eligible"] += int(fields[1])
+                    status["held"] += int(fields[2])
+                    status["waived"] += int(fields[3])
+                elif fields[0] == "gate":
+                    status["gates"][int(fields[1])] = status["gates"].get(int(fields[1]), 0) + int(fields[2])
+                elif fields[0] == "req":
+                    key = (int(fields[1]), fields[2])
+                    status["reqs"][key] = status["reqs"].get(key, 0) + int(fields[3])
+                elif fields[0] == "fish":
+                    band = status["fish"].setdefault(int(fields[1]), [0, 0])
+                    band[0] += int(fields[2])
+                    band[1] += int(fields[3])
+                elif fields[0] == "bot":
+                    status["bots"].append({"pid": int(fields[1]), "name": fields[2], "level": int(fields[3]),
+                                           "gate": int(fields[4]), "minutes": int(fields[5]),
+                                           "missing": fields[6] if len(fields) > 6 else ""})
+            except (ValueError, IndexError):
+                continue
+    status["bots"].sort(key=lambda bot: -bot["minutes"])
+    status["bots"] = status["bots"][:60]
+    status["req_rows"] = [{"gate": gate, "req": req, "count": count}
+                          for (gate, req), count in sorted(status["reqs"].items(), key=lambda item: (item[0][0], -item[1]))]
+    status["fish_rows"] = [{"band": band, "live": live, "fishing": fishing,
+                            "pct": round(100.0 * fishing / live, 1) if live else 0.0}
+                           for band, (live, fishing) in sorted(status["fish"].items())]
+    return status
+
+
+@app.route("/players/progression", methods=["GET", "POST"])
+@login_required
+def bot_progression():
+    if request.method == "POST":
+        if request.form.get("progression_csrf", "") != session.get("seban_update_csrf", ""):
+            flash("Sesja formularza wygasła - odśwież stronę i spróbuj jeszcze raz.", "error")
+            return redirect(url_for("bot_progression"))
+        action = request.form.get("action", "")
+        try:
+            if action == "reset":
+                write_progression(progression_defaults())
+                flash("Przywrócono ustawienia domyślne. Rdzeń wczyta je w ciągu pięciu sekund.", "success")
+            elif action == "save":
+                write_progression(parse_progression_form(request.form))
+                flash("Zapisano. Rdzeń wczyta zmiany w ciągu pięciu sekund — restart nie jest potrzebny.", "success")
+        except ValueError as error:
+            for message in str(error).splitlines():
+                flash(message, "error")
+        except OSError:
+            flash("Nie udało się zapisać pliku progresji.", "error")
+        return redirect(url_for("bot_progression"))
+    config, from_file = read_progression()
+    gate_levels = sorted({gate["level"] for gate in config["gates"]})
+    return render_template("bot_progression.html", config=config, from_file=from_file, maps=PROGRESSION_MAPS,
+                           tiers=PROGRESSION_DEFAULT_TIERS, reqs=PROGRESSION_REQS, req_order=PROGRESSION_REQ_ORDER,
+                           prog_settings=PROGRESSION_SETTINGS, gate_levels=gate_levels, new_gate_rows=8, new_law_rows=2,
+                           status=read_progression_status(), progression_csrf=update_csrf_token())
+
 
 
 
@@ -8338,8 +8709,10 @@ CHEST_BACKUPS = CHEST_SPOOL / "backup"
 CHEST_SNAPSHOT = Path(__file__).resolve().with_name("special_item_group.snapshot.txt")
 CHEST_BACKUP_KEEP = 100
 CHEST_MAX_LINES = 1023
-# Szkatułka Blasku Księżyca: shown first, it is the chest the operator asks for.
-CHEST_FEATURED = (50011,)
+# Szkatułka Blasku Księżyca: shown first, it is the chest the operator asks for;
+# MT2009_PLUS_FLOWER_V1: then the Flower Event's five boxes (Pudełko z Chryzantemą ..
+# ze Słonecznikiem), whose rewards the operator changes.
+CHEST_FEATURED = (50011, 83023, 83024, 83025, 83026, 83027)
 CHEST_TOKENS = {
     "gold": "Yang", "exp": "Doświadczenie", "mob": "Potwór (VNUM w polu Ilość)",
     "group": "Grupa potworów (numer w polu Ilość)", "slow": "Spowolnienie",

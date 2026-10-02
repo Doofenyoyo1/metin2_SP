@@ -22,6 +22,8 @@
 //   bossloot	*	20:00	22:00	0		every boss drops its loot twice
 //   metinloot	6	18:00	20:00	0		Saturday: every Metin drops its loot twice
 //   goblin	5,6,7	12:00	23:00	0		the Treasure Hunt (MT2009_PLUS_GOBLIN_V1)
+//   rumi	6	12:00	23:59	0		Rumi (Okey); also catchking, yutnori, flower, easter
+//   					(MT2009_PLUS_EVENT_MANAGER_V1, playerbot_ingame_events.h)
 //   bots	50				half of the bots that could come to an event do
 //   #off	yang	*	12:00	13:00	25	a row the operator switched off
 //
@@ -53,7 +55,21 @@ enum Kind
 	// MT2009_PLUS_GOBLIN_V1: the Treasure Hunt with the Treasure Goblin - the
 	// tickets, the island and the Doubloon reward board (playerbot_goblin.h).
 	KIND_GOBLIN = 8,
-	KIND_MAX = 9
+	// MT2009_PLUS_EVENT_MANAGER_V1: the mini games of the in-game event
+	// manager (playerbot_ingame_events.h) - Catch the King, Rumi (Okey), Yut
+	// Nori and the Flower Event. On or off, like the goblin: the manager puts
+	// them into the Owsap event flags the games read (mini_game_catchking,
+	// mini_game_okey_normal, mini_game_yutnori, e_flower_drop). Every kind is
+	// in the players' event list under its name.
+	KIND_CATCHKING = 9,
+	KIND_RUMI = 10,
+	KIND_YUTNORI = 11,
+	KIND_FLOWER = 12,
+	// The Easter event (event_easter.quest's switches easter_drop and
+	// easter_rabbit, until now only the classic panel's Easter page): on a
+	// clock too, and in the players' event list (MT2009_PLUS_EVENT_MANAGER_V1).
+	KIND_EASTER = 13,
+	KIND_MAX = 14
 };
 
 inline const char* KindName(int kind)
@@ -69,6 +85,11 @@ inline const char* KindName(int kind)
 		case KIND_BOSS_LOOT: return "bossloot";
 		case KIND_METIN_LOOT: return "metinloot";
 		case KIND_GOBLIN: return "goblin";
+		case KIND_CATCHKING: return "catchking";
+		case KIND_RUMI: return "rumi";
+		case KIND_YUTNORI: return "yutnori";
+		case KIND_FLOWER: return "flower";
+		case KIND_EASTER: return "easter";
 	}
 	return "";
 }

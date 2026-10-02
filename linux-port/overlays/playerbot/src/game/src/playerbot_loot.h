@@ -367,11 +367,85 @@ namespace
 		return true;
 	}
 
+	// MT2009_PLUS_BOT_LOOT_PACE_V1: the loot pass's pace.
+	// A drop this near is taken where the bot stands (the engine allows 600,
+	// @fixme173; the margin is for the step the bot is still finishing).
+	const int PLAYERBOT_LOOT_CHAIN_RANGE = 450;
+	// A drop's verdict holds this long: the choosy test reads the bag and the
+	// merchant's price, and every scan of a pile asked it again of every drop.
+	const DWORD PLAYERBOT_LOOT_VERDICT_TTL_MS = 6000;
+	// Its own drops left behind by a retreat or an emergency rest: gone back
+	// for while the engine still keeps them its own (30 s, CItem::SetOwnership)
+	// and while they lie within this of the bot.
+	const DWORD PLAYERBOT_LOOT_RETURN_WINDOW_MS = 30000;
+	const int PLAYERBOT_LOOT_RETURN_RANGE = 4000;
+	const size_t PLAYERBOT_LOOT_RETURN_MAX_ITEMS = 8;
+
+	struct TPlayerBotLootVerdict
+	{
+		DWORD dwUntil;
+		bool bChoosy;
+		bool bMedalDropper;
+		bool bWant;
+		bool bCheap;
+	};
+	// bot pid -> item vid -> verdict
+	std::map<DWORD, std::map<DWORD, TPlayerBotLootVerdict> > s_mapPlayerBotLootVerdicts;
+
+	bool IsPlayerBotWantedLootCached(LPCHARACTER ch, LPITEM item, bool choosy, bool medalDropper,
+			bool& cheap, DWORD dwNow)
+	{
+		cheap = false;
+		if (!ch || !item)
+			return false;
+		TPlayerBotLootVerdict& v = s_mapPlayerBotLootVerdicts[ch->GetPlayerID()][item->GetVID()];
+		if (v.dwUntil == 0 || (int)(dwNow - v.dwUntil) >= 0 || v.bChoosy != choosy ||
+				v.bMedalDropper != medalDropper)
+		{
+			v.bWant = IsPlayerBotWantedLootItem(ch, item, choosy, medalDropper, &v.bCheap);
+			v.bChoosy = choosy;
+			v.bMedalDropper = medalDropper;
+			v.dwUntil = dwNow + PLAYERBOT_LOOT_VERDICT_TTL_MS;
+			if (v.dwUntil == 0)
+				v.dwUntil = 1;
+		}
+		cheap = v.bCheap;
+		return v.bWant;
+	}
+
+	void ForgetPlayerBotLootVerdicts(DWORD pid, DWORD dwNow)
+	{
+		std::map<DWORD, std::map<DWORD, TPlayerBotLootVerdict> >::iterator it = s_mapPlayerBotLootVerdicts.find(pid);
+		if (it == s_mapPlayerBotLootVerdicts.end())
+			return;
+		for (std::map<DWORD, TPlayerBotLootVerdict>::iterator v = it->second.begin(); v != it->second.end(); )
+		{
+			if ((int)(dwNow - v->second.dwUntil) >= 0)
+				it->second.erase(v++);
+			else
+				++v;
+		}
+		if (it->second.empty())
+			s_mapPlayerBotLootVerdicts.erase(it);
+	}
+
+	// The drops a retreat or an emergency rest left behind, and the next drop
+	// at the bot's feet the light tick may take (TakePlayerBotQueuedLoot).
+	struct TPlayerBotLootReturn
+	{
+		DWORD dwSince;
+		long lMapIndex;
+		std::vector<DWORD> vecVIDs;
+		bool bAnnounced;
+	};
+	std::map<DWORD, TPlayerBotLootReturn> s_mapPlayerBotLootReturn;
+	std::map<DWORD, DWORD> s_mapPlayerBotLootQueued;	// bot pid -> item vid
+
 	class CCollectPlayerBotLoot
 	{
 		public:
 			CCollectPlayerBotLoot(LPCHARACTER owner, int maxDistance, const std::map<DWORD, DWORD>& failedLoot, DWORD dwNow,
-					bool priorityOnly = false) :
+					bool priorityOnly = false, bool scanThreats = false) :
 				m_owner(owner),
 				m_maxDistance(maxDistance),
 				m_failedLoot(failedLoot),
@@ -396,13 +470,27 @@ namespace
 				// MT2009_PLUS_SIDEKICK_LOOT_OFF_V1: a companion set to "Nic" sees no
 				// loot at all - let off the leash, playing alone, sent to town or
 				// just summoned, in its owner's party or not.
-				m_lootOff(IsPlayerBotSidekickLootOff(owner))
+				m_lootOff(IsPlayerBotSidekickLootOff(owner)),
+				m_scanThreats(scanThreats),
+				m_selfHeld(false),
+				m_partyHeld(false)
 			{
 			}
 
 			bool operator () (LPENTITY entity)
 			{
-				if (m_lootOff || !entity || !entity->IsType(ENTITY_ITEM))
+				if (!entity)
+					return false;
+				// MT2009_PLUS_BOT_LOOT_PACE_V1: the same sweep tells whether a
+				// monster has the bot (or its party) for its victim, so the
+				// peaceful pass never walks to a drop under a pack's blows on
+				// a threat scan a second old.
+				if (m_scanThreats && entity->IsType(ENTITY_CHARACTER))
+				{
+					NoteThreat(static_cast<LPCHARACTER>(entity));
+					return false;
+				}
+				if (m_lootOff || !entity->IsType(ENTITY_ITEM))
 					return false;
 
 				LPITEM item = static_cast<LPITEM>(entity);
@@ -433,7 +521,7 @@ namespace
 				if (item->GetVnum() == 50255)
 					return true;
 				bool cheap = false;
-				if (!IsPlayerBotWantedLootItem(m_owner, item, m_choosy, m_medalDropper, &cheap))
+				if (!IsPlayerBotWantedLootCached(m_owner, item, m_choosy, m_medalDropper, cheap, m_dwNow))
 				{
 					if (cheap)
 						++m_skippedCheap;
@@ -469,8 +557,28 @@ namespace
 			const std::vector<std::pair<int, LPITEM> >& GetItems() const { return m_items; }
 			int SkippedNoRoom() const { return m_skippedNoRoom; }
 			int SkippedCheap() const { return m_skippedCheap; }
+			bool SelfHeld() const { return m_selfHeld; }
+			bool PartyHeld() const { return m_partyHeld; }
 
 		private:
+			void NoteThreat(LPCHARACTER mob)
+			{
+				if (m_selfHeld || !mob || !mob->IsMonster() || mob->IsDead())
+					return;
+				LPCHARACTER victim = mob->GetVictim();
+				if (!victim)
+					return;
+				const bool self = victim == m_owner;
+				if (!self && !(m_owner->GetParty() && victim->GetParty() == m_owner->GetParty()))
+					return;
+				if (DISTANCE_APPROX(m_owner->GetX() - mob->GetX(), m_owner->GetY() - mob->GetY()) > 2500)
+					return;
+				if (self)
+					m_selfHeld = true;
+				else
+					m_partyHeld = true;
+			}
+
 			LPCHARACTER m_owner;
 			int m_maxDistance;
 			const std::map<DWORD, DWORD>& m_failedLoot;
@@ -482,6 +590,9 @@ namespace
 			bool m_medalDropper;
 			bool m_priorityOnly;
 			bool m_lootOff;
+			bool m_scanThreats;
+			bool m_selfHeld;
+			bool m_partyHeld;
 			std::vector<std::pair<int, LPITEM> > m_items;
 	};
 
@@ -544,7 +655,7 @@ namespace
 		// This is the server equivalent of repeatedly pressing Z: inspect only the
 		// immediate pickup circle, never Stop(), never clear the victim and never
 		// walk toward an item while a pack is still engaged.
-		CCollectPlayerBotLoot collector(ch, PLAYERBOT_PICKUP_RANGE,
+		CCollectPlayerBotLoot collector(ch, PLAYERBOT_LOOT_CHAIN_RANGE,
 				state.mapFailedLootVIDs, dwNow);
 		ch->GetSectree()->ForEachAround(collector);
 		collector.Sort();
@@ -680,7 +791,7 @@ namespace
 			if (items.empty())
 				return false;
 			// Within the pickup circle the fight's own pickup takes it.
-			if (items.front().first <= PLAYERBOT_PICKUP_RANGE)
+			if (items.front().first <= PLAYERBOT_LOOT_CHAIN_RANGE)
 				return false;
 			item = items.front().second;
 			if (!item || !item->GetSectree())
@@ -696,7 +807,7 @@ namespace
 		SetPlayerBotAction(state, BOT_ACTION_LOOT, dwNow);
 		const DWORD itemVID = item->GetVID();
 		const int distance = DISTANCE_APPROX(ch->GetX() - item->GetX(), ch->GetY() - item->GetY());
-		if (distance > PLAYERBOT_PICKUP_RANGE)
+		if (distance > PLAYERBOT_LOOT_CHAIN_RANGE)
 		{
 			if (!MovePlayerBot(ch, item->GetX(), item->GetY(), dwNow) && state.bStuckCounter >= 3)
 			{
@@ -738,6 +849,160 @@ namespace
 		return true;
 	}
 
+	// MT2009_PLUS_BOT_LOOT_PACE_V1: one drop off the ground with the
+	// bookkeeping every pickup does. False when the engine refused it.
+	bool PickUpPlayerBotLootNow(LPCHARACTER ch, TPlayerBotAIState& state, LPITEM item, DWORD firstSeen,
+			DWORD dwNow, const char* how)
+	{
+		const DWORD itemVID = item->GetVID();
+		const DWORD itemVnum = item->GetVnum();
+		const bool material = item->GetType() == ITEM_MATERIAL;
+		const long itemSocket0 = item->GetSocket(0);
+		const BYTE itemType = item->GetType();
+		state.dwNextLootPickupTime = dwNow + GetPlayerBotLootPickupInterval(item);
+		if (!ch->PickupItem(itemVID))
+			return false;
+		NotePlayerBotMoodValuable(ch, itemVnum, itemSocket0, itemType, "pickup");
+		state.mapLootSeenSince.erase(itemVID);
+		if (material)
+			RememberPlayerBotSpotDrop(ch->GetMapIndex(), ch->GetX(), ch->GetY(), itemVnum);
+		if (itemVnum == PLAYERBOT_HORSE_MEDAL_VNUM)
+		{
+			const int looted = NotePlayerBotHorseMedalLooted(ch);
+			sys_log(0, "PLAYERBOT_HORSE: real medal looted pid=%u name=%s map=%ld total_looted=%d",
+					ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), looted);
+		}
+		sys_log(1, "PLAYERBOT_AI: picked up %s loot pid=%u name=%s item_vid=%u vnum=%u visible_ms=%u",
+				how, ch->GetPlayerID(), ch->GetName(), itemVID, itemVnum, (unsigned int)(dwNow - firstSeen));
+		return true;
+	}
+
+	// MT2009_PLUS_BOT_LOOT_PACE_V1: the next drop at the bot's feet, taken on
+	// the light tick between two full ones. The engine takes one pickup per
+	// 500 ms and a full tick comes about every 480 ms, so a pile went at one
+	// drop a second (the item log: median 1.0 s per drop in runs of three or
+	// more). No scan here: only the drop the full tick queued.
+	void TakePlayerBotQueuedLoot(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		if (!ch || s_mapPlayerBotLootQueued.empty())
+			return;
+		std::map<DWORD, DWORD>::iterator q = s_mapPlayerBotLootQueued.find(ch->GetPlayerID());
+		if (q == s_mapPlayerBotLootQueued.end() || dwNow < state.dwNextLootPickupTime)
+			return;
+		const DWORD vid = q->second;
+		s_mapPlayerBotLootQueued.erase(q);
+		if (ch->IsDead() || state.bTacticalRetreat || IsPlayerBotSidekickLootOff(ch))
+			return;
+		LPITEM item = ITEM_MANAGER::instance().FindByVID(vid);
+		if (!item || !item->GetSectree() || !IsPlayerBotPartyLoot(ch, item) || !PlayerBotBagTakesDrop(ch, item) ||
+				DISTANCE_APPROX(ch->GetX() - item->GetX(), ch->GetY() - item->GetY()) > PLAYERBOT_LOOT_CHAIN_RANGE)
+			return;
+		std::map<DWORD, DWORD>::iterator seen = state.mapLootSeenSince.find(vid);
+		PickUpPlayerBotLootNow(ch, state, item, seen != state.mapLootSeenSince.end() ? seen->second : dwNow,
+				dwNow, "queued");
+	}
+
+	// MT2009_PLUS_BOT_LOOT_PACE_V1: a retreat or an emergency rest begins -
+	// the bot's own drops round it are remembered, to be gone back for
+	// (ReturnForPlayerBotLoot). 9192 retreats in under two hours on the test
+	// world, and 1350 of the 2103 that said where they ended stopped 3000 and
+	// more from the monster: past the 2500 the loot search sees.
+	void NotePlayerBotLootLeftBehind(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		if (!ch || !ch->GetSectree() || IsPlayerBotSidekickLootOff(ch))
+			return;
+		CCollectPlayerBotLoot collector(ch, PLAYERBOT_LOOT_SEARCH_RANGE, state.mapFailedLootVIDs, dwNow);
+		ch->GetSectree()->ForEachAround(collector);
+		collector.Sort();
+		const std::vector<std::pair<int, LPITEM> >& items = collector.GetItems();
+		if (items.empty())
+			return;
+		TPlayerBotLootReturn rec;
+		rec.dwSince = dwNow;
+		rec.lMapIndex = ch->GetMapIndex();
+		rec.bAnnounced = false;
+		for (size_t i = 0; i < items.size() && rec.vecVIDs.size() < PLAYERBOT_LOOT_RETURN_MAX_ITEMS; ++i)
+			if (items[i].second)
+				rec.vecVIDs.push_back(items[i].second->GetVID());
+		if (!rec.vecVIDs.empty())
+			s_mapPlayerBotLootReturn[ch->GetPlayerID()] = rec;
+	}
+
+	// MT2009_PLUS_BOT_LOOT_PACE_V1: back to what a retreat left behind, while
+	// the drops are still its own and within PLAYERBOT_LOOT_RETURN_RANGE. Once
+	// one is inside the ordinary search the search takes over. True when the
+	// walk claims the tick.
+	bool ReturnForPlayerBotLoot(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		std::map<DWORD, TPlayerBotLootReturn>::iterator it = s_mapPlayerBotLootReturn.find(ch->GetPlayerID());
+		if (it == s_mapPlayerBotLootReturn.end())
+			return false;
+		TPlayerBotLootReturn& rec = it->second;
+		if (dwNow - rec.dwSince > PLAYERBOT_LOOT_RETURN_WINDOW_MS || rec.lMapIndex != ch->GetMapIndex())
+		{
+			if (rec.bAnnounced)
+				PlayerBotLogThrottled("loot_return_give_up", dwNow,
+						"PLAYERBOT_LOOT: gave up the drops left behind pid=%u name=%s map=%ld left=%u since_ms=%u",
+						ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), (unsigned int)rec.vecVIDs.size(),
+						(unsigned int)(dwNow - rec.dwSince));
+			s_mapPlayerBotLootReturn.erase(it);
+			return false;
+		}
+		LPITEM best = NULL;
+		int bestDistance = INT_MAX;
+		for (std::vector<DWORD>::iterator v = rec.vecVIDs.begin(); v != rec.vecVIDs.end(); )
+		{
+			LPITEM item = ITEM_MANAGER::instance().FindByVID(*v);
+			const int distance = item && item->GetSectree()
+					? DISTANCE_APPROX(ch->GetX() - item->GetX(), ch->GetY() - item->GetY()) : INT_MAX;
+			std::map<DWORD, DWORD>::const_iterator failed = state.mapFailedLootVIDs.find(*v);
+			if (!item || !item->GetSectree() || !IsPlayerBotPartyLoot(ch, item) ||
+					distance > PLAYERBOT_LOOT_RETURN_RANGE ||
+					(failed != state.mapFailedLootVIDs.end() && dwNow < failed->second))
+			{
+				v = rec.vecVIDs.erase(v);
+				continue;
+			}
+			if (distance < bestDistance)
+			{
+				bestDistance = distance;
+				best = item;
+			}
+			++v;
+		}
+		if (!best)
+		{
+			s_mapPlayerBotLootReturn.erase(it);
+			return false;
+		}
+		// Inside the search's reach: the ordinary pass, now.
+		if (bestDistance <= PLAYERBOT_LOOT_SEARCH_RANGE)
+		{
+			s_mapPlayerBotLootReturn.erase(it);
+			state.dwNextLootSearchTime = 0;
+			return false;
+		}
+		if (!rec.bAnnounced)
+		{
+			rec.bAnnounced = true;
+			PlayerBotLogThrottled("loot_return", dwNow,
+					"PLAYERBOT_LOOT: back for the drops left behind pid=%u name=%s map=%ld drops=%u distance=%d since_ms=%u",
+					ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), (unsigned int)rec.vecVIDs.size(),
+					bestDistance, (unsigned int)(dwNow - rec.dwSince));
+		}
+		state.dwTargetVID = 0;
+		ch->SetVictim(NULL);
+		SetPlayerBotAction(state, BOT_ACTION_LOOT, dwNow);
+		if (!MovePlayerBot(ch, best->GetX(), best->GetY(), dwNow) && state.bStuckCounter >= 3)
+		{
+			state.mapFailedLootVIDs[best->GetVID()] = dwNow + 30000;
+			ClearPlayerBotRoute(state, true);
+			s_mapPlayerBotLootReturn.erase(it);
+			return false;
+		}
+		return true;
+	}
+
 	bool HandleLoot(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!ch || !ch->GetSectree())
@@ -773,6 +1038,19 @@ namespace
 				else
 					++it;
 			}
+			ForgetPlayerBotLootVerdicts(ch->GetPlayerID(), dwNow);	// MT2009_PLUS_BOT_LOOT_PACE_V1
+		}
+
+		// MT2009_PLUS_BOT_LOOT_PACE_V1: running from a monster or resting at a
+		// fifth of its health, a bot takes only what lies at its feet. The
+		// peaceful walk below claimed the tick ahead of the potions and the
+		// retreat (both come later in the tick), so a bot walked to a drop
+		// under a pack's blows; what it leaves now it comes back for
+		// (ReturnForPlayerBotLoot).
+		if (state.bTacticalRetreat || state.bRecoveringAfterDeath)
+		{
+			TryPlayerBotCombatPickup(ch, state, dwNow);
+			return false;
 		}
 
 		LPCHARACTER activeTarget = state.dwTargetVID != 0
@@ -859,15 +1137,32 @@ namespace
 				!state.bRecoveringAfterDeath && ch->GetMaxHP() > 0 &&
 				(long long)ch->GetHP() * 100 >=
 						(long long)ch->GetMaxHP() * PLAYERBOT_METIN_LOOT_LINGER_MIN_HP_PERCENT;
+		// MT2009_PLUS_BOT_LOOT_PACE_V1: drops a retreat left behind first.
+		if (ReturnForPlayerBotLoot(ch, state, dwNow))
+			return true;
 		if (dwNow < state.dwNextLootSearchTime && !metinLinger)
 			return false;
 
 		CCollectPlayerBotLoot collector(ch,
 				metinDash ? PLAYERBOT_METIN_LOOT_DASH_RANGE
 						: towerDash ? PLAYERBOT_TOWER_LOOT_RANGE : PLAYERBOT_LOOT_SEARCH_RANGE,
-				state.mapFailedLootVIDs, dwNow);
+				state.mapFailedLootVIDs, dwNow, false, true);
 		ch->GetSectree()->ForEachAround(collector);
 		collector.Sort();
+		// MT2009_PLUS_BOT_LOOT_PACE_V1: fight first, loot after. A monster
+		// that has the bot for its victim - the stone's pack and the tower's
+		// floor included - ends the walk to a drop; a party member's foe
+		// does so outside a stone's or a floor's loot window, as before.
+		if (collector.SelfHeld() || (collector.PartyHeld() && !metinDash && !towerDash))
+		{
+			state.bLootThreatNearby = true;
+			state.dwNextLootThreatCheckTime = dwNow + number(
+					PLAYERBOT_LOOT_THREAT_SCAN_INTERVAL_MIN,
+					PLAYERBOT_LOOT_THREAT_SCAN_INTERVAL_MAX);
+			s_mapPlayerBotLootQueued.erase(ch->GetPlayerID());
+			TryPlayerBotCombatPickup(ch, state, dwNow);
+			return false;
+		}
 		if (collector.SkippedCheap() > 0)
 			PlayerBotLogThrottled("loot_left_cheap", dwNow,
 					"PLAYERBOT_LOOT: left merchant fodder pid=%u name=%s level=%u gold=%lld drops=%d",
@@ -920,50 +1215,61 @@ namespace
 				state.mapLootSeenSince[itemVID] = dwNow;
 		}
 
-		LPITEM nearest = items.front().second;
-		if (!nearest || !nearest->GetSectree())
-			return false;
-		const DWORD nearestVID = nearest->GetVID();
-		const DWORD firstSeen = state.mapLootSeenSince[nearestVID];
-		const DWORD visibleDelay = GetPlayerBotLootVisibleDelay(
-				nearest, nearestVID, ch->GetPlayerID());
-		const bool visibleLongEnough = dwNow - firstSeen >= visibleDelay;
-
-		if (items.front().first <= PLAYERBOT_PICKUP_RANGE)
+		// MT2009_PLUS_BOT_LOOT_PACE_V1: every drop within the chain range is
+		// taken where the bot stands, the first one ready first, and the one
+		// after it is queued for the light tick (TakePlayerBotQueuedLoot). It
+		// waited before for the nearest drop alone, a second and a half each.
+		LPITEM ready = NULL;
+		LPITEM following = NULL;
+		DWORD readySeen = 0;
+		bool waiting = false;
+		for (size_t i = 0; i < items.size(); ++i)
+		{
+			LPITEM item = items[i].second;
+			if (!item || !item->GetSectree() || items[i].first > PLAYERBOT_LOOT_CHAIN_RANGE)
+				continue;
+			const DWORD vid = item->GetVID();
+			const DWORD seen = state.mapLootSeenSince[vid];
+			if (dwNow - seen < GetPlayerBotLootVisibleDelay(item, vid, ch->GetPlayerID()))
+			{
+				waiting = true;
+				continue;
+			}
+			if (!ready)
+			{
+				ready = item;
+				readySeen = seen;
+			}
+			else if (!following)
+				following = item;
+		}
+		if (ready || waiting)
 		{
 			ch->Stop();
-			if (!visibleLongEnough || dwNow < state.dwNextLootPickupTime)
+			if (!ready)
 				return true;
-
-			const DWORD itemVnum = nearest->GetVnum();
-			const bool material = nearest->GetType() == ITEM_MATERIAL;
-			const long itemSocket0 = nearest->GetSocket(0);
-			const BYTE itemType = nearest->GetType();
-			state.dwNextLootPickupTime = dwNow + GetPlayerBotLootPickupInterval(nearest);
-			if (ch->PickupItem(nearestVID))
+			if (dwNow < state.dwNextLootPickupTime)
 			{
-				NotePlayerBotMoodValuable(ch, itemVnum, itemSocket0, itemType, "pickup");
-				state.mapLootSeenSince.erase(nearestVID);
-				if (material)
-					RememberPlayerBotSpotDrop(ch->GetMapIndex(), ch->GetX(), ch->GetY(), itemVnum);
-				if (itemVnum == PLAYERBOT_HORSE_MEDAL_VNUM)
-				{
-					const int looted = NotePlayerBotHorseMedalLooted(ch);
-					sys_log(0, "PLAYERBOT_HORSE: real medal looted pid=%u name=%s map=%ld total_looted=%d",
-							ch->GetPlayerID(), ch->GetName(), ch->GetMapIndex(), looted);
-				}
-				sys_log(1, "PLAYERBOT_AI: picked up delayed loot pid=%u name=%s item_vid=%u vnum=%u visible_ms=%u",
-						ch->GetPlayerID(), ch->GetName(), nearestVID, itemVnum,
-						(unsigned int)(dwNow - firstSeen));
+				s_mapPlayerBotLootQueued[ch->GetPlayerID()] = ready->GetVID();
 				return true;
 			}
-
-			state.mapFailedLootVIDs[nearestVID] = dwNow + 5000;
-			state.mapLootSeenSince.erase(nearestVID);
+			const DWORD readyVID = ready->GetVID();
+			const DWORD readyVnum = ready->GetVnum();
+			if (PickUpPlayerBotLootNow(ch, state, ready, readySeen, dwNow, "delayed"))
+			{
+				if (following)
+					s_mapPlayerBotLootQueued[ch->GetPlayerID()] = following->GetVID();
+				else
+					s_mapPlayerBotLootQueued.erase(ch->GetPlayerID());
+				return true;
+			}
+			state.mapFailedLootVIDs[readyVID] = dwNow + 5000;
+			state.mapLootSeenSince.erase(readyVID);
 			sys_log(1, "PLAYERBOT_AI: pickup failed pid=%u name=%s item_vid=%u vnum=%u -> retrying in 5s",
-					ch->GetPlayerID(), ch->GetName(), nearestVID, itemVnum);
+					ch->GetPlayerID(), ch->GetName(), readyVID, readyVnum);
 			return true;
 		}
+		LPITEM nearest = NULL;
 
 		// Filter out items in pickup range that just failed
 		std::vector<std::pair<int, LPITEM> > pendingItems;
@@ -987,7 +1293,7 @@ namespace
 		state.dwTargetVID = 0;
 		ch->SetVictim(NULL);
 
-		if (pendingItems.front().first > PLAYERBOT_PICKUP_RANGE)
+		if (pendingItems.front().first > PLAYERBOT_LOOT_CHAIN_RANGE)
 		{
 			if (!MovePlayerBot(ch, nearest->GetX(), nearest->GetY(), dwNow) &&
 					state.bStuckCounter >= 3)

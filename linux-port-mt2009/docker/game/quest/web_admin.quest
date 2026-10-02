@@ -733,7 +733,9 @@ quest web_admin begin
 			-- MT2009 Plus: the rare goods' switches, same shape as EASTER.
 			-- arg1 = "alchemy,sashes", 1 on and 0 off; written as the
 			-- flags the engine and dragon_soul.quest read, m2_alchemy_off
-			-- and m2_sash_off (the inverse). arg2 unused.
+			-- and m2_sash_off (the inverse). arg2 = "ds_drop,ds_cor_day"
+			-- (the Alchemist's shard chance 1-100 and Cors a day 1-20,
+			-- dragon_soul.quest), empty from an older panel.
 			local rrows = wa_query("SELECT id, arg1, arg2 FROM player.web_admin_queue WHERE status='pending' AND cmd='RARE' ORDER BY id ASC LIMIT 3")
 			if type(rrows) == "table" then
 				local ri
@@ -758,6 +760,17 @@ quest web_admin begin
 							else
 								game.set_event_flag("m2_alchemy_off", 1 - ralch)
 								game.set_event_flag("m2_sash_off", 1 - rsash)
+								if type(rr.arg2) == "string" then
+									local _, _, d1, d2 = string.find(rr.arg2, "^(%d+),(%d+)$")
+									local rdrop = tonumber(d1)
+									local rday = tonumber(d2)
+									if rdrop ~= nil and rdrop >= 1 and rdrop <= 100 then
+										game.set_event_flag("ds_drop", rdrop)
+									end
+									if rday ~= nil and rday >= 1 and rday <= 20 then
+										game.set_event_flag("ds_cor_day", rday)
+									end
+								end
 							end
 							wa_query("UPDATE player.web_admin_queue SET status='" .. rres .. "' WHERE id=" .. rqid .. " AND status='pending' LIMIT 1")
 						end
@@ -791,6 +804,84 @@ quest web_admin begin
 								game.set_event_flag("mt2009_arezzo_closed", 1 - zon)
 							end
 							wa_query("UPDATE player.web_admin_queue SET status='" .. zres .. "' WHERE id=" .. zqid .. " AND status='pending' LIMIT 1")
+						end
+					end
+				end
+			end
+
+			-- MT2009_PLUS_SEONHAE_V1: Seon-Hae's 6th/7th bonus, same shape as AREZZO.
+			-- arg1 = "on,wait": on 1/0 and the minutes Seon-Hae keeps an item
+			-- (0 = the default, 24 h; at most 10080), written as m2_seonhae_on and
+			-- m2_seonhae_wait_min, which playerbot_seonhae.h and quest seonhae
+			-- read. Off stops new hand-ins only. arg2 = the 6/7 level odds.
+			local srows = wa_query("SELECT id, arg1, arg2 FROM player.web_admin_queue WHERE status='pending' AND cmd='SEONHAE' ORDER BY id ASC LIMIT 3")
+			if type(srows) == "table" then
+				local si
+				for si = 1, table.getn(srows) do
+					local sr = srows[si]
+					if type(sr) == "table" then
+						local sqid = tonumber(sr.id)
+						local son, swait = nil, nil
+						if type(sr.arg1) == "string" then
+							local _, _, s1, s2 = string.find(sr.arg1, "^(%d+),(%d+)$")
+							son = tonumber(s1)
+							swait = tonumber(s2)
+						end
+						if sqid ~= nil then
+							local sres = "done"
+							if son == nil or swait == nil or son < 0 or son > 1 or swait < 0 or swait > 10080 then
+								sres = "bad_args"
+							elseif game.set_event_flag == nil then
+								sres = "failed"
+							else
+								game.set_event_flag("m2_seonhae_on", son)
+								game.set_event_flag("m2_seonhae_wait_min", swait)
+								-- MT2009_PLUS_RARE_LEVEL_ROLL_V1: arg2 "35,30,20,10,5" - the odds of
+								-- each level of a 6th/7th bonus (item_attribute.cpp reads m2_rare_lv1..5).
+								if type(sr.arg2) == "string" then
+									local _, _, l1, l2, l3, l4, l5 = string.find(sr.arg2, "^(%d+),(%d+),(%d+),(%d+),(%d+)$")
+									if l5 ~= nil then
+										game.set_event_flag("m2_rare_lv1", tonumber(l1))
+										game.set_event_flag("m2_rare_lv2", tonumber(l2))
+										game.set_event_flag("m2_rare_lv3", tonumber(l3))
+										game.set_event_flag("m2_rare_lv4", tonumber(l4))
+										game.set_event_flag("m2_rare_lv5", tonumber(l5))
+									end
+								end
+							end
+							wa_query("UPDATE player.web_admin_queue SET status='" .. sres .. "' WHERE id=" .. sqid .. " AND status='pending' LIMIT 1")
+						end
+					end
+				end
+			end
+
+			-- The health of monsters, bosses and Metin stones, the same way (the
+			-- operator, 30 September, for Frelik's proposal): m2_mob_hp is a
+			-- percent of the max_hp each is born with, and every core rescales
+			-- the ones standing when it moves (server-patches/mobhp,
+			-- MT2009_PLUS_MOB_HP_V1). The panel has written the row; this makes
+			-- it live without a restart. arg1 = the percent, digits only, 10..300.
+			local mrows = wa_query("SELECT id, arg1 FROM player.web_admin_queue WHERE status='pending' AND cmd='MOB_HP' ORDER BY id ASC LIMIT 3")
+			if type(mrows) == "table" then
+				local mi
+				for mi = 1, table.getn(mrows) do
+					local mr = mrows[mi]
+					if type(mr) == "table" then
+						local mqid = tonumber(mr.id)
+						local mval = nil
+						if type(mr.arg1) == "string" and string.find(mr.arg1, "^%d+$") then
+							mval = tonumber(mr.arg1)
+						end
+						if mqid ~= nil then
+							local mres = "done"
+							if mval == nil or mval < 10 or mval > 300 then
+								mres = "bad_args"
+							elseif game.set_event_flag == nil then
+								mres = "failed"
+							else
+								game.set_event_flag("m2_mob_hp", mval)
+							end
+							wa_query("UPDATE player.web_admin_queue SET status='" .. mres .. "' WHERE id=" .. mqid .. " AND status='pending' LIMIT 1")
 						end
 					end
 				end

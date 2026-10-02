@@ -1154,6 +1154,21 @@ namespace
 		// the hold (IsPlayerBotSwapHeldForBonus).
 		if (target.kind == PLAYERBOT_BONUS_TARGET_HELD)
 			return true;
+		// MT2009_PLUS_PROGRESSION_V1: a bot the checklist holds for health from
+		// its items changes a worn piece that can carry a health line and has
+		// none (item_attr: body, boots, bracelet, necklace).
+		if (!green && target.kind == PLAYERBOT_BONUS_TARGET_WORN &&
+				(GetPlayerBotProgressionNeeds(ch->GetPlayerID()) & playerbot_progression::NEED_HP) != 0 &&
+				(target.wearCell == WEAR_BODY || target.wearCell == WEAR_FOOTS ||
+				 target.wearCell == WEAR_WRIST || target.wearCell == WEAR_NECK))
+		{
+			bool hasHp = false;
+			for (int i = 0; i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
+				if (item->GetAttributeType(i) == APPLY_MAX_HP && item->GetAttributeValue(i) > 0)
+					hasHp = true;
+			if (!hasHp)
+				return true;
+		}
 		const bool mixToFinish = green
 				? playerbot_bonus_rules::ChangeReachesFinish(item->GetType() == ITEM_WEAPON,
 					HasPlayerBotDamageAddon(item))
@@ -1637,7 +1652,7 @@ namespace
 			const int units = forMarble ? PLAYERBOT_EXCHANGE_MARBLE_UNITS : PLAYERBOT_EXCHANGE_STONE_UNITS;
 			const DWORD reward = forMarble ? PLAYERBOT_BLESSING_MARBLE_VNUM : stone;
 			ch->RemoveSpecifyItem(material, units);
-			ch->PointChange(POINT_GOLD, -fee);
+			PlayerBotChangeGold(ch, -fee);
 			s_mapPlayerBotExchangeNext[ch->GetPlayerID()] = now + PLAYERBOT_EXCHANGE_GAP_MS;
 			const bool success = number(1, 100) <= PLAYERBOT_EXCHANGE_SUCCESS_PERCENT;
 			LPITEM made = success ? ch->AutoGiveItem(reward, 1, -1, false) : NULL;

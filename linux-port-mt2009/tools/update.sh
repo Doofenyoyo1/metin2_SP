@@ -384,6 +384,22 @@ migrate_blessing_scroll() {
     printf 'M2_BLESSING_SCROLL_STONE_PERMILLE_DEFAULTED=1\n' >> "$_env"
 }
 
+# The server's logs were kept 3 days, and the owner wants a week (1 October,
+# "Logi serwera niech usuwaja sie po 7 dniach"). The old default is in every
+# .env, where a new one never reaches, so 3 becomes 7 here, once; any other
+# value is somebody's choice and stays.
+migrate_log_keep_days() {
+    _env="$COMPOSE_DIR/.env"
+    [ -f "$_env" ] || return 0
+    grep -q '^M2_LOG_KEEP_DAYS_DEFAULTED=' "$_env" && return 0
+    [ -n "$(tail -c 1 "$_env")" ] && printf '\n' >> "$_env"
+    if [ "$(kv "$_env" M2_LOG_KEEP_DAYS | tr -d ' \r')" = 3 ]; then
+        sed -i 's|^M2_LOG_KEEP_DAYS=.*|M2_LOG_KEEP_DAYS=7|' "$_env"
+        note "   the server's logs are kept 7 days: M2_LOG_KEEP_DAYS=7 (it was 3)"
+    fi
+    printf 'M2_LOG_KEEP_DAYS_DEFAULTED=1\n' >> "$_env"
+}
+
 # Channel N listens on BASE+10*(N-1)..+2 inside the container (BASE is
 # M2_GAME_PORT_BASE, 13000 unless a second stack on the host moved it -
 # m2-render-config), and compose publishes M2_GAME_PORT_RANGE onto
@@ -483,11 +499,21 @@ sync_channel_ports() {
 # the keys named below, whose example value is the compose default (an
 # absent key already meant that), never a password, a port or an address;
 # a key already there, empty included, is the operator's and is left alone.
-ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS M2_EXCHANGE_DUST_CHANCE M2_EXCHANGE_PARCHMENT_CHANCE M2_EXCHANGE_MATERIAL_CHANCE PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_BLESSING_SCROLL_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_AUTOHUNT M2_SIDEKICK M2_ALCHEMY M2_SASHES M2_AUTOHUNT_ITEM M2_FLEA_MARKET M2_AREZZO"
+ENV_KEYS_FROM_EXAMPLE="M2_DIFFICULTY M2_BIOLOGIST_WAIT_HOURS M2_HORSE_WAIT_HOURS M2_BOOK_WAIT_HOURS M2_BOT_BOOK_WAIT_HOURS M2_EXCHANGE_DUST_CHANCE M2_EXCHANGE_PARCHMENT_CHANCE M2_EXCHANGE_MATERIAL_CHANCE PLAYERBOT_SPAWN_WINDOW_MINUTES PLAYERBOT_LATE_JOINERS PLAYERBOT_LATE_JOIN_HOURS PLAYERBOT_MEDAL_DROPPERS PLAYERBOT_MEDAL_DROPPER_LEVEL M2_MOONLIGHT_CHEST_PERMILLE M2_MOONLIGHT_CHEST_STONE_PERMILLE M2_BLESSING_SCROLL_STONE_PERMILLE M2_PLAYERBOT_WORLD_LAYOUT PLAYERBOT_AUTOSPAWN_PER_KINGDOM PLAYERBOT_AUTOSPAWN_SHINSOO PLAYERBOT_AUTOSPAWN_CHUNJO PLAYERBOT_AUTOSPAWN_JINNO M2_PLAYERBOT_CH2 PLAYERBOT_CH2_SHARE M2_PLAYERBOT_CH2_SET_AT M2_RATE_EXP M2_RATE_DROP M2_RATE_YANG M2_PLAYERBOT_START_HELD M2_STARTER_CHEST M2_AUTOHUNT M2_SIDEKICK M2_ALCHEMY M2_SASHES M2_AUTOHUNT_ITEM M2_FLEA_MARKET M2_AREZZO M2_SEONHAE M2_MONSTER_HP M2_STARTER_KIT"
 add_missing_env_keys() {
     _env="$COMPOSE_DIR/.env"
     _ex="$COMPOSE_DIR/.env.example"
     [ -f "$_env" ] && [ -f "$_ex" ] || return 0
+    # MT2009_PLUS_UPDATE_ENV_NOW_V1: the list the update.sh on the disk names,
+    # which after an unpack is the new release's. The shell read this file
+    # whole before the package replaced it, so the list in this process is the
+    # previous release's, and a key a release added reached .env only at the
+    # update after it (2.10.0 -> 2.16.0 on Linux left out M2_AREZZO,
+    # M2_FLEA_MARKET and M2_EXCHANGE_*). run_update normally hands the whole
+    # .env step to the new script (migrate_env_from_release); this covers a
+    # fallback to this process. Run alone (`env') it reads itself.
+    _keys=$(tr -d '\r' < "$ROOT/linux-port/tools/update.sh" 2>/dev/null | sed -n 's/^ENV_KEYS_FROM_EXAMPLE="\([^"]*\)".*$/\1/p' | head -n 1)
+    [ -n "$_keys" ] || _keys=$ENV_KEYS_FROM_EXAMPLE
     _added=""
     while IFS= read -r _line || [ -n "$_line" ]; do
         _line=$(printf '%s' "$_line" | tr -d '\r')
@@ -496,7 +522,7 @@ add_missing_env_keys() {
             *) continue ;;
         esac
         _key=${_line%%=*}
-        case " $ENV_KEYS_FROM_EXAMPLE " in
+        case " $_keys " in
             *" $_key "*) ;;
             *) continue ;;
         esac
@@ -652,8 +678,29 @@ run_update() {
     # From here VERSION says the new version whatever happens to the build;
     # this is what tells the next run to finish it.
     : > "$BUILD_PENDING" 2>/dev/null || true
-    migrate_env
+    migrate_env_from_release
     build_and_start
+}
+
+# MT2009_PLUS_UPDATE_ENV_NOW_V1: the .env step of an update is the NEW
+# release's, not this process's. The functions and the key list in memory are
+# the version being replaced, so whatever the new version brings for .env (a
+# key, a once-only flip) used to arrive only with the update after it. The
+# freshly unpacked update.sh is run with `env' - the same thing
+# `sh linux-port/tools/update.sh env' does by hand - on this folder, and
+# under the panel its lines go to the spool's log like ours. A new script that
+# is missing or fails (an older package without `env', say) leaves the step to
+# this process, whose add_missing_env_keys still reads the list from the disk.
+migrate_env_from_release() {
+    _new="$ROOT/linux-port/tools/update.sh"
+    if [ -f "$_new" ]; then
+        note "   .env: the new version's settings (update.sh env)"
+        if M2_UPDATE_STACK_DIR="$ROOT" M2_UPDATE_WATCHING="$WATCHING" sh "$_new" env; then
+            return 0
+        fi
+        note "   .env: the new update.sh env did not finish -- this script does it instead"
+    fi
+    migrate_env
 }
 
 # The half of an update after the files: staged build inputs, then compose.
@@ -697,6 +744,7 @@ migrate_env() {
     migrate_world_layout
     # After the keys too: a world that never had the line gets the example's.
     migrate_blessing_scroll
+    migrate_log_keep_days
     # Before compose, because a published port range only changes at a recreate.
     sync_channel_ports
 }
@@ -729,7 +777,10 @@ case "${1:-run}" in
     check) check_tree; fetch_manifest > "$WORK.m" && printf 'installed %s, published %s\n' "$(installed_version)" "$(manifest_field "$WORK.m" version)"; rm -f "$WORK.m" ;;
     watch) check_tree; watch ;;
     stage) check_tree; stage_panel_context && say "the panel's build context is staged from files/" || die "staging the panel's build context failed" ;;
-    env)   check_tree; migrate_env ;;
+    # MT2009_PLUS_UPDATE_ENV_NOW_V1: run by an older update.sh right after it
+    # unpacked this one (migrate_env_from_release); under the panel its lines
+    # go to the spool's log as well.
+    env)   [ "${M2_UPDATE_WATCHING:-0}" = 1 ] && WATCHING=1; check_tree; migrate_env ;;
     *) printf 'usage: sh %s [run|check|watch|stage|env]\n' "$0"; exit 2 ;;
 esac
 exit $?

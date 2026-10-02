@@ -341,8 +341,57 @@ $script:ui.SideVersions.Font = [Drawing.Font]::new('Segoe UI', 9)
 $script:ui.SideVersions.ForeColor = $script:ui.Muted
 $versionPanel.Controls.Add($script:ui.SideVersions)
 $null = UI-Label $versionPanel (UI-Text 'WERSJE' 'VERSIONS') 10 $script:ui.Gold 30
+# ZGLOS / REPORT under the versions (the operator, 30 September): the card on
+# the logs page is a page away from a player who has just met a bug, and a
+# form always in sight is one more player who sends a report. The same form
+# as the card (Show-LauncherReport), only when the module is there. Added
+# after the versions, so it is docked first: the very bottom of the bar.
+$script:ui.SideReportPanel = $null
+if ($reportButton) {
+    $reportGap = [Windows.Forms.Panel]::new()
+    $reportGap.Dock = 'Bottom'; $reportGap.Height = 8
+    $sidebar.Controls.Add($reportGap)
+    $reportPanel = [Windows.Forms.Panel]::new()
+    $reportPanel.Dock = 'Bottom'; $reportPanel.Height = 96
+    $reportPanel.Padding = [Windows.Forms.Padding]::new(10, 8, 10, 10)
+    $reportPanel.BackColor = $script:ui.Surface
+    $reportPanel.Add_Paint({
+        param($sender, $eventArgs)
+        $edge = [Drawing.Pen]::new([Drawing.Color]::FromArgb(150, 150, 62, 72))
+        try { $eventArgs.Graphics.DrawRectangle($edge, 0, 0, ($sender.Width - 1), ($sender.Height - 1)) }
+        finally { $edge.Dispose() }
+    })
+    $sidebar.Controls.Add($reportPanel)
+    $sideReport = New-Button (UI-Text 'ZGŁOŚ BŁĄD / POMYSŁ' 'REPORT A BUG / IDEA') 0 0 212 36
+    UI-ButtonStyle $sideReport
+    $sideReport.Dock = 'Bottom'; $sideReport.Height = 36
+    $sideReport.BackColor = UI-Color '#6E3A44'
+    $sideReport.FlatAppearance.MouseOverBackColor = [Windows.Forms.ControlPaint]::Light($sideReport.BackColor)
+    $sideReport.AccessibleName = UI-Text 'Zgłoś błąd albo pomysł autorowi' 'Report a bug or an idea to the author'
+    $sideReport.Add_Click({ Show-LauncherReport })
+    $reportPanel.Controls.Add($sideReport)
+    $null = UI-Label $reportPanel (UI-Text 'Napisz - logi dołączą się same.' 'Tell us - the logs are included.') 8.5 $script:ui.Muted 18
+    $null = UI-Label $reportPanel (UI-Text 'Coś nie działa? Masz pomysł?' 'Something wrong? Got an idea?') 9.5 $script:ui.Gold 21
+    $script:ui.SideReport = $sideReport
+    $script:ui.SideReportPanel = $reportPanel
+    $script:ui.SideReportGap = $reportGap
+}
+function Update-UISideVersionsHeight {
+    # The versions take the lines they have and leave the report box and the
+    # menu their room: in the smallest window a long notice is cut, and its
+    # whole text stays in the tooltip.
+    $label = $script:ui.SideVersions
+    $textWidth = [Math]::Max(40, $versionPanel.ClientSize.Width - $versionPanel.Padding.Horizontal)
+    $wanted = $versionPanel.Padding.Vertical + 30 + $label.GetPreferredSize([Drawing.Size]::new($textWidth, 0)).Height + 4
+    $below = 0
+    if ($script:ui.SideReportPanel) { $below = $script:ui.SideReportPanel.Height + $script:ui.SideReportGap.Height }
+    $room = $sidebar.ClientSize.Height - $sidebar.Padding.Vertical - $navStack.Height - $issuesButton.Height - $below
+    $height = [Math]::Max(96, [Math]::Min($wanted, $room))
+    if ($versionPanel.Height -ne $height) { $versionPanel.Height = $height }
+}
 $script:versionLabel.Add_TextChanged({
     $script:ui.SideVersions.Text = $script:versionLabel.Text -replace '\s+\|\s+', "`r`n"
+    Update-UISideVersionsHeight
 })
 $script:versionLabel.Add_ForeColorChanged({ $script:ui.SideVersions.ForeColor = $script:versionLabel.ForeColor })
 
@@ -422,8 +471,11 @@ foreach ($section in $sections) {
     $nav.Add_Click({ Show-UIPage $this.Tag.Id })
     $navStack.Controls.Add($nav); $script:ui.Nav[$section[0]] = $nav
 }
+# The menu is as tall as its buttons, so the boxes under it have the rest.
+$navStack.Height = ($navStack.Controls | ForEach-Object { $_.Height + $_.Margin.Vertical } | Measure-Object -Sum).Sum
 $sidebar.Add_SizeChanged({
     foreach ($control in $navStack.Controls) { $control.Width = [Math]::Max(40, $sidebar.ClientSize.Width - 20) }
+    Update-UISideVersionsHeight
 })
 
 # Change the translation source too: toggling launch-client refreshes this label.
@@ -511,6 +563,18 @@ $script:versionLabel.Add_ForeColorChanged({
 })
 $script:form.ResumeLayout($true)
 
+function Test-UISidebarFits([string]$Where) {
+    # The report box is at the bottom of the bar on every page, nothing in
+    # the bar sits on the menu, and the versions show every line they have.
+    if ($reportButton) {
+        if (-not $script:ui.SideReport.Visible) { throw "Report box missing: $Where" }
+        if ($script:ui.SideReportPanel.Bottom -ne $sidebar.ClientSize.Height - $sidebar.Padding.Bottom) { throw "Report box is not at the bottom: $Where" }
+        if ($script:ui.SideReportPanel.Top -lt $versionPanel.Bottom) { throw "Report box is over the versions: $Where" }
+    }
+    if ($issuesButton.Top -lt $navStack.Bottom) { throw "Sidebar boxes overlap the menu: $Where" }
+    $label = $script:ui.SideVersions
+    if ($label.Height -lt $label.GetPreferredSize([Drawing.Size]::new($label.Width, 0)).Height) { throw "Versions are cut: $Where" }
+}
 function Invoke-LayoutSelfTest([string]$OutputDirectory) {
     # Only layout/navigation are exercised. Exit occurs before any runtime timer,
     # Docker query, update check, original action or server log write.
@@ -562,6 +626,7 @@ function Invoke-LayoutSelfTest([string]$OutputDirectory) {
             [Windows.Forms.Application]::DoEvents()
             if ($script:ui.CurrentPage -ne $id) { throw "Navigation failed: $id" }
             if (-not $script:ui.SideVersions.Visible -or $sidebar.Width -ne 252) { throw 'Permanent sidebar missing' }
+            Test-UISidebarFits "$id/$($dimensions[0])"
             foreach ($entry in $script:ui.Cards | Where-Object { $_.Page -eq $id }) {
                 if (-not $entry.Button.Visible -or $entry.Button.Parent -ne $entry.Card) { throw "Lost action: $($entry.Button.Text)" }
                 if ($entry.Button.Width -lt 200 -or $entry.Hint.Height -lt 30) { throw "Card is clipped: $($entry.Button.Text)" }
@@ -574,6 +639,17 @@ function Invoke-LayoutSelfTest([string]$OutputDirectory) {
             $results += "$($script:Lang)/$id/$($dimensions[0]): OK"
         }
     }
+    # The longest the versions get - an update notice over the three lines -
+    # in the smallest window.
+    $script:versionLabel.Text = (UI-Text "!! NOWA WERSJA SERWERA I KLIENTA - kliknij SPRAWDZ AKTUALIZACJE`r`nSerwer: 2.0.95   |   najnowszy: 2.0.96`r`nLauncher: 2.0.95   |   najnowszy: 2.0.96`r`nKlient: 2.0.24   |   najnowszy: 2.0.25" "!! NEW SERVER AND CLIENT VERSION - click CHECK FOR UPDATES`r`nServer: 2.0.95   |   latest: 2.0.96`r`nLauncher: 2.0.95   |   latest: 2.0.96`r`nClient: 2.0.24   |   latest: 2.0.25")
+    $script:form.ClientSize = [Drawing.Size]::new(1004, 741)
+    [Windows.Forms.Application]::DoEvents()
+    Test-UISidebarFits 'update notice/1004'
+    $bitmap = [Drawing.Bitmap]::new($script:form.Width, $script:form.Height)
+    try {
+        $script:form.DrawToBitmap($bitmap, [Drawing.Rectangle]::new(0, 0, $script:form.Width, $script:form.Height))
+        $bitmap.Save((Join-Path $OutputDirectory "$($script:Lang)-update-1004.png"), [Drawing.Imaging.ImageFormat]::Png)
+    } finally { $bitmap.Dispose() }
     if ($dockerButton.Parent -or $dockerButton.Visible) { throw 'Docker button still displayed' }
     if ($playButton.Text -match '^\s*2\.') { throw 'Play still numbered' }
     $script:ui.LogToggle.PerformClick()
@@ -593,6 +669,7 @@ function Invoke-LayoutSelfTest([string]$OutputDirectory) {
     foreach ($button in $expected) {
         if (@($script:ui.Cards | Where-Object { $_.Button -eq $button }).Count -ne 1) { throw "Missing/duplicate action: $($button.Text)" }
     }
-    [pscustomobject]@{ Checks = $results; ActionCards = $expected.Count; Navigation = 'OK'; Sidebar = 'OK'; LogToggle = 'OK'; LogScroll = 'OK'; RatesRoute = 'OK'; IssuesLink = 'OK'; ResizeMsPerStep = $resizeMsPerStep; ResizeReleaseMs = $releaseMs } | ConvertTo-Json -Depth 4
+    $reportBox = if ($reportButton) { 'OK' } else { 'no module' }
+    [pscustomobject]@{ Checks = $results; ActionCards = $expected.Count; Navigation = 'OK'; Sidebar = 'OK'; ReportBox = $reportBox; LogToggle = 'OK'; LogScroll = 'OK'; RatesRoute = 'OK'; IssuesLink = 'OK'; ResizeMsPerStep = $resizeMsPerStep; ResizeReleaseMs = $releaseMs } | ConvertTo-Json -Depth 4
     $script:form.Close()
 }

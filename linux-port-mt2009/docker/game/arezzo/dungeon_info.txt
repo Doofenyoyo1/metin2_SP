@@ -14,7 +14,7 @@ dungeon	biblioteka	363	1	xy	3/23/43	3568	8772	30	0	1	8	9706	biblioteka_wiedzy.en
 entry	biblioteka	3568	8772	1369	2396	8668	2396
 cost	biblioteka	1000000
 drop	biblioteka	30773	3	100
-dungeon	wieza	66	1	xy	66	5900	1114	40	0	1	8	1093	-	0	0	0	Wie¿a_Demonów	Wie¿a_Demonów
+dungeon	wieza	66	1	xy	65	5900	1114	40	0	1	8	1093	-	0	0	0	Wie¿a_Demonów	Œwi¹tynia_Hwang
 cost	wieza	5000000
 drop	wieza	183	1	10
 drop	wieza	184	1	5
@@ -39,7 +39,9 @@ drop	razador	50270	5	100
 dungeon	skorpion	365	1	xy	62	5989	7058	65	0	1	8	9694	ruiny_skorpiona.entry	3600	0	0	Ruiny_Skorpiona	Doyyumhwaji
 cost	skorpion	12000000
 drop	skorpion	30775	4	100
-dungeon	katakumby	216	1	xy	65	5914	992	75	0	1	8	2598	devilcatacomb_zone.last_exit_time	1800	0	0	Katakumby_Diab³a	Œwi¹tynia_Hwang
+# MT2009_PLUS_CATACOMB_MAP_V1: the Catacomb lands beside its Guardian (20367 at 5924 1006 in Hwang Temple),
+# not at the quest's exit (5914 992) seventeen metres off.
+dungeon	katakumby	216	1	xy	65	5921	1003	75	0	1	8	2598	devilcatacomb_zone.last_exit_time	1800	0	0	Katakumby_Diab³a	Œwi¹tynia_Hwang
 cost	katakumby	10000000
 drop	katakumby	183	1	20
 drop	katakumby	184	1	10
@@ -58,6 +60,10 @@ drop	katakumby	5124	1	10
 dungeon	nemere	352	1	xy	61	4322	1655	75	0	1	8	6191	nemere_dungeon.entry	3600	0	0	Lodowa_Kraina_(Nemere)	Góra_Sohan
 cost	nemere	12000000
 drop	nemere	50271	5	100
+dungeon	smok	208	1	xy	64	2850	8103	90	0	1	8	2493	blue_dragon_lair.entry	3600	0	0	Le¿e_Smoka	Dolina_Orków
+cost	smok	10000000
+drop	smok	71123	1	100
+drop	smok	71129	1	100
 dungeon	dzungla	366	1	town	209	0	0	95	0	1	8	9714	starozytna_dzungla.entry	3600	0	0	Staro¿ytna_D¿ungla	Œwi¹tynia_Ochao
 cost	dzungla	12000000
 drop	dzungla	30776	5	100

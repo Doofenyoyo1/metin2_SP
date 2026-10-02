@@ -488,8 +488,11 @@ namespace
 		// judges by the weapon in the hand, and a bot that walked away holding
 		// one would swing a digging tool at an orc until the gear pass noticed.
 		LPITEM worn = ch->GetWear(WEAR_WEAPON);
-		if (worn && worn->GetType() == ITEM_PICK && !IsPlayerBotGearFrozen(ch))
-			ch->UnequipItem(worn);
+		// MT2009_PLUS_BOSS_RAID_V2 (2.2.52, tool in hand): and the weapon back
+		// in the hand at once, as the rod's stow does (StowPlayerBotRod) - the
+		// empty hand waited for the equipment pass.
+		if (worn && worn->GetType() == ITEM_PICK && !IsPlayerBotGearFrozen(ch) && ch->UnequipItem(worn))
+			EquipFirstAvailablePlayerBotWeapon(ch);
 		s_mapPlayerBotMiningNext[pid] = dwNow + (dwRetry != 0 ? dwRetry :
 				DrawPlayerBotMiningRest(PLAYERBOT_MINING_REST_MIN, PLAYERBOT_MINING_REST_MAX));
 		ClearPlayerBotRoute(state, true);

@@ -10,7 +10,11 @@ param(
     [ValidateSet('pl', 'en')][string]$UiLanguage = 'pl',
     # Another installation for the modules and the configuration, so the
     # window can be tried from a checkout against a working server.
-    [string]$ServerRoot = ''
+    [string]$ServerRoot = '',
+    # MT2009_PLUS_LAUNCHER_NO_CONSOLE_V1: this run is the window's own,
+    # started without a console by the first run (see below); it starts
+    # nothing again.
+    [switch]$Detached
 )
 
 $ErrorActionPreference = 'Stop'
@@ -60,6 +64,52 @@ trap {
     }
     catch { }
     break
+}
+
+# MT2009_PLUS_LAUNCHER_NO_CONSOLE_V1: the window alone, without the black
+# console its .bat opens behind it (closing that console closed the launcher
+# too). The first run starts this script again with no console window at all -
+# CREATE_NO_WINDOW, which leaves Windows Terminal nothing to take over, where
+# -WindowStyle Hidden only hides the old console host - waits until the new run
+# has a window on the screen, and ends with 0; the .bat's console closes behind
+# it (and Restart-Launcher, which starts the .bat, takes exit code 0 for a good
+# start). The .bat itself stays as it was: a running cmd reads its .bat line by
+# line, and the launcher's own update replaces it while it waits. Errors keep
+# their way out: the trap above and the window's handlers show a message box
+# and write launcher-logs. A new run that ends before any window of its own
+# leaves this one to go on here in the console, where what stopped it can be
+# read; M2_LAUNCHER_CONSOLE=1 keeps the console for good.
+if (-not $SelfTest -and -not $UiSelfTest -and -not $Detached -and $env:M2_LAUNCHER_CONSOLE -ne '1') {
+    $detachedChild = $null
+    try {
+        $detachedArguments = @('-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f $PSCommandPath), '-Detached')
+        if ($PSBoundParameters.ContainsKey('ServerRoot')) {
+            $detachedArguments += @('-ServerRoot', ('"{0}"' -f $ServerRoot.TrimEnd('\')))
+        }
+        $detachedStart = [Diagnostics.ProcessStartInfo]::new([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName,
+            ($detachedArguments -join ' '))
+        $detachedStart.UseShellExecute = $false
+        $detachedStart.CreateNoWindow = $true
+        $detachedStart.WorkingDirectory = (Get-Location).ProviderPath
+        $detachedChild = [Diagnostics.Process]::Start($detachedStart)
+    }
+    catch {
+        $detachedChild = $null
+        Write-StartupFailure ('okno bez konsoli nie wystartowalo, launcher zostaje w konsoli: ' + $_.Exception.Message)
+    }
+    if ($detachedChild) {
+        Write-Host 'Otwieram okno launchera - ta konsola zaraz sie zamknie.'
+        $detachedDeadline = [DateTime]::UtcNow.AddSeconds(90)
+        try {
+            while (-not $detachedChild.HasExited -and [DateTime]::UtcNow -lt $detachedDeadline) {
+                $detachedChild.Refresh()
+                if ($detachedChild.MainWindowHandle -ne [IntPtr]::Zero) { break }
+                Start-Sleep -Milliseconds 250
+            }
+        }
+        catch { }
+        if (-not $detachedChild.HasExited) { exit 0 }
+    }
 }
 
 foreach ($required in @($cliLauncher, $modulePath, $diagnosticsModulePath, $composeFile)) {
@@ -1039,6 +1089,8 @@ function Get-DifficultyFromEnv {
     $level = 'easy'; $bio = '0'; $horse = '0'; $book = '0'; $botBook = '0'
     $autoHunt = $true; $sidekick = $true; $starter = $true; $autoHuntItem = $false; $flea = $true; $arezzo = $false
     $exchangeCustom = @('0', '0', '0')
+    $monsterHp = 'default'
+    $starterKit = 'default'
     if (Test-Path -LiteralPath $envPath -PathType Leaf) {
         $content = [IO.File]::ReadAllText($envPath)
         $m = [Regex]::Match($content, '(?m)^M2_DIFFICULTY=(\S+)\s*$')
@@ -1066,6 +1118,12 @@ function Get-DifficultyFromEnv {
         # The Arezzo module (MT2009_PLUS_AREZZO_MODULE_V1): off unless .env says 1.
         $m = [Regex]::Match($content, '(?m)^M2_AREZZO=(\S+)\s*$')
         if ($m.Success) { $arezzo = ($m.Groups[1].Value.Trim() -eq '1') }
+        # Monster health: the game's own unless .env says easy or a percent.
+        $m = [Regex]::Match($content, '(?m)^M2_MONSTER_HP=(\S+)\s*$')
+        if ($m.Success) { $monsterHp = $m.Groups[1].Value.Trim().ToLowerInvariant() }
+        # The starter kit of new characters and new bots: default, medium or easy.
+        $m = [Regex]::Match($content, '(?m)^M2_STARTER_KIT=(\S+)\s*$')
+        if ($m.Success) { $starterKit = $m.Groups[1].Value.Trim().ToLowerInvariant() }
         # MT2009_PLUS_EXCHANGE_CHANCE_V1: a custom level's NPC exchange
         # chances, percent; 0 or nothing is the package's (100 / 100 / 55).
         for ($i = 0; $i -lt 3; $i++) {
@@ -1073,10 +1131,11 @@ function Get-DifficultyFromEnv {
             if ($m.Success) { $exchangeCustom[$i] = $m.Groups[1].Value.Trim() }
         }
     }
+    if ($starterKit -notin @('default', 'medium', 'easy')) { $starterKit = 'default' }
     if ($level -notin @('easy', 'medium', 'hard', 'custom')) { $level = 'easy' }
     return @{ Level = $level; Biologist = $bio; Horse = $horse; Book = $book; BotBook = $botBook
         AutoHunt = $autoHunt; AutoHuntItem = $autoHuntItem; Sidekick = $sidekick; Starter = $starter; Flea = $flea; Arezzo = $arezzo
-        ExchangeCustom = $exchangeCustom }
+        ExchangeCustom = $exchangeCustom; MonsterHp = $monsterHp; StarterKit = $starterKit }
 }
 
 # MT2009_PLUS_EXCHANGE_CHANCE_V1: the NPC exchanges' chances by the level -
@@ -1114,12 +1173,15 @@ function Show-DifficultyDialog {
     # here for it the same morning). Under Auto Lowy, whether its panel is for
     # everybody or only for a character that bought "Auto Lowy (8h)" in the
     # ItemShop (the operator, 27 September). Last, the Dom Towarowy (Uxie
-    # [DSO]'s flea market, the operator's switch of 27 September). Returns
-    # @{ Level; Biologist; Horse; Book; BotBook; AutoHunt; AutoHuntItem; Sidekick; Starter; Flea } or $null.
+    # [DSO]'s flea market, the operator's switch of 27 September), the Arezzo
+    # module and the monsters' health (Frelik's "80%", 30 September). Returns
+    # @{ Level; Biologist; Horse; Book; BotBook; AutoHunt; AutoHuntItem; Sidekick; Starter; Flea;
+    # Arezzo; MonsterHp } or $null. MonsterHp is the value .env had unless the box was
+    # clicked, so a percent of the operator's own survives an Apply.
     param([hashtable]$Current)
     $dialog = [Windows.Forms.Form]::new()
     $dialog.Text = (T 'difficultyDialog')
-    $dialog.Size = [Drawing.Size]::new(560, 722)
+    $dialog.Size = [Drawing.Size]::new(560, 748)
     $dialog.StartPosition = 'CenterParent'
     $dialog.FormBorderStyle = 'FixedDialog'
     $dialog.MaximizeBox = $false
@@ -1129,7 +1191,7 @@ function Show-DifficultyDialog {
     # what a custom level takes from .env now.
     $customChances = Get-ExchangeChances -Level 'custom' -Custom $Current.ExchangeCustom
     $info = [Windows.Forms.Label]::new()
-    $info.Text = "Ile czeka się u Biologa, u Stajennego (kucyk, Księgi Konia, treningi medalami) i na kolejną księgę umiejętności? Biolog i Stajenny dotyczą graczy; księgi mają osobny czas dla graczy i dla botów.`r`n" +
+    $info.Text = "Ile czeka się u Biologa, u Stajennego (kucyk, Księgi Konia, treningi medalami) i na kolejną księgę umiejętności lub Kamień Duchowy (ten najwyżej 12 h)? Biolog i Stajenny dotyczą graczy; księgi i Kamienie mają osobny czas dla graczy i dla botów.`r`n" +
         ("Poziom ustawia też szanse wymiany u NPC (Magiczny Pył / Pergamin / Materiały Rzemieślnicze), dla graczy i botów: łatwy 100/100/55%, średni 90/45/55%, trudny 55/40/55%, własny - liczby M2_EXCHANGE_* w .env (teraz {0}/{1}/{2}%).`r`n" -f $customChances[0], $customChances[1], $customChances[2]) +
         "Zmiana wymaga restartu serwera (panel WWW zmienia to samo od razu)."
     $info.Location = [Drawing.Point]::new(14, 12)
@@ -1137,9 +1199,9 @@ function Show-DifficultyDialog {
     $dialog.Controls.Add($info)
 
     $labels = @{
-        easy   = 'Łatwy - bez czekania u Biologa, Stajennego i na księgi (tak jak dotąd)'
-        medium = 'Średni - Biolog 8 h; kucyk i Księgi Konia 4 h; treningi 6/7 h; księgi 7 h'
-        hard   = 'Trudny - jak w oryginale: Biolog 24 h; kucyk i Księgi 12 h; treningi 18/21 h; księgi 21 h'
+        easy   = 'Łatwy - bez czekania u Biologa, Stajennego, na księgi i Kamienie Duchowe'
+        medium = 'Średni - Biolog 8 h; kucyk i Księgi Konia 4 h; treningi 6/7 h; księgi i Kamienie 7 h'
+        hard   = 'Trudny - jak w oryginale: Biolog 24 h; koń 12-21 h; księgi 21 h; Kamienie Duchowe 12 h'
         custom = 'Własny - godziny poniżej'
     }
     $radios = @{}
@@ -1187,7 +1249,7 @@ function Show-DifficultyDialog {
     $dialog.Controls.Add($horseBox)
 
     $bookLabel = [Windows.Forms.Label]::new()
-    $bookLabel.Text = 'Księgi umiejętności - gracze: godzin'
+    $bookLabel.Text = 'Księgi i Kamienie - gracze: godzin'
     $bookLabel.Location = [Drawing.Point]::new(40, $y + 68)
     $bookLabel.Size = [Drawing.Size]::new(260, 22)
     $dialog.Controls.Add($bookLabel)
@@ -1202,7 +1264,7 @@ function Show-DifficultyDialog {
     $dialog.Controls.Add($bookBox)
 
     $botBookLabel = [Windows.Forms.Label]::new()
-    $botBookLabel.Text = 'Księgi umiejętności - boty: godzin'
+    $botBookLabel.Text = 'Księgi i Kamienie - boty: godzin'
     $botBookLabel.Location = [Drawing.Point]::new(40, $y + 98)
     $botBookLabel.Size = [Drawing.Size]::new(260, 22)
     $dialog.Controls.Add($botBookLabel)
@@ -1310,17 +1372,31 @@ function Show-DifficultyDialog {
     $arezzoCheck.Size = [Drawing.Size]::new(516, 24)
     $arezzoCheck.Checked = ($Current.Arezzo -eq $true)
     $dialog.Controls.Add($arezzoCheck)
+    # The health of monsters, bosses and Metin stones (the operator, 30
+    # September, for Frelik's proposal): as the game made them, or 80%. A
+    # percent of the operator's own in .env is named and kept unless the box
+    # is clicked.
+    $monsterHpValue = "$($Current.MonsterHp)".Trim().TrimEnd('%').ToLowerInvariant()
+    $monsterHpEasy = ($monsterHpValue -in @('easy', '80'))
+    $monsterHpOwn = ($monsterHpValue -notin @('', 'default', 'normal', '100', 'easy', '80'))
+    $monsterHpCheck = [Windows.Forms.CheckBox]::new()
+    $monsterHpCheck.Name = 'monsterHpEasy'
+    $monsterHpCheck.Text = $(if ($monsterHpOwn) { "Słabsze potwory - 80% życia potworów, bossów i Metinów (teraz własne: $monsterHpValue%)" } else { 'Słabsze potwory - 80% życia potworów, bossów i Metinów (bez zaznaczenia: 100%, jak w grze)' })
+    $monsterHpCheck.Location = [Drawing.Point]::new(18, $y + 318)
+    $monsterHpCheck.Size = [Drawing.Size]::new(516, 24)
+    $monsterHpCheck.Checked = $monsterHpEasy
+    $dialog.Controls.Add($monsterHpCheck)
 
     $okButton = [Windows.Forms.Button]::new()
     $okButton.Text = (T 'apply')
-    $okButton.Location = [Drawing.Point]::new(332, $y + 334)
+    $okButton.Location = [Drawing.Point]::new(332, $y + 360)
     $okButton.Size = [Drawing.Size]::new(100, 32)
     $okButton.DialogResult = [Windows.Forms.DialogResult]::OK
     $dialog.Controls.Add($okButton)
 
     $cancelButton = [Windows.Forms.Button]::new()
     $cancelButton.Text = (T 'cancel')
-    $cancelButton.Location = [Drawing.Point]::new(438, $y + 334)
+    $cancelButton.Location = [Drawing.Point]::new(438, $y + 360)
     $cancelButton.Size = [Drawing.Size]::new(96, 32)
     $cancelButton.DialogResult = [Windows.Forms.DialogResult]::Cancel
     $dialog.Controls.Add($cancelButton)
@@ -1340,10 +1416,12 @@ function Show-DifficultyDialog {
     $starter = $starterCheck.Checked
     $flea = $fleaCheck.Checked
     $arezzo = $arezzoCheck.Checked
+    $monsterHp = $(if ($monsterHpCheck.Checked -eq $monsterHpEasy) { "$($Current.MonsterHp)" } elseif ($monsterHpCheck.Checked) { 'easy' } else { 'default' })
     $dialog.Dispose()
     if ($result -ne [Windows.Forms.DialogResult]::OK) { return $null }
     return @{ Level = $chosen; Biologist = $bio; Horse = $horse; Book = $book; BotBook = $botBook
-        AutoHunt = $autoHunt; AutoHuntItem = $autoHuntItem; Sidekick = $sidekick; Starter = $starter; Flea = $flea; Arezzo = $arezzo }
+        AutoHunt = $autoHunt; AutoHuntItem = $autoHuntItem; Sidekick = $sidekick; Starter = $starter; Flea = $flea; Arezzo = $arezzo
+        MonsterHp = $monsterHp }
 }
 
 function Show-FreshWorldDialog {
@@ -1433,6 +1511,29 @@ function Show-FreshWorldDialog {
     $dialog.Controls.Add($starterBox)
     $y += 34
 
+    # The starter kit: what a player's new character and every bot made from
+    # now on start wearing (M2_STARTER_KIT). The bots already made keep what
+    # they have, so this is the one moment it reaches the whole world.
+    $kitLabel = [Windows.Forms.Label]::new()
+    $kitLabel.Text = 'Zestaw startowy (nowe postacie i boty):'
+    $kitLabel.Location = [Drawing.Point]::new(18, $y + 10)
+    $kitLabel.Size = [Drawing.Size]::new(250, 22)
+    $dialog.Controls.Add($kitLabel)
+    $kitKeys = @('default', 'medium', 'easy')
+    $kitBox = [Windows.Forms.ComboBox]::new()
+    $kitBox.Name = 'starterKit'
+    $kitBox.DropDownStyle = 'DropDownList'
+    $kitBox.Location = [Drawing.Point]::new(270, $y + 6)
+    $kitBox.Size = [Drawing.Size]::new(264, 24)
+    foreach ($kitText in @('Jak dotąd',
+            'Średni - broń i zbroja +5',
+            'Łatwy - cały zestaw +9')) {
+        [void]$kitBox.Items.Add($kitText)
+    }
+    $kitBox.SelectedIndex = [Math]::Max(0, [Array]::IndexOf($kitKeys, "$((Get-DifficultyFromEnv).StarterKit)"))
+    $dialog.Controls.Add($kitBox)
+    $y += 34
+
     # The boxes belong to "własne"; a preset says its own numbers.
     $sync = {
         $form = $this.FindForm()
@@ -1473,9 +1574,10 @@ function Show-FreshWorldDialog {
     }
     $hold = $(if ($holdBox.Checked) { 1 } else { 0 })
     $starter = $(if ($starterBox.Checked) { 1 } else { 0 })
+    $kit = $kitKeys[[Math]::Max(0, $kitBox.SelectedIndex)]
     $dialog.Dispose()
     if ($result -ne [Windows.Forms.DialogResult]::OK) { return $null }
-    return @{ Exp = $values.Exp; Drop = $values.Drop; Yang = $values.Yang; Hold = $hold; Starter = $starter }
+    return @{ Exp = $values.Exp; Drop = $values.Drop; Yang = $values.Yang; Hold = $hold; Starter = $starter; Kit = $kit }
 }
 
 function Get-LauncherFingerprint {
@@ -3654,14 +3756,15 @@ $difficultyButton.Add_Click({
     if ($null -eq $chosen) { return }
     $what = switch ($chosen.Level) {
         'easy' { 'łatwy (bez czekania)' }
-        'medium' { 'średni (Biolog 8 h, koń 4-7 h, księgi 7 h, wymiana u NPC 90/45/55%)' }
-        'hard' { 'trudny (Biolog 24 h, koń 12-21 h, księgi 21 h, wymiana u NPC 55/40/55%)' }
+        'medium' { 'średni (Biolog 8 h, koń 4-7 h, księgi i Kamienie Duchowe 7 h, wymiana u NPC 90/45/55%)' }
+        'hard' { 'trudny (Biolog 24 h, koń 12-21 h, księgi 21 h, Kamienie Duchowe 12 h, wymiana u NPC 55/40/55%)' }
         default {
             $xc = Get-ExchangeChances -Level 'custom' -Custom $current.ExchangeCustom
             "własny (Biolog $($chosen.Biologist) h, Stajenny $($chosen.Horse) h, księgi: gracze $($chosen.Book) h, boty $($chosen.BotBook) h, wymiana u NPC $($xc[0])/$($xc[1])/$($xc[2])% z .env)"
         }
     }
-    $features = "Auto Łowy $(if (-not $chosen.AutoHunt) { 'wyłączone' } elseif ($chosen.AutoHuntItem) { 'włączone (tylko po kupnie z ItemShop)' } else { 'włączone (dla każdego)' }), Towarzysz $(if ($chosen.Sidekick) { 'włączony' } else { 'wyłączony' }), Skrzynia Ucznia $(if ($chosen.Starter) { 'tak' } else { 'nie' }), Dom Towarowy $(if ($chosen.Flea) { 'włączony' } else { 'wyłączony' }), Moduł Arezzo $(if ($chosen.Arezzo) { 'włączony' } else { 'wyłączony' })"
+    $monsterHpPct = switch ("$($chosen.MonsterHp)") { 'easy' { '80' } 'default' { '100' } '' { '100' } default { "$($chosen.MonsterHp)".TrimEnd('%') } }
+    $features = "Auto Łowy $(if (-not $chosen.AutoHunt) { 'wyłączone' } elseif ($chosen.AutoHuntItem) { 'włączone (tylko po kupnie z ItemShop)' } else { 'włączone (dla każdego)' }), Towarzysz $(if ($chosen.Sidekick) { 'włączony' } else { 'wyłączony' }), Skrzynia Ucznia $(if ($chosen.Starter) { 'tak' } else { 'nie' }), Dom Towarowy $(if ($chosen.Flea) { 'włączony' } else { 'wyłączony' }), Moduł Arezzo $(if ($chosen.Arezzo) { 'włączony' } else { 'wyłączony' }), życie potworów $monsterHpPct%"
     $answer = [Windows.Forms.MessageBox]::Show(
         "Ustawić poziom trudności: $what; $features - i zrestartować serwer teraz, aby zastosować? Baza i postęp botów pozostaną bez zmian.",
         'Poziom trudności', 'YesNoCancel', 'Question')
@@ -3672,7 +3775,8 @@ $difficultyButton.Add_Click({
         '-Sidekick', $(if ($chosen.Sidekick) { '1' } else { '0' }),
         '-StarterChest', $(if ($chosen.Starter) { '1' } else { '0' }),
         '-FleaMarket', $(if ($chosen.Flea) { '1' } else { '0' }),
-        '-Arezzo', $(if ($chosen.Arezzo) { '1' } else { '0' }))
+        '-Arezzo', $(if ($chosen.Arezzo) { '1' } else { '0' }),
+        '-MonsterHp', "$($chosen.MonsterHp)")
     if ($answer -eq [Windows.Forms.DialogResult]::Yes) {
         Start-LauncherAction -Action 'SetDifficulty' -Yes -ExtraArgs $extra
     }
@@ -3838,7 +3942,8 @@ $worldBackupButton.Add_Click({
         '-RateDrop', "$($fresh.Drop)",
         '-RateYang', "$($fresh.Yang)",
         '-HoldBots', "$($fresh.Hold)",
-        '-StarterChest', "$($fresh.Starter)")
+        '-StarterChest', "$($fresh.Starter)",
+        '-StarterKit', "$($fresh.Kit)")
 })
 $dbAccessButton.Add_Click({
     # In-process on purpose: an action would print through the log box and the
@@ -3922,7 +4027,8 @@ $repairDbButton.Add_Click({
 # and sends like every other action, one at a time, and leaves its answer in
 # a file beside the form it was handed, which the watch below shows. Only when
 # the module is there. The plain window has it at the top right, the title
-# making room; the layout puts it on the logs page.
+# making room; the layout puts it on the logs page, and a box of its own
+# under the versions opens the same form from every page.
 $reportModulePath = Join-Path $root 'launcher\Metin2Launcher.Report.psm1'
 $reportButton = $null
 if (Test-Path -LiteralPath $reportModulePath -PathType Leaf) {
@@ -3945,7 +4051,10 @@ if (Test-Path -LiteralPath $reportModulePath -PathType Leaf) {
         # its own error dialog has said so.
         if (-not $script:activeProcess) { $script:reportWatch.Stop() }
     })
-    $reportButton.Add_Click({
+    # A function, not the button's own handler: the layout's box under the
+    # versions opens the same form, and PerformClick on a button of a page
+    # that is not shown does nothing.
+    function Show-LauncherReport {
         if ($script:activeProcess -and -not $script:activeProcess.HasExited) {
             [Windows.Forms.MessageBox]::Show('Poczekaj na zakończenie bieżącej operacji.', 'Launcher pracuje', 'OK', 'Information') | Out-Null
             return
@@ -3960,7 +4069,8 @@ if (Test-Path -LiteralPath $reportModulePath -PathType Leaf) {
             $script:reportResultPath = Get-M2ReportResultPath -RequestPath $requestPath
             $script:reportWatch.Start()
         }
-    })
+    }
+    $reportButton.Add_Click({ Show-LauncherReport })
 }
 
 # The window's layout - the menu of five pages, the cards, the painted

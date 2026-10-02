@@ -1,0 +1,160 @@
+-- MT2009_PLUS_BLUE_DRAGON_V1: Beran-Setaou's skills for the level-90 Blue Dragon lair
+-- (quest/blue_dragon_lair.quest; copied over locale/poland/BlueDragon.lua by the Dockerfile).
+-- The package's file with weaker skills: the breath (Skill0) 4500-6000 -> 2500-3500 and its
+-- class/gender bonus 10-15% -> 6-10% of max HP each, the weak breath (Skill1) 6000-9000 ->
+-- 3500-5000, the earthquake (Skill2) 2500-4000 -> 1500-2500 (its 1-2 s stun stays).
+-- Periods, areas, HP bands and the stones' effects are the package's.
+
+BlueDragonSetting = {}
+
+BlueDragonSetting.hp_period = {}
+BlueDragonSetting.hp_period[1] = {}
+BlueDragonSetting.hp_period[1].min = 98
+BlueDragonSetting.hp_period[1].max = 100
+BlueDragonSetting.hp_period[1].pct = 0
+BlueDragonSetting.hp_period[2] = {}
+BlueDragonSetting.hp_period[2].min = 76
+BlueDragonSetting.hp_period[2].max = 97
+BlueDragonSetting.hp_period[2].pct = 0
+BlueDragonSetting.hp_period[3] = {}
+BlueDragonSetting.hp_period[3].min = 31
+BlueDragonSetting.hp_period[3].max = 75
+BlueDragonSetting.hp_period[3].pct = 15
+BlueDragonSetting.hp_period[4] = {}
+BlueDragonSetting.hp_period[4].min = 0
+BlueDragonSetting.hp_period[4].max = 30
+BlueDragonSetting.hp_period[4].pct = 30
+
+BlueDragonSetting.hp_damage = {}
+BlueDragonSetting.hp_damage[1] = {}
+BlueDragonSetting.hp_damage[1].min = 98
+BlueDragonSetting.hp_damage[1].max = 100
+BlueDragonSetting.hp_damage[1].pct = 0
+BlueDragonSetting.hp_damage[2] = {}
+BlueDragonSetting.hp_damage[2].min = 76
+BlueDragonSetting.hp_damage[2].max = 97
+BlueDragonSetting.hp_damage[2].pct = 0
+BlueDragonSetting.hp_damage[3] = {}
+BlueDragonSetting.hp_damage[3].min = 31
+BlueDragonSetting.hp_damage[3].max = 75
+BlueDragonSetting.hp_damage[3].pct = 10
+BlueDragonSetting.hp_damage[4] = {}
+BlueDragonSetting.hp_damage[4].min = 30
+BlueDragonSetting.hp_damage[4].max = 0
+BlueDragonSetting.hp_damage[4].pct = 20
+
+BlueDragonSetting.hp_regen = {}
+BlueDragonSetting.hp_regen[1] = {}
+BlueDragonSetting.hp_regen[1].min = 98
+BlueDragonSetting.hp_regen[1].max = 100
+BlueDragonSetting.hp_regen[1].pct = 0
+BlueDragonSetting.hp_regen[2] = {}
+BlueDragonSetting.hp_regen[2].min = 76
+BlueDragonSetting.hp_regen[2].max = 97
+BlueDragonSetting.hp_regen[2].pct = 1
+BlueDragonSetting.hp_regen[3] = {}
+BlueDragonSetting.hp_regen[3].min = 31
+BlueDragonSetting.hp_regen[3].max = 75
+BlueDragonSetting.hp_regen[3].pct = 2
+BlueDragonSetting.hp_regen[4] = {}
+BlueDragonSetting.hp_regen[4].min = 30
+BlueDragonSetting.hp_regen[4].max = 0
+BlueDragonSetting.hp_regen[4].pct = 12
+
+BlueDragonSetting.Skill0 = {}
+BlueDragonSetting.Skill0.period = {}
+BlueDragonSetting.Skill0.period.min = 30
+BlueDragonSetting.Skill0.period.max = 35
+BlueDragonSetting.Skill0.damage_area = 50*100
+BlueDragonSetting.Skill0.default_damage = {}
+BlueDragonSetting.Skill0.default_damage.min = 2500
+BlueDragonSetting.Skill0.default_damage.max = 3500
+BlueDragonSetting.Skill0.damage = {}
+BlueDragonSetting.Skill0.damage.musa = {}
+BlueDragonSetting.Skill0.damage.musa.min = 6
+BlueDragonSetting.Skill0.damage.musa.max = 10
+BlueDragonSetting.Skill0.damage.assa = {}
+BlueDragonSetting.Skill0.damage.assa.min = 6
+BlueDragonSetting.Skill0.damage.assa.max = 10
+BlueDragonSetting.Skill0.damage.sura = {}
+BlueDragonSetting.Skill0.damage.sura.min = 6
+BlueDragonSetting.Skill0.damage.sura.max = 10
+BlueDragonSetting.Skill0.damage.muda = {}
+BlueDragonSetting.Skill0.damage.muda.min = 6
+BlueDragonSetting.Skill0.damage.muda.max = 10
+BlueDragonSetting.Skill0.gender = {}
+BlueDragonSetting.Skill0.gender.male = {}
+BlueDragonSetting.Skill0.gender.male.min = 6
+BlueDragonSetting.Skill0.gender.male.max = 10
+BlueDragonSetting.Skill0.gender.female = {}
+BlueDragonSetting.Skill0.gender.female.min = 6
+BlueDragonSetting.Skill0.gender.female.max = 10
+
+BlueDragonSetting.Skill1 = {}
+BlueDragonSetting.Skill1.period = {}
+BlueDragonSetting.Skill1.period.min = 10
+BlueDragonSetting.Skill1.period.max = 15
+BlueDragonSetting.Skill1.damage_area = 35*100
+BlueDragonSetting.Skill1.default_damage = {}
+BlueDragonSetting.Skill1.default_damage.min = 3500
+BlueDragonSetting.Skill1.default_damage.max = 5000
+
+BlueDragonSetting.Skill2 = {}
+BlueDragonSetting.Skill2.period = {}
+BlueDragonSetting.Skill2.period.min = 35
+BlueDragonSetting.Skill2.period.max = 45
+BlueDragonSetting.Skill2.damage_area = 30*100
+BlueDragonSetting.Skill2.default_damage = {}
+BlueDragonSetting.Skill2.default_damage.min = 1500
+BlueDragonSetting.Skill2.default_damage.max = 2500
+BlueDragonSetting.Skill2.stun_time = {}
+BlueDragonSetting.Skill2.stun_time.default = {}
+BlueDragonSetting.Skill2.stun_time.default.min = 1
+BlueDragonSetting.Skill2.stun_time.default.max = 2
+BlueDragonSetting.Skill2.stun_time.musa = {}
+BlueDragonSetting.Skill2.stun_time.musa.min = 1
+BlueDragonSetting.Skill2.stun_time.musa.max = 2
+BlueDragonSetting.Skill2.stun_time.assa = {}
+BlueDragonSetting.Skill2.stun_time.assa.min = 1
+BlueDragonSetting.Skill2.stun_time.assa.max = 2
+BlueDragonSetting.Skill2.stun_time.sura = {}
+BlueDragonSetting.Skill2.stun_time.sura.min = 1
+BlueDragonSetting.Skill2.stun_time.sura.max = 2
+BlueDragonSetting.Skill2.stun_time.muda = {}
+BlueDragonSetting.Skill2.stun_time.muda.min = 1
+BlueDragonSetting.Skill2.stun_time.muda.max = 2
+BlueDragonSetting.Skill2.gender = {}
+BlueDragonSetting.Skill2.gender.male = {}
+BlueDragonSetting.Skill2.gender.male.min = 1
+BlueDragonSetting.Skill2.gender.male.max = 2
+BlueDragonSetting.Skill2.gender.female = {}
+BlueDragonSetting.Skill2.gender.female.min = 1
+BlueDragonSetting.Skill2.gender.female.max = 2
+
+BlueDragonSetting.DragonStone = {}
+
+BlueDragonSetting.DragonStone[1] = {}
+BlueDragonSetting.DragonStone[1].vnum = 8031
+BlueDragonSetting.DragonStone[1].effect_type = 1
+BlueDragonSetting.DragonStone[1].val = 25
+BlueDragonSetting.DragonStone[1].enemy = 20110
+BlueDragonSetting.DragonStone[1].enemy_val = 3
+BlueDragonSetting.DragonStone[2] = {}
+BlueDragonSetting.DragonStone[2].vnum = 8032
+BlueDragonSetting.DragonStone[2].effect_type = 2
+BlueDragonSetting.DragonStone[2].val = 25
+BlueDragonSetting.DragonStone[2].enemy = 20111
+BlueDragonSetting.DragonStone[2].enemy_val = 3
+BlueDragonSetting.DragonStone[3] = {}
+BlueDragonSetting.DragonStone[3].vnum = 8033
+BlueDragonSetting.DragonStone[3].effect_type = 3
+BlueDragonSetting.DragonStone[3].val = 20
+BlueDragonSetting.DragonStone[3].enemy = 20112
+BlueDragonSetting.DragonStone[3].enemy_val = 3
+BlueDragonSetting.DragonStone[4] = {}
+BlueDragonSetting.DragonStone[4].vnum = 8034
+BlueDragonSetting.DragonStone[4].effect_type = 4
+BlueDragonSetting.DragonStone[4].val = 10
+BlueDragonSetting.DragonStone[4].enemy = 20113
+BlueDragonSetting.DragonStone[4].enemy_val = 3
+

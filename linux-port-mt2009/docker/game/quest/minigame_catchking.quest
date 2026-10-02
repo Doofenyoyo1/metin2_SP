@@ -1,0 +1,128 @@
+-- MT2009_PLUS_CATCH_KING_V1: Z³ap Króla - stó³ 20506 (Owsap, minigame_catchking.quest, po polsku).
+-- Sama gra jest w oknie klienta (przycisk eventów przy minimapie) i w rdzeniu
+-- (playerbot_catchking.h, pakiety CG 226 / GC 238). Tu: co jest w £upach Królewskich,
+-- ranking sezonu (³¹czne punkty i najlepszy wynik), odbiór nagrody za pierwsz¹ dziesi¹tkê
+-- w 7-dniowym oknie po evencie (raz na gracza i sezon - pilnuje tego rdzeñ),
+-- Karta i Talia Królewska u¿yte z ekwipunku oraz £up z gry przerwanej wylogowaniem
+-- (wydawany przy nastêpnym wejœciu do gry).
+-- Uwaga dla qc: polska litera tu¿ przed zamykaj¹cym cudzys³owem psuje napis.
+-- Nazwy przedmiotów przez get_item_name (zwyk³y tekst): item_name z questlib daje znacznik
+-- [ITEM value;...], który w select() rozbija³ [QUESTION ...] klienta (surowe |2;...|4;Zamknij]).
+quest minigame_catchking begin
+	state start begin
+		function loots()
+			return { 50968, 50969, 50970 }
+		end
+
+		function money(n)
+			local s = tostring(math.floor(n))
+			local out = ""
+			while string.len(s) > 3 do
+				out = " " .. string.sub(s, -3) .. out
+				s = string.sub(s, 1, -4)
+			end
+			return s .. out
+		end
+
+		when login begin
+			game.catchking_deliver()
+		end
+
+		when 79603.use begin
+			if game.catchking_use_item(79603) then
+				pc.remove_item(79603, 1)
+			end
+		end
+
+		when 79604.use begin
+			if game.catchking_use_item(79604) then
+				pc.remove_item(79604, 1)
+			end
+		end
+
+		when 20506.chat."Nagrody w £upach Królewskich" begin
+			local loots = minigame_catchking.loots()
+			local need = { "550 punktów i wiêcej", "od 400 do 549 punktów", "od 10 do 399 punktów" }
+			local sel = select(get_item_name(loots[1]), get_item_name(loots[2]), get_item_name(loots[3]), "Zamknij")
+			if sel < 1 or sel > 3 then
+				return
+			end
+			local t = { get_special_item_group(loots[sel]) }
+			say_title(get_item_name(loots[sel]))
+			say_item_vnum(loots[sel])
+			say("Za grê, w której zdobêdziesz " .. need[sel] .. ",")
+			say("dostajesz jeden taki £up za ka¿d¹ postawion¹ taliê.")
+			say("£up daje jedn¹ z tych rzeczy:")
+			local shown = 0
+			local i = 1
+			while i < table.getn(t) do
+				local vnum = t[i]
+				local count = t[i + 1]
+				if vnum == 1 then
+					say_reward("Yang: " .. minigame_catchking.money(count))
+				elseif vnum == 2 then
+					say_reward("Doœwiadczenie: " .. minigame_catchking.money(count))
+				else
+					say_reward(get_item_name(vnum) .. " x" .. count)
+				end
+				shown = shown + 1
+				i = i + 2
+				if shown == 6 and i < table.getn(t) then
+					shown = 0
+					wait()
+					say_title(get_item_name(loots[sel]))
+				end
+			end
+		end
+
+		when 20506.chat."Ranking" begin
+			local sel = select("Nagrody za ranking", "£¹czna liczba punktów", "Najlepszy wynik", "Zamknij")
+			if sel == 1 then
+				say_title("Nagrody za pierwsze 10 miejsc")
+				say("Liczy siê ³¹czna liczba punktów ze wszystkich gier")
+				say("w tym evencie. Przez 7 dni po jego zakoñczeniu")
+				say("odbierzesz nagrodê tutaj, przy stole:")
+				say_reward("1. miejsce: 10x " .. get_item_name(50968))
+				say_reward("2. miejsce: 5x " .. get_item_name(50968))
+				say_reward("3. miejsce: 3x " .. get_item_name(50968))
+				say_reward("4.-10. miejsce: 1x " .. get_item_name(50968))
+			elseif sel == 2 or sel == 3 then
+				local total = sel == 2
+				if total then
+					say_title("£¹czna liczba punktów")
+				else
+					say_title("Najlepszy wynik")
+				end
+				local rank = game.get_catchking_score(total)
+				if table.getn(rank) == 0 then
+					say("Nikt jeszcze nie zagra³ w tym evencie.")
+				end
+				for i = 1, table.getn(rank) do
+					say(i .. ". " .. rank[i][1] .. " - " .. rank[i][3])
+				end
+				say_reward("Mój wynik: " .. game.get_catchking_myscore(total))
+			end
+		end
+
+		when 20506.chat."Odbierz nagrodê za ranking" with game.get_event_flag("mini_game_catchking_reward") > get_time() begin
+			local r = game.catchking_claim_reward()
+			say_title("Z³ap Króla")
+			if r > 0 then
+				say("Gratulacje! Za miejsce w pierwszej dziesi¹tce")
+				say_reward("otrzymujesz: " .. r .. "x " .. get_item_name(50968))
+			elseif r == 0 then
+				say("Niestety nie uda³o ci siê uplasowaæ na liœcie")
+				say("najlepszych graczy. Mo¿e nastêpnym razem!")
+			elseif r == -2 then
+				say("Nagroda zosta³a ju¿ odebrana.")
+			elseif r == -3 then
+				say("Event jeszcze trwa - nagrody za ranking")
+				say("odbierzesz po jego zakoñczeniu.")
+			elseif r == -4 then
+				say("Zrób miejsce w ekwipunku i wróæ.")
+			else
+				say("Teraz nie ma nagród do odebrania.")
+			end
+		end
+	end
+end

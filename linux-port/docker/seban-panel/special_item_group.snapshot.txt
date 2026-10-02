@@ -4231,3 +4231,113 @@ Group	box_50254
 	100	39004	1	5	-- Marmur Blogoslawienstwa
 	101	71130	1	5	-- Przepustka
 }
+# MT2009_PLUS_FLOWER_V1: the Flower Event's gift boxes (playerbot_flower.h) - what 10 shoots
+# of one flower give in the event window. Owsap's flower_event.txt (v6.2.6) with our items
+# where Owsap's do not exist here (72059 -> 71094 Rada Pustelnika, the (L) potions -> the (D)
+# ones, 55408 -> 55401 Jajo Malpki, 55400 -> 50011 Szkatulka Blasku Ksiezyca). Every line
+# equally likely (weight 100). The operator edits them on the Seban panel's "Szkatulki"
+# page (chests/special_item_group.custom.txt; a core restart applies them); what one box
+# per flower is, and how many, is the classic panel's "Dzieci Kwiaty" page (flower_event.tsv).
+Group	mt2009_flower_chryzantema
+{
+	Vnum	83023 -- Pudelko z Chryzantema
+	1	55401	1	100 -- Jajo Malpki
+	2	71094	1	100 -- Rada Pustelnika
+	3	50255	1	100 -- Cor Draconis (surowe)
+	4	27102	5	100 -- Zielona Mikstura (D)
+	5	27105	5	100 -- Fioletowa Mikstura (D)
+	6	76007	3	100 -- Peleryna Mestwa
+	7	71080	1	100 -- Kamien Metin (Slaby)
+	8	71018	1	100 -- Blogoslawienstwo Zycia
+	9	25121	1	100 -- Chryzantema
+	10	25122	1	100 -- Konwalia
+	11	25123	1	100 -- Narcyz
+	12	25124	1	100 -- Lilia
+	13	25125	1	100 -- Slonecznik
+	14	50011	1	100 -- Szkatulka Blasku Ksiezyca
+	15	exp	300000	100 -- 300000 doswiadczenia
+	16	gold	250000	100 -- 250000 yang
+}
+Group	mt2009_flower_konwalia
+{
+	Vnum	83024 -- Pudelko z Konwalia
+	1	55401	1	100 -- Jajo Malpki
+	2	71094	1	100 -- Rada Pustelnika
+	3	50255	1	100 -- Cor Draconis (surowe)
+	4	27102	3	100 -- Zielona Mikstura (D)
+	5	27105	3	100 -- Fioletowa Mikstura (D)
+	6	76007	3	100 -- Peleryna Mestwa
+	7	71080	1	100 -- Kamien Metin (Slaby)
+	8	76008	1	100 -- Medal Smoka
+	9	25121	1	100 -- Chryzantema
+	10	25122	1	100 -- Konwalia
+	11	25123	1	100 -- Narcyz
+	12	25124	1	100 -- Lilia
+	13	25125	1	100 -- Slonecznik
+	14	50011	1	100 -- Szkatulka Blasku Ksiezyca
+	15	exp	200000	100 -- 200000 doswiadczenia
+	16	gold	200000	100 -- 200000 yang
+}
+Group	mt2009_flower_narcyz
+{
+	Vnum	83025 -- Pudelko z Narcyzem
+	1	55402	1	100 -- Jajo Pajaczka
+	2	71094	1	100 -- Rada Pustelnika
+	3	27006	30	100 -- Niebieska Mikstura (D)
+	4	27102	3	100 -- Zielona Mikstura (D)
+	5	27105	30	100 -- Fioletowa Mikstura (D)
+	6	76007	3	100 -- Peleryna Mestwa
+	7	71080	1	100 -- Kamien Metin (Slaby)
+	8	76000	1	100 -- Wino z Kwiatu Brzoskwini
+	9	76008	1	100 -- Medal Smoka
+	10	25121	1	100 -- Chryzantema
+	11	25122	1	100 -- Konwalia
+	12	25123	1	100 -- Narcyz
+	13	25124	1	100 -- Lilia
+	14	25125	1	100 -- Slonecznik
+	15	50011	1	100 -- Szkatulka Blasku Ksiezyca
+	16	exp	150000	100 -- 150000 doswiadczenia
+	17	gold	150000	100 -- 150000 yang
+}
+Group	mt2009_flower_lilia
+{
+	Vnum	83026 -- Pudelko z Lilia
+	1	55401	1	100 -- Jajo Malpki
+	2	71094	1	100 -- Rada Pustelnika
+	3	27006	30	100 -- Niebieska Mikstura (D)
+	4	27102	3	100 -- Zielona Mikstura (D)
+	5	27105	30	100 -- Fioletowa Mikstura (D)
+	6	76007	20	100 -- Peleryna Mestwa
+	7	71080	1	100 -- Kamien Metin (Slaby)
+	8	76000	2	100 -- Wino z Kwiatu Brzoskwini
+	9	76008	1	100 -- Medal Smoka
+	10	25121	1	100 -- Chryzantema
+	11	25122	1	100 -- Konwalia
+	12	25123	1	100 -- Narcyz
+	13	25124	1	100 -- Lilia
+	14	25125	1	100 -- Slonecznik
+	15	50011	1	100 -- Szkatulka Blasku Ksiezyca
+	16	exp	100000	100 -- 100000 doswiadczenia
+	17	gold	100000	100 -- 100000 yang
+}
+Group	mt2009_flower_slonecznik
+{
+	Vnum	83027 -- Pudelko ze Slonecznikiem
+	1	55401	1	100 -- Jajo Malpki
+	2	71094	1	100 -- Rada Pustelnika
+	3	27006	30	100 -- Niebieska Mikstura (D)
+	4	27102	3	100 -- Zielona Mikstura (D)
+	5	27105	30	100 -- Fioletowa Mikstura (D)
+	6	76007	20	100 -- Peleryna Mestwa
+	7	71080	1	100 -- Kamien Metin (Slaby)
+	8	76000	1	100 -- Wino z Kwiatu Brzoskwini
+	9	76008	1	100 -- Medal Smoka
+	10	25121	1	100 -- Chryzantema
+	11	25122	1	100 -- Konwalia
+	12	25123	1	100 -- Narcyz
+	13	25124	1	100 -- Lilia
+	14	25125	1	100 -- Slonecznik
+	15	50011	1	100 -- Szkatulka Blasku Ksiezyca
+	16	exp	50000	100 -- 50000 doswiadczenia
+	17	gold	50000	100 -- 50000 yang
+}

@@ -694,6 +694,23 @@ function Assert-BlessingScrollDefault {
     return (Set-DotEnvValue -Content $Content -Name 'M2_BLESSING_SCROLL_STONE_PERMILLE_DEFAULTED' -Value '1')
 }
 
+function Assert-LogKeepDaysDefault {
+    # The server's logs were kept 3 days and the owner wants a week ("Logi
+    # serwera niech usuwaja sie po 7 dniach", 1 October). This script had
+    # written the old 3 into every .env, where a new default never reaches,
+    # so 3 becomes 7 here, once; any other value is somebody's choice.
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Content
+    )
+    if ([Regex]::IsMatch($Content, '(?m)^M2_LOG_KEEP_DAYS_DEFAULTED=')) { return $Content }
+    $current = [Regex]::Match($Content, '(?m)^M2_LOG_KEEP_DAYS=(.*)$')
+    if ($current.Success -and $current.Groups[1].Value.Trim() -eq '3') {
+        Write-Host 'Logi serwera: trzymane 7 dni zamiast 3 (M2_LOG_KEEP_DAYS=7).' -ForegroundColor Cyan
+        $Content = Set-DotEnvValue -Content $Content -Name 'M2_LOG_KEEP_DAYS' -Value '7'
+    }
+    return (Set-DotEnvValue -Content $Content -Name 'M2_LOG_KEEP_DAYS_DEFAULTED' -Value '1')
+}
+
 function Get-M2HostTimeZoneName {
     # The tz database name of this Windows' own zone, for the containers' TZ.
     # Windows keeps ids of its own ("Central European Standard Time") and the
@@ -868,6 +885,7 @@ function Initialize-InstallationIdentity {
     # And for the Blessing Scroll's chance: 2.2.11's five percent becomes the
     # one percent asked for, once.
     $content = Assert-BlessingScrollDefault -Content $content -EnvPath $envPath
+    $content = Assert-LogKeepDaysDefault -Content $content
     # The same shape for the clock's zone: the example's UTC becomes this
     # machine's own, once.
     $content = Assert-TimezoneDefault -Content $content

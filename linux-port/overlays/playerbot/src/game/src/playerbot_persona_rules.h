@@ -290,7 +290,11 @@ namespace playerbot_persona
 		uint8_t lockMax;
 	};
 
-	const TGrinderTier GRINDER_TIERS[] = {
+	// MT2009_PLUS_PROGRESSION_V1: the table is the operator's now - the
+	// panel's "Progresja botow" writes /opt/m2spool/playerbot_progression.tsv
+	// and playerbot_progression.h copies its "tier" lines in here (and the
+	// defaults below back on a reset). A tier switched off holds nobody.
+	inline TGrinderTier GRINDER_TIERS[] = {
 		// Community Patch 1 (Iwakura, 20 September) widened the first two: a
 		// tier that stopped every bot on the same level made a first village
 		// of bots all of fifteen, which is not what a village looks like.
@@ -307,6 +311,7 @@ namespace playerbot_persona
 		{ 7, 51, 65, 55, 62 },  // Mount Sohan
 	};
 	const unsigned int GRINDER_TIER_COUNT = sizeof(GRINDER_TIERS) / sizeof(GRINDER_TIERS[0]);
+	inline bool GRINDER_TIER_HOLDS[GRINDER_TIER_COUNT] = { true, true, true, true, true };
 	// Under this the bot is still learning to walk: no lock at all.
 	const uint8_t GRINDER_FREE_BELOW = 10;
 	// "25% botow moze pominac farmienie M1 na 13. poziomie, aby od razu
@@ -314,7 +319,7 @@ namespace playerbot_persona
 	// nowhere in the first village: it walks through tier 1 and stops for the
 	// first time in the M3 band, which is where its tier 2 lock puts it. The
 	// share is drawn by pid, so it is the same bot every time it logs in.
-	const uint8_t GRINDER_TIER1_SKIP_PERCENT = 25;
+	inline uint8_t GRINDER_TIER1_SKIP_PERCENT = 25;   // MT2009_PLUS_PROGRESSION_V1: the panel's
 	const uint8_t GRINDER_TIER1_SKIP_LEVEL = 13;
 	// The tier number the document never names, for everything past Sohan.
 	const uint8_t GRINDER_TIER_BEYOND = 8;
@@ -402,7 +407,7 @@ namespace playerbot_persona
 		for (unsigned int i = 0; i < GRINDER_TIER_COUNT; ++i)
 		{
 			const TGrinderTier& t = GRINDER_TIERS[i];
-			if (level <= t.maxLevel || level > t.lockMax)
+			if (level <= t.maxLevel || level > t.lockMax || !GRINDER_TIER_HOLDS[i])
 				continue;
 			if (t.tier == 1 && SkipsFirstVillage(pid))
 				continue;
@@ -415,6 +420,9 @@ namespace playerbot_persona
 			const TGrinderTier& t = GRINDER_TIERS[i];
 			if (level < t.minLevel || level > t.maxLevel)
 				continue;
+			// MT2009_PLUS_PROGRESSION_V1: a tier the operator switched off.
+			if (!GRINDER_TIER_HOLDS[i])
+				return 0;
 			// The quarter that walks through the first village: no lock here
 			// at all from the level the document names, so the bot carries on
 			// to M3 and is held there for the first time.
@@ -502,6 +510,29 @@ namespace playerbot_persona
 			return a;
 		}
 		const uint8_t lock = GrinderLockFor(level, pid);
+		// MT2009_PLUS_PROGRESSION_V1: a lock the operator's table no longer
+		// allows - its tier switched off, or the lock outside the tier's range
+		// after an edit - is drawn again from today's table (or lifted).
+		if (written != 0)
+		{
+			const uint8_t wt = GrinderTierFor(written);
+			bool allowed = false;
+			for (unsigned int i = 0; i < GRINDER_TIER_COUNT; ++i)
+			{
+				const TGrinderTier& t = GRINDER_TIERS[i];
+				if (t.tier != wt && !(written > t.maxLevel && written <= t.lockMax))
+					continue;
+				if (GRINDER_TIER_HOLDS[i] && written >= t.lockMin && written <= t.lockMax)
+					allowed = true;
+			}
+			if (!allowed)
+			{
+				a.written = lock != 0 && level >= lock ? lock : 0;
+				a.change = a.written != 0 ? GRINDER_LOCK_REDRAWN : GRINDER_LOCK_LIFTED_NO_TIER;
+				a.hold = lock;
+				return a;
+			}
+		}
 		// Today's draw holds this bot nowhere - past the last tier, or one of
 		// the quarter that walks through the first village - so a lock written
 		// under an older rule goes.
@@ -554,8 +585,41 @@ namespace playerbot_persona
 	const uint8_t AWANS_HARD_FROM_LEVEL = 35;
 	const uint8_t AWANS_WEAPON_PLUS_HARD = 8;
 	const uint8_t AWANS_HELMET_PLUS = 6;
-	const uint8_t AWANS_LEVEL_WINDOW = 20;
-	const uint8_t AWANS_PREMIUM_LEVEL_WINDOW = 30;
+	inline uint8_t AWANS_LEVEL_WINDOW = 20;           // MT2009_PLUS_PROGRESSION_V1: the panel's
+	inline uint8_t AWANS_PREMIUM_LEVEL_WINDOW = 30;   // MT2009_PLUS_PROGRESSION_V1: the panel's
+	// MT2009_PLUS_PROGRESSION_V1: the law by level, the operator's table
+	// ("law" lines of playerbot_progression.tsv): from a level on, the plus a
+	// weapon, an armour, a shield and a helmet need - zero asks nothing of
+	// that piece. The row with the highest `fromLevel` at or under the bot's
+	// level applies. The constants above were one row up to 35 and another
+	// from 35 (7/6/6/- and 8/6/6/6); the defaults are milder in the villages,
+	// where a +7 held a bot of fifteen for hours (a 50% refine that eats the
+	// weapon and wants a drop), and the same as before from 35.
+	struct TLawRow
+	{
+		uint8_t fromLevel;
+		uint8_t weapon;
+		uint8_t armour;
+		uint8_t shield;
+		uint8_t helmet;
+	};
+	const unsigned int AWANS_LAW_MAX = 8;
+	inline TLawRow AWANS_LAW[AWANS_LAW_MAX] = {
+		{ 0, 5, 4, 0, 0 },
+		{ 19, 6, 5, 4, 0 },
+		{ 26, 7, 5, 5, 0 },
+		{ 35, 8, 6, 6, 6 },
+	};
+	inline unsigned int AWANS_LAW_COUNT = 4;
+
+	inline TLawRow AwansLawFor(uint8_t level)
+	{
+		TLawRow best = { 0, 0, 0, 0, 0 };
+		for (unsigned int i = 0; i < AWANS_LAW_COUNT && i < AWANS_LAW_MAX; ++i)
+			if (AWANS_LAW[i].fromLevel <= level && AWANS_LAW[i].fromLevel >= best.fromLevel)
+				best = AWANS_LAW[i];
+		return best;
+	}
 	// A shield is asked for its +6 and not for its level. The document wants
 	// one "jak najbardziej zblizona do aktualnego poziomu", and this world
 	// cannot supply that: the merchants sell the level-0 Bojowa Tarcza and
@@ -609,18 +673,19 @@ namespace playerbot_persona
 
 	inline int AwansGaps(const TAdvanceGear& g)
 	{
+		// MT2009_PLUS_PROGRESSION_V1: the thresholds are the law's row for
+		// this level (AwansLawFor); a zero asks nothing of that piece.
 		int gaps = 0;
-		const bool hard = g.level >= AWANS_HARD_FROM_LEVEL;
-		const uint8_t weaponPlus = hard ? AWANS_WEAPON_PLUS_HARD : AWANS_WEAPON_PLUS;
-		if (!IsPieceCurrent(g.weapon, g.level) || g.weapon.plus < weaponPlus)
+		const TLawRow law = AwansLawFor(g.level);
+		if (law.weapon != 0 && (!IsPieceCurrent(g.weapon, g.level) || g.weapon.plus < law.weapon))
 			gaps |= AWANS_GAP_WEAPON;
-		if (hard && (!IsPieceCurrent(g.helmet, g.level) || g.helmet.plus < AWANS_HELMET_PLUS))
+		if (law.helmet != 0 && (!IsPieceCurrent(g.helmet, g.level) || g.helmet.plus < law.helmet))
 			gaps |= AWANS_GAP_HELMET;
-		if (!IsPieceCurrent(g.armour, g.level) || g.armour.plus < AWANS_ARMOUR_PLUS)
+		if (law.armour != 0 && (!IsPieceCurrent(g.armour, g.level) || g.armour.plus < law.armour))
 			gaps |= AWANS_GAP_ARMOUR;
 		const bool shieldCurrent = g.shield.present &&
 				(AWANS_SHIELD_ANY_LEVEL || IsPieceCurrent(g.shield, g.level));
-		if (g.wantsShield && (!shieldCurrent || g.shield.plus < AWANS_SHIELD_PLUS))
+		if (law.shield != 0 && g.wantsShield && (!shieldCurrent || g.shield.plus < law.shield))
 			gaps |= AWANS_GAP_SHIELD;
 		return gaps;
 	}

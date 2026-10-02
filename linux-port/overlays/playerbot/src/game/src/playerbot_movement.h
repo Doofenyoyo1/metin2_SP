@@ -620,7 +620,8 @@ namespace
 		// The Demon Tower's quest stones are nobody's hunting ground: see
 		// PLAYERBOT_DEVIL_TOWER_STONE_FIRST.
 		if (!stone || !stone->IsStone() || stone->IsDead() ||
-				IsPlayerBotDungeonTriggerStone(stone->GetRaceNum()))
+				IsPlayerBotDungeonTriggerStone(stone->GetRaceNum()) ||
+				IsPlayerBotEventStone(stone->GetRaceNum())) // MT2009_PLUS_AREZZO_BOTS_V1 (events)
 			return;
 		const bool bNewDiscovery = s_mapKnownPlayerBotMetins.find(stone->GetVID()) ==
 				s_mapKnownPlayerBotMetins.end();
@@ -657,6 +658,9 @@ namespace
 	bool IsPlayerBotMetinWorthFighting(LPCHARACTER ch, LPCHARACTER stone)
 	{
 		if (!ch || !stone || !stone->IsStone() || stone->IsDead())
+			return false;
+		// MT2009_PLUS_AREZZO_BOTS_V1 (events): the Easter metins are the players' event.
+		if (IsPlayerBotEventStone(stone->GetRaceNum()))
 			return false;
 		// A floor's objective for a bot climbing with a player: no band at all.
 		if (IsPlayerBotDungeonStoneObjective(ch, stone))

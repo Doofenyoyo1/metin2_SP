@@ -132,6 +132,7 @@ namespace
 
 				LPCHARACTER candidate = CHARACTER_MANAGER::instance().Find(it->second.dwTargetVID);
 				if (!candidate || (!candidate->IsMonster() && !candidate->IsStone()) || candidate->IsDead() ||
+						(candidate->IsStone() && IsPlayerBotEventStone(candidate->GetRaceNum())) || // MT2009_PLUS_AREZZO_BOTS_V1 (events)
 						candidate->GetMapIndex() != m_owner->GetMapIndex() ||
 						IsPlayerBotSafeZone(candidate->GetMapIndex(), candidate->GetX(), candidate->GetY()) ||
 						!IsPlayerBotReachable(m_owner->GetMapIndex(),
@@ -548,6 +549,8 @@ namespace
 	bool IsPlayerBotStoneJoinable(LPCHARACTER ch, LPCHARACTER stone)
 	{
 		if (!ch || !stone || !stone->IsStone() || stone->IsDead())
+			return false;
+		if (IsPlayerBotEventStone(stone->GetRaceNum())) // MT2009_PLUS_AREZZO_BOTS_V1 (events)
 			return false;
 		if (IsPlayerBotDungeonTriggerStone(stone->GetRaceNum()))
 			return IsPlayerBotDungeonStoneObjective(ch, stone);
@@ -1239,6 +1242,9 @@ namespace
 
 				LPCHARACTER candidate = static_cast<LPCHARACTER>(entity);
 				if (candidate == m_owner || (!candidate->IsMonster() && !candidate->IsStone()) || candidate->IsDead())
+					return false;
+				// MT2009_PLUS_AREZZO_BOTS_V1 (events): an Easter metin is nobody's.
+				if (candidate->IsStone() && IsPlayerBotEventStone(candidate->GetRaceNum()))
 					return false;
 				if (IsPlayerBotSafeZone(candidate->GetMapIndex(), candidate->GetX(), candidate->GetY()))
 					return false;
@@ -1956,6 +1962,7 @@ namespace
 				// the bot is climbing with a player, for whom that is the point.
 				if (candidate == m_owner || candidate->GetVID() == m_primaryVID ||
 						(!candidate->IsMonster() && !candidate->IsStone()) || candidate->IsDead() ||
+						(candidate->IsStone() && IsPlayerBotEventStone(candidate->GetRaceNum())) || // MT2009_PLUS_AREZZO_BOTS_V1 (events)
 						(candidate->IsStone() && IsPlayerBotDungeonTriggerStone(candidate->GetRaceNum()) &&
 							!IsPlayerBotDungeonStoneObjective(m_owner, candidate)))
 					return false;
@@ -2079,9 +2086,15 @@ namespace
 		int budget = proto->lMaxHit > 0 ? (int)proto->lMaxHit : PLAYERBOT_SKILL_MAX_HITS_UNCAPPED;
 		const int perTarget = GetPlayerBotSkillHitsPerTarget(skillVnum);
 		DWORD hits = 0;
-		for (int h = 0; h < perTarget && budget > 0 && !target->IsDead(); ++h, --budget, ++hits)
+		// MT2009_PLUS_BOT_PURGED_TARGET_V1: a kill trigger may purge the arena
+		// (d.purge_area) under any blow; the target is asked for by its VID.
+		const DWORD dwTargetVID = (DWORD)target->GetVID();
+		for (int h = 0; h < perTarget && budget > 0 && target && !target->IsDead(); ++h, --budget, ++hits)
+		{
 			ch->ComputeSkill(skillVnum, target);
-		if (budget <= 0)
+			target = CHARACTER_MANAGER::instance().Find(dwTargetVID);
+		}
+		if (budget <= 0 || !target || !ch->GetSectree())
 			return hits;
 		const int reach = std::max(PLAYERBOT_MELEE_SPLASH_RANGE, proto->iSplashRange + PLAYERBOT_SKILL_HIT_MARGIN);
 		CCollectPlayerBotMeleeTargets collector(ch, target, reach, IsPlayerBotSkillAroundCaster(skillVnum));
@@ -2132,6 +2145,9 @@ namespace
 		const bool bIsTargetValid = (primary->IsMonster() || primary->IsStone() || bIsDuel || bIsGate);
 		if (!bIsTargetValid || primary->IsDead())
 			return 0;
+		// MT2009_PLUS_AREZZO_BOTS_V1 (events): never a blow at an Easter metin.
+		if (primary->IsStone() && IsPlayerBotEventStone(primary->GetRaceNum()))
+			return 0;
 
 		LPITEM weapon = ch->GetWear(WEAR_WEAPON);
 		const bool isBow = (weapon && weapon->GetType() == ITEM_WEAPON && weapon->GetSubType() == WEAPON_BOW);
@@ -2157,6 +2173,7 @@ namespace
 				: CalcMeleeDamage(ch, primary, false, false);
 
 		DWORD hitCount = 1;
+		const DWORD dwPrimaryVID = (DWORD)primary->GetVID();	// MT2009_PLUS_BOT_PURGED_TARGET_V1
 		primary->Damage(ch, iDamage, DAMAGE_TYPE_NORMAL);
 		NotePlayerBotStoneHit(ch, primary);
 		// No UseArrow: a bot's quiver never empties (24 September), so an
@@ -2211,7 +2228,11 @@ namespace
 			}
 		}
 
-		if (!primary->IsDead())
+		// MT2009_PLUS_BOT_PURGED_TARGET_V1: an extra arrow or the sweep can
+		// kill the monster that ends a wave, and its kill trigger purges the
+		// arena (d.purge_area) - the primary with it. Asked for again by VID.
+		primary = CHARACTER_MANAGER::instance().Find(dwPrimaryVID);
+		if (primary && !primary->IsDead())
 		{
 			ch->SetVictim(primary);
 			ch->SetRotationToXY(primary->GetX(), primary->GetY());
@@ -2317,6 +2338,16 @@ namespace
 			return false;
 
 		LPITEM weapon = ch->GetWear(WEAR_WEAPON);
+		// MT2009_PLUS_BOSS_RAID_V2 (2.2.52, tool in hand): a rod or a pickaxe
+		// in the hand is put away and the weapon taken out before the blow -
+		// a bot attacked at the water or the vein stood at its foe with the
+		// tool, no swing ever passing the test below, when the session's own
+		// unequip had been refused by the engine after a blow.
+		if (weapon && (weapon->GetType() == ITEM_ROD || weapon->GetType() == ITEM_PICK))
+		{
+			ReadyPlayerBotHandForFight(ch, state, dwNow, "basic_attack");
+			weapon = ch->GetWear(WEAR_WEAPON);
+		}
 		if (!weapon || weapon->GetType() != ITEM_WEAPON)
 			return false;
 

@@ -14,6 +14,55 @@
 
 namespace
 {
+	// MT2009_PLUS_BOT_HELD_RETREAT_V1: a bot held by a monster does not hide.
+	// At 20% HP a bot went into the emergency rest - invisible, healing,
+	// standing still - and the monsters that chased it could not strike an
+	// invisible character: both stood side by side at a Metin and nobody hit
+	// anybody ("sosen", 30 September). Its target was the stone, which is no
+	// monster, so the tactical retreat never started for it. Now a bot that a
+	// living monster near it has for its victim retreats from that monster,
+	// drinking its potions on the way (the tick's UseHealthPotion), and an
+	// emergency rest it is already in ends the moment a monster takes it.
+	// The rest after a real death is untouched.
+	const int PLAYERBOT_HELD_SCAN_RANGE = 2500;
+	std::set<DWORD> s_setPlayerBotEmergencyRest;
+
+	class FPlayerBotHoldingMonster
+	{
+		public:
+			FPlayerBotHoldingMonster(LPCHARACTER ch) : m_ch(ch), m_holder(NULL), m_best(INT_MAX) {}
+
+			void operator () (LPENTITY entity)
+			{
+				if (!entity || !entity->IsType(ENTITY_CHARACTER))
+					return;
+				LPCHARACTER mob = static_cast<LPCHARACTER>(entity);
+				if (mob == m_ch || !mob->IsMonster() || mob->IsDead() || mob->GetVictim() != m_ch)
+					return;
+				const int distance = DISTANCE_APPROX(mob->GetX() - m_ch->GetX(), mob->GetY() - m_ch->GetY());
+				if (distance > PLAYERBOT_HELD_SCAN_RANGE || distance >= m_best)
+					return;
+				m_best = distance;
+				m_holder = mob;
+			}
+
+			LPCHARACTER Holder() const { return m_holder; }
+
+		private:
+			LPCHARACTER m_ch;
+			LPCHARACTER m_holder;
+			int m_best;
+	};
+
+	LPCHARACTER FindPlayerBotHoldingMonster(LPCHARACTER ch)
+	{
+		if (!ch || !ch->GetSectree() || ch->IsDead())
+			return NULL;
+		FPlayerBotHoldingMonster f(ch);
+		ch->GetSectree()->ForEachAround(f);
+		return f.Holder();
+	}
+
 	void PersistPlayerBot(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!ch || !ch->GetDesc())
@@ -45,6 +94,8 @@ namespace
 	{
 		if (!ch || state.bRecoveringAfterDeath || state.bTacticalRetreat)
 			return;
+		// MT2009_PLUS_BOT_LOOT_PACE_V1: its drops here, to come back for.
+		NotePlayerBotLootLeftBehind(ch, state, dwNow);
 		state.bTacticalRetreat = true;
 		state.dwRetreatStartedTime = dwNow;
 		state.dwNextRetreatMoveTime = 0;
@@ -259,6 +310,7 @@ namespace
 			state.dwRetreatThreatVID = 0;
 			state.dwLastDeathTime = dwNow;
 			state.dwLastKillerVID = state.dwTargetVID;
+			s_setPlayerBotEmergencyRest.erase(ch->GetPlayerID()); // MT2009_PLUS_BOT_HELD_RETREAT_V1
 			// A bot that falls in a duel has lost it, whoever struck last, and
 			// the duel ends on the tick it falls. It used to end only once the
 			// bot had stood up again and been refused its blows for

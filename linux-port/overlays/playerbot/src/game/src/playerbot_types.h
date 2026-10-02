@@ -65,25 +65,27 @@ namespace
 	const int PLAYERBOT_PICKUP_RANGE = 300;
 	// Keep a fresh drop visible for a human-readable moment and pick individual
 	// stacks at a believable cadence instead of clearing the floor in one tick.
-	const DWORD PLAYERBOT_LOOT_VISIBLE_DELAY_MIN = 1000;
-	const DWORD PLAYERBOT_LOOT_VISIBLE_DELAY_MAX = 1800;
+	// MT2009_PLUS_BOT_LOOT_PACE_V1: a moment, not a second and a half per
+	// drop - bots stood over a pile "thinking" while the pack came back.
+	const DWORD PLAYERBOT_LOOT_VISIBLE_DELAY_MIN = 350;
+	const DWORD PLAYERBOT_LOOT_VISIBLE_DELAY_MAX = 700;
 	// mt2009's PickupItem refuses a pickup within 500 ms of the last one, and
 	// the pass hid a refused drop for five seconds as if it had failed: a
 	// bot's full tick comes every ~480 ms, so every second try was refused and
 	// Tanaka's winner took one pile a second with five always hidden, until
 	// the pass saw an empty floor and the event let it go (26 September).
 #if defined(PLAYERBOT_ENGINE_MT2009)
-	const DWORD PLAYERBOT_LOOT_PICKUP_INTERVAL_MIN = 550;
+	const DWORD PLAYERBOT_LOOT_PICKUP_INTERVAL_MIN = 510;	// MT2009_PLUS_BOT_LOOT_PACE_V1 (550)
 #else
 	const DWORD PLAYERBOT_LOOT_PICKUP_INTERVAL_MIN = 450;
 #endif
-	const DWORD PLAYERBOT_LOOT_PICKUP_INTERVAL_MAX = 850;
+	const DWORD PLAYERBOT_LOOT_PICKUP_INTERVAL_MAX = 650;	// MT2009_PLUS_BOT_LOOT_PACE_V1 (850)
 	// Yang is taken almost at once. The pause above exists so a bot does not
 	// hoover a field the instant it drops, but a coin pile is one click a player
 	// never hesitates over, and three of them in a row had bots standing in a
 	// cleared field for six seconds instead of finding the next pack.
-	const DWORD PLAYERBOT_LOOT_MONEY_DELAY_MIN = 150;
-	const DWORD PLAYERBOT_LOOT_MONEY_DELAY_MAX = 350;
+	const DWORD PLAYERBOT_LOOT_MONEY_DELAY_MIN = 100;	// MT2009_PLUS_BOT_LOOT_PACE_V1 (150-350)
+	const DWORD PLAYERBOT_LOOT_MONEY_DELAY_MAX = 250;
 #if defined(PLAYERBOT_ENGINE_MT2009)
 	const DWORD PLAYERBOT_LOOT_MONEY_INTERVAL_MIN = 550;
 	const DWORD PLAYERBOT_LOOT_MONEY_INTERVAL_MAX = 650;
@@ -1746,8 +1748,11 @@ namespace
 	// members have GATHER_MS to come to a spot RALLY_MIN..+RALLY_SPREAD from
 	// him - his aggressive sight is 2000 - and a member within ARRIVED_RANGE
 	// of him counts as come. A fight whose boss has not lost half a percent
-	// of his health in STALL_MS calls REINFORCEMENTS more once, and the second
-	// stall gives him up for OUTPACED_COOLDOWN_MS; FIGHT_MAX_MS ends any
+	// of his health in STALL_MS calls REINFORCEMENTS more, up to
+	// REINFORCE_ROUNDS times and never past twice the raid's size; a stall
+	// with nobody left to call gives him up for OUTPACED_COOLDOWN_MS - unless
+	// he is under FINISH_PERCENT of his health, when the raid stays on him
+	// (2.2.51: raids gave up bosses at a dozen percent); FIGHT_MAX_MS ends any
 	// fight. The loot window after his fall is LOOT_MS. A bot is called with
 	// MIN_HP_PERCENT of its health and the potions below, and a boss is
 	// nobody's target past MAX_ATTACKERS on him - the claim a monster has kept
@@ -1774,10 +1779,17 @@ namespace
 	// kilometres from its spot), while one warped in from another map was
 	// there at once.
 	const int PLAYERBOT_BOSS_RAID_WALK_MAX = 20000;
-	const int PLAYERBOT_BOSS_RAID_MIN_HP_PERCENT = 80;
+	// MT2009_PLUS_BOSS_RAID_V2 (2.2.51): half its health is enough - the walk
+	// to him is its time for the potions (was 80).
+	const int PLAYERBOT_BOSS_RAID_MIN_HP_PERCENT = 50;
 	const size_t PLAYERBOT_BOSS_RAID_MIN_RED_POTIONS = 30;
 	const size_t PLAYERBOT_BOSS_RAID_MIN_BLUE_POTIONS = 15;
-	const int PLAYERBOT_BOSS_RAID_REINFORCEMENTS = 3;
+	// MT2009_PLUS_BOSS_RAID_V2 (2.2.51): up to three rounds of four (was one
+	// round of three), at most twice the raid's size; and a boss under this
+	// share of his health is finished off whatever the stall says.
+	const int PLAYERBOT_BOSS_RAID_REINFORCEMENTS = 4;
+	const int PLAYERBOT_BOSS_RAID_REINFORCE_ROUNDS = 3;
+	const int PLAYERBOT_BOSS_RAID_FINISH_PERCENT = 30;
 	const int PLAYERBOT_BOSS_MAX_ATTACKERS = 8;
 	// The Demon Tower raid (playerbot_demon_tower.h): one bot guild at a
 	// time on this core, the first a few minutes after a start and the next
@@ -2995,8 +3007,11 @@ namespace
 	// matches or beats is goods (IsPlayerBotFinishedSpareGoods).
 	const BYTE PLAYERBOT_SPARE_GOODS_MIN_PLUS = 7;
 	// Point 7, "Protokol Odbudowy": how long the merchant's plain piece waits
-	// for the market after the only weapon, armour or shield burnt.
-	const DWORD PLAYERBOT_REBUILD_MARKET_MS = 3 * 60 * 1000;
+	// for the market after the only weapon, armour or shield burnt -
+	// MT2009_PLUS_BOSS_RAID_V2 (2.2.52): only when a stand of the map holds a
+	// replacement (PlayerBotFindBurnReplacementToBuy), and two minutes (was
+	// three, and whatever the market held).
+	const DWORD PLAYERBOT_REBUILD_MARKET_MS = 2 * 60 * 1000;
 	// Point 6: the only gear a stone goes on (IsPlayerBotBonusCategoryAllowed) -
 	// the level-30 average-damage weapons from +4, every weapon from level 45
 	// at +7, shields from level 21 at +7 (and body armour and helmets with them,
@@ -3562,6 +3577,58 @@ namespace
 	const long PLAYERBOT_OCHAO_EXIT_X = 884825;
 	const long PLAYERBOT_OCHAO_EXIT_Y = 1446525;
 	const BYTE PLAYERBOT_OCHAO_MIN_LEVEL = 95;
+	// MT2009_PLUS_AREZZO_BOTS_V1 (maps): the Arezzo module's three open maps
+	// (flag mt2009_arezzo_closed, playerbot_arezzo.h). Only the operator's test
+	// cohorts go there for now (playerbot_arezzo_bots.h, the test hook
+	// "playerbot_arezzo_test"); every other bot's frontier is as before, and
+	// TransitionPlayerBotMap refuses the rest. Dolina Cyklopow (360) and
+	// Pustkowie Faraona (361) are on the Teleporter's first page; Zaczarowany
+	// Las (362) is reached only through the Temple of Ochao, by Straznik
+	// En-Tai's Portal. Each arrival is the map's Town.txt, each exit its
+	// Teleporter (npc.txt 9012), both cell centres with open ground all round,
+	// measured on the map's server_attr by tools/arezzo_bot_map.py.
+	const long PLAYERBOT_MAP_AREZZO_CYCLOPS = 360;	// metin2_map_exp
+	const long PLAYERBOT_MAP_AREZZO_PHARAOH = 361;	// metin2_map_pustynia
+	const long PLAYERBOT_MAP_AREZZO_FOREST = 362;	// natural_map
+	const long PLAYERBOT_AREZZO_CYCLOPS_ARRIVAL_X = 265050;
+	const long PLAYERBOT_AREZZO_CYCLOPS_ARRIVAL_Y = 305150;
+	const long PLAYERBOT_AREZZO_CYCLOPS_EXIT_X = 265450;
+	const long PLAYERBOT_AREZZO_CYCLOPS_EXIT_Y = 305450;
+	const long PLAYERBOT_AREZZO_PHARAOH_ARRIVAL_X = 240950;
+	const long PLAYERBOT_AREZZO_PHARAOH_ARRIVAL_Y = 394050;
+	const long PLAYERBOT_AREZZO_PHARAOH_EXIT_X = 241350;
+	const long PLAYERBOT_AREZZO_PHARAOH_EXIT_Y = 394350;
+	// The Las: the quest's portal lands at cell (459,106) = (378700,394600).
+	const long PLAYERBOT_AREZZO_FOREST_ARRIVAL_X = 378750;
+	const long PLAYERBOT_AREZZO_FOREST_ARRIVAL_Y = 394650;
+	const long PLAYERBOT_AREZZO_FOREST_EXIT_X = 379150;
+	const long PLAYERBOT_AREZZO_FOREST_EXIT_Y = 394950;
+	// Three under the weakest monster of each (9601 of 43, 9680 of 53) and the
+	// Temple of Ochao's door for the Las.
+	const BYTE PLAYERBOT_AREZZO_CYCLOPS_MIN_LEVEL = 40;
+	const BYTE PLAYERBOT_AREZZO_PHARAOH_MIN_LEVEL = 50;
+	const BYTE PLAYERBOT_AREZZO_FOREST_MIN_LEVEL = PLAYERBOT_OCHAO_MIN_LEVEL;
+	bool IsPlayerBotArezzoMap(long mapIndex)
+	{
+		return mapIndex == PLAYERBOT_MAP_AREZZO_CYCLOPS || mapIndex == PLAYERBOT_MAP_AREZZO_PHARAOH ||
+				mapIndex == PLAYERBOT_MAP_AREZZO_FOREST;
+	}
+	// The places no bot may be taken to but by the Arezzo test: the Arezzo
+	// maps and dungeons (360-366 and their instances) and the Blue Dragon's
+	// lair (208). The owner, 30 September: no bot in the new dungeons, and on
+	// the new maps only the test cohorts, for now.
+	bool IsPlayerBotOffLimitsMap(long mapIndex)
+	{
+		const long base = mapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN ? mapIndex / 10000 : mapIndex;
+		return base == 208 || (base >= 360 && base <= 366);
+	}
+	// The Easter event's metins (8041-8050, event_easter.quest): its kill
+	// hook pays the killer a basket and puts more metins down, and the owner
+	// wants no bot in the new events - never a bot's target.
+	bool IsPlayerBotEventStone(DWORD race)
+	{
+		return race >= 8041 && race <= 8050;
+	}
 	// The Demon Tower is not a frontier and has no hub table: a bot goes there
 	// for the Biologist's level-50 specimen and comes back. 1001-1004 stand in
 	// two clusters and this is the denser one.
@@ -3594,6 +3661,9 @@ namespace
 			case PLAYERBOT_MAP_GROTTO_V1: outX = PLAYERBOT_GROTTO_V1_ARRIVAL_X; outY = PLAYERBOT_GROTTO_V1_ARRIVAL_Y; return true;
 			case PLAYERBOT_MAP_GROTTO_V2: outX = PLAYERBOT_GROTTO_V2_ARRIVAL_X; outY = PLAYERBOT_GROTTO_V2_ARRIVAL_Y; return true;
 			case PLAYERBOT_MAP_OCHAO: outX = PLAYERBOT_OCHAO_ARRIVAL_X; outY = PLAYERBOT_OCHAO_ARRIVAL_Y; return true; // MT2009_PLUS_OCHAO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_CYCLOPS: outX = PLAYERBOT_AREZZO_CYCLOPS_ARRIVAL_X; outY = PLAYERBOT_AREZZO_CYCLOPS_ARRIVAL_Y; return true; // MT2009_PLUS_AREZZO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_PHARAOH: outX = PLAYERBOT_AREZZO_PHARAOH_ARRIVAL_X; outY = PLAYERBOT_AREZZO_PHARAOH_ARRIVAL_Y; return true; // MT2009_PLUS_AREZZO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_FOREST: outX = PLAYERBOT_AREZZO_FOREST_ARRIVAL_X; outY = PLAYERBOT_AREZZO_FOREST_ARRIVAL_Y; return true; // MT2009_PLUS_AREZZO_BOTS_V1
 			default: return false;
 		}
 	}
@@ -3615,6 +3685,9 @@ namespace
 			case PLAYERBOT_MAP_GROTTO_V1: outX = PLAYERBOT_GROTTO_V1_EXIT_X; outY = PLAYERBOT_GROTTO_V1_EXIT_Y; return true;
 			case PLAYERBOT_MAP_GROTTO_V2: outX = PLAYERBOT_GROTTO_V2_EXIT_X; outY = PLAYERBOT_GROTTO_V2_EXIT_Y; return true;
 			case PLAYERBOT_MAP_OCHAO: outX = PLAYERBOT_OCHAO_EXIT_X; outY = PLAYERBOT_OCHAO_EXIT_Y; return true; // MT2009_PLUS_OCHAO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_CYCLOPS: outX = PLAYERBOT_AREZZO_CYCLOPS_EXIT_X; outY = PLAYERBOT_AREZZO_CYCLOPS_EXIT_Y; return true; // MT2009_PLUS_AREZZO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_PHARAOH: outX = PLAYERBOT_AREZZO_PHARAOH_EXIT_X; outY = PLAYERBOT_AREZZO_PHARAOH_EXIT_Y; return true; // MT2009_PLUS_AREZZO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_FOREST: outX = PLAYERBOT_AREZZO_FOREST_EXIT_X; outY = PLAYERBOT_AREZZO_FOREST_EXIT_Y; return true; // MT2009_PLUS_AREZZO_BOTS_V1
 			default: return false;
 		}
 	}
@@ -3638,7 +3711,8 @@ namespace
 				mapIndex == PLAYERBOT_MAP_FOREST || mapIndex == PLAYERBOT_MAP_RED_FOREST ||
 				mapIndex == PLAYERBOT_MAP_FIRE_LAND ||
 				mapIndex == PLAYERBOT_MAP_GROTTO_V1 || mapIndex == PLAYERBOT_MAP_GROTTO_V2 ||
-				mapIndex == PLAYERBOT_MAP_OCHAO; // MT2009_PLUS_OCHAO_BOTS_V1
+				mapIndex == PLAYERBOT_MAP_OCHAO || // MT2009_PLUS_OCHAO_BOTS_V1
+				IsPlayerBotArezzoMap(mapIndex); // MT2009_PLUS_AREZZO_BOTS_V1 (only the test cohorts are sent)
 	}
 
 	// Both Spider Dungeons: the ones reached across the desert and entered
@@ -3665,6 +3739,9 @@ namespace
 			case PLAYERBOT_MAP_GROTTO_V1: return "grotto_v1";
 			case PLAYERBOT_MAP_GROTTO_V2: return "grotto_v2";
 			case PLAYERBOT_MAP_OCHAO: return "ochao"; // MT2009_PLUS_OCHAO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_CYCLOPS: return "arezzo_cyclops"; // MT2009_PLUS_AREZZO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_PHARAOH: return "arezzo_pharaoh"; // MT2009_PLUS_AREZZO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_FOREST: return "arezzo_forest"; // MT2009_PLUS_AREZZO_BOTS_V1
 			default: return "frontier";
 		}
 	}
@@ -6487,6 +6564,36 @@ namespace
 
 	BYTE GetPlayerBotPersonalityByPID(DWORD dwPID);
 
+	// MT2009_PLUS_DROPPER_INVEST_V1: a dropper invests in itself. Since 15
+	// September it bought nothing off any counter, so at record yang it walked
+	// about with a +5 Battle Scythe and its skills at M1 ("sosen"). Now each
+	// service of its own counter (every forty to sixty minutes) opens a window
+	// of PLAYERBOT_DROPPER_SHOP_WINDOW_MS for the stands round it: first the
+	// materials and scrolls of the next step of its weapon, armour and shield
+	// (up to +9, CollectPlayerBotDropperInvestMissing), then what every bot
+	// buys - a level-30 weapon, better gear, books. No trip of its own for it,
+	// and no medal off another dropper's counter.
+	const DWORD PLAYERBOT_DROPPER_SHOP_WINDOW_MS = 180000;
+	const DWORD PLAYERBOT_DROPPER_SHOP_BROWSE_MS = 20000;
+	const int PLAYERBOT_DROPPER_INVEST_MAX_PLUS = 9;
+	std::map<DWORD, DWORD> s_mapPlayerBotDropperShopUntil;
+
+	void OpenPlayerBotDropperShopping(DWORD dwPID, DWORD dwNow)
+	{
+		s_mapPlayerBotDropperShopUntil[dwPID] = dwNow + PLAYERBOT_DROPPER_SHOP_WINDOW_MS;
+	}
+
+	bool IsPlayerBotDropperShopping(DWORD dwPID, DWORD dwNow)
+	{
+		std::map<DWORD, DWORD>::iterator it = s_mapPlayerBotDropperShopUntil.find(dwPID);
+		if (it == s_mapPlayerBotDropperShopUntil.end())
+			return false;
+		if ((int)(it->second - dwNow) > 0)
+			return true;
+		s_mapPlayerBotDropperShopUntil.erase(it);
+		return false;
+	}
+
 	// The role a bot plays in its guild's war, whether its war is in the break
 	// between two rounds, and whether it sits out the round it fell in
 	// (playerbot_guild_war.h), for the status line.
@@ -6510,6 +6617,9 @@ namespace
 	bool IsPlayerBotSidekickHolding(LPCHARACTER ch);
 	bool IsPlayerBotSidekickGift(LPCHARACTER ch, LPITEM item);
 	const char* GetPlayerBotSidekickOwnerName(LPCHARACTER ch);
+	// MT2009_PLUS_SIDEKICK_TRIP_V1: a frontier its companion gave up on for a
+	// while (playerbot_sidekick.h); GetPlayerBotFrontierMapForLevel skips it.
+	bool IsPlayerBotSidekickTripBlocked(LPCHARACTER ch, long mapIndex);
 	// What its owner did in the companion's bag window: a piece put on
 	// (pinned - kept on, never refined, its lines never changed), a piece
 	// taken off (never put back on by the AI), a pinned piece waiting in the
@@ -8365,6 +8475,7 @@ namespace
 				mapIndex != PLAYERBOT_MAP_DEMON_TOWER &&
 				mapIndex != PLAYERBOT_MAP_GROTTO_V1 && mapIndex != PLAYERBOT_MAP_GROTTO_V2 &&
 				mapIndex != PLAYERBOT_MAP_OCHAO; // MT2009_PLUS_OCHAO_BOTS_V1: its stone.txt is empty
+				// MT2009_PLUS_AREZZO_BOTS_V1: the Arezzo maps keep their stones (stone.txt).
 	}
 
 	// Hunting stones right now: by role for life, or by expedition for half an

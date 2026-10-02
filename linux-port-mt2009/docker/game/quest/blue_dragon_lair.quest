@@ -1,0 +1,623 @@
+-- MT2009_PLUS_BLUE_DRAGON_V1: Le¿e Smoka - loch Beran-Setaou (2493), od poziomu 90, tylko dla
+-- graczy. Odnowiony loch z plików Owsapa (blue_dragon_lair.quest, dragon_lair.quest,
+-- BlueDragon.cpp), napisany na naszym wzorcu Razadora (razador_dungeon.quest), bo jego funkcje
+-- (d.setf_for_map_index, d.spawn_for_map_index, d.party_notice, d.setct, d.destroy, c_locale)
+-- nie istniej¹ w naszym silniku:
+-- Duch Sura (30121) w Grocie Wygnañców V2 (mapa 73, rdzeñ game1) tworzy instancjê mapy 208
+-- (metin2_map_skipia_dungeon_boss, rdzeñ game2, d.new_jump_pids przez P2P) i od razu
+-- przenosi do niej gracza albo przywódcê z ludŸmi jego dru¿yny stoj¹cymi obok (jedno
+-- ³adowanie; boty zostaj¹ na zewn¹trz). W œrodku:
+--   1: cztery kamienie smoka (8031-8034) - dopóki stoi choæ jeden, Beran-Setaou nie przyjmuje
+--      obra¿eñ (silnik, server-patches/bluedragon); zniszczony kamieñ czasem przywo³uje
+--      oddzia³ Setaou (1/3, jak dragon_lair.quest Owsapa);
+--   2: Beran-Setaou; co 5 minut, gdy wszystkie kamienie le¿¹, jeden z nich wraca i znów
+--      go os³ania;
+--   3: po jego œmierci ka¿dy gracz w lochu dostaje Smocz¹ £uskê (71123) i Smoczy Szpon
+--      (71129), a wszyscy wychodz¹ po 3 minutach.
+-- Potwory lochu: data/dungeon/bluedragon_mt/regen.txt (Setaou z Groty V2). Limit 60 minut,
+-- ponowne wejœcie po godzinie od wejœcia, op³ata i 5 wypraw dziennie jak w innych lochach
+-- (MT2009_PLUS_DUNGEON_FEE_V1). Publiczna mapa 208 to poczekalnia (awaryjna droga, jak 351
+-- Razadora): stoi tam tylko Duch Sura, który otwiera instancjê.
+quest blue_dragon_lair begin
+	state start begin
+		function cfg()
+			return {
+				map = 208,
+				base_x = 8192, base_y = 10496, size = 256,
+				entry = {237, 172},
+				ghost = {246, 173},
+				dragon = {181, 173},
+				-- the dragon's guards (Owsap's group 2430 without the dragon): vnum, x, y
+				guards = {{2414, 173, 164}, {2414, 189, 182}, {2411, 172, 181}, {2411, 190, 165}, {2411, 181, 186}},
+				-- the four stones: vnum, x, y (the arena is x 138-228, y 130-218)
+				stones = {{8031, 160, 150}, {8032, 202, 150}, {8033, 160, 196}, {8034, 202, 196}},
+				groups = {2425, 2425, 2426, 2426, 2427},
+				exit_map = 73, exit_x = 1536 + 275, exit_y = 12032 + 175,
+				min_level = 90,
+				near = 30, -- MT2009_PLUS_DUNGEON_ONE_WARP_V1: party members within 30 cells of the leader go with him
+				cooldown = 60 * 60,
+				limit_min = 60,
+				-- MT2009_PLUS_DUNGEON_FEE_V1: the price of a new expedition (each player, paid on entering it) and
+				-- how many new expeditions a player may start a day (Polish midnight).
+				fee = 15000000, fee_text = "15 000 000",
+				daily = 5,
+				path = "data/dungeon/bluedragon_mt/",
+				stone_back = 0, -- a stone returns this many seconds after the last one fell (0 = never)
+				end_sec = 180,
+				rewards = {{71123, 1}, {71129, 1}},
+			}
+		end
+
+		-- MT2009_PLUS_DUNGEON_FEE_V1: the entry fee and the daily limit. Checked for everyone at the guard (with
+		-- the level and the rest), paid on the first login into a new instance (every way in:
+		-- the guard, the lobby, the lobby's own timer) - no money or no runs left there sends
+		-- the player out. "Wróæ do lochu" into the same instance costs nothing. GMs are free.
+		function today()
+			return math.floor((get_global_time() + 7200) / 86400)
+		end
+
+		function runs_today()
+			if pc.getf("blue_dragon_lair", "day") ~= blue_dragon_lair.today() then
+				return 0
+			end
+			return pc.getf("blue_dragon_lair", "runs")
+		end
+
+		function over_limit()
+			local c = blue_dragon_lair.cfg()
+			return not pc.is_gm() and blue_dragon_lair.runs_today() >= c.daily
+		end
+
+		function too_poor()
+			local c = blue_dragon_lair.cfg()
+			return not pc.is_gm() and pc.get_money() < c.fee
+		end
+
+		function pay_entry()
+			local c = blue_dragon_lair.cfg()
+			if pc.is_gm() or pc.is_playerbot() then
+				return true
+			end
+			if blue_dragon_lair.over_limit() then
+				syschat("Wykorzysta³eœ ju¿ dzisiejsze wyprawy do tego lochu ("..c.daily.."). Wróæ jutro.")
+				return false
+			end
+			if pc.get_money() < c.fee then
+				syschat("Wejœcie kosztuje "..c.fee_text.." Yang - nie masz tyle przy sobie.")
+				return false
+			end
+			pc.change_money(-c.fee)
+			local day = blue_dragon_lair.today()
+			if pc.getf("blue_dragon_lair", "day") ~= day then
+				pc.setf("blue_dragon_lair", "day", day)
+				pc.setf("blue_dragon_lair", "runs", 0)
+			end
+			pc.setf("blue_dragon_lair", "runs", pc.getf("blue_dragon_lair", "runs") + 1)
+			syschat("Op³ata za wejœcie: "..c.fee_text.." Yang. Dzisiejsza wyprawa "..pc.getf("blue_dragon_lair", "runs").."/"..c.daily..".")
+			return true
+		end
+
+		-- An instance of 208 (the public map 208 is the lobby).
+		function inside()
+			local idx = pc.get_map_index()
+			return idx >= 208 * 10000 and idx < 209 * 10000 and pc.in_dungeon()
+		end
+
+		function entry_xy()
+			local c = blue_dragon_lair.cfg()
+			return (c.base_x + c.entry[1]) * 100, (c.base_y + c.entry[2]) * 100
+		end
+
+		function purge_mobs()
+			local c = blue_dragon_lair.cfg()
+			d.purge_area(c.base_x * 100, c.base_y * 100, (c.base_x + c.size) * 100, (c.base_y + c.size) * 100)
+		end
+
+		-- The dragon's rewards for every player of the killer's party inside this instance
+		-- (get_member_pids gives only the members on the killer's map index), or for the killer
+		-- alone; a full bag drops them at the player's feet (give_item2). Bots never enter.
+		function give_rewards()
+			local c = blue_dragon_lair.cfg()
+			local pids = {}
+			if party.is_party() then
+				pids = {party.get_member_pids()}
+			end
+			if table.getn(pids) == 0 then
+				pids = {pc.get_player_id()}
+			end
+			for i, pid in next, pids, nil do
+				q.begin_other_pc_block(pid)
+				if not pc.is_playerbot() then
+					for k = 1, table.getn(c.rewards) do
+						pc.give_item2(c.rewards[k][1], c.rewards[k][2])
+					end
+					syschat("Beran-Setaou: otrzymujesz Smocz¹ £uskê i Smoczy Szpon.")
+				end
+				q.end_other_pc_block()
+			end
+		end
+
+		function finish()
+			local c = blue_dragon_lair.cfg()
+			d.setf("closed", 1)
+			d.setf("mt2009_keep_until", 0)
+			d.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+			d.exit_all()
+		end
+
+		-- MT2009_PLUS_DUNGEON_ONE_WARP_V1: the instance is set up by the first player to log in
+		-- (the Ghost's d.new_jump_pids made it on game2): the stones, the dragon with his guards,
+		-- the lair's monsters and the minute timer. Each player's cooldown starts when he enters.
+		function init()
+			local c = blue_dragon_lair.cfg()
+			d.setf("init", 1)
+			-- MT2009_PLUS_DUNGEON_RETURN_V1: the instance outlives its players until the time limit
+			-- (dungeon.cpp), so "Wróæ do lochu" at the Ghost finds it after a disconnect.
+			d.setf("mt2009_keep_until", get_global_time() + c.limit_min * 60 + 60)
+			d.setf("left", c.limit_min)
+			d.setf("boss", 1)
+			d.spawn_mob(30121, c.ghost[1], c.ghost[2])
+			for i = 1, table.getn(c.stones) do
+				d.spawn_mob(c.stones[i][1], c.stones[i][2], c.stones[i][3])
+			end
+			d.setf("stones", table.getn(c.stones))
+			d.spawn_mob(2493, c.dragon[1], c.dragon[2])
+			for i = 1, table.getn(c.guards) do
+				d.spawn_mob(c.guards[i][1], c.guards[i][2], c.guards[i][3])
+			end
+			d.set_regen_file(c.path.."regen.txt")
+			server_timer("blue_dragon_tick", 60, d.get_map_index())
+		end
+
+		-- One stone back at its place (the lair's rhythm: Owsap's regen brought the stones back
+		-- every 140 s; here one returns c.stone_back seconds after the last fell).
+		function stone_back()
+			local c = blue_dragon_lair.cfg()
+			local s = c.stones[number(1, table.getn(c.stones))]
+			d.spawn_mob(s[1], s[2], s[3])
+			d.setf("stones", d.getf("stones") + 1)
+			d.notice("Le¿e Smoka: "..mob_name(s[1]).." powstaje na nowo - Beran-Setaou znów jest nietykalny!")
+		end
+
+		when 30121.chat."Le¿e Smoka (Beran-Setaou)" with pc.get_map_index() == 73 begin
+			local c = blue_dragon_lair.cfg()
+			say_title(mob_name(30121))
+			if pc.is_playerbot() then
+				return
+			end
+			say("Za mn¹ œpi Beran-Setaou, smok, któremu")
+			say("s³u¿¹ ¿o³nierze Setaou. Cztery kamienie smoka")
+			say("strzeg¹ go przed ka¿dym ciosem - najpierw")
+			say("trzeba je zniszczyæ.")
+			say("")
+			say_reward("Wymagany poziom: "..c.min_level..". Ponowne wejœcie po 60 minutach.")
+			say_reward("Loch jest tylko dla graczy - boty z dru¿yny zostaj¹ tutaj.")
+			say_reward("Wejœcie: "..c.fee_text.." Yang. Najwy¿ej "..c.daily.." wypraw dziennie (dziœ: "..blue_dragon_lair.runs_today().."/"..c.daily..").") -- MT2009_PLUS_DUNGEON_FEE_V1
+			if select("PrzejdŸ do Le¿a Smoka", "Nie teraz") ~= 1 then
+				return
+			end
+			-- "/eventflag mt2009_dungeons_closed 1" closes the dungeons to players; a GM may always enter.
+			if not pc.is_gm() and game.get_event_flag("mt2009_dungeons_closed") > 0 then
+				say_title(mob_name(30121))
+				say("Przejœcie jest jeszcze zamkniête. Wróæ póŸniej.")
+				return
+			end
+			local now = get_global_time()
+			local x, y = blue_dragon_lair.entry_xy()
+			-- An expedition still running: back into it. d.find asks game2, which warps the
+			-- player if the instance is still there (the cooldown equals the time limit).
+			local idx = pc.getf("blue_dragon_lair", "idx")
+			if idx > 0 and now - pc.getf("blue_dragon_lair", "entry") < c.limit_min * 60 then
+				say_title(mob_name(30121))
+				say("Twoja wyprawa wci¹¿ trwa. Czy chcesz do niej wróciæ?")
+				local s
+				if pc.is_gm() then
+					s = select("Wróæ do lochu", "Nowa wyprawa (GM)", "Nie teraz")
+				else
+					s = select("Wróæ do lochu", "Nie teraz")
+					if s == 2 then s = 3 end
+				end
+				if s == 3 then
+					return
+				elseif s == 1 then
+					if d.find(idx, x, y, pc.get_player_id()) then
+						pc.warp(x, y, idx)
+					else
+						say_title(mob_name(30121))
+						say("Jeœli wyprawa wci¹¿ trwa, przejœcie zaraz ciê zabierze.")
+					end
+					return
+				end
+			end
+			if party.is_party() and not party.is_leader() then
+				say_title(mob_name(30121))
+				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
+				say("Stañ przy mnie - przywódca zabierze dru¿ynê stoj¹c¹ obok.")
+				return
+			end
+			if pc.get_level() < c.min_level then
+				say_title(mob_name(30121))
+				say("Jesteœ za s³aby. Wróæ, gdy osi¹gniesz poziom "..c.min_level..".")
+				return
+			end
+			if not pc.can_warp() or pc.is_busy() then
+				say_title(mob_name(30121))
+				say("Poczekaj chwilê po handlu lub rozmowie i spróbuj ponownie.")
+				return
+			end
+			if now - pc.getf("blue_dragon_lair", "pending") < 10 then
+				say_title(mob_name(30121))
+				say("Przejœcie ju¿ siê otwiera. Poczekaj chwilê.")
+				return
+			end
+			-- Who goes: the player, or the leader and the people of his party standing by
+			-- the Ghost (c.near cells); bots stay. Anyone too weak or not yet rested stops it.
+			local me = pc.get_player_id()
+			local humans = {me}
+			local low = {}
+			local wait = {}
+			local full = {} -- MT2009_PLUS_DUNGEON_FEE_V1
+			local poor = {}
+			if not pc.is_gm() and now - pc.getf("blue_dragon_lair", "entry") < c.cooldown then
+				table.insert(wait, pc.get_name())
+			end
+			if blue_dragon_lair.over_limit() then table.insert(full, pc.get_name()) end
+			if blue_dragon_lair.too_poor() then table.insert(poor, pc.get_name()) end
+			if party.is_party() then
+				local lmap, lx, ly = pc.get_map_index(), pc.get_x(), pc.get_y()
+				local pids = {party.get_member_pids()}
+				for i, pid in next, pids, nil do
+					if pid ~= me then
+						q.begin_other_pc_block(pid)
+						local dx, dy = pc.get_x() - lx, pc.get_y() - ly
+						if not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
+							table.insert(humans, pid)
+							if pc.get_level() < c.min_level then
+								table.insert(low, pc.get_name())
+							end
+							if not pc.is_gm() and now - pc.getf("blue_dragon_lair", "entry") < c.cooldown then
+								table.insert(wait, pc.get_name())
+							end
+							if blue_dragon_lair.over_limit() then table.insert(full, pc.get_name()) end
+							if blue_dragon_lair.too_poor() then table.insert(poor, pc.get_name()) end
+						end
+						q.end_other_pc_block()
+					end
+				end
+			end
+			if table.getn(low) > 0 then
+				say_title(mob_name(30121))
+				say("Za s³abi, by wejœæ (poziom "..c.min_level.."+):")
+				for i, n in next, low, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(full) > 0 then
+				say_title(mob_name(30121))
+				say("Dzisiejsze wyprawy do tego lochu ju¿ wykorzystane ("..c.daily.." dziennie):")
+				for i, n in next, full, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(poor) > 0 then
+				say_title(mob_name(30121))
+				say("Wejœcie kosztuje "..c.fee_text.." Yang - za ma³o przy sobie:")
+				for i, n in next, poor, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(wait) > 0 then
+				say_title(mob_name(30121))
+				say("Jeszcze nie odpoczêli po poprzedniej wyprawie:")
+				for i, n in next, wait, nil do say(color(1,1,0).."    "..n) end
+				local left = c.cooldown - (now - pc.getf("blue_dragon_lair", "entry"))
+				if left > 0 then
+					say("")
+					say("Ty mo¿esz wejœæ za "..math.ceil(left / 60).." min.")
+				end
+				return
+			end
+			local r = d.new_jump_pids(c.map, x, y, humans)
+			if r < 0 then
+				-- The request could not be made: the old way, through the lobby.
+				blue_dragon_lair.lobby()
+				return
+			end
+			pc.setf("blue_dragon_lair", "pending", now)
+			if r == 0 then
+				-- game2 makes the instance; a warp that has not come in 5 s means the request
+				-- got lost (game2 down or restarting) - the lobby instead (fallback timer).
+				timer("blue_dragon_fallback", 5)
+			end
+		end
+
+		-- The fallback (the path before MT2009_PLUS_DUNGEON_ONE_WARP_V1): the Ghost sends the player,
+		-- or the leader with the people of his party standing by, to the public copy of the map on
+		-- game2 - the lobby - where the Ghost there (or, for a player alone, the lobby's login
+		-- timer) makes the instance with d.new_jump_pids, local there.
+		function lobby()
+			local c = blue_dragon_lair.cfg()
+			local x, y = blue_dragon_lair.entry_xy()
+			if party.is_party() then
+				local me = pc.get_player_id()
+				local lmap, lx, ly = pc.get_map_index(), pc.get_x(), pc.get_y()
+				local pids = {party.get_member_pids()}
+				for i, pid in next, pids, nil do
+					if pid ~= me then
+						q.begin_other_pc_block(pid)
+						local dx, dy = pc.get_x() - lx, pc.get_y() - ly
+						if not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
+							pc.warp(x, y)
+						end
+						q.end_other_pc_block()
+					end
+				end
+			else
+				pc.setf("blue_dragon_lair", "auto", 1)
+			end
+			pc.setf("blue_dragon_lair", "pending", 0)
+			pc.warp(x, y)
+		end
+
+		when blue_dragon_fallback.timer begin
+			local c = blue_dragon_lair.cfg()
+			if pc.get_map_index() ~= c.exit_map or pc.getf("blue_dragon_lair", "pending") == 0 then
+				return
+			end
+			syschat("Le¿e Smoka: przejœcie prowadzi przez poczekalniê.")
+			blue_dragon_lair.lobby()
+		end
+
+		function lobby_create(humans)
+			local c = blue_dragon_lair.cfg()
+			local x, y = blue_dragon_lair.entry_xy()
+			-- the leader first: the engine makes pids[1] the dungeon's "leader"
+			local list = {pc.get_player_id()}
+			for i, pid in next, humans, nil do
+				if pid ~= list[1] then
+					table.insert(list, pid)
+				end
+			end
+			return d.new_jump_pids(c.map, x, y, list) > 0
+		end
+
+		-- The lobby (public map 208 on game2): the leader, or a player alone, opens the instance.
+		when 30121.chat."Otwórz Le¿e Smoka" with pc.get_map_index() == 208 begin
+			local c = blue_dragon_lair.cfg()
+			say_title(mob_name(30121))
+			local now = get_global_time()
+			local idx = pc.getf("blue_dragon_lair", "idx")
+			if idx > 0 and now - pc.getf("blue_dragon_lair", "entry") < c.limit_min * 60 and d.find(idx) then
+				say("Twoja wyprawa wci¹¿ trwa. Czy chcesz do niej wróciæ?")
+				if select("Wróæ do lochu", "Nie teraz") == 1 then
+					local x, y = blue_dragon_lair.entry_xy()
+					pc.warp(x, y, idx)
+				end
+				return
+			end
+			if party.is_party() and not party.is_leader() then
+				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
+				say("Poczekaj tu na niego - zabierze ca³¹ dru¿ynê.")
+				return
+			end
+			local humans = {}
+			local low = {}
+			local wait = {}
+			local full = {} -- MT2009_PLUS_DUNGEON_FEE_V1
+			local poor = {}
+			if party.is_party() then
+				local pids = {party.get_member_pids()}
+				for i, pid in next, pids, nil do
+					q.begin_other_pc_block(pid)
+					if not pc.is_playerbot() then
+						table.insert(humans, pid)
+						if pc.get_level() < c.min_level then
+							table.insert(low, pc.get_name())
+						end
+						if not pc.is_gm() and now - pc.getf("blue_dragon_lair", "entry") < c.cooldown then
+							table.insert(wait, pc.get_name())
+						end
+						if blue_dragon_lair.over_limit() then table.insert(full, pc.get_name()) end
+						if blue_dragon_lair.too_poor() then table.insert(poor, pc.get_name()) end
+					end
+					q.end_other_pc_block()
+				end
+			else
+				table.insert(humans, pc.get_player_id())
+				if pc.get_level() < c.min_level then
+					table.insert(low, pc.get_name())
+				end
+				if not pc.is_gm() and now - pc.getf("blue_dragon_lair", "entry") < c.cooldown then
+					table.insert(wait, pc.get_name())
+				end
+				if blue_dragon_lair.over_limit() then table.insert(full, pc.get_name()) end
+				if blue_dragon_lair.too_poor() then table.insert(poor, pc.get_name()) end
+			end
+			if table.getn(low) > 0 then
+				say("Za s³abi, by wejœæ (poziom "..c.min_level.."+):")
+				for i, n in next, low, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(full) > 0 then
+				say("Dzisiejsze wyprawy do tego lochu ju¿ wykorzystane ("..c.daily.." dziennie):")
+				for i, n in next, full, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(poor) > 0 then
+				say("Wejœcie kosztuje "..c.fee_text.." Yang - za ma³o przy sobie:")
+				for i, n in next, poor, nil do say(color(1,1,0).."    "..n) end
+				return
+			end
+			if table.getn(wait) > 0 then
+				say("Jeszcze nie odpoczêli po poprzedniej wyprawie:")
+				for i, n in next, wait, nil do say(color(1,1,0).."    "..n) end
+				local left = c.cooldown - (now - pc.getf("blue_dragon_lair", "entry"))
+				if left > 0 then
+					say("")
+					say("Ty mo¿esz wejœæ za "..math.ceil(left / 60).." min.")
+				end
+				return
+			end
+			say("Dru¿yna na tej mapie wejdzie razem z tob¹.")
+			if select("Otwórz przejœcie", "Nie teraz") ~= 1 then
+				return
+			end
+			if not blue_dragon_lair.lobby_create(humans) then
+				say_title(mob_name(30121))
+				say("Nie uda³o siê otworzyæ przejœcia. Spróbuj ponownie za chwilê.")
+			end
+		end
+
+		-- A player alone, sent by the Ghost, goes into a new instance a second after the lobby
+		-- loads. Anything that stops it leaves him by the Ghost in the lobby.
+		when blue_dragon_auto.timer begin
+			local c = blue_dragon_lair.cfg()
+			if pc.get_map_index() ~= c.map or party.is_party() then
+				return
+			end
+			local now = get_global_time()
+			if pc.get_level() < c.min_level or (not pc.is_gm() and now - pc.getf("blue_dragon_lair", "entry") < c.cooldown) then
+				syschat("Le¿e Smoka: porozmawiaj z Duchem Sura, aby otworzyæ przejœcie.")
+				return
+			end
+			if not blue_dragon_lair.lobby_create({pc.get_player_id()}) then
+				syschat("Le¿e Smoka: nie uda³o siê otworzyæ przejœcia - porozmawiaj z Duchem Sura.")
+			end
+		end
+
+		when login begin
+			local c = blue_dragon_lair.cfg()
+			local idx = pc.get_map_index()
+			if idx == c.map then
+				-- The lobby (fallback only).
+				if pc.is_playerbot() then
+					pc.warp(c.exit_x * 100, c.exit_y * 100)
+					return
+				end
+				pc.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+				pc.setf("blue_dragon_lair", "pending", 0)
+				if pc.getf("blue_dragon_lair", "auto") == 1 and not party.is_party() then
+					pc.setf("blue_dragon_lair", "auto", 0)
+					syschat("Le¿e Smoka: przejœcie siê otwiera...")
+					timer("blue_dragon_auto", 1)
+				else
+					pc.setf("blue_dragon_lair", "auto", 0)
+					syschat("Le¿e Smoka: porozmawiaj z Duchem Sura, aby otworzyæ przejœcie.")
+				end
+			elseif blue_dragon_lair.inside() then
+				if pc.is_playerbot() then
+					pc.warp(c.exit_x * 100, c.exit_y * 100)
+					return
+				end
+				pc.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
+				pc.setf("blue_dragon_lair", "pending", 0)
+				if pc.getf("blue_dragon_lair", "idx") ~= idx then
+					if not blue_dragon_lair.pay_entry() then -- MT2009_PLUS_DUNGEON_FEE_V1
+						pc.warp(c.exit_x * 100, c.exit_y * 100)
+						return
+					end
+					pc.setf("blue_dragon_lair", "idx", idx)
+					pc.setf("blue_dragon_lair", "entry", get_global_time())
+				end
+				if d.getf("init") == 0 then
+					blue_dragon_lair.init()
+				end
+				if d.getf("closed") == 1 then
+					pc.warp(c.exit_x * 100, c.exit_y * 100)
+				elseif d.getf("boss") == 1 then
+					if d.getf("stones") > 0 then
+						syschat("Le¿e Smoka: dopóki stoi choæ jeden kamieñ smoka ("..d.getf("stones").."), Beran-Setaou jest nietykalny. Zniszczcie kamienie!")
+					else
+						syschat("Le¿e Smoka: kamienie le¿¹ - atakujcie Beran-Setaou!")
+					end
+				end
+			end
+		end
+
+		-- The Ghost inside: how the fight goes, and the way out.
+		when 30121.chat."Le¿e Smoka - wyprawa" with blue_dragon_lair.inside() begin
+			local c = blue_dragon_lair.cfg()
+			say_title(mob_name(30121))
+			if d.getf("boss") == 2 then
+				say("Beran-Setaou nie ¿yje. Wkrótce wszyscy wrócicie")
+				say("do Groty Wygnañców.")
+			elseif d.getf("stones") > 0 then
+				say("Kamienie smoka chroni¹ Beran-Setaou. Dopóki stoi")
+				say("choæ jeden, ¿aden cios go nie zrani.")
+				say_reward("Kamienie smoka: "..d.getf("stones").." / "..table.getn(c.stones))
+			else
+				say("Kamienie le¿¹ - smok jest bezbronny. Spieszcie siê,")
+				say("zanim któryœ z nich powstanie na nowo.")
+			end
+			say_reward("Pozosta³y czas: "..d.getf("left").." min.")
+			say("")
+			if select("Opuœæ Le¿e Smoka", "Zostañ tutaj") == 1 then
+				pc.warp(c.exit_x * 100, c.exit_y * 100)
+			end
+		end
+
+		when blue_dragon_tick.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				if d.getf("closed") == 1 then
+					return
+				end
+				local left = d.getf("left") - 1
+				d.setf("left", left)
+				if left <= 0 then
+					d.notice("Le¿e Smoka: Czas min¹³. Beran-Setaou wyrzuca was ze swojego le¿a.")
+					blue_dragon_lair.finish()
+					return
+				end
+				if d.getf("boss") == 1 and (left == 30 or left == 15 or left == 10 or left == 5 or left == 1) then
+					d.notice("Le¿e Smoka: Pozosta³o "..left.." min.")
+				end
+				server_timer("blue_dragon_tick", 60, get_server_timer_arg())
+			end
+		end
+
+		when blue_dragon_stone.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				if d.getf("closed") == 1 or d.getf("boss") ~= 1 or d.getf("stones") > 0 then
+					return
+				end
+				blue_dragon_lair.stone_back()
+			end
+		end
+
+		when blue_dragon_end.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				blue_dragon_lair.finish()
+			end
+		end
+
+		-- A stone falls: sometimes a Setaou squad answers (Owsap's dragon_lair.quest, 1 in 3);
+		-- the last one leaves the dragon open to blows (the engine's MT2009_PLUS_BLUE_DRAGON_V1).
+		when 8031.kill or 8032.kill or 8033.kill or 8034.kill with blue_dragon_lair.inside() and d.getf("boss") == 1 begin
+			local c = blue_dragon_lair.cfg()
+			if number(1, 3) == 1 then
+				d.spawn_group(c.groups[number(1, table.getn(c.groups))], pc.get_local_x(), pc.get_local_y(), 5, true, 1)
+			end
+			local stones = d.getf("stones") - 1
+			if stones < 0 then
+				stones = 0
+			end
+			d.setf("stones", stones)
+			if stones > 0 then
+				d.notice("Le¿e Smoka: "..mob_name(npc.get_race()).." zniszczony. Pozosta³o kamieni: "..stones..".")
+			else
+				d.notice("Le¿e Smoka: Ostatni kamieñ pad³ - Beran-Setaou jest bezbronny! Atakujcie!")
+				if c.stone_back > 0 then
+					server_timer("blue_dragon_stone", c.stone_back, d.get_map_index())
+				end
+			end
+		end
+
+		when 2493.kill with blue_dragon_lair.inside() and d.getf("boss") == 1 begin
+			local c = blue_dragon_lair.cfg()
+			d.setf("boss", 2)
+			blue_dragon_lair.give_rewards()
+			d.update_ranking("smok") -- MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel's results
+			d.clear_regen()
+			blue_dragon_lair.purge_mobs()
+			d.notice("Beran-Setaou zosta³ pokonany! Za "..math.floor(c.end_sec / 60).." minuty wszyscy wróc¹ do Groty Wygnañców.")
+			server_timer("blue_dragon_end", c.end_sec, d.get_map_index())
+		end
+	end
+end

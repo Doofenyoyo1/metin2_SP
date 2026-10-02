@@ -1,0 +1,74 @@
+-- MT2009_PLUS_YUTNORI_V1: the Yut Nori boxes (playerbot_yutnori.h, quest/minigame_yutnori.quest).
+-- Owsap's groups (special_item_group.txt, v6.2.6) with his vnums 50920-50922 moved to
+-- 83032-83034 (ours are Receptura items) and his items we do not have replaced by ours:
+-- no pet eggs, mounts, costumes or sashes (those come from the ItemShop only), no weapons.
+-- A game's box: 83030 (score >= 220), 83031 (150-219), 83034 (below 150); the ranking's
+-- top ten get 83030 (10 / 5 / 3 / 1) at the table NPC during the reward window.
+Group	mt2009_yut_golden_trophy
+{
+	Vnum	83030 -- Zlote Trofeum Yutnori
+	Type	pct
+	1	83032	1	100 -- Zloty Pakiet Yutnori
+	2	51505	1	100 -- Cor Draconis (drogocenne)
+}
+
+Group	mt2009_yut_silver_trophy
+{
+	Vnum	83031 -- Srebrne Trofeum Yutnori
+	Type	pct
+	1	83033	1	100 -- Srebrny Pakiet Yutnori
+	2	25040	1	30 -- Zwoj Blogoslawienstwa
+}
+
+Group	mt2009_yut_golden_bundle
+{
+	Vnum	83032 -- Zloty Pakiet Yutnori
+	1	79508	1	10 -- Plansza do Yutnori
+	2	39015	1	19 -- Kamien Kowala
+	3	25040	1	33 -- Zwoj Blogoslawienstwa
+	4	39029	1	20 -- Wzmocnienie Przedmiotu
+	5	39028	1	80 -- Zaczarowanie Przedmiotu
+	6	39036	1	7 -- Buty Wiatru
+	7	71136	1	6 -- Lizak Potegi
+	8	71018	10	20 -- Blogoslawienstwo Zycia
+	9	51506	1	19 -- Cor Draconis (mityczne)
+	10	51505	1	26 -- Cor Draconis (drogocenne)
+	11	27992	1	23 -- Biala Perla
+	12	27993	1	15 -- Niebieska Perla
+	13	27994	1	10 -- Krwawa Perla
+	14	50108	10	20 -- Fajerwerki
+	15	50107	10	20 -- Chinska Ognista Petarda
+	16	72709	1	4 -- Kolczyk z kosci tygrysa
+	17	72710	1	4 -- Kolczyk z kosci smoka
+	18	71153	1	8 -- Mikstura Madrosci
+}
+
+Group	mt2009_yut_silver_bundle
+{
+	Vnum	83033 -- Srebrny Pakiet Yutnori
+	1	exp	100000	60 -- 100 000 doswiadczenia
+	2	gold	500000	40 -- 500 000 yang
+	3	gold	300000	50 -- 300 000 yang
+	4	gold	100000	60 -- 100 000 yang
+	5	79508	1	10 -- Plansza do Yutnori
+	6	25040	1	38 -- Zwoj Blogoslawienstwa
+	7	39029	1	16 -- Wzmocnienie Przedmiotu
+	8	39028	1	64 -- Zaczarowanie Przedmiotu
+	9	39036	1	7 -- Buty Wiatru
+	10	51503	1	36 -- Cor Draconis (zwyczajne)
+	11	51504	1	30 -- Cor Draconis (szlachetne)
+	12	71153	1	8 -- Mikstura Madrosci
+	13	27993	1	18 -- Niebieska Perla
+	14	27994	1	13 -- Krwawa Perla
+	15	50108	10	20 -- Fajerwerki
+	16	50107	10	20 -- Chinska Ognista Petarda
+}
+
+Group	mt2009_yut_bronze_bundle
+{
+	Vnum	83034 -- Brazowy Pakiet Yutnori
+	1	gold	50000	40 -- 50 000 yang
+	2	gold	100000	50 -- 100 000 yang
+	3	exp	100000	60 -- 100 000 doswiadczenia
+	4	79508	1	40 -- Plansza do Yutnori
+}

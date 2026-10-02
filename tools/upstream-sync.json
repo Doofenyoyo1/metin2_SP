@@ -1,11 +1,11 @@
 {
   "repository": "https://github.com/zaxerrrr-dot/mt2009-sp-plus",
   "branch": "main",
-  "synced_commit": "1ab49ea0fbdb0f00f28935df3cba11db3cbb7943",
-  "synced_version": "2.16.0",
+  "synced_commit": "74c8d2d4c3fa1bfe2124e2582bde70e19dda80b7",
+  "synced_version": "2.17.1",
   "engine_package": {
-    "url": "https://raw.githubusercontent.com/zaxerrrr-dot/mt2009-sp-plus/1ab49ea0fbdb0f00f28935df3cba11db3cbb7943/releases/metin2-server-update-2.16.0.zip",
-    "sha256": "749FE98A95C1AF5F43DB19C2A7FBC520C97653A74735C43967722E7DE13F3E74"
+    "url": "https://raw.githubusercontent.com/zaxerrrr-dot/mt2009-sp-plus/74c8d2d4c3fa1bfe2124e2582bde70e19dda80b7/releases/metin2-server-update-2.17.1.zip",
+    "sha256": "521C477C7F9E3CDC2D4574D9FF63D85A5F957E77717078A9A8D4E20D5E6D9B38"
   },
   "synced_client_package": {
     "version": "2.0.30",

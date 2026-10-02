@@ -358,3 +358,18 @@ CREATE TABLE IF NOT EXISTS `playerbot_equip` (
   KEY `pid_time_idx` (`pid`,`time`),
   KEY `time_idx` (`time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=ascii;
+
+CREATE TABLE IF NOT EXISTS `playerbot_session` (
+  `pid` int(10) unsigned NOT NULL,
+  `login_at` datetime NOT NULL,
+  `channel` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `core` varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+  `login_reason` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `seen_at` datetime DEFAULT NULL,
+  `logout_at` datetime DEFAULT NULL,
+  `logout_reason` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `rest_until` datetime DEFAULT NULL,
+  PRIMARY KEY (`pid`,`login_at`),
+  KEY `open_idx` (`channel`,`core`,`logout_at`),
+  KEY `login_at_idx` (`login_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii;

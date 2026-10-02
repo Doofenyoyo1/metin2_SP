@@ -140,6 +140,9 @@ namespace
 			case PLAYERBOT_MAP_GROTTO_V1: return "do Groty Wygnancow";
 			case PLAYERBOT_MAP_GROTTO_V2: return "do Groty Wygnancow 2";
 			case PLAYERBOT_MAP_OCHAO: return "do Swiatyni Ochao"; // MT2009_PLUS_OCHAO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_CYCLOPS: return "do Doliny Cyklopow"; // MT2009_PLUS_AREZZO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_PHARAOH: return "na Pustkowie Faraona"; // MT2009_PLUS_AREZZO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_FOREST: return "do Zaczarowanego Lasu"; // MT2009_PLUS_AREZZO_BOTS_V1
 			default: return "";
 		}
 	}
@@ -176,6 +179,9 @@ namespace
 			case PLAYERBOT_MAP_GROTTO_V1: return "to the Grotto of Exile";
 			case PLAYERBOT_MAP_GROTTO_V2: return "to the Grotto of Exile 2";
 			case PLAYERBOT_MAP_OCHAO: return "to the Temple of Ochao"; // MT2009_PLUS_OCHAO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_CYCLOPS: return "to the Cyclops Valley"; // MT2009_PLUS_AREZZO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_PHARAOH: return "to the Pharaoh's Wasteland"; // MT2009_PLUS_AREZZO_BOTS_V1
+			case PLAYERBOT_MAP_AREZZO_FOREST: return "to the Enchanted Forest"; // MT2009_PLUS_AREZZO_BOTS_V1
 			default: return "";
 		}
 	}
@@ -939,10 +945,18 @@ namespace
 					// going anywhere, and "Ide na Gore Sohan" over a bot that
 					// has stood in Bokjung for an hour is what an operator
 					// reads as a bot that cannot find the portal.
+					// MT2009_PLUS_SIDEKICK_TRIP_V1: held in the first village,
+					// it says by what - the hold can last twenty minutes, and
+					// "Ide do Groty Wygnancow 2" over it read as a bot lost.
+					const int heldBy = where[0] && IsPlayerBotM1Map(ch->GetMapIndex())
+							? GetPlayerBotM1HoldWhy(ch->GetPlayerID(), get_dword_time()) : -1;
 					if (where[0] && IsPlayerBotM2Map(ch->GetMapIndex()) &&
 							ch->GetGold() < GetPlayerBotTeleporterFee(ch))
 						snprintf(status, statusSize, PBT(en, "%sZbieram yang na Teleporter %s (%lld/%d)", "%sSaving yang for the Teleporter %s (%lld/%d)"),
 								prefix, where, (long long)ch->GetGold(), GetPlayerBotTeleporterFee(ch));
+					else if (heldBy >= 0)
+						snprintf(status, statusSize, PBT(en, "%sZostaje w wiosce (%s), potem %s", "%sStaying in the village (%s), then %s"),
+								prefix, en ? PLAYERBOT_M1_HOLD_WHY_KEY[heldBy] : PLAYERBOT_M1_HOLD_WHY_PL[heldBy], where);
 					else if (where[0])
 						snprintf(status, statusSize, PBT(en, "%sIde %s (cel: %s)", "%sGoing %s (goal: %s)"), prefix,
 								where, goal);

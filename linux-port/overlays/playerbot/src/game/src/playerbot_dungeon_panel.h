@@ -86,6 +86,13 @@ namespace mt2009_dpanel
 	};
 	static std::map<std::string, RankCache> s_rank;
 	static std::map<DWORD, DWORD> s_lastCmd;
+	// MT2009_PLUS_DUNGEON_PANEL_V1 (rows): the window numbers its rows 0, 1, 2... as they come
+	// (dungeoninfo.py appends them) and sends that position back with "warp"/"rank" - so the lines
+	// carry the row's position among the rows SENT, not its place in dungeon_info.txt. With the Arezzo
+	// rows hidden (mt2009_arezzo_closed) the file's index skipped them while the client's did not:
+	// "Razador" warped to the Demon Tower, "Nemere" to Razador. Every player keeps the list he was
+	// shown (row -> s_defs index) until his next "open".
+	static std::map<DWORD, std::vector<int> > s_shown;
 
 	const int MAX_RANK_LINES = 10;
 
@@ -289,35 +296,56 @@ namespace mt2009_dpanel
 		return left > 0 ? left : 0;
 	}
 
+	std::vector<int> VisibleRows()
+	{
+		std::vector<int> rows;
+		for (size_t i = 0; i < s_defs.size(); ++i)
+			if (!Hidden(s_defs[i]))
+				rows.push_back((int) i);
+		return rows;
+	}
+
+	// the window's row -> the dungeon (s_defs index), -1 when there is no such row
+	int RowToDef(LPCHARACTER ch, int row)
+	{
+		std::map<DWORD, std::vector<int> >::const_iterator it = s_shown.find(ch->GetPlayerID());
+		const std::vector<int> rows = it != s_shown.end() ? it->second : VisibleRows();
+		if (row < 0 || row >= (int) rows.size() || rows[row] < 0 || rows[row] >= (int) s_defs.size())
+			return -1;
+		return rows[row];
+	}
+
 	void Open(LPCHARACTER ch)
 	{
 		EnsureLoaded();
 		Cmd(ch, "clear");
 		std::set<long> named;
-		for (size_t i = 0; i < s_defs.size(); ++i)
+		const std::vector<int> rows = VisibleRows();
+		s_shown[ch->GetPlayerID()] = rows;
+		for (size_t r = 0; r < rows.size(); ++r)
 		{
+			const size_t i = (size_t) rows[r];
 			const Def& d = s_defs[i];
-			if (Hidden(d))
-				continue;
 			const long entryMap = d.entryMaps[EmpireIndex(ch)];
 			if (named.insert(d.map).second)
 				Cmd(ch, "name %ld %s", d.map, d.name.c_str());
 			if (named.insert(entryMap).second)
 				Cmd(ch, "name %ld %s", entryMap, d.entryName.c_str());
-			Cmd(ch, "add %u %d %ld %ld %d %d %d %d %u %d %d %d %d %u %d", (unsigned) i, d.type, d.map, entryMap,
+			Cmd(ch, "add %u %d %ld %ld %d %d %d %d %u %d %d %d %d %u %d", (unsigned) r, d.type, d.map, entryMap,
 					d.lvMin, LevelMax(d), d.partyMin, d.partyMax, d.boss, CooldownLeft(ch, d),
 					ch->GetQuestFlag(Flag(d, "_f")), ch->GetQuestFlag(Flag(d, "_t")), ch->GetQuestFlag(Flag(d, "_d")),
 					d.reqVnum, d.reqCount);
 			for (size_t j = 0; j < d.drops.size(); ++j)
-				Cmd(ch, "drop %u %u %d %d", (unsigned) i, d.drops[j].vnum, d.drops[j].count, d.drops[j].pct);
+				Cmd(ch, "drop %u %u %d %d", (unsigned) r, d.drops[j].vnum, d.drops[j].count, d.drops[j].pct);
 		}
 		Cmd(ch, "open");
 	}
 
-	void Warp(LPCHARACTER ch, int index)
+	void Warp(LPCHARACTER ch, int row)
 	{
 		EnsureLoaded();
-		if (index < 0 || index >= (int) s_defs.size())
+		const int index = RowToDef(ch, row);
+		if (index < 0)
 			return;
 		const Def& d = s_defs[index];
 		if (ch->IsDead() || Hidden(d))
@@ -364,7 +392,7 @@ namespace mt2009_dpanel
 			return;
 		if (d.warpCost > 0 && !ch->IsGM())
 		{
-			ch->PointChange(POINT_GOLD, -(int) d.warpCost, true);
+			PlayerBotChangeGold(ch, -d.warpCost);
 			ch->ChatPacket(CHAT_TYPE_INFO, "Teleport pod wej\x9c" "cie: zap\xb3" "acono %lld Yang.", d.warpCost);
 		}
 	}
@@ -400,10 +428,11 @@ namespace mt2009_dpanel
 		}
 	}
 
-	void Rank(LPCHARACTER ch, int index, int type)
+	void Rank(LPCHARACTER ch, int row, int type)
 	{
 		EnsureLoaded();
-		if (index < 0 || index >= (int) s_defs.size() || type < 1 || type > 3)
+		const int index = RowToDef(ch, row);
+		if (index < 0 || type < 1 || type > 3)
 			return;
 		const Def& d = s_defs[index];
 		char ck[64];
@@ -491,6 +520,7 @@ void DungeonPanelCommand(LPCHARACTER ch, const char* argument)
 	else if (!strcmp(sub, "reload") && ch->GetGMLevel() >= GM_HIGH_WIZARD)
 	{
 		Load();
+		s_shown.clear();
 		ch->ChatPacket(CHAT_TYPE_INFO, "dungeon_info.txt: %u", (unsigned) s_defs.size());
 	}
 }

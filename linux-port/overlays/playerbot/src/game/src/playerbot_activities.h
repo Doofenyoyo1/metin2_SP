@@ -334,6 +334,8 @@ namespace
 		return std::min<DWORD>(length, PLAYERBOT_RYBAK_MAX_SESSION);
 	}
 
+	bool PlayerBotProgressionBlocksFishing(LPCHARACTER ch, const TPlayerBotAIState& state, DWORD dwNow);
+
 	bool IsPlayerBotAngler(LPCHARACTER ch, const TPlayerBotAIState& state)
 	{
 		// A dropper is no angler: a session is a stay on a bank in the first
@@ -354,6 +356,11 @@ namespace
 		// MT2009_PLUS_BP_BOTS_V1: gone fishing for a Battle Pass mission.
 		if (playerbot_bpbots::WantsFishing(ch))
 			return true;
+		// MT2009_PLUS_PROGRESSION_V1: not while the checklist holds it with
+		// something missing, and not past its level band's share at the water
+		// (the panel's "Progresja botow"; playerbot_progression.h).
+		if (PlayerBotProgressionBlocksFishing(ch, state, get_dword_time()))
+			return false;
 		if (IsPlayerBotPersonaEnabled() && state.persona.bRestored)
 			return IsPlayerBotRybakNow(ch, state, get_dword_time());
 		const DWORD roll = PlayerBotNavHash(ch->GetPlayerID() ^ 0x46495348U) % 100U;

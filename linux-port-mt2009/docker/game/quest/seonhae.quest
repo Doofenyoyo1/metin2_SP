@@ -1,0 +1,27 @@
+-- MT2009_PLUS_SEONHAE_V1: Seon-Hae (20095, the first villages) adds the 6th
+-- and 7th bonus - Owsap v6.2.6's add_attr67.quest, Polish, on our chat-command
+-- protocol (no new exe). This quest only opens the window: it writes which
+-- Seon-Hae was spoken to (seonhae.npc_vid, seonhae.npc_time) and sends
+-- "SEONHAE open"; the window (uiseonhae.py in the client root) and every check,
+-- the hand-in, the wait and the collection are the core's
+-- (playerbot_seonhae.h, "/seonhae"). It also holds the item while he works:
+-- seonhae.vnum and the rest are the item's fields.
+--
+-- Offered while the world has it on (event flag m2_seonhae_on: M2_SEONHAE in
+-- .env, the classic panel's Seon-Hae page) - and always to a player whose item
+-- Seon-Hae still keeps, so switching it off never strands an item. Not for bots.
+quest seonhae begin
+	state start begin
+		when login begin
+			cmdchat("SEONHAE cfg " .. game.get_event_flag("m2_seonhae_on"))
+		end
+
+		when 20095.chat."Dodatkowy bonus (6. i 7.)" with not pc.is_bot() and
+				(game.get_event_flag("m2_seonhae_on") == 1 or pc.getqf("vnum") ~= 0) begin
+			setskin(NOWINDOW)
+			pc.setqf("npc_vid", npc.get_vid())
+			pc.setqf("npc_time", get_time())
+			cmdchat("SEONHAE open")
+		end
+	end
+end

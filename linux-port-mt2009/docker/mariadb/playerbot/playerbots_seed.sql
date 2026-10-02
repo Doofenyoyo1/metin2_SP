@@ -4976,13 +4976,20 @@ BEGIN NOT ATOMIC
 
     -- Only pending (new or interrupted) bots receive starter slots. An occupied
     -- slot is preserved, regardless of which item is already there.
+    -- The weapon and the body armour are the world's starter kit's when the
+    -- operator chose one (M2_STARTER_KIT, the launcher's new-world window;
+    -- the mt2009 wrapper sets @playerbot_seed_starter_kit): +5 for the
+    -- medium kit, +9 for the easy one, which also dresses the six slots
+    -- below. Only a bot made now: the bots already made are never pending
+    -- and keep what they have (the operator, 30 September). r40250's
+    -- wrapper never sets it, and every bot starts at +0.
     INSERT INTO player.item (owner_id, window, pos, count, vnum)
     SELECT s.pid, 'EQUIPMENT', 4, 1,
            CASE
              WHEN s.job IN (0, 2, 4, 6) THEN 10
              WHEN s.job IN (1, 5) THEN 1000
              WHEN s.job IN (3, 7) THEN 7000
-           END
+           END + CASE COALESCE(@playerbot_seed_starter_kit, 0) WHEN 1 THEN 5 WHEN 2 THEN 9 ELSE 0 END
       FROM playerbot_seed_spec AS s
       JOIN playerbot_seed_pending AS q ON q.pid = s.pid
       LEFT JOIN player.item AS i
@@ -4996,12 +5003,75 @@ BEGIN NOT ATOMIC
              WHEN s.job IN (1, 5) THEN 11400
              WHEN s.job IN (2, 6) THEN 11600
              WHEN s.job IN (3, 7) THEN 11800
-           END
+           END + CASE COALESCE(@playerbot_seed_starter_kit, 0) WHEN 1 THEN 5 WHEN 2 THEN 9 ELSE 0 END
       FROM playerbot_seed_spec AS s
       JOIN playerbot_seed_pending AS q ON q.pid = s.pid
       LEFT JOIN player.item AS i
         ON i.owner_id = s.pid AND i.window = 'EQUIPMENT' AND i.pos = 0
      WHERE i.id IS NULL;
+
+    -- The easy kit's other six pieces, all of level one at +9 (the wear
+    -- slots of common/length.h: head 1, foots 2, wrist 3, neck 5, ear 6,
+    -- shield 10); the shield, the shoes and the jewellery are every class's.
+    INSERT INTO player.item (owner_id, window, pos, count, vnum)
+    SELECT s.pid, 'EQUIPMENT', 1, 1,
+           CASE
+             WHEN s.job IN (0, 4) THEN 12209
+             WHEN s.job IN (1, 5) THEN 12349
+             WHEN s.job IN (2, 6) THEN 12489
+             WHEN s.job IN (3, 7) THEN 12629
+           END
+      FROM playerbot_seed_spec AS s
+      JOIN playerbot_seed_pending AS q ON q.pid = s.pid
+      LEFT JOIN player.item AS i
+        ON i.owner_id = s.pid AND i.window = 'EQUIPMENT' AND i.pos = 1
+     WHERE i.id IS NULL
+       AND COALESCE(@playerbot_seed_starter_kit, 0) = 2;
+    INSERT INTO player.item (owner_id, window, pos, count, vnum)
+    SELECT s.pid, 'EQUIPMENT', 10, 1,
+           13009
+      FROM playerbot_seed_spec AS s
+      JOIN playerbot_seed_pending AS q ON q.pid = s.pid
+      LEFT JOIN player.item AS i
+        ON i.owner_id = s.pid AND i.window = 'EQUIPMENT' AND i.pos = 10
+     WHERE i.id IS NULL
+       AND COALESCE(@playerbot_seed_starter_kit, 0) = 2;
+    INSERT INTO player.item (owner_id, window, pos, count, vnum)
+    SELECT s.pid, 'EQUIPMENT', 2, 1,
+           15009
+      FROM playerbot_seed_spec AS s
+      JOIN playerbot_seed_pending AS q ON q.pid = s.pid
+      LEFT JOIN player.item AS i
+        ON i.owner_id = s.pid AND i.window = 'EQUIPMENT' AND i.pos = 2
+     WHERE i.id IS NULL
+       AND COALESCE(@playerbot_seed_starter_kit, 0) = 2;
+    INSERT INTO player.item (owner_id, window, pos, count, vnum)
+    SELECT s.pid, 'EQUIPMENT', 3, 1,
+           14009
+      FROM playerbot_seed_spec AS s
+      JOIN playerbot_seed_pending AS q ON q.pid = s.pid
+      LEFT JOIN player.item AS i
+        ON i.owner_id = s.pid AND i.window = 'EQUIPMENT' AND i.pos = 3
+     WHERE i.id IS NULL
+       AND COALESCE(@playerbot_seed_starter_kit, 0) = 2;
+    INSERT INTO player.item (owner_id, window, pos, count, vnum)
+    SELECT s.pid, 'EQUIPMENT', 5, 1,
+           16009
+      FROM playerbot_seed_spec AS s
+      JOIN playerbot_seed_pending AS q ON q.pid = s.pid
+      LEFT JOIN player.item AS i
+        ON i.owner_id = s.pid AND i.window = 'EQUIPMENT' AND i.pos = 5
+     WHERE i.id IS NULL
+       AND COALESCE(@playerbot_seed_starter_kit, 0) = 2;
+    INSERT INTO player.item (owner_id, window, pos, count, vnum)
+    SELECT s.pid, 'EQUIPMENT', 6, 1,
+           17009
+      FROM playerbot_seed_spec AS s
+      JOIN playerbot_seed_pending AS q ON q.pid = s.pid
+      LEFT JOIN player.item AS i
+        ON i.owner_id = s.pid AND i.window = 'EQUIPMENT' AND i.pos = 6
+     WHERE i.id IS NULL
+       AND COALESCE(@playerbot_seed_starter_kit, 0) = 2;
 
     INSERT INTO player.item (owner_id, window, pos, count, vnum)
     SELECT s.pid, 'INVENTORY', 0, 200, 27001

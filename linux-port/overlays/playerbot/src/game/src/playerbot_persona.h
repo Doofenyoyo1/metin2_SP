@@ -82,14 +82,16 @@ namespace
 	// and +9, a wanderer does not wait at all.
 	int GetPlayerBotAdvanceChance(BYTE charakter)
 	{
+		// MT2009_PLUS_PROGRESSION_V1: the base is the panel's (60 as before).
+		const int base = (int)playerbot_progression::Config().advanceChance;
 		switch (charakter)
 		{
-			case BOT_PERSONALITY_GEAR_SPECIALIST: return PLAYERBOT_PERSONA_ADVANCE_CHANCE / 2;
-			case BOT_PERSONALITY_CAREFUL_COLLECTOR: return PLAYERBOT_PERSONA_ADVANCE_CHANCE * 2 / 3;
+			case BOT_PERSONALITY_GEAR_SPECIALIST: return std::max(1, base / 2);
+			case BOT_PERSONALITY_CAREFUL_COLLECTOR: return std::max(1, base * 2 / 3);
 			case BOT_PERSONALITY_WANDERER: return 100;
 			case BOT_PERSONALITY_METIN_BREAKER:
-			case BOT_PERSONALITY_TEAM_COMPANION: return PLAYERBOT_PERSONA_ADVANCE_CHANCE + 15;
-			default: return PLAYERBOT_PERSONA_ADVANCE_CHANCE;
+			case BOT_PERSONALITY_TEAM_COMPANION: return std::min(100, base + 15);
+			default: return base;
 		}
 	}
 
@@ -332,7 +334,9 @@ namespace
 		}
 		if (p.dwNextAdvanceRoll == 0)
 		{
-			p.dwNextAdvanceRoll = dwNow + PLAYERBOT_PERSONA_ADVANCE_FIRST_ROLL;
+			// MT2009_PLUS_PROGRESSION_V1: the panel's minutes (2 as before).
+			p.dwNextAdvanceRoll = dwNow + std::max<DWORD>(1000U,
+					playerbot_progression::Config().advanceFirstMin * 60000U);
 			sys_log(0, "PLAYERBOT_PERSONA: law met pid=%u name=%s level=%u lock=%u",
 					ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), (unsigned int)lock);
 			return;
@@ -342,7 +346,8 @@ namespace
 		const int chance = GetPlayerBotAdvanceChance(state.bPersonality);
 		if (number(1, 100) > chance)
 		{
-			p.dwNextAdvanceRoll = dwNow + PLAYERBOT_PERSONA_ADVANCE_ROLL_INTERVAL;
+			// MT2009_PLUS_PROGRESSION_V1: the panel's minutes (60 before, 30 now).
+			p.dwNextAdvanceRoll = dwNow + playerbot_progression::Config().advanceRollMin * 60000U;
 			sys_log(0, "PLAYERBOT_PERSONA: grinder stays to push its gear pid=%u name=%s level=%u chance=%d",
 					ch->GetPlayerID(), ch->GetName(), (unsigned int)ch->GetLevel(), chance);
 			return;
