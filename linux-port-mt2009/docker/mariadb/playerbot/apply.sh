@@ -748,6 +748,11 @@ rate_ok() {
 r_exp=$(rate_ok "${M2_RATE_EXP:-100}" 100)
 r_drop=$(rate_ok "${M2_RATE_DROP:-100}" 100)
 r_yang=$(rate_ok "${M2_RATE_YANG:-100}" 100)
+# MT2009_PLUS_YANG_RATE_CAP_V1: yang drops are never above 1000% - ten
+# thousand made every price in the world meaningless. A higher number is that
+# ceiling here and, below, in a world the panel already set.
+YANG_RATE_MAX=1000
+[ "$r_yang" -gt "$YANG_RATE_MAX" ] && r_yang=$YANG_RATE_MAX
 db -e "CREATE TABLE IF NOT EXISTS player.web_admin_rates (
         name VARCHAR(24) PRIMARY KEY, value INT NOT NULL DEFAULT 100);" >/dev/null 2>&1 \
     || echo "[playerbot-migrate] WARNING: could not make player.web_admin_rates" >&2
@@ -780,6 +785,19 @@ elif [ "$rates_set" = "0" ]; then
             printf '0\n' > /opt/m2spool/playerbot_hold 2>/dev/null || true
         fi
         chmod 0664 /opt/m2spool/playerbot_hold 2>/dev/null || true
+    fi
+fi
+# MT2009_PLUS_YANG_RATE_CAP_V1: a world the panel set over the yang ceiling
+# is brought down to it at its next start (both flags and the panel's table).
+yang_over=$(db -e "SELECT COUNT(*) FROM player.quest WHERE dwPID = 0
+        AND szName IN ('mob_gold', 'mob_gold_buyer') AND lValue > $YANG_RATE_MAX;" 2>/dev/null || echo x)
+if [ "$yang_over" != "x" ] && [ "$yang_over" != "0" ]; then
+    if db -e "UPDATE player.quest SET lValue = $YANG_RATE_MAX WHERE dwPID = 0
+            AND szName IN ('mob_gold', 'mob_gold_buyer') AND lValue > $YANG_RATE_MAX;
+        UPDATE player.web_admin_rates SET value = $YANG_RATE_MAX WHERE name = 'yang' AND value > $YANG_RATE_MAX;"; then
+        echo "[playerbot-migrate] yang drops: the world's rate was over ${YANG_RATE_MAX}% - it is ${YANG_RATE_MAX}% now"
+    else
+        echo "[playerbot-migrate] WARNING: could not bring the yang rate down to ${YANG_RATE_MAX}%" >&2
     fi
 fi
 
@@ -1463,8 +1481,15 @@ UPDATE world.np_mob SET vnum = 34047, name = 'Pisklę Exedyara', locale_name = '
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
 UPDATE world.np_mob SET vnum = 34048, name = 'Pisklę Exedyara (Hero)', locale_name = 'Pisklę Exedyara (Hero)';
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.np_mob;
-INSERT IGNORE INTO common.itemshop_items (\`index\`, vnum, count, price, currency, minLevel) VALUES (40901, 55401, 1, 29, 'DRAGON_COIN', 0), (40902, 55402, 1, 29, 'DRAGON_COIN', 0), (40903, 55403, 1, 29, 'DRAGON_COIN', 0), (40904, 55404, 1, 29, 'DRAGON_COIN', 0), (40905, 55405, 1, 29, 'DRAGON_COIN', 0), (40906, 55406, 1, 29, 'DRAGON_COIN', 0), (40907, 55409, 1, 29, 'DRAGON_COIN', 0), (40908, 55410, 1, 29, 'DRAGON_COIN', 0), (40909, 55411, 1, 29, 'DRAGON_COIN', 0), (40920, 55001, 10, 9, 'DRAGON_COIN', 0), (40921, 55032, 10, 19, 'DRAGON_COIN', 0), (40922, 55035, 5, 19, 'DRAGON_COIN', 0), (40923, 55009, 1, 15, 'DRAGON_COIN', 0), (40924, 55008, 1, 9, 'DRAGON_COIN', 0), (40925, 55033, 1, 9, 'DRAGON_COIN', 0), (40926, 55034, 1, 5, 'DRAGON_COIN', 0), (40927, 55036, 1, 49, 'DRAGON_COIN', 0), (40928, 55002, 1, 19, 'DRAGON_COIN', 0);
+INSERT IGNORE INTO common.itemshop_items (\`index\`, vnum, count, price, currency, minLevel) VALUES (40901, 55401, 1, 29, 'DRAGON_COIN', 0), (40902, 55402, 1, 29, 'DRAGON_COIN', 0), (40903, 55403, 1, 29, 'DRAGON_COIN', 0), (40904, 55404, 1, 29, 'DRAGON_COIN', 0), (40905, 55405, 1, 29, 'DRAGON_COIN', 0), (40906, 55406, 1, 29, 'DRAGON_COIN', 0), (40907, 55409, 1, 29, 'DRAGON_COIN', 0), (40908, 55410, 1, 29, 'DRAGON_COIN', 0), (40909, 55411, 1, 29, 'DRAGON_COIN', 0), (40920, 55001, 10, 9, 'DRAGON_COIN', 0), (40924, 55008, 1, 9, 'DRAGON_COIN', 0), (40925, 55033, 1, 9, 'DRAGON_COIN', 0), (40926, 55034, 1, 5, 'DRAGON_COIN', 0), (40927, 55036, 1, 200, 'DRAGON_COIN', 0), (40928, 55002, 1, 19, 'DRAGON_COIN', 0);
 DELETE FROM world.shop_item WHERE item_vnum BETWEEN 55001 AND 55999;" || echo "[playerbot-migrate] WARNING: could not add the New Pet System's items and mobs" >&2
+# MT2009_PLUS_OWNER_PRICES_V2 (ItemShop): the Smakolyk (55032), the Smakolyk+
+# (55035) and the Skrzynia Ksiag Peta (55009) leave the ItemShop - players and
+# bots trade them at 400 000 / 500 000 / 800 000 a piece - and the Klucz
+# Miejsca Umiejetnosci (55036) costs 200 Smocze Monety, was 49 (the owner,
+# 1 October 2026). On every start, so an install that has the old lines
+# loses them. Idempotent.
+db -e "DELETE FROM common.itemshop_items WHERE vnum IN (55009, 55032, 55035); UPDATE common.itemshop_items SET price = 200 WHERE vnum = 55036 AND price = 49;" || echo "[playerbot-migrate] WARNING: could not apply the owner's pet ItemShop changes" >&2
 # MT2009_PLUS_WHEEL_V1: Bilet Kola Fortuny (80030), the Kolo Fortuny's ticket (playerbot_wheel.h,
 # "/kolo"): quest type, stacks to 200, tradeable, no drop/NPC sale (the SM coupon's antiflags); the
 # ItemShop's first page sells it for 25 Smocze Monety. PROTO_FROM_DB: read at the db core's boot. Idempotent.

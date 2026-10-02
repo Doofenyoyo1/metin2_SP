@@ -472,6 +472,11 @@ namespace
 		// (IsPlayerBotLppFinished).
 		if (IsPlayerBotLppFinished(p, item))
 			return false;
+		// MT2009_PLUS_MARKET_V3, point 5: nor a piece whose lines price it as a
+		// +7 or better (IsPlayerBotBonusGoodsPiece) - finished goods, the
+		// counter's rather than the storekeeper's.
+		if (IsPlayerBotBonusGoodsPiece(item))
+			return false;
 		// A plain piece included: it is what the gambler's anvil works, two of
 		// a family like the rest - and eighteen pieces in all.
 		return IsPlayerBotLppKeptByFamily(ch, p, item) && IsPlayerBotLppWithinTotal(ch, p, item);
@@ -546,6 +551,13 @@ namespace
 				// family limit for good and took a place of the eighteen, and a
 				// box full of them kept every new piece out (B14 of Iwakura's
 				// audit of 26 September). Nothing keeps it now.
+				held.limit = 0;
+				held.obsolete = false;
+			}
+			else if (IsPlayerBotListedHelmShield(item))
+			{
+				// MT2009_PLUS_BOT_LIST_HELM_SHIELD_V1: the counter's goods,
+				// not the box's - let out like any piece nothing keeps.
 				held.limit = 0;
 				held.obsolete = false;
 			}

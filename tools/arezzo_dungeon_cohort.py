@@ -54,6 +54,7 @@ ap.add_argument('outdir')
 ap.add_argument('--online', help='file of pids online now (first column, header ignored)')
 ap.add_argument('--ochao', default='/opt/metin2/cache/backup-ochao-test/test_bots_150.txt')
 ap.add_argument('--per-dungeon', type=int, default=30)
+ap.add_argument('--dungeons', default='wukong,skorpion,dzungla', help='comma list of the dungeons to fill')
 ap.add_argument('--registry-skip', type=int, default=600)
 a = ap.parse_args()
 os.makedirs(a.outdir, exist_ok=True)
@@ -84,6 +85,7 @@ DUNGEONS = [
     ('skorpion', 365, 70, (55, 70), (8448 + 268, 5888 + 228)),
     ('dzungla', 366, 100, (80, 100), (7680 + 384, 5376 + 374)),
 ]
+DUNGEONS = [d for d in DUNGEONS if d[0] in a.dungeons.split(',')]
 
 rows = q("""
 SELECT p.id, p.name, p.job % 4, pi.empire, p.level, p.skill_group,
@@ -264,7 +266,7 @@ S.append("""UPDATE player.player p JOIN player.arezzo_dungeon_cohort c ON c.pid 
        p.level = GREATEST(p.level, c.target_level);""")
 # The save point (and the exit point) in the dungeon's lobby, on game2 - every time, not only the first:
 # a character that went home in between is put back.
-for key in ('wukong', 'skorpion', 'dzungla'):
+for key in [d[0] for d in DUNGEONS]:
     x, y = lobby[key]
     S.append("""UPDATE player.player p JOIN player.arezzo_dungeon_cohort c ON c.pid = p.id AND c.dungeon = '%s'
    SET p.map_index = %d, p.x = %d, p.y = %d, p.exit_map_index = %d, p.exit_x = %d, p.exit_y = %d;""" % (

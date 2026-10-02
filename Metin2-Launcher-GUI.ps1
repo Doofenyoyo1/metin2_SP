@@ -1481,7 +1481,8 @@ function Show-FreshWorldDialog {
         $box = [Windows.Forms.NumericUpDown]::new()
         $box.Name = ('num_' + $field.Name)
         $box.Minimum = 1
-        $box.Maximum = 10000
+        # MT2009_PLUS_YANG_RATE_CAP_V1: yang no higher than 1000%.
+        $box.Maximum = $(if ($field.Name -eq 'yang') { 1000 } else { 10000 })
         $box.Increment = 50
         $box.Value = 100
         $box.Location = [Drawing.Point]::new($x, $y + 34)

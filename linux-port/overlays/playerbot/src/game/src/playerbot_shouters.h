@@ -29,6 +29,26 @@
 // exclusions: the cohort, the late joiners, the life schedule, the channel
 // moves, the chatter, the companions' picker, whispers and guild invites).
 //
+// MT2009_PLUS_MEDAL_SHOUTERS_V1: and three more krzykacze, the owner's own
+// (2 October) - Tieru (Shinsoo), Tiieru (Chunjo), Tiiieru (Jinno) - kept the
+// same way and by the same switch: picked once, renamed, written into
+// player.playerbot_shouter (in the row of their kingdom plus
+// PLAYERBOT_MEDAL_SHOUTER_ROW, so everything that keeps that table's bots out
+// of its cohorts keeps them out too), logged in by the core of their
+// kingdom's first village and never part of the population. A name somebody
+// else wears is reported and that kingdom goes without, as for apka2009; one
+// a bot of the kingdom wears is taken back. Their job is the medal dropper's:
+// they count among the operator's medal droppers
+// (CPlayerBotManager::IsMedalDropperCohortPID) - the personality fixed, the
+// experience stopped at the cohort's level (PLAYERBOT_EXP_LOCK_MEDAL_DROPPER
+// while the operator has no cohort), the Monkey Dungeon, the counter and the
+// stall of medals, no graduation, no channel moves, no rest of the life
+// schedule. From PLAYERBOT_SHOUTER_LEVEL on, wherever they are, they call out
+// one of PLAYERBOT_MEDAL_SHOUTER_LINES (playerbot_shouter_lines.h) on the
+// shout channel on apka2009's rules - once in every 20-30 lines of their
+// kingdom's channel, never sooner than PLAYERBOT_SHOUTER_MIN_GAP_MS - and say
+// nothing else there.
+//
 // An implementation fragment in the sense playerbot_types.h describes:
 // included once, after playerbot_bpbots.h.
 
@@ -37,6 +57,10 @@
 namespace
 {
 	const char* const PLAYERBOT_SHOUTER_NAMES[4] = { "", "apka2009", "appka2009", "apppka2009" };
+	// MT2009_PLUS_MEDAL_SHOUTERS_V1: the owner's names, as he wrote them.
+	const char* const PLAYERBOT_MEDAL_SHOUTER_NAMES[4] = { "", "Tieru", "Tiieru", "Tiiieru" };
+	// Their row in player.playerbot_shouter: the kingdom plus this.
+	const unsigned int PLAYERBOT_MEDAL_SHOUTER_ROW = 10;
 	// A line every this many lines of the channel, drawn anew after each.
 	const int PLAYERBOT_SHOUTER_EVERY_MIN = 20;
 	const int PLAYERBOT_SHOUTER_EVERY_MAX = 30;
@@ -86,6 +110,7 @@ namespace
 	};
 
 	TPlayerBotShouter s_aPlayerBotShouters[4];
+	TPlayerBotShouter s_aPlayerBotMedalShouters[4]; // MT2009_PLUS_MEDAL_SHOUTERS_V1
 	bool s_bPlayerBotShoutersLoaded = false;
 	bool s_bPlayerBotShouterTable = false;
 	DWORD s_dwPlayerBotShoutersLoadedAt = 0;
@@ -127,18 +152,26 @@ namespace
 			if (row[1]) str_to_number(pid, row[1]);
 			if (empire >= 1 && empire <= 3 && pid != 0)
 				s_aPlayerBotShouters[empire].pid = pid;
+			// MT2009_PLUS_MEDAL_SHOUTERS_V1: Tieru's rows.
+			else if (empire >= PLAYERBOT_MEDAL_SHOUTER_ROW + 1 && empire <= PLAYERBOT_MEDAL_SHOUTER_ROW + 3 && pid != 0)
+				s_aPlayerBotMedalShouters[empire - PLAYERBOT_MEDAL_SHOUTER_ROW].pid = pid;
 		}
 	}
 
 	// Who they are, on any core: read the first time it is asked and again
 	// every few minutes, so a shouter made on another core is known here.
+	void RefreshPlayerBotShouters()
+	{
+		const DWORD dwNow = get_dword_time();
+		if (!s_bPlayerBotShoutersLoaded || dwNow - s_dwPlayerBotShoutersLoadedAt >= PLAYERBOT_SHOUTER_RELOAD_MS)
+			LoadPlayerBotShouters(dwNow);
+	}
+
 	bool IsPlayerBotShouterPID(DWORD pid)
 	{
 		if (pid == 0)
 			return false;
-		const DWORD dwNow = get_dword_time();
-		if (!s_bPlayerBotShoutersLoaded || dwNow - s_dwPlayerBotShoutersLoadedAt >= PLAYERBOT_SHOUTER_RELOAD_MS)
-			LoadPlayerBotShouters(dwNow);
+		RefreshPlayerBotShouters();
 		for (int e = 1; e <= 3; ++e)
 			if (s_aPlayerBotShouters[e].pid == pid)
 				return true;
@@ -153,6 +186,25 @@ namespace
 			if (s_aPlayerBotShouters[e].pid == pid)
 				return &s_aPlayerBotShouters[e];
 		return NULL;
+	}
+
+	// MT2009_PLUS_MEDAL_SHOUTERS_V1: Tieru, Tiieru and Tiiieru - medal
+	// droppers that shout, not shouters that stand (IsPlayerBotShouterPID
+	// does not count them).
+	TPlayerBotShouter* GetPlayerBotMedalShouter(DWORD pid)
+	{
+		if (pid == 0)
+			return NULL;
+		RefreshPlayerBotShouters();
+		for (int e = 1; e <= 3; ++e)
+			if (s_aPlayerBotMedalShouters[e].pid == pid)
+				return &s_aPlayerBotMedalShouters[e];
+		return NULL;
+	}
+
+	bool IsPlayerBotMedalShouterPID(DWORD pid)
+	{
+		return GetPlayerBotMedalShouter(pid) != NULL;
 	}
 
 	// The lines are written in UTF-8; the client reads CP1250. The Polish
@@ -222,13 +274,111 @@ namespace
 #endif
 	}
 
+	// MT2009_PLUS_MEDAL_SHOUTERS_V1: an ordinary bot that wears one of
+	// Tieru's names - the name pool deals "Tieru" to a Jinno bot - gives it
+	// up: held out of the world (CPlayerBotManager::Spawn asks), logged out
+	// if this core plays it, and once it has been out of the game as long as
+	// an identity the shouters take (out of the db core's cache) it goes
+	// back to its seed name, or to Bot<pid> when that is worn too. Until
+	// then the kingdom's krzykacz waits (the next try in
+	// PLAYERBOT_SHOUTER_CREATE_RETRY_MS).
+	std::set<DWORD> s_setPlayerBotShouterNameHeld;
+
+	bool IsPlayerBotShouterNameHold(DWORD pid)
+	{
+		return s_setPlayerBotShouterNameHeld.find(pid) != s_setPlayerBotShouterNameHeld.end();
+	}
+
+	bool IsPlayerBotShouterNameFree(const char* name)
+	{
+		char query[256];
+		snprintf(query, sizeof(query), "SELECT COUNT(*) FROM player.player WHERE name='%s'", name);
+		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
+		MYSQL_ROW row = NULL;
+		if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult ||
+				!(row = mysql_fetch_row(msg->Get()->pSQLResult)))
+			return false;
+		unsigned int count = 1;
+		if (row[0])
+			str_to_number(count, row[0]);
+		return count == 0;
+	}
+
+	bool MovePlayerBotOffShouterName(DWORD owner, const char* name, const char* tag)
+	{
+		s_setPlayerBotShouterNameHeld.insert(owner);
+		CPlayerBotManager& mgr = CPlayerBotManager::instance();
+		if (mgr.IsManaged(owner))
+		{
+			sys_log(0, "%s: pid=%u wears the name %s, logging it out to give the name up", tag, owner, name);
+			mgr.Despawn(owner);
+			return false;
+		}
+		if (CHARACTER_MANAGER::instance().FindByPID(owner) || P2P_MANAGER::instance().FindByPID(owner))
+		{
+			sys_log(0, "%s: pid=%u wears the name %s and plays elsewhere, waiting", tag, owner, name);
+			return false;
+		}
+		char query[512];
+		snprintf(query, sizeof(query),
+				"SELECT IFNULL(h.seed_name,''), (p.last_play < NOW() - INTERVAL %d MINUTE) FROM player.player AS p "
+				"LEFT JOIN common.playerbot_name_history AS h ON h.pid=p.id WHERE p.id=%u",
+				PLAYERBOT_SHOUTER_IDLE_MINUTES, owner);
+		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
+		MYSQL_ROW row = NULL;
+		if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult ||
+				!(row = mysql_fetch_row(msg->Get()->pSQLResult)))
+			return false;
+		if (!row[1] || strcmp(row[1], "1") != 0)
+		{
+			sys_log(0, "%s: pid=%u wears the name %s, out of the game for less than %d minutes, waiting",
+					tag, owner, name, PLAYERBOT_SHOUTER_IDLE_MINUTES);
+			return false;
+		}
+		char newName[CHARACTER_NAME_MAX_LEN + 1] = "";
+		bool plain = row[0] && row[0][0] && strlen(row[0]) <= CHARACTER_NAME_MAX_LEN;
+		for (const char* c = row[0]; plain && *c; ++c)
+			plain = (*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z') || (*c >= '0' && *c <= '9');
+		if (plain && strcasecmp(row[0], name) != 0)
+			strlcpy(newName, row[0], sizeof(newName));
+		if (!newName[0] || !IsPlayerBotShouterNameFree(newName))
+			snprintf(newName, sizeof(newName), "Bot%u", owner);
+		if (!IsPlayerBotShouterNameFree(newName))
+		{
+			sys_err("%s: pid=%u wears the name %s and neither its seed name nor %s is free", tag, owner, name, newName);
+			return false;
+		}
+		snprintf(query, sizeof(query), "UPDATE player.player SET name='%s' WHERE id=%u", newName, owner);
+		std::unique_ptr<SQLMsg> rename(AccountDB::instance().DirectQuery(query));
+		if (!rename.get() || rename->uiSQLErrno != 0)
+		{
+			sys_err("%s: cannot rename pid=%u from %s to %s errno=%u", tag, owner, name, newName,
+					rename.get() ? rename->uiSQLErrno : 0U);
+			return false;
+		}
+		// Its history says the new name is the pool's, so no later start deals
+		// it another one.
+		snprintf(query, sizeof(query),
+				"UPDATE common.playerbot_name_history SET human_name='%s' WHERE pid=%u", newName, owner);
+		std::unique_ptr<SQLMsg> history(AccountDB::instance().DirectQuery(query));
+		s_setPlayerBotShouterNameHeld.erase(owner);
+		sys_log(0, "%s: pid=%u gave the name %s up, now %s", tag, owner, name, newName);
+		return true;
+	}
+
 	// The kingdom's shouter: its row, or a new one - the name looked up
 	// first (somebody else's is reported and that kingdom goes without), then
 	// a never-played identity of the kingdom from the far end of the seed,
 	// renamed and written down. Only on the core that keeps it.
-	DWORD CreatePlayerBotShouter(BYTE empire)
+	// MT2009_PLUS_MEDAL_SHOUTERS_V1: the same for Tieru's kind (bMedal): an
+	// identity no further than the medal dropper's lock, its own row.
+	DWORD CreatePlayerBotShouter(BYTE empire, bool bMedal = false)
 	{
-		const char* name = PLAYERBOT_SHOUTER_NAMES[empire];
+		const char* name = bMedal ? PLAYERBOT_MEDAL_SHOUTER_NAMES[empire] : PLAYERBOT_SHOUTER_NAMES[empire];
+		const char* tag = bMedal ? "PLAYERBOT_MEDAL_SHOUTER" : "PLAYERBOT_SHOUTER";
+		const unsigned int slot = bMedal ? PLAYERBOT_MEDAL_SHOUTER_ROW + empire : (unsigned int)empire;
+		const unsigned int maxLevel = bMedal ? (unsigned int)PLAYERBOT_EXP_LOCK_MEDAL_DROPPER
+				: (unsigned int)PLAYERBOT_SHOUTER_LEVEL - 1;
 		char query[1600];
 		snprintf(query, sizeof(query),
 				"SELECT p.id, IFNULL(a.login,''), IFNULL(pi.empire,0) FROM player.player AS p "
@@ -237,7 +387,7 @@ namespace
 		std::unique_ptr<SQLMsg> taken(AccountDB::instance().DirectQuery(query));
 		if (!taken.get() || taken->uiSQLErrno != 0 || !taken->Get() || !taken->Get()->pSQLResult)
 		{
-			sys_err("PLAYERBOT_SHOUTER: cannot look the name %s up", name);
+			sys_err("%s: cannot look the name %s up", tag, name);
 			return 0;
 		}
 		DWORD pid = 0;
@@ -249,20 +399,30 @@ namespace
 			if (row[2]) str_to_number(ownerEmpire, row[2]);
 			const bool bot = row[1] && strncmp(row[1], "playerbot_", 10) == 0;
 			// Ours already - a row lost after the rename - is taken back; anybody
-			// else's name is theirs.
-			if (!bot || ownerEmpire != empire || !CPlayerBotManager::instance().IsRegisteredBotPID(owner) ||
-					IsPlayerBotSidekickPID(owner))
+			// else's name is theirs. MT2009_PLUS_MEDAL_SHOUTERS_V1: one of
+			// Tieru's names on any other bot is given up by it.
+			const bool ordinary = bot && !IsPlayerBotSidekickPID(owner) && !IsPlayerBotShouterPID(owner) &&
+					!IsPlayerBotMedalShouterPID(owner);
+			if (ordinary && ownerEmpire == empire && CPlayerBotManager::instance().IsRegisteredBotPID(owner))
 			{
-				sys_err("PLAYERBOT_SHOUTER: the name %s is taken by pid=%u login=%s empire=%u - "
+				pid = owner;
+				sys_log(0, "%s: empire=%u name=%s already worn by bot pid=%u, taken back",
+						tag, (unsigned int)empire, name, pid);
+			}
+			else if (bMedal && ordinary)
+			{
+				if (!MovePlayerBotOffShouterName(owner, name, tag))
+					return 0;
+			}
+			else
+			{
+				sys_err("%s: the name %s is taken by pid=%u login=%s empire=%u - "
 						"kingdom %u gets no shouter (rename that character or change the name)",
-						name, owner, row[1] ? row[1] : "", ownerEmpire, (unsigned int)empire);
+						tag, name, owner, row[1] ? row[1] : "", ownerEmpire, (unsigned int)empire);
 				return 0;
 			}
-			pid = owner;
-			sys_log(0, "PLAYERBOT_SHOUTER: empire=%u name=%s already worn by bot pid=%u, taken back",
-					(unsigned int)empire, name, pid);
 		}
-		else
+		if (pid == 0)
 		{
 			snprintf(query, sizeof(query),
 					"SELECT l.pid FROM common.playerbot_seed_state AS l "
@@ -275,11 +435,11 @@ namespace
 					"AND pi.empire=%u AND p.level<=%u "
 					"AND (p.playtime = 0 OR p.last_play < NOW() - INTERVAL %d MINUTE) "
 					"ORDER BY (p.playtime > 0), l.pid DESC LIMIT 200",
-					(unsigned int)empire, (unsigned int)PLAYERBOT_SHOUTER_LEVEL - 1, PLAYERBOT_SHOUTER_IDLE_MINUTES);
+					(unsigned int)empire, maxLevel, PLAYERBOT_SHOUTER_IDLE_MINUTES);
 			std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
 			if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
 			{
-				sys_err("PLAYERBOT_SHOUTER: identity query failed errno=%u", msg.get() ? msg->uiSQLErrno : 0U);
+				sys_err("%s: identity query failed errno=%u", tag, msg.get() ? msg->uiSQLErrno : 0U);
 				return 0;
 			}
 			MYSQL_ROW pick;
@@ -292,7 +452,7 @@ namespace
 				if (candidate == 0 || !mgr.IsRegistered(candidate) || mgr.GetRegisteredEmpire(candidate) != empire ||
 						mgr.IsManaged(candidate) || mgr.IsScheduledBot(candidate) ||
 						mgr.IsMedalDropperCohortPID(candidate) || IsPlayerBotSidekickPID(candidate) ||
-						IsPlayerBotShouterPID(candidate) ||
+						IsPlayerBotShouterPID(candidate) || IsPlayerBotMedalShouterPID(candidate) ||
 						CHARACTER_MANAGER::instance().FindByPID(candidate) || P2P_MANAGER::instance().FindByPID(candidate))
 					continue;
 				pid = candidate;
@@ -300,7 +460,7 @@ namespace
 			}
 			if (pid == 0)
 			{
-				sys_err("PLAYERBOT_SHOUTER: no free identity in kingdom %u for %s", (unsigned int)empire, name);
+				sys_err("%s: no free identity in kingdom %u for %s", tag, (unsigned int)empire, name);
 				return 0;
 			}
 			// The seed's name stays in the name history as this identity's own,
@@ -314,22 +474,22 @@ namespace
 			std::unique_ptr<SQLMsg> rename(AccountDB::instance().DirectQuery(query));
 			if (!rename.get() || rename->uiSQLErrno != 0)
 			{
-				sys_err("PLAYERBOT_SHOUTER: cannot rename pid=%u to %s errno=%u", pid, name,
+				sys_err("%s: cannot rename pid=%u to %s errno=%u", tag, pid, name,
 						rename.get() ? rename->uiSQLErrno : 0U);
 				return 0;
 			}
 		}
 		snprintf(query, sizeof(query),
 				"INSERT INTO player.playerbot_shouter (empire, pid, name, created_at) VALUES (%u, %u, '%s', NOW()) "
-				"ON DUPLICATE KEY UPDATE pid=VALUES(pid), name=VALUES(name)", (unsigned int)empire, pid, name);
+				"ON DUPLICATE KEY UPDATE pid=VALUES(pid), name=VALUES(name)", slot, pid, name);
 		std::unique_ptr<SQLMsg> insert(AccountDB::instance().DirectQuery(query));
 		if (!insert.get() || insert->uiSQLErrno != 0)
 		{
-			sys_err("PLAYERBOT_SHOUTER: cannot record the shouter of kingdom %u errno=%u", (unsigned int)empire,
+			sys_err("%s: cannot record the shouter of kingdom %u errno=%u", tag, (unsigned int)empire,
 					insert.get() ? insert->uiSQLErrno : 0U);
 			return 0;
 		}
-		sys_log(0, "PLAYERBOT_SHOUTER: created empire=%u pid=%u name=%s", (unsigned int)empire, pid, name);
+		sys_log(0, "%s: created empire=%u pid=%u name=%s", tag, (unsigned int)empire, pid, name);
 		return pid;
 	}
 
@@ -346,9 +506,14 @@ namespace
 			s_iPlayerBotShoutersSwitchSeen = enabled ? 1 : 0;
 		}
 		CPlayerBotManager& mgr = CPlayerBotManager::instance();
-		for (BYTE empire = 1; empire <= 3; ++empire)
+		// MT2009_PLUS_MEDAL_SHOUTERS_V1: apka2009's three, then Tieru's.
+		for (int i = 0; i < 6; ++i)
 		{
-			TPlayerBotShouter& s = s_aPlayerBotShouters[empire];
+			const bool medal = i >= 3;
+			const BYTE empire = (BYTE)(i % 3 + 1);
+			TPlayerBotShouter& s = medal ? s_aPlayerBotMedalShouters[empire] : s_aPlayerBotShouters[empire];
+			const char* name = medal ? PLAYERBOT_MEDAL_SHOUTER_NAMES[empire] : PLAYERBOT_SHOUTER_NAMES[empire];
+			const char* tag = medal ? "PLAYERBOT_MEDAL_SHOUTER" : "PLAYERBOT_SHOUTER";
 			const long village = playerbot_empire_rules::GetHomeMap(empire, playerbot_empire_rules::MAP_ROLE_M1);
 			s.bHere = g_bChannel == 1 && village != 0 && map_allow_find(village);
 			if (!s.bHere)
@@ -357,7 +522,7 @@ namespace
 			{
 				if (s.pid != 0 && mgr.IsManaged(s.pid))
 				{
-					sys_log(0, "PLAYERBOT_SHOUTER: switched off, logging out pid=%u empire=%u", s.pid, (unsigned int)empire);
+					sys_log(0, "%s: switched off, logging out pid=%u empire=%u", tag, s.pid, (unsigned int)empire);
 					mgr.Despawn(s.pid);
 				}
 				s.bArmed = false;
@@ -372,11 +537,15 @@ namespace
 				// Another core, or an earlier start, may have written it.
 				LoadPlayerBotShouters(dwNow);
 				if (s.pid == 0)
-					s.pid = CreatePlayerBotShouter(empire);
+					s.pid = CreatePlayerBotShouter(empire, medal);
 				if (s.pid == 0)
 					continue;
 			}
 			if (mgr.IsManaged(s.pid) || CHARACTER_MANAGER::instance().FindByPID(s.pid))
+				continue;
+			// A medal dropper walks to its kingdom's Monkey Dungeon, which may
+			// be another core's map: there it is still in the world.
+			if (medal && P2P_MANAGER::instance().FindByPID(s.pid))
 				continue;
 			if (s.dwNextSpawnTry != 0 && (int)(dwNow - s.dwNextSpawnTry) < 0)
 				continue;
@@ -388,16 +557,20 @@ namespace
 			s.bAtPost = false;
 			s.bPost = false;
 			const bool asked = mgr.Spawn(s.pid, empire);
-			sys_log(0, "PLAYERBOT_SHOUTER: spawn pid=%u empire=%u name=%s %s", s.pid, (unsigned int)empire,
-					PLAYERBOT_SHOUTER_NAMES[empire], asked ? "requested" : "refused");
+			sys_log(0, "%s: spawn pid=%u empire=%u name=%s %s", tag, s.pid, (unsigned int)empire,
+					name, asked ? "requested" : "refused");
 		}
 	}
 
 	// Its line, when the channel has carried enough since the last one.
-	void ManagePlayerBotShouterLine(LPCHARACTER ch, TPlayerBotShouter& s, DWORD dwNow)
+	// MT2009_PLUS_MEDAL_SHOUTERS_V1: from its own list - apka2009's or
+	// Tieru's (bMedal).
+	void ManagePlayerBotShouterLine(LPCHARACTER ch, TPlayerBotShouter& s, DWORD dwNow, bool bMedal = false)
 	{
 		const BYTE empire = ch->GetEmpire();
-		if (empire < 1 || empire > 3 || PLAYERBOT_SHOUTER_LINE_COUNT <= 0)
+		const char* const* lines = bMedal ? PLAYERBOT_MEDAL_SHOUTER_LINES : PLAYERBOT_SHOUTER_LINES;
+		const int count = bMedal ? PLAYERBOT_MEDAL_SHOUTER_LINE_COUNT : PLAYERBOT_SHOUTER_LINE_COUNT;
+		if (empire < 1 || empire > 3 || count <= 0)
 			return;
 		if (!s.bArmed)
 		{
@@ -413,19 +586,20 @@ namespace
 		if ((int)(s_auPlayerBotShoutsSeen[empire] - s.uSeenAtLine) < s.iEvery ||
 				dwNow - s.dwLastLine < PLAYERBOT_SHOUTER_MIN_GAP_MS)
 			return;
-		int pick = number(0, PLAYERBOT_SHOUTER_LINE_COUNT - 1);
-		if (PLAYERBOT_SHOUTER_LINE_COUNT > 1 && pick == s.iLastLine)
-			pick = (pick + number(1, PLAYERBOT_SHOUTER_LINE_COUNT - 1)) % PLAYERBOT_SHOUTER_LINE_COUNT;
+		int pick = number(0, count - 1);
+		if (count > 1 && pick == s.iLastLine)
+			pick = (pick + number(1, count - 1)) % count;
 		char text[CHAT_MAX_LEN + 1];
-		ConvertPlayerBotShouterText(PLAYERBOT_SHOUTER_LINES[pick], text, sizeof(text));
+		ConvertPlayerBotShouterText(lines[pick], text, sizeof(text));
 		char msg[CHAT_MAX_LEN + 1];
 		snprintf(msg, sizeof(msg), "%s : %s", ch->GetName(), text);
 		const unsigned int seen = s_auPlayerBotShoutsSeen[empire] - s.uSeenAtLine;
 		SendPlayerBotShout(msg, empire);
 		++s.uLines;
-		sys_log(0, "PLAYERBOT_SHOUTER: shout pid=%u name=%s empire=%u line=%d after=%u/%d gap=%us total=%u text=\"%s\"",
+		sys_log(0, "%s: shout pid=%u name=%s empire=%u line=%d after=%u/%d gap=%us total=%u text=\"%s\"",
+				bMedal ? "PLAYERBOT_MEDAL_SHOUTER" : "PLAYERBOT_SHOUTER",
 				ch->GetPlayerID(), ch->GetName(), (unsigned int)empire, pick, seen, s.iEvery,
-				(unsigned int)((dwNow - s.dwLastLine) / 1000U), s.uLines, PLAYERBOT_SHOUTER_LINES[pick]);
+				(unsigned int)((dwNow - s.dwLastLine) / 1000U), s.uLines, lines[pick]);
 		s.iLastLine = pick;
 		s.dwLastLine = dwNow;
 		s.uSeenAtLine = s_auPlayerBotShoutsSeen[empire];
@@ -467,6 +641,15 @@ namespace
 	{
 		if (!ch || ch->IsDead())
 			return false;
+		// MT2009_PLUS_MEDAL_SHOUTERS_V1: Tieru's kind plays as the medal
+		// dropper it is - the tick goes on - and shouts from apka2009's level
+		// on, wherever it is.
+		if (TPlayerBotShouter* medal = GetPlayerBotMedalShouter(ch->GetPlayerID()))
+		{
+			if (ch->GetLevel() >= PLAYERBOT_SHOUTER_LEVEL)
+				ManagePlayerBotShouterLine(ch, *medal, dwNow, true);
+			return false;
+		}
 		TPlayerBotShouter* s = GetPlayerBotShouter(ch->GetPlayerID());
 		if (!s || ch->GetLevel() < PLAYERBOT_SHOUTER_LEVEL)
 			return false;

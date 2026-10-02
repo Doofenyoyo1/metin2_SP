@@ -1050,6 +1050,10 @@ namespace
 		if (huntM2Bestials && candidate->IsMonster() &&
 				(candidate->GetRaceNum() == 533 || candidate->GetRaceNum() == 534))
 			context.activeEquipmentTarget = true;
+		// MT2009_PLUS_L30_WEAPON_DROPPER_V1: the island dropper's Bestial.
+		if (candidate->IsMonster() && IsPlayerBotL30DropperRace((int)ch->GetEmpire(), candidate->GetRaceNum()) &&
+				ch->GetMapIndex() == PLAYERBOT_MAP_ORC_VALLEY && IsPlayerBotL30DropperAtWork(ch))
+			context.activeEquipmentTarget = true;
 
 		// The engine's own level table, read with the engine's own argument
 		// order: PERCENT_LVDELTA(me, victim) in constants.h, 1 at fifteen levels
@@ -1220,6 +1224,8 @@ namespace
 				m_dwNow(dwNow),
 				m_huntM2Bestials(owner && IsPlayerBotM2Map(owner->GetMapIndex()) &&
 						ShouldPlayerBotHuntM2Bestials(owner)),
+				m_huntL30Orcs(owner && owner->GetMapIndex() == PLAYERBOT_MAP_ORC_VALLEY &&
+						IsPlayerBotL30DropperAtWork(owner)),
 				m_pWantedDrops(NULL),
 				m_pState(NULL),
 				m_iMonstersNear(0),
@@ -1323,9 +1329,12 @@ namespace
 				const bool isQuestTarget = (candidate->IsMonster() &&
 						IsPlayerBotBiologistHuntRace(m_desiredMobVnum, candidate->GetRaceNum())) ||
 						IsPlayerBotHorseTrialTarget(m_owner, candidate);
+				// MT2009_PLUS_L30_WEAPON_DROPPER_V1: the island dropper's Bestial is
+				// its weapon target the way the Bestials are the M2 dropper's.
 				const bool isBestialWeaponTarget = candidate->IsMonster() &&
-						m_huntM2Bestials &&
-						(candidate->GetRaceNum() == 533 || candidate->GetRaceNum() == 534);
+						((m_huntM2Bestials &&
+						  (candidate->GetRaceNum() == 533 || candidate->GetRaceNum() == 534)) ||
+						 (m_huntL30Orcs && IsPlayerBotL30DropperRace((int)m_owner->GetEmpire(), candidate->GetRaceNum())));
 
 				// Is this monster worth fighting at all?
 				//
@@ -1504,6 +1513,7 @@ namespace
 			const std::map<DWORD, DWORD>& m_failedTargets;
 			DWORD m_dwNow;
 			bool m_huntM2Bestials;
+			bool m_huntL30Orcs; // MT2009_PLUS_L30_WEAPON_DROPPER_V1
 			const std::set<DWORD>* m_pWantedDrops;
 			// The bot's own state, for the combat value policy: whether it is
 			// retreating, whether an errand is actually under way, and the
@@ -1767,6 +1777,10 @@ namespace
 			partyChallengeMaxLevel = partyStrength.iChallengeMaxLevel;
 			maxLevel = std::max(maxLevel, partyChallengeMaxLevel);
 		}
+		// MT2009_PLUS_L30_WEAPON_DROPPER_V1: the island dropper's Bestial
+		// stands fourteen to nineteen levels over it.
+		if (!bRecentDeath && ch->GetMapIndex() == PLAYERBOT_MAP_ORC_VALLEY && IsPlayerBotL30DropperAtWork(ch))
+			maxLevel = std::max(maxLevel, PLAYERBOT_L30_DROPPER_MAX_TARGET_LEVEL);
 		if (bRecentDeath)
 		{
 			maxLevel = std::max(1, ch->GetLevel() - 1);

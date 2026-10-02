@@ -79,17 +79,21 @@ namespace playerbot_progression
 	};
 
 	// Today's built-in values (playerbot_types.h, playerbot_travel.h).
+	// MT2009_PLUS_PROGRESSION_V2: the owner's upper limits of 1 October - the
+	// first Spider Dungeon and the Hwang Temple to 61, the second Spider
+	// Dungeon to 78, the Forest to 72; a bot past one draws higher ground
+	// (PlayerBotMapUnderCeiling, playerbot_travel.h).
 	const TMapRowDef MAP_DEFAULTS[MAP_ROW_COUNT] = {
 		{ "m2",          20, 35, true,  15 },
 		{ "islands",     30, 35, true,  25 },
 		{ "orc_valley",  36, 55, true,  30 },
 		{ "desert",      30, 47, true,  25 },
 		{ "sohan",       48, 75, false, 40 },
-		{ "spider1",     48, 255, false, 42 },
-		{ "hwang",       52, 255, false, 45 },
-		{ "spider2",     54, 255, false, 48 },
+		{ "spider1",     48, 61, true,  42 },
+		{ "hwang",       52, 61, true,  45 },
+		{ "spider2",     54, 78, true,  48 },
 		{ "demon_tower", 57, 255, false, 50 },
-		{ "forest",      62, 255, false, 55 },
+		{ "forest",      62, 72, true,  55 },
 		{ "fire_land",   66, 80, true,  60 },
 		{ "red_forest",  71, 255, false, 65 },
 		{ "grotto1",     78, 255, false, 72 },
@@ -236,16 +240,25 @@ namespace playerbot_progression
 	inline void AddDefaultGates(std::vector<TGate>& gates)
 	{
 		gates.clear();
+		// MT2009_PLUS_PROGRESSION_V2: the owner's gates of 1 October. Two or
+		// more rows of one piece at one gate are alternatives - any one of
+		// them met is the piece met (MeetsAlternative).
 		// 35: the owner's own example - a battle horse and fifty Metins - and
 		// the gear the Law of Advancement asked of a Grinder leaving its tier
 		// below 35 (weapon +7, armour +6), for a piece no more than twenty
 		// levels under the gate (the law's window).
 		TGate g35;
 		g35.level = 35;
+		// V2: a weapon of 15 at +7, or of 16-29 at +6, or of 30 at +4; an
+		// armour of 16 or more at +6; thirty Metins, was fifty.
 		g35.reqs.push_back(TReq(REQ_WEAPON, 15, 7));
-		g35.reqs.push_back(TReq(REQ_ARMOUR, 15, 6));
-		g35.reqs.push_back(TReq(REQ_HORSE, 11, 0));
-		g35.reqs.push_back(TReq(REQ_METINS, 50, 0));
+		g35.reqs.push_back(TReq(REQ_WEAPON, 16, 6));
+		g35.reqs.push_back(TReq(REQ_WEAPON, 30, 4));
+		g35.reqs.push_back(TReq(REQ_ARMOUR, 16, 6));
+		// MT2009_PLUS_PROGRESSION_V3: a war horse of level 5 (was 11) and ten
+		// Metins (was thirty) - the owner's 2 October.
+		g35.reqs.push_back(TReq(REQ_HORSE, 5, 0));
+		g35.reqs.push_back(TReq(REQ_METINS, 10, 0));
 		gates.push_back(g35);
 		// 45: the owner's example - the Orc Teeth handed in, two skills at M4
 		// (24), 2000 HP from items - and the law's window again (a level-25
@@ -253,21 +266,23 @@ namespace playerbot_progression
 		// an armour of the 26 family at +6.
 		TGate g45;
 		g45.level = 45;
+		// V2: a weapon of 25 at +7 or of 30 at +6, two skills at M4 and a
+		// battle horse past 11; the 2000 HP and the Orc Teeth are gone.
 		g45.reqs.push_back(TReq(REQ_WEAPON, 25, 7));
+		g45.reqs.push_back(TReq(REQ_WEAPON, 30, 6));
 		g45.reqs.push_back(TReq(REQ_ARMOUR, 26, 6));
-		g45.reqs.push_back(TReq(REQ_HP, 2000, 0));
 		g45.reqs.push_back(TReq(REQ_SKILLS, 2, 24));
-		g45.reqs.push_back(TReq(REQ_ORC_TEETH, 1, 0));
+		g45.reqs.push_back(TReq(REQ_HORSE, 12, 0));
 		gates.push_back(g45);
 		// 55: the law's hard row (weapon +8, shield and helmet +6) for the
 		// frontier past the valley.
 		TGate g55;
 		g55.level = 55;
-		g55.reqs.push_back(TReq(REQ_WEAPON, 30, 8));
+		// V2: the weapon at +7, was +8; the 2500 HP are gone.
+		g55.reqs.push_back(TReq(REQ_WEAPON, 30, 7));
 		g55.reqs.push_back(TReq(REQ_ARMOUR, 34, 6));
 		g55.reqs.push_back(TReq(REQ_HELMET, 0, 6));
 		g55.reqs.push_back(TReq(REQ_SHIELD, 0, 6));
-		g55.reqs.push_back(TReq(REQ_HP, 2500, 0));
 		g55.reqs.push_back(TReq(REQ_SKILLS, 3, 24));
 		gates.push_back(g55);
 	}
@@ -277,8 +292,10 @@ namespace playerbot_progression
 		static const TLaw rows[] = {
 			{ 0, 5, 4, 0, 0 },
 			{ 19, 6, 5, 4, 0 },
-			{ 26, 7, 5, 5, 0 },
-			{ 35, 8, 6, 6, 6 },
+			// MT2009_PLUS_PROGRESSION_V2: the weapon one plus lower from 26
+			// (+6) and from 35 (+7).
+			{ 26, 6, 5, 5, 0 },
+			{ 35, 7, 6, 6, 6 },
 		};
 		c.lawCount = sizeof(rows) / sizeof(rows[0]);
 		for (unsigned int i = 0; i < c.lawCount; ++i)
@@ -658,6 +675,37 @@ namespace playerbot_progression
 		if (!ok)
 			why = buf;
 		return ok;
+	}
+
+	// MT2009_PLUS_PROGRESSION_V2: another enabled row of the same piece at the
+	// same gate that is met - the gate's rows of one piece are alternatives.
+	inline bool MeetsAlternative(const TGate& g, size_t index, const TSnapshot& s)
+	{
+		const TReq& r = g.reqs[index];
+		if (r.type > REQ_EARRINGS)
+			return false;
+		for (size_t i = 0; i < g.reqs.size(); ++i)
+		{
+			if (i == index || !g.reqs[i].on || g.reqs[i].type != r.type)
+				continue;
+			std::string unused;
+			if (Meets(g.reqs[i], s, 0, unused))
+				return true;
+		}
+		return false;
+	}
+
+	// Of the rows of one piece, the first enabled one speaks for the rest when
+	// none is met: one line in the log, not three.
+	inline bool IsFirstOfPiece(const TGate& g, size_t index)
+	{
+		const TReq& r = g.reqs[index];
+		if (r.type > REQ_EARRINGS)
+			return true;
+		for (size_t i = 0; i < index; ++i)
+			if (g.reqs[i].on && g.reqs[i].type == r.type)
+				return false;
+		return true;
 	}
 
 	// The gate that holds a bot of this level, or NULL: the lowest gate at or

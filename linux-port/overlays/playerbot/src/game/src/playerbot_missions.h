@@ -668,6 +668,13 @@ namespace
 	// 16 September, "nie przechodza przez teleporty").
 	bool PlayerBotHuntsVillageHerbs(LPCHARACTER ch)
 	{
+		// MT2009_PLUS_PROGRESSION_V3: a bot a gate holds while it works on what
+		// the gate asks does not stand in the first village for a herb row: 831
+		// bots held at thirty-five stood in M1 on the Tue Mushroom's monsters
+		// (m1 hold, herbs=1) with no Metin and no horse (fresh test world, 2
+		// October). The row waits for the gate.
+		if (ch && GetPlayerBotProgressionFarmGoal(ch, get_dword_time()) != PLAYERBOT_PROGRESS_FARM_NONE)
+			return false;
 		const DWORD mob = GetPlayerBotBiologistHuntMob(ch);
 		return mob != 0 && mob < 500;
 	}

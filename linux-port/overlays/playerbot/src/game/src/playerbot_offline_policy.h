@@ -115,6 +115,14 @@ struct State {
     // walk is for, which becomes the buyer's pick on arrival.
     uint32_t farBrowseOwner = 0, farBrowseItem = 0;
     uint32_t farPickOwner = 0, farPickItem = 0;
+    // MT2009_PLUS_BOT_HAGGLE_V2: the pick is a line the bot haggled for, at
+    // the price agreed: the purchase honours the deal (gold and room only).
+    uint32_t haggleItem = 0;
+    // MT2009_PLUS_HORSE_ECONOMY_V2: the far pick is a sink good (a horse
+    // medal, Materialy Rzemieslnicze, a Cor, a sash), which the walk over
+    // makes for a bot of the frontier and on its horse errand too.
+    bool farPickSink = false;
+    long long hagglePrice = 0;
     // The buyer's pick is the one a walk over was made for, from the hand-over
     // to the purchase or the moment it is given up, which says why.
     bool farBuy = false;

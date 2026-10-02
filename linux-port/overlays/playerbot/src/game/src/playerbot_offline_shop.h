@@ -291,6 +291,8 @@ namespace {
     }
     bool BotOfflineValid(LPCHARACTER ch, LPITEM item, int cell) {
         if (!item || item->GetOwner() != ch || item->IsEquipped() || item->isLocked()) return false;
+        // MT2009_PLUS_BOT_SHAMAN_INT_SET_V1: never a piece of the Shaman's INT set.
+        if (IsPlayerBotBuffSetPiece(ch, item)) return false;
 #ifdef ENABLE_SOULBIND_SYSTEM
         if (item->IsSealed()) return false;
 #endif
@@ -783,6 +785,37 @@ namespace {
 				M2_DELETE(preview);
 				continue;
 			}
+            // MT2009_PLUS_MARKET_V3, point 8: Siano is never a line. What stood on
+            // a counter comes home, a line a visit, and the General Store buys it
+            // (IsPlayerBotJunkItem) or changes it for potions (ExchangePlayerBotHay).
+            if (preview->GetVnum() == PLAYERBOT_HAY_VNUM &&
+                    GetPlayerBotItemPolicy(preview) != PLAYERBOT_ITEM_POLICY_STALL) {
+                if (!unwanted) { unwanted = id; reason = "hay"; }
+                M2_DELETE(preview);
+                continue;
+            }
+            // MT2009_PLUS_SADDLEBAG_MARKET_V1: a line of materials bigger than
+            // PLAYERBOT_CRAFT_MATERIAL_LINE_UNITS (the stacks of two hundred of
+            // older releases) comes home, a line a visit, to go up again cut.
+            // MT2009_PLUS_MARKET_SINK_V1: a Cor line over PLAYERBOT_COR_LINE_MAX_UNITS too.
+            if (((preview->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED &&
+                    (int)preview->GetCount() > PLAYERBOT_CRAFT_MATERIAL_LINE_UNITS) ||
+                    (IsPlayerBotCorVnum(preview->GetVnum()) && (int)preview->GetCount() > PLAYERBOT_COR_LINE_MAX_UNITS)) &&
+                    GetPlayerBotItemPolicy(preview) != PLAYERBOT_ITEM_POLICY_STALL) {
+                if (!unwanted) { unwanted = id; reason = "craft_material_stack"; }
+                M2_DELETE(preview);
+                continue;
+            }
+            // MT2009_PLUS_BOT_HAIR_V1: a hairstyle on the counter that is not
+            // the keeper's own replaced one comes home, a line a visit, and the
+            // merchant throws it away (IsPlayerBotUnwantedHair).
+            if (preview->GetType() == ITEM_COSTUME && preview->GetSubType() == COSTUME_HAIR &&
+                    (!ch || !IsPlayerBotReplacedHair(ch, preview)) &&
+                    GetPlayerBotItemPolicy(preview) != PLAYERBOT_ITEM_POLICY_STALL) {
+                if (!unwanted) { unwanted = id; reason = "hairstyle"; }
+                M2_DELETE(preview);
+                continue;
+            }
             // An ordinary or brilliant Dragon Stone comes home, one a visit:
             // those are material now, never goods (IsPlayerBotSurplusDragonSoul).
             if (preview->IsDragonSoul() && (preview->GetVnum() / 1000) % 10 < 2) {
@@ -1269,6 +1302,20 @@ namespace {
         }
         if (item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM &&
                 BotOfflineLinesOf(shop, item->GetVnum()) >= PLAYERBOT_CHEST_COUNTER_LINES) return true;
+        // MT2009_PLUS_BOT_LIST_HELM_SHIELD_V1: a few helmet and shield lines.
+        if (IsPlayerBotListedHelmShield(item) && shop) {
+            int helmShieldLines = 0;
+            for (const auto& [lid, l] : shop->GetItems())
+                if (l && IsPlayerBotListedHelmShieldProto(l->GetTable(), l->GetInfo().vnum))
+                    ++helmShieldLines;
+            if (helmShieldLines >= PLAYERBOT_HELM_SHIELD_COUNTER_LINES) return true;
+        }
+        // MT2009_PLUS_SADDLEBAG_MARKET_V1: a few lines of materials a counter.
+        if (item->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED &&
+                BotOfflineLinesOf(shop, item->GetVnum()) >= PLAYERBOT_CRAFT_MATERIAL_COUNTER_LINES) return true;
+        // MT2009_PLUS_MARKET_SINK_V1: and of Cors.
+        if (IsPlayerBotCorVnum(item->GetVnum()) &&
+                BotOfflineLinesOf(shop, item->GetVnum()) >= PLAYERBOT_COR_COUNTER_LINES) return true;
         // Nor a refine material past the materials' share of the counter
         // (PLAYERBOT_OFFLINE_MATERIAL_LINES_MAX, three fifths of its cells).
         if (IsPlayerBotTradeableMaterial(item) && !IsPlayerBotSafeRefineScroll(item->GetVnum()) &&
@@ -1345,6 +1392,26 @@ namespace {
             TPlayerBotLineCut* out; TPlayerBotLineCut* note;
             ~TCutOut() { if (out) *out = *note; }
         } cutGuard = { cutOut, &cutNote };
+        // MT2009_PLUS_SADDLEBAG_MARKET_V1: Materialy Rzemieslnicze go up
+        // PLAYERBOT_CRAFT_MATERIAL_LINE_UNITS at most a line, never the
+        // saddlebag rows' own (IsPlayerBotKeptCraftMaterial: the pieces the
+        // listing rule lets go are the stack's last).
+        // MT2009_PLUS_MARKET_SINK_V1: and a Cor Draconis PLAYERBOT_COR_LINE_MAX_UNITS.
+        if (item->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED || IsPlayerBotCorVnum(item->GetVnum())) {
+            const int take = std::min<int>(item->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED
+                    ? PLAYERBOT_CRAFT_MATERIAL_LINE_UNITS : PLAYERBOT_COR_LINE_MAX_UNITS, (int)item->GetCount());
+            cutNote.shape = per::SHAPE_NATURAL_LINE;
+            cutNote.keep = 0;
+            if (take <= 0) return -1;
+            if (take >= (int)item->GetCount()) { cutNote.from = 0; return cell; }
+            if (CountPlayerBotFreeInventoryCells(ch) <= PLAYERBOT_SHOP_SPLIT_KEEP_FREE_CELLS) return -1;
+            const int to = ch->GetEmptyInventory(item->GetSize());
+            if (to < 0 || !ch->MoveItem(TItemPos(INVENTORY, cell), TItemPos(INVENTORY, (WORD)to), take))
+                return -1;
+            sys_log(0, "PLAYERBOT_OFFLINE: cut a line pid=%u name=%s vnum=%u units=%d left=%u capped_line=1",
+                ch->GetPlayerID(), ch->GetName(), item->GetVnum(), take, (unsigned int)item->GetCount());
+            return to;
+        }
         // Iwakura's Patch 3, point 5: a green or purple potion goes up as the
         // largest pack of 20, 50, 100 or 200 that the spare over the bot's own
         // keep fills out of this stack; the merge pass pours the small stacks
@@ -1594,6 +1661,11 @@ namespace {
         const bool medalLines = BotOfflineWantsMedalLines(ch, state);
         if (medalLines && !o.visiting && o.nextService > now + 40000)
             o.nextService = now + 30000 + PlayerBotNavHash(ch->GetPlayerID() ^ 0x4d45444cU) % 10000;
+        // MT2009_PLUS_L30_WEAPON_DROPPER_V1: nor the island's dropper back in
+        // town with a level-30 weapon - it came for the counter.
+        if (!o.visiting && o.nextService > now + 40000 && IsPlayerBotL30DropperAtWork(ch) &&
+                IsPlayerBotVillageMap(ch->GetMapIndex()) && CountPlayerBotL30DropperGoods(ch) > 0)
+            o.nextService = now + 30000 + PlayerBotNavHash(ch->GetPlayerID() ^ 0x4c333044U) % 10000;
         const char* busy = BotOfflineBusyReason(ch, state);
         if (busy || !db_clientdesc || !db_clientdesc->IsPhase(PHASE_DBCLIENT)) {
             if (o.visiting) BotOfflineInterruptVisit(ch, state, now, busy ? busy : "db");
@@ -2169,91 +2241,114 @@ namespace {
             if (o.repriceSteps == 0) o.repriceSteps = PLAYERBOT_OFFLINE_REPRICE_SLICE;
             // Rotate by ID, one existing offer per visit; recompute from market
             // policy, not a repeated percentage markdown tending towards zero.
+            // MT2009_PLUS_MARKET_V3: one edit a step, but up to
+            // PLAYERBOT_MARKET_V3_REPRICE_LOOK_AHEAD lines looked at for it - a
+            // line whose price moved by less than
+            // PLAYERBOT_MARKET_V3_REPRICE_DEADBAND_PERCENT (and asks no less than
+            // its floor) is passed over without an edit, so the half-hourly
+            // reprice spends the core's mutations on what the market moved.
             auto it = shop->GetItems().upper_bound(o.repriceItem);
             bool wrapped = (it == shop->GetItems().end());
             if (wrapped) it = shop->GetItems().begin();
-            if (it != shop->GetItems().end() && it->second) {
+            for (int look = 0; look < PLAYERBOT_MARKET_V3_REPRICE_LOOK_AHEAD &&
+                    it != shop->GetItems().end(); ++look) {
+                bool edited = false;
                 o.repriceItem = it->first;
-                auto preview = BotOfflinePreview(*it->second);
-                if (preview) {
-                    // The keeper's own spread, as when the line went up.
-                    TPlayerBotPricingKeeper pricing(ch->GetPlayerID());
-                    ikashop::TPriceInfo price{};
-                    // A line nobody has bought comes down a step for every
-                    // PLAYERBOT_OFFLINE_UNSOLD_STEP_MS it has stood - ten percent
-                    // every three hours to forty since Iwakura's answer of 28
-                    // September - to the ceiling the classic stall's markdown has
-                    // and never under what the blacksmith was paid (16
-                    // September), nor under what a Moonlight chest holds or a
-                    // bonus item is worth (GetPlayerBotListingFloor, blipu, 28
-                    // September). A line not marked down asks its kind's markup
-                    // instead, never both (GetPlayerBotListingPrice). The clock is
-                    // the listing's own (o.listed); a line from before this core
-                    // started is clocked from the first visit that sees it.
-                    auto listed = o.listed.find(it->first);
-                    if (listed == o.listed.end())
-                        listed = o.listed.emplace(it->first, playerbot_offline::ListedLine{
-                                preview->GetVnum(),
-                                preview->GetType() == ITEM_SKILLBOOK ? (uint32_t)preview->GetSocket(0) : 0u,
-                                now, (uint8_t)preview->GetRefineLevel() }).first;
-                    // Unknown age after restart is not the process uptime.
-                    if (listed->second.when == 0 && listed->second.observedSince == 0)
-                        listed->second.observedSince = now;
-                    const uint32_t since = listed->second.when ? listed->second.when : listed->second.observedSince;
-                    const uint32_t standing = now - since;
-                    int discount = playerbot_price_rules::UnsoldMarkdownPercent(standing,
-                            PLAYERBOT_OFFLINE_UNSOLD_STEP_MS, PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT,
-                            PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL);
-                    // Materialy Rzemieslnicze, Cor Draconis, the Dragon Stones and
-                    // the sashes keep the operator's prices: no markdown, no markup.
-                    const bool operatorPriced = preview->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED ||
-                            IsPlayerBotCorVnum(preview->GetVnum()) || preview->IsDragonSoul() ||
-                            (preview->GetType() == ITEM_COSTUME && IsPlayerBotSashVnum(preview->GetVnum()));
-                    if (operatorPriced)
-                        discount = 0;
-                    int markup = 0;
-                    // The reprice traced step by step for the line's explanation.
-                    TPlayerBotPriceTraceScope priceTrace;
-                    const long long askingNow = (long long)GetPlayerBotShopAskingPrice(preview);
-                    if (priceTrace.On() && !operatorPriced) {
-                        // The generation the counter was priced under, and the
-                        // clock of the markdown - said at the price they leave.
-                        priceTrace.Step(per::STEP_GENERATION, askingNow,
-                                o.priceGeneration != GetPlayerBotPriceGeneration() ? 1 : 0);
-                        priceTrace.Step(per::STEP_MARKDOWN_CLOCK, askingNow, standing / 60000U, per::CLOCK_MINUTES,
-                                listed->second.when == 0 ? 1 : 0);
+                if (it->second) {
+                    auto preview = BotOfflinePreview(*it->second);
+                    if (preview) {
+                        // The keeper's own spread, as when the line went up.
+                        TPlayerBotPricingKeeper pricing(ch->GetPlayerID());
+                        ikashop::TPriceInfo price{};
+                        // A line nobody has bought comes down a step for every
+                        // PLAYERBOT_OFFLINE_UNSOLD_STEP_MS it has stood - ten percent
+                        // every three hours to forty since Iwakura's answer of 28
+                        // September - to the ceiling the classic stall's markdown has
+                        // and never under what the blacksmith was paid (16
+                        // September), nor under what a Moonlight chest holds or a
+                        // bonus item is worth (GetPlayerBotListingFloor, blipu, 28
+                        // September). A line not marked down asks its kind's markup
+                        // instead, never both (GetPlayerBotListingPrice). The clock is
+                        // the listing's own (o.listed); a line from before this core
+                        // started is clocked from the first visit that sees it.
+                        auto listed = o.listed.find(it->first);
+                        if (listed == o.listed.end())
+                            listed = o.listed.emplace(it->first, playerbot_offline::ListedLine{
+                                    preview->GetVnum(),
+                                    preview->GetType() == ITEM_SKILLBOOK ? (uint32_t)preview->GetSocket(0) : 0u,
+                                    now, (uint8_t)preview->GetRefineLevel() }).first;
+                        // Unknown age after restart is not the process uptime.
+                        if (listed->second.when == 0 && listed->second.observedSince == 0)
+                            listed->second.observedSince = now;
+                        const uint32_t since = listed->second.when ? listed->second.when : listed->second.observedSince;
+                        const uint32_t standing = now - since;
+                        int discount = playerbot_price_rules::UnsoldMarkdownPercent(standing,
+                                PLAYERBOT_OFFLINE_UNSOLD_STEP_MS, PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT,
+                                PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL);
+                        // Materialy Rzemieslnicze, Cor Draconis, the Dragon Stones and
+                        // the sashes keep the operator's prices: no markdown, no markup.
+                        const bool operatorPriced = preview->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED ||
+                                IsPlayerBotCorVnum(preview->GetVnum()) || preview->IsDragonSoul() ||
+                                (preview->GetType() == ITEM_COSTUME && IsPlayerBotSashVnum(preview->GetVnum()));
+                        if (operatorPriced)
+                            discount = 0;
+                        int markup = 0;
+                        // The reprice traced step by step for the line's explanation.
+                        TPlayerBotPriceTraceScope priceTrace;
+                        const long long askingNow = (long long)GetPlayerBotShopAskingPrice(preview);
+                        if (priceTrace.On() && !operatorPriced) {
+                            // The generation the counter was priced under, and the
+                            // clock of the markdown - said at the price they leave.
+                            priceTrace.Step(per::STEP_GENERATION, askingNow,
+                                    o.priceGeneration != GetPlayerBotPriceGeneration() ? 1 : 0);
+                            priceTrace.Step(per::STEP_MARKDOWN_CLOCK, askingNow, standing / 60000U, per::CLOCK_MINUTES,
+                                    listed->second.when == 0 ? 1 : 0);
+                        }
+                        const long long asking = operatorPriced ? askingNow
+                                : (long long)GetPlayerBotListingPrice(preview, (DWORD)askingNow, discount, &markup);
+                        const long long repriceFloor = (long long)GetPlayerBotListingFloor(preview);
+                        if (repriceFloor > asking) {
+                            priceTrace.Step(per::STEP_LISTING_FLOOR, repriceFloor, repriceFloor);
+                            priceTrace.trace.flags |= per::LFLAG_FLOOR_BOUND;
+                        }
+                        price.yang = std::max(asking, repriceFloor);
+                        const unsigned int repriceFlags = priceTrace.On()
+                                ? priceTrace.trace.flags | priceTrace.trace.PriceFlags(price.yang, preview->GetCount()) : 0;
+                        const std::string repriceSteps = priceTrace.On() ? priceTrace.trace.Encode() : std::string();
+                        const DWORD repriceVnum = preview->GetVnum();
+                        const long long repriceCount = preview->GetCount();
+                        if (discount > 0 && price.yang != it->second->GetPrice().yang)
+                            PlayerBotLogThrottled("offline_markdown", now, "PLAYERBOT_OFFLINE: marked down pid=%u name=%s item=%u vnum=%u standing_min=%u discount=%d%% price=%lld",
+                                    ch->GetPlayerID(), ch->GetName(), it->first, preview->GetVnum(),
+                                    standing / 60000U, discount, (long long)price.yang);
+                        if (markup > 0 && price.yang != it->second->GetPrice().yang)
+                            PlayerBotLogThrottled("offline_markup", now, "PLAYERBOT_OFFLINE: marked up pid=%u name=%s item=%u vnum=%u markup=%d%% price=%lld at=reprice",
+                                    ch->GetPlayerID(), ch->GetName(), it->first, preview->GetVnum(),
+                                    markup, (long long)price.yang);
+                        M2_DELETE(preview);
+                        const long long asked = (long long)it->second->GetPrice().yang;
+                        const long long moved = price.yang > asked ? price.yang - asked : asked - price.yang;
+                        const bool worthEdit = price.yang != asked && (asked < repriceFloor ||
+                                moved * 100 > asked * PLAYERBOT_MARKET_V3_REPRICE_DEADBAND_PERCENT);
+                        if (price.yang > 0 && price.yang < GOLD_MAX && worthEdit) {
+                            edited = true;
+                            if (Begin(ch->GetPlayerID(), Edit, it->first, now)) {
+                                const long long was = asked;
+                                manager.RecvShopEditItemClientPacket(ch, it->first, price);
+                                if (EndCall(ch->GetPlayerID()))
+                                    QueuePlayerBotListingEvent(it->first, ch->GetPlayerID(), repriceVnum, repriceCount,
+                                        per::EVENT_REPRICE, price.yang, was, repriceSteps, 0, 0,
+                                        repriceFlags | (per::IsPriceJump(was, price.yang) ? per::LFLAG_PRICE_JUMP : 0));
+                            }
+                        }
                     }
-                    const long long asking = operatorPriced ? askingNow
-                            : (long long)GetPlayerBotListingPrice(preview, (DWORD)askingNow, discount, &markup);
-                    const long long repriceFloor = (long long)GetPlayerBotListingFloor(preview);
-                    if (repriceFloor > asking) {
-                        priceTrace.Step(per::STEP_LISTING_FLOOR, repriceFloor, repriceFloor);
-                        priceTrace.trace.flags |= per::LFLAG_FLOOR_BOUND;
-                    }
-                    price.yang = std::max(asking, repriceFloor);
-                    const unsigned int repriceFlags = priceTrace.On()
-                            ? priceTrace.trace.flags | priceTrace.trace.PriceFlags(price.yang, preview->GetCount()) : 0;
-                    const std::string repriceSteps = priceTrace.On() ? priceTrace.trace.Encode() : std::string();
-                    const DWORD repriceVnum = preview->GetVnum();
-                    const long long repriceCount = preview->GetCount();
-                    if (discount > 0 && price.yang != it->second->GetPrice().yang)
-                        PlayerBotLogThrottled("offline_markdown", now, "PLAYERBOT_OFFLINE: marked down pid=%u name=%s item=%u vnum=%u standing_min=%u discount=%d%% price=%lld",
-                                ch->GetPlayerID(), ch->GetName(), it->first, preview->GetVnum(),
-                                standing / 60000U, discount, (long long)price.yang);
-                    if (markup > 0 && price.yang != it->second->GetPrice().yang)
-                        PlayerBotLogThrottled("offline_markup", now, "PLAYERBOT_OFFLINE: marked up pid=%u name=%s item=%u vnum=%u markup=%d%% price=%lld at=reprice",
-                                ch->GetPlayerID(), ch->GetName(), it->first, preview->GetVnum(),
-                                markup, (long long)price.yang);
-                    M2_DELETE(preview);
-                    if (price.yang > 0 && price.yang < GOLD_MAX && price.yang != it->second->GetPrice().yang &&
-                            Begin(ch->GetPlayerID(), Edit, it->first, now)) {
-                        const long long was = (long long)it->second->GetPrice().yang;
-                        manager.RecvShopEditItemClientPacket(ch, it->first, price);
-                        if (EndCall(ch->GetPlayerID()))
-                            QueuePlayerBotListingEvent(it->first, ch->GetPlayerID(), repriceVnum, repriceCount,
-                                per::EVENT_REPRICE, price.yang, was, repriceSteps, 0, 0,
-                                repriceFlags | (per::IsPriceJump(was, price.yang) ? per::LFLAG_PRICE_JUMP : 0));
-                    }
+                }
+                if (edited) break;
+                // Passed over: on to the next line, and a rotation that ran off
+                // the end of the counter is a whole one.
+                if (++it == shop->GetItems().end()) {
+                    wrapped = true;
+                    break;
                 }
             }
             // PLAYERBOT_OFFLINE_REPRICE_SLICE lines a slice, one visit and one

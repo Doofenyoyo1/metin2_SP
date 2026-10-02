@@ -38,6 +38,16 @@
 // While held with something missing it does not fish, dig or pick herbs
 // unless the operator says so (fishWhenHeld, sideWhenHeld).
 //
+// MT2009_PLUS_PROGRESSION_V3: and it does not stand in a village. The fresh
+// test world (2 October, 8.6 h, 2000 bots) held 831 bots at thirty-five, most
+// of them in M1 on a Biologist herb row with 0-1 Metins and no horse. Now a
+// held bot has a farm goal (GetPlayerBotProgressionFarmGoal): the Metins on
+// the frontier of its level (the visit clock does not send it home, only its
+// needs do), the medal in the Monkey Dungeon with no roll - by half-hour
+// windows when it lacks both - or the gear (the push above). The herb rows
+// wait for the gate, and the change of goal is logged ("PLAYERBOT_PROGRESSION:
+// held bot farms ...").
+//
 // An implementation fragment in the sense playerbot_types.h describes: include
 // it exactly once, after playerbot_shouters.h - it asks every cohort and the
 // whole bag.
@@ -76,12 +86,13 @@ namespace
 		bool bFishing;
 		bool bHeld;
 		bool bAmbition;
+		BYTE bFarm; // MT2009_PLUS_PROGRESSION_V3: the farm goal last logged
 		int iNeeds;
 		std::string strWhy;
 		std::string strName;
 		TPlayerBotProgress() : dwSeen(0), dwLastTick(0), dwNextEval(0), dwNextLog(0), dwHeldMs(0),
 			bLevel(0), bGate(0), bWaived(0), bLoaded(false), bEligible(false), bFishing(false),
-			bHeld(false), bAmbition(false), iNeeds(0) {}
+			bHeld(false), bAmbition(false), bFarm(0), iNeeds(0) {}
 	};
 	std::map<DWORD, TPlayerBotProgress> s_mapPlayerBotProgress;
 
@@ -385,6 +396,46 @@ namespace
 		return 0xFF;
 	}
 
+	// MT2009_PLUS_PROGRESSION_V3: what a held bot works on. The horse when a
+	// medal would raise it and a Monkey Dungeon takes the bot; the Metins; and
+	// both by half-hour windows spread by pid, so the stones are not left for
+	// the whole of a horse's ladder. The gear when nothing else is missing -
+	// the refine and the market passes do that work wherever it stands.
+	const DWORD PLAYERBOT_PROGRESS_FARM_WINDOW_MS = 30 * 60 * 1000;
+
+	BYTE GetPlayerBotProgressionFarmGoal(LPCHARACTER ch, DWORD dwNow)
+	{
+		if (!ch)
+			return PLAYERBOT_PROGRESS_FARM_NONE;
+		const int needs = GetPlayerBotProgressionNeeds(ch->GetPlayerID());
+		if (needs == 0)
+			return PLAYERBOT_PROGRESS_FARM_NONE;
+		const bool horse = (needs & playerbot_progression::NEED_HORSE) != 0 &&
+				CanPlayerBotAdvanceHorse(ch) && GetPlayerBotMonkeyMapFor(ch) != 0;
+		const bool metins = (needs & playerbot_progression::NEED_METINS) != 0;
+		if (horse && metins)
+			return ((dwNow / PLAYERBOT_PROGRESS_FARM_WINDOW_MS + ch->GetPlayerID()) & 1U) != 0
+					? PLAYERBOT_PROGRESS_FARM_METINS : PLAYERBOT_PROGRESS_FARM_HORSE;
+		if (horse)
+			return PLAYERBOT_PROGRESS_FARM_HORSE;
+		if (metins)
+			return PLAYERBOT_PROGRESS_FARM_METINS;
+		if (needs & (playerbot_progression::NEED_GEAR | playerbot_progression::NEED_HP))
+			return PLAYERBOT_PROGRESS_FARM_GEAR;
+		return PLAYERBOT_PROGRESS_FARM_NONE;
+	}
+
+	const char* GetPlayerBotProgressionFarmName(BYTE farm)
+	{
+		switch (farm)
+		{
+			case PLAYERBOT_PROGRESS_FARM_METINS: return "metins";
+			case PLAYERBOT_PROGRESS_FARM_HORSE: return "horse_medals";
+			case PLAYERBOT_PROGRESS_FARM_GEAR: return "gear";
+			default: return "nothing";
+		}
+	}
+
 	void ReleasePlayerBotProgress(LPCHARACTER ch, TPlayerBotAIState& state, TPlayerBotProgress& e)
 	{
 		e.bHeld = false;
@@ -392,6 +443,7 @@ namespace
 		e.strWhy.clear();
 		e.dwHeldMs = 0;
 		e.bGate = 0;
+		e.bFarm = PLAYERBOT_PROGRESS_FARM_NONE;
 		if (e.bAmbition && ch)
 			state.bAmbition = GetPlayerBotStableAmbition(ch, state.bPersonality);
 		e.bAmbition = false;
@@ -470,7 +522,12 @@ namespace
 				std::string one;
 				if (playerbot_progression::Meets(req, snap, flagValue, one))
 					continue;
+				// MT2009_PLUS_PROGRESSION_V2: one of the piece's other rows.
+				if (playerbot_progression::MeetsAlternative(gate, r, snap))
+					continue;
 				holdGate = gate.level;
+				if (!playerbot_progression::IsFirstOfPiece(gate, r))
+					continue;
 				needs |= playerbot_progression::NeedOf(req.type);
 				if (!why.empty())
 					why += ", ";
@@ -522,15 +579,37 @@ namespace
 		}
 
 		// The push.
-		const BYTE ambition = GetPlayerBotProgressAmbition(needs);
+		// MT2009_PLUS_PROGRESSION_V3: the farm goal names the ambition while it
+		// is the Metins or the horse, so the two take turns by its windows.
+		const BYTE farm = GetPlayerBotProgressionFarmGoal(ch, dwNow);
+		BYTE ambition = GetPlayerBotProgressAmbition(needs);
+		if (farm == PLAYERBOT_PROGRESS_FARM_METINS)
+			ambition = BOT_AMBITION_METINS;
+		else if (farm == PLAYERBOT_PROGRESS_FARM_HORSE)
+			ambition = BOT_AMBITION_HORSE;
 		if (ambition != 0xFF && state.bAmbition != ambition)
 		{
 			state.bAmbition = ambition;
 			e.bAmbition = true;
 		}
-		if ((needs & playerbot_progression::NEED_METINS) && state.dwMetinExpeditionUntil == 0 &&
-				!(needs & (playerbot_progression::NEED_HORSE | playerbot_progression::NEED_ORC_TEETH)) &&
-				PlayerBotMapHasMetinStones(ch->GetMapIndex()))
+		if (farm != e.bFarm)
+		{
+			e.bFarm = farm;
+			const long frontier = GetPlayerBotFrontierMapForLevel(ch);
+			sys_log(0, "PLAYERBOT_PROGRESSION: held bot farms %s pid=%u name=%s level=%u gate=%u map=%ld goal_map=%ld metins=%lld horse=%d missing: %s",
+					GetPlayerBotProgressionFarmName(farm), pid, ch->GetName(), (unsigned)level,
+					(unsigned)holdGate, ch->GetMapIndex(),
+					farm == PLAYERBOT_PROGRESS_FARM_HORSE ? GetPlayerBotMonkeyMapFor(ch) : frontier,
+					snap.metins, (int)ch->GetHorseLevel(), why.c_str());
+		}
+		// MT2009_PLUS_PROGRESSION_V3: the expedition starts on a map whose stones
+		// are of the bot's level - not in a first village, whose stones a bot of
+		// thirty-five has outgrown (IsPlayerBotMetinWorthFighting); from there
+		// ShouldPlayerBotLeaveForFrontier sends it out first. The Orc Teeth
+		// still go first, as before.
+		if (farm == PLAYERBOT_PROGRESS_FARM_METINS && state.dwMetinExpeditionUntil == 0 &&
+				!(needs & playerbot_progression::NEED_ORC_TEETH) &&
+				PlayerBotMapHasMetinStones(ch->GetMapIndex()) && !IsPlayerBotVillageMap(ch->GetMapIndex()))
 		{
 			state.dwMetinExpeditionUntil = dwNow + PLAYERBOT_METIN_EXPEDITION_DURATION;
 			state.dwHubChosenTime = 0;

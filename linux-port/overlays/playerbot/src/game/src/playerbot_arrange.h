@@ -49,6 +49,11 @@ TResult MergeInventoryStacks(LPCHARACTER ch, bool fromPlayer);
 // covers the item shop as well as the other windows.
 TResult ArrangeSafebox(LPCHARACTER ch, bool fromPlayer);
 
+// MT2009_PLUS_SAFEBOX_MERGE_V1: the open safebox's stacks poured together and
+// nothing else moved - "/safebox_arrange merge", the safebox's "Tylko scal
+// stosy" button. The same pours ArrangeSafebox makes, on the same clock.
+TResult MergeSafeboxStacks(LPCHARACTER ch, bool fromPlayer);
+
 // A stack moved by count between the bag and the open safebox, or inside the
 // safebox (blasty's proposal, 19 September): /safebox_put, /safebox_take and
 // /safebox_move, answered "SafeboxTransferResult <op> <code> <units>" and

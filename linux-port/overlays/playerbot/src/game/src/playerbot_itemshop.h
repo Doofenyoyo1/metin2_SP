@@ -90,6 +90,17 @@ namespace
 	std::vector<DWORD> s_vecPlayerBotItemShopMount;
 	DWORD s_dwNextPlayerBotItemShopScan = 0;
 
+	// MT2009_PLUS_SIDEKICK_COINS_V1: the player's companion and the shop
+	// (playerbot_sidekick.h, later in the include order). Its owner's switch
+	// "Smocze Monety: wydaje / nie wydaje" in the window decides, not the
+	// world's ISHOP; it buys only what it uses - no look of any kind - and
+	// tells its owner every voucher cashed and every purchase.
+	bool IsPlayerBotSidekickPID(DWORD pid);
+	bool IsPlayerBotSidekickCoinsOn(DWORD pid);
+	void NotePlayerBotSidekickVouchers(LPCHARACTER sk, long long coins, int balance);
+	void NotePlayerBotSidekickItemShopBuy(LPCHARACTER sk, DWORD vnum, DWORD count, DWORD price, bool marks,
+			const char* reason, int left);
+
 	unsigned int s_uPlayerBotVouchersUsed = 0;
 	unsigned int s_uPlayerBotCoinsCharged = 0;
 	unsigned int s_uPlayerBotItemShopBuys = 0;
@@ -133,7 +144,10 @@ namespace
 			const bool marks = shop.GetItemCurrency(item) == CItemShopManager::CURRENCY_DRAGON_MARK;
 			TPlayerBotItemShopTable& table = marks ? s_mapPlayerBotItemShopMarks : s_mapPlayerBotItemShopCoins;
 			table[item.dwVnum].push_back(entry);
-			if (!marks && proto->bType == ITEM_COSTUME && proto->bSubType == COSTUME_HAIR)
+			// MT2009_PLUS_BOT_HAIR_V1: only a costume set's hairstyle is a
+			// bot's to buy (IsPlayerBotSetHairVnum, playerbot_economy.h).
+			if (!marks && proto->bType == ITEM_COSTUME && proto->bSubType == COSTUME_HAIR &&
+					IsPlayerBotSetHairVnum(item.dwVnum))
 				s_vecPlayerBotItemShopHair.push_back(item.dwVnum);
 			if (!marks && proto->bType == ITEM_COSTUME && proto->bSubType == COSTUME_BODY)
 				s_vecPlayerBotItemShopBody.push_back(item.dwVnum);
@@ -245,6 +259,8 @@ namespace
 			return false;
 		sys_log(0, "PLAYERBOT_ISHOP: voucher cashed pid=%u name=%s vouchers=%d coins=%lld balance=%d",
 				ch->GetPlayerID(), ch->GetName(), cashed, total, state.iDragonCoins);
+		if (IsPlayerBotSidekickPID(ch->GetPlayerID()))
+			NotePlayerBotSidekickVouchers(ch, total, state.iDragonCoins);
 		return true;
 	}
 
@@ -260,7 +276,10 @@ namespace
 			return;
 		state.dwNextVoucherCheckTime = dwNow + PLAYERBOT_ISHOP_VOUCHER_CHECK_INTERVAL +
 				PlayerBotNavHash(ch->GetPlayerID() ^ 0x564f5543U) % 15000U;
-		if (!IsPlayerBotItemShopEnabled() || ch->GetExchange() || !FindPlayerBotVoucher(ch))
+		// MT2009_PLUS_SIDEKICK_COINS_V1: a companion by its owner's switch.
+		const bool sidekick = IsPlayerBotSidekickPID(ch->GetPlayerID());
+		if ((sidekick ? !IsPlayerBotSidekickCoinsOn(ch->GetPlayerID()) : !IsPlayerBotItemShopEnabled()) ||
+				ch->GetExchange() || !FindPlayerBotVoucher(ch))
 			return;
 		if (!state.bDragonBalanceKnown || dwNow >= state.dwNextItemShopBalanceTime)
 			RefreshPlayerBotDragonBalance(ch, state, dwNow);
@@ -376,8 +395,9 @@ namespace
 				return proto->bType == ITEM_COSTUME && proto->bSubType == COSTUME_BODY &&
 						IsPlayerBotProtoForCharacter(ch, proto);
 			case PLAYERBOT_ISHOP_LOOK_HAIR:
+				// MT2009_PLUS_BOT_HAIR_V1: a costume set's hairstyle only.
 				return proto->bType == ITEM_COSTUME && proto->bSubType == COSTUME_HAIR &&
-						IsPlayerBotProtoForCharacter(ch, proto);
+						IsPlayerBotProtoForCharacter(ch, proto) && IsPlayerBotSetHairVnum(proto->dwVnum);
 			case PLAYERBOT_ISHOP_LOOK_WEAPON:
 				return IsPlayerBotWeaponSkinFor(ch, proto);
 			case PLAYERBOT_ISHOP_LOOK_PET:
@@ -409,9 +429,24 @@ namespace
 					return true;
 				break;
 			case PLAYERBOT_ISHOP_LOOK_HAIR:
-				if (ch->GetWear(WEAR_COSTUME_HAIR))
-					return true;
-				break;
+			{
+				// MT2009_PLUS_BOT_HAIR_V1: a head is dressed while the ItemShop
+				// sells nothing better for it (IsPlayerBotHairUpgrade) - a plain
+				// hairstyle is replaced by a set one, a set one by the worn
+				// costume's own set's - and a better one in the bag is on its
+				// way; the hairstyle it replaced, in the bag too, is not.
+				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+					if (IsPlayerBotHairToWear(ch, ch->GetInventoryItem(cell)) &&
+							IsPlayerBotOwnLook(ch, ch->GetInventoryItem(cell)->GetProto(), look))
+						return true;
+				if (!ch->GetWear(WEAR_COSTUME_HAIR))
+					return false;
+				for (size_t i = 0; i < s_vecPlayerBotItemShopHair.size(); ++i)
+					if (IsPlayerBotHairUpgrade(ch, s_vecPlayerBotItemShopHair[i]) &&
+							IsPlayerBotOwnLook(ch, ITEM_MANAGER::instance().GetTable(s_vecPlayerBotItemShopHair[i]), look))
+						return false;
+				return true;
+			}
 			case PLAYERBOT_ISHOP_LOOK_WEAPON:
 			{
 				if (ch->GetWear(WEAR_COSTUME_WEAPON))
@@ -483,10 +518,23 @@ namespace
 			const std::vector<DWORD>& catalogue = GetPlayerBotLookCatalogue(look);
 			std::vector<DWORD> mine;
 			for (size_t i = 0; i < catalogue.size(); ++i)
-				if (IsPlayerBotOwnLook(ch, ITEM_MANAGER::instance().GetTable(catalogue[i]), look))
+				if (IsPlayerBotOwnLook(ch, ITEM_MANAGER::instance().GetTable(catalogue[i]), look) &&
+						(look != PLAYERBOT_ISHOP_LOOK_HAIR || IsPlayerBotHairUpgrade(ch, catalogue[i])))
 					mine.push_back(catalogue[i]);
 			if (mine.empty())
 				continue;
+			// MT2009_PLUS_BOT_HAIR_V1: the worn costume's own set's hairstyle,
+			// when the ItemShop has one - the set bonus is the point of it.
+			if (look == PLAYERBOT_ISHOP_LOOK_HAIR)
+			{
+				LPITEM body = ch->GetWear(WEAR_COSTUME_BODY);
+				std::vector<DWORD> matching;
+				for (size_t i = 0; body && i < mine.size(); ++i)
+					if (IsPlayerBotHairOfBodySet(body->GetVnum(), mine[i]))
+						matching.push_back(mine[i]);
+				if (!matching.empty())
+					mine.swap(matching);
+			}
 			*pLook = look;
 			// Any of them, drawn anew each time (operator: variety), so a
 			// piece that runs out is followed by another.
@@ -495,41 +543,14 @@ namespace
 		return 0;
 	}
 
-	// A head for the counter (PLAYERBOT_ISHOP_HAIR_TRADE_SHARE): one this bot
-	// cannot wear, so the pass that dresses it never takes it, bought by a
-	// keeper with a stand and none on the way already - in the bag or on the
-	// counter.
+	// A head for the counter (PLAYERBOT_ISHOP_HAIR_TRADE_SHARE) was one this
+	// bot could not wear, bought for its stand.
+	// MT2009_PLUS_BOT_HAIR_V1: never any more - a hairstyle is no goods; the
+	// only one a counter takes is the bot's own old one (IsPlayerBotReplacedHair).
 	DWORD PickPlayerBotHairstyleForCounter(LPCHARACTER ch)
 	{
-		if (!ch || s_vecPlayerBotItemShopHair.empty() || !PlayerBotHasCounter(ch) ||
-				(PlayerBotNavHash(ch->GetPlayerID() ^ 0x48545244U) % PLAYERBOT_ISHOP_HAIR_TRADE_SHARE) != 0)
-			return 0;
-#if defined(ENABLE_IKASHOP_RENEWAL)
-		auto shop = ikashop::GetManager().GetShopByOwnerID(ch->GetPlayerID());
-		if (!shop)
-			return 0;
-		for (const auto& [id, line] : shop->GetItems())
-			if (line && line->GetTable() && line->GetTable()->bType == ITEM_COSTUME &&
-					line->GetTable()->bSubType == COSTUME_HAIR)
-				return 0;
-#endif
-		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
-		{
-			LPITEM item = ch->GetInventoryItem(cell);
-			if (item && item->GetType() == ITEM_COSTUME && item->GetSubType() == COSTUME_HAIR &&
-					!item->CanUsedBy(ch))
-				return 0;
-		}
-		std::vector<DWORD> others;
-		for (size_t i = 0; i < s_vecPlayerBotItemShopHair.size(); ++i)
-		{
-			const TItemTable* proto = ITEM_MANAGER::instance().GetTable(s_vecPlayerBotItemShopHair[i]);
-			if (proto && !IsPlayerBotProtoForCharacter(ch, proto))
-				others.push_back(s_vecPlayerBotItemShopHair[i]);
-		}
-		if (others.empty())
-			return 0;
-		return others[PlayerBotNavHash(ch->GetPlayerID() ^ (DWORD)(get_global_time() / 3600)) % others.size()];
+		(void)ch;
+		return 0;
 	}
 
 	// The book pass's own two answers (playerbot_manager.cpp, after this file).
@@ -713,6 +734,10 @@ namespace
 	int CollectPlayerBotItemShopWishes(LPCHARACTER ch, const TPlayerBotAIState& state, TPlayerBotItemShopWish* wishes)
 	{
 		int n = CollectPlayerBotItemShopNeeds(ch, state, wishes);
+		// MT2009_PLUS_SIDEKICK_COINS_V1: a companion spends on what it uses
+		// alone - no hairstyle, costume, skin or pet, and nothing for a counter.
+		if (IsPlayerBotSidekickPID(ch->GetPlayerID()))
+			return n;
 		const long long reserve = GetPlayerBotItemShopNeedReserve(ch, state, wishes, n);
 		int look = 0;
 		const DWORD lookVnum = PickPlayerBotLook(ch, &look);
@@ -798,6 +823,25 @@ namespace
 		static const BYTE s_abWear[PLAYERBOT_ISHOP_LOOK_PET] = { WEAR_COSTUME_BODY, WEAR_COSTUME_HAIR, WEAR_COSTUME_WEAPON };
 		for (int look = 0; look < PLAYERBOT_ISHOP_LOOK_COUNT; ++look)
 		{
+			// MT2009_PLUS_BOT_HAIR_V1: a better hairstyle goes on over the worn
+			// one (EquipItem swaps them); the old one, in the bag, is the one
+			// hairstyle a counter takes (IsPlayerBotReplacedHair).
+			if (look == PLAYERBOT_ISHOP_LOOK_HAIR && ch->GetWear(WEAR_COSTUME_HAIR))
+			{
+				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+				{
+					LPITEM item = ch->GetInventoryItem(cell);
+					if (!item || item->isLocked() || item->IsExchanging() || !IsPlayerBotHairToWear(ch, item) ||
+							!IsPlayerBotOwnLook(ch, item->GetProto(), look))
+						continue;
+					const DWORD oldVnum = ch->GetWear(WEAR_COSTUME_HAIR)->GetVnum();
+					if (ch->EquipItem(item))
+						sys_log(0, "PLAYERBOT_ISHOP: hairstyle changed pid=%u name=%s vnum=%u old=%u",
+								ch->GetPlayerID(), ch->GetName(), item->GetVnum(), oldVnum);
+					break;
+				}
+				continue;
+			}
 			if (look == PLAYERBOT_ISHOP_LOOK_PET ? IsPlayerBotPetSummoned(ch) :
 					look == PLAYERBOT_ISHOP_LOOK_MOUNT ?
 #if defined(ENABLE_MOUNT_COSTUME_SYSTEM)
@@ -878,6 +922,9 @@ namespace
 				ch->GetPlayerID(), ch->GetName(), wish.dwVnum, entry.dwCount, entry.dwIndex, entry.dwPrice,
 				wish.bMarks ? "marks" : "coins", wish.szReason, state.iDragonCoins, state.iDragonMarks);
 		WearPlayerBotBoughtLook(ch, state);
+		if (IsPlayerBotSidekickPID(ch->GetPlayerID()))
+			NotePlayerBotSidekickItemShopBuy(ch, wish.dwVnum, entry.dwCount, entry.dwPrice, wish.bMarks, wish.szReason,
+					wish.bMarks ? state.iDragonMarks : state.iDragonCoins);
 		return true;
 	}
 
@@ -933,7 +980,8 @@ namespace
 			return;
 		state.dwNextItemShopCheckTime = dwNow + PLAYERBOT_ISHOP_CHECK_INTERVAL +
 				PlayerBotNavHash(ch->GetPlayerID() ^ 0x49534850U) % 60000U;
-		if (!IsPlayerBotItemShopEnabled())
+		if (IsPlayerBotSidekickPID(ch->GetPlayerID()) ? !IsPlayerBotSidekickCoinsOn(ch->GetPlayerID()) :
+				!IsPlayerBotItemShopEnabled())
 			return;
 		if (ch->IsBusy() || ch->GetMyShop() || ch->GetExchange())
 			return;

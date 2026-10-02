@@ -41,7 +41,10 @@
 
 namespace
 {
-	const int PLAYERBOT_SADDLEBAG_PERCENT = 30;
+	// MT2009_PLUS_SADDLEBAG_MARKET_V1: half the bots raise saddlebags (it was
+	// 30%): 775 pages of Materialy Rzemieslnicze on the supporters' world had
+	// too few buyers.
+	const int PLAYERBOT_SADDLEBAG_PERCENT = 50;
 	const DWORD PLAYERBOT_CRAFT_MATERIAL_VNUM = 30378;
 	const DWORD PLAYERBOT_CRAFT_MATERIAL_PRICE = 100000;
 	const long long PLAYERBOT_CRAFT_EXCHANGE_FEE = 1000;
@@ -56,13 +59,19 @@ namespace
 	const DWORD PLAYERBOT_SADDLEBAG_CHECK_MIN_MS = 4 * 60 * 1000;
 	const DWORD PLAYERBOT_SADDLEBAG_CHECK_MAX_MS = 9 * 60 * 1000;
 	// Between two rows: the bot does not open them all in one visit.
-	const int PLAYERBOT_SADDLEBAG_ROW_GAP_MIN_S = 2 * 60 * 60;
-	const int PLAYERBOT_SADDLEBAG_ROW_GAP_MAX_S = 4 * 60 * 60;
+	// MT2009_PLUS_HORSE_ECONOMY_V1: one to two hours (it was two to four).
+	const int PLAYERBOT_SADDLEBAG_ROW_GAP_MIN_S = 1 * 60 * 60;
+	const int PLAYERBOT_SADDLEBAG_ROW_GAP_MAX_S = 2 * 60 * 60;
 	const char* PLAYERBOT_SADDLEBAG_FLAG = "horse_inventory_slot";
 	const char* PLAYERBOT_SADDLEBAG_NEXT_ROW_FLAG = "playerbot.saddlebag_next_row";
 	// A material off a counter: at most this a piece.
 	const long long PLAYERBOT_CRAFT_MATERIAL_MAX_BUY = 150000;
 	const int PLAYERBOT_CRAFT_MATERIAL_PURSE_PERCENT = 40;
+	// MT2009_PLUS_SADDLEBAG_MARKET_V1: with this many pieces on the counters
+	// of the world the market is full, and a saddlebag bot buys for every row
+	// it still wants (not only the next) out of a larger share of its purse.
+	const DWORD PLAYERBOT_SADDLEBAG_MARKET_FULL_UNITS = 400;
+	const int PLAYERBOT_CRAFT_MATERIAL_FULL_PURSE_PERCENT = 60;
 	const DWORD PLAYERBOT_SADDLEBAG_MOVE_MS = 15000;
 
 	struct TPlayerBotSaddlebagRow
@@ -96,8 +105,14 @@ namespace
 		unsigned materialsBought;
 		unsigned medalsBought;
 		unsigned goodsBought;
+		// MT2009_PLUS_SADDLEBAG_MARKET_V1: the materials' census - pieces and
+		// yang asked for, and the lines a saddlebag bot wanted but let stand.
+		unsigned long long materialUnitsBought;
+		unsigned long long materialYang;
+		unsigned materialRefusedCap;
+		unsigned materialRefusedPurse;
 	};
-	TPlayerBotSaddlebagStats s_kPlayerBotSaddlebagStats = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	TPlayerBotSaddlebagStats s_kPlayerBotSaddlebagStats = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	// Refine-goods lines that came home unsold from an offline counter, by
 	// item id: the Dozorca's, not the counter's again.
 	std::set<DWORD> s_setPlayerBotCraftRecalled;
@@ -150,11 +165,19 @@ namespace
 				get_global_time() >= (time_t)std::max(0, ch->GetQuestFlag(PLAYERBOT_SADDLEBAG_NEXT_ROW_FLAG));
 	}
 
+	int CountPlayerBotCraftMaterials(LPCHARACTER ch);
+
 	// The medals the horse pass leaves alone: the due row's.
+	// MT2009_PLUS_HORSE_ECONOMY_V1: only while the row has its materials. A
+	// due row short of them held its medals back from the horse for as long
+	// as the materials did not come - and they did not, the counters' lines
+	// of two hundred being past every purse - so a keeper's horse stood at
+	// eleven or twelve with the medals for the next levels in its bag.
 	int GetPlayerBotSaddlebagMedalReserve(LPCHARACTER ch)
 	{
 		const TPlayerBotSaddlebagRow* row = GetPlayerBotNextSaddlebagRow(ch);
-		return row && IsPlayerBotSaddlebagRowDue(ch) ? row->medals : 0;
+		return row && IsPlayerBotSaddlebagRowDue(ch) && CountPlayerBotCraftMaterials(ch) >= row->materials
+				? row->medals : 0;
 	}
 
 	// The materials the rows this bot still wants will take.
@@ -164,8 +187,12 @@ namespace
 			return 0;
 		const int rows = GetPlayerBotSaddlebagRows(ch);
 		const int target = std::min<int>(INVENTORY_PAGE_ROW, GetPlayerBotSaddlebagTargetRows(ch->GetPlayerID()));
+		// MT2009_PLUS_HORSE_ECONOMY_V2: two rows at most - 48 213 materials
+		// stood in the bots' bags on the supporters' world, kept for rows
+		// hours away; past the next two rows' need they are goods
+		// (IsPlayerBotKeptCraftMaterial), listed twenty a line.
 		int need = 0;
-		for (int r = rows; r < target; ++r)
+		for (int r = rows; r < target && r < rows + 2; ++r)
 		{
 			need += PLAYERBOT_SADDLEBAG_ROWS[r].materials;
 			if (nextOnly)
@@ -277,12 +304,30 @@ namespace
 
 	// ------------------------------------------------------------ the market
 
+	// MT2009_PLUS_SADDLEBAG_MARKET_V1: whether the counters of the world are
+	// full of materials (the ledger's supply, as the price curve reads it).
+	bool IsPlayerBotCraftMaterialMarketFull()
+	{
+		return GetPlayerBotOperatorGoodsSupply(PLAYERBOT_CRAFT_MATERIAL_VNUM) >= PLAYERBOT_SADDLEBAG_MARKET_FULL_UNITS;
+	}
+
+	// The materials a saddlebag bot buys towards: the next row's, or with a
+	// full market every row it still wants.
+	int GetPlayerBotCraftMaterialBuyTarget(LPCHARACTER ch)
+	{
+		return GetPlayerBotSaddlebagMaterialsWanted(ch, !IsPlayerBotCraftMaterialMarketFull());
+	}
+
 	bool WantsPlayerBotCraftMaterialOffer(LPCHARACTER ch, LPITEM offer)
 	{
 		if (!ch || !offer || offer->GetVnum() != PLAYERBOT_CRAFT_MATERIAL_VNUM)
 			return false;
-		const int want = GetPlayerBotSaddlebagMaterialsWanted(ch, true);
-		return want > 0 && CountPlayerBotCraftMaterials(ch) < want;
+		const int want = GetPlayerBotCraftMaterialBuyTarget(ch);
+		const int have = CountPlayerBotCraftMaterials(ch);
+		// A line no bigger than what is missing and one line's worth more: a
+		// bot short of five does not buy a stack of two hundred.
+		return want > 0 && have < want &&
+				(int)offer->GetCount() <= want - have + PLAYERBOT_CRAFT_MATERIAL_LINE_UNITS;
 	}
 
 	// Refine goods off a counter, for the Dozorca: a saddlebag bot short of
@@ -320,8 +365,26 @@ namespace
 		const long long unit = price / std::max<long long>(1, (long long)item->GetCount());
 		const long long spare = (long long)ch->GetGold() - GetPlayerBotReservedGold(ch) -
 				(long long)PLAYERBOT_SHOPPING_GOLD_FLOOR;
-		return unit <= PLAYERBOT_CRAFT_MATERIAL_MAX_BUY &&
-				price <= spare * PLAYERBOT_CRAFT_MATERIAL_PURSE_PERCENT / 100;
+		// MT2009_PLUS_OWNER_PRICES_V2: the curve's piece for this line, for a
+		// bot of this level (playerbot_town.h), where that is over the cap.
+		const long long cap = std::max<long long>(PLAYERBOT_CRAFT_MATERIAL_MAX_BUY *
+				GetPlayerBotOperatorLevelPercent((int)ch->GetLevel()) / 100,
+				GetPlayerBotOperatorBuyCap(ch, item->GetVnum(), PLAYERBOT_CRAFT_MATERIAL_UNIT_PRICE,
+					(DWORD)std::max<int>(1, (int)item->GetCount())));
+		// MT2009_PLUS_SADDLEBAG_MARKET_V1: a full market, a larger share.
+		const int purse = IsPlayerBotCraftMaterialMarketFull() ? PLAYERBOT_CRAFT_MATERIAL_FULL_PURSE_PERCENT
+				: PLAYERBOT_CRAFT_MATERIAL_PURSE_PERCENT;
+		if (unit > cap)
+		{
+			++s_kPlayerBotSaddlebagStats.materialRefusedCap;
+			return false;
+		}
+		if (price > spare * purse / 100)
+		{
+			++s_kPlayerBotSaddlebagStats.materialRefusedPurse;
+			return false;
+		}
+		return true;
 	}
 
 	// A medal for the due row, over what the horse pass would spend.
@@ -343,7 +406,7 @@ namespace
 			if (medals && medals->dwSupplyUnits > 0)
 				return true;
 		}
-		const int want = GetPlayerBotSaddlebagMaterialsWanted(ch, true);
+		const int want = GetPlayerBotCraftMaterialBuyTarget(ch); // MT2009_PLUS_SADDLEBAG_MARKET_V1
 		if (want > 0 && CountPlayerBotCraftMaterials(ch) < want)
 		{
 			const TPlayerBotMarketLedgerEntry* mats = GetPlayerBotMarketLedgerEntry(PLAYERBOT_CRAFT_MATERIAL_VNUM);
@@ -353,14 +416,26 @@ namespace
 		return false;
 	}
 
-	void NotePlayerBotSaddlebagBought(LPCHARACTER ch, DWORD vnum, long long price)
+	void NotePlayerBotSaddlebagBought(LPCHARACTER ch, DWORD vnum, long long price, DWORD count)
 	{
 		if (vnum == PLAYERBOT_CRAFT_MATERIAL_VNUM)
+		{
 			++s_kPlayerBotSaddlebagStats.materialsBought;
+			s_kPlayerBotSaddlebagStats.materialUnitsBought += count;
+			s_kPlayerBotSaddlebagStats.materialYang += (unsigned long long)std::max<long long>(0, price);
+			sys_log(0, "PLAYERBOT_SADDLEBAG: material bought pid=%u name=%s units=%u price=%lld have=%d want=%d rows=%d market_full=%d supply=%u",
+					ch ? ch->GetPlayerID() : 0, ch ? ch->GetName() : "", (unsigned int)count, price,
+					CountPlayerBotCraftMaterials(ch), GetPlayerBotCraftMaterialBuyTarget(ch),
+					GetPlayerBotSaddlebagRows(ch), IsPlayerBotCraftMaterialMarketFull() ? 1 : 0,
+					(unsigned int)GetPlayerBotOperatorGoodsSupply(PLAYERBOT_CRAFT_MATERIAL_VNUM));
+			return;
+		}
 		else if (IsPlayerBotCraftExchangeVnum(vnum) && IsPlayerBotSaddlebagKeeper(ch) &&
 				GetPlayerBotSaddlebagMaterialsWanted(ch, true) > 0)
 			++s_kPlayerBotSaddlebagStats.goodsBought;
-		else if (vnum == PLAYERBOT_HORSE_MEDAL_VNUM && IsPlayerBotSaddlebagKeeper(ch))
+		// MT2009_PLUS_HORSE_ECONOMY_V1: every medal bought off a counter is
+		// counted, a horse's as well as a saddlebag row's.
+		else if (vnum == PLAYERBOT_HORSE_MEDAL_VNUM)
 			++s_kPlayerBotSaddlebagStats.medalsBought;
 		else
 			return;
@@ -614,16 +689,52 @@ namespace
 			if (IsPlayerBotSaddlebagRowDue(ch))
 				++due;
 		}
+		// MT2009_PLUS_HORSE_ECONOMY_V1: the horses of every bot - how many at
+		// each stage, the medals in bags, and who holds medals it could hand in.
+		{
+			unsigned stage[6] = { 0 };   // 0, 1-9, 10, 11-19, 20, 21
+			unsigned bots = 0, medalHolders = 0, canAdvance = 0, canWithMedal = 0, candidates = 0;
+			unsigned long long medals = 0, horseSum = 0;
+			for (TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.begin();
+					it != s_mapPlayerBotAIStates.end(); ++it)
+			{
+				LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(it->first);
+				if (!ch || ch->GetLevel() < PLAYERBOT_HORSE_REQUIRED_LEVEL)
+					continue;
+				++bots;
+				const int h = ch->GetHorseLevel();
+				horseSum += h;
+				++stage[h <= 0 ? 0 : h < 10 ? 1 : h == 10 ? 2 : h < 20 ? 3 : h == 20 ? 4 : 5];
+				const int held = (int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM);
+				medals += held;
+				if (held > 0)
+					++medalHolders;
+				const bool can = CanPlayerBotAdvanceHorse(ch);
+				if (can)
+					++canAdvance;
+				if (can && held > GetPlayerBotSaddlebagMedalReserve(ch))
+					++canWithMedal;
+				if (IsPlayerBotBattleHorseCandidate(ch))
+					++candidates;
+			}
+			sys_log(0, "PLAYERBOT_HORSE: census bots_25plus=%u avg_horse=%.1f stages(0/1-9/10/11-19/20/21)=%u/%u/%u/%u/%u/%u medals_in_bags=%llu medal_holders=%u can_advance=%u can_advance_with_medal=%u battle_candidates=%u medals_bought=%u",
+					bots, bots ? (double)horseSum / bots : 0.0, stage[0], stage[1], stage[2], stage[3], stage[4], stage[5],
+					medals, medalHolders, canAdvance, canWithMedal, candidates, s_kPlayerBotSaddlebagStats.medalsBought);
+		}
 		char dist[96] = "";
 		size_t len = 0;
 		for (int r = 0; r <= INVENTORY_PAGE_ROW; ++r)
 			len += snprintf(dist + len, sizeof(dist) - len, "%s%u", r ? "/" : "", byRows[r]);
-		sys_log(0, "PLAYERBOT_SADDLEBAG: census keepers=%u with_rows=%u rows=%u due=%u by_rows=%s exchanges=%u units_in=%llu materials_out=%llu rows_opened=%u recalled=%u moved_back=%u bought_materials=%u bought_medals=%u bought_goods=%u",
+		sys_log(0, "PLAYERBOT_SADDLEBAG: census keepers=%u with_rows=%u rows=%u due=%u by_rows=%s exchanges=%u units_in=%llu materials_out=%llu rows_opened=%u recalled=%u moved_back=%u bought_materials=%u bought_medals=%u bought_goods=%u material_units=%llu material_yang=%llu material_refused_cap=%u material_refused_purse=%u material_supply=%u market_full=%d",
 				keepers, withRows, rowsTotal, due, dist, s_kPlayerBotSaddlebagStats.exchanges,
 				s_kPlayerBotSaddlebagStats.unitsIn, s_kPlayerBotSaddlebagStats.materialsOut,
 				s_kPlayerBotSaddlebagStats.rows, s_kPlayerBotSaddlebagStats.recalled,
 				s_kPlayerBotSaddlebagStats.movedBack, s_kPlayerBotSaddlebagStats.materialsBought,
-				s_kPlayerBotSaddlebagStats.medalsBought, s_kPlayerBotSaddlebagStats.goodsBought);
+				s_kPlayerBotSaddlebagStats.medalsBought, s_kPlayerBotSaddlebagStats.goodsBought,
+				s_kPlayerBotSaddlebagStats.materialUnitsBought, s_kPlayerBotSaddlebagStats.materialYang,
+				s_kPlayerBotSaddlebagStats.materialRefusedCap, s_kPlayerBotSaddlebagStats.materialRefusedPurse,
+				(unsigned int)GetPlayerBotOperatorGoodsSupply(PLAYERBOT_CRAFT_MATERIAL_VNUM),
+				IsPlayerBotCraftMaterialMarketFull() ? 1 : 0);
 	}
 }
 

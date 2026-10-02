@@ -135,16 +135,15 @@ Group	MT2009_chest_biblioteka_misc
 	4	27005	50	50 -- Niebieska Mikstura(S)
 	5	50300	1	40 -- Ksiega Umiejetnosci
 	6	70037	1	10 -- Ksiega Zapomnienia
-	7	25040	1	8 -- Zwoj Blogoslawienstwa
+	7	25040	2	31 -- Zwoj Blogoslawienstwa
 	8	70058	1	10 -- Pierscien Teleportacji
 	9	71130	1	10 -- Przepustka
 	10	14100	1	8 -- Ebonitowa Bransoleta+0
 	11	16100	1	8 -- Ebonitowy Naszyjnik+0
 	12	17100	1	8 -- Ebonitowe Kolczyki+0
 	13	15100	1	8 -- Zlote Buty+0
-	14	18000	1	8 -- Pas Lniany+0
-	15	exp	60000	25 -- EXP 60 000
-	16	gold	100000	25 -- Yang 100 000
+	14	exp	60000	25 -- EXP 60 000
+	15	gold	1000000	25 -- Yang 1 000 000
 }
 Group	MT2009_chest_biblioteka_pet
 {
@@ -172,13 +171,13 @@ Group	MT2009_chest_biblioteka_pet
 	21	55030	1	10
 	22	55031	1	10
 	23	55009	1	30
-	24	55101	1	60
-	25	55108	1	60
-	26	55115	1	60
+	24	55101	3	60
+	25	55108	3	60
+	26	55115	3	60
 	27	55102	1	30
 	28	55109	1	30
 	29	55116	1	30
-	30	55001	1	216
+	30	55001	5	216
 	31	55032	1	150
 	32	55035	1	50
 }

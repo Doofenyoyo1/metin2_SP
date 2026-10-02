@@ -81,6 +81,10 @@ namespace
 	// the two can always hunt in one party again.
 	const int PLAYERBOT_SIDEKICK_SOLO_LEVEL_LEAD = 30;
 	const DWORD PLAYERBOT_SIDEKICK_SPAWN_RETRY_MS = 10000;
+	// MT2009_PLUS_SIDEKICK_POOL_V1 (rename): out for longer than the db core
+	// keeps a logged-out character in its cache (g_iLogoutSeconds, ten
+	// minutes), so the next load reads the row with the name the owner chose.
+	const DWORD PLAYERBOT_SIDEKICK_RENAME_HOLD_MS = 11 * 60 * 1000;
 	// At the owner's side: it walks up past the first distance, is put beside
 	// the owner past the second (a horse outran it, or a wall is in the way),
 	// and hunts on its own only within the third of the owner.
@@ -220,6 +224,11 @@ namespace
 	const int PLAYERBOT_SIDEKICK_LURE_BACK_RANGE = 350;
 	const DWORD PLAYERBOT_SIDEKICK_LURE_PAUSE_MS = 3000;
 	const DWORD PLAYERBOT_SIDEKICK_LURE_NOTHING_MS = 6000;
+	// MT2009_PLUS_SIDEKICK_LURE_V1: how long after a course the companion
+	// spends its skills on what it brought, and how many of them have to be on
+	// it for that.
+	const DWORD PLAYERBOT_SIDEKICK_LURE_GATHERED_MS = 25000;
+	const int PLAYERBOT_SIDEKICK_LURE_GATHERED_MIN = 2;
 	// A skill of its path standing at seventeen without Master: a Forgetting
 	// Book in its bag naming that skill is read within the first, and its
 	// owner is asked for one at most once per the second, per skill
@@ -334,6 +343,30 @@ namespace
 	const int PLAYERBOT_SIDEKICK_LURE_SELFTEST_STEPS = 17;
 	const int PLAYERBOT_SIDEKICK_LURE_SELFTEST_FREE_STEP = 14;
 	bool s_bPlayerBotSidekickPinTable = false;
+	// MT2009_PLUS_SIDEKICK_POOL_V1: the companions' own pool of identities
+	// (player.playerbot_sidekick_pool) - never played, so never in the db
+	// core's player cache, and kept out of the population's world the way a
+	// companion is (IsPlayerBotSidekickPID). "Nie ma teraz wolnej postaci tej
+	// klasy" (Note, 1 October) was every identity of the race in the world or
+	// saved within the last quarter of an hour - on a world of a thousand bots,
+	// all of them; and an identity taken from the population came in under the
+	// name the db core's cache still held for it.
+	std::set<DWORD> s_setPlayerBotSidekickPool;
+	bool s_bPlayerBotSidekickPoolTable = false;
+	DWORD s_dwPlayerBotSidekickNextPoolFill = 0;
+	// MT2009_PLUS_SIDEKICK_POOL_V1 (rename): a companion that came in under
+	// another name than its row's - the db core's cache of the population's
+	// bot it was - logs out once and stays out until the cache has let it go
+	// (g_iLogoutSeconds, ten minutes), and comes back under its own. Asked of
+	// a companion once per core run, so a cache that would not let go cannot
+	// make it come and go for ever.
+	std::set<DWORD> s_setPlayerBotSidekickRenameRelog;
+	std::set<DWORD> s_setPlayerBotSidekickRenameTried;
+	// MT2009_PLUS_SIDEKICK_COINS_V1: "Smocze Monety: wydaje / nie wydaje" in
+	// the window's Options page, by companion pid; on unless the owner set it
+	// off. Kept in player.playerbot_sidekick.coins.
+	std::map<DWORD, bool> s_mapPlayerBotSidekickCoins;
+	bool s_bPlayerBotSidekickCoinsColumn = false;
 
 	// What a companion carries between ticks that nobody else needs.
 	struct TPlayerBotSidekickRuntime
@@ -401,6 +434,9 @@ namespace
 		DWORD dwLureStageSince;
 		DWORD dwNextLure;
 		unsigned int uLureCourses;
+		// MT2009_PLUS_SIDEKICK_LURE_V1: the pack brought home is fought with
+		// the skills until this, while two or more of it are on the companion.
+		DWORD dwLureGatheredUntil = 0;
 		// The Forgetting Book (ReadPlayerBotSidekickForgetBook): its clock, when
 		// the owner was last asked for one, by skill, and the books it holds for
 		// a skill that is not stuck, told once.
@@ -520,6 +556,24 @@ namespace
 		s_bPlayerBotSidekickPinTable = pins.get() && pins->uiSQLErrno == 0;
 		if (!s_bPlayerBotSidekickPinTable)
 			sys_err("PLAYERBOT_SIDEKICK: no pin table errno=%u", pins.get() ? pins->uiSQLErrno : 0U);
+		// MT2009_PLUS_SIDEKICK_POOL_V1: the companions' pool. Without it a
+		// companion is picked out of the population as before.
+		std::unique_ptr<SQLMsg> pool(AccountDB::instance().DirectQuery(
+				"CREATE TABLE IF NOT EXISTS player.playerbot_sidekick_pool ("
+				"pid INT UNSIGNED NOT NULL PRIMARY KEY, "
+				"race TINYINT UNSIGNED NOT NULL, "
+				"reserved_at DATETIME NOT NULL, "
+				"KEY race (race)) ENGINE=InnoDB"));
+		s_bPlayerBotSidekickPoolTable = pool.get() && pool->uiSQLErrno == 0;
+		if (!s_bPlayerBotSidekickPoolTable)
+			sys_err("PLAYERBOT_SIDEKICK: no companion pool table errno=%u", pool.get() ? pool->uiSQLErrno : 0U);
+		// MT2009_PLUS_SIDEKICK_COINS_V1: "Smocze Monety: wydaje / nie wydaje".
+		std::unique_ptr<SQLMsg> coins(AccountDB::instance().DirectQuery(
+				"ALTER TABLE player.playerbot_sidekick "
+				"ADD COLUMN IF NOT EXISTS coins TINYINT UNSIGNED NOT NULL DEFAULT 1"));
+		s_bPlayerBotSidekickCoinsColumn = coins.get() && coins->uiSQLErrno == 0;
+		if (!s_bPlayerBotSidekickCoinsColumn)
+			sys_err("PLAYERBOT_SIDEKICK: no coins column errno=%u", coins.get() ? coins->uiSQLErrno : 0U);
 		// A companion whose owner's character was deleted would be kept out of
 		// the population for good: its record goes, and the identity plays on
 		// as the bot it was, under the name it was given.
@@ -633,11 +687,57 @@ namespace
 		}
 		s_mapPlayerBotSidekicks.swap(fresh);
 		s_mapPlayerBotSidekickOwner.swap(owners);
+		// MT2009_PLUS_SIDEKICK_POOL_V1: the pool another core may have filled
+		// or drawn from since the last read.
+		if (s_bPlayerBotSidekickPoolTable)
+		{
+			std::unique_ptr<SQLMsg> pool(AccountDB::instance().DirectQuery(
+					"SELECT pid FROM player.playerbot_sidekick_pool"));
+			if (pool.get() && pool->uiSQLErrno == 0 && pool->Get() && pool->Get()->pSQLResult)
+			{
+				std::set<DWORD> pids;
+				MYSQL_ROW poolRow;
+				while (NULL != (poolRow = mysql_fetch_row(pool->Get()->pSQLResult)))
+				{
+					DWORD pid = 0;
+					if (poolRow[0])
+						str_to_number(pid, poolRow[0]);
+					if (pid != 0)
+						pids.insert(pid);
+				}
+				s_setPlayerBotSidekickPool.swap(pids);
+			}
+		}
+		// MT2009_PLUS_SIDEKICK_COINS_V1: the coins switch, by companion.
+		if (s_bPlayerBotSidekickCoinsColumn)
+		{
+			std::unique_ptr<SQLMsg> coins(AccountDB::instance().DirectQuery(
+					"SELECT sidekick_pid, coins FROM player.playerbot_sidekick"));
+			if (coins.get() && coins->uiSQLErrno == 0 && coins->Get() && coins->Get()->pSQLResult)
+			{
+				MYSQL_ROW coinRow;
+				while (NULL != (coinRow = mysql_fetch_row(coins->Get()->pSQLResult)))
+				{
+					DWORD pid = 0;
+					unsigned int on = 1;
+					if (coinRow[0])
+						str_to_number(pid, coinRow[0]);
+					if (coinRow[1])
+						str_to_number(on, coinRow[1]);
+					if (pid != 0)
+						s_mapPlayerBotSidekickCoins[pid] = on != 0;
+				}
+			}
+		}
 	}
 
 	bool IsPlayerBotSidekickPID(DWORD pid)
 	{
-		return s_mapPlayerBotSidekickOwner.find(pid) != s_mapPlayerBotSidekickOwner.end();
+		// MT2009_PLUS_SIDEKICK_POOL_V1: an identity of the companions' pool is
+		// nobody's companion yet and nobody's bot either - Spawn refuses it,
+		// and the population's queues step over it, by this one question.
+		return s_mapPlayerBotSidekickOwner.find(pid) != s_mapPlayerBotSidekickOwner.end() ||
+				s_setPlayerBotSidekickPool.find(pid) != s_setPlayerBotSidekickPool.end();
 	}
 
 	// A bot that owns a companion - only under the self-test, since a person's
@@ -1179,6 +1279,160 @@ namespace
 		return 0;
 	}
 
+	// MT2009_PLUS_SIDEKICK_POOL_V1: the pool kept at PLAYERBOT_SIDEKICK_POOL_PER_RACE
+	// identities of each of the eight races, any kingdom - SpawnSidekick makes
+	// a companion its owner's kingdom's at the load. Only an identity that has
+	// never played: never in a world, never in the db core's cache, so the name
+	// it is given is the name it comes in under. The registry's every guard,
+	// as PickPlayerBotSidekickIdentity asks them. A world whose identities have
+	// all played keeps an empty pool, and a companion is picked as before.
+	const int PLAYERBOT_SIDEKICK_POOL_PER_RACE = 2;
+	const DWORD PLAYERBOT_SIDEKICK_POOL_FILL_MS = 5 * 60 * 1000;
+
+	void FillPlayerBotSidekickPool(DWORD dwNow)
+	{
+		if (!s_bPlayerBotSidekickPoolTable || IsPlayerBotSidekickSwitchedOff() ||
+				(s_dwPlayerBotSidekickNextPoolFill != 0 && dwNow < s_dwPlayerBotSidekickNextPoolFill))
+			return;
+		s_dwPlayerBotSidekickNextPoolFill = dwNow + PLAYERBOT_SIDEKICK_POOL_FILL_MS;
+		int have[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+		{
+			std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(
+					"SELECT race, COUNT(*) FROM player.playerbot_sidekick_pool GROUP BY race"));
+			if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
+				return;
+			MYSQL_ROW row;
+			while (NULL != (row = mysql_fetch_row(msg->Get()->pSQLResult)))
+			{
+				unsigned int race = 0, count = 0;
+				if (row[0]) str_to_number(race, row[0]);
+				if (row[1]) str_to_number(count, row[1]);
+				if (race < 8)
+					have[race] = (int)count;
+			}
+		}
+		int added = 0;
+		for (int race = 0; race < 8; ++race)
+		{
+			if (have[race] >= PLAYERBOT_SIDEKICK_POOL_PER_RACE)
+				continue;
+			char query[1400];
+			snprintf(query, sizeof(query),
+					"SELECT l.pid FROM common.playerbot_seed_state AS l "
+					"JOIN player.player AS p ON p.id=l.pid "
+					"JOIN account.account AS a ON a.id=p.account_id "
+					"JOIN player.player_index AS pi ON pi.id=a.id "
+					"WHERE l.seed_version=1 AND l.state IN ('complete','adopted') "
+					"AND BINARY a.login=BINARY CONCAT('playerbot_',LPAD(l.pid-3,GREATEST(3,LENGTH(l.pid-3)),'0')) "
+					"AND BINARY a.social_id=BINARY CONCAT('9',LPAD(l.pid-3,12,'0')) "
+					"AND pi.pid1=l.pid AND pi.pid2=0 AND pi.pid3=0 AND pi.pid4=0 AND pi.empire IN (1,2,3) "
+					"AND p.job=%d AND p.playtime=0 "
+					"AND l.pid NOT IN (SELECT sidekick_pid FROM player.playerbot_sidekick) "
+					"AND l.pid NOT IN (SELECT pid FROM player.playerbot_sidekick_pool) "
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+					"AND l.pid NOT IN (SELECT owner FROM player.ikashop_offlineshop) "
+#endif
+					"ORDER BY l.pid DESC LIMIT 40", race);
+			std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
+			if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
+			{
+				sys_err("PLAYERBOT_SIDEKICK: companion pool query failed race=%d errno=%u", race,
+						msg.get() ? msg->uiSQLErrno : 0U);
+				return;
+			}
+			MYSQL_ROW row;
+			while (have[race] < PLAYERBOT_SIDEKICK_POOL_PER_RACE &&
+					NULL != (row = mysql_fetch_row(msg->Get()->pSQLResult)))
+			{
+				DWORD pid = 0;
+				if (row[0])
+					str_to_number(pid, row[0]);
+				if (pid == 0 || !CPlayerBotManager::instance().IsRegisteredBotPID(pid) ||
+						CPlayerBotManager::instance().IsManaged(pid) ||
+						CPlayerBotManager::instance().IsMedalDropperCohortPID(pid) ||
+						IsPlayerBotShouterPID(pid) ||
+						// The test cohorts, the takeovers and the retirements keep
+						// their identities.
+						IsPlayerBotArezzoCohortPID(pid) || IsPlayerBotArezzoDungeonCohortPID(pid) ||
+						IsPlayerBotArezzoDungeonReservedPID(pid) ||
+						IsPlayerBotTakeoverHold(pid) || IsPlayerBotRetirementHold(pid) ||
+						CHARACTER_MANAGER::instance().FindByPID(pid) || P2P_MANAGER::instance().FindByPID(pid))
+					continue;
+				char insert[192];
+				snprintf(insert, sizeof(insert),
+						"INSERT IGNORE INTO player.playerbot_sidekick_pool (pid, race, reserved_at) VALUES (%u, %d, NOW())",
+						pid, race);
+				std::unique_ptr<SQLMsg> put(AccountDB::instance().DirectQuery(insert));
+				if (!put.get() || put->uiSQLErrno != 0 || !put->Get() || put->Get()->uiAffectedRows == 0)
+					continue;
+				s_setPlayerBotSidekickPool.insert(pid);
+				++have[race];
+				++added;
+			}
+		}
+		if (added > 0)
+			sys_log(0, "PLAYERBOT_SIDEKICK: companion pool reserved %d identities, %u in the pool",
+					added, (unsigned int)s_setPlayerBotSidekickPool.size());
+	}
+
+	// An identity of the race out of the pool, taken for good: the DELETE
+	// decides between two cores claiming one at once. 0 when the pool has none
+	// of the race.
+	DWORD ClaimPlayerBotSidekickPoolIdentity(BYTE race, DWORD ownerPid)
+	{
+		if (!s_bPlayerBotSidekickPoolTable)
+			return 0;
+		char query[192];
+		snprintf(query, sizeof(query),
+				"SELECT pid FROM player.playerbot_sidekick_pool WHERE race=%u ORDER BY reserved_at, pid LIMIT 8",
+				(unsigned int)race);
+		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
+		if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
+		{
+			sys_err("PLAYERBOT_SIDEKICK: companion pool query failed owner=%u errno=%u", ownerPid,
+					msg.get() ? msg->uiSQLErrno : 0U);
+			return 0;
+		}
+		MYSQL_ROW row;
+		while (NULL != (row = mysql_fetch_row(msg->Get()->pSQLResult)))
+		{
+			DWORD pid = 0;
+			if (row[0])
+				str_to_number(pid, row[0]);
+			if (pid == 0 || CHARACTER_MANAGER::instance().FindByPID(pid) || P2P_MANAGER::instance().FindByPID(pid))
+				continue;
+			snprintf(query, sizeof(query), "DELETE FROM player.playerbot_sidekick_pool WHERE pid=%u", pid);
+			std::unique_ptr<SQLMsg> take(AccountDB::instance().DirectQuery(query));
+			if (!take.get() || take->uiSQLErrno != 0 || !take->Get() || take->Get()->uiAffectedRows == 0)
+			{
+				sys_log(0, "PLAYERBOT_SIDEKICK: companion pool claim failed owner=%u pid=%u errno=%u", ownerPid, pid,
+						take.get() ? take->uiSQLErrno : 0U);
+				continue;
+			}
+			s_setPlayerBotSidekickPool.erase(pid);
+			return pid;
+		}
+		return 0;
+	}
+
+	// A claim whose companion was never written (the name refused, the record
+	// not written) goes back to the pool.
+	void GiveBackPlayerBotSidekickPoolIdentity(DWORD pid, BYTE race, DWORD ownerPid)
+	{
+		if (!pid || !s_bPlayerBotSidekickPoolTable)
+			return;
+		char query[192];
+		snprintf(query, sizeof(query),
+				"INSERT IGNORE INTO player.playerbot_sidekick_pool (pid, race, reserved_at) VALUES (%u, %u, NOW())",
+				pid, (unsigned int)race);
+		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
+		const bool done = msg.get() && msg->uiSQLErrno == 0;
+		if (done)
+			s_setPlayerBotSidekickPool.insert(pid);
+		sys_log(0, "PLAYERBOT_SIDEKICK: companion pool claim given back pid=%u owner=%u done=%d", pid, ownerPid,
+				done ? 1 : 0);
+	}
+
 	bool IsPlayerBotSidekickNameAllowed(const char* name)
 	{
 		const size_t length = name ? strlen(name) : 0;
@@ -1237,12 +1491,20 @@ namespace
 				return false;
 			}
 		}
-		const DWORD pid = PickPlayerBotSidekickIdentity(owner->GetEmpire(), (BYTE)race, owner->GetLevel());
+		// MT2009_PLUS_SIDEKICK_POOL_V1: the companions' own pool first, and the
+		// population only when the pool has none of the race - a world whose
+		// identities have all played, or a pool drawn empty in the last five
+		// minutes.
+		DWORD pid = ClaimPlayerBotSidekickPoolIdentity((BYTE)race, ownerPid);
+		const bool fromPool = pid != 0;
+		if (pid == 0)
+			pid = PickPlayerBotSidekickIdentity(owner->GetEmpire(), (BYTE)race, owner->GetLevel());
 		if (pid == 0)
 		{
 			SayPlayerBotSidekick(owner, "Nie ma teraz wolnej postaci tej klasy w twoim krolestwie - wybierz inna albo sprobuj pozniej.");
-			sys_log(0, "PLAYERBOT_SIDEKICK: no identity for owner=%u race=%d empire=%u",
+			sys_log(0, "PLAYERBOT_SIDEKICK: no identity for owner=%u race=%d empire=%u (pool empty)",
 					ownerPid, race, (unsigned int)owner->GetEmpire());
+			s_dwPlayerBotSidekickNextPoolFill = 0;
 			return false;
 		}
 		char query[512];
@@ -1258,6 +1520,10 @@ namespace
 		if (!rename.get() || rename->uiSQLErrno != 0)
 		{
 			SayPlayerBotSidekick(owner, "Nie udalo sie nadac nicku - sprobuj innego.");
+			sys_log(0, "PLAYERBOT_SIDEKICK: name not given owner=%u owner_name=%s pid=%u name=%s errno=%u", ownerPid,
+					owner->GetName(), pid, name, rename.get() ? rename->uiSQLErrno : 0U);
+			if (fromPool)
+				GiveBackPlayerBotSidekickPoolIdentity(pid, (BYTE)race, ownerPid);
 			return false;
 		}
 		// And the storekeeper's box of the account it was: a companion on a town
@@ -1288,6 +1554,10 @@ namespace
 		if (!insert.get() || insert->uiSQLErrno != 0)
 		{
 			SayPlayerBotSidekick(owner, "Nie udalo sie zapisac towarzysza - sprobuj za chwile.");
+			sys_log(0, "PLAYERBOT_SIDEKICK: record not written owner=%u owner_name=%s pid=%u name=%s errno=%u", ownerPid,
+					owner->GetName(), pid, name, insert.get() ? insert->uiSQLErrno : 0U);
+			if (fromPool)
+				GiveBackPlayerBotSidekickPoolIdentity(pid, (BYTE)race, ownerPid);
 			return false;
 		}
 		TPlayerBotSidekick rec;
@@ -1308,8 +1578,8 @@ namespace
 		SayPlayerBotSidekick(owner, text);
 		SayPlayerBotSidekick(owner, "Punkty umiejetnosci rozdajesz ty: okno towarzysza (P), Umiejetnosci. "
 				"Wolisz, zeby robil to sam? Ustaw tam \"Punkty rozdaje sam: nie\".");
-		sys_log(0, "PLAYERBOT_SIDEKICK: created owner=%u owner_name=%s pid=%u name=%s race=%d group=%d level=%d",
-				ownerPid, owner->GetName(), pid, name, race, group, level);
+		sys_log(0, "PLAYERBOT_SIDEKICK: created owner=%u owner_name=%s pid=%u name=%s race=%d group=%d level=%d pool=%d",
+				ownerPid, owner->GetName(), pid, name, race, group, level, fromPool ? 1 : 0);
 		CPlayerBotManager::instance().SpawnSidekick(pid);
 		return true;
 	}
@@ -1703,6 +1973,33 @@ namespace
 			{
 				ch->ClearSkill();
 				ch->SetSkillGroup(rec->bGroup);
+			}
+		}
+		// MT2009_PLUS_SIDEKICK_POOL_V1 (rename): the name its row holds. The db
+		// core answers a load out of its cache when it still holds the
+		// character - a population's bot taken while its cache stood, the
+		// companions made before the pool - and the cache carries the name it
+		// had; the save leaves the name column alone, so the row keeps the
+		// chosen one, and a load after the cache has gone brings it.
+		{
+			char query[128];
+			snprintf(query, sizeof(query), "SELECT name FROM player.player WHERE id=%u", ch->GetPlayerID());
+			std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
+			MYSQL_ROW row = NULL;
+			if (msg.get() && msg->uiSQLErrno == 0 && msg->Get() && msg->Get()->pSQLResult &&
+					(row = mysql_fetch_row(msg->Get()->pSQLResult)) && row[0] && *row[0] &&
+					strcmp(row[0], ch->GetName()) != 0)
+			{
+				if (s_setPlayerBotSidekickRenameTried.insert(ch->GetPlayerID()).second)
+				{
+					s_setPlayerBotSidekickRenameRelog.insert(ch->GetPlayerID());
+					sys_log(0, "PLAYERBOT_SIDEKICK: loaded under an old name pid=%u name=%s row_name=%s owner=%u, "
+							"logging out once to come back under it", ch->GetPlayerID(), ch->GetName(), row[0],
+							rec->dwOwnerPID);
+				}
+				else
+					sys_log(0, "PLAYERBOT_SIDEKICK: still under its old name after a relog pid=%u name=%s row_name=%s owner=%u",
+							ch->GetPlayerID(), ch->GetName(), row[0], rec->dwOwnerPID);
 			}
 		}
 		LPCHARACTER owner = GetPlayerBotSidekickOwnerChar(rec->dwOwnerPID);
@@ -2490,6 +2787,7 @@ namespace
 		{
 			s_dwPlayerBotSidekickNextLoad = dwNow + PLAYERBOT_SIDEKICK_RELOAD_MS;
 			LoadPlayerBotSidekicks();
+			FillPlayerBotSidekickPool(dwNow); // MT2009_PLUS_SIDEKICK_POOL_V1
 		}
 		RunPlayerBotSidekickSelfTest(dwNow);
 		const bool off = IsPlayerBotSidekickSwitchedOff();
@@ -2532,6 +2830,28 @@ namespace
 				// a relog) while the companion still stood in the world: it logs
 				// out, and the next try brings it in with the owner's kingdom
 				// (SpawnSidekick).
+				// MT2009_PLUS_SIDEKICK_POOL_V1 (rename): in under an old name, it
+				// logs out once and comes back under its own once the db core
+				// has let the old one go (OnPlayerBotSidekickLoaded).
+				if (here && s_setPlayerBotSidekickRenameRelog.count(rec.dwSidekickPID))
+				{
+					s_setPlayerBotSidekickRenameRelog.erase(rec.dwSidekickPID);
+					LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID);
+					if (sk)
+					{
+						if (sk->GetParty())
+							LeavePlayerBotParty(sk);
+						sk->Save();
+					}
+					sys_log(0, "PLAYERBOT_SIDEKICK: logging out to come back under its name pid=%u name=%s owner=%u",
+							rec.dwSidekickPID, sk ? sk->GetName() : "?", rec.dwOwnerPID);
+					SayPlayerBotSidekick(owner, "Gra pamieta mnie jeszcze pod starym nickiem - wyloguje sie i za okolo "
+							"dziesiec minut wroce juz pod wlasciwym.");
+					CPlayerBotManager::instance().Despawn(rec.dwSidekickPID, playerbot_session_rules::OUT_SIDEKICK);
+					s_mapPlayerBotSidekickRuntime.erase(rec.dwSidekickPID);
+					rec.dwNextSpawnTry = dwNow + PLAYERBOT_SIDEKICK_RENAME_HOLD_MS;
+					continue;
+				}
 				if (here)
 				{
 					LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID);
@@ -2638,6 +2958,11 @@ namespace
 
 	// ------------------------------------------------------------ the orders
 
+#if defined(PLAYERBOT_ENGINE_MT2009)
+	std::string DescribePlayerBotSidekickCoins(LPCHARACTER sk, TPlayerBotAIState& state, const TPlayerBotSidekick& rec);
+#endif
+	bool IsPlayerBotSidekickCoinsOn(DWORD pid);
+
 	void ReportPlayerBotSidekick(LPCHARACTER owner, const TPlayerBotSidekick& rec)
 	{
 		LPCHARACTER sk = CHARACTER_MANAGER::instance().FindByPID(rec.dwSidekickPID);
@@ -2653,6 +2978,15 @@ namespace
 					sk->GetMapIndex() == owner->GetMapIndex() ? "na twojej mapie" : "na innej mapie", mode,
 					GetPlayerBotSidekickStanceName(rec.bStance));
 		SayPlayerBotSidekick(owner, text);
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		// MT2009_PLUS_SIDEKICK_COINS_V1: what it does with its Dragon Coins.
+		if (sk)
+		{
+			TPlayerBotAIStateMap::iterator st = s_mapPlayerBotAIStates.find(rec.dwSidekickPID);
+			if (st != s_mapPlayerBotAIStates.end())
+				SayPlayerBotSidekick(owner, DescribePlayerBotSidekickCoins(sk, st->second, rec).c_str());
+		}
+#endif
 	}
 
 	// The stance, kept in the record at once: the table is read again every
@@ -2868,6 +3202,134 @@ namespace
 			return "Dobra, sam otwieram skrzynie i szkatulki z torby.";
 		return "Dobra, nie otwieram skrzyn ani szkatulek - zostaja w mojej torbie, mozesz je wziac w oknie Towarzysza.";
 	}
+
+	// ------------------------------------------- MT2009_PLUS_SIDEKICK_COINS_V1
+	//
+	// "Smocze Monety: wydaje / nie wydaje" (Derpsonkowy95's five thousand
+	// coins that bought nothing; the operator, 1 October). A companion went
+	// through the shop pass as any bot, behind the world's ISHOP switch, and
+	// bought what every bot does - a hairstyle first. Now its owner's switch
+	// decides (on by default): on, it cashes every Kupon SM in its bag at once
+	// and buys in the Item Shop only what it uses (CollectPlayerBotItemShopNeeds:
+	// the Kamien Duchowy for a Grand Master skill, the change stone for its
+	// weapon, the Blessing Scroll, the Exorcism Scroll and the Rada for its
+	// books), never a look, and says every purchase and its price; off, the
+	// vouchers stay in its bag for its owner to take in the window and the
+	// coins stay on its account.
+	bool IsPlayerBotSidekickCoinsOn(DWORD pid)
+	{
+		std::map<DWORD, bool>::const_iterator it = s_mapPlayerBotSidekickCoins.find(pid);
+		return it == s_mapPlayerBotSidekickCoins.end() || it->second;
+	}
+
+	const char* SetPlayerBotSidekickCoins(TPlayerBotSidekick& rec, bool spend)
+	{
+		if (IsPlayerBotSidekickCoinsOn(rec.dwSidekickPID) != spend)
+		{
+			s_mapPlayerBotSidekickCoins[rec.dwSidekickPID] = spend;
+			if (s_bPlayerBotSidekickCoinsColumn)
+				SetPlayerBotSidekickSetting(rec, "coins", spend ? 1U : 0U);
+		}
+		else
+			s_mapPlayerBotSidekickCoins[rec.dwSidekickPID] = spend;
+		if (spend)
+			return "Dobra, wydaje Smocze Monety w Item Shopie na to, czego potrzebuje, i wymieniam kupony SM z plecaka. "
+					"Kazdy zakup ci zglosze.";
+		return "Dobra, nie wydaje Smoczych Monet. Kupony SM zostaja w moim plecaku - mozesz je wziac w oknie Towarzysza.";
+	}
+
+#if defined(PLAYERBOT_ENGINE_MT2009)
+	// What a wish of the shop pass is for, in the companion's words.
+	const char* GetPlayerBotSidekickWishWords(const char* reason)
+	{
+		if (!reason)
+			return "na zakupy";
+		if (!strcmp(reason, "grand_master_stone"))
+			return "do treningu Wielkiego Mistrza";
+		if (!strcmp(reason, "change_stone"))
+			return "do zmiany bonusow u kowala";
+		if (!strcmp(reason, "blessing_scroll"))
+			return "do ulepszania u kowala";
+		if (!strcmp(reason, "exorcism_scroll") || !strcmp(reason, "rada_pustelnika"))
+			return "do czytania ksiag";
+		if (!strcmp(reason, "metin_detector"))
+			return "do szukania Metinow";
+		if (!strcmp(reason, "teleport_ring"))
+			return "do teleportow";
+		if (!strcmp(reason, "raid_booster"))
+			return "na walke";
+		return "na to, czego uzywam";
+	}
+
+	void NotePlayerBotSidekickVouchers(LPCHARACTER sk, long long coins, int balance)
+	{
+		TPlayerBotSidekick* rec = sk ? FindPlayerBotSidekickOf(sk->GetPlayerID()) : NULL;
+		if (!rec)
+			return;
+		char text[200];
+		snprintf(text, sizeof(text), "Wymienilem kupony SM na %lld Smoczych Monet - mam ich teraz %d. "
+				"Kupie za nie, czego potrzebuje.", coins, balance);
+		SayPlayerBotSidekick(GetPlayerBotSidekickOwnerChar(rec->dwOwnerPID), text);
+	}
+
+	void NotePlayerBotSidekickItemShopBuy(LPCHARACTER sk, DWORD vnum, DWORD count, DWORD price, bool marks,
+			const char* reason, int left)
+	{
+		TPlayerBotSidekick* rec = sk ? FindPlayerBotSidekickOf(sk->GetPlayerID()) : NULL;
+		if (!rec)
+			return;
+		const TItemTable* proto = ITEM_MANAGER::instance().GetTable(vnum);
+		char text[240];
+		snprintf(text, sizeof(text), "Kupilem w Item Shopie: %s x%u za %u %s, %s (zostalo %d).",
+				proto ? proto->szLocaleName : "przedmiot", (unsigned int)count, (unsigned int)price,
+				marks ? "Smoczych Znakow" : "Smoczych Monet", GetPlayerBotSidekickWishWords(reason), left);
+		SayPlayerBotSidekick(GetPlayerBotSidekickOwnerChar(rec->dwOwnerPID), text);
+		sys_log(0, "PLAYERBOT_SIDEKICK: itemshop bought pid=%u name=%s owner=%u vnum=%u x%u price=%u %s reason=%s left=%d",
+				sk->GetPlayerID(), sk->GetName(), rec->dwOwnerPID, vnum, (unsigned int)count, (unsigned int)price,
+				marks ? "marks" : "coins", reason ? reason : "-", left);
+	}
+
+	// The "Raport"'s line of the coins: the balance, and what it saves for,
+	// buys next or does not need.
+	std::string DescribePlayerBotSidekickCoins(LPCHARACTER sk, TPlayerBotAIState& state, const TPlayerBotSidekick& rec)
+	{
+		char text[320];
+		if (!IsPlayerBotSidekickCoinsOn(rec.dwSidekickPID))
+		{
+			snprintf(text, sizeof(text), "Smocze Monety: nie wydaje (mam %d). Kupony SM zostaja w moim plecaku.",
+					state.bDragonBalanceKnown ? state.iDragonCoins : 0);
+			return text;
+		}
+		RefreshPlayerBotItemShopCatalogue(get_dword_time());
+		if (!state.bDragonBalanceKnown)
+			RefreshPlayerBotDragonBalance(sk, state, get_dword_time());
+		TPlayerBotItemShopWish wishes[PLAYERBOT_ISHOP_MAX_WISHES];
+		const int n = CollectPlayerBotItemShopNeeds(sk, state, wishes);
+		char what[200] = "";
+		for (int i = 0; i < n; ++i)
+		{
+			const TItemTable* proto = ITEM_MANAGER::instance().GetTable(wishes[i].dwVnum);
+			const DWORD price = GetPlayerBotItemShopCheapest(sk, wishes[i].dwVnum, wishes[i].bMarks);
+			if (!proto || price == 0)
+				continue;
+			const int have = wishes[i].bMarks ? state.iDragonMarks : state.iDragonCoins;
+			if (have >= (int)price)
+				snprintf(what, sizeof(what), "Kupie %s (%u %s) %s przy nastepnym zajrzeniu do Item Shopu.",
+						proto->szLocaleName, (unsigned int)price, wishes[i].bMarks ? "Smoczych Znakow" : "Smoczych Monet",
+						GetPlayerBotSidekickWishWords(wishes[i].szReason));
+			else
+				snprintf(what, sizeof(what), "Odkladam Smocze Monety na %s (%u), %s - mam %d, brakuje %d.",
+						proto->szLocaleName, (unsigned int)price, GetPlayerBotSidekickWishWords(wishes[i].szReason),
+						have, (int)price - have);
+			break;
+		}
+		if (!*what)
+			snprintf(what, sizeof(what), "Wydaje je w Item Shopie na to, czego uzywam - Kamienie Duchowe, zmiane bonusow, "
+					"zwoje do ulepszania i do ksiag - ale teraz nic z tego mi nie trzeba.");
+		snprintf(text, sizeof(text), "Smocze Monety: %d, Smocze Znaki: %d. %s", state.iDragonCoins, state.iDragonMarks, what);
+		return text;
+	}
+#endif
 
 	// The roles a leader's Leadership opens (CParty::Update's
 	// m_anMaxRole): the level each wants and the client's own name for it.
@@ -3398,13 +3860,25 @@ namespace
 			mode = 3;
 		else if (rt && rt->bHold && mode == 0)
 			mode = 2;
+		// MT2009_PLUS_SIDEKICK_COINS_V1: the coins switch and what its account
+		// holds (-1 before the server has read it) after the rank: the window's
+		// Options page shows them on "Smocze Monety".
+		int coinBalance = -1;
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		if (inWorld)
+		{
+			if (!st->second.bDragonBalanceKnown)
+				RefreshPlayerBotDragonBalance(sk, st->second, get_dword_time());
+			coinBalance = st->second.iDragonCoins;
+		}
+#endif
 		// "Gra beze mnie", "Skrzynki" and "Grupa" last: a window older than they
 		// are reads the words it knows and leaves the rest (uisidekick.ParseInfo).
 		// MT2009_PLUS_SIDEKICK_RANK_V1: the companion's rank points after them
 		// (the alignment over ten, as the character packet carries it), for the
 		// rank title on its name in the window, as the player's own shows his.
 		SendPlayerBotSidekickCommand(owner,
-				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d %d %d %d %d %d %u %d %d %d",
+				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d %d %d %d %d %d %u %d %d %d %d %d",
 				PLAYERBOT_SIDEKICK_WINDOW_PROTOCOL,
 				inWorld ? (int)sk->GetRaceNum() : -1, inWorld ? (int)sk->GetSkillGroup() : 0,
 				inWorld ? sk->GetLevel() : 0, expPercent,
@@ -3415,7 +3889,8 @@ namespace
 				inWorld && sk->IsDead() ? 1 : 0, rec.bLure ? 1 : 0, rt ? (int)rt->bLureStage : 0, rec.bSolo ? 1 : 0,
 				rec.bChests ? 1 : 0, rec.bLead ? 1 : 0, (unsigned int)rec.bRole,
 				inWorld ? sk->GetLeadershipSkillLevel() : 0, rec.bParty ? 1 : 0,
-				inWorld ? sk->GetAlignment() / 10 : 0);
+				inWorld ? sk->GetAlignment() / 10 : 0,
+				IsPlayerBotSidekickCoinsOn(rec.dwSidekickPID) ? 1 : 0, coinBalance);
 		char doing[96] = "";
 		char place[64] = "";
 		if (inWorld)
@@ -5140,6 +5615,15 @@ namespace
 			else
 				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz skrzynki 1 (sam otwieram skrzynie) albo /towarzysz skrzynki 0");
 		}
+		// MT2009_PLUS_SIDEKICK_COINS_V1: "Smocze Monety: wydaje / nie wydaje".
+		else if (!strcmp(sub, "monety") || !strcmp(sub, "coins"))
+		{
+			if (!strcmp(a1, "0") || !strcmp(a1, "1") || !strcmp(a1, "on") || !strcmp(a1, "off"))
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickCoins(rec->second, !strcmp(a1, "1") || !strcmp(a1, "on")));
+			else
+				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz monety 1 (wydaje Smocze Monety w Item Shopie) albo "
+						"/towarzysz monety 0 (nie wydaje)");
+		}
 		else if (!strcmp(sub, "grupa"))
 		{
 			if (!strcmp(a1, "0") || !strcmp(a1, "1"))
@@ -5648,6 +6132,19 @@ namespace
 			const bool hadBody = ch->GetWear(WEAR_BODY) != NULL;
 			const bool hadShield = ch->GetWear(WEAR_SHIELD) != NULL;
 			did = ManagePlayerBotRefining(ch, state, dwNow) || did;
+			// MT2009_PLUS_SIDEKICK_BONUS_V1: and its bonuses, as a bot's town
+			// visit does them at the anvil (ManagePlayerBotBonusReroll): the
+			// change and add stones and the marbles in its bag - what it found
+			// and what its owner handed it - on its worn gear, the green ones
+			// first, a piece being worked until its lines are good. It refined
+			// at its owner's blacksmith and carried its stones for good.
+			state.dwNextBonusCheckTime = 0;
+			if (ManagePlayerBotBonusReroll(ch, state, dwNow))
+			{
+				did = true;
+				sys_log(0, "PLAYERBOT_SIDEKICK: bonuses at the blacksmith pid=%u name=%s owner=%u",
+						ch->GetPlayerID(), ch->GetName(), owner->GetPlayerID());
+			}
 			// MT2009_PLUS_BOSS_RAID_V2 (2.2.52, burn): a piece burnt at the
 			// anvil is replaced on the same look when the owner stands by the
 			// merchant too, not on the next service visit.
@@ -5973,6 +6470,18 @@ namespace
 			++rt.adwFoes[MINMAX(0, why, 3)];
 		}
 		state.dwLastMeaningfulActivityTime = dwNow;
+		// MT2009_PLUS_SIDEKICK_LURE_V1: the packs a course brought stand round
+		// it now - the skills on them as soon as one is due, the area ones
+		// taking the whole gathering, rather than on the rotation's clock of
+		// a hunt (a Shaman's six seconds).
+		if (rt.dwLureGatheredUntil != 0)
+		{
+			if (dwNow >= rt.dwLureGatheredUntil)
+				rt.dwLureGatheredUntil = 0;
+			else if (CountPlayerBotSidekickChasers(ch) >= PLAYERBOT_SIDEKICK_LURE_GATHERED_MIN &&
+					state.dwNextSkillCastTime > dwNow && dwNow >= state.dwNextAttackTime)
+				state.dwNextSkillCastTime = dwNow;
+		}
 		const int foeDist = DISTANCE_APPROX(ch->GetX() - foe->GetX(), ch->GetY() - foe->GetY());
 		if (foeDist > PLAYERBOT_DUEL_MELEE_RANGE &&
 				!CPlayerBotNavigation::instance(ch->GetMapIndex()).Init(ch->GetMapIndex()) &&
@@ -6158,6 +6667,36 @@ namespace
 		return ch->GetMaxHP() > 0 ? (int)((long long)ch->GetHP() * 100 / ch->GetMaxHP()) : 0;
 	}
 
+	// MT2009_PLUS_SIDEKICK_LURE_V1: a pack is woken with a plain blow - the
+	// basic hit, an Archer's arrow at its bow's reach - never a skill (prodnathin,
+	// 1 October: "towarzysz zbiera grupki skillami i nic nie zostaje do
+	// zebrania"). The tower's fight cast the rotation at the first monster, and
+	// a splash skill killed the pack it was meant to bring, or woke one and
+	// spent the cooldowns the gathered packs were for.
+	void StrikePlayerBotSidekickLurePack(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER target, DWORD dwNow)
+	{
+		ReadyPlayerBotHandForFight(ch, state, dwNow, "sidekick_lure");
+		LPITEM weapon = ch->GetWear(WEAR_WEAPON);
+		const bool isBow = !IsPlayerBotFightingAsMonster(ch) && weapon && weapon->GetType() == ITEM_WEAPON &&
+				weapon->GetSubType() == WEAPON_BOW;
+		const int reach = isBow ? GetPlayerBotBowRange(ch->GetMapIndex()) - PLAYERBOT_BOW_APPROACH_SLACK
+				: PLAYERBOT_DUEL_MELEE_RANGE;
+		const int distance = DISTANCE_APPROX(ch->GetX() - target->GetX(), ch->GetY() - target->GetY());
+		state.dwTargetVID = (DWORD)target->GetVID();
+		ch->SetVictim(target);
+		ch->SetRotationToXY(target->GetX(), target->GetY());
+		SetPlayerBotAction(state, BOT_ACTION_FIGHT, dwNow);
+		if (distance > reach)
+		{
+			WalkPlayerBotSidekick(ch, target->GetX(), target->GetY(), dwNow, false);
+			return;
+		}
+		if (ch->IsStateMove())
+			ch->Stop();
+		ch->SetPosition(POS_FIGHTING);
+		ExecutePlayerBotBasicAttack(ch, target, state, dwNow);
+	}
+
 	void EndPlayerBotSidekickLure(LPCHARACTER ch, TPlayerBotSidekickRuntime& rt, DWORD dwNow, const char* why)
 	{
 		if (rt.bLureStage != 0)
@@ -6310,7 +6849,7 @@ namespace
 				SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
 				return true;
 			}
-			FightPlayerBotTowerObjective(ch, state, target, dwNow);
+			StrikePlayerBotSidekickLurePack(ch, state, target, dwNow);
 			return true;
 		}
 		// Home with what it woke: beside the owner the course is over and the
@@ -6329,6 +6868,9 @@ namespace
 			SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
 			return true;
 		}
+		// MT2009_PLUS_SIDEKICK_LURE_V1: what it brought is fought with the
+		// skills now (FightPlayerBotSidekickFoe), the packs gathered round it.
+		rt.dwLureGatheredUntil = dwNow + PLAYERBOT_SIDEKICK_LURE_GATHERED_MS;
 		EndPlayerBotSidekickLure(ch, rt, dwNow, "brought");
 		return false;
 	}

@@ -517,7 +517,7 @@ void SeonHaeCommand(LPCHARACTER ch, const char* argument)
 // defaults below. One rule a line, tab- or space-separated, '#' a comment:
 //   additive_chance <percent>                         (default 60)
 //   additive_map <map index> <additive vnum> <count>  (72, 73: 1 x 72065; 362: 1 x 72066)
-//   mob <mob vnum> <additive vnum> <count>            (2493 Beran-Setaou: 2 x 72065)
+//   mob <mob vnum> <additive vnum> <count>            (2493 Beran-Setaou, 9714 Krolowa Dzungli: 2 x 72066)
 //   shard_chance <percent, e.g. 0.5>                  (default 0.5)
 //   shard_map <map index>                             (73, 209, 362)
 //   shard <shard vnum> <weight>                       (39070-39077, 39081: 1 each)
@@ -566,7 +566,8 @@ namespace mt2009_seonhae
 		r.additiveMaps[73] = VnumCount{ 72065, 1 };
 		r.additiveMaps[362] = VnumCount{ 72066, 1 };
 		r.mobs.clear();
-		r.mobs[2493] = VnumCount{ 72065, 2 };
+		r.mobs[2493] = VnumCount{ 72066, 2 };
+		r.mobs[9714] = VnumCount{ 72066, 2 };
 		r.shardChance = 500;	// 0.5 %
 		r.shardMaps.clear();
 		r.shardMaps.insert(73);

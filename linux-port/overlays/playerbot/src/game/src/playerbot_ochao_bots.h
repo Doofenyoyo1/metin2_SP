@@ -346,6 +346,9 @@ namespace
 	{
 		if (!ch || ch->GetLevel() < PLAYERBOT_OCHAO_MIN_LEVEL || !IsPlayerBotOchaoHosted())
 			return false;
+		// MT2009_PLUS_PROGRESSION_V2: the owner's upper limit.
+		if (ch->GetLevel() > PLAYERBOT_OCHAO_MAX_LEVEL)
+			return false;
 		if (IsPlayerBotOchaoForced(ch))
 			return true;
 		return !stoneHunter && (draw % 3U) != 1;

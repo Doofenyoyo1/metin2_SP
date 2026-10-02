@@ -219,11 +219,15 @@ AI_LIVE_DEFAULTS = {"CHAT": 1, "BOOKS": 1, "NIGHT": 1, "LIFE": 0,
                      # MT2009_PLUS_BOTLIFE_V1: the hours of play a day under
                      # LIFE (playerbot_life_rules.h); 0 = the key unset.
                      "LIFE_HOURS": 0, "WARS": 1, "TOWER": 1, "CATACOMB": 1, "ISHOP": 1,
-                     "SHOP_M2": 0, "PERSONA": 1, "SHOUTERS": 1, "SCRAP": 0, "REST": 100, "KINGDOMPVP": 0, "SCROLL_FROM": 1,
+                     "SHOP_M2": 0, "PERSONA": 1, "SHOUTERS": 1,
+                     # MT2009_PLUS_BOT_HAGGLE_V1: bots haggle at people's shops.
+                     "HAGGLE": 1, "SCRAP": 0, "REST": 100, "KINGDOMPVP": 0, "SCROLL_FROM": 1,
                      # The three wills (playerbot_config.h): percent of what the
                      # build does, 100 = as before, 0 = none of it.
                      "BATTLEPASS": 100, "SASH": 100, "ALCHEMY": 100,
-                     "WAR_MINUTES": 30, "WAR_HOURS": 2, "CHEST": None, "CHEST_STONE": None}
+                     "WAR_MINUTES": 30, "WAR_HOURS": 2,
+                     # MT2009_PLUS_GUILD_WAR_KILLS_V1: kills that win a war (0: time only).
+                     "WAR_KILLS": 100, "CHEST": None, "CHEST_STONE": None}
 AI_SPECIAL_WEIGHT_KEYS = frozenset(AI_LIVE_DEFAULTS)
 AI_LIFE_HOURS_MAX = 24
 BIOLOGIST_COMPLETE_STATE = 557528158
@@ -320,7 +324,7 @@ except (OSError, ValueError):
 # Ta tabela miala 5 jako wedrowca i konczyla sie na nim, wiec straganiarz
 # czytal sie jako wedrowiec, a piec dopisanych od tamtej pory osobowosci
 # nie czytalo sie wcale.
-BOT_PERSONALITIES = {0: "Wytrwały poszukiwacz", 1: "Pogromca Metinów", 2: "Towarzysz drużyny", 3: "Mistrz ekwipunku", 4: "Rozważny zbieracz", 5: "Handlarz", 6: "Wędrowiec", 7: "Dropek Metinów", 8: "Dropek z M3", 9: "Dropek z M2", 10: "Dropek medali", 11: "Dropek surowców"}
+BOT_PERSONALITIES = {0: "Wytrwały poszukiwacz", 1: "Pogromca Metinów", 2: "Towarzysz drużyny", 3: "Mistrz ekwipunku", 4: "Rozważny zbieracz", 5: "Handlarz", 6: "Wędrowiec", 7: "Dropek Metinów", 8: "Dropek z M3", 9: "Dropek z M2", 10: "Dropek medali", 11: "Dropek surowców", 12: "Dropek broni 30 lv"}  # 12: MT2009_PLUS_L30_WEAPON_DROPPER_V1
 # One colour per personality, for /players/personalities -- purely cosmetic,
 # picked for contrast against the dark theme and against each other.
 BOT_PERSONALITY_COLORS = {0: "#69a6ff", 1: "#ff6b6b", 2: "#79e3af", 3: "#f2c34d", 4: "#c084fc",
@@ -2546,7 +2550,7 @@ def read_ai_weights():
             if len(fields) >= 2 and fields[0].upper() in values:
                 try:
                     key, raw_value = fields[0].upper(), fields[1]
-                    if key in ("CHAT", "BOOKS", "NIGHT", "LIFE", "WARS", "TOWER", "CATACOMB", "ISHOP", "SHOP_M2", "PERSONA", "SHOUTERS"):
+                    if key in ("CHAT", "BOOKS", "NIGHT", "LIFE", "WARS", "TOWER", "CATACOMB", "ISHOP", "SHOP_M2", "PERSONA", "SHOUTERS", "HAGGLE"):
                         values[key] = 0 if raw_value.lower() in ("0", "off", "no") else 1
                     elif key in ("SCRAP", "REST", "KINGDOMPVP"):
                         values[key] = max(0, min(100, int(raw_value)))
@@ -2560,6 +2564,8 @@ def read_ai_weights():
                         values[key] = max(5, min(180, int(raw_value)))
                     elif key == "WAR_HOURS":
                         values[key] = max(1, min(24, int(raw_value)))
+                    elif key == "WAR_KILLS":
+                        values[key] = max(0, min(1000, int(raw_value)))
                     elif key in ("CHEST", "CHEST_STONE"):
                         values[key] = max(0, min(1000, int(raw_value)))
                     else:
@@ -2613,6 +2619,7 @@ def write_ai_weights(values):
     content.append(f"PERSONA\t{1 if values.get('PERSONA', 1) else 0}")
     # MT2009_PLUS_SHOUTERS_V1: the three shouters of the first villages.
     content.append(f"SHOUTERS\t{1 if values.get('SHOUTERS', 1) else 0}")
+    content.append(f"HAGGLE\t{1 if values.get('HAGGLE', 1) else 0}")
     content.append(f"SCRAP\t{max(0, min(100, int(values.get('SCRAP', 0))))}")
     content.append(f"REST\t{max(0, min(100, int(values.get('REST', 100))))}")
     content.append(f"KINGDOMPVP\t{max(0, min(100, int(values.get('KINGDOMPVP', 0))))}")
@@ -2621,6 +2628,7 @@ def write_ai_weights(values):
     content.append(f"SCROLL_FROM\t{max(1, min(9, int(values.get('SCROLL_FROM', 1))))}")
     content.append(f"WAR_MINUTES\t{max(5, min(180, int(values.get('WAR_MINUTES', 30))))}")
     content.append(f"WAR_HOURS\t{max(1, min(24, int(values.get('WAR_HOURS', 2))))}")
+    content.append(f"WAR_KILLS\t{max(0, min(1000, int(values.get('WAR_KILLS', 100))))}")
     for key in ("CHEST", "CHEST_STONE"):
         if values.get(key) is not None:
             content.append(f"{key}\t{max(0, min(1000, int(values[key])))}")
@@ -4033,11 +4041,12 @@ PROGRESSION_MAPS = [
     ("orc_valley", "Dolina Orków", 36, 55, True, 30),
     ("desert", "Pustynia Yongbi", 30, 47, True, 25),
     ("sohan", "Góra Sohan", 48, 75, False, 40),
-    ("spider1", "Loch Pająków V1", 48, 255, False, 42),
-    ("hwang", "Świątynia Hwang", 52, 255, False, 45),
-    ("spider2", "Loch Pająków V2", 54, 255, False, 48),
+    # MT2009_PLUS_PROGRESSION_V2: the owner's upper limits (1 October 2026).
+    ("spider1", "Loch Pająków V1", 48, 61, True, 42),
+    ("hwang", "Świątynia Hwang", 52, 61, True, 45),
+    ("spider2", "Loch Pająków V2", 54, 78, True, 48),
     ("demon_tower", "Wieża Demonów", 57, 255, False, 50),
-    ("forest", "Zaczarowany Las", 62, 255, False, 55),
+    ("forest", "Zaczarowany Las", 62, 72, True, 55),
     ("fire_land", "Ognista Ziemia (Doyyumhwaji)", 66, 80, True, 60),
     ("red_forest", "Czerwony Las", 71, 255, False, 65),
     ("grotto1", "Grota Wygnańców V1", 78, 255, False, 72),
@@ -4045,7 +4054,7 @@ PROGRESSION_MAPS = [
 ]
 PROGRESSION_REQS = {
     # key: (label, a label, b label)
-    "weapon": ("Broń", "min. poziom przedmiotu", "min. +"),
+    "weapon": ("Broń (kilka wierszy na bramce = wystarczy jeden)", "min. poziom przedmiotu", "min. +"),
     "armour": ("Zbroja", "min. poziom przedmiotu", "min. +"),
     "helmet": ("Hełm", "min. poziom przedmiotu", "min. +"),
     "shield": ("Tarcza (gdy bot ją nosi)", "min. poziom przedmiotu", "min. +"),
@@ -4064,12 +4073,16 @@ PROGRESSION_REQS = {
 }
 PROGRESSION_REQ_ORDER = ["weapon", "armour", "helmet", "shield", "shoes", "bracelet", "necklace", "earrings",
                          "all_worn", "hp", "skills", "horse", "metins", "orc_teeth", "quest_flag", "gold"]
+# MT2009_PLUS_PROGRESSION_V2: the owner's gates of 1 October 2026. Rows of one
+# piece at one gate are alternatives: any one met is enough.
+# MT2009_PLUS_PROGRESSION_V3 (2 October): gate 35 asks a horse of 5 and ten Metins.
 PROGRESSION_DEFAULT_GATES = [
-    (35, "weapon", 15, 7, ""), (35, "armour", 15, 6, ""), (35, "horse", 11, 0, ""), (35, "metins", 50, 0, ""),
-    (45, "weapon", 25, 7, ""), (45, "armour", 26, 6, ""), (45, "hp", 2000, 0, ""), (45, "skills", 2, 24, ""),
-    (45, "orc_teeth", 1, 0, ""),
-    (55, "weapon", 30, 8, ""), (55, "armour", 34, 6, ""), (55, "helmet", 0, 6, ""), (55, "shield", 0, 6, ""),
-    (55, "hp", 2500, 0, ""), (55, "skills", 3, 24, ""),
+    (35, "weapon", 15, 7, ""), (35, "weapon", 16, 6, ""), (35, "weapon", 30, 4, ""), (35, "armour", 16, 6, ""),
+    (35, "horse", 5, 0, ""), (35, "metins", 10, 0, ""),  # MT2009_PLUS_PROGRESSION_V3
+    (45, "weapon", 25, 7, ""), (45, "weapon", 30, 6, ""), (45, "armour", 26, 6, ""), (45, "skills", 2, 24, ""),
+    (45, "horse", 12, 0, ""),
+    (55, "weapon", 30, 7, ""), (55, "armour", 34, 6, ""), (55, "helmet", 0, 6, ""), (55, "shield", 0, 6, ""),
+    (55, "skills", 3, 24, ""),
 ]
 PROGRESSION_DEFAULT_TIERS = [
     # tier, band from, band to, lock from, lock to, label
@@ -4079,7 +4092,7 @@ PROGRESSION_DEFAULT_TIERS = [
     (5, 36, 50, 40, 48, "Dolina Orków i Pustynia"),
     (7, 51, 65, 55, 62, "Góra Sohan"),
 ]
-PROGRESSION_DEFAULT_LAWS = [(0, 5, 4, 0, 0), (19, 6, 5, 4, 0), (26, 7, 5, 5, 0), (35, 8, 6, 6, 6)]
+PROGRESSION_DEFAULT_LAWS = [(0, 5, 4, 0, 0), (19, 6, 5, 4, 0), (26, 6, 5, 5, 0), (35, 7, 6, 6, 6)]
 PROGRESSION_SETTINGS = [
     # key, label, default, min, max, kind, hint
     ("enabled", "Checklista włączona", 1, 0, 1, "bool", "Mapy i postoje na tierach działają zawsze; to przełącza tylko checklistę."),
@@ -8229,6 +8242,9 @@ def manage_restart_config():
             values = {name: int(request.form.get(name, "")) for name in RATE_NAMES}
             if any(not 1 <= value <= 10000 for value in values.values()):
                 raise ValueError("Mnożniki muszą mieścić się w zakresie 1–10 000%.")
+            # MT2009_PLUS_YANG_RATE_CAP_V1: yang drops no higher than 1000%.
+            if values.get("yang", 0) > 1000:
+                raise ValueError("Drop Yang może być najwyżej 1000%.")
             # Older browser tabs opened before this field existed do not send
             # it -- leave the game side's current target alone rather than
             # snapping it to some default.
@@ -8423,7 +8439,7 @@ def manage_behavior():
     values["CHAT"] = 1 if "1" in request.form.getlist("CHAT") else 0
     values["BOOKS"] = values.get("BOOKS", 1) if "BOOKS" not in request.form else (1 if "1" in request.form.getlist("BOOKS") else 0)
     for key, default in (("NIGHT", 1), ("LIFE", 0), ("WARS", 1), ("TOWER", 1), ("ISHOP", 1), ("SHOP_M2", 0), ("PERSONA", 1),
-                         ("SHOUTERS", 1)):
+                         ("SHOUTERS", 1), ("HAGGLE", 1)):
         values[key] = values.get(key, default) if key not in request.form else (1 if "1" in request.form.getlist(key) else 0)
     # MT2009_PLUS_BOTLIFE_V1: the hours of play a day under LIFE.
     try:
@@ -8452,7 +8468,7 @@ def manage_behavior():
         values["SCROLL_FROM"] = max(1, min(9, int(request.form.get("SCROLL_FROM", values.get("SCROLL_FROM", 1)))))
     except (TypeError, ValueError):
         values["SCROLL_FROM"] = 1
-    for key, minimum, maximum, default in (("WAR_MINUTES", 5, 180, 30), ("WAR_HOURS", 1, 24, 2)):
+    for key, minimum, maximum, default in (("WAR_MINUTES", 5, 180, 30), ("WAR_HOURS", 1, 24, 2), ("WAR_KILLS", 0, 1000, 100)):
         try:
             values[key] = max(minimum, min(maximum, int(request.form.get(key, values.get(key, default)))))
         except (TypeError, ValueError):

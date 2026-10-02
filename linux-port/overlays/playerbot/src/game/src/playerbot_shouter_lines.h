@@ -51,6 +51,37 @@ namespace
 	};
 	const int PLAYERBOT_SHOUTER_LINE_COUNT =
 			(int)(sizeof(PLAYERBOT_SHOUTER_LINES) / sizeof(PLAYERBOT_SHOUTER_LINES[0]));
+
+	// MT2009_PLUS_MEDAL_SHOUTERS_V1: what Tieru, Tiieru and Tiiieru - the
+	// medal droppers among the krzykacze (playerbot_shouters.h) - call out on
+	// the shout channel. Dopisuje sie tak samo jak wyzej.
+	const char* const PLAYERBOT_MEDAL_SHOUTER_LINES[] =
+	{
+		"Zakaz wchodzenia do lochu małp, wszystkie medale moje, loch małp nie jest już open source!!",
+		"Nie kraść moich medali! Wszystkie yang dla mnie i tylko dla mnie!",
+		"Każdy inny dropek medali to niemoralna suka.",
+		"Oddawaj moje złoto złodzieju!",
+		"Medale są chronione prawem autorskim, drop bez mojej licencji zgłaszam do GM-a",
+		"Małpy pracują teraz dla mnie, płacę im bananami, a medale zostają u mnie",
+		"Ceny medali ustalam ja i tylko na moim straganie, reszta to podróbki",
+		"Widziałem cię w lochu małp. Policzyłem medale. Brakuje trzech.",
+		"Loch małp zamknięty na inwentaryzację medali, otwarte tylko dla mnie",
+		"Król małp to mój pracownik miesiąca, premia w bananach",
+		"Każde yang z lochu małp ma mój podpis, oddawać do właściciela",
+		"Wpuściłem cię raz do lochu małp i do dziś liczę straty",
+		"Pożyczyłem ci raz medal i do dziś nie oddałeś, złodzieju",
+		"Każdy medal sprzedany poza moim straganem to medal ukradziony mnie",
+		"Inni dropkowie medali to banda oszustów, kupujcie tylko u oryginału",
+		"Kto kupuje medale u konkurencji, ten wspiera przestępczość zorganizowaną",
+		"Medal z mojego straganu jest prawdziwy, reszta to chińska podróbka",
+		"Pytałeś o rabat na medale? Rabat dostała tylko moja małpa",
+		"Twój koń jeździ na moich medalach i nawet nie podziękował",
+		"Raz wszedłem z kimś do lochu małp. Wyszedłem sam. Z medalami.",
+		"Konkurencja sprzedaje medale taniej, bo kradnie je z mojego lochu",
+		"Nie ufajcie innym dropkom, ja przynajmniej oszukuję was uczciwie",
+	};
+	const int PLAYERBOT_MEDAL_SHOUTER_LINE_COUNT =
+			(int)(sizeof(PLAYERBOT_MEDAL_SHOUTER_LINES) / sizeof(PLAYERBOT_MEDAL_SHOUTER_LINES[0]));
 }
 
 #endif

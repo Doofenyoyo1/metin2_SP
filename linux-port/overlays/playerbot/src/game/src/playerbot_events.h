@@ -462,6 +462,86 @@ namespace {
 		g_iMoonlightChestStonePermille = closed ? 0 : s_iPlayerBotChestStoneWantedPermille;
 	}
 
+	// MT2009_PLUS_BONUS_COUNT_PRICE_V1: when the world last had a Moonlight
+	// chest event, for the owner's bonus-count prices
+	// (playerbot_price_rules::BonusCountPricingOn): on only while no chest
+	// event runs and none ran in the last fourteen days. The last second a
+	// chest event was seen running is kept in an event flag of its own, so a
+	// restart or another core knows it - written by every core that sees the
+	// event (all of them judge the same file), at most every ten minutes and
+	// once more as it ends. An "activate now" chest line still in the file
+	// counts by its end, so an event from before this flag existed is not
+	// forgotten. For the first minute of a core's life the rule stays off:
+	// the event flags have not come from the db core yet, and a zero then is
+	// not "never".
+	const char* const PLAYERBOT_MOONLIGHT_LAST_FLAG = "mt2009_moonlight_last";
+	const long PLAYERBOT_MOONLIGHT_LAST_WRITE_SECONDS = 600;
+	const DWORD PLAYERBOT_BONUS_COUNT_WARMUP_MS = 60000;
+	long s_lPlayerBotMoonlightSeen = 0;
+	long s_lPlayerBotMoonlightWritten = 0;
+	bool s_bPlayerBotMoonlightWasRunning = false;
+	DWORD s_dwPlayerBotBonusCountSince = 0;
+	bool s_bPlayerBotBonusCountReady = false;
+	bool s_bPlayerBotBonusCountOn = false;
+
+	bool IsPlayerBotBonusCountPricingOn()
+	{
+		return s_bPlayerBotBonusCountOn;
+	}
+
+	// The latest end of an "activate now" chest line of the file that has
+	// ended, zero for none.
+	long GetPlayerBotMoonlightFileLast(long now)
+	{
+		long last = 0;
+		for (size_t i = 0; i < s_vecPlayerBotEvents.size(); ++i)
+		{
+			const playerbot_events::Window& w = s_vecPlayerBotEvents[i];
+			if (w.kind == playerbot_events::KIND_CHEST && w.now && w.until > 0 && w.until <= now)
+				last = std::max(last, w.until);
+		}
+		return last;
+	}
+
+	void UpdatePlayerBotBonusCountPricing(DWORD dwNow, bool chestNow)
+	{
+		const long now = (long)time(NULL);
+		if (s_dwPlayerBotBonusCountSince == 0)
+			s_dwPlayerBotBonusCountSince = dwNow ? dwNow : 1;
+		quest::CQuestManager& q = quest::CQuestManager::instance();
+		if (chestNow)
+			s_lPlayerBotMoonlightSeen = now;
+		const bool ended = !chestNow && s_bPlayerBotMoonlightWasRunning;
+		s_bPlayerBotMoonlightWasRunning = chestNow;
+		if (!s_bPlayerBotBonusCountReady)
+		{
+			if ((int)(dwNow - s_dwPlayerBotBonusCountSince) < (int)PLAYERBOT_BONUS_COUNT_WARMUP_MS)
+				return;
+			s_bPlayerBotBonusCountReady = true;
+		}
+		const long flag = (long)q.GetEventFlag(PLAYERBOT_MOONLIGHT_LAST_FLAG);
+		const long last = std::max(std::max(flag, s_lPlayerBotMoonlightSeen), GetPlayerBotMoonlightFileLast(now));
+		// Kept for the world: while the event runs, as it ends, and when this
+		// core knows of a later one than the flag does.
+		if (last > flag && last != s_lPlayerBotMoonlightWritten &&
+				(ended || !chestNow || now - s_lPlayerBotMoonlightWritten >= PLAYERBOT_MOONLIGHT_LAST_WRITE_SECONDS))
+		{
+			s_lPlayerBotMoonlightWritten = last;
+			q.RequestSetEventFlag(PLAYERBOT_MOONLIGHT_LAST_FLAG, (int)last);
+		}
+		const bool on = playerbot_price_rules::BonusCountPricingOn(chestNow, last, now,
+				playerbot_price_rules::MOONLIGHT_QUIET_SECONDS);
+		static bool s_bLogged = false;
+		if (on != s_bPlayerBotBonusCountOn || !s_bLogged)
+		{
+			s_bLogged = true;
+			s_bPlayerBotBonusCountOn = on;
+			sys_log(0, "PLAYERBOT_MARKET: bonus-count prices %s (moonlight event %s, last seen %ld, %ld s ago)",
+					on ? "ON" : "OFF", chestNow ? "running" : "not running", last,
+					last > 0 ? now - last : -1L);
+		}
+	}
+
 	// What a world event has put into the world and who answered it, for the
 	// status columns: "host alive killed bots phase" - host 1 on the core
 	// that runs it (playerbot_world_events.h, which comes after this file).
@@ -601,6 +681,8 @@ namespace {
 		// Shut whenever no chest event runs, schedule or no schedule.
 		const playerbot_events::Status& chest = s_aPlayerBotEventStatus[playerbot_events::KIND_CHEST];
 		ApplyPlayerBotChestGate(!chest.active);
+		// MT2009_PLUS_BONUS_COUNT_PRICE_V1: and the bonus-count prices' clock.
+		UpdatePlayerBotBonusCountPricing(dwNow, chest.active);
 		if (s_bPlayerBotEventsStatusDirty || dwNow >= s_dwPlayerBotEventsNextStatus)
 		{
 			s_bPlayerBotEventsStatusDirty = false;

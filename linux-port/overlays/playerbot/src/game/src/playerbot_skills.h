@@ -758,6 +758,22 @@ namespace
 		if (!sidekick)
 			ReallocatePlayerBotSkillPoint(ch, state, build, dwNow);
 
+		// MT2009_PLUS_BOT_FREE_MASTER_V1 (the owner, 2 October): a bot's skill
+		// that reached seventeen turns Master at once, for nothing - no scroll,
+		// no points to twenty. The roll and the scroll that bought it again cost
+		// the fresh world 70.8 million yang in a night and kept 1078 bots at
+		// seventeen, where no skill book can be read.
+		for (DWORD dwStuckSkill = sidekick ? 0 : GetPlayerBotStuckSkill(ch); dwStuckSkill != 0;
+				dwStuckSkill = GetPlayerBotStuckSkill(ch))
+		{
+			const BYTE before = ch->GetSkillLevel(dwStuckSkill);
+			ch->SetSkillLevel(dwStuckSkill, 20);
+			ch->ComputePoints();
+			ch->SkillLevelPacket();
+			sys_log(0, "PLAYERBOT_AI: free master pid=%u name=%s skill=%u level=%u->20",
+					ch->GetPlayerID(), ch->GetName(), dwStuckSkill, (unsigned int)before);
+		}
+
 		if (ch->GetPoint(POINT_SKILL) <= 0)
 			return;
 
@@ -772,15 +788,6 @@ namespace
 						ch->GetPlayerID(), ch->GetName(), dwSkillVnum, ch->GetPoint(POINT_SKILL));
 			}
 		}
-
-		// A skill that reached seventeen and did not turn Master waits for a
-		// Forgetting Scroll instead of eating the points to twenty: the engine
-		// rolls at every point from seventeen on, and a scroll from the market
-		// buys the same roll back for the price of one level.
-		const DWORD dwStuckSkill = sidekick ? 0 : GetPlayerBotStuckSkill(ch);
-		if (dwStuckSkill != 0 && !UsePlayerBotForgetScroll(ch, dwStuckSkill) &&
-				BuyPlayerBotForgetScroll(ch, dwStuckSkill))
-			UsePlayerBotForgetScroll(ch, dwStuckSkill);
 
 		// Second pass: level primary max skill up to the Master roll at seventeen
 		if (build.dwPrimaryMaxSkill != 0 && ch->GetPoint(POINT_SKILL) > 0)

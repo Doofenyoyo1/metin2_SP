@@ -901,7 +901,23 @@ void CountSafeboxUnits(CSafebox* box, int pages, std::map<DWORD, uint64_t>& unit
 
 }  // namespace
 
+static TResult ArrangeSafeboxImpl(LPCHARACTER ch, bool fromPlayer, bool mergeOnly);
+
 TResult ArrangeSafebox(LPCHARACTER ch, bool fromPlayer)
+{
+	return ArrangeSafeboxImpl(ch, fromPlayer, false);
+}
+
+// MT2009_PLUS_SAFEBOX_MERGE_V1: the safebox's "Tylko scal stosy" button
+// ("/safebox_arrange merge"), as MergeInventoryStacks is the bag's.
+TResult MergeSafeboxStacks(LPCHARACTER ch, bool fromPlayer)
+{
+	return ArrangeSafeboxImpl(ch, fromPlayer, true);
+}
+
+// mergeOnly: the plan's pours and none of its moves; a stack poured empty
+// leaves the box, the rest stay where they stand.
+static TResult ArrangeSafeboxImpl(LPCHARACTER ch, bool fromPlayer, bool mergeOnly)
 {
 	TResult result;
 	CSafebox* box = NULL;
@@ -993,7 +1009,7 @@ TResult ArrangeSafebox(LPCHARACTER ch, bool fromPlayer)
 		return result;
 	}
 	result.strategy = plan.strategy;
-	if (plan.transfers.empty() && plan.moved == 0) {
+	if (plan.transfers.empty() && (mergeOnly || plan.moved == 0)) {
 		result.code = RESULT_NOTHING;
 		return result;
 	}
@@ -1037,6 +1053,8 @@ TResult ArrangeSafebox(LPCHARACTER ch, bool fromPlayer)
 	// FlushDelayedSave) and tells the client.
 	std::vector<std::pair<LPITEM, int> > movers;
 	for (const rules::Placement& placement : plan.placements) {
+		if (mergeOnly)
+			break;
 		std::map<uint32_t, LPITEM>::iterator it = handleOf.find(placement.id);
 		if (it == handleOf.end())
 			continue;
@@ -1059,6 +1077,8 @@ TResult ArrangeSafebox(LPCHARACTER ch, bool fromPlayer)
 
 	int misplaced = 0;
 	for (const rules::Placement& placement : plan.placements) {
+		if (mergeOnly)
+			break;
 		std::map<uint32_t, LPITEM>::iterator it = handleOf.find(placement.id);
 		if (it == handleOf.end())
 			continue;
@@ -1085,8 +1105,8 @@ TResult ArrangeSafebox(LPCHARACTER ch, bool fromPlayer)
 		sys_err("SAFEBOX_ARRANGE: pid=%u name=%s %d item(s) were not where the plan put them",
 				ch->GetPlayerID(), ch->GetName(), misplaced);
 	if (fromPlayer)
-		sys_log(0, "SAFEBOX_ARRANGE: pid=%u name=%s pages=%d items=%d moved=%d merged=%d units=%u pinned=%d strategy=%d us=%u",
-				ch->GetPlayerID(), ch->GetName(), pages, result.items, result.moved, result.merged, result.units,
+		sys_log(0, "SAFEBOX_ARRANGE: pid=%u name=%s%s pages=%d items=%d moved=%d merged=%d units=%u pinned=%d strategy=%d us=%u",
+				ch->GetPlayerID(), ch->GetName(), mergeOnly ? " (merge)" : "", pages, result.items, result.moved, result.merged, result.units,
 				result.pinned, result.strategy, micros);
 	result.code = RESULT_DONE;
 	return result;
@@ -1370,6 +1390,13 @@ TResult MergeInventoryStacks(LPCHARACTER, bool)
 }
 
 TResult ArrangeSafebox(LPCHARACTER, bool)
+{
+	TResult result;
+	result.code = RESULT_UNSUPPORTED;
+	return result;
+}
+
+TResult MergeSafeboxStacks(LPCHARACTER, bool)
 {
 	TResult result;
 	result.code = RESULT_UNSUPPORTED;

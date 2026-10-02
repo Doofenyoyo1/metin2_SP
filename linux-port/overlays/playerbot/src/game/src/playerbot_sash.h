@@ -89,6 +89,15 @@ namespace
 	const DWORD PLAYERBOT_SASH_LONE_RELEASE_MS = 3 * 60 * 60 * 1000;
 	// A sash bought off a counter: at most this share of the spare purse.
 	const int PLAYERBOT_SASH_MARKET_PURSE_PERCENT = 40;
+	// MT2009_PLUS_MARKET_SINK_V1: with this many sashes on the counters of the
+	// world (the supporters' world had pages of them) the market is plentiful:
+	// a keeper buys out of PLAYERBOT_SASH_PLENTY_PURSE_PERCENT of its spare
+	// purse from PLAYERBOT_SASH_PLENTY_MIN_SPARE, and one whose sash is done
+	// buys a sash that beats the one it wears (it wears the best,
+	// RankPlayerBotSashFor) - not only a keeper still combining.
+	const DWORD PLAYERBOT_SASH_MARKET_PLENTY_UNITS = 40;
+	const int PLAYERBOT_SASH_PLENTY_PURSE_PERCENT = 60;
+	const long long PLAYERBOT_SASH_PLENTY_MIN_SPARE = 1000000LL;
 	// Uriel: npc.txt cells (713,605), (655,553) and (425,716) on each first
 	// village's BasePosition (409600,896000), (0,102400), (921600,204800).
 	const DWORD PLAYERBOT_URIEL_VNUM = 20011;
@@ -107,8 +116,36 @@ namespace
 		unsigned wears;
 		unsigned trips;
 		unsigned bought;
+		unsigned long long boughtYang; // MT2009_PLUS_MARKET_SINK_V1
+		unsigned boughtBetter;
 	};
-	TPlayerBotSashStats s_kPlayerBotSashStats = { 0, 0, 0, 0, 0, 0 };
+	TPlayerBotSashStats s_kPlayerBotSashStats = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+	// MT2009_PLUS_MARKET_SINK_V1: the sashes on the counters of the world,
+	// read off the market ledger at most once a minute.
+	DWORD GetPlayerBotSashMarketSupply()
+	{
+		static DWORD s_dwAt = 0, s_dwUnits = 0;
+		const DWORD now = get_dword_time();
+		if (s_dwAt != 0 && now - s_dwAt < 60000)
+			return s_dwUnits;
+		s_dwAt = now;
+		s_dwUnits = 0;
+		for (DWORD vnum = 85001; vnum <= 85104; ++vnum)
+		{
+			if (vnum == 85025)
+				vnum = 85101;
+			const TPlayerBotMarketLedgerEntry* e = GetPlayerBotMarketLedgerEntry(vnum);
+			if (e)
+				s_dwUnits += e->dwSupplyUnits;
+		}
+		return s_dwUnits;
+	}
+
+	bool IsPlayerBotSashMarketPlentiful()
+	{
+		return GetPlayerBotSashMarketSupply() >= PLAYERBOT_SASH_MARKET_PLENTY_UNITS;
+	}
 
 	bool GetPlayerBotUriel(long mapIndex, playerbot_empire_rules::TPoint& out)
 	{
@@ -328,14 +365,68 @@ namespace
 		return false;
 	}
 
+	// MT2009_PLUS_BOT_SASH_ABSORB_V1 (the owner, 2 October: a unique sash of
+	// 14% holding +20 magic attack, 5 defence and 42 HP): what goes into a
+	// sash by its grade (value0 of 85001-85024 / 85101-85104: 1 "+0"/proste,
+	// 2 "+1"/dostojne, 3 "+2"/zacne, 4 "+3"/unikatowe):
+	//   - grade 4: a piece at +7 or more, or one with two perfect lines;
+	//   - grade 3: +6 or more, or one perfect line;
+	//   - grade 2: a weapon at +6 or more;
+	//   - grade 1: the rules above alone (it carries 1% of anything).
+	// A perfect line is the top roll item_attr gives the apply on the piece's
+	// attribute set (GetPlayerBotBonusMaxRoll), or for a line item_attr does
+	// not roll (the weapons' average and skill damage) a top line of the
+	// price rules (IsPlayerBotTopBonusLine). The sash grail is exempt - it is
+	// the best piece there is.
+	bool IsPlayerBotSashPerfectLine(LPITEM attrSet, BYTE type, long value)
+	{
+		if (type == APPLY_NONE || value <= 0)
+			return false;
+		const long top = GetPlayerBotBonusMaxRoll(attrSet, type);
+		return top > 0 ? value >= top : IsPlayerBotTopBonusLine(type, value);
+	}
+
+	bool PassesPlayerBotSashAbsorbRule(int sashGrade, BYTE type, int refine, LPITEM lines, LPITEM attrSet)
+	{
+		if (sashGrade <= 1)
+			return true;
+		int perfect = 0;
+		for (int i = 0; lines && i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
+			if (IsPlayerBotSashPerfectLine(attrSet, lines->GetAttributeType(i), lines->GetAttributeValue(i)))
+				++perfect;
+		if (sashGrade >= 4)
+			return refine >= 7 || perfect >= 2;
+		if (sashGrade == 3)
+			return refine >= 6 || perfect >= 1;
+		return type == ITEM_WEAPON && refine >= 6;
+	}
+
+	// The grade a sash of this absorption is (ACCE_GRADE_*_ABS).
+	int GetPlayerBotSashGradeForAbsorption(int absorption)
+	{
+		return absorption >= ACCE_GRADE_4_ABS_MIN ? 4 : absorption >= ACCE_GRADE_3_ABS ? 3 :
+				absorption >= ACCE_GRADE_2_ABS ? 2 : 1;
+	}
+
 	// A filled sash not worth keeping on: under PLAYERBOT_SASH_JUNK_PERCENT of
 	// the measure at its own absorption.
 	bool IsPlayerBotSashJunk(LPCHARACTER ch, LPITEM sash)
 	{
 		if (!sash || !IsPlayerBotSashAbsorbed(sash))
 			return false;
-		if (IsPlayerBotSashGrailVnum(ch, (DWORD)sash->GetSocket(ACCE_ABSORBED_SOCKET)) ||
-				IsPlayerBotSashLevel30Vnum((DWORD)sash->GetSocket(ACCE_ABSORBED_SOCKET)))
+		if (IsPlayerBotSashGrailVnum(ch, (DWORD)sash->GetSocket(ACCE_ABSORBED_SOCKET)))
+			return false;
+		// MT2009_PLUS_BOT_SASH_ABSORB_V1: a sash holding a piece its grade's
+		// rule refuses is junk: the bot builds another and wears the better
+		// one (an absorbed sash cannot take a second piece).
+		{
+			const DWORD absorbed = (DWORD)sash->GetSocket(ACCE_ABSORBED_SOCKET);
+			const TItemTable* proto = ITEM_MANAGER::instance().GetTable(absorbed);
+			if (proto && !PassesPlayerBotSashAbsorbRule(GetPlayerBotSashGrade(sash), proto->bType,
+					(int)(absorbed % 10), sash, NULL))
+				return true;
+		}
+		if (IsPlayerBotSashLevel30Vnum((DWORD)sash->GetSocket(ACCE_ABSORBED_SOCKET)))
 			return false;
 		const long long reference = GetPlayerBotSashReferenceValue(ch, GetPlayerBotSashAbsorption(sash));
 		return reference > 0 && GetPlayerBotSashValue(ch, sash) * 100 < reference * PLAYERBOT_SASH_JUNK_PERCENT;
@@ -623,15 +714,27 @@ namespace
 	// combines, or one already at its target grade and absorption.
 	bool WantsPlayerBotSashOffer(LPCHARACTER ch, LPITEM offer)
 	{
-		if (!IsPlayerBotSashItem(offer) || IsPlayerBotSashAbsorbed(offer) || !IsPlayerBotSashKeeper(ch))
+		if (!IsPlayerBotSashItem(offer) || !IsPlayerBotSashKeeper(ch))
 			return false;
+		// A filled sash only as one to wear, below (MT2009_PLUS_MARKET_SINK_V1).
+		if (IsPlayerBotSashAbsorbed(offer))
+		{
+			const TPlayerBotSashTarget t = GetPlayerBotSashTarget(ch);
+			return t.grade > 0 && IsPlayerBotSashDone(ch, t) && IsPlayerBotSashMarketPlentiful() &&
+					RankPlayerBotSashFor(ch, offer) > RankPlayerBotSashFor(ch, ch->GetWear(WEAR_COSTUME_ACCE));
+		}
 		const TPlayerBotSashTarget t = GetPlayerBotSashTarget(ch);
-		if (t.grade <= 0 || IsPlayerBotSashDone(ch, t))
+		if (t.grade <= 0)
 			return false;
 		std::vector<LPITEM> bag;
 		CollectPlayerBotBagSashes(ch, bag);
 		if ((int)bag.size() >= PLAYERBOT_SASH_KEEP)
 			return false;
+		// MT2009_PLUS_MARKET_SINK_V1: a plentiful market sells a done keeper
+		// a sash that beats the one it wears, a filled one by what it gives.
+		if (IsPlayerBotSashDone(ch, t))
+			return IsPlayerBotSashMarketPlentiful() &&
+					RankPlayerBotSashFor(ch, offer) > RankPlayerBotSashFor(ch, ch->GetWear(WEAR_COSTUME_ACCE));
 		// A finished-grade sash in the bag waits only for a piece to absorb.
 		for (size_t i = 0; i < bag.size(); ++i)
 			if (!IsPlayerBotSashAbsorbed(bag[i]) && IsPlayerBotSashAtTarget(bag[i], t))
@@ -708,7 +811,9 @@ namespace
 	{
 		const long long spare = GetPlayerBotSashSpareGold(ch);
 		const long long fair = (long long)GetPlayerBotSashPrice(offer);
-		return price > 0 && price <= spare * PLAYERBOT_SASH_MARKET_PURSE_PERCENT / 100 &&
+		const int purse = IsPlayerBotSashMarketPlentiful() ? PLAYERBOT_SASH_PLENTY_PURSE_PERCENT
+				: PLAYERBOT_SASH_MARKET_PURSE_PERCENT; // MT2009_PLUS_MARKET_SINK_V1
+		return price > 0 && price <= spare * purse / 100 &&
 				(fair <= 0 || price <= fair * 12 / 10);
 	}
 
@@ -719,10 +824,17 @@ namespace
 		if (!IsPlayerBotSashKeeper(ch))
 			return false;
 		const TPlayerBotSashTarget t = GetPlayerBotSashTarget(ch);
-		if (t.grade <= 0 || IsPlayerBotSashDone(ch, t))
+		if (t.grade <= 0)
 			return false;
 		std::vector<LPITEM> bag;
 		CollectPlayerBotBagSashes(ch, bag);
+		// MT2009_PLUS_MARKET_SINK_V1: a plentiful market is worth the walk for
+		// every keeper with a million to spare, done or not (the offer decides).
+		if (IsPlayerBotSashMarketPlentiful())
+			return (int)bag.size() < PLAYERBOT_SASH_KEEP &&
+					GetPlayerBotSashSpareGold(ch) >= PLAYERBOT_SASH_PLENTY_MIN_SPARE;
+		if (IsPlayerBotSashDone(ch, t))
+			return false;
 		if ((int)bag.size() >= PLAYERBOT_SASH_KEEP || GetPlayerBotSashSpareGold(ch) < 2500000LL)
 			return false;
 		for (size_t i = 0; i < bag.size(); ++i)
@@ -742,8 +854,19 @@ namespace
 	void NotePlayerBotSashBought(LPCHARACTER ch, DWORD vnum, long long price)
 	{
 		++s_kPlayerBotSashStats.bought;
-		sys_log(0, "PLAYERBOT_SASH: bought pid=%u name=%s vnum=%u price=%lld",
-				ch ? ch->GetPlayerID() : 0, ch ? ch->GetName() : "", vnum, price);
+		s_kPlayerBotSashStats.boughtYang += (unsigned long long)std::max<long long>(0, price);
+		// MT2009_PLUS_MARKET_SINK_V1: bought by a done keeper, to wear.
+		bool done = false;
+		if (ch && IsPlayerBotSashKeeper(ch))
+		{
+			const TPlayerBotSashTarget t = GetPlayerBotSashTarget(ch);
+			done = t.grade > 0 && IsPlayerBotSashDone(ch, t);
+		}
+		if (done)
+			++s_kPlayerBotSashStats.boughtBetter;
+		sys_log(0, "PLAYERBOT_SASH: bought pid=%u name=%s vnum=%u price=%lld done=%d supply=%u plentiful=%d",
+				ch ? ch->GetPlayerID() : 0, ch ? ch->GetName() : "", vnum, price, done ? 1 : 0,
+				(unsigned int)GetPlayerBotSashMarketSupply(), IsPlayerBotSashMarketPlentiful() ? 1 : 0);
 	}
 
 	// ------------------------------------------------------------ the work
@@ -845,6 +968,10 @@ namespace
 			long long reference, long long wornValue)
 	{
 		if (!IsPlayerBotSashPieceKind(item))
+			return -1;
+		// MT2009_PLUS_BOT_SASH_ABSORB_V1: the sash grade's own rule first.
+		if (!PassesPlayerBotSashAbsorbRule(GetPlayerBotSashGradeForAbsorption(absorption), item->GetType(),
+				(int)item->GetRefineLevel(), item, item))
 			return -1;
 		// Lines to carry, or a refine that makes the bare piece worth it.
 		const bool lines = item->GetAttributeCount() >= PLAYERBOT_SASH_MIN_LINES ||
@@ -1305,10 +1432,12 @@ namespace
 
 	void LogPlayerBotSashCensus()
 	{
-		sys_log(0, "PLAYERBOT_SASH: census combines=%u fails=%u absorbs=%u wears=%u trips=%u bought=%u",
+		sys_log(0, "PLAYERBOT_SASH: census combines=%u fails=%u absorbs=%u wears=%u trips=%u bought=%u bought_yang=%llu bought_to_wear=%u supply=%u plentiful=%d",
 				s_kPlayerBotSashStats.combines, s_kPlayerBotSashStats.combineFails,
 				s_kPlayerBotSashStats.absorbs, s_kPlayerBotSashStats.wears,
-				s_kPlayerBotSashStats.trips, s_kPlayerBotSashStats.bought);
+				s_kPlayerBotSashStats.trips, s_kPlayerBotSashStats.bought,
+				s_kPlayerBotSashStats.boughtYang, s_kPlayerBotSashStats.boughtBetter,
+				(unsigned int)GetPlayerBotSashMarketSupply(), IsPlayerBotSashMarketPlentiful() ? 1 : 0);
 	}
 }
 

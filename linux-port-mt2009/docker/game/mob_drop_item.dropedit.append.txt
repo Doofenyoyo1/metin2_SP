@@ -1,0 +1,96 @@
+// MT2009_PLUS_DROP_EDIT_V1: the bosses' own drops the owner added in the drop workbook
+// (Drop_bossy_i_metiny, 1 October). Type drop: the chance is pct / 4 percent at the
+// server's 100% drop (5% = 20, 10% = 40, 70% = 280), with the usual level/premium factors.
+// None of these mobs has a drop group of its own in the base share (the Dockerfile checks).
+
+Group	MT2009_dropedit_9706
+{
+	mob	9706	-- Baronowna Pajakow
+	Type	drop
+	1	50255	3	20	-- Cor Draconis (Rough) x3, 5%
+	2	25040	2	40	-- Zwoj Blogoslawienstwa x2, 10%
+}
+
+Group	MT2009_dropedit_9682
+{
+	mob	9682	-- WuKong
+	Type	drop
+	1	25040	1	40	-- Zwoj Blogoslawienstwa, 10%
+	2	71084	1	20	-- Zaczarowanie Przedmiotu, 5%
+}
+
+Group	MT2009_dropedit_9694
+{
+	mob	9694	-- Krol Skorpionow
+	Type	drop
+	1	27987	5	40	-- Malz x5, 10%
+	2	50513	1	20	-- Kamien Duchowy, 5%
+	3	50255	10	20	-- Cor Draconis (Rough) x10, 5%
+	4	25040	3	40	-- Zwoj Blogoslawienstwa x3, 10%
+	5	71084	1	40	-- Zaczarowanie Przedmiotu, 10%
+	6	72065	1	280	-- Sredni Suplement (6/7), 70%
+}
+
+Group	MT2009_dropedit_2598
+{
+	mob	2598	-- Azrael
+	Type	drop
+	1	72067	1	280	-- Silny Suplement (6/7), 70%
+}
+
+// Metin Ciemnosci (8006) inside Biblioteka Wiedzy only: the engine (server-patches/raremobrules)
+// takes this pseudo mob's group for it there - the world's 8006 group without the scrap
+// (s8006), Pigulka Krwi and Ksiega Zapomnienia. No Cor / sash from it there either (same patch).
+Group	MT2009_dropedit_98006
+{
+	mob	98006	-- Metin Ciemnosci (Biblioteka Wiedzy)
+	Type	drop
+	1	27002	50	150	-- Czerwona Mikstura(S)
+	2	27003	30	100	-- Czerwona Mikstura(D)
+	3	27005	30	150	-- Niebieska Mikstura(S)
+	4	27006	20	100	-- Niebieska Mikstura(D)
+	5	50300	1	200	-- Ksiega Umiejetnosci
+	6	s50901	1	18	-- Receptury
+	7	50308	1	3	-- Ksiega Misji (Normalna)
+	8	72732	1	5	-- Ogon Konia
+	9	s10702	1	30	-- herbs m2
+}
+
+// Krolowa Dzungli (9714): a random pearl at 100% (special group 950764, arezzo2), and the
+// level-90 rows the owner took over from Beran-Setaou (Type limit: the chance is the percent).
+// Her Duzy Suplement x2 is a Seon-Hae rule (seonhae_drops.tsv: mob 9714 72066 2).
+Group	MT2009_dropedit_9714
+{
+	mob	9714	-- Krolowa Dzungli
+	Type	drop
+	1	s950764	1	400	-- losowa perla, 100%
+}
+
+Group	MT2009_dropedit_9714_HL
+{
+	Level_limit	90
+	mob	9714	-- Krolowa Dzungli
+	Type	limit
+	1	50513	1	15	-- Kamien Duchowy
+	2	50513	1	15	-- Kamien Duchowy
+	3	71084	3	10	-- Zaczarowanie Przedmiotu x3
+	4	71085	3	10	-- Wzmocnienie Przedmiotu x3
+}
+
+// The owner, 2 October: Best. Zolnierz and Best. Maniak (Dolina Orkow, the kingdoms' first
+// islands) drop the level-30 weapons of the Bestialski Lucznik (533) at its chances.
+Group	MT2009_dropedit_531
+{
+	mob	531	-- Best. Zolnierz
+	Type	drop
+	1	292	1	4	-- Miecz Pelni Ksiezyca+2, 1%
+	2	2152	1	4	-- Luk Z Rogu Jelenia+2, 1%
+}
+
+Group	MT2009_dropedit_532
+{
+	mob	532	-- Best. Maniak
+	Type	drop
+	1	292	1	4	-- Miecz Pelni Ksiezyca+2, 1%
+	2	2152	1	4	-- Luk Z Rogu Jelenia+2, 1%
+}

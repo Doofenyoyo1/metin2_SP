@@ -1049,6 +1049,15 @@ function Get-M2CoopOldClientNote {
     return 'Twój metin2client.exe jest starszy niż klient 2.0.17 i nie umie wejść do gry na serwerze znajomego: po wyborze postaci łączy się z tym komputerem zamiast z serwerem i wraca do logowania, a w logach serwera nic nie ma. Podmień metin2client.exe na ten z pełnej paczki gry (folder Klient) - aktualizacje klienta nie przynoszą już pliku exe.'
 }
 
+# The channels coop.cfg names: every one the client can list, whatever the
+# invite counted. An invite's "channels" is the host's count when the code was
+# made, and coop.cfg kept it - a friend invited before the host switched the
+# second channel on never saw it. The client lists a channel past the first
+# as offline while the world does not answer for it, so the maximum is right
+# for a one-channel world too. Two is the most our client accepts: its
+# serverinfo.py drops the whole coop.cfg for channels > 2.
+$script:CoopClientChannels = 2
+
 function Write-M2CoopClientConfig {
     # HostAddress is where the client goes when it is not the invite's own
     # address: the host's home one (Select-M2CoopJoinHost).
@@ -1070,8 +1079,7 @@ function Write-M2CoopClientConfig {
         ('host=' + $target),
         ('auth=' + [int]$Invite.auth),
         ('channel=' + [int]$Invite.channel),
-        # The client's server list refuses a coop.cfg of more than two channels.
-        ('channels=' + [Math]::Min(2, [Math]::Max(1, [int]$Invite.channels)))
+        ('channels=' + $script:CoopClientChannels)
     )
     $path = Join-Path $ClientFolder 'coop.cfg'
     [IO.File]::WriteAllText($path, (($lines -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)

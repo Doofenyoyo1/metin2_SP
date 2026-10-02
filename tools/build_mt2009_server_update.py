@@ -63,7 +63,8 @@ ENGINE_EDITS = ['apply_sidekick_quest_kill_credit',
                 'apply_guild_person_struck', 'apply_guild_bot_orders', 'apply_guild_war_answer_type',
                 'apply_flea_price_range', 'apply_bot_shop_two_pages', 'apply_autospawn_bootstrap_once',
                 'apply_quest_warp_channel', 'apply_mob_preview_stone_kinds', 'apply_peer_whisper_to_bot',
-                'apply_spider_baroness_damage', 'apply_target_hp_values']
+                'apply_spider_baroness_damage', 'apply_target_hp_values',
+                'apply_guild_war_kills']
 # Files an upstream package carries that this repository does not publish. An
 # update never deletes a file, so a player who took the upstream package keeps
 # it; the drop check below is for paths this repository's own list lost.

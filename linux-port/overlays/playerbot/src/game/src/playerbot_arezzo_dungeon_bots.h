@@ -483,6 +483,47 @@ namespace
 		return true;
 	}
 
+	// MT2009_PLUS_AREZZO_DG_UNSTICK_V1: a boss that chased a bot onto ground the
+	// bots' routes do not reach (the Jungle Queen at (368,306), 1 October
+	// 19:52: four bots at 46 cells with nothing but "unreachable", her health
+	// at 99 %) never dies. Once a monster has been out of every route this
+	// long it is set down where the bot stands, as the tower does with a
+	// wedged monster (UnstickPlayerBotTowerMonsters).
+	const DWORD PLAYERBOT_ARZDG_UNSTICK_MS = 10000;
+	std::map<DWORD, DWORD> s_mapPlayerBotArzDgUnreachable;
+
+	std::map<DWORD, DWORD> s_mapPlayerBotArzDgSetDown;
+
+	void UnstickPlayerBotArzDgFoe(LPCHARACTER ch, LPCHARACTER foe, long anchorX, long anchorY, DWORD dwNow)
+	{
+		if (!ch || !foe || foe->IsStone() || foe->IsDead())
+			return;
+		const DWORD vid = (DWORD)foe->GetVID();
+		std::map<DWORD, DWORD>::iterator it = s_mapPlayerBotArzDgUnreachable.find(vid);
+		if (it == s_mapPlayerBotArzDgUnreachable.end() || dwNow - it->second > 3 * PLAYERBOT_ARZDG_UNSTICK_MS)
+		{
+			s_mapPlayerBotArzDgUnreachable[vid] = dwNow;
+			return;
+		}
+		if (dwNow - it->second < PLAYERBOT_ARZDG_UNSTICK_MS)
+			return;
+		s_mapPlayerBotArzDgUnreachable.erase(it);
+		// Once a minute at most, to the pack's middle: a bot apart from the
+		// others asking too threw it between them every few seconds (20:26).
+		DWORD& last = s_mapPlayerBotArzDgSetDown[vid];
+		if (last != 0 && dwNow - last < 60000)
+			return;
+		last = dwNow;
+		const long fromX = foe->GetX(), fromY = foe->GetY();
+		if (foe->IsStateMove())
+			foe->Stop();
+		const bool toPack = IsPlayerBotReachable(ch->GetMapIndex(), ch->GetX(), ch->GetY(), anchorX, anchorY);
+		if (!foe->Show(foe->GetMapIndex(), toPack ? anchorX : ch->GetX(), toPack ? anchorY : ch->GetY()))
+			return;
+		sys_log(0, "ARZ_DG: unreachable monster set down by the pack map=%ld vnum=%u from=(%ld,%ld) to=(%ld,%ld) by=%s",
+				ch->GetMapIndex(), (unsigned int)foe->GetRaceNum(), fromX, fromY, ch->GetX(), ch->GetY(), ch->GetName());
+	}
+
 	// ------------------------------------------------------------ the bot's tick
 
 	// In the lobby: healed, packed, its points spent, standing by the guard.
@@ -614,7 +655,22 @@ namespace
 			return true;
 		}
 		if (foe)
-			return FightPlayerBotTowerObjective(ch, state, foe, dwNow);
+		{
+			state.bLastNavOutcome = PLAYERBOT_NAV_OUT_NONE;
+			const bool fought = FightPlayerBotTowerObjective(ch, state, foe, dwNow);
+			if (state.bLastNavOutcome == PLAYERBOT_NAV_OUT_UNREACHABLE)
+			{
+				// A big monster stands on cells the routes do not end on: the
+				// route asked again for any cell near it before it is moved.
+				state.bLastNavOutcome = PLAYERBOT_NAV_OUT_NONE;
+				ClearPlayerBotRoute(state, false);
+				state.dwNextNavPlanTime = 0;
+				MovePlayerBot(ch, foe->GetX(), foe->GetY(), dwNow, 24, true, false);
+				if (state.bLastNavOutcome == PLAYERBOT_NAV_OUT_UNREACHABLE)
+					UnstickPlayerBotArzDgFoe(ch, foe, anchorX, anchorY, dwNow);
+			}
+			return fought;
+		}
 		// Nothing standing (between two stages, after the boss): back to the
 		// middle of the arena, where the next stage starts.
 		state.dwTargetVID = 0;
@@ -846,6 +902,47 @@ namespace
 			PullPlayerBotArzDgRun(run, "after_the_end");
 			return true;
 		}
+		// MT2009_PLUS_AREZZO_DG_NO_BOSS_REGEN_V1: in the bots' instances a boss
+		// does not heal back what it lost (the owner, 1 October: the King and
+		// the Queen regained 5 % every 15-20 s, more than five bots took off -
+		// 91-99 % health after half an hour). Players' instances are untouched.
+		{
+			static std::map<DWORD, int> s_mapBossLowHP;
+			const TPlayerBotArzDgScan& sc = ScanPlayerBotArzDg(run.lInstance, dwNow);
+			for (size_t i = 0; i < sc.foes.size(); ++i)
+			{
+				LPCHARACTER c = CHARACTER_MANAGER::instance().Find(sc.foes[i].dwVID);
+				if (!c || c->IsDead() || c->IsStone() || c->GetMobRank() < MOB_RANK_BOSS)
+					continue;
+				std::map<DWORD, int>::iterator low = s_mapBossLowHP.find(sc.foes[i].dwVID);
+				if (low == s_mapBossLowHP.end() || c->GetHP() < low->second)
+					s_mapBossLowHP[sc.foes[i].dwVID] = c->GetHP();
+				else if (c->GetHP() > low->second)
+					c->PointChange(POINT_HP, low->second - c->GetHP());
+			}
+			if (s_mapBossLowHP.size() > 512)
+				s_mapBossLowHP.clear();
+		}
+		// MT2009_PLUS_AREZZO_DG_STALL_DETAIL_V1 (boss): the bosses' health once a minute.
+		{
+			static std::map<int, DWORD> s_mapNextBossLog;
+			DWORD& next = s_mapNextBossLog[run.iId];
+			if (!run.dwFinishedAt && dwNow >= next)
+			{
+				next = dwNow + 60000;
+				const TPlayerBotArzDgScan& sc = ScanPlayerBotArzDg(run.lInstance, dwNow);
+				for (size_t i = 0; i < sc.foes.size(); ++i)
+				{
+					LPCHARACTER c = CHARACTER_MANAGER::instance().Find(sc.foes[i].dwVID);
+					if (c && !c->IsStone() && c->GetMobRank() >= MOB_RANK_BOSS && c->GetMaxHP() > 0)
+						sys_log(0, "ARZ_DG: boss hp dungeon=%s run=%d stage=%d vnum=%u hp=%d%% cell=(%ld,%ld) victim=%s",
+								info.szKey, run.iId, stage, (unsigned int)c->GetRaceNum(),
+								(int)((long long)c->GetHP() * 100 / c->GetMaxHP()),
+								GetPlayerBotArzDgCellX(run.iDg, c->GetX()), GetPlayerBotArzDgCellY(run.iDg, c->GetY()),
+								c->GetVictim() ? c->GetVictim()->GetName() : "-");
+				}
+			}
+		}
 		if (!run.dwFinishedAt && dwNow - run.dwLastProgress >= PLAYERBOT_ARZDG_STALL_MS && !run.bStallLogged)
 		{
 			run.bStallLogged = true;
@@ -857,6 +954,28 @@ namespace
 			sys_log(0, "ARZ_DG: stalled dungeon=%s run=%d stage=%d kills=%d left=%d seals=%d seal_out=%d monsters=%d inside=%d alive=%d for_s=%u bots=%s",
 					info.szKey, run.iId, stage, d->GetFlag("kills"), d->GetFlag("left"), d->GetFlag("seals"),
 					d->GetFlag("seal_out"), monsters, inside, alive, (dwNow - run.dwLastProgress) / 1000, where);
+			// MT2009_PLUS_AREZZO_DG_STALL_DETAIL_V1: what stands and what each bot does.
+			char foes[512] = "";
+			off = 0;
+			const TPlayerBotArzDgScan& sc = ScanPlayerBotArzDg(run.lInstance, dwNow);
+			for (size_t i = 0; i < sc.foes.size() && i < 12 && off < sizeof(foes) - 48; ++i)
+			{
+				LPCHARACTER c = CHARACTER_MANAGER::instance().Find(sc.foes[i].dwVID);
+				off += snprintf(foes + off, sizeof(foes) - off, "%s%u@(%ld,%ld)hp%d", i ? "," : "",
+						(unsigned int)sc.foes[i].dwRace, GetPlayerBotArzDgCellX(run.iDg, sc.foes[i].lX),
+						GetPlayerBotArzDgCellY(run.iDg, sc.foes[i].lY),
+						c && c->GetMaxHP() > 0 ? (int)((long long)c->GetHP() * 100 / c->GetMaxHP()) : -1);
+			}
+			char acts[512] = "";
+			off = 0;
+			for (size_t i = 0; i < here.size() && off < sizeof(acts) - 48; ++i)
+			{
+				LPCHARACTER v = here[i]->GetVictim();
+				off += snprintf(acts + off, sizeof(acts) - off, "%s%s:hp%d,vic=%u,move=%d", i ? " " : "", here[i]->GetName(),
+						here[i]->GetMaxHP() > 0 ? (int)((long long)here[i]->GetHP() * 100 / here[i]->GetMaxHP()) : -1,
+						v ? (unsigned int)v->GetRaceNum() : 0U, here[i]->IsStateMove() ? 1 : 0);
+			}
+			sys_log(0, "ARZ_DG: stall detail dungeon=%s run=%d foes=%s bots=%s", info.szKey, run.iId, foes, acts);
 		}
 		if (!run.dwFinishedAt && dwNow - run.dwLastProgress >= PLAYERBOT_ARZDG_ABANDON_MS)
 		{
