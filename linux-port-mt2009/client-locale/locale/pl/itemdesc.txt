@@ -2858,3 +2858,46 @@
 30774	Skrzynia Wukonga	Nagroda za pokonanie WuKonga na Wzgórzu Wukonga. Kliknij prawym przyciskiem, aby otworzyæ.
 30775	Skrzynia Skorpiona	Nagroda za pokonanie Króla Skorpionów w Ruinach Skorpiona. Kliknij prawym przyciskiem, aby otworzyæ.
 30776	Skrzynia D¿ungli	Nagroda za pokonanie Królowej D¿ungli w Staro¿ytnej D¿ungli. Kliknij prawym przyciskiem, aby otworzyæ.
+25121	Chryzantema	Przedmiot u¿ytkowy. Próba mo¿e siê nie udaæ. Przy sukcesie zwiêksza na 12 godzin szansê na cios krytyczny. Efekt mo¿na podnieœæ do poziomu 5 kolejnymi chryzantemami. Dzia³a w czasie eventu Dzieci Kwiaty.
+25122	Konwalia	Przedmiot u¿ytkowy. Próba mo¿e siê nie udaæ. Przy sukcesie zwiêksza na 12 godzin si³ê ataku. Efekt mo¿na podnieœæ do poziomu 5 kolejnymi konwaliami. Dzia³a w czasie eventu Dzieci Kwiaty.
+25123	Narcyz	Przedmiot u¿ytkowy. Próba mo¿e siê nie udaæ. Przy sukcesie daje przez 12 godzin szansê na podwójne doœwiadczenie. Efekt mo¿na podnieœæ do poziomu 5 kolejnymi narcyzami. Dzia³a w czasie eventu Dzieci Kwiaty.
+25124	Lilia	Przedmiot u¿ytkowy. Próba mo¿e siê nie udaæ. Przy sukcesie zwiêksza na 12 godzin szansê na przedmioty. Efekt mo¿na podnieœæ do poziomu 5 kolejnymi liliami. Dzia³a w czasie eventu Dzieci Kwiaty.
+25125	S³onecznik	Przedmiot u¿ytkowy. Próba mo¿e siê nie udaæ. Przy sukcesie zwiêksza na 12 godzin obronê. Efekt mo¿na podnieœæ do poziomu 5 kolejnymi s³onecznikami. Dzia³a w czasie eventu Dzieci Kwiaty.
+83023	Pude³ko z Chryzantem¹	Otwórz pachn¹ce pude³ko i sprawdŸ, jaka nagroda kryje siê w œrodku.
+83024	Pude³ko z Konwali¹	Otwórz pachn¹ce pude³ko i sprawdŸ, jaka nagroda kryje siê w œrodku.
+83025	Pude³ko z Narcyzem	Otwórz pachn¹ce pude³ko i sprawdŸ, jaka nagroda kryje siê w œrodku.
+83026	Pude³ko z Lili¹	Otwórz pachn¹ce pude³ko i sprawdŸ, jaka nagroda kryje siê w œrodku.
+83027	Pude³ko ze S³onecznikiem	Otwórz pachn¹ce pude³ko i sprawdŸ, jaka nagroda kryje siê w œrodku.
+79505	Karta Okey	Karta do gry w Okey. Kliknij prawym przyciskiem w czasie eventu Okey, aby dodaæ j¹ do kart (24 karty tworz¹ zestaw kart).
+79506	Zestaw kart Okey	Zestaw 24 kart Okey. Kliknij prawym przyciskiem, aby go dodaæ - jedna gra w Okey kosztuje 1 zestaw kart i 30 000 Yang.
+50275	Z³ota Skrzynia Okey	Nagroda za grê w Okey zakoñczon¹ z wynikiem 400 punktów lub wy¿szym. Kliknij prawym przyciskiem, aby otworzyæ.
+50276	Srebrna Skrzynia Okey	Nagroda za grê w Okey zakoñczon¹ z wynikiem 300-399 punktów. Kliknij prawym przyciskiem, aby otworzyæ.
+50277	Br¹zowa Skrzynia Okey	Nagroda za grê w Okey zakoñczon¹ z wynikiem poni¿ej 300 punktów. Kliknij prawym przyciskiem, aby otworzyæ.
+50267	Œwi¹teczna Z³ota Skrzynia Okey	Œwi¹teczna nagroda za grê w Okey zakoñczon¹ z wynikiem 400 punktów lub wy¿szym. Kliknij prawym przyciskiem, aby otworzyæ.
+50268	Œwi¹teczna Srebrna Skrzynia Okey	Œwi¹teczna nagroda za grê w Okey zakoñczon¹ z wynikiem 300-399 punktów. Kliknij prawym przyciskiem, aby otworzyæ.
+50269	Œwi¹teczna Br¹zowa Skrzynia Okey	Œwi¹teczna nagroda za grê w Okey zakoñczon¹ z wynikiem poni¿ej 300 punktów. Kliknij prawym przyciskiem, aby otworzyæ.
+79507	Pieñ Brzozy	Kliknij prawym przyciskiem, aby dodaæ pieñ do gry Yutnori. 28 pni ³¹czy siê w planszê do Yutnori. Dzia³a tylko w czasie eventu.
+79508	Plansza do Yutnori	Kliknij prawym przyciskiem, aby dodaæ planszê do gry Yutnori (okno wydarzeñ lub Stó³ do Yutnori). Jedna gra kosztuje planszê i 30 000 Yang.
+83030	Z³ote Trofeum Yutnori	Nagroda za grê w Yutnori z co najmniej 220 punktami. Zawiera Z³oty Pakiet Yutnori i Cor Draconis (drogocenne).
+83031	Srebrne Trofeum Yutnori	Nagroda za grê w Yutnori ze 150-219 punktami. Zawiera Srebrny Pakiet Yutnori, czasem Zwój B³ogos³awieñstwa.
+83032	Z³oty Pakiet Yutnori	Otwórz pakiet i sprawdŸ, co uda³o ci siê wygraæ.
+83033	Srebrny Pakiet Yutnori	Otwórz pakiet i sprawdŸ, co uda³o ci siê wygraæ.
+83034	Br¹zowy Pakiet Yutnori	Nagroda za udzia³ w Yutnori. Otwórz pakiet i sprawdŸ, co uda³o ci siê wygraæ.
+39070	Szary Od³amek	Materia³, który zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae. Poziom przedmiotu: 0-29.
+39071	Bia³y Od³amek	Materia³, który zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae. Poziom przedmiotu: 30-39.
+39072	Zielony Od³amek	Materia³, który zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae. Poziom przedmiotu: 40-49.
+39073	¯ó³ty Od³amek	Materia³, który zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae. Poziom przedmiotu: 50-59.
+39074	Niebieski Od³amek	Materia³, który zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae. Poziom przedmiotu: 60-74.
+39075	Fioletowy Od³amek	Materia³, który zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae. Poziom przedmiotu: 75-89.
+39076	Czerwony Od³amek	Materia³, który zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae. Poziom przedmiotu: 90-104.
+39077	Têczowy Od³amek	Materia³, który zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae. Poziom przedmiotu: 105-119.
+39081	Œwiêty Od³amek	Materia³, który zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae. Poziom przedmiotu: 120 i wy¿ej.
+72064	Ma³y Suplement	Zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae (do +5% przy 5 Suplementach i 10 Od³amkach).
+72065	Œredni Suplement	Zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae (do +10% przy 5 Suplementach i 10 Od³amkach).
+72066	Du¿y Suplement	Zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae (do +20% przy 5 Suplementach i 10 Od³amkach).
+72067	Silny Suplement	Zwiêksza szansê na dodanie 6. lub 7. bonusu u Seon-Hae (do +50% przy 5 Suplementach i 10 Od³amkach).
+79603	Karta Królewska	Karta do gry Z³ap Króla. Kliknij prawym przyciskiem w czasie eventu, aby dodaæ j¹ do swoich kart - 25 kart tworzy Taliê Królewsk¹. Karty i talie przepadaj¹, gdy zacznie siê nastêpny event.
+79604	Talia Królewska	Talia do gry Z³ap Króla. Kliknij prawym przyciskiem w czasie eventu, aby dodaæ j¹ do swoich talii; grê zaczniesz w oknie eventu (przycisk przy minimapie). Karty i talie przepadaj¹, gdy zacznie siê nastêpny event.
+50968	Z³oty £up Królewski	Nagroda za grê Z³ap Króla z wynikiem 550 punktów lub wiêcej i za miejsce w pierwszej dziesi¹tce rankingu. Kliknij prawym przyciskiem, aby otworzyæ.
+50969	Srebrny £up Królewski	Nagroda za grê Z³ap Króla z wynikiem od 400 do 549 punktów. Kliknij prawym przyciskiem, aby otworzyæ.
+50970	Br¹zowy £up Królewski	Nagroda za grê Z³ap Króla z wynikiem od 10 do 399 punktów. Kliknij prawym przyciskiem, aby otworzyæ.

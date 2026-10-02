@@ -440,6 +440,18 @@ class GameWindow(ui.ScriptWindow):
 		__import__("uidungeoninfo").DestroyWindow()
 		# MT2009_PLUS_NEW_PET_V1: the New Pet System's window (uinewpet.py).
 		__import__("uinewpet").DestroyWindow()
+		# MT2009_PLUS_YUTNORI_V1: Yut Nori's window (uiminigameyutnori.py), before the hub.
+		__import__("uiminigameyutnori").Destroy()
+		# MT2009_PLUS_EVENT_MANAGER_V1: the in-game event hub (uiingameevent.py).
+		__import__("uiingameevent").DestroyWindow()
+		# MT2009_PLUS_SEONHAE_V1: Seon-Hae's 6th/7th bonus window (uiseonhae.py).
+		__import__("uiseonhae").DestroyWindow()
+		# MT2009_PLUS_FLOWER_V1: the Flower Event's window (uiflowerevent.py).
+		__import__("uiflowerevent").DestroyWindow()
+		# MT2009_PLUS_RUMI_V1: Owsap's Rumi (Okey) window (uiminigamerumi.py).
+		__import__("uiminigamerumi").DestroyWindow()
+		# MT2009_PLUS_CATCH_KING_V1: Catch the King's window (uiminigamecatchking.py).
+		__import__("uiminigamecatchking").Destroy()
 		# MT2009_PLUS_GUILD_DUTY_V1: the guild leader's panel.
 		import uiguildduty
 		uiguildduty.DestroyWindow()
@@ -703,9 +715,6 @@ class GameWindow(ui.ScriptWindow):
 
 
 
-		# The bonus switcher: 0, because U is MT2009 PLUS's pet window, X its
-		# dungeon panel and every other letter is taken too.
-		onPressKeyDict[app.DIK_0]			= lambda : self.__ToggleBonusSwitcher()
 		# CUBE_TEST
 		#onPressKeyDict[app.DIK_K]			= lambda : self.interface.OpenCubeWindow()
 		onPressKeyDict[app.DIK_K]			= lambda : self.__ToggleAutoHunt()
@@ -1938,13 +1947,6 @@ class GameWindow(ui.ScriptWindow):
 	def StopRight(self):
 		player.SetSingleDIKKeyState(app.DIK_RIGHT, False)
 
-	def __ToggleBonusSwitcher(self):
-		import uibonusswitch
-		switcher = uibonusswitch.GetSwitcher()
-		if switcher not in self.updateable:
-			self.RegisterUpdatable(switcher)
-		uibonusswitch.ToggleWindow()
-
 	def PickUpItem(self):
 		import uipickupfilter
 		if uipickupfilter.IsActive():
@@ -2322,6 +2324,19 @@ class GameWindow(ui.ScriptWindow):
 				net.SendChatPacket("/gmpanel_check_gm")
 				# The event calendar's mini icon and its schedule (uieventcalendar.py).
 				__import__("uieventcalendar").Start()
+				# MT2009_PLUS_EVENT_MANAGER_V1: the in-game event hub and the hello
+				# that brings this core's event list (uiingameevent.py, ingameevent.py).
+				__import__("uiingameevent").Start()
+				# MT2009_PLUS_FLOWER_V1: the Flower Event's button in the hub, its
+				# buff icon and (new exe) its counters (uiflowerevent.py).
+				__import__("uiflowerevent").Start()
+				# MT2009_PLUS_RUMI_V1: Rumi's button in the event list and its card counters.
+				__import__("uiminigamerumi").Start()
+				# MT2009_PLUS_CATCH_KING_V1: Catch the King's window behind the hub's button
+				# (uiminigamecatchking.py; nothing without the new exe's packets).
+				__import__("uiminigamecatchking").Register()
+				# MT2009_PLUS_YUTNORI_V1: the hub's Yut Nori button opens its window.
+				__import__("uiminigameyutnori").Register()
 				# MT2009_PLUS_NEW_PET_V1: the New Pet System's pet back after the loading screen.
 				__import__("uinewpet").Start()
 
@@ -2964,6 +2979,19 @@ class GameWindow(ui.ScriptWindow):
 		serverCommandList["NewPet"] = self.__NewPet # MT2009_PLUS_NEW_PET_V1
 		serverCommandList["GOB"] = self.__Goblin # MT2009_PLUS_GOBLIN_V1
 		serverCommandList["DungeonInfo"] = self.__DungeonInfo # MT2009_PLUS_DUNGEON_PANEL_V1
+		serverCommandList["SEONHAE"] = self.__SeonHae # MT2009_PLUS_SEONHAE_V1
+		# MT2009_PLUS_EVENT_MANAGER_V1: the event list as lines (an exe without the
+		# packet) and Owsap's "<flag> <value>" commands (ingameevent.py).
+		serverCommandList["IGE"] = self.__InGameEvent
+		serverCommandList["mini_game_okey"] = self.__InGameEventFlagOkey
+		serverCommandList["mini_game_okey_normal"] = self.__InGameEventFlagOkeyNormal
+		serverCommandList["mini_game_yutnori"] = self.__InGameEventFlagYutnori
+		serverCommandList["mini_game_catchking"] = self.__InGameEventFlagCatchKing
+		serverCommandList["e_flower_drop"] = self.__InGameEventFlagFlower
+		serverCommandList["easter_drop"] = self.__InGameEventFlagEaster
+		# MT2009_PLUS_RUMI_V1: the Okey table's "Zagraj w Okey" (minigame_rumi.quest).
+		serverCommandList["MiniGameRumiOpen"] = self.__MiniGameRumiOpen
+		serverCommandList["YutnoriOpen"] = self.__YutnoriOpen # MT2009_PLUS_YUTNORI_V1 (the table NPC)
 
 		self.serverCommander=stringCommander.Analyzer()
 		for serverCommandItem in serverCommandList.items():
@@ -3348,6 +3376,7 @@ class GameWindow(ui.ScriptWindow):
 		mapDict = (
 			"metin_icedungeon",
 			"metin2_map_devilscatacomb",
+			"metin2_map_devilsCatacomb",	# MT2009_PLUS_CATACOMB_MAP_V1: the atlas name (background.GetCurrentMapName)
 			"metin2_map_deviltower1",
 			"metin2_map_labirynth",
 			"metin2_map_monkeydungeon",
@@ -3574,6 +3603,112 @@ class GameWindow(ui.ScriptWindow):
 	def __Goblin(self, *args):
 		import uigoblin
 		uigoblin.OnCommand(self, *args)
+
+	# MT2009_PLUS_SEONHAE_V1: Seon-Hae's 6th/7th bonus lines (uiseonhae.py).
+	def __SeonHae(self, *args):
+		import uiseonhae
+		uiseonhae.OnCommand(self, *args)
+
+	# MT2009_PLUS_EVENT_MANAGER_V1: the in-game event list (ingameevent.py).
+	def __InGameEvent(self, *args):
+		import ingameevent
+		ingameevent.OnCommand(*args)
+
+	def __InGameEventFlag(self, name, args):
+		import ingameevent
+		ingameevent.OnOwsapFlag(name, *args[:1])
+
+	def __InGameEventFlagOkey(self, *args):
+		self.__InGameEventFlag("mini_game_okey", args)
+
+	def __InGameEventFlagOkeyNormal(self, *args):
+		self.__InGameEventFlag("mini_game_okey_normal", args)
+
+	def __InGameEventFlagYutnori(self, *args):
+		self.__InGameEventFlag("mini_game_yutnori", args)
+
+	def __InGameEventFlagCatchKing(self, *args):
+		self.__InGameEventFlag("mini_game_catchking", args)
+
+	def __InGameEventFlagFlower(self, *args):
+		self.__InGameEventFlag("e_flower_drop", args)
+		# MT2009_PLUS_FLOWER_V1: Owsap's player.SetFlowerEventEnable (uiflowerevent.py).
+		if args:
+			__import__("uiflowerevent").SetEnable(args[0])
+
+	# MT2009_PLUS_FLOWER_V1: the exe's HEADER_GC_FLOWER_EVENT (187) - Owsap's
+	# game.FlowerEventProcess(type, data) - to the Flower Event's window.
+	def FlowerEventProcess(self, type, data=None):
+		__import__("uiflowerevent").Process(type, data)
+
+	def __InGameEventFlagEaster(self, *args):
+		self.__InGameEventFlag("easter_drop", args)
+
+	# MT2009_PLUS_YUTNORI_V1: Yut Nori (uiminigameyutnori.py) - the exe's packet 182
+	# (Owsap's names) and the table NPC's "Zagraj".
+	def YutnoriProcess(self, type, data):
+		__import__("uiminigameyutnori").Process(type, data)
+
+	def YutnoriFlagProcess(self, type, data):
+		__import__("uiminigameyutnori").FlagProcess(type, data)
+
+	def __YutnoriOpen(self, *args):
+		__import__("uiminigameyutnori").OpenWindow()
+
+	# The exe's list changed and no handler was set (ingameevent sets one).
+	def BINARY_RefreshInGameEvent(self):
+		import ingameevent
+		ingameevent.Notify()
+
+	# MT2009_PLUS_RUMI_V1: Owsap's Rumi (Okey card game). The exe calls these on
+	# the game window (Owsap's names, HEADER_GC_MINI_GAME_RUMI 181); the window is
+	# uiminigamerumi.py.
+	def __MiniGameRumiOpen(self, *args):
+		import uiminigamerumi
+		uiminigamerumi.OpenFromTable()
+
+	def MiniGameRumiStart(self):
+		import uiminigamerumi
+		uiminigamerumi.OnStart()
+
+	def MiniGameRumiEnd(self):
+		import uiminigamerumi
+		uiminigamerumi.OnEnd()
+
+	def MiniGameRumiMoveCard(self, src_pos, src_index, src_color, src_number, dst_pos, dst_index, dst_color, dst_number):
+		import uiminigamerumi
+		uiminigamerumi.OnMoveCard(src_pos, src_index, src_color, src_number, dst_pos, dst_index, dst_color, dst_number)
+
+	def MiniGameRumiSetDeckCount(self, deck_card_count):
+		import uiminigamerumi
+		uiminigamerumi.OnSetDeckCount(deck_card_count)
+
+	def MiniGameRumiIncreaseScore(self, score, total_score):
+		import uiminigamerumi
+		uiminigamerumi.OnIncreaseScore(score, total_score)
+
+	def MiniGameRumiFlagProcess(self, process_type, data):
+		import uiminigamerumi
+		uiminigamerumi.OnFlagProcess(process_type, data)
+	# MT2009_PLUS_CATCH_KING_V1: Catch the King's packets (GC 238), Owsap's names as the
+	# exe calls them, to uiminigamecatchking.py.
+	def MiniGameCatchKingEventStart(self, bigScore):
+		__import__("uiminigamecatchking").EventStart(bigScore)
+
+	def MiniGameCatchKingSetHandCard(self, cardNumber):
+		__import__("uiminigamecatchking").SetHandCard(cardNumber)
+
+	def MiniGameCatchKingResultField(self, score, rowType, cardPos, cardValue, keepFieldCard, destroyHandCard, getReward, isFiveNear):
+		__import__("uiminigamecatchking").ResultField(score, rowType, cardPos, cardValue, keepFieldCard, destroyHandCard, getReward, isFiveNear)
+
+	def MiniGameCatchKingSetEndCard(self, cardPos, cardNumber):
+		__import__("uiminigamecatchking").SetEndCard(cardPos, cardNumber)
+
+	def MiniGameCatchKingReward(self, rewardCode):
+		__import__("uiminigamecatchking").Reward(rewardCode)
+
+	def CatchKingFlagProcess(self, type, data):
+		__import__("uiminigamecatchking").FlagProcess(type, data)
 
 	# MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel's lines (dungeoninfo.py, the "dungeonInfo" module).
 	def __DungeonInfo(self, *args):

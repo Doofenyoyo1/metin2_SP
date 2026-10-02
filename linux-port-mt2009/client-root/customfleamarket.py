@@ -1,7 +1,10 @@
-# FLEA_UI_V2 FLEA_UI_V4 - nowe okno Flea Market (kategorie po lewej, filtry, wyszukiwanie po stronie serwera)
+# FLEA_UI_V2 FLEA_UI_V4 FLEA_UI_V5 FLEA_UI_V6 - nowe okno "Dom Towarowy" (kategorie po lewej, filtry, wyszukiwanie po stronie serwera)
+import re
 import ui
 import ikashop
 import item
+import player
+import localeinfo_point
 import skill
 import net
 import app
@@ -12,6 +15,30 @@ import chat
 from _weakref import proxy
 
 YANG_PER_CHEQUE = 100000000
+
+# CUSTOM_FLEA_SEARCH_PL_V1: zwykle str.lower() (Python 2, bajty CP1250) sklada
+# sie tylko z ASCII A-Z, wiec polskie znaki diakrytyczne (Z, O, L, C z akcentem)
+# nie byly zamieniane na male litery - przedmiot zaczynajacy sie od wielkiej
+# litery z akcentem (np. "Zolc Niedzwiedzia") nigdy nie pasowal do zapytania
+# wpisanego mala litera, mimo ze serwer juz poprawnie dopasowywal ta sama
+# nazwe (patrz StringToLower w ikarus_shop_manager.cpp).
+_PL_LOWER_MAP = {
+	'\xa5': '\xb9', '\xc6': '\xe6', '\xca': '\xea', '\xa3': '\xb3',
+	'\xd1': '\xf1', '\xd3': '\xf3', '\x8c': '\x9c', '\x8f': '\x9f', '\xaf': '\xbf',
+}
+def PolishLower(text):
+	lowered = text.lower()
+	return "".join(_PL_LOWER_MAP.get(ch, ch) for ch in lowered)
+
+# CUSTOM_FLEA_PLUS_SEARCH_V1: wyszukiwanie ulepszacza bez "+" w zapytaniu
+# (np. "miecz") dawniej ciagnelo zarowno baze jak i wszystkie warianty
+# +1..+9, wiec zeby trafic na baze trzeba bylo przewinac dziesiatki ofert -
+# to byl jeden z najczesciej zglaszanych feedbackow. Teraz brak "+" w
+# zapytaniu pokazuje tylko nieulepszone przedmioty; wpisanie "+" (np.
+# "miecz+" albo "miecz+3") wraca do zwyklego, pelnego dopasowania substring.
+_PLUS_SUFFIX_RE = re.compile(r'\+\d*$')
+def _HasPlusSuffix(name):
+	return bool(_PLUS_SUFFIX_RE.search(name))
 
 COLOR_TEXT = 0xFFEDEDED
 COLOR_DIM = 0xFF9A9A9A
@@ -56,31 +83,41 @@ TEXT_X = 82
 MULTI_BUY_TIMEOUT = 5.0
 MULTI_BUY_GAP = 0.35
 
-# (nazwa, wciecie, stala/e typu z modulu item (string albo krotka stringow) albo "OTHER", stala podtypu)
+# (nazwa, wciecie, stala/e typu z modulu item (string albo krotka stringow) albo "OTHER", stala
+# podtypu, stala antyflagi klasy z modulu item albo None - filtr klasy dziala TYLKO po stronie
+# klienta (IsAntiFlag na wybranym przedmiocie), serwer o nim nie wie, patrz __MatchesCategory)
 CATEGORY_DEFS = (
-    ("Wszystko", 0, None, None),
-    ("Bron", 0, "ITEM_TYPE_WEAPON", None),
-    ("Miecze jednoreczne", 1, "ITEM_TYPE_WEAPON", "WEAPON_SWORD"),
-    ("Miecze dwureczne", 1, "ITEM_TYPE_WEAPON", "WEAPON_TWO_HANDED"),
-    ("Luki", 1, "ITEM_TYPE_WEAPON", "WEAPON_BOW"),
-    ("Sztylety", 1, "ITEM_TYPE_WEAPON", "WEAPON_DAGGER"),
-    ("Dzwony", 1, "ITEM_TYPE_WEAPON", "WEAPON_BELL"),
-    ("Wachlarze", 1, "ITEM_TYPE_WEAPON", "WEAPON_FAN"),
-    ("Zbroje", 0, "ITEM_TYPE_ARMOR", "ARMOR_BODY"),
-    ("Helmy", 0, "ITEM_TYPE_ARMOR", "ARMOR_HEAD"),
-    ("Tarcze", 0, "ITEM_TYPE_ARMOR", "ARMOR_SHIELD"),
-    ("Buty", 0, "ITEM_TYPE_ARMOR", "ARMOR_FOOTS"),
-    ("Bransolety", 0, "ITEM_TYPE_ARMOR", "ARMOR_WRIST"),
-    ("Naszyjniki", 0, "ITEM_TYPE_ARMOR", "ARMOR_NECK"),
-    ("Kolczyki", 0, "ITEM_TYPE_ARMOR", "ARMOR_EAR"),
-    ("Ksiegi", 0, "ITEM_TYPE_SKILLBOOK", None),
-    ("Ksiegi zapomnienia", 0, "ITEM_TYPE_SKILLFORGET", None),
-    ("Kamienie duszy", 0, "ITEM_TYPE_METIN", None),
-    ("Rudy i przetopy", 0, "ITEM_TYPE_RESOURCE", None),
-    ("Dopalacze", 0, "ITEM_TYPE_POTION", None),
-    ("Uzywalne", 0, "ITEM_TYPE_USE", None),
-    ("Ulepszacze", 0, "ITEM_TYPE_MATERIAL", None),
-    ("Inne", 0, "OTHER", None),
+    ("Wszystko", 0, None, None, None),
+    ("Bron", 0, "ITEM_TYPE_WEAPON", None, None),
+    ("Miecze jednoreczne", 1, "ITEM_TYPE_WEAPON", "WEAPON_SWORD", None),
+    ("Miecze dwureczne", 1, "ITEM_TYPE_WEAPON", "WEAPON_TWO_HANDED", None),
+    ("Luki", 1, "ITEM_TYPE_WEAPON", "WEAPON_BOW", None),
+    ("Sztylety", 1, "ITEM_TYPE_WEAPON", "WEAPON_DAGGER", None),
+    ("Dzwony", 1, "ITEM_TYPE_WEAPON", "WEAPON_BELL", None),
+    ("Wachlarze", 1, "ITEM_TYPE_WEAPON", "WEAPON_FAN", None),
+    ("Zbroje", 0, "ITEM_TYPE_ARMOR", "ARMOR_BODY", None),
+    ("Zbroje - Wojownik", 1, "ITEM_TYPE_ARMOR", "ARMOR_BODY", "ANTIFLAG_WARRIOR"),
+    ("Zbroje - Ninja", 1, "ITEM_TYPE_ARMOR", "ARMOR_BODY", "ANTIFLAG_ASSASSIN"),
+    ("Zbroje - Sura", 1, "ITEM_TYPE_ARMOR", "ARMOR_BODY", "ANTIFLAG_SURA"),
+    ("Zbroje - Szaman", 1, "ITEM_TYPE_ARMOR", "ARMOR_BODY", "ANTIFLAG_SHAMAN"),
+    ("Helmy", 0, "ITEM_TYPE_ARMOR", "ARMOR_HEAD", None),
+    ("Helmy - Wojownik", 1, "ITEM_TYPE_ARMOR", "ARMOR_HEAD", "ANTIFLAG_WARRIOR"),
+    ("Helmy - Ninja", 1, "ITEM_TYPE_ARMOR", "ARMOR_HEAD", "ANTIFLAG_ASSASSIN"),
+    ("Helmy - Sura", 1, "ITEM_TYPE_ARMOR", "ARMOR_HEAD", "ANTIFLAG_SURA"),
+    ("Helmy - Szaman", 1, "ITEM_TYPE_ARMOR", "ARMOR_HEAD", "ANTIFLAG_SHAMAN"),
+    ("Tarcze", 0, "ITEM_TYPE_ARMOR", "ARMOR_SHIELD", None),
+    ("Buty", 0, "ITEM_TYPE_ARMOR", "ARMOR_FOOTS", None),
+    ("Bransolety", 0, "ITEM_TYPE_ARMOR", "ARMOR_WRIST", None),
+    ("Naszyjniki", 0, "ITEM_TYPE_ARMOR", "ARMOR_NECK", None),
+    ("Kolczyki", 0, "ITEM_TYPE_ARMOR", "ARMOR_EAR", None),
+    ("Ksiegi", 0, "ITEM_TYPE_SKILLBOOK", None, None),
+    ("Ksiegi zapomnienia", 0, "ITEM_TYPE_SKILLFORGET", None, None),
+    ("Kamienie duszy", 0, "ITEM_TYPE_METIN", None, None),
+    ("Rudy i przetopy", 0, "ITEM_TYPE_RESOURCE", None, None),
+    ("Dopalacze", 0, "ITEM_TYPE_POTION", None, None),
+    ("Uzywalne", 0, "ITEM_TYPE_USE", None, None),
+    ("Ulepszacze", 0, "ITEM_TYPE_MATERIAL", None, None),
+    ("Inne", 0, "OTHER", None, None),
 )
 
 # Przedmioty, ktore w silniku siedza pod typem/podtypem dzielonym z mnostwem niezwiazanych
@@ -111,7 +148,311 @@ SORT_MODES = (
     ("unit_asc", "Cena za sztuke", 2),
     ("name", "Nazwa A-Z", 0),
     ("seller", "Sprzedawca A-Z", 0),
+    ("count_asc", "Ilosc: rosnaco", 0),
+    ("count_desc", "Ilosc: malejaco", 0),
 )
+
+# CUSTOM_FLEA_BONUS_FILTER_V1: (nazwa stalej w module "player", etykieta PL) -
+# wyselekcjonowany zestaw bonusow do filtra "Filtry" (do 5 naraz, kazdy z
+# progiem minimalnym). Caly filtr dziala po stronie klienta na juz pobranych
+# ofertach (kazda oferta ma "attrs" - krotke (bType, sValue) - wyslana przez
+# natywny modul ikashop, wiec serwer nie musi nic wiedziec o tym filtrze).
+# Pelna liste wszystkich mozliwych bonusow ma AFFECT_DICT w localeinfo_point.py
+# - tu tylko te, ktore graczy faktycznie interesuja przy zakupie ekwipunku.
+BONUS_FILTER_DEFS = (
+    ("POINT_MAX_HP", "Max PZ"),
+    ("POINT_MAX_SP", "Max PM"),
+    ("POINT_NORMAL_HIT_DAMAGE_BONUS", "Srednie obrazenia"),
+    ("POINT_ATT_SPEED", "Szybkosc ataku"),
+    ("POINT_MOV_SPEED", "Szybkosc ruchu"),
+    ("POINT_ATT_GRADE_BONUS", "Wartosc ataku"),
+    ("POINT_CRITICAL_PCT", "Szansa na krytyk"),
+    ("POINT_PENETRATE_PCT", "Szansa na przebicie"),
+    ("POINT_BLOCK", "Blok"),
+    ("POINT_DODGE", "Unik"),
+    ("POINT_IMMUNE_STUN", "Odpornosc na omdlenia"),
+    ("POINT_RESIST_BOW", "Odpornosc: strzaly"),
+    ("POINT_RESIST_MAGIC", "Odpornosc: magia"),
+    ("POINT_ATTBONUS_WARRIOR", "Bonus vs Wojownik"),
+    ("POINT_ATTBONUS_ASSASSIN", "Bonus vs Ninja"),
+    ("POINT_ATTBONUS_SURA", "Bonus vs Sura"),
+    ("POINT_ATTBONUS_SHAMAN", "Bonus vs Szaman"),
+    ("POINT_STEAL_HP", "Kradziez PZ"),
+    ("POINT_STEAL_SP", "Kradziez PM"),
+    ("POINT_EXP_DOUBLE_BONUS", "Bonus do expa"),
+    ("POINT_GOLD_DOUBLE_BONUS", "Bonus do yang"),
+    ("POINT_ITEM_DROP_BONUS", "Bonus do dropu"),
+)
+
+# localeinfo_point.ATTR_MAX_VALUES (silnikowa tabela) nie ma wpisu dla kazdego
+# z powyzszych - tu nadpisania/dopelnienia dla tych, ktore gracze podali z
+# wlasnego doswiadczenia (np. Srednie obrazenia losuja sie do +60%).
+BONUS_FILTER_MAX_OVERRIDES = {
+    "POINT_NORMAL_HIT_DAMAGE_BONUS": 60,
+}
+
+
+def BuildBonusFilterOptions():
+    options = []
+    for constName, label in BONUS_FILTER_DEFS:
+        value = getattr(player, constName, None)
+        if value is None:
+            continue
+        maxValue = BONUS_FILTER_MAX_OVERRIDES.get(constName) or localeinfo_point.ATTR_MAX_VALUES.get(value)
+        if maxValue:
+            label = "%s (maks. %d)" % (label, maxValue)
+        options.append((value, label))
+    return options
+
+
+class _BonusFilterRowHandler:
+    # ui.__mem_func__ (used by SAFE_SetEvent-style wrappers) needs a real
+    # bound method (it reads im_func/im_class/im_self) - a lambda doesn't
+    # have those and crashes the whole client on startup (AttributeError:
+    # 'function' object has no attribute 'im_func'). One tiny object per row
+    # gives each row's button its own genuine bound method instead.
+    def __init__(self, dialog, rowIndex):
+        self.dialog = proxy(dialog)
+        self.rowIndex = rowIndex
+
+    def OnClick(self):
+        self.dialog.OpenPicker(self.rowIndex)
+
+
+class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
+    # CUSTOM_FLEA_BONUS_FILTER_V1 v3: ui.ComboBox turned out to never raise
+    # itself above the rest of the dialog when 5 of them sit in the same
+    # board (each dropdown rendered BEHIND the board's own card/other rows,
+    # first items unreadable/unclickable - tried SetTop() from a few angles,
+    # none of it changed anything). Replaced with the exact pattern this
+    # file's own search-suggestions box already uses successfully: one
+    # shared ui.ListBox, created once, positioned over the rows and raised
+    # with SetTop() right as it's shown - proven to render on top in this
+    # very window already.
+    MAX_ROWS = 5
+    ROW_HEIGHT = 34
+    WIDTH = 430
+    LEFT = 20
+    PICK_WIDTH = 240
+    PICK_HEIGHT = 23
+    EDIT_WIDTH = 86
+    NONE_LABEL = "- brak -"
+
+    def __init__(self, market):
+        ui.BoardWithTitleBar.__init__(self)
+        self.market = proxy(market)
+        # indeks 0 = brak filtru na tym wierszu, potem realne opcje
+        self.options = [(None, self.NONE_LABEL)] + BuildBonusFilterOptions()
+        self.rows = []
+        self.activeRow = -1
+        self.__keepers = []
+
+        self.__top = 64
+        cardHeight = self.MAX_ROWS * self.ROW_HEIGHT + 12
+        # CUSTOM_FLEA_BONUS_FILTER_V1: dialog musi byc na tyle wysoki, zeby
+        # w pelni zmiescic rozwinieta liste wyboru (patrz OpenPicker) - inaczej
+        # dolna czesc listy wystaje poza wlasne okno, a kliki tam trafiaja w
+        # przedmioty pod spodem zamiast w liste (wlasny pick-area okna konczy
+        # sie na jego deklarowanym rozmiarze, mimo ze tekst renderuje sie dalej).
+        pickerHeight = len(self.options) * 17 + 6
+        bottom = self.__top + max(cardHeight + 50, pickerHeight + 20)
+        self.SetSize(self.WIDTH, bottom)
+        self.AddFlag("movable")
+        self.AddFlag("float")
+        self.SetTitleName("Filtry bonusow")
+        self.SetCloseEvent(self.Close)
+
+        hint = ui.TextLine()
+        hint.SetParent(self)
+        hint.SetPosition(self.LEFT, 36)
+        hint.SetText("Do 5 bonusow naraz, kazdy z minimalnym progiem:")
+        hint.SetPackedFontColor(COLOR_DIM)
+        hint.Show()
+        self.__keepers.append(hint)
+
+        self.__MakeCard(self.LEFT - 4, self.__top, self.WIDTH - (self.LEFT - 4) * 2, cardHeight)
+
+        y = self.__top + 6
+        for index in range(self.MAX_ROWS):
+            self.rows.append(self.__MakeRow(index, y))
+            y += self.ROW_HEIGHT
+
+        self.applyButton = self.__MakeButton(self.WIDTH / 2 - 110, y + 14, "Zastosuj", self.Apply)
+        self.clearButton = self.__MakeButton(self.WIDTH / 2 + 10, y + 14, "Wyczysc", self.ClearAll)
+
+        # lista wyboru bonusu - jedna wspolna dla wszystkich wierszy
+        self.pickerBackground = ui.SlotBar()
+        self.pickerBackground.SetParent(self)
+        self.pickerBackground.SetPosition(self.LEFT - 4, self.__top)
+        self.pickerBackground.SetSize(self.PICK_WIDTH + 8, 1)
+        self.pickerBackground.AddFlag("not_pick")
+        self.pickerBackground.Hide()
+        self.pickerList = ui.ListBox()
+        self.pickerList.SetParent(self.pickerBackground)
+        self.pickerList.SetPosition(4, 3)
+        self.pickerList.SetSize(self.PICK_WIDTH, 1)
+        self.pickerList.SetTextCenterAlign(False)
+        self.pickerList.SetEvent(self.OnPickerSelect)
+        self.pickerList.Hide()
+        for optionIndex, (_, label) in enumerate(self.options):
+            self.pickerList.InsertItem(optionIndex, label)
+
+        self.Hide()
+
+    # CUSTOM_ENTER_CONFIRM_V1
+    def OnPressReturnKey(self):
+        self.Apply()
+        return True
+
+    def __MakeCard(self, x, y, width, height):
+        outer = ui.Bar()
+        outer.SetParent(self)
+        outer.SetPosition(x, y)
+        outer.SetSize(width, height)
+        outer.SetColor(COLOR_CARD_BORDER)
+        outer.AddFlag("not_pick")
+        outer.Show()
+        inner = ui.Bar()
+        inner.SetParent(self)
+        inner.SetPosition(x + 1, y + 1)
+        inner.SetSize(width - 2, height - 2)
+        inner.SetColor(COLOR_CARD_FILL)
+        inner.AddFlag("not_pick")
+        inner.Show()
+        self.__keepers.append(outer)
+        self.__keepers.append(inner)
+
+    def __MakeButton(self, x, y, text, event):
+        button = ui.Button()
+        button.SetParent(self)
+        button.SetPosition(x, y)
+        button.SetSize(100, 25)
+        button.SetUpVisual("d:/ymir work/ui/public/middle_button_01.sub")
+        button.SetOverVisual("d:/ymir work/ui/public/middle_button_02.sub")
+        button.SetDownVisual("d:/ymir work/ui/public/middle_button_03.sub")
+        button.SetText(text)
+        button.SetEvent(event)
+        button.Show()
+        self.__keepers.append(button)
+        return button
+
+    def __MakeRow(self, index, y):
+        rowX = self.LEFT + 4
+
+        number = ui.TextLine()
+        number.SetParent(self)
+        number.SetPosition(rowX, y + 5)
+        number.SetText("%d." % (index + 1))
+        number.SetPackedFontColor(COLOR_DIM)
+        number.AddFlag("not_pick")
+        number.Show()
+        self.__keepers.append(number)
+
+        pickX = rowX + 16
+        pickButton = ui.Button()
+        pickButton.SetParent(self)
+        pickButton.SetPosition(pickX, y)
+        pickButton.SetSize(self.PICK_WIDTH, self.PICK_HEIGHT)
+        pickButton.SetUpVisual("d:/ymir work/ui/public/middle_button_01.sub")
+        pickButton.SetOverVisual("d:/ymir work/ui/public/middle_button_02.sub")
+        pickButton.SetDownVisual("d:/ymir work/ui/public/middle_button_03.sub")
+        pickButton.SetText(self.NONE_LABEL)
+        handler = _BonusFilterRowHandler(self, index)
+        pickButton.SetEvent(handler.OnClick)
+        pickButton.Show()
+        self.__keepers.append(pickButton)
+        self.__keepers.append(handler)
+
+        geX = pickX + self.PICK_WIDTH + 10
+        geText = ui.TextLine()
+        geText.SetParent(self)
+        geText.SetPosition(geX, y + 5)
+        geText.SetText(">=")
+        geText.SetPackedFontColor(COLOR_DIM)
+        geText.AddFlag("not_pick")
+        geText.Show()
+        self.__keepers.append(geText)
+
+        editX = geX + 20
+        inputBar = ui.SlotBar()
+        inputBar.SetParent(self)
+        inputBar.SetPosition(editX, y)
+        inputBar.SetSize(self.EDIT_WIDTH, self.PICK_HEIGHT)
+        inputBar.AddFlag("not_pick")
+        inputBar.Show()
+        self.__keepers.append(inputBar)
+
+        valueEdit = ui.EditLine()
+        valueEdit.SetParent(inputBar)
+        valueEdit.SetPosition(4, 3)
+        valueEdit.SetSize(self.EDIT_WIDTH - 8, 17)
+        valueEdit.SetMax(7)
+        valueEdit.SetNumberMode()
+        valueEdit.SAFE_SetReturnEvent(self.Apply)
+        valueEdit.Show()
+
+        return {"optionIndex": 0, "button": pickButton, "edit": valueEdit}
+
+    def OpenPicker(self, rowIndex):
+        self.activeRow = rowIndex
+        lineHeight = 17
+        height = len(self.options) * lineHeight + 6
+        self.pickerList.SetSize(self.PICK_WIDTH, height - 6)
+        self.pickerList.LocateItem()
+        self.pickerBackground.SetSize(self.PICK_WIDTH + 8, height)
+        self.pickerBackground.Show()
+        self.pickerList.Show()
+        self.pickerBackground.SetTop()
+        self.pickerList.SetTop()
+
+    def OnPickerSelect(self, optionIndex, name):
+        if self.activeRow >= 0:
+            row = self.rows[self.activeRow]
+            row["optionIndex"] = optionIndex
+            row["button"].SetText(self.options[optionIndex][1])
+        self.pickerList.Hide()
+        self.pickerBackground.Hide()
+        self.activeRow = -1
+
+    def Apply(self):
+        filters = []
+        for row in self.rows:
+            if row["optionIndex"] <= 0:
+                continue
+            # Puste/niepoprawne pole progu = "ma miec ten bonus, bez wzgledu
+            # na wartosc" (prog 1), zamiast po cichu gubic caly wybrany
+            # wiersz - user wybral bonus z listy, wiec filtr ma zadzialac.
+            try:
+                minValue = int(row["edit"].GetText())
+            except:
+                minValue = 1
+            if minValue <= 0:
+                minValue = 1
+            attrType = self.options[row["optionIndex"]][0]
+            filters.append((attrType, minValue))
+        self.market.SetBonusFilters(filters)
+        self.Close()
+
+    def ClearAll(self):
+        for row in self.rows:
+            row["optionIndex"] = 0
+            row["button"].SetText(self.NONE_LABEL)
+            row["edit"].SetText("")
+        self.pickerList.Hide()
+        self.pickerBackground.Hide()
+        self.activeRow = -1
+        self.market.SetBonusFilters([])
+
+    def Open(self):
+        self.Show()
+        self.SetTop()
+        self.SetCenterPosition()
+
+    def Close(self):
+        self.pickerList.Hide()
+        self.pickerBackground.Hide()
+        self.activeRow = -1
+        self.Hide()
 
 
 # Etykiety kategorii, do ktorych vnum-owe wyjatki (patrz CATEGORY_VNUM_OVERRIDES/_RANGE_OVERRIDES
@@ -125,7 +466,7 @@ _OVERRIDE_TARGET_LABELS = frozenset(
 
 def BuildCategories():
     categories = []
-    for label, indent, typeName, subName in CATEGORY_DEFS:
+    for label, indent, typeName, subName, classFlagName in CATEGORY_DEFS:
         if typeName is None:
             types = (-1,)
         elif typeName == "OTHER":
@@ -144,6 +485,11 @@ def BuildCategories():
             subType = getattr(item, subName, None)
             if subType is None:
                 continue
+        classFlag = -1
+        if classFlagName:
+            classFlag = getattr(item, classFlagName, None)
+            if classFlag is None:
+                continue
         # "type" to pojedyncza wartosc wysylana do filtra po stronie serwera (-1 = brak
         # filtra typu): dziala tylko dla kategorii z JEDNYM typem silnika, ktora nie przyjmuje
         # zadnych vnum-owych wyjatkow. Kategoria laczaca kilka typow (np. dawniej Ulepszacze)
@@ -153,7 +499,21 @@ def BuildCategories():
             serverType = -1
         else:
             serverType = types[0] if len(types) == 1 else -1
-        categories.append({"label": label, "indent": indent, "types": types, "type": serverType, "sub": subType})
+        categories.append({"label": label, "indent": indent, "types": types, "type": serverType, "sub": subType, "classFlag": classFlag})
+
+    # CUSTOM_FLEA_COLLAPSIBLE_CATEGORIES_V1: parentIndex/hasChildren computed
+    # from the built list (not CATEGORY_DEFS) since a missing constant above
+    # can skip an entry and shift every index after it.
+    lastTopLevel = None
+    for index, category in enumerate(categories):
+        category["hasChildren"] = False
+        if category["indent"] == 0:
+            category["parentIndex"] = None
+            lastTopLevel = index
+        else:
+            category["parentIndex"] = lastTopLevel
+            if lastTopLevel is not None:
+                categories[lastTopLevel]["hasChildren"] = True
     return categories
 
 
@@ -184,11 +544,22 @@ class FleaCategoryButton(ui.Window):
         self.text = ui.TextLine()
         self.text.SetParent(self)
         self.text.SetPosition(10 + indent * 14, 4)
-        self.text.SetText(label)
         self.text.AddFlag("not_pick")
         self.text.Show()
         self.indent = indent
+        # CUSTOM_FLEA_COLLAPSIBLE_CATEGORIES_V1: baseLabel keeps the plain
+        # text - SetExpanded prefixes it with +/- for a category with children.
+        self.baseLabel = label
+        self.expanded = None
+        self.text.SetText(label)
         self.__Refresh()
+
+    def SetExpanded(self, expanded):
+        self.expanded = expanded
+        if expanded is None:
+            self.text.SetText(self.baseLabel)
+        else:
+            self.text.SetText(("- " if expanded else "+ ") + self.baseLabel)
 
     def SetSelected(self, selected):
         self.selected = selected
@@ -436,7 +807,17 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         import offlineshopsearch
         self.categories = BuildCategories()
         self.category = 0
+        self.expandedParent = None
         self.sortIndex = 0
+        # CUSTOM_FLEA_MULTI_SORT_V1: Cena i Ilosc licza sie NIEZALEZNIE od
+        # siebie (kazda ma wlasny kierunek asc/desc/brak) zamiast jednego
+        # wspolnego trybu - dzieki temu mozna posortowac np. rownoczesnie po
+        # najnizszej cenie i (przy remisie) najwiekszej ilosci. Kolumna
+        # klikniet jako OSTATNIA jest sortem glownym, druga (jesli ustawiona)
+        # dobija remisy.
+        self.priceSortDir = "asc"
+        self.countSortDir = None
+        self.primarySortColumn = "price"
         self.allItems = []
         self.pendingItems = []
         self.items = []
@@ -460,7 +841,9 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.selected = {}
         self.multiBuy = None
         self.popupDialog = None
+        self.bonusFilters = []  # CUSTOM_FLEA_BONUS_FILTER_V1: [(attrType, minValue), ...]
         self.quantityDialog = offlineshopsearch.FleaMarketQuantityDialog(self)
+        self.bonusFilterDialog = FleaMarketBonusFilterDialog(self)
         self.__Build()
         self.Hide()
 
@@ -476,14 +859,25 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.SetCloseEvent(self.Close)
 
         # panel kategorii
-        self.__MakeCard(SIDEBAR_X, SIDEBAR_Y, SIDEBAR_WIDTH, len(self.categories) * CATEGORY_HEIGHT + 8)
+        # CUSTOM_FLEA_COLLAPSIBLE_CATEGORIES_V1: tylko jeden rodzic naraz moze
+        # byc rozwiniety, wiec karcie wystarczy miejsce na najwieksza mozliwa
+        # liczbe widocznych na raz wierszy (wszystkie najwyzszego poziomu plus
+        # dzieci najwiekszego rodzica), a nie na WSZYSTKIE wiersze naraz.
+        topLevelCount = sum(1 for c in self.categories if c["indent"] == 0)
+        maxChildren = 0
+        for parentIndex, c in enumerate(self.categories):
+            if c["hasChildren"]:
+                childCount = sum(1 for other in self.categories if other["parentIndex"] == parentIndex)
+                maxChildren = max(maxChildren, childCount)
+        self.__MakeCard(SIDEBAR_X, SIDEBAR_Y, SIDEBAR_WIDTH, (topLevelCount + maxChildren) * CATEGORY_HEIGHT + 8)
         for index, category in enumerate(self.categories):
             button = FleaCategoryButton(self, index, category["label"], category["indent"])
             button.SetParent(self)
-            button.SetPosition(SIDEBAR_X + 6, SIDEBAR_Y + 4 + index * CATEGORY_HEIGHT)
-            button.Show()
+            if category["hasChildren"]:
+                button.SetExpanded(False)
             self.categoryButtons.append(button)
         self.categoryButtons[0].SetSelected(True)
+        self.__RelayoutCategories()
 
         # pasek wyszukiwania
         label = self.__MakeText(MAIN_X, SIDEBAR_Y + 3, "Nazwa:")
@@ -492,8 +886,65 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.searchEdit.OnIMEUpdate = ui.__mem_func__(self.__OnSearchTextChanged)
         self.searchEdit.SAFE_SetReturnEvent(self.Search)
         self.searchButton = self.__MakeButton(MAIN_X + 384, SIDEBAR_Y - 2, 84, "Szukaj", self.Search)
-        self.refreshButton = self.__MakeButton(MAIN_X + 474, SIDEBAR_Y - 2, 84, "Odswiez", self.Refresh)
-        self.clearButton = self.__MakeButton(MAIN_X + 564, SIDEBAR_Y - 2, 104, "Wyczysc filtry", self.ClearFilters)
+
+        # CUSTOM_FLEA_COMPACT_TOOLBAR_V1: "Odswiez"/"Wyczysc filtry" jako male
+        # ikonki przy przycisku zamkniecia okna. SetWindowHorizontalAlignRight
+        # okazal sie zawodny (przyciski ladowaly sie jeden na drugim niezaleznie
+        # od przekazywanych offsetow) - liczymy wiec ich pozycje wprost z
+        # PRAWDZIWEJ pozycji przycisku zamkniecia (global -> lokalne wspolrzedne
+        # tego okna), co dziala niezaleznie od tamtych niejasnosci.
+        # d:/ymir work/ui/public/small_button_*.sub ma wlasny minimalny
+        # rozmiar tiled-tekstury i ignoruje mniejszy SetSize (dlatego "C"
+        # wychodzilo wieksze niz prosiles i zachodzilo na "odswiez") - "C"
+        # dostaje wiec ZERO tla/tekstury, tylko tekst, w DOKLADNYM rozmiarze
+        # przycisku zamkniecia okna (zeby wyglad sie zgadzal 1:1).
+        closeButton = self.titleBar.btnClose
+        closeGlobalX, closeGlobalY = closeButton.GetGlobalPosition()
+        myGlobalX, myGlobalY = self.GetGlobalPosition()
+        closeLocalX = closeGlobalX - myGlobalX
+        closeLocalY = closeGlobalY - myGlobalY
+        iconW = closeButton.GetWidth()
+        iconH = closeButton.GetHeight()
+        ICON_GAP = 10
+        refreshX = closeLocalX - iconW - ICON_GAP
+        clearX = refreshX - iconW - ICON_GAP
+
+        # close_button_*.sub ma wpalony w tekstura sam ksztalt "X" - uzywajac
+        # go dla odswiez/wyczysc wygladalo to jak DRUGI przycisk zamkniecia
+        # okna, myllace. Wracamy wiec do wlasnego tla (ui.Bar, dokladny
+        # rozmiar 1:1 z przyciskiem zamkniecia) bez zadnej tekstury-przycisku,
+        # z samym tekstem na wierzchu - jednolity styl dla obu ikonek, zero
+        # ryzyka pomylki z "X" i zero problemu z minimalnym rozmiarem
+        # tiled-tekstur (small_button_*.sub/middle_button_*.sub).
+        def MakeIconBox(x, y, text, event, tooltip):
+            outer = ui.Bar()
+            outer.SetParent(self)
+            outer.SetPosition(x, y)
+            outer.SetSize(iconW, iconH)
+            outer.SetColor(COLOR_CARD_BORDER)
+            outer.AddFlag("not_pick")
+            outer.Show()
+            self.keepers.append(outer)
+            inner = ui.Bar()
+            inner.SetParent(self)
+            inner.SetPosition(x + 1, y + 1)
+            inner.SetSize(iconW - 2, iconH - 2)
+            inner.SetColor(COLOR_CARD_FILL)
+            inner.AddFlag("not_pick")
+            inner.Show()
+            self.keepers.append(inner)
+            button = ui.Button()
+            button.SetParent(self)
+            button.SetPosition(x, y)
+            button.SetSize(iconW, iconH)
+            button.SetText(text)
+            button.SetEvent(event)
+            button.SetToolTipText(tooltip, 0, -23)
+            button.Show()
+            return button
+
+        self.refreshButton = MakeIconBox(refreshX, closeLocalY, "R", self.Refresh, "Odswiez")
+        self.clearButton = MakeIconBox(clearX, closeLocalY, "C", self.ClearFilters, "Wyczysc filtry")
 
         label = self.__MakeText(MAIN_X, SIDEBAR_Y + 31, "Cena od:")
         label.SetPackedFontColor(COLOR_HEAD)
@@ -501,7 +952,13 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         label = self.__MakeText(MAIN_X + 176, SIDEBAR_Y + 31, "do:")
         label.SetPackedFontColor(COLOR_HEAD)
         self.priceMaxEdit = self.__MakeEdit(MAIN_X + 198, SIDEBAR_Y + 28, 110, 12, True)
+        # Stary cykl-sort zostaje (Nazwa A-Z/Sprzedawca A-Z go jeszcze uzywaja
+        # wewnetrznie do przechowywania stanu), ale nie pokazujemy go juz jako
+        # osobny przycisk - Cena/Ilosc sortuje sie teraz klikajac naglowki
+        # kolumn. "Filtry" zajmuje to miejsce w pasku.
         self.sortButton = self.__MakeButton(MAIN_X + 330, SIDEBAR_Y + 26, 150, SORT_MODES[0][1], self.CycleSort)
+        self.sortButton.Hide()
+        self.bonusFilterButton = self.__MakeButton(MAIN_X + 330, SIDEBAR_Y + 26, 150, "Filtry", self.OpenBonusFilters)
         # "Kup wiele"
         self.buyAllButton = self.__MakeButton(MAIN_X + 488, SIDEBAR_Y + 26, 120, "Kup wszystko (0)", self.AskBuySelected)
         self.unselectButton = self.__MakeButton(MAIN_X + 612, SIDEBAR_Y + 26, 56, "Odznacz", self.ClearSelection)
@@ -521,19 +978,39 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.suggestionList.SetEvent(self.__OnSelectSuggestion)
         self.suggestionList.Hide()
 
-        # naglowek listy
+        # naglowek listy - "Ilosc"/"Cena" klikalne, sortuja po tej kolumnie
+        # (CUSTOM_FLEA_HEADER_SORT_V1); strzalka v/^ dopisywana do tekstu
+        # pokazuje, czy to aktualny sort i w ktora strone.
         self.__MakeBar(MAIN_X, ROWS_Y - 20, ROW_WIDTH, 18, 0x33FFFFFF)
         self.pageCheck = FleaCheckBox(ui.__mem_func__(self.SelectPage))
         self.pageCheck.SetParent(self)
         self.pageCheck.SetPosition(MAIN_X + 6, ROWS_Y - 19)
         self.pageCheck.Show()
         self.__MakeText(MAIN_X + TEXT_X, ROWS_Y - 18, "Przedmiot").SetPackedFontColor(COLOR_HEAD)
-        self.__MakeText(MAIN_X + 340, ROWS_Y - 18, "Ilosc").SetPackedFontColor(COLOR_HEAD)
-        priceHead = self.__MakeText(102, ROWS_Y - 18, "Cena")
-        priceHead.SetWindowHorizontalAlignRight()
-        priceHead.SetHorizontalAlignRight()
-        priceHead.SetPosition(114, ROWS_Y - 18)
-        priceHead.SetPackedFontColor(COLOR_HEAD)
+
+        self.countHeaderLabel = self.__MakeText(MAIN_X + 340, ROWS_Y - 18, "Ilosc")
+        self.countHeaderLabel.SetPackedFontColor(COLOR_HEAD)
+        self.countHeaderButton = ui.Button()
+        self.countHeaderButton.SetParent(self)
+        self.countHeaderButton.SetPosition(MAIN_X + 335, ROWS_Y - 20)
+        self.countHeaderButton.SetSize(70, 18)
+        self.countHeaderButton.SetEvent(self.OnClickCountHeader)
+        self.countHeaderButton.Show()
+        self.keepers.append(self.countHeaderButton)
+
+        self.priceHeaderLabel = self.__MakeText(102, ROWS_Y - 18, "Cena")
+        self.priceHeaderLabel.SetWindowHorizontalAlignRight()
+        self.priceHeaderLabel.SetHorizontalAlignRight()
+        self.priceHeaderLabel.SetPosition(114, ROWS_Y - 18)
+        self.priceHeaderLabel.SetPackedFontColor(COLOR_HEAD)
+        self.priceHeaderButton = ui.Button()
+        self.priceHeaderButton.SetParent(self)
+        self.priceHeaderButton.SetPosition(MAIN_RIGHT - 150, ROWS_Y - 20)
+        self.priceHeaderButton.SetSize(140, 18)
+        self.priceHeaderButton.SetEvent(self.OnClickPriceHeader)
+        self.priceHeaderButton.Show()
+        self.keepers.append(self.priceHeaderButton)
+        self.__UpdateSortHeaders()
 
         # wiersze ofert
         self.__MakeCard(MAIN_X - 2, ROWS_Y - 2, ROW_WIDTH + 4, ROWS_PER_PAGE * ROW_HEIGHT + 2)
@@ -551,12 +1028,54 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
 
         # stopka
         footerY = ROWS_Y + ROWS_PER_PAGE * ROW_HEIGHT + 8
+        # statusText usuniety z widoku (za duzo tekstu na dole) - __UpdateStatus
+        # nadal go ustawia, ale okno go nie pokazuje.
         self.statusText = self.__MakeText(MAIN_X + 4, footerY + 4, "")
         self.statusText.SetPackedFontColor(COLOR_DIM)
-        self.previousButton = self.__MakeButton(MAIN_RIGHT - 190, footerY, 90, "< Poprzednia", self.PreviousPage)
-        self.nextButton = self.__MakeButton(MAIN_RIGHT - 94, footerY, 90, "Nastepna >", self.NextPage)
-        self.pageText = self.__MakeText(MAIN_RIGHT - 300, footerY + 4, "")
+        self.statusText.Hide()
+        # CUSTOM_FLEA_COMPACT_TOOLBAR_V1: "<< N/Total >>" wysrodkowane wzgledem
+        # obszaru listy (MAIN_X..MAIN_RIGHT), NIE calego okna - okno liczy sie
+        # razem z panelem kategorii po lewej, wiec centrowanie na WINDOW_WIDTH
+        # wygladalo przesuniete w lewo wzgledem tego, co faktycznie widac nad
+        # stopka. middle_button_*.sub (uzywany przez __MakeButton) ma
+        # wlasny minimalny rozmiar kafelkowej tekstury i ignoruje maly
+        # SetSize (przycisk renderowal sie szerzej niz prosilismy, nachodzac
+        # na tekst strony) - "<<"/">>" dostaja wiec, jak "C" wyzej, zero
+        # tla/tekstury, tylko tekst w dokladnie zadanym rozmiarze.
+        PAGE_BUTTON_WIDTH = 30
+        PAGE_TEXT_WIDTH = 60
+        PAGE_GAP = 10
+        clusterWidth = PAGE_BUTTON_WIDTH + PAGE_GAP + PAGE_TEXT_WIDTH + PAGE_GAP + PAGE_BUTTON_WIDTH
+        clusterLeft = MAIN_X + (ROW_WIDTH - clusterWidth) // 2
+
+        self.previousButton = ui.Button()
+        self.previousButton.SetParent(self)
+        self.previousButton.SetPosition(clusterLeft, footerY)
+        self.previousButton.SetSize(PAGE_BUTTON_WIDTH, 20)
+        self.previousButton.SetText("<<")
+        self.previousButton.SetEvent(self.PreviousPage)
+        self.previousButton.Show()
+        self.keepers.append(self.previousButton)
+
+        # SetHorizontalAlignCenter() na TextLine NIE centruje tekstu w obrebie
+        # SetSize (zmierzone pikselowo: tekst nadal przykleja sie do lewej
+        # krawedzi slotu, klaster wyglada jakby "1 / 752" bylo duzo blizej
+        # "<<" niz ">>"). Jedyny pewny sposob to przeliczac pozycje
+        # RECZNIE po kazdym SetText(), na podstawie faktycznej, zmierzonej
+        # szerokosci tekstu (GetTextSize) - patrz __RefreshRows.
+        self.pageTextCenterX = clusterLeft + PAGE_BUTTON_WIDTH + PAGE_GAP + PAGE_TEXT_WIDTH // 2
+        self.pageTextY = footerY + 4
+        self.pageText = self.__MakeText(self.pageTextCenterX, self.pageTextY, "")
         self.pageText.SetPackedFontColor(COLOR_TEXT)
+
+        self.nextButton = ui.Button()
+        self.nextButton.SetParent(self)
+        self.nextButton.SetPosition(clusterLeft + PAGE_BUTTON_WIDTH + PAGE_GAP + PAGE_TEXT_WIDTH + PAGE_GAP, footerY)
+        self.nextButton.SetSize(PAGE_BUTTON_WIDTH, 20)
+        self.nextButton.SetText(">>")
+        self.nextButton.SetEvent(self.NextPage)
+        self.nextButton.Show()
+        self.keepers.append(self.nextButton)
 
     def __MakeCard(self, x, y, width, height):
         outer = ui.Bar()
@@ -653,6 +1172,9 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         if self.quantityDialog:
             self.quantityDialog.Close()
             self.quantityDialog = None
+        if self.bonusFilterDialog:
+            self.bonusFilterDialog.Close()
+            self.bonusFilterDialog = None
         self.allItems = []
         self.pendingItems = []
         self.items = []
@@ -703,6 +1225,21 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             data["_flea_sub"] = subType
         return itemType, subType
 
+    def __IsAntiFlag(self, data, classFlag):
+        # CUSTOM_FLEA_CLASS_FILTER_V1: cached per (item, flag) so switching
+        # between "Zbroje - Wojownik/Ninja/Sura/Szaman" doesn't re-select
+        # every offer's item on each click.
+        cache = data.get("_flea_antiflag")
+        if cache is None:
+            cache = {}
+            data["_flea_antiflag"] = cache
+        cached = cache.get(classFlag)
+        if cached is None:
+            item.SelectItem(data["vnum"])
+            cached = bool(item.IsAntiFlag(classFlag))
+            cache[classFlag] = cached
+        return cached
+
     def __GetTotalPrice(self, data):
         return data["price"] + data.get("cheque", 0) * YANG_PER_CHEQUE
 
@@ -739,7 +1276,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
                 plus = name.find("+")
                 if plus != -1 and plus + 1 < len(name) and name[plus + 1:].isdigit():
                     name = name[:plus]
-                key = name.lower()
+                key = PolishLower(name)
                 if key not in seen:
                     seen.add(key)
                     names.append(name)
@@ -755,20 +1292,20 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.suggestionBackground.Hide()
 
     def __UpdateSuggestions(self):
-        query = self.searchEdit.GetText().strip().lower()
+        query = PolishLower(self.searchEdit.GetText().strip())
         if len(query) < 2:
             self.__HideSuggestions()
             return
         startsWith = []
         contains = []
         for name in self.__GetItemNames():
-            lowerName = name.lower()
+            lowerName = PolishLower(name)
             if lowerName.startswith(query):
                 startsWith.append(name)
             elif query in lowerName:
                 contains.append(name)
-        startsWith.sort(key=lambda name: name.lower())
-        contains.sort(key=lambda name: name.lower())
+        startsWith.sort(key=lambda name: PolishLower(name))
+        contains.sort(key=lambda name: PolishLower(name))
         self.suggestionNames = (startsWith + contains)[:self.SUGGESTION_LIMIT]
         if not self.suggestionNames:
             self.__HideSuggestions()
@@ -817,7 +1354,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
     def __FindSkillIds(self, query):
         # Ksiega umiejetnosci to jeden vnum, a umiejetnosc siedzi w gniezdzie 0 - serwer nie zna jej nazwy,
         # wiec klient podaje mu, ktore umiejetnosci pasuja do wpisanego tekstu.
-        key = query.lower()
+        key = PolishLower(query)
         if len(key) < 2:
             return []
         bookNames = []
@@ -833,7 +1370,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             if not name:
                 continue
             for bookName in bookNames:
-                if key in ("%s - %s" % (name, bookName)).lower():
+                if key in PolishLower("%s - %s" % (name, bookName)):
                     ids.append(skillVnum)
                     break
             if len(ids) >= 40:
@@ -847,9 +1384,17 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         if ids:
             return "%s|%s" % (query, ",".join([str(skillVnum) for skillVnum in ids]))
         return query
+    def __GetServerSortCode(self):
+        # Serwer i tak dostaje tylko przyblizona podpowiedz sortowania (0/1/2)
+        # - prawdziwe, kombinowane sortowanie (cena+ilosc) liczy sie zawsze
+        # lokalnie w ApplyFilters.
+        if self.primarySortColumn == "price" and self.priceSortDir == "desc":
+            return 1
+        return 0
+
     def __BuildRequest(self):
         category = self.categories[self.category]
-        return (category["type"], category["sub"], SORT_MODES[self.sortIndex][2],
+        return (category["type"], category["sub"], self.__GetServerSortCode(),
                 self.__ParsePrice(self.priceMinEdit), self.__ParsePrice(self.priceMaxEdit), self.__GetServerQuery())
 
     def __Request(self):
@@ -887,21 +1432,88 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             self.__UpdateMultiBuy(now)
 
     # ---- kategorie, sortowanie, filtry ------------------------------------------------
+    def __RelayoutCategories(self):
+        # CUSTOM_FLEA_COLLAPSIBLE_CATEGORIES_V1: pokazuje wszystkie wiersze
+        # najwyzszego poziomu, plus dzieci TYLKO rozwinietego rodzica (jesli
+        # jest), jedne pod drugimi bez dziur po ukrytych wierszach.
+        visibleIndex = 0
+        for index, category in enumerate(self.categories):
+            button = self.categoryButtons[index]
+            if category["hasChildren"]:
+                button.SetExpanded(self.expandedParent == index)
+            visible = category["indent"] == 0 or category["parentIndex"] == self.expandedParent
+            if not visible:
+                button.Hide()
+                continue
+            button.SetPosition(SIDEBAR_X + 6, SIDEBAR_Y + 4 + visibleIndex * CATEGORY_HEIGHT)
+            button.Show()
+            visibleIndex += 1
+
     def SetCategory(self, index):
+        category = self.categories[index]
         if index == self.category:
+            # Klikniecie juz wybranej kategorii z dziecmi zwija/rozwija ja -
+            # inaczej klikniecie nie robi nic, tak jak zawsze.
+            if category["hasChildren"]:
+                self.expandedParent = None if self.expandedParent == index else index
+                self.__RelayoutCategories()
             return
         self.categoryButtons[self.category].SetSelected(False)
         self.category = index
         self.categoryButtons[index].SetSelected(True)
+        if category["hasChildren"]:
+            self.expandedParent = index
+        elif category["parentIndex"] is not None:
+            self.expandedParent = category["parentIndex"]
+        else:
+            self.expandedParent = None
+        self.__RelayoutCategories()
         self.ApplyFilters()
         self.__Request()
 
     def CycleSort(self):
         self.sortIndex = (self.sortIndex + 1) % len(SORT_MODES)
         self.sortButton.SetText(SORT_MODES[self.sortIndex][1])
+        self.__UpdateSortHeaders()
         self.ApplyFilters()
         if self.__BuildRequest() != self.lastRequest:
             self.__Request()
+
+    def __FindSortIndex(self, modeName):
+        for index, mode in enumerate(SORT_MODES):
+            if mode[0] == modeName:
+                return index
+        return 0
+
+    def __ToggleColumn(self, column):
+        # CUSTOM_FLEA_MULTI_SORT_V1: kazdy klik na danej kolumnie przelacza
+        # jej WLASNY kierunek (brak -> rosnaco -> malejaco -> rosnaco...) i
+        # czyni ja sortem GLOWNYM; druga kolumna, jesli ma ustawiony
+        # kierunek, zostaje sortem pomocniczym (dobija remisy). Dzieki temu
+        # da sie miec naraz np. "Cena: rosnaco" + "Ilosc: malejaco".
+        if column == "price":
+            self.priceSortDir = {None: "asc", "asc": "desc", "desc": "asc"}[self.priceSortDir]
+        else:
+            self.countSortDir = {None: "asc", "asc": "desc", "desc": "asc"}[self.countSortDir]
+        self.primarySortColumn = column
+        self.__UpdateSortHeaders()
+        self.ApplyFilters()
+        if self.__BuildRequest() != self.lastRequest:
+            self.__Request()
+
+    def __UpdateSortHeaders(self):
+        def Arrow(dir):
+            return " v" if dir == "asc" else (" ^" if dir == "desc" else "")
+        countSuffix = Arrow(self.countSortDir) + ("*" if self.primarySortColumn == "count" and self.priceSortDir else "")
+        priceSuffix = Arrow(self.priceSortDir) + ("*" if self.primarySortColumn == "price" and self.countSortDir else "")
+        self.countHeaderLabel.SetText("Ilosc" + countSuffix)
+        self.priceHeaderLabel.SetText("Cena" + priceSuffix)
+
+    def OnClickCountHeader(self):
+        self.__ToggleColumn("count")
+
+    def OnClickPriceHeader(self):
+        self.__ToggleColumn("price")
 
     def ClearFilters(self):
         self.searchEdit.SetText("")
@@ -910,11 +1522,45 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.categoryButtons[self.category].SetSelected(False)
         self.category = 0
         self.categoryButtons[0].SetSelected(True)
+        self.expandedParent = None
+        self.__RelayoutCategories()
         self.sortIndex = 0
         self.sortButton.SetText(SORT_MODES[0][1])
+        self.priceSortDir = "asc"
+        self.countSortDir = None
+        self.primarySortColumn = "price"
+        self.__UpdateSortHeaders()
         self.__HideSuggestions()
+        self.bonusFilterDialog.ClearAll()
         self.ApplyFilters()
         self.__Request()
+
+    # ---- filtr bonusow (CUSTOM_FLEA_BONUS_FILTER_V1) ----------------------------------
+    def OpenBonusFilters(self):
+        self.bonusFilterDialog.Open()
+
+    def SetBonusFilters(self, filters):
+        self.bonusFilters = filters
+        count = len(filters)
+        self.bonusFilterButton.SetText("Filtry (%d)" % count if count else "Filtry")
+        self.ApplyFilters()
+
+    def __MatchesBonusFilters(self, data):
+        if not self.bonusFilters:
+            return True
+        attrs = data.get("attrs", [])
+        for attrType, minValue in self.bonusFilters:
+            hit = False
+            for attr in attrs:
+                try:
+                    if attr[0] == attrType and attr[1] >= minValue:
+                        hit = True
+                        break
+                except (TypeError, IndexError):
+                    continue
+            if not hit:
+                return False
+        return True
 
     def __GetVnumOverride(self, vnum):
         override = CATEGORY_VNUM_OVERRIDES.get(vnum)
@@ -948,10 +1594,13 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             return False
         if category["sub"] != -1 and subType != category["sub"]:
             return False
+        classFlag = category.get("classFlag", -1)
+        if classFlag != -1 and self.__IsAntiFlag(data, classFlag):
+            return False
         return True
 
     def ApplyFilters(self):
-        query = self.searchEdit.GetText().strip().lower()
+        query = PolishLower(self.searchEdit.GetText().strip())
         minimum = self.__ParsePrice(self.priceMinEdit)
         maximum = self.__ParsePrice(self.priceMaxEdit)
         items = []
@@ -961,23 +1610,39 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
                 continue
             if maximum and price > maximum:
                 continue
-            if query and query not in self.GetItemName(data).lower():
-                continue
+            if query:
+                name = self.GetItemName(data)
+                if query not in PolishLower(name):
+                    continue
+                # CUSTOM_FLEA_PLUS_SEARCH_V1: tylko dla Ulepszaczy (zwoje z
+                # +1..+9 zalewaly wyniki) - bez "+" w zapytaniu szukamy tylko
+                # zwyklej wersji; wpisanie "+" jawnie wraca do zwyklego
+                # dopasowania substring ("miecz+3" nadal znajdzie ta wersje).
+                # Bron/zbroja itp. maja normalne dopasowanie zawsze - tam nikt
+                # nie chce wpisywac pelnej nazwy, a stopni ulepszenia jest
+                # wiele wiecej niz tylko ulepszaczowe +1..+9.
+                if '+' not in query and _HasPlusSuffix(name):
+                    itemType, _ = self.__GetTypes(data)
+                    if itemType == getattr(item, "ITEM_TYPE_MATERIAL", None):
+                        continue
             if not self.__MatchesCategory(data):
+                continue
+            if not self.__MatchesBonusFilters(data):
                 continue
             items.append(data)
 
-        mode = SORT_MODES[self.sortIndex][0]
-        if mode == "price_desc":
-            items.sort(key=self.__GetTotalPrice, reverse=True)
-        elif mode == "unit_asc":
-            items.sort(key=self.__GetUnitPrice)
-        elif mode == "name":
-            items.sort(key=lambda data: self.GetItemName(data).lower())
-        elif mode == "seller":
-            items.sort(key=lambda data: data["seller_name"].lower())
-        else:
-            items.sort(key=self.__GetTotalPrice)
+        # CUSTOM_FLEA_MULTI_SORT_V1: kolumna sortu GLOWNEGO stosowana jest
+        # JAKO OSTATNIA (Python sort jest stabilny), wiec przy remisach
+        # zostaje kolejnosc z sortu POMOCNICZEGO - dzieki temu "Cena:
+        # rosnaco" + "Ilosc: malejaco" naraz daje: najpierw najtansze, a przy
+        # tej samej cenie - te z najwieksza iloscia.
+        columnKeys = {"price": self.__GetTotalPrice, "count": lambda data: data["count"]}
+        columnDirs = {"price": self.priceSortDir, "count": self.countSortDir}
+        secondaryColumn = "count" if self.primarySortColumn == "price" else "price"
+        if columnDirs[secondaryColumn]:
+            items.sort(key=columnKeys[secondaryColumn], reverse=(columnDirs[secondaryColumn] == "desc"))
+        primaryDir = columnDirs[self.primarySortColumn] or "asc"
+        items.sort(key=columnKeys[self.primarySortColumn], reverse=(primaryDir == "desc"))
 
         self.items = items
         self.page = 0
@@ -1008,7 +1673,9 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             else:
                 self.rows[index].Clear()
         pageCount = (len(self.items) + ROWS_PER_PAGE - 1) // ROWS_PER_PAGE
-        self.pageText.SetText("Strona %d / %d" % (self.page + 1 if pageCount else 0, pageCount))
+        self.pageText.SetText("%d / %d" % (self.page + 1 if pageCount else 0, pageCount))
+        textWidth, _textHeight = self.pageText.GetTextSize()
+        self.pageText.SetPosition(self.pageTextCenterX - textWidth // 2, self.pageTextY)
         if self.page > 0:
             self.previousButton.Enable()
         else:
@@ -1069,6 +1736,8 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             self.questionDialog = None
         if self.quantityDialog:
             self.quantityDialog.Close()
+        if self.bonusFilterDialog:
+            self.bonusFilterDialog.Close()
         self.buyData = None
         self.Hide()
         self.__HideSuggestions()

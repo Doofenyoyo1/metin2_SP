@@ -420,6 +420,10 @@ def ParseInfo(args):
 	# leads it.
 	if len(values) >= len(names) + 8:
 		info['party'] = ParseInt(values[len(names) + 7])
+	# MT2009_PLUS_SIDEKICK_RANK_V1: the rank's points last; with an older
+	# server the name shows no rank.
+	if len(values) >= len(names) + 9:
+		info['align'] = ParseInt(values[len(names) + 8])
 	return info
 
 
@@ -463,6 +467,25 @@ def FormatGold(value):
 		text = text[:-3]
 	parts.insert(0, text)
 	return '.'.join(parts)
+
+
+# MT2009_PLUS_SIDEKICK_RANK_V1: the rank's grade from its points (the
+# alignment over ten, as the character packet carries them), as the client's
+# CInstanceBase::GetAlignmentGrade reads them, and the colorInfo name of each
+# grade's colour, as the player's own window paints its title
+# (uicharacter.RefreshAlignment).
+ALIGNMENT_GRADE_COLORS = ('TITLE_RGB_GOOD_4', 'TITLE_RGB_GOOD_3', 'TITLE_RGB_GOOD_2', 'TITLE_RGB_GOOD_1',
+	'TITLE_RGB_NORMAL', 'TITLE_RGB_EVIL_1', 'TITLE_RGB_EVIL_2', 'TITLE_RGB_EVIL_3', 'TITLE_RGB_EVIL_4')
+
+
+def AlignmentGrade(point):
+	for floor, grade in ((12000, 0), (8000, 1), (4000, 2), (1000, 3), (0, 4)):
+		if point >= floor:
+			return grade
+	for ceiling, grade in ((-4000, 5), (-8000, 6), (-12000, 7)):
+		if point > ceiling:
+			return grade
+	return 8
 
 
 def ClassText(race, group):
@@ -810,6 +833,11 @@ class SidekickWindow(ui.ScriptWindow):
 		face.SAFE_SetStringEvent('MOUSE_OVER_IN', self.OnOverFace)
 		face.SAFE_SetStringEvent('MOUSE_OVER_OUT', self.HideToolTip)
 		self.nameValue = child('Character_Name')
+		# MT2009_PLUS_SIDEKICK_RANK_V1: the rank on the name, as the player's
+		# window shows the player's.
+		nameSlot = child('Character_Name_Slot')
+		nameSlot.SAFE_SetStringEvent('MOUSE_OVER_IN', self.OnOverName)
+		nameSlot.SAFE_SetStringEvent('MOUSE_OVER_OUT', self.HideToolTip)
 		self.pathValue = child('Guild_Name')
 		self.values = dict((name, child(name + '_Value')) for name in STATUS_VALUES)
 		self.statusPlusLabel = child('Status_Plus_Label')
@@ -1314,6 +1342,30 @@ class SidekickWindow(ui.ScriptWindow):
 	def HideToolTip(self):
 		if self.toolTip:
 			self.toolTip.HideToolTip()
+
+	def OnOverName(self):
+		# MT2009_PLUS_SIDEKICK_RANK_V1: the title of the companion's rank in
+		# its colour and the points under it, as uicharacter.RefreshAlignment
+		# writes the player's; only while the companion is in the game, where
+		# the server can read its rank.
+		if not self.HasCompanion() or 'align' not in self.info or not self.info.get('where'):
+			return
+		import colorInfo
+		import localeInfo
+		import uiToolTip
+		point = self.info['align']
+		grade = AlignmentGrade(point)
+		if self.toolTip is None:
+			self.toolTip = uiToolTip.ToolTip()
+		toolTip = self.toolTip
+		toolTip.ClearToolTip()
+		titles = getattr(localeInfo, 'TITLE_NAME_LIST', ())
+		if grade < len(titles):
+			rgb = getattr(colorInfo, ALIGNMENT_GRADE_COLORS[grade], (255, 255, 255))
+			toolTip.AppendTextLine(titles[grade], ui.GenerateColor(rgb[0], rgb[1], rgb[2]))
+		label = getattr(localeInfo, 'ALIGNMENT_NAME', 'Punkty Rangi:')
+		toolTip.AppendTextLine(label + str(point), getattr(toolTip, 'NORMAL_COLOR', COLOR_NORMAL))
+		toolTip.ShowToolTip()
 
 	def HideSkillToolTip(self):
 		if self.skillToolTip:

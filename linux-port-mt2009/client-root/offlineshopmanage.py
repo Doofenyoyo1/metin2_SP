@@ -650,6 +650,9 @@ class OfflineShopManage(ui.ScriptWindow):
 			pricesY = 75
 			buttonY = 100
 			height = 134
+			# The price line two pixels up, halfway between the input over it
+			# and the button under it (Piciu713, 29 September).
+			dialog.moneyText.SetPosition(0, 57)
 		dialog.fleaPricesButton.SetPosition(0, pricesY)
 		dialog.SetSize(200, height)
 		dialog.board.SetSize(200, height)

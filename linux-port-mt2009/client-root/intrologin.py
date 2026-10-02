@@ -41,17 +41,17 @@ EVENT_REQUEST_STATE_CHECK = "EVENT_REQUEST_STATE_CHECK"
 
 # An exe older than the four inventory pages passes the version check, which
 # is this root's, and then shows the server's bag in the wrong slots; the
-# exe says how many pages it was built with (upstream's client 2.0.42, our 2.0.44).
+# exe says how many pages it was built with (client 2.0.42).
 CLIENT_INVENTORY_PAGES = 4
 STALE_EXE_TEXT = {
 	"pl": "Tw\xf3j metin2client.exe jest starszy ni\xbf reszta klienta[ENTER]"
 		"(2 strony ekwipunku zamiast 4), wi\xeac gra go nie wpu\x9cci.[ENTER]"
-		"Zamknij gr\xea i uruchom launcher ponownie - sam podmieni ten plik.[ENTER]"
-		"Je\x9cli nie pomo\xbfe, zg\xb3o\x9c to na GitHubie projektu (Issues).",
+		"Zamknij gr\xea i pobierz pe\xb3ny klient MT2009 PLUS[ENTER]"
+		"z Discorda projektu: metin2sp.pl/discord",
 	"en": "Your metin2client.exe is older than the rest of the client[ENTER]"
 		"(2 inventory pages instead of 4), so the game will not let it in.[ENTER]"
-		"Close the game and start the launcher again - it replaces the file itself.[ENTER]"
-		"If that does not help, report it on the project's GitHub (Issues).",
+		"Close the game and download the full MT2009 PLUS client[ENTER]"
+		"from the project's Discord: metin2sp.pl/discord",
 }
 
 def IsClientExeStale():
@@ -962,9 +962,9 @@ class LoginWindow(ui.ScriptWindow):
 		self.pwdEditLine.SetReturnEvent(ui.__mem_func__(self.__OnClickLoginButton))
 		self.pwdEditLine.SetTabEvent(ui.__mem_func__(self.idEditLine.SetFocus))
 
-		self.homePageButton.SAFE_SetEvent(self.OpenURL, "https://github.com/Doofenyoyo1/metin2_SP")
-		self.facebookButton.SAFE_SetEvent(self.OpenURL, "https://github.com/Doofenyoyo1/metin2_SP")
-		self.discordButton.SAFE_SetEvent(self.OpenURL, "https://github.com/Doofenyoyo1/metin2_SP/issues")
+		self.homePageButton.SAFE_SetEvent(self.OpenURL, "https://metin2sp.pl")
+		self.facebookButton.SAFE_SetEvent(self.OpenURL, "https://buycoffee.to/mt2009plus")
+		self.discordButton.SAFE_SetEvent(self.OpenURL, "https://metin2sp.pl/discord")
 
 		self.save_credential_items = []
 		for i in range(MAX_CREDENTIALS_SAVE):

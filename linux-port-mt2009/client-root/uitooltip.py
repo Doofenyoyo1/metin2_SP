@@ -38,6 +38,48 @@ DESC_DEFAULT_MAX_COLS = 26
 DESC_WESTERN_MAX_COLS = 35
 DESC_WESTERN_MAX_WIDTH = 220
 
+# MT2009_PLUS_RARE_NAMES_V1: the 6th/7th bonus names. Our item_attr (and the
+# server's APPLY_*) count the bonuses as the POINT_* numbers (APPLY_STR is
+# POINT_ST, 12) and localeinfo_point.AFFECT_DICT knows them so, while
+# world.item_attr_rare is the old APPLY list (STR is 5): a rare slot read 5
+# showed "UNKNOWN_TYPE[5] 5". A rare slot's type the tooltip does not know as
+# a POINT_* one is read as the old APPLY number and shown under its POINT_*
+# name (the names of the five normal bonuses). A number that is both (6 DEX /
+# POINT_MAX_HP, 8, 15, 17, 19, 53, 59-62) stays the POINT_* one - that is what
+# the server applies for it. Set RARE_ATTR_CLASSIC_APPLY to False once
+# item_attr_rare uses the POINT_* names.
+RARE_ATTR_CLASSIC_APPLY = False
+_RARE_CLASSIC_TO_POINT = {
+	1: 'POINT_MAX_HP', 2: 'POINT_MAX_SP', 3: 'POINT_HT', 4: 'POINT_IQ', 5: 'POINT_ST', 6: 'POINT_DX',
+	7: 'POINT_ATT_SPEED', 8: 'POINT_MOV_SPEED', 9: 'POINT_CASTING_SPEED', 10: 'POINT_HP_REGEN', 11: 'POINT_SP_REGEN',
+	12: 'POINT_POISON_PCT', 13: 'POINT_STUN_PCT', 14: 'POINT_SLOW_PCT', 15: 'POINT_CRITICAL_PCT', 16: 'POINT_PENETRATE_PCT',
+	17: 'POINT_ATTBONUS_HUMAN', 18: 'POINT_ATTBONUS_ANIMAL', 19: 'POINT_ATTBONUS_ORC', 20: 'POINT_ATTBONUS_MILGYO',
+	21: 'POINT_ATTBONUS_UNDEAD', 22: 'POINT_ATTBONUS_DEVIL', 23: 'POINT_STEAL_HP', 24: 'POINT_STEAL_SP',
+	25: 'POINT_MANA_BURN_PCT', 26: 'POINT_DAMAGE_SP_RECOVER', 27: 'POINT_BLOCK', 28: 'POINT_DODGE',
+	29: 'POINT_RESIST_SWORD', 30: 'POINT_RESIST_TWOHAND', 31: 'POINT_RESIST_DAGGER', 32: 'POINT_RESIST_BELL',
+	33: 'POINT_RESIST_FAN', 34: 'POINT_RESIST_BOW', 35: 'POINT_RESIST_FIRE', 36: 'POINT_RESIST_ELEC',
+	37: 'POINT_RESIST_MAGIC', 38: 'POINT_RESIST_WIND', 39: 'POINT_REFLECT_MELEE',
+	53: 'POINT_ATT_GRADE_BONUS', 54: 'POINT_DEF_GRADE_BONUS', 55: 'POINT_MAGIC_ATT_GRADE_BONUS',
+	56: 'POINT_MAGIC_DEF_GRADE_BONUS', 59: 'POINT_ATTBONUS_WARRIOR', 60: 'POINT_ATTBONUS_ASSASSIN',
+	61: 'POINT_ATTBONUS_SURA', 62: 'POINT_ATTBONUS_SHAMAN', 63: 'POINT_ATTBONUS_MONSTER',
+	78: 'POINT_RESIST_WARRIOR', 79: 'POINT_RESIST_ASSASSIN', 80: 'POINT_RESIST_SURA', 81: 'POINT_RESIST_SHAMAN',
+}
+
+def RareAttrType(slotIndex, attrType):
+	"""The POINT_* type of an attribute slot's type (see above)."""
+	if not RARE_ATTR_CLASSIC_APPLY or not attrType:
+		return attrType
+	if slotIndex < getattr(player, 'ATTRIBUTE_SLOT_RARE_START', 5):
+		return attrType
+	if attrType in localeinfo_point.AFFECT_DICT:
+		# a POINT_* type the tooltip knows (most rare slots: bots, awards,
+		# GF items) - and what the server applies for this number
+		return attrType
+	name = _RARE_CLASSIC_TO_POINT.get(attrType)
+	if name and hasattr(player, name):
+		return getattr(player, name)
+	return attrType
+
 def chop(n):
 	return round(n - 0.5, 1)
 
@@ -880,8 +922,9 @@ class ItemToolTip(ToolTip):
 
 	def __AppendAttributeInformation(self, attrSlot, itemAbsChance = 0, slotCount = player.ATTRIBUTE_SLOT_NORM_NUM):
 		if 0 != attrSlot:
-			for i in xrange(slotCount):
-				type = attrSlot[i][0]
+			# MT2009_PLUS_SEONHAE_V1: never past the list a caller gave
+			for i in xrange(min(slotCount, len(attrSlot))):
+				type = RareAttrType(i, attrSlot[i][0])
 				value = attrSlot[i][1]
 
 				if 0 == value:
@@ -918,6 +961,21 @@ class ItemToolTip(ToolTip):
 						# else:
 						# 	text.SetPackedOutlineColor(0xff106323)
 
+
+	# MT2009_PLUS_SEONHAE_V1: Owsap's __AppendAttribute6th7thPossibility - a
+	# weapon or armour with five bonuses and room for an extra one, while
+	# Seon-Hae (NPC 20095) takes items (uiseonhae.py, "SEONHAE cfg" at login).
+	def __AppendSeonHaeHint(self, itemVnum, attrSlot):
+		try:
+			import uiseonhae
+			if not uiseonhae.CanTakeExtraBonus(itemVnum, attrSlot):
+				return
+			text = uiseonhae.TEXT_HINT_LINE
+		except Exception:
+			return
+		self.AppendSpace(5)
+		self.AppendTextLine(text, self.SPECIAL_POSITIVE_COLOR2)
+		item.SelectItem(itemVnum)
 
 	def __GetAttributeColor(self, index, value):
 		if value > 0:
@@ -1123,8 +1181,11 @@ class ItemToolTip(ToolTip):
 				self.__AppendAttackPowerInfo()
 				self.__AppendMagicAttackInfo()
 
-			self.__AppendAffectInformation(attrSlot)
-			self.__AppendAttributeInformation(attrSlot)
+			# MT2009_PLUS_SEONHAE_V1: the 6th and 7th bonus in their own colour after
+			# the five (they were merged into the item's base values here).
+			self.__AppendAffectInformation()
+			self.__AppendAttributeInformation(attrSlot, 0, player.ATTRIBUTE_SLOT_MAX_NUM)
+			self.__AppendSeonHaeHint(itemVnum, attrSlot)
 
 			self.AppendWearableInformation()
 
@@ -1145,7 +1206,10 @@ class ItemToolTip(ToolTip):
 
 			self.__AppendMagicDefenceInfo()
 			self.__AppendAffectInformation()
-			self.__AppendAttributeInformation(attrSlot)
+			# MT2009_PLUS_SEONHAE_V1: armour and jewellery showed only the five
+			# bonuses - the 6th and 7th were never drawn.
+			self.__AppendAttributeInformation(attrSlot, 0, player.ATTRIBUTE_SLOT_MAX_NUM)
+			self.__AppendSeonHaeHint(itemVnum, attrSlot)
 
 			self.AppendWearableInformation()
 
@@ -1810,7 +1874,7 @@ class ItemToolTip(ToolTip):
 	def __AppendAffectInformation(self, attrList=None):
 		affectList = [item.GetAffect(i) for i in xrange(item.ITEM_APPLY_MAX_NUM)]
 		if attrList is not None and attrList:
-			rareAffectList = [attrList[i] for i in xrange(player.ATTRIBUTE_SLOT_RARE_START, player.ATTRIBUTE_SLOT_RARE_END)]
+			rareAffectList = [(RareAttrType(i, attrList[i][0]), attrList[i][1]) for i in xrange(player.ATTRIBUTE_SLOT_RARE_START, player.ATTRIBUTE_SLOT_RARE_END)]
 			affectList += rareAffectList
 
 		for i in affectList:
@@ -2449,7 +2513,7 @@ class ItemToolTip(ToolTip):
 			## ATTR
 			item.SelectItem(itemAbsorbedVnum)
 			for i in xrange(player.ATTRIBUTE_SLOT_MAX_NUM):
-				type = attrSlot[i][0]
+				type = RareAttrType(i, attrSlot[i][0])
 				value = attrSlot[i][1]
 				if not value:
 					continue
