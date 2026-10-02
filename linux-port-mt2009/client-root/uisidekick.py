@@ -50,7 +50,7 @@
 #   SidekickInfo <protocol> 1 <race> <group> <level> <exp%> <hp> <maxhp> <sp>
 #                <maxsp> <where> <dist> <mode> <stance> <loot> <protect>
 #                <buffs> <gold> <red> <blue> <dead> [<lure> <luring> [<solo> [<chests>
-#                [<lead> <role> <leadership> [<party>]]]]]
+#                [<lead> <role> <leadership> [<party> [<rank> [<coins> <balance>]]]]]]]
 #   SidekickNames <name> <place> <doing>            - hex of the CP1250 bytes
 #   SidekickGear <slot 0-7> <name>                  - hex, only when changed
 #
@@ -70,7 +70,11 @@
 # (ROLES) and that skill's level. party (server 2.13.0, "Grupa"): 1 it joins
 # its owner's party whoever leads it, while a place stays free after it for
 # one more person; 0 a party somebody else leads only on that leader's
-# invitation.
+# invitation. coins (MT2009_PLUS_SIDEKICK_COINS_V1, "Smocze Monety"): 1 it
+# spends the Dragon Coins of its own account in the Item Shop on what it uses,
+# cashing the vouchers in its bag; 0 it keeps both untouched (order: monety N).
+# balance: the coins its account holds as the server last read them, -1
+# before it has.
 #
 # The status and skill pages read the answer to "/towarzysz umiejetnosci"
 # (SidekickSkillBegin with the stats, the skills, SidekickSkillEnd), which the
@@ -214,7 +218,20 @@ SWITCHES = (
 		'Sam otwiera skrzynie z plecaka. Wy\xb3\xb9czone: zostawia je tobie.'),
 	('party', 'grupa', 1, 'Do\xb3\xb9cza do grupy',
 		'Do\xb3\xb9cza do twojej grupy, tak\xbfe prowadzonej przez kogo\x9c innego.'),
+	# MT2009_PLUS_SIDEKICK_COINS_V1: "Smocze Monety: wydaje / nie wydaje".
+	('coins', 'monety', 1, 'Smocze Monety',
+		'Kupuje za nie w Item Shopie to, czego u\xbfywa (bez fryzur). Nie wydaje: nie rusza ich.'),
 )
+# What a switch's button says where "tak" and "nie" would not do, off and on,
+# and the button it needs for that: "nie wydaje" is wider than a small one.
+SWITCH_STATES = {
+	'coins': ('nie wydaje', 'wydaje'),
+}
+SWITCH_BUTTONS = {
+	'coins': 'middle',
+}
+# The coins' row names what the companion's account holds beside its name.
+TEXT_SWITCH_AMOUNT = '%s: %s'
 # "Lider grupy" (server 2.12.0): the companion makes the party and invites its
 # owner, and its Leadership (Dowodzenie) gives the owner the bonus chosen on
 # the same row.
@@ -226,6 +243,9 @@ TEXT_ROLE_NOT_LEAD = 'Bonus dzia\xb3a, gdy liderem jest Towarzysz.'
 TEXT_ROLE_NEEDS = 'Bonus wymaga Dowodzenia %s - daj mu Ksi\xeag\xea Dowodzenia.'
 SWITCH_TOP = 28
 ROW_STEP = 22
+# The Options page's rows: with the eighth (the Dragon Coins) a step of
+# twenty keeps every line on the page.
+OPTION_STEP = 20
 ROW_HEIGHT = 21
 
 TEXT_WAITING = 'Czekam na odpowied\x9f serwera...'
@@ -424,6 +444,11 @@ def ParseInfo(args):
 	# server the name shows no rank.
 	if len(values) >= len(names) + 9:
 		info['align'] = ParseInt(values[len(names) + 8])
+	# MT2009_PLUS_SIDEKICK_COINS_V1: "Smocze Monety" and the account's coins;
+	# an older server sends neither, and the window shows no row for it.
+	if len(values) >= len(names) + 11:
+		info['coins'] = ParseInt(values[len(names) + 9])
+		info['balance'] = ParseInt(values[len(names) + 10], -1)
 	return info
 
 
@@ -965,7 +990,8 @@ class SidekickWindow(ui.ScriptWindow):
 		"""A row of the options: the name, and a button that says what the
 		switch is set to (created last, so its row's bar is under it)."""
 		bar, label = self._Row(page, y, index, text)
-		button = self._Btn(page, 'small', SECTION_X + SECTION_WIDTH - BUTTON_WIDTHS['small'] - 2, y - 1, '',
+		size = SWITCH_BUTTONS.get(args[0], 'small') if args and isinstance(args[0], str) else 'small'
+		button = self._Btn(page, size, SECTION_X + SECTION_WIDTH - BUTTON_WIDTHS[size] - 2, y - 1, '',
 			event, *args)
 		self._Hover(button, hint)
 		return (bar, label, button)
@@ -975,27 +1001,27 @@ class SidekickWindow(ui.ScriptWindow):
 		self._Section(page, 8, TEXT_SECTION_BEHAVIOUR)
 		self.switchRows = {}
 		for i, (key, order, default, text, hint) in enumerate(SWITCHES):
-			self.switchRows[key] = self._Switch(page, SWITCH_TOP + i * ROW_STEP, i, text, hint, self.OnSwitch, key)
+			self.switchRows[key] = self._Switch(page, SWITCH_TOP + i * OPTION_STEP, i, text, hint, self.OnSwitch, key)
 		# "Lider grupy": the switch and, beside it, the bonus its Leadership
 		# gives the owner.
-		leadY = SWITCH_TOP + len(SWITCHES) * ROW_STEP
+		leadY = SWITCH_TOP + len(SWITCHES) * OPTION_STEP
 		self.leadRow = self._Switch(page, leadY, len(SWITCHES), TEXT_LEAD, TEXT_LEAD_HINT, self.OnLead)
 		self.roleButton = self._Btn(page, 'middle',
 			SECTION_X + SECTION_WIDTH - BUTTON_WIDTHS['small'] - BUTTON_WIDTHS['middle'] - 4, leadY - 1, '', self.OnRole)
 		self.roleButton.ShowToolTip = ui.__mem_func__(self.OnOverRole)
 		self.roleButton.HideToolTip = ui.__mem_func__(self.OnHoverOut)
-		points = leadY + ROW_STEP + 2
+		points = leadY + OPTION_STEP
 		self._Section(page, points, TEXT_SECTION_POINTS)
 		self.statManualRow = self._Switch(page, points + 20, 0, TEXT_STAT_MANUAL, TEXT_STAT_MANUAL_HINT,
 			self.OnStatManual)
-		self.skillManualRow = self._Switch(page, points + 20 + ROW_STEP, 1, TEXT_SKILL_MANUAL,
+		self.skillManualRow = self._Switch(page, points + 20 + OPTION_STEP, 1, TEXT_SKILL_MANUAL,
 			TEXT_SKILL_MANUAL_HINT, self.OnSkillManual)
 		reset = (PAGE_WIDTH - BUTTON_WIDTHS['xlarge']) // 2
-		self.statResetButton = self._Btn(page, 'xlarge', reset, points + 20 + 2 * ROW_STEP + 2, TEXT_STAT_RESET,
+		self.statResetButton = self._Btn(page, 'xlarge', reset, points + 20 + 2 * OPTION_STEP + 2, TEXT_STAT_RESET,
 			self.OnStatReset)
 		self._Hover(self.statResetButton, TEXT_STAT_RESET_HINT)
 		# The tab strip starts where the page ends: the lines are packed.
-		top = points + 20 + 2 * ROW_STEP + 29
+		top = points + 20 + 2 * OPTION_STEP + 29
 		self.optionsStatus = StatusLines([self._CenteredLabel(page, top), self._CenteredLabel(page, top + 13)],
 			PAGE_WIDTH - 20)
 
@@ -1263,7 +1289,19 @@ class SidekickWindow(ui.ScriptWindow):
 					widget.Show()
 				else:
 					widget.Hide()
-			button.SetText(YesNo(info.get(key, default)))
+			value = info.get(key, default)
+			states = SWITCH_STATES.get(key)
+			button.SetText(states[1 if value else 0] if states else YesNo(value))
+			# MT2009_PLUS_SIDEKICK_COINS_V1: what its account holds beside the
+			# name, where it fits before the button (the report says it too).
+			if key == 'coins':
+				named = text
+				if info.get('balance', -1) >= 0:
+					named = TEXT_SWITCH_AMOUNT % (text, FormatGold(info['balance']))
+					room = SECTION_X + SECTION_WIDTH - BUTTON_WIDTHS[SWITCH_BUTTONS['coins']] - 2 - (LINE_X + 2) - 4
+					if TextWidth(label, named) > room:
+						named = text
+				label.SetText(named)
 		# "Lider grupy" and the bonus: shown by a server that sends them.
 		roleNote = ''
 		if 'lead' in info:

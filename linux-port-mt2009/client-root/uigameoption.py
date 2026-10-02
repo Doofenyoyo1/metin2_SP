@@ -33,6 +33,7 @@ class OptionDialog(ui.ScriptWindow):
 		self.RefreshNightModeButtons()
 		self.RefreshQuestTextButtons()
 		self.RefreshFloatingTextButtons()
+		self.RefreshAutoTargetButtons()
 
 	def __del__(self):
 		ui.ScriptWindow.__del__(self)
@@ -54,6 +55,7 @@ class OptionDialog(ui.ScriptWindow):
 		self.nightButtonList = []
 		self.questTextButtonList = []
 		self.floatingTextButtonList = []
+		self.autoTargetButtonList = []
 		self.toolTip = None
 
 	@ui.WindowDestroy
@@ -194,6 +196,19 @@ class OptionDialog(ui.ScriptWindow):
 		self.floatingTextButtonList[0].SAFE_SetEvent(self.__OnClickFloatingTextButton, 1)
 		self.floatingTextButtonList[1].SAFE_SetEvent(self.__OnClickFloatingTextButton, 2)
 		self.floatingTextButtonList[2].SAFE_SetEvent(self.__OnClickFloatingTextButton, 0)
+
+		# MT2009_PLUS_AUTO_TARGET_V1: "Kolejny cel" row (autotarget.py).
+		try:
+			import autotarget
+			self.autoTargetButtonList = [self.GetChild("auto_target_bow_button"),
+				self.GetChild("auto_target_always_button"), self.GetChild("auto_target_off_button")]
+			self.autoTargetButtonList[0].SAFE_SetEvent(self.__OnClickAutoTargetButton, autotarget.MODE_BOW)
+			self.autoTargetButtonList[1].SAFE_SetEvent(self.__OnClickAutoTargetButton, autotarget.MODE_ALWAYS)
+			self.autoTargetButtonList[2].SAFE_SetEvent(self.__OnClickAutoTargetButton, autotarget.MODE_OFF)
+		except Exception:
+			import dbg
+			dbg.TraceError("autotarget: no Kolejny cel row in the game options")
+			self.autoTargetButtonList = []
 
 		for i in range(len(self.nightButtonList)):
 			self.nightButtonList[i].SAFE_SetEvent(self.__OnClickNightModeButton, i)
@@ -538,6 +553,24 @@ class OptionDialog(ui.ScriptWindow):
 		else:
 			self.floatingTextButtonList[2].Down()
 
+	# MT2009_PLUS_AUTO_TARGET_V1: the next target after a kill (autotarget.py):
+	# with a bow in the hand, with any weapon, or never.
+	def __OnClickAutoTargetButton(self, mode):
+		import autotarget
+		autotarget.SetMode(mode)
+		self.RefreshAutoTargetButtons()
+
+	def RefreshAutoTargetButtons(self):
+		if not self.autoTargetButtonList:
+			return
+		import autotarget
+		modes = (autotarget.MODE_BOW, autotarget.MODE_ALWAYS, autotarget.MODE_OFF)
+		for button, mode in zip(self.autoTargetButtonList, modes):
+			if mode == autotarget.Mode():
+				button.Down()
+			else:
+				button.SetUp()
+
 	def RefreshNightModeButtons(self):
 		for btn in self.nightButtonList:
 			btn.SetUp()
@@ -565,6 +598,7 @@ class OptionDialog(ui.ScriptWindow):
 
 	def Show(self):
 		self.RefreshBlock()
+		self.RefreshAutoTargetButtons()
 		ui.ScriptWindow.Show(self)
 
 	def Close(self):

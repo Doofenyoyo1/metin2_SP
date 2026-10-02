@@ -400,6 +400,10 @@ class GuildWarScoreBoard(ui.ThinBoard):
 		self.enemyGuildID = 0
 		self.allyDataDict = {}
 		self.enemyDataDict = {}
+		# The kills that win this war, once the server says them, and the line
+		# that says them over the two sides (guildwarkills.py).
+		self.warKills = 0
+		self.warKillsTitle = None
 
 	def Open(self, allyGuildID, enemyGuildID):
 
@@ -467,7 +471,61 @@ class GuildWarScoreBoard(ui.ThinBoard):
 			dataDict2["MEMBER_COUNT"] = memberCount2
 		self.__RefreshName()
 
+	def SetWarKills(self, kills):
+		# The kills that win this war as the server says them (game.py's
+		# "guild_war_kills"), 0 for none: the board counts down from them, or
+		# is the stock board again.
+		import guildwarkills
+		self.warKills = guildwarkills.ParseKills(kills)
+		if "TEXT" in self.allyDataDict and "TEXT" in self.enemyDataDict:
+			self.__RefreshName()
+
+	def __PlaceWarKillsLines(self, titled):
+		# The two sides a line lower under the target's line, where the stock
+		# board has them without it; the board grows upwards, and its bottom
+		# edge stays where it always was.
+		top = 10 + 18 * (1 if titled else 0)
+		for row, dataDict in ((0, self.allyDataDict), (1, self.enemyDataDict)):
+			dataDict["MARK"].SetPosition(10, top + 18 * row)
+			dataDict["TEXT"].SetPosition(30, top + 18 * row)
+		self.SetPosition(10, wndMgr.GetScreenHeight() - 100 - (18 if titled else 0))
+
+	def __ShowWarKills(self):
+		# With a target: the target's line over the two sides, each side's
+		# kills and what it still needs, and who leads (guildwarkills.py).
+		# Without one, False, and the stock board is drawn as it always was.
+		if self.warKills <= 0:
+			if self.warKillsTitle:
+				self.warKillsTitle.Hide()
+				self.__PlaceWarKillsLines(False)
+			return False
+		import guildwarkills
+		ally = self.allyDataDict
+		enemy = self.enemyDataDict
+		texts = guildwarkills.BoardTexts(self.warKills,
+			ally["NAME"], ally["MEMBER_COUNT"], ally["SCORE"],
+			enemy["NAME"], enemy["MEMBER_COUNT"], enemy["SCORE"])
+		if not self.warKillsTitle:
+			title = ui.TextLine()
+			title.SetParent(self)
+			title.SetPosition(10, 10)
+			title.SetHorizontalAlignLeft()
+			self.warKillsTitle = title
+		self.warKillsTitle.SetText(texts[0])
+		self.warKillsTitle.Show()
+		ally["TEXT"].SetText(texts[1])
+		enemy["TEXT"].SetText(texts[2])
+		self.__PlaceWarKillsLines(True)
+		width = max(10 + guildwarkills.TextWidth(self.warKillsTitle, texts[0]),
+			30 + guildwarkills.TextWidth(ally["TEXT"], texts[1]),
+			30 + guildwarkills.TextWidth(enemy["TEXT"], texts[2]))
+		self.SetSize(width + 10, 68)
+		return True
+
 	def __RefreshName(self):
+		if self.__ShowWarKills():
+			return
+
 		nameMaxLen = max(len(self.allyDataDict["NAME"]), len(self.enemyDataDict["NAME"]))
 
 		if -1 == self.allyDataDict["MEMBER_COUNT"] or -1 == self.enemyDataDict["MEMBER_COUNT"]:

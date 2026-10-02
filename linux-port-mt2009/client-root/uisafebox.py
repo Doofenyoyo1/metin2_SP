@@ -17,6 +17,125 @@ EVENT_QUICK_REMOVE_SAFEBOX_ITEM = "EVENT_QUICK_REMOVE_SAFEBOX_ITEM" # args | typ
 EVENT_OPEN_SAFEBOX = "EVENT_OPEN_SAFEBOX" # args |
 EVENT_CLOSE_SAFEBOX = "EVENT_CLOSE_SAFEBOX" # args |
 
+# MT2009_PLUS_SAFEBOX_ARRANGE_V1: the safebox's "Uloz i scal" and "Tylko scal
+# stosy" buttons (uiscript/safeboxwindow.py), the two ways the inventory's
+# button tidies the bag (inventoryarrange.py). One command each and the
+# server does the work on every page of the box at once
+# (playerbot_arrange.cpp): "/safebox_arrange" pours the stacks together and
+# lays the pages out again, "/safebox_arrange merge" only pours
+# (server-patches/safeboxmerge). The answer, "SafeboxArrangeResult <code>
+# <moved> <merged> <units>", comes through game.py to OnArrangeResult.
+#
+# No move packets: the safebox's own move does not stack in this engine
+# (ENABLE_MT2009_DISABLE_SAFEBOX_STACK), and a move per stack would run into
+# the server's packet limits. A second click while a request is out does
+# nothing; an answer that never comes frees the buttons after
+# ARRANGE_PENDING_TIMEOUT seconds, and the server keeps two seconds between
+# two requests. Nothing is sent while an item hangs on the cursor or a private
+# shop is being built; the server refuses an exchange, a shop or another
+# window itself (RESULT_BUSY).
+#
+# The texts are CP1250, the client's own, written as escapes so the file
+# stays ASCII.
+ARRANGE_PENDING_TIMEOUT = 5.0
+
+# playerbot_arrange.h, EResult.
+ARRANGE_DONE = 0
+ARRANGE_NOTHING = 1
+ARRANGE_BUSY = 2
+ARRANGE_COOLDOWN = 3
+ARRANGE_NO_LAYOUT = 4
+ARRANGE_DEAD = 5
+ARRANGE_INCONSISTENT = 6
+ARRANGE_UNSUPPORTED = 7
+ARRANGE_BAD_REQUEST = 8
+ARRANGE_NO_SAFEBOX = 9
+
+ARRANGE_MODE_SORT = 0
+ARRANGE_MODE_MERGE = 1
+
+ARRANGE_MSG_DONE = 'Uporz\xb9dkowano magazyn: przestawiono %d, scalono stos\xf3w: %d.'
+ARRANGE_MSG_NOTHING = 'Magazyn jest ju\xbf uporz\xb9dkowany.'
+ARRANGE_MSG_MERGED = 'Po\xb3\xb9czono stosy w magazynie: %d. Reszta przedmiot\xf3w zosta\xb3a na miejscu.'
+ARRANGE_MSG_NOTHING_MERGE = 'W magazynie nie ma stos\xf3w do po\xb3\xb9czenia.'
+ARRANGE_MSG_BUSY = 'Nie mo\xbfna teraz uporz\xb9dkowa\xe6 magazynu - zamknij handel, sklep lub inne okno.'
+ARRANGE_MSG_COOLDOWN = 'Odczekaj chwil\xea przed kolejnym porz\xb9dkowaniem.'
+ARRANGE_MSG_NO_LAYOUT = 'Nie uda\xb3o si\xea u\xb3o\xbfy\xe6 magazynu - nic nie zmieniono.'
+ARRANGE_MSG_DEAD = 'Nie mo\xbfesz porz\xb9dkowa\xe6 magazynu po \x9cmierci.'
+ARRANGE_MSG_INCONSISTENT = 'Magazyn jest w nieoczekiwanym stanie - nic nie zmieniono. Zg\xb3o\x9c to na Discordzie.'
+ARRANGE_MSG_NO_SAFEBOX = 'Magazyn nie jest otwarty.'
+ARRANGE_MSG_UNSUPPORTED = 'Serwer nie obs\xb3uguje porz\xb9dkowania magazynu.'
+ARRANGE_MSG_ATTACHED = 'Od\xb3\xf3\xbf najpierw przedmiot trzymany kursorem.'
+ARRANGE_MSG_SHOP = 'Nie mo\xbfna porz\xb9dkowa\xe6 magazynu podczas otwierania sklepu.'
+
+_arrangeState = {'pendingUntil': 0.0, 'mode': ARRANGE_MODE_SORT}
+
+
+def _ArrangeInt(value):
+	try:
+		return int(value)
+	except (TypeError, ValueError):
+		return -1
+
+
+def _ArrangeNow():
+	import clientclock
+	return clientclock.Now()
+
+
+def IsArrangePending():
+	return _ArrangeNow() < _arrangeState['pendingUntil']
+
+
+def RequestArrange(mode=ARRANGE_MODE_SORT):
+	if IsArrangePending():
+		return False
+	if mouseModule.mouseController.isAttached():
+		chat.AppendChat(chat.CHAT_TYPE_INFO, ARRANGE_MSG_ATTACHED)
+		return False
+	# Asked here and not at import: the shop builder pulls half the
+	# interface in behind it.
+	import uiPrivateShopBuilder
+	if uiPrivateShopBuilder.IsBuildingPrivateShop():
+		chat.AppendChat(chat.CHAT_TYPE_INFO, ARRANGE_MSG_SHOP)
+		return False
+	_arrangeState['pendingUntil'] = _ArrangeNow() + ARRANGE_PENDING_TIMEOUT
+	_arrangeState['mode'] = mode
+	net.SendChatPacket('/safebox_arrange merge' if mode == ARRANGE_MODE_MERGE else '/safebox_arrange')
+	return True
+
+
+def ArrangeMessage(code, moved, merged, mode):
+	if mode == ARRANGE_MODE_MERGE and code == ARRANGE_DONE:
+		return ARRANGE_MSG_MERGED % merged
+	if mode == ARRANGE_MODE_MERGE and code == ARRANGE_NOTHING:
+		return ARRANGE_MSG_NOTHING_MERGE
+	if code == ARRANGE_DONE:
+		return ARRANGE_MSG_DONE % (moved, merged)
+	if code == ARRANGE_NOTHING:
+		return ARRANGE_MSG_NOTHING
+	if code == ARRANGE_BUSY:
+		return ARRANGE_MSG_BUSY
+	if code == ARRANGE_COOLDOWN:
+		return ARRANGE_MSG_COOLDOWN
+	if code == ARRANGE_NO_LAYOUT:
+		return ARRANGE_MSG_NO_LAYOUT
+	if code == ARRANGE_DEAD:
+		return ARRANGE_MSG_DEAD
+	if code == ARRANGE_INCONSISTENT:
+		return ARRANGE_MSG_INCONSISTENT
+	if code == ARRANGE_NO_SAFEBOX:
+		return ARRANGE_MSG_NO_SAFEBOX
+	# RESULT_UNSUPPORTED, and RESULT_BAD_REQUEST from a server without
+	# "/safebox_arrange merge".
+	return ARRANGE_MSG_UNSUPPORTED
+
+
+def OnArrangeResult(code='0', moved='0', merged='0', units='0'):
+	_arrangeState['pendingUntil'] = 0.0
+	chat.AppendChat(chat.CHAT_TYPE_INFO, ArrangeMessage(_ArrangeInt(code), max(0, _ArrangeInt(moved)),
+		max(0, _ArrangeInt(merged)), _arrangeState['mode']))
+
 class PasswordDialog(ui.ScriptWindow):
 	def __init__(self):
 		ui.ScriptWindow.__init__(self)
@@ -281,6 +400,9 @@ class SafeboxWindow(ui.ScriptWindow):
 		self.GetChild("TitleBar").SetCloseEvent(ui.__mem_func__(self.Close))
 		self.GetChild("ChangePasswordButton").SetEvent(ui.__mem_func__(self.OnChangePassword))
 		self.GetChild("ExitButton").SetEvent(ui.__mem_func__(self.Close))
+		# MT2009_PLUS_SAFEBOX_ARRANGE_V1: the title bar's two buttons.
+		self.GetChild("SortButton").SetEvent(ui.__mem_func__(self.__OnSortButton))
+		self.GetChild("StackButton").SetEvent(ui.__mem_func__(self.__OnStackButton))
 
 		self.wndItem = wndItem
 		self.dlgPickMoney = dlgPickMoney
@@ -482,6 +604,13 @@ class SafeboxWindow(ui.ScriptWindow):
 
 	def AddItemToSafebox(self, window_type, sourceSlot, destSlot):
 		net.SendSafeboxCheckinPacket(window_type, sourceSlot, destSlot)
+
+	# MT2009_PLUS_SAFEBOX_ARRANGE_V1
+	def __OnSortButton(self):
+		RequestArrange(ARRANGE_MODE_SORT)
+
+	def __OnStackButton(self):
+		RequestArrange(ARRANGE_MODE_MERGE)
 
 	def RemoveItemFromSafebox(self, slotPos):
 		pass

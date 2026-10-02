@@ -89,12 +89,24 @@ FIXED_TIMESTEP_UPDATE = 167 # (0.0167f) assuming game is running in 60fps
 
 testAlignment = 0
 
+# MT2009_PLUS_GAME_WINDOW_OWNER_V1: the exe keeps one borrowed pointer to the
+# game window (player.SetGameWindow) and calls it back for the target board of
+# a clicked character (SetPCTargetBoard: trade, duel, equipment view, party
+# invite), affects, "cannot attack" notices and so on. After a warp or a
+# character change the old GameWindow is often freed by the cycle collector
+# only after the new one has registered - and its __del__ used to clear the
+# pointer unconditionally, i.e. the NEW window's. From then on every right
+# click on a character showed nothing until the next warp. A window now clears
+# the registration only while it is still its own, like net.ClearPhaseWindow.
+_playerGameWindow = {"id": 0}
+
 class GameWindow(ui.ScriptWindow):
 	def __init__(self, stream):
 		ui.ScriptWindow.__init__(self, "GAME")
 		self.SetWindowName("game")
 		net.SetPhaseWindow(net.PHASE_WINDOW_GAME, self)
 		player.SetGameWindow(self)
+		_playerGameWindow["id"] = id(self)
 
 		# Panel GM: constInfo.IsGM to zwykla flaga modulu - nie resetuje sie
 		# sama miedzy postaciami w tej samej sesji klienta. Zerowana tu, przy
@@ -195,7 +207,12 @@ class GameWindow(ui.ScriptWindow):
 		self.partyInviteQuestionDialog = None
 
 	def __del__(self):
-		player.SetGameWindow(0)
+		# Only this window's own registration (MT2009_PLUS_GAME_WINDOW_OWNER_V1).
+		# A module torn down at exit has no dictionary left to ask.
+		registered = _playerGameWindow
+		if registered and registered.get("id") == id(self):
+			player.SetGameWindow(0)
+			registered["id"] = 0
 		net.ClearPhaseWindow(net.PHASE_WINDOW_GAME, self)
 		ui.ScriptWindow.__del__(self)
 
@@ -460,6 +477,9 @@ class GameWindow(ui.ScriptWindow):
 
 	def CreateUpdateables(self):
 		self.updateable = []
+		# MT2009_PLUS_AUTO_TARGET_V1: the next target after a kill (autotarget.py).
+		import autotarget
+		self.RegisterUpdatable(autotarget.GetKeeper())
 		self.RegisterUpdatable(updateable.PickUpOnDownKey())
 		import uipickupfilter
 		self.RegisterUpdatable(uipickupfilter.PickupFilterSync())
@@ -715,9 +735,6 @@ class GameWindow(ui.ScriptWindow):
 
 
 
-		# The bonus switcher: 0, because U is MT2009 PLUS's pet window, X its
-		# dungeon panel and every other letter is taken too.
-		onPressKeyDict[app.DIK_0]			= lambda : self.__ToggleBonusSwitcher()
 		# CUBE_TEST
 		#onPressKeyDict[app.DIK_K]			= lambda : self.interface.OpenCubeWindow()
 		onPressKeyDict[app.DIK_K]			= lambda : self.__ToggleAutoHunt()
@@ -1950,13 +1967,6 @@ class GameWindow(ui.ScriptWindow):
 	def StopRight(self):
 		player.SetSingleDIKKeyState(app.DIK_RIGHT, False)
 
-	def __ToggleBonusSwitcher(self):
-		import uibonusswitch
-		switcher = uibonusswitch.GetSwitcher()
-		if switcher not in self.updateable:
-			self.RegisterUpdatable(switcher)
-		uibonusswitch.ToggleWindow()
-
 	def PickUpItem(self):
 		import uipickupfilter
 		if uipickupfilter.IsActive():
@@ -2010,6 +2020,10 @@ class GameWindow(ui.ScriptWindow):
 			else:
 				self.CheckFocus()
 				player.SetMouseState(player.MBT_LEFT, player.MBS_PRESS);
+				# A click on a character is the player choosing a target, which the
+				# next target after a kill leaves alone (MT2009_PLUS_AUTO_TARGET_V1).
+				import autotarget
+				autotarget.NoteClick(self.PickingCharacterIndex)
 
 		return True
 
@@ -2756,6 +2770,17 @@ class GameWindow(ui.ScriptWindow):
 		self.interface.UpdateMemberCount(guildID1, memberCount1, guildID2, memberCount2)
 		self.interface.wndMiniMap.UpdateObserverCount(observerCount)
 
+	def __GuildWar_SetKills(self, guildSelf="0", guildOpp="0", kills="0", *rest):
+		# MT2009_PLUS_GUILD_WAR_KILLS_V1: the kills that win a war the server
+		# ends by kills, for its board in the lower left; 0 takes the target
+		# back (guildwarkills.py).
+		try:
+			guildSelf, guildOpp, kills = int(guildSelf), int(guildOpp), int(kills)
+		except ValueError:
+			return
+		if self.interface:
+			self.interface.OnRecvGuildWarKills(guildSelf, guildOpp, kills)
+
 	def __GuildWar_OpenAskDialog(self, guildID, warType):
 
 		guildName = guild.GetGuildName(guildID)
@@ -2797,8 +2822,20 @@ class GameWindow(ui.ScriptWindow):
 	## BINARY CALLBACK
 	######################################################################################
 
+	# MT2009_PLUS_AUTO_TARGET_V2: the server names the monsters attacking the
+	# player for the next target after a kill (autotarget.py).
+	def __AutoTargetAggro(self, request="0", vids="0", *rest):
+		import autotarget
+		autotarget.OnServerAggro(request, vids)
+
+	def __AutoTargetAggroReady(self, *rest):
+		import autotarget
+		autotarget.OnServerReady()
+
 	def __ServerCommand_Build(self):
 		serverCommandList={
+			"AutoTargetAggro": self.__AutoTargetAggro,
+			"AutoTargetAggroReady": self.__AutoTargetAggroReady,
 			"OpenGarbageBin": self.interface.ToggleGarbageBinWindow,
 			"GarbageBin": self.interface.ToggleGarbageBinWindow,
 			"GarbageBinReady": self.interface.GarbageBinReady,
@@ -2875,6 +2912,7 @@ class GameWindow(ui.ScriptWindow):
 			"horse_state"			: self.__Horse_UpdateState,
 			"hide_horse_state"		: self.__Horse_HideState,
 			"WarUC"					: self.__GuildWar_UpdateMemberCount,
+			"guild_war_kills"		: self.__GuildWar_SetKills,
 			"test_server"			: self.__EnableTestServerFlag,
 			"mall"			: self.__InGameShop_Show,
 			"SetGMFlag"				: self.__SetGMFlag,
@@ -2920,6 +2958,8 @@ class GameWindow(ui.ScriptWindow):
 			"AutoHuntLoot"					: self.__AutoHuntLoot,
 			"AutoHuntOff"					: self.__AutoHuntOff,
 			"InventoryArrangeResult"		: self.__InventoryArrangeResult,
+			# MT2009_PLUS_SAFEBOX_ARRANGE_V1: the safebox's two buttons (uisafebox.py).
+			"SafeboxArrangeResult"		: self.__SafeboxArrangeResult,
 			"SidekickInfo"					: self.__SidekickInfo,
 			"SidekickNames"					: self.__SidekickNames,
 			"SidekickGear"					: self.__SidekickGear,
@@ -4029,6 +4069,12 @@ class GameWindow(ui.ScriptWindow):
 	def __InventoryArrangeResult(self, code="0", moved="0", merged="0", units="0", *rest):
 		import inventoryarrange
 		inventoryarrange.OnResult(code, moved, merged, units)
+
+	# MT2009_PLUS_SAFEBOX_ARRANGE_V1: "/safebox_arrange [merge]" answered
+	# (server-patches/safeboxmerge, playerbot_arrange.cpp).
+	def __SafeboxArrangeResult(self, code="0", moved="0", merged="0", units="0", *rest):
+		import uiSafebox
+		uiSafebox.OnArrangeResult(code, moved, merged, units)
 
 	def __InGameShop_Show(self, url):
 		if constInfo.IN_GAME_SHOP_ENABLE:
