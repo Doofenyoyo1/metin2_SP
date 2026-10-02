@@ -5375,18 +5375,43 @@ class Interface(object):
 		guildWarScoreBoard = uiGuild.GuildWarScoreBoard()
 		guildWarScoreBoard.Open(guildSelf, guildOpp)
 		guildWarScoreBoard.Show()
+		# MT2009_PLUS_GUILD_WAR_KILLS_V1: the kills that win this war, if the
+		# server said them before the board was made (OnRecvGuildWarKills,
+		# guildwarkills.py).
+		guildWarScoreBoard.SetWarKills(self.__GuildWarKills().get(uiGuild.GetGVGKey(guildSelf, guildOpp), 0))
 		self.guildScoreBoardDict[uiGuild.GetGVGKey(guildSelf, guildOpp)] = guildWarScoreBoard
 
 	def OnEndGuildWar(self, guildSelf, guildOpp):
 		self.wndGuild.OnEndGuildWar(guildSelf, guildOpp)
 
 		key = uiGuild.GetGVGKey(guildSelf, guildOpp)
+		# MT2009_PLUS_GUILD_WAR_KILLS_V1: the war's kill target goes with the war.
+		self.__GuildWarKills().pop(key, None)
 
 		if not self.guildScoreBoardDict.has_key(key):
 			return
 
 		self.guildScoreBoardDict[key].Destroy()
 		del self.guildScoreBoardDict[key]
+
+	# MT2009_PLUS_GUILD_WAR_KILLS_V1: the kills that win a war the server ends
+	# by kills, kept by the war: the server's "guild_war_kills" (game.py) comes
+	# once the character is in the game and again with a new number, 0 taking
+	# the target back, and a board made after it takes it from here
+	# (guildwarkills.py).
+	def __GuildWarKills(self):
+		if not hasattr(self, "guildWarKillsDict"):
+			self.guildWarKillsDict = {}
+		return self.guildWarKillsDict
+
+	def OnRecvGuildWarKills(self, guildSelf, guildOpp, kills):
+		key = uiGuild.GetGVGKey(guildSelf, guildOpp)
+		if kills > 0:
+			self.__GuildWarKills()[key] = kills
+		else:
+			self.__GuildWarKills().pop(key, None)
+		if self.guildScoreBoardDict.has_key(key):
+			self.guildScoreBoardDict[key].SetWarKills(kills)
 
 	# GUILDWAR_MEMBER_COUNT
 	def UpdateMemberCount(self, gulidID1, memberCount1, guildID2, memberCount2):

@@ -14,6 +14,14 @@ LINE_STEP	= 25
 SMALL_BUTTON_WIDTH 	= 45
 MIDDLE_BUTTON_WIDTH 	= 65
 
+# MT2009_PLUS_AUTO_TARGET_V1 ("Kolejny cel" row). A locale_interface entry of
+# the same name wins over these.
+AUTO_TARGET_LABEL = getattr(uiScriptLocale, "AUTO_TARGET_LABEL", "Kolejny cel")
+AUTO_TARGET_BOW = getattr(uiScriptLocale, "AUTO_TARGET_BOW", "Z \xb3ukiem")
+AUTO_TARGET_ALWAYS = getattr(uiScriptLocale, "AUTO_TARGET_ALWAYS", "Zawsze")
+AUTO_TARGET_OFF = getattr(uiScriptLocale, "AUTO_TARGET_OFF", "Wy\xb3\xb9czony")
+AUTO_TARGET_TOOLTIP = getattr(uiScriptLocale, "AUTO_TARGET_TOOLTIP", "Po zabiciu: kolejny, kt\xf3rego ju\xbf bi\xb3e\x9c")
+
 window = {
 	"name" : "GameOptionDialog",
 	"style" : ["movable", "float",],
@@ -22,7 +30,7 @@ window = {
 	"y" : 0,
 
 	"width" : 300,
-	"height" : 25*16+8,
+	"height" : 25*16+8+21,
 
 	"children" :
 	[
@@ -34,7 +42,7 @@ window = {
 			"y" : 0,
 
 			"width" : 300,
-			"height" : 25*16+8,
+			"height" : 25*16+8+21,
 
 			"children" :
 			[
@@ -655,6 +663,61 @@ window = {
 					"y" : 361,
 
 					"text" : uiScriptLocale.GAME_OPTIONS_FLOATING_TEXT_2,
+
+					"default_image" : ROOT_PATH + "middle_button_01.sub",
+					"over_image" : ROOT_PATH + "middle_button_02.sub",
+					"down_image" : ROOT_PATH + "middle_button_03.sub",
+				},
+
+				## NEXT TARGET (autotarget.py, MT2009_PLUS_AUTO_TARGET_V1): after a
+				## kill the nearest monster this character has fought becomes the
+				## target - with a bow in the hand, with any weapon, or never.
+				## CP1250 escapes keep the file ASCII.
+				{
+					"name" : "auto_target_text",
+					"type" : "text",
+
+					"x" : LINE_LABEL_X,
+					"y" : 382+2,
+
+					"text" : AUTO_TARGET_LABEL,
+				},
+				{
+					"name" : "auto_target_bow_button",
+					"type" : "radio_button",
+
+					"x" : LINE_DATA_X,
+					"y" : 382,
+
+					"text" : AUTO_TARGET_BOW,
+					"tooltip_text" : AUTO_TARGET_TOOLTIP,
+
+					"default_image" : ROOT_PATH + "middle_button_01.sub",
+					"over_image" : ROOT_PATH + "middle_button_02.sub",
+					"down_image" : ROOT_PATH + "middle_button_03.sub",
+				},
+				{
+					"name" : "auto_target_always_button",
+					"type" : "radio_button",
+
+					"x" : LINE_DATA_X+MIDDLE_BUTTON_WIDTH,
+					"y" : 382,
+
+					"text" : AUTO_TARGET_ALWAYS,
+					"tooltip_text" : AUTO_TARGET_TOOLTIP,
+
+					"default_image" : ROOT_PATH + "middle_button_01.sub",
+					"over_image" : ROOT_PATH + "middle_button_02.sub",
+					"down_image" : ROOT_PATH + "middle_button_03.sub",
+				},
+				{
+					"name" : "auto_target_off_button",
+					"type" : "radio_button",
+
+					"x" : LINE_DATA_X+MIDDLE_BUTTON_WIDTH*2,
+					"y" : 382,
+
+					"text" : AUTO_TARGET_OFF,
 
 					"default_image" : ROOT_PATH + "middle_button_01.sub",
 					"over_image" : ROOT_PATH + "middle_button_02.sub",

@@ -376,9 +376,12 @@ namespace
 				// A level-30 or level-75 weapon a player hand-tuned is finished
 				// the moment it lands an average-damage or average-skill line
 				// over the lock, so the mixer leaves it alone (Ciapek).
+				// MT2009_PLUS_BOT_L30_AVG_MIX_V1: the level-30 family's average
+				// is mixed on to thirty (the target below), not stopped at the
+				// lock's twenty-five; its skill line keeps the lock.
 				const int lvl = item->GetLevelLimit();
 				if ((lvl == 30 || lvl == 75) &&
-						(average >= PLAYERBOT_BONUS_WEAPON_LOCK_PCT ||
+						((lvl == 75 && average >= PLAYERBOT_BONUS_WEAPON_LOCK_PCT) ||
 						 skill >= PLAYERBOT_BONUS_WEAPON_LOCK_PCT))
 					return true;
 				// Any weapon, not only the level-30 family: with the vnum test
@@ -675,6 +678,160 @@ namespace
 		return premium;
 	}
 
+	// MT2009_PLUS_MARKET_V3, point 5: the plus a piece's lines are worth
+	// ("bonusy licza sie bardziej niz +"). The jewellery, the boots, the body
+	// armour and the shield only - a helmet's and a weapon's lines are priced
+	// by the rows alone, a weapon's average by GetPlayerBotAverageDamagePlus.
+	// A line counts when it is one a player pays for (the list of
+	// IsPlayerBotTopBonusLine, asked for its kind alone), by how far up the top
+	// this world's table rolls for it on the piece it is
+	// (playerbot_price_rules::BonusLinePoints); an immunity has no top to be
+	// part of and counts whole. Zero for no plus, else 5, 7 or 8.
+	int GetPlayerBotBonusPlusLevel(LPITEM item)
+	{
+		if (!item || item->GetType() != ITEM_ARMOR)
+			return 0;
+		switch (item->GetSubType())
+		{
+			case ARMOR_WRIST: case ARMOR_NECK: case ARMOR_EAR:
+			case ARMOR_FOOTS: case ARMOR_BODY: case ARMOR_SHIELD:
+				break;
+			default:
+				return 0;
+		}
+		int points = 0;
+		const int count = item->GetAttributeCount();
+		for (int i = 0; i < count && i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
+		{
+			const BYTE type = item->GetAttributeType(i);
+			const long value = item->GetAttributeValue(i);
+			if (value <= 0 || !IsPlayerBotTopBonusLine(type, 0x7FFFFFFFL))
+				continue;
+			if (type == APPLY_IMMUNE_STUN || type == APPLY_IMMUNE_SLOW)
+			{
+				points += 3;
+				continue;
+			}
+			points += playerbot_price_rules::BonusLinePoints(value, GetPlayerBotBonusMaxRoll(item, type));
+		}
+		return playerbot_price_rules::BonusPlusLevel(points);
+	}
+
+	// Point 4: a weapon's average damage as a plus (+6 or +7), zero under it.
+	int GetPlayerBotAverageDamagePlus(LPITEM item)
+	{
+		if (!item || item->GetType() != ITEM_WEAPON || item->GetSubType() == WEAPON_ARROW)
+			return 0;
+		return playerbot_price_rules::AverageDamagePlusLevel(
+				SumPlayerBotItemLines(item, APPLY_NORMAL_HIT_DAMAGE_BONUS),
+				PLAYERBOT_MARKET_V3_AVERAGE_SIX, PLAYERBOT_MARKET_V3_AVERAGE_SEVEN);
+	}
+
+	// Point 6: a shaman's weapon - a bell or a fan - or a shield, with
+	// Intelligence, in percent over its price: what a shaman's buffs are cast
+	// with, and what every shaman of the market goes looking for.
+	int GetPlayerBotIntPremiumPercent(LPITEM item)
+	{
+		if (!item)
+			return 100;
+		const bool shamanWeapon = item->GetType() == ITEM_WEAPON &&
+				(item->GetSubType() == WEAPON_BELL || item->GetSubType() == WEAPON_FAN);
+		const bool shield = item->GetType() == ITEM_ARMOR && item->GetSubType() == ARMOR_SHIELD;
+		if (!shamanWeapon && !shield)
+			return 100;
+		const long intelligence = SumPlayerBotItemLines(item, APPLY_INT);
+		return intelligence > 0 ? 100 + (int)std::min<long>(100, intelligence) * PLAYERBOT_MARKET_V3_INT_PERCENT_PER_POINT
+				: 100;
+	}
+
+	// The plus a piece is priced as (points 4 and 5): the larger of what its
+	// lines and its average damage are worth, zero for neither.
+	int GetPlayerBotPricedPlus(LPITEM item)
+	{
+		return std::max(GetPlayerBotBonusPlusLevel(item), GetPlayerBotAverageDamagePlus(item));
+	}
+
+	// MT2009_PLUS_BONUS_COUNT_PRICE_V1: the owner's add-on for every bonus line
+	// of a piece, while no Moonlight chests are in the world
+	// (IsPlayerBotBonusCountPricingOn, playerbot_events.h). Which of his three
+	// rows a piece is read by: bracelet, necklace, earrings, boots and shields
+	// one; body armour, helmet and weapon the other, and a weapon of level 30
+	// or 75 the same with its first two lines free. Its level is its limit
+	// level. The owner's yang through the same yang-rate curve and inflation
+	// as every sheet price (ScalePlayerBotIwakuraPrice). Zero while the rule is
+	// off, for anything else, and for a piece with no line.
+	DWORD ScalePlayerBotIwakuraPrice(DWORD base);
+	bool IsPlayerBotBonusCountPricingOn();
+
+	int GetPlayerBotBonusCountClass(LPITEM item)
+	{
+		if (!item)
+			return playerbot_price_rules::BONUS_COUNT_NONE;
+		if (item->GetType() == ITEM_WEAPON)
+		{
+			if (item->GetSubType() == WEAPON_ARROW)
+				return playerbot_price_rules::BONUS_COUNT_NONE;
+			const int level = item->GetLevelLimit();
+			return level == 30 || level == 75 ? playerbot_price_rules::BONUS_COUNT_WEAPON_30_75
+					: playerbot_price_rules::BONUS_COUNT_GEAR;
+		}
+		if (item->GetType() != ITEM_ARMOR)
+			return playerbot_price_rules::BONUS_COUNT_NONE;
+		switch (item->GetSubType())
+		{
+			case ARMOR_WRIST: case ARMOR_NECK: case ARMOR_EAR:
+			case ARMOR_FOOTS: case ARMOR_SHIELD:
+				return playerbot_price_rules::BONUS_COUNT_ACCESSORY;
+			case ARMOR_BODY: case ARMOR_HEAD:
+				return playerbot_price_rules::BONUS_COUNT_GEAR;
+		}
+		return playerbot_price_rules::BONUS_COUNT_NONE;
+	}
+
+	// The ordinary lines (the first five slots) that carry a bonus.
+	int CountPlayerBotBonusCountLines(LPITEM item)
+	{
+		int lines = 0;
+		for (int i = 0; item && i < playerbot_price_rules::BONUS_COUNT_MAX_LINES && i < ITEM_ATTRIBUTE_MAX_NUM; ++i)
+			if (item->GetAttributeType(i) != 0 && item->GetAttributeValue(i) != 0)
+				++lines;
+		return lines;
+	}
+
+	DWORD GetPlayerBotBonusCountAddon(LPITEM item)
+	{
+		if (!item || !IsPlayerBotBonusCountPricingOn())
+			return 0;
+		const int cls = GetPlayerBotBonusCountClass(item);
+		if (cls == playerbot_price_rules::BONUS_COUNT_NONE)
+			return 0;
+		const long long addon = playerbot_price_rules::BonusCountAddon(cls, item->GetLevelLimit(),
+				CountPlayerBotBonusCountLines(item));
+		if (addon <= 0)
+			return 0;
+		return ScalePlayerBotIwakuraPrice((DWORD)std::min<long long>(addon, 0xFFFFFFFFLL));
+	}
+
+	// A piece of jewellery, boots, body armour or a shield whose lines make it
+	// a +7 or better over its own plus: finished goods, for the counter rather
+	// than the storekeeper ("takie przedmioty boty wystawiaja na lade, zamiast
+	// chowac w magazynie") - Iwakura's list keeps none (IsPlayerBotLppKeptItem),
+	// no market cap of low plus sends it home or to the merchant, and the
+	// counter ranks it with the valuable bonuses (ScorePlayerBotShopStock).
+	bool IsPlayerBotBonusGoodsPiece(LPITEM item)
+	{
+		if (!item)
+			return false;
+		const int plus = GetPlayerBotBonusPlusLevel(item);
+		if (plus >= PLAYERBOT_MARKET_V3_BONUS_GOODS_PLUS && plus > (int)item->GetRefineLevel())
+			return true;
+		// MT2009_PLUS_BONUS_COUNT_PRICE_V1: and, while the owner's bonus-count
+		// prices hold, every piece its lines add yang to - a bracelet of two
+		// weak lines included: the counter's goods, never the merchant's or
+		// the storekeeper's.
+		return GetPlayerBotBonusCountAddon(item) > 0;
+	}
+
 	int ScorePlayerBotItemBonuses(LPCHARACTER ch, LPITEM item, BYTE wearCell)
 	{
 		if (!ch || !item)
@@ -724,8 +881,9 @@ namespace
 		const int plus = (int)item->GetRefineLevel();
 		if (plus < PLAYERBOT_BONUS_JEWEL_MIN_PLUS)
 			return false;
+		// MT2009_PLUS_BOT_L30_AVG_MIX_V1: the level-30 family from +7.
 		if (item->GetType() == ITEM_WEAPON)
-			return IsPlayerBotSpecialLevel30Weapon(item) ||
+			return (IsPlayerBotSpecialLevel30Weapon(item) && plus >= PLAYERBOT_BONUS_L30_MIX_MIN_PLUS) ||
 					(item->GetLevelLimit() >= PLAYERBOT_BONUS_WEAPON_MIN_LEVEL &&
 						plus >= PLAYERBOT_BONUS_WEAPON_MIN_PLUS);
 		if (item->GetType() != ITEM_ARMOR)
@@ -799,8 +957,10 @@ namespace
 		if (!CanPlayerBotTakeBonusStone(item) || IsPlayerBotBonusCategoryAllowed(item) ||
 				(int)item->GetRefineLevel() < PLAYERBOT_BONUS_JEWEL_MIN_PLUS)
 			return false;
+		// MT2009_PLUS_BOT_L30_AVG_MIX_V1: a level-30 weapon under +7 waits for
+		// its +7 (IsPlayerBotBonusCategoryAllowed takes it from there).
 		if (item->GetType() == ITEM_WEAPON)
-			return IsPlayerBotSpecialLevel30Weapon(item) ||
+			return !IsPlayerBotSpecialLevel30Weapon(item) &&
 					item->GetLevelLimit() >= PLAYERBOT_BONUS_WEAPON_MIN_LEVEL;
 		if (item->GetType() != ITEM_ARMOR)
 			return false;

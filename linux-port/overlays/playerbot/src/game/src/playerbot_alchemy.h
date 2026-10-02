@@ -71,6 +71,17 @@ namespace
 	// cap was twice the unscaled 100 000 - under every Cor on every counter
 	// (680 000 - 1 025 000 on the test world), so no bot ever bought one.
 	const int PLAYERBOT_DS_COR_BUY_MULT = 5;
+	// MT2009_PLUS_MARKET_SINK_V1: 50+ pages of Cors (lines of 50-67) on the
+	// supporters' world and no buyer - a line of 67 at 100 000 was over the
+	// 40% of every user's purse, and a user stopped at 25. With this many
+	// Cors on the counters the market is plentiful: a user keeps up to
+	// PLAYERBOT_DS_COR_KEEP_PLENTY, pays out of PLAYERBOT_DS_COR_PLENTY_PURSE
+	// percent of its spare purse, and buys a line no bigger than what it
+	// misses and PLAYERBOT_COR_LINE_MAX_UNITS more (the lines are cut to that,
+	// playerbot_offline_shop.h).
+	const DWORD PLAYERBOT_COR_MARKET_PLENTY_UNITS = 150;
+	const int PLAYERBOT_DS_COR_KEEP_PLENTY = 60;
+	const int PLAYERBOT_DS_COR_PLENTY_PURSE = 60;
 	const char* PLAYERBOT_DS_SHARDS_FLAG = "playerbot.ds_shards";
 	const char* PLAYERBOT_DS_DAY_FLAG = "playerbot.ds_day";
 	const char* PLAYERBOT_DS_LEFT_FLAG = "playerbot.ds_left";
@@ -182,6 +193,9 @@ namespace
 	{
 		unsigned shards, cors, opened, equipped, refinesGrade, refinesStep, refinesStrength, refineFails,
 				elixirs, beans, listed, trips;
+		// MT2009_PLUS_MARKET_SINK_V1: Cors off the counters.
+		unsigned corLinesBought;
+		unsigned long long corUnitsBought, corYang;
 	};
 	TPlayerBotAlchemyStats s_kPlayerBotAlchemyStats = { 0 };
 
@@ -382,12 +396,27 @@ namespace
 	// A user buys Cors while it holds fewer than PLAYERBOT_DS_COR_KEEP, and a
 	// stone of a kind it wears nothing of or a worse one of, up to its target
 	// grade, with lines worth something to it.
+	// MT2009_PLUS_MARKET_SINK_V1: the Cors on the counters of the world.
+	bool IsPlayerBotCorMarketPlentiful()
+	{
+		return GetPlayerBotOperatorGoodsSupply(PLAYERBOT_COR_ROUGH_VNUM) >= PLAYERBOT_COR_MARKET_PLENTY_UNITS;
+	}
+
+	int GetPlayerBotCorKeep()
+	{
+		return IsPlayerBotCorMarketPlentiful() ? PLAYERBOT_DS_COR_KEEP_PLENTY : PLAYERBOT_DS_COR_KEEP;
+	}
+
 	bool WantsPlayerBotAlchemyOffer(LPCHARACTER ch, LPITEM offer)
 	{
 		if (!ch || !offer || !IsPlayerBotAlchemyUser(ch))
 			return false;
 		if (IsPlayerBotCorVnum(offer->GetVnum()))
-			return (int)ch->CountSpecifyItem(offer->GetVnum()) < PLAYERBOT_DS_COR_KEEP;
+		{
+			const int have = (int)ch->CountSpecifyItem(offer->GetVnum());
+			const int keep = GetPlayerBotCorKeep();
+			return have < keep && (int)offer->GetCount() <= keep - have + PLAYERBOT_COR_LINE_MAX_UNITS;
+		}
 		if (!offer->IsDragonSoul())
 			return false;
 		// A stone it would wear: of the rare grade and over, up to its target
@@ -410,15 +439,19 @@ namespace
 		if (IsPlayerBotCorVnum(item->GetVnum()))
 		{
 			const long long unit = price / std::max<long long>(1, (long long)item->GetCount());
-			return unit <= (long long)ScalePlayerBotIwakuraPrice(PLAYERBOT_COR_DRACONIS_PRICE) * PLAYERBOT_DS_COR_BUY_MULT &&
-					price <= spare * 40 / 100;
+			// MT2009_PLUS_OWNER_PRICES_V2: and the higher the user, the more
+			// (GetPlayerBotOperatorLevelPercent, playerbot_town.h).
+			const int purse = IsPlayerBotCorMarketPlentiful() ? PLAYERBOT_DS_COR_PLENTY_PURSE : 40;
+			return unit <= (long long)ScalePlayerBotIwakuraPrice(PLAYERBOT_COR_DRACONIS_PRICE) * PLAYERBOT_DS_COR_BUY_MULT *
+						GetPlayerBotOperatorLevelPercent((int)ch->GetLevel()) / 100 &&
+					price <= spare * purse / 100;
 		}
 		return price <= (long long)GetPlayerBotDragonSoulPrice(item) * 12 / 10 && price <= spare * 25 / 100;
 	}
 
 	bool PlayerBotWantsAlchemyFromMarket(LPCHARACTER ch)
 	{
-		if (!IsPlayerBotAlchemyUser(ch) || (int)ch->CountSpecifyItem(PLAYERBOT_COR_ROUGH_VNUM) >= PLAYERBOT_DS_COR_KEEP)
+		if (!IsPlayerBotAlchemyUser(ch) || (int)ch->CountSpecifyItem(PLAYERBOT_COR_ROUGH_VNUM) >= GetPlayerBotCorKeep())
 			return false;
 		const TPlayerBotMarketLedgerEntry* cors = GetPlayerBotMarketLedgerEntry(PLAYERBOT_COR_ROUGH_VNUM);
 		return cors && cors->dwSupplyUnits > 0 &&
@@ -873,12 +906,29 @@ namespace
 		return false;
 	}
 
+	// MT2009_PLUS_MARKET_SINK_V1: a line of Cors asked for off a counter.
+	void NotePlayerBotCorBought(LPCHARACTER ch, DWORD vnum, long long price, DWORD count)
+	{
+		if (!IsPlayerBotCorVnum(vnum))
+			return;
+		++s_kPlayerBotAlchemyStats.corLinesBought;
+		s_kPlayerBotAlchemyStats.corUnitsBought += count;
+		s_kPlayerBotAlchemyStats.corYang += (unsigned long long)std::max<long long>(0, price);
+		sys_log(0, "PLAYERBOT_ALCHEMY: cor bought pid=%u name=%s units=%u price=%lld have=%d keep=%d supply=%u plentiful=%d",
+				ch ? ch->GetPlayerID() : 0, ch ? ch->GetName() : "", (unsigned int)count, price,
+				ch ? (int)ch->CountSpecifyItem(vnum) : 0, GetPlayerBotCorKeep(),
+				(unsigned int)GetPlayerBotOperatorGoodsSupply(PLAYERBOT_COR_ROUGH_VNUM),
+				IsPlayerBotCorMarketPlentiful() ? 1 : 0);
+	}
+
 	void LogPlayerBotAlchemyCensus()
 	{
 		const TPlayerBotAlchemyStats& s = s_kPlayerBotAlchemyStats;
-		sys_log(0, "PLAYERBOT_ALCHEMY: census shards=%u daily_cors=%u opened=%u worn_changes=%u grade=%u step=%u strength=%u refine_fails=%u elixirs=%u beans=%u listed=%u trips=%u",
+		sys_log(0, "PLAYERBOT_ALCHEMY: census shards=%u daily_cors=%u opened=%u worn_changes=%u grade=%u step=%u strength=%u refine_fails=%u elixirs=%u beans=%u listed=%u trips=%u cor_lines_bought=%u cor_units_bought=%llu cor_yang=%llu cor_supply=%u plentiful=%d",
 				s.shards, s.cors, s.opened, s.equipped, s.refinesGrade, s.refinesStep, s.refinesStrength,
-				s.refineFails, s.elixirs, s.beans, s.listed, s.trips);
+				s.refineFails, s.elixirs, s.beans, s.listed, s.trips, s.corLinesBought, s.corUnitsBought, s.corYang,
+				(unsigned int)GetPlayerBotOperatorGoodsSupply(PLAYERBOT_COR_ROUGH_VNUM),
+				IsPlayerBotCorMarketPlentiful() ? 1 : 0);
 	}
 }
 

@@ -578,6 +578,9 @@ namespace
 		std::map<DWORD, long>::const_iterator it = s_mapPlayerBotArezzoForced.find(ch->GetPlayerID());
 		if (it == s_mapPlayerBotArezzoForced.end() || !IsPlayerBotArezzoOpen() || !IsPlayerBotArezzoHosted(it->second))
 			return 0;
+		// MT2009_PLUS_PROGRESSION_V2: not past the map's upper limit.
+		if (ch->GetLevel() > GetPlayerBotArezzoMaxLevel(it->second))
+			return 0;
 		if (it->second == PLAYERBOT_MAP_AREZZO_FOREST &&
 				(ch->GetLevel() < PLAYERBOT_AREZZO_FOREST_MIN_LEVEL || !IsPlayerBotArezzoHosted(PLAYERBOT_MAP_OCHAO) ||
 				 !IsPlayerBotArezzoHosted(PLAYERBOT_MAP_ORC_VALLEY)))
@@ -1479,6 +1482,7 @@ namespace
 					lmin = info->bMinLevel;
 					lmax = a == PLAYERBOT_MAP_AREZZO_FOREST ? 255 : (int)info->bMinLevel + 30;
 				}
+				lmax = std::min(lmax, (int)GetPlayerBotArezzoMaxLevel(a));
 				if (a == PLAYERBOT_MAP_AREZZO_FOREST && lmin < (int)PLAYERBOT_AREZZO_FOREST_MIN_LEVEL)
 					lmin = PLAYERBOT_AREZZO_FOREST_MIN_LEVEL;
 				std::vector<DWORD> pids = CollectPlayerBotArezzoCandidates(a, lmin, lmax, !strcmp(opt, "any"));

@@ -1363,6 +1363,18 @@ namespace
 			// (playerbot_arezzo_bots.h); their bosses are the boss raid's.
 			else if (IsPlayerBotArezzoMap(ch->GetMapIndex()))
 				hubs = GetPlayerBotArezzoHubs(ch->GetMapIndex(), hubCount);
+			// MT2009_PLUS_L30_WEAPON_DROPPER_V1: the island's dropper hunts its
+			// kingdom's first island and nowhere else of the valley.
+			if (ch->GetMapIndex() == PLAYERBOT_MAP_ORC_VALLEY && IsPlayerBotL30DropperAtWork(ch))
+			{
+				size_t islandCount = 0;
+				const TPlayerBotHuntingHub* island = GetPlayerBotL30DropperHubs((int)ch->GetEmpire(), islandCount);
+				if (island && islandCount > 0)
+				{
+					hubs = island;
+					hubCount = islandCount;
+				}
+			}
 			const DWORD pid = ch->GetPlayerID();
 			// A stone anybody has seen on this map comes before any hub while the
 			// bot hunts stones - by role, or on an expedition. Off the town map

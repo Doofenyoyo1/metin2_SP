@@ -163,6 +163,10 @@ namespace
 	// defaults are the world as it was, thirty minutes every two hours.
 	int s_iPlayerBotWarMinutes = 30;
 	int s_iPlayerBotWarEveryHours = 2;
+	// MT2009_PLUS_GUILD_WAR_KILLS_V1: the kills that win a war with a bot
+	// guild on a side before its clock runs out (the WAR_KILLS key; 0 is the
+	// clock alone). The default is the operator's hundred.
+	int s_iPlayerBotWarKills = 100;
 	// Whether a bot reads its books without the engine's day between them.
 	// On by default: the day is what makes a book a month's project, and the
 	// books were rotting in the bags of bots that could not read them yet.
@@ -206,6 +210,11 @@ namespace
 	// world as it was, whole, while a world is running.
 	bool s_bPlayerBotPersona = true;
 	bool s_bPlayerBotPersonaReported = true;
+	// MT2009_PLUS_BOT_HAGGLE_V1: a bot's haggle with a person over a line of
+	// the person's offline shop too dear to buy at once (the HAGGLE key,
+	// playerbot_haggle.h). On by default; off forgets every deal.
+	bool s_bPlayerBotHaggle = true;
+	bool s_bPlayerBotHaggleReported = true;
 	// MT2009_PLUS_SHOUTERS_V1: the three shouters of the first villages (the
 	// SHOUTERS key, playerbot_shouters.h). On by default; off logs them out.
 	bool s_bPlayerBotShouters = true;
@@ -265,6 +274,7 @@ namespace
 		s_iPlayerBotScrollFromPlus = 1;
 		s_iPlayerBotWarMinutes = 30;
 		s_iPlayerBotWarEveryHours = 2;
+		s_iPlayerBotWarKills = 100;
 		s_bPlayerBotFastBooks = true;
 		s_bPlayerBotNight = true;
 		s_bPlayerBotLifeSchedule = false;
@@ -276,6 +286,7 @@ namespace
 		s_bPlayerBotShopsInM2 = false;
 		s_bPlayerBotShouters = true;
 		s_bPlayerBotPersona = true;
+		s_bPlayerBotHaggle = true;
 		if (s_iPlayerBotChestConfigPermille < 0)
 		{
 			s_iPlayerBotChestConfigPermille = g_iMoonlightChestPermille;
@@ -455,6 +466,17 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			s_bPlayerBotPersona = enabled;
 			return;
 		}
+		if (PlayerBotWeightNameEquals(szKey, "HAGGLE"))
+		{
+			const bool enabled = value != 0;
+			if (enabled != s_bPlayerBotHaggleReported)
+			{
+				sys_log(0, "PLAYERBOT_CONFIG: haggling over people's counters %s", enabled ? "on" : "off");
+				s_bPlayerBotHaggleReported = enabled;
+			}
+			s_bPlayerBotHaggle = enabled;
+			return;
+		}
 		if (PlayerBotWeightNameEquals(szKey, "CHEST") || PlayerBotWeightNameEquals(szKey, "CHEST_STONE"))
 		{
 			const int permille = value < 0 ? 0 : (value > 1000 ? 1000 : (int)value);
@@ -545,6 +567,14 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			if (hours != s_iPlayerBotWarEveryHours)
 				sys_log(0, "PLAYERBOT_CONFIG: a bot guild war every %d hours in each kingdom", hours);
 			s_iPlayerBotWarEveryHours = hours;
+			return;
+		}
+		if (PlayerBotWeightNameEquals(szKey, "WAR_KILLS"))
+		{
+			const int kills = value < 0 ? 0 : (value > 1000 ? 1000 : (int)value);
+			if (kills != s_iPlayerBotWarKills)
+				sys_log(0, "PLAYERBOT_CONFIG: a guild war with bots is won at %d kills%s", kills, kills ? "" : " (the clock alone)");
+			s_iPlayerBotWarKills = kills;
 			return;
 		}
 		if (PlayerBotWeightNameEquals(szKey, "SCROLL_FROM"))
@@ -672,6 +702,8 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			return s_bPlayerBotShopsInM2 ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "PERSONA"))
 			return s_bPlayerBotPersona ? 1 : 0;
+		if (PlayerBotWeightNameEquals(szKey, "HAGGLE"))
+			return s_bPlayerBotHaggle ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "SHOUTERS"))
 			return s_bPlayerBotShouters ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "SCRAP"))
@@ -692,6 +724,8 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			return s_iPlayerBotWarMinutes;
 		if (PlayerBotWeightNameEquals(szKey, "WAR_HOURS"))
 			return s_iPlayerBotWarEveryHours;
+		if (PlayerBotWeightNameEquals(szKey, "WAR_KILLS"))
+			return s_iPlayerBotWarKills;
 		if (PlayerBotWeightNameEquals(szKey, "CHEST"))
 			return !s_bPlayerBotChestFromFile ? -1 :
 					(GetPlayerBotChestWantedPermille(false) >= 0 ? GetPlayerBotChestWantedPermille(false) : g_iMoonlightChestPermille);
@@ -739,6 +773,7 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 				PlayerBotWeightNameEquals(szKey, "ISHOP") ||
 				PlayerBotWeightNameEquals(szKey, "SHOP_M2") ||
 				PlayerBotWeightNameEquals(szKey, "PERSONA") ||
+				PlayerBotWeightNameEquals(szKey, "HAGGLE") ||
 				PlayerBotWeightNameEquals(szKey, "SHOUTERS"))
 		{
 			value = value ? 1 : 0;
@@ -768,7 +803,8 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			return true;
 		}
 		if (PlayerBotWeightNameEquals(szKey, "CHEST") ||
-				PlayerBotWeightNameEquals(szKey, "CHEST_STONE"))
+				PlayerBotWeightNameEquals(szKey, "CHEST_STONE") ||
+				PlayerBotWeightNameEquals(szKey, "WAR_KILLS"))
 		{
 			value = value < 0 ? 0 : (value > 1000 ? 1000 : value);
 			return true;
@@ -1143,6 +1179,15 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 		return s_iPlayerBotWarMinutes;
 	}
 
+	// MT2009_PLUS_GUILD_WAR_KILLS_V1: WAR_KILLS, the kills that win a war with
+	// a bot guild on a side (playerbot_guild_war.h); 0 is the clock alone.
+	int GetPlayerBotGuildWarKills()
+	{
+		if (!s_bPlayerBotWeightsInitialised)
+			ResetPlayerBotWeights();
+		return s_iPlayerBotWarKills;
+	}
+
 	// The rest between two wars of a kingdom: from one war's end to the next
 	// one's declaration, so that the starts are WAR_HOURS apart - ninety
 	// minutes after a war of thirty at the default two hours, as the constant
@@ -1252,6 +1297,14 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 		if (!s_bPlayerBotWeightsInitialised)
 			ResetPlayerBotWeights();
 		return s_bPlayerBotPersona;
+	}
+
+	// MT2009_PLUS_BOT_HAGGLE_V1: the HAGGLE switch (playerbot_haggle.h).
+	bool IsPlayerBotHaggleEnabled()
+	{
+		if (!s_bPlayerBotWeightsInitialised)
+			ResetPlayerBotWeights();
+		return s_bPlayerBotHaggle;
 	}
 
 	// MT2009_PLUS_SHOUTERS_V1: the SHOUTERS switch (playerbot_shouters.h).

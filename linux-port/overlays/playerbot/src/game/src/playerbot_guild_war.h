@@ -901,6 +901,114 @@ namespace
 		}
 	}
 
+	// MT2009_PLUS_GUILD_WAR_KILLS_V1: a war with a bot guild on a side is won
+	// by the first guild to WAR_KILLS kills (GetPlayerBotGuildWarKills, the
+	// panel's; 0 is the clock alone), the clock's end keeping its own winner -
+	// the side with more kills. A field war's score is its kills since the
+	// engine patch of the same name (server-patches/guildwarkills): one a
+	// kill, not the victim's level. "Wygrywa gildia, ktora pierwsza zabije
+	// ustawiona liczbe wrogow" (Buszek and the operator, 1 October).
+	const DWORD PLAYERBOT_GUILD_WAR_KILLS_CHECK_MS = 2000;
+	const DWORD PLAYERBOT_GUILD_WAR_BOARD_MS = 3000;
+	DWORD s_dwNextPlayerBotGuildWarKillsCheck = 0;
+	DWORD s_dwNextPlayerBotGuildWarBoard = 0;
+
+	// The first channel's wars, a few seconds apart rather than the minute
+	// of the pass below: a war at its target is asked of the db core once
+	// (bEndAsked), and is over when it answers, like a war of fifteen minutes.
+	void CheckPlayerBotGuildWarKills(DWORD dwNow)
+	{
+		const int kills = GetPlayerBotGuildWarKills();
+		if (kills <= 0 || s_mapPlayerBotGuildWars.empty())
+			return;
+		if (s_dwNextPlayerBotGuildWarKillsCheck != 0 && dwNow < s_dwNextPlayerBotGuildWarKillsCheck)
+			return;
+		s_dwNextPlayerBotGuildWarKillsCheck = dwNow + PLAYERBOT_GUILD_WAR_KILLS_CHECK_MS;
+		for (std::map<BYTE, TPlayerBotGuildWar>::iterator it = s_mapPlayerBotGuildWars.begin();
+				it != s_mapPlayerBotGuildWars.end(); ++it)
+		{
+			TPlayerBotGuildWar& war = it->second;
+			if (!war.bStarted || war.bEndAsked)
+				continue;
+			CGuild* g1 = CGuildManager::instance().FindGuild(war.dwGuild1);
+			CGuild* g2 = CGuildManager::instance().FindGuild(war.dwGuild2);
+			if (!g1 || !g2 || !g1->UnderWar(g2->GetID()))
+				continue;
+			const int score1 = g1->GetWarScoreAgainstTo(g2->GetID());
+			const int score2 = g2->GetWarScoreAgainstTo(g1->GetID());
+			if (std::max(score1, score2) < kills || score1 == score2)
+				continue;
+			CGuild* winner = score1 > score2 ? g1 : g2;
+			CGuild* loser = score1 > score2 ? g2 : g1;
+			war.bEndAsked = true;
+			CGuildManager::instance().RequestWarOver(g1->GetID(), g2->GetID(), winner->GetID(), 0);
+			char notice[200];
+			snprintf(notice, sizeof(notice), "Wojna gildii: %s pierwsza zabija %d wrogow i wygrywa z %s (%d:%d)!",
+					winner->GetName(), kills, loser->GetName(), std::max(score1, score2), std::min(score1, score2));
+			BroadcastNotice(notice);
+			sys_log(0, "PLAYERBOT_GUILD: war won by kills %s vs %s score=%d:%d target=%d winner=%s player=%d",
+					g1->GetName(), g2->GetName(), score1, score2, kills, winner->GetName(), (int)war.bPlayerWar);
+		}
+	}
+
+	// The war's board in the client (guildwarkills.py): every core tells the
+	// people of a guild at a field war with a bot guild on a side the kills
+	// that win it - "guild_war_kills <guild> <enemy> <kills>" - once they are
+	// in the game, again when the number changes, and 0 when it is gone. A
+	// war between people's guilds is the engine's arena war and keeps the
+	// stock board.
+	struct TPlayerBotWarBoardSent
+	{
+		DWORD dwVID;
+		DWORD dwGuild;
+		DWORD dwEnemy;
+		int iKills;
+	};
+	std::map<DWORD, TPlayerBotWarBoardSent> s_mapPlayerBotWarBoardSent;
+
+	void ManagePlayerBotGuildWarBoards(DWORD dwNow)
+	{
+		if (s_dwNextPlayerBotGuildWarBoard != 0 && dwNow < s_dwNextPlayerBotGuildWarBoard)
+			return;
+		s_dwNextPlayerBotGuildWarBoard = dwNow + PLAYERBOT_GUILD_WAR_BOARD_MS;
+		const int target = GetPlayerBotGuildWarKills();
+		std::map<DWORD, TPlayerBotWarBoardSent> seen;
+		const DESC_MANAGER::DESC_SET& descs = DESC_MANAGER::instance().GetClientSet();
+		for (DESC_MANAGER::DESC_SET::const_iterator it = descs.begin(); it != descs.end(); ++it)
+		{
+			LPDESC desc = *it;
+			LPCHARACTER ch = desc ? desc->GetCharacter() : NULL;
+			if (!ch || desc->IsBot() || !desc->IsPhase(PHASE_GAME))
+				continue;
+			TPlayerBotWarBoardSent want;
+			want.dwVID = (DWORD)ch->GetVID();
+			want.dwGuild = 0;
+			want.dwEnemy = 0;
+			want.iKills = 0;
+			CGuild* mine = ch->GetGuild();
+			const DWORD opp = mine ? mine->UnderAnyWar(GUILD_WAR_TYPE_FIELD) : 0;
+			CGuild* enemy = opp ? CGuildManager::instance().FindGuild(opp) : NULL;
+			if (enemy && target > 0 && (IsPlayerBotGuild(mine) || IsPlayerBotGuild(enemy)))
+			{
+				want.dwGuild = mine->GetID();
+				want.dwEnemy = enemy->GetID();
+				want.iKills = target;
+			}
+			std::map<DWORD, TPlayerBotWarBoardSent>::const_iterator was = s_mapPlayerBotWarBoardSent.find(ch->GetPlayerID());
+			const bool known = was != s_mapPlayerBotWarBoardSent.end() && was->second.dwVID == want.dwVID;
+			if (want.iKills > 0)
+			{
+				if (!known || was->second.iKills != want.iKills || was->second.dwGuild != want.dwGuild ||
+						was->second.dwEnemy != want.dwEnemy)
+					ch->ChatPacket(CHAT_TYPE_COMMAND, "guild_war_kills %u %u %d", want.dwGuild, want.dwEnemy, want.iKills);
+				seen[ch->GetPlayerID()] = want;
+			}
+			else if (known && was->second.iKills > 0)
+				ch->ChatPacket(CHAT_TYPE_COMMAND, "guild_war_kills %u %u 0", was->second.dwGuild, was->second.dwEnemy);
+		}
+		s_mapPlayerBotWarBoardSent.swap(seen);
+	}
+
 	// Once a minute for the world: the war in progress moved along, or the
 	// next one declared when its time has come. A declaration is a round trip
 	// through the db core - the other master accepts on a later minute, once
@@ -909,6 +1017,8 @@ namespace
 	// answered within seconds, ahead of the minute.
 	void ManagePlayerBotGuildWars(DWORD dwNow)
 	{
+		// MT2009_PLUS_GUILD_WAR_KILLS_V1: the people's war boards, on every core.
+		ManagePlayerBotGuildWarBoards(dwNow);
 		// A war is declared once for the world, by the first channel; the bots
 		// of a guild at war fight it on whichever channel they live on.
 		if (g_bChannel != 1)
@@ -918,6 +1028,7 @@ namespace
 		}
 		if (!s_bPlayerBotGuildWarMemoryLoaded)
 			LoadPlayerBotGuildWarMemory();
+		CheckPlayerBotGuildWarKills(dwNow);
 		if (!s_vecPlayerBotWarOffers.empty())
 			ProcessPlayerBotWarOffers(dwNow);
 		if (s_dwNextPlayerBotGuildWarCheck != 0 && dwNow < s_dwNextPlayerBotGuildWarCheck)

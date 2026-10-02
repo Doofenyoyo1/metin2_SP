@@ -380,7 +380,7 @@ class WindowTest(unittest.TestCase):
 		self.assertEqual([order for text, order in uisidekick.ORDERS],
 			['przywolaj', 'czekaj', 'wolny', 'zakupy', 'ryby', 'stan'])
 		self.assertEqual([order for name, order, default, text, hint in uisidekick.SWITCHES],
-			['ochrona', 'buffy', 'luruj', 'sam', 'skrzynki', 'grupa'])
+			['ochrona', 'buffy', 'luruj', 'sam', 'skrzynki', 'grupa', 'monety'])
 
 	def test_dismissing_asks_first(self):
 		self.window.OnDismiss()

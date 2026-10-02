@@ -17,6 +17,120 @@ every version here.
 
 ---
 
+## 2.18.1 — 2026-10-02
+
+Serwer 2.18.1 i klient 2.0.57: **zaktualizuj oba** („AKTUALIZUJ wszystko”
+w launcherze). Na VPS: `sh linux-port/tools/update.sh`. Nowy klient ma
+nowy plik gry (exe), który nie wyłącza się już losowo w walce. Świat,
+postacie i ustawienia zostają.
+
+To jest MT2009 PLUS 2.18.0 z klientem 2.0.38, z naszymi zmianami na
+wierzchu; jego notatki są niżej, pod nagłówkami „MT2009 PLUS”. W skrócie:
+żywy rynek botów (ceny według podaży, ludzkie zaokrąglenia, targowanie
+się szeptem o sprzęt w sklepach graczy), nowe progi rozwoju botów i
+darmowe M1 przy 17, dropkowie broni 30 lvl, szamani z zestawem INT,
+wojny gildii wygrywane zabójstwami, opcja „Kolejny cel”, przyciski
+układania i scalania w magazynie, drop yang najwyżej 1000%.
+
+### Co zostaje nasze
+
+- **Launcher nie przekazuje aktualizacji klienta do MT2009-Patcher.exe.**
+  Patcher pobiera klienta z kanału MT2009 PLUS, nie z naszego - u nas
+  „GRAJ” i „Aktualizuj klienta” działają jak dotąd, z paczki klienta z
+  naszego repozytorium. Pozostałe zmiany launchera (baza danych na
+  MariaDB serwera, kopia zapasowa z bazą `world`, oba kanały w COOP,
+  limit yang 1000%) są.
+- **Wojna gildii liczona w zabójstwach działa w pełni.** Paczka MT2009
+  PLUS 2.18.0 nie zawiera zmienionego `guild_manager.cpp`, więc punkt za
+  zabójstwo (zamiast poziomu zabitego) dokładamy sami - inaczej cel
+  „100 zabójstw” liczyłby poziomy.
+- **Okno zmiany bonusów pod klawiszem 0**, obok nowych okien klienta.
+- COOP bez hasła, aktualizacje z naszego repozytorium, trzej kowale gildii
+  i powód odrzucenia budynku - bez zmian.
+
+### Jak to sprawdzono
+
+Testy jednostkowe botów (19) i testy okien klienta przechodzą. Pliki botów
+i zmienione pliki silnika przechodzą sprawdzenie składni (32-bit) na
+drzewie, które dostaje gracz (cały silnik z pełnej paczki MT2009 PLUS,
+jego aktualizacja 2.18.0 i nasze zmiany) - bez nagłówków `Extern` z pełnej
+paczki, więc to nie jest pełna kompilacja. Świata testowego z tą wersją
+jeszcze nie uruchomiono.
+
+---
+
+_Poniżej notatki MT2009 PLUS do jego serwera 2.18.0 i klienta 2.0.38, bez zmian poza nagłówkami. U nas ten serwer to 2.18.1, a klient 2.0.57._
+
+### MT2009 PLUS 2.18.0 — 2026-10-02 — Żywy rynek, nowa ścieżka rozwoju botów, wojny gildii na zabójstwa
+
+Wymaga klienta **2.0.38** (launcher pobierze go sam albo zaktualizuje go patcher).
+
+### Gospodarka botów
+- **Ceny zależne od rynku.** Ulepszacze, księgi umiejętności, Zwój Zapomnienia, Kamień Duchowy i Zwój Błogosławieństwa drożeją, gdy na straganach całego świata (botów i graczy) ich brakuje, i tanieją, gdy jest ich dużo. Cena zmienia się płynnie, z opóźnieniem, w granicach 70–160% ceny bazowej. Boty przeliczają ceny na swoich ladach co pół godziny.
+- **Przecena zależna od podaży.** Rzadkiego towaru boty nie przeceniają, a każdy towar ma cenę minimalną.
+- **Ludzkie ceny.** Boty zaokrąglają ceny jak gracze (1 490 000 zamiast 1 487 312).
+- **Broń z wysokimi średnimi obrażeniami** jest wyceniana jak ulepszona (ŚR 30 jak +6, ŚR 40 jak +7), a najlepsze egzemplarze danej broni na serwerze są wyraźnie droższe.
+- **Bonusy liczą się bardziej niż „+”.** Biżuteria, buty, zbroje i tarcze z dobrymi bonusami są wyceniane jak +5, +7 albo +8 (np. bransoleta +0 z 1500 PŻ kosztuje tyle co czysta +7). Takie przedmioty boty wystawiają, zamiast chować w magazynie.
+- **Inteligencja:** broń szamana i tarcze z INT są droższe.
+- **Bonusy na EQ dużo warte, gdy nie ma Szkatułek Blasku Księżyca.** Jeśli przez ostatnie 14 dni nie było eventu Blasku Księżyca, każdy bonus podnosi cenę przedmiotu (nawet słaby): bransoleta, naszyjnik, kolczyki, buty i tarcza +1,5 mln za bonus do 42 lvl, +2,5 mln powyżej; zbroja, broń i hełm +0,5 mln do 42 lvl, +1,2 mln powyżej (broń 30 i 75 lvl — dopiero 3., 4. i 5. bonus). Kwoty rosną razem z inflacją i stawką dropu yang. Takich przedmiotów boty nie sprzedają NPC ani nie chowają, tylko wystawiają. Gdy event Blasku Księżyca trwa albo był niedawno, obowiązują zwykłe zasady.
+- **Rynek się równoważy:** boty dokładają z magazynu towar, którego brakuje, i wstrzymują ten, którego jest za dużo.
+- **Nowy cennik botów.** Ceny sprzętu +9 według wyceny właściciela, +5…+8 wyliczone od nich, ceny przeniesione na wszystkie klasy. Wycenione nowe przedmioty z ostatnich aktualizacji (szkatułki władców, skrzynie eventów, skrzynie lochów, przedmioty petów, materiały Seon-Hae). Cor Draconis i Materiały Rzemieślnicze mają krzywą ceny zależną od podaży, wielkości stosu i poziomu bota.
+- **Skup nadwyżek.** Boty chętniej skupują z rynku Cor Draconis, Materiały Rzemieślnicze, szarfy i medale konia. Cory i materiały wystawiają po maksymalnie 20 sztuk w pozycji.
+- **Hełmy 21/41 lvl oraz Tarcze Pięciokątne i Okrągłe** trafiają ze skrzyń botów na sklepy.
+- **Fryzury:** boty kupują tylko fryzury z zestawów kostiumów i nie zalewają rynku zwykłymi fryzurami z ItemShopu.
+- **Siano:** boty go nie wystawiają, każdy zostawia sobie 5 sztuk dla konia, a resztę wymienia na mikstury albo sprzedaje Handlarce.
+- **Targowanie się:** gdy sprzęt od +6 w Twoim sklepie offline jest dla bota za drogi, bot napisze z ofertą. Odpowiedz „ok”, podaj swoją cenę (np. „5kk”) albo obniż cenę — bot przyjdzie i kupi. „nie” kończy rozmowę. Wyłączysz to w panelu, na stronie AI.
+
+### Rozwój botów
+- **Umiejętności na M1 za darmo:** umiejętność bota, która doszła do 17, od razu wchodzi na M1. Boty nie kupują już Zwojów Zapomnienia do losowania M (to zjadało dziesiątki milionów yang i blokowało czytanie ksiąg).
+- **Nowe progi rozwoju (panel zaawansowany):** bramka 35 — broń 15 lvl na +7 albo 16–29 lvl na +6 albo 30 lvl na +4, zbroja +6, koń bojowy poz. 5, 10 metinów; bramka 45 — broń 25 lvl na +7 albo 30 lvl na +6, 2 umiejętności na M, koń poz. 12; bramka 55 — broń 30 lvl na +7. Prawo Awansu: broń +6 od 26 lvl i +7 od 35 lvl.
+- **Bot na bramce nie stoi w M1:** idzie bić metiny, zbierać medale i robić konia na mapie na swój poziom. Bot z celem poza M1 jest puszczany z M1 po 10 minutach.
+- **Górne limity map:** Loch Pająków 1 i Świątynia Hwang do 61 lvl, Loch Pająków 2 do 78, Las Duchów do 72, Dolina Cyklopów do 50, Pustkowie Faraona do 65, Ochao i Las do 120.
+- **Broń 30 lvl:** boty polują na nią tylko do 35 lvl, potem kupują ją na rynku. Nowi dropkowie broni 30 lvl (21 lvl, 2–3 na kanał i królestwo) pilnują Bestialnych potworów na pierwszych wyspach Doliny Orków. Best. Żołnierz i Best. Maniak dają teraz broń 30 lvl tak jak Bestialski Łucznik.
+- **Konie i juki:** boty kupują medale tam, gdzie są wystawione (w pierwszych wioskach), kończą wyprawę do Lochu Małp z medalem, po koniu bojowym zbierają po 3 medale, a właściciele juków trzymają materiały tylko na dwa najbliższe rzędy. Juki rozwija połowa botów (było 30%).
+- **M3:** boty powyżej 25 lvl już tam nie polują. Na mapę gildii przychodzą nadal na wojny, Tanakę, deszcz Metinów i wezwania graczy.
+- **Szarfy:** do unikatowej boty wkładają przedmiot minimum +7 albo z dwoma idealnymi bonusami, do zacnej +6 albo z jednym idealnym bonusem, do dostojnej zawsze broń +6.
+- **Szamani z Inteligencją:** noszą w plecaku zestaw z INT i przebierają się w niego, żeby rzucić mocniejsze buffy; w drużynie z graczem walczą w nim cały czas. Na zestaw mogą wydać do 40% złota.
+- **Broń 30 lvl od +7:** boty mieszają na niej średnie obrażenia aż do 30%.
+- **Nowi krzykacze:** w każdym królestwie jest jeden obowiązkowy dropek medali, który krzyczy na wołaj (na zasadach jak apka2009).
+
+### Towarzysz
+- Zwabia grupy zwykłym ciosem, a umiejętności używa na zebranych potworach.
+- Ma własną pulę postaci — komunikat „Nie ma teraz wolnej postaci tej klasy” nie powinien się już pojawiać, a nowy Towarzysz od razu nosi wybrany nick. Towarzysz pokazywany pod starym nickiem zaloguje się raz jeszcze, już pod właściwym.
+- Wydaje Smocze Monety w ItemShopie: przełącznik „Smocze Monety: wydaje / nie wydaje” na stronie Opcje (domyślnie wydaje) i stan jego konta. Kupony SM wymienia od razu, kupuje tylko to, czego sam używa, i pisze Ci, co kupił i za ile. „Raport” mówi, na co odkłada.
+- Gdy stoisz przy kowalu, oprócz ulepszania nakłada też bonusy na swój sprzęt.
+
+### Wojny gildii
+- Wygrywa gildia, która pierwsza zabije ustawioną liczbę wrogów (domyślnie 100, zmienisz w panelu); po czasie wojny — ta, która zabiła więcej. Dotyczy wojen z gildią botów.
+- Tablica wyniku pokazuje cel, ile zabójstw brakuje każdej stronie i kto prowadzi.
+
+### Łucznik
+- Pasywka trafia więcej celów: dodatkowe strzały lecą też w potwory, które biją kogoś z drużyny (także Towarzysza), i w potwory wezwane przez Metina, z którym walczysz. Liczba celów się nie zmienia.
+- **Kolejny cel po zabiciu** — nowa opcja w ustawieniach gry (Z łukiem / Zawsze / Wyłączony). Klient sam zaznacza najbliższego potwora, z którym już walczyłeś, albo takiego, który Cię atakuje.
+
+### Drop i świat
+- Zmiany z arkusza dropu właściciela: zawartość skrzyń lochów, nowe dropy bossów (Baronówna, WuKong, Król Skorpionów, Azrael, Królowa Dżungli, Beran-Setaou), Cor i szarfy według potwora, Metin Ciemności w Bibliotece Wiedzy, Zwój i Peleryna Męstwa ze wszystkich bossów.
+- Złota i Srebrna Szkatułka nie dają już unikatowych szarf — tylko skrzynie bossów.
+- Trzeci Loch Pająków jest wyłączony (wejście do niego zamykało grę); postać zapisana w nim wraca do miasta.
+- Drop yang najwyżej 1000%: wyższej stawki nie da się ustawić, a świat z wyższą stawką dostanie 1000% przy następnym starcie. Doświadczenie i drop przedmiotów bez zmian.
+
+### Launcher
+- Jeśli w folderze klienta jest **MT2009-Patcher.exe**, „GRAJ” i „Aktualizuj klienta” uruchamiają patcher (bez pobierania paczki z GitHuba). Bez patchera — aktualizacja jak dotąd.
+- Naprawa, kopia zapasowa i import bazy używają tej samej wersji MariaDB co serwer (wcześniej starszej, co mogło zepsuć bazę). Kopia zapasowa obejmuje też bazę `world` (przedmioty i potwory).
+- COOP: zaproszenie zawsze podaje oba kanały.
+
+
+### MT2009 PLUS — Klient 2.0.38 — 2026-10-02
+
+- **Klient nie wyłącza się już losowo podczas walki** (nowy `metin2client.exe`). Szybciej odczytuje też pakiety w tłumie botów.
+- **Pasek zaznaczonej postaci** (handel, pojedynek, podgląd ekwipunku, zaproszenie do grupy) nie znika już po teleporcie i dłuższej grze.
+- **Magazyn:** przyciski „Ułóż i scal” oraz „Tylko scal stosy” — jak w ekwipunku.
+- **Opcja „Kolejny cel”** w ustawieniach gry (Z łukiem / Zawsze / Wyłączony).
+- **Tablica wyniku wojny gildii** z celem zabójstw.
+- **Okno Towarzysza:** przełącznik wydawania Smoczych Monet i stan jego konta.
+
+---
+
 ## 2.17.2 — 2026-10-02
 
 Serwer 2.17.2 i klient 2.0.56: **zaktualizuj oba** („AKTUALIZUJ wszystko”

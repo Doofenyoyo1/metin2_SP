@@ -294,6 +294,218 @@ inline ShortageJudgement NoteShortageLook(ShortageState& state, uint32_t now, bo
 	return judged;
 }
 
+// MT2009_PLUS_MARKET_V3: the living market of 2 October, as arithmetic. The
+// engine side is the market index and the census in playerbot_town.h
+// (UpdatePlayerBotMarketIndex, GetPlayerBotPricedPlus), the listing price and
+// its floor beside them, and the reprice in playerbot_offline_shop.h.
+
+// Point 1: the price of a kind the counters of the whole world (the bots' and
+// the people's) lack goes up, and of one they are full of goes down. What the
+// counters hold now (supply) is read against what they usually hold (usual):
+// a slow average of the same count, so a kind the market always carries a
+// thousand of is not "flooded" at a thousand, and the owner's base prices are
+// what the usual market asks. The bots short of it (demand) are buyers on top
+// of the usual. (usual + demand + q0) / (supply + q0), to `exponent`, between
+// minPercent and maxPercent - hundredths.
+inline int MarketIndexTargetPercent(double usual, double supply, double demand, double q0,
+		double exponent, int minPercent, int maxPercent)
+{
+	if (usual < 0.0) usual = 0.0;
+	if (supply < 0.0) supply = 0.0;
+	if (demand < 0.0) demand = 0.0;
+	if (q0 <= 0.0) q0 = 1.0;
+	const double target = 100.0 * std::pow((usual + demand + q0) / (supply + q0), exponent);
+	if (!(target > (double)minPercent))
+		return minPercent;
+	if (!(target < (double)maxPercent))
+		return maxPercent;
+	return (int)(target + 0.5);
+}
+
+// A step of an average with a time constant: `elapsedMs` of `tauMs` takes the
+// value 1 - e^(-t/tau) of the way to `target`. Both the usual supply (a day)
+// and the index itself (two hours, "plynnie i z opoznieniem") move this way,
+// so a counter emptied for ten minutes moves no price, and one empty all
+// afternoon does.
+inline double SmoothTowards(double value, double target, uint32_t elapsedMs, uint32_t tauMs)
+{
+	if (tauMs == 0)
+		return target;
+	const double alpha = 1.0 - std::exp(-(double)elapsedMs / (double)tauMs);
+	return value + (target - value) * alpha;
+}
+
+// Point 2: the markdown of a line by the supply of its kind. A line whose
+// kind the other counters do not carry - fewer units than the line itself
+// holds, so a lone sword and a lone stack of fifty alike - is rare goods and is
+// not marked down at all; at `plentyLines` lines' worth of other stock it
+// takes its whole markdown, and between the two a share of it.
+inline int SupplyMarkdownPercent(int markdownPercent, long long supplyUnits, long long lineUnits,
+		int plentyLines)
+{
+	if (markdownPercent <= 0)
+		return 0;
+	if (lineUnits < 1)
+		lineUnits = 1;
+	long long others = supplyUnits - lineUnits;
+	if (others < lineUnits)
+		return 0;
+	if (plentyLines <= 1)
+		return markdownPercent;
+	const long long plenty = lineUnits * (long long)plentyLines;
+	if (others >= plenty)
+		return markdownPercent;
+	return (int)((long long)markdownPercent * (others - lineUnits + 1) / (plenty - lineUnits + 1));
+}
+
+// Point 3: a price a person writes. Three digits for a price that starts with
+// a one and two and a half for the rest - 1 487 312 is 1 490 000, 2 463 000
+// is 2 450 000, 7 312 is 7 300 - to the nearest such number, or up to it for
+// a floor, which nothing may ask under. Under `minPrice` nothing is touched.
+inline long long HumanPrice(long long price, bool up, long long minPrice)
+{
+	if (price < minPrice || price < 100)
+		return price;
+	long long magnitude = 1;
+	while (magnitude <= price / 10)
+		magnitude *= 10;
+	const long long step = price / magnitude < 2 ? magnitude / 100 : magnitude / 20;
+	if (step < 2)
+		return price;
+	const long long rounded = up ? (price + step - 1) / step * step : (price + step / 2) / step * step;
+	return rounded < step ? step : rounded;
+}
+
+// Point 5: a piece's lines as a plus. A line counts by how far up its top
+// (what this world's table rolls for it) it is: at its top three points, at
+// three quarters two, at half one. Two points are a clean +7 - "bransoleta +0
+// z 1500 PZ kosztuje tyle, co czysta +7", and 1 500 of the bracelet's 2 000 is
+// three quarters - four a +8, one a +5. Zero for no plus at all.
+inline int BonusLinePoints(long value, long top)
+{
+	if (value <= 0 || top <= 0)
+		return 0;
+	const long long pct = (long long)value * 100 / top;
+	if (pct >= 100)
+		return 3;
+	if (pct >= 75)
+		return 2;
+	return pct >= 50 ? 1 : 0;
+}
+
+inline int BonusPlusLevel(int points)
+{
+	if (points >= 4)
+		return 8;
+	if (points >= 2)
+		return 7;
+	return points == 1 ? 5 : 0;
+}
+
+// Point 4: a weapon's average damage as a plus - from `sevenFrom` a +7, from
+// `sixFrom` a +6, at any plus the piece itself has.
+inline int AverageDamagePlusLevel(long average, long sixFrom, long sevenFrom)
+{
+	if (average >= sevenFrom)
+		return 7;
+	return average >= sixFrom ? 6 : 0;
+}
+
+// And the best copies of a weapon on the server: one whose average is the
+// best seen of its family asks `maxPremium` percent more, one at `fromPercent`
+// of the best nothing, straight between; under `minAverage` nothing.
+inline int TopCopyPercent(long average, long best, long minAverage, int fromPercent, int maxPremium)
+{
+	if (average < minAverage || best <= 0 || maxPremium <= 0)
+		return 100;
+	if (average >= best)
+		return 100 + maxPremium;
+	const long long share = (long long)average * 100 / best;
+	if (share <= fromPercent || fromPercent >= 100)
+		return 100;
+	return 100 + (int)((long long)maxPremium * (share - fromPercent) / (100 - fromPercent));
+}
+
+// MT2009_PLUS_BONUS_COUNT_PRICE_V1: the owner's rule of 2 October - a piece with
+// bonuses, weak ones included, is worth a great deal more while the world has
+// no Moonlight chests to bonus a set out of: a bracelet that dropped with two
+// lines, or one a bot gave two or three. On while no Moonlight chest event has
+// run for MOONLIGHT_QUIET_SECONDS (fourteen days), off while one runs or ran
+// within them. The engine half: the clock in playerbot_events.h
+// (UpdatePlayerBotBonusCountPricing), the add-on in playerbot_bonus.h
+// (GetPlayerBotBonusCountAddon) and the price in playerbot_town.h
+// (LiftPlayerBotGearPrice).
+//
+// How it meets MARKET_V3's "priced like a +N" (BonusPlusLevel, point 5): both
+// are a price of the same lines, so they are never added together. The piece
+// asks the larger of the two - the sheet's price of the plus its lines make it,
+// or its own price with this add-on on top - and the best copy's and
+// Intelligence's premiums go on whichever won, as they did.
+enum EBonusCountClass
+{
+	BONUS_COUNT_NONE = 0,
+	// Bracelet, necklace, earrings, boots and shields.
+	BONUS_COUNT_ACCESSORY = 1,
+	// Body armour, helmet and every weapon but the two below.
+	BONUS_COUNT_GEAR = 2,
+	// A weapon of level 30 or 75: its first two lines add nothing, only the
+	// third, the fourth and the fifth.
+	BONUS_COUNT_WEAPON_30_75 = 3,
+};
+
+const long long BONUS_COUNT_LEVEL_SPLIT = 42;	// "do 42 lvl" and "powyzej 42 lvl"
+const long long BONUS_COUNT_ACCESSORY_LOW = 1500000;
+const long long BONUS_COUNT_ACCESSORY_HIGH = 2500000;
+const long long BONUS_COUNT_GEAR_LOW = 500000;
+const long long BONUS_COUNT_GEAR_HIGH = 1200000;
+const int BONUS_COUNT_MAX_LINES = 5;
+const int BONUS_COUNT_WEAPON_FREE_LINES = 2;
+const long MOONLIGHT_QUIET_SECONDS = 14L * 24L * 60L * 60L;
+
+// The yang one line adds, on the owner's numbers (before the world's yang
+// curve, which the caller puts it through like every sheet price).
+inline long long BonusCountLineValue(int cls, int limitLevel)
+{
+	const bool high = limitLevel > BONUS_COUNT_LEVEL_SPLIT;
+	switch (cls)
+	{
+		case BONUS_COUNT_ACCESSORY:
+			return high ? BONUS_COUNT_ACCESSORY_HIGH : BONUS_COUNT_ACCESSORY_LOW;
+		case BONUS_COUNT_GEAR:
+		case BONUS_COUNT_WEAPON_30_75:
+			return high ? BONUS_COUNT_GEAR_HIGH : BONUS_COUNT_GEAR_LOW;
+	}
+	return 0;
+}
+
+// The add-on of a piece with `lines` bonus lines (the five ordinary ones; a
+// count past five is five).
+inline long long BonusCountAddon(int cls, int limitLevel, int lines)
+{
+	if (lines <= 0)
+		return 0;
+	if (lines > BONUS_COUNT_MAX_LINES)
+		lines = BONUS_COUNT_MAX_LINES;
+	int counted = lines;
+	if (cls == BONUS_COUNT_WEAPON_30_75)
+		counted = lines > BONUS_COUNT_WEAPON_FREE_LINES ? lines - BONUS_COUNT_WEAPON_FREE_LINES : 0;
+	return (long long)counted * BonusCountLineValue(cls, limitLevel);
+}
+
+// Whether the rule is on: no chest event now, and the last second one was
+// seen (0: never, as far as this world remembers) at least `quietSeconds`
+// before `now`. A last second in the future - a clock put back - is now.
+inline bool BonusCountPricingOn(bool chestEventNow, long lastMoonlight, long now, long quietSeconds)
+{
+	if (chestEventNow)
+		return false;
+	if (lastMoonlight <= 0)
+		return true;
+	if (lastMoonlight >= now)
+		return false;
+	return now - lastMoonlight >= quietSeconds;
+}
+
 }  // namespace playerbot_price_rules
 
 #endif

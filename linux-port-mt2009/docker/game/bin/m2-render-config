@@ -81,7 +81,7 @@ PUBLIC_LINE="PUBLIC_IP: ${CONTAINER_IP}"
 #
 # Everything the package hosts is hosted here, plus the three guild villages,
 # the original Monkey Dungeon and the high maps the r40250 layout carried
-# (72 73 208 216 217 301-304 351). The sungzi set (114, 118-128), the test maps
+# (72 73 208 216 301-304 351; 217 not since MT2009_PLUS_SPIDER3_OFF_V1). The sungzi set (114, 118-128), the test maps
 # 103/105 and 100/101 are left out exactly as the package leaves them out.
 # The CONFIG parser reads a line with fgets(buf, 256, fp); the longest line
 # below is well inside that.
@@ -111,7 +111,13 @@ MAPS_first="1 3 4 5 6 107 81 110 111 112 113 181 182 183 200 250 302 304"
 # (d.new_jump_pids, MT2009_PLUS_DUNGEON_ONE_WARP_V1) and game2 warps the players
 # straight into it - one loading screen, no lobby. Players only: no bot can stand on
 # a game2 map.
-MAPS_game1="21 23 24 25 26 61 62 63 64 65 66 67 68 69 70 71 104 108 109 79 216 217 72 73 209"
+# MT2009_PLUS_SPIDER3_OFF_V1: 217, the third Spider Dungeon, is hosted by no core.
+# The server has all of it, but no client of this world has its map, so a warp
+# there closed the client, and a character saved there closed it at every login
+# (blasty, 1 October). Not hosted, the engine sends such a character to its
+# kingdom's start at the next login (ENABLE_GOHOME_IF_MAP_NOT_EXIST, input_db.cpp)
+# and a warp there goes nowhere. No bot ever went there.
+MAPS_game1="21 23 24 25 26 61 62 63 64 65 66 67 68 69 70 71 104 108 109 79 216 72 73 209"
 MAPS_game2="41 43 44 45 46 90 208 301 303 351 352"
 
 # One world on one core, when the operator asks for it.

@@ -113,6 +113,8 @@ fi
 RATE_EXP=$(sane_rate  "$(echo "$VALUES" | awk '{print $1}')")
 RATE_DROP=$(sane_rate "$(echo "$VALUES" | awk '{print $2}')")
 RATE_YANG=$(sane_rate "$(echo "$VALUES" | awk '{print $3}')")
+# MT2009_PLUS_YANG_RATE_CAP_V1: yang drops no higher than 1000%.
+[ "$RATE_YANG" -gt 1000 ] && RATE_YANG=1000
 
 # ---------------- 3. hand it over ----------------
 # The id is what stops the same change being applied twice: the game container

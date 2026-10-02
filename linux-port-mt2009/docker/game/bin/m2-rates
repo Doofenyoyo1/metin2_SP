@@ -75,6 +75,15 @@ sane_rate() {
     printf '%s' "$_v"
 }
 
+# MT2009_PLUS_YANG_RATE_CAP_V1: yang drops are never above 1000% (the panel
+# refuses more, the migrator brings an older world down to it at its start).
+YANG_RATE_MAX=1000
+sane_yang_rate() {
+    _v=$(sane_rate "${1:-}")
+    [ "$_v" -gt "$YANG_RATE_MAX" ] && _v=$YANG_RATE_MAX
+    printf '%s' "$_v"
+}
+
 kv() {
     [ -f "$1" ] || return 0
     sed -n "s/^$2=//p" "$1" 2>/dev/null | head -1
@@ -83,7 +92,7 @@ kv() {
 read_wanted() {
     RATE_EXP=$(sane_rate  "$(kv "$WANTED" exp)")
     RATE_DROP=$(sane_rate "$(kv "$WANTED" drop)")
-    RATE_YANG=$(sane_rate "$(kv "$WANTED" yang)")
+    RATE_YANG=$(sane_yang_rate "$(kv "$WANTED" yang)")
 }
 
 # Written to a temporary file and renamed: the panel may read it at any
@@ -169,7 +178,7 @@ cmd_poll() {
 
     for _v in "$_e" "$_d" "$_y"; do
         case "${_v:-x}" in ''|*[!0-9]*)
-            RATE_EXP=$(sane_rate "$_e"); RATE_DROP=$(sane_rate "$_d"); RATE_YANG=$(sane_rate "$_y")
+            RATE_EXP=$(sane_rate "$_e"); RATE_DROP=$(sane_rate "$_d"); RATE_YANG=$(sane_yang_rate "$_y")
             fail "The panel sent a rate that is not a number -- nothing was changed"
             remember_result failed "the panel sent a value that is not a number"
             write_status failed "the panel sent a value that is not a number"
@@ -182,6 +191,8 @@ cmd_poll() {
             return 0
         fi
     done
+    # MT2009_PLUS_YANG_RATE_CAP_V1: a yang rate over the ceiling is the ceiling.
+    _y=$(sane_yang_rate "$_y")
 
     { printf 'exp=%s\ndrop=%s\nyang=%s\n' "$_e" "$_d" "$_y"
       printf 'time=%s\n' "$(date +%s 2>/dev/null)"

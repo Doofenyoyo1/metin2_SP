@@ -73,6 +73,8 @@ namespace
 			case BOT_PERSONALITY_MEDAL_DROPPER: return BOT_PERSONALITY_MEDAL_DROPPER;
 			// So does the guild materials dropper: the guilds build with it.
 			case BOT_PERSONALITY_GUILD_DROPPER: return BOT_PERSONALITY_GUILD_DROPPER;
+			// MT2009_PLUS_L30_WEAPON_DROPPER_V1: and the island's dropper.
+			case BOT_PERSONALITY_L30_WEAPON_DROPPER: return BOT_PERSONALITY_L30_WEAPON_DROPPER;
 			default: return drawn;
 		}
 	}

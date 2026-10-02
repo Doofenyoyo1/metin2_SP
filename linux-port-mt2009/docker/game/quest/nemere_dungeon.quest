@@ -118,8 +118,22 @@ quest nemere_dungeon begin
 		-- drops them at the player's feet (give_item2). Bots never enter the dungeon.
 		-- MT2009_PLUS_DUNGEON_DROP_V1: each player rolls his own 2-5 (the owner, 29 September);
 		-- Nemere himself drops only yang (item_manager.cpp).
+		-- MT2009_PLUS_DROP_EDIT_V1: the boss's own drop the owner added in the drop workbook
+		-- (1 October). The boss gives no items (item_manager.cpp), so the quest rolls it once
+		-- per kill for the killer: {vnum, count, percent}, each line on its own.
+		function boss_drop()
+			if pc.is_playerbot() then return end
+			local t = { {27987, 5, 10}, {50513, 1, 5}, {50255, 15, 5}, {25040, 3, 10}, {71084, 2, 10}, {71085, 1, 10}, {72067, 1, 70} }
+			for i, e in next, t, nil do
+				if number(1, 100) <= e[3] then
+					pc.give_item2(e[1], e[2])
+				end
+			end
+		end
+
 		function give_chests()
 			local c = nemere_dungeon.cfg()
+			nemere_dungeon.boss_drop()
 			local pids = {}
 			if party.is_party() then
 				pids = {party.get_member_pids()}

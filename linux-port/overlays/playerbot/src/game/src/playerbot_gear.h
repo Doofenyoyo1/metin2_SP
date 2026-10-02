@@ -106,6 +106,12 @@ namespace
 	int GetPlayerBotProtoLevelLimit(const TItemTable* proto);
 	bool IsPlayerBotProtoForCharacter(LPCHARACTER ch, const TItemTable* proto);
 
+	// MT2009_PLUS_BOT_SHAMAN_INT_SET_V1: a Shaman's Intelligence set
+	// (playerbot_shaman_buff_set.h, included after this file).
+	bool IsPlayerBotBuffSetPiece(LPCHARACTER ch, LPITEM item);
+	bool IsPlayerBotBuffSetDressed(LPCHARACTER ch);
+	bool MaintainPlayerBotBuffSet(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
+
 	// Iwakura's Community Patch 5, point 2 (playerbot_refine_rules.h): a weapon
 	// for the tenth level or under in the hands of a bot of thirty. Its burned
 	// weapon's place was taken by "byle jaka bron na 1. poziom +6", with yang
@@ -1437,6 +1443,10 @@ namespace
 
 	bool IsPlayerBotKeptBackupWeapon(LPCHARACTER ch, LPITEM item, bool fresh = false)
 	{
+		// MT2009_PLUS_BOT_SHAMAN_INT_SET_V1: the Shaman's INT weapon is kept
+		// the way the backup is.
+		if (ch && item && item->GetType() == ITEM_WEAPON && IsPlayerBotBuffSetPiece(ch, item))
+			return true;
 		return ch && item && item->GetType() == ITEM_WEAPON && item->GetID() != 0 &&
 				GetPlayerBotBackupWeaponID(ch, fresh) == item->GetID();
 	}
@@ -1632,6 +1642,11 @@ namespace
 	bool ManagePlayerBotEquipment(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (!ch || !ch->IsItemLoaded() || IsPlayerBotGearFrozen(ch))
+			return false;
+		// MT2009_PLUS_BOT_SHAMAN_INT_SET_V1: a Shaman in its INT set keeps it
+		// on until the set's own pass takes it off - this pass would put the
+		// fighting pieces straight back.
+		if (MaintainPlayerBotBuffSet(ch, state, dwNow) || IsPlayerBotBuffSetDressed(ch))
 			return false;
 
 		// The Archer's stone mode, decided here because this pass is what
@@ -2750,9 +2765,16 @@ namespace
 	}
 
 	// What the purchase may cost: what is left of that budget.
+	// MT2009_PLUS_PROGRESSION_V2: past the hunt's last level the bot "does
+	// everything to buy it from the market" (the owner): all it can spare.
 	long long GetPlayerBotLevel30PurchaseCap(LPCHARACTER ch)
 	{
-		return GetPlayerBotLevel30BudgetLeft(ch, get_dword_time());
+		const long long budget = GetPlayerBotLevel30BudgetLeft(ch, get_dword_time());
+		if (!ch || ch->GetLevel() <= PLAYERBOT_LEVEL30_WEAPON_HUNT_MAX_LEVEL)
+			return budget;
+		const long long spare = std::max<long long>(0, (long long)ch->GetGold() - GetPlayerBotReservedGold(ch) -
+				(long long)PLAYERBOT_SHOPPING_GOLD_FLOOR);
+		return std::max(budget, spare);
 	}
 
 	// The first plus, drawn by pid so a bot keeps the same one for life.
@@ -3664,6 +3686,10 @@ namespace
 
 	bool IsPlayerBotKeptBackupArmour(LPCHARACTER ch, LPITEM item, bool fresh = false)
 	{
+		// MT2009_PLUS_BOT_SHAMAN_INT_SET_V1: and its INT shield, earrings and
+		// necklace (and, while the set is on, the fighting pieces in the bag).
+		if (ch && item && item->GetType() == ITEM_ARMOR && IsPlayerBotBuffSetPiece(ch, item))
+			return true;
 		return ch && item && item->GetType() == ITEM_ARMOR && item->GetSubType() == ARMOR_BODY &&
 				item->GetID() != 0 && GetPlayerBotBackupArmourID(ch, fresh) == item->GetID();
 	}

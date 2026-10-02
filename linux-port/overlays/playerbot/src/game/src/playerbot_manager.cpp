@@ -163,6 +163,7 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_combat_value_policy.h"
 #include "playerbot_battle_horse.h"
 #include "playerbot_gear.h"
+#include "playerbot_shaman_buff_set.h" // MT2009_PLUS_BOT_SHAMAN_INT_SET_V1: a Shaman's INT set for its buffs
 // The Stalki - the level-66 armours and the level-75 weapons - as the bots
 // keep and buy them: after the gear, whose candidate test and score it asks.
 #include "playerbot_stalki.h"
@@ -214,6 +215,7 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 // conversation layer for ordinary whispers.
 namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* playerName, LPCHARACTER bot, const char* text); }
 #include "playerbot_chat_trade.h"
+#include "playerbot_haggle.h" // MT2009_PLUS_BOT_HAGGLE_V1: a bot haggles over a person's shop line by whisper
 #include "playerbot_loot.h"
 #include "playerbot_gift_trade.h"
 #include "playerbot_survival.h"
@@ -268,6 +270,10 @@ namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* pl
 // MT2009_PLUS_PROGRESSION_V1: the checklist before a level, after every
 // cohort it asks about and the whole bag it weighs.
 #include "playerbot_progression.h"
+// MT2009_PLUS_L30_WEAPON_DROPPER_V1: who the level-30 weapon droppers of
+// Orc Valley's first island are, after the checklist whose eligibility it
+// borrows.
+#include "playerbot_l30_dropper.h"
 
 namespace
 {
@@ -370,6 +376,7 @@ namespace
 			case BOT_PERSONALITY_MEDAL_DROPPER:
 				return BOT_AMBITION_HORSE;
 			case BOT_PERSONALITY_GUILD_DROPPER:
+			case BOT_PERSONALITY_L30_WEAPON_DROPPER: // MT2009_PLUS_L30_WEAPON_DROPPER_V1
 				return BOT_AMBITION_TRADE;
 			case BOT_PERSONALITY_WANDERER:
 				return BOT_AMBITION_HORSE;
@@ -565,6 +572,7 @@ namespace
 			case BOT_PERSONALITY_M3_DROPPER:    return PLAYERBOT_EXP_LOCK_M3_DROPPER;
 			case BOT_PERSONALITY_M2_DROPPER:    return PLAYERBOT_EXP_LOCK_M2_DROPPER;
 			case BOT_PERSONALITY_MEDAL_DROPPER: return PLAYERBOT_EXP_LOCK_MEDAL_DROPPER;
+			case BOT_PERSONALITY_L30_WEAPON_DROPPER: return PLAYERBOT_EXP_LOCK_L30_WEAPON_DROPPER; // MT2009_PLUS_L30_WEAPON_DROPPER_V1
 			default: return 0;
 		}
 	}
@@ -617,6 +625,9 @@ namespace
 		else if (persona && state.bPersonality == BOT_PERSONALITY_GUILD_DROPPER)
 			// Its ground's lock, as without the personalities.
 			lockLevel = GetPlayerBotGuildDropperGround(ch->GetPlayerID()).lock;
+		else if (persona && state.bPersonality == BOT_PERSONALITY_L30_WEAPON_DROPPER)
+			// MT2009_PLUS_L30_WEAPON_DROPPER_V1: twenty-one, as without them.
+			lockLevel = PLAYERBOT_EXP_LOCK_L30_WEAPON_DROPPER;
 		else if (persona)
 			lockLevel = GetPlayerBotPersonaLockLevel(ch, state);
 #if defined(PLAYERBOT_ENGINE_MT2009)
@@ -693,6 +704,8 @@ namespace
 			lockLevel = PLAYERBOT_EXP_LOCK_MEDAL_DROPPER;
 		else if (persona && state.bPersonality == BOT_PERSONALITY_GUILD_DROPPER)
 			lockLevel = GetPlayerBotGuildDropperGround(ch->GetPlayerID()).lock;
+		else if (persona && state.bPersonality == BOT_PERSONALITY_L30_WEAPON_DROPPER) // MT2009_PLUS_L30_WEAPON_DROPPER_V1
+			lockLevel = PLAYERBOT_EXP_LOCK_L30_WEAPON_DROPPER;
 		else if (persona)
 			lockLevel = state.persona.bRestored && !state.persona.bAdvanced ? state.persona.bLockLevel : 0;
 		return lockLevel > ch->GetLevel() ? (unsigned int)lockLevel : 0U;
@@ -3077,6 +3090,10 @@ bool CPlayerBotManager::Spawn(DWORD dwPlayerID, BYTE bEmpire)
 	// Being retired: out of the world until its character is new.
 	if (IsPlayerBotRetirementHold(dwPlayerID))
 		return false;
+	// MT2009_PLUS_MEDAL_SHOUTERS_V1: giving one of Tieru's names up
+	// (playerbot_shouters.h): out of the world until it wears another.
+	if (IsPlayerBotShouterNameHold(dwPlayerID))
+		return false;
 	// MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1 (spawn): the Arezzo dungeon cohort lives
 	// on the core that hosts the dungeons; every other core leaves it alone.
 	if (IsPlayerBotArezzoDungeonReservedPID(dwPlayerID))
@@ -3673,8 +3690,9 @@ size_t CPlayerBotManager::SpawnRegistered(size_t count, BYTE bEmpire)
 			continue;
 		if (m_setScheduledBots.find(*it) != m_setScheduledBots.end())
 			continue;
-		// MT2009_PLUS_SHOUTERS_V1: on top of the number, never part of it.
-		if (IsPlayerBotShouterPID(*it))
+		// MT2009_PLUS_SHOUTERS_V1: on top of the number, never part of it
+		// (and Tieru's kind, MT2009_PLUS_MEDAL_SHOUTERS_V1).
+		if (IsPlayerBotShouterPID(*it) || IsPlayerBotMedalShouterPID(*it))
 			continue;
 		m_dequePendingSpawns.push_back(*it);
 		m_setScheduledBots.insert(*it);
@@ -3799,14 +3817,20 @@ size_t CPlayerBotManager::ScheduleExtraBots(const std::vector<DWORD>& pids)
 	return selected;
 }
 
+// MT2009_PLUS_MEDAL_SHOUTERS_V1: Tieru, Tiieru and Tiiieru, the krzykacze
+// that drop medals (playerbot_shouters.h), are the operator's medal droppers
+// too - everything this answers for the cohort holds for them.
 bool CPlayerBotManager::IsMedalDropperCohortPID(DWORD dwPlayerID) const
 {
-	return m_setMedalDropperCohort.find(dwPlayerID) != m_setMedalDropperCohort.end();
+	return m_setMedalDropperCohort.find(dwPlayerID) != m_setMedalDropperCohort.end() ||
+			IsPlayerBotMedalShouterPID(dwPlayerID);
 }
 
+// And with no cohort asked for (PLAYERBOT_MEDAL_DROPPERS=0) they stop where
+// any medal dropper does.
 BYTE CPlayerBotManager::GetMedalDropperCohortLevel() const
 {
-	return m_bMedalDropperCohortLevel;
+	return m_bMedalDropperCohortLevel != 0 ? m_bMedalDropperCohortLevel : PLAYERBOT_EXP_LOCK_MEDAL_DROPPER;
 }
 
 // One batch from the queue, if one is due. Called from Update every tick and
@@ -3886,7 +3910,8 @@ size_t CPlayerBotManager::ScheduleLateJoiners(size_t count, BYTE bEmpire, DWORD 
 			continue;
 		if (m_setScheduledBots.find(*it) != m_setScheduledBots.end() ||
 				m_setMedalDropperCohort.find(*it) != m_setMedalDropperCohort.end() ||
-				waiting.find(*it) != waiting.end() || IsPlayerBotShouterPID(*it))
+				waiting.find(*it) != waiting.end() || IsPlayerBotShouterPID(*it) ||
+				IsPlayerBotMedalShouterPID(*it)) // MT2009_PLUS_MEDAL_SHOUTERS_V1
 			continue;
 		chosen.push_back(*it);
 	}
@@ -3916,7 +3941,8 @@ void CPlayerBotManager::SpawnLateJoiners(DWORD dwNow)
 	{
 		const DWORD pid = m_dequeLateJoiners.front().second;
 		m_dequeLateJoiners.pop_front();
-		if (m_setScheduledBots.find(pid) != m_setScheduledBots.end() || IsPlayerBotShouterPID(pid))
+		if (m_setScheduledBots.find(pid) != m_setScheduledBots.end() || IsPlayerBotShouterPID(pid) ||
+				IsPlayerBotMedalShouterPID(pid)) // MT2009_PLUS_MEDAL_SHOUTERS_V1
 			continue;
 		m_setScheduledBots.insert(pid);
 		// A banned or resting one is scheduled and not spawned: the top-up
@@ -4735,8 +4761,9 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 	{
 		const DWORD pid = it->first;
 		// A player's companion keeps its owner's hours, not a schedule; a
-		// shouter of the first villages is always there.
-		if (IsPlayerBotSidekickPID(pid) || IsPlayerBotShouterPID(pid))
+		// shouter of the first villages is always there (and Tieru's kind,
+		// MT2009_PLUS_MEDAL_SHOUTERS_V1).
+		if (IsPlayerBotSidekickPID(pid) || IsPlayerBotShouterPID(pid) || IsPlayerBotMedalShouterPID(pid))
 			continue;
 		// MT2009_PLUS_AREZZO_BOTS_V1 (cohort): the Arezzo test's characters
 		// play for as long as the test runs.
@@ -5897,6 +5924,8 @@ void CPlayerBotManager::Update()
 	ManagePlayerBotSidekicks(dwNow);
 	// MT2009_PLUS_SHOUTERS_V1: the shouters of the first villages.
 	ManagePlayerBotShouters(dwNow);
+	// MT2009_PLUS_L30_WEAPON_DROPPER_V1: two or three island droppers a kingdom.
+	ManagePlayerBotL30WeaponDroppers(dwNow);
 
 	// Once for the whole population: the panel may have moved a weight since
 	// the last tick, and every bot planned below must see the same numbers.
@@ -8004,6 +8033,11 @@ void CPlayerBotManager::OnPlayerWhisper(LPCHARACTER from, LPCHARACTER bot, const
 	// A companion's owner gives its orders by whisper too (playerbot_sidekick.h).
 	if (HandlePlayerBotSidekickWhisper(from, bot, szText))
 		return;
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+	// MT2009_PLUS_BOT_HAGGLE_V1: the answer of a person the bot haggles with.
+	if (HandlePlayerBotHaggleWhisper(from, bot, szText))
+		return;
+#endif
 	HandlePlayerWhisperToBot(from, bot, szText);
 }
 

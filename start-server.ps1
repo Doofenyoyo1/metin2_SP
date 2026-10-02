@@ -1341,7 +1341,16 @@ if ($missingDumps.Count -gt 0) {
             try {
                 & docker volume inspect $dbVolume 1>$null 2>$null
                 if ($LASTEXITCODE -eq 0) {
-                    & docker run --rm --entrypoint sh -v "${dbVolume}:/v:ro" mariadb:10.11 -c 'test -d /v/mysql' 1>$null 2>$null
+                    # The stack's own MariaDB image (docker-compose.yml), which
+                    # is on the disk once the stack ran: a fixed older tag had
+                    # to be pulled first and, offline, made an initialized
+                    # volume look empty.
+                    $probeImage = 'mariadb:11.8'
+                    if (Test-Path -LiteralPath $composeFile -PathType Leaf) {
+                        $imageMatch = [Regex]::Match([IO.File]::ReadAllText($composeFile), '(?m)^\s*image:\s*["'']?((?:[^\s"''/]+/)*mariadb[:@][^\s"'']+)')
+                        if ($imageMatch.Success) { $probeImage = $imageMatch.Groups[1].Value }
+                    }
+                    & docker run --rm --entrypoint sh -v "${dbVolume}:/v:ro" $probeImage -c 'test -d /v/mysql' 1>$null 2>$null
                     $dbVolumeInitialized = ($LASTEXITCODE -eq 0)
                 }
             } finally { $ErrorActionPreference = $previousEap }

@@ -1724,14 +1724,68 @@ function Send-M2SupportBundle {
 #  Database import -- copy an existing world (higher-level characters) from
 #  another Docker installation's db-data volume into this install. Uses a
 #  throwaway MariaDB container with --skip-grant-tables so no volume password
-#  needs to be known, dumps the five game databases and reloads them into the
+#  needs to be known, dumps the game databases (M2_DB_LIST) and reloads them into the
 #  target. mysql.* (the game DB user and its grants) is never touched, so the
 #  game keeps authenticating with the target install's own password. The source
 #  volume is only ever read; the target is backed up before it is replaced.
 # =============================================================================
 
-$script:M2_DB_IMAGE = 'mariadb:10.11'
-$script:M2_DB_LIST = @('account', 'common', 'player', 'log', 'hotbackup')
+# The last-resort image for a throwaway container: the one our compose stack
+# runs. Get-M2DbImageForVolume prefers the volume's own container, then the
+# compose file. Never an older server than the one that wrote the data -
+# MariaDB does not support opening a newer data directory with an older one.
+$script:M2_DB_IMAGE = 'mariadb:11.8'
+# Every game database a backup, an import and a restore carry, in load order.
+# world holds the protos and NPC shops and goes before player, whose views read
+# the world protos. Not every volume has all of them (r40250 has no world, a
+# world from before it no world either): every loop over this list skips a
+# database the source does not have, so an older backup still restores.
+$script:M2_DB_LIST = @('account', 'common', 'world', 'player', 'log', 'hotbackup')
+
+function Get-M2ComposeDbImage {
+    # The mariadb image the stack's docker-compose.yml names, or '' when the
+    # file is missing or names none. The module sits in <server>\launcher.
+    $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try {
+        $compose = Join-Path (Split-Path -Parent $PSScriptRoot) 'linux-port\docker\docker-compose.yml'
+        if (-not (Test-Path -LiteralPath $compose -PathType Leaf)) { return '' }
+        foreach ($line in [IO.File]::ReadAllLines($compose)) {
+            if ($line -match '^\s*image:\s*["'']?((?:[^\s"''/]+/)*mariadb[:@][^\s"'']+)') { return $Matches[1] }
+        }
+    }
+    catch { }
+    finally { $ErrorActionPreference = $previous }
+    return ''
+}
+
+function Get-M2DbImageForVolume {
+    # The MariaDB a throwaway container opens a volume with: the image of the
+    # container that holds the volume (the stack's own database, the server
+    # that made the data and runs it), else the compose file's, else the
+    # default above. A fixed older image opened 11.8 data with a server older
+    # than the data (an unsupported downgrade), and on a machine that had
+    # never pulled it the pull failed offline and repair/backup/import said
+    # the database did not exist. The volume's own image is already on disk.
+    param([Parameter(Mandatory = $true)][string]$Volume)
+    $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try {
+        # The compose service first (mariadb; db on the oldest installs), then
+        # any container with the volume - a throwaway left behind by an older
+        # launcher holds it too, with its older image, so it comes last.
+        foreach ($service in @('mariadb', 'db', '')) {
+            $filters = @('--filter', "volume=$Volume")
+            if ($service) { $filters += @('--filter', "label=com.docker.compose.service=$service") }
+            $images = @(& docker ps -a @filters --format '{{.Image}}' 2>$null | ForEach-Object { "$_".Trim() } |
+                Where-Object { $_ -match '(?:^|/)mariadb[:@]' })
+            if ($LASTEXITCODE -eq 0 -and $images.Count -gt 0) { return [string]$images[0] }
+        }
+    }
+    catch { }
+    finally { $ErrorActionPreference = $previous }
+    $fromCompose = Get-M2ComposeDbImage
+    if ($fromCompose) { return $fromCompose }
+    return $script:M2_DB_IMAGE
+}
 
 function Test-M2DockerRunning {
     # docker volume ls and friends fail with an unhelpful pipe/socket error when
@@ -1936,8 +1990,10 @@ function Test-M2VolumeInitialized {
         & docker volume inspect $Volume 1>$null 2>$null
         if ($LASTEXITCODE -ne 0) { return $false }
         # --entrypoint sh is required: the mariadb image's own entrypoint would
-        # otherwise swallow the probe command.
-        & docker run --rm --entrypoint sh -v "${Volume}:/v:ro" $script:M2_DB_IMAGE -c 'test -d /v/mysql' 1>$null 2>$null
+        # otherwise swallow the probe command. The image is the volume's own
+        # (Get-M2DbImageForVolume), on the disk with or without the Internet.
+        $image = Get-M2DbImageForVolume -Volume $Volume
+        & docker run --rm --entrypoint sh -v "${Volume}:/v:ro" $image -c 'test -d /v/mysql' 1>$null 2>$null
         return ($LASTEXITCODE -eq 0)
     }
     finally { $ErrorActionPreference = $previous }
@@ -1960,8 +2016,10 @@ function Start-M2ThrowawayDb {
         # No MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: on an initialized volume the
         # entrypoint skips setup entirely, and without it a surprise empty volume
         # makes the container refuse to start rather than silently create a
-        # password-less database.
-        $null = & docker run -d --name $container -v "${Volume}:/var/lib/mysql" $script:M2_DB_IMAGE --skip-grant-tables 2>$null
+        # password-less database. The server is the one that made the data
+        # (Get-M2DbImageForVolume), never an older one.
+        $image = Get-M2DbImageForVolume -Volume $Volume
+        $null = & docker run -d --name $container -v "${Volume}:/var/lib/mysql" $image --skip-grant-tables 2>$null
         if ($LASTEXITCODE -ne 0) { throw "Nie udało się uruchomić kontenera bazy dla wolumenu '$Volume' (czy jest zajęty przez działający serwer?)." }
         $deadline = (Get-Date).AddSeconds(120)
         do {
@@ -2150,24 +2208,35 @@ function Invoke-M2DatabaseImport {
         Stop-M2ThrowawayDb -Container $tgtC; $tgtC = $null
 
         # 2. Dump the source world (read only; the source volume is untouched).
+        # A source from before world (or an r40250 one) has no world database:
+        # only what the source has is dumped, and only that is replaced below,
+        # so the target keeps its own protos instead of losing them.
         $srcC = Start-M2ThrowawayDb -Volume $SourceVolume
+        $found = @()
         foreach ($db in $script:M2_DB_LIST) {
+            $exists = & docker exec $srcC mariadb -uroot -N -B -e "SHOW DATABASES LIKE '$db'" 2>$null
+            if (-not $exists) { continue }
             Export-M2Database -Container $srcC -Database $db -OutFile (Join-Path $work "source\$db.sql")
+            $found += $db
         }
         Stop-M2ThrowawayDb -Container $srcC; $srcC = $null
+        if ($found -notcontains 'player') {
+            throw "W wolumenie '$SourceVolume' nie ma bazy player - to nie jest swiat tego serwera."
+        }
 
-        # 3. Replace the five game databases in the target.
+        # 3. Replace the game databases the source has in the target.
         $tgtC = Start-M2ThrowawayDb -Volume $TargetVolume
         $sb = New-Object System.Text.StringBuilder
         [void]$sb.AppendLine('SET FOREIGN_KEY_CHECKS=0;')
-        foreach ($db in $script:M2_DB_LIST) {
+        foreach ($db in $found) {
             [void]$sb.AppendLine("DROP DATABASE IF EXISTS $db;")
             [void]$sb.AppendLine("CREATE DATABASE $db DEFAULT CHARACTER SET latin1 COLLATE latin1_swedish_ci;")
         }
         $createFile = Join-Path $work 'create.sql'
         [IO.File]::WriteAllText($createFile, $sb.ToString(), [Text.UTF8Encoding]::new($false))
         Invoke-M2SqlFile -Container $tgtC -Database '' -InFile $createFile
-        foreach ($db in $script:M2_DB_LIST) {
+        # $found keeps the list's order: world loads before player.
+        foreach ($db in $found) {
             Invoke-M2SqlFile -Container $tgtC -Database $db -InFile (Join-Path $work "source\$db.sql")
         }
 
@@ -2217,7 +2286,7 @@ function New-M2DatabaseBackup {
     #
     # The import path already dumped the target world before overwriting it, but
     # only as a side effect of an import, into a folder nobody was told about.
-    # This is the same dump asked for on purpose: the five game databases as
+    # This is the same dump asked for on purpose: the game databases (M2_DB_LIST) as
     # plain SQL, a manifest naming what is inside, and a zip so that what lands
     # in a cloud folder is one file.
     #

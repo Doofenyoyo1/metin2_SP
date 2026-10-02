@@ -39,7 +39,8 @@ namespace
 	// MT2009_PLUS_ARCHER_MULTISHOT_V1 (bots): an Archer bot's plain shot hits
 	// what a player's does (CHARACTER::AnnounceShootTargets, char_battle.cpp):
 	// its target and up to two more - three and four with Sztuka Combo - of the
-	// monsters already attacking it, at most 10 m from the target, the nearest
+	// monsters already attacking it (V3: or its party, its Companion or owner,
+	// or summoned by the Metin it shoots), at most 10 m from the target, the nearest
 	// to the target first. A bot has no client to switch Combo on, so the skill
 	// learnt is the skill on (GetShootMaxTargetCount is 3 + the Combo level).
 	// The extra arrows are told to the clients between the fly target and the
@@ -72,7 +73,7 @@ namespace
 
 				LPCHARACTER candidate = static_cast<LPCHARACTER>(entity);
 				if (candidate == m_archer || candidate == m_primary || !candidate->IsMonster() ||
-						candidate->IsDead() || candidate->m_kVIDVictim != m_archer->GetVID() ||
+						candidate->IsDead() || !IsFoe(candidate) ||
 						candidate->GetMapIndex() != m_archer->GetMapIndex())
 					return;
 
@@ -90,6 +91,27 @@ namespace
 			std::vector<std::pair<int, DWORD> > m_targets;
 
 		private:
+			// MT2009_PLUS_ARCHER_MULTISHOT_V3 (bots): what a player's shot takes
+			// (Mt2009PlusIsShootExtraFoe, char_battle.cpp) - a monster attacking
+			// the archer, somebody of its party, its Companion or, for a
+			// Companion, its owner; and one the Metin it shoots at summoned.
+			bool IsFoe(LPCHARACTER monster) const
+			{
+				if (monster->m_kVIDVictim == m_archer->GetVID())
+					return true;
+				LPCHARACTER hit = monster->GetVictim();
+				if (hit && hit != monster && hit != m_archer && hit->IsPC() && !hit->IsDead())
+				{
+					if (m_archer->GetParty() && hit->GetParty() == m_archer->GetParty())
+						return true;
+					if (CPlayerBotManager::instance().GetSidekickKillCredit(hit, monster) == m_archer ||
+							CPlayerBotManager::instance().GetSidekickKillCredit(m_archer, monster) == hit)
+						return true;
+				}
+				LPCHARACTER stone = monster->GetSpawnerStone();
+				return stone && !stone->IsDead() && (stone == m_primary || stone == m_primary->GetSpawnerStone());
+			}
+
 			LPCHARACTER m_archer;
 			LPCHARACTER m_primary;
 			int m_reach;
@@ -329,6 +351,11 @@ namespace
 	bool ManagePlayerBotCombatBuffs(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow,
 			bool duel = false)
 	{
+		// MT2009_PLUS_BOT_SHAMAN_INT_SET_V1: a Shaman's INT set goes on for a
+		// person's party and comes off after a cast (playerbot_shaman_buff_set.h);
+		// the blows wait for the engine's still second while it does.
+		if (ch && !duel && MaintainPlayerBotBuffSet(ch, state, dwNow))
+			return true;
 		// Nor under a marble, where the engine refuses every skill a buff is
 		// (IsPlayerBotFightingAsMonster).
 		if (!ch || ch->GetSkillGroup() == 0 || dwNow < state.dwNextBuffCheckTime ||
@@ -441,6 +468,11 @@ namespace
 				return true;
 			}
 
+			// MT2009_PLUS_BOT_SHAMAN_INT_SET_V1: into the INT set first, when
+			// the Shaman carries one; the cast comes on the next pass.
+			if (PreparePlayerBotBuffSetForCast(ch, state, dwNow))
+				return true;
+
 			// Self-buff if not active
 			if (PlayerBotUseSkill(ch, state, buffVnum, ch, dwNow))
 			{
@@ -530,6 +562,9 @@ namespace
 			}
 		}
 
+		// MT2009_PLUS_BOT_SHAMAN_INT_SET_V1: nothing left to cast - a cast
+		// session in the INT set is over.
+		NotePlayerBotBuffSetNothingToCast(ch);
 		return false;
 	}
 

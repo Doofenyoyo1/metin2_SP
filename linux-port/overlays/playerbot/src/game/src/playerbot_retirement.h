@@ -1065,6 +1065,10 @@ bool IsPlayerBotRetirementCandidate(LPCHARACTER ch, BYTE bLevelLo, BYTE bLevelHi
 		return false;
 	if (ch->GetLevel() < bLevelLo || ch->GetLevel() > bLevelHi)
 		return false;
+	// MT2009_PLUS_MEDAL_SHOUTERS_V1: a krzykacz keeps its name and its life -
+	// apka2009's three and Tieru's.
+	if (IsPlayerBotShouterPID(ch->GetPlayerID()) || IsPlayerBotMedalShouterPID(ch->GetPlayerID()))
+		return false;
 	if (ch->GetExchange() || ch->GetShop() || ch->GetSafebox() || ch->IsBusy() || ch->GetMyShop())
 		return false;
 	if (ch->GetParty())

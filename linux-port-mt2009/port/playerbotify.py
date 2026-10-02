@@ -1479,6 +1479,7 @@ def main(root):
     apply_tower_bots_at_peace(game)
     apply_elemental_resistances(game)
     apply_target_hp_values(game)
+    apply_guild_war_kills(game)
     apply_item_drop_bonus(game)
     apply_sidekick_load_beside_owner(game)
     apply_cape_pulls_whole_view(game)
@@ -7733,3 +7734,19 @@ if __name__ == '__main__':
     if len(sys.argv) != 2 or not os.path.isdir(os.path.join(sys.argv[1], 'game', 'src')):
         raise SystemExit(__doc__)
     main(os.path.abspath(sys.argv[1]))
+
+
+def apply_guild_war_kills(game):
+    # A field war scores one a kill (MT2009 PLUS 2.18.0,
+    # server-patches/guildwarkills): CGuildManager::Kill added the victim's
+    # level, so "won at WAR_KILLS kills" (playerbot_guild_war.h) and the war
+    # board could not be read as kills. Upstream's 2.18.0 package carries the
+    # bot half and not guild_manager.cpp, so the edit is made here.
+    edit(os.path.join(game, 'guild_manager.cpp'),
+         '\tSendGuildWarScore(gAttack->GetID(), gDefend->GetID(), victim->GetLevel());\n',
+         '\t// MT2009_PLUS_GUILD_WAR_KILLS_V1 (server-patches/guildwarkills): a field\n'
+         '\t// war\'s score is its kills, one a kill - the victim\'s level used to be\n'
+         '\t// added, so the panel\'s "won at 100 kills" (WAR_KILLS, playerbot_guild_war.h)\n'
+         '\t// and the war\'s board could not be read as kills.\n'
+         '\tSendGuildWarScore(gAttack->GetID(), gDefend->GetID(), 1);\n',
+         marker='MT2009_PLUS_GUILD_WAR_KILLS_V1')

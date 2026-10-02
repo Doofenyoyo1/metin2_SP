@@ -1421,13 +1421,89 @@ namespace
 	// a restart is not a change, and its first visit restocks.
 	const DWORD PLAYERBOT_OFFLINE_REPRICE_SLICE = 2;
 	const DWORD PLAYERBOT_OFFLINE_REPRICE_CATCHUP_MS = 10 * 60 * 1000;
-	const DWORD PLAYERBOT_OFFLINE_REPRICE_MS = 60 * 60 * 1000;
+	// MT2009_PLUS_MARKET_V3: every half hour, so a price the market index
+	// (below) has moved reaches the counters while it still says something.
+	// The mutations are spared by the reprice itself: a line whose new price
+	// is within PLAYERBOT_MARKET_V3_REPRICE_DEADBAND_PERCENT of what it asks
+	// is passed over without an edit, PLAYERBOT_MARKET_V3_REPRICE_LOOK_AHEAD
+	// of them a step, so the rotation edits only what moved.
+	const DWORD PLAYERBOT_OFFLINE_REPRICE_MS = 30 * 60 * 1000;
 	// Iwakura's Patch 4, point 3: a service visit that added or took off a line
 	// comes back two seconds on for another, this many times. A keeper added one
 	// line in ten to fifteen minutes, and a counter of lines of one and two
 	// would take a day to fill and never keep up with what sells ("wizyta w
 	// sklepie doklada kilka linii, a nie jedna", the operator's choice).
 	const DWORD PLAYERBOT_OFFLINE_RESTOCK_CHAIN = 3;
+	// MT2009_PLUS_MARKET_V3 (the living market of 2 October; the arithmetic
+	// is playerbot_price_rules.h's, the engine side UpdatePlayerBotMarketIndex
+	// and its neighbours in playerbot_town.h).
+	//
+	// Point 1, the market index: the refine materials, the skill books, the
+	// Forgetting Scrolls, the Spirit Stone and the Blessing Scroll ask the
+	// owner's price times an index of how the counters of the whole world
+	// stand against their usual. The usual is a day's average of the count
+	// (USUAL_TAU_MS), never under USUAL_MIN_UNITS; the target is (usual +
+	// bots short + Q0) / (on the counters + Q0) to EXPONENT, MIN to MAX
+	// percent; and the index goes towards it with a lag of TAU_MS. A pass
+	// that moved a kind's index by NOTE_PERCENT or more says so in the log.
+	const DWORD PLAYERBOT_MARKET_V3_USUAL_TAU_MS = 24 * 60 * 60 * 1000;
+	const double PLAYERBOT_MARKET_V3_USUAL_MIN_UNITS = 5.0;
+	const double PLAYERBOT_MARKET_V3_Q0 = 5.0;
+	const double PLAYERBOT_MARKET_V3_EXPONENT = 0.35;
+	const int PLAYERBOT_MARKET_V3_MIN_PERCENT = 70;
+	const int PLAYERBOT_MARKET_V3_MAX_PERCENT = 160;
+	const DWORD PLAYERBOT_MARKET_V3_TAU_MS = 2 * 60 * 60 * 1000;
+	const size_t PLAYERBOT_MARKET_V3_MAX_KINDS = 2048;
+	// Point 7, the market balancing itself: a kind is missing under
+	// MISSING_PERCENT of its usual on the counters, and too much of it over
+	// PLENTY_PERCENT - a bot then fetches the one from its storekeeper for its
+	// counter and holds the other back in the bag. A missing kind goes up
+	// MISSING_SCORE ahead of the rest of the bag.
+	const int PLAYERBOT_MARKET_V3_MISSING_PERCENT = 50;
+	const int PLAYERBOT_MARKET_V3_PLENTY_PERCENT = 250;
+	const int PLAYERBOT_MARKET_V3_MISSING_SCORE = 300;
+	// Point 2: a line's markdown by the other stock of its kind - none while
+	// the other counters hold less than the line itself, the whole of it from
+	// PLENTY_LINES lines' worth (playerbot_price_rules::SupplyMarkdownPercent).
+	// And every good's floor: FLOOR_PERCENT of the owner's price for it at
+	// this world's rate, and never under what the merchant pays.
+	const int PLAYERBOT_MARKET_V3_MARKDOWN_PLENTY_LINES = 4;
+	const int PLAYERBOT_MARKET_V3_FLOOR_PERCENT = 50;
+	// Point 3: prices a person writes (playerbot_price_rules::HumanPrice),
+	// from this many yang.
+	const long long PLAYERBOT_MARKET_V3_HUMAN_PRICE_MIN = 1000;
+	// The half-hour reprice's spares (PLAYERBOT_OFFLINE_REPRICE_MS).
+	const int PLAYERBOT_MARKET_V3_REPRICE_DEADBAND_PERCENT = 3;
+	const int PLAYERBOT_MARKET_V3_REPRICE_LOOK_AHEAD = 8;
+	// Point 4: a weapon's average damage as a plus (+6 from SIX, +7 from
+	// SEVEN), and the best copies of a family on the server: the best seen
+	// asks TOP_COPY_PREMIUM percent more, one at TOP_COPY_FROM percent of the
+	// best nothing, under TOP_COPY_MIN_AVERAGE never. Seen is the counters and
+	// the bots' hands and bags at every market report, published with it; a
+	// family with fewer than TOP_COPY_MIN_COPIES copies seen has no ranking to
+	// be the top of.
+	const long PLAYERBOT_MARKET_V3_AVERAGE_SIX = 30;
+	const long PLAYERBOT_MARKET_V3_AVERAGE_SEVEN = 40;
+	const long PLAYERBOT_MARKET_V3_TOP_COPY_MIN_AVERAGE = 20;
+	const int PLAYERBOT_MARKET_V3_TOP_COPY_FROM = 75;
+	const int PLAYERBOT_MARKET_V3_TOP_COPY_PREMIUM = 60;
+	const int PLAYERBOT_MARKET_V3_TOP_COPY_MIN_COPIES = 2;
+	// Point 5: from this plus the lines make (GetPlayerBotBonusPlusLevel) a
+	// piece is finished goods - listed rather than kept at the storekeeper,
+	// whatever its own plus.
+	const int PLAYERBOT_MARKET_V3_BONUS_GOODS_PLUS = 7;
+	// Point 6: a shaman's weapon or a shield with Intelligence asks this many
+	// percent more for every point of it.
+	const int PLAYERBOT_MARKET_V3_INT_PERCENT_PER_POINT = 5;
+	// Point 8: Siano is never listed. A bot gives it for Red Potions (D) at
+	// the General Store, HAY_POTIONS a bundle, while its belt is under the
+	// fill; what is left, and what stood on its counter, the store buys.
+	const DWORD PLAYERBOT_HAY_VNUM = 50054;
+	const DWORD PLAYERBOT_HAY_POTION_VNUM = 27003;
+	const int PLAYERBOT_HAY_POTIONS = 10;
+	// MT2009_PLUS_BOT_HORSE_HAY_V1: a bot keeps this much Siano for its horse -
+	// never sold, changed for potions or put into the safebox.
+	const int PLAYERBOT_HAY_KEEP = 5;
 	// And an offline counter carries at most this share of its cells in lines
 	// of refine materials together - three fifths: 48 lines of the eighty cells
 	// a counter had, 96 of a bot's two pages since 28 September
@@ -2831,7 +2907,9 @@ namespace
 	// exceptions a hundred thousand up (point 3), the bonus rows of the lines
 	// only upstream's 2.2.31 table rolled (point 13), and the multiplier for two to
 	// four maximal lines on one piece (point 11).
-	const DWORD PLAYERBOT_PRICE_TABLE_VERSION = 10;
+	// 11: MT2009_PLUS_OWNER_PRICES_V2 - the owner's compendium edits of
+	// 1 October (gear tops, materials, scrolls, books, the new goods).
+	const DWORD PLAYERBOT_PRICE_TABLE_VERSION = 11;
 	// Community patch 2, point 8: inflation. Every PLAYERBOT_INFLATION_STEP_YANG
 	// the world's characters hold between them lifts every price his sheet sets
 	// by PLAYERBOT_INFLATION_STEP_PERCENT, on top of the yang-rate curve and in
@@ -3019,6 +3097,11 @@ namespace
 	// from +4, earrings from +7.
 	const int PLAYERBOT_BONUS_WEAPON_MIN_LEVEL = 45;
 	const int PLAYERBOT_BONUS_WEAPON_MIN_PLUS = 7;
+	// MT2009_PLUS_BOT_L30_AVG_MIX_V1: the level-30 weapons from +7, like every
+	// other weapon ("boty mieszaja zmiankami srednie na broni z poziomu 30 od
+	// +7, az do 30%", sosen): a +4 to +6 one is a step on the way to the
+	// blacksmith's +7 and took the stones its +7 then lacked.
+	const int PLAYERBOT_BONUS_L30_MIX_MIN_PLUS = 7;
 	const int PLAYERBOT_BONUS_ARMOUR_MIN_LEVEL = 21;
 	const int PLAYERBOT_BONUS_ARMOUR_MIN_PLUS = 7;
 	// Body armour from the level-18 plates up, at +7 (Iwakura, 26 September:
@@ -3608,6 +3691,18 @@ namespace
 	const BYTE PLAYERBOT_AREZZO_CYCLOPS_MIN_LEVEL = 40;
 	const BYTE PLAYERBOT_AREZZO_PHARAOH_MIN_LEVEL = 50;
 	const BYTE PLAYERBOT_AREZZO_FOREST_MIN_LEVEL = PLAYERBOT_OCHAO_MIN_LEVEL;
+	// MT2009_PLUS_PROGRESSION_V2: and the owner's upper limits (1 October):
+	// the Cyclops to 50, the Pharaoh to 65, the temple and the Las to 120.
+	const BYTE PLAYERBOT_AREZZO_CYCLOPS_MAX_LEVEL = 50;
+	const BYTE PLAYERBOT_AREZZO_PHARAOH_MAX_LEVEL = 65;
+	const BYTE PLAYERBOT_OCHAO_MAX_LEVEL = 120;
+	const BYTE PLAYERBOT_AREZZO_FOREST_MAX_LEVEL = PLAYERBOT_OCHAO_MAX_LEVEL;
+	BYTE GetPlayerBotArezzoMaxLevel(long mapIndex)
+	{
+		return mapIndex == PLAYERBOT_MAP_AREZZO_CYCLOPS ? PLAYERBOT_AREZZO_CYCLOPS_MAX_LEVEL
+				: mapIndex == PLAYERBOT_MAP_AREZZO_PHARAOH ? PLAYERBOT_AREZZO_PHARAOH_MAX_LEVEL
+				: PLAYERBOT_AREZZO_FOREST_MAX_LEVEL;
+	}
 	bool IsPlayerBotArezzoMap(long mapIndex)
 	{
 		return mapIndex == PLAYERBOT_MAP_AREZZO_CYCLOPS || mapIndex == PLAYERBOT_MAP_AREZZO_PHARAOH ||
@@ -4016,7 +4111,11 @@ namespace
 	const BYTE PLAYERBOT_SKILL_MASTER_TRY_LEVEL = 17;
 	// How long a bot keeps farming its class's level-30 weapon before giving
 	// the map up for good. See ShouldPlayerBotVisitM3.
-	const BYTE PLAYERBOT_LEVEL30_WEAPON_HUNT_MAX_LEVEL = 40;
+	// MT2009_PLUS_PROGRESSION_V2: thirty-five, was forty (the owner, 1 October);
+	// past it the bot buys the weapon from a counter with everything it has
+	// (GetPlayerBotLevel30PurchaseCap), and a bot that can pay for one does
+	// not hunt at all (CanPlayerBotBuyLevel30Weapon).
+	const BYTE PLAYERBOT_LEVEL30_WEAPON_HUNT_MAX_LEVEL = 35;
 	// The old woman south of Joan, and what she does.
 	//
 	// skill_reset2.quest, NPC 9006: refuses under level five and over thirty,
@@ -4688,6 +4787,37 @@ namespace
 	{
 		return PLAYERBOT_GUILD_DROPPER_GROUNDS[((pid ^ 0x47445250U) * 2654435761U >> 16) % 3U];
 	}
+	// MT2009_PLUS_L30_WEAPON_DROPPER_V1: the level-30 weapon dropper ("dropki
+	// broni 30 lv", the owner, 2 October). Two or three bots a kingdom on every
+	// channel (playerbot_l30_dropper.h picks them), held at twenty-one, camping
+	// the Bestial of their kingdom's first island of Orc Valley (boss.txt of
+	// map_n_threeway, respawn 9-11 min): Shinsoo the Bestial Soldier (531,
+	// level 35), Chunjo the Bestial Maniac (532, 37), Jinno the Bestial Archer
+	// (533, 40) - each with a level-30 weapon in its kill drop (the owner's
+	// correction of 2 October; 531 and 532 got theirs in
+	// mob_drop_item.dropedit.append.txt). Between its respawns the dropper
+	// hunts the island's ordinary monsters round the spawn. The fight reaches
+	// past the usual fifteen levels to PLAYERBOT_L30_DROPPER_MAX_TARGET_LEVEL.
+	const BYTE PLAYERBOT_EXP_LOCK_L30_WEAPON_DROPPER = 21;
+	const int PLAYERBOT_L30_DROPPER_MAX_TARGET_LEVEL = 40;
+
+	// The Bestial of a kingdom's first island, or 0.
+	DWORD GetPlayerBotL30DropperBestial(int empire)
+	{
+		switch (empire)
+		{
+			case 1: return 531;
+			case 2: return 532;
+			case 3: return 533;
+			default: return 0;
+		}
+	}
+
+	// Its own island's Bestial is the dropper's weapon target.
+	bool IsPlayerBotL30DropperRace(int empire, DWORD race)
+	{
+		return race != 0 && race == GetPlayerBotL30DropperBestial(empire);
+	}
 	// Iwakura's community patch 2, point 4 ("Grinder Lochu Malp", Tier 4).
 	// Under the personalities a drawn medal dropper stays one (it used to
 	// become a Wanderer, and 26 bots in a thousand farmed medals), and this
@@ -5226,6 +5356,9 @@ namespace
 	// At fifty the dropper goes to its first village and opens a stand with
 	// the medals on it (IsPlayerBotMedalStockReady, playerbot_town.h).
 	const int PLAYERBOT_MEDAL_DROPPER_MEDAL_STOCK = 50;
+	// MT2009_PLUS_HORSE_ECONOMY_V2: a dropper this close to its stock does
+	// not go back into the Monkey Dungeon (playerbot_travel.h).
+	const int PLAYERBOT_MEDAL_DROPPER_STOCK_MARGIN = 3;
 	// Lines of medals (two a line) a medal dropper's counter carries, over
 	// PLAYERBOT_SHOP_SAME_VNUM_LINES for everybody else: the medals are what
 	// its stand is for.
@@ -5963,6 +6096,32 @@ namespace
 	// Queen's hubs were never chosen in a day of logs - but by whether the boss
 	// is standing there now, asked of the sector itself.
 	struct TPlayerBotHuntingHub { long x; long y; BYTE bMinLevel; BYTE bMaxLevel; bool bNeedsParty; WORD wBossRace; };
+	// MT2009_PLUS_L30_WEAPON_DROPPER_V1: each kingdom's first island of Orc
+	// Valley - the ground the Teleporter puts that kingdom down on - as spots
+	// round its Bestial's spawn (boss.txt cells x100 on base (256000,665600)),
+	// the spawn first, so the dropper keeps coming back to it. Shinsoo's two
+	// Soldier spawns (1365,110) and (1292,123) and the ground between them,
+	// 6-17k from its arrival (402100,673900); Chunjo's Maniac (244,789), 11k
+	// from (270400,739900), with two spawn points of the island (group_group
+	// 301) towards the arrival; Jinno's Archer (708,1384), 7k from
+	// (321300,808000), with two of its island's.
+	const TPlayerBotHuntingHub PLAYERBOT_L30_DROPPER_HUBS[3][3] = {
+		{ { 392500, 676600, 1, 255, false, 0 }, { 385200, 677900, 1, 255, false, 0 },
+		  { 388800, 677200, 1, 255, false, 0 } },
+		{ { 280400, 744500, 1, 255, false, 0 }, { 277400, 744000, 1, 255, false, 0 },
+		  { 277200, 741000, 1, 255, false, 0 } },
+		{ { 326800, 804000, 1, 255, false, 0 }, { 328300, 804700, 1, 255, false, 0 },
+		  { 326100, 801000, 1, 255, false, 0 } },
+	};
+
+	const TPlayerBotHuntingHub* GetPlayerBotL30DropperHubs(int empire, size_t& count)
+	{
+		count = 0;
+		if (empire < 1 || empire > 3)
+			return NULL;
+		count = 3;
+		return PLAYERBOT_L30_DROPPER_HUBS[empire - 1];
+	}
 	// How long a "boss alive" answer is trusted, and what a hub with a living
 	// boss scores: above any camp, so the crowd (the Orc Chief) or the party
 	// (the Spider Queen) goes.
@@ -6550,7 +6709,10 @@ namespace
 		// September): farms Kamien Wegielny, Pien or Dykta for the guilds'
 		// buildings (PLAYERBOT_GUILD_DROPPER_GROUNDS) and sells them on the
 		// counters. Appended, never inserted - the panels read the id.
-		BOT_PERSONALITY_GUILD_DROPPER
+		BOT_PERSONALITY_GUILD_DROPPER,
+		// MT2009_PLUS_L30_WEAPON_DROPPER_V1: the level-30 weapon dropper of
+		// Orc Valley's first island (playerbot_l30_dropper.h). Appended too.
+		BOT_PERSONALITY_L30_WEAPON_DROPPER
 	};
 
 	bool IsPlayerBotDropper(BYTE personality)
@@ -6559,7 +6721,8 @@ namespace
 				personality == BOT_PERSONALITY_M3_DROPPER ||
 				personality == BOT_PERSONALITY_M2_DROPPER ||
 				personality == BOT_PERSONALITY_MEDAL_DROPPER ||
-				personality == BOT_PERSONALITY_GUILD_DROPPER;
+				personality == BOT_PERSONALITY_GUILD_DROPPER ||
+				personality == BOT_PERSONALITY_L30_WEAPON_DROPPER; // MT2009_PLUS_L30_WEAPON_DROPPER_V1
 	}
 
 	BYTE GetPlayerBotPersonalityByPID(DWORD dwPID);
@@ -6608,6 +6771,21 @@ namespace
 	// MT2009_PLUS_SHOUTERS_V1: the three shouters of the first villages
 	// (playerbot_shouters.h), kept out of everything the population does.
 	bool IsPlayerBotShouterPID(DWORD pid);
+	// MT2009_PLUS_MEDAL_SHOUTERS_V1: Tieru's three, medal droppers that shout
+	// (playerbot_shouters.h); not counted by IsPlayerBotShouterPID.
+	bool IsPlayerBotMedalShouterPID(DWORD pid);
+	// MT2009_PLUS_PROGRESSION_V3: what a bot a gate holds works on while it is
+	// held (playerbot_progression.h, included last): the Metins, the horse's
+	// medals, the gear - or nothing in particular. Asked by the travel, the
+	// herb errand and the Monkey Dungeon gate, which all come before it.
+	enum EPlayerBotProgressFarm
+	{
+		PLAYERBOT_PROGRESS_FARM_NONE = 0,
+		PLAYERBOT_PROGRESS_FARM_METINS,
+		PLAYERBOT_PROGRESS_FARM_HORSE,
+		PLAYERBOT_PROGRESS_FARM_GEAR
+	};
+	BYTE GetPlayerBotProgressionFarmGoal(LPCHARACTER ch, DWORD dwNow);
 	// The level it levels to and then stands at its post.
 	const BYTE PLAYERBOT_SHOUTER_LEVEL = 15;
 	// Sent fishing by its owner (playerbot_sidekick.h, "Na ryby").
@@ -6837,6 +7015,24 @@ namespace
 	// The horse saddlebags and the Dozorca's exchange (playerbot_saddlebag.h).
 	const DWORD PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED = 30378;
 	const DWORD PLAYERBOT_CRAFT_MATERIAL_UNIT_PRICE = 100000;
+	// MT2009_PLUS_SADDLEBAG_MARKET_V1: a counter's line of them is at most
+	// this many pieces (BotOfflinePrepareLine), and a counter shows at most
+	// this many such lines (BotOfflineCounterRefuses) - lines of two hundred
+	// at twenty million filled 775 pages and no bot could pay for one.
+	const int PLAYERBOT_CRAFT_MATERIAL_LINE_UNITS = 20;
+	const int PLAYERBOT_CRAFT_MATERIAL_COUNTER_LINES = 4;
+	// MT2009_PLUS_MARKET_SINK_V1: a Cor Draconis line is at most this many
+	// (lines of 50-67 filled 50 pages), and a counter shows at most this many
+	// Cor lines. The Cors bought off a counter, for the census
+	// (playerbot_alchemy.h).
+	const int PLAYERBOT_COR_LINE_MAX_UNITS = 20;
+	const int PLAYERBOT_COR_COUNTER_LINES = 4;
+	// MT2009_PLUS_BOT_LIST_HELM_SHIELD_V1: helmet and shield lines a counter
+	// shows, and how many of them a bag holds for it before the merchant
+	// takes the rest (playerbot_economy.h).
+	const int PLAYERBOT_HELM_SHIELD_COUNTER_LINES = 3;
+	const int PLAYERBOT_HELM_SHIELD_BAG_KEEP = 6;
+	void NotePlayerBotCorBought(LPCHARACTER ch, DWORD vnum, long long price, DWORD count);
 	const DWORD PLAYERBOT_CRAFT_UNSOLD_RECALL_MS_PRE = 12 * 60 * 60 * 1000;
 	bool IsPlayerBotSaddlebagKeeperPID(DWORD pid);
 	int GetPlayerBotSaddlebagMedalReserve(LPCHARACTER ch);
@@ -6850,7 +7046,7 @@ namespace
 	bool CanPlayerBotPayForCraftGoods(LPCHARACTER ch, LPITEM item, long long price);
 	bool PlayerBotSaddlebagWantsMedal(LPCHARACTER ch);
 	bool PlayerBotWantsSaddlebagGoods(LPCHARACTER ch);
-	void NotePlayerBotSaddlebagBought(LPCHARACTER ch, DWORD vnum, long long price);
+	void NotePlayerBotSaddlebagBought(LPCHARACTER ch, DWORD vnum, long long price, DWORD count);
 	void LogPlayerBotSaddlebagCensus();
 
 	// Alchemy and the daily Cors (playerbot_alchemy.h).

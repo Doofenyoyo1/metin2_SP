@@ -1647,6 +1647,10 @@ function Set-FreshWorldSettings {
         if (-not (Test-RatePercent -Value $v)) {
             throw ("{0}: podaj całe procenty od 1 do 10000, nie '{1}'." -f $pair.Label, $v)
         }
+        # MT2009_PLUS_YANG_RATE_CAP_V1: yang drops no higher than 1000%.
+        if ($pair.Key -eq 'M2_RATE_YANG' -and $v -gt 1000) {
+            throw ("{0}: najwyżej 1000%, nie '{1}'." -f $pair.Label, $v)
+        }
         Set-DotEnvValue -Key $pair.Key -Value "$v"
         $written += ('{0} {1}%' -f $pair.Label, $v)
     }

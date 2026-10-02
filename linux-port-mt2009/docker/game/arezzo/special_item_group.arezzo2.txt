@@ -10,6 +10,10 @@ Group	MT2009_chest_30774
 	2	s950742	1	100 -- zapychacz
 	3	s950742	1	40 -- drugi zapychacz
 	4	s950743	1	30 -- przedmiot do peta
+	5	25040	1	5 -- Zwoj Blogoslawienstwa (wlasciciel, 1.10)
+	6	50255	1	5 -- Cor Draconis (Rough)
+	7	50513	1	5 -- Kamien Duchowy
+	8	27987	1	10 -- Malz
 }
 Group	MT2009_chest_30774_gear
 {
@@ -134,16 +138,16 @@ Group	MT2009_chest_30774_pet
 	21	55030	1	10 -- ksiega peta
 	22	55031	1	10 -- ksiega peta
 	23	55009	1	30 -- Skrzynia Ksiag Peta
-	24	55101	1	60 -- Eliksir
-	25	55108	1	60 -- Eliksir
-	26	55115	1	60 -- Eliksir
+	24	55101	3	60 -- Eliksir
+	25	55108	3	60 -- Eliksir
+	26	55115	3	60 -- Eliksir
 	27	55102	1	30 -- Eliksir
 	28	55109	1	30 -- Eliksir
 	29	55116	1	30 -- Eliksir
 	30	55103	1	15 -- Eliksir
 	31	55110	1	15 -- Eliksir
 	32	55117	1	15 -- Eliksir
-	33	55001	1	216 -- Proteinowa Przekaska
+	33	55001	5	216 -- Proteinowa Przekaska
 	34	55032	1	150 -- Smakolyk
 	35	55035	1	50 -- Smakolyk+
 }
@@ -222,7 +226,7 @@ Group	MT2009_chest_30775_misc
 	2	27006	100	50 -- Niebieska Mikstura(D)
 	3	50300	1	40 -- Ksiega Umiejetnosci
 	4	70037	1	15 -- Ksiega Zapomnienia
-	5	25040	1	12 -- Zwoj Blogoslawienstwa
+	5	25040	5	12 -- Zwoj Blogoslawienstwa
 	6	70014	1	10 -- Pigulka Krwi
 	7	39002	1	10 -- Pierscien Doswiadczenia
 	8	70058	1	15 -- Pierscien Teleportacji
@@ -259,16 +263,16 @@ Group	MT2009_chest_30775_pet
 	21	55030	1	10 -- ksiega peta
 	22	55031	1	10 -- ksiega peta
 	23	55009	1	30 -- Skrzynia Ksiag Peta
-	24	55101	1	60 -- Eliksir
-	25	55108	1	60 -- Eliksir
-	26	55115	1	60 -- Eliksir
+	24	55101	3	60 -- Eliksir
+	25	55108	3	60 -- Eliksir
+	26	55115	3	60 -- Eliksir
 	27	55102	1	30 -- Eliksir
 	28	55109	1	30 -- Eliksir
 	29	55116	1	30 -- Eliksir
 	30	55103	1	15 -- Eliksir
 	31	55110	1	15 -- Eliksir
 	32	55117	1	15 -- Eliksir
-	33	55001	1	216 -- Proteinowa Przekaska
+	33	55001	5	216 -- Proteinowa Przekaska
 	34	55032	1	150 -- Smakolyk
 	35	55035	1	50 -- Smakolyk+
 }
@@ -369,16 +373,25 @@ Group	MT2009_chest_30776_pet
 	21	55030	1	10 -- ksiega peta
 	22	55031	1	10 -- ksiega peta
 	23	55009	1	30 -- Skrzynia Ksiag Peta
-	24	55101	1	60 -- Eliksir
-	25	55108	1	60 -- Eliksir
-	26	55115	1	60 -- Eliksir
+	24	55101	3	60 -- Eliksir
+	25	55108	3	60 -- Eliksir
+	26	55115	3	60 -- Eliksir
 	27	55102	1	30 -- Eliksir
 	28	55109	1	30 -- Eliksir
 	29	55116	1	30 -- Eliksir
 	30	55103	1	15 -- Eliksir
 	31	55110	1	15 -- Eliksir
 	32	55117	1	15 -- Eliksir
-	33	55001	1	216 -- Proteinowa Przekaska
+	33	55001	5	216 -- Proteinowa Przekaska
 	34	55032	1	150 -- Smakolyk
 	35	55035	1	50 -- Smakolyk+
+}
+# MT2009_PLUS_DROP_EDIT_V1: Krolowa Dzungli's (9714) random pearl (the owner, 1 October): one of the
+# three by weight, given at 100% by her drop group (mob_drop_item.dropedit.append.txt).
+Group	MT2009_dropedit_pearl
+{
+	Vnum	950764
+	1	27992	1	4 -- Biala Perla
+	2	27993	1	2 -- Niebieska Perla
+	3	27994	1	1 -- Krwawa Perla
 }
