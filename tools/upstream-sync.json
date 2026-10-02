@@ -1,16 +1,16 @@
 {
   "repository": "https://github.com/zaxerrrr-dot/mt2009-sp-plus",
   "branch": "main",
-  "synced_commit": "74c8d2d4c3fa1bfe2124e2582bde70e19dda80b7",
-  "synced_version": "2.17.1",
+  "synced_commit": "fa1242ae10b4ee74578aa666be2b4f197ab185a7",
+  "synced_version": "2.18.0",
   "engine_package": {
-    "url": "https://raw.githubusercontent.com/zaxerrrr-dot/mt2009-sp-plus/74c8d2d4c3fa1bfe2124e2582bde70e19dda80b7/releases/metin2-server-update-2.17.1.zip",
-    "sha256": "521C477C7F9E3CDC2D4574D9FF63D85A5F957E77717078A9A8D4E20D5E6D9B38"
+    "url": "https://raw.githubusercontent.com/zaxerrrr-dot/mt2009-sp-plus/fa1242ae10b4ee74578aa666be2b4f197ab185a7/releases/metin2-server-update-2.18.0.zip",
+    "sha256": "05E7C069EE57774B0A743DA7D3CD206E1A849C384C913150154FE7B36FC65C82"
   },
   "synced_client_package": {
-    "version": "2.0.37",
-    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/klient-v2.0.37/metin2-client-update-2.0.37.zip",
-    "sha256": "3DFFFCA0A788BECDA4069709A0E7A6877DC4FFE2349636208B8156EC1B6985C2"
+    "version": "2.0.38",
+    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/klient-v2.0.38/metin2-client-update-2.0.38.zip",
+    "sha256": "52D1B7651E85C05A6A98C8CFE04E78DA3319C654A599C15F6A2323AAB2D88EF5"
   },
   "previous_upstream": {
     "repository": "https://github.com/TieruYT/metin2-playerbots",
@@ -23,8 +23,8 @@
     "note": "MT2009 PLUS's full package, linux-port/docker/game/src/server: the engine its update packages assume"
   },
   "client_rebase": {
-    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/klient-v2.0.37/metin2-client-update-2.0.37.zip",
-    "sha256": "3DFFFCA0A788BECDA4069709A0E7A6877DC4FFE2349636208B8156EC1B6985C2",
-    "since": "f8d8d41ea16b49042ec2579b5a94f4bf97df9981"
+    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/klient-v2.0.38/metin2-client-update-2.0.38.zip",
+    "sha256": "52D1B7651E85C05A6A98C8CFE04E78DA3319C654A599C15F6A2323AAB2D88EF5",
+    "since": "859b23324f6dbc07adf13aff69863874804e16fd"
   }
 }

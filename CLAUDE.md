@@ -9720,6 +9720,18 @@ git and the client zips as GitHub releases `klient-vX`. What that changed:
   2.17.2 / client 2.0.56, and its sections went inside ours as `###
   MT2009 PLUS ...` headings: the panels read only `## x.y.z`, and a second
   `## 2.17.1` would be a release they cannot tell apart.
+  Its 2.18.0 / client 2.0.38 (2 October) is our 2.18.1 / client 2.0.57,
+  the same way.
+- **Its package can miss an engine file its own changelog promises.**
+  2.18.0 shipped the bot half of the kill-counted guild wars and not
+  `guild_manager.cpp` (server-patches/guildwarkills, applied on its own
+  machine by tools/port/Apply-MT2009PlusEngine.ps1, which is not ours).
+  For every `server-patches/*/edits.json` a sync brings, grep the new
+  package for the edit's marker; one that is missing becomes a
+  playerbotify edit in `ENGINE_EDITS` (2.18.1: `apply_guild_war_kills`)
+  and its file goes on our list. Its launcher hands the client's update to
+  MT2009-Patcher.exe when the folder holds one (2.18.0): that pulls its
+  client from its channel, so the hand-off is left out of ours.
 - **Its git and its package agree on the overlay, and its tests do not
   exist.** It ships no unit tests, so a default it changes in a pure header
   breaks ours (2.17.1: the law of advancement by level,
