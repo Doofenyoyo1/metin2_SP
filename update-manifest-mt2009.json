@@ -1,25 +1,25 @@
 {
   "schema": 1,
   "channel": "stable",
-  "publishedAt": "2026-10-01T05:24:21Z",
+  "publishedAt": "2026-10-02T04:58:49Z",
   "statusMessage": "Wersja 2.17.0 jest wycofana: nie buduje sie na zwyklej instalacji. Poprawka jest w drodze - do tego czasu 2.3.00 jest aktualna.",
   "server": {
-    "version": "2.17.1",
-    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.1/metin2-server-update-2.17.1.zip",
-    "sha256": "E3647A3EE75B094F0CF8A99F3CE41322A4FFE43D5A474C78505BB8ACA1A0DCB5"
+    "version": "2.17.2",
+    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.2/metin2-server-update-2.17.2.zip",
+    "sha256": "F532EEA4B42476562E1296CBD1D1499C49056C4D5194DF7232D987A84B38345E"
   },
   "support": {
     "contactUrl": "https://github.com/Doofenyoyo1/metin2_SP/issues",
     "uploadUrl": ""
   },
   "client": {
-    "version": "2.0.55",
-    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.1/metin2-client-update-2.0.55.zip",
-    "sha256": "6F49D667E4068336F8714F5A847CECC0D8DDDE7568BEC74C56406D380DB28366"
+    "version": "2.0.56",
+    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.2/metin2-client-update-2.0.56.zip",
+    "sha256": "14197BCB22EE9BC2D7AF018F685B9D9FCC5C36EE31EF4AE09B90A3B64AA129BC"
   },
   "clientExe": {
-    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.1/metin2client.exe",
-    "sha256": "EEA61FE9359E09F11776BC05007DA0D5E78B61A6C655E7323CA01B50EE1F162A",
-    "size": 13617152
+    "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/v2.17.2/metin2client.exe",
+    "sha256": "A44014305B71FB1A8CDD3842EE796B22E357685A2CCB226917D16652C258F7A6",
+    "size": 13663232
   }
 }
