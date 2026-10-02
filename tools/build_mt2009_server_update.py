@@ -114,6 +114,7 @@ def main():
                if l.strip() and not l.strip().startswith('#')]
 
     filled = 0
+    from_base = []
     for e in entries:
         if any(c in e for c in '*?'):
             d, leaf = e.rsplit('/', 1)
@@ -132,6 +133,12 @@ def main():
         elif not os.path.isfile(os.path.join(src, e)):
             pub = published(e)
             if pub not in old_raw:
+                # An engine file upstream's update package left out (2.18.0:
+                # guild_manager.cpp, which an ENGINE_EDITS edit changes) comes
+                # from the engine base, laid down below.
+                if a.engine_base:
+                    from_base.append(e)
+                    continue
                 sys.exit('listed, not in git and not in the previous package: ' + e)
             os.makedirs(os.path.dirname(os.path.join(src, e)), exist_ok=True)
             open(os.path.join(src, e), 'wb').write(old.read(old_raw[pub]))
@@ -170,6 +177,9 @@ def main():
                 open(dst, 'wb').write(bz.read(n))
         if not base_files:
             sys.exit('the engine base holds no server/ tree: ' + a.engine_base)
+    for e in from_base:
+        if not os.path.isfile(os.path.join(src, e)):
+            sys.exit('listed, not in git, the previous package or the engine base: ' + e)
 
     sys.path.insert(0, os.path.join(REPO, 'linux-port-mt2009', 'port'))
     import playerbotify
