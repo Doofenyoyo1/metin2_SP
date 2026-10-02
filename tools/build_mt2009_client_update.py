@@ -177,6 +177,12 @@ def main():
             shutil.copyfile(os.path.join(REPO, f), os.path.join(new_dir, base))
             print('  beside the exe:', base)
 
+    # MT2009 PLUS's packages carry a CLIENT_VERSION beside the exe since its
+    # 2.0.37; it is its number, so a package of ours says ours.
+    if 'CLIENT_VERSION' in top:
+        with open(os.path.join(new_dir, 'CLIENT_VERSION'), 'wb') as f:
+            f.write(version.encode() + b'\r\n')
+
     os.makedirs(a.out, exist_ok=True)
     zp = os.path.join(a.out, 'metin2-client-update-%s.zip' % version)
     with zipfile.ZipFile(zp, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
