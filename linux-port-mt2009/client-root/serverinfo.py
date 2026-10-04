@@ -153,11 +153,13 @@ def __LoadCoopServer(path="coop.cfg", mark_name="10"):
 
 __AddServerToServerList(SERVER_LOCALHOST)
 
-SERVER_COOP = __LoadCoopServer()
+# Each world keeps its own guild-mark cache: with the local world's "10" a
+# friend's world drew the host's marks (the fix Tieru's client carried).
+SERVER_COOP = __LoadCoopServer("coop.cfg", "20")
 if SERVER_COOP:
 	__AddServerToServerList(SERVER_COOP)
 
-SERVER_COOP2 = __LoadCoopServer("coop2.cfg")
+SERVER_COOP2 = __LoadCoopServer("coop2.cfg", "30")
 if SERVER_COOP2:
 	__AddServerToServerList(SERVER_COOP2)
 

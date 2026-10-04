@@ -765,6 +765,7 @@ class GameWindow(ui.ScriptWindow):
 			"player_stat"		: (lambda : self.interface.wndPlayerStat.Open(), None),
 			"companion"			: (lambda : self.__ToggleSidekick(), None),
 			"autohunt"			: (lambda : self.__ToggleAutoHunt(), None),
+			"bonus_switch"		: (lambda : self.__ToggleBonusSwitcher(), None),
 			"garbage_bin"		: (lambda : self.interface.ToggleGarbageBinWindow(), None),
 			"shop_search"		: (lambda : self.__PressF5Key(), None),
 			# F11: the event calendar (uieventcalendar.py).
@@ -2055,6 +2056,13 @@ class GameWindow(ui.ScriptWindow):
 
 	def StopRight(self):
 		player.SetSingleDIKKeyState(app.DIK_RIGHT, False)
+
+	def __ToggleBonusSwitcher(self):
+		import uibonusswitch
+		switcher = uibonusswitch.GetSwitcher()
+		if switcher not in self.updateable:
+			self.RegisterUpdatable(switcher)
+		uibonusswitch.ToggleWindow()
 
 	def PickUpItem(self):
 		import uipickupfilter
