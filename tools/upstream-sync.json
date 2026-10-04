@@ -1,11 +1,11 @@
 {
   "repository": "https://github.com/zaxerrrr-dot/mt2009-sp-plus",
   "branch": "main",
-  "synced_commit": "3bfe680046fe4df136cf282ef6ec7b29905fd314",
-  "synced_version": "2.21.0",
+  "synced_commit": "10782646cfccf72d53947d0df0ea72bf00ef0505",
+  "synced_version": "2.21.1",
   "engine_package": {
-    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/v2.21.0/metin2-server-update-2.21.0.zip",
-    "sha256": "453374773196F2C7B9B2F3D4C4BA20C99772B7C1CFBCDFE28BA303F914DE2B46"
+    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/v2.21.1/metin2-server-update-2.21.1.zip",
+    "sha256": "0CE9D88D7493EACA0F2E7DDA05B0073CC9AA02C876AE3EFF7BFFD07854986669"
   },
   "synced_client_package": {
     "version": "2.0.51",
@@ -21,10 +21,5 @@
     "url": "https://github.com/Doofenyoyo1/metin2_SP/releases/download/engine-base/server.zip",
     "sha256": "223B716B6C08CAB3E50AF1680654A6E04B122652016688A54C236CC9E296969B",
     "note": "MT2009 PLUS's full package, linux-port/docker/game/src/server: the engine its update packages assume"
-  },
-  "client_rebase": {
-    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/klient-v2.0.51/metin2-client-update-2.0.51.zip",
-    "sha256": "75EDEE1C6082821BE1E41B56F02BB4C9A457288B408D4E87E3BFA9C0A8DA3FC4",
-    "since": "6d22dd0fc050cf379b2e766a89301865c17ddc8a"
   }
 }

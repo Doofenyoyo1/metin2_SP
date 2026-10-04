@@ -17,6 +17,25 @@ every version here.
 
 ---
 
+## 2.21.2 — 2026-10-04
+
+Tylko serwer: klient zostaje **2.0.58**. Na VPS: `sh linux-port/tools/update.sh`.
+Świat, postacie i ustawienia zostają.
+
+To jest MT2009 PLUS 2.21.1 (bez zmian w jego kliencie 2.0.51) z naszymi
+zmianami na wierzchu, opisane niżej pod nagłówkiem „MT2009 PLUS”.
+
+- W README, wśród podziękowań: **Vekirion** (wiki dropu, klawisze,
+  alchemia) i **blaki** (Auto Łowy), jak w README MT2009 PLUS.
+- Wszystko, co zostaje nasze (COOP bez hasła, aktualizacje z naszego
+  repozytorium, okno bonusów, trzej kowale gildii) - bez zmian.
+
+### MT2009 PLUS 2.21.1 — 2026-10-04 — Czaszka tylko nad bossami, poprawka panelu
+
+- **Czaszka tylko nad bossami i mini-bossami** — mocne zwykłe potwory (np. Czarne Orki) już jej nie mają.
+- Panel zaawansowany: przycisk **OK** w okienku po nadaniu VIP-a / Premium znów je zamyka (wcześniej sypał błędami „Coś poszło nie tak (405)”).
+- Nowe README projektu.
+
 ## 2.21.1 — 2026-10-04
 
 Serwer 2.21.1 i klient 2.0.58: **zaktualizuj oba** („AKTUALIZUJ wszystko”
