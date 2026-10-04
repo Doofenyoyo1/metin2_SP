@@ -184,6 +184,39 @@ window = {
 #############################################################################
 MAIN_BOARD = FindElementRef(window["children"], "board")
 
+# MT2009_PLUS_VEKIRION_V1 (Autor: Vekirion): "Skroty klawiszowe" (uikeybind.py),
+# above "Sklep z przedmiotami"; Recalculate below spaces every button.
+ElementAddBefore(MAIN_BOARD["children"], "mall_button",
+				{
+					"name" : "keybind_button",
+					"type" : "button",
+
+					"x" : 10,
+					"y" : -1,
+
+					"text" : "Skr\xf3ty klawiszowe",
+
+					"default_image" : ROOT + "XLarge_Button_01.sub",
+					"over_image" : ROOT + "XLarge_Button_02.sub",
+					"down_image" : ROOT + "XLarge_Button_03.sub",
+				})
+
+# MT2009_PLUS_DIGI_CLIENT_QOL_V1 (Autor: Digi Rasta): "Opcje dodatkowe" (uiopcjedodatkowe.py)
+ElementAddBefore(MAIN_BOARD["children"], "escape_button",
+				{
+					"name" : "extra_option_button",
+					"type" : "button",
+
+					"x" : 10,
+					"y" : -1,
+
+					"text" : "Opcje dodatkowe",
+
+					"default_image" : ROOT + "XLarge_Button_01.sub",
+					"over_image" : ROOT + "XLarge_Button_02.sub",
+					"down_image" : ROOT + "XLarge_Button_03.sub",
+				})
+
 if app.ENABLE_MOVE_CHANNEL:
 	ElementAddBefore(MAIN_BOARD["children"], "logout_button",
 				{

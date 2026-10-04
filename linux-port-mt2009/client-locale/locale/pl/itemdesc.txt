@@ -2136,7 +2136,7 @@
 71052	B³ogos³aw. Przedmiotu	Usuwa specjalny bonus z jednego z twoich przedmiotów i dodaje nowy.
 71054	Olejek Wygnania	Przedmiot ten umo¿liwia przeniesienie postaci do innego Królestwa. Uwaga: za zmianê Królestwa pobierana jest op³ata w wysokoœci 500 000 Yang. Wymaga wziêcia rozwodu.
 71055	Olejek Nazwy	Zmienia nazwê gracza.
-71056	Olejek Niebios	Zwiêksza szansê na pomyœlne ulepszenie Kamienia Duszy.
+71056	Olejek Niebios	Sk³adnik ulepszania Kamieni Duszy u Kowala (od +4): potrzeba 1, 1, 2, 2, 3 sztuk na kolejne stopnie, obok Magicznego Py³u. Wypada z Silnej Lodowej WiedŸmy (Grota Wygnañców), Beran-Setaou (Le¿e Smoka) i Królowej D¿ungli (Staro¿ytna D¿ungla).
 71057	Zwój Przyw. - ¯.S. Drew.	Przyzywa ¯y³ê Skamienia³ego Drzewa blisko postaci.
 71058	Zwój Przyw. - ¯. Miedzi	Przyzywa ¯y³ê Miedzi blisko postaci.
 71059	Zwój Przyw. - ¯. Srebra	Przyzywa ¯y³ê Srebra blisko postaci.
@@ -2901,3 +2901,7 @@
 50968	Z³oty £up Królewski	Nagroda za grê Z³ap Króla z wynikiem 550 punktów lub wiêcej i za miejsce w pierwszej dziesi¹tce rankingu. Kliknij prawym przyciskiem, aby otworzyæ.
 50969	Srebrny £up Królewski	Nagroda za grê Z³ap Króla z wynikiem od 400 do 549 punktów. Kliknij prawym przyciskiem, aby otworzyæ.
 50970	Br¹zowy £up Królewski	Nagroda za grê Z³ap Króla z wynikiem od 10 do 399 punktów. Kliknij prawym przyciskiem, aby otworzyæ.
+30670	Kamieñ Przebudzenia	Rzadki kamieñ z bossów. U Kowala przemienia broñ 75. poziomu +9 w broñ przebudzon¹ +0, zachowuj¹c bonusy i kamienie (koszt: 200 000 000 Yang).
+8010	Ko³czan	Ko³czan pe³en strza³, które nigdy siê nie koñcz¹. Za³ó¿ go w miejsce strza³: ³uk ninja strzela bez zu¿ywania strza³ (obra¿enia jak ze Srebrnej Strza³y). Dzia³a 14 dni od zakupu.
+41986	Zbroja Króla Wojowników+	Królewska zbroja wojownika. Kostium tylko dla wojownika (postaæ mêska). Dzia³a 30 dni od zakupu.
+40233	Œwiêty Miecz Bogów+	Nak³adka na broñ jednorêczn¹ (miecz) - wojownik, ninja, sura. Dzia³a 30 dni od zakupu.

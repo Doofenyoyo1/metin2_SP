@@ -1,5 +1,6 @@
 # FLEA_UI_V2 FLEA_UI_V4 FLEA_UI_V5 FLEA_UI_V6 - nowe okno "Dom Towarowy" (kategorie po lewej, filtry, wyszukiwanie po stronie serwera)
 import re
+import bisect
 import ui
 import ikashop
 import item
@@ -63,12 +64,14 @@ ROWS_PER_PAGE = 8
 ROWS_Y = 116
 ROW_WIDTH = MAIN_RIGHT - MAIN_X
 MAX_LISTINGS = 6000
-SEARCH_DELAY = 0.7
-BOOK_VNUMS = (50300,)
+# MT2009_PLUS_UPSTREAM_2_0_76: a quicker search after typing, and the
+# forgetting book (70037) searched by its skill like the skill book.
+SEARCH_DELAY = 0.35
+BOOK_VNUMS = (50300, 70037)
 # Umiejetnosci, dla ktorych istnieja ksiegi (klient zna ich nazwy). skill.GetSkillName dla nieznanego numeru
 # zapisuje blad w interpreterze i wywala pozniejszy, niezwiazany kod - wolno pytac tylko o te numery.
 SKILL_IDS = tuple(range(1, 6) + range(16, 21) + range(31, 36) + range(46, 51) + range(61, 67) + range(76, 82) + range(91, 97) + range(106, 112))
-APPLY_INTERVAL = 0.25
+APPLY_INTERVAL = 0.15
 # "Kup wiele" (the operator, 28 September: "zaznaczam, ktore przedmioty chce
 # kupic, potem 'Kup wszystko' i kupuja sie po kolei"). A box on every row, the
 # header's box for the page; the offers go one at a time through /flea_buy, the
@@ -82,6 +85,26 @@ ICON_X = 28
 TEXT_X = 82
 MULTI_BUY_TIMEOUT = 5.0
 MULTI_BUY_GAP = 0.35
+# MT2009_PLUS_UPSTREAM_2_0_76: the mouse wheel turns one page per notch.
+WHEEL_GAP = 0.09
+# MT2009_PLUS_UPSTREAM_2_0_76: the average price in an offer's tooltip, from
+# the PRICE_SAMPLE cheapest loaded offers of the same item (vnum, sockets and
+# bonuses; a book by its skill).
+PRICE_SAMPLE = 20
+
+
+def ParseMarketPrice(text):
+    """MT2009_PLUS_UPSTREAM_2_0_76: "Cena od/do" takes 1500000, 1.5kk,
+    1500k or 2kkk (k = thousand); anything else is no limit."""
+    text = text.strip().lower().replace(" ", "").replace(",", ".")
+    match = re.match(r"^(\d+)(?:\.(\d+))?(k{1,3})?$", text)
+    if not match:
+        return 0
+    whole, fraction, suffix = match.groups()
+    fraction = fraction or ""
+    multiplier = 1000 ** len(suffix or "")
+    value = int(whole + fraction) * multiplier // (10 ** len(fraction))
+    return max(0, value)
 
 # (nazwa, wciecie, stala/e typu z modulu item (string albo krotka stringow) albo "OTHER", stala
 # podtypu, stala antyflagi klasy z modulu item albo None - filtr klasy dziala TYLKO po stronie
@@ -131,14 +154,15 @@ CATEGORY_VNUM_OVERRIDES = {
     30379: "Rudy i przetopy",      # Przetopiony Kruszec - silnikowo ITEM_TYPE_MATERIAL (dzielony z ~470 innymi materialami)
     39005: "Rudy i przetopy",      # Magiczna Ruda Miedzi (wariant questowy)
     70035: "Rudy i przetopy",      # Magiczna Ruda Miedzi (wariant questowy)
-    71026: "Rudy i przetopy",      # Magiczna Ruda Miedzi (wariant questowy)
+    71026: "Ulepszacze",           # MT2009_PLUS_UPSTREAM_2_0_76: an upgrade item, as upstream files it
     72308: "Rudy i przetopy",      # Magiczna Ruda Miedzi (wariant questowy)
 }
 # (od, do wlacznie, kategoria) - prawdziwe rudy/kamienie siedza pod ITEM_TYPE_SPECIAL, ktory
 # jest ogolnym koszem (jedzenie dla konia, bilety, obraczki...), wiec tylko ten ciagly zakres
 # vnumow trafia do "Rudy i przetopy".
 CATEGORY_VNUM_RANGE_OVERRIDES = (
-    (50601, 50622, "Rudy i przetopy"),  # Ruda Miedzi .. Ruda Szafiru, Kawalek Bursztynu/Perly, Dusza Rudy Krysztalu, Bursztyn, Diamentowy Kamien, Skamienialy Pien
+    # MT2009_PLUS_UPSTREAM_2_0_76: to 50638 as upstream (the smelted ores after 50622).
+    (50601, 50638, "Rudy i przetopy"),  # Ruda Miedzi .. Ruda Szafiru, Kawalek Bursztynu/Perly, Dusza Rudy Krysztalu, Bursztyn, Diamentowy Kamien, Skamienialy Pien
 )
 
 # (klucz, nazwa na przycisku, kod sortowania po stronie serwera: 0 cena rosnaco, 1 cena malejaco, 2 cena za sztuke)
@@ -248,7 +272,8 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
         self.__keepers = []
 
         self.__top = 64
-        cardHeight = self.MAX_ROWS * self.ROW_HEIGHT + 12
+        # MT2009_PLUS_UPSTREAM_2_0_76: one more row, "Min. liczba bonusow".
+        cardHeight = (self.MAX_ROWS + 1) * self.ROW_HEIGHT + 12
         # CUSTOM_FLEA_BONUS_FILTER_V1: dialog musi byc na tyle wysoki, zeby
         # w pelni zmiescic rozwinieta liste wyboru (patrz OpenPicker) - inaczej
         # dolna czesc listy wystaje poza wlasne okno, a kliki tam trafiaja w
@@ -276,6 +301,33 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
         for index in range(self.MAX_ROWS):
             self.rows.append(self.__MakeRow(index, y))
             y += self.ROW_HEIGHT
+
+        # MT2009_PLUS_UPSTREAM_2_0_76: only offers with at least this many
+        # bonuses (CountBonuses), whichever they are; empty - no limit.
+        countLabel = ui.TextLine()
+        countLabel.SetParent(self)
+        countLabel.SetPosition(self.LEFT + 4, y + 5)
+        countLabel.SetText("Min. liczba bonusow:")
+        countLabel.SetPackedFontColor(COLOR_DIM)
+        countLabel.AddFlag("not_pick")
+        countLabel.Show()
+        self.__keepers.append(countLabel)
+        countBar = ui.SlotBar()
+        countBar.SetParent(self)
+        countBar.SetPosition(self.LEFT + 4 + 16 + self.PICK_WIDTH + 30, y)
+        countBar.SetSize(self.EDIT_WIDTH, self.PICK_HEIGHT)
+        countBar.AddFlag("not_pick")
+        countBar.Show()
+        self.__keepers.append(countBar)
+        self.countEdit = ui.EditLine()
+        self.countEdit.SetParent(countBar)
+        self.countEdit.SetPosition(4, 3)
+        self.countEdit.SetSize(self.EDIT_WIDTH - 8, 17)
+        self.countEdit.SetMax(1)
+        self.countEdit.SetNumberMode()
+        self.countEdit.SAFE_SetReturnEvent(self.Apply)
+        self.countEdit.Show()
+        y += self.ROW_HEIGHT
 
         self.applyButton = self.__MakeButton(self.WIDTH / 2 - 110, y + 14, "Zastosuj", self.Apply)
         self.clearButton = self.__MakeButton(self.WIDTH / 2 + 10, y + 14, "Wyczysc", self.ClearAll)
@@ -430,7 +482,11 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
                 minValue = 1
             attrType = self.options[row["optionIndex"]][0]
             filters.append((attrType, minValue))
-        self.market.SetBonusFilters(filters)
+        try:
+            minCount = max(0, int(self.countEdit.GetText()))
+        except:
+            minCount = 0
+        self.market.SetBonusFilters(filters, minCount)
         self.Close()
 
     def ClearAll(self):
@@ -438,6 +494,7 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
             row["optionIndex"] = 0
             row["button"].SetText(self.NONE_LABEL)
             row["edit"].SetText("")
+        self.countEdit.SetText("")
         self.pickerList.Hide()
         self.pickerBackground.Hide()
         self.activeRow = -1
@@ -586,6 +643,97 @@ class FleaCategoryButton(ui.Window):
     def OnMouseLeftButtonUp(self):
         self.market.SetCategory(self.index)
         return True
+
+
+class _EnterConfirm:
+    """MT2009_PLUS_UPSTREAM_2_0_76: Enter confirms the purchase question as
+    "Tak" does (upstream's FleaMarketConfirmDialog, in the game's own look)."""
+
+    def Open(self):
+        self.BaseDialog.Open(self)
+        self.SetFocus()
+
+    def OnPressReturnKey(self):
+        if self.IsShow():
+            self.acceptButton.CallEvent()
+        return True
+
+    def Close(self):
+        self.KillFocus()
+        self.BaseDialog.Close(self)
+
+
+class FleaMarketConfirmDialog(_EnterConfirm, uiCommon.QuestionDialog):
+    BaseDialog = uiCommon.QuestionDialog
+
+
+class FleaMarketConfirmDialog2(_EnterConfirm, uiCommon.QuestionDialog2):
+    BaseDialog = uiCommon.QuestionDialog2
+
+
+class MarketEditLine(ui.EditLine):
+    """MT2009_PLUS_UPSTREAM_2_0_76: Ctrl+A marks the whole search text, and
+    the next key replaces it (Backspace/Delete clear it)."""
+
+    def __init__(self):
+        ui.EditLine.__init__(self)
+        self.allSelected = False
+        self.selectionBar = ui.Bar()
+        self.selectionBar.SetParent(self)
+        self.selectionBar.SetPosition(0, 0)
+        self.selectionBar.SetColor(0x604A91D1)
+        self.selectionBar.AddFlag("not_pick")
+        self.selectionBar.Hide()
+
+    def ClearSelection(self):
+        self.allSelected = False
+        self.selectionBar.Hide()
+
+    def __SelectAll(self):
+        self.allSelected = True
+        self.selectionBar.SetSize(self.GetWidth(), self.GetHeight())
+        self.selectionBar.Show()
+
+    def OnIMEKeyDown(self, key):
+        if self.IsFocus():
+            control = app.IsPressed(app.DIK_LCONTROL) or app.IsPressed(app.DIK_RCONTROL)
+            if control and key == 0x41:
+                self.__SelectAll()
+                return True
+            if self.allSelected and key not in (0x10, 0x11, 0x12):
+                if key in (0x25, 0x27, 0x24, 0x23, 0x1B, 0x0D):
+                    self.ClearSelection()
+                else:
+                    self.SetText("")
+                    self.ClearSelection()
+                    if key in (0x08, 0x2E):
+                        return True
+        return ui.EditLine.OnIMEKeyDown(self, key)
+
+    def OnKeyDown(self, key):
+        control = app.IsPressed(app.DIK_LCONTROL) or app.IsPressed(app.DIK_RCONTROL)
+        if control and key == app.DIK_A:
+            self.__SelectAll()
+            return True
+        modifiers = (app.DIK_LCONTROL, app.DIK_RCONTROL, app.DIK_LSHIFT, app.DIK_RSHIFT, app.DIK_LALT)
+        if self.allSelected and key not in modifiers:
+            if key in (app.DIK_LEFT, app.DIK_RIGHT, app.DIK_HOME, app.DIK_END, app.DIK_ESCAPE, app.DIK_RETURN):
+                self.ClearSelection()
+            else:
+                self.SetText("")
+                self.ClearSelection()
+                self.OnIMEUpdate()
+                if key in (app.DIK_BACK, app.DIK_DELETE):
+                    return True
+        return ui.EditLine.OnKeyDown(self, key)
+
+    def OnKillFocus(self):
+        self.ClearSelection()
+        ui.EditLine.OnKillFocus(self)
+
+    def OnMouseLeftButtonDown(self):
+        self.ClearSelection()
+        return ui.EditLine.OnMouseLeftButtonDown(self)
 
 
 class FleaCheckBox(ui.Window):
@@ -798,6 +946,13 @@ class FleaRow(ui.Window):
         if self.data:
             self.market.AskBuy(self.data)
 
+    # MT2009_PLUS_UPSTREAM_2_0_76: a right click on the offer ticks it for
+    # "Kup wszystko" as its box does.
+    def OnMouseRightButtonUp(self):
+        if self.data:
+            self.market.ToggleSelected(self.data)
+        return True
+
 
 class FleaMarketWindow(ui.BoardWithTitleBar):
     SUGGESTION_LIMIT = 5
@@ -842,6 +997,17 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.multiBuy = None
         self.popupDialog = None
         self.bonusFilters = []  # CUSTOM_FLEA_BONUS_FILTER_V1: [(attrType, minValue), ...]
+        # MT2009_PLUS_UPSTREAM_2_0_76: the bonus filter's minimum number of
+        # bonuses, the page kept while offers stream in, the tooltip's price
+        # sample, Tab through the suggestions, Enter after a purchase.
+        self.minBonusCount = 0
+        self.streamPage = None
+        self.marketPriceStats = None
+        self.lastWheelAt = -1.0
+        self.suggestionTabIndex = -1
+        self.tabCompletionText = None
+        self.purchaseEnterHeld = False
+        self.purchaseEnterUntil = 0.0
         self.quantityDialog = offlineshopsearch.FleaMarketQuantityDialog(self)
         self.bonusFilterDialog = FleaMarketBonusFilterDialog(self)
         self.__Build()
@@ -882,9 +1048,11 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         # pasek wyszukiwania
         label = self.__MakeText(MAIN_X, SIDEBAR_Y + 3, "Nazwa:")
         label.SetPackedFontColor(COLOR_HEAD)
-        self.searchEdit = self.__MakeEdit(MAIN_X + 46, SIDEBAR_Y, 330, 32)
+        self.searchEdit = self.__MakeEdit(MAIN_X + 46, SIDEBAR_Y, 330, 32, editClass=MarketEditLine)
         self.searchEdit.OnIMEUpdate = ui.__mem_func__(self.__OnSearchTextChanged)
         self.searchEdit.SAFE_SetReturnEvent(self.Search)
+        # MT2009_PLUS_UPSTREAM_2_0_76: Tab puts the next suggestion in.
+        self.searchEdit.SetTabEvent(ui.__mem_func__(self.__CycleSuggestion))
         self.searchButton = self.__MakeButton(MAIN_X + 384, SIDEBAR_Y - 2, 84, "Szukaj", self.Search)
 
         # CUSTOM_FLEA_COMPACT_TOOLBAR_V1: "Odswiez"/"Wyczysc filtry" jako male
@@ -948,10 +1116,11 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
 
         label = self.__MakeText(MAIN_X, SIDEBAR_Y + 31, "Cena od:")
         label.SetPackedFontColor(COLOR_HEAD)
-        self.priceMinEdit = self.__MakeEdit(MAIN_X + 56, SIDEBAR_Y + 28, 110, 12, True)
+        # MT2009_PLUS_UPSTREAM_2_0_76: not numbers only - 1.5kk, 500k (ParseMarketPrice).
+        self.priceMinEdit = self.__MakeEdit(MAIN_X + 56, SIDEBAR_Y + 28, 110, 12)
         label = self.__MakeText(MAIN_X + 176, SIDEBAR_Y + 31, "do:")
         label.SetPackedFontColor(COLOR_HEAD)
-        self.priceMaxEdit = self.__MakeEdit(MAIN_X + 198, SIDEBAR_Y + 28, 110, 12, True)
+        self.priceMaxEdit = self.__MakeEdit(MAIN_X + 198, SIDEBAR_Y + 28, 110, 12)
         # Stary cykl-sort zostaje (Nazwa A-Z/Sprzedawca A-Z go jeszcze uzywaja
         # wewnetrznie do przechowywania stanu), ale nie pokazujemy go juz jako
         # osobny przycisk - Cena/Ilosc sortuje sie teraz klikajac naglowki
@@ -1129,7 +1298,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.keepers.append(button)
         return button
 
-    def __MakeEdit(self, x, y, width, maxLength, numeric=False):
+    def __MakeEdit(self, x, y, width, maxLength, numeric=False, editClass=ui.EditLine):
         slot = ui.SlotBar()
         slot.SetParent(self)
         slot.SetPosition(x, y)
@@ -1138,7 +1307,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         slot.Show()
         self.keepers.append(slot)
 
-        edit = ui.EditLine()
+        edit = editClass()
         edit.SetParent(slot)
         edit.SetPosition(3, 3)
         edit.SetSize(width - 6, 17)
@@ -1193,7 +1362,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             if data["vnum"] in (50300, 70037, 70055):
                 try:
                     skillVnum = int(data.get("sockets", [0])[0])
-                    skillName = skill.GetSkillName(skillVnum) if skillVnum else ""
+                    skillName = skill.GetSkillName(skillVnum) if skillVnum in SKILL_IDS else ""
                     if skillName:
                         name = "%s - %s" % (skillName, name)
                 except:
@@ -1282,10 +1451,32 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
                     names.append(name)
         except:
             pass
+        # MT2009_PLUS_UPSTREAM_2_0_76: "<skill> - <book>" for every book that
+        # is one vnum with the skill in its socket (BOOK_VNUMS).
+        for bookVnum in BOOK_VNUMS:
+            try:
+                item.SelectItem(bookVnum)
+                bookName = item.GetItemName()
+            except:
+                continue
+            for skillVnum in SKILL_IDS:
+                try:
+                    skillName = skill.GetSkillName(skillVnum)
+                except:
+                    continue
+                if not skillName:
+                    continue
+                name = "%s - %s" % (skillName, bookName)
+                key = PolishLower(name)
+                if key not in seen:
+                    seen.add(key)
+                    names.append(name)
         self.itemNames = names
         return names
 
     def __HideSuggestions(self):
+        self.suggestionTabIndex = -1
+        self.tabCompletionText = None
         self.suggestionNames = []
         self.suggestionList.ClearItem()
         self.suggestionList.Hide()
@@ -1323,6 +1514,25 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.suggestionBackground.SetTop()
         self.suggestionList.SetTop()
 
+    # MT2009_PLUS_UPSTREAM_2_0_76: Tab in the search line takes the next
+    # suggestion into it, round the list; the search follows.
+    def __CycleSuggestion(self):
+        if not self.suggestionNames:
+            self.__UpdateSuggestions()
+        if not self.suggestionNames:
+            return
+        index = (self.suggestionTabIndex + 1) % len(self.suggestionNames)
+        self.suggestionTabIndex = index
+        self.tabCompletionText = self.suggestionNames[index]
+        try:
+            self.searchEdit.ClearSelection()
+        except AttributeError:
+            pass
+        self.searchEdit.SetText(self.tabCompletionText)
+        self.searchEdit.SetEndPosition()
+        self.searchAt = app.GetTime() + SEARCH_DELAY
+        self.ApplyFilters()
+
     def __OnSelectSuggestion(self, index, name):
         if index < 0 or index >= len(self.suggestionNames):
             return
@@ -1333,19 +1543,17 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
 
     def __OnSearchTextChanged(self):
         ui.EditLine.OnIMEUpdate(self.searchEdit)
+        if self.tabCompletionText is not None and self.searchEdit.GetText() == self.tabCompletionText:
+            return
+        self.suggestionTabIndex = -1
+        self.tabCompletionText = None
         self.searchAt = app.GetTime() + SEARCH_DELAY
         self.__UpdateSuggestions()
         self.ApplyFilters()
 
     # ---- zapytanie do serwera ---------------------------------------------------------
     def __ParsePrice(self, edit):
-        text = edit.GetText().strip().replace(" ", "")
-        if not text:
-            return 0
-        try:
-            return max(0, int(text))
-        except:
-            return 0
+        return ParseMarketPrice(edit.GetText())
 
     def __GetServerQuery(self):
         query = self.searchEdit.GetText().strip()
@@ -1399,6 +1607,11 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
 
     def __Request(self):
         request = self.__BuildRequest()
+        # MT2009_PLUS_UPSTREAM_2_0_76: "Odswiez" of the same search stays on
+        # its page while the offers stream in; a new search starts at 1.
+        self.streamPage = self.page if request == self.lastRequest else None
+        if request != self.lastRequest:
+            self.page = 0
         self.lastRequest = request
         self.searchAt = None
         self.pendingItems = []
@@ -1414,11 +1627,33 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.__HideSuggestions()
         self.__Request()
 
+    # MT2009_PLUS_UPSTREAM_2_0_76: the Enter that confirmed a purchase is no
+    # search in the line behind the question.
+    def SuppressPurchaseEnter(self):
+        self.purchaseEnterUntil = app.GetTime() + 0.20
+        self.purchaseEnterHeld = True
+        for edit in (self.searchEdit, self.priceMinEdit, self.priceMaxEdit):
+            edit.KillFocus()
+
     def Search(self):
+        if self.purchaseEnterHeld:
+            if app.IsPressed(app.DIK_RETURN) or app.IsPressed(getattr(app, "DIK_NUMPADENTER", app.DIK_RETURN)):
+                return
+            self.purchaseEnterHeld = False
+        if app.GetTime() < self.purchaseEnterUntil:
+            return
+        if ((self.questionDialog and self.questionDialog.IsShow()) or
+                (self.quantityDialog and self.quantityDialog.IsShow())):
+            return
         self.__HideSuggestions()
         self.__Request()
 
     def OnUpdate(self):
+        # MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: no query or purchase on the way
+        # to another core (warpsafe.py).
+        import warpsafe
+        if not warpsafe.InGame():
+            return
         now = app.GetTime()
         if self.searchAt is not None and now >= self.searchAt:
             self.searchAt = None
@@ -1427,7 +1662,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         if self.dirty and now >= self.nextApply:
             self.dirty = False
             self.nextApply = now + APPLY_INTERVAL
-            self.ApplyFilters()
+            self.ApplyFilters(resetPage=False)
         if self.multiBuy is not None:
             self.__UpdateMultiBuy(now)
 
@@ -1539,9 +1774,10 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
     def OpenBonusFilters(self):
         self.bonusFilterDialog.Open()
 
-    def SetBonusFilters(self, filters):
+    def SetBonusFilters(self, filters, minCount=0):
         self.bonusFilters = filters
-        count = len(filters)
+        self.minBonusCount = minCount
+        count = len(filters) + (1 if minCount else 0)
         self.bonusFilterButton.SetText("Filtry (%d)" % count if count else "Filtry")
         self.ApplyFilters()
 
@@ -1599,7 +1835,8 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             return False
         return True
 
-    def ApplyFilters(self):
+    def ApplyFilters(self, resetPage=True):
+        self.marketPriceStats = None
         query = PolishLower(self.searchEdit.GetText().strip())
         minimum = self.__ParsePrice(self.priceMinEdit)
         maximum = self.__ParsePrice(self.priceMaxEdit)
@@ -1612,7 +1849,11 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
                 continue
             if query:
                 name = self.GetItemName(data)
-                if query not in PolishLower(name):
+                lowerName = data.get("_flea_lower_name")
+                if lowerName is None:
+                    lowerName = PolishLower(name)
+                    data["_flea_lower_name"] = lowerName
+                if query not in lowerName:
                     continue
                 # CUSTOM_FLEA_PLUS_SEARCH_V1: tylko dla Ulepszaczy (zwoje z
                 # +1..+9 zalewaly wyniki) - bez "+" w zapytaniu szukamy tylko
@@ -1628,6 +1869,8 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             if not self.__MatchesCategory(data):
                 continue
             if not self.__MatchesBonusFilters(data):
+                continue
+            if self.minBonusCount and self.CountBonuses(data) < self.minBonusCount:
                 continue
             items.append(data)
 
@@ -1645,7 +1888,18 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         items.sort(key=columnKeys[self.primarySortColumn], reverse=(primaryDir == "desc"))
 
         self.items = items
-        self.page = 0
+        # MT2009_PLUS_UPSTREAM_2_0_76: a purchase, an offer gone or the next
+        # batch of offers keeps the page (resetPage=False); a new filter goes
+        # back to the first.
+        if resetPage:
+            self.page = 0
+            self.streamPage = None
+        else:
+            lastPage = max(0, (len(items) - 1) // ROWS_PER_PAGE)
+            target = self.streamPage if self.streamPage is not None else self.page
+            self.page = min(target, lastPage)
+        if not self.isLoading:
+            self.streamPage = None
         if self.selected:
             # A fresh catalogue's offer stands for the ticked one (its price,
             # its stack); one no longer listed keeps what was seen.
@@ -1693,27 +1947,82 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             self.emptyText.SetText("Brak ofert spelniajacych kryteria")
         self.__UpdateStatus()
 
+    def __ChangePage(self, direction):
+        lastPage = max(0, (len(self.items) - 1) // ROWS_PER_PAGE)
+        target = max(0, min(lastPage, self.page + direction))
+        if target == self.page:
+            return
+        self.page = target
+        if self.isLoading:
+            self.streamPage = target
+        self.__RefreshRows()
+
     def PreviousPage(self):
-        if self.page > 0:
-            self.page -= 1
-            self.__RefreshRows()
+        self.__ChangePage(-1)
 
     def NextPage(self):
-        if (self.page + 1) * ROWS_PER_PAGE < len(self.items):
-            self.page += 1
-            self.__RefreshRows()
+        self.__ChangePage(1)
 
     def OnMouseWheel(self, length):
+        now = app.GetTime()
+        if now - self.lastWheelAt < WHEEL_GAP:
+            return True
+        self.lastWheelAt = now
         if length > 0:
             self.PreviousPage()
         elif length < 0:
             self.NextPage()
         return True
 
+    # MT2009_PLUS_UPSTREAM_2_0_76: the average of the cheapest offers of the
+    # same item among the loaded ones, in the offer's tooltip.
+    def __PriceComparisonKey(self, data):
+        vnum = data["vnum"]
+        sockets = tuple(data.get("sockets", ()))
+        if vnum in BOOK_VNUMS:
+            return (vnum, sockets[0] if sockets else 0, ())
+        attrs = tuple(sorted((int(attr[0]), int(attr[1])) for attr in data.get("attrs", ()) if attr[0]))
+        return (vnum, sockets, attrs)
+
+    def __GetMarketPriceStats(self, data):
+        if self.marketPriceStats is None:
+            cheapest = {}
+            for offer in self.allItems:
+                count = int(offer.get("count", 0))
+                if count <= 0 or offer.get("is_auction", False):
+                    continue
+                key = self.__PriceComparisonKey(offer)
+                unitPrice = float(self.__GetTotalPrice(offer)) / count
+                prices = cheapest.setdefault(key, [])
+                if len(prices) < PRICE_SAMPLE or unitPrice < prices[-1]:
+                    bisect.insort(prices, unitPrice)
+                    if len(prices) > PRICE_SAMPLE:
+                        prices.pop()
+            self.marketPriceStats = dict((key, [sum(prices), len(prices), prices[0], prices[-1]])
+                for key, prices in cheapest.items() if prices)
+        return self.marketPriceStats.get(self.__PriceComparisonKey(data))
+
     def ShowItemToolTip(self, data):
         if self.tooltip:
             self.tooltip.ClearToolTip()
             self.tooltip.AddItemData(data["vnum"], data["sockets"], data["attrs"])
+            try:
+                stats = self.__GetMarketPriceStats(data)
+            except:
+                stats = None
+            self.tooltip.AppendSpace(7)
+            if stats:
+                total, samples, lowest, highest = stats
+                average = int(total / samples + 0.5)
+                self.tooltip.AppendTextLine("Srednia: %s / szt." % localeInfo.NumberToMoneyString(average), COLOR_GOLD)
+                self.tooltip.AppendTextLine("Najtansze oferty: %d / %d" % (samples, PRICE_SAMPLE), COLOR_DIM)
+                if self.isLoading:
+                    self.tooltip.AppendTextLine("Wycena czesciowa - trwa wczytywanie", COLOR_DIM)
+                elif samples < 3:
+                    self.tooltip.AppendTextLine("Mala liczba ofert - wycena orientacyjna", COLOR_DIM)
+            else:
+                self.tooltip.AppendTextLine("Brak danych do wyceny", COLOR_DIM)
+            self.tooltip.AppendTextLine("Probka: wczytane oferty (filtry, limit %d)" % MAX_LISTINGS, COLOR_DIM)
             self.tooltip.ShowToolTip()
 
     def HideItemToolTip(self):
@@ -1757,9 +2066,8 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         if data["count"] > 1:
             self.quantityDialog.Open(data)
             return
-        item.SelectItem(data["vnum"])
-        dialog = uiCommon.QuestionDialog()
-        dialog.SetText("Kupic %s za %s?" % (item.GetItemName(), self.FormatPrice(data)))
+        dialog = FleaMarketConfirmDialog()
+        dialog.SetText("Kupic %s za %s?" % (self.GetItemName(data), self.FormatPrice(data)))
         dialog.acceptButton.SAFE_SetEvent(self.__AcceptBuy)
         dialog.SetDefaultCancelEvent()
         dialog.Open()
@@ -1771,6 +2079,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             return
         data = self.buyData
         self.buyData = None
+        self.SuppressPurchaseEnter()
         if self.questionDialog:
             self.questionDialog.Close()
             self.questionDialog = None
@@ -1790,7 +2099,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
                 data["price"] = remainingYang
                 data["cheque"] = remainingCheque
                 break
-        self.ApplyFilters()
+        self.ApplyFilters(resetPage=False)
 
     def DeleteSearchResultItem(self, itemID):
         state = self.multiBuy
@@ -1810,7 +2119,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         for key in [key for key in self.selected if key[1] == itemID]:
             del self.selected[key]
         self.allItems = [data for data in self.allItems if data["id"] != itemID]
-        self.ApplyFilters()
+        self.ApplyFilters(resetPage=False)
 
     # ---- kup wiele ---------------------------------------------------------------------
     def IsSelected(self, data):
@@ -1884,7 +2193,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
             self.questionDialog.Close()
         yang = sum([data["price"] for data in offers])
         cheque = sum([data.get("cheque", 0) for data in offers])
-        dialog = uiCommon.QuestionDialog2()
+        dialog = FleaMarketConfirmDialog2()
         dialog.SetText1("Kupic %d ofert za lacznie %s?" % (len(offers), self.FormatPrice({"price": yang, "cheque": cheque})))
         if yang > player.GetElk():
             dialog.SetText2("Masz za malo Yang na wszystkie - zakupy stana, gdy zabraknie.")
@@ -1896,6 +2205,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         self.questionDialog = dialog
 
     def __AcceptBuySelected(self):
+        self.SuppressPurchaseEnter()
         if self.questionDialog:
             self.questionDialog.Close()
             self.questionDialog = None
@@ -2006,7 +2316,7 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
                 self.allItems = self.pendingItems
                 self.itemNames = None
                 if len(self.pendingItems) == len(fresh):
-                    self.ApplyFilters()
+                    self.ApplyFilters(resetPage=False)
                     self.nextApply = app.GetTime() + APPLY_INTERVAL
                 else:
                     self.dirty = True
@@ -2018,4 +2328,4 @@ class FleaMarketWindow(ui.BoardWithTitleBar):
         else:
             self.allItems = [data for data in items if not data["is_auction"]]
         self.dirty = False
-        self.ApplyFilters()
+        self.ApplyFilters(resetPage=False)

@@ -231,6 +231,53 @@ PERSONALITY_COLOURS = {
 	119: (0.45, 0.85, 0.4),
 }
 
+# MT2009_PLUS_LEGENDS_V1: the System Legend. Since the server's legends the
+# command carries two words more, "PlayerBotTitle <vid> <personality> <tier>
+# <empire>": a bot of a tier shows its tier's title in the tier's colour in
+# the same row, in place of its personality - "Wyrozniajacy sie", "Specjalny",
+# "Chodzaca Legenda", "Czempion <krolestwa>" (ManagePlayerBotPersonalityTitle,
+# playerbot_legends.h). The tiers are meant to be seen: the player's switch
+# for the personalities below leaves them showing. Tier 0 (or an older
+# server's two words) is the personality as before.
+LEGEND_TITLES = {
+	1: "Wyr\xf3\xbfniaj\xb9cy si\xea",
+	2: "Specjalny",
+	3: "Chodz\xb9ca Legenda",
+}
+LEGEND_CHAMPION_TITLE = "Czempion %s"
+LEGEND_KINGDOMS = {1: "Shinsoo", 2: "Chunjo", 3: "Jinno"}
+if systemSetting.GetLanguage() == "en":
+	LEGEND_TITLES.update({1: "Distinguished", 2: "Special", 3: "Walking Legend"})
+	LEGEND_CHAMPION_TITLE = "Champion of %s"
+LEGEND_COLOURS = {
+	1: (0.55, 0.85, 1.0),
+	2: (0.8, 0.5, 1.0),
+	3: (1.0, 0.6, 0.15),
+	4: (1.0, 0.85, 0.1),
+}
+
+
+def legend_title(tier, empire):
+	"""(text, colour) of a tier of the System Legend, or None."""
+	if tier == 4:
+		kingdom = LEGEND_KINGDOMS.get(empire)
+		if not kingdom:
+			return None
+		return LEGEND_CHAMPION_TITLE % kingdom, LEGEND_COLOURS[4]
+	if tier in LEGEND_TITLES:
+		return LEGEND_TITLES[tier], LEGEND_COLOURS[tier]
+	return None
+
+
+def decode_legend(tier_arg, empire_arg):
+	try:
+		tier = int(tier_arg)
+		empire = int(empire_arg)
+	except (ValueError, TypeError):
+		return None
+	return legend_title(tier, empire)
+
+
 TITLE_REFRESH_SECONDS = 1.0
 TITLE_FORGET_SECONDS = 60.0
 
@@ -285,12 +332,12 @@ def SetTitlesEnabled(enabled):
 	except (IOError, OSError):
 		pass
 	if not _titlesEnabled:
+		# The personalities go; a tier of the System Legend stays.
 		keeper = GetTitleKeeper()
 		import textTail
-		if hasattr(textTail, "DetachPersonality"):
-			for vid in keeper.titles.keys():
+		for vid in keeper.ForgetPersonalities():
+			if hasattr(textTail, "DetachPersonality"):
 				textTail.DetachPersonality(vid)
-		keeper.Destroy()
 	return _titlesEnabled
 
 
@@ -308,45 +355,129 @@ def decode_title(vid_arg, personality_arg):
 	return vid, personality
 
 
-def attach_title(vid, personality):
+def attach_text(vid, text, colour):
 	import textTail
 	if not hasattr(textTail, "AttachPersonality"):
 		return False
-	(r, g, b) = PERSONALITY_COLOURS.get(personality, (1.0, 1.0, 1.0))
-	textTail.AttachPersonality(vid, PERSONALITY_TITLES[personality], r, g, b)
+	(r, g, b) = colour
+	textTail.AttachPersonality(vid, text, r, g, b)
 	return True
 
 
+def attach_title(vid, personality):
+	return attach_text(vid, PERSONALITY_TITLES[personality],
+			PERSONALITY_COLOURS.get(personality, (1.0, 1.0, 1.0)))
+
+
+# MT2009_PLUS_WEEKLY_RANKING_V1: a title holder of the weekly ranking
+# (uiweeklyrank.py, playerbot_weekly_rank.h on the server) - "WRANK tail <vid>
+# <cat> <place>" around the holder, a player or a bot, about every ten
+# seconds: its best title in the same row, in the place's colour. A bot's tier
+# of the System Legend stays in front of it ("Chodzaca Legenda | Lowca I"); a
+# bot's personality gives way to it. The personality switch leaves it showing.
+RANK_TITLES = {
+	1: "\xa3owca",
+	2: "Niszczyciel",
+	3: "Pogromca Boss\xf3w",
+	4: "Zab\xf3jca",
+	5: "Podr\xf3\xbfnik",
+	6: "Kowal",
+	7: "Alchemik",
+	8: "Mistrz Poziom\xf3w",
+}
+RANK_ROMAN = {1: "I", 2: "II", 3: "III"}
+RANK_COLOURS = {
+	1: (1.0, 0.82, 0.25),
+	2: (0.85, 0.88, 0.95),
+	3: (0.9, 0.6, 0.35),
+}
+
+
+def decode_rank(cat_arg, place_arg):
+	try:
+		cat = int(cat_arg)
+		place = int(place_arg)
+	except (ValueError, TypeError):
+		return None
+	if cat not in RANK_TITLES or place not in RANK_ROMAN:
+		return None
+	return "%s %s" % (RANK_TITLES[cat], RANK_ROMAN[place]), RANK_COLOURS[place]
+
+
 class TitleKeeper(object):
-	"""One of game.py's updateables: every title heard from, attached again."""
+	"""One of game.py's updateables: every title heard from, attached again.
+
+	A title is kept as (text, colour, legend, heard): legend is True for a
+	tier of the System Legend, which the personality switch leaves showing.
+	A weekly ranking title is kept apart, in ranks, as (text, colour, heard),
+	and drawn with (or in place of) the other (Compose)."""
 
 	def __init__(self):
 		self.titles = {}
+		self.ranks = {}
 		self.nextRefresh = 0.0
 
-	def Remember(self, vid, personality, now):
-		self.titles[vid] = (personality, now)
+	def Remember(self, vid, text, colour, legend, now):
+		self.titles[vid] = (text, colour, legend, now)
+
+	def RememberRank(self, vid, text, colour, now):
+		self.ranks[vid] = (text, colour, now)
+
+	def Compose(self, vid):
+		"""(text, colour) the row shows for vid now, or None."""
+		title = self.titles.get(vid)
+		rank = self.ranks.get(vid)
+		if rank is None:
+			if title is None:
+				return None
+			return title[0], title[1]
+		if title is not None and title[2]:
+			return "%s | %s" % (title[0], rank[0]), rank[1]
+		return rank[0], rank[1]
+
+	def Apply(self, vid):
+		shown = self.Compose(vid)
+		if shown is not None:
+			attach_text(vid, shown[0], shown[1])
+
+	def ForgetPersonalities(self):
+		gone = [vid for vid, title in self.titles.items() if not title[2]]
+		for vid in gone:
+			del self.titles[vid]
+		return gone
 
 	def CanUpdate(self):
-		return bool(self.titles)
+		return bool(self.titles) or bool(self.ranks)
 
 	def OnUpdate(self):
 		if not TitlesEnabled():
-			self.titles = {}
-			return
+			self.ForgetPersonalities()
 		import clientclock
 		now = clientclock.Now()
 		if now < self.nextRefresh:
 			return
 		self.nextRefresh = now + TITLE_REFRESH_SECONDS
-		for vid, (personality, heard) in list(self.titles.items()):
+		for vid, (text, colour, legend, heard) in list(self.titles.items()):
 			if now - heard > TITLE_FORGET_SECONDS:
 				del self.titles[vid]
 				continue
-			attach_title(vid, personality)
+			if vid not in self.ranks:
+				attach_text(vid, text, colour)
+		for vid, (text, colour, heard) in list(self.ranks.items()):
+			if now - heard > TITLE_FORGET_SECONDS:
+				del self.ranks[vid]
+				if vid in self.titles:
+					self.Apply(vid)
+				else:
+					import textTail
+					if hasattr(textTail, "DetachPersonality"):
+						textTail.DetachPersonality(vid)
+				continue
+			self.Apply(vid)
 
 	def Destroy(self):
 		self.titles = {}
+		self.ranks = {}
 
 
 _keeper = None
@@ -359,12 +490,66 @@ def GetTitleKeeper():
 	return _keeper
 
 
-def show_title(vid_arg, personality_arg):
+def decode_vid(vid_arg):
+	try:
+		vid = int(vid_arg)
+	except (ValueError, TypeError):
+		return None
+	if vid <= 0 or vid > 0xffffffff:
+		return None
+	if vid >= 0x80000000:
+		vid -= 0x100000000
+	return vid
+
+
+def show_title(vid_arg, personality_arg, tier_arg=None, empire_arg=None):
+	# MT2009_PLUS_LEGENDS_V1: a tier of the System Legend first, whatever the
+	# personality switch says.
+	legend = decode_legend(tier_arg, empire_arg) if tier_arg is not None else None
+	if legend is not None:
+		vid = decode_vid(vid_arg)
+		if vid is None or not attach_text(vid, legend[0], legend[1]):
+			return False
+		import clientclock
+		keeper = GetTitleKeeper()
+		keeper.Remember(vid, legend[0], legend[1], True, clientclock.Now())
+		if vid in keeper.ranks:
+			keeper.Apply(vid)
+		return True
 	if not TitlesEnabled():
+		# A bot that has lost its tier (or the server's switch went off) while
+		# its tier still shows: the row goes.
+		vid = decode_vid(vid_arg)
+		keeper = GetTitleKeeper()
+		if vid is not None and vid in keeper.titles and keeper.titles[vid][2]:
+			del keeper.titles[vid]
+			import textTail
+			if hasattr(textTail, "DetachPersonality"):
+				textTail.DetachPersonality(vid)
 		return False
 	decoded = decode_title(vid_arg, personality_arg)
 	if decoded is None or not attach_title(decoded[0], decoded[1]):
 		return False
 	import clientclock
-	GetTitleKeeper().Remember(decoded[0], decoded[1], clientclock.Now())
+	keeper = GetTitleKeeper()
+	keeper.Remember(decoded[0], PERSONALITY_TITLES[decoded[1]],
+			PERSONALITY_COLOURS.get(decoded[1], (1.0, 1.0, 1.0)), False, clientclock.Now())
+	if decoded[0] in keeper.ranks:
+		keeper.Apply(decoded[0])
+	return True
+
+
+# MT2009_PLUS_WEEKLY_RANKING_V1: "WRANK tail <vid> <cat> <place>" (game.py).
+def show_rank_title(vid_arg=None, cat_arg=None, place_arg=None, *rest):
+	vid = decode_vid(vid_arg)
+	rank = decode_rank(cat_arg, place_arg)
+	if vid is None or rank is None:
+		return False
+	import textTail
+	if not hasattr(textTail, "AttachPersonality"):
+		return False
+	import clientclock
+	keeper = GetTitleKeeper()
+	keeper.RememberRank(vid, rank[0], rank[1], clientclock.Now())
+	keeper.Apply(vid)
 	return True

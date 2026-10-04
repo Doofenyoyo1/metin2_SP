@@ -72,6 +72,17 @@
 # player's inventory takes it, through the lines clientrootify.py puts into
 # uiinventory.py (DropIntoPlayerBag).
 #
+# MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: the safebox's right click. With this
+# window open, a right click on an item of the player's bag gives it to the
+# companion ("eq daj <cell> -1", uiinventory.py's OnRightClickBagItem through
+# QuickGive), and a right click on an item of the companion's bag takes it to
+# the player ("eq wez <pos> -1"); a double click there still puts it on (or
+# uses the Bleach or a dye), and a right click on a worn piece still takes it
+# off. The server's refusals are the window's drag's own (a locked or traded
+# item, a dragon stone, no room). Flag 8 marks the owner's drop the companion
+# picked up because the owner's bag was full ("Pelne EQ" in the Options page
+# of uisidekick.py) - it holds it for the owner and the AI never touches it.
+#
 # Python 2.7 as the client has it; the Polish letters are CP1250 escapes.
 
 import app
@@ -110,6 +121,7 @@ ATTR_COUNT = 7
 FLAG_PINNED = 1
 FLAG_GIFT = 2
 FLAG_UNWANTED = 4
+FLAG_HELD = 8	# MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1
 FLAGS_UNPIN = FLAG_PINNED | FLAG_UNWANTED
 
 RESULT_DONE = 0
@@ -177,6 +189,7 @@ MASK_UNWANTED = (1.0, 0.45, 0.2, 0.25)
 MASK_GIFT = (0.3, 1.0, 0.35, 0.22)
 MASK_PINNED_GIFT = (0.3, 0.9, 1.0, 0.25)
 MASK_UNWANTED_GIFT = (1.0, 0.8, 0.25, 0.25)
+MASK_HELD = (1.0, 0.85, 0.2, 0.22)	# MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1
 
 COLOR_NORMAL = 0xffc2c2c2
 COLOR_GOOD = 0xff8ab98e
@@ -242,7 +255,10 @@ TEXT_TIP_PINNED = 'Za\xb3o\xbfone przez ciebie - towarzysz tego nie zdejmie'
 TEXT_TIP_GIFT = 'Prezent od ciebie'
 TEXT_TIP_UNWANTED = 'Zdj\xeate przez ciebie - towarzysz sam tego nie za\xb3o\xbfy'
 TEXT_TIP_UNPIN = 'Ctrl + klik: odepnij'
-TEXT_TIP_EQUIP = 'Prawy klik: za\xb3\xf3\xbf'
+TEXT_TIP_EQUIP = 'Dwuklik: za\xb3\xf3\xbf'
+# MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1
+TEXT_TIP_TAKE = 'Prawy klik: we\x9f do siebie'
+TEXT_TIP_HELD = 'Tw\xf3j drop - trzyma go dla ciebie'
 TEXT_TIP_UNEQUIP = 'Prawy klik: zdejmij'
 TEXT_SKILL_NAME = 'Umiej\xeatno\x9c\xe6 %d'
 
@@ -351,6 +367,8 @@ def CanAddSkillPoint(points, level, grade):
 
 
 def MaskFor(flags):
+	if flags & FLAG_HELD:
+		return MASK_HELD
 	gift = flags & FLAG_GIFT
 	if flags & FLAG_PINNED:
 		return MASK_PINNED_GIFT if gift else MASK_PINNED
@@ -385,14 +403,18 @@ def ToolTipLines(pos, flags, wearable=True):
 		lines.append(TEXT_TIP_PINNED)
 	if flags & FLAG_UNWANTED:
 		lines.append(TEXT_TIP_UNWANTED)
-	if flags & FLAG_GIFT:
+	if flags & FLAG_HELD:
+		lines.append(TEXT_TIP_HELD)
+	elif flags & FLAG_GIFT:
 		lines.append(TEXT_TIP_GIFT)
 	if flags & FLAGS_UNPIN:
 		lines.append(TEXT_TIP_UNPIN)
 	if IsWearPos(pos):
 		lines.append(TEXT_TIP_UNEQUIP)
-	elif wearable:
-		lines.append(TEXT_TIP_EQUIP)
+	else:
+		lines.append(TEXT_TIP_TAKE)
+		if wearable:
+			lines.append(TEXT_TIP_EQUIP)
 	return lines
 
 
@@ -698,6 +720,20 @@ def DropIntoPlayerBag(attachedType, attachedPos, cell):
 	if not IsPlayerBagCell(cell):
 		cell = -1
 	SendOrder(ORIGIN_EQ, 'eq wez %d %d' % (attachedPos, cell))
+	return True
+
+
+def QuickGive(cell):
+	"""MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: a right click on the player's
+	bag with this window open gives the item to the companion, as the
+	safebox's does (uiinventory.py, OnRightClickBagItem). True when the order
+	went; False with the window shut, a cell outside the bag pages or the
+	cursor holding something."""
+	if not AnyShown() or IsCursorBusy() or not IsPlayerBagCell(cell):
+		return False
+	if not player.GetItemIndex(cell):
+		return False
+	SendOrder(ORIGIN_EQ, 'eq daj %d -1' % cell)
 	return True
 
 
@@ -1104,7 +1140,12 @@ class EquipmentWindow(_Window):
 		if IsCtrlPressed() and entry['flags'] & FLAGS_UNPIN:
 			self.Unpin(pos)
 			return
-		SendOrder(ORIGIN_EQ, 'eq ruch %d -1' % pos)
+		# MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: a bag item goes to the player
+		# (the safebox's right click); a worn piece comes off into its bag.
+		if IsWearPos(pos):
+			SendOrder(ORIGIN_EQ, 'eq ruch %d -1' % pos)
+		else:
+			SendOrder(ORIGIN_EQ, 'eq wez %d -1' % pos)
 
 	def OnUse(self, pos):
 		# The first click of a double click has put the item on the cursor - or,
@@ -1220,6 +1261,11 @@ class EquipmentWindow(_Window):
 	def OnUpdate(self):
 		ReleaseIcon()
 		self.UpdateStatusClock()
+		# MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: no polls on the way to another
+		# core (uisidekick.InGame) - the bag's 'eq' every 1.5 s was the poll
+		# a teleport with this window open met most often.
+		if not uisidekick.InGame():
+			return
 		if uisidekick.PumpCommands():
 			return
 		now = clientclock.Now()

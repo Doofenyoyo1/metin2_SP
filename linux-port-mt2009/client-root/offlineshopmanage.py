@@ -19,27 +19,32 @@ import special_flags
 import player
 import ikashop
 import shoppricepump
+import playerbot_lang
+import shopautoprice # MT2009_PLUS_SHOP_AUTO_PRICE_V1
 import snd
 import wndMgr
 import mouseModule
 import offlineShopSearch
 import flamewindPath
+import clientclock
 
 EVENT_OPEN_MYSHOP_SHOP_MANAGE = "EVENT_OPEN_MYSHOP_SHOP_MANAGE" # args |
 EVENT_CLOSE_MYSHOP_SHOP_MANAGE = "EVENT_CLOSE_MYSHOP_SHOP_MANAGE" # args |
 
-AUTO_PRICE_FILE = "shop_auto_price.cfg"
-AUTO_PRICE_KEY = "auto_price"
-AUTO_PRICE_SUGGESTED = "suggested"
-AUTO_PRICE_MINIMUM = "minimum"
-AUTO_PRICE_MAXIMUM = "maximum"
-AUTO_PRICE_INACTIVE = "inactive"
-AUTO_PRICE_MODES = (
-	AUTO_PRICE_SUGGESTED,
-	AUTO_PRICE_MINIMUM,
-	AUTO_PRICE_MAXIMUM,
-	AUTO_PRICE_INACTIVE,
-)
+# MT2009_PLUS_SHOP_AUTO_PRICE_V1 ("Auto-cena" extension): the automatic
+# price's modes - the market's minimum and maximum, the bots' suggestion,
+# their median and last sale, or none - are shopautoprice.py's, one setting
+# (shop_auto_price.cfg) for this counter and the shop builders' price windows.
+AUTO_PRICE_SUGGESTED = shopautoprice.AUTO_PRICE_SUGGESTED
+AUTO_PRICE_MINIMUM = shopautoprice.AUTO_PRICE_MINIMUM
+AUTO_PRICE_MAXIMUM = shopautoprice.AUTO_PRICE_MAXIMUM
+AUTO_PRICE_MEDIAN = shopautoprice.AUTO_PRICE_MEDIAN
+AUTO_PRICE_LAST = shopautoprice.AUTO_PRICE_LAST
+AUTO_PRICE_INACTIVE = shopautoprice.AUTO_PRICE_INACTIVE
+AUTO_PRICE_MODES = shopautoprice.AUTO_PRICE_MODES
+GetAutoPriceMode = shopautoprice.GetAutoPriceMode
+SetAutoPriceMode = shopautoprice.SetAutoPriceMode
+GetAutoPriceText = shopautoprice.GetAutoPriceText
 
 # /flea_price <request> <window> <cell> <version>: version 2 asks for the
 # market's range as well, and window 255 is a line of the player's own
@@ -57,63 +62,33 @@ FLEA_PRICE_OWN_SHOP_WINDOW = 255
 FLEA_PRICE_WINDOW_FILE = "shop_price_window.cfg"
 FLEA_PRICE_WINDOW_KEY = "prices_window_open"
 FLEA_PRICE_WINDOW_WIDTH = 320
-FLEA_PRICE_WINDOW_HEIGHT = 193
+FLEA_PRICE_WINDOW_HEIGHT = 310
 FLEA_PRICE_LINE_X = 18
 FLEA_PRICE_LINE_Y = 36
 FLEA_PRICE_LINE_STEP = 19
-FLEA_PRICE_TITLE_Y = 116
-FLEA_PRICE_BUTTON_Y = 132
-FLEA_PRICE_CLOSE_Y = 157
+FLEA_PRICE_BUTTON_COLUMN_GAP = 8
+FLEA_PRICE_BUTTON_Y = 151
+FLEA_PRICE_BUTTON_ROW_STEP = 24
+FLEA_PRICE_NOTE_Y = 112
+FLEA_PRICE_NOTE_LINE_STEP = 15
+FLEA_PRICE_BULK_INFO_Y = 204
+FLEA_PRICE_BULK_BUTTON_Y = 225
+FLEA_PRICE_BULK_WARNING_Y = 253
+FLEA_PRICE_CLOSE_Y = 276
+FLEA_PRICE_NOTE_LINES = (
+	playerbot_lang.T("Wybierz tryb automatycznego ustalania ceny.", "Select an automatic pricing mode."),
+	playerbot_lang.T("Cena zostanie uzupelniona zgodnie z wybrana opcja.", "The price will be set according to your selection."),
+)
+FLEA_PRICE_BULK_INFO = playerbot_lang.T(
+	"Zastosuj wybrany tryb do wszystkich pozycji sklepu.",
+	"Apply the selected mode to every shop listing.")
+FLEA_PRICE_BULK_WARNING = playerbot_lang.T(
+	"Uwaga: Zmieni to ceny wszystkich wystawionych przedmiotow!",
+	"Warning: This changes the price of every listed item!")
+FLEA_PRICE_BULK_WAIT_SECONDS = 2.0
+FLEA_PRICE_BULK_TIMEOUT_SECONDS = 15.0
 # The suggestion in the hint's gold, the other three in the plain text colour.
 FLEA_PRICE_LINE_COLORS = (0xFFFFD56A, 0xFFE5E0D4, 0xFFE5E0D4, 0xFFE5E0D4)
-
-def GetAutoPriceMode():
-	try:
-		f = open(AUTO_PRICE_FILE, "r")
-		try:
-			for line in f.readlines():
-				key, sep, value = line.partition("=")
-				if sep and key.strip() == AUTO_PRICE_KEY:
-					value = value.strip().lower()
-					if value in AUTO_PRICE_MODES:
-						return value
-					if value == "1":
-						return AUTO_PRICE_SUGGESTED
-					if value == "0":
-						return AUTO_PRICE_INACTIVE
-		finally:
-			f.close()
-	except (IOError, OSError):
-		pass
-	return AUTO_PRICE_INACTIVE
-
-def SetAutoPriceMode(mode):
-	if mode not in AUTO_PRICE_MODES:
-		mode = AUTO_PRICE_INACTIVE
-	try:
-		f = open(AUTO_PRICE_FILE, "w")
-		try:
-			f.write("%s=%s\n" % (AUTO_PRICE_KEY, mode))
-		finally:
-			f.close()
-	except (IOError, OSError):
-		pass
-
-def GetAutoPriceText(mode):
-	labels = {
-		AUTO_PRICE_SUGGESTED: "Sugerowana",
-		AUTO_PRICE_MINIMUM: "Minimalna",
-		AUTO_PRICE_MAXIMUM: "Maksymalna",
-		AUTO_PRICE_INACTIVE: "Nieaktywna",
-	}
-	return labels.get(mode, labels[AUTO_PRICE_INACTIVE])
-
-def GetNextAutoPriceMode(mode):
-	try:
-		index = AUTO_PRICE_MODES.index(mode)
-	except ValueError:
-		index = len(AUTO_PRICE_MODES) - 1
-	return AUTO_PRICE_MODES[(index + 1) % len(AUTO_PRICE_MODES)]
 
 def GetFleaPriceWindowSettings():
 	settings = {"open": False, "x": None, "y": None}
@@ -318,7 +293,16 @@ class OfflineShopManage(ui.ScriptWindow):
 		self.fleaPriceRequestID = 0
 		self.fleaPriceRange = None
 		self.fleaPriceSales = None
+		self.fleaPriceQuote = None
 		self.fleaPriceWindow = None
+		# MT2009_PLUS_SHOP_AUTO_PRICE_V1: the price window's own request (the
+		# counter's "Zmien ceny wszystkich" counts on from it), when it left
+		# and whether its answer came; the bulk repricing and its question.
+		self.fleaPriceDialogRequestID = 0
+		self.fleaPriceSentAt = 0.0
+		self.fleaPriceAnswered = True
+		self.fleaPriceBatch = None
+		self.fleaBulkQuestion = None
 		self.closeShopDialog = None
 		self.editSignDialog = None
 		self.endTime = 0
@@ -349,6 +333,7 @@ class OfflineShopManage(ui.ScriptWindow):
 		self.clockIcon = 0
 		self.clockAnimation = 0
 		self.isEditMode = False
+		self.hoveredShopSlot = None
 
 	def SetToolTip(self, tooltip, item_tooltip):
 		# self.tooltipItem = item_tooltip
@@ -368,6 +353,7 @@ class OfflineShopManage(ui.ScriptWindow):
 		self.__CloseFleaPriceWindow()
 		if self.addItemDialog:
 			self.addItemDialog.Close()
+		self.__CloseBulkQuestion()
 
 		if self.questionDialog:
 			self.questionDialog.Close()
@@ -452,6 +438,8 @@ class OfflineShopManage(ui.ScriptWindow):
 			self.itemSlot = self.myShopSlotRenderer.itemSlot
 			self.itemSlot.SetWindowHorizontalAlignCenter()
 			self.itemSlot.SetPosition(0, 56)
+			self.itemSlot.SetOverInItemEvent(ui.__mem_func__(self.__OnMyShopItemOverIn))
+			self.itemSlot.SetOverOutItemEvent(ui.__mem_func__(self.__OnMyShopItemOverOut))
 			# self.myShopSlotRenderer.SAFE_SetSelectItemSlotEvent(self.OnSelectItemSlot)
 			self.myShopSlotRenderer.SAFE_SetSelectEmptySlotEvent(self.OnSelectEmptySlot)
 			self.myShopSlotRenderer.itemSlot.SAFE_SetButtonEvent("LEFT", "EXIST", self.OnSelectItemSlotLeftClick)
@@ -608,7 +596,8 @@ class OfflineShopManage(ui.ScriptWindow):
 				dialog.SetTitle(localeInfo.PRIVATE_SHOP_INPUT_EDIT_PRICE_DIALOG_TITLE)
 			dialog.SetMaxLength(10)
 			dialog.SetCancelEvent(ui.__mem_func__(self.__CloseAddInput))
-			dialog.acceptButton.SAFE_SetEvent(self.AcceptEditItemDialog, shopSlotIndex, massEdit)
+			# MT2009_PLUS_VEKIRION_V1 (Autor: Vekirion): Enter in the price box accepts like OK (and never falls through to the chat)
+			dialog.SetAcceptEvent(lambda arg1=shopSlotIndex, arg2=massEdit: self.AcceptEditItemDialog(arg1, arg2))
 			dialog.closeEvent = lambda arg1=itemSlotList: self.DeactivateItems(arg1)
 			dialog.inputValue.OnPressEscapeKey = ui.__mem_func__(self.__CloseAddInput)
 			dialog.Open()
@@ -618,11 +607,13 @@ class OfflineShopManage(ui.ScriptWindow):
 			self.ActivateItems(itemSlotList)
 			dialog.SetValue(itemData["price"])
 			self.__RequestFleaMarketPrice(FLEA_PRICE_OWN_SHOP_WINDOW, itemData["id"])
+			self.__SetFleaMarketPriceHint(dialog, shopautoprice.FormatPriceLines(None, None, None))
 
 	def __CloseAddInput(self):
 		self.fleaPriceDialog = None
 		self.__CloseFleaPriceWindow()
-		self.addItemDialog.Close()
+		if self.addItemDialog:
+			self.addItemDialog.Close()
 		return True
 
 	def __SetFleaMarketPriceHint(self, dialog, lines):
@@ -636,7 +627,7 @@ class OfflineShopManage(ui.ScriptWindow):
 			button.SetUpVisual("d:/ymir work/ui/public/middle_button_01.sub")
 			button.SetOverVisual("d:/ymir work/ui/public/middle_button_02.sub")
 			button.SetDownVisual("d:/ymir work/ui/public/middle_button_03.sub")
-			button.SetText("Ceny")
+			button.SetText(playerbot_lang.T("Ceny", "Prices"))
 			button.SetWindowHorizontalAlignCenter()
 			button.SetEvent(ui.__mem_func__(self.__OnFleaPricesButtonClick))
 			button.Show()
@@ -680,14 +671,18 @@ class OfflineShopManage(ui.ScriptWindow):
 		# "Zamknij", as Piciu713 built it: the title bar, the X, the drag and
 		# Escape are the stock window's own.
 		window = uiCommon.InputDialog()
-		window.SetTitle("Ceny")
+		window.SetTitle(playerbot_lang.T("Ceny", "Prices"))
 		window.inputSlot.Hide()
 		window.inputValue.Hide()
 		window.acceptButton.Hide()
-		window.cancelButton.SetText("Zamknij")
+		window.cancelButton.SetText(playerbot_lang.T("Zamknij", "Close"))
 		window.cancelButton.SetWindowHorizontalAlignCenter()
 		window.SetCancelEvent(ui.__mem_func__(window.Close))
 		window.closeEvent = ui.__mem_func__(self.__OnFleaPriceWindowClosed)
+		# Esc closes the price-entry dialog and its attached Ceny panel together;
+		# the visible Zamknij button still closes only the panel.
+		window.OnPressEscapeKey = ui.__mem_func__(self.__CloseAddInput)
+		window.inputValue.OnPressEscapeKey = ui.__mem_func__(self.__CloseAddInput)
 
 		window.fleaPriceText = []
 		for color in FLEA_PRICE_LINE_COLORS:
@@ -698,38 +693,58 @@ class OfflineShopManage(ui.ScriptWindow):
 			line.Show()
 			window.fleaPriceText.append(line)
 
-		title = ui.TextLine()
-		title.SetParent(window.board)
-		title.AddFlag("not_pick")
-		title.SetWindowHorizontalAlignCenter()
-		title.SetHorizontalAlignCenter()
-		title.SetPackedFontColor(0xFFFFFFFF)
-		title.SetText("Auto-cena:")
-		title.Show()
-		window.fleaAutoPriceTitle = title
+		window.fleaAutoPriceButtons = {}
+		for mode in AUTO_PRICE_MODES:
+			button = ui.Button()
+			button.SetParent(window)
+			button.SetUpVisual("d:/ymir work/ui/public/middle_button_01.sub")
+			button.SetOverVisual("d:/ymir work/ui/public/middle_button_02.sub")
+			button.SetDownVisual("d:/ymir work/ui/public/middle_button_03.sub")
+			button.SetWindowHorizontalAlignCenter()
+			button.SetText(GetAutoPriceText(mode))
+			button.SetEvent(ui.__mem_func__(self.__OnSelectAutoPriceMode), mode)
+			button.Show()
+			window.fleaAutoPriceButtons[mode] = button
 
-		button = ui.ExpandedImageBox()
-		button.SetParent(window.board)
-		button.LoadImage("d:/ymir work/ui/public/middle_button_01.sub")
-		window.fleaAutoPriceButtonImageWidth = max(1, button.GetWidth())
-		window.fleaAutoPriceButtonImageHeight = max(1, button.GetHeight())
-		button.SetSize(window.fleaAutoPriceButtonImageWidth, window.fleaAutoPriceButtonImageHeight)
-		button.SetScale(1.0, 1.0)
-		button.SetEvent(ui.__mem_func__(self.__OnAutoPriceButtonClick), "mouse_click")
-		button.SAFE_SetStringEvent("MOUSE_OVER_IN", self.__OnAutoPriceButtonHoverIn)
-		button.SAFE_SetStringEvent("MOUSE_OVER_OUT", self.__OnAutoPriceButtonHoverOut)
-		button.SAFE_SetStringEvent("MOUSE_LEFT_BUTTON", self.__OnAutoPriceButtonMouseDown)
-		button.Show()
-		window.fleaAutoPriceButton = button
+		window.fleaAutoPriceNote = []
+		for noteText in FLEA_PRICE_NOTE_LINES:
+			line = ui.TextLine()
+			line.SetParent(window.board)
+			line.AddFlag("not_pick")
+			line.SetWindowHorizontalAlignCenter()
+			line.SetHorizontalAlignCenter()
+			line.SetPackedFontColor(0xFFE5E0D4)
+			line.SetText(noteText)
+			line.Show()
+			window.fleaAutoPriceNote.append(line)
 
-		buttonText = ui.TextLine()
-		buttonText.SetParent(window.board)
-		buttonText.AddFlag("not_pick")
-		buttonText.SetWindowHorizontalAlignCenter()
-		buttonText.SetHorizontalAlignCenter()
-		buttonText.SetVerticalAlignCenter()
-		buttonText.Show()
-		window.fleaAutoPriceButtonText = buttonText
+		window.fleaBulkInfo = ui.TextLine()
+		window.fleaBulkInfo.SetParent(window.board)
+		window.fleaBulkInfo.AddFlag("not_pick")
+		window.fleaBulkInfo.SetWindowHorizontalAlignCenter()
+		window.fleaBulkInfo.SetHorizontalAlignCenter()
+		window.fleaBulkInfo.SetPackedFontColor(0xFFE5E0D4)
+		window.fleaBulkInfo.SetText(FLEA_PRICE_BULK_INFO)
+		window.fleaBulkInfo.Show()
+
+		window.fleaBulkWarning = ui.TextLine()
+		window.fleaBulkWarning.SetParent(window.board)
+		window.fleaBulkWarning.AddFlag("not_pick")
+		window.fleaBulkWarning.SetWindowHorizontalAlignCenter()
+		window.fleaBulkWarning.SetHorizontalAlignCenter()
+		window.fleaBulkWarning.SetPackedFontColor(0xFFFF6666)
+		window.fleaBulkWarning.SetText(FLEA_PRICE_BULK_WARNING)
+		window.fleaBulkWarning.Show()
+
+		window.fleaBulkButton = ui.Button()
+		window.fleaBulkButton.SetParent(window)
+		window.fleaBulkButton.SetWindowHorizontalAlignCenter()
+		window.fleaBulkButton.SetUpVisual("d:/ymir work/ui/public/xlarge_button_01.sub")
+		window.fleaBulkButton.SetOverVisual("d:/ymir work/ui/public/xlarge_button_02.sub")
+		window.fleaBulkButton.SetDownVisual("d:/ymir work/ui/public/xlarge_button_03.sub")
+		window.fleaBulkButton.SetText(playerbot_lang.T("Zmien ceny wszystkich", "Reprice all items"))
+		window.fleaBulkButton.SetEvent(ui.__mem_func__(self.__OnBulkAutoPriceClick))
+		window.fleaBulkButton.Show()
 
 		self.fleaPriceWindow = window
 		window.Open()
@@ -769,16 +784,30 @@ class OfflineShopManage(ui.ScriptWindow):
 			else:
 				textLine.SetText("")
 			width = max(width, textLine.GetTextSize()[0] + FLEA_PRICE_LINE_X + 32)
+		for line in window.fleaAutoPriceNote:
+			width = max(width, line.GetTextSize()[0] + 32)
+		width = max(width, window.fleaBulkInfo.GetTextSize()[0] + 32)
+		width = max(width, window.fleaBulkWarning.GetTextSize()[0] + 32)
+		width = max(width, window.fleaBulkButton.GetWidth() + 32)
+		buttonWidth = window.fleaAutoPriceButtons[AUTO_PRICE_MINIMUM].GetWidth()
+		width = max(width, 3 * buttonWidth + 2 * FLEA_PRICE_BUTTON_COLUMN_GAP + 32)
 
 		(x, y) = window.GetGlobalPosition()
 		window.SetSize(width, FLEA_PRICE_WINDOW_HEIGHT)
 		window.board.SetSize(width, FLEA_PRICE_WINDOW_HEIGHT)
-		window.fleaAutoPriceTitle.SetPosition(0, FLEA_PRICE_TITLE_Y)
-		window.fleaAutoPriceButton.SetPosition(
-			(width - window.fleaAutoPriceButtonImageWidth) // 2, FLEA_PRICE_BUTTON_Y)
-		window.fleaAutoPriceButtonText.SetPosition(0,
-			FLEA_PRICE_BUTTON_Y + window.fleaAutoPriceButtonImageHeight // 2)
-		window.fleaAutoPriceButtonText.SetText(GetAutoPriceText(GetAutoPriceMode()))
+		current = GetAutoPriceMode()
+		for index, mode in enumerate(AUTO_PRICE_MODES):
+			row = index // 3
+			column = index % 3
+			button = window.fleaAutoPriceButtons[mode]
+			buttonX = (column - 1) * (button.GetWidth() + FLEA_PRICE_BUTTON_COLUMN_GAP)
+			button.SetPosition(buttonX, FLEA_PRICE_BUTTON_Y + row * FLEA_PRICE_BUTTON_ROW_STEP)
+			shopautoprice.SetModeButtonState(button, mode == current)
+		for index, line in enumerate(window.fleaAutoPriceNote):
+			line.SetPosition(0, FLEA_PRICE_NOTE_Y + index * FLEA_PRICE_NOTE_LINE_STEP)
+		window.fleaBulkInfo.SetPosition(0, FLEA_PRICE_BULK_INFO_Y)
+		window.fleaBulkButton.SetPosition(0, FLEA_PRICE_BULK_BUTTON_Y)
+		window.fleaBulkWarning.SetPosition(0, FLEA_PRICE_BULK_WARNING_Y)
 		window.cancelButton.SetPosition(0, FLEA_PRICE_CLOSE_Y)
 		# A window grown wider keeps its right edge on the screen.
 		window.SetPosition(
@@ -806,34 +835,157 @@ class OfflineShopManage(ui.ScriptWindow):
 		if not keep and dialog and dialog.IsShow():
 			dialog.SetFocus()
 
-	def __SetAutoPriceButtonVisual(self, visualName):
-		window = self.fleaPriceWindow
-		if not window or not getattr(window, "board", None):
+	def __OnSelectAutoPriceMode(self, mode):
+		if mode not in AUTO_PRICE_MODES:
 			return
-		button = window.fleaAutoPriceButton
-		button.LoadImage("d:/ymir work/ui/public/middle_button_%s.sub" % visualName)
-		imageWidth = max(1, button.GetWidth())
-		imageHeight = max(1, button.GetHeight())
-		button.SetSize(window.fleaAutoPriceButtonImageWidth, window.fleaAutoPriceButtonImageHeight)
-		button.SetScale(
-			float(window.fleaAutoPriceButtonImageWidth) / imageWidth,
-			float(window.fleaAutoPriceButtonImageHeight) / imageHeight)
-		button.SetPosition(
-			(window.board.GetWidth() - window.fleaAutoPriceButtonImageWidth) // 2,
-			FLEA_PRICE_BUTTON_Y)
+		SetAutoPriceMode(mode)
+		snd.PlaySound("sound/ui/click.wav")
+		window = self.fleaPriceWindow
+		if window and getattr(window, "board", None):
+			for buttonMode, button in window.fleaAutoPriceButtons.items():
+				shopautoprice.SetModeButtonState(button, buttonMode == mode)
+			dialog = self.addItemDialog
+			if mode != AUTO_PRICE_INACTIVE and dialog and dialog.IsShow():
+				self.__FillSuggestedPrice(dialog)
 
-	def __OnAutoPriceButtonHoverIn(self):
-		self.__SetAutoPriceButtonVisual("02")
+	def __OnBulkAutoPriceClick(self):
+		mode = GetAutoPriceMode()
+		if mode == AUTO_PRICE_INACTIVE:
+			chat.AppendChat(chat.CHAT_TYPE_INFO, playerbot_lang.T(
+				"Auto-cena jest nieaktywna. Nie zmieniono cen.",
+				"Automatic pricing is inactive. No prices were changed."))
+			return
+		if self.fleaPriceBatch:
+			chat.AppendChat(chat.CHAT_TYPE_INFO, playerbot_lang.T(
+				"Ceny juz sa pobierane.",
+				"Price data is already being collected."))
+			return
+		# One click reprices the whole counter: asked first.
+		self.__CloseBulkQuestion()
+		question = uiCommon.QuestionDialog()
+		question.SetText(playerbot_lang.T(
+			"Zmienic ceny wszystkich przedmiotow na: %s?",
+			"Change the price of every item to: %s?") % GetAutoPriceText(mode))
+		question.SetWidth(max(question.GetWidth(), question.textLine.GetTextSize()[0] + 40))
+		question.acceptButton.SAFE_SetEvent(self.__OnBulkAutoPriceAccept, mode)
+		question.SAFE_SetCancelEvent(self.__CloseBulkQuestion)
+		question.Open()
+		self.fleaBulkQuestion = question
 
-	def __OnAutoPriceButtonHoverOut(self):
-		self.__SetAutoPriceButtonVisual("01")
+	def __CloseBulkQuestion(self):
+		question = self.fleaBulkQuestion
+		self.fleaBulkQuestion = None
+		if question:
+			question.Close()
+		return True
 
-	def __OnAutoPriceButtonMouseDown(self):
-		self.__SetAutoPriceButtonVisual("03")
+	def __OnBulkAutoPriceAccept(self, mode):
+		self.__CloseBulkQuestion()
+		if self.fleaPriceBatch or mode not in AUTO_PRICE_MODES or mode == AUTO_PRICE_INACTIVE:
+			return
 
-	def __OnAutoPriceButtonClick(self):
-		self.__OnToggleAutoPrice()
-		self.__SetAutoPriceButtonVisual("02")
+		try:
+			items = constInfo.myshop_data["items"].values()
+		except (AttributeError, KeyError, TypeError):
+			items = []
+		items = [itemData for itemData in items if isinstance(itemData, dict) and itemData.get("id", 0)]
+		if not items:
+			chat.AppendChat(chat.CHAT_TYPE_INFO, playerbot_lang.T(
+				"Sklep nie zawiera przedmiotow do zmiany ceny.",
+				"There are no shop items to reprice."))
+			return
+
+		now = clientclock.Now()
+		batch = {
+			"mode": mode,
+			"startedAt": now,
+			"lastUpdateAt": now,
+			"requests": {},
+		}
+		self.fleaPriceBatch = batch
+		for itemData in items:
+			self.fleaPriceRequestID += 1
+			if self.fleaPriceRequestID > 2000000000:
+				self.fleaPriceRequestID = 1
+			requestID = self.fleaPriceRequestID
+			batch["requests"][requestID] = {
+				"item": itemData,
+				"quote": None,
+				"range": None,
+				"sales": None,
+			}
+			self.__SendFleaMarketPriceRequest(
+				requestID, FLEA_PRICE_OWN_SHOP_WINDOW, itemData["id"])
+		chat.AppendChat(chat.CHAT_TYPE_INFO, playerbot_lang.T(
+			"Pobieranie cen dla %d przedmiotow...", "Collecting prices for %d items...") % len(items))
+
+	def __FinishFleaPriceBatch(self):
+		batch = self.fleaPriceBatch
+		self.fleaPriceBatch = None
+		if not batch:
+			return
+
+		mode = batch["mode"]
+		try:
+			data = constInfo.myshop_data["items"]
+			data.values()
+		except (AttributeError, KeyError, TypeError):
+			data = {}
+		liveByID = {}
+		for current in data.values():
+			liveByID[current.get("id", 0)] = current
+		edits = []
+		unavailable = 0
+		shopTotal = 0
+		for current in data.values():
+			shopTotal += current.get("price", 0)
+
+		for priceData in batch["requests"].values():
+			itemData = priceData["item"]
+			itemID = itemData.get("id", 0)
+			current = liveByID.get(itemID)
+			price = shopautoprice.GetModePrice(mode, priceData["quote"], priceData["range"], priceData["sales"])
+			if not current or price <= 0:
+				unavailable += 1
+				continue
+			price = min(price, player.GOLD_MAX - 1)
+			shopTotal += price - current.get("price", 0)
+			if price != current.get("price", 0):
+				edits.append((current, price))
+
+		if shopTotal >= player.GOLD_MAX:
+			chat.AppendChat(chat.CHAT_TYPE_INFO, playerbot_lang.T(
+				"Ceny nie zostaly zmienione: laczna wartosc sklepu osiagnelaby lub przekroczyla limit 2 miliardow Yang.",
+				"Prices were not changed: the shop total would reach or exceed the 2 billion Yang limit."))
+			return
+		if edits:
+			shoppricepump.Queue(edits)
+		if unavailable:
+			chat.AppendChat(chat.CHAT_TYPE_INFO, playerbot_lang.T(
+				"Pominieto %d przedmiotow bez dostepnej ceny dla wybranego trybu.",
+				"Skipped %d items with no price available for this mode.") % unavailable)
+		chat.AppendChat(chat.CHAT_TYPE_INFO, playerbot_lang.T(
+			"Zlecono zmiane cen %d przedmiotow.", "Queued price changes for %d items.") % len(edits))
+
+	def __UpdateFleaPriceBatch(self):
+		batch = self.fleaPriceBatch
+		if not batch:
+			return
+		now = clientclock.Now()
+		requests = batch["requests"].values()
+		mode = batch["mode"]
+		if mode == AUTO_PRICE_MINIMUM or mode == AUTO_PRICE_MAXIMUM:
+			requiredDataKey = "range"
+		elif mode == AUTO_PRICE_MEDIAN or mode == AUTO_PRICE_LAST:
+			requiredDataKey = "sales"
+		else:
+			requiredDataKey = "quote"
+		allRequiredDataReceived = all(
+			priceData[requiredDataKey] is not None for priceData in requests)
+		if allRequiredDataReceived and now - batch["lastUpdateAt"] >= FLEA_PRICE_BULK_WAIT_SECONDS:
+			self.__FinishFleaPriceBatch()
+		elif now - batch["startedAt"] >= FLEA_PRICE_BULK_TIMEOUT_SECONDS:
+			self.__FinishFleaPriceBatch()
 
 	def __RequestFleaMarketPrice(self, inventoryWindowType, inventorySlotIndex):
 		self.fleaPriceRequestID += 1
@@ -846,31 +998,61 @@ class OfflineShopManage(ui.ScriptWindow):
 		self.fleaPriceDialog = self.addItemDialog
 		self.fleaPriceRange = None
 		self.fleaPriceSales = None
+		self.fleaPriceQuote = None
+		self.fleaPriceDialogRequestID = self.fleaPriceRequestID
+		self.fleaPriceSentAt = clientclock.Now()
+		self.fleaPriceAnswered = False
 		self.addItemDialog.fleaOpenText = self.addItemDialog.GetText()
+		self.__SendFleaMarketPriceRequest(
+			self.fleaPriceRequestID, inventoryWindowType, inventorySlotIndex)
+
+	def __SendFleaMarketPriceRequest(self, requestID, inventoryWindowType, inventorySlotIndex):
 		net.SendChatPacket("/flea_price %d %d %d %d" % (
-			self.fleaPriceRequestID, inventoryWindowType, inventorySlotIndex,
+			requestID, inventoryWindowType, inventorySlotIndex,
 			FLEA_PRICE_REQUEST_VERSION))
+		return True
 
 	def SetFleaMarketPriceRange(self, requestID, minPrice, maxPrice):
-		if requestID == self.fleaPriceRequestID:
+		batch = self.fleaPriceBatch
+		if batch and requestID in batch["requests"]:
+			batch["requests"][requestID]["range"] = (minPrice, maxPrice)
+			batch["lastUpdateAt"] = clientclock.Now()
+			return
+		if requestID == self.fleaPriceDialogRequestID:
 			self.fleaPriceRange = (minPrice, maxPrice)
+			if self.fleaPriceQuote:
+				self.SetFleaMarketPriceQuote(*self.fleaPriceQuote)
 
 	def SetFleaMarketPriceSales(self, requestID, lastSalePrice, medianPrice, medianUnits):
-		if requestID == self.fleaPriceRequestID:
+		batch = self.fleaPriceBatch
+		if batch and requestID in batch["requests"]:
+			batch["requests"][requestID]["sales"] = (lastSalePrice, medianPrice, medianUnits)
+			batch["lastUpdateAt"] = clientclock.Now()
+			return
+		if requestID == self.fleaPriceDialogRequestID:
 			self.fleaPriceSales = (lastSalePrice, medianPrice, medianUnits)
+			if self.fleaPriceQuote:
+				self.SetFleaMarketPriceQuote(*self.fleaPriceQuote)
 
 	def SetFleaMarketPriceQuote(self, requestID, suggestedPrice, observedPrice, sampleCount):
-		if requestID != self.fleaPriceRequestID:
+		batch = self.fleaPriceBatch
+		if batch and requestID in batch["requests"]:
+			batch["requests"][requestID]["quote"] = (suggestedPrice, observedPrice, sampleCount)
+			batch["lastUpdateAt"] = clientclock.Now()
 			return
+		if requestID != self.fleaPriceDialogRequestID:
+			return
+		self.fleaPriceQuote = (requestID, suggestedPrice, observedPrice, sampleCount)
+		self.fleaPriceAnswered = True
 		if not self.fleaPriceDialog or self.fleaPriceDialog != self.addItemDialog:
 			return
 		if not self.addItemDialog.IsShow():
 			return
 
 		if suggestedPrice > 0:
-			primary = "Sugestia botow: " + localeInfo.NumberToMoneyString(suggestedPrice)
+			primary = playerbot_lang.T("Sugestia botow: ", "The bots suggest: ") + localeInfo.NumberToMoneyString(suggestedPrice)
 		else:
-			primary = "Boty nie maja jeszcze wyceny tego przedmiotu."
+			primary = playerbot_lang.T("Boty nie maja jeszcze wyceny tego przedmiotu.", "The bots have no price for this item yet.")
 
 		# No sales at all is a server that sent none: the median is then the
 		# quote's own, the one the bots' counters price by, and the last
@@ -879,15 +1061,15 @@ class OfflineShopManage(ui.ScriptWindow):
 		if self.fleaPriceSales:
 			lastSalePrice, observedPrice, sampleCount = self.fleaPriceSales
 		if observedPrice > 0 and sampleCount == 1:
-			secondary = "Mediana cen botow: %s (1 probka)" % (
+			secondary = playerbot_lang.T("Mediana cen botow: %s (1 probka)", "Median of the bots' prices: %s (1 sample)") % (
 				localeInfo.NumberToMoneyString(observedPrice),)
 		elif observedPrice > 0 and sampleCount > 0:
-			secondary = "Mediana cen botow: %s (probki: %d)" % (
+			secondary = playerbot_lang.T("Mediana cen botow: %s (probki: %d)", "Median of the bots' prices: %s (samples: %d)") % (
 				localeInfo.NumberToMoneyString(observedPrice), sampleCount)
 		elif lastSalePrice > 0:
-			secondary = "Za malo sprzedazy do wyliczenia mediany."
+			secondary = playerbot_lang.T("Za malo sprzedazy do wyliczenia mediany.", "Too few sales for a median.")
 		else:
-			secondary = "Brak historii transakcji - pokazana cena bazowa."
+			secondary = playerbot_lang.T("Brak historii transakcji - pokazana cena bazowa.", "No sales yet - this is the base price.")
 
 		# No range at all is a server that sent none: it knows no
 		# FleaPriceRange, and the line stays empty.
@@ -895,24 +1077,23 @@ class OfflineShopManage(ui.ScriptWindow):
 		if not self.fleaPriceRange:
 			marketRange = ""
 		elif marketMinPrice > 0 and marketMaxPrice >= marketMinPrice:
-			marketRange = "Rynek dla takiego stosu: %s - %s" % (
+			marketRange = playerbot_lang.T("Rynek dla takiego stosu: %s - %s", "The market for such a stack: %s - %s") % (
 				localeInfo.NumberToMoneyString(marketMinPrice),
 				localeInfo.NumberToMoneyString(marketMaxPrice))
 		else:
-			marketRange = "Rynek: brak porownywalnych ofert."
+			marketRange = playerbot_lang.T("Rynek: brak porownywalnych ofert.", "The market: no comparable offers.")
 
 		if not self.fleaPriceSales:
 			lastSale = ""
 		elif lastSalePrice > 0:
-			lastSale = "Ostatnia sprzedaz botow: %s" % (
+			lastSale = playerbot_lang.T("Ostatnia sprzedaz botow: %s", "Last sale by the bots: %s") % (
 				localeInfo.NumberToMoneyString(lastSalePrice),)
 		else:
-			lastSale = "Ostatnia sprzedaz botow: brak danych."
-		self.fleaPriceRange = None
-		self.fleaPriceSales = None
-
+			lastSale = playerbot_lang.T("Ostatnia sprzedaz botow: brak danych.", "Last sale by the bots: no data.")
 		dialog = self.addItemDialog
 		dialog.fleaSuggestedPrice = suggestedPrice
+		dialog.fleaMedianPrice = observedPrice
+		dialog.fleaLastSalePrice = lastSalePrice
 		dialog.fleaMarketMinPrice = marketMinPrice
 		dialog.fleaMarketMaxPrice = marketMaxPrice
 		self.__SetFleaMarketPriceHint(dialog, (primary, secondary, marketRange, lastSale))
@@ -927,6 +1108,10 @@ class OfflineShopManage(ui.ScriptWindow):
 			price = getattr(dialog, "fleaMarketMinPrice", 0)
 		elif mode == AUTO_PRICE_MAXIMUM:
 			price = getattr(dialog, "fleaMarketMaxPrice", 0)
+		elif mode == AUTO_PRICE_MEDIAN:
+			price = getattr(dialog, "fleaMedianPrice", 0)
+		elif mode == AUTO_PRICE_LAST:
+			price = getattr(dialog, "fleaLastSalePrice", 0)
 		else:
 			return
 
@@ -936,18 +1121,6 @@ class OfflineShopManage(ui.ScriptWindow):
 		# the range for a big stack can go past it.
 		dialog.SetValue(min(price, player.GOLD_MAX - 1))
 		dialog.fleaOpenText = dialog.GetText()
-
-	def __OnToggleAutoPrice(self):
-		mode = GetNextAutoPriceMode(GetAutoPriceMode())
-		SetAutoPriceMode(mode)
-		# The button is a picture, which makes no click of its own.
-		snd.PlaySound("sound/ui/click.wav")
-		window = self.fleaPriceWindow
-		if window and getattr(window, "board", None):
-			window.fleaAutoPriceButtonText.SetText(GetAutoPriceText(mode))
-		dialog = self.addItemDialog
-		if mode != AUTO_PRICE_INACTIVE and dialog and dialog.IsShow():
-			self.__FillSuggestedPrice(dialog)
 
 	def ShowAddItemDialog(self, inventorySlotIndex, shopSlotIndex, inventoryWindowType, itemVnum, itemCount):
 		if not constInfo.myshop_data["items"].has_key(shopSlotIndex):
@@ -971,6 +1144,7 @@ class OfflineShopManage(ui.ScriptWindow):
 
 			self.addItemDialog = dialog
 			self.__RequestFleaMarketPrice(inventoryWindowType, inventorySlotIndex)
+			self.__SetFleaMarketPriceHint(dialog, shopautoprice.FormatPriceLines(None, None, None))
 		else:
 			chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.OFFLINE_SHOP_CANNOT_PLACE_ITEM_ON_ITEM)
 
@@ -981,7 +1155,7 @@ class OfflineShopManage(ui.ScriptWindow):
 
 	def AcceptAddItemDialog(self, inventorySlotIndex, shopSlotIndex, inventoryWindowType):
 		if not self.addItemDialog:
-			return
+			return True
 
 		text = self.addItemDialog.GetText()
 
@@ -990,7 +1164,7 @@ class OfflineShopManage(ui.ScriptWindow):
 
 		inputPrice = localeInfo.MoneyStringToNumber(self.addItemDialog.GetText())
 		if inputPrice <= 0:
-			return
+			return True
 
 		# The server sells for less than GOLD_MAX only (IsGoodSalePrice).
 		if inputPrice >= player.GOLD_MAX:
@@ -1006,9 +1180,12 @@ class OfflineShopManage(ui.ScriptWindow):
 		offlineShopBuilder.SetPrivateShopItemPrice(itemVnum, itemCount, inputPrice, sockets)
 		self.AddItem(inventorySlotIndex, shopSlotIndex, inventoryWindowType, inputPrice)
 
+		# MT2009_PLUS_VEKIRION_V1: Enter handled - a falsy return here lets the key reach the game, which opens the chat
+		return True
+
 	def AcceptEditItemDialog(self, shopSlotIndex, massEdit):
 		if not self.addItemDialog:
-			return
+			return True
 
 		text = self.addItemDialog.GetText()
 		if not text:
@@ -1016,7 +1193,7 @@ class OfflineShopManage(ui.ScriptWindow):
 
 		inputPrice = localeInfo.MoneyStringToNumber(self.addItemDialog.GetText())
 		if inputPrice <= 0:
-			return
+			return True
 
 		# The server sells for less than GOLD_MAX only (IsGoodSalePrice).
 		if inputPrice >= player.GOLD_MAX:
@@ -1040,13 +1217,16 @@ class OfflineShopManage(ui.ScriptWindow):
 						shop_total_value = shop_total_value - v["price"] + inputPrice
 						if shop_total_value > player.GOLD_MAX:
 							chat.AppendChat(chat.CHAT_TYPE_INFO, localeInfo.TOO_HIGH_SHOP_VALUE)
-							return
+							return True
 				# One edit every quarter second, checked against the shop
 				# list afterwards (shoppricepump.py): the server takes one
 				# shop action per 200 ms and refused the rest of a burst.
 				shoppricepump.Queue([(i, inputPrice) for i in item_list])
 			else:
 				self.__SendEditItemPricePacket(itemData, inputPrice)
+
+		# MT2009_PLUS_VEKIRION_V1: Enter handled - a falsy return here lets the key reach the game, which opens the chat
+		return True
 
 	def __SendEditItemPricePacket(self, itemData, itemPrice):
 		ikashop.SendEditItem(itemData["id"], itemPrice)
@@ -1166,7 +1346,22 @@ class OfflineShopManage(ui.ScriptWindow):
 		self.clockAnimation.Hide()
 
 	def OnFixedUpdate(self):
+		self.__UpdateFleaPriceBatch()
+		self.__CheckFleaPriceAnswer()
 		self.visualState.OnFixedUpdate(self)
+
+	def __CheckFleaPriceAnswer(self):
+		# The server says nothing while the Dom Towarowy is off, or for a line
+		# it cannot find: the Ceny window says so instead of loading for ever.
+		if self.fleaPriceAnswered:
+			return
+		if clientclock.Now() - self.fleaPriceSentAt < shopautoprice.ANSWER_TIMEOUT:
+			return
+		self.fleaPriceAnswered = True
+		dialog = self.addItemDialog
+		if dialog and dialog is self.fleaPriceDialog and dialog.IsShow():
+			dialog.fleaPriceLines = shopautoprice.NoAnswerLines()
+			self.__RefreshFleaPriceWindow()
 
 	def ShowTooltipBoard(self, text):
 		self.tooltipBoard.SetSize(int(len(text)*6.5) + 20, self.tooltipBoard.GetHeight())
@@ -1304,6 +1499,10 @@ class OfflineShopManage(ui.ScriptWindow):
 			self.addItemDialog.Close()
 		if self.questionDialog:
 			self.questionDialog.Close()
+		# A bulk repricing still collecting prices is dropped: it would apply
+		# them whenever the counter opened next.
+		self.fleaPriceBatch = None
+		self.__CloseBulkQuestion()
 
 	def OnPressEscapeKey(self):
 		self.Close()
@@ -1342,10 +1541,22 @@ class OfflineShopManage(ui.ScriptWindow):
 		self.SetTime(0)
 		self.SwitchState(self.STATE_CLOSED)
 
+	def __OnMyShopItemOverIn(self, slotIndex):
+		self.hoveredShopSlot = slotIndex
+		if self.myShopSlotRenderer:
+			self.myShopSlotRenderer.OnOverInItem(slotIndex)
+
+	def __OnMyShopItemOverOut(self):
+		self.hoveredShopSlot = None
+		if self.myShopSlotRenderer:
+			self.myShopSlotRenderer.OnOverOutItem()
+
 	def ShopOwnerEditItem(self, id, data):
 		for i,v in constInfo.myshop_data["items"].items():
 			if v["id"] == id:
 				v["price"] = data["price"]
+				if self.hoveredShopSlot == i and self.myShopSlotRenderer:
+					self.myShopSlotRenderer.OnOverInItem(i)
 				break
 
 	def ShopOwnerRemoveItem(self, itemid):

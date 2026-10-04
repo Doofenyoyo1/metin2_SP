@@ -610,6 +610,17 @@ class ItemToolTip(ToolTip):
 		self.isShopItem = False
 		self.toolTipWidth = self.TOOL_TIP_WIDTH
 		ToolTip.ClearToolTip(self)
+		self.compareSourceSlot = -1  # MT2009_PLUS_DIGI_CLIENT_QOL_V1
+		self.compareShown = None
+
+	# MT2009_PLUS_DIGI_CLIENT_QOL_V1 (Autor: Digi Rasta): ALT shows the worn item next to this one (digiqol.py)
+	def HideToolTip(self):
+		ToolTip.HideToolTip(self)
+		__import__("digiqol").HideCompare(self)
+
+	def OnUpdate(self):
+		ToolTip.OnUpdate(self)
+		__import__("digiqol").UpdateCompare(self)
 
 	def SetRawItem(self, itemVnum, metinSlot=None, attrSlot=None, isClearToolTip=True):
 		if 0 == itemVnum:
@@ -630,6 +641,7 @@ class ItemToolTip(ToolTip):
 			return
 
 		self.ClearToolTip()
+		self.compareSourceSlot = slotIndex if window_type == player.INVENTORY else -1  # MT2009_PLUS_DIGI_CLIENT_QOL_V1
 		if shop.IsOpen():
 			if not shop.IsPrivateShop():
 				item.SelectItem(itemVnum)
@@ -920,7 +932,7 @@ class ItemToolTip(ToolTip):
 
 		return "\n".join(formatted_lines)
 
-	def __AppendAttributeInformation(self, attrSlot, itemAbsChance = 0, slotCount = player.ATTRIBUTE_SLOT_NORM_NUM):
+	def __AppendAttributeInformation(self, attrSlot, itemAbsChance = 0, slotCount = player.ATTRIBUTE_SLOT_MAX_NUM): # MT2009_PLUS_SOULSTONE9_V1: all 7 bonuses (Digi Rasta)
 		if 0 != attrSlot:
 			# MT2009_PLUS_SEONHAE_V1: never past the list a caller gave
 			for i in xrange(min(slotCount, len(attrSlot))):
@@ -1189,7 +1201,10 @@ class ItemToolTip(ToolTip):
 
 			self.AppendWearableInformation()
 
-			if app.ENABLE_QUIVER_SYSTEM and item.WEAPON_QUIVER == itemSubType:
+			# MT2009_PLUS_QUIVER_TOOLTIP_V1: arrows/quivers and other real-time
+			# weapons keep their expiry timestamp in socket0 - never draw it as a
+			# metin stone (it showed a random item name in a stone slot).
+			if (app.ENABLE_QUIVER_SYSTEM and item.WEAPON_QUIVER == itemSubType) or self.__IsRealTimeSocketItem(itemSubType == item.WEAPON_ARROW):
 				self.AppendLastTimeInformation(metinSlot)
 			else:
 				self.__AppendMetinSlotInfo(metinSlot)
@@ -1215,6 +1230,9 @@ class ItemToolTip(ToolTip):
 
 			if itemSubType in (item.ARMOR_WRIST, item.ARMOR_NECK, item.ARMOR_EAR):
 				self.__AppendAccessoryMetinSlotInfo(metinSlot, constInfo.GET_ACCESSORY_MATERIAL_VNUM(itemVnum, itemSubType))
+			elif self.__IsRealTimeSocketItem():
+				# MT2009_PLUS_QUIVER_TOOLTIP_V1: socket0 = expiry timestamp.
+				self.AppendLastTimeInformation(metinSlot)
 			else:
 				self.__AppendMetinSlotInfo(metinSlot)
 
@@ -1907,6 +1925,17 @@ class ItemToolTip(ToolTip):
 			self.AppendTextLine(localeInfo.TOOLTIP_ANTIFLAG_GIVE, self.NEGATIVE_COLOR)
 		elif blockMyShop:
 			self.AppendTextLine(localeInfo.TOOLTIP_ANTIFLAG_MYSHOP, self.NEGATIVE_COLOR)
+
+	# MT2009_PLUS_QUIVER_TOOLTIP_V1: the selected item stores a timestamp
+	# (not metin stones) in socket0 when it has a real-time limit.
+	def __IsRealTimeSocketItem(self, forceArrow = False):
+		if forceArrow:
+			return True
+		for i in xrange(item.LIMIT_MAX_NUM):
+			(limitType, limitValue) = item.GetLimit(i)
+			if limitType in (item.LIMIT_REAL_TIME, item.LIMIT_REAL_TIME_START_FIRST_USE):
+				return True
+		return False
 
 	def AppendLastTimeInformation(self, metinSlot):
 		bHasRealtimeFlag = False

@@ -31,13 +31,17 @@
 # changed yet is now looked at again every CHECK_EVERY seconds for up to
 # PATIENCE before it is sent again.
 #
-# Python 2.7 as the client has it.
+# Python 2.7 as the client has it. The one line it writes is a Polish and
+# English pair (playerbot_lang.T), English for a client set to any language
+# but Polish.
 
 import app
 import clientclock
 import chat
 import constInfo
 import ui
+import warpsafe
+from playerbot_lang import T
 import ikashop
 import offlineShopBuilder
 
@@ -109,6 +113,13 @@ class ShopPricePump(ui.Window):
 		now = clientclock.Now()
 		if now < self.nextTick:
 			return
+		# MT2009_PLUS_SHOP_AUTO_PRICE_V1: "Zmien ceny wszystkich" queues a
+		# whole counter here, and a teleport on the way must not get a packet
+		# written between its handshake's keys (warpsafe.py). The edits wait
+		# for the next map, and the patience counts from the next one sent.
+		if not warpsafe.InGame():
+			self.lastSentAt = now
+			return
 		self.nextTick = now + TICK
 		(itemData, itemPrice) = self.edits.pop(0)
 		ikashop.SendEditItem(itemData["id"], itemPrice)
@@ -159,7 +170,8 @@ class ShopPricePump(ui.Window):
 		self.asked = []
 		try:
 			chat.AppendChat(chat.CHAT_TYPE_INFO,
-					"Nie udalo sie zmienic ceny %d pozycji - sprobuj jeszcze raz." % len(missed))
+					T("Nie udalo sie zmienic ceny %d pozycji - sprobuj jeszcze raz.",
+						"The price of %d lines could not be changed - try again.") % len(missed))
 		except Exception:
 			pass
 

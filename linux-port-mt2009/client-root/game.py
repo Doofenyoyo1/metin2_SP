@@ -54,6 +54,7 @@ import debugInfo
 import stringCommander
 
 import offlineShopBuilder
+import shopautoprice # MT2009_PLUS_SHOP_AUTO_PRICE_V1
 from _weakref import proxy
 
 import updateable
@@ -335,6 +336,8 @@ class GameWindow(ui.ScriptWindow):
 
 	def Close(self):
 		self.Hide()
+		# MT2009_PLUS_DROP_WIKI_V1: the drop wiki (uidropwiki.py).
+		__import__("uidropwiki").DestroyWindow()
 
 		self.oneSecondTimer = 0
 
@@ -346,6 +349,11 @@ class GameWindow(ui.ScriptWindow):
 
 		self.onPressKeyDict = None
 		self.onClickKeyDict = None
+		# MT2009_PLUS_VEKIRION_V1: no key runs an action of the closed window,
+		# and the keybind window and its wait for a key go with it.
+		self.keyActions = {}
+		self.keyActionsHeld = {}
+		__import__("uikeybind").DestroyWindow()
 
 		chat.Close()
 		snd.StopAllSound()
@@ -463,6 +471,12 @@ class GameWindow(ui.ScriptWindow):
 		__import__("uiingameevent").DestroyWindow()
 		# MT2009_PLUS_SEONHAE_V1: Seon-Hae's 6th/7th bonus window (uiseonhae.py).
 		__import__("uiseonhae").DestroyWindow()
+		# MT2009_PLUS_TP_BOOKMARKS_V1: the saved teleport positions (uitpbookmarks.py).
+		__import__("uitpbookmarks").DestroyWindow()
+		# MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking (uiweeklyrank.py).
+		__import__("uiweeklyrank").DestroyWindow()
+		# MT2009_PLUS_CLEAR_MISSIONS_V1: the /usunmisje window (uiusunmisje.py).
+		__import__("uiusunmisje").DestroyWindow()
 		# MT2009_PLUS_FLOWER_V1: the Flower Event's window (uiflowerevent.py).
 		__import__("uiflowerevent").DestroyWindow()
 		# MT2009_PLUS_RUMI_V1: Owsap's Rumi (Okey) window (uiminigamerumi.py).
@@ -472,6 +486,15 @@ class GameWindow(ui.ScriptWindow):
 		# MT2009_PLUS_GUILD_DUTY_V1: the guild leader's panel.
 		import uiguildduty
 		uiguildduty.DestroyWindow()
+		# MT2009_PLUS_DIGI_SERVER_QOL_V1: the kill bar and Seon-Hae's book exchange (digiserverqol.py).
+		__import__("digiserverqol").DestroyWindows()
+		# MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: the companion's windows and their
+		# queue go with the game window at every warp, channel change and logout,
+		# also when no keeper of theirs was registered (the inventory's button
+		# opens the window without one). The keepers' Destroy did it before;
+		# a second call finds nothing left.
+		__import__("uisidekick").Destroy()
+		__import__("uicollector").Destroy() # MT2009_PLUS_COLLECTOR_STORAGE_V1
 
 		print("---------------------------------------------------------------------------- CLOSE GAME WINDOW")
 
@@ -480,6 +503,9 @@ class GameWindow(ui.ScriptWindow):
 		# MT2009_PLUS_AUTO_TARGET_V1: the next target after a kill (autotarget.py).
 		import autotarget
 		self.RegisterUpdatable(autotarget.GetKeeper())
+		# MT2009_PLUS_COLLECTOR_STORAGE_V1: the collector's storage window goes
+		# with the game window (uicollector.py).
+		self.RegisterUpdatable(__import__("uicollector").GetKeeper())
 		self.RegisterUpdatable(updateable.PickUpOnDownKey())
 		import uipickupfilter
 		self.RegisterUpdatable(uipickupfilter.PickupFilterSync())
@@ -637,145 +663,179 @@ class GameWindow(ui.ScriptWindow):
 		net.SendChatPacket("/pickup_nearby")
 
 	def __BuildKeyDict(self):
-		onPressKeyDict = {}
+		# MT2009_PLUS_VEKIRION_V1 (Autor: Vekirion): Skroty klawiszowe -
+		# keybind.py holds which keys run which action (the Esc menu's window,
+		# uikeybind.py, rebinds them; saved for the PC in autohunt/klawisze.cfg)
+		# and this builds {action: (press, release)}. The defaults are the
+		# keys this client always had, Ctrl+G, Ctrl+Z, X (Wyprawy) and the
+		# rest, with a tap of Left Shift for the sprint as before - Shift held
+		# with another key is that key's modifier (Shift+M) and no sprint.
+		# Ctrl, Shift and Alt held have their own doings (names, cursor) in
+		# OnKeyDown / OnKeyUp below; a key pressed with modifiers that make no
+		# binding of their own runs the key alone, as the old dictionaries did.
+		import keybind
 
+		def Cinema(num):
+			if app.ENABLE_CINEMACHINE and self.isCinemaMode:
+				self.TestFreeCamera(num)
+				return True
+			return False
 
-		onPressKeyDict[app.DIK_1]	= lambda : self.__PressNumKey(1)
-		onPressKeyDict[app.DIK_2]	= lambda : self.__PressNumKey(2)
-		onPressKeyDict[app.DIK_3]	= lambda : self.__PressNumKey(3)
-		onPressKeyDict[app.DIK_4]	= lambda : self.__PressNumKey(4)
-		onPressKeyDict[app.DIK_5]	= lambda : self.__PressNumKey(5)
-		onPressKeyDict[app.DIK_6]	= lambda : self.__PressNumKey(6)
-		onPressKeyDict[app.DIK_7]	= lambda : self.__PressNumKey(7)
-		onPressKeyDict[app.DIK_8]	= lambda : self.__PressNumKey(8)
-		onPressKeyDict[app.DIK_9]	= lambda : self.__PressNumKey(9)
-		onPressKeyDict[app.DIK_F1]	= lambda : self.__PressQuickSlot(6)
-		onPressKeyDict[app.DIK_F2]	= lambda : self.__PressQuickSlot(7)
-		onPressKeyDict[app.DIK_F3]	= lambda : self.__PressQuickSlot(8)
-		onPressKeyDict[app.DIK_F4]	= lambda : self.__PressQuickSlot(9)
+		def QuickNumber(num):
+			if not Cinema(num):
+				self.pressNumber(num - 1)
+
+		def Emote(num):
+			if Cinema(num):
+				return
+			if chrmgr.IsPossibleEmoticon(-1):
+				chrmgr.SetEmoticon(-1, num - 1)
+				net.SendEmoticon(num - 1)
+
+		def Channel(num):
+			if not Cinema(num):
+				self.__QuickChangeChannel(num)
+
+		def Minimap():
+			wndMiniMap = self.interface.wndMiniMap
+			if False == wndMiniMap.isShowMiniMap():
+				wndMiniMap.ShowMiniMap()
+				wndMiniMap.SetTop()
+			else:
+				wndMiniMap.HideMiniMap()
+
+		def QuestButtons():
+			if 0 == interfaceModule.IsQBHide:
+				interfaceModule.IsQBHide = 1
+				self.interface.HideAllQuestButton()
+			else:
+				interfaceModule.IsQBHide = 0
+				self.interface.ShowAllQuestButton()
+
+		def PickupFilter():
+			import uipickupfilter
+			uipickupfilter.ToggleWindow()
+
+		def Unmount():
+			if player.IsMountingHorse():
+				net.SendChatPacket("/unmount")
+
+		def Window(name):
+			__import__(name).ToggleWindow()
+
+		actions = {
+			"move_up"			: (lambda : self.MoveUp(), lambda : self.StopUp()),
+			"move_down"			: (lambda : self.MoveDown(), lambda : self.StopDown()),
+			"move_left"			: (lambda : self.MoveLeft(), lambda : self.StopLeft()),
+			"move_right"		: (lambda : self.MoveRight(), lambda : self.StopRight()),
+			"attack"			: (lambda : self.StartAttack(), lambda : self.EndAttack()),
+			"sprint"			: (lambda : self.__ToggleSprint(), None),
+			# Z: the server picks up what lies around (through the pick-up
+			# filter when it is on); ~: the nearest item (PickUpItem). Held,
+			# both repeat (updateable.PickUpOnDownKey).
+			"pickup"			: (lambda : net.SendChatPacket("/pickup_nearby"), None),
+			"pickup_near"		: (lambda : self.PickUpItem(), None),
+			"pickup_filter"		: (PickupFilter, None),
+
+			"quick_1"			: (lambda : QuickNumber(1), None),
+			"quick_2"			: (lambda : QuickNumber(2), None),
+			"quick_3"			: (lambda : QuickNumber(3), None),
+			"quick_4"			: (lambda : QuickNumber(4), None),
+			"quick_5"			: (lambda : QuickNumber(5), None),
+			"quick_6"			: (lambda : self.__PressQuickSlot(5), None),
+			"quick_7"			: (lambda : self.__PressQuickSlot(6), None),
+			"quick_8"			: (lambda : self.__PressQuickSlot(7), None),
+			"quick_9"			: (lambda : self.__PressQuickSlot(8), None),
+			"quick_10"			: (lambda : self.__PressQuickSlot(9), None),
+
+			"character"			: (lambda : self.interface.ToggleCharacterWindow("STATUS"), None),
+			"skills"			: (lambda : self.interface.ToggleCharacterWindow("SKILL"), None),
+			"emote_window"		: (lambda : self.interface.ToggleCharacterWindow("EMOTICON"), None),
+			"quests"			: (lambda : self.interface.ToggleCharacterWindow("QUEST"), None),
+			"inventory"			: (lambda : self.interface.ToggleInventoryWindow(), None),
+			"dragon_soul"		: (lambda : self.interface.ToggleDragonSoulWindowWithNoInfo(), None),
+			"atlas"				: (lambda : self.interface.wndMiniMap.ToggleAtlasWindow(), None),
+			"minimap"			: (Minimap, None),
+			"minimap_in"		: (lambda : self.interface.MiniMapScaleUp(), None),
+			"minimap_out"		: (lambda : self.interface.MiniMapScaleDown(), None),
+			"messenger"			: (lambda : self.interface.ToggleMessenger(), None),
+			"guild"				: (lambda : self.interface.ToggleGuildWindow(), None),
+			"chat_log"			: (lambda : self.interface.ToggleChatLogWindow(), None),
+			"help"				: (lambda : self.interface.OpenHelpWindow(), None),
+			"player_stat"		: (lambda : self.interface.wndPlayerStat.Open(), None),
+			"companion"			: (lambda : self.__ToggleSidekick(), None),
+			"autohunt"			: (lambda : self.__ToggleAutoHunt(), None),
+			"garbage_bin"		: (lambda : self.interface.ToggleGarbageBinWindow(), None),
+			"shop_search"		: (lambda : self.__PressF5Key(), None),
+			# F11: the event calendar (uieventcalendar.py).
+			"event_calendar"	: (lambda : Window("uieventcalendar"), None),
+			# MT2009_PLUS_WHEEL_V1: Kolo Fortuny (uiwheel.py).
+			"wheel"				: (lambda : Window("uiwheel"), None),
+			# MT2009_PLUS_NEW_PET_V1: the New Pet System's window (uinewpet.py).
+			"new_pet"			: (lambda : Window("uinewpet"), None),
+			# MT2009_PLUS_DUNGEON_PANEL_V1: the dungeon panel ("Wyprawy", uidungeoninfo.py).
+			"dungeon_info"		: (lambda : Window("uidungeoninfo"), None),
+			# The inventory bar's windows that never had a key (none by default).
+			"battle_pass"		: (lambda : Window("uibattlepass"), None),
+			"tp_bookmarks"		: (lambda : Window("uitpbookmarks"), None),
+			# MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking (uiweeklyrank.py).
+			"weekly_rank"		: (lambda : Window("uiweeklyrank"), None),
+			# MT2009_PLUS_DROP_WIKI_V1: the drop wiki (uidropwiki.py).
+			"drop_wiki"			: (lambda : __import__("uidropwiki").ToggleWindow(), None),
+			"hide_ui"			: (lambda : self.__HideUserInterface(), None),
+			"quest_buttons"		: (QuestButtons, None),
+			"screenshot"		: (lambda : self.SaveScreen(), None),
+			# Panel GM (F9) i admin botow (F10): kazde nacisniecie pyta serwer, ktory
+			# sprawdza gm_level (cmd.cpp) i dopiero odsyla OpenGMPanelWindow /
+			# OpenPlayerbotAdminWindow - zwyklemu graczowi nic sie nie otworzy.
+			"gm_panel"			: (lambda : net.SendChatPacket("/gmpanel_open"), None),
+			"bot_admin"			: (lambda : net.SendChatPacket("/botadmin"), None),
+			"console"			: (lambda : self.ShowConsole(), None),
+
+			# Ctrl+G: horse or seal mount (MT2009_PLUS_MOUNT_QUICKSWAP_V1),
+			# Ctrl+J: the seal off into the bag (/unmount).
+			"ride"				: (lambda : net.SendChatPacket("/ride"), None),
+			"unmount"			: (Unmount, None),
+			"horse_call"		: (lambda : net.SendChatPacket("/user_horse_ride"), None),
+			"horse_back"		: (lambda : net.SendChatPacket("/user_horse_back"), None),
+			"horse_feed"		: (lambda : net.SendChatPacket("/user_horse_feed"), None),
+
+			# Alt+1 / Alt+2: straight to channel 1 or 2 (the operator, 28 September).
+			"channel_1"			: (lambda : Channel(1), None),
+			"channel_2"			: (lambda : Channel(2), None),
+
+			"cam_rot_left"		: (lambda : app.RotateCamera(app.CAMERA_TO_NEGATIVE), lambda : app.RotateCamera(app.CAMERA_STOP)),
+			"cam_rot_right"		: (lambda : app.RotateCamera(app.CAMERA_TO_POSITIVE), lambda : app.RotateCamera(app.CAMERA_STOP)),
+			"cam_zoom_in"		: (lambda : app.ZoomCamera(app.CAMERA_TO_NEGATIVE), lambda : app.ZoomCamera(app.CAMERA_STOP)),
+			"cam_zoom_out"		: (lambda : app.ZoomCamera(app.CAMERA_TO_POSITIVE), lambda : app.ZoomCamera(app.CAMERA_STOP)),
+			"cam_pitch_up"		: (lambda : app.PitchCamera(app.CAMERA_TO_NEGATIVE), lambda : app.PitchCamera(app.CAMERA_STOP)),
+			"cam_pitch_down"	: (lambda : app.PitchCamera(app.CAMERA_TO_POSITIVE), lambda : app.PitchCamera(app.CAMERA_STOP)),
+			"movie_reset"		: (lambda : app.MovieResetCamera(), None),
+			"movie_rot_left"	: (lambda : app.MovieRotateCamera(app.CAMERA_TO_NEGATIVE), lambda : app.MovieRotateCamera(app.CAMERA_STOP)),
+			"movie_rot_right"	: (lambda : app.MovieRotateCamera(app.CAMERA_TO_POSITIVE), lambda : app.MovieRotateCamera(app.CAMERA_STOP)),
+			"movie_zoom_in"		: (lambda : app.MovieZoomCamera(app.CAMERA_TO_NEGATIVE), lambda : app.MovieZoomCamera(app.CAMERA_STOP)),
+			"movie_zoom_out"	: (lambda : app.MovieZoomCamera(app.CAMERA_TO_POSITIVE), lambda : app.MovieZoomCamera(app.CAMERA_STOP)),
+			"movie_pitch_up"	: (lambda : app.MoviePitchCamera(app.CAMERA_TO_NEGATIVE), lambda : app.MoviePitchCamera(app.CAMERA_STOP)),
+			"movie_pitch_down"	: (lambda : app.MoviePitchCamera(app.CAMERA_TO_POSITIVE), lambda : app.MoviePitchCamera(app.CAMERA_STOP)),
+		}
+		for num in xrange(1, 10):
+			actions["emote_%d" % num] = (lambda num = num : Emote(num), None)
 
 		if app.ENABLE_CINEMACHINE:
-			# onPressKeyDict[app.DIK_F5] = lambda: self.interface.potionRechargeDialog.Open()
-			onPressKeyDict[app.DIK_F5] = lambda: self.__PressF5Key()
-			onPressKeyDict[app.DIK_F6]	= lambda : self.__AddFreeCameraSpeed()
-			onPressKeyDict[app.DIK_F7] = lambda: self.__SubtractFreeCameraSpeed()
-			onPressKeyDict[app.DIK_F8] = lambda: self.__AddCameraFov()
-			onPressKeyDict[app.DIK_F9] = lambda: self.__SubtractCameraFov()
+			actions["cine_speed_up"]	= (lambda : self.__AddFreeCameraSpeed(), None)
+			actions["cine_speed_down"]	= (lambda : self.__SubtractFreeCameraSpeed(), None)
+			actions["cine_fov_up"]		= (lambda : self.__AddCameraFov(), None)
+			actions["cine_fov_down"]	= (lambda : self.__SubtractCameraFov(), None)
 
-		onPressKeyDict[app.DIK_LALT]		= lambda : self.ShowName()
-		onPressKeyDict[app.DIK_LCONTROL]	= lambda : self.ShowMouseImage()
-		onPressKeyDict[app.DIK_SYSRQ]		= lambda : self.SaveScreen()
-		onPressKeyDict[app.DIK_SPACE]		= lambda : self.StartAttack()
+		self.keyActions = actions
+		# The key that started each held action, for its release.
+		self.keyActionsHeld = {}
+		keybind.SetAvailable(actions.keys())
 
-		onPressKeyDict[app.DIK_UP]			= lambda : self.MoveUp()
-		onPressKeyDict[app.DIK_DOWN]		= lambda : self.MoveDown()
-		onPressKeyDict[app.DIK_LEFT]		= lambda : self.MoveLeft()
-		onPressKeyDict[app.DIK_RIGHT]		= lambda : self.MoveRight()
-		onPressKeyDict[app.DIK_W]			= lambda : self.MoveUp()
-		onPressKeyDict[app.DIK_S]			= lambda : self.MoveDown()
-		onPressKeyDict[app.DIK_A]			= lambda : self.MoveLeft()
-		onPressKeyDict[app.DIK_D]			= lambda : self.MoveRight()
-
-		onPressKeyDict[app.DIK_E]			= lambda: app.RotateCamera(app.CAMERA_TO_POSITIVE)
-		onPressKeyDict[app.DIK_R]			= lambda: app.ZoomCamera(app.CAMERA_TO_NEGATIVE)
-		#onPressKeyDict[app.DIK_F]			= lambda: app.ZoomCamera(app.CAMERA_TO_POSITIVE)
-		onPressKeyDict[app.DIK_T]			= lambda: app.PitchCamera(app.CAMERA_TO_NEGATIVE)
-		onPressKeyDict[app.DIK_G]			= self.__PressGKey
-		onPressKeyDict[app.DIK_Q]			= self.__PressQKey
-
-		onPressKeyDict[app.DIK_NUMPAD9]		= lambda: app.MovieResetCamera()
-		onPressKeyDict[app.DIK_NUMPAD4]		= lambda: app.MovieRotateCamera(app.CAMERA_TO_NEGATIVE)
-		onPressKeyDict[app.DIK_NUMPAD6]		= lambda: app.MovieRotateCamera(app.CAMERA_TO_POSITIVE)
-		onPressKeyDict[app.DIK_PGUP]		= lambda: app.MovieZoomCamera(app.CAMERA_TO_NEGATIVE)
-		onPressKeyDict[app.DIK_PGDN]		= lambda: app.MovieZoomCamera(app.CAMERA_TO_POSITIVE)
-		onPressKeyDict[app.DIK_NUMPAD8]		= lambda: app.MoviePitchCamera(app.CAMERA_TO_NEGATIVE)
-		onPressKeyDict[app.DIK_NUMPAD2]		= lambda: app.MoviePitchCamera(app.CAMERA_TO_POSITIVE)
-		onPressKeyDict[app.DIK_GRAVE]		= lambda : self.PickUpItem()
-		onPressKeyDict[app.DIK_Z]			= lambda : self.__PressZKey()
-		onPressKeyDict[app.DIK_F5]			= lambda : self.__PressF5Key()
-		onPressKeyDict[app.DIK_C]			= lambda state = "STATUS": self.interface.ToggleCharacterWindow(state)
-		onPressKeyDict[app.DIK_V]			= lambda state = "SKILL": self.interface.ToggleCharacterWindow(state)
-		#onPressKeyDict[app.DIK_B]			= lambda state = "EMOTICON": self.interface.ToggleCharacterWindow(state)
-		onPressKeyDict[app.DIK_N]			= lambda state = "QUEST": self.interface.ToggleCharacterWindow(state)
-		onPressKeyDict[app.DIK_I]			= lambda : self.interface.ToggleInventoryWindow()
-		onPressKeyDict[app.DIK_O]			= lambda : self.interface.ToggleDragonSoulWindowWithNoInfo()
-		onPressKeyDict[app.DIK_M]			= lambda : self.interface.PressMKey()
-		#onPressKeyDict[app.DIK_H]			= lambda : self.interface.OpenHelpWindow()
-		onPressKeyDict[app.DIK_ADD]			= lambda : self.interface.MiniMapScaleUp()
-		onPressKeyDict[app.DIK_SUBTRACT]	= lambda : self.interface.MiniMapScaleDown()
-		onPressKeyDict[app.DIK_L]			= lambda : self.interface.ToggleChatLogWindow()
-		# Panel GM (F9) i admin botow (F10): kazde nacisniecie pyta serwer, ktory
-		# sprawdza gm_level (cmd.cpp) i dopiero odsyla OpenGMPanelWindow /
-		# OpenPlayerbotAdminWindow - zwyklemu graczowi nic sie nie otworzy.
-		onPressKeyDict[app.DIK_F9]			= lambda : net.SendChatPacket("/gmpanel_open")
-		onPressKeyDict[app.DIK_F10]			= lambda : net.SendChatPacket("/botadmin")
-		# F11: the event calendar (uieventcalendar.py).
-		onPressKeyDict[app.DIK_F11]			= lambda : __import__("uieventcalendar").ToggleWindow()
-		# MT2009_PLUS_WHEEL_V1: F12 - Kolo Fortuny (uiwheel.py).
-		onPressKeyDict[app.DIK_F12]			= lambda : __import__("uiwheel").ToggleWindow()
-		# MT2009_PLUS_NEW_PET_V1: U - the New Pet System's window (uinewpet.py).
-		onPressKeyDict[app.DIK_U]			= lambda : __import__("uinewpet").ToggleWindow()
-		# MT2009_PLUS_DUNGEON_PANEL_V1: X - the dungeon panel ("Wyprawy", uidungeoninfo.py).
-		onPressKeyDict[app.DIK_X]			= lambda : __import__("uidungeoninfo").ToggleWindow()
-		onPressKeyDict[app.DIK_COMMA]		= lambda : self.ShowConsole()		# "`" key
-		onPressKeyDict[app.DIK_LSHIFT]		= lambda : self.__ToggleSprint()
-
-		onPressKeyDict[app.DIK_TAB]			 = self.__PressTABKey
-
-		onPressKeyDict[app.DIK_J] = lambda : self.interface.ToggleGarbageBinWindow()
-		onPressKeyDict[app.DIK_H]			= lambda : self.__PressHKey()
-		onPressKeyDict[app.DIK_B]			= lambda : self.__PressBKey()
-		onPressKeyDict[app.DIK_F]			= lambda : self.__PressFKey()
-		onPressKeyDict[app.DIK_Y] 			= lambda : self.interface.wndPlayerStat.Open()
-		onPressKeyDict[app.DIK_P]			= lambda : self.__ToggleSidekick()
-		# if app.ENABLE_IKASHOP_RENEWAL:
-		# 	onPressKeyDict[app.DIK_F8]		= lambda : self.__PressF8Key()
-
-
-
-
-
-		# The bonus switcher: 0, because U is MT2009 PLUS's pet window, X its
-		# dungeon panel and every other letter is taken too.
-		onPressKeyDict[app.DIK_0]			= lambda : self.__ToggleBonusSwitcher()
-		# CUBE_TEST
-		#onPressKeyDict[app.DIK_K]			= lambda : self.interface.OpenCubeWindow()
-		onPressKeyDict[app.DIK_K]			= lambda : self.__ToggleAutoHunt()
-		# CUBE_TEST_END
-
-		self.onPressKeyDict = onPressKeyDict
-
-		onClickKeyDict = {}
-		onClickKeyDict[app.DIK_UP] = lambda : self.StopUp()
-		onClickKeyDict[app.DIK_DOWN] = lambda : self.StopDown()
-		onClickKeyDict[app.DIK_LEFT] = lambda : self.StopLeft()
-		onClickKeyDict[app.DIK_RIGHT] = lambda : self.StopRight()
-		onClickKeyDict[app.DIK_SPACE] = lambda : self.EndAttack()
-
-		onClickKeyDict[app.DIK_W] = lambda : self.StopUp()
-		onClickKeyDict[app.DIK_S] = lambda : self.StopDown()
-		onClickKeyDict[app.DIK_A] = lambda : self.StopLeft()
-		onClickKeyDict[app.DIK_D] = lambda : self.StopRight()
-		onClickKeyDict[app.DIK_Q] = lambda: app.RotateCamera(app.CAMERA_STOP)
-		onClickKeyDict[app.DIK_E] = lambda: app.RotateCamera(app.CAMERA_STOP)
-		onClickKeyDict[app.DIK_R] = lambda: app.ZoomCamera(app.CAMERA_STOP)
-		onClickKeyDict[app.DIK_F] = lambda: app.ZoomCamera(app.CAMERA_STOP)
-		onClickKeyDict[app.DIK_T] = lambda: app.PitchCamera(app.CAMERA_STOP)
-		onClickKeyDict[app.DIK_G] = lambda: self.__ReleaseGKey()
-		onClickKeyDict[app.DIK_NUMPAD4] = lambda: app.MovieRotateCamera(app.CAMERA_STOP)
-		onClickKeyDict[app.DIK_NUMPAD6] = lambda: app.MovieRotateCamera(app.CAMERA_STOP)
-		onClickKeyDict[app.DIK_PGUP] = lambda: app.MovieZoomCamera(app.CAMERA_STOP)
-		onClickKeyDict[app.DIK_PGDN] = lambda: app.MovieZoomCamera(app.CAMERA_STOP)
-		onClickKeyDict[app.DIK_NUMPAD8] = lambda: app.MoviePitchCamera(app.CAMERA_STOP)
-		onClickKeyDict[app.DIK_NUMPAD2] = lambda: app.MoviePitchCamera(app.CAMERA_STOP)
-		onClickKeyDict[app.DIK_LALT] = lambda: self.HideName()
-		onClickKeyDict[app.DIK_LCONTROL] = lambda: self.HideMouseImage()
-		onClickKeyDict[app.DIK_LSHIFT] = lambda: self.__SetQuickSlotMode()
-
-		#if constInfo.PVPMODE_ACCELKEY_ENABLE:
-		#	onClickKeyDict[app.DIK_B] = lambda: self.ChangePKMode()
-
-		self.onClickKeyDict=onClickKeyDict
+		# Kept for anything that still looks at them; the keys go through
+		# keybind now (OnKeyDown / OnKeyUp).
+		self.onPressKeyDict = {}
+		self.onClickKeyDict = {}
 	# if app.ENABLE_IKASHOP_RENEWAL:
 	# 	def __PressYKey(self):
 	# 		self.interface.ToggleIkashopBusinessBoard()
@@ -855,6 +915,12 @@ class GameWindow(ui.ScriptWindow):
 		else:
 			state = "EMOTICON"
 			self.interface.ToggleCharacterWindow(state)
+
+	# MT2009_PLUS_COLLECTOR_STORAGE_V1: every "COLL ..." line of the collector's
+	# storage (uicollector.py); its keeper (CreateUpdateables) closes the
+	# window with this one.
+	def __Collector(self, *args):
+		__import__("uicollector").OnServer(*args)
 
 	def __SidekickVid(self, vid="0", *rest):
 		# The keeper ends with the game window; the next one hears the
@@ -987,10 +1053,23 @@ class GameWindow(ui.ScriptWindow):
 		import uisidekick
 		uisidekick.OnServerGear(slot, name)
 
+	def __SidekickShopQuote(self, *args):
+		self.__KeepSidekickWindow()
+		import uisidekick
+		uisidekick.OnServerShopQuote(*args)
 
+
+	# MT2009_PLUS_AUTOHUNT_BLOCKED_V1 (Autor: blaki): "AutoHuntTarget <vid>
+	# <blocked>" - a server before it sends the VID alone, read as not blocked.
 	def __AutoHuntTarget(self, vid="0", *rest):
 		import uiautohunt
-		uiautohunt.OnServerTarget(vid)
+		uiautohunt.OnServerTarget(vid, rest[0] if rest else "0")
+
+	# MT2009_PLUS_AUTOHUNT_MOUNT_V1 (Autor: blaki): "AutoHuntMount <on|off>
+	# <mounted>", the answer to /autohunt_mount.
+	def __AutoHuntMount(self, action="", mounted="0", *rest):
+		import uiautohunt
+		uiautohunt.OnServerMount(action, mounted)
 
 	def __AutoHuntLoot(self, vid="0", x="0", y="0", *rest):
 		import uiautohunt
@@ -999,6 +1078,13 @@ class GameWindow(ui.ScriptWindow):
 	def __AutoHuntOff(self, *rest):
 		import uiautohunt
 		uiautohunt.OnServerOff(*rest)
+
+	# MT2009_PLUS_UPSTREAM_2_0_76: the way round a wall from the server
+	# ("AutoHuntPath <seq> <ok|direct|none|wait|off> <kind> [points]"); a
+	# server without /autohunt_path never sends it and the hunt walks straight.
+	def __AutoHuntPath(self, *args):
+		import uiautohunt
+		uiautohunt.OnServerPath(*args)
 
 	def __ToggleSprint(self):
 		slotIndex = 105 # sprint slot index
@@ -1970,13 +2056,6 @@ class GameWindow(ui.ScriptWindow):
 	def StopRight(self):
 		player.SetSingleDIKKeyState(app.DIK_RIGHT, False)
 
-	def __ToggleBonusSwitcher(self):
-		import uibonusswitch
-		switcher = uibonusswitch.GetSwitcher()
-		if switcher not in self.updateable:
-			self.RegisterUpdatable(switcher)
-		uibonusswitch.ToggleWindow()
-
 	def PickUpItem(self):
 		import uipickupfilter
 		if uipickupfilter.IsActive():
@@ -1996,24 +2075,76 @@ class GameWindow(ui.ScriptWindow):
 			self.RequestDropItem(False)
 			constInfo.SET_ITEM_QUESTION_DIALOG_STATUS(0)
 
-		if self.onPressKeyDict:
-			try:
-				self.onPressKeyDict[key]()
-			except KeyError:
-				pass
-			except:
-				raise
+		# MT2009_PLUS_VEKIRION_V1: Skroty klawiszowe waiting for a key
+		# (uikeybind.py) - the key is taken there, as a DirectInput code, and
+		# runs no action.
+		import keybind
+		if keybind.CaptureKey(key):
+			return True
+		# A Shift press starts a tap (the sprint); any other key ends it.
+		keybind.NoteKeyDown(key)
+
+		# The modifiers' own doings while held; never a binding of their own
+		# when pressed (a tap of Shift runs on its release, OnKeyUp).
+		if key == app.DIK_LALT:
+			self.ShowName()
+			return True
+		if key == app.DIK_LCONTROL:
+			self.ShowMouseImage()
+			return True
+		if keybind.IsModifierKey(key):
+			return True
+
+		action = keybind.Resolve(key)
+		entry = getattr(self, "keyActions", {}).get(action) if action else None
+		if entry:
+			# A key pressed again before its release (a lost key-up) ends
+			# the hold it started first.
+			self.__ReleaseKeyAction(key)
+			press, release = entry
+			if release:
+				self.keyActionsHeld[key] = release
+			press()
 
 		return True
 
+	def __ReleaseKeyAction(self, key):
+		release = getattr(self, "keyActionsHeld", {}).pop(key, None)
+		if release:
+			release()
+
+	# MT2009_PLUS_UPSTREAM_2_0_76: called by an exe that clears its pressed
+	# keys when the window loses focus (upstream exe 2.0.76); ours does not
+	# call it yet, and then nothing changes.
+	def OnAutoHuntFocusLost(self):
+		import uiautohunt
+		uiautohunt.OnFocusLost()
+
 	def OnKeyUp(self, key):
-		if self.onClickKeyDict:
-			try:
-				self.onClickKeyDict[key]()
-			except KeyError:
-				pass
-			except:
-				raise
+		# MT2009_PLUS_VEKIRION_V1: a lone Shift tapped while Skroty
+		# klawiszowe waits for a key is that key.
+		import keybind
+		if keybind.CaptureKeyUp(key):
+			return True
+
+		if key == app.DIK_LALT:
+			self.HideName()
+		elif key == app.DIK_LCONTROL:
+			self.HideMouseImage()
+		elif key == app.DIK_LSHIFT:
+			self.__SetQuickSlotMode()
+
+		self.__ReleaseKeyAction(key)
+
+		# Shift pressed and let go with nothing between: its own action
+		# (the sprint by default).
+		action = keybind.TakeTap(key)
+		entry = getattr(self, "keyActions", {}).get(action) if action else None
+		if entry:
+			press, release = entry
+			press()
+			if release:
+				release()
 
 		return True
 
@@ -2351,7 +2482,10 @@ class GameWindow(ui.ScriptWindow):
 
 		# Panel GM: patrz __gmCheckSent w __init__ - kilkaset klatek po wejsciu
 		# do swiata pytamy serwer, czy ta postac jest GM (odpowiedz: SetGMFlag).
-		if not self.__gmCheckSent:
+		# MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: the frames count only in the game
+		# phase - a warp soon after entering kept counting on the way to the
+		# next core and sent the check and the hellos there (warpsafe.py).
+		if not self.__gmCheckSent and __import__("warpsafe").InGame():
 			self.__gmCheckFrames += 1
 			if self.__gmCheckFrames > 300:
 				self.__gmCheckSent = True
@@ -2395,6 +2529,7 @@ class GameWindow(ui.ScriptWindow):
 			self.interface.fishingGameDialog.OnFixedUpdate(FIXED_TIMESTEP_UPDATE)
 
 		self.tweenMgr.OnUpdate()
+		__import__("uiopcjedodatkowe").Apply()  # MT2009_PLUS_DIGI_CLIENT_QOL_V1 (Autor: Digi Rasta): Opcje dodatkowe, once a second
 
 		if self.mapNameShower.IsShow():
 			self.mapNameShower.Update()
@@ -2497,6 +2632,15 @@ class GameWindow(ui.ScriptWindow):
 		textTail.HideAllTextTail()
 
 	def OnPressEscapeKey(self):
+		# MT2009_PLUS_VEKIRION_V1: the Esc that cancels Skroty klawiszowe's
+		# wait for a key opens no system menu (keybind.py).
+		import keybind
+		if keybind.IsCapturing():
+			keybind.CaptureKey(app.DIK_ESC)
+			return True
+		if keybind.EscapeJustUsed():
+			return True
+
 		if app.TARGET == app.GetCursor():
 			app.SetCursor(app.NORMAL)
 
@@ -2509,6 +2653,7 @@ class GameWindow(ui.ScriptWindow):
 		return True
 
 	def OnIMEReturn(self):
+		__import__("keybind").NoteOtherInput()	# MT2009_PLUS_VEKIRION_V1: Shift+Enter is no sprint tap
 		if app.IsPressed(app.DIK_LSHIFT):
 			self.interface.OpenWhisperDialogWithoutTarget()
 		else:
@@ -2587,6 +2732,9 @@ class GameWindow(ui.ScriptWindow):
 				i = i + 1
 
 			self.interface.wndCube.Refresh()
+
+	def __CubeReload(self):  # MT2009_PLUS_DIGI_FIXES_V1 (Autor: Digi Rasta): /reload c - the recipe lists are asked again
+		self.cubeInformation = {}
 
 	def BINARY_Cube_Close(self):
 		self.interface.CloseCubeWindow()
@@ -2757,6 +2905,9 @@ class GameWindow(ui.ScriptWindow):
 
 	def BINARY_GuildWar_OnStart(self, guildSelf, guildOpp):
 		self.interface.OnStartGuildWar(guildSelf, guildOpp)
+		# MT2009_PLUS_GUILD_WAR_JOIN_V1: where the way onto the war is.
+		if background.GetCurrentMapName() not in ("metin2_map_t1", "metin2_map_t2", "metin2_map_t3", "metin2_map_t4"):
+			chat.AppendChat(chat.CHAT_TYPE_INFO, "[Wojna] Twoja gildia jest na wojnie - kliknij \"Wejd\x9f na wojn\xea\" na tablicy wojny (lewy dolny r\xf3g).")
 
 		if background.GetCurrentMapName() in ("metin2_map_t3","metin2_map_t4"):
 			self.interface.wndGameButton.SetWarMode(True)
@@ -2842,8 +2993,27 @@ class GameWindow(ui.ScriptWindow):
 		import autotarget
 		autotarget.OnServerReady()
 
+	# MT2009_PLUS_BOSS_SKULL_V1: a boss or a miniboss came into view - a small
+	# skull over its head (the server's "BossMark <vid>", char.cpp), the
+	# emoticon slot 120 with a looping effect (mt2009/boss_skull.mse), so it
+	# moves with the monster and goes with it.
+	def __BossMark(self, vid="0", *args):
+		try:
+			if not getattr(GameWindow, "_bossSkullRegistered", False):
+				chrmgr.RegisterEffect(chrmgr.EFFECT_EMOTICON + 120, "", "d:/ymir work/effect/etc/mt2009/boss_skull.mse")
+				GameWindow._bossSkullRegistered = True
+			chrmgr.SetEmoticon(int(vid), 120)
+		except Exception:
+			pass
+
+	# MT2009_PLUS_DROP_WIKI_V1: the drop wiki's answers (uidropwiki.py).
+	def __DropWiki(self, *args):
+		import uidropwiki
+		uidropwiki.OnCommand(*args)
+
 	def __ServerCommand_Build(self):
 		serverCommandList={
+			"CubeReload": self.__CubeReload,  # MT2009_PLUS_DIGI_FIXES_V1 (Autor: Digi Rasta)
 			"AutoTargetAggro": self.__AutoTargetAggro,
 			"AutoTargetAggroReady": self.__AutoTargetAggroReady,
 			"OpenGarbageBin": self.interface.ToggleGarbageBinWindow,
@@ -2965,8 +3135,10 @@ class GameWindow(ui.ScriptWindow):
 			"PlayerBotStatus"				: self.__PlayerBotStatus,
 			"Top1Badge"							: self.__OnTop1Badge,
 			"AutoHuntTarget"				: self.__AutoHuntTarget,
+			"AutoHuntMount"					: self.__AutoHuntMount,
 			"AutoHuntLoot"					: self.__AutoHuntLoot,
 			"AutoHuntOff"					: self.__AutoHuntOff,
+			"AutoHuntPath"					: self.__AutoHuntPath,
 			"InventoryArrangeResult"		: self.__InventoryArrangeResult,
 			# MT2009_PLUS_SAFEBOX_ARRANGE_V1: the safebox's two buttons (uisafebox.py).
 			"SafeboxArrangeResult"		: self.__SafeboxArrangeResult,
@@ -2974,6 +3146,8 @@ class GameWindow(ui.ScriptWindow):
 			"SidekickNames"					: self.__SidekickNames,
 			"SidekickGear"					: self.__SidekickGear,
 			"SidekickWindow"				: self.__SidekickWindow,
+			# MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: what a "Kup" errand would cost (uisidekick.py).
+			"SidekickShopQuote"			: self.__SidekickShopQuote,
 
 			# fishing
 			"FishingGameStart": self.FishingGameStart,
@@ -3025,6 +3199,7 @@ class GameWindow(ui.ScriptWindow):
 		serverCommandList["GlobalRankingWipe"] = self.__Global_Ranking__RecvWipe
 		serverCommandList["GlobalRankingUpdatePacket"] = self.__Global_Ranking__RecvData
 		serverCommandList["SidekickVid"] = self.__SidekickVid
+		serverCommandList["COLL"] = self.__Collector # MT2009_PLUS_COLLECTOR_STORAGE_V1
 		serverCommandList["GlobalRankingUpdatePacketMyPos"] = self.__Global_Ranking__RecvSelfData
 		serverCommandList["SidekickEqNone"] = self.__SidekickEqNone
 		serverCommandList["SidekickEqBegin"] = self.__SidekickEqBegin
@@ -3039,7 +3214,12 @@ class GameWindow(ui.ScriptWindow):
 		serverCommandList["NewPet"] = self.__NewPet # MT2009_PLUS_NEW_PET_V1
 		serverCommandList["GOB"] = self.__Goblin # MT2009_PLUS_GOBLIN_V1
 		serverCommandList["DungeonInfo"] = self.__DungeonInfo # MT2009_PLUS_DUNGEON_PANEL_V1
+		# MT2009_PLUS_DIGI_CLIENT_QOL_V1 (Autor: Digi Rasta): "PickupSound <vnum>" after a pick-up (digiqol.py)
+		serverCommandList["PickupSound"] = __import__("digiqol").PLAYER.OnCommand
 		serverCommandList["SEONHAE"] = self.__SeonHae # MT2009_PLUS_SEONHAE_V1
+		serverCommandList["TPBM"] = self.__TpBookmarks # MT2009_PLUS_TP_BOOKMARKS_V1
+		serverCommandList["WRANK"] = self.__WeeklyRank # MT2009_PLUS_WEEKLY_RANKING_V1
+		serverCommandList["MISJE"] = self.__ClearMissions # MT2009_PLUS_CLEAR_MISSIONS_V1
 		# MT2009_PLUS_EVENT_MANAGER_V1: the event list as lines (an exe without the
 		# packet) and Owsap's "<flag> <value>" commands (ingameevent.py).
 		serverCommandList["IGE"] = self.__InGameEvent
@@ -3054,10 +3234,15 @@ class GameWindow(ui.ScriptWindow):
 		serverCommandList["YutnoriOpen"] = self.__YutnoriOpen # MT2009_PLUS_YUTNORI_V1 (the table NPC)
 
 		self.serverCommander=stringCommander.Analyzer()
+		serverCommandList["DropWiki"] = self.__DropWiki # MT2009_PLUS_DROP_WIKI_V1
+		serverCommandList["BossMark"] = self.__BossMark # MT2009_PLUS_BOSS_SKULL_V1
 		for serverCommandItem in serverCommandList.items():
 			self.serverCommander.SAFE_RegisterCallBack(
 				serverCommandItem[0], serverCommandItem[1]
 			)
+		# MT2009_PLUS_DIGI_SERVER_QOL_V1 (Autor: Digi Rasta): RefineFailedType, KillBar, KillSound,
+		# SkillCoolTimeReset, DeadTime, NOWY_KSIEGI (digiserverqol.py).
+		__import__("digiserverqol").Register(self)
 
 	def BINARY_ServerCommand_Run(self, line):
 		try:
@@ -3669,6 +3854,30 @@ class GameWindow(ui.ScriptWindow):
 		import uiseonhae
 		uiseonhae.OnCommand(self, *args)
 
+	# MT2009_PLUS_TP_BOOKMARKS_V1: the saved teleport positions' lines (uitpbookmarks.py).
+	def __TpBookmarks(self, *args):
+		import uitpbookmarks
+		uitpbookmarks.OnCommand(*args)
+
+	# MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking's lines (uiweeklyrank.py); "tail" is
+	# a title holder's title above its nick, in the row the bots' titles use
+	# (playerbot_status_tail.py, kept fresh by the same keeper).
+	def __WeeklyRank(self, *args):
+		if args and args[0] == "tail":
+			import playerbot_status_tail
+			if playerbot_status_tail.show_rank_title(*args[1:4]) and not getattr(self, "playerbotTitleKeeper", None):
+				self.playerbotTitleKeeper = playerbot_status_tail.GetTitleKeeper()
+				self.RegisterUpdatable(self.playerbotTitleKeeper)
+			return
+		import uiweeklyrank
+		uiweeklyrank.OnCommand(*args)
+
+	# MT2009_PLUS_CLEAR_MISSIONS_V1: the /usunmisje window's lines (uiusunmisje.py).
+	def __ClearMissions(self, *args):
+		import uiusunmisje
+		uiusunmisje.SetInterface(self.interface)
+		uiusunmisje.OnCommand(*args)
+
 	# MT2009_PLUS_EVENT_MANAGER_V1: the in-game event list (ingameevent.py).
 	def __InGameEvent(self, *args):
 		import ingameevent
@@ -3836,7 +4045,11 @@ class GameWindow(ui.ScriptWindow):
 		if self.interface:
 			self.interface.OpenFleaMarket()
 
-	def FleaPriceQuote(self, requestID, suggestedPrice, observedPrice, sampleCount):
+	# MT2009_PLUS_SHOP_AUTO_PRICE_V1: the shop builders' price windows ask
+	# too (shopautoprice.py, request ids from 1 500 000 000 up), and each side
+	# takes only the answers to its own requests.
+	def FleaPriceQuote(self, requestID, suggestedPrice, observedPrice, sampleCount, *rest):
+		shopautoprice.SetQuote(int(requestID), int(suggestedPrice), int(observedPrice), int(sampleCount))
 		if self.interface:
 			self.interface.offlineShopManage.SetFleaMarketPriceQuote(
 				int(requestID), int(suggestedPrice), int(observedPrice), int(sampleCount))
@@ -3847,11 +4060,13 @@ class GameWindow(ui.ScriptWindow):
 				int(ownerID), int(itemID), int(remainingCount), int(remainingYang), int(remainingCheque))
 
 	def FleaPriceRange(self, requestID, minPrice, maxPrice, *rest):
+		shopautoprice.SetRange(int(requestID), int(minPrice), int(maxPrice))
 		if self.interface:
 			self.interface.offlineShopManage.SetFleaMarketPriceRange(
 				int(requestID), int(minPrice), int(maxPrice))
 
 	def FleaPriceSales(self, requestID, lastSalePrice, medianPrice, medianUnits, *rest):
+		shopautoprice.SetSales(int(requestID), int(lastSalePrice), int(medianPrice), int(medianUnits))
 		if self.interface:
 			self.interface.offlineShopManage.SetFleaMarketPriceSales(
 				int(requestID), int(lastSalePrice), int(medianPrice), int(medianUnits))
@@ -4049,8 +4264,10 @@ class GameWindow(ui.ScriptWindow):
 	def __PlayerBotTitle(self, vid="0", personality="-1", *rest):
 		# A bot's personality where a player's alignment title stands
 		# (playerbot_status_tail.py; ManagePlayerBotPersonalityTitle on the server).
+		# MT2009_PLUS_LEGENDS_V1: and the tier of the System Legend with the
+		# kingdom, the two words a newer server adds.
 		import playerbot_status_tail
-		if playerbot_status_tail.show_title(vid, personality) and not getattr(self, "playerbotTitleKeeper", None):
+		if playerbot_status_tail.show_title(vid, personality, *rest[:2]) and not getattr(self, "playerbotTitleKeeper", None):
 			self.playerbotTitleKeeper = playerbot_status_tail.GetTitleKeeper()
 			self.RegisterUpdatable(self.playerbotTitleKeeper)
 

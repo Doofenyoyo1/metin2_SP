@@ -15,6 +15,11 @@
 # cursor or a private shop is being built: both point at cells the server is
 # about to change.
 #
+# MT2009_PLUS_INVENTORY_SORT_LOCK_V1: the cells locked with Alt + left click
+# (inventorysortlock.py) go with both requests as "keep=<hex>", and the
+# server leaves those items where they stand. A server without the lock
+# answers RESULT_BAD_REQUEST to the extra word; that is said as such.
+#
 # The texts are CP1250, the client's own, written as escapes so the file stays
 # ASCII. Python 2.7 as the client has it.
 
@@ -46,13 +51,14 @@ MSG_BUSY = 'Nie mo\xbfna teraz uporz\xb9dkowa\xe6 ekwipunku - zamknij handel, sk
 MSG_COOLDOWN = 'Odczekaj chwil\xea przed kolejnym porz\xb9dkowaniem.'
 MSG_NO_LAYOUT = 'Nie uda\xb3o si\xea u\xb3o\xbfy\xe6 ekwipunku - nic nie zmieniono.'
 MSG_DEAD = 'Nie mo\xbfesz porz\xb9dkowa\xe6 ekwipunku po \x9cmierci.'
-MSG_INCONSISTENT = 'Ekwipunek jest w nieoczekiwanym stanie - nic nie zmieniono. Zg\xb3o\x9c to na GitHubie.'
+MSG_INCONSISTENT = 'Ekwipunek jest w nieoczekiwanym stanie - nic nie zmieniono. Zg\xb3o\x9c to na Discordzie.'
 MSG_UNSUPPORTED = 'Serwer nie obs\xb3uguje porz\xb9dkowania ekwipunku.'
 MSG_ATTACHED = 'Od\xb3\xf3\xbf najpierw przedmiot trzymany kursorem.'
 MSG_SHOP = 'Nie mo\xbfna porz\xb9dkowa\xe6 ekwipunku podczas otwierania sklepu.'
 
 MSG_MERGED = 'Po\xb3\xb9czono stosy: %d. Reszta ekwipunku zosta\xb3a na miejscu.'
 MSG_NOTHING_MERGE = 'Nie ma stos\xf3w do po\xb3\xb9czenia.'
+MSG_NO_LOCK = 'Serwer nie obs\xb3uguje blokady sortowania (Alt+LPM) - zaktualizuj serwer albo zdejmij blokady.'
 
 # "Uporzadkuj" or "tylko scal stosy" (the operator, 28 September: "mozna
 # wybrac albo samo ukladanie z laczeniem w stacki albo samo laczenie w
@@ -61,7 +67,7 @@ MSG_NOTHING_MERGE = 'Nie ma stos\xf3w do po\xb3\xb9czenia.'
 MODE_ARRANGE = 0
 MODE_MERGE = 1
 
-_state = {'pendingUntil': 0.0, 'mode': MODE_ARRANGE, 'choice': None}
+_state = {'pendingUntil': 0.0, 'mode': MODE_ARRANGE, 'choice': None, 'keep': False}
 
 
 def _int(value):
@@ -84,9 +90,21 @@ def Request(mode=MODE_ARRANGE):
 	if uiPrivateShopBuilder.IsBuildingPrivateShop():
 		chat.AppendChat(chat.CHAT_TYPE_INFO, MSG_SHOP)
 		return False
+	words = ['/inventory_arrange']
+	if mode == MODE_MERGE:
+		words.append('merge')
+	keep = ''
+	try:
+		import inventorysortlock
+		keep = inventorysortlock.KeepArgument()
+	except Exception:
+		keep = ''
+	if keep:
+		words.append(keep)
 	_state['pendingUntil'] = clientclock.Now() + PENDING_TIMEOUT
 	_state['mode'] = mode
-	net.SendChatPacket('/inventory_arrange merge' if mode == MODE_MERGE else '/inventory_arrange')
+	_state['keep'] = bool(keep)
+	net.SendChatPacket(' '.join(words))
 	return True
 
 
@@ -174,6 +192,9 @@ def Message(code, moved, merged):
 def OnResult(code='0', moved='0', merged='0', units='0'):
 	_state['pendingUntil'] = 0.0
 	code = _int(code)
+	if code == RESULT_BAD_REQUEST and _state['keep']:
+		chat.AppendChat(chat.CHAT_TYPE_INFO, MSG_NO_LOCK)
+		return
 	if _state['mode'] == MODE_MERGE and code == RESULT_DONE:
 		chat.AppendChat(chat.CHAT_TYPE_INFO, MSG_MERGED % max(0, _int(merged)))
 		return
