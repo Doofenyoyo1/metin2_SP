@@ -9724,6 +9724,9 @@ git and the client zips as GitHub releases `klient-vX`. What that changed:
   the same way.
   Its 2.18.1-2.21.0 / clients 2.0.39-2.0.51 (2-4 October, 180 commits)
   are our 2.21.1 / client 2.0.58.
+  Its 2.21.1 (client unchanged) is our 2.21.2, client 2.0.58 unchanged:
+  a server-only release builds no client, and `client_rebase` was removed
+  once 2.0.58 had been published from it.
 - **From its 2.18.1 its server zips are release assets, not git files.**
   `releases/` in its git stops at 2.18.0; `engine_package` is
   `.../releases/download/v<X>/metin2-server-update-<X>.zip` (its manifest
