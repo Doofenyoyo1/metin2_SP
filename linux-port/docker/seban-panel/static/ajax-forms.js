@@ -120,6 +120,10 @@
   function bindForms() {
     document.querySelectorAll('main form:not([data-ajax-ignore])').forEach(form => {
       if (form.dataset.ajaxBound) return;
+      // A <form method="dialog"> (the flash modal's OK) only closes its
+      // dialog; sent over fetch it was a "DIALOG" request and a 405 toast,
+      // and the modal never closed (MT2009_PLUS_FLASH_OK_V1).
+      if ((form.getAttribute('method') || '').toLowerCase() === 'dialog') return;
       form.dataset.ajaxBound = '1';
       let clickedSubmitter = null;
       form.addEventListener('click', e => {
