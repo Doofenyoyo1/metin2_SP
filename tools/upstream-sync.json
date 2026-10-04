@@ -8,9 +8,9 @@
     "sha256": "453374773196F2C7B9B2F3D4C4BA20C99772B7C1CFBCDFE28BA303F914DE2B46"
   },
   "synced_client_package": {
-    "version": "2.0.38",
-    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/klient-v2.0.38/metin2-client-update-2.0.38.zip",
-    "sha256": "52D1B7651E85C05A6A98C8CFE04E78DA3319C654A599C15F6A2323AAB2D88EF5"
+    "version": "2.0.51",
+    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/klient-v2.0.51/metin2-client-update-2.0.51.zip",
+    "sha256": "75EDEE1C6082821BE1E41B56F02BB4C9A457288B408D4E87E3BFA9C0A8DA3FC4"
   },
   "previous_upstream": {
     "repository": "https://github.com/TieruYT/metin2-playerbots",
@@ -23,8 +23,8 @@
     "note": "MT2009 PLUS's full package, linux-port/docker/game/src/server: the engine its update packages assume"
   },
   "client_rebase": {
-    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/klient-v2.0.38/metin2-client-update-2.0.38.zip",
-    "sha256": "52D1B7651E85C05A6A98C8CFE04E78DA3319C654A599C15F6A2323AAB2D88EF5",
-    "since": "859b23324f6dbc07adf13aff69863874804e16fd"
+    "url": "https://github.com/zaxerrrr-dot/mt2009-sp-plus/releases/download/klient-v2.0.51/metin2-client-update-2.0.51.zip",
+    "sha256": "75EDEE1C6082821BE1E41B56F02BB4C9A457288B408D4E87E3BFA9C0A8DA3FC4",
+    "since": "6d22dd0fc050cf379b2e766a89301865c17ddc8a"
   }
 }
