@@ -15,6 +15,7 @@
   {% for p in account.premiums %}<span>⭐ {{p.label}} do {{p.expires.strftime('%d.%m.%Y')}}</span>{% else %}<span class="muted">⭐ Brak aktywnego VIP</span>{% endfor %}
 </div>
 
+{% if characters %}<p class="muted account-hint">💎 VIP i Smocze Monety dotyczą całego konta — nadasz je w karcie dowolnej postaci, zakładka <a href="{{url_for('player', pid=characters[0].id)}}#karta-nagrody">🎁 Przedmioty, Yang, VIP, SM</a>.</p>{% endif %}
 <section class="panel table-wrap">
   <h2>Postacie ({{characters|length}}/4)</h2>
   <a class="button" href="{{url_for('character_creator', account_id=account.id)}}">➕ Stwórz nową postać</a>

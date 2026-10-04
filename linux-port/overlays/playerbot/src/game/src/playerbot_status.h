@@ -212,6 +212,7 @@ namespace
 			case BOT_ACTION_LURE: return "podciagam moby dla PT";
 			case BOT_ACTION_TOWN_REST: return "odpoczywam w miescie";
 			case BOT_ACTION_MINING: return "kopie rude";
+			case BOT_ACTION_HERBALISM: return "zbieram ziola";   // MT2009_PLUS_BOT_HERBALIST_FIX_V1
 			default: return "mysle";
 		}
 	}
@@ -790,10 +791,16 @@ namespace
 				else if (IsPlayerBotBattleHorseEarned(ch))
 					snprintf(status, statusSize, bFar ? PBT(en, "%sIde do Stajennego po konia bojowego", "%sGoing to the Stable Boy for a battle horse")
 							: PBT(en, "%sOdbieram konia bojowego u Stajennego", "%sCollecting a battle horse from the Stable Boy"), prefix);
+				// MT2009_PLUS_HORSE30_V1: the trials to collect and the paid
+				// training (playerbot_horse30.h), to thirty.
+				else if (IsPlayerBotMilitaryHorseEarned(ch) || IsPlayerBotBlackSteedEarned(ch))
+					snprintf(status, statusSize, bFar ? PBT(en, "%sIde do Stajennego po nagrode za probe konia", "%sGoing to the Stable Boy for a horse trial's reward")
+							: PBT(en, "%sOdbieram nagrode za probe konia (%u/30)", "%sCollecting a horse trial's reward (%u/30)"), prefix,
+							(unsigned int)ch->GetHorseLevel());
 				else if (bFar)
-					snprintf(status, statusSize, PBT(en, "%sIde do Stajennego z medalem", "%sTaking a medal to the Stable Boy"), prefix);
+					snprintf(status, statusSize, PBT(en, "%sIde do Stajennego na szkolenie konia", "%sGoing to the Stable Boy to train the horse"), prefix);
 				else
-					snprintf(status, statusSize, PBT(en, "%sOddaje medal konny (%u/21)", "%sHanding in a horse medal (%u/21)"), prefix,
+					snprintf(status, statusSize, PBT(en, "%sSzkole konia u Stajennego (%u/30)", "%sTraining the horse at the Stable Boy (%u/30)"), prefix,
 							(unsigned int)ch->GetHorseLevel());
 				break;
 			}
@@ -829,6 +836,24 @@ namespace
 				else
 					snprintf(status, statusSize, PBT(en, "%sIde do zyly rudy", "%sGoing to an ore vein"), prefix);
 				break;
+			case BOT_ACTION_HERBALISM:
+			{
+				// MT2009_PLUS_BOT_HERBALIST_FIX_V1: Baek-Go's visit and the bushes.
+				// The visit walked under BOT_ACTION_SHOP, and a herbalist at the
+				// board read "Handluje" (the owner, 2 October).
+				playerbot_empire_rules::TPoint herbalist;
+				if (state.bVisitingHerbalist && playerbot_empire_rules::GetHerbalist(ch->GetMapIndex(), herbalist) &&
+						DISTANCE_APPROX(ch->GetX() - herbalist.x, ch->GetY() - herbalist.y) > 850)
+					snprintf(status, statusSize, PBT(en, "%sIde do Zielarza Baek-Go", "%sGoing to Baek-Go the herbalist"), prefix);
+				else if (state.bVisitingHerbalist)
+					snprintf(status, statusSize, PBT(en, "%sWarze mikstury u Baek-Go", "%sBrewing potions at Baek-Go"), prefix);
+				else if (ch->GetWear(WEAR_WEAPON) && IsPlayerBotToolType(ch->GetWear(WEAR_WEAPON)->GetType()) &&
+						ch->GetWear(WEAR_WEAPON)->GetType() != ITEM_ROD && ch->GetWear(WEAR_WEAPON)->GetType() != ITEM_PICK)
+					snprintf(status, statusSize, PBT(en, "%sZbieram ziola nozykiem zielarza", "%sPicking herbs with the herbalist's knife"), prefix);
+				else
+					snprintf(status, statusSize, PBT(en, "%sIde do krzaka ziol", "%sGoing to a herb bush"), prefix);
+				break;
+			}
 			case BOT_ACTION_TOWN_REST:
 				// The linger after a town errand. It reads as browsing only
 				// where there are counters to browse; on a world too young
@@ -855,6 +880,10 @@ namespace
 				else if (IsPlayerBotOnBattleHorseTrial(ch))
 					snprintf(status, statusSize, PBT(en, "%sZdobywam konia bojowego na pustyni (%d/%d)", "%sEarning a battle horse in the desert (%d/%d)"), prefix,
 							GetPlayerBotBattleHorseKills(ch), PLAYERBOT_BATTLE_HORSE_KILLS);
+				// MT2009_PLUS_HORSE30_V1: the Black Steed trial in the Grotto V2.
+				else if (IsPlayerBotOnBlackSteedTrial(ch) && ch->GetMapIndex() == PLAYERBOT_MAP_GROTTO_V2)
+					snprintf(status, statusSize, PBT(en, "%sProba Czarnego Rumaka w Grocie (%d/%d)", "%sThe Black Steed trial in the Grotto (%d/%d)"), prefix,
+							GetPlayerBotBlackSteedKills(ch), PLAYERBOT_BLACK_STEED_KILLS);
 				// M3 is the level-30 weapon's farm, whatever the planner's goal:
 				// a bot walking between its hubs read "Zbieram dla Biologa: Zab
 				// Orka" there, and the Orc Tooth is not on the guild map
@@ -869,9 +898,9 @@ namespace
 				// level thirty-five, a medal dropper carries them for its
 				// counter, and both used to announce the stable keeper on every
 				// leg they rode - "idzie do stajennego przez godzine".
-				else if (ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) > 0 &&
-						CanPlayerBotAdvanceHorse(ch))
-					snprintf(status, statusSize, PBT(en, "%sIde do najblizszego Stajennego z Medalem", "%sTaking a Medal to the nearest Stable Boy"), prefix);
+				// MT2009_PLUS_HORSE30_V1: a training paid in full or a trial's reward.
+				else if (PlayerBotHasStableBusiness(ch))
+					snprintf(status, statusSize, PBT(en, "%sIde do najblizszego Stajennego szkolic konia", "%sGoing to the nearest Stable Boy to train the horse"), prefix);
 				else if (IsPlayerBotMonkeyMap(ch->GetMapIndex()))
 				{
 					// Only when the bot has actually decided to go. This was a
@@ -1074,9 +1103,15 @@ namespace
 		const unsigned int titleId = (IsPlayerBotPersonaEnabled() && state.persona.bRestored)
 				? playerbot_persona::PERSONA_TITLE_BASE + (unsigned int)state.persona.bPersona
 				: (unsigned int)state.bPersonality;
-		char command[64];
-		int commandLen = snprintf(command, sizeof(command), "PlayerBotTitle %u %u",
-				(unsigned int)ch->GetVID(), titleId);
+		// MT2009_PLUS_LEGENDS_V1 (title): the tier of the System Legend and the
+		// kingdom as two words more - the client draws "Wyrozniajacy sie",
+		// "Specjalny", "Chodzaca Legenda" or "Czempion <kingdom>" in the tier's
+		// colour in that row (playerbot_status_tail.py); an older client
+		// reads the first two. Zero under the LEGENDS switch off.
+		const unsigned int legendTier = (unsigned int)GetPlayerBotLegendTierOf(ch);
+		char command[80];
+		int commandLen = snprintf(command, sizeof(command), "PlayerBotTitle %u %u %u %u",
+				(unsigned int)ch->GetVID(), titleId, legendTier, (unsigned int)ch->GetEmpire());
 		if (commandLen <= 0 || commandLen >= (int)sizeof(command))
 			return;
 		++commandLen;   // the trailing NUL every chat packet carries

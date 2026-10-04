@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <map>
+#include <string>
 #include <vector>
 
 namespace playerbot_arrange_rules {
@@ -44,6 +45,11 @@ struct Item {
 	// Stays in its cell and takes no part in a merge: an active auto potion,
 	// which the engine locks and MoveItem refuses to move.
 	bool pinned = false;
+	// MT2009_PLUS_INVENTORY_SORT_LOCK_V1: locked by the player (Alt + left
+	// click, "keep=" on /inventory_arrange). Stays in its cell like a pinned
+	// item, but its stack still takes part in a merge - as a receiver only,
+	// so it never gives its units away and is never emptied.
+	bool kept = false;
 	int64_t key[SORT_KEYS] = {};  // the order, most significant first
 };
 
@@ -172,7 +178,12 @@ inline void PlanMerges(std::vector<Item>& items, Plan& plan)
 		std::vector<size_t>& members = entry.second;
 		if (members.size() < 2)
 			continue;
+		// A kept stack (MT2009_PLUS_INVENTORY_SORT_LOCK_V1) receives before
+		// any other and is never a giver: the givers are taken from the back,
+		// and the kept stacks are all at the front.
 		std::sort(members.begin(), members.end(), [&items](size_t a, size_t b) {
+			if (items[a].kept != items[b].kept)
+				return items[a].kept;
 			if (items[a].count != items[b].count)
 				return items[a].count > items[b].count;
 			return items[a].id < items[b].id;
@@ -183,6 +194,8 @@ inline void PlanMerges(std::vector<Item>& items, Plan& plan)
 		while (receiver < giver) {
 			Item& to = items[members[receiver]];
 			Item& from = items[members[giver]];
+			if (from.kept)
+				break;
 			const uint32_t room = to.count < to.maxStack ? to.maxStack - to.count : 0;
 			if (room == 0) {
 				++receiver;
@@ -357,7 +370,7 @@ inline Plan MakePlan(std::vector<Item> items, int pages, bool pageBoundInput = t
 	std::vector<uint8_t> pinnedCells(pages * PAGE_CELLS, 0);
 	std::vector<const Item*> movable;
 	for (const Item& item : items) {
-		if (item.pinned)
+		if (item.pinned || item.kept)
 			Occupy(pinnedCells, item.cell, item.height);
 		else
 			movable.push_back(&item);
@@ -393,7 +406,7 @@ inline Plan MakePlan(std::vector<Item> items, int pages, bool pageBoundInput = t
 	for (const Item& item : items) {
 		Placement placement;
 		placement.id = item.id;
-		placement.cell = item.pinned ? item.cell : cellOf[item.id];
+		placement.cell = (item.pinned || item.kept) ? item.cell : cellOf[item.id];
 		plan.placements.push_back(placement);
 		cells.push_back(placement.cell);
 		if (placement.cell != original[item.id])
@@ -407,6 +420,64 @@ inline Plan MakePlan(std::vector<Item> items, int pages, bool pageBoundInput = t
 	plan.strategy = strategy;
 	plan.ok = true;
 	return plan;
+}
+
+// MT2009_PLUS_INVENTORY_SORT_LOCK_V1: the words after /inventory_arrange -
+// "merge" (only pour the stacks together) and "keep=<hex>", the cells the
+// player locked: four cells to a hex digit, the first digit cells 0-3, the
+// lowest bit the lowest cell. `keep` comes back `cells` long; a bit past
+// the bag is ignored. Anything else - an unknown word, a word twice, a
+// digit that is no hex digit, more digits than the bag has cells for - is
+// a bad request, and nothing is done.
+inline bool ParseArrangeWords(const char* text, int cells, bool& merge, std::vector<uint8_t>& keep)
+{
+	merge = false;
+	keep.assign(cells > 0 ? cells : 0, 0);
+	bool sawKeep = false;
+	const char* p = text ? text : "";
+	for (;;) {
+		while (*p == ' ' || *p == '\t')
+			++p;
+		if (!*p)
+			return true;
+		const char* start = p;
+		while (*p && *p != ' ' && *p != '\t')
+			++p;
+		const size_t length = (size_t)(p - start);
+		if (length == 5 && !std::char_traits<char>::compare(start, "merge", 5)) {
+			if (merge)
+				return false;
+			merge = true;
+			continue;
+		}
+		if (length > 5 && !std::char_traits<char>::compare(start, "keep=", 5)) {
+			if (sawKeep)
+				return false;
+			sawKeep = true;
+			const size_t digits = length - 5;
+			if (digits * 4 > (size_t)cells + 3)
+				return false;
+			for (size_t i = 0; i < digits; ++i) {
+				const char c = start[5 + i];
+				int value;
+				if (c >= '0' && c <= '9')
+					value = c - '0';
+				else if (c >= 'a' && c <= 'f')
+					value = c - 'a' + 10;
+				else if (c >= 'A' && c <= 'F')
+					value = c - 'A' + 10;
+				else
+					return false;
+				for (int bit = 0; bit < 4; ++bit) {
+					const int cell = (int)i * 4 + bit;
+					if ((value & (1 << bit)) && cell < cells)
+						keep[cell] = 1;
+				}
+			}
+			continue;
+		}
+		return false;
+	}
 }
 
 // A stack moved by count: from the bag into the safebox, out of it, or from one

@@ -1949,13 +1949,18 @@ int GoblinRefineBonus(LPCHARACTER ch, bool consume)
 {
 	if (!ch)
 		return 0;
+	// MT2009_PLUS_LEGENDS_V1 (refine): a bot of a tier of the System Legend
+	// refines with its tier's points more, at the blacksmith and with a
+	// scroll alike - DoRefine, DoRefineWithScroll and the window's chance all
+	// ask here (playerbot_legend_tier.h).
+	const int legend = GetPlayerBotLegendRefineBonus(ch);
 	CAffect* aff = ch->FindAffect(mt2009_goblin::AFFECT_REFINE_PCT);
 	if (!aff)
-		return 0;
+		return legend;
 	const int bonus = aff->lApplyValue > 0 ? aff->lApplyValue : 10;
 	if (consume)
 		ch->RemoveAffect(mt2009_goblin::AFFECT_REFINE_PCT);
-	return bonus;
+	return bonus + legend;
 }
 
 // The next refine without its materials.

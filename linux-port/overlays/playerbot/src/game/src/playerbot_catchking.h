@@ -42,7 +42,9 @@
 //    collect): during the 7-day reward window after the event, at the table
 //    NPC, once per player and season (an UPDATE ... claimed = 0 that only one
 //    core can win);
-//  - a bot never plays, never gathers cards and is never sent a packet;
+//  - a bot is never sent a packet; it gathers cards from its kills and
+//    "plays" a deck without a table (MT2009_PLUS_BOT_MINIGAMES_V1,
+//    playerbot_minigames.h);
 //  - an unasked packet (a card from a kill) goes only to a client that has
 //    sent this game a packet - an exe without the header would stop on it.
 //
@@ -63,6 +65,11 @@
 int GetDropPerKillPct(int iMinimum, int iDefault, int iDeltaPercent, const char* c_pszFlag);	// item_manager.cpp
 bool InGameEventIsActive(const char* key);	// playerbot_ingame_events.h
 DWORD InGameEventRewardEndTime(const char* key);
+// MT2009_PLUS_BOT_MINIGAMES_V1: a bot's card (playerbot_minigames.h, later in the unit).
+namespace
+{
+	void PlayerBotMinigameCard(LPCHARACTER ch, int game);
+}
 
 namespace mt2009_catchking
 {
@@ -414,7 +421,7 @@ namespace mt2009_catchking
 			return;
 		}
 		ch->SetQuestFlag(QF_PACK, packs - bet);
-		ch->PointChange(POINT_GOLD, -(int)cost);
+		PlayerBotChangeGold(ch, -(long long)cost);
 
 		TGame game = TGame();
 		BYTE deck[FIELD_CARDS];
@@ -683,12 +690,23 @@ int CatchKingProcess(LPCHARACTER ch, const char* data, size_t len)
 void CatchKingOnKill(LPCHARACTER victim, LPCHARACTER killer, int iDeltaPercent, int iRandRange)
 {
 	using namespace mt2009_catchking;
-	if (!victim || !(victim->IsMonster() || victim->IsStone()) || !mt2009_catchking::Eligible(killer))
+	if (!victim || !(victim->IsMonster() || victim->IsStone()) || !killer || !killer->IsPC() || !killer->GetDesc())
+		return;
+	// MT2009_PLUS_BOT_MINIGAMES_V1: a bot's kill rolls the same card, which
+	// goes to the bot's own count and makes a real Talia Krolewska
+	// (playerbot_minigames.h); a player's goes to the quest flags.
+	const bool bot = killer->GetDesc()->IsBot();
+	if (!bot && !mt2009_catchking::Eligible(killer))
 		return;
 	if (!InGameEventIsActive(EVENT_KEY))
 		return;
 	if (GetDropPerKillPct(50, 100, iDeltaPercent, FLAG_DROP) >= number(1, iRandRange))
-		AddPiece(killer, false);
+	{
+		if (bot)
+			PlayerBotMinigameCard(killer, 0);
+		else
+			AddPiece(killer, false);
+	}
 }
 
 // char.cpp, CHARACTER::Disconnect (logout, warp, channel change): a game in

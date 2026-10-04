@@ -33,7 +33,7 @@
   render(cached);
   async function refresh() {
     try {
-      const response = await fetch('/api/news-feed', {cache: 'no-store'});
+      const response = await fetch((window.SEBAN_ROOT||'')+'/api/news-feed', {cache: 'no-store'});
       if (!response.ok) throw new Error('Nie udało się pobrać wiadomości.');
       const data = await response.json();
       if (!data.ok) throw new Error('Nieprawidłowa odpowiedź feedu.');

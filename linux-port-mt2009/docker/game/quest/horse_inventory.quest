@@ -1,0 +1,47 @@
+-- MT2009_PLUS_HORSE30_V1: juki konne do 30 poziomu konia.
+-- Autor systemu: Digi Rasta (nowy-system v0.16, karta-kon-30-i-juki.md); port do
+-- MT2009 PLUS jako nasz quest.
+-- Zastêpuje standardowy quest horse_inventory z paczki (ta sama nazwa - obiekty
+-- l¹duj¹ na standardowych): osiem rzêdów juków odblokowywanych do 30 poziomu
+-- konia zamiast do 21. Tabela = UNLOCK_REQUIREMENT_DATA w kliencie
+-- (client-patches/client-2.0.30/root/uihorseinventory.py) i
+-- PLAYERBOT_SADDLEBAG_ROWS botów (playerbot_saddlebag.h) - przy zmianie popraw wszystkie.
+-- Pierwszy rz¹d (Medal + 5 Materia³ów) daje dalej standardowy horse_inventory_init.
+-- Kompiluje go Dockerfile. Plik w cp1250.
+quest horse_inventory begin
+	state start begin
+		function wymagania()
+			-- { poziom konia, Medale Konne (50050), Materia³y Rzemieœlnicze (30378) }
+			return {
+				{ 4, 1, 20 },
+				{ 8, 1, 30 },
+				{ 12, 2, 40 },
+				{ 16, 2, 60 },
+				{ 20, 3, 80 },
+				{ 24, 4, 100 },
+				{ 27, 5, 150 },
+				{ 30, 6, 200 },
+			}
+		end
+
+		when write with mes.get_message() == "horse_inventory_unlock" begin
+			local postep = pc.get_special_flag("horse_inventory_slot")
+			if postep < 1 or postep > 8 then
+				return
+			end
+			local w = horse_inventory.wymagania()[postep]
+			if horse.get_level() < w[1] then
+				syschat("Juki: potrzebny " .. w[1] .. " poziom konia.")
+				return
+			end
+			if pc.countitem(50050) < w[2] or pc.countitem(30378) < w[3] then
+				syschat("Juki: potrzeba " .. w[2] .. "x Medal Konny i " .. w[3] .. "x Materia³y Rzemieœlnicze.")
+				return
+			end
+			pc.removeitem(50050, w[2])
+			pc.removeitem(30378, w[3])
+			pc.set_special_flag("horse_inventory_slot", postep + 1)
+			syschat("Juki: odblokowano kolejny rz¹d.")
+		end
+	end
+end

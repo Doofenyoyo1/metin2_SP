@@ -80,6 +80,71 @@ quest starozytna_dzungla begin
 			return idx >= 366 * 10000 and idx < 367 * 10000
 		end
 
+		-- MT2009_PLUS_DUNGEON_END_V1 (2 October): the end of a run, seen from every core. A player used a
+		-- Teleport Ring in the minute after the boss, and his guard (another core: d.find cannot tell what
+		-- game2 holds) kept offering "Wróæ do lochu" into an instance that was gone. The boss's kill (or the
+		-- time limit) now writes the end time to an event flag of the instance's slot (map and the last two
+		-- digits of its index - a slot comes round again only after 100 more instances of the map), and
+		-- every core compares it with the player's own entry time: a run that ended after he went in is over.
+		function end_flag(idx)
+			return "mt2009_dgend_"..math.floor(idx / 10000).."_"..math.mod(idx, 100)
+		end
+
+		function run_ended()
+			local idx = pc.getf("starozytna_dzungla", "idx")
+			return idx > 0 and game.get_event_flag(starozytna_dzungla.end_flag(idx)) >= pc.getf("starozytna_dzungla", "entry")
+		end
+
+		-- In the instance (the boss's kill, the time limit): the event flag for those outside, the
+		-- rejoin state of those inside. The daily count and the cooldown stay as the entry set them.
+		function mark_ended()
+			if d.getf("ended") == 1 then
+				return
+			end
+			d.setf("ended", 1)
+			d.setqf2("starozytna_dzungla", "idx", 0)
+			if d.getf("mt2009_dgbot") ~= 1 then
+				game.set_event_flag(starozytna_dzungla.end_flag(d.get_map_index()), get_global_time())
+			end
+		end
+
+		-- A rejoin state with nothing behind it any more (the run ended, the time is up) is cleared;
+		-- true when the run ended while the player was out of it.
+		function clear_stale()
+			local c = starozytna_dzungla.cfg()
+			if pc.getf("starozytna_dzungla", "idx") <= 0 then
+				return false
+			end
+			if starozytna_dzungla.run_ended() then
+				pc.setf("starozytna_dzungla", "idx", 0)
+				return true
+			end
+			if get_global_time() - pc.getf("starozytna_dzungla", "entry") >= c.limit_min * 60 then
+				pc.setf("starozytna_dzungla", "idx", 0)
+			end
+			return false
+		end
+
+		function end_text(n)
+			if n == 1 then
+				return "Za 1 sekundê zostaniesz teleportowany do Zaczarowanego Lasu."
+			elseif n >= 2 and n <= 4 then
+				return "Za "..n.." sekundy zostaniesz teleportowany do Zaczarowanego Lasu."
+			end
+			return "Za "..n.." sekund zostaniesz teleportowany do Zaczarowanego Lasu."
+		end
+
+		-- After the last boss: one notice a second, 5 to 0, then everyone out (finish).
+		function end_count(n)
+			d.notice("Staro¿ytna D¿ungla: "..starozytna_dzungla.end_text(n))
+			if n <= 0 then
+				starozytna_dzungla.finish()
+				return
+			end
+			d.setf("end_in", n - 1)
+			server_timer("dzungla_end", 1, d.get_map_index())
+		end
+
 		function entry_xy()
 			local c = starozytna_dzungla.cfg()
 			return (c.base_x + c.entry[1]) * 100, (c.base_y + c.entry[2]) * 100
@@ -170,6 +235,7 @@ quest starozytna_dzungla begin
 		end
 
 		function finish()
+			starozytna_dzungla.mark_ended() -- MT2009_PLUS_DUNGEON_END_V1
 			local c = starozytna_dzungla.cfg()
 			d.setf("closed", 1)
 			d.setf("mt2009_keep_until", 0)
@@ -227,6 +293,11 @@ quest starozytna_dzungla begin
 			end
 			local now = get_global_time()
 			local x, y = starozytna_dzungla.entry_xy()
+			-- MT2009_PLUS_DUNGEON_END_V1: a run that ended while the player was out is no longer his.
+			if starozytna_dzungla.clear_stale() then
+				say_title(mob_name(20425))
+				say("Ten loch zosta³ ju¿ ukoñczony.")
+			end
 			local idx = pc.getf("starozytna_dzungla", "idx")
 			if idx > 0 and now - pc.getf("starozytna_dzungla", "entry") < c.limit_min * 60 then
 				say_title(mob_name(20425))
@@ -241,11 +312,15 @@ quest starozytna_dzungla begin
 				if s == 3 then
 					return
 				elseif s == 1 then
+					-- MT2009_PLUS_DUNGEON_END_V1: the login inside knows this jump (no second fee).
+					pc.setf("starozytna_dzungla", "back", idx)
+					pc.setf("starozytna_dzungla", "back_at", now)
 					if d.find(idx, x, y, pc.get_player_id()) then
 						pc.warp(x, y, idx)
 					else
 						say_title(mob_name(20425))
 						say("Jeœli wyprawa wci¹¿ trwa, przejœcie zaraz ciê zabierze.")
+						timer("dzungla_rejoin", 5)
 					end
 					return
 				end
@@ -391,14 +466,22 @@ quest starozytna_dzungla begin
 			local c = starozytna_dzungla.cfg()
 			say_title(mob_name(20425))
 			local now = get_global_time()
+			-- MT2009_PLUS_DUNGEON_END_V1: an ended run is no longer the player's; the lobby stands on the
+			-- instances' own core, so d.find here also tells an instance that is gone.
+			if starozytna_dzungla.clear_stale() then
+				say("Ten loch zosta³ ju¿ ukoñczony.")
+			end
 			local idx = pc.getf("starozytna_dzungla", "idx")
-			if idx > 0 and now - pc.getf("starozytna_dzungla", "entry") < c.limit_min * 60 and d.find(idx) then
-				say("Twoja wyprawa wci¹¿ trwa. Czy chcesz do niej wróciæ?")
-				if select("Wróæ do lochu", "Nie teraz") == 1 then
-					local x, y = starozytna_dzungla.entry_xy()
-					pc.warp(x, y, idx)
+			if idx > 0 and now - pc.getf("starozytna_dzungla", "entry") < c.limit_min * 60 then
+				if d.find(idx) then
+					say("Twoja wyprawa wci¹¿ trwa. Czy chcesz do niej wróciæ?")
+					if select("Wróæ do lochu", "Nie teraz") == 1 then
+						local x, y = starozytna_dzungla.entry_xy()
+						pc.warp(x, y, idx)
+					end
+					return
 				end
-				return
+				pc.setf("starozytna_dzungla", "idx", 0)
 			end
 			if party.is_party() and not party.is_leader() then
 				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
@@ -483,6 +566,16 @@ quest starozytna_dzungla begin
 			end
 		end
 
+		-- MT2009_PLUS_DUNGEON_END_V1: "Wróæ do lochu" went to another core (d.find) and nobody took the
+		-- player there within 5 seconds: the instance is gone, and so is the rejoin state.
+		when dzungla_rejoin.timer begin
+			if starozytna_dzungla.inside() or pc.getf("starozytna_dzungla", "idx") <= 0 then
+				return
+			end
+			pc.setf("starozytna_dzungla", "idx", 0)
+			syschat("Staro¿ytna D¿ungla: Ta wyprawa ju¿ siê zakoñczy³a. Porozmawiaj ze stra¿nikiem, aby wyruszyæ na now¹.")
+		end
+
 		when login begin
 			local c = starozytna_dzungla.cfg()
 			local idx = pc.get_map_index()
@@ -509,23 +602,43 @@ quest starozytna_dzungla begin
 				pc.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
 				pc.setf("starozytna_dzungla", "inside", 1)
 				pc.setf("starozytna_dzungla", "pending", 0)
-				if pc.getf("starozytna_dzungla", "idx") ~= idx then
-					if not starozytna_dzungla.pay_entry() then -- MT2009_PLUS_DUNGEON_FEE_V1
-						pc.warp(c.exit_x * 100, c.exit_y * 100)
-						return
+				-- MT2009_PLUS_DUNGEON_END_V1: an instance whose last boss is down (or whose time is up) takes
+				-- nobody back in, and costs nothing.
+				if d.getf("ended") == 1 or d.getf("closed") == 1 then
+					if pc.getf("starozytna_dzungla", "idx") == idx then
+						pc.setf("starozytna_dzungla", "idx", 0)
 					end
-					pc.setf("starozytna_dzungla", "idx", idx)
-					pc.setf("starozytna_dzungla", "entry", get_global_time())
+					syschat("Staro¿ytna D¿ungla: Ten loch zosta³ ju¿ ukoñczony.")
+					pc.warp(c.exit_x * 100, c.exit_y * 100)
+					return
+				end
+				-- the guard's "Wróæ do lochu" (its 5-second check may have cleared the state while the jump ran)
+				local back = pc.getf("starozytna_dzungla", "back") == idx and get_global_time() - pc.getf("starozytna_dzungla", "back_at") < 60
+				pc.setf("starozytna_dzungla", "back", 0)
+				if pc.getf("starozytna_dzungla", "idx") ~= idx then
+					if back then
+						pc.setf("starozytna_dzungla", "idx", idx)
+					else
+						if not starozytna_dzungla.pay_entry() then -- MT2009_PLUS_DUNGEON_FEE_V1
+							pc.warp(c.exit_x * 100, c.exit_y * 100)
+							return
+						end
+						pc.setf("starozytna_dzungla", "idx", idx)
+						pc.setf("starozytna_dzungla", "entry", get_global_time())
+					end
 				end
 				if d.getf("init") == 0 then
 					starozytna_dzungla.init()
 				end
-				if d.getf("closed") == 1 then
-					pc.warp(c.exit_x * 100, c.exit_y * 100)
+			else
+				if pc.getf("starozytna_dzungla", "inside") == 1 then
+					pc.setf("starozytna_dzungla", "inside", 0)
+					if pc.count_item(30768) > 0 then pc.remove_item(30768, pc.count_item(30768)) end
 				end
-			elseif pc.getf("starozytna_dzungla", "inside") == 1 then
-				pc.setf("starozytna_dzungla", "inside", 0)
-				if pc.count_item(30768) > 0 then pc.remove_item(30768, pc.count_item(30768)) end
+				-- MT2009_PLUS_DUNGEON_END_V1: the run ended while the player was out of it (or its time is up).
+				if not pc.is_playerbot() and starozytna_dzungla.clear_stale() then
+					syschat("Staro¿ytna D¿ungla: Ten loch zosta³ ju¿ ukoñczony.")
+				end
 			end
 		end
 
@@ -579,9 +692,13 @@ quest starozytna_dzungla begin
 			end
 		end
 
+		-- MT2009_PLUS_DUNGEON_END_V1: the countdown after the last boss (end_count), a second at a time.
 		when dzungla_end.server_timer begin
 			if d.select(get_server_timer_arg()) then
-				starozytna_dzungla.finish()
+				if d.getf("closed") == 1 then
+					return
+				end
+				starozytna_dzungla.end_count(d.getf("end_in"))
 			end
 		end
 
@@ -651,8 +768,11 @@ quest starozytna_dzungla begin
 				starozytna_dzungla.purge_mobs()
 				local took = starozytna_dzungla.reward()
 				d.update_ranking("dzungla", took) -- MT2009_PLUS_DUNGEON_PANEL_V1
-				d.notice(string.format("Królowa D¿ungli pokonany! Czas: %d:%02d. Za 60 sekund wszyscy wróc¹ do Zaczarowanego Lasu.", math.floor(took / 60), math.mod(took, 60)))
-				server_timer("dzungla_end", 60, d.get_map_index())
+				-- MT2009_PLUS_DUNGEON_END_V1: the run is over for everyone in it (no "Wróæ do lochu" any more),
+				-- and five seconds later everyone is out (was a minute).
+				starozytna_dzungla.mark_ended()
+				d.notice(string.format("Królowa D¿ungli pokonana! Czas: %d:%02d. Loch zosta³ ukoñczony.", math.floor(took / 60), math.mod(took, 60)))
+				starozytna_dzungla.end_count(5)
 				return
 			end
 		end

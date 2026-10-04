@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Legendy botów · {{ panel_brand }}{% endblock %}
+{% block content %}
+{# MT2009_PLUS_LEGENDS_V1: the bots' legends (player.playerbot_legend, written by the game core). #}
+<p class="eyebrow">PLAYERBOTS · SYSTEM LEGEND</p><h1>🏆 Legendy botów</h1>
+<p class="muted">Rangi nadaje rdzeń gry: Wyróżniający się (~4% botów), Specjalny (~2%), dwie Chodzące Legendy na królestwo i najwyżej jeden Czempion Królestwa – Legenda, której gildia prowadzi w rankingu gildii królestwa (sprawdzane co godzinę). Reputacja rośnie za wygrane wojny gildii, zabitych graczy, bossów i osiągnięcia.</p>
+<section class="panel"><form method="post" action="{{ url_for('legends_switch') }}" class="checkbox-row" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span>🏆 <b>System Legend botów</b></span><input type="hidden" name="LEGENDS" value="0"><label><input type="checkbox" name="LEGENDS" value="1" {% if enabled %}checked{% endif %}> włączony</label><button>Zapisz</button><small class="muted">rangi, wbudowane bonusy (PŻ, silny przeciw ludziom/potworom, exp, księgi, ulepszanie), kolorowe tytuły nad nickiem, Czempioni i ogłoszenia; wyłączony = bez bonusów, tytułów i ogłoszeń, rangi zostają w bazie</small></form></section>
+{% if not enabled %}<section class="panel"><b>System Legend jest wyłączony</b>: rangi zostają w bazie, ale bez bonusów, tytułów i ogłoszeń.</section>{% endif %}
+{% if missing %}
+<section class="panel"><p class="muted">Tabela jeszcze nie istnieje (uruchom serwer z nową wersją).</p></section>
+{% else %}
+<h2>Czempioni i Chodzące Legendy</h2>
+<section class="cards compact">{% for e in (1, 2, 3) %}{% set kingdom=empire_info(e) %}
+<article><span>{% if empire_flag(e) %}<img class="empire-flag-inline" src="{{empire_flag(e)}}" alt="{{kingdom.name}}">{% endif %}{{kingdom.name}}</span>
+{% set champs = heads|selectattr('empire', 'equalto', e)|selectattr('tier', 'equalto', 4)|list %}
+{% set legs = heads|selectattr('empire', 'equalto', e)|selectattr('tier', 'equalto', 3)|list %}
+<div>{% for r in champs %}<div style="color:{{r.colour}}">👑 <a href="{{url_for('player',pid=r.pid)}}">{{r.name}}</a> <small class="muted">{{r.guild or '—'}} · rep. {{r.reputation}}</small></div>{% else %}<div class="muted">brak Czempiona</div>{% endfor %}
+{% for r in legs %}<div style="color:{{r.colour}}">🔥 <a href="{{url_for('player',pid=r.pid)}}">{{r.name}}</a> <small class="muted">{{r.guild or '—'}} · rep. {{r.reputation}}</small></div>{% else %}{% if not champs %}<div class="muted">brak Legend</div>{% endif %}{% endfor %}</div></article>
+{% endfor %}</section>
+<h2>Ranking ({{ranking|length}})</h2>
+<form class="search"><select name="empire"><option value="0">Wszystkie królestwa</option>{% for e in (1, 2, 3) %}<option value="{{e}}"{% if e == empire %} selected{% endif %}>{{empire_info(e).name}}</option>{% endfor %}</select><select name="tier"><option value="0">Wszystkie rangi</option>{% for k in (4, 3, 2, 1) %}<option value="{{k}}"{% if k == tier %} selected{% endif %}>{{tiers[k]}}</option>{% endfor %}</select><button>Pokaż</button></form>
+<section class="panel guild-table-wrap"><table class="guild-table"><thead><tr><th>#</th><th>Ranga</th><th>Nick</th><th>Królestwo</th><th>Gildia</th><th>Poziom</th><th>Reputacja</th><th>Zabici gracze</th><th>Polegli od graczy</th><th>Wojny<br><small>W / P</small></th><th>Bossy</th><th>Osiągnięcia</th><th>Ranga od</th></tr></thead><tbody>
+{% for r in ranking %}<tr><td class="muted">{{loop.index}}</td>
+<td><span style="display:inline-block;font-size:12px;padding:0 8px;border-radius:999px;border:1px solid {{r.colour}};color:{{r.colour}};white-space:nowrap">{{r.label}}</span></td>
+<td><a href="{{url_for('player',pid=r.pid)}}">{{r.name or ('#' ~ r.pid)}}</a></td>
+<td>{% set kingdom=empire_info(r.empire) %}{% if empire_flag(r.empire) %}<img class="empire-flag-inline" src="{{empire_flag(r.empire)}}" alt="{{kingdom.name}}">{% endif %}{{kingdom.name}}</td>
+<td>{% if r.guild_id %}<a href="{{url_for('guild',guild_id=r.guild_id)}}">{{r.guild}}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+<td>{{r.level or ''}}</td><td><b>{{r.reputation}}</b></td><td>{{r.player_kills}}</td><td>{{r.player_deaths}}</td>
+<td>{{r.wars_won}} / {{r.wars_lost}}</td><td>{{r.boss_kills}}</td>
+<td>{% for icon, text in r.achievements_list %}<span title="{{text}}">{{icon}}</span> {% endfor %}</td>
+<td class="muted">{{r.tier_since or ''}}</td></tr>
+{% else %}<tr><td colspan="13" class="muted">Jeszcze żaden bot nie ma rangi.</td></tr>{% endfor %}
+</tbody></table></section>
+<h2>Ostatnie wydarzenia legend</h2>
+<section class="panel"><table><tbody>{% for e in events %}<tr><td class="muted" style="white-space:nowrap">{{e.at}}</td><td>{{empire_info(e.empire).name}}</td><td>{{e.text}}</td></tr>{% else %}<tr><td class="muted">Jeszcze nic się nie wydarzyło.</td></tr>{% endfor %}</tbody></table></section>
+{% endif %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% endblock %}

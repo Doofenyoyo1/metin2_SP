@@ -456,7 +456,7 @@ $main.Controls.Add($footer)
 $sections = @(
     @('home', '01', (UI-Text 'Pulpit' 'Overview'), (UI-Text 'Wróć do swojego świata' 'Return to your world'), (UI-Text 'Uruchom rozgrywkę lub zarządzaj działającym serwerem.' 'Start playing or manage your running server.')),
     @('world', '02', (UI-Text 'Świat i boty' 'World & bots'), (UI-Text 'Świat na Twoich zasadach' 'A world on your terms'), (UI-Text 'Ustaw boty i poziom trudności.' 'Configure bots and difficulty.')),
-    @('coop', '03', (UI-Text 'COOP' 'COOP'), (UI-Text 'Graj razem ze znajomymi' 'Play together with friends'), (UI-Text 'Hostuj swój świat albo dołącz do świata znajomego.' 'Host your world or join a friend''s.')),
+    @('coop', '03', 'COOP', (UI-Text 'Graj razem ze znajomymi' 'Play together with friends'), (UI-Text 'COOP dla wszystkich — zarządzaj wspólną rozgrywką.' 'COOP for everyone — manage your shared adventure.')),
     @('database', '04', (UI-Text 'Baza danych' 'Database'), (UI-Text 'Zarządzanie bazą danych' 'Database management'), (UI-Text 'Dostęp, import i kopie Twojego świata.' 'Connection details, imports and backups of your world.')),
     @('logs', '05', (UI-Text 'Logi i diagnostyka' 'Logs & diagnostics'), (UI-Text 'Sprawdź, co się dzieje' 'See what is happening'), (UI-Text 'Diagnostyka i materiały potrzebne do zgłoszenia problemu.' 'Diagnostics and the information needed to report a problem.'))
 )
@@ -515,15 +515,28 @@ $ratesButton.Add_Click({
     Start-Process $ratesUrl
 })
 UI-Card 'world' $ratesButton (UI-Text 'Edytuj mnożniki w panelu WWW. Serwer musi działać.' 'Edit multipliers in the web panel. The server must be running.')
-# For everybody, like the COOP page (Show-VpsDialog).
+# For everybody, like the COOP page.
 UI-Card 'world' $vpsButton (UI-Text 'Postaw ten świat na wynajętym serwerze Linux (VPS).' 'Put this world on a rented Linux server (VPS).')
 UI-Card 'coop' $coopButton (UI-Text 'Zaproś znajomych do wspólnej rozgrywki.' 'Invite friends to play together.')
 $coopInfo = [Windows.Forms.Panel]::new()
 $coopInfo.Dock = 'Fill'; $coopInfo.BackColor = [Drawing.Color]::FromArgb(235, 18, 26, 30)
 $coopInfo.Padding = [Windows.Forms.Padding]::new(14, 8, 14, 8)
 $coopInfo.Margin = [Windows.Forms.Padding]::new(0, 0, 12, 0)
-$coopText = UI-Label $coopInfo (UI-Text "COOP (eksperymentalne) jest dostępne w każdej instalacji: hostuj swój świat dla znajomych albo dołącz do świata znajomego kodem zaproszenia.`r`n`r`nZnajomy potrzebuje tylko klienta gry i kodu zaproszenia." "COOP (experimental) is available on every install: host your world for friends or join a friends world with an invite code.`r`n`r`nA friend needs only the game client and the invite code.") 10 $script:ui.Text 100
+# COOP is open to everybody; the note links the project's support page
+# (operator, 2 October).
+$coopUrl = 'https://buycoffee.to/mt2009plus'
+$coopText = [Windows.Forms.LinkLabel]::new()
+$coopText.Text = (UI-Text 'COOP jest teraz dostępny dla wszystkich. Jeśli chcesz, możesz wesprzeć rozwój paczki singleplayer: ' 'COOP is now available to everyone. If you like, you can support the singleplayer pack: ') + $coopUrl
+$coopText.LinkArea = [Windows.Forms.LinkArea]::new($coopText.Text.Length - $coopUrl.Length, $coopUrl.Length)
+$coopText.Font = [Drawing.Font]::new('Segoe UI', 10)
+$coopText.ForeColor = $script:ui.Text
+$coopText.LinkColor = $script:ui.Gold; $coopText.ActiveLinkColor = $script:ui.Gold; $coopText.VisitedLinkColor = $script:ui.Gold
+$coopText.BackColor = [Drawing.Color]::Transparent
 $coopText.Dock = 'Fill'
+$coopText.Add_LinkClicked({
+    try { Start-Process 'https://buycoffee.to/mt2009plus' } catch { Write-LocalLog "COOP: nie otwarto strony wsparcia: $($_.Exception.Message)" }
+})
+$coopInfo.Controls.Add($coopText)
 $script:ui.Pages.coop.Grid.Controls.Add($coopInfo, 0, 1)
 $script:ui.Pages.coop.Grid.SetColumnSpan($coopInfo, 2)
 $script:ui.Pages.coop.Grid.SetRowSpan($coopInfo, 2)

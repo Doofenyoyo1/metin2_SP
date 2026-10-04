@@ -1,0 +1,164 @@
+/* Seban Panel navigation v2 (MT2009_PLUS_SEBAN_NAV_V2): grouped side menu,
+   breadcrumbs, quick search (Ctrl+K) and the "Na tej stronie" section bar.
+   Colours come from the theme variables (--bg --panel --edge --text --muted
+   --blue2 --gold), so ocean, ember, forest and empire all get their own look.
+   The menu is not a <nav> element on purpose: style.css and the theme rules
+   style every "nav a" (and with !important for ember/forest). */
+:root{--sn-w:240px;--sn-bg:#0c1726;--sn-ink:#b6cce7;--sn-ink-strong:#fff;--sn-accent:var(--blue2);--sn-accent-ink:#69a6ff;--toc-top:0px}
+body[data-theme="ember"]{--sn-bg:#1b1111;--sn-ink:#e9c4b3;--sn-accent-ink:#e7aa78}
+body[data-theme="forest"]{--sn-bg:#0d1b13;--sn-ink:#c2e6cf;--sn-accent-ink:#85dba3}
+body[data-theme="empire"]{--sn-ink:#d9c8a8;--sn-ink-strong:#f6dfa0;--sn-accent:var(--gold);--sn-accent-ink:var(--gold)}
+
+/* position:sticky needs an ancestor that is not a scroll container; "hidden"
+   made body one, "clip" stops the sideways scroll the same way without that. */
+html,body{overflow-x:clip}
+
+aside.site-nav.sn{background:var(--sn-bg);padding:18px 12px 12px;gap:0}
+body[data-theme="empire"] aside.site-nav.sn{background:linear-gradient(180deg,#1c140d,#140d08)}
+aside.sn .brand{margin:0 8px 14px}
+@media(min-width:1101px){aside.site-nav.sn{width:var(--sn-w)}main{margin-left:var(--sn-w)}.news-ticker{left:var(--sn-w)}}
+
+.sn-search{display:flex;align-items:center;gap:8px;width:100%;margin:0 0 12px;padding:8px 10px;border:1px solid var(--edge);border-radius:8px;background:color-mix(in srgb,var(--panel) 70%,transparent);color:var(--muted);font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.sn-search:hover,.sn-search:focus-visible{border-color:var(--sn-accent);color:var(--text)}
+.sn-search>span:first-child{font-size:16px;line-height:1}
+.sn-search-label{flex:1}
+.sn kbd,.page-topbar kbd,.cmdk kbd{display:inline-block;padding:1px 6px;border:1px solid var(--edge);border-bottom-width:2px;border-radius:5px;background:var(--bg);color:var(--muted);font:600 10px/1.5 Inter,Segoe UI,Arial,sans-serif;white-space:nowrap}
+
+.sn-nav{display:flex;flex-direction:column;gap:2px;flex:0 0 auto;padding-bottom:10px}
+.sn-link{display:flex;align-items:center;gap:9px;min-width:0;padding:7px 10px 7px 34px;border-radius:7px;color:var(--sn-ink);text-decoration:none;font-size:13.5px;line-height:1.3;position:relative;overflow-wrap:anywhere}
+.sn-link:hover{background:color-mix(in srgb,var(--sn-accent) 16%,transparent);color:var(--sn-ink-strong)}
+.sn-link.sn-top{padding-left:10px;font-size:14.5px;font-weight:600;margin-bottom:4px}
+.sn-link.is-active{background:color-mix(in srgb,var(--sn-accent) 26%,transparent);color:var(--sn-ink-strong);font-weight:700}
+.sn-link.is-active::before{content:"";position:absolute;left:16px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--sn-accent-ink);box-shadow:0 0 8px var(--sn-accent-ink)}
+.sn-link.sn-top.is-active::before{display:none}
+body[data-theme="empire"] .sn-link.is-active{color:#201705;background:linear-gradient(180deg,#f6dfa0,#e8b93f);box-shadow:0 2px 10px rgba(232,185,63,.3)}
+body[data-theme="empire"] .sn-link.is-active::before{background:#201705;box-shadow:none}
+.sn-ico{display:inline-grid;place-items:center;width:18px;flex:0 0 18px;font-size:15px;line-height:1;opacity:.9}
+
+.sn-group{border-radius:8px}
+.sn-group>summary{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;color:var(--sn-ink);font-size:14px;font-weight:600;cursor:pointer;list-style:none;user-select:none}
+.sn-group>summary::-webkit-details-marker{display:none}
+.sn-group>summary::marker{content:""}
+.sn-group>summary:hover{background:color-mix(in srgb,var(--sn-accent) 12%,transparent);color:var(--sn-ink-strong)}
+.sn-group>summary:focus-visible,.sn-link:focus-visible{outline:2px solid var(--sn-accent-ink);outline-offset:1px}
+.sn-group.has-active>summary{color:var(--sn-ink-strong)}
+.sn-group.has-active>summary .sn-label{text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--sn-accent-ink) 70%,transparent);text-underline-offset:4px;text-decoration-thickness:2px}
+.sn-label{flex:1;min-width:0}
+.sn-chev{width:7px;height:7px;margin-right:3px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);opacity:.55;transition:transform .15s ease}
+.sn-group[open]>summary .sn-chev{transform:rotate(45deg)}
+.sn-items{display:flex;flex-direction:column;gap:1px;padding:2px 0 6px}
+.sn-group[open]{background:color-mix(in srgb,var(--panel) 45%,transparent)}
+.sn-group--ext{margin-top:8px;border-top:1px solid var(--edge);border-radius:0;padding-top:6px}
+.sn-group--ext[open]{background:none}
+.sn-group--ext>summary{font-weight:500;font-size:13px;color:var(--muted)}
+aside.sn .nav-logout .quiet{padding:8px 10px;font-size:13px}
+
+/* Breadcrumbs + search trigger above every page. */
+.page-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-12px 52px 18px 0;min-height:40px}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:0;padding:0;list-style:none;font-size:13px;color:var(--muted);min-width:0}
+.crumbs li{display:inline-flex;align-items:center;gap:4px;min-width:0}
+.crumbs li+li::before{content:"›";opacity:.6;margin:0 2px}
+.crumbs a{color:var(--sn-accent-ink);text-decoration:none}
+.crumbs a:hover{text-decoration:underline}
+.crumbs [aria-current] span{color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40ch}
+.cmdk-trigger{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;margin:0;padding:7px 10px;border:1px solid var(--edge);border-radius:8px;background:var(--panel);color:var(--muted);font:inherit;font-size:13px;cursor:pointer}
+.cmdk-trigger:hover,.cmdk-trigger:focus-visible{color:var(--text);border-color:var(--sn-accent)}
+
+/* "Na tej stronie": sticky section chips for long pages. */
+.page-toc{position:sticky;top:var(--toc-top);z-index:60;display:flex;align-items:center;gap:10px;margin:0 52px 18px 0;padding:8px 10px;border:1px solid var(--edge);border-radius:10px;background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 6px 18px #0006}
+.page-toc[hidden]{display:none}
+.page-toc-title{flex:0 0 auto;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.page-toc-track{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:thin;min-width:0;padding-bottom:2px}
+.page-toc-track a{flex:0 0 auto;padding:5px 10px;border:1px solid transparent;border-radius:999px;color:var(--sn-ink);background:color-mix(in srgb,var(--panel) 80%,transparent);text-decoration:none;font-size:12.5px;white-space:nowrap}
+.page-toc-track a:hover{border-color:var(--edge);color:var(--text)}
+.page-toc-track a.is-active{border-color:var(--sn-accent);color:var(--sn-ink-strong);background:color-mix(in srgb,var(--sn-accent) 28%,var(--panel))}
+body[data-theme="empire"] .page-toc-track a.is-active{color:#201705;background:linear-gradient(180deg,#f6dfa0,#e8b93f)}
+.page-toc-track a[hidden],.page-toc-part[hidden]{display:none}
+.page-toc-part{flex:0 0 auto;margin-left:6px;padding-left:10px;border-left:1px solid var(--edge);font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.page-toc-part:first-child{margin-left:0;padding-left:0;border-left:0}
+main section[id],main article[id],main .panel[id],main .settings-part,main .section-anchor{scroll-margin-top:calc(var(--toc-top) + 76px)}
+.section-anchor{display:block;height:0}
+
+/* Group headings between the cards of a long settings page. */
+.settings-part{display:flex;align-items:center;gap:12px;margin:34px 0 4px;font-size:12px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--sn-accent-ink)}
+.settings-part::after{content:"";flex:1;height:1px;background:var(--edge)}
+
+/* Quick search (command palette). */
+.cmdk{width:min(640px,calc(100vw - 24px));max-height:min(560px,calc(100vh - 80px));margin:10vh auto auto;padding:0;border:1px solid var(--edge);border-radius:12px;background:var(--panel);color:var(--text);box-shadow:0 24px 60px #000a;overflow:hidden}
+.cmdk::backdrop{background:rgba(3,8,15,.6);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+.cmdk-box{display:flex;flex-direction:column;max-height:inherit}
+.cmdk-input-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--edge)}
+.cmdk-input-row>span{font-size:18px;color:var(--muted)}
+.cmdk-input-row input{flex:1;min-width:0;padding:6px 0;border:0;outline:0;background:none;color:var(--text);font:inherit;font-size:16px}
+.cmdk-input-row input::-webkit-search-cancel-button{display:none}
+.cmdk-list{flex:1;margin:0;padding:6px;list-style:none;overflow-y:auto}
+.cmdk-head{padding:10px 10px 4px;font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.cmdk-item a{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:var(--text);text-decoration:none}
+.cmdk-item a small{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmdk-item a em{font-style:normal;font-size:11px;color:var(--muted);white-space:nowrap}
+.cmdk-item .cmdk-ico{text-align:center;opacity:.85}
+.cmdk-item.is-sel a{background:color-mix(in srgb,var(--sn-accent) 26%,transparent)}
+body[data-theme="empire"] .cmdk-item.is-sel a{background:color-mix(in srgb,var(--gold) 22%,transparent)}
+.cmdk-empty{padding:18px;color:var(--muted);text-align:center}
+.cmdk-foot{display:flex;flex-wrap:wrap;gap:6px 16px;padding:9px 14px;border-top:1px solid var(--edge);font-size:11.5px;color:var(--muted)}
+
+/* Phones and tablets: the menu is the drawer from style.css; a solid band
+   under the menu button and the bell keeps content from scrolling beneath
+   them, and the section bar sticks right below that band. */
+@media(max-width:1100px){
+  :root{--toc-top:62px}
+  body::before{content:"";position:fixed;inset:0 0 auto 0;height:62px;z-index:150;background:color-mix(in srgb,var(--bg) 92%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid var(--edge);pointer-events:none}
+  aside.site-nav.sn{width:280px;max-width:86vw}
+  aside.site-nav.sn .brand{margin-left:56px;min-height:42px}
+  .page-topbar{margin:-6px 0 14px}
+  .page-toc{margin-right:0}
+  .sn-link{padding-top:9px;padding-bottom:9px}
+}
+@media(max-width:650px){
+  .cmdk-trigger-label,.cmdk-trigger kbd,.sn-search kbd{display:none}
+  .cmdk-trigger{padding:7px 11px;font-size:16px}
+  .crumbs li:not(:first-child):not(:last-child){display:none}
+  .crumbs li:nth-child(n+3):last-child::before{content:"› … ›"}
+  .page-toc-title{display:none}
+  .cmdk{margin-top:12px;max-height:calc(100vh - 24px)}
+  .cmdk-foot span:last-child{display:none}
+}
+@media(prefers-reduced-motion:reduce){.sn-chev{transition:none}}
+
+/* "Postaw kawę" - the owner's support link, quiet but always in view. */
+.sn-coffee{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0 4px;padding:8px 12px;border:1px solid color-mix(in srgb,#e8a33d 55%,var(--edge));border-radius:999px;background:color-mix(in srgb,#e8a33d 14%,transparent);color:#f3cf8f;font-size:13.5px;font-weight:700;text-decoration:none;flex:0 0 auto;transition:background .15s ease,transform .15s ease}
+.sn-coffee:hover,.sn-coffee:focus-visible{background:color-mix(in srgb,#e8a33d 26%,transparent);color:#ffe6b8;transform:translateY(-1px)}
+.sn-coffee span{font-size:16px}
+
+/* Tabs on long detail pages (character card). Sticky like the section bar. */
+.page-tabs{position:sticky;top:var(--toc-top);z-index:60;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin;margin:18px 0 16px;padding:7px;border:1px solid var(--edge);border-radius:12px;background:color-mix(in srgb,var(--bg) 90%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 6px 18px #0005}
+.page-tabs a{flex:0 0 auto;padding:8px 13px;border-radius:9px;color:var(--sn-ink);text-decoration:none;font-size:13.5px;font-weight:600;white-space:nowrap}
+.page-tabs a:hover{background:color-mix(in srgb,var(--sn-accent) 14%,transparent);color:var(--text)}
+.page-tabs a.is-active{background:color-mix(in srgb,var(--sn-accent) 30%,var(--panel));color:var(--sn-ink-strong);box-shadow:inset 0 0 0 1px var(--sn-accent)}
+body[data-theme="empire"] .page-tabs a.is-active{color:#201705;background:linear-gradient(180deg,#f6dfa0,#e8b93f);box-shadow:none}
+.tab-panel[hidden]{display:none}
+.tab-panel>.panel:first-child,.tab-panel>section:first-child{margin-top:0}
+
+/* Grouped admin forms: one card per action, same shape everywhere. */
+.admin-group>h2{margin-bottom:4px}
+.admin-group>p.muted{margin:0 0 14px}
+.admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;align-items:start}
+.admin-grid>form{height:100%;align-content:start}
+.admin-grid>form>button,.danger-zone form>button{justify-self:start}
+.danger-zone{border-color:color-mix(in srgb,#d64545 55%,var(--edge))!important;background:color-mix(in srgb,#d64545 6%,var(--panel))!important}
+.danger-zone>h2{color:#ff8a80}
+.danger-zone .danger-form{max-width:520px}
+
+/* A setting found with the quick search lights up for a moment. */
+.search-hit{animation:search-hit 3s ease-out;border-radius:8px}
+@keyframes search-hit{0%,40%{box-shadow:0 0 0 3px var(--sn-accent-ink),0 0 24px color-mix(in srgb,var(--sn-accent-ink) 60%,transparent);background-color:color-mix(in srgb,var(--sn-accent-ink) 14%,transparent)}100%{box-shadow:0 0 0 0 transparent}}
+@media(prefers-reduced-motion:reduce){.search-hit{animation:none;outline:3px solid var(--sn-accent-ink)}}
+@media(min-width:1101px){.page-tabs{margin-right:52px}}
+/* The tab strip scrolls sideways instead of stretching its column: a grid
+   item keeps its content's width unless it may shrink below it. */
+.page-tabs{min-width:0;max-width:100%}
+.bot-profile-head>article,:is(article,div,section):has(>.page-tabs){min-width:0}
+/* Plain links inside pages ("Podgląd pliku zmian", "← Wszystkie szkatułki")
+   fell back to the browser's dark blue, unreadable on every dark theme. */
+main a:not([class]){color:var(--sn-accent-ink)}
+main a:not([class]):visited{color:var(--sn-accent-ink)}

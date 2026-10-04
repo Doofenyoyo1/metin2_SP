@@ -173,5 +173,5 @@ Szczegółowe informacje podzielone na dedykowane poradniki:
 - **Iwakura** — pomoc przy systemach cen i nazw sklepów, nickach botów oraz algorytmach wartości przedmiotów.
 - **ĹŌŞƬĒĶ** — nowy ekran logowania klienta (od 2.0.6): animowane tło, logo i Discord Rich Presence.
 - **Colide** — nowe okno Auto Łowów w kliencie (od 2.0.17): 12 umiejętności, 6 mikstur na % HP albo PE, 6 przedmiotów na czas, czekanie na HP po wskrzeszeniu i umiejętności niezależne od ataku.
-- [DadsMmoLab/dads-mmo-lab](https://github.com/DadsMmoLab/dads-mmo-lab) — Inspiracja badawcza dla autonomicznych agentów w grach MMO.
-- Społeczność badaczy i entuzjastów platformy Metin2.
+- **Digi Rasta** — autor systemów z paczki „nowy-system” (v0.16), przeniesionych do MT2009 PLUS jako nasz kod (`server-patches/digirasta`): Rytuał Przebudzenia u Kowala i bronie przebudzone +0…+9, kamienie duchowe do +9 oraz koń do 30 poziomu z płatnym szkoleniem u Stajennego, Próbą Czarnego Rumaka i jukami do 30 poziomu.
+- [DadsMmoLab/dads-mmo-lab](https://github.com/DadsMmoLab/dads-mmo-lab) — inspiracja dla autonomicznych agentów w grach MMO.

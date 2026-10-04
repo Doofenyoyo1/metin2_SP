@@ -1,5 +1,5 @@
 (() => {
-  let snapshot = [], globalTopId = null, topLevelRanks = {}, currentLevel = 'all', currentChannel = 'all', knownChannels = [1];
+  let snapshot = [], globalTopId = null, topLevelRanks = {}, currentLevel = 'all', currentChannel = 'all', knownChannels = [1], worldEmpireFilter = 'all';
   const $ = id => document.getElementById(id);
   const map = $('world-map'), select = $('map-select'), search = $('bot-search');
   const filters = document.querySelector('.live-filters');
@@ -20,6 +20,25 @@
     new ResizeObserver(syncSidebarHeight).observe(map);
     window.addEventListener('resize', syncSidebarHeight);
     syncSidebarHeight();
+  }
+  // Powyżej 1700px .live-insights (Rozkład kanałów / Respawny / Królestwa /
+  // nowa karta Aktywności-w-świecie) pływa jako osobna kolumna obok
+  // .live-sidebar zamiast pod mapą -- bez tego miała wysokość "naturalną"
+  // (sumę kart), więc jej dół nie trafiał w dół .live-sidebar (który JEST
+  // dopasowany do mapy, patrz wyżej) i robiły się schodki (zgłoszenie,
+  // 2026-10-02). Ostatnia karta (#world-insights-card) ma flex:1 w CSS, więc
+  // rozciąga się i wypełnia dokładnie tyle, ile trzeba, żeby oba dolne
+  // krawędzie się zrównały.
+  const liveInsights = document.querySelector('.live-insights');
+  if (map && liveInsights && 'ResizeObserver' in window) {
+    const insightsFloat = () => window.matchMedia('(min-width: 1700px)').matches;
+    const syncInsightsHeight = () => {
+      if (insightsFloat()) liveInsights.style.height = map.offsetHeight + 'px';
+      else liveInsights.style.height = '';
+    };
+    new ResizeObserver(syncInsightsHeight).observe(map);
+    window.addEventListener('resize', syncInsightsHeight);
+    syncInsightsHeight();
   }
   const channelSelect = document.createElement('select');
   channelSelect.id = 'channel-select';
@@ -46,7 +65,7 @@
   restartInfo.id = 'last-restart';
   document.querySelector('.live-shell header > div').appendChild(restartInfo);
   [...document.querySelectorAll('.live-shell footer span')].filter(node => node.textContent.includes('Podkład graficzny')).forEach(node => node.remove());
-  const mapLabels = {21:'Chunjo M1 — Joan',23:'Chunjo M2 — Bokjung',24:'Chunjo M3 — Waryong',25:'Loch Małp Chunjo',61:'Góra Sohan',64:'Dolina Orków',63:'Pustynia Yongbi',104:'Loch Pająków V1',108:'Loch Małp Normalny',109:'Loch Małp Trudny',65:'Świątynia Hwang',4:'Shinsoo M3 — Jungrang',44:'Jinno M3 — Imha',5:'Loch Małp Shinsoo',45:'Loch Małp Jinno',1:'Shinsoo M1 — Yongan',3:'Shinsoo M2 — Jayang',41:'Jinno M1 — Pyongmoo',43:'Jinno M2 — Bakra',67:'Las',68:'Czerwony Las',66:'Wieża Demonów'};
+  const mapLabels = {21:'Chunjo M1 — Joan',23:'Chunjo M2 — Bokjung',24:'Chunjo M3 — Waryong',25:'Loch Małp Chunjo',61:'Góra Sohan',64:'Dolina Orków',63:'Pustynia Yongbi',104:'Loch Pająków V1',108:'Loch Małp Normalny',109:'Loch Małp Trudny',65:'Świątynia Hwang',4:'Shinsoo M3 — Jungrang',44:'Jinno M3 — Imha',5:'Loch Małp Shinsoo',45:'Loch Małp Jinno',1:'Shinsoo M1 — Yongan',3:'Shinsoo M2 — Jayang',41:'Jinno M1 — Pyongmoo',43:'Jinno M2 — Bakra',67:'Las',68:'Czerwony Las',66:'Wieża Demonów',62:'Ognista Ziemia',71:'Loch Pająków V2',72:'Grota Wygnańców V1',73:'Grota Wygnańców V2',209:'Świątynia Ochao',360:'Dolina Cyklopów',361:'Pustkowie Faraona',362:'Zaczarowany Las',363:'Biblioteka Wiedzy',364:'Wzgórze Wukonga',365:'Ruiny Skorpiona',366:'Starożytna Dżungla'};
   Object.entries(mapLabels).forEach(([id,label]) => {
     const option = select.querySelector(`option[value="${id}"]`);
     if (option) option.textContent = label;
@@ -103,7 +122,7 @@
   })();
   const levelOK = (level) => { if (currentLevel === 'all') return true; if (currentLevel.endsWith('+')) return level >= Number.parseInt(currentLevel, 10); const [from, to] = currentLevel.split('-').map(Number); return level >= from && level <= to; };
   const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const portrait = job => { const files = ["warrior_m.bmp","assassin_w.bmp","sura_m.bmp","shaman_w.bmp","warrior_w.bmp","assassin_m.bmp","sura_w.bmp","shaman_m.bmp"]; const index = Number.isInteger(Number(job)) && Number(job) >= 0 && Number(job) < files.length ? Number(job) : 0; return `/static/class-portraits/${files[index]}`; };
+  const portrait = job => { const files = ["warrior_m.bmp","assassin_w.bmp","sura_m.bmp","shaman_w.bmp","warrior_w.bmp","assassin_m.bmp","sura_w.bmp","shaman_m.bmp"]; const index = Number.isInteger(Number(job)) && Number(job) >= 0 && Number(job) < files.length ? Number(job) : 0; return (window.SEBAN_ROOT||'')+`/static/class-portraits/${files[index]}`; };
   const empireFlag = empire => ({ 1: 'shinsoo.png', 2: 'chunjo.png', 3: 'jinno.png' })[Number(empire)] || 'chunjo.png';
   const levelMarkup = bot => topLevelRanks[bot.id] ? `<span class="top-level-badge top-level-badge--compact" title="Top 10 poziomu · #${topLevelRanks[bot.id]}">Lv ${bot.level}</span>` : `Lv ${bot.level}`;
   // Audyt 2026-09-19: goal 0 (`BOT_GOALS[0]`) to bazowe "Zdobywanie poziomu",
@@ -136,6 +155,43 @@
     const total = bots.length || 1;
     box.innerHTML = entries.map(([label,count]) => `<div class="activity-line"><span title="${escape(label)}">${escape(label)}</span><b>${count}</b><i style="--share:${Math.max(4,Math.round(count/total*100))}%"></i></div>`).join('') || '<p class="muted">Brak aktywnych botów na tej mapie.</p>';
   }
+  function barLines(entries, total) {
+    return entries.map(([label,count]) => `<div class="activity-line"><span title="${escape(label)}">${escape(label)}</span><b>${count}</b><i style="--share:${Math.max(4,Math.round(count/total*100))}%"></i></div>`).join('');
+  }
+  // World-wide (every map, every channel) counterpart to renderActivities()
+  // above, which only sees the currently selected map -- requested by
+  // players ("szerszy pogląd na to co dzieje się na wszystkich mapach",
+  // Kordyl13, 2026-10-01). Re-derived from the same `snapshot` the live map
+  // already polls every 1.5s, so no extra request.
+  function renderWorldInsights() {
+    const activityBox = $('world-activity-chart'), levelBox = $('world-level-chart');
+    if (!activityBox && !levelBox) return;
+    const bots = worldEmpireFilter === 'all' ? snapshot : snapshot.filter(b => String(b.empire) === worldEmpireFilter);
+    const total = bots.length || 1;
+    if (activityBox) {
+      const grouped = bots.reduce((all, bot) => { const label = activityGroup(bot); all[label] = (all[label] || 0) + 1; return all; }, {});
+      const entries = Object.entries(grouped).sort((a,b) => b[1]-a[1]);
+      activityBox.innerHTML = barLines(entries, total) || '<p class="muted">Brak botów w tym królestwie.</p>';
+    }
+    if (levelBox) {
+      const buckets = {};
+      bots.forEach(bot => { const start = Math.max(1, Math.floor((Number(bot.level) - 1) / 10) * 10 + 1); const key = `${start}-${start + 9}`; buckets[key] = (buckets[key] || 0) + 1; });
+      const entries = Object.entries(buckets).sort((a,b) => Number(a[0].split('-')[0]) - Number(b[0].split('-')[0])).map(([key,count]) => [`Lv ${key}`, count]);
+      levelBox.innerHTML = barLines(entries, total) || '<p class="muted">Brak botów w tym królestwie.</p>';
+    }
+  }
+  document.querySelectorAll('#world-activity-filter button').forEach(btn => btn.onclick = () => {
+    document.querySelectorAll('#world-activity-filter button').forEach(x => x.classList.toggle('active', x === btn));
+    worldEmpireFilter = btn.dataset.empire;
+    renderWorldInsights();
+  });
+  const worldTabs = $('world-insights-tabs');
+  if (worldTabs) worldTabs.addEventListener('click', event => {
+    const btn = event.target.closest('button[data-tab]');
+    if (!btn) return;
+    worldTabs.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+    $('world-insights-card').dataset.worldTab = btn.dataset.tab;
+  });
   // Read fresh each call, not once at module load: dashboard-deferred.js
   // replaces this script tag's JSON once the real data finishes loading in
   // the background (fast dashboard shell, 1.94.0) -- a one-time read here
@@ -153,7 +209,11 @@
       return {global: (parsed.global && parsed.global.delay && parsed.global.count) ? parsed.global : fallback, maps: parsed.maps || {values:{},stones:{}}};
     } catch (_) { return {global: fallback, maps: {values:{},stones:{}}}; }
   }
-  function donut(id,rows,colors){const n=$(id),t=rows.reduce((a,x)=>a+x[1],0)||1;if(!n)return;let at=0;const slices=rows.map(([l,v],i)=>{const from=at/t*360;at+=v;return `${colors[i]} ${from}deg ${at/t*360}deg`}).join(',');const lead=rows.reduce((a,x)=>x[1]>a[1]?x:a,rows[0]||['—',0]),pct=Math.round(lead[1]/t*100);n.innerHTML=`<div class="map-donut" style="--map-donut:conic-gradient(${slices})"><b>${escape(lead[0])}</b><small>${pct}%</small></div><div class="map-donut-legend">${rows.map(([l,v],i)=>`<span><i style="--dot:${colors[i]}"></i>${escape(l)} <b>${v}</b></span>`).join('')}</div>`}
+  function donut(id,rows,colors){const n=$(id),total=rows.reduce((a,x)=>a+x[1],0),t=total||1;if(!n)return;let at=0;const slices=rows.map(([l,v],i)=>{const from=at/t*360;at+=v;return `${colors[i]} ${from}deg ${at/t*360}deg`}).join(',');
+    // An empty map (total 0) has no leader -- reduce() defaulting to rows[0]
+    // named the first kingdom (Shinsoo) "dominant" at 0%, which read as a
+    // real claim rather than "nobody's here".
+    const lead=total?rows.reduce((a,x)=>x[1]>a[1]?x:a,rows[0]||['—',0]):['—',0],pct=total?Math.round(lead[1]/t*100):0;n.innerHTML=`<div class="map-donut" style="--map-donut:conic-gradient(${slices})"><b>${escape(lead[0])}</b><small>${pct}%</small></div><div class="map-donut-legend">${rows.map(([l,v],i)=>`<span><i style="--dot:${colors[i]}"></i>${escape(l)} <b>${v}</b></span>`).join('')}</div>`}
   function insights(mapId,bots){donut('map-channel-chart',[...new Set(snapshot.map(x=>+x.channel||1))].sort().map(c=>[`CH${c}`,bots.filter(x=>(+x.channel||1)===c).length]),['#43df91','#ef5ac9','#f5f5f5','#8a8a94']);donut('map-empire-chart',[[1,'Shinsoo'],[2,'Chunjo'],[3,'Jinno']].map(([e,l])=>[l,bots.filter(x=>+x.empire===e).length]),['#d95a54','#e8b93f','#4f86d9']);const rI=regenInfo(),m=rI.maps,g=rI.global,n=$('map-respawn-summary'),v=(m.values||{}),st=(m.stones||{}),mapSeconds=value=>value === 'reset' || value === undefined || value === null || value === '' ? null : Number(value);const mobSeconds=mapSeconds(v[mapId]),stoneSeconds=mapSeconds(st[mapId]);if(n)n.innerHTML=`<div><b>⚔ Potwory</b><small>${mobSeconds?`Własny czas mapy · ${mobSeconds} s`:`Globalnie · ${g.delay.mob}% czasu podstawowego`}</small></div><div><b>🗿 Metiny i bossy</b><small>${stoneSeconds?`Własny czas mapy · ${stoneSeconds} s`:`Globalnie · ${g.delay.boss}% czasu podstawowego`}</small></div><div><b>✦ Liczebność</b><small>Potwory ${g.count.mob}% · Metiny/bossy ${g.count.boss}%</small></div>`}
   document.querySelectorAll('[data-insight]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-insight]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('[data-insight-page]').forEach(x=>x.classList.toggle('active',x.dataset.insightPage===b.dataset.insight))});
   function render() {
@@ -162,25 +222,46 @@
     const mapId = Number(select.value), needle = search.value.trim().toLowerCase();
     map.dataset.mapIndex = String(mapId);
     const bots = snapshot.filter(b => b.map_index === mapId && levelOK(b.level) && (!$('party-only').checked || b.in_party) && (!needle || b.name.toLowerCase().includes(needle)) && (currentChannel === 'all' || Number(b.channel) === Number(currentChannel)));
-    map.querySelectorAll('.bot-point,.heat-point').forEach(node => node.remove());
+    // Aktualizacja in-place: nie usuwaj wszystkich ikonek przed ich
+    // ponownym dodaniem, bo na telefonie tworzy to pustą klatkę co 1,5 s.
+    const visibleIds = new Set();
     bots.forEach(bot => {
-      const point = document.createElement('a'); point.className = `bot-point ch-${bot.channel || 1} ${bot.in_party ? 'is-pt' : ''}${bot.stuck ? ' is-stuck' : ''}${bot.fighting_metin ? ' is-metin' : ''}`;
-      point.href = `/player/${bot.id}`; point.style.left = `${Math.max(1,Math.min(99,bot.px))}%`; point.style.top = `${Math.max(1,Math.min(99,bot.py))}%`;
+      const id = String(bot.id); visibleIds.add(id);
+      let point = map.querySelector(`.bot-point[data-bot-id="${CSS.escape(id)}"]`);
+      if (!point) { point = document.createElement('a'); point.dataset.botId = id; map.appendChild(point); }
+      point.className = `bot-point ch-${bot.channel || 1} ${bot.in_party ? 'is-pt' : ''}${bot.stuck ? ' is-stuck' : ''}${bot.fighting_metin ? ' is-metin' : ''}`;
+      point.href = (window.SEBAN_ROOT||'')+`/player/${bot.id}`;
+      point.style.left = `${Math.max(1,Math.min(99,bot.px))}%`; point.style.top = `${Math.max(1,Math.min(99,bot.py))}%`;
       point.title = `${bot.name} · poziom ${bot.level}${knownChannels.length > 1 ? ' · CH' + (bot.channel || 1) : ''}${bot.in_party ? ' · PT' : ''}${bot.stuck ? ' · możliwie zablokowany' : ''}${bot.fighting_metin ? ' · walczy z Metinem' : ''}`;
-      point.innerHTML = `<img class="bot-point-flag" src="/static/empires/${empireFlag(bot.empire)}" alt="" aria-hidden="true">${bot.stuck ? '<i class="bot-point-stuck" aria-label="Możliwie zawieszony">!</i>' : ''}${$('show-names').checked ? `<em>${escape(bot.name)} ${levelMarkup(bot)}</em>` : ''}`;
-      map.appendChild(point);
+      const html = `<img class="bot-point-flag" src="${window.SEBAN_ROOT||''}/static/empires/${empireFlag(bot.empire)}" alt="" aria-hidden="true">${bot.stuck ? '<i class="bot-point-stuck" aria-label="Możliwie zawieszony">!</i>' : ''}${$('show-names').checked ? `<em>${escape(bot.name)} ${levelMarkup(bot)}</em>` : ''}`;
+      if (point.innerHTML !== html) point.innerHTML = html;
     });
+    map.querySelectorAll('.bot-point').forEach(point => { if (!visibleIds.has(point.dataset.botId)) point.remove(); });
     const average = bots.length ? (bots.reduce((sum,b)=>sum+b.level,0)/bots.length).toFixed(1) : '—';
     $('stat-visible').textContent = bots.length; $('stat-pt').textContent = bots.filter(b=>b.in_party).length; $('stat-avg').textContent = average; $('stat-max').textContent = bots.length ? Math.max(...bots.map(b=>b.level)) : '—';
     $('live-count').textContent = `Zaktualizowano ${new Date().toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit', second:'2-digit'})}`;
     $('map-caption').textContent = select.options[select.selectedIndex].text;
-$('live-ranking').innerHTML = bots.sort((a,b)=>b.level-a.level||a.name.localeCompare(b.name)).slice(0,10).map((b,i)=>`<a class="${b.id === globalTopId ? 'is-global-leader' : ''}" href="/player/${b.id}"><b>#${i+1}</b><img class="class-portrait class-portrait--live" src="${portrait(b.job)}" alt=""> ${escape(b.name)}${b.in_party?'<mark class="pt-mark">PT</mark>':''}${b.stuck?'<mark class="stuck-mark">⚠</mark>':''} <span>${levelMarkup(b)}</span></a>`).join('') || '<p class="muted">Brak botów spełniających filtr.</p>';
+    const ranking = bots.slice().sort((a,b)=>b.level-a.level||a.name.localeCompare(b.name)).slice(0,10);
+    const rankingBox = $('live-ranking'), rankingIds = new Set();
+    ranking.forEach((b,i) => {
+      const id = String(b.id); rankingIds.add(id);
+      let row = rankingBox.querySelector(`a[data-bot-id="${CSS.escape(id)}"]`);
+      if (!row) { row = document.createElement('a'); row.dataset.botId = id; }
+      row.className = b.id === globalTopId ? 'is-global-leader' : '';
+      row.href = (window.SEBAN_ROOT||'')+`/player/${b.id}`;
+      const html = `<b>#${i+1}</b><img class="class-portrait class-portrait--live" src="${portrait(b.job)}" alt=""> ${escape(b.name)}${b.in_party?'<mark class="pt-mark">PT</mark>':''}${b.stuck?'<mark class="stuck-mark">⚠</mark>':''} <span>${levelMarkup(b)}</span>`;
+      if (row.innerHTML !== html) row.innerHTML = html;
+      rankingBox.appendChild(row);
+    });
+    rankingBox.querySelectorAll('a[data-bot-id]').forEach(row => { if (!rankingIds.has(row.dataset.botId)) row.remove(); });
+    if (!ranking.length) rankingBox.innerHTML = '<p class="muted">Brak botów spełniających filtr.</p>';
+    else rankingBox.querySelector('.muted')?.remove();
     renderActivities(bots);
     insights(mapId,bots);
   }
   async function load() {
     try {
-      const response = await fetch('/api/live-bots', {cache:'no-store'}), data = await response.json();
+      const response = await fetch((window.SEBAN_ROOT||'')+'/api/live-bots', {cache:'no-store'}), data = await response.json();
       if (!data.ok) return;
       globalTopId = data.global_top_id; topLevelRanks = data.top_level_ranks || {}; snapshot = data.bots.map(bot => { const b = data.bounds[String(bot.map_index)] || data.bounds[bot.map_index]; return b ? {...bot, px:(bot.x-b[0])/b[2]*100, py:(bot.y-b[1])/b[3]*100} : bot; });
       ensureChannelUI(data.channels || [1]);
@@ -190,13 +271,14 @@ $('live-ranking').innerHTML = bots.sort((a,b)=>b.level-a.level||a.name.localeCom
       if ($('overview-party')) $('overview-party').textContent = snapshot.filter(bot=>bot.in_party).length;
       if ($('overview-max')) $('overview-max').textContent = snapshot.length ? Math.max(...snapshot.map(bot=>bot.level)) : '0';
       renderOverviewMaps();
+      renderWorldInsights();
       if (mode.value === 'live') render();
     } catch (err) { console.error('live-widget load()', err); $('live-count').textContent = 'Brak danych live'; }
   }
   async function loadHeat() {
     try {
       const mapId = Number(select.value);
-      const response = await fetch(`/api/heat-events?type=${encodeURIComponent(mode.value)}&map=${mapId}`, {cache:'no-store'}), data = await response.json();
+      const response = await fetch((window.SEBAN_ROOT||'')+`/api/heat-events?type=${encodeURIComponent(mode.value)}&map=${mapId}`, {cache:'no-store'}), data = await response.json();
       if (!data.ok) return;
       const events = data.events || [];
       map.dataset.mapIndex = String(mapId);
@@ -212,7 +294,7 @@ $('live-ranking').innerHTML = bots.sort((a,b)=>b.level-a.level||a.name.localeCom
   }
   async function refreshRestartInfo() {
     try {
-      const data = await fetch('/api/manage-status',{cache:'no-store'}).then(r=>r.json());
+      const data = await fetch((window.SEBAN_ROOT||'')+'/api/manage-status',{cache:'no-store'}).then(r=>r.json());
       const time = Number(data.last_restart_time || 0); const label=time ? new Date(time * 1000).toLocaleString('pl-PL') : 'Brak danych';
       restartInfo.textContent = time ? `Ostatni restart: ${label}` : ''; if ($('overview-restart')) $('overview-restart').textContent=label;
       Object.entries(data.rates || {}).forEach(([name,value]) => { const node=$(`overview-rate-${name}`); if (node) node.textContent=`${value}%`; });

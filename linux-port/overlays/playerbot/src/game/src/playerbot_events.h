@@ -213,7 +213,10 @@ namespace {
 			s_iRate = base > 0 ? base : CHARACTER_MANAGER::instance().GetMobGoldAmountRate(NULL);
 			s_dwReadAt = now;
 		}
-		return s_iRate;
+		// MT2009_PLUS_PRICE_RATE_FLOOR_V1 (the owner, 3 October): a yang rate under
+		// 100% leaves the market where 100% puts it; only rates above 100% move
+		// the bots' prices.
+		return std::max(100, s_iRate);
 	}
 
 	// Player-visible, so Polish and ASCII-only like every bot string.

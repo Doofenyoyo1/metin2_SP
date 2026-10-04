@@ -26,8 +26,8 @@ Group	MT2009_rumi_pool_bronze
 Group	MT2009_rumi_pool_silver
 {
 	Vnum	950402
-	1	71084	5	25 -- Zaczarowanie Przedmiotu
-	2	71085	3	20 -- Wzmocnienie Przedmiotu
+	1	71084	3	25 -- Zaczarowanie Przedmiotu
+	2	71085	1	20 -- Wzmocnienie Przedmiotu
 	3	25040	3	20 -- Zwoj Blogoslawienstwa
 	4	72724	1	15 -- Eliksir Slonca (S)
 	5	72728	1	15 -- Eliksir Ksiezyca (S)
@@ -41,8 +41,8 @@ Group	MT2009_rumi_pool_silver
 Group	MT2009_rumi_pool_gold
 {
 	Vnum	950403
-	1	71084	10	25 -- Zaczarowanie Przedmiotu
-	2	71085	5	20 -- Wzmocnienie Przedmiotu
+	1	71084	5	25 -- Zaczarowanie Przedmiotu
+	2	71085	3	20 -- Wzmocnienie Przedmiotu
 	3	25040	5	20 -- Zwoj Blogoslawienstwa
 	4	72725	1	12 -- Eliksir Slonca (D)
 	5	72729	1	12 -- Eliksir Ksiezyca (D)

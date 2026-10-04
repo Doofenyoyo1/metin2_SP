@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Ranking tygodniowy · {{ panel_brand }}{% endblock %}
+{% block content %}
+{# MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking and its titles (player.weekly_rank_*, written by the game core). #}
+<p class="eyebrow">RANKINGI · SEZON TYGODNIOWY</p><h1>🥇 Ranking tygodniowy</h1>
+<p class="muted">Tygodniowe sezony w ośmiu kategoriach. Najlepsza trójka każdej kategorii dostaje na cały następny sezon tytuł nad nickiem (np. „Łowca I”) z bonusem. Liczy i rozdaje rdzeń gry.</p>
+{% if missing %}<section class="panel"><p class="muted">Tabele rankingu tygodniowego jeszcze nie istnieją – uruchom serwer gry (nowa wersja je tworzy).</p></section>
+{% elif not state.enabled %}<section class="panel"><b>Ranking tygodniowy jest wyłączony</b>: nic nie jest liczone, brak bonusów, tytuły są ukryte.</section>{% endif %}
+<section class="panel">
+<form method="post" action="{{ url_for('weekly_ranking') }}" class="checkbox-row" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+<input type="hidden" name="weekly_csrf" value="{{ weekly_csrf }}"><input type="hidden" name="action" value="save">
+<span>🥇 <b>Ranking tygodniowy</b></span>
+<input type="hidden" name="enabled" value="0"><label><input type="checkbox" name="enabled" value="1" {% if state.enabled %}checked{% endif %}> włączony</label>
+<label>Długość sezonu (dni, 1–28) <input type="number" name="season_days" min="1" max="28" value="{{ state.season_days }}" style="width:80px"></label>
+<button>Zapisz</button></form>
+<form method="post" action="{{ url_for('weekly_ranking') }}" style="margin-top:10px" onsubmit="return confirm('Zakończyć bieżący sezon teraz? Gra rozda tytuły w ciągu ok. 2 minut.')">
+<input type="hidden" name="weekly_csrf" value="{{ weekly_csrf }}"><input type="hidden" name="action" value="end">
+<button>Zakończ sezon teraz</button></form>
+<p><small class="muted">Zmieniona długość obowiązuje od następnego sezonu. Domyślnie sezon resetuje się w poniedziałek o 00:00 (7 dni). „Zakończ sezon teraz” – gra przełączy sezon w ciągu ok. 2 minut i ogłosi wyniki. Wyłączony = nic nie jest liczone, brak bonusów, tytuły ukryte.</small></p>
+</section>
+{% if not missing %}
+<h2>Bieżący sezon</h2>
+<section class="cards compact">
+<article><span>Sezon</span><strong>{{ state.season }}</strong></article>
+<article><span>Początek</span><strong>{{ state.start_text or '—' }}</strong></article>
+<article><span>Koniec</span><strong>{{ state.end_text or 'jeszcze nie ustawiony' }}</strong>{% if not state.end_text %}<small class="muted">gra ustawi najbliższy poniedziałek 00:00</small>{% endif %}</article>
+<article><span>Pozostało</span><strong>{{ state.left_text or '—' }}</strong></article>
+</section>
+<h2>Obecni posiadacze tytułów</h2>
+<section class="panel guild-table-wrap"><table class="guild-table"><thead><tr><th>Kategoria</th><th>Miejsce</th><th>Nick</th><th>Typ</th><th>Królestwo</th><th>Poziom</th><th>Wynik</th><th>Tytuł</th><th>Bonus</th></tr></thead><tbody>
+{% for c in cats %}{% for r in holders.get(c[0], []) %}<tr><td>{% if loop.first %}<b>{{ c[1] }}</b>{% endif %}</td><td>{{ r.place }}</td>
+<td><a href="{{ url_for('player', pid=r.pid) }}">{{ r.name or ('#' ~ r.pid) }}</a></td>
+<td>{% if r.is_bot %}<span style="display:inline-block;font-size:11px;padding:0 7px;border-radius:999px;border:1px solid #7dd3fc;color:#7dd3fc">Bot</span>{% else %}<span style="display:inline-block;font-size:11px;padding:0 7px;border-radius:999px;border:1px solid #57c15f;color:#57c15f">Gracz</span>{% endif %}</td>
+<td>{% set kingdom=empire_info(r.empire) %}{% if empire_flag(r.empire) %}<img class="empire-flag-inline" src="{{ empire_flag(r.empire) }}" alt="{{ kingdom.name }}">{% endif %}{{ kingdom.name }}</td>
+<td>{{ r.level or '' }}</td><td>{{ r.value }}</td><td><b>{{ r.title }}</b></td><td>{{ r.bonus }}</td></tr>
+{% else %}<tr><td><b>{{ c[1] }}</b></td><td colspan="8" class="muted">brak tytułów w tym sezonie</td></tr>{% endfor %}{% endfor %}
+</tbody></table></section>
+<h2>Ranking na żywo (top 50): {{ cats_by_id[cat][1] }}</h2>
+<form class="search"><select name="cat">{% for c in cats %}<option value="{{ c[0] }}"{% if c[0] == cat %} selected{% endif %}>{{ c[1] }}</option>{% endfor %}</select><button>Pokaż</button></form>
+<section class="panel guild-table-wrap"><table class="guild-table"><thead><tr><th>#</th><th>Nick</th><th>Typ</th><th>Królestwo</th><th>Poziom</th><th>{% if cat == 8 %}Doświadczenie{% else %}Wynik{% endif %}</th></tr></thead><tbody>
+{% for r in ranking %}<tr><td class="muted">{{ loop.index }}</td>
+<td><a href="{{ url_for('player', pid=r.pid) }}">{{ r.name or ('#' ~ r.pid) }}</a></td>
+<td>{% if r.is_bot %}<span style="display:inline-block;font-size:11px;padding:0 7px;border-radius:999px;border:1px solid #7dd3fc;color:#7dd3fc">Bot</span>{% else %}<span style="display:inline-block;font-size:11px;padding:0 7px;border-radius:999px;border:1px solid #57c15f;color:#57c15f">Gracz</span>{% endif %}</td>
+<td>{% set kingdom=empire_info(r.empire) %}{% if empire_flag(r.empire) %}<img class="empire-flag-inline" src="{{ empire_flag(r.empire) }}" alt="{{ kingdom.name }}">{% endif %}{{ kingdom.name }}</td>
+<td>{{ r.level or '' }}</td><td><b>{{ r.value }}</b></td></tr>
+{% else %}<tr><td colspan="6" class="muted">W tej kategorii nikt jeszcze nie zdobył punktów w tym sezonie.</td></tr>{% endfor %}
+</tbody></table></section>
+{% endif %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% endblock %}

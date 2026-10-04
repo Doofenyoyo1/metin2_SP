@@ -414,6 +414,18 @@ function Get-M2ReportVersionInfo {
     $info['rebuildPending'] = [bool](Test-Path -LiteralPath (Join-Path $root '.m2launcher-rebuild-pending') -PathType Leaf)
     $info['client'] = $(if ($recordedClient -and $recordedClient -ne 'unknown') { $recordedClient } elseif ($clientPackage) { $clientPackage } else { 'unknown' })
     $info['clientPackage'] = $(if ($clientPackage) { $clientPackage } else { 'unknown' })
+    # MT2009_PLUS_CLIENT_VERSION_FROM_FOLDER_V1: the client folder's own
+    # CLIENT_VERSION (MT2009-Patcher.exe writes it), newer than the record
+    # when the patcher updated the client after the launcher last looked.
+    try {
+        $clientFolder = Get-M2ClientFolder -Config (Get-M2LauncherConfig -ServerRoot $root -ConfigPath (Join-Path $root '.m2launcher.json'))
+        if ($clientFolder) {
+            $folderMarker = Read-M2ReportTextFile (Join-Path $clientFolder 'CLIENT_VERSION')
+            $info['clientFolder'] = $(if ($folderMarker) { $folderMarker } else { 'unknown' })
+            $info['client'] = [string](Resolve-M2InstalledClientVersion -ServerRoot $root -ClientFolder $clientFolder)
+        }
+    }
+    catch { }
     # The launcher ships in the server package: its version is VERSION's.
     $info['launcher'] = $info['server']
     $engine = 'unknown'

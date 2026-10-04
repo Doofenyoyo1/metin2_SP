@@ -70,6 +70,7 @@ linux-port-mt2009/docker/game/special_item_group.catchking.txt
 linux-port-mt2009/docker/game/special_item_group.yutnori.txt
 linux-port-mt2009/docker/game/special_item_group.flower.txt
 linux-port-mt2009/docker/game/mob_drop_item.dropedit.append.txt
+linux-port-mt2009/docker/game/mob_drop_item.metinbeans.append.txt
 linux-port-mt2009/docker/game/dungeons/*
 # The Arezzo places (MT2009 PLUS 2.16.0, off unless M2_AREZZO=1).
 linux-port-mt2009/docker/game/arezzo/*
@@ -112,6 +113,7 @@ launcher/client-update-files.example.txt
 docs/LAUNCHER.md
 tools/New-M2UpdatePackage.ps1
 linux-port-mt2009/tools/update.sh
+linux-port-mt2009/tools/support-bundle.sh
 linux-port-mt2009/tools/vps-install.sh
 
 # ---- engine files the port changed or added (measured against the package) --
@@ -152,6 +154,12 @@ linux-port-mt2009/docker/game/src/server/game/src/exchange.cpp
 linux-port-mt2009/docker/game/src/server/game/src/guild.cpp
 linux-port-mt2009/docker/game/src/server/game/src/guild_manager.cpp
 linux-port-mt2009/docker/game/src/server/game/src/guild_war.cpp
+linux-port-mt2009/docker/game/src/server/game/src/char_horse.cpp
+linux-port-mt2009/docker/game/src/server/game/src/cmd_emotion.cpp
+linux-port-mt2009/docker/game/src/server/game/src/cube.cpp
+linux-port-mt2009/docker/game/src/server/game/src/DragonSoul.cpp
+linux-port-mt2009/docker/game/src/server/game/src/safebox.cpp
+linux-port-mt2009/docker/game/src/server/game/src/shop.cpp
 linux-port-mt2009/docker/game/src/server/game/src/ikarus_shop_manager.cpp
 linux-port-mt2009/docker/game/src/server/game/src/ikarus_shop_manager.h
 linux-port-mt2009/docker/game/src/server/game/src/input.h

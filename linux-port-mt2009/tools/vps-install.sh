@@ -570,6 +570,8 @@ run_job() {
             # September; 10-import-dumps.sh now puts its options back too).
             chmod a+x "$COMPOSE_DIR"/mariadb/initdb.d/*.sh 2>/dev/null || true
             job_phase build "budowa obrazow i start serwera (docker compose up -d --build) - pierwszy raz 15-40 minut"
+            # MT2009_PLUS_SLOW_BUILD_NOTICE_V1
+            say "UWAGA: teraz buduja sie obrazy i kompiluje silnik gry - pierwszy raz trwa to 15-40 minut, kolejne starty i aktualizacje do okolo 15 minut. Nie przerywaj i nie zamykaj okna, nawet jesli przez dluzszy czas nic sie nie wypisuje."
             # Two build inputs are empty directories, which git and some
             # unpackers do not carry; the game Dockerfile COPYs both and the
             # build dies at "failed to compute cache key ... not found"

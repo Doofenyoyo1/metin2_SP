@@ -1,0 +1,86 @@
+{#- Seban Panel navigation map (MT2009_PLUS_SEBAN_NAV_V2).
+    One place that says which page belongs where: base.html builds the side
+    menu, the breadcrumbs and the quick search (Ctrl+K) from it. Only endpoint
+    names live here - url_for() runs in base.html for every request, so the
+    links follow the panel's address (a sub-path behind a proxy too).
+    "parents" maps detail pages (one character, one guild...) to the list
+    they were opened from; "sections" are anchors inside long settings pages
+    that the quick search can jump to directly. Pages marked 'index' are read
+    by the quick search in the background, so it finds their individual
+    settings (labels and help texts) too. -#}
+{%- set nav_groups = [
+  {'id': 'swiat', 'icon': '🗺', 'label': 'Świat', 'items': [
+    {'ep': 'maps', 'label': 'Aktywność map', 'desc': 'natężenie na mapach w czasie, mapa cieplna', 'kw': 'mapy heatmapa natezenie mapa cieplna'},
+    {'ep': 'respawns', 'index': 1, 'label': 'Respawny', 'desc': 'tempo i liczebność potworów, metiny, bossy', 'kw': 'spawn potwory metiny bossy respawn'},
+    {'ep': 'world_feed', 'label': 'Wiadomości ze świata', 'desc': 'oś czasu zdarzeń w grze', 'kw': 'feed news ogloszenia wydarzenia'},
+    {'ep': 'live_chat', 'label': 'Czat na żywo', 'desc': 'protokół wiadomości z gry', 'kw': 'chat rozmowy wiadomosci'},
+  ]},
+  {'id': 'gracze', 'icon': '♙', 'label': 'Gracze i boty', 'items': [
+    {'ep': 'players', 'label': 'Postacie', 'desc': 'lista graczy i botów, wyszukiwarka', 'kw': 'gracze boty nick id szukaj postac'},
+    {'ep': 'legends_page', 'index': 1, 'label': 'Legendy botów', 'desc': 'ranking legend, Czempioni, przełącznik', 'kw': 'czempioni legendy chodzace'},
+    {'ep': 'guilds', 'label': 'Gildie', 'desc': 'gildie botów i graczy, wojny gildii', 'kw': 'gildia wojna klan'},
+    {'ep': 'accounts', 'label': 'Konta', 'desc': 'konta serwera, zakładanie kont', 'kw': 'login konto rejestracja'},
+    {'ep': 'bot_personalities', 'label': 'Osobowości botów', 'desc': 'charaktery zalogowanych botów', 'kw': 'osobowosc charakter'},
+    {'ep': 'bot_progression', 'index': 1, 'label': 'Progresja botów', 'desc': 'kto stoi i dlaczego, checklista, postoje w wioskach', 'kw': 'postoj checklista wedkowanie przejscia mapy grinder'},
+    {'ep': 'bot_names', 'index': 1, 'label': 'Nazwy botów', 'desc': 'kolejka nicków, blokady, priorytety', 'kw': 'nick nazwy kolejka'},
+    {'ep': 'retired_bots', 'index': 1, 'label': 'Emerytury botów', 'desc': 'boty, które zakończyły grę', 'kw': 'emerytura zakonczenie gry retired'},
+  ]},
+  {'id': 'wydarzenia', 'icon': '🏆', 'label': 'Wydarzenia', 'items': [
+    {'ep': 'events', 'index': 1, 'label': 'Planer eventów', 'desc': 'eventy teraz i w harmonogramie', 'kw': 'event harmonogram kalendarz'},
+    {'ep': 'battlepass', 'index': 1, 'label': 'Battle Pass', 'desc': 'misje i nagroda sezonu', 'kw': 'przepustka misje'},
+    {'ep': 'wheel', 'index': 1, 'label': 'Koło Fortuny', 'desc': 'koszt obrotu i pula nagród', 'kw': 'kolo fortuny losowanie'},
+    {'ep': 'rankings', 'label': 'Rankingi', 'desc': 'poziom, umiejętności, +9, gildie', 'kw': 'ranking top'},
+    {'ep': 'weekly_ranking', 'label': 'Ranking tygodniowy', 'desc': 'tygodniowy ranking i tytuły', 'kw': 'tydzien tytuly ranking tygodnia weekly'},
+    {'ep': 'season', 'label': 'Sezon i rekordy', 'desc': 'ranking tygodnia, rekordy świata', 'kw': 'sezon rekordy tydzien'},
+  ]},
+  {'id': 'gospodarka', 'icon': '◇', 'label': 'Gospodarka', 'items': [
+    {'ep': 'economy', 'label': 'Przedmioty w obiegu', 'desc': 'yang w obiegu, najczęstsze przedmioty', 'kw': 'gospodarka yang balans stan przedmiotow'},
+    {'ep': 'economy_shops', 'label': 'Rynek (sklepy offline)', 'desc': 'stragany, ceny, sprzedaże', 'kw': 'sklepy stragan ceny rynek handel'},
+    {'ep': 'economy_itemshop', 'label': 'ItemShop i Smocze Monety', 'desc': 'waluty kont i zakupy', 'kw': 'itemshop sm smocze monety znaki'},
+    {'ep': 'drops', 'label': 'Drop z potworów', 'desc': 'edytor dropu potworów', 'kw': 'drop potwory mob loot'},
+    {'ep': 'chests', 'label': 'Szkatułki', 'desc': 'edytor zawartości skrzynek', 'kw': 'skrzynie szkatulki chest'},
+    {'ep': 'manage_items', 'index': 1, 'label': 'Nadawanie przedmiotów', 'desc': 'masowe nadawanie przedmiotów botom i graczom', 'kw': 'nadaj daj przedmiot vnum grant'},
+    {'ep': 'items_database', 'label': 'Baza przedmiotów', 'desc': 'katalog VNUM z aktualnej bazy', 'kw': 'vnum id przedmiotow katalog'},
+  ]},
+  {'id': 'ustawienia', 'icon': '⚙', 'label': 'Ustawienia', 'items': [
+    {'ep': 'manage', 'index': 1, 'label': 'Gra i serwer', 'desc': 'raty, restart, zachowanie botów, aktualizator', 'kw': 'zarzadzanie rates mnozniki restart suwaki ustawienia'},
+    {'ep': 'manage_panel', 'index': 1, 'label': 'Panel webowy', 'desc': 'wygląd, motyw, odznaki, ogłoszenia', 'kw': 'motyw kolorystyka wyglad nazwa panelu'},
+    {'ep': 'world_reset', 'index': 1, 'label': 'Reset świata', 'desc': 'reset botów albo całego świata', 'kw': 'reset wipe'},
+  ]},
+  {'id': 'narzedzia', 'icon': '🛠', 'label': 'Narzędzia', 'items': [
+    {'ep': 'character_creator', 'label': 'Kreator postaci', 'desc': 'nowa postać na wybranym koncie', 'kw': 'stworz postac'},
+    {'ep': 'gm_commands', 'label': 'Komendy GM', 'desc': 'ściąga komend GM', 'kw': 'gm komendy'},
+    {'ep': 'system', 'label': 'Wydajność serwera', 'desc': 'CPU, pamięć i dysk', 'kw': 'cpu ram dysk obciazenie'},
+    {'ep': 'diagnostics', 'label': 'Diagnostyka wędkowania', 'desc': 'boty łowiące i wpisy z logów', 'kw': 'wedkowanie lowienie ryby'},
+    {'ep': 'panel_logs', 'label': 'Logi panelu', 'desc': 'ostatnie wpisy panelu, pobieranie', 'kw': 'logi bledy'},
+    {'ep': 'changelog', 'label': 'Changelog', 'desc': 'zmiany serwera i klienta', 'kw': 'zmiany wersje historia'},
+  ]},
+] -%}
+{%- set nav_parents = {
+  'player': 'players', 'account_detail': 'accounts', 'guild': 'guilds',
+  'economy_item': 'economy', 'chest_edit': 'chests', 'drop_edit': 'drops',
+  'daily_summary': 'dashboard',
+} -%}
+{%- set nav_sections = [
+  {'ep': 'manage', 'anchor': 'raty-i-restart', 'label': 'Raty, liczba botów, ustawienia z restartem', 'short': 'Raty i restart', 'part': 'Serwer'},
+  {'ep': 'manage', 'anchor': 'restart', 'label': 'Zastosowanie zmian i restart', 'short': 'Restart', 'part': 'Serwer'},
+  {'ep': 'manage', 'anchor': 'aktualizator', 'label': 'Aktualizator', 'short': 'Aktualizator', 'part': 'Serwer'},
+  {'ep': 'manage', 'anchor': 'plan-wejscia', 'label': 'Plan wejścia botów', 'short': 'Plan wejścia', 'part': 'Wejście botów'},
+  {'ep': 'manage', 'anchor': 'boty-przy-drzwiach', 'label': 'Boty przy drzwiach', 'short': 'Boty przy drzwiach', 'part': 'Wejście botów'},
+  {'ep': 'manage', 'anchor': 'trudnosc', 'label': 'Poziom trudności', 'short': 'Trudność', 'part': 'Świat'},
+  {'ep': 'manage', 'anchor': 'autolowy', 'label': 'Autołowy i kanał CH2', 'short': 'Autołowy i CH2', 'part': 'Świat'},
+  {'ep': 'manage', 'anchor': 'azrael', 'label': 'Rajdy na Azraela', 'short': 'Rajdy na Azraela', 'part': 'Świat'},
+  {'ep': 'manage', 'anchor': 'zachowanie-botow', 'label': 'Zachowanie botów (suwaki)', 'short': 'Zachowanie botów', 'part': 'Boty'},
+  {'ep': 'manage', 'anchor': 'polityka-przedmiotow', 'label': 'Polityka przedmiotów botów', 'short': 'Polityka przedmiotów', 'part': 'Boty'},
+  {'ep': 'manage', 'anchor': 'boty-na-mapach', 'label': 'Boty na mapach', 'short': 'Boty na mapach', 'part': 'Boty'},
+  {'ep': 'manage', 'anchor': 'vip-dla-botow', 'label': 'Nadaj VIP wszystkim botom', 'short': 'VIP dla botów', 'part': 'Nagrody'},
+  {'ep': 'manage', 'anchor': 'sm-dla-botow', 'label': 'Daj wszystkim botom SM', 'short': 'SM dla botów', 'part': 'Nagrody'},
+  {'ep': 'manage', 'anchor': 'nadawanie-przedmiotow', 'label': 'Masowe nadawanie przedmiotów', 'short': 'Nadawanie przedmiotów', 'part': 'Nagrody'},
+  {'ep': 'manage', 'anchor': 'skrzynia-startowa', 'label': 'Skrzynia startowa dla nowych postaci', 'short': 'Skrzynia startowa', 'part': 'Nagrody'},
+  {'ep': 'manage', 'anchor': 'rankingi-gracze', 'label': 'Prawdziwi gracze w rankingach', 'short': 'Gracze w rankingach', 'part': 'Rankingi'},
+  {'ep': 'manage', 'anchor': 'ogloszenia-plus9', 'label': 'Ogłoszenia ulepszeń +9', 'short': 'Ogłoszenia +9', 'part': 'Rankingi'},
+  {'ep': 'manage_panel', 'anchor': 'wyglad', 'label': 'Wygląd i działanie (nazwa, motyw, kursor)', 'short': 'Wygląd i działanie', 'part': ''},
+  {'ep': 'manage_panel', 'anchor': 'top-level-badges', 'label': 'Odznaka Top 10 poziomu', 'short': 'Odznaka Top 10', 'part': ''},
+  {'ep': 'manage_panel', 'anchor': 'full-plus9-badges', 'label': 'Odznaka pełnego +9', 'short': 'Odznaka +9', 'part': ''},
+  {'ep': 'manage_panel', 'anchor': 'legendary-announcements', 'label': 'Legendarne ogłoszenia botów', 'short': 'Legendarne ogłoszenia', 'part': ''},
+] -%}

@@ -17,8 +17,10 @@
 #
 #      sh linux-port/tools/update.sh            # from the server folder
 #
-#  1. reads the manifest (GitHub contents API, then raw as a fallback),
-#  2. downloads the server zip it names, checks its SHA-256,
+#  1. reads the manifest (GitHub contents API, then raw as a fallback, then
+#     the fallback server M2_UPDATE_MIRROR when GitHub does not answer),
+#  2. downloads the server zip it names (or the same file name from the
+#     fallback server), checks its SHA-256,
 #  3. unpacks it over this folder (files the zip carries are replaced; .env,
 #     docker-compose.override.yml and everything else stay as they are),
 #  4. runs `docker compose up -d --build' in linux-port/docker.
@@ -82,6 +84,17 @@ BRANCH=${M2_UPDATE_BRANCH:-main}
 MANIFEST_NAME=update-manifest-mt2009.json
 SPOOL=${M2_UPDATE_SPOOL:-/opt/m2update}
 POLL=${M2_UPDATE_POLL:-5}
+# MT2009_PLUS_UPDATE_MIRROR_V1: the fallback update source. When GitHub does
+# not answer (network error, non-200, a body that is not JSON) the manifest
+# and the zip are read from here under the same file names; the zip passes
+# the same SHA-256 check. Space-separated bases; empty turns it off. The
+# manifest's optional "mirrors": [...] are tried before these. No default:
+# MT2009 PLUS's mirror carries its packages, not this project's.
+MIRROR_BASES=${M2_UPDATE_MIRROR-}
+GITHUB_TIMEOUT=${M2_UPDATE_GITHUB_TIMEOUT:-15}
+MIRROR_NOTICE='GitHub niedostępny - pobieram z serwera zapasowego'
+MANIFEST_MIRRORS=''
+FETCHED_FROM_MIRROR=''
 WORK=${TMPDIR:-/tmp}/m2-update.$$
 
 now() { date '+%Y-%m-%d %H:%M:%S'; }
@@ -92,29 +105,83 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 # ---- the pieces that need a tool ---------------------------------------------
 # GitHub's raw CDN can lag a release by minutes; the contents API does not.
+# fetch_text URL [SECONDS]
 fetch_text() {
-    _url=$1
+    _url=$1; _secs=${2:-30}
     if have python3; then
-        python3 - "$_url" <<'EOF'
+        python3 - "$_url" "$_secs" <<'EOF'
 import sys, urllib.request
 req = urllib.request.Request(sys.argv[1], headers={
     'User-Agent': 'metin2-playerbots-update/2 (+https://github.com/Doofenyoyo1/metin2_SP)',
     'Accept': 'application/vnd.github.raw+json'})
-sys.stdout.write(urllib.request.urlopen(req, timeout=30).read().decode('utf-8', 'replace'))
+sys.stdout.write(urllib.request.urlopen(req, timeout=int(sys.argv[2])).read().decode('utf-8', 'replace'))
 EOF
     elif have curl; then
         # Bounded, like python's timeout above: a connection that stalls
         # without failing held "[1/4] reading what is published" for good,
-        # and the raw CDN fallback below only runs once this one gives up.
-        curl -fsSL --connect-timeout 20 --max-time 60 -A 'metin2-playerbots-update/2' -H 'Accept: application/vnd.github.raw+json' "$_url"
+        # and the fallbacks below only run once this one gives up.
+        curl -fsSL --connect-timeout "$_secs" --max-time $((_secs * 2)) -A 'metin2-playerbots-update/2' -H 'Accept: application/vnd.github.raw+json' "$_url"
     else
         die "neither python3 nor curl is installed"
     fi
 }
 
+# valid_manifest FILE: a JSON object (python3), or at least text that starts
+# with '{' (without it).
+valid_manifest() {
+    [ -s "$1" ] || return 1
+    if have python3; then
+        python3 -c 'import json, sys; sys.exit(0 if isinstance(json.load(open(sys.argv[1], encoding="utf-8-sig")), dict) else 1)' "$1" 2>/dev/null
+    else
+        [ "$(tr -d ' \t\r\n' < "$1" | sed 's/^\xef\xbb\xbf//' | cut -c1)" = '{' ]
+    fi
+}
+
+# The mirror bases, the manifest's "mirrors" first, each ending in '/'.
+mirror_bases() {
+    for _b in $MANIFEST_MIRRORS $MIRROR_BASES; do
+        case "$_b" in
+            http://*/|https://*/) printf '%s\n' "$_b" ;;
+            http://*|https://*) printf '%s/\n' "$_b" ;;
+        esac
+    done | awk '!seen[$0]++'
+}
+
+# The manifest on stdout: GitHub (contents API, then raw) with a short
+# timeout, then the mirrors. FETCHED_FROM_MIRROR names the mirror it came
+# from (a function called with a redirection runs in this shell, so the
+# variable survives `fetch_manifest > file').
 fetch_manifest() {
-    fetch_text "https://api.github.com/repos/$REPO/contents/$MANIFEST_NAME?ref=$BRANCH" 2>/dev/null \
-        || fetch_text "https://raw.githubusercontent.com/$REPO/$BRANCH/$MANIFEST_NAME"
+    _fm=${TMPDIR:-/tmp}/m2-update-manifest.$$
+    FETCHED_FROM_MIRROR=''
+    if { fetch_text "https://api.github.com/repos/$REPO/contents/$MANIFEST_NAME?ref=$BRANCH" "$GITHUB_TIMEOUT" > "$_fm" 2>/dev/null && valid_manifest "$_fm"; } \
+        || { fetch_text "https://raw.githubusercontent.com/$REPO/$BRANCH/$MANIFEST_NAME" "$GITHUB_TIMEOUT" > "$_fm" 2> "$_fm.err" && valid_manifest "$_fm"; }; then
+        cat "$_fm"; rm -f "$_fm" "$_fm.err"; return 0
+    fi
+    for _base in $(mirror_bases); do
+        if fetch_text "$_base$MANIFEST_NAME" 30 > "$_fm" 2>/dev/null && valid_manifest "$_fm"; then
+            FETCHED_FROM_MIRROR=$_base
+            printf '%s (%s)\n' "$MIRROR_NOTICE" "$_base" >&2
+            cat "$_fm"; rm -f "$_fm" "$_fm.err"; return 0
+        fi
+    done
+    # Nothing answered: GitHub's own error is the one worth showing.
+    tail -n 3 "$_fm.err" >&2 2>/dev/null
+    rm -f "$_fm" "$_fm.err"
+    return 1
+}
+
+# manifest_mirrors FILE -> the manifest's "mirrors", space-separated (python3
+# only; without it the built-in bases are used).
+manifest_mirrors() {
+    have python3 || return 0
+    python3 - "$1" 2>/dev/null <<'EOF'
+import json, sys
+m = json.load(open(sys.argv[1], encoding='utf-8-sig'))
+v = m.get('mirrors') if isinstance(m, dict) else None
+if isinstance(v, list):
+    print(' '.join(str(x) for x in v if isinstance(x, str) and x and ' ' not in x))
+EOF
 }
 
 # manifest_field FILE KEY -> the server block's field (version, url, sha256).
@@ -135,7 +202,9 @@ EOF
 download() {
     _url=$1; _out=$2
     if have curl; then
-        curl -fL --retry 3 --connect-timeout 20 -A 'metin2-playerbots-update/2' -o "$_out" "$_url"
+        # --speed-*: a transfer stalled below 1 kB/s for a minute is given up,
+        # so the fallback server gets its turn instead of a hang.
+        curl -fL --retry 3 --connect-timeout 20 --speed-time 60 --speed-limit 1024 -A 'metin2-playerbots-update/2' -o "$_out" "$_url"
     elif have python3; then
         python3 - "$_url" "$_out" <<'EOF'
 import sys, urllib.request, shutil
@@ -146,6 +215,36 @@ EOF
     else
         die "neither curl nor python3 is installed"
     fi
+}
+
+# download_checked URL OUT SHA256: the manifest's URL, then each mirror with
+# the URL's file name, until one gives a file with this SHA-256.
+download_checked() {
+    _dl_url=$1; _dl_out=$2; _dl_want=$(printf '%s' "$3" | tr 'A-F' 'a-f')
+    _dl_name=${_dl_url%%\?*}; _dl_name=${_dl_name##*/}
+    _dl_sources=$_dl_url
+    case "$_dl_name" in
+        ''|*[!A-Za-z0-9._-]*) ;;
+        *) for _b in $(mirror_bases); do _dl_sources="$_dl_sources $_b$_dl_name"; done ;;
+    esac
+    _dl_first=1; _dl_first_mirror=0
+    for _src in $_dl_sources; do
+        if [ "$_dl_first" = 0 ]; then
+            [ "$_dl_first_mirror" = 1 ] || note "   $MIRROR_NOTICE"
+            _dl_first_mirror=1
+            note "   downloading $_src"
+        fi
+        _dl_first=0
+        rm -f "$_dl_out"
+        if download "$_src" "$_dl_out"; then
+            [ "$(sha256_of "$_dl_out" | tr 'A-F' 'a-f')" = "$_dl_want" ] && return 0
+            note "   $_src: the SHA-256 is not the manifest's"
+        else
+            note "   $_src: the download failed"
+        fi
+    done
+    rm -f "$_dl_out"
+    return 1
 }
 
 sha256_of() {
@@ -637,8 +736,10 @@ run_update() {
         cp "$_given_manifest" "$WORK/manifest.json" 2>"$WORK/fetch.err" || { fail "the manifest $_given_manifest could not be read: $(head -c 200 "$WORK/fetch.err")"; return 1; }
         note "   the manifest is $_given_manifest (M2_UPDATE_MANIFEST_FILE)"
     else
-        fetch_manifest > "$WORK/manifest.json" 2>"$WORK/fetch.err" || { fail "the manifest could not be read: $(head -c 200 "$WORK/fetch.err")"; return 1; }
+        fetch_manifest > "$WORK/manifest.json" 2>"$WORK/fetch.err" || { fail "the manifest could not be read (GitHub and the fallback server): $(head -c 200 "$WORK/fetch.err")"; return 1; }
+        [ -n "$FETCHED_FROM_MIRROR" ] && note "   $MIRROR_NOTICE ($FETCHED_FROM_MIRROR)"
     fi
+    MANIFEST_MIRRORS=$(manifest_mirrors "$WORK/manifest.json")
     _ver=$(manifest_field "$WORK/manifest.json" version)
     _url=$(manifest_field "$WORK/manifest.json" url)
     _sha=$(manifest_field "$WORK/manifest.json" sha256 | tr 'A-F' 'a-f')
@@ -663,7 +764,7 @@ run_update() {
         cp "$_given_zip" "$WORK/update.zip" || { fail "the package $_given_zip could not be copied"; return 1; }
     else
         step "downloading $(basename "$_url")"
-        download "$_url" "$WORK/update.zip" || { fail "the download failed"; return 1; }
+        download_checked "$_url" "$WORK/update.zip" "$_sha" || { fail "the download failed (GitHub and the fallback server)"; return 1; }
     fi
     _got=$(sha256_of "$WORK/update.zip" | tr 'A-F' 'a-f')
     [ "$_got" = "$_sha" ] || { fail "the package's SHA-256 ($_got) is not the manifest's ($_sha)"; return 1; }
@@ -713,6 +814,11 @@ build_and_start() {
     restore_empty_context_dirs
     stage_panel_context || { fail "the panel's build context could not be staged from files/"; return 1; }
     step "building and starting the new version (docker compose up -d --build)"
+    # MT2009_PLUS_SLOW_BUILD_NOTICE_V1: said before the longest step, so nobody
+    # takes a quiet terminal for a hang and breaks it off (the owner, 4 October).
+    _slow="UWAGA: teraz kompiluje sie silnik gry i startuje serwer - to moze potrwac nawet do 15 minut (na slabszym VPS dluzej). Nie przerywaj i nie zamykaj tego okna, nawet jesli przez dluzszy czas nic sie nie wypisuje."
+    say "$_slow"
+    [ "$WATCHING" = 1 ] && printf '%s [update] %s\n' "$(now)" "$_slow" >> "$LOG" 2>/dev/null
     # By hand the build talks to the terminal; under the panel it goes to the
     # spool's log, which is what the panel's progress page tails.
     if [ "$WATCHING" = 1 ]; then

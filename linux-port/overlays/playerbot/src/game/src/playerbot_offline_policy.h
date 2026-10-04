@@ -154,6 +154,17 @@ struct State {
     // before the keeper stood at its counter (BotOfflineInterruptVisit).
     uint32_t visitStarted = 0;
     uint32_t interrupted = 0;
+    // MT2009_PLUS_BOT_COUNTER_RENEW_V1: an expired counter is renewed on a
+    // visit called at once (nextRenewProbe: when it is looked for again;
+    // renewHoldUntil: no call before this - one an expiry, and a quarter of an
+    // hour after a renewal refused at the counter). renewStep*: the few steps
+    // to a free spot when another stand stands within the engine's sixty
+    // units of the old one, and how many such steps this visit has taken.
+    // renewCalledAt: when such a call was made, until the owner stands at
+    // its counter - the far keeper's long round does not hold it back.
+    uint32_t nextRenewProbe = 0, renewHoldUntil = 0, renewCalledAt = 0;
+    uint32_t renewStepUntil = 0, renewSpotTries = 0;
+    long renewStepX = 0, renewStepY = 0;
     std::map<uint32_t, ListedLine> listed;
     bool visiting = false;
     bool restockTurn = false;

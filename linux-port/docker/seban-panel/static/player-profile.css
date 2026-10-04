@@ -4,7 +4,7 @@
 .storage-tabs button:disabled{opacity:.4;cursor:not-allowed}
 .gm-badge{display:inline-block;width:72px;height:auto;margin:0 4px -9px 7px;vertical-align:middle;filter:drop-shadow(0 0 5px #f7bd33aa);animation:gm-badge-glow 2.4s ease-in-out infinite}
 @keyframes gm-badge-glow{50%{filter:drop-shadow(0 0 10px #ffe98ccc)}}
-.metin-inventory{position:relative;width:min(337px,100%);aspect-ratio:337/1140;background:#100e0b url('/static/inventory-background.svg') center/100% 100% no-repeat;isolation:isolate}
+.metin-inventory{position:relative;width:min(337px,100%);aspect-ratio:337/1140;background:#100e0b url('inventory-background.svg') center/100% 100% no-repeat;isolation:isolate}
 .equipment-layer,.inventory-layer{position:absolute;inset:0;pointer-events:none}
 .equip-slot,.inv-slot{pointer-events:auto}
 .equipment-layer:has(.equip-slot:hover),.inventory-layer:has(.inv-slot:hover){z-index:4}
@@ -41,9 +41,18 @@
 .inv-slot,.safebox-slot{left:calc(var(--col) * 20%);top:calc(var(--row) * 11.111%);width:20%;height:calc(var(--size) * 11.111%)}
 .inv-slot>b,.safebox-slot>b{position:absolute;right:4%;bottom:1%;font-size:11px;color:#fff;text-shadow:0 1px 2px #000;z-index:2}
 .metin-inventory .inv-slot[hidden]{display:none!important}
-.item-tip{display:none;position:absolute;z-index:20;left:50%;transform:translateX(-50%);bottom:calc(100% + 4px);width:190px;background:#06101d;border:1px solid #5d86ba;border-radius:5px;padding:8px;color:#dcecff;font-size:12px;pointer-events:none}
-.item-tip b,.item-tip span{display:block}.item-tip b{color:#fff0a7;margin-bottom:3px}.item-tip .tip-vnum{color:#91a8c5;font-size:10px;margin-bottom:5px}.item-tip .tip-base{color:#9fd1ff}.item-tip .tip-bonus{color:#73e7ae}
+.item-tip{display:none;position:absolute;z-index:20;left:50%;transform:translateX(-50%);bottom:calc(100% + 4px);width:190px;background:color-mix(in srgb,var(--panel) 92%,#000);border:1px solid var(--edge);border-radius:5px;padding:8px;color:var(--text);font-size:12px;pointer-events:none;box-shadow:0 5px 14px #0008}
+.item-tip b,.item-tip span{display:block}.item-tip b{color:var(--gold);margin-bottom:3px}.item-tip .tip-vnum{color:var(--muted);font-size:10px;margin-bottom:5px}.item-tip .tip-base{color:color-mix(in srgb,var(--text) 76%,var(--muted))}.item-tip .tip-bonus{color:#73e7ae}.item-tip .tip-bonus--native{color:#63c993}.item-tip .tip-bonus--added{color:#9af4c5}
 .equip-slot:hover .item-tip,.inv-slot:hover .item-tip,.safebox-slot:hover .item-tip{display:block}
+.item-tip:has(.tip-explain){width:280px}
+.tip-explain{margin-top:5px;padding-top:5px;border-top:1px solid var(--edge);font-size:10.5px;line-height:1.4}
+.tip-explain-h{color:#fbbf24!important;font-weight:700;margin-bottom:2px}
+.tip-explain-line{color:color-mix(in srgb,var(--text) 76%,var(--muted))}
+.tip-explain-warn{color:#fca5a5!important}
+.tip-explain-t{width:100%;border-collapse:collapse;margin:3px 0}
+.tip-explain-t td{padding:1px 3px 1px 0;font-size:9.5px;color:color-mix(in srgb,var(--text) 76%,var(--muted));vertical-align:top}
+.tip-explain-t td.n{text-align:right;white-space:nowrap}
+.tip-explain-cut{text-align:center;color:var(--muted)}
 .inventory-yang{position:absolute;left:14%;right:7%;bottom:1.50%;height:2.2%;display:flex;justify-content:flex-end;align-items:center;color:#f2df9a;font:bold 12px Georgia,serif;text-shadow:1px 1px #000;z-index:3;pointer-events:none}
 /* Magazyn: sama pozycjonowanie co .inv-slot (--col/--row/--size) tak samo
    uwzglednia przedmioty na 2+ slotach wysokosci i osobne strony -- bez
@@ -71,7 +80,7 @@
 @media(max-width:650px){.inventory-panel{padding:12px}.metin-inventory{margin:auto}.item-tip{width:170px;font-size:11px}}
 .bot-profile-head,.bot-profile-head *{font-family:Tahoma,Arial,sans-serif}.profile-tags span,.stat-cells div,.bot-live-details dd,.inventory-yang,.inv-slot>b,.safebox-slot>b,.skill-slot>b{color:#fff;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000}.skill-icon{width:30px;height:30px;display:grid;place-items:center;border:1px solid #b99854;border-radius:4px;background:linear-gradient(135deg,#355d94,#111a35);color:#ffe6a3;font:700 10px Tahoma,Arial;text-shadow:1px 1px #000;box-shadow:inset 0 0 0 1px #07101e}.skill:nth-child(3n) .skill-icon{background:linear-gradient(135deg,#913f3f,#251119)}.skill:nth-child(3n+2) .skill-icon{background:linear-gradient(135deg,#4d7f46,#132415)}
 .skill{grid-template-columns:34px minmax(0,1fr) auto!important;gap:7px}.skill-icon{width:28px!important;height:28px!important;object-fit:contain;display:block!important}.honor.knightly{color:#00ffff}.honor.noble{color:#000099}.honor.good{color:#0000ff}.honor.friendly{color:#9999ff}.honor.neutral{color:#ffff00}.honor.aggressive,.honor.dishonest{color:#ff6600}.honor.malicious,.honor.cruel{color:#ff0000}
-.item-tip{text-align:center!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important}.item-tip span,.item-tip b{text-align:center}.item-tip .negative{color:#d3a9a0!important}.item-tip .tip-stone{color:#f2df9a;margin-top:5px;padding-top:4px;border-top:1px solid #594e3c}.item-tip .tip-stone:first-of-type{margin-top:7px}
+.item-tip{text-align:center!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important}.item-tip span,.item-tip b{text-align:center}.item-tip .negative{color:#d3a9a0!important}.item-tip .tip-stone{color:var(--gold);margin-top:5px;padding-top:4px;border-top:1px solid var(--edge)}.item-tip .tip-stone:first-of-type{margin-top:7px}
 .item-tip .tip-socket-icon{width:14px;height:14px;object-fit:contain;vertical-align:-2px;margin-right:3px}.item-tip .tip-socket-timer,.item-tip .tip-socket-empty{color:#9db9de;font-size:10px}.item-tip .tip-socket-empty{color:#d3a9a0}
 /* Dymek wyśrodkowany na slocie realnie wystawał poza lewą/prawą krawędź
    okna przeglądarki dla skrajnych slotów/kolumn (ekwipunek: broń/unique1 po
@@ -81,7 +90,7 @@
    krawędzi zamiast do środka. */
 .equip-slot.tip-left .item-tip,.inv-slot.tip-left .item-tip,.safebox-slot.tip-left .item-tip,.shop-slot.tip-left .item-tip{left:0!important;transform:none!important}
 .equip-slot.tip-right .item-tip,.inv-slot.tip-right .item-tip,.safebox-slot.tip-right .item-tip,.shop-slot.tip-right .item-tip{left:auto!important;right:0!important;transform:none!important}
-.item-tip .tip-price{color:#f2df9a;margin-top:5px;padding-top:4px;border-top:1px solid #594e3c;font-weight:700}
+.item-tip .tip-price{color:var(--gold);margin-top:5px;padding-top:4px;border-top:1px solid var(--edge);font-weight:700}
 
 /* Sklep offline: siatka 10x8 jak w rzeczywistym oknie kramu w kliencie gry,
    ta sama mechanika co ekwipunek/magazyn (--col/--row, ikona + tooltip),
@@ -158,3 +167,138 @@
 .game-admin-card h3{margin-top:0}
 .admin-presets{display:flex;flex-wrap:wrap;gap:.4rem}
 .admin-presets button{padding:.45rem .65rem;font-size:.78rem}
+
+/* Original Metin2 Dragon Soul Alchemy window (client asset, native 287x525). */
+#dragon-soul-storage{padding:8px 0 2px}
+.dragon-soul-window{position:relative;width:287px;height:525px;margin:0 auto;color:#ddd;font:12px Arial,sans-serif;isolation:isolate}
+.ds-window-bg{position:absolute;inset:0;width:287px;height:525px;image-rendering:auto;pointer-events:none;user-select:none}
+.ds-title{position:absolute;z-index:2;left:24px;right:24px;top:12px;text-align:center;font-size:12px;font-weight:400;color:#f5ead9;text-shadow:1px 1px #000}
+.ds-kind-art{position:absolute;z-index:1;left:10px;top:279px;width:267px;height:30px;pointer-events:none}
+.ds-kind-tabs{position:absolute;z-index:3;left:12px;top:281px;width:238px;height:27px;display:grid;grid-template-columns:repeat(6,36px);gap:4px}
+.ds-kind-tabs button,.ds-grade-tabs button,.ds-deck-tabs button{appearance:none;border:0;background:transparent;padding:0;margin:0;cursor:pointer}
+.ds-kind-tabs button{width:36px;height:27px;border-radius:3px}
+.ds-kind-tabs button:hover,.ds-kind-tabs button.active{box-shadow:inset 0 0 0 1px rgba(244,193,70,.7),0 0 5px rgba(244,193,70,.35)}
+.ds-kind-tabs span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.ds-kind-name{position:absolute;z-index:2;left:18px;top:315px;color:#c0c0c0;text-shadow:1px 1px #000}
+.ds-grade-tabs{position:absolute;z-index:3;left:16px;top:331px;display:grid;grid-template-columns:repeat(6,36px);gap:7px}
+.ds-grade-tabs button,.ds-grade-tabs img{display:block;width:36px;height:22px}
+.ds-grade-tabs button:hover img{filter:brightness(1.18)}
+.ds-deck-tabs{position:absolute;z-index:3;inset:0;pointer-events:none}
+.ds-deck-tabs button{position:absolute;top:230px;width:32px;height:32px;pointer-events:auto}
+.ds-deck-tabs button:first-child{left:21px}.ds-deck-tabs button:last-child{left:234px}
+.ds-deck-tabs img{display:block;width:32px;height:32px}
+.ds-equipment,.ds-bag{position:absolute;z-index:4;inset:0;pointer-events:none}
+.ds-equip-slot,.ds-bag-slot{position:absolute;width:32px;height:32px;display:flex;align-items:center;justify-content:center;pointer-events:auto}
+.ds-equip-slot>img,.ds-bag-slot>img{max-width:32px;max-height:32px;object-fit:contain;filter:drop-shadow(0 1px 1px #000)}
+.ds-equip-slot>b,.ds-bag-slot>b{position:absolute;right:1px;bottom:0;color:#fff;font-size:10px;text-shadow:1px 1px #000}
+.ds-equip-0{left:128px;top:53px}.ds-equip-1{left:59px;top:93px}.ds-equip-2{left:59px;top:179px}.ds-equip-3{left:128px;top:219px}.ds-equip-4{left:194px;top:179px}.ds-equip-5{left:194px;top:93px}
+.ds-bag-slot{left:calc(15px + var(--col)*32px);top:calc(355px + var(--row)*32px)}
+.ds-readonly{position:absolute;z-index:3;left:217px;top:492px;width:60px;height:22px;display:grid;place-items:center;color:#e8e1d7;text-shadow:1px 1px #000;background:url('dragon-soul-ui/m_button01.png') center/60px 22px no-repeat;cursor:help}
+.ds-hint{text-align:center;font-size:11px;margin:7px auto 0;max-width:287px}
+.dragon-soul-window .item-tip{z-index:80}
+@media(max-width:420px){.dragon-soul-window{transform:scale(.92);transform-origin:top center;margin-bottom:-42px}}
+
+@media(min-width:1051px){.bot-profile-head{grid-template-columns:minmax(0,1fr) 350px}}
+
+.bot-profile-head>.inventory-panel{width:auto;inset:auto;display:block}
+
+/* Dragon Soul state and viaSeban branding. */
+.dragon-soul-window [hidden]{display:none!important}
+.ds-equip-slot:hover .item-tip,.ds-bag-slot:hover .item-tip{display:block}
+.ds-readonly[data-brand-lock="viaSeban"]{color:#f2c34d;font-size:10px;font-weight:700;letter-spacing:.01em;text-shadow:1px 1px #000,0 0 5px rgba(242,195,77,.35)}
+.ds-readonly[data-brand-lock="viaSeban"]:empty::after{content:"viaSeban"}
+
+/* v1.108.2: inventory grew with the Dragon Soul column; scale item art with slots. */
+.metin-inventory .equip-slot>img,.metin-inventory .inv-slot>img,.safebox-inventory .safebox-slot>img{width:84%;height:84%;max-width:84%;max-height:84%;object-fit:contain}
+
+
+/* v1.109.0: native 176x565 Metin2 inventory reconstructed from client sprites. */
+.inventory-native-tabs{width:176px;margin:0 auto 5px;display:flex;align-items:center;justify-content:flex-end;gap:2px;padding:2px 4px;background:#17130f;border:1px solid #705638;border-radius:3px}
+.inventory-native-tabs .inventory-home-button{margin-right:auto;padding:2px 6px;height:21px;font:10px Tahoma,Arial,sans-serif;color:#f2df9a!important}
+.inventory-native-tabs .inventory-native-button{width:21px;height:21px;padding:2px!important;display:grid;place-items:center;border:1px solid #5f4a31!important;border-radius:2px;background:#18140f!important}
+.inventory-native-tabs .inventory-native-button img{width:auto;height:auto;max-width:100%;max-height:100%;image-rendering:pixelated}
+.inventory-native-tabs .inventory-native-button:hover,.inventory-native-tabs .inventory-native-button.active{border-color:#c39a52!important;filter:brightness(1.2)}
+.inventory-native-tabs .inventory-native-button:disabled{opacity:.42}
+.metin-inventory{width:176px!important;height:565px!important;aspect-ratio:auto!important;margin:0 auto;background:linear-gradient(90deg,#3e3324 0 3px,#17130f 3px calc(100% - 3px),#3e3324 calc(100% - 3px))!important;border:1px solid #806441;border-radius:5px;box-shadow:0 4px 12px #0008}
+.metin-inventory::before{content:"Ekwipunek";position:absolute;left:8px;top:7px;width:160px;height:19px;display:grid;place-items:center;background:linear-gradient(#5a2c13,#2a140b);border:1px solid #8c5b30;border-radius:3px;color:#f4ead7;font:11px Tahoma,Arial,sans-serif;text-shadow:1px 1px #000;z-index:5}
+.metin-inventory .equipment-layer{inset:auto!important;left:10px;top:33px;width:156px;height:188px;background:url('inventory-native/equipment-base.png') 0 0/156px 188px no-repeat}
+.metin-inventory .equip-slot{width:32px!important;height:32px!important}
+.metin-inventory .equip-slot.weapon{left:3px!important;top:3px!important;width:32px!important;height:96px!important}
+.metin-inventory .equip-slot.body{left:39px!important;top:37px!important;width:32px!important;height:64px!important}
+.metin-inventory .equip-slot.head{left:39px!important;top:2px!important}
+.metin-inventory .equip-slot.foots{left:39px!important;top:145px!important}
+.metin-inventory .equip-slot.wrist{left:75px!important;top:67px!important}
+.metin-inventory .equip-slot.neck{left:114px!important;top:84px!important}
+.metin-inventory .equip-slot.ear{left:114px!important;top:52px!important}
+.metin-inventory .equip-slot.unique1{left:2px!important;top:113px!important}
+.metin-inventory .equip-slot.unique2{left:75px!important;top:113px!important}
+.metin-inventory .equip-slot.arrow{left:114px!important;top:1px!important}
+.metin-inventory .equip-slot.shield{left:75px!important;top:35px!important}
+.metin-inventory .equip-slot.belt{left:39px!important;top:106px!important}
+.metin-inventory .equip-slot>img,.metin-inventory .inv-slot>img{width:auto!important;height:auto!important;max-width:32px!important;max-height:100%!important;object-fit:contain}
+.metin-inventory .inv-tabs{left:12px!important;top:224px!important;width:152px!important;height:19px!important;gap:8px!important}
+.metin-inventory .inv-tabs button{flex:0 0 32px!important;width:32px!important;height:19px!important;border:0!important;border-radius:0!important;background:url('inventory-native/tab-normal.png') 0 0/32px 19px no-repeat!important;color:#ddd!important;font:10px Tahoma,Arial,sans-serif}
+.metin-inventory .inv-tabs button.active{color:#fff6cc!important;filter:brightness(1.28)}
+.metin-inventory .inv-tabs .tab-shine,.metin-inventory .inv-tabs .tab-ripple{display:none}
+.metin-inventory .inventory-layer{left:8px!important;top:246px!important;right:auto!important;bottom:auto!important;width:160px!important;height:288px!important;background:url('inventory-native/slot-base.png') 0 0/32px 32px repeat}
+.metin-inventory .inv-slot{left:calc(var(--col) * 32px)!important;top:calc(var(--row) * 32px)!important;width:32px!important;height:calc(var(--size) * 32px)!important}
+.metin-inventory .inventory-yang{left:38px!important;right:8px!important;bottom:8px!important;height:18px!important;background:url('inventory-native/money-slot.png') right center/130px 18px no-repeat;padding-right:5px;font:10px Tahoma,Arial,sans-serif}
+@media(max-width:650px){.metin-inventory{margin:0 auto!important}}
+
+
+/* v1.109.1: align the native equipment sprite and controls exactly. */
+.metin-inventory .equipment-layer{inset:auto!important;left:10px!important;top:33px!important;right:auto!important;bottom:auto!important}
+.inventory-native-tabs{background:transparent;border:0;padding:0;height:26px;justify-content:flex-start;overflow:visible}
+.inventory-native-tabs .inventory-home-button{margin:0}
+.inventory-native-tabs .inventory-native-button{position:absolute!important;top:284px!important;z-index:30;width:19px!important;height:19px!important;padding:1px!important}
+.inventory-native-tabs>button.inventory-native-button:nth-of-type(2){left:calc(50% + 4px)}
+.inventory-native-tabs>button.inventory-native-button:nth-of-type(3){left:calc(50% + 25px)}
+.inventory-native-tabs>button.inventory-native-button:nth-of-type(4){left:calc(50% + 46px)}
+.inventory-native-tabs>a.inventory-native-button{left:calc(50% + 67px)}
+.safebox-inventory .safebox-slot>img{width:auto!important;height:auto!important;max-width:32px!important;max-height:100%!important;object-fit:contain}
+
+
+/* v1.109.2: native inventory controls and layering. */
+.metin-inventory::before{content:attr(data-window-title);z-index:20}
+.metin-inventory .inventory-native-tabs{position:absolute!important;inset:0!important;width:176px!important;height:221px!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;pointer-events:none;z-index:30}
+.metin-inventory .inventory-native-tabs .inventory-native-button{position:absolute!important;top:auto!important;display:grid!important;place-items:center!important;margin:0!important;pointer-events:auto}
+.metin-inventory .inventory-ds-button{left:10px!important;top:178px!important;width:35px!important;height:35px!important;padding:0!important;border:0!important;background:transparent!important}
+.metin-inventory .inventory-ds-button img{width:35px!important;height:35px!important;max-width:none!important;max-height:none!important}
+.metin-inventory .inventory-horse-button{left:97px!important;top:194px!important;width:17px!important;height:17px!important;padding:1px!important}
+.metin-inventory .inventory-deposit-button{left:116px!important;top:194px!important;width:17px!important;height:17px!important;padding:1px!important}
+.metin-inventory .inventory-shop-button{left:135px!important;top:194px!important;width:17px!important;height:17px!important;padding:1px!important}
+.metin-inventory .equipment-layer .equip-slot>img{transform:translate(2px,2px)}
+.metin-inventory .equipment-layer .item-tip{z-index:80}
+.storage-close{cursor:pointer}
+.ds-storage-close{position:absolute;z-index:100;right:8px;top:8px;width:21px;height:21px;padding:0;border:0;background:transparent;color:transparent}
+.alternate-storage{position:relative;padding-top:31px}
+.alternate-storage-close{position:absolute;z-index:50;right:2px;top:0;width:25px;height:25px;padding:0;border:1px solid var(--edge);border-radius:4px;background:color-mix(in srgb,var(--panel) 88%,#000);color:var(--text);font:700 17px/1 Arial,sans-serif}
+.alternate-storage-close:hover{border-color:var(--accent);color:var(--accent)}
+
+.metin-inventory .equipment-layer:has(.equip-slot:hover){z-index:60}
+
+/* MT2009 PLUS: this engine has a seventh Dragon Stone, the Amethyst. The
+   client art has six sockets and six kind tabs, so its deck slot sits in the
+   middle of the medallion and its tab is an extra button after the six. */
+.ds-equip-6{left:128px;top:136px;border-radius:5px;background:rgba(0,0,0,.45);box-shadow:inset 0 0 0 1px #9b7be0,0 0 9px rgba(155,123,224,.55)}
+.ds-kind-tabs{grid-template-columns:repeat(6,36px) 26px;width:auto}
+.ds-kind-tabs .ds-kind-extra{width:26px;display:grid;place-items:center;background:rgba(40,24,60,.85);box-shadow:inset 0 0 0 1px #9b7be0}
+.ds-kind-tabs .ds-kind-extra img{width:20px;height:20px;object-fit:contain}
+/* MT2009 PLUS: the window buttons where the game client has them
+   (uiscript/inventorywindow.py of our client). The rule above with
+   ".inventory-native-tabs .inventory-native-button" and top:auto won over
+   the per-button tops, so the buttons fell back to their flow position on
+   top of the shield, bracelet and weapon slots. Coordinates are the
+   client's, relative to the 176 x 565 window:
+   - DSSButton: Equipment_Base (10,33) + (114,120), 38 x 34;
+   - horse bag / deposit / shop: InventoryAdditionalButtons, right/bottom
+     aligned 55/23 inside the 156 x 188 equipment base, buttons at +2/+17/+32. */
+.metin-inventory .inventory-native-tabs .inventory-native-button.inventory-ds-button{left:124px!important;top:153px!important;width:38px!important;height:34px!important;padding:0!important;border:0!important;background:transparent!important}
+.metin-inventory .inventory-native-tabs .inventory-ds-button img{width:auto!important;height:34px!important;max-width:38px!important;max-height:34px!important;object-fit:contain}
+.metin-inventory .inventory-native-tabs .inventory-native-button.inventory-horse-button{left:113px!important;top:200px!important}
+.metin-inventory .inventory-native-tabs .inventory-native-button.inventory-deposit-button{left:128px!important;top:200px!important}
+.metin-inventory .inventory-native-tabs .inventory-native-button.inventory-shop-button{left:143px!important;top:200px!important}
+.metin-inventory .inventory-native-tabs :is(.inventory-horse-button,.inventory-deposit-button,.inventory-shop-button){width:15px!important;height:15px!important;padding:0!important;border:0!important;background:transparent!important}
+.metin-inventory .inventory-native-tabs :is(.inventory-horse-button,.inventory-deposit-button,.inventory-shop-button) img{width:15px!important;height:15px!important}
+.metin-inventory .inventory-native-tabs .inventory-native-button:hover:not(:disabled){filter:brightness(1.3) drop-shadow(0 0 3px rgba(242,195,77,.85))}
+.metin-inventory .inventory-native-tabs .inventory-native-button,.metin-inventory .inventory-native-tabs .inventory-native-button img{transition:filter .12s ease}

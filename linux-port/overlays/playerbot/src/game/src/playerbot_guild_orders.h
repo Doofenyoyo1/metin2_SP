@@ -136,6 +136,123 @@ namespace
 		return PLAYERBOT_GUILD_CALL_FREE;
 	}
 
+	// MT2009_PLUS_GUILD_HELP_FIGHT_V1: "Pomocy!" is the person's fight, all of
+	// it (the owner, 2 October: the called bots stood beside the person on
+	// their horses while the person fought). The companion's defend stance it
+	// borrowed took the person's target only once that target was at the
+	// person or the bot, and what was at the person; a pack at the person's
+	// party, a monster the person had only clicked, and the Metin the person
+	// had begun and turned from were nobody's. So, in this order: the person's
+	// target - a monster, a stone (not an event's), a war's foe - whatever is
+	// at it yet; what is at the person; what is at somebody of the person's
+	// party round the person; what is at the bot; and a Metin round the person
+	// that the person has hit and that still stands.
+	struct FPlayerBotGuildHelpFoes
+	{
+		LPCHARACTER self;
+		LPCHARACTER person;
+		LPCHARACTER onPerson;
+		int onPersonDist;
+		LPCHARACTER onParty;
+		int onPartyDist;
+		LPCHARACTER onSelf;
+		int onSelfDist;
+		LPCHARACTER stone;
+		int stoneDist;
+
+		FPlayerBotGuildHelpFoes(LPCHARACTER s, LPCHARACTER p)
+			: self(s), person(p), onPerson(NULL), onPersonDist(INT_MAX), onParty(NULL), onPartyDist(INT_MAX),
+			  onSelf(NULL), onSelfDist(INT_MAX), stone(NULL), stoneDist(INT_MAX)
+		{
+		}
+
+		static bool PersonBeganStone(LPCHARACTER person, LPCHARACTER c)
+		{
+#if defined(PLAYERBOT_ENGINE_MT2009)
+			const CHARACTER::TDamageMap& dm = c->Mt2009PlusGetDamageMap();
+			return dm.find(person->GetVID()) != dm.end();
+#else
+			return person->GetTarget() == c;
+#endif
+		}
+
+		void operator()(LPENTITY ent)
+		{
+			if (!ent || !ent->IsType(ENTITY_CHARACTER))
+				return;
+			LPCHARACTER c = (LPCHARACTER)ent;
+			if (c == self || c == person || c->IsDead() || c->GetMapIndex() != person->GetMapIndex())
+				return;
+			const int fromPerson = DISTANCE_APPROX(c->GetX() - person->GetX(), c->GetY() - person->GetY());
+			if (fromPerson > PLAYERBOT_SIDEKICK_GUARD_RANGE)
+				return;
+			if (c->IsStone())
+			{
+				if (c->GetHP() < c->GetMaxHP() && fromPerson < stoneDist &&
+						!IsPlayerBotEventStone(c->GetRaceNum()) && PersonBeganStone(person, c) &&
+						battle_is_attackable(self, c))
+				{
+					stone = c;
+					stoneDist = fromPerson;
+				}
+				return;
+			}
+			if (!c->IsMonster())
+				return;
+			LPCHARACTER victim = c->GetVictim();
+			if (!victim)
+				return;
+			if (victim == person)
+			{
+				if (fromPerson < onPersonDist && battle_is_attackable(self, c))
+				{
+					onPerson = c;
+					onPersonDist = fromPerson;
+				}
+				return;
+			}
+			if (victim == self)
+			{
+				const int fromSelf = DISTANCE_APPROX(c->GetX() - self->GetX(), c->GetY() - self->GetY());
+				if (fromSelf < onSelfDist && battle_is_attackable(self, c))
+				{
+					onSelf = c;
+					onSelfDist = fromSelf;
+				}
+				return;
+			}
+			if (person->GetParty() && victim->GetParty() == person->GetParty() && !victim->IsDead() &&
+					fromPerson < onPartyDist && battle_is_attackable(self, c))
+			{
+				onParty = c;
+				onPartyDist = fromPerson;
+			}
+		}
+	};
+
+	LPCHARACTER FindPlayerBotGuildHelpFoe(LPCHARACTER ch, LPCHARACTER person)
+	{
+		LPCHARACTER target = person->GetTarget();
+		if (target && target != ch && !target->IsDead() && target->GetMapIndex() == person->GetMapIndex() &&
+				(target->IsMonster() || (target->IsStone() && !IsPlayerBotEventStone(target->GetRaceNum())) ||
+						IsPlayerBotSidekickWarFoe(person, target)) &&
+				DISTANCE_APPROX(target->GetX() - person->GetX(), target->GetY() - person->GetY()) <=
+						PLAYERBOT_SIDEKICK_ASSIST_RANGE &&
+				battle_is_attackable(ch, target))
+			return target;
+		if (!person->GetSectree())
+			return NULL;
+		FPlayerBotGuildHelpFoes foes(ch, person);
+		person->GetSectree()->ForEachAround(foes);
+		if (foes.onPerson)
+			return foes.onPerson;
+		if (foes.onParty)
+			return foes.onParty;
+		if (foes.onSelf)
+			return foes.onSelf;
+		return foes.stone;
+	}
+
 	// The fight of a bot beside the person whose order it answers
 	// (ManagePlayerBotSummon asks it once the bot is there). A Shaman keeps the
 	// person's buffs up first, between blows, as a companion does. With nothing
@@ -152,7 +269,10 @@ namespace
 		bool personFighting = false;
 		const BYTE stance = order == playerbot_guild_order_rules::ORDER_HUNT
 				? PLAYERBOT_SIDEKICK_STANCE_ATTACK : PLAYERBOT_SIDEKICK_STANCE_DEFEND;
-		LPCHARACTER foe = FindPlayerBotSidekickFoe(ch, person, stance, why, personFighting);
+		// MT2009_PLUS_GUILD_HELP_FIGHT_V1: the help's own choice (above).
+		LPCHARACTER foe = order == playerbot_guild_order_rules::ORDER_HELP
+				? FindPlayerBotGuildHelpFoe(ch, person)
+				: FindPlayerBotSidekickFoe(ch, person, stance, why, personFighting);
 		if (!foe)
 		{
 			if (state.dwTargetVID != 0)

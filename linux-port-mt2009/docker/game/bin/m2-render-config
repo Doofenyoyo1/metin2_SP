@@ -91,7 +91,7 @@ PUBLIC_LINE="PUBLIC_IP: ${CONTAINER_IP}"
 # game1 beside Orc Valley in both layouts (MT2009_PLUS_OCHAO_BOTS_V1): the bots
 # hunt it, and a bot cannot cross cores. game1 of the unified layout then hosts
 # 33 maps, so MAP_ALLOW_LIMIT is 48 (server-patches/playerqol, MT2009_PLUS_MAP_ALLOW_48_V1).
-MAPS_first="1 3 4 5 6 107 81 110 111 112 113 181 182 183 200 250 302 304"
+MAPS_first="1 3 4 5 6 107 81 111 112 113 181 182 183 200 250 302 304"
 # 66, 67 and 68 - the Demon Tower, the Forest and the Red Forest - moved off
 # game2 the way 104 and 109 were moved before them: a bot cannot walk onto a map
 # its own core does not host, and every bot in this world lives on game1. The
@@ -139,7 +139,7 @@ MAPS_game2="41 43 44 45 46 90 208 301 303 351 352"
 M2_PLAYERBOT_WORLD_LAYOUT="${M2_PLAYERBOT_WORLD_LAYOUT:-split}"
 if [ "$M2_PLAYERBOT_WORLD_LAYOUT" = "unified" ]; then
   MAPS_game1="$MAPS_game1 1 3 4 5 41 43 44 45"
-  MAPS_first="6 107 81 110 111 112 113 181 182 183 200 250 302 304"
+  MAPS_first="6 107 81 111 112 113 181 182 183 200 250 302 304"
   MAPS_game2="46 90 208 301 303 351 352"
   log "world layout: unified (all three kingdoms + frontier on game1)"
 else
@@ -160,6 +160,11 @@ MAPS_game2="$MAPS_game2 363"
 # maps (game1 of the unified layout: 36 maps of 48); the dungeons 364-366 on game2 with 363.
 MAPS_game1="$MAPS_game1 361"
 MAPS_game2="$MAPS_game2 364 365 366"
+# MT2009_PLUS_GUILD_WAR_ARENA_V1: the battle arena 110 (metin2_map_t3) on game1 under
+# either layout - the bots' guild wars are fought in private copies of it
+# (playerbot_guild_war.h), and a bot cannot cross cores. 111 (the flags) stays on
+# first for the people's own wars.
+MAPS_game1="$MAPS_game1 110"
 # The difficulty is acted on by the migrate service (event flags the quests
 # read); said here so a support bundle carries it next to the layout.
 log "difficulty: ${M2_DIFFICULTY:-easy} (Biologist and stable keeper waits; apply.sh writes the flags)"

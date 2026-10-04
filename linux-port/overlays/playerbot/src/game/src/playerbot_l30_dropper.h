@@ -34,6 +34,18 @@
 //     minutes - or the bag holds PLAYERBOT_SELL_RUN_JUNK_ITEMS pieces of
 //     scrap or is full; and then back to the island.
 //
+// MT2009_PLUS_L30_WEAPON_DROPPER_V2 (test server, 3 October: "nie ma dropkow
+// na dolinie"): the trips looped and the counter wait took the rest - see
+// TPlayerBotL30DropperTown in playerbot_travel.h. Now: the bag nearly full
+// (not a dozen of scrap), potions under a hundred after five minutes on the
+// island and only with the yang to buy them, cooldowns on every reason, a
+// village that holds the dropper until its town visit has run, three minutes
+// at the counter, and every level-30 weapon it drops is goods
+// (IsPlayerBotL30WeaponSeller). The pass also picks a candidate already at
+// twenty-one or more before one that still has to level, and the census says
+// where the droppers spent the last ten minutes (island / valley / town /
+// counter / other, sampled every pass) and how many candidates there were.
+//
 // An implementation fragment in the sense playerbot_types.h describes:
 // included once, after playerbot_progression.h.
 
@@ -52,6 +64,35 @@ namespace
 	DWORD s_dwPlayerBotL30DropperFirstPass = 0;
 	DWORD s_dwPlayerBotL30DropperNextPass = 0;
 	DWORD s_dwPlayerBotL30DropperNextCensus = 0;
+	// MT2009_PLUS_L30_WEAPON_DROPPER_V2: where the droppers at work were at
+	// each pass since the last census: island, the rest of the valley, a
+	// village on an errand or between trips, a village at the counter, and
+	// anywhere else (the road, a dungeon, the M2 grind for the fare).
+	enum { L30_SHARE_ISLAND, L30_SHARE_VALLEY, L30_SHARE_TOWN, L30_SHARE_COUNTER, L30_SHARE_OTHER, L30_SHARE_COUNT };
+	int s_aPlayerBotL30DropperShare[L30_SHARE_COUNT] = { 0, 0, 0, 0, 0 };
+	const long PLAYERBOT_L30_DROPPER_ISLAND_RADIUS = 15000;
+
+	int GetPlayerBotL30DropperPlace(LPCHARACTER ch)
+	{
+		const long map = ch->GetMapIndex();
+		if (map == PLAYERBOT_MAP_ORC_VALLEY)
+		{
+			size_t count = 0;
+			const TPlayerBotHuntingHub* hubs = GetPlayerBotL30DropperHubs((int)ch->GetEmpire(), count);
+			for (size_t i = 0; hubs && i < count; ++i)
+				if (DISTANCE_APPROX(ch->GetX() - hubs[i].x, ch->GetY() - hubs[i].y) <= PLAYERBOT_L30_DROPPER_ISLAND_RADIUS)
+					return L30_SHARE_ISLAND;
+			return L30_SHARE_VALLEY;
+		}
+		if (IsPlayerBotVillageMap(map))
+		{
+			std::map<DWORD, TPlayerBotL30DropperTown>::const_iterator town =
+					s_mapPlayerBotL30DropperTown.find(ch->GetPlayerID());
+			return town != s_mapPlayerBotL30DropperTown.end() && town->second.since != 0
+					? L30_SHARE_COUNTER : L30_SHARE_TOWN;
+		}
+		return L30_SHARE_OTHER;
+	}
 
 	// Two or three, by channel and kingdom.
 	int GetPlayerBotL30DropperTarget(BYTE empire)
@@ -115,7 +156,12 @@ namespace
 		const bool settled = dwNow - s_dwPlayerBotL30DropperFirstPass >= PLAYERBOT_L30_DROPPER_SETTLE_MS;
 
 		int count[4] = { 0, 0, 0, 0 };
+		int atWork[4] = { 0, 0, 0, 0 };
+		int pool[4] = { 0, 0, 0, 0 };
 		// (no flag, hash, pid) per kingdom: the flagged first, then the hash.
+		// MT2009_PLUS_L30_WEAPON_DROPPER_V2: and among the unflagged, one at
+		// its working level before one that still has to level to it (the
+		// first int: 0 flagged, 1 at work, 2 under it).
 		std::vector<std::pair<std::pair<int, DWORD>, DWORD> > candidates[4];
 		for (TPlayerBotAIStateMap::iterator it = s_mapPlayerBotAIStates.begin();
 				it != s_mapPlayerBotAIStates.end(); ++it)
@@ -132,15 +178,25 @@ namespace
 				else if (count[empire] >= GetPlayerBotL30DropperTarget(empire))
 					ReleasePlayerBotL30Dropper(ch, state, "over_count");
 				else
+				{
 					++count[empire];
+					// MT2009_PLUS_L30_WEAPON_DROPPER_V2: where it is now.
+					if (IsPlayerBotL30DropperAtWork(ch))
+					{
+						++atWork[empire];
+						++s_aPlayerBotL30DropperShare[GetPlayerBotL30DropperPlace(ch)];
+					}
+				}
 				continue;
 			}
 			if (!IsPlayerBotL30DropperCandidate(ch, state))
 				continue;
+			++pool[empire];
 			const bool flagged = ch->GetQuestFlag(PLAYERBOT_L30_DROPPER_FLAG) != 0;
 			if (!flagged && !settled)
 				continue;
-			candidates[empire].push_back(std::make_pair(std::make_pair(flagged ? 0 : 1,
+			candidates[empire].push_back(std::make_pair(std::make_pair(flagged ? 0 :
+					(ch->GetLevel() >= PLAYERBOT_EXP_LOCK_L30_WEAPON_DROPPER ? 1 : 2),
 					PlayerBotNavHash(it->first ^ PLAYERBOT_L30_DROPPER_SEED ^ ((DWORD)g_bChannel << 24))), it->first));
 		}
 		for (BYTE empire = 1; empire <= 3; ++empire)
@@ -156,6 +212,8 @@ namespace
 					continue;
 				++count[empire];
 				MakePlayerBotL30Dropper(ch, st->second, count[empire], target, candidates[empire][i].first.first == 0);
+				if (IsPlayerBotL30DropperAtWork(ch))
+					++atWork[empire];
 			}
 		}
 		if (s_dwPlayerBotL30DropperNextCensus == 0 || (int)(dwNow - s_dwPlayerBotL30DropperNextCensus) >= 0)
@@ -164,6 +222,21 @@ namespace
 			sys_log(0, "PLAYERBOT_L30_DROPPER: census channel=%u shinsoo=%d/%d chunjo=%d/%d jinno=%d/%d",
 					(unsigned)g_bChannel, count[1], GetPlayerBotL30DropperTarget(1),
 					count[2], GetPlayerBotL30DropperTarget(2), count[3], GetPlayerBotL30DropperTarget(3));
+			// MT2009_PLUS_L30_WEAPON_DROPPER_V2: at work (21+) of those, the
+			// candidates left over (level 17-23, eligible), and the time share.
+			int samples = 0;
+			for (int i = 0; i < L30_SHARE_COUNT; ++i)
+				samples += s_aPlayerBotL30DropperShare[i];
+			const int div = std::max(1, samples);
+			sys_log(0, "PLAYERBOT_L30_DROPPER: share channel=%u at_work=%d/%d/%d pool=%d/%d/%d samples=%d island=%d%% valley=%d%% town=%d%% counter=%d%% other=%d%%",
+					(unsigned)g_bChannel, atWork[1], atWork[2], atWork[3], pool[1], pool[2], pool[3], samples,
+					s_aPlayerBotL30DropperShare[L30_SHARE_ISLAND] * 100 / div,
+					s_aPlayerBotL30DropperShare[L30_SHARE_VALLEY] * 100 / div,
+					s_aPlayerBotL30DropperShare[L30_SHARE_TOWN] * 100 / div,
+					s_aPlayerBotL30DropperShare[L30_SHARE_COUNTER] * 100 / div,
+					s_aPlayerBotL30DropperShare[L30_SHARE_OTHER] * 100 / div);
+			for (int i = 0; i < L30_SHARE_COUNT; ++i)
+				s_aPlayerBotL30DropperShare[i] = 0;
 		}
 	}
 }

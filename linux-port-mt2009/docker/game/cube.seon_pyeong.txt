@@ -93,6 +93,19 @@ percent	100
 gold	2000000
 end
 
+# Partyzana+9 (65) -> Pogromca Nieb. Smoka+0 (80)
+section
+npc	20091
+item	3139	1
+item	70031	1
+item	27992	2
+item	27993	2
+item	27994	2
+reward	3180	1
+percent	100
+gold	2000000
+end
+
 # Zbroja Z Czarnej Stali+9 (66) -> Zbroja Z Nieb. Stali+0 (80)
 section
 npc	20091

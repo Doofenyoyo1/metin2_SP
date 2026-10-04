@@ -3,31 +3,31 @@
 .world-map{width:100%;height:510px;aspect-ratio:auto;background-size:cover}
 .world-map{width:100%;height:auto;aspect-ratio:4/5;background:#050604 center/cover no-repeat}
 .world-map:before{display:none}
-.world-map[data-map-index="21"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/chunjo-m1.png')}
-.world-map[data-map-index="23"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/chunjo-m2.png')}
-.world-map[data-map-index="24"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/guild-map-02.png')}
-.world-map[data-map-index="25"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/easy-monkey.png')}
-.world-map[data-map-index="108"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/medium-monkey.webp')}
-.world-map[data-map-index="109"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/hard-monkey.webp')}
-.world-map[data-map-index="61"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/mount-sohan.png')}
-.world-map[data-map-index="62"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/doyyumhwaji.png')}
-.world-map[data-map-index="71"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/spider-dungeon-v1.png')}
-.world-map[data-map-index="64"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/orc-valley.png')}
-.world-map[data-map-index="63"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/yongbi-desert.png')}
-.world-map[data-map-index="104"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/spider-dungeon-v1.png')}
-.world-map[data-map-index="65"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/hwang-temple.png')}
-.world-map[data-map-index="4"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/shinsoo-guild.png')}
-.world-map[data-map-index="44"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/jinno-guild.png')}
-.world-map[data-map-index="5"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/easy-monkey.png')}
-.world-map[data-map-index="45"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/easy-monkey.png')}
-.world-map[data-map-index="1"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/shinsoo-m1.png')}
-.world-map[data-map-index="3"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/shinsoo-m2.png')}
-.world-map[data-map-index="41"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/jinno-m1.png')}
-.world-map[data-map-index="43"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/jinno-m2.png')}
-.world-map[data-map-index="67"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/trent-forest.png')}
-.world-map[data-map-index="68"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/trent02-red-forest.png')}
-.world-map[data-map-index="72"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/grotto-v1.png')}
-.world-map[data-map-index="73"]{background-image:linear-gradient(#00000012,#00000012),url('/static/maps/grotto-v2.png')}
+.world-map[data-map-index="21"]{background-image:linear-gradient(#00000012,#00000012),url('maps/chunjo-m1.png')}
+.world-map[data-map-index="23"]{background-image:linear-gradient(#00000012,#00000012),url('maps/chunjo-m2.png')}
+.world-map[data-map-index="24"]{background-image:linear-gradient(#00000012,#00000012),url('maps/guild-map-02.png')}
+.world-map[data-map-index="25"]{background-image:linear-gradient(#00000012,#00000012),url('maps/easy-monkey.png')}
+.world-map[data-map-index="108"]{background-image:linear-gradient(#00000012,#00000012),url('maps/medium-monkey.webp')}
+.world-map[data-map-index="109"]{background-image:linear-gradient(#00000012,#00000012),url('maps/hard-monkey.webp')}
+.world-map[data-map-index="61"]{background-image:linear-gradient(#00000012,#00000012),url('maps/mount-sohan.png')}
+.world-map[data-map-index="62"]{background-image:linear-gradient(#00000012,#00000012),url('maps/doyyumhwaji.png')}
+.world-map[data-map-index="71"]{background-image:linear-gradient(#00000012,#00000012),url('maps/spider-dungeon-v1.png')}
+.world-map[data-map-index="64"]{background-image:linear-gradient(#00000012,#00000012),url('maps/orc-valley.png')}
+.world-map[data-map-index="63"]{background-image:linear-gradient(#00000012,#00000012),url('maps/yongbi-desert.png')}
+.world-map[data-map-index="104"]{background-image:linear-gradient(#00000012,#00000012),url('maps/spider-dungeon-v1.png')}
+.world-map[data-map-index="65"]{background-image:linear-gradient(#00000012,#00000012),url('maps/hwang-temple.png')}
+.world-map[data-map-index="4"]{background-image:linear-gradient(#00000012,#00000012),url('maps/shinsoo-guild.png')}
+.world-map[data-map-index="44"]{background-image:linear-gradient(#00000012,#00000012),url('maps/jinno-guild.png')}
+.world-map[data-map-index="5"]{background-image:linear-gradient(#00000012,#00000012),url('maps/easy-monkey.png')}
+.world-map[data-map-index="45"]{background-image:linear-gradient(#00000012,#00000012),url('maps/easy-monkey.png')}
+.world-map[data-map-index="1"]{background-image:linear-gradient(#00000012,#00000012),url('maps/shinsoo-m1.png')}
+.world-map[data-map-index="3"]{background-image:linear-gradient(#00000012,#00000012),url('maps/shinsoo-m2.png')}
+.world-map[data-map-index="41"]{background-image:linear-gradient(#00000012,#00000012),url('maps/jinno-m1.png')}
+.world-map[data-map-index="43"]{background-image:linear-gradient(#00000012,#00000012),url('maps/jinno-m2.png')}
+.world-map[data-map-index="67"]{background-image:linear-gradient(#00000012,#00000012),url('maps/trent-forest.png')}
+.world-map[data-map-index="68"]{background-image:linear-gradient(#00000012,#00000012),url('maps/trent02-red-forest.png')}
+.world-map[data-map-index="72"]{background-image:linear-gradient(#00000012,#00000012),url('maps/grotto-v1.png')}
+.world-map[data-map-index="73"]{background-image:linear-gradient(#00000012,#00000012),url('maps/grotto-v2.png')}
 .density-heat-layer{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}.density-heat-dot{position:absolute;display:block;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none}
 .world-overview{min-height:510px;padding:17px;background:#0d1929;border:1px solid #294562;border-radius:7px}.world-overview h3{margin:3px 0 14px}.world-summary-grid{display:grid;grid-template-columns:1fr;gap:6px}.world-summary-grid>div{min-height:0;padding:9px 10px;border:1px solid #213852;border-radius:6px;background:#101d2d;display:flex;align-items:center;justify-content:space-between;gap:10px}.world-summary-grid b{order:2;color:#82b6ff;font-size:20px;overflow:hidden;text-overflow:ellipsis}.world-summary-grid span,.overview-restart span{display:block;color:#9db9de;font-size:11px}.overview-maps,.overview-restart,.overview-rates{margin-top:12px;padding-top:12px;border-top:1px solid #213852}.overview-maps h4,.overview-rates h4{margin:0 0 8px}.overview-maps-list{display:block}.overview-maps-list>div,.overview-rates div{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #213852;color:#9db9de;font-size:12px}.overview-maps b,.overview-rates b{color:#79e3af}.overview-restart b{display:block;margin-top:4px;font-size:12px;color:#dcecff}@media(max-width:1350px){.live-dashboard-grid{grid-template-columns:1fr}.world-overview{min-height:0}.live-grid{justify-content:start}}@media(max-width:1000px){.live-grid{grid-template-columns:1fr}.world-map{height:510px;max-width:510px;justify-self:center}}@media(max-width:520px){.world-map{height:440px}}
 @media(min-width:1351px){.live-shell{box-sizing:border-box;width:calc(66.666% - 9px);position:relative}.live-dashboard-grid{display:block}.world-overview{position:absolute;left:calc(100% + 18px);top:0;bottom:0;width:calc(50% - 9px);box-sizing:border-box;min-height:0}.live-map-section{width:100%}}
@@ -230,6 +230,32 @@ body[data-theme="empire"]{--live-surface:#241a12;--live-surface-strong:#1a1109;-
 .map-insight-card{display:grid;gap:9px;padding:11px;border:1px solid var(--live-border);border-radius:7px;background:var(--live-surface-strong)}
 .map-insight-card h3{margin:0;color:var(--live-accent-text);font-size:14px}
 .map-insight-chart{display:flex;align-items:center;gap:12px}
+.map-insight-list{max-height:220px;overflow-y:auto}
+.map-insight-list{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--live-accent) 75%,var(--live-accent-text)) color-mix(in srgb,var(--live-surface-strong) 70%,transparent)}
+.map-insight-list::-webkit-scrollbar{width:7px}
+.map-insight-list::-webkit-scrollbar-track{background:color-mix(in srgb,var(--live-surface-strong) 70%,transparent);border-radius:999px}
+.map-insight-list::-webkit-scrollbar-thumb{background:linear-gradient(180deg,color-mix(in srgb,var(--live-accent) 85%,var(--live-accent-text)),var(--live-accent));border:1px solid color-mix(in srgb,var(--live-surface-strong) 70%,transparent);border-radius:999px}
+.map-insight-list::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,color-mix(in srgb,var(--live-accent) 65%,var(--live-accent-text)),color-mix(in srgb,var(--live-accent) 92%,var(--live-accent-text)))}
+.insight-empire-filter{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:2px}
+.insight-empire-filter button{padding:4px 9px;border:1px solid var(--live-border);border-radius:14px;background:var(--live-filter);color:var(--live-accent-text);font-size:11px;cursor:pointer}
+.insight-empire-filter button.active{background:var(--live-accent);color:#fff}
+/* "Aktywności w świecie" + "Boty wg poziomu" used to be two separate,
+   always-visible cards stacked with their own scrollbars -- cramped and
+   broke out of the sidebar's width on desktop (screenshot, 2026-10-02).
+   One card, two tabs, same switcher pattern as the existing Ranking/
+   Aktywności tabs on this page (live-sidebar[data-sidebar-tab]). */
+.map-insight-card--world{gap:7px}
+/* Rozciąga się do dołu .live-insights (wysokość tej kolumny jest teraz
+   dopasowana do mapy przez JS, patrz live-widget.js) zamiast zostawiać
+   lukę/schodek pod Ranking/Aktywności. */
+#world-insights-card{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+#world-insights-card .world-tab-panel{flex:1 1 auto;max-height:280px;min-height:0;overflow-y:auto}
+.insight-tabs{display:flex;gap:5px;margin-bottom:2px}
+.insight-tabs button{flex:1;padding:6px 4px;border:1px solid var(--live-border);border-radius:6px;background:var(--live-filter);color:var(--live-accent-text);font-size:11px;cursor:pointer}
+.insight-tabs button.active{background:var(--live-accent);color:#fff}
+.world-tab-panel{display:none}
+#world-insights-card[data-world-tab="activity"] #world-activity-chart{display:block}
+#world-insights-card[data-world-tab="levels"] #world-level-chart{display:block}
 .map-donut{width:78px;aspect-ratio:1;border-radius:50%;display:grid;place-content:center;text-align:center;background:radial-gradient(circle at center,var(--live-surface) 0 57%,transparent 59%),var(--map-donut);flex:0 0 auto}
 .map-donut b{display:block;color:var(--live-accent-text);font-size:12px;line-height:1.05}
 .map-donut small{display:block;margin-top:2px;color:var(--live-number);font-size:16px;font-weight:800}
@@ -304,3 +330,15 @@ body[data-theme="empire"]{--live-surface:#241a12;--live-surface-strong:#1a1109;-
 @container (min-width:451px) and (max-width:600px){
   .bot-point{width:15px!important;height:15px!important}
 }
+
+/* MT2009_PLUS_SEBAN_MAPS_V1: the Temple of Ochao and the Arezzo places, stitched from each map's client minimap tiles. */
+.world-map[data-map-index="209"]{background-image:linear-gradient(#00000012,#00000012),url('maps/ochao-temple.png')}
+.world-map[data-map-index="360"]{background-image:linear-gradient(#00000012,#00000012),url('maps/arezzo-cyclops-valley.png')}
+.world-map[data-map-index="361"]{background-image:linear-gradient(#00000012,#00000012),url('maps/arezzo-pharaoh-wastes.png')}
+.world-map[data-map-index="362"]{background-image:linear-gradient(#00000012,#00000012),url('maps/arezzo-enchanted-forest.png')}
+.world-map[data-map-index="363"]{background-image:linear-gradient(#00000012,#00000012),url('maps/arezzo-library.png')}
+.world-map[data-map-index="364"]{background-image:linear-gradient(#00000012,#00000012),url('maps/arezzo-wukong-hill.png')}
+.world-map[data-map-index="365"]{background-image:linear-gradient(#00000012,#00000012),url('maps/arezzo-scorpion-ruins.png')}
+.world-map[data-map-index="366"]{background-image:linear-gradient(#00000012,#00000012),url('maps/arezzo-ancient-jungle.png')}
+.world-map[data-map-index="209"],.world-map[data-map-index="360"],.world-map[data-map-index="361"],.world-map[data-map-index="362"],.world-map[data-map-index="363"],.world-map[data-map-index="364"],.world-map[data-map-index="365"],.world-map[data-map-index="366"]{aspect-ratio:1!important}
+@media(min-width:1351px) and (max-width:2199px){.world-map[data-map-index="209"],.world-map[data-map-index="360"],.world-map[data-map-index="361"],.world-map[data-map-index="362"],.world-map[data-map-index="363"],.world-map[data-map-index="364"],.world-map[data-map-index="365"],.world-map[data-map-index="366"]{max-width:min(520px,100%)!important}}

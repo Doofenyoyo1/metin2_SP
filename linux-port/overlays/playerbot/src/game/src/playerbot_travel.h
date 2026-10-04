@@ -68,9 +68,50 @@ namespace
 	// counter: a weapon the counter could not take (no free line, no stand)
 	// is not a reason to come straight back for it, and the counter's round
 	// gets PLAYERBOT_L30_DROPPER_TOWN_HOLD_MS to put it up.
-	struct TPlayerBotL30DropperTown { int carried; DWORD since; TPlayerBotL30DropperTown() : carried(0), since(0) {} };
+	//
+	// MT2009_PLUS_L30_WEAPON_DROPPER_V2: and everything else the island's
+	// trips need, because the first version looped (test server, 3 October,
+	// 44 minutes): ChudyDuch69 left the island for "junk" every two and a half
+	// minutes - the twelve pieces of PLAYERBOT_SELL_RUN_JUNK_ITEMS start no
+	// town visit under the persona (PlayerBotWantsSellRun), so it came back
+	// with the same scrap and went again; MaskaStachu2 went for potions four
+	// seconds after the Teleporter put it down, three times in thirty
+	// seconds, 4 000 yang a time, because the second village's travel pass
+	// sends a bot out before its town visit starts; and the droppers with a
+	// weapon stood up to twenty minutes in the village while the counter kept
+	// their class's own blade for an anvil they will never use at twenty-one.
+	//   - carried/since: the weapons it took out of town and the counter's wait;
+	//   - leavingSince/leavingWhy/leavingToM1: a departure, decided once and
+	//     walked to the gate (the decision was taken and logged every tick);
+	//   - errand/errandSince: it went to town for potions or the bag, and the
+	//     village holds it until its town visit has run (or the hold is out);
+	//   - potionRetryAt/bagRetryAt/fightRetryAt: no second trip for the same
+	//     thing until then, whatever the town managed;
+	//   - lackGoldLogAt: "hunts with what it has" said once in a while.
+	struct TPlayerBotL30DropperTown
+	{
+		int carried; DWORD since;
+		DWORD leavingSince; const char* leavingWhy; bool leavingToM1;
+		bool errand; DWORD errandSince;
+		DWORD potionRetryAt; DWORD bagRetryAt; DWORD fightRetryAt; DWORD lackGoldLogAt;
+		TPlayerBotL30DropperTown() : carried(0), since(0), leavingSince(0), leavingWhy(""), leavingToM1(false),
+				errand(false), errandSince(0), potionRetryAt(0), bagRetryAt(0), fightRetryAt(0), lackGoldLogAt(0) {}
+	};
 	std::map<DWORD, TPlayerBotL30DropperTown> s_mapPlayerBotL30DropperTown;
-	const DWORD PLAYERBOT_L30_DROPPER_TOWN_HOLD_MS = 20 * 60 * 1000;
+	// MT2009_PLUS_L30_WEAPON_DROPPER_V2: three minutes, not twenty - the
+	// counter is served at once (ManagePlayerBotOfflineService), and what it
+	// has not taken by then is carried back out.
+	const DWORD PLAYERBOT_L30_DROPPER_TOWN_HOLD_MS = 3 * 60 * 1000;
+	// MT2009_PLUS_L30_WEAPON_DROPPER_V2: the island's trips.
+	const DWORD PLAYERBOT_L30_DROPPER_POTION_MIN_STAY_MS = 5 * 60 * 1000;   // potions running low wait this long on the island
+	const DWORD PLAYERBOT_L30_DROPPER_POTION_RETRY_MS = 15 * 60 * 1000;     // and this long after the last potion trip
+	const DWORD PLAYERBOT_L30_DROPPER_BAG_RETRY_MS = 20 * 60 * 1000;        // the bag: after the last bag trip
+	const DWORD PLAYERBOT_L30_DROPPER_FIGHT_RETRY_MS = 5 * 60 * 1000;       // no weapon, no armour, no arrows
+	const DWORD PLAYERBOT_L30_DROPPER_LEAVING_MS = 3 * 60 * 1000;           // a walk to the gate that never arrives is dropped
+	const DWORD PLAYERBOT_L30_DROPPER_ERRAND_HOLD_MS = 4 * 60 * 1000;       // the village waits this long for the town visit
+	const size_t PLAYERBOT_L30_DROPPER_POTION_RED = 100;                     // "the potions run out": under a hundred red
+	const size_t PLAYERBOT_L30_DROPPER_POTION_BLUE = 60;                     // or sixty blue for a Shaman or a Sura
+	const long long PLAYERBOT_L30_DROPPER_POTION_BUDGET = 6000;              // over the Teleporter's fare back
 
 	// The belt a potion trip sets out at, moved by the RESTOCK weight: 25 waits
 	// for a quarter of it, 250 goes at two and a half times - never past `cap`.
@@ -282,7 +323,11 @@ namespace
 		// and the visit only ever fires for a bot already standing in M1. The
 		// gate is deliberately the whole shopping list, so this can never
 		// become the crowd at the gates that 2.0.60 was.
-		if (PlayerBotHasReadyCraftRow(ch))
+		// MT2009_PLUS_BOT_HERBALIST_ACTIVITY_V1: and only once the board's
+		// visit is due (dwNextHerbalistCheckTime): every bot that picked herbs
+		// is a brewer now, and one with herbs left over after a visit would
+		// otherwise be called back to the first village for the whole gap.
+		if (dwNow >= state.dwNextHerbalistCheckTime && PlayerBotHasReadyCraftRow(ch))
 			return true;
 		// Her too: a skill stuck at seventeen with no points left to try
 		// anything else is worth a trip to Joan while the character is still
@@ -630,6 +675,10 @@ namespace
 		// bot hunts where the trial is, whatever its level would otherwise say.
 		if (IsPlayerBotOnMilitaryHorseTrial(ch) && !metinolog)
 			return PLAYERBOT_MAP_DEMON_TOWER;
+		// MT2009_PLUS_HORSE30_V1: and the Black Steed trial in the Grotto of
+		// Exile V2, where the Setaou Archers (2412) stand.
+		if (IsPlayerBotOnBlackSteedTrial(ch) && !metinolog)
+			return PLAYERBOT_MAP_GROTTO_V2;
 
 		// MT2009_PLUS_PROGRESSION_V1: every level below is the operator's
 		// (the panel's map table, playerbot_progression_rules.h); the
@@ -1154,6 +1203,8 @@ namespace
 		return (PlayerBotNavHash(ch->GetPlayerID() ^ 0x42455354U) % 2U) == 0;
 	}
 
+	int GetPlayerBotDesiredHorseMedalStock(LPCHARACTER ch); // below
+
 	bool ShouldPlayerBotPursueHorseExpedition(LPCHARACTER ch, DWORD dwNow)
 	{
 		if (!ch)
@@ -1202,7 +1253,14 @@ namespace
 		// full bag finishes its medal and leaves.
 		if (IsPlayerBotBagFull(ch))
 			return false;
-		if (!CanPlayerBotAdvanceHorse(ch))
+		// MT2009_PLUS_HORSE30_V1: only for a horse whose next step is a paid
+		// training - a trial (10, 20, 29) asks no medal - and not with the
+		// medals of the next trainings already in the bag: then it is the
+		// materials or the yang it lacks, and those come from elsewhere.
+		if (!CanPlayerBotAdvanceHorse(ch) || GetPlayerBotHorseTrainingMedals(ch, 1) <= 0)
+			return false;
+		if (ch->GetMapIndex() != GetPlayerBotMonkeyMapFor(ch) &&
+				(int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) >= GetPlayerBotDesiredHorseMedalStock(ch))
 			return false;
 		// MT2009_PLUS_L30_WEAPON_DROPPER_V1: nor the island's dropper - its
 		// time is its island's, as the other droppers' is their ground's.
@@ -1317,16 +1375,15 @@ namespace
 		// The high-priority builds occasionally prepare the next horse level in the
 		// same visit. Other classes leave after one medal, freeing dungeon capacity
 		// and returning to ordinary experience progression much sooner.
-		// MT2009_PLUS_HORSE_ECONOMY_V2: past the battle horse a visit is worth
-		// up to three medals (never past the twentieth level), and the due
-		// saddlebag row's on top.
-		if (ch->GetHorseLevel() >= 11 && ch->GetHorseLevel() <= 19)
-			return std::min(3, 20 - (int)ch->GetHorseLevel()) + GetPlayerBotSaddlebagMedalReserve(ch);
+		// MT2009_PLUS_HORSE30_V1: in medals of the paid training
+		// (playerbot_horse30.h) - two trainings past the battle horse (2 or 3
+		// medals each, never across a trial), the next one or two before it -
+		// and the due saddlebag row's on top.
 		const bool highPriority = ch->GetJob() == JOB_WARRIOR ||
 				(ch->GetJob() == JOB_SURA && ch->GetSkillGroup() == 1);
-		return highPriority
-				? 1 + (PlayerBotNavHash(ch->GetPlayerID() ^ 0x4d454441U) % 2U)
-				: 1;
+		const int levels = ch->GetHorseLevel() >= 11 ? 2
+				: (highPriority ? 1 + (int)(PlayerBotNavHash(ch->GetPlayerID() ^ 0x4d454441U) % 2U) : 1);
+		return std::max(1, GetPlayerBotHorseTrainingMedals(ch, levels)) + GetPlayerBotSaddlebagMedalReserve(ch);
 	}
 
 	// A warp that half worked, and the only kind of damage a bot cannot walk off.
@@ -1690,6 +1747,17 @@ namespace
 	{
 		if (!ch)
 			return false;
+		// MT2009_PLUS_SAME_MAP_PORTAL_GUARD_V1: a portal or Teleporter walk to
+		// the map the bot already stands on is a broken decision - the engine
+		// would only put it down again where it is. Refused, logged once a bot.
+		if (targetMap == ch->GetMapIndex())
+		{
+			static std::set<DWORD> s_setSameMapLogged;
+			if (s_setSameMapLogged.insert(ch->GetPlayerID()).second)
+				sys_err("PLAYERBOT_WORLD: same-map portal refused pid=%u name=%s map=%ld reason=%s",
+						ch->GetPlayerID(), ch->GetName(), targetMap, reason ? reason : "?");
+			return false;
+		}
 		SetPlayerBotAction(state, BOT_ACTION_TRAVEL, dwNow);
 		state.dwTargetVID = 0;
 		ch->SetVictim(NULL);
@@ -2109,7 +2177,7 @@ namespace
 		}
 
 		const long mapIndex = ch->GetMapIndex();
-		const bool hasMedal = ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) > 0;
+		// MT2009_PLUS_HORSE30_V1: the medal alone no longer decides (holdsMedalToHandIn).
 		// A medal in a medal dropper's bag is stock for its counter, not an errand
 		// at the stable: neither village holds such a bot back for one, and its
 		// expedition goes on past it (GetPlayerBotDesiredHorseMedalStock).
@@ -2117,9 +2185,12 @@ namespace
 		// back: one it cannot hand in (a battle-horse candidate's, a horse at
 		// the cap) is stock for a counter, and a village that held it for one
 		// would hold it for good.
-		const bool holdsMedalToHandIn = hasMedal &&
-				state.bPersonality != BOT_PERSONALITY_MEDAL_DROPPER &&
-				(!IsPlayerBotPersonaEnabled() || CanPlayerBotAdvanceHorse(ch));
+		// MT2009_PLUS_HORSE30_V1: a medal alone is no stable errand any more -
+		// a training asks the materials and the yang too, and a village that
+		// held a bot for a medal it cannot spend would hold it for good. Only
+		// a training paid in full or a trial to collect (PlayerBotHasStableBusiness).
+		const bool holdsMedalToHandIn = state.bPersonality != BOT_PERSONALITY_MEDAL_DROPPER &&
+				PlayerBotHasStableBusiness(ch);
 		// A trader does not down tools to go and farm horse medals in the Monkey
 		// Dungeon. That errand takes a bot right across the world for the better
 		// part of an hour, and it is exactly the striving this personality exists
@@ -2321,6 +2392,33 @@ namespace
 		if (IsPlayerBotL30DropperAtWork(ch) && IsPlayerBotVillageMap(mapIndex))
 		{
 			TPlayerBotL30DropperTown& town = s_mapPlayerBotL30DropperTown[ch->GetPlayerID()];
+			// MT2009_PLUS_L30_WEAPON_DROPPER_V2: arrived - the walk is over.
+			town.leavingSince = 0;
+			// It came for potions or the bag: the second village's travel pass
+			// runs before the town visit and sent it straight back to the
+			// valley, needs unmet (MaskaStachu2: 12 s in Bokjung, 4 000 yang
+			// a crossing). Held until a visit has run - a visit's end sets the
+			// shop clock, which the departure cleared - or the hold is out.
+			if (town.errand)
+			{
+				if (town.errandSince == 0)
+					town.errandSince = dwNow;
+				const bool visited = state.dwNextShopCheckTime != 0;
+				if (!visited && dwNow - town.errandSince < PLAYERBOT_L30_DROPPER_ERRAND_HOLD_MS)
+				{
+					PlayerBotLogThrottled("l30_dropper_errand", dwNow,
+							"PLAYERBOT_L30_DROPPER: town errand pid=%u name=%s map=%ld waited_s=%u gold=%lld",
+							ch->GetPlayerID(), ch->GetName(), mapIndex, (dwNow - town.errandSince) / 1000U,
+							(long long)ch->GetGold());
+					return false;
+				}
+				sys_log(0, "PLAYERBOT_L30_DROPPER: town errand done pid=%u name=%s map=%ld visited=%d took_s=%u junk=%u bag_full=%d gold=%lld",
+						ch->GetPlayerID(), ch->GetName(), mapIndex, visited ? 1 : 0,
+						(dwNow - town.errandSince) / 1000U, (unsigned)CountPlayerBotJunkItems(ch),
+						IsPlayerBotBagFull(ch) ? 1 : 0, (long long)ch->GetGold());
+				town.errand = false;
+				town.errandSince = 0;
+			}
 			const int goods = CountPlayerBotL30DropperGoods(ch);
 			town.carried = goods;
 			if (goods <= 0)
@@ -2775,8 +2873,10 @@ namespace
 			// The battle-horse trial is a hundred kills of two archers on this one
 			// map; everything below that would send the bot home before the
 			// hundredth waits for it (2.0.66, 2.0.67).
-			const bool onBattleTrialHere = mapIndex == PLAYERBOT_MAP_DESERT &&
-					IsPlayerBotOnBattleHorseTrial(ch);
+			const bool onBattleTrialHere = (mapIndex == PLAYERBOT_MAP_DESERT &&
+					IsPlayerBotOnBattleHorseTrial(ch)) ||
+					// MT2009_PLUS_HORSE30_V1: the Black Steed's fifty archers too.
+					(mapIndex == PLAYERBOT_MAP_GROTTO_V2 && IsPlayerBotOnBlackSteedTrial(ch));
 			// The personality's visit clock ended a trial two-thirds done
 			// ("frontier_visit_complete" after 41 minutes, m2zip 17 September).
 			// MT2009_PLUS_PROGRESSION_V3: nor a bot a gate holds for its Metins on
@@ -2812,11 +2912,19 @@ namespace
 			// five times in forty minutes for that column, 97 to 426 s a stay
 			// (GumbASSx, m2zip 17 September), and the town visit could not make
 			// one either.
-			const bool blocked = onBattleTrialHere
-					? (ch->IsItemLoaded() &&
-						(ch->GetWear(WEAR_WEAPON) == NULL || ch->GetWear(WEAR_BODY) == NULL ||
-						 NeedsPlayerBotEmergencyPotions(ch) || NeedsPlayerBotArrows(ch)))
-					: BlocksPlayerBotTravel(ch);
+			// MT2009_PLUS_FRONTIER_BOUNCE_FIX_V1: the bag with no free three-cell
+			// column is not a fight stop either. The first village lets a bot
+			// out with it once its town visit could not empty the bag (or the
+			// M1 hold timed out - the Biologist's herb row, 580 releases an
+			// hour), and the frontier sent it straight back for it: 41 -> 64
+			// -> 41 every 13 s, the Teleporter fee paid each time, the bot seen
+			// "teleporting to its own village" (Banan, 2.18.0, 2 October). The
+			// bag now sends it home only once it has settled in and played.
+			const bool fightStops = ch->IsItemLoaded() &&
+					(ch->GetWear(WEAR_WEAPON) == NULL || ch->GetWear(WEAR_BODY) == NULL ||
+					 NeedsPlayerBotEmergencyPotions(ch) || NeedsPlayerBotArrows(ch));
+			const bool blocked = onBattleTrialHere ? fightStops
+					: (fightStops || (settledIn && BlocksPlayerBotTravel(ch)));
 			// The Biologist hand-in a trial bot carries sent it home for the
 			// hand-in every few minutes: 75 desert stays of 344 s on average in
 			// an hour, 67 under ten minutes, the trial's kills 25 at a time half
@@ -2830,34 +2938,122 @@ namespace
 			// buy it there), or the bag holds a lot of scrap - and the frontier
 			// draw brings it straight back to the island. No visit clock, no
 			// medal, no M3, no river.
+			// MT2009_PLUS_L30_WEAPON_DROPPER_V2: what stops the fight (once in
+			// PLAYERBOT_L30_DROPPER_FIGHT_RETRY_MS), a weapon, the potions under
+			// PLAYERBOT_L30_DROPPER_POTION_RED / _BLUE after five minutes here
+			// and fifteen after the last such trip - and only with the fare and
+			// PLAYERBOT_L30_DROPPER_POTION_BUDGET to spend, or it hunts with what
+			// it has - and the bag nearly full or without a column of three, once
+			// in twenty minutes.
 			if (mapIndex == PLAYERBOT_MAP_ORC_VALLEY && IsPlayerBotL30DropperAtWork(ch))
 			{
+				TPlayerBotL30DropperTown& town = s_mapPlayerBotL30DropperTown[ch->GetPlayerID()];
+				// MT2009_PLUS_L30_WEAPON_DROPPER_V2: a departure is decided once
+				// and walked to the gate; asked again every tick, it was logged
+				// three times a second and its cooldowns below would have
+				// turned it round half-way.
+				if (town.leavingSince != 0 && dwNow - town.leavingSince >= PLAYERBOT_L30_DROPPER_LEAVING_MS)
+					town.leavingSince = 0;
 				// Only a weapon dropped since it left town.
-				const int goods = std::max(0, CountPlayerBotL30DropperGoods(ch) -
-						s_mapPlayerBotL30DropperTown[ch->GetPlayerID()].carried);
-				const size_t junk = CountPlayerBotJunkItems(ch);
-				const bool potions = NeedsPlayerBotPotions(ch);
-				const bool bagFull = IsPlayerBotBagFull(ch);
-				if (!blocked && !potions && goods == 0 && !bagFull &&
-						junk < PLAYERBOT_SELL_RUN_JUNK_ITEMS)
-					return false;
-				const char* why = blocked ? "l30_dropper_blocked" : potions ? "l30_dropper_potions" :
-						goods > 0 ? "l30_dropper_weapon_to_sell" : "l30_dropper_junk";
-				sys_log(0, "PLAYERBOT_L30_DROPPER: to town pid=%u name=%s level=%u reason=%s weapons=%d junk=%u bag_full=%d stayed_s=%u",
-						ch->GetPlayerID(), ch->GetName(), (unsigned)ch->GetLevel(), why, goods,
-						(unsigned)junk, bagFull ? 1 : 0, stayed / 1000U);
-				// A weapon is sold at the counter: its next service is now
-				// (ManagePlayerBotOfflineService), not at the dropper's round.
-				if (goods > 0 && state.offlineShop.nextService > dwNow + 30000)
-					state.offlineShop.nextService = dwNow + 30000;
+				const int goods = std::max(0, CountPlayerBotL30DropperGoods(ch) - town.carried);
+				const char* why = NULL;
+				bool toM1 = false;
+				bool ring = false;
+				bool errandTrip = false;
+				if (town.leavingSince != 0)
+				{
+					why = town.leavingWhy;
+					toM1 = town.leavingToM1;
+				}
+				else
+				{
+					// On the island and not on its way: no errand is open.
+					town.errand = false;
+					size_t red = 0, blue = 0;
+					CountPlayerBotPotions(ch, red, blue);
+					const bool caster = ch->GetJob() == JOB_SHAMAN || ch->GetJob() == JOB_SURA;
+					const long long gold = (long long)ch->GetGold();
+					// The fare back and something to spend: below it the town
+					// has nothing to sell it, and it hunts with what it has.
+					const bool canRestock = gold >= (long long)GetPlayerBotTeleporterFee(ch) +
+							PLAYERBOT_L30_DROPPER_POTION_BUDGET;
+					const bool potionsOut = NeedsPlayerBotEmergencyPotions(ch);
+					const bool potionsLow = potionsOut || red < PLAYERBOT_L30_DROPPER_POTION_RED ||
+							(caster && blue < PLAYERBOT_L30_DROPPER_POTION_BLUE);
+					const bool fightStop = ch->IsItemLoaded() && (ch->GetWear(WEAR_WEAPON) == NULL ||
+							ch->GetWear(WEAR_BODY) == NULL || NeedsPlayerBotArrows(ch));
+					// The bag: nearly full (PLAYERBOT_BAG_FULL_PERCENT, the
+					// Trader's own line, which starts a town visit), or no
+					// column of three left for the weapon it is here for. A
+					// dozen pieces of scrap are not a reason any more: under the
+					// persona they start no visit and came back unsold.
+					const bool noColumn = ch->IsItemLoaded() && ch->GetEmptyInventory(3) < 0;
+					const bool bagFull = noColumn || IsPlayerBotBagFull(ch);
+					const DWORD stayedOnIsland = stayed;
+					if (fightStop && (town.fightRetryAt == 0 || (int)(dwNow - town.fightRetryAt) >= 0))
+					{
+						why = "l30_dropper_blocked";
+						ring = true;
+						town.fightRetryAt = dwNow + PLAYERBOT_L30_DROPPER_FIGHT_RETRY_MS;
+					}
+					else if (goods > 0)
+						why = "l30_dropper_weapon_to_sell";
+					else if (potionsLow && canRestock && (town.potionRetryAt == 0 || (int)(dwNow - town.potionRetryAt) >= 0) &&
+							(potionsOut || stayedOnIsland >= PLAYERBOT_L30_DROPPER_POTION_MIN_STAY_MS))
+					{
+						why = "l30_dropper_potions";
+						ring = potionsOut;
+						errandTrip = true;
+						town.potionRetryAt = dwNow + PLAYERBOT_L30_DROPPER_POTION_RETRY_MS;
+					}
+					else if (bagFull && settledIn && (town.bagRetryAt == 0 || (int)(dwNow - town.bagRetryAt) >= 0))
+					{
+						why = "l30_dropper_bag";
+						errandTrip = true;
+						town.bagRetryAt = dwNow + PLAYERBOT_L30_DROPPER_BAG_RETRY_MS;
+					}
+					if (potionsLow && !canRestock && (town.lackGoldLogAt == 0 ||
+							(int)(dwNow - town.lackGoldLogAt) >= 0))
+					{
+						town.lackGoldLogAt = dwNow + 10 * 60 * 1000;
+						sys_log(0, "PLAYERBOT_L30_DROPPER: hunts with what it has pid=%u name=%s red=%u blue=%u gold=%lld",
+								ch->GetPlayerID(), ch->GetName(), (unsigned)red, (unsigned)blue, gold);
+					}
+					if (!why)
+						return false;
+					// The counters are the first village's: a weapon goes there.
+					toM1 = goods > 0;
+					town.leavingSince = dwNow;
+					town.leavingWhy = why;
+					town.leavingToM1 = toM1;
+					// The town visit is what it goes for: the shop clock is
+					// cleared so the visit may start on arrival, and the village
+					// holds it until it has (the errand, above).
+					if (errandTrip)
+					{
+						town.errand = true;
+						town.errandSince = 0;
+						state.dwNextShopCheckTime = 0;
+					}
+					sys_log(0, "PLAYERBOT_L30_DROPPER: to town pid=%u name=%s level=%u reason=%s weapons=%d junk=%u bag_full=%d no_column=%d red=%u blue=%u gold=%lld stayed_s=%u",
+							ch->GetPlayerID(), ch->GetName(), (unsigned)ch->GetLevel(), why, goods,
+							(unsigned)CountPlayerBotJunkItems(ch), bagFull ? 1 : 0, noColumn ? 1 : 0,
+							(unsigned)red, (unsigned)blue, gold, stayed / 1000U);
+					// A weapon is sold at the counter: its next service is now
+					// (ManagePlayerBotOfflineService), not at the dropper's round.
+					if (goods > 0 && state.offlineShop.nextService > dwNow + 30000)
+						state.offlineShop.nextService = dwNow + 30000;
+				}
 				long exitX = 0, exitY = 0;
 				GetPlayerBotFrontierExitFor(ch, mapIndex, exitX, exitY);
-				// The counters are the first village's: a weapon goes there.
 				long destMap = 0, destX = 0, destY = 0;
-				if (!GetPlayerBotVillageReturn(ch, goods > 0 ? playerbot_empire_rules::MAP_ROLE_M1
+				if (!GetPlayerBotVillageReturn(ch, toM1 ? playerbot_empire_rules::MAP_ROLE_M1
 							: playerbot_empire_rules::MAP_ROLE_M2, destMap, destX, destY))
+				{
+					town.leavingSince = 0;
 					return false;
-				if (blocked && TryPlayerBotTeleportRingHome(ch, state, dwNow, destMap, destX, destY, why))
+				}
+				if (ring && TryPlayerBotTeleportRingHome(ch, state, dwNow, destMap, destX, destY, why))
 					return true;
 				return MovePlayerBotToWorldPortal(ch, state, exitX, exitY,
 						destMap, destX, destY, dwNow, why);

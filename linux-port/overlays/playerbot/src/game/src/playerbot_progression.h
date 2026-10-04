@@ -410,8 +410,14 @@ namespace
 		const int needs = GetPlayerBotProgressionNeeds(ch->GetPlayerID());
 		if (needs == 0)
 			return PLAYERBOT_PROGRESS_FARM_NONE;
+		// MT2009_PLUS_HORSE30_V1: the Monkey Dungeon only while the next paid
+		// training lacks medals - with them in the bag it is the yang and the
+		// materials it lacks, which the Metin window and the ordinary hunting
+		// bring (the Dozorca and the counters the materials).
 		const bool horse = (needs & playerbot_progression::NEED_HORSE) != 0 &&
-				CanPlayerBotAdvanceHorse(ch) && GetPlayerBotMonkeyMapFor(ch) != 0;
+				CanPlayerBotAdvanceHorse(ch) && GetPlayerBotMonkeyMapFor(ch) != 0 &&
+				(int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) <
+					GetPlayerBotHorseTrainingMedals(ch, 1) + GetPlayerBotSaddlebagMedalReserve(ch);
 		const bool metins = (needs & playerbot_progression::NEED_METINS) != 0;
 		if (horse && metins)
 			return ((dwNow / PLAYERBOT_PROGRESS_FARM_WINDOW_MS + ch->GetPlayerID()) & 1U) != 0

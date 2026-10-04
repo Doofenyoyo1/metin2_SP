@@ -153,6 +153,8 @@ namespace {
         }
         o.visiting = false;
         o.visitUntil = 0;
+        o.renewStepUntil = 0;   // MT2009_PLUS_BOT_COUNTER_RENEW_V1
+        o.renewSpotTries = 0;
         o.nextService = now + BotOfflineServiceGap(state, ch);
     }
     // A visit that put a line up or took one home comes back two seconds on
@@ -833,7 +835,7 @@ namespace {
                 M2_DELETE(preview);
                 continue;
             }
-            if ((preview->GetType() == ITEM_ROD || preview->GetType() == ITEM_PICK) &&
+            if (IsPlayerBotToolType(preview->GetType()) &&   // MT2009_PLUS_BOT_HERBALIST_FIX_V1
                     GetPlayerBotItemPolicy(preview) != PLAYERBOT_ITEM_POLICY_STALL) {
                 if (!tackleAny) tackleAny = id;
                 if (!tackleFits && ch && ch->GetEmptyInventory(preview->GetSize()) >= 0) tackleFits = id;
@@ -994,6 +996,15 @@ namespace {
                 M2_DELETE(preview);
                 continue;
             }
+            // MT2009_PLUS_DIGI_STACK_V1: nor a soul stone line of more than one
+            // stone (they stack to 200 now; a buyer takes one for a socket) - it
+            // comes home to go up a stone at a time.
+            if (preview->GetType() == ITEM_METIN && (int)preview->GetCount() > 1 &&
+                    GetPlayerBotItemPolicy(preview) != PLAYERBOT_ITEM_POLICY_STALL) {
+                if (!unwanted) { unwanted = id; reason = "soul_stone_stack"; }
+                M2_DELETE(preview);
+                continue;
+            }
             // A scroll line of more than PLAYERBOT_SHOP_SCROLL_LINE_UNITS went
             // up as a whole stack before 2.0.55; since Iwakura's Patch 4 a line
             // is one, two or five, and a line of three or four comes home to be
@@ -1038,8 +1049,10 @@ namespace {
             if (IsPlayerBotLowLevelGear(preview) &&
                     GetPlayerBotItemPolicy(preview) != PLAYERBOT_ITEM_POLICY_STALL) {
                 const bool capped = CountsAgainstPlayerBotLowGearCap(preview);
+                // MT2009_PLUS_BOT_LIST_ALL_GEAR_V1: not a spare piece, which is
+                // goods at any plus now (IsPlayerBotSaleGear).
                 if ((preview->GetRefineLevel() < GetPlayerBotLowGearMinRefine(preview) &&
-                        !IsPlayerBotLowPlusMarketGear(preview)) ||
+                        !IsPlayerBotLowPlusMarketGear(preview) && !IsPlayerBotSaleGear(preview)) ||
                         (capped && lowGear >= PLAYERBOT_SHOP_LOW_GEAR_MAX_LINES)) {
                     if (!unwanted) { unwanted = id; reason = "low_gear"; }
                 } else if (capped) {
@@ -1302,13 +1315,18 @@ namespace {
         }
         if (item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM &&
                 BotOfflineLinesOf(shop, item->GetVnum()) >= PLAYERBOT_CHEST_COUNTER_LINES) return true;
-        // MT2009_PLUS_BOT_LIST_HELM_SHIELD_V1: a few helmet and shield lines.
-        if (IsPlayerBotListedHelmShield(item) && shop) {
-            int helmShieldLines = 0;
+        // MT2009_PLUS_BOT_LIST_ALL_GEAR_V1: PLAYERBOT_ALL_GEAR_KIND_LINES lines
+        // of a kind of the spare gear it lists - helmets, shields, boots, the
+        // weapons, the body armours, each jewel - under +7 below level thirty
+        // and under +4 from it (IsPlayerBotAllGearLowLineOf).
+        if (shop && IsPlayerBotAllGearLowLine(item)) {
+            const int kind = GetPlayerBotSaleGearKind(item);
+            int kindLines = 0;
             for (const auto& [lid, l] : shop->GetItems())
-                if (l && IsPlayerBotListedHelmShieldProto(l->GetTable(), l->GetInfo().vnum))
-                    ++helmShieldLines;
-            if (helmShieldLines >= PLAYERBOT_HELM_SHIELD_COUNTER_LINES) return true;
+                if (l && l->GetTable() && IsPlayerBotAllGearLowLineOf(l->GetTable(), l->GetInfo().vnum) &&
+                        GetPlayerBotSaleGearKindOf(l->GetTable(), l->GetInfo().vnum) == kind)
+                    ++kindLines;
+            if (kindLines >= PLAYERBOT_ALL_GEAR_KIND_LINES) return true;
         }
         // MT2009_PLUS_SADDLEBAG_MARKET_V1: a few lines of materials a counter.
         if (item->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED &&
@@ -1346,8 +1364,15 @@ namespace {
             const int rareKind = GetPlayerBotRareGoodsKind(item->GetVnum());
             if (rareKind != PLAYERBOT_RARE_GOODS_NONE) {
                 const int rareLines = BotOfflineRareLinesOf(shop, rareKind);
-                if (rareLines >= PLAYERBOT_RARE_GOODS_LINES_PER_SHOP ||
-                        (rareLines == 0 && IsPlayerBotRareGoodsShopQuotaFull(rareKind)))
+                // MT2009_PLUS_BOT_SASH_FLOW_V1: a bag holding two or more sashes
+                // it does not combine puts them up - more lines, and the
+                // counters' share not asked ("zawsze gdy bot ma dwie lub wiecej
+                // szarf, powinien albo je wystawic na sprzedaz albo ulepszac").
+                const bool sashFlow = rareKind == PLAYERBOT_RARE_GOODS_SASH &&
+                        GetPlayerBotSashGoodsInBag(item->GetOwner()) >= 2;
+                const int cap = sashFlow ? PLAYERBOT_SASH_FLOW_COUNTER_LINES : PLAYERBOT_RARE_GOODS_LINES_PER_SHOP;
+                if (rareLines >= cap ||
+                        (rareLines == 0 && !sashFlow && IsPlayerBotRareGoodsShopQuotaFull(rareKind)))
                     return true;
             }
         }
@@ -1356,6 +1381,55 @@ namespace {
         if ((IsPlayerBotCappedLowArmour(item) || IsPlayerBotCappedLowJewel(item)) &&
                 IsPlayerBotLowArmourMarketFull(item->GetVnum())) return true;
         return false;
+    }
+    // MT2009_PLUS_BOT_SHIELD_LISTING_V1 (the owner, 3 October: "sprawdzic,
+    // dlaczego 297 tarcz z torb nie trafia na lady"). On the supporters' world
+    // 223 of the shields in the bots' bags - Bojowa Tarcza +6 of a bot that
+    // wears a better one, Pieciokatna - and 553 of its 1228 helmets were spare
+    // goods at their low score (PLAYERBOT_SHOP_LOW_PLUS_GEAR_SCORE plus the
+    // plus, 480..489), on bots whose counters had room and no line of the
+    // kind. A visit adds the first candidate its counter takes, best first,
+    // and every visit had one that scored more - a book, a precious spare, a
+    // material at its floor - or one of the materials the collector keeps
+    // half of its first block for (CollectPlayerBotShopItems), which sort
+    // ahead of the overflow the shield sat in: their owners put materials up
+    // at 470 while the shield stayed in the bag. The best helmet, shield or
+    // boots of the bag goes up ahead of every candidate under
+    // PLAYERBOT_SHOP_PRIZE_SCORE now, while the counter shows fewer than
+    // PLAYERBOT_ALL_GEAR_KIND_LINES lines of its kind at any plus - a line a
+    // visit, twelve at most, and the order as it was once they stand.
+    bool IsPlayerBotHoistedSpareGearKind(int kind) {
+        return kind == 3 || kind == 4 || kind == 5;   // a helmet, a shield, boots
+    }
+    int BotOfflineSpareGearKindLines(NativeShop shop, int kind) {
+        int lines = 0;
+        if (shop)
+            for (const auto& [lid, l] : shop->GetItems())
+                if (l && l->GetTable() && GetPlayerBotSaleGearKindOf(l->GetTable(), l->GetInfo().vnum) == kind)
+                    ++lines;
+        return lines;
+    }
+    void BotOfflineHoistSpareGear(LPCHARACTER ch, NativeShop shop, std::vector<std::pair<int, WORD> >& scored) {
+        if (!ch || !shop || scored.size() < 2) return;
+        int lines[9] = { -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+        for (size_t i = 0; i < scored.size(); ++i) {
+            if (scored[i].first >= PLAYERBOT_SHOP_PRIZE_SCORE) continue;
+            LPITEM item = ch->GetInventoryItem(scored[i].second);
+            const int kind = GetPlayerBotSaleGearKind(item);
+            if (!IsPlayerBotHoistedSpareGearKind(kind) ||
+                    GetPlayerBotItemPolicy(item) == PLAYERBOT_ITEM_POLICY_STALL) continue;
+            if (lines[kind] < 0) lines[kind] = BotOfflineSpareGearKindLines(shop, kind);
+            if (lines[kind] >= PLAYERBOT_ALL_GEAR_KIND_LINES || BotOfflineCounterRefuses(shop, item)) continue;
+            // Ahead of the first candidate under the prize score.
+            size_t at = 0;
+            while (at < i && scored[at].first >= PLAYERBOT_SHOP_PRIZE_SCORE) ++at;
+            if (at < i) {
+                const std::pair<int, WORD> hoisted = scored[i];
+                scored.erase(scored.begin() + i);
+                scored.insert(scored.begin() + at, hoisted);
+            }
+            return;
+        }
     }
     // The lines of this vnum a counter carries, and how many of them are small
     // (two or fewer): the shape GetPlayerBotNaturalLineUnits cuts the next by.
@@ -1416,11 +1490,15 @@ namespace {
         // largest pack of 20, 50, 100 or 200 that the spare over the bot's own
         // keep fills out of this stack; the merge pass pours the small stacks
         // together first, and under twenty nothing goes up.
+        // MT2009_PLUS_BOT_HERBALIST_ACTIVITY_V1: over the bot's potion reserve
+        // (GetPlayerBotCraftedPotionKeep - the belt it buys up to, and what its
+        // next row brews from), not a flat five.
         if (IsPlayerBotPackedPotion(item)) {
-            const int spare = (int)ch->CountSpecifyItem(item->GetVnum()) - PLAYERBOT_HERBALISM_POTION_KEEP;
+            const int keep = GetPlayerBotCraftedPotionKeep(ch, item->GetVnum());
+            const int spare = (int)ch->CountSpecifyItem(item->GetVnum()) - keep;
             const int take = GetPlayerBotPotionPackUnits(std::min(spare, (int)item->GetCount()));
             cutNote.shape = per::SHAPE_POTION_PACK;
-            cutNote.keep = PLAYERBOT_HERBALISM_POTION_KEEP;
+            cutNote.keep = keep;
             if (take <= 0) return -1;
             if (take >= (int)item->GetCount()) { cutNote.from = 0; return cell; }
             if (CountPlayerBotFreeInventoryCells(ch) <= PLAYERBOT_SHOP_SPLIT_KEEP_FREE_CELLS) return -1;
@@ -1429,6 +1507,27 @@ namespace {
                 return -1;
             sys_log(0, "PLAYERBOT_OFFLINE: cut a line pid=%u name=%s vnum=%u units=%d left=%u potion_pack=1",
                 ch->GetPlayerID(), ch->GetName(), item->GetVnum(), take, (unsigned int)item->GetCount());
+            return to;
+        }
+        // MT2009_PLUS_BOT_HERBALIST_ACTIVITY_V1: every other brew of Baek-Go's
+        // board - the Juices, Waters and Dews, the Slayer's and the Runner's
+        // potions - goes up a craft's yield at a time
+        // (PLAYERBOT_SHOP_CRAFTED_POTION_LINE_UNITS) out of what is over the
+        // reserve; the whole stack went up before, the reserve with it.
+        if (IsPlayerBotCraftedPotion(item)) {
+            const int keep = GetPlayerBotCraftedPotionKeep(ch, item->GetVnum());
+            const int spare = (int)ch->CountSpecifyItem(item->GetVnum()) - keep;
+            const int take = std::min(std::min(spare, (int)item->GetCount()), PLAYERBOT_SHOP_CRAFTED_POTION_LINE_UNITS);
+            cutNote.shape = per::SHAPE_POTION_PACK;
+            cutNote.keep = keep;
+            if (take <= 0) return -1;
+            if (take >= (int)item->GetCount()) { cutNote.from = 0; return cell; }
+            if (CountPlayerBotFreeInventoryCells(ch) <= PLAYERBOT_SHOP_SPLIT_KEEP_FREE_CELLS) return -1;
+            const int to = ch->GetEmptyInventory(item->GetSize());
+            if (to < 0 || !ch->MoveItem(TItemPos(INVENTORY, cell), TItemPos(INVENTORY, (WORD)to), take))
+                return -1;
+            sys_log(0, "PLAYERBOT_OFFLINE: cut a line pid=%u name=%s vnum=%u units=%d left=%u keep=%d crafted_potion=1",
+                ch->GetPlayerID(), ch->GetName(), item->GetVnum(), take, (unsigned int)item->GetCount(), keep);
             return to;
         }
         const int units = GetPlayerBotStallLineUnits(item);
@@ -1520,7 +1619,9 @@ namespace {
                 (unsigned int)(GetPlayerBotStallKindKey(item) & 0x7fffffffU), total);
             return to;
         }
-        const bool cut = (units == 1 && item->GetType() == ITEM_TREASURE_KEY) ||
+        // MT2009_PLUS_DIGI_STACK_V1: a soul stone (a stack of up to 200 now)
+        // goes up a stone at a time, as a key does.
+        const bool cut = (units == 1 && (item->GetType() == ITEM_TREASURE_KEY || item->GetType() == ITEM_METIN)) ||
             item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM;
         if (!cut || (int)item->GetCount() <= units) { cutNote.from = 0; return cell; }
         cutNote.shape = item->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM ? per::SHAPE_CHEST_PACK : per::SHAPE_KEY_SINGLE;
@@ -1573,7 +1674,8 @@ namespace {
         int lowGear = 0;
         BotOfflineUnwantedLine(ch, shop, lowGear);
         std::vector<std::pair<int, WORD> > scored;
-        CollectPlayerBotShopItems(ch, scored, IsPlayerBotStallKeeper(state), lowGear);
+        CollectPlayerBotShopItems(ch, scored, IsPlayerBotStallKeeper(state), lowGear, true);   // MT2009_PLUS_BOT_LIST_ALL_GEAR_V1
+        BotOfflineHoistSpareGear(ch, shop, scored);   // MT2009_PLUS_BOT_SHIELD_LISTING_V1
         int rank = -1, refused = 0;
         for (auto [score, cell] : scored) {
             ++rank;
@@ -1629,6 +1731,137 @@ namespace {
                 best = d;
         }
     };
+    // MT2009_PLUS_BOT_COUNTER_RENEW_V1: whether the owner would renew this
+    // expired counter at its next visit - the tests the renewal below makes
+    // itself: goods on it, the stand still wanted, the fee in hand over the
+    // reserve. A counter it would not renew calls nobody: its goods stay on
+    // it, as they always did, until one of the three changes.
+    bool BotOfflineWouldRenew(LPCHARACTER ch, const TPlayerBotAIState& state, NativeShop shop) {
+        if (!ch || !shop || shop->GetDuration() != 0 || shop->GetItems().empty()) return false;
+        if (IsPlayerBotShopReasonRolled(state.bShopOpenReason) && !ShouldPlayerBotKeepShop(ch, state)) return false;
+        return ch->GetGold() - aOfflineShopTime[1].price >= GetPlayerBotReservedGold(ch);
+    }
+    // The nearest spot to the bot, on the first ring round (cx, cy) that has
+    // one, with no running stand of this channel within
+    // PLAYERBOT_OFFLINE_RENEW_SPOT_CLEAR - the engine refuses a renewal
+    // within sixty units of a stand (CCheckShopPosition), and the margin is
+    // the step's own imprecision - on open ground the bot walks to in a
+    // straight line. A stand's entity stands at its spawn, so the spawns are
+    // what is measured. 650 renewals were refused that way on the
+    // supporters' world on 3 October, 256 owners, each of them asked again at
+    // the same spot every visit.
+    bool BotOfflineFindRenewSpot(LPCHARACTER ch, long cx, long cy, long& outX, long& outY) {
+        if (!ch) return false;
+        const long map = ch->GetMapIndex();
+        CPlayerBotNavigation& navigation = CPlayerBotNavigation::instance(map);
+        if (!navigation.Init(map)) return false;
+        const int clear = PLAYERBOT_OFFLINE_RENEW_SPOT_CLEAR;
+        std::vector<std::pair<long, long> > near;
+        for (const auto& [owner, other] : ikashop::GetManager().GetPlayerBotOfflineShops()) {
+            if (!other || other->GetDuration() == 0) continue;
+            const auto sp = other->GetSpawn();
+            if (sp.channel != g_bChannel || sp.map != map) continue;
+            if (DISTANCE_APPROX(sp.x - cx, sp.y - cy) <= PLAYERBOT_OFFLINE_RENEW_SPOT_MAX + clear)
+                near.emplace_back(sp.x, sp.y);
+        }
+        static const int kDirs = 12;
+        static const int kCos[kDirs] = { 1000, 866, 500, 0, -500, -866, -1000, -866, -500, 0, 500, 866 };
+        static const int kSin[kDirs] = { 0, 500, 866, 1000, 866, 500, 0, -500, -866, -1000, -866, -500 };
+        for (int r = 0; r <= PLAYERBOT_OFFLINE_RENEW_SPOT_MAX; r += 100) {
+            int best = -1;
+            for (int k = 0; k < (r == 0 ? 1 : kDirs); ++k) {
+                const long x = cx + (long)r * kCos[k] / 1000;
+                const long y = cy + (long)r * kSin[k] / 1000;
+                if (IsPlayerBotPositionBlocked(map, x, y)) continue;
+                bool crowded = false;
+                for (const auto& p : near)
+                    if (DISTANCE_APPROX(p.first - x, p.second - y) <= clear) { crowded = true; break; }
+                if (crowded || !navigation.SegmentClearWorld(ch->GetX(), ch->GetY(), x, y)) continue;
+                const int d = DISTANCE_APPROX(ch->GetX() - x, ch->GetY() - y);
+                if (best < 0 || d < best) { best = d; outX = x; outY = y; }
+            }
+            if (best >= 0) return true;
+        }
+        return false;
+    }
+    // MT2009_PLUS_BOT_REPRICE_NOW_V1: what a counter line asks under the price
+    // rules as they stand now. The reprice of a keeper's visit (below) and the
+    // panel's "reprice now" pass (playerbot_reprice_now.h) both ask it here, so
+    // the two cannot drift apart. `listedLines` is the keeper's clock of its
+    // lines, NULL when the keeper is not on this core: a line nobody here holds
+    // a clock for is priced as a visit prices one it sees first - unmarked.
+    // The caller holds the keeper's TPlayerBotPricingKeeper and the trace.
+    struct TBotOfflineRepriceTarget {
+        long long price = 0, floor = 0;
+        int discount = 0, markup = 0;
+        uint32_t standing = 0;
+    };
+    TBotOfflineRepriceTarget BotOfflineRepriceTarget(LPITEM preview, uint32_t id,
+            std::map<uint32_t, playerbot_offline::ListedLine>* listedLines, DWORD now,
+            TPlayerBotPriceTraceScope& priceTrace, bool generationMoved) {
+        // A line nobody has bought comes down a step for every
+        // PLAYERBOT_OFFLINE_UNSOLD_STEP_MS it has stood - ten percent
+        // every three hours to forty since Iwakura's answer of 28
+        // September - to the ceiling the classic stall's markdown has
+        // and never under what the blacksmith was paid (the owner, 16
+        // September), nor under what a Moonlight chest holds or a
+        // bonus item is worth (GetPlayerBotListingFloor, blipu, 28
+        // September). A line not marked down asks its kind's markup
+        // instead, never both (GetPlayerBotListingPrice). The clock is
+        // the listing's own (o.listed); a line from before this core
+        // started is clocked from the first visit that sees it.
+        playerbot_offline::ListedLine scratch{ preview->GetVnum(), 0u, 0u, 0u };
+        playerbot_offline::ListedLine* line = &scratch;
+        if (listedLines) {
+            auto listed = listedLines->find(id);
+            if (listed == listedLines->end())
+                listed = listedLines->emplace(id, playerbot_offline::ListedLine{
+                    preview->GetVnum(),
+                    preview->GetType() == ITEM_SKILLBOOK ? (uint32_t)preview->GetSocket(0) : 0u,
+                    now, (uint8_t)preview->GetRefineLevel() }).first;
+            line = &listed->second;
+        } else
+            scratch.observedSince = now; // nobody here holds its clock: unmarked, as a line first seen
+        // Unknown age after restart is not the process uptime.
+        if (line->when == 0 && line->observedSince == 0)
+            line->observedSince = now;
+        const uint32_t since = line->when ? line->when : line->observedSince;
+        const uint32_t standing = now - since;
+        int discount = playerbot_price_rules::UnsoldMarkdownPercent(standing,
+                PLAYERBOT_OFFLINE_UNSOLD_STEP_MS, PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT,
+                PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL);
+        // Materialy Rzemieslnicze, Cor Draconis, the Dragon Stones and
+        // the sashes keep the operator's prices: no markdown, no markup.
+        const bool operatorPriced = preview->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED ||
+                IsPlayerBotCorVnum(preview->GetVnum()) || preview->IsDragonSoul() ||
+                (preview->GetType() == ITEM_COSTUME && IsPlayerBotSashVnum(preview->GetVnum()));
+        if (operatorPriced)
+            discount = 0;
+        int markup = 0;
+        const long long askingNow = (long long)GetPlayerBotShopAskingPrice(preview);
+        if (priceTrace.On() && !operatorPriced) {
+            // The generation the counter was priced under, and the
+            // clock of the markdown - said at the price they leave.
+            priceTrace.Step(per::STEP_GENERATION, askingNow,
+                    generationMoved ? 1 : 0);
+            priceTrace.Step(per::STEP_MARKDOWN_CLOCK, askingNow, standing / 60000U, per::CLOCK_MINUTES,
+                    line->when == 0 ? 1 : 0);
+        }
+        const long long asking = operatorPriced ? askingNow
+                : (long long)GetPlayerBotListingPrice(preview, (DWORD)askingNow, discount, &markup);
+        const long long repriceFloor = (long long)GetPlayerBotListingFloor(preview);
+        if (repriceFloor > asking) {
+            priceTrace.Step(per::STEP_LISTING_FLOOR, repriceFloor, repriceFloor);
+            priceTrace.trace.flags |= per::LFLAG_FLOOR_BOUND;
+        }
+        TBotOfflineRepriceTarget out;
+        out.price = std::max(asking, repriceFloor);
+        out.floor = repriceFloor;
+        out.discount = discount;
+        out.markup = markup;
+        out.standing = standing;
+        return out;
+    }
     bool ManagePlayerBotOfflineService(LPCHARACTER ch, TPlayerBotAIState& state, DWORD now) {
         using namespace playerbot_offline;
         if (!ch) return false;
@@ -1696,6 +1929,27 @@ namespace {
             if (BotOfflineDueSlipLine(ch, state, shop, now, normal, ageMin) != 0)
                 o.nextService = now;
         }
+        // MT2009_PLUS_BOT_COUNTER_RENEW_V1: nor does an expired counter its
+        // owner would renew - a dropper's hour, a far keeper's forty-five
+        // minutes and the second channel's 45 to 75 left it standing with its
+        // goods long after the eight hours (PLAYERBOT_OFFLINE_RENEW_PROBE_MS).
+        // One call an expiry, and one a quarter of an hour after a renewal the
+        // counter refused, so nothing is called round in circles.
+        if (!o.visiting && shop && shop->GetDuration() == 0 && now - state.dwSpawnTime >= 30000 &&
+                Due(now, o.nextRenewProbe)) {
+            o.nextRenewProbe = now + PLAYERBOT_OFFLINE_RENEW_PROBE_MS;
+            if (Due(now, o.renewHoldUntil) && BotOfflineWouldRenew(ch, state, shop)) {
+                o.renewHoldUntil = now + PLAYERBOT_OFFLINE_RENEW_HOLD_MS;
+                o.renewCalledAt = now ? now : 1;
+                if (!Due(now, o.nextService)) o.nextService = now;
+                PlayerBotLogThrottled("offline_renew_call", now,
+                    "PLAYERBOT_OFFLINE: expired counter calls its owner pid=%u name=%s lines=%u stand_map=%ld here=%ld channel=%u stand_channel=%u",
+                    ch->GetPlayerID(), ch->GetName(), unsigned(shop->GetItems().size()), (long)shop->GetSpawn().map,
+                    ch->GetMapIndex(), (unsigned int)g_bChannel, (unsigned int)shop->GetSpawn().channel);
+            }
+        }
+        if (o.renewCalledAt && Due(now, o.renewCalledAt + PLAYERBOT_OFFLINE_RENEW_HOLD_MS))
+            o.renewCalledAt = 0;
         if (!Due(now, o.nextService)) return false;
         // A purchase under way comes first. A service visit opens the board,
         // and the buyer gives its pick up to anybody with the board open: four
@@ -1751,8 +2005,18 @@ namespace {
         if (spawn.channel != g_bChannel && CPlayerBotManager::instance().IsChannelTableMode()) {
             const bool expired = shop->GetDuration() == 0;
             const DWORD since = state.dwSpawnTime ? state.dwSpawnTime : now;
-            const DWORD wait = PLAYERBOT_SHOP_CHANNEL_SERVICE_MIN_MS +
-                    PlayerBotNavHash(ch->GetPlayerID() ^ 0x43485356U) % PLAYERBOT_SHOP_CHANNEL_SERVICE_SPREAD_MS;
+            // MT2009_PLUS_BOT_COUNTER_RENEW_V1: an expired stand its owner
+            // would renew - goods, the wish, the fee (BotOfflineWouldRenew) -
+            // asks a few minutes after the arrival here, not 45 to 75: 161 of
+            // the 259 expired counters of the supporters' world on 3 October
+            // were owned by bots of this channel. One that would not renew
+            // still waits the long round, as the comment above says why.
+            const bool renewable = expired && BotOfflineWouldRenew(ch, state, shop);
+            const DWORD wait = renewable
+                    ? PLAYERBOT_OFFLINE_RENEW_CHANNEL_MIN_MS +
+                        PlayerBotNavHash(ch->GetPlayerID() ^ 0x524e4348U) % PLAYERBOT_OFFLINE_RENEW_CHANNEL_SPREAD_MS
+                    : PLAYERBOT_SHOP_CHANNEL_SERVICE_MIN_MS +
+                        PlayerBotNavHash(ch->GetPlayerID() ^ 0x43485356U) % PLAYERBOT_SHOP_CHANNEL_SERVICE_SPREAD_MS;
             BotOfflineFinishVisit(ch, state, now);
             if (!medalLines && !Due(now, since + wait)) {
                 o.nextService = now + PLAYERBOT_OFFLINE_FAR_SERVICE_RETRY_MS;
@@ -1798,7 +2062,7 @@ namespace {
         // reclaim probe above), nor does the first visit after a start, nor a
         // slipped price whose time is out (the slip probe above), nor a rod or
         // a pickaxe the owner's session is waiting for (AskPlayerBotTackleHome).
-        if (!o.visiting && !medalLines && ch->GetMapIndex() != serviceMap && ch->GetWear(WEAR_WEAPON) &&
+        if (!o.visiting && !medalLines && !o.renewCalledAt && ch->GetMapIndex() != serviceMap && ch->GetWear(WEAR_WEAPON) &&
                 o.lastServedAt != 0 && !Due(now, o.lastServedAt + PLAYERBOT_OFFLINE_FAR_SERVICE_MIN_MS) &&
                 !IsPlayerBotTackleAskedHome(ch->GetPlayerID(), now)) {
             long long normal = 0;
@@ -1831,6 +2095,17 @@ namespace {
             // Reuses world-travel safety checks; never manufactures cross-core warps.
             TransitionPlayerBotMap(ch, state, serviceMap, serviceX, serviceY, now, "offline_shop_service");
             return true;
+        }
+        // MT2009_PLUS_BOT_COUNTER_RENEW_V1: the steps to a free spot for the
+        // renewal (below) are walked out before the leg, which would stop
+        // them - the spot is within the leg's eight hundred units.
+        if (o.renewStepUntil) {
+            if (!Due(now, o.renewStepUntil) && ch->IsStateMove() &&
+                    DISTANCE_APPROX(ch->GetX() - o.renewStepX, ch->GetY() - o.renewStepY) > 40)
+                return true;
+            o.renewStepUntil = 0;
+            ch->Stop();
+            o.nextStep = 0;
         }
         if (!MovePlayerBotTownLeg(ch, state, now, serviceX, serviceY, 800)) return true;
         if (!Due(now, o.nextStep)) return true;
@@ -1894,6 +2169,38 @@ namespace {
                     ShouldPlayerBotKeepShop(ch, state);
             bool reopened = false;
             char sign[SHOP_SIGN_MAX_LEN + 1] = "";
+            // MT2009_PLUS_BOT_COUNTER_RENEW_V1: the renewal stands where its
+            // owner stands, and the engine refuses it within sixty units of a
+            // running stand - one put up on the old spot while this one was
+            // expired, or beside it. The owner steps to the nearest free spot
+            // (BotOfflineFindRenewSpot) and asks there, at most
+            // PLAYERBOT_OFFLINE_RENEW_SPOT_TRIES steps a visit. A refusal for
+            // the map's limit (no stand that near) is not walked round.
+            const bool canPay = ch->GetGold() - aOfflineShopTime[1].price >= GetPlayerBotReservedGold(ch);
+            if (stillWanted && canPay && !shop->GetItems().empty() && !manager.CanOpenOnMap(ch) &&
+                    o.renewSpotTries < PLAYERBOT_OFFLINE_RENEW_SPOT_TRIES) {
+                FPlayerBotNearestStand crowd(ch);
+                if (ch->GetSectree())
+                    ch->GetSectree()->ForEachAround(crowd);
+                long spotX = 0, spotY = 0;
+                if (crowd.best >= 0 && crowd.best <= 60 + 10 &&
+                        BotOfflineFindRenewSpot(ch, serviceX, serviceY, spotX, spotY)) {
+                    ++o.renewSpotTries;
+                    ch->SetRotationToXY(spotX, spotY);
+                    if (ch->Goto(spotX, spotY)) {
+                        ch->SendMovePacket(FUNC_MOVE, 0, spotX, spotY, ch->GetCurrentMoveDuration(), now);
+                        o.renewStepX = spotX;
+                        o.renewStepY = spotY;
+                        o.renewStepUntil = now + PLAYERBOT_OFFLINE_RENEW_STEP_MS;
+                        PlayerBotLogThrottled("offline_renew_step", now,
+                            "PLAYERBOT_OFFLINE: renewal steps to a free spot pid=%u name=%s near_stand=%d from=(%ld,%ld) to=(%ld,%ld) try=%u",
+                            ch->GetPlayerID(), ch->GetName(), crowd.best, ch->GetX(), ch->GetY(),
+                            spotX, spotY, (unsigned int)o.renewSpotTries);
+                        return true;
+                    }
+                }
+            }
+            o.renewCalledAt = 0;
             if (stillWanted && !shop->GetItems().empty() &&
                     ch->GetGold() - aOfflineShopTime[1].price >= GetPlayerBotReservedGold(ch) &&
                     Begin(ch->GetPlayerID(), Create, 0, now)) {
@@ -1913,10 +2220,13 @@ namespace {
                         NotePlayerBotMissionBooksOnCounter(serviceMap, l->GetInfo().vnum, (int)l->GetInfo().count);
                     }
                 if (reopened)
-                    sys_log(0, "PLAYERBOT_OFFLINE: reopen pid=%u name=%s lines=%u sign=\"%s\" how=%s moved_from=%ld",
+                    sys_log(0, "PLAYERBOT_OFFLINE: reopen pid=%u name=%s lines=%u sign=\"%s\" how=%s moved_from=%ld spot_steps=%u",
                         ch->GetPlayerID(), ch->GetName(), unsigned(shop->GetItems().size()), sign, how,
-                        serviceMap != spawn.map ? (long)spawn.map : 0L);
+                        serviceMap != spawn.map ? (long)spawn.map : 0L, (unsigned int)o.renewSpotTries);
             }
+            // MT2009_PLUS_BOT_COUNTER_RENEW_V1: renewed, the next expiry calls
+            // at once; refused, not before a quarter of an hour.
+            o.renewHoldUntil = reopened ? 0 : now + PLAYERBOT_OFFLINE_RENEW_HOLD_MS;
             // A stand left expired says why. The renewal refuses silently - a
             // chat line to a descriptor nobody reads - and the medal droppers'
             // stands stood expired for hours with nothing in any log: whether
@@ -2030,7 +2340,8 @@ namespace {
             return false;
         }
         std::vector<std::pair<int, WORD> > scored;
-        CollectPlayerBotShopItems(ch, scored, IsPlayerBotStallKeeper(state), lowGearOnCounter);
+        CollectPlayerBotShopItems(ch, scored, IsPlayerBotStallKeeper(state), lowGearOnCounter, true);   // MT2009_PLUS_BOT_LIST_ALL_GEAR_V1
+        BotOfflineHoistSpareGear(ch, shop, scored);   // MT2009_PLUS_BOT_SHIELD_LISTING_V1
         // The line cut before the board opened goes first, whatever it scores
         // now: it is exactly a line, so BotOfflinePrepareLine below hands it
         // back as it is. A stale cell (the item gone, or another in its
@@ -2260,58 +2571,15 @@ namespace {
                         // The keeper's own spread, as when the line went up.
                         TPlayerBotPricingKeeper pricing(ch->GetPlayerID());
                         ikashop::TPriceInfo price{};
-                        // A line nobody has bought comes down a step for every
-                        // PLAYERBOT_OFFLINE_UNSOLD_STEP_MS it has stood - ten percent
-                        // every three hours to forty since Iwakura's answer of 28
-                        // September - to the ceiling the classic stall's markdown has
-                        // and never under what the blacksmith was paid (16
-                        // September), nor under what a Moonlight chest holds or a
-                        // bonus item is worth (GetPlayerBotListingFloor, blipu, 28
-                        // September). A line not marked down asks its kind's markup
-                        // instead, never both (GetPlayerBotListingPrice). The clock is
-                        // the listing's own (o.listed); a line from before this core
-                        // started is clocked from the first visit that sees it.
-                        auto listed = o.listed.find(it->first);
-                        if (listed == o.listed.end())
-                            listed = o.listed.emplace(it->first, playerbot_offline::ListedLine{
-                                    preview->GetVnum(),
-                                    preview->GetType() == ITEM_SKILLBOOK ? (uint32_t)preview->GetSocket(0) : 0u,
-                                    now, (uint8_t)preview->GetRefineLevel() }).first;
-                        // Unknown age after restart is not the process uptime.
-                        if (listed->second.when == 0 && listed->second.observedSince == 0)
-                            listed->second.observedSince = now;
-                        const uint32_t since = listed->second.when ? listed->second.when : listed->second.observedSince;
-                        const uint32_t standing = now - since;
-                        int discount = playerbot_price_rules::UnsoldMarkdownPercent(standing,
-                                PLAYERBOT_OFFLINE_UNSOLD_STEP_MS, PLAYERBOT_SHOP_UNSOLD_DISCOUNT_PERCENT,
-                                PLAYERBOT_SHOP_UNSOLD_DISCOUNT_MAX_TOTAL);
-                        // Materialy Rzemieslnicze, Cor Draconis, the Dragon Stones and
-                        // the sashes keep the operator's prices: no markdown, no markup.
-                        const bool operatorPriced = preview->GetVnum() == PLAYERBOT_CRAFT_MATERIAL_VNUM_PRICED ||
-                                IsPlayerBotCorVnum(preview->GetVnum()) || preview->IsDragonSoul() ||
-                                (preview->GetType() == ITEM_COSTUME && IsPlayerBotSashVnum(preview->GetVnum()));
-                        if (operatorPriced)
-                            discount = 0;
-                        int markup = 0;
                         // The reprice traced step by step for the line's explanation.
                         TPlayerBotPriceTraceScope priceTrace;
-                        const long long askingNow = (long long)GetPlayerBotShopAskingPrice(preview);
-                        if (priceTrace.On() && !operatorPriced) {
-                            // The generation the counter was priced under, and the
-                            // clock of the markdown - said at the price they leave.
-                            priceTrace.Step(per::STEP_GENERATION, askingNow,
-                                    o.priceGeneration != GetPlayerBotPriceGeneration() ? 1 : 0);
-                            priceTrace.Step(per::STEP_MARKDOWN_CLOCK, askingNow, standing / 60000U, per::CLOCK_MINUTES,
-                                    listed->second.when == 0 ? 1 : 0);
-                        }
-                        const long long asking = operatorPriced ? askingNow
-                                : (long long)GetPlayerBotListingPrice(preview, (DWORD)askingNow, discount, &markup);
-                        const long long repriceFloor = (long long)GetPlayerBotListingFloor(preview);
-                        if (repriceFloor > asking) {
-                            priceTrace.Step(per::STEP_LISTING_FLOOR, repriceFloor, repriceFloor);
-                            priceTrace.trace.flags |= per::LFLAG_FLOOR_BOUND;
-                        }
-                        price.yang = std::max(asking, repriceFloor);
+                        const TBotOfflineRepriceTarget target = BotOfflineRepriceTarget(preview, it->first,
+                                &o.listed, now, priceTrace, o.priceGeneration != GetPlayerBotPriceGeneration());
+                        const int discount = target.discount;
+                        const int markup = target.markup;
+                        const uint32_t standing = target.standing;
+                        const long long repriceFloor = target.floor;
+                        price.yang = target.price;
                         const unsigned int repriceFlags = priceTrace.On()
                                 ? priceTrace.trace.flags | priceTrace.trace.PriceFlags(price.yang, preview->GetCount()) : 0;
                         const std::string repriceSteps = priceTrace.On() ? priceTrace.trace.Encode() : std::string();

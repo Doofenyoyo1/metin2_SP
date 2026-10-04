@@ -394,7 +394,8 @@ int CountPlayerBotGridHoles(LPCHARACTER ch, WORD cells)
 
 }  // namespace
 
-static TResult ArrangeInventoryImpl(LPCHARACTER ch, bool fromPlayer, bool mergeOnly);
+static TResult ArrangeInventoryImpl(LPCHARACTER ch, bool fromPlayer, bool mergeOnly,
+		const std::vector<uint8_t>* keep = NULL);
 
 TResult ArrangeInventory(LPCHARACTER ch, bool fromPlayer)
 {
@@ -406,9 +407,26 @@ TResult MergeInventoryStacks(LPCHARACTER ch, bool fromPlayer)
 	return ArrangeInventoryImpl(ch, fromPlayer, true);
 }
 
+// MT2009_PLUS_INVENTORY_SORT_LOCK_V1: the words read before anything else is
+// asked, so a bad request costs the player no cooldown.
+TResult InventoryArrangeCommand(LPCHARACTER ch, const char* argument)
+{
+	bool merge = false;
+	std::vector<uint8_t> keep;
+	if (!rules::ParseArrangeWords(argument, INVENTORY_DEFAULT_MAX_NUM, merge, keep)) {
+		TResult result;
+		result.code = RESULT_BAD_REQUEST;
+		return result;
+	}
+	return ArrangeInventoryImpl(ch, true, merge, &keep);
+}
+
 // mergeOnly: the plan's pours and none of its moves; a stack poured empty
-// leaves its cell, the rest stay where they stand.
-static TResult ArrangeInventoryImpl(LPCHARACTER ch, bool fromPlayer, bool mergeOnly)
+// leaves its cell, the rest stay where they stand. keep: a cell per bag cell,
+// non-zero where the player locked the item standing there
+// (MT2009_PLUS_INVENTORY_SORT_LOCK_V1); a locked empty cell is no lock.
+static TResult ArrangeInventoryImpl(LPCHARACTER ch, bool fromPlayer, bool mergeOnly,
+		const std::vector<uint8_t>* keep)
 {
 	TResult result;
 	if (!ch || !ch->IsPC() || !ch->IsItemLoaded()) {
@@ -482,13 +500,16 @@ static TResult ArrangeInventoryImpl(LPCHARACTER ch, bool fromPlayer, bool mergeO
 		planned.count = item->GetCount();
 		planned.maxStack = item->GetMaxStack();
 		planned.pinned = item->isLocked() || item->IsExchanging() || planned.height != size;
+		planned.kept = !planned.pinned && keep && (size_t)cell < keep->size() && (*keep)[cell];
 		SortKeyOf(item, planned.key);
 		items.push_back(planned);
 		handles.push_back(item);
 		handleOf[planned.id] = item;
 		idAtCell[cell] = planned.id;
-		if (planned.pinned)
+		if (planned.pinned || planned.kept)
 			++result.pinned;
+		if (planned.kept)
+			++result.kept;
 	}
 	result.items = (int)items.size();
 	// Units per vnum, to be counted again at the end: pouring moves units
@@ -730,9 +751,9 @@ static TResult ArrangeInventoryImpl(LPCHARACTER ch, bool fromPlayer, bool mergeO
 		sys_err("INVENTORY_ARRANGE: pid=%u name=%s %d item(s) were not where the plan put them",
 				ch->GetPlayerID(), ch->GetName(), misplaced);
 	if (fromPlayer)
-		sys_log(0, "INVENTORY_ARRANGE: pid=%u name=%s items=%d moved=%d merged=%d units=%u pinned=%d strategy=%d us=%u",
+		sys_log(0, "INVENTORY_ARRANGE: pid=%u name=%s items=%d moved=%d merged=%d units=%u pinned=%d kept=%d strategy=%d us=%u",
 				ch->GetPlayerID(), ch->GetName(), result.items, result.moved, result.merged, result.units,
-				result.pinned, result.strategy, micros);
+				result.pinned, result.kept, result.strategy, micros);
 	result.code = RESULT_DONE;
 	return result;
 }
@@ -1383,6 +1404,13 @@ TResult ArrangeInventory(LPCHARACTER, bool)
 }
 
 TResult MergeInventoryStacks(LPCHARACTER, bool)
+{
+	TResult result;
+	result.code = RESULT_UNSUPPORTED;
+	return result;
+}
+
+TResult InventoryArrangeCommand(LPCHARACTER, const char*)
 {
 	TResult result;
 	result.code = RESULT_UNSUPPORTED;

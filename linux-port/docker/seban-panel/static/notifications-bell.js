@@ -7,6 +7,9 @@
   const markAllBtn = document.getElementById('notif-mark-all');
   const toastStack = document.getElementById('notif-toast-stack');
   const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  // Links stored by the server start at the panel root ("/events#run-3");
+  // behind a proxy sub-path they need that prefix in front.
+  const rootedLink = u => (u && u.startsWith('/') && !u.startsWith('//')) ? (window.SEBAN_ROOT || '') + u : u;
   let open = false;
 
   function closeDropdown() { open = false; dropdown.hidden = true; bell.setAttribute('aria-expanded', 'false'); }
@@ -20,14 +23,14 @@
   document.addEventListener('click', e => { if (open && !dropdown.contains(e.target) && e.target !== bell) closeDropdown(); });
   if (markAllBtn) markAllBtn.addEventListener('click', e => {
     e.stopPropagation();
-    fetch('/api/notifications/read-all', {method: 'POST'}).then(refresh).catch(() => {});
+    fetch((window.SEBAN_ROOT||'')+'/api/notifications/read-all', {method: 'POST'}).then(refresh).catch(() => {});
   });
 
   function markVisibleAsRead() {
     const unreadEls = [...list.querySelectorAll('.notif-item.is-unread')];
     if (!unreadEls.length) return;
     const ids = unreadEls.map(el => el.dataset.id);
-    fetch('/api/notifications/read', {
+    fetch((window.SEBAN_ROOT||'')+'/api/notifications/read', {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids}),
     }).then(() => {
       unreadEls.forEach(el => el.classList.remove('is-unread'));
@@ -44,7 +47,7 @@
     if (!items.length) { list.innerHTML = '<p class="notif-empty">Brak powiadomień.</p>'; return; }
     list.innerHTML = items.map(n => {
       const external = n.link_url && n.link_url.startsWith('http');
-      return `<a class="notif-item ${n.read ? '' : 'is-unread'}" data-id="${n.id}" href="${n.link_url || '#'}" ${external ? 'target="_blank" rel="noopener"' : ''}>
+      return `<a class="notif-item ${n.read ? '' : 'is-unread'}" data-id="${n.id}" href="${rootedLink(n.link_url) || '#'}" ${external ? 'target="_blank" rel="noopener"' : ''}>
         <p class="notif-item-title">${escapeHtml(n.title)}</p>
         ${n.body ? `<p class="notif-item-body">${escapeHtml(n.body)}</p>` : ''}
         <p class="notif-item-time">${n.created_at}</p>
@@ -57,10 +60,10 @@
     el.className = 'notif-toast';
     el.innerHTML = `<b>${escapeHtml(n.title)}</b><span>${n.body ? escapeHtml(n.body) : 'Kliknij, żeby zobaczyć.'}</span>`;
     el.addEventListener('click', () => {
-      fetch('/api/notifications/read', {
+      fetch((window.SEBAN_ROOT||'')+'/api/notifications/read', {
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids: [n.id]}),
       }).catch(() => {});
-      if (n.link_url) window.location.href = n.link_url;
+      if (n.link_url) window.location.href = rootedLink(n.link_url);
     });
     toastStack.appendChild(el);
     setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .4s'; setTimeout(() => el.remove(), 400); }, 9000);
@@ -68,14 +71,14 @@
 
   async function refresh() {
     try {
-      const data = await fetch('/api/notifications', {cache: 'no-store'}).then(r => r.json());
+      const data = await fetch((window.SEBAN_ROOT||'')+'/api/notifications', {cache: 'no-store'}).then(r => r.json());
       if (!data.ok) return;
       updateBadge(data.unread_count);
       renderList(data.items);
       const toPop = data.items.filter(n => !n.popped);
       toPop.forEach(showToast);
       if (toPop.length) {
-        fetch('/api/notifications/pop', {
+        fetch((window.SEBAN_ROOT||'')+'/api/notifications/pop', {
           method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ids: toPop.map(n => n.id)}),
         }).catch(() => {});

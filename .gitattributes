@@ -34,5 +34,6 @@ linux-port-mt2009/docker/game/dragon_soul_applys.mt2009plus.txt -text
 linux-port-mt2009/docker/game/special_item_group.cors.txt -text
 linux-port-mt2009/docker/game/special_item_group.dungeons.txt -text
 linux-port-mt2009/docker/game/special_item_group.goblin.txt -text
+linux-port-mt2009/docker/game/mob_drop_item.metinbeans.append.txt -text
 linux-port-mt2009/docker/mariadb/playerbot/*.mt2009plus.sql -text
 linux-port-mt2009/docker/mariadb/playerbot/mod/*.sql -text

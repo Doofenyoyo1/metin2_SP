@@ -182,10 +182,17 @@ namespace playerbot_bpbots
 		BYTE bFollowGoal;
 		// When it may shout again (the chatter).
 		DWORD dwNextChatter;
+		// MT2009_PLUS_BOT_BP_ROOM_V1: a reward waiting for room in the bag -
+		// when the claim is tried again (0: none waits), when the wait may be
+		// logged again, and when it may next hurry a town visit.
+		DWORD dwRoomRetryAt;
+		DWORD dwRoomNextLog;
+		DWORD dwRoomNextNudge;
 
 		TBot() : dwNextThink(0), dwRestUntil(0), bGoal(GOAL_NONE), dwMission(0), dwStone(0), lMap(0),
 			bVillage(false), dwUntil(0), dwExpeditionUntil(0), bAnyBoss(false), bShout(false),
-			dwShoutProgress(0), dwLastSeen(0), bFollowGoal(GOAL_NONE), dwNextChatter(0) {}
+			dwShoutProgress(0), dwLastSeen(0), bFollowGoal(GOAL_NONE), dwNextChatter(0),
+			dwRoomRetryAt(0), dwRoomNextLog(0), dwRoomNextNudge(0) {}
 	};
 
 	std::map<DWORD, TBot> s_mapBots;
@@ -193,6 +200,9 @@ namespace playerbot_bpbots
 	DWORD s_adwNextShout[4] = { 0, 0, 0, 0 };
 	DWORD s_dwNextCensus = 0;
 	unsigned int s_uAdopted = 0, s_uFinished = 0, s_uShouts = 0;
+	// MT2009_PLUS_BOT_BP_ROOM_V1: rewards made room for, claims deferred
+	// (since the last census).
+	unsigned int s_uRoomMade = 0, s_uRoomDeferred = 0;
 	// The draws since the last census (PLAYERBOT_BP: draws).
 	unsigned int s_uRolls = 0, s_uByTheWay = 0, s_uNothing = 0, s_uMetinBudget = 0,
 			s_uMetinFar = 0, s_uMetinCrowd = 0, s_uFollow = 0;
@@ -390,7 +400,7 @@ namespace playerbot_bpbots
 				IsPlayerBotOnMercContract(pid) || IsPlayerBotInDungeonBusiness(ch, state) ||
 				state.bWorldEventKind != 0 || state.wBossRaidRace != 0 || state.bFishingSession ||
 				state.bRecoveringAfterDeath || state.bTacticalRetreat || ch->GetMyShop() ||
-				IsPlayerBotOnBattleHorseTrial(ch) || IsPlayerBotOnMilitaryHorseTrial(ch) ||
+				IsPlayerBotOnAnyHorseTrial(ch) /* MT2009_PLUS_HORSE30_V1 */ ||
 				!(IsPlayerBotVillageMap(ch->GetMapIndex()) || IsPlayerBotFrontierMap(ch->GetMapIndex()));
 	}
 
@@ -504,7 +514,10 @@ namespace playerbot_bpbots
 		const int botLevel = (int)ch->GetLevel();
 		plan.goal = GOAL_METIN;
 		plan.mission = &m;
-		if (m.target == 0 && m.targetLevel == 0)
+		// MT2009_PLUS_BP_BOT_ANY_METIN_V1: over level 45 any Metin counts for
+		// the bot (mt2009_battlepass::Add), so it breaks the stones where it
+		// hunts and never travels back to the villages for a named one.
+		if ((m.target == 0 && m.targetLevel == 0) || botLevel > mt2009_battlepass::PLAYERBOT_BP_ANY_METIN_LEVEL)
 		{
 			// Any stone: where it stands, when there are stones here.
 			if (!PlayerBotMapHasMetinStones(ch->GetMapIndex()))
@@ -1003,11 +1016,334 @@ namespace playerbot_bpbots
 		sys_log(0, "PLAYERBOT_BP: chatter bp=%u buy=%u sell=%u party=%u metin=%u boss=%u gear=%u talk=%u",
 				s_auChatter[CHAT_BP], s_auChatter[CHAT_BUY], s_auChatter[CHAT_SELL], s_auChatter[CHAT_PARTY],
 				s_auChatter[CHAT_METIN], s_auChatter[CHAT_BOSS], s_auChatter[CHAT_GEAR], s_auChatter[CHAT_TALK]);
+		// MT2009_PLUS_BOT_BP_ROOM_V1
+		if (s_uRoomMade || s_uRoomDeferred)
+			sys_log(0, "PLAYERBOT_BP: reward room made=%u deferred=%u", s_uRoomMade, s_uRoomDeferred);
+		s_uRoomMade = s_uRoomDeferred = 0;
 		s_uRolls = s_uByTheWay = s_uFollow = s_uNothing = s_uMetinBudget = s_uMetinFar = s_uMetinCrowd = 0;
 		for (int k = 0; k < 5; ++k)
 			s_auAdoptedGoal[k] = 0;
 		for (int k = 0; k < 10; ++k)
 			s_auChatter[k] = 0;
+	}
+
+	// ---- room for a reward (MT2009_PLUS_BOT_BP_ROOM_V1) ----------------------
+	//
+	// A reward goes in through AutoGiveItem, which puts what finds no cell on
+	// the ground (the operator, 3 October: "Gdy boty nie maja miejsca w EQ,
+	// nagrody z battle passa wypadaja ... nagrody z battle passa sa na pewno
+	// bardziej drogocenne niz zlom w eq"). So before a bot's claim is taken
+	// the reward's items are placed on a copy of its bag grid the way the
+	// engine places them - onto a stack of the same vnum first, then the first
+	// free cell, a tall item down its column inside one page. When they do not
+	// fit, the junk (IsPlayerBotJunkItem: what the next merchant visit sells
+	// anyway) is let go for the merchant's price, the cheapest first, only
+	// what is needed and only pieces worth less than the reward. When even all
+	// of that would not make room, nothing is sold: the mission stays done and
+	// unclaimed in the database, the claim is tried again every ROOM_RETRY_MS
+	// and on every settle, and the town visit is hurried (at most every
+	// ROOM_NUDGE_MS). A player's reward is untouched.
+	const DWORD ROOM_RETRY_MS = 5 * 60 * 1000;
+	const DWORD ROOM_LOG_MS = 10 * 60 * 1000;
+	const DWORD ROOM_NUDGE_MS = 30 * 60 * 1000;
+	// What a reward is worth at the least, whatever the price lists say of it.
+	const long long ROOM_REWARD_MIN_VALUE = 1000000LL;
+	// The bot whose junk is being sold right now: the yang it is paid counts
+	// for a yang mission (ChangeGold, AddPlayerStat), which may settle again
+	// from inside this settle - that one waits for the next tick instead.
+	DWORD s_dwRoomBusyPid = 0;
+
+	// The bag's cells as the engine sees them now: true where taken.
+	void BuildRoomGrid(LPCHARACTER ch, std::vector<char>& used)
+	{
+		const int max = (int)ch->GetInventoryMaxCount();
+		used.assign(max, 0);
+		for (int cell = 0; cell < max; ++cell)
+			used[cell] = ch->IsEmptyItemGrid(TItemPos(INVENTORY, cell), 1) ? 0 : 1;
+	}
+
+	bool RoomFitsAt(const std::vector<char>& used, int cell, int size)
+	{
+		const int rowInPage = (cell % INVENTORY_PAGE_SIZE) / INVENTORY_PAGE_COLUMN;
+		if (rowInPage + size > INVENTORY_PAGE_ROW)
+			return false;
+		for (int k = 0; k < size; ++k)
+		{
+			const int c = cell + k * INVENTORY_PAGE_COLUMN;
+			if (c >= (int)used.size() || used[c])
+				return false;
+		}
+		return true;
+	}
+
+	void MarkRoom(std::vector<char>& used, int cell, int size, char value)
+	{
+		for (int k = 0; k < size; ++k)
+		{
+			const int c = cell + k * INVENTORY_PAGE_COLUMN;
+			if (c >= 0 && c < (int)used.size())
+				used[c] = value;
+		}
+	}
+
+	// Every new item placed, first fit, on a copy of the grid.
+	bool RoomFits(std::vector<char> used, const std::vector<int>& sizes)
+	{
+		for (size_t i = 0; i < sizes.size(); ++i)
+		{
+			int at = -1;
+			for (int cell = 0; cell < (int)used.size() && at < 0; ++cell)
+				if (RoomFitsAt(used, cell, sizes[i]))
+					at = cell;
+			if (at < 0)
+				return false;
+			MarkRoom(used, at, sizes[i], 1);
+		}
+		return true;
+	}
+
+	// The new items a reward makes in this bag: what the stacks already there
+	// do not take (AutoStackItemProto's rule - a stackable vnum, sockets as
+	// the proto has them) is one new item of its proto's size per vnum.
+	void CollectRewardSizes(LPCHARACTER ch, const DWORD* vnums, const DWORD* counts, int n,
+			std::vector<int>& sizes)
+	{
+		sizes.clear();
+		std::map<LPITEM, long long> taken;
+		for (int r = 0; r < n; ++r)
+		{
+			if (!vnums[r])
+				continue;
+			const TItemTable* proto = ITEM_MANAGER::instance().GetTable(vnums[r]);
+			if (!proto)
+				continue;
+			long long left = std::max<DWORD>(1, counts[r]);
+			if (IS_SET(proto->dwFlags, ITEM_FLAG_STACKABLE) && proto->bType != ITEM_BLEND)
+			{
+				for (int cell = 0; cell < (int)ch->GetInventoryMaxCount() && left > 0; ++cell)
+				{
+					LPITEM item = ch->GetInventoryItem(cell);
+					if (!item || item->GetCell() != cell || item->GetVnum() != vnums[r])
+						continue;
+					bool plain = true;
+					for (int k = 0; k < ITEM_SOCKET_MAX_NUM && plain; ++k)
+						plain = item->GetSocket(k) == proto->alSockets[k];
+					if (!plain)
+						continue;
+					long long& already = taken[item];
+					const long long room = (long long)PlayerBotMaxStack(item) - (long long)item->GetCount() - already;
+					if (room <= 0)
+						continue;
+					const long long put = std::min(room, left);
+					already += put;
+					left -= put;
+				}
+			}
+			if (left > 0)
+				sizes.push_back(std::max(1, (int)proto->bSize));
+		}
+	}
+
+	// What a reward is worth to the bot: its price lists' word (Iwakura's
+	// sheet, the operator's Cor price, what the market paid), never under
+	// ROOM_REWARD_MIN_VALUE.
+	long long RewardValue(const DWORD* vnums, const DWORD* counts, int n, DWORD dwNow)
+	{
+		long long total = 0;
+		for (int r = 0; r < n; ++r)
+		{
+			if (!vnums[r])
+				continue;
+			const long long count = std::max<DWORD>(1, counts[r]);
+			long long unit = std::max<long long>((long long)GetPlayerBotMaterialAskingBase(vnums[r]),
+					GetPlayerBotVnumSaleValue(vnums[r], dwNow));
+			if (IsPlayerBotCorVnum(vnums[r]))
+				unit = std::max<long long>(unit, (long long)PLAYERBOT_COR_DRACONIS_PRICE);
+			total += unit * count;
+		}
+		return std::max(total, ROOM_REWARD_MIN_VALUE);
+	}
+
+	struct TRoomCandidate
+	{
+		long long value;
+		long long sale;
+		int cell;
+		int size;
+		DWORD id;
+		bool operator<(const TRoomCandidate& o) const
+		{
+			return value != o.value ? value < o.value : cell > o.cell;
+		}
+	};
+
+	void NoteRoomDeferred(LPCHARACTER ch, DWORD mission, const char* why, size_t need, long long rewardValue,
+			size_t junk, DWORD dwNow)
+	{
+		const DWORD pid = ch->GetPlayerID();
+		TBot& b = s_mapBots[pid];
+		b.dwRoomRetryAt = dwNow + ROOM_RETRY_MS;
+		++s_uRoomDeferred;
+		// A full bag sends the bot to town on its own (IsPlayerBotBagFull);
+		// the visit is only hurried, and seldom, so nothing loops on it.
+		bool nudged = false;
+		if (b.dwRoomNextNudge == 0 || (int)(dwNow - b.dwRoomNextNudge) >= 0)
+		{
+			TPlayerBotAIStateMap::iterator it = s_mapPlayerBotAIStates.find(pid);
+			if (it != s_mapPlayerBotAIStates.end() && !it->second.bVisitingShop)
+			{
+				it->second.dwNextShopCheckTime = 0;
+				nudged = true;
+			}
+			b.dwRoomNextNudge = dwNow + ROOM_NUDGE_MS;
+		}
+		if (b.dwRoomNextLog != 0 && (int)(dwNow - b.dwRoomNextLog) < 0)
+			return;
+		b.dwRoomNextLog = dwNow + ROOM_LOG_MS;
+		sys_log(0, "PLAYERBOT_BP: deferred claim pid=%u name=%s mission=%u why=%s new_items=%u free_cells=%d "
+				"junk_cells=%u reward_value=%lld town_nudge=%d retry_s=%u",
+				pid, ch->GetName(), mission, why, (unsigned int)need, CountPlayerBotFreeInventoryCells(ch),
+				(unsigned int)junk, rewardValue, nudged ? 1 : 0, (unsigned int)(ROOM_RETRY_MS / 1000));
+	}
+
+	bool EnsureRewardRoom(LPCHARACTER ch, const DWORD* vnums, const DWORD* counts, int n, DWORD mission)
+	{
+		if (!ch || !vnums || !counts || n <= 0)
+			return true;
+		const DWORD dwNow = get_dword_time();
+		if (s_dwRoomBusyPid != 0 && s_dwRoomBusyPid == ch->GetPlayerID())
+		{
+			s_mapBots[s_dwRoomBusyPid].dwRoomRetryAt = dwNow;
+			return false;
+		}
+		if (!ch->IsItemLoaded())
+		{
+			NoteRoomDeferred(ch, mission, "items_not_loaded", 0, 0, 0, dwNow);
+			return false;
+		}
+		std::vector<int> sizes;
+		CollectRewardSizes(ch, vnums, counts, n, sizes);
+		if (sizes.empty())
+			return true;
+		std::vector<char> used;
+		BuildRoomGrid(ch, used);
+		if (RoomFits(used, sizes))
+			return true;
+
+		const long long rewardValue = RewardValue(vnums, counts, n, dwNow);
+		// Nothing leaves a bag that is trading or keeping a counter: its
+		// goods are spoken for.
+		if (ch->GetMyShop() || ch->GetExchange() || ch->GetShopOwner())
+		{
+			NoteRoomDeferred(ch, mission, "busy_trading", sizes.size(), rewardValue, 0, dwNow);
+			return false;
+		}
+
+		// The junk, cheapest first: never the reward's own vnums (their stacks
+		// are where it goes), never the hay the horse eats, never a piece
+		// worth the reward or more by the bot's own price.
+		std::vector<TRoomCandidate> candidates;
+		const int bagCells = std::min<int>(PLAYERBOT_BAG_CELLS, (int)used.size());
+		for (int cell = 0; cell < bagCells; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetCell() != cell || item->GetVnum() == PLAYERBOT_HAY_VNUM ||
+					!IsPlayerBotJunkItem(ch, item))
+				continue;
+			bool rewardVnum = false;
+			for (int r = 0; r < n && !rewardVnum; ++r)
+				rewardVnum = vnums[r] && vnums[r] == item->GetVnum();
+			if (rewardVnum)
+				continue;
+			TRoomCandidate c;
+			c.sale = GetPlayerBotJunkSalePrice(item);
+			c.value = std::max<long long>((long long)GetPlayerBotShopAskingPrice(item), c.sale);
+			if (c.value >= rewardValue)
+				continue;
+			c.cell = cell;
+			c.size = std::max(1, (int)item->GetSize());
+			c.id = item->GetID();
+			candidates.push_back(c);
+		}
+		std::sort(candidates.begin(), candidates.end());
+
+		std::vector<char> plan = used;
+		std::vector<size_t> chosen;
+		bool fits = false;
+		for (size_t i = 0; i < candidates.size() && !fits; ++i)
+		{
+			MarkRoom(plan, candidates[i].cell, candidates[i].size, 0);
+			chosen.push_back(i);
+			fits = RoomFits(plan, sizes);
+		}
+		if (!fits)
+		{
+			NoteRoomDeferred(ch, mission, candidates.empty() ? "no_junk" : "junk_not_enough", sizes.size(),
+					rewardValue, candidates.size(), dwNow);
+			return false;
+		}
+		// Only what is needed: the dearest of the chosen first put back
+		// wherever the reward still fits without it.
+		for (size_t k = chosen.size(); k-- > 0; )
+		{
+			const TRoomCandidate& c = candidates[chosen[k]];
+			MarkRoom(plan, c.cell, c.size, 1);
+			if (RoomFits(plan, sizes))
+				chosen.erase(chosen.begin() + k);
+			else
+				MarkRoom(plan, c.cell, c.size, 0);
+		}
+		long long chosenValue = 0;
+		for (size_t k = 0; k < chosen.size(); ++k)
+			chosenValue += candidates[chosen[k]].value;
+		if (chosenValue >= rewardValue)
+		{
+			NoteRoomDeferred(ch, mission, "junk_too_dear", sizes.size(), rewardValue, candidates.size(), dwNow);
+			return false;
+		}
+
+		// Sold to the merchant from where it stands, at the merchant's price
+		// (SellPlayerBotJunkAtMerchant's) - the visit would have sold it.
+		size_t sold = 0;
+		long long gold = 0;
+		s_dwRoomBusyPid = ch->GetPlayerID();
+		for (size_t k = 0; k < chosen.size(); ++k)
+		{
+			const TRoomCandidate& c = candidates[chosen[k]];
+			LPITEM item = ch->GetInventoryItem(c.cell);
+			if (!item || item->GetID() != c.id || item->GetCell() != c.cell)
+				continue;
+			sys_log(0, "PLAYERBOT_BP: room sold pid=%u name=%s mission=%u vnum=%u count=%u cell=%d value=%lld gold=%lld",
+					ch->GetPlayerID(), ch->GetName(), mission, item->GetVnum(), (unsigned int)item->GetCount(), c.cell,
+					c.value, c.sale);
+			PlayerBotChangeGold(ch, c.sale);
+			gold += c.sale;
+			ITEM_MANAGER::instance().RemoveItem(item, "PLAYERBOT_BP_ROOM");
+			++sold;
+		}
+		s_dwRoomBusyPid = 0;
+		BuildRoomGrid(ch, used);
+		if (!RoomFits(used, sizes))
+		{
+			NoteRoomDeferred(ch, mission, "still_no_room", sizes.size(), rewardValue, candidates.size(), dwNow);
+			return false;
+		}
+		++s_uRoomMade;
+		sys_log(0, "PLAYERBOT_BP: made room pid=%u name=%s mission=%u new_items=%u sold=%u junk_value=%lld gold=%lld reward_value=%lld",
+				ch->GetPlayerID(), ch->GetName(), mission, (unsigned int)sizes.size(), (unsigned int)sold,
+				chosenValue, gold, rewardValue);
+		return true;
+	}
+
+	// The waiting claim tried again: the settle takes every mission done and
+	// not yet claimed, and the final reward (mt2009_battlepass::Settle).
+	void RetryRewardRoom(LPCHARACTER ch, TBot& b, DWORD dwNow)
+	{
+		if (b.dwRoomRetryAt == 0 || (int)(dwNow - b.dwRoomRetryAt) < 0)
+			return;
+		b.dwRoomRetryAt = 0;
+		mt2009_battlepass::LoadMissions(false);
+		mt2009_battlepass::Settle(ch, mt2009_battlepass::GetCache(ch), false);
 	}
 
 	// ---- the tick -----------------------------------------------------------
@@ -1023,6 +1359,7 @@ namespace playerbot_bpbots
 		b.dwLastSeen = dwNow;
 		Census(dwNow);
 		ManageChatter(dwNow);
+		RetryRewardRoom(ch, b, dwNow);	// MT2009_PLUS_BOT_BP_ROOM_V1
 		if (b.dwNextThink != 0 && (int)(dwNow - b.dwNextThink) < 0)
 			return;
 		b.dwNextThink = dwNow + THINK_MS + PlayerBotNavHash(pid ^ 0x42505448U) % THINK_SPREAD_MS;

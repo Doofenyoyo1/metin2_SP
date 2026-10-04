@@ -399,7 +399,10 @@ def live_positions():
             if time.time() - path.stat().st_mtime > 25:
                 continue
             for n, _status in parse_status_rows(path.read_text(encoding="cp1250", errors="replace")):
-                result[n["pid"]] = (n.get("map", 0), n.get("x", 0), n.get("y", 0), channel)
+                # A dungeon run's copy of a map (base * 10000 + n) counts as the base map,
+                # as the panel's live map shows it (MT2009_PLUS_SEBAN_MAPS_V1).
+                index = n.get("map", 0)
+                result[n["pid"]] = (index // 10000 if index >= 10000 else index, n.get("x", 0), n.get("y", 0), channel)
         except (OSError, ValueError):
             continue
     return result
@@ -481,6 +484,22 @@ def collect(con, previous):
         cur.execute("INSERT IGNORE INTO player.web_seban_metric_snapshot VALUES (%s,'dragon_coins',%s)", (now, cur.fetchone()[0]))
         cur.execute("SELECT COUNT(DISTINCT owner) FROM player.ikashop_offlineshop WHERE duration > 0")
         cur.execute("INSERT IGNORE INTO player.web_seban_metric_snapshot VALUES (%s,'shops_count',%s)", (now, cur.fetchone()[0]))
+        # Level-bracket population over time (lvl_1_10, lvl_11_20, ...),
+        # requested by players via Kordyl13 (2026-10-01): "ile obecnie jest
+        # botów w danym przedziale levelowym" plus a trend to see how fast
+        # they move through brackets. The live page already shows this
+        # instant's count straight from the status files; this is the only
+        # piece of the request that needs history, so it's the only one
+        # that needed a new snapshot. Same 10-wide buckets as the live
+        # widget's client-side math (floor((level-1)/10)*10+1), so the "now"
+        # end of the trend chart lines up with what the live card shows.
+        if positions:
+            marks = ",".join(["%s"] * len(positions))
+            cur.execute(f"""SELECT FLOOR((level-1)/10)*10+1 AS bracket, COUNT(*) FROM player.player
+              WHERE id IN ({marks}) GROUP BY bracket""", tuple(positions.keys()))
+            for bracket, count in cur.fetchall():
+                cur.execute("INSERT IGNORE INTO player.web_seban_metric_snapshot VALUES (%s,%s,%s)",
+                            (now, f"lvl_{int(bracket)}_{int(bracket)+9}", count))
         check_plus9_refines(cur)
     return previous
 

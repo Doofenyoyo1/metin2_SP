@@ -1,0 +1,262 @@
+-- MT2009_PLUS_HORSE30_V1: koñ do 30 poziomu - szkolenie u Stajennego.
+-- Autor systemu: Digi Rasta (nowy-system v0.16, karta-kon-30-i-juki.md); port do
+-- MT2009 PLUS jako nasz quest (bez haków zastosuj.py).
+--
+-- Stajenny (20349) szkoli konia za op³atê zamiast misji treningowych (pony_levelup
+-- 1-10 i horse_levelup 11-20 nie s¹ ju¿ kompilowane, ich obiekty usuwa Dockerfile):
+--   (3 Oct: no feed any more - medals, materials and Yang only; the owner)
+--   1-9   -> +1: Medal Konny, 5x Siano (50054), 5 Materia³ów Rzemieœlniczych, 200 tys.-1 kk Yang
+--   11-19 -> +1: 2 Medale, 5x Marchewka (50055), 10 Materia³ów, 2-10 kk Yang
+--   21-28 -> +1: 3 Medale, 5x Czerwony ¯eñ-szeñ (50056), 20 Materia³ów, 15-50 kk Yang
+-- Awanse 10->11 (Koñ Bojowy, horse_upgrade) i 20->21 (Koñ Wojskowy, horse_upgrade2)
+-- zostaj¹ misjami. 29->30: Próba Czarnego Rumaka - 50 £uczników Setaou (2412, Grota
+-- Wygnañców) w 30 minut, od 75 poziomu postaci. Koñ 30 to Czarny Rumak (rasa 20119,
+-- server-patches/digirasta: char_horse.cpp).
+-- Od 21 poziomu koñ daje sta³y bonus (Potwory / Bossy / Metiny, %): konie.bonus().
+-- Boty robi¹ to samo w C++ (playerbot_horse30.h) - te same koszty i te same flagi
+-- konie.nm / konie.nb / konie.ns; przy zmianie popraw oba miejsca.
+-- Plik w cp1250, ¿aden litera³ nie koñczy siê polsk¹ liter¹ (qc).
+quest konie begin
+	state start begin
+		function koszt(l)
+			-- { Medale, karma, ile karmy, Materia³y, Yang }
+			if l >= 1 and l <= 9 then
+				return { 1, 50054, 0, 5, 100000 * (l + 1) }
+			elseif l >= 11 and l <= 19 then
+				return { 2, 50055, 0, 10, 2000000 + (l - 11) * 1000000 }
+			elseif l >= 21 and l <= 28 then
+				return { 3, 50056, 0, 20, 15000000 + (l - 21) * 5000000 }
+			end
+			return nil
+		end
+
+		function nazwa_karmy(v)
+			if v == 50054 then
+				return "Siano"
+			elseif v == 50055 then
+				return "Marchewka"
+			end
+			return "Czerwony ¯eñ-szeñ "
+		end
+
+		function yang(n)
+			if n >= 1000000 then
+				return (n / 1000000) .. " kk Yang"
+			end
+			return (n / 1000) .. " tys. Yang"
+		end
+
+		-- Wypisuje tekst, zawijaj¹c go do 44 znaków (okno nie zawija samo).
+		function pisz(t)
+			local szer = 44
+			while string.len(t) > szer do
+				local ciecie = szer + 1
+				while ciecie > 1 and string.sub(t, ciecie, ciecie) ~= " " do
+					ciecie = ciecie - 1
+				end
+				if ciecie <= 1 then
+					ciecie = szer + 1
+				end
+				say(string.sub(t, 1, ciecie - 1))
+				t = string.sub(t, ciecie + 1)
+			end
+			say(t)
+		end
+
+		function awansuj()
+			if horse.is_riding() then
+				horse.unride()
+				horse.advance()
+				horse.ride()
+			else
+				horse.advance()
+			end
+		end
+
+		-- Sta³y bonus konia od 21 poziomu: { Potwory, Bossy, Metiny } w %.
+		function bonus(l)
+			local t = {
+				{1, 1, 1}, {2, 1, 1}, {2, 2, 2}, {2, 3, 3}, {3, 3, 3},
+				{4, 3, 3}, {4, 4, 4}, {5, 4, 4}, {5, 5, 4}, {5, 5, 5},
+			}
+			if l < 21 then
+				return { 0, 0, 0 }
+			end
+			if l > 30 then
+				l = 30
+			end
+			return t[l - 20]
+		end
+
+		-- Dopasowuje sta³y bonus do poziomu konia: dopisuje ró¿nicê wzglêdem tego, co
+		-- postaæ ju¿ dosta³a (flagi nm/nb/ns). Wo³ane przy logowaniu, u Stajennego
+		-- i po awansie. 53 = Silny p. Potworom, 150 = p. Bossom, 149 = p. Metinom.
+		function synchronizuj()
+			local b = konie.bonus(horse.get_level())
+			local dm = b[1] - pc.getqf("nm")
+			local db = b[2] - pc.getqf("nb")
+			local ds = b[3] - pc.getqf("ns")
+			if dm ~= 0 then
+				affect.add_collect(53, dm)
+				pc.setqf("nm", b[1])
+			end
+			if db ~= 0 then
+				affect.add_collect(150, db)
+				pc.setqf("nb", b[2])
+			end
+			if ds ~= 0 then
+				affect.add_collect(149, ds)
+				pc.setqf("ns", b[3])
+			end
+			if dm ~= 0 or db ~= 0 or ds ~= 0 then
+				syschat("Bonus konia: +" .. b[1] .. "% Silny p. Potworom, +" .. b[2] .. "% p. Bossom, +" .. b[3] .. "% p. Metinom.")
+			end
+		end
+
+		-- Tak¿e dla konia, który awansowa³ inn¹ drog¹ (misja, komenda GM).
+		when login with horse.get_level() >= 21 begin
+			konie.synchronizuj()
+		end
+
+		when 20349.chat."Szkolenie konia" with horse.get_level() >= 1 and horse.get_level() < 30 begin
+			local l = horse.get_level()
+			konie.synchronizuj()
+			say_title("Stajenny - szkolenie konia")
+			if l == 10 or l == 20 then
+				konie.pisz("Twój koñ jest gotów na próbê awansu. Porozmawiaj ze mn¹ o awansie konia.")
+				return
+			end
+			if l == 29 then
+				konie.pisz("Twój koñ mo¿e staæ siê Czarnym Rumakiem - najszybszym koniem królestwa.")
+				konie.pisz("Próba: pokonaj 50 £uczników Setaou w ci¹gu 30 minut (Grota Wygnañców).")
+				say_reward("Wymagany poziom postaci: 75")
+				say_reward("Nagroda: Czarny Rumak (30 poziom)")
+				say_reward("i sta³y bonus konia: +5% Silny p. Potworom,")
+				say_reward("+5% p. Bossom, +5% p. Metinom.")
+				if pc.level < 75 then
+					say("Wróæ, gdy osi¹gniesz 75 poziom.")
+					return
+				end
+				if select("Rozpocznij próbê ", "Nie teraz") ~= 1 then
+					return
+				end
+				pc.setqf("misja_koniec", get_time() + 30 * 60)
+				pc.setqf("misja_zabite", 0)
+				set_state(misja)
+				say_title("Próba Czarnego Rumaka")
+				say("Masz 30 minut. Powodzenia!")
+				return
+			end
+			local k = konie.koszt(l)
+			if k == nil then
+				return
+			end
+			say("Poziom konia: " .. l .. " -> " .. (l + 1))
+			say_reward("Koszt szkolenia:")
+			say("  " .. k[1] .. "x Medal Konny")
+			if k[3] > 0 then
+				say("  " .. k[3] .. "x " .. konie.nazwa_karmy(k[2]))
+			end
+			say("  " .. k[4] .. "x Materia³y Rzemieœlnicze ")
+			say("  " .. konie.yang(k[5]))
+			if not (horse.is_summon() or horse.is_riding()) then
+				say_reward("Przywo³aj konia, aby go szkoliæ.")
+				return
+			end
+			if select("Szkol konia", "Anuluj") ~= 1 then
+				return
+			end
+			if pc.countitem(50050) < k[1] or (k[3] > 0 and pc.countitem(k[2]) < k[3]) or pc.countitem(30378) < k[4] then
+				say_title("Stajenny")
+				say("Brakuje ci przedmiotów.")
+				return
+			end
+			if pc.get_gold() < k[5] then
+				say_title("Stajenny")
+				say("Masz za ma³o Yang.")
+				return
+			end
+			pc.removeitem(50050, k[1])
+			if k[3] > 0 then
+				pc.removeitem(k[2], k[3])
+			end
+			pc.removeitem(30378, k[4])
+			pc.change_gold(-k[5])
+			konie.awansuj()
+			konie.synchronizuj()
+			char_log(0, "KONIE_SZKOLENIE", "poziom " .. horse.get_level())
+			say_title("Stajenny")
+			say("Twój koñ osi¹gn¹³ " .. horse.get_level() .. " poziom.")
+		end
+	end
+
+	state misja begin
+		when letter begin
+			send_letter("Próba Czarnego Rumaka")
+		end
+
+		when button or info begin
+			local zostalo = pc.getqf("misja_koniec") - get_time()
+			say_title("Próba Czarnego Rumaka")
+			say("Pokonani £ucznicy Setaou: " .. pc.getqf("misja_zabite") .. "/50")
+			if zostalo > 0 then
+				say("Pozosta³y czas: " .. math.floor(zostalo / 60) .. " min")
+			else
+				say("Czas min¹³. Wróæ do Stajennego.")
+			end
+		end
+
+		when 2412.kill begin
+			if pc.getqf("misja_zabite") >= 50 then
+				return
+			end
+			if get_time() > pc.getqf("misja_koniec") then
+				syschat("Próba Czarnego Rumaka: czas min¹³. Spróbuj ponownie u Stajennego.")
+				clear_letter()
+				set_state(start)
+				return
+			end
+			local z = pc.getqf("misja_zabite") + 1
+			pc.setqf("misja_zabite", z)
+			if z >= 50 then
+				syschat("Próba Czarnego Rumaka zaliczona! Wróæ do Stajennego.")
+			else
+				syschat("£ucznicy Setaou: " .. z .. "/50")
+			end
+		end
+
+		when 20349.chat."Próba Czarnego Rumaka" begin
+			say_title("Stajenny - Próba Czarnego Rumaka")
+			if pc.getqf("misja_zabite") >= 50 then
+				if horse.get_level() ~= 29 then
+					say("Twój koñ nie jest gotów do awansu.")
+					clear_letter()
+					set_state(start)
+					return
+				end
+				if not (horse.is_summon() or horse.is_riding()) then
+					say_reward("Przywo³aj konia, aby odebraæ nagrodê.")
+					return
+				end
+				konie.awansuj()
+				konie.synchronizuj()
+				char_log(0, "KONIE_SZKOLENIE", "poziom 30 - Czarny Rumak")
+				clear_letter()
+				set_state(start)
+				say_reward("Twój koñ sta³ siê Czarnym Rumakiem!")
+				say("+5% Silny p. Potworom, +5% p. Bossom,")
+				say("+5% p. Metinom - na sta³e.")
+				notice_all(pc.get_name() .. " wyszkoli³(a) Czarnego Rumaka!")
+				return
+			end
+			if get_time() > pc.getqf("misja_koniec") then
+				say("Czas min¹³. Mo¿esz spróbowaæ jeszcze raz.")
+				clear_letter()
+				set_state(start)
+				return
+			end
+			say("Pokonani £ucznicy Setaou: " .. pc.getqf("misja_zabite") .. "/50")
+			say("Pozosta³y czas: " .. math.floor((pc.getqf("misja_koniec") - get_time()) / 60) .. " min")
+		end
+	end
+end

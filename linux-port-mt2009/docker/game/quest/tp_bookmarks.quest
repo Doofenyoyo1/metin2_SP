@@ -1,0 +1,324 @@
+-- MT2009_PLUS_TP_BOOKMARKS_V1: Zapisane pozycje - six teleport bookmarks per
+-- character (the owner, 3 October: "Panel zapisywania kordow TP ... 6 pozycji.
+-- Teleportacja na dana pozycje po 15 minutach od poprzedniej teleportacji.
+-- Teleportacja zabiera jeden zwoj teleportacji z itemshopu ... musi byc w EQ
+-- czysty zwoj teleportacji").
+--
+-- The Arezzo files have the window (root/uilocation.py, 25 positions on five
+-- pages) on an engine of their own: a DB table, packets and a
+-- net.SendLocationManagerPacket the exe 2.0.25 does not have. Here it is a
+-- quest and a client window on our chat-command protocol, no engine change:
+--   client -> "/tpzapis lista" | "/tpzapis zapisz <1-6> <name>" |
+--             "/tpzapis usun <1-6>" | "/tpzapis tp <1-6>"
+--   server -> "TPBM begin <clean scrolls> <cooldown left s> <cooldown s>",
+--             "TPBM slot <i> <map> <local x> <local y> <name>" per saved slot,
+--             "TPBM end"; the messages as plain chat lines.
+-- The window is client-patches/client-2.0.30/root/uitpbookmarks.py, opened by
+-- the inventory sidebar's button; using the scroll keeps its own job.
+--
+-- The scroll is the ItemShop's Zwoj Powrotu (22010, 10 for 39 DC; the memory
+-- scroll the engine's USE_TALISMAN fills with a position on its first use) and
+-- the same scroll as Zwoj Teleportacji (22020). Clean = socket 0 empty, a
+-- position not yet written into it. Saving needs one in the bag; a teleport
+-- takes one (from the first clean stack), only once every check has passed;
+-- pc.warp refusing it gives the scroll back. 15 minutes between teleports of
+-- this panel (quest flag "last"; event flag mt2009_tpbm_cooldown overrides the
+-- seconds, mt2009_tpbm_off 1 switches the panel off).
+--
+-- Places: the open maps only (list below; the memory scroll's own rules on
+-- top: no foreign kingdom's map 1-59, level 90 for 301-304). Never a dungeon,
+-- an instance (map index >= 10000), the Devil Tower or Catacomb, a map behind
+-- a pass (71-73), an event or war map. The target is checked again at the
+-- teleport (the kingdom, the level, the Arezzo maps' switch). No teleport out
+-- of an event map, a duel or the arena, while dead, or with a trade, shop or
+-- storage window (pc.can_warp, pc.is_busy). Positions are quest flags: they
+-- survive relog and warps. Bots never come here.
+-- Kompiluje go Dockerfile. Plik w cp1250.
+quest tp_bookmarks begin
+	state start begin
+		-- map index -> the level it needs (the open maps only)
+		function maps()
+			return {
+				[1] = 0, [3] = 0, [4] = 0,
+				[21] = 0, [23] = 0, [24] = 0,
+				[41] = 0, [43] = 0, [44] = 0,
+				[61] = 0, [62] = 0, [63] = 0, [64] = 0, [65] = 0,
+				[67] = 0, [68] = 0, [69] = 0, [70] = 0, [104] = 0,
+				[301] = 90, [302] = 90, [303] = 90, [304] = 90,
+				[209] = 95,
+				[360] = 0, [361] = 0, [362] = 95,
+			}
+		end
+
+		-- no teleport out of these (the scroll's 113 and 200, the war and duel maps)
+		function blocked_from(idx)
+			return idx == 81 or idx == 110 or idx == 111 or idx == 112 or idx == 113
+				or idx == 181 or idx == 182 or idx == 183 or idx == 200 or idx == 250
+		end
+
+		function cooldown()
+			local c = game.get_event_flag("mt2009_tpbm_cooldown")
+			if c > 0 then
+				return c
+			end
+			return 15 * 60
+		end
+
+		function cooldown_left()
+			local left = pc.getqf("last") + tp_bookmarks.cooldown() - get_global_time()
+			if left < 0 then
+				return 0
+			end
+			return left
+		end
+
+		-- ok, or false and why
+		function map_ok(idx)
+			if idx <= 0 or idx >= 10000 then
+				return false, "W tym miejscu nie mo¿na zapisaæ pozycji."
+			end
+			local need = tp_bookmarks.maps()[idx]
+			if need == nil then
+				return false, "Tej mapy nie ma w zapisanych pozycjach (lochy, eventy i mapy specjalne s¹ wy³¹czone)."
+			end
+			if idx < 60 then
+				local empire = 1
+				if idx >= 40 then
+					empire = 3
+				elseif idx >= 20 then
+					empire = 2
+				end
+				if pc.get_empire() ~= empire then
+					return false, "Pozycje w obcym królestwie s¹ niedostêpne."
+				end
+			end
+			if pc.get_level() < need then
+				return false, string.format("Ta mapa wymaga %d poziomu.", need)
+			end
+			if idx >= 360 and idx <= 362 and game.get_event_flag("mt2009_arezzo_closed") ~= 0 then
+				return false, "Ta mapa jest teraz zamkniêta."
+			end
+			return true, ""
+		end
+
+		-- the first clean scroll's cell (-1 for none) and how many clean ones the bag has
+		function find_scroll()
+			local first = -1
+			local count = 0
+			for cell = 0, 224 do
+				if item.select_cell(cell) then
+					local vnum = item.get_vnum()
+					if (vnum == 22010 or vnum == 22020) and item.get_socket(0) == 0 then
+						count = count + item.get_count()
+						if first < 0 then
+							first = cell
+						end
+					end
+				end
+			end
+			return first, count
+		end
+
+		-- letters, digits, "_" (the space), "-", "." and the Polish letters (CP1250)
+		function clean_name(raw)
+			local polish = {
+				[165] = 1, [185] = 1, [198] = 1, [230] = 1, [202] = 1, [234] = 1,
+				[163] = 1, [179] = 1, [209] = 1, [241] = 1, [211] = 1, [243] = 1,
+				[140] = 1, [156] = 1, [143] = 1, [159] = 1, [175] = 1, [191] = 1,
+			}
+			local out = ""
+			for i = 1, string.len(raw) do
+				local b = string.byte(raw, i)
+				if (b >= 48 and b <= 57) or (b >= 65 and b <= 90) or (b >= 97 and b <= 122)
+						or b == 95 or b == 45 or b == 46 or polish[b] ~= nil then
+					if string.len(out) < 15 then
+						out = out .. string.char(b)
+					end
+				end
+			end
+			return out
+		end
+
+		-- a name in five flags, three bytes each
+		function set_name(slot, name)
+			for k = 1, 5 do
+				local n = 0
+				for j = 1, 3 do
+					local b = string.byte(name, (k - 1) * 3 + j)
+					if b == nil then
+						b = 0
+					end
+					n = n * 256 + b
+				end
+				pc.setqf("s" .. slot .. "n" .. k, n)
+			end
+		end
+
+		function get_name(slot)
+			local s = ""
+			for k = 1, 5 do
+				local n = pc.getqf("s" .. slot .. "n" .. k)
+				local bytes = { math.floor(n / 65536), math.mod(math.floor(n / 256), 256), math.mod(n, 256) }
+				for j = 1, 3 do
+					if bytes[j] <= 0 then
+						return s
+					end
+					s = s .. string.char(bytes[j])
+				end
+			end
+			return s
+		end
+
+		function send_list()
+			local cell, count = tp_bookmarks.find_scroll()
+			cmdchat(string.format("TPBM begin %d %d %d", count, tp_bookmarks.cooldown_left(), tp_bookmarks.cooldown()))
+			for i = 1, 6 do
+				local m = pc.getqf("s" .. i .. "m")
+				if m > 0 then
+					local l = pc.getqf("s" .. i .. "l")
+					local name = tp_bookmarks.get_name(i)
+					if name == "" then
+						name = "Pozycja_" .. i
+					end
+					cmdchat(string.format("TPBM slot %d %d %d %d %s", i, m, math.floor(l / 10000), math.mod(l, 10000), name))
+				end
+			end
+			cmdchat("TPBM end")
+		end
+
+		function save(slot, raw)
+			if pc.is_dead() then
+				syschat("Nie mo¿esz teraz zapisaæ pozycji.")
+				return
+			end
+			local idx = pc.get_map_index()
+			if pc.in_dungeon() or idx >= 10000 then
+				syschat("W lochu nie mo¿na zapisaæ pozycji.")
+				return
+			end
+			local ok, why = tp_bookmarks.map_ok(idx)
+			if not ok then
+				syschat(why)
+				return
+			end
+			local cell, count = tp_bookmarks.find_scroll()
+			if count <= 0 then
+				syschat("Zapisane pozycje dzia³aj¹ tylko z czystym Zwojem Powrotu (ItemShop) w ekwipunku.")
+				tp_bookmarks.send_list()
+				return
+			end
+			local name = tp_bookmarks.clean_name(raw)
+			if name == "" then
+				name = "Pozycja_" .. slot
+			end
+			pc.setqf("s" .. slot .. "m", idx)
+			pc.setqf("s" .. slot .. "x", pc.get_x())
+			pc.setqf("s" .. slot .. "y", pc.get_y())
+			pc.setqf("s" .. slot .. "l", pc.get_local_x() * 10000 + pc.get_local_y())
+			tp_bookmarks.set_name(slot, name)
+			syschat(string.format("Zapisano pozycjê %d: %s.", slot, (string.gsub(name, "_", " "))))
+			tp_bookmarks.send_list()
+		end
+
+		function remove(slot)
+			pc.setqf("s" .. slot .. "m", 0)
+			pc.setqf("s" .. slot .. "x", 0)
+			pc.setqf("s" .. slot .. "y", 0)
+			pc.setqf("s" .. slot .. "l", 0)
+			tp_bookmarks.set_name(slot, "")
+			syschat(string.format("Usuniêto pozycjê %d.", slot))
+			tp_bookmarks.send_list()
+		end
+
+		function go(slot)
+			local m = pc.getqf("s" .. slot .. "m")
+			if m <= 0 then
+				syschat("Ta pozycja jest pusta.")
+				return
+			end
+			if pc.is_dead() then
+				syschat("Nie mo¿esz siê teraz teleportowaæ.")
+				return
+			end
+			local left = tp_bookmarks.cooldown_left()
+			if left > 0 then
+				syschat(string.format("Nastêpna teleportacja za %d min %d s.", math.floor(left / 60), math.mod(left, 60)))
+				tp_bookmarks.send_list()
+				return
+			end
+			local cur = pc.get_map_index()
+			if cur >= 10000 then
+				cur = math.floor(cur / 10000)
+			end
+			if tp_bookmarks.blocked_from(cur) then
+				syschat("Z tego miejsca nie mo¿na siê teleportowaæ.")
+				return
+			end
+			if pc.is_pvp() or pc.is_arena() then
+				syschat("Nie mo¿esz siê teleportowaæ w trakcie pojedynku.")
+				return
+			end
+			if not pc.can_warp() or pc.is_busy() then
+				syschat("Zamknij handel, sklep i magazyn, odczekaj chwilê i spróbuj ponownie.")
+				return
+			end
+			local ok, why = tp_bookmarks.map_ok(m)
+			if not ok then
+				syschat(why)
+				return
+			end
+			local x = pc.getqf("s" .. slot .. "x")
+			local y = pc.getqf("s" .. slot .. "y")
+			if x <= 0 or y <= 0 then
+				syschat("Ta pozycja jest uszkodzona - zapisz j¹ ponownie.")
+				return
+			end
+			local cell, count = tp_bookmarks.find_scroll()
+			if cell < 0 or not item.select_cell(cell) then
+				syschat("Teleportacja wymaga czystego Zwoju Powrotu (ItemShop) w ekwipunku.")
+				tp_bookmarks.send_list()
+				return
+			end
+			local vnum = item.get_vnum()
+			local last = pc.getqf("last")
+			-- the scroll first: the warp saves the character with it gone
+			item.remove(1)
+			pc.setqf("last", get_global_time())
+			if not pc.warp(x * 100, y * 100) then
+				pc.give_item2(vnum, 1)
+				pc.setqf("last", last)
+				syschat("Teleportacja nie powiod³a siê - zwój wróci³ do ekwipunku.")
+				return
+			end
+			sys_log(0, string.format("TP_BOOKMARKS: %s slot %d map %d -> %d (%d, %d), scroll %d from cell %d", pc.get_name(), slot, pc.get_map_index(), m, x, y, vnum, cell))
+			syschat(string.format("Teleportacja: %s (zu¿yto 1 zwój).", (string.gsub(tp_bookmarks.get_name(slot), "_", " "))))
+		end
+
+		when write with mes.get_message() == "tpzapis" begin
+			if pc.is_bot() then
+				return
+			end
+			if game.get_event_flag("mt2009_tpbm_off") ~= 0 then
+				syschat("Zapisane pozycje s¹ teraz wy³¹czone.")
+				return
+			end
+			local args = mes.get_arguments()
+			local cmd = args[1]
+			if cmd == "lista" then
+				tp_bookmarks.send_list()
+				return
+			end
+			local slot = tonumber(args[2] or "")
+			if slot == nil or slot < 1 or slot > 6 or math.floor(slot) ~= slot then
+				return
+			end
+			if cmd == "zapisz" then
+				tp_bookmarks.save(slot, args[3] or "")
+			elseif cmd == "usun" then
+				tp_bookmarks.remove(slot)
+			elseif cmd == "tp" then
+				tp_bookmarks.go(slot)
+			end
+		end
+	end
+end

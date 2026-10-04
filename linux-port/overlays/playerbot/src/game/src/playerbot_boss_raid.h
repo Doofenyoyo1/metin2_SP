@@ -337,7 +337,7 @@ namespace
 		if (IsPlayerBotOnTowerBusiness(c, st) || st.dwGuildWarEnemyGID != 0 ||
 				playerbot_pvp::GetDuelOpponent(pid, dwNow) != 0)
 			return "busy";
-		if (IsPlayerBotOnBattleHorseTrial(c) || IsPlayerBotOnMilitaryHorseTrial(c))
+		if (IsPlayerBotOnAnyHorseTrial(c) /* MT2009_PLUS_HORSE30_V1 */)
 			return "trial";
 		if (st.bTownVisitPhase != BOT_TOWN_PHASE_NONE || c->GetMyShop())
 			return "town";

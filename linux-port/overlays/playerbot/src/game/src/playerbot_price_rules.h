@@ -37,6 +37,37 @@ inline long long InflationFactor(long long steps, int stepPercent, long long max
 	return (long long)(factor + 0.5);
 }
 
+// MT2009_PLUS_WORLD_YANG_PRICES_V1 (the owner, 2 October): the bots' price
+// level from the yang the world's characters hold, smooth instead of in
+// steps. A new world sells at `startPercent` of the sheet, rising in a
+// straight line to the sheet itself at `zeroYang`; over it every `stepYang`
+// lifts prices by `hotPercent`, compounded, and over `coolYang` by
+// `coolPercent` a step, compounded on what the hot part reached. Ten-
+// thousandths, as InflationFactor.
+inline long long WorldYangFactor(long long yang, int startPercent, long long zeroYang, long long stepYang,
+		int hotPercent, long long coolYang, int coolPercent, long long maxFactor)
+{
+	const double one = (double)INFLATION_FACTOR_ONE;
+	if (yang < 0)
+		yang = 0;
+	double factor;
+	if (zeroYang <= 0 || stepYang <= 0)
+		factor = one;
+	else if (yang <= zeroYang)
+		factor = one * ((double)startPercent + (100.0 - (double)startPercent) * (double)yang / (double)zeroYang) / 100.0;
+	else
+	{
+		const long long hotEnd = std::max(zeroYang, coolYang);
+		const double hotSteps = (double)(std::min(yang, hotEnd) - zeroYang) / (double)stepYang;
+		factor = one * std::pow(1.0 + (double)hotPercent / 100.0, hotSteps);
+		if (yang > hotEnd)
+			factor *= std::pow(1.0 + (double)coolPercent / 100.0, (double)(yang - hotEnd) / (double)stepYang);
+	}
+	if (!(factor < (double)maxFactor))
+		return maxFactor;
+	return std::max(1LL, (long long)(factor + 0.5));
+}
+
 // Point 11: "Jezeli przedmiot posiada wiecej niz jeden maksymalny bonus, jego
 // cena koncowa jest dodatkowo mnozona" - two lines at their top x1.7, three
 // x2.5, four x4.0, over what the lines already asked on their own. A fifth,

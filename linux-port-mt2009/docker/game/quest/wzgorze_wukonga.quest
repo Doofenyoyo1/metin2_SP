@@ -23,6 +23,11 @@ quest wzgorze_wukonga begin
 				seals = 3,
 				chests_min = 1, chests_max = 3,
 				path = "data/dungeon/wzgorze_wukonga/",
+				-- MT2009_PLUS_WUKONG_GUARDIANS_V1: the Cloud Defenders' places (guardians.txt before), all
+				-- at least 8 cells inside the arena's edge, and how long stage 3 may go without a
+				-- Defender falling before one at full health is put back on its place.
+				guardians = {{277, 289}, {253, 260}, {251, 286}},
+				guardian_idle = 180,
 			}
 		end
 
@@ -80,6 +85,71 @@ quest wzgorze_wukonga begin
 			return idx >= 364 * 10000 and idx < 365 * 10000
 		end
 
+		-- MT2009_PLUS_DUNGEON_END_V1 (2 October): the end of a run, seen from every core. A player used a
+		-- Teleport Ring in the minute after the boss, and his guard (another core: d.find cannot tell what
+		-- game2 holds) kept offering "Wróæ do lochu" into an instance that was gone. The boss's kill (or the
+		-- time limit) now writes the end time to an event flag of the instance's slot (map and the last two
+		-- digits of its index - a slot comes round again only after 100 more instances of the map), and
+		-- every core compares it with the player's own entry time: a run that ended after he went in is over.
+		function end_flag(idx)
+			return "mt2009_dgend_"..math.floor(idx / 10000).."_"..math.mod(idx, 100)
+		end
+
+		function run_ended()
+			local idx = pc.getf("wzgorze_wukonga", "idx")
+			return idx > 0 and game.get_event_flag(wzgorze_wukonga.end_flag(idx)) >= pc.getf("wzgorze_wukonga", "entry")
+		end
+
+		-- In the instance (the boss's kill, the time limit): the event flag for those outside, the
+		-- rejoin state of those inside. The daily count and the cooldown stay as the entry set them.
+		function mark_ended()
+			if d.getf("ended") == 1 then
+				return
+			end
+			d.setf("ended", 1)
+			d.setqf2("wzgorze_wukonga", "idx", 0)
+			if d.getf("mt2009_dgbot") ~= 1 then
+				game.set_event_flag(wzgorze_wukonga.end_flag(d.get_map_index()), get_global_time())
+			end
+		end
+
+		-- A rejoin state with nothing behind it any more (the run ended, the time is up) is cleared;
+		-- true when the run ended while the player was out of it.
+		function clear_stale()
+			local c = wzgorze_wukonga.cfg()
+			if pc.getf("wzgorze_wukonga", "idx") <= 0 then
+				return false
+			end
+			if wzgorze_wukonga.run_ended() then
+				pc.setf("wzgorze_wukonga", "idx", 0)
+				return true
+			end
+			if get_global_time() - pc.getf("wzgorze_wukonga", "entry") >= c.limit_min * 60 then
+				pc.setf("wzgorze_wukonga", "idx", 0)
+			end
+			return false
+		end
+
+		function end_text(n)
+			if n == 1 then
+				return "Za 1 sekundê zostaniesz teleportowany do Œwi¹tyni Hwang."
+			elseif n >= 2 and n <= 4 then
+				return "Za "..n.." sekundy zostaniesz teleportowany do Œwi¹tyni Hwang."
+			end
+			return "Za "..n.." sekund zostaniesz teleportowany do Œwi¹tyni Hwang."
+		end
+
+		-- After the last boss: one notice a second, 5 to 0, then everyone out (finish).
+		function end_count(n)
+			d.notice("Wzgórze Wukonga: "..wzgorze_wukonga.end_text(n))
+			if n <= 0 then
+				wzgorze_wukonga.finish()
+				return
+			end
+			d.setf("end_in", n - 1)
+			server_timer("wukong_end", 1, d.get_map_index())
+		end
+
 		function entry_xy()
 			local c = wzgorze_wukonga.cfg()
 			return (c.base_x + c.entry[1]) * 100, (c.base_y + c.entry[2]) * 100
@@ -117,7 +187,7 @@ quest wzgorze_wukonga begin
 				d.set_regen_file(c.path.."guards.txt")
 			elseif stage == 3 then
 				d.setf("left", 3)
-				d.regen_file(c.path.."guardians.txt")
+				wzgorze_wukonga.spawn_guardians()
 				d.set_regen_file(c.path.."guards.txt")
 			elseif stage == 4 then
 				d.setf("left", 4)
@@ -130,6 +200,58 @@ quest wzgorze_wukonga begin
 				d.spawn_mob(9682, 268, 256)
 			end
 			d.notice("Wzgórze Wukonga ("..stage.."/6): "..wzgorze_wukonga.stage_text(stage))
+		end
+
+		-- MT2009_PLUS_WUKONG_GUARDIANS_V1 (3 October): the Cloud Defenders one by one, each an instance
+		-- unique. On the supporters' server a Defender's push carried a player's companion over the edge
+		-- of the arena, a Defender went after it and stayed out there: nobody could reach it, the cape
+		-- pulls no boss, and the run stood at "Pozosta³o: 1" until the players gave up. The core no
+		-- longer pushes anyone onto blocked ground (char_skill.cpp, the same marker); this is the net
+		-- under it. When no Defender has fallen for guardian_idle seconds, each one still at full
+		-- health - nobody is hitting it - is put back on its place.
+		function spawn_guardian(i)
+			local c = wzgorze_wukonga.cfg()
+			local vid = d.spawn_mob(9683, c.guardians[i][1], c.guardians[i][2])
+			d.set_unique("wukong_guardian"..i, vid)
+			d.setf("guardian"..i, vid)
+		end
+
+		function spawn_guardians()
+			local c = wzgorze_wukonga.cfg()
+			for i = 1, table.getn(c.guardians) do
+				wzgorze_wukonga.spawn_guardian(i)
+			end
+			d.setf("guardian_time", get_global_time())
+		end
+
+		function guardian_down(vid)
+			local c = wzgorze_wukonga.cfg()
+			for i = 1, table.getn(c.guardians) do
+				if d.getf("guardian"..i) == vid then
+					d.setf("guardian"..i, 0)
+				end
+			end
+			d.setf("guardian_time", get_global_time())
+		end
+
+		function guardians_check()
+			local c = wzgorze_wukonga.cfg()
+			if get_global_time() - d.getf("guardian_time") < c.guardian_idle then
+				return
+			end
+			d.setf("guardian_time", get_global_time())
+			local back = 0
+			for i = 1, table.getn(c.guardians) do
+				local key = "wukong_guardian"..i
+				if d.getf("guardian"..i) ~= 0 and d.unique_get_hp_perc(key) >= 100 then
+					d.purge_unique(key)
+					wzgorze_wukonga.spawn_guardian(i)
+					back = back + 1
+				end
+			end
+			if back > 0 then
+				d.notice("Wzgórze Wukonga: Obroñcy Chmur wracaj¹ na swoje miejsca.")
+			end
 		end
 
 		function next_stage()
@@ -171,6 +293,7 @@ quest wzgorze_wukonga begin
 		end
 
 		function finish()
+			wzgorze_wukonga.mark_ended() -- MT2009_PLUS_DUNGEON_END_V1
 			local c = wzgorze_wukonga.cfg()
 			d.setf("closed", 1)
 			d.setf("mt2009_keep_until", 0)
@@ -228,6 +351,11 @@ quest wzgorze_wukonga begin
 			end
 			local now = get_global_time()
 			local x, y = wzgorze_wukonga.entry_xy()
+			-- MT2009_PLUS_DUNGEON_END_V1: a run that ended while the player was out is no longer his.
+			if wzgorze_wukonga.clear_stale() then
+				say_title(mob_name(20423))
+				say("Ten loch zosta³ ju¿ ukoñczony.")
+			end
 			local idx = pc.getf("wzgorze_wukonga", "idx")
 			if idx > 0 and now - pc.getf("wzgorze_wukonga", "entry") < c.limit_min * 60 then
 				say_title(mob_name(20423))
@@ -242,11 +370,15 @@ quest wzgorze_wukonga begin
 				if s == 3 then
 					return
 				elseif s == 1 then
+					-- MT2009_PLUS_DUNGEON_END_V1: the login inside knows this jump (no second fee).
+					pc.setf("wzgorze_wukonga", "back", idx)
+					pc.setf("wzgorze_wukonga", "back_at", now)
 					if d.find(idx, x, y, pc.get_player_id()) then
 						pc.warp(x, y, idx)
 					else
 						say_title(mob_name(20423))
 						say("Jeœli wyprawa wci¹¿ trwa, przejœcie zaraz ciê zabierze.")
+						timer("wukong_rejoin", 5)
 					end
 					return
 				end
@@ -392,14 +524,22 @@ quest wzgorze_wukonga begin
 			local c = wzgorze_wukonga.cfg()
 			say_title(mob_name(20423))
 			local now = get_global_time()
+			-- MT2009_PLUS_DUNGEON_END_V1: an ended run is no longer the player's; the lobby stands on the
+			-- instances' own core, so d.find here also tells an instance that is gone.
+			if wzgorze_wukonga.clear_stale() then
+				say("Ten loch zosta³ ju¿ ukoñczony.")
+			end
 			local idx = pc.getf("wzgorze_wukonga", "idx")
-			if idx > 0 and now - pc.getf("wzgorze_wukonga", "entry") < c.limit_min * 60 and d.find(idx) then
-				say("Twoja wyprawa wci¹¿ trwa. Czy chcesz do niej wróciæ?")
-				if select("Wróæ do lochu", "Nie teraz") == 1 then
-					local x, y = wzgorze_wukonga.entry_xy()
-					pc.warp(x, y, idx)
+			if idx > 0 and now - pc.getf("wzgorze_wukonga", "entry") < c.limit_min * 60 then
+				if d.find(idx) then
+					say("Twoja wyprawa wci¹¿ trwa. Czy chcesz do niej wróciæ?")
+					if select("Wróæ do lochu", "Nie teraz") == 1 then
+						local x, y = wzgorze_wukonga.entry_xy()
+						pc.warp(x, y, idx)
+					end
+					return
 				end
-				return
+				pc.setf("wzgorze_wukonga", "idx", 0)
 			end
 			if party.is_party() and not party.is_leader() then
 				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
@@ -484,6 +624,16 @@ quest wzgorze_wukonga begin
 			end
 		end
 
+		-- MT2009_PLUS_DUNGEON_END_V1: "Wróæ do lochu" went to another core (d.find) and nobody took the
+		-- player there within 5 seconds: the instance is gone, and so is the rejoin state.
+		when wukong_rejoin.timer begin
+			if wzgorze_wukonga.inside() or pc.getf("wzgorze_wukonga", "idx") <= 0 then
+				return
+			end
+			pc.setf("wzgorze_wukonga", "idx", 0)
+			syschat("Wzgórze Wukonga: Ta wyprawa ju¿ siê zakoñczy³a. Porozmawiaj ze stra¿nikiem, aby wyruszyæ na now¹.")
+		end
+
 		when login begin
 			local c = wzgorze_wukonga.cfg()
 			local idx = pc.get_map_index()
@@ -510,23 +660,43 @@ quest wzgorze_wukonga begin
 				pc.set_warp_location(c.exit_map, c.exit_x, c.exit_y)
 				pc.setf("wzgorze_wukonga", "inside", 1)
 				pc.setf("wzgorze_wukonga", "pending", 0)
-				if pc.getf("wzgorze_wukonga", "idx") ~= idx then
-					if not wzgorze_wukonga.pay_entry() then -- MT2009_PLUS_DUNGEON_FEE_V1
-						pc.warp(c.exit_x * 100, c.exit_y * 100)
-						return
+				-- MT2009_PLUS_DUNGEON_END_V1: an instance whose last boss is down (or whose time is up) takes
+				-- nobody back in, and costs nothing.
+				if d.getf("ended") == 1 or d.getf("closed") == 1 then
+					if pc.getf("wzgorze_wukonga", "idx") == idx then
+						pc.setf("wzgorze_wukonga", "idx", 0)
 					end
-					pc.setf("wzgorze_wukonga", "idx", idx)
-					pc.setf("wzgorze_wukonga", "entry", get_global_time())
+					syschat("Wzgórze Wukonga: Ten loch zosta³ ju¿ ukoñczony.")
+					pc.warp(c.exit_x * 100, c.exit_y * 100)
+					return
+				end
+				-- the guard's "Wróæ do lochu" (its 5-second check may have cleared the state while the jump ran)
+				local back = pc.getf("wzgorze_wukonga", "back") == idx and get_global_time() - pc.getf("wzgorze_wukonga", "back_at") < 60
+				pc.setf("wzgorze_wukonga", "back", 0)
+				if pc.getf("wzgorze_wukonga", "idx") ~= idx then
+					if back then
+						pc.setf("wzgorze_wukonga", "idx", idx)
+					else
+						if not wzgorze_wukonga.pay_entry() then -- MT2009_PLUS_DUNGEON_FEE_V1
+							pc.warp(c.exit_x * 100, c.exit_y * 100)
+							return
+						end
+						pc.setf("wzgorze_wukonga", "idx", idx)
+						pc.setf("wzgorze_wukonga", "entry", get_global_time())
+					end
 				end
 				if d.getf("init") == 0 then
 					wzgorze_wukonga.init()
 				end
-				if d.getf("closed") == 1 then
-					pc.warp(c.exit_x * 100, c.exit_y * 100)
+			else
+				if pc.getf("wzgorze_wukonga", "inside") == 1 then
+					pc.setf("wzgorze_wukonga", "inside", 0)
+					if pc.count_item(30766) > 0 then pc.remove_item(30766, pc.count_item(30766)) end
 				end
-			elseif pc.getf("wzgorze_wukonga", "inside") == 1 then
-				pc.setf("wzgorze_wukonga", "inside", 0)
-				if pc.count_item(30766) > 0 then pc.remove_item(30766, pc.count_item(30766)) end
+				-- MT2009_PLUS_DUNGEON_END_V1: the run ended while the player was out of it (or its time is up).
+				if not pc.is_playerbot() and wzgorze_wukonga.clear_stale() then
+					syschat("Wzgórze Wukonga: Ten loch zosta³ ju¿ ukoñczony.")
+				end
 			end
 		end
 
@@ -565,6 +735,9 @@ quest wzgorze_wukonga begin
 				if left == 15 or left == 10 or left == 5 or left == 1 then
 					d.notice("Wzgórze Wukonga: Pozosta³o "..left.." min.")
 				end
+				if d.getf("stage") == 3 then
+					wzgorze_wukonga.guardians_check() -- MT2009_PLUS_WUKONG_GUARDIANS_V1
+				end
 				server_timer("wukong_tick", 60, get_server_timer_arg())
 			end
 		end
@@ -580,9 +753,13 @@ quest wzgorze_wukonga begin
 			end
 		end
 
+		-- MT2009_PLUS_DUNGEON_END_V1: the countdown after the last boss (end_count), a second at a time.
 		when wukong_end.server_timer begin
 			if d.select(get_server_timer_arg()) then
-				wzgorze_wukonga.finish()
+				if d.getf("closed") == 1 then
+					return
+				end
+				wzgorze_wukonga.end_count(d.getf("end_in"))
 			end
 		end
 
@@ -622,6 +799,7 @@ quest wzgorze_wukonga begin
 		end
 
 		when 9683.kill with wzgorze_wukonga.inside() and d.getf("stage") == 3 begin
+			wzgorze_wukonga.guardian_down(npc.get_vid()) -- MT2009_PLUS_WUKONG_GUARDIANS_V1
 			local left = d.getf("left") - 1
 			d.setf("left", left)
 			if left <= 0 then
@@ -652,8 +830,11 @@ quest wzgorze_wukonga begin
 				wzgorze_wukonga.purge_mobs()
 				local took = wzgorze_wukonga.reward()
 				d.update_ranking("wukong", took) -- MT2009_PLUS_DUNGEON_PANEL_V1
-				d.notice(string.format("WuKong pokonany! Czas: %d:%02d. Za 60 sekund wszyscy wróc¹ do Œwi¹tyni Hwang.", math.floor(took / 60), math.mod(took, 60)))
-				server_timer("wukong_end", 60, d.get_map_index())
+				-- MT2009_PLUS_DUNGEON_END_V1: the run is over for everyone in it (no "Wróæ do lochu" any more),
+				-- and five seconds later everyone is out (was a minute).
+				wzgorze_wukonga.mark_ended()
+				d.notice(string.format("WuKong pokonany! Czas: %d:%02d. Loch zosta³ ukoñczony.", math.floor(took / 60), math.mod(took, 60)))
+				wzgorze_wukonga.end_count(5)
 				return
 			end
 		end

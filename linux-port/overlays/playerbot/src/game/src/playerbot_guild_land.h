@@ -888,9 +888,15 @@ namespace
 
 	// What a guild smith of this race takes (CHARACTER::CanReceiveItem, less
 	// the distance).
+	bool IsPlayerBotAwakenedWeaponVnum(DWORD vnum); // playerbot_awakening.h
+
 	bool PlayerBotGuildSmithTakes(DWORD race, LPITEM item)
 	{
 		if (!item || !item->GetRefinedVnum())
+			return false;
+		// MT2009_PLUS_AWAKENING_V1: an awakened weapon is refined only by the
+		// plain blacksmith - the engine refuses it at a guild smith.
+		if (IsPlayerBotAwakenedWeaponVnum(item->GetVnum()))
 			return false;
 		const bool heavy = item->GetType() == ITEM_ARMOR && (item->GetSubType() == ARMOR_BODY ||
 				item->GetSubType() == ARMOR_SHIELD || item->GetSubType() == ARMOR_HEAD);

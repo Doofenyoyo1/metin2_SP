@@ -26,21 +26,20 @@ Group	mt2009_yut_golden_bundle
 	1	79508	1	10 -- Plansza do Yutnori
 	2	39015	1	19 -- Kamien Kowala
 	3	25040	1	33 -- Zwoj Blogoslawienstwa
-	4	39029	1	20 -- Wzmocnienie Przedmiotu
-	5	39028	1	80 -- Zaczarowanie Przedmiotu
+	4	39029	3	20 -- Wzmocnienie Przedmiotu
+	5	39028	5	80 -- Zaczarowanie Przedmiotu
 	6	39036	1	7 -- Buty Wiatru
 	7	71136	1	6 -- Lizak Potegi
 	8	71018	10	20 -- Blogoslawienstwo Zycia
-	9	51506	1	19 -- Cor Draconis (mityczne)
-	10	51505	1	26 -- Cor Draconis (drogocenne)
-	11	27992	1	23 -- Biala Perla
-	12	27993	1	15 -- Niebieska Perla
-	13	27994	1	10 -- Krwawa Perla
-	14	50108	10	20 -- Fajerwerki
-	15	50107	10	20 -- Chinska Ognista Petarda
-	16	72709	1	4 -- Kolczyk z kosci tygrysa
-	17	72710	1	4 -- Kolczyk z kosci smoka
-	18	71153	1	8 -- Mikstura Madrosci
+	9	51505	1	26 -- Cor Draconis (drogocenne)
+	10	27992	1	23 -- Biala Perla
+	11	27993	1	15 -- Niebieska Perla
+	12	27994	1	10 -- Krwawa Perla
+	13	50108	10	20 -- Fajerwerki
+	14	50107	10	20 -- Chinska Ognista Petarda
+	15	exp	100000	4 -- 100 000 doswiadczenia
+	16	gold	500000	4 -- 500 000 yang
+	17	71153	1	8 -- Mikstura Madrosci
 }
 
 Group	mt2009_yut_silver_bundle
@@ -55,7 +54,7 @@ Group	mt2009_yut_silver_bundle
 	7	39029	1	16 -- Wzmocnienie Przedmiotu
 	8	39028	1	64 -- Zaczarowanie Przedmiotu
 	9	39036	1	7 -- Buty Wiatru
-	10	51503	1	36 -- Cor Draconis (zwyczajne)
+	10	51503	3	36 -- Cor Draconis (zwyczajne)
 	11	51504	1	30 -- Cor Draconis (szlachetne)
 	12	71153	1	8 -- Mikstura Madrosci
 	13	27993	1	18 -- Niebieska Perla

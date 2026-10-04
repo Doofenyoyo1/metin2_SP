@@ -5,9 +5,11 @@ import os
 import hmac
 import socket
 import time
+import threading
 import re
 import uuid
 import zlib
+import gzip
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from urllib.parse import quote
@@ -21,6 +23,27 @@ import markdown
 from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, session, url_for
 from markupsafe import Markup, escape
 from werkzeug.security import check_password_hash, generate_password_hash
+
+class _PolishOnly:
+    """Stand-in for the upstream translations module: this server's panel
+    stays Polish, so every translation hook returns the text unchanged."""
+    ITEM_NAMES, MOB_NAMES = {}, {}
+
+    @staticmethod
+    def translate_html(markup, language="pl"):
+        return markup
+
+    @staticmethod
+    def i18n_payload():
+        return None
+
+    @staticmethod
+    def item_vnums_named(query):
+        return []
+
+
+translations = _PolishOnly()
+import decisions
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SEBAN_SESSION_SECRET", "change-this-before-public-use")
@@ -46,6 +69,9 @@ MAP_NAMES = {
     108: "Loch Małp Normalny", 109: "Loch Małp Trudny",
     67: "Las", 68: "Czerwony Las", 66: "Wieża Demonów",
     72: "Grota Wygnańców V1", 73: "Grota Wygnańców V2",
+    # MT2009_PLUS_SEBAN_MAPS_V1: the Temple of Ochao and the Arezzo places.
+    209: "Świątynia Ochao", 360: "Dolina Cyklopów", 361: "Pustkowie Faraona", 362: "Zaczarowany Las",
+    363: "Biblioteka Wiedzy", 364: "Wzgórze Wukonga", 365: "Ruiny Skorpiona", 366: "Starożytna Dżungla",
 }
 MAP_BOUNDS = {
     1: (409600, 896000, 102400, 128000), 3: (307200, 819200, 102400, 102400),
@@ -68,6 +94,12 @@ MAP_BOUNDS = {
     67: (281600, 0, 51200, 51200), 68: (1049600, 0, 76800, 76800),
     66: (128000, 793600, 76800, 76800),
     72: (0, 1203200, 153600, 153600), 73: (153600, 1203200, 153600, 153600),
+    # MT2009_PLUS_SEBAN_MAPS_V1: BasePosition + MapSize x 25600 from each map's Setting.txt.
+    209: (844800, 1408000, 76800, 76800),
+    360: (230400, 281600, 102400, 102400), 361: (230400, 384000, 102400, 102400),
+    362: (332800, 384000, 102400, 102400), 363: (947200, 614400, 51200, 51200),
+    364: (844800, 537600, 51200, 51200), 365: (844800, 588800, 51200, 51200),
+    366: (768000, 537600, 76800, 76800),
 }
 # "Boty CH1/CH2 na mapach" tile (dashboard-charts.js) used to draw the full
 # map name under each bar in 9px text -- fine for "M1"/"M2"/"M3" (matched by
@@ -156,6 +188,7 @@ UPDATE_WATCHER_MAX_AGE_SECONDS = 90
 PLAYERBOTS_RELEASE_URL = "https://api.github.com/repos/Doofenyoyo1/metin2_SP/releases/latest"
 PLAYERBOTS_RELEASE_CACHE_SECONDS = 900
 _playerbots_release_cache = {"checked_at": 0.0, "latest": None, "error": None}
+PANEL_VERSION_URL = "https://raw.githubusercontent.com/krajevsky/metin2-playerbots-advanced-webpanel/main/VERSION"
 SERVER_SETTINGS_READY_MAX_AGE_SECONDS = 20
 SERVER_SETTINGS_STALE_SECONDS = 600
 GAME_HOST = os.environ.get("PLAYERBOTS_GAME_HOST", "metin2-game")
@@ -210,7 +243,7 @@ AI_WEIGHT_HINTS = {
     "SASH": "Pula botów od 30 lv, które budują szarfy. 100 = 80% z nich, od 125 = wszystkie, 0 = nikt (reszta sprzedaje szarfy). Przy następnym sprawdzeniu szarf (3–6 min).",
     "ALCHEMY": "Pula botów od 30 lv, które używają alchemii smoka. 100 = 75% z nich, od 135 = wszystkie, 0 = nikt (reszta sprzedaje Cory i zbędne kamienie). Od razu.",
     "MINING": "Ilu botów kopie rudę i jak długo odpoczywa od żył. Przy osobowościach każdy bot od 30 lv z kilofem kopie żyłę w zasięgu wzroku - poniżej 100 suwak zamyka żyły części z nich na pół godziny; bez osobowości kopie stały udział botów (zbieracze częściej). Przerwa między sesjami skraca się przy wyższym suwaku i wydłuża przy niższym.",
-    "HERB": "Ilu botów pracuje przy stole zielarskim Baek-Go i jak często. Przy osobowościach to zadanie Zdobywcy od 45 lv; poniżej 100 stół jest zamknięty dla części z nich na pół godziny, powyżej 100 dochodzi część botów od 15 lv (przy 250 wszystkie). Przerwa między wizytami skraca się przy wyższym suwaku. Zioła boty mają z dropu.",
+    "HERB": "Zbieranie ziół to zajęcie jak wędkarstwo/górnictwo: co pół godziny bot od 15 lv bez grupy losuje (8% przy 100, zbieracze 25%), sesja 12–25 min jako Zielarz z nożykiem, potem warzy u Baek-Go i gra normalnie; przerwa 40–90 min skraca się przy wyższym suwaku. Nadwyżkę mikstur ponad zapas wystawia po cenach z cennika. Poniżej 100 stół i krzaki zamknięte dla części botów na pół godziny.",
     "TRADE": "Ilu botów trzyma stragan (bez Handlarza, biednych, pełnego plecaka, droppera pod presją i cennych zapasów). Na 2.x stojący sklep offline tylko nie jest odnawiany po 8 h.",
 }
 # These values share the live weight file with goal weights, but the core treats
@@ -220,14 +253,21 @@ AI_LIVE_DEFAULTS = {"CHAT": 1, "BOOKS": 1, "NIGHT": 1, "LIFE": 0,
                      # LIFE (playerbot_life_rules.h); 0 = the key unset.
                      "LIFE_HOURS": 0, "WARS": 1, "TOWER": 1, "CATACOMB": 1, "ISHOP": 1,
                      "SHOP_M2": 0, "PERSONA": 1, "SHOUTERS": 1,
+                     # MT2009_PLUS_LEGENDS_V1: the bots' legends (playerbot_legends.h).
+                     "LEGENDS": 1,
                      # MT2009_PLUS_BOT_HAGGLE_V1: bots haggle at people's shops.
                      "HAGGLE": 1, "SCRAP": 0, "REST": 100, "KINGDOMPVP": 0, "SCROLL_FROM": 1,
                      # The three wills (playerbot_config.h): percent of what the
                      # build does, 100 = as before, 0 = none of it.
                      "BATTLEPASS": 100, "SASH": 100, "ALCHEMY": 100,
-                     "WAR_MINUTES": 30, "WAR_HOURS": 2,
+                     "WAR_MINUTES": 30, "WAR_HOURS": 1,
                      # MT2009_PLUS_GUILD_WAR_KILLS_V1: kills that win a war (0: time only).
-                     "WAR_KILLS": 100, "CHEST": None, "CHEST_STONE": None}
+                     "WAR_KILLS": 200, "CHEST": None, "CHEST_STONE": None,
+                     # MT2009_PLUS_SALE_TAX_V1: percent of a sale between players
+                     # and bots that leaves the game (playerbot_sale_tax.h); 0 = none.
+                     "SALE_TAX": 0}
+# MT2009_PLUS_SALE_TAX_V1: the slider's top, the core's own (MAX_PERCENT).
+SALE_TAX_MAX = 50
 AI_SPECIAL_WEIGHT_KEYS = frozenset(AI_LIVE_DEFAULTS)
 AI_LIFE_HOURS_MAX = 24
 BIOLOGIST_COMPLETE_STATE = 557528158
@@ -236,11 +276,11 @@ BIOLOGIST_RESEARCH_MISSIONS = (
     {"quest": "collect_quest_lv30", "level": 30, "specimen": "Ząb Orka", "specimen_vnum": 30006, "target": 10, "key": "Kamień Duchowy Jinunggyi", "key_vnum": 30220},
     {"quest": "collect_quest_lv40", "level": 40, "specimen": "Księga Klątw", "specimen_vnum": 30047, "target": 15, "key": "Świątynny Kamień Duchowy", "key_vnum": 30221},
     {"quest": "collect_quest_lv50", "level": 50, "specimen": "Pamiątka po Demonie", "specimen_vnum": 30015, "target": 15, "key": "Kamień Duchowy Sagyi", "key_vnum": 30222},
-    {"quest": "collect_quest_lv60", "level": 60, "specimen": "Lodowa Kulka", "specimen_vnum": 30050, "target": 20, "key": "Kamień Duchowy Aurtumryu", "key_vnum": 30223},
-    {"quest": "collect_quest_lv70", "level": 70, "specimen": "Konar Zelkova", "specimen_vnum": 30165, "target": 25, "key": "Kamień Duchowy Gyimok", "key_vnum": 30224},
-    {"quest": "collect_quest_lv80", "level": 80, "specimen": "Certyfikat Tugyisa", "specimen_vnum": 30166, "target": 30, "key": "Kamień Duchowy Tugyi", "key_vnum": 30225},
-    {"quest": "collect_quest_lv85", "level": 85, "specimen": "Czerwony Konar Duchodrzewa", "specimen_vnum": 30167, "target": 40, "key": "Kamień Duchowy Lasu", "key_vnum": 30226},
-    {"quest": "collect_quest_lv90", "level": 90, "specimen": "Notatka Przywódcy", "specimen_vnum": 30168, "target": 50, "key": "Kamień Duchowy Liderów", "key_vnum": 30227},
+    {"quest": "collect_quest_lv60", "level": 60, "specimen": "Matowy Lód", "specimen_vnum": 30050, "target": 20, "key": "Kamień Duszy Aurtumryu", "key_vnum": 30223},
+    {"quest": "collect_quest_lv70", "level": 70, "specimen": "Konar Zelkova", "specimen_vnum": 30165, "target": 25, "key": "Kamień Duszy Gyimok", "key_vnum": 30224},
+    {"quest": "collect_quest_lv80", "level": 80, "specimen": "Certyfikat Tugyisa", "specimen_vnum": 30166, "target": 30, "key": "Kamień Duszy Tugyi", "key_vnum": 30225},
+    {"quest": "collect_quest_lv85", "level": 85, "specimen": "Czerw. Konar Duchodrzewa", "specimen_vnum": 30167, "target": 40, "key": "Kamień Duszy Lasu", "key_vnum": 30226},
+    {"quest": "collect_quest_lv90", "level": 90, "specimen": "Notatka Przywódcy", "specimen_vnum": 30168, "target": 50, "key": "Kamień Liderów", "key_vnum": 30227},
 )
 RATE_PRESETS = (
     ("🎯 Normalnie — dokładnie jak w oryginalnej grze", 100, 100, 100),
@@ -271,6 +311,12 @@ PLAYER_ADMIN_WARPS = (
 BIOLOGIST_FALLBACK_MISSIONS = (
     "make_herb_lv4", "make_herb_lv7", "make_herb_lv10", "make_herb_lv15",
     "make_herb_lv20", "make_herb_lv25", "collect_quest_lv30",
+    # MT2009_PLUS_BIOLOGIST_90_V1: the chain goes on to lv90 (lv30 runs lv40,
+    # lv50 runs lv60 ... lv85 runs lv90), so the scale is fourteen rows from the
+    # start and does not stop at "9/9" for everybody of fifty and up.
+    "collect_quest_lv40", "collect_quest_lv50", "collect_quest_lv60",
+    "collect_quest_lv70", "collect_quest_lv80", "collect_quest_lv85",
+    "collect_quest_lv90",
 )
 PANEL_VERSION_FILE = Path(__file__).parent / "VERSION"
 GM_JOB_OPTIONS = ((0, "Wojownik"), (1, "Ninja"), (2, "Sura"), (3, "Szaman"))
@@ -304,17 +350,23 @@ GM_EMPIRE_STARTS = {1: (469300, 964200, 1), 2: (55700, 157900, 21), 3: (969600, 
 GM_NAME_PATTERN = r"[A-Za-z0-9\[\]]{2,24}"
 EMPIRES = {1: {"name": "Shinsoo", "flag": "shinsoo.png"}, 2: {"name": "Chunjo", "flag": "chunjo.png"}, 3: {"name": "Jinno", "flag": "jinno.png"}}
 try:
-    PANEL_VERSION = os.environ.get("SEBAN_PANEL_VERSION") or PANEL_VERSION_FILE.read_text(encoding="utf-8").strip()
+    # VERSION belongs to this repository. Some Playerbots compose bundles set
+    # SEBAN_PANEL_VERSION to the engine release (for example 2.2.38), which
+    # must never replace the Seban Panel version shown in the UI.
+    PANEL_VERSION = PANEL_VERSION_FILE.read_text(encoding="utf-8").strip() or os.environ.get("SEBAN_PANEL_VERSION", "dev")
 except OSError:
     PANEL_VERSION = os.environ.get("SEBAN_PANEL_VERSION", "dev")
 DEFAULT_SETTINGS = {
     "panel_name": "MT2009 PLUS", "stuck_minutes": "5", "theme": "ocean", "monitor_mode": "vps", "cursor": "custom",
     # Existing installations without this key stay usable. Fresh installations
     # receive setup_complete=0 from the collector and enter the setup wizard.
-    "setup_complete": "1", "auth_enabled": "0", "auth_password_hash": "", "allow_student_chest": "0", "allow_alchemy": "1", "allow_sashes": "1", "keep_demo_characters": "0", "update_seban_panel": "0",
+    "setup_complete": "1", "auth_enabled": "0", "auth_password_hash": "", "allow_student_chest": "0", "allow_alchemy": "1", "allow_sashes": "1", "allow_moonlight_chest": "0", "keep_demo_characters": "0", "update_seban_panel": "0",
     # Rare boss/dungeon announcements are visible in every supported feed by
     # default. Missing keys on older installations deliberately inherit this.
     "legendary_notice_live_chat": "1", "legendary_notice_world_feed": "1", "legendary_notice_ticker": "1",
+    "reaper_chest_world_feed": "1",
+    "fastest_shop_items_limit": "15",
+    "show_skill_paths": "0",
 }
 try:
     ITEM_DEFS = json.loads((Path(__file__).parent / "static" / "item_defs.json").read_text(encoding="utf-8"))
@@ -334,12 +386,12 @@ BOT_GOALS = {0: "Zdobywanie poziomu", 1: "Przetrwanie", 2: "Wybór profesji", 3:
 # 18 (Kopie rudę) byla dopisana do playerbot_types.h w silniku, ale nie tutaj -
 # boty kopiące rudę pokazywały gołe "#18" zamiast etykiety (audyt vs panel
 # klasyczny na 7788, 2026-09-14).
-BOT_ACTIONS = {0: "Planuje następny ruch", 1: "Podróżuje", 2: "Walczy", 3: "Podnosi łup", 4: "Regeneruje się", 5: "Wybiera profesję", 6: "Handluje", 7: "Ulepsza EQ", 8: "Czyta KU", 9: "Wkłada KD", 10: "Organizuje PT", 11: "Robi Biologa", 12: "Odwiedza Stajennego", 13: "Prowadzi stragan", 14: "Łowi ryby", 15: "Przegląda stragany", 16: "Wabi potwory", 17: "Odpoczywa w mieście", 18: "Kopie rudę"}
+BOT_ACTIONS = {0: "Planuje następny ruch", 1: "Podróżuje", 2: "Walczy", 3: "Podnosi łup", 4: "Regeneruje się", 5: "Wybiera profesję", 6: "Handluje", 7: "Ulepsza EQ", 8: "Czyta KU", 9: "Wkłada KD", 10: "Organizuje PT", 11: "Robi Biologa", 12: "Odwiedza Stajennego", 13: "Prowadzi stragan", 14: "Łowi ryby", 15: "Przegląda stragany", 16: "Wabi potwory", 17: "Odpoczywa w mieście", 18: "Kopie rudę", 19: "Zbiera zioła"}  # 19: MT2009_PLUS_BOT_HERBALIST_FIX_V1
 # Akcje, w których bot stoi w miejscu z własnej woli: stragan, wędka, przegląd
 # straganów, lada NPC, kowal, trener, odpoczynek, kopanie rudy. Bez tego każdy
 # straganiarz był "Możliwie zawieszony" - a flaga z tekstu statusu łapała
 # tylko wędkarzy.
-STATIONARY_ACTIONS = {5, 6, 7, 13, 14, 15, 17, 18}
+STATIONARY_ACTIONS = {5, 6, 7, 13, 14, 15, 17, 18, 19}
 # "System osobowości v2.0" Iwakury (playerbot_persona.h/playerbot_persona_rules.h),
 # doszedł do silnika po podstawowych "osobowościach" (BOT_PERSONALITIES powyżej)
 # -- włączany/wyłączany globalnie przełącznikiem PERSONA w wagach AI. Pod
@@ -353,6 +405,13 @@ BOT_PERSONAS = {0: "Grinder", 1: "Zdobywca", 2: "Handlarz", 3: "Hazardzista", 4:
                 10: "Metinolog", 11: "Nałogowiec", 12: "Szalony Naukowiec", 13: "Egzekutor", 14: "Szalony Wędkarz",
                 15: "Młodszy Hazardzista", 16: "Starszy Hazardzista", 17: "Naczelny Hazardzista",
                 18: "Szalony Hazardzista", 19: "Zielarz"}
+# MT2009_PLUS_BOT_HERBALIST_FIX_V1: kolory person na /players/personalities
+# (Zielarz widoczny jako osobna zakładka - wcześniej strona grupowała tylko
+# po bazowej osobowości, więc zielarza nie było tam wcale).
+BOT_PERSONA_COLORS = {0: "#69a6ff", 1: "#ff6b6b", 2: "#4dd0e1", 3: "#f2c34d", 4: "#c084fc", 5: "#ff8fa3",
+                      6: "#a3a3a3", 7: "#38bdf8", 8: "#fbbf24", 9: "#79e3af", 10: "#ef4444", 11: "#ef4444",
+                      12: "#ef4444", 13: "#ef4444", 14: "#ef4444", 15: "#a855f7", 16: "#a855f7", 17: "#a855f7",
+                      18: "#a855f7", 19: "#4ade80"}
 BOT_MOODS = {0: "Słaby", 1: "Normalny", 2: "Bardzo dobry"}
 BOT_MOOD_LOCKS = {1: "euforia po ulepszeniu", 2: "kapitulacja (Anty-PK)"}
 ITEM_TYPE_NAMES = (
@@ -434,6 +493,17 @@ POINT_TO_APPLY = {6: 1, 8: 2, 13: 3, 15: 4, 12: 5, 14: 6, 17: 7, 19: 8, 21: 9, 3
 EMPIRE_EXPR = "COALESCE(NULLIF(pi.empire,0),0)" if ENGINE_MT2009 else "COALESCE(NULLIF(pi.empire,0),a.empire,0)"
 
 JOB_NAMES = ("Wojownik", "Ninja", "Sura", "Szaman")
+# Each class's two skill trees (player.player.skill_group, 1 or 2 once chosen,
+# 0 before level 5ish/the first pick) -- same job+group keys as SKILLS below,
+# named after the path rather than listing its five/six skills. Requested for
+# the rankings' class column (operator, 2026-10-03) so "Sura" there reads as
+# "Sura Broń" or "Sura Czarna Magia" instead of leaving the split invisible.
+SKILL_PATH_NAMES = {
+    (0, 1): "Wojownik Ciało", (0, 2): "Wojownik Umysł",
+    (1, 1): "Ninja Ostrze", (1, 2): "Ninja Łuk",
+    (2, 1): "Sura Broń", (2, 2): "Sura Czarna Magia",
+    (3, 1): "Szaman Smok", (3, 2): "Szaman Leczenie",
+}
 SKILLS = {
     # Exact vnum/name pairs from the current classic panel. The old mapping put
     # display names next to the wrong VNUMs, hence correct icons looked wrong.
@@ -458,6 +528,14 @@ try:
     GM_COMMANDS = (Path(__file__).parent / "gm_commands.txt").read_text(encoding="utf-8", errors="replace")
 except OSError:
     GM_COMMANDS = "Brak pliku z komendami."
+try:
+    # A real, separately-authored English version, not a runtime
+    # translation -- gm_commands.html renders this inside a <pre>, which
+    # translations.py deliberately never touches (same reason panel_logs.html's
+    # raw error dump and manage.html's shell command examples don't either).
+    GM_COMMANDS_EN = (Path(__file__).parent / "gm_commands.en.txt").read_text(encoding="utf-8", errors="replace")
+except OSError:
+    GM_COMMANDS_EN = GM_COMMANDS
 
 
 # MyISAM nie przezywa nieczystego zatrzymania, a ten panel czyta na stronie
@@ -883,13 +961,18 @@ def validate_display_settings(form):
         stuck = 5
     theme, monitor_mode = form.get("theme", "empire"), form.get("monitor_mode", "vps")
     cursor_choice = form.get("cursor", "custom")
+    # This server's panel is Polish only: the upstream English switch is
+    # not offered, so a form never changes the language.
+    language = "pl"
     if not name:
         return None, "Nazwa panelu nie może być pusta."
     if theme not in ("ocean", "ember", "forest", "empire") or monitor_mode not in ("vps", "docker"):
         return None, "Nieprawidłowe ustawienia wyglądu lub monitoringu."
     if cursor_choice not in ("custom", "system"):
         return None, "Nieprawidłowy wybór kursora."
-    return {"panel_name": name, "stuck_minutes": str(stuck), "theme": theme, "monitor_mode": monitor_mode, "cursor": cursor_choice}, None
+    if language not in ("pl", "en"):
+        return None, "Nieprawidłowy wybór języka."
+    return {"panel_name": name, "stuck_minutes": str(stuck), "theme": theme, "monitor_mode": monitor_mode, "cursor": cursor_choice, "ui_language": language}, None
 
 
 def skill_rank(master_type, level):
@@ -943,14 +1026,23 @@ def live_label(field, value):
     return labels.get(value, f"#{value}")
 
 
+_STATIONARY_STATUS_RE = re.compile(
+    r"\b(łowi\w*|lowi\w*|ryb\w*|fishing|czekam na branie)\b", re.IGNORECASE
+)
+
+
 def is_stationary_activity(status, action=None):
     try:
         if int(action or 0) in STATIONARY_ACTIONS:
             return True
     except (TypeError, ValueError):
         pass
-    text = str(status or "").casefold()
-    return any(marker in text for marker in ("łowi", "lowi", "ryb", "fishing", "czekam na branie"))
+    # Plain "in" substring checks (pre-2026-10) false-matched "Człowiek"/
+    # "Czlowiek" (extremely common in monster names -- Zarażony Człowiek,
+    # Zły Człowiek...) against the "lowi" marker, silently exempting any bot
+    # fighting one from ever being flagged stuck. \b word boundaries fix
+    # that without narrowing what still counts as a fishing status.
+    return bool(_STATIONARY_STATUS_RE.search(str(status or "")))
 
 
 def apply_text(apply_type, value):
@@ -1053,6 +1145,12 @@ def class_profile(job):
         return CLASS_PROFILES[0]
 
 
+def skill_path_name(job, group):
+    """None before the character has picked a skill tree (group 0) or for an
+    unknown job -- callers fall back to the plain class_profile()["name"]."""
+    return SKILL_PATH_NAMES.get((int(job or 0) % 4, int(group or 0)))
+
+
 def parse_skills(raw, job, group):
     if isinstance(raw, memoryview): raw = raw.tobytes()
     if isinstance(raw, str): raw = raw.encode("latin1", "ignore")
@@ -1122,7 +1220,7 @@ _season_cache = {"at": 0.0, "weekly": [], "records": {}}
 
 def _news_event_source_rows(since, before=None, scan_limit=900):
     """Raw log.log candidate rows for a rare achievement (skill masteries,
-    Małż finds), before classification. Refines are NOT sourced from here
+    Małż finds, Reaper chest openings), before classification. Refines are NOT sourced from here
     -- see _refine_event_rows()/log.refinelog, which also carries the
     upgrade method (blacksmith vs scroll) that log.log's hint never did.
     Shared by the dashboard ticker (news_feed_events) and the full history
@@ -1137,7 +1235,7 @@ def _news_event_source_rows(since, before=None, scan_limit=900):
     if before:
         clauses.append("l.time < %s")
         params.append(before)
-    return rows(f"""SELECT l.time,l.how,l.hint,HEX(l.hint) AS hint_hex,l.what,l.who,p.name,p.job,
+    return rows(f"""SELECT l.time,l.how,l.hint,HEX(l.hint) AS hint_hex,l.what,l.vnum,l.who,p.name,p.job,
         {EMPIRE_EXPR} AS empire
       FROM log.log l JOIN player.player p ON p.id=l.who
       LEFT JOIN player.player_index pi ON pi.id=p.account_id
@@ -1146,6 +1244,7 @@ def _news_event_source_rows(since, before=None, scan_limit=900):
         AND (
           l.how='SKILLUP'
           OR (l.how='GET' AND LOWER(CONVERT(l.hint USING utf8mb4)) COLLATE utf8mb4_general_ci LIKE '%%małż%%')
+          OR (l.how IN ('USE_ITEM','CHEST_OPEN') AND l.what=50082)
         )
       ORDER BY l.time DESC LIMIT %s""", params + [scan_limit])
 
@@ -1165,7 +1264,8 @@ def _classify_news_events(raw):
         # below. Falls back to the driver's own decode if the hex round trip
         # fails. Patch by seban latino, 13 September.
         hint = cp1250_hex_text(row.get("hint_hex")) or game_text(row.get("hint"))
-        key = f"{how}:{row.get('who')}:{row.get('what')}:{row.get('time')}"
+        key = (f"{how}:{row.get('who')}:{row.get('what')}:{row.get('vnum')}:{hint}:{row.get('time')}"
+               if how in ("USE_ITEM", "CHEST_OPEN") else f"{how}:{row.get('who')}:{row.get('what')}:{row.get('time')}")
         if key in seen or not name:
             continue
         message, kind = None, None
@@ -1178,13 +1278,17 @@ def _classify_news_events(raw):
                     message, kind = f"{name} rozwinął {SKILL_NAMES.get(vnum, f'umiejętność #{vnum}')} na {rank}", "skill"
         elif how == "GET" and "małż" in hint.casefold():
             message, kind = f"{name} znalazł Małż podczas połowu", "find"
+        elif how in ("USE_ITEM", "CHEST_OPEN") and int(row.get("what") or 0) == 50082:
+            reward = hint.strip() or f"przedmiot #{int(row.get('vnum') or 0)}"
+            message, kind = f"{name} otworzył Szkatułkę Umarłego Rozpruwacza i zdobył {reward}", "chest"
         if not message:
             continue
         seen.add(key)
         events.append({
             "key": key, "time": row["time"], "message": message, "kind": kind, "actor": name, "method": None,
             "refine_tier": 0, "player_id": int(row.get("who") or 0), "job": int(row.get("job") or 0),
-            "empire": int(row.get("empire") or 0), "vnum": 0, "socket0": 0,
+            "empire": int(row.get("empire") or 0),
+            "vnum": int(row.get("vnum") or 0) if kind == "chest" else 0, "socket0": 0,
         })
     return events
 
@@ -1214,6 +1318,73 @@ def _refine_event_rows(since, before=None, scan_limit=200_000):
       LEFT JOIN account.account a ON a.id=p.account_id
       WHERE {' AND '.join(clauses)}
       ORDER BY r.time DESC LIMIT %s""", params + [scan_limit])
+
+
+def _refine9_event_rows(since, before=None, scan_limit=200_000):
+    """+9 successes specifically, missing from log.refinelog entirely (every
+    engine build so far: 0 rows at step=9, confirmed live 2026-10-03 --
+    NotifyRefineSuccess() in char_item.cpp logs the pre-refine item/level,
+    not the result, so a genuine +8->+9 success is written there as "+8").
+    log.log's own REFINE SUCCESS entry doesn't have that bug (ItemLog() is
+    called with the new, already-upgraded item) and its `what` column is
+    that new item's id directly -- same source daily_summary_details()
+    already trusts for its own +9 highlights. Operator's call (2026-10-03):
+    panel-side workaround over an engine rebuild. The one real loss: this
+    table has no refine *method* (blacksmith/scroll/guild) -- that is taken
+    from the matching refinelog row (same pid and second), see the SELECT."""
+    clauses, params = ["l.how='REFINE SUCCESS'", "l.hint LIKE '%%+9'", "l.time>=%s"], [since]
+    if before:
+        clauses.append("l.time<%s")
+        params.append(before)
+    # The method isn't in log.log, but the same successful refine IS in
+    # log.refinelog at the same pid+second, mislabelled step=8 (the engine
+    # logs the pre-refine item -- see NotifyRefineSuccess()). That row's
+    # setType is the real method, so join on it instead of guessing.
+    return rows(f"""SELECT l.who AS pid,l.hint AS item_name,l.what AS item_id,l.time,p.name,p.job,{EMPIRE_EXPR} AS empire,
+        (SELECT r.setType FROM log.refinelog r WHERE r.pid=l.who AND r.time=l.time AND r.is_success=1 AND r.step=8 LIMIT 1) AS set_type
+      FROM log.log l JOIN player.player p ON p.id=l.who
+      LEFT JOIN player.player_index pi ON pi.id=p.account_id
+      LEFT JOIN account.account a ON a.id=p.account_id
+      WHERE {' AND '.join(clauses)}
+      ORDER BY l.time DESC LIMIT %s""", params + [scan_limit])
+
+
+def _classify_refine9_events(raw):
+    scroll_vnums = {int(str(r["set_type"]).split(":", 1)[1]) for r in raw
+                    if r.get("set_type") and str(r["set_type"]).startswith("SCROLL:") and str(r["set_type"]).split(":", 1)[1].isdigit()}
+    scroll_names = {}
+    if scroll_vnums:
+        marks = ",".join(["%s"] * len(scroll_vnums))
+        scroll_names = {r["vnum"]: game_text(r["locale_name"]) for r in
+                        rows(f"SELECT vnum,locale_name FROM player.item_proto WHERE vnum IN ({marks})", list(scroll_vnums))}
+    events, seen = [], set()
+    for row in raw:
+        name = game_text(row.get("name"))
+        item_name = game_text(row.get("item_name"))
+        if not name or not item_name:
+            continue
+        key = f"REFINE:{row.get('pid')}:{row.get('item_id')}:{row.get('time')}"
+        if key in seen:
+            continue
+        seen.add(key)
+        set_type = str(row.get("set_type") or "")
+        method_vnum = 0
+        if set_type in REFINE_METHOD_LABELS:
+            method = REFINE_METHOD_LABELS[set_type]
+        elif set_type.startswith("SCROLL:") and set_type.split(":", 1)[1].isdigit():
+            method_vnum = int(set_type.split(":", 1)[1])
+            scroll_name = scroll_names.get(method_vnum)
+            method = f"zwojem ({scroll_name})" if scroll_name else "zwojem"
+        else:
+            # no matching refinelog row (rare) -- say so rather than invent a method
+            method = None
+        events.append({
+            "key": key, "time": row["time"], "message": f"{name} ulepszył {item_name}", "kind": "refine",
+            "actor": name, "method": method, "refine_tier": 9,
+            "player_id": int(row.get("pid") or 0), "job": int(row.get("job") or 0),
+            "empire": int(row.get("empire") or 0), "vnum": method_vnum, "socket0": 0,
+        })
+    return events
 
 
 def _classify_refine_events(raw):
@@ -1300,6 +1471,7 @@ def sync_news_events():
             since = cursor_row["value"] if cursor_row and cursor_row.get("value") else "2020-01-01 00:00:00"
             events = _classify_news_events(_news_event_source_rows(since=since, scan_limit=2_000_000))
             events += _classify_refine_events(_refine_event_rows(since=since))
+            events += _classify_refine9_events(_refine9_event_rows(since=since))
             if events:
                 cur.executemany("""INSERT IGNORE INTO player.web_seban_news_event
                   (event_key,time,kind,message,actor,player_id,job,empire,vnum,socket0,refine_tier,method)
@@ -1326,7 +1498,7 @@ def news_feed_events():
     newest 30, read from the fast local cache (see sync_news_events()).
     Shape (string HH:MM `time`) matches what static/news-feed.js expects."""
     sync_news_events()
-    clauses = ["time >= NOW() - INTERVAL 12 HOUR"]
+    clauses = ["time >= NOW() - INTERVAL 12 HOUR", "kind <> 'chest'"]
     if not legendary_notice_enabled("ticker"):
         clauses.append("kind <> 'announcement'")
     raw = rows(f"""SELECT event_key,time,kind,message,refine_tier,method FROM player.web_seban_news_event
@@ -1357,6 +1529,8 @@ def news_feed_history(before=None, limit=40, days=14):
     clauses, params = ["time >= %s"], [datetime.now() - timedelta(days=days)]
     if not legendary_notice_enabled("world_feed"):
         clauses.append("kind <> 'announcement'")
+    if settings().get("reaper_chest_world_feed", "1") != "1":
+        clauses.append("kind <> 'chest'")
     if before:
         clauses.append("time < %s")
         params.append(before)
@@ -1418,6 +1592,11 @@ def live_statuses():
                     entry = {name: int(row[name]) for name in _LIVE_STATUS_INT_FIELDS if name in row}
                 except (KeyError, ValueError):
                     continue
+                # MT2009_PLUS_SEBAN_MAPS_V1: a dungeon run's own copy of a map is
+                # base * 10000 + n (3660002 is a Starozytna Dzungla run) on the
+                # base map's coordinates, so it is shown as that map.
+                if entry.get("map_index", 0) >= 10000:
+                    entry["map_index"] //= 10000
                 entry["in_party"] = bool(int(row.get("in_party", 0) or 0))
                 entry["status"] = row.get("status", "")
                 entry["channel"] = channel
@@ -1499,6 +1678,185 @@ def guild_statuses():
         result.append(guild)
     result.sort(key=lambda g: (g["tier"], -g["level"], -g["members"], g["name"].casefold()))
     return result, newest
+
+
+# MT2009_PLUS_LEGENDS_V1: the bots' legends (playerbot_legends.h in the game
+# core). player.playerbot_legend holds a row a bot with its tier, reputation
+# and counters, player.playerbot_legend_event its notable moments. Both are the
+# core's and may be missing on a world whose core predates them.
+LEGEND_TIERS = {1: "Wyróżniający się", 2: "Specjalny", 3: "Chodząca Legenda", 4: "Czempion"}
+LEGEND_COLOURS = {1: "#7dd3fc", 2: "#c084fc", 3: "#f59e0b", 4: "#ef4444"}
+LEGEND_ACHIEVEMENTS = ((1, "🗡", "broń +9"), (2, "⭐", "poziom 75"), (4, "🌟", "poziom 99"),
+                       (8, "🐉", "pierwszy boss"), (16, "☠", "100 zabitych graczy"), (32, "👑", "był Czempionem"))
+
+
+def legend_label(tier, empire):
+    """The tier as the title over the bot's head says it."""
+    tier = int(tier or 0)
+    if tier == 4:
+        return "Czempion " + EMPIRES.get(int(empire or 0), {}).get("name", "Królestwa")
+    return LEGEND_TIERS.get(tier, "")
+
+
+def legend_badge(tier, empire):
+    tier = int(tier or 0)
+    if tier not in LEGEND_TIERS:
+        return None
+    return {"tier": tier, "label": legend_label(tier, empire), "colour": LEGEND_COLOURS[tier]}
+
+
+def legend_tiers(pids):
+    """{pid: badge} for the given characters that hold a tier; {} when the
+    table is missing."""
+    pids = [int(pid) for pid in pids if pid]
+    found = {}
+    try:
+        for start in range(0, len(pids), 1000):
+            chunk = pids[start:start + 1000]
+            for row in rows("SELECT pid, tier, empire FROM player.playerbot_legend WHERE tier > 0 AND pid IN ("
+                            + ",".join(["%s"] * len(chunk)) + ")", chunk):
+                found[int(row["pid"])] = legend_badge(row["tier"], row["empire"])
+    except Exception:
+        return {}
+    return found
+
+
+# MT2009_PLUS_LEGEND_NAMES_V1: the 27 Legends, the most legendary first (the
+# game core's PLAYERBOT_LEGEND_NAMES, playerbot_legend_tier.h); the ranking
+# lists them in this order.
+LEGEND_NAME_ORDER_SQL = "IF(l.tier >= 3 AND FIELD(p.name, 'FuBu', 'Wallander4ever', 'SirMamutPOL', 'Zwierz', 'IsAmU', 'GoToSleep', 'Kasanga', 'Loth', 'SQRCZYBYKU', 'KAPRAL', 'BumBum', 'NinjaxesPL', 'Xuminnek', 'ShiveR', 'Scoobany', 'Schenk', 'Kosikredki', 'Tream', 'Sabal', 'Gimper', 'BuenaCosta', 'Uzurpator', 'DIIIM2', 'TNT', 'Asfen', 'LifeIsDeath', 'ZAXEP') > 0, FIELD(p.name, 'FuBu', 'Wallander4ever', 'SirMamutPOL', 'Zwierz', 'IsAmU', 'GoToSleep', 'Kasanga', 'Loth', 'SQRCZYBYKU', 'KAPRAL', 'BumBum', 'NinjaxesPL', 'Xuminnek', 'ShiveR', 'Scoobany', 'Schenk', 'Kosikredki', 'Tream', 'Sabal', 'Gimper', 'BuenaCosta', 'Uzurpator', 'DIIIM2', 'TNT', 'Asfen', 'LifeIsDeath', 'ZAXEP'), 99)"
+
+
+def legend_rows(empire=0, tier=0):
+    """(ranking, events, missing): every tiered bot, the best first, and the
+    last fifty legend events."""
+    where, args = ["l.tier > 0"], []
+    if empire in EMPIRES:
+        where.append("l.empire = %s")
+        args.append(empire)
+    if tier in LEGEND_TIERS:
+        where.append("l.tier = %s")
+        args.append(tier)
+    try:
+        ranking = rows("SELECT l.pid, l.tier, l.empire, l.reputation, l.player_kills, l.player_deaths, l.wars_won, "
+                       "l.wars_lost, l.boss_kills, l.achievements, l.champion_count, l.tier_since, "
+                       "p.name, p.level, p.job, g.name AS guild, g.id AS guild_id "
+                       "FROM player.playerbot_legend l "
+                       "LEFT JOIN player.player p ON p.id = l.pid "
+                       "LEFT JOIN player.guild_member gm ON gm.pid = l.pid "
+                       "LEFT JOIN player.guild g ON g.id = gm.guild_id "
+                       "WHERE " + " AND ".join(where) + " "
+                       "ORDER BY (l.tier >= 3) DESC, " + LEGEND_NAME_ORDER_SQL + ", l.tier DESC, l.reputation DESC, p.level DESC LIMIT 2000", args)
+    except Exception:
+        return [], [], True
+    try:
+        events = rows("SELECT e.at, e.pid, e.empire, e.kind, e.text, p.name FROM player.playerbot_legend_event e "
+                      "LEFT JOIN player.player p ON p.id = e.pid ORDER BY e.id DESC LIMIT 50")
+    except Exception:
+        events = []
+    for row in ranking:
+        row["tier"] = int(row.get("tier") or 0)
+        row["empire"] = int(row.get("empire") or 0)
+        row["label"] = legend_label(row["tier"], row["empire"])
+        row["colour"] = LEGEND_COLOURS.get(row["tier"], "#cfe1fb")
+        achievements = int(row.get("achievements") or 0)
+        row["achievements_list"] = [(icon, text) for bit, icon, text in LEGEND_ACHIEVEMENTS if achievements & bit]
+    return ranking, events, False
+
+
+# MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking and its titles. The game
+# creates player.weekly_rank_state (one row, id=1: on/off, length in days,
+# season number, start/end as unix time; end 0 = the game sets the next Monday
+# 00:00), player.weekly_rank_score (a season's counters per category and
+# character) and player.weekly_rank_title (the holders of the titles DURING a
+# season, i.e. the winners of the one before, places 1..3). A world whose core
+# predates them has none of the three.
+# (cat, category, title as the game shows it, bonus, values for place 1..3, unit)
+WEEKLY_RANK_CATS = (
+    (1, "Zabite potwory", "Łowca", "silny przeciwko potworom", (15, 8, 4), "%"),
+    (2, "Zniszczone metiny", "Niszczyciel", "silny przeciwko potworom", (15, 8, 4), "%"),
+    (3, "Pokonane bossy", "Pogromca Bossów", "silny przeciwko bossom", (15, 8, 4), "%"),
+    (4, "Zabici gracze (PvP)", "Zabójca", "silny przeciwko ludziom", (15, 8, 4), "%"),
+    (5, "Ukończone wyprawy (dungeony)", "Podróżnik", "silny przeciwko potworom", (15, 8, 4), "%"),
+    (6, "Udane ulepszenia przedmiotów", "Kowal", "max PŻ", (2500, 2000, 1500), ""),
+    (7, "Alchemia (udane ulepszenia Smoczych Kamieni)", "Alchemik", "wartość ataku", (75, 75, 75), ""),
+    (8, "Poziom", "Mistrz Poziomów", "silny przeciwko potworom i ludziom", (15, 8, 4), "%"),
+)
+WEEKLY_RANK_CAT = {c[0]: c for c in WEEKLY_RANK_CATS}
+WEEKLY_RANK_ROMAN = {1: "I", 2: "II", 3: "III"}
+
+
+def weekly_fmt_ts(ts):
+    try:
+        ts = int(ts or 0)
+    except (TypeError, ValueError):
+        ts = 0
+    return datetime.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M") if ts > 0 else ""
+
+
+def weekly_time_left(end):
+    try:
+        end = int(end or 0)
+    except (TypeError, ValueError):
+        end = 0
+    if end <= 0:
+        return ""
+    left = end - int(time.time())
+    if left <= 0:
+        return "kończy się (w ciągu ~2 min)"
+    days, rest = divmod(left, 86400)
+    hours, rest = divmod(rest, 3600)
+    return f"{days} d {hours} h {rest // 60} min"
+
+
+def weekly_tidy(row):
+    row["empire"] = int(row.get("empire") or 0)
+    row["is_bot"] = bool(int(row.get("is_bot") or 0))
+    return row
+
+
+def weekly_rank_rows(cat=1):
+    """(state, holders, ranking, missing): the state row (defaults while it is
+    not there), the current season's title holders by category and the live
+    top 50 of one category. Read only."""
+    state = {"enabled": 1, "season_days": 7, "season": 1, "season_start": 0, "season_end": 0}
+    holders = {}
+    try:
+        found = one("SELECT enabled, season_days, season, season_start, season_end "
+                    "FROM player.weekly_rank_state WHERE id = 1")
+        if found:
+            state.update({key: int(found[key] or 0) for key in state})
+        season = state["season"]
+        for row in rows("SELECT cat, place, pid, name, level, empire, value, is_bot FROM player.weekly_rank_title "
+                        "WHERE season = %s ORDER BY cat, place", (season,)):
+            row = weekly_tidy(row)
+            info = WEEKLY_RANK_CAT.get(int(row["cat"]))
+            place = int(row["place"] or 0)
+            row["title"] = f"{info[2]} {WEEKLY_RANK_ROMAN.get(place, '')}".strip() if info else ""
+            row["bonus"] = f"{info[3]} +{info[4][place - 1]}{info[5]}" if info and place in (1, 2, 3) else ""
+            holders.setdefault(int(row["cat"]), []).append(row)
+        if cat == 8:
+            ranking = rows("SELECT p.id AS pid, p.name, p.level, p.exp AS value, pi.empire, "
+                           "(LEFT(a.login, 10) = 'playerbot_') AS is_bot "
+                           "FROM player.player p "
+                           "LEFT JOIN account.account a ON a.id = p.account_id "
+                           "LEFT JOIN player.player_index pi ON pi.id = p.account_id "
+                           "WHERE LEFT(p.name, 1) <> '[' "
+                           "ORDER BY p.level DESC, p.exp DESC LIMIT 50")
+        else:
+            ranking = rows("SELECT s.pid, s.value, s.is_bot, p.name, p.level, pi.empire "
+                           "FROM player.weekly_rank_score s "
+                           "LEFT JOIN player.player p ON p.id = s.pid "
+                           "LEFT JOIN player.player_index pi ON pi.id = p.account_id "
+                           "WHERE s.season = %s AND s.cat = %s "
+                           "ORDER BY s.value DESC LIMIT 50", (season, cat))
+        ranking = [weekly_tidy(row) for row in ranking]
+    except Exception:
+        return state, {}, [], True
+    state["start_text"] = weekly_fmt_ts(state["season_start"])
+    state["end_text"] = weekly_fmt_ts(state["season_end"])
+    state["left_text"] = weekly_time_left(state["season_end"])
+    return state, holders, ranking, False
 
 
 def player_guild_rows(query=""):
@@ -1836,6 +2194,14 @@ def playerbots_release_status(check_remote=True):
             "label": "Nie sprawdzono GitHub" if latest_info.get("error") else ""}
 
 
+def panel_release_status():
+    """Installed panel version only. The panel can't update itself -- it only
+    moves with the upstream Playerbots releases -- so a "newer version available" tracker just
+    nagged the player; the dashboard now shows what is running and nothing else."""
+    return {"installed": PANEL_VERSION.strip(), "latest": None, "behind": False,
+            "tone": "current", "label": "Zainstalowana wersja"}
+
+
 def update_csrf_token():
     token = session.get("seban_update_csrf")
     if not token:
@@ -1916,7 +2282,21 @@ EVENT_ICONS = {"chest": "🎁", "exp": "⚡", "drop": "📦", "yang": "💰", "t
                "goblin": "🪙",  # goblin: MT2009_PLUS_GOBLIN_V1
                "catchking": "👑", "rumi": "🃏", "yutnori": "🎲", "flower": "🌸", "easter": "🐇"}  # MT2009_PLUS_EVENT_MANAGER_V1
 EVENT_DAY_NAMES = ("Pn", "Wt", "Śr", "Cz", "Pt", "Sb", "Nd")
-EVENT_NOW_MINUTES = (15, 30, 60, 120, 180, 360)
+EVENT_NOW_MINUTES = (15, 30, 60, 120, 180, 360, 720, 1440, 2880, 4320, 7200, 10080)  # MT2009_PLUS_EVENTS_7_DAYS_V1: up to 7 days
+
+def event_minutes_label(minutes):
+    """MT2009_PLUS_EVENTS_7_DAYS_V1: "45 min", "6 h", "3 dni" for the "now" lists."""
+    minutes = int(minutes)
+    if minutes < 60:
+        return "%d min" % minutes
+    if minutes < 1440 or minutes % 1440:
+        return "%d h" % (minutes // 60) if minutes % 60 == 0 else "%d min" % minutes
+    days = minutes // 1440
+    return "1 dzie\u0144" if days == 1 else "%d dni" % days
+
+
+app.jinja_env.globals["minutes_label"] = event_minutes_label  # MT2009_PLUS_EVENTS_7_DAYS_V1
+
 EVENT_HHMM = re.compile(r"^([01]?\d|2[0-4]):([0-5]\d)$")
 
 
@@ -2443,9 +2823,16 @@ def daily_summary_details(summary_date):
         highlights.append({"kind": kind, "vnum": item["vnum"], "name": item["item_name"], "detail": detail,
                            "player_id": item["owner_pid"], "player_name": item["owner_name"]})
     level_start, level_end = daily_level_bounds(day_start, day_end)
+    chest_today = one("""SELECT COUNT(DISTINCT CONCAT(who, ':', UNIX_TIMESTAMP(time))) AS n FROM log.log
+      WHERE how IN ('USE_ITEM','CHEST_OPEN') AND what=50082 AND time>=%s AND time<%s""",
+                      (day_start, day_end))
+    chest_total = one("""SELECT COUNT(DISTINCT CONCAT(who, ':', UNIX_TIMESTAMP(time))) AS n FROM log.log
+      WHERE how IN ('USE_ITEM','CHEST_OPEN') AND what=50082 AND time<%s""", (day_end,))
     return {"level_start": level_start, "level_end": level_end,
             "pvp": pvp, "refine_success": refine_success, "refine_burned": refine_burned,
-            "shop": shop, "highlights": highlights[:3], "hammer_count": len(hammer_rows)}
+            "shop": shop, "highlights": highlights[:3], "hammer_count": len(hammer_rows),
+            "reaper_chests_today": int((chest_today or {}).get("n") or 0),
+            "reaper_chests_total": int((chest_total or {}).get("n") or 0)}
 
 
 def check_daily_summary():
@@ -2550,10 +2937,12 @@ def read_ai_weights():
             if len(fields) >= 2 and fields[0].upper() in values:
                 try:
                     key, raw_value = fields[0].upper(), fields[1]
-                    if key in ("CHAT", "BOOKS", "NIGHT", "LIFE", "WARS", "TOWER", "CATACOMB", "ISHOP", "SHOP_M2", "PERSONA", "SHOUTERS", "HAGGLE"):
+                    if key in ("CHAT", "BOOKS", "NIGHT", "LIFE", "WARS", "TOWER", "CATACOMB", "ISHOP", "SHOP_M2", "PERSONA", "SHOUTERS", "HAGGLE", "LEGENDS"):
                         values[key] = 0 if raw_value.lower() in ("0", "off", "no") else 1
                     elif key in ("SCRAP", "REST", "KINGDOMPVP"):
                         values[key] = max(0, min(100, int(raw_value)))
+                    elif key == "SALE_TAX":
+                        values[key] = max(0, min(SALE_TAX_MAX, int(raw_value)))
                     elif key == "LIFE_HOURS":
                         values[key] = max(0, min(AI_LIFE_HOURS_MAX, int(raw_value)))
                     elif key in ("BATTLEPASS", "SASH", "ALCHEMY"):
@@ -2619,16 +3008,20 @@ def write_ai_weights(values):
     content.append(f"PERSONA\t{1 if values.get('PERSONA', 1) else 0}")
     # MT2009_PLUS_SHOUTERS_V1: the three shouters of the first villages.
     content.append(f"SHOUTERS\t{1 if values.get('SHOUTERS', 1) else 0}")
+    # MT2009_PLUS_LEGENDS_V1: the bots' legends, 1 = on.
+    content.append(f"LEGENDS\t{1 if values.get('LEGENDS', 1) else 0}")
     content.append(f"HAGGLE\t{1 if values.get('HAGGLE', 1) else 0}")
     content.append(f"SCRAP\t{max(0, min(100, int(values.get('SCRAP', 0))))}")
     content.append(f"REST\t{max(0, min(100, int(values.get('REST', 100))))}")
     content.append(f"KINGDOMPVP\t{max(0, min(100, int(values.get('KINGDOMPVP', 0))))}")
+    # MT2009_PLUS_SALE_TAX_V1: the sale tax between players and bots, 0 = none.
+    content.append(f"SALE_TAX\t{max(0, min(SALE_TAX_MAX, int(values.get('SALE_TAX', 0) or 0)))}")
     for key in ("BATTLEPASS", "SASH", "ALCHEMY"):
         content.append(f"{key}\t{max(0, min(250, int(values.get(key, 100))))}")
     content.append(f"SCROLL_FROM\t{max(1, min(9, int(values.get('SCROLL_FROM', 1))))}")
     content.append(f"WAR_MINUTES\t{max(5, min(180, int(values.get('WAR_MINUTES', 30))))}")
-    content.append(f"WAR_HOURS\t{max(1, min(24, int(values.get('WAR_HOURS', 2))))}")
-    content.append(f"WAR_KILLS\t{max(0, min(1000, int(values.get('WAR_KILLS', 100))))}")
+    content.append(f"WAR_HOURS\t{max(1, min(24, int(values.get('WAR_HOURS', 1))))}")
+    content.append(f"WAR_KILLS\t{max(0, min(1000, int(values.get('WAR_KILLS', 200))))}")
     for key in ("CHEST", "CHEST_STONE"):
         if values.get(key) is not None:
             content.append(f"{key}\t{max(0, min(1000, int(values[key])))}")
@@ -2778,6 +3171,15 @@ def queue_catacomb_now():
     """Ask the 2.2.21+ core to call an Azrael raid on its next check."""
     RATES_SPOOL.mkdir(parents=True, exist_ok=True)
     path = RATES_SPOOL / "playerbot_catacomb_now"
+    path.touch(exist_ok=True)
+    os.utime(path, None)
+
+
+def queue_bot_reprice_now():
+    """MT2009_PLUS_BOT_REPRICE_NOW_V1: every bot reprices all its listed lines
+    now -- the cores watch this file's mtime (PLAYERBOT_REPRICE_NOW_PATH)."""
+    RATES_SPOOL.mkdir(parents=True, exist_ok=True)
+    path = RATES_SPOOL / "playerbot_reprice_now"
     path.touch(exist_ok=True)
     os.utime(path, None)
 
@@ -3345,8 +3747,14 @@ def not_game_master(alias="p"):
     IMPLEMENTOR there, and so does r40250's [SA]Admin; the operator's own
     character on the admin account does not, and is ranked like anybody's."""
     ref = (alias + ".") if alias else ""
+    # MT2009_PLUS_RANKING_NO_GM_ACCOUNT_V1: and every character of an account
+    # that holds a rank - the operator's own on the admin account too (the
+    # owner, 3 October: "wywalic z rankingu postacie admin i wszystkie
+    # postacie z gm").
     return ("NOT EXISTS (SELECT 1 FROM common.gmlist rg"
-            " WHERE rg.mName = " + ref + "name AND rg.mAuthority <> 'PLAYER')")
+            " WHERE rg.mName = " + ref + "name AND rg.mAuthority <> 'PLAYER')"
+            " AND NOT EXISTS (SELECT 1 FROM common.gmlist rga JOIN account.account gacc ON gacc.login = rga.mAccount"
+            " WHERE gacc.id = " + ref + "account_id AND rga.mAuthority <> 'PLAYER')")
 
 
 def ranking_scope_sql(alias="p", people_only=False):
@@ -3405,25 +3813,47 @@ def cached_dashboard_ranking(kind, limit=10, ttl=300):
     bot_ranking() directly and stays live; only the dashboard's top-10
     carousel reads through this cache.
     """
+    # MT2009_PLUS_DASHBOARD_RANK_ASYNC_V1: never computed inside the request.
+    # refine_rate grew to ~50 s on a world with 27M log rows (the supporters'
+    # server, 3 October) and the dashboard's deferred fetch ran into the
+    # gate's timeout (504) - the VPS, the bots-by-map and the rankings cards
+    # stayed empty. A stale or missing entry is now refreshed by a thread,
+    # claimed in the table first so only one worker runs it, and the request
+    # gets what is there (nothing yet on the very first look).
+    if kind == "refine_rate":
+        ttl = max(ttl, 3600)
     name = f"dash_rank_cache_{kind}"
+    payload = None
     try:
         row = one("SELECT value FROM player.web_seban_query_cache WHERE name=%s", (name,))
         if row and row.get("value"):
             payload = json.loads(row["value"])
-            if time.time() - payload.get("at", 0) < ttl:
-                return payload["rows"]
     except (pymysql.MySQLError, ValueError, KeyError):
-        pass
-    data = bot_ranking(kind)[:limit]
+        payload = None
+    now = time.time()
+    if payload and now - payload.get("at", 0) < ttl:
+        return payload.get("rows") or []
+    stale = (payload or {}).get("rows") or []
     try:
+        # The claim: the entry looks fresh for ten more minutes to everybody else.
         rows("REPLACE INTO player.web_seban_query_cache (name,value) VALUES (%s,%s)",
-             (name, json.dumps({"at": time.time(), "rows": data}, default=str)))
+             (name, json.dumps({"at": now - ttl + 600, "rows": stale}, default=str)))
     except pymysql.MySQLError:
-        pass
-    return data
+        return stale
+
+    def refresh():
+        try:
+            data = bot_ranking(kind)[:limit]
+            rows("REPLACE INTO player.web_seban_query_cache (name,value) VALUES (%s,%s)",
+                 (name, json.dumps({"at": time.time(), "rows": data}, default=str)))
+        except Exception:
+            pass
+
+    threading.Thread(target=refresh, name=f"dash-rank-{kind}", daemon=True).start()
+    return stale
 
 
-def bot_ranking(kind, sort_by="avg", people_only=False):
+def bot_ranking(kind, sort_by="avg", people_only=False, weapon_type=None):
     base = ranking_scope_sql("p", people_only)
     # Fetches every matching row (up to a generous safety cap, not a
     # per-page one) -- /rankings paginates in Python instead of pushing
@@ -3449,22 +3879,66 @@ def bot_ranking(kind, sort_by="avg", people_only=False):
         # heuristic (2026-09-26), which got exactly this pair backwards --
         # value1 turned out to be reliable after all, just missing the
         # refine bonus, not "inconsistently authored" as first assumed.
-        return rows(f"""SELECT p.id,p.name,p.level,p.gold,i.vnum,
-            CONCAT(COALESCE(ip.locale_name,CONCAT('VNUM ',i.vnum)),' (',COALESCE(ip.value1,0)+6*MOD(COALESCE(i.vnum,0),10),' obrony)') AS detail,
-            COALESCE(ip.value1,0)+6*MOD(COALESCE(i.vnum,0),10) AS power_score
-            FROM player.player p LEFT JOIN player.item i ON i.owner_id=p.id AND i.window='EQUIPMENT' AND i.pos=0
-            LEFT JOIN player.item_proto ip ON ip.vnum=i.vnum WHERE {base}
-            ORDER BY power_score DESC,i.vnum DESC,p.level DESC {limit_clause}""")
+        # Also counts a body armor sitting unequipped on the player's own
+        # shop stand (IKASHOP_OFFLINESHOP) -- picking the stronger of
+        # (equipped, listed) per player via ROW_NUMBER, not just the worn
+        # one, so an item doesn't drop out of the ranking the moment its
+        # owner lists it for sale (blipu, 29.09). type=2/subtype=0 is body
+        # armor specifically (see character_stat_summary's plus9 armor
+        # pick), so this needs no pos filter -- a body-armor-type item is
+        # never equipped anywhere but pos=0 anyway.
+        return rows(f"""SELECT p.id,p.name,p.level,p.gold,best.vnum,
+            CONCAT(COALESCE(ip.locale_name,CONCAT('VNUM ',best.vnum)),' (',COALESCE(best.power_score,0),' obrony)') AS detail,
+            COALESCE(best.power_score,0) AS power_score,
+            COALESCE(best.is_shop,0) AS is_shop
+            FROM player.player p
+            LEFT JOIN (
+                SELECT i.owner_id,i.vnum,
+                    COALESCE(ip2.value1,0)+6*MOD(i.vnum,10) AS power_score,
+                    CAST(i.window='IKASHOP_OFFLINESHOP' AS UNSIGNED) AS is_shop,
+                    ROW_NUMBER() OVER (PARTITION BY i.owner_id ORDER BY COALESCE(ip2.value1,0)+6*MOD(i.vnum,10) DESC, i.window='EQUIPMENT' DESC) AS rn
+                FROM player.item i JOIN player.item_proto ip2 ON ip2.vnum=i.vnum AND ip2.type=2 AND ip2.subtype=0
+                WHERE i.window IN ('EQUIPMENT','IKASHOP_OFFLINESHOP')
+            ) best ON best.owner_id=p.id AND best.rn=1
+            LEFT JOIN player.item_proto ip ON ip.vnum=best.vnum WHERE {base}
+            ORDER BY power_score DESC,best.vnum DESC,p.level DESC {limit_clause}""")
     if kind == "weapon":
-        # Weapon attack power isn't covered by the operator's armor table --
-        # left on the tier*10+refine heuristic (2026-09-26) rather than
-        # guessing at a similar flat-bonus-per-refine formula unverified.
-        return rows(f"""SELECT p.id,p.name,p.level,p.gold,i.vnum,
-            CONCAT(COALESCE(ip.locale_name,CONCAT('VNUM ',i.vnum)),' (wymagany poziom ',COALESCE(CASE WHEN ip.limittype0=1 THEN ip.limitvalue0 WHEN ip.limittype1=1 THEN ip.limitvalue1 END,0),')') AS detail,
-            COALESCE(CASE WHEN ip.limittype0=1 THEN ip.limitvalue0 WHEN ip.limittype1=1 THEN ip.limitvalue1 END,0)*10+MOD(COALESCE(i.vnum,0),10) AS power_score
-            FROM player.player p LEFT JOIN player.item i ON i.owner_id=p.id AND i.window='EQUIPMENT' AND i.pos=4
-            LEFT JOIN player.item_proto ip ON ip.vnum=i.vnum WHERE {base}
-            ORDER BY power_score DESC,i.vnum DESC,p.level DESC {limit_clause}""")
+        # value4 (max base damage) + value5 (the refine-step damage bonus) is
+        # the proto's own real attack power -- unlike value1/value2 (only
+        # swords/two or so subtypes), value3/value4 is populated for every
+        # weapon subtype that's an actual hand weapon (checked live,
+        # 2026-10-03: 100% coverage across subtypes 0/1/2/3/4/5/7 -- swords,
+        # daggers, bows, polearms, bells, fans). subtype 6 is ammunition
+        # (arrows) with huge unrelated value3/4/5 numbers of its own and is
+        # excluded outright, not ranked as a "weapon". Replaces an earlier
+        # pass that used value2 and fell back to a tier*10+refine heuristic
+        # for subtypes without it (2026-10-03, operator: "a dagger +2 is
+        # still #1 -- just rank by real attack value, period") -- value4 is
+        # the one column every real weapon actually has, so no fallback is
+        # needed any more. Original report: a lower-tier sword refined to +9
+        # (130-152 damage) ranked *below* a higher-tier sword at only +4
+        # (94-120) under the old req_level*10+refine heuristic, because
+        # req_level swamped the 0-9 refine signal.
+        # weapon_type (validated against WEAPON_SUBTYPES by the route before
+        # this call) narrows to one subtype; otherwise every real weapon
+        # (everything but subtype 6, ammunition) is eligible.
+        subtype_clause = f"ip2.subtype={WEAPON_SUBTYPES[weapon_type][0]}" if weapon_type in WEAPON_SUBTYPES else "ip2.subtype<>6"
+        return rows(f"""SELECT p.id,p.name,p.level,p.gold,best.vnum,
+            CONCAT(COALESCE(ip.locale_name,CONCAT('VNUM ',best.vnum)),' (wymagany poziom ',COALESCE(best.req_level,0),')') AS detail,
+            COALESCE(best.power_score,0) AS power_score,
+            COALESCE(best.is_shop,0) AS is_shop
+            FROM player.player p
+            LEFT JOIN (
+                SELECT i.owner_id,i.vnum,
+                    COALESCE(CASE WHEN ip2.limittype0=1 THEN ip2.limitvalue0 WHEN ip2.limittype1=1 THEN ip2.limitvalue1 END,0) AS req_level,
+                    ip2.value4+ip2.value5 AS power_score,
+                    CAST(i.window='IKASHOP_OFFLINESHOP' AS UNSIGNED) AS is_shop,
+                    ROW_NUMBER() OVER (PARTITION BY i.owner_id ORDER BY ip2.value4+ip2.value5 DESC, i.window='EQUIPMENT' DESC) AS rn
+                FROM player.item i JOIN player.item_proto ip2 ON ip2.vnum=i.vnum AND ip2.type=1 AND {subtype_clause}
+                WHERE i.window IN ('EQUIPMENT','IKASHOP_OFFLINESHOP')
+            ) best ON best.owner_id=p.id AND best.rn=1
+            LEFT JOIN player.item_proto ip ON ip.vnum=best.vnum WHERE {base}
+            ORDER BY power_score DESC,best.vnum DESC,p.level DESC {limit_clause}""")
     if kind == "weapon30":
         weapon30_order = {
             "avg": "avg_damage DESC, skill_damage DESC, p.level DESC",
@@ -3480,10 +3954,11 @@ def bot_ranking(kind, sort_by="avg", people_only=False):
         # account's id, so with people ranked a person's depot landed on
         # whichever character had that number.
         result = rows(f"""SELECT p.id,p.name,p.level,p.gold,i.vnum,COALESCE(ip.locale_name,CONCAT('VNUM ',i.vnum)) AS item_name,
+            CAST(i.window='IKASHOP_OFFLINESHOP' AS UNSIGNED) AS is_shop,
             IF(GREATEST(CASE WHEN i.attrtype0={ATTR_SKILL_DAMAGE} THEN i.attrvalue0 ELSE -999 END,CASE WHEN i.attrtype1={ATTR_SKILL_DAMAGE} THEN i.attrvalue1 ELSE -999 END,CASE WHEN i.attrtype2={ATTR_SKILL_DAMAGE} THEN i.attrvalue2 ELSE -999 END,CASE WHEN i.attrtype3={ATTR_SKILL_DAMAGE} THEN i.attrvalue3 ELSE -999 END,CASE WHEN i.attrtype4={ATTR_SKILL_DAMAGE} THEN i.attrvalue4 ELSE -999 END,CASE WHEN i.attrtype5={ATTR_SKILL_DAMAGE} THEN i.attrvalue5 ELSE -999 END,CASE WHEN i.attrtype6={ATTR_SKILL_DAMAGE} THEN i.attrvalue6 ELSE -999 END)=-999,0,GREATEST(CASE WHEN i.attrtype0={ATTR_SKILL_DAMAGE} THEN i.attrvalue0 ELSE -999 END,CASE WHEN i.attrtype1={ATTR_SKILL_DAMAGE} THEN i.attrvalue1 ELSE -999 END,CASE WHEN i.attrtype2={ATTR_SKILL_DAMAGE} THEN i.attrvalue2 ELSE -999 END,CASE WHEN i.attrtype3={ATTR_SKILL_DAMAGE} THEN i.attrvalue3 ELSE -999 END,CASE WHEN i.attrtype4={ATTR_SKILL_DAMAGE} THEN i.attrvalue4 ELSE -999 END,CASE WHEN i.attrtype5={ATTR_SKILL_DAMAGE} THEN i.attrvalue5 ELSE -999 END,CASE WHEN i.attrtype6={ATTR_SKILL_DAMAGE} THEN i.attrvalue6 ELSE -999 END)) AS skill_damage,
             IF(GREATEST(CASE WHEN i.attrtype0={ATTR_AVG_DAMAGE} THEN i.attrvalue0 ELSE -999 END,CASE WHEN i.attrtype1={ATTR_AVG_DAMAGE} THEN i.attrvalue1 ELSE -999 END,CASE WHEN i.attrtype2={ATTR_AVG_DAMAGE} THEN i.attrvalue2 ELSE -999 END,CASE WHEN i.attrtype3={ATTR_AVG_DAMAGE} THEN i.attrvalue3 ELSE -999 END,CASE WHEN i.attrtype4={ATTR_AVG_DAMAGE} THEN i.attrvalue4 ELSE -999 END,CASE WHEN i.attrtype5={ATTR_AVG_DAMAGE} THEN i.attrvalue5 ELSE -999 END,CASE WHEN i.attrtype6={ATTR_AVG_DAMAGE} THEN i.attrvalue6 ELSE -999 END)=-999,0,GREATEST(CASE WHEN i.attrtype0={ATTR_AVG_DAMAGE} THEN i.attrvalue0 ELSE -999 END,CASE WHEN i.attrtype1={ATTR_AVG_DAMAGE} THEN i.attrvalue1 ELSE -999 END,CASE WHEN i.attrtype2={ATTR_AVG_DAMAGE} THEN i.attrvalue2 ELSE -999 END,CASE WHEN i.attrtype3={ATTR_AVG_DAMAGE} THEN i.attrvalue3 ELSE -999 END,CASE WHEN i.attrtype4={ATTR_AVG_DAMAGE} THEN i.attrvalue4 ELSE -999 END,CASE WHEN i.attrtype5={ATTR_AVG_DAMAGE} THEN i.attrvalue5 ELSE -999 END,CASE WHEN i.attrtype6={ATTR_AVG_DAMAGE} THEN i.attrvalue6 ELSE -999 END)) AS avg_damage
             FROM player.item i JOIN player.player p ON p.id=i.owner_id LEFT JOIN player.item_proto ip ON ip.vnum=i.vnum
-            WHERE {base} AND i.window IN ('EQUIPMENT','INVENTORY') AND ((i.vnum BETWEEN 290 AND 299) OR (i.vnum BETWEEN 1170 AND 1179) OR (i.vnum BETWEEN 2150 AND 2159) OR (i.vnum BETWEEN 3210 AND 3219) OR (i.vnum BETWEEN 5110 AND 5119) OR (i.vnum BETWEEN 7160 AND 7169))
+            WHERE {base} AND i.window IN ('EQUIPMENT','INVENTORY','IKASHOP_OFFLINESHOP') AND ((i.vnum BETWEEN 290 AND 299) OR (i.vnum BETWEEN 1170 AND 1179) OR (i.vnum BETWEEN 2150 AND 2159) OR (i.vnum BETWEEN 3210 AND 3219) OR (i.vnum BETWEEN 5110 AND 5119) OR (i.vnum BETWEEN 7160 AND 7169))
             ORDER BY {weapon30_order} LIMIT 3000""")
         # 71 is APPLY_SKILL_DAMAGE_BONUS and 72 is APPLY_NORMAL_HIT_DAMAGE_BONUS in
         # common/length.h, and the query names them so. A swap used to live
@@ -3575,12 +4050,18 @@ def bot_ranking(kind, sort_by="avg", people_only=False):
     # ktos wszedl ze starym ?type=hunting, kind nie ma go juz w kinds i strona
     # pokazuje domyslny ranking poziomu.
     if kind == "shops":
-        # The keepers the cores report are bots; a person's stall is in no file.
-        keeper_ids = [pid for pid, state in live_statuses().items() if int(state.get("action") or 0) == 13]
-        if not keeper_ids or people_only:
-            return []
-        placeholders = ",".join(["%s"] * len(keeper_ids))
-        return rows(f"SELECT p.id,p.name,p.level,p.gold,'Stragan otwarty' AS detail FROM player.player p WHERE p.id IN ({placeholders}) ORDER BY p.level DESC {limit_clause}", keeper_ids)
+        # Replaced 2026-10-03 (operator: "Wystawione Stragany" was a leftover
+        # from before offline shops existed -- it only ever listed who
+        # currently has a stall *open live*, which is a status, not an
+        # achievement to rank). Real money instead: all-time Yang earned
+        # from offline-shop sales, log.ikarusshop_log -- same BUY_ITEM/TAX
+        # pattern daily_summary_details()'s "shop" leader already uses.
+        return rows(f"""SELECT p.id,p.name,p.level,p.gold,
+            SUM(GREATEST(0,l.yang-IF(l.extra LIKE 'TAX: %%',CAST(SUBSTRING_INDEX(l.extra,' ',-1) AS UNSIGNED),0))) AS score,
+            CONCAT(FORMAT(SUM(GREATEST(0,l.yang-IF(l.extra LIKE 'TAX: %%',CAST(SUBSTRING_INDEX(l.extra,' ',-1) AS UNSIGNED),0))),0),' Yang ze sprzedaży') AS detail
+            FROM log.ikarusshop_log l JOIN player.player p ON p.id=l.shop_owner
+            WHERE l.what='BUY_ITEM' AND {base}
+            GROUP BY p.id,p.name HAVING score>0 ORDER BY score DESC,p.level DESC {limit_clause}""")
     if kind == "skills":
         # Kazdy bot z profesja, a nie czterysta najwyzszych poziomem.
         # Ranking umiejetnosci posortowany najpierw po poziomie odpowiada
@@ -3605,9 +4086,13 @@ def bot_ranking(kind, sort_by="avg", people_only=False):
         # postaciami), wiec bez tego warunku przedmiot ze skrytki trafial
         # do rankingu tej postaci, ktorej id przypadkiem zbieglo sie z
         # id konta wlasciciela skrytki.
-        return rows(f"""SELECT p.id,p.name,p.level,p.gold,i.vnum,COALESCE(ip.locale_name,CONCAT('VNUM ',i.vnum)) AS detail
+        # IKASHOP_OFFLINESHOP joins the same way -- its owner_id is the
+        # listing character's own id (unlike SAFEBOX above), so a +9 an
+        # operator put up for sale still counts for them.
+        return rows(f"""SELECT p.id,p.name,p.level,p.gold,i.vnum,COALESCE(ip.locale_name,CONCAT('VNUM ',i.vnum)) AS detail,
+            CAST(i.window='IKASHOP_OFFLINESHOP' AS UNSIGNED) AS is_shop
             FROM player.item i JOIN player.player p ON p.id=i.owner_id LEFT JOIN player.item_proto ip ON ip.vnum=i.vnum
-            WHERE {base} AND i.window IN ('EQUIPMENT','INVENTORY') AND ip.type IN (1,2) AND MOD(i.vnum,10)=9 ORDER BY i.vnum DESC,p.level DESC {limit_clause}""")
+            WHERE {base} AND i.window IN ('EQUIPMENT','INVENTORY','IKASHOP_OFFLINESHOP') AND ip.type IN (1,2) AND MOD(i.vnum,10)=9 ORDER BY i.vnum DESC,p.level DESC {limit_clause}""")
     return rows(f"SELECT p.id,p.name,p.level,p.gold,p.level AS score,'Poziom' AS detail FROM player.player p WHERE {base} ORDER BY p.level DESC,p.exp DESC {limit_clause}")
 
 
@@ -3702,12 +4187,40 @@ def write_full_plus9_badges_enabled(enabled):
         ON DUPLICATE KEY UPDATE value=VALUES(value)""", ("1" if enabled else "0",))
 
 
+def shop_explain_enabled():
+    """Whether a bot's shop tooltip shows why an item is listed and how its
+    price was set (decisions.py, Playerbots 2.2.39+'s log.playerbot_listing).
+    Defaults on, same as the engine's own EXPLAIN retention default."""
+    cached = getattr(g, "_shop_explain_enabled", None)
+    if cached is not None:
+        return cached
+    try:
+        stored = one("SELECT value FROM common.m2_switches WHERE name='shop_explain_enabled'")
+        cached = not stored or str(stored.get("value") or "1") == "1"
+    except pymysql.MySQLError:
+        cached = True
+    g._shop_explain_enabled = cached
+    return cached
+
+
+def write_shop_explain_enabled(enabled):
+    rows("""INSERT INTO common.m2_switches (name,value) VALUES ('shop_explain_enabled',%s)
+        ON DUPLICATE KEY UPDATE value=VALUES(value)""", ("1" if enabled else "0",))
+
+
 @app.context_processor
 def globals_for_templates():
     tieru_url = os.environ.get("TIERU_PANEL_URL", "http://127.0.0.1:7788")
     item_icon = item_icon_url
     current_settings = settings()
+    ui_language = current_settings.get("ui_language", "pl")
     def job_name(job):
+        return class_profile(job)["name"]
+    def class_label(job, group):
+        if current_settings.get("show_skill_paths") == "1":
+            path = skill_path_name(job, group)
+            if path:
+                return path
         return class_profile(job)["name"]
     def class_portrait(job):
         return url_for("static", filename=f"class-portraits/{class_profile(job)['portrait']}")
@@ -3732,7 +4245,65 @@ def globals_for_templates():
         if not rank:
             return escape(label)
         return Markup('<span class="top-level-badge" title="Top 10 poziomu · #%d">%s</span>') % (rank, escape(label))
-    return {"tieru_url": tieru_url, "discord_url": MT2009_PLUS_DISCORD_URL, "website_url": MT2009_PLUS_WEBSITE_URL, "panel_brand": brand, "settings": current_settings, "map_name": map_name, "item_icon": item_icon, "job_name": job_name, "class_profile": class_profile, "class_portrait": class_portrait, "empire_info": empire_info, "empire_flag": empire_flag, "static_asset_url": static_asset_url, "level_badge": level_badge, "top_level_rank": lambda pid: top_level_rank_map().get(int(pid or 0)), "feature_enabled": lambda name: panel_feature_enabled(name, current_settings), "panel_features": panel_feature_states(current_settings)}
+    return {"tieru_url": tieru_url, "discord_url": MT2009_PLUS_DISCORD_URL, "website_url": MT2009_PLUS_WEBSITE_URL, "panel_brand": brand, "settings": current_settings, "map_name": map_name, "item_icon": item_icon, "job_name": job_name, "class_profile": class_profile, "class_portrait": class_portrait, "empire_info": empire_info, "empire_flag": empire_flag, "static_asset_url": static_asset_url, "level_badge": level_badge, "top_level_rank": lambda pid: top_level_rank_map().get(int(pid or 0)), "feature_enabled": lambda name: panel_feature_enabled(name, current_settings), "panel_features": panel_feature_states(current_settings), "class_label": class_label, "ui_language": "pl", "i18n_payload": None, "ds_kind_count": 7 if ENGINE_MT2009 else 6}
+
+
+@app.after_request
+def compress_response(response):
+    """gzip large JSON/HTML responses. /api/live-bots alone crossed 1.1MB
+    uncompressed at ~2000 online bots, polled every 1.5s by the live map --
+    "na telefonie na średniej szybkości internetu ten dashboard nie może
+    się wczytać w pełni" (2026-10-01). JSON's repeated key names compress
+    extremely well (typically 75-85% smaller). Registered before
+    translate_response below so it runs *after* it (Flask calls
+    after_request hooks in reverse registration order) -- compressing
+    first would hand translate_response gzipped bytes to treat as text."""
+    if response.direct_passthrough or response.content_encoding:
+        return response
+    if "gzip" not in (request.headers.get("Accept-Encoding") or ""):
+        return response
+    if not (response.content_type or "").startswith(("application/json", "text/html")):
+        return response
+    body = response.get_data()
+    if len(body) < 1024:
+        return response
+    compressed = gzip.compress(body, compresslevel=6)
+    response.set_data(compressed)
+    response.headers["Content-Encoding"] = "gzip"
+    response.headers["Content-Length"] = str(len(compressed))
+    vary = response.headers.get("Vary", "")
+    if "Accept-Encoding" not in vary:
+        response.headers["Vary"] = (vary + ", Accept-Encoding").lstrip(", ")
+    return response
+
+
+@app.after_request
+def translate_response(response):
+    # Server-side half of the ui_language="en" panel translation (see
+    # translations.py's module docstring for the full picture, including
+    # the client-side static/i18n-watch.js half for JS-rendered content).
+    # Polish is untouched either way -- this only ever rewrites the body
+    # when English is selected, so a Polish response is exactly what Jinja
+    # produced, byte for byte.
+    if response.content_type and response.content_type.startswith("text/html"):
+        current_settings = settings()
+        if current_settings.get("ui_language", "pl") == "en":
+            response.set_data(translations.translate_html(response.get_data(as_text=True), "en"))
+    return response
+
+
+def translated_fragment(markup):
+    """An HTML fragment that a page swaps in from a JSON answer (the item
+    database's search, /api/items; the live chat's refresh, /api/live-chat),
+    translated here as translate_response translates a whole page.
+    static/i18n-watch.js translates such a fragment in the browser too, but
+    only from EXACT and PATTERNS: the official item and monster names
+    (translations.ITEM_NAMES, MOB_NAMES) are thousands, too many to ship with
+    every page, so a fragment that names items or a boss has to arrive with
+    them translated. Polish is returned untouched."""
+    return translations.translate_html(markup, settings().get("ui_language", "pl"))
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     current = settings()
@@ -3795,6 +4366,7 @@ def dashboard():
         "channel_counts": [],
         "guilds": 0, "last_restart": "Ładowanie…", "version": "—",
         "release": {"installed": "—", "latest": None, "behind": False, "tone": "", "label": "Ładowanie…"},
+        "panel_release": {"installed": PANEL_VERSION, "latest": None, "behind": False, "tone": "", "label": "Sprawdzanie…"},
         "rates": {"exp": 0, "drop": 0, "yang": 0}, "events": {},
     }
     return render_template("dashboard.html", totals=totals, bots=0, system={}, map_rows=[],
@@ -3893,6 +4465,7 @@ def _dashboard_deferred_context():
     # off the critical path, and latest_playerbots_release() caches its own
     # result for PLAYERBOTS_RELEASE_CACHE_SECONDS anyway.
     release_status = playerbots_release_status()
+    panel_release = panel_release_status()
     world_summary = {
         "bots": len(live_roster),
         "average_level": round(sum(int(bot.get("level") or 0) for bot in live_roster) / len(live_roster), 1) if live_roster else 0,
@@ -3908,6 +4481,7 @@ def _dashboard_deferred_context():
         "last_restart": restart_label,
         "version": release_status["installed"],
         "release": release_status,
+        "panel_release": panel_release,
         "rates": read_rates(),
         "events": read_events_status(),
     }
@@ -3968,10 +4542,67 @@ def _dashboard_deferred_context():
             "live_regen": read_regen_settings(), "live_map_regens": read_map_regen_status()}
 
 
+DASHBOARD_DEFERRED_CACHE_NAME = "dashboard_deferred_payload_v1"
+DASHBOARD_DEFERRED_CACHE_TTL = 60
+_dashboard_deferred_refresh_lock = threading.Lock()
+
+
+def _read_dashboard_deferred_cache():
+    try:
+        row = one("SELECT value FROM player.web_seban_query_cache WHERE name=%s",
+                  (DASHBOARD_DEFERRED_CACHE_NAME,))
+        payload = json.loads(row["value"]) if row and row.get("value") else None
+        if isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+            return payload
+    except (pymysql.MySQLError, TypeError, ValueError, KeyError):
+        pass
+    return None
+
+
+def _write_dashboard_deferred_cache(data):
+    payload = json.dumps({"at": time.time(), "data": data}, default=str,
+                         ensure_ascii=False, separators=(",", ":"))
+    rows("REPLACE INTO player.web_seban_query_cache (name,value) VALUES (%s,%s)",
+         (DASHBOARD_DEFERRED_CACHE_NAME, payload))
+
+
+def _refresh_dashboard_deferred_cache():
+    if not _dashboard_deferred_refresh_lock.acquire(blocking=False):
+        return
+    try:
+        # url_for() is used while composing map icons, so a lightweight request
+        # context is required even though this refresh runs after the response.
+        with app.test_request_context("/"):
+            data = _dashboard_deferred_context()
+            _write_dashboard_deferred_cache(data)
+    except Exception:
+        app.logger.exception("Dashboard deferred cache refresh failed")
+    finally:
+        _dashboard_deferred_refresh_lock.release()
+
+
+def _schedule_dashboard_deferred_refresh():
+    threading.Thread(target=_refresh_dashboard_deferred_cache,
+                     name="dashboard-cache-refresh", daemon=True).start()
+
+
 @app.route("/api/dashboard-deferred")
 @login_required
 def api_dashboard_deferred():
-    return jsonify(ok=True, **_dashboard_deferred_context())
+    cached = _read_dashboard_deferred_cache()
+    if cached:
+        if time.time() - float(cached.get("at") or 0) >= DASHBOARD_DEFERRED_CACHE_TTL:
+            _schedule_dashboard_deferred_refresh()
+        # Serve stale data immediately while it is refreshed in the background.
+        # These widgets are historical/server summaries; the live map retains
+        # its separate 1.5-second endpoint and is never served from this cache.
+        return jsonify(ok=True, **cached["data"])
+    data = _dashboard_deferred_context()
+    try:
+        _write_dashboard_deferred_cache(data)
+    except pymysql.MySQLError:
+        app.logger.exception("Initial dashboard deferred cache write failed")
+    return jsonify(ok=True, **data)
 @app.route("/players")
 @login_required
 def players():
@@ -3981,7 +4612,9 @@ def players():
            " FROM player.player p LEFT JOIN player.player_index pi ON pi.id=p.account_id LEFT JOIN account.account a ON a.id=p.account_id")
     args = []
     if query:
-        sql += " WHERE p.name LIKE %s OR p.id=%s"
+        # player.name is latin1: a query with Polish letters compared in its own
+        # utf8mb4 collation stopped the page with "Illegal mix of collations".
+        sql += " WHERE CONVERT(p.name USING utf8mb4) LIKE %s OR p.id=%s"
         args = [f"%{query}%", query if query.isdigit() else -1]
     sql += " ORDER BY p.level DESC, p.exp DESC LIMIT 250"
     roster, live = rows(sql, args), live_statuses()
@@ -3992,7 +4625,89 @@ def players():
         character["map_live"] = bool(state)
         if state:
             character["map_index"] = state["map_index"]
+    # MT2009_PLUS_LEGENDS_V1: a bot's tier beside its name.
+    legends = legend_tiers(character["id"] for character in roster)
+    for character in roster:
+        character["legend"] = legends.get(character["id"])
     return render_template("players.html", players=roster, query=query)
+
+
+@app.route("/legends")
+@login_required
+def legends_page():
+    """MT2009_PLUS_LEGENDS_V1: the Champions and Walking Legends of each
+    kingdom, the ranking of every tiered bot and the latest legend events."""
+    try:
+        empire = int(request.args.get("empire", 0) or 0)
+    except (TypeError, ValueError):
+        empire = 0
+    try:
+        tier = int(request.args.get("tier", 0) or 0)
+    except (TypeError, ValueError):
+        tier = 0
+    ranking, events, missing = legend_rows(empire, tier)
+    heads = ranking if (empire == 0 and tier == 0) else legend_rows()[0]
+    heads = [row for row in heads if row["tier"] >= 3]
+    return render_template("legends.html", ranking=ranking, events=events, missing=missing, heads=heads,
+                           empire=empire, tier=tier, tiers=LEGEND_TIERS, colours=LEGEND_COLOURS,
+                           enabled=bool(read_ai_weights().get("LEGENDS", 1)))
+
+
+@app.post("/legends/switch")
+@login_required
+def legends_switch():
+    """MT2009_PLUS_LEGENDS_V1: the LEGENDS key of the weights file, from the
+    ranking page - the rest of the file as it is."""
+    values = read_ai_weights()
+    values["LEGENDS"] = 1 if "1" in request.form.getlist("LEGENDS") else 0
+    try:
+        write_ai_weights(values)
+    except OSError:
+        flash("Nie udało się zapisać przełącznika Systemu Legend.", "error")
+    else:
+        flash("System Legend " + ("włączony" if values["LEGENDS"] else "wyłączony") + " — rdzeń zastosuje to do 5 sekund, bez restartu.")
+    return redirect(url_for("legends_page"))
+
+
+@app.route("/weekly-ranking", methods=["GET", "POST"])
+@login_required
+def weekly_ranking():
+    """MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking - its switch and
+    length, ending the season now, the current season, the title holders and
+    the live top 50 of a category."""
+    if request.method == "POST":
+        if request.form.get("weekly_csrf", "") != session.get("seban_update_csrf", ""):
+            flash("Sesja formularza wygasła - odśwież stronę i spróbuj jeszcze raz.", "error")
+            return redirect(url_for("weekly_ranking"))
+        action = request.form.get("action", "save")
+        try:
+            rows("INSERT IGNORE INTO player.weekly_rank_state (id) VALUES (1)")
+            if action == "end":
+                rows("UPDATE player.weekly_rank_state SET season_end = UNIX_TIMESTAMP() WHERE id = 1")
+            else:
+                try:
+                    days = max(1, min(28, int(request.form.get("season_days", 7) or 7)))
+                except (TypeError, ValueError):
+                    days = 7
+                enabled = 1 if "1" in request.form.getlist("enabled") else 0
+                rows("UPDATE player.weekly_rank_state SET enabled = %s, season_days = %s WHERE id = 1", (enabled, days))
+        except Exception:
+            flash("Nie udało się zapisać – tabele rankingu tygodniowego jeszcze nie istnieją (uruchom serwer gry).", "error")
+            return redirect(url_for("weekly_ranking"))
+        if action == "end":
+            flash("Sezon kończy się teraz – gra przełączy go w ciągu ok. 2 minut i ogłosi wyniki.")
+        else:
+            flash("Zapisano. Gra zastosuje to w ciągu ok. 2 minut.")
+        return redirect(url_for("weekly_ranking"))
+    try:
+        cat = int(request.args.get("cat", 1) or 1)
+    except (TypeError, ValueError):
+        cat = 1
+    if cat not in WEEKLY_RANK_CAT:
+        cat = 1
+    state, holders, ranking, missing = weekly_rank_rows(cat)
+    return render_template("weekly_ranking.html", state=state, holders=holders, ranking=ranking, missing=missing,
+                           cat=cat, cats=WEEKLY_RANK_CATS, cats_by_id=WEEKLY_RANK_CAT, weekly_csrf=update_csrf_token())
 
 
 @app.route("/players/personalities")
@@ -4006,15 +4721,24 @@ def bot_personalities():
     offline bot has none of these to show. Operator's ask, 2026-09-26."""
     query = request.args.get("q", "").strip().lower()
     selected = request.args.get("personality", "").strip()
+    # MT2009_PLUS_BOT_HERBALIST_FIX_V1: i persona z systemu osobowości
+    # Iwakury (Zielarz, Górnik, Rybak...), filtrowana parametrem persona.
+    selected_persona = request.args.get("persona", "").strip()
     roster = live_bots()
     counts = {}
+    persona_counts = {}
     for bot in roster:
         key = int(bot.get("personality") or 0)
         counts[key] = counts.get(key, 0) + 1
+        if bot.get("persona") is not None:
+            persona_key = int(bot["persona"])
+            persona_counts[persona_key] = persona_counts.get(persona_key, 0) + 1
     if query:
         roster = [bot for bot in roster if query in bot["name"].lower()]
     if selected.isdigit() and int(selected) in BOT_PERSONALITIES:
         roster = [bot for bot in roster if int(bot.get("personality") or 0) == int(selected)]
+    if selected_persona.isdigit() and int(selected_persona) in BOT_PERSONAS:
+        roster = [bot for bot in roster if bot.get("persona") is not None and int(bot["persona"]) == int(selected_persona)]
     roster.sort(key=lambda bot: (-(int(bot.get("level") or 0)), -(int(bot.get("exp") or 0))))
     total = len(roster)
     roster = roster[:200]
@@ -4022,9 +4746,13 @@ def bot_personalities():
         bot["experience"] = experience_progress(bot.get("level"), bot.get("exp"))
         bot["map_display"] = map_name(bot.get("map_index"))
         bot["personality_color"] = BOT_PERSONALITY_COLORS.get(int(bot.get("personality") or 0), "#cfe1fb")
+        bot["persona_color"] = BOT_PERSONA_COLORS.get(int(bot["persona"]), "#cfe1fb") if bot.get("persona") is not None else "#cfe1fb"
     personalities = [{"id": pid, "label": label, "color": BOT_PERSONALITY_COLORS.get(pid, "#cfe1fb"), "count": counts.get(pid, 0)}
                       for pid, label in sorted(BOT_PERSONALITIES.items())]
-    return render_template("bot_personalities.html", roster=roster, total=total, query=query, selected=selected, personalities=personalities)
+    personas = [{"id": pid, "label": label, "color": BOT_PERSONA_COLORS.get(pid, "#cfe1fb"), "count": persona_counts.get(pid, 0)}
+                for pid, label in sorted(BOT_PERSONAS.items())]
+    return render_template("bot_personalities.html", roster=roster, total=total, query=query, selected=selected, personalities=personalities,
+                           personas=personas, selected_persona=selected_persona)
 
 
 # MT2009_PLUS_PROGRESSION_V1: "Progresja botów" -- the map transition levels,
@@ -4553,13 +5281,25 @@ SPECIAL_FLAG_RANKINGS = {
     "damage_max_horse": ("stat_damage_horse", "obrażeń (konno, rekord)"),
     "damage_max_skill": ("stat_damage_skill", "obrażeń (umiejętność, rekord)"),
     "yang_earned": ("stat_gold", "Yang zdobytych łącznie"),
-    "yang_npc_sale": ("stat_sell_shop", "Yang ze sprzedaży u NPC"),
+    # yang_npc_sale (stat_sell_shop) removed 2026-10-03: this engine almost
+    # never writes it (1 row total in player_special_flag vs thousands for
+    # every other stat_* flag -- bots don't sell to NPCs through whatever
+    # code path calls AddPlayerStat for it) -- same reason "hunting" was
+    # removed earlier (dead stat, not a panel bug to fix).
     "monsters_killed": ("stat_monster", "zabitych potworów łącznie"),
     "minibosses": ("stat_miniboss", "pokonanych minibossów"),
     "pvp_kills_total": ("stat_empire", "pokonanych graczy (wrogie królestwo)"),
     "duel_wins": ("stat_duel", "wygranych pojedynków"),
     "mining": ("stat_mining", "wykopanych rud"),
 }
+# /rankings?type=weapon&weapon_type=<key> -- item_proto.subtype values for
+# ITEM_WEAPON, confirmed live 2026-10-03 by sampling every subtype's actual
+# item names (0: Miecz/Długi Miecz/..., 1: Sztylet/Nóż/..., 2: Łuk/Kompozytowy
+# Łuk/..., 3: Glewia/Włócznia/Trójząb/Halabarda/... (two-handed), 4: ...Dzwon,
+# 5: ...Wachlarz). subtype 6 (arrows) and 7 (a single oddball vnum) are
+# deliberately not offered as filter choices.
+WEAPON_SUBTYPES = {"sword": (0, "Miecz"), "dagger": (1, "Sztylet"), "bow": (2, "Łuk"),
+                    "twohand": (3, "Broń dwuręczna"), "bell": (4, "Dzwon"), "fan": (5, "Wachlarz")}
 
 
 def character_stat_summary(pid):
@@ -4754,6 +5494,31 @@ def bot_gear_history(pid, limit=60):
     return result[:limit]
 
 
+def _decision_item_name(vnum):
+    proto = ITEM_DEFS.get(str(int(vnum or 0)))
+    return proto["name"] if proto else f"VNUM {int(vnum or 0)}"
+
+
+def explain_shop_offer(item_id, counter_price):
+    """Why this exact counter line exists and how its price was reached
+    (log.playerbot_listing, Playerbots 2.2.39+'s "explained decisions").
+    None on an older engine that doesn't write this table yet, an item
+    listed before EXPLAIN retention was on, or when the operator turned
+    the tooltip off in Management."""
+    if not shop_explain_enabled():
+        return None
+    try:
+        row = one("SELECT * FROM log.playerbot_listing WHERE item_id=%s", (int(item_id or 0),))
+    except pymysql.MySQLError as exc:
+        if exc.args and exc.args[0] == 1146:
+            return None
+        raise
+    if not row:
+        return None
+    lang = settings().get("ui_language", "pl")
+    return decisions.explain_listing(row, lang, _decision_item_name, apply_text, counter_price=counter_price)
+
+
 def bot_offline_shop(pid):
     """Data straight from IkarusShop's own tables -- there is no separate
     price/listing table for offline shops on this engine (confirmed against
@@ -4793,6 +5558,7 @@ def bot_offline_shop(pid):
         offer["price"] = int(offer.get("price") or 0)
         offer["col"] = int(offer["pos"] or 0) % 10
         offer["row"] = int(offer["pos"] or 0) // 10
+        offer["explain"] = explain_shop_offer(offer["id"], offer["price"])
     shop_rows = 16 if any(o["row"] >= 8 for o in offers) else 8
     return {
         "name": game_text(shop["name"]) or "Bez nazwy", "map_index": int(shop["map"]), "map_name": map_name(shop["map"]),
@@ -4816,9 +5582,18 @@ def bot_live_logs(name, limit=80):
     matched = []
     for _channel, path in channel_paths("syslog"):
         try:
-            with open(path, "r", encoding="latin-1", errors="ignore") as f:
-                lines = f.readlines()
-            recent = lines[-800:] if len(lines) > 800 else lines
+            # Only the end of the file: a channel's syslog grows to hundreds of
+            # MB, and reading all of it for its last 800 lines cost ~900 MB of
+            # memory and ~4 s on every 1.5 s poll of an open character card.
+            with open(path, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                size = f.tell()
+                f.seek(max(0, size - 512 * 1024))
+                tail = f.read().decode("latin-1", errors="ignore")
+            lines = tail.splitlines()
+            if size > 512 * 1024 and lines:
+                lines = lines[1:]  # the first line was cut by the seek
+            recent = lines[-800:]
             matched.extend(line.strip() for line in recent if name_re.search(line))
         except OSError:
             continue
@@ -4953,8 +5728,29 @@ def _enrich_items(items):
                 f"Siła: +{v // 10 % 10}",
                 f"Pozostały czas: {left // 3600} h {left % 3600 // 60} min" if left > 0 else "Pozostały czas: brak",
             ]
-        item["bonuses"] = [apply_text(item.get(f"applytype{i}"), item.get(f"applyvalue{i}")) for i in range(3) if item.get(f"applytype{i}") and item.get(f"applyvalue{i}")]
-        item["bonuses"] += [apply_text(item.get(f"attrtype{i}"), item.get(f"attrvalue{i}")) for i in range(7) if item.get(f"attrtype{i}") and item.get(f"attrvalue{i}")]
+        proto = ITEM_DEFS.get(str(int(item["vnum"] or 0)), {})
+        item_type, item_subtype = int(proto.get("type") or 0), int(proto.get("subtype") or 0)
+
+        def native_apply_text(index):
+            apply_type = item.get(f"applytype{index}")
+            apply_value = int(item.get(f"applyvalue{index}") or 0)
+            display_type = POINT_TO_APPLY.get(int(apply_type or 0), int(apply_type or 0)) if ENGINE_MT2009 else int(apply_type or 0)
+            # The client displays a built-in attack-speed affect on a two-handed
+            # weapon with its fixed -10 penalty deducted (raw 25 -> shown 15).
+            if item_type == 1 and item_subtype == 3 and display_type == 7:
+                apply_value -= 10
+            return apply_text(apply_type, apply_value)
+
+        item["bonuses"] = [
+            {"text": native_apply_text(i), "source": "native"}
+            for i in range(3)
+            if item.get(f"applytype{i}") and item.get(f"applyvalue{i}")
+        ]
+        item["bonuses"] += [
+            {"text": apply_text(item.get(f"attrtype{i}"), item.get(f"attrvalue{i}")), "source": "added"}
+            for i in range(7)
+            if item.get(f"attrtype{i}") and item.get(f"attrvalue{i}")
+        ]
     # Only weapons (type 1) and armor (type 2) actually use sockets for gems
     # ("kamienie duszy") -- other item types reuse those same DB columns for
     # completely unrelated, type-specific data (a Skill Book's socket0 is the
@@ -4965,10 +5761,17 @@ def _enrich_items(items):
     # target mob's vnum, handled below via mob_proto instead). Reported
     # ([GA]Seban, 2026-09-22): a Wędka+2's tooltip showing an unrelated
     # "Sejmitar+5" as a gem, same for a Rękawica Króla Przepow.
+    #
+    # An empty soul-stone socket on a weapon/armor is vnum 1, not 0 (item_proto
+    # 1 is "Yang" -- confirmed live, Krwawy Miecz+4's three empty sockets all
+    # read socket0/1/2=1) -- the engine's own empty-slot sentinel, not a real
+    # gem. Without excluding it, every unfilled socket looked up item_proto 1
+    # and showed a fake "Yang" stone, once per empty slot (reported
+    # [GA]Seban, 2026-09-30).
     stone_eligible_vnums = {int(item["vnum"]) for item in items
                              if int((ITEM_DEFS.get(str(int(item["vnum"] or 0))) or {}).get("type") or 0) in (1, 2)}
     socket_vnums = sorted({int(item.get(f"socket{i}") or 0) for item in items if int(item["vnum"]) in stone_eligible_vnums
-                            for i in range(3) if int(item.get(f"socket{i}") or 0) > 0})
+                            for i in range(3) if int(item.get(f"socket{i}") or 0) > 1})
     stone_defs = {}
     if socket_vnums:
         marks = ",".join(["%s"] * len(socket_vnums))
@@ -5030,6 +5833,43 @@ def _enrich_items(items):
                 }
         item["accessory_socket"] = accessory_socket
     return items
+
+
+def load_dragon_soul_items(pid):
+    """Return both Dragon Soul decks and the paged alchemy bag.
+
+    The coordinates follow the client's alchemy window: kinds x six grade
+    pages x 32 cells, 192 cells per kind. This engine has seven kinds - the
+    Amethyst is the seventh (vnums 17xxxx, bag cells 1152..1343) - and a deck
+    of seven stones: EQUIPMENT 32..38 is deck I, 39..45 deck II. The
+    six-kind layout (decks of six at 32..43) is kept for other engines.
+    """
+    kinds = 7 if ENGINE_MT2009 else 6
+    last = 32 + 2 * kinds - 1
+    items = rows("""
+      SELECT i.id,i.vnum,i.count,i.window,i.pos,i.socket0,i.socket1,i.socket2,
+      i.attrtype0,i.attrvalue0,i.attrtype1,i.attrvalue1,i.attrtype2,i.attrvalue2,i.attrtype3,i.attrvalue3,i.attrtype4,i.attrvalue4,i.attrtype5,i.attrvalue5,i.attrtype6,i.attrvalue6,
+      p.type AS item_type,p.applytype0,p.applyvalue0,p.applytype1,p.applyvalue1,p.applytype2,p.applyvalue2,p.size AS item_size,
+      COALESCE(p.locale_name,CONCAT('VNUM ',i.vnum)) AS item_name
+      FROM player.item i LEFT JOIN player.item_proto p ON p.vnum=i.vnum
+      WHERE i.owner_id=%s AND ((i.window='DRAGON_SOUL_INVENTORY') OR (i.window='EQUIPMENT' AND i.pos BETWEEN 32 AND %s))
+      ORDER BY i.window,i.pos
+    """, (pid, last))
+    _enrich_items(items)
+    for item in items:
+        item['base_stats'] = [stat for stat in item.get('base_stats', []) if not stat.startswith('Wymagany poziom:')]
+    bag, decks = [], {0: {}, 1: {}}
+    for item in items:
+        pos = int(item.get("pos") or 0)
+        if item.get("window") == "DRAGON_SOUL_INVENTORY":
+            item["ds_kind"] = pos // 192
+            item["ds_page"] = (pos % 192) // 32
+            item["ds_slot"] = pos % 32
+            if 0 <= item["ds_kind"] < kinds and 0 <= item["ds_page"] < 6:
+                bag.append(item)
+        elif 32 <= pos <= last:
+            decks[(pos - 32) // kinds][(pos - 32) % kinds] = item
+    return bag, decks
 
 
 def load_character_items(pid, account_id):
@@ -5312,6 +6152,7 @@ def player(pid):
     character["skills"] = parse_skills(skill_raw, character.get("job"), character.get("skill_group"))
     character["passive_skills"] = parse_passive_skills(skill_raw)
     equipment, costumes, alchemy, inventory, safebox, horse_bag = load_character_items(pid, character["account_id"])
+    dragon_soul_inventory, dragon_soul_decks = load_dragon_soul_items(pid)
     character["full_plus9_equipment"] = full_plus9_badges_enabled() and is_full_plus9_equipment(equipment)
     gear_history = bot_gear_history(pid)
     offline_shop = bot_offline_shop(pid)
@@ -5320,10 +6161,18 @@ def player(pid):
     gm_row = one("SELECT mAuthority FROM common.gmlist WHERE mName=%s LIMIT 1", (character["name"],))
     character["gm_rank"] = gm_row["mAuthority"] if gm_row else ""
     takeover_bot = takeover_account(pid) is not None
+    # MT2009_PLUS_LEGENDS_V1: the bot's tier, when it holds one.
+    try:
+        legend = one("SELECT tier, empire, reputation, player_kills FROM player.playerbot_legend WHERE pid=%s AND tier > 0", (pid,))
+    except Exception:
+        legend = {}
+    character["legend"] = dict(legend_badge(legend["tier"], legend["empire"]), reputation=legend["reputation"],
+                               player_kills=legend["player_kills"]) if legend and legend_badge(legend["tier"], legend["empire"]) else None
     return render_template("player.html", character=character, equipment=equipment, costumes=costumes, alchemy=alchemy, inventory=inventory, safebox=safebox,
                             takeover_bot=takeover_bot, takeover=takeover_status(pid) if takeover_bot else None,
                             takeover_csrf=update_csrf_token(),
                             has_safebox=bool(safebox), horse_bag=horse_bag, has_horse_bag=bool(horse_bag),
+                            dragon_soul_inventory=dragon_soul_inventory, dragon_soul_decks=dragon_soul_decks,
                             gear_history=gear_history, offline_shop=offline_shop, character_stats=character_stats,
                             mission_progress=mission_progress, gm_ranks=GM_RANK_OPTIONS,
                             admin_warps=PLAYER_ADMIN_WARPS)
@@ -5412,8 +6261,10 @@ def api_player_inventory_fragment(pid):
         abort(404)
     gold = one("SELECT gold FROM player.player WHERE id=%s", (pid,)).get("gold") or 0
     equipment, costumes, alchemy, inventory, safebox, horse_bag = load_character_items(pid, account_id["account_id"])
+    dragon_soul_inventory, dragon_soul_decks = load_dragon_soul_items(pid)
     return render_template("_inventory_fragment.html", gold=gold, equipment=equipment, costumes=costumes, alchemy=alchemy, inventory=inventory, safebox=safebox,
-                            has_safebox=bool(safebox), horse_bag=horse_bag, has_horse_bag=bool(horse_bag))
+                            has_safebox=bool(safebox), horse_bag=horse_bag, has_horse_bag=bool(horse_bag),
+                            dragon_soul_inventory=dragon_soul_inventory, dragon_soul_decks=dragon_soul_decks)
 
 
 # VIP and "Dragon Coins" both turned out to be real, already-working engine
@@ -5809,13 +6660,14 @@ def shop_sales_velocity(hours=24, limit=15, only_skillbooks=False):
         bucket = "recent" if r["time"] >= cutoff else "older"
         a[f"{bucket}_units"] += qty
         a[f"{bucket}_revenue"] += price
-    ranked = sorted(agg.items(), key=lambda kv: kv[1]["sales"], reverse=True)[:limit]
+    ranked_all = sorted(agg.items(), key=lambda kv: kv[1]["sales"], reverse=True)
+    ranked = ranked_all if limit is None else ranked_all[:limit]
     result = []
     for (vnum, socket0), a in ranked:
         recent_avg = round(a["recent_revenue"] / a["recent_units"]) if a["recent_units"] else None
         older_avg = round(a["older_revenue"] / a["older_units"]) if a["older_units"] else None
         result.append({
-            "vnum": vnum, "item_name": _item_display_name(vnum, socket0),
+            "vnum": vnum, "socket0": socket0, "item_name": _item_display_name(vnum, socket0),
             "sales": a["sales"], "units": a["units"],
             "avg_price": round(a["revenue"] / a["units"]) if a["units"] else 0,
             "per_hour": round(a["sales"] / hours, 1),
@@ -5954,9 +6806,23 @@ def economy_shops():
           WHERE s.captured_at=%s ORDER BY s.total_units DESC LIMIT 15""", (shop_latest,))
         market_items = [shop_item_market_row(r["vnum"], r["socket0"], shop_latest) for r in top_rows]
 
+    try:
+        fastest_items_limit = int(settings().get("fastest_shop_items_limit", "15"))
+    except (TypeError, ValueError):
+        fastest_items_limit = 15
+    fastest_items_limit = max(15, min(100, fastest_items_limit))
+    all_sales_velocity = shop_sales_velocity(limit=None)
+    velocity_by_item = {(int(item["vnum"]), int(item.get("socket0", 0))): item for item in all_sales_velocity}
+    for item in market_items:
+        velocity = velocity_by_item.get((int(item["vnum"]), int(item.get("socket0", 0))), {})
+        item["sales_24h"] = int(velocity.get("sales", 0))
+        item["sales_per_hour"] = float(velocity.get("per_hour", 0))
+
     return render_template("economy_shops.html", latest=latest, by_map=by_map, query=query,
-                            empire_totals=empire_totals, kpi=kpi, value_trend=value_trend, market_items=market_items,
-                            sales_velocity=shop_sales_velocity(), skillbook_velocity=shop_sales_velocity(limit=5, only_skillbooks=True),
+                            empire_totals=empire_totals, kpi=kpi, value_trend=value_trend,
+                            market_items=market_items, fastest_items_limit=fastest_items_limit,
+                            sales_velocity=all_sales_velocity[:fastest_items_limit],
+                            skillbook_velocity=shop_sales_velocity(limit=5, only_skillbooks=True),
                             recent_sales=recent_shop_sales(10))
 
 
@@ -6009,7 +6875,8 @@ def retirement_control_status():
     ensure_retirement_tables()
     defaults = {"batch_id": 0, "bot_count": 50, "window_minutes": 15,
                 "shop_minutes": 30, "requested_at": 0, "queued_count": 0,
-                "active_count": 0, "reset_count": 0, "state": "ready"}
+                "active_count": 0, "reset_count": 0, "state": "ready",
+                "seen": False, "not_seen": False}
     try:
         control = one("""SELECT batch_id,bot_count,window_minutes,shop_minutes,requested_at
                          FROM common.playerbot_retire_control WHERE id=1""")
@@ -6022,17 +6889,24 @@ def retirement_control_status():
                    ("batch_id", "bot_count", "window_minutes", "shop_minutes", "requested_at")})
     progress = one("""SELECT COALESCE(b.queued_count,0) AS queued_count,
         SUM(p.stage IN ('shopping','selling','closing')) AS active_count,
-        SUM(p.stage='reset') AS reset_count
+        SUM(p.stage='reset') AS reset_count, MAX(b.id IS NOT NULL) AS seen
       FROM common.playerbot_retire_control c
       LEFT JOIN common.playerbot_retire_batch b ON b.id=c.batch_id
       LEFT JOIN common.playerbot_retire_pick p ON p.batch_id=c.batch_id
-      WHERE c.id=1 GROUP BY c.batch_id,b.queued_count""")
+      WHERE c.id=1 GROUP BY c.batch_id,b.queued_count""") or {}
     for key in ("queued_count", "active_count", "reset_count"):
         result[key] = int(progress.get(key) or 0)
+    result["seen"] = bool(int(progress.get("seen") or 0))
     if result["active_count"] or result["queued_count"] < result["bot_count"]:
         result["state"] = "active"
     elif result["batch_id"]:
         result["state"] = "complete"
+    # MT2009_PLUS_BOT_RETIREMENT_FIX_V1: the core writes the batch row the
+    # moment it takes a batch up. None two minutes after the click means no
+    # core is picking (server down, or a core older than the fix on a world
+    # whose kingdoms live on different cores) - say so instead of "trwa".
+    result["not_seen"] = (result["state"] == "active" and not result["seen"]
+                          and result["requested_at"] and time.time() - result["requested_at"] > 120)
     return result
 
 
@@ -6085,6 +6959,31 @@ def retired_bots_start():
         flash("Nie udało się zapisać nowej partii w bazie danych.", "error")
     else:
         flash(f"Partia #{batch_id} uruchomiona. Rdzeń CH1 odbierze ją w ciągu pięciu sekund.", "success")
+    return redirect(url_for("retired_bots"))
+
+
+@app.post("/advanced/retired-bots/stop")
+@login_required
+def retired_bots_stop():
+    """MT2009_PLUS_BOT_RETIREMENT_FIX_V1: a batch that could not fill (too few
+    bots in the middle of the level table, a core that never took it up) kept
+    the start button locked for good. Stop = no more picks: bot_count drops to
+    what is already picked, so the bots already selling finish their sale and
+    the core (which re-reads the row every five seconds) picks nobody else."""
+    supplied = request.form.get("retirement_csrf", "")
+    expected = session.get("seban_update_csrf", "")
+    if not expected or not hmac.compare_digest(supplied, expected):
+        abort(403)
+    ensure_retirement_tables()
+    try:
+        rows("""UPDATE common.playerbot_retire_control c
+            LEFT JOIN common.playerbot_retire_batch b ON b.id=c.batch_id
+            SET c.bot_count=LEAST(c.bot_count, COALESCE(b.queued_count,0))
+            WHERE c.id=1""")
+    except pymysql.MySQLError:
+        flash("Nie udało się zatrzymać partii.", "error")
+    else:
+        flash("Partia zatrzymana: nowe boty nie będą wybierane. Boty, które już sprzedają, dokończą sklep.", "success")
     return redirect(url_for("retired_bots"))
 
 
@@ -6301,6 +7200,22 @@ def retired_bots():
                            retirement_csrf=update_csrf_token())
 
 
+def item_name_search(query):
+    """The item database's search: a VNUM, the Polish proto name or the
+    internal one -- and on an English panel the official English name too,
+    which the list shows (translations.ITEM_NAMES) and the database has never
+    heard of. Matched by vnum, so an item whose Polish name another item
+    shares (and which therefore keeps it on the page) is found as well."""
+    clause = "p.vnum=%s OR p.locale_name LIKE %s OR p.name LIKE %s"
+    params = [int(query) if query.isdigit() else -1, f"%{query}%", f"%{query}%"]
+    if not query.isdigit() and settings().get("ui_language", "pl") == "en":
+        vnums = translations.item_vnums_named(query)
+        if vnums:
+            clause += " OR p.vnum IN (" + ",".join(["%s"] * len(vnums)) + ")"
+            params += vnums
+    return "(" + clause + ")", params
+
+
 @app.route("/items")
 @login_required
 def items_database():
@@ -6308,8 +7223,9 @@ def items_database():
     item_type = request.args.get("type", "").strip()
     where, params = [], []
     if query:
-        where.append("(p.vnum=%s OR p.locale_name LIKE %s OR p.name LIKE %s)")
-        params += [int(query) if query.isdigit() else -1, f"%{query}%", f"%{query}%"]
+        clause, clause_params = item_name_search(query)
+        where.append(clause)
+        params += clause_params
     if item_type.isdigit():
         where.append("p.type=%s")
         params.append(int(item_type))
@@ -6346,8 +7262,9 @@ def api_items():
     item_type = request.args.get("type", "").strip()
     where, params = [], []
     if query:
-        where.append("(p.vnum=%s OR p.locale_name LIKE %s OR p.name LIKE %s)")
-        params += [int(query) if query.isdigit() else -1, f"%{query}%", f"%{query}%"]
+        clause, clause_params = item_name_search(query)
+        where.append(clause)
+        params += clause_params
     if item_type.isdigit():
         where.append("p.type=%s")
         params.append(int(item_type))
@@ -6359,7 +7276,7 @@ def api_items():
     count_label = f"{total} przedmiotów" + (" pasuje do wyszukiwania" if query else (" w wybranej kategorii" if item_type else " · pełna lista bez stron"))
     if total > 500:
         count_label += " (pokazano pierwsze 500 — zawęź wyszukiwanie)"
-    return {"ok": True, "html": render_template("partials/items_catalog.html", items=records), "count_label": count_label}
+    return {"ok": True, "html": translated_fragment(render_template("partials/items_catalog.html", items=records)), "count_label": count_label}
 
 
 CHAT_FEED_TYPES = ("SHOUT", "TRADE", "NOTICE")
@@ -6662,7 +7579,7 @@ def live_chat():
 @app.get("/api/live-chat")
 @login_required
 def api_live_chat():
-    return {"ok": True, "html": render_template("partials/live_chat_messages.html", messages=live_chat_messages())}
+    return {"ok": True, "html": translated_fragment(render_template("partials/live_chat_messages.html", messages=live_chat_messages()))}
 
 
 @app.get("/world-feed")
@@ -6676,14 +7593,15 @@ def world_feed():
 def api_world_feed():
     before = request.args.get("before") or None
     events = news_feed_history(before=before)
-    return {"ok": True, "html": render_template("partials/world_feed_events.html", events=events),
+    return {"ok": True, "html": translated_fragment(render_template("partials/world_feed_events.html", events=events)),
             "next_before": events[-1]["cursor"] if events else None, "has_more": len(events) >= 40}
 
 
 @app.route("/gm-commands")
 @login_required
 def gm_commands():
-    return render_template("gm_commands.html", commands=GM_COMMANDS)
+    commands = GM_COMMANDS_EN if settings().get("ui_language") == "en" else GM_COMMANDS
+    return render_template("gm_commands.html", commands=commands)
 
 
 @app.route("/accounts", methods=["GET", "POST"])
@@ -7189,6 +8107,44 @@ def account_detail(aid):
     return render_template("account_detail.html", account=account, characters=characters)
 
 
+def level_bracket_counts():
+    """Right now: how many online bots sit in each 10-wide level bracket
+    (1-10, 11-20, ...), same bucket math as the live dashboard widget's
+    client-side one (floor((level-1)/10)*10+1) so the two agree."""
+    buckets = {}
+    for bot in live_bots():
+        level = int(bot.get("level") or 0)
+        start = max(1, (level - 1) // 10 * 10 + 1)
+        key = f"{start}-{start + 9}"
+        buckets[key] = buckets.get(key, 0) + 1
+    return sorted(buckets.items(), key=lambda item: int(item[0].split("-")[0]))
+
+
+def level_bracket_history(days=7):
+    """The same brackets over the last `days`, from collector.py's periodic
+    lvl_<start>_<end> rows in web_seban_metric_snapshot (added 2026-10-01,
+    Kordyl13's request for a trend of how fast bots move through level
+    ranges) -- hourly-averaged, since every-5-minutes over a week is far
+    more points than a chart needs. Empty (just zero series) until the
+    collector has had time to accumulate history; it only ever appends."""
+    raw = rows("""
+      SELECT DATE_FORMAT(captured_at, '%%m-%%d %%H:00') AS label, metric, AVG(value) AS value, MIN(captured_at) AS first_seen
+      FROM player.web_seban_metric_snapshot
+      WHERE metric LIKE 'lvl\\_%%' AND captured_at >= NOW() - INTERVAL %s DAY
+      GROUP BY label, metric ORDER BY first_seen ASC
+    """, (days,))
+    labels, series = [], {}
+    for row in raw:
+        if row["label"] not in labels:
+            labels.append(row["label"])
+        series.setdefault(row["metric"], {})[row["label"]] = round(float(row["value"]))
+    ordered_metrics = sorted(series, key=lambda metric: int(metric.split("_")[1]))
+    return {"labels": labels, "series": [
+        {"id": metric, "name": "Lv " + metric[4:].replace("_", "-"), "data": [series[metric].get(label, 0) for label in labels]}
+        for metric in ordered_metrics
+    ]}
+
+
 @app.route("/maps")
 @login_required
 def maps():
@@ -7228,7 +8184,8 @@ def maps():
     for channel in channels:
         latest[str(channel)] = build_latest(channel)
     return render_template("maps.html", charts=charts, latest=latest, channels=channels,
-                           heat_map_options=TRACKED_MAP_OPTIONS)
+                           heat_map_options=TRACKED_MAP_OPTIONS,
+                           level_now=level_bracket_counts(), level_history=level_bracket_history())
 
 
 @app.route("/changelog")
@@ -7252,14 +8209,27 @@ def account_characters(aid):
     return {"ok": True, "characters": characters}
 
 
+# Fields the live map's JS actually reads (static/live-widget.js, audited
+# 2026-10-01): live_bots() carries 34 per bot for the server-rendered pages
+# that need the rest (personality_label etc. for /players/personalities and
+# similar), but this endpoint is polled every 1.5s and had ballooned past
+# 1.1MB uncompressed at ~2000 online bots -- "dashboard nie może się
+# wczytać w pełni" on mobile (reported 2026-10-01). Trimming to only what's
+# used here cuts the field count by more than half before gzip (below) even
+# gets to it.
+_LIVE_BOT_API_FIELDS = ("id", "name", "level", "job", "empire", "action", "action_label",
+                        "goal", "channel", "map_index", "x", "y", "in_party", "stuck", "fighting_metin")
+
+
 @app.route("/api/live-bots")
 @login_required
 def api_live_bots():
     all_level_ranks = top_level_rank_map()
     level_ranks = top_level_badge_rank_map()
+    slim_bots = [{field: bot.get(field) for field in _LIVE_BOT_API_FIELDS} for bot in live_bots()]
     return {"ok": True, "updated_at": int(datetime.now().timestamp() * 1000), "maps": MAP_NAMES, "bounds": MAP_BOUNDS,
             "global_top_id": next((pid for pid, rank in all_level_ranks.items() if rank == 1), None),
-            "top_level_ranks": level_ranks, "bots": live_bots(), "channels": discovered_channels()}
+            "top_level_ranks": level_ranks, "bots": slim_bots, "channels": discovered_channels()}
 
 
 @app.route("/api/news-feed")
@@ -7297,9 +8267,9 @@ def rankings():
         # dla kazdego bota - ranking miał wiec 100 pozycji z "Ukonczone do Lv 0"
         # (13 wrzesnia).
         "gold": "Yang", "items": "Przedmioty", "horse": "Koń", "biologist": "Biolog",
-        "shops": "Otwarte stragany", "skills": "Umiejętności", "plus9": "Przedmiot +9", "playtime": "Czas gry", "bosses": "Bossy", "refine": "Pomyślne ulepszenia", "refine_rate": "Skuteczność ulepszeń", "fish": "Wyłowione ryby",
+        "shops": "Sprzedaże na sklepie Offline", "skills": "Umiejętności", "plus9": "Przedmiot +9", "playtime": "Czas gry", "bosses": "Bossy", "refine": "Pomyślne ulepszenia", "refine_rate": "Skuteczność ulepszeń", "fish": "Wyłowione ryby",
         "damage_max": "Rekord obrażeń (zwykłe)", "damage_max_horse": "Rekord obrażeń (konno)", "damage_max_skill": "Rekord obrażeń (umiejętność)",
-        "yang_earned": "Zdobyty Yang (łącznie)", "yang_npc_sale": "Yang ze sprzedaży u NPC",
+        "yang_earned": "Zdobyty Yang (łącznie)",
         "monsters_killed": "Zabite potwory (łącznie)", "minibosses": "Pokonane minibossy", "pvp_kills_total": "Pokonani gracze (PVP)", "duel_wins": "Wygrane pojedynki", "mining": "Wykopane rudy",
     }
     kind = request.args.get("type", "level")
@@ -7308,6 +8278,9 @@ def rankings():
     weapon30_sort = request.args.get("sort", "avg") if kind == "weapon30" else "avg"
     if weapon30_sort not in ("avg", "skill", "upgrade"):
         weapon30_sort = "avg"
+    weapon_type = request.args.get("weapon_type") if kind == "weapon" else None
+    if weapon_type not in WEAPON_SUBTYPES:
+        weapon_type = None
     try:
         per_page = int(request.args.get("per_page", 100))
     except (TypeError, ValueError):
@@ -7318,7 +8291,7 @@ def rankings():
     # so a person far down a ranking of bots is still found (blipu, 28.09).
     people_ranked = include_real_players_in_rankings()
     people_only = people_ranked and request.args.get("people") == "1"
-    all_ranking = bot_ranking(kind, weapon30_sort, people_only)
+    all_ranking = bot_ranking(kind, weapon30_sort, people_only, weapon_type)
     total = len(all_ranking)
     total_pages = max(1, -(-total // per_page))  # ceil division
     # "goto_page" (the jump-to-page box, 1-based, what the operator actually
@@ -7360,11 +8333,13 @@ def rankings():
         empires = {row["id"]: row["empire"] for row in empire_rows}
         for row in ranking:
             row["empire"] = empires.get(row["id"], 0)
-        progress_rows = rows("SELECT id,level,exp,job FROM player.player WHERE id IN (" + marks + ")", ids)
+        progress_rows = rows("SELECT id,level,exp,job,skill_group FROM player.player WHERE id IN (" + marks + ")", ids)
         progress = {row["id"]: experience_progress(row["level"], row["exp"]) for row in progress_rows}
         jobs = {row["id"]: row["job"] for row in progress_rows}
+        skill_groups = {row["id"]: row["skill_group"] for row in progress_rows}
         for row in ranking:
             row["job"] = jobs.get(row["id"], 0)
+            row["skill_group"] = skill_groups.get(row["id"], 0)
             row["experience"] = progress.get(row["id"], {"percent": 0})
         # Guild name per ranked bot/player, requested alongside pagination
         # (2026-09-27) -- same join /player/ uses for its own guild_name.
@@ -7381,15 +8356,23 @@ def rankings():
         else:
             row["detail"] = game_text(row.get("detail"))
     return render_template("rankings.html", kinds=kinds, kind=kind, ranking=ranking, weapon30_sort=weapon30_sort,
+                           weapon_type=weapon_type, weapon_subtypes=WEAPON_SUBTYPES,
                            per_page=per_page, page=page, total_pages=total_pages, page_numbers=page_numbers,
                            people_ranked=people_ranked, people_only=people_only)
 
 
-@app.route("/season")
-def season():
-    """Weekly season from the three indexed event types only."""
-    if time.time() - _season_cache["at"] < 600:
-        return render_template("season.html", weekly=_season_cache["weekly"], records=_season_cache["records"])
+SEASON_CATEGORIES = {
+    "points": ("Punkty", "points"),
+    "metins": ("Metiny", "metins"),
+    "bosses": ("Bossy", "bosses"),
+    "monsters": ("Potwory", "monsters"),
+    "refine7": ("Ulepszenia +7", "refine7"),
+}
+
+
+def _season_week_rows():
+    if time.time() - _season_cache["at"] < 600 and _season_cache.get("weekly") is not None:
+        return _season_cache["weekly"], _season_cache["records"]
     weekly = rows("""SELECT p.id,p.name,p.level,
         SUM(l.how='STONE_KILL') AS metins,
         SUM(l.how='BOSS_KILL') AS bosses,
@@ -7397,13 +8380,10 @@ def season():
         FROM log.log l JOIN player.player p ON p.id=l.who
         WHERE l.time>=NOW()-INTERVAL 7 DAY AND """ + ranking_scope_sql("p") + """
           AND l.how IN ('STONE_KILL','BOSS_KILL','REFINE SUCCESS')
-        GROUP BY p.id ORDER BY (SUM(l.how='STONE_KILL')*150+SUM(l.how='BOSS_KILL')*500+SUM(l.how='REFINE SUCCESS' AND (l.hint LIKE '%%+7' OR l.hint LIKE '%%+8' OR l.hint LIKE '%%+9'))*200) DESC,p.level DESC LIMIT 30""")
-    people = person_ids([row["id"] for row in weekly])
+        GROUP BY p.id""")
     for row in weekly:
+        row["monsters"] = 0
         row["points"] = int(row.get("metins") or 0)*150 + int(row.get("bosses") or 0)*500 + int(row.get("refine7") or 0)*200
-        row["is_person"] = row["id"] in people
-    # The highest level is the ranked world's: the admin account's game
-    # masters stand at 90 and would have held this tile for good.
     records = one("""SELECT
         SUM(l.how='STONE_KILL') AS metins,
         SUM(l.how='BOSS_KILL') AS bosses,
@@ -7413,7 +8393,49 @@ def season():
         WHERE l.time>=NOW()-INTERVAL 7 DAY
           AND l.how IN ('STONE_KILL','BOSS_KILL','REFINE SUCCESS')""")
     _season_cache.update(at=time.time(), weekly=weekly, records=records)
-    return render_template("season.html", weekly=weekly, records=records)
+    return weekly, records
+
+
+def _season_alltime_rows():
+    # Engine-kept lifetime counters (player_special_flag, the same table the
+    # character Y-panel reads), pivoted per character. Exact, and cheap.
+    # The +7 count isn't a lifetime flag, so the all-time "Ulepszenia" column
+    # is every successful refine (stat_refine_success) instead.
+    alltime = rows("""SELECT p.id,p.name,p.level,
+        COALESCE(SUM(CASE WHEN f.flag='stat_stone' THEN f.value END),0) AS metins,
+        COALESCE(SUM(CASE WHEN f.flag='stat_boss' THEN f.value END),0) AS bosses,
+        COALESCE(SUM(CASE WHEN f.flag='stat_monster' THEN f.value END),0) AS monsters,
+        COALESCE(SUM(CASE WHEN f.flag='stat_refine_success' THEN f.value END),0) AS refine7
+        FROM player.player p JOIN player.player_special_flag f ON f.pid=p.id
+        WHERE """ + ranking_scope_sql("p") + """
+          AND f.flag IN ('stat_stone','stat_boss','stat_monster','stat_refine_success')
+        GROUP BY p.id,p.name,p.level HAVING metins>0 OR bosses>0 OR monsters>0 OR refine7>0""")
+    for row in alltime:
+        row["points"] = int(row["metins"]) * 150 + int(row["bosses"]) * 500
+    return alltime
+
+
+@app.route("/season")
+def season():
+    """Weekly and all-time leaderboards, split into category tabs."""
+    view = request.args.get("view", "week")
+    if view not in ("week", "alltime"):
+        view = "week"
+    cat = request.args.get("cat", "points")
+    if cat not in SEASON_CATEGORIES or (view == "week" and cat == "monsters"):
+        cat = "points"
+    if view == "alltime":
+        ranking = _season_alltime_rows()
+        records = None
+    else:
+        ranking, records = _season_week_rows()
+    sort_key = SEASON_CATEGORIES[cat][1]
+    ranking = sorted(ranking, key=lambda r: (int(r.get(sort_key) or 0), int(r.get("level") or 0)), reverse=True)[:30]
+    people = person_ids([row["id"] for row in ranking])
+    for row in ranking:
+        row["is_person"] = row["id"] in people
+    return render_template("season.html", ranking=ranking, records=records, view=view, cat=cat,
+                           categories=SEASON_CATEGORIES)
 
 
 
@@ -7949,7 +8971,8 @@ def events():
             return redirect(url_for("events"))
         if action == "save":
             new_rows = []
-            for index in range(16):
+            # MT2009_PLUS_EVENTS_64_V1: 64 rows, as the admin panel and the core take.
+            for index in range(64):
                 kind = request.form.get(f"r{index}_kind")
                 if kind is None:
                     break
@@ -7989,7 +9012,7 @@ def events():
             return redirect(url_for("events"))
         if action == "now":
             try:
-                minutes = max(5, min(1440, int(request.form.get("minutes") or 60)))
+                minutes = max(5, min(10080, int(request.form.get("minutes") or 60)))
                 value = max(1, min(1000, int(request.form.get("value") or 50)))
             except ValueError:
                 minutes, value = 60, 50
@@ -8053,7 +9076,7 @@ def manage():
     bot_channels = sorted(per_channel.items()) if len(per_channel) > 1 else []
     updater = update_status()
     updater["protected"] = current_settings.get("auth_enabled") == "1" and bool(session.get("seban_admin"))
-    return render_template("manage.html", rates=read_rates(), rate_presets=RATE_PRESETS, ai_weights=read_ai_weights(), chest_switch=read_chest_switch(), ai_weight_keys=[k for k in AI_WEIGHT_KEYS if not (ENGINE_MT2009 and k[0] == "HUNTING") and not (not ENGINE_MT2009 and k[0] == "HERB")], ai_weight_capped=AI_WEIGHT_CAPPED, ai_weight_hints=AI_WEIGHT_HINTS, engine_mt2009=ENGINE_MT2009, restart=restart_progress(), settings=current_settings, map_counts=map_counts, bot_count=len(bots), bot_channels=bot_channels, map_respawn_options=MAP_RESPAWN_OPTIONS, map_stone_respawn_ids=MAP_STONE_RESPAWN_IDS, map_respawn_status=read_map_regen_status(), server_settings=server_settings_status(), updater=updater, playerbots_release=playerbots_release_status(), update_csrf=update_csrf_token(), bot_count_wanted=read_bot_count() if panel_feature_enabled("bot_count", current_settings) else len(live_bots()) or 350, spawn_plan=read_spawn_plan(), student_chest_disabled=read_student_chest_disabled() if panel_feature_enabled("student_chest", current_settings) else False, custom_patches_enabled=CUSTOM_PATCHES_ENABLED, include_real_players=include_real_players_in_rankings(), announce_plus9=read_announce_plus9_refines() if panel_feature_enabled("plus9_announcements", current_settings) else False, bots_held=read_bot_hold(), item_policy=read_ai_item_policy(), difficulty=read_difficulty(), autohunt=read_autohunt(), channels=read_channel_settings(), channel_shares=CH2_SHARE_CHOICES)
+    return render_template("manage.html", rates=read_rates(), rate_presets=RATE_PRESETS, ai_weights=read_ai_weights(), sale_tax_max=SALE_TAX_MAX, chest_switch=read_chest_switch(), ai_weight_keys=[k for k in AI_WEIGHT_KEYS if not (ENGINE_MT2009 and k[0] == "HUNTING") and not (not ENGINE_MT2009 and k[0] == "HERB")], ai_weight_capped=AI_WEIGHT_CAPPED, ai_weight_hints=AI_WEIGHT_HINTS, engine_mt2009=ENGINE_MT2009, restart=restart_progress(), settings=current_settings, map_counts=map_counts, bot_count=len(bots), bot_channels=bot_channels, map_respawn_options=MAP_RESPAWN_OPTIONS, map_stone_respawn_ids=MAP_STONE_RESPAWN_IDS, map_respawn_status=read_map_regen_status(), server_settings=server_settings_status(), updater=updater, playerbots_release=playerbots_release_status(), update_csrf=update_csrf_token(), bot_count_wanted=read_bot_count() if panel_feature_enabled("bot_count", current_settings) else len(live_bots()) or 350, spawn_plan=read_spawn_plan(), student_chest_disabled=read_student_chest_disabled() if panel_feature_enabled("student_chest", current_settings) else False, custom_patches_enabled=CUSTOM_PATCHES_ENABLED, include_real_players=include_real_players_in_rankings(), announce_plus9=read_announce_plus9_refines() if panel_feature_enabled("plus9_announcements", current_settings) else False, bots_held=read_bot_hold(), item_policy=read_ai_item_policy(), difficulty=read_difficulty(), autohunt=read_autohunt(), channels=read_channel_settings(), channel_shares=CH2_SHARE_CHOICES)
 
 
 @app.post("/manage/difficulty")
@@ -8119,7 +9142,7 @@ def manage_channels():
 def manage_panel():
     current = settings()
     badge_settings = top_level_badge_settings()
-    return render_template("manage_panel.html", settings=current, capability_features=panel_feature_states(current), custom_default=CUSTOM_PATCHES_ENABLED, top_level_badges_enabled=badge_settings["enabled"], top_level_badge_places=badge_settings["places"], full_plus9_badges_enabled=full_plus9_badges_enabled())
+    return render_template("manage_panel.html", settings=current, capability_features=panel_feature_states(current), custom_default=CUSTOM_PATCHES_ENABLED, top_level_badges_enabled=badge_settings["enabled"], top_level_badge_places=badge_settings["places"], full_plus9_badges_enabled=full_plus9_badges_enabled(), shop_explain_enabled=shop_explain_enabled())
 
 
 @app.post("/manage/panel/features")
@@ -8145,6 +9168,28 @@ def manage_panel_legendary_announcements():
     else:
         flash("Ogłoszenia o legendarnych wydarzeniach wyłączone we wszystkich miejscach.", "success")
     return redirect(url_for("manage_panel", _anchor="legendary-announcements"))
+
+
+@app.post("/manage/panel/skill-paths")
+@login_required
+def manage_panel_skill_paths():
+    enabled = "1" if "1" in request.form.getlist("enabled") else "0"
+    write_settings({"show_skill_paths": enabled})
+    flash("Kolumna klasy w rankingach pokazuje " +
+          ("ścieżkę magii (np. „Sura Czarna Magia”)." if enabled == "1" else "tylko nazwę klasy, bez ścieżki magii."),
+          "success")
+    return redirect(url_for("manage_panel", _anchor="skill-paths"))
+
+
+@app.post("/manage/panel/reaper-chests")
+@login_required
+def manage_panel_reaper_chests():
+    enabled = "1" if "1" in request.form.getlist("world_feed") else "0"
+    write_settings({"reaper_chest_world_feed": enabled})
+    flash("Informacje o Szkatułkach Umarłego Rozpruwacza są " +
+          ("widoczne w Wieściach ze świata." if enabled == "1" else "ukryte w Wieściach ze świata."),
+          "success")
+    return redirect(url_for("manage_panel", _anchor="reaper-chests"))
 
 
 @app.post("/manage/update")
@@ -8360,6 +9405,30 @@ def manage_full_plus9_badges():
     return redirect(url_for("manage_panel") + "#full-plus9-badges")
 
 
+@app.post("/manage/panel/shop-ranking")
+@login_required
+def manage_panel_shop_ranking():
+    try:
+        limit = int(request.form.get("fastest_shop_items_limit", "15"))
+        if limit not in (15, 25, 50, 100):
+            raise ValueError
+    except (TypeError, ValueError):
+        flash("Wybierz obsługiwany limit rankingu: 15, 25, 50 albo 100.", "error")
+    else:
+        write_settings({"fastest_shop_items_limit": str(limit)})
+        flash(f"Ranking najszybciej sprzedających się przedmiotów pokazuje teraz {limit} pozycji.", "success")
+    return redirect(url_for("manage_panel") + "#shop-ranking")
+
+
+@app.post("/manage/panel/shop-explain")
+@login_required
+def manage_shop_explain():
+    enabled = "1" in request.form.getlist("enabled")
+    write_shop_explain_enabled(enabled)
+    flash("Ustawienie wyjaśnień decyzji sklepów botów zostało zapisane — działa od razu.")
+    return redirect(url_for("manage_panel") + "#shop-explain")
+
+
 @app.post("/manage/plus9-announce")
 @login_required
 def manage_plus9_announce():
@@ -8439,7 +9508,7 @@ def manage_behavior():
     values["CHAT"] = 1 if "1" in request.form.getlist("CHAT") else 0
     values["BOOKS"] = values.get("BOOKS", 1) if "BOOKS" not in request.form else (1 if "1" in request.form.getlist("BOOKS") else 0)
     for key, default in (("NIGHT", 1), ("LIFE", 0), ("WARS", 1), ("TOWER", 1), ("ISHOP", 1), ("SHOP_M2", 0), ("PERSONA", 1),
-                         ("SHOUTERS", 1), ("HAGGLE", 1)):
+                         ("SHOUTERS", 1), ("HAGGLE", 1), ("LEGENDS", 1)):
         values[key] = values.get(key, default) if key not in request.form else (1 if "1" in request.form.getlist(key) else 0)
     # MT2009_PLUS_BOTLIFE_V1: the hours of play a day under LIFE.
     try:
@@ -8458,6 +9527,12 @@ def manage_behavior():
         values["KINGDOMPVP"] = max(0, min(100, int(request.form.get("KINGDOMPVP", values.get("KINGDOMPVP", 0)))))
     except (TypeError, ValueError):
         values["KINGDOMPVP"] = 0
+    # MT2009_PLUS_SALE_TAX_V1: on the mt2009 page alone; a form without it
+    # keeps the file's value.
+    try:
+        values["SALE_TAX"] = max(0, min(SALE_TAX_MAX, int(request.form.get("SALE_TAX", values.get("SALE_TAX", 0)))))
+    except (TypeError, ValueError):
+        values["SALE_TAX"] = values.get("SALE_TAX", 0) or 0
     # The three wills: a field the page did not render keeps the file's value.
     for key in ("BATTLEPASS", "SASH", "ALCHEMY"):
         try:
@@ -8468,7 +9543,7 @@ def manage_behavior():
         values["SCROLL_FROM"] = max(1, min(9, int(request.form.get("SCROLL_FROM", values.get("SCROLL_FROM", 1)))))
     except (TypeError, ValueError):
         values["SCROLL_FROM"] = 1
-    for key, minimum, maximum, default in (("WAR_MINUTES", 5, 180, 30), ("WAR_HOURS", 1, 24, 2), ("WAR_KILLS", 0, 1000, 100)):
+    for key, minimum, maximum, default in (("WAR_MINUTES", 5, 180, 30), ("WAR_HOURS", 1, 24, 1), ("WAR_KILLS", 0, 1000, 200)):
         try:
             values[key] = max(minimum, min(maximum, int(request.form.get(key, values.get(key, default)))))
         except (TypeError, ValueError):
@@ -8558,6 +9633,17 @@ def manage_tower_now():
         flash("Zlecono najazd na Wieżę Demonów — rdzeń wywoła go przy najbliższym sprawdzeniu, jeśli żaden akurat nie trwa.")
     except OSError:
         flash("Nie udało się zlecić najazdu (spool nie do zapisu).", "error")
+    return redirect(url_for("manage"))
+
+
+@app.post("/manage/bot-reprice-now")
+@login_required
+def manage_bot_reprice_now():
+    try:
+        queue_bot_reprice_now()
+        flash("Zlecono przeliczenie cen — każdy rdzeń w ciągu kilku sekund zaczyna przeliczać sklepy botów (kilka botów na sekundę); podsumowanie w logu gry: PLAYERBOT_REPRICE_NOW: done.")
+    except OSError:
+        flash("Nie udało się zlecić przeliczenia cen (spool nie do zapisu).", "error")
     return redirect(url_for("manage"))
 
 
