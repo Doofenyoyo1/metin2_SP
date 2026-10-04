@@ -710,6 +710,10 @@ namespace
 		if (ch->IsDead())
 			return true;
 		LockPlayerBotArzDgExp(ch);
+		// MT2009_PLUS_BOT_SASH_FLOW_V1: never in a town, so its sashes are
+		// combined and sold here (playerbot_sash.h) - a full bag of them took
+		// the room the potions are bought into.
+		ManagePlayerBotSashFlow(ch, dwNow, (BYTE)PLAYERBOT_SASH_FLOW_IN_PLACE);
 		RestockPlayerBotArzDg(ch, bot, dwNow);
 		const long map = ch->GetMapIndex();
 		if (GetPlayerBotArzDgIndex(map) != dg)

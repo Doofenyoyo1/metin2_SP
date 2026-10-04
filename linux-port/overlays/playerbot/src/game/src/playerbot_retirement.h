@@ -50,6 +50,23 @@ extern bool NewPlayerTable2(TPlayerTable* table, const char* name, BYTE race,
 
 namespace {
 
+// MT2009_PLUS_BOT_RETIREMENT_FIX_V1: the cohorts a retirement must never
+// touch are declared in fragments included after this one.
+bool IsPlayerBotArezzoDungeonCohortPID(DWORD pid);
+bool IsPlayerBotTakeoverHold(DWORD dwPlayerID);
+
+// The market town of a kingdom's first village: Shinsoo 1, Chunjo 21, Jinno 41.
+long GetPlayerBotRetireHomeMapForEmpire(unsigned int empire)
+{
+	switch (empire)
+	{
+		case 1: return 1;
+		case 2: return 21;
+		case 3: return 41;
+	}
+	return 0;
+}
+
 DWORD s_dwPlayerBotRetireCount = 0;
 DWORD s_dwPlayerBotRetireBatchId = 0;
 DWORD s_dwPlayerBotRetireWindowMs = 24u * 3600000u;
@@ -443,9 +460,17 @@ bool RecordPlayerBotRetirePick(DWORD dwPlayerID, DWORD dwBatchId, const char* ps
 void RecoverPlayerBotRetirements(DWORD dwNow)
 {
 	EnsurePlayerBotRetirePickTable();
+	// MT2009_PLUS_BOT_RETIREMENT_FIX_V1: with the kingdoms' towns on different
+	// cores (M2_PLAYERBOT_WORLD_LAYOUT=split) every one of them runs the
+	// retirement for its own bots, so each takes up only the picks of the
+	// kingdoms it hosts - a pick of another core's bot would be "lost" here
+	// after 30 minutes and called off under its owner's feet.
 	std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(
-			"SELECT pid, batch_id, stage FROM common.playerbot_retire_pick "
-			"WHERE stage IN ('shopping','selling','closing')"));
+			"SELECT r.pid, r.batch_id, r.stage, COALESCE(pi.empire,0) "
+			"FROM common.playerbot_retire_pick r "
+			"LEFT JOIN player.player p ON p.id=r.pid "
+			"LEFT JOIN player.player_index pi ON pi.id=p.account_id "
+			"WHERE r.stage IN ('shopping','selling','closing')"));
 	if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
 		return;
 	MYSQL_ROW row;
@@ -456,6 +481,12 @@ void RecoverPlayerBotRetirements(DWORD dwNow)
 		if (row[0])
 			str_to_number(pid, row[0]);
 		if (!pid || !row[1])
+			continue;
+		unsigned int empire = 0;
+		if (row[3])
+			str_to_number(empire, row[3]);
+		const long home = GetPlayerBotRetireHomeMapForEmpire(empire);
+		if (!IsPlayerBotMapHostedHere(home != 0 ? home : 1))
 			continue;
 		TPlayerBotRetireEntry entry;
 		if (row[1])
@@ -770,13 +801,7 @@ void WipePlayerBotForRetirement(LPCHARACTER ch)
 // The market town of a kingdom's first village: Shinsoo 1, Chunjo 21, Jinno 41.
 long GetPlayerBotRetireHomeMap(LPCHARACTER ch)
 {
-	switch (ch->GetEmpire())
-	{
-		case 1: return 1;
-		case 2: return 21;
-		case 3: return 41;
-	}
-	return 0;
+	return GetPlayerBotRetireHomeMapForEmpire(ch->GetEmpire());
 }
 
 // The asking price of the ordinary stall (CollectPlayerBotShopItems' fill loop
@@ -1059,7 +1084,34 @@ void BeginPlayerBotRetirementClose(DWORD dwPlayerID, TPlayerBotRetireEntry& entr
 
 // A pick worth acting on: alive, standing where the plain "warp to my own
 // town" works, and not tied up in anything the retirement would break.
+// MT2009_PLUS_BOT_RETIREMENT_WIDEN_V1: why the last look refused its bots, for
+// the "no bot can be picked" line (offline, busy, party, guild master, stall, other).
+unsigned int s_auPlayerBotRetireRefused[6];
+
+bool IsPlayerBotRetirementCandidateInner(LPCHARACTER ch, BYTE bLevelLo, BYTE bLevelHi);
+
 bool IsPlayerBotRetirementCandidate(LPCHARACTER ch, BYTE bLevelLo, BYTE bLevelHi)
+{
+	const bool ok = IsPlayerBotRetirementCandidateInner(ch, bLevelLo, bLevelHi);
+	if (!ok)
+	{
+		int why = 5;
+		if (!ch)
+			why = 0;
+		else if (ch->GetExchange() || ch->GetShop() || ch->GetSafebox() || ch->IsBusy() || ch->IsDead())
+			why = 1;
+		else if (ch->GetParty())
+			why = 2;
+		else if (ch->GetGuild() && ch->GetGuild()->GetMasterPID() == ch->GetPlayerID())
+			why = 3;
+		else if (HasPlayerBotOfflineShop(ch))
+			why = 4;
+		++s_auPlayerBotRetireRefused[why];
+	}
+	return ok;
+}
+
+bool IsPlayerBotRetirementCandidateInner(LPCHARACTER ch, BYTE bLevelLo, BYTE bLevelHi)
 {
 	if (!ch || ch->IsDead() || ch->IsStun() || !ch->IsItemLoaded())
 		return false;
@@ -1068,6 +1120,16 @@ bool IsPlayerBotRetirementCandidate(LPCHARACTER ch, BYTE bLevelLo, BYTE bLevelHi
 	// MT2009_PLUS_MEDAL_SHOUTERS_V1: a krzykacz keeps its name and its life -
 	// apka2009's three and Tieru's.
 	if (IsPlayerBotShouterPID(ch->GetPlayerID()) || IsPlayerBotMedalShouterPID(ch->GetPlayerID()))
+		return false;
+	// MT2009_PLUS_LEGEND_NAMES_V1: nor one of the 27 Legends.
+	if (IsPlayerBotLegendTier(GetPlayerBotLegendTier(ch->GetPlayerID())) ||
+			GetPlayerBotLegendNameSlot(ch->GetName()) >= 0)
+		return false;
+	// MT2009_PLUS_BOT_RETIREMENT_FIX_V1: nor a player's companion (its owner
+	// would find a level-1 stranger at his side), an Arezzo test cohort or a
+	// bot a person has taken over from the panel.
+	if (IsPlayerBotSidekickPID(ch->GetPlayerID()) || IsPlayerBotArezzoCohortPID(ch->GetPlayerID()) ||
+			IsPlayerBotArezzoDungeonCohortPID(ch->GetPlayerID()) || IsPlayerBotTakeoverHold(ch->GetPlayerID()))
 		return false;
 	if (ch->GetExchange() || ch->GetShop() || ch->GetSafebox() || ch->IsBusy() || ch->GetMyShop())
 		return false;

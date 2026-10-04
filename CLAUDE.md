@@ -9722,6 +9722,39 @@ git and the client zips as GitHub releases `klient-vX`. What that changed:
   `## 2.17.1` would be a release they cannot tell apart.
   Its 2.18.0 / client 2.0.38 (2 October) is our 2.18.1 / client 2.0.57,
   the same way.
+  Its 2.18.1-2.21.0 / clients 2.0.39-2.0.51 (2-4 October, 180 commits)
+  are our 2.21.1 / client 2.0.58.
+- **From its 2.18.1 its server zips are release assets, not git files.**
+  `releases/` in its git stops at 2.18.0; `engine_package` is
+  `.../releases/download/v<X>/metin2-server-update-<X>.zip` (its manifest
+  names it), and a raw URL to `releases/` answers 404 with fourteen bytes.
+  Its client zips are full (every pack), so a client rebase needs only the
+  old and the new one, never the releases between.
+- **Its update mirror is its own, and it is the default in its code.** From
+  its 2.18.1 the launcher, `update.sh` and the seban updater fall back to
+  `http://141.94.100.53/aktualizacje/` when GitHub fails - its packages,
+  which unpacked over ours would undo our changes. Every sync must leave
+  those defaults empty here (`M2_UPDATE_MIRROR_BASE`, `M2_UPDATE_MIRROR`,
+  `SEBAN_UPDATE_MIRROR`) and leave out its `tools/publish-update-mirror.sh`;
+  `git grep 141.94` after a merge should find only the changelog.
+- **Its root pack holds names no Windows checkout can hold.** Client 2.0.51
+  carries atlas files named `d:/ymir work/ui/atlas/...`; they are not
+  tracked in client-root (the build takes them from its package). Leave any
+  pack entry with a colon out of the byte-for-byte commit.
+- **Its 2.0.51 moved every key into `keybind.py`** (a window that rebinds
+  them, `autohunt/klawisze.cfg`): a key of ours is a row of its
+  `CATEGORIES` and an action in game.py's `actions`, not a line in
+  `onPressKeyDict`. The bonus switcher is `bonus_switch` on 0.
+- **Its seban panel icons are gitignored there and tracked here.** A new
+  icon comes in its server zip only (`linux-port/docker/seban-panel/static/
+  icons/`); the builder's drop check names the ones git lacks. Take the new
+  ones from the zip and keep ours where they differ (three-way against the
+  previous zip).
+- **Its client rewrites break our client tests, and they are fixed to the
+  new behaviour, never deleted.** 2.0.51's Auto Lowy (blaki) has a wall
+  escape after 0.8 s without progress (`COMBAT_STUCK_SECONDS`), "Fokus" by
+  default and a ten-field `/autohunt_target`; the test stub never moves the
+  character, so a chase in a test has to gain ground or it is boxed in.
 - **Its package can miss an engine file its own changelog promises.**
   2.18.0 shipped the bot half of the kill-counted guild wars and not
   `guild_manager.cpp` (server-patches/guildwarkills, applied on its own

@@ -1021,6 +1021,13 @@ namespace
 			ClearPlayerBotRoute(state, true);
 		if (ch->IsStateMove())
 			ch->Stop();
+		// MT2009_PLUS_GUILD_HELP_FIGHT_V1: a helper with nothing to fight gets
+		// off its horse beside the person, ready for the next blow, instead of
+		// standing there in the saddle it came in (the owner, 2 October). The
+		// follow's long walk mounts it again (UpdatePlayerBotTravelMount), and
+		// the flip hold keeps it from doing so at once.
+		if (summon.bOrder == playerbot_guild_order_rules::ORDER_HELP && ch->IsRiding())
+			SetPlayerBotRidingForTravel(ch, state, false, dwNow, "guild_help_idle");
 		SetPlayerBotAction(state, BOT_ACTION_IDLE, dwNow);
 		return true;
 	}

@@ -404,6 +404,8 @@ class GuildWarScoreBoard(ui.ThinBoard):
 		# that says them over the two sides (guildwarkills.py).
 		self.warKills = 0
 		self.warKillsTitle = None
+		# MT2009_PLUS_GUILD_WAR_JOIN_V1: "Wejdz na wojne" under the two sides.
+		self.joinButton = None
 
 	def Open(self, allyGuildID, enemyGuildID):
 
@@ -444,8 +446,39 @@ class GuildWarScoreBoard(ui.ThinBoard):
 		self.enemyDataDict["MARK"] = mark
 		self.enemyDataDict["TEXT"] = scoreText
 
+		# MT2009_PLUS_GUILD_WAR_JOIN_V1: the way onto the war - the war map of
+		# an arena war, the guild's camp on the kingdom's guild map in a war on
+		# a bot guild (the server's /guild_war_enter, the same entry as the
+		# guild_war_join letter's "Tak"). Not on a war arena itself.
+		if background.GetCurrentMapName() not in ("metin2_map_t1", "metin2_map_t2", "metin2_map_t3", "metin2_map_t4"):
+			joinButton = ui.Button()
+			joinButton.SetParent(self)
+			joinButton.SetUpVisual("d:/ymir work/ui/public/large_button_01.sub")
+			joinButton.SetOverVisual("d:/ymir work/ui/public/large_button_02.sub")
+			joinButton.SetDownVisual("d:/ymir work/ui/public/large_button_03.sub")
+			joinButton.SetText("Wejd\x9f na wojn\xea")
+			joinButton.SetEvent(ui.__mem_func__(self.__OnClickJoin))
+			joinButton.Show()
+			self.joinButton = joinButton
+
 		self.__RefreshName()
 		self.Show()
+
+	def __OnClickJoin(self):
+		net.SendChatPacket("/guild_war_enter")
+
+	JOIN_BUTTON_HEIGHT = 24
+
+	def __PlaceJoinButton(self):
+		# The board grows upwards by the button's row; its bottom edge stays
+		# where it always was.
+		if not self.joinButton:
+			return
+		titled = self.warKills > 0
+		height = 68 if titled else 50
+		self.SetSize(max(self.GetWidth(), 108), height + self.JOIN_BUTTON_HEIGHT)
+		self.joinButton.SetPosition(10, height - 6)
+		self.SetPosition(10, wndMgr.GetScreenHeight() - 100 - (18 if titled else 0) - self.JOIN_BUTTON_HEIGHT)
 
 	def __GetDataDict(self, ID):
 		if self.allyGuildID == ID:
@@ -523,6 +556,10 @@ class GuildWarScoreBoard(ui.ThinBoard):
 		return True
 
 	def __RefreshName(self):
+		self.__RefreshNameText()
+		self.__PlaceJoinButton()
+
+	def __RefreshNameText(self):
 		if self.__ShowWarKills():
 			return
 

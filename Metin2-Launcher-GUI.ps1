@@ -817,8 +817,10 @@ function Update-ActionPhase {
     # gigabytes to clean their disks (artur554, charliee, uxietoszef, 25-26
     # September): it says RAM now, and the log says once what it means.
     if ($Line -match 'UWAGA: w maszynie Dockera wolne jest tylko') {
+        # MT2009_PLUS_LAUNCHER_LOWMEM_UPDATE_V1: the hint names the update's own
+        # save-and-stop (Stop-WorldForUpdate, Metin2-Launcher.ps1).
         if (-not $script:activeLowMemory) {
-            Write-LocalLog 'Maszynie Dockera brakuje teraz wolnej pamięci RAM (to nie jest miejsce na dysku - dysku nie trzeba czyścić). Zwykle dlatego, że aktualizacja kompiluje serwer, gdy stary serwer z botami wciąż działa. Kompilacja potrwa dłużej, ale skończy się - nie przerywaj. Przy następnej aktualizacji kliknij najpierw ZATRZYMAJ I ZAPISZ.'
+            Write-LocalLog 'Maszynie Dockera brakuje teraz wolnej pamięci RAM (to nie jest miejsce na dysku - dysku nie trzeba czyścić). Zwykle dlatego, że aktualizacja kompiluje serwer, gdy stary serwer z botami wciąż działa. Kompilacja potrwa dłużej, ale skończy się - nie przerywaj. Gdy Windowsowi brakuje pamięci, launcher przed aktualizacją sam zapisze i zatrzyma świat oraz Docker Desktop, a po niej uruchomi wszystko z powrotem; możesz też najpierw kliknąć ZATRZYMAJ I ZAPISZ.'
         }
         $script:activeLowMemory = $true
         return
@@ -872,7 +874,7 @@ function Update-ActionStatusText {
             elseif ($long) { $text += '  ⚠ dłużej niż zwykle' }
             if ($long -and -not $script:activeCompileHintNoticed) {
                 $script:activeCompileHintNoticed = $true
-                Write-LocalLog ('Kompilacja rdzenia gry trwa już {0:N0} min, a zwykle zajmuje 1–5 min. Tak długo trwa najczęściej wtedy, gdy maszynie Dockera brakuje pamięci RAM (nie miejsca na dysku): aktualizacja kompiluje, kiedy stary serwer z botami wciąż działa. Nie przerywaj — restart zaczyna kompilację od nowa. Przy następnej aktualizacji kliknij najpierw ZATRZYMAJ I ZAPISZ.' -f $inStep.TotalMinutes)
+                Write-LocalLog ('Kompilacja rdzenia gry trwa już {0:N0} min, a zwykle zajmuje 1–5 min. Tak długo trwa najczęściej wtedy, gdy maszynie Dockera brakuje pamięci RAM (nie miejsca na dysku): aktualizacja kompiluje, kiedy stary serwer z botami wciąż działa. Nie przerywaj — restart zaczyna kompilację od nowa. Gdy Windowsowi brakuje pamięci, launcher przed aktualizacją sam zapisze i zatrzyma świat oraz Docker Desktop, a po niej uruchomi wszystko z powrotem; możesz też najpierw kliknąć ZATRZYMAJ I ZAPISZ.' -f $inStep.TotalMinutes)
             }
         }
         if ($script:progress.Style -ne 'Blocks') { $script:progress.Style = 'Blocks' }
@@ -952,6 +954,10 @@ function Complete-LauncherAction {
     }
 
     $action = $script:activeAction
+    # MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: the action a restart of WSL was for,
+    # taken before anything below can set the next one.
+    $chained = $script:chainedAction
+    $script:chainedAction = $null
     $launchClient = $script:launchClientAfterAction
     $openSupport = $script:openSupportAfterAction
     $contactUrl = $script:openContactAfterAction
@@ -971,12 +977,21 @@ function Complete-LauncherAction {
 
     if ($exitCode -ne 0) {
         $guidance = Get-M2LauncherErrorGuidance -Text $output -ServerRoot $ServerRoot
-        $message = $guidance.Message + [Environment]::NewLine + [Environment]::NewLine + 'Jak naprawić:' + [Environment]::NewLine + $guidance.Remedy
-        [Windows.Forms.MessageBox]::Show(
-            $message,
-            $guidance.Title,
-            'OK',
-            'Warning') | Out-Null
+        # MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: a build killed for want of
+        # memory gets the .wslconfig dialog and its "Ustaw automatycznie".
+        $shown = $false
+        if ($guidance.Code -eq 'DOCKER_MEMORY_LOW') {
+            try { $shown = Show-DockerMemoryFailure -Guidance $guidance -LaunchClient $launchClient }
+            catch { Write-LocalLog "Okno pamięci Dockera: $($_.Exception.Message)" -FileOnly; $shown = $false }
+        }
+        if (-not $shown) {
+            $message = $guidance.Message + [Environment]::NewLine + [Environment]::NewLine + 'Jak naprawić:' + [Environment]::NewLine + $guidance.Remedy
+            [Windows.Forms.MessageBox]::Show(
+                $message,
+                $guidance.Title,
+                'OK',
+                'Warning') | Out-Null
+        }
     }
     if ($exitCode -eq 0 -and $action -like 'Update*' -and (Get-LauncherFingerprint) -ne $script:launcherFingerprint) {
         # The startup question said the launcher restarts by itself, and a
@@ -994,6 +1009,12 @@ function Complete-LauncherAction {
             return
         }
         $script:launcherFingerprint = Get-LauncherFingerprint
+    }
+    if ($exitCode -eq 0 -and $chained -and $action -eq 'RestartDockerWsl') {
+        Write-LocalLog ('Docker uruchomiony ponownie - wznawiam: {0}.' -f $chained.Action)
+        $script:restartAfterUpdate = [bool]$chained.RestartAfterUpdate
+        Start-LauncherAction -Action $chained.Action -Yes:([bool]$chained.Yes) -LaunchClient:([bool]$chained.LaunchClient) -ExtraArgs @($chained.ExtraArgs)
+        return
     }
     if ($exitCode -eq 0 -and $launchClient) { Start-ConfiguredClient }
     if ($exitCode -eq 0 -and $openSupport -and (Test-Path $supportDirectory)) {
@@ -1434,7 +1455,7 @@ function Show-FreshWorldDialog {
     # @{ Exp; Drop; Yang; Hold; Starter } or $null.
     $dialog = [Windows.Forms.Form]::new()
     $dialog.Text = 'Nowy świat - ustawienia na start'
-    $dialog.Size = [Drawing.Size]::new(560, 426)
+    $dialog.Size = [Drawing.Size]::new(560, 476)
     $dialog.StartPosition = 'CenterParent'
     $dialog.FormBorderStyle = 'FixedDialog'
     $dialog.MaximizeBox = $false
@@ -1492,6 +1513,14 @@ function Show-FreshWorldDialog {
         $x += 160
     }
     $y += 70
+    $yangWarn = [Windows.Forms.Label]::new()
+    $yangWarn.Text = 'Yang: CENY I BOTY SĄ ZOPTYMALIZOWANE POD DROP 100%, ustawiając więcej, psujesz sobie rozgrywkę, a na serwerze będzie wielka inflacja, a ceny będą przesadzone.'
+    $yangWarn.ForeColor = [Drawing.Color]::Red
+    $yangWarn.Font = [Drawing.Font]::new($dialog.Font, [Drawing.FontStyle]::Bold)
+    $yangWarn.Location = [Drawing.Point]::new(18, $y)
+    $yangWarn.Size = [Drawing.Size]::new(516, 48)
+    $dialog.Controls.Add($yangWarn)
+    $y += 50
 
     $holdBox = [Windows.Forms.CheckBox]::new()
     $holdBox.Text = 'Wstrzymaj boty po starcie (wpuszczę je sam, przyciskiem w panelu)'
@@ -1665,7 +1694,23 @@ function Get-InstalledServerVersion {
     return 'unknown'
 }
 
+# client-files.json of the newest client, read with the manifest when the
+# client folder does not already say it is that version (see
+# Read-LatestServerVersion); $null otherwise.
+$script:clientFileList = $null
+
 function Get-InstalledClientVersion {
+    # The client folder first (MT2009_PLUS_CLIENT_VERSION_FROM_FOLDER_V1):
+    # MT2009-Patcher.exe updates that folder alone, and a client it had just
+    # brought up to date was still "nieaktualny" here. Its CLIENT_VERSION, or
+    # its files compared with client-files.json, and what is found is
+    # recorded in .m2launcher-state.json.
+    try {
+        $latest = if ($script:latestClientVersion) { [string]$script:latestClientVersion } else { '' }
+        return [string](Resolve-M2InstalledClientVersion -ServerRoot $root -ClientFolder (Get-M2ClientFolder -Config (Get-LauncherConfig)) `
+            -LatestVersion $latest -FileList $script:clientFileList -Record)
+    }
+    catch { }
     # What a client update recorded, else what the full package shipped
     # (CLIENT_VERSION beside VERSION, put there by New-M2DeployTree.ps1).
     $statePath = Join-Path $root '.m2launcher-state.json'
@@ -2242,6 +2287,187 @@ function Get-GuiTargetVolume {
     return ''
 }
 
+# MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: Docker's machine short of memory for the
+# build (3 October: 3.7 GB in all, the game core's compile killed, and GRAJ
+# failed the same way). Said before a server update and before the build GRAJ
+# finishes, in a dialog with the ready .wslconfig, its "Ustaw automatycznie"
+# and "Kontynuuj mimo to"; said once in the log when the window opens; and
+# offered again when a build fails for want of memory. The action the restart
+# of WSL was for runs again by itself once Docker is back ($script:chainedAction).
+$script:dockerMemoryNoticeDone = $false
+$script:chainedAction = $null
+
+function Get-DockerMemoryAdviceSafe {
+    if (-not (Get-Command Get-M2DockerMemoryAdvice -ErrorAction SilentlyContinue)) { return $null }
+    try { return Get-M2DockerMemoryAdvice }
+    catch {
+        Write-LocalLog "Nie udało się sprawdzić pamięci Dockera: $($_.Exception.Message)" -FileOnly
+        return $null
+    }
+}
+
+function Test-DockerMemoryCheckWanted {
+    # The actions that build the server: an update, and GRAJ while a build
+    # is outstanding.
+    param([Parameter(Mandatory = $true)][string]$Action)
+    if ($Action -eq 'UpdateServer' -or $Action -eq 'UpdateAll') { return $true }
+    if ($Action -eq 'Start') { return (Test-Path -LiteralPath (Join-Path $root '.m2launcher-rebuild-pending') -PathType Leaf) }
+    return $false
+}
+
+function Show-DockerMemoryNotice {
+    # Once, when the window opens: a notice in the log and nothing more.
+    if ($script:dockerMemoryNoticeDone) { return }
+    $script:dockerMemoryNoticeDone = $true
+    $advice = Get-DockerMemoryAdviceSafe
+    if (-not $advice -or -not $advice.Low) { return }
+    Write-LocalLog ('UWAGA: ' + $advice.Summary)
+    foreach ($line in @($advice.Instructions -split '\r?\n')) { if ($line.Trim()) { Write-LocalLog $line } }
+    if ($advice.CanAutoFix) {
+        Write-LocalLog 'Przed aktualizacją launcher pokaże tę instrukcję jeszcze raz, z przyciskiem USTAW AUTOMATYCZNIE.'
+    }
+}
+
+function Show-DockerMemoryDialog {
+    # 'fix' (Ustaw automatycznie), 'continue' (Kontynuuj mimo to, only
+    # before a build) or 'cancel'. The steps are in a text box, so the file's
+    # content can be copied from it.
+    param(
+        [Parameter(Mandatory = $true)]$Advice,
+        [ValidateSet('before', 'after')][string]$Mode = 'before',
+        [string]$Heading = ''
+    )
+    $nl = [Environment]::NewLine
+    $dialog = [Windows.Forms.Form]::new()
+    $dialog.Text = if ($Mode -eq 'before') { 'Za mało pamięci RAM dla Dockera' } else { 'Dockerowi zabrakło pamięci RAM' }
+    $dialog.StartPosition = 'CenterParent'
+    $dialog.FormBorderStyle = 'FixedDialog'
+    $dialog.MaximizeBox = $false
+    $dialog.MinimizeBox = $false
+    $dialog.ShowInTaskbar = $false
+
+    $headingText = if ($Heading) { $Heading } else { [string]$Advice.Summary }
+    if ($Mode -eq 'before') { $headingText += $nl + $nl + 'Możesz to naprawić teraz albo mimo to kontynuować.' }
+    $info = [Windows.Forms.Label]::new()
+    $info.Text = $headingText
+    $info.Location = [Drawing.Point]::new(16, 14)
+    $infoHeight = $info.GetPreferredSize([Drawing.Size]::new(600, 0)).Height
+    $info.Size = [Drawing.Size]::new(600, $infoHeight)
+    $dialog.Controls.Add($info)
+
+    $y = 14 + $infoHeight + 10
+    $steps = [Windows.Forms.TextBox]::new()
+    $steps.Multiline = $true
+    $steps.ReadOnly = $true
+    $steps.WordWrap = $true
+    $steps.ScrollBars = 'Vertical'
+    $steps.Font = [Drawing.Font]::new('Consolas', 9)
+    $steps.Text = (@([string]$Advice.Instructions -split '\r?\n') -join "`r`n")
+    $steps.Location = [Drawing.Point]::new(16, $y)
+    $steps.Size = [Drawing.Size]::new(600, 230)
+    $dialog.Controls.Add($steps)
+    $y += 230 + 8
+
+    if ($Advice.CanAutoFix) {
+        $note = [Windows.Forms.Label]::new()
+        $note.Text = ('Ustaw automatycznie: launcher wpisze memory={0}GB do sekcji [wsl2] pliku {1} (inne ustawienia zostaną, stary plik trafi do .wslconfig.bak), a potem zapyta o restart WSL i Dockera.' -f $Advice.RecommendedGb, $Advice.WslConfigPath)
+        $note.ForeColor = [Drawing.Color]::DimGray
+        $note.Location = [Drawing.Point]::new(16, $y)
+        $noteHeight = $note.GetPreferredSize([Drawing.Size]::new(600, 0)).Height
+        $note.Size = [Drawing.Size]::new(600, $noteHeight)
+        $dialog.Controls.Add($note)
+        $y += $noteHeight + 10
+    }
+
+    $buttons = @()
+    if ($Advice.CanAutoFix) { $buttons += ,@('Ustaw automatycznie', [Windows.Forms.DialogResult]::Yes, 170) }
+    if ($Mode -eq 'before') {
+        $buttons += ,@('Kontynuuj mimo to', [Windows.Forms.DialogResult]::No, 160)
+        $buttons += ,@('Anuluj', [Windows.Forms.DialogResult]::Cancel, 110)
+    }
+    else { $buttons += ,@('Zamknij', [Windows.Forms.DialogResult]::Cancel, 110) }
+    $x = 16 + 600
+    $accept = $null
+    for ($i = $buttons.Count - 1; $i -ge 0; $i--) {
+        $spec = $buttons[$i]
+        $button = [Windows.Forms.Button]::new()
+        $button.Text = $spec[0]
+        $button.DialogResult = $spec[1]
+        $x -= $spec[2]
+        $button.Location = [Drawing.Point]::new($x, $y)
+        $button.Size = [Drawing.Size]::new($spec[2] - 8, 30)
+        $button.TabIndex = $i
+        $dialog.Controls.Add($button)
+        if ($i -eq 0) { $accept = $button }
+        if ($spec[1] -eq [Windows.Forms.DialogResult]::Cancel) { $dialog.CancelButton = $button }
+    }
+    $dialog.AcceptButton = $accept
+    $dialog.ActiveControl = $accept
+    $dialog.ClientSize = [Drawing.Size]::new(632, $y + 30 + 14)
+
+    if ($script:form -and $script:form.Visible) { $answer = $dialog.ShowDialog($script:form) }
+    else { $answer = $dialog.ShowDialog() }
+    $dialog.Dispose()
+    if ($answer -eq [Windows.Forms.DialogResult]::Yes) { return 'fix' }
+    if ($answer -eq [Windows.Forms.DialogResult]::No) { return 'continue' }
+    return 'cancel'
+}
+
+function Invoke-DockerMemoryFix {
+    # "Ustaw automatycznie": memory= under [wsl2] in .wslconfig
+    # (Set-M2WslConfigMemory keeps the file's other settings and the old file
+    # as .wslconfig.bak), then the restart of WSL and Docker it needs - asked
+    # first, because it stops Docker and whatever runs in it. -Then is the
+    # action to run once Docker is back (the update, or GRAJ to finish the
+    # build). The action that asked is not started now either way.
+    param([Parameter(Mandatory = $true)]$Advice, [hashtable]$Then = $null)
+    $nl = [Environment]::NewLine
+    try { $written = Set-M2WslConfigMemory -MemoryGb $Advice.RecommendedGb -Path $Advice.WslConfigPath }
+    catch {
+        Write-LocalLog "Nie udało się zapisać .wslconfig: $($_.Exception.Message)"
+        [Windows.Forms.MessageBox]::Show(
+            ('Nie udało się zapisać pliku {0}:{1}{2}{1}{1}Zrób to ręcznie według instrukcji z poprzedniego okna.' -f $Advice.WslConfigPath, $nl, $_.Exception.Message),
+            'Pamięć Dockera', 'OK', 'Warning') | Out-Null
+        return
+    }
+    if ($written.Changed) {
+        $what = 'Zapisano memory={0} w pliku {1}.' -f $written.Value, $written.Path
+        if ($written.Backup) { $what += ' Poprzedni plik: ' + $written.Backup + '.' }
+    }
+    else { $what = 'Plik {0} ma już memory={1} - niczego nie zmieniam.' -f $written.Path, $written.Value }
+    Write-LocalLog $what
+    $resume = ''
+    if ($Then) {
+        $resume = if ($Then.Action -eq 'Start') { ' Potem launcher sam kliknie GRAJ i dokończy budowanie.' } else { ' Potem launcher sam wznowi aktualizację.' }
+    }
+    $answer = [Windows.Forms.MessageBox]::Show(
+        ($what + $nl + $nl + 'Docker zobaczy nową pamięć dopiero po restarcie WSL. Zrestartować teraz?' + $nl + $nl +
+         'Tak: launcher zapisze i zatrzyma serwer, zamknie Docker Desktop (także inne działające w nim kontenery), wykona wsl --shutdown i uruchomi Dockera ponownie.' + $resume + ' Najpierw zamknij grę.' + $nl + $nl +
+         'Nie: zrobisz to później sam - zamknij grę i Docker Desktop, w PowerShell wpisz: wsl --shutdown, uruchom Docker Desktop i kliknij GRAJ.'),
+        'Pamięć Dockera', 'YesNo', 'Question')
+    if ($answer -eq [Windows.Forms.DialogResult]::Yes) {
+        $script:chainedAction = $Then
+        Start-LauncherAction -Action 'RestartDockerWsl' -Yes
+        return
+    }
+    Write-LocalLog 'Restart WSL i Dockera odłożony. Gdy go zrobisz (wsl --shutdown, Docker Desktop od nowa), kliknij GRAJ albo ponów aktualizację.'
+}
+
+function Show-DockerMemoryFailure {
+    # A build killed for want of memory (Get-M2LauncherErrorGuidance:
+    # DOCKER_MEMORY_LOW): the same dialog, its "Ustaw automatycznie", and GRAJ
+    # after the restart. $false when the launcher cannot say more than the
+    # plain message box would.
+    param([Parameter(Mandatory = $true)]$Guidance, [bool]$LaunchClient = $false)
+    $advice = Get-DockerMemoryAdviceSafe
+    if (-not $advice) { return $false }
+    $choice = Show-DockerMemoryDialog -Advice $advice -Mode 'after' -Heading ([string]$Guidance.Message)
+    if ($choice -eq 'fix') {
+        Invoke-DockerMemoryFix -Advice $advice -Then @{ Action = 'Start'; Yes = $false; LaunchClient = $LaunchClient; ExtraArgs = @(); RestartAfterUpdate = $false }
+    }
+    return $true
+}
+
 function Start-LauncherAction {
     param(
         [Parameter(Mandatory = $true)][string]$Action,
@@ -2253,6 +2479,26 @@ function Start-LauncherAction {
     if ($script:activeProcess -and -not $script:activeProcess.HasExited) {
         [Windows.Forms.MessageBox]::Show('Poczekaj na zakończenie bieżącej operacji.', 'Launcher pracuje', 'OK', 'Information') | Out-Null
         return
+    }
+    # MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: before a build, Docker's memory.
+    if (Test-DockerMemoryCheckWanted -Action $Action) {
+        $memoryAdvice = Get-DockerMemoryAdviceSafe
+        if ($memoryAdvice -and $memoryAdvice.Low) {
+            Write-LocalLog ('UWAGA: ' + $memoryAdvice.Summary)
+            $memoryChoice = Show-DockerMemoryDialog -Advice $memoryAdvice -Mode 'before'
+            if ($memoryChoice -eq 'fix') {
+                $resumeWith = @{ Action = $Action; Yes = [bool]$Yes; LaunchClient = [bool]$LaunchClient; ExtraArgs = @($ExtraArgs); RestartAfterUpdate = [bool]$script:restartAfterUpdate }
+                $script:restartAfterUpdate = $false
+                Invoke-DockerMemoryFix -Advice $memoryAdvice -Then $resumeWith
+                return
+            }
+            if ($memoryChoice -ne 'continue') {
+                $script:restartAfterUpdate = $false
+                Write-LocalLog 'Anulowano - Docker ma za mało pamięci RAM do budowy serwera.'
+                return
+            }
+            Write-LocalLog 'Kontynuuję mimo ostrzeżenia o pamięci Dockera.'
+        }
     }
 
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
@@ -2492,8 +2738,9 @@ $worldBackupButton = New-Button (T 'worldBackup') 496 418 230 32 ([Drawing.Color
 # The world's difficulty - the waits at the Biologist and the stable keeper -
 # chosen here and applied at the next start (M2_DIFFICULTY in .env).
 $difficultyButton = New-Button (T 'difficulty') 28 456 218 32 ([Drawing.Color]::FromArgb(120, 95, 40))
-# COOP (experimental): this world played with friends over the Internet
-# (Show-CoopDialog). The button exists only when the optional module does.
+# COOP (experimental): this world played with friends over the Internet, open
+# to everybody, no password.
+# The button exists only when the optional module does.
 $coopModulePath = Join-Path $root 'launcher\Metin2Launcher.Coop.psm1'
 $coopButton = $null
 if (Test-Path -LiteralPath $coopModulePath -PathType Leaf) {
@@ -2648,6 +2895,34 @@ function Update-VersionFooter {
     $script:versionLabel.ForeColor = $script:versionBaseColor
 }
 
+$script:lastUpdateSourceNotice = ''
+function Write-UpdateSourceNotice {
+    # The manifest came from the fallback server (MT2009_PLUS_UPDATE_MIRROR_V1):
+    # said once per source in the on-screen log, so a slow check is explained.
+    $source = [string](Get-M2UpdateSource)
+    if (-not $source -or $source -eq 'github') { return }
+    if ($script:lastUpdateSourceNotice -eq $source) { return }
+    $script:lastUpdateSourceNotice = $source
+    Write-LocalLog "GitHub niedostępny - pobieram z serwera zapasowego ($source)."
+}
+
+function Read-LatestClientFileList {
+    # The hashes of the newest client, so a client folder the patcher brought
+    # up to date is recognised by its files. Read only when the folder does
+    # not already say it is the newest version.
+    param($Config)
+    $script:clientFileList = $null
+    if (-not $script:latestClientVersion) { return }
+    try {
+        $folder = Get-M2ClientFolder -Config $Config
+        if (-not $folder) { return }
+        $known = [string](Resolve-M2InstalledClientVersion -ServerRoot $root -ClientFolder $folder -LatestVersion $script:latestClientVersion)
+        if ($known.Equals($script:latestClientVersion, [StringComparison]::OrdinalIgnoreCase)) { return }
+        $script:clientFileList = Get-M2ClientFileList -ManifestSource ([string]$Config.manifestUrl) -TimeoutSec 8
+    }
+    catch { $script:clientFileList = $null }
+}
+
 function Read-LatestServerVersion {
     param([switch]$Force)
     if ($script:latestVersionChecked -and -not $Force) { return }
@@ -2655,8 +2930,10 @@ function Read-LatestServerVersion {
     try {
         $config = Get-M2LauncherConfig -ServerRoot $root -ConfigPath $configPath
         $manifest = Get-M2UpdateManifest -Source ([string]$config.manifestUrl) -TimeoutSec 8
+        Write-UpdateSourceNotice
         $script:latestManifest = $manifest
         Set-LatestVersionsFromManifest -Manifest $manifest
+        Read-LatestClientFileList -Config $config
     }
     catch { }
     Update-VersionFooter
@@ -2826,19 +3103,35 @@ function Get-CoopClientFolder {
     return ''
 }
 
+# The COOP window's note that COOP is open to everybody, with the link to the
+# project's support page (operator, 2 October).
+function New-CoopCoffeeLink {
+    param([int]$X, [int]$Y, [int]$Width)
+    $url = 'https://buycoffee.to/mt2009plus'
+    $link = [Windows.Forms.LinkLabel]::new()
+    $link.Text = 'COOP jest teraz dostępny dla wszystkich. Jeśli chcesz, możesz wesprzeć rozwój paczki singleplayer: ' + $url
+    $link.LinkArea = [Windows.Forms.LinkArea]::new($link.Text.Length - $url.Length, $url.Length)
+    $link.Location = [Drawing.Point]::new($X, $Y)
+    $link.Size = [Drawing.Size]::new($Width, 40)
+    $link.Font = [Drawing.Font]::new('Segoe UI', 9)
+    $link.Add_LinkClicked({
+        try { Start-Process 'https://buycoffee.to/mt2009plus' } catch { Write-LocalLog "COOP: nie otwarto strony wsparcia: $($_.Exception.Message)" }
+    })
+    return $link
+}
+
 function Show-CoopDialog {
-    # Co-op over the Internet (experimental). Hosting and its end restart the
-    # game container and so run as actions in the main window; everything else
-    # here is quick and in-process, and nothing that shows a password is
-    # written to any log. -JoinOnly shows only the joining tab.
-    param([switch]$JoinOnly)
+    # Co-op over the Internet (experimental; open to everybody). Hosting and
+    # its end restart the game container and so run as actions in the main
+    # window; everything else here is quick and in-process, and nothing that
+    # shows a password is written to any log.
     if (-not (Get-Command Get-M2CoopNetworkReport -ErrorAction SilentlyContinue)) {
         [Windows.Forms.MessageBox]::Show('Ta paczka nie ma modułu COOP.', 'COOP', 'OK', 'Information') | Out-Null
         return
     }
     $dialog = [Windows.Forms.Form]::new()
-    $dialog.Text = $(if ($JoinOnly) { 'COOP - dołączam do świata znajomego' } else { 'COOP - gra ze znajomymi przez internet (eksperymentalne)' })
-    $dialog.Size = [Drawing.Size]::new(660, 600)
+    $dialog.Text = 'COOP - gra ze znajomymi przez internet (eksperymentalne)'
+    $dialog.Size = [Drawing.Size]::new(660, 620)
     $dialog.StartPosition = 'CenterParent'
     $dialog.FormBorderStyle = 'FixedDialog'
     $dialog.MaximizeBox = $false
@@ -2852,7 +3145,7 @@ function Show-CoopDialog {
     $hostTab.Text = 'Hostuję swój świat'
     $joinTab = [Windows.Forms.TabPage]::new()
     $joinTab.Text = 'Dołączam do znajomego'
-    if (-not $JoinOnly) { $tabs.TabPages.Add($hostTab) }
+    $tabs.TabPages.Add($hostTab)
     $tabs.TabPages.Add($joinTab)
 
     # ------------------------------------------------------------ host tab
@@ -3017,9 +3310,12 @@ function Show-CoopDialog {
     $closeButton.DialogResult = [Windows.Forms.DialogResult]::Cancel
     $dialog.Controls.Add($closeButton)
     $dialog.CancelButton = $closeButton
+    $dialog.Controls.Add((New-CoopCoffeeLink -X 12 -Y 516 -Width 512))
 
     $refresh = {
-        if (-not $JoinOnly) {
+        # The host half asks Docker and the database; the joining tab below
+        # is filled even when neither answers (a friend who only joins).
+        try {
             $state = Read-M2CoopState -ServerRoot $root
             $bindings = Get-M2CoopGameBindings -ServerRoot $root
             $lines = @()
@@ -3055,6 +3351,7 @@ function Show-CoopDialog {
                 [void]$list.Items.Add($item)
             }
         }
+        catch { $status.Text = "Nie udało się odczytać stanu: $($_.Exception.Message)" }
         $client = Get-CoopClientFolder
         $cfg = $(if ($client) { Join-Path $client 'coop.cfg' } else { '' })
         if ($cfg -and (Test-Path -LiteralPath $cfg -PathType Leaf)) {
@@ -3329,7 +3626,7 @@ function Show-VpsDialog {
     $help = [Windows.Forms.Label]::new()
     $help.Text = ('Kolejność: POŁĄCZ, SPRAWDŹ VPS, ZAINSTALUJ. Gracze łączą się z adresem VPS (porty 11000 i 13000-13002 muszą być otwarte ' +
         'w zaporze dostawcy VPS, jeśli ją ma). Panele WWW słuchają tylko na VPS - otwiera je tunel SSH (przycisk OTWÓRZ PANEL). ' +
-        'DOPISZ DO KLIENTA dodaje VPS jako drugi serwer na liście w Twoim kliencie. KOD DLA ZNAJOMEGO robi zaproszenie do świata na VPS.')
+        'DOPISZ DO KLIENTA dodaje VPS jako drugi serwer na liście w Twoim kliencie. KOD DLA ZNAJOMEGO zakłada mu konto na VPS i daje kod zaproszenia.')
     $help.Location = [Drawing.Point]::new(14, 412)
     $help.Size = [Drawing.Size]::new(660, 62)
     $help.ForeColor = [Drawing.Color]::DimGray
@@ -3499,7 +3796,7 @@ function Show-VpsDialog {
     $buttons['invite'].Add_Click({
         $vps = & $saveFields
         if (-not $vps) { return }
-        if (-not (Get-Command Read-M2CoopInvite -ErrorAction SilentlyContinue)) {
+        if (-not (Get-Command New-M2CoopInvite -ErrorAction SilentlyContinue)) {
             [Windows.Forms.MessageBox]::Show('Ta paczka nie ma modułu COOP, a kody zaproszeń idą przez niego.', 'VPS', 'OK', 'Information') | Out-Null
             return
         }
@@ -3514,15 +3811,15 @@ function Show-VpsDialog {
             $vpsStatus = Get-M2VpsStatus -State $vps
             $codes = @()
             if ($name) {
-                $friend = New-M2VpsFriend -State $vps -ServerRoot $root -Name $name
+                $friend = New-M2VpsFriend -State $vps -Name $name
                 Write-LocalLog ('VPS: konto znajomego na VPS, login {0}.' -f $friend.login)
                 $codes += ('{0} (login {1}, hasło {2}):' -f $friend.name, $friend.login, $friend.password)
-                $codes += (Get-M2VpsFriendInvite -State $vps -ServerRoot $root -Account $friend -Status $vpsStatus)
+                $codes += (Get-M2VpsFriendInvite -State $vps -Account $friend -Status $vpsStatus)
             }
             else {
                 foreach ($account in @(Get-M2VpsAccounts -State $vps | Where-Object { $_.Note -like 'znajomy*' })) {
                     $codes += ('{0} (login {1}, hasło {2}):' -f $account.Note, $account.Login, $account.Password)
-                    $codes += (Get-M2VpsFriendInvite -State $vps -ServerRoot $root -Account $account -Status $vpsStatus)
+                    $codes += (Get-M2VpsFriendInvite -State $vps -Account $account -Status $vpsStatus)
                     $codes += ''
                 }
             }
@@ -3627,6 +3924,7 @@ $updateButton.Add_Click({
     try {
         $config = Get-M2LauncherConfig -ServerRoot $root -ConfigPath $configPath
         $manifest = Get-M2UpdateManifest -Source ([string]$config.manifestUrl)
+        Write-UpdateSourceNotice
     }
     catch {
         Write-LocalLog "Nie udało się sprawdzić aktualizacji: $($_.Exception.Message)"
@@ -4116,6 +4414,8 @@ $statusTimer.Interval = 8000
 $statusTimer.Add_Tick({
     if ($script:activeProcess) { return }
     Refresh-Status
+    # MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: once, a notice in the log.
+    try { Show-DockerMemoryNotice } catch { }
     # One manifest read per session: on the first quiet tick rather than during
     # form startup, so the window is already usable while it happens.
     Read-LatestServerVersion

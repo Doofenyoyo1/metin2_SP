@@ -831,7 +831,9 @@ namespace
 			return false;
 		const DWORD race = candidate->GetRaceNum();
 		return (IsPlayerBotOnBattleHorseTrial(ch) && IsPlayerBotBattleHorseTrialMob(race)) ||
-				(IsPlayerBotOnMilitaryHorseTrial(ch) && IsPlayerBotMilitaryHorseTrialMob(race));
+				(IsPlayerBotOnMilitaryHorseTrial(ch) && IsPlayerBotMilitaryHorseTrialMob(race)) ||
+				// MT2009_PLUS_HORSE30_V1: the Black Steed trial's Setaou Archers.
+				(IsPlayerBotOnBlackSteedTrial(ch) && IsPlayerBotBlackSteedTrialMob(race));
 	}
 
 	// The monster this bot's own errands want it to kill, if any. One
@@ -868,7 +870,10 @@ namespace
 			// same Tormentor that carries the specimen.
 			if (IsPlayerBotBiologistKeyPhase(ch, biologistIndex))
 				desiredBiologistMobVnum = biologistMission->keyMobVnum;
-			else if (ch->CountSpecifyItem(biologistMission->itemVnum) < remaining)
+			else if (ch->CountSpecifyItem(biologistMission->itemVnum) < (biologistMission->carryMax != 0
+					? std::min<int>(remaining, biologistMission->carryMax) : remaining))
+				// MT2009_PLUS_BIOLOGIST_90_V1: with the quest's one-at-a-time
+				// specimen in the bag, the row's trees are nothing to it.
 				desiredBiologistMobVnum = biologistMission->mobVnum;
 		}
 		const DWORD desiredHuntingMobVnum =
@@ -2357,7 +2362,7 @@ namespace
 		// a bot attacked at the water or the vein stood at its foe with the
 		// tool, no swing ever passing the test below, when the session's own
 		// unequip had been refused by the engine after a blow.
-		if (weapon && (weapon->GetType() == ITEM_ROD || weapon->GetType() == ITEM_PICK))
+		if (weapon && IsPlayerBotToolType(weapon->GetType()))   // MT2009_PLUS_BOT_HERBALIST_FIX_V1: the knife too
 		{
 			ReadyPlayerBotHandForFight(ch, state, dwNow, "basic_attack");
 			weapon = ch->GetWear(WEAR_WEAPON);
@@ -2411,6 +2416,10 @@ namespace
 			CollectPlayerBotExtraArrows(ch, target, extraArrows);
 		SendPlayerBotAttackPacket(ch, target, state.bComboMotion, &extraArrows);
 		AttackPlayerBotMeleeGroup(ch, target, &extraArrows);
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: every blow of a bot at war, for the
+		// war's numbers (playerbot_guild_war.h).
+		if (state.dwGuildWarEnemyGID != 0)
+			NotePlayerBotWarBlow(ch, false);
 
 		if (isBow)
 			state.bComboMotion = MOTION_COMBO_ATTACK_1;
@@ -2778,6 +2787,298 @@ namespace
 				ch->GetPlayerID(), ch->GetName(), (unsigned int)state.bMultiPullGroups,
 				(unsigned int)state.bMultiPullDesiredGroups, target->GetName(),
 				CountPlayerBotPullAggressors(ch), ch->GetHP(), ch->GetMaxHP());
+		return true;
+	}
+
+	// ------------------------------------------------- MT2009_PLUS_BOT_CAPE_V1
+	//
+	// Peleryna Mestwa: a strong bot uses one where it can take the monsters
+	// it pulls - one a spot, and the next only after the crowd is beaten. The
+	// cape (AggregateMonster, char_battle.cpp) wakes the nearest eighty free
+	// monsters within 8500, no boss and none already fighting somebody, and
+	// sends every one at the bot; the bot's ordinary fight takes them from
+	// there (FindPlayerBotEngagedTarget), its retreat and recovery as ever.
+	//
+	// "Strong enough" is three questions. The build, asked by the market too
+	// (IsPlayerBotCapeBuild): level PLAYERBOT_CAPE_MIN_LEVEL, no Archer (a
+	// bow kites, PLAYERBOT_MULTI_PULL_ARCHER_MAX_AGGRESSORS), no companion or
+	// shouter, a weapon, a body armour and a helmet on (a shield where its
+	// weapon takes one), +5 weapon and armour for a natural tank (bodily
+	// Warrior, weaponry Sura) and +7 for anybody else. The bot now: full
+	// health (PLAYERBOT_CAPE_START_HP_PERCENT), a stock of red potions, no
+	// death in the last ten minutes, hunting or levelling on its own, out of
+	// a party, nothing fighting it. The crowd: what the cape would wake,
+	// counted as the engine counts it - at least PLAYERBOT_CAPE_MIN_CROWD, no
+	// monster over the bot's level, their average PLAYERBOT_CAPE_LEVEL_MARGIN
+	// under it, and no more of them than it takes at once (the capacity: the
+	// base, a tank's extra, a +7 armour's, more for an easier crowd). Never
+	// with a person in the cape's reach - it is that person's hunt too.
+	struct TPlayerBotCapeUse
+	{
+		long lMapIndex;
+		long x;
+		long y;
+		DWORD dwAt;
+		int iPulled;
+		bool bOpen;	// the crowd is not beaten yet
+		TPlayerBotCapeUse() : lMapIndex(0), x(0), y(0), dwAt(0), iPulled(0), bOpen(false) {}
+	};
+	// By bot, its last cape; and every bot's lately, for one cape a spot.
+	std::map<DWORD, TPlayerBotCapeUse> s_mapPlayerBotCapeUse;
+	std::vector<TPlayerBotCapeUse> s_vecPlayerBotCapeSpots;
+
+	bool IsPlayerBotCapeTank(LPCHARACTER ch)
+	{
+		return ch && ((ch->GetJob() == JOB_WARRIOR && ch->GetSkillGroup() == 2) ||
+				(ch->GetJob() == JOB_SURA && ch->GetSkillGroup() == 1));
+	}
+
+	bool IsPlayerBotCapeBuild(LPCHARACTER ch)
+	{
+		if (!ch || !ch->IsItemLoaded() || (int)ch->GetLevel() < PLAYERBOT_CAPE_MIN_LEVEL ||
+				IsPlayerBotSidekickPID(ch->GetPlayerID()) || IsPlayerBotShouterPID(ch->GetPlayerID()) ||
+				IsPlayerBotArcher(ch) || IsPlayerBotFightingAsMonster(ch))
+			return false;
+		LPITEM weapon = ch->GetWear(WEAR_WEAPON);
+		LPITEM armor = ch->GetWear(WEAR_BODY);
+		LPITEM helmet = ch->GetWear(WEAR_HEAD);
+		if (!weapon || weapon->GetType() != ITEM_WEAPON || weapon->GetSubType() == WEAPON_BOW || !armor || !helmet ||
+				(PlayerBotWantsShield(ch) && !ch->GetWear(WEAR_SHIELD)))
+			return false;
+		const int plus = IsPlayerBotCapeTank(ch) ? 5 : 7;
+		return (int)weapon->GetRefineLevel() >= plus && (int)armor->GetRefineLevel() >= plus;
+	}
+
+	int CountPlayerBotValourCapes(LPCHARACTER ch)
+	{
+		int count = 0;
+		for (size_t i = 0; ch && i < sizeof(PLAYERBOT_CAPE_VNUMS) / sizeof(PLAYERBOT_CAPE_VNUMS[0]); ++i)
+			count += (int)ch->CountSpecifyItem(PLAYERBOT_CAPE_VNUMS[i]);
+		return count;
+	}
+
+	// A cape for the market's walk and the counter's line: a cape build with
+	// fewer than PLAYERBOT_CAPE_WANT and the spare gold for them.
+	bool PlayerBotWantsValourCapes(LPCHARACTER ch)
+	{
+		if (!IsPlayerBotCapeBuild(ch) || CountPlayerBotValourCapes(ch) >= PLAYERBOT_CAPE_WANT)
+			return false;
+		const long long spare = (long long)ch->GetGold() - GetPlayerBotReservedGold(ch) -
+				(long long)PLAYERBOT_SHOPPING_GOLD_FLOOR;
+		return spare >= PLAYERBOT_CAPE_MIN_SPARE_GOLD && CountPlayerBotFreeInventoryCells(ch) > 0;
+	}
+
+	// What the cape would wake now, as AggregateMonster finds it, and who
+	// else stands in its reach; and, for the crowd it woke, what still fights
+	// the bot there.
+	struct FPlayerBotCapeCrowd
+	{
+		LPCHARACTER m_ch;
+		int m_iFree;
+		int m_iLevelSum;
+		int m_iLevelMax;
+		int m_iOnMe;
+		bool m_bPerson;
+		std::vector<int> m_vecFreeDistances;
+		std::vector<int> m_vecFreeLevels;
+		FPlayerBotCapeCrowd(LPCHARACTER ch)
+			: m_ch(ch), m_iFree(0), m_iLevelSum(0), m_iLevelMax(0), m_iOnMe(0), m_bPerson(false) {}
+		bool operator()(LPENTITY ent)
+		{
+			if (!ent || !ent->IsType(ENTITY_CHARACTER))
+				return false;
+			LPCHARACTER c = (LPCHARACTER) ent;
+			if (c == m_ch)
+				return false;
+			const int dist = DISTANCE_APPROX(c->GetX() - m_ch->GetX(), c->GetY() - m_ch->GetY());
+			if (dist > PLAYERBOT_CAPE_PULL_RANGE)
+				return false;
+			if (c->IsPC())
+			{
+				if (c->GetDesc() && !c->GetDesc()->IsBot())
+					m_bPerson = true;
+				return false;
+			}
+			if (!c->IsMonster() || c->IsDead())
+				return false;
+			if (c->GetVictim() == m_ch)
+				++m_iOnMe;
+			if (c->GetVictim() || c->GetMobRank() >= MOB_RANK_BOSS)
+				return false;
+			m_vecFreeDistances.push_back(dist);
+			m_vecFreeLevels.push_back((int)c->GetLevel());
+			return false;
+		}
+		// The nearest PLAYERBOT_CAPE_PULL_MAX of the free ones, as the cape
+		// takes them.
+		void Settle()
+		{
+			std::vector<std::pair<int, int> > found;
+			for (size_t i = 0; i < m_vecFreeDistances.size(); ++i)
+				found.push_back(std::make_pair(m_vecFreeDistances[i], m_vecFreeLevels[i]));
+			const size_t n = std::min(found.size(), (size_t)PLAYERBOT_CAPE_PULL_MAX);
+			std::partial_sort(found.begin(), found.begin() + n, found.end());
+			m_iFree = (int)n;
+			for (size_t i = 0; i < n; ++i)
+			{
+				m_iLevelSum += found[i].second;
+				m_iLevelMax = std::max(m_iLevelMax, found[i].second);
+			}
+		}
+	};
+
+	void ScanPlayerBotCapeCrowd(LPCHARACTER ch, FPlayerBotCapeCrowd& f)
+	{
+		LPSECTREE_MAP map = SECTREE_MANAGER::instance().GetMap(ch->GetMapIndex());
+		if (map)
+		{
+			const int rings = PLAYERBOT_CAPE_PULL_RANGE / SECTREE_SIZE + 1;
+			for (int dx = -rings; dx <= rings; ++dx)
+				for (int dy = -rings; dy <= rings; ++dy)
+				{
+					const long x = ch->GetX() + dx * SECTREE_SIZE;
+					const long y = ch->GetY() + dy * SECTREE_SIZE;
+					if (x < 0 || y < 0)
+						continue;
+					LPSECTREE sec = map->Find((DWORD)x, (DWORD)y);
+					if (sec)
+						sec->for_each_entity_for_find_victim(f);
+				}
+		}
+		else if (ch->GetSectree())
+			ch->GetSectree()->ForEachAround(f);
+		f.Settle();
+	}
+
+	// How many at once this bot takes against a crowd of this average level.
+	int GetPlayerBotCapeCapacity(LPCHARACTER ch, int averageLevel)
+	{
+		int capacity = PLAYERBOT_CAPE_BASE_CAPACITY;
+		if (IsPlayerBotCapeTank(ch))
+			capacity += PLAYERBOT_CAPE_TANK_CAPACITY;
+		LPITEM armor = ch->GetWear(WEAR_BODY);
+		if (armor && armor->GetRefineLevel() >= 7)
+			capacity += PLAYERBOT_CAPE_ARMOUR_CAPACITY;
+		const int easier = (int)ch->GetLevel() - PLAYERBOT_CAPE_LEVEL_MARGIN - averageLevel;
+		if (easier > 0)
+			capacity += easier / PLAYERBOT_CAPE_EASY_LEVELS * PLAYERBOT_CAPE_EASY_CAPACITY;
+		return std::min(capacity, PLAYERBOT_CAPE_PULL_MAX);
+	}
+
+	bool IsPlayerBotCapeSpotRested(long mapIndex, long x, long y, DWORD dwNow)
+	{
+		for (size_t i = 0; i < s_vecPlayerBotCapeSpots.size();)
+		{
+			const TPlayerBotCapeUse& spot = s_vecPlayerBotCapeSpots[i];
+			if (dwNow - spot.dwAt >= PLAYERBOT_CAPE_SPOT_REST_MS)
+			{
+				s_vecPlayerBotCapeSpots[i] = s_vecPlayerBotCapeSpots.back();
+				s_vecPlayerBotCapeSpots.pop_back();
+				continue;
+			}
+			if (spot.lMapIndex == mapIndex && DISTANCE_APPROX(spot.x - x, spot.y - y) < PLAYERBOT_CAPE_SPOT_RADIUS)
+				return false;
+			++i;
+		}
+		return true;
+	}
+
+	int FindPlayerBotValourCapeCell(LPCHARACTER ch)
+	{
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (item && item->GetCell() == cell && IsPlayerBotValourCapeVnum(item->GetVnum()) &&
+					!item->isLocked() && !item->IsExchanging())
+				return cell;
+		}
+		return -1;
+	}
+
+	// The tick's word: true when the cape was used this tick.
+	bool HandlePlayerBotValourCape(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		if (!ch || ch->IsDead())
+			return false;
+		const DWORD pid = ch->GetPlayerID();
+		std::map<DWORD, TPlayerBotCapeUse>::iterator last = s_mapPlayerBotCapeUse.find(pid);
+		// The crowd of the last cape first: until it is beaten, no other.
+		if (last != s_mapPlayerBotCapeUse.end() && last->second.bOpen)
+		{
+			if (dwNow - last->second.dwAt < PLAYERBOT_CAPE_CROWD_SETTLE_MS)
+				return false;
+			FPlayerBotCapeCrowd crowd(ch);
+			ScanPlayerBotCapeCrowd(ch, crowd);
+			const bool timedOut = dwNow - last->second.dwAt >= PLAYERBOT_CAPE_CROWD_TIMEOUT_MS;
+			if (crowd.m_iOnMe > 0 && !timedOut && last->second.lMapIndex == ch->GetMapIndex())
+				return false;
+			last->second.bOpen = false;
+			sys_log(0, "PLAYERBOT_CAPE: crowd beaten pid=%u name=%s pulled=%d secs=%u hp=%d/%d%s",
+					pid, ch->GetName(), last->second.iPulled, (unsigned int)((dwNow - last->second.dwAt) / 1000),
+					ch->GetHP(), ch->GetMaxHP(), timedOut ? " timeout" : "");
+			return false;
+		}
+		// Cheap questions before the world is looked at.
+		if (state.dwNextCapeCheck > dwNow)
+			return false;
+		state.dwNextCapeCheck = dwNow + 3000 + PlayerBotNavHash(pid ^ (dwNow / 1000U)) % 2000U;
+		if (!IsPlayerBotCapeBuild(ch) || ch->GetParty() || ch->GetMyShop() || ch->GetExchange() ||
+				(ch->IsRiding() && !CanPlayerBotEverFightOnHorse(ch)) ||
+				ch->GetMapIndex() >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN ||
+				IsPlayerBotSafeZone(ch->GetMapIndex(), ch->GetX(), ch->GetY()) ||
+				!IsPlayerBotGrindAllowedHere(ch))
+			return false;
+		if (state.bBotRole != BOT_ROLE_MOB_GRINDER ||
+				(state.bLongTermGoal != BOT_GOAL_LEVEL_UP && state.bLongTermGoal != BOT_GOAL_HUNTING) ||
+				state.bMultiPullActive || state.bVisitingShop || state.bRecoveringAfterDeath || state.bTacticalRetreat ||
+				state.bFishingSession ||
+				(state.dwLastDeathTime != 0 && dwNow - state.dwLastDeathTime < PLAYERBOT_CAPE_DEATH_HOLD_MS))
+			return false;
+		if (ch->GetMaxHP() <= 0 || ch->GetHP() * 100 < ch->GetMaxHP() * PLAYERBOT_CAPE_START_HP_PERCENT)
+			return false;
+		const int cell = FindPlayerBotValourCapeCell(ch);
+		if (cell < 0)
+			return false;
+		size_t redPots = 0, bluePots = 0;
+		CountPlayerBotPotions(ch, redPots, bluePots);
+		if ((int)redPots < PLAYERBOT_CAPE_MIN_RED_POTIONS)
+			return false;
+		LPCHARACTER current = state.dwTargetVID != 0 ? CHARACTER_MANAGER::instance().Find(state.dwTargetVID) : NULL;
+		if ((current && !current->IsDead()) || FindPlayerBotEngagedTarget(ch, &state, dwNow))
+			return false;
+		if (!IsPlayerBotCapeSpotRested(ch->GetMapIndex(), ch->GetX(), ch->GetY(), dwNow))
+			return false;
+
+		FPlayerBotCapeCrowd crowd(ch);
+		ScanPlayerBotCapeCrowd(ch, crowd);
+		if (crowd.m_bPerson || crowd.m_iOnMe > 0 || crowd.m_iFree < PLAYERBOT_CAPE_MIN_CROWD)
+			return false;
+		const int average = crowd.m_iLevelSum / std::max(1, crowd.m_iFree);
+		if (crowd.m_iLevelMax > (int)ch->GetLevel() || average > (int)ch->GetLevel() - PLAYERBOT_CAPE_LEVEL_MARGIN)
+			return false;
+		const int capacity = GetPlayerBotCapeCapacity(ch, average);
+		if (crowd.m_iFree > capacity)
+			return false;
+
+		const DWORD capeVnum = ch->GetInventoryItem(cell)->GetVnum();
+		if (!ch->UseItem(TItemPos(INVENTORY, cell)))
+			return false;
+		TPlayerBotCapeUse use;
+		use.lMapIndex = ch->GetMapIndex();
+		use.x = ch->GetX();
+		use.y = ch->GetY();
+		use.dwAt = dwNow != 0 ? dwNow : 1;
+		use.iPulled = crowd.m_iFree;
+		use.bOpen = true;
+		s_mapPlayerBotCapeUse[pid] = use;
+		s_vecPlayerBotCapeSpots.push_back(use);
+		state.dwTargetVID = 0;
+		ClearPlayerBotRoute(state, true);
+		if (ch->IsStateMove())
+			ch->Stop();
+		sys_log(0, "PLAYERBOT_CAPE: used pid=%u name=%s lv=%d vnum=%u map=%ld pos=(%ld,%ld) crowd=%d avg_lv=%d max_lv=%d capacity=%d capes_left=%d",
+				pid, ch->GetName(), ch->GetLevel(), capeVnum, ch->GetMapIndex(), ch->GetX(), ch->GetY(),
+				crowd.m_iFree, average, crowd.m_iLevelMax, capacity, CountPlayerBotValourCapes(ch));
 		return true;
 	}
 }

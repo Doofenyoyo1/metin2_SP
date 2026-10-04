@@ -54,13 +54,21 @@
 //    card counter after a kill): an old exe would stop at the unknown header.
 //    A client gets the packet only after it sent a CG 181 itself (the window's
 //    REQUEST_QUEST_FLAG when the game window starts); before that, chat lines.
-//  - Bots never play, never collect cards, never rank.
+//  - Bots never rank and get no packets; they collect cards from their kills
+//    and "play" a set without a table (MT2009_PLUS_BOT_MINIGAMES_V1,
+//    playerbot_minigames.h).
 #include "packet.h"
 #include <random>
 
 int GetDropPerKillPct(int iMinimum, int iDefault, int iDeltaPercent, const char* c_pszFlag);
 bool InGameEventIsActive(const char* key);
 DWORD InGameEventRewardEndTime(const char* key);
+
+// MT2009_PLUS_BOT_MINIGAMES_V1: a bot's card (playerbot_minigames.h, later in the unit).
+namespace
+{
+	void PlayerBotMinigameCard(LPCHARACTER ch, int game);
+}
 
 namespace mt2009_rumi
 {
@@ -553,7 +561,7 @@ namespace mt2009_rumi
 			return;
 		}
 		ch->SetQuestFlag(F_CARDS, cards - 1);
-		ch->PointChange(POINT_GOLD, -START_GOLD, true);
+		PlayerBotChangeGold(ch, -(long long)START_GOLD);
 
 		Game& g = s_games[pid];
 		g = Game();
@@ -679,13 +687,22 @@ bool RumiUseItem(LPCHARACTER ch, LPITEM item)
 void RumiOnKill(LPCHARACTER killer, LPCHARACTER victim, int iDeltaPercent, int iRandRange)
 {
 	using namespace mt2009_rumi;
-	if (!Eligible(killer) || !victim || victim->IsPC() || (!victim->IsMonster() && !victim->IsStone()))
+	if (!killer || !killer->IsPC() || !killer->GetDesc() || !victim || victim->IsPC() ||
+			(!victim->IsMonster() && !victim->IsStone()))
+		return;
+	// MT2009_PLUS_BOT_MINIGAMES_V1: a bot rolls the same card, for its own
+	// count and a real Zestaw kart Okey (playerbot_minigames.h).
+	const bool bot = killer->GetDesc()->IsBot();
+	if (!bot && !Eligible(killer))
 		return;
 	if (!EventOn())
 		return;
 	if (GetDropPerKillPct(50, 100, iDeltaPercent, "mini_game_okey_drop") < number(1, iRandRange))
 		return;
-	AddPiece(killer);
+	if (bot)
+		PlayerBotMinigameCard(killer, 1);
+	else
+		AddPiece(killer);
 }
 
 // playerbot_events.h, once a second (after InGameEventTick).

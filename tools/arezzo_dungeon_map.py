@@ -25,7 +25,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, '..', 'linux-port', 'docker', 'game', 'arezzo', 'data', 'dungeon')
 DUNGEONS = [
     # key, the map's folder, the quests' entry cell, the regen folder, spawn_mob points of the bosses
-    ('wukong', 'plechito_wukong_dungeon', (264, 273), 'wzgorze_wukonga', [(264, 273), (264, 272)]),
+    # MT2009_PLUS_WUKONG_GUARDIANS_V1: the bosses (268, 256) and the three Cloud Defenders, whose places
+    # moved from guardians.txt into the quest (cfg().guardians).
+    ('wukong', 'plechito_wukong_dungeon', (264, 273), 'wzgorze_wukonga', [(268, 256), (277, 289), (253, 260), (251, 286)]),
     ('skorpion', 'plechito_scorpion_dungeon', (268, 228), 'ruiny_skorpiona', [(269, 226)]),
     ('dzungla', 'plechito_easter2023_dungeon', (384, 374), 'starozytna_dzungla', [(385, 348)]),
 ]

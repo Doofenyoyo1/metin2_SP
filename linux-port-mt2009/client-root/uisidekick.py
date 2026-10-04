@@ -30,8 +30,8 @@
 #   Polecenia     the Emotions tab of the player's window: what the companion
 #                 does and where, the orders, the stance, the loot, its bag.
 #   Opcje         the Quests tab: guard, buffs, lure, "Gra beze mnie", chests,
-#                 party, who spends the stat and skill points, and the one
-#                 free reset of its stats.
+#                 party, its Dragon Coins, the equipment lock, who spends the
+#                 stat and skill points, and the one free reset of its stats.
 #
 # The tab strip is one picture per pressed tab with the four names painted in
 # (locale/<lang>/ui/windows/tab_1..4.sub), and two of them are the player's
@@ -50,7 +50,8 @@
 #   SidekickInfo <protocol> 1 <race> <group> <level> <exp%> <hp> <maxhp> <sp>
 #                <maxsp> <where> <dist> <mode> <stance> <loot> <protect>
 #                <buffs> <gold> <red> <blue> <dead> [<lure> <luring> [<solo> [<chests>
-#                [<lead> <role> <leadership> [<party> [<rank> [<coins> <balance>]]]]]]]
+#                [<lead> <role> <leadership> [<party> [<rank> [<coins> <balance>
+#                [<equipment_lock> [<keep_loot>]]]]]]]]]
 #   SidekickNames <name> <place> <doing>            - hex of the CP1250 bytes
 #   SidekickGear <slot 0-7> <name>                  - hex, only when changed
 #
@@ -60,7 +61,7 @@
 # 2 everything. The orders are the letter's own commands, so the window adds
 # nothing the server did not already take from the quest: przywolaj, wolny,
 # czekaj, zakupy, stan, walka N, zbieraj N, ochrona N, buffy N, luruj N, sam N,
-# skrzynki N, grupa N, lider N, rola N, ryby, odprawa tak. lure (server 2.2.19): the companion wakes packs round
+# skrzynki N, grupa N, lider N, rola N, monety N, blokada N, ryby, kup <towar> <ile> [tak], odprawa tak. lure (server 2.2.19): the companion wakes packs round
 # the owner and brings them over; luring: 0 no course, 1 out to a pack, 2 back
 # with them. solo (server 2.2.30, "Gra beze mnie"): with its owner out of the
 # game it plays on alone, up to thirty levels over the owner's. chests (server
@@ -74,7 +75,14 @@
 # spends the Dragon Coins of its own account in the Item Shop on what it uses,
 # cashing the vouchers in its bag; 0 it keeps both untouched (order: monety N).
 # balance: the coins its account holds as the server last read them, -1
-# before it has.
+# before it has. equipment_lock (MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1,
+# "Zablokuj ekwipunek"): 1 the AI neither refines, reworks, takes off, sells
+# nor throws away what it wears and what its owner gave it; the owner's own
+# hand in the bag window still moves anything (order: blokada N). keep_loot
+# (MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1, "Pelne EQ", on by default): 1 with
+# the owner's bag too full for a drop of the owner's, the companion picks it up
+# into its own bag and holds it for the owner (order: przechowuj N). An older
+# server sends no such word, and the window shows no row for it.
 #
 # The status and skill pages read the answer to "/towarzysz umiejetnosci"
 # (SidekickSkillBegin with the stats, the skills, SidekickSkillEnd), which the
@@ -221,6 +229,13 @@ SWITCHES = (
 	# MT2009_PLUS_SIDEKICK_COINS_V1: "Smocze Monety: wydaje / nie wydaje".
 	('coins', 'monety', 1, 'Smocze Monety',
 		'Kupuje za nie w Item Shopie to, czego u\xbfywa (bez fryzur). Nie wydaje: nie rusza ich.'),
+	# MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: "Zablokuj ekwipunek".
+	('equipment_lock', 'blokada', 0, 'Zablokuj ekwipunek',
+		'Nie ulepsza, nie zdejmuje ani nie sprzedaje tego, co nosi i dosta\xb3 od ciebie.'),
+	# MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: "Pelne EQ" - shares the row of
+	# "Skrzynki" (SHARED_ROWS).
+	('keep_loot', 'przechowuj', 1, 'Pe\xb3ne EQ',
+		'Przy twoim pe\xb3nym EQ zbiera tw\xf3j drop i trzyma go dla ciebie.'),
 )
 # What a switch's button says where "tak" and "nie" would not do, off and on,
 # and the button it needs for that: "nie wydaje" is wider than a small one.
@@ -244,8 +259,15 @@ TEXT_ROLE_NEEDS = 'Bonus wymaga Dowodzenia %s - daj mu Ksi\xeag\xea Dowodzenia.'
 SWITCH_TOP = 28
 ROW_STEP = 22
 # The Options page's rows: with the eighth (the Dragon Coins) a step of
-# twenty keeps every line on the page.
+# twenty keeps every line on the page. MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1:
+# with the ninth (the equipment lock) Guard and Buffs share the first row,
+# half of it each (SHARED_SWITCHES), so the page keeps its height.
 OPTION_STEP = 20
+SHARED_SWITCHES = 2
+# MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: "Pelne EQ" shares the row of
+# "Skrzynki" the same way, half of it each, so the page keeps its height:
+# a switch named here goes to the right half of the row of the one it names.
+SHARED_ROWS = {'keep_loot': 'chests'}
 ROW_HEIGHT = 21
 
 TEXT_WAITING = 'Czekam na odpowied\x9f serwera...'
@@ -295,6 +317,32 @@ ORDERS = (
 	('Raport', 'stan'),
 )
 TEXT_DISMISS = 'Odpraw'
+# MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: "Kup..." sends the companion for one kind
+# of goods (playerbot_sidekick_shop.h): "kup <key> <count>" is answered with
+# "SidekickShopQuote <key> <count> <cost> <market>" - the most the owner pays
+# up front, the rest coming back - and "kup <key> <count> tak" sends it.
+TEXT_SHOP = 'Kup...'
+TEXT_SHOP_TITLE = 'Zakupy towarzysza'
+TEXT_SHOP_COUNT = 'Ile? %s'
+TEXT_SHOP_ASK = '%d x %s'
+TEXT_SHOP_ASK_COST = 'Zap\xb3acisz z g\xf3ry %s%s Yang - reszta wr\xf3ci.'
+TEXT_SHOP_ASK_MAX = 'najwy\xbfej '
+TEXT_SHOP_HINTS = (
+	'Czerwone, niebieskie: Handlarka (cena NPC).',
+	'Strza\xb3y: Handlarz Broni\xb9 (cena NPC).',
+	'Zielone, fioletowe, peleryny: z targu.',
+	'P\xb3acisz ty, reszta yang wraca do ciebie.',
+	'Zakupy w\xb3o\xbfy ci do torby albo do swojej.',
+)
+SHOP_POTIONS = (('Czerwona', 'czerwona'), ('Niebieska', 'niebieska'), ('Zielona', 'zielona'),
+	('Fioletowa', 'fioletowa'))
+SHOP_SIZES = (('M', '1'), ('\x8c', '2'), ('D', '3'))
+SHOP_OTHER = (('Strza\xb3y', 'strzaly'), ('Peleryny', 'peleryna'))
+SHOP_NAMES = {'strzaly': 'Drewniana Strza\xb3a', 'peleryna': 'Peleryna M\xeastwa'}
+for _label, _key in SHOP_POTIONS:
+	for _size, _digit in SHOP_SIZES:
+		SHOP_NAMES[_key + _digit] = '%s Mikstura (%s)' % (_label, _size)
+SHOP_MAX_DIGITS = 4
 TEXT_DISMISS_ASK = 'Odprawi\xe6 towarzysza na dobre? Tego nie da si\xea cofn\xb9\xe6.'
 TEXT_INVENTORY = 'Ekwipunek'
 TEXT_STAT_MANUAL = 'Statystyki rozdaj\xea sam'
@@ -357,6 +405,17 @@ def ParseInt(value, default=0):
 _queue = {'pending': [], 'next': 0.0}
 
 
+# MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: nothing leaves outside the game phase
+# (warpsafe.py says why). With both windows open (the bag's 'eq' beside 'okno'
+# and 'umiejetnosci') a poll went out about every half second, so a teleport
+# with the bag open nearly always met the moment the new connection switches
+# its encryption. Orders given meanwhile wait in the queue, and the game
+# window's Close drops them with the windows (Destroy).
+def InGame():
+	import warpsafe
+	return warpsafe.InGame()
+
+
 def _Send(text, now):
 	_queue['next'] = now + COMMAND_SPACING
 	net.SendChatPacket('/towarzysz ' + text)
@@ -365,7 +424,7 @@ def _Send(text, now):
 def SendCommand(text):
 	"""An order: at once when the line is free, else after those before it."""
 	now = clientclock.Now()
-	if not _queue['pending'] and now >= _queue['next']:
+	if not _queue['pending'] and now >= _queue['next'] and InGame():
 		_Send(text, now)
 	else:
 		_queue['pending'].append(text)
@@ -374,6 +433,8 @@ def SendCommand(text):
 def PumpCommands():
 	"""Sends the next waiting order when its time has come; True when it did."""
 	if not _queue['pending']:
+		return False
+	if not InGame():
 		return False
 	now = clientclock.Now()
 	if now < _queue['next']:
@@ -385,6 +446,8 @@ def PumpCommands():
 def TryPoll(text):
 	"""A poll, only when no order waits and the line is free; True when sent."""
 	if _queue['pending']:
+		return False
+	if not InGame():
 		return False
 	now = clientclock.Now()
 	if now < _queue['next']:
@@ -449,6 +512,12 @@ def ParseInfo(args):
 	if len(values) >= len(names) + 11:
 		info['coins'] = ParseInt(values[len(names) + 9])
 		info['balance'] = ParseInt(values[len(names) + 10], -1)
+	# MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: "Zablokuj ekwipunek" after them.
+	if len(values) >= len(names) + 12:
+		info['equipment_lock'] = ParseInt(values[len(names) + 11])
+	# MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: "Pelne EQ" after it.
+	if len(values) >= len(names) + 13:
+		info['keep_loot'] = ParseInt(values[len(names) + 12])
 	return info
 
 
@@ -720,6 +789,10 @@ class SidekickWindow(ui.ScriptWindow):
 		self.nextSkillPoll = 0.0
 		self.question = None
 		self.statDialog = None
+		self.shopBoard = None
+		self.shopDialog = None
+		self.shopDialogKey = ''
+		self.shopQuote = None
 		self.statDialogKey = ''
 		self.resetVnum = 0
 		self.chosenSkill = 0
@@ -966,10 +1039,11 @@ class SidekickWindow(ui.ScriptWindow):
 		self.lootButtons = []
 		for i, text in enumerate(LOOTS):
 			self.lootButtons.append(self._Btn(page, 'middle', ORDER_COLUMNS[i], 239, text, self.OnLoot, i))
-		# Six orders fill both rows: "Odpraw" stands beside the bag.
-		left = PAGE_WIDTH // 2 - BUTTON_WIDTHS['large'] - 4
-		self.inventoryButton = self._Btn(page, 'large', left, 266, TEXT_INVENTORY, self.OnInventory)
-		self.dismissButton = self._Btn(page, 'large', PAGE_WIDTH // 2 + 4, 266, TEXT_DISMISS, self.OnDismiss)
+		# Six orders fill both rows: the bag, "Kup..." and "Odpraw" stand under
+		# them (MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1).
+		self.inventoryButton = self._Btn(page, 'middle', ORDER_COLUMNS[0], 266, TEXT_INVENTORY, self.OnInventory)
+		self.shopButton = self._Btn(page, 'middle', ORDER_COLUMNS[1], 266, TEXT_SHOP, self.OnShop)
+		self.dismissButton = self._Btn(page, 'middle', ORDER_COLUMNS[2], 266, TEXT_DISMISS, self.OnDismiss)
 		self.inventoryButton.ShowToolTip = ui.__mem_func__(self.OnOverBag)
 		self.inventoryButton.HideToolTip = ui.__mem_func__(self.HideToolTip)
 		self.ordersStatus = StatusLines([self._CenteredLabel(page, 291)], PAGE_WIDTH - 20)
@@ -1000,12 +1074,38 @@ class SidekickWindow(ui.ScriptWindow):
 		page = self.pages[PAGE_OPTIONS]
 		self._Section(page, 8, TEXT_SECTION_BEHAVIOUR)
 		self.switchRows = {}
+		half = SECTION_WIDTH // SHARED_SWITCHES
+		lines = {}
+		nextLine = 0
 		for i, (key, order, default, text, hint) in enumerate(SWITCHES):
-			self.switchRows[key] = self._Switch(page, SWITCH_TOP + i * OPTION_STEP, i, text, hint, self.OnSwitch, key)
+			# MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: the first SHARED_SWITCHES
+			# share a row, half of it each, with the stock small button.
+			# MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: and a switch of SHARED_ROWS
+			# takes the right half of the row of the switch it names.
+			partner = SHARED_ROWS.get(key)
+			if i < SHARED_SWITCHES:
+				switchLine, side = 0, i
+				nextLine = 1
+			elif partner in lines:
+				switchLine, side = lines[partner], 1
+			else:
+				switchLine, side = nextLine, (0 if key in SHARED_ROWS.values() else -1)
+				nextLine += 1
+			lines[key] = switchLine
+			y = SWITCH_TOP + switchLine * OPTION_STEP
+			row = self._Switch(page, y, switchLine, text, hint, self.OnSwitch, key)
+			if side >= 0:
+				x = SECTION_X + side * half
+				row[0].SetPosition(x, y)
+				row[0].SetSize(half - (1 if side == 0 else 0), ROW_HEIGHT - 1)
+				row[1].SetPosition(x + LINE_X - SECTION_X + 2, y + 3)
+				row[2].SetPosition(x + half - BUTTON_WIDTHS['small'] - 2, y - 1)
+			self.switchRows[key] = row
 		# "Lider grupy": the switch and, beside it, the bonus its Leadership
 		# gives the owner.
-		leadY = SWITCH_TOP + len(SWITCHES) * OPTION_STEP
-		self.leadRow = self._Switch(page, leadY, len(SWITCHES), TEXT_LEAD, TEXT_LEAD_HINT, self.OnLead)
+		rows = nextLine
+		leadY = SWITCH_TOP + rows * OPTION_STEP
+		self.leadRow = self._Switch(page, leadY, rows, TEXT_LEAD, TEXT_LEAD_HINT, self.OnLead)
 		self.roleButton = self._Btn(page, 'middle',
 			SECTION_X + SECTION_WIDTH - BUTTON_WIDTHS['small'] - BUTTON_WIDTHS['middle'] - 4, leadY - 1, '', self.OnRole)
 		self.roleButton.ShowToolTip = ui.__mem_func__(self.OnOverRole)
@@ -1662,22 +1762,89 @@ class SidekickWindow(ui.ScriptWindow):
 	def OnDismissCancel(self):
 		self.CloseQuestion()
 
+	# MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: what to buy, how many, and yes to
+	# the price the server names.
+	def OnShop(self):
+		self.CloseShopDialogs()
+		board = ShopBoard(ui.__mem_func__(self.OnShopGood))
+		board.Open()
+		self.shopBoard = board
+
+	def OnShopGood(self, key):
+		import uiCommon
+		self.CloseShopDialogs()
+		dialog = uiCommon.InputDialog()
+		dialog.SetTitle(TEXT_SHOP_COUNT % SHOP_NAMES.get(key, key))
+		dialog.SetNumberMode()
+		dialog.SetMaxLength(SHOP_MAX_DIGITS)
+		dialog.SetAcceptEvent(ui.__mem_func__(self.OnShopCountAccept))
+		dialog.SetCancelEvent(ui.__mem_func__(self.CloseShopDialogs))
+		dialog.Open()
+		self.shopDialog = dialog
+		self.shopDialogKey = key
+
+	def OnShopCountAccept(self):
+		dialog = self.shopDialog
+		key = self.shopDialogKey
+		count = ParseInt(dialog.GetText(), 0) if dialog else 0
+		self.CloseShopDialogs()
+		if key in SHOP_NAMES and count > 0:
+			self.SendCommand('kup %s %d' % (key, count))
+
+	def AskShopQuote(self, key, count, cost, market):
+		import uiCommon
+		if key not in SHOP_NAMES or count <= 0 or cost <= 0:
+			return
+		self.CloseQuestion()
+		self.CloseShopDialogs()
+		question = uiCommon.QuestionDialog2()
+		question.SetText1(TEXT_SHOP_ASK % (count, SHOP_NAMES[key]))
+		question.SetText2(TEXT_SHOP_ASK_COST % (TEXT_SHOP_ASK_MAX if market else '', FormatGold(cost)))
+		question.SetAcceptEvent(ui.__mem_func__(self.OnShopQuoteAccept))
+		question.SetCancelEvent(ui.__mem_func__(self.CloseQuestion))
+		question.Open()
+		self.question = question
+		self.shopQuote = (key, count)
+
+	def OnShopQuoteAccept(self):
+		quote = self.shopQuote
+		self.CloseQuestion()
+		if quote:
+			self.SendCommand('kup %s %d tak' % quote)
+			self.nextPoll = 0.0
+
+	def CloseShopDialogs(self):
+		board = self.shopBoard
+		dialog = self.shopDialog
+		self.shopBoard = None
+		self.shopDialog = None
+		self.shopDialogKey = ''
+		if board:
+			board.Destroy()
+		if dialog:
+			dialog.Close()
+
 	def CloseQuestion(self):
 		question = self.question
 		self.question = None
 		self.resetVnum = 0
+		self.shopQuote = None
 		if question:
 			question.Close()
 
 	def CloseDialogs(self):
 		self.CloseQuestion()
 		self.CloseStatDialog()
+		self.CloseShopDialogs()
 
 	# -------------------------------------------------------------- the clock
 
 	def OnUpdate(self):
 		for lines in (self.skillStatus, self.optionsStatus, self.ordersStatus):
 			lines.Update()
+		# MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: no polls on the way to another core.
+		if not InGame():
+			return
 		if PumpCommands():
 			return
 		now = clientclock.Now()
@@ -1762,6 +1929,12 @@ def OnServerGear(slot='0', name='-', *rest):
 	GetWindow().OnServerGear(slot, name)
 
 
+def OnServerShopQuote(key='', count='0', cost='0', market='0', *rest):
+	# MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: the price of a "Kup" errand, asked
+	# of the owner before the companion goes.
+	GetWindow().AskShopQuote(key, ParseInt(count), ParseInt(cost), ParseInt(market) != 0)
+
+
 def RefreshSkills():
 	"""The skill list and the stats changed (uisidekickinventory.py)."""
 	window = _window['window']
@@ -1787,6 +1960,85 @@ def Destroy():
 	if 'uisidekickinventory' in sys.modules:
 		sys.modules['uisidekickinventory'].Destroy()
 	ResetCommands()
+
+
+class ShopBoard(ui.BoardWithTitleBar):
+	"""MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: the goods a "Kup" errand may be
+	for - a potion of each colour in three sizes, arrows and capes; a click
+	names one and closes the board."""
+
+	WIDTH = 236
+
+	def __init__(self, event):
+		ui.BoardWithTitleBar.__init__(self)
+		self.widgets = []
+		self.event = event
+		rows = len(SHOP_POTIONS) + 1
+		self.AddFlag('movable')
+		self.AddFlag('float')
+		self.SetSize(self.WIDTH, 36 + rows * 24 + 8 + len(TEXT_SHOP_HINTS) * 14 + 12)
+		self.SetTitleName(TEXT_SHOP_TITLE)
+		self.SetCloseEvent(ui.__mem_func__(self.Close))
+		self.Build()
+		self.SetCenterPosition()
+
+	def Build(self):
+		y = 36
+		for label, key in SHOP_POTIONS:
+			self._Label(16, y + 3, label)
+			for i, (size, digit) in enumerate(SHOP_SIZES):
+				self._Btn('small', 90 + i * 46, y, size, key + digit)
+			y += 24
+		for i, (label, key) in enumerate(SHOP_OTHER):
+			self._Btn('large', 16 + i * 104, y, label, key)
+		y += 32
+		for hint in TEXT_SHOP_HINTS:
+			line = self._Label(16, y, hint)
+			line.SetPackedFontColor(COLOR_HINT)
+			y += 14
+
+	def _Label(self, x, y, text):
+		line = ui.TextLine()
+		line.SetParent(self)
+		line.SetPosition(x, y)
+		line.SetText(text)
+		line.Show()
+		self.widgets.append(line)
+		return line
+
+	def _Btn(self, size, x, y, text, key):
+		button = ui.Button()
+		button.SetParent(self)
+		button.SetPosition(x, y)
+		button.SetUpVisual(BUTTON_IMAGE % (size, 1))
+		button.SetOverVisual(BUTTON_IMAGE % (size, 2))
+		button.SetDownVisual(BUTTON_IMAGE % (size, 3))
+		button.SetText(text)
+		button.SAFE_SetEvent(self.OnPick, key)
+		button.Show()
+		self.widgets.append(button)
+		return button
+
+	def OnPick(self, key):
+		event = self.event
+		if event:
+			event(key)
+
+	def Open(self):
+		self.Show()
+		self.SetTop()
+
+	def Close(self):
+		self.Hide()
+
+	def OnPressEscapeKey(self):
+		self.Close()
+		return True
+
+	def Destroy(self):
+		self.Hide()
+		self.event = None
+		self.widgets = []
 
 
 class Keeper(object):

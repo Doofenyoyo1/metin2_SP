@@ -1,6 +1,7 @@
 ﻿#requires -Version 5.1
-# Co-op over the Internet (experimental, available on every install): the
-# host's PC keeps the world, a friend runs only the client. What this module does:
+# Co-op over the Internet (experimental; open to everybody, no password): the
+# host's PC keeps the world, a friend runs only the client. What this module
+# does:
 #
 #   network   the LAN interface with the default route, the address the
 #             Internet sees, the router's UPnP gateway and its WAN address -

@@ -36,6 +36,16 @@ BIOLOGIST_MISSIONS = (
     # attack speed, then sixty defence - and a casket.
     ("collect_quest_lv40", 40, "Księga Klątw", 15),
     ("collect_quest_lv50", 50, "Pamiątka Po Demonie", 15),
+    # And past fifty: lv50's last state runs lv60, and the chain goes on to
+    # lv90 (quest/collect of the package; lv92 is an empty stub there and no
+    # row). The card read "9/9" over every character of fifty and up, people
+    # and companions alike, as if the Biologist ended at the Demon Souvenir
+    # ("brakuje biologa po KK", Kordyl13, 2 October).
+    ("collect_quest_lv60", 60, "Matowy Lód", 20),
+    ("collect_quest_lv70", 70, "Konar Zelkova", 25),
+    ("collect_quest_lv80", 80, "Certyfikat Tugyisa", 30),
+    ("collect_quest_lv85", 85, "Czerw. Konar Duchodrzewa", 40),
+    ("collect_quest_lv90", 90, "Notatka Przywódcy", 50),
 )
 # A row whose monster stands on no map the bots' core hosts can never be
 # finished, and the game steps over it (GetActivePlayerBotBiologistMission,
@@ -53,6 +63,21 @@ BIOLOGIST_MISSIONS = (
 BIOLOGIST_UNREACHABLE = frozenset()
 BIOLOGIST_REACHABLE = tuple(
     m for m in BIOLOGIST_MISSIONS if m[0] not in BIOLOGIST_UNREACHABLE)
+# What a person can do and what a bot's AI will do are two sets past seventy.
+# Tugyi's Tablet comes only from the Giants of metin2_map_nusluck01 (70), a map
+# no bot travels to, so the core has no home for that row and steps over it
+# (PLAYERBOT_BIOLOGIST_MISSIONS, playerbot_types.h); lv85 and lv90 follow it in
+# the chain and the core has no rows for them. A person is counted against
+# every row; a bot against the rows its AI can finish, or every bot of eighty
+# would read 11/14 for ever.
+BIOLOGIST_BOT_UNREACHABLE = frozenset(("collect_quest_lv80", "collect_quest_lv85", "collect_quest_lv90"))
+BIOLOGIST_BOT_ROWS = tuple(
+    m for m in BIOLOGIST_REACHABLE if m[0] not in BIOLOGIST_BOT_UNREACHABLE)
+
+
+def biologist_rows(is_bot):
+    """The rows a character is counted against: a bot's AI's, or every row."""
+    return BIOLOGIST_BOT_ROWS if is_bot else BIOLOGIST_REACHABLE
 # The specimen each row wants, and how far past a row the game stops hunting
 # it. Both mirror playerbot_missions.h: a row the bot has outgrown by
 # BIOLOGIST_OUTGROWN_LEVELS is stepped over unless the bag already holds the
@@ -64,6 +89,8 @@ BIOLOGIST_ITEM_VNUMS = {
     "make_herb_lv15": 50704, "make_herb_lv20": 50705, "make_herb_lv25": 50706,
     "collect_quest_lv30": 30006,
     "collect_quest_lv40": 30047, "collect_quest_lv50": 30015,
+    "collect_quest_lv60": 30050, "collect_quest_lv70": 30165, "collect_quest_lv80": 30166,
+    "collect_quest_lv85": 30167, "collect_quest_lv90": 30168,
 }
 BIOLOGIST_OUTGROWN_LEVELS = 10
 # From this level a row's specimen is a refine material too, and the core takes
@@ -76,12 +103,17 @@ BIOLOGIST_COLLECT_QUEST_LEVEL = 30
 BIOLOGIST_KEY_ITEM_STATE = -1726153001
 BIOLOGIST_KEY_VNUMS = {
     "collect_quest_lv30": 30220, "collect_quest_lv40": 30221, "collect_quest_lv50": 30222,
+    "collect_quest_lv60": 30223, "collect_quest_lv70": 30224, "collect_quest_lv80": 30225,
+    "collect_quest_lv85": 30226, "collect_quest_lv90": 30227,
 }
 # The collect rows are one chain in the quests: the Orc Tooth's last state starts
 # the Curse Book and the Curse Book's the Demon Souvenir. The core keeps that order
 # (IsPlayerBotBiologistMissionOpen, playerbot_missions.h), and so does the panel.
 BIOLOGIST_CHAIN_PREVIOUS = {
     "collect_quest_lv40": "collect_quest_lv30", "collect_quest_lv50": "collect_quest_lv40",
+    "collect_quest_lv60": "collect_quest_lv50", "collect_quest_lv70": "collect_quest_lv60",
+    "collect_quest_lv80": "collect_quest_lv70", "collect_quest_lv85": "collect_quest_lv80",
+    "collect_quest_lv90": "collect_quest_lv85",
 }
 # Where each row's monster stands (PLAYERBOT_HUNTING_MOB_HOMES): the herb rows
 # hunt village game, which every first and second village hosts.
@@ -89,6 +121,12 @@ BIOLOGIST_VILLAGE_MAPS = frozenset((1, 3, 21, 23, 41, 43))
 BIOLOGIST_MOB_MAPS = {
     "collect_quest_lv30": frozenset((64,)), "collect_quest_lv40": frozenset((64,)),
     "collect_quest_lv50": frozenset((66,)),
+    # Sohan's ice (and the Grotto of Exile's golems, 1137, which carry the
+    # same Matowy Lod); the Forest's and the Red Forest's trees; the Giants;
+    # the Red Forest alone; and lv90's bosses, one or two on each of these maps.
+    "collect_quest_lv60": frozenset((61, 72)), "collect_quest_lv70": frozenset((67, 68)),
+    "collect_quest_lv80": frozenset((70,)), "collect_quest_lv85": frozenset((68,)),
+    "collect_quest_lv90": frozenset((61, 63, 64, 65, 104)),
 }
 
 # The official ``special.levelup_quest`` choices for the M1/M2 stage.  The
@@ -393,6 +431,9 @@ BOT_ACTION_LABELS = {
         # nastepny ruch" whatever it was really doing.
         14: "Łowi ryby", 15: "Przegląda stragany", 16: "Wabi potwory",
         17: "Odpoczywa w mieście", 18: "Kopie rudę",
+        # MT2009_PLUS_BOT_HERBALIST_FIX_V1: the herb bushes and Baek-Go's
+        # board, which walked under 6 ("Handluje") before.
+        19: "Zbiera zioła",
     },
     "en": {
         0: "Planning next move", 1: "Travelling", 2: "Fighting", 3: "Picking up loot",
@@ -401,6 +442,7 @@ BOT_ACTION_LABELS = {
         11: "Doing Biologist mission", 12: "Visiting the Stable Boy",
         13: "Keeping a stall", 14: "Fishing", 15: "Browsing stalls",
         16: "Luring monsters", 17: "Resting in town", 18: "Mining ore",
+        19: "Picking herbs",
     },
 }
 
@@ -1117,6 +1159,9 @@ def write_ai_item_policy(text):
         fh.write(text.replace("\r\n", "\n").rstrip("\n") + "\n")
     os.replace(tmp, AI_ITEM_POLICY)
 AI_W_MIN, AI_W_MAX, AI_W_NEUTRAL = 25, 250, 100
+# MT2009_PLUS_SALE_TAX_V1: the sale tax slider's top, the core's own
+# (playerbot_sale_tax.h MAX_PERCENT).
+SALE_TAX_MAX = 50
 # Errands the bots already take at every chance at 100, so their sliders can
 # only make them rarer (playerbot_config.h's IsPlayerBotWeightGateOpen): the
 # page stops them at 100, where the core does too.
@@ -1170,11 +1215,19 @@ def read_ai_weights():
     # MT2009_PLUS_SHOUTERS_V1) and the three medal droppers among them, Tieru's
     # (MT2009_PLUS_MEDAL_SHOUTERS_V1): on top of the bot count. On.
     vals["SHOUTERS"] = 1
+    # MT2009_PLUS_LEGENDS_V1: the bots' legends (playerbot_legends.h) - tiers,
+    # their built-in bonuses, the titles over their heads, the Kingdom
+    # Champions and the notices. On; off keeps the tiers in the database.
+    vals["LEGENDS"] = 1
     # A bot's haggle with a person over a line of the person's offline shop
     # too dear to buy at once (playerbot_haggle.h, MT2009_PLUS_BOT_HAGGLE_V1).
     # On; off is the market as it was.
     vals["HAGGLE"] = 1
     vals["SCRAP"] = 0
+    # MT2009_PLUS_SALE_TAX_V1: the percent of a sale between players and bots
+    # that leaves the game (playerbot_sale_tax.h, server-patches/saletax);
+    # 0 is no tax, the world as it was.
+    vals["SALE_TAX"] = 0
     # Percent of bots that rest on the market ring after a town errand; 100 is
     # the author's town, 0 is "every bot hunting".
     vals["REST"] = 100
@@ -1253,12 +1306,21 @@ def read_ai_weights():
                 if name == "SHOUTERS":
                     vals["SHOUTERS"] = 0 if parts[1].strip() in ("0", "off", "no") else 1
                     continue
+                if name == "LEGENDS":
+                    vals["LEGENDS"] = 0 if parts[1].strip() in ("0", "off", "no") else 1
+                    continue
                 if name == "HAGGLE":
                     vals["HAGGLE"] = 0 if parts[1].strip() in ("0", "off", "no") else 1
                     continue
                 if name == "SCRAP":
                     try:
                         vals["SCRAP"] = max(0, min(100, int(parts[1])))
+                    except ValueError:
+                        pass
+                    continue
+                if name == "SALE_TAX":
+                    try:
+                        vals["SALE_TAX"] = max(0, min(SALE_TAX_MAX, int(parts[1])))
                     except ValueError:
                         pass
                     continue
@@ -1371,11 +1433,16 @@ def write_ai_weights(vals):
     body.append("PERSONA\t%d" % (1 if vals.get("PERSONA", 1) else 0))
     # Not a weight: the three shouters of the first villages (1 = in the world).
     body.append("SHOUTERS\t%d" % (1 if vals.get("SHOUTERS", 1) else 0))
+    # Not a weight: the bots' legends (MT2009_PLUS_LEGENDS_V1), 1 = on.
+    body.append("LEGENDS\t%d" % (1 if vals.get("LEGENDS", 1) else 0))
     # Not a weight: whether a bot haggles with a person over a line too dear
     # to buy at once.
     body.append("HAGGLE\t%d" % (1 if vals.get("HAGGLE", 1) else 0))
     # Percent of stall keepers that sell scrap gear; 0 is off.
     body.append("SCRAP\t%d" % max(0, min(100, int(vals.get("SCRAP", 0)))))
+    # MT2009_PLUS_SALE_TAX_V1: percent of a sale between players and bots that
+    # leaves the game; 0 is no tax.
+    body.append("SALE_TAX\t%d" % max(0, min(SALE_TAX_MAX, int(vals.get("SALE_TAX", 0)))))
     # Percent of bots that rest in town after an errand; 0 means nobody does.
     body.append("REST\t%d" % max(0, min(100, int(vals.get("REST", 100)))))
     # Percent of bots hostile to the other kingdoms; 0 means the world is at
@@ -1895,6 +1962,205 @@ def read_player_guilds():
         g["empire_key"] = GUILD_EMPIRE_KEYS.get(g["empire"], "gl_empire_unknown")
         out.append(g)
     return out
+
+
+# ---- MT2009_PLUS_LEGENDS_V1: the bots' legends ---------------------------------
+# player.playerbot_legend is the game core's (playerbot_legends.h): a row a bot
+# with its tier (1 Distinguished, 2 Special, 3 Walking Legend, 4 Kingdom
+# Champion), reputation and counters; player.playerbot_legend_event its notable
+# moments. Both may be missing on a world whose core predates them.
+LEGEND_TIER_KEYS = {1: "lg_tier1", 2: "lg_tier2", 3: "lg_tier3", 4: "lg_tier4"}
+LEGEND_TIER_COLOURS = {1: "#7dd3fc", 2: "#c084fc", 3: "#f59e0b", 4: "#ef4444"}
+LEGEND_ACHIEVEMENTS = ((1, "\U0001F5E1", "lg_ach_plus9"), (2, "\u2B50", "lg_ach_lv75"),
+                       (4, "\U0001F31F", "lg_ach_lv99"), (8, "\U0001F409", "lg_ach_boss"),
+                       (16, "\u2620", "lg_ach_kills"), (32, "\U0001F451", "lg_ach_champ"))
+
+
+def legend_tier_label(tier, empire):
+    """The tier's name as the title over the bot's head says it."""
+    tier = int(tier or 0)
+    if tier == 4:
+        return "%s %s" % (t("lg_tier4"), t(GUILD_EMPIRE_KEYS.get(int(empire or 0), "gl_empire_unknown")))
+    return t(LEGEND_TIER_KEYS[tier]) if tier in LEGEND_TIER_KEYS else ""
+
+
+def read_legend_tiers(cur, pids):
+    """{pid: (tier, empire)} for the bots among pids that hold a tier; {} when
+    the table is missing or pids is empty."""
+    pids = [int(x) for x in pids if x]
+    if not pids:
+        return {}
+    out = {}
+    try:
+        for i in range(0, len(pids), 1000):
+            chunk = pids[i:i + 1000]
+            cur.execute("SELECT pid, tier, empire FROM player.playerbot_legend WHERE tier > 0 AND pid IN (%s)"
+                        % ",".join(["%s"] * len(chunk)), chunk)
+            for r in cur.fetchall():
+                out[int(r["pid"])] = (int(r["tier"] or 0), int(r["empire"] or 0))
+    except Exception:
+        return {}
+    return out
+
+
+def read_legends(empire=0, tier=0):
+    """(rows, events, missing): every tiered bot, the best first, with name,
+    level, guild and counters, and the last fifty events."""
+    rows, events = [], []
+    where, args = ["l.tier > 0"], []
+    if empire in (1, 2, 3):
+        where.append("l.empire = %s")
+        args.append(empire)
+    if tier in (1, 2, 3, 4):
+        where.append("l.tier = %s")
+        args.append(tier)
+    try:
+        with db() as c, c.cursor() as cur:
+            cur.execute(
+                "SELECT l.pid, l.tier, l.empire, l.reputation, l.player_kills, l.player_deaths, l.wars_won, "
+                "l.wars_lost, l.boss_kills, l.achievements, l.champion_count, l.tier_since, "
+                "p.name, p.level, p.job, CAST(g.name AS BINARY) AS guild, g.id AS guild_id "
+                "FROM player.playerbot_legend l "
+                "LEFT JOIN player.player p ON p.id = l.pid "
+                "LEFT JOIN player.guild_member gm ON gm.pid = l.pid "
+                "LEFT JOIN player.guild g ON g.id = gm.guild_id "
+                "WHERE " + " AND ".join(where) + " "
+                "ORDER BY l.tier DESC, l.reputation DESC, p.level DESC LIMIT 2000", args)
+            rows = cur.fetchall()
+    except Exception:
+        return [], [], True
+    try:
+        with db() as c, c.cursor() as cur:
+            cur.execute("SELECT e.at, e.pid, e.empire, e.kind, e.text, p.name FROM player.playerbot_legend_event e "
+                        "LEFT JOIN player.player p ON p.id = e.pid ORDER BY e.id DESC LIMIT 50")
+            events = cur.fetchall()
+    except Exception:
+        events = []
+    for r in rows:
+        r["guild"] = log_text(r.get("guild")) if r.get("guild") is not None else ""
+        r["tier"] = int(r.get("tier") or 0)
+        r["empire"] = int(r.get("empire") or 0)
+        r["tier_label"] = legend_tier_label(r["tier"], r["empire"])
+        r["colour"] = LEGEND_TIER_COLOURS.get(r["tier"], "#aaa")
+        r["empire_key"] = GUILD_EMPIRE_KEYS.get(r["empire"], "gl_empire_unknown")
+        ach = int(r.get("achievements") or 0)
+        r["ach"] = [(icon, t(key)) for bit, icon, key in LEGEND_ACHIEVEMENTS if ach & bit]
+    for e in events:
+        e["empire_key"] = GUILD_EMPIRE_KEYS.get(int(e.get("empire") or 0), "gl_empire_unknown")
+    return rows, events, False
+
+
+# ---- MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking and its titles ----------
+# player.weekly_rank_state (one row, id=1): on/off, the season's length in days,
+# its number and its start/end (unix time; end 0 = the game sets the next Monday
+# 00:00). player.weekly_rank_score: a season's counters per category and
+# character. player.weekly_rank_title: the holders of the titles DURING a season
+# (the winners of the one before), places 1..3. The game creates all three; a
+# world whose core predates them has none.
+# (cat, name key, title as the game shows it, bonus key, values for place 1..3, unit)
+WEEKLY_RANK_CATS = (
+    (1, "wr_cat1", "\u0141owca", "wr_b_monsters", (15, 8, 4), "%"),
+    (2, "wr_cat2", "Niszczyciel", "wr_b_monsters", (15, 8, 4), "%"),
+    (3, "wr_cat3", "Pogromca Boss\u00f3w", "wr_b_bosses", (15, 8, 4), "%"),
+    (4, "wr_cat4", "Zab\u00f3jca", "wr_b_humans", (15, 8, 4), "%"),
+    (5, "wr_cat5", "Podr\u00f3\u017cnik", "wr_b_monsters", (15, 8, 4), "%"),
+    (6, "wr_cat6", "Kowal", "wr_b_maxhp", (2500, 2000, 1500), ""),
+    (7, "wr_cat7", "Alchemik", "wr_b_attack", (75, 75, 75), ""),
+    (8, "wr_cat8", "Mistrz Poziom\u00f3w", "wr_b_both", (15, 8, 4), "%"),
+)
+WEEKLY_RANK_CAT = {c[0]: c for c in WEEKLY_RANK_CATS}
+WEEKLY_RANK_ROMAN = {1: "I", 2: "II", 3: "III"}
+
+
+def weekly_title_text(cat, place):
+    c = WEEKLY_RANK_CAT.get(int(cat or 0))
+    return ("%s %s" % (c[2], WEEKLY_RANK_ROMAN.get(int(place or 0), ""))).strip() if c else ""
+
+
+def weekly_bonus_text(cat, place):
+    c = WEEKLY_RANK_CAT.get(int(cat or 0))
+    place = int(place or 0)
+    if not c or place not in (1, 2, 3):
+        return ""
+    return "%s +%d%s" % (t(c[3]), c[4][place - 1], c[5])
+
+
+def weekly_fmt_ts(ts):
+    try:
+        ts = int(ts or 0)
+    except (TypeError, ValueError):
+        ts = 0
+    if ts <= 0:
+        return ""
+    return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
+
+
+def weekly_time_left(end):
+    """'2d 5h 10min' till the season's end; '' when the end is not set yet."""
+    try:
+        end = int(end or 0)
+    except (TypeError, ValueError):
+        end = 0
+    if end <= 0:
+        return ""
+    left = end - int(time.time())
+    if left <= 0:
+        return t("wr_ending")
+    d, rest = divmod(left, 86400)
+    h, rest = divmod(rest, 3600)
+    return "%dd %dh %dmin" % (d, h, rest // 60)
+
+
+def weekly_tidy(r):
+    r["empire"] = int(r.get("empire") or 0)
+    r["empire_key"] = GUILD_EMPIRE_KEYS.get(r["empire"], "gl_empire_unknown")
+    r["is_bot"] = bool(int(r.get("is_bot") or 0))
+    return r
+
+
+def read_weekly_ranking(cat=1):
+    """(state, holders, ranking, missing): the state row (defaults when it is
+    not there yet), the title holders of the current season by category, and
+    the live top 50 of one category. Read only."""
+    state = {"enabled": 1, "season_days": 7, "season": 1, "season_start": 0, "season_end": 0}
+    holders, ranking = {}, []
+    try:
+        with db() as c, c.cursor() as cur:
+            cur.execute("SELECT enabled, season_days, season, season_start, season_end "
+                        "FROM player.weekly_rank_state WHERE id = 1")
+            row = cur.fetchone()
+            if row:
+                state.update({k: int(row[k] or 0) for k in state})
+            season = state["season"]
+            cur.execute("SELECT t.cat, t.place, t.pid, t.name, t.level, t.empire, t.value, t.is_bot "
+                        "FROM player.weekly_rank_title t WHERE t.season = %s ORDER BY t.cat, t.place", (season,))
+            for r in cur.fetchall():
+                r = weekly_tidy(r)
+                r["title"] = weekly_title_text(r["cat"], r["place"])
+                r["bonus"] = weekly_bonus_text(r["cat"], r["place"])
+                holders.setdefault(int(r["cat"]), []).append(r)
+            if cat == 8:
+                cur.execute("SELECT p.id AS pid, p.name, p.level, p.exp AS value, pi.empire, "
+                            "(LEFT(a.login, 10) = 'playerbot_') AS is_bot "
+                            "FROM player.player p "
+                            "LEFT JOIN account.account a ON a.id = p.account_id "
+                            "LEFT JOIN player.player_index pi ON pi.id = p.account_id "
+                            "WHERE LEFT(p.name, 1) <> '[' "
+                            "ORDER BY p.level DESC, p.exp DESC LIMIT 50")
+            else:
+                cur.execute("SELECT s.pid, s.value, s.is_bot, p.name, p.level, pi.empire "
+                            "FROM player.weekly_rank_score s "
+                            "LEFT JOIN player.player p ON p.id = s.pid "
+                            "LEFT JOIN player.player_index pi ON pi.id = p.account_id "
+                            "WHERE s.season = %s AND s.cat = %s "
+                            "ORDER BY s.value DESC LIMIT 50", (season, cat))
+            ranking = [weekly_tidy(r) for r in cur.fetchall()]
+    except Exception:
+        return state, {}, [], True
+    state["start_text"] = weekly_fmt_ts(state["season_start"])
+    state["end_text"] = weekly_fmt_ts(state["season_end"])
+    state["left_text"] = weekly_time_left(state["season_end"])
+    return state, holders, ranking, False
 
 
 def read_chest_switch():
@@ -4139,6 +4405,10 @@ T.update({
                   "pl":"Mniej więcej co dwie godziny drużyna od czterech do ośmiu botów jednego królestwa - od 80. poziomu, z przejściem 9. piętra Wieży Demonów i Zasuszoną Głową w plecaku, jak loch wymaga od gracza - zbiera się przy Strażniku Katakumb w Świątyni Hwang (ogłoszenie na czacie), na pierwszym piętrze zdobywa klucz i schodzi piętrami jak w grze: wrota, Metiny Zemsty, labirynt, Tartar, Charon i Azrael. Gdy w środku jest gracz, to on klika, a boty walczą. „Teraz” zwołuje rajd przy najbliższym sprawdzeniu rdzenia (do minuty), jeśli żaden nie trwa i są boty, które mogą iść.",
                   "de":"Etwa alle zwei Stunden sammelt sich eine Gruppe von vier bis acht Bots eines Königreichs - ab Stufe 80, mit geschaffter neunter Etage des Dämonenturms und einem Getrockneten Kopf im Inventar, wie der Dungeon es von Spielern verlangt - beim Wächter der Katakomben im Hwang-Tempel (Ansage im Chat), holt im ersten Stock den Schlüssel und steigt die Etagen hinab wie im Spiel: Tore, Metine der Rache, Labyrinth, Tartar, Charon und Azrael. Ist ein Spieler drin, klickt der Spieler und die Bots kämpfen. 'Jetzt' ruft beim nächsten Check des Kerns (binnen einer Minute) einen Raid, wenn keiner läuft und Bots gehen dürfen.",
                   "tr":"Yaklaşık iki saatte bir, bir krallığın dört ila sekiz botundan oluşan bir grup - 80 ve üzeri seviye, Şeytan Kulesi'nin 9. katını bitirmiş ve çantasında Kurutulmuş Kafa olan, zindanın oyuncudan istediği gibi - Hwang Tapınağı'ndaki Yeraltı Mezarı Muhafızı'nda toplanır (sohbette duyurulur), birinci katta anahtarı bulur ve oyundaki gibi katları iner: kapılar, İntikam Metinleri, labirent, Tartar, Charon ve Azrael. İçeride bir oyuncu varsa tıklayan oyuncudur, botlar savaşır. 'Şimdi', hiçbiri sürmüyorsa ve gidebilecek botlar varsa çekirdeğin bir sonraki kontrolünde (bir dakika içinde) bir baskın çağırır."},
+ "rates_reprice_title": {"en":"Bots' shop prices","pl":"Ceny w sklepach botów","de":"Preise in den Läden der Bots","tr":"Botların dükkân fiyatları"},
+ "rates_reprice_help": {"en":"After a change of the rates or an update the bots reprice their counters slowly, on their own visits. This makes every bot reprice all its listed lines to the current price rules right away: the core edits the prices in place, a few bots a second, and leaves lines whose price is already within 1%. It also runs by itself a few minutes after an update and a minute after the yang rate changes.","pl":"Po zmianie rat lub aktualizacji boty przeliczają swoje sklepy powoli, przy własnych wizytach. Ten przycisk każe każdemu botowi od razu przeliczyć wszystkie wystawione przedmioty według obecnych zasad cen: rdzeń zmienia ceny na miejscu, kilka botów na sekundę, i pomija linie, których cena różni się o mniej niż 1%. Uruchamia się też sam kilka minut po aktualizacji i minutę po zmianie raty yang.","de":"Nach einer Änderung der Raten oder einem Update passen die Bots ihre Preise langsam an, bei ihren eigenen Besuchen. Damit berechnet jeder Bot sofort alle ausgestellten Posten nach den aktuellen Preisregeln neu: der Kern ändert die Preise an Ort und Stelle, einige Bots pro Sekunde, und lässt Posten aus, deren Preis schon innerhalb von 1% liegt. Läuft auch von selbst einige Minuten nach einem Update und eine Minute nach einer Änderung der Yang-Rate.","tr":"Oranlar değiştikten veya bir güncellemeden sonra botlar dükkânlarını kendi ziyaretlerinde yavaşça yeniden fiyatlar. Bu düğme her botun listelediği tüm ürünleri şimdiki fiyat kurallarına göre hemen yeniden fiyatlamasını sağlar: çekirdek fiyatları yerinde değiştirir, saniyede birkaç bot, ve fiyatı zaten %1 içinde olanları atlar. Bir güncellemeden birkaç dakika ve yang oranı değiştikten bir dakika sonra kendiliğinden de çalışır."},
+ "rates_reprice_now": {"en":"Reprice the bots' shops now","pl":"Przelicz ceny w sklepach botów teraz","de":"Preise in den Läden der Bots jetzt neu berechnen","tr":"Botların dükkân fiyatlarını şimdi yeniden hesapla"},
+ "rates_reprice_done": {"en":"Requested: every core starts repricing its bots' shops within a few seconds; the game log says PLAYERBOT_REPRICE_NOW: done with the bots, the lines changed and the time it took.","pl":"Zlecone: każdy rdzeń w ciągu kilku sekund zaczyna przeliczać sklepy swoich botów; w logu gry PLAYERBOT_REPRICE_NOW: done podaje boty, zmienione linie i czas.","de":"Angefordert: jeder Kern beginnt binnen weniger Sekunden, die Läden seiner Bots neu zu bepreisen; das Spiellog meldet PLAYERBOT_REPRICE_NOW: done mit Bots, geänderten Posten und Dauer.","tr":"İstendi: her çekirdek birkaç saniye içinde botlarının dükkânlarını yeniden fiyatlamaya başlar; oyun günlüğü PLAYERBOT_REPRICE_NOW: done ile botları, değişen satırları ve süreyi yazar."},
  "ai_catacomb_now": {"en":"Call a raid on Azrael now","pl":"Rajd na Azraela teraz","de":"Jetzt einen Azrael-Raid rufen","tr":"Şimdi bir Azrael baskını çağır"},
  "ai_catacomb_now_done": {"en":"Requested: the core calls a raid on its next check (within a minute) if none is under way and there are bots who may go.","pl":"Zlecone: rdzeń zwoła rajd przy najbliższym sprawdzeniu (do minuty), jeśli żaden nie trwa i są boty, które mogą iść.","de":"Angefordert: der Kern ruft beim nächsten Check (binnen einer Minute) einen Raid, wenn keiner läuft und Bots gehen dürfen.","tr":"İstendi: hiçbiri sürmüyorsa ve gidebilecek botlar varsa çekirdek bir sonraki kontrolde (bir dakika içinde) bir baskın çağırır."},
  "ai_bots_held_title": {"pl":"Boty czekają przy drzwiach","en":"The bots are waiting at the door",
@@ -4168,11 +4438,11 @@ T.update({
                   "de":"Ein Bot, der ein fertiges Ausrüstungsteil (ab +6) im Offline-Laden eines Spielers will, es aber teurer findet, als er zahlen würde (mit der Obergrenze der Bots für den Preis eines Spielers: höchstens das 1,5- bis 2-Fache des Marktpreises), flüstert dem Besitzer - einmal, mit verlinktem Gegenstand - sein Angebot und geht bis zu seinem letzten Preis, dem Höchsten, das er zahlt, wenn der Besitzer mehr will. Der Besitzer antwortet \"ok\", \"no\" oder mit einem eigenen Preis (\"5kk\") oder senkt einfach den Preis im Laden; sobald der Gegenstand den vereinbarten Preis (oder weniger) kostet, kommt der Bot und kauft ihn, innerhalb von zehn Minuten. Gefragt wird nur ein Besitzer, der auf dem Kern des Bots online ist; höchstens ein Feilschen gleichzeitig mit einer Person, drei Angebote pro Stunde an eine Person, ein Angebot zum selben Gegenstand in drei Stunden (zwölf nach einem Nein), drei gleichzeitig auf einem Kern. Was ein Bot sofort kauft, bleibt unverändert. Aus: kein Bot flüstert ein Angebot, und alle Abmachungen werden vergessen.",
                   "tr":"Bir oyuncunun çevrimdışı dükkânında bitmiş bir ekipman (+6 ve üstü) isteyen ama onu ödeyeceğinden pahalı bulan bot (botların oyuncu fiyatı sınırı dahil: eşyanın piyasa fiyatının en fazla 1,5-2 katı), sahibine bir kez, eşyanın bağlantısıyla teklifini fısıldar ve sahip daha fazlasını isterse son fiyatına, ödeyeceği en yüksek fiyata çıkar. Sahip \"ok\", \"no\" ya da kendi fiyatıyla (\"5kk\") cevap verir veya dükkândaki fiyatı düşürür; eşya anlaşılan fiyata (ya da daha azına) indiğinde bot gelip on dakika içinde satın alır. Yalnızca botun çekirdeğinde çevrimiçi olan sahibe sorulur; bir kişiyle aynı anda en fazla bir pazarlık, bir kişiye saatte üç teklif, aynı eşya için üç saatte bir teklif (bir hayırdan sonra on iki), bir çekirdekte aynı anda üç pazarlık. Botun hemen satın aldığı şeyler değişmez. Kapalı: hiçbir bot teklif fısıldamaz ve tüm anlaşmalar unutulur."},
  "ai_haggle_on": {"en":"Enabled","pl":"Włączone","de":"Eingeschaltet","tr":"Açık"},
- "ai_shop_m2":   {"en":"Bot stands in the second villages","pl":"Sklepy botów także w drugich wioskach (M2)","de":"Bot-Stände auch in den zweiten Dörfern (M2)","tr":"Bot tezgahları ikinci köylerde de (M2)"},
- "ai_shop_m2_help": {"en":"Off (the default): a bot opens its stand only in the first villages, where the players shop; an expired stand that stood in a second village is renewed on the first village's market ring at its owner's next service visit. On: the stands stand in both villages, as before.",
-                  "pl":"Wyłączone (domyślnie): bot otwiera sklep tylko w pierwszych wioskach, tam gdzie kupują gracze; sklep, który stał w drugiej wiosce, po wygaśnięciu zostaje odnowiony na rynku pierwszej wioski przy najbliższej wizycie właściciela. Włączone: sklepy stoją w obu wioskach, jak wcześniej.",
-                  "de":"Aus (Standard): ein Bot eröffnet seinen Stand nur in den ersten Dörfern, wo die Spieler einkaufen; ein abgelaufener Stand aus einem zweiten Dorf wird beim nächsten Besuch seines Besitzers auf dem Marktring des ersten Dorfes erneuert. An: die Stände stehen in beiden Dörfern, wie bisher.",
-                  "tr":"Kapalı (varsayılan): bot tezgahını yalnızca oyuncuların alışveriş yaptığı ilk köylerde açar; ikinci köyde duran ve süresi dolan tezgah, sahibinin bir sonraki ziyaretinde ilk köyün pazar halkasında yenilenir. Açık: tezgahlar eskisi gibi iki köyde de durur."},
+ "ai_shop_m2":   {"en":"Bots open their offline shops in the second villages (M2) too","pl":"Boty wystawiają sklepy offline również w M2","de":"Bots stellen ihre Offline-Läden auch in den zweiten Dörfern (M2) auf","tr":"Botlar çevrimdışı tezgahlarını ikinci köylerde (M2) de açar"},
+ "ai_shop_m2_help": {"en":"Only about where the bots' offline shops (stands) stand - not buying from NPC merchants. Off (the default): a bot opens its stand only in the first villages, where the players shop; an expired stand that stood in a second village is renewed on the first village's market ring at its owner's next service visit. On: the stands stand in both villages, as before.",
+                  "pl":"Dotyczy tylko miejsca, w którym boty wystawiają swoje sklepy offline (stragany) - nie zakupów u sprzedawców NPC. Wyłączone (domyślnie): bot otwiera sklep tylko w pierwszych wioskach, tam gdzie kupują gracze; sklep, który stał w drugiej wiosce, po wygaśnięciu zostaje odnowiony na rynku pierwszej wioski przy najbliższej wizycie właściciela. Włączone: sklepy stoją w obu wioskach, jak wcześniej.",
+                  "de":"Betrifft nur, wo die Bots ihre Offline-Läden (Stände) aufstellen - nicht das Einkaufen bei NPC-Händlern. Aus (Standard): ein Bot eröffnet seinen Stand nur in den ersten Dörfern, wo die Spieler einkaufen; ein abgelaufener Stand aus einem zweiten Dorf wird beim nächsten Besuch seines Besitzers auf dem Marktring des ersten Dorfes erneuert. An: die Stände stehen in beiden Dörfern, wie bisher.",
+                  "tr":"Yalnızca botların çevrimdışı tezgahlarını nereye kurduğuyla ilgilidir - NPC tüccarlardan alışverişle değil. Kapalı (varsayılan): bot tezgahını yalnızca oyuncuların alışveriş yaptığı ilk köylerde açar; ikinci köyde duran ve süresi dolan tezgah, sahibinin bir sonraki ziyaretinde ilk köyün pazar halkasında yenilenir. Açık: tezgahlar eskisi gibi iki köyde de durur."},
  "ai_shop_m2_on": {"en":"Allowed","pl":"Dozwolone","de":"Erlaubt","tr":"İzin verildi"},
  "ai_shouters":  {"en":"Shouters (6 bots)","pl":"Krzykacze (6 botów)","de":"Schreier (6 Bots)","tr":"Bağıranlar (6 bot)"},
  "ai_shouters_help": {"en":"Three extra bots, one per kingdom (apka2009, appka2009, apppka2009), on top of the bot count. They level up to 15, then stand without weapon and armour by the general store of their kingdom's first village and now and then shout a line on the shout channel (once per 20-30 channel lines, at least 10 minutes apart). They answer nothing: no whispers, parties, trades or guilds. Three more, Tieru, Tiieru and Tiiieru, one per kingdom, are medal droppers: they farm the Monkey Dungeon with their experience locked like the other medal droppers, sell medals at their counter and stall, and shout their own lines about medals on the same rules. Off: all six log out at once and do not come back until switched on again.",
@@ -4193,6 +4463,12 @@ T.update({
                   "tr":"Tezgâhçıların, düşük yükseltmelerini (+0 ile +3) NPC'ye satmak yerine ucuza tezgâha koyan payı - demircide yakmalık, hard sunuculardaki gibi. Varsayılan olarak kapalı."},
  "ai_scrap_off": {"en":"off","pl":"wyłączone","de":"aus","tr":"kapalı"},
  "ai_scrap_all": {"en":"every keeper","pl":"każdy straganiarz","de":"jeder Händler","tr":"her tezgâhçı"},
+ "ai_sale_tax":  {"en":"Tax on sales between players (%)","pl":"Podatek od sprzedaży między graczami (%)","de":"Steuer auf Verkäufe zwischen Spielern (%)","tr":"Oyuncular arası satış vergisi (%)"},
+ "ai_sale_tax_help": {"en":"A part of the price of an item sold to another player or bot (shops, the market, the bots' counters) leaves the game - it limits the amount of yang in circulation. 0% = no tax. Sales to NPCs are not taxed. The offline counters also keep their own tax (5% by default). Applies within seconds, no restart.",
+                  "pl":"Część ceny przedmiotu sprzedanego innemu graczowi lub botowi (sklepy, targ, lady botów) znika z gry - ogranicza ilość yang w obiegu. 0% = bez podatku. Sprzedaż NPC bez podatku. Lady offline pobierają ponadto swój własny podatek (domyślnie 5%). Działa po kilku sekundach, bez restartu.",
+                  "de":"Ein Teil des Preises eines Gegenstands, der an einen anderen Spieler oder Bot verkauft wird (Läden, Markt, Theken der Bots), verschwindet aus dem Spiel - das begrenzt die Menge an Yang im Umlauf. 0% = keine Steuer. Verkäufe an NPCs sind steuerfrei. Die Offline-Theken behalten zusätzlich ihre eigene Steuer (standardmäßig 5%). Wirkt nach wenigen Sekunden, ohne Neustart.",
+                  "tr":"Başka bir oyuncuya veya bota satılan bir eşyanın fiyatının bir kısmı (dükkanlar, pazar, botların tezgâhları) oyundan silinir - dolaşımdaki yang miktarını sınırlar. %0 = vergi yok. NPC'ye satışlar vergilendirilmez. Çevrimdışı tezgâhlar ayrıca kendi vergilerini alır (varsayılan %5). Birkaç saniye içinde, yeniden başlatmadan geçerli olur."},
+ "ai_sale_tax_off": {"en":"no tax","pl":"bez podatku","de":"keine Steuer","tr":"vergi yok"},
  "ai_rest":      {"en":"Resting in town","pl":"Odpoczynek w mieście","de":"Ausruhen in der Stadt","tr":"Şehirde dinlenme"},
  "ai_rest_help": {"en":"The share of bots that stay on the market ring for about three minutes after finishing their business in the first village, strolling between the stalls. 0 - nobody rests: the bots hunt all the time and only come to town on errands. Whatever the slider says, a bot under level 18 never rests, and with no stall open nobody browses stalls. With the bot personalities on, only bots in a poor mood rest, and the slider is the share of them.",
                   "pl":"Udział botów, które po załatwieniu spraw w pierwszej wiosce zostają na rynku około trzech minut i spacerują między straganami. 0 - nikt nie odpoczywa: boty cały czas expią, a do miasta przychodzą tylko w sprawach. Niezależnie od suwaka bot poniżej 18 poziomu nie odpoczywa nigdy, a bez wystawionego straganu nikt nie ogląda straganów. Przy włączonych osobowościach botów odpoczywają tylko boty w słabym nastroju, a suwak to ich udział.",
@@ -4251,6 +4527,93 @@ T.update({
  "gl_empire_chunjo": {"en":"Chunjo","pl":"Chunjo","de":"Chunjo","tr":"Chunjo"},
  "gl_empire_jinno":  {"en":"Jinno","pl":"Jinno","de":"Jinno","tr":"Jinno"},
  "gl_empire_unknown":{"en":"?","pl":"?","de":"?","tr":"?"},
+ # MT2009_PLUS_LEGENDS_V1: the bots' legends (playerbot_legends.h).
+ "ai_legends":   {"en":"Bot Legend system","pl":"System Legend botów","de":"Legendensystem der Bots","tr":"Bot efsane sistemi"},
+ "ai_legends_help": {"en":"Some bots get a tier for good: Distinguished (~4%), Special (~2%), two Walking Legends per kingdom and at most one Kingdom Champion (the Legend whose guild leads its kingdom's guild ranking, checked hourly). Tiers carry built-in bonuses (HP, strong vs humans and monsters, experience, skill books and Spirit Stones counting more, refine chance), better PvP and gear choices, Legends found and lead strong guilds and treat each other as rivals. Players see a coloured title above the nick, and notable events are announced in chat. Off: no bonuses, titles or announcements - the tiers and reputation stay in the database.","pl":"Część botów dostaje stałą rangę: Wyróżniający się (~4%), Specjalny (~2%), dwie Chodzące Legendy na królestwo i najwyżej jeden Czempion Królestwa (Legenda, której gildia prowadzi w rankingu gildii królestwa, sprawdzane co godzinę). Rangi dają wbudowane bonusy (PŻ, silny na ludzi i potwory, exp, księgi i Kamienie Duchowe liczone kilkukrotnie, szansa ulepszenia), lepsze PvP i dobór ekwipunku; Legendy zakładają i prowadzą silne gildie i traktują się jak rywale. Gracze widzą kolorowy tytuł nad nickiem, a ważne wydarzenia są ogłaszane na czacie. Wyłączone: bez bonusów, tytułów i ogłoszeń – rangi i reputacja zostają w bazie.","de":"Einige Bots erhalten dauerhaft einen Rang (Ausgezeichnet, Speziell, Wandelnde Legende, Champion des Königreichs) mit eingebauten Boni, Titeln über dem Namen und Ansagen im Chat. Aus: keine Boni, Titel oder Ansagen.","tr":"Bazı botlar kalıcı bir rütbe alır (Seçkin, Özel, Yürüyen Efsane, Krallık Şampiyonu): yerleşik bonuslar, isim üstü unvan ve sohbet duyuruları. Kapalı: bonus, unvan ve duyuru yok."},
+ "lg_nav":       {"en":"\U0001F3C6 Legends","pl":"\U0001F3C6 Legendy","de":"\U0001F3C6 Legenden","tr":"\U0001F3C6 Efsaneler"},
+ "lg_open":      {"en":"Open the Legend ranking","pl":"Otwórz ranking Legend","de":"Legenden-Rangliste öffnen","tr":"Efsane sıralamasını aç"},
+ "lg_dash_hint": {"en":"The bots' tiers, the Kingdom Champions and Walking Legends, reputation and the latest legend events.","pl":"Rangi botów, Czempioni i Chodzące Legendy królestw, reputacja i ostatnie wydarzenia legend.","de":"Ränge der Bots, Champions und Legenden, Ruf und letzte Ereignisse.","tr":"Bot rütbeleri, şampiyonlar, efsaneler, itibar ve son olaylar."},
+ "lg_intro":     {"en":"Tiers are kept in player.playerbot_legend and given by the game core; reputation grows with won guild wars, killed players, boss kills and achievements.","pl":"Rangi są w player.playerbot_legend i nadaje je rdzeń gry; reputacja rośnie za wygrane wojny gildii, zabitych graczy, bossów i osiągnięcia.","de":"Ränge stehen in player.playerbot_legend; Ruf wächst durch Gildenkriege, getötete Spieler, Bosse und Erfolge.","tr":"Rütbeler player.playerbot_legend tablosunda; itibar lonca savaşları, oyuncu ve boss öldürmeleri ile artar."},
+ "lg_missing":   {"en":"The table does not exist yet (start the server with the new version).","pl":"Tabela jeszcze nie istnieje (uruchom serwer z nową wersją).","de":"Die Tabelle existiert noch nicht (Server mit der neuen Version starten).","tr":"Tablo henüz yok (sunucuyu yeni sürümle başlatın)."},
+ "lg_off":       {"en":"The Legend system is switched off in the bot behaviour settings: tiers are kept, but no bonuses, titles or announcements.","pl":"System Legend jest wyłączony w zachowaniu botów: rangi zostają, ale bez bonusów, tytułów i ogłoszeń.","de":"Das Legendensystem ist ausgeschaltet.","tr":"Efsane sistemi kapalı."},
+ "lg_tier1":     {"en":"Distinguished","pl":"Wyróżniający się","de":"Ausgezeichnet","tr":"Seçkin"},
+ "lg_tier2":     {"en":"Special","pl":"Specjalny","de":"Speziell","tr":"Özel"},
+ "lg_tier3":     {"en":"Walking Legend","pl":"Chodząca Legenda","de":"Wandelnde Legende","tr":"Yürüyen Efsane"},
+ "lg_tier4":     {"en":"Champion","pl":"Czempion","de":"Champion","tr":"Şampiyon"},
+ "lg_heads":     {"en":"Champions and Legends","pl":"Czempioni i Legendy","de":"Champions und Legenden","tr":"Şampiyonlar ve Efsaneler"},
+ "lg_no_champion":{"en":"no Champion","pl":"brak Czempiona","de":"kein Champion","tr":"şampiyon yok"},
+ "lg_no_legend": {"en":"no Legends yet","pl":"brak Legend","de":"keine Legenden","tr":"efsane yok"},
+ "lg_ranking":   {"en":"Ranking","pl":"Ranking","de":"Rangliste","tr":"Sıralama"},
+ "lg_all":       {"en":"all","pl":"wszystkie","de":"alle","tr":"hepsi"},
+ "lg_filter":    {"en":"Show","pl":"Pokaż","de":"Zeigen","tr":"Göster"},
+ "lg_col_tier":  {"en":"Tier","pl":"Ranga","de":"Rang","tr":"Rütbe"},
+ "lg_col_nick":  {"en":"Nick","pl":"Nick","de":"Name","tr":"İsim"},
+ "lg_col_rep":   {"en":"Reputation","pl":"Reputacja","de":"Ruf","tr":"İtibar"},
+ "lg_col_kills": {"en":"Players killed","pl":"Zabici gracze","de":"Getötete Spieler","tr":"Öldürülen oyuncu"},
+ "lg_col_deaths":{"en":"Died to players","pl":"Polegli od graczy","de":"Von Spielern getötet","tr":"Oyunculara ölüm"},
+ "lg_col_wars":  {"en":"Wars won/lost","pl":"Wojny wygr./przegr.","de":"Kriege gew./verl.","tr":"Savaş kaz./kay."},
+ "lg_col_boss":  {"en":"Bosses","pl":"Bossowie","de":"Bosse","tr":"Bosslar"},
+ "lg_col_ach":   {"en":"Achievements","pl":"Osiągnięcia","de":"Erfolge","tr":"Başarılar"},
+ "lg_col_since": {"en":"Tier since","pl":"Ranga od","de":"Rang seit","tr":"Rütbe tarihi"},
+ "lg_none":      {"en":"No tiered bots yet.","pl":"Jeszcze żaden bot nie ma rangi.","de":"Noch keine Bots mit Rang.","tr":"Henüz rütbeli bot yok."},
+ "lg_events":    {"en":"Latest legend events","pl":"Ostatnie wydarzenia legend","de":"Letzte Ereignisse","tr":"Son olaylar"},
+ "lg_no_events": {"en":"Nothing has happened yet.","pl":"Jeszcze nic się nie wydarzyło.","de":"Noch nichts passiert.","tr":"Henüz bir şey olmadı."},
+ "lg_ach_plus9": {"en":"+9 weapon","pl":"broń +9","de":"Waffe +9","tr":"+9 silah"},
+ "lg_ach_lv75":  {"en":"level 75","pl":"poziom 75","de":"Stufe 75","tr":"seviye 75"},
+ "lg_ach_lv99":  {"en":"level 99","pl":"poziom 99","de":"Stufe 99","tr":"seviye 99"},
+ "lg_ach_boss":  {"en":"first boss","pl":"pierwszy boss","de":"erster Boss","tr":"ilk boss"},
+ "lg_ach_kills": {"en":"100 players killed","pl":"100 zabitych graczy","de":"100 getötete Spieler","tr":"100 oyuncu"},
+ "lg_ach_champ": {"en":"was a Champion","pl":"był Czempionem","de":"war Champion","tr":"şampiyon oldu"},
+ # MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking and its titles.
+ "wr_nav":       {"en":"\U0001F947 Weekly ranking","pl":"\U0001F947 Ranking tygodniowy","de":"\U0001F947 Wochenrangliste","tr":"\U0001F947 Haftalık sıralama"},
+ "wr_open":      {"en":"Open the weekly ranking","pl":"Otwórz ranking tygodniowy","de":"Wochenrangliste öffnen","tr":"Haftalık sıralamayı aç"},
+ "wr_dash_hint": {"en":"Weekly seasons in eight categories; the top three of each get a title with a bonus for the whole next season.","pl":"Tygodniowe sezony w ośmiu kategoriach; najlepsza trójka każdej dostaje tytuł z bonusem na cały następny sezon.","de":"Wöchentliche Saisons in acht Kategorien; die besten drei erhalten einen Titel mit Bonus für die nächste Saison.","tr":"Sekiz kategoride haftalık sezonlar; ilk üç, sonraki sezon için bonuslu bir unvan alır."},
+ "wr_missing":   {"en":"The weekly ranking tables do not exist yet - start the game server (the new version creates them).","pl":"Tabele rankingu tygodniowego jeszcze nie istnieją – uruchom serwer gry (nowa wersja je tworzy).","de":"Die Tabellen existieren noch nicht - den Spielserver starten.","tr":"Tablolar henüz yok - oyun sunucusunu başlatın."},
+ "wr_settings":  {"en":"Settings","pl":"Ustawienia","de":"Einstellungen","tr":"Ayarlar"},
+ "wr_enabled":   {"en":"Weekly ranking on","pl":"Ranking tygodniowy włączony","de":"Wochenrangliste an","tr":"Haftalık sıralama açık"},
+ "wr_days":      {"en":"Season length (days, 1-28)","pl":"Długość sezonu (dni, 1-28)","de":"Saisonlänge (Tage, 1-28)","tr":"Sezon uzunluğu (gün, 1-28)"},
+ "wr_save":      {"en":"Save","pl":"Zapisz","de":"Speichern","tr":"Kaydet"},
+ "wr_end_now":   {"en":"End the season now","pl":"Zakończ sezon teraz","de":"Saison jetzt beenden","tr":"Sezonu şimdi bitir"},
+ "wr_end_confirm":{"en":"End the current season now? The game hands out the titles within about 2 minutes.","pl":"Zakończyć bieżący sezon teraz? Gra rozda tytuły w ciągu ok. 2 minut.","de":"Die Saison jetzt beenden?","tr":"Sezon şimdi bitirilsin mi?"},
+ "wr_help":      {"en":"A changed length takes effect from the next season. By default the season resets on Monday at 00:00 (7 days). Off: nothing is counted, no bonuses, the titles are hidden.","pl":"Zmieniona długość obowiązuje od następnego sezonu. Domyślnie sezon resetuje się w poniedziałek o 00:00 (7 dni). Wyłączony: nic nie jest liczone, brak bonusów, tytuły są ukryte.","de":"Eine geänderte Länge gilt ab der nächsten Saison. Standard: Reset Montag 00:00 (7 Tage). Aus: keine Zählung, keine Boni, Titel verborgen.","tr":"Değişen uzunluk sonraki sezondan geçerlidir. Varsayılan: pazartesi 00:00 (7 gün). Kapalı: sayım yok, bonus yok, unvanlar gizli."},
+ "wr_saved":     {"en":"Saved. The game applies it within about 2 minutes.","pl":"Zapisano. Gra zastosuje to w ciągu ok. 2 minut.","de":"Gespeichert.","tr":"Kaydedildi."},
+ "wr_ended":     {"en":"The season ends now - the game rolls it over within about 2 minutes and announces the results.","pl":"Sezon kończy się teraz – gra przełączy go w ciągu ok. 2 minut i ogłosi wyniki.","de":"Die Saison endet jetzt.","tr":"Sezon şimdi bitiyor."},
+ "wr_failed":    {"en":"Could not save - the weekly ranking tables do not exist yet (start the game server).","pl":"Nie udało się zapisać – tabele rankingu tygodniowego jeszcze nie istnieją (uruchom serwer gry).","de":"Speichern fehlgeschlagen.","tr":"Kaydedilemedi."},
+ "wr_off":       {"en":"The weekly ranking is switched off: nothing is counted, no bonuses, titles hidden.","pl":"Ranking tygodniowy jest wyłączony: nic nie jest liczone, brak bonusów, tytuły ukryte.","de":"Die Wochenrangliste ist aus.","tr":"Haftalık sıralama kapalı."},
+ "wr_season":    {"en":"Current season","pl":"Bieżący sezon","de":"Aktuelle Saison","tr":"Mevcut sezon"},
+ "wr_season_no": {"en":"Season","pl":"Sezon","de":"Saison","tr":"Sezon"},
+ "wr_start":     {"en":"Start","pl":"Początek","de":"Beginn","tr":"Başlangıç"},
+ "wr_end":       {"en":"End","pl":"Koniec","de":"Ende","tr":"Bitiş"},
+ "wr_left":      {"en":"Time left","pl":"Pozostało","de":"Verbleibend","tr":"Kalan"},
+ "wr_end_unset": {"en":"not set yet (the game sets the next Monday 00:00)","pl":"jeszcze nie ustawiony (gra ustawi najbliższy poniedziałek 00:00)","de":"noch nicht gesetzt (nächster Montag 00:00)","tr":"henüz yok (sonraki pazartesi 00:00)"},
+ "wr_ending":    {"en":"ending (within ~2 min)","pl":"kończy się (w ciągu ~2 min)","de":"endet (~2 Min.)","tr":"bitiyor (~2 dk)"},
+ "wr_holders":   {"en":"Current title holders","pl":"Obecni posiadacze tytułów","de":"Aktuelle Titelträger","tr":"Mevcut unvan sahipleri"},
+ "wr_no_holders":{"en":"no titles this season","pl":"brak tytułów w tym sezonie","de":"keine Titel","tr":"unvan yok"},
+ "wr_live":      {"en":"Live ranking (top 50)","pl":"Ranking na żywo (top 50)","de":"Live-Rangliste (Top 50)","tr":"Canlı sıralama (ilk 50)"},
+ "wr_category":  {"en":"Category","pl":"Kategoria","de":"Kategorie","tr":"Kategori"},
+ "wr_col_place": {"en":"Place","pl":"Miejsce","de":"Platz","tr":"Sıra"},
+ "wr_col_type":  {"en":"Type","pl":"Typ","de":"Typ","tr":"Tür"},
+ "wr_col_value": {"en":"Value","pl":"Wynik","de":"Wert","tr":"Değer"},
+ "wr_col_exp":   {"en":"Experience","pl":"Doświadczenie","de":"Erfahrung","tr":"Tecrübe"},
+ "wr_col_title": {"en":"Title","pl":"Tytuł","de":"Titel","tr":"Unvan"},
+ "wr_col_bonus": {"en":"Bonus","pl":"Bonus","de":"Bonus","tr":"Bonus"},
+ "wr_bot":       {"en":"Bot","pl":"Bot","de":"Bot","tr":"Bot"},
+ "wr_player":    {"en":"Player","pl":"Gracz","de":"Spieler","tr":"Oyuncu"},
+ "wr_none":      {"en":"Nobody has scored in this category yet this season.","pl":"W tej kategorii nikt jeszcze nie zdobył punktów w tym sezonie.","de":"Noch keine Punkte in dieser Kategorie.","tr":"Bu kategoride henüz puan yok."},
+ "wr_cat1":      {"en":"Monsters killed","pl":"Zabite potwory","de":"Getötete Monster","tr":"Öldürülen canavar"},
+ "wr_cat2":      {"en":"Metin stones destroyed","pl":"Zniszczone metiny","de":"Zerstörte Metinsteine","tr":"Yok edilen metin taşı"},
+ "wr_cat3":      {"en":"Bosses defeated","pl":"Pokonane bossy","de":"Besiegte Bosse","tr":"Yenilen boss"},
+ "wr_cat4":      {"en":"Players killed (PvP)","pl":"Zabici gracze (PvP)","de":"Getötete Spieler (PvP)","tr":"Öldürülen oyuncu (PvP)"},
+ "wr_cat5":      {"en":"Dungeons completed","pl":"Ukończone wyprawy (dungeony)","de":"Abgeschlossene Dungeons","tr":"Tamamlanan zindan"},
+ "wr_cat6":      {"en":"Successful item upgrades","pl":"Udane ulepszenia przedmiotów","de":"Erfolgreiche Verbesserungen","tr":"Başarılı yükseltme"},
+ "wr_cat7":      {"en":"Alchemy (successful Dragon Stone upgrades)","pl":"Alchemia (udane ulepszenia Smoczych Kamieni)","de":"Alchemie (Drachensteine verbessert)","tr":"Simya (ejderha taşı yükseltme)"},
+ "wr_cat8":      {"en":"Level","pl":"Poziom","de":"Stufe","tr":"Seviye"},
+ "wr_b_monsters":{"en":"strong against monsters","pl":"silny przeciwko potworom","de":"stark gegen Monster","tr":"canavarlara karşı güçlü"},
+ "wr_b_bosses":  {"en":"strong against bosses","pl":"silny przeciwko bossom","de":"stark gegen Bosse","tr":"bosslara karşı güçlü"},
+ "wr_b_humans":  {"en":"strong against humans","pl":"silny przeciwko ludziom","de":"stark gegen Menschen","tr":"insanlara karşı güçlü"},
+ "wr_b_maxhp":   {"en":"max HP","pl":"max PŻ","de":"max. TP","tr":"maks. HP"},
+ "wr_b_attack":  {"en":"attack value","pl":"wartość ataku","de":"Angriffswert","tr":"saldırı değeri"},
+ "wr_b_both":    {"en":"strong against monsters and humans","pl":"silny przeciwko potworom i ludziom","de":"stark gegen Monster und Menschen","tr":"canavar ve insanlara karşı güçlü"},
  "gl_col_name":  {"en":"Guild","pl":"Gildia","de":"Gilde","tr":"Lonca"},
  "gl_col_kingdom":{"en":"Kingdom","pl":"Królestwo","de":"Königreich","tr":"Krallık"},
  "gl_col_tier":  {"en":"Tier","pl":"Klasa","de":"Stufe","tr":"Kademe"},
@@ -4424,10 +4787,10 @@ T.update({
                  "de":"Wie viele Bots Erz abbauen und wie lange sie von den Adern ruhen. Mit eingeschalteten Persönlichkeiten (Standard) baut jeder Bot ab Stufe 30 mit einer Spitzhacke eine Ader in Sichtweite ab - unter 100 schließt der Regler die Adern für einen Teil von ihnen, jeweils eine halbe Stunde; ohne sie baut ein fester Anteil der Bots ab (Sammler öfter). Die Pause zwischen zwei Sitzungen wird kürzer, wenn der Regler steigt, und länger, wenn er sinkt.",
                  "tr":"Kaç botun cevher kazdığı ve damarlardan ne kadar dinlendiği. Kişilikler açıkken (varsayılan) kazması olan 30. seviye ve üstündeki her bot görüş alanındaki bir damarı kazar - 100 altında kaydırıcı damarları bir kısmına yarım saatliğine kapatır; kapalıyken botların sabit bir payı kazar (toplayıcılar daha sık). İki oturum arasındaki mola kaydırıcı yükseldikçe kısalır, düştükçe uzar."},
  "aiw_HERB":     {"en":"Herbalism","pl":"Zielarstwo","de":"Kräuterkunde","tr":"Bitkicilik"},
- "aih_HERB":    {"en":"How many bots work Baek-Go's herbalism board and how often. With the personalities on (the default) it is the Conqueror's errand from level 45; under 100 the board is closed to a share of them, half an hour at a time, and over 100 a share of the bots from level 15 comes too (all of them at 250). The wait between two visits shrinks as the slider goes up. Bots do not pick plants: the herbs come from the monsters' drops.",
-                 "pl":"Ilu botów pracuje przy stole zielarskim Baek-Go i jak często. Przy włączonych osobowościach (domyślnie) to zadanie Zdobywcy od 45 poziomu; poniżej 100 stół jest zamknięty dla części z nich, na pół godziny, a powyżej 100 dochodzi część botów od 15 poziomu (przy 250 wszystkie). Przerwa między wizytami skraca się, gdy suwak idzie w górę. Boty nie zbierają roślin: zioła mają z dropu potworów.",
-                 "de":"Wie viele Bots an Baek-Gos Kräutertisch arbeiten und wie oft. Mit eingeschalteten Persönlichkeiten (Standard) ist es die Aufgabe des Eroberers ab Stufe 45; unter 100 ist der Tisch für einen Teil von ihnen jeweils eine halbe Stunde geschlossen, und über 100 kommt ein Teil der Bots ab Stufe 15 hinzu (bei 250 alle). Die Pause zwischen zwei Besuchen wird kürzer, wenn der Regler steigt. Bots pflücken keine Pflanzen: Die Kräuter stammen aus der Beute der Monster.",
-                 "tr":"Kaç botun Baek-Go'nun bitki masasında çalıştığı ve ne sıklıkla. Kişilikler açıkken (varsayılan) 45. seviyeden itibaren Fatih'in işidir; 100 altında masa bir kısmına yarım saatliğine kapanır, 100 üstünde 15. seviyeden botların bir kısmı da gelir (250 değerinde hepsi). İki ziyaret arasındaki bekleme kaydırıcı yükseldikçe kısalır. Botlar bitki toplamaz: bitkiler canavarların düşürdüklerinden gelir."},
+ "aih_HERB":    {"en":"How many bots pick herbs and brew at Baek-Go, and how often. Picking is an activity like fishing and mining: every half hour each bot from level 15 (outside a party, not a dropper) rolls against a share - 8% at 100, 25% for collectors, a little more once it owns a knife - stretched or shrunk by the slider; then it buys the Herbalist's Knife, picks the herb bushes of its map for 12-25 minutes as a Herbalist (Zielarz), brews what it picked at Baek-Go and goes back to its normal play (levelling, hunting, quests, gear, market). The rest between two sessions (40-90 minutes) shrinks as the slider goes up. The brewed potions over the bot's own reserve go on its counter at the price list's prices. With the personalities on a Conqueror from level 45 also brews the herbs he drops; under 100 the board and the bushes are closed to a share of the bots, half an hour at a time, and over 100 a share of the bots from level 15 brews too (all of them at 250).",
+                 "pl":"Ilu botów zbiera zioła i warzy mikstury u Baek-Go, i jak często. Zbieranie ziół to zajęcie jak wędkarstwo i górnictwo: co pół godziny każdy bot od 15 poziomu (poza grupą, nie dropper) losuje według udziału - 8% przy 100, 25% dla zbieraczy, trochę więcej, gdy ma już nożyk - rozciągniętego lub zmniejszonego suwakiem; wtedy kupuje nożyk zielarza, przez 12-25 minut jako Zielarz zbiera krzaki ziół na swojej mapie, warzy zebrane zioła u Baek-Go i wraca do normalnej gry (expienie, polowanie, misje, ekwipunek, handel). Przerwa między sesjami (40-90 minut) skraca się, gdy suwak idzie w górę. Uwarzone mikstury ponad własny zapas bota trafiają na jego sklep po cenach z cennika. Przy włączonych osobowościach Zdobywca od 45 poziomu też warzy zioła z dropu; poniżej 100 stół i krzaki są zamknięte dla części botów, na pół godziny, a powyżej 100 warzy też część botów od 15 poziomu (przy 250 wszystkie).",
+                 "de":"Wie viele Bots Kräuter sammeln und bei Baek-Go brauen, und wie oft. Kräutersammeln ist eine Beschäftigung wie Angeln und Bergbau: jede halbe Stunde würfelt jeder Bot ab Stufe 15 (außerhalb einer Gruppe, kein Dropper) gegen einen Anteil - 8% bei 100, 25% für Sammler, etwas mehr, wenn er schon ein Messer hat -, den der Regler streckt oder verkleinert; dann kauft er das Kräutermesser, sammelt 12-25 Minuten lang als Kräuterkundiger die Kräuterbüsche seiner Karte, braut das Gesammelte bei Baek-Go und spielt danach normal weiter (Leveln, Jagen, Quests, Ausrüstung, Markt). Die Pause zwischen zwei Sitzungen (40-90 Minuten) wird kürzer, je höher der Regler steht. Gebraute Tränke über dem eigenen Vorrat kommen zu den Preisen der Preisliste in seinen Laden. Unter 100 sind Tisch und Büsche für einen Teil der Bots je eine halbe Stunde geschlossen, über 100 braut auch ein Teil der Bots ab Stufe 15 (bei 250 alle).",
+                 "tr":"Kaç botun bitki topladığı ve Baek-Go'da iksir yaptığı, ne sıklıkla. Bitki toplamak balıkçılık ve madencilik gibi bir uğraştır: her yarım saatte 15. seviyeden itibaren her bot (grupta değilse, dropper değilse) bir paya karşı zar atar - 100'de %8, toplayıcılar için %25, bıçağı varsa biraz daha - ve kaydırıcı bu payı büyütür ya da küçültür; sonra Bitkici Bıçağını alır, 12-25 dakika boyunca Bitkici olarak haritasındaki bitki çalılarını toplar, topladıklarını Baek-Go'da iksire çevirir ve normal oyununa döner (seviye, avlanma, görevler, ekipman, pazar). İki oturum arasındaki mola (40-90 dakika) kaydırıcı yükseldikçe kısalır. Botun kendi stokunun üzerindeki iksirler fiyat listesindeki fiyatlarla dükkanına konur. 100'ün altında masa ve çalılar botların bir kısmına yarım saatliğine kapanır, 100'ün üstünde 15. seviyeden botların bir kısmı da iksir yapar (250'de hepsi)."},
  "aih_TRADE":   {"en":"How many bots keep a stall. The slider does not touch a Merchant personality, a bot that cannot afford its potions, a full bag, a dropper under bag pressure, nor valuable spares and a gambler's goods (the counter is how they get rid of them). It moves the rest: the surplus-books stall (already every such bot at 100, so it only goes down), the dropper's roll and the one-in-ten. On r40250 standing stalls re-check within five minutes; on the 2.x line an offline stand is never closed early - a lower slider only stops its renewal when its eight hours run out. The status says why each one is open.",
                  "pl":"Ilu botów trzyma stragan. Suwak nie rusza osobowości Handlarz, bota bez yang na mikstury, pełnego plecaka, droppera pod presją plecaka ani cennych zapasowych rzeczy i towaru hazardzisty (lada to sposób, żeby się ich pozbyć). Rusza resztę: stragan z nadmiaru ksiąg (przy 100 ma go już każdy taki bot, więc działa tylko w dół), los droppera i „jeden na dziesięciu”. Na r40250 stojące stragany sprawdzają się ponownie do pięciu minut po zmianie; na linii 2.x sklep offline nie jest zamykany wcześniej - niższy suwak tylko wstrzymuje jego odnowienie po ośmiu godzinach. Status mówi, dlaczego każdy jest otwarty.",
                  "de":"Wie viele Bots einen Stand führen. Der Regler berührt weder die Händler-Persönlichkeit noch einen Bot ohne Yang für Tränke, einen vollen Beutel, einen Dropper unter Beuteldruck oder wertvolle Ersatzstücke und die Ware eines Glücksspielers (der Stand ist ihr Weg, sie loszuwerden). Er bewegt den Rest: den Bücher-Stand (bei 100 schon jeder solche Bot, also nur nach unten), den Dropper-Wurf und den Einen-von-zehn. Auf r40250 prüfen stehende Stände sich binnen fünf Minuten neu; auf der 2.x-Linie wird ein Offline-Laden nie früher geschlossen - ein niedrigerer Regler stoppt nur seine Verlängerung nach acht Stunden. Der Status sagt, warum jeder offen ist.",
@@ -6747,6 +7110,17 @@ TPL_DASH = BASE.replace("__BODY__", """
 <p class="muted">{{t('gl_dash_hint')}}</p>
 <a class="btn" href="{{url_for('guilds_page')}}">{{t('gl_open')}}</a>
 </div>
+<div class="card">
+<h3 class="help">{{t('lg_nav')}}</h3>
+<p class="muted">{{t('lg_dash_hint')}}</p>
+<a class="btn" href="{{url_for('legends_page')}}">{{t('lg_open')}}</a>
+</div>
+{# MT2009_PLUS_WEEKLY_RANKING_V1 #}
+<div class="card">
+<h3 class="help">{{t('wr_nav')}}</h3>
+<p class="muted">{{t('wr_dash_hint')}}</p>
+<a class="btn" href="{{url_for('weekly_ranking_page')}}">{{t('wr_open')}}</a>
+</div>
 {# The bots' explained decisions: only the 2.x line's core records them. #}
 {% if engine_mt2009 %}
 <div class="card">
@@ -6774,6 +7148,7 @@ TPL_DASH = BASE.replace("__BODY__", """
 {% for p in players %}
 <tr data-k="{{ (p.name ~ ' ' ~ (p.account or ''))|lower }}">
 <td><a href="{{url_for('player', pid=p.id)}}" title="{{t('tip_player')}}">{% if p.active %}<span class="dot on" title="{{t('tip_active')}}"></span>{% endif %}{{emoji(p.job)}} <b>{{p.name}}</b></a>
+{% if p.legend %}<span class="badge" style="font-size:11px;padding:1px 8px;color:{{p.legend[1]}};border-color:{{p.legend[1]}}">{{p.legend[0]}}</span>{% endif %}
 <div class="muted">{{jobname(p.job)}}</div></td>
 <td title="{{t('tip_acc_col')}}">👤 {{p.account or '—'}}</td>
 <td>{{p.level}}</td><td>{{"{:,}".format(p.gold)}}</td>
@@ -6847,6 +7222,7 @@ TPL_PLAYER = BASE.replace("__BODY__", """
 <p><a href="{{url_for('dash')}}">{{t('back_players')}}</a></p>
 <div class="card">
 <h3>{{emoji(p.job)}} {{p.name}}</h3>
+{% if legend %}<span class="badge" style="color:{{legend.colour}};border-color:{{legend.colour}}">🏆 {{legend.tier_label}} · {{t('lg_col_rep')}} {{legend.reputation}}{% if legend.player_kills %} · ☠ {{legend.player_kills}}{% endif %}</span>{% endif %}
 <span class="badge">{{t('level')}} {{p.level}}</span>
 <span class="badge">💰 {{"{:,}".format(p.gold)}} yang</span>
 <span class="badge">🗺️ {{t('pl_map')}} {{p.map_index}}</span>
@@ -7051,6 +7427,7 @@ TPL_RATES = BASE.replace("__BODY__", """
        value="{{cur['drop']}}" placeholder="{{t('rates_percent')}}" required>
 <h3 style="margin-top:18px">💰 {{t('rates_yang')}}</h3>
 <p class="muted">{{t('rates_yang_help')}}</p>
+<p style="color:#d32f2f;font-weight:bold">⚠️ CENY I BOTY SĄ ZOPTYMALIZOWANE POD DROP 100%, ustawiając więcej, psujesz sobie rozgrywkę, a na serwerze będzie wielka inflacja, a ceny będą przesadzone.</p>
 <input id="r_yang" name="yang" type="number" min="1" max="1000" step="1"
        value="{{cur['yang']}}" placeholder="{{t('rates_percent')}}" required>
 <button class="big" style="margin-top:18px">{{t('rates_save')}}</button>
@@ -7062,6 +7439,13 @@ function m2rates(e,d,y){
   document.getElementById('r_yang').value=y;
 }
 </script>
+<div class="card">
+<form method="post" action="{{url_for('rates_bot_reprice_now')}}">
+<input type="hidden" name="_csrf" value="{{csrf_token}}">
+<h3>🏷️ {{t('rates_reprice_title')}}</h3>
+<p class="muted">{{t('rates_reprice_help')}}</p>
+<button class="big">{{t('rates_reprice_now')}}</button>
+</form></div>
 {% if regen %}
 <div class="card">
 <form method="post" action="{{url_for('rates_regen')}}">
@@ -7576,6 +7960,8 @@ TPL_AI = BASE.replace("__BODY__", """
 <p><a class="btn" href="{{url_for('ai_item_policy')}}">{{t('ai_items_open')}}</a>
    <a class="btn" href="{{url_for('events_page')}}">{{t('ev_open')}}</a>
    <a class="btn" href="{{url_for('guilds_page')}}">{{t('gl_open')}}</a>
+   <a class="btn" href="{{url_for('legends_page')}}">{{t('lg_open')}}</a>
+   <a class="btn" href="{{url_for('weekly_ranking_page')}}">{{t('wr_open')}}</a>{# MT2009_PLUS_WEEKLY_RANKING_V1 #}
    {% if engine_mt2009 %}<a class="btn" href="{{url_for('decisions_page')}}">{{t('dc_open')}}</a>{% endif %}</p>
 </div>
 
@@ -7683,6 +8069,11 @@ TPL_AI = BASE.replace("__BODY__", """
   <label><input type="checkbox" name="SHOUTERS" value="1" {% if cur.get('SHOUTERS', 1) %}checked{% endif %}> {{t('ai_persona_on')}}</label>
 </div>
 <div style="margin-bottom:18px">
+  <h3 style="margin:0 0 2px">🏆 {{t('ai_legends')}} <a href="{{url_for('legends_page')}}" style="font-size:13px;font-weight:normal">{{t('lg_open')}}</a></h3>
+  <p class="muted" style="margin:0 0 6px">{{t('ai_legends_help')}}</p>
+  <label><input type="checkbox" name="LEGENDS" value="1" {% if cur.get('LEGENDS', 1) %}checked{% endif %}> {{t('ai_persona_on')}}</label>
+</div>
+<div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">♻️ {{t('ai_scrap')}}
       <span class="badge" id="v_SCRAP">{{cur.get('SCRAP', 0)}}%</span></h3>
   <p class="muted" style="margin:0 0 6px">{{t('ai_scrap_help')}}</p>
@@ -7692,6 +8083,18 @@ TPL_AI = BASE.replace("__BODY__", """
     <span>0 — {{t('ai_scrap_off')}}</span><span>100 — {{t('ai_scrap_all')}}</span>
   </div>
 </div>
+{% if engine_mt2009 %}{# MT2009_PLUS_SALE_TAX_V1 #}
+<div style="margin-bottom:18px">
+  <h3 style="margin:0 0 2px">💸 {{t('ai_sale_tax')}}
+      <span class="badge" id="v_SALE_TAX">{{cur.get('SALE_TAX', 0)}}%</span></h3>
+  <p class="muted" style="margin:0 0 6px">{{t('ai_sale_tax_help')}}</p>
+  <input type="range" name="SALE_TAX" id="s_SALE_TAX" min="0" max="{{sale_tax_max}}" step="1" value="{{cur.get('SALE_TAX', 0)}}" style="width:100%"
+         oninput="document.getElementById('v_SALE_TAX').textContent=this.value+'%'">
+  <div class="muted" style="display:flex;justify-content:space-between;font-size:12px">
+    <span>0% — {{t('ai_sale_tax_off')}}</span><span>{{sale_tax_max}}%</span>
+  </div>
+</div>
+{% endif %}
 <div style="margin-bottom:18px">
   <h3 style="margin:0 0 2px">🛋️ {{t('ai_rest')}}
       <span class="badge" id="v_REST">{{cur.get('REST', 100)}}%</span></h3>
@@ -8247,6 +8650,9 @@ BIOLOGIST_NAMES_EN = {
  "make_herb_lv10":"Kaki Blossom","make_herb_lv15":"Gango Root",
  "make_herb_lv20":"Lilac","make_herb_lv25":"Tue Mushroom","collect_quest_lv30":"Orc Tooth",
  "collect_quest_lv40":"Curse Book","collect_quest_lv50":"Demon Souvenir",
+ "collect_quest_lv60":"Ice Marble","collect_quest_lv70":"Zelkova Branch",
+ "collect_quest_lv80":"Tugyi's Tablet","collect_quest_lv85":"Red Ghost Tree Branch",
+ "collect_quest_lv90":"Leaders' Notes",
 }
 
 def localized_job_name(job, language=None):
@@ -8259,7 +8665,7 @@ def localized_biologist_name(quest_name, polish_name, language=None):
     return polish_name if language == "pl" else BIOLOGIST_NAMES_EN.get(quest_name, polish_name)
 
 
-def biologist_progress(level, quest_flags, held, map_index, language=None):
+def biologist_progress(level, quest_flags, held, map_index, language=None, is_bot=True):
     """The Biologist as the core plays it for one bot: (completed, stage, skipped).
 
     The card and the ranking both ask this, so they cannot disagree. The row is
@@ -8274,12 +8680,15 @@ def biologist_progress(level, quest_flags, held, map_index, language=None):
     row is done, ("next", level, name) while the next row waits for a level, and
     ("row", name, accepted, needed, key_name) otherwise, key_name set when the row
     waits for its key alone. ``skipped`` counts the open rows the bot has outgrown
-    and is not on - how a bot of seventy reads 1/9 beside the Demon Souvenir."""
+    and is not on - how a bot of seventy reads 1/9 beside the Demon Souvenir.
+    ``is_bot`` picks the rows (biologist_rows): a person is counted against
+    every row the quests have, a bot against the ones its AI can finish."""
+    rows = biologist_rows(is_bot)
     level = int(level or 1)
     completed = 0
     carrying = here = first = last = upcoming = None
     outgrown_rows = []
-    for index, (quest_name, required_level, _, required_count) in enumerate(BIOLOGIST_REACHABLE):
+    for index, (quest_name, required_level, _, required_count) in enumerate(rows):
         status = quest_flags.get((quest_name, "__status"))
         if status == BIOLOGIST_COMPLETE_STATE:
             completed += 1
@@ -8312,10 +8721,10 @@ def biologist_progress(level, quest_flags, held, map_index, language=None):
     if pick is None:
         if upcoming is None:
             return completed, None, skipped
-        quest_name, required_level, polish_name, _ = BIOLOGIST_REACHABLE[upcoming]
+        quest_name, required_level, polish_name, _ = rows[upcoming]
         return (completed, ("next", required_level,
                             localized_biologist_name(quest_name, polish_name, language)), skipped)
-    quest_name, _, polish_name, required_count = BIOLOGIST_REACHABLE[pick]
+    quest_name, _, polish_name, required_count = rows[pick]
     key_name = None
     if (quest_name in BIOLOGIST_KEY_VNUMS and
             quest_flags.get((quest_name, "__status")) == BIOLOGIST_KEY_ITEM_STATE):
@@ -10520,7 +10929,7 @@ function openBotModal(pid) {
               : '') +
               '<div><b>' + I18N.horse + ':</b> <span style="color:#c084fc;font-weight:700">Lv ' + (p.horse_level || 0) + '</span>' +
                 (p.saddlebag_rows ? ' <span style="color:#a78bfa">| ' + I18N.saddlebags + ' ' + p.saddlebag_rows + '/9</span>' : '') + '</div>' +
-              '<div><b>' + I18N.biologist + ':</b> <span style="color:#4ade80;font-weight:700">' + (p.biologist_completed || 0) + '/' + (p.biologist_total || 7) + (I18N.bio_done ? ' ' + I18N.bio_done : '') + '</span></div>' +
+              '<div><b>' + I18N.biologist + ':</b> <span style="color:#4ade80;font-weight:700">' + (p.biologist_completed || 0) + '/' + (p.biologist_total || 14) + (I18N.bio_done ? ' ' + I18N.bio_done : '') + '</span></div>' +
               '<div style="grid-column:1 / -1"><b>' + I18N.bio_stage + ':</b> <span style="color:#86efac">' + (p.biologist_label || I18N.no_data) + '</span></div>' +
               // Only when there is a hunt to report. On the mt2009 line
               // levelup.quest ships in quest/_unused, so hunting_progress_label
@@ -17606,9 +18015,10 @@ def api_bot_inventory(pid):
                     ",".join(["%s"] * len(vnum_list))),
                 (pid,) + vnum_list)
             held = {int(r["vnum"]): int(r.get("n") or 0) for r in cur.fetchall()}
+            card_is_bot = bool(int(player.get("is_bot") or 0))
             completed, stage, skipped = biologist_progress(
                 player.get("level"), quest_flags, held,
-                live.get("map_index") if live else None, language)
+                live.get("map_index") if live else None, language, card_is_bot)
             biologist_label = biologist_stage_text(stage, messages, ": ")
             if skipped:
                 biologist_label += " • " + messages["bio_skipped"].format(n=skipped)
@@ -17618,8 +18028,10 @@ def api_bot_inventory(pid):
             # How many rows there are, so the card does not carry the number in
             # its own markup. It said "/7" outright, and a chain that grew a row
             # would have reported 8/7 to everybody. Rows the world cannot host
-            # are not counted, or every bot would sit at 8/9 for ever.
-            player["biologist_total"] = len(BIOLOGIST_REACHABLE)
+            # are not counted, or every bot would sit at 8/9 for ever - and a
+            # bot is counted against the rows its AI can finish, a person
+            # against every row (biologist_rows).
+            player["biologist_total"] = len(biologist_rows(card_is_bot))
             player["biologist_label"] = biologist_label
 
             cur.execute("""
@@ -18155,7 +18567,8 @@ def api_bot_rankings():
                         {21: "m1", 23: "m2", 24: "m3", 1: "s1", 3: "s2", 4: "s3",
                          41: "j1", 43: "j2", 44: "j3"}.get(stall_map_index, ""), "")
 
-                bio_completed = max(0, min(len(BIOLOGIST_REACHABLE), int(r.get("biologist_completed") or 0)))
+                bio_rows = biologist_rows(r["id"] in bots)
+                bio_completed = max(0, min(len(bio_rows), int(r.get("biologist_completed") or 0)))
                 bio_label = ""
                 if rtype == "biologist":
                     # The count, then the row the bot is on now. The label used to
@@ -18167,17 +18580,18 @@ def api_bot_rankings():
                     entry = bio_live.get(int(r["id"])) or {}
                     bio_completed, stage, _ = biologist_progress(
                         r.get("level"), bio_flags.get(int(r["id"]), {}),
-                        bio_bags.get(int(r["id"]), {}), entry.get("map_index"), language)
+                        bio_bags.get(int(r["id"]), {}), entry.get("map_index"), language,
+                        r["id"] in bots)
                     if entry.get("personality_id") in BOT_DROPPER_PERSONALITIES:
                         bio_label = "%d/%d • %s" % (
-                            bio_completed, len(BIOLOGIST_REACHABLE), messages["bio_dropper"])
+                            bio_completed, len(bio_rows), messages["bio_dropper"])
                     elif stage is None:
                         bio_label = "%d/%d • %s" % (
-                            bio_completed, len(BIOLOGIST_REACHABLE), messages["bio_complete"])
+                            bio_completed, len(bio_rows), messages["bio_complete"])
                     else:
                         template = "bio_rank_next" if stage[0] == "next" else "bio_rank_now"
                         bio_label = messages[template].format(
-                            done=bio_completed, total=len(BIOLOGIST_REACHABLE),
+                            done=bio_completed, total=len(bio_rows),
                             stage=biologist_stage_text(stage, messages, " "))
                 hunting_complete = max(0, int(r.get("hunting_complete") or 0))
                 hunting_current = max(0, int(r.get("hunting_current") or 0))
@@ -18673,6 +19087,23 @@ def rates():
                                   state_msg=t("rates_st_" + st) if st in RATE_STATES else "")
 
 
+@app.post("/rates/bot_reprice_now")
+@login_required
+def rates_bot_reprice_now():
+    """MT2009_PLUS_BOT_REPRICE_NOW_V1: every bot reprices all its listed lines
+    now. The cores watch this file's mtime (PLAYERBOT_REPRICE_NOW_PATH in
+    playerbot_reprice_now.h), as they watch playerbot_catacomb_now."""
+    path = os.path.join(AI_SPOOL, "playerbot_reprice_now")
+    try:
+        with open(path, "a", encoding="utf-8"):
+            pass
+        os.utime(path, None)
+        flash(t("rates_reprice_done"))
+    except OSError as e:
+        flash("%s: %s" % (t("rates_reprice_now"), e), "error")
+    return redirect(url_for("rates"))
+
+
 @app.post("/rates/regen")
 @login_required
 def rates_regen():
@@ -19017,6 +19448,208 @@ def guilds_page():
     next_war_rows = [(GUILD_EMPIRE_KEYS.get(e, "gl_empire_unknown"), s) for e, s in sorted(next_wars.items())]
     return render_template_string(TPL_GUILDS, guilds=guilds, tier_keys=GUILD_TIER_KEYS,
                                   next_wars=next_war_rows, player_guilds=read_player_guilds())
+
+
+# MT2009_PLUS_LEGENDS_V1: the bots' legends - the Champions and Walking Legends
+# of each kingdom, the ranking of every tiered bot and the latest events.
+TPL_LEGENDS = BASE.replace("__BODY__", """
+<p><a href="{{url_for('dash')}}">{{t('back_players')}}</a> · <a href="{{url_for('ai_weights')}}">{{t('ai_legends')}}</a></p>
+<div class="card">
+<h3>{{t('lg_nav')}}</h3>
+<p class="muted">{{t('lg_intro')}}</p>
+{% if not enabled %}<p class="badge" style="border-color:#ef4444">{{t('lg_off')}}</p>{% endif %}
+</div>
+{% if missing %}
+<div class="card"><p class="muted">{{t('lg_missing')}}</p></div>
+{% else %}
+<div class="card">
+<h3>{{t('lg_heads')}}</h3>
+<div style="display:flex;flex-wrap:wrap;gap:12px">
+{% for e in (1, 2, 3) %}
+<div style="flex:1;min-width:220px;border:1px solid var(--line);border-radius:8px;padding:8px 12px">
+  <b>{{t(empire_keys[e])}}</b>
+  {% set champs = heads|selectattr('empire', 'equalto', e)|selectattr('tier', 'equalto', 4)|list %}
+  {% set legs = heads|selectattr('empire', 'equalto', e)|selectattr('tier', 'equalto', 3)|list %}
+  <div>{% for r in champs %}<span style="color:{{r.colour}}">\U0001F451 <a href="{{url_for('player', pid=r.pid)}}">{{r.name}}</a></span> ({{r.guild or '\u2014'}}, {{t('lg_col_rep')}} {{r.reputation}})<br>{% else %}<span class="muted">{{t('lg_no_champion')}}</span><br>{% endfor %}
+  {% for r in legs %}<span style="color:{{r.colour}}">\U0001F525 <a href="{{url_for('player', pid=r.pid)}}">{{r.name}}</a></span> ({{r.guild or '\u2014'}}, {{t('lg_col_rep')}} {{r.reputation}})<br>{% else %}{% if not champs %}<span class="muted">{{t('lg_no_legend')}}</span>{% endif %}{% endfor %}</div>
+</div>
+{% endfor %}
+</div>
+</div>
+<div class="card">
+<h3>{{t('lg_ranking')}}: {{rows|length}}</h3>
+<form method="get" action="{{url_for('legends_page')}}" class="row" style="align-items:flex-end">
+  <label>{{t('gl_col_kingdom')}} <select name="empire"><option value="0">{{t('lg_all')}}</option>{% for e in (1, 2, 3) %}<option value="{{e}}"{% if e == empire %} selected{% endif %}>{{t(empire_keys[e])}}</option>{% endfor %}</select></label>
+  <label>{{t('lg_col_tier')}} <select name="tier"><option value="0">{{t('lg_all')}}</option>{% for k in (4, 3, 2, 1) %}<option value="{{k}}"{% if k == tier %} selected{% endif %}>{{t(tier_keys[k])}}</option>{% endfor %}</select></label>
+  <button>{{t('lg_filter')}}</button>
+</form>
+{% if not rows %}<p class="muted">{{t('lg_none')}}</p>{% else %}
+<div style="overflow-x:auto">
+<table>
+<tr><th>#</th><th>{{t('lg_col_tier')}}</th><th>{{t('lg_col_nick')}}</th><th>{{t('gl_col_kingdom')}}</th><th>{{t('gl_col_name')}}</th>
+    <th>{{t('level')}}</th><th>{{t('lg_col_rep')}}</th><th>{{t('lg_col_kills')}}</th><th>{{t('lg_col_deaths')}}</th>
+    <th>{{t('lg_col_wars')}}</th><th>{{t('lg_col_boss')}}</th><th>{{t('lg_col_ach')}}</th><th>{{t('lg_col_since')}}</th></tr>
+{% for r in rows %}
+<tr><td class="muted">{{loop.index}}</td>
+  <td><span class="badge" style="font-size:12px;padding:1px 8px;color:{{r.colour}};border-color:{{r.colour}}">{{r.tier_label}}</span></td>
+  <td><a href="{{url_for('player', pid=r.pid)}}">{{r.name or ('#' ~ r.pid)}}</a></td>
+  <td>{{t(r.empire_key)}}</td><td>{{r.guild or '\u2014'}}</td><td>{{r.level or ''}}</td>
+  <td><b>{{r.reputation}}</b></td><td>{{r.player_kills}}</td><td>{{r.player_deaths}}</td>
+  <td>{{r.wars_won}}/{{r.wars_lost}}</td><td>{{r.boss_kills}}</td>
+  <td>{% for icon, label in r.ach %}<span title="{{label}}">{{icon}}</span> {% endfor %}</td>
+  <td class="muted">{{r.tier_since or ''}}</td></tr>
+{% endfor %}
+</table>
+</div>
+{% endif %}
+</div>
+<div class="card">
+<h3>{{t('lg_events')}}</h3>
+{% if not events %}<p class="muted">{{t('lg_no_events')}}</p>{% else %}
+<table>
+{% for e in events %}<tr><td class="muted" style="white-space:nowrap">{{e.at}}</td><td>{{t(e.empire_key)}}</td><td>{{e.text}}</td></tr>{% endfor %}
+</table>
+{% endif %}
+</div>
+{% endif %}
+""")
+
+
+@app.route("/legends")
+@login_required
+def legends_page():
+    """The bots' legends (MT2009_PLUS_LEGENDS_V1); read only."""
+    try:
+        empire = int(request.args.get("empire", 0) or 0)
+    except (TypeError, ValueError):
+        empire = 0
+    try:
+        tier = int(request.args.get("tier", 0) or 0)
+    except (TypeError, ValueError):
+        tier = 0
+    rows, events, missing = read_legends(empire, tier)
+    heads = rows if (empire == 0 and tier == 0) else read_legends(0, 0)[0]
+    heads = [r for r in heads if r["tier"] >= 3]
+    enabled = bool(read_ai_weights().get("LEGENDS", 1))
+    return render_template_string(TPL_LEGENDS, rows=rows, events=events, missing=missing, heads=heads,
+                                  empire=empire, tier=tier, enabled=enabled,
+                                  empire_keys=GUILD_EMPIRE_KEYS, tier_keys=LEGEND_TIER_KEYS)
+
+
+# MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking - its switch and length,
+# the current season, the title holders and the live top 50 of a category.
+TPL_WEEKLY_RANKING = BASE.replace("__BODY__", """
+<p><a href="{{url_for('dash')}}">{{t('back_players')}}</a> · <a href="{{url_for('legends_page')}}">{{t('lg_nav')}}</a></p>
+<div class="card">
+<h3>{{t('wr_nav')}}</h3>
+<p class="muted">{{t('wr_dash_hint')}}</p>
+{% if missing %}<p class="badge" style="border-color:#ef4444">{{t('wr_missing')}}</p>
+{% elif not state.enabled %}<p class="badge" style="border-color:#ef4444">{{t('wr_off')}}</p>{% endif %}
+</div>
+<div class="card">
+<h3>{{t('wr_settings')}}</h3>
+<form method="post" action="{{url_for('weekly_ranking_page')}}" class="row" style="align-items:flex-end">
+  <input type="hidden" name="_csrf" value="{{csrf_token}}">
+  <input type="hidden" name="action" value="save">
+  <label><input type="checkbox" name="enabled" value="1" {% if state.enabled %}checked{% endif %}> {{t('wr_enabled')}}</label>
+  <label>{{t('wr_days')}} <input type="number" name="season_days" min="1" max="28" value="{{state.season_days}}" style="width:80px"></label>
+  <button>{{t('wr_save')}}</button>
+</form>
+<form method="post" action="{{url_for('weekly_ranking_page')}}" style="margin-top:8px" onsubmit='return confirm({{t("wr_end_confirm")|tojson}})'>
+  <input type="hidden" name="_csrf" value="{{csrf_token}}">
+  <input type="hidden" name="action" value="end">
+  <button style="border-color:#ef4444">{{t('wr_end_now')}}</button>
+</form>
+<p class="muted">{{t('wr_help')}}</p>
+</div>
+{% if not missing %}
+<div class="card">
+<h3>{{t('wr_season')}}</h3>
+<table>
+<tr><th>{{t('wr_season_no')}}</th><td><b>{{state.season}}</b></td></tr>
+<tr><th>{{t('wr_start')}}</th><td>{{state.start_text or '\u2014'}}</td></tr>
+<tr><th>{{t('wr_end')}}</th><td>{{state.end_text or t('wr_end_unset')}}</td></tr>
+<tr><th>{{t('wr_left')}}</th><td>{{state.left_text or '\u2014'}}</td></tr>
+</table>
+</div>
+<div class="card">
+<h3>{{t('wr_holders')}}</h3>
+<div style="overflow-x:auto">
+<table>
+<tr><th>{{t('wr_category')}}</th><th>{{t('wr_col_place')}}</th><th>{{t('lg_col_nick')}}</th><th>{{t('wr_col_type')}}</th><th>{{t('gl_col_kingdom')}}</th>
+    <th>{{t('level')}}</th><th>{{t('wr_col_value')}}</th><th>{{t('wr_col_title')}}</th><th>{{t('wr_col_bonus')}}</th></tr>
+{% for c in cats %}
+{% for r in holders.get(c[0], []) %}
+<tr><td>{% if loop.first %}<b>{{t(c[1])}}</b>{% endif %}</td><td>{{r.place}}</td>
+  <td><a href="{{url_for('player', pid=r.pid)}}">{{r.name or ('#' ~ r.pid)}}</a></td>
+  <td>{% if r.is_bot %}<span class="badge">{{t('wr_bot')}}</span>{% else %}<span class="badge" style="border-color:var(--green)">{{t('wr_player')}}</span>{% endif %}</td>
+  <td>{{t(r.empire_key)}}</td><td>{{r.level or ''}}</td><td>{{r.value}}</td><td><b>{{r.title}}</b></td><td>{{r.bonus}}</td></tr>
+{% else %}
+<tr><td><b>{{t(c[1])}}</b></td><td colspan="8" class="muted">{{t('wr_no_holders')}}</td></tr>
+{% endfor %}
+{% endfor %}
+</table>
+</div>
+</div>
+<div class="card">
+<h3>{{t('wr_live')}}: {{t(cats_by_id[cat][1])}}</h3>
+<form method="get" action="{{url_for('weekly_ranking_page')}}" class="row" style="align-items:flex-end">
+  <label>{{t('wr_category')}} <select name="cat">{% for c in cats %}<option value="{{c[0]}}"{% if c[0] == cat %} selected{% endif %}>{{t(c[1])}}</option>{% endfor %}</select></label>
+  <button>{{t('lg_filter')}}</button>
+</form>
+{% if not ranking %}<p class="muted">{{t('wr_none')}}</p>{% else %}
+<div style="overflow-x:auto">
+<table>
+<tr><th>#</th><th>{{t('lg_col_nick')}}</th><th>{{t('wr_col_type')}}</th><th>{{t('gl_col_kingdom')}}</th><th>{{t('level')}}</th>
+    <th>{% if cat == 8 %}{{t('wr_col_exp')}}{% else %}{{t('wr_col_value')}}{% endif %}</th></tr>
+{% for r in ranking %}
+<tr><td class="muted">{{loop.index}}</td>
+  <td><a href="{{url_for('player', pid=r.pid)}}">{{r.name or ('#' ~ r.pid)}}</a></td>
+  <td>{% if r.is_bot %}<span class="badge">{{t('wr_bot')}}</span>{% else %}<span class="badge" style="border-color:var(--green)">{{t('wr_player')}}</span>{% endif %}</td>
+  <td>{{t(r.empire_key)}}</td><td>{{r.level or ''}}</td><td><b>{{r.value}}</b></td></tr>
+{% endfor %}
+</table>
+</div>
+{% endif %}
+</div>
+{% endif %}
+""")
+
+
+@app.route("/weekly-ranking", methods=["GET", "POST"])
+@login_required
+def weekly_ranking_page():
+    """The weekly ranking (MT2009_PLUS_WEEKLY_RANKING_V1): its switch, its
+    length and ending the season now; everything else read only."""
+    if request.method == "POST":
+        action = request.form.get("action", "save")
+        try:
+            with db() as c, c.cursor() as cur:
+                cur.execute("INSERT IGNORE INTO player.weekly_rank_state (id) VALUES (1)")
+                if action == "end":
+                    cur.execute("UPDATE player.weekly_rank_state SET season_end = UNIX_TIMESTAMP() WHERE id = 1")
+                else:
+                    try:
+                        days = max(1, min(28, int(request.form.get("season_days", 7) or 7)))
+                    except (TypeError, ValueError):
+                        days = 7
+                    enabled = 1 if request.form.get("enabled") else 0
+                    cur.execute("UPDATE player.weekly_rank_state SET enabled = %s, season_days = %s WHERE id = 1",
+                                (enabled, days))
+        except Exception:
+            flash(t("wr_failed"), "error")
+            return redirect(url_for("weekly_ranking_page"))
+        flash(t("wr_ended") if action == "end" else t("wr_saved"))
+        return redirect(url_for("weekly_ranking_page"))
+    try:
+        cat = int(request.args.get("cat", 1) or 1)
+    except (TypeError, ValueError):
+        cat = 1
+    if cat not in WEEKLY_RANK_CAT:
+        cat = 1
+    state, holders, ranking, missing = read_weekly_ranking(cat)
+    return render_template_string(TPL_WEEKLY_RANKING, state=state, holders=holders, ranking=ranking,
+                                  missing=missing, cat=cat, cats=WEEKLY_RANK_CATS, cats_by_id=WEEKLY_RANK_CAT)
 
 
 # ---- the bots' decisions, world-wide ------------------------------------------
@@ -19483,10 +20116,17 @@ def ai_weights():
         vals["SHOP_M2"] = 1 if request.form.get("SHOP_M2") else 0
         vals["PERSONA"] = 1 if request.form.get("PERSONA") else 0
         vals["SHOUTERS"] = 1 if request.form.get("SHOUTERS") else 0
+        vals["LEGENDS"] = 1 if request.form.get("LEGENDS") else 0
         try:
             vals["SCRAP"] = max(0, min(100, int(request.form.get("SCRAP", 0))))
         except (TypeError, ValueError):
             vals["SCRAP"] = 0
+        # MT2009_PLUS_SALE_TAX_V1: on the mt2009 page alone (the engine patch
+        # is that line's); a form without it keeps the file's.
+        try:
+            vals["SALE_TAX"] = max(0, min(SALE_TAX_MAX, int(request.form.get("SALE_TAX", old.get("SALE_TAX", 0)))))
+        except (TypeError, ValueError):
+            vals["SALE_TAX"] = old.get("SALE_TAX", 0)
         try:
             vals["REST"] = max(0, min(100, int(request.form.get("REST", 100))))
         except (TypeError, ValueError):
@@ -19575,7 +20215,8 @@ def ai_weights():
                                   keys=keys, wmin=AI_W_MIN, bots_held=read_bot_hold(),
                                   wmax=AI_W_MAX, wneutral=AI_W_NEUTRAL, wcapped=AI_W_CAPPED,
                                   engine_mt2009=ENGINE_MT2009,
-                                  explain_default=EXPLAIN_DEFAULT_DAYS, explain_max=EXPLAIN_MAX_DAYS)
+                                  explain_default=EXPLAIN_DEFAULT_DAYS, explain_max=EXPLAIN_MAX_DAYS,
+                                  sale_tax_max=SALE_TAX_MAX)
 
 
 @app.route("/ai/tower_now", methods=["POST"])
@@ -20792,6 +21433,12 @@ def dash():
             players = cur.fetchall()
             states = bot_list_states(cur, [p["id"] for p in players
                                            if str(p.get("account") or "").startswith("playerbot_")])
+            # MT2009_PLUS_LEGENDS_V1: the tier beside a bot's name.
+            legends = read_legend_tiers(cur, [p["id"] for p in players
+                                              if str(p.get("account") or "").startswith("playerbot_")])
+        for p in players:
+            lt = legends.get(p["id"])
+            p["legend"] = (legend_tier_label(lt[0], lt[1]), LEGEND_TIER_COLOURS.get(lt[0], "#aaa")) if lt else None
         # 'recently in the game' marker: last_play within the last 10 minutes.
         # The game stamps it at login/logout, so this is honest about what it
         # knows - the tooltip says 'was in the game', not 'is online'.
@@ -21086,7 +21733,19 @@ def player(pid):
         except Exception:
             app.logger.exception("bot sessions of %s", pid)
             sessions = None
-    return render_template_string(TPL_PLAYER, p=p, inv=inv, sessions=sessions,
+    # MT2009_PLUS_LEGENDS_V1: the bot's tier, when it holds one.
+    legend = None
+    try:
+        with db() as c, c.cursor() as cur:
+            cur.execute("SELECT tier, empire, reputation, player_kills FROM player.playerbot_legend "
+                        "WHERE pid=%s AND tier > 0", (pid,))
+            legend = cur.fetchone()
+        if legend:
+            legend["tier_label"] = legend_tier_label(legend["tier"], legend["empire"])
+            legend["colour"] = LEGEND_TIER_COLOURS.get(int(legend["tier"] or 0), "#aaa")
+    except Exception:
+        legend = None
+    return render_template_string(TPL_PLAYER, p=p, inv=inv, sessions=sessions, legend=legend,
                                   emoji=lambda j: JOB_EMOJI.get(j, "🧑"),
                                   WINDOW_KEYS=ITEM_WINDOW_KEYS,
                                   cats=CATS,

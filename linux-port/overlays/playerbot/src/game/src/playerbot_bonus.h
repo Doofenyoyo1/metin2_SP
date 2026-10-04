@@ -1520,8 +1520,9 @@ namespace
 			// A worn piece comes off for its stones, so only one the engine
 			// really wears in that slot and lets come off.
 			LPITEM item = ch->GetWear(wearCell);
+			// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: nor a locked companion's.
 			if (!item || !IsPlayerBotWornItemSound(ch, item, wearCell) ||
-					IS_SET(item->GetFlag(), ITEM_FLAG_IRREMOVABLE))
+					IS_SET(item->GetFlag(), ITEM_FLAG_IRREMOVABLE) || IsPlayerBotSidekickLockedItem(ch, item))
 				continue;
 			playerbot_bonus_rules::EPlain plain;
 			if (CanPlayerBotRerollItemFor(ch, item, wearCell))
@@ -1550,7 +1551,8 @@ namespace
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
 			if (!item || item->GetCell() != cell || item->IsEquipped() ||
-					!IsPlayerBotSpecialLevel30Weapon(item) || !CanPlayerBotRerollItem(item))
+					!IsPlayerBotSpecialLevel30Weapon(item) || !CanPlayerBotRerollItem(item) ||
+					IsPlayerBotSidekickLockedItem(ch, item))	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1
 				continue;
 			bool already = false;
 			for (size_t i = 0; i < out.size() && !already; ++i)
@@ -1631,8 +1633,10 @@ namespace
 			int stoneCell, int maxStones, unsigned restOpen, bool greenStonesOnly)
 	{
 		LPITEM item = target.item;
+		// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: no stone on a locked companion's
+		// piece, whoever picked it.
 		if (!ch || !item || step == PLAYERBOT_BONUS_STEP_NONE || stoneCell < 0 || maxStones <= 0 ||
-				IsPlayerBotGearFrozen(ch))
+				IsPlayerBotGearFrozen(ch) || IsPlayerBotSidekickLockedItem(ch, item))
 			return 0;
 		const bool worn = target.kind == PLAYERBOT_BONUS_TARGET_WORN;
 		if (worn && !ch->UnequipItem(item))
@@ -2240,7 +2244,8 @@ namespace
 	bool ApplyPlayerBotGreenBonusToItem(LPCHARACTER ch, TPlayerBotAIState& state, LPITEM item, DWORD dwNow)
 	{
 		if (!ch || !item || !ch->IsItemLoaded() || ch->IsDead() || ch->GetMyShop() || IsPlayerBotGearFrozen(ch) ||
-				item->GetOwner() != ch || !CanPlayerBotTakeGreenBonusStone(item))
+				item->GetOwner() != ch || !CanPlayerBotTakeGreenBonusStone(item) ||
+				IsPlayerBotSidekickLockedItem(ch, item))	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1
 			return false;
 		TPlayerBotBonusTarget target = { item, (BYTE)WEAR_WEAPON, (BYTE)PLAYERBOT_BONUS_TARGET_GOODS,
 				(BYTE)playerbot_bonus_rules::PLAIN_NONE };

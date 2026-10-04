@@ -315,7 +315,7 @@ namespace
 			const int level = ch->GetSkillLevel(vnum);
 			if (level < 30 || level >= 40)
 				continue;
-			const int cost = 1000 + 500 * (level - 30);
+			const int cost = GetPlayerBotGrandMasterRankCost(level);
 			if (ch->GetRealAlignment() - cost >= 0)
 				return true;
 		}

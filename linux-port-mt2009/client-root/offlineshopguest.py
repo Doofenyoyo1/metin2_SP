@@ -22,6 +22,23 @@ SHOP_BLOCKS_MAX = 2
 def IsPressingCTRL():
 	return app.IsPressed(app.DIK_LCONTROL) or app.IsPressed(app.DIK_RCONTROL)
 
+def _IsCheapOffer(data):
+	try:
+		import uiopcjedodatkowe
+		if uiopcjedodatkowe.Settings().get("shopcheap_off", False):
+			return False
+		count = max(1, int(data.get("count", 1)))
+		unit = long(data.get("price", 0)) / count
+		if unit <= 0:
+			return False
+		if unit < 500:
+			return True
+		item.SelectItem(data["vnum"])
+		npc = item.GetIBuyItemPrice()
+		return npc > 0 and unit < npc
+	except Exception:
+		return False
+
 class OfflineShopGuest(ui.ScriptWindow):
 	def __init__(self):
 		ui.ScriptWindow.__init__(self)
@@ -344,6 +361,11 @@ class OfflineShopGuest(ui.ScriptWindow):
 			grid.SetItemSlot(local, data["vnum"], count, socket=socket)
 			if slotIdx in activeCells:
 				grid.ActivateSlot(local)
+			# MT2009_PLUS_SHOP_CHEAP_MARK_V1: a cheap offer lit up green - under 500 Yang
+			# a piece or under the item's own shop price (the owner, 4 October: in the
+			# offline shops, not at the NPC merchants); "Opcje dodatkowe" switches it off.
+			elif _IsCheapOffer(data):
+				grid.ActivateSlot(local, 0.25, 0.95, 0.25, 1.0)
 
 		self.__RefreshGrids()
 

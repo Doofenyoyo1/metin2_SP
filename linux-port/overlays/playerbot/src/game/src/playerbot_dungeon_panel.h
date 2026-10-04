@@ -527,11 +527,16 @@ void DungeonPanelCommand(LPCHARACTER ch, const char* argument)
 
 // d.update_ranking(key [, seconds]) (questlua_dungeon.cpp, MT2009_PLUS_DUNGEON_PANEL_V1 (lua)): in a
 // boss's kill handler - pc is the killer, npc the boss.
+// MT2009_PLUS_WEEKLY_RANKING_V1: a dungeon finished, for the weekly ranking - bots as well as
+// people, listed in dungeon_info.txt or not (playerbot_weekly_rank.h, included later).
+void WeeklyRankOnDungeon(LPCHARACTER pc, LPCHARACTER npc);
+
 void DungeonPanelUpdateRanking(LPCHARACTER pc, LPCHARACTER npc, const char* key, int seconds)
 {
 	using namespace mt2009_dpanel;
 	if (!pc || !key || !*key)
 		return;
+	WeeklyRankOnDungeon(pc, npc);
 	const Def* d = FindKey(key);
 	if (!d)
 	{

@@ -58,6 +58,16 @@ namespace
 		// The bots' war ended early (WAR_MINUTES at fifteen) - asked of the
 		// db core once, and the war is over when it answers.
 		bool bEndAsked;
+		// MT2009_PLUS_LEGENDS_V1 (wars): the two guilds' wins when the war
+		// began and the last score seen while it ran - who won, at its end.
+		int iWins1AtStart;
+		int iWins2AtStart;
+		int iLastScore1;
+		int iLastScore2;
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: the war's own private copy of the
+		// arena 110, 0 until it is made (and made again until it is).
+		long lArena;
+		DWORD dwArenaTryAt;
 	};
 	// One war a kingdom at a time, a player's included: the kingdom has one
 	// battlefield.
@@ -164,6 +174,285 @@ namespace
 		return false;
 	}
 
+	// MT2009_PLUS_GUILD_WAR_ARENA_V1: the bots' wars are fought in the battle
+	// arena, map 110 (metin2_map_t3), each war in a private copy of its own -
+	// the owner's decision of 3 October, the guild maps (M3) no more. The war
+	// stays the engine's field war (the score, the board, the kills that win
+	// it); only the ground is the arena's. The copy is made at the
+	// declaration, made again until it is, and destroyed once nobody stands
+	// on it after the war. 110 is hosted on game1 with the bots
+	// (m2-render-config).
+	const long PLAYERBOT_GUILD_WAR_ARENA_MAP = 110;
+	const DWORD PLAYERBOT_GUILD_WAR_ARENA_RETRY_MS = 5 * 1000;
+	const DWORD PLAYERBOT_GUILD_WAR_ARENA_CLEAR_MS = 3 * 60 * 1000;
+	// The reward (the owner, 3 and 4 October): 20 Szkatulek Blasku Ksiezyca for
+	// the winning guild, shared by its members' kills in the war - once a day a
+	// guild; a later win the same day gives the guild experience only.
+	const DWORD PLAYERBOT_GUILD_WAR_REWARD_VNUM = 50011;
+	const int PLAYERBOT_GUILD_WAR_REWARD_COUNT = 20;
+	const int PLAYERBOT_GUILD_WAR_REPEAT_GUILD_EXP = 50000;
+
+	bool IsPlayerBotWarArenaMap(long lMapIndex)
+	{
+		return lMapIndex == PLAYERBOT_GUILD_WAR_ARENA_MAP ||
+				(lMapIndex >= 10000 && lMapIndex / 10000 == PLAYERBOT_GUILD_WAR_ARENA_MAP);
+	}
+
+	// The key the ground of a map is kept under: an arena copy is the arena's.
+	long GetPlayerBotWarGroundKey(long lMapIndex)
+	{
+		return IsPlayerBotWarArenaMap(lMapIndex) ? PLAYERBOT_GUILD_WAR_ARENA_MAP : lMapIndex;
+	}
+
+	TPlayerBotGuildWar* FindPlayerBotGuildWarOf(DWORD a, DWORD b)
+	{
+		for (std::map<BYTE, TPlayerBotGuildWar>::iterator it = s_mapPlayerBotGuildWars.begin();
+				it != s_mapPlayerBotGuildWars.end(); ++it)
+			if ((it->second.dwGuild1 == a && it->second.dwGuild2 == b) ||
+					(it->second.dwGuild1 == b && it->second.dwGuild2 == a))
+				return &it->second;
+		return NULL;
+	}
+
+	// The arena copy of the war between the two, 0 while there is none.
+	long GetPlayerBotWarArena(CGuild* mine, CGuild* enemy)
+	{
+		if (!mine || !enemy)
+			return 0;
+		TPlayerBotGuildWar* war = FindPlayerBotGuildWarOf(mine->GetID(), enemy->GetID());
+		if (!war || war->lArena == 0 || !SECTREE_MANAGER::instance().GetMap(war->lArena))
+			return 0;
+		return war->lArena;
+	}
+
+	// The war's copy of the arena, made now if it is missing: a copy that
+	// could not be made is asked for again every ARENA_RETRY_MS.
+	bool EnsurePlayerBotWarArena(TPlayerBotGuildWar& war, DWORD dwNow)
+	{
+		if (war.lArena != 0 && SECTREE_MANAGER::instance().GetMap(war.lArena))
+			return true;
+		war.lArena = 0;
+		if (!IsPlayerBotMapHostedHere(PLAYERBOT_GUILD_WAR_ARENA_MAP))
+			return false;
+		if (war.dwArenaTryAt != 0 && (int)(dwNow - war.dwArenaTryAt) < (int)PLAYERBOT_GUILD_WAR_ARENA_RETRY_MS)
+			return false;
+		war.dwArenaTryAt = dwNow;
+		war.lArena = SECTREE_MANAGER::instance().CreatePrivateMap(PLAYERBOT_GUILD_WAR_ARENA_MAP);
+		if (war.lArena == 0)
+		{
+			sys_err("PLAYERBOT_GUILD: the arena copy for the war %u vs %u could not be made, trying again",
+					war.dwGuild1, war.dwGuild2);
+			return false;
+		}
+		sys_log(0, "PLAYERBOT_GUILD: arena made map=%ld for the war %u vs %u", war.lArena, war.dwGuild1, war.dwGuild2);
+		return true;
+	}
+
+	// An arena copy whose war is over, destroyed once nobody stands on it:
+	// the engine's DestroyPrivateMap closes the connection of anyone it finds.
+	// After ARENA_CLEAR_MS a person still on it is sent home first.
+	std::vector<std::pair<long, DWORD> > s_vecPlayerBotWarArenaDestroy;
+
+	void QueuePlayerBotWarArenaDestroy(long lArena, DWORD dwNow)
+	{
+		if (lArena < 10000)
+			return;
+		for (size_t i = 0; i < s_vecPlayerBotWarArenaDestroy.size(); ++i)
+			if (s_vecPlayerBotWarArenaDestroy[i].first == lArena)
+				return;
+		s_vecPlayerBotWarArenaDestroy.push_back(std::make_pair(lArena, dwNow));
+	}
+
+	void ManagePlayerBotWarArenaDestroy(DWORD dwNow)
+	{
+		for (size_t i = 0; i < s_vecPlayerBotWarArenaDestroy.size(); )
+		{
+			const long map = s_vecPlayerBotWarArenaDestroy[i].first;
+			if (!SECTREE_MANAGER::instance().GetMap(map))
+			{
+				s_vecPlayerBotWarArenaDestroy.erase(s_vecPlayerBotWarArenaDestroy.begin() + i);
+				continue;
+			}
+			int someone = 0;
+			const DESC_MANAGER::DESC_SET& descs = DESC_MANAGER::instance().GetClientSet();
+			for (DESC_MANAGER::DESC_SET::const_iterator d = descs.begin(); d != descs.end(); ++d)
+			{
+				LPCHARACTER c = (*d)->GetCharacter();
+				if (!c || c->GetMapIndex() != map)
+					continue;
+				++someone;
+				if (dwNow - s_vecPlayerBotWarArenaDestroy[i].second >= PLAYERBOT_GUILD_WAR_ARENA_CLEAR_MS &&
+						!(*d)->IsBot())
+					c->WarpSet(EMPIRE_START_X(c->GetEmpire()), EMPIRE_START_Y(c->GetEmpire()));
+			}
+			if (someone > 0)
+			{
+				++i;
+				continue;
+			}
+			SECTREE_MANAGER::instance().DestroyPrivateMap(map);
+			sys_log(0, "PLAYERBOT_GUILD: arena destroyed map=%ld", map);
+			s_vecPlayerBotWarArenaDestroy.erase(s_vecPlayerBotWarArenaDestroy.begin() + i);
+		}
+	}
+
+	// ------------------------------------------- the war's numbers (the test)
+
+	// Per war and guild: what its bots did, logged at the war's end - the
+	// blows of the weapon against the skills, the potions, a Shaman's buffs
+	// on its side - and every kill of the war by its killer, for the reward.
+	struct TPlayerBotWarStats
+	{
+		unsigned int uBasic;
+		unsigned int uSkill;
+		unsigned int uPotion;
+		unsigned int uSideBuff;
+		unsigned int uDeaths;
+		unsigned int uKills;
+		TPlayerBotWarStats() : uBasic(0), uSkill(0), uPotion(0), uSideBuff(0), uDeaths(0), uKills(0) {}
+	};
+	std::map<DWORD, TPlayerBotWarStats> s_mapPlayerBotWarStats;      // by guild
+	std::map<DWORD, std::map<DWORD, int> > s_mapPlayerBotWarKillsBy; // guild -> pid -> kills
+
+	TPlayerBotWarStats& PlayerBotWarStatsOf(CGuild* g)
+	{
+		return s_mapPlayerBotWarStats[g ? g->GetID() : 0];
+	}
+
+	// Every death of a character (PlayerBotLegendOnDeath): a kill between the
+	// two guilds of one of our wars is counted for its killer, and a death on
+	// an arena is written down where it fell (the map of deaths).
+	void PlayerBotGuildWarOnDeath(LPCHARACTER victim, LPCHARACTER killer)
+	{
+		if (!victim || !killer || victim == killer || !victim->IsPC() || !killer->IsPC())
+			return;
+		CGuild* vg = victim->GetGuild();
+		CGuild* kg = killer->GetGuild();
+		if (!vg || !kg || !FindPlayerBotGuildWarOf(vg->GetID(), kg->GetID()))
+			return;
+		++s_mapPlayerBotWarKillsBy[kg->GetID()][killer->GetPlayerID()];
+		++PlayerBotWarStatsOf(kg).uKills;
+		++PlayerBotWarStatsOf(vg).uDeaths;
+		if (IsPlayerBotWarArenaMap(victim->GetMapIndex()))
+			sys_log(0, "PLAYERBOT_GUILD: war death map=%ld x=%ld y=%ld victim=%s(%s) killer=%s(%s)",
+					victim->GetMapIndex(), victim->GetX(), victim->GetY(), victim->GetName(), vg->GetName(),
+					killer->GetName(), kg->GetName());
+	}
+
+	// The winner's reward: PLAYERBOT_GUILD_WAR_REWARD_COUNT boxes shared by
+	// the members' kills in the war (the largest remainders first), to those
+	// on this core - a bot, or a person in the game here. With no kill
+	// counted, the master's.
+	// MT2009_PLUS_GUILD_WAR_REWARD_DAILY_V1: whether the guild has had its boxes
+	// today (player.playerbot_guild_war_reward, kept over a restart); asking
+	// also books today for it when it has not.
+	bool TakePlayerBotGuildWarRewardToday(DWORD guildId)
+	{
+		std::unique_ptr<SQLMsg> make(AccountDB::instance().DirectQuery(
+				"CREATE TABLE IF NOT EXISTS player.playerbot_guild_war_reward (guild_id INT UNSIGNED NOT NULL PRIMARY KEY, "
+				"day DATE NOT NULL) ENGINE=InnoDB"));
+		char query[256];
+		snprintf(query, sizeof(query),
+				"SELECT COUNT(*) FROM player.playerbot_guild_war_reward WHERE guild_id=%u AND day=CURDATE()", guildId);
+		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
+		MYSQL_ROW row = (msg.get() && msg->uiSQLErrno == 0 && msg->Get() && msg->Get()->pSQLResult)
+				? mysql_fetch_row(msg->Get()->pSQLResult) : NULL;
+		if (row && row[0] && atoi(row[0]) > 0)
+			return false;
+		snprintf(query, sizeof(query),
+				"REPLACE INTO player.playerbot_guild_war_reward (guild_id, day) VALUES (%u, CURDATE())", guildId);
+		std::unique_ptr<SQLMsg> book(AccountDB::instance().DirectQuery(query));
+		return true;
+	}
+
+	// The winner's prize: true when it was the boxes, false when it was the
+	// guild experience of a repeated win the same day.
+	bool GivePlayerBotGuildWarReward(CGuild* winner)
+	{
+		if (!winner)
+			return false;
+		if (!TakePlayerBotGuildWarRewardToday(winner->GetID()))
+		{
+			winner->GuildPointChange(POINT_EXP, PLAYERBOT_GUILD_WAR_REPEAT_GUILD_EXP, true);
+			sys_log(0, "PLAYERBOT_GUILD: war reward guild=%s repeated win today, guild exp +%d only",
+					winner->GetName(), PLAYERBOT_GUILD_WAR_REPEAT_GUILD_EXP);
+			return false;
+		}
+		std::map<DWORD, int>& kills = s_mapPlayerBotWarKillsBy[winner->GetID()];
+		std::vector<std::pair<int, DWORD> > ranked;
+		int total = 0;
+		for (std::map<DWORD, int>::const_iterator it = kills.begin(); it != kills.end(); ++it)
+			if (it->second > 0 && CHARACTER_MANAGER::instance().FindByPID(it->first))
+			{
+				ranked.push_back(std::make_pair(it->second, it->first));
+				total += it->second;
+			}
+		std::sort(ranked.rbegin(), ranked.rend());
+		std::vector<std::pair<DWORD, int> > shares;
+		if (total <= 0)
+		{
+			if (CHARACTER_MANAGER::instance().FindByPID(winner->GetMasterPID()))
+				shares.push_back(std::make_pair(winner->GetMasterPID(), PLAYERBOT_GUILD_WAR_REWARD_COUNT));
+		}
+		else
+		{
+			int given = 0;
+			std::vector<std::pair<int, size_t> > remainders;
+			for (size_t i = 0; i < ranked.size(); ++i)
+			{
+				const int n = PLAYERBOT_GUILD_WAR_REWARD_COUNT * ranked[i].first / total;
+				shares.push_back(std::make_pair(ranked[i].second, n));
+				remainders.push_back(std::make_pair((PLAYERBOT_GUILD_WAR_REWARD_COUNT * ranked[i].first) % total, i));
+				given += n;
+			}
+			std::stable_sort(remainders.rbegin(), remainders.rend());
+			for (size_t k = 0; given < PLAYERBOT_GUILD_WAR_REWARD_COUNT && k < remainders.size(); ++k, ++given)
+				++shares[remainders[k].second].second;
+		}
+		for (size_t i = 0; i < shares.size(); ++i)
+		{
+			if (shares[i].second <= 0)
+				continue;
+			LPCHARACTER c = CHARACTER_MANAGER::instance().FindByPID(shares[i].first);
+			if (!c)
+				continue;
+			c->AutoGiveItem(PLAYERBOT_GUILD_WAR_REWARD_VNUM, shares[i].second);
+			if (c->GetDesc() && !c->GetDesc()->IsBot())
+				c->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Nagroda za wygrana wojne: %d x Szkatulka Blasku Ksiezyca (twoje zabojstwa: %d).",
+						shares[i].second, kills[shares[i].first]);
+			sys_log(0, "PLAYERBOT_GUILD: war reward guild=%s pid=%u name=%s kills=%d boxes=%d",
+					winner->GetName(), shares[i].first, c->GetName(), kills[shares[i].first], shares[i].second);
+		}
+		return true;
+	}
+
+	void NotePlayerBotWarBlow(LPCHARACTER ch, bool skill)
+	{
+		if (!ch || !ch->GetGuild())
+			return;
+		TPlayerBotWarStats& st = PlayerBotWarStatsOf(ch->GetGuild());
+		if (skill)
+			++st.uSkill;
+		else
+			++st.uBasic;
+	}
+
+	void LogPlayerBotGuildWarStats(CGuild* g, CGuild* enemy, long lArena)
+	{
+		TPlayerBotWarStats& st = PlayerBotWarStatsOf(g);
+		sys_log(0, "PLAYERBOT_GUILD: war stats guild=%s enemy=%s arena=%ld kills=%u deaths=%u basic=%u skill=%u potion=%u side_buff=%u",
+				g->GetName(), enemy ? enemy->GetName() : "?", lArena, st.uKills, st.uDeaths, st.uBasic, st.uSkill,
+				st.uPotion, st.uSideBuff);
+	}
+
+	void ResetPlayerBotGuildWarNumbers(DWORD g1, DWORD g2)
+	{
+		s_mapPlayerBotWarStats.erase(g1);
+		s_mapPlayerBotWarStats.erase(g2);
+		s_mapPlayerBotWarKillsBy.erase(g1);
+		s_mapPlayerBotWarKillsBy.erase(g2);
+	}
+
 	// A guild whose master is a bot: every guild the bots founded. Bots never
 	// invite people, so a person is never in one.
 	bool IsPlayerBotGuild(CGuild* guild)
@@ -221,14 +510,11 @@ namespace
 		const DWORD opp = mine->UnderAnyWar(GUILD_WAR_TYPE_FIELD);
 		if (opp == 0)
 			return NULL;
-		if (g_bChannel == 1)
-			return IsPlayerBotGuildWarPair(mine->GetID(), opp) ? CGuildManager::instance().FindGuild(opp) : NULL;
-		CGuild* enemy = CGuildManager::instance().FindGuild(opp);
-		if (!enemy)
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: the arena is the first channel's, so
+		// a war is fought by the bots of the first channel only.
+		if (g_bChannel != 1)
 			return NULL;
-		if (!IsPlayerBotGuild(mine) || !IsPlayerBotGuild(enemy))
-			return NULL;
-		return enemy;
+		return IsPlayerBotGuildWarPair(mine->GetID(), opp) ? CGuildManager::instance().FindGuild(opp) : NULL;
 	}
 
 	struct TPlayerBotWarEntry
@@ -236,6 +522,7 @@ namespace
 		CGuild* guild;
 		int tier;
 		int online;
+		int level; // MT2009_PLUS_GUILD_WAR_ARENA_V1: its bots' average level here
 	};
 
 	bool PlayerBotWarEntryOrder(const TPlayerBotWarEntry& a, const TPlayerBotWarEntry& b)
@@ -255,19 +542,60 @@ namespace
 	// the kingdom's last pair sits the next war out whenever a third guild is
 	// ready, and between pairs of one gap the one whose latest war is oldest
 	// goes first - a guild that has never fought before any that has.
+	// MT2009_PLUS_GUILD_WAR_ARENA_V1 (kingdoms): a kingdom's turn may pair one
+	// of its guilds with a guild of another kingdom - every other turn of
+	// it, by the minute, when there is such a pair; else the kingdom's own
+	// pair, as before (the owner, 3 October: wars between the kingdoms, at
+	// the times the kingdom's own wars come).
+	bool PickPlayerBotGuildWarPairOf(BYTE empire, DWORD dwNow, bool cross, CGuild*& out1, CGuild*& out2);
+
 	bool PickPlayerBotGuildWarPair(BYTE empire, DWORD dwNow, CGuild*& out1, CGuild*& out2)
 	{
+		const bool crossFirst = (PlayerBotNavHash(dwNow / 60000U ^ 0x4b494e47U ^ empire) & 1U) == 0;
+		if (PickPlayerBotGuildWarPairOf(empire, dwNow, crossFirst, out1, out2))
+			return true;
+		return PickPlayerBotGuildWarPairOf(empire, dwNow, !crossFirst, out1, out2);
+	}
+
+	bool PickPlayerBotGuildWarPairOf(BYTE empire, DWORD dwNow, bool cross, CGuild*& out1, CGuild*& out2)
+	{
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: the average level of each guild's bots
+		// in this core's world, so a pair is also close in level - the first
+		// arena war matched BLIK (60) against MINISTRANCI (40), 200:22.
+		std::map<DWORD, std::pair<int, int> > levels;
+		for (TPlayerBotAIStateMap::const_iterator st = s_mapPlayerBotAIStates.begin(); st != s_mapPlayerBotAIStates.end(); ++st)
+		{
+			LPCHARACTER c = CHARACTER_MANAGER::instance().FindByPID(st->first);
+			if (c && c->GetGuild())
+			{
+				std::pair<int, int>& l = levels[c->GetGuild()->GetID()];
+				l.first += c->GetLevel();
+				++l.second;
+			}
+		}
 		std::vector<TPlayerBotWarEntry> ready;
 		for (std::map<DWORD, TPlayerBotGuildInfo>::const_iterator it = s_mapPlayerBotGuildInfo.begin();
 				it != s_mapPlayerBotGuildInfo.end(); ++it)
 		{
-			if (it->second.bEmpire != empire)
+			if (!cross && it->second.bEmpire != empire)
+				continue;
+			if (it->second.bEmpire < 1 || it->second.bEmpire > 3)
 				continue;
 			CGuild* g = CGuildManager::instance().FindGuild(it->first);
 			// A guild climbing the Demon Tower is not picked for a war
 			// (playerbot_demon_tower.h).
 			if (!g || g->UnderAnyWar() != 0 || IsPlayerBotGuildRaidingTower(it->first))
 				continue;
+			// MT2009_PLUS_GUILD_WAR_ARENA_V1 (kingdoms): nor one of a war declared
+			// by another kingdom's turn and not yet accepted.
+			{
+				bool taken = false;
+				for (std::map<BYTE, TPlayerBotGuildWar>::const_iterator w = s_mapPlayerBotGuildWars.begin();
+						w != s_mapPlayerBotGuildWars.end() && !taken; ++w)
+					taken = w->second.dwGuild1 == it->first || w->second.dwGuild2 == it->first;
+				if (taken)
+					continue;
+			}
 			const int online = CountPlayerBotGuildOnline(g);
 			if (online < PLAYERBOT_GUILD_WAR_MIN_ONLINE)
 				continue;
@@ -275,6 +603,10 @@ namespace
 			e.guild = g;
 			e.tier = it->second.bTier;
 			e.online = online;
+			{
+				const std::pair<int, int>& l = levels[it->first];
+				e.level = l.second > 0 ? l.first / l.second : 0;
+			}
 			ready.push_back(e);
 		}
 		if (ready.size() < 2)
@@ -284,6 +616,24 @@ namespace
 		std::map<BYTE, std::pair<DWORD, DWORD> >::const_iterator lastIt = s_mapPlayerBotLastWarPair.find(empire);
 		if (lastIt != s_mapPlayerBotLastWarPair.end())
 			last = lastIt->second;
+		// MT2009_PLUS_LEGENDS_V1 (wars): the two Legends of the kingdom are
+		// rivals - their guilds are its pick more often than not.
+		if (!cross)
+		{
+			std::vector<CGuild*> readyGuilds;
+			for (size_t i = 0; i < ready.size(); ++i)
+				readyGuilds.push_back(ready[i].guild);
+			// MT2009_PLUS_GUILD_WAR_ARENA_V1: and only when the two are within
+			// fifteen levels of each other.
+			if (PickPlayerBotLegendRivalWarPair(readyGuilds, last, out1, out2) &&
+					abs(levels[out1->GetID()].first / std::max(1, levels[out1->GetID()].second) -
+						levels[out2->GetID()].first / std::max(1, levels[out2->GetID()].second)) <= 15)
+			{
+				sys_log(0, "PLAYERBOT_LEGEND: the Legends' guilds %s and %s picked for the war of empire %d",
+						out1->GetName(), out2->GetName(), (int)empire);
+				return true;
+			}
+		}
 		const bool skipLast = ready.size() >= 3;
 		const size_t start = (size_t)(PlayerBotNavHash(dwNow / 60000U ^ 0x57415250U) % ready.size());
 		bool found = false;
@@ -300,7 +650,15 @@ namespace
 				const DWORD gj = ready[j].guild->GetID();
 				if (skipLast && ((gi == last.first && gj == last.second) || (gi == last.second && gj == last.first)))
 					continue;
-				const int gap = abs(ready[i].tier - ready[j].tier);
+				if (cross)
+				{
+					const BYTE ei = GetPlayerBotGuildEmpire(ready[i].guild);
+					const BYTE ej = GetPlayerBotGuildEmpire(ready[j].guild);
+					if (ei == ej || (ei != empire && ej != empire))
+						continue;
+				}
+				// A tier apart counts as ten levels apart.
+				const int gap = abs(ready[i].tier - ready[j].tier) * 10 + abs(ready[i].level - ready[j].level);
 				std::map<DWORD, DWORD>::const_iterator wi = s_mapPlayerBotGuildLastWarAt.find(gi);
 				std::map<DWORD, DWORD>::const_iterator wj = s_mapPlayerBotGuildLastWarAt.find(gj);
 				const DWORD lastWar = std::max(wi == s_mapPlayerBotGuildLastWarAt.end() ? 0U : wi->second,
@@ -556,8 +914,53 @@ namespace
 		return true;
 	}
 
+	// MT2009_PLUS_GUILD_WAR_ARENA_V1: the arena's camps are the engine's own
+	// starting points of the two sides (CWarMapManager, war_map.cpp), each
+	// snapped onto open ground, and its middle the open ground nearest the
+	// point halfway between them - the gates at the middle of the map, where
+	// the two sides meet. Once, from the arena's own map (a copy has the same
+	// attributes); the log line says whether the navigation joins each camp to
+	// the middle.
+	const TPlayerBotWarSide* GetPlayerBotArenaSides()
+	{
+		std::map<long, TPlayerBotWarSide>::iterator it = s_mapPlayerBotWarSides.find(PLAYERBOT_GUILD_WAR_ARENA_MAP);
+		if (it != s_mapPlayerBotWarSides.end())
+			return it->second.bKnown ? &it->second : NULL;
+		TPlayerBotWarSide sides;
+		sides.bKnown = false;
+		sides.bCamps = false;
+		sides.groundX = sides.groundY = 0;
+		const long map = PLAYERBOT_GUILD_WAR_ARENA_MAP;
+		PIXEL_POSITION start[2];
+		bool ok = SECTREE_MANAGER::instance().GetMap(map) != NULL &&
+				CWarMapManager::instance().GetStartPosition(map, 0, start[0]) &&
+				CWarMapManager::instance().GetStartPosition(map, 1, start[1]);
+		for (int s = 0; ok && s < 2; ++s)
+			ok = FindPlayerBotWarGround(map, start[s].x, start[s].y, 1500, sides.campX[s], sides.campY[s]);
+		if (ok)
+			ok = FindPlayerBotWarGround(map, (sides.campX[0] + sides.campX[1]) / 2, (sides.campY[0] + sides.campY[1]) / 2,
+					4000, sides.groundX, sides.groundY);
+		if (ok)
+		{
+			sides.bKnown = true;
+			sides.bCamps = true;
+			sys_log(0, "PLAYERBOT_GUILD: arena ground map=%ld camps=(%ld,%ld)/(%ld,%ld) middle=(%ld,%ld) reachable=%d/%d open=%d",
+					map, sides.campX[0], sides.campY[0], sides.campX[1], sides.campY[1], sides.groundX, sides.groundY,
+					(int)IsPlayerBotReachable(map, sides.campX[0], sides.campY[0], sides.groundX, sides.groundY),
+					(int)IsPlayerBotReachable(map, sides.campX[1], sides.campY[1], sides.groundX, sides.groundY),
+					GetPlayerBotWarGroundOpenness(map, sides.groundX, sides.groundY));
+		}
+		else
+			sys_err("PLAYERBOT_GUILD: the arena %ld has no ground the bots can fight on (map hosted here: %d)",
+					map, SECTREE_MANAGER::instance().GetMap(map) ? 1 : 0);
+		it = s_mapPlayerBotWarSides.insert(std::make_pair(map, sides)).first;
+		return it->second.bKnown ? &it->second : NULL;
+	}
+
 	const TPlayerBotWarSide* GetPlayerBotWarSides(long lMapIndex, BYTE empire)
 	{
+		if (IsPlayerBotWarArenaMap(lMapIndex))
+			return GetPlayerBotArenaSides();
 		std::map<long, TPlayerBotWarSide>::iterator it = s_mapPlayerBotWarSides.find(lMapIndex);
 		if (it == s_mapPlayerBotWarSides.end())
 		{
@@ -629,7 +1032,7 @@ namespace
 		if (!sides)
 			return false;
 		const int s = side <= 0 ? 0 : 1;
-		GetPlayerBotWarSpot(lMapIndex, sides->campX[s], sides->campY[s], 250, pid, 0x57415223U, outX, outY);
+		GetPlayerBotWarSpot(GetPlayerBotWarGroundKey(lMapIndex), sides->campX[s], sides->campY[s], 250, pid, 0x57415223U, outX, outY);
 		return true;
 	}
 
@@ -639,7 +1042,10 @@ namespace
 		const TPlayerBotWarSide* sides = GetPlayerBotWarSides(lMapIndex, empire);
 		if (!sides)
 			return false;
-		GetPlayerBotWarSpot(lMapIndex, sides->groundX, sides->groundY, 400, pid, 0x57415221U, outX, outY);
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: the arena's middle is narrower (the
+		// gates), so the spots are closer together there.
+		GetPlayerBotWarSpot(GetPlayerBotWarGroundKey(lMapIndex), sides->groundX, sides->groundY,
+				IsPlayerBotWarArenaMap(lMapIndex) ? 250 : 400, pid, 0x57415221U, outX, outY);
 		return true;
 	}
 
@@ -655,6 +1061,9 @@ namespace
 	// answers yes, as before.
 	bool IsPlayerBotOnWarField(long lMapIndex, long x, long y)
 	{
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: all of the arena is the field.
+		if (IsPlayerBotWarArenaMap(lMapIndex))
+			return true;
 		std::map<long, TPlayerBotWarSide>::const_iterator it = s_mapPlayerBotWarSides.find(lMapIndex);
 		if (it == s_mapPlayerBotWarSides.end() || !it->second.bKnown)
 			return true;
@@ -697,12 +1106,7 @@ namespace
 			return;
 		CGuild* mine = CGuildManager::instance().FindGuild(dwMyGuild);
 		CGuild* enemy = CGuildManager::instance().FindGuild(dwOppGuild);
-		BYTE empire = 0;
-		if (enemy && IsPlayerBotGuild(enemy))
-			empire = GetPlayerBotGuildEmpire(enemy);
-		else if (mine && IsPlayerBotGuild(mine))
-			empire = GetPlayerBotGuildEmpire(mine);
-		if (empire == 0)
+		if (!mine || !enemy || (!IsPlayerBotGuild(enemy) && !IsPlayerBotGuild(mine)))
 		{
 			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] To wojna w polu: walczycie tam, gdzie sie spotkacie.");
 			return;
@@ -712,30 +1116,36 @@ namespace
 			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Boty walcza w wojnach gildii tylko na kanale 1 - zmien kanal i kliknij jeszcze raz.");
 			return;
 		}
-		const long battlefield = playerbot_empire_rules::GetHomeMap((int)empire, playerbot_empire_rules::MAP_ROLE_M3);
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: to the war's copy of the arena, at
+		// the engine's own start of the player's side (the lower guild id is
+		// side 0, as the bots' camps have it). The copy is known on the core
+		// that keeps the war; from another core the arena's copy number comes
+		// over in the war's notice, so the player is told to click there.
+		long arena = GetPlayerBotWarArena(mine, enemy);
+		if (arena == 0)
+		{
+			ch->ChatPacket(CHAT_TYPE_INFO, IsPlayerBotMapHostedHere(PLAYERBOT_GUILD_WAR_ARENA_MAP)
+					? "[Wojna] Arena tej wojny jeszcze sie przygotowuje - sprobuj za kilka sekund."
+					: "[Wojna] Arena wojen jest na innym rdzeniu - wejdz na mape swojego krolestwa M1 i kliknij jeszcze raz.");
+			return;
+		}
 		const int side = dwMyGuild < dwOppGuild ? 0 : 1;
 		long x = 0, y = 0;
-		bool camp = battlefield != 0 && IsPlayerBotMapHostedHere(battlefield) &&
-				GetPlayerBotWarCamp(battlefield, empire, side, ch->GetPlayerID(), x, y);
-		if (!camp)
+		if (!GetPlayerBotWarCamp(arena, 0, side, ch->GetPlayerID(), x, y))
 		{
-			// Another core hosts the guild map: the kingdom's own arrival on
-			// it, and the engine's warp does the rest.
-			playerbot_empire_rules::TPoint town;
-			if (!playerbot_empire_rules::GetTeleportArrival((int)empire,
-					playerbot_empire_rules::TELEPORT_GUILD_MAP, town))
+			PIXEL_POSITION pos;
+			if (!CWarMapManager::instance().GetStartPosition(PLAYERBOT_GUILD_WAR_ARENA_MAP, (BYTE)side, pos))
 			{
-				ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Nie znam pola bitwy tej wojny.");
+				ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Nie znam areny tej wojny.");
 				return;
 			}
-			x = town.x;
-			y = town.y;
+			x = pos.x;
+			y = pos.y;
 		}
-		ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Przenosze cie do obozu twojej gildii na mapie gildyjnej.");
-		sys_log(0, "PLAYERBOT_GUILD: player joins the field war pid=%u name=%s guild=%u enemy=%u empire=%d map=%ld side=%d camp=%d to=(%ld,%ld)",
-				ch->GetPlayerID(), ch->GetName(), dwMyGuild, dwOppGuild, (int)empire, battlefield, side,
-				camp ? 1 : 0, x, y);
-		ch->WarpSet(x, y);
+		ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Przenosze cie do obozu twojej gildii na arenie wojen.");
+		sys_log(0, "PLAYERBOT_GUILD: player joins the arena war pid=%u name=%s guild=%u enemy=%u arena=%ld side=%d to=(%ld,%ld)",
+				ch->GetPlayerID(), ch->GetName(), dwMyGuild, dwOppGuild, arena, side, x, y);
+		ch->WarpSet(x, y, arena);
 	}
 
 	// ------------------------------------------------ a player's declaration
@@ -755,12 +1165,7 @@ namespace
 			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wojny z gildiami botow sa wylaczone w panelu serwera.");
 			return true;
 		}
-		const BYTE empire = GetPlayerBotGuildEmpire(opp);
-		if (empire != 0 && empire != ch->GetEmpire())
-		{
-			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wojne mozna wypowiedziec tylko gildii botow z twojego krolestwa.");
-			return true;
-		}
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1 (kingdoms): any kingdom's bot guild.
 		if (opp->UnderAnyWar() != 0)
 		{
 			ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Gildia %s walczy teraz w innej wojnie.", opp->GetName());
@@ -778,7 +1183,7 @@ namespace
 			return true;
 		}
 		mine->RequestDeclareWar(opp->GetID(), GUILD_WAR_TYPE_FIELD);
-		ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wypowiedziano wojne gildii botow %s. Z botami to zawsze wojna na mapie gildyjnej waszego krolestwa. Odpowiedz przyjdzie za kilka sekund na czacie gildii.", opp->GetName());
+		ch->ChatPacket(CHAT_TYPE_INFO, "[Wojna] Wypowiedziano wojne gildii botow %s. Z botami walczy sie na arenie wojen (kanal 1). Odpowiedz przyjdzie za kilka sekund na czacie gildii.", opp->GetName());
 		sys_log(0, "PLAYERBOT_GUILD: player war declared by pid=%u name=%s guild=%s on %s",
 				ch->GetPlayerID(), ch->GetName(), mine->GetName(), opp->GetName());
 		return true;
@@ -813,25 +1218,29 @@ namespace
 		// Withdrawn, refused or answered meanwhile.
 		if (!person || !bots || bots->GetGuildWarState(offer.dwFrom) != GUILD_WAR_RECV_DECLARE)
 			return;
-		const BYTE empire = GetPlayerBotGuildEmpire(bots);
-		const long battlefield = empire == 0 ? 0 :
-				playerbot_empire_rules::GetHomeMap((int)empire, playerbot_empire_rules::MAP_ROLE_M3);
-		if (battlefield == 0 || !IsPlayerBotMapHostedHere(battlefield))
+		BYTE empire = GetPlayerBotGuildEmpire(bots);
+		if (!IsPlayerBotMapHostedHere(PLAYERBOT_GUILD_WAR_ARENA_MAP))
 			return;
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: the war takes the bot guild's
+		// kingdom's turn, or any free one - each war has an arena of its own.
+		if (empire < 1 || empire > 3 || s_mapPlayerBotGuildWars.find(empire) != s_mapPlayerBotGuildWars.end())
+			for (BYTE e = 1; e <= 3; ++e)
+				if (s_mapPlayerBotGuildWars.find(e) == s_mapPlayerBotGuildWars.end())
+				{
+					empire = e;
+					break;
+				}
 
 		char why[192] = "";
 		const DWORD stamp = (DWORD)get_global_time();
-		const BYTE personEmpire = GetPlayerBotPersonGuildEmpire(person);
 		std::map<BYTE, TPlayerBotGuildWar>::const_iterator slot = s_mapPlayerBotGuildWars.find(empire);
 		std::map<DWORD, DWORD>::const_iterator botsLast = s_mapPlayerBotGuildLastWarAt.find(offer.dwTo);
 		std::map<DWORD, DWORD>::const_iterator personLast = s_mapPlayerBotPlayerGuildLastWarAt.find(offer.dwFrom);
 		const int online = CountPlayerBotGuildOnline(bots);
 		if (offer.bType != GUILD_WAR_TYPE_FIELD)
-			snprintf(why, sizeof(why), "boty walcza tylko w wojnie na mapie gildyjnej");
+			snprintf(why, sizeof(why), "boty walcza tylko w wojnie w polu (na arenie wojen)");
 		else if (!IsPlayerBotGuildWarsEnabled())
 			snprintf(why, sizeof(why), "wojny z gildiami botow sa wylaczone w panelu serwera");
-		else if (personEmpire != 0 && personEmpire != empire)
-			snprintf(why, sizeof(why), "walczymy tylko z gildiami z naszego krolestwa");
 		else if (bots->UnderAnyWar() != 0 || IsPlayerBotGuildRaidingTower(offer.dwTo))
 			snprintf(why, sizeof(why), "walczymy teraz gdzie indziej (wojna albo Wieza Demonow)");
 		else if (slot != s_mapPlayerBotGuildWars.end())
@@ -840,7 +1249,7 @@ namespace
 			CGuild* g2 = CGuildManager::instance().FindGuild(slot->second.dwGuild2);
 			const int left = slot->second.bStarted
 					? std::max(1, 30 - (int)((dwNow - slot->second.dwStartedAt) / 60000U)) : 31;
-			snprintf(why, sizeof(why), "na mapie gildyjnej trwa juz wojna %s kontra %s, sprobujcie za okolo %d min",
+			snprintf(why, sizeof(why), "na arenach trwaja juz trzy wojny (m.in. %s kontra %s), sprobujcie za okolo %d min",
 					g1 ? g1->GetName() : "?", g2 ? g2->GetName() : "?", left);
 		}
 		else if (online < PLAYERBOT_GUILD_WAR_MIN_ONLINE)
@@ -851,8 +1260,8 @@ namespace
 		else if (personLast != s_mapPlayerBotPlayerGuildLastWarAt.end() && stamp < personLast->second + PLAYERBOT_GUILD_WAR_PLAYER_REST_SECONDS)
 			snprintf(why, sizeof(why), "wasza gildia walczyla z botami niedawno, sprobujcie za %u min",
 					(personLast->second + PLAYERBOT_GUILD_WAR_PLAYER_REST_SECONDS - stamp + 59) / 60);
-		else if (!GetPlayerBotWarSides(battlefield, empire))
-			snprintf(why, sizeof(why), "na mapie gildyjnej nie ma gdzie walczyc");
+		else if (!GetPlayerBotArenaSides())
+			snprintf(why, sizeof(why), "arena wojen nie jest gotowa");
 
 		char chat[320];
 		if (why[0])
@@ -874,13 +1283,18 @@ namespace
 		war.bStarted = false;
 		war.bPlayerWar = true;
 		war.bEndAsked = false;
+		war.iWins1AtStart = war.iWins2AtStart = war.iLastScore1 = war.iLastScore2 = 0;
+		war.lArena = 0;
+		war.dwArenaTryAt = 0;
+		EnsurePlayerBotWarArena(war, dwNow);
 		s_mapPlayerBotGuildWars[empire] = war;
+		ResetPlayerBotGuildWarNumbers(war.dwGuild1, war.dwGuild2);
 		s_mapPlayerBotGuildLastWarAt[offer.dwTo] = stamp;
 		s_mapPlayerBotPlayerGuildLastWarAt[offer.dwFrom] = stamp;
 		DBManager::instance().Query("UPDATE player.playerbot_guild SET last_war_at=%u WHERE guild_id=%u",
 				stamp, offer.dwTo);
-		snprintf(chat, sizeof(chat), "[Wojna] Gildia botow %s przyjmuje wyzwanie! Pole bitwy: mapa gildyjna (%s), kanal 1. Boty buffuja sie %u s przy swoim obozie i ruszaja na srodek.",
-				bots->GetName(), GetPlayerBotKingdomName(empire), (unsigned int)PLAYERBOT_GUILD_WAR_MUSTER_SECONDS);
+		snprintf(chat, sizeof(chat), "[Wojna] Gildia botow %s przyjmuje wyzwanie! Pole bitwy: arena wojen, kanal 1 - wejdzcie przyciskiem na tablicy wojny. Boty buffuja sie %u s przy swoim obozie i ruszaja na srodek.",
+				bots->GetName(), (unsigned int)PLAYERBOT_GUILD_WAR_MUSTER_SECONDS);
 		person->Chat(chat);
 		sys_log(0, "PLAYERBOT_GUILD: player war accepted %s -> %s empire=%d online=%d",
 				person->GetName(), bots->GetName(), (int)empire, online);
@@ -936,6 +1350,8 @@ namespace
 				continue;
 			const int score1 = g1->GetWarScoreAgainstTo(g2->GetID());
 			const int score2 = g2->GetWarScoreAgainstTo(g1->GetID());
+			war.iLastScore1 = score1;
+			war.iLastScore2 = score2;
 			if (std::max(score1, score2) < kills || score1 == score2)
 				continue;
 			CGuild* winner = score1 > score2 ? g1 : g2;
@@ -1029,6 +1445,12 @@ namespace
 		if (!s_bPlayerBotGuildWarMemoryLoaded)
 			LoadPlayerBotGuildWarMemory();
 		CheckPlayerBotGuildWarKills(dwNow);
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: every war's arena made (again) as
+		// soon as it can be, and the copies of the wars that are over cleared.
+		for (std::map<BYTE, TPlayerBotGuildWar>::iterator w = s_mapPlayerBotGuildWars.begin();
+				w != s_mapPlayerBotGuildWars.end(); ++w)
+			EnsurePlayerBotWarArena(w->second, dwNow);
+		ManagePlayerBotWarArenaDestroy(dwNow);
 		if (!s_vecPlayerBotWarOffers.empty())
 			ProcessPlayerBotWarOffers(dwNow);
 		if (s_dwNextPlayerBotGuildWarCheck != 0 && dwNow < s_dwNextPlayerBotGuildWarCheck)
@@ -1036,12 +1458,35 @@ namespace
 		s_dwNextPlayerBotGuildWarCheck = dwNow + PLAYERBOT_GUILD_WAR_CHECK_INTERVAL;
 		const bool enabled = IsPlayerBotGuildWarsEnabled();
 
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: the core that hosts the arena keeps
+		// every kingdom's turn; each war is fought in its own copy of it.
+		if (!IsPlayerBotMapHostedHere(PLAYERBOT_GUILD_WAR_ARENA_MAP))
+			return;
+		// MT2009_PLUS_GUILD_WAR_NOW_V1: touching /opt/m2spool/playerbot_war_now
+		// brings every kingdom's next war to now (the test of three wars at
+		// once, and a panel button later) - only a newer touch than the one
+		// seen, so a file left behind does nothing after a restart.
+		{
+			static time_t s_tSeen = (time_t)-1;
+			struct stat st;
+			const time_t at = stat("/opt/m2spool/playerbot_war_now", &st) == 0 ? st.st_mtime : 0;
+			if (s_tSeen == (time_t)-1)
+				s_tSeen = at;
+			else if (at > s_tSeen)
+			{
+				s_tSeen = at;
+				for (int e = playerbot_empire_rules::EMPIRE_SHINSOO; e <= playerbot_empire_rules::EMPIRE_JINNO; ++e)
+					if (s_mapPlayerBotGuildWars.find((BYTE)e) == s_mapPlayerBotGuildWars.end())
+					{
+						s_adwPlayerBotNextGuildWarTime[e] = dwNow;
+						s_abPlayerBotGuildWarNoPair[e] = false;
+					}
+				sys_log(0, "PLAYERBOT_GUILD: wars now (playerbot_war_now) - every free kingdom's turn brought to now");
+			}
+		}
 		for (int empire = playerbot_empire_rules::EMPIRE_SHINSOO;
 				empire <= playerbot_empire_rules::EMPIRE_JINNO; ++empire)
 		{
-			const long battlefield = playerbot_empire_rules::GetHomeMap(empire, playerbot_empire_rules::MAP_ROLE_M3);
-			if (battlefield == 0 || !IsPlayerBotMapHostedHere(battlefield))
-				continue;
 
 			std::map<BYTE, TPlayerBotGuildWar>::iterator it = s_mapPlayerBotGuildWars.find((BYTE)empire);
 			if (it != s_mapPlayerBotGuildWars.end())
@@ -1060,18 +1505,22 @@ namespace
 					{
 						war.bStarted = true;
 						war.dwStartedAt = dwNow;
+						war.iWins1AtStart = g1->GetGuildWarWinCount();
+						war.iWins2AtStart = g2->GetGuildWarWinCount();
 						++s_uPlayerBotGuildWarsFought;
 						char notice[200];
 						if (war.bPlayerWar)
-							snprintf(notice, sizeof(notice), "Wojna gildii: %s kontra gildia botow %s! Pole bitwy: mapa gildyjna (%s), 30 minut.",
-									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire));
+							snprintf(notice, sizeof(notice), "Wojna gildii: %s kontra gildia botow %s! Pole bitwy: arena wojen, 30 minut.",
+									g1->GetName(), g2->GetName());
 						else
-							snprintf(notice, sizeof(notice), "Wojna gildii: %s kontra %s! Pole bitwy: mapa gildyjna (%s), %d minut.",
-									g1->GetName(), g2->GetName(), GetPlayerBotKingdomName((BYTE)empire),
+							snprintf(notice, sizeof(notice), "Wojna gildii: %s (%s) kontra %s (%s)! Pole bitwy: arena wojen, %d minut.",
+									g1->GetName(), GetPlayerBotKingdomName(GetPlayerBotGuildEmpire(g1)),
+									g2->GetName(), GetPlayerBotKingdomName(GetPlayerBotGuildEmpire(g2)),
 									GetPlayerBotGuildWarMinutes());
 						BroadcastNotice(notice);
-						sys_log(0, "PLAYERBOT_GUILD: war on %s vs %s empire=%d battlefield=%ld online=%d/%d player=%d",
-								g1->GetName(), g2->GetName(), empire, battlefield,
+						sys_log(0, "PLAYERBOT_GUILD: war on %s vs %s empire=%d/%d arena=%ld online=%d/%d player=%d",
+								g1->GetName(), g2->GetName(), (int)GetPlayerBotGuildEmpire(g1),
+								(int)GetPlayerBotGuildEmpire(g2), war.lArena,
 								CountPlayerBotGuildOnline(g1), CountPlayerBotGuildOnline(g2), (int)war.bPlayerWar);
 					}
 					// A declaration the switch finds pending is left to run out
@@ -1088,15 +1537,56 @@ namespace
 								g1->GetName(), g2->GetName(), g2->GetGuildWarState(g1->GetID()), (int)war.bPlayerWar);
 						if (!war.bPlayerWar)
 							s_adwPlayerBotNextGuildWarTime[empire] = dwNow + PLAYERBOT_GUILD_WAR_RETRY_MS;
+						QueuePlayerBotWarArenaDestroy(war.lArena, dwNow);
 						s_mapPlayerBotGuildWars.erase(it);
 					}
 					continue;
 				}
+				if (g1->UnderWar(g2->GetID()))
+				{
+					war.iLastScore1 = g1->GetWarScoreAgainstTo(g2->GetID());
+					war.iLastScore2 = g2->GetWarScoreAgainstTo(g1->GetID());
+				}
 				if (!g1->UnderWar(g2->GetID()))
 				{
-					sys_log(0, "PLAYERBOT_GUILD: war over %s vs %s after %u min player=%d (wins/draws/losses %d/%d/%d and %d/%d/%d, ladder %d and %d)",
+					// MT2009_PLUS_LEGENDS_V1 (wars): the winner - a win more than
+					// at the start, else the higher last score - for the
+					// Legends' reputation and notices.
+					{
+						CGuild* winner = NULL;
+						if (g1->GetGuildWarWinCount() > war.iWins1AtStart)
+							winner = g1;
+						else if (g2->GetGuildWarWinCount() > war.iWins2AtStart)
+							winner = g2;
+						else if (war.iLastScore1 != war.iLastScore2)
+							winner = war.iLastScore1 > war.iLastScore2 ? g1 : g2;
+						NotePlayerBotLegendGuildWarOver(g1, g2, winner, war.bPlayerWar);
+						// MT2009_PLUS_GUILD_WAR_ARENA_V1: the winner's boxes, and
+						// the war's numbers for the log.
+						if (winner)
+						{
+							const bool boxes = GivePlayerBotGuildWarReward(winner);
+							char notice[220];
+							if (boxes)
+								snprintf(notice, sizeof(notice), "Wojna gildii: %s wygrywa z %s (%d:%d) i dostaje %d Szkatulek Blasku Ksiezyca!",
+										winner->GetName(), winner == g1 ? g2->GetName() : g1->GetName(),
+										winner == g1 ? war.iLastScore1 : war.iLastScore2,
+										winner == g1 ? war.iLastScore2 : war.iLastScore1, PLAYERBOT_GUILD_WAR_REWARD_COUNT);
+							else
+								snprintf(notice, sizeof(notice), "Wojna gildii: %s wygrywa z %s (%d:%d) - nagrode dnia juz ma, dostaje doswiadczenie gildii.",
+										winner->GetName(), winner == g1 ? g2->GetName() : g1->GetName(),
+										winner == g1 ? war.iLastScore1 : war.iLastScore2,
+										winner == g1 ? war.iLastScore2 : war.iLastScore1);
+							BroadcastNotice(notice);
+						}
+						LogPlayerBotGuildWarStats(g1, g2, war.lArena);
+						LogPlayerBotGuildWarStats(g2, g1, war.lArena);
+						ResetPlayerBotGuildWarNumbers(war.dwGuild1, war.dwGuild2);
+						QueuePlayerBotWarArenaDestroy(war.lArena, dwNow);
+					}
+					sys_log(0, "PLAYERBOT_GUILD: war over %s vs %s after %u min player=%d arena=%ld (wins/draws/losses %d/%d/%d and %d/%d/%d, ladder %d and %d)",
 							g1->GetName(), g2->GetName(), (unsigned int)((dwNow - war.dwStartedAt) / 60000U), (int)war.bPlayerWar,
-							g1->GetGuildWarWinCount(), g1->GetGuildWarDrawCount(), g1->GetGuildWarLossCount(),
+							war.lArena, g1->GetGuildWarWinCount(), g1->GetGuildWarDrawCount(), g1->GetGuildWarLossCount(),
 							g2->GetGuildWarWinCount(), g2->GetGuildWarDrawCount(), g2->GetGuildWarLossCount(),
 							g1->GetLadderPoint(), g2->GetLadderPoint());
 					// A player's war takes the kingdom's battlefield out of the
@@ -1173,14 +1663,22 @@ namespace
 			war.bStarted = false;
 			war.bPlayerWar = false;
 			war.bEndAsked = false;
+			war.iWins1AtStart = war.iWins2AtStart = war.iLastScore1 = war.iLastScore2 = 0;
+			war.lArena = 0;
+			war.dwArenaTryAt = 0;
+			EnsurePlayerBotWarArena(war, dwNow);
 			s_mapPlayerBotGuildWars[(BYTE)empire] = war;
-			sys_log(0, "PLAYERBOT_GUILD: war declared %s -> %s empire=%d online=%d/%d",
-					a->GetName(), b->GetName(), empire, CountPlayerBotGuildOnline(a), CountPlayerBotGuildOnline(b));
+			ResetPlayerBotGuildWarNumbers(war.dwGuild1, war.dwGuild2);
+			sys_log(0, "PLAYERBOT_GUILD: war declared %s (%s) -> %s (%s) turn=%d arena=%ld online=%d/%d",
+					a->GetName(), GetPlayerBotKingdomName(GetPlayerBotGuildEmpire(a)), b->GetName(),
+					GetPlayerBotKingdomName(GetPlayerBotGuildEmpire(b)), empire, war.lArena,
+					CountPlayerBotGuildOnline(a), CountPlayerBotGuildOnline(b));
 			// Said a minute or two before the blows, so a player who wants to
 			// watch has the time to get to the guild map.
 			char notice[200];
-			snprintf(notice, sizeof(notice), "Za chwile wojna gildii botow (%s): %s kontra %s. Pole bitwy: mapa gildyjna.",
-					GetPlayerBotKingdomName((BYTE)empire), a->GetName(), b->GetName());
+			snprintf(notice, sizeof(notice), "Za chwile wojna gildii botow: %s (%s) kontra %s (%s). Pole bitwy: arena wojen.",
+					a->GetName(), GetPlayerBotKingdomName(GetPlayerBotGuildEmpire(a)),
+					b->GetName(), GetPlayerBotKingdomName(GetPlayerBotGuildEmpire(b)));
 			BroadcastNotice(notice);
 		}
 	}
@@ -1282,10 +1780,12 @@ namespace
 			return true;
 		// Neither claims the tick, each on its own one-second clock, so the
 		// buff or the blow below still goes out.
-		UseHealthPotion(ch, state, dwNow,
+		const bool hp = UseHealthPotion(ch, state, dwNow,
 				atCamp ? PLAYERBOT_GUILD_WAR_CAMP_POTION_HP_PERCENT : PLAYERBOT_GUILD_WAR_POTION_HP_PERCENT);
-		UseManaPotion(ch, state, dwNow,
+		const bool sp = UseManaPotion(ch, state, dwNow,
 				atCamp ? PLAYERBOT_GUILD_WAR_CAMP_POTION_SP_PERCENT : PLAYERBOT_GUILD_WAR_POTION_SP_PERCENT);
+		if (hp || sp)
+			PlayerBotWarStatsOf(ch->GetGuild()).uPotion += (hp ? 1 : 0) + (sp ? 1 : 0);
 		// And the elixir, which only the potion block below this pass switched
 		// on, so no bot at war ever had one running it had not brought: its
 		// own minute's clock, refused in a duel only.
@@ -1401,7 +1901,7 @@ namespace
 		CGuild* guilds[2] = { mine->GetID() == g0 ? mine : enemy, mine->GetID() == g0 ? enemy : mine };
 		// The camps, for who of the bots stands at its own in a break; side 0
 		// is the lower guild id, as GetPlayerBotWarCamp has it.
-		std::map<long, TPlayerBotWarSide>::const_iterator sidesIt = s_mapPlayerBotWarSides.find(battlefield);
+		std::map<long, TPlayerBotWarSide>::const_iterator sidesIt = s_mapPlayerBotWarSides.find(GetPlayerBotWarGroundKey(battlefield));
 		const TPlayerBotWarSide* sides = sidesIt != s_mapPlayerBotWarSides.end() && sidesIt->second.bKnown
 				? &sidesIt->second : NULL;
 		int up[2] = { 0, 0 };
@@ -1882,6 +2382,9 @@ namespace
 							(DWORD)PLAYERBOT_GUILD_WAR_JITTER);
 			if (vid == heldVID)
 				cost -= PLAYERBOT_GUILD_WAR_KEEP_BONUS;
+			// MT2009_PLUS_LEGENDS_V1 (foe): a Specjalny and up goes for the
+			// weaker - the one already hurt, the one of fewer levels.
+			cost += GetPlayerBotLegendFoeCostAdjust(ch, foe);
 			// And whom its role goes for first (playerbot_war_rules.h).
 			cost -= playerbot_war_rules::FocusBonus(role, pattern,
 					playerbot_war_rules::KindOf(foe->GetJob(), foe->GetSkillGroup()));
@@ -1995,9 +2498,8 @@ namespace
 		state.dwGuildWarCampUntil = 0;
 		state.dwTargetVID = 0;
 		ch->SetVictim(NULL);
-		const long battlefield = playerbot_empire_rules::GetHomeMap(
-				(int)ch->GetEmpire(), playerbot_empire_rules::MAP_ROLE_M3);
-		if (ch->GetMapIndex() == battlefield)
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: off the arena, home to the village.
+		if (IsPlayerBotWarArenaMap(ch->GetMapIndex()))
 		{
 			long destMap = 0, destX = 0, destY = 0;
 			if (GetPlayerBotVillageReturn(ch, playerbot_empire_rules::MAP_ROLE_M2, destMap, destX, destY))
@@ -2077,8 +2579,10 @@ namespace
 			return false;
 		}
 		const BYTE empire = ch->GetEmpire();
-		const long battlefield = playerbot_empire_rules::GetHomeMap((int)empire, playerbot_empire_rules::MAP_ROLE_M3);
-		if (battlefield == 0 || !IsPlayerBotMapHostedHere(battlefield))
+		// MT2009_PLUS_GUILD_WAR_ARENA_V1: the war's own arena copy; none yet
+		// (being made again) - the bot goes on with its day meanwhile.
+		const long battlefield = GetPlayerBotWarArena(mine, enemy);
+		if (battlefield == 0)
 			return false;
 		const DWORD pid = ch->GetPlayerID();
 		const int side = mine->GetID() < enemy->GetID() ? 0 : 1;
@@ -2239,7 +2743,10 @@ namespace
 		if (atCamp && stance != playerbot_war_rules::STANCE_OUT &&
 				(atCampStance || state.dwGuildWarCampUntil > dwNow) &&
 				playerbot_war_rules::BuffsSide(role) && BuffPlayerBotWarSide(ch, state, mine, dwNow))
+		{
+			++PlayerBotWarStatsOf(mine).uSideBuff;
 			return true;
+		}
 		// The defensive healer keeps back and heals.
 		if (stance == playerbot_war_rules::STANCE_FIGHT && role == playerbot_war_rules::ROLE_HEALER_GUARD &&
 				ManagePlayerBotWarHealer(ch, state, mine, enemy, round, side, centreX, centreY, keepOut,

@@ -176,6 +176,17 @@ def main():
         if base in top:
             shutil.copyfile(os.path.join(REPO, f), os.path.join(new_dir, base))
             print('  beside the exe:', base)
+    # A file of ours beside the exe that the previous package does not hold
+    # (the COOP note, which an MT2009 PLUS package never carries) is added:
+    # the loop above only refreshes what is already there, so every client
+    # rebased onto an upstream package had dropped it since 2.0.55.
+    for f in git('ls-files', '--', BESIDE).decode().splitlines():
+        base = os.path.basename(f)
+        if base and base not in top:
+            shutil.copyfile(os.path.join(REPO, f), os.path.join(new_dir, base))
+            names.append(base)
+            top.add(base)
+            print('  beside the exe (added):', base)
 
     # MT2009 PLUS's packages carry a CLIENT_VERSION beside the exe since its
     # 2.0.37; it is its number, so a package of ours says ours.

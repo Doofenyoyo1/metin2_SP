@@ -42,6 +42,16 @@ namespace
 		{ 160, 2, 3, 0, 0 }, // Miecz Nimfy
 		{ 170, 2, 2, 0, 0 }, // Miecz Zadlowy
 		{ 180, 6, 5, 0, 0 }, // Zatruty miecz
+		// MT2009_PLUS_AWAKENING_V1 (Digi Rasta's Ritual of Awakening): the seven
+		// awakened families +0..+9, the best hunting weapons and no PvP ones (their
+		// "strong against people" is -15..-50%).
+		{ 210, 6, 1, 0, 0 }, // Smiercionosne Ostrze
+		{ 220, 6, 1, 0, 0 }, // Ksiezycowy Miecz
+		{ 1160, 6, 1, 0, 0 }, // Noz Strumienia
+		{ 2190, 6, 1, 0, 0 }, // Upiorna Kusza
+		{ 3170, 6, 1, 0, 0 }, // Zabojca Zolt. Smoka
+		{ 5150, 6, 1, 0, 0 }, // Hibiskusowy Dzwon
+		{ 7170, 6, 1, 0, 0 }, // Wachlarz Lezac. Smoka
 		{ 190, 5, 4, 0, 0 }, // Lwi Miecz
 		{ 200, 4, 6, 0, 0 }, // Brzegowe Ostrze
 		{ 240, 2, 5, 0, 0 }, // Miecz Egzorcysty
@@ -275,6 +285,16 @@ namespace
 	{
 		if ((int)((vnum / 100) % 10) < PLAYERBOT_SOUL_STONE_MIN_GRADE)
 			return NULL;
+		// MT2009_PLUS_SOULSTONE9_V1 (Digi Rasta's soul stones +5..+9): a +5..+9
+		// stone takes the +4 row of its kind (the grade still counts in the
+		// bot's score - a higher grade wins over a lower one of the same tier).
+		if ((int)((vnum / 100) % 10) >= 5)
+		{
+			const int k = (int)(vnum % 100) - ((vnum / 100) % 10 == 5 ? 30 : 0);
+			if (k < 0 || k >= 14)
+				return NULL;
+			vnum = 28430 + k;
+		}
 		for (size_t i = 0; i < sizeof(PLAYERBOT_SOUL_STONE_TIERS) / sizeof(PLAYERBOT_SOUL_STONE_TIERS[0]); ++i)
 			if (PLAYERBOT_SOUL_STONE_TIERS[i].dwVnum == vnum)
 				return &PLAYERBOT_SOUL_STONE_TIERS[i];

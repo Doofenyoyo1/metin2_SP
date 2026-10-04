@@ -604,7 +604,8 @@ namespace
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
-			if (item && item->GetCell() == cell && IsPlayerBotSashUsable(item))
+			if (item && item->GetCell() == cell && IsPlayerBotSashUsable(item) &&
+					!IsPlayerBotSidekickLockedItem(ch, item))	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1
 				out.push_back(item);
 		}
 	}
@@ -651,9 +652,274 @@ namespace
 		return s_setPlayerBotReleasedSash.count(itemId) != 0;
 	}
 
-	// Kept, not goods: a keeper's sashes while its sash is not done, the best
-	// PLAYERBOT_SASH_KEEP of those at or under its target grade; once done,
-	// only one that would beat what it wears. The worn one is never goods.
+	// ------------------------------------------------ the flow
+	//
+	// MT2009_PLUS_BOT_SASH_FLOW_V1 (the owner, 3 October 2026: "zawsze gdy bot
+	// ma dwie lub wiecej szarf, powinien albo je wystawic na sprzedaz albo
+	// ulepszac"). A keeper kept the best PLAYERBOT_SASH_KEEP of its sashes
+	// whether it could combine them or not: 210 keepers sat on two to ten of
+	// mixed grades with no pair, or a pair and not the fee, and the Arezzo
+	// dungeon cohort - never in a town - filled whole bags with them (FuBu2:
+	// 148 of the 180 cells). What a keeper keeps is now its plan for Uriel:
+	//   - a sash at its target waiting for a piece, and nothing under it;
+	//   - else the pairs of each grade it still combines that its spare purse
+	//     pays the fee for, lowest grade first, and one sash of each grade
+	//     above the lowest such pair (the pair's result pairs with it);
+	//   - else one sash, its best, waiting for a pair (the lone sash, released
+	//     after PLAYERBOT_SASH_LONE_RELEASE_MS as before);
+	// at most PLAYERBOT_SASH_KEEP in all. The rest is goods: on the counter,
+	// up to PLAYERBOT_SASH_FLOW_COUNTER_LINES lines while the bag holds two or
+	// more and whatever the counters' share; a bag under pressure keeps that
+	// many of them for the counter and the merchant takes the plain +0 ones
+	// past it, the cheapest first. A bot that cannot reach a counter or Uriel
+	// (the Arezzo dungeon cohort) combines its pairs in place, a few a look,
+	// and sells the rest at the merchant's price in place, the way it buys
+	// its potions; one the Arezzo test holds on its map does that only under
+	// pressure (it goes back to town and its counter in time). The worn sash,
+	// a companion's gift, pin or held drop and the owner's absorb rules
+	// (PassesPlayerBotSashAbsorbRule) are untouched.
+	const int PLAYERBOT_SASH_FLOW_INPLACE_COMBINES = 2;
+	const DWORD PLAYERBOT_SASH_FLOW_CHECK_MIN_MS = 4 * 60 * 1000;
+	const DWORD PLAYERBOT_SASH_FLOW_CHECK_MAX_MS = 6 * 60 * 1000;
+	const DWORD PLAYERBOT_SASH_FLOW_CENSUS_MS = 10 * 60 * 1000;
+	const DWORD PLAYERBOT_SASH_FLOW_SNAPSHOT_MS = 15 * 60 * 1000;
+
+	enum EPlayerBotSashFlowMode
+	{
+		PLAYERBOT_SASH_FLOW_TOWN = 0,		// counters, Uriel and the merchant as ever
+		PLAYERBOT_SASH_FLOW_HELD = 1,		// held on an Arezzo map: in place under pressure
+		PLAYERBOT_SASH_FLOW_IN_PLACE = 2	// the dungeon cohort: in place always
+	};
+
+	struct TPlayerBotSashPlan
+	{
+		DWORD dwUntil;
+		std::set<DWORD> kept;		// unabsorbed bag sashes the keeper combines or waits with
+		std::set<DWORD> merchant;	// goods the merchant takes
+		int bag;			// unworn bag sashes the flow looks at
+		int goods;			// of them, not kept
+		TPlayerBotSashPlan() : dwUntil(0), bag(0), goods(0) {}
+	};
+	std::map<DWORD, TPlayerBotSashPlan> s_mapPlayerBotSashPlan;
+
+	struct TPlayerBotSashFlowStats
+	{
+		unsigned soldInPlace;
+		unsigned long long soldInPlaceYang;
+		unsigned combinedInPlace;
+		unsigned looks;
+	};
+	TPlayerBotSashFlowStats s_kPlayerBotSashFlowStats = { 0, 0, 0, 0 };
+
+	struct TPlayerBotSashSnapshot { DWORD at; int bag; int goods; int kept; BYTE mode; };
+	std::map<DWORD, TPlayerBotSashSnapshot> s_mapPlayerBotSashSnapshot;
+	std::map<DWORD, DWORD> s_mapPlayerBotSashFlowNext;
+
+	// A sash of the bag the flow may move: usable, and not what a companion
+	// holds for its owner or was given or had pinned by it.
+	bool IsPlayerBotSashFlowItem(LPCHARACTER ch, LPITEM item)
+	{
+		return IsPlayerBotSashUsable(item) && !IsPlayerBotSidekickLockedItem(ch, item) &&
+				!IsPlayerBotSidekickGift(ch, item) && !IsPlayerBotSidekickPinned(ch, item);
+	}
+
+	bool ComparePlayerBotSashRankDesc(LPITEM a, LPITEM b)
+	{
+		const int ra = RankPlayerBotSash(a), rb = RankPlayerBotSash(b);
+		return ra != rb ? ra > rb : a->GetID() < b->GetID();
+	}
+
+	bool ComparePlayerBotSashPriceAsc(LPITEM a, LPITEM b)
+	{
+		const DWORD pa = GetPlayerBotSashPrice(a), pb = GetPlayerBotSashPrice(b);
+		return pa != pb ? pa < pb : a->GetID() > b->GetID();
+	}
+
+	bool IsPlayerBotSashDone(LPCHARACTER ch, const TPlayerBotSashTarget& t);
+
+	// The keeper's plan over its unabsorbed sashes (`extra`, an offer off a
+	// counter, counted as one of them): the IDs it keeps.
+	void BuildPlayerBotSashKeeperPlan(LPCHARACTER ch, const TPlayerBotSashTarget& t,
+			const std::vector<LPITEM>& sashes, std::set<DWORD>& kept)
+	{
+		kept.clear();
+		if (t.grade <= 0)
+			return;
+		// A sash at the target waits for a piece: it alone (FindPlayerBotSashPair
+		// combines nothing while one does).
+		LPITEM fill = NULL;
+		for (size_t i = 0; i < sashes.size(); ++i)
+			if (IsPlayerBotSashAtTarget(sashes[i], t) && (!fill || RankPlayerBotSash(sashes[i]) > RankPlayerBotSash(fill)))
+				fill = sashes[i];
+		LPITEM worn = ch->GetWear(WEAR_COSTUME_ACCE);
+		if (worn && IsPlayerBotSashItem(worn) && !IsPlayerBotSashAbsorbed(worn) && IsPlayerBotSashAtTarget(worn, t) &&
+				(!fill || RankPlayerBotSash(worn) > RankPlayerBotSash(fill)))
+			return;
+		if (fill)
+		{
+			kept.insert(fill->GetID());
+			return;
+		}
+		// The pairs the purse pays for, lowest grade first - FindPlayerBotSashPair's order.
+		long long budget = GetPlayerBotSashSpareGold(ch);
+		std::vector<LPITEM> leftovers;
+		int lowestPair = 0;
+		for (int grade = 1; grade <= 4; ++grade)
+		{
+			std::vector<LPITEM> same;
+			for (size_t i = 0; i < sashes.size(); ++i)
+				if (GetPlayerBotSashGrade(sashes[i]) == grade && GetPlayerBotSashAbsorption(sashes[i]) < ACCE_GRADE_4_ABS_MAX)
+					same.push_back(sashes[i]);
+			if (same.empty())
+				continue;
+			std::sort(same.begin(), same.end(), ComparePlayerBotSashRankDesc);
+			bool combines = grade < t.grade || (grade == 4 && t.grade == 4);
+			if (combines && grade == 4)
+				combines = ch->GetLevel() >= PLAYERBOT_SASH_UNIQUE_COMBINE_LEVEL &&
+						GetPlayerBotSashSpareGold(ch) >= PLAYERBOT_SASH_RICH_GOLD &&
+						GetPlayerBotSashAbsorption(same[0]) < t.absorption;
+			size_t pairs = combines ? same.size() / 2 : 0;
+			const long long fee = (long long)ch->GetAcceCombinePrice(grade);
+			if (fee > 0)
+				pairs = (size_t)std::min<long long>((long long)pairs, std::max<long long>(0, budget) / fee);
+			const size_t room = kept.size() < (size_t)PLAYERBOT_SASH_KEEP ? ((size_t)PLAYERBOT_SASH_KEEP - kept.size()) / 2 : 0;
+			pairs = std::min(pairs, room);
+			for (size_t i = 0; i < same.size(); ++i)
+			{
+				if (i < pairs * 2)
+					kept.insert(same[i]->GetID());
+				else
+					leftovers.push_back(same[i]);
+			}
+			budget -= (long long)pairs * fee;
+			if (pairs > 0 && lowestPair == 0)
+				lowestPair = grade;
+		}
+		std::sort(leftovers.begin(), leftovers.end(), ComparePlayerBotSashRankDesc);
+		if (lowestPair == 0)
+		{
+			// No pair: the best one waits for its pair (the lone sash).
+			if (!leftovers.empty())
+				kept.insert(leftovers[0]->GetID());
+			return;
+		}
+		// One of each grade above the lowest pair, for what the combining makes.
+		std::set<int> grades;
+		for (size_t i = 0; i < leftovers.size() && kept.size() < (size_t)PLAYERBOT_SASH_KEEP; ++i)
+		{
+			const int grade = GetPlayerBotSashGrade(leftovers[i]);
+			if (grade > lowestPair && grade < t.grade + (t.grade == 4 ? 1 : 0) && grades.insert(grade).second)
+				kept.insert(leftovers[i]->GetID());
+		}
+	}
+
+	// The bag's plan, a few seconds at a time (the counters and the merchant
+	// ask for every item of the bag).
+	const TPlayerBotSashPlan& GetPlayerBotSashPlan(LPCHARACTER ch)
+	{
+		static TPlayerBotSashPlan s_empty;
+		if (!ch || !ch->IsPC() || !ch->IsItemLoaded())
+			return s_empty;
+		const DWORD now = get_dword_time();
+		TPlayerBotSashPlan& plan = s_mapPlayerBotSashPlan[ch->GetPlayerID()];
+		if (plan.dwUntil != 0 && (int)(now - plan.dwUntil) < 0)
+			return plan;
+		plan.dwUntil = now + 3000;
+		plan.kept.clear();
+		plan.merchant.clear();
+		plan.bag = plan.goods = 0;
+
+		std::vector<LPITEM> bag;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (item && item->GetCell() == cell && IsPlayerBotSashFlowItem(ch, item))
+				bag.push_back(item);
+		}
+		plan.bag = (int)bag.size();
+		if (bag.empty())
+			return plan;
+
+		const bool keeper = IsPlayerBotSashKeeper(ch);
+		const TPlayerBotSashTarget t = keeper ? GetPlayerBotSashTarget(ch) : TPlayerBotSashTarget();
+		const bool done = keeper && t.grade > 0 && IsPlayerBotSashDone(ch, t);
+		LPITEM worn = ch->GetWear(WEAR_COSTUME_ACCE);
+		if (keeper && t.grade > 0 && !done)
+		{
+			std::vector<LPITEM> candidates;
+			for (size_t i = 0; i < bag.size(); ++i)
+				if (!IsPlayerBotSashAbsorbed(bag[i]) && !IsPlayerBotSashReleased(bag[i]->GetID()))
+					candidates.push_back(bag[i]);
+			BuildPlayerBotSashKeeperPlan(ch, t, candidates, plan.kept);
+		}
+		std::vector<LPITEM> goods;
+		for (size_t i = 0; i < bag.size(); ++i)
+		{
+			LPITEM s = bag[i];
+			bool kept;
+			if (!keeper || t.grade <= 0)
+				kept = false;
+			else if (done || IsPlayerBotSashAbsorbed(s))
+				kept = RankPlayerBotSashFor(ch, s) > RankPlayerBotSashFor(ch, worn);
+			else
+				kept = plan.kept.count(s->GetID()) != 0;
+			if (!kept)
+				goods.push_back(s);
+		}
+		plan.goods = (int)goods.size();
+		// Under pressure: the counter's PLAYERBOT_SASH_FLOW_COUNTER_LINES best
+		// stay for it, and the plain +0 ones past them are the merchant's.
+		if (goods.size() > (size_t)PLAYERBOT_SASH_FLOW_COUNTER_LINES && IsPlayerBotBagUnderPressure(ch))
+		{
+			std::sort(goods.begin(), goods.end(), ComparePlayerBotSashPriceAsc);
+			const size_t sell = goods.size() - (size_t)PLAYERBOT_SASH_FLOW_COUNTER_LINES;
+			for (size_t i = 0; i < sell; ++i)
+				if (GetPlayerBotSashGrade(goods[i]) <= 1 && !IsPlayerBotSashAbsorbed(goods[i]))
+					plan.merchant.insert(goods[i]->GetID());
+		}
+		return plan;
+	}
+
+	void ForgetPlayerBotSashPlan(LPCHARACTER ch)
+	{
+		if (ch)
+			s_mapPlayerBotSashPlan.erase(ch->GetPlayerID());
+	}
+
+	int GetPlayerBotSashGoodsInBag(LPCHARACTER ch)
+	{
+		return ch ? GetPlayerBotSashPlan(ch).goods : 0;
+	}
+
+	bool IsPlayerBotSashForMerchant(LPCHARACTER ch, LPITEM item)
+	{
+		if (!ch || !IsPlayerBotSashItem(item) || item->IsEquipped())
+			return false;
+		const TPlayerBotSashPlan& plan = GetPlayerBotSashPlan(ch);
+		return !plan.merchant.empty() && plan.merchant.count(item->GetID()) != 0;
+	}
+
+	// Would the keeper keep `offer` were it in the bag (WantsPlayerBotSashOffer):
+	// bought only what the plan combines or waits with, never goods again.
+	bool WouldPlayerBotSashPlanKeep(LPCHARACTER ch, const TPlayerBotSashTarget& t, LPITEM offer)
+	{
+		std::vector<LPITEM> candidates;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (item && item->GetCell() == cell && IsPlayerBotSashFlowItem(ch, item) &&
+					!IsPlayerBotSashAbsorbed(item) && !IsPlayerBotSashReleased(item->GetID()))
+				candidates.push_back(item);
+		}
+		candidates.push_back(offer);
+		std::set<DWORD> kept;
+		BuildPlayerBotSashKeeperPlan(ch, t, candidates, kept);
+		return kept.count(offer->GetID()) != 0;
+	}
+
+	// Kept, not goods: a keeper's sashes while its sash is not done, as its
+	// plan says (above); once done, only one that would beat what it wears.
+	// The worn one is never goods.
 	bool IsPlayerBotSashPieceKind(LPITEM item);
 	DWORD GetPlayerBotChosenSashPieceID(LPCHARACTER ch);
 	bool IsPlayerBotSashGrailProject(LPCHARACTER ch, LPITEM item);
@@ -677,7 +943,9 @@ namespace
 			return RankPlayerBotSashFor(ch, item) > RankPlayerBotSashFor(ch, ch->GetWear(WEAR_COSTUME_ACCE));
 		if (IsPlayerBotSashAbsorbed(item))
 			return RankPlayerBotSashFor(ch, item) > RankPlayerBotSashFor(ch, ch->GetWear(WEAR_COSTUME_ACCE));
-		if (GetPlayerBotSashGrade(item) > t.grade)
+		// MT2009_PLUS_BOT_SASH_FLOW_V1: a companion's gift, pin or held drop,
+		// or one in a window, is not the plan's - and not goods.
+		if (!IsPlayerBotSashFlowItem(ch, item))
 			return true;
 		if (IsPlayerBotSashReleased(item->GetID()))
 			return false;
@@ -693,21 +961,9 @@ namespace
 				return false;
 			}
 		}
-		const int grade = GetPlayerBotSashGrade(item);
-		const int absorption = GetPlayerBotSashAbsorption(item);
-		int better = 0;
-		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
-		{
-			LPITEM other = ch->GetInventoryItem(cell);
-			if (!other || other == item || other->GetCell() != cell || !IsPlayerBotSashItem(other) ||
-					IsPlayerBotSashAbsorbed(other))
-				continue;
-			const int g = GetPlayerBotSashGrade(other);
-			if (g > grade || (g == grade && GetPlayerBotSashAbsorption(other) > absorption) ||
-					(g == grade && GetPlayerBotSashAbsorption(other) == absorption && other->GetID() < item->GetID()))
-				++better;
-		}
-		return better < PLAYERBOT_SASH_KEEP;
+		// MT2009_PLUS_BOT_SASH_FLOW_V1: what the plan combines or waits with
+		// (the best PLAYERBOT_SASH_KEEP of them all before, combinable or not).
+		return GetPlayerBotSashPlan(ch).kept.count(item->GetID()) != 0;
 	}
 
 	// A counter's sash worth a keeper's money: an empty one of a grade it still
@@ -740,7 +996,9 @@ namespace
 			if (!IsPlayerBotSashAbsorbed(bag[i]) && IsPlayerBotSashAtTarget(bag[i], t))
 				return false;
 		const int grade = GetPlayerBotSashGrade(offer);
-		return grade < t.grade || IsPlayerBotSashAtTarget(offer, t);
+		// MT2009_PLUS_BOT_SASH_FLOW_V1: and only one its plan keeps - a sash it
+		// would put straight back on a counter is no purchase.
+		return (grade < t.grade || IsPlayerBotSashAtTarget(offer, t)) && WouldPlayerBotSashPlanKeep(ch, t, offer);
 	}
 
 	// ------------------------------------------------------------ prices
@@ -1156,7 +1414,8 @@ namespace
 	{
 		if (!sash || !sash->IsEquipped())
 			return true;
-		if (ch->GetEmptyInventory(sash->GetSize()) < 0)
+		// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: a locked companion's stays on.
+		if (ch->GetEmptyInventory(sash->GetSize()) < 0 || IsPlayerBotSidekickLockedItem(ch, sash))
 			return false;
 		return ch->UnequipItem(sash) && !sash->IsEquipped();
 	}
@@ -1430,6 +1689,164 @@ namespace
 		return false;
 	}
 
+	// MT2009_PLUS_BOT_SASH_FLOW_V1: the census, every
+	// PLAYERBOT_SASH_FLOW_CENSUS_MS - the bots this core looked at in the
+	// last PLAYERBOT_SASH_FLOW_SNAPSHOT_MS, the sashes in their bags, and the
+	// sash lines on the counters.
+	DWORD s_dwPlayerBotSashFlowCensusAt = 0;
+
+	void LogPlayerBotSashFlowCensus(DWORD dwNow)
+	{
+		unsigned seen = 0, two = 0, twoGoods = 0, twoInPlace = 0, bagSashes = 0, goods = 0, kept = 0, worst = 0;
+		for (std::map<DWORD, TPlayerBotSashSnapshot>::iterator it = s_mapPlayerBotSashSnapshot.begin();
+				it != s_mapPlayerBotSashSnapshot.end();)
+		{
+			if (dwNow - it->second.at > PLAYERBOT_SASH_FLOW_SNAPSHOT_MS)
+			{
+				s_mapPlayerBotSashSnapshot.erase(it++);
+				continue;
+			}
+			const TPlayerBotSashSnapshot& s = it->second;
+			++seen;
+			bagSashes += (unsigned)s.bag;
+			goods += (unsigned)s.goods;
+			kept += (unsigned)s.kept;
+			worst = std::max(worst, (unsigned)s.bag);
+			if (s.bag >= 2)
+			{
+				++two;
+				if (s.goods >= 2)
+					++twoGoods;
+				if (s.mode != PLAYERBOT_SASH_FLOW_TOWN)
+					++twoInPlace;
+			}
+			++it;
+		}
+		unsigned counterLines = 0, counters = 0;
+#if defined(PLAYERBOT_ENGINE_MT2009) && defined(ENABLE_IKASHOP_RENEWAL)
+		for (const auto& [pid, shop] : ikashop::GetManager().GetPlayerBotOfflineShops())
+		{
+			if (!shop)
+				continue;
+			unsigned lines = 0;
+			for (const auto& [id, line] : shop->GetItems())
+				if (line && IsPlayerBotSashVnum(line->GetInfo().vnum))
+					++lines;
+			counterLines += lines;
+			if (lines)
+				++counters;
+		}
+#endif
+		const TPlayerBotSashFlowStats& f = s_kPlayerBotSashFlowStats;
+		sys_log(0, "PLAYERBOT_SASH: flow census bots_seen=%u bots_2plus=%u bots_2plus_goods=%u bots_2plus_in_place=%u bag_sashes=%u kept=%u goods=%u most=%u counter_lines=%u counters=%u looks=%u combined_in_place=%u sold_in_place=%u sold_yang=%llu",
+				seen, two, twoGoods, twoInPlace, bagSashes, kept, goods, worst, counterLines, counters,
+				f.looks, f.combinedInPlace, f.soldInPlace, f.soldInPlaceYang);
+		s_kPlayerBotSashFlowStats = TPlayerBotSashFlowStats();
+	}
+
+	// MT2009_PLUS_BOT_SASH_FLOW_V1: the bot's look at its sashes, on its own
+	// clock. A bot of the towns (PLAYERBOT_SASH_FLOW_TOWN) is only looked at:
+	// its plan already makes the counters, Uriel and the merchant do the
+	// rest. One the Arezzo test holds on its map sells the merchant's share in
+	// place under pressure; the dungeon cohort combines its pairs in place,
+	// PLAYERBOT_SASH_FLOW_INPLACE_COMBINES a look, and sells every sash of the
+	// bag that is goods at the merchant's price (keeping one when it keeps
+	// none and wears none).
+	void ManagePlayerBotSashFlow(LPCHARACTER ch, DWORD dwNow, BYTE mode)
+	{
+		if (!ch || !ch->IsPC() || !ch->IsItemLoaded() || ch->IsDead())
+			return;
+		if (s_dwPlayerBotSashFlowCensusAt == 0)
+			s_dwPlayerBotSashFlowCensusAt = dwNow + PLAYERBOT_SASH_FLOW_CENSUS_MS;
+		else if ((int)(dwNow - s_dwPlayerBotSashFlowCensusAt) >= 0)
+		{
+			s_dwPlayerBotSashFlowCensusAt = dwNow + PLAYERBOT_SASH_FLOW_CENSUS_MS;
+			LogPlayerBotSashFlowCensus(dwNow);
+		}
+		const DWORD pid = ch->GetPlayerID();
+		DWORD& next = s_mapPlayerBotSashFlowNext[pid];
+		if (next != 0 && (int)(dwNow - next) < 0)
+			return;
+		next = dwNow + number(PLAYERBOT_SASH_FLOW_CHECK_MIN_MS, PLAYERBOT_SASH_FLOW_CHECK_MAX_MS);
+		++s_kPlayerBotSashFlowStats.looks;
+
+		ForgetPlayerBotSashPlan(ch);
+		const int bagBefore = GetPlayerBotSashPlan(ch).bag;
+		const int goodsBefore = GetPlayerBotSashPlan(ch).goods;
+		int combined = 0, sold = 0;
+		long long soldYang = 0;
+		const bool busy = ch->GetExchange() || ch->GetMyShop() || ch->IsAcceOpened() || IsPlayerBotSidekickPID(pid);
+		const bool pressure = IsPlayerBotBagUnderPressure(ch);
+		if (!busy && bagBefore >= 2 && (mode == PLAYERBOT_SASH_FLOW_IN_PLACE ||
+				(mode == PLAYERBOT_SASH_FLOW_HELD && pressure)))
+		{
+			if (mode == PLAYERBOT_SASH_FLOW_IN_PLACE && IsPlayerBotSashKeeper(ch))
+			{
+				const TPlayerBotSashTarget t = GetPlayerBotSashTarget(ch);
+				for (int i = 0; t.grade > 0 && i < PLAYERBOT_SASH_FLOW_INPLACE_COMBINES; ++i)
+				{
+					LPITEM first = NULL, second = NULL;
+					if (!FindPlayerBotSashPair(ch, t, first, second) || !CombinePlayerBotSashes(ch, first, second))
+						break;
+					++combined;
+				}
+				if (t.grade > 0)
+					WearPlayerBotBestSash(ch, t);
+				ForgetPlayerBotSashPlan(ch);
+			}
+			const TPlayerBotSashPlan& plan = GetPlayerBotSashPlan(ch);
+			std::vector<LPITEM> sell;
+			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+			{
+				LPITEM item = ch->GetInventoryItem(cell);
+				if (!item || item->GetCell() != cell || !IsPlayerBotSashFlowItem(ch, item) ||
+						IsPlayerBotKeptSash(ch, item))
+					continue;
+				// The operator's word (keep, stall) stands.
+				const BYTE policy = GetPlayerBotItemPolicy(item);
+				if (policy != PLAYERBOT_ITEM_POLICY_NONE && policy != PLAYERBOT_ITEM_POLICY_MERCHANT)
+					continue;
+				if (mode == PLAYERBOT_SASH_FLOW_IN_PLACE || plan.merchant.count(item->GetID()) != 0)
+					sell.push_back(item);
+			}
+			std::sort(sell.begin(), sell.end(), ComparePlayerBotSashPriceAsc);
+			// The dungeon cohort keeps one when the plan keeps none and it
+			// wears none: the best, which the sort put last.
+			if (mode == PLAYERBOT_SASH_FLOW_IN_PLACE && !sell.empty() && (int)sell.size() >= plan.bag &&
+					ch->GetWear(WEAR_COSTUME_ACCE) == NULL)
+				sell.pop_back();
+			for (size_t i = 0; i < sell.size(); ++i)
+			{
+				const long long price = GetPlayerBotJunkSalePrice(sell[i]);
+				PlayerBotChangeGold(ch, price);
+				ITEM_MANAGER::instance().RemoveItem(sell[i], "PLAYERBOT_SASH_FLOW_SELL");
+				++sold;
+				soldYang += price;
+			}
+			ForgetPlayerBotSashPlan(ch);
+			s_kPlayerBotSashFlowStats.combinedInPlace += (unsigned)combined;
+			s_kPlayerBotSashFlowStats.soldInPlace += (unsigned)sold;
+			s_kPlayerBotSashFlowStats.soldInPlaceYang += (unsigned long long)std::max<long long>(0, soldYang);
+		}
+		const TPlayerBotSashPlan& after = GetPlayerBotSashPlan(ch);
+		TPlayerBotSashSnapshot& snap = s_mapPlayerBotSashSnapshot[pid];
+		snap.at = dwNow;
+		snap.bag = after.bag;
+		snap.goods = after.goods;
+		snap.kept = after.bag - after.goods;
+		snap.mode = mode;
+		if (combined || sold)
+			sys_log(0, "PLAYERBOT_SASH: flow in place pid=%u name=%s lv=%d mode=%d bag=%d->%d goods=%d->%d combined=%d sold=%d yang=%lld pressure=%d",
+					pid, ch->GetName(), ch->GetLevel(), (int)mode, bagBefore, after.bag, goodsBefore, after.goods,
+					combined, sold, soldYang, pressure ? 1 : 0);
+		else if (after.bag >= 2)
+			PlayerBotLogThrottled("sash_flow_look", dwNow,
+					"PLAYERBOT_SASH: flow look pid=%u name=%s lv=%d mode=%d keeper=%d bag=%d kept=%d goods=%d merchant=%u pressure=%d counter=%d",
+					pid, ch->GetName(), ch->GetLevel(), (int)mode, IsPlayerBotSashKeeper(ch) ? 1 : 0, after.bag,
+					after.bag - after.goods, after.goods, (unsigned)after.merchant.size(), pressure ? 1 : 0,
+					PlayerBotHasCounter(ch) ? 1 : 0);
+	}
+
 	void LogPlayerBotSashCensus()
 	{
 		sys_log(0, "PLAYERBOT_SASH: census combines=%u fails=%u absorbs=%u wears=%u trips=%u bought=%u bought_yang=%llu bought_to_wear=%u supply=%u plentiful=%d",
@@ -1458,6 +1875,11 @@ namespace
 	void NotePlayerBotSashBought(LPCHARACTER, DWORD, long long) {}
 	bool ManagePlayerBotSash(LPCHARACTER, TPlayerBotAIState&, DWORD) { return false; }
 	void LogPlayerBotSashCensus() {}
+	// MT2009_PLUS_BOT_SASH_FLOW_V1
+	enum { PLAYERBOT_SASH_FLOW_TOWN = 0, PLAYERBOT_SASH_FLOW_HELD = 1, PLAYERBOT_SASH_FLOW_IN_PLACE = 2 };
+	int GetPlayerBotSashGoodsInBag(LPCHARACTER) { return 0; }
+	bool IsPlayerBotSashForMerchant(LPCHARACTER, LPITEM) { return false; }
+	void ManagePlayerBotSashFlow(LPCHARACTER, DWORD, BYTE) {}
 }
 
 #endif

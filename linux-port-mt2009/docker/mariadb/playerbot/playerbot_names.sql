@@ -9237,6 +9237,15 @@ INSERT INTO playerbot_name_pool (n, empire, name)
 SELECT k, ELT(((k - 1) % 3) + 1, 2, 1, 3), name FROM playerbot_name_priority;
 
 -- --------------------------------------------------------------------------
+-- MT2009_PLUS_LEGEND_NAMES_V1: the 27 Legends' nicknames (the owner, 3
+-- October) are the Legends' alone - the game core gives them to its 27
+-- Chodzace Legendy (playerbot_legends.h). No bot is ever dealt one of them
+-- from here, nor a copy of one (FuBu2, FuBuv3, ...).
+-- --------------------------------------------------------------------------
+DELETE FROM playerbot_name_pool
+ WHERE name REGEXP '^(FuBu|Wallander4ever|SirMamutPOL|Zwierz|IsAmU|GoToSleep|Kasanga|Loth|SQRCZYBYKU|KAPRAL|BumBum|NinjaxesPL|Xuminnek|ShiveR|Scoobany|Schenk|Kosikredki|Tream|Sabal|Gimper|BuenaCosta|Uzurpator|DIIIM2|TNT|Asfen|LifeIsDeath|ZAXEP)(v?[0-9]+)?$';
+
+-- --------------------------------------------------------------------------
 -- Who gets one, and which. Every bot without a name from the pool - no
 -- history row at all - waits, numbered by PID within its kingdom; every pool
 -- name of that kingdom's share not worn by anybody who is not waiting is free,

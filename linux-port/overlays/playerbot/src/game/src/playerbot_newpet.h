@@ -263,7 +263,13 @@ namespace mt2009_newpet
 		DWORD lastInfo;
 		// Where the pet stands beside its owner: left of the ItemShop pet.
 		int side;
-		Owner() : pid(0), petVid(0), lastMap(0), expDelta(0), nextFlush(0), lastCommand(0), lastRefresh(0), lastInfo(0), side(1) {}
+		// MT2009_PLUS_PET_EGG_SLOT_V1: the egg the last "NewPet Hatch" asked a
+		// name for - its item id and vnum - so the hatch finds that egg however
+		// the bag moved meanwhile (FindHatchEgg).
+		DWORD hatchEggId;
+		DWORD hatchEggVnum;
+		Owner() : pid(0), petVid(0), lastMap(0), expDelta(0), nextFlush(0), lastCommand(0), lastRefresh(0), lastInfo(0), side(1),
+				hatchEggId(0), hatchEggVnum(0) {}
 	};
 
 	std::map<DWORD, Owner> s_owners;
@@ -915,8 +921,47 @@ namespace mt2009_newpet
 			Say(ch, "Wyklucie kosztuje %s yang.", Money(HATCH_PRICE).c_str());
 			return false;
 		}
+		owner.hatchEggId = item->GetID();
+		owner.hatchEggVnum = item->GetVnum();
 		ch->ChatPacket(CHAT_TYPE_COMMAND, "NewPet Hatch %u %u %lld", (unsigned int)item->GetCell(), item->GetVnum(), HATCH_PRICE);
 		return false;
+	}
+
+	bool IsHatchableEgg(LPITEM item)
+	{
+		return item && item->GetType() == ITEM_PET && item->GetSubType() == PET_EGG && !item->IsExchanging() &&
+				!item->isLocked() && FindSpecies(item->GetVnum());
+	}
+
+	// MT2009_PLUS_PET_EGG_SLOT_V1: the egg a hatch is for. The name window
+	// (uinewpet.py) sends back the cell the egg stood in when it was used, and
+	// the bag may have moved since - the egg's stack poured into another
+	// ("Tylko scal stosy", a drag onto the same egg), "Uloz i scal", a split -
+	// so the cell alone answered "Nie ma tu jajka" with the egg in plain sight,
+	// or hatched whatever egg stood there by then. The egg used is found by its
+	// item id first, then the cell if it holds the same egg, then any stack of
+	// that egg; never another species than the window showed.
+	LPITEM FindHatchEgg(LPCHARACTER ch, const Owner& owner, int cell)
+	{
+		const int cells = std::min<int>(ch->GetInventoryMaxCount(), INVENTORY_MAX_NUM);
+		LPITEM atCell = cell >= 0 && cell < cells ? ch->GetInventoryItem((WORD)cell) : NULL;
+		if (!owner.hatchEggVnum)
+			return IsHatchableEgg(atCell) ? atCell : NULL;
+		for (int i = 0; i < cells; ++i)
+		{
+			LPITEM item = ch->GetInventoryItem((WORD)i);
+			if (item && item->GetID() == owner.hatchEggId && IsHatchableEgg(item))
+				return item;
+		}
+		if (atCell && atCell->GetVnum() == owner.hatchEggVnum && IsHatchableEgg(atCell))
+			return atCell;
+		for (int i = 0; i < cells; ++i)
+		{
+			LPITEM item = ch->GetInventoryItem((WORD)i);
+			if (item && item->GetVnum() == owner.hatchEggVnum && IsHatchableEgg(item))
+				return item;
+		}
+		return NULL;
 	}
 
 	bool UseProtein(LPCHARACTER ch, LPITEM item, Owner& owner, Pet& pet)
@@ -1256,8 +1301,9 @@ namespace mt2009_newpet
 	{
 		int cell = -1;
 		str_to_number(cell, cellText);
-		LPITEM egg = cell >= 0 ? ch->GetInventoryItem((WORD)cell) : NULL;
-		if (!egg || egg->GetType() != ITEM_PET || egg->GetSubType() != PET_EGG || egg->IsExchanging() || !FindSpecies(egg->GetVnum()))
+		Owner& owner = GetOwner(ch);
+		LPITEM egg = FindHatchEgg(ch, owner, cell);  // MT2009_PLUS_PET_EGG_SLOT_V1
+		if (!egg)
 		{
 			Say(ch, "Nie ma tu jajka.");
 			return;
@@ -1267,7 +1313,6 @@ namespace mt2009_newpet
 			Say(ch, "Imi\xea peta: od 2 do %d liter lub cyfr.", (int)PET_NAME_LEN_MAX);
 			return;
 		}
-		Owner& owner = GetOwner(ch);
 		Reload(owner);
 		if (owner.pets.size() >= (size_t)MAX_PETS)
 		{
@@ -1298,6 +1343,7 @@ namespace mt2009_newpet
 			return;
 		}
 		TakeOne(egg);
+		owner.hatchEggId = owner.hatchEggVnum = 0;
 		ch->ChangeGold(-HATCH_PRICE);
 		Reload(owner);
 		Say(ch, "Z jajka wykluwa si\xea %s - %s! Przywo\xb3" "aj go w oknie peta.", SpeciesName(eggVnum), name);
@@ -1700,7 +1746,12 @@ bool NewPetUseItem(LPCHARACTER ch, LPITEM item)
 	if (!ch || !item || !mt2009_newpet::Eligible(ch))
 		return false;
 	if (!mt2009_newpet::EnsureTables())
+	{
+		// MT2009_PLUS_PET_EGG_SLOT_V1: said, not silent - an egg that did
+		// nothing on a right click looked like an item the game did not see.
+		mt2009_newpet::Say(ch, "System pet\xf3w jest chwilowo niedost\xeapny.");
 		return false;
+	}
 	return mt2009_newpet::UseItem(ch, item);
 }
 

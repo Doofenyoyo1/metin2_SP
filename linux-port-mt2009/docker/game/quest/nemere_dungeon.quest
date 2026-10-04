@@ -123,6 +123,7 @@ quest nemere_dungeon begin
 		-- per kill for the killer: {vnum, count, percent}, each line on its own.
 		function boss_drop()
 			if pc.is_playerbot() then return end
+			-- MT2009_PLUS_AWAKENING_V1: no Kamien Przebudzenia here (the owner, 3 October).
 			local t = { {27987, 5, 10}, {50513, 1, 5}, {50255, 15, 5}, {25040, 3, 10}, {71084, 2, 10}, {71085, 1, 10}, {72067, 1, 70} }
 			for i, e in next, t, nil do
 				if number(1, 100) <= e[3] then

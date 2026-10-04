@@ -150,6 +150,29 @@ function Get-M2LauncherErrorGuidance {
         }
     }
 
+    # MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: the game core's compile killed for
+    # want of memory in Docker's machine (3 October: 3.7 GB in all, "Killed
+    # signal terminated program cc1plus" on playerbot_manager.o, and GRAJ
+    # failed the same way). Clicking GRAJ again changes nothing; more memory
+    # for the machine does, and the steps are the launcher's own
+    # (Get-M2DockerMemoryAdvice, Metin2Launcher.psm1) when it is loaded.
+    if ($value -match '(?i)Killed signal terminated program|internal compiler error: Killed|ResourceExhausted|virtual memory exhausted|cannot allocate memory') {
+        $memoryRemedy = ''
+        if (Get-Command Get-M2DockerMemoryAdvice -ErrorAction SilentlyContinue) {
+            try { $memoryRemedy = [string](Get-M2DockerMemoryAdvice).Instructions } catch { $memoryRemedy = '' }
+        }
+        if (-not $memoryRemedy) {
+            $memoryRemedy = ('Daj maszynie Dockera co najmniej 6 GB pamięci. Docker Desktop z WSL 2: w pliku %USERPROFILE%\.wslconfig wpisz dwa wiersze: [wsl2] i memory=8GB (memory=6GB na komputerze z 12 GB RAM, memory=5GB na 8 GB), zamknij grę i Docker Desktop, w PowerShell wpisz: wsl --shutdown' + [Environment]::NewLine +
+                'Potem uruchom Docker Desktop i kliknij GRAJ - launcher dokończy budowanie. Docker Desktop na Hyper-V: Settings → Resources → Advanced → Memory.')
+        }
+        return [pscustomobject]@{
+            Code = 'DOCKER_MEMORY_LOW'
+            Title = 'Dockerowi zabrakło pamięci RAM podczas budowy serwera'
+            Message = 'Nowe pliki serwera są zapisane, ale kompilacja rdzenia gry została przerwana, bo maszynie Dockera zabrakło pamięci RAM (to nie jest miejsce na dysku). Samo kliknięcie GRAJ skończy się tak samo - najpierw trzeba dać Dockerowi więcej pamięci. Baza, postacie i ustawienia są w porządku.'
+            Remedy = $memoryRemedy
+        }
+    }
+
     # The launcher's own refusal - the start's preflight, or the update's
     # Assert-ServerPortsFree - names each port a program of Windows' own holds
     # in a line of Get-M2ProgramPortAdvice's, and that line is the remedy. The

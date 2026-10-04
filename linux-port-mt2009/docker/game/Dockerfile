@@ -154,10 +154,15 @@ ARG STRIP_BINARIES=1
 # looked stuck at "game builder 2/3 (67%)" again (Drip, 24 September). So:
 # room for the heavy file and 700 MB a job after it, out of MemAvailable, and
 # a line in the log when even the heavy file does not fit.
+# MT2009_PLUS_FAST_BUILD_V1: an image whose binaries are stripped anyway
+# (STRIP_BINARIES=1, every player's) compiles without -g - the debug info was
+# written only to be thrown away, and it is most of what playerbot_manager.cpp,
+# the bots' whole AI in one file, costs in time and memory.
 COPY src/server/game game
 RUN --mount=type=cache,target=/root/.ccache set -eux; \
     sed -i 's/\r$//' game/src/Makefile; \
     rm -rf game/src/.obj game/src/Depend; \
+    if [ "${STRIP_BINARIES}" = "1" ]; then sed -i -E '/^CFLAGS  = /s/ -g( |$)/ \1/' game/src/Makefile; echo "debug info off (STRIP_BINARIES=1): no -g"; fi; \
     T="$(awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo)"; \
     A="$(awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo)"; [ -n "$A" ] && [ "$A" -gt 0 ] || A="$T"; \
     J="${MAKE_JOBS:-}"; if [ -z "$J" ]; then J="$(nproc)"; M=$(( 1 + (A - 2600) / 700 )); [ "$M" -ge 1 ] || M=1; [ "$M" -ge "$J" ] || J="$M"; fi; \
@@ -222,13 +227,20 @@ RUN set -eux; \
     # affect.get_duration and pc.has_affect for the ItemShop's Auto Lowy ticket
     # and anti-experience ring (autohunt_time, antiexp_ring; 2.2.27).
     # pc.warp_channel for the panels' teleport to a bot on another channel
-    # (web_admin; 2.2.42).
-    for fn in mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.is_playerbot affect.get_duration pc.has_affect pc.warp_channel game.get_catchking_score game.get_catchking_myscore game.catchking_claim_reward game.catchking_use_item game.catchking_deliver; do \
+    # (web_admin; 2.2.37).
+    # mes.get_message, pc.get_special_flag and pc.set_special_flag for our
+    # horse_inventory (the saddlebag rows to horse level 30, MT2009_PLUS_HORSE30_V1).
+    # pc.clear_quest_letter for usun_misje (MT2009_PLUS_CLEAR_MISSIONS_V1,
+    # server-patches/clearmissions).
+    for fn in mes.get_message pc.get_special_flag pc.set_special_flag mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.is_playerbot affect.get_duration pc.has_affect pc.warp_channel game.get_catchking_score game.get_catchking_myscore game.catchking_claim_reward game.catchking_use_item game.catchking_deliver pc.clear_quest_letter; do \
       grep -qx "$fn" /tmp/qc-work/quest_functions || echo "$fn" >> /tmp/qc-work/quest_functions; \
     done; \
-    # pony_levelup is the package's own stable-keeper quest with the 18-hour
-    # wait between two medals taken out (2.0.12); compiled here under its own
-    # name, its object files land over the stock ones in the runtime copy.
+    # MT2009_PLUS_HORSE30_V1 (Digi Rasta's horse to level 30): konie is the
+    # stable keeper's paid training (levels 1-9, 11-19, 21-28) and the Black
+    # Steed's trial (29 -> 30); horse_inventory the saddlebag rows to horse
+    # level 30 over the stock quest of that name. The package's training
+    # missions, pony_levelup (1-10) and horse_levelup (11-20), are no longer
+    # compiled and lose their stock handlers in the runtime stage.
     # gm_profile brings the admin account's game masters to one profile
     # through the engine (2.0.13).
     # new_quest_lv19 is the package's level-19 quest with its bear group
@@ -237,10 +249,9 @@ RUN set -eux; \
     # bear skins (Pabloo, from Dixdros' report, 2.0.47).
     # teleport_ring answers the use of Pierscien Teleportacji (70058), which the
     # package drops and no stock quest handled (2.0.48).
-    # pony_buy, horse_upgrade, horse_upgrade2 and horse_levelup are the
-    # package's stable-keeper quests with the wait for the horse taken out:
-    # twelve hours for the pony and each upgrade, twenty-one between two
-    # trainings (16 September, 2.0.56).
+    # pony_buy, horse_upgrade and horse_upgrade2 are the package's
+    # stable-keeper quests with the wait for the horse taken out: twelve hours
+    # for the pony and each upgrade (16 September, 2.0.56).
     # fishing_pass_shop opens the Fisherman's special shop, the only seller
     # of Karta Wedkarska, which no stock quest ever opened (2.0.68).
     # collect_quest_lv85 is the Biologist's red-branch row with its hand-in
@@ -280,10 +291,21 @@ RUN set -eux; \
     # (MT2009_PLUS_CATCH_KING_V1, playerbot_catchking.h; the game functions are added above).
     # minigame_yutnori is the Yut Nori table's menu (20502): the ranking, its prizes and the
     # game's window (MT2009_PLUS_YUTNORI_V1, playerbot_yutnori.h).
+    # ksiegi_seonhae is Seon-Hae's book exchange (20095): the window, then "/nowy_ksiegi"
+    # (MT2009_PLUS_DIGI_SERVER_QOL_V1, playerbot_digi_qol.h, Autor: Digi Rasta).
     # starter_kit dresses a player's new character in the world's starter kit,
     # M2_STARTER_KIT (the operator, 30 September, on Iwakura's proposal); the
     # seed dresses the bots it makes.
-    for q in web_admin speed_boost starter_chest starter_kit pony_levelup gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 horse_levelup deviltower_zone fishing_pass_shop collect_quest_lv85 towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears acce_costume_uriel ah_yu_shop costume_bonus_transfer dragon_soul dragon_soul_refine dragon_soul_shop autohunt_time antiexp_ring seon_pyeong flea_market temple_of_the_ochao razador_dungeon nemere_dungeon blue_dragon_lair goblin_skarbow biblioteka_wiedzy map_warp dungeon_panel wzgorze_wukonga ruiny_skorpiona starozytna_dzungla seonhae minigame_rumi minigame_catchking minigame_yutnori; do \
+    # tp_bookmarks is the six saved teleport positions of the inventory sidebar's window
+    # ("/tpzapis", a clean ItemShop Zwoj Powrotu each teleport, 15 minutes apart;
+    # MT2009_PLUS_TP_BOOKMARKS_V1, client root uitpbookmarks.py).
+    # usun_misje is "/usunmisje": the window of the missions open now (story, side
+    # quests, Biologist, Baek-Go's herbs; never the Companion or Cor Draconis), the
+    # checked ones to their finished state without a reward, their letters off at
+    # once with pc.clear_quest_letter (MT2009_PLUS_CLEAR_MISSIONS_V1,
+    # server-patches/clearmissions, client root uiusunmisje.py; its table from
+    # tools/gen_usun_misje.py).
+    for q in web_admin speed_boost starter_chest starter_kit konie horse_inventory gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 deviltower_zone fishing_pass_shop collect_quest_lv85 towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears acce_costume_uriel ah_yu_shop costume_bonus_transfer dragon_soul dragon_soul_refine dragon_soul_shop autohunt_time antiexp_ring seon_pyeong flea_market temple_of_the_ochao razador_dungeon nemere_dungeon blue_dragon_lair goblin_skarbow biblioteka_wiedzy map_warp dungeon_panel wzgorze_wukonga ruiny_skorpiona starozytna_dzungla seonhae minigame_rumi minigame_catchking minigame_yutnori tp_bookmarks ksiegi_seonhae usun_misje; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \
@@ -430,6 +452,17 @@ RUN set -eu; F=/opt/metin2/share/locale/poland/mob_drop_item.txt; G=/opt/metin2/
  && mv "$G.new" "$G" \
  && rm -f "$A" \
  && echo "share: drop edit - 9 groups, Beran, shared groups 10743 / 10755"
+# MT2009_PLUS_METIN_BEANS_V1: Green Dragon Bean (100300) at 2.5% from every Metin of level 70+
+# (the owner, 3 October) - one small drop group per Metin, merged by the engine with any group
+# the Metin already has.
+COPY mob_drop_item.metinbeans.append.txt /tmp/mob_drop_item.metinbeans.append.txt
+RUN set -eu; F=/opt/metin2/share/locale/poland/mob_drop_item.txt; A=/tmp/mob_drop_item.metinbeans.append.txt \
+ && ! grep -q -E '^Group[[:blank:]]+MT2009_metinbean_' "$F" \
+ && sed -i 's/\r$//; s/$/\r/' "$A" \
+ && { [ -z "$(tail -c 1 "$F")" ] || printf '\r\n' >> "$F"; } \
+ && cat "$A" >> "$F" \
+ && rm -f "$A" \
+ && echo "share: metin beans - $(grep -c -E '^Group[[:blank:]]+MT2009_metinbean_' "$F") groups"
 
 # MT2009_PLUS_FLOWER_V1: the Flower Event's five gift boxes (83023-83027, Pudelko z Chryzantema ..
 # ze Slonecznikiem; playerbot_flower.h gives them for 10 shoots of a flower), opened by their
@@ -586,6 +619,28 @@ RUN set -eu; O=/opt/metin2/share/locale/poland/quest/object \
  && rm -rf "$O/monkey_curse" \
  && ! find "$O" -path "$O/state" -prune -o -name 'monkey_curse*' -print | grep -q . \
  && echo "share: monkey curse removed ($n handlers)"
+
+# MT2009_PLUS_HORSE30_V1 (Digi Rasta's horse to level 30, quest konie): the stable
+# keeper trains the horse for a fee, so the package's training missions -
+# pony_levelup (1-10) and horse_levelup (11-20), no longer compiled above - lose
+# their stock handlers; their state tables stay for the flags characters already
+# carry. The Black Horse's seal (71131-71134) rolls at nothing in the pet box
+# (group 10030): the black horse is the level-30 trial's (as his 60_konie).
+# MT2009_PLUS_AWAKENING_V1: Broszura Szermierki (70031, Seon-Pyeong's material)
+# in Beran-Setaou's box, Zelazne Pudelko (50121 - the dragon of Leze Smoka and
+# the Setaou of the Grotto drop it), weight 1 of 101: about 1% a box.
+RUN set -eu; L=/opt/metin2/share/locale/poland; O="$L/quest/object"; F="$L/special_item_group.txt" \
+ && n=$(find "$O" -path "$O/state" -prune -o -type f \( -name 'horse_levelup.*' -o -name 'pony_levelup.*' \) -print | wc -l) \
+ && find "$O" -path "$O/state" -prune -o -type f \( -name 'horse_levelup.*' -o -name 'pony_levelup.*' \) -exec rm -f {} + \
+ && ! find "$O" -path "$O/state" -prune -o -type f \( -name 'horse_levelup.*' -o -name 'pony_levelup.*' \) -print | grep -q . \
+ && awk '{cr = sub(/\r$/, "")} /^Group/{v=""; last=0} $1=="Vnum"{v=$2} \
+      v=="10030" && $1 ~ /^[0-9]+$/ && $2 ~ /^7113[1-4]$/ { $0 = "\t" $1 "\t" $2 "\t" $3 "\t0\t-- Pieczec Czarnego Konia: the level-30 horse trial (MT2009_PLUS_HORSE30_V1)"; z++ } \
+      v=="50121" && $1 ~ /^[0-9]+$/ { last = $1 + 0; if ($2 == "70031") have = 1 } \
+      v=="50121" && /^}/ && !have { printf "\t%d\t70031\t1\t1\t-- Broszura Szermierki (MT2009_PLUS_AWAKENING_V1)\r\n", last + 1; b++; have = 1 } \
+      { printf "%s%s\n", $0, (cr ? "\r" : "") } \
+      END { if (z != 4 || b != 1) { print "FATAL: pet box seals " z " (4 expected), brochure lines " b " (1 expected)" > "/dev/stderr"; exit 1 } }' "$F" > "$F.new" \
+ && mv "$F.new" "$F" \
+ && echo "share: horse training missions removed ($n handlers), black horse seals out of the pet box, Broszura Szermierki in 50121"
 
 # MT2009_PLUS_EASTER_METIN_CAP_V1: the package compiles three generations of
 # the Easter event - event_easter, event_easter_2012 and event_easter_2013 -

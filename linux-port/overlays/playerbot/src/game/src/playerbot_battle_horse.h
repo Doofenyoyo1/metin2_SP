@@ -118,8 +118,17 @@ namespace
 	// middle of the map, 0 to 3 of them within reach of nine of its twelve
 	// hubs, and 38 bots on the trial made one kill an hour each between them
 	// (m2zip, 24 September; "boty nie wykonuja misji", rakso7064).
+	// MT2009_PLUS_HORSE30_V1: the Black Steed trial (playerbot_horse30.h,
+	// included after this file).
+	bool IsPlayerBotOnBlackSteedTrial(LPCHARACTER ch);
+	bool NotePlayerBotBlackSteedKill(LPCHARACTER ch, LPCHARACTER target);
+
 	DWORD GetPlayerBotHorseTrialHuntMob(LPCHARACTER ch)
 	{
+		// MT2009_PLUS_HORSE30_V1: and the Setaou Archers (2412) of the Grotto
+		// V2 for the Black Steed trial.
+		if (ch && ch->GetMapIndex() == PLAYERBOT_MAP_GROTTO_V2 && IsPlayerBotOnBlackSteedTrial(ch))
+			return 2412;
 		return ch && ch->GetMapIndex() == PLAYERBOT_MAP_DESERT && IsPlayerBotOnBattleHorseTrial(ch)
 				? PLAYERBOT_BATTLE_HORSE_MOB_SCORPION_ARCHER : 0;
 	}
@@ -196,6 +205,10 @@ namespace
 		// VID guard. A second hook of its own would have had to share
 		// dwLastKillCreditedVID with this one, and whichever ran first would
 		// have eaten the other's kill.
+		// MT2009_PLUS_HORSE30_V1: the Black Steed trial's archers, same guard.
+		if (NotePlayerBotBlackSteedKill(ch, target))
+			return;
+
 		if (IsPlayerBotOnMilitaryHorseTrial(ch) &&
 				IsPlayerBotMilitaryHorseTrialMob(target->GetRaceNum()))
 		{

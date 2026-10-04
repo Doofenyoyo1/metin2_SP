@@ -75,6 +75,12 @@ namespace
 		return IsPlayerBotDropper(GetPlayerBotPersonalityByPID(dwPID));
 	}
 
+	// MT2009_PLUS_BOT_MINIGAMES_V1 (playerbot_minigames.h, later in the unit):
+	// a mini game's chest, and how many of this bot's are kept for its counter.
+	bool IsPlayerBotMinigameChestVnum(DWORD dwVnum);
+	int GetPlayerBotMinigameChestsHeld(LPCHARACTER ch, DWORD dwVnum);
+	void NotePlayerBotMinigameChestOpened(LPCHARACTER ch, DWORD dwVnum);
+
 	// The bonus items in the bag, in units (IsPlayerBotBonusStoneItem, defined
 	// with the economy further down the include order): what a chest has just
 	// handed out is the count after its use against the count before.
@@ -112,6 +118,11 @@ namespace
 		// never a box.
 		if (GetPlayerBotRareGoodsKind(item->GetVnum()) != PLAYERBOT_RARE_GOODS_NONE)
 			return false;
+		// MT2009_PLUS_BOT_MINIGAMES_V1: a mini game's chest is goods only on the
+		// counter of the bot that kept it for one (its share of the 30%); every
+		// other is opened, whatever the stack.
+		if (IsPlayerBotMinigameChestVnum(item->GetVnum()))
+			return GetPlayerBotMinigameChestsHeld(ch, item->GetVnum()) > 0;
 		if (IsPlayerBotChestLevelLocked(ch, item))
 			return true;
 		// A dropper's Moonlight chests are all goods: it keeps them for the
@@ -274,6 +285,7 @@ namespace
 		{
 			LPITEM box = ch->GetInventoryItem(boxCell);
 			if (!box || box->GetType() != ITEM_TREASURE_BOX || box->isLocked() ||
+					IsPlayerBotSidekickHeld(ch, box) ||	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1
 					GetPlayerBotRareGoodsKind(box->GetVnum()) != PLAYERBOT_RARE_GOODS_NONE ||
 					IsPlayerBotChestRefused(ch->GetPlayerID(), box->GetVnum(), dwNow))
 				continue;
@@ -281,7 +293,7 @@ namespace
 			{
 				LPITEM key = ch->GetInventoryItem(keyCell);
 				if (!key || key->GetType() != ITEM_TREASURE_KEY || key->GetValue(0) != box->GetValue(0) ||
-						key->isLocked())
+						key->isLocked() || IsPlayerBotSidekickHeld(ch, key))	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1
 					continue;
 				// Miejsce na caly zestaw, a nie na jeden przedmiot: patrz
 				// PLAYERBOT_CHEST_FREE_CELLS. Wysokie przedmioty potrzebuja
@@ -328,6 +340,14 @@ namespace
 			// world - so opening one that is for sale would stop the whole
 			// population opening that kind of box for the next few minutes.
 			if (item->isLocked())
+				continue;
+			// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: the owner's, held for it.
+			if (IsPlayerBotSidekickHeld(ch, item))
+				continue;
+			// MT2009_PLUS_BOT_MINIGAMES_V1: the mini game chests kept for the
+			// counter stay shut; one past them is opened.
+			if (IsPlayerBotMinigameChestVnum(item->GetVnum()) &&
+					(int)ch->CountSpecifyItem(item->GetVnum()) <= GetPlayerBotMinigameChestsHeld(ch, item->GetVnum()))
 				continue;
 			// The apprentice chain is giftboxes too, and with the world's
 			// apprentice chest off none of it is opened: the progression pass
@@ -391,6 +411,7 @@ namespace
 				// of its five minutes (blipu: "zeby boty faktycznie to
 				// uzywaly") - only when one came out, or a bot opening a chest
 				// every eight seconds would weigh its whole gear as often.
+				NotePlayerBotMinigameChestOpened(ch, chestVnum); // MT2009_PLUS_BOT_MINIGAMES_V1
 				const int bonusGained = CountPlayerBotBonusItemUnits(ch) - bonusBefore;
 				if (bonusGained > 0 && state.dwNextBonusCheckTime > dwNow)
 					state.dwNextBonusCheckTime = dwNow;
@@ -578,7 +599,7 @@ namespace
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
-			if (!item)
+			if (!item || IsPlayerBotSidekickHeld(ch, item))	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1
 				continue;
 			const DWORD affect = GetPlayerBotAutoPotionAffect(item->GetVnum());
 			if (affect == 0 || ch->FindAffect(affect) || IsPlayerBotAutoPotionEmpty(item))
@@ -652,7 +673,8 @@ namespace
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
-			if (!item || !IsPlayerBotBoosterItem(item))
+			if (!item || !IsPlayerBotBoosterItem(item) ||
+					IsPlayerBotSidekickHeld(ch, item))	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1
 				continue;
 			const long line = item->GetSubType() * 1000L + item->GetValue(1);
 			if (!triedLines.insert(line).second)

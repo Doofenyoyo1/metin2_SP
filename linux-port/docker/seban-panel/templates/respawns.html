@@ -50,7 +50,8 @@
   }));
   const map = document.getElementById('respawn-map'), target = document.getElementById('respawn-target'), hint = document.getElementById('respawn-map-hint');
   function updateMapTarget(){ const hasStones = map.options[map.selectedIndex].dataset.stones === '1'; target.querySelector('[value="stone"]').disabled = !hasStones; if (!hasStones && target.value === 'stone') target.value = 'mob'; hint.textContent = hasStones ? 'Możesz ustawić osobny czas dla potworów lub Metinów.' : 'Ta mapa nie ma osobnego pliku respawnu Metinów.'; }
-  map.addEventListener('change', updateMapTarget); updateMapTarget();
+  // The custom-respawn card is behind the map_respawns feature flag.
+  if (map && target && hint) { map.addEventListener('change', updateMapTarget); updateMapTarget(); }
 })();
 </script>
 {% endblock %}

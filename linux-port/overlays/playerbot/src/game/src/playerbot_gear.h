@@ -1060,7 +1060,9 @@ namespace
 
 	long long GetPlayerBotEquipmentScore(LPITEM item, LPCHARACTER ch = NULL)
 	{
-		return GetPlayerBotEquipmentScoreTerms(item, ch, NULL);
+		// MT2009_PLUS_LEGENDS_V1 (gear): a Specjalny and up weighs a piece's
+		// plus and bonuses more (playerbot_legend_tier.h).
+		return AdjustPlayerBotLegendGearScore(item, ch, GetPlayerBotEquipmentScoreTerms(item, ch, NULL));
 	}
 
 	long long GetPlayerBotEquipmentScoreTerms(LPITEM item, LPCHARACTER ch, TPlayerBotScoreTerms* terms)
@@ -2421,6 +2423,19 @@ namespace
 		return IsPlayerBotSpecialLevel30WeaponVnum(item->GetVnum());
 	}
 
+	// MT2009_PLUS_L30_WEAPON_DROPPER_V2: the island's dropper is there to put
+	// level-30 weapons on the market, and it never wears one - it is held at
+	// twenty-one and let go at twenty-four. Its class's own blade was kept for
+	// an anvil it would never use (PlayerBotKeepsLevel30ForAnvil, the class's
+	// own and PLAYERBOT_LEVEL30_KEEP_PERCENT of the rest) and another class's
+	// for the grind for sale, so its counter took none of them: PrecelekxD
+	// stood twenty minutes in Yongan with three Black Leaf Knives, and the
+	// island stood empty. Every one it holds is counter goods as it dropped.
+	bool IsPlayerBotL30WeaponSeller(LPCHARACTER ch)
+	{
+		return ch && GetPlayerBotPersonalityByPID(ch->GetPlayerID()) == BOT_PERSONALITY_L30_WEAPON_DROPPER;
+	}
+
 	// What a bot picks up and keeps for a player's crafting whatever the
 	// merchant pays for it (PLAYERBOT_PICKUP_GOODS_VNUMS): the herbalist's
 	// Gango Root and Tue Mushroom, the Crystal Earrings and the Ghost Face
@@ -2566,6 +2581,7 @@ namespace
 	bool PlayerBotRefinesLevel30ForSale(LPCHARACTER ch, LPITEM item, DWORD itemId)
 	{
 		if (!ch || !item || !IsPlayerBotSpecialLevel30Weapon(item) || item->CanUsedBy(ch) ||
+				IsPlayerBotL30WeaponSeller(ch) || // MT2009_PLUS_L30_WEAPON_DROPPER_V2
 				IsPlayerBotScrollOnlyWeapon(item) || !IsPlayerBotLevel30SaleDraw(ch, itemId))
 			return false;
 		// The bow or fan a keeper builds for its sash is not goods.
@@ -2690,6 +2706,9 @@ namespace
 	LPITEM FindPlayerBotClassLevel30Weapon(LPCHARACTER ch)
 	{
 		if (!ch || !ch->IsItemLoaded())
+			return NULL;
+		// MT2009_PLUS_L30_WEAPON_DROPPER_V2: none is the island dropper's own.
+		if (IsPlayerBotL30WeaponSeller(ch))
 			return NULL;
 		LPITEM best = NULL;
 		long long bestPotential = -1;
@@ -2933,6 +2952,9 @@ namespace
 	bool PlayerBotKeepsLevel30ForAnvil(LPCHARACTER ch, LPITEM item)
 	{
 		if (!ch || !item || !IsPlayerBotSpecialLevel30Weapon(item))
+			return false;
+		// MT2009_PLUS_L30_WEAPON_DROPPER_V2: the island's dropper keeps none.
+		if (IsPlayerBotL30WeaponSeller(ch))
 			return false;
 		TPlayerBotLevel30View view;
 		ReadPlayerBotLevel30View(ch, view);
@@ -3361,6 +3383,8 @@ namespace
 
 	// Defined in playerbot_economy.h, after the junk rule it stands beside.
 	bool PlayerBotRefinesLowArmourForSale(LPCHARACTER ch, LPITEM item);
+	// MT2009_PLUS_BOT_LIST_ALL_GEAR_V1: and its twin for every spare piece.
+	bool PlayerBotRefinesSpareForSale(LPCHARACTER ch, LPITEM item);
 	// Defined in playerbot_economy.h, after the backup rules it gives way to.
 	bool PlayerBotRisksPlainAnvil(LPCHARACTER ch, LPITEM item);
 	// Defined in playerbot_economy.h, beside the prize line it asks for.
@@ -3376,6 +3400,10 @@ namespace
 		// where that rule would have read it as a spare for the counter.
 		if (!IsPlayerBotScrollRuleArmour(ch, item) && PlayerBotRefinesLowArmourForSale(ch, item))
 			return PLAYERBOT_LOW_ARMOUR_SALE_PLUS;
+		// MT2009_PLUS_BOT_LIST_ALL_GEAR_V1: a spare piece for the counter, to
+		// +4 (PlayerBotRefinesSpareForSale).
+		if (!IsPlayerBotScrollRuleArmour(ch, item) && PlayerBotRefinesSpareForSale(ch, item))
+			return PLAYERBOT_SPARE_SALE_PLUS;
 		// A level-30 weapon of its own class in the hand, or the one it is
 		// grinding, goes to +9 whatever the personality: that is what the
 		// weapon is for. A scroll-only one gets there under scrolls or not at
@@ -3831,6 +3859,23 @@ namespace
 		return std::max<int>(0, (int)arrow->GetValue(3));
 	}
 
+	// MT2009_PLUS_QUIVER_V1: a quiver - Kolczan (8010), the ItemShop's, 14 days -
+	// is an arrow with a real-time limit, the engine's own rule
+	// (Mt2009PlusIsQuiver, server-patches/quiver): its arrows never run out, so
+	// one worn is a full quiver for every count below, the equipment pass never
+	// trades it for a stack, and one in the bag is nocked before any stack and
+	// never junk. Bots never buy one (playerbot_itemshop.h has no wish for it);
+	// this is for one a GM hands over.
+	bool IsPlayerBotQuiver(LPITEM item)
+	{
+		if (!item || item->GetType() != ITEM_WEAPON || item->GetSubType() != WEAPON_ARROW)
+			return false;
+		for (int i = 0; i < ITEM_LIMIT_MAX_NUM; ++i)
+			if (item->GetLimitType(i) == LIMIT_REAL_TIME)
+				return true;
+		return false;
+	}
+
 	// Arrows this bot can nock now. A progression chest hands an archer the
 	// next tier early - 8003 wants level forty, 8004 forty-five - and counting
 	// those said "a hundred arrows, no need to buy" to a bot of thirty-four
@@ -3840,7 +3885,8 @@ namespace
 	bool IsPlayerBotUsableArrow(LPCHARACTER ch, LPITEM item)
 	{
 		return item && GetPlayerBotArrowGrade(item) >= 0 &&
-				item->GetCount() > 0 && item->GetLevelLimit() <= ch->GetLevel();
+				item->GetCount() > 0 && item->GetLevelLimit() <= ch->GetLevel() &&
+				!IsPlayerBotSidekickHeld(ch, item); // MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: not what a companion holds for its owner
 	}
 
 	// The bag's best arrow this bot can nock now, by grade; the first of equals.
@@ -3853,7 +3899,8 @@ namespace
 			LPITEM item = ch->GetInventoryItem(cell);
 			if (!IsPlayerBotUsableArrow(ch, item))
 				continue;
-			const int grade = GetPlayerBotArrowGrade(item);
+			// MT2009_PLUS_QUIVER_V1: a quiver before any stack.
+			const int grade = GetPlayerBotArrowGrade(item) + (IsPlayerBotQuiver(item) ? 1000 : 0);
 			if (grade > bestGrade)
 			{
 				best = item;
@@ -3870,7 +3917,7 @@ namespace
 		int count = 0;
 		LPITEM worn = ch->GetWear(WEAR_ARROW);
 		if (IsPlayerBotUsableArrow(ch, worn))
-			count += worn->GetCount();
+			count += IsPlayerBotQuiver(worn) ? 1000 : worn->GetCount(); // MT2009_PLUS_QUIVER_V1
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
@@ -3900,9 +3947,12 @@ namespace
 		if (!ch)
 			return false;
 		LPITEM worn = ch->GetWear(WEAR_ARROW);
+		// MT2009_PLUS_QUIVER_V1: a worn quiver stays; one in the bag goes in.
+		if (IsPlayerBotUsableArrow(ch, worn) && IsPlayerBotQuiver(worn))
+			return false;
 		const int wornGrade = IsPlayerBotUsableArrow(ch, worn) ? GetPlayerBotArrowGrade(worn) : -1;
 		LPITEM best = FindPlayerBotBestBagArrow(ch);
-		if (!best || GetPlayerBotArrowGrade(best) <= wornGrade)
+		if (!best || (!IsPlayerBotQuiver(best) && GetPlayerBotArrowGrade(best) <= wornGrade))
 			return false;
 		const DWORD oldVnum = worn ? worn->GetVnum() : 0;
 		const DWORD newVnum = best->GetVnum();
@@ -3952,7 +4002,9 @@ namespace
 	// hundreds digit, and reading it from the last digit (as this once did)
 	// made every stone a +0 and switched the grade rules off.
 	int GetPlayerBotSoulStoneGrade(DWORD vnum) { return (int)((vnum / 100) % 10); }
-	int GetPlayerBotSoulStoneKind(DWORD vnum) { return (int)(vnum % 100); }
+	// MT2009_PLUS_SOULSTONE9_V1 (Digi Rasta's soul stones +5..+9): +6..+9 are
+	// 28g00+k, not 28g30+k - read them as the same kind (30 + k).
+	int GetPlayerBotSoulStoneKind(DWORD vnum) { const int k = (int)(vnum % 100); return ((vnum / 100) % 10 >= 6 && k < 14) ? k + 30 : k; }
 	bool IsPlayerBotWeaponSoulStoneKind(int kind) { return kind >= 30 && kind <= 37; }
 	bool IsPlayerBotArmorSoulStoneKind(int kind) { return kind >= 38 && kind <= 43; }
 
@@ -4065,7 +4117,7 @@ namespace
 	// would read them as nonsense grades.
 	bool IsPlayerBotSoulStoneVnum(DWORD vnum)
 	{
-		return vnum >= 28000 && vnum < 28500 &&
+		return vnum >= 28000 && vnum < 29000 && // MT2009_PLUS_SOULSTONE9_V1: +5..+9 too
 				GetPlayerBotSoulStoneKind(vnum) >= 30 && GetPlayerBotSoulStoneKind(vnum) <= 43;
 	}
 
@@ -4170,7 +4222,7 @@ namespace
 		// for goods and went on the counter. Such a weapon is weighed against
 		// the weapon the bot goes back to - the best of its bag - instead.
 		if (wearCell == WEAR_WEAPON && item->GetType() == ITEM_WEAPON && worn &&
-				(worn->GetType() == ITEM_ROD || worn->GetType() == ITEM_PICK))
+				IsPlayerBotToolType(worn->GetType()))   // MT2009_PLUS_BOT_HERBALIST_FIX_V1
 		{
 			if ((int)item->GetLevelLimit() > (int)ch->GetLevel())
 				return false;
@@ -4247,7 +4299,7 @@ namespace
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
-			if (item && GetPlayerBotPotionSupply(item->GetVnum()) == supply)
+			if (item && !IsPlayerBotSidekickHeld(ch, item) && GetPlayerBotPotionSupply(item->GetVnum()) == supply)
 				count += item->GetCount();
 		}
 		return count;
@@ -4293,7 +4345,9 @@ namespace
 				GetPlayerBotPotionSupply(destination->GetVnum()) == PLAYERBOT_POTION_SUPPLY_NONE ||
 				!destination->IsStackable() || !source->IsStackable() ||
 				IS_SET(destination->GetAntiFlag(), ITEM_ANTIFLAG_STACK) ||
-				IS_SET(source->GetAntiFlag(), ITEM_ANTIFLAG_STACK))
+				IS_SET(source->GetAntiFlag(), ITEM_ANTIFLAG_STACK) ||
+				IsPlayerBotSidekickHeld(destination->GetOwner(), destination) || // MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: not what a companion holds for its owner
+				IsPlayerBotSidekickHeld(source->GetOwner(), source))
 			return false;
 		for (int socket = 0; socket < ITEM_SOCKET_MAX_NUM; ++socket)
 			if (destination->GetSocket(socket) != source->GetSocket(socket))
@@ -4322,7 +4376,7 @@ namespace
 		for (WORD destinationCell = 0; destinationCell < PLAYERBOT_BAG_CELLS; ++destinationCell)
 		{
 			LPITEM destination = ch->GetInventoryItem(destinationCell);
-			if (!destination ||
+			if (!destination || IsPlayerBotSidekickHeld(ch, destination) ||
 					GetPlayerBotPotionSupply(destination->GetVnum()) == PLAYERBOT_POTION_SUPPLY_NONE)
 				continue;
 			const DWORD maxStack = (DWORD)std::max(1, PlayerBotMaxStack(destination));
@@ -4388,7 +4442,7 @@ namespace
 			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && excess > 0; ++cell)
 			{
 				LPITEM item = ch->GetInventoryItem(cell);
-				if (!item || item->GetVnum() != personalVnums[v])
+				if (!item || item->GetVnum() != personalVnums[v] || IsPlayerBotSidekickHeld(ch, item))
 					continue;
 				const DWORD unitPrice = GetPlayerBotNpcSellUnitPrice(item);
 				if (unitPrice == 0)
@@ -4420,7 +4474,7 @@ namespace
 				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS && excess > 0; ++cell)
 				{
 					LPITEM item = ch->GetInventoryItem(cell);
-					if (!item || item->GetVnum() != saleOrder[order])
+					if (!item || item->GetVnum() != saleOrder[order] || IsPlayerBotSidekickHeld(ch, item))
 						continue;
 					const DWORD unitPrice = GetPlayerBotNpcSellUnitPrice(item);
 					if (unitPrice == 0)
@@ -4461,7 +4515,8 @@ namespace
 			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 			{
 				LPITEM item = ch->GetInventoryItem(cell);
-				if (!item || item->GetVnum() != potionVnums[v] || item->GetCount() <= reserve)
+				if (!item || item->GetVnum() != potionVnums[v] || item->GetCount() <= reserve ||
+						IsPlayerBotSidekickHeld(ch, item))
 					continue;
 
 				const DWORD price = GetPlayerBotNpcSellUnitPrice(item);
@@ -5124,6 +5179,10 @@ namespace
 	bool UseHealthPotion(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow,
 			int hpPercent = PLAYERBOT_POTION_HP_PERCENT)
 	{
+		// MT2009_PLUS_LEGENDS_V1 (potions): a Specjalny and up drinks sooner in
+		// a fight with a person (the tier's health, when it is higher).
+		if (GetPlayerBotLegendTierOf(ch) >= BOT_LEGEND_SPECIAL && IsPlayerBotFightingPerson(ch, state))
+			hpPercent = GetPlayerBotLegendPvpPotionPercent(ch, hpPercent);
 		if (ch->GetMaxHP() <= 0 ||
 				((long long)ch->GetHP() + ch->GetPoint(POINT_HP_RECOVERY)) * 100 >
 					(long long)ch->GetMaxHP() * hpPercent)
@@ -5152,7 +5211,7 @@ namespace
 			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 			{
 				LPITEM item = ch->GetInventoryItem(cell);
-				if (!item || item->GetVnum() != redPotionVnums[potionIndex])
+				if (!item || item->GetVnum() != redPotionVnums[potionIndex] || IsPlayerBotSidekickHeld(ch, item))
 					continue;
 
 				const DWORD potionVnum = item->GetVnum();
@@ -5195,7 +5254,7 @@ namespace
 			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 			{
 				LPITEM item = ch->GetInventoryItem(cell);
-				if (!item || item->GetVnum() != bluePotionVnums[potionIndex])
+				if (!item || item->GetVnum() != bluePotionVnums[potionIndex] || IsPlayerBotSidekickHeld(ch, item))
 					continue;
 
 				const DWORD potionVnum = item->GetVnum();
@@ -5241,7 +5300,7 @@ namespace
 				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 				{
 					LPITEM item = ch->GetInventoryItem(cell);
-					if (!item || item->GetVnum() != greenPotionVnums[i])
+					if (!item || item->GetVnum() != greenPotionVnums[i] || IsPlayerBotSidekickHeld(ch, item))
 						continue;
 
 					const DWORD potionVnum = item->GetVnum();
@@ -5273,7 +5332,7 @@ namespace
 				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 				{
 					LPITEM item = ch->GetInventoryItem(cell);
-					if (!item || item->GetVnum() != purplePotionVnums[i])
+					if (!item || item->GetVnum() != purplePotionVnums[i] || IsPlayerBotSidekickHeld(ch, item))
 						continue;
 
 					const DWORD potionVnum = item->GetVnum();

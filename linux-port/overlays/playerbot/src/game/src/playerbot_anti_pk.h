@@ -48,6 +48,9 @@ namespace
 {
 	// Defined in playerbot_manager.cpp beside the duel it was written for.
 	const char* GetPlayerBotDuelUnreadiness(LPCHARACTER ch, DWORD dwNow);
+	// MT2009_PLUS_SIDEKICK_DEFEND_V1: defined in playerbot_sidekick.h - a blow
+	// of another kingdom at a companion or at its owner, for its defence.
+	void NotePlayerBotSidekickDefendBlow(LPCHARACTER victim, LPCHARACTER attacker, DWORD dwNow);
 
 	const char* GetPlayerBotFoeReasonName(BYTE reason)
 	{
@@ -457,6 +460,10 @@ namespace
 				attackerState->second.dwTargetVID != (DWORD)victim->GetVID() &&
 				attackerState->second.persona.dwFoeVID != (DWORD)victim->GetVID())
 			return;
+		// MT2009_PLUS_SIDEKICK_DEFEND_V1: a meant blow at a companion or its
+		// owner, for the companion's answer - before the guild's return below,
+		// which an owner in a guild and no party would otherwise take.
+		NotePlayerBotSidekickDefendBlow(victim, attacker, dwNow);
 		// A blow at a person of a guild: the guild's call for the person. A
 		// person who stands in a guild and in no party reaches this function
 		// for its guild alone (playerbotify apply_guild_person_struck), so the
@@ -1183,6 +1190,22 @@ namespace
 			return false;
 		if (KeepPlayerBotAliveAtWar(ch, state, dwNow))
 			return true;
+		// MT2009_PLUS_LEGENDS_V1 (retreat): a Specjalny and up does not fight to
+		// the last drop - short of health, with no red potion left and the foe
+		// fresher, it breaks off and runs, and keeps out of the fight a while.
+		if (ShouldPlayerBotLegendBreakOff(ch, foe))
+		{
+			sys_log(0, "PLAYERBOT_LEGEND: breaks off a fight pid=%u name=%s foe=%s hp=%d/%d foe_hp=%d/%d",
+					ch->GetPlayerID(), ch->GetName(), foe->GetName(), ch->GetHP(), ch->GetMaxHP(),
+					foe->GetHP(), foe->GetMaxHP());
+			if (state.persona.bFoeReason == BOT_FOE_GUILD_AID)
+				ReleasePlayerBotGuildAidDefender(ch->GetPlayerID());
+			state.persona.dwFoeVID = 0;
+			state.persona.bFoeReason = BOT_FOE_NONE;
+			state.persona.dwCapitulatedUntil = dwNow + PLAYERBOT_LEGEND_PVP_RETREAT_LOCK_MS;
+			StartPlayerBotTacticalRetreat(ch, state, foe, dwNow);
+			return false;
+		}
 		// On foot, with the horse sent away, as in a duel.
 		SendPlayerBotHorseAwayForFight(ch, state, dwNow, "anti_pk");
 		DrinkPlayerBotCraftedPotion(ch, foe, dwNow, true);

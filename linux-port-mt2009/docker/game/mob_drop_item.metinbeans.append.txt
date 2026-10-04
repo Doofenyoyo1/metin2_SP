@@ -1,0 +1,192 @@
+// MT2009_PLUS_METIN_BEANS_V1: Green Dragon Bean (100300) from every Metin of level 70 and up,
+// 2.5% a kill (the owner, 3 October). Type drop: pct / 4 percent at the server's 100% drop, so 10.
+// A mob that already has a drop group gets this line added to it (the engine merges groups).
+
+Group	MT2009_metinbean_8014
+{
+	mob	8014	-- Metin Morderstwa (lv 70)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8019
+{
+	mob	8019	-- Metin Morderstwa (lv 70)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8024
+{
+	mob	8024	-- Metin Pung-Ma (lv 75)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8025
+{
+	mob	8025	-- Metin Ma-An (lv 80)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8026
+{
+	mob	8026	-- Metin Tu-Young (lv 85)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8027
+{
+	mob	8027	-- Metin Jeon-Un (lv 90)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8031
+{
+	mob	8031	-- Metin Gory (lv 90)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8032
+{
+	mob	8032	-- Metin Zemsty (lv 90)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8033
+{
+	mob	8033	-- Metin Samotnosci (lv 90)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8034
+{
+	mob	8034	-- Metin Pychy (lv 90)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8036
+{
+	mob	8036	-- Metin Zdrady (lv 80)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8038
+{
+	mob	8038	-- Metin Odwetu (lv 85)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8047
+{
+	mob	8047	-- Wielkanocny Metin (lv 70)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8048
+{
+	mob	8048	-- Wielkanocny Metin (lv 80)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8049
+{
+	mob	8049	-- Wielkanocny Metin (lv 90)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8050
+{
+	mob	8050	-- Wielkanocny Metin (lv 95)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8051
+{
+	mob	8051	-- Metin Mroku (lv 95)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8052
+{
+	mob	8052	-- Metin Zaru (lv 95)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8053
+{
+	mob	8053	-- Metin Proznosci (lv 100)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8054
+{
+	mob	8054	-- Metin Gniewu (lv 100)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8055
+{
+	mob	8055	-- Metin Nieszczescia (lv 105)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8056
+{
+	mob	8056	-- Metin Podlosci (lv 105)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8058
+{
+	mob	8058	-- Metin Mrozu (lv 85)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_8114
+{
+	mob	8114	-- Metin Morderstwa (lv 70)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_9710
+{
+	mob	9710	-- Starozytny Kamien (lv 98)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_9711
+{
+	mob	9711	-- Pradawny Kamien (lv 100)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}
+
+Group	MT2009_metinbean_20399
+{
+	mob	20399	-- Lodowy Filar (lv 85)
+	Type	drop
+	1	100300	1	10	-- Green Dragon Bean, 2.5%
+}

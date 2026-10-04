@@ -264,6 +264,10 @@ class Keeper(object):
 		return True
 
 	def OnUpdate(self):
+		# MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: nothing on the way to another core.
+		import warpsafe
+		if not warpsafe.InGame():
+			return
 		try:
 			self.Update(clientclock.Now())
 		except Exception:

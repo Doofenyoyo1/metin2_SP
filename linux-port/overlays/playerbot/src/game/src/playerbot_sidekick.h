@@ -99,15 +99,23 @@ namespace
 	// this near the corpse (CPlayerBotManager::GetSidekickKillCredit): the reach
 	// of a party's shared experience.
 	const int PLAYERBOT_SIDEKICK_KILL_CREDIT_RANGE = 5000;
-	// The drops it goes for, and the step at which it takes one. The server
-	// hands a pick-up over from 600 (@fixme173), so the step stays inside it.
-	const int PLAYERBOT_SIDEKICK_LOOT_RANGE = 1200;
+	// The step at which it takes a drop (how far it goes for one is
+	// PLAYERBOT_SIDEKICK_LOOT_LEASH). The server hands a pick-up over from 600
+	// (@fixme173), so the step stays inside it.
 	const int PLAYERBOT_SIDEKICK_PICKUP_RANGE = 250;
 	const DWORD PLAYERBOT_SIDEKICK_LOOT_INTERVAL_MS = 400;
 	// A drop it could not take (the owner's bag full, somebody else's by then)
 	// is left alone this long, or the companion stands over it for good.
 	const DWORD PLAYERBOT_SIDEKICK_LOOT_FAILED_MS = 30000;
 	const DWORD PLAYERBOT_SIDEKICK_LOOT_GIVE_UP_MS = 8000;
+	// MT2009_PLUS_SIDEKICK_FOLLOW_LOOT_V1: at its owner's side ("Przywolaj")
+	// and at a spot it keeps, the drops it goes for lie this near the owner
+	// (the spot) - fifteen metres, its own kills' within the hunt range - and
+	// it walks back after the pick-up.
+	const int PLAYERBOT_SIDEKICK_LOOT_LEASH = 1500;
+	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: a drop held for the owner whose
+	// bag is full is told at most this often.
+	const DWORD PLAYERBOT_SIDEKICK_HELD_TELL_MS = 60 * 1000;
 	// The blacksmith and the three merchants, when the owner stands this near
 	// one of them, and how often the companion does its business there.
 	const int PLAYERBOT_SIDEKICK_NPC_RANGE = 900;
@@ -367,6 +375,55 @@ namespace
 	// off. Kept in player.playerbot_sidekick.coins.
 	std::map<DWORD, bool> s_mapPlayerBotSidekickCoins;
 	bool s_bPlayerBotSidekickCoinsColumn = false;
+	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: "Zablokuj ekwipunek" in the window's
+	// Options page - the companions whose owner locked their gear, by pid (a
+	// companion is in only while its lock is on, so the passes of every bot
+	// ask an empty map). Kept in player.playerbot_sidekick.equipment_lock.
+	std::set<DWORD> s_setPlayerBotSidekickEquipLock;
+	bool s_bPlayerBotSidekickEquipLockColumn = false;
+	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: "Pelne EQ" in the window's
+	// Options page (on by default) - with its owner's bag too full for a drop
+	// of the owner's, the companion picks that drop up into its own bag and
+	// holds it there for the owner. The companions whose owner switched it off,
+	// by pid; kept in player.playerbot_sidekick.keep_loot. What it holds so is
+	// marked in player.playerbot_sidekick_gift.held.
+	std::set<DWORD> s_setPlayerBotSidekickNoKeep;
+	bool s_bPlayerBotSidekickKeepColumn = false;
+	bool s_bPlayerBotSidekickHeldColumn = false;
+
+	// MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: "Kup" in the window - the owner's
+	// errand for one kind of goods (playerbot_sidekick_shop.h). Kept in the
+	// runtime: an errand cut off by a logout leaves what it bought held in the
+	// bag (playerbot_sidekick_gift.held) and the owner's yang in its purse.
+	struct TPlayerBotSidekickShopErrand
+	{
+		bool bActive = false;
+		BYTE bStage = 0;
+		BYTE bGood = 0;
+		int iWanted = 0;
+		int iGot = 0;
+		// The owner's yang it was handed for this, and its purse right after.
+		long long llEscrow = 0;
+		long long llGoldStart = 0;
+		// Where it buys: the merchant's counter, or the stand it walks to.
+		long lMap = 0;
+		long lX = 0;
+		long lY = 0;
+		DWORD dwSince = 0;
+		DWORD dwStageSince = 0;
+		DWORD dwShopOwner = 0;
+		DWORD dwShopItem = 0;
+		// A purchase from a stand the db core has not answered yet: the line,
+		// its count and price, and the purse just before it was asked for.
+		DWORD dwPendingItem = 0;
+		int iPendingCount = 0;
+		long long llPendingPrice = 0;
+		long long llGoldBeforeBuy = 0;
+		DWORD dwPendingSince = 0;
+		std::set<DWORD> setTried;
+		std::vector<DWORD> vecItems;
+		const char* szWhy = "";
+	};
 
 	// What a companion carries between ticks that nobody else needs.
 	struct TPlayerBotSidekickRuntime
@@ -382,6 +439,12 @@ namespace
 		std::set<DWORD> setBagBeforeTrade;
 		// What the owner handed it: kept, never sold (IsPlayerBotSidekickGift).
 		std::set<DWORD> setGifts;
+		// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: the owner's drops it picked up
+		// while the owner's bag was full - gifts as well, and more: the AI does
+		// not put them on, refine, rework, open or spend them
+		// (IsPlayerBotSidekickHeld).
+		std::set<DWORD> setHeld;
+		DWORD dwHeldToldAt;	// when the owner last heard of a drop held for it
 		std::map<DWORD, DWORD> mapLootFailed;	// item vid -> until
 		// The foes it took up, by why (EPlayerBotSidekickFoeWhy): the self-test
 		// reads them to see a stance hold.
@@ -463,6 +526,8 @@ namespace
 		// 1 October).
 		long long llLastServiceGold = -1;
 		DWORD dwLastServiceLog = 0;
+		// MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: the owner's "Kup" errand.
+		TPlayerBotSidekickShopErrand shop;
 		TPlayerBotSidekickRuntime()
 			: dwNextPartyCheck(0), dwNextService(0), dwNextLoot(0), dwNextCatchUp(0), dwLootVID(0),
 			  dwLootSince(0), dwNextProtect(0), bTrading(false), dwLastFoeVID(0), bHold(false), lHoldMap(0),
@@ -474,9 +539,22 @@ namespace
 			  dwViewResendAt(0), bViewResent(false)
 		{
 			memset(adwFoes, 0, sizeof(adwFoes));
+			dwHeldToldAt = 0;	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1
 		}
 	};
 	std::map<DWORD, TPlayerBotSidekickRuntime> s_mapPlayerBotSidekickRuntime;
+
+	// MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: the owner's "Kup" errand, defined in
+	// playerbot_sidekick_shop.h (included right after this file).
+	void OrderPlayerBotSidekickShopErrand(LPCHARACTER owner, TPlayerBotSidekick& rec, const char* key,
+			const char* countText, const char* confirm, DWORD dwNow);
+	bool ManagePlayerBotSidekickShopErrand(LPCHARACTER ch, TPlayerBotAIState& state, TPlayerBotSidekick& rec,
+			TPlayerBotSidekickRuntime& rt, DWORD dwNow);
+	void SettlePlayerBotSidekickShopErrand(LPCHARACTER ch, TPlayerBotAIState& state, TPlayerBotSidekick& rec,
+			TPlayerBotSidekickRuntime& rt, DWORD dwNow, const char* why, bool comeBack);
+	void PollPlayerBotSidekickShopPurchase(LPCHARACTER ch, TPlayerBotSidekick& rec, TPlayerBotSidekickRuntime& rt,
+			DWORD dwNow);
+	bool DescribePlayerBotSidekickShopErrand(const TPlayerBotSidekickRuntime& rt, char* out, size_t size);
 
 	// The world's switch: M2_SIDEKICK=0 in .env (the launcher's difficulty
 	// window) is the event flag m2_sidekick_off, which the migrator writes at a
@@ -574,6 +652,28 @@ namespace
 		s_bPlayerBotSidekickCoinsColumn = coins.get() && coins->uiSQLErrno == 0;
 		if (!s_bPlayerBotSidekickCoinsColumn)
 			sys_err("PLAYERBOT_SIDEKICK: no coins column errno=%u", coins.get() ? coins->uiSQLErrno : 0U);
+		// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: "Zablokuj ekwipunek", off by default.
+		std::unique_ptr<SQLMsg> equipLock(AccountDB::instance().DirectQuery(
+				"ALTER TABLE player.playerbot_sidekick "
+				"ADD COLUMN IF NOT EXISTS equipment_lock TINYINT UNSIGNED NOT NULL DEFAULT 0"));
+		s_bPlayerBotSidekickEquipLockColumn = equipLock.get() && equipLock->uiSQLErrno == 0;
+		if (!s_bPlayerBotSidekickEquipLockColumn)
+			sys_err("PLAYERBOT_SIDEKICK: no equipment_lock column errno=%u",
+					equipLock.get() ? equipLock->uiSQLErrno : 0U);
+		// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: "Pelne EQ", on by default, and
+		// the mark of what it holds for its owner.
+		std::unique_ptr<SQLMsg> keepLoot(AccountDB::instance().DirectQuery(
+				"ALTER TABLE player.playerbot_sidekick "
+				"ADD COLUMN IF NOT EXISTS keep_loot TINYINT UNSIGNED NOT NULL DEFAULT 1"));
+		s_bPlayerBotSidekickKeepColumn = keepLoot.get() && keepLoot->uiSQLErrno == 0;
+		if (!s_bPlayerBotSidekickKeepColumn)
+			sys_err("PLAYERBOT_SIDEKICK: no keep_loot column errno=%u", keepLoot.get() ? keepLoot->uiSQLErrno : 0U);
+		std::unique_ptr<SQLMsg> held(AccountDB::instance().DirectQuery(
+				"ALTER TABLE player.playerbot_sidekick_gift "
+				"ADD COLUMN IF NOT EXISTS held TINYINT UNSIGNED NOT NULL DEFAULT 0"));
+		s_bPlayerBotSidekickHeldColumn = held.get() && held->uiSQLErrno == 0;
+		if (!s_bPlayerBotSidekickHeldColumn)
+			sys_err("PLAYERBOT_SIDEKICK: no held column errno=%u", held.get() ? held->uiSQLErrno : 0U);
 		// A companion whose owner's character was deleted would be kept out of
 		// the population for good: its record goes, and the identity plays on
 		// as the bot it was, under the name it was given.
@@ -727,6 +827,46 @@ namespace
 					if (pid != 0)
 						s_mapPlayerBotSidekickCoins[pid] = on != 0;
 				}
+			}
+		}
+		// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: the locked companions.
+		if (s_bPlayerBotSidekickEquipLockColumn)
+		{
+			std::unique_ptr<SQLMsg> locks(AccountDB::instance().DirectQuery(
+					"SELECT sidekick_pid FROM player.playerbot_sidekick WHERE equipment_lock<>0"));
+			if (locks.get() && locks->uiSQLErrno == 0 && locks->Get() && locks->Get()->pSQLResult)
+			{
+				std::set<DWORD> locked;
+				MYSQL_ROW lockRow;
+				while (NULL != (lockRow = mysql_fetch_row(locks->Get()->pSQLResult)))
+				{
+					DWORD pid = 0;
+					if (lockRow[0])
+						str_to_number(pid, lockRow[0]);
+					if (pid != 0)
+						locked.insert(pid);
+				}
+				s_setPlayerBotSidekickEquipLock.swap(locked);
+			}
+		}
+		// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: the companions with "Pelne EQ" off.
+		if (s_bPlayerBotSidekickKeepColumn)
+		{
+			std::unique_ptr<SQLMsg> keeps(AccountDB::instance().DirectQuery(
+					"SELECT sidekick_pid FROM player.playerbot_sidekick WHERE keep_loot=0"));
+			if (keeps.get() && keeps->uiSQLErrno == 0 && keeps->Get() && keeps->Get()->pSQLResult)
+			{
+				std::set<DWORD> off;
+				MYSQL_ROW keepRow;
+				while (NULL != (keepRow = mysql_fetch_row(keeps->Get()->pSQLResult)))
+				{
+					DWORD pid = 0;
+					if (keepRow[0])
+						str_to_number(pid, keepRow[0]);
+					if (pid != 0)
+						off.insert(pid);
+				}
+				s_setPlayerBotSidekickNoKeep.swap(off);
 			}
 		}
 	}
@@ -945,6 +1085,25 @@ namespace
 	// wear slot the owner put it on, PLAYERBOT_SIDEKICK_PIN_UNWANTED for one
 	// the owner took off, -1 for none. Asked by the equipment, refine, bonus
 	// and junk passes of every bot, so the empty case is one test.
+	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: the owner's drop it picked up
+	// for the owner whose bag was full.
+	bool IsPlayerBotSidekickHeld(LPCHARACTER ch, LPITEM item)
+	{
+		if (!ch || !item || s_mapPlayerBotSidekickRuntime.empty())
+			return false;
+		std::map<DWORD, TPlayerBotSidekickRuntime>::const_iterator rt = s_mapPlayerBotSidekickRuntime.find(ch->GetPlayerID());
+		return rt != s_mapPlayerBotSidekickRuntime.end() &&
+				rt->second.setHeld.find(item->GetID()) != rt->second.setHeld.end();
+	}
+
+	// "Pelne EQ": on unless its owner switched it off, and only while it is
+	// somebody's companion.
+	bool IsPlayerBotSidekickKeepingLoot(DWORD pid)
+	{
+		return s_mapPlayerBotSidekickOwner.find(pid) != s_mapPlayerBotSidekickOwner.end() &&
+				s_setPlayerBotSidekickNoKeep.find(pid) == s_setPlayerBotSidekickNoKeep.end();
+	}
+
 	int GetPlayerBotSidekickPinOf(LPCHARACTER ch, LPITEM item)
 	{
 		if (!ch || !item || s_mapPlayerBotSidekickRuntime.empty())
@@ -957,16 +1116,48 @@ namespace
 		return pin == rt->second.mapPins.end() ? -1 : (int)pin->second;
 	}
 
-	// Put on by its owner: kept on, never refined, its lines never changed.
+	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: "Zablokuj ekwipunek" (blipu's,
+	// 2 October). With the lock on, what the companion wears and what its
+	// owner gave it are the owner's: no refine, no stone, no bonus change, no
+	// crafting or alchemy, not taken off by the AI for something better, never
+	// sold or thrown away. The owner's own hand in the bag window still moves
+	// anything (those orders do not ask this).
+	bool IsPlayerBotSidekickEquipLocked(DWORD pid)
+	{
+		// Only while it is somebody's companion: a dismissed one plays on as
+		// an ordinary bot.
+		return !s_setPlayerBotSidekickEquipLock.empty() &&
+				s_setPlayerBotSidekickEquipLock.find(pid) != s_setPlayerBotSidekickEquipLock.end() &&
+				s_mapPlayerBotSidekickOwner.find(pid) != s_mapPlayerBotSidekickOwner.end();
+	}
+
+	bool IsPlayerBotSidekickLockedItem(LPCHARACTER ch, LPITEM item)
+	{
+		// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: what it holds for its owner is
+		// the owner's, lock or no lock.
+		if (IsPlayerBotSidekickHeld(ch, item))
+			return true;
+		if (!ch || !item || !IsPlayerBotSidekickEquipLocked(ch->GetPlayerID()))
+			return false;
+		return item->IsEquipped() || IsPlayerBotSidekickGift(ch, item);
+	}
+
+	// Put on by its owner: kept on, never refined, its lines never changed -
+	// and, under the equipment lock, everything it wears or was given.
 	bool IsPlayerBotSidekickPinned(LPCHARACTER ch, LPITEM item)
 	{
 		const int pin = GetPlayerBotSidekickPinOf(ch, item);
-		return pin >= 0 && pin != PLAYERBOT_SIDEKICK_PIN_UNWANTED;
+		if (pin >= 0 && pin != PLAYERBOT_SIDEKICK_PIN_UNWANTED)
+			return true;
+		return IsPlayerBotSidekickLockedItem(ch, item);
 	}
 
 	// Taken off by its owner: the AI never puts it back on.
 	bool IsPlayerBotSidekickUnwanted(LPCHARACTER ch, LPITEM item)
 	{
+		// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: nor what it holds for its owner.
+		if (IsPlayerBotSidekickHeld(ch, item))
+			return true;
 		return GetPlayerBotSidekickPinOf(ch, item) == PLAYERBOT_SIDEKICK_PIN_UNWANTED;
 	}
 
@@ -1840,8 +2031,10 @@ namespace
 				"DELETE g FROM player.playerbot_sidekick_gift AS g LEFT JOIN player.item AS i ON i.id=g.item_id "
 				"WHERE g.sidekick_pid=%u AND i.id IS NULL AND g.given_at < NOW() - INTERVAL 1 DAY", sidekickPid);
 		std::unique_ptr<SQLMsg> prune(AccountDB::instance().DirectQuery(query));
-		snprintf(query, sizeof(query), "SELECT item_id FROM player.playerbot_sidekick_gift WHERE sidekick_pid=%u",
-				sidekickPid);
+		// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: and which of them it holds for
+		// its owner.
+		snprintf(query, sizeof(query), "SELECT item_id, %s FROM player.playerbot_sidekick_gift WHERE sidekick_pid=%u",
+				s_bPlayerBotSidekickHeldColumn ? "held" : "0", sidekickPid);
 		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
 		if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
 			return;
@@ -1849,10 +2042,17 @@ namespace
 		while (NULL != (row = mysql_fetch_row(msg->Get()->pSQLResult)))
 		{
 			DWORD id = 0;
+			unsigned int held = 0;
 			if (row[0])
 				str_to_number(id, row[0]);
+			if (row[1])
+				str_to_number(held, row[1]);
 			if (id != 0)
+			{
 				rt.setGifts.insert(id);
+				if (held != 0)
+					rt.setHeld.insert(id);
+			}
 		}
 		if (!s_bPlayerBotSidekickPinTable)
 			return;
@@ -2025,6 +2225,7 @@ namespace
 	void HandlePlayerBotSidekickCommand(LPCHARACTER ch, const char* argument);
 	void SendPlayerBotSidekickWindow(LPCHARACTER owner, bool fullGear);
 	DWORD GetPlayerBotSidekickSkillBase(LPCHARACTER sk);
+	std::string DescribePlayerBotSidekickGrandMaster(LPCHARACTER sk);
 	std::string GetPlayerBotSidekickWearRefusal(LPCHARACTER sk, LPITEM item, LPITEM replacing);
 	std::string GetPlayerBotSidekickHandOverRefusal(LPITEM item);
 	int CountPlayerBotSidekickChasers(LPCHARACTER ch);
@@ -2978,6 +3179,9 @@ namespace
 					sk->GetMapIndex() == owner->GetMapIndex() ? "na twojej mapie" : "na innej mapie", mode,
 					GetPlayerBotSidekickStanceName(rec.bStance));
 		SayPlayerBotSidekick(owner, text);
+		// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1
+		if (IsPlayerBotSidekickEquipLocked(rec.dwSidekickPID))
+			SayPlayerBotSidekick(owner, "Ekwipunek zablokowany: nie ruszam tego, co mam na sobie i co dostalem od ciebie.");
 #if defined(PLAYERBOT_ENGINE_MT2009)
 		// MT2009_PLUS_SIDEKICK_COINS_V1: what it does with its Dragon Coins.
 		if (sk)
@@ -2987,6 +3191,14 @@ namespace
 				SayPlayerBotSidekick(owner, DescribePlayerBotSidekickCoins(sk, st->second, rec).c_str());
 		}
 #endif
+		// MT2009_PLUS_SIDEKICK_GRAND_MASTER_V1: its Grand Master training, and
+		// what holds it.
+		if (sk)
+		{
+			const std::string gm = DescribePlayerBotSidekickGrandMaster(sk);
+			if (!gm.empty())
+				SayPlayerBotSidekick(owner, gm.c_str());
+		}
 	}
 
 	// The stance, kept in the record at once: the table is read again every
@@ -3120,6 +3332,8 @@ namespace
 		s_mapPlayerBotSidekicks.erase(rec.dwOwnerPID);
 		s_mapPlayerBotSidekickOwner.erase(rec.dwSidekickPID);
 		s_mapPlayerBotSidekickRuntime.erase(rec.dwSidekickPID);
+		s_setPlayerBotSidekickEquipLock.erase(rec.dwSidekickPID);	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1
+		s_setPlayerBotSidekickNoKeep.erase(rec.dwSidekickPID);	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1
 		SetPlayerBotSidekickFlag(rec.dwOwnerPID, "towarzysz.created", 0);
 		if (CPlayerBotManager::instance().IsManaged(rec.dwSidekickPID))
 		{
@@ -3236,6 +3450,42 @@ namespace
 			return "Dobra, wydaje Smocze Monety w Item Shopie na to, czego potrzebuje, i wymieniam kupony SM z plecaka. "
 					"Kazdy zakup ci zglosze.";
 		return "Dobra, nie wydaje Smoczych Monet. Kupony SM zostaja w moim plecaku - mozesz je wziac w oknie Towarzysza.";
+	}
+
+	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: "Zablokuj ekwipunek", kept at once.
+	const char* SetPlayerBotSidekickEquipLock(TPlayerBotSidekick& rec, bool locked)
+	{
+		if (IsPlayerBotSidekickEquipLocked(rec.dwSidekickPID) != locked)
+		{
+			if (locked)
+				s_setPlayerBotSidekickEquipLock.insert(rec.dwSidekickPID);
+			else
+				s_setPlayerBotSidekickEquipLock.erase(rec.dwSidekickPID);
+			if (s_bPlayerBotSidekickEquipLockColumn)
+				SetPlayerBotSidekickSetting(rec, "equipment_lock", locked ? 1U : 0U);
+		}
+		if (locked)
+			return "Dobra, ekwipunek zablokowany: nie ulepszam, nie zmieniam bonusow, nie zdejmuje, nie sprzedaje "
+					"i nie wyrzucam tego, co mam na sobie i co dostalem od ciebie. Ty mozesz przekladac moje rzeczy.";
+		return "Dobra, ekwipunek odblokowany - sam dbam o swoj sprzet.";
+	}
+
+	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: "Pelne EQ", kept at once.
+	const char* SetPlayerBotSidekickKeepLoot(TPlayerBotSidekick& rec, bool keep)
+	{
+		if (IsPlayerBotSidekickKeepingLoot(rec.dwSidekickPID) != keep)
+		{
+			if (keep)
+				s_setPlayerBotSidekickNoKeep.erase(rec.dwSidekickPID);
+			else
+				s_setPlayerBotSidekickNoKeep.insert(rec.dwSidekickPID);
+			if (s_bPlayerBotSidekickKeepColumn)
+				SetPlayerBotSidekickSetting(rec, "keep_loot", keep ? 1U : 0U);
+		}
+		if (keep)
+			return "Dobra, gdy nie zmiescisz swojego dropu, podnosze go do swojego plecaka i trzymam dla ciebie. "
+					"Prawy klik na nim w moim plecaku oddaje ci go.";
+		return "Dobra, twojego dropu przy pelnym ekwipunku nie podnosze - zostaje na ziemi.";
 	}
 
 #if defined(PLAYERBOT_ENGINE_MT2009)
@@ -3773,6 +4023,9 @@ namespace
 			snprintf(out, size, "lezy - zaraz wstanie");
 			return;
 		}
+		// MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: what it was sent for, and how many so far.
+		if (rt && rt->bErrand && DescribePlayerBotSidekickShopErrand(*rt, out, size))
+			return;
 		if (rt && rt->bErrand)
 		{
 			snprintf(out, size, "robi zakupy %s", playerbot_conv::GetMapWords(sk->GetMapIndex()).at);
@@ -3877,8 +4130,11 @@ namespace
 		// MT2009_PLUS_SIDEKICK_RANK_V1: the companion's rank points after them
 		// (the alignment over ten, as the character packet carries it), for the
 		// rank title on its name in the window, as the player's own shows his.
+		// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: "Zablokuj ekwipunek" after the
+		// coins' balance, and MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1's "Pelne
+		// EQ" after it.
 		SendPlayerBotSidekickCommand(owner,
-				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d %d %d %d %d %d %u %d %d %d %d %d",
+				"SidekickInfo %d 1 %d %d %d %d %d %d %d %d %d %ld %d %u %u %d %d %lld %u %u %d %d %d %d %d %d %u %d %d %d %d %d %d %d",
 				PLAYERBOT_SIDEKICK_WINDOW_PROTOCOL,
 				inWorld ? (int)sk->GetRaceNum() : -1, inWorld ? (int)sk->GetSkillGroup() : 0,
 				inWorld ? sk->GetLevel() : 0, expPercent,
@@ -3890,7 +4146,9 @@ namespace
 				rec.bChests ? 1 : 0, rec.bLead ? 1 : 0, (unsigned int)rec.bRole,
 				inWorld ? sk->GetLeadershipSkillLevel() : 0, rec.bParty ? 1 : 0,
 				inWorld ? sk->GetAlignment() / 10 : 0,
-				IsPlayerBotSidekickCoinsOn(rec.dwSidekickPID) ? 1 : 0, coinBalance);
+				IsPlayerBotSidekickCoinsOn(rec.dwSidekickPID) ? 1 : 0, coinBalance,
+				IsPlayerBotSidekickEquipLocked(rec.dwSidekickPID) ? 1 : 0,
+				IsPlayerBotSidekickKeepingLoot(rec.dwSidekickPID) ? 1 : 0);
 		char doing[96] = "";
 		char place[64] = "";
 		if (inWorld)
@@ -4023,15 +4281,32 @@ namespace
 					"VALUES (%u, %u, NOW())", itemId, sidekickPid);
 	}
 
+	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: an owner's drop it picked up for
+	// the owner, a gift that the AI leaves alone altogether.
+	void AddPlayerBotSidekickHeld(DWORD sidekickPid, TPlayerBotSidekickRuntime& rt, DWORD itemId)
+	{
+		rt.setGifts.insert(itemId);
+		rt.setHeld.insert(itemId);
+		if (s_bPlayerBotSidekickHeldColumn)
+			DBManager::instance().Query("INSERT INTO player.playerbot_sidekick_gift (item_id, sidekick_pid, given_at, held) "
+					"VALUES (%u, %u, NOW(), 1) ON DUPLICATE KEY UPDATE sidekick_pid=%u, held=1", itemId, sidekickPid,
+					sidekickPid);
+		else
+			DBManager::instance().Query("INSERT IGNORE INTO player.playerbot_sidekick_gift (item_id, sidekick_pid, given_at) "
+					"VALUES (%u, %u, NOW())", itemId, sidekickPid);
+	}
+
 	void ClearPlayerBotSidekickGift(DWORD sidekickPid, TPlayerBotSidekickRuntime& rt, DWORD itemId)
 	{
+		rt.setHeld.erase(itemId);	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1
 		if (rt.setGifts.erase(itemId))
 			DBManager::instance().Query("DELETE FROM player.playerbot_sidekick_gift WHERE item_id=%u AND sidekick_pid=%u",
 					itemId, sidekickPid);
 	}
 
 	// The window's marks on a piece: 1 put on by the owner, 2 the owner's gift,
-	// 4 taken off by the owner.
+	// 4 taken off by the owner, 8 the owner's drop it holds for the owner
+	// (MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1).
 	int GetPlayerBotSidekickEqFlags(const TPlayerBotSidekickRuntime& rt, LPITEM item)
 	{
 		int flags = 0;
@@ -4040,6 +4315,8 @@ namespace
 			flags |= pin->second == PLAYERBOT_SIDEKICK_PIN_UNWANTED ? 4 : 1;
 		if (rt.setGifts.find(item->GetID()) != rt.setGifts.end())
 			flags |= 2;
+		if (rt.setHeld.find(item->GetID()) != rt.setHeld.end())
+			flags |= 8;
 		return flags;
 	}
 
@@ -5483,7 +5760,7 @@ namespace
 	//            | eq [1 | ruch <z> <na> | daj <z> <na> | wez <z> <na> | odepnij <pozycja>]
 	//            | umiejetnosci [dodaj <vnum> | reczne <0|1>]
 	//            | statystyki [dodaj <ht|iq|st|dx> [ile] | reczne <0|1> | odnow]
-	//            | luruj <0|1>
+	//            | luruj <0|1> | kup <towar> <ile> [tak]
 	void HandlePlayerBotSidekickCommand(LPCHARACTER ch, const char* argument)
 	{
 		if (!ch || !ch->GetDesc() || (ch->GetDesc()->IsBot() && !s_bPlayerBotSidekickSelfTest))
@@ -5562,6 +5839,9 @@ namespace
 			HoldPlayerBotSidekick(ch, rec->second, dwNow);
 		else if (!strcmp(sub, "zakupy"))
 			SendPlayerBotSidekickShopping(ch, rec->second, dwNow);
+		// MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: "kup <towar> <ile> [tak]".
+		else if (!strcmp(sub, "kup"))
+			OrderPlayerBotSidekickShopErrand(ch, rec->second, a1, a2, a3, dwNow);
 		else if (!strcmp(sub, "ryby"))
 			SendPlayerBotSidekickFishing(ch, rec->second, dwNow);
 		else if (!strcmp(sub, "luruj"))
@@ -5623,6 +5903,23 @@ namespace
 			else
 				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz monety 1 (wydaje Smocze Monety w Item Shopie) albo "
 						"/towarzysz monety 0 (nie wydaje)");
+		}
+		// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: "Zablokuj ekwipunek".
+		else if (!strcmp(sub, "blokada"))
+		{
+			if (!strcmp(a1, "0") || !strcmp(a1, "1"))
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickEquipLock(rec->second, !strcmp(a1, "1")));
+			else
+				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz blokada 1 (nie ruszam ekwipunku) albo /towarzysz blokada 0");
+		}
+		// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: "Pelne EQ".
+		else if (!strcmp(sub, "przechowuj"))
+		{
+			if (!strcmp(a1, "0") || !strcmp(a1, "1"))
+				SayPlayerBotSidekick(ch, SetPlayerBotSidekickKeepLoot(rec->second, !strcmp(a1, "1")));
+			else
+				SayPlayerBotSidekick(ch, "Uzyj: /towarzysz przechowuj 1 (zbieram twoj drop, gdy masz pelny ekwipunek) "
+						"albo /towarzysz przechowuj 0");
 		}
 		else if (!strcmp(sub, "grupa"))
 		{
@@ -5769,9 +6066,10 @@ namespace
 	// the owner, then what is hitting itself, then - with nothing of that - the
 	// nearest monster within PLAYERBOT_SIDEKICK_HUNT_RANGE of the owner. A
 	// monster only, and a stone only when the owner hits it: a person is the
-	// owner's business, a duel above all, and the Anti-PK protocol answers a
-	// person who strikes the owner. A boss is fought when it fights one of the
-	// two, never looked for.
+	// owner's business, a duel above all - save one of another kingdom who
+	// strikes the owner or the companion, answered before all of it
+	// (MT2009_PLUS_SIDEKICK_DEFEND_V1, FindPlayerBotSidekickDefendFoe). A boss
+	// is fought when it fights one of the two, never looked for.
 	// The ranges are measured from a centre: the owner at its side, the spot
 	// when it was told to wait ("Czekaj tutaj"), where the owner - when it
 	// is on that map at all - may be far away.
@@ -5842,6 +6140,260 @@ namespace
 		if (!owner || !target || !target->IsPC() || !owner->GetGuild() || !target->GetGuild())
 			return false;
 		return owner->GetGuild() != target->GetGuild() && owner->GetGuild()->UnderWar(target->GetGuild()->GetID());
+	}
+
+	// ------------------------------------------- MT2009_PLUS_SIDEKICK_DEFEND_V1
+	//
+	// "Gdy gracza atakuja boty z krolestwa przeciwnego, towarzysz pomaga w
+	// obronie i ich atakuje rowniez" (the owner, 3 October). A character of
+	// another kingdom - a bot or a person, one rule for both - that struck the
+	// owner or the companion lately, or a bot of another kingdom in a fight
+	// with either of them now, is the companion's foe before any monster: it
+	// fights it with its usual fight (skills, potions, buffs) while the threat
+	// lasts, and goes back to its owner and the monsters after it.
+	//
+	// An answer only, never a first blow; never the owner's own kingdom, party
+	// or guild, whoever struck first; never one in a duel or a guild war with
+	// the owner (that is the owner's business, and the war's foe the owner has
+	// in hand is fought above); never a person under a truce with the bots;
+	// and only where the engine lets the blow land (battle_is_attackable: the
+	// safe zones, PK protection on a kingdom's own ground). A blow at another
+	// kingdom puts nobody in killer mode (CPVPManager::CanAttack) and a kill
+	// there costs no alignment (CHARACTER::Dead's empire branch).
+	//
+	// The blows come from CHARACTER::Damage through the manager
+	// (CPlayerBotManager::OnPlayerStruck, NotePlayerBotStruck - a bot's blow
+	// only when it was meant): at the companion always, at the owner while the
+	// owner is in a party or a guild, which at its side the owner is (the
+	// companion's party). The aim of another kingdom's bots (their AI state)
+	// covers the rest.
+	const DWORD PLAYERBOT_SIDEKICK_DEFEND_MEMORY_MS = 12000;
+	const size_t PLAYERBOT_SIDEKICK_DEFEND_MAX = 8;
+	const DWORD PLAYERBOT_SIDEKICK_DEFEND_LOG_MS = 15000;
+	const DWORD PLAYERBOT_SIDEKICK_DEFEND_LOG_SWITCH_MS = 3000;
+
+	struct TPlayerBotSidekickDefendBlow
+	{
+		DWORD dwVID;
+		DWORD dwAt;
+	};
+	// The struck (an owner or a companion) by pid -> the attacker's pid -> its
+	// last blow.
+	std::map<DWORD, std::map<DWORD, TPlayerBotSidekickDefendBlow> > s_mapPlayerBotSidekickDefendBlows;
+	// A companion's pid -> the attacker it last said it fought, and when.
+	std::map<DWORD, std::pair<DWORD, DWORD> > s_mapPlayerBotSidekickDefendLogged;
+
+	bool IsPlayerBotSidekickDefendBlowFresh(const TPlayerBotSidekickDefendBlow& blow, DWORD dwNow)
+	{
+		return blow.dwAt >= dwNow || dwNow - blow.dwAt <= PLAYERBOT_SIDEKICK_DEFEND_MEMORY_MS;
+	}
+
+	void PrunePlayerBotSidekickDefendBlows(std::map<DWORD, TPlayerBotSidekickDefendBlow>& blows, DWORD dwNow)
+	{
+		for (std::map<DWORD, TPlayerBotSidekickDefendBlow>::iterator it = blows.begin(); it != blows.end();)
+		{
+			if (!IsPlayerBotSidekickDefendBlowFresh(it->second, dwNow))
+				blows.erase(it++);
+			else
+				++it;
+		}
+	}
+
+	// From NotePlayerBotStruck (playerbot_anti_pk.h), for a blow that counts:
+	// kept when it lands on an owner or a companion and comes from another
+	// kingdom.
+	void NotePlayerBotSidekickDefendBlow(LPCHARACTER victim, LPCHARACTER attacker, DWORD dwNow)
+	{
+		if (!victim || !attacker || victim == attacker || s_mapPlayerBotSidekicks.empty() || !attacker->IsPC() ||
+				attacker->GetEmpire() == victim->GetEmpire())
+			return;
+		const DWORD pid = victim->GetPlayerID();
+		if (s_mapPlayerBotSidekicks.find(pid) == s_mapPlayerBotSidekicks.end() &&
+				s_mapPlayerBotSidekickOwner.find(pid) == s_mapPlayerBotSidekickOwner.end())
+			return;
+		if (s_mapPlayerBotSidekickDefendBlows.size() >= 256)
+			for (std::map<DWORD, std::map<DWORD, TPlayerBotSidekickDefendBlow> >::iterator it =
+					s_mapPlayerBotSidekickDefendBlows.begin(); it != s_mapPlayerBotSidekickDefendBlows.end();)
+			{
+				PrunePlayerBotSidekickDefendBlows(it->second, dwNow);
+				if (it->second.empty())
+					s_mapPlayerBotSidekickDefendBlows.erase(it++);
+				else
+					++it;
+			}
+		std::map<DWORD, TPlayerBotSidekickDefendBlow>& blows = s_mapPlayerBotSidekickDefendBlows[pid];
+		PrunePlayerBotSidekickDefendBlows(blows, dwNow);
+		if (blows.size() >= PLAYERBOT_SIDEKICK_DEFEND_MAX && blows.find(attacker->GetPlayerID()) == blows.end())
+			return;
+		TPlayerBotSidekickDefendBlow& blow = blows[attacker->GetPlayerID()];
+		blow.dwVID = (DWORD)attacker->GetVID();
+		blow.dwAt = dwNow;
+	}
+
+	// Who struck this character lately, still in the world under the same vid.
+	void CollectPlayerBotSidekickDefendBlows(DWORD pid, DWORD dwNow, std::vector<LPCHARACTER>& out)
+	{
+		std::map<DWORD, std::map<DWORD, TPlayerBotSidekickDefendBlow> >::iterator v =
+				s_mapPlayerBotSidekickDefendBlows.find(pid);
+		if (v == s_mapPlayerBotSidekickDefendBlows.end())
+			return;
+		PrunePlayerBotSidekickDefendBlows(v->second, dwNow);
+		if (v->second.empty())
+		{
+			s_mapPlayerBotSidekickDefendBlows.erase(v);
+			return;
+		}
+		for (std::map<DWORD, TPlayerBotSidekickDefendBlow>::const_iterator it = v->second.begin();
+				it != v->second.end(); ++it)
+		{
+			LPCHARACTER c = CHARACTER_MANAGER::instance().Find(it->second.dwVID);
+			if (c && c->IsPC() && c->GetPlayerID() == it->first)
+				out.push_back(c);
+		}
+	}
+
+	// Another kingdom's bots round the companion in a fight with the owner or
+	// with the companion now: their own foe (the Anti-PK protocol's), or the
+	// target of a fight under way.
+	struct FPlayerBotSidekickDefendScan
+	{
+		LPCHARACTER self;
+		LPCHARACTER owner;
+		std::vector<LPCHARACTER> onOwner;
+		std::vector<LPCHARACTER> onSelf;
+
+		FPlayerBotSidekickDefendScan(LPCHARACTER s, LPCHARACTER o) : self(s), owner(o)
+		{
+		}
+
+		void operator()(LPENTITY ent)
+		{
+			if (!ent || !ent->IsType(ENTITY_CHARACTER) ||
+					onOwner.size() + onSelf.size() >= PLAYERBOT_SIDEKICK_DEFEND_MAX * 2)
+				return;
+			LPCHARACTER c = (LPCHARACTER)ent;
+			if (c == self || c == owner || !c->IsPC() || c->IsDead() || !c->GetDesc() || !c->GetDesc()->IsBot() ||
+					c->GetEmpire() == self->GetEmpire())
+				return;
+			TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.find(c->GetPlayerID());
+			if (it == s_mapPlayerBotAIStates.end())
+				return;
+			const TPlayerBotAIState& st = it->second;
+			const bool fighting = st.bCurrentAction == BOT_ACTION_FIGHT;
+			if (owner && (st.persona.dwFoeVID == (DWORD)owner->GetVID() ||
+					(fighting && st.dwTargetVID == (DWORD)owner->GetVID())))
+				onOwner.push_back(c);
+			else if (st.persona.dwFoeVID == (DWORD)self->GetVID() ||
+					(fighting && st.dwTargetVID == (DWORD)self->GetVID()))
+				onSelf.push_back(c);
+		}
+	};
+
+	// One the companion may answer now. centreX/Y: the owner at its side, the
+	// spot it keeps ("Czekaj tutaj").
+	bool IsPlayerBotSidekickDefendFoe(LPCHARACTER ch, LPCHARACTER owner, LPCHARACTER foe, long centreX, long centreY)
+	{
+		if (!foe || foe == ch || foe == owner || !foe->IsPC() || foe->IsDead() || foe->IsObserverMode() ||
+				foe->GetMapIndex() != ch->GetMapIndex() || !foe->GetSectree())
+			return false;
+		// Another kingdom only: the owner's own - the companion's - never.
+		if (foe->GetEmpire() == ch->GetEmpire() || (owner && foe->GetEmpire() == owner->GetEmpire()))
+			return false;
+		if (owner)
+		{
+			if ((owner->GetParty() && foe->GetParty() == owner->GetParty()) ||
+					(owner->GetGuild() && foe->GetGuild() == owner->GetGuild()) ||
+					IsPlayerBotBlowConsensual(owner, foe))
+				return false;
+		}
+		if ((ch->GetParty() && foe->GetParty() == ch->GetParty()) ||
+				(ch->GetGuild() && foe->GetGuild() == ch->GetGuild()) || IsPlayerBotBlowConsensual(ch, foe))
+			return false;
+		if (IsPlayerBotWarFoeRecovering(foe) || IsPlayerBotPersonTruced(foe, get_dword_time()))
+			return false;
+		if (DISTANCE_APPROX(foe->GetX() - centreX, foe->GetY() - centreY) > PLAYERBOT_SIDEKICK_ASSIST_RANGE)
+			return false;
+		if (IsPlayerBotSafeZone(ch->GetMapIndex(), ch->GetX(), ch->GetY()) ||
+				IsPlayerBotSafeZone(foe->GetMapIndex(), foe->GetX(), foe->GetY()))
+			return false;
+		// The engine's own word on the blow. A companion on a mount is refused
+		// every blow by it (CPVPManager::CanAttack) until the fight takes it
+		// down - a character is fought on foot (CanPlayerBotFightOnHorse) - so
+		// on one the foe's blow at it is asked: between two kingdoms the rules
+		// are the same both ways.
+		if (battle_is_attackable(ch, foe))
+			return true;
+		return ch->IsRiding() && battle_is_attackable(foe, ch);
+	}
+
+	// The one the companion keeps fighting (its victim) while it still may,
+	// else the nearest of the owner's attackers, else the nearest of its own.
+	// Passive ("nie walcz") answers only its own. why: AT_OWNER or AT_SELF.
+	LPCHARACTER FindPlayerBotSidekickDefendFoe(LPCHARACTER ch, LPCHARACTER owner, BYTE stance, long centreX,
+			long centreY, int& why)
+	{
+		if (!ch || !ch->GetSectree())
+			return NULL;
+		const DWORD dwNow = get_dword_time();
+		const bool guardOwner = owner && stance != PLAYERBOT_SIDEKICK_STANCE_PASSIVE && !owner->IsDead() &&
+				owner->GetMapIndex() == ch->GetMapIndex() &&
+				DISTANCE_APPROX(owner->GetX() - centreX, owner->GetY() - centreY) <= PLAYERBOT_SIDEKICK_GUARD_RANGE;
+		FPlayerBotSidekickDefendScan scan(ch, guardOwner ? owner : NULL);
+		ch->GetSectree()->ForEachAround(scan);
+		if (guardOwner)
+			CollectPlayerBotSidekickDefendBlows(owner->GetPlayerID(), dwNow, scan.onOwner);
+		CollectPlayerBotSidekickDefendBlows(ch->GetPlayerID(), dwNow, scan.onSelf);
+		if (scan.onOwner.empty() && scan.onSelf.empty())
+			return NULL;
+		LPCHARACTER current = ch->GetVictim();
+		const std::vector<LPCHARACTER>* lists[2] = { &scan.onOwner, &scan.onSelf };
+		const int whys[2] = { PLAYERBOT_SIDEKICK_FOE_AT_OWNER, PLAYERBOT_SIDEKICK_FOE_AT_SELF };
+		if (current)
+			for (int l = 0; l < 2; ++l)
+				for (size_t i = 0; i < lists[l]->size(); ++i)
+					if ((*lists[l])[i] == current && IsPlayerBotSidekickDefendFoe(ch, owner, current, centreX, centreY))
+					{
+						why = whys[l];
+						return current;
+					}
+		for (int l = 0; l < 2; ++l)
+		{
+			LPCHARACTER best = NULL;
+			int bestDist = INT_MAX;
+			for (size_t i = 0; i < lists[l]->size(); ++i)
+			{
+				LPCHARACTER c = (*lists[l])[i];
+				const int d = DISTANCE_APPROX(c->GetX() - ch->GetX(), c->GetY() - ch->GetY());
+				if (d < bestDist && IsPlayerBotSidekickDefendFoe(ch, owner, c, centreX, centreY))
+				{
+					best = c;
+					bestDist = d;
+				}
+			}
+			if (best)
+			{
+				why = whys[l];
+				return best;
+			}
+		}
+		return NULL;
+	}
+
+	// Said once per attacker, again only after PLAYERBOT_SIDEKICK_DEFEND_LOG_MS.
+	void LogPlayerBotSidekickDefend(LPCHARACTER ch, LPCHARACTER owner, LPCHARACTER foe, int why, DWORD dwNow)
+	{
+		std::pair<DWORD, DWORD>& last = s_mapPlayerBotSidekickDefendLogged[ch->GetPlayerID()];
+		const DWORD since = dwNow - last.second;
+		if (last.second != 0 && (last.first == foe->GetPlayerID() ? since < PLAYERBOT_SIDEKICK_DEFEND_LOG_MS
+				: since < PLAYERBOT_SIDEKICK_DEFEND_LOG_SWITCH_MS))
+			return;
+		last.first = foe->GetPlayerID();
+		last.second = dwNow;
+		sys_log(0, "PLAYERBOT_SIDEKICK: defends %s pid=%u name=%s owner=%u attacker_pid=%u attacker=%s "
+				"attacker_empire=%u person=%d map=%ld hp=%d/%d",
+				why == PLAYERBOT_SIDEKICK_FOE_AT_OWNER ? "owner" : "itself", ch->GetPlayerID(), ch->GetName(),
+				owner ? owner->GetPlayerID() : 0, foe->GetPlayerID(), foe->GetName(), (unsigned int)foe->GetEmpire(),
+				foe->GetDesc() && !foe->GetDesc()->IsBot() ? 1 : 0, ch->GetMapIndex(), ch->GetHP(), ch->GetMaxHP());
 	}
 
 	// What is hitting a losing owner turns on the companion.
@@ -5930,6 +6482,16 @@ namespace
 			bool& ownerFighting)
 	{
 		ownerFighting = IsPlayerBotSidekickOwnerTargetInFight(ch, owner);
+		// MT2009_PLUS_SIDEKICK_DEFEND_V1: another kingdom's attackers come
+		// before the owner's target and every monster.
+		LPCHARACTER defend = FindPlayerBotSidekickDefendFoe(ch, owner, stance, owner->GetX(), owner->GetY(), why);
+		if (defend)
+		{
+			if (why == PLAYERBOT_SIDEKICK_FOE_AT_OWNER)
+				ownerFighting = true;
+			LogPlayerBotSidekickDefend(ch, owner, defend, why, get_dword_time());
+			return defend;
+		}
 		LPCHARACTER target = stance == PLAYERBOT_SIDEKICK_STANCE_PASSIVE ? NULL : owner->GetTarget();
 		// MT2009_PLUS_AREZZO_BOTS_V1 (events): the owner's Easter metin is the owner's.
 		if (target && target->IsStone() && IsPlayerBotEventStone(target->GetRaceNum()))
@@ -5969,6 +6531,59 @@ namespace
 		return NULL;
 	}
 
+	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: whether the owner's own pick-up
+	// would find this drop a place - the engine's party branch of PickupItem
+	// pours it onto a stack of the same thing first (AutoStackItem: the same
+	// vnum and sockets, room left) and puts the rest on an empty cell
+	// (GetEmptyInventoryEx, which knows the special pages).
+	bool PlayerBotSidekickOwnerTakesDrop(LPCHARACTER owner, LPITEM item)
+	{
+		if (!owner || !item)
+			return false;
+		if (IsPlayerBotMoneyDrop(item))
+			return true;
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		if (owner->GetEmptyInventoryEx(item) != -1)
+			return true;
+		if (!item->IsStackable() || IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_STACK))
+			return false;
+		for (int i = 0; i < owner->GetInventoryMaxCount(); ++i)
+		{
+			LPITEM stack = owner->GetInventoryItem(i);
+			if (!stack || stack->GetVnum() != item->GetVnum() || stack->GetCount() >= stack->GetMaxStack())
+				continue;
+			int j = 0;
+			for (; j < ITEM_SOCKET_MAX_NUM; ++j)
+				if (stack->GetSocket(j) != item->GetSocket(j))
+					break;
+			if (j == ITEM_SOCKET_MAX_NUM)
+				return true;
+		}
+		return false;
+#else
+		return PlayerBotBagTakesDrop(owner, item);
+#endif
+	}
+
+	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: "jak u nas sie zapelni EQ" - an
+	// owner's drop the owner's bag has no place for, which the companion
+	// picks up into its own bag and holds for the owner (AddPlayerBotSidekickHeld)
+	// until the owner takes it in the window (a right click in its bag). Not
+	// what the AI spends by the item's number, which no mark of a piece can
+	// stop: a Cor Draconis (the alchemy opens every one), a skill book (read by
+	// its number); nor a dragon stone (the window cannot hand one back) or a
+	// quest item (the owner's quest hears of its pick-up only in the owner's
+	// own bag). Yang never needs a place.
+	bool CanPlayerBotSidekickHoldOwnerDrop(LPCHARACTER sk, LPITEM item)
+	{
+		if (!sk || !item || IsPlayerBotMoneyDrop(item) || item->IsDragonSoul() || item->GetType() == ITEM_QUEST ||
+				item->GetType() == ITEM_SKILLBOOK || item->GetType() == ITEM_SKILLFORGET ||
+				IsPlayerBotGeneralSkillBook(item->GetVnum()) || IsPlayerBotExtraSkillBook(item->GetVnum()) ||
+				IsPlayerBotCorDraconisVnum(item->GetVnum()))
+			return false;
+		return sk->GetEmptyInventory(item->GetSize()) >= 0;
+	}
+
 	// The drops worth going for: the owner's, which the engine hands to the
 	// owner when a party member picks them up (CHARACTER::PickupItem, the party
 	// branch), and what is the companion's own to take.
@@ -5981,9 +6596,19 @@ namespace
 		BYTE mode;	// EPlayerBotSidekickLoot
 		LPITEM best;
 		int bestDist;
+		// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: "Pelne EQ" on, and whether
+		// the drop chosen is one to hold for the owner.
+		bool keep;
+		bool bestHeld;
+		// MT2009_PLUS_SIDEKICK_FOLLOW_LOOT_V1: the leash's centre - the owner,
+		// or the spot it keeps.
+		long centreX;
+		long centreY;
 
-		FPlayerBotSidekickLoot(LPCHARACTER s, LPCHARACTER o, const TPlayerBotSidekickRuntime& r, DWORD n, BYTE m)
-			: self(s), owner(o), rt(r), now(n), mode(m), best(NULL), bestDist(INT_MAX)
+		FPlayerBotSidekickLoot(LPCHARACTER s, LPCHARACTER o, const TPlayerBotSidekickRuntime& r, DWORD n, BYTE m,
+				long cx, long cy)
+			: self(s), owner(o), rt(r), now(n), mode(m), best(NULL), bestDist(INT_MAX),
+			  keep(s && IsPlayerBotSidekickKeepingLoot(s->GetPlayerID())), bestHeld(false), centreX(cx), centreY(cy)
 		{
 		}
 
@@ -5995,7 +6620,12 @@ namespace
 			if (!item->GetSectree() || item->GetOwner())
 				return;
 			const int d = DISTANCE_APPROX(item->GetX() - self->GetX(), item->GetY() - self->GetY());
-			if (d > PLAYERBOT_SIDEKICK_LOOT_RANGE || d >= bestDist)
+			if (d >= bestDist)
+				return;
+			// MT2009_PLUS_SIDEKICK_FOLLOW_LOOT_V1: within the leash round the
+			// owner rather than twelve metres round itself - a drop of its own
+			// kill on the far side of the owner was out of its reach.
+			if (DISTANCE_APPROX(item->GetX() - centreX, item->GetY() - centreY) > PLAYERBOT_SIDEKICK_LOOT_LEASH)
 				return;
 			std::map<DWORD, DWORD>::const_iterator failed = rt.mapLootFailed.find(item->GetVID());
 			if (failed != rt.mapLootFailed.end() && (int)(now - failed->second) < 0)
@@ -6006,7 +6636,18 @@ namespace
 			if (!PlayerBotRecipientWantsDrop(owner ? owner : GetPlayerBotSidekickFilterOwner(self), item))
 				return;
 			const bool ownersOnly = owner && item->IsOwnership(owner) && !item->IsOwnership(self);
-			if (ownersOnly)
+			bool held = false;
+			// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: the owner's drop the
+			// owner's bag cannot take is held for the owner ("Pelne EQ"), or
+			// left alone - the party branch would refuse it anyway, and the
+			// companion ran to it and back for eight seconds.
+			if (ownersOnly && !PlayerBotSidekickOwnerTakesDrop(owner, item))
+			{
+				if (!keep || !CanPlayerBotSidekickHoldOwnerDrop(self, item))
+					return;
+				held = true;
+			}
+			else if (ownersOnly)
 			{
 				// The party branch hands over only what may change hands - and
 				// not the owner's yang, which it would put into the owner's bag
@@ -6022,11 +6663,47 @@ namespace
 				return;
 			best = item;
 			bestDist = d;
+			bestHeld = held;
 		}
 	};
 
+	// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: the owner's drop off the ground
+	// and into the companion's bag, held for the owner; the owner is told once
+	// a minute at most.
+	bool HoldPlayerBotSidekickOwnerDrop(LPCHARACTER ch, LPCHARACTER owner, TPlayerBotSidekickRuntime& rt, LPITEM item,
+			DWORD dwNow)
+	{
+		if (!item->GetSectree() || !CanPlayerBotSidekickHoldOwnerDrop(ch, item) || !ch->CanHandleItem())
+			return false;
+		const int cell = ch->GetEmptyInventory(item->GetSize());
+		if (cell < 0)
+			return false;
+		item->RemoveFromGround();
+		item->AddToCharacter(ch, TItemPos(INVENTORY, cell));
+		ITEM_MANAGER::instance().FlushDelayedSave(item);
+		AddPlayerBotSidekickHeld(ch->GetPlayerID(), rt, item->GetID());
+		char hint[64];
+		snprintf(hint, sizeof(hint), "%s %u %u", item->GetName(), (unsigned int)item->GetCount(), item->GetOriginalVnum());
+		LogManager::instance().ItemLog(ch, item, "PLAYERBOT_SIDEKICK_HOLD", owner ? owner->GetName() : hint);
+		sys_log(0, "PLAYERBOT_SIDEKICK: held for the owner pid=%u owner=%u item=%u vnum=%u count=%u cell=%d",
+				ch->GetPlayerID(), owner ? owner->GetPlayerID() : 0, item->GetID(), item->GetVnum(),
+				(unsigned int)item->GetCount(), cell);
+		if (owner && (rt.dwHeldToldAt == 0 || dwNow - rt.dwHeldToldAt >= PLAYERBOT_SIDEKICK_HELD_TELL_MS))
+		{
+			rt.dwHeldToldAt = dwNow;
+			char text[192];
+			snprintf(text, sizeof(text), "Masz pelny ekwipunek - %s trzymam dla ciebie w swoim plecaku "
+					"(okno Towarzysza, prawy klik oddaje).", item->GetName());
+			SayPlayerBotSidekick(owner, text);
+		}
+		return true;
+	}
+
+	// MT2009_PLUS_SIDEKICK_FOLLOW_LOOT_V1: walk false is the Z of a fight -
+	// what lies in reach is taken where it stands, nothing is walked to, and
+	// the walk under way (rt.dwLootVID) is left as it was.
 	bool PickUpPlayerBotSidekickLoot(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER owner,
-			TPlayerBotSidekickRuntime& rt, BYTE lootMode, DWORD dwNow)
+			TPlayerBotSidekickRuntime& rt, BYTE lootMode, long centreX, long centreY, bool walk, DWORD dwNow)
 	{
 		if (!ch->GetSectree() || lootMode == PLAYERBOT_SIDEKICK_LOOT_NONE)
 			return false;
@@ -6040,8 +6717,25 @@ namespace
 					++it;
 			}
 		}
-		FPlayerBotSidekickLoot loot(ch, owner, rt, dwNow, lootMode);
+		FPlayerBotSidekickLoot loot(ch, owner, rt, dwNow, lootMode, centreX, centreY);
 		ch->GetSectree()->ForEachAround(loot);
+		if (!walk)
+		{
+			if (!loot.best || loot.bestDist > PLAYERBOT_SIDEKICK_PICKUP_RANGE)
+				return false;
+			const DWORD zvid = loot.best->GetVID();
+			if (loot.bestHeld)
+			{
+				if (!HoldPlayerBotSidekickOwnerDrop(ch, owner, rt, loot.best, dwNow))
+					rt.mapLootFailed[zvid] = dwNow + PLAYERBOT_SIDEKICK_LOOT_FAILED_MS;
+				return true;
+			}
+			const DWORD zvnum = loot.best->GetVnum();
+			if (!ch->PickupItem(zvid))
+				return false;
+			sys_log(0, "PLAYERBOT_SIDEKICK: picked up pid=%u vid=%u vnum=%u how=fight", ch->GetPlayerID(), zvid, zvnum);
+			return true;
+		}
 		if (!loot.best)
 		{
 			rt.dwLootVID = 0;
@@ -6070,8 +6764,53 @@ namespace
 		}
 		if (ch->IsStateMove())
 			ch->Stop();
-		ch->PickupItem(vid);
+		// MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: the owner's drop the owner's
+		// bag cannot take goes into the companion's.
+		if (loot.bestHeld)
+		{
+			if (!HoldPlayerBotSidekickOwnerDrop(ch, owner, rt, loot.best, dwNow))
+			{
+				rt.mapLootFailed[vid] = dwNow + PLAYERBOT_SIDEKICK_LOOT_FAILED_MS;
+				rt.dwLootVID = 0;
+			}
+			return true;
+		}
+		const DWORD vnum = loot.best->GetVnum();
+		if (ch->PickupItem(vid))
+			sys_log(0, "PLAYERBOT_SIDEKICK: picked up pid=%u vid=%u vnum=%u how=walk from_centre=%d", ch->GetPlayerID(),
+					vid, vnum, DISTANCE_APPROX(ch->GetX() - centreX, ch->GetY() - centreY));
 		return true;
+	}
+
+	// MT2009_PLUS_SIDEKICK_FOLLOW_LOOT_V1: the loot pass at the owner's side
+	// and at a spot it keeps. It looked every 400 ms, and the ticks between
+	// went on to the follow below it - a walk back to the owner past four and
+	// a half metres, a stop under two - so the companion took a step to a drop
+	// and a step back, gave the drop up after eight seconds and left it for
+	// thirty ("Przywolaj" did not pick up, "Wolna reka", the ordinary loot pass
+	// of every tick, did). A walk to a drop now goes on on every tick until it
+	// is picked up or given up; only the search for a new one keeps the clock.
+	bool RunPlayerBotSidekickLootPass(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER owner,
+			TPlayerBotSidekickRuntime& rt, BYTE lootMode, long centreX, long centreY, DWORD dwNow)
+	{
+		if (rt.dwLootVID == 0 && dwNow < rt.dwNextLoot)
+			return false;
+		rt.dwNextLoot = dwNow + PLAYERBOT_SIDEKICK_LOOT_INTERVAL_MS;
+		return PickUpPlayerBotSidekickLoot(ch, state, owner, rt, lootMode, centreX, centreY, true, dwNow);
+	}
+
+	// MT2009_PLUS_SIDEKICK_FOLLOW_LOOT_V1: in a fight, what lies at its feet
+	// (the Z a player presses between blows); the walk to a drop it had begun
+	// starts afresh after the fight, or the eight seconds ran out in the fight
+	// and the drop was given up the moment it was looked at again.
+	void TakePlayerBotSidekickLootInFight(LPCHARACTER ch, TPlayerBotAIState& state, LPCHARACTER owner,
+			TPlayerBotSidekickRuntime& rt, BYTE lootMode, long centreX, long centreY, DWORD dwNow)
+	{
+		rt.dwLootVID = 0;
+		if (dwNow < rt.dwNextLoot)
+			return;
+		rt.dwNextLoot = dwNow + PLAYERBOT_SIDEKICK_LOOT_INTERVAL_MS;
+		PickUpPlayerBotSidekickLoot(ch, state, owner, rt, lootMode, centreX, centreY, false, dwNow);
 	}
 
 	// The blacksmith and the merchants where the owner stands: the refine pass,
@@ -6231,6 +6970,11 @@ namespace
 	{
 		if (!rec.bBuffs || !owner || owner->IsDead() || owner->GetMapIndex() != ch->GetMapIndex())
 			return false;
+		// MT2009_PLUS_SIDEKICK_POLYMORPH_V1: under a marble the engine refuses
+		// every buff (IsPlayerBotFightingAsMonster), so it neither walks up to
+		// the owner for one nor asks; the buffs come back with its own shape.
+		if (IsPlayerBotFightingAsMonster(ch))
+			return false;
 		return ManagePlayerBotBuffPerson(ch, state, owner, dwNow, mayWalk, true);
 	}
 
@@ -6293,6 +7037,292 @@ namespace
 #else
 		return 25;	// 1 in 21 - 17
 #endif
+	}
+
+	// ------------------------------------ MT2009_PLUS_SIDEKICK_GRAND_MASTER_V1
+	//
+	// Kamien Duchowy in a companion's bag. Its skills are the ones its owner
+	// put points into in the window (base..base+5 of its path), so the stone
+	// trains the one of those at G1..G10 that comes first: the build's primary
+	// skill, then the highest grade. The rules are training_grandmaster_skill
+	// .quest's, as a player meets them: the players' wait between two stones
+	// (m2_book_wait, at most twelve hours - server-patches/soulstonewait), an
+	// Exorcism Scroll's affect waving it once, and the rank, 1000 + 500 a grade
+	// over G1, taken in full on a success and a third to a half of it on a
+	// failure. Like every bot it never trains its rank below zero (the rank
+	// that lets a player hunt it for its gear). Whatever holds it - no stone,
+	// the wait, the rank - its owner hears once, again when it changes or
+	// every half hour while a stone waits, and in its report ("raport").
+	enum EPlayerBotSidekickGrandMaster
+	{
+		PLAYERBOT_SIDEKICK_GM_NOTHING,	// no skill at G1..G10
+		PLAYERBOT_SIDEKICK_GM_NO_STONE,
+		PLAYERBOT_SIDEKICK_GM_POLYMORPHED,
+		PLAYERBOT_SIDEKICK_GM_BOOK,	// a Rada on, for a class book it reads now
+		PLAYERBOT_SIDEKICK_GM_WAIT,
+		PLAYERBOT_SIDEKICK_GM_RANK,
+		PLAYERBOT_SIDEKICK_GM_READY,
+	};
+
+	struct TPlayerBotSidekickGrandMasterView
+	{
+		BYTE bStatus;
+		DWORD dwSkill;
+		int iLevel;
+		int iRank;		// shown, as the quest reads it
+		int iNeed;		// shown
+		int iReadyAt;
+		int iStones;
+		LPITEM pStone;
+	};
+
+	struct TPlayerBotSidekickGrandMasterTold
+	{
+		BYTE bStatus;
+		DWORD dwSkill;
+		DWORD dwToldAt;
+	};
+	std::map<DWORD, TPlayerBotSidekickGrandMasterTold> s_mapPlayerBotSidekickGrandMasterTold;
+	const DWORD PLAYERBOT_SIDEKICK_GM_TELL_MS = 30 * 60 * 1000;
+
+	// The players' wait between two stones (questlua_pc's M2SoulStoneQuestFlag).
+	int GetPlayerBotSidekickSoulStoneWaitSeconds()
+	{
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		const int wait = quest::CQuestManager::instance().GetEventFlag("m2_book_wait");
+		return wait <= 0 ? 0 : (wait > 12 * 3600 ? 12 * 3600 : wait);
+#else
+		return PLAYERBOT_GRAND_MASTER_TRAIN_SECONDS;
+#endif
+	}
+
+	const char* const PLAYERBOT_SIDEKICK_GM_FLAG = "training_grandmaster_skill.next_time";
+
+	TPlayerBotSidekickGrandMasterView AssessPlayerBotSidekickGrandMaster(LPCHARACTER sk)
+	{
+		TPlayerBotSidekickGrandMasterView v;
+		memset(&v, 0, sizeof(v));
+		v.bStatus = PLAYERBOT_SIDEKICK_GM_NOTHING;
+		const DWORD base = sk ? GetPlayerBotSidekickSkillBase(sk) : 0;
+		if (base == 0 || !sk->IsItemLoaded())
+			return v;
+		const TJobSkillBuild build = GetPlayerBotSkillBuild(sk->GetJob(), sk->GetSkillGroup(), sk->GetPlayerID());
+		int best = INT_MIN;
+		for (DWORD vnum = base; vnum < base + 6; ++vnum)
+		{
+			if (!CSkillManager::instance().Get(vnum) || sk->GetSkillMasterType(vnum) != SKILL_GRAND_MASTER)
+				continue;
+			const int level = sk->GetSkillLevel(vnum);
+			if (level < 30 || level >= 40 || !sk->IsLearnableSkill(vnum))
+				continue;
+			const int priority = (vnum == build.dwPrimaryMaxSkill ? 100000 : 0) + level * 10 - (int)(vnum - base);
+			if (priority > best)
+			{
+				best = priority;
+				v.dwSkill = vnum;
+			}
+		}
+		if (v.dwSkill == 0)
+			return v;
+		v.iLevel = sk->GetSkillLevel(v.dwSkill);
+		v.iRank = sk->GetRealAlignment() / 10;
+		v.iNeed = GetPlayerBotGrandMasterRankCost(v.iLevel) / 10;
+		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = sk->GetInventoryItem(cell);
+			if (!item || item->GetVnum() != PLAYERBOT_GRAND_MASTER_STONE_VNUM)
+				continue;
+			v.iStones += item->GetCount();
+			if (!v.pStone && !item->isLocked())
+				v.pStone = item;
+		}
+		if (!v.pStone)
+		{
+			v.bStatus = PLAYERBOT_SIDEKICK_GM_NO_STONE;
+			return v;
+		}
+		if (sk->IsPolymorphed())
+		{
+			v.bStatus = PLAYERBOT_SIDEKICK_GM_POLYMORPHED;
+			return v;
+		}
+		// The quest's wait, shortened to the world's as the engine does it.
+		const int now = get_global_time();
+		const int wait = GetPlayerBotSidekickSoulStoneWaitSeconds();
+		v.iReadyAt = sk->GetQuestFlag(PLAYERBOT_SIDEKICK_GM_FLAG);
+		if (v.iReadyAt > now + wait)
+			v.iReadyAt = now + wait;
+		if (now < v.iReadyAt && !sk->FindAffect(AFFECT_SKILL_NO_BOOK_DELAY))
+		{
+			v.bStatus = PLAYERBOT_SIDEKICK_GM_WAIT;
+			return v;
+		}
+		if (sk->GetRealAlignment() < GetPlayerBotGrandMasterRankCost(v.iLevel))
+		{
+			v.bStatus = PLAYERBOT_SIDEKICK_GM_RANK;
+			return v;
+		}
+		// A Rada's affect waits for the class book it was taken for, when that
+		// book is read now: the stone's read would take it off for nothing.
+		if (sk->FindAffect(AFFECT_SKILL_BOOK_BONUS))
+			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+			{
+				LPITEM item = sk->GetInventoryItem(cell);
+				if (!item || item->GetType() != ITEM_SKILLBOOK)
+					continue;
+				const DWORD skill = GetPlayerBotSkillBookSkillVnum(item);
+				if (!IsPlayerBotOwnSkill(sk, skill) || sk->GetSkillMasterType(skill) != SKILL_MASTER ||
+						sk->GetSkillLevel(skill) < 20 || sk->GetSkillLevel(skill) >= 30)
+					continue;
+				if (IsPlayerBotFastBooksEnabled() || now >= sk->GetSkillNextReadTime(skill))
+				{
+					v.bStatus = PLAYERBOT_SIDEKICK_GM_BOOK;
+					return v;
+				}
+			}
+		v.bStatus = PLAYERBOT_SIDEKICK_GM_READY;
+		return v;
+	}
+
+	std::string GetPlayerBotSidekickGradeName(int level)
+	{
+		char grade[8];
+		if (level >= 40)
+			snprintf(grade, sizeof(grade), "P");
+		else
+			snprintf(grade, sizeof(grade), "G%d", level - 29);
+		return grade;
+	}
+
+	std::string GetPlayerBotSidekickWaitWords(int seconds)
+	{
+		char text[32];
+		if (seconds < 60)
+			snprintf(text, sizeof(text), "mniej niz minute");
+		else if (seconds < 3600)
+			snprintf(text, sizeof(text), "%d min", seconds / 60);
+		else
+			snprintf(text, sizeof(text), "%d h %d min", seconds / 3600, seconds % 3600 / 60);
+		return text;
+	}
+
+	std::string DescribePlayerBotSidekickGrandMasterView(const TPlayerBotSidekickGrandMasterView& v)
+	{
+		char text[320];
+		const std::string grade = GetPlayerBotSidekickGradeName(v.iLevel);
+		const char* skill = v.dwSkill ? GetPlayerBotSkillName(v.dwSkill) : "";
+		switch (v.bStatus)
+		{
+			case PLAYERBOT_SIDEKICK_GM_NO_STONE:
+				snprintf(text, sizeof(text), "Trening Wielkiego Mistrza: %s (%s) czeka na Kamien Duchowy - "
+						"nie mam zadnego w plecaku. Daj mi go w handlu albo w oknie Towarzysza.", skill, grade.c_str());
+				break;
+			case PLAYERBOT_SIDEKICK_GM_POLYMORPHED:
+				snprintf(text, sizeof(text), "Trening Wielkiego Mistrza: %s (%s) czeka, az skonczy sie przemiana.",
+						skill, grade.c_str());
+				break;
+			case PLAYERBOT_SIDEKICK_GM_WAIT:
+				snprintf(text, sizeof(text), "Trening Wielkiego Mistrza: %s (%s) - Kamien Duchowy mam (%d), "
+						"ale nastepny moge uzyc dopiero za %s.", skill, grade.c_str(), v.iStones,
+						GetPlayerBotSidekickWaitWords(v.iReadyAt - get_global_time()).c_str());
+				break;
+			case PLAYERBOT_SIDEKICK_GM_RANK:
+				snprintf(text, sizeof(text), "Trening Wielkiego Mistrza: %s (%s) - Kamien Duchowy mam (%d), "
+						"ale ranga za niska: mam %d, trening kosztuje %d. Ranga rosnie za zabijanie potworow.",
+						skill, grade.c_str(), v.iStones, v.iRank, v.iNeed);
+				break;
+			case PLAYERBOT_SIDEKICK_GM_BOOK:
+				snprintf(text, sizeof(text), "Trening Wielkiego Mistrza: %s (%s) - najpierw czytam ksiege pod "
+						"Rade Pustelnika, potem Kamien Duchowy.", skill, grade.c_str());
+				break;
+			case PLAYERBOT_SIDEKICK_GM_READY:
+				snprintf(text, sizeof(text), "Trening Wielkiego Mistrza: %s (%s) - zaraz uzywam Kamienia Duchowego "
+						"(mam %d).", skill, grade.c_str(), v.iStones);
+				break;
+			default:
+				return std::string();
+		}
+		return text;
+	}
+
+	std::string DescribePlayerBotSidekickGrandMaster(LPCHARACTER sk)
+	{
+		return DescribePlayerBotSidekickGrandMasterView(AssessPlayerBotSidekickGrandMaster(sk));
+	}
+
+	// Called by ManagePlayerBotGrandMasterTraining for a companion, every
+	// PLAYERBOT_GRAND_MASTER_CHECK_INTERVAL, wherever it is.
+	void TrainPlayerBotSidekickGrandMaster(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
+	{
+		const TPlayerBotSidekick* rec = FindPlayerBotSidekickOf(ch->GetPlayerID());
+		if (!rec || !rec->bSetupDone)
+			return;
+		TPlayerBotSidekickGrandMasterView v = AssessPlayerBotSidekickGrandMaster(ch);
+		LPCHARACTER owner = GetPlayerBotSidekickOwnerChar(rec->dwOwnerPID);
+		if (v.bStatus != PLAYERBOT_SIDEKICK_GM_READY)
+		{
+			// Nothing to say without a Grand Master skill, nor while it reads
+			// the book first; no stone is told once, when that changes, and the
+			// rest again every half hour while a stone waits in its bag.
+			if (v.bStatus == PLAYERBOT_SIDEKICK_GM_NOTHING || v.bStatus == PLAYERBOT_SIDEKICK_GM_BOOK)
+				return;
+			TPlayerBotSidekickGrandMasterTold& told = s_mapPlayerBotSidekickGrandMasterTold[ch->GetPlayerID()];
+			const bool changed = told.bStatus != v.bStatus || told.dwSkill != v.dwSkill;
+			const bool again = v.bStatus != PLAYERBOT_SIDEKICK_GM_NO_STONE &&
+					dwNow - told.dwToldAt >= PLAYERBOT_SIDEKICK_GM_TELL_MS;
+			if (!owner || (!changed && !again))
+				return;
+			told.bStatus = v.bStatus;
+			told.dwSkill = v.dwSkill;
+			told.dwToldAt = dwNow;
+			const std::string text = DescribePlayerBotSidekickGrandMasterView(v);
+			SayPlayerBotSidekick(owner, text.c_str());
+			sys_log(0, "PLAYERBOT_SIDEKICK: grand master waits pid=%u name=%s owner=%u skill=%u level=%d "
+					"status=%u rank=%d need=%d stones=%d ready_in=%d",
+					ch->GetPlayerID(), ch->GetName(), rec->dwOwnerPID, v.dwSkill, v.iLevel,
+					(unsigned int)v.bStatus, v.iRank, v.iNeed, v.iStones,
+					v.iReadyAt > get_global_time() ? v.iReadyAt - get_global_time() : 0);
+			return;
+		}
+		if (ch->IsDead() || ch->GetExchange() || ch->GetMyShop())
+			return;
+
+		// The quest, in its order: an Exorcism Scroll's affect waves a wait
+		// still running and goes, the next wait is set, the stone is spent,
+		// then the roll and the rank.
+		const int now = get_global_time();
+		const int wait = GetPlayerBotSidekickSoulStoneWaitSeconds();
+		if (now < v.iReadyAt)
+			ch->RemoveAffect(AFFECT_SKILL_NO_BOOK_DELAY);
+		ch->SetQuestFlag(PLAYERBOT_SIDEKICK_GM_FLAG, now + wait);
+		if (v.pStone->GetCount() > 1)
+			v.pStone->SetCount(v.pStone->GetCount() - 1);
+		else
+			ITEM_MANAGER::instance().RemoveItem(v.pStone, "PLAYERBOT_SIDEKICK_GRAND_MASTER_READ");
+		const int rankBefore = ch->GetRealAlignment() / 10;
+		const bool learned = ch->LearnGrandMasterSkill(v.dwSkill);
+		const int paid = learned ? v.iNeed : number(v.iNeed / 3, v.iNeed / 2);
+		ch->UpdateAlignment(-paid * 10);
+		SetPlayerBotAction(state, BOT_ACTION_READ_BOOK, dwNow);
+		const int levelNow = ch->GetSkillLevel(v.dwSkill);
+		sys_log(0, "PLAYERBOT_SIDEKICK: grand master training %s pid=%u name=%s owner=%u skill=%u level=%d->%d "
+				"rank=%d->%d stones_left=%d",
+				learned ? "SUCCESS" : "FAILED", ch->GetPlayerID(), ch->GetName(), rec->dwOwnerPID, v.dwSkill,
+				v.iLevel, levelNow, rankBefore, ch->GetRealAlignment() / 10, v.iStones - 1);
+		s_mapPlayerBotSidekickGrandMasterTold.erase(ch->GetPlayerID());
+		if (!owner)
+			return;
+		char text[320];
+		const std::string waitWords = wait > 0 ? GetPlayerBotSidekickWaitWords(wait) : std::string("od razu");
+		if (learned)
+			snprintf(text, sizeof(text), "Kamien Duchowy uzyty: %s - udalo sie, teraz %s (ranga -%d). "
+					"Kamieni zostalo: %d, nastepny trening: %s.", GetPlayerBotSkillName(v.dwSkill),
+					GetPlayerBotSidekickGradeName(levelNow).c_str(), paid, v.iStones - 1, waitWords.c_str());
+		else
+			snprintf(text, sizeof(text), "Kamien Duchowy uzyty: %s - nie udalo sie, zostaje %s (ranga -%d). "
+					"Kamieni zostalo: %d, nastepna proba: %s.", GetPlayerBotSkillName(v.dwSkill),
+					GetPlayerBotSidekickGradeName(levelNow).c_str(), paid, v.iStones - 1, waitWords.c_str());
+		SayPlayerBotSidekick(owner, text);
 	}
 
 	// A skill at seventeen that did not turn Master, and the Forgetting Book
@@ -6914,23 +7944,42 @@ namespace
 		}
 		else if (foes.idle && rec.bStance == PLAYERBOT_SIDEKICK_STANCE_ATTACK)
 			foe = foes.idle;
+		// MT2009_PLUS_SIDEKICK_DEFEND_V1: another kingdom's attackers of the
+		// owner near the spot, or of itself, before any monster.
+		{
+			int defendWhy = PLAYERBOT_SIDEKICK_FOE_AT_SELF;
+			LPCHARACTER defend = FindPlayerBotSidekickDefendFoe(ch, sameMapOwner, rec.bStance, rt.lHoldX, rt.lHoldY,
+					defendWhy);
+			if (defend)
+			{
+				foe = defend;
+				why = defendWhy;
+				if (why == PLAYERBOT_SIDEKICK_FOE_AT_OWNER)
+					rt.dwOwnerFightSeenAt = dwNow;
+				LogPlayerBotSidekickDefend(ch, sameMapOwner, defend, why, dwNow);
+			}
+		}
 		// The owner near the spot is buffed as at its side, but a waiting
 		// companion never walks to it for that.
 		if (sameMapOwner && BuffPlayerBotSidekickOwner(ch, state, rec, sameMapOwner, dwNow, false))
 			return true;
+		// MT2009_PLUS_SIDEKICK_FOLLOW_LOOT_V1: its drops before a new monster
+		// nobody fights yet, as a bot's own loot pass does.
+		if (foe && why == PLAYERBOT_SIDEKICK_FOE_NEARBY &&
+				RunPlayerBotSidekickLootPass(ch, state, sameMapOwner, rt, rec.bLoot, rt.lHoldX, rt.lHoldY, dwNow))
+			return true;
 		if (foe)
+		{
+			TakePlayerBotSidekickLootInFight(ch, state, sameMapOwner, rt, rec.bLoot, rt.lHoldX, rt.lHoldY, dwNow);
 			return FightPlayerBotSidekickFoe(ch, state, rt, foe, why, dwNow);
+		}
 		if (state.dwTargetVID != 0)
 		{
 			state.dwTargetVID = 0;
 			ch->SetVictim(NULL);
 		}
-		if (dwNow >= rt.dwNextLoot)
-		{
-			rt.dwNextLoot = dwNow + PLAYERBOT_SIDEKICK_LOOT_INTERVAL_MS;
-			if (PickUpPlayerBotSidekickLoot(ch, state, sameMapOwner, rt, rec.bLoot, dwNow))
-				return true;
-		}
+		if (RunPlayerBotSidekickLootPass(ch, state, sameMapOwner, rt, rec.bLoot, rt.lHoldX, rt.lHoldY, dwNow))
+			return true;
 		const int away = DISTANCE_APPROX(ch->GetX() - rt.lHoldX, ch->GetY() - rt.lHoldY);
 		if (away > PLAYERBOT_SIDEKICK_HOLD_LEASH)
 		{
@@ -7130,6 +8179,188 @@ namespace
 		}
 	}
 
+	// ------------------------------------------- the owner's transformation
+	//
+	// MT2009_PLUS_SIDEKICK_POLYMORPH_V1: "towarzysz razem z nami uzywa marmura
+	// polimorfii jesli ma go w eq" (the owner, 3 October). When its owner
+	// transforms - a Polymorph Marble, the Polymorph book or a quest's
+	// transformation, whatever puts the owner under AFFECT_POLYMORPH - a
+	// companion at the owner's side ("Przywolaj", not let off the leash, not on
+	// an errand or at the water) takes a marble of its own from its bag and
+	// transforms with it, the way a player's use does: CHARACTER::UseItem, one
+	// marble spent, five minutes and the engine's damage bonus (more with its
+	// own Polymorph skill).
+	//
+	// Which marble: one of the owner's own monster if it carries that, or else
+	// the highest monster the engine lets it become (ItemProcess_Polymorph
+	// refuses a monster at or above its level plus MAX(0, 20 - level*3/10) and
+	// throws away a marble whose monster does not exist, so both are asked here
+	// first). Never one it holds for its owner (IsPlayerBotSidekickHeld). The
+	// "Zablokuj ekwipunek" lock does not stop it: the lock keeps what it wears
+	// and was given from the blacksmith, the merchant and the ground, and a
+	// marble handed over is there to be used - at the owner's own move.
+	//
+	// One marble for one transformation of the owner's: should its own run out
+	// first (its five minutes against an owner's longer skill, or it fell) it
+	// does not spend another. And it ends with the owner's: when the owner is
+	// back in its own shape the companion's transformation is taken off at
+	// once, as long as it was the one taken for the owner. A transformation of
+	// its own for the Reaper or a raid's boss (ManagePlayerBotPolymorph) runs
+	// its own course - unless the owner transforms during it, when it is
+	// counted as the owner's company and ends with the owner's too. While the
+	// owner warps it changes nothing.
+	//
+	// A transformed companion fights as the bots under a marble already do
+	// (IsPlayerBotFightingAsMonster): hand to hand, no skill and no buff, which
+	// the engine refuses (char_skill.cpp); its gear is frozen
+	// (IsPlayerBotGearFrozen) and it does not mount (StartRiding refuses).
+	struct TPlayerBotSidekickPolymorph
+	{
+		// This transformation of the owner's has had its marble.
+		bool bOwnerSeen;
+		// The companion's own transformation keeps the owner company.
+		bool bWithOwner;
+		// The owner heard once that the only marbles it has are too high.
+		bool bToldTooHigh;
+		DWORD dwNextTry;
+		TPlayerBotSidekickPolymorph() : bOwnerSeen(false), bWithOwner(false), bToldTooHigh(false), dwNextTry(0)
+		{
+		}
+	};
+	// By companion pid. Outside the runtime, which a logout drops: a
+	// companion that left the world for a moment comes back to the same answer.
+	std::map<DWORD, TPlayerBotSidekickPolymorph> s_mapPlayerBotSidekickPolymorph;
+	const DWORD PLAYERBOT_SIDEKICK_POLYMORPH_RETRY_MS = 5000;
+	const DWORD PLAYERBOT_SIDEKICK_POLYMORPH_DISMOUNT_MS = 600;
+
+	// The cell of the marble it takes, or -1. tooHigh: it carries one whose
+	// monster its level does not allow yet.
+	int FindPlayerBotSidekickPolymorphMarble(LPCHARACTER ch, DWORD ownerMob, bool& tooHigh)
+	{
+		tooHigh = false;
+		const int limit = ch->GetLevel() + MAX(0, 20 - ch->GetLevel() * 3 / 10);
+		int best = -1;
+		int bestLevel = -1;
+		for (int cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM item = ch->GetInventoryItem(cell);
+			if (!item || item->GetType() != ITEM_POLYMORPH || item->isLocked() || IsPlayerBotSidekickHeld(ch, item))
+				continue;
+			bool known = false;
+			for (size_t i = 0; i < sizeof(PLAYERBOT_POLYMORPH_MARBLE_VNUMS) /
+					sizeof(PLAYERBOT_POLYMORPH_MARBLE_VNUMS[0]); ++i)
+				if (PLAYERBOT_POLYMORPH_MARBLE_VNUMS[i] == item->GetVnum())
+					known = true;
+			if (!known)
+				continue;
+			const DWORD mob = (DWORD)item->GetSocket(0);
+			const CMob* pMob = mob != 0 ? CMobManager::instance().Get(mob) : NULL;
+			if (!pMob)
+				continue;
+			if ((int)pMob->m_table.bLevel >= limit)
+			{
+				tooHigh = true;
+				continue;
+			}
+			if (ownerMob != 0 && mob == ownerMob)
+				return cell;
+			if ((int)pMob->m_table.bLevel > bestLevel)
+			{
+				bestLevel = pMob->m_table.bLevel;
+				best = cell;
+			}
+		}
+		return best;
+	}
+
+	void FollowPlayerBotSidekickOwnerPolymorph(LPCHARACTER ch, TPlayerBotAIState& state, const TPlayerBotSidekick& rec,
+			const TPlayerBotSidekickRuntime& rt, DWORD dwNow)
+	{
+		LPCHARACTER owner = GetPlayerBotSidekickOwnerChar(rec.dwOwnerPID);
+		std::map<DWORD, TPlayerBotSidekickPolymorph>::iterator it = s_mapPlayerBotSidekickPolymorph.find(ch->GetPlayerID());
+		// Nothing under way, and the owner in its own shape: the whole of it for
+		// nearly every tick.
+		if (it == s_mapPlayerBotSidekickPolymorph.end() && (!owner || !owner->IsPolymorphed()))
+			return;
+		// A warp, or the owner gone: nothing changes until the owner is back.
+		if (!owner || !owner->GetSectree())
+			return;
+		if (!owner->IsPolymorphed())
+		{
+			if (it->second.bWithOwner && ch->IsPolymorphed())
+			{
+				ch->RemoveAffect(AFFECT_POLYMORPH);
+				sys_log(0, "PLAYERBOT_SIDEKICK: polymorph ended with the owner's pid=%u name=%s owner=%u still=%d",
+						ch->GetPlayerID(), ch->GetName(), rec.dwOwnerPID, ch->IsPolymorphed() ? 1 : 0);
+			}
+			s_mapPlayerBotSidekickPolymorph.erase(it);
+			return;
+		}
+		TPlayerBotSidekickPolymorph& poly = s_mapPlayerBotSidekickPolymorph[ch->GetPlayerID()];
+		// Its own ran out, or it fell: the owner's goes on without it.
+		if (poly.bWithOwner && !ch->IsPolymorphed())
+		{
+			poly.bWithOwner = false;
+			sys_log(0, "PLAYERBOT_SIDEKICK: polymorph over before the owner's pid=%u name=%s owner=%u",
+					ch->GetPlayerID(), ch->GetName(), rec.dwOwnerPID);
+		}
+		if (poly.bOwnerSeen)
+			return;
+		// Already transformed (the Reaper, or back from a logout under the
+		// owner's transformation): that one keeps the owner company.
+		if (ch->IsPolymorphed())
+		{
+			poly.bOwnerSeen = true;
+			poly.bWithOwner = true;
+			return;
+		}
+		// At the owner's side, and free to use an item.
+		if (rec.bMode != PLAYERBOT_SIDEKICK_FOLLOW || IsPlayerBotSidekickPlayingAlone(rec, dwNow) ||
+				rt.bErrand || rt.bFishing || rt.bTrading)
+			return;
+		if (ch->IsDead() || ch->GetExchange() || ch->GetMyShop() || !ch->IsItemLoaded() ||
+				owner->GetMapIndex() != ch->GetMapIndex() ||
+				DISTANCE_APPROX(ch->GetX() - owner->GetX(), ch->GetY() - owner->GetY()) > PLAYERBOT_SIDEKICK_TELEPORT_DISTANCE)
+			return;
+		if (dwNow < poly.dwNextTry)
+			return;
+		poly.dwNextTry = dwNow + PLAYERBOT_SIDEKICK_POLYMORPH_RETRY_MS;
+		bool tooHigh = false;
+		const int cell = FindPlayerBotSidekickPolymorphMarble(ch, owner->GetPolymorphVnum(), tooHigh);
+		if (cell < 0)
+		{
+			if (tooHigh && !poly.bToldTooHigh)
+			{
+				poly.bToldTooHigh = true;
+				SayPlayerBotSidekick(owner, "Mam marmur polimorfii, ale w tego potwora nie moge sie jeszcze "
+						"zmienic - mam za niski poziom.");
+			}
+			return;
+		}
+		// ItemProcess_Polymorph refuses a rider: down from the horse or the
+		// mount first, the marble a moment later.
+		if (ch->IsRiding())
+		{
+			SetPlayerBotRidingForTravel(ch, state, false, dwNow, "sidekick_polymorph");
+			poly.dwNextTry = dwNow + PLAYERBOT_SIDEKICK_POLYMORPH_DISMOUNT_MS;
+			return;
+		}
+		LPITEM item = ch->GetInventoryItem(cell);
+		const DWORD vnum = item->GetVnum();
+		const DWORD mob = (DWORD)item->GetSocket(0);
+		// The marble may be its last of the stack: nothing of it is read after.
+		if (!ch->UseItem(TItemPos(INVENTORY, cell)) || !ch->IsPolymorphed())
+		{
+			sys_log(0, "PLAYERBOT_SIDEKICK: polymorph refused pid=%u name=%s marble=%u mob=%u",
+					ch->GetPlayerID(), ch->GetName(), vnum, mob);
+			return;
+		}
+		poly.bOwnerSeen = true;
+		poly.bWithOwner = true;
+		sys_log(0, "PLAYERBOT_SIDEKICK: polymorphed with the owner pid=%u name=%s owner=%u marble=%u mob=%u owner_mob=%u",
+				ch->GetPlayerID(), ch->GetName(), rec.dwOwnerPID, vnum, mob, (unsigned)owner->GetPolymorphVnum());
+	}
+
 	// MT2009_PLUS_SIDEKICK_REDRESS_V1: bald after its first summons (upstream
 	// 2.2.44, urtopy). A companion comes into the world, and is shown to the
 	// players round it, as the character loads - before the db core has sent a
@@ -7172,7 +8403,15 @@ namespace
 		TopUpPlayerBotSidekickSkillPoints(ch);
 		TPlayerBotSidekickRuntime& rt = s_mapPlayerBotSidekickRuntime[ch->GetPlayerID()];
 		ResendPlayerBotSidekickView(ch, rt, dwNow);	// MT2009_PLUS_SIDEKICK_REDRESS_V1
+		FollowPlayerBotSidekickOwnerPolymorph(ch, state, *rec, rt, dwNow);	// MT2009_PLUS_SIDEKICK_POLYMORPH_V1
 		ReadPlayerBotSidekickForgetBook(ch, *rec, rt, dwNow);
+		// MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: a "Kup" errand the call, the leash
+		// or the owner's logout ended (they clear bErrand) is settled here - the
+		// goods handed over, the rest of the owner's yang given back - and a
+		// purchase from a stand answered late is taken in.
+		if (rt.shop.bActive && !rt.bErrand)
+			SettlePlayerBotSidekickShopErrand(ch, state, *rec, rt, dwNow, "called", false);
+		PollPlayerBotSidekickShopPurchase(ch, *rec, rt, dwNow);
 		if (HandlePlayerBotSidekickTrade(ch, state, *rec, rt, dwNow))
 			return true;
 		if (KeepPlayerBotSidekickFishing(ch, state, *rec, rt, dwNow))
@@ -7198,6 +8437,8 @@ namespace
 		}
 		if (rt.bAlone)
 			EndPlayerBotSidekickAlone(ch, state, *rec, rt);
+		if (rt.bErrand && rt.shop.bActive)
+			return ManagePlayerBotSidekickShopErrand(ch, state, *rec, rt, dwNow);
 		if (rt.bErrand)
 			return ManagePlayerBotSidekickErrand(ch, state, *rec, rt, dwNow);
 		LPCHARACTER owner = GetPlayerBotSidekickOwnerChar(rec->dwOwnerPID);
@@ -7292,14 +8533,28 @@ namespace
 			return true;
 		int why = PLAYERBOT_SIDEKICK_FOE_NEARBY;
 		bool ownerFighting = false;
-		LPCHARACTER foe = owner->IsDead() ? NULL :
-				FindPlayerBotSidekickFoe(ch, owner, rec->bStance, why, ownerFighting);
+		// MT2009_PLUS_SIDEKICK_DEFEND_V1: over a fallen owner it still answers
+		// another kingdom's blows at itself.
+		LPCHARACTER foe = owner->IsDead()
+				? FindPlayerBotSidekickDefendFoe(ch, NULL, rec->bStance, ch->GetX(), ch->GetY(), why)
+				: FindPlayerBotSidekickFoe(ch, owner, rec->bStance, why, ownerFighting);
+		if (foe && owner->IsDead())
+			LogPlayerBotSidekickDefend(ch, owner, foe, why, dwNow);
 		if (ownerFighting)
 			rt.dwOwnerFightSeenAt = dwNow;
+		// MT2009_PLUS_SIDEKICK_FOLLOW_LOOT_V1: its drops before a monster
+		// nobody fights yet - in "atakuj" it went from one to the next and the
+		// drops lay till their time ran out; "Wolna reka" (HandleLoot) finishes
+		// its drop before it picks a new monster. What is on the owner or on
+		// itself, and the owner's own target, still come first.
+		if (foe && why == PLAYERBOT_SIDEKICK_FOE_NEARBY &&
+				RunPlayerBotSidekickLootPass(ch, state, owner, rt, rec->bLoot, owner->GetX(), owner->GetY(), dwNow))
+			return true;
 		if (foe)
 		{
 			if (BuffPlayerBotSidekickOwner(ch, state, *rec, owner, dwNow, false))
 				return true;
+			TakePlayerBotSidekickLootInFight(ch, state, owner, rt, rec->bLoot, owner->GetX(), owner->GetY(), dwNow);
 			return FightPlayerBotSidekickFoe(ch, state, rt, foe, why, dwNow);
 		}
 		if (state.dwTargetVID != 0)
@@ -7318,12 +8573,8 @@ namespace
 			if (ServePlayerBotSidekickAtNpcs(ch, state, owner, dwNow, rt))
 				return true;
 		}
-		if (dwNow >= rt.dwNextLoot)
-		{
-			rt.dwNextLoot = dwNow + PLAYERBOT_SIDEKICK_LOOT_INTERVAL_MS;
-			if (PickUpPlayerBotSidekickLoot(ch, state, owner, rt, rec->bLoot, dwNow))
-				return true;
-		}
+		if (RunPlayerBotSidekickLootPass(ch, state, owner, rt, rec->bLoot, owner->GetX(), owner->GetY(), dwNow))
+			return true;
 		// A bag near full is its owner's to know: the merchant takes the scrap
 		// and, from a bag under pressure, the goods only when the owner stands
 		// at one or sends it on an errand, and the owner cannot see the bag

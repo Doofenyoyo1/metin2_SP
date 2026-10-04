@@ -162,11 +162,11 @@ namespace
 	// miedzy 15min a 30min czasu trwania i czestotliwosc 1/2/3/4 h"); the
 	// defaults are the world as it was, thirty minutes every two hours.
 	int s_iPlayerBotWarMinutes = 30;
-	int s_iPlayerBotWarEveryHours = 2;
+	int s_iPlayerBotWarEveryHours = 1; // MT2009_PLUS_GUILD_WAR_HOURLY_V1: every hour (the owner, 4 October)
 	// MT2009_PLUS_GUILD_WAR_KILLS_V1: the kills that win a war with a bot
 	// guild on a side before its clock runs out (the WAR_KILLS key; 0 is the
 	// clock alone). The default is the operator's hundred.
-	int s_iPlayerBotWarKills = 100;
+	int s_iPlayerBotWarKills = 200; // MT2009_PLUS_GUILD_WAR_ARENA_V1: 200 (the owner, 3 October)
 	// Whether a bot reads its books without the engine's day between them.
 	// On by default: the day is what makes a book a month's project, and the
 	// books were rotting in the bags of bots that could not read them yet.
@@ -219,6 +219,12 @@ namespace
 	// SHOUTERS key, playerbot_shouters.h). On by default; off logs them out.
 	bool s_bPlayerBotShouters = true;
 	bool s_bPlayerBotShoutersReported = true;
+	// MT2009_PLUS_LEGENDS_V1: the System Legend (the LEGENDS key,
+	// playerbot_legends.h) - the tiers' bonuses, titles, Champions and
+	// notices. On by default; off keeps the tiers in the table and does
+	// nothing with them.
+	bool s_bPlayerBotLegends = true;
+	bool s_bPlayerBotLegendsReported = true;
 	// What the clock last asked the DB core for, so a request is not repeated
 	// every minute while the round trip is still in flight, and so switching
 	// the clock off in the middle of a night lowers the flag it raised.
@@ -268,13 +274,15 @@ namespace
 		s_iPlayerBotBattlePassPercent = 100;
 		s_iPlayerBotSashPercent = 100;
 		s_iPlayerBotAlchemyPercent = 100;
+		// MT2009_PLUS_SALE_TAX_V1: no tax unless the file says so.
+		playerbot_sale_tax::percent = 0;
 		s_iPlayerBotExplainDays = PLAYERBOT_EXPLAIN_DEFAULT_DAYS;
 		s_iPlayerBotTickBudgetMs = PLAYERBOT_TICK_BUDGET_MS_DEFAULT;
 		s_iPlayerBotKingdomPvpPercent = 0;
 		s_iPlayerBotScrollFromPlus = 1;
 		s_iPlayerBotWarMinutes = 30;
-		s_iPlayerBotWarEveryHours = 2;
-		s_iPlayerBotWarKills = 100;
+		s_iPlayerBotWarEveryHours = 1;
+		s_iPlayerBotWarKills = 200;
 		s_bPlayerBotFastBooks = true;
 		s_bPlayerBotNight = true;
 		s_bPlayerBotLifeSchedule = false;
@@ -285,6 +293,7 @@ namespace
 		s_bPlayerBotItemShop = true;
 		s_bPlayerBotShopsInM2 = false;
 		s_bPlayerBotShouters = true;
+		s_bPlayerBotLegends = true; // MT2009_PLUS_LEGENDS_V1
 		s_bPlayerBotPersona = true;
 		s_bPlayerBotHaggle = true;
 		if (s_iPlayerBotChestConfigPermille < 0)
@@ -455,6 +464,18 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			s_bPlayerBotShouters = enabled;
 			return;
 		}
+		// MT2009_PLUS_LEGENDS_V1: the System Legend.
+		if (PlayerBotWeightNameEquals(szKey, "LEGENDS"))
+		{
+			const bool enabled = value != 0;
+			if (enabled != s_bPlayerBotLegendsReported)
+			{
+				sys_log(0, "PLAYERBOT_CONFIG: the System Legend %s", enabled ? "on" : "off");
+				s_bPlayerBotLegendsReported = enabled;
+			}
+			s_bPlayerBotLegends = enabled;
+			return;
+		}
 		if (PlayerBotWeightNameEquals(szKey, "PERSONA"))
 		{
 			const bool enabled = value != 0;
@@ -525,6 +546,18 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			if (percent != wanted)
 				sys_log(0, "PLAYERBOT_CONFIG: will %s %d%%", szKey, percent);
 			wanted = percent;
+			return;
+		}
+		// MT2009_PLUS_SALE_TAX_V1: the share of a sale between players and bots
+		// that leaves the game (playerbot_sale_tax.h), 0-50 percent.
+		if (PlayerBotWeightNameEquals(szKey, "SALE_TAX"))
+		{
+			const int percent = value < 0 ? 0 : (value > playerbot_sale_tax::MAX_PERCENT
+					? playerbot_sale_tax::MAX_PERCENT : (int)value);
+			if (percent != playerbot_sale_tax::percent)
+				sys_log(0, "PLAYERBOT_CONFIG: sale tax between players and bots %d%%%s", percent,
+						percent ? "" : " (none)");
+			playerbot_sale_tax::percent = percent;
 			return;
 		}
 		if (PlayerBotWeightNameEquals(szKey, "EXPLAIN"))
@@ -706,6 +739,8 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			return s_bPlayerBotHaggle ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "SHOUTERS"))
 			return s_bPlayerBotShouters ? 1 : 0;
+		if (PlayerBotWeightNameEquals(szKey, "LEGENDS"))
+			return s_bPlayerBotLegends ? 1 : 0;
 		if (PlayerBotWeightNameEquals(szKey, "SCRAP"))
 			return s_iPlayerBotScrapPercent;
 		if (PlayerBotWeightNameEquals(szKey, "REST"))
@@ -716,6 +751,8 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 			return s_iPlayerBotSashPercent;
 		if (PlayerBotWeightNameEquals(szKey, "ALCHEMY"))
 			return s_iPlayerBotAlchemyPercent;
+		if (PlayerBotWeightNameEquals(szKey, "SALE_TAX"))
+			return playerbot_sale_tax::percent;
 		if (PlayerBotWeightNameEquals(szKey, "EXPLAIN"))
 			return s_iPlayerBotExplainDays;
 		if (PlayerBotWeightNameEquals(szKey, "KINGDOMPVP"))
@@ -774,7 +811,8 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 				PlayerBotWeightNameEquals(szKey, "SHOP_M2") ||
 				PlayerBotWeightNameEquals(szKey, "PERSONA") ||
 				PlayerBotWeightNameEquals(szKey, "HAGGLE") ||
-				PlayerBotWeightNameEquals(szKey, "SHOUTERS"))
+				PlayerBotWeightNameEquals(szKey, "SHOUTERS") ||
+				PlayerBotWeightNameEquals(szKey, "LEGENDS"))
 		{
 			value = value ? 1 : 0;
 			return true;
@@ -782,6 +820,11 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 		if (PlayerBotWeightNameEquals(szKey, "SCRAP"))
 		{
 			value = value < 0 ? 0 : (value > 100 ? 100 : value);
+			return true;
+		}
+		if (PlayerBotWeightNameEquals(szKey, "SALE_TAX"))
+		{
+			value = value < 0 ? 0 : (value > playerbot_sale_tax::MAX_PERCENT ? playerbot_sale_tax::MAX_PERCENT : value);
 			return true;
 		}
 		if (PlayerBotWeightNameEquals(szKey, "EXPLAIN"))
@@ -1313,6 +1356,14 @@ if (PlayerBotWeightNameEquals(szKey, "ISHOP"))
 		if (!s_bPlayerBotWeightsInitialised)
 			ResetPlayerBotWeights();
 		return s_bPlayerBotShouters;
+	}
+
+	// MT2009_PLUS_LEGENDS_V1: the LEGENDS switch (playerbot_legends.h).
+	bool IsPlayerBotLegendsEnabled()
+	{
+		if (!s_bPlayerBotWeightsInitialised)
+			ResetPlayerBotWeights();
+		return s_bPlayerBotLegends;
 	}
 
 	// The WARS switch, asked by ManagePlayerBotGuildWars.

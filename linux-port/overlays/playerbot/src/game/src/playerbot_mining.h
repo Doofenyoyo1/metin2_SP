@@ -520,7 +520,7 @@ namespace
 		if (mining)
 			EndPlayerBotMiningSession(ch, state, dwNow, reason);
 		LPITEM held = ch->GetWear(WEAR_WEAPON);
-		if (held && (held->GetType() == ITEM_ROD || held->GetType() == ITEM_PICK))
+		if (held && IsPlayerBotToolType(held->GetType()))   // MT2009_PLUS_BOT_HERBALIST_FIX_V1: the knife too
 		{
 			if (!ch->UnequipItem(held))
 				return;

@@ -19,6 +19,9 @@ from _weakref import proxy
 
 EVENT_ARRANGE_AFFECT_LIST = "EVENT_ARRANGE_AFFECT_LIST" # args | width: number, height: number
 
+# MT2009_PLUS_AUTOHUNT_TIME_ICON_V1: the server's affect of Auto Lowy's time.
+AFFECT_AUTOHUNT_TIME = 560
+
 AFFECT_SHOW_DATA = {
 	chr.NEW_AFFECT_DS_SET : {
 		"description" : "Bonus zestawu Smoczych Kamieni",
@@ -62,6 +65,15 @@ AFFECT_SHOW_DATA = {
 	chr.NEW_AFFECT_SUBSCRIPTION : {
 		"description" : "",
 		"icon" : "icon/item/premium.tga",
+	},
+
+	# MT2009_PLUS_AUTOHUNT_TIME_ICON_V1: the time of "Auto Lowy (8h)" from the
+	# ItemShop (autohunt_time.quest: affect 560, counted down only while the
+	# character is in the game). With no entry here the affect had no icon and
+	# the time left was nowhere; the tooltip now says it, as for any timed affect.
+	AFFECT_AUTOHUNT_TIME : {
+		"description" : "Auto £owy;Czas leci tylko w grze.",
+		"icon" : "icon/item/31070.tga",
 	},
 
 	chr.AFFECT_FAST_PICKUP : {
@@ -1000,6 +1012,16 @@ class AffectShower(ui.Window):
 
 		if IsVIPAffect(type) and affectDict.has_key(chr.NEW_AFFECT_SUBSCRIPTION):
 			return
+
+		# MT2009_PLUS_VEKIRION_V1 (Autor: Vekirion): an affect whose point has no
+		# entry in AFFECT_SHOW_DATA has no "icon" and used to crash with
+		# KeyError: 'icon' (AffectImage). Skip it and log which one.
+		if type != chr.NEW_AFFECT_AUTO_HP_RECOVERY and type != chr.NEW_AFFECT_AUTO_SP_RECOVERY:
+			_data = GetAffectData(view_type, pointIdx)
+			if _data == None or not _data.has_key("icon"):
+				import dbg
+				dbg.TraceError("AffectBar: no icon for affect %d point %d value %d" % (view_type, pointIdx, value))
+				return
 
 		if not affectDict.has_key(type):
 			affectDict[type] = {}

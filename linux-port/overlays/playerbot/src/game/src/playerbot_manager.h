@@ -3,6 +3,7 @@
 
 #include <set>
 #include <deque>
+#include <vector>
 #include "playerbot_session_rules.h" // MT2009_PLUS_BOT_SESSIONS_V1
 
 class CGuild;
@@ -101,6 +102,12 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// answer in the GM's chat. The engine's WarpSet only takes a bot off its
 		// sectree, and the rescue puts it back at its own map's start.
 		bool	TransferBot(LPCHARACTER bot, LPCHARACTER to);
+		// MT2009_PLUS_AUTOHUNT_PATH_V1: the way round the walls for a person's
+		// Auto Lowy (/autohunt_path, cmd_general.cpp), from the bots' route
+		// planner: the ground's kind (0 none, 1 grid, 2 corridors) and, asked
+		// for one, the route's points in world units.
+		int		GetHumanPathKind(long lMapIndex);
+		int		PlanHumanPath(LPCHARACTER ch, long targetX, long targetY, std::vector<std::pair<long, long> >& out);
 		// A bot's WarpSet (char.cpp, playerbotify.py): the engine's map change
 		// for a player made server-side for a bot - a dungeon's jump, an exit,
 		// a quest's warp. False when this core does not host the map.

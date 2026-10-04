@@ -23,11 +23,23 @@
 # Off, everything is picked up as before the filter. Yang is always taken.
 #
 # "/pickup_filter <on> <kinds>" is sent after every login and warp
-# (PickupFilterSync, an updatable of game.py) and every change. The settings
-# are the client's, for every character: autohunt/filtr.cfg. A client with no
-# filtr.cfg takes, once, the kinds of the first character whose Auto Lowy
-# file left some kinds out (AdoptAutoHuntKinds) - the per-character kinds of
-# the clients before this one.
+# (PickupFilterSync, an updatable of game.py) and every change.
+# MT2009_PLUS_PICKUP_FILTER_PER_CHAR_V1 (the owner, 3 October): the settings
+# are each character's own - autohunt/postacie/filtr_<nick>.cfg. A character
+# with no file of its own starts from the old client-wide autohunt/filtr.cfg
+# (left in place for the other characters), or, with none either, from the
+# kinds its Auto Lowy file left out (AdoptAutoHuntKinds).
+#
+# MT2009_PLUS_PICKUP_BONUS_FILTER_V1 (the owner, 3 October: "podnos tylko z
+# bonusem dla kategorii eq"): an equipment kind (BONUS_KINDS) has a third
+# choice, "Bonus" - its items are picked up only with at least bonus_min of
+# their five bonuses (1 by default, "Min. bonusow" in both windows). A click
+# goes Tak -> Bonus -> Nie -> Tak; the other kinds stay Tak / Nie. The
+# server decides, it knows the bonuses of an item on the ground: the command
+# is "/pickup_filter <on> <kinds> <bonus kinds> <min bonuses>" (playerqol,
+# Mt2009PlusPickupFilterAllows) - a server before it reads the first two and
+# picks such items up whatever their bonuses. filtr.cfg keeps bonus= and
+# bonus_min=, which an older client skips.
 #
 # Python 2.7 as the client has it; the texts are CP1250 escapes.
 
@@ -39,21 +51,56 @@ import ui
 
 import uiautohunt
 
+# The client-wide file of the clients before MT2009_PLUS_PICKUP_FILTER_PER_CHAR_V1.
 CONFIG_PATH = os.path.join(uiautohunt.CONFIG_BASE_DIR, 'filtr.cfg')
+
+
+def CharacterName():
+    try:
+        return player.GetMainCharacterName() or ''
+    except Exception:
+        return ''
+
+
+def CharConfigPath(name):
+    safe = ''.join(c if c.isalnum() else '_' for c in (name or 'postac'))
+    return os.path.join(uiautohunt.CONFIG_CHAR_DIR, 'filtr_%s.cfg' % safe)
 ALL_KINDS = 0
 for _key, _label, _bit in uiautohunt.LOOT_KINDS:
     ALL_KINDS |= _bit
 
-_state = {'loaded': False, 'file': False, 'on': 0, 'kinds': ALL_KINDS, 'window': None}
+# MT2009_PLUS_PICKUP_BONUS_FILTER_V1: the kinds that can be "Bonus" - the
+# server's MT2009_PLUS_PICKUP_BONUS_KINDS.
+BONUS_KEYS = ('loot_weapon', 'loot_armour', 'loot_helmet', 'loot_shield',
+    'loot_bracelet', 'loot_shoes', 'loot_necklace', 'loot_earrings')
+BONUS_KINDS = 0
+for _key, _label, _bit in uiautohunt.LOOT_KINDS:
+    if _key in BONUS_KEYS:
+        BONUS_KINDS |= _bit
+BONUS_MIN_MAX = 5
+
+_state = {'loaded': False, 'file': False, 'on': 0, 'kinds': ALL_KINDS,
+    'bonus': 0, 'bonus_min': 1, 'window': None, 'name': None}
 
 
 def Load():
-    if _state['loaded']:
+    # MT2009_PLUS_PICKUP_FILTER_PER_CHAR_V1: read again for another character.
+    name = CharacterName()
+    if _state['loaded'] and _state['name'] == name:
         return
     _state['loaded'] = True
+    _state['name'] = name
+    _state['file'] = False
+    _state['on'] = 0
+    _state['kinds'] = ALL_KINDS
+    _state['bonus'] = 0
+    _state['bonus_min'] = 1
+    path = CharConfigPath(name) if name else CONFIG_PATH
+    if name and not os.path.exists(path):
+        path = CONFIG_PATH	# the old client-wide settings as a start
     try:
-        with open(CONFIG_PATH, 'r') as handle:
-            _state['file'] = True
+        with open(path, 'r') as handle:
+            _state['file'] = path != CONFIG_PATH or not name
             for line in handle:
                 if '=' not in line:
                     continue
@@ -66,19 +113,27 @@ def Load():
                     _state['on'] = 1 if value else 0
                 elif key == 'kinds':
                     _state['kinds'] = value & ALL_KINDS
+                elif key == 'bonus':
+                    _state['bonus'] = value & BONUS_KINDS
+                elif key == 'bonus_min':
+                    _state['bonus_min'] = max(1, min(BONUS_MIN_MAX, value))
     except (IOError, OSError):
         pass
 
 
 def Save():
-    if not os.path.exists(uiautohunt.CONFIG_BASE_DIR):
+    Load()
+    name = _state['name']
+    folder = uiautohunt.CONFIG_CHAR_DIR if name else uiautohunt.CONFIG_BASE_DIR
+    if not os.path.exists(folder):
         try:
-            os.makedirs(uiautohunt.CONFIG_BASE_DIR)
+            os.makedirs(folder)
         except (IOError, OSError):
             pass
     try:
-        with open(CONFIG_PATH, 'w') as handle:
-            handle.write('on=%d\nkinds=%d\n' % (_state['on'], _state['kinds']))
+        with open(CharConfigPath(name) if name else CONFIG_PATH, 'w') as handle:
+            handle.write('on=%d\nkinds=%d\nbonus=%d\nbonus_min=%d\n' % (
+                _state['on'], _state['kinds'], _state['bonus'], _state['bonus_min']))
         _state['file'] = True
     except (IOError, OSError):
         pass
@@ -86,7 +141,8 @@ def Save():
 
 def Send():
     Load()
-    net.SendChatPacket('/pickup_filter %d %d' % (_state['on'], _state['kinds']))
+    net.SendChatPacket('/pickup_filter %d %d %d %d' % (
+        _state['on'], _state['kinds'], BonusKinds(), _state['bonus_min']))
 
 
 def IsActive():
@@ -102,6 +158,34 @@ def GetKinds():
 
 def HasKind(bit):
     return (GetKinds() & bit) != 0
+
+
+def BonusKinds():
+    """MT2009_PLUS_PICKUP_BONUS_FILTER_V1: the kinds kept only with bonuses."""
+    Load()
+    return _state['bonus'] & _state['kinds'] & BONUS_KINDS
+
+
+def KindText(bit, yes='Tak', no='Nie', bonus='Bonus'):
+    """A kind's choice as its button says it: yes, no or (equipment) bonus."""
+    Load()
+    if not _state['kinds'] & bit:
+        return no
+    if BonusKinds() & bit:
+        return bonus
+    return yes
+
+
+def BonusMinText():
+    Load()
+    return 'Min. bonus\xf3w: %d' % _state['bonus_min']
+
+
+def CycleBonusMin():
+    """How many bonuses a "Bonus" kind's item needs: 1 to 5 and round."""
+    Load()
+    _state['bonus_min'] = _state['bonus_min'] % BONUS_MIN_MAX + 1
+    Changed()
 
 
 def EffectiveKinds():
@@ -122,9 +206,15 @@ def ToggleOn():
 
 def ToggleKind(bit):
     """A kind switched in either window. With the filter off it is turned on
-    too - whoever leaves a kind out means it to stay on the ground."""
+    too - whoever leaves a kind out means it to stay on the ground.
+    MT2009_PLUS_PICKUP_BONUS_FILTER_V1: an equipment kind goes Tak -> Bonus
+    -> Nie -> Tak."""
     Load()
-    _state['kinds'] ^= bit
+    if bit & BONUS_KINDS and _state['kinds'] & bit and not _state['bonus'] & bit:
+        _state['bonus'] |= bit
+    else:
+        _state['kinds'] ^= bit
+        _state['bonus'] &= ~bit
     if not _state['on']:
         _state['on'] = 1
         chat.AppendChat(chat.CHAT_TYPE_INFO, 'Filtr podnoszenia w\xb3\xb9czony (Z, Auto \xa3owy i Towarzysz).')
@@ -139,12 +229,13 @@ def Changed():
 
 def AdoptAutoHuntKinds(mask):
     """The per-character kinds of Auto Lowy's older files (uiautohunt,
-    Hunter.LoadConfig), taken once by a client with no filtr.cfg: a file
+    Hunter.LoadConfig), taken once by a character with no filter file: a file
     that left some kinds out becomes the filter, switched on. A file with
     every kind, or with none (the pick-up in all but name switched off),
     changes nothing. With filtr.cfg the filter's own settings win."""
     Load()
-    if _state['file'] or os.path.exists(CONFIG_PATH):
+    name = _state['name']
+    if _state['file'] or os.path.exists(CONFIG_PATH) or (name and os.path.exists(CharConfigPath(name))):
         return
     mask &= ALL_KINDS
     if mask == 0 or mask == ALL_KINDS:
@@ -188,7 +279,9 @@ class PickupFilterSync(object):
         return not self.sent
 
     def OnUpdate(self):
-        if player.GetMainCharacterName():
+        # MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: only in the game phase (warpsafe.py).
+        import warpsafe
+        if player.GetMainCharacterName() and warpsafe.InGame():
             self.sent = True
             Send()
 
@@ -198,13 +291,15 @@ class PickupFilterSync(object):
 
 class PickupFilterWindow(ui.BoardWithTitleBar):
     WIDTH = 300
-    ROWS = (len(uiautohunt.LOOT_KINDS) + 2) // 3
+    # The kinds and "Min. bonusow" (MT2009_PLUS_PICKUP_BONUS_FILTER_V1).
+    ROWS = (len(uiautohunt.LOOT_KINDS) + 1 + 2) // 3
 
     def __init__(self):
         ui.BoardWithTitleBar.__init__(self)
         self.widgets = []
         self.toggles = {}
-        self.height = 32 + 30 + 28 + self.ROWS * 22 + 12 + 54
+        self.bonusMinButton = None
+        self.height = 32 + 30 + 28 + self.ROWS * 22 + 12 + 68
         self.AddFlag('movable')
         self.AddFlag('float')
         self.SetSize(self.WIDTH, self.height)
@@ -231,11 +326,14 @@ class PickupFilterWindow(ui.BoardWithTitleBar):
         for idx, (key, label, bit) in enumerate(uiautohunt.LOOT_KINDS):
             btn = self._Btn(board, 'large', 4 + (idx % 3) * 92, 24 + (idx // 3) * 22, '', self.OnToggleKind, bit)
             self.toggles[bit] = (btn, label)
+        pos = len(uiautohunt.LOOT_KINDS)
+        self.bonusMinButton = self._Btn(board, 'large', 4 + (pos % 3) * 92, 24 + (pos // 3) * 22, '', self.OnCycleBonusMin)
         y += 24 + self.ROWS * 22 + 8 + 6
 
         self._Label(self, BL + 4, y, 'Z, `, pet, Auto \xa3owy i Towarzysz. Yang zawsze.')
         self._Label(self, BL + 4, y + 14, 'To samo co Podnoszenie w Auto \xa3owach.')
         self._Label(self, BL + 4, y + 28, 'Wy\xb3\xb9czony filtr: podnosz\xea wszystko.')
+        self._Label(self, BL + 4, y + 42, 'Bonus: eq tylko z bonusami (min. bonus\xf3w).')
 
     def _Label(self, parent, x, y, text):
         line = ui.TextLine()
@@ -263,13 +361,17 @@ class PickupFilterWindow(ui.BoardWithTitleBar):
         Load()
         self.onButton.SetText('Filtr: %s' % OnStateText())
         for bit, (btn, label) in self.toggles.items():
-            btn.SetText('%s: %s' % (label, 'Tak' if _state['kinds'] & bit else 'Nie'))
+            btn.SetText('%s: %s' % (label, KindText(bit)))
+        self.bonusMinButton.SetText(BonusMinText())
 
     def OnToggleFilter(self):
         ToggleOn()
 
     def OnToggleKind(self, bit):
         ToggleKind(bit)
+
+    def OnCycleBonusMin(self):
+        CycleBonusMin()
 
     def Open(self):
         self.Refresh()
@@ -287,6 +389,7 @@ class PickupFilterWindow(ui.BoardWithTitleBar):
         self.Hide()
         self.widgets = []
         self.toggles = {}
+        self.bonusMinButton = None
 
 
 def ToggleWindow():

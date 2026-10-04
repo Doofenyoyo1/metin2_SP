@@ -30,6 +30,7 @@ struct TResult {
 	int merged = 0;          // stacks poured into others and gone
 	unsigned int units = 0;  // units poured
 	int pinned = 0;          // items left where they were (an active auto potion)
+	int kept = 0;            // of those, locked by the player (MT2009_PLUS_INVENTORY_SORT_LOCK_V1)
 	int strategy = 0;        // playerbot_arrange_rules::Strategy
 	unsigned int micros = 0; // what the whole operation cost
 };
@@ -42,6 +43,15 @@ TResult ArrangeInventory(LPCHARACTER ch, bool fromPlayer);
 // merge" ("samo laczenie w stacki bez sortowania", the operator, 28
 // September). The same pours ArrangeInventory makes, on the same clock.
 TResult MergeInventoryStacks(LPCHARACTER ch, bool fromPlayer);
+
+// MT2009_PLUS_INVENTORY_SORT_LOCK_V1 (server-patches/sortlock): a player's
+// "/inventory_arrange [merge] [keep=<hex>]" - the inventory's "Uloz i scal"
+// (no word) or "Tylko scal stosy" ("merge"), with the cells the player
+// locked with Alt + left click ("keep=", playerbot_arrange_rules::
+// ParseArrangeWords). A locked item stays in its cell and the rest of the bag
+// is laid out round it; a locked stack takes units in a merge but never gives
+// its own. A word the command does not know is RESULT_BAD_REQUEST.
+TResult InventoryArrangeCommand(LPCHARACTER ch, const char* argument);
 
 // The open safebox's pages, poured and laid out the same way
 // (/safebox_arrange, answered "SafeboxArrangeResult"; the bots at the end of

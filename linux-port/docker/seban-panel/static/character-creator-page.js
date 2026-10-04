@@ -105,7 +105,7 @@
   function checkName(cb){
     var name = nickInput.value.trim();
     if (!name) { nickStatus.textContent = ''; if (cb) cb(false); return; }
-    fetch('/api/character-creator/name-status?name=' + encodeURIComponent(name))
+    fetch((window.SEBAN_ROOT||'')+'/api/character-creator/name-status?name=' + encodeURIComponent(name))
       .then(function(r){ return r.json(); })
       .then(function(data){
         if (!data.ok || !data.valid) {
@@ -165,7 +165,7 @@
   });
 
   function loadAccounts(q){
-    fetch('/api/character-creator/accounts?q=' + encodeURIComponent(q))
+    fetch((window.SEBAN_ROOT||'')+'/api/character-creator/accounts?q=' + encodeURIComponent(q))
       .then(function(r){ return r.json(); })
       .then(function(data){
         if (!data.ok) return;

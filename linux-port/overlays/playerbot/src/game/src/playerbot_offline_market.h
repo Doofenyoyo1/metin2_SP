@@ -201,6 +201,8 @@ namespace {
         const DWORD boughtVnum = line->GetInfo().vnum;
         if (boughtVnum == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
             NotePlayerBotChestBought(ch->GetPlayerID(), now);
+        NotePlayerBotMinigameChestBought(ch, boughtVnum, (long long)price, (DWORD)line->GetInfo().count); // MT2009_PLUS_BOT_MINIGAMES_V1
+        NotePlayerBotRecipeBought(ch, boughtVnum, (long long)price);   // MT2009_PLUS_BOT_HERBALIST_BREW_V2
         if (IsPlayerBotSashVnum(boughtVnum))
             NotePlayerBotSashBought(ch, boughtVnum, (long long)price);
         NotePlayerBotSaddlebagBought(ch, boughtVnum, (long long)price, (DWORD)line->GetInfo().count);
@@ -973,9 +975,8 @@ namespace {
         DWORD& next = s_mapPlayerBotSinkNextLook[ch->GetPlayerID()];
         if (next != 0 && !Due(now, next)) return false;
         next = now + PLAYERBOT_SINK_LOOK_MS;
-        const bool medal = (CanPlayerBotAdvanceHorse(ch) &&
-                (int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) <= GetPlayerBotSaddlebagMedalReserve(ch)) ||
-                PlayerBotSaddlebagWantsMedal(ch);
+        // MT2009_PLUS_HORSE30_V1: the next paid training's medals.
+        const bool medal = PlayerBotHorseWantsMedal(ch) || PlayerBotSaddlebagWantsMedal(ch);
         const bool wants = medal || PlayerBotWantsSaddlebagGoods(ch) || PlayerBotWantsAlchemyFromMarket(ch) ||
                 PlayerBotWantsSashFromMarket(ch);
         if (!wants) return false;

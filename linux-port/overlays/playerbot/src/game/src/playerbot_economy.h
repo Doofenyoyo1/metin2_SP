@@ -35,6 +35,22 @@ namespace
 	// twin the weapon merchant (R8 of Iwakura's audit).
 	bool NeedsPlayerBotBackupArmour(LPCHARACTER ch);
 	bool NeedsPlayerBotBackupWeapon(LPCHARACTER ch);
+	// MT2009_PLUS_AWAKENING_V1: defined in playerbot_awakening.h (Digi Rasta's
+	// awakening and soul stones +5..+9), which is included later.
+	bool IsPlayerBotAwakeningGoods(DWORD vnum);
+	bool IsPlayerBotAwakenedWeaponVnum(DWORD vnum);
+	// The Ritual of Awakening at the blacksmith, for a bot that qualifies
+	// (playerbot_awakening.h): the refining pass asks it first, and the
+	// question of a blacksmith trip counts it as a reason.
+	bool HasPlayerBotAwakeningRitual(LPCHARACTER ch);
+	bool ManagePlayerBotAwakeningRitual(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
+	// MT2009_PLUS_HEAVEN_OIL_V1 (Autor: Digi Rasta, v0.17): a bag soul stone
+	// +4..+8 raised at the blacksmith with the dust and Olejek Niebios, and
+	// the oil kept and wanted for that step (playerbot_awakening.h).
+	bool HasPlayerBotSoulStoneStep(LPCHARACTER ch);
+	bool ManagePlayerBotSoulStoneStep(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow);
+	int GetPlayerBotHeavenOilKeep(LPCHARACTER ch);
+	bool PlayerBotWantsHeavenOil(LPCHARACTER ch);
 
 	PIXEL_POSITION GetPlayerBotGeneralStorePos(long mapIndex)
 	{
@@ -256,13 +272,10 @@ namespace
 	// MT2009_PLUS_BOT_LIST_HELM_SHIELD_V1 (the owner, 2 October: "na
 	// sklepach nie ma w ogole helmow i tarcz"): the helmets of level 21 and
 	// 41 of every class and the Pieciokatna Tarcza (13020-13029) and the
-	// Czarna Okragla Tarcza (13040-13049), at every plus, are counter goods -
-	// listed (ScorePlayerBotShopStockRules, PLAYERBOT_HELM_SHIELD_COUNTER_LINES
-	// lines a counter), not sold to the merchant while the bot has a counter
-	// and few of them, never put down as dead stock, and let out of the
-	// safebox (CollectPlayerBotLppBoxRelease). Before, a helmet or shield
-	// under +6 was merchant-only or low-level gear under its refine floor,
-	// and the box kept two of a family.
+	// Czarna Okragla Tarcza (13040-13049), at every plus, are counter goods:
+	// never put down as dead stock, and let out of the safebox
+	// (CollectPlayerBotLppBoxRelease). Their listing and the merchant's share
+	// are MT2009_PLUS_BOT_LIST_ALL_GEAR_V1's now, below, for every family.
 	bool IsPlayerBotListedHelmShieldProto(const TItemTable* proto, DWORD vnum)
 	{
 		if (!proto || proto->bType != ITEM_ARMOR)
@@ -283,17 +296,106 @@ namespace
 		return item && IsPlayerBotListedHelmShieldProto(item->GetProto(), item->GetVnum());
 	}
 
-	int CountPlayerBotListedHelmShieldsInBag(LPCHARACTER ch)
+	// MT2009_PLUS_BOT_LIST_ALL_GEAR_V1 (the owner, 2 October: the counters
+	// had almost no boots, helmets or shields - Skorzane Kozaki +0 on 146
+	// bags of the supporters' world and 3 lines, Pieciokatna Tarcza +0 on 67
+	// bags and 3 lines, the helmets of 41 on 194 bags and 11 lines). Every
+	// spare piece of gear a bot means to sell - a weapon, a body armour, a
+	// helmet, a shield, boots or a jewel - is taken to PLAYERBOT_SPARE_SALE_PLUS
+	// at the anvil first while the purse and the bag can pay the step
+	// (PlayerBotRefinesSpareForSale), and is goods at what it is when they
+	// cannot: the boots, helmets and shields of every family and level, the
+	// gear under level thirty below its old floor of +6, and the weapons and
+	// armour from thirty at +0..+3 (ScorePlayerBotShopStockRules). A counter
+	// shows PLAYERBOT_ALL_GEAR_KIND_LINES such lines of a kind
+	// (BotOfflineCounterRefuses), the bag keeps PLAYERBOT_ALL_GEAR_BAG_KEEP of
+	// them for it from the merchant (IsPlayerBotJunkItem). Not a level-30
+	// weapon nor a Stalki, which have rules of their own, nor starter gear - a
+	// weapon, a body armour or a jewel of level one - which stays the
+	// merchant's under +7 (GetPlayerBotLowGearMinRefine). Before, a helmet,
+	// shield or boots under +6 below level thirty, and under +4 from it, was
+	// nobody's goods, so the merchant took it on the next town visit.
+	// (Its numbers are in playerbot_types.h.)
+
+	// The piece's kind for the counter's cap - 1 a weapon, 2 a body armour, 3
+	// a helmet, 4 a shield, 5 boots, 6 to 8 the bracelet, the necklace and
+	// the earrings - or 0 for what this rule leaves alone.
+	int GetPlayerBotSaleGearKindOf(const TItemTable* proto, DWORD vnum)
 	{
-		int n = 0;
-		for (WORD cell = 0; ch && cell < PLAYERBOT_BAG_CELLS; ++cell)
+		if (!proto || IsPlayerBotSpecialLevel30WeaponVnum(vnum) ||
+				playerbot_stalki_rules::KindOf(vnum) != playerbot_stalki_rules::KIND_NONE)
+			return 0;
+		int kind = 0;
+		if (proto->bType == ITEM_WEAPON)
+			kind = proto->bSubType == WEAPON_ARROW ? 0 : 1;
+		else if (proto->bType == ITEM_ARMOR)
 		{
-			LPITEM item = ch->GetInventoryItem(cell);
-			if (item && !item->IsEquipped() && IsPlayerBotListedHelmShield(item))
-				++n;
+			switch (proto->bSubType)
+			{
+				case ARMOR_BODY: kind = 2; break;
+				case ARMOR_HEAD: kind = 3; break;
+				case ARMOR_SHIELD: kind = 4; break;
+				case ARMOR_FOOTS: kind = 5; break;
+				case ARMOR_WRIST: kind = 6; break;
+				case ARMOR_NECK: kind = 7; break;
+				case ARMOR_EAR: kind = 8; break;
+				default: break;
+			}
 		}
-		return n;
+		// Starter gear keeps the operator's rule; a helmet, a shield or boots
+		// of level one are goods like any other.
+		if ((kind == 1 || kind == 2 || kind >= 6) &&
+				GetPlayerBotProtoLevelLimit(proto) <= PLAYERBOT_SHOP_STARTER_GEAR_MAX_LEVEL)
+			return 0;
+		return kind;
 	}
+
+	int GetPlayerBotSaleGearKind(LPITEM item)
+	{
+		return item ? GetPlayerBotSaleGearKindOf(item->GetProto(), item->GetVnum()) : 0;
+	}
+
+	bool IsPlayerBotSaleGear(LPITEM item)
+	{
+		return GetPlayerBotSaleGearKind(item) != 0;
+	}
+
+	// A line this rule put up, and the ones the cap counts: under +7 below
+	// level thirty, under +4 from it. A +4 from thirty was goods before
+	// (PLAYERBOT_PRECIOUS_REFINE) and is not counted.
+	bool IsPlayerBotAllGearLowLineOf(const TItemTable* proto, DWORD vnum)
+	{
+		if (GetPlayerBotSaleGearKindOf(proto, vnum) == 0)
+			return false;
+		const int plus = (int)(vnum % 10);
+		return plus < 7 && (GetPlayerBotProtoLevelLimit(proto) < PLAYERBOT_SHOP_MIN_GEAR_LEVEL ||
+				plus < PLAYERBOT_PRECIOUS_REFINE);
+	}
+
+	bool IsPlayerBotAllGearLowLine(LPITEM item)
+	{
+		return item && IsPlayerBotAllGearLowLineOf(item->GetProto(), item->GetVnum());
+	}
+
+	// Those pieces in the bag's cells before this one: the bag keeps the
+	// first PLAYERBOT_ALL_GEAR_BAG_KEEP for its counter (IsPlayerBotJunkItem).
+	int CountPlayerBotAllGearAhead(LPCHARACTER ch, LPITEM item)
+	{
+		if (!ch || !item || item->GetWindow() != INVENTORY)
+			return 0;
+		int ahead = 0;
+		for (WORD cell = 0; cell < item->GetCell() && cell < PLAYERBOT_BAG_CELLS; ++cell)
+		{
+			LPITEM held = ch->GetInventoryItem(cell);
+			if (held && held != item && held->GetCell() == cell && !held->IsEquipped() &&
+					IsPlayerBotAllGearLowLine(held))
+				++ahead;
+		}
+		return ahead;
+	}
+
+	// Defined beside the low armour's anvil rule, below.
+	bool PlayerBotRefinesSpareForSale(LPCHARACTER ch, LPITEM item);
 
 	bool IsPlayerBotCappedLowArmour(LPITEM item)
 	{
@@ -797,6 +899,13 @@ namespace
 	{
 		if (!ch)
 			return false;
+		// MT2009_PLUS_HEAVEN_OIL_V1 (Autor: Digi Rasta): Olejek Niebios feeds no gear recipe, only
+		// the soul stone steps - short of it when a bag stone, the fee and the
+		// dust wait for nothing else. Asked of the oil by name only: the
+		// looser question (zero, "walk to the market") leaves it out, so a
+		// world without oil on any counter sends nobody there for it.
+		if (materialVnum == PLAYERBOT_HEAVEN_OIL_VNUM)
+			return PlayerBotWantsHeavenOil(ch);
 
 		const BYTE wearSlots[] = {
 			WEAR_WEAPON, WEAR_BODY, WEAR_SHIELD, WEAR_HEAD,
@@ -945,6 +1054,10 @@ namespace
 	{
 		if (!ch || materialVnum == 0)
 			return 0;
+		// MT2009_PLUS_HEAVEN_OIL_V1 (Autor: Digi Rasta): the oil of the next soul stone step while a
+		// bag stone waits for one; the counter lists the rest.
+		if (materialVnum == PLAYERBOT_HEAVEN_OIL_VNUM)
+			return GetPlayerBotHeavenOilKeep(ch);
 		const BYTE wearSlots[] = {
 			WEAR_WEAPON, WEAR_BODY, WEAR_SHIELD, WEAR_HEAD,
 			WEAR_FOOTS, WEAR_WRIST, WEAR_NECK, WEAR_EAR
@@ -1081,6 +1194,14 @@ namespace
 			for (size_t i = 0; i < protos.size(); ++i)
 				if (protos[i].wRefineSet != 0)
 					recipeIds.insert(protos[i].wRefineSet);
+			// MT2009_PLUS_AWAKENING_V1: and the Ritual of Awakening's recipe, which
+			// no item names (the engine reads it, playerbot_awakening.h) - its
+			// Kamien Przebudzenia is a counter's goods, never the merchant's.
+			recipeIds.insert(7110); // mt2009_awakening::AWAKENING_REFINE_SET, included later
+			// MT2009_PLUS_HEAVEN_OIL_V1 (Autor: Digi Rasta): Olejek Niebios, which only the soul stone
+			// steps 7204-7208 consume - a counter's goods. The steps' dust stays
+			// out: it has rules of its own (the marble's keep, the Alchemist).
+			s_materials.insert(PLAYERBOT_HEAVEN_OIL_VNUM);
 			for (std::set<DWORD>::const_iterator id = recipeIds.begin(); id != recipeIds.end(); ++id)
 			{
 				const TRefineTable* recipe =
@@ -1227,6 +1348,12 @@ namespace
 			return playerbot_stall_rules::IsHeapLine(count);
 		if (IsPlayerBotSafeRefineScroll(item->GetVnum()) || IsPlayerBotTradeableMaterial(item))
 			return playerbot_stall_rules::IsSmallGoodsLine(count);
+		// MT2009_PLUS_DIGI_STACK_V1 (Autor: Digi Rasta's stacking): the soul
+		// stones stack to 200 now, and a buyer wants one for one socket - a
+		// stone line is one stone (GetPlayerBotStallLineUnits); a stack is no
+		// line, it is cut (SplitPlayerBotStallSingles, BotOfflinePrepareLine).
+		if (item->GetType() == ITEM_METIN)
+			return count == 1;
 		return true;
 	}
 
@@ -1262,9 +1389,10 @@ namespace
 			return GetPlayerBotBonusStoneKeep(ch, item);
 		// The medal dropper is the medal shop and keeps one back; everybody else
 		// keeps the ladder's two (PLAYERBOT_HORSE_MEDAL_KEEP) and lists the rest.
+		// MT2009_PLUS_HORSE30_V1: the next trainings' medals (GetPlayerBotHorseMedalKeep).
 		if (item->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM)
 			return ch && GetPlayerBotPersonalityByPID(ch->GetPlayerID()) ==
-					BOT_PERSONALITY_MEDAL_DROPPER ? 1 : PLAYERBOT_HORSE_MEDAL_KEEP;
+					BOT_PERSONALITY_MEDAL_DROPPER ? 1 : (ch ? GetPlayerBotHorseMedalKeep(ch) : PLAYERBOT_HORSE_MEDAL_KEEP);
 		// Nobody keeps a root back: the heap is the whole of what it is for.
 		if (IsPlayerBotBulkGoods(item))
 			return 0;
@@ -1277,6 +1405,14 @@ namespace
 		if (item->GetVnum() == PLAYERBOT_MAGIC_DUST_VNUM)
 			return ch && (ch->GetLevel() >= PLAYERBOT_BONUS_MIN_LEVEL || PlayerBotWantsBlessingMarble(ch))
 					? PLAYERBOT_DUST_PER_MARBLE : 0;
+		// MT2009_PLUS_BOT_CAPE_V1: a bot that uses Peleryna Mestwa keeps its
+		// own off the counter (IsPlayerBotCapeBuild).
+		if (IsPlayerBotValourCapeVnum(item->GetVnum()) && ch && IsPlayerBotCapeBuild(ch))
+			return PLAYERBOT_CAPE_KEEP;
+		// MT2009_PLUS_BOT_HERBALIST_ACTIVITY_V1: a potion's split leaves the
+		// bot's reserve in the bag (GetPlayerBotCraftedPotionKeep).
+		if (IsPlayerBotCraftedPotion(item))
+			return std::max(1, GetPlayerBotCraftedPotionKeep(ch, item->GetVnum()));
 		return 1;
 	}
 
@@ -1499,6 +1635,13 @@ namespace
 		// MT2009_PLUS_BOTLIFE_V1: a refine stone's kind is its vnum.
 		if (type == ITEM_USE && IsPlayerBotAccessoryStoneVnum(vnum))
 			return vnum;
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		// MT2009_PLUS_BOT_HERBALIST_ACTIVITY_V1: a potion's kind is its vnum,
+		// so the classic stall never lists the stack that holds the bot's
+		// reserve (MayListWhole, GetPlayerBotCountedGoodsKeep).
+		if (type == ITEM_POTION)
+			return vnum;
+#endif
 		return vnum == PLAYERBOT_GRAND_MASTER_STONE_VNUM || vnum == PLAYERBOT_ZEN_BEAN_VNUM ? vnum : 0;
 	}
 
@@ -1542,6 +1685,9 @@ namespace
 		// MT2009_PLUS_BOTLIFE_V1: what the bot's jewellery still takes.
 		if (IsPlayerBotAccessoryStone(item))
 			return GetPlayerBotAccessoryStoneKeep(ch, item);
+		// MT2009_PLUS_BOT_HERBALIST_ACTIVITY_V1: the potion reserve.
+		if (IsPlayerBotCraftedPotion(item))
+			return GetPlayerBotCraftedPotionKeep(ch, item->GetVnum());
 		return 0;
 	}
 
@@ -1700,7 +1846,9 @@ namespace
 	// PLAYERBOT_SHOP_LOW_GEAR_MAX_LINES places: +7 and better does not.
 	bool CountsAgainstPlayerBotLowGearCap(LPITEM item)
 	{
-		return IsPlayerBotLowLevelGear(item) &&
+		// MT2009_PLUS_BOT_LIST_ALL_GEAR_V1: the gear that rule lists is held
+		// to its own lines of a kind (PLAYERBOT_ALL_GEAR_KIND_LINES) instead.
+		return IsPlayerBotLowLevelGear(item) && !IsPlayerBotSaleGear(item) &&
 				item->GetRefineLevel() < PLAYERBOT_SHOP_LOW_GEAR_CAP_BELOW_REFINE;
 	}
 
@@ -1721,6 +1869,36 @@ namespace
 				IsPlayerBotLowArmourMarketFull(item->GetVnum()) &&
 				!IsPlayerBotLppKeptItem(ch, item) && !IsPlayerBotKeptBackupArmour(ch, item) &&
 				CanPlayerBotPayRefineStep(ch, item);
+	}
+
+	// MT2009_PLUS_BOT_LIST_ALL_GEAR_V1: a spare piece in the bag of a bot
+	// with a counter, under PLAYERBOT_SPARE_SALE_PLUS, goes to the plain
+	// anvil for it while the purse (over the reserve) and the bag can pay the
+	// next step - the usual refine pass, last in its order - and is goods
+	// once it is there, or at what it is when the step cannot be paid. Not a
+	// piece the bot wears, means to wear, keeps for the day its own burns,
+	// keeps for the gambler or the operator, nor one another rule refines.
+	bool PlayerBotRefinesSpareForSale(LPCHARACTER ch, LPITEM item)
+	{
+		if (!ch || !item || item->IsEquipped() || item->GetWindow() != INVENTORY ||
+				item->GetRefinedVnum() == 0 || item->GetRefineLevel() >= PLAYERBOT_SPARE_SALE_PLUS ||
+				!IsPlayerBotSaleGear(item) || !PlayerBotHasCounter(ch) ||
+				GetPlayerBotItemPolicy(item) != PLAYERBOT_ITEM_POLICY_NONE)
+			return false;
+		if (IsPlayerBotSidekickPinned(ch, item) || IsPlayerBotLppKeptItem(ch, item) ||
+				IsPlayerBotGambleForSale(ch, item) || IsPlayerBotRareGambleHeldBase(ch, item) ||
+				IsPlayerBotSashGrailProject(ch, item) || IsPlayerBotArcherStoneWeapon(ch, item) ||
+				PlayerBotRefinesLowArmourForSale(ch, item))
+			return false;
+		if (IsPlayerBotUpgradeForSelf(ch, item) || IsPlayerBotHigherTierSpare(ch, item) ||
+				IsPlayerBotWearableUpgrade(ch, item, item->GetCell()))
+			return false;
+		if (item->GetType() == ITEM_WEAPON &&
+				(IsPlayerBotKeptBackupWeapon(ch, item) || item == FindPlayerBotLinesProject(ch)))
+			return false;
+		if (item->GetType() == ITEM_ARMOR && IsPlayerBotKeptBackupArmour(ch, item))
+			return false;
+		return CanPlayerBotPayRefineStep(ch, item);
 	}
 
 	// Iwakura's Patch 4, point 13: the mission books - Latwa, Normalna, Trudna,
@@ -1883,6 +2061,13 @@ namespace
 		if (IsPlayerBotGuildBuildMaterial(item->GetVnum()))
 			return false;
 
+		// MT2009_PLUS_AWAKENING_V1 / MT2009_PLUS_SOULSTONE9_V1 (Digi Rasta's
+		// systems): the Awakening Stone, an awakened weapon and a soul stone
+		// +5..+9 are never the merchant's - a counter's or the bot's own
+		// (playerbot_awakening.h).
+		if (IsPlayerBotAwakeningGoods(item->GetVnum()))
+			return false;
+
 		// A piece Iwakura's list keeps for the storekeeper is never the
 		// merchant's, whatever the rules below would make of it.
 		if (IsPlayerBotLppKeptItem(ch, item))
@@ -1922,9 +2107,19 @@ namespace
 				return false;
 			const int rareKind = GetPlayerBotRareGoodsKind(item->GetVnum());
 			if (rareKind != PLAYERBOT_RARE_GOODS_NONE)
-				return IsPlayerBotRareGoodsForMerchant(ch->GetPlayerID(), item->GetVnum(), get_dword_time()) ||
-						(IsPlayerBotBagUnderPressure(ch) &&
-						 (!PlayerBotHasCounter(ch) || IsPlayerBotRareGoodsShopQuotaFull(rareKind)));
+			{
+				if (IsPlayerBotRareGoodsForMerchant(ch->GetPlayerID(), item->GetVnum(), get_dword_time()))
+					return true;
+				// MT2009_PLUS_BOT_SASH_FLOW_V1: two or more sashes for a counter
+				// go up whatever the counters' share (BotOfflineCounterRefuses);
+				// under pressure the merchant takes only the plain +0 ones past
+				// what the counter holds (IsPlayerBotSashForMerchant).
+				if (rareKind == PLAYERBOT_RARE_GOODS_SASH && PlayerBotHasCounter(ch) &&
+						GetPlayerBotSashGoodsInBag(ch) >= 2)
+					return IsPlayerBotSashForMerchant(ch, item);
+				return IsPlayerBotBagUnderPressure(ch) &&
+						(!PlayerBotHasCounter(ch) || IsPlayerBotRareGoodsShopQuotaFull(rareKind));
+			}
 		}
 
 		const DWORD vnum = item->GetVnum();
@@ -1958,7 +2153,10 @@ namespace
 		// which would keep the level-65 ones for a counter that has no room.
 		if (IsPlayerBotCappedJunkWeapon(item) && IsPlayerBotJunkWeaponMarketFull() &&
 				!IsPlayerBotUpgradeForSelf(ch, item) && !IsPlayerBotHigherTierSpare(ch, item) &&
-				!IsPlayerBotKeptBackupWeapon(ch, item))
+				!IsPlayerBotKeptBackupWeapon(ch, item) &&
+				// MT2009_PLUS_BOT_LIST_ALL_GEAR_V1: nor one the anvil takes to
+				// +4 for the counter, where the cap no longer holds it.
+				!(PlayerBotHasCounter(ch) && PlayerBotRefinesSpareForSale(ch, item)))
 			return true;
 		// And a body armour at +0..+4 of a family at its cap on the market
 		// (Iwakura's Patch 3, point 4), unless the bot wears it, raises it for
@@ -1982,6 +2180,12 @@ namespace
 		// just that much of the stack (SellPlayerBotSurplusHay).
 		if (vnum == PLAYERBOT_HAY_VNUM)
 			return (int)ch->CountSpecifyItem(PLAYERBOT_HAY_VNUM) > PLAYERBOT_HAY_KEEP;
+		// MT2009_PLUS_HORSE30_V1: Marchewka and Czerwony Zen-szen are the
+		// training's feed of 11-19 and 21-28 (playerbot_horse30.h): the five
+		// the next training eats stay, the rest is the merchant's (the
+		// stable sells what the bag lacks at the training itself).
+		if (vnum == PLAYERBOT_HORSE_FEED_CARROT || vnum == PLAYERBOT_HORSE_FEED_GINSENG)
+			return (int)ch->CountSpecifyItem(vnum) > GetPlayerBotHorseFeedKeep(ch, vnum);
 		// The goods a player crafts further (IsPlayerBotPickupGoods) wait for a
 		// counter, and reach the merchant only from a bag under pressure that
 		// has no counter to sell from - the rule a polymorph marble keeps. Gear
@@ -2008,10 +2212,15 @@ namespace
 		// list is thrown away at the merchant (SellPlayerBotJunkAtMerchant).
 		if (IsPlayerBotUnwantedHair(ch, item))
 			return true;
-		// MT2009_PLUS_BOT_LIST_HELM_SHIELD_V1: the counter's, while there is a
-		// counter and the bag holds no more than PLAYERBOT_HELM_SHIELD_BAG_KEEP.
-		if (IsPlayerBotListedHelmShield(item) && PlayerBotHasCounter(ch) &&
-				CountPlayerBotListedHelmShieldsInBag(ch) <= PLAYERBOT_HELM_SHIELD_BAG_KEEP)
+		// MT2009_PLUS_BOT_LIST_ALL_GEAR_V1: a spare piece the anvil takes to
+		// +4 for the counter, and the first PLAYERBOT_ALL_GEAR_BAG_KEEP of the
+		// gear this rule lists, wait for the counter while there is one and
+		// the bag has room - the rest is the rules' below, as before.
+		if (IsPlayerBotSaleGear(item) && PlayerBotHasCounter(ch) && !IsPlayerBotBagUnderPressure(ch) &&
+				(PlayerBotRefinesSpareForSale(ch, item) ||
+				 (IsPlayerBotAllGearLowLine(item) && CountPlayerBotAllGearAhead(ch, item) < PLAYERBOT_ALL_GEAR_BAG_KEEP &&
+				  !((IsPlayerBotCappedLowArmour(item) || IsPlayerBotCappedLowJewel(item)) &&
+					IsPlayerBotLowArmourMarketFull(item->GetVnum())))))
 			return false;
 		// A hairstyle from the ItemShop (playerbot_itemshop.h) is worn, not sold:
 		// the rule's default would vendor it on the next town trip.
@@ -2043,7 +2252,10 @@ namespace
 			return true;
 
 		// A material only the Herbalist's Knife consumes is nothing to a bot:
-		// see IsPlayerBotNonGearMaterial.
+		// see IsPlayerBotNonGearMaterial. MT2009_PLUS_BOT_HERBALIST_FIX_V1:
+		// except the herbs to a gatherer, who picked them for Baek-Go's board.
+		if (IsPlayerBotHerbalismHerb(vnum) && IsPlayerBotHerbGatherer(ch))   // MT2009_PLUS_BOT_HERBALIST_ACTIVITY_V1
+			return false;
 		if (item->GetType() == ITEM_MATERIAL && IsPlayerBotNonGearMaterial(vnum))
 			return true;
 
@@ -2170,7 +2382,7 @@ namespace
 		// 26 September). A tool is never counter goods now
 		// (ScorePlayerBotShopStock), so the merchant is where a second one goes,
 		// whatever its plus, or it would ride in the bag for good.
-		if (item->GetType() == ITEM_ROD || item->GetType() == ITEM_PICK)
+		if (IsPlayerBotToolType(item->GetType()))   // MT2009_PLUS_BOT_HERBALIST_FIX_V1: the knife too
 		{
 			const BYTE tool = item->GetType();
 			LPITEM worn = ch->GetWear(WEAR_WEAPON);
@@ -2316,6 +2528,9 @@ namespace
 		// hit, and nothing keeps an arrow that cannot (GetPlayerBotArrowGrade).
 		if (item->GetType() == ITEM_WEAPON && item->GetSubType() == WEAPON_ARROW)
 		{
+			// MT2009_PLUS_QUIVER_V1: a quiver is never scrap (nor sellable).
+			if (IsPlayerBotQuiver(item))
+				return false;
 			const bool isOrWillBeArcher = ch->GetJob() == JOB_ASSASSIN &&
 					(ch->GetSkillGroup() == 2 ||
 					 (ch->GetSkillGroup() == 0 && (ch->GetPlayerID() % 2) != 0));
@@ -2526,7 +2741,8 @@ namespace
 			if (!item || item->GetCell() != cell || item->IsEquipped() || item->isLocked() ||
 					!IsPlayerBotBoosterItem(item) ||
 					!IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_SELL) ||
-					!IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_MYSHOP))
+					!IS_SET(item->GetAntiFlag(), ITEM_ANTIFLAG_MYSHOP) ||
+					IsPlayerBotSidekickLockedItem(ch, item))	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1
 				continue;
 			int& held = kept[item->GetVnum()];
 			if (held < PLAYERBOT_BOOSTER_KEEP_PER_VNUM)
@@ -2563,6 +2779,25 @@ namespace
 		return price;
 	}
 
+	// What the merchant pays for a piece of junk (the whole line). Also what a
+	// bot is paid for the junk it lets go to make room for a Battle Pass
+	// reward (playerbot_bpbots.h, MT2009_PLUS_BOT_BP_ROOM_V1).
+	long long GetPlayerBotJunkSalePrice(LPITEM item)
+	{
+		DWORD price = item->GetShopBuyPrice();
+		if (price == 0)
+			price = item->GetProto() ? item->GetProto()->dwGold : 100;
+		price = std::max<DWORD>(10, price / 5);
+		// MT2009_PLUS_DIGI_STACK_V1: a soul stone, a gift box or a treasure
+		// box stacks to 200 now - the stack goes whole, so it is paid by
+		// count (it was one unit's price for the stack).
+		long long salePrice = (long long)price;
+		if (item->GetCount() > 1 && (item->GetType() == ITEM_METIN ||
+				item->GetType() == ITEM_GIFTBOX || item->GetType() == ITEM_TREASURE_BOX))
+			salePrice *= (long long)item->GetCount();
+		return salePrice;
+	}
+
 	bool SellPlayerBotJunkAtMerchant(LPCHARACTER ch, EPlayerBotMerchantCategory category,
 			const char* merchantName)
 	{
@@ -2580,7 +2815,8 @@ namespace
 			// The operator said "drop": thrown away here, at the merchant,
 			// without a sale - the one place a bag is emptied on purpose.
 			if (item && !item->IsEquipped() && !item->isLocked() &&
-					GetPlayerBotItemPolicy(item) == PLAYERBOT_ITEM_POLICY_DROP)
+					GetPlayerBotItemPolicy(item) == PLAYERBOT_ITEM_POLICY_DROP &&
+					!IsPlayerBotSidekickLockedItem(ch, item))	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1
 			{
 				sys_log(0, "PLAYERBOT_AI: discarded by policy pid=%u name=%s vnum=%u count=%u",
 						ch->GetPlayerID(), ch->GetName(), item->GetVnum(), (unsigned int)item->GetCount());
@@ -2614,12 +2850,9 @@ namespace
 				continue;
 			}
 
-			DWORD price = item->GetShopBuyPrice();
-			if (price == 0)
-				price = item->GetProto() ? item->GetProto()->dwGold : 100;
-			price = std::max<DWORD>(10, price / 5);
-			totalSoldGold += price;
-			PlayerBotChangeGold(ch, price);
+			const long long salePrice = GetPlayerBotJunkSalePrice(item);
+			totalSoldGold += salePrice;
+			PlayerBotChangeGold(ch, salePrice);
 			ITEM_MANAGER::instance().RemoveItem(item, "PLAYERBOT_SHOP_SELL");
 			++soldCount;
 		}
@@ -2959,6 +3192,10 @@ namespace
 		// Patch 3, point 4).
 		if (PlayerBotRefinesLowArmourForSale(ch, item))
 			return item->GetRefineLevel() < PLAYERBOT_LOW_ARMOUR_SALE_PLUS;
+		// MT2009_PLUS_BOT_LIST_ALL_GEAR_V1: and any spare piece taken to +4
+		// before it goes on the counter.
+		if (PlayerBotRefinesSpareForSale(ch, item))
+			return item->GetRefineLevel() < PLAYERBOT_SPARE_SALE_PLUS;
 		// The class's own level-30 weapon, whatever the damage model makes of
 		// it today (community patch 2, point 1).
 		if (IsPlayerBotPersonaEnabled() && item == FindPlayerBotClassLevel30Weapon(ch))
@@ -3205,6 +3442,15 @@ namespace
 
 		state.dwNextRefineCheckTime = dwNow + PLAYERBOT_REFINE_INTERVAL;
 
+		// MT2009_PLUS_AWAKENING_V1: a worn weapon 75 +9, the Awakening Stone and
+		// the fee make the ritual this visit's first step (playerbot_awakening.h).
+		if (ManagePlayerBotAwakeningRitual(ch, state, dwNow))
+			return true;
+		// MT2009_PLUS_HEAVEN_OIL_V1 (Autor: Digi Rasta): then one soul stone step, when the bag holds
+		// a stone +4..+8, the dust, the oil and the fee (playerbot_awakening.h).
+		if (ManagePlayerBotSoulStoneStep(ch, state, dwNow))
+			return true;
+
 		// Iwakura's Perfectionist spends at most PERFECT_BUDGET_PERCENT of what
 		// it walked into town with ("max 80% yang"), and keeps the rest. The
 		// class's level-30 weapon is the exception: it has a budget of its own
@@ -3352,6 +3598,10 @@ namespace
 			const bool coreProgression = IsPlayerBotCoreProgressionItem(ch, item);
 			cand.priority = item == classLevel30 ? 0 : 1 + (personaOn ? GetPlayerBotPerfectionistRank(ch, item)
 					: (coreProgression ? 0 : 2));
+			// MT2009_PLUS_BOT_LIST_ALL_GEAR_V1: a spare for the counter comes
+			// after everything the bot refines for itself.
+			if (PlayerBotRefinesSpareForSale(ch, item))
+				cand.priority = PLAYERBOT_SPARE_SALE_REFINE_PRIORITY;
 			candidates.push_back(cand);
 		}
 
@@ -3391,9 +3641,13 @@ namespace
 			const DWORD nextVnum = item->GetRefinedVnum();
 			const BYTE plusLevel = candidates[i].plusLevel;
 
+			// MT2009_PLUS_BOT_LIST_ALL_GEAR_V1: a spare for the counter is not
+			// worn, so its level is the buyer's, and no ready piece off a
+			// counter is looked for in its stead.
+			const bool saleSpare = candidates[i].priority == PLAYERBOT_SPARE_SALE_REFINE_PRIORITY;
 			// What comes off the anvil must still fit. See IsPlayerBotWearableAtLevel
 			// for why the engine will not stop this on its own.
-			if (!IsPlayerBotWearableAtLevel(ch, nextVnum))
+			if (!saleSpare && !IsPlayerBotWearableAtLevel(ch, nextVnum))
 			{
 				PlayerBotLogThrottled("refine_outgrows", dwNow,
 						"PLAYERBOT_AI: refine would outgrow the bot pid=%u name=%s level=%u vnum=%u next=%u plus=%u",
@@ -3411,7 +3665,7 @@ namespace
 			// the anvil waits PLAYERBOT_READY_GEAR_WAIT_MS for the purchase;
 			// nothing there, or the wait over, and it refines as ever. The
 			// class's level-30 weapon is its own rule's.
-			if (personaOn && item != classLevel30 && !rulePiece && IsPlayerBotMarketPerfectionist(ch->GetPlayerID()))
+			if (personaOn && item != classLevel30 && !rulePiece && !saleSpare && IsPlayerBotMarketPerfectionist(ch->GetPlayerID()))
 			{
 				const int slot = wearCell != 255 ? (int)wearCell : item->FindEquipCell(ch);
 				const int index = GetPlayerBotReadyGearSlotIndex(slot);
@@ -3547,8 +3801,11 @@ namespace
 			// the bag keeps the +6 rule: its burn is the price of not spending a
 			// scarce scroll on it.
 			const TRefineTable* stepRecipe = CRefineManager::instance().GetRefineRecipe(item->GetRefineSet());
+			// MT2009_PLUS_AWAKENING_V1: an awakened weapon's step never burns it
+			// (server-patches/digirasta), so it asks no scroll for that.
 			const bool wornStepCanBurn = wearCell != 255 && stepRecipe &&
-					stepRecipe->prob <= PLAYERBOT_WORN_SCROLL_MAX_PROB;
+					stepRecipe->prob <= PLAYERBOT_WORN_SCROLL_MAX_PROB &&
+					!IsPlayerBotAwakenedWeaponVnum(item->GetVnum());
 			// Every rule above gives way to the operator's floor: under
 			// SCROLL_FROM no scroll goes on the step, whatever the piece.
 			const bool scrollStepAllowed = IsPlayerBotScrollStepAllowed(plusLevel);
@@ -3911,6 +4168,8 @@ namespace
 	{
 		attempted = false;
 		equippedAgain = false;
+		if (IsPlayerBotSidekickLockedItem(ch, piece))	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1
+			return NULL;
 		const TRefineTable* recipe = CRefineManager::instance().GetRefineRecipe(piece->GetRefineSet());
 		const int scrollCell = FindPlayerBotRefineScrollCellFor(ch, piece, recipe ? (int)recipe->prob : 100);
 		if (scrollCell < 0 || ch->GetEmptyInventory(piece->GetSize()) < 0)
@@ -4568,9 +4827,34 @@ namespace
 					(long long)ch->ComputeRefineFee(recipe->cost);
 	}
 
+	// MT2009_PLUS_BOT_TOWN_SPREAD_V1: a bot whose last visit to the anvil
+	// refined nothing although this said it would (the engine refused every
+	// step - a material short, a state the planner does not ask about) is no
+	// refiner for a while: without it the planner sent it straight back, and it
+	// stood at the anvil for good, one visit every fifteen to twenty seconds.
+	// Set by the blacksmith's wait (playerbot_town.h).
+	const DWORD PLAYERBOT_ANVIL_FUTILE_MIN_MS = 15 * 60 * 1000;
+	const DWORD PLAYERBOT_ANVIL_FUTILE_MAX_MS = 25 * 60 * 1000;
+	std::map<DWORD, DWORD> s_mapPlayerBotAnvilFutileUntil;
+
+	bool IsPlayerBotAnvilFutile(DWORD pid, DWORD dwNow)
+	{
+		std::map<DWORD, DWORD>::iterator it = s_mapPlayerBotAnvilFutileUntil.find(pid);
+		if (it == s_mapPlayerBotAnvilFutileUntil.end())
+			return false;
+		if ((int)(dwNow - it->second) >= 0)
+		{
+			s_mapPlayerBotAnvilFutileUntil.erase(it);
+			return false;
+		}
+		return true;
+	}
+
 	bool HasPlayerBotRefineOpportunity(LPCHARACTER ch)
 	{
 		if (!ch || !ch->IsItemLoaded())
+			return false;
+		if (IsPlayerBotAnvilFutile(ch->GetPlayerID(), get_dword_time()))
 			return false;
 		// The REFINE weight under neutral closes the anvil for a share of the
 		// bots (IsPlayerBotWeightGateOpen). This is the one question the
@@ -4580,6 +4864,14 @@ namespace
 		if (!IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_REFINE,
 				PLAYERBOT_WEIGHT_GATE_SALT_REFINE, get_dword_time()))
 			return false;
+
+		// MT2009_PLUS_AWAKENING_V1: the ritual is a reason for the anvil too.
+		if (HasPlayerBotAwakeningRitual(ch))
+			return true;
+		// MT2009_PLUS_HEAVEN_OIL_V1 (Autor: Digi Rasta): and a soul stone step with everything in the
+		// bag (resting after any attempt, so a refusal is no loop).
+		if (HasPlayerBotSoulStoneStep(ch))
+			return true;
 
 		const BYTE wearSlots[] = {
 			WEAR_WEAPON, WEAR_BODY, WEAR_SHIELD, WEAR_HEAD,
@@ -4612,6 +4904,8 @@ namespace
 	bool HasPlayerBotPriorityRefineOpportunity(LPCHARACTER ch)
 	{
 		if (!ch || !ch->IsItemLoaded())
+			return false;
+		if (IsPlayerBotAnvilFutile(ch->GetPlayerID(), get_dword_time()))
 			return false;
 		if (!IsPlayerBotWeightGateOpen(ch->GetPlayerID(), PLAYERBOT_WEIGHT_REFINE,
 				PLAYERBOT_WEIGHT_GATE_SALT_REFINE, get_dword_time()))

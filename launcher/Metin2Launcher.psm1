@@ -10,6 +10,101 @@ $script:M2_DEFAULT_SUPPORT_CONTACT = 'https://github.com/Doofenyoyo1/metin2_SP/i
 $script:M2_MOD_REPOSITORY = 'Doofenyoyo1/metin2_SP'
 $script:M2_MOD_MANIFEST_URL = "https://raw.githubusercontent.com/$($script:M2_MOD_REPOSITORY)/main/update-manifest-mt2009.json"
 
+# MT2009_PLUS_UPDATE_MIRROR_V1: the fallback update source. Everything above
+# comes from GitHub; when GitHub does not answer (network error, non-200, a
+# body that is not JSON) the same file names are read from this server
+# instead: update-manifest-mt2009.json, client-files.json and the zips the
+# manifest names (base + the file name of the manifest's URL). A zip from the
+# mirror passes the same SHA-256 check as one from GitHub. The manifest may
+# list more bases in "mirrors": [...]; they are tried before this one.
+# MT2009 PLUS fills its own mirror (its tools/publish-update-mirror.sh); that
+# server carries its packages, not this project's, and one unpacked over this
+# tree would overwrite its changes - so there is no default mirror here, and
+# only a "mirrors" list in this project's own manifest names one.
+$script:M2_UPDATE_MIRROR_BASE = ''
+$script:M2_UPDATE_MIRROR_NOTICE = 'GitHub niedostępny - pobieram z serwera zapasowego'
+# GitHub's own answer is waited for this long before the mirror is asked.
+$script:M2_GITHUB_TIMEOUT_SEC = 12
+$script:M2ManifestMirrors = @()
+# 'github', a mirror base, or '' before the first read.
+$script:M2LastUpdateSource = ''
+
+function Get-M2UpdateMirrorBases {
+    # The mirror bases, the manifest's "mirrors" first, each ending in '/',
+    # http(s) only, no duplicates.
+    $bases = @()
+    foreach ($candidate in @($script:M2ManifestMirrors) + @($script:M2_UPDATE_MIRROR_BASE)) {
+        $value = ([string]$candidate).Trim()
+        if (-not $value) { continue }
+        if (-not $value.EndsWith('/')) { $value += '/' }
+        $uri = $null
+        if (-not [Uri]::TryCreate($value, [UriKind]::Absolute, [ref]$uri)) { continue }
+        if ($uri.Scheme -ne 'http' -and $uri.Scheme -ne 'https') { continue }
+        if ($bases -notcontains $value) { $bases += $value }
+    }
+    return $bases
+}
+
+function Register-M2ManifestMirrors {
+    # Remembers a manifest's optional "mirrors": [base URLs] for the downloads
+    # that follow in this session.
+    param($Manifest)
+    if ($null -eq $Manifest -or $Manifest -isnot [psobject]) { return }
+    $property = $Manifest.PSObject.Properties['mirrors']
+    if (-not $property -or $null -eq $property.Value) { return }
+    $script:M2ManifestMirrors = @(@($property.Value) | ForEach-Object { [string]$_ } | Where-Object { $_ })
+}
+
+function Get-M2MirrorUrls {
+    # The mirror addresses of a GitHub URL: each base + the URL's file name.
+    param([Parameter(Mandatory = $true)][string]$Url)
+    $uri = $null
+    if (-not [Uri]::TryCreate($Url, [UriKind]::Absolute, [ref]$uri)) { return @() }
+    $name = [Uri]::UnescapeDataString(($uri.AbsolutePath.TrimEnd('/') -split '/')[-1])
+    if (-not $name -or $name -notmatch '^[0-9A-Za-z._-]+$') { return @() }
+    $urls = @()
+    foreach ($base in @(Get-M2UpdateMirrorBases)) {
+        $candidate = $base + $name
+        if ($candidate -ne $uri.AbsoluteUri -and $urls -notcontains $candidate) { $urls += $candidate }
+    }
+    return $urls
+}
+
+function Write-M2MirrorNotice {
+    Write-Host $script:M2_UPDATE_MIRROR_NOTICE -ForegroundColor Yellow
+}
+
+function Get-M2UpdateSource {
+    # Where the last manifest came from: 'github', a mirror base, or ''.
+    return $script:M2LastUpdateSource
+}
+
+function Get-M2ManifestFromMirror {
+    # The manifest (or any JSON file of the channel) read from the mirrors;
+    # $null when none of them has a readable one.
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [int]$TimeoutSec = 30
+    )
+    foreach ($url in @(Get-M2MirrorUrls -Url $Source)) {
+        try {
+            $response = Invoke-WebRequest -Uri $url -Method Get -UseBasicParsing -TimeoutSec $TimeoutSec `
+                -Headers @{ 'User-Agent' = 'metin2-playerbots-launcher' }
+            $content = $response.Content
+            $text = if ($content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($content) } else { [string]$content }
+            $manifest = ConvertFrom-M2ManifestText -Text $text -Origin $url
+            Write-M2MirrorNotice
+            $script:M2LastUpdateSource = $url.Substring(0, $url.LastIndexOf('/') + 1)
+            Register-M2ManifestMirrors -Manifest $manifest
+            return $manifest
+        }
+        catch {
+            Write-Verbose "Serwer zapasowy $url nie odpowiedział: $($_.Exception.Message)"
+        }
+    }
+    return $null
+}
+
 function Test-M2ForeignManifestUrl {
     # True for a manifest address this package must not follow: empty, or an
     # upstream's repository.
@@ -175,6 +270,230 @@ function Get-M2ClientExeComponent {
     return $component
 }
 
+function Get-M2ClientFolder {
+    # The configured client folder: clientRoot, else the folder of
+    # clientExecutable. Empty when neither names an existing folder.
+    param($Config)
+    if (-not $Config) { return '' }
+    $folder = ''
+    if ($Config.PSObject.Properties['clientRoot']) { $folder = [string]$Config.clientRoot }
+    if (-not $folder -and $Config.PSObject.Properties['clientExecutable'] -and [string]$Config.clientExecutable) {
+        $folder = Split-Path -Parent ([string]$Config.clientExecutable)
+    }
+    if ($folder -and (Test-Path -LiteralPath $folder -PathType Container)) { return [IO.Path]::GetFullPath($folder) }
+    return ''
+}
+
+# MT2009_PLUS_CLIENT_VERSION_FROM_FOLDER_V1: the installed client version as
+# the client folder shows it. The launcher used to know it only from
+# .m2launcher-state.json (its own client update) or CLIENT_VERSION beside
+# VERSION in the server folder - and MT2009-Patcher.exe updates the client
+# folder alone, so a client the patcher had just brought up to date was still
+# "nieaktualny" in the launcher. Now: CLIENT_VERSION in the client folder (the
+# patcher writes it), else the folder's files compared with client-files.json
+# of the manifest's client version. What is found is recorded in the state
+# file, so everything that reads it says "aktualny".
+$script:M2ClientFileListName = 'client-files.json'
+$script:M2ClientHashCacheName = '.m2launcher-client-hashes.json'
+
+function Compare-M2Version {
+    # -1, 0 or 1: the numeric parts compared in order ("2.0.9" < "2.0.10"),
+    # the text as a tie-break.
+    param([AllowEmptyString()][string]$Left, [AllowEmptyString()][string]$Right)
+    $a = @([regex]::Matches([string]$Left, '\d+') | ForEach-Object { [long]$_.Value })
+    $b = @([regex]::Matches([string]$Right, '\d+') | ForEach-Object { [long]$_.Value })
+    $count = [Math]::Max($a.Count, $b.Count)
+    for ($i = 0; $i -lt $count; $i++) {
+        $x = if ($i -lt $a.Count) { $a[$i] } else { 0 }
+        $y = if ($i -lt $b.Count) { $b[$i] } else { 0 }
+        if ($x -lt $y) { return -1 }
+        if ($x -gt $y) { return 1 }
+    }
+    return [Math]::Sign([string]::Compare(([string]$Left).Trim(), ([string]$Right).Trim(), [StringComparison]::OrdinalIgnoreCase))
+}
+
+function Read-M2VersionMarker {
+    # A one-line version file (VERSION, CLIENT_VERSION), or '' when missing,
+    # unreadable or not a version.
+    param([AllowEmptyString()][string]$Path)
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return '' }
+    try {
+        $text = ([IO.File]::ReadAllText($Path)).Trim([char]0xFEFF, ' ', "`t", "`r", "`n")
+        if ($text -match '^[0-9A-Za-z._-]{1,32}$') { return $text }
+    }
+    catch { }
+    return ''
+}
+
+function Get-M2ClientFileListSource {
+    # client-files.json beside the manifest: the same folder of a local file,
+    # the same directory of a URL.
+    param([AllowEmptyString()][string]$ManifestSource)
+    if (-not $ManifestSource) { return '' }
+    if (Test-Path -LiteralPath $ManifestSource -PathType Leaf) {
+        return (Join-Path (Split-Path -Parent ([IO.Path]::GetFullPath($ManifestSource))) $script:M2ClientFileListName)
+    }
+    $uri = $null
+    if (-not [Uri]::TryCreate($ManifestSource, [UriKind]::Absolute, [ref]$uri)) { return '' }
+    return ([Uri]::new($uri, $script:M2ClientFileListName)).AbsoluteUri
+}
+
+function ConvertTo-M2ClientFileList {
+    # The parsed client-files.json, validated: {Version, Files = [{Path,
+    # Size, Sha256}]}; $null when it is not one.
+    param($List)
+    if ($null -eq $List -or $List -isnot [psobject]) { return $null }
+    $versionProperty = $List.PSObject.Properties['version']
+    $filesProperty = $List.PSObject.Properties['files']
+    if (-not $versionProperty -or -not $filesProperty) { return $null }
+    $version = ([string]$versionProperty.Value).Trim()
+    if ($version -notmatch '^[0-9A-Za-z._-]{1,32}$') { return $null }
+    $files = @()
+    foreach ($entry in @($filesProperty.Value)) {
+        if ($null -eq $entry -or $entry -isnot [psobject]) { return $null }
+        $pathProperty = $entry.PSObject.Properties['path']
+        $shaProperty = $entry.PSObject.Properties['sha256']
+        $sizeProperty = $entry.PSObject.Properties['size']
+        if (-not $pathProperty -or -not $shaProperty -or -not $sizeProperty) { return $null }
+        $path = ([string]$pathProperty.Value).Replace('\', '/').Trim()
+        $sha = ([string]$shaProperty.Value).Trim().ToUpperInvariant()
+        [long]$size = -1
+        if (-not [long]::TryParse([string]$sizeProperty.Value, [ref]$size)) { return $null }
+        if (-not $path -or $path.StartsWith('/') -or $path -match '(^|/)\.\.(/|$)' -or $path -match ':' -or
+            $sha -notmatch '^[A-F0-9]{64}$' -or $size -lt 0) { return $null }
+        $files += [pscustomobject]@{ Path = $path; Size = $size; Sha256 = $sha }
+    }
+    if ($files.Count -eq 0) { return $null }
+    return [pscustomobject]@{ Version = $version; Files = $files }
+}
+
+function Get-M2ClientFileList {
+    # client-files.json of the channel (GitHub, else the mirror, as the
+    # manifest), validated; $null when it cannot be read.
+    param([AllowEmptyString()][string]$ManifestSource, [int]$TimeoutSec = 10)
+    $source = Get-M2ClientFileListSource -ManifestSource $ManifestSource
+    if (-not $source) { return $null }
+    try { return (ConvertTo-M2ClientFileList -List (Get-M2UpdateManifest -Source $source -TimeoutSec $TimeoutSec)) }
+    catch { return $null }
+}
+
+function Test-M2ClientFilesMatch {
+    # Whether every file of the list is in the client folder with its size
+    # and SHA-256. Hashes are cached by full path, size and write time, so a
+    # check of an unchanged folder reads no file.
+    param(
+        [Parameter(Mandatory = $true)][string]$ClientFolder,
+        [Parameter(Mandatory = $true)]$FileList,
+        [AllowEmptyString()][string]$CachePath = ''
+    )
+    if (-not $FileList -or -not (Test-Path -LiteralPath $ClientFolder -PathType Container)) { return $false }
+    $cache = @{}
+    if ($CachePath -and (Test-Path -LiteralPath $CachePath -PathType Leaf)) {
+        try {
+            $saved = [IO.File]::ReadAllText($CachePath) | ConvertFrom-Json
+            foreach ($property in @($saved.PSObject.Properties)) { $cache[$property.Name] = $property.Value }
+        }
+        catch { $cache = @{} }
+    }
+    $changed = $false
+    $match = $true
+    foreach ($file in @($FileList.Files)) {
+        $local = Join-Path $ClientFolder ($file.Path.Replace('/', [IO.Path]::DirectorySeparatorChar))
+        if (-not (Test-Path -LiteralPath $local -PathType Leaf)) { $match = $false; break }
+        $item = Get-Item -LiteralPath $local -Force
+        if ([long]$item.Length -ne [long]$file.Size) { $match = $false; break }
+        $key = ([IO.Path]::GetFullPath($local)).ToLowerInvariant()
+        $ticks = [string]$item.LastWriteTimeUtc.Ticks
+        $hash = ''
+        if ($cache.ContainsKey($key)) {
+            $entry = $cache[$key]
+            if ([string]$entry.size -eq [string]$item.Length -and [string]$entry.mtime -eq $ticks) { $hash = [string]$entry.sha256 }
+        }
+        if (-not $hash) {
+            $hash = Get-M2FileSha256 -Path $local
+            if (-not $hash) { $match = $false; break }
+            $cache[$key] = [pscustomobject]@{ size = [string]$item.Length; mtime = $ticks; sha256 = $hash }
+            $changed = $true
+        }
+        if ($hash -ne $file.Sha256) { $match = $false; break }
+    }
+    if ($changed -and $CachePath) {
+        try { [IO.File]::WriteAllText($CachePath, ([pscustomobject]$cache | ConvertTo-Json -Depth 3)) }
+        catch { }
+    }
+    return $match
+}
+
+function Save-M2RecordedClientVersion {
+    # Writes the client version into .m2launcher-state.json and keeps the
+    # rest of it (the server's version above all).
+    param([Parameter(Mandatory = $true)][string]$ServerRoot, [Parameter(Mandatory = $true)][string]$Version)
+    $statePath = Join-Path $ServerRoot '.m2launcher-state.json'
+    $state = [ordered]@{ schema = 1; server = ''; client = '' }
+    if (Test-Path -LiteralPath $statePath -PathType Leaf) {
+        try {
+            $saved = [IO.File]::ReadAllText($statePath) | ConvertFrom-Json
+            foreach ($property in @($saved.PSObject.Properties)) { $state[$property.Name] = $property.Value }
+        }
+        catch { }
+    }
+    $state['client'] = $Version
+    [pscustomobject]$state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding UTF8
+}
+
+function Resolve-M2InstalledClientVersion {
+    # The installed client version, 'unknown' when nothing says. In order:
+    #  - the client folder's CLIENT_VERSION when it is the newest version;
+    #  - the newest version when the folder's files match client-files.json
+    #    of that version (-FileList);
+    #  - what the state file recorded, else CLIENT_VERSION beside VERSION -
+    #    or the client folder's CLIENT_VERSION when that one is newer.
+    # -Record writes a version found in the client folder into the state file.
+    param(
+        [Parameter(Mandatory = $true)][string]$ServerRoot,
+        [AllowEmptyString()][string]$ClientFolder = '',
+        [AllowEmptyString()][string]$LatestVersion = '',
+        $FileList = $null,
+        [switch]$Record
+    )
+    $root = [IO.Path]::GetFullPath($ServerRoot)
+    $recorded = ''
+    $statePath = Join-Path $root '.m2launcher-state.json'
+    if (Test-Path -LiteralPath $statePath -PathType Leaf) {
+        try {
+            $saved = [IO.File]::ReadAllText($statePath) | ConvertFrom-Json
+            if ($saved -and $saved.PSObject.Properties['client']) { $recorded = ([string]$saved.client).Trim() }
+        }
+        catch { }
+    }
+    if ($recorded -eq 'unknown') { $recorded = '' }
+    $base = if ($recorded) { $recorded } else { Read-M2VersionMarker -Path (Join-Path $root 'CLIENT_VERSION') }
+    $latest = ([string]$LatestVersion).Trim()
+    $detected = ''
+    if ($ClientFolder -and (Test-Path -LiteralPath $ClientFolder -PathType Container)) {
+        $marker = Read-M2VersionMarker -Path (Join-Path $ClientFolder 'CLIENT_VERSION')
+        if ($latest -and $marker -and $marker.Equals($latest, [StringComparison]::OrdinalIgnoreCase)) {
+            $detected = $latest
+        }
+        elseif ($latest -and $FileList -and ([string]$FileList.Version).Equals($latest, [StringComparison]::OrdinalIgnoreCase) -and
+                -not $base.Equals($latest, [StringComparison]::OrdinalIgnoreCase)) {
+            $match = $false
+            try { $match = Test-M2ClientFilesMatch -ClientFolder $ClientFolder -FileList $FileList -CachePath (Join-Path $root $script:M2ClientHashCacheName) }
+            catch { $match = $false }
+            if ($match) { $detected = $latest }
+        }
+        if (-not $detected -and $marker -and (-not $base -or (Compare-M2Version $marker $base) -gt 0)) { $detected = $marker }
+    }
+    if ($detected) {
+        if ($Record -and -not $detected.Equals($recorded, [StringComparison]::OrdinalIgnoreCase)) {
+            try { Save-M2RecordedClientVersion -ServerRoot $root -Version $detected } catch { }
+        }
+        return $detected
+    }
+    if ($base) { return $base }
+    return 'unknown'
+}
+
 function Repair-M2ClientExecutables {
     # Puts the client folder's executables in order: an old metin2client.exe
     # replaced by the manifest's (when $ExeComponent is given), a launcher that
@@ -205,7 +524,7 @@ function Repair-M2ClientExecutables {
         else {
             $temp = Join-Path ([IO.Path]::GetTempPath()) ('m2-client-exe-' + [Guid]::NewGuid().ToString('N') + '.exe')
             try {
-                Get-M2Download -Source ([string]$ExeComponent.url) -Destination $temp
+                Get-M2Download -Source ([string]$ExeComponent.url) -Destination $temp -ExpectedSha256 ([string]$ExeComponent.sha256)
                 $hash = Get-M2FileSha256 -Path $temp
                 if ($hash -ne ([string]$ExeComponent.sha256).ToUpperInvariant()) {
                     throw "błędna suma SHA-256 pobranego pliku ($hash)"
@@ -324,6 +643,8 @@ function Get-M2UpdateManifest {
     # minute), so for the repository's own manifest it is asked first, with
     # the raw URL as the fallback - the API's anonymous budget is sixty
     # requests an hour per address, and a session reads the manifest once.
+    # GitHub gets a short wait: when it does not answer, the mirror below does.
+    $githubTimeout = [Math]::Max(1, [Math]::Min($TimeoutSec, $script:M2_GITHUB_TIMEOUT_SEC))
     $apiUri = $null
     if ($uri.Host -eq 'raw.githubusercontent.com') {
         $parts = $uri.AbsolutePath.Trim('/') -split '/', 4
@@ -334,7 +655,7 @@ function Get-M2UpdateManifest {
     }
     if ($null -ne $apiUri) {
         try {
-            $response = Invoke-WebRequest -Uri $apiUri -Method Get -UseBasicParsing -TimeoutSec $TimeoutSec `
+            $response = Invoke-WebRequest -Uri $apiUri -Method Get -UseBasicParsing -TimeoutSec $githubTimeout `
                 -Headers @{ Accept = 'application/vnd.github.raw+json'; 'User-Agent' = 'metin2-playerbots-launcher' }
             # Windows PowerShell 5.1 hands this media type back as a byte[],
             # and [string] of one is its numbers joined by spaces - so this
@@ -343,51 +664,63 @@ function Get-M2UpdateManifest {
             $content = $response.Content
             $text = if ($content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($content) } else { [string]$content }
             if ($text.TrimStart().StartsWith('{')) {
-                return ConvertFrom-M2ManifestText -Text $text -Origin ([string]$apiUri)
+                $manifest = ConvertFrom-M2ManifestText -Text $text -Origin ([string]$apiUri)
+                $script:M2LastUpdateSource = 'github'
+                Register-M2ManifestMirrors -Manifest $manifest
+                return $manifest
             }
         }
         catch { }
     }
+    $githubError = $null
     try {
         # Invoke-WebRequest, not Invoke-RestMethod: the REST variant parses for
         # us and silently degrades to a string when it cannot, which is exactly
         # the failure that has to be visible here.
-        $response = Invoke-WebRequest -Uri $uri -Method Get -UseBasicParsing -TimeoutSec $TimeoutSec
-        return ConvertFrom-M2ManifestText -Text ([string]$response.Content) -Origin $Source
+        $response = Invoke-WebRequest -Uri $uri -Method Get -UseBasicParsing -TimeoutSec $githubTimeout
+        $manifest = ConvertFrom-M2ManifestText -Text ([string]$response.Content) -Origin $Source
+        $script:M2LastUpdateSource = 'github'
+        Register-M2ManifestMirrors -Manifest $manifest
+        return $manifest
     }
-    catch {
-        $statusCode = 0
-        try {
-            if ($null -ne $_.Exception.Response) {
-                $statusCode = [int]$_.Exception.Response.StatusCode
-            }
-        }
-        catch { $statusCode = 0 }
+    catch { $githubError = $_ }
 
-        # GitHub serves raw manifests from an anonymous, per-IP budget. A player
-        # who clicks the button a few times in a row spends it, and the bare
-        # transport error that came back ("Operacja nie powiodla sie") told them
-        # nothing about waiting an hour - or that their install was fine.
-        if ($statusCode -eq 403 -or $statusCode -eq 429) {
-            throw 'GitHub chwilowo ogranicza liczbe zapytan z Twojego adresu IP (limit anonimowy). Nie jest to blad Twojej instalacji - serwer dziala dalej. Sprobuj ponownie za kilkanascie minut.'
-        }
+    # GitHub did not answer, answered with an error or with something that is
+    # not a manifest: the mirror has the same file under the same name.
+    $mirrored = Get-M2ManifestFromMirror -Source $Source -TimeoutSec $TimeoutSec
+    if ($null -ne $mirrored) { return $mirrored }
 
-        # The stable channel may intentionally be empty between releases. A
-        # missing manifest must never make the launcher reinstall the server,
-        # create another Compose project or touch the user's database.
-        if ($statusCode -eq 404) {
-            return [pscustomobject]@{
-                schema = 1
-                channel = 'unavailable'
-                publishedAt = $null
-                server = $null
-                client = $null
-                statusMessage = 'Kanał aktualizacji nie został jeszcze opublikowany. Obecna instalacja pozostaje bez zmian.'
-            }
+    $statusCode = 0
+    try {
+        if ($null -ne $githubError.Exception.Response) {
+            $statusCode = [int]$githubError.Exception.Response.StatusCode
         }
-
-        throw "Nie można sprawdzić aktualizacji pod adresem $Source. Sprawdź internet, zaporę i ustawienia DNS. Szczegóły: $($_.Exception.Message)"
     }
+    catch { $statusCode = 0 }
+
+    # GitHub serves raw manifests from an anonymous, per-IP budget. A player
+    # who clicks the button a few times in a row spends it, and the bare
+    # transport error that came back ("Operacja nie powiodla sie") told them
+    # nothing about waiting an hour - or that their install was fine.
+    if ($statusCode -eq 403 -or $statusCode -eq 429) {
+        throw 'GitHub chwilowo ogranicza liczbe zapytan z Twojego adresu IP (limit anonimowy). Nie jest to blad Twojej instalacji - serwer dziala dalej. Sprobuj ponownie za kilkanascie minut.'
+    }
+
+    # The stable channel may intentionally be empty between releases. A
+    # missing manifest must never make the launcher reinstall the server,
+    # create another Compose project or touch the user's database.
+    if ($statusCode -eq 404) {
+        return [pscustomobject]@{
+            schema = 1
+            channel = 'unavailable'
+            publishedAt = $null
+            server = $null
+            client = $null
+            statusMessage = 'Kanał aktualizacji nie został jeszcze opublikowany. Obecna instalacja pozostaje bez zmian.'
+        }
+    }
+
+    throw "Nie można sprawdzić aktualizacji pod adresem $Source ani na serwerze zapasowym. Sprawdź internet, zaporę i ustawienia DNS. Szczegóły: $($githubError.Exception.Message)"
 }
 
 function Test-M2Sha256 {
@@ -461,6 +794,20 @@ function Test-M2FileInUse {
     return $false
 }
 
+function Test-M2SameFile {
+    # True when both files exist with the same length and SHA-256. Any error
+    # (a file held open even for reading) answers false: copy as before.
+    param([string]$Source, [string]$Destination)
+    try {
+        $a = Get-Item -LiteralPath $Source -ErrorAction Stop
+        $b = Get-Item -LiteralPath $Destination -ErrorAction Stop
+        if ($a.Length -ne $b.Length) { return $false }
+        return (Get-FileHash -LiteralPath $Source -Algorithm SHA256 -ErrorAction Stop).Hash -eq
+            (Get-FileHash -LiteralPath $Destination -Algorithm SHA256 -ErrorAction Stop).Hash
+    }
+    catch { return $false }
+}
+
 function Invoke-M2FileRetry {
     # MT2009_PLUS_UPDATE_RETRY_V1: a file the antivirus (or Docker Desktop's
     # file sharing) holds open for a moment - "Proces nie moze uzyskac dostepu
@@ -477,8 +824,9 @@ function Invoke-M2FileRetry {
             return
         }
         catch {
-            if ($attempt -ge 8 -or -not (Test-M2FileInUse -ErrorRecord $_)) { throw }
-            Start-Sleep -Milliseconds 500
+            # MT2009_PLUS_UPDATE_SKIP_SAME_V1: twenty tries, a second apart.
+            if ($attempt -ge 20 -or -not (Test-M2FileInUse -ErrorRecord $_)) { throw }
+            Start-Sleep -Milliseconds 1000
         }
     }
 }
@@ -626,7 +974,10 @@ function New-M2AccessDeniedError {
 function Get-M2Download {
     param(
         [Parameter(Mandatory = $true)][string]$Source,
-        [Parameter(Mandatory = $true)][string]$Destination
+        [Parameter(Mandatory = $true)][string]$Destination,
+        # When given, a download whose SHA-256 differs counts as a failed one
+        # and the next source is tried. The caller still checks it as well.
+        [string]$ExpectedSha256 = ''
     )
 
     if (Test-Path -LiteralPath $Source -PathType Leaf) {
@@ -638,27 +989,55 @@ function Get-M2Download {
     if (-not [Uri]::TryCreate($Source, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -ne 'https') {
         throw 'Pakiet aktualizacji musi pochodzić z lokalnego pliku albo adresu HTTPS.'
     }
+    # The manifest's address first, then the mirrors (MT2009_PLUS_UPDATE_MIRROR_V1):
+    # the same file name on the fallback server. Plain HTTP is accepted there
+    # only because the SHA-256 from the manifest has to match either way.
+    $sources = @($uri.AbsoluteUri) + @(Get-M2MirrorUrls -Url $uri.AbsoluteUri)
+    $expected = ([string]$ExpectedSha256).ToUpperInvariant()
+    # Windows PowerShell 5.1 applies -TimeoutSec to the connection and the
+    # response headers only (the body has its own five-minute read timeout),
+    # so a GitHub that does not answer is given up after a minute, not five.
+    # PowerShell 7 counts the whole transfer in it, so it keeps 300 s there.
+    $timeout = if ($PSVersionTable.PSVersion.Major -le 5) { 60 } else { 300 }
     # Three attempts: a release asset on GitHub answered "(500) Wewnetrzny
     # blad serwera" and "Polaczenie zostalo nieoczekiwanie zakonczone" a
     # second into the download, twice in two minutes, and served the same
     # file minutes later (Hiob, 17 September). One request, one failure was
     # the whole update. An antivirus block is raised at once - it does not
-    # mend itself.
+    # mend itself. Each attempt goes through every source: GitHub first, the
+    # mirror at once when GitHub fails.
     $attempts = 3
+    $noticeShown = $false
+    $lastError = $null
     for ($attempt = 1; $attempt -le $attempts; $attempt++) {
-        try {
-            Invoke-WebRequest -Uri $uri -OutFile $Destination -UseBasicParsing -TimeoutSec 300
-            return
-        }
-        catch {
-            if (Test-M2AntivirusBlock -ErrorRecord $_) {
-                throw (New-M2AntivirusError -Path $Destination -ErrorRecord $_)
+        for ($index = 0; $index -lt $sources.Count; $index++) {
+            if ($index -gt 0 -and -not $noticeShown) {
+                Write-M2MirrorNotice
+                $noticeShown = $true
             }
-            if ($attempt -ge $attempts) { throw }
-            Write-Warning ('Pobieranie nie powiodlo sie (proba ' + $attempt + ' z ' + $attempts + '): ' + $_.Exception.Message + ' - ponawiam za 5 s.')
-            Remove-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 5
+            try {
+                Invoke-WebRequest -Uri $sources[$index] -OutFile $Destination -UseBasicParsing -TimeoutSec $timeout
+                if ($expected) {
+                    $actual = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToUpperInvariant()
+                    if ($actual -ne $expected) {
+                        throw "Błędna suma SHA-256 pliku z $($sources[$index]). Oczekiwano $expected, otrzymano $actual."
+                    }
+                }
+                if ($index -gt 0) { Write-Host "Pobrano z serwera zapasowego: $($sources[$index])" -ForegroundColor Yellow }
+                return
+            }
+            catch {
+                if (Test-M2AntivirusBlock -ErrorRecord $_) {
+                    throw (New-M2AntivirusError -Path $Destination -ErrorRecord $_)
+                }
+                $lastError = $_
+                Remove-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
+                Write-Warning ('Pobieranie z ' + $sources[$index] + ' nie powiodlo sie (proba ' + $attempt + ' z ' + $attempts + '): ' + $_.Exception.Message)
+            }
         }
+        if ($attempt -ge $attempts) { throw $lastError }
+        Write-Warning 'Ponawiam za 5 s.'
+        Start-Sleep -Seconds 5
     }
 }
 
@@ -723,6 +1102,7 @@ function Test-M2ProtectedPath {
         'linux-port\docker\.env',
         '.m2launcher.json',
         '.m2launcher-state.json',
+        '.m2launcher-client-hashes.json',
         '.m2install.json',
         # COOP: the friends' accounts and passwords, the hosting state.
         '.m2coop.json',
@@ -770,7 +1150,7 @@ function Invoke-M2PackageUpdate {
 
     try {
         $downloadWatch = [Diagnostics.Stopwatch]::StartNew()
-        Get-M2Download -Source $url -Destination $download
+        Get-M2Download -Source $url -Destination $download -ExpectedSha256 $expectedHash
         $actualHash = (Get-FileHash -LiteralPath $download -Algorithm SHA256).Hash.ToUpperInvariant()
         if ($actualHash -ne $expectedHash) {
             throw "Błędna suma SHA-256. Oczekiwano $expectedHash, otrzymano $actualHash."
@@ -796,11 +1176,19 @@ function Invoke-M2PackageUpdate {
             if (-not $destination.StartsWith($target + '\', [StringComparison]::OrdinalIgnoreCase)) {
                 throw "Niedozwolona ścieżka aktualizacji: $relative"
             }
+            $existed = Test-Path -LiteralPath $destination -PathType Leaf
+            # MT2009_PLUS_UPDATE_SKIP_SAME_V1: a file already identical on disk
+            # is neither backed up nor written. Most of a package is unchanged
+            # (icons, quests), and each needless copy was one more chance to
+            # meet a file Docker Desktop's sharing or the antivirus holds open -
+            # "Proces nie moze uzyskac dostepu do pliku 30065.png" on an icon
+            # that had not changed since September (3 October).
+            if ($existed -and (Test-M2SameFile -Source $file.FullName -Destination $destination)) { continue }
             $changes += [pscustomobject]@{
                 Relative = $relative
                 Source = $file.FullName
                 Destination = $destination
-                Existed = Test-Path -LiteralPath $destination -PathType Leaf
+                Existed = $existed
             }
         }
 
@@ -1799,6 +2187,429 @@ function Test-M2DockerRunning {
     finally { $ErrorActionPreference = $previous }
 }
 
+# MT2009_PLUS_LAUNCHER_LOWMEM_UPDATE_V1: Windows' own count of its memory, for
+# the update that saves and stops a running world first when the PC is short
+# of it (Stop-WorldForUpdate, Metin2-Launcher.ps1).
+function Get-M2WindowsMemory {
+    # In bytes: the memory, what is free of it, and what is left of the commit
+    # limit (RAM and the page file) - the number whose end is Windows' "too
+    # little memory" window. $null when Windows does not answer. Docker's
+    # machine (vmmem) holds what its containers took and gives it back slowly
+    # or never while it runs, so a world of four channels is gigabytes of this
+    # PC's memory that stopping the containers alone does not return.
+    try {
+        $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+        return [pscustomobject]@{
+            TotalBytes = [long]$os.TotalVisibleMemorySize * 1KB
+            FreeBytes = [long]$os.FreePhysicalMemory * 1KB
+            CommitFreeBytes = [long]$os.FreeVirtualMemory * 1KB
+        }
+    }
+    catch { return $null }
+}
+
+function Test-M2UpdateMemoryLow {
+    <#
+        Pure: whether a server update should first save the running world and
+        give Docker's memory back (2 October: with more channels, updating a
+        running world ended in Windows' "out of memory" error, and the player
+        stopped the server and Docker by hand, updated and started again). Low
+        is less free memory than 2 GB or 15% of the whole, whichever is more,
+        or less than 2 GB left of the commit limit. No answer from Windows (0)
+        is not low.
+    #>
+    param([long]$TotalBytes = 0, [long]$FreeBytes = 0, [long]$CommitFreeBytes = -1)
+    if ($TotalBytes -le 0 -or $FreeBytes -lt 0) { return $false }
+    $floor = [Math]::Max([long]2GB, [long]($TotalBytes * 0.15))
+    if ($FreeBytes -lt $floor) { return $true }
+    if ($CommitFreeBytes -ge 0 -and $CommitFreeBytes -lt [long]2GB) { return $true }
+    return $false
+}
+
+# MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: how much memory Docker's machine has, and
+# the .wslconfig that gives it more. A 2.18.1 -> 2.19.0 update (3 October)
+# wrote the new files and then could not build them: Docker Desktop's WSL
+# machine had 3.7 GB in all (half of an 8 GB PC, WSL's default), the game
+# core's compile ran out of it ("Killed signal terminated program cc1plus" on
+# playerbot_manager.o), the retry from GRAJ died the same way, and the server
+# did not start. What helped was %USERPROFILE%\.wslconfig with [wsl2]
+# memory=..., wsl --shutdown and Docker Desktop started again. The update, the
+# build GRAJ finishes and the launcher's start now say so before the build,
+# with that file ready to write.
+#
+# "Less than 6 GB": the machine shows a little less than .wslconfig gives it
+# (memory=6GB is about 5.8 GB of MemTotal), so the line is 5.5 GB - and a
+# machine already at what this PC can spare (memory=5GB on 8 GB) is not
+# warned about again.
+$script:M2_DOCKER_RAM_MIN_BYTES = [long](5.5 * 1GB)
+
+function Get-M2WslConfigPath {
+    $profileDir = ''
+    try { $profileDir = [Environment]::GetFolderPath('UserProfile') } catch { }
+    if (-not $profileDir) { $profileDir = [string]$env:USERPROFILE }
+    if (-not $profileDir) { return '' }
+    return (Join-Path $profileDir '.wslconfig')
+}
+
+function ConvertFrom-M2WslMemoryValue {
+    # A .wslconfig size - 8GB, 8G, 8192MB, a bare number of bytes - in GB, or
+    # $null when it is not one.
+    param([AllowEmptyString()][string]$Value)
+    $text = ([string]$Value).Trim().Trim('"').Trim()
+    $match = [regex]::Match($text, '^(?<n>\d+(?:[.,]\d+)?)\s*(?<u>[KMGT]?)B?$', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if (-not $match.Success) { return $null }
+    $number = [double]::Parse(($match.Groups['n'].Value -replace ',', '.'), [Globalization.CultureInfo]::InvariantCulture)
+    switch ($match.Groups['u'].Value.ToUpperInvariant()) {
+        'T' { return ($number * 1024) }
+        'G' { return $number }
+        'M' { return ($number / 1024) }
+        'K' { return ($number / 1024 / 1024) }
+    }
+    return ($number / 1GB)
+}
+
+function Get-M2WslConfigMemory {
+    # Pure: memory= of the [wsl2] section of a .wslconfig's text, as
+    # @{ Raw; Gb }, or $null when it says nothing. The last one counts.
+    param([AllowEmptyString()][string]$Content)
+    $section = ''
+    $found = $null
+    foreach ($line in @(([string]$Content) -split '\r?\n')) {
+        $trim = $line.Trim()
+        if ($trim -match '^\[([^\]]+)\]') { $section = $Matches[1].Trim(); continue }
+        if ($section -ne 'wsl2') { continue }
+        if ($trim -match '^memory\s*=\s*([^#;]*)') { $found = $Matches[1].Trim() }
+    }
+    if ($null -eq $found) { return $null }
+    return [pscustomobject]@{ Raw = $found; Gb = (ConvertFrom-M2WslMemoryValue -Value $found) }
+}
+
+function Set-M2WslConfigMemoryText {
+    <#
+        Pure: a .wslconfig's text with memory=<Value> in its [wsl2] section and
+        every other line as it was - the line that said memory= is rewritten,
+        a section without one gets it right under its header, and a file
+        without the section gets it at the end. The file's own line ends are
+        kept (CRLF for a new one).
+    #>
+    param(
+        [AllowEmptyString()][string]$Content,
+        [Parameter(Mandatory = $true)][string]$Value
+    )
+    $text = [string]$Content
+    $newline = "`r`n"
+    if ($text -and $text -notmatch "`r`n" -and $text -match "`n") { $newline = "`n" }
+    $lines = New-Object System.Collections.Generic.List[string]
+    if ($text.Length -gt 0) {
+        foreach ($line in ($text -split '\r?\n')) { $lines.Add($line) }
+        if ($lines.Count -gt 0 -and $lines[$lines.Count - 1] -eq '') { $lines.RemoveAt($lines.Count - 1) }
+    }
+    $section = ''
+    $header = -1
+    $replaced = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $trim = $lines[$i].Trim()
+        if ($trim -match '^\[([^\]]+)\]') {
+            $section = $Matches[1].Trim()
+            if ($section -eq 'wsl2' -and $header -lt 0) { $header = $i }
+            continue
+        }
+        if ($section -eq 'wsl2' -and $trim -match '^memory\s*=') {
+            $lines[$i] = "memory=$Value"
+            $replaced = $true
+        }
+    }
+    if (-not $replaced) {
+        if ($header -ge 0) { $lines.Insert($header + 1, "memory=$Value") }
+        else {
+            if ($lines.Count -gt 0 -and $lines[$lines.Count - 1].Trim()) { $lines.Add('') }
+            $lines.Add('[wsl2]')
+            $lines.Add("memory=$Value")
+        }
+    }
+    return (($lines.ToArray() -join $newline) + $newline)
+}
+
+function Set-M2WslConfigMemory {
+    <#
+        Writes memory=<MemoryGb>GB into the [wsl2] section of
+        %USERPROFILE%\.wslconfig and nothing else of it: the old file is
+        copied to .wslconfig.bak first (.wslconfig.bak-<time> when a .bak is
+        already there - the first one is the player's own). Always written as
+        UTF-8 without a BOM: WSL's parser chokes on a BOM or UTF-16, so a file
+        that had one is read in its own encoding and written back without it
+        (the .bak keeps the original bytes). A value already as large is left
+        alone (Changed = $false). Only ever called after the player asked.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][ValidateRange(2, 512)][int]$MemoryGb,
+        [string]$Path = ''
+    )
+    if (-not $Path) { $Path = Get-M2WslConfigPath }
+    if (-not $Path) { throw 'Nie znaleziono folderu profilu użytkownika (%USERPROFILE%), więc nie wiem, gdzie zapisać .wslconfig.' }
+    $encoding = New-Object System.Text.UTF8Encoding($false)
+    $preambleLength = 0
+    $content = ''
+    $exists = Test-Path -LiteralPath $Path -PathType Leaf
+    if ($exists) {
+        $bytes = [IO.File]::ReadAllBytes($Path)
+        if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+            $encoding = New-Object System.Text.UTF8Encoding($true)
+        }
+        elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { $encoding = New-Object System.Text.UnicodeEncoding($false, $true) }
+        elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) { $encoding = New-Object System.Text.UnicodeEncoding($true, $true) }
+        $preambleLength = ([byte[]]$encoding.GetPreamble()).Length
+        $content = $encoding.GetString($bytes, $preambleLength, $bytes.Length - $preambleLength)
+    }
+    $previous = Get-M2WslConfigMemory -Content $content
+    $previousRaw = if ($previous) { [string]$previous.Raw } else { '' }
+    if ($previous -and $null -ne $previous.Gb -and $previous.Gb -ge $MemoryGb) {
+        return [pscustomobject]@{ Path = $Path; Backup = ''; Changed = $false; Previous = $previousRaw; Value = $previousRaw }
+    }
+    $value = '{0}GB' -f $MemoryGb
+    $updated = Set-M2WslConfigMemoryText -Content $content -Value $value
+    $backup = ''
+    if ($exists) {
+        $backup = $Path + '.bak'
+        if (Test-Path -LiteralPath $backup) { $backup = $Path + '.bak-' + (Get-Date -Format 'yyyyMMdd-HHmmss') }
+        Copy-Item -LiteralPath $Path -Destination $backup -Force -ErrorAction Stop
+    }
+    [IO.File]::WriteAllText($Path, $updated, (New-Object System.Text.UTF8Encoding($false)))
+    return [pscustomobject]@{ Path = $Path; Backup = $backup; Changed = $true; Previous = $previousRaw; Value = $value }
+}
+
+function Get-M2RecommendedDockerMemoryGb {
+    # Pure: what to give Docker's machine on a PC with this much memory, as
+    # Windows counts it (a little under the label: 16 GB shows as 15.8, less
+    # where a graphics chip takes its share). 0 is "not known".
+    param([long]$PhysicalBytes = 0)
+    if ($PhysicalBytes -le 0) { return 6 }
+    $gb = $PhysicalBytes / 1GB
+    if ($gb -ge 13.5) { return 8 }
+    if ($gb -ge 10) { return 6 }
+    if ($gb -ge 6.5) { return 5 }
+    return [int][Math]::Max(2, [Math]::Floor($gb * 0.6))
+}
+
+function Test-M2DockerMemoryLow {
+    # Pure: whether Docker's machine is short of memory for the build - under
+    # the 5.5 GB line, and under what this PC could give it (90% of the
+    # recommendation, the room the kernel takes from it). 0 is "not known",
+    # which is not low.
+    param([long]$MemTotalBytes = 0, [int]$RecommendedGb = 0)
+    if ($MemTotalBytes -le 0) { return $false }
+    if ($MemTotalBytes -ge $script:M2_DOCKER_RAM_MIN_BYTES) { return $false }
+    if ($RecommendedGb -gt 0 -and $MemTotalBytes -ge [long]($RecommendedGb * 1GB * 0.9)) { return $false }
+    return $true
+}
+
+function Get-M2DockerDesktopSettings {
+    # Docker Desktop's own settings (settings-store.json, settings.json in
+    # older ones): whether it runs on WSL 2 and the memory it gives a Hyper-V
+    # machine. $null when there are none.
+    $appData = ''
+    try { $appData = [Environment]::GetFolderPath('ApplicationData') } catch { }
+    if (-not $appData) { return $null }
+    foreach ($name in @('settings-store.json', 'settings.json')) {
+        $path = Join-Path (Join-Path $appData 'Docker') $name
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+        try {
+            $settings = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+            $wsl = $null
+            $memoryMiB = 0
+            foreach ($property in @($settings.PSObject.Properties)) {
+                if ($property.Name -match '(?i)^wslEngineEnabled$') { $wsl = [bool]$property.Value }
+                elseif ($property.Name -match '(?i)^memoryMiB$') { try { $memoryMiB = [long]$property.Value } catch { } }
+            }
+            return [pscustomobject]@{ WslEngine = $wsl; MemoryMiB = $memoryMiB }
+        }
+        catch { }
+    }
+    return $null
+}
+
+function Get-M2DockerVmMemory {
+    <#
+        What Docker's machine has: MemTotal from `docker info' and the backend
+        it runs on - 'wsl' (the WSL 2 kernel, so .wslconfig decides), 'hyperv'
+        (Docker Desktop on its own machine: Settings > Resources) or 'other'.
+        With the engine down it is estimated from Docker Desktop's settings
+        and .wslconfig (WSL gives half of the PC's memory unless .wslconfig
+        says otherwise), Estimated = $true; Known = $false when not even that.
+    #>
+    param([long]$PhysicalBytes = 0, [string]$WslConfigPath = '', [int]$TimeoutMilliseconds = 6000)
+    $result = [pscustomobject]@{
+        Known = $false; Running = $false; Estimated = $false; MemTotalBytes = [long]0
+        Backend = ''; OperatingSystem = ''; KernelVersion = ''
+    }
+    $exe = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { 'docker.exe' } else { 'docker' }
+    $process = $null
+    try {
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $startInfo.FileName = $exe
+        $startInfo.Arguments = 'info --format "{{.MemTotal}}|{{.OperatingSystem}}|{{.KernelVersion}}"'
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.RedirectStandardError = $true
+        $process = [Diagnostics.Process]::Start($startInfo)
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        if ($process.WaitForExit($TimeoutMilliseconds)) {
+            $text = [string]$stdout.GetAwaiter().GetResult()
+            [void]$stderr.GetAwaiter().GetResult()
+            $line = @($text -split '\r?\n' | Where-Object { $_ -match '^\s*\d+\|' }) | Select-Object -First 1
+            if ($process.ExitCode -eq 0 -and $line) {
+                $parts = ([string]$line).Trim() -split '\|', 3
+                $result.Running = $true
+                $result.MemTotalBytes = [long]$parts[0]
+                $result.OperatingSystem = if ($parts.Count -gt 1) { $parts[1].Trim() } else { '' }
+                $result.KernelVersion = if ($parts.Count -gt 2) { $parts[2].Trim() } else { '' }
+                $result.Known = $result.MemTotalBytes -gt 0
+                if ($result.KernelVersion -match '(?i)microsoft-standard-WSL2|WSL2') { $result.Backend = 'wsl' }
+                elseif ($result.OperatingSystem -match '(?i)Docker Desktop') { $result.Backend = 'hyperv' }
+                else { $result.Backend = 'other' }
+                return $result
+            }
+        }
+        else { try { $process.Kill() } catch { } }
+    }
+    catch { }
+    finally { if ($process) { $process.Dispose() } }
+
+    # The engine is down (or did not answer): what Docker Desktop will start with.
+    $settings = Get-M2DockerDesktopSettings
+    if (-not $settings) { return $result }
+    if ($settings.WslEngine -eq $false) {
+        if ($settings.MemoryMiB -gt 0) {
+            $result.Known = $true; $result.Estimated = $true; $result.Backend = 'hyperv'
+            $result.MemTotalBytes = [long]$settings.MemoryMiB * 1MB
+        }
+        return $result
+    }
+    $result.Backend = 'wsl'
+    if (-not $WslConfigPath) { $WslConfigPath = Get-M2WslConfigPath }
+    $configured = $null
+    if ($WslConfigPath -and (Test-Path -LiteralPath $WslConfigPath -PathType Leaf)) {
+        try { $configured = Get-M2WslConfigMemory -Content ([IO.File]::ReadAllText($WslConfigPath)) } catch { }
+    }
+    if ($configured -and $null -ne $configured.Gb -and $configured.Gb -gt 0) {
+        $result.MemTotalBytes = [long]($configured.Gb * 1GB)
+    }
+    elseif ($PhysicalBytes -gt 0) { $result.MemTotalBytes = [long]($PhysicalBytes / 2) }
+    $result.Known = $result.MemTotalBytes -gt 0
+    $result.Estimated = $result.Known
+    return $result
+}
+
+function Format-M2GbText {
+    param([double]$Gb)
+    return ([Math]::Round($Gb, 1)).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture).Replace('.', ',')
+}
+
+function Get-M2DockerMemoryAdvice {
+    <#
+        The whole answer for the launcher's warnings: whether Docker's machine
+        is short (Low), what to give it on this PC (RecommendedGb, from
+        Windows' own count of its memory - Get-M2WindowsMemory), whether the
+        launcher can write it itself (CanAutoFix: the WSL 2 backend, whose
+        memory is .wslconfig's), and the Polish text - Summary (a line),
+        Instructions (the steps with the file's exact content) and Text (both).
+        Vm and PhysicalBytes are asked for when not given. Instructions are
+        there even when nothing is low: the message after a build killed for
+        want of memory uses them too. One line per step, and no step says
+        "wsl" with "error", "failed" or "exit status" after it on its line
+        (Get-M2LauncherErrorGuidance reads whole outputs).
+    #>
+    param($Vm = $null, [long]$PhysicalBytes = -1, [string]$WslConfigPath = '')
+    if ($PhysicalBytes -lt 0) {
+        $PhysicalBytes = 0
+        $windows = Get-M2WindowsMemory
+        if ($windows) { $PhysicalBytes = [long]$windows.TotalBytes }
+    }
+    if (-not $WslConfigPath) { $WslConfigPath = Get-M2WslConfigPath }
+    if (-not $Vm) { $Vm = Get-M2DockerVmMemory -PhysicalBytes $PhysicalBytes -WslConfigPath $WslConfigPath }
+    $recommended = Get-M2RecommendedDockerMemoryGb -PhysicalBytes $PhysicalBytes
+    $low = $false
+    if ($Vm.Known) { $low = Test-M2DockerMemoryLow -MemTotalBytes ([long]$Vm.MemTotalBytes) -RecommendedGb $recommended }
+
+    $current = $null
+    if ($WslConfigPath -and (Test-Path -LiteralPath $WslConfigPath -PathType Leaf)) {
+        try { $current = Get-M2WslConfigMemory -Content ([IO.File]::ReadAllText($WslConfigPath)) } catch { }
+    }
+    $currentRaw = if ($current) { [string]$current.Raw } else { '' }
+    $alreadyEnough = [bool]($current -and $null -ne $current.Gb -and $current.Gb -ge $recommended)
+    $backend = [string]$Vm.Backend
+    $canFix = [bool]($backend -eq 'wsl' -and $WslConfigPath)
+
+    $memText = if ($Vm.Known) { Format-M2GbText -Gb ($Vm.MemTotalBytes / 1GB) } else { '?' }
+    $physText = if ($PhysicalBytes -gt 0) { Format-M2GbText -Gb ($PhysicalBytes / 1GB) } else { '' }
+    $notes = @()
+    if ($physText) { $notes += ('komputer ma {0} GB' -f $physText) }
+    if ($Vm.Estimated) { $notes += 'szacunek - silnik Dockera jest teraz zatrzymany' }
+    $noteText = if ($notes.Count -gt 0) { ' (' + ($notes -join '; ') + ')' } else { '' }
+    $summary = ('Docker ma tylko {0} GB pamięci RAM{1}. Do budowy serwera zalecane jest co najmniej 6 GB - z mniejszą ilością kompilacja rdzenia gry potrafi zostać przerwana z braku pamięci i serwer po aktualizacji nie wystartuje.' -f $memText, $noteText)
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $finish = 'Kliknij GRAJ (albo ponów aktualizację) - launcher dokończy budowanie bez ponownego pobierania.'
+    if ($backend -eq 'hyperv') {
+        $lines.Add('Jak dać Dockerowi więcej pamięci (Docker Desktop na Hyper-V, bez WSL 2 - tu plik .wslconfig nic nie zmienia):')
+        $lines.Add('1. Zamknij grę (klienta Metin2).')
+        $lines.Add('2. Otwórz Docker Desktop → Settings (koło zębate) → Resources → Advanced.')
+        $lines.Add(('3. Ustaw Memory na {0} GB i kliknij „Apply & restart”.' -f $recommended))
+        $lines.Add('4. Poczekaj, aż Docker Desktop pokaże „Engine running”.')
+        $lines.Add('5. ' + $finish)
+    }
+    else {
+        if ($backend -eq 'wsl') { $lines.Add('Jak dać Dockerowi więcej pamięci (Docker Desktop z WSL 2):') }
+        else { $lines.Add('Jak dać Dockerowi więcej pamięci (Docker Desktop z WSL 2 - w Docker Desktop na Hyper-V zamiast tego: Settings → Resources → Advanced → Memory):') }
+        $lines.Add(('1. Otwórz w Notatniku plik {0} (jeśli go nie ma, utwórz go - nazwa zaczyna się od kropki i nie ma końcówki .txt).' -f $WslConfigPath))
+        $lines.Add('2. Wpisz w nim te dwa wiersze (inne ustawienia, jeśli już tam są, zostaw):')
+        $lines.Add('   [wsl2]')
+        $lines.Add(('   memory={0}GB' -f $recommended))
+        $lines.Add('3. Zamknij grę (klienta Metin2).')
+        $lines.Add('4. Zamknij Docker Desktop (ikona w zasobniku → Quit Docker Desktop), otwórz PowerShell i wpisz: wsl --shutdown')
+        $lines.Add('5. Uruchom ponownie Docker Desktop i poczekaj na „Engine running”.')
+        $lines.Add('6. ' + $finish)
+        if ($currentRaw) {
+            if ($alreadyEnough) { $lines.Add(('Plik .wslconfig ma już memory={0}, ale Docker jeszcze tego nie widzi - wystarczą kroki 3-6.' -f $currentRaw)) }
+            else { $lines.Add(('Plik .wslconfig ma teraz memory={0} - zmień tę wartość na {1}GB.' -f $currentRaw, $recommended)) }
+        }
+    }
+    if ($physText) {
+        if ($recommended -ge 6) { $lines.Add(('Ten komputer ma {0} GB RAM - zalecane {1} GB dla Dockera.' -f $physText, $recommended)) }
+        elseif ($recommended -eq 5) { $lines.Add(('Ten komputer ma {0} GB RAM, więc Dockerowi można dać ok. 5 GB, żeby został RAM dla Windowsa. Budowa potrwa dłużej - na czas aktualizacji zamknij przeglądarkę i inne programy.' -f $physText)) }
+        else { $lines.Add(('Ten komputer ma tylko {0} GB RAM - {1} GB to najwięcej, co można bezpiecznie dać Dockerowi; budowa serwera może się mimo to nie udać.' -f $physText, $recommended)) }
+    }
+    $instructions = $lines.ToArray() -join [Environment]::NewLine
+    return [pscustomobject]@{
+        Known = [bool]$Vm.Known
+        Low = [bool]$low
+        Running = [bool]$Vm.Running
+        Estimated = [bool]$Vm.Estimated
+        MemTotalBytes = [long]$Vm.MemTotalBytes
+        MemText = $memText
+        PhysicalBytes = [long]$PhysicalBytes
+        RecommendedGb = [int]$recommended
+        Backend = $backend
+        WslConfigPath = $WslConfigPath
+        WslConfigMemory = $currentRaw
+        WslConfigEnough = $alreadyEnough
+        CanAutoFix = $canFix
+        Summary = $summary
+        Instructions = $instructions
+        Text = ($summary + [Environment]::NewLine + [Environment]::NewLine + $instructions)
+    }
+}
+
+function Test-M2BuildOutOfMemory {
+    # Pure: whether a build's output is the compiler killed for want of memory
+    # (the kernel's OOM killer inside Docker's machine) or BuildKit saying it
+    # ran out of resources.
+    param([AllowEmptyString()][string]$Text)
+    return ([string]$Text -match '(?i)Killed signal terminated program|internal compiler error: Killed|ResourceExhausted|virtual memory exhausted|cannot allocate memory')
+}
+
 function Get-M2DbDataVolumes {
     $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     try {
@@ -2556,6 +3367,8 @@ Export-ModuleMember -Function @(
     'Get-M2LauncherConfig',
     'Save-M2LauncherConfig',
     'Get-M2UpdateManifest',
+    'Get-M2UpdateSource',
+    'Get-M2ManifestFromMirror',
     'Invoke-M2PackageUpdate',
     'New-M2SupportBundle',
     'Send-M2SupportBundle',
@@ -2577,6 +3390,17 @@ Export-ModuleMember -Function @(
     'Get-M2RequiredGameContext',
     'Restore-M2EmptyGameContextDirs',
     'Test-M2DockerRunning',
+    'Get-M2WindowsMemory',
+    'Test-M2UpdateMemoryLow',
+    'Get-M2WslConfigPath',
+    'Get-M2WslConfigMemory',
+    'Set-M2WslConfigMemoryText',
+    'Set-M2WslConfigMemory',
+    'Get-M2RecommendedDockerMemoryGb',
+    'Test-M2DockerMemoryLow',
+    'Get-M2DockerVmMemory',
+    'Get-M2DockerMemoryAdvice',
+    'Test-M2BuildOutOfMemory',
     'Sync-M2PlayerbotOverlay',
     'Set-M2PlayerbotsVersionEnvironment',
     'Invoke-M2EnginePatches',
@@ -2584,6 +3408,13 @@ Export-ModuleMember -Function @(
     'Test-M2ClientExeOld',
     'Get-M2ClientExeComponent',
     'Repair-M2ClientExecutables',
+    'Get-M2ClientFolder',
+    'Compare-M2Version',
+    'Get-M2ClientFileList',
+    'ConvertTo-M2ClientFileList',
+    'Test-M2ClientFilesMatch',
+    'Save-M2RecordedClientVersion',
+    'Resolve-M2InstalledClientVersion',
     'Protect-M2SessionLogLine',
     'Protect-M2LogFile'
 )

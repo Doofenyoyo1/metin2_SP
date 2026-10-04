@@ -47,6 +47,12 @@ z ItemShopu, poprawki silnika (`server-patches/`), własny kanał aktualizacji
 i dokumentacja – szczegóły w README.md i CHANGELOG.md. Dobrowolne wsparcie
 projektu nie daje nic w grze.
 
+Systemy autorstwa **Digi Rasta** (paczka „nowy-system” v0.16) – Rytuał
+Przebudzenia, kamienie duchowe do +9 i koń do 30 poziomu – są przeniesione do
+MT2009 PLUS jako nasz kod (`server-patches/digirasta`,
+`playerbot_awakening.h`, `playerbot_horse30.h`, questy `konie` i
+`horse_inventory`). Autor: Digi Rasta.
+
 Poniżej zasady projektu oryginalnego, które obowiązują także MT2009 PLUS.
 
 ---

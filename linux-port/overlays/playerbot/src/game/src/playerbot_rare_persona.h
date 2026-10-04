@@ -175,7 +175,7 @@ namespace
 				return (int)ch->GetLevel() >= PLAYERBOT_WEDKARZ_MIN_LEVEL &&
 						(CountPlayerBotRods(ch) > 0 || IsPlayerBotHoldingRod(ch)) &&
 						PlayerBotHasFishedBefore(ch) && CanPlayerBotUseFishingRod(ch) &&
-						!IsPlayerBotOnBattleHorseTrial(ch) && !IsPlayerBotOnMilitaryHorseTrial(ch);
+						!IsPlayerBotOnAnyHorseTrial(ch) /* MT2009_PLUS_HORSE30_V1 */;
 			case playerbot_persona::RARE_HAZ_MLODSZY:
 			case playerbot_persona::RARE_HAZ_STARSZY:
 			case playerbot_persona::RARE_HAZ_NACZELNY:

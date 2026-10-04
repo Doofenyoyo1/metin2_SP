@@ -156,10 +156,27 @@ done
 # than a world that refuses to start at all.
 if [ -n "${M2_DB_ROOT_PASSWORD:-}" ]; then
     repair_log=/tmp/playerbot-repair.log
-    if MYSQL_PWD="$M2_DB_ROOT_PASSWORD" mariadb-check \
-            --protocol=tcp --host="$M2_DB_HOST" --port="$M2_DB_PORT" --user=root \
-            --auto-repair --fast --silent \
-            --databases account common player log >"$repair_log" 2>&1; then
+    # MT2009_PLUS_FAST_START_V1: the MyISAM tables only - the ones an unclean
+    # stop marks crashed. InnoDB recovers itself, and mariadb-check gave each of
+    # its 150-odd tables a full CHECK (--fast is MyISAM's), 25 of the 26 seconds
+    # this step took on every start; the MyISAM twelve take some 40 ms.
+    myisam_ok=1
+    : >"$repair_log"
+    for check_db in account common player log; do
+        check_tables=$(MYSQL_PWD="$M2_DB_ROOT_PASSWORD" mariadb --protocol=tcp --host="$M2_DB_HOST" \
+                --port="$M2_DB_PORT" --user=root --batch --skip-column-names -e \
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = '$check_db' AND engine = 'MyISAM';" 2>>"$repair_log") \
+            || { myisam_ok=0; continue; }
+        [ -n "$check_tables" ] || continue
+        # shellcheck disable=SC2086
+        MYSQL_PWD="$M2_DB_ROOT_PASSWORD" mariadb-check \
+                --protocol=tcp --host="$M2_DB_HOST" --port="$M2_DB_PORT" --user=root \
+                --auto-repair --fast --silent \
+                "$check_db" $check_tables >>"$repair_log" 2>&1 || myisam_ok=0
+    done
+    # The client's own notices (the SSL one on every connection) are not repairs.
+    { grep -v -e 'ssl-verify-server-cert' -e '^$' "$repair_log" || true; } >"$repair_log.f" 2>/dev/null; mv -f "$repair_log.f" "$repair_log"
+    if [ "$myisam_ok" = 1 ]; then
         if [ -s "$repair_log" ]; then
             echo "[playerbot-migrate] repaired tables left crashed by an unclean stop:"
             head -20 "$repair_log"
@@ -167,6 +184,24 @@ if [ -n "${M2_DB_ROOT_PASSWORD:-}" ]; then
     else
         echo "[playerbot-migrate] WARNING: table check failed; continuing" >&2
         head -5 "$repair_log" >&2
+    fi
+fi
+
+# MT2009_PLUS_FAST_START_V1: a start with nothing new skips the rest. The
+# fingerprint is every file this step reads (/opt/playerbot), this script and
+# the M2_/PLAYERBOT_ settings; it is written at the very end of a full run and
+# trusted for a day at most, so a run that went wrong somewhere is repeated by
+# the next day's start anyway. A fresh world has no fingerprint and runs it
+# all. The table check above runs every time. PLAYERBOT_MIGRATE_ALWAYS=1 turns
+# the skip off.
+migrate_fp=$( { cat "$0" 2>/dev/null; find /opt/playerbot -type f 2>/dev/null | LC_ALL=C sort | xargs cat 2>/dev/null; \
+    env | grep -E '^(M2_|PLAYERBOT_)' | LC_ALL=C sort; } | sha256sum | cut -c1-64)
+db -e "CREATE TABLE IF NOT EXISTS common.playerbot_migrate_state (id TINYINT UNSIGNED NOT NULL PRIMARY KEY, fingerprint CHAR(64) NOT NULL, done_at DATETIME NOT NULL) ENGINE=InnoDB;" >/dev/null 2>&1 || true
+if [ "${PLAYERBOT_MIGRATE_ALWAYS:-0}" != "1" ]; then
+    migrate_seen=$(db -e "SELECT fingerprint FROM common.playerbot_migrate_state WHERE id = 1 AND done_at > NOW() - INTERVAL 1 DAY;" 2>/dev/null || true)
+    if [ -n "$migrate_fp" ] && [ "$migrate_seen" = "$migrate_fp" ]; then
+        echo "[playerbot-migrate] nothing changed since the last full run (fingerprint $(printf %s "$migrate_fp" | cut -c1-12)) - skipping the rest"
+        exit 0
     fi
 fi
 
@@ -396,6 +431,26 @@ db -e "ALTER TABLE player.playerbot_guild ADD COLUMN IF NOT EXISTS build_fund BI
     || echo "playerbot-migrate: could not add the building fund to player.playerbot_guild" >&2
 db -e "CREATE TABLE IF NOT EXISTS player.playerbot_guild_contribution (id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, guild_id INT UNSIGNED NOT NULL, pid INT UNSIGNED NOT NULL, amount BIGINT NOT NULL, purpose VARCHAR(24) NOT NULL, at DATETIME NOT NULL, KEY guild_at (guild_id, at)) ENGINE=InnoDB;" \
     || echo "playerbot-migrate: could not create player.playerbot_guild_contribution" >&2
+# MT2009_PLUS_LEGENDS_V1: the System Legend (playerbot_legends.h) - a bot's
+# tier for good (1 Wyrozniajacy sie, 2 Specjalny, 3 Chodzaca Legenda, 4 Czempion
+# Krolestwa), its reputation and counters, and the events the panels' ranking
+# page shows. The core creates both as well. Idempotent.
+db -e "CREATE TABLE IF NOT EXISTS player.playerbot_legend (pid INT UNSIGNED NOT NULL PRIMARY KEY, tier TINYINT UNSIGNED NOT NULL DEFAULT 0, empire TINYINT UNSIGNED NOT NULL DEFAULT 0, reputation INT NOT NULL DEFAULT 0, player_kills INT UNSIGNED NOT NULL DEFAULT 0, player_deaths INT UNSIGNED NOT NULL DEFAULT 0, wars_won INT UNSIGNED NOT NULL DEFAULT 0, wars_lost INT UNSIGNED NOT NULL DEFAULT 0, boss_kills INT UNSIGNED NOT NULL DEFAULT 0, achievements INT UNSIGNED NOT NULL DEFAULT 0, champion_count INT UNSIGNED NOT NULL DEFAULT 0, since DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, tier_since DATETIME NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, KEY tier_empire (tier, empire), KEY reputation_idx (reputation)) ENGINE=InnoDB;" \
+    || echo "playerbot-migrate: could not create player.playerbot_legend" >&2
+db -e "CREATE TABLE IF NOT EXISTS player.playerbot_legend_event (id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, pid INT UNSIGNED NOT NULL DEFAULT 0, empire TINYINT UNSIGNED NOT NULL DEFAULT 0, kind VARCHAR(24) NOT NULL DEFAULT '', text VARCHAR(255) NOT NULL DEFAULT '', KEY at_idx (at)) ENGINE=InnoDB;" \
+    || echo "playerbot-migrate: could not create player.playerbot_legend_event" >&2
+# MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking and its titles
+# (playerbot_weekly_rank.h; on the basis of the Arezzo files' weekly ranking) -
+# the settings' row (on/off, season length in days, the season and its end as
+# unix time, 0 = the game sets the next Monday 00:00), the season's counts of
+# every character (players and bots) and the title holders of each season
+# (season = the season the title is held in). The core creates them as well.
+# Idempotent.
+db -e "CREATE TABLE IF NOT EXISTS player.weekly_rank_state (id TINYINT UNSIGNED NOT NULL PRIMARY KEY, enabled TINYINT UNSIGNED NOT NULL DEFAULT 1, season_days TINYINT UNSIGNED NOT NULL DEFAULT 7, season INT UNSIGNED NOT NULL DEFAULT 1, season_start INT UNSIGNED NOT NULL DEFAULT 0, season_end INT UNSIGNED NOT NULL DEFAULT 0) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS player.weekly_rank_score (season INT UNSIGNED NOT NULL, cat TINYINT UNSIGNED NOT NULL, pid INT UNSIGNED NOT NULL, value INT UNSIGNED NOT NULL DEFAULT 0, is_bot TINYINT UNSIGNED NOT NULL DEFAULT 0, PRIMARY KEY (season, cat, pid), KEY rank_idx (season, cat, value)) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS player.weekly_rank_title (season INT UNSIGNED NOT NULL, cat TINYINT UNSIGNED NOT NULL, place TINYINT UNSIGNED NOT NULL, pid INT UNSIGNED NOT NULL, name VARCHAR(24) NOT NULL DEFAULT '', level SMALLINT UNSIGNED NOT NULL DEFAULT 0, empire TINYINT UNSIGNED NOT NULL DEFAULT 0, value BIGINT UNSIGNED NOT NULL DEFAULT 0, is_bot TINYINT UNSIGNED NOT NULL DEFAULT 0, PRIMARY KEY (season, cat, place)) ENGINE=InnoDB;
+INSERT IGNORE INTO player.weekly_rank_state (id) VALUES (1);" \
+    || echo "playerbot-migrate: could not create the weekly ranking tables" >&2
 # The second channel's pins (playerbot_channel_rules.h): every bot that has
 # ever kept an offline shop lives on the first channel for good, because the
 # shops are the first channel's. The table only grows - each core adds the
@@ -551,6 +606,29 @@ db -e "UPDATE world.skill_proto SET szPointPoly = '-(1.5*atk + (2.8*atk + number
 # every brochure took a cell (NerrVoVy, 27 September), as Tanaka's ear did.
 # PROTO_FROM_DB: the db core reads it at boot. Idempotent.
 db -e "UPDATE world.item_proto SET flag = flag | 4 WHERE vnum = 70031 AND (flag & 4) = 0;" || echo "[playerbot-migrate] WARNING: could not make Broszura Szermierki stack" >&2
+# MT2009_PLUS_POGROMCA_V1: Pogromca Nieb. Smoka +0..+9 (3180-3189), the
+# two-handed level-80 weapon, was an empty skeleton in the package (level 0,
+# no attack, no bonus) that nothing gave. Seon-Pyeong now makes it from
+# Partyzana+9 (cube.seon_pyeong.txt), so it is filled like his other level-80
+# weapons (Miecz Trytona 270-279 and the rest): their levels (80..90), their
+# attack-speed / strong-against-devils / strong-against-humans lines, their
+# prices, ANTI_SELL, socket_pct 3, their refine chain 502-510 and the +9 into
+# the level-87 two-handed Ostrze Slonca (3190) by 610. Attack from the server
+# wiki: 273-321 (Partyzana+9's) plus the refine bonus 0..55. Only from the
+# package's skeleton (limit level 0, attack 0), so a later hand edit stays;
+# the client's item_proto carries the same rows
+# (client-patches/client-2.0.30/tools/pogromca). PROTO_FROM_DB. Idempotent.
+db -e "UPDATE world.item_proto SET
+    limittype0 = 1, limitvalue0 = ELT(vnum - 3179, 80, 80, 82, 82, 84, 84, 86, 86, 88, 90),
+    applytype0 = 17, applyvalue0 = ELT(vnum - 3179, 15, 15, 16, 17, 18, 20, 22, 24, 27, 30),
+    applytype1 = 48, applyvalue1 = ELT(vnum - 3179, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12),
+    applytype2 = 43, applyvalue2 = ELT(vnum - 3179, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12),
+    value3 = 273, value4 = 321, value5 = ELT(vnum - 3179, 0, 3, 7, 11, 15, 20, 25, 31, 41, 55),
+    gold = ELT(vnum - 3179, 360000, 395000, 435000, 500000, 600000, 750000, 975000, 1320000, 1845000, 2770000),
+    shop_buy_price = ELT(vnum - 3179, 360000, 395000, 435000, 500000, 600000, 750000, 975000, 1320000, 1845000, 2770000),
+    antiflag = antiflag | 256, socket_pct = 3,
+    refined_vnum = IF(vnum = 3189, 3190, vnum + 1), refine_set = IF(vnum = 3189, 610, vnum - 3180 + 502)
+WHERE vnum BETWEEN 3180 AND 3189 AND limitvalue0 = 0 AND value3 = 0;" || echo "[playerbot-migrate] WARNING: could not fill Pogromca Nieb. Smoka" >&2
 # The ItemShop's marriage page (indexes 201-299, which the client's
 # ITEMSHOP_CATEGORY_MARRIAGE lists and client 2.0.47 shows) had no line at
 # all: the engagement ring (the Old Lady's ring quest gives one too), the
@@ -1618,6 +1696,13 @@ DROP TEMPORARY TABLE world.dg_item;" || echo "[playerbot-migrate] WARNING: could
 # of the Fire Land's guard; the library's seal (30765) a copy of the Nemere key, its boss chest
 # (30773) a copy of Razador's (special_item_group.arezzo.txt). Rows are added once; the values are
 # written every start (PROTO_FROM_DB: read at the db core's boot). Idempotent.
+# MT2009_PLUS_BIBLIOTEKA_BALANCE_V1 (owner, 2 October): the library's monsters hit 20% harder -
+# dam_multiply 9703 1.2 -> 1.44, 9705 1.8 -> 2.16, 9706 2.0 -> 2.4 (the egg 9704 is no longer
+# spawned, the Metins 8006 deal none); the Baroness (9706) has the Orc Chief's (691) health and
+# regeneration - max_hp 150000 -> 39850, regen_cycle 15 -> 19, regen_percent 5 -> 22 - and the
+# quest raises her health by the players inside (+50/+100/+200% for 2/3/4+; her regen heals the
+# points of one player's Baroness, MT2009_PLUS_DUNGEON_MOB_HP_V2), and the Metins' to
+# 55% in the dungeon only (server-patches/dungeonhp, d.mob_hp_percent).
 db -e "DROP TEMPORARY TABLE IF EXISTS world.az_mob;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 3101 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9601;
@@ -1683,7 +1768,7 @@ CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum 
 UPDATE world.az_mob SET vnum = 9703;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'5472756AB963792050616AB96B', locale_name = _cp1250 X'5472756AB963792050616AB96B', folder = 'spider_nipper', rank = 1, level = 30, st = 40, dx = 25, ht = 35, iq = 10, damage_min = 70, damage_max = 105, max_hp = 1600, def = 40, exp = 700, gold_min = 90, gold_max = 140, regen_cycle = 6, regen_percent = 7, sp_berserk = 0, sp_stoneskin = 0, enchant_poison = 0, enchant_critical = 0, resist_poison = 0, ai_flag = 'AGGR', dam_multiply = 1.2, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9703;
+UPDATE world.mob_proto SET name = _cp1250 X'5472756AB963792050616AB96B', locale_name = _cp1250 X'5472756AB963792050616AB96B', folder = 'spider_nipper', rank = 1, level = 30, st = 40, dx = 25, ht = 35, iq = 10, damage_min = 70, damage_max = 105, max_hp = 1600, def = 40, exp = 700, gold_min = 90, gold_max = 140, regen_cycle = 6, regen_percent = 7, sp_berserk = 0, sp_stoneskin = 0, enchant_poison = 0, enchant_critical = 0, resist_poison = 0, ai_flag = 'AGGR', dam_multiply = 1.44, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9703;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 2095 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9704;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
@@ -1693,12 +1778,12 @@ CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum 
 UPDATE world.az_mob SET vnum = 9705;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C6F77612050616AB96BF377', locale_name = _cp1250 X'4B72F36C6F77612050616AB96BF377', folder = 'spider_queen', rank = 4, level = 33, st = 45, dx = 30, ht = 45, iq = 12, damage_min = 90, damage_max = 130, max_hp = 25000, def = 45, exp = 8000, gold_min = 3000, gold_max = 5000, summon = 9703, drain_sp = 0, regen_cycle = 10, regen_percent = 5, sp_berserk = 5, sp_stoneskin = 5, skill_level0 = 10, enchant_poison = 10, enchant_stun = 0, enchant_critical = 5, enchant_penetrate = 5, resist_fire = 0, resist_poison = 0, dam_multiply = 1.8, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9705;
+UPDATE world.mob_proto SET name = _cp1250 X'4B72F36C6F77612050616AB96BF377', locale_name = _cp1250 X'4B72F36C6F77612050616AB96BF377', folder = 'spider_queen', rank = 4, level = 33, st = 45, dx = 30, ht = 45, iq = 12, damage_min = 90, damage_max = 130, max_hp = 25000, def = 45, exp = 8000, gold_min = 3000, gold_max = 5000, summon = 9703, drain_sp = 0, regen_cycle = 10, regen_percent = 5, sp_berserk = 5, sp_stoneskin = 5, skill_level0 = 10, enchant_poison = 10, enchant_stun = 0, enchant_critical = 5, enchant_penetrate = 5, resist_fire = 0, resist_poison = 0, dam_multiply = 2.16, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9705;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 2092 LIMIT 1;
 UPDATE world.az_mob SET vnum = 9706;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
 DROP TEMPORARY TABLE world.az_mob;
-UPDATE world.mob_proto SET name = _cp1250 X'4261726F6EF3776E612050616AB96BF377', locale_name = _cp1250 X'4261726F6EF3776E612050616AB96BF377', folder = 'spider_king', rank = 5, level = 35, st = 55, dx = 35, ht = 55, iq = 14, damage_min = 100, damage_max = 150, max_hp = 150000, def = 55, exp = 30000, gold_min = 8000, gold_max = 12000, summon = 9703, drain_sp = 0, regen_cycle = 15, regen_percent = 5, sp_berserk = 10, sp_stoneskin = 5, sp_deathblow = 0, sp_revive = 0, skill_level0 = 15, enchant_poison = 10, enchant_slow = 5, enchant_stun = 5, enchant_critical = 10, enchant_penetrate = 10, attack_speed = 120, move_speed = 130, attack_range = 250, ai_flag = 'AGGR,BERSERK', dam_multiply = 2.0, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9706;
+UPDATE world.mob_proto SET name = _cp1250 X'4261726F6EF3776E612050616AB96BF377', locale_name = _cp1250 X'4261726F6EF3776E612050616AB96BF377', folder = 'spider_king', rank = 5, level = 35, st = 55, dx = 35, ht = 55, iq = 14, damage_min = 100, damage_max = 150, max_hp = 39850, def = 55, exp = 30000, gold_min = 8000, gold_max = 12000, summon = 9703, drain_sp = 0, regen_cycle = 19, regen_percent = 22, sp_berserk = 10, sp_stoneskin = 5, sp_deathblow = 0, sp_revive = 0, skill_level0 = 15, enchant_poison = 10, enchant_slow = 5, enchant_stun = 5, enchant_critical = 10, enchant_penetrate = 10, attack_speed = 120, move_speed = 130, attack_range = 250, ai_flag = 'AGGR,BERSERK', dam_multiply = 2.4, drop_item = 0, resurrection_vnum = 0 WHERE vnum = 9706;
 CREATE TEMPORARY TABLE world.az_mob AS SELECT * FROM world.mob_proto WHERE vnum = 20394 LIMIT 1;
 UPDATE world.az_mob SET vnum = 20430;
 INSERT IGNORE INTO world.mob_proto SELECT * FROM world.az_mob;
@@ -2183,3 +2268,282 @@ INSERT INTO world.mt2009_plus_once (name) VALUES ('rare_6_7_v2');"; then
         echo "[playerbot-migrate] WARNING: could not write the 6th/7th bonus pool" >&2
     fi
 fi
+
+# ---------------------------------------------------------------------------
+# Digi Rasta's systems (nowy-system v0.16, "Autor: Digi Rasta"), ported as our
+# own: server-patches/digirasta (engine), playerbot_awakening.h (bots),
+# client-patches/client-2.0.30/tools/digirasta (client rows - the same numbers).
+#
+# MT2009_PLUS_AWAKENING_V1: the Ritual of Awakening. A weapon 75 +9 and
+# Kamien Przebudzenia (30670) at the plain Blacksmith make the awakened weapon
+# +0 (recipe 7110: the stone and 200 000 000 yang, 100%); the awakened weapons
+# refine +0..+9 by the owner's recipes 7100-7108 (2 October: Zdobycz Dzikusa;
+# Shuriken + Serce Wojownika; 3 pearls of each colour in turn; 3 of all three;
+# Smocza Luska + Smoczy Szpon 1/8/15 - yang and chance as in the package),
+# and a failed step never destroys nor lowers one. The seven families +0..+9
+# exactly as his 10_przebudzenie.sql: levels 90..105, attack speed of the base
+# weapon, strong against people -15..-50% (no PvP weapon), against monsters
+# +2..+15%, no average/skill addon (addon_type 0), three sockets; +0 is 98% of
+# what the base weapon had at +9. The rows are rewritten on every start (a hand
+# edit does not survive), like his file; the db core reads them at boot.
+# Idempotent.
+# ---------------------------------------------------------------------------
+db -e "INSERT IGNORE INTO world.item_proto (vnum, name, locale_name, type, subtype, stack, weight, size, antiflag, flag, wearflag, immuneflag, gold, shop_buy_price, refined_vnum, refine_set, magic_pct, specular, socket_pct, addon_type, limittype0, limitvalue0, limittype1, limitvalue1, applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, value0, value1, value2, value3, value4, value5, socket0, socket1, socket2, socket3, socket4, socket5) VALUES (30670, 'Awakening Stone', _cp1250 X'4B616D6965F12050727A656275647A656E6961', 5, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1);
+UPDATE world.item_proto SET flag = flag | 4, stack = 200 WHERE vnum = 30670;
+INSERT INTO world.refine_proto (id, vnum0, count0, vnum1, count1, vnum2, count2, vnum3, count3, vnum4, count4, cost, src_vnum, result_vnum, prob) VALUES
+(7100, 30092, 2, 0, 0, 0, 0, 0, 0, 0, 0, 5000000, 0, 0, 90),
+(7101, 30041, 2, 30358, 1, 0, 0, 0, 0, 0, 0, 8000000, 0, 0, 85),
+(7102, 27992, 3, 0, 0, 0, 0, 0, 0, 0, 0, 12000000, 0, 0, 80),
+(7103, 27993, 3, 0, 0, 0, 0, 0, 0, 0, 0, 16000000, 0, 0, 75),
+(7104, 27994, 3, 0, 0, 0, 0, 0, 0, 0, 0, 22000000, 0, 0, 70),
+(7105, 27992, 3, 27993, 3, 27994, 3, 0, 0, 0, 0, 30000000, 0, 0, 60),
+(7106, 71123, 1, 71129, 1, 0, 0, 0, 0, 0, 0, 50000000, 0, 0, 50),
+(7107, 71123, 8, 71129, 8, 0, 0, 0, 0, 0, 0, 100000000, 0, 0, 40),
+(7108, 71123, 15, 71129, 15, 0, 0, 0, 0, 0, 0, 200000000, 0, 0, 30),
+(7110, 30670, 1, 0, 0, 0, 0, 0, 0, 0, 0, 200000000, 0, 0, 100)
+ON DUPLICATE KEY UPDATE vnum0 = VALUES(vnum0), count0 = VALUES(count0), vnum1 = VALUES(vnum1), count1 = VALUES(count1), vnum2 = VALUES(vnum2), count2 = VALUES(count2), vnum3 = VALUES(vnum3), count3 = VALUES(count3), vnum4 = VALUES(vnum4), count4 = VALUES(count4), cost = VALUES(cost), src_vnum = VALUES(src_vnum), result_vnum = VALUES(result_vnum), prob = VALUES(prob);
+UPDATE world.item_proto SET type = 1, subtype = 0, antiflag = 32, flag = 1, wearflag = 16, gold = 12474000, shop_buy_price = 12474000,
+    refined_vnum = IF(vnum < 219, vnum + 1, 0), refine_set = IF(vnum < 219, 7100 + vnum - 210, 0),
+    magic_pct = 0, specular = ELT(vnum - 209, 0, 0, 0, 0, 30, 40, 50, 65, 80, 100), socket_pct = 3, addon_type = 0,
+    limittype0 = 1, limitvalue0 = ELT(vnum - 209, 90, 92, 93, 95, 97, 98, 100, 102, 103, 105), limittype1 = 0, limitvalue1 = 0,
+    applytype0 = 17, applyvalue0 = 26, applytype1 = 43, applyvalue1 = ELT(vnum - 209, -15, -19, -23, -27, -31, -35, -39, -43, -47, -50),
+    applytype2 = 53, applyvalue2 = ELT(vnum - 209, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15),
+    value0 = 0, value1 = 0, value2 = 0, value3 = 232, value4 = 271,
+    value5 = ROUND(181 * ELT(vnum - 209, 0, 0.04, 0.056, 0.088, 0.132, 0.2, 0.296, 0.444, 0.668, 1))
+WHERE vnum BETWEEN 210 AND 219;
+UPDATE world.item_proto SET type = 1, subtype = 0, antiflag = 44, flag = 1, wearflag = 16, gold = 12474000, shop_buy_price = 12474000,
+    refined_vnum = IF(vnum < 229, vnum + 1, 0), refine_set = IF(vnum < 229, 7100 + vnum - 220, 0),
+    magic_pct = 0, specular = ELT(vnum - 219, 0, 0, 0, 0, 30, 40, 50, 65, 80, 100), socket_pct = 3, addon_type = 0,
+    limittype0 = 1, limitvalue0 = ELT(vnum - 219, 90, 92, 93, 95, 97, 98, 100, 102, 103, 105), limittype1 = 0, limitvalue1 = 0,
+    applytype0 = 17, applyvalue0 = 26, applytype1 = 43, applyvalue1 = ELT(vnum - 219, -15, -19, -23, -27, -31, -35, -39, -43, -47, -50),
+    applytype2 = 53, applyvalue2 = ELT(vnum - 219, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15),
+    value0 = 0, value1 = 160, value2 = 205, value3 = 221, value4 = 246,
+    value5 = ROUND(192 * ELT(vnum - 219, 0, 0.04, 0.056, 0.088, 0.132, 0.2, 0.296, 0.444, 0.668, 1))
+WHERE vnum BETWEEN 220 AND 229;
+UPDATE world.item_proto SET type = 1, subtype = 1, antiflag = 52, flag = 1, wearflag = 16, gold = 12474000, shop_buy_price = 12474000,
+    refined_vnum = IF(vnum < 1169, vnum + 1, 0), refine_set = IF(vnum < 1169, 7100 + vnum - 1160, 0),
+    magic_pct = 0, specular = ELT(vnum - 1159, 0, 0, 0, 0, 30, 40, 50, 65, 80, 100), socket_pct = 3, addon_type = 0,
+    limittype0 = 1, limitvalue0 = ELT(vnum - 1159, 90, 92, 93, 95, 97, 98, 100, 102, 103, 105), limittype1 = 0, limitvalue1 = 0,
+    applytype0 = 17, applyvalue0 = 26, applytype1 = 43, applyvalue1 = ELT(vnum - 1159, -15, -19, -23, -27, -31, -35, -39, -43, -47, -50),
+    applytype2 = 53, applyvalue2 = ELT(vnum - 1159, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15),
+    value0 = 0, value1 = 0, value2 = 0, value3 = 216, value4 = 224,
+    value5 = ROUND(264 * ELT(vnum - 1159, 0, 0.04, 0.056, 0.088, 0.132, 0.2, 0.296, 0.444, 0.668, 1))
+WHERE vnum BETWEEN 1160 AND 1169;
+UPDATE world.item_proto SET type = 1, subtype = 2, antiflag = 52, flag = 1, wearflag = 16, gold = 12474000, shop_buy_price = 12474000,
+    refined_vnum = IF(vnum < 2199, vnum + 1, 0), refine_set = IF(vnum < 2199, 7100 + vnum - 2190, 0),
+    magic_pct = 0, specular = ELT(vnum - 2189, 0, 0, 0, 0, 30, 40, 50, 65, 80, 100), socket_pct = 3, addon_type = 0,
+    limittype0 = 1, limitvalue0 = ELT(vnum - 2189, 90, 92, 93, 95, 97, 98, 100, 102, 103, 105), limittype1 = 0, limitvalue1 = 0,
+    applytype0 = 17, applyvalue0 = 26, applytype1 = 43, applyvalue1 = ELT(vnum - 2189, -15, -19, -23, -27, -31, -35, -39, -43, -47, -50),
+    applytype2 = 53, applyvalue2 = ELT(vnum - 2189, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15),
+    value0 = 0, value1 = 0, value2 = 0, value3 = 274, value4 = 372,
+    value5 = ROUND(322 * ELT(vnum - 2189, 0, 0.04, 0.056, 0.088, 0.132, 0.2, 0.296, 0.444, 0.668, 1))
+WHERE vnum BETWEEN 2190 AND 2199;
+UPDATE world.item_proto SET type = 1, subtype = 3, antiflag = 56, flag = 1, wearflag = 16, gold = 12474000, shop_buy_price = 12474000,
+    refined_vnum = IF(vnum < 3179, vnum + 1, 0), refine_set = IF(vnum < 3179, 7100 + vnum - 3170, 0),
+    magic_pct = 0, specular = ELT(vnum - 3169, 0, 0, 0, 0, 30, 40, 50, 65, 80, 100), socket_pct = 3, addon_type = 0,
+    limittype0 = 1, limitvalue0 = ELT(vnum - 3169, 90, 92, 93, 95, 97, 98, 100, 102, 103, 105), limittype1 = 0, limitvalue1 = 0,
+    applytype0 = 17, applyvalue0 = 30, applytype1 = 43, applyvalue1 = ELT(vnum - 3169, -15, -19, -23, -27, -31, -35, -39, -43, -47, -50),
+    applytype2 = 53, applyvalue2 = ELT(vnum - 3169, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15),
+    value0 = 0, value1 = 0, value2 = 0, value3 = 260, value4 = 290,
+    value5 = ROUND(230 * ELT(vnum - 3169, 0, 0.04, 0.056, 0.088, 0.132, 0.2, 0.296, 0.444, 0.668, 1))
+WHERE vnum BETWEEN 3170 AND 3179;
+UPDATE world.item_proto SET type = 1, subtype = 4, antiflag = 28, flag = 1, wearflag = 16, gold = 12474000, shop_buy_price = 12474000,
+    refined_vnum = IF(vnum < 5159, vnum + 1, 0), refine_set = IF(vnum < 5159, 7100 + vnum - 5150, 0),
+    magic_pct = 0, specular = ELT(vnum - 5149, 0, 0, 0, 0, 30, 40, 50, 65, 80, 100), socket_pct = 3, addon_type = 0,
+    limittype0 = 1, limitvalue0 = ELT(vnum - 5149, 90, 92, 93, 95, 97, 98, 100, 102, 103, 105), limittype1 = 0, limitvalue1 = 0,
+    applytype0 = 17, applyvalue0 = 26, applytype1 = 43, applyvalue1 = ELT(vnum - 5149, -15, -19, -23, -27, -31, -35, -39, -43, -47, -50),
+    applytype2 = 53, applyvalue2 = ELT(vnum - 5149, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15),
+    value0 = 0, value1 = 203, value2 = 213, value3 = 207, value4 = 242,
+    value5 = ROUND(223 * ELT(vnum - 5149, 0, 0.04, 0.056, 0.088, 0.132, 0.2, 0.296, 0.444, 0.668, 1))
+WHERE vnum BETWEEN 5150 AND 5159;
+UPDATE world.item_proto SET type = 1, subtype = 5, antiflag = 28, flag = 1, wearflag = 16, gold = 12474000, shop_buy_price = 12474000,
+    refined_vnum = IF(vnum < 7179, vnum + 1, 0), refine_set = IF(vnum < 7179, 7100 + vnum - 7170, 0),
+    magic_pct = 0, specular = ELT(vnum - 7169, 0, 0, 0, 0, 30, 40, 50, 65, 80, 100), socket_pct = 3, addon_type = 0,
+    limittype0 = 1, limitvalue0 = ELT(vnum - 7169, 90, 92, 93, 95, 97, 98, 100, 102, 103, 105), limittype1 = 0, limitvalue1 = 0,
+    applytype0 = 17, applyvalue0 = 15, applytype1 = 43, applyvalue1 = ELT(vnum - 7169, -15, -19, -23, -27, -31, -35, -39, -43, -47, -50),
+    applytype2 = 53, applyvalue2 = ELT(vnum - 7169, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15),
+    value0 = 0, value1 = 208, value2 = 229, value3 = 192, value4 = 222,
+    value5 = ROUND(171 * ELT(vnum - 7169, 0, 0.04, 0.056, 0.088, 0.132, 0.2, 0.296, 0.444, 0.668, 1))
+WHERE vnum BETWEEN 7170 AND 7179;
+UPDATE player.item SET socket0 = 1, socket1 = 1, socket2 = 1 WHERE socket0 = 0 AND socket1 = 0 AND socket2 = 0
+  AND (vnum BETWEEN 210 AND 219 OR vnum BETWEEN 220 AND 229 OR vnum BETWEEN 1160 AND 1169 OR vnum BETWEEN 2190 AND 2199
+       OR vnum BETWEEN 3170 AND 3179 OR vnum BETWEEN 5150 AND 5159 OR vnum BETWEEN 7170 AND 7179);" || echo "[playerbot-migrate] WARNING: could not write the Ritual of Awakening's items and recipes" >&2
+# MT2009_PLUS_SOULSTONE9_V1: the soul stones +5..+9 as his 30_kamienie.sql
+# (+0..+4 keep their values): kinds 0..13 (Penetracji .. Przyspieszenia), +5 =
+# 28530+k, +6..+9 = 28g00+k. Each gets the kind's bonus, its wear flag (the
+# +0's) and the kind in value5 (17+k) - the package's +5 had none, so any two
+# of them blocked each other in one piece. Refined at the Blacksmith from +4
+# (server-patches/digirasta) by recipes 7204-7208: Magiczny Pyl (30360)
+# 8/12/18/25/35, yang 5/10/20/40/80 kk, 50/40/35/30/25%; a failure destroys the
+# stone. refined_vnum stays 0 (the bots' "can be refined"). Every start, idempotent.
+# MT2009_PLUS_HEAVEN_OIL_V1 (Autor: Digi Rasta, nowy-system v0.17, his 66_olejek.sql
+# and 30_kamienie.sql): Olejek Niebios (71056) - in the mod's data a 5-day unique
+# that does nothing - is a plain material (type 5, no time limit, tradeable,
+# stack 200, like Magiczny Pyl) and the steps' second ingredient: 1/1/2/2/3 for
+# +4..+8 (vnum1 of 7204-7208), chances and yang unchanged. It drops from Silna
+# Lodowa Wiedzma 3%, Beran-Setaou 3% and Krolowa Dzungli 10%
+# (playerbot_awakening.h, HEAVEN_OIL_BOSS_DROPS). = OLEJEK_NIEBIOS in
+# client-patches/client-2.0.30/tools/digirasta.
+db -e "
+UPDATE world.item_proto SET type = 5, subtype = 0, stack = 200, antiflag = 0, flag = 4, wearflag = 0, value0 = 0, value1 = 0, value2 = 0 WHERE vnum = 71056; -- Olejek Niebios
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 16, applytype0 = 41, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 9, 10, 11, 13, 15), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 17, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28530,28600,28700,28800,28900); -- Penetracji
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 16, applytype0 = 40, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 9, 10, 11, 13, 15), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 18, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28531,28601,28701,28801,28901); -- Smierci
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 16, applytype0 = 21, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 28, 31, 34, 37, 40), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 19, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28532,28602,28702,28802,28902); -- Powtorki
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 16, applytype0 = 54, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 27, 29, 31, 33, 35), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 20, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28533,28603,28703,28803,28903); -- Wojownika
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 16, applytype0 = 55, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 27, 29, 31, 33, 35), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 21, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28534,28604,28704,28804,28904); -- Ninja
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 16, applytype0 = 56, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 27, 29, 31, 33, 35), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 22, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28535,28605,28705,28805,28905); -- Sury
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 16, applytype0 = 57, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 27, 29, 31, 33, 35), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 23, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28536,28606,28706,28806,28906); -- Szamana
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 16, applytype0 = 53, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 10, 12, 15, 17, 20), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 24, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28537,28607,28707,28807,28907); -- Potwora
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 1, applytype0 = 67, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 10, 11, 12, 13, 15), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 25, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28538,28608,28708,28808,28908); -- Uchylenia
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 1, applytype0 = 68, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 10, 11, 12, 13, 15), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 26, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28539,28609,28709,28809,28909); -- Uniku
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 1, applytype0 = 8, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 700, 850, 1000, 1250, 1500), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 27, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28540,28610,28710,28810,28910); -- Magii
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 1, applytype0 = 6, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 1200, 1600, 2000, 2500, 3000), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 28, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28541,28611,28711,28811,28911); -- Witalnosci
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 1, applytype0 = 96, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 40, 55, 70, 85, 100), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 29, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28542,28612,28712,28812,28912); -- Obrony
+UPDATE world.item_proto SET type = 10, subtype = 0, wearflag = 1, applytype0 = 19, applyvalue0 = ELT(FLOOR(vnum / 100) - 284, 32, 34, 36, 38, 40), applytype1 = 0, applyvalue1 = 0, value0 = 0, value5 = 30, refined_vnum = 0, refine_set = 0 WHERE vnum IN (28543,28613,28713,28813,28913); -- Przyspieszenia
+DELETE FROM world.refine_proto WHERE id BETWEEN 7200 AND 7203;
+INSERT INTO world.refine_proto (id, vnum0, count0, vnum1, count1, vnum2, count2, vnum3, count3, vnum4, count4, cost, src_vnum, result_vnum, prob) VALUES
+(7204, 30360, 8, 71056, 1, 0, 0, 0, 0, 0, 0, 5000000, 0, 0, 50),
+(7205, 30360, 12, 71056, 1, 0, 0, 0, 0, 0, 0, 10000000, 0, 0, 40),
+(7206, 30360, 18, 71056, 2, 0, 0, 0, 0, 0, 0, 20000000, 0, 0, 35),
+(7207, 30360, 25, 71056, 2, 0, 0, 0, 0, 0, 0, 40000000, 0, 0, 30),
+(7208, 30360, 35, 71056, 3, 0, 0, 0, 0, 0, 0, 80000000, 0, 0, 25)
+ON DUPLICATE KEY UPDATE vnum0 = VALUES(vnum0), count0 = VALUES(count0), vnum1 = VALUES(vnum1), count1 = VALUES(count1), cost = VALUES(cost), prob = VALUES(prob);" || echo "[playerbot-migrate] WARNING: could not write the soul stones +5..+9 and Olejek Niebios" >&2
+# MT2009_PLUS_DIGI_STACK_V1 (Autor: Digi Rasta, nowy-system v0.23, his
+# 20_stakowanie.sql; server-patches/digirasta-fixes): stacks of 200 - every
+# soul stone (type 10, the cracked piece and Kamien Przebudzenia included),
+# every gift box (type 23: the boss caskets, Cors, the Ebonit caskets...) and
+# the caskets and chests of his list (types 3, 5, 18, 20). The engine stacks
+# only with STACKABLE (4) and without ANTI_STACK (32768), up to stack, and only
+# onto a piece with the same sockets: ANTI_STACK goes too (his file left it,
+# so 222 gift boxes never stacked). The refine and the socket take one piece
+# of a stack (char_item.cpp, MT2009_PLUS_DIGI_STACK_V1). Odlamek Smoczego
+# Kamienia (30270) loses its 24 h limit, which wrote a different end time into
+# every piece's socket0 (no two ever stacked) - the pieces held lose it too.
+# The client's item_proto carries the same (patch_digirasta_client.py).
+# Every start; idempotent.
+db -e "UPDATE world.item_proto SET flag = flag | 4, antiflag = antiflag & ~32768, stack = 200
+WHERE (type IN (10, 23) OR vnum IN (30118, 50006, 50007, 50011, 50012, 50013, 50033, 50034, 50037,
+               50070, 50071, 50072, 50073, 50074, 50075, 50076, 50077, 50078, 50079,
+               50080, 50081, 50082, 50090, 50097, 50098,
+               50109, 50110, 50111, 50112, 50113, 50114, 50115, 50120, 50218,
+               70009, 70619, 30670,
+               30300, 38054, 38056, 38057, 50130, 50132, 50133, 50134, 50135, 50136, 50137))
+  AND ((flag & 4) = 0 OR (antiflag & 32768) <> 0 OR stack <> 200);
+UPDATE world.item_proto SET limittype0 = 0, limitvalue0 = 0 WHERE vnum = 30270 AND limittype0 = 7;
+UPDATE player.item SET socket0 = 0 WHERE vnum = 30270 AND socket0 <> 0;" || echo "[playerbot-migrate] WARNING: could not write the stacks of 200 (soul stones, caskets, chests)" >&2
+# MT2009_PLUS_HORSE30_V1: the horse to level 30 (his karta-kon-30-i-juki.md,
+# quest konie and horse_inventory): the level-30 horse is race 20119
+# (server-patches/digirasta, char_horse.cpp) - its name over the summoned horse
+# (the package's "NoNAme"), and, as his 60_konie.sql, the Black Horse's seal
+# (71131-71134) leaves the web ItemShop: the black horse is the reward of the
+# level-30 trial. Every start, after the shop data; idempotent.
+db -e "UPDATE world.mob_proto SET locale_name = 'Czarny Rumak' WHERE vnum = 20119 AND locale_name <> 'Czarny Rumak';" || echo "[playerbot-migrate] WARNING: could not name the Black Steed" >&2
+db -e "DELETE FROM itemshop.ishop_bundle_items WHERE vnum BETWEEN 71131 AND 71134; DELETE FROM itemshop.ishop_items WHERE vnum BETWEEN 71131 AND 71134;" 2>/dev/null || echo "[playerbot-migrate] note: no web ItemShop tables for the Black Horse's seal" >&2
+
+# ---------------------------------------------------------------------------
+# MT2009_PLUS_QUIVER_V1: Kolczan (8010), the ItemShop's quiver - 100 SM, 14
+# days (the owner, 3 October: "kolczan na strzaly, za 100 SM na 14 dni; po
+# zalozeniu w miejsce strzaly ninja ma nielimitowane strzaly"). An arrow
+# (ITEM_WEAPON / WEAPON_ARROW, the arrow slot) with a real-time limit of
+# 1 209 600 s: the engine (server-patches/quiver, char_battle.cpp) counts such
+# an arrow a quiver - GetArrowAndBow hands out every arrow a shot asks and
+# UseArrow spends none - and the expiry event takes it after 14 days. The
+# Silver Arrow's (8005) values with no level floor: value2 100 / value4 1300 /
+# value5 2250 are CalcArrowDamage's fade (MT2009_PLUS_ARROW_RANGE_V1), value3 25
+# the bonus added to the bow's roll. Ninja only (antiflag 52), not stackable,
+# never dropped, sold, traded, put on a stall or lost on a PK death (the
+# safebox takes it). The row is rewritten on every start; the db core reads
+# the protos at boot. On sale: in-game line 10 (Wyposazenie, 1-99) and the web
+# shop's "Wyposazenie" page (category 10, the owner, 3 October); Medal Konny in-game
+# too (Wyposazenie 13, 100 SM; hay, carrots, glove and cape not sold there), - INSERT IGNORE / NOT EXISTS, so a price the
+# operator changed is kept. The client rows: client-patches/client-2.0.30/
+# tools/quiver. Idempotent.
+# ---------------------------------------------------------------------------
+db -e "DROP TEMPORARY TABLE IF EXISTS world.quiver_item;
+CREATE TEMPORARY TABLE world.quiver_item AS SELECT * FROM world.item_proto WHERE vnum = 8005 LIMIT 1;
+UPDATE world.quiver_item SET vnum = 8010;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.quiver_item;
+DROP TEMPORARY TABLE IF EXISTS world.quiver_item;
+UPDATE world.item_proto SET name = 'Quiver', locale_name = _cp1250 X'4B6FB3637A616E', type = 1, subtype = 6, stack = 1, size = 1,
+    antiflag = 123316, flag = 0, wearflag = 512, gold = 0, shop_buy_price = 0, refined_vnum = 0, refine_set = 0,
+    limittype0 = 7, limitvalue0 = 1209600, limittype1 = 1, limitvalue1 = 35,
+    applytype0 = 0, applyvalue0 = 0, applytype1 = 0, applyvalue1 = 0, applytype2 = 0, applyvalue2 = 0,
+    value0 = 0, value1 = 0, value2 = 100, value3 = 25, value4 = 1300, value5 = 2250
+WHERE vnum = 8010;
+INSERT IGNORE INTO common.itemshop_items (\`index\`, vnum, count, price, currency, minLevel) VALUES (10, 8010, 1, 100, 'DRAGON_COIN', 35);
+UPDATE common.itemshop_items SET minLevel = 35 WHERE vnum = 8010 AND minLevel = 0;
+INSERT IGNORE INTO common.itemshop_items (\`index\`, vnum, count, price, currency, minLevel) VALUES (13, 50050, 1, 100, 'DRAGON_COIN', 0);
+UPDATE common.itemshop_items SET price = 100 WHERE \`index\` = 13 AND vnum = 50050 AND price = 40;
+DELETE FROM common.itemshop_items WHERE (\`index\`, vnum) IN ((11, 50054), (12, 50055), (14, 70043), (15, 70048));" || echo "[playerbot-migrate] WARNING: could not add Kolczan (the ItemShop's quiver)" >&2
+db -e "INSERT IGNORE INTO itemshop.ishop_category (id, name) VALUES (10, 'Wyposazenie');
+INSERT INTO itemshop.ishop_items (category, name_item, \`desc\`, price, currency, vnum, count, socket0, socket1, socket2, vnum_icon)
+SELECT 10, _utf8mb4 X'4B6FC582637A616E2028313420646E6929', 'Nielimitowane strzaly dla ninja z lukiem: zakladany w miejsce strzal, zadna strzala sie nie zuzywa. Dziala 14 dni.', 100, 'cash', 8010, 1, 0, 0, 0, '08010'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM itemshop.ishop_items WHERE vnum = 8010);
+UPDATE itemshop.ishop_items SET category = 10 WHERE vnum = 8010 AND category = 3;" 2>/dev/null || echo "[playerbot-migrate] note: no web ItemShop tables for Kolczan" >&2
+
+# ---------------------------------------------------------------------------
+# MT2009_PLUS_WARRIOR_KING03_V1: two ItemShop cosmetics from the owner's
+# packages (3 October: "Dodaj ta zbroje i bron jako kostium i nakladke. Zbroja
+# to warrior king03. Dodaj standardowo do itemshopa"):
+#   41986 Zbroja Krola Wojownikow+ - costume body (28/0), a copy of Wiking
+#         Swiatla+ (41982): 30 days real time, no drop / PK drop / stack;
+#         MALE WARRIOR ONLY, antiflag 49337 = 49281 + assassin 8 + sura 16 +
+#         shaman 32 (the package has no female model); shape 41986 (value3),
+#         gamedata/warrior_m.msm in the client;
+#   40233 Swiety Miecz Bogow+ - weapon skin (28/4), a copy of Miecz Smoka
+#         Polnocy+ (40227): one-handed sword (value3 0), warrior / ninja /
+#         sura (antiflag 49312), 30 days.
+# On sale as every costume and skin: 100 SM; in-game lines 20212 (Kostiumy,
+# 20000-29999) and 30054 (Nakladki na bron, 30000-39999); the web shop's
+# categories 6 (Kostiumy) and 7 (Nakladki na bron), ids 1000000 + vnum. The
+# item rows are rewritten on every start (the db core reads the protos at
+# boot); the shop lines are INSERT IGNORE / NOT EXISTS, so a price the
+# operator changed is kept, and only once the item exists. The client rows:
+# client-patches/client-2.0.30/tools/king03. Idempotent.
+# ---------------------------------------------------------------------------
+db -e "SET NAMES utf8mb4;
+DROP TEMPORARY TABLE IF EXISTS world.king03_item;
+CREATE TEMPORARY TABLE world.king03_item AS SELECT * FROM world.item_proto WHERE vnum = 41982 LIMIT 1;
+UPDATE world.king03_item SET vnum = 41986;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.king03_item;
+DROP TEMPORARY TABLE IF EXISTS world.king03_item;
+CREATE TEMPORARY TABLE world.king03_item AS SELECT * FROM world.item_proto WHERE vnum = 40227 LIMIT 1;
+UPDATE world.king03_item SET vnum = 40233;
+INSERT IGNORE INTO world.item_proto SELECT * FROM world.king03_item;
+DROP TEMPORARY TABLE IF EXISTS world.king03_item;
+UPDATE world.item_proto SET name = 'Zbroja Króla Wojowników+', locale_name = 'Zbroja Króla Wojowników+', type = 28, subtype = 0,
+    stack = 1, size = 2, antiflag = 49337, flag = 0, wearflag = 0, gold = 0, shop_buy_price = 0,
+    limittype0 = 7, limitvalue0 = 2592000, limittype1 = 0, limitvalue1 = 0,
+    applytype0 = 0, applyvalue0 = 0, applytype1 = 0, applyvalue1 = 0, applytype2 = 0, applyvalue2 = 0,
+    value0 = 0, value1 = 0, value2 = 0, value3 = 41986, value4 = 0, value5 = 0
+WHERE vnum = 41986;
+UPDATE world.item_proto SET name = 'Święty Miecz Bogów+', locale_name = 'Święty Miecz Bogów+', type = 28, subtype = 4,
+    stack = 1, size = 2, antiflag = 49312, flag = 0, wearflag = 0, gold = 0, shop_buy_price = 0,
+    limittype0 = 7, limitvalue0 = 2592000, limittype1 = 0, limitvalue1 = 0,
+    applytype0 = 0, applyvalue0 = 0, applytype1 = 0, applyvalue1 = 0, applytype2 = 0, applyvalue2 = 0,
+    value0 = 0, value1 = 0, value2 = 0, value3 = 0, value4 = 0, value5 = 0
+WHERE vnum = 40233;
+INSERT IGNORE INTO common.itemshop_items (\`index\`, vnum, count, price, currency, minLevel)
+SELECT 20212, 41986, 1, 100, 'DRAGON_COIN', 0 FROM DUAL WHERE EXISTS (SELECT 1 FROM world.item_proto WHERE vnum = 41986);
+INSERT IGNORE INTO common.itemshop_items (\`index\`, vnum, count, price, currency, minLevel)
+SELECT 30054, 40233, 1, 100, 'DRAGON_COIN', 0 FROM DUAL WHERE EXISTS (SELECT 1 FROM world.item_proto WHERE vnum = 40233);" || echo "[playerbot-migrate] WARNING: could not add Zbroja Krola Wojownikow / Swiety Miecz Bogow" >&2
+db -e "SET NAMES utf8mb4;
+INSERT IGNORE INTO itemshop.ishop_items (id, category, name_item, \`desc\`, price, currency, vnum, count, socket0, socket1, socket2, vnum_icon, date_added)
+SELECT 1041986, 6, 'Zbroja Króla Wojowników+ (męski, 30 dni)', 'Czas: 30 dni.<br />Tylko dla wojownika (postać męska).', 100, 'cash', 41986, 1, 0, 0, 0, '41986', NOW()
+FROM DUAL WHERE EXISTS (SELECT 1 FROM world.item_proto WHERE vnum = 41986) AND NOT EXISTS (SELECT 1 FROM itemshop.ishop_items WHERE vnum = 41986);
+INSERT IGNORE INTO itemshop.ishop_items (id, category, name_item, \`desc\`, price, currency, vnum, count, socket0, socket1, socket2, vnum_icon, date_added)
+SELECT 1040233, 7, 'Święty Miecz Bogów+ (30 dni)', 'Czas: 30 dni.<br />Klasa: Wojownik, Ninja, Sura.', 100, 'cash', 40233, 1, 0, 0, 0, '40233', NOW()
+FROM DUAL WHERE EXISTS (SELECT 1 FROM world.item_proto WHERE vnum = 40233) AND NOT EXISTS (SELECT 1 FROM itemshop.ishop_items WHERE vnum = 40233);" 2>/dev/null || echo "[playerbot-migrate] note: no web ItemShop tables for Zbroja Krola Wojownikow / Swiety Miecz Bogow" >&2
+# MT2009_PLUS_COLLECTOR_STORAGE_V1: the collector's storage (Magazyn
+# kolekcjonera, overlay playerbot_collector.cpp). Its entries are rows of
+# player.item - window SAFEBOX, owner_id 2000000000 + the account id, so no
+# character load and no classic safebox ever reads them - and need no schema;
+# this table keeps an account's expansion tier (0-6, bought with yang).
+# Idempotent; a missing table only leaves the store at 500 entries and its
+# "Rozbuduj" refused.
+db -e "CREATE TABLE IF NOT EXISTS player.collector_storage (account_id INT UNSIGNED NOT NULL PRIMARY KEY, tier TINYINT UNSIGNED NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB;" \
+  || echo "[playerbot-migrate] WARNING: could not create player.collector_storage (the collector's storage stays at 500 entries)" >&2
+
+# MT2009_PLUS_FAST_START_V1: the full run is done - its fingerprint for the next start.
+db -e "REPLACE INTO common.playerbot_migrate_state (id, fingerprint, done_at) VALUES (1, '$migrate_fp', NOW());" >/dev/null 2>&1 \
+    || echo "[playerbot-migrate] WARNING: could not record the run's fingerprint (the next start runs it all again)" >&2

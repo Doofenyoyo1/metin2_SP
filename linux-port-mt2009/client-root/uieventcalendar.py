@@ -645,6 +645,11 @@ class Ticker(ui.Window):
 		self.nextCheck = 0.0
 
 	def OnUpdate(self):
+		# MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: no request on the way to another
+		# core (warpsafe.py).
+		import warpsafe
+		if not warpsafe.InGame():
+			return
 		now = app.GetTime()
 		if now >= self.nextRequest:
 			wnd = _data['window']

@@ -18,7 +18,46 @@ def progress(step, message):
         os.replace(tmp, os.path.join(SPOOL, "update.status"))
     except OSError:
         pass
-def fetch(url): return urllib.request.urlopen(urllib.request.Request(url,headers={"User-Agent":"seban-mt2009-updater/1"}),timeout=180).read()
+def fetch(url, timeout=180): return urllib.request.urlopen(urllib.request.Request(url,headers={"User-Agent":"seban-mt2009-updater/1"}),timeout=timeout).read()
+# MT2009_PLUS_UPDATE_MIRROR_V1: the fallback update source. When GitHub does not
+# answer (network error, non-200, not JSON) the manifest and the zip are read
+# from here under the same file names; the zip passes the same SHA-256 check.
+# Space-separated bases, empty turns it off; a manifest's "mirrors" go first.
+# No default: MT2009 PLUS's mirror carries its packages, not this project's.
+MIRRORS=os.environ.get("SEBAN_UPDATE_MIRROR", "").split()
+MIRROR_NOTICE="GitHub niedostępny - pobieram z serwera zapasowego"
+def mirror_urls(url, extra=()):
+    name=url.split("?",1)[0].rstrip("/").rsplit("/",1)[-1]
+    if not name or not all(c.isalnum() or c in "._-" for c in name): return []
+    out=[]
+    for base in list(extra)+MIRRORS:
+        if not isinstance(base,str) or not base.startswith(("http://","https://")): continue
+        u=(base if base.endswith("/") else base+"/")+name
+        if u!=url and u not in out: out.append(u)
+    return out
+def fetch_manifest():
+    try:
+        doc=json.loads(fetch(MANIFEST, timeout=15).decode("utf-8-sig"))
+        if isinstance(doc,dict): return doc
+    except Exception as e:
+        print(f"GitHub: {e}")
+    for u in mirror_urls(MANIFEST):
+        try:
+            doc=json.loads(fetch(u, timeout=30).decode("utf-8-sig"))
+            if isinstance(doc,dict): print(f"{MIRROR_NOTICE} ({u})"); return doc
+        except Exception as e:
+            print(f"{u}: {e}")
+    raise SystemExit("ERROR: the manifest could not be read from GitHub or the fallback server.")
+def fetch_package(url, sha, extra):
+    for i,u in enumerate([url]+mirror_urls(url, extra)):
+        if i==1: print(MIRROR_NOTICE)
+        try:
+            data=fetch(u)
+        except Exception as e:
+            print(f"{u}: {e}"); continue
+        if hashlib.sha256(data).hexdigest().lower()==sha.lower(): return data
+        print(f"{u}: SHA-256 mismatch.")
+    raise SystemExit("ERROR: the package could not be downloaded with the right SHA-256 (GitHub and the fallback server).")
 def version(): return open(os.path.join(ROOT,"VERSION"),encoding="utf-8").read().strip()
 def version_key(value):
     try: return tuple(int(part) for part in value.strip().split("."))
@@ -27,13 +66,13 @@ def running_panel_version():
     found=subprocess.run(["docker","compose","-p",PROJECT,"ps","-q","seban-panel"],cwd=COMPOSE,text=True,capture_output=True,check=False).stdout.strip()
     if not found: return ""
     return subprocess.run(["docker","exec",found.splitlines()[0],"cat","/app/VERSION"],text=True,capture_output=True,check=False).stdout.strip()
-m=json.loads(fetch(MANIFEST))["server"]; current=version()
+manifest=fetch_manifest(); m=manifest["server"]; current=version()
 print(f"Installed: {current}; available: {m['version']}")
 if "--check" in sys.argv: sys.exit(0)
 if current==m["version"]: print("Already current."); sys.exit(0)
 with tempfile.TemporaryDirectory(prefix="seban-mt2009-") as d:
  progress(2, "Downloading and validating the update package.")
- pkg=os.path.join(d,"update.zip"); open(pkg,"wb").write(fetch(m["url"]))
+ pkg=os.path.join(d,"update.zip"); open(pkg,"wb").write(fetch_package(m["url"], m["sha256"], manifest.get("mirrors") or []))
  if hashlib.sha256(open(pkg,"rb").read()).hexdigest().lower()!=m["sha256"].lower(): raise SystemExit("ERROR: SHA-256 mismatch.")
  progress(3, "Unpacking the MT2009 update.")
  with zipfile.ZipFile(pkg) as z:

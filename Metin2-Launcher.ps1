@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'Start', 'Stop', 'StartDocker', 'StopAll', 'Check', 'UpdateServer', 'UpdateClient', 'UpdateAll', 'RepairClientExe', 'Diagnose', 'Logs', 'SendLogs', 'Report', 'Configure', 'SetBots', 'SetDifficulty', 'ImportDb', 'BackupDb', 'RestoreDb', 'ResetWorld', 'RepairDb', 'DbAccess', 'PanelPassword', 'FreePorts', 'CoopCheck', 'CoopSecure', 'CoopAddFriend', 'CoopBlockFriend', 'CoopUnblockFriend', 'CoopInvite', 'CoopHost', 'CoopStop', 'CoopRenew', 'CoopJoin', 'VpsConnect', 'VpsCheck', 'VpsInstall', 'VpsUpdate', 'VpsStatus', 'VpsPanel', 'VpsPanelClose', 'VpsLogs', 'VpsPasswords', 'VpsClient', 'VpsInvite')]
+    [ValidateSet('Menu', 'Start', 'Stop', 'StartDocker', 'StopAll', 'Check', 'UpdateServer', 'UpdateClient', 'UpdateAll', 'RepairClientExe', 'Diagnose', 'Logs', 'SendLogs', 'Report', 'Configure', 'SetBots', 'SetDifficulty', 'ImportDb', 'BackupDb', 'RestoreDb', 'ResetWorld', 'RepairDb', 'DbAccess', 'PanelPassword', 'FreePorts', 'CoopCheck', 'CoopSecure', 'CoopAddFriend', 'CoopBlockFriend', 'CoopUnblockFriend', 'CoopInvite', 'CoopHost', 'CoopStop', 'CoopRenew', 'CoopJoin', 'VpsConnect', 'VpsCheck', 'VpsInstall', 'VpsUpdate', 'VpsStatus', 'VpsPanel', 'VpsPanelClose', 'VpsLogs', 'VpsPasswords', 'VpsClient', 'VpsInvite', 'DockerRam', 'RestartDockerWsl')]
     [string]$Action = 'Menu',
     [string]$Manifest = '',
     [int]$BotCount = -1,
@@ -444,6 +444,11 @@ function Start-Docker {
 
 function Stop-DockerAndServer {
     Stop-Server
+    Stop-DockerDesktop
+    Write-Host 'Serwer i Docker Desktop zatrzymane. Dane pozostają zapisane w wolumenach.' -ForegroundColor Green
+}
+
+function Stop-DockerDesktop {
     $dockerCli = Join-Path $env:ProgramFiles 'Docker\Docker\DockerCli.exe'
     if (Test-Path -LiteralPath $dockerCli -PathType Leaf) {
         $previousPreference = $ErrorActionPreference
@@ -457,7 +462,226 @@ function Stop-DockerAndServer {
         Get-Process -Name 'Docker Desktop', 'com.docker.backend' -ErrorAction SilentlyContinue |
             Stop-Process -ErrorAction SilentlyContinue
     }
-    Write-Host 'Serwer i Docker Desktop zatrzymane. Dane pozostają zapisane w wolumenach.' -ForegroundColor Green
+}
+
+function Test-GameRunning {
+    # Whether this installation's game container runs - the question the
+    # window's "Serwer: DZIALA" asks.
+    if (-not (Test-M2DockerRunning)) { return $false }
+    $composeDir = Join-Path $serverRoot 'linux-port\docker'
+    $composeFile = Join-Path $composeDir 'docker-compose.yml'
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $services = @(docker compose --project-directory $composeDir -f $composeFile ps --services --status running 2>$null)
+        return ($LASTEXITCODE -eq 0 -and @($services | Where-Object { ([string]$_).Trim() -eq 'game' }).Count -gt 0)
+    }
+    catch { return $false }
+    finally { $ErrorActionPreference = $previousPreference }
+}
+
+# MT2009_PLUS_LAUNCHER_LOWMEM_UPDATE_V1: a server update with the world running
+# and Windows short of memory first does what a player did by hand (2 October,
+# "przy zwiekszonej liczbie kanalow i aktualizacji wlaczonego systemu wyskakuje
+# blad z brakiem wolnej pamieci RAM"): the world saved and stopped (as
+# ZATRZYMAJ I ZAPISZ), and Docker Desktop shut down, because its machine keeps
+# the memory its containers took until it stops. The update's build starts
+# Docker again (Rebuild-Server) and its compose up brings the world back. With
+# memory to spare nothing changes: the game goes down only right before
+# compose up, as it always has. Docker stays up when containers of other
+# projects run in it (STOP must not end the player's other projects). Returns
+# what was done, for Restore-WorldAfterUpdate.
+function Stop-WorldForUpdate {
+    $done = [pscustomobject]@{ Stopped = $false; DockerStopped = $false }
+    if (-not (Get-Command Get-M2WindowsMemory -ErrorAction SilentlyContinue)) { return $done }
+    if (-not (Test-GameRunning)) { return $done }
+    $memory = Get-M2WindowsMemory
+    if (-not $memory -or -not (Test-M2UpdateMemoryLow -TotalBytes $memory.TotalBytes -FreeBytes $memory.FreeBytes -CommitFreeBytes $memory.CommitFreeBytes)) { return $done }
+    $freeGb = ([Math]::Round($memory.FreeBytes / 1GB, 1)).ToString([Globalization.CultureInfo]::InvariantCulture)
+    $totalGb = ([Math]::Round($memory.TotalBytes / 1GB, 1)).ToString([Globalization.CultureInfo]::InvariantCulture)
+    Write-Phase 'Mało wolnej pamięci RAM - zapisuję i zatrzymuję świat przed aktualizacją'
+    Write-Host ('Wolne {0} GB RAM z {1} GB, a świat działa. Zapisuję i zatrzymuję serwer (jak ZATRZYMAJ I ZAPISZ); po aktualizacji wystartuje sam.' -f $freeGb, $totalGb) -ForegroundColor Yellow
+    Stop-Server
+    $done.Stopped = $true
+    $others = @()
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $others = @(docker ps --format '{{.Names}}' 2>$null | Where-Object { ([string]$_).Trim() })
+    }
+    catch { $others = @('?') }
+    finally { $ErrorActionPreference = $previousPreference }
+    if ($others.Count -gt 0) {
+        Write-Host ('Docker Desktop zostaje włączony - działają w nim inne kontenery ({0}).' -f ((@($others) | Select-Object -First 5) -join ', ')) -ForegroundColor Yellow
+        return $done
+    }
+    Write-Host 'Zamykam Docker Desktop, żeby oddał pamięć Windowsowi; aktualizacja uruchomi go znowu.' -ForegroundColor Yellow
+    Stop-DockerDesktop
+    # The build asks whether the engine runs and starts it if not: an engine
+    # still going down at that moment would die under the build.
+    $deadline = (Get-Date).AddSeconds(90)
+    while ((Get-Date) -lt $deadline -and (Test-M2DockerRunning)) { Start-Sleep -Seconds 3 }
+    $done.DockerStopped = $true
+    return $done
+}
+
+function Restore-WorldAfterUpdate {
+    # An update that stopped the world (Stop-WorldForUpdate) and then failed
+    # before its build - the download, the check, the files - starts it again
+    # as GRAJ would. A build that fails after the files were swapped leaves
+    # it stopped, as it always did: GRAJ finishes the build.
+    param($Suspended)
+    if (-not $Suspended -or -not $Suspended.Stopped) { return }
+    Write-Host 'Aktualizacja się nie udała - uruchamiam świat z powrotem.' -ForegroundColor Yellow
+    try { Start-Server }
+    catch { Write-Host ('Świata nie udało się uruchomić ({0}) - kliknij GRAJ.' -f $_.Exception.Message) -ForegroundColor Yellow }
+}
+
+# MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: Docker's machine short of memory for the
+# build (3 October: 3.7 GB in all, the game core's compile killed, and GRAJ
+# failed the same way) is said before the build - before an update downloads
+# anything, and before the build GRAJ finishes - with the .wslconfig that
+# fixes it, which the launcher writes itself when asked. The player may still
+# go on. The window (Metin2-Launcher-GUI.ps1) asks in its own dialog and runs
+# this script with -Yes, so here -Yes only prints the warning into the log.
+# Asked once per action (Update-Server asks before the download, Rebuild-Server
+# would ask again after it).
+$script:dockerMemoryChecked = $false
+
+function Get-DockerMemoryAdviceSafe {
+    if (-not (Get-Command Get-M2DockerMemoryAdvice -ErrorAction SilentlyContinue)) { return $null }
+    try { return Get-M2DockerMemoryAdvice }
+    catch {
+        Write-Host "Nie udało się sprawdzić pamięci Dockera: $($_.Exception.Message)" -ForegroundColor DarkGray
+        return $null
+    }
+}
+
+function Write-DockerMemoryAdvice {
+    param([Parameter(Mandatory = $true)]$Advice)
+    Write-Host ('UWAGA: ' + $Advice.Summary) -ForegroundColor Yellow
+    Write-Host $Advice.Instructions -ForegroundColor Yellow
+}
+
+function Restart-DockerWsl {
+    # Docker's WSL machine takes a new .wslconfig only when WSL starts again:
+    # the world saved and stopped (as STOP), Docker Desktop shut down, every
+    # WSL machine stopped, Docker Desktop started again.
+    Write-Phase 'Restart WSL i Docker Desktop (nowa pamięć z .wslconfig)'
+    Stop-Server
+    Write-Host 'Zamykam Docker Desktop...' -ForegroundColor Yellow
+    Stop-DockerDesktop
+    $deadline = (Get-Date).AddSeconds(90)
+    while ((Get-Date) -lt $deadline -and (Test-M2DockerRunning)) { Start-Sleep -Seconds 3 }
+    Write-Host 'Wykonuję: wsl --shutdown' -ForegroundColor Yellow
+    $wslExit = -1
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & wsl.exe --shutdown 2>&1 | Out-Null
+        $wslExit = $LASTEXITCODE
+    }
+    catch { $wslExit = -1 }
+    finally { $ErrorActionPreference = $previousPreference }
+    if ($wslExit -ne 0) {
+        Write-Host ('Polecenie wsl --shutdown nie zadziałało (kod {0}). Jeśli Docker dalej pokaże starą ilość pamięci, zrestartuj Windows.' -f $wslExit) -ForegroundColor Yellow
+    }
+    Start-Sleep -Seconds 5
+    Start-Docker
+    $after = Get-DockerMemoryAdviceSafe
+    if ($after -and $after.Known -and -not $after.Estimated) {
+        Write-Host ('Docker ma teraz {0} GB pamięci RAM.' -f $after.MemText) -ForegroundColor $(if ($after.Low) { 'Yellow' } else { 'Green' })
+        if ($after.Low) {
+            Write-Host ('To dalej mniej niż trzeba. Sprawdź plik {0} (sekcja [wsl2], wiersz memory=) albo zrestartuj Windows.' -f $after.WslConfigPath) -ForegroundColor Yellow
+        }
+    }
+}
+
+function Invoke-DockerMemoryFix {
+    # Console only, and only after asking: memory= under [wsl2] in
+    # %USERPROFILE%\.wslconfig (Set-M2WslConfigMemory: the file's other
+    # settings stay, the old one is kept as .wslconfig.bak), then the restart
+    # it needs, asked again because it stops Docker. 'restarted', 'written',
+    # or '' when nothing was written.
+    param([Parameter(Mandatory = $true)]$Advice)
+    if ($Yes -or -not $Advice.CanAutoFix) { return '' }
+    if (-not (Confirm-Operation ('Ustawić automatycznie memory={0}GB w pliku {1}? Inne ustawienia w pliku zostaną, a stary plik trafi do .wslconfig.bak.' -f $Advice.RecommendedGb, $Advice.WslConfigPath))) {
+        return ''
+    }
+    $written = Set-M2WslConfigMemory -MemoryGb $Advice.RecommendedGb -Path $Advice.WslConfigPath
+    if ($written.Changed) {
+        $backupNote = if ($written.Backup) { ' Poprzedni plik: ' + $written.Backup + '.' } else { '' }
+        Write-Host ('Zapisano memory={0} w {1}.{2}' -f $written.Value, $written.Path, $backupNote) -ForegroundColor Green
+    }
+    else {
+        Write-Host ('{0} ma już memory={1} - niczego nie zmieniam.' -f $written.Path, $written.Value) -ForegroundColor Green
+    }
+    Write-Host 'Docker zobaczy nową pamięć dopiero po restarcie WSL (wsl --shutdown) i Docker Desktop.' -ForegroundColor Yellow
+    if (Confirm-Operation 'Zrestartować to teraz? Launcher zapisze i zatrzyma serwer, zamknie Docker Desktop (także inne działające w nim kontenery), wykona wsl --shutdown i uruchomi Dockera ponownie. Najpierw zamknij grę.') {
+        Restart-DockerWsl
+        return 'restarted'
+    }
+    Write-Host 'Zrób to sam: zamknij grę i Docker Desktop, w PowerShell wpisz: wsl --shutdown, potem uruchom Docker Desktop i kliknij GRAJ.' -ForegroundColor Yellow
+    return 'written'
+}
+
+function Confirm-DockerMemoryForBuild {
+    # Before a build: warns when Docker's machine is short of memory and,
+    # interactively, offers the fix and asks whether to go on anyway.
+    # -KeepRebuildPending: the files are already the new ones, so a later
+    # GRAJ must still finish the build.
+    param([switch]$KeepRebuildPending, [string]$Before = 'budowanie serwera')
+    if ($script:dockerMemoryChecked) { return }
+    $advice = Get-DockerMemoryAdviceSafe
+    if (-not $advice -or -not $advice.Known) { return }
+    # An estimate (the engine was down) is checked again once it runs.
+    if (-not $advice.Estimated) { $script:dockerMemoryChecked = $true }
+    if (-not $advice.Low) { return }
+    $script:dockerMemoryChecked = $true
+    Write-Phase 'Za mało pamięci RAM w Dockerze'
+    Write-DockerMemoryAdvice -Advice $advice
+    if ($Yes) {
+        Write-Host 'Kontynuuję mimo to (wybrane w oknie launchera albo -Yes).' -ForegroundColor Yellow
+        return
+    }
+    $fixed = Invoke-DockerMemoryFix -Advice $advice
+    if ($fixed -eq 'restarted') {
+        $after = Get-DockerMemoryAdviceSafe
+        if ($after -and $after.Known -and -not $after.Low) {
+            Write-Host 'Pamięć Dockera jest teraz w porządku - kontynuuję.' -ForegroundColor Green
+            return
+        }
+    }
+    $question = if ($fixed) { 'Kontynuować mimo to, zanim Docker ma nową pamięć (budowa może się nie udać)?' }
+        else { 'Kontynuować mimo to (budowa może się nie udać z braku pamięci)?' }
+    if (Confirm-Operation $question) { return }
+    if ($KeepRebuildPending) {
+        Set-Content -LiteralPath $rebuildMarkerPath -Value ([DateTime]::UtcNow.ToString('o')) -Encoding UTF8
+        throw "Przerwano $Before - Docker ma za mało pamięci RAM. Nowe pliki są już na dysku: gdy Docker dostanie więcej pamięci, kliknij GRAJ, a launcher dokończy budowanie."
+    }
+    throw "Przerwano $Before - Docker ma za mało pamięci RAM. Gdy Docker dostanie więcej pamięci, ponów aktualizację."
+}
+
+function Show-DockerMemoryAction {
+    # Menu 42 / -Action DockerRam: how much memory Docker's machine has, the
+    # instructions when it is short, and the automatic fix after asking.
+    $advice = Get-DockerMemoryAdviceSafe
+    if (-not $advice) {
+        Write-Host 'Ta wersja launchera nie umie sprawdzić pamięci Dockera.' -ForegroundColor Yellow
+        return
+    }
+    if (-not $advice.Known) {
+        Write-Host 'Nie udało się odczytać pamięci Dockera - uruchom Docker Desktop i spróbuj jeszcze raz.' -ForegroundColor Yellow
+        Write-Host $advice.Instructions -ForegroundColor Gray
+        return
+    }
+    if (-not $advice.Low) {
+        $estimate = if ($advice.Estimated) { ' (szacunek - silnik Dockera jest zatrzymany)' } else { '' }
+        Write-Host ('Docker ma {0} GB pamięci RAM{1} - to wystarczy do budowy serwera.' -f $advice.MemText, $estimate) -ForegroundColor Green
+        return
+    }
+    Write-DockerMemoryAdvice -Advice $advice
+    if (-not $Yes) { [void](Invoke-DockerMemoryFix -Advice $advice) }
 }
 
 function Rebuild-Server {
@@ -475,6 +699,9 @@ function Rebuild-Server {
         Start-Docker
     }
     Assert-DockerDiskWritable -KeepRebuildPending
+    # MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: the engine runs now, so its memory
+    # is what it is and not an estimate.
+    Confirm-DockerMemoryForBuild -KeepRebuildPending
     # Compose needs the .env before it can build anything - the database
     # passwords are required variables. A copy unpacked by hand has no .env
     # until start-server.ps1 writes one, and that used to run only after this
@@ -593,20 +820,70 @@ function Rebuild-Server {
         docker compose --project-directory $composeDir -f $composeFile pull --ignore-buildable 2>&1 | Out-Null
         Write-Phase 'Obrazy bazowe pobrane, zaczynam docker compose up --build'
         Set-M2PlayerbotsVersionEnvironment -ServerRoot $serverRoot
-        docker compose --project-directory $composeDir -f $composeFile up -d --build
+        # MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: every line is printed as before
+        # and read on the way, so a compile killed for want of memory is
+        # named in the failure below instead of "click GRAJ", which fails
+        # the same way.
+        $buildOutOfMemory = $false
+        $canReadMemory = [bool](Get-Command Test-M2BuildOutOfMemory -ErrorAction SilentlyContinue)
+        docker compose --project-directory $composeDir -f $composeFile up -d --build 2>&1 | ForEach-Object {
+            $buildLine = [string]$_
+            if ($canReadMemory -and -not $buildOutOfMemory -and (Test-M2BuildOutOfMemory -Text $buildLine)) { $buildOutOfMemory = $true }
+            Write-Host $buildLine
+        }
         $buildExit = $LASTEXITCODE
         Write-Phase "docker compose up --build zakonczone (kod $buildExit)"
     }
     finally { $ErrorActionPreference = $previousPreference }
     if ($buildExit -ne 0) {
         Set-Content -LiteralPath $rebuildMarkerPath -Value ([DateTime]::UtcNow.ToString('o')) -Encoding UTF8
+        if ($buildOutOfMemory) {
+            $advice = Get-DockerMemoryAdviceSafe
+            $steps = if ($advice) { [string]$advice.Instructions } else { 'Daj maszynie Dockera co najmniej 6 GB pamięci (plik %USERPROFILE%\.wslconfig: [wsl2] i memory=8GB), zamknij Docker Desktop, w PowerShell wpisz: wsl --shutdown, uruchom Docker Desktop i kliknij GRAJ.' }
+            $fixed = ''
+            # Said already on the screen when the console asked about the fix.
+            $stepsTail = [Environment]::NewLine + $steps
+            if ($advice -and -not $Yes) {
+                $stepsTail = ''
+                Write-Host ('Maszyna Dockera ma {0} GB pamięci RAM - za mało, żeby skompilować rdzeń gry.' -f $advice.MemText) -ForegroundColor Yellow
+                Write-Host $steps -ForegroundColor Yellow
+                $fixed = Invoke-DockerMemoryFix -Advice $advice
+            }
+            if ($fixed -eq 'restarted') {
+                throw 'Nowa wersja plików została zapisana, ale Docker nie zbudował serwera: maszynie Dockera zabrakło pamięci RAM. Pamięć jest już zwiększona i Docker uruchomiony ponownie - kliknij GRAJ, launcher dokończy budowanie bez ponownego pobierania.'
+            }
+            throw ('Nowa wersja plików została zapisana, ale Docker nie zbudował serwera: maszynie Dockera zabrakło pamięci RAM i kompilacja rdzenia gry została przerwana (to nie jest miejsce na dysku). Samo kliknięcie GRAJ skończy się tak samo - najpierw daj Dockerowi więcej pamięci.' + $stepsTail)
+        }
         throw 'Nowa wersja plików została zapisana, ale Docker nie zbudował serwera. Kliknij GRAJ — launcher dokończy budowanie. Kopia plików jest w katalogu backups.'
     }
     if (Test-RebuildPending) { Remove-Item -LiteralPath $rebuildMarkerPath -Force -ErrorAction SilentlyContinue }
 }
 
+function Sync-ClientVersionFromFolder {
+    # MT2009_PLUS_CLIENT_VERSION_FROM_FOLDER_V1: MT2009-Patcher.exe updates
+    # the client folder alone, so the version is read from there too - its
+    # CLIENT_VERSION, else its files against client-files.json - and recorded
+    # in the state file before anything compares it with the manifest.
+    param($RemoteManifest)
+    try {
+        $clientComponent = Get-ManifestComponent -RemoteManifest $RemoteManifest -Name 'client'
+        $latest = if ($clientComponent) { ([string]$clientComponent.version).Trim() } else { '' }
+        $config = Get-Config
+        $folder = Get-M2ClientFolder -Config $config
+        if (-not $latest -or -not $folder) { return }
+        $known = [string](Resolve-M2InstalledClientVersion -ServerRoot $serverRoot -ClientFolder $folder -LatestVersion $latest -Record)
+        if ($known.Equals($latest, [StringComparison]::OrdinalIgnoreCase)) { return }
+        $fileList = Get-M2ClientFileList -ManifestSource (Get-ManifestSource $config) -TimeoutSec 15
+        if ($fileList) {
+            $null = Resolve-M2InstalledClientVersion -ServerRoot $serverRoot -ClientFolder $folder -LatestVersion $latest -FileList $fileList -Record
+        }
+    }
+    catch { }
+}
+
 function Show-UpdateStatus {
     param($RemoteManifest)
+    Sync-ClientVersionFromFolder -RemoteManifest $RemoteManifest
     $state = Read-State
     $serverComponent = Get-ManifestComponent -RemoteManifest $RemoteManifest -Name 'server'
     $clientComponent = Get-ManifestComponent -RemoteManifest $RemoteManifest -Name 'client'
@@ -639,17 +916,30 @@ function Update-Server {
     # drive whose room was the likeliest cause of the failure. Finish the build.
     if ((Test-RebuildPending) -and (Test-InstalledVersion -Installed ([string](Read-RecordedState).server) -Available ([string]$component.version))) {
         Write-Host "Pliki serwera w wersji $($component.version) są już na dysku - dokańczam budowanie bez ponownego pobierania." -ForegroundColor Yellow
+        # MT2009_PLUS_LAUNCHER_LOWMEM_UPDATE_V1
+        [void](Stop-WorldForUpdate)
         Rebuild-Server
         Write-Host "Serwer działa w wersji $($component.version)." -ForegroundColor Green
         return
     }
     Assert-DockerDiskWritable -Before 'aktualizację (niczego nie pobrano ani nie podmieniono)'
     Assert-ServerPortsFree -Before 'aktualizację (niczego nie pobrano ani nie podmieniono)'
+    # MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: before anything is downloaded.
+    Confirm-DockerMemoryForBuild -Before 'aktualizację (niczego nie pobrano ani nie podmieniono)'
     if (-not (Confirm-Operation 'Zaktualizować pliki serwera i przebudować kontenery? Baza postaci pozostanie bez zmian.')) {
         Write-Host 'Anulowano.' -ForegroundColor Yellow
         return
     }
-    $result = Invoke-M2PackageUpdate -Component $component -TargetRoot $serverRoot -BackupRoot (Join-Path $serverRoot 'backups')
+    # MT2009_PLUS_LAUNCHER_LOWMEM_UPDATE_V1: a running world on a PC short of
+    # memory is saved and stopped first (Stop-WorldForUpdate), and started
+    # again if the update fails before its build.
+    $suspended = Stop-WorldForUpdate
+    try { $result = Invoke-M2PackageUpdate -Component $component -TargetRoot $serverRoot -BackupRoot (Join-Path $serverRoot 'backups') }
+    catch {
+        $failure = $_
+        Restore-WorldAfterUpdate -Suspended $suspended
+        throw $failure
+    }
     Write-Host "Podmieniono $($result.Files) plików. Kopia: $($result.Backup)" -ForegroundColor Green
     Write-Phase 'Pliki aktualizacji pobrane i podmienione'
     # From here the files on disk are the new version whatever happens to the
@@ -1593,6 +1883,7 @@ function Set-FreshWorldSettings {
         Write-Host ' 3. Szybko         - 1000% / 500% / 500%'
         Write-Host ' 4. Własne liczby'
         Write-Host ' 5. Nie zmieniaj   - zostaw to, co jest w .env'
+        Write-Host 'UWAGA (yang): CENY I BOTY SĄ ZOPTYMALIZOWANE POD DROP 100%, ustawiając więcej, psujesz sobie rozgrywkę, a na serwerze będzie wielka inflacja, a ceny będą przesadzone.' -ForegroundColor Red
         $answer = Read-Host 'Wybierz (1-5)'
         switch ($answer) {
             '1' { $exp = 100;  $drop = 100; $yang = 100 }
@@ -1601,6 +1892,7 @@ function Set-FreshWorldSettings {
             '4' {
                 $exp = [int](Read-Host 'Doświadczenie w procentach (100 = normalnie)')
                 $drop = [int](Read-Host 'Drop przedmiotów w procentach')
+                Write-Host 'CENY I BOTY SĄ ZOPTYMALIZOWANE POD DROP 100%, ustawiając więcej, psujesz sobie rozgrywkę, a na serwerze będzie wielka inflacja, a ceny będą przesadzone.' -ForegroundColor Red
                 $yang = [int](Read-Host 'Yang w procentach')
             }
             default { $exp = -1; $drop = -1; $yang = -1 }
@@ -1979,12 +2271,6 @@ function Assert-CoopModule {
     }
 }
 
-function Assert-CoopHostAccess {
-    # Hosting is open on every install here (upstream gates it behind its
-    # testers' password; this project does not).
-    Assert-CoopModule
-}
-
 function Write-CoopNetworkReport {
     param($Report)
     Write-Host ("Karta sieciowa: {0} ({1}), brama {2}" -f $Report.LanAddress, $Report.Interface, $Report.Gateway)
@@ -2205,7 +2491,7 @@ function Wait-CoopGameReady {
 }
 
 function Start-CoopHostingAction {
-    Assert-CoopHostAccess
+    Assert-CoopModule
     Write-Phase 'sprawdzanie sieci'
     $report = Get-M2CoopNetworkReport
     Write-CoopNetworkReport -Report $report
@@ -2617,10 +2903,10 @@ function Show-VpsInviteAction {
     if (-not $name) { $name = Read-Host 'Imię albo nick znajomego (z niego powstanie login na VPS)' }
     if (-not $name) { throw 'Nie podano imienia znajomego.' }
     $status = Get-M2VpsStatus -State $state
-    $friend = New-M2VpsFriend -State $state -ServerRoot $serverRoot -Name $name
+    $friend = New-M2VpsFriend -State $state -Name $name
     Write-Host ('Konto na VPS dla {0}: login {1}, hasło {2}' -f $friend.name, $friend.login, $friend.password) -ForegroundColor Green
     Write-Host 'Kod zaproszenia (skopiuj i wyślij znajomemu w prywatnej wiadomości - zawiera hasło):'
-    Write-Host (Get-M2VpsFriendInvite -State $state -ServerRoot $serverRoot -Account $friend -Status $status) -ForegroundColor Cyan
+    Write-Host (Get-M2VpsFriendInvite -State $state -Account $friend -Status $status) -ForegroundColor Cyan
 }
 
 function Invoke-Action {
@@ -2665,7 +2951,14 @@ function Invoke-Action {
             Update-Server -RemoteManifest $remote
             Update-Client -RemoteManifest $remote -Config $config
         }
-        'Diagnose' { Show-DockerDiagnostics -CheckPanelPort | Out-Null }
+        'Diagnose' {
+            Show-DockerDiagnostics -CheckPanelPort | Out-Null
+            # MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1
+            $memoryAdvice = Get-DockerMemoryAdviceSafe
+            if ($memoryAdvice -and $memoryAdvice.Low) { Write-DockerMemoryAdvice -Advice $memoryAdvice }
+        }
+        'DockerRam' { Show-DockerMemoryAction }
+        'RestartDockerWsl' { Restart-DockerWsl }
         'Logs' { Create-Logs | Out-Null }
         'SendLogs' { Send-Logs }
         'Report' { Send-Report }
@@ -2705,8 +2998,17 @@ function Invoke-Action {
 }
 
 function Show-Menu {
+    # MT2009_PLUS_LAUNCHER_DOCKER_RAM_V1: Docker's memory read once when the
+    # menu opens (and again after option 42), and a line above the menu while
+    # it is short - a notice, nothing is stopped by it.
+    $memoryNotice = Get-DockerMemoryAdviceSafe
     while ($true) {
         Write-Header
+        if ($memoryNotice -and $memoryNotice.Low) {
+            Write-Host ('  UWAGA: Docker ma tylko {0} GB pamięci RAM (do budowy serwera zalecane co najmniej 6 GB).' -f $memoryNotice.MemText) -ForegroundColor Yellow
+            Write-Host '  Przed aktualizacją wybierz 42 - instrukcja z plikiem .wslconfig i automatyczne ustawienie.' -ForegroundColor Yellow
+            Write-Host ''
+        }
         Write-Host '  1. Uruchom serwer'
         Write-Host '  2. Zatrzymaj serwer'
         Write-Host '  3. Uruchom tylko Docker Desktop'
@@ -2730,6 +3032,7 @@ function Show-Menu {
         Write-Host ' 21. Zwolnij porty (gdy „port jest już zajęty” blokuje start lub aktualizację)'
         Write-Host ' 22. Poziom trudności (czekanie u Biologa i Stajennego: easy / medium / hard / własne godziny)'
         if (Get-Command Get-M2CoopNetworkReport -ErrorAction SilentlyContinue) {
+            Write-Host '     COOP jest teraz dostępny dla wszystkich. Jeśli chcesz, możesz wesprzeć rozwój paczki singleplayer: https://buycoffee.to/mt2009plus' -ForegroundColor DarkGray
             Write-Host ' 23. COOP: sprawdź sieć i stan hostowania (eksperymentalne)'
             Write-Host ' 24. COOP: zabezpiecz konta admin i test (nowe hasła)'
             Write-Host ' 25. COOP: dodaj znajomego (konto i kod zaproszenia)'
@@ -2754,6 +3057,7 @@ function Show-Menu {
         if (Get-Command Invoke-M2Report -ErrorAction SilentlyContinue) {
             Write-Host ' 41. Zgłoś błąd, propozycję albo pytanie (do autora, z logami)'
         }
+        Write-Host ' 42. Pamięć RAM Dockera (sprawdź; ustaw .wslconfig, gdy jest jej za mało)'
         Write-Host '  0. Wyjście'
         Write-Host ''
         $choice = Read-Host 'Wybierz opcję'
@@ -2790,12 +3094,15 @@ function Show-Menu {
             '39' { 'VpsLogs' }
             '40' { 'VpsInvite' }
             '41' { 'Report' }
+            '42' { 'DockerRam' }
             '0' { return }
             default { '' }
         }
         if (-not $selected) { continue }
         try { Invoke-Action -SelectedAction $selected }
         catch { Write-Host "BŁĄD: $($_.Exception.Message)" -ForegroundColor Red }
+        if ($selected -in @('DockerRam', 'Start', 'StartDocker', 'UpdateServer', 'UpdateAll')) { $memoryNotice = Get-DockerMemoryAdviceSafe }
+        $script:dockerMemoryChecked = $false
         Write-Host ''
         Read-Host 'Naciśnij Enter, aby wrócić do menu' | Out-Null
     }

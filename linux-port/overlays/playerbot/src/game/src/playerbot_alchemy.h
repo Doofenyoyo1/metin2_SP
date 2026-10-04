@@ -14,11 +14,12 @@
 //   * Half the bots (PLAYERBOT_ALCHEMY_PERCENT, by player id) use alchemy:
 //     qualified the way a player is, they keep their Cors and buy more off
 //     the counters, open them, wear the best stone of each of the seven kinds
-//     (deck 0), keep the deck active outside the safe zones, refine at the
+//     (deck 0), switch the deck on for fights only, refine at the
 //     Alchemist (grade and step from two stones, strength with a Green
-//     Dragon Bean) up to what their level asks, buy the Time Elixir when a
-//     worn stone runs low, and sell what they have no use for: a spare kind,
-//     a worse copy, or a stone whose bonuses are nothing to their class.
+//     Dragon Bean) up to what their level asks, buy the Time Elixir when the
+//     kind's stone runs low or out (MT2009_PLUS_BOT_DS_EXTEND_V1), and
+//     sell what they have no use for: a spare kind, a worse copy, or a
+//     stone whose bonuses are nothing to their class.
 //   * The other half sells its Cors on its counters, five and more a line.
 //
 // Every engine step is the one the player's window calls (DSManager's
@@ -196,6 +197,13 @@ namespace
 		// MT2009_PLUS_MARKET_SINK_V1: Cors off the counters.
 		unsigned corLinesBought;
 		unsigned long long corUnitsBought, corYang;
+		// MT2009_PLUS_BOT_DS_EXTEND_V1: stones recharged (an elixir on an
+		// expired or running-out stone worth keeping), expired good stones
+		// kept in the deck for the Alchemist, deck switches.
+		unsigned recharged, keptExpired, deckOn, deckOff;
+		// MT2009_PLUS_BOT_DS_KEEP_WORN_V1: pull-outs (only for a strict
+		// upgrade) and the ones the engine's odds destroyed.
+		unsigned pulledOut, pullOutDestroyed;
 	};
 	TPlayerBotAlchemyStats s_kPlayerBotAlchemyStats = { 0 };
 
@@ -331,6 +339,52 @@ namespace
 		return item && DSManager::instance().IsTimeLeftDragonSoul(item);
 	}
 
+	// MT2009_PLUS_BOT_DS_EXTEND_V1: a good stone is recharged, not swapped
+	// ("Boty nie przedluzaja alchemii ... po skonczeniu jej czasu nie
+	// przedluzyl, tylko wyjal ja i zmienil na jakies rzadkie", players,
+	// 3 October 2026). Every stone lasts a day of active deck (item_proto
+	// limit 9 = 86400 s); the player's way to give it more is the Time
+	// Elixir (D) of the Alchemist's shop (shop 13, 100002, USE_TIME_CHARGE_FIX
+	// +30000 s, 5 000 000 yang) used on the stone, worn or in the bag
+	// (CItem::GiveMoreTime_Fix, an expired stone too). The (M) and (S) ones
+	// are not on any shop.
+	//
+	// A stone is worth the elixir when it is Ancient or over, or when making
+	// it again would cost at least two elixirs (a well stepped Rare one);
+	// such a stone keeps its place by grade, step, strength and lines with
+	// no time left, and the Alchemist recharges it.
+	const BYTE PLAYERBOT_DS_KEEP_GRADE = 3;
+
+	long long GetPlayerBotDsElixirPrice()
+	{
+		const TItemTable* proto = ITEM_MANAGER::instance().GetTable(PLAYERBOT_DS_TIME_ELIXIR_VNUM);
+		return proto && proto->dwGold ? (long long)proto->dwGold : 0;
+	}
+
+	bool IsPlayerBotDsRechargeWorthy(LPITEM item)
+	{
+		if (!item || !item->IsDragonSoul() || GetPlayerBotDsGrade(item) < PLAYERBOT_DS_MIN_WORN_GRADE)
+			return false;
+		if (GetPlayerBotDsGrade(item) >= PLAYERBOT_DS_KEEP_GRADE)
+			return true;
+		const long long elixir = GetPlayerBotDsElixirPrice();
+		return elixir > 0 && GetPlayerBotDragonSoulBaseCost(GetPlayerBotDsGrade(item), GetPlayerBotDsStep(item),
+				GetPlayerBotDsStrength(item)) >= 2 * elixir;
+	}
+
+	// An elixir it can pay for now: one elixir and the refine spare over it.
+	// MT2009_PLUS_BOT_DS_KEEP_WORN_V1: the same for every stone - a worn
+	// stone is never swapped for a fresh copy (taking it off may destroy
+	// it), so an elixir is its only way back.
+	bool CanPlayerBotAffordDsElixir(LPCHARACTER ch)
+	{
+		const long long elixir = GetPlayerBotDsElixirPrice();
+		if (!ch || elixir <= 0)
+			return false;
+		const long long spare = (long long)ch->GetGold() - GetPlayerBotReservedGold(ch);
+		return spare >= elixir + PLAYERBOT_DS_REFINE_SPARE;
+	}
+
 	void CollectPlayerBotDragonSouls(LPCHARACTER ch, std::vector<LPITEM>& out, int kind = -1)
 	{
 		out.clear();
@@ -354,6 +408,46 @@ namespace
 		return ch->GetItem(TItemPos(INVENTORY, DRAGON_SOUL_EQUIP_SLOT_START + kind));
 	}
 
+	// MT2009_PLUS_BOT_DS_EXTEND_V1: the stone the kind's slot is for - the
+	// best by grade, step, strength and lines of the worn one and the bag's,
+	// of the rare grade and over, with lines worth something, and with time
+	// left or worth an elixir. Time does not rank: an expired perfect mythic
+	// stone stays the kind's stone over a fresh rare one.
+	LPITEM GetPlayerBotDsIntended(LPCHARACTER ch, int kind)
+	{
+		std::vector<LPITEM> stones;
+		CollectPlayerBotDragonSouls(ch, stones, kind);
+		LPITEM worn = GetPlayerBotWornDs(ch, kind);
+		if (worn)
+			stones.push_back(worn);
+		LPITEM best = NULL;
+		for (size_t i = 0; i < stones.size(); ++i)
+		{
+			LPITEM s = stones[i];
+			// The worn stone always counts (MT2009_PLUS_BOT_DS_KEEP_WORN_V1:
+			// it stays on until a strictly better one is ready).
+			if (s != worn && (GetPlayerBotDsGrade(s) < PLAYERBOT_DS_MIN_WORN_GRADE || ScorePlayerBotDsLines(ch, s) <= 0 ||
+					(!HasPlayerBotDsTime(s) && !IsPlayerBotDsRechargeWorthy(s))))
+				continue;
+			if (!best || RankPlayerBotDs(ch, s) > RankPlayerBotDs(ch, best) ||
+					(RankPlayerBotDs(ch, s) == RankPlayerBotDs(ch, best) && s == worn))
+				best = s;
+		}
+		return best;
+	}
+
+	// The stone of a kind the Alchemist should put an elixir on: the kind's
+	// stone (the worn one, unless a strictly better one waits in the bag)
+	// when it runs low, while the purse allows.
+	LPITEM GetPlayerBotDsRechargeTarget(LPCHARACTER ch, int kind)
+	{
+		LPITEM intended = GetPlayerBotDsIntended(ch, kind);
+		if (intended && intended->GetSocket(ITEM_SOCKET_REMAIN_SEC) < PLAYERBOT_DS_ELIXIR_BELOW_SEC &&
+				!IsPlayerBotSidekickLockedItem(ch, intended) && CanPlayerBotAffordDsElixir(ch))
+			return intended;
+		return NULL;
+	}
+
 	// Surplus - the counter's: every unworn stone of a bot that does not use
 	// alchemy; for a user, a stone its kind's best already beats and the
 	// refining cannot use (over its target, or past the material it keeps),
@@ -371,6 +465,10 @@ namespace
 		if (!IsPlayerBotAlchemyUser(ch))
 			return true;
 		const int kind = item->GetSubType();
+		// MT2009_PLUS_BOT_DS_EXTEND_V1: the kind's stone, expired or not,
+		// is never goods.
+		if (GetPlayerBotDsIntended(ch, kind) == item)
+			return false;
 		LPITEM worn = GetPlayerBotWornDs(ch, kind);
 		const TPlayerBotDsTarget t = GetPlayerBotDsTarget(ch);
 		const BYTE grade = GetPlayerBotDsGrade(item);
@@ -470,6 +568,28 @@ namespace
 		}
 	}
 
+	// MT2009_PLUS_BOT_COR_ROOM_V1: the alchemy bag is a page of 32 cells for
+	// every kind and grade (DSManager::GetBasePosition), and a Cor gives a
+	// rough stone of a RANDOM kind - the bag's total said "room" while the
+	// page of the kind that came out was full, and the stone fell on the
+	// ground, where nobody picks it up (players, 2 October). A Cor is opened
+	// only while every kind's rough page has a free cell.
+	bool PlayerBotHasRoomForEveryRoughKind(LPCHARACTER ch)
+	{
+		if (!ch || !ch->DragonSoul_IsQualified())
+			return false;
+		for (int kind = 0; kind < DS_SLOT_MAX; ++kind)
+		{
+			const int base = kind * DRAGON_SOUL_GRADE_MAX * DRAGON_SOUL_BOX_SIZE;
+			bool room = false;
+			for (int i = 0; i < DRAGON_SOUL_BOX_SIZE && !room; ++i)
+				room = ch->IsEmptyItemGrid(TItemPos(DRAGON_SOUL_INVENTORY, (WORD)(base + i)), 1);
+			if (!room)
+				return false;
+		}
+		return true;
+	}
+
 	// Its Cors opened while the alchemy bag has room: the Cor's group is one
 	// rough stone of a random kind (special_item_group.txt, 50255).
 	int OpenPlayerBotCors(LPCHARACTER ch)
@@ -484,6 +604,12 @@ namespace
 			CollectPlayerBotDragonSouls(ch, stones);
 			if ((int)stones.size() >= DRAGON_SOUL_INVENTORY_MAX_NUM - 8)
 				break;
+			if (!PlayerBotHasRoomForEveryRoughKind(ch)) // MT2009_PLUS_BOT_COR_ROOM_V1
+			{
+				PlayerBotLogThrottled("alchemy_cor_room", get_dword_time(),
+						"PLAYERBOT_ALCHEMY: cor kept, a rough page is full pid=%u name=%s", ch->GetPlayerID(), ch->GetName());
+				break;
+			}
 			if (!ch->UseItem(TItemPos(INVENTORY, (WORD)cell)))
 				break;
 			++opened;
@@ -500,31 +626,50 @@ namespace
 	{
 		if (!item || !item->IsEquipped())
 			return true;
+		// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: a locked companion's stays on.
+		if (IsPlayerBotSidekickLockedItem(ch, item))
+			return false;
 		const int cell = ch->GetEmptyDragonSoulInventory(item);
 		if (cell < 0)
 			return false;
+		// MT2009_PLUS_BOT_DS_KEEP_WORN_V1: a pull-out without an extractor
+		// keeps the stone only DragonSoulExtTables' share of the time (rare
+		// and ancient 30%, legendary 20%, mythic 15%) and destroys it
+		// otherwise (DSManager::PullOut, DS_PULL_OUT_FAILED; 2531 failed
+		// against 1014 kept on the supporters' world, 30 September - 3
+		// October). Only a strict upgrade calls this (EquipPlayerBotBestDragonSouls).
+		const DWORD vnum = item->GetVnum();
 		LPITEM moved = item;
-		return DSManager::instance().PullOut(ch, TItemPos(DRAGON_SOUL_INVENTORY, (WORD)cell), moved) && !moved->IsEquipped();
+		const bool ok = DSManager::instance().PullOut(ch, TItemPos(DRAGON_SOUL_INVENTORY, (WORD)cell), moved);
+		++s_kPlayerBotAlchemyStats.pulledOut;
+		if (!moved)
+		{
+			++s_kPlayerBotAlchemyStats.pullOutDestroyed;
+			sys_log(0, "PLAYERBOT_DS: pull-out destroyed pid=%u name=%s vnum=%u", ch->GetPlayerID(), ch->GetName(), vnum);
+			return false;
+		}
+		return ok && !moved->IsEquipped();
 	}
 
 	int FindPlayerBotDsRefine(LPCHARACTER ch, int kind, LPITEM& a, LPITEM& b);
 
 	// The best stone with time left of every kind into deck 0: of the rare
 	// grade and over, and only once the kind has no refine left to do (the
-	// Alchemist does it first) - but a mythic stone goes on as it is. A worn
-	// ordinary or brilliant stone comes off, material again.
+	// Alchemist does it first) - but a mythic stone goes on as it is.
+	//
+	// MT2009_PLUS_BOT_DS_KEEP_WORN_V1: taking a stone off may destroy it
+	// (PullOutPlayerBotDs). A worn stone - expired or not, of any grade -
+	// comes off only for a stone of the bag with time left that ranks
+	// strictly higher (grade, step, strength, lines; time does not rank).
+	// An expired one stays on until the Alchemist recharges it ("Dobrych
+	// kamieni nie powinien sciagac nigdy ... tylko wtedy, gdy ma lepszy
+	// gotowy do wstawienia na jego miejsce", the operator, 3 October 2026).
 	int EquipPlayerBotBestDragonSouls(LPCHARACTER ch)
 	{
 		int changed = 0;
 		for (int kind = 0; kind < DS_SLOT_MAX; ++kind)
 		{
 			LPITEM worn = GetPlayerBotWornDs(ch, kind);
-			if (worn && GetPlayerBotDsGrade(worn) < PLAYERBOT_DS_MIN_WORN_GRADE && PullOutPlayerBotDs(ch, worn))
-			{
-				sys_log(0, "PLAYERBOT_ALCHEMY: took off pid=%u name=%s vnum=%u kind=%d (under the rare grade)",
-						ch->GetPlayerID(), ch->GetName(), worn->GetVnum(), kind);
-				worn = NULL;
-			}
 			std::vector<LPITEM> stones;
 			CollectPlayerBotDragonSouls(ch, stones, kind);
 			LPITEM best = NULL;
@@ -539,16 +684,34 @@ namespace
 				if (FindPlayerBotDsRefine(ch, kind, a, b) != 0)	// PLAYERBOT_DS_WORK_NONE
 					continue;
 			}
-			if (!best || (worn && HasPlayerBotDsTime(worn) && RankPlayerBotDs(ch, worn) >= RankPlayerBotDs(ch, best)))
+			if (worn && !HasPlayerBotDsTime(worn) && (!best || RankPlayerBotDs(ch, worn) >= RankPlayerBotDs(ch, best)))
+			{
+				++s_kPlayerBotAlchemyStats.keptExpired;
+				PlayerBotLogThrottled("ds_kept_expired", get_dword_time(),
+						"PLAYERBOT_DS: kept expired pid=%u name=%s vnum=%u kind=%d gold=%lld (stays on, waits for an elixir)",
+						ch->GetPlayerID(), ch->GetName(), worn->GetVnum(), kind, (long long)ch->GetGold());
 				continue;
+			}
+			if (!best || (worn && RankPlayerBotDs(ch, worn) >= RankPlayerBotDs(ch, best)))
+				continue;
+			// A locked companion's stone stays (PullOutPlayerBotDs refuses).
+			if (worn && IsPlayerBotSidekickLockedItem(ch, worn))
+				continue;
+			const DWORD oldVnum = worn ? worn->GetVnum() : 0;
 			if (worn && !PullOutPlayerBotDs(ch, worn))
-				continue;
+			{
+				// Destroyed by the engine's odds: the slot is free for the
+				// better stone; refused (no room): nothing changes.
+				if (GetPlayerBotWornDs(ch, kind) != NULL)
+					continue;
+				worn = NULL;
+			}
 			if (PlayerBotEquipItem(ch, best))
 			{
 				++changed;
 				++s_kPlayerBotAlchemyStats.equipped;
 				sys_log(0, "PLAYERBOT_ALCHEMY: wear pid=%u name=%s vnum=%u kind=%d old=%u", ch->GetPlayerID(),
-						ch->GetName(), best->GetVnum(), kind, worn ? worn->GetVnum() : 0);
+						ch->GetName(), best->GetVnum(), kind, oldVnum);
 			}
 			else if (worn && !worn->IsEquipped())
 				PlayerBotEquipItem(ch, worn);
@@ -568,16 +731,68 @@ namespace
 		return n;
 	}
 
-	// The deck is on outside the safe zones and off inside them, where a stone
-	// only spends its time.
-	void ManagePlayerBotDsDeck(LPCHARACTER ch)
+	// MT2009_PLUS_BOT_DS_EXTEND_V1: the deck is on only for a fight. It was
+	// on everywhere outside the safe zones - fishing, mining, picking herbs,
+	// travelling, standing at a counter - and a stone spends its day only
+	// while the deck is on ("aby wylaczal alchemie, gdy np. lowi ryby albo
+	// idzie do miasta", players, 3 October 2026). On at the first blow or
+	// skill on a monster, a metin, a boss or a player
+	// (state.dwLastCombatActionTime, set by every attack path), off a minute
+	// after the last one, at once in a safe zone, at a counter, in a trade or
+	// fishing. The engine has no switch cooldown (do_dragon_soul), but every
+	// switch writes an item log per stone: PLAYERBOT_DS_DECK_MIN_TOGGLE_MS
+	// keeps a fight with pauses from flickering it.
+	const DWORD PLAYERBOT_DS_DECK_TICK_MS = 2000;
+	const DWORD PLAYERBOT_DS_COMBAT_START_MS = 5000;
+	const DWORD PLAYERBOT_DS_COMBAT_HOLD_MS = 60000;
+	const DWORD PLAYERBOT_DS_DECK_MIN_TOGGLE_MS = 20000;
+
+	void ManagePlayerBotDsDeckTick(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
-		const bool safe = IsPlayerBotSafeZone(ch->GetMapIndex(), ch->GetX(), ch->GetY()) || ch->GetMyShop();
+		if (!ch || dwNow < state.dwNextDsDeckTime)
+			return;
+		state.dwNextDsDeckTime = dwNow + PLAYERBOT_DS_DECK_TICK_MS;
+		// The Alchemist's visit switches it off itself (ManagePlayerBotAlchemy).
+		if (ch->IsDead() || state.bVisitingDsAlchemist || !ch->DragonSoul_IsQualified())
+			return;
 		const bool active = ch->DragonSoul_GetActiveDeck() >= 0;
-		if (!safe && !active && CountPlayerBotWornDs(ch, true) > 0)
-			ch->DragonSoul_ActivateDeck(DRAGON_SOUL_DECK_0);
-		else if (safe && active)
-			ch->DragonSoul_DeactivateAll();
+		if (!active && !IsPlayerBotAlchemyUser(ch))
+			return;
+		const DWORD last = state.dwLastCombatActionTime;
+		const bool fightingNow = last != 0 && dwNow - last < PLAYERBOT_DS_COMBAT_START_MS;
+		const bool foughtLately = last != 0 && dwNow - last < PLAYERBOT_DS_COMBAT_HOLD_MS;
+		const char* quiet = NULL;
+		if (IsPlayerBotSafeZone(ch->GetMapIndex(), ch->GetX(), ch->GetY()))
+			quiet = "safe_zone";
+		else if (ch->GetMyShop())
+			quiet = "counter";
+		else if (ch->GetExchange())
+			quiet = "trade";
+		else if (state.bFishingSession)
+			quiet = "fishing";
+		const bool settled = state.dwLastDsDeckToggle == 0 || dwNow - state.dwLastDsDeckToggle >= PLAYERBOT_DS_DECK_MIN_TOGGLE_MS;
+		if (!active)
+		{
+			if (!fightingNow || quiet || !settled || CountPlayerBotWornDs(ch, true) == 0)
+				return;
+			if (!ch->DragonSoul_ActivateDeck(DRAGON_SOUL_DECK_0))
+				return;
+			state.dwLastDsDeckToggle = dwNow;
+			++s_kPlayerBotAlchemyStats.deckOn;
+			PlayerBotLogThrottled("ds_deck_on", dwNow, "PLAYERBOT_DS: deck on pid=%u name=%s lv=%d map=%ld worn_live=%d",
+					ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), ch->GetMapIndex(), CountPlayerBotWornDs(ch, true));
+			return;
+		}
+		if (!quiet && foughtLately)
+			return;
+		if (!quiet && !settled)
+			return;
+		ch->DragonSoul_DeactivateAll();
+		state.dwLastDsDeckToggle = dwNow;
+		++s_kPlayerBotAlchemyStats.deckOff;
+		PlayerBotLogThrottled("ds_deck_off", dwNow, "PLAYERBOT_DS: deck off pid=%u name=%s lv=%d map=%ld why=%s idle_ms=%u",
+				ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), ch->GetMapIndex(), quiet ? quiet : "no_fight",
+				last ? (unsigned int)(dwNow - last) : 0U);
 	}
 
 	// ------------------------------------------------------------ at the Alchemist
@@ -597,17 +812,22 @@ namespace
 
 	// The next refine for one kind: two stones of a grade under the target;
 	// else two of the target grade and a step under the target; else the
-	// best one's strength with a bean. The two cheapest go; the worn one is
-	// used only when nothing else can.
+	// best one's strength with a bean. The two cheapest go.
+	// MT2009_PLUS_BOT_DS_KEEP_WORN_V1: never the worn one - the refine
+	// window wants it pulled out, which may destroy it (PullOutPlayerBotDs);
+	// a better stone made in the bag replaces it as a strict upgrade.
 	int FindPlayerBotDsRefine(LPCHARACTER ch, int kind, LPITEM& a, LPITEM& b)
 	{
 		a = b = NULL;
 		const TPlayerBotDsTarget t = GetPlayerBotDsTarget(ch);
 		std::vector<LPITEM> stones;
 		CollectPlayerBotDragonSouls(ch, stones, kind);
-		LPITEM worn = GetPlayerBotWornDs(ch, kind);
-		if (worn)
-			stones.push_back(worn);
+		LPITEM worn = NULL;
+		// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1: nothing a locked companion wears
+		// or was given goes to the Alchemist.
+		for (size_t i = stones.size(); i-- > 0;)
+			if (IsPlayerBotSidekickLockedItem(ch, stones[i]))
+				stones.erase(stones.begin() + i);
 		const long long spare = (long long)ch->GetGold() - GetPlayerBotReservedGold(ch);
 		for (BYTE grade = 0; grade < t.grade; ++grade)
 		{
@@ -659,18 +879,13 @@ namespace
 		return PLAYERBOT_DS_WORK_NONE;
 	}
 
+	// MT2009_PLUS_BOT_DS_EXTEND_V1: the kind's stone, worn or in the bag
+	// (GetPlayerBotDsRechargeTarget), not only the worn one.
 	bool PlayerBotNeedsDsElixir(LPCHARACTER ch)
 	{
-		const long long spare = (long long)ch->GetGold() - GetPlayerBotReservedGold(ch);
-		const TItemTable* proto = ITEM_MANAGER::instance().GetTable(PLAYERBOT_DS_TIME_ELIXIR_VNUM);
-		if (!proto || spare < (long long)proto->dwGold * 3)
-			return false;
 		for (int kind = 0; kind < DS_SLOT_MAX; ++kind)
-		{
-			LPITEM worn = GetPlayerBotWornDs(ch, kind);
-			if (worn && worn->GetSocket(ITEM_SOCKET_REMAIN_SEC) < PLAYERBOT_DS_ELIXIR_BELOW_SEC)
+			if (GetPlayerBotDsRechargeTarget(ch, kind))
 				return true;
-		}
 		return false;
 	}
 
@@ -720,19 +935,28 @@ namespace
 	{
 		for (int kind = 0; kind < DS_SLOT_MAX; ++kind)
 		{
-			LPITEM worn = GetPlayerBotWornDs(ch, kind);
-			if (!worn || worn->GetSocket(ITEM_SOCKET_REMAIN_SEC) >= PLAYERBOT_DS_ELIXIR_BELOW_SEC || !PlayerBotNeedsDsElixir(ch))
+			// MT2009_PLUS_BOT_DS_EXTEND_V1: the kind's stone, worn or in the bag.
+			LPITEM stone = GetPlayerBotDsRechargeTarget(ch, kind);
+			if (!stone)
 				continue;
 			int cell = FindPlayerBotBagItem(ch, PLAYERBOT_DS_TIME_ELIXIR_VNUM);
 			if (cell < 0 && BuyPlayerBotAlchemistItem(ch, PLAYERBOT_DS_TIME_ELIXIR_VNUM))
 				cell = FindPlayerBotBagItem(ch, PLAYERBOT_DS_TIME_ELIXIR_VNUM);
 			if (cell < 0)
 				return false;
-			const long before = worn->GetSocket(ITEM_SOCKET_REMAIN_SEC);
-			const bool ok = ch->UseItem(TItemPos(INVENTORY, (WORD)cell), TItemPos(worn->GetWindow(), worn->GetCell()));
+			const long before = stone->GetSocket(ITEM_SOCKET_REMAIN_SEC);
+			const bool equipped = stone->IsEquipped();
+			const bool ok = ch->UseItem(TItemPos(INVENTORY, (WORD)cell), TItemPos(stone->GetWindow(), stone->GetCell()));
+			const long after = (long)stone->GetSocket(ITEM_SOCKET_REMAIN_SEC);
 			sys_log(0, "PLAYERBOT_ALCHEMY: elixir pid=%u name=%s vnum=%u ok=%d sec=%ld->%ld gold=%lld", ch->GetPlayerID(),
-					ch->GetName(), worn->GetVnum(), ok ? 1 : 0, before, (long)worn->GetSocket(ITEM_SOCKET_REMAIN_SEC),
-					(long long)ch->GetGold());
+					ch->GetName(), stone->GetVnum(), ok ? 1 : 0, before, after, (long long)ch->GetGold());
+			if (ok && after > before)
+			{
+				++s_kPlayerBotAlchemyStats.recharged;
+				sys_log(0, "PLAYERBOT_DS: recharged pid=%u name=%s lv=%d vnum=%u kind=%d worn=%d sec=%ld->%ld gold=%lld",
+						ch->GetPlayerID(), ch->GetName(), ch->GetLevel(), stone->GetVnum(), kind, equipped ? 1 : 0,
+						before, after, (long long)ch->GetGold());
+			}
 			return ok;
 		}
 		for (int kind = 0; kind < DS_SLOT_MAX; ++kind)
@@ -741,7 +965,9 @@ namespace
 			const int work = FindPlayerBotDsRefine(ch, kind, a, b);
 			if (work == PLAYERBOT_DS_WORK_NONE)
 				continue;
-			if (!PullOutPlayerBotDs(ch, a) || (b && !PullOutPlayerBotDs(ch, b)))
+			// MT2009_PLUS_BOT_DS_KEEP_WORN_V1: a worn stone is never refine
+			// material (FindPlayerBotDsRefine); nothing is pulled out here.
+			if (a->IsEquipped() || (b && b->IsEquipped()))
 				return false;
 			TItemPos grid[DRAGON_SOUL_REFINE_GRID_SIZE];
 			const DWORD vnumA = a->GetVnum();
@@ -812,7 +1038,8 @@ namespace
 					dwNow - ch->GetLastAttackTime() > PLAYERBOT_EQUIPMENT_COMBAT_DELAY &&
 					(state.dwLastBotSkillTime == 0 || dwNow - state.dwLastBotSkillTime > PLAYERBOT_EQUIPMENT_COMBAT_DELAY))
 				EquipPlayerBotBestDragonSouls(ch);
-			ManagePlayerBotDsDeck(ch);
+			// The deck: ManagePlayerBotDsDeckTick, every bot's tick
+			// (MT2009_PLUS_BOT_DS_EXTEND_V1).
 		}
 		if (state.bVisitingShop || state.bVisitingBiologist || state.bVisitingHerbalist || state.bVisitingStable ||
 				state.bVisitingAlchemist || state.bVisitingUriel || state.bSaddlebagErrand != 0 ||
@@ -924,6 +1151,8 @@ namespace
 	void LogPlayerBotAlchemyCensus()
 	{
 		const TPlayerBotAlchemyStats& s = s_kPlayerBotAlchemyStats;
+		sys_log(0, "PLAYERBOT_DS: census recharged=%u kept_expired_passes=%u deck_on=%u deck_off=%u pulled_out=%u pull_out_destroyed=%u elixir_price=%lld",
+				s.recharged, s.keptExpired, s.deckOn, s.deckOff, s.pulledOut, s.pullOutDestroyed, GetPlayerBotDsElixirPrice());
 		sys_log(0, "PLAYERBOT_ALCHEMY: census shards=%u daily_cors=%u opened=%u worn_changes=%u grade=%u step=%u strength=%u refine_fails=%u elixirs=%u beans=%u listed=%u trips=%u cor_lines_bought=%u cor_units_bought=%llu cor_yang=%llu cor_supply=%u plentiful=%d",
 				s.shards, s.cors, s.opened, s.equipped, s.refinesGrade, s.refinesStep, s.refinesStrength,
 				s.refineFails, s.elixirs, s.beans, s.listed, s.trips, s.corLinesBought, s.corUnitsBought, s.corYang,

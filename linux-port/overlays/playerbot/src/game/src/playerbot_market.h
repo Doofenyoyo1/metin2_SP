@@ -47,6 +47,12 @@ namespace
 	// market empty of what it came for asks the world channel.
 	void AnnouncePlayerBotNeed(LPCHARACTER ch);
 
+	// MT2009_PLUS_BOT_MINIGAMES_V1 (playerbot_minigames.h, after this file):
+	// a mini game's chest off a counter, to open.
+	bool WantsPlayerBotMinigameChest(LPCHARACTER ch, LPITEM offer);
+	bool CanPlayerBotPayForMinigameChest(LPCHARACTER ch, LPITEM item, long long price);
+	void NotePlayerBotMinigameChestBought(LPCHARACTER ch, DWORD dwVnum, long long price, DWORD count);
+
 	class CCollectPlayerBotStalls
 	{
 		public:
@@ -198,6 +204,11 @@ namespace
 		if (IsPlayerBotCorVnum(offer->GetVnum()) || offer->IsDragonSoul())
 			return WantsPlayerBotAlchemyOffer(ch, offer);
 
+		// MT2009_PLUS_BOT_HERBALIST_BREW_V2: a recipe a brewer can still
+		// learn from (playerbot_herbalism.h), one at a time.
+		if (IsPlayerBotCraftRecipeItem(offer))
+			return WantsPlayerBotRecipeOffer(ch, offer);
+
 		// The guild building materials, for a master whose next building
 		// lacks them (playerbot_guild_land.h); nobody else buys them.
 		if (IsPlayerBotGuildBuildMaterial(offer->GetVnum()))
@@ -244,6 +255,19 @@ namespace
 		if (offer->GetVnum() == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
 			return WantsPlayerBotMoonlightChest(ch);
 
+		// MT2009_PLUS_BOT_MINIGAMES_V1: a mini game's chest, to open
+		// (WantsPlayerBotMinigameChest) - the gamblers most of all.
+		if (IsPlayerBotMinigameChestVnum(offer->GetVnum()))
+			return WantsPlayerBotMinigameChest(ch, offer);
+
+		// MT2009_PLUS_BOT_CAPE_V1: Peleryna Mestwa, for a bot strong enough to
+		// use it (PlayerBotWantsValourCapes, playerbot_targeting.h).
+		// A line that would take it over what it keeps off its own counter
+		// (PLAYERBOT_CAPE_KEEP) would only go up there again.
+		if (IsPlayerBotValourCapeVnum(offer->GetVnum()))
+			return PlayerBotWantsValourCapes(ch) &&
+					CountPlayerBotValourCapes(ch) + (int)offer->GetCount() <= PLAYERBOT_CAPE_KEEP;
+
 		// A flooded material for the refiners' exchange (playerbot_bonus.h).
 		if (IsPlayerBotExchangeBuyOffer(ch, offer))
 			return true;
@@ -283,8 +307,10 @@ namespace
 
 		// A horse medal, if this bot still has a horse to raise. Buying one is
 		// hours of the Monkey Dungeon it does not have to run.
+		// MT2009_PLUS_HORSE30_V1: while the next paid training lacks medals
+		// (playerbot_horse30.h).
 		if (offer->GetVnum() == PLAYERBOT_HORSE_MEDAL_VNUM)
-			return CanPlayerBotAdvanceHorse(ch) || PlayerBotSaddlebagWantsMedal(ch);
+			return PlayerBotHorseWantsMedal(ch) || PlayerBotSaddlebagWantsMedal(ch);
 
 		// A Forgetting Scroll, while a skill stands at seventeen unmastered.
 		if (offer->GetVnum() == PLAYERBOT_SKILL_FORGET_SCROLL_VNUM)
@@ -292,8 +318,11 @@ namespace
 
 		// A soul stone of its set, at a grade its piece deserves, for a socket
 		// it has open.
+		// MT2009_PLUS_DIGI_STACK_V1: one stone, never a stack of them (they
+		// stack to 200 now; the socket takes one).
 		if (offer->GetType() == ITEM_METIN)
-			return WantsPlayerBotSoulStone(ch, offer->GetVnum(), (DWORD)offer->GetValue(5));
+			return offer->GetCount() == 1 &&
+					WantsPlayerBotSoulStone(ch, offer->GetVnum(), (DWORD)offer->GetValue(5));
 
 		// A Stalki for its slot, while it holds nothing of the tier and is at
 		// the level or PLAYERBOT_STALKI_BUY_AHEAD_LEVELS short of it
@@ -440,13 +469,20 @@ namespace
 			if (chests && chests->dwSupplyUnits > 0 && WantsPlayerBotMoonlightChest(ch))
 				return true;
 		}
+		// MT2009_PLUS_BOT_CAPE_V1: capes for a cape build, while a counter has
+		// them (the ledger, as for the chest).
+		{
+			const TPlayerBotMarketLedgerEntry* capes = GetPlayerBotMarketLedgerEntry(PLAYERBOT_CAPE_MARKET_VNUM);
+			if (capes && capes->dwSupplyUnits > 0 && PlayerBotWantsValourCapes(ch))
+				return true;
+		}
 		// A refine material for something it is carrying below its target. This
 		// is the common case by a long way - half the counters in this world are
 		// materials, because half of what a bot needs is.
 		if (PlayerBotNeedsAnyRefineMaterial(ch))
 			return true;
-		// A horse medal, while there is still a horse to raise.
-		if (CanPlayerBotAdvanceHorse(ch))
+		// A horse medal, while the next training lacks one (MT2009_PLUS_HORSE30_V1).
+		if (PlayerBotHorseWantsMedal(ch))
 			return true;
 		// Sashes for the one it builds, and the piece to fill it (playerbot_sash.h).
 		if (PlayerBotWantsSashFromMarket(ch) || PlayerBotWantsSashPieceFromMarket(ch))
@@ -459,6 +495,10 @@ namespace
 			return true;
 		// A Forgetting Scroll for a skill stuck at seventeen.
 		if (GetPlayerBotStuckSkill(ch) != 0)
+			return true;
+		// MT2009_PLUS_BOT_HERBALIST_BREW_V2: a recipe for a brewer, while a
+		// counter has one it can learn from (the ledger).
+		if (PlayerBotWantsRecipeFromMarket(ch))
 			return true;
 		// A socket open on a piece it keeps.
 		if (PlayerBotHasOpenSoulStoneSocket(ch))
@@ -569,6 +609,18 @@ namespace
 			return CanPlayerBotPayForGuildMaterial(ch, item, price);
 		const long long spare = (long long)ch->GetGold() - GetPlayerBotReservedGold(ch) - PLAYERBOT_SHOPPING_GOLD_FLOOR;
 		if (price > spare) return false;
+		// MT2009_PLUS_BOT_MINIGAMES_V1: no dearer than what it holds (a gambler
+		// a little over), out of a share of the purse.
+		if (IsPlayerBotMinigameChestVnum(item->GetVnum()))
+			return CanPlayerBotPayForMinigameChest(ch, item, price);
+		// MT2009_PLUS_BOT_HERBALIST_BREW_V2: a recipe near the price list's
+		// 450 000, out of a quarter of what the brewer can spare.
+		if (IsPlayerBotCraftRecipeItem(item))
+		{
+			const long long fair = GetPlayerBotShopAskingPrice(item);
+			return fair > 0 && price <= fair * PLAYERBOT_HERBALISM_RECIPE_FAIR_PERCENT / 100 &&
+					price <= spare * PLAYERBOT_HERBALISM_RECIPE_BUY_PERCENT / 100;
+		}
 		if (item->GetType() == ITEM_COSTUME && IsPlayerBotSashVnum(item->GetVnum()))
 			return CanPlayerBotPayForSashOffer(ch, item, price);
 		if (WantsPlayerBotSashPieceOffer(ch, item))
@@ -665,6 +717,15 @@ namespace
 			const long long fair = GetPlayerBotShopAskingPrice(item);
 			if (fair > 0 && price > fair * PLAYERBOT_MARKET_MATERIAL_FAIR_MULTIPLE)
 				return false;
+		}
+		// MT2009_PLUS_BOT_CAPE_V1: a line of capes near what the market asks for
+		// it (PLAYERBOT_CAPE_FAIR_PERCENT) and out of PLAYERBOT_CAPE_BUDGET_PERCENT
+		// of the spare gold.
+		if (IsPlayerBotValourCapeVnum(item->GetVnum()))
+		{
+			const long long fair = GetPlayerBotShopAskingPrice(item);
+			return fair > 0 && price * 100 <= fair * PLAYERBOT_CAPE_FAIR_PERCENT &&
+					price <= spare * PLAYERBOT_CAPE_BUDGET_PERCENT / 100;
 		}
 		// A Moonlight chest asks what it holds since 28 September, and a line of
 		// five is several times the median wallet's share below, so it is paid
@@ -853,6 +914,8 @@ namespace
 				pick.dwSkillVnum);
 		if (pick.dwVnum == PLAYERBOT_MOONLIGHT_CHEST_VNUM)
 			NotePlayerBotChestBought(ch->GetPlayerID(), get_dword_time());
+		NotePlayerBotMinigameChestBought(ch, pick.dwVnum, paid, pick.wCount); // MT2009_PLUS_BOT_MINIGAMES_V1
+		NotePlayerBotRecipeBought(ch, pick.dwVnum, paid);   // MT2009_PLUS_BOT_HERBALIST_BREW_V2
 		// A gambler's purchase is charged to the session's budget.
 		NotePlayerBotGamblePurchase(ch, paid);
 		NotePlayerBotGuildMaterialBought(ch, pick.dwVnum, paid);
@@ -1529,6 +1592,7 @@ namespace
 		LogPlayerBotSashCensus();
 		LogPlayerBotSaddlebagCensus();
 		LogPlayerBotAlchemyCensus();
+		LogPlayerBotHerbalistCensus(dwNow);   // MT2009_PLUS_BOT_HERBALIST_BREW_V2
 		ReportPlayerBotWeaponGoals(dwNow);
 		ReportPlayerBotLevel30Census();
 		ReportPlayerBotStalkiCensus();

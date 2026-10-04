@@ -929,6 +929,10 @@ class GMPanelWindow(ui.BoardWithTitleBar):
 	# EditLine has no per-keystroke event in this engine, but OnUpdate is
 	# called every frame on any visible window.
 	def OnUpdate(self):
+		# MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: the next fetch waits for the game
+		# phase (warpsafe.py).
+		if not __import__("warpsafe").InGame():
+			return
 		if self._itemListBusy:
 			self._itemListBusyFrames += 1
 			if self._itemListBusyFrames > 180:
@@ -4402,6 +4406,9 @@ class Interface(object):
 
 	def __MakeWindows(self):
 		wndCharacter = uiCharacter.CharacterWindow()
+		# MT2009_PLUS_WEEKLY_RANKING_V1: the player's ranking titles in a strip under the
+		# character window (uiweeklyrank.py).
+		__import__("uiweeklyrank").AttachCharacterWindow(wndCharacter)
 		wndInventory = uiInventory.InventoryWindow()
 		wndInventory.BindInterfaceClass(self)
 		if app.ENABLE_DRAGON_SOUL_SYSTEM:

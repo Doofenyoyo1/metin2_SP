@@ -31,8 +31,9 @@
 //  - the computer's turn with no piece that can move passes the turn back
 //    (Owsap returned and the game hung), and it wins a reward only with
 //    points left, like the player.
-//  - only real players: a playerbot has no client, and its kills grow no birch
-//    branches (UpdateQuestFlag, the kill hook in item_manager.cpp).
+//  - only real players play here: a playerbot has no client. Its kills grow
+//    birch trunks of its own, and it "plays" a board without a table
+//    (MT2009_PLUS_BOT_MINIGAMES_V1, playerbot_minigames.h).
 //  - the season. Owsap's ranking table summed every event since the server
 //    was born. The leading core writes mini_game_yutnori_season (the epoch
 //    the event began) when an event starts and
@@ -46,6 +47,12 @@
 // Pakiet Yutnori (< 150); the trophies hold the Golden/Silver bundles,
 // 83032/83033 - Owsap's 50920-50922 are our Receptura items.
 #include "item.h"
+
+// MT2009_PLUS_BOT_MINIGAMES_V1: a bot's trunk (playerbot_minigames.h, later in the unit).
+namespace
+{
+	void PlayerBotMinigameCard(LPCHARACTER ch, int game);
+}
 
 namespace mt2009_yutnori
 {
@@ -654,7 +661,7 @@ namespace mt2009_yutnori
 		}
 
 		ch->SetQuestFlag(QF_BOARD, boards - 1);
-		ch->PointChange(POINT_GOLD, -START_GOLD, true);
+		PlayerBotChangeGold(ch, -(long long)START_GOLD);
 
 		TGame g;
 		memset(&g, 0, sizeof(g));
@@ -825,10 +832,18 @@ void YutnoriPacket(LPCHARACTER ch, const char* data)
 void YutnoriKillRoll(LPCHARACTER killer, int iDeltaPercent, int iRandRange)
 {
 	int GetDropPerKillPct(int iMinimum, int iDefault, int iDeltaPercent, const char* c_pszFlag);
-	if (!mt2009_yutnori::Eligible(killer) || !InGameEventIsActive(mt2009_yutnori::EVENT_KEY))
+	// MT2009_PLUS_BOT_MINIGAMES_V1: a bot rolls the same trunk, for its own
+	// count and a real Plansza do Yutnori (playerbot_minigames.h).
+	const bool bot = killer && killer->IsPC() && killer->GetDesc() && killer->GetDesc()->IsBot();
+	if ((!bot && !mt2009_yutnori::Eligible(killer)) || !InGameEventIsActive(mt2009_yutnori::EVENT_KEY))
 		return;
 	if (GetDropPerKillPct(50, 100, iDeltaPercent, "mini_game_yutnori_drop") >= number(1, iRandRange))
-		mt2009_yutnori::UpdateQuestFlag(killer);
+	{
+		if (bot)
+			PlayerBotMinigameCard(killer, 2);
+		else
+			mt2009_yutnori::UpdateQuestFlag(killer);
+	}
 }
 
 // The two tokens (char_item.cpp USE_SPECIAL, MT2009_PLUS_YUTNORI_V1 (use)).

@@ -1217,6 +1217,11 @@ class CatchKingGamePage(ui.ScriptWindow):
 		# owes runs here after LOCK_TIMEOUT seconds.
 		if not self.isLocked:
 			return
+		# MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: the owed step sends; not on the
+		# way to another core (warpsafe.py).
+		import warpsafe
+		if not warpsafe.InGame():
+			return
 		now = app.GetTime()
 		if now - self.lockTime < self.LOCK_TIMEOUT:
 			return

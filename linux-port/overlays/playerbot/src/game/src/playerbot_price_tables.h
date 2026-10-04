@@ -114,6 +114,7 @@ namespace
 		{  3140, 0x000, { 364800, 364800, 364800, 364800, 787200, 1605000, 3272000, 6672000, 13603000, 27736000 } },	// Magnetyczne Ostrze
 		{  3150, 0x000, { 300800, 300800, 300800, 300800, 768000, 1579000, 3246000, 6674000, 13721000, 28210000 } },	// Zlodziej Dusz
 		{  3160, 0x000, { 4160000, 4160000, 4160000, 4160000, 5952000, 11057000, 20541000, 38159000, 70887000, 131688000 } },	// Miecz Zalu
+		{  3180, 0x000, { 288000, 288000, 288000, 288000, 729600, 1741000, 4156000, 9919000, 23673000, 56499000 } },	// Pogromca Nieb. Smoka (MT2009_PLUS_POGROMCA_V1: Olbrz. Luk Diabla's row, the one level-80 Seon-Pyeong weapon the sheet prices)
 		{  3210, 0x000, { 1036000, 1036000, 1036000, 1036000, 1324600, 2375000, 4257000, 7632000, 13682000, 24528000 } },	// Ostrze Z Czerw. Stali
 		{  4000, 0x000, { 30400, 30400, 30400, 30400, 124800, 206000, 339000, 559000, 921000, 1518000 } },	// Amija
 		{  4010, 0x000, { 60800, 60800, 60800, 60800, 124800, 235000, 442000, 831000, 1564000, 2942000 } },	// Dziewiec Ostrzy
@@ -150,6 +151,13 @@ namespace
 		{  7150, 0x000, { 368000, 368000, 368000, 368000, 710400, 1448000, 2951000, 6015000, 12261000, 24990000 } },	// Ekstazyjny Wachlarz
 		{  7160, 0x000, { 444000, 444000, 444000, 444000, 677100, 1320000, 2571000, 5011000, 9766000, 19031000 } },	// Wachlarz Jes. Wiatru
 		{  7180, 0x000, { 3046400, 3046400, 3046400, 3046400, 4352000, 8085000, 15019000, 27901000, 51832000, 96288000 } },	// Wachlarz 8 Trigramow
+		{   210, 0x000, { 381600000, 387274000, 396952000, 426883000, 459602000, 500784000, 596303000, 702303000, 1012303000, 1828970000 } },	// Smiercionosne Ostrze (MT2009_PLUS_AWAKENING_V1: Zatruty miecz+9 + 200 000 000 ritual + the stone, then each step's yang and materials over its chance; capped under GOLD_MAX)
+		{   220, 0x000, { 340240000, 345914000, 355592000, 385523000, 418242000, 459424000, 554943000, 660943000, 970943000, 1787610000 } },	// Ksiezycowy Miecz (MT2009_PLUS_AWAKENING_V1: Lwi Miecz+9 + 200 000 000 ritual + the stone, then each step's yang and materials over its chance; capped under GOLD_MAX)
+		{  1160, 0x000, { 346200000, 351874000, 361552000, 391483000, 424202000, 465384000, 560903000, 666903000, 976903000, 1793570000 } },	// Noz Strumienia (MT2009_PLUS_AWAKENING_V1: Skrzydla Demona Chakr.+9 + 200 000 000 ritual + the stone, then each step's yang and materials over its chance; capped under GOLD_MAX)
+		{  2190, 0x000, { 354369000, 360043000, 369721000, 399652000, 432371000, 473553000, 569072000, 675072000, 985072000, 1801739000 } },	// Upiorna Kusza (MT2009_PLUS_AWAKENING_V1: Stalowy Luk Kruka+9 + 200 000 000 ritual + the stone, then each step's yang and materials over its chance; capped under GOLD_MAX)
+		{  3170, 0x000, { 371688000, 377362000, 387040000, 416971000, 449690000, 490872000, 586391000, 692391000, 1002391000, 1819058000 } },	// Zabojca Zolt. Smoka (MT2009_PLUS_AWAKENING_V1: Miecz Zalu+9 + 200 000 000 ritual + the stone, then each step's yang and materials over its chance; capped under GOLD_MAX)
+		{  5150, 0x000, { 339120000, 344794000, 354472000, 384403000, 417122000, 458304000, 553823000, 659823000, 969823000, 1786490000 } },	// Hibiskusowy Dzwon (MT2009_PLUS_AWAKENING_V1: Bambusowy Dzwon+9 + 200 000 000 ritual + the stone, then each step's yang and materials over its chance; capped under GOLD_MAX)
+		{  7170, 0x000, { 336288000, 341962000, 351640000, 381571000, 414290000, 455472000, 550991000, 656991000, 966991000, 1783658000 } },	// Wachlarz Lezac. Smoka (MT2009_PLUS_AWAKENING_V1: Wachlarz 8 Trigramow+9 + 200 000 000 ritual + the stone, then each step's yang and materials over its chance; capped under GOLD_MAX)
 		{ 11200, 0x000, { 32000, 32000, 32000, 32000, 89600, 166000, 307000, 569000, 1054000, 1952000 } },	// Mnisia Zbr. Plytowa
 		{ 11210, 0x000, { 48000, 48000, 48000, 48000, 176000, 322000, 589000, 1076000, 1969000, 3600000 } },	// Zelazna Zbr. Plytowa
 		{ 11220, 0x000, { 70400, 70400, 70400, 70400, 224000, 473000, 999000, 2109000, 4452000, 9400000 } },	// Zbr. Plyt. Tygrysa
@@ -352,6 +360,14 @@ namespace
 	};
 	const TPlayerBotMaterialPrice PLAYERBOT_EXTRA_MATERIAL_PRICES[] = {
 		{ 25040,   1375000 },	// Zwoj Blogoslawienstwa
+		{ 30670,  40000000 },	// Kamien Przebudzenia (MT2009_PLUS_AWAKENING_V1, Digi Rasta's 40 kk)
+		// MT2009_PLUS_HEAVEN_OIL_V1 (Autor: Digi Rasta, v0.17): Olejek Niebios, the soul
+		// stone steps' oil (1/1/2/2/3 for +4..+8). 5 kk: the first step's own fee, a third
+		// of a +5 stone (15 kk base), over a Biala Perla (4 kk) and the dragon's scale and
+		// claw (1.5 kk) - three bosses at 3/3/10% drop it - and well under the Awakening
+		// Stone (40 kk, eighteen bosses but one ritual of 200 kk). A full +4 -> +9 chain
+		// takes nine of them (45 kk) beside 155 kk of fees.
+		{ 71056,   5000000 },	// Olejek Niebios (MT2009_PLUS_HEAVEN_OIL_V1)
 		{ 25043,  6500000 },	// Podrecznik Kowala
 		{ 25044,   1400000 },	// Zwoj Wojny
 		{ 25045,  3000000 },	// Zwoj Boga Smokow
@@ -619,6 +635,75 @@ namespace
 		{ 50968,  2520000 },	// Zloty Lup Krolewski (operator)
 		{ 50969,  1488888 },	// Srebrny Lup Krolewski (operator)
 		{ 50970,  1355000 },	// Brazowy Lup Krolewski (operator)
+		// MT2009_PLUS_BOT_HERBALIST_ACTIVITY_V1: the brews of Baek-Go's board
+		// that no sheet priced (the green and purple ones above are his). What
+		// one potion costs to brew on this sheet - its herbs at his herb
+		// prices, the bottles at Baek-Go's, the board's fee and the potions it
+		// is brewed from, over the row's yield and odds (world.crafting_proto) -
+		// plus a quarter, the sash's rule for a crafted good, rounded. The
+		// beige run is priced at its siblings' five a craft.
+		{ 51700,    10000 },	// Pomaranczowy Sok (suggested: brew cost +25%)
+		{ 51701,    69000 },	// Pomaranczowa Woda (suggested: brew cost +25%)
+		{ 51702,   310000 },	// Pomaranczowa Rosa (suggested: brew cost +25%)
+		{ 51705,    10000 },	// Zolty Sok (suggested: brew cost +25%)
+		{ 51706,    69000 },	// Zolta Woda (suggested: brew cost +25%)
+		{ 51707,   300000 },	// Zolta Rosa (suggested: brew cost +25%)
+		{ 51710,    12000 },	// Cyjanowy Sok (suggested: brew cost +25%)
+		{ 51711,    75000 },	// Cyjanowa Woda (suggested: brew cost +25%)
+		{ 51712,   330000 },	// Cyjanowa Rosa (suggested: brew cost +25%)
+		{ 51715,    12000 },	// Niebieski Sok (suggested: brew cost +25%)
+		{ 51716,    75000 },	// Niebieska Woda (suggested: brew cost +25%)
+		{ 51717,   320000 },	// Niebieska Rosa (suggested: brew cost +25%)
+		{ 51720,    13000 },	// Zielony Sok (suggested: brew cost +25%)
+		{ 51721,    51000 },	// Zielona Woda (suggested: brew cost +25%)
+		{ 51722,   235000 },	// Zielona Rosa (suggested: brew cost +25%)
+		{ 51725,    13000 },	// Platynowy Sok (suggested: brew cost +25%)
+		{ 51726,    54000 },	// Platynowa Woda (suggested: brew cost +25%)
+		{ 51727,   265000 },	// Platynowa Rosa (suggested: brew cost +25%)
+		{ 51730,    13000 },	// Rozowy Sok (suggested: brew cost +25%)
+		{ 51731,    77000 },	// Rozowa Woda (suggested: brew cost +25%)
+		{ 51732,   380000 },	// Rozowa Rosa (suggested: brew cost +25%)
+		{ 51735,    20000 },	// Czerwony Sok (suggested: brew cost +25%)
+		{ 51736,    77000 },	// Czerwona Woda (suggested: brew cost +25%)
+		{ 51737,   385000 },	// Czerwona Rosa (suggested: brew cost +25%)
+		{ 51740,    15000 },	// Fioletowy Sok (suggested: brew cost +25%)
+		{ 51741,    62000 },	// Fioletowa Woda (suggested: brew cost +25%)
+		{ 51742,   335000 },	// Fioletowa Rosa (suggested: brew cost +25%)
+		{ 51745,    15000 },	// Karmazynowy Sok (suggested: brew cost +25%)
+		{ 51746,   110000 },	// Karmazynowa Woda (suggested: brew cost +25%)
+		{ 51747,   440000 },	// Karmazynowa Rosa (suggested: brew cost +25%)
+		{ 51748,  1650000 },	// Karmazynowa Mikstura (suggested: brew cost +25%)
+		{ 51750,    13000 },	// Szary Sok (suggested: brew cost +25%)
+		{ 51751,   105000 },	// Szara Woda (suggested: brew cost +25%)
+		{ 51752,   400000 },	// Biala Rosa (suggested: brew cost +25%)
+		{ 51753,  1500000 },	// Szara Mikstura (suggested: brew cost +25%)
+		{ 51755,    26000 },	// Mikstura Zaklecia (S) (suggested: brew cost +25%)
+		{ 51756,   195000 },	// Mikstura Zaklecia (D) (suggested: brew cost +25%)
+		{ 51760,    28000 },	// Mikstura Trwalosci (S) (suggested: brew cost +25%)
+		{ 51761,   140000 },	// Mikstura Trwalosci (D) (suggested: brew cost +25%)
+		{ 51765,    36000 },	// Mikstura Regeneracji PZ (suggested: brew cost +25%)
+		{ 51766,    56000 },	// Mikstura Regeneracji PE (suggested: brew cost +25%)
+		{ 51770,    33000 },	// Mikstura Pogromcy (M) (suggested: brew cost +25%)
+		{ 51771,   155000 },	// Mikstura Pogromcy (S) (suggested: brew cost +25%)
+		{ 51772,   735000 },	// Mikstura Pogromcy (D) (suggested: brew cost +25%)
+		{ 51775,    16000 },	// Mikstura Biegacza (S) (suggested: brew cost +25%)
+		{ 51776,    72000 },	// Mikstura Biegacza (D) (suggested: brew cost +25%)
+		{ 51782,  1500000 },	// Mikstura Geniuszu (suggested: brew cost +25%)
+		{ 51783,  1650000 },	// Mikstura Determinacji (suggested: brew cost +25%)
+		{ 51784,   235000 },	// Mikstura Stagnacji (suggested: brew cost +25%)
+		{ 51785,  2800000 },	// Mikstura Szybkiej Analizy (suggested: brew cost +25%)
+		{ 51790,    45000 },	// Mikstura Potegi (M) (suggested: brew cost +25%)
+		{ 51791,   240000 },	// Mikstura Potegi (S) (suggested: brew cost +25%)
+		{ 51792,  1050000 },	// Mikstura Potegi (D) (suggested: brew cost +25%)
+		{ 51795,    29000 },	// Mikstura Luski Smoka (M) (suggested: brew cost +25%)
+		{ 51796,   140000 },	// Mikstura Luski Smoka (S) (suggested: brew cost +25%)
+		{ 51797,   655000 },	// Mikstura Luski Smoka (D) (suggested: brew cost +25%)
+		{ 51800,    13000 },	// Brazowy Sok (suggested: brew cost +25%)
+		{ 51801,    47000 },	// Brazowa Woda (suggested: brew cost +25%)
+		{ 51802,   275000 },	// Brazowa Rosa (suggested: brew cost +25%)
+		{ 51805,    17000 },	// Bezowy Sok (suggested: brew cost +25%)
+		{ 51806,    85000 },	// Bezowa Woda (suggested: brew cost +25%)
+		{ 51807,   425000 },	// Bezowa Rosa (suggested: brew cost +25%)
 		{ 55001,    50000 },	// Proteinowa Przekaska (operator)
 		{ 55002,   400000 },	// Transporter Peta (suggested)
 		{ 55008,   150000 },	// Zwoj Imienia Peta (suggested)
@@ -772,6 +857,79 @@ namespace
 		{ 43, 2,   141750 },
 		{ 43, 3,   302500 },
 		{ 43, 4,   964975 },
+		// MT2009_PLUS_SOULSTONE9_V1 (Digi Rasta's soul stones +5..+9, made at the
+		// smith from a +4 with Magiczny Pyl): the grade's base 15/50/150/400/1000 kk,
+		// x0.75..x1.25 by what his +4 of the kind is worth.
+		{ 30, 5,   13617000 },
+		{ 30, 6,   45390000 },
+		{ 30, 7,  136171000 },
+		{ 30, 8,  363124000 },
+		{ 30, 9,  907810000 },
+		{ 31, 5,   16932000 },
+		{ 31, 6,   56441000 },
+		{ 31, 7,  169324000 },
+		{ 31, 8,  451532000 },
+		{ 31, 9, 1128829000 },
+		{ 32, 5,   12374000 },
+		{ 32, 6,   41247000 },
+		{ 32, 7,  123742000 },
+		{ 32, 8,  329979000 },
+		{ 32, 9,  824947000 },
+		{ 33, 5,   12808000 },
+		{ 33, 6,   42693000 },
+		{ 33, 7,  128078000 },
+		{ 33, 8,  341540000 },
+		{ 33, 9,  853850000 },
+		{ 34, 5,   12670000 },
+		{ 34, 6,   42233000 },
+		{ 34, 7,  126699000 },
+		{ 34, 8,  337864000 },
+		{ 34, 9,  844661000 },
+		{ 35, 5,   12780000 },
+		{ 35, 6,   42601000 },
+		{ 35, 7,  127802000 },
+		{ 35, 8,  340805000 },
+		{ 35, 9,  852012000 },
+		{ 36, 5,   12670000 },
+		{ 36, 6,   42233000 },
+		{ 36, 7,  126699000 },
+		{ 36, 8,  337864000 },
+		{ 36, 9,  844661000 },
+		{ 37, 5,   18750000 },
+		{ 37, 6,   62500000 },
+		{ 37, 7,  187500000 },
+		{ 37, 8,  500000000 },
+		{ 37, 9, 1250000000 },
+		{ 38, 5,   14411000 },
+		{ 38, 6,   48036000 },
+		{ 38, 7,  144107000 },
+		{ 38, 8,  384285000 },
+		{ 38, 9,  960712000 },
+		{ 39, 5,   14493000 },
+		{ 39, 6,   48311000 },
+		{ 39, 7,  144934000 },
+		{ 39, 8,  386490000 },
+		{ 39, 9,  966225000 },
+		{ 40, 5,   11880000 },
+		{ 40, 6,   39600000 },
+		{ 40, 7,  118799000 },
+		{ 40, 8,  316798000 },
+		{ 40, 9,  791995000 },
+		{ 41, 5,   12861000 },
+		{ 41, 6,   42869000 },
+		{ 41, 7,  128608000 },
+		{ 41, 8,  342955000 },
+		{ 41, 9,  857387000 },
+		{ 42, 5,   13408000 },
+		{ 42, 6,   44694000 },
+		{ 42, 7,  134083000 },
+		{ 42, 8,  357555000 },
+		{ 42, 9,  893887000 },
+		{ 43, 5,   15488000 },
+		{ 43, 6,   51626000 },
+		{ 43, 7,  154878000 },
+		{ 43, 8,  413007000 },
+		{ 43, 9, 1032518000 },
 	};
 	// What a stone of that grade is worth when its kind is not named above.
 	// Grade four has no general price in his table: every +4 is listed by name.
@@ -799,6 +957,77 @@ namespace
 		{ 42, 4, 130 },
 		{ 43, 3, 120 },
 		{ 43, 4, 140 },
+		// MT2009_PLUS_SOULSTONE9_V1: a +5..+9 seated adds ten points a grade over its +4.
+		{ 30, 5, 150 },
+		{ 30, 6, 160 },
+		{ 30, 7, 170 },
+		{ 30, 8, 180 },
+		{ 30, 9, 190 },
+		{ 31, 5, 170 },
+		{ 31, 6, 180 },
+		{ 31, 7, 190 },
+		{ 31, 8, 200 },
+		{ 31, 9, 210 },
+		{ 32, 5, 130 },
+		{ 32, 6, 140 },
+		{ 32, 7, 150 },
+		{ 32, 8, 160 },
+		{ 32, 9, 170 },
+		{ 33, 5, 140 },
+		{ 33, 6, 150 },
+		{ 33, 7, 160 },
+		{ 33, 8, 170 },
+		{ 33, 9, 180 },
+		{ 34, 5, 130 },
+		{ 34, 6, 140 },
+		{ 34, 7, 150 },
+		{ 34, 8, 160 },
+		{ 34, 9, 170 },
+		{ 35, 5, 140 },
+		{ 35, 6, 150 },
+		{ 35, 7, 160 },
+		{ 35, 8, 170 },
+		{ 35, 9, 180 },
+		{ 36, 5, 120 },
+		{ 36, 6, 130 },
+		{ 36, 7, 140 },
+		{ 36, 8, 150 },
+		{ 36, 9, 160 },
+		{ 37, 5, 190 },
+		{ 37, 6, 200 },
+		{ 37, 7, 210 },
+		{ 37, 8, 220 },
+		{ 37, 9, 230 },
+		{ 38, 5, 170 },
+		{ 38, 6, 180 },
+		{ 38, 7, 190 },
+		{ 38, 8, 200 },
+		{ 38, 9, 210 },
+		{ 39, 5, 150 },
+		{ 39, 6, 160 },
+		{ 39, 7, 170 },
+		{ 39, 8, 180 },
+		{ 39, 9, 190 },
+		{ 40, 5, 130 },
+		{ 40, 6, 140 },
+		{ 40, 7, 150 },
+		{ 40, 8, 160 },
+		{ 40, 9, 170 },
+		{ 41, 5, 140 },
+		{ 41, 6, 150 },
+		{ 41, 7, 160 },
+		{ 41, 8, 170 },
+		{ 41, 9, 180 },
+		{ 42, 5, 140 },
+		{ 42, 6, 150 },
+		{ 42, 7, 160 },
+		{ 42, 8, 170 },
+		{ 42, 9, 180 },
+		{ 43, 5, 150 },
+		{ 43, 6, 160 },
+		{ 43, 7, 170 },
+		{ 43, 8, 180 },
+		{ 43, 9, 190 },
 	};
 
 	// Polymorph marbles, by the monster in socket 0. Anything not named here

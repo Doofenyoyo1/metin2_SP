@@ -416,6 +416,10 @@ namespace
 	int GetPlayerBotGuildMemberCap(CGuild* guild, int tier)
 	{
 		const int engineCap = guild ? guild->GetMaxMemberCount() : 0;
+		// MT2009_PLUS_LEGENDS_V1 (guild): a Legend's guild keeps the engine's
+		// whole table - it is built to be the kingdom's strongest.
+		if (IsPlayerBotLegendGuild(guild))
+			return engineCap;
 		if (tier < 0 || tier >= PLAYERBOT_GUILD_TIER_COUNT || PLAYERBOT_GUILD_TIER_MEMBER_CAP[tier] <= 0)
 			return engineCap;
 		return std::min(engineCap, PLAYERBOT_GUILD_TIER_MEMBER_CAP[tier]);
@@ -572,7 +576,14 @@ namespace
 		const int room = GetPlayerBotGuildMemberCap(guild, info.bTier) - guild->GetMemberCount();
 		if (room <= 0)
 			return;
-		const int floor = info.bTier < GUILD_TIER_ORDINARY ? s_aiPlayerBotTierFloor[info.bEmpire][info.bTier] : 0;
+		int floor = info.bTier < GUILD_TIER_ORDINARY ? s_aiPlayerBotTierFloor[info.bEmpire][info.bTier] : 0;
+		// MT2009_PLUS_LEGENDS_V1 (guild): a Legend recruits the strong (the
+		// strong tier's floor, not the elite's three percent) and more of them
+		// a pass, and never another Legend.
+		const bool legendGuild = IsPlayerBotLegendGuild(guild);
+		if (legendGuild && info.bEmpire < playerbot_empire_rules::EMPIRE_COUNT)
+			floor = s_aiPlayerBotTierFloor[info.bEmpire][GUILD_TIER_STRONG];
+		const bool legendMaster = IsPlayerBotLegendTier(GetPlayerBotLegendTier(master->GetPlayerID()));
 
 		std::vector<TPlayerBotGuildCandidate> candidates;
 		for (TPlayerBotAIStateMap::const_iterator it = s_mapPlayerBotAIStates.begin();
@@ -589,6 +600,8 @@ namespace
 			// Promised to a person's guild (HandlePlayerBotGuildRecruitWhisper).
 			if (IsPlayerBotAwaitingGuildInvite(it->first))
 				continue;
+			if (legendMaster && IsPlayerBotLegendTier(GetPlayerBotLegendTier(it->first)))
+				continue;
 			const int strength = GetPlayerBotStrengthCached(it->first);
 			if (floor > 0 && strength < floor)
 				continue;
@@ -602,7 +615,8 @@ namespace
 		std::sort(candidates.begin(), candidates.end(), PlayerBotGuildCandidateStronger);
 
 		const size_t invites = std::min<size_t>(candidates.size(),
-				std::min<size_t>((size_t)room, PLAYERBOT_GUILD_INVITES_PER_PASS));
+				std::min<size_t>((size_t)room, legendGuild ? PLAYERBOT_LEGEND_GUILD_INVITES_PER_PASS
+						: PLAYERBOT_GUILD_INVITES_PER_PASS));
 		for (size_t i = 0; i < invites; ++i)
 		{
 			guild->RequestAddMember(candidates[i].ch, PLAYERBOT_GUILD_MEMBER_GRADE);
@@ -696,7 +710,10 @@ namespace
 		state.dwGuildExpAtLastOffer = exp;
 		state.bGuildLevelAtLastOffer = ch->GetLevel();
 
-		const int percent = info.bTier < PLAYERBOT_GUILD_TIER_COUNT ? PLAYERBOT_GUILD_EXP_OFFER_PERCENT[info.bTier] : 10;
+		int percent = info.bTier < PLAYERBOT_GUILD_TIER_COUNT ? PLAYERBOT_GUILD_EXP_OFFER_PERCENT[info.bTier] : 10;
+		// MT2009_PLUS_LEGENDS_V1 (guild): a Legend's guild is levelled harder.
+		if (IsPlayerBotLegendGuild(guild))
+			percent += PLAYERBOT_LEGEND_GUILD_EXP_OFFER_BONUS_PERCENT;
 		unsigned long long amount = (unsigned long long)gained * (unsigned long long)percent / 100ULL;
 		if (amount > (unsigned long long)(INT_MAX / 4))
 			amount = INT_MAX / 4;

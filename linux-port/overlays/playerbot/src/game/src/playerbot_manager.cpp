@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "war_map.h" // MT2009_PLUS_GUILD_WAR_ARENA_V1
 #include "playerbot_manager.h"
 #include "playerbot_empire_rules.h"
 #include "playerbot_channel_rules.h"
@@ -122,6 +123,9 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_party_policy.h"
 #include "playerbot_pvp_policy.h"
 #include "playerbot_monkey_policy.h"
+// MT2009_PLUS_SALE_TAX_V1: the SALE_TAX slider, read by the weights reload
+// below (playerbot_config.h) and by the engine's shops (server-patches/saletax).
+#include "playerbot_sale_tax.h"
 #include "pvp.h"
 #include "playerbot_types.h"
 #include "playerbot_price_tables.h"
@@ -133,6 +137,9 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 // may speak to a person.
 #include "playerbot_language.h"
 #include "playerbot_config.h"
+// MT2009_PLUS_LEGENDS_V1: a bot's tier in the System Legend and the numbers
+// it changes, before everything that asks (the refine, the gear, the fight).
+#include "playerbot_legend_tier.h"
 // The explanations of the bots' decisions (log.playerbot_listing,
 // log.playerbot_equip): the recorder here, the parts that read the whole AI
 // after it (playerbot_explain_late.h, below).
@@ -148,11 +155,13 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_goblin.h" // Poszukiwanie skarbow, "/goblin" (MT2009_PLUS_GOBLIN_V1)
 #include "playerbot_ingame_events.h" // the in-game event manager, "/ingame_event" (MT2009_PLUS_EVENT_MANAGER_V1)
 #include "playerbot_seonhae.h" // Seon-Hae's 6th/7th bonus, "/seonhae" (MT2009_PLUS_SEONHAE_V1)
+#include "playerbot_digi_qol.h" // Digi Rasta's server conveniences, "/nowy_ksiegi" (MT2009_PLUS_DIGI_SERVER_QOL_V1)
 #include "playerbot_flower.h" // the Flower Event "Dzieci Kwiaty", packets 187 (MT2009_PLUS_FLOWER_V1)
 #include "playerbot_rumi.h" // Owsap's Rumi (Okey card game), CG/GC 181 (MT2009_PLUS_RUMI_V1)
 #include "playerbot_catchking.h" // Catch the King, packets CG 226 / GC 238 (MT2009_PLUS_CATCH_KING_V1)
 #include "playerbot_yutnori.h" // Yut Nori, packets 182 (MT2009_PLUS_YUTNORI_V1)
 #include "playerbot_dungeon_panel.h" // the dungeon panel, "/lochy", d.update_ranking (MT2009_PLUS_DUNGEON_PANEL_V1)
+#include "playerbot_weekly_rank.h" // the weekly ranking and its titles, "/ranking" (MT2009_PLUS_WEEKLY_RANKING_V1)
 // Iwakura's Bot Mood System: the moods and the notes the loot, the chests,
 // the fishing and the blacksmith send it - early, so any of them may.
 #include "playerbot_mood.h"
@@ -163,6 +172,7 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_combat_value_policy.h"
 #include "playerbot_battle_horse.h"
 #include "playerbot_gear.h"
+#include "playerbot_horse30.h" // Digi Rasta's horse to level 30: paid training, the Black Steed trial, the horse bonus (MT2009_PLUS_HORSE30_V1)
 #include "playerbot_shaman_buff_set.h" // MT2009_PLUS_BOT_SHAMAN_INT_SET_V1: a Shaman's INT set for its buffs
 // The Stalki - the level-66 armours and the level-75 weapons - as the bots
 // keep and buy them: after the gear, whose candidate test and score it asks.
@@ -207,9 +217,11 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_weapon_goal.h"
 #include "playerbot_market.h"
 #include "playerbot_offline_market.h"
+#include "playerbot_minigames.h" // MT2009_PLUS_BOT_MINIGAMES_V1: bots in Catch the King, Rumi and Yut Nori, simulated
 #include "playerbot_guild_land.h"
 #include "playerbot_sash.h"
 #include "playerbot_saddlebag.h"
+#include "playerbot_awakening.h" // Digi Rasta's Ritual of Awakening and soul stones +5..+9: engine hooks, boss drop, bot prices and ritual (MT2009_PLUS_AWAKENING_V1, MT2009_PLUS_SOULSTONE9_V1)
 #include "playerbot_explain_late.h"
 // Forward declaration: the trade layer falls through to the deterministic
 // conversation layer for ordinary whispers.
@@ -237,6 +249,10 @@ namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* pl
 // the Guardian, the key on the first floor and the six floors after it.
 // After boss_raid.h, beside the tower whose scan-free fight it borrows.
 #include "playerbot_catacomb.h"
+// MT2009_PLUS_BOT_REPRICE_NOW_V1 (include): the panel's "reprice the bots'
+// shops now" and its automatic twin after a rate change or an update. After
+// the offline shop and market, whose pricing it asks.
+#include "playerbot_reprice_now.h"
 // MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1 (include): the test cohort that runs the
 // three Arezzo dungeons in a loop. After the Catacomb, whose fight it borrows.
 #include "playerbot_arezzo_dungeon_bots.h"
@@ -252,6 +268,9 @@ namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* pl
 // fights, the owner's drops, the owner's trades. Before companions.h, whose
 // IsPlayerBotHeldForCompany asks whether a bot is one.
 #include "playerbot_sidekick.h"
+// MT2009_PLUS_SIDEKICK_SHOP_ERRAND_V1: the owner's "Kup" errand - potions and
+// arrows at the merchants, capes and the like off the stands.
+#include "playerbot_sidekick_shop.h"
 // Iwakura's social personalities: the companion's phase and its invitations
 // to people, a companion Shaman's party buffs, and the mercenary's contracts.
 #include "playerbot_companions.h"
@@ -267,6 +286,9 @@ namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* pl
 #include "playerbot_bpbots.h"
 // MT2009_PLUS_SHOUTERS_V1: the three shouters of the first villages.
 #include "playerbot_shouters.h"
+// MT2009_PLUS_BOT_FRIENDS_V1: a bot answers a person's friend invitation
+// (server-patches/botfriends), after the shouters and the companion it asks.
+#include "playerbot_bot_friends.h"
 // MT2009_PLUS_PROGRESSION_V1: the checklist before a level, after every
 // cohort it asks about and the whole bag it weighs.
 #include "playerbot_progression.h"
@@ -274,6 +296,9 @@ namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* pl
 // Orc Valley's first island are, after the checklist whose eligibility it
 // borrows.
 #include "playerbot_l30_dropper.h"
+// MT2009_PLUS_LEGENDS_V1: the System Legend - the tiers' table, the Legends
+// and the Champions, the reputation, the notices and the engine's hooks.
+#include "playerbot_legends.h"
 
 namespace
 {
@@ -797,6 +822,10 @@ namespace
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
 			if (!item || item->GetType() != ITEM_POLYMORPH || item->GetSocket(0) == 0)
+				continue;
+			// MT2009_PLUS_SIDEKICK_POLYMORPH_V1: nor a companion's marble it
+			// holds for its owner, whose bag was full - that one is the owner's.
+			if (IsPlayerBotSidekickHeld(ch, item))
 				continue;
 			bool known = false;
 			for (size_t i = 0; i < sizeof(PLAYERBOT_POLYMORPH_MARBLE_VNUMS) /
@@ -1422,6 +1451,7 @@ namespace
 				state.bMarketTrip || state.bFishingSession || state.bTacticalRetreat ||
 				state.bRecoveringAfterDeath || ch->GetMyShop() ||
 				IsPlayerBotMiningNow(ch->GetPlayerID(), dwNow) ||
+				IsPlayerBotHerbPickingNow(ch, dwNow) ||   // MT2009_PLUS_BOT_HERBALIST_FIX_V1
 				GetPlayerBotDuelRefusal(ch, dwNow) != NULL)
 			return;
 		if (ch->GetMaxHP() <= 0 ||
@@ -1922,6 +1952,12 @@ namespace
 					if (candidate->GetEmpire() != m_me->GetEmpire())
 						return true;
 
+					// MT2009_PLUS_LEGENDS_V1 (party): two Legends are rivals and
+					// never hunt in one party.
+					if (ArePlayerBotLegendRivalPids(m_me->GetPlayerID(), candidate->GetPlayerID()) ||
+							(candidate->GetParty() && PlayerBotPartyHasLegendRival(m_me, candidate->GetParty())))
+						return true;
+
 					if (abs((int)candidate->GetLevel() - (int)m_me->GetLevel()) > 3)
 						return true;
 
@@ -2106,7 +2142,8 @@ namespace
 		if (!ch->UnequipItem(bestGear) || bestGear->IsEquipped())
 			return;
 
-		// UseItemEx deletes the stone whichever way the roll goes, so nothing
+		// UseItemEx takes the stone whichever way the roll goes - one of a
+		// stack (MT2009_PLUS_DIGI_STACK_V1), the last one deleted - so nothing
 		// below may touch bestStone.
 		ch->UseItemEx(bestStone, TItemPos(INVENTORY, bestGear->GetCell()));
 		const DWORD after = (DWORD)bestGear->GetSocket(bestSocket);
@@ -2410,6 +2447,11 @@ namespace
 #if defined(PLAYERBOT_ENGINE_MT2009)
 		const bool exorcised = get_global_time() < ch->GetSkillNextReadTime(bestSkillVnum);
 #endif
+		// MT2009_PLUS_LEGENDS_V1 (books): the count before the read, to see
+		// whether it landed (ApplyPlayerBotLegendBookReads).
+		char legendReadFlag[64];
+		snprintf(legendReadFlag, sizeof(legendReadFlag), "traning_master_skill.%u.read_count", bestSkillVnum);
+		const int legendReadsBefore = ch->GetQuestFlag(legendReadFlag);
 		// Rada Pustelnika makes this read certain: while AFFECT_SKILL_BOOK_BONUS
 		// is on, LearnSkillByBook rolls a hundred where it rolls thirty-five
 		// (r40250's english table: nothing against sixty-five), and it takes
@@ -2433,6 +2475,9 @@ namespace
 #if defined(PLAYERBOT_ENGINE_MT2009)
 			NotePlayerBotBookRead(ch, bestSkillVnum, exorcised);
 #endif
+			// MT2009_PLUS_LEGENDS_V1 (books): a Specjalny's book counts as two
+			// reads, a Legend's as three, a Champion's as four.
+			ApplyPlayerBotLegendBookReads(ch, bestSkillVnum, oldLevel, legendReadsBefore);
 			SetPlayerBotAction(state, BOT_ACTION_READ_BOOK, dwNow);
 			sys_log(0, "PLAYERBOT_AI: read skill book pid=%u name=%s skill=%u old_level=%u new_level=%u success=%d advice=%d",
 					ch->GetPlayerID(), ch->GetName(), bestSkillVnum, oldLevel,
@@ -2515,7 +2560,7 @@ namespace
 			const int level = ch->GetSkillLevel(vnum);
 			if (level < 30 || level >= 40)
 				continue;
-			if (ch->GetRealAlignment() < 1000 + 500 * (level - 30)) continue;
+			if (ch->GetRealAlignment() < GetPlayerBotGrandMasterRankCost(level)) continue;
 			const int priority = (vnum == build.dwPrimaryMaxSkill ? 10000 : 0) + level;
 			if (priority > bestPriority)
 			{
@@ -2528,7 +2573,7 @@ namespace
 
 		const int level = ch->GetSkillLevel(skillVnum);
 		const int rank = ch->GetRealAlignment();
-		const int cost = (1000 + 500 * (level - 30)) * (rank < 0 ? 2 : 1);
+		const int cost = GetPlayerBotGrandMasterRankCost(level) * (rank < 0 ? 2 : 1);
 		if (rank - cost < 0)
 		{
 			PlayerBotLogThrottled("grand_master_rank", dwNow,
@@ -2547,7 +2592,12 @@ namespace
 #else
 		ch->SetQuestFlag(nextTimeFlag, now + PLAYERBOT_GRAND_MASTER_TRAIN_SECONDS);
 #endif
-		const bool learned = ch->LearnGrandMasterSkill(skillVnum);
+		bool learned = ch->LearnGrandMasterSkill(skillVnum);
+		// MT2009_PLUS_LEGENDS_V1 (spirit stones): one stone of a bot of a tier
+		// is its tier's number of tries, the first that lands ending them.
+		for (int legendTry = 1; !learned && legendTry < GetPlayerBotLegendBookReads(ch) &&
+				ch->GetSkillLevel(skillVnum) == level; ++legendTry)
+			learned = ch->LearnGrandMasterSkill(skillVnum);
 		ch->UpdateAlignment(-(learned ? cost : number(cost / 3, cost / 2)));
 		SetPlayerBotAction(state, BOT_ACTION_READ_BOOK, dwNow);
 		sys_log(0, "PLAYERBOT_AI: grand master training %s pid=%u name=%s skill=%u level=%d->%d rank=%d->%d",
@@ -2859,6 +2909,7 @@ namespace
 		// September).
 		if (moved || foughtRecently || castRecently || state.bFishingSession ||
 				IsPlayerBotMiningNow(ch->GetPlayerID(), dwNow) ||
+				IsPlayerBotHerbPickingNow(ch, dwNow) ||   // MT2009_PLUS_BOT_HERBALIST_FIX_V1
 				state.dwTownLingerUntil != 0 || IsPlayerBotBesideHumanLeader(ch) ||
 				IsPlayerBotSidekickBesideOwner(ch) ||
 				// waiting for a floor's script in the Demon Tower, or for the
@@ -3093,6 +3144,10 @@ bool CPlayerBotManager::Spawn(DWORD dwPlayerID, BYTE bEmpire)
 	// MT2009_PLUS_MEDAL_SHOUTERS_V1: giving one of Tieru's names up
 	// (playerbot_shouters.h): out of the world until it wears another.
 	if (IsPlayerBotShouterNameHold(dwPlayerID))
+		return false;
+	// MT2009_PLUS_LEGEND_NAMES_V1: picked for a Legend's place and waiting
+	// for its new name (playerbot_legends.h).
+	if (IsPlayerBotLegendNameHold(dwPlayerID))
 		return false;
 	// MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1 (spawn): the Arezzo dungeon cohort lives
 	// on the core that hosts the dungeons; every other core leaves it alone.
@@ -4060,17 +4115,32 @@ void RefreshPlayerBotRetireControl(DWORD dwNow)
 	if (row[1]) str_to_number(count, row[1]);
 	if (row[2]) str_to_number(windowMinutes, row[2]);
 	if (row[3]) str_to_number(shopMinutes, row[3]);
-	if (batchId == 0 || count == 0 || count > 2500 ||
+	// MT2009_PLUS_BOT_RETIREMENT_FIX_V1: a count of 0 is the panel's "stop"
+	// (no more picks; the bots already picked finish their sale), so it is
+	// no longer an invalid row the core complained about every five seconds.
+	if (batchId == 0 || count > 2500 ||
 			windowMinutes == 0 || windowMinutes > 10080 ||
 			shopMinutes == 0 || shopMinutes > 10080)
 	{
-		sys_err("PLAYERBOT_RETIRE: invalid panel control batch=%u count=%u window=%u shop=%u",
+		PlayerBotLogThrottled("retire_bad_control", dwNow,
+				"PLAYERBOT_RETIRE: invalid panel control batch=%u count=%u window=%u shop=%u",
 				(unsigned int)batchId, (unsigned int)count,
 				(unsigned int)windowMinutes, (unsigned int)shopMinutes);
 		return;
 	}
 	if (batchId == s_dwPlayerBotRetireBatchId)
+	{
+		// The same batch, stopped or shortened from the panel.
+		if (count != s_dwPlayerBotRetireCount)
+		{
+			s_dwPlayerBotRetireCount = count;
+			s_bPlayerBotRetireBatchDone = s_uPlayerBotRetireBatchQueued >= count;
+			sys_log(0, "PLAYERBOT_RETIRE: panel changed batch=%u count=%u (queued %u)",
+					(unsigned int)batchId, (unsigned int)count,
+					(unsigned int)s_uPlayerBotRetireBatchQueued);
+		}
 		return;
+	}
 
 	s_dwPlayerBotRetireBatchId = batchId;
 	s_dwPlayerBotRetireCount = count;
@@ -4090,10 +4160,17 @@ void RefreshPlayerBotRetireControl(DWORD dwNow)
 void CPlayerBotManager::TryScheduleRetirement(DWORD dwNow)
 {
 	LoadPlayerBotRetireConfig();
-	// One world, one scheduler: channel 1 owns the shops, so it owns the batch
-	// and only picks bots that are in ITS world - there is nothing to migrate.
+	// Channel 1 owns the shops, so it owns the batch and only picks bots that
+	// are in ITS world - there is nothing to migrate.
+	// MT2009_PLUS_BOT_RETIREMENT_FIX_V1: this asked for the three towns (1, 21,
+	// 41) on ONE core. Under M2_PLAYERBOT_WORLD_LAYOUT=split (kept by the
+	// launcher for worlds over 1500 bots) each town is on a core of its own, so
+	// no core ever ran the scheduler: the panel's batch sat at "trwa" with
+	// nobody picked, for ever. Every channel-1 core hosting a kingdom's town
+	// now picks among its own bots, and the batch's count is claimed in the
+	// database (ClaimPlayerBotRetireSlot), so together they never pick more.
 	if (g_bChannel != playerbot_channel_rules::SHOP_CHANNEL ||
-			!map_allow_find(1) || !map_allow_find(21) || !map_allow_find(41))
+			(!map_allow_find(1) && !map_allow_find(21) && !map_allow_find(41)))
 		return;
 	RefreshPlayerBotRetireControl(dwNow);
 
@@ -4141,7 +4218,7 @@ void CPlayerBotManager::TryScheduleRetirement(DWORD dwNow)
 		else
 		{
 			snprintf(query, sizeof(query),
-					"INSERT INTO common.playerbot_retire_batch (id, queued_count, started_at) "
+					"INSERT IGNORE INTO common.playerbot_retire_batch (id, queued_count, started_at) "
 					"VALUES (%u, 0, UNIX_TIMESTAMP())", s_dwPlayerBotRetireBatchId);
 			AccountDB::instance().DirectQuery(query);
 			s_uPlayerBotRetireBatchQueued = 0;
@@ -4161,10 +4238,12 @@ void CPlayerBotManager::TryScheduleRetirement(DWORD dwNow)
 			s_uPlayerBotRetireBatchQueued -= back;
 			s_bPlayerBotRetireBatchDone = false;
 			s_dwPlayerBotRetireNextPickTime = 0;
-			char requeueQuery[160];
+			// Relative: another core may have claimed slots of the same batch.
+			char requeueQuery[200];
 			snprintf(requeueQuery, sizeof(requeueQuery),
-					"UPDATE common.playerbot_retire_batch SET queued_count=%u WHERE id=%u",
-					(unsigned int)s_uPlayerBotRetireBatchQueued, s_dwPlayerBotRetireBatchId);
+					"UPDATE common.playerbot_retire_batch SET queued_count="
+					"IF(queued_count>%u,queued_count-%u,0) WHERE id=%u",
+					(unsigned int)back, (unsigned int)back, s_dwPlayerBotRetireBatchId);
 			AccountDB::instance().AsyncQuery(requeueQuery);
 			sys_log(0, "PLAYERBOT_RETIRE: %u called-off pick(s) given back to batch id=%u",
 					(unsigned int)back, s_dwPlayerBotRetireBatchId);
@@ -4189,27 +4268,55 @@ void CPlayerBotManager::TryScheduleRetirement(DWORD dwNow)
 	}
 	// Too small a world for "the middle" to mean anything.
 	if (live.size() < 10)
+	{
+		s_dwPlayerBotRetireNextPickTime = dwNow + 60000;
+		PlayerBotLogThrottled("retire_small_world", dwNow,
+				"PLAYERBOT_RETIRE: only %u bots on this core, at least 10 are needed to pick",
+				(unsigned int)live.size());
 		return;
+	}
 	std::sort(live.begin(), live.end());
-	const size_t lo = live.size() * 35 / 100;
-	const size_t hi = std::min(live.size(), std::max(lo + 1, live.size() * 65 / 100));
-	const BYTE bLevelLo = live[lo].first;
-	const BYTE bLevelHi = live[hi - 1].first;
 
 	// Who of them is standing in this channel's world right now and can be sent
-	// to a market without any help from the ordinary AI.
+	// to a market without any help from the ordinary AI. MT2009_PLUS_BOT_RETIREMENT_WIDEN_V1:
+	// the middle first (35th-65th percentile); on a world where none of the
+	// middle can go - most of them keep a stall by then, the players' batches
+	// stood at "no bot can be picked" (3 October) - the 20th-80th, then any level.
+	static const int s_aBands[3][2] = { { 35, 65 }, { 20, 80 }, { 0, 100 } };
 	std::vector<DWORD> candidates;
-	for (size_t i = 0; i < live.size(); ++i)
+	BYTE bLevelLo = 0, bLevelHi = 0;
+	unsigned int inBand = 0, here = 0;
+	memset(s_auPlayerBotRetireRefused, 0, sizeof(s_auPlayerBotRetireRefused));
+	for (int band = 0; band < 3 && candidates.empty(); ++band)
 	{
-		if (live[i].first < bLevelLo || live[i].first > bLevelHi)
-			continue;
-		LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(live[i].second);
-		if (IsPlayerBotRetirementCandidate(ch, bLevelLo, bLevelHi))
-			candidates.push_back(live[i].second);
+		const size_t lo = live.size() * s_aBands[band][0] / 100;
+		const size_t hi = std::min(live.size(), std::max(lo + 1, live.size() * s_aBands[band][1] / 100));
+		bLevelLo = live[lo].first;
+		bLevelHi = live[hi - 1].first;
+		inBand = here = 0;
+		memset(s_auPlayerBotRetireRefused, 0, sizeof(s_auPlayerBotRetireRefused));
+		for (size_t i = 0; i < live.size(); ++i)
+		{
+			if (live[i].first < bLevelLo || live[i].first > bLevelHi)
+				continue;
+			++inBand;
+			// A bot of this manager, not a person in its character (takeover).
+			if (m_mapBots.find(live[i].second) == m_mapBots.end())
+				continue;
+			++here;
+			LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(live[i].second);
+			if (IsPlayerBotRetirementCandidate(ch, bLevelLo, bLevelHi))
+				candidates.push_back(live[i].second);
+		}
 	}
 	if (candidates.empty())
 	{
 		s_dwPlayerBotRetireNextPickTime = dwNow + 60000;
+		PlayerBotLogThrottled("retire_no_candidate", dwNow,
+				"PLAYERBOT_RETIRE: no bot of levels %u-%u can be picked right now (pool=%u in_band=%u in_game=%u; refused: offline=%u busy=%u party=%u guild_master=%u stall=%u other=%u), looking again in a minute",
+				(unsigned int)bLevelLo, (unsigned int)bLevelHi, (unsigned int)live.size(), inBand, here,
+				s_auPlayerBotRetireRefused[0], s_auPlayerBotRetireRefused[1], s_auPlayerBotRetireRefused[2],
+				s_auPlayerBotRetireRefused[3], s_auPlayerBotRetireRefused[4], s_auPlayerBotRetireRefused[5]);
 		return;
 	}
 
@@ -4218,10 +4325,39 @@ void CPlayerBotManager::TryScheduleRetirement(DWORD dwNow)
 	if (!pickedCh)
 		return;
 
+	// MT2009_PLUS_BOT_RETIREMENT_FIX_V1: the slot is claimed in the database
+	// first - one statement, so two cores of a split world never both take
+	// the last one - and given back if the pick row cannot be written.
+	{
+		char claim[256];
+		snprintf(claim, sizeof(claim),
+				"UPDATE common.playerbot_retire_batch SET queued_count=queued_count+1 "
+				"WHERE id=%u AND queued_count<%u",
+				s_dwPlayerBotRetireBatchId, (unsigned int)s_dwPlayerBotRetireCount);
+		std::unique_ptr<SQLMsg> claimed(AccountDB::instance().DirectQuery(claim));
+		if (!claimed.get() || claimed->uiSQLErrno != 0 || !claimed->Get())
+		{
+			s_dwPlayerBotRetireNextPickTime = dwNow + 60000;
+			return;
+		}
+		if (claimed->Get()->uiAffectedRows == 0)
+		{
+			// Every slot of the batch is taken (here or on another core).
+			s_bPlayerBotRetireBatchDone = true;
+			sys_log(0, "PLAYERBOT_RETIRE: batch id=%u has no free slot left",
+					s_dwPlayerBotRetireBatchId);
+			return;
+		}
+	}
 	// Never advance the durable counter without a durable pick row.
 	if (!RecordPlayerBotRetirePick(dwPID, s_dwPlayerBotRetireBatchId, pickedCh->GetName(),
 			pickedCh->GetLevel()))
 	{
+		char release[200];
+		snprintf(release, sizeof(release),
+				"UPDATE common.playerbot_retire_batch SET queued_count="
+				"IF(queued_count>0,queued_count-1,0) WHERE id=%u", s_dwPlayerBotRetireBatchId);
+		AccountDB::instance().AsyncQuery(release);
 		s_dwPlayerBotRetireNextPickTime = dwNow + 60000;
 		return;
 	}
@@ -4243,12 +4379,6 @@ void CPlayerBotManager::TryScheduleRetirement(DWORD dwNow)
 	const size_t left = s_dwPlayerBotRetireCount > s_uPlayerBotRetireBatchQueued
 			? s_dwPlayerBotRetireCount - s_uPlayerBotRetireBatchQueued : 0;
 	s_dwPlayerBotRetireNextPickTime = dwNow + (left > 0 ? remaining / (DWORD)left : 0);
-
-	char updateQuery[160];
-	snprintf(updateQuery, sizeof(updateQuery),
-			"UPDATE common.playerbot_retire_batch SET queued_count=%u WHERE id=%u",
-			(unsigned int)s_uPlayerBotRetireBatchQueued, s_dwPlayerBotRetireBatchId);
-	AccountDB::instance().AsyncQuery(updateQuery);
 
 	sys_log(0, "PLAYERBOT_RETIRE: picked pid=%u name=%s level=%u (%u/%u batch id=%u, band %u-%u, pool=%u)",
 			dwPID, pickedCh->GetName(), (unsigned int)pickedCh->GetLevel(),
@@ -4768,6 +4898,11 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 		// MT2009_PLUS_AREZZO_BOTS_V1 (cohort): the Arezzo test's characters
 		// play for as long as the test runs.
 		if (IsPlayerBotArezzoCohortPID(pid) || IsPlayerBotArezzoDungeonCohortPID(pid)) // MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1
+			continue;
+		// MT2009_PLUS_BOT_RETIREMENT_FIX_V1: a bot on its way to its last stall
+		// is not sent to rest: out of the world for hours, its retirement was
+		// called off as "lost" after 30 minutes and its slot went round again.
+		if (IsPlayerBotRetiring(pid))
 			continue;
 		std::map<DWORD, DWORD>::iterator session = m_mapLifeSessionEnd.find(pid);
 		if (session == m_mapLifeSessionEnd.end())
@@ -5476,6 +5611,15 @@ void CPlayerBotManager::PublishChannelPresence(DWORD dwNow)
 #if defined(ENABLE_IKASHOP_RENEWAL)
 		auto stand = ikashop::GetManager().GetShopByOwnerID(pid);
 		liveStand = stand && stand->GetDuration() != 0;
+		// MT2009_PLUS_BOT_COUNTER_RENEW_V1: on the shop channel an expired
+		// stand with goods on it costs what a running one does - its owner is
+		// there to renew it, and as the cheapest bot to send away it was the
+		// one sent: 161 of the 259 expired counters of the supporters' world
+		// on 3 October were owned by bots of the second channel. There it
+		// costs nothing, so the roam brings such an owner back first.
+		if (!liveStand && stand && g_bChannel == playerbot_channel_rules::SHOP_CHANNEL &&
+				!stand->GetItems().empty())
+			liveStand = true;
 		// A shop operation in flight, and a service visit with the board open.
 		pinned = pinned || playerbot_offline::requests.count(pid) != 0 ||
 				(state && state->offlineShop.visiting);
@@ -5983,12 +6127,18 @@ void CPlayerBotManager::Update()
 	// playerbot_guild_war.h).
 	RefreshPlayerBotStrengths(dwNow);
 	ManagePlayerBotGuildWars(dwNow);
+	// MT2009_PLUS_LEGENDS_V1: the System Legend - the table, the Legends'
+	// places and the Champions (playerbot_legends.h).
+	ManagePlayerBotLegends(dwNow);
 	ManagePlayerBotTowerRaids(dwNow);
 	// The world's bosses: a raid called to every one standing with none
 	// (playerbot_boss_raid.h).
 	ManagePlayerBotBossRaids(dwNow);
 	// The Devil's Catacomb (playerbot_catacomb.h).
 	ManagePlayerBotCatacombRaids(dwNow);
+	// MT2009_PLUS_BOT_REPRICE_NOW_V1 (pass): every keeper's counter repriced
+	// at once, a few keepers a second (playerbot_reprice_now.h).
+	ManagePlayerBotRepriceNow(dwNow);
 	// Pirate Tanaka and Zuo: what they put into the world, and who is called
 	// to it (playerbot_world_events.h).
 	ManagePlayerBotWorldEvents(dwNow);
@@ -6140,6 +6290,11 @@ WritePlayerBotGuildStatus(dwNow);
 		}
 		// Every bot of the pass, before the light/full split halves them.
 		NotePlayerBotPersonaCensus(state, dwNow);
+		// MT2009_PLUS_BOT_DS_EXTEND_V1: the alchemy deck on for a fight and
+		// off a minute after it (playerbot_alchemy.h), on every tick and
+		// before every errand that ends the tick early.
+		if (d->IsPhase(PHASE_GAME))
+			ManagePlayerBotDsDeckTick(ch, state, dwNow);
 
 		// Keep expensive decisions staggered over two ticks, but let an already
 		// engaged bot continue its basic combo on the intervening tick.  This makes
@@ -6200,6 +6355,12 @@ WritePlayerBotGuildStatus(dwNow);
 		// every errand, quarrel and guild war (playerbot_arezzo_dungeon_bots.h).
 		if (ManagePlayerBotArezzoDungeon(ch, state, dwNow))
 			continue;
+
+		// MT2009_PLUS_BOT_SASH_FLOW_V1: two or more sashes in the bag are
+		// combined or go on the counter (playerbot_sash.h); a look every few
+		// minutes, in place only for a bot the Arezzo test holds on its map.
+		ManagePlayerBotSashFlow(ch, dwNow, IsPlayerBotArezzoHeldHere(ch) ? (BYTE)PLAYERBOT_SASH_FLOW_HELD
+				: (BYTE)PLAYERBOT_SASH_FLOW_TOWN);
 
 		// A stone this bot hurt within PLAYERBOT_METIN_LOOT_SHARE_MS is gone:
 		// the loot window opens here, at the top of the pass. Stamped where the
@@ -6608,6 +6769,7 @@ WritePlayerBotGuildStatus(dwNow);
 		// dropped: the same exemption a rod has, for the same reason.
 		if (!ch->GetMyShop() && !state.bVisitingShop && !state.bFishingSession &&
 				!IsPlayerBotMiningNow(ch->GetPlayerID(), dwNow) &&
+				!IsPlayerBotHerbPickingNow(ch, dwNow) &&   // MT2009_PLUS_BOT_HERBALIST_FIX_V1: the knife's hand
 				!state.bVisitingStable)
 		{
 			if (ManagePlayerBotEquipment(ch, state, dwNow))
@@ -6622,6 +6784,9 @@ WritePlayerBotGuildStatus(dwNow);
 		// deep, and opened 190 in an hour between them. Their bags were not the
 		// problem: 29 cells of 90 in use on average, none above 84.
 		ManagePlayerBotChests(ch, state, dwNow);
+		// MT2009_PLUS_BOT_MINIGAMES_V1: a deck, a card set or a board in the
+		// bag is played at once, without a table (playerbot_minigames.h).
+		ManagePlayerBotMinigames(ch, state, dwNow);
 		ManagePlayerBotStackMerge(ch, state, dwNow);
 		// The catch, wherever the bot happens to be standing. It used to be
 		// opened only between casts, so an angler that walked away from the bank
@@ -6640,6 +6805,9 @@ WritePlayerBotGuildStatus(dwNow);
 		MirrorPlayerBotLevel(ch);
 		ManagePlayerBotPolymorph(ch, state, dwNow);
 		ManagePlayerBotGuild(ch, state, dwNow);
+		// MT2009_PLUS_LEGENDS_V1: its tier's row, HP and achievements, and a
+		// Legend's guild (playerbot_legends.h).
+		ManagePlayerBotLegend(ch, state, dwNow);
 		// Answered every tick and not on the party pass's own clock: the engine
 		// gives an invitation ten seconds to live, and the party pass can be
 		// three minutes away.
@@ -6851,6 +7019,13 @@ WritePlayerBotGuildStatus(dwNow);
 				ManagePlayerBotMining(ch, state, dwNow))
 			continue;
 
+		// MT2009_PLUS_BOT_HERBALIST_FIX_V1: and the herbalists by trade pick the
+		// herb bushes with the Herbalist's Knife, the vein's shape: the knife
+		// sits in the weapon hand, so the session owns the tick while it picks.
+		if (!bServingPerson && !state.bMultiPullActive && !bFightingMetin &&
+				ManagePlayerBotHerbGathering(ch, state, dwNow))
+			continue;
+
 		// The Alchemist (playerbot_town.h): the soul stones Iwakura bans from
 		// sockets, for dust, while the bot stands in a first village. Above the
 		// travel pass and the rest in town: the bots that carry these stones
@@ -6874,9 +7049,10 @@ WritePlayerBotGuildStatus(dwNow);
 				ManagePlayerBotSaddlebag(ch, state, dwNow))
 			continue;
 
-		// Alchemy (playerbot_alchemy.h): Cors opened, stones worn and the deck
-		// on outside the safe zones on a short clock; refines and the Time
-		// Elixir at the Alchemist of a first village.
+		// Alchemy (playerbot_alchemy.h): Cors opened and stones worn on a
+		// short clock; refines and the Time Elixir (an expired good stone
+		// too, MT2009_PLUS_BOT_DS_EXTEND_V1) at the Alchemist of a first
+		// village. The deck's switch is ManagePlayerBotDsDeckTick above.
 		if (!bServingPerson && !state.bMultiPullActive && !bFightingMetin &&
 				ManagePlayerBotAlchemy(ch, state, dwNow))
 			continue;
@@ -7191,6 +7367,10 @@ WritePlayerBotGuildStatus(dwNow);
 		if (ManagePlayerBotCombatBuffs(ch, state, dwNow))
 			continue;
 		if (HandlePlayerBotMultiPull(ch, state, dwNow))
+			continue;
+		// MT2009_PLUS_BOT_CAPE_V1: Peleryna Mestwa, for a strong bot on a
+		// crowd it can take, after the pull and its own crowd beaten.
+		if (HandlePlayerBotValourCape(ch, state, dwNow))
 			continue;
 		// The Archer's luring course. It owns movement and the shot for as long
 		// as it runs - including the ticks it spends waiting for the bow - so it
@@ -7877,6 +8057,42 @@ bool CPlayerBotManager::WarpBot(LPCHARACTER bot, long x, long y, long lPrivateMa
 			bot->SetDungeon(after);
 	}
 	return true;
+}
+
+// MT2009_PLUS_AUTOHUNT_PATH_V1: the ground a person's Auto Lowy may ask its
+// way on - the maps the bots' navigation knows; the Monkey and Spider dungeons
+// are rooms and corridors, where the way is asked for every target.
+int CPlayerBotManager::GetHumanPathKind(long lMapIndex)
+{
+	const long base = lMapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN ? lMapIndex / 10000 : lMapIndex;
+	CPlayerBotNavigation& navigation = CPlayerBotNavigation::instance(base);
+	if (!navigation.Init(base))
+		return 0;
+	return (IsPlayerBotMonkeyMap(base) || IsPlayerBotSpiderMap(base)) ? 2 : 1;
+}
+
+// The route from the character to the point: 1 found (out holds its points,
+// the last one the target), 0 none, -1 deferred (the planner's budget is spent
+// this tick - ask again), -2 no grid here.
+int CPlayerBotManager::PlanHumanPath(LPCHARACTER ch, long targetX, long targetY, std::vector<std::pair<long, long> >& out)
+{
+	out.clear();
+	if (!ch)
+		return 0;
+	const long lMapIndex = ch->GetMapIndex();
+	if (GetHumanPathKind(lMapIndex) == 0)
+		return -2;
+	CPlayerBotNavigation& navigation = CPlayerBotNavigation::instance(lMapIndex);
+	std::vector<PIXEL_POSITION> waypoints;
+	const EPlayerBotNavPlanResult result = navigation.FindRoute(ch->GetX(), ch->GetY(), targetX, targetY,
+			ch->GetPlayerID(), get_dword_time(), 300, true, waypoints);
+	if (result == PLAYERBOT_NAV_PLAN_DEFERRED)
+		return -1;
+	if (result != PLAYERBOT_NAV_PLAN_FOUND || waypoints.empty())
+		return 0;
+	for (size_t i = 0; i < waypoints.size(); ++i)
+		out.push_back(std::make_pair((long)waypoints[i].x, (long)waypoints[i].y));
+	return 1;
 }
 
 bool CPlayerBotManager::TransferBot(LPCHARACTER bot, LPCHARACTER to)

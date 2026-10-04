@@ -61,6 +61,11 @@ bool IsPlayerBotHumanLedParty(void*){return false;}
 int alive=1000; int GetPlayerBotsAlive(){return alive;}
 bool IsPlayerBotOnBattleHorseTrial(LPCHARACTER){return horse;}
 bool IsPlayerBotOnMilitaryHorseTrial(LPCHARACTER){return false;}
+// MT2009_PLUS_HORSE30_V1: one question for every horse trial, the Black
+// Steed's included; the stand-in answers like the battle trial did.
+bool IsPlayerBotOnAnyHorseTrial(LPCHARACTER c){return IsPlayerBotOnBattleHorseTrial(c);}
+// The Grand Master read's price in rank, as playerbot_types.h has it.
+int GetPlayerBotGrandMasterRankCost(int level){return (1000 + 500 * (level - 30)) * 10;}
 DWORD PlayerBotNavHash(DWORD v){return v;}
 int GetPlayerBotReservedGold(LPCHARACTER){return 500;}
 // Iwakura's Student buys at the market only once the big three stand at +7,
@@ -106,7 +111,9 @@ int main(){
     c.quantities[50513]=1; assert(!IsPlayerBotProgressionOffer(&c,&stone));
     stone.count=2; assert(IsPlayerBotProgressionOffer(&c,&stone));
     assert(PlayerBotNeedsTrainingRank(&c));
-    c.alignment=1000; assert(!PlayerBotNeedsTrainingRank(&c));
+    // Ten times the quest's rank since MT2009 PLUS 2.19.0 (GetPlayerBotGrandMasterRankCost).
+    c.alignment=9999; assert(PlayerBotNeedsTrainingRank(&c));
+    c.alignment=10000; assert(!PlayerBotNeedsTrainingRank(&c));
     c.alignment=0;
     c.mastery[1]=3; assert(!IsPlayerBotProgressionOffer(&c,&stone));
     Item tooth; tooth.type=0; tooth.vnum=30006; tooth.count=10;

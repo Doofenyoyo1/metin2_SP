@@ -62,6 +62,11 @@ namespace playerbot_bpbots
 	void OnProgressSettled(DWORD pid);
 	// On a Battle Pass errand now: no bot party for it meanwhile.
 	bool IsOnErrand(DWORD pid);
+	// MT2009_PLUS_BOT_BP_ROOM_V1: room in a bot's bag for a reward's items
+	// (up to three vnums and counts; mission 0 is the season's final reward).
+	// The junk worth less than the reward is sold to make it; false - nothing
+	// sold - when even that would not do, and the claim waits (Settle, below).
+	bool EnsureRewardRoom(LPCHARACTER ch, const DWORD* vnums, const DWORD* counts, int n, DWORD mission);
 }
 
 namespace mt2009_battlepass
@@ -600,6 +605,15 @@ namespace mt2009_battlepass
 			Progress& p = cache.missions[m.id];
 			if (p.value < m.count || p.claimed)
 				continue;
+			// MT2009_PLUS_BOT_BP_ROOM_V1: a bot's reward never falls on the
+			// ground for want of a cell (the operator, 3 October: "nagrody z
+			// battle passa sa na pewno bardziej drogocenne niz zlom w eq"):
+			// room is made out of its junk first, or the claim stays open in
+			// the database and is tried again (playerbot_bpbots.h). A player's
+			// reward is given as it always was.
+			if (IsBot(ch) && HasReward(m) &&
+					!playerbot_bpbots::EnsureRewardRoom(ch, m.rewardVnum, m.rewardCount, 3, m.id))
+				continue;
 			if (!TakeClaim(pid, cache.season, m.id))
 			{
 				p.claimed = true;
@@ -621,11 +635,14 @@ namespace mt2009_battlepass
 		// (playerbot_bpbots.h) (MT2009_PLUS_BP_BOTS_V1).
 		if (IsBot(ch))
 		{
-			if (AllDone(cache) && !cache.final.claimed)
+			if (AllDone(cache) && !cache.final.claimed &&
+					playerbot_bpbots::EnsureRewardRoom(ch, s_adwFinalVnum, s_adwFinalCount, 3, 0))	// MT2009_PLUS_BOT_BP_ROOM_V1
 				GiveFinal(ch, cache);
 			playerbot_bpbots::OnProgressSettled(pid);
 		}
 	}
+
+	const int PLAYERBOT_BP_ANY_METIN_LEVEL = 45;	// MT2009_PLUS_BP_BOT_ANY_METIN_V1
 
 	void Add(LPCHARACTER ch, BYTE type, DWORD target, long long amount, DWORD level = 0)
 	{
@@ -645,11 +662,16 @@ namespace mt2009_battlepass
 		for (size_t i = 0; i < s_vecMissions.size(); ++i)
 			locked[i] = IsLocked(cache, s_vecMissions[i]);
 		bool reached = false;
+		// MT2009_PLUS_BP_BOT_ANY_METIN_V1: a bot over level 45 no longer goes
+		// back to the first village for the Metin a mission names - any Metin
+		// it breaks counts for its Metin missions (the owner, 4 October).
+		const bool anyStone = type == TYPE_METIN && ch->GetDesc() && ch->GetDesc()->IsBot() &&
+				ch->GetLevel() > PLAYERBOT_BP_ANY_METIN_LEVEL;
 		for (size_t i = 0; i < s_vecMissions.size(); ++i)
 		{
 			const Mission& m = s_vecMissions[i];
-			if (m.type != type || (m.target != 0 && m.target != target) ||
-					(m.targetLevel != 0 && m.targetLevel != level) || locked[i])
+			if (m.type != type || locked[i] || (!anyStone &&
+					((m.target != 0 && m.target != target) || (m.targetLevel != 0 && m.targetLevel != level))))
 				continue;
 			Progress& p = cache.missions[m.id];
 			const DWORD have = p.value + p.delta;
@@ -806,9 +828,16 @@ namespace { void NoteOchaoBotKill(LPCHARACTER killer, LPCHARACTER victim); }
 // MT2009_PLUS_AREZZO_BOTS_V1 (kills): and the Arezzo maps' (playerbot_arezzo_bots.h).
 namespace { void NoteArezzoBotKill(LPCHARACTER killer, LPCHARACTER victim); }
 
+// MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking counts the same deeds
+// (playerbot_weekly_rank.h, included later).
+void WeeklyRankOnKill(LPCHARACTER killer, LPCHARACTER victim);
+void WeeklyRankOnKillShared(LPCHARACTER killer, LPCHARACTER victim, const std::vector<LPCHARACTER>& hurt);
+void WeeklyRankOnStat(LPCHARACTER ch, DWORD stat, long long value);
+
 // The engine's calls (server-patches/playerqol, MT2009_PLUS_BATTLE_PASS_V1).
 void BattlePassOnKill(LPCHARACTER killer, LPCHARACTER victim)
 {
+	WeeklyRankOnKill(killer, victim); // MT2009_PLUS_WEEKLY_RANKING_V1
 	NoteOchaoBotKill(killer, victim); // MT2009_PLUS_OCHAO_BOTS_V1 (kills)
 	NoteArezzoBotKill(killer, victim); // MT2009_PLUS_AREZZO_BOTS_V1 (kills)
 	if (!killer || !victim || victim->IsPC() || !mt2009_battlepass::Counts(killer))
@@ -853,6 +882,7 @@ namespace mt2009_battlepass
 
 void BattlePassOnKillShared(LPCHARACTER killer, LPCHARACTER victim, const std::vector<LPCHARACTER>& hurt)
 {
+	WeeklyRankOnKillShared(killer, victim, hurt); // MT2009_PLUS_WEEKLY_RANKING_V1
 	if (!victim || victim->IsPC() || !(victim->IsStone() || victim->GetMobRank() >= MOB_RANK_BOSS))
 		return;
 	std::set<DWORD> done;
@@ -869,6 +899,7 @@ void BattlePassOnKillShared(LPCHARACTER killer, LPCHARACTER victim, const std::v
 
 void BattlePassOnStat(LPCHARACTER ch, DWORD stat, long long value)
 {
+	WeeklyRankOnStat(ch, stat, value); // MT2009_PLUS_WEEKLY_RANKING_V1: a refine that took
 	using namespace mt2009_battlepass;
 	BYTE type = 0;
 	switch (stat)

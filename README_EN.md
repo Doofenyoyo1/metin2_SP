@@ -132,10 +132,11 @@ Detailed guides separated into dedicated documentation modules:
 
 ## 🤝 Credits & Acknowledgements
 
-- **AzzlackSyndicate** — author of the original Linux port foundation, installers, and panel. The source repository is now private; its Git history and attribution are retained.
-- **OskarPWA** — the bot depot window and the skill icons on the site come from a panel he built and shared for merging back.
-- **seban latino** — author of the Metin2 Singleplayer Panel (`linux-port/docker/seban-panel`), the second panel in this install: live map, profiles, rankings, economy, telemetry and bulk grants.
-- **Iwakura** — help with the price and shop name systems, the bots' nicknames and the item value algorithms.
-- **ĹŌŞƬĒĶ** — the client's new login screen (since 2.0.6): the animated background, the logo and Discord Rich Presence.
-- [DadsMmoLab/dads-mmo-lab](https://github.com/DadsMmoLab/dads-mmo-lab) — Research inspiration for autonomous MMO agent design.
-- The Metin2 emulation and research community.
+- **AzzlackSyndicate** — author of the original Linux port base, installers and panel. The source repository is currently private; Git history and full attribution are preserved.
+- **OskarPWA** — the bot storage window and skill icons on the page come from the panel they built and shared for porting.
+- **seban latino** — author of Metin2 Singleplayer Panel (`linux-port/docker/seban-panel`), the second panel in this install: live map, profiles, rankings, economy, telemetry and bulk item grants.
+- **Iwakura** — help with shop pricing and naming systems, bot nicknames and item value algorithms.
+- **ĹŌŞƬĒĶ** — the new client login screen (since 2.0.6): animated background, logo and Discord Rich Presence.
+- **Colide** — the new Auto Hunt window in the client (since 2.0.17): 12 skills, 6 potions by % HP or MP, 6 timed items, waiting for HP after revival and skills independent of attacking.
+- **Digi Rasta** — author of the systems of the "nowy-system" package (v0.16), ported into MT2009 PLUS as our own code (`server-patches/digirasta`): the Ritual of Awakening at the Blacksmith with the awakened weapons +0…+9, the soul stones up to +9, and the horse to level 30 with paid training at the Stable Boy, the Black Steed trial and saddlebags to level 30.
+- [DadsMmoLab/dads-mmo-lab](https://github.com/DadsMmoLab/dads-mmo-lab) — inspiration for autonomous agents in MMO games.

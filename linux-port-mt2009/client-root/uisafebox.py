@@ -354,6 +354,7 @@ class SafeboxWindow(ui.ScriptWindow):
 			self.dlgChangePassword = None
 
 		self.tooltipItem = None
+		self.collectorButton = None
 		self.wndMoneySlot = None
 		self.wndMoney = None
 		self.wndBoard = None
@@ -403,6 +404,22 @@ class SafeboxWindow(ui.ScriptWindow):
 		# MT2009_PLUS_SAFEBOX_ARRANGE_V1: the title bar's two buttons.
 		self.GetChild("SortButton").SetEvent(ui.__mem_func__(self.__OnSortButton))
 		self.GetChild("StackButton").SetEvent(ui.__mem_func__(self.__OnStackButton))
+		# MT2009_PLUS_COLLECTOR_STORAGE_V1: the collector's storage opens from
+		# here - the safebox open is its password and its storekeeper
+		# (uicollector.py, playerbot_collector.cpp).
+		collectorButton = ui.Button()
+		collectorButton.SetParent(self.GetChild("board"))
+		collectorButton.SetUpVisual("d:/ymir work/ui/public/large_button_01.sub")
+		collectorButton.SetOverVisual("d:/ymir work/ui/public/large_button_02.sub")
+		collectorButton.SetDownVisual("d:/ymir work/ui/public/large_button_03.sub")
+		collectorButton.SetWindowHorizontalAlignCenter()
+		collectorButton.SetWindowVerticalAlignBottom()
+		collectorButton.SetPosition(0, 79)
+		collectorButton.SetText("Kolekcjoner")
+		collectorButton.SetToolTipText("Magazyn kolekcjonera")
+		collectorButton.SetEvent(ui.__mem_func__(self.__OnCollectorButton))
+		collectorButton.Show()
+		self.collectorButton = collectorButton
 
 		self.wndItem = wndItem
 		self.dlgPickMoney = dlgPickMoney
@@ -460,7 +477,7 @@ class SafeboxWindow(ui.ScriptWindow):
 			button.SetDownVisual("d:/ymir work/ui/game/windows/tab_button_middle_03.sub")
 			button.SetWindowHorizontalAlignCenter()
 			button.SetWindowVerticalAlignBottom()
-			button.SetPosition(pos, 85)
+			button.SetPosition(pos, 108) # MT2009_PLUS_COLLECTOR_STORAGE_V1: was 85, under the Kolekcjoner button
 			button.SetText(text)
 			button.SetEvent(lambda arg=i: self.SelectPage(arg))
 			button.Show()
@@ -492,10 +509,14 @@ class SafeboxWindow(ui.ScriptWindow):
 		self.wndItem.RefreshSlot()
 		self.wndItem.SetSlotBaseImage("d:/ymir work/ui/public/Slot_Base.sub", 1.0, 1.0, 1.0, 1.0)
 
-		wnd_height = 130 + 32 * size
+		wnd_height = 153 + 32 * size # MT2009_PLUS_COLLECTOR_STORAGE_V1: was 130, the Kolekcjoner button
 		self.wndBoard.SetSize(self.BOX_WIDTH, wnd_height)
 		self.SetSize(self.BOX_WIDTH, wnd_height)
 		self.UpdateRect()
+
+	def __OnCollectorButton(self):
+		import uicollector
+		uicollector.RequestOpen()
 
 	def RefreshSafebox(self):
 		getItemID=safebox.GetItemID
@@ -658,6 +679,11 @@ class SafeboxWindow(ui.ScriptWindow):
 		return True
 
 	def OnUpdate(self):
+		# MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: Close sends "/safebox_close"; not
+		# on the way to another core, where the character is gone (warpsafe.py).
+		import warpsafe
+		if not warpsafe.InGame():
+			return
 
 		USE_SAFEBOX_LIMIT_RANGE = 1000
 
@@ -821,6 +847,11 @@ class MallWindow(ui.ScriptWindow):
 		return True
 
 	def OnUpdate(self):
+		# MT2009_PLUS_SIDEKICK_WARP_SAFE_V1: Close sends "/safebox_close"; not
+		# on the way to another core, where the character is gone (warpsafe.py).
+		import warpsafe
+		if not warpsafe.InGame():
+			return
 
 		USE_SAFEBOX_LIMIT_RANGE = 1000
 

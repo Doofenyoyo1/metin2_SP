@@ -24,18 +24,25 @@ namespace
 	bool MovePlayerBotTownLeg(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow,
 			long goalX, long goalY, int arrivalDistance);
 
+	// MT2009_PLUS_HORSE30_V1: the character level the horse's next step asks
+	// (c_aHorseStat's bands: 25 to ten, 35 to twenty, 50 to thirty), and the
+	// Black Steed trial's at twenty-nine.
 	BYTE GetPlayerBotNextHorseRequiredLevel(BYTE horseLevel)
 	{
-		if (horseLevel >= 21)
+		if (horseLevel >= PLAYERBOT_BLACK_STEED_LEVEL)
 			return 255;
+		if (horseLevel >= PLAYERBOT_BLACK_STEED_FROM_HORSE_LEVEL)
+			return PLAYERBOT_BLACK_STEED_MIN_LEVEL;
 		if (horseLevel >= 20)
-			return 50; // military horse milestone
+			return 50; // military horse milestone, and the training 21-28
 		if (horseLevel >= 10)
-			return 35; // combat horse milestone
+			return 35; // combat horse milestone, and the training 11-19
 		return PLAYERBOT_HORSE_REQUIRED_LEVEL;
 	}
 
-	// Every bot raises its horse, to the battle horse and the military one.
+	// Every bot raises its horse, to the battle horse and the military one -
+	// and since MT2009_PLUS_HORSE30_V1 on to thirty: paid training at the
+	// Stajenny (playerbot_horse30.h) and the Black Steed trial at twenty-nine.
 	// Iwakura's Jezdziec stopped a Grinder at the first ("odebrac konia na 1.
 	// poziomie - zalezy mu tylko na szybkosci przemieszczania sie") and sold
 	// the medals after it, so under his personalities almost nobody rode more
@@ -44,26 +51,28 @@ namespace
 	// dropper still takes no trial (IsPlayerBotTrialExempt).
 	bool CanPlayerBotAdvanceHorse(LPCHARACTER ch)
 	{
-		if (!ch || ch->GetHorseLevel() >= 21)
+		if (!ch || ch->GetHorseLevel() >= PLAYERBOT_BLACK_STEED_LEVEL)
 			return false;
-		// A horse at exactly ten is what the battle horse trial asks for, and one
-		// more medal makes it eleven - after which no medal, quest or NPC in this
-		// world will ever put it back. So a bot that could still win the battle
-		// horse keeps its medals until the stable keeper has handed the scroll
-		// over, which sets the horse to eleven itself and starts the ladder again.
+		// A horse at exactly ten is what the battle horse trial asks for, and
+		// training it would make it eleven - after which no NPC in this world
+		// will ever put it back. So a bot that could still win the battle
+		// horse waits for the stable keeper to hand the scroll over, which
+		// sets the horse to eleven itself and starts the ladder again.
 		//
-		// This also stops it farming medals it must not spend: every other caller
-		// of this function - the Monkey Dungeon expedition, buying a medal off a
-		// stall, the goal that walks it to the stable - reads the same answer and
-		// leaves it free to be out in the desert earning the thing instead.
+		// This also stops it collecting what it must not spend: every other
+		// caller of this function - the Monkey Dungeon expedition, buying a
+		// medal off a stall, the goal that walks it to the stable - reads the
+		// same answer and leaves it free to be out in the desert instead.
 		if (IsPlayerBotBattleHorseCandidate(ch))
 			return false;
 		// The same shape one level up: a horse at exactly twenty is waiting on
-		// the Demon Tower trial, not on another medal, so it does not go
-		// collecting them - but once the trial is done it walks to the stable
-		// like anybody with something to hand in.
+		// the Demon Tower trial - and at twenty-nine on the Black Steed's
+		// (MT2009_PLUS_HORSE30_V1) - not on a training; once the trial is done
+		// it walks to the stable like anybody with something to collect.
 		if (ch->GetHorseLevel() == PLAYERBOT_MILITARY_HORSE_FROM_HORSE_LEVEL)
 			return IsPlayerBotMilitaryHorseEarned(ch);
+		if (ch->GetHorseLevel() == PLAYERBOT_BLACK_STEED_FROM_HORSE_LEVEL)
+			return IsPlayerBotBlackSteedEarned(ch);
 		return ch->GetLevel() >= GetPlayerBotNextHorseRequiredLevel(ch->GetHorseLevel());
 	}
 
@@ -91,6 +100,9 @@ namespace
 
 	bool ManagePlayerBotHorse(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
+		// MT2009_PLUS_HORSE30_V1: the horse bonus of a horse past twenty, once
+		// a core run (playerbot_horse30.h); after that on every level.
+		EnsurePlayerBotHorseBonus(ch);
 		// The stable keeper stands in all six villages, so the horse errand is a
 		// local one wherever the bot lives.
 		playerbot_empire_rules::TTownServices svc;
@@ -105,10 +117,13 @@ namespace
 		const BYTE horseLevel = ch->GetHorseLevel();
 		const bool bBattleHorseWaiting = IsPlayerBotBattleHorseEarned(ch) &&
 				ch->GetGold() >= (int)PLAYERBOT_BATTLE_HORSE_FEE;
-		// The medals a due saddlebag row takes are the row's, not the horse's.
-		const int medalReserve = GetPlayerBotSaddlebagMedalReserve(ch);
-		if (!bBattleHorseWaiting && (!CanPlayerBotAdvanceHorse(ch) ||
-				(int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) <= medalReserve))
+		// MT2009_PLUS_HORSE30_V1: a trial to collect, or a training the bag
+		// and the purse can pay for in full (CanPlayerBotPayHorseTraining: the
+		// medals over the due saddlebag row's, the materials, the yang over the
+		// reserve; the feed is bought at the stable). The old errand - one
+		// medal handed in, one level up, up to twenty - is gone.
+		const bool bTrialWaiting = IsPlayerBotMilitaryHorseEarned(ch) || IsPlayerBotBlackSteedEarned(ch);
+		if (!bBattleHorseWaiting && !bTrialWaiting && !CanPlayerBotPayHorseTraining(ch))
 		{
 			state.bVisitingStable = false;
 			state.dwNextHorseActionTime = 0;
@@ -134,9 +149,11 @@ namespace
 			ch->SetVictim(NULL);
 			ch->Stop();
 			ClearPlayerBotRoute(state, true);
-			sys_log(0, "PLAYERBOT_HORSE: going to stable pid=%u name=%s medals=%d horse_level=%u delivered=%d",
+			sys_log(0, "PLAYERBOT_HORSE: going to stable pid=%u name=%s medals=%d materials=%d gold=%lld horse_level=%u delivered=%d",
 					ch->GetPlayerID(), ch->GetName(),
-					ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM), horseLevel, delivered);
+					ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM),
+					ch->CountSpecifyItem(PLAYERBOT_HORSE_TRAINING_MATERIAL_VNUM), (long long)ch->GetGold(),
+					horseLevel, delivered);
 		}
 
 		SetPlayerBotGoal(ch, state, BOT_GOAL_HORSE, dwNow);
@@ -188,9 +205,10 @@ namespace
 			return true;
 
 		// The trial first: a bot that has earned the battle horse is here to
-		// collect it, not to hand in a medal it does not have.
+		// collect it, not to pay for a training.
 		if (CollectPlayerBotBattleHorse(ch))
 		{
+			SyncPlayerBotHorseBonus(ch);
 			state.bVisitingStable = false;
 			state.dwNextHorseActionTime = 0;
 			state.dwNextHorseCheckTime = dwNow + number(30000, 60000);
@@ -198,15 +216,15 @@ namespace
 			return false;
 		}
 
-		// The military horse is collected here, before any medal is looked at: a
-		// bot that finished the Demon Tower trial has nothing to hand in and
-		// would otherwise be turned away by the medal check below and never get
-		// its twenty-first level.
+		// The military horse is collected here, before any training is looked
+		// at: a bot that finished the Demon Tower trial has nothing to pay.
 		if (IsPlayerBotMilitaryHorseEarned(ch))
 		{
 			SetPlayerBotHorseLevelInSaddle(ch, PLAYERBOT_MILITARY_HORSE_LEVEL);
 			ch->SetQuestFlag(PLAYERBOT_HORSE_MEDALS_FLAG, PLAYERBOT_MILITARY_HORSE_LEVEL);
 			ch->SetSkillLevel(131, 10);
+			// MT2009_PLUS_HORSE30_V1: the horse bonus starts at 21.
+			SyncPlayerBotHorseBonus(ch);
 			sys_log(0, "PLAYERBOT_HORSE: military horse granted pid=%u name=%s horse_level=%u kills=%d",
 					ch->GetPlayerID(), ch->GetName(), ch->GetHorseLevel(),
 					GetPlayerBotMilitaryHorseKills(ch));
@@ -217,7 +235,27 @@ namespace
 			return false;
 		}
 
-		if ((int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) <= GetPlayerBotSaddlebagMedalReserve(ch))
+		// MT2009_PLUS_HORSE30_V1: the Black Steed, the same way - konie.quest's
+		// "Proba Czarnego Rumaka" without its clock (playerbot_horse30.h).
+		if (IsPlayerBotBlackSteedEarned(ch))
+		{
+			SetPlayerBotHorseLevelInSaddle(ch, PLAYERBOT_BLACK_STEED_LEVEL);
+			ch->SetQuestFlag(PLAYERBOT_HORSE_MEDALS_FLAG, PLAYERBOT_BLACK_STEED_LEVEL);
+			SyncPlayerBotHorseBonus(ch);
+			sys_log(0, "PLAYERBOT_HORSE: black steed granted pid=%u name=%s horse_level=%u kills=%d",
+					ch->GetPlayerID(), ch->GetName(), ch->GetHorseLevel(),
+					GetPlayerBotBlackSteedKills(ch));
+			state.bVisitingStable = false;
+			state.dwNextHorseActionTime = 0;
+			state.dwNextHorseCheckTime = dwNow + number(30000, 60000);
+			ClearPlayerBotRoute(state, true);
+			return false;
+		}
+
+		// MT2009_PLUS_HORSE30_V1: the paid training (konie.quest's "Szkolenie
+		// konia"): medals, feed, materials and yang for one level.
+		const int trained = PayPlayerBotHorseTraining(ch);
+		if (trained <= 0)
 		{
 			state.bVisitingStable = false;
 			state.dwNextHorseActionTime = 0;
@@ -225,26 +263,14 @@ namespace
 			ClearPlayerBotRoute(state, true);
 			return false;
 		}
-
-		ch->RemoveSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM, 1);
-		int delivered = std::max(0, ch->GetQuestFlag(PLAYERBOT_HORSE_MEDALS_FLAG));
-		delivered = std::max(delivered, (int)ch->GetHorseLevel()) + 1;
-		// Medals stop at twenty. The twenty-first level is the Demon Tower
-		// trial's to give, not a medal's.
-		delivered = std::min(delivered, (int)PLAYERBOT_MILITARY_HORSE_FROM_HORSE_LEVEL);
-		ch->SetQuestFlag(PLAYERBOT_HORSE_MEDALS_FLAG, delivered);
+		ch->SetQuestFlag(PLAYERBOT_HORSE_MEDALS_FLAG, trained);
 		ch->SetQuestFlag(PLAYERBOT_HORSE_LAST_DELIVERY_TIME_FLAG, get_global_time());
-		SetPlayerBotHorseLevelInSaddle(ch, delivered);
+		SetPlayerBotHorseLevelInSaddle(ch, trained);
 		ch->SetSkillLevel(131, 10);
+		SyncPlayerBotHorseBonus(ch);
 
-		const char* stage = delivered >= PLAYERBOT_MILITARY_HORSE_FROM_HORSE_LEVEL
-				? "military_trial_next" : (delivered >= 11 ? "combat" : "normal");
-		sys_log(0, "PLAYERBOT_HORSE: medal delivered pid=%u name=%s delivered=%d horse_level=%u stage=%s medals_left=%d",
-				ch->GetPlayerID(), ch->GetName(), delivered, ch->GetHorseLevel(), stage,
-				ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM));
-
-		if (delivered >= 21 || !CanPlayerBotAdvanceHorse(ch) ||
-				(int)ch->CountSpecifyItem(PLAYERBOT_HORSE_MEDAL_VNUM) <= GetPlayerBotSaddlebagMedalReserve(ch))
+		// One more level this visit when the bag and the purse still pay for it.
+		if (!CanPlayerBotPayHorseTraining(ch))
 		{
 			state.bVisitingStable = false;
 			state.dwNextHorseActionTime = 0;
@@ -347,7 +373,7 @@ namespace
 		// branch of the travel stood back for the trial, so a trial bot in town
 		// for its potions started a session there - three of the sixteen trial
 		// bots in the world were fishing in Joan (m2zip, 24 September).
-		if (IsPlayerBotOnBattleHorseTrial(ch) || IsPlayerBotOnMilitaryHorseTrial(ch))
+		if (IsPlayerBotOnAnyHorseTrial(ch) /* MT2009_PLUS_HORSE30_V1 */)
 			return false;
 		// Nor a bot that answered a world event: the bank is a first village's,
 		// the event is out on its own map (playerbot_world_events.h).
@@ -793,7 +819,8 @@ namespace
 		// interrupted for nothing.
 		LPITEM worn = ch->GetWear(WEAR_WEAPON);
 		if (worn && worn->GetType() == ITEM_ROD && worn->GetRefinedVnum() > 0 &&
-				worn->GetSocket(0) >= worn->GetValue(2))
+				worn->GetSocket(0) >= worn->GetValue(2) &&
+				!IsPlayerBotSidekickLockedItem(ch, worn))	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1
 		{
 			// The engine's UnequipItem does not ask for room itself, and the new
 			// rod is put in the old one's cell: a rod that stayed in the hand
@@ -808,7 +835,7 @@ namespace
 			LPITEM item = ch->GetInventoryItem(cell);
 			if (item && item->GetType() == ITEM_ROD && !item->IsEquipped() &&
 					item->GetRefinedVnum() > 0 &&
-					item->GetSocket(0) >= item->GetValue(2))
+					item->GetSocket(0) >= item->GetValue(2) && !IsPlayerBotSidekickLockedItem(ch, item))
 				rod = item;
 		}
 		if (!rod)

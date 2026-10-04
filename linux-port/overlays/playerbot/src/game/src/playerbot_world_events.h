@@ -419,7 +419,7 @@ namespace
 			return "dropper";
 		if (st.bFishingSession || IsPlayerBotMiningNow(pid, dwNow))
 			return "tool";
-		if (IsPlayerBotOnBattleHorseTrial(c) || IsPlayerBotOnMilitaryHorseTrial(c))
+		if (IsPlayerBotOnAnyHorseTrial(c) /* MT2009_PLUS_HORSE30_V1 */)
 			return "trial";
 		if (st.bTownVisitPhase != BOT_TOWN_PHASE_NONE || c->GetMyShop())
 			return "town";
