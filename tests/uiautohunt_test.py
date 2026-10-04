@@ -33,8 +33,11 @@ def set_filter(on, kinds=None):
 	"""The pick-up filter (uipickupfilter.py, MT2009 PLUS 2.0.37) as if its
 	file said so; written straight into its state, so nothing is saved."""
 	import uipickupfilter
+	# MT2009_PLUS_PICKUP_FILTER_PER_CHAR_V1: the state is the character's, so
+	# it carries the name the filter would read it again for.
 	uipickupfilter._state.update({'loaded': True, 'file': True, 'on': on,
-		'kinds': uipickupfilter.ALL_KINDS if kinds is None else kinds})
+		'kinds': uipickupfilter.ALL_KINDS if kinds is None else kinds, 'bonus': 0,
+		'name': uipickupfilter.CharacterName()})
 	return uipickupfilter
 
 
@@ -429,7 +432,7 @@ class HuntTest(unittest.TestCase):
 
 	def test_asks_the_server_from_the_start_point(self):
 		step(self.hunter)
-		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0'])
+		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0 0 0 0 0'])
 		self.assertEqual(commands('/autohunt_loot'), ['/autohunt_loot 2000 127 0 0 8191'])
 		# With nothing in hand the next question goes a third of a second
 		# later, not after the whole interval: a monster at the edge of view
@@ -526,8 +529,12 @@ class HuntTest(unittest.TestCase):
 		step(self.hunter)
 		self.assertEqual(STATE['cast'], [])
 		self.assertEqual(STATE['walks'], [(1380, 1000)])
-		step(self.hunter, 1.6)
-		self.assertEqual(STATE['cast'], [])
+		# The walk gains ground, or the wall escape (COMBAT_STUCK_SECONDS)
+		# would call it boxed in.
+		for distance in (450, 400, 350, 300):
+			STATE['distance'][55] = distance
+			step(self.hunter, 0.4)
+			self.assertEqual(STATE['cast'], [])
 		STATE['distance'][55] = 150
 		step(self.hunter, 0.1)
 		# Marked on this pass, after the skills: not yet in the client's hand.
@@ -635,6 +642,9 @@ class HuntTest(unittest.TestCase):
 		self.assertEqual(STATE['cast'], [2])
 
 	def test_a_new_target_in_reach_releases_the_attack_key(self):
+		# What "Najblizszy" does since blaki's target priority (MT2009_PLUS_
+		# AUTOHUNT_PRIORITY_V1); "Fokus", the default, keeps the one in hand.
+		self.hunter.config['target_mode'] = uiautohunt.TARGET_MODE_NEAREST
 		STATE['where'][55] = (1100, 1000, 0)
 		STATE['distance'][55] = 100
 		self.hunter.OnServerTarget('55')
@@ -663,20 +673,21 @@ class HuntTest(unittest.TestCase):
 		self.hunter.OnServerTarget('56')
 		self.assertEqual(self.hunter.targetVid, 56)
 
-	def test_a_clearly_nearer_monster_ends_a_chase(self):
-		# "bila najblizszy target, a nie lapala focus na jednego moba i
-		# gonila go" (Buby, 23 September): chasing 55 at 900, the server's 56
-		# at 150 is taken, a 57 at 700 is not nearer by the margin.
+	def test_focus_keeps_its_monster_and_nearest_takes_the_servers(self):
+		# MT2009_PLUS_AUTOHUNT_PRIORITY_V1 (blaki): "Fokus", the default, keeps
+		# a live target whatever the server names; "Najblizszy" takes the
+		# server's answer at once - the server already names the nearest.
 		STATE['where'][55] = (2000, 1000, 0)
 		STATE['distance'][55] = 900
 		self.hunter.OnServerTarget('55')
 		step(self.hunter)
-		STATE['distance'][57] = 700
-		self.hunter.OnServerTarget('57')
-		self.assertEqual(self.hunter.targetVid, 55)
 		STATE['distance'][56] = 150
 		self.hunter.OnServerTarget('56')
-		self.assertEqual(self.hunter.targetVid, 56)
+		self.assertEqual(self.hunter.targetVid, 55)
+		self.hunter.config['target_mode'] = uiautohunt.TARGET_MODE_NEAREST
+		STATE['distance'][57] = 700
+		self.hunter.OnServerTarget('57')
+		self.assertEqual(self.hunter.targetVid, 57)
 
 	def test_walks_to_loot_and_picks_it_up(self):
 		self.hunter.OnServerLoot('77', '600', '0')
@@ -834,7 +845,6 @@ class HuntTest(unittest.TestCase):
 		STATE['status'][1] = 0
 		step(self.hunter)
 		STATE['status'][1] = 20
-		self.hunter.OnServerTarget('55')
 		del STATE['commands'][:]
 		step(self.hunter, 16.0)
 		self.assertTrue(self.hunter.justRevived)
@@ -844,6 +854,10 @@ class HuntTest(unittest.TestCase):
 		STATE['status'][1] = 60
 		step(self.hunter, 1.0)
 		self.assertFalse(self.hunter.justRevived)
+		# Named once it stands: a target held through the wait would be let
+		# go by "Fokus" for blows that never landed (FOCUS_IDLE_SECONDS).
+		self.hunter.OnServerTarget('55')
+		step(self.hunter, 0.1)
 		step(self.hunter, 0.1)
 		self.assertEqual(STATE['attack'], [True])
 
@@ -946,9 +960,12 @@ class HuntTest(unittest.TestCase):
 		STATE['distance'][55] = 900
 		self.hunter.OnServerTarget('55')
 		step(self.hunter)
+		# Away from the start (1000, 1000), so a walk home would show.
+		STATE['pos'] = (1300, 1000)
 		del STATE['walks'][:]
 		step(self.hunter, 8.5)
 		self.assertEqual(self.hunter.targetVid, 0)
+		self.assertFalse(self.hunter.returning)
 		self.assertNotIn((1000, 1000), STATE['walks'])
 
 	def test_the_exes_answer_outranks_the_standing_list(self):
@@ -961,21 +978,28 @@ class HuntTest(unittest.TestCase):
 		stub.IsStandingSkill = lambda index: index == 47
 		self.assertFalse(uiautohunt.NeedsTarget(47))
 
-	def test_names_the_target_it_gave_up_on_for_a_minute(self):
+	def test_names_the_target_it_could_not_walk_to(self):
+		# The wall escape (COMBAT_STUCK_SECONDS, MT2009 PLUS's 2.0.76 base): a
+		# walk that gains nothing lets the target go, and the next request
+		# names it and asks for the nearest plain while COMBAT_SKIP_SECONDS
+		# runs; after it, the request is plain again.
 		self.hunter.config['stones'] = 1
 		STATE['where'][55] = (2000, 1000, 0)
 		STATE['distance'][55] = 900
 		self.hunter.OnServerTarget('55')
 		step(self.hunter)
-		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0'])
-		step(self.hunter, 8.5)
+		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0 0 0 0 0'])
+		del STATE['commands'][:]
+		step(self.hunter, 1.0)
+		self.assertEqual(self.hunter.targetVid, 0)
+		step(self.hunter, 0.5)
+		self.assertIn('/autohunt_target 2000 1 0 0 1 0 55 1 0 0', commands('/autohunt_target'))
+		# Named again while it runs, it is not taken.
+		self.hunter.OnServerTarget('55')
 		self.assertEqual(self.hunter.targetVid, 0)
 		del STATE['commands'][:]
-		step(self.hunter, 2.5)
-		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0 55'])
-		del STATE['commands'][:]
-		step(self.hunter, 60.0)
-		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0'])
+		step(self.hunter, uiautohunt.COMBAT_SKIP_SECONDS + 1.0)
+		self.assertEqual(commands('/autohunt_target')[-1:], ['/autohunt_target 2000 1 0 0 1 0 0 0 0 0'])
 
 	def test_a_bow_in_the_hand_shoots_from_afar(self):
 		with_new_exe(self)
@@ -1026,17 +1050,17 @@ class HuntTest(unittest.TestCase):
 		self.assertEqual(self.hunter.targetVid, 0)
 		del STATE['commands'][:]
 		step(self.hunter, 0.1)
-		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0 55'])
+		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0 55 0 0 0'])
 		del STATE['commands'][:]
 		step(self.hunter, 5.5)
-		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0'])
+		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0 0 0 0 0'])
 
 	def test_the_switches_for_what_is_fought(self):
 		self.hunter.config['mobs'] = 0
 		self.hunter.config['stones'] = 0
 		self.hunter.config['bosses'] = 1
 		step(self.hunter)
-		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 0 0 0 0 1'])
+		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 0 0 0 0 1 0 0 0 0'])
 
 	def test_walks_back_when_idle_far_from_the_start(self):
 		STATE['pos'] = (2000, 1000)
@@ -1103,14 +1127,14 @@ class HuntTest(unittest.TestCase):
 	def test_the_start_point_goes_as_an_offset(self):
 		STATE['pos'] = (1500, 800)
 		step(self.hunter)
-		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 -500 200 1 0'])
+		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 -500 200 1 0 0 0 0 0'])
 		self.assertEqual(commands('/autohunt_loot'), ['/autohunt_loot 2000 127 -500 200 8191'])
 
 	def test_without_the_walk_back_the_range_goes_with_the_character(self):
 		self.hunter.config['return'] = 0
 		STATE['pos'] = (1500, 800)
 		step(self.hunter)
-		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0'])
+		self.assertEqual(commands('/autohunt_target'), ['/autohunt_target 2000 1 0 0 1 0 0 0 0 0'])
 		self.assertEqual(commands('/autohunt_loot'), ['/autohunt_loot 2000 127 0 0 8191'])
 
 	def test_the_loot_answer_is_an_offset_from_the_character(self):
@@ -1139,30 +1163,39 @@ class WindowTest(unittest.TestCase):
 		self.addCleanup(shutil.rmtree, self.folder, True)
 		self.addCleanup(os.chdir, self.here)
 
-	def test_k_opens_both_windows_side_by_side_and_closes_them(self):
+	def test_k_opens_the_fight_window_and_closing_it_closes_both(self):
+		# MT2009_PLUS_AUTOHUNT_WINDOWS_V1 (blaki): K opens the fight window
+		# alone, "Dodatkowe ustawienia" the settings window beside it, and K
+		# again closes both.
 		hunter = uiautohunt.Hunter()
 		hunter.ToggleWindow()
 		main, loot = hunter.mainWindow, hunter.lootWindow
-		self.assertTrue(main.IsShow() and loot.IsShow())
+		self.assertTrue(main.IsShow())
+		self.assertFalse(loot.IsShow())
+		hunter.ShowLootWindow()
+		self.assertTrue(loot.IsShow())
 		(mx, my), (lx, ly) = main.position, loot.position
 		self.assertEqual(lx - mx, main.WIDTH + 10)
 		self.assertEqual(my, ly)
 		self.assertTrue(mx + main.WIDTH + 10 + loot.WIDTH <= 800)
 		self.assertTrue(my + main.HEIGHT <= 600)
-		loot.Close()
 		hunter.ToggleWindow()
 		self.assertFalse(main.IsShow() or loot.IsShow())
 		hunter.ToggleWindow()
-		self.assertTrue(main.IsShow() and loot.IsShow())
+		self.assertTrue(main.IsShow())
 
 	def test_the_loot_window_switches_and_reaches(self):
 		hunter = uiautohunt.Hunter()
 		hunter.ToggleWindow()
+		hunter.ShowLootWindow()
 		loot = hunter.lootWindow
 		filt = set_filter(0)
+		# Touching a kind switches the filter on. An equipment kind goes
+		# tak -> bonus -> nie (MT2009_PLUS_PICKUP_BONUS_FILTER_V1).
 		loot.OnToggleKind(1 << 0)
-		# Leaving a kind out switches the filter on: the kind stays on the ground.
 		self.assertTrue(filt.IsActive())
+		self.assertEqual(loot.kindToggles[1 << 0][0].text, 'Bro\xf1: bonus')
+		loot.OnToggleKind(1 << 0)
 		self.assertEqual(filt.GetKinds() & 1, 0)
 		self.assertEqual(loot.kindToggles[1 << 0][0].text, 'Bro\xf1: nie')
 		self.assertEqual(loot.filterBtn.text, 'Filtr: tak')
@@ -1178,6 +1211,7 @@ class WindowTest(unittest.TestCase):
 		with_new_exe(self)
 		hunter = uiautohunt.Hunter()
 		hunter.ToggleWindow()
+		hunter.ShowLootWindow()
 		hunter.lootWindow.rangeSlider.SetSliderPos(0.5)
 		hunter.lootWindow.OnChangeRange()
 		self.assertEqual(STATE['circles'][-1], (2650, 0.0, 0.0, 0))
@@ -1196,12 +1230,14 @@ class WindowTest(unittest.TestCase):
 			os.chdir(folder)
 			hunter = uiautohunt.Hunter()
 			hunter.ToggleWindow()
-			hunter.mainWindow.SetPosition(20, 30)
+			# The fight window is 580 high, so on the 800x600 the stub
+			# reports only a place near the top fits it.
+			hunter.mainWindow.SetPosition(20, 15)
 			hunter.lootWindow.SetPosition(400, 40)
 			hunter.SaveGlobalConfig()
 			again = uiautohunt.Hunter()
 			again.ToggleWindow()
-			self.assertEqual(again.mainWindow.position, (20, 30))
+			self.assertEqual(again.mainWindow.position, (20, 15))
 			self.assertEqual(again.lootWindow.position, (400, 40))
 		finally:
 			os.chdir(here)

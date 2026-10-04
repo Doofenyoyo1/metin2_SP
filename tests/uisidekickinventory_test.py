@@ -639,10 +639,10 @@ class ParsingTest(Base):
 		self.assertEqual(inv.ToolTipLines(1004, 1),
 			[inv.TEXT_TIP_PINNED, inv.TEXT_TIP_UNPIN, inv.TEXT_TIP_UNEQUIP])
 		self.assertEqual(inv.ToolTipLines(5, 4 | 2),
-			[inv.TEXT_TIP_UNWANTED, inv.TEXT_TIP_GIFT, inv.TEXT_TIP_UNPIN, inv.TEXT_TIP_EQUIP])
-		self.assertEqual(inv.ToolTipLines(5, 0), [inv.TEXT_TIP_EQUIP])
+			[inv.TEXT_TIP_UNWANTED, inv.TEXT_TIP_GIFT, inv.TEXT_TIP_UNPIN, inv.TEXT_TIP_TAKE, inv.TEXT_TIP_EQUIP])
+		self.assertEqual(inv.ToolTipLines(5, 0), [inv.TEXT_TIP_TAKE, inv.TEXT_TIP_EQUIP])
 		# "Zaloz" is offered for what goes on a body only; the order goes regardless.
-		self.assertEqual(inv.ToolTipLines(5, 0, False), [])
+		self.assertEqual(inv.ToolTipLines(5, 0, False), [inv.TEXT_TIP_TAKE])
 		self.assertEqual(inv.ToolTipLines(1004, 0, False), [inv.TEXT_TIP_UNEQUIP])
 		self.assertTrue(inv.IsWearable(19))
 		self.assertTrue(inv.IsWearable(12009))
@@ -879,12 +879,14 @@ class EquipmentWindowTest(Base):
 		self.assertEqual(self.window.StatusText(), inv.TEXT_WEAR_TO_WEAR)
 		self.assertFalse(mouse.mouseController.isAttached())
 
-	def test_a_right_click_puts_on_and_takes_off(self):
+	def test_a_right_click_takes_to_the_player_and_takes_off(self):
+		# MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: a bag item goes to the player
+		# (the safebox's right click); a worn piece comes off into its bag.
 		self.open_with([item_line(3, 19), item_line(1004, 19)])
 		self.window.bagSlots.Click('unselectItem', 3)
 		self.advance(0.35)
 		self.window.equipSlots.Click('unselectItem', 1004)
-		self.assertEqual(self.orders(), ['/towarzysz eq ruch 3 -1', '/towarzysz eq ruch 1004 -1'])
+		self.assertEqual(self.orders(), ['/towarzysz eq wez 3 -1', '/towarzysz eq ruch 1004 -1'])
 		# With something on the cursor it only lets go.
 		self.advance(0.35)
 		self.window.bagSlots.Click('selectItem', 3)
@@ -1035,7 +1037,7 @@ class EquipmentWindowTest(Base):
 		self.window.equipSlots.events['overOut']()
 		self.assertFalse(tooltip.shown)
 		self.window.bagSlots.Click('overIn', 4)
-		self.assertEqual(tooltip.lines, [inv.TEXT_TIP_UNWANTED, inv.TEXT_TIP_UNPIN])
+		self.assertEqual(tooltip.lines, [inv.TEXT_TIP_UNWANTED, inv.TEXT_TIP_UNPIN, inv.TEXT_TIP_TAKE])
 		# Nothing over an item while one is on the cursor.
 		self.window.bagSlots.Click('selectItem', 4)
 		tooltip.HideToolTip()
@@ -1172,7 +1174,7 @@ class QueueTest(Base):
 		self.assertTrue(keeper.CanUpdate())
 		self.advance(0.35)
 		keeper.OnUpdate()
-		self.assertEqual(STATE['commands'][-1], '/towarzysz eq ruch 3 -1')
+		self.assertEqual(STATE['commands'][-1], '/towarzysz eq wez 3 -1')
 		self.assertFalse(keeper.CanUpdate())
 
 	def test_the_keepers_take_the_windows_with_the_game(self):
@@ -1248,8 +1250,9 @@ class RenderedRootTest(unittest.TestCase):
 			'SidekickSkillBegin': 'OnSkillBegin', 'SidekickSkill': 'OnSkill', 'SidekickSkillEnd': 'OnSkillEnd',
 		}
 		for command, function in answers.items():
-			self.assertEqual(game.count('serverCommandList["%s"] = self.__%s\r\n' % (command, command)), 1, command)
-			handler = re.search(r'\tdef __%s\(self, \*args\):\r\n((?:\t\t.*\r\n)+)' % command, game)
+			# game.py is LF since MT2009 PLUS 2.0.51, CRLF before.
+			self.assertEqual(len(re.findall(r'serverCommandList\["%s"\] = self\.__%s\r?\n' % (command, command), game)), 1, command)
+			handler = re.search(r'\tdef __%s\(self, \*args\):\r?\n((?:\t\t.*\r?\n)+)' % command, game)
 			self.assertTrue(handler, command)
 			self.assertIn('uisidekickinventory.%s(*args)' % function, handler.group(1))
 			self.assertTrue(hasattr(inv, function), function)

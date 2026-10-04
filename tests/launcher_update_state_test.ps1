@@ -50,6 +50,12 @@ function Assert-DockerDiskWritable { param([switch]$KeepRebuildPending, [string]
 # holds a server port; nothing does here.
 function Assert-ServerPortsFree { param([switch]$KeepRebuildPending, [string]$Before) $script:calls.Add('ports') }
 function Rebuild-Server { $script:calls.Add('build') }
+# MT2009 PLUS's low-memory update (MT2009_PLUS_LAUNCHER_LOWMEM_UPDATE_V1 and
+# _DOCKER_RAM_V1): a world short of memory is stopped first and started again
+# if the update fails. Nothing runs here.
+function Confirm-DockerMemoryForBuild { param([string]$Before) }
+function Stop-WorldForUpdate { return $null }
+function Restore-WorldAfterUpdate { param($Suspended) }
 function Invoke-M2PackageUpdate {
     param($Component, [string]$TargetRoot, [string]$BackupRoot)
     $script:calls.Add('download')
