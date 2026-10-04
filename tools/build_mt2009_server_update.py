@@ -81,7 +81,12 @@ NOT_OURS = {'AKTUALIZACJE_MOD.md', 'MODS_PL.md', 'MOD_VERSION', 'SERWER_PL.md',
             'linux-port/docker/seban-panel/deploy_new_maps.sh',
             'linux-port/docker/seban-panel/deploy_new_maps_v2.sh',
             'linux-port/docker/seban-panel/patch_grant_quest.py',
-            'linux-port/docker/seban-panel/rebuild_item_icons_from_item_list.sh'}
+            'linux-port/docker/seban-panel/rebuild_item_icons_from_item_list.sh',
+            # The stable keeper's training missions, retired by its 2.19.0 (Digi
+            # Rasta's horse to level 30): its git dropped them and its package
+            # still carries the old copies, which nothing compiles any more.
+            'linux-port/docker/game/quest/horse_levelup.quest',
+            'linux-port/docker/game/quest/pony_levelup.quest'}
 
 
 def published(rel):
