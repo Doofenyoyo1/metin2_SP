@@ -378,6 +378,8 @@ class SidebarWindow(ui.Window):
 	BUTTONS = (
 		("companion", "Towarzysz", "OnClickCompanion", "companion"),
 		("autohunt", "Auto\xb3owy", "OnClickAutoHunt", "autohunt"),
+		# MT2009_PLUS_AUTOHUNT_QUICK_V1: the quick start/stop has no sidebar button any more
+		# (the owner, 5 October) - Shift+K (keybind "autohunt_quick") stays.
 		("pickup", "Sortowanie autopickup", "OnClickPickupFilter", "pickup_filter"),
 		("trash", "Kosz", "OnClickGarbageBin", "garbage_bin"),
 		("shopsearch", "Wyszukiwarka sklep\xf3w", "OnClickShopSearch", "shop_search"),
@@ -410,6 +412,8 @@ class SidebarWindow(ui.Window):
 		self.foldedLoaded = False
 		self.buttons = []
 		self.keybindVersion = -1
+		self.quickHuntButton = None	# MT2009_PLUS_AUTOHUNT_QUICK_V1
+		self.quickHuntRunning = False
 		self.board = None
 		self.tab = None
 		self.__CreateBoard()
@@ -423,6 +427,7 @@ class SidebarWindow(ui.Window):
 		for button in self.buttons:
 			button.Hide()
 		self.buttons = []
+		self.quickHuntButton = None
 		if self.tab:
 			self.tab.Hide()
 			self.tab = None
@@ -453,6 +458,8 @@ class SidebarWindow(ui.Window):
 			button.SetPosition(self.BUTTON_GAP_X, y)
 			button.Show()
 			self.buttons.append(button)
+			if name == "autohuntgo":
+				self.quickHuntButton = button
 			y += self.BUTTON_HEIGHT + self.BUTTON_GAP_Y
 
 		board.SetSize(self.BUTTON_GAP_X + self.BUTTON_WIDTH + self.BUTTON_GAP_X, y)
@@ -523,6 +530,30 @@ class SidebarWindow(ui.Window):
 		except (ReferenceError, AttributeError):
 			return None
 
+	# MT2009_PLUS_SIDEBAR_FIT_V1 (the owner, 5 October: "panel boczny jest
+	# dluzszy niz EQ, zrob tak aby byl 1:1 jak eq"): the board is exactly as
+	# tall as the inventory window, the buttons spread evenly over it (the
+	# gaps shrink as buttons are added, never below 2 px).
+	def __InventoryHeight(self):
+		try:
+			return self.wndInventory.GetHeight()
+		except (ReferenceError, AttributeError):
+			return 0
+
+	def __FitBoard(self, height):
+		count = len(self.buttons)
+		if not self.board or count == 0 or height <= 0:
+			return
+		free = height - count * self.BUTTON_HEIGHT
+		gap = max(2, free / (count + 1))
+		top = max(2, (height - count * self.BUTTON_HEIGHT - (count - 1) * gap) / 2)
+		y = top
+		for button in self.buttons:
+			button.SetPosition(self.BUTTON_GAP_X, y)
+			y += self.BUTTON_HEIGHT + gap
+		self.board.SetSize(self.BUTTON_GAP_X + self.BUTTON_WIDTH + self.BUTTON_GAP_X,
+				max(height, y - gap + top))
+
 	# The side is chosen by the unfolded width, so folding and unfolding
 	# never move the bar across the inventory.
 	def __IsOnLeft(self, x):
@@ -544,13 +575,14 @@ class SidebarWindow(ui.Window):
 		rect = self.__GetInventoryRect()
 		if rect is None:
 			return None
-		return rect + (self.__IsOnLeft(rect[0]), self.folded)
+		return rect + (self.__IsOnLeft(rect[0]), self.folded, self.__InventoryHeight())
 
 	def AdjustPosition(self):
 		layout = self.__GetLayout()
 		if layout is None or not self.board or not self.tab:
 			return
-		x, y, width, onLeft, folded = layout
+		x, y, width, onLeft, folded, inventoryHeight = layout
+		self.__FitBoard(inventoryHeight)	# MT2009_PLUS_SIDEBAR_FIT_V1
 		boardWidth = self.board.GetWidth()
 
 		if folded:
@@ -616,6 +648,26 @@ class SidebarWindow(ui.Window):
 		if self.__GetLayout() != self.lastLayout:
 			self.AdjustPosition()
 		self.__RefreshToolTips()
+		self.__RefreshQuickHunt()
+
+	# MT2009_PLUS_AUTOHUNT_QUICK_V1: the quick button's badge follows the
+	# hunt, however it was started or stopped (K's window, a server's
+	# refusal, a dropped connection).
+	def __RefreshQuickHunt(self):
+		if not self.quickHuntButton:
+			return
+		try:
+			import uiautohunt
+			running = uiautohunt.IsRunning()
+		except Exception:
+			return
+		if running == self.quickHuntRunning:
+			return
+		self.quickHuntRunning = running
+		name = "autohuntstop" if running else "autohuntgo"
+		self.quickHuntButton.SetUpVisual(SIDEBAR_IMAGE % (name, 1))
+		self.quickHuntButton.SetOverVisual(SIDEBAR_IMAGE % (name, 2))
+		self.quickHuntButton.SetDownVisual(SIDEBAR_IMAGE % (name, 3))
 
 	def __GetInterface(self):
 		try:
@@ -632,6 +684,12 @@ class SidebarWindow(ui.Window):
 	def OnClickAutoHunt(self):
 		import uiautohunt
 		uiautohunt.ToggleWindow()
+
+	# MT2009_PLUS_AUTOHUNT_QUICK_V1: as Shift+K - the hunt starts or stops.
+	def OnClickAutoHuntQuick(self):
+		import uiautohunt
+		uiautohunt.QuickToggle()
+		self.__RefreshQuickHunt()
 
 	# Filtr podnoszenia (Ctrl+Z).
 	def OnClickPickupFilter(self):
@@ -2914,6 +2972,11 @@ class InventoryWindow(ui.ScriptWindow):
 		# Shift: how many) - uicollector.py, before every other window.
 		if self.__QuickPutToCollector(slotIndex):
 			return
+		# MT2009_PLUS_BOOK_EXCHANGE_V2: with Seon-Hae's book exchange open, a
+		# right click puts a skill book into it (Ctrl: every book of the bag) -
+		# uiskillbookexchange.py; anything else is used as ever.
+		if self.__QuickPutToBookExchange(slotIndex):
+			return
 		garbageBin = getattr(self.interface, "wndGarbageBin", None)
 		if garbageBin and garbageBin.IsShow():
 			# An open bin consumes this click even when adding is rejected.
@@ -2946,6 +3009,20 @@ class InventoryWindow(ui.ScriptWindow):
 		except ImportError:
 			return False
 		if not uicollector.QuickPut(self.__InventoryLocalSlotPosToGlobalSlotPos(slotIndex)):
+			return False
+		self.OverOutItem()
+		return True
+
+	# MT2009_PLUS_BOOK_EXCHANGE_V2: the right click's way into Seon-Hae's book
+	# exchange (uiskillbookexchange.QuickPut); False with the window shut.
+	def __QuickPutToBookExchange(self, slotIndex):
+		if constInfo.GET_ITEM_QUESTION_DIALOG_STATUS() or app.GetCursor() == app.SELL:
+			return False
+		try:
+			import uiskillbookexchange
+		except ImportError:
+			return False
+		if not uiskillbookexchange.QuickPut(self.__InventoryLocalSlotPosToGlobalSlotPos(slotIndex)):
 			return False
 		self.OverOutItem()
 		return True

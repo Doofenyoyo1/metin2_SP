@@ -1271,15 +1271,16 @@ class Hunter(object):
             
         self.isLoaded = False
 
-    def Start(self):
+    def Start(self, startText=None):
         if self.running:
             return
         self.ResetState()
         (x, y, z) = player.GetMainCharacterPosition()
         self.anchor = (int(x), int(y))
         self.running = True
-        chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: start, zasi\xeag %d.',
-            'Auto Hunt: started, range %d.') % self.config['range'])
+        # MT2009_PLUS_AUTOHUNT_QUICK_V1: the quick start says its own line.
+        chat.AppendChat(chat.CHAT_TYPE_INFO, startText or (T('Auto \xa3owy: start, zasi\xeag %d.',
+            'Auto Hunt: started, range %d.') % self.config['range']))
         if not LootMask(self.config):
             chat.AppendChat(chat.CHAT_TYPE_INFO, T('Auto \xa3owy: podnoszenie jest wy\xb3\xb9czone.',
                 'Auto Hunt: picking up is switched off.'))
@@ -3639,6 +3640,62 @@ class Hunter(object):
             self.mainWindow.RefreshSettingsButton()
             self.SaveGlobalConfig()
 
+    # MT2009_PLUS_AUTOHUNT_QUICK_V1: the quick start/stop (Shift+K unless
+    # rebound - keybind.py "autohunt_quick" - and the inventory sidebar's
+    # button), no window opened. Started, the hunt takes this character's
+    # settings as K's window and its "Start" take them: the file read once
+    # (EnsureLoaded, also when the window was never opened), the window's
+    # fields first when it is open - with the attack on. Pressed again, it
+    # stops, as the window's "Stop". A server that refuses the hunt (the
+    # world without Auto Lowy, or no "Auto Lowy (8h)" time) answers the
+    # first target asked with "AutoHuntOff" and OnServerOff stops it and
+    # says why, as for a start from the window.
+    def OpenMainWindow(self):
+        """K's window when it is built and shown, else None."""
+        try:
+            if self.mainWindow and self.mainWindow.IsShow():
+                return self.mainWindow
+        except RuntimeError:
+            pass
+        return None
+
+    def QuickToggle(self):
+        import warpsafe
+        window = self.OpenMainWindow()
+        if self.running:
+            if window:
+                window.OnStop()
+            else:
+                self.Stop()
+            return
+        if not warpsafe.InGame():
+            return
+        self.EnsureLoaded()
+        if window:
+            window.ReadEdits()
+        attackSwitched = not self.config.get('attack', 1)
+        if attackSwitched:
+            self.config['attack'] = 1
+        text = T('Auto \xa3owy: szybki start, zasi\xeag %d', 'Auto Hunt: quick start, range %d') % self.config['range']
+        if attackSwitched:
+            text += T(', atak w\xb3\xb9czony', ', attack switched on')
+        keys = ''
+        try:
+            import keybind
+            keys = keybind.GetText('autohunt_quick')
+        except Exception:
+            pass
+        if keys:
+            text += T(' (%s - stop).', ' (%s - stop).') % keys
+        else:
+            text += '.'
+        self.Start(text)
+        if window:
+            if attackSwitched:
+                window.Refresh()
+            else:
+                window.RefreshStatus()
+
 
 class AutoHuntWindow(ui.BoardWithTitleBar):
     WIDTH = 300
@@ -4498,6 +4555,14 @@ def ToggleWindow():
 
 def ShowLootWindow():
     GetHunter().ShowLootWindow()
+
+# MT2009_PLUS_AUTOHUNT_QUICK_V1: the quick start/stop and whether a hunt runs
+# (the inventory sidebar's button shows it).
+def QuickToggle():
+    GetHunter().QuickToggle()
+
+def IsRunning():
+    return _hunter is not None and bool(_hunter.running)
 
 def OnServerTarget(value, blocked='0'):
     GetHunter().OnServerTarget(value, blocked)

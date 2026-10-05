@@ -495,6 +495,7 @@ class GameWindow(ui.ScriptWindow):
 		# a second call finds nothing left.
 		__import__("uisidekick").Destroy()
 		__import__("uicollector").Destroy() # MT2009_PLUS_COLLECTOR_STORAGE_V1
+		__import__("dbdatastamp").Destroy() # MT2009_PLUS_DBDATA_STAMP_V1: its popup
 
 		print("---------------------------------------------------------------------------- CLOSE GAME WINDOW")
 
@@ -765,7 +766,8 @@ class GameWindow(ui.ScriptWindow):
 			"player_stat"		: (lambda : self.interface.wndPlayerStat.Open(), None),
 			"companion"			: (lambda : self.__ToggleSidekick(), None),
 			"autohunt"			: (lambda : self.__ToggleAutoHunt(), None),
-			"bonus_switch"		: (lambda : self.__ToggleBonusSwitcher(), None),
+			# MT2009_PLUS_AUTOHUNT_QUICK_V1: Shift+K starts/stops the hunt, no window.
+			"autohunt_quick"	: (lambda : __import__("uiautohunt").QuickToggle(), None),
 			"garbage_bin"		: (lambda : self.interface.ToggleGarbageBinWindow(), None),
 			"shop_search"		: (lambda : self.__PressF5Key(), None),
 			# F11: the event calendar (uieventcalendar.py).
@@ -781,6 +783,8 @@ class GameWindow(ui.ScriptWindow):
 			"tp_bookmarks"		: (lambda : Window("uitpbookmarks"), None),
 			# MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking (uiweeklyrank.py).
 			"weekly_rank"		: (lambda : Window("uiweeklyrank"), None),
+			# MT2009_PLUS_MONSTER_CARDS_V1: the Monster Cards (monstercard.py), no key by default.
+			"monster_card"		: (lambda : Window("monstercard"), None),
 			# MT2009_PLUS_DROP_WIKI_V1: the drop wiki (uidropwiki.py).
 			"drop_wiki"			: (lambda : __import__("uidropwiki").ToggleWindow(), None),
 			"hide_ui"			: (lambda : self.__HideUserInterface(), None),
@@ -922,6 +926,11 @@ class GameWindow(ui.ScriptWindow):
 	# window with this one.
 	def __Collector(self, *args):
 		__import__("uicollector").OnServer(*args)
+
+	# MT2009_PLUS_MONSTER_CARDS_V1 (Autor: Digi Rasta): every "MONSTERCARDSYSTEM ..." line of
+	# the Monster Cards (/cardmonster on the server, the window uimonstercard.py).
+	def __MonsterCardSystem(self, *args):
+		__import__("monstercard").OnServer(*args)
 
 	def __SidekickVid(self, vid="0", *rest):
 		# The keeper ends with the game window; the next one hears the
@@ -2056,13 +2065,6 @@ class GameWindow(ui.ScriptWindow):
 
 	def StopRight(self):
 		player.SetSingleDIKKeyState(app.DIK_RIGHT, False)
-
-	def __ToggleBonusSwitcher(self):
-		import uibonusswitch
-		switcher = uibonusswitch.GetSwitcher()
-		if switcher not in self.updateable:
-			self.RegisterUpdatable(switcher)
-		uibonusswitch.ToggleWindow()
 
 	def PickUpItem(self):
 		import uipickupfilter
@@ -3208,6 +3210,7 @@ class GameWindow(ui.ScriptWindow):
 		serverCommandList["GlobalRankingUpdatePacket"] = self.__Global_Ranking__RecvData
 		serverCommandList["SidekickVid"] = self.__SidekickVid
 		serverCommandList["COLL"] = self.__Collector # MT2009_PLUS_COLLECTOR_STORAGE_V1
+		serverCommandList["MONSTERCARDSYSTEM"] = self.__MonsterCardSystem # MT2009_PLUS_MONSTER_CARDS_V1
 		serverCommandList["GlobalRankingUpdatePacketMyPos"] = self.__Global_Ranking__RecvSelfData
 		serverCommandList["SidekickEqNone"] = self.__SidekickEqNone
 		serverCommandList["SidekickEqBegin"] = self.__SidekickEqBegin
@@ -3225,6 +3228,9 @@ class GameWindow(ui.ScriptWindow):
 		# MT2009_PLUS_DIGI_CLIENT_QOL_V1 (Autor: Digi Rasta): "PickupSound <vnum>" after a pick-up (digiqol.py)
 		serverCommandList["PickupSound"] = __import__("digiqol").PLAYER.OnCommand
 		serverCommandList["SEONHAE"] = self.__SeonHae # MT2009_PLUS_SEONHAE_V1
+		# MT2009_PLUS_DBDATA_STAMP_V1: "DbDataStamp <stamp>" at login - the server's item/skill files
+		# (database editor) against this client's dbdata_stamp.txt (dbdatastamp.py).
+		serverCommandList["DbDataStamp"] = __import__("dbdatastamp").NOTICE.OnCommand
 		serverCommandList["TPBM"] = self.__TpBookmarks # MT2009_PLUS_TP_BOOKMARKS_V1
 		serverCommandList["WRANK"] = self.__WeeklyRank # MT2009_PLUS_WEEKLY_RANKING_V1
 		serverCommandList["MISJE"] = self.__ClearMissions # MT2009_PLUS_CLEAR_MISSIONS_V1

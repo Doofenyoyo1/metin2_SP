@@ -300,6 +300,13 @@ TEXT_SECTION_COMBAT = 'Walka'
 TEXT_SECTION_LOOT = 'Drop'
 TEXT_SECTION_BEHAVIOUR = 'Zachowanie'
 TEXT_SECTION_POINTS = 'Punkty'
+# MT2009_PLUS_SIDEKICK_PANELS_V1: the panels of its costumes and its Alchemy,
+# on the bar of the Options page's first section (uisidekickinventory.py).
+TEXT_COSTUMES = 'Kostiumy'
+TEXT_COSTUMES_HINT = 'Kostium, fryzura, sk\xf3rka broni, wierzchowiec i szarfa towarzysza.'
+TEXT_ALCHEMY = 'Alchemia'
+TEXT_ALCHEMY_HINT = 'Smocze kamienie towarzysza: daj, za\xb3\xf3\xbf, zdejmij, we\x9f.'
+PANEL_BUTTON_Y = 5
 TEXT_DOING = 'Teraz: %s'
 TEXT_DOWN = 'Teraz: le\xbfy, zaraz wstanie'
 TEXT_WHERE = 'Gdzie: %s'
@@ -1073,6 +1080,15 @@ class SidekickWindow(ui.ScriptWindow):
 	def _BuildOptionsPage(self):
 		page = self.pages[PAGE_OPTIONS]
 		self._Section(page, 8, TEXT_SECTION_BEHAVIOUR)
+		# MT2009_PLUS_SIDEKICK_PANELS_V1: the costumes and the Alchemy, at the
+		# right end of the section's bar - the page has no line left for them.
+		right = SECTION_X + SECTION_WIDTH - 2
+		self.alchemyButton = self._Btn(page, 'middle', right - BUTTON_WIDTHS['middle'], PANEL_BUTTON_Y,
+			TEXT_ALCHEMY, self.OnAlchemyPanel)
+		self.costumeButton = self._Btn(page, 'middle', right - 2 * BUTTON_WIDTHS['middle'] - 2, PANEL_BUTTON_Y,
+			TEXT_COSTUMES, self.OnCostumePanel)
+		self._Hover(self.alchemyButton, TEXT_ALCHEMY_HINT)
+		self._Hover(self.costumeButton, TEXT_COSTUMES_HINT)
 		self.switchRows = {}
 		half = SECTION_WIDTH // SHARED_SWITCHES
 		lines = {}
@@ -1584,6 +1600,13 @@ class SidekickWindow(ui.ScriptWindow):
 
 	def OnInventory(self):
 		_Inv().ToggleEquipmentWindow(self)
+
+	# MT2009_PLUS_SIDEKICK_PANELS_V1
+	def OnCostumePanel(self):
+		_Inv().ToggleCostumeWindow(self)
+
+	def OnAlchemyPanel(self):
+		_Inv().ToggleAlchemyWindow(self)
 
 	def OnOrder(self, order):
 		self.SendCommand(order)

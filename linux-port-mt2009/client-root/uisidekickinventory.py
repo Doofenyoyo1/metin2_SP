@@ -11,8 +11,10 @@
 #   SidekickEqNone <protocol> <reason>          0 no companion, 1 not in the game
 #                                               now, 2 companions off in this world
 #                                               (the answer to either window)
-#   SidekickEqBegin <protocol> <gen> <bagCells> <pageCells>
-#                                               a whole picture follows
+#   SidekickEqBegin <protocol> <gen> <bagCells> <pageCells> [<dsCells> <dsSlots>]
+#                                               a whole picture follows (its
+#                                               Alchemy's cells and the stones
+#                                               of a deck: PANELS_V1 below)
 #   SidekickEqItem <gen> <pos> <vnum> <count> <flags> <s0> <s1> <s2> <attrs>
 #   SidekickEqEmpty <gen> <pos>                 a place that is empty now
 #   SidekickEqEnd <gen> <gold>                  end of a package, whole or changes
@@ -83,6 +85,21 @@
 # picked up because the owner's bag was full ("Pelne EQ" in the Options page
 # of uisidekick.py) - it holds it for the owner and the AI never touches it.
 #
+# MT2009_PLUS_SIDEKICK_PANELS_V1: two panels of the same gear, opened from the
+# Options page of the companion's window (uisidekick.py): its costumes
+# (CostumeWindow - the costume, the hairstyle, the weapon skin, the mount seal
+# and the sash, the player's own costume window) and its Alchemy
+# (AlchemyWindow - its two decks of Dragon Stones and the stones it keeps,
+# upstream's companion Alchemy in a window of its own). SidekickEqBegin
+# carries two words more: the cells of its Dragon Soul inventory and the
+# stones of one deck (0 0 with the Alchemy out of the game). A worn stone is
+# 1000 + 32 + deck * stones + kind, a kept one 2000 + its cell, and -2 in an
+# order is "into its Alchemy". A stone dragged in from the player's own
+# Alchemy is "eq daj <2000 + cell> <to>", one dragged to the player's bag goes
+# into the player's Alchemy ("eq wez"); a right click takes a worn piece off
+# (a stone into its Alchemy, at the Alchemy's odds as the player's own) and a
+# kept stone back to the player, a double click puts a kept stone on.
+#
 # Python 2.7 as the client has it; the Polish letters are CP1250 escapes.
 
 import app
@@ -109,6 +126,15 @@ SLOT_TYPE_SIDEKICK = 101
 
 WEAR_BASE = 1000
 WEAR_MAX = 32
+# MT2009_PLUS_SIDEKICK_PANELS_V1: the Alchemy's places (the server's
+# PLAYERBOT_SIDEKICK_EQ_DS_BASE / _DS_AUTO); the stones of a deck come with
+# the picture, seven here (DS_SLOT_MAX with the Amethyst).
+DS_BASE = 2000
+DS_AUTO = -2
+DS_DECKS = 2
+DS_DEFAULT_SLOTS = 6
+DS_MAX_SLOTS = 7
+DS_MAX_CELLS = 2048
 DEFAULT_BAG_CELLS = 180
 PAGE_CELLS = 45
 GRID_COLUMNS = 5
@@ -154,6 +180,13 @@ WEAR_UNIQUE2 = 8
 WEAR_ARROW = 9
 WEAR_SHIELD = 10
 
+# MT2009_PLUS_SIDEKICK_PANELS_V1: the costumes, the server's WEAR_COSTUME_*.
+WEAR_COSTUME_BODY = 19
+WEAR_COSTUME_HAIR = 20
+WEAR_COSTUME_MOUNT = 21
+WEAR_COSTUME_ACCE = 22
+WEAR_COSTUME_WEAPON = 24
+
 # The player's own equipment slots (uiscript/inventorywindow.py, "EquipmentSlot"
 # on equipment_base.sub): (wear, x, y, width, height). The costumes and the belt
 # may come from the server as well; this window does not draw them.
@@ -171,6 +204,23 @@ EQUIPMENT_LAYOUT = (
 	(WEAR_SHIELD, 75, 35, 32, 32),
 )
 EQUIPMENT_BASE_IMAGE = 'd:/ymir work/ui/game/windows/equipment_base.sub'
+# MT2009_PLUS_SIDEKICK_PANELS_V1: the player's costume window
+# (uiscript/costumewindow.py): its picture, 113 x 176, and its slots on it.
+COSTUME_BASE_IMAGE = 'costume/new_costume_bg.jpg'
+COSTUME_BASE_WIDTH = 113
+COSTUME_BASE_HEIGHT = 176
+COSTUME_LAYOUT = (
+	(WEAR_COSTUME_BODY, 62, 45, 32, 64),
+	(WEAR_COSTUME_HAIR, 62, 9, 32, 32),
+	(WEAR_COSTUME_MOUNT, 6, 125, 32, 32),	# MT2009_PLUS_COSTUME_SLOTS_FIT_V1: in the frames
+	(WEAR_COSTUME_ACCE, 38, 125, 32, 32),
+	(WEAR_COSTUME_WEAPON, 13, 13, 32, 96),
+)
+# The Alchemy window: a deck's row and the kept stones, a page of them.
+DS_DECK_STEP = 58
+DS_LIST_COLUMNS = 7
+DS_LIST_ROWS = 4
+DS_LIST_CELLS = DS_LIST_COLUMNS * DS_LIST_ROWS
 EQUIPMENT_BASE_WIDTH = 156
 EQUIPMENT_BASE_HEIGHT = 188
 SLOT_BASE_IMAGE = 'd:/ymir work/ui/public/slot_base.sub'
@@ -261,6 +311,16 @@ TEXT_TIP_TAKE = 'Prawy klik: we\x9f do siebie'
 TEXT_TIP_HELD = 'Tw\xf3j drop - trzyma go dla ciebie'
 TEXT_TIP_UNEQUIP = 'Prawy klik: zdejmij'
 TEXT_SKILL_NAME = 'Umiej\xeatno\x9c\xe6 %d'
+# MT2009_PLUS_SIDEKICK_PANELS_V1
+TEXT_COSTUME_TITLE = 'Kostiumy towarzysza'
+TEXT_ALCHEMY_TITLE = 'Alchemia towarzysza'
+TEXT_DS_DECK = 'Zestaw %d'
+TEXT_DS_PAGE = '%d / %d'
+TEXT_COSTUME_HINT = 'Prawy klik: zdejmij. Do swojej torby: we\x9f.'
+TEXT_DS_HINT = 'Przeci\xb9gnij kamie\xf1 ze swojej alchemii na zestaw.'
+TEXT_DS_OFF = 'Alchemia jest wy\xb3\xb9czona na tym serwerze.'
+TEXT_TIP_DS_UNEQUIP = 'Prawy klik: zdejmij (jak u ciebie - mo\xbfe p\xeakn\xb9\xe6)'
+TEXT_TIP_DS_TAKE = 'Prawy klik: we\x9f do swojej alchemii'
 
 
 # ---------------------------------------------------------------- parsing
@@ -291,7 +351,16 @@ def ParseAttrs(value):
 
 
 def IsWearPos(pos):
-	return WEAR_BASE <= pos < WEAR_BASE + WEAR_MAX
+	# MT2009_PLUS_SIDEKICK_PANELS_V1: a worn Dragon Stone is worn as well.
+	return WEAR_BASE <= pos < WEAR_BASE + WEAR_MAX + DS_MAX_SLOTS * DS_DECKS
+
+
+def IsDsWearPos(pos):
+	return WEAR_BASE + WEAR_MAX <= pos < WEAR_BASE + WEAR_MAX + DS_MAX_SLOTS * DS_DECKS
+
+
+def IsDsCellPos(pos):
+	return DS_BASE <= pos < DS_BASE + DS_MAX_CELLS
 
 
 def WearPos(wear):
@@ -380,7 +449,7 @@ def MaskFor(flags):
 
 
 WEARABLE_TYPE_NAMES = ('ITEM_TYPE_WEAPON', 'ITEM_TYPE_ARMOR', 'ITEM_TYPE_UNIQUE', 'ITEM_TYPE_COSTUME',
-	'ITEM_TYPE_BELT', 'ITEM_TYPE_ROD', 'ITEM_TYPE_PICK')
+	'ITEM_TYPE_BELT', 'ITEM_TYPE_ROD', 'ITEM_TYPE_PICK', 'ITEM_TYPE_DS')
 
 
 def IsWearable(vnum):
@@ -409,7 +478,12 @@ def ToolTipLines(pos, flags, wearable=True):
 		lines.append(TEXT_TIP_GIFT)
 	if flags & FLAGS_UNPIN:
 		lines.append(TEXT_TIP_UNPIN)
-	if IsWearPos(pos):
+	if IsDsWearPos(pos):	# MT2009_PLUS_SIDEKICK_PANELS_V1
+		lines.append(TEXT_TIP_DS_UNEQUIP)
+	elif IsDsCellPos(pos):
+		lines.append(TEXT_TIP_DS_TAKE)
+		lines.append(TEXT_TIP_EQUIP)
+	elif IsWearPos(pos):
 		lines.append(TEXT_TIP_UNEQUIP)
 	else:
 		lines.append(TEXT_TIP_TAKE)
@@ -439,6 +513,9 @@ class EquipmentModel(object):
 		self.gen = 0
 		self.bagCells = DEFAULT_BAG_CELLS
 		self.pageCells = PAGE_CELLS
+		# MT2009_PLUS_SIDEKICK_PANELS_V1: its Alchemy, 0 cells without one.
+		self.dsCells = 0
+		self.dsSlots = DS_DEFAULT_SLOTS
 		self.items = {}
 		self.gold = 0
 		# A whole picture is gathered apart and put in place at its End, so a
@@ -450,7 +527,17 @@ class EquipmentModel(object):
 		return max(1, min(MAX_PAGES, pages))
 
 	def IsValidPos(self, pos):
+		if IsDsWearPos(pos):
+			return self.dsCells > 0
+		if IsDsCellPos(pos):
+			return pos < DS_BASE + self.dsCells
 		return 0 <= pos < self.bagCells or IsWearPos(pos)
+
+	def DsWearPos(self, deck, kind):
+		"""Where the server puts a deck's stone of a kind; -1 past its kinds."""
+		if not 0 <= kind < self.dsSlots or not 0 <= deck < DS_DECKS:
+			return -1
+		return WearPos(WEAR_MAX + deck * self.dsSlots + kind)
 
 	def Get(self, pos):
 		return self.items.get(pos)
@@ -484,6 +571,10 @@ class EquipmentModel(object):
 			self.gen = ParseInt(args[1], self.gen)
 		self.bagCells = bagCells
 		self.pageCells = pageCells
+		# MT2009_PLUS_SIDEKICK_PANELS_V1: an older server says neither.
+		self.dsCells = max(0, min(DS_MAX_CELLS, ParseInt(args[4], 0))) if len(args) > 4 else 0
+		dsSlots = ParseInt(args[5], DS_DEFAULT_SLOTS) if len(args) > 5 else DS_DEFAULT_SLOTS
+		self.dsSlots = dsSlots if 1 <= dsSlots <= DS_MAX_SLOTS else DS_DEFAULT_SLOTS
 		if self.state in (STATE_NONE, STATE_OTHER_PROTOCOL):
 			self.state = STATE_WAITING
 		self.incoming = {}
@@ -619,7 +710,10 @@ class SkillModel(object):
 
 _equipment = EquipmentModel()
 _skills = SkillModel()
-_state = {'eqWindow': None, 'icon': 0, 'lastOrigin': None}
+_state = {'eqWindow': None, 'icon': 0, 'lastOrigin': None,
+	# MT2009_PLUS_SIDEKICK_PANELS_V1: the two panels, the one an answer is
+	# for, and the one poll of them all.
+	'costumeWindow': None, 'alchemyWindow': None, 'asker': None, 'nextPoll': 0.0}
 
 
 def GetSkillModel():
@@ -695,6 +789,13 @@ def ReleaseIcon(force=False):
 def Deattach():
 	controller = _Controller()
 	if controller and controller.isAttached():
+		# MT2009_PLUS_SIDEKICK_PANELS_V1 (upstream's): a stone of the player's
+		# Alchemy dropped here - the stock DeattachObject leaves its icon.
+		if controller.GetAttachedType() == getattr(player, 'SLOT_TYPE_DRAGON_SOUL_INVENTORY', -99):
+			handle = getattr(controller, 'AttachedIconHandle', 0)
+			controller.AttachedIconHandle = 0
+			if handle:
+				item.DeleteIconInstance(handle)
 		controller.DeattachObject()
 	ReleaseIcon()
 
@@ -900,6 +1001,7 @@ class EquipmentWindow(_Window):
 	WIDTH = 240
 	HEIGHT = 590
 	TITLE = TEXT_EQ_TITLE
+	KEY = 'eqWindow'
 
 	def __init__(self):
 		_Window.__init__(self)
@@ -995,6 +1097,11 @@ class EquipmentWindow(_Window):
 
 	def BagPos(self, localSlot):
 		return self.page * _equipment.pageCells + localSlot
+
+	def Order(self, text):
+		# MT2009_PLUS_SIDEKICK_PANELS_V1: the answer to it goes to this window.
+		_state['asker'] = self.KEY
+		SendOrder(ORIGIN_EQ, text)
 
 	def SetPage(self, page):
 		self.page = max(0, min(page, _equipment.Pages() - 1))
@@ -1113,20 +1220,23 @@ class EquipmentWindow(_Window):
 			elif IsWearPos(source) and IsWearPos(pos):
 				self.SetStatus(TEXT_WEAR_TO_WEAR, COLOR_BAD, toChat=False)
 			else:
-				SendOrder(ORIGIN_EQ, 'eq ruch %d %d' % (source, pos))
+				self.Order('eq ruch %d %d' % (source, pos))
+		elif kind == getattr(player, 'SLOT_TYPE_DRAGON_SOUL_INVENTORY', -99):
+			# MT2009_PLUS_SIDEKICK_PANELS_V1: a stone of the player's Alchemy.
+			self.Order('eq daj %d %d' % (DS_BASE + source, pos))
 		elif kind == player.SLOT_TYPE_INVENTORY:
 			count = controller.GetAttachedItemCount()
 			if controller.GetAttachedItemIndex() == player.ITEM_MONEY:
 				# Yang dropped on the bag is given, as the amount picked.
 				if count > 0:
-					SendOrder(ORIGIN_EQ, 'eq yang daj %d' % count)
+					self.Order('eq yang daj %d' % count)
 			elif not IsPlayerBagCell(source):
 				self.SetStatus(TEXT_ONLY_FROM_BAG, COLOR_BAD, toChat=False)
 			elif 0 < count < player.GetItemCount(source):
 				# The order carries no count: a split stack would go whole.
 				self.SetStatus(TEXT_WHOLE_STACK, COLOR_BAD, toChat=False)
 			else:
-				SendOrder(ORIGIN_EQ, 'eq daj %d %d' % (source, pos))
+				self.Order('eq daj %d %d' % (source, pos))
 		Deattach()
 
 	def OnRightClick(self, pos):
@@ -1143,9 +1253,9 @@ class EquipmentWindow(_Window):
 		# MT2009_PLUS_SIDEKICK_QUICK_TRANSFER_V1: a bag item goes to the player
 		# (the safebox's right click); a worn piece comes off into its bag.
 		if IsWearPos(pos):
-			SendOrder(ORIGIN_EQ, 'eq ruch %d -1' % pos)
+			self.Order('eq ruch %d -1' % pos)
 		else:
-			SendOrder(ORIGIN_EQ, 'eq wez %d -1' % pos)
+			self.Order('eq wez %d -1' % pos)
 
 	def OnUse(self, pos):
 		# The first click of a double click has put the item on the cursor - or,
@@ -1155,7 +1265,7 @@ class EquipmentWindow(_Window):
 		if IsSidekickAttached():
 			Deattach()
 		if _equipment.Get(pos):
-			SendOrder(ORIGIN_EQ, 'eq ruch %d -1' % pos)
+			self.Order('eq ruch %d -1' % pos)
 
 	def Unpin(self, pos):
 		entry = _equipment.Get(pos)
@@ -1164,7 +1274,7 @@ class EquipmentWindow(_Window):
 		if not entry['flags'] & FLAGS_UNPIN:
 			self.SetStatus(TEXT_NOT_PINNED, toChat=False)
 			return
-		SendOrder(ORIGIN_EQ, 'eq odepnij %d' % pos)
+		self.Order('eq odepnij %d' % pos)
 
 	def OnUnpinButton(self):
 		if IsSidekickAttached():
@@ -1205,7 +1315,8 @@ class EquipmentWindow(_Window):
 		marks = getattr(tooltip, 'POSITIVE_COLOR', COLOR_GOOD)
 		tooltip.AppendSpace(5)
 		for text in lines:
-			tooltip.AppendTextLine(text, COLOR_NORMAL if text in (TEXT_TIP_EQUIP, TEXT_TIP_UNEQUIP, TEXT_TIP_UNPIN) else marks)
+			tooltip.AppendTextLine(text, COLOR_NORMAL if text in (TEXT_TIP_EQUIP, TEXT_TIP_UNEQUIP, TEXT_TIP_UNPIN,
+				TEXT_TIP_DS_UNEQUIP, TEXT_TIP_DS_TAKE) else marks)
 		tooltip.ShowToolTip()
 
 	def OnOverOut(self):
@@ -1248,7 +1359,7 @@ class EquipmentWindow(_Window):
 		give = self.yangGive
 		self.CloseYangDialog()
 		if text:
-			SendOrder(ORIGIN_EQ, 'eq yang %s %s' % ('daj' if give else 'wez', text))
+			self.Order('eq yang %s %s' % ('daj' if give else 'wez', text))
 
 	def CloseYangDialog(self):
 		dialog = self.yangDialog
@@ -1270,16 +1381,17 @@ class EquipmentWindow(_Window):
 			return
 		now = clientclock.Now()
 		# Nothing changed, nothing comes back: the poll does not wait for an answer.
-		if now >= self.nextPoll and uisidekick.TryPoll('eq'):
-			self.nextPoll = now + EQ_POLL_INTERVAL
+		# MT2009_PLUS_SIDEKICK_PANELS_V1: one poll for every window of the gear.
+		if now >= _state['nextPoll'] and uisidekick.TryPoll('eq'):
+			_state['nextPoll'] = now + EQ_POLL_INTERVAL
 
 	def Open(self, anchor=None):
 		self.Place(anchor, True)
 		self.Show()
 		self.SetTop()
-		self.nextPoll = clientclock.Now() + EQ_POLL_INTERVAL
+		_state['nextPoll'] = clientclock.Now() + EQ_POLL_INTERVAL
 		self.Refresh()
-		SendOrder(ORIGIN_EQ, 'eq 1')
+		self.Order('eq 1')
 
 	def Close(self):
 		if IsSidekickAttached():
@@ -1293,6 +1405,212 @@ class EquipmentWindow(_Window):
 		self.Close()
 		self.tooltip = None
 		self.widgets = []
+
+
+# ---------------------------------------------------------------- the panels
+
+def _CostumeBaseImage():
+	"""The player's costume window's picture, where its script finds it."""
+	try:
+		import uiScriptLocale
+		path = getattr(uiScriptLocale, 'LOCALE_UISCRIPT_PATH', '') or 'uiscript/'
+	except Exception:
+		path = 'uiscript/'
+	return path + COSTUME_BASE_IMAGE
+
+
+class CostumeWindow(EquipmentWindow):
+	"""MT2009_PLUS_SIDEKICK_PANELS_V1: what the companion wears over its gear -
+	the costume, the hairstyle, the weapon skin, the mount seal and the sash -
+	on the player's own costume picture. The mouse is the bag window's: a
+	right click takes a piece off into its bag, a drag to the player's bag
+	takes it, a piece of either bag dropped on a slot is put on."""
+
+	WIDTH = 200
+	HEIGHT = 290
+	TITLE = TEXT_COSTUME_TITLE
+	KEY = 'costumeWindow'
+
+	def Build(self):
+		y = 34
+		x = (self.WIDTH - COSTUME_BASE_WIDTH) // 2
+		# The picture and the slots side by side on the board, so the slots
+		# take the mouse whatever the picture's size.
+		self._Image(self, x, y, _CostumeBaseImage())
+		slots = ui.SlotWindow()
+		slots.SetParent(self)
+		slots.SetPosition(x + 3, y + 3)
+		slots.SetSize(COSTUME_BASE_WIDTH - 6, COSTUME_BASE_HEIGHT - 6)
+		for wear, slotX, slotY, width, height in COSTUME_LAYOUT:
+			slots.AppendSlot(WearPos(wear), slotX, slotY, width, height)
+		slots.SetSelectEmptySlotEvent(ui.__mem_func__(self.OnSelectEmptyEquip))
+		slots.SetSelectItemSlotEvent(ui.__mem_func__(self.OnSelectItemEquip))
+		slots.SetUnselectItemSlotEvent(ui.__mem_func__(self.OnRightClickEquip))
+		slots.SetUseSlotEvent(ui.__mem_func__(self.OnUseEquip))
+		slots.SetOverInItemEvent(ui.__mem_func__(self.OnOverInEquip))
+		slots.SetOverOutItemEvent(ui.__mem_func__(self.OnOverOut))
+		slots.Show()
+		self.widgets.append(slots)
+		self.equipSlots = slots
+		y += COSTUME_BASE_HEIGHT + 6
+		self.unpinButton = self._Btn(self, 'small', self.WIDTH - 55, y, TEXT_UNPIN, self.OnUnpinButton)
+		y += 26
+		self._StatusLines(y)
+		self._BuildToolTip()
+
+	def _BuildToolTip(self):
+		tooltip = uiToolTip.ItemToolTip()
+		if hasattr(tooltip, 'SetCannotUseItemForceSetDisableColor'):
+			tooltip.SetCannotUseItemForceSetDisableColor(False)
+		tooltip.HideToolTip()
+		self.tooltip = tooltip
+
+	def Refresh(self):
+		model = _equipment
+		for wear, _, _, _, _ in COSTUME_LAYOUT:
+			self.ShowEntry(self.equipSlots, WearPos(wear), model.Get(WearPos(wear)))
+		self.equipSlots.RefreshSlot()
+		self.CheckAttached()
+		self.RefreshStatusFor(model)
+
+	def RefreshIdleStatus(self):
+		text, color = IdleText(_equipment)
+		if _equipment.state == STATE_OK:
+			text = TEXT_COSTUME_HINT
+		self.SetIdleStatus(text, color)
+
+
+class AlchemyWindow(CostumeWindow):
+	"""MT2009_PLUS_SIDEKICK_PANELS_V1: the companion's Alchemy - its two decks
+	and, under them, the stones it keeps, a page at a time (upstream's
+	companion Alchemy). A stone of the player's Alchemy dropped on a deck goes
+	on there, dropped below it goes into the companion's; a kept stone's
+	right click hands it back to the player's Alchemy, its double click puts
+	it on, and a worn one's right click takes it off at the Alchemy's odds."""
+
+	WIDTH = 256
+	HEIGHT = 352
+	TITLE = TEXT_ALCHEMY_TITLE
+	KEY = 'alchemyWindow'
+
+	def __init__(self):
+		self.dsPage = 0
+		self.dsPositions = []
+		CostumeWindow.__init__(self)
+
+	def Build(self):
+		x = (self.WIDTH - DS_MAX_SLOTS * CELL) // 2
+		y = 32
+		decks = ui.SlotWindow()
+		decks.SetParent(self)
+		decks.SetPosition(x, y)
+		decks.SetSize(DS_MAX_SLOTS * CELL, DS_DECKS * DS_DECK_STEP)
+		for deck in range(DS_DECKS):
+			self._Label(self, x + 2, y + deck * DS_DECK_STEP, TEXT_DS_DECK % (deck + 1))
+			for kind in range(DS_MAX_SLOTS):
+				decks.AppendSlot(deck * DS_MAX_SLOTS + kind, kind * CELL, 18 + deck * DS_DECK_STEP, CELL, CELL)
+		decks.SetSlotBaseImage(SLOT_BASE_IMAGE, 1.0, 1.0, 1.0, 1.0)
+		decks.SetSelectEmptySlotEvent(ui.__mem_func__(self.OnSelectEmptyDeck))
+		decks.SetSelectItemSlotEvent(ui.__mem_func__(self.OnSelectItemDeck))
+		decks.SetUnselectItemSlotEvent(ui.__mem_func__(self.OnRightClickDeck))
+		decks.SetUseSlotEvent(ui.__mem_func__(self.OnUseDeck))
+		decks.SetOverInItemEvent(ui.__mem_func__(self.OnOverInDeck))
+		decks.SetOverOutItemEvent(ui.__mem_func__(self.OnOverOut))
+		decks.Show()
+		self.widgets.append(decks)
+		self.deckSlots = decks
+		y += DS_DECKS * DS_DECK_STEP + 4
+
+		grid = ui.GridSlotWindow()
+		grid.SetParent(self)
+		grid.SetPosition(x, y)
+		grid.ArrangeSlot(0, DS_LIST_COLUMNS, DS_LIST_ROWS, CELL, CELL, 0, 0)
+		grid.SetSlotBaseImage(SLOT_BASE_IMAGE, 1.0, 1.0, 1.0, 1.0)
+		grid.SetSelectEmptySlotEvent(ui.__mem_func__(self.OnSelectEmptyBag))
+		grid.SetSelectItemSlotEvent(ui.__mem_func__(self.OnSelectItemBag))
+		grid.SetUnselectItemSlotEvent(ui.__mem_func__(self.OnRightClickBag))
+		grid.SetUseSlotEvent(ui.__mem_func__(self.OnUseBag))
+		grid.SetOverInItemEvent(ui.__mem_func__(self.OnOverInBag))
+		grid.SetOverOutItemEvent(ui.__mem_func__(self.OnOverOut))
+		grid.Show()
+		self.widgets.append(grid)
+		self.bagSlots = grid
+		y += DS_LIST_ROWS * CELL + 4
+
+		self.previousButton = self._Btn(self, 'small', x, y, '<', self.PreviousDsPage)
+		self.nextButton = self._Btn(self, 'small', x + DS_MAX_SLOTS * CELL - 43, y, '>', self.NextDsPage)
+		self.pageLine = self._Label(self, self.WIDTH // 2, y + 3, '')
+		self.pageLine.SetHorizontalAlignCenter()
+		y += 26
+		self._StatusLines(y)
+		self._BuildToolTip()
+
+	# ---------------------------------------------------------- positions
+
+	def DeckPos(self, slot):
+		deck, kind = divmod(slot, DS_MAX_SLOTS)
+		return _equipment.DsWearPos(deck, kind)
+
+	def BagPos(self, localSlot):
+		index = self.dsPage * DS_LIST_CELLS + localSlot
+		return self.dsPositions[index] if 0 <= index < len(self.dsPositions) else -1
+
+	def PreviousDsPage(self):
+		self.dsPage = max(0, self.dsPage - 1)
+		self.Refresh()
+
+	def NextDsPage(self):
+		self.dsPage += 1
+		self.Refresh()
+
+	# ---------------------------------------------------------- showing
+
+	def Refresh(self):
+		model = _equipment
+		self.dsPositions = sorted(pos for pos in model.items if IsDsCellPos(pos))
+		pages = max(1, (len(self.dsPositions) + DS_LIST_CELLS - 1) // DS_LIST_CELLS)
+		self.dsPage = max(0, min(self.dsPage, pages - 1))
+		self.pageLine.SetText(TEXT_DS_PAGE % (self.dsPage + 1, pages))
+		for slot in range(DS_DECKS * DS_MAX_SLOTS):
+			pos = self.DeckPos(slot)
+			self.ShowEntry(self.deckSlots, slot, model.Get(pos) if pos >= 0 else None)
+		self.deckSlots.RefreshSlot()
+		for local in range(DS_LIST_CELLS):
+			pos = self.BagPos(local)
+			self.ShowEntry(self.bagSlots, local, model.Get(pos) if pos >= 0 else None)
+		self.bagSlots.RefreshSlot()
+		self.CheckAttached()
+		self.RefreshStatusFor(model)
+
+	def RefreshIdleStatus(self):
+		text, color = IdleText(_equipment)
+		if _equipment.state == STATE_OK:
+			text = TEXT_DS_HINT if _equipment.dsCells else TEXT_DS_OFF
+		self.SetIdleStatus(text, color)
+
+	# ---------------------------------------------------------- the mouse
+
+	def OnSelectEmptyDeck(self, slot):
+		self.OnSelect(self.DeckPos(slot), False)
+
+	def OnSelectItemDeck(self, slot):
+		self.OnSelect(self.DeckPos(slot), True)
+
+	def OnRightClickDeck(self, slot):
+		self.OnRightClick(self.DeckPos(slot))
+
+	def OnUseDeck(self, slot):
+		self.OnUse(self.DeckPos(slot))
+
+	def OnOverInDeck(self, slot):
+		self.ShowToolTipFor(self.DeckPos(slot))
+
+	def DropOn(self, pos):
+		# An empty place of the list, or a deck's place past the server's
+		# kinds: into its Alchemy, wherever the stone goes.
+		if pos < 0:
+			pos = DS_AUTO
+		CostumeWindow.DropOn(self, pos)
 
 
 def SkillName(vnum, grade=0):
@@ -1311,41 +1629,76 @@ def SkillName(vnum, grade=0):
 # ---------------------------------------------------------------- access
 
 def GetEquipmentWindow():
-	if _state['eqWindow'] is None:
-		_state['eqWindow'] = EquipmentWindow()
-	return _state['eqWindow']
+	return _GetWindow('eqWindow')
 
 
 def ToggleEquipmentWindow(anchor=None):
-	window = GetEquipmentWindow()
+	_ToggleWindow('eqWindow', anchor)
+
+
+# MT2009_PLUS_SIDEKICK_PANELS_V1: the bag window and the two panels, each made
+# on its first opening.
+WINDOW_KEYS = ('eqWindow', 'costumeWindow', 'alchemyWindow')
+WINDOW_CLASSES = {'eqWindow': EquipmentWindow, 'costumeWindow': CostumeWindow, 'alchemyWindow': AlchemyWindow}
+
+
+def _GetWindow(key):
+	if _state[key] is None:
+		_state[key] = WINDOW_CLASSES[key]()
+	return _state[key]
+
+
+def _ToggleWindow(key, anchor):
+	window = _GetWindow(key)
 	if window.IsShow():
 		window.Close()
 	else:
 		window.Open(anchor)
 
 
+def ToggleCostumeWindow(anchor=None):
+	"""The companion's costumes (the Options page's "Kostiumy")."""
+	_ToggleWindow('costumeWindow', anchor)
+
+
+def ToggleAlchemyWindow(anchor=None):
+	"""The companion's Alchemy (the Options page's "Alchemia")."""
+	_ToggleWindow('alchemyWindow', anchor)
+
+
+def _ShownWindows():
+	return [_state[key] for key in WINDOW_KEYS if _state[key] is not None and _state[key].IsShow()]
+
+
 def _Shown():
-	window = _state['eqWindow']
-	return window if window is not None and window.IsShow() else None
+	"""The window an answer goes to: the one whose order it answers while it
+	is open, else the first one open."""
+	asker = _state['asker']
+	window = _state.get(asker) if asker in WINDOW_KEYS else None
+	if window is not None and window.IsShow():
+		return window
+	shown = _ShownWindows()
+	return shown[0] if shown else None
 
 
 def AnyShown():
-	"""Whether the companion's bag window is open."""
+	"""Whether a window of the companion's gear is open: its bag, its
+	costumes or its Alchemy."""
 	return _Shown() is not None
 
 
 def CloseAll():
 	"""The bag window closed with the companion's own: P closed that one
 	alone, and the bag stayed on the screen to be clicked shut (prodnathin,
-	28 September)."""
-	window = _Shown()
-	if window is not None:
+	28 September). The panels go with it."""
+	for window in _ShownWindows():
 		window.Close()
 
 
 def _RefreshEquipment():
-	if _state['eqWindow'] is not None:
-		_state['eqWindow'].Refresh()
+	for key in WINDOW_KEYS:
+		if _state[key] is not None:
+			_state[key].Refresh()
 
 
 def _RefreshSkills():
@@ -1426,11 +1779,14 @@ def OnSkillEnd(*args):
 
 def Destroy():
 	ReleaseIcon(True)
-	window = _state['eqWindow']
-	if window is not None:
-		window.Destroy()
-	_state['eqWindow'] = None
+	for key in WINDOW_KEYS:
+		window = _state[key]
+		if window is not None:
+			window.Destroy()
+		_state[key] = None
 	_state['lastOrigin'] = None
+	_state['asker'] = None
+	_state['nextPoll'] = 0.0
 	_equipment.Reset()
 	_skills.Reset()
 

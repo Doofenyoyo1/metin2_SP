@@ -33,6 +33,7 @@ class SystemDialog(ui.ScriptWindow):
 		self.systemOptionDlg = None
 		self.gameOptionDlg = None
 		self.extraOptionDlg = None  # MT2009_PLUS_DIGI_CLIENT_QOL_V1
+		self.optionsTabs = None  # MT2009_PLUS_OPTIONS_TABS_V1
 		self.interface = None
 		self.toolTip = None
 
@@ -52,11 +53,19 @@ class SystemDialog(ui.ScriptWindow):
 		pyScrLoader = ui.PythonScriptLoader()
 		pyScrLoader.LoadScriptFile(self, "uiscript/systemdialog.py")
 
-		self.GetChild("system_option_button").SAFE_SetEvent(self.__ClickSystemOptionButton)
-		self.GetChild("game_option_button").SAFE_SetEvent(self.__ClickGameOptionButton)
+		# MT2009_PLUS_OPTIONS_TABS_V1: one "Opcje Gry" button with tabs (uioptionstabs.py); the four
+		# option buttons below are no longer in uiscript/systemdialog.py.
+		if self.GetChild2("options_button"):
+			self.GetChild2("options_button").SAFE_SetEvent(self.__ClickOptionsButton)
+		if self.GetChild2("system_option_button"):
+			self.GetChild2("system_option_button").SAFE_SetEvent(self.__ClickSystemOptionButton)
+		if self.GetChild2("game_option_button"):
+			self.GetChild2("game_option_button").SAFE_SetEvent(self.__ClickGameOptionButton)
 		# MT2009_PLUS_VEKIRION_V1 (Autor: Vekirion): Skroty klawiszowe (uikeybind.py).
 		if self.GetChild2("keybind_button"):
 			self.GetChild2("keybind_button").SAFE_SetEvent(self.__ClickKeybindButton)
+		if self.GetChild2("monster_card_button"):  # MT2009_PLUS_MONSTER_CARDS_V1 (Autor: Digi Rasta)
+			self.GetChild2("monster_card_button").SAFE_SetEvent(self.__ClickMonsterCardButton)
 		if self.GetChild2("extra_option_button"):  # MT2009_PLUS_DIGI_CLIENT_QOL_V1 (Autor: Digi Rasta)
 			self.GetChild2("extra_option_button").SAFE_SetEvent(self.__ClickExtraOptionButton)
 		self.GetChild("change_button").SAFE_SetEvent(self.__ClickChangeCharacterButton)
@@ -100,6 +109,9 @@ class SystemDialog(ui.ScriptWindow):
 	@ui.WindowDestroy
 	def Destroy(self):
 		self.ClearDictionary()
+
+		if self.optionsTabs:  # MT2009_PLUS_OPTIONS_TABS_V1
+			self.optionsTabs.Destroy()
 
 		if self.gameOptionDlg:
 			self.gameOptionDlg.Destroy()
@@ -161,6 +173,10 @@ class SystemDialog(ui.ScriptWindow):
 		self.Close()
 		__import__("uikeybind").OpenWindow()
 
+	def __ClickMonsterCardButton(self):  # MT2009_PLUS_MONSTER_CARDS_V1 (Autor: Digi Rasta): Karty Potworow
+		self.Close()
+		__import__("monstercard").Toggle()
+
 	def __ClickExtraOptionButton(self):  # MT2009_PLUS_DIGI_CLIENT_QOL_V1 (Autor: Digi Rasta): Opcje dodatkowe
 		self.Close()
 		if not self.extraOptionDlg:
@@ -176,6 +192,32 @@ class SystemDialog(ui.ScriptWindow):
 
 		self.gameOptionDlg.Show()
 
+	# MT2009_PLUS_OPTIONS_TABS_V1: "Opcje Gry" - Gra, System, Dodatkowe and Skroty as tabs of one
+	# window (uioptionstabs.py); the pages are the dialogs above, made on first use as before.
+	def __ClickOptionsButton(self):
+		self.Close()
+		if self.optionsTabs is None:
+			self.optionsTabs = __import__("uioptionstabs").OptionsTabs(self)
+		self.optionsTabs.Open()
+
+	def GetOptionPage(self, key):
+		if key == "game":
+			if not self.gameOptionDlg:
+				self.gameOptionDlg = uiGameOption.OptionDialog()
+				self.gameOptionDlg.SetToolTip(self.toolTip)
+			return self.gameOptionDlg
+		if key == "system":
+			if not self.systemOptionDlg:
+				self.systemOptionDlg = uiSystemOption.OptionDialog()
+			return self.systemOptionDlg
+		if key == "extra":
+			if not self.extraOptionDlg:
+				self.extraOptionDlg = __import__("uiopcjedodatkowe").ExtraOptionsWindow()
+			return self.extraOptionDlg
+		if key == "keybind":
+			return __import__("uikeybind").GetWindow()
+		return None
+
 	if app.ENABLE_MOVE_CHANNEL:
 		def __ClickMoveChannelButton(self):
 			self.Close()
@@ -189,7 +231,7 @@ class SystemDialog(ui.ScriptWindow):
 			self.eventOpenHelpWindow()
 
 	def __ClickSupportButton(self):
-		utils.open_url("https://github.com/Doofenyoyo1/metin2_SP/issues")
+		utils.open_url("https://metin2sp.pl/discord")
 
 	def __OnMouseOverSupportButton(self):
 		if self.toolTip:

@@ -27,6 +27,7 @@
 # Python 2.7 as the client has it; the texts are CP1250 escapes.
 
 import app
+import dbg
 import item
 import net
 import ui
@@ -87,6 +88,13 @@ SPECIES = {
 }
 
 IMG = 'mt2009_ui/newpet/'
+# MT2009_PLUS_PET_SKILL_TOOLTIP_V2: an empty slot under every skill slot. The
+# window's background (pet_ui_bg.tga, cut out of the mod) has fifteen skill
+# icons with "20" painted into the slots: where no button of ours lay on it
+# (an opened slot without a skill, a window without a pet) the owner saw a
+# skill there, but there was nothing to hover.
+SLOT_BASE = 'd:/ymir work/ui/public/Slot_Base.sub'
+SKILL_EMPTY = 0
 
 _data = {'pets': [], 'pending': None, 'max': 3, 'evo': {}, 'window': None, 'shown': 0, 'dialog': None,
 		'names': {}, 'asked': {}, 'nameWaiting': False}
@@ -393,9 +401,20 @@ class NewPetWindow(ui.ScriptWindow):
 		self.feedWindow = None
 		self.skillButtons = []
 		self.skillLevels = []
-		self.skillTips = []
+		self.skillBases = []
 		self.skillShown = [None] * 15
+		self.skillData = [None] * 15
+		# MT2009_PLUS_PET_SKILL_TOOLTIP_V2: one tooltip for the skills, written
+		# when the mouse comes over a slot (as the Seon-Hae window and the
+		# other working windows do) and written again when the pet changes
+		# under it - never cleared while it is shown without being written and
+		# shown again.
+		self.skillTip = uiToolTip.ToolTip()
+		self.skillTip.HideToolTip()
 		self.skillHovered = -1
+		self.skillTipKey = None
+		self.skillOver = -1
+		self.errorsLogged = 0
 		self.expTip = TextToolTip()
 		self.expTip.Hide()
 		self.iconTip = uiToolTip.ToolTip()
@@ -429,23 +448,31 @@ class NewPetWindow(ui.ScriptWindow):
 		self.petIcon.SAFE_SetStringEvent('MOUSE_OVER_OUT', self.__OverOutIcon)
 
 		for i, (x, y) in enumerate(SKILL_SLOTS):
+			# MT2009_PLUS_PET_SKILL_TOOLTIP_V2: the empty slot covers the
+			# skill painted into the background.
+			base = ui.ImageBox()
+			base.SetParent(self)
+			base.AddFlag('not_pick')
+			base.SetPosition(x, y)
+			base.LoadImage(SLOT_BASE)
+			base.Show()
 			button = ui.Button()
 			button.SetParent(self)
 			button.SetPosition(x, y)
 			button.SetEvent(ui.__mem_func__(self.__ClickSkill), i)
-			tip = uiToolTip.ToolTip()
-			tip.HideToolTip()
-			# MT2009_PLUS_PET_SKILL_TOOLTIP_V1: the skill's tooltip is shown by
-			# OnUpdate from where the mouse is, not by the button's mouse-over
-			# events, which did not bring it up (the owner, 3 October).
+			# The tooltip comes from the mouse's position in OnUpdate
+			# (MT2009_PLUS_PET_SKILL_TOOLTIP_V1) and from the button's
+			# mouse-over too, whichever of them sees the mouse first.
+			button.SAFE_SetStringEvent('MOUSE_OVER_IN', self.__OverInSkill, i)
+			button.SAFE_SetStringEvent('MOUSE_OVER_OUT', self.__OverOutSkill, i)
 			level = ui.TextLine()
 			level.SetParent(self)
 			level.SetPosition(x + 31, y + 20)
 			level.SetHorizontalAlignRight()
 			level.SetOutline()
 			level.AddFlag('not_pick')
+			self.skillBases.append(base)
 			self.skillButtons.append(button)
-			self.skillTips.append(tip)
 			self.skillLevels.append(level)
 		self.SetCenterPosition()
 
@@ -471,6 +498,7 @@ class NewPetWindow(ui.ScriptWindow):
 		self.iconTip.HideToolTip()
 		for i in xrange(15):
 			self.__SetSkill(i, None, 0)
+		self.__HideSkillTip()
 		self.expTip.SetText('')
 
 	def Refresh(self):
@@ -518,6 +546,10 @@ class NewPetWindow(ui.ScriptWindow):
 		self.__UpdateBonus(pet)
 		for i, (skill, level) in enumerate(pet['skills']):
 			self.__SetSkill(i, skill, level)
+		# The tooltip under the mouse shows the new data at once.
+		if self.skillHovered >= 0:
+			self.skillTipKey = None
+			self.__ShowSkillTip(self.skillHovered)
 
 		summon = self.GetChild('SummonButton')
 		if not pet['active']:
@@ -568,35 +600,107 @@ class NewPetWindow(ui.ScriptWindow):
 	def __SetSkill(self, i, skill, level):
 		button = self.skillButtons[i]
 		label = self.skillLevels[i]
-		if skill is None or skill == 0 or (skill != SKILL_LOCKED and not SKILLS.get(skill)):
+		if skill is None:
 			button.Hide()
 			label.Hide()
-			self.skillTips[i].HideToolTip()
 			self.skillShown[i] = None
+			self.skillData[i] = None
 			return
-		image = IMG + ('skill_locked.tga' if skill == SKILL_LOCKED else 'skill/%d.tga' % skill)
+		# An opened slot without a skill (or a skill this client does not
+		# know) is an empty slot - with its own tooltip.
+		if skill != SKILL_LOCKED and not SKILLS.get(skill):
+			skill, level = SKILL_EMPTY, 0
+		self.skillData[i] = (skill, level)
+		if skill == SKILL_LOCKED:
+			image = IMG + 'skill_locked.tga'
+		elif skill == SKILL_EMPTY:
+			image = SLOT_BASE
+		else:
+			image = IMG + 'skill/%d.tga' % skill
 		if self.skillShown[i] != image:
 			self.skillShown[i] = image
 			button.SetUpVisual(image)
 			button.SetOverVisual(image)
 			button.SetDownVisual(image)
 		button.Show()
-		tip = self.skillTips[i]
-		tip.ClearToolTip()
-		if skill == SKILL_LOCKED:
+		if skill == SKILL_LOCKED or skill == SKILL_EMPTY:
 			label.Hide()
-			tip.AppendTextLine('Zablokowane miejsce', GRAY)
-			tip.AppendTextLine('Otwiera je ewolucja peta', GRAY)
 			return
 		label.SetText(str(level))
 		label.Show()
+
+	# The tooltip's lines for a slot: [(text, color)].
+	def __SkillLines(self, i):
+		data = self.skillData[i] if 0 <= i < len(self.skillData) else None
+		if not data:
+			return []
+		skill, level = data
+		if skill == SKILL_LOCKED:
+			return [('Zablokowane miejsce', GRAY), ('Otwiera je ewolucja peta', GRAY)]
+		if skill == SKILL_EMPTY:
+			return [('Wolne miejsce na umiej\xeatno\x9c\xe6', WHITE),
+					('U\xbfyj Ksi\xeagi Umiej\xeatno\x9cci Peta z ekwipunku', GRAY)]
 		name, maxValue, unit = SKILLS[skill]
-		tip.AppendTextLine(ItemName(BOOK_BASE + skill), GOLD)
-		tip.AppendTextLine('Poziom %d/20' % level, WHITE)
-		tip.AppendTextLine('%s +%d%s' % (name, BonusValue(level, maxValue), unit), GREEN)
+		lines = [(ItemName(BOOK_BASE + skill), GOLD),
+				('Poziom %d/20' % level, WHITE),
+				('%s +%d%s' % (name, BonusValue(level, maxValue), unit), GREEN)]
 		if level < 20:
-			tip.AppendTextLine('Na 20 poziomie: +%d%s' % (maxValue, unit), GRAY)
-		tip.AppendTextLine('Kliknij, aby zapomnie\xe6 (Pet Revertus)', GRAY)
+			lines.append(('Na 20 poziomie: +%d%s' % (maxValue, unit), GRAY))
+		lines.append(('Kliknij, aby zapomnie\xe6 (Pet Revertus)', GRAY))
+		return lines
+
+	# Writes the skill tooltip for slot i and shows it - written again only
+	# when the slot or its skill changed, shown again when something hid it.
+	def __ShowSkillTip(self, i):
+		tip = self.skillTip
+		if not tip:
+			return
+		data = self.skillData[i] if 0 <= i < len(self.skillData) else None
+		if not data:
+			self.__HideSkillTip()
+			return
+		key = (i, data)
+		if key == self.skillTipKey:
+			if not tip.IsShow():
+				tip.ShowToolTip()
+			return
+		try:
+			lines = self.__SkillLines(i)
+		except Exception:
+			self.__LogError('skill lines')
+			lines = [('Umiej\xeatno\x9c\xe6 peta', GOLD)]
+		try:
+			tip.ClearToolTip()
+			for text, color in lines:
+				tip.AppendTextLine(text, color)
+			tip.ResizeToolTip()
+		except Exception:
+			# Never an empty frame: a tooltip that could not be written is
+			# not shown.
+			self.__LogError('skill tooltip')
+			tip.HideToolTip()
+			self.skillHovered = -1
+			self.skillTipKey = None
+			return
+		self.skillHovered = i
+		self.skillTipKey = key
+		tip.ShowToolTip()
+
+	def __HideSkillTip(self):
+		if self.skillTip:
+			self.skillTip.HideToolTip()
+		self.skillHovered = -1
+		self.skillTipKey = None
+
+	def __LogError(self, where):
+		if self.errorsLogged >= 5:
+			return
+		self.errorsLogged += 1
+		try:
+			import sys
+			dbg.TraceError('uinewpet %s: %s %s' % (where, sys.exc_info()[0], sys.exc_info()[1]))
+		except Exception:
+			pass
 
 	# ---- the evolution window (the mod's feed window) ----
 
@@ -712,12 +816,15 @@ class NewPetWindow(ui.ScriptWindow):
 			self.iconTip.HideToolTip()
 
 	def __OverInSkill(self, i):
-		if 0 <= i < len(self.skillTips) and self.skillButtons[i].IsShow():
-			self.skillTips[i].ShowToolTip()
+		self.skillOver = i
+		if 0 <= i < len(self.skillData) and self.skillData[i]:
+			self.__ShowSkillTip(i)
 
 	def __OverOutSkill(self, i):
-		if 0 <= i < len(self.skillTips):
-			self.skillTips[i].HideToolTip()
+		if self.skillOver == i:
+			self.skillOver = -1
+		if self.skillHovered == i:
+			self.__HideSkillTip()
 
 	def __OverInExp(self):
 		self.expTip.Show()
@@ -788,31 +895,43 @@ class NewPetWindow(ui.ScriptWindow):
 		Send('open')
 		self.nextRequest = app.GetTime() + REFRESH_SECONDS
 
+	# The slot under the mouse, from the window's position (the slots are
+	# 32x32 at SKILL_SLOTS), whether a button of ours is there or not.
 	def __HoveredSkill(self):
 		if not self.IsShow():
 			return -1
 		(mx, my) = wndMgr.GetMousePosition()
-		for i, button in enumerate(self.skillButtons):
-			if not button.IsShow():
-				continue
-			(x, y) = button.GetGlobalPosition()
-			if x <= mx < x + max(button.GetWidth(), 32) and y <= my < y + max(button.GetHeight(), 32):
+		(wx, wy) = self.GetGlobalPosition()
+		for i, (x, y) in enumerate(SKILL_SLOTS):
+			if self.skillData[i] and wx + x <= mx < wx + x + 32 and wy + y <= my < wy + y + 32:
 				return i
 		return -1
 
 	def __UpdateSkillTooltip(self):
 		hovered = self.__HoveredSkill()
-		if hovered == self.skillHovered:
+		if hovered < 0 and 0 <= self.skillOver < len(self.skillButtons) and self.skillData[self.skillOver]:
+			# The button says the mouse is on it (its mouse-over event).
+			if self.skillButtons[self.skillOver].IsIn():
+				hovered = self.skillOver
+			else:
+				self.skillOver = -1
+		if hovered < 0:
+			if self.skillHovered >= 0:
+				self.__HideSkillTip()
 			return
-		if 0 <= self.skillHovered < len(self.skillTips):
-			self.skillTips[self.skillHovered].HideToolTip()
-		self.skillHovered = hovered
-		if hovered >= 0:
-			self.skillTips[hovered].ShowToolTip()
+		self.__ShowSkillTip(hovered)
 
 	def OnUpdate(self):
-		self.__UpdateSkillTooltip()
-		self.__PlaceFeed()
+		# MT2009_PLUS_PET_SKILL_TOOLTIP_V2: the tooltip first, and nothing
+		# after it can stop it (an exception here is one syserr line).
+		try:
+			self.__UpdateSkillTooltip()
+		except Exception:
+			self.__LogError('skill hover')
+		try:
+			self.__PlaceFeed()
+		except Exception:
+			self.__LogError('feed window')
 		if app.GetTime() >= self.nextRequest:
 			self.nextRequest = app.GetTime() + REFRESH_SECONDS
 			Send('refresh')
@@ -821,9 +940,8 @@ class NewPetWindow(ui.ScriptWindow):
 		self.expTip.Hide()
 		self.iconTip.HideToolTip()
 		self.itemTip.HideToolTip()
-		for tip in self.skillTips:
-			tip.HideToolTip()
-		self.skillHovered = -1
+		self.__HideSkillTip()
+		self.skillOver = -1
 		self.__CloseQuestion()
 		self.__HideFeed()
 		self.Hide()
@@ -836,8 +954,10 @@ class NewPetWindow(ui.ScriptWindow):
 		self.Close()
 		self.feedWindow = None
 		self.skillButtons = []
-		self.skillTips = []
+		self.skillBases = []
 		self.skillLevels = []
+		self.skillData = [None] * 15
+		self.skillTip = None
 		self.expTip = None
 		self.iconTip = None
 		self.itemTip = None

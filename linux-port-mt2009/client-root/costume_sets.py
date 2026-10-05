@@ -1,0 +1,66 @@
+# Zestawy kostiumow (uitooltip.py): generated from the server's costume_sets.txt
+# (server-patches/playerqol) - do not edit by hand; regenerate with it.
+# SETS[i] = (bodies, hairs); a body and a hair of one set give +800 HP and
+# +15 attack value (MT2009_PLUS_COSTUME_SET_V1). MT2009_PLUS_COSTUME_SETS_WIKI_V1:
+# the sets of the Metin2 wiki (Bonus Zestawu, 4 October 2026).
+
+SETS = (
+	((41682,41683,41684,41685,), (45360,45361,45362,45363,)),	# Pierwszy_Zestaw_Wielkanocny
+	((41754,41755,41756,41757,), (45486,45487,45488,45489,)),	# Drugi_Zestaw_Wielkanocny
+	((41794,41795,41796,41797,), (45530,45531,45532,45533,)),	# Trzeci_Zestaw_Wielkanocny
+	((41836,41837,41838,41839,), (45576,45577,45578,45579,)),	# Czwarty_Zestaw_Wielkanocny
+	((41884,41885,41886,41887,), (45624,45625,45626,45627,)),	# Piaty_Zestaw_Wielkanocny
+	((41924,41925,41926,41927,), (45664,45665,45666,45667,)),	# Szosty_Zestaw_Wielkanocny
+	((41944,41945,41946,41947,), (45684,45685,45686,45687,)),	# Siodmy_Zestaw_Wielkanocny
+	((41974,41975,41976,41977,), (45718,45719,45720,45721,)),	# Osmy_Zestaw_Wielkanocny
+	((41706,41707,41708,41709,), (45408,45409,45410,45411,)),	# Pierwszy_Zestaw_Ramadan
+	((41758,41759,41762,41763,), (45490,45491,45492,45493,)),	# Drugi_Zestaw_Ramadan
+	((41760,41761,41764,41765,), (45494,45495,45496,45497,)),	# Drugi_Zestaw_Ramadan_2
+	((41860,41861,41862,41863,), (45600,45601,45602,45603,)),	# Trzeci_Zestaw_Ramadan
+	((41978,41979,940180,940181,), (45723,45724,45725,945722,)),	# Czwarty_Zestaw_Ramadan
+	((41802,41803,41804,41805,), (45538,45539,45540,45541,)),	# Pierwszy_Zestaw_Proroka
+	((41876,41877,41878,41879,), (45616,45617,45618,45619,)),	# Drugi_Zestaw_Proroka
+	((41698,41699,41700,41701,), (45376,45377,45378,45379,)),	# Pierwszy_Zestaw_Letni
+	((41726,41727,41728,41729,), (45412,45413,45414,45415,)),	# Drugi_Zestaw_Letni
+	((41766,41767,41768,41769,), (45498,45499,45500,45501,)),	# Trzeci_Zestaw_Letni
+	((41770,41771,41772,41773,), (45502,45503,45504,45505,)),	# Trzeci_Zestaw_Letni_2
+	((41810,41811,41812,41813,), (45550,45551,45552,45553,)),	# Czwarty_Zestaw_Letni
+	((41868,41869,41870,41871,), (45608,45609,45610,45611,)),	# Piaty_Zestaw_Letni
+	((41892,41893,41894,41895,), (45632,45633,45634,45635,)),	# Szosty_Zestaw_Letni
+	((41956,41957,41958,41959,), (45700,45701,45702,45703,)),	# Osmy_Zestaw_Letni
+	((41982,41983,41984,41985,), (45726,45727,45728,45729,)),	# Dziewiaty_Zestaw_Letni
+	((41560,41561,41562,41563,), (45250,45251,45252,45253,)),	# Pierwszy_Zestaw_Halloweenowy
+	((41564,41565,41566,41567,), (45254,45255,45256,45257,)),	# Pierwszy_Zestaw_Halloweenowy_2
+	((41592,41593,41594,41595,), (45282,45283,45284,45285,)),	# Drugi_Zestaw_Halloweenowy
+	((41596,41597,41598,41599,), (45286,45287,45288,45289,)),	# Drugi_Zestaw_Halloweenowy_2
+	((41670,41671,41672,41673,), (45336,45337,45338,45339,)),	# Trzeci_Zestaw_Halloweenowy
+	((41674,41675,41676,41677,), (45340,45341,45342,45343,)),	# Trzeci_Zestaw_Halloweenowy_2
+	((41714,41715,41716,41717,), (45388,45389,45390,45391,)),	# Czwarty_Zestaw_Halloweenowy
+	((41778,41779,41780,41781,), (45514,45515,45516,45517,)),	# Piaty_Zestaw_Halloweenowy
+	((41818,41819,41820,41821,), (45558,45559,45560,45561,)),	# Szosty_Zestaw_Halloweenowy
+	((41844,41845,41846,41847,), (45584,45585,45586,45587,)),	# Siodmy_Zestaw_Halloweenowy
+	((41900,41901,41902,41903,), (45640,45641,45642,45643,)),	# Osmy_Zestaw_Halloweenowy
+	((41936,41937,41938,41939,), (45676,45677,45678,45679,)),	# Dziewiaty_Zestaw_Halloweenowy
+	((41568,41569,41570,41571,), (45258,45259,45260,45261,)),	# Pierwszy_Zestaw_Bozonarodzeniowy
+	((41572,41573,41574,41575,), (45262,45263,45264,45265,)),	# Pierwszy_Zestaw_Bozonarodzeniowy_2
+	((41630,41631,41632,41633,), (45320,45321,45322,45323,)),	# Drugi_Zestaw_Bozonarodzeniowy
+	((41634,41635,41636,41637,), (45324,45325,45326,45327,)),	# Drugi_Zestaw_Bozonarodzeniowy_2
+	((41690,41691,41692,41693,), (45368,45369,45370,45371,)),	# Trzeci_Zestaw_Bozonarodzeniowy
+	((41722,41723,41724,41725,), (45396,45397,45398,45399,)),	# Czwarty_Zestaw_Bozonarodzeniowy
+	((41786,41787,41788,41789,), (45522,45523,45524,45525,)),	# Piaty_Zestaw_Bozonarodzeniowy
+	((41828,41829,41830,41831,), (45568,45569,45570,45571,)),	# Szosty_Zestaw_Bozonarodzeniowy
+	((41851,41852,41853,41854,41855,), (45592,45593,45594,45595,)),	# Siodmy_Zestaw_Bozonarodzeniowy
+	((41908,41909,41910,41911,), (45648,45649,45650,45651,)),	# Osmy_Zestaw_Bozonarodzeniowy
+	((41940,41941,41942,41943,), (45680,45681,45682,45683,)),	# Dziewiaty_Zestaw_Bozonarodzeniowy
+	((41964,41965,41966,41967,), (45708,45709,45710,45711,)),	# Dziesiaty_Zestaw_Bozonarodzeniowy
+	((41916,41917,41918,41919,), (45656,45657,45658,45659,)),	# Zestaw_Zwycieskiego_i_Szczodrego
+	((41948,41949,41950,41951,), (45688,45689,45690,45691,)),	# Zestaw_Straznikow_Piasku
+)
+
+BODY_SETS = {}
+HAIR_SETS = {}
+for _i, (_bodies, _hairs) in enumerate(SETS):
+	for _v in _bodies:
+		BODY_SETS.setdefault(_v, []).append(_i)
+	for _v in _hairs:
+		HAIR_SETS.setdefault(_v, []).append(_i)

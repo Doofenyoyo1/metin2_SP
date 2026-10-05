@@ -201,6 +201,22 @@ ElementAddBefore(MAIN_BOARD["children"], "mall_button",
 					"down_image" : ROOT + "XLarge_Button_03.sub",
 				})
 
+# MT2009_PLUS_MONSTER_CARDS_V1 (Autor: Digi Rasta): "Karty Potworow" (monstercard.py, uimonstercard.py)
+ElementAddBefore(MAIN_BOARD["children"], "escape_button",
+				{
+					"name" : "monster_card_button",
+					"type" : "button",
+
+					"x" : 10,
+					"y" : -1,
+
+					"text" : "Karty Potwor\xf3w",
+
+					"default_image" : ROOT + "XLarge_Button_01.sub",
+					"over_image" : ROOT + "XLarge_Button_02.sub",
+					"down_image" : ROOT + "XLarge_Button_03.sub",
+				})
+
 # MT2009_PLUS_DIGI_CLIENT_QOL_V1 (Autor: Digi Rasta): "Opcje dodatkowe" (uiopcjedodatkowe.py)
 ElementAddBefore(MAIN_BOARD["children"], "escape_button",
 				{
@@ -232,6 +248,25 @@ if app.ENABLE_MOVE_CHANNEL:
 					"over_image" : ROOT + "XLarge_Button_02.sub",
 					"down_image" : ROOT + "XLarge_Button_03.sub",
 				})
+
+# MT2009_PLUS_OPTIONS_TABS_V1: one "Opcje Gry" button (uioptionstabs.py: tabs Gra, System,
+# Dodatkowe, Skroty) where "Opcje Systemowe" was; the four option buttons go.
+ElementAddBefore(MAIN_BOARD["children"], "system_option_button",
+				{
+					"name" : "options_button",
+					"type" : "button",
+
+					"x" : 10,
+					"y" : -1,
+
+					"text" : uiScriptLocale.GAMEOPTION_TITLE,
+
+					"default_image" : ROOT + "XLarge_Button_01.sub",
+					"over_image" : ROOT + "XLarge_Button_02.sub",
+					"down_image" : ROOT + "XLarge_Button_03.sub",
+				})
+MAIN_BOARD["children"] = [elem for elem in MAIN_BOARD["children"] if elem["name"] not in
+	("system_option_button", "game_option_button", "keybind_button", "extra_option_button")]
 
 def Recalculate():
 	global MAIN_BOARD
