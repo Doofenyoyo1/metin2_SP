@@ -17,6 +17,183 @@ every version here.
 
 ---
 
+## 2.23.1 — 2026-10-05
+
+Serwer 2.23.1 i klient 2.0.59: **zaktualizuj oba** („AKTUALIZUJ wszystko”
+w launcherze). Na VPS: `sh linux-port/tools/update.sh`. Pierwsza budowa po
+tej aktualizacji trwa dłużej niż zwykle (dużo nowych plików silnika) - nie
+przerywaj jej. Świat, postacie i ustawienia zostają.
+
+To jest MT2009 PLUS 2.23.0 z klientem 2.0.54, z naszymi zmianami na
+wierzchu; obejmuje jego wydania 2.22.0 i 2.23.0 (klienci 2.0.52–2.0.54),
+opisane niżej pod nagłówkami „MT2009 PLUS”. W skrócie: Karty Potworów
+(Digi Rasta), boty w dungeonach i wyszukiwarka botów na dungeony,
+mądrzejsze rozmowy z botami (szept, wołaj, handel przez szept, obrona
+spota), Edytor bazy danych w panelu seban, tańsze dungeony z lepszym
+dropem, boty kupujące lepszą broń i zbroję, zestawy kostiumów, Opcje Gry
+w zakładkach.
+
+### Co zostaje nasze
+
+- **Przełącznik bonusów** zostaje pod klawiszem **0** w oknie skrótów
+  klawiszowych; szybki start Auto Łowów z MT2009 PLUS jest obok, pod
+  **Shift+K**.
+- Bez zapasowego serwera aktualizacji MT2009 PLUS i bez przekazywania
+  aktualizacji klienta do jego patchera, COOP bez hasła, aktualizacje z
+  naszego repozytorium, trzej kowale gildii - bez zmian.
+- Bot zapytany „lubisz tu expić?” odpowiada o mapie, a nie radą, gdzie
+  expić (nowa reguła porad w rozmowach MT2009 PLUS brała to pytanie za
+  prośbę o radę).
+
+### Warto wiedzieć
+
+- Klient 2.0.54 przeniósł opisy przedmiotów i umiejętności
+  (`itemdesc.txt`, `skilldesc.txt`) do nowej paczki `pack/dbdata`, którą
+  zapisuje Edytor bazy danych. Aktualizacja klienta zastępuje tę paczkę
+  wersją z wydania - jeśli korzystasz ze zmian z Edytora bazy danych,
+  po aktualizacji pobierz ponownie jego zip (Edytor bazy danych →
+  Zastosuj → „Pobierz aktualne pliki klienta (zip)”) i rozpakuj go do
+  folderu gry.
+
+### Co sprawdziliśmy
+
+- Wszystkie 408 zmian silnika MT2009 PLUS (`server-patches`) są w jego
+  paczce 2.23.0, a każdy plik silnika, który zmienił, jest na naszej
+  liście paczki.
+- Testy jednostkowe (rozmowy z botami - teraz także „charakter pisma”
+  bota z MT2009 PLUS), testy klienta i testy nowych modułów Edytora bazy
+  danych przechodzą.
+
+### MT2009 PLUS 2.23.0 — 2026-10-05 — Karty Potworów, tańsze dungeony z lepszym dropem, boty lepiej ubrane
+
+Wymaga klienta **2.0.54** (pobierze go launcher albo patcher).
+
+#### 🃏 Karty Potworów (autor systemu: **Digi Rasta**)
+- Nowy system **Karty Potworów** (przycisk w menu Esc): misje kart dla potworów, szansa 5% na kartę, kolekcja wspólna dla całego konta, gwiazdki i zestawy z bonusami.
+- Funkcje gwiazdek: lista dropu, przemiana, teleport do potworów, przywołanie, wymiana 10 kart na nagrodę.
+- **Karta Nowego Początku** i **Karta Układu** w ItemShopie (kategoria Zwoje) po 49 SM. Rekrutacja potworów jest wyłączona.
+- Boty w tym nie uczestniczą. Można wyłączyć całość ustawieniem `M2_MONSTER_CARDS=0`.
+
+#### ⚔️ Dungeony – ceny, bossowie i drop
+- **Wejścia o połowę tańsze:** Biblioteka 1kk, Wzgórze Wukonga 2.5kk, Razador 3.5kk, Ruiny Skorpiona 5kk, Nemere / Leże Smoka / Starożytna Dżungla 7.5kk. Teleport z panelu dungeonów kosztuje najwyżej tyle, co wejście.
+- **Płaci tylko ten, kto wchodzi, i tylko za siebie** – boty z grupy (Towarzysz, boty z wyszukiwarki) wchodzą za darmo.
+- **Główni bossowie dropią yang** – mniej więcej połowę ceny wejścia.
+- **Lepszy drop w skrzyniach** – od Biblioteki i Wukonga przez Razadora i Skorpiona po Nemere i Dżunglę: sakiewki yang, ulepszacze swojego poziomu i coś cennego (kamienie dusz do +4, księgi, zwoje). Wukong daje 2–4 skrzynie. Bossowie map i dungeonów Arezzo, Generałowie z Groty, bossy lemurów i Azrael dropią lepiej.
+- **Balans bossów:** Płomienny Feniks da się zrobić w pojedynkę, słabsze ciosy Czerwonego Skorpiona, Króla Skorpionów, Królowej Dżungli, Razadora i Nemere. Generałowie z Groty i Silna Lodowa Wiedźma poprawione.
+- **Żaden boss nie odpycha gracza i nie da się go odepchnąć.**
+- **Wieża Demonów:** gracz na 75 poziomie normalnie dostaje ulepszacze i Pamiątki po Demonie; demony z wyższych pięter (brutalne) mają własny drop.
+- **Katakumby Diabła bez labiryntu teleportów** – Metin Zemsty przenosi grupę od razu na piętro Tartara.
+- **Ranking dungeonów** liczy tylko tych, którzy zadali bossowi obrażenia.
+
+#### 🤖 Boty
+- **Boty kupują i ulepszają lepszą broń i zbroję** – również z plusami od graczy i botów, ze straganów i od NPC. Nie zostawiają w ręce wędki ani kilofa.
+- **Wyprawy botów na dungeony** lepiej zorganizowane: Razador od 70 lvl, Nemere od 85 lvl, grupy 5–6 botów z Szamanką, bez pętli umierania.
+- **Boty w rankingach mini gier** (Złap Króla, Rumi, Yut Nori) i dostają nagrody za swoje miejsce jak gracze.
+- **Wszystkie boty grają w Dzieci Kwiaty** – nasiona, pędy, skrzynki, które potem otwierają.
+- **Blokada szeptów działa też na boty** – bot nie napisze do Ciebie, jeśli masz ją włączoną (chyba że sam do niego pisałeś w ostatnich 10 minutach). Powiadomienia Towarzysza działają dalej.
+- **Najwyżej 2 skargi na godzinę o spot** od wszystkich botów razem; boty mają kilka ostrzejszych tekstów.
+
+#### 🧑‍🤝‍🧑 Towarzysz
+- **Nie sprzedaje cennych rzeczy** – sprzedaje tylko zwykły złom; kamienie dusz, materiały, księgi, zwoje, skrzynie i klucze zostają. Nic nie odkłada do swojego magazynu (a to, co tam miał, wyjmuje). Pisze Ci, co cennego ma w ekwipunku.
+- Chodzi za Tobą na mapy Arezzo, powiadomienia wysyła szeptem, bije metiny z wierzchowca.
+- Szamanka na koniu zsiada, żeby dać buffy sobie i Tobie, i jedzie dalej.
+
+#### 🛠️ Edytor bazy danych (panel Seban)
+- **Eksport / import całej konfiguracji edytora** jako tekst – przeniesiesz swoje zmiany na inny serwer.
+- **Wyłączniki dropu:** Kupony SM, szarfy i Cor Draconis – osobno z bossów i z metinów. Wyłączają tylko drop wbudowany w grę; drop dodany ręcznie w edytorze nadal działa.
+- **Potwory:** jednym kliknięciem zwykłe potwory dystansowe → wręcz.
+- **Przedmioty:** więcej niż 3 bonusy na przedmiocie („Dodatkowe bonusy”).
+- **Przypomnienie o plikach klienta:** po każdym restarcie serwera edytor pokazuje okienko z przyciskiem „Pobierz pliki klienta (zip)”, a po nowej wersji klienta – ostrzeżenie, że stary zip nie zawiera nowych przedmiotów. Gra sama przypomni graczowi przy wejściu, gdy jego pliki klienta nie pasują do zmian z edytora.
+
+> **Po tej aktualizacji klienta:** jeśli korzystasz ze zmian z Edytora bazy danych, pobierz ponownie zip (Edytor bazy danych → Zastosuj → „Pobierz aktualne pliki klienta (zip)”) i rozpakuj go do folderu gry.
+
+#### 🏹 Inne
+- **Powtarzalne misje Battle Pass** (autor: **Vekirion**) – w panelu Seban misję można oznaczyć jako „Powtarzalna”: po osiągnięciu ilości daje nagrody i liczy od nowa, ile razy gracz zechce w sezonie; nie blokuje nagrody końcowej, a misje, które jej wymagają, odblokowuje po pierwszym ukończeniu. Boty też z tego korzystają.
+- **Bonusy 6/7 niezależne od 1–5** – np. szansa na cios krytyczny w 6/7 nie blokuje już tego samego bonusu w 1–5.
+
+### MT2009 PLUS — Klient 2.0.54 — 2026-10-05 — Karty Potworów, Opcje Gry w zakładkach, więcej bonusów
+
+- Okno **Kart Potworów** i ikony kart.
+- **Opcje Gry** w zakładkach: gra, system, opcje dodatkowe i skróty klawiszowe pod jednym przyciskiem w menu Esc.
+- **Dom Towarowy:** lista bonusów do wyszukiwania przewija się i ma wszystkie bonusy.
+- **Pasek boczny** tak wysoki jak ekwipunek; bez przycisku szybkiego startu Auto Łowów (Shift+K działa dalej).
+- **Okno zwierzaka:** opisy umiejętności po najechaniu.
+- Opisy przedmiotów pokazują dodatkowe bonusy (ponad 3) z Edytora bazy danych.
+- Przypomnienie o pobraniu plików klienta z Edytora bazy danych, gdy nie pasują do serwera.
+
+### MT2009 PLUS 2.22.0 — 2026-10-04 — Boty w dungeonach, rozmowy z botami, Edytor bazy danych
+
+Wymaga klienta **2.0.52** (pobierze go launcher albo patcher).
+
+#### 🧪 Funkcje eksperymentalne
+
+> **Szepty z botami i wyszukiwarka botów na dungeony to opcje eksperymentalne.** Jeśli coś nie działa albo bot odpisuje bez sensu – wyślijcie screenshot rozmowy na kanale **#bugi-i-błędy** w temacie **CHAT I WIADOMOŚCI**. Każdy screen pomaga nam poprawić rozmowy.
+
+**Mądrzejsze rozmowy z botami (szept, wołaj, handlowy @)**
+- Boty odpowiadają na szepty z sensem: o expie, spotach, eventach, dropie, poradach i sprzęcie.
+- Bronią swojego spota („Spadaj”, „To mój spot”…), a jak ustąpią – mówią to.
+- Na czacie handlowym @ wystawiają ogłoszenia K>/S> z podlinkowanymi przedmiotami; księgi z nazwą umiejętności (np. „S> KU Aura Miecza”).
+- Pamiętają, co same napisały na wołaj i @ – rozumieją odpowiedź na swoje ogłoszenie („jest aktualne?”, „kupię ten naszyjnik”).
+- Bot, który ma przedmiot na straganie, mówi dokładnie gdzie stoi i za ile (np. „stoi w M1 Joan przy kowalu za 2.7kk”).
+- Handel przez szept: bot się targuje, mówi, czemu bierze mniej sztuk, umawia się w konkretnym miejscu („jestem w M1 Yongan, będę czekać przy kowalu”, z kanałem, gdy jesteś na innym) i w wymianie przyjmuje dokładnie umówiony przedmiot i ilość. Księgi rozróżnia po umiejętności.
+- Na Twój szept odpowiada tylko bot, do którego piszesz – inne się nie wtrącają.
+- Bot w dungeonie albo w grupie z innym graczem nie handluje, tylko mówi, że jest zajęty.
+- „!BP” na czacie dużo rzadziej.
+
+**Wyszukiwarka botów na dungeony**
+- Napisz na czacie np. „chcę iść na bibliotekę kto chętny” albo „ktoś na smoka?” – odpisze Ci 1–3 botów Twojego królestwa w widełkach poziomu dungeonu (od jego poziomu do +15), np. „Cześć, mogę iść z tobą, mam 47 lvl, sura wp, mogę przyjść?”.
+- Odpowiedz „tak” – bot teleportuje się pod wejście i czeka 5 minut. Zaproś go do grupy, a wejdzie z Tobą do środka.
+
+#### ⚔️ Boty w dungeonach
+- **Boty same chodzą na dungeony** według swojego poziomu: zwołują drużynę na czacie królestwa („zbieram ekipę na razadora, kto chętny?”), zbierają się pod wejściem, wchodzą i przechodzą dungeon – z tymi samymi czasami odnowienia co gracze. Biblioteka Wiedzy, Wzgórze Wukonga, Ruiny Skorpiona, Starożytna Dżungla (gdy moduł Arezzo jest włączony), Razador, Nemere i Leże Smoka. Wieża Demonów i Katakumby zostają przy swoich rajdach botów. Można to wyłączyć w panelu Seban („Dungeony botów”).
+- **Boty z Twojej grupy wchodzą z Tobą do każdego dungeonu** – dodane normalnie do grupy, z wyszukiwarki i Towarzysz. W środku walczą obok Ciebie, przechodzą za Tobą między salami, nie zabierają Twojego dropu, same używają pieczęci i kluczy, które im wypadną, i wychodzą razem z Tobą.
+
+#### 🛠️ Edytor bazy danych (panel Seban)
+Nowy dział **„Edytor bazy danych”** – zmiany gry w przeglądarce, z historią i cofaniem:
+- **Przedmioty** (nazwy, poziomy, bonusy, obrażenia) i **umiejętności** (czas działania, odnowienie, obrażenia).
+- **Drop z potworów** (całe grupy naraz) i **szkatułki**.
+- **Potwory i bossowie**, **respawn bossów i metinów** (uwzględnia ustawienie respawnu z panelu) i **spawny potworów na mapach** z podglądem mapy.
+- **Sklepy NPC**, **ulepszanie u kowala**, **bonusy do zmiany i 6/7**, **tabela doświadczenia**, **łowienie ryb**.
+- „Zastosuj” wczytuje zmiany restartem gry. Pliki klienta (nazwy, bonusy, opisy) pobierasz w panelu jako zip – rozpakuj w folderze gry albo wyślij znajomemu, który gra na tym serwerze. Jest też przycisk „oryginalne pliki”.
+
+#### 💰 Gospodarka
+- **Księgi umiejętności:** żadna tańsza niż 100k; kolejne księgi każdej ścieżki tanieją w kolejności, w jakiej boty je czytają (najważniejsze ceny zostają, Odbicie 180k). Ceny ksiąg idą za inflacją – na starcie serwera taniej, im więcej yang w świecie, tym drożej.
+- **Skarbiec gildii** (wpłaty i zrzutki botów) można wydać tylko na gildię – kupno ziemi i budynki. Wypłata do ekwipunku jest wyłączona; za ziemię i budynki najpierw płaci skarbiec, resztę lider.
+- **Wymiana ksiąg u Seon-Hae:** prawy klik wkłada księgę do okna, całe stosy, wiele wymian naraz.
+
+#### 🎉 Eventy (panel)
+- **Event szkatułek:** dowolna szkatułka (vnum) wypada z potworów z wybraną szansą – od razu albo o zaplanowanej godzinie.
+- **„Generuj tydzień”** układa tygodniowy harmonogram eventów.
+
+#### 👗 Kostiumy i przedmioty
+- **Zestawy kostiumów** jak na wiki Metin2 (Bonus Zestawu) – 50 zestawów, także wersje „+” (np. Pancerz Horroru+ z Rogami Horroru+): +800 HP i +15 ataku, z podpowiedzią bonusu zestawu.
+- **Pierścienie, lizak i amulety z ItemShopu** dają wreszcie swoje bonusy (wartości jak na wiki) i mają je w opisie.
+- **Pieczęcie wierzchowców** bez „UNKNOWN_TYPE[109]”.
+- **Wierzchowiec z kostiumu** daje statystyki konia (ST/DX/HT/IQ i obrona wg poziomu konia).
+- **Okno kostiumów:** sloty wierzchowca i szarfy na swoich miejscach.
+
+#### 🧑‍🤝‍🧑 Towarzysz
+- Nowe panele **Kostiumy** i **Alchemia** w opcjach Towarzysza.
+- Towarzysz na wierzchowcu buffuje i walczy normalnie.
+
+#### 🏹 Inne
+- **Auto Łowy:** szybki start/stop bez okna – **Shift+K** albo przycisk na pasku bocznym.
+- **Wojna królestw wyłączona**; zwykłe wojny gildii działają dalej, także z gildiami z innych królestw.
+- **Wykonawca Bitew** pokazuje wojny gildii botów i pozwala je oglądać.
+- **Emerytura botów** zawsze się kończy.
+- **Lepsze logi błędów połączenia** – przy nagłym rozłączeniu serwer zapisuje szczegóły, co pomoże szybciej znaleźć przyczynę.
+
+### MT2009 PLUS — Klient 2.0.52 — 2026-10-04 — Zestawy kostiumów, Auto Łowy Shift+K, paczka dbdata
+
+- Zestawy kostiumów z wiki z podpowiedzią bonusu zestawu; okno kostiumów z poprawionymi slotami wierzchowca i szarfy.
+- Auto Łowy: szybki start/stop Shift+K i przycisk na pasku bocznym.
+- Wymiana ksiąg u Seon-Hae: prawy klik, stosy, wiele naraz.
+- Towarzysz: panele Kostiumy i Alchemia.
+- Opisy bonusów pierścieni i amuletów z ItemShopu; pieczęcie wierzchowców bez „UNKNOWN_TYPE[109]”.
+- Okno gildii bez przycisku „Wypłać”.
+- Nowa paczka `pack/dbdata` na pliki z Edytora bazy danych (patcher jej nie nadpisuje).
+- MT2009-Patcher 1.1: nie nadpisuje plików z Edytora bazy danych.
+
 ## 2.21.2 — 2026-10-04
 
 Tylko serwer: klient zostaje **2.0.58**. Na VPS: `sh linux-port/tools/update.sh`.
