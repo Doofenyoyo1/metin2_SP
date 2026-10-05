@@ -134,6 +134,8 @@ CATEGORIES = (
 		('player_stat', 'Statystyki gracza', ((0, 'DIK_Y'),), False),
 		('companion', 'Towarzysz', ((0, 'DIK_P'),), False),
 		('autohunt', 'Auto\xb3owy', ((0, 'DIK_K'),), False),
+		# The bonus switcher (uibonusswitch.py, Metin2 SinglePlayer): 0 by default.
+		('bonus_switch', 'Prze\xb3\xb9cznik bonus\xf3w', ((0, 'DIK_0'),), False),
 		# MT2009_PLUS_AUTOHUNT_QUICK_V1: start/stop with the saved settings, no window.
 		('autohunt_quick', 'Auto\xb3owy - szybki start/stop', ((SHIFT, 'DIK_K'),), False),
 		('garbage_bin', 'Kosz', ((0, 'DIK_J'),), False),

@@ -766,6 +766,7 @@ class GameWindow(ui.ScriptWindow):
 			"player_stat"		: (lambda : self.interface.wndPlayerStat.Open(), None),
 			"companion"			: (lambda : self.__ToggleSidekick(), None),
 			"autohunt"			: (lambda : self.__ToggleAutoHunt(), None),
+			"bonus_switch"		: (lambda : self.__ToggleBonusSwitcher(), None),
 			# MT2009_PLUS_AUTOHUNT_QUICK_V1: Shift+K starts/stops the hunt, no window.
 			"autohunt_quick"	: (lambda : __import__("uiautohunt").QuickToggle(), None),
 			"garbage_bin"		: (lambda : self.interface.ToggleGarbageBinWindow(), None),
@@ -2065,6 +2066,13 @@ class GameWindow(ui.ScriptWindow):
 
 	def StopRight(self):
 		player.SetSingleDIKKeyState(app.DIK_RIGHT, False)
+
+	def __ToggleBonusSwitcher(self):
+		import uibonusswitch
+		switcher = uibonusswitch.GetSwitcher()
+		if switcher not in self.updateable:
+			self.RegisterUpdatable(switcher)
+		uibonusswitch.ToggleWindow()
 
 	def PickUpItem(self):
 		import uipickupfilter
