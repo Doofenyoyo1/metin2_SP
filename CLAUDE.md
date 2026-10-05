@@ -9674,6 +9674,18 @@ git and the client zips as GitHub releases `klient-vX`. What that changed:
   `mariadb_reconnect` and its kin). The Makefile compiles every `*.cpp` in
   game/src, so a release that drops a source file must also check what a
   player's older tree still holds.
+  No package carries `extern/include`; it is rebuilt from the system
+  (2.23.1): `libboost-dev libcrypto++-dev libfmt-dev libmariadb-dev
+  libdevil-dev liblzo2-dev rapidjson-dev`, each linked into
+  `Extern/include` under the name the sources use (`mysql` ->
+  `/usr/include/mariadb`, also as `/usr/local/include/mysql`), martysama's
+  `msl` from `github.com/martysama0134/msl` (`include/msl`), and two shims
+  the package's own Extern had: an empty `cryptopp/cryptoppLibLink.h` and a
+  `fmt/fmt.h` that includes `fmt/format.h` and `fmt/printf.h` (make
+  `cryptopp` and `fmt` real directories of links for that). Build the
+  package first (`build_mt2009_server_update.py --previous <its zip>
+  --engine-base <engine-base zip>`) and compile the engine tree out of it:
+  that is the tree a player builds.
 - **Its data ships byte for byte.** Its game data is CRLF and the engine's
   readers have only met those bytes, so every data directory it adds gets a
   `-text` line in `.gitattributes` (dungeons, ochao, treasure_hunt, arezzo,
@@ -9727,6 +9739,8 @@ git and the client zips as GitHub releases `klient-vX`. What that changed:
   Its 2.21.1 (client unchanged) is our 2.21.2, client 2.0.58 unchanged:
   a server-only release builds no client, and `client_rebase` was removed
   once 2.0.58 had been published from it.
+  Its 2.22.0-2.23.0 / clients 2.0.52-2.0.54 (4-5 October, 125 commits)
+  are our 2.23.1 / client 2.0.59.
 - **From its 2.18.1 its server zips are release assets, not git files.**
   `releases/` in its git stops at 2.18.0; `engine_package` is
   `.../releases/download/v<X>/metin2-server-update-<X>.zip` (its manifest
@@ -9758,6 +9772,32 @@ git and the client zips as GitHub releases `klient-vX`. What that changed:
   escape after 0.8 s without progress (`COMBAT_STUCK_SECONDS`), "Fokus" by
   default and a ten-field `/autohunt_target`; the test stub never moves the
   character, so a chase in a test has to gain ground or it is boxed in.
+  Its chat V2 (2.22.0) types every reply in the bot's own hand
+  (`playerbot_conv_style.h`: a delay to read and type, a lower-case start,
+  slang, the odd typo and a "*word" after it), so
+  `tests/playerbot_conversation_test.cpp` redirects `Casualize` and
+  `TypingDelayMs` to a plain hand with two macros between including the
+  style header and the engine, and `TestTypingHand` checks the real one on
+  its own; it also mutes a bot for 40 s past twelve lines a minute
+  (`CONV_RATE_*`), and a bot out of patience may not answer at all.
+- **Its client 2.0.52 added `pack/dbdata`, and 2.0.54 moved
+  `locale/pl/itemdesc.txt` and `skilldesc.txt` into it** (with the
+  client's `gamedata/item_proto`, `skilltable.txt` and
+  `item_extra_apply.txt`): the database editor in the seban panel
+  (`m2clientpack/`, newest `base/<version>/` only) builds that pack as a zip
+  for the player. A client update of ours carries the release's dbdata,
+  like its own packages do, so a player who uses the editor downloads its
+  zip again after one. A file a new pack takes over leaves client-locale in
+  the byte-for-byte commit, or the client build's baseline check fails.
+- **The client rebase leaves client-coop alone, and the builder copes.**
+  `build_mt2009_client_update.py` puts every tracked file of client-coop
+  that differs from the previous package's copy beside the exe (since
+  2.23.1; it used to take only what changed since `--since`, which shipped
+  upstream's `Dolacz.*` from a rebase that did not set client-coop to its
+  bytes first).
+- **Its server package carries files its git never held** (2.23.0: the
+  database editor's first client bases and an `overlay.py`, left on its
+  build machine). The drop check names them; they go into `NOT_OURS`.
 - **Its package can miss an engine file its own changelog promises.**
   2.18.0 shipped the bot half of the kill-counted guild wars and not
   `guild_manager.cpp` (server-patches/guildwarkills, applied on its own
