@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: one item of world.item_proto (dbeditor/items.py item_edit). #}
+{% block title %}{{ item.locale_name }} · Przedmioty · {{ panel_brand }}{% endblock %}
+{% macro val(col) %}{{ raw[col] if col in raw else item[col] }}{% endmacro %}
+{% block content %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% set dbe_tab = 'items' %}{% include 'dbeditor/_items_common.html' %}
+<p><a href="{{ url_for('dbeditor.items', q=item.locale_name.split('+')[0]|trim) }}">← Wyszukiwarka przedmiotów</a></p>
+
+<section class="panel dbe-head">
+  {% set icon = item_icon(item.vnum) %}{% if icon %}<img src="{{ icon }}" alt="">{% else %}<span class="dbe-noicon big">?</span>{% endif %}
+  <div>
+    <p class="eyebrow">PRZEDMIOT · VNUM {{ item.vnum }}</p>
+    <h1>{{ item.locale_name }}</h1>
+    <p class="muted">{{ item.type_text }}{% if item.level %} · od poziomu {{ item.level }}{% endif %}{% if item.bonus_text %} · {{ item.bonus_text }}{% endif %}{% if extra_text %} · <span title="Dodatkowe bonusy (ponad 3)">+ {{ extra_text }}</span>{% endif %}</p>
+  </div>
+</section>
+
+{% if boot_rules %}
+<section class="panel dbe-boot-warning" style="border-left:4px solid {{ '#ff5757' if boot_always else '#f5b83d' }}">
+  {% if boot_always %}<p><strong>⚠️ {{ boot_warning }}</strong>: {{ boot_always|join(', ') }}.</p>{% endif %}
+  <ul class="muted">
+  {% for r in boot_rules %}
+    <li>{{ r.note }} – {% if r.kind == 'always' %}przy każdym starcie ustawiane{% elif r.kind == 'partial' %}przy każdym starcie poprawiane częściowo{% else %}ustawiane tylko, gdy pole ma jeszcze starą wartość{% endif %}: {{ r.cols|join(', ') }}</li>
+  {% endfor %}
+  </ul>
+  <p class="muted">Tak ustawia go skrypt startowy bazy (apply.sh). Zmień te pola w paczce, nie tutaj – pozostałe pola edytujesz normalnie.</p>
+</section>
+{% endif %}
+
+<form method="post" class="dbe-form" id="dbe-item-form">
+  <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+
+  <section class="panel">
+    <h2>Podstawowe</h2>
+    <div class="dbe-grid">
+      <label>Nazwa w grze
+        <input name="locale_name" value="{{ val('locale_name') }}" maxlength="32" required>
+        <small>Do 32 znaków, polskie litery są w porządku.</small></label>
+      {% if level_slot is not none %}
+      <label>Wymagany poziom postaci
+        <input name="level" type="number" min="0" max="255" value="{{ raw.level if 'level' in raw else item.level }}">
+        <small>0 = każdy może założyć.</small></label>
+      {% else %}
+      <p class="muted">Ten przedmiot ma już dwa inne wymagania – poziom zmienisz w części „Zaawansowane”.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Bonusy przedmiotu</h2>
+    <p class="muted">Stałe bonusy, które przedmiot daje zawsze (nie dotyczy bonusów dodawanych zwojami/zaczarowaniem).</p>
+    {% for i in range(3) %}
+    {% set current = (raw['applytype%d' % i] if ('applytype%d' % i) in raw else item['applytype%d' % i])|int %}
+    <div class="dbe-bonus-row">
+      <span class="dbe-num">{{ i + 1 }}.</span>
+      <select name="applytype{{ i }}" data-dbe-bonus="{{ i }}">
+        <option value="0" data-unit="" {{ 'selected' if current == 0 }}>— brak bonusu —</option>
+        {% if current and current not in point_labels %}<option value="{{ current }}" selected>Nieznany bonus #{{ current }}</option>{% endif %}
+        <optgroup label="Bonusy">
+        {% for p, label in point_regular %}<option value="{{ p }}" data-unit="{{ point_labels[p][1] }}" {{ 'selected' if current == p }}>{{ label }}</option>{% endfor %}
+        </optgroup>
+        <optgroup label="Techniczne (rzadko na przedmiotach)">
+        {% for p, label in point_technical %}<option value="{{ p }}" data-unit="{{ point_labels[p][1] }}" {{ 'selected' if current == p }}>{{ label }}</option>{% endfor %}
+        </optgroup>
+      </select>
+      <input name="applyvalue{{ i }}" type="number" value="{{ val('applyvalue%d' % i) }}" class="dbe-value">
+      <span class="dbe-unit" data-dbe-unit="{{ i }}">{{ point_labels.get(current, ('', ''))[1] }}</span>
+    </div>
+    {% endfor %}
+  </section>
+
+  {% if value_fields %}
+  <section class="panel">
+    <h2>{{ 'Atak' if item.type == 1 else 'Obrona' }}</h2>
+    <div class="dbe-grid">
+    {% for col, label, help in value_fields %}
+      <label>{{ label }}<input name="{{ col }}" type="number" value="{{ val(col) }}"><small>{{ help }} <code>{{ col }}</code></small></label>
+    {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if family %}
+  <section class="panel dbe-family">
+    <h2>Rodzina ulepszeń +0…+9</h2>
+    <label class="dbe-check big"><input type="checkbox" name="family" value="1" data-dbe-family> Zastosuj zmiany z tego formularza do całej rodziny ({{ family|length }} przedmiotów)</label>
+    <div class="dbe-family-mode" data-dbe-family-mode hidden>
+      <label class="dbe-check"><input type="radio" name="family_mode" value="same" checked> <b>Ustaw wszystkim tę samą wartość</b> – np. wszystkie poziomy wymagają 50. poziomu postaci.</label>
+      <label class="dbe-check"><input type="radio" name="family_mode" value="delta"> <b>Zmień wszystkim o tyle samo</b> – np. +20 ataku dla każdego +0…+9 (liczby: poziom, wartości bonusów, atak, obrona, ceny; rodzaje bonusów i tak są ustawiane jednakowo).</label>
+      <p class="muted">Zmiana nazwy zachowuje końcówkę „+N” każdego przedmiotu. Przenosi się tylko to, co zmieniłeś w tym formularzu.</p>
+    </div>
+    <table class="dbe-table compact">
+      <thead><tr><th>Vnum</th><th>Nazwa</th><th>Poziom</th>{% for col, label, help in value_fields %}<th>{{ label }}</th>{% endfor %}<th>Bonusy</th><th>Dodatkowe</th></tr></thead>
+      <tbody>
+      {% for m in family %}
+        <tr class="{{ 'is-current' if m.vnum == item.vnum }}">
+          <td><a href="{{ url_for('dbeditor.item_edit', vnum=m.vnum) }}">{{ m.vnum }}</a></td>
+          <td>{{ m.locale_name }}</td><td>{{ m.level or '—' }}</td>
+          {% for col, label, help in value_fields %}<td>{{ m[col] }}</td>{% endfor %}
+          <td class="dbe-bonus">{{ m.bonus_text or '—' }}</td>
+          <td class="dbe-bonus">{{ m.extra_text or '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  <details class="panel dbe-advanced">
+    <summary><b>Zaawansowane</b> – surowe kolumny tabeli item_proto (dla znających format)</summary>
+    <p class="muted">Pola, których nie ma wyżej. Zmieniaj tylko, jeśli wiesz, co oznaczają – flagi to sumy bitów.</p>
+    <div class="dbe-grid dense">
+    {% for col in advanced %}
+      <label>{{ specs[col].label }}
+        {% if col.startswith('limittype') %}
+        {% set cur = (raw[col] if col in raw else item[col])|int %}
+        <select name="adv_{{ col }}">{% for t, label in limit_types.items() %}<option value="{{ t }}" {{ 'selected' if cur == t }}>{{ t }} – {{ label }}</option>{% endfor %}{% if cur not in limit_types %}<option value="{{ cur }}" selected>{{ cur }}</option>{% endif %}</select>
+        {% else %}
+        <input name="adv_{{ col }}" type="number" value="{{ val(col) }}">
+        {% endif %}
+      </label>
+    {% endfor %}
+    </div>
+  </details>
+
+  <div class="dbe-actions">
+    <button type="submit">💾 Zapisz zmiany</button>
+    <span class="muted">Po zapisaniu zmiana czeka na restart gry („Zastosuj”). Nazwę i bonusy w podpowiedzi przedmiotu klient gracza bierze z własnych plików danych – serwer liczy nowe wartości po restarcie.</span>
+  </div>
+</form>
+
+{# MT2009_PLUS_ITEM_EXTRA_APPLY_V1: lines beyond item_proto's three (world.item_extra_apply, items.py). #}
+{% macro extra_select(current) %}
+      <select name="extra_type" data-dbe-extra-type>
+        <option value="0" data-unit="" {{ 'selected' if current == 0 }}>— brak bonusu —</option>
+        {% if current and current not in point_labels %}<option value="{{ current }}" selected>Nieznany bonus #{{ current }}</option>{% endif %}
+        <optgroup label="Bonusy">
+        {% for p, label in point_regular %}<option value="{{ p }}" data-unit="{{ point_labels[p][1] }}" {{ 'selected' if current == p }}>{{ label }}</option>{% endfor %}
+        </optgroup>
+        <optgroup label="Techniczne (rzadko na przedmiotach)">
+        {% for p, label in point_technical %}<option value="{{ p }}" data-unit="{{ point_labels[p][1] }}" {{ 'selected' if current == p }}>{{ label }}</option>{% endfor %}
+        </optgroup>
+      </select>
+{% endmacro %}
+<form method="post" action="{{ url_for('dbeditor.item_extra_save', vnum=item.vnum) }}" class="dbe-form" id="dbe-extra-form">
+  <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+  <section class="panel dbe-extra">
+    <h2>Dodatkowe bonusy (ponad 3)</h2>
+    <p class="muted">Pierwsze 3 bonusy to własne bonusy przedmiotu (sekcja „Bonusy przedmiotu” wyżej – tabela item_proto ma miejsce
+      tylko na trzy). Tu dodajesz <b>kolejne</b>, ile chcesz (do {{ extra_max }}): gra zakłada je razem z przedmiotem i zdejmuje,
+      gdy go zdejmiesz – dokładnie jak trzy pierwsze. Każdy poziom +0…+9 to osobny przedmiot, więc ma własną listę
+      (zaznacz niżej, aby skopiować ją na całą rodzinę).<br>
+      Gracze zobaczą te linie w opisie przedmiotu po pobraniu plików klienta (zip) ze strony
+      <a href="{{ url_for('dbeditor.apply_page') }}">Zastosuj</a> – w kliencie z nowym opisem przedmiotów (od 2.0.53).
+      Serwer liczy je niezależnie od klienta.</p>
+    {% if not extra_worn %}<p class="dbe-warn">⚠️ Ten rodzaj przedmiotu nie jest zakładany – dodatkowe bonusy działają tylko na noszonym przedmiocie (broń, zbroja, biżuteria, kostium, pierścień, pas).</p>{% endif %}
+    {% if extra_mount %}<p class="dbe-warn">⚠️ Pieczęć wierzchowca: jej bonusy idą przez dosiadanie (AFFECT_MOUNT_BONUS) – dodatkowe bonusy nie są na niej zakładane.</p>{% endif %}
+    {% if extra_error %}<p class="dbe-error">Tabela dodatkowych bonusów jest niedostępna: {{ extra_error }}</p>{% endif %}
+    <div data-dbe-extra-rows>
+    {% for line in extra_raw %}
+    {% set current = (line.apply_type|string)|int(0) %}
+    <div class="dbe-bonus-row" data-dbe-extra-row>
+      <span class="dbe-num">{{ loop.index + 3 }}.</span>
+      {{ extra_select(current) }}
+      <input name="extra_value" type="number" value="{{ line.apply_value }}" class="dbe-value">
+      <span class="dbe-unit" data-dbe-extra-unit>{{ point_labels.get(current, ('', ''))[1] }}</span>
+      <button type="button" class="dbe-small quiet-btn" data-dbe-extra-remove title="Usuń ten bonus">✕</button>
+    </div>
+    {% endfor %}
+    </div>
+    <template data-dbe-extra-template>
+    <div class="dbe-bonus-row" data-dbe-extra-row>
+      <span class="dbe-num">+</span>
+      {{ extra_select(0) }}
+      <input name="extra_value" type="number" value="0" class="dbe-value">
+      <span class="dbe-unit" data-dbe-extra-unit></span>
+      <button type="button" class="dbe-small quiet-btn" data-dbe-extra-remove title="Usuń ten bonus">✕</button>
+    </div>
+    </template>
+    <p><button type="button" class="dbe-small" data-dbe-extra-add>➕ Dodaj bonus</button>
+      <span class="muted">Bonus ustawiony na „— brak bonusu —” albo usunięty krzyżykiem znika po zapisaniu.</span></p>
+    {% if family %}
+    <label class="dbe-check big"><input type="checkbox" name="extra_family" value="1"> Skopiuj tę listę na wszystkie poziomy +0…+9 tej rodziny ({{ family|length }} przedmiotów) – każdy dostanie dokładnie te same dodatkowe bonusy</label>
+    {% endif %}
+    <div class="dbe-actions">
+      <button type="submit">💾 Zapisz dodatkowe bonusy</button>
+      <span class="muted">Zapis czeka na restart gry („Zastosuj”), z historią i cofaniem jak inne zmiany.</span>
+    </div>
+    {% if extra_history %}
+    <details>
+      <summary>Ostatnie zmiany dodatkowych bonusów</summary>
+      {% with batches=extra_history %}{% include 'dbeditor/_items_history_list.html' %}{% endwith %}
+    </details>
+    {% endif %}
+  </section>
+</form>
+
+{% if history %}
+<section class="panel">
+  <h2>Ostatnie zmiany tego przedmiotu</h2>
+  {% include 'dbeditor/_items_history_list.html' %}
+  <p><a href="{{ url_for('dbeditor.proto_history', tbl='world.item_proto', key=item.vnum) }}">Cała historia tego przedmiotu →</a></p>
+</section>
+{% endif %}
+<script src="{{ static_asset_url('dbeditor-items.js') }}"></script>
+{% endblock %}

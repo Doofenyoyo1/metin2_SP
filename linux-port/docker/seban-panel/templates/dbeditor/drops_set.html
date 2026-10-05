@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: one drop "zestaw" - the same drop of one kind for one or more monsters (dbeditor/drops.py, drops_set). #}
+{% block title %}Drop – grupa · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/drops_head.html' %}
+{% set pct_mode = s.kind != 'kill' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · DROP POTWORÓW · GRUPA</p>
+<h1>{{ kind_names[s.kind] }} <small class="muted">{{ s.mobs|length }} {{ 'potwór' if s.mobs|length == 1 else 'potworów' }}</small>
+  {% if s.custom %}<span class="dbd-tag custom">zmieniony w panelu</span>{% endif %}</h1>
+<p class="muted">{% if s.kind == 'drop' %}Każda pozycja jest losowana <b>osobno</b> przy każdym zabiciu – może wypaść kilka naraz. Wpis <code>s50011</code> losuje jedną rzecz ze szkatułki o tym numerze.
+{% elif s.kind == 'kill' %}Średnio <b>co N zabójstw</b> wypada <b>jeden</b> przedmiot z listy, wybrany według wag (większa waga = częściej). Rare = szansa (%) na dodatkowe bonusy.
+{% elif s.kind == 'limit' %}Tylko dla gracza, który ma co najmniej podany poziom. Każda pozycja osobno; ta szansa nie zależy od różnicy poziomów ani stawki dropu.
+{% else %}Dodatkowy drop tylko dla gracza z premium lub rękawicami złodzieja. Każda pozycja osobno.{% endif %}
+{% if s.names %}<br><small>Nazwa grupy w pliku gry: {{ s.names|join(', ') }}</small>{% endif %}</p>
+
+<form method="post" class="dbd-form" data-mode="{{ 'kill' if s.kind == 'kill' else 'pct' }}" data-api="{{ url_for('dbeditor.api_items') }}" action="{{ url_for('dbeditor.drops_set_save', set_id=s.id) }}">
+<input type="hidden" name="dbe_csrf" value="{{ csrf }}">
+<input type="hidden" name="row_count" class="dbd-row-count" value="{{ s.lines|length }}">
+
+<section class="panel">
+  <h2>Potwory z tym dropem</h2>
+  <p class="muted dbd-help">Zapis, mnożnik, usunięcie i powrót do obrazu gry dotyczą <b>zaznaczonych</b> potworów. Odznacz potwora, żeby został przy starym dropie.</p>
+  <label><input type="checkbox" class="dbd-all" data-target=".dbd-member" checked> zaznacz / odznacz wszystkie</label>
+  <div class="dbd-memberlist">
+  {% for m in s.members %}
+    <label><input type="checkbox" class="dbd-member" name="member" value="{{ m.vnum }}" checked>
+      <span>{{ m.name }} <small>{{ m.vnum }}{% if m.info %} · poz. {{ m.info.level }} · {{ m.info.rank_name }}{% endif %}</small>
+      {% if m.info and m.info.kind in ('metin', 'boss') %}<span class="dbd-tag {{ m.info.kind }}">{{ m.info.kind_name }}</span>{% endif %}
+      {% if m.vnum in custom_members %}<span class="dbd-tag custom">zmieniony</span>{% endif %}
+      {% if old_editor %}<a href="{{ url_for('drop_edit', mob=m.vnum) }}" title="Cały drop tego jednego potwora">↗</a>{% endif %}</span></label>
+  {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Co wypada</h2>
+  <div class="dbd-params">
+    {% if s.kind == 'kill' %}<label>Co ile zabójstw (średnio)<input name="kill_drop" type="number" min="1" value="{{ s.kill_drop }}" class="dbd-killdrop"></label>{% endif %}
+    {% if s.kind == 'limit' %}<label>Od poziomu gracza<input name="level_limit" type="number" min="0" max="250" value="{{ s.level_limit }}"></label>{% endif %}
+  </div>
+  <div class="table-wrap"><table class="dbd-table">
+    <thead><tr><th>#</th><th>Przedmiot (VNUM)</th><th>Nazwa</th><th>Ilość</th>
+      {% if pct_mode %}<th>Szansa %</th>{% else %}<th>Waga</th><th title="Szansa (%) na przedmiot z dodatkowymi bonusami">Rare %</th>{% endif %}
+      <th>Na jedno zabicie</th><th>Usuń</th></tr></thead>
+    <tbody class="dbd-rows">
+    {% for e in s.lines %}{% set i = loop.index0 %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td><input name="r{{ i }}_item" value="{{ e.item }}" class="dbd-item" list="dbd-items"></td>
+      <td><span class="dbd-name">{% if e.icon %}<img src="{{ e.icon }}" alt="">{% endif %}<span class="{{ 'dbd-bad' if e.bad else '' }}">{% if e.chest and 'dbeditor.chests_edit' in dbd_endpoints %}<a href="{{ url_for('dbeditor.chests_edit', vnum=e.chest) }}">{{ e.label }}</a>{% else %}{{ e.label }}{% endif %}</span></span></td>
+      <td><input name="r{{ i }}_count" type="number" min="1" max="2000" value="{{ e.count }}" class="dbd-small"></td>
+      {% if pct_mode %}<td><input name="r{{ i }}_pct" value="{{ e.pct_input }}" class="dbd-num dbd-pct" inputmode="decimal"><input type="hidden" name="r{{ i }}_shown" value="{{ e.pct_input }}"><input type="hidden" name="r{{ i }}_orig" value="{{ e.prob }}"></td>
+      {% else %}<td><input name="r{{ i }}_weight" type="number" min="1" value="{{ e.prob|int }}" class="dbd-num dbd-weight"></td>
+      <td><input name="r{{ i }}_rare" type="number" min="0" max="100" value="{{ e.rare }}" class="dbd-small"></td>{% endif %}
+      <td class="dbd-chance"><span class="dbd-out">{{ chance_text(e.pct) }}</span><span class="dbd-bar" style="width:{{ [2, [100, e.pct]|min * 1.2]|max }}px"></span></td>
+      <td><input type="checkbox" name="r{{ i }}_delete" value="1" class="dbd-delete"></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    <template class="dbd-row-template"><tr class="dbd-new">
+      <td>nowa</td>
+      <td><input name="r__i___item" class="dbd-item" list="dbd-items" placeholder="VNUM lub nazwa"></td>
+      <td><span class="dbd-name"><span class="muted">wpisz VNUM lub nazwę</span></span></td>
+      <td><input name="r__i___count" type="number" min="1" max="2000" value="1" class="dbd-small"></td>
+      {% if pct_mode %}<td><input name="r__i___pct" value="1" class="dbd-num dbd-pct" inputmode="decimal"></td>
+      {% else %}<td><input name="r__i___weight" type="number" min="1" value="1" class="dbd-num dbd-weight"></td><td><input name="r__i___rare" type="number" min="0" max="100" value="0" class="dbd-small"></td>{% endif %}
+      <td class="dbd-chance"><span class="dbd-out"></span><span class="dbd-bar"></span></td>
+      <td><input type="checkbox" name="r__i___delete" value="1" class="dbd-delete"></td>
+    </tr></template>
+  </table></div>
+  <p><button type="button" class="dbd-add">➕ Dodaj przedmiot</button></p>
+  <p class="muted dbd-help">Szansa w procentach na jedno zabicie: <code>1</code> = 1% (ok. 1 na 100 zabić), <code>0.05</code> = 0,05% (ok. 1 na 2 000), <code>100</code> = zawsze. Gracz dużo wyżej od potwora dostaje mniej (tabela różnicy poziomów), stawka dropu serwera mnoży wynik.</p>
+
+  <div class="dbd-actions">
+    <button name="action" value="save">💾 Zapisz dla zaznaczonych potworów</button>
+    <div class="dbd-group"><span>Szansa dla całej grupy ×</span>
+      {% for f in factors %}<button name="action" value="multiply" data-factor="{{ f }}" type="submit">×{{ f|replace('.', ',') }}</button>{% endfor %}
+      <input name="factor" value="2" inputmode="decimal" title="Własny mnożnik"><button name="action" value="multiply">Pomnóż</button>
+    </div>
+  </div>
+  <p class="muted dbd-help">{% if s.kind == 'kill' %}Mnożnik w tej grupie skraca „co ile zabójstw” (×2 = dwa razy częściej). {% else %}Mnożnik mnoży szansę każdej pozycji (najwyżej do 100%). {% endif %}Zapisuje od razu – wraz z Twoimi zmianami w tabeli.</p>
+</section>
+
+<section class="panel dbd-copy">
+  <h2>Skopiuj do innych potworów</h2>
+  <p class="muted">Wpisz VNUM-y potworów (po przecinku). Dostaną dokładnie ten drop (z tabeli powyżej) – ich dotychczasowy drop rodzaju „{{ kind_names[s.kind] }}” zostanie zastąpiony.</p>
+  <textarea name="copy_to" placeholder="np. 8001, 8002, 8003"></textarea>
+  <p><button name="action" value="copy">📋 Skopiuj</button></p>
+</section>
+
+<section class="panel">
+  <h2>Usuń albo przywróć</h2>
+  <div class="dbd-actions">
+    <button name="action" value="remove" class="dbd-danger" data-confirm="Zaznaczone potwory przestaną dropić tę grupę. Na pewno?">🗑️ Usuń ten drop zaznaczonym potworom</button>
+    {% if custom_members %}<button name="action" value="reset" data-confirm="Zaznaczone potwory wrócą do dropu z obrazu gry. Na pewno?">↺ Przywróć drop z obrazu gry (zaznaczonym)</button>{% endif %}
+  </div>
+</section>
+</form>
+{% endblock %}

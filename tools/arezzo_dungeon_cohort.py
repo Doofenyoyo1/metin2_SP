@@ -17,12 +17,13 @@ mt2009plustest-db mariadb`) and writes to <outdir>:
   dg_revert.sh                          puts the rows back and drops the pick;
   playerbot_arezzo_dungeon_cohort.txt   the core's cohort file ("<key> <pid>").
 
-The dungeons live on game2 of channel 1 (MAP_ALLOW 364 365 366) and a bot
-cannot cross cores, so the cohort lives there: each character's save point
+The dungeons live on one core of channel 1 (game1 since
+MT2009_PLUS_BOT_DUNGEONS_ALL_V1, game2 before it; MAP_ALLOW 364 365 366) and a
+bot cannot cross cores, so the cohort lives there: each character's save point
 is moved into its dungeon's lobby (the dungeon map itself, beside its guard),
-and game2 logs them in from the cohort file. game1 refuses the same pids (the
-cohort file is copied into its directory too), so no character is ever
-loaded twice.
+and the hosting core logs them in from the cohort file. Every other core
+refuses the same pids (the cohort file is copied into each directory), so no
+character is ever loaded twice.
 
 Who: existing bot identities of the registry (playerbot_* accounts) assigned
 to channel 1 and not seen for three hours (or never), not online on game1
@@ -264,7 +265,7 @@ S.append("""UPDATE player.player p JOIN player.arezzo_dungeon_cohort c ON c.pid 
        p.gold = GREATEST(p.gold, 30000000),
        p.exp = 0, p.level_step = 0,
        p.level = GREATEST(p.level, c.target_level);""")
-# The save point (and the exit point) in the dungeon's lobby, on game2 - every time, not only the first:
+# The save point (and the exit point) in the dungeon's lobby, on the hosting core - every time, not only the first:
 # a character that went home in between is put back.
 for key in [d[0] for d in DUNGEONS]:
     x, y = lobby[key]

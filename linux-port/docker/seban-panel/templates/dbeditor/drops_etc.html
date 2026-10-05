@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: Drop specjalny - etc_drop_item.txt (dbeditor/drops.py, drops_etc). #}
+{% block title %}Drop specjalny · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/drops_head.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · DROP · DROP SPECJALNY</p>
+<h1>Drop specjalny <small class="muted">etc_drop_item.txt</small>{% if source == 'custom' %} <span class="dbd-tag custom">zmieniony w panelu</span>{% endif %}</h1>
+<p class="muted">Każdy potwór ma w swojej karcie (mob_proto) pole „drop_item” – jeden przedmiot, np. swój materiał. Ta tabela mówi, z jaką szansą ten przedmiot wypada. Przedmiot, którego żaden potwór nie ma w „drop_item”, nic nie da.</p>
+{% if not known %}
+<section class="panel"><p class="dbd-bad">Gra nie opublikowała jeszcze pliku etc_drop_item.txt (drops/etc_drop_item.base.txt w wolumenie).</p></section>
+{% else %}
+<form method="post" class="dbd-form" data-mode="pct" data-api="{{ url_for('dbeditor.api_items') }}" action="{{ url_for('dbeditor.drops_etc_save') }}">
+<input type="hidden" name="dbe_csrf" value="{{ csrf }}">
+<input type="hidden" name="row_count" class="dbd-row-count" value="{{ lines|length }}">
+<section class="panel">
+  <div class="dbd-tools"><label>Filtruj tabelę<input type="search" class="dbd-filter dbd-search" placeholder="nazwa przedmiotu lub potwora"></label></div>
+  <div class="table-wrap"><table class="dbd-table">
+    <thead><tr><th>Przedmiot (VNUM)</th><th>Nazwa</th><th>Szansa %</th><th>Na jedno zabicie</th><th>Kto go dropi</th><th>Usuń</th></tr></thead>
+    <tbody class="dbd-rows">
+    {% for e in lines %}{% set i = loop.index0 %}
+    <tr>
+      <td><input name="r{{ i }}_item" value="{{ e.item }}" class="dbd-item" list="dbd-items"></td>
+      <td><span class="dbd-name">{% if e.icon %}<img src="{{ e.icon }}" alt="">{% endif %}<span class="{{ 'dbd-bad' if e.bad else '' }}">{{ e.name }}</span></span></td>
+      <td><input name="r{{ i }}_pct" value="{{ e.pct_input }}" class="dbd-num dbd-pct" inputmode="decimal"><input type="hidden" name="r{{ i }}_shown" value="{{ e.pct_input }}"><input type="hidden" name="r{{ i }}_orig" value="{{ e.prob }}"></td>
+      <td class="dbd-chance"><span class="dbd-out">{{ chance_text(e.chance) }}</span><span class="dbd-bar" style="width:{{ [2, [100, e.chance]|min * 1.2]|max }}px"></span></td>
+      <td class="muted">{% for m in e.owners[:6] %}{{ m.name }} ({{ m.vnum }}){% if not loop.last %}, {% endif %}{% else %}<span class="dbd-bad">żaden potwór</span>{% endfor %}{% if e.owners|length > 6 %} i {{ e.owners|length - 6 }} innych{% endif %}</td>
+      <td><input type="checkbox" name="r{{ i }}_delete" value="1" class="dbd-delete"></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    <template class="dbd-row-template"><tr class="dbd-new">
+      <td><input name="r__i___item" class="dbd-item" list="dbd-items" placeholder="VNUM lub nazwa"></td>
+      <td><span class="dbd-name"><span class="muted">wpisz VNUM lub nazwę</span></span></td>
+      <td><input name="r__i___pct" value="1" class="dbd-num dbd-pct" inputmode="decimal"></td>
+      <td class="dbd-chance"><span class="dbd-out"></span><span class="dbd-bar"></span></td>
+      <td></td>
+      <td><input type="checkbox" name="r__i___delete" value="1" class="dbd-delete"></td>
+    </tr></template>
+  </table></div>
+  <p><button type="button" class="dbd-add">➕ Dodaj przedmiot</button></p>
+  <div class="dbd-actions">
+    <button name="action" value="save">💾 Zapisz</button>
+    <div class="dbd-group"><span>Szansa wszystkich ×</span>
+      {% for f in factors %}<button name="action" value="multiply" data-factor="{{ f }}">×{{ f|replace('.', ',') }}</button>{% endfor %}
+      <input name="factor" value="2" inputmode="decimal" title="Własny mnożnik"><button name="action" value="multiply">Pomnóż</button>
+    </div>
+    {% if source == 'custom' %}<button name="action" value="reset" data-confirm="Drop specjalny wróci do stanu z obrazu gry. Na pewno?">↺ Przywróć z obrazu gry</button>{% endif %}
+  </div>
+</section>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,58 @@
+/* MT2009_PLUS_DB_EDITOR_V1: Bonusy do zmiany i 6/7, Tabela doświadczenia, Łowienie ryb
+   (templates/dbeditor/attrs*.html, exptable.html, fishing.html). */
+.dbt-crumbs{display:flex;gap:10px;flex-wrap:wrap;font-size:14px;margin:.2em 0 .8em}
+.dbt-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:.4em 0 .8em}
+.dbt-tabs a{padding:6px 13px;border-radius:14px;background:color-mix(in srgb,var(--blue2,#3a5a9f) 16%,transparent);font-size:14px;text-decoration:none;color:inherit}
+.dbt-tabs a.on{background:var(--gold,#d6a74a);color:#1b1309;font-weight:600}
+.dbt-note{border-left:4px solid #8aa0ff;padding:10px 14px}
+.dbt-note.warn{border-left-color:#f5b83d}.dbt-note.ok{border-left-color:#39e890}.dbt-note.error{border-left-color:#ff5757}
+.dbt-note p{margin:.3em 0}
+.dbt-kinds{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.dbt-kind{padding:12px 14px;border-radius:12px;border:1px solid var(--edge,#253042);background:color-mix(in srgb,var(--panel,#131a24) 60%,transparent)}
+.dbt-kind h3{margin:0 0 6px;font-size:16px}
+.dbt-kind h3 small{font-weight:400;color:var(--muted,#8a96a8)}
+.dbt-kind ol{margin:0;padding-left:0;list-style:none;display:grid;gap:3px}
+.dbt-kind li{display:grid;grid-template-columns:1fr auto auto 26px;gap:8px;align-items:center;font-size:13px}
+.dbt-kind li em{font-style:normal;color:var(--muted,#8a96a8);font-variant-numeric:tabular-nums}
+.dbt-kind li b{font-variant-numeric:tabular-nums;font-weight:600}
+.dbt-kind form.dbt-inline{display:inline;margin:0}
+.dbt-kind .dbt-add{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.dbt-kind .dbt-add select{max-width:200px;font-size:13px;padding:4px 6px}
+.dbt-x{padding:1px 7px!important;font-size:12px!important;background:transparent!important;border:1px solid var(--edge,#253042)!important;color:var(--muted,#8a96a8)!important}
+.dbt-x:hover{color:#ff5757!important;border-color:#ff5757!important}
+.dbt-warn{color:#f5b83d;font-size:12px;margin:.3em 0 0}
+.dbt-bar{display:block;height:4px;border-radius:2px;background:#3987e5;margin-top:2px}
+.dbt-table{width:100%;border-collapse:collapse;font-size:13px}
+.dbt-table th,.dbt-table td{padding:5px 6px;border-bottom:1px solid var(--edge,#253042);text-align:left;vertical-align:middle}
+.dbt-table th{position:sticky;top:0;background:var(--panel,#131a24);z-index:1}
+.dbt-table td.num,.dbt-table th.num{text-align:right;font-variant-numeric:tabular-nums}
+.dbt-table td.lvl{text-align:center}
+.dbt-table .off{color:var(--muted,#8a96a8);opacity:.5}
+.dbt-table input{padding:4px 6px;font-size:13px;width:90px}
+.dbt-table input.wide{width:130px}
+.dbt-table select{padding:4px 6px;font-size:13px}
+.dbt-table tr.changed td{background:color-mix(in srgb,#f5b83d 12%,transparent)}
+.dbt-table tr.hl td{background:color-mix(in srgb,#3987e5 18%,transparent)}
+.dbt-wrap{overflow-x:auto;max-height:70vh}
+.dbt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.dbt-grid label{display:grid;gap:4px;color:var(--muted,#8a96a8);font-size:13px}
+.dbt-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px}
+.dbt-actions label{display:grid;gap:4px;color:var(--muted,#8a96a8);font-size:13px}
+.dbt-actions input{width:90px}
+.dbt-group{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;padding:8px 10px;border-radius:10px;border:1px dashed var(--edge,#253042)}
+.dbt-name{display:flex;gap:8px;align-items:center;min-width:180px}
+.dbt-name img{width:32px;height:32px;image-rendering:pixelated}
+.dbt-bad{color:#ff5757;font-weight:600}
+.dbt-chart{width:100%;max-width:980px;height:auto;display:block}
+.dbt-chart text{fill:var(--muted,#8a96a8);font-size:11px}
+.dbt-chart .grid{stroke:var(--edge,#253042);stroke-width:1}
+.dbt-chart .cur{stroke:#3987e5;stroke-width:2;fill:none}
+.dbt-chart .base{stroke:#d95926;stroke-width:2;fill:none;stroke-dasharray:5 4}
+.dbt-chart .hit{fill:transparent}
+.dbt-chart .hit:hover{fill:color-mix(in srgb,#3987e5 18%,transparent)}
+.dbt-legend{display:flex;gap:16px;font-size:13px;margin:.3em 0}
+.dbt-legend i{display:inline-block;width:18px;height:0;border-top:2px solid #3987e5;vertical-align:middle;margin-right:6px}
+.dbt-legend i.base{border-top:2px dashed #d95926}
+.dbt-matrix td.num{min-width:54px}
+.dbt-matrix td.zero{color:var(--muted,#8a96a8);opacity:.45}
+@media (max-width:700px){.dbt-kinds{grid-template-columns:1fr}.dbt-name{min-width:120px}}

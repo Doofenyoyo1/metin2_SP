@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_MOB_MELEE_V1: every ordinary ranged monster turned melee in one save (dbeditor/mobs.py mobs_melee). #}
+{% block title %}Dystans → wręcz · Potwory · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% set dbe_tab = 'melee' %}{% include 'dbeditor/_mobs_common.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · POTWORY · DYSTANS → WRĘCZ</p>
+<h1>🗡️ Zwykłe potwory: atak z dystansu → wręcz</h1>
+<p class="muted">Łucznicy i magowie wśród <b>zwykłych potworów</b> (ranga 0–3: Zwykły, Silniejszy, Rycerz, Elitarny; rodzaj: potwór)
+  przestają strzelać z daleka – podchodzą i biją wręcz (sposób walki <b>wręcz</b>, zasięg ataku <b>{{ values.attack_range }}</b>).
+  Bossowie, królowie i Metiny, NPC oraz potwory, które już walczą wręcz, zostają bez zmian.
+  Odpowiada komendzie <code>UPDATE world.mob_proto SET battle_type = 0, attack_range = 175 WHERE {{ where }};</code></p>
+<section class="panel dbe-boot-warning">
+  <p><strong>⏳ Działa dopiero po „Zastosuj” (restart gry).</strong> Gra czyta listę potworów tylko przy starcie – do restartu
+    potwory, które już stoją na mapie, walczą po staremu. Po restarcie wszystkie pojawiają się od nowa i biją wręcz.
+    Wygląd (łuk, różdżka) zostaje ten sam – to dane klienta gry.</p>
+</section>
+
+{% if error %}<section class="panel"><p class="dbe-error">Nie udało się odczytać potworów: {{ error }}</p></section>{% endif %}
+
+<section class="panel">
+  {% if not plan %}
+    {% if not error %}<p class="muted">✅ Żaden zwykły potwór nie walczy już z dystansu – nie ma nic do zmiany.</p>{% endif %}
+  {% else %}
+    <h2>Podgląd: {{ plan|length }} potworów zacznie walczyć wręcz</h2>
+    {% if boot_hits %}<p class="dbe-warn">⚠️ {{ boot_hits }} z nich ma sposób walki albo zasięg ataku ustawiany przez skrypt startowy bazy przy każdym starcie – u nich zmiana zniknie po restarcie (oznaczone niżej).</p>{% endif %}
+    <form method="post" class="dbe-actions" onsubmit="return confirm('Zmienić {{ plan|length }} potworów na walkę wręcz (zasięg {{ values.attack_range }})?');">
+      <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+      <input type="hidden" name="vnums" value="{{ plan_vnums }}">
+      <button type="submit">✅ Zmień {{ plan|length }} potworów na walkę wręcz</button>
+      <span class="muted">Jeden zapis w historii – cofniesz go jednym kliknięciem. Do gry trafi po „Zastosuj”.</span>
+    </form>
+    <div class="dbe-scroll">
+    <table class="dbe-table compact">
+      <thead><tr><th>Potwór</th><th>Vnum</th><th>Poz.</th><th>Ranga</th><th>Sposób walki: było → będzie</th><th>Zasięg ataku: było → będzie</th><th></th></tr></thead>
+      <tbody>
+      {% for row, changes, lost in plan %}
+        <tr><td><span class="dbe-mob-icon k-{{ row.kind }}">{{ row.kind_icon }}</span> <a href="{{ url_for('dbeditor.mob_edit', vnum=row.vnum) }}">{{ row.display_name }}</a></td>
+          <td>{{ row.vnum }}</td><td>{{ row.level }}</td><td>{{ row.rank_name }} [{{ row.rank }}]</td>
+          <td><span class="dbe-old">{{ battle_types.get(row.battle_type|int, row.battle_type) }} [{{ row.battle_type }}]</span> → <b>{{ battle_types[values.battle_type] }} [{{ values.battle_type }}]</b></td>
+          <td class="num">{% if 'attack_range' in changes %}<span class="dbe-old">{{ row.attack_range }}</span> → <b>{{ values.attack_range }}</b>{% else %}{{ row.attack_range }} <small class="muted">(bez zmian)</small>{% endif %}</td>
+          <td class="dbe-warn">{% if lost %}⚠ wraca przy starcie{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Wcześniejsze zmiany „dystans → wręcz”</h2>
+  {% if done %}
+  <p class="muted">Cofnięcie przywraca każdemu potworowi jego dawny sposób walki i zasięg ataku – też dopiero po „Zastosuj”.
+    Pełną listę pól zobaczysz w <a href="{{ url_for('dbeditor.proto_history', tbl='world.mob_proto') }}">historii potworów</a>.</p>
+  <table class="dbe-table compact">
+    <thead><tr><th>Kiedy</th><th>Kto</th><th>Potworów</th><th>Stan</th><th></th></tr></thead>
+    <tbody>
+    {% for b in done %}
+      <tr><td>{{ b.changed_at.strftime('%Y-%m-%d %H:%M:%S') if b.changed_at.strftime is defined else b.changed_at }}</td>
+        <td>{{ b.who }}</td><td>{{ b.row_count }} <small class="muted">({{ b.fields }} pól)</small></td>
+        <td>{% if not b.live %}<span class="dbe-tag">cofnięta</span>{% elif b.unapplied %}<span class="dbe-tag pending">czeka na restart</span>{% else %}<span class="dbe-tag ok">w grze</span>{% endif %}</td>
+        <td>{% if b.live %}
+          <form method="post" action="{{ url_for('dbeditor.proto_history_revert') }}" class="dbe-inline dbe-revert" onsubmit="return confirm('Cofnąć zmianę „dystans → wręcz” ({{ b.row_count }} potworów)?')">
+            <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}"><input type="hidden" name="batch" value="{{ b.batch }}">
+            <input type="hidden" name="back" value="{{ url_for('dbeditor.mobs_melee') }}">
+            <button class="dbe-small">↶ Cofnij tę zmianę</button>
+            <label class="dbe-check small"><input type="checkbox" name="force" value="1"> cofnij mimo późniejszych zmian</label>
+          </form>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">Ta zmiana nie była jeszcze robiona w panelu.</p>{% endif %}
+</section>
+{% endblock %}

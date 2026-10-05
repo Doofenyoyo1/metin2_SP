@@ -1,0 +1,174 @@
+// MT2009_PLUS_DT_DROPS_V1: the Demon Tower's brutal demons (the owner, 5 October: "not even junk
+// on the seventh floor"). Every demon of floors 2-9 (1031-1041) comes back as its brutal form
+// 1061-1071 (mob_proto resurrection_vnum) and its first life drops nothing (CHARACTER::Reward(false));
+// the brutal forms had no drop of their own but the common table (1068, 1070, 1071 a flower and a
+// level-75 group), so a seventh floor's 170 demons left one or two potions. Each now drops the
+// tower's upgrade items at the rate the lower floors' demons drop theirs (1004's 30086 and 1002's
+// 30087 in etc_drop_item) and the level-65 weapons +0 of the level-75 groups as junk: 1.37% a kill
+// at the server's 100% drop. Type drop: pct / 4 percent. A mob that already has a drop group gets
+// these lines added to it (the engine merges groups).
+
+Group	MT2009_dtdrop_1061
+{
+	mob	1061	-- Brutalny Demon Zolnierz (lv 67)
+	Type	drop
+	1	30086	1	1.26	-- Pamiatka Po Demonie+, 0.315%
+	2	30087	1	1.4	-- Klejnot Demona+, 0.35%
+	3	160	1	0.4	-- Miecz Nimfy+0, 0.1%
+	4	240	1	0.4	-- Miecz Egzorcysty+0, 0.1%
+	5	1110	1	0.4	-- Noz Blyskawicy+0, 0.1%
+	6	2130	1	0.4	-- Boski Luk Moreli+0, 0.1%
+	7	3140	1	0.4	-- Magnetyczne Ostrze+0, 0.1%
+	8	5100	1	0.4	-- Dzwon Nieba I Ziemi+0, 0.1%
+	9	7140	1	0.4	-- Wachlarz Zbawienia+0, 0.1%
+}
+
+Group	MT2009_dtdrop_1062
+{
+	mob	1062	-- Brutalny Demon Lucznik (lv 69)
+	Type	drop
+	1	30086	1	1.26	-- Pamiatka Po Demonie+, 0.315%
+	2	30087	1	1.4	-- Klejnot Demona+, 0.35%
+	3	160	1	0.4	-- Miecz Nimfy+0, 0.1%
+	4	240	1	0.4	-- Miecz Egzorcysty+0, 0.1%
+	5	1110	1	0.4	-- Noz Blyskawicy+0, 0.1%
+	6	2130	1	0.4	-- Boski Luk Moreli+0, 0.1%
+	7	3140	1	0.4	-- Magnetyczne Ostrze+0, 0.1%
+	8	5100	1	0.4	-- Dzwon Nieba I Ziemi+0, 0.1%
+	9	7140	1	0.4	-- Wachlarz Zbawienia+0, 0.1%
+}
+
+Group	MT2009_dtdrop_1063
+{
+	mob	1063	-- Brutalny Demon Wlocznik (lv 70)
+	Type	drop
+	1	30086	1	1.26	-- Pamiatka Po Demonie+, 0.315%
+	2	30087	1	1.4	-- Klejnot Demona+, 0.35%
+	3	160	1	0.4	-- Miecz Nimfy+0, 0.1%
+	4	240	1	0.4	-- Miecz Egzorcysty+0, 0.1%
+	5	1110	1	0.4	-- Noz Blyskawicy+0, 0.1%
+	6	2130	1	0.4	-- Boski Luk Moreli+0, 0.1%
+	7	3140	1	0.4	-- Magnetyczne Ostrze+0, 0.1%
+	8	5100	1	0.4	-- Dzwon Nieba I Ziemi+0, 0.1%
+	9	7140	1	0.4	-- Wachlarz Zbawienia+0, 0.1%
+}
+
+Group	MT2009_dtdrop_1064
+{
+	mob	1064	-- Brutalny Demon Szaman (lv 71)
+	Type	drop
+	1	30086	1	1.26	-- Pamiatka Po Demonie+, 0.315%
+	2	30087	1	1.4	-- Klejnot Demona+, 0.35%
+	3	160	1	0.4	-- Miecz Nimfy+0, 0.1%
+	4	240	1	0.4	-- Miecz Egzorcysty+0, 0.1%
+	5	1110	1	0.4	-- Noz Blyskawicy+0, 0.1%
+	6	2130	1	0.4	-- Boski Luk Moreli+0, 0.1%
+	7	3140	1	0.4	-- Magnetyczne Ostrze+0, 0.1%
+	8	5100	1	0.4	-- Dzwon Nieba I Ziemi+0, 0.1%
+	9	7140	1	0.4	-- Wachlarz Zbawienia+0, 0.1%
+}
+
+Group	MT2009_dtdrop_1065
+{
+	mob	1065	-- Brutalny Duch Zalu (lv 72)
+	Type	drop
+	1	30086	1	1.26	-- Pamiatka Po Demonie+, 0.315%
+	2	30087	1	1.4	-- Klejnot Demona+, 0.35%
+	3	160	1	0.4	-- Miecz Nimfy+0, 0.1%
+	4	240	1	0.4	-- Miecz Egzorcysty+0, 0.1%
+	5	1110	1	0.4	-- Noz Blyskawicy+0, 0.1%
+	6	2130	1	0.4	-- Boski Luk Moreli+0, 0.1%
+	7	3140	1	0.4	-- Magnetyczne Ostrze+0, 0.1%
+	8	5100	1	0.4	-- Dzwon Nieba I Ziemi+0, 0.1%
+	9	7140	1	0.4	-- Wachlarz Zbawienia+0, 0.1%
+}
+
+Group	MT2009_dtdrop_1066
+{
+	mob	1066	-- Brutalny Duch Chaosu (lv 73)
+	Type	drop
+	1	30086	1	1.26	-- Pamiatka Po Demonie+, 0.315%
+	2	30087	1	1.4	-- Klejnot Demona+, 0.35%
+	3	160	1	0.4	-- Miecz Nimfy+0, 0.1%
+	4	240	1	0.4	-- Miecz Egzorcysty+0, 0.1%
+	5	1110	1	0.4	-- Noz Blyskawicy+0, 0.1%
+	6	2130	1	0.4	-- Boski Luk Moreli+0, 0.1%
+	7	3140	1	0.4	-- Magnetyczne Ostrze+0, 0.1%
+	8	5100	1	0.4	-- Dzwon Nieba I Ziemi+0, 0.1%
+	9	7140	1	0.4	-- Wachlarz Zbawienia+0, 0.1%
+}
+
+Group	MT2009_dtdrop_1067
+{
+	mob	1067	-- Brutalny Demon Przyw. (lv 71)
+	Type	drop
+	1	30086	1	1.26	-- Pamiatka Po Demonie+, 0.315%
+	2	30087	1	1.4	-- Klejnot Demona+, 0.35%
+	3	160	1	0.4	-- Miecz Nimfy+0, 0.1%
+	4	240	1	0.4	-- Miecz Egzorcysty+0, 0.1%
+	5	1110	1	0.4	-- Noz Blyskawicy+0, 0.1%
+	6	2130	1	0.4	-- Boski Luk Moreli+0, 0.1%
+	7	3140	1	0.4	-- Magnetyczne Ostrze+0, 0.1%
+	8	5100	1	0.4	-- Dzwon Nieba I Ziemi+0, 0.1%
+	9	7140	1	0.4	-- Wachlarz Zbawienia+0, 0.1%
+}
+
+Group	MT2009_dtdrop_1068
+{
+	mob	1068	-- Duchowy Mistrz Miecza (lv 72)
+	Type	drop
+	1	30086	1	1.26	-- Pamiatka Po Demonie+, 0.315%
+	2	30087	1	1.4	-- Klejnot Demona+, 0.35%
+	3	160	1	0.4	-- Miecz Nimfy+0, 0.1%
+	4	240	1	0.4	-- Miecz Egzorcysty+0, 0.1%
+	5	1110	1	0.4	-- Noz Blyskawicy+0, 0.1%
+	6	2130	1	0.4	-- Boski Luk Moreli+0, 0.1%
+	7	3140	1	0.4	-- Magnetyczne Ostrze+0, 0.1%
+	8	5100	1	0.4	-- Dzwon Nieba I Ziemi+0, 0.1%
+	9	7140	1	0.4	-- Wachlarz Zbawienia+0, 0.1%
+}
+
+Group	MT2009_dtdrop_1069
+{
+	mob	1069	-- Brutalna Lataj. Czaszka (lv 73)
+	Type	drop
+	1	30086	1	1.26	-- Pamiatka Po Demonie+, 0.315%
+	2	30087	1	1.4	-- Klejnot Demona+, 0.35%
+	3	160	1	0.4	-- Miecz Nimfy+0, 0.1%
+	4	240	1	0.4	-- Miecz Egzorcysty+0, 0.1%
+	5	1110	1	0.4	-- Noz Blyskawicy+0, 0.1%
+	6	2130	1	0.4	-- Boski Luk Moreli+0, 0.1%
+	7	3140	1	0.4	-- Magnetyczne Ostrze+0, 0.1%
+	8	5100	1	0.4	-- Dzwon Nieba I Ziemi+0, 0.1%
+	9	7140	1	0.4	-- Wachlarz Zbawienia+0, 0.1%
+}
+
+Group	MT2009_dtdrop_1070
+{
+	mob	1070	-- Niesm. Duch (brutalny) (lv 74)
+	Type	drop
+	1	30086	1	1.26	-- Pamiatka Po Demonie+, 0.315%
+	2	30087	1	1.4	-- Klejnot Demona+, 0.35%
+	3	160	1	0.4	-- Miecz Nimfy+0, 0.1%
+	4	240	1	0.4	-- Miecz Egzorcysty+0, 0.1%
+	5	1110	1	0.4	-- Noz Blyskawicy+0, 0.1%
+	6	2130	1	0.4	-- Boski Luk Moreli+0, 0.1%
+	7	3140	1	0.4	-- Magnetyczne Ostrze+0, 0.1%
+	8	5100	1	0.4	-- Dzwon Nieba I Ziemi+0, 0.1%
+	9	7140	1	0.4	-- Wachlarz Zbawienia+0, 0.1%
+}
+
+Group	MT2009_dtdrop_1071
+{
+	mob	1071	-- Demoniczna Bestia (brutalna) (lv 75)
+	Type	drop
+	1	30086	1	1.26	-- Pamiatka Po Demonie+, 0.315%
+	2	30087	1	1.4	-- Klejnot Demona+, 0.35%
+	3	160	1	0.4	-- Miecz Nimfy+0, 0.1%
+	4	240	1	0.4	-- Miecz Egzorcysty+0, 0.1%
+	5	1110	1	0.4	-- Noz Blyskawicy+0, 0.1%
+	6	2130	1	0.4	-- Boski Luk Moreli+0, 0.1%
+	7	3140	1	0.4	-- Magnetyczne Ostrze+0, 0.1%
+	8	5100	1	0.4	-- Dzwon Nieba I Ziemi+0, 0.1%
+	9	7140	1	0.4	-- Wachlarz Zbawienia+0, 0.1%
+}

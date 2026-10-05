@@ -3,8 +3,8 @@
 -- Arrador.cpp), napisany na lochach silnika (d.*) zamiast osobnego kodu C++:
 -- stra¿nik Ognistej Ziemi (20394, mapa 62) tworzy instancjê mapy 351
 -- (metin2_map_n_flame_dungeon_01) i od razu przenosi do niej gracza albo przywódcê
--- z ludŸmi jego dru¿yny stoj¹cymi obok (jedno ³adowanie, boty zostaj¹ na
--- zewn¹trz), pos¹g Am-heh (20385) w œrodku wydaje szeœæ zadañ w
+-- z ludŸmi jego dru¿yny stoj¹cymi obok (jedno ³adowanie, boty z dru¿yny
+-- wchodz¹ za nim), pos¹g Am-heh (20385) w œrodku wydaje szeœæ zadañ w
 -- losowej kolejnoœci (przesuniêcie cykliczne 1..6 jak DungeonStepSort), a po
 -- nich otwiera salê Razadora (6091):
 --   1: zabij 20 potworów,
@@ -19,6 +19,11 @@
 -- wejœcie po godzinie od wejœcia (archiwum: 1 h). Mapy 351/352 s¹ na rdzeniu
 -- game2 (game1 ma ju¿ 32 mapy, MAP_ALLOW_LIMIT): d.new_jump_pids prosi game2 (P2P)
 -- o instancjê, a game2 przenosi do niej graczy z game1 - bez poczekalni.
+-- MT2009_PLUS_BOT_DUNGEONS_ALL_V1: mapa lochu jest od teraz na rdzeniu game1, razem z botami
+-- (m2-render-config) - gdzie ni¿ej mowa o game2, chodzi o rdzeñ, który hostuje mapê:
+-- d.new_jump_pids tworzy instancjê na miejscu i przenosi do niej ludzi z dru¿yny, a boty
+-- z dru¿yny gracza wchodz¹ za nim do tej samej instancji, walcz¹ przy nim i wychodz¹ z nim
+-- (playerbot_party_dungeon.h). Op³ata, limit dzienny, poziom i odpoczynek s¹ tylko dla ludzi.
 quest razador_dungeon begin
 	state start begin
 		function cfg()
@@ -36,7 +41,7 @@ quest razador_dungeon begin
 				limit_min = 60,
 				-- MT2009_PLUS_DUNGEON_FEE_V1: the price of a new expedition (each player, paid on entering it) and
 				-- how many new expeditions a player may start a day (Polish midnight).
-				fee = 10000000, fee_text = "10 000 000",
+				fee = 3500000, fee_text = "3 500 000", -- MT2009_PLUS_AREZZO_BALANCE_V1: half of the 7 000 000 of MT2009_PLUS_DUNGEON_FEE_LEADER_V1 (the owner, 5 October: "7kk", then halved)
 				daily = 5,
 				doors = {{320,394},{293,359},{333,321},{378,320},{400,355},{394,401}},
 				doors_dir = {135,90,210,152,90,223},
@@ -82,6 +87,16 @@ quest razador_dungeon begin
 			return not pc.is_gm() and pc.get_money() < c.fee
 		end
 
+		-- MT2009_PLUS_DUNGEON_FEE_LEADER_V1: who pays (the owner, 5 October: "Za wejœcie na dungeon z botami
+		-- (równie¿ z towarzyszem) p³aci tylko lider grupy. Jak boty id¹ same - p³ac¹ normalnie"). A person
+		-- pays for himself alone, once, on his first login into the new instance - after the entry worked,
+		-- never at the guard - and the guard checks the fee, the day's runs, the level and the rest of the
+		-- people going in only: a bot of the party (the companion, a finder's bot, any bot the person
+		-- invited) is never asked for the fee nor charged it, whether the person or the bot leads the
+		-- party. A member counts as a person only when the quest's block really switched to him
+		-- (pc.get_player_id() == pid, as devilcatacomb_zone asks): a block that stayed on the one talking
+		-- would put the member on the list with the talker's own figures. Two people with bots: each person
+		-- his own, as before. The bots' own runs (playerbot_dungeon_runs.h) pay in the core, as before.
 		function pay_entry()
 			local c = razador_dungeon.cfg()
 			if pc.is_gm() or pc.is_playerbot() then
@@ -106,6 +121,26 @@ quest razador_dungeon begin
 			return true
 		end
 
+		-- MT2009_PLUS_BOT_DUNGEONS_ALL_V1: a party a bot leads (a person's companion takes the person
+		-- into its own party) is the person's to open - its leader is nobody to ask. The leader is
+		-- looked at only among the members on this map (get_member_pids), as everywhere here.
+		function bot_leads()
+			local lp = party.get_leader_pid()
+			if lp == nil or lp == 0 or lp == pc.get_player_id() then
+				return false
+			end
+			local bot = false
+			local pids = {party.get_member_pids()}
+			for i, pid in next, pids, nil do
+				if pid == lp then
+					q.begin_other_pc_block(pid)
+					bot = pc.get_player_id() == pid and pc.is_playerbot()
+					q.end_other_pc_block()
+				end
+			end
+			return bot
+		end
+
 		function inside()
 			local idx = pc.get_map_index()
 			return idx >= 351 * 10000 and idx < 352 * 10000
@@ -114,14 +149,38 @@ quest razador_dungeon begin
 		-- MT2009_PLUS_BOSS_CHESTS_V1: the boss's chests (50270, special_item_group.dungeons.txt)
 		-- for every player of the killer's party inside this instance (get_member_pids gives
 		-- only the members on the killer's map index), or for the killer alone; a full bag
-		-- drops them at the player's feet (give_item2). Bots never enter the dungeon.
+		-- drops them at the player's feet (give_item2). A bot of the party inside gets none.
 		-- MT2009_PLUS_DUNGEON_DROP_V1: each player rolls his own 2-5 (the owner, 29 September);
 		-- Razador himself drops only yang (item_manager.cpp).
 		-- MT2009_PLUS_DROP_EDIT_V1: the boss's own drop the owner added in the drop workbook
 		-- (1 October). The boss gives no items (item_manager.cpp), so the quest rolls it once
 		-- per kill for the killer: {vnum, count, percent}, each line on its own.
 		function boss_drop()
-			if pc.is_playerbot() then return end
+			-- MT2009_PLUS_BOT_DUNGEONS_ALL_V1: a bot of the party took the last blow - the roll is a
+			-- person's of the party in this instance (the first found), never the bot's.
+			if pc.is_playerbot() then
+				local here = pc.get_map_index()
+				local pids = {}
+				if party.is_party() then
+					pids = {party.get_member_pids()}
+				end
+				local person = 0
+				for i, pid in next, pids, nil do
+					if person == 0 then
+						q.begin_other_pc_block(pid)
+						if not pc.is_playerbot() and pc.get_map_index() == here then
+							person = pid
+						end
+						q.end_other_pc_block()
+					end
+				end
+				if person ~= 0 then
+					q.begin_other_pc_block(person)
+					razador_dungeon.boss_drop()
+					q.end_other_pc_block()
+				end
+				return
+			end
 			-- MT2009_PLUS_AWAKENING_V1: no Kamien Przebudzenia here (the owner, 3 October).
 			local t = { {27987, 5, 10}, {50513, 1, 5}, {25040, 3, 10}, {71084, 1, 5} }
 			for i, e in next, t, nil do
@@ -228,7 +287,7 @@ quest razador_dungeon begin
 		-- hosts 351, makes it and warps the player - or the leader and the people of his party
 		-- standing by the guard - straight into it (engine, server-patches/playerqol). The
 		-- instance is set up by the first of them to log in (init below), and each player's
-		-- cooldown starts when he enters it; bots stay outside.
+		-- cooldown starts when he enters it; the party's bots follow him in (MT2009_PLUS_BOT_DUNGEONS_ALL_V1).
 		function init()
 			local c = razador_dungeon.cfg()
 			d.setf("init", 1)
@@ -265,8 +324,9 @@ quest razador_dungeon begin
 			say("by o nim opowiedzieæ.")
 			say("")
 			say_reward("Wymagany poziom: "..c.min_level..". Ponowne wejœcie po 60 minutach.")
-			say_reward("Loch jest tylko dla graczy - boty z dru¿yny zostaj¹ tutaj.")
+			say_reward("Boty z Twojej dru¿yny wejd¹ do lochu razem z Tob¹.")
 			say_reward("Wejœcie: "..c.fee_text.." Yang. Najwy¿ej "..c.daily.." wypraw dziennie (dziœ: "..razador_dungeon.runs_today().."/"..c.daily..").") -- MT2009_PLUS_DUNGEON_FEE_V1
+			say_reward("P³acisz tylko za siebie - boty z dru¿yny i towarzysz wchodz¹ bez op³aty.") -- MT2009_PLUS_DUNGEON_FEE_LEADER_V1
 			if select("PrzejdŸ do Czyœæca Ognia", "Nie teraz") ~= 1 then
 				return
 			end
@@ -304,7 +364,7 @@ quest razador_dungeon begin
 					return
 				end
 			end
-			if party.is_party() and not party.is_leader() then
+			if party.is_party() and not party.is_leader() and not razador_dungeon.bot_leads() then
 				say_title(mob_name(20394))
 				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
 				say("Stañ przy mnie - przywódca zabierze dru¿ynê stoj¹c¹ obok.")
@@ -326,7 +386,8 @@ quest razador_dungeon begin
 				return
 			end
 			-- Who goes: the player, or the leader and the people of his party standing by
-			-- the guard (c.near cells); bots stay. Anyone too weak or not yet rested stops it.
+			-- the guard (c.near cells); the party's bots follow them in afterwards (MT2009_PLUS_BOT_DUNGEONS_ALL_V1,
+			-- playerbot_party_dungeon.h) and pay nothing. Anyone too weak or not yet rested stops it.
 			local me = pc.get_player_id()
 			local humans = {me}
 			local low = {}
@@ -345,7 +406,7 @@ quest razador_dungeon begin
 					if pid ~= me then
 						q.begin_other_pc_block(pid)
 						local dx, dy = pc.get_x() - lx, pc.get_y() - ly
-						if not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
+						if pc.get_player_id() == pid and not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
 							table.insert(humans, pid)
 							if pc.get_level() < c.min_level then
 								table.insert(low, pc.get_name())
@@ -416,7 +477,7 @@ quest razador_dungeon begin
 					if pid ~= me then
 						q.begin_other_pc_block(pid)
 						local dx, dy = pc.get_x() - lx, pc.get_y() - ly
-						if not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
+						if pc.get_player_id() == pid and not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
 							pc.warp(x, y)
 						end
 						q.end_other_pc_block()
@@ -465,7 +526,7 @@ quest razador_dungeon begin
 				end
 				return
 			end
-			if party.is_party() and not party.is_leader() then
+			if party.is_party() and not party.is_leader() and not razador_dungeon.bot_leads() then
 				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
 				say("Poczekaj tu na niego - zabierze ca³¹ dru¿ynê.")
 				return
@@ -479,7 +540,7 @@ quest razador_dungeon begin
 				local pids = {party.get_member_pids()}
 				for i, pid in next, pids, nil do
 					q.begin_other_pc_block(pid)
-					if not pc.is_playerbot() then
+					if pc.get_player_id() == pid and not pc.is_playerbot() then
 						table.insert(humans, pid)
 						if pc.get_level() < c.min_level then
 							table.insert(low, pc.get_name())
@@ -670,6 +731,40 @@ quest razador_dungeon begin
 					d.notice("Razador: Pozosta³o "..left.." min.")
 				end
 				server_timer("razador_tick", 60, get_server_timer_arg())
+			end
+		end
+
+		-- MT2009_PLUS_BOT_DUNGEON_RUNS_V1: the start of an ordinary bot party's run (playerbot_dungeon_runs.h).
+		-- The bots cannot answer the guard's dialog, so the core makes the instance itself, marks it with
+		-- the dungeon flag mt2009_dgrun - nothing a player can set - and asks for this. Unlike the test
+		-- cohort's (mt2009_dgbot) such a run keeps the player's time limit and the player's way out.
+		when razador_dgrun.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				if d.getf("mt2009_dgrun") == 1 and d.getf("init") == 0 then
+					razador_dungeon.init()
+				end
+			end
+		end
+
+		-- MT2009_PLUS_BOT_DUNGEON_RUNS_V1: the statue Am-heh's next task (or the hall of Razador after the
+		-- sixth) for a bots' run, asked by the core whenever no task runs: what the leader's "Zadanie Am-heh"
+		-- does in the dialog above, without the dialog.
+		when razador_dgrun_next.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				if d.getf("mt2009_dgrun") ~= 1 or d.getf("init") == 0 or d.getf("closed") == 1 then
+					return
+				end
+				if d.getf("active") == 1 or d.getf("boss") >= 1 then
+					return
+				end
+				if d.getf("done") >= 6 then
+					d.setf("boss", 1)
+					d.setf("step", 7)
+					d.notice("Razador: W¹wóz Am-heh budzi siê! Za chwilê staniecie przed Razadorem.")
+					server_timer("razador_boss", 5, d.get_map_index())
+					return
+				end
+				razador_dungeon.start_step(math.mod(d.getf("order") - 1 + d.getf("done"), 6) + 1)
 			end
 		end
 

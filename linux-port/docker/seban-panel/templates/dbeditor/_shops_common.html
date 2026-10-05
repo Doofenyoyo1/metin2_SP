@@ -1,0 +1,19 @@
+{#- MT2009_PLUS_DB_EDITOR_V1: the top of the "Sklepy NPC" and "Ulepszanie u
+    Kowala" pages (dbeditor/shops.py, refine.py) - tabs and the "pending"
+    banner (common_items.pending_context()). -#}
+<link rel="stylesheet" href="{{ static_asset_url('dbeditor-items.css') }}">
+<link rel="stylesheet" href="{{ static_asset_url('dbeditor-shops.css') }}">
+<nav class="dbe-tabs" aria-label="Edytor bazy danych">
+  <a href="{{ url_for('dbeditor.index') }}">← Edytor bazy danych</a>
+  <a href="{{ url_for('dbeditor.shops') }}" class="{{ 'is-active' if dbe_tab == 'shops' }}">🛒 Sklepy NPC</a>
+  <a href="{{ url_for('dbeditor.refine') }}" class="{{ 'is-active' if dbe_tab == 'refine' }}">⚒️ Ulepszanie u Kowala</a>
+  <a href="{{ url_for('dbeditor.proto_history') }}">🕘 Historia zmian</a>
+</nav>
+{% if pending_total %}
+<section class="panel dbe-pending" role="status">
+  <strong>⏳ Zmiany czekają na zastosowanie (restart gry).</strong>
+  <span>Zmienione pola: {{ pending_total }}. Baza jest już zmieniona, ale gra wczyta ją dopiero po restarcie –
+  kliknij <b>Zastosuj</b> na stronie <a href="{{ url_for('dbeditor.index') }}">Edytora bazy danych</a>.
+  <a href="{{ url_for('dbeditor.proto_history') }}">Zobacz, co się zmieniło</a>.</span>
+</section>
+{% endif %}

@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: Spawny potworów - one map: preview, every line in plain words, edit/add/delete/×N (dbeditor/regen.py, regen_map). #}
+{% block title %}{{ label }} · Spawny potworów · {{ panel_brand }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='dbeditor-regen.css') }}">
+<script src="{{ url_for('static', filename='dbeditor-regen.js') }}" defer></script>
+{% set w, h = st.size or (0, 0) %}
+<nav class="dbr-crumbs"><a href="{{ url_for('dbeditor.index') }}">🗄️ Edytor bazy danych</a><a href="{{ url_for('dbeditor.regen_index') }}">🗺️ Spawny potworów</a><span>{{ label }}</span></nav>
+<p class="eyebrow">EDYTOR BAZY DANYCH · SPAWNY POTWORÓW</p>
+<h1>🗺️ {{ label }}</h1>
+<p class="muted">Mapa #{{ st.index }} · folder <code>{{ st.folder }}</code>{% if w %} · rozmiar {{ w }} × {{ h }} m{% endif %} ·
+  {{ totals.rows }} {{ 'wpis' if totals.rows == 1 else 'wpisów' }} · naraz ok. {{ totals.monsters }} pojedynczych potworów i {{ totals.groups }} grup
+  · <a href="{{ url_for('dbeditor.regen_file', folder=st.folder) }}" target="_blank">plik regen.txt</a></p>
+
+<section class="panel dbr-status {{ state.kind }}">
+  <p><b>Stan w grze:</b> {{ state.text }}{% if state.time %} <small class="muted">(raport gry: {{ state.time.strftime('%Y-%m-%d %H:%M') }})</small>{% endif %}</p>
+  {% if state.pending %}<p class="muted">Gra czyta spawny tylko przy starcie rdzeni. Kliknij <b>Zastosuj</b> w <a href="{{ url_for('dbeditor.index') }}">Edytorze bazy danych</a> (restart rdzeni, gracze online rozłączeni na ok. minutę) – albo poczekaj do najbliższego restartu serwera.</p>{% endif %}
+  {% if st.source == 'custom' %}
+  <form method="post" action="{{ url_for('dbeditor.regen_reset', folder=st.folder) }}" class="dbr-inline">
+    <input type="hidden" name="dbe_csrf" value="{{ csrf }}">
+    <span>Ta mapa używa wersji z panelu.</span>
+    <button class="dbr-danger" data-confirm="Wrócić do pliku z obrazu gry? Wszystkie zmiany panelu na tej mapie znikną (obecna wersja trafi do kopii zapasowej).">↩️ Wróć do pliku z obrazu gry</button>
+  </form>
+  {% endif %}
+  {% if drift %}<p class="dbr-bad">Uwaga: aktualizacja serwera zmieniła oryginalny plik tej mapy, odkąd zapisano wersję z panelu. Wersja z panelu nadal zastępuje CAŁY plik – nowości z aktualizacji na tej mapie nie działają. Jeśli ich chcesz, wróć do pliku z obrazu i nanieś zmiany jeszcze raz.</p>{% endif %}
+</section>
+
+{% if not doc.editable or doc.problems %}
+<section class="panel dbr-status error">
+  {% if not doc.editable %}<p><b>Tego pliku nie da się bezpiecznie edytować w panelu</b> (wpis rozbity na kilka linii, kilka wpisów w jednej linii albo cudzysłowy) – tylko podgląd.</p>{% endif %}
+  {% for p in doc.problems %}<p>{{ p }}</p>{% endfor %}
+</section>
+{% endif %}
+
+<section class="panel dbr-rates">
+  <p><b>Ustawienia serwera (strona „Respawny”):</b>
+    czas odradzania potworów {{ flags.mob_delay[0] or 100 }}%{% if flags.mob_delay[0] %} ({{ flags.mob_delay[1] }}){% endif %},
+    bossów i Metinów {{ flags.boss_delay[0] or 100 }}%{% if flags.boss_delay[0] %} ({{ flags.boss_delay[1] }}){% endif %} ·
+    liczba potworów ×{{ '%g'|format((flags.mob_count if flags.mob_count > 100 else 100) / 100) }},
+    bossów ×{{ '%g'|format((flags.boss_count if flags.boss_count > 100 else 100) / 100) }}
+    {% if has_respawns %}· <a href="{{ url_for('respawns') }}">zmień</a>{% endif %}</p>
+  <p class="muted dbr-help">Tu edytujesz <b>czasy i liczby bazowe</b> z pliku mapy. Ustawienia serwera mnożą je jeszcze w grze (czas nie spada wtedy poniżej 3 s) – przy wpisach, na które działają, pokazujemy też „w grze”.{% if flags.error %} <span class="dbr-bad">Nie udało się odczytać ustawień z bazy – pokazuję wartości z pliku.</span>{% endif %}</p>
+</section>
+
+<div class="dbr-layout">
+  <section class="panel dbr-preview">
+    <h2>Podgląd mapy</h2>
+    {% if w %}
+    <div class="dbr-map{% if not image_url %} noimage{% endif %}" id="dbr-map" data-w="{{ w }}" data-h="{{ h }}"
+         style="aspect-ratio:{{ w }}/{{ h }};{% if image_url %}background-image:url('{{ image_url }}'){% endif %}">
+      {% for m in markers %}<a class="dbr-mk k-{{ m.kind }}{% if edit and edit.n == m.n %} on{% endif %}" href="{{ url_for('dbeditor.regen_map', folder=st.folder, edit=m.n) }}#edytuj"
+         style="left:{{ m.px }}%;top:{{ m.py }}%;width:{{ m.rx * 2 }}%;height:{{ m.ry * 2 }}%" title="#{{ m.n + 1 }} {{ m.title }}"></a>{% endfor %}
+      <i class="dbr-pick" hidden></i>
+    </div>
+    <p class="dbr-legend"><span class="k-g"></span>grupa <span class="k-r"></span>losowa grupa <span class="k-m"></span>potwór <span class="k-boss"></span>boss/mini-boss <span class="k-bad"></span>błąd <span class="k-e"></span>strefa bez spawnów</p>
+    <p class="muted dbr-help">Kliknij znacznik, żeby edytować wpis. Kliknij puste miejsce na mapie, żeby wpisać to miejsce do formularza „Dodaj spawn”.{% if not image_url %} (Brak obrazka tej mapy – sama siatka.){% endif %}</p>
+    {% else %}<p class="dbr-bad">Brak pliku Setting.txt tej mapy – nie znam jej rozmiaru, podgląd niedostępny.</p>{% endif %}
+  </section>
+
+  <div class="dbr-side">
+    {% if edit %}
+    {% set r = edit.row %}
+    <section class="panel dbr-edit" id="edytuj">
+      <h2>Wpis #{{ edit.n + 1 }}</h2>
+      <p>{{ edit.text }}</p>
+      {% if edit.eff and edit.eff.changed %}<p class="muted">W grze teraz (z ustawieniami serwera): {{ time_text(edit.eff.time, edit.eff.time_to) }} · naraz {{ edit.eff.count }}</p>{% endif %}
+      {% if r.type == 'e' %}<p class="muted">Strefę bez spawnów można tylko usunąć (tabela niżej).</p>
+      {% elif doc.editable %}
+      <form method="post" action="{{ url_for('dbeditor.regen_edit', folder=st.folder) }}" class="dbr-form">
+        <input type="hidden" name="dbe_csrf" value="{{ csrf }}"><input type="hidden" name="rev" value="{{ st.rev }}"><input type="hidden" name="row" value="{{ edit.n }}">
+        <div class="dbr-fields">
+          {% if r.type != 's' %}
+          <label>Miejsce X (m)<input name="x" type="number" min="0" max="{{ w or 100000 }}" value="{{ r.x }}" required></label>
+          <label>Miejsce Y (m)<input name="y" type="number" min="0" max="{{ h or 100000 }}" value="{{ r.y }}" required></label>
+          <label>Promień X (m)<input name="sx" type="number" min="0" max="{{ max_radius }}" value="{{ r.sx }}" required></label>
+          <label>Promień Y (m)<input name="sy" type="number" min="0" max="{{ max_radius }}" value="{{ r.sy }}" required></label>
+          {% else %}
+          <input type="hidden" name="x" value="{{ r.x }}"><input type="hidden" name="y" value="{{ r.y }}"><input type="hidden" name="sx" value="{{ r.sx }}"><input type="hidden" name="sy" value="{{ r.sy }}">
+          {% endif %}
+          <label>Odradza się co (s)<input name="time" type="number" min="1" max="{{ max_time }}" value="{{ r.time }}" required></label>
+          <label>…albo losowo do (s)<input name="time_to" type="number" min="0" max="{{ max_time }}" value="{{ r.time_to or '' }}" placeholder="puste = stały czas"></label>
+          <label>Ile naraz<input name="count" type="number" min="1" max="{{ max_count }}" value="{{ r.count }}" required></label>
+          <label>Procent <small>(gra go nie czyta)</small><input name="percent" type="number" min="0" max="100" value="{{ r.percent }}"></label>
+          <label>Zachowanie<select name="flag">{% for k, v in flag_names.items() %}{% if not (r.type == 's' and k == 'h') %}<option value="{{ k }}"{% if r.flag == k %} selected{% endif %}>{{ v }}</option>{% endif %}{% endfor %}</select></label>
+        </div>
+        <div class="dbr-actions"><button>💾 Zapisz wpis</button><a href="{{ url_for('dbeditor.regen_map', folder=st.folder) }}">anuluj</a></div>
+      </form>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if doc.editable %}
+    <section class="panel dbr-add" id="dodaj">
+      <h2>➕ Dodaj spawn</h2>
+      <form method="post" action="{{ url_for('dbeditor.regen_add', folder=st.folder) }}" class="dbr-form" data-search="{{ url_for('dbeditor.regen_search') }}">
+        <input type="hidden" name="dbe_csrf" value="{{ csrf }}"><input type="hidden" name="rev" value="{{ st.rev }}">
+        <label class="dbr-wide">Szukaj potwora albo grupy (nazwa lub numer)<input type="search" class="dbr-search" placeholder="np. Dziki Pies, Wilk, 101" autocomplete="off"></label>
+        <div class="dbr-results" hidden></div>
+        <p class="dbr-chosen muted">Nic nie wybrano – wyszukaj wyżej albo wpisz rodzaj i numer.</p>
+        <div class="dbr-fields">
+          <label>Rodzaj<select name="type" class="dbr-type">
+            <option value="g">Grupa (group.txt)</option><option value="m">Potwór</option>
+            <option value="r">Losowa grupa (group_group.txt)</option><option value="s">Potwór w losowym miejscu mapy</option></select></label>
+          <label>Numer (VNUM)<input name="vnum" class="dbr-vnum" type="number" min="1" required></label>
+          <label>Miejsce X (m)<input name="x" class="dbr-x" type="number" min="0" max="{{ w or 100000 }}" value="{{ (w // 2) if w else 0 }}" required></label>
+          <label>Miejsce Y (m)<input name="y" class="dbr-y" type="number" min="0" max="{{ h or 100000 }}" value="{{ (h // 2) if h else 0 }}" required></label>
+          <label>Promień X (m)<input name="sx" type="number" min="0" max="{{ max_radius }}" value="10" required></label>
+          <label>Promień Y (m)<input name="sy" type="number" min="0" max="{{ max_radius }}" value="10" required></label>
+          <label>Odradza się co (s)<input name="time" type="number" min="1" max="{{ max_time }}" value="60" required></label>
+          <label>…albo losowo do (s)<input name="time_to" type="number" min="0" max="{{ max_time }}" placeholder="puste = stały czas"></label>
+          <label>Ile naraz<input name="count" type="number" min="1" max="{{ max_count }}" value="1" required></label>
+          <label>Zachowanie<select name="flag">{% for k, v in flag_names.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+        </div>
+        <div class="dbr-actions"><button>➕ Dodaj</button></div>
+      </form>
+    </section>
+
+    <section class="panel dbr-scale">
+      <h2>✖️ Cała mapa naraz</h2>
+      <form method="post" action="{{ url_for('dbeditor.regen_scale', folder=st.folder) }}" class="dbr-form">
+        <input type="hidden" name="dbe_csrf" value="{{ csrf }}"><input type="hidden" name="rev" value="{{ st.rev }}"><input type="hidden" name="what" value="count">
+        <p>Liczba potworów na tej mapie:
+          {% for f in count_factors %}<button name="factor" value="{{ f }}" data-confirm="Pomnożyć „ile naraz” we wszystkich wpisach tej mapy ×{{ f|replace('.', ',') }}?">×{{ f|replace('.', ',') }}</button>{% endfor %}</p>
+        <label class="dbr-check"><input type="checkbox" name="only" value="monsters" checked> tylko potwory i Metiny (bez NPC, koni, żył i ziół)</label>
+      </form>
+      <form method="post" action="{{ url_for('dbeditor.regen_scale', folder=st.folder) }}" class="dbr-form">
+        <input type="hidden" name="dbe_csrf" value="{{ csrf }}"><input type="hidden" name="rev" value="{{ st.rev }}"><input type="hidden" name="what" value="time">
+        <p>Czas odrodzenia na tej mapie:
+          {% for f in time_factors %}<button name="factor" value="{{ f }}" data-confirm="Pomnożyć czas odrodzenia wszystkich wpisów tej mapy ×{{ f|replace('.', ',') }}?">×{{ f|replace('.', ',') }}</button>{% endfor %}
+          <span class="muted">(×0,5 = dwa razy szybciej)</span></p>
+        <label class="dbr-check"><input type="checkbox" name="only" value="monsters" checked> tylko potwory i Metiny</label>
+      </form>
+      <p class="muted dbr-help">„Ile naraz” nie spada poniżej 1 (×0,5 na wpisie z 1 nic nie zmienia) i nie przekracza {{ max_count }}; czas nie spada poniżej 1 s. Każde mnożenie zapisuje kopię zapasową.</p>
+    </section>
+    {% endif %}
+  </div>
+</div>
+
+<section class="panel">
+  <h2>Co jest na tej mapie</h2>
+  {% if summary %}
+  <div class="table-wrap"><table class="dbr-table">
+    <thead><tr><th>Potwór / grupa</th><th>Wpisów</th><th>Naraz razem</th><th>Odradza się co</th></tr></thead>
+    <tbody>{% for s in summary %}<tr{% if s.bad %} class="dbr-badrow"{% endif %}><td>{{ s.what }}</td><td>{{ s.rows }}</td><td>{{ s.count }} {{ 'grup' if s.group else 'potw.' }}</td><td>{{ s.time }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">Ta mapa nie ma żadnych spawnów.</p>{% endif %}
+</section>
+
+<section class="panel">
+  <h2>Wszystkie wpisy ({{ rows|length }})</h2>
+  <label class="dbr-filter">Filtruj<input type="search" data-dbr-filter="#dbr-rows tbody tr" placeholder="np. Wilk, agresywne, co 5 min"></label>
+  <form method="post" action="{{ url_for('dbeditor.regen_delete', folder=st.folder) }}" id="dbr-del">
+    <input type="hidden" name="dbe_csrf" value="{{ csrf }}"><input type="hidden" name="rev" value="{{ st.rev }}">
+    <div class="table-wrap"><table class="dbr-table" id="dbr-rows">
+      <thead><tr>{% if doc.editable %}<th></th>{% endif %}<th>#</th><th>Co, gdzie, jak często</th><th></th></tr></thead>
+      <tbody>
+      {% for v in rows %}
+      <tr class="{% if v.bad %}dbr-badrow{% endif %}{% if edit and edit.n == v.n %} on{% endif %}">
+        {% if doc.editable %}<td><input type="checkbox" name="rows" value="{{ v.n }}" aria-label="zaznacz wpis {{ v.n + 1 }}"></td>{% endif %}
+        <td>{{ v.n + 1 }}</td>
+        <td>{{ v.text }}{% if v.eff and v.eff.changed %}<br><small class="muted">w grze: {{ time_text(v.eff.time, v.eff.time_to) }} · naraz {{ v.eff.count }}</small>{% endif %}</td>
+        <td><a href="{{ url_for('dbeditor.regen_map', folder=st.folder, edit=v.n) }}#edytuj">{{ 'Edytuj' if doc.editable and v.row.type != 'e' else 'Pokaż' }}</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% if doc.editable and rows %}<div class="dbr-actions"><button class="dbr-danger" data-confirm="Usunąć zaznaczone wpisy?">🗑️ Usuń zaznaczone</button></div>{% endif %}
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Kopie zapasowe tej mapy</h2>
+  <p class="muted dbr-help">Każdy zapis najpierw odkłada poprzednią wersję (ostatnie 30). „Bez zmian” = plik z obrazu gry. Przywrócenie też najpierw zapisuje kopię obecnego stanu.</p>
+  {% if backups %}
+  <div class="table-wrap"><table class="dbr-table">
+    <thead><tr><th>Kopia z</th><th>Zawartość</th><th></th></tr></thead>
+    <tbody>{% for b in backups %}
+    <tr><td>{{ b.time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{% if b.empty %}<span class="muted">bez zmian (obraz gry)</span>{% else %}<a href="{{ url_for('dbeditor.regen_backup_view', folder=st.folder, name=b.name) }}" target="_blank">podgląd ({{ (b.size / 1024)|round(1) }} KB)</a>{% endif %}</td>
+      <td><form method="post" action="{{ url_for('dbeditor.regen_restore', folder=st.folder) }}">
+        <input type="hidden" name="dbe_csrf" value="{{ csrf }}"><input type="hidden" name="backup" value="{{ b.name }}">
+        <button data-confirm="Przywrócić tę kopię? Obecny stan trafi do kopii.">↺ Przywróć</button></form></td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">Brak kopii – na tej mapie nic jeszcze nie zapisano.</p>{% endif %}
+</section>
+{% endblock %}

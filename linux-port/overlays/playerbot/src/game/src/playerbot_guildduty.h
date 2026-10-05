@@ -9,8 +9,8 @@
 // leader's panel (client uiguildduty.py, "/gildia_obowiazki"):
 //
 //  1. Zrzutka yang - a collection for the guild's treasury (guild.gold, the
-//     one the guild window shows and the leader withdraws from, for the land
-//     or the buildings). The leader names the sum and the time (12 hours by
+//     one the guild window shows; it pays the land and the buildings and
+//     nobody can take it out into a bag - MT2009_PLUS_GUILD_TREASURY_V1). The leader names the sum and the time (12 hours by
 //     default); the guild's bots pay it in over that time, a bot at a time,
 //     the way the bot guilds' own collection takes it (playerbot_guild_land.h:
 //     every bot keeps its reserve, gives a share of what is above it) - never

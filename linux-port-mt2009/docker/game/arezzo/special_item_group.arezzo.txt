@@ -11,6 +11,9 @@ Group	MT2009_chest_30773
 	2	s950732	1	100 -- zapychacz
 	3	s950732	1	40 -- drugi zapychacz
 	4	s950733	1	30 -- przedmiot do peta
+	5	s950734	1	100 -- sakwa Yang (MT2009_PLUS_AREZZO_BALANCE_V1)
+	6	s950735	1	40 -- materialy ulepszen 30-45
+	7	s950736	1	15 -- cenny przedmiot
 }
 Group	MT2009_chest_biblioteka_gear
 {
@@ -180,4 +183,38 @@ Group	MT2009_chest_biblioteka_pet
 	30	55001	5	216
 	31	55032	1	150
 	32	55035	1	50
+}
+# MT2009_PLUS_AREZZO_BALANCE_V1: the library chest's purse (always), upgrade materials of its level (40%) and a
+# valuable (15%) - the bottom of the ladder (Biblioteka/Wukong < Razador/Skorpion < Nemere < Dzungla).
+Group	MT2009_chest_biblioteka_sakwa
+{
+	Vnum	950734
+	1	gold	100000	50 -- Yang 100 000
+	2	gold	200000	30 -- Yang 200 000
+	3	gold	400000	15 -- Yang 400 000
+	4	gold	800000	5 -- Yang 800 000
+}
+Group	MT2009_chest_biblioteka_mat
+{
+	Vnum	950735
+	1	30030	2	10 -- Zardzewiale Ostrze
+	2	30092	2	8 -- Zdobycz Dzikusa
+	3	30041	2	8 -- Shuriken
+	4	30352	2	8 -- Orkowe Jadra
+	5	30075	1	5 -- Shuriken+
+	6	30021	2	10 -- Kawalek Klejnotu
+	7	30057	2	10 -- Oczy Pajaka
+	8	30006	2	10 -- Zab Orka
+	9	30022	2	8 -- Ogon Weza
+	10	27799	3	10 -- Rybia Osc
+	11	27987	1	5 -- Malz
+}
+Group	MT2009_chest_biblioteka_val
+{
+	Vnum	950736
+	1	50300	1	40 -- Ksiega Umiejetnosci
+	2	25040	2	30 -- Zwoj Blogoslawienstwa x2
+	3	s10980	1	15 -- Kamien Duszy +0
+	4	71084	1	10 -- Zaczarowanie Przedmiotu
+	5	50513	1	5 -- Kamien Duchowy
 }

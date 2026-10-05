@@ -5,7 +5,28 @@
 //   clang++ -std=c++20 -Wall -I. tests/playerbot_conversation_test.cpp -o /tmp/pbconv && /tmp/pbconv
 // Pass -v to print every conversation.
 
+// MT2009 PLUS's chat V2 (upstream 2.22.0) puts each reply in the bot's own
+// hand: a moment to read, then as long as the line takes to type, and a
+// lower-case start, a dropped full stop, slang and the odd typo with a
+// "*word" after it (playerbot_conv_style.h). The scenarios below test what a
+// bot answers and when it may answer at all, so they run with a plain hand:
+// the engine's calls to the hand are redirected once the real hand has been
+// declared, and TestTypingHand checks the real one on its own.
+#include "playerbot_conv_style.h"
+namespace playerbot_conv
+{
+	inline std::string PlainHand(const std::string& text, const TBotSnapshot&, std::string& fix, bool = false, bool = false)
+	{
+		fix.clear();
+		return text;
+	}
+	inline u32 NoTyping(const TBotSnapshot&) { return 0; }
+}
+#define Casualize(text, snap, rng, fix, ...) PlainHand(text, snap, fix, __VA_ARGS__)
+#define TypingDelayMs(text, snap, rng) NoTyping(snap)
 #include "playerbot_conv_engine.h"
+#undef Casualize
+#undef TypingDelayMs
 #include <cstdio>
 #include <cstdlib>
 
@@ -433,8 +454,10 @@ static void Test6_Spam()
 	CHECK(s.Sent() >= 1 && s.Sent() <= 5, "spam -> a few whispers, not 20 (%u)", (unsigned)s.Sent());
 	for (size_t i = 1; i < s.host.sent.size(); ++i)
 		CHECK(s.host.sent[i].at - s.host.sent[i - 1].at >= 850, "no machine-gun: gap %u ms", s.host.sent[i].at - s.host.sent[i - 1].at);
-	// Conversation still works afterwards.
-	s.Wait(5000);
+	// Conversation still works afterwards - once the minute the rate limit
+	// counts in has passed (chat V2: more than CONV_RATE_LINES lines in it
+	// mute the bot for CONV_MUTE_MS).
+	s.Wait(CONV_RATE_WINDOW_MS);
 	const size_t before = s.Sent();
 	s.Say("co robisz?");
 	s.Wait(1600);
@@ -451,6 +474,7 @@ static void TestNoLostMessages()
 	s.Say("gdzie?"); // right after the reply - the old limiter dropped this
 	s.Wait(1700);
 	CHECK(s.Sent() == 2, "second answered without repeating (%u)", (unsigned)s.Sent());
+	if (s.host.sent.size() < 2) return;
 	const u32 gap = s.host.sent[1].at - s.host.sent[0].at;
 	CHECK(gap >= 700, "second not instant (%u)", gap);
 }
@@ -1099,7 +1123,8 @@ static void TestSummon()
 		for (int i = 0; i < 5; ++i)
 			Ask(s, "debil", 2000);
 		const std::string l = Ask(s, "chodz do mnie");
-		CHECK(s.host.world.starts == 0 && Contains(l, "Nie"), "hostile: '%s'", l.c_str());
+		// Chat V2: out of patience, a bot may not answer at all.
+		CHECK(s.host.world.starts == 0 && (l.empty() || Contains(l, "Nie")), "hostile: '%s'", l.c_str());
 	}
 	{
 		// A stranger with a reason in the line comes.
@@ -1334,7 +1359,7 @@ static void TestShowItem()
 		CHECK(!r2.empty() && !Contains(r2, "Ciekawe") && !Contains(r2, "Hmm"), "seed %u link reacted to: '%s'", seed, r2.c_str());
 		CHECK(r2 != r1, "seed %u second look is not the first", seed);
 		const std::string r3 = Ask(s, "haha bieda w huj zawijaj stad");
-		CHECK(Contains(r3, "zwijam") || Contains(r3, "nie ma"), "seed %u leaving: '%s'", seed, r3.c_str());
+		CHECK(Contains(r3, "zwijam") || Contains(r3, "nie ma") || Contains(r3, "zaraz ide"), "seed %u leaving: '%s'", seed, r3.c_str());
 	}
 	TScenario s(9);
 	const std::string r = Ask(s, "[Zwoj Blogoslawienstwa]");
@@ -1443,8 +1468,9 @@ static void TestMathAndThreat()
 	CHECK(Contains(r3, "a co") || Contains(r3, "Za co"), "a threat asks what for: '%s'", r3.c_str());
 }
 
-// Lines nothing in the lexicon understands: no "Ciekawe." and no "Hmm,
-// ciezko powiedziec", and a second one in a row steers.
+// Lines nothing in the lexicon understands: no "Ciekawe." and no "No tak.",
+// and a second one in a row steers. ("Hmm, ciezko powiedziec." is one of
+// chat V2's answers to a question nothing understands.)
 static void TestFallbacks()
 {
 	for (u32 seed = 1; seed <= 6; ++seed)
@@ -1454,9 +1480,39 @@ static void TestFallbacks()
 		const std::string r2 = Ask(s, "a tamto zielone cos?");
 		const std::string r3 = Ask(s, "i tak dalej i tak dalej");
 		const std::string all = r1 + " | " + r2 + " | " + r3;
-		CHECK(!Contains(all, "Ciekawe.") && !Contains(all, "Hmm, ciezko powiedziec") && !Contains(all, "No tak."),
+		CHECK(!Contains(all, "Ciekawe.") && !Contains(all, "No tak."),
 				"seed %u generic: %s", seed, all.c_str());
 		CHECK(r1 != r2 && r2 != r3, "seed %u fallbacks vary: %s", seed, all.c_str());
+	}
+}
+
+// Chat V2's hand (playerbot_conv_style.h), which the scenarios run without:
+// a name keeps its capital, a cold reply keeps its words, a correction names
+// the word it fixes, and the typing time stays inside what a person takes.
+static void TestTypingHand()
+{
+	const char* const kNames[] = { "Punnane", "Dupeeeeczkaa", "KimTyJestes", "Tryhard1337", "CiosZKarpia" };
+	const std::string line = "Jestem w Dolinie Orkow, bije orki od rana i dalej nie mam drop. Lost3k tez tu jest.";
+	for (size_t n = 0; n < sizeof(kNames) / sizeof(kNames[0]); ++n)
+	{
+		TBotSnapshot snap;
+		snap.name = kNames[n];
+		snap.askerName = "Lost3k";
+		for (u32 seed = 1; seed <= 200; ++seed)
+		{
+			TRng rng(seed);
+			std::string fix;
+			const std::string out = Casualize(line, snap, rng, fix, false);
+			CHECK(!out.empty() && Contains(out, "Lost3k"), "%s seed %u: the asker's name kept: '%s'", kNames[n], seed, out.c_str());
+			CHECK(fix.empty() || fix[0] == '*', "%s seed %u: a fix is '*word': '%s'", kNames[n], seed, fix.c_str());
+			TRng cold(seed);
+			std::string coldFix;
+			const std::string c = Casualize(line, snap, cold, coldFix, true);
+			CHECK(coldFix.empty() && Contains(c, "Dolinie Orkow"), "%s seed %u: a cold reply has no typo: '%s'", kNames[n], seed, c.c_str());
+			TRng t(seed);
+			const u32 ms = TypingDelayMs(out, snap, t);
+			CHECK(ms >= 150 && ms <= 7400, "%s seed %u: typing %u ms", kNames[n], seed, ms);
+		}
 	}
 }
 
@@ -1518,6 +1574,7 @@ int main(int argc, char** argv)
 	TestMapChangeOwned();
 	TestMathAndThreat();
 	TestFallbacks();
+	TestTypingHand();
 	DemoConversation();
 	printf("\n%d checks, %d failures\n", g_checks, g_failures);
 	return g_failures ? 1 : 0;

@@ -3,6 +3,11 @@
 -- Stra¿nik D¿ungli (20425) w Zaczarowanym Lesie. Etapy: 3 fale po 40 stworzeñ (Pieczêæ D¿ungli 30768),
 -- 6 Staro¿ytnych Kamieni, 3 Faethorny, 4 Pradawne Kamienie, Królewska Sowa, Królowa D¿ungli; potem 2-5 Skrzyñ
 -- D¿ungli (30776) dla ka¿dego gracza. Limit 60 minut, ponowne wejœcie po 60 minutach.
+-- MT2009_PLUS_BOT_DUNGEONS_ALL_V1: mapa lochu jest od teraz na rdzeniu game1, razem z botami
+-- (m2-render-config) - gdzie ni¿ej mowa o game2, chodzi o rdzeñ, który hostuje mapê:
+-- d.new_jump_pids tworzy instancjê na miejscu i przenosi do niej ludzi z dru¿yny, a boty
+-- z dru¿yny gracza wchodz¹ za nim do tej samej instancji, walcz¹ przy nim i wychodz¹ z nim
+-- (playerbot_party_dungeon.h). Op³ata, limit dzienny, poziom i odpoczynek s¹ tylko dla ludzi.
 quest starozytna_dzungla begin
 	state start begin
 		function cfg()
@@ -17,7 +22,7 @@ quest starozytna_dzungla begin
 				limit_min = 60,
 				-- MT2009_PLUS_DUNGEON_FEE_V1: the price of a new expedition (each player, paid on entering it) and
 				-- how many new expeditions a player may start a day (Polish midnight).
-				fee = 15000000, fee_text = "15 000 000",
+				fee = 7500000, fee_text = "7 500 000", -- MT2009_PLUS_AREZZO_BALANCE_V1: half of 15 000 000 (the owner, 5 October)
 				daily = 5,
 				wave_kills = 40,
 				seals = 3,
@@ -51,6 +56,16 @@ quest starozytna_dzungla begin
 			return not pc.is_gm() and pc.get_money() < c.fee
 		end
 
+		-- MT2009_PLUS_DUNGEON_FEE_LEADER_V1: who pays (the owner, 5 October: "Za wejœcie na dungeon z botami
+		-- (równie¿ z towarzyszem) p³aci tylko lider grupy. Jak boty id¹ same - p³ac¹ normalnie"). A person
+		-- pays for himself alone, once, on his first login into the new instance - after the entry worked,
+		-- never at the guard - and the guard checks the fee, the day's runs, the level and the rest of the
+		-- people going in only: a bot of the party (the companion, a finder's bot, any bot the person
+		-- invited) is never asked for the fee nor charged it, whether the person or the bot leads the
+		-- party. A member counts as a person only when the quest's block really switched to him
+		-- (pc.get_player_id() == pid, as devilcatacomb_zone asks): a block that stayed on the one talking
+		-- would put the member on the list with the talker's own figures. Two people with bots: each person
+		-- his own, as before. The bots' own runs (playerbot_dungeon_runs.h) pay in the core, as before.
 		function pay_entry()
 			local c = starozytna_dzungla.cfg()
 			if pc.is_gm() or pc.is_playerbot() then
@@ -73,6 +88,26 @@ quest starozytna_dzungla begin
 			pc.setf("starozytna_dzungla", "runs", pc.getf("starozytna_dzungla", "runs") + 1)
 			syschat("Op³ata za wejœcie: "..c.fee_text.." Yang. Dzisiejsza wyprawa "..pc.getf("starozytna_dzungla", "runs").."/"..c.daily..".")
 			return true
+		end
+
+		-- MT2009_PLUS_BOT_DUNGEONS_ALL_V1: a party a bot leads (a person's companion takes the person
+		-- into its own party) is the person's to open - its leader is nobody to ask. The leader is
+		-- looked at only among the members on this map (get_member_pids), as everywhere here.
+		function bot_leads()
+			local lp = party.get_leader_pid()
+			if lp == nil or lp == 0 or lp == pc.get_player_id() then
+				return false
+			end
+			local bot = false
+			local pids = {party.get_member_pids()}
+			for i, pid in next, pids, nil do
+				if pid == lp then
+					q.begin_other_pc_block(pid)
+					bot = pc.get_player_id() == pid and pc.is_playerbot()
+					q.end_other_pc_block()
+				end
+			end
+			return bot
 		end
 
 		function inside()
@@ -103,7 +138,8 @@ quest starozytna_dzungla begin
 			end
 			d.setf("ended", 1)
 			d.setqf2("starozytna_dzungla", "idx", 0)
-			if d.getf("mt2009_dgbot") ~= 1 then
+			-- MT2009_PLUS_BOT_DUNGEON_RUNS_V1: nor for the bots' own runs (no player waits on their slot).
+			if d.getf("mt2009_dgbot") ~= 1 and d.getf("mt2009_dgrun") ~= 1 then
 				game.set_event_flag(starozytna_dzungla.end_flag(d.get_map_index()), get_global_time())
 			end
 		end
@@ -281,8 +317,9 @@ quest starozytna_dzungla begin
 			say("kto wszed³ tam bez dru¿yny najlepszych wojowników.")
 			say("")
 			say_reward("Wymagany poziom: "..c.min_level..". Limit "..c.limit_min.." minut, ponowne wejœcie po "..math.floor(c.cooldown / 60).." minutach.")
-			say_reward("Loch jest tylko dla graczy - boty z dru¿yny zostaj¹ tutaj.")
+			say_reward("Boty z Twojej dru¿yny wejd¹ do lochu razem z Tob¹.")
 			say_reward("Wejœcie: "..c.fee_text.." Yang. Najwy¿ej "..c.daily.." wypraw dziennie (dziœ: "..starozytna_dzungla.runs_today().."/"..c.daily..").") -- MT2009_PLUS_DUNGEON_FEE_V1
+			say_reward("P³acisz tylko za siebie - boty z dru¿yny i towarzysz wchodz¹ bez op³aty.") -- MT2009_PLUS_DUNGEON_FEE_LEADER_V1
 			if select("WejdŸ do lochu", "Nie teraz") ~= 1 then
 				return
 			end
@@ -325,7 +362,7 @@ quest starozytna_dzungla begin
 					return
 				end
 			end
-			if party.is_party() and not party.is_leader() then
+			if party.is_party() and not party.is_leader() and not starozytna_dzungla.bot_leads() then
 				say_title(mob_name(20425))
 				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
 				say("Stañ przy mnie - przywódca zabierze dru¿ynê stoj¹c¹ obok.")
@@ -364,7 +401,7 @@ quest starozytna_dzungla begin
 					if pid ~= me then
 						q.begin_other_pc_block(pid)
 						local dx, dy = pc.get_x() - lx, pc.get_y() - ly
-						if not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
+						if pc.get_player_id() == pid and not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
 							table.insert(humans, pid)
 							if pc.get_level() < c.min_level then
 								table.insert(low, pc.get_name())
@@ -428,7 +465,7 @@ quest starozytna_dzungla begin
 					if pid ~= me then
 						q.begin_other_pc_block(pid)
 						local dx, dy = pc.get_x() - lx, pc.get_y() - ly
-						if not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
+						if pc.get_player_id() == pid and not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
 							pc.warp(x, y)
 						end
 						q.end_other_pc_block()
@@ -483,7 +520,7 @@ quest starozytna_dzungla begin
 				end
 				pc.setf("starozytna_dzungla", "idx", 0)
 			end
-			if party.is_party() and not party.is_leader() then
+			if party.is_party() and not party.is_leader() and not starozytna_dzungla.bot_leads() then
 				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
 				say("Poczekaj tu na niego - zabierze ca³¹ dru¿ynê.")
 				return
@@ -497,7 +534,7 @@ quest starozytna_dzungla begin
 				local pids = {party.get_member_pids()}
 				for i, pid in next, pids, nil do
 					q.begin_other_pc_block(pid)
-					if not pc.is_playerbot() then
+					if pc.get_player_id() == pid and not pc.is_playerbot() then
 						table.insert(humans, pid)
 						if pc.get_level() < c.min_level then
 							table.insert(low, pc.get_name())
@@ -687,6 +724,18 @@ quest starozytna_dzungla begin
 		when dzungla_dgbot.server_timer begin
 			if d.select(get_server_timer_arg()) then
 				if d.getf("mt2009_dgbot") == 1 and d.getf("init") == 0 then
+					starozytna_dzungla.init()
+				end
+			end
+		end
+
+		-- MT2009_PLUS_BOT_DUNGEON_RUNS_V1: the start of an ordinary bot party's run (playerbot_dungeon_runs.h).
+		-- The bots cannot answer the guard's dialog, so the core makes the instance itself, marks it with
+		-- the dungeon flag mt2009_dgrun - nothing a player can set - and asks for this. Unlike the test
+		-- cohort's (mt2009_dgbot) such a run keeps the player's time limit and the player's way out.
+		when dzungla_dgrun.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				if d.getf("mt2009_dgrun") == 1 and d.getf("init") == 0 then
 					starozytna_dzungla.init()
 				end
 			end

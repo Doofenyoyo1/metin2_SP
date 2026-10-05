@@ -14,6 +14,9 @@ Group	MT2009_chest_30774
 	6	50255	1	5 -- Cor Draconis (Rough)
 	7	50513	1	5 -- Kamien Duchowy
 	8	27987	1	10 -- Malz
+	9	s950744	1	100 -- sakwa Yang (MT2009_PLUS_AREZZO_BALANCE_V1)
+	10	s950745	1	70 -- materialy ulepszen 45-55
+	11	s950746	1	35 -- cenny przedmiot
 }
 Group	MT2009_chest_30774_gear
 {
@@ -110,7 +113,7 @@ Group	MT2009_chest_30774_misc
 	11	16160	1	8 -- Krysztalowy Naszyjnik+0
 	12	15160	1	8 -- Ekstazyjne Buty+0
 	13	exp	150000	25 -- EXP 150 000
-	14	gold	250000	25 -- Yang 250 000
+	14	gold	500000	25 -- Yang 500 000 (MT2009_PLUS_AREZZO_BALANCE_V1: 250 000 before)
 }
 Group	MT2009_chest_30774_pet
 {
@@ -159,6 +162,9 @@ Group	MT2009_chest_30775
 	2	s950752	1	100 -- zapychacz
 	3	s950752	1	45 -- drugi zapychacz
 	4	s950753	1	50 -- przedmiot do peta
+	5	s950754	1	100 -- sakwa Yang (MT2009_PLUS_AREZZO_BALANCE_V1)
+	6	s950755	1	80 -- materialy ulepszen 65-75
+	7	s950756	1	60 -- cenny przedmiot
 }
 Group	MT2009_chest_30775_gear
 {
@@ -235,7 +241,7 @@ Group	MT2009_chest_30775_misc
 	11	16180	1	8 -- Ametystowy Naszyjnik+0
 	12	13140	1	6 -- Tarcza Tytanow+0
 	13	exp	600000	25 -- EXP 600 000
-	14	gold	800000	25 -- Yang 800 000
+	14	gold	1500000	25 -- Yang 1 500 000 (MT2009_PLUS_AREZZO_BALANCE_V1: 800 000 before)
 }
 Group	MT2009_chest_30775_pet
 {
@@ -284,6 +290,9 @@ Group	MT2009_chest_30776
 	2	s950762	1	100 -- zapychacz
 	3	s950762	1	50 -- drugi zapychacz
 	4	s950763	1	60 -- przedmiot do peta
+	5	s950765	1	100 -- sakwa Yang (MT2009_PLUS_AREZZO_BALANCE_V1)
+	6	s950766	1	85 -- materialy ulepszen 75-100
+	7	s950767	1	70 -- cenny przedmiot
 }
 Group	MT2009_chest_30776_gear
 {
@@ -394,4 +403,126 @@ Group	MT2009_dropedit_pearl
 	1	27992	1	4 -- Biala Perla
 	2	27993	1	2 -- Niebieska Perla
 	3	27994	1	1 -- Krwawa Perla
+}
+# MT2009_PLUS_AREZZO_BALANCE_V1: every Arezzo chest gets a purse (always), upgrade materials of its level and a valuable,
+# each tier clearly above the one before (Biblioteka < Wukong < Razador < Skorpion < Nemere < Dzungla).
+Group	MT2009_chest_30774_sakwa
+{
+	Vnum	950744
+	1	gold	400000	50 -- Yang 400 000
+	2	gold	700000	30 -- Yang 700 000
+	3	gold	1200000	15 -- Yang 1 200 000
+	4	gold	2500000	5 -- Yang 2 500 000
+}
+Group	MT2009_chest_30774_mat
+{
+	Vnum	950745
+	1	30076	2	10 -- Amulet Orka+
+	2	30059	3	10 -- Nogi Pajaka
+	3	30350	2	10 -- Pazury Malpy
+	4	30352	2	8 -- Orkowe Jadra
+	5	30080	2	8 -- Ksiega Klatw+
+	6	30047	3	8 -- Ksiega Klatw
+	7	30078	2	8 -- Ezoteryczny Przewodnik+
+	8	30079	2	8 -- Nieznany Talizman+
+	9	30009	3	8 -- Nieznane Lekarstwo
+	10	30016	3	8 -- Klejnot Demona
+	11	30088	2	6 -- Kawalek Lodu+
+	12	30014	3	6 -- Futro Yeti
+	13	30082	2	6 -- Ogon Weza+
+	14	27799	3	8 -- Rybia Osc
+	15	27987	2	6 -- Malz
+}
+Group	MT2009_chest_30774_val
+{
+	Vnum	950746
+	1	50300	2	25 -- Ksiega Umiejetnosci x2
+	2	25040	3	20 -- Zwoj Blogoslawienstwa x3
+	3	s10987	1	15 -- Kamien Duszy +0..+3
+	4	50513	1	8 -- Kamien Duchowy
+	5	71084	1	10 -- Zaczarowanie Przedmiotu
+	6	71085	1	7 -- Wzmocnienie Przedmiotu
+	7	s10992	1	8 -- losowa ksiega (srednia)
+	8	30370	1	7 -- Pozwolenie na Zaczar. Przedmiotu
+}
+Group	MT2009_chest_30775_sakwa
+{
+	Vnum	950754
+	1	gold	900000	50 -- Yang 900 000
+	2	gold	1600000	30 -- Yang 1 600 000
+	3	gold	2800000	15 -- Yang 2 800 000
+	4	gold	5000000	5 -- Yang 5 000 000
+}
+Group	MT2009_chest_30775_mat
+{
+	Vnum	950755
+	1	30015	3	10 -- Pamiatka Po Demonie
+	2	30016	3	10 -- Klejnot Demona
+	3	30089	2	8 -- Futro Yeti+
+	4	30091	2	8 -- Symbol Wojownika
+	5	30079	2	8 -- Nieznany Talizman+
+	6	30087	2	8 -- Klejnot Demona+
+	7	30086	2	8 -- Pamiatka Po Demonie+
+	8	30354	2	8 -- Czerwone Nasiono
+	9	27992	1	8 -- Biala Perla
+	10	27993	1	5 -- Niebieska Perla
+	11	27994	1	2 -- Krwawa Perla
+	12	27987	3	7 -- Malz
+	13	30045	3	6 -- Igla Skorpiona
+	14	30046	3	6 -- Ogon Skorpiona
+	15	30081	2	6 -- Ogon Skorpiona+
+	16	30055	3	6 -- Szpon Skorpiona
+}
+Group	MT2009_chest_30775_val
+{
+	Vnum	950756
+	1	50300	3	20 -- Ksiega Umiejetnosci x3
+	2	25040	5	16 -- Zwoj Blogoslawienstwa x5
+	3	s10987	1	14 -- Kamien Duszy +0..+3
+	4	s10988	1	9 -- Kamien Duszy +2..+4
+	5	50513	1	16 -- Kamien Duchowy
+	6	71084	2	10 -- Zaczarowanie Przedmiotu x2
+	7	71085	2	8 -- Wzmocnienie Przedmiotu x2
+	8	25100	1	5 -- Zwoj Kamienia Duszy
+	9	s10993	1	6 -- losowa ksiega (wysoka)
+}
+Group	MT2009_chest_30776_sakwa
+{
+	Vnum	950765
+	1	gold	1500000	50 -- Yang 1 500 000
+	2	gold	2500000	30 -- Yang 2 500 000
+	3	gold	4000000	15 -- Yang 4 000 000
+	4	gold	8000000	5 -- Yang 8 000 000
+}
+Group	MT2009_chest_30776_mat
+{
+	Vnum	950766
+	1	30041	3	8 -- Shuriken
+	2	30075	2	8 -- Shuriken+
+	3	30092	3	8 -- Zdobycz Dzikusa
+	4	30076	2	8 -- Amulet Orka+
+	5	30359	2	8 -- Piasek Pustyni
+	6	30352	3	6 -- Orkowe Jadra
+	7	27799	5	6 -- Rybia Osc
+	8	30089	3	6 -- Futro Yeti+
+	9	30091	3	6 -- Symbol Wojownika
+	10	27992	2	10 -- Biala Perla
+	11	27993	2	8 -- Niebieska Perla
+	12	27994	1	6 -- Krwawa Perla
+	13	27987	5	6 -- Malz
+}
+Group	MT2009_chest_30776_val
+{
+	Vnum	950767
+	1	50300	5	15 -- Ksiega Umiejetnosci x5
+	2	25040	10	12 -- Zwoj Blogoslawienstwa x10
+	3	s10988	1	15 -- Kamien Duszy +2..+4
+	4	s10984	1	9 -- Kamien Duszy +4
+	5	50513	1	20 -- Kamien Duchowy
+	6	71084	3	9 -- Zaczarowanie Przedmiotu x3
+	7	71085	3	8 -- Wzmocnienie Przedmiotu x3
+	8	25100	1	6 -- Zwoj Kamienia Duszy
+	9	30373	1	4 -- Ksiega Erudyty
+	10	30374	1	3 -- Pioro Medrca
+	11	s10993	1	6 -- losowa ksiega (wysoka)
 }

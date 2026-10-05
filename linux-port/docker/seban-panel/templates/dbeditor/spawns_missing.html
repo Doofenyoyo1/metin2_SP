@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: the respawn editor before the game published its files (dbeditor/spawns.py). #}
+{% block title %}Respawn bossów i metinów · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% set dbe_tab = 'spawns' %}{% include 'dbeditor/_mobs_common.html' %}
+<h1>⏱️ Respawn bossów i metinów</h1>
+<section class="panel">
+  <p>Gra nie opublikowała jeszcze plików respawnu dla panelu.</p>
+  <p class="muted">Pliki pojawiają się przy starcie rdzeni na obrazie gry, który ma skrypt <code>m2-spawns</code> (MT2009 Plus z edytorem bazy danych).
+    Zaktualizuj serwer albo zrestartuj grę („Zastosuj” w Edytorze bazy danych) i wróć tutaj.</p>
+</section>
+{% endblock %}

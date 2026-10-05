@@ -1,0 +1,39 @@
+{# MT2009_PLUS_DBDATA_STAMP_V1 (popup): after a restart of the game cores the editor's pages ask to
+   download the client files again (dbeditor/clientdata.py, popup_state). Included by base.html. #}
+<dialog id="dbe-zip-popup" class="dbe-zip-popup" data-restart="{{ dbe_zip_popup.restart }}" data-cookie="{{ dbe_zip_popup.cookie }}" aria-labelledby="dbe-zip-popup-title">
+  <h2 id="dbe-zip-popup-title">⚠️ Pobierz nowe pliki klienta</h2>
+  <p>{{ dbe_zip_popup.text }}</p>
+  <div class="dbe-zip-popup-actions">
+    <a class="dbe-zip-popup-get" href="{{ dbe_zip_popup.zip }}" data-dbe-zip-close>⬇️ Pobierz pliki klienta (zip)</a>
+    <button type="button" data-dbe-zip-close>Rozumiem</button>
+  </div>
+</dialog>
+<style>
+.dbe-zip-popup{border:0;border-left:5px solid #f5b83d;border-radius:12px;padding:20px 22px;max-width:560px;width:92vw;background:var(--panel,#0f1520);color:var(--text,#e8edf5)}
+.dbe-zip-popup::backdrop{background:rgba(5,10,18,.7)}
+.dbe-zip-popup h2{margin:0 0 10px;font-size:20px}
+.dbe-zip-popup p{line-height:1.5;margin:0}
+.dbe-zip-popup-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin-top:18px}
+.dbe-zip-popup-actions a,.dbe-zip-popup-actions button{padding:10px 16px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;text-decoration:none}
+.dbe-zip-popup-get{background:var(--accent,#d6a74a);color:#111}
+.dbe-zip-popup-actions button{background:var(--panel-2,#131a24);color:inherit;border:1px solid var(--line,#253042)}
+</style>
+<script>
+(function () {
+  var box = document.getElementById('dbe-zip-popup');
+  if (!box || typeof box.showModal !== 'function') return;
+  function seen() {
+    // the restart this popup was about: the next one shows it again
+    document.cookie = box.dataset.cookie + '=' + box.dataset.restart + '; path=/; max-age=34560000; SameSite=Lax';
+  }
+  Array.prototype.forEach.call(box.querySelectorAll('[data-dbe-zip-close]'), function (el) {
+    el.addEventListener('click', function () { seen(); setTimeout(function () { box.close(); }, 0); });
+  });
+  box.addEventListener('cancel', seen);
+  function open() { if (!box.open) box.showModal(); }
+  // after the flash message's own dialog (e.g. "Restart rdzeni zlecony")
+  var flash = document.getElementById('flash-modal');
+  if (flash && flash.open) flash.addEventListener('close', open, {once: true});
+  else open();
+})();
+</script>

@@ -29,8 +29,10 @@
 // timer (and the manager's tick as a fallback). Nothing blocks, nothing sleeps.
 
 #include "playerbot_conv_generator.h"
+#include "playerbot_conv_style.h"
 #include <map>
 #include <set>
+#include <deque>
 #include <algorithm>
 
 namespace playerbot_conv
@@ -54,6 +56,24 @@ namespace playerbot_conv
 	const u32 CONV_INITIATIVE_GLOBAL_GAP_MS = 15 * 1000;
 	const u32 CONV_INITIATIVE_CHECK_MS = 20 * 1000;
 	const u32 CONV_MOOD_MENTION_MS = 10 * 60 * 1000;
+	// MT2009_PLUS_BOT_CHAT_V2: the rate limit. More lines than this from one
+	// person to one bot in a minute and the bot says so once and answers
+	// nothing for CONV_MUTE_MS; the lines still go into the memory.
+	const int CONV_RATE_LINES = 12;
+	const u32 CONV_RATE_WINDOW_MS = 60 * 1000;
+	const u32 CONV_MUTE_MS = 40 * 1000;
+	// Patience this low: the bot lets most lines go unanswered.
+	const int CONV_PATIENCE_IGNORE = 8;
+	const int CONV_PATIENCE_SHORT = 35;
+
+	// MT2009_PLUS_BOT_CHAT_V2: a line written and waiting to be "typed": the
+	// reply, its second half, a "*word" fix, a bot's own complaint.
+	struct TConvOut
+	{
+		u32 due;
+		std::string text;
+		TConvOut() : due(0) {}
+	};
 
 	struct TConvQueue
 	{
@@ -64,14 +84,24 @@ namespace playerbot_conv
 		u32 burstStart;
 		u32 burstCount;
 		bool spam;
-		std::string carry;
-		u32 carryDue;
+		std::deque<TConvOut> outbox;
 		u32 dropped;
 
 		TConvQueue() : firstAt(0), dueAt(0), lastSentAt(0), burstStart(0), burstCount(0),
-			spam(false), carryDue(0), dropped(0) {}
+			spam(false), dropped(0) {}
 
-		bool Pending() const { return !items.empty() || !carry.empty(); }
+		bool Pending() const { return !items.empty() || !outbox.empty(); }
+		// When the last line written so far goes out, 0 when none waits.
+		u32 OutboxEnd() const { return outbox.empty() ? 0 : outbox.back().due; }
+		void Push(u32 due, const std::string& text)
+		{
+			if (text.empty())
+				return;
+			TConvOut o;
+			o.due = due;
+			o.text = text;
+			outbox.push_back(o);
+		}
 	};
 
 	struct TConvPair
@@ -142,8 +172,8 @@ namespace playerbot_conv
 			u32 floor = 0;
 			if (q.lastSentAt != 0 && now - q.lastSentAt < CONV_MIN_GAP_MS)
 				floor = q.lastSentAt + CONV_MIN_GAP_MS;
-			if (!q.carry.empty())
-				floor = std::max(floor, q.carryDue + CONV_MIN_GAP_MS);
+			if (!q.outbox.empty())
+				floor = std::max(floor, q.OutboxEnd() + CONV_MIN_GAP_MS);
 			if (floor && (int)(floor - q.dueAt) > 0)
 				q.dueAt = floor;
 		}
@@ -294,7 +324,8 @@ namespace playerbot_conv
 				thanks = true;
 			if (IsColdIntent(it))
 				cold = true;
-			if (IsArgumentIntent(it) || it == I_ANSWER_TO_BOT || it == I_MATH)
+			// MT2009_PLUS_BOT_DUNGEON_LFG_V1: nor after the dungeon's yes or no.
+			if (IsArgumentIntent(it) || it == I_ANSWER_TO_BOT || it == I_MATH || it == I_LFG_ANSWER)
 				argued = true;
 		}
 		std::vector<const TAnalysis*> todo;
@@ -343,6 +374,10 @@ namespace playerbot_conv
 			Append(out, "Spoko.");
 
 		bool returned = false;
+		// MT2009_PLUS_BOT_CHAT_V2: a trade's answer is a seller's line - no
+		// "humor mi dzis dopisuje!" after "tego nie mam na straganie" (the
+		// owner, 4 October).
+		bool trade = g.m.deal.Live(now);
 		for (size_t i = 0; i < todo.size(); ++i)
 		{
 			const TAnalysis& a = *todo[i];
@@ -352,7 +387,13 @@ namespace playerbot_conv
 				++res.skipped;
 				continue;
 			}
-			std::string piece = GenerateOne(g, a);
+			// MT2009_PLUS_BOT_CHAT_V2: a line about what the bot itself said
+			// in public is answered in that context (ApplyPublicContext).
+			TAnalysis withPost = a;
+			ApplyPublicContext(g, withPost);
+			if (IsTradeIntent(withPost.intent))
+				trade = true;
+			std::string piece = GenerateOne(g, withPost);
 			if (piece.empty())
 				continue;
 			CapitalizeFirst(piece);
@@ -368,7 +409,7 @@ namespace playerbot_conv
 				continue;
 			Append(out, piece);
 			++res.answered;
-			res.lastIntent = a.intent;
+			res.lastIntent = withPost.intent;
 		}
 
 		// Nothing to say (a laugh let pass, an ignored insult).
@@ -380,9 +421,17 @@ namespace playerbot_conv
 				return res;
 		}
 
+		// MT2009_PLUS_BOT_CHAT_V2: short of patience, the bot asks nothing
+		// back and volunteers no mood.
+		if (mem.patience < CONV_PATIENCE_SHORT)
+		{
+			cold = true;
+			if (g.askBackKind != ASK_SUMMON)
+				g.askBack.clear();
+		}
 		// The mood shows, sometimes - never after a jibe ("daleko zajdziesz"
 		// answered with "Humor mi dzis dopisuje!" was a non sequitur).
-		if (!spam && !cold && !argued && res.answered > 0 && (mem.moodMentionAt == 0 || now - mem.moodMentionAt > CONV_MOOD_MENTION_MS))
+		if (!spam && !cold && !argued && !trade && res.answered > 0 && (mem.moodMentionAt == 0 || now - mem.moodMentionAt > CONV_MOOD_MENTION_MS))
 		{
 			bool moodSaid = false;
 			for (size_t i = 0; i < todo.size(); ++i)
@@ -539,6 +588,30 @@ namespace playerbot_conv
 				const EIntent previous = prev ? TurnSubject(*prev) : I_NONE;
 				ResolveContext(a, mem, now);
 				RememberPlayerLine(mem, a, now);
+				// MT2009_PLUS_BOT_CHAT_V2: the rate limit. The line is
+				// remembered either way; while muted it is not answered.
+				if (mem.rateStart == 0 || now - mem.rateStart > CONV_RATE_WINDOW_MS)
+				{
+					mem.rateStart = now;
+					mem.rateLines = 0;
+				}
+				++mem.rateLines;
+				if (mem.mutedUntil != 0 && (int)(mem.mutedUntil - now) > 0)
+					return a.intent;
+				if (mem.rateLines > CONV_RATE_LINES)
+				{
+					mem.mutedUntil = now + CONV_MUTE_MS;
+					UpdatePatience(mem, -15, now);
+					pair.queue.items.clear();
+					static const char* const kMute[] = {
+						"ej spokojnie, nie nadazam pisac :D daj mi chwile", "wolniej troche, ja tu jeszcze expie",
+						"dobra, za duzo tego, odpisze pozniej", "ej nie spamuj, zaraz ci odpisze",
+						"chwila chwila, nie ogarniam tylu wiadomosci xd" };
+					const char* line = kMute[m_rng.Range((u32)(sizeof(kMute) / sizeof(kMute[0])))];
+					pair.queue.Push(now + 1200 + m_rng.Range(1500), line);
+					m_pending.insert(Key(playerPID, botPID));
+					return a.intent;
+				}
 				const bool wasEmpty = !pair.queue.Pending();
 				const size_t droppedBefore = pair.queue.dropped;
 				const u32 delay = QueueLine(pair.queue, a, now, m_rng);
@@ -604,6 +677,41 @@ namespace playerbot_conv
 				replies = m_statReplies;
 				merged = m_statMerged;
 				dropped = m_statDropped;
+			}
+
+			// MT2009_PLUS_BOT_CHAT_V2: a line the bot says on its own - a spot
+			// quarrel's complaint (playerbot_spot_defense.h) - through the
+			// same hand, pace and memory as a reply: a "czemu?" after it is
+			// answered with `reason`, and the bot's next reply knows it spoke.
+			// `snap` gives the hand; `delayMs` is the moment it starts typing.
+			void QueueBotLine(IConvHost& host, u32 playerPID, u32 botPID, const std::string& text,
+					const std::string& reason, EIntent about, const TBotSnapshot& snap, u32 now, u32 delayMs)
+			{
+				(void)host;
+				if (text.empty())
+					return;
+				TConvPair& pair = GetPair(playerPID, botPID, now);
+				std::string fix;
+				const std::string typed = Casualize(text, snap, m_rng, fix, false);
+				u32 at = now + delayMs;
+				if (pair.queue.OutboxEnd() != 0 && (int)(pair.queue.OutboxEnd() + CONV_MIN_GAP_MS - at) > 0)
+					at = pair.queue.OutboxEnd() + CONV_MIN_GAP_MS;
+				at += TypingDelayMs(typed, snap, m_rng) / 2;
+				pair.queue.Push(at, typed);
+				if (!fix.empty())
+					pair.queue.Push(at + 800 + m_rng.Range(700), fix);
+				if (!reason.empty())
+					pair.mem.lastReason = reason;
+				RememberBotReply(pair.mem, about, text, now);
+				m_pending.insert(Key(playerPID, botPID));
+			}
+
+			// The pair's memory, for the engine side to read (the spot quarrel
+			// asks whether the person has apologised lately).
+			const TConvMemory* FindMemory(u32 playerPID, u32 botPID) const
+			{
+				TPairs::const_iterator it = m_pairs.find(Key(playerPID, botPID));
+				return it == m_pairs.end() ? NULL : &it->second.mem;
 			}
 
 			void ForgetBot(u32 botPID)
@@ -675,10 +783,12 @@ namespace playerbot_conv
 				const u32 playerPID = (u32)(key >> 32);
 				const u32 botPID = (u32)(key & 0xFFFFFFFFULL);
 
-				if (!q.carry.empty() && (int)(now - q.carryDue) >= 0)
+				// MT2009_PLUS_BOT_CHAT_V2: what has been "typed" goes out when
+				// its time comes - the reply, its second half, a "*fix".
+				while (!q.outbox.empty() && (int)(now - q.outbox.front().due) >= 0)
 				{
-					host.Send(playerPID, botPID, q.carry);
-					q.carry.clear();
+					host.Send(playerPID, botPID, q.outbox.front().text);
+					q.outbox.pop_front();
 					q.lastSentAt = now;
 					pair.mem.lastBotAt = now;
 				}
@@ -686,17 +796,32 @@ namespace playerbot_conv
 					return q.Pending();
 				if ((int)(now - q.dueAt) < 0)
 					return true;
-				if (!q.carry.empty())
-					return true; // the first half's second part goes first
+				if (!q.outbox.empty())
+					return true; // still typing the last one
 
 				TBotSnapshot snap;
 				if (!host.BuildSnapshot(playerPID, botPID, snap))
 				{
 					q.items.clear();
-					q.carry.clear();
+					q.outbox.clear();
 					return false;
 				}
 				const size_t count = q.items.size();
+				// Out of patience: most lines get nothing back. An apology or
+				// thanks always gets its answer.
+				if (pair.mem.patience <= CONV_PATIENCE_IGNORE)
+				{
+					bool kind = false;
+					for (size_t i = 0; i < q.items.size(); ++i)
+						if (q.items[i].intent == I_APOLOGY || q.items[i].intent == I_THANKS ||
+								q.items[i].intent == I_PRAISE)
+							kind = true;
+					if (!kind && m_rng.Chance(55))
+					{
+						q.items.clear();
+						return q.Pending();
+					}
+				}
 				TComposeResult res = ComposeReply(q.items, snap, pair.mem, host.World(playerPID, botPID),
 						m_rng, now, q.spam);
 				q.items.clear();
@@ -704,16 +829,35 @@ namespace playerbot_conv
 					return q.Pending();
 				std::string first, second;
 				SplitReply(res.text, first, second);
-				host.Send(playerPID, botPID, first);
+				// The bot's own hand and pace (playerbot_conv_style.h): a cold
+				// reply keeps its words, but not its capital letters.
+				const bool cold = res.lastIntent != I_NONE && IsColdIntent(res.lastIntent);
+				// A joke is told as it goes: its full stops are its timing.
+				const bool tidy = res.lastIntent == I_JOKE;
+				std::string fix1, fix2;
+				const std::string out1 = Casualize(first, snap, m_rng, fix1, cold, tidy);
+				const std::string out2 = second.empty() ? std::string() : Casualize(second, snap, m_rng, fix2, cold, tidy);
+				u32 at = now + TypingDelayMs(out1, snap, m_rng);
+				q.Push(at, out1);
+				if (!fix1.empty())
+				{
+					at += 700 + m_rng.Range(900);
+					q.Push(at, fix1);
+				}
+				if (!out2.empty())
+				{
+					at += CONV_SPLIT_DELAY_MS / 2 + TypingDelayMs(out2, snap, m_rng);
+					q.Push(at, out2);
+					if (!fix2.empty())
+					{
+						at += 700 + m_rng.Range(900);
+						q.Push(at, fix2);
+					}
+				}
 				++m_statReplies;
 				if (count > 1)
 					++m_statMerged;
 				q.lastSentAt = now;
-				if (!second.empty())
-				{
-					q.carry = second;
-					q.carryDue = now + CONV_SPLIT_DELAY_MS;
-				}
 				RememberBotReply(pair.mem, res.lastIntent, res.text, now);
 				if (m_debug)
 				{
@@ -722,7 +866,7 @@ namespace playerbot_conv
 							snap.askerName.c_str(), snap.name.c_str(), (unsigned int)count,
 							(unsigned int)res.answered, (unsigned int)res.skipped,
 							TierName(ComputeTier(pair.mem, snap.affinity, snap.askerInParty)),
-							second.empty() ? 0 : 1, res.text.c_str());
+							out2.empty() ? 0 : 1, (out1 + (out2.empty() ? "" : " / " + out2)).c_str());
 					host.Log(line);
 				}
 				return q.Pending();
@@ -759,7 +903,9 @@ namespace playerbot_conv
 					const std::string text = ChooseInitiative(m, snap, now, m_rng);
 					if (text.empty())
 						continue;
-					host.Send(m.playerPID, m.botPID, text);
+					// MT2009_PLUS_BOT_CHAT_V2: in the bot's own hand.
+					std::string fix;
+					host.Send(m.playerPID, m.botPID, Casualize(text, snap, m_rng, fix, false));
 					it->second.queue.lastSentAt = now;
 					m_lastInitiative = now;
 					if (m_debug)

@@ -35,5 +35,8 @@ linux-port-mt2009/docker/game/special_item_group.cors.txt -text
 linux-port-mt2009/docker/game/special_item_group.dungeons.txt -text
 linux-port-mt2009/docker/game/special_item_group.goblin.txt -text
 linux-port-mt2009/docker/game/mob_drop_item.metinbeans.append.txt -text
+linux-port-mt2009/docker/game/mob_drop_item.dtdrops.append.txt -text
+linux-port-mt2009/docker/game/special_item_group.unique_attr.txt -text
+linux-port/docker/seban-panel/dbeditor/fishing_drop.snapshot.lua -text
 linux-port-mt2009/docker/mariadb/playerbot/*.mt2009plus.sql -text
 linux-port-mt2009/docker/mariadb/playerbot/mod/*.sql -text

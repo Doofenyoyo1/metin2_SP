@@ -60,6 +60,15 @@ namespace playerbot_conv
 		// the bot's gear argued about: an item shown off, one to swap to, advice,
 		// a gift offered - and "you said something else before"
 		C_SHOWOFF, C_SWAP, C_ADVICE, C_GIFT, C_SAIDBEFORE,
+		// MT2009_PLUS_BOT_CHAT_V2: a joke asked for, real life ("w realu",
+		// "z jakiego miasta"), boy or girl, begging for yang or items, the
+		// channel, a meeting somewhere ("dawaj na ch1 m1"), a place
+		// recommended ("gdzie najlepiej", "polecasz"), "jeszcze jeden"
+		C_JOKE, C_TELL, C_REAL, C_CITY, C_GENDER, C_BEG, C_CHANNEL, C_MEET, C_RECOMMEND, C_MORE,
+		// "jak zrobic konia", "jak sie robi biologa"; an event; a ping or a lag
+		C_HOWTO, C_EVENT, C_PING,
+		// a deal: "jeszcze aktualne?", "biore", "pasuje"
+		C_STILL, C_AGREE,
 		C_COUNT
 	};
 
@@ -235,7 +244,12 @@ namespace playerbot_conv
 			{ "bron", C_GEAR, M_EXACT }, { "broni", C_GEAR, M_EXACT }, { "bronia", C_GEAR, M_EXACT },
 			{ "zbroj", C_GEAR, M_PREFIX }, { "miecz", C_GEAR, M_PREFIX }, { "luk", C_GEAR, M_EXACT },
 			{ "tarcz", C_GEAR, M_PREFIX }, { "helm", C_GEAR, M_PREFIX }, { "buty", C_GEAR, M_EXACT },
-			{ "sprzet", C_GEAR, M_PREFIX }, { "item", C_GEAR, M_PREFIX }, { "nosisz", C_GEAR, M_EXACT },
+			// MT2009_PLUS_BOT_CHAT_V2: "sprzet" only in its own forms - as a
+			// stem one typo from "sprzed..." it made "mam do sprzedania X" a
+			// question about the bot's gear.
+			{ "sprzet", C_GEAR, M_EXACT }, { "sprzetu", C_GEAR, M_EXACT }, { "sprzetem", C_GEAR, M_EXACT },
+			{ "sprzecie", C_GEAR, M_EXACT }, { "na sobie", C_GEAR, M_PHRASE },
+			{ "item", C_GEAR, M_PREFIX }, { "nosisz", C_GEAR, M_EXACT },
 			{ "set", C_GEAR, M_EXACT }, { "seta", C_GEAR, M_EXACT }, { "sztylet", C_GEAR, M_PREFIX },
 			{ "ostrz", C_GEAR, M_PREFIX }, { "dzwon", C_GEAR, M_PREFIX }, { "wachlarz", C_GEAR, M_PREFIX },
 			{ "naszyjnik", C_GEAR, M_PREFIX }, { "bransolet", C_GEAR, M_PREFIX }, { "kolczyk", C_GEAR, M_PREFIX },
@@ -258,7 +272,7 @@ namespace playerbot_conv
 			{ "zielar", C_HERB, M_PREFIX }, { "ziol", C_HERB, M_PREFIX }, { "mikstur", C_HERB, M_PREFIX },
 			{ "potk", C_HERB, M_PREFIX }, { "potek", C_HERB, M_EXACT }, { "alchemi", C_HERB, M_PREFIX },
 			{ "biolog", C_BIO, M_PREFIX },
-			{ "metin", C_METIN, M_PREFIX }, { "kamien", C_METIN, M_PREFIX }, { "stone", C_METIN, M_EXACT },
+			{ "metin", C_METIN, M_PREFIX }, { "metk", C_METIN, M_PREFIX }, { "kamien", C_METIN, M_PREFIX }, { "stone", C_METIN, M_EXACT },
 			{ "wiez", C_DT, M_PREFIX }, { "dt", C_DT, M_EXACT }, { "demon", C_DT, M_PREFIX },
 			{ "tower", C_DT, M_EXACT },
 			{ "wojn", C_WAR, M_PREFIX },
@@ -329,7 +343,12 @@ namespace playerbot_conv
 			{ "czlowiek", C_BOT, M_PREFIX }, { "prawdziwy gracz", C_BOT, M_PHRASE }, { "sztuczna inteligencja", C_BOT, M_PHRASE },
 			{ "debil", C_INSULT, M_PREFIX }, { "idiot", C_INSULT, M_PREFIX }, { "glupi", C_INSULT, M_PREFIX },
 			{ "noob", C_INSULT, M_PREFIX }, { "nub", C_INSULT, M_EXACT }, { "frajer", C_INSULT, M_PREFIX },
-			{ "kretyn", C_INSULT, M_PREFIX }, { "lamus", C_INSULT, M_PREFIX }, { "spadaj", C_INSULT, M_EXACT },
+			{ "kretyn", C_INSULT, M_PREFIX }, { "lamus", C_INSULT, M_PREFIX },
+			// MT2009_PLUS_BOT_CHAT_V2: "spadaj", "wypad", "zjezdzaj" are a person
+			// sending the bot away - the mock's "leave", which knows the spot.
+			{ "spadaj", C_MOCK, M_EXACT }, { "wypad", C_MOCK, M_EXACT }, { "wypadaj", C_MOCK, M_EXACT },
+			{ "zjezdzaj", C_MOCK, M_EXACT }, { "spieprzaj", C_MOCK, M_EXACT }, { "zmiataj", C_MOCK, M_EXACT },
+			{ "won", C_MOCK, M_EXACT }, { "sio", C_MOCK, M_EXACT }, { "wynocha", C_MOCK, M_EXACT },
 			{ "zamknij sie", C_INSULT, M_PHRASE }, { "ssiesz", C_INSULT, M_EXACT }, { "cienias", C_INSULT, M_PREFIX },
 			{ "pajac", C_INSULT, M_PREFIX }, { "baran", C_INSULT, M_EXACT }, { "gamon", C_INSULT, M_PREFIX },
 			{ "kozak", C_PRAISE, M_PREFIX }, { "szacun", C_PRAISE, M_PREFIX }, { "gratk", C_PRAISE, M_PREFIX },
@@ -611,6 +630,86 @@ namespace playerbot_conv
 			{ "klamczuch", C_SAIDBEFORE, M_EXACT }, { "sciemniasz", C_SAIDBEFORE, M_EXACT },
 			{ "kitujesz", C_SAIDBEFORE, M_EXACT }, { "nieprawda", C_SAIDBEFORE, M_EXACT },
 			{ "nie prawda", C_SAIDBEFORE, M_PHRASE },
+			// ---- MT2009_PLUS_BOT_CHAT_V2
+			// A joke: "opowiedz kawal", "znasz jakis dowcip", "rozsmiesz mnie".
+			// C_HUMOR names the topic; C_JOKE asks for one.
+			{ "opowiedz", C_TELL, M_PREFIX }, { "powiedz", C_TELL, M_PREFIX }, { "napisz", C_TELL, M_EXACT },
+			{ "rzuc", C_TELL, M_EXACT }, { "sypnij", C_TELL, M_EXACT }, { "dawaj", C_TELL, M_EXACT },
+			{ "rozsmiesz", C_JOKE, M_PREFIX }, { "rozbaw", C_JOKE, M_PREFIX }, { "kawal", C_JOKE, M_EXACT },
+			{ "kawalek", C_JOKE, M_EXACT }, { "kawala", C_JOKE, M_EXACT }, { "kawaly", C_JOKE, M_EXACT },
+			{ "zart", C_JOKE, M_EXACT }, { "zarty", C_JOKE, M_EXACT }, { "zarcik", C_JOKE, M_PREFIX },
+			{ "dowcip", C_JOKE, M_PREFIX }, { "suchar", C_JOKE, M_PREFIX }, { "joke", C_JOKE, M_PREFIX },
+			// Real life against the game: "a w real?", "skad jestes w realu".
+			{ "real", C_REAL, M_EXACT }, { "realu", C_REAL, M_EXACT }, { "reala", C_REAL, M_EXACT },
+			{ "irl", C_REAL, M_EXACT }, { "rl", C_REAL, M_EXACT }, { "poza gra", C_REAL, M_PHRASE },
+			{ "w prawdziwym", C_REAL, M_PHRASE }, { "naprawde skad", C_REAL, M_PHRASE },
+			{ "miasta", C_CITY, M_EXACT }, { "miasto", C_CITY, M_EXACT }, { "polski", C_CITY, M_EXACT },
+			{ "polska", C_CITY, M_EXACT }, { "polsce", C_CITY, M_EXACT }, { "kraju", C_CITY, M_EXACT },
+			{ "wojewodztw", C_CITY, M_PREFIX }, { "mieszkasz", C_CITY, M_FUZZY }, { "mieszka", C_CITY, M_PREFIX },
+			{ "dziewczyna jestes", C_GENDER, M_PHRASE }, { "jestes dziewczyna", C_GENDER, M_PHRASE },
+			{ "jestes chlopak", C_GENDER, M_PHRASE }, { "chlopak czy", C_GENDER, M_PHRASE },
+			{ "dziewczyna czy", C_GENDER, M_PHRASE }, { "facet czy", C_GENDER, M_PHRASE },
+			{ "laska czy", C_GENDER, M_PHRASE }, { "jestes laska", C_GENDER, M_PHRASE },
+			{ "jestes facet", C_GENDER, M_PHRASE }, { "jestes kobieta", C_GENDER, M_PHRASE },
+			{ "jestes facetem", C_GENDER, M_PHRASE }, { "jestes kobieta", C_GENDER, M_PHRASE },
+			{ "plec", C_GENDER, M_EXACT }, { "plci", C_GENDER, M_EXACT }, { "k czy m", C_GENDER, M_PHRASE },
+			// Begging: "daj yang", "pozycz 100k", "sponsorniesz?", "dasz cos?".
+			{ "pozycz", C_BEG, M_PREFIX }, { "sponsor", C_BEG, M_PREFIX }, { "zasponsor", C_BEG, M_PREFIX },
+			{ "zrzuc", C_BEG, M_PREFIX }, { "przelej", C_BEG, M_EXACT }, { "podaruj", C_BEG, M_EXACT },
+			{ "daj mi", C_BEG, M_PHRASE }, { "dasz mi", C_BEG, M_PHRASE }, { "dalbys mi", C_BEG, M_PHRASE },
+			{ "dasz cos", C_BEG, M_PHRASE }, { "daj cos", C_BEG, M_PHRASE }, { "dej", C_BEG, M_EXACT },
+			{ "zebram", C_BEG, M_EXACT }, { "zebrze", C_BEG, M_EXACT }, { "na biednego", C_BEG, M_PHRASE },
+			{ "daj yang", C_BEG, M_PHRASE }, { "daj kase", C_BEG, M_PHRASE }, { "daj kasa", C_BEG, M_PHRASE },
+			{ "daj hajs", C_BEG, M_PHRASE }, { "dasz yang", C_BEG, M_PHRASE }, { "dasz kase", C_BEG, M_PHRASE },
+			// The channel: "ch1", "ch 2", "na jakim kanale".
+			{ "ch", C_CHANNEL, M_EXACT }, { "ch1", C_CHANNEL, M_EXACT }, { "ch2", C_CHANNEL, M_EXACT },
+			{ "ch3", C_CHANNEL, M_EXACT }, { "ch4", C_CHANNEL, M_EXACT }, { "kanal", C_CHANNEL, M_PREFIX },
+			{ "channel", C_CHANNEL, M_PREFIX },
+			// Meeting somewhere: "dawaj na ch1 m1", "wbijaj do joan", "spotkajmy sie".
+			{ "spotkaj", C_MEET, M_PREFIX }, { "spotkamy", C_MEET, M_EXACT }, { "widzimy sie", C_MEET, M_PHRASE },
+			{ "dawaj na", C_MEET, M_PHRASE }, { "dawaj do", C_MEET, M_PHRASE }, { "wbijaj na", C_MEET, M_PHRASE },
+			{ "wbijaj do", C_MEET, M_PHRASE }, { "wbij na", C_MEET, M_PHRASE }, { "wbij do", C_MEET, M_PHRASE },
+			{ "przyjdz na", C_MEET, M_PHRASE }, { "przyjdz do", C_MEET, M_PHRASE }, { "chodz na", C_MEET, M_PHRASE },
+			{ "przejdz na", C_MEET, M_PHRASE }, { "zmien na", C_MEET, M_PHRASE }, { "lec na", C_MEET, M_PHRASE },
+			{ "czekam na", C_MEET, M_PHRASE }, { "czekam w", C_MEET, M_PHRASE }, { "teleportuj", C_MEET, M_PREFIX },
+			// "gdzie najlepiej expic", "co polecasz", "warto tam isc?"
+			{ "polecasz", C_RECOMMEND, M_EXACT }, { "polecisz", C_RECOMMEND, M_EXACT }, { "polec", C_RECOMMEND, M_EXACT },
+			{ "najlepiej", C_RECOMMEND, M_EXACT }, { "najlepsze", C_RECOMMEND, M_EXACT }, { "warto", C_RECOMMEND, M_EXACT },
+			{ "oplaca sie", C_RECOMMEND, M_PHRASE }, { "mam expic", C_RECOMMEND, M_PHRASE }, { "mam isc", C_RECOMMEND, M_PHRASE },
+			{ "moim lvl", C_RECOMMEND, M_PHRASE }, { "moj lvl", C_RECOMMEND, M_PHRASE }, { "moim poziomie", C_RECOMMEND, M_PHRASE },
+			{ "jeszcze jeden", C_MORE, M_PHRASE }, { "jeszcze jedno", C_MORE, M_PHRASE }, { "kolejny", C_MORE, M_EXACT },
+			{ "kolejne", C_MORE, M_EXACT }, { "nastepny", C_MORE, M_EXACT }, { "jeszcze raz", C_MORE, M_PHRASE },
+			{ "dawaj jeszcze", C_MORE, M_PHRASE }, { "jakis inny", C_MORE, M_PHRASE }, { "jeszcze cos", C_MORE, M_PHRASE },
+			{ "jak zrobic", C_HOWTO, M_PHRASE }, { "jak sie robi", C_HOWTO, M_PHRASE }, { "jak zdobyc", C_HOWTO, M_PHRASE },
+			{ "jak dostac", C_HOWTO, M_PHRASE }, { "jak zarobic", C_HOWTO, M_PHRASE }, { "jak wbic", C_HOWTO, M_PHRASE },
+			{ "jak zalozyc", C_HOWTO, M_PHRASE }, { "jak ulepszyc", C_HOWTO, M_PHRASE }, { "jak najszybciej", C_HOWTO, M_PHRASE },
+			{ "jak szybko", C_HOWTO, M_PHRASE }, { "co zrobic zeby", C_HOWTO, M_PHRASE }, { "jak sie dostac", C_HOWTO, M_PHRASE },
+			{ "jak sie zdobywa", C_HOWTO, M_PHRASE }, { "jak sie robi", C_HOWTO, M_PHRASE }, { "jak zaczac", C_HOWTO, M_PHRASE },
+			{ "jak sie robilo", C_HOWTO, M_PHRASE }, { "jak expic", C_HOWTO, M_PHRASE }, { "jak levelowac", C_HOWTO, M_PHRASE },
+			{ "jak lowic", C_HOWTO, M_PHRASE }, { "jak kopac", C_HOWTO, M_PHRASE }, { "jak czytac", C_HOWTO, M_PHRASE },
+			{ "event", C_EVENT, M_PREFIX }, { "evencie", C_EVENT, M_EXACT }, { "ivent", C_EVENT, M_PREFIX },
+			{ "wydarzeni", C_EVENT, M_PREFIX }, { "kalendarz", C_EVENT, M_PREFIX },
+			// ---- deals (MT2009_PLUS_BOT_CHAT_V2): the person selling, the
+			// post still meant, a price agreed
+			{ "moge ci sprzedac", C_SELLYOU, M_PHRASE }, { "moge sprzedac", C_SELLYOU, M_PHRASE },
+			{ "sprzedac ci", C_SELLYOU, M_PHRASE }, { "ci sprzedac", C_SELLYOU, M_PHRASE },
+			{ "mam do sprzedania", C_SELLYOU, M_PHRASE }, { "mam na sprzedaz", C_SELLYOU, M_PHRASE },
+			{ "do sprzedania", C_SELLYOU, M_PHRASE }, { "odkupisz", C_SELLYOU, M_EXACT },
+			{ "kupisz moje", C_SELLYOU, M_PHRASE }, { "chcesz kupic", C_SELLYOU, M_PHRASE },
+			{ "ile dasz", C_SELLYOU, M_PHRASE }, { "ile mi dasz", C_SELLYOU, M_PHRASE }, { "ile dajesz", C_SELLYOU, M_PHRASE },
+			{ "dalej kupujesz", C_SELLYOU, M_PHRASE }, { "wciaz kupujesz", C_SELLYOU, M_PHRASE },
+			{ "jeszcze kupujesz", C_SELLYOU, M_PHRASE }, { "nadal kupujesz", C_SELLYOU, M_PHRASE },
+			{ "dalej sprzedajesz", C_BUYME, M_PHRASE }, { "wciaz sprzedajesz", C_BUYME, M_PHRASE },
+			{ "jeszcze sprzedajesz", C_BUYME, M_PHRASE }, { "nadal sprzedajesz", C_BUYME, M_PHRASE },
+			{ "jeszcze", C_STILL, M_EXACT }, { "dalej", C_STILL, M_EXACT }, { "wciaz", C_STILL, M_EXACT },
+			{ "nadal", C_STILL, M_EXACT }, { "aktualn", C_STILL, M_PREFIX }, { "pisales", C_STILL, M_EXACT },
+			{ "pisalas", C_STILL, M_EXACT }, { "na wolaj", C_STILL, M_PHRASE }, { "na handlowym", C_STILL, M_PHRASE },
+			{ "biore", C_AGREE, M_EXACT }, { "wezme", C_AGREE, M_EXACT }, { "pasuje", C_AGREE, M_EXACT },
+			{ "zgoda", C_AGREE, M_EXACT }, { "umowa", C_AGREE, M_EXACT }, { "stoi", C_AGREE, M_EXACT },
+			{ "zgadzam", C_AGREE, M_PREFIX }, { "moze byc", C_AGREE, M_PHRASE }, { "niech bedzie", C_AGREE, M_PHRASE },
+			{ "dobra cena", C_AGREE, M_PHRASE }, { "deal", C_AGREE, M_EXACT },
+			{ "ping", C_PING, M_EXACT }, { "pinga", C_PING, M_EXACT }, { "lag", C_PING, M_PREFIX }, { "laguje", C_PING, M_EXACT },
+			{ "lagi", C_PING, M_EXACT }, { "przycina", C_PING, M_PREFIX }, { "zacina", C_PING, M_PREFIX },
 			// ---- sentiment of a statement
 			{ "super", C_POSITIVE, M_EXACT }, { "fajnie", C_POSITIVE, M_EXACT }, { "ekstra", C_POSITIVE, M_EXACT },
 			{ "wbilem", C_POSITIVE, M_EXACT }, { "dropnalem", C_POSITIVE, M_EXACT }, { "dropnelo", C_POSITIVE, M_EXACT },
@@ -972,6 +1071,32 @@ namespace playerbot_conv
 			out.Set(C_BUILD, buildWord);
 		if (buff && buffWord >= 0)
 			out.Set(C_BUFFNAME, buffWord);
+
+		// MT2009_PLUS_BOT_CHAT_V2: the new concepts' collisions.
+		for (size_t i = 0; i < tok.words.size(); ++i)
+		{
+			const std::string& w = tok.words[i];
+			// "wypad" alone is "get out", not a drop ("wypadlo").
+			if (w == "wypad" || w == "wypadaj")
+				out.Unset(C_DROP);
+			// "dobry kawal opowiedziales" is a reaction, not a request.
+			if (StartsWith(w, "opowiedzial") || StartsWith(w, "powiedzial"))
+				out.Unset(C_TELL);
+			// "przyjdz do mnie", "wbijaj do mnie": the summon, not a meeting
+			// somewhere; "dawaj do pt" is a party.
+			if ((w == "do" || w == "na") && i > 0 && i + 1 < tok.words.size() &&
+					(tok.words[i + 1] == "mnie" || tok.words[i + 1] == "nas" || tok.words[i + 1] == "pt" ||
+					 tok.words[i + 1] == "party" || StartsWith(tok.words[i + 1], "druzyn") ||
+					 StartsWith(tok.words[i + 1], "gildi")))
+				out.Unset(C_MEET);
+		}
+		// "daj mi spokoj", "daj mi pt", "dasz mi buffa": not begging.
+		if (out.Has(C_BEG) && (out.Has(C_STOPTALK) || out.Has(C_PARTY) || out.Has(C_BUFF) || out.Has(C_BUFFNAME) ||
+				out.Has(C_SUMMON) || out.Has(C_JOIN)))
+			out.Unset(C_BEG);
+		// "real" beside a price is the currency of another game, not real life.
+		if (out.Has(C_REAL) && (out.Has(C_PRICEQ) || out.Has(C_BUYME) || out.Has(C_SELLYOU)))
+			out.Unset(C_REAL);
 	}
 
 	// The paths a line names, filtered the way ExtractConcepts filters them,

@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: Łowienie ryb - quest/libs/fishing/fishing_drop.lua through the spool (dbeditor/fishing.py, bin/m2-fishing). #}
+{% block title %}Łowienie ryb · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/_tables_head.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · ŁOWIENIE RYB</p>
+<h1>🎣 Łowienie ryb {% if source == 'custom' %}<small class="muted">· zmienione w panelu</small>{% endif %}</h1>
+<section class="panel dbt-note">
+  <p>Gdy ryba bierze (szansa ok. 20% + premia wędki), gra losuje <b>jedną pozycję</b> z tabeli niżej – spośród tych, które pasują do <b>wędki</b> (od +… do +…) i do <b>bonusu</b> wędkarza (bonus wędki + przynęta + 10 z premium). <b>Waga</b> mówi, jak często pozycja wypada w porównaniu z innymi.</p>
+  <p class="muted">Ta wersja gry nie używa pliku fishing.txt (długości ryb i „klasy map” z niego nie działają) – łowienie liczy biblioteka questów fishing_drop.lua i to ją zmienia ta strona. Boty łowią przez tę samą tabelę.</p>
+</section>
+<section class="panel dbt-note {{ status.kind if status.kind in ('ok', 'error') else 'warn' }}">
+  <p><b>Stan w grze:</b> {{ status.text }}{% if status.time %} <small class="muted">(raport gry: {{ status.time.strftime('%Y-%m-%d %H:%M') }})</small>{% endif %}</p>
+  {% if source == 'snapshot' %}<p class="muted">Gra nie udostępniła jeszcze swojego pliku (fishing/fishing_drop.base.lua w wolumenie) – pokazuję kopię z panelu.</p>{% endif %}
+</section>
+{% if problems %}<section class="panel dbt-note error">{% for p in problems %}<p>⚠️ {{ p }}</p>{% endfor %}</section>{% endif %}
+
+<section class="panel">
+  <h2>Co łowi każda wędka</h2>
+  <form method="get" class="dbt-actions">
+    <label>Przynęta<select name="przyneta">{% for vnum, name, bonus in baits %}<option value="{{ bonus }}" {{ 'selected' if bonus == extra }}>{{ name }} (+{{ bonus }})</option>{% endfor %}</select></label>
+    <label class="dbe-check"><input type="checkbox" name="premium" value="1" {{ 'checked' if premium }}> premium „Umysł Rybaka” (+10)</label>
+    <button>Pokaż</button>
+  </form>
+  <div class="dbt-wrap"><table class="dbt-table dbt-matrix">
+    <thead><tr><th>Przedmiot</th>{% for lv in levels %}<th class="num" title="{{ rods[lv].name }}, bonus wędki {{ rods[lv].bonus }}">+{{ lv }}<br><small>bonus {{ rods[lv].bonus + extra + (10 if premium else 0) }}</small></th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for e in lines %}{% set i = loop.index0 %}
+      <tr><td><span class="dbt-name">{% if e.icon %}<img src="{{ e.icon }}" alt="">{% endif %}<span class="{{ 'dbt-bad' if e.bad }}">{{ e.label }}{% if e.count > 1 %} ×{{ e.count }}{% endif %}</span></span></td>
+        {% for lv in levels %}{% set c = matrix[lv].get(i) %}<td class="num {{ '' if c else 'zero' }}">{{ ('%.2f'|format(c))|replace('.', ',') ~ '%' if c else '—' }}</td>{% endfor %}</tr>
+    {% endfor %}
+    <tr><td class="muted">Suma wag</td>{% for lv in levels %}<td class="num {{ 'dbt-bad' if not totals[lv] }}">{{ totals[lv] or 'NIC!' }}</td>{% endfor %}</tr>
+    </tbody>
+  </table></div>
+</section>
+
+<form method="post" action="{{ url_for('dbeditor.fishing_save') }}">
+<input type="hidden" name="dbe_csrf" value="{{ csrf }}">
+<input type="hidden" name="row_count" id="dbt-row-count" value="{{ lines|length }}">
+<section class="panel">
+  <h2>Tabela łowienia ({{ lines|length }} pozycji)</h2>
+  <p class="muted">Przedmiot: numer (VNUM) albo słowo <b>{{ dye }}</b> (losowa farba do włosów). Wędka +0…+9 (wędek +10…+{{ rod_max }} nie da się zdobyć). Minimalny bonus: pozycja wypada tylko, gdy bonus wędkarza jest co najmniej taki.</p>
+  <div class="dbt-wrap"><table class="dbt-table">
+    <thead><tr><th>Przedmiot</th><th>Nazwa</th><th class="num">Ilość</th><th class="num">Od wędki +</th><th class="num">Do wędki +</th><th class="num">Min. bonus</th><th class="num">Waga</th><th>Usuń</th></tr></thead>
+    <tbody id="dbt-rows">
+    {% for e in lines %}{% set i = loop.index0 %}
+      <tr>
+        <td><input name="r{{ i }}_item" value="{{ e.item }}" aria-label="Przedmiot"><input type="hidden" name="r{{ i }}_comment" value="{{ e.comment }}"></td>
+        <td><span class="dbt-name">{% if e.icon %}<img src="{{ e.icon }}" alt="">{% endif %}<span class="{{ 'dbt-bad' if e.bad }}">{{ e.label }}</span></span></td>
+        {% for k in ('count', 'rod_min', 'rod_max', 'bonus', 'weight') %}<td class="num"><input name="r{{ i }}_{{ k }}" value="{{ e[k] }}" inputmode="numeric" style="width:70px"></td>{% endfor %}
+        <td><input type="checkbox" name="r{{ i }}_delete" value="1" style="width:auto"></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <template id="dbt-row-template"><tr>
+    <td><input name="r__i___item" placeholder="VNUM lub {{ dye }}"></td><td class="muted">nowa pozycja</td>
+    <td class="num"><input name="r__i___count" value="1" style="width:70px"></td><td class="num"><input name="r__i___rod_min" value="0" style="width:70px"></td>
+    <td class="num"><input name="r__i___rod_max" value="9" style="width:70px"></td><td class="num"><input name="r__i___bonus" value="0" style="width:70px"></td>
+    <td class="num"><input name="r__i___weight" value="10" style="width:70px"></td><td><input type="checkbox" name="r__i___delete" value="1" style="width:auto"></td>
+  </tr></template>
+  <p><button type="button" id="dbt-add">➕ Dodaj pozycję</button></p>
+  <div class="dbt-actions">
+    <label>Notatka (opcjonalnie)<input name="note" maxlength="60" style="width:260px"></label>
+    <button name="action" value="save">💾 Zapisz</button>
+    {% if source == 'custom' %}<button name="action" value="reset" onclick="return confirm('Łowienie wróci do tabeli z obrazu gry. Na pewno?')">↺ Przywróć z obrazu gry</button>{% endif %}
+  </div>
+  <p class="muted">Przed zapisem panel sprawdza, czy każdy przedmiot istnieje i czy każda wędka +0…+9 bez przynęty ma co złowić; gra sprawdza to jeszcze raz przy starcie i w razie błędu zostaje przy swojej tabeli.</p>
+</section>
+</form>
+<script>
+(function () {
+  var add = document.getElementById('dbt-add'), body = document.getElementById('dbt-rows'),
+      tpl = document.getElementById('dbt-row-template'), count = document.getElementById('dbt-row-count');
+  if (!add || !body || !tpl || !count) return;
+  add.addEventListener('click', function () {
+    var i = parseInt(count.value, 10) || 0;
+    body.insertAdjacentHTML('beforeend', tpl.innerHTML.replace(/__i__/g, String(i)));
+    count.value = String(i + 1);
+  });
+})();
+</script>
+
+{% if backups %}
+<section class="panel">
+  <h2>Kopie zapasowe</h2>
+  <table class="dbt-table">
+    <thead><tr><th>Kiedy</th><th>Co</th><th></th></tr></thead>
+    <tbody>
+    {% for b in backups %}
+      <tr><td>{{ b.time.strftime('%Y-%m-%d %H:%M:%S') }}</td><td>{{ 'stan z obrazu gry (bez zmian z panelu)' if b.empty else 'tabela z panelu (' ~ b.size ~ ' B)' }}</td>
+        <td><form method="post" action="{{ url_for('dbeditor.fishing_save') }}" style="margin:0" onsubmit="return confirm('Przywrócić tę kopię?')">
+          <input type="hidden" name="dbe_csrf" value="{{ csrf }}"><input type="hidden" name="action" value="restore"><input type="hidden" name="name" value="{{ b.name }}">
+          <button class="dbe-small">↶ Przywróć</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

@@ -132,6 +132,11 @@ services:
       # Seon-Hae's 6th/7th bonus at NPC 20095: 1 on, 0 off (apply.sh writes
       # m2_seonhae_on when .env changed; the panel switches it live).
       M2_SEONHAE: "${M2_SEONHAE:-0}"
+      # Karty Potworow, the Monster Card System (MT2009_PLUS_MONSTER_CARDS_V1,
+      # Autor: Digi Rasta): 1 on, 0 off. The game core reads it at start
+      # (playerbot_monster_card.h) - off, the cards do nothing and the set
+      # bonuses come off at the next login; MT2009 Classic sets 0.
+      M2_MONSTER_CARDS: "${M2_MONSTER_CARDS:-1}"
       # The health of monsters, bosses and Metin stones: default (100%), easy
       # (80%) or a percent 10-300 (the launcher's difficulty window; the
       # migrator writes m2_mob_hp when .env changed, the panel's card live).

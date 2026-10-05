@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: a change of many monsters at once (dbeditor/mobs.py mobs_mass). #}
+{% block title %}Zmiana masowa · Potwory · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% set dbe_tab = 'mass' %}{% include 'dbeditor/_mobs_common.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · POTWORY · ZMIANA MASOWA</p>
+<h1>✖️ Zmiana masowa</h1>
+<p class="muted">Wybierz, których potworów dotyczy zmiana (filtr), co zmienić i jak – np. <b>Rodzaj: Bossowie · PŻ · pomnóż przez 2</b>
+  albo <b>Potwory, poziom 60–80 · Doświadczenie · pomnóż przez 1,5</b>. Najpierw zobaczysz podgląd: ile potworów i jakie będą wartości przed i po.
+  Całą zmianę cofniesz jednym kliknięciem w historii.</p>
+
+<section class="panel">
+  {% set mass = true %}{% include 'dbeditor/_mobs_filter.html' %}
+  <p class="muted dbe-note">Pomnóż przez: 2 = dwa razy więcej, 1,5 = o połowę więcej, 0,5 = o połowę mniej (wynik zaokrąglony). Dodaj: liczba ujemna odejmuje.</p>
+</section>
+
+{% if error %}<section class="panel"><p class="dbe-error">{{ error }}</p></section>{% endif %}
+
+{% if searched and value is not none and not error %}
+<section class="panel">
+  {% if more %}
+    <p class="dbe-error">Filtr obejmuje ponad {{ max_rows }} potworów – zawęź go (rodzaj, poziom, mapa).</p>
+  {% elif not plan_total %}
+    <p class="muted">Filtr obejmuje {{ matched }} potworów, ale ta zmiana nic by w nich nie zmieniła.</p>
+  {% else %}
+    <h2>Podgląd: {{ description }} – {{ plan_total }} potworów{% if matched != plan_total %} <small class="muted">(z {{ matched }} pasujących; reszta już ma tę wartość)</small>{% endif %}</h2>
+    {% if boot_hits %}<p class="dbe-warn">⚠️ {{ boot_hits }} z nich ma tę wartość ustawianą przez skrypt startowy bazy przy każdym starcie – u nich zmiana zniknie po restarcie.</p>{% endif %}
+    <div class="dbe-scroll">
+    <table class="dbe-table compact">
+      <thead><tr><th>Potwór</th><th>Vnum</th><th>Poz.</th><th>Ranga</th>{% for col in fields[field][1] %}<th>{{ specs[col].label }}: było → będzie</th>{% endfor %}<th></th></tr></thead>
+      <tbody>
+      {% for row, changes, notes in plan %}
+        <tr><td><span class="dbe-mob-icon k-{{ row.kind }}">{{ row.kind_icon }}</span> <a href="{{ url_for('dbeditor.mob_edit', vnum=row.vnum) }}">{{ row.display_name }}</a></td>
+          <td>{{ row.vnum }}</td><td>{{ row.level }}</td><td>{{ row.rank_name }}</td>
+          {% for col in fields[field][1] %}{% set old, new = changes[col] %}<td class="num"><span class="dbe-old">{{ old }}</span> → <b>{{ new }}</b></td>{% endfor %}
+          <td class="dbe-warn">{{ notes|join('; ') }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if plan_total > plan|length %}<p class="muted">Pokazano pierwsze {{ plan|length }} z {{ plan_total }}.</p>{% endif %}
+    <form method="post" class="dbe-actions" onsubmit="return confirm('Zmienić {{ plan_total }} potworów ({{ description }})?');">
+      <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+      {% for k in ('q', 'rodzaj', 'ranga', 'lvl_od', 'lvl_do', 'mapa') %}<input type="hidden" name="{{ k }}" value="{{ f[k] }}">{% endfor %}
+      <input type="hidden" name="pole" value="{{ field }}"><input type="hidden" name="operacja" value="{{ op }}">
+      <input type="hidden" name="wartosc" value="{{ raw_value }}"><input type="hidden" name="vnums" value="{{ plan_vnums }}">
+      <button type="submit">✅ Zastosuj do {{ plan_total }} potworów</button>
+      <span class="muted">Zapis trafia do bazy od razu, do gry po restarcie („Zastosuj”).</span>
+    </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

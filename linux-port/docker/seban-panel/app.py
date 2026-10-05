@@ -20,7 +20,7 @@ from functools import wraps
 
 import pymysql
 import markdown
-from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask import Flask, abort, flash, g, has_request_context, jsonify, redirect, render_template, request, send_file, session, url_for
 from markupsafe import Markup, escape
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -44,6 +44,7 @@ class _PolishOnly:
 
 translations = _PolishOnly()
 import decisions
+import event_autogen  # MT2009_PLUS_EVENTS_AUTOGEN_V1
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SEBAN_SESSION_SECRET", "change-this-before-public-use")
@@ -252,6 +253,9 @@ AI_LIVE_DEFAULTS = {"CHAT": 1, "BOOKS": 1, "NIGHT": 1, "LIFE": 0,
                      # MT2009_PLUS_BOTLIFE_V1: the hours of play a day under
                      # LIFE (playerbot_life_rules.h); 0 = the key unset.
                      "LIFE_HOURS": 0, "WARS": 1, "TOWER": 1, "CATACOMB": 1, "ISHOP": 1,
+                     # MT2009_PLUS_BOT_DUNGEON_RUNS_V1: the bots' own dungeon
+                     # runs (playerbot_dungeon_runs.h), 1 = on.
+                     "DUNGEONS": 1,
                      "SHOP_M2": 0, "PERSONA": 1, "SHOUTERS": 1,
                      # MT2009_PLUS_LEGENDS_V1: the bots' legends (playerbot_legends.h).
                      "LEGENDS": 1,
@@ -2243,8 +2247,18 @@ EVENT_KINDS = ("chest", "exp", "drop", "yang", "tanaka", "zuo", "bossloot", "met
                "goblin",  # MT2009_PLUS_GOBLIN_V1: Poszukiwanie skarbów (playerbot_goblin.h)
                # MT2009_PLUS_EVENT_MANAGER_V1: the in-game event manager's mini games and
                # the Easter event (playerbot_ingame_events.h).
-               "catchking", "rumi", "yutnori", "flower", "easter")
+               "catchking", "rumi", "yutnori", "flower", "easter",
+               # MT2009_PLUS_CHEST_DROP_EVENT_V1: Drop szkatułek - any chest by
+               # vnum, its chance a kill in per mille (playerbot_events.h).
+               "chestdrop")
 EVENT_WORLD_KINDS = ("tanaka", "zuo")
+# MT2009_PLUS_CHEST_DROP_EVENT_V1: the kinds whose lines carry a sixth column
+# and whose "now" lines are kept one per that column - Tanaka's and Zuo's map,
+# the chest drop's item vnum ("chestdrop@50011"), several running at once.
+EVENT_CHESTDROP_KIND = "chestdrop"
+EVENT_KEYED_KINDS = EVENT_WORLD_KINDS + (EVENT_CHESTDROP_KIND,)
+# Kinds the week generator never draws: the chest drop needs its chest.
+EVENT_AUTOGEN_EXCLUDED = (EVENT_CHESTDROP_KIND,)
 # On or off, no figure: the Moonlight chests and the double loot of bosses and
 # Metins (MT2009_PLUS_LOOT_EVENTS_V1, playerbot_events.h).
 EVENT_FLAG_KINDS = ("chest", "bossloot", "metinloot", "goblin",  # goblin: MT2009_PLUS_GOBLIN_V1
@@ -2277,10 +2291,12 @@ EVENT_LABELS = {
     "yutnori": "Yut Nori",
     "flower": "Dzieci Kwiaty",
     "easter": "Event wielkanocny",
+    "chestdrop": "Drop szkatułek",  # MT2009_PLUS_CHEST_DROP_EVENT_V1
 }
 EVENT_ICONS = {"chest": "🎁", "exp": "⚡", "drop": "📦", "yang": "💰", "tanaka": "🏴‍☠️", "zuo": "☄️", "bossloot": "👹", "metinloot": "🪨",
                "goblin": "🪙",  # goblin: MT2009_PLUS_GOBLIN_V1
-               "catchking": "👑", "rumi": "🃏", "yutnori": "🎲", "flower": "🌸", "easter": "🐇"}  # MT2009_PLUS_EVENT_MANAGER_V1
+               "catchking": "👑", "rumi": "🃏", "yutnori": "🎲", "flower": "🌸", "easter": "🐇",  # MT2009_PLUS_EVENT_MANAGER_V1
+               "chestdrop": "🧰"}  # MT2009_PLUS_CHEST_DROP_EVENT_V1
 EVENT_DAY_NAMES = ("Pn", "Wt", "Śr", "Cz", "Pt", "Sb", "Nd")
 EVENT_NOW_MINUTES = (15, 30, 60, 120, 180, 360, 720, 1440, 2880, 4320, 7200, 10080)  # MT2009_PLUS_EVENTS_7_DAYS_V1: up to 7 days
 
@@ -2322,9 +2338,118 @@ def event_now_key(kind, map_id=0):
     # one "now" line per kind (Derpsonkowy95, 27 September) - so theirs are
     # kept by kind and map, "zuo@43", the key the core's status row carries,
     # with 0 (the event picks) one more map of its own.
-    if kind in EVENT_WORLD_KINDS:
+    # MT2009_PLUS_CHEST_DROP_EVENT_V1: the chest drop the same way, by vnum.
+    if kind in EVENT_KEYED_KINDS:
         return f"{kind}@{int(map_id)}"
     return kind
+
+
+# MT2009_PLUS_CHEST_DROP_EVENT_V1: "Drop szkatułek". The operator gives the
+# chance the way the Moonlight chests' drop is given, in percent (0.1-100),
+# and the chest's vnum; the file and the core hold per mille (1-1000) and the
+# vnum in the map column. Several chests run at once, one line per vnum.
+def event_chance_permille(text):
+    """Percent as typed ("0,5", "2", "12.5") to per mille, or None."""
+    try:
+        percent = float(str(text or "").strip().replace(",", "."))
+    except ValueError:
+        return None
+    if not percent == percent or percent <= 0:  # NaN or nothing
+        return None
+    return max(1, min(1000, int(round(percent * 10))))
+
+
+def event_chance_text(permille):
+    """Per mille as the page shows it: 5 -> "0,5", 25 -> "2,5", 1000 -> "100"."""
+    return ("%g" % (int(permille or 0) / 10.0)).replace(".", ",")
+
+
+app.jinja_env.globals["chance_text"] = event_chance_text  # MT2009_PLUS_CHEST_DROP_EVENT_V1
+
+
+def event_item_info(vnum):
+    """The chest's name and icon from the item table, or None for a vnum the
+    game does not know (the core drops nothing for it)."""
+    try:
+        vnum = int(vnum)
+    except (TypeError, ValueError):
+        return None
+    if vnum <= 0:
+        return None
+    cache = getattr(g, "_event_item_info", None) if has_request_context() else None
+    if cache is not None and vnum in cache:
+        return cache[vnum]
+    try:
+        row = one("SELECT vnum,COALESCE(locale_name,name) AS n FROM player.item_proto WHERE vnum=%s", (vnum,))
+    except pymysql.MySQLError:
+        row = None
+    info = None
+    if row:
+        info = {"vnum": vnum, "name": game_text(row.get("n")).strip() or f"VNUM {vnum}",
+                "icon": item_icon_url(vnum) if has_request_context() else None}
+    if has_request_context():
+        if cache is None:
+            cache = g._event_item_info = {}
+        cache[vnum] = info
+    return info
+
+
+def event_window_active(row, when=None):
+    """A schedule row open at this moment, the core's WindowActiveAt: a
+    window past midnight belongs to the day it opened. Returns the epoch
+    second it closes, or 0."""
+    if not row.get("on", True):
+        return 0
+    local = time.localtime(when if when is not None else time.time())
+    day, minute = local.tm_wday + 1, local.tm_hour * 60 + local.tm_min
+    start = int(row["start"][:2]) * 60 + int(row["start"][3:])
+    end = int(row["end"][:2]) * 60 + int(row["end"][3:])
+    days = set(int(item) for item in row.get("days") or ())
+    yesterday = 7 if day == 1 else day - 1
+    if end > start:
+        left = end - minute if day in days and start <= minute < end else 0
+    elif day in days and minute >= start:
+        left = 1440 - minute + end
+    elif yesterday in days and minute < end:
+        left = end - minute
+    else:
+        left = 0
+    if left <= 0:
+        return 0
+    stamp = int(when if when is not None else time.time())
+    return stamp - stamp % 60 + left * 60
+
+
+def event_chestdrop_runs(rows, nows, when=None):
+    """Every chest dropping now, one a vnum the way the core keeps them
+    (EvaluateWorldByMap): the "now" lines and the schedule's open windows of
+    one vnum merged - the highest chance, the latest end. "manual": a "now"
+    line stands for it, the only kind a Stop can end."""
+    stamp = int(when if when is not None else time.time())
+    runs = {}
+
+    def add(vnum, value, until, manual):
+        if vnum <= 0 or until <= stamp:
+            return
+        run = runs.setdefault(vnum, {"vnum": vnum, "value": 0, "until": 0, "manual": False})
+        run["value"] = max(run["value"], int(value))
+        run["until"] = max(run["until"], int(until))
+        run["manual"] = run["manual"] or manual
+
+    for item in nows.values():
+        if item.get("kind") == EVENT_CHESTDROP_KIND:
+            add(int(item.get("map", 0)), item.get("value", 0), int(item.get("until", 0)), True)
+    for row in rows:
+        if row.get("kind") == EVENT_CHESTDROP_KIND:
+            add(int(row.get("map", 0)), row.get("value", 0), event_window_active(row, stamp), False)
+    listed = []
+    for vnum in sorted(runs):
+        run = event_status_texts(runs[vnum])
+        info = event_item_info(vnum)
+        run.update({"name": info["name"] if info else f"VNUM {vnum}", "icon": info["icon"] if info else None,
+                    "known": bool(info), "chance": event_chance_text(run["value"])})
+        listed.append(run)
+    return listed
 
 
 def event_map_label(map_id):
@@ -2366,7 +2491,7 @@ def read_events():
         if len(fields) >= 4 and fields[0] == "now" and fields[1] in EVENT_KINDS:
             try:
                 item = {"kind": fields[1], "until": int(fields[2]), "value": int(fields[3]), "map": 0, "since": 0}
-                if fields[1] in EVENT_WORLD_KINDS:
+                if fields[1] in EVENT_KEYED_KINDS:  # MT2009_PLUS_CHEST_DROP_EVENT_V1: + the chest's vnum
                     item["map"] = int(fields[4]) if len(fields) >= 5 and fields[4] else 0
                     item["since"] = int(fields[5]) if len(fields) >= 6 and fields[5] else 0
                 nows[event_now_key(fields[1], item["map"])] = item
@@ -2382,15 +2507,10 @@ def read_events():
             value = int(fields[4])
         except ValueError:
             value = 0
-        map_id = 0
-        if fields[0] in EVENT_WORLD_KINDS and len(fields) >= 6:
-            try:
-                map_id = int(fields[5])
-            except ValueError:
-                map_id = 0
         days = list(range(1, 8)) if fields[1] == "*" else [day for day in range(1, 8) if str(day) in fields[1].split(",")]
         map_id = 0
-        if fields[0] in EVENT_WORLD_KINDS and len(fields) >= 6:
+        # MT2009_PLUS_CHEST_DROP_EVENT_V1: the chest drop's sixth column is its vnum.
+        if fields[0] in EVENT_KEYED_KINDS and len(fields) >= 6:
             try:
                 map_id = int(fields[5])
             except ValueError:
@@ -2407,23 +2527,25 @@ def write_events(rows, nows, event_settings=None):
         "# kind<TAB>days<TAB>from<TAB>to<TAB>value[<TAB>map] | now<TAB>kind<TAB>until_epoch<TAB>value[<TAB>map<TAB>since]",
         "# days: * or 1..7 (1 = Monday); #off keeps a disabled plan row.",
         "# map: Tanaka and Zuo only, 0 = the event picks. bots: the share of bots that answer them.",
+        "# chestdrop: value = the chance a kill in per mille (1-1000), map = the chest's item vnum.",
         "",
     ]
     for row in rows:
         days = "*" if len(row["days"]) == 7 else (",".join(str(day) for day in row["days"]) or "-")
         line = "%s\t%s\t%s\t%s\t%d" % (row["kind"], days, row["start"], row["end"], int(row["value"]))
-        if row["kind"] in EVENT_WORLD_KINDS:
+        if row["kind"] in EVENT_KEYED_KINDS:  # MT2009_PLUS_CHEST_DROP_EVENT_V1: + the vnum
             line += "\t%d" % int(row.get("map", 0))
         body.append(line if row.get("on", True) else "#off\t" + line)
     stamp = time.time()
     for kind in EVENT_KINDS:
         now_event = nows.get(kind)
-        if kind not in EVENT_WORLD_KINDS and now_event and int(now_event.get("until", 0)) > stamp:
+        if kind not in EVENT_KEYED_KINDS and now_event and int(now_event.get("until", 0)) > stamp:
             body.append("now\t%s\t%d\t%d" % (kind, int(now_event["until"]), int(now_event.get("value", 0))))
     # Tanaka and Zuo after the rest, every map's line, by kind and then map. A
     # panel from before one event per map keeps the last line of each kind.
+    # MT2009_PLUS_CHEST_DROP_EVENT_V1: the chest drops the same way, a line a vnum.
     world_events = [item for item in nows.values()
-                    if item.get("kind") in EVENT_WORLD_KINDS and int(item.get("until", 0)) > stamp]
+                    if item.get("kind") in EVENT_KEYED_KINDS and int(item.get("until", 0)) > stamp]
     world_events.sort(key=lambda item: (EVENT_KINDS.index(item["kind"]), int(item.get("map", 0))))
     for now_event in world_events:
         body.append("now\t%s\t%d\t%d\t%d\t%d" % (now_event["kind"], int(now_event["until"]), int(now_event.get("value", 0)), int(now_event.get("map", 0)), int(now_event.get("since", 0))))
@@ -2562,7 +2684,13 @@ def event_run_stats(kind, started_at, ended_at, value):
     nie stan ekwipunku/konta -- działa niezależnie od tego czy bot szkatułkę
     otworzył, sprzedał czy zatrzymał)."""
     # A run of Tanaka or Zuo is its kind and map ("zuo@43"); the figures are the kind's.
-    kind = kind.partition("@")[0]
+    kind, _separator, keyed = kind.partition("@")
+    # MT2009_PLUS_CHEST_DROP_EVENT_V1: a chest drop's run is its vnum's,
+    # "chestdrop@50011": the chests of that vnum picked up meanwhile.
+    if kind == EVENT_CHESTDROP_KIND and keyed.isdigit():
+        found = one("SELECT COUNT(*) AS n FROM log.log WHERE how='GET' AND vnum=%s AND time BETWEEN %s AND %s",
+                    (int(keyed), started_at, ended_at))
+        return {"chest_count": int(found["n"]) if found else 0, "yang_extra": None}
     if kind == "chest":
         found = one("SELECT COUNT(*) AS n FROM log.log WHERE how='GET' AND vnum=%s AND time BETWEEN %s AND %s",
                      (MOONLIGHT_CHEST_VNUM, started_at, ended_at))
@@ -2584,7 +2712,11 @@ def event_run_label(key):
     Tanaka and Zuo ("zuo@43") the map too, since every map runs its own."""
     kind, separator, map_text = key.partition("@")
     label = EVENT_LABELS.get(kind, kind)
-    if separator and map_text.isdigit():
+    if separator and map_text.isdigit() and kind == EVENT_CHESTDROP_KIND:
+        # MT2009_PLUS_CHEST_DROP_EVENT_V1: the chest by name.
+        info = event_item_info(int(map_text))
+        label += " · " + (info["name"] if info else f"VNUM {map_text}")
+    elif separator and map_text.isdigit():
         label += " · " + event_map_label(int(map_text))
     return label
 
@@ -2614,8 +2746,19 @@ def check_finished_events():
         # two Zuo at once are two runs, not one the other overwrites. A run
         # opened under the bare kind before this ends at the first check.
         live_runs = {kind: status[kind] for kind in EVENT_KINDS
-                     if kind not in EVENT_WORLD_KINDS and status.get(kind, {}).get("active")}
+                     if kind not in EVENT_KEYED_KINDS and status.get(kind, {}).get("active")}
         live_runs.update(read_world_events_status())
+        # MT2009_PLUS_CHEST_DROP_EVENT_V1: while the core says chests drop, a
+        # run for every vnum ("chestdrop@50011") - the core's row is one for
+        # the kind, so which vnums is the panel's file's to say.
+        chest_status = status.get(EVENT_CHESTDROP_KIND, {})
+        if chest_status.get("active"):
+            plan, nows = read_events()
+            chest_runs = event_chestdrop_runs(plan, nows)
+            for run in chest_runs:
+                live_runs[event_now_key(EVENT_CHESTDROP_KIND, run["vnum"])] = run
+            if not chest_runs and int(chest_status.get("map") or 0) > 0:
+                live_runs[event_now_key(EVENT_CHESTDROP_KIND, chest_status["map"])] = chest_status
         open_runs = rows("SELECT id,kind,value,started_at FROM player.web_seban_event_runs WHERE ended_at IS NULL")
         open_keys = {open_run["kind"] for open_run in open_runs}
         for key, live in live_runs.items():
@@ -2937,7 +3080,7 @@ def read_ai_weights():
             if len(fields) >= 2 and fields[0].upper() in values:
                 try:
                     key, raw_value = fields[0].upper(), fields[1]
-                    if key in ("CHAT", "BOOKS", "NIGHT", "LIFE", "WARS", "TOWER", "CATACOMB", "ISHOP", "SHOP_M2", "PERSONA", "SHOUTERS", "HAGGLE", "LEGENDS"):
+                    if key in ("CHAT", "BOOKS", "NIGHT", "LIFE", "WARS", "TOWER", "CATACOMB", "DUNGEONS", "ISHOP", "SHOP_M2", "PERSONA", "SHOUTERS", "HAGGLE", "LEGENDS"):
                         values[key] = 0 if raw_value.lower() in ("0", "off", "no") else 1
                     elif key in ("SCRAP", "REST", "KINGDOMPVP"):
                         values[key] = max(0, min(100, int(raw_value)))
@@ -3003,6 +3146,8 @@ def write_ai_weights(values):
     content.append(f"WARS\t{1 if values.get('WARS', 1) else 0}")
     content.append(f"TOWER\t{1 if values.get('TOWER', 1) else 0}")
     content.append(f"CATACOMB\t{1 if values.get('CATACOMB', 1) else 0}")
+    # MT2009_PLUS_BOT_DUNGEON_RUNS_V1: the bots' own dungeon runs, 1 = on.
+    content.append(f"DUNGEONS\t{1 if values.get('DUNGEONS', 1) else 0}")
     content.append(f"ISHOP\t{1 if values.get('ISHOP', 1) else 0}")
     content.append(f"SHOP_M2\t{1 if values.get('SHOP_M2', 0) else 0}")
     content.append(f"PERSONA\t{1 if values.get('PERSONA', 1) else 0}")
@@ -3384,6 +3529,24 @@ def write_student_chest_disabled(disabled):
     return "done"
 
 
+# MT2009_PLUS_DBDATA_STAMP_V1 (popup): when the panel last restarted the game
+# cores (every restart goes through queue_rate_restart; the world reset too).
+# The database editor's pages then ask to download the client files again
+# (dbeditor/clientdata.py, RESTART_FILE).
+PANEL_RESTART_FILE = RATES_SPOOL / "panel-restart.time"
+
+
+def mark_panel_restart():
+    try:
+        RATES_SPOOL.mkdir(parents=True, exist_ok=True)
+        temporary = PANEL_RESTART_FILE.with_name(PANEL_RESTART_FILE.name + ".new")
+        temporary.write_text("%d\n" % int(time.time()), encoding="ascii")
+        temporary.chmod(0o664)
+        os.replace(temporary, PANEL_RESTART_FILE)
+    except OSError:
+        pass  # only the editor's reminder depends on it
+
+
 def queue_rate_restart(values):
     if ENGINE_MT2009:
         persist_rates_mt2009(values)
@@ -3403,6 +3566,7 @@ def queue_rate_restart(values):
     (RATES_SPOOL / "rates.status").write_text(
         "state=running\ntime=%s\nexp=%s\ndrop=%s\nyang=%s\nmessage=restart requested by Seban Panel\n" %
         (int(time.time()), values["exp"], values["drop"], values["yang"]), encoding="utf-8")
+    mark_panel_restart()
 
 
 def server_settings_status():
@@ -7081,6 +7245,7 @@ def world_reset_start():
         temporary.write_text(f"id={request_id}\nkind={kind}\ntime={int(time.time())}\n", encoding="utf-8")
         temporary.chmod(0o660)
         os.replace(temporary, WORLD_RESET_REQUEST)
+        mark_panel_restart()  # MT2009_PLUS_DBDATA_STAMP_V1 (popup)
     except OSError as exc:
         app.logger.error("world reset %s could not be queued: %s", kind, exc)
         flash("Nie udało się przekazać prośby do serwera (katalog wymiany niedostępny).", "error")
@@ -8648,11 +8813,14 @@ def ensure_battlepass_tables():
         ADD COLUMN IF NOT EXISTS reward3_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER reward3_vnum,
         ADD COLUMN IF NOT EXISTS description VARBINARY(255) NOT NULL DEFAULT '' AFTER name,
         ADD COLUMN IF NOT EXISTS target_level INT UNSIGNED NOT NULL DEFAULT 0 AFTER target,
-        ADD COLUMN IF NOT EXISTS requires_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER active""")
+        ADD COLUMN IF NOT EXISTS requires_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER active,
+        ADD COLUMN IF NOT EXISTS repeatable TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER requires_id""")
     rows("""CREATE TABLE IF NOT EXISTS player.battlepass_progress (
         pid INT UNSIGNED NOT NULL, season INT UNSIGNED NOT NULL, mission INT UNSIGNED NOT NULL,
         progress INT UNSIGNED NOT NULL DEFAULT 0, claimed TINYINT UNSIGNED NOT NULL DEFAULT 0,
         PRIMARY KEY (pid, season, mission)) ENGINE=InnoDB""")
+    rows("""ALTER TABLE player.battlepass_progress
+        ADD COLUMN IF NOT EXISTS completions INT UNSIGNED NOT NULL DEFAULT 0 AFTER claimed""")
     rows("""CREATE TABLE IF NOT EXISTS player.battlepass_config (
         id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
         final1_vnum INT UNSIGNED NOT NULL DEFAULT 0, final1_count INT UNSIGNED NOT NULL DEFAULT 0,
@@ -8759,18 +8927,20 @@ def battlepass():
                     name = (request.form.get(key + "name") or "").strip().encode("cp1250", "replace")[:96]
                     desc = (request.form.get(key + "description") or "").strip().encode("cp1250", "replace")[:255]
                     active = 1 if request.form.get(key + "active") else 0
-                    values = (mtype, target, level, count, *rewards, name, desc, active, requires)
+                    repeatable = 1 if request.form.get(key + "repeatable") else 0
+                    values = (mtype, target, level, count, *rewards, name, desc, active, requires, repeatable)
                     if raw_id:
                         rows("""UPDATE player.battlepass_mission SET type=%s, target=%s, target_level=%s, count=%s,
                             reward_vnum=%s, reward_count=%s, reward2_vnum=%s, reward2_count=%s, reward3_vnum=%s,
-                            reward3_count=%s, name=%s, description=%s, active=%s, requires_id=%s WHERE id=%s""",
+                            reward3_count=%s, name=%s, description=%s, active=%s, requires_id=%s, repeatable=%s
+                            WHERE id=%s""",
                              values + (int(raw_id),))
                         saved += 1
                     else:
                         rows("""INSERT INTO player.battlepass_mission (type, target, target_level, count, reward_vnum,
                             reward_count, reward2_vnum, reward2_count, reward3_vnum, reward3_count, name, description,
-                            active, requires_id, id)
-                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""", values + (next_id,))
+                            active, requires_id, repeatable, id)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""", values + (next_id,))
                         next_id += 1
                         added += 1
                 rows("INSERT INTO log.log (type,time,who,how,hint) VALUES ('SYSTEM',NOW(),0,'PANEL_BATTLEPASS',%s)",
@@ -8782,7 +8952,8 @@ def battlepass():
         return redirect(url_for("battlepass"))
 
     missions = rows("""SELECT id,type,target,target_level,count,reward_vnum,reward_count,reward2_vnum,reward2_count,
-        reward3_vnum,reward3_count,name,description,active,requires_id FROM player.battlepass_mission ORDER BY id""")
+        reward3_vnum,reward3_count,name,description,active,requires_id,repeatable FROM player.battlepass_mission
+        ORDER BY id""")
     for m in missions:
         m["name"] = game_text(m["name"]) if m["name"] else ""
         m["description"] = game_text(m["description"]) if m["description"] else ""
@@ -8951,6 +9122,8 @@ def events():
     for item in event_history:
         item["label"] = event_run_label(item["kind"])
         item["base_kind"] = item["kind"].partition("@")[0]
+        if item["base_kind"] == EVENT_CHESTDROP_KIND:  # MT2009_PLUS_CHEST_DROP_EVENT_V1: per mille
+            item["value_text"] = event_chance_text(item.get("value") or 0) + "%"
         if item.get("chest_count") is not None:
             item["summary"] = f"{item['chest_count']} szkatułek"
         elif item.get("yang_extra") is not None:
@@ -8989,7 +9162,20 @@ def events():
                     return redirect(url_for("events"))
                 days = [day for day in range(1, 8) if request.form.get(f"r{index}_d{day}")]
                 map_id = 0
-                if kind in EVENT_WORLD_KINDS:
+                if kind == EVENT_CHESTDROP_KIND:
+                    # MT2009_PLUS_CHEST_DROP_EVENT_V1: the chance in percent, the chest's vnum.
+                    value = event_chance_permille(request.form.get(f"r{index}_chance"))
+                    if value is None:
+                        flash(f"Wiersz {index + 1}: podaj szansę dropu szkatułki od 0,1 do 100%.", "error")
+                        return redirect(url_for("events"))
+                    try:
+                        map_id = int(request.form.get(f"r{index}_vnum") or 0)
+                    except ValueError:
+                        map_id = 0
+                    if not event_item_info(map_id):
+                        flash(f"Wiersz {index + 1}: nie ma przedmiotu o VNUM {request.form.get(f'r{index}_vnum') or '(puste)'} — podaj VNUM istniejącej szkatułki.", "error")
+                        return redirect(url_for("events"))
+                elif kind in EVENT_WORLD_KINDS:
                     value = event_world_value(kind, value)
                     try:
                         map_id = int(request.form.get(f"r{index}_map") or 0)
@@ -9017,6 +9203,28 @@ def events():
             except ValueError:
                 minutes, value = 60, 50
             map_id = 0
+            if kind == EVENT_CHESTDROP_KIND:
+                # MT2009_PLUS_CHEST_DROP_EVENT_V1: a chest already dropping starts over
+                # with the new chance; another vnum runs beside it.
+                value = event_chance_permille(request.form.get("chance"))
+                if value is None:
+                    flash("Podaj szansę dropu szkatułki od 0,1 do 100%.", "error")
+                    return redirect(url_for("events"))
+                try:
+                    map_id = int(request.form.get("vnum") or 0)
+                except ValueError:
+                    map_id = 0
+                info = event_item_info(map_id)
+                if not info:
+                    flash(f"Nie ma przedmiotu o VNUM {request.form.get('vnum') or '(puste)'} — podaj VNUM istniejącej szkatułki.", "error")
+                    return redirect(url_for("events"))
+                started = int(time.time())
+                nows[event_now_key(kind, map_id)] = {"kind": kind, "until": started + minutes * 60, "value": value,
+                                                    "map": map_id, "since": started}
+                write_events(rows, nows)
+                flash(f"Drop szkatułek aktywowany na {event_minutes_label(minutes)}: {info['name']} ({event_chance_text(value)}% na zabicie). "
+                      "Rdzeń odczyta go w ciągu pięciu sekund.", "success")
+                return redirect(url_for("events"))
             if kind in EVENT_WORLD_KINDS:
                 value = event_world_value(kind, value)
                 try:
@@ -9044,6 +9252,12 @@ def events():
                     nows.pop(event_now_key(kind, int(request.form["map"])), None)
                 except ValueError:
                     return redirect(url_for("events"))
+            elif kind == EVENT_CHESTDROP_KIND and request.form.get("vnum", "") != "" and "minutes" not in request.form:
+                # MT2009_PLUS_CHEST_DROP_EVENT_V1: the Stop beside one chest ends that chest alone.
+                try:
+                    nows.pop(event_now_key(kind, int(request.form["vnum"])), None)
+                except ValueError:
+                    return redirect(url_for("events"))
             else:
                 for key in [key for key, item in nows.items() if item.get("kind") == kind]:
                     del nows[key]
@@ -9058,7 +9272,79 @@ def events():
                            now_epoch=int(time.time()), event_history=event_history,
                            event_icons=EVENT_ICONS, world_kinds=EVENT_WORLD_KINDS, flag_kinds=EVENT_FLAG_KINDS,
                            world_defaults=EVENT_WORLD_DEFAULT, world_max=EVENT_WORLD_MAX,
-                           event_maps=EVENT_MAPS, event_settings=read_event_settings())
+                           event_maps=EVENT_MAPS, event_settings=read_event_settings(),
+                           autogen_lengths=event_autogen.LENGTHS,  # MT2009_PLUS_EVENTS_AUTOGEN_V1
+                           autogen_excluded=EVENT_AUTOGEN_EXCLUDED, chestdrop_kind=EVENT_CHESTDROP_KIND,
+                           chest_runs=event_chestdrop_runs(rows, nows),  # MT2009_PLUS_CHEST_DROP_EVENT_V1
+                           chest_items={str(row["map"]): event_item_info(row["map"]) for row in rows
+                                        if row["kind"] == EVENT_CHESTDROP_KIND})
+
+# MT2009_PLUS_EVENTS_AUTOGEN_V1: the planner's "Generuj tydzień" - the modal
+# sends the pool and the options, this answers the drawn week as schedule rows
+# (event_autogen.py) and writes nothing: the page shows them, and on the
+# admin's OK puts them in place of the schedule or beside it and saves them
+# through the calendar's own "save" above, which checks every row again.
+EVENT_AUTOGEN_MAX_EXISTING = 64
+
+
+def event_autogen_existing(raw_rows):
+    """The schedule the page holds (with its unsaved edits), cleaned the way
+    the save would: the rows an appended week must keep clear of."""
+    existing = []
+    for raw in (raw_rows if isinstance(raw_rows, list) else [])[:EVENT_AUTOGEN_MAX_EXISTING]:
+        if not isinstance(raw, dict) or raw.get("kind") not in EVENT_KINDS:
+            continue
+        start, end = event_hhmm(raw.get("start")), event_hhmm(raw.get("end"))
+        if not start or not end:
+            continue
+        try:
+            days = sorted({int(day) for day in raw.get("days") or () if 1 <= int(day) <= 7})
+        except (TypeError, ValueError):
+            days = []
+        existing.append({"kind": raw["kind"], "days": days, "start": start, "end": end,
+                         "on": raw.get("on") is not False})
+    return existing
+
+
+# MT2009_PLUS_CHEST_DROP_EVENT_V1: the chest's name and icon beside the vnum
+# the admin types in the planner (the save checks it again).
+@app.get("/events/item/<int:vnum>")
+@login_required
+def events_item(vnum):
+    info = event_item_info(vnum)
+    if not info:
+        return jsonify(ok=False, error=f"Nie ma przedmiotu o VNUM {vnum}."), 404
+    return jsonify(ok=True, **info)
+
+
+@app.post("/events/autogen")
+@login_required
+def events_autogen():
+    data = request.get_json(silent=True) or {}
+    try:
+        # MT2009_PLUS_CHEST_DROP_EVENT_V1: the chest drop is never drawn - it needs its chest.
+        kinds = [kind for kind in data.get("kinds") or () if kind in EVENT_KINDS and kind not in EVENT_AUTOGEN_EXCLUDED]
+        count = int(data.get("count") or 0)
+        length = int(data.get("length") or 0)
+        hour_from, hour_to = int(data.get("from", 18)), int(data.get("to", 24))
+        days = [int(day) for day in data.get("days") or ()]
+        bonus = max(1, min(1000, int(data.get("bonus") or 50)))
+        seed = int(data.get("seed") or 0)
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="Nieprawidłowe ustawienia generatora."), 400
+    append = data.get("mode") == "append"
+    existing = event_autogen_existing(data.get("existing")) if append else []
+    values = {kind: (EVENT_WORLD_DEFAULT[kind] if kind in EVENT_WORLD_KINDS else
+                     0 if kind in EVENT_FLAG_KINDS else bonus) for kind in kinds}
+    try:
+        result = event_autogen.generate_week(
+            kinds, count, length, hour_from, hour_to, days=days, values=values,
+            weekend_bias=bool(data.get("weekend")), exclusive=bool(data.get("exclusive")),
+            existing=existing, max_rows=64, seed=seed)
+    except ValueError as error:
+        return jsonify(ok=False, error=str(error)), 400
+    return jsonify(ok=True, mode="append" if append else "replace", existing_rows=len(existing), **result)
+
 
 @app.route("/manage")
 @login_required
@@ -9668,6 +9954,22 @@ def manage_catacomb():
         flash("Rajdy botów na Azraela zostały " + ("włączone." if values["CATACOMB"] else "wyłączone."))
     except OSError:
         flash("Nie udało się zapisać ustawienia rajdów na Azraela.", "error")
+    return redirect(url_for("manage"))
+
+
+# MT2009_PLUS_BOT_DUNGEON_RUNS_V1: "Dungeony botow" - the bots gather their own
+# parties on the kingdom's shout and run every dungeon of their level
+# (playerbot_dungeon_runs.h). Live, no restart.
+@app.post("/manage/bot-dungeons")
+@login_required
+def manage_bot_dungeons():
+    values = read_ai_weights()
+    values["DUNGEONS"] = 1 if "1" in request.form.getlist("DUNGEONS") else 0
+    try:
+        write_ai_weights(values)
+        flash("Dungeony botów zostały " + ("włączone." if values["DUNGEONS"] else "wyłączone."))
+    except OSError:
+        flash("Nie udało się zapisać ustawienia dungeonów botów.", "error")
     return redirect(url_for("manage"))
 
 
@@ -10895,6 +11197,26 @@ def drop_file_view():
 
 from item_grants import install as install_item_grants
 install_item_grants(app, db, login_required, game_text)
+
+# MT2009_PLUS_DB_EDITOR_V1: "Edytor bazy danych" (dbeditor/).
+import dbeditor
+
+
+def dbeditor_queue_restart():
+    # The editor's "Zastosuj": the same queued core restart as "Gra i serwer"
+    # and the chests' "Zastosuj teraz"; refused while one is under way.
+    if restart_in_flight():
+        raise FileExistsError("a restart is already under way")
+    queue_rate_restart(read_rates())
+
+
+dbeditor.install(app, {"app": app, "db": db, "rows": rows, "one": one,
+                       "login_required": login_required, "game_text": game_text,
+                       "queue_restart": dbeditor_queue_restart, "read_rates": read_rates,
+                       "restart_progress": restart_progress, "spool": RATES_SPOOL,
+                       "panel_name": lambda: settings().get("panel_name") or "MT2009 PLUS",
+                       # MT2009_PLUS_DB_EDITOR_CONFIG_V1: the header of an exported configuration
+                       "server_version": installed_playerbots_version})
 
 
 if __name__ == "__main__":

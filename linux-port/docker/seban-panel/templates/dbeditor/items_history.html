@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: every save of the item and skill editors, with undo (dbeditor/common_items.py). #}
+{% block title %}Historia zmian · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% set dbe_tab = 'history' %}{% include 'dbeditor/_items_common.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · HISTORIA</p>
+<h1>🕘 Historia zmian przedmiotów i umiejętności</h1>
+<p class="muted">Każdy zapis to jedna zmiana. „Cofnij” przywraca poprzednie wartości (to też jest zapisywane w historii). Cofnięcie zadziała w grze po restarcie, tak jak każda zmiana.</p>
+<section class="panel">
+  <form method="get" class="dbe-search">
+    <label>Tabela
+      <select name="tbl">
+        <option value="">— wszystko —</option>
+        {% for name, meta in tables.items() %}<option value="{{ name }}" {{ 'selected' if table == name }}>{{ meta.title }} ({{ name }})</option>{% endfor %}
+      </select></label>
+    <label>Vnum<input name="key" value="{{ key or '' }}" inputmode="numeric" placeholder="wszystkie"></label>
+    <button>Pokaż</button>
+  </form>
+</section>
+{% if error %}<section class="panel"><p class="dbe-error">Nie udało się odczytać historii: {{ error }}</p></section>{% endif %}
+<section class="panel">
+  {% include 'dbeditor/_items_history_list.html' %}
+</section>
+{% endblock %}

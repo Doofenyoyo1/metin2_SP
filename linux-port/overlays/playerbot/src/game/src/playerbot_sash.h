@@ -1802,6 +1802,10 @@ namespace
 				if (!item || item->GetCell() != cell || !IsPlayerBotSashFlowItem(ch, item) ||
 						IsPlayerBotKeptSash(ch, item))
 					continue;
+				// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1: a companion's sashes
+				// are its owner's, never the merchant's.
+				if (IsPlayerBotSidekickServing(ch))
+					continue;
 				// The operator's word (keep, stall) stands.
 				const BYTE policy = GetPlayerBotItemPolicy(item);
 				if (policy != PLAYERBOT_ITEM_POLICY_NONE && policy != PLAYERBOT_ITEM_POLICY_MERCHANT)

@@ -1,0 +1,26 @@
+{#- MT2009_PLUS_DB_EDITOR_V1: the monster filter shared by the search and the
+    mass change (dbeditor/mobs.py search_where). Needs f, ranks, kinds, maps;
+    with mass=true it also carries the change (pole, operacja, wartosc). -#}
+<form method="get" class="dbe-search">
+  {% if mass %}<input type="hidden" name="podglad" value="1">{% endif %}
+  <label>Nazwa lub vnum<input type="search" name="q" value="{{ f.q }}" placeholder="np. Wódz Orków albo 691"></label>
+  <label>Rodzaj
+    <select name="rodzaj">{% for key, (label, _sql) in kinds.items() %}<option value="{{ key }}" {{ 'selected' if f.rodzaj == key }}>{{ label }}</option>{% endfor %}</select></label>
+  <label>Ranga
+    <select name="ranga"><option value="">— każda —</option>{% for r, label in ranks.items() %}<option value="{{ r }}" {{ 'selected' if f.ranga == r|string }}>{{ label }}</option>{% endfor %}</select></label>
+  <label>Poziom od<input type="number" name="lvl_od" min="1" max="255" value="{{ f.lvl_od }}" class="dbe-narrow"></label>
+  <label>do<input type="number" name="lvl_do" min="1" max="255" value="{{ f.lvl_do }}" class="dbe-narrow"></label>
+  <label>Mapa
+    <select name="mapa"><option value="">— każda —</option>{% for idx, title, count in maps %}<option value="{{ idx }}" {{ 'selected' if f.mapa == idx|string }}>{{ title }} ({{ count }})</option>{% endfor %}</select></label>
+  {% if mass %}
+  <label>Co zmienić
+    <select name="pole">{% for key, (label, _cols) in fields.items() %}<option value="{{ key }}" {{ 'selected' if field == key }}>{{ label }}</option>{% endfor %}</select></label>
+  <label>Jak
+    <select name="operacja">{% for key, label in ops.items() %}<option value="{{ key }}" {{ 'selected' if op == key }}>{{ label }}</option>{% endfor %}</select></label>
+  <label>Wartość<input name="wartosc" value="{{ raw_value }}" placeholder="np. 2 albo 1,5" class="dbe-narrow" inputmode="decimal" required></label>
+  <button>👁️ Pokaż podgląd</button>
+  {% else %}
+  <button>Szukaj</button>
+  {% endif %}
+</form>
+{% if not maps %}<p class="muted dbe-note">Filtr „Mapa” pojawi się, gdy gra opublikuje pliki respawnu (po pierwszym starcie na obrazie z m2-spawns).</p>{% endif %}

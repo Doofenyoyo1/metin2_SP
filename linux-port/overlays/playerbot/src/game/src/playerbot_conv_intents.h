@@ -37,6 +37,16 @@ namespace playerbot_conv
 		// do mnie pisac", a ban threatened, banter), a sum to work out, and
 		// "przeciez mowiles, ze..."
 		I_STOP_TALKING, I_THREAT, I_MOCK, I_MATH, I_CONTRADICTION,
+		// MT2009_PLUS_BOT_CHAT_V2: a joke asked for, real life (the city, the
+		// age), boy or girl, begging for yang or an item
+		I_JOKE, I_REAL_LIFE, I_GENDER, I_BEG,
+		// "jak zrobic konia?", "o ktorej event?", "co dropi z metina?", "lagi masz?"
+		I_HOWTO, I_EVENT, I_DROP_INFO, I_PING,
+		// a trade talked over (TDeal), and a line about the bot's own public post
+		I_DEAL, I_POST_REF,
+		// MT2009_PLUS_BOT_DUNGEON_LFG_V1: the answer to the bot's own offer to
+		// come along to a dungeon (TConvMemory::lfg, playerbot_dungeon_lfg.h)
+		I_LFG_ANSWER,
 		// identity
 		I_NAME, I_LEVEL, I_CLASS, I_EMPIRE, I_PERSONALITY, I_MOOD,
 		// state
@@ -53,8 +63,11 @@ namespace playerbot_conv
 		// riba", "co myslisz o srednich?"), a better map suggested, an item
 		// shown off, and one offered
 		I_GEAR_WHY, I_GEAR_ADVICE, I_GEAR_OPINION, I_MAP_ADVICE, I_SHOW_ITEM, I_GIFT_OFFER,
-		// asking the bot to come over, and letting it go again
-		I_SUMMON, I_DISMISS,
+		// MT2009_PLUS_BOT_CHAT_V2: advice for the asker - where the Metins of a
+		// level stand, where to exp at a level - and the bot's channel
+		I_WHERE_METIN, I_WHERE_EXP, I_CHANNEL,
+		// asking the bot to come over, and letting it go again; "dawaj na ch1 m1"
+		I_SUMMON, I_DISMISS, I_MEET,
 		// conversation mechanics
 		I_FOLLOW_UP, I_ACK, I_LAUGH, I_YES, I_NO, I_ANSWER_TO_BOT,
 		// everything that is not the game
@@ -144,25 +157,41 @@ namespace playerbot_conv
 		bool mathMixed;
 		bool mathDivZero;
 		bool mathTooBig;
+		// MT2009_PLUS_BOT_CHAT_V2: a bare level the line asks about ("metki na
+		// 30", "gdzie expic 45"), 0 when none; the channel a line names ("ch1",
+		// "kanal 2"), 0 when none.
+		int levelAsked;
+		int channelNamed;
+		// A deal's count named ("mam 7", "x10"), 0 none; the bot's own post
+		// this line answers (TPublicLine index + 1), 0 none - set when the
+		// reply is composed (ApplyPublicContext).
+		int dealCount;
+		int postRef;
+		// MT2009_PLUS_BOT_DUNGEON_LFG_V1 (I_LFG_ANSWER): the answer
+		// (playerbot_lfg::EAnswer), and for ANSWER_CHOOSE the dungeon named
+		// and the Monkey Dungeon's difficulty when the line says it.
+		int lfgAnswer;
+		int lfgDifficulty;
+		std::string lfgKey;
 
 		TAnalysis() : intent(I_NONE), rawIntent(I_NONE), subject(I_NONE), follow(F_NONE),
 			topic(T_NONE), qtype(Q_STATEMENT), score(0), question(false), greetingToo(false),
 			thanksToo(false), returnToTopic(false), topicChange(false), repeated(false),
 			polarityNegative(false), at(0), gapBefore(0), offerYang(0), mentionMap(0), answeredAsk(0),
 			objectPlus(-1), levelNamed(0), itemLink(false), mathMixed(false), mathDivZero(false),
-			mathTooBig(false) {}
+			mathTooBig(false), levelAsked(0), channelNamed(0), dealCount(0), postRef(0), lfgAnswer(0), lfgDifficulty(0) {}
 	};
 
 	// The summon and its release are requests, not a subject the conversation
 	// returns to, so they sit outside the game range.
 	inline bool IsGameIntent(EIntent i)
 	{
-		return i >= I_NAME && i <= I_GIFT_OFFER;
+		return i >= I_NAME && i <= I_CHANNEL;
 	}
 
 	inline bool IsSocialIntent(EIntent i)
 	{
-		return i >= I_GREETING && i <= I_CONTRADICTION;
+		return i >= I_GREETING && i <= I_LFG_ANSWER;
 	}
 
 	// A line that talks at the bot rather than to it: the reply is short and
@@ -174,6 +203,14 @@ namespace playerbot_conv
 
 	// A line arguing with the bot about what it has, where it is or what it
 	// said: never an answer to a question the bot asked.
+	// MT2009_PLUS_BOT_CHAT_V2: buying, selling, a price, a stall, a deal, the
+	// bot's own trade post - answered as a trader answers, no small talk.
+	inline bool IsTradeIntent(EIntent i)
+	{
+		return i == I_BUY || i == I_SELL || i == I_PRICE || i == I_SHOP || i == I_MARKET || i == I_DEAL ||
+				i == I_POST_REF || i == I_ITEM_OWN || i == I_ITEMSHOP;
+	}
+
 	inline bool IsArgumentIntent(EIntent i)
 	{
 		return i == I_GEAR_WHY || i == I_GEAR_ADVICE || i == I_GEAR_OPINION || i == I_MAP_ADVICE ||
@@ -204,6 +241,8 @@ namespace playerbot_conv
 			case I_PRICE: case I_ITEMSHOP: case I_GEAR_WHY: case I_GEAR_ADVICE: case I_GEAR_OPINION:
 			case I_SHOW_ITEM: case I_GIFT_OFFER:
 				return 4;
+			case I_WHERE_METIN: case I_WHERE_EXP:
+				return 1;
 			case I_FISHING: case I_MINING: case I_HERBALISM: case I_BIOLOGIST: case I_METIN:
 			case I_DEMON_TOWER: case I_MISSIONS: case I_DROP_LUCK:
 				return 5;
@@ -218,6 +257,7 @@ namespace playerbot_conv
 			"NONE", "GREETING", "FAREWELL", "THANKS", "APOLOGY", "HOW_ARE_YOU", "HELP",
 			"IS_BOT", "INSULT", "PRAISE", "AGE", "ORIGIN", "KS", "READY", "GOOD_LUCK", "BRB",
 			"STOP_TALKING", "THREAT", "MOCK", "MATH", "CONTRADICTION",
+			"JOKE", "REAL_LIFE", "GENDER", "BEG", "HOWTO", "EVENT", "DROP_INFO", "PING", "DEAL", "POST_REF", "LFG_ANSWER",
 			"NAME", "LEVEL", "CLASS", "EMPIRE", "PERSONALITY", "MOOD",
 			"CURRENT_ACTIVITY", "ACTIVITY_LOCATION", "LOCATION", "TARGET", "MOB_COUNT",
 			"GOAL", "NEXT_PLAN", "HP", "GOLD", "HORSE", "EQUIPMENT", "INVENTORY",
@@ -227,7 +267,7 @@ namespace playerbot_conv
 			"REST", "REFINE", "MISSIONS", "DEATH", "RELATIONSHIP", "TIME_HERE",
 			"MAP_OPINION", "DROP_LUCK", "PROGRESS_TODAY", "PRICE", "ITEMSHOP",
 			"BUILD", "BUFFS", "GEAR_WHY", "GEAR_ADVICE", "GEAR_OPINION", "MAP_ADVICE", "SHOW_ITEM",
-			"GIFT_OFFER", "SUMMON", "DISMISS",
+			"GIFT_OFFER", "WHERE_METIN", "WHERE_EXP", "CHANNEL", "SUMMON", "DISMISS", "MEET",
 			"FOLLOW_UP", "ACK", "LAUGH", "YES", "NO", "ANSWER_TO_BOT",
 			"GENERAL_CONVERSATION", "UNKNOWN_QUESTION", "UNKNOWN_STATEMENT"
 		};
@@ -330,7 +370,10 @@ namespace playerbot_conv
 			{ PBC_R(I_INVENTORY_SPACE, 0, 72), { C_PLACE, C_EQ }, { 0 }, { 0 }, { C_HOWMUCH } },
 			{ PBC_R(I_INVENTORY, 0, 64), { C_EQ }, { C_WHAT, C_HAVE }, { C_FREE, C_PLACE }, { 0 } },
 			{ PBC_R(I_INVENTORY, 0, 52), { C_EQ }, { 0 }, { 0 }, { 0 } },
-			{ PBC_R(I_EQUIPMENT, 0, 60), { C_GEAR }, { 0 }, { C_BUYME, C_SELLYOU, C_TRADE, C_SHOP, C_UPGRADE }, { C_WHICH, C_WHAT, C_HAVE } },
+			// MT2009_PLUS_BOT_CHAT_V2: only a question about the bot's own gear -
+			// an item named in a line ("buty ognistego ptaka") is not one.
+			{ PBC_R(I_EQUIPMENT, 0, 60), { C_GEAR }, { C_WHICH, C_WHAT, C_YOU, C_HAVE, C_SHOWOFF },
+				{ C_BUYME, C_SELLYOU, C_TRADE, C_SHOP, C_UPGRADE }, { C_WHICH, C_WHAT, C_HAVE } },
 			{ PBC_R(I_PARTY, 0, 62), { C_PARTY }, { 0 }, { C_JOIN, C_WANT, C_CAN, C_WITHME }, { C_BE, C_HAVE } },
 			{ PBC_R(I_PARTY, 0, 70), { C_WITHWHO }, { C_BE, C_EXP, C_PLAY, C_YOU, C_HIT }, { 0 }, { 0 } },
 			{ PBC_R(I_PARTY, 0, 66), { C_ALONE }, { C_BE, C_EXP, C_PLAY, C_YOU, C_HIT }, { C_LONELY }, { 0 } },
@@ -436,7 +479,7 @@ namespace playerbot_conv
 				{ C_TRAVEL, C_LIKE, C_THINK, C_HYPO, C_TRAVELG }, { 0 } },
 			{ PBC_R(I_TRAVEL, 0, 78), { C_MAPNAME, C_TRAVEL }, { 0 }, { C_HYPO }, { 0 } },
 			{ PBC_R(I_MAP_OPINION, 0, 80), { C_MAPNAME, C_LIKE }, { 0 }, { 0 }, { 0 } },
-			{ PBC_R(I_EQUIPMENT, 0, 62), { C_BONUS }, { 0 }, { C_BUYME, C_SELLYOU }, { C_HAVE, C_WHICH } },
+			{ PBC_R(I_EQUIPMENT, 0, 62), { C_BONUS }, { C_HAVE, C_WHICH, C_WHAT, C_YOU }, { C_BUYME, C_SELLYOU }, { C_HAVE, C_WHICH } },
 			{ PBC_R(I_MOB_COUNT, 0, 62), { C_MOB, C_HOW }, { 0 }, { C_HIT, C_LIKE }, { 0 } },
 			// "masz tarcze?" - is it in the bag (the engine looks), not "what do you wear"
 			{ PBC_R(I_ITEM_OWN, 0, 68), { C_HAVE, C_GEAR }, { 0 }, { C_WHICH, C_WHAT, C_FREE }, { 0 } },
@@ -500,6 +543,57 @@ namespace playerbot_conv
 			{ PBC_R(I_MAP_ADVICE, 0, 80), { C_ADVICE }, { C_MAP, C_MAPNAME }, { C_BUYME, C_SELLYOU, C_GEAR, C_ITEMWORD }, { 0 } },
 			{ PBC_R(I_MAP_ADVICE, 0, 80), { C_WHY, C_MAP }, { 0 }, { C_TRAVELG, C_LIKE }, { C_SWAP, C_ADVICE } },
 			{ PBC_R(I_MAP_ADVICE, 0, 76), { C_SWAP, C_MAP }, { 0 }, { C_GEAR, C_ITEMWORD, C_TRAVELG }, { 0 } },
+			// ---------------- MT2009_PLUS_BOT_CHAT_V2
+			// "opowiedz kawal", "znasz jakis dowcip?", "rozsmiesz mnie", "kawal?"
+			{ PBC_R(I_JOKE, 0, 88), { C_JOKE }, { C_TELL, C_KNOW, C_HAVE, C_WANT, C_MORE },
+				{ C_LAUGH }, { 0 } },
+			{ PBC_R(I_JOKE, 0, 86), { C_JOKE, C_ME }, { 0 }, { C_LAUGH, C_POSITIVE }, { 0 } },
+			{ PBC_R(I_JOKE, 0, 62), { C_JOKE }, { 0 }, { C_LAUGH, C_POSITIVE, C_NEGATIVE }, { 0 } },
+			// "a w real?", "skad jestes w realu", "z jakiego miasta jestes", "gdzie mieszkasz"
+			{ PBC_R(I_REAL_LIFE, 0, 90), { C_REAL }, { 0 }, { 0 }, { C_ORIGIN, C_WHERE } },
+			{ PBC_R(I_REAL_LIFE, 0, 84), { C_ORIGIN, C_CITY }, { 0 }, { C_HYPO }, { 0 } },
+			{ PBC_R(I_REAL_LIFE, 0, 80), { C_CITY }, { C_WHICH, C_WHERE, C_ORIGIN }, { C_HYPO, C_TRAVELG }, { C_BE } },
+			{ PBC_R(I_GENDER, 0, 86), { C_GENDER }, { 0 }, { 0 }, { 0 } },
+			// "daj yang", "pozycz 100k", "dasz cos?", "daj mi jakis miecz"
+			{ PBC_R(I_BEG, 0, 84), { C_BEG }, { 0 }, { C_PARTY, C_JOIN, C_BUFF, C_PRICEQ, C_SUMMON }, { C_GOLD } },
+			{ PBC_R(I_BEG, 0, 80), { C_GIVE, C_GOLD }, { 0 }, { C_BUFF, C_BUILD, C_PRICEQ, C_SELLYOU }, { 0 } },
+			{ PBC_R(I_BEG, 0, 78), { C_GIVE, C_MONEY }, { 0 }, { C_BUFF, C_BUILD, C_PRICEQ, C_SELLYOU }, { 0 } },
+			// "na jakim jestes ch?", "ktory kanal?"
+			{ PBC_R(I_CHANNEL, 0, 76), { C_CHANNEL }, { C_WHICH, C_WHAT, C_BE, C_YOU, C_WHERE },
+				{ C_MEET, C_JOIN, C_SUMMON, C_TELL }, { 0 } },
+			// "dawaj na ch1 m1", "wbijaj do Joan", "przyjdz na m2", "spotkajmy sie"
+			{ PBC_R(I_MEET, 0, 86), { C_MEET }, { C_MAPNAME, C_CHANNEL, C_TOWN, C_MAP, C_THERE },
+				{ C_HYPO }, { 0 } },
+			{ PBC_R(I_MEET, 0, 84), { C_CHANNEL, C_MAPNAME }, { C_TELL, C_JOIN, C_SUMMON, C_MEET }, { C_HYPO }, { 0 } },
+			{ PBC_R(I_MEET, 0, 82), { C_JOIN, C_MAPNAME }, { 0 }, { C_HYPO, C_PARTY, C_LIKE }, { 0 } },
+			{ PBC_R(I_MEET, 0, 70), { C_MEET }, { C_WANT, C_CAN, C_WE, C_TELL }, { C_HYPO }, { 0 } },
+			// "gdzie sa metki na 30?", "gdzie metiny 45" - advice, not the bot's own hunt
+			{ PBC_R(I_WHERE_METIN, 0, 84), { C_WHERE, C_METIN }, { 0 }, { C_YOU, C_HIT, C_LIKE, C_DROP }, { 0 } },
+			{ PBC_R(I_WHERE_METIN, 0, 82), { C_METIN, C_RECOMMEND }, { 0 }, { C_YOU, C_DROP }, { 0 } },
+			// "jak zrobic konia?", "jak sie robi biologa", "jak zarobic yang"
+			{ PBC_R(I_HOWTO, 0, 88), { C_HOWTO }, { 0 }, { C_HYPO, C_YOU }, { 0 } },
+			{ PBC_R(I_HOWTO, 0, 84), { C_WHERE, C_BIO }, { 0 }, { C_YOU, C_HYPO }, { 0 } },
+			// "o ktorej event?", "jaki jest teraz event?", "kiedy event"
+			{ PBC_R(I_EVENT, 0, 80), { C_EVENT }, { 0 }, { C_LIKE, C_HYPO }, { C_WHEN, C_WHICH, C_NOW } },
+			// "co dropi z metina 30?", "co leci z bossa", "gdzie dropi kosc"
+			{ PBC_R(I_DROP_INFO, 0, 84), { C_DROP, C_WHAT }, { C_METIN, C_BOSS, C_MOB, C_ITEMWORD, C_DT },
+				{ C_YOU, C_TODAY, C_LUCK }, { 0 } },
+			{ PBC_R(I_DROP_INFO, 0, 84), { C_DROP, C_WHERE }, { 0 }, { C_YOU, C_TODAY }, { 0 } },
+			{ PBC_R(I_DROP_INFO, 0, 80), { C_DROP, C_WHO }, { 0 }, { C_YOU, C_TODAY }, { 0 } },
+			// "masz lagi?", "jaki masz ping?"
+			{ PBC_R(I_PING, 0, 78), { C_PING }, { 0 }, { 0 }, { 0 } },
+			// "skad masz taki eq?" - the gear's story, not the bot's kingdom
+			{ PBC_R(I_EQUIPMENT, 0, 86), { C_ORIGIN, C_GEAR }, { 0 }, { 0 }, { 0 } },
+			{ PBC_R(I_EQUIPMENT, 0, 86), { C_ORIGIN, C_EQ }, { 0 }, { 0 }, { 0 } },
+			{ PBC_R(I_EQUIPMENT, 0, 84), { C_ORIGIN, C_ITEMWORD }, { 0 }, { 0 }, { 0 } },
+			// "dasz pt?", "dawaj pt"
+			{ PBC_R(I_PARTY_REQUEST, 0, 80), { C_GIVE, C_PARTY }, { 0 }, { C_HYPO }, { 0 } },
+			{ PBC_R(I_PARTY_REQUEST, 0, 80), { C_TELL, C_PARTY }, { 0 }, { C_HYPO }, { 0 } },
+			// "gdzie najlepiej expic?", "gdzie mam expic na moim lvl", "co polecasz na 40?"
+			{ PBC_R(I_WHERE_EXP, 0, 84), { C_EXP, C_RECOMMEND }, { 0 }, { C_LIKE, C_HYPO }, { C_WHERE } },
+			{ PBC_R(I_WHERE_EXP, 0, 82), { C_MAP, C_RECOMMEND }, { 0 }, { C_LIKE, C_HYPO, C_THINK }, { C_WHERE } },
+			{ PBC_R(I_WHERE_EXP, 0, 80), { C_WHERE, C_EXP, C_ME }, { 0 }, { C_YOU, C_WITHME, C_WITHYOU }, { 0 } },
+
 			// weak catch-alls
 			{ PBC_R(I_ITEM_OWN, 0, 42), { C_HAVE }, { 0 }, { C_WHICH, C_DREAM, C_HOBBY, C_WHAT }, { 0 } },
 		};
@@ -606,7 +700,17 @@ namespace playerbot_conv
 			"ciekawego", "w", "eq", "ekwipunku", "plecaku", "a", "no", "hej", "stoi", "chodzi", "warte", "wart",
 			"teraz", "jeszcze", "tam", "tu", "u", "dla", "mnie", "wycenisz", "wycen", "ty", "ziomek", "prosze",
 			"zobacz", "sprawdz", "moglbys", "mozesz", "sprzedalbys", "wiesz", "chodza", "sa", "jakiegos", "jakas",
-			"gdzie"
+			"gdzie",
+			// MT2009_PLUS_BOT_CHAT_V2: the deal's own words
+			"mam", "moge", "sprzedania", "do", "dasz", "dajesz", "dalej", "wciaz", "jeszcze", "nadal", "kupujesz",
+			"aktualne", "aktualny", "aktualna", "tez", "odkupisz", "kupi", "kto", "ktos", "chce", "chcialbym", "biore",
+			"wezme", "kupuje",
+			// "kupie ten naszyjnik", "to ku ognisty duch": the pointing word is
+			// not the name - with it the name matched nothing on the stall and
+			// the bot said "tego nie mam na straganie" of its own post (the
+			// owner, 4 October).
+			"ten", "to", "te", "ta", "tego", "tej", "tych", "tamten", "tamto", "tamta", "tamtego", "twoje",
+			"twojego", "twoj", "swoj", "ktory", "ktora", "ktore", "tutaj"
 		};
 		size_t i = (size_t)from;
 		for (; i < tok.words.size(); ++i)
@@ -718,7 +822,7 @@ namespace playerbot_conv
 			if (i == C_MANY || i == C_ALONE || i == C_ACK || i == C_LAUGH || i == C_SURPRISE ||
 					i == C_YES || i == C_NO || i == C_BUDDY || i == C_OR || i == C_NEXT ||
 					i == C_TODAY || i == C_NOW || i == C_POSITIVE || i == C_NEGATIVE || i == C_GIVE ||
-					i == C_SWEAR)
+					i == C_SWEAR || i == C_STILL || i == C_AGREE)
 				continue;
 			if (c.Has(i))
 				return true;
@@ -830,6 +934,172 @@ namespace playerbot_conv
 		}
 	}
 
+	// ------------------------------------------------ MT2009_PLUS_BOT_CHAT_V2
+
+	// "mam 7", "7 szt", "x10", "10x", "10 sztuk po 20k": how many pieces a
+	// line about a deal names, 0 none. A bare small number in a short line
+	// counts too ("7"); money ("20k", "15000") never.
+	inline int FindDealCount(const TTokens& tok)
+	{
+		const std::vector<std::string>& w = tok.words;
+		for (size_t i = 0; i < w.size(); ++i)
+		{
+			const std::string& x = w[i];
+			std::string digits = x;
+			if (!digits.empty() && digits[0] == 'x')
+				digits = digits.substr(1);
+			else if (!digits.empty() && digits[digits.size() - 1] == 'x')
+				digits = digits.substr(0, digits.size() - 1);
+			if (digits.empty() || digits.size() > 3)
+				continue;
+			int v = 0;
+			bool ok = true;
+			for (size_t k = 0; k < digits.size(); ++k)
+			{
+				if (digits[k] < '0' || digits[k] > '9')
+					ok = false;
+				else
+					v = v * 10 + (digits[k] - '0');
+			}
+			if (!ok || v <= 0 || v > 500)
+				continue;
+			const std::string next = i + 1 < w.size() ? w[i + 1] : std::string();
+			const std::string prev = i > 0 ? w[i - 1] : std::string();
+			if (next == "k" || next == "kk" || next == "tys" || next == "yang")
+				continue;
+			if (digits != x || StartsWith(next, "szt") || next == "x" || prev == "mam" || prev == "masz" ||
+					prev == "x" || StartsWith(next, "kaw") || next == "razy" || w.size() <= 3)
+				return v;
+		}
+		return 0;
+	}
+
+	// "metki na 30", "gdzie expic 45", "co na 70 lvl": a level the line asks
+	// about. A number named as a level wins (FindLevelNamed); otherwise a bare
+	// number of one to three digits in a line about Metins, exp or maps -
+	// never a sum of yang ("50k"), a refine ("+9") or a place ("m1", "ch2"),
+	// which are not bare digits.
+	inline int FindLevelAsked(const TTokens& tok, const TConceptSet& c)
+	{
+		const int named = FindLevelNamed(tok);
+		if (named > 0)
+			return named;
+		if (!c.Has(C_METIN) && !c.Has(C_EXP) && !c.Has(C_MAP) && !c.Has(C_RECOMMEND) && !c.Has(C_LEVEL) &&
+				!c.Has(C_MOB) && !c.Has(C_BOSS))
+			return 0;
+		const std::vector<std::string>& w = tok.words;
+		for (size_t i = 0; i < w.size(); ++i)
+		{
+			const std::string& n = w[i];
+			if (n.empty() || n.size() > 3)
+				continue;
+			int v = 0;
+			bool digits = true;
+			for (size_t k = 0; k < n.size(); ++k)
+			{
+				if (n[k] < '0' || n[k] > '9')
+					digits = false;
+				else
+					v = v * 10 + (n[k] - '0');
+			}
+			// "ch 1": a channel, not a level.
+			if (digits && i > 0 && (w[i - 1] == "ch" || StartsWith(w[i - 1], "kanal")))
+				continue;
+			if (digits && v >= 1 && v <= 120)
+				return v;
+		}
+		return 0;
+	}
+
+	// "ch1", "ch 2", "kanal 3", "na drugim kanale": the channel a line names.
+	inline int FindChannelNamed(const TTokens& tok)
+	{
+		const std::vector<std::string>& w = tok.words;
+		for (size_t i = 0; i < w.size(); ++i)
+		{
+			const std::string& x = w[i];
+			if (x.size() == 3 && x[0] == 'c' && x[1] == 'h' && x[2] >= '1' && x[2] <= '4')
+				return x[2] - '0';
+			if ((x == "ch" || StartsWith(x, "kanal") || StartsWith(x, "channel")) && i + 1 < w.size() &&
+					w[i + 1].size() == 1 && w[i + 1][0] >= '1' && w[i + 1][0] <= '4')
+				return w[i + 1][0] - '0';
+			if (StartsWith(x, "kanal") && i > 0)
+			{
+				const std::string& p = w[i - 1];
+				if (StartsWith(p, "pierwsz")) return 1;
+				if (StartsWith(p, "drug")) return 2;
+				if (StartsWith(p, "trzec")) return 3;
+			}
+		}
+		return 0;
+	}
+
+	// "expisz", "bijesz", "polujesz": the verb says "you" without the word.
+	inline bool HasSecondPersonGameVerb(const TTokens& tok)
+	{
+		static const char* const kStems[] = {
+			"exp", "ekspi", "bij", "zbij", "farm", "grind", "lvluj", "levelu", "walcz", "poluj", "kopi",
+			"lowi", "robi", "siedz", "stoi", "nabija", "klepi", "ubij"
+		};
+		for (size_t i = 0; i < tok.words.size(); ++i)
+		{
+			const std::string& w = tok.words[i];
+			if (w.size() < 5 || w.compare(w.size() - 2, 2, "sz") != 0)
+				continue;
+			for (size_t k = 0; k < sizeof(kStems) / sizeof(kStems[0]); ++k)
+				if (StartsWith(w, kStems[k]))
+					return true;
+		}
+		return false;
+	}
+
+	// An infinitive of going or hunting: "gdzie expic", "gdzie isc", "gdzie bic
+	// metki" - the asker's own plan, not the bot's.
+	inline bool HasAdviceInfinitive(const TTokens& tok)
+	{
+		for (size_t i = 0; i < tok.words.size(); ++i)
+		{
+			const std::string& w = tok.words[i];
+			if (w == "expic" || w == "expiec" || w == "ekspic" || w == "isc" || w == "bic" || w == "zbijac" ||
+					w == "farmic" || w == "levelowac" || w == "lvlowac" || w == "szukac" || w == "polowac" ||
+					w == "expowac" || w == "grindowac" || w == "robic")
+				return true;
+		}
+		return false;
+	}
+
+	// The advice intents a line about the asker's own level ends up in, read
+	// after the rules: "gdzie metki na 30?" asked as a Metin question, "gdzie
+	// expic na 45?" asked as one about where the bot hunts.
+	inline void ResolveAdviceIntent(TAnalysis& a)
+	{
+		const TConceptSet& c = a.concepts;
+		const bool you = c.Has(C_YOU) || HasSecondPersonGameVerb(a.tokens);
+		if (you)
+		{
+			if (a.intent == I_WHERE_METIN || a.intent == I_WHERE_EXP)
+				a.intent = a.rawIntent = I_ACTIVITY_LOCATION;
+			return;
+		}
+		const bool advice = a.levelAsked > 0 || HasAdviceInfinitive(a.tokens) || c.Has(C_RECOMMEND);
+		// "lubisz tu expic?" asks whether the bot likes the place, not where
+		// the asker should go: "lubisz" is no game verb, so `you` misses it.
+		if (a.intent == I_MAP_OPINION && c.Has(C_LIKE))
+			return;
+		if (!advice || c.Has(C_DROP) || c.Has(C_HOWTO) || c.Has(C_DT) || c.Has(C_CLASS))
+			return;
+		if (c.Has(C_METIN) && (a.intent == I_METIN || a.intent == I_ACTIVITY_LOCATION || a.intent == I_LOCATION ||
+				a.intent == I_UNKNOWN_QUESTION || a.intent == I_UNKNOWN_STATEMENT || a.intent == I_FOLLOW_UP ||
+				a.intent == I_LEVEL))
+			a.intent = a.rawIntent = I_WHERE_METIN;
+		else if ((c.Has(C_EXP) || (c.Has(C_WHERE) && a.levelAsked > 0) ||
+				(c.Has(C_DO) && c.Has(C_WHAT) && a.levelAsked > 0)) &&
+				(a.intent == I_ACTIVITY_LOCATION || a.intent == I_ACTIVITY || a.intent == I_LOCATION ||
+				 a.intent == I_UNKNOWN_QUESTION || a.intent == I_UNKNOWN_STATEMENT || a.intent == I_FOLLOW_UP ||
+				 a.intent == I_LEVEL || a.intent == I_MAP_OPINION))
+			a.intent = a.rawIntent = I_WHERE_EXP;
+	}
+
 	// ------------------------------------------------------------- analysis
 
 	// The line on its own: no memory yet.
@@ -840,6 +1110,9 @@ namespace playerbot_conv
 		Normalize(raw, a.tokens);
 		a.question = a.tokens.question;
 		ExtractConcepts(a.tokens, a.concepts);
+		// MT2009_PLUS_BOT_CHAT_V2: "bo?", "ale bo?" - why, said short.
+		if (a.tokens.words.size() <= 2 && a.tokens.Has("bo"))
+			a.concepts.Set(C_WHY, a.tokens.Find("bo"));
 		const TConceptSet& c = a.concepts;
 		a.offerYang = ParseYangAmount(a.tokens.words);
 		{
@@ -847,6 +1120,9 @@ namespace playerbot_conv
 			a.mentionMap = FindMapAlias(a.tokens.words, at);
 		}
 		a.levelNamed = FindLevelNamed(a.tokens);
+		a.levelAsked = FindLevelAsked(a.tokens, c);
+		a.channelNamed = FindChannelNamed(a.tokens);
+		a.dealCount = FindDealCount(a.tokens);
 
 		// A sum that is the whole line ("ile to 2+2") is answered as one;
 		// read as words it was "ile" and nothing, and the bot said "Ale czego?"
@@ -1014,6 +1290,16 @@ namespace playerbot_conv
 				a.object = obj;
 			}
 		}
+		// MT2009_PLUS_BOT_CHAT_V2: a question about the asker's own level
+		// is advice, not the bot's own hunt.
+		if (!hasLink)
+			ResolveAdviceIntent(a);
+		// "daj 100k", "dasz 50k?": a sum asked for with nothing offered for it.
+		if (a.offerYang > 0 && a.tokens.words.size() <= 5 && c.Has(C_GIVE) && !c.Has(C_PRICEQ) && !c.Has(C_BUYME) &&
+				!c.Has(C_SELLYOU) && !c.Has(C_ITEMWORD) && !c.Has(C_GEAR) && !c.Has(C_GIFT) && !a.tokens.Has("za") &&
+				(a.intent == I_UNKNOWN_STATEMENT || a.intent == I_UNKNOWN_QUESTION || a.intent == I_ACK ||
+				 a.intent == I_GOLD || a.intent == I_BUFFS))
+			a.intent = a.rawIntent = I_BEG;
 		if (hasLink)
 		{
 			// The link names the item whatever the words around it say.

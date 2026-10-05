@@ -600,6 +600,11 @@ namespace
 			LPITEM item = ch->GetInventoryItem((WORD)cell);
 			if (!item || item->GetCell() != cell || !IsPlayerBotCorVnum(item->GetVnum()) || item->isLocked())
 				continue;
+			// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1: a companion opens only a
+			// Cor its owner handed it; the ones off the owner's kills are the
+			// owner's.
+			if (IsPlayerBotSidekickKeptForOwner(ch, item))
+				continue;
 			std::vector<LPITEM> stones;
 			CollectPlayerBotDragonSouls(ch, stones);
 			if ((int)stones.size() >= DRAGON_SOUL_INVENTORY_MAX_NUM - 8)
@@ -756,7 +761,12 @@ namespace
 		if (ch->IsDead() || state.bVisitingDsAlchemist || !ch->DragonSoul_IsQualified())
 			return;
 		const bool active = ch->DragonSoul_GetActiveDeck() >= 0;
-		if (!active && !IsPlayerBotAlchemyUser(ch))
+		// MT2009_PLUS_SIDEKICK_PANELS_V1: a companion is no alchemy user (it
+		// never buys, opens, refines or swaps a stone), but the stones its
+		// owner put on it in the companion's Alchemy window switch on for its
+		// fights like everybody's.
+		if (!active && !IsPlayerBotAlchemyUser(ch) &&
+				!(IsPlayerBotSidekickPID(ch->GetPlayerID()) && !ArePlayerBotAlchemyOff()))
 			return;
 		const DWORD last = state.dwLastCombatActionTime;
 		const bool fightingNow = last != 0 && dwNow - last < PLAYERBOT_DS_COMBAT_START_MS;
@@ -773,9 +783,28 @@ namespace
 		const bool settled = state.dwLastDsDeckToggle == 0 || dwNow - state.dwLastDsDeckToggle >= PLAYERBOT_DS_DECK_MIN_TOGGLE_MS;
 		if (!active)
 		{
-			if (!fightingNow || quiet || !settled || CountPlayerBotWornDs(ch, true) == 0)
+			// MT2009_PLUS_SIDEKICK_PANELS_V1: a companion's owner may have put
+			// its stones on the second deck: the deck with more of them goes on.
+			int deck = DRAGON_SOUL_DECK_0;
+			int live = CountPlayerBotWornDs(ch, true);
+			if (IsPlayerBotSidekickPID(ch->GetPlayerID()))
+			{
+				int second = 0;
+				for (int kind = 0; kind < DS_SLOT_MAX; ++kind)
+				{
+					LPITEM worn = ch->GetItem(TItemPos(INVENTORY, (int)DRAGON_SOUL_EQUIP_SLOT_START + (int)DS_SLOT_MAX + kind));
+					if (worn && HasPlayerBotDsTime(worn))
+						++second;
+				}
+				if (second > live)
+				{
+					deck = DRAGON_SOUL_DECK_1;
+					live = second;
+				}
+			}
+			if (!fightingNow || quiet || !settled || live == 0)
 				return;
-			if (!ch->DragonSoul_ActivateDeck(DRAGON_SOUL_DECK_0))
+			if (!ch->DragonSoul_ActivateDeck(deck))
 				return;
 			state.dwLastDsDeckToggle = dwNow;
 			++s_kPlayerBotAlchemyStats.deckOn;

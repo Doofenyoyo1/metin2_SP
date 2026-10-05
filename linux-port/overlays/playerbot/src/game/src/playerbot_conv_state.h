@@ -241,6 +241,44 @@ namespace playerbot_conv
 		return e >= 0 && e < SUMMON_END_COUNT ? k[e] : "?";
 	}
 
+	// MT2009_PLUS_BOT_CHAT_V2: one line the bot said in public.
+	enum EPublicKind
+	{
+		PL_NONE = 0,
+		PL_SELL,        // "S> ..." - it sells
+		PL_BUY,         // "K> ...", "B> ..." - it buys
+		PL_PARTY,       // looking for a party, or members
+		PL_METIN,       // breaking Metins somewhere, asking who joins
+		PL_METIN_ASK,   // "gdzie sa metki na 30?"
+		PL_EXP_ASK,     // "gdzie expic na 40?"
+		PL_PRICE_ASK,   // "ile stoi bodzie?"
+		PL_BOSS,
+		PL_GEAR,        // its weapon shown off or asked about
+		PL_EVENT,
+		PL_WAR,
+		PL_TALK
+	};
+
+	struct TPublicLine
+	{
+		int kind;
+		bool trade;            // on the '@' trade chat, else the kingdom's shout
+		std::string text;
+		std::string itemName;  // the item a trade or price line is about
+		u32 vnum;
+		int count;
+		long long unitPrice;   // per piece, 0 none named
+		long map;              // the map a party or Metin line named, 0 none
+		int level;             // the level a line named, 0 none
+		u32 ageMin;
+		bool open;             // still meant (a trade not yet done)
+		// A skill book's skill (all of them are one vnum, the skill in socket
+		// 0): "S> KU Aura Miecza" is that book and no other.
+		u32 skill;
+		TPublicLine() : kind(PL_NONE), trade(false), vnum(0), count(0), unitPrice(0), map(0), level(0), ageMin(0),
+			open(true), skill(0) {}
+	};
+
 	// --------------------------------------------------------------- snapshot
 
 	struct TBotSnapshot
@@ -273,6 +311,9 @@ namespace playerbot_conv
 		std::string partyLeader;
 		bool leaderIsMe;
 		bool askerInParty;
+		// MT2009_PLUS_BOT_CHAT_V2 (deals): a person other than the asker in the
+		// bot's party - it is playing with them, not trading.
+		bool partyWithOtherPerson;
 		bool inGuild;
 		std::string guildName;
 		int guildMembers;
@@ -295,6 +336,8 @@ namespace playerbot_conv
 		bool shopOpen;          // a stall of any kind is up (classic or the offline shop)
 		bool shopStanding;      // the classic one: the bot itself stands behind it
 		long shopMapIndex;      // where the stall stands (the offline one stays while the bot hunts)
+		int shopChannel;        // the channel it stands on, 0 unknown
+		std::string shopSpot;   // beside what in the village, "przy kowalu" - empty unknown
 		bool shopOtherChannel;
 		int shopItems;
 		std::string shopSummary;
@@ -347,23 +390,37 @@ namespace playerbot_conv
 		// own channel's Joan, where the bot is not (AskerOnOtherChannel).
 		int channel;
 		int askerChannel;
+		// MT2009_PLUS_BOT_CHAT_V2: the spot quarrel with the asker
+		// (playerbot_spot_defense.h): how far the bot's complaints about the
+		// asker hitting it or its monsters went, 0 none, 1 a warning .. 4 the
+		// last; and whether it gave the spot up.
+		int spotQuarrel;
+		bool spotGaveUp;
+		// The timed events running now, as a bot names them ("event na
+		// expa, skrzynie"), empty when none (playerbot_events.h).
+		std::string eventsNow;
+		// What the bot itself said on the shout channel and the '@' trade
+		// chat lately, newest first (TPublicLine): a whisper that refers to
+		// it is answered in its context.
+		std::vector<TPublicLine> publicLines;
 
 		TBotSnapshot() : level(1), job(0), empire(0), mapIndex(0), inTown(false), safeZone(false),
 			inDungeon(false), action(A_IDLE), goal(G_LEVEL), travelMap(0), riding(false),
 			targetStone(false), targetBoss(false), targetPlayer(false), hpPct(100), spPct(100),
 			dead(false), expPct(-1), gold(0), horseLevel(0), inParty(false), partySize(0),
-			leaderIsMe(false), askerInParty(false), inGuild(false), guildMembers(0), freeCells(0),
+			leaderIsMe(false), askerInParty(false), partyWithOtherPerson(false), inGuild(false), guildMembers(0), freeCells(0),
 			bagCells(0), weaponPlus(0), armorPlus(0), fishing(false), mining(false),
 			herbUnlocked(false), metinHunter(false), demonTower(false), guildWar(false),
 			mercContract(false), luring(false), luringForAsker(false), shopOpen(false), shopStanding(false), shopMapIndex(0),
-			shopOtherChannel(false), shopItems(0),
+			shopChannel(0), shopOtherChannel(false), shopItems(0),
 			marketTrip(false), mobsNear(-1), playersNear(0), style(S_ADVENTURER), mood(MOOD_NEUTRAL),
 			unlucky(false), euphoria(false), affinity(0), onlineMinutes(0), goalMinutes(0),
 			actionMinutes(0), recentDeaths(0), minutesSinceDeath(0xFFFFFFFFu), askerLevel(0),
 			askerNear(false), hour(12), afk(false), huntRemaining(0), dragonCoins(0), dragonKnown(false),
 			skillGroup(0), mainSkill(0), summonBlock(SB_NONE), summoned(false), summonedByAsker(false),
 			summonArrived(false), askerOnMap(false), askerDistance(-1), weaponLevel(0), weaponGoalPrice(0),
-			weaponOutclassed(false), weaponIsGoal(false), channel(0), askerChannel(0)
+			weaponOutclassed(false), weaponIsGoal(false), channel(0), askerChannel(0), spotQuarrel(0),
+			spotGaveUp(false)
 		{
 			for (int i = 0; i < 6; ++i)
 			{
@@ -373,6 +430,34 @@ namespace playerbot_conv
 		}
 
 		int Build() const { return BuildOf(job, skillGroup); }
+	};
+
+	// What the engine knows of an item a whisper names, for a deal.
+	struct TDealQuote
+	{
+		bool found;
+		u32 vnum;
+		std::string name;
+		bool stackable;
+		long long fair;        // the market's price per piece, 0 unknown
+		bool botWants;         // the bot would buy it
+		int wantCount;         // how many it takes at most
+		long long maxBuyUnit;  // the most it pays per piece
+		int botHas;            // pieces in its bag it would sell (not worn, not its counter's)
+		long long minSellUnit; // the least it takes per piece
+		long long sellUnit;    // what it asks per piece
+		bool onStall;          // it is on the bot's counter (sold there, not by hand)
+		long long stallUnit;
+		std::string stallWhere;
+		long long botGold;
+		// A skill book: the skill (socket 0 of the one book vnum), and the
+		// bare "ku" / "ksiega" with no skill named (needSkill) - with the
+		// books the bot itself has, "KU Aura Miecza, KU Berserk", to ask which.
+		u32 skill;
+		bool needSkill;
+		std::string booksHad;
+		TDealQuote() : found(false), vnum(0), stackable(false), fair(0), botWants(false), wantCount(0), maxBuyUnit(0),
+			botHas(0), minSellUnit(0), sellUnit(0), onStall(false), stallUnit(0), botGold(0), skill(0), needSkill(false) {}
 	};
 
 	// Whether the asker plays on the other channel than the bot.
@@ -408,7 +493,95 @@ namespace playerbot_conv
 			virtual int StartSummon() { return SUMMON_START_FAILED; }
 			// "mozesz isc" - the bot goes back to its own life (ESummonEnd).
 			virtual int EndSummon() { return SUMMON_END_NOT_SUMMONED; }
+			// MT2009_PLUS_BOT_CHAT_V2: "gdzie expic na 30?", "gdzie metki na 45?"
+			// - the world's own answer (the progression table's maps, the
+			// stones' spawns), as a short phrase ("Dolina Orkow albo Pustynia").
+			// False: the pure tables below answer.
+			virtual bool ExpPlaceFor(int level, std::string& out) { (void)level; (void)out; return false; }
+			virtual bool MetinPlaceFor(int level, std::string& out) { (void)level; (void)out; return false; }
+			// MT2009_PLUS_BOT_CHAT_V2 (deals): an item a whisper names (or the
+			// bot's own post's item, `vnumHint`), priced and judged: would the
+			// bot buy it, does it have it to sell, at what prices.
+			// A skill book's skill comes with the hint (the post's), else from
+			// the query's words ("ku aura miecza").
+			virtual bool QuoteItem(const std::string& query, u32 vnumHint, u32 skillHint, TDealQuote& out)
+			{
+				(void)query; (void)vnumHint; (void)skillHint; (void)out;
+				return false;
+			}
+			// Both settled (EDealMeet): the engine holds the deal for the
+			// exchange window and says how the two meet - and, for a meeting
+			// at a landmark, where (`place`).
+			virtual int DealAgreed(unsigned char side, u32 vnum, u32 skill, int count, long long unit, TDealMeetPlace& place)
+			{
+				(void)side; (void)vnum; (void)skill; (void)count; (void)unit;
+				place = TDealMeetPlace();
+				return -1;
+			}
+			// The settled deal's meeting as it stands now - still on the way
+			// to the landmark or already there ("gdzie jestes?"). False when
+			// the engine holds no deal with this person.
+			virtual bool DealMeet(TDealMeetPlace& place)
+			{
+				(void)place;
+				return false;
+			}
+			// MT2009_PLUS_BOT_DUNGEON_LFG_V1 (playerbot_dungeon_lfg.h): the yes
+			// to the bot's offer - the bot goes to the dungeon's entrance and
+			// waits there (playerbot_lfg::EGo says how it went); the no, or the
+			// person calling it off while it waits; and the dungeon named to
+			// "na jaki dung?" - whether this bot fits it (EChoose), and the
+			// dungeon the engine made of the name ("malpy" is one of three).
+			virtual int LfgAccept() { return playerbot_lfg::GO_GONE; }
+			virtual void LfgDecline() {}
+			virtual int LfgChoose(const std::string& key, int difficulty, std::string& resolved)
+			{
+				(void)key; (void)difficulty;
+				resolved.clear();
+				return playerbot_lfg::CHOOSE_UNKNOWN;
+			}
 	};
+
+	// How the two of a settled deal meet.
+	enum EDealMeet
+	{
+		DEAL_MEET_FAILED = -1,
+		DEAL_MEET_NEAR = 0,       // standing by each other: the window now
+		DEAL_MEET_COMING = 1,     // the bot walks over
+		DEAL_MEET_COME_TO_ME = 2, // the bot cannot move: the person comes to where it stands
+		DEAL_MEET_AT_SPOT = 3     // the bot goes to a village's landmark and waits there (TDealMeetPlace)
+	};
+
+	// A village as players name it: "M1 Yongan", "M2 Bokjung". Empty for
+	// any other map.
+	inline const char* VillageTag(long mapIndex)
+	{
+		switch (mapIndex)
+		{
+			case 1: return "M1 Yongan";
+			case 3: return "M2 Jayang";
+			case 21: return "M1 Joan";
+			case 23: return "M2 Bokjung";
+			case 41: return "M1 Pyongmoo";
+			case 43: return "M2 Bakra";
+			default: return "";
+		}
+	}
+
+	// MT2009_PLUS_BOT_CHAT_V2: how a bot takes a quarrel, from its style:
+	// 0 lets it go and leaves, 1 says its piece, 2 gives as good as it gets.
+	inline int TemperOf(int style)
+	{
+		switch (style)
+		{
+			case S_COMPANION: case S_FISHER: case S_COLLECTOR: case S_MINER: case S_WANDERER:
+				return 0;
+			case S_CONQUEROR: case S_METIN: case S_MERC: case S_GAMBLER:
+				return 2;
+			default:
+				return 1;
+		}
+	}
 
 	// ------------------------------------------------------------------ maps
 

@@ -6,7 +6,7 @@
 -- Duch Sura (30121) w Grocie Wygnañców V2 (mapa 73, rdzeñ game1) tworzy instancjê mapy 208
 -- (metin2_map_skipia_dungeon_boss, rdzeñ game2, d.new_jump_pids przez P2P) i od razu
 -- przenosi do niej gracza albo przywódcê z ludŸmi jego dru¿yny stoj¹cymi obok (jedno
--- ³adowanie; boty zostaj¹ na zewn¹trz). W œrodku:
+-- ³adowanie; boty z dru¿yny wchodz¹ za nim). W œrodku:
 --   1: cztery kamienie smoka (8031-8034) - dopóki stoi choæ jeden, Beran-Setaou nie przyjmuje
 --      obra¿eñ (silnik, server-patches/bluedragon); zniszczony kamieñ czasem przywo³uje
 --      oddzia³ Setaou (1/3, jak dragon_lair.quest Owsapa);
@@ -18,6 +18,11 @@
 -- ponowne wejœcie po godzinie od wejœcia, op³ata i 5 wypraw dziennie jak w innych lochach
 -- (MT2009_PLUS_DUNGEON_FEE_V1). Publiczna mapa 208 to poczekalnia (awaryjna droga, jak 351
 -- Razadora): stoi tam tylko Duch Sura, który otwiera instancjê.
+-- MT2009_PLUS_BOT_DUNGEONS_ALL_V1: mapa lochu jest od teraz na rdzeniu game1, razem z botami
+-- (m2-render-config) - gdzie ni¿ej mowa o game2, chodzi o rdzeñ, który hostuje mapê:
+-- d.new_jump_pids tworzy instancjê na miejscu i przenosi do niej ludzi z dru¿yny, a boty
+-- z dru¿yny gracza wchodz¹ za nim do tej samej instancji, walcz¹ przy nim i wychodz¹ z nim
+-- (playerbot_party_dungeon.h). Op³ata, limit dzienny, poziom i odpoczynek s¹ tylko dla ludzi.
 quest blue_dragon_lair begin
 	state start begin
 		function cfg()
@@ -39,7 +44,7 @@ quest blue_dragon_lair begin
 				limit_min = 60,
 				-- MT2009_PLUS_DUNGEON_FEE_V1: the price of a new expedition (each player, paid on entering it) and
 				-- how many new expeditions a player may start a day (Polish midnight).
-				fee = 15000000, fee_text = "15 000 000",
+				fee = 7500000, fee_text = "7 500 000", -- MT2009_PLUS_AREZZO_BALANCE_V1: half of 15 000 000 (the owner, 5 October)
 				daily = 5,
 				path = "data/dungeon/bluedragon_mt/",
 				stone_back = 0, -- a stone returns this many seconds after the last one fell (0 = never)
@@ -73,6 +78,16 @@ quest blue_dragon_lair begin
 			return not pc.is_gm() and pc.get_money() < c.fee
 		end
 
+		-- MT2009_PLUS_DUNGEON_FEE_LEADER_V1: who pays (the owner, 5 October: "Za wejœcie na dungeon z botami
+		-- (równie¿ z towarzyszem) p³aci tylko lider grupy. Jak boty id¹ same - p³ac¹ normalnie"). A person
+		-- pays for himself alone, once, on his first login into the new instance - after the entry worked,
+		-- never at the guard - and the guard checks the fee, the day's runs, the level and the rest of the
+		-- people going in only: a bot of the party (the companion, a finder's bot, any bot the person
+		-- invited) is never asked for the fee nor charged it, whether the person or the bot leads the
+		-- party. A member counts as a person only when the quest's block really switched to him
+		-- (pc.get_player_id() == pid, as devilcatacomb_zone asks): a block that stayed on the one talking
+		-- would put the member on the list with the talker's own figures. Two people with bots: each person
+		-- his own, as before. The bots' own runs (playerbot_dungeon_runs.h) pay in the core, as before.
 		function pay_entry()
 			local c = blue_dragon_lair.cfg()
 			if pc.is_gm() or pc.is_playerbot() then
@@ -98,6 +113,26 @@ quest blue_dragon_lair begin
 		end
 
 		-- An instance of 208 (the public map 208 is the lobby).
+		-- MT2009_PLUS_BOT_DUNGEONS_ALL_V1: a party a bot leads (a person's companion takes the person
+		-- into its own party) is the person's to open - its leader is nobody to ask. The leader is
+		-- looked at only among the members on this map (get_member_pids), as everywhere here.
+		function bot_leads()
+			local lp = party.get_leader_pid()
+			if lp == nil or lp == 0 or lp == pc.get_player_id() then
+				return false
+			end
+			local bot = false
+			local pids = {party.get_member_pids()}
+			for i, pid in next, pids, nil do
+				if pid == lp then
+					q.begin_other_pc_block(pid)
+					bot = pc.get_player_id() == pid and pc.is_playerbot()
+					q.end_other_pc_block()
+				end
+			end
+			return bot
+		end
+
 		function inside()
 			local idx = pc.get_map_index()
 			return idx >= 208 * 10000 and idx < 209 * 10000 and pc.in_dungeon()
@@ -115,7 +150,7 @@ quest blue_dragon_lair begin
 
 		-- The dragon's rewards for every player of the killer's party inside this instance
 		-- (get_member_pids gives only the members on the killer's map index), or for the killer
-		-- alone; a full bag drops them at the player's feet (give_item2). Bots never enter.
+		-- alone; a full bag drops them at the player's feet (give_item2). A bot of the party gets none.
 		function give_rewards()
 			local c = blue_dragon_lair.cfg()
 			local pids = {}
@@ -191,8 +226,9 @@ quest blue_dragon_lair begin
 			say("trzeba je zniszczyæ.")
 			say("")
 			say_reward("Wymagany poziom: "..c.min_level..". Ponowne wejœcie po 60 minutach.")
-			say_reward("Loch jest tylko dla graczy - boty z dru¿yny zostaj¹ tutaj.")
+			say_reward("Boty z Twojej dru¿yny wejd¹ do lochu razem z Tob¹.")
 			say_reward("Wejœcie: "..c.fee_text.." Yang. Najwy¿ej "..c.daily.." wypraw dziennie (dziœ: "..blue_dragon_lair.runs_today().."/"..c.daily..").") -- MT2009_PLUS_DUNGEON_FEE_V1
+			say_reward("P³acisz tylko za siebie - boty z dru¿yny i towarzysz wchodz¹ bez op³aty.") -- MT2009_PLUS_DUNGEON_FEE_LEADER_V1
 			if select("PrzejdŸ do Le¿a Smoka", "Nie teraz") ~= 1 then
 				return
 			end
@@ -229,7 +265,7 @@ quest blue_dragon_lair begin
 					return
 				end
 			end
-			if party.is_party() and not party.is_leader() then
+			if party.is_party() and not party.is_leader() and not blue_dragon_lair.bot_leads() then
 				say_title(mob_name(30121))
 				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
 				say("Stañ przy mnie - przywódca zabierze dru¿ynê stoj¹c¹ obok.")
@@ -251,7 +287,8 @@ quest blue_dragon_lair begin
 				return
 			end
 			-- Who goes: the player, or the leader and the people of his party standing by
-			-- the Ghost (c.near cells); bots stay. Anyone too weak or not yet rested stops it.
+			-- the Ghost (c.near cells); the party's bots follow them in afterwards (MT2009_PLUS_BOT_DUNGEONS_ALL_V1,
+			-- playerbot_party_dungeon.h) and pay nothing. Anyone too weak or not yet rested stops it.
 			local me = pc.get_player_id()
 			local humans = {me}
 			local low = {}
@@ -270,7 +307,7 @@ quest blue_dragon_lair begin
 					if pid ~= me then
 						q.begin_other_pc_block(pid)
 						local dx, dy = pc.get_x() - lx, pc.get_y() - ly
-						if not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
+						if pc.get_player_id() == pid and not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
 							table.insert(humans, pid)
 							if pc.get_level() < c.min_level then
 								table.insert(low, pc.get_name())
@@ -343,7 +380,7 @@ quest blue_dragon_lair begin
 					if pid ~= me then
 						q.begin_other_pc_block(pid)
 						local dx, dy = pc.get_x() - lx, pc.get_y() - ly
-						if not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
+						if pc.get_player_id() == pid and not pc.is_playerbot() and pc.get_map_index() == lmap and dx * dx + dy * dy <= c.near * c.near and pc.can_warp() then
 							pc.warp(x, y)
 						end
 						q.end_other_pc_block()
@@ -392,7 +429,7 @@ quest blue_dragon_lair begin
 				end
 				return
 			end
-			if party.is_party() and not party.is_leader() then
+			if party.is_party() and not party.is_leader() and not blue_dragon_lair.bot_leads() then
 				say("Tylko przywódca dru¿yny mo¿e otworzyæ przejœcie.")
 				say("Poczekaj tu na niego - zabierze ca³¹ dru¿ynê.")
 				return
@@ -406,7 +443,7 @@ quest blue_dragon_lair begin
 				local pids = {party.get_member_pids()}
 				for i, pid in next, pids, nil do
 					q.begin_other_pc_block(pid)
-					if not pc.is_playerbot() then
+					if pc.get_player_id() == pid and not pc.is_playerbot() then
 						table.insert(humans, pid)
 						if pc.get_level() < c.min_level then
 							table.insert(low, pc.get_name())
@@ -578,6 +615,18 @@ quest blue_dragon_lair begin
 					return
 				end
 				blue_dragon_lair.stone_back()
+			end
+		end
+
+		-- MT2009_PLUS_BOT_DUNGEON_RUNS_V1: the start of an ordinary bot party's run (playerbot_dungeon_runs.h).
+		-- The bots cannot answer the guard's dialog, so the core makes the instance itself, marks it with
+		-- the dungeon flag mt2009_dgrun - nothing a player can set - and asks for this. Unlike the test
+		-- cohort's (mt2009_dgbot) such a run keeps the player's time limit and the player's way out.
+		when blue_dragon_dgrun.server_timer begin
+			if d.select(get_server_timer_arg()) then
+				if d.getf("mt2009_dgrun") == 1 and d.getf("init") == 0 then
+					blue_dragon_lair.init()
+				end
 			end
 		end
 

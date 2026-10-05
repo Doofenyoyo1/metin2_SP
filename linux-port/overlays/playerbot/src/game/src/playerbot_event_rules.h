@@ -69,7 +69,11 @@ enum Kind
 	// easter_rabbit, until now only the classic panel's Easter page): on a
 	// clock too, and in the players' event list (MT2009_PLUS_EVENT_MANAGER_V1).
 	KIND_EASTER = 13,
-	KIND_MAX = 14
+	// MT2009_PLUS_CHEST_DROP_EVENT_V1: any chest the operator names drops from
+	// monsters while the window is open - the map column holds its vnum, the
+	// value the chance a kill in per mille (the panel's "Drop szkatulek").
+	KIND_CHESTDROP = 14,
+	KIND_MAX = 15
 };
 
 inline const char* KindName(int kind)
@@ -90,6 +94,7 @@ inline const char* KindName(int kind)
 		case KIND_YUTNORI: return "yutnori";
 		case KIND_FLOWER: return "flower";
 		case KIND_EASTER: return "easter";
+		case KIND_CHESTDROP: return "chestdrop";
 	}
 	return "";
 }
@@ -104,6 +109,13 @@ inline bool IsRateKind(int kind)
 inline bool IsWorldKind(int kind)
 {
 	return kind == KIND_TANAKA || kind == KIND_ZUO;
+}
+
+// MT2009_PLUS_CHEST_DROP_EVENT_V1: the kinds with a fifth/sixth column - a world
+// event's map, the chest drop's vnum.
+inline bool HasMapColumn(int kind)
+{
+	return IsWorldKind(kind) || kind == KIND_CHESTDROP;
 }
 
 // What a world event's value means: pirates at once, or stones a wave. A row
@@ -224,7 +236,7 @@ inline bool ParseLine(const char* text, Window& out)
 		w.value = atoi(f[3]);
 		if (w.until <= 0)
 			return false;
-		if (n >= 5 && IsWorldKind(w.kind))
+		if (n >= 5 && HasMapColumn(w.kind))
 			w.map = atol(f[4]);
 		if (n >= 6)
 			w.since = atol(f[5]);
@@ -244,7 +256,7 @@ inline bool ParseLine(const char* text, Window& out)
 	if (!ParseHHMM(f[2], w.startMin) || !ParseHHMM(f[3], w.endMin) || w.startMin >= 1440)
 		return false;
 	w.value = atoi(f[4]);
-	if (n >= 6 && IsWorldKind(w.kind))
+	if (n >= 6 && HasMapColumn(w.kind))
 		w.map = atol(f[5]);
 	if (w.map < 0)
 		w.map = 0;

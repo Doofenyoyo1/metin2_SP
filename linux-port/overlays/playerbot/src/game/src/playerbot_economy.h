@@ -2044,6 +2044,14 @@ namespace
 		// it, waiting in the bag for its slot.
 		if (IsPlayerBotSidekickGift(ch, item) || IsPlayerBotSidekickPinned(ch, item))
 			return false;
+		// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1: a companion's bag is its
+		// owner's - the drops of the owner's own kills land in it too (the
+		// party's turn at a drop, CParty::GetNextOwnership). Only plain scrap
+		// worth next to nothing is ever the merchant's (or the Battle Pass
+		// room's), and then by the rules below as for every bot; the operator's
+		// "merchant" word does not reach past that either.
+		if (IsPlayerBotSidekickServing(ch) && !IsPlayerBotSidekickSellableJunk(ch, item))
+			return false;
 
 		// The operator's word first: merchant is scrap whatever the rules
 		// below would keep it for; keep, stall and drop are never scrap (drop
@@ -2734,6 +2742,10 @@ namespace
 	// so a bot is left with at most one stack over the keep.
 	void DiscardPlayerBotSurplusBoosters(LPCHARACTER ch)
 	{
+		// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1: a companion's boosters are
+		// its owner's drops as likely as its own - none thrown away.
+		if (IsPlayerBotSidekickServing(ch))
+			return;
 		std::map<DWORD, int> kept;
 		for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 		{
@@ -2816,7 +2828,10 @@ namespace
 			// without a sale - the one place a bag is emptied on purpose.
 			if (item && !item->IsEquipped() && !item->isLocked() &&
 					GetPlayerBotItemPolicy(item) == PLAYERBOT_ITEM_POLICY_DROP &&
-					!IsPlayerBotSidekickLockedItem(ch, item))	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1
+					!IsPlayerBotSidekickLockedItem(ch, item) &&	// MT2009_PLUS_SIDEKICK_EQUIP_LOCK_V1
+					// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1: nor a companion's
+					// valuables, which are its owner's.
+					(!IsPlayerBotSidekickServing(ch) || IsPlayerBotSidekickSellableJunk(ch, item)))
 			{
 				sys_log(0, "PLAYERBOT_AI: discarded by policy pid=%u name=%s vnum=%u count=%u",
 						ch->GetPlayerID(), ch->GetName(), item->GetVnum(), (unsigned int)item->GetCount());
@@ -2828,6 +2843,7 @@ namespace
 			// heads are worth no yang the world should mint.
 			if (item && !item->isLocked() && IsPlayerBotUnwantedHair(ch, item) &&
 					!IsPlayerBotSidekickGift(ch, item) && !IsPlayerBotSidekickPinned(ch, item) &&
+					!IsPlayerBotSidekickServing(ch) &&	// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1
 					GetPlayerBotItemPolicy(item) == PLAYERBOT_ITEM_POLICY_NONE)
 			{
 				sys_log(0, "PLAYERBOT_ISHOP: hairstyle thrown away pid=%u name=%s vnum=%u",
@@ -4588,6 +4604,13 @@ namespace
 		if (NeedsPlayerBotProperWeapon(ch) && !IsPlayerBotRebuildingFromMarket(ch, WEAR_WEAPON) &&
 				(!isArcher || CountPlayerBotArrows(ch) >= PLAYERBOT_ARROW_RESTOCK_THRESHOLD))
 			bought = BuyPlayerBotProperWeapon(ch) || bought;
+		// MT2009_PLUS_BOT_GEAR_UPGRADE_V1: and the merchant's best weapon for
+		// the bot whenever it hits a tenth harder than the best one it owns -
+		// the ladder above names the family's own tier for the level, which
+		// the merchants stock at 15, 25 and 36 only (playerbot_gear_upgrade.h).
+		if (!IsPlayerBotRebuildingFromMarket(ch, WEAR_WEAPON) &&
+				(!isArcher || CountPlayerBotArrows(ch) >= PLAYERBOT_ARROW_RESTOCK_THRESHOLD))
+			bought = BuyPlayerBotMerchantWeaponUpgrade(ch) || bought;
 		// The weapon in the hand held at a step that can burn it for want of a
 		// backup and a scroll (R8 of Iwakura's audit): the merchant's copy is
 		// that backup, bought only where the step can still be paid after it.
@@ -4671,6 +4694,11 @@ namespace
 		if (NeedsPlayerBotProgressionEarring(ch))
 			bought = BuyPlayerBotProgressionGear(ch,
 					GetPlayerBotProgressionEarringVnum(ch), "earring") || bought;
+		// MT2009_PLUS_BOT_GEAR_UPGRADE_V2: and the merchants' best piece of
+		// every slot that is empty or a tenth worse - the bracelet, necklace,
+		// earring and boots ladders name tiers no merchant stocks, and a slot
+		// left empty stayed empty (playerbot_gear_upgrade.h).
+		bought = BuyPlayerBotMerchantArmourUpgrades(ch) || bought;
 		return sold || bought;
 	}
 

@@ -85,6 +85,11 @@ DWORD GetPlayerBotMarketLocalSupply(long map, DWORD v){askedVillage=map; return 
 // A Stalki a first village's counters hold for the bot (playerbot_stalki.h,
 // upstream 2.2.36): none here, so the checks below are the scroll rule's.
 bool PlayerBotStalkiSupplyExists(LPCHARACTER){return false;}
+// MT2009_PLUS_BOT_GEAR_UPGRADE_V1/V2 (playerbot_gear_upgrade.h, upstream
+// 2.23.0): a better weapon or armour on the first village's counters; none
+// here either.
+bool PlayerBotWantsWeaponUpgradeFromMarket(LPCHARACTER){return false;}
+bool PlayerBotWantsArmourUpgradeFromMarket(LPCHARACTER){return false;}
 // MT2009 PLUS: a bot over PLAYERBOT_BOOK_SURPLUS_GOLD on the price sheet's
 // scale buys its books whatever its gear; the sheet's rate is 100% here.
 namespace { DWORD ScalePlayerBotIwakuraPrice(DWORD base){return base;} }

@@ -1131,6 +1131,9 @@ bool IsPlayerBotRetirementCandidateInner(LPCHARACTER ch, BYTE bLevelLo, BYTE bLe
 	if (IsPlayerBotSidekickPID(ch->GetPlayerID()) || IsPlayerBotArezzoCohortPID(ch->GetPlayerID()) ||
 			IsPlayerBotArezzoDungeonCohortPID(ch->GetPlayerID()) || IsPlayerBotTakeoverHold(ch->GetPlayerID()))
 		return false;
+	// MT2009_PLUS_BOT_DUNGEON_RUNS_V1: nor a bot of a dungeon run, until it is out.
+	if (IsPlayerBotOnDungeonRun(ch->GetPlayerID()))
+		return false;
 	if (ch->GetExchange() || ch->GetShop() || ch->GetSafebox() || ch->IsBusy() || ch->GetMyShop())
 		return false;
 	if (ch->GetParty())

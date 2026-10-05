@@ -12,8 +12,8 @@
 //   3 bosses (rank >= boss, not a stone; everyone who hurt it)
 //   4 players killed        (PvP of any kind; one killer and one victim count
 //                            once in PVP_PAIR_COOLDOWN_SEC)
-//   5 dungeons finished     (d.update_ranking - every character in the
-//                            instance, or who hurt the boss on an open map)
+//   5 dungeons finished     (d.update_ranking - every character who hurt
+//                            the boss, MT2009_PLUS_DUNGEON_RANKING_FINISH_V1)
 //   6 successful refines    (the smith and the scrolls, PLAYER_STATS_REFINE_SUCCESS_FLAG)
 //   7 alchemy               (a Dragon Stone's grade, step or strength refine
 //                            that took - DSManager, server-patches/weeklyrank)
@@ -915,57 +915,19 @@ void WeeklyRankOnAlchemy(LPCHARACTER ch)
 	mt2009_wrank::Add(ch, mt2009_wrank::CAT_ALCHEMY, 1);
 }
 
-// A dungeon finished (DungeonPanelUpdateRanking, d.update_ranking): everyone
-// in the instance, or on an open map whoever hurt the boss, and the killer -
-// bots as well as people, once each.
-namespace mt2009_wrank
-{
-	struct FCollectAnyPC
-	{
-		std::vector<LPCHARACTER>* out;
-		void operator()(LPENTITY ent)
-		{
-			if (!ent || !ent->IsType(ENTITY_CHARACTER))
-				return;
-			LPCHARACTER ch = (LPCHARACTER)ent;
-			if (ch->IsPC())
-				out->push_back(ch);
-		}
-	};
-}
-
+// A dungeon finished (DungeonPanelUpdateRanking, d.update_ranking): every
+// character on the boss's map who hurt the boss - bots as well as people,
+// once each (DungeonFinishers, MT2009_PLUS_DUNGEON_RANKING_FINISH_V1: no
+// longer everyone standing in the instance, nor the killer for nothing).
 void WeeklyRankOnDungeon(LPCHARACTER pc, LPCHARACTER npc)
 {
 	using namespace mt2009_wrank;
 	if (!pc)
 		return;
 	std::vector<LPCHARACTER> chars;
-	const long mapIndex = pc->GetMapIndex();
-	if (mapIndex >= 10000)
-	{
-		LPSECTREE_MAP pMap = SECTREE_MANAGER::instance().GetMap(mapIndex);
-		if (pMap)
-		{
-			FCollectAnyPC f;
-			f.out = &chars;
-			pMap->for_each(f);
-		}
-	}
-	else if (npc)
-	{
-		const CHARACTER::TDamageMap& dm = npc->Mt2009PlusGetDamageMap();
-		for (CHARACTER::TDamageMap::const_iterator it = dm.begin(); it != dm.end(); ++it)
-		{
-			LPCHARACTER ch = CHARACTER_MANAGER::instance().Find(it->first);
-			if (ch && ch->IsPC() && ch->GetMapIndex() == mapIndex)
-				chars.push_back(ch);
-		}
-	}
-	chars.push_back(pc);
-	std::set<DWORD> done;
+	DungeonFinishers(pc, npc, false, chars);
 	for (size_t i = 0; i < chars.size(); ++i)
-		if (done.insert(chars[i]->GetPlayerID()).second)
-			Add(chars[i], CAT_DUNGEON, 1);
+		Add(chars[i], CAT_DUNGEON, 1);
 }
 
 // A character enters the game (server-patches/weeklyrank, input_login.cpp):

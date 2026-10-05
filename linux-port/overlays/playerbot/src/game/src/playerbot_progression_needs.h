@@ -145,6 +145,14 @@ namespace {
         // way: the bots of sixty-four and more hunt on the frontier and meet
         // those counters on a trip or not at all (playerbot_stalki.h).
         if (PlayerBotStalkiSupplyExists(ch)) return true;
+        // MT2009_PLUS_BOT_GEAR_UPGRADE_V1: a weapon its first village's stands
+        // hold that hits a tenth harder than its own and that it can pay for
+        // (playerbot_gear_upgrade.h) - the frontier bots meet those stands on
+        // a trip or not at all, like the scroll rule's.
+        if (PlayerBotWantsWeaponUpgradeFromMarket(ch)) return true;
+        // MT2009_PLUS_BOT_GEAR_UPGRADE_V2: and an armour a tenth better than
+        // the best of its slot.
+        if (PlayerBotWantsArmourUpgradeFromMarket(ch)) return true;
         if (!ch->GetSkillGroup()) return false;
         const TJobSkillBuild build = GetPlayerBotSkillBuild(ch->GetJob(), ch->GetSkillGroup(), ch->GetPlayerID());
         const bool studies = PlayerBotStudiesAtTheMarket(ch);
@@ -182,7 +190,9 @@ namespace {
             const TPlayerBotMarketLedgerEntry* supply = GetPlayerBotMarketLedgerEntry(vnum);
             if (supply && supply->dwSupplyUnits > 0 && GetPlayerBotBiologistPurchaseNeed(ch, vnum) > 0) return true;
         }
-        return PlayerBotScrollRuleSupplyExists(ch) || PlayerBotStalkiSupplyExists(ch);
+        return PlayerBotScrollRuleSupplyExists(ch) || PlayerBotStalkiSupplyExists(ch) ||
+            PlayerBotWantsWeaponUpgradeFromMarket(ch) ||   // MT2009_PLUS_BOT_GEAR_UPGRADE_V1
+            PlayerBotWantsArmourUpgradeFromMarket(ch);     // MT2009_PLUS_BOT_GEAR_UPGRADE_V2
     }
     // Who is out on a trip now, pid -> when it ends. A map rather than a count,
     // so a bot that despawns mid-trip frees its place when the trip would have

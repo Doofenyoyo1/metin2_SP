@@ -273,6 +273,23 @@ namespace {
 		return NULL;
 	}
 
+	// MT2009_PLUS_CHEST_DROP_EVENT_V1: the chest drop windows open now, one per
+	// vnum (the map column; value = the chance a kill in per mille).
+	std::vector<playerbot_events::Status> s_vecPlayerBotChestDrops;
+
+	std::string PlayerBotChestDropNames()
+	{
+		std::string names;
+		for (size_t i = 0; i < s_vecPlayerBotChestDrops.size(); ++i)
+		{
+			const TItemTable* t = ITEM_MANAGER::instance().GetTable((DWORD)s_vecPlayerBotChestDrops[i].map);
+			if (!names.empty())
+				names += ", ";
+			names += t ? t->szLocaleName : "Szkatulka";
+		}
+		return names.empty() ? std::string("Szkatulka") : names;
+	}
+
 	void AnnouncePlayerBotEvent(int kind, int value, long until, EPlayerBotEventPhase phase)
 	{
 		char body[128];
@@ -284,6 +301,9 @@ namespace {
 			snprintf(body, sizeof(body), "podwojny loot z Metinow");
 		else if (kind == playerbot_events::KIND_GOBLIN)
 			snprintf(body, sizeof(body), "Poszukiwanie skarbow z Goblinem Skarbow - Bilety Skarbow w skrzyniach");
+		// MT2009_PLUS_CHEST_DROP_EVENT_V1: the chest by name (the first one, when several run).
+		else if (kind == playerbot_events::KIND_CHESTDROP)
+			snprintf(body, sizeof(body), "%s dropi z potworow", PlayerBotChestDropNames().c_str());
 		else if (PlayerBotMiniGameEventName(kind))
 			snprintf(body, sizeof(body), "%s (lista eventow: przycisk przy minimapie)", PlayerBotMiniGameEventName(kind));
 		else
@@ -299,6 +319,8 @@ namespace {
 				snprintf(text, sizeof(text), "Event zakonczony: podwojny loot z Metinow.");
 			else if (kind == playerbot_events::KIND_GOBLIN)
 				snprintf(text, sizeof(text), "Event zakonczony: Poszukiwanie skarbow z Goblinem Skarbow.");
+			else if (kind == playerbot_events::KIND_CHESTDROP)
+				snprintf(text, sizeof(text), "Event zakonczony: drop szkatulek.");
 			// MT2009_PLUS_CATCH_KING_V1: Catch the King's top ten collect too.
 			else if (kind == playerbot_events::KIND_RUMI || kind == playerbot_events::KIND_YUTNORI || kind == playerbot_events::KIND_CATCHKING)
 				snprintf(text, sizeof(text), "Event zakonczony: %s. Nagrody za ranking mozna odebrac przy stole przez 7 dni.",
@@ -608,6 +630,18 @@ namespace {
 				// sentence (playerbot_world_events.h); here they are only judged,
 				// once for the kind and once for every map.
 				const bool world = playerbot_events::IsWorldKind(kind);
+				// MT2009_PLUS_CHEST_DROP_EVENT_V1: the chests, one status per vnum.
+				if (kind == playerbot_events::KIND_CHESTDROP)
+				{
+					std::vector<playerbot_events::Status> byVnum;
+					playerbot_events::EvaluateWorldByMap(s_vecPlayerBotEvents, kind, (long)now, dayIndex, minute, byVnum);
+					bool changed = byVnum.size() != s_vecPlayerBotChestDrops.size();
+					for (size_t i = 0; i < byVnum.size() && !changed; ++i)
+						changed = byVnum[i].map != s_vecPlayerBotChestDrops[i].map || byVnum[i].value != s_vecPlayerBotChestDrops[i].value;
+					if (changed)
+						sys_log(0, "PLAYERBOT_EVENT: chest drops now %u vnum(s)", (unsigned int)byVnum.size());
+					s_vecPlayerBotChestDrops.swap(byVnum);
+				}
 				if (world)
 				{
 					std::vector<playerbot_events::Status> byMap;
@@ -702,6 +736,28 @@ namespace {
 		RumiTick(dwNow);
 		// MT2009_PLUS_CATCH_KING_V1: Catch the King's season flag (playerbot_catchking.h).
 		CatchKingTick(dwNow);
+	}
+}
+
+// MT2009_PLUS_CHEST_DROP_EVENT_V1: the panel's chest drop event, asked by the
+// engine's CreateDropItem (item_manager.cpp) for every kill: each chest whose
+// window is open drops with its chance (per mille) from a monster or a Metin
+// stone killed by a character at most 15 levels above it - the bots as the
+// players. A vnum the item table does not know drops nothing.
+void Mt2009PlusChestDrops(LPCHARACTER victim, LPCHARACTER killer, std::vector<LPITEM>& vec_item)
+{
+	if (!victim || !killer || !killer->IsPC() || !(victim->IsMonster() || victim->IsStone()) || s_vecPlayerBotChestDrops.empty())
+		return;
+	if (killer->GetLevel() > victim->GetLevel() + 15)
+		return;
+	for (size_t i = 0; i < s_vecPlayerBotChestDrops.size(); ++i)
+	{
+		const playerbot_events::Status& st = s_vecPlayerBotChestDrops[i];
+		const DWORD vnum = (DWORD)st.map;
+		if (!vnum || st.value <= 0 || number(1, 1000) > st.value)
+			continue;
+		if (LPITEM item = ITEM_MANAGER::instance().CreateItem(vnum, 1, 0, true))
+			vec_item.emplace_back(item);
 	}
 }
 

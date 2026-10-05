@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: one chest (dbeditor/chests.py, chests_edit). #}
+{% block title %}{{ title }} · Szkatułki · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/drops_head.html' %}
+{% set pct = group.type == 'pct' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · SZKATUŁKI</p>
+<h1><span class="dbd-name">{% if icon %}<img src="{{ icon }}" alt="">{% endif %}<span>{{ title }} <small class="muted">VNUM {{ vnum }}</small></span></span>
+  {% if custom %}<span class="dbd-tag custom">zmieniona w panelu</span>{% endif %}{% if custom and not has_base %}<span class="dbd-tag new">nowa</span>{% endif %}</h1>
+<p class="muted">Nazwa grupy w pliku: {{ group.name }} · rodzaj: {{ types.get(group.type, group.type) }}.
+{% if used_by %}<br>Losowana też przez: {% for u in used_by %}<a href="{{ url_for('dbeditor.chests_edit', vnum=u.vnum) }}">{{ u.name }} ({{ u.vnum }})</a>{% if not loop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
+
+{% if group.type == 'attr' %}
+<section class="panel">
+  <p>To grupa bonusów (attr) – tylko do podglądu.</p>
+  <div class="table-wrap"><table class="dbd-table"><thead><tr><th>#</th><th>Bonus (typ)</th><th>Wartość</th></tr></thead>
+  <tbody>{% for e in entries %}<tr><td>{{ loop.index }}</td><td>{{ e.item }}</td><td>{{ e.count }}</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% else %}
+<form method="post" class="dbd-form" data-mode="{{ 'chest-pct' if pct else 'chest-weight' }}" data-api="{{ url_for('dbeditor.api_items') }}" action="{{ url_for('dbeditor.chests_save', vnum=vnum) }}">
+<input type="hidden" name="dbe_csrf" value="{{ csrf }}">
+<input type="hidden" name="row_count" class="dbd-row-count" value="{{ entries|length }}">
+<section class="panel">
+  <div class="dbd-params">
+    {% if fixed %}<p class="muted">Rodzaj „{{ types.get(group.type, group.type) }}” jest stały (używają go questy / silnik).</p>
+    {% else %}<label>Jak losuje<select name="group_type" class="dbd-type">
+      <option value="" {{ 'selected' if not pct else '' }}>{{ types[''] }}</option>
+      <option value="pct" {{ 'selected' if pct else '' }}>{{ types['pct'] }}</option></select></label>{% endif %}
+  </div>
+  <p class="muted dbd-help">„Losuje 1 pozycję”: przy otwarciu wypada <b>jedna</b> pozycja, wybrana wg wag – szansa = waga ÷ suma wag. „Każda pozycja osobno”: każda linia ma własną szansę w % (0–100), może wypaść kilka naraz. Słowa: gold = yang (ilość = kwota), exp = doświadczenie, sNNNN = losowanie z innej szkatułki.</p>
+  <div class="table-wrap"><table class="dbd-table">
+    <thead><tr><th>×</th><th>#</th><th>Przedmiot (VNUM / słowo)</th><th>Nazwa</th><th>Ilość</th><th>{{ 'Szansa %' if pct else 'Waga' }}</th><th title="Szansa (%) na dodatkowe bonusy">Rare %</th><th>Na jedno otwarcie</th><th>Usuń</th></tr></thead>
+    <tbody class="dbd-rows">
+    {% for e in entries %}{% set i = loop.index0 %}
+    <tr>
+      <td><input type="checkbox" name="r{{ i }}_sel" value="1" class="dbd-sel" title="Zaznacz do mnożnika"></td>
+      <td>{{ loop.index }}</td>
+      <td><input name="r{{ i }}_item" value="{{ e.item }}" class="dbd-item" list="dbd-items"></td>
+      <td><span class="dbd-name">{% if e.icon %}<img src="{{ e.icon }}" alt="">{% endif %}<span class="{{ 'dbd-bad' if e.bad else '' }}">{% if e.nested %}<a href="{{ url_for('dbeditor.chests_edit', vnum=e.nested) }}">{{ e.label }}</a>{% else %}{{ e.label }}{% endif %}</span></span></td>
+      <td><input name="r{{ i }}_count" type="number" min="0" value="{{ e.count }}" class="dbd-num"></td>
+      <td><input name="r{{ i }}_prob" type="number" min="0" value="{{ e.prob }}" class="dbd-num dbd-weight"></td>
+      <td><input name="r{{ i }}_rare" type="number" min="0" max="100" value="{{ e.rare or 0 }}" class="dbd-small"></td>
+      <td class="dbd-chance"><span class="dbd-out">{{ chance_text(e.pct) }}</span><span class="dbd-bar" style="width:{{ [2, [100, e.pct]|min * 1.2]|max }}px"></span></td>
+      <td><input type="checkbox" name="r{{ i }}_delete" value="1" class="dbd-delete"></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    <template class="dbd-row-template"><tr class="dbd-new">
+      <td><input type="checkbox" name="r__i___sel" value="1" class="dbd-sel"></td>
+      <td>nowa</td>
+      <td><input name="r__i___item" class="dbd-item" list="dbd-items" placeholder="VNUM lub nazwa"></td>
+      <td><span class="dbd-name"><span class="muted">wpisz VNUM lub nazwę</span></span></td>
+      <td><input name="r__i___count" type="number" min="0" value="1" class="dbd-num"></td>
+      <td><input name="r__i___prob" type="number" min="0" value="1" class="dbd-num dbd-weight"></td>
+      <td><input name="r__i___rare" type="number" min="0" max="100" value="0" class="dbd-small"></td>
+      <td class="dbd-chance"><span class="dbd-out"></span><span class="dbd-bar"></span></td>
+      <td><input type="checkbox" name="r__i___delete" value="1" class="dbd-delete"></td>
+    </tr></template>
+  </table></div>
+  <p><button type="button" class="dbd-add">➕ Dodaj przedmiot</button> <label><input type="checkbox" class="dbd-all" data-target=".dbd-sel"> zaznacz wszystkie do mnożnika</label></p>
+  <div class="dbd-actions">
+    <button name="action" value="save">💾 Zapisz</button>
+    <div class="dbd-group"><span>Szansa {{ 'zaznaczonych (albo wszystkich)' if pct else 'zaznaczonych' }} ×</span>
+      {% for f in factors %}<button name="action" value="multiply" data-factor="{{ f }}">×{{ f|replace('.', ',') }}</button>{% endfor %}
+      <input name="factor" value="2" inputmode="decimal" title="Własny mnożnik"><button name="action" value="multiply">Pomnóż</button>
+    </div>
+    {% if custom %}<button name="action" value="reset" data-confirm="Szkatułka wróci do zawartości z obrazu gry{% if not has_base %} (a ta nowa zniknie){% endif %}. Na pewno?">↺ Przywróć z obrazu gry</button>{% endif %}
+  </div>
+  <p class="muted dbd-help">{% if pct %}Mnożnik mnoży szansę (najwyżej 100%) zaznaczonych pozycji, a gdy nic nie zaznaczysz – wszystkich.{% else %}Tu wypada jedna pozycja, więc ×2 dla wszystkich nic by nie zmieniło: zaznacz w kolumnie × pozycje, które mają wypadać częściej (ich waga ×N, reszta bez zmian).{% endif %} Zapis sprawdza VNUM-y w item_proto i wszystko, na czym rdzeń gry by się wywrócił.</p>
+</section>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,55 @@
+/* MT2009_PLUS_DB_EDITOR_V1: the database editor's "Spawny potworów" pages
+   (templates/dbeditor/regen*.html, dbeditor/regen.py). */
+.dbr-crumbs{display:flex;gap:10px;flex-wrap:wrap;font-size:14px;margin:.2em 0 .8em}
+.dbr-crumbs span{color:var(--muted,#8a96a8)}
+.dbr-help{font-size:13px}
+.dbr-status{border-left:4px solid var(--muted,#8a96a8);padding:12px 16px}
+.dbr-status.ok{border-left-color:#39e890}.dbr-status.pending{border-left-color:#f5b83d}
+.dbr-status.error{border-left-color:#ff5757}.dbr-status.unknown{border-left-color:#8aa0ff}
+.dbr-status p{margin:.3em 0}
+.dbr-inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.dbr-bad{color:#ff5757;font-weight:600}
+.dbr-rates p{margin:.3em 0}
+.dbr-filter{display:grid;gap:4px;color:var(--muted,#8a96a8);font-size:13px;max-width:360px;margin-bottom:8px}
+.dbr-table{width:100%;border-collapse:collapse;font-size:14px}
+.dbr-table td,.dbr-table th{padding:6px 8px;border-bottom:1px solid var(--edge,#253042);text-align:left;vertical-align:top}
+.dbr-table tr.on td{background:color-mix(in srgb,var(--gold,#d6a74a) 14%,transparent)}
+.dbr-table tr.dbr-badrow td{color:#ff9a9a}
+.dbr-table small{display:inline-block}
+.dbr-tag{display:inline-block;padding:1px 8px;border-radius:9px;font-size:11px;white-space:nowrap;background:color-mix(in srgb,var(--blue2,#3a5a9f) 18%,transparent)}
+.dbr-tag.custom{background:#f5b83d33;color:#f5b83d}.dbr-tag.pending{background:#8aa0ff33;color:#8aa0ff}
+.dbr-tag.bad{background:#ff575733;color:#ff5757}
+.dbr-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start}
+.dbr-layout > *{min-width:0}
+.dbr-side{display:grid;gap:16px}
+.dbr-side .panel,.dbr-layout .panel{margin:0}
+.dbr-map{position:relative;width:100%;max-height:78vh;border-radius:10px;overflow:hidden;cursor:crosshair;
+  background-color:#10161f;background-size:100% 100%;background-repeat:no-repeat;border:1px solid var(--edge,#253042)}
+.dbr-map.noimage{background-image:linear-gradient(#ffffff10 1px,transparent 1px),linear-gradient(90deg,#ffffff10 1px,transparent 1px);
+  background-size:10% 10%}
+.dbr-mk{position:absolute;transform:translate(-50%,-50%);min-width:7px;min-height:7px;border-radius:50%;
+  border:1px solid #0009;box-sizing:border-box;opacity:.85;cursor:pointer}
+.dbr-mk:hover,.dbr-mk.on{opacity:1;outline:2px solid #fff;z-index:2}
+.dbr-mk.on{min-width:14px;min-height:14px}
+.k-g{background:#39e890}.k-r{background:#36c5d6}.k-m{background:#f5b83d}.k-boss{background:#ff4fa3}
+.k-bad{background:#ff3030}.k-e{background:#ffffff55;border-style:dashed}
+.dbr-pick{position:absolute;width:14px;height:14px;transform:translate(-50%,-50%);border:2px solid #fff;border-radius:50%;
+  box-shadow:0 0 0 2px #000a;pointer-events:none}
+.dbr-legend{display:flex;gap:6px 12px;flex-wrap:wrap;font-size:12px;color:var(--muted,#8a96a8);margin:.6em 0 .2em}
+.dbr-legend span{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:-6px;vertical-align:middle}
+.dbr-form{display:grid;gap:10px}
+.dbr-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.dbr-fields label,.dbr-wide{display:grid;gap:4px;color:var(--muted,#8a96a8);font-size:13px}
+.dbr-fields input,.dbr-fields select{width:100%;box-sizing:border-box}
+.dbr-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.dbr-scale p{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:.3em 0}
+.dbr-check{font-size:13px;color:var(--muted,#8a96a8)}
+.dbr-results{display:grid;gap:4px;max-height:260px;overflow:auto;padding:4px;border:1px solid var(--edge,#253042);border-radius:8px}
+.dbr-results button{text-align:left;padding:6px 8px;font-size:13px;background:color-mix(in srgb,var(--blue2,#3a5a9f) 12%,transparent);color:inherit;border:0;border-radius:6px;cursor:pointer}
+.dbr-results button:hover{background:color-mix(in srgb,var(--gold,#d6a74a) 30%,transparent)}
+.dbr-results small{color:var(--muted,#8a96a8)}
+.dbr-chosen{margin:0;font-size:13px}
+.dbr-chosen.set{color:var(--text,#eee)}
+.dbr-danger{background:#5a1f1f !important;color:#ffd5d5 !important}
+@media (max-width:900px){.dbr-layout{grid-template-columns:1fr}}
+@media (max-width:600px){.dbr-fields{grid-template-columns:1fr 1fr}.dbr-table{font-size:13px}}

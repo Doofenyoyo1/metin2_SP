@@ -53,6 +53,12 @@ MT2009 PLUS jako nasz kod (`server-patches/digirasta`,
 `playerbot_awakening.h`, `playerbot_horse30.h`, questy `konie` i
 `horse_inventory`). Autor: Digi Rasta.
 
+Karty Potworów (Monster Card System) – system autorstwa **Digi Rasta** (paczka
+„nowy-system” v0.25.2, jego port paczki „Official-Monster-Card-System”, Best
+Studio) – są przeniesione do MT2009 PLUS jako nasz kod
+(`server-patches/monstercard`, `playerbot_monster_card.h`, okno klienta
+`monstercard.py` i `uimonstercard.py`). Autor systemu: Digi Rasta.
+
 Poniżej zasady projektu oryginalnego, które obowiązują także MT2009 PLUS.
 
 ---

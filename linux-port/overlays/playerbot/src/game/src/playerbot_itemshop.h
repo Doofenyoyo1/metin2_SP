@@ -832,7 +832,8 @@ namespace
 				{
 					LPITEM item = ch->GetInventoryItem(cell);
 					if (!item || item->isLocked() || item->IsExchanging() || !IsPlayerBotHairToWear(ch, item) ||
-							!IsPlayerBotOwnLook(ch, item->GetProto(), look))
+							!IsPlayerBotOwnLook(ch, item->GetProto(), look) ||
+							IsPlayerBotSidekickUnwanted(ch, item))	// MT2009_PLUS_SIDEKICK_MOUNT_FIX_V1
 						continue;
 					const DWORD oldVnum = ch->GetWear(WEAR_COSTUME_HAIR)->GetVnum();
 					if (ch->EquipItem(item))
@@ -854,8 +855,10 @@ namespace
 			for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 			{
 				LPITEM item = ch->GetInventoryItem(cell);
+				// MT2009_PLUS_SIDEKICK_MOUNT_FIX_V1: not a piece a companion's
+				// owner took off it (its costumes window) - a seal, a costume.
 				if (!item || item->isLocked() || item->IsExchanging() || !item->CanUsedBy(ch) ||
-						!IsPlayerBotOwnLook(ch, item->GetProto(), look))
+						!IsPlayerBotOwnLook(ch, item->GetProto(), look) || IsPlayerBotSidekickUnwanted(ch, item))
 					continue;
 				if (look == PLAYERBOT_ISHOP_LOOK_HAIR)
 					state.bBoughtHairstyle = true;

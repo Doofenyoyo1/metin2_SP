@@ -1,0 +1,19 @@
+{# MT2009_PLUS_DB_EDITOR_V1: the Drop/Szkatułki pages' common top - styles, script, crumbs, the game's state. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='dbeditor-drops.css') }}">
+<script src="{{ url_for('static', filename='dbeditor-drops.js') }}" defer></script>
+<datalist id="dbd-items"></datalist>
+<nav class="dbd-crumbs">
+  <a href="{{ url_for('dbeditor.index') }}">🗄️ Edytor bazy danych</a>
+  <a href="{{ url_for('dbeditor.drops_index') }}">💀 Drop – przegląd</a>
+  <a href="{{ url_for('dbeditor.drops_common') }}">Zwykły drop</a>
+  <a href="{{ url_for('dbeditor.drops_etc') }}">Drop specjalny</a>
+  {% if 'dbeditor.raredrop' in dbd_endpoints %}<a href="{{ url_for('dbeditor.raredrop') }}">🔀 Kupony SM, szarfy, Cor</a>{% endif %}
+  {% if 'dbeditor.chests_index' in dbd_endpoints %}<a href="{{ url_for('dbeditor.chests_index') }}">🧰 Szkatułki</a>{% endif %}
+  <a href="{{ url_for('dbeditor.drops_backups') }}">Kopie zapasowe</a>
+</nav>
+{% if status is defined and status %}
+<section class="panel dbd-status {{ status.kind }}">
+  <p><b>Stan w grze:</b> {{ status.text }}{% if status.time %} <small class="muted">(raport gry: {{ status.time.strftime('%Y-%m-%d %H:%M') }})</small>{% endif %}</p>
+  {% if status.pending %}<p class="muted">Gra czyta te pliki tylko przy starcie rdzeni. Kliknij <b>Zastosuj</b> na stronie <a href="{{ url_for('dbeditor.index') }}">Edytora bazy danych</a> (restart rdzeni, gracze online rozłączeni na ok. minutę) – albo poczekaj do najbliższego restartu serwera.</p>{% endif %}
+</section>
+{% endif %}

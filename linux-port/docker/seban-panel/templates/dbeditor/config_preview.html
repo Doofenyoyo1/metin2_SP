@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_CONFIG_V1: the preview of an import (dbeditor/config.py). #}
+{% block title %}Podgląd importu · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/_tables_head.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · PODGLĄD IMPORTU</p>
+<h1>🔍 Podgląd importu konfiguracji</h1>
+<section class="panel dbt-note">
+  <p>Konfiguracja v{{ config.meta.version }}{% if config.meta.get('nazwa') %} z „{{ config.meta.get('nazwa') }}”{% endif %}{% if config.meta.get('serwer') %}, serwer {{ config.meta.get('serwer') }}{% endif %}{% if config.meta.get('data') %}, zapisana {{ config.meta.get('data') }}{% endif %}.
+  <b>Nic jeszcze nie zapisano.</b> Zaznacz części do importu i potwierdź na dole.</p>
+  {% for w in config.warnings %}<p class="dbt-warn">⚠️ {{ w }}</p>{% endfor %}
+</section>
+
+<form method="post" action="{{ url_for('dbeditor.config_import') }}">
+<input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+<input type="hidden" name="payload" value="{{ payload }}">
+{% if skip %}<input type="hidden" name="pomin_konflikty" value="1">{% endif %}
+{% for p in plans %}
+<section class="panel" id="czesc-{{ p.part }}">
+  <h2>
+    <label class="dbc-check"><input type="checkbox" name="czesc" value="{{ p.part }}"{% if p.part in importable %} checked{% else %} disabled{% endif %}>
+    {{ p.title }} <small class="muted">[{{ p.part }}]</small></label>
+  </h2>
+  <p>{% if p.errors %}<b class="dbc-bad">Błędy – ta część nie zostanie zaimportowana.</b> {% endif %}
+     Do zmiany: <b>{{ p.changes|length }}</b>{% if p.unchanged %} · bez zmian (już tak jest): {{ p.unchanged }}{% endif %}{% if p.skipped %} · pominięte: {{ p.skipped }}{% endif %}</p>
+  {% for e in p.errors[:30] %}<p class="dbc-bad">✖ {{ e }}</p>{% endfor %}
+  {% if p.errors|length > 30 %}<p class="dbc-bad">… i {{ p.errors|length - 30 }} więcej błędów</p>{% endif %}
+  {% for w in p.warnings[:30] %}<p class="dbt-warn">⚠️ {{ w }}</p>{% endfor %}
+  {% if p.warnings|length > 30 %}<p class="dbt-warn">… i {{ p.warnings|length - 30 }} więcej ostrzeżeń</p>{% endif %}
+  {% if p.changes %}
+    {% if p.kind == 'db' %}
+    <div class="dbt-wrap"><table class="dbt-table">
+      <thead><tr><th>Klucz</th><th>Co</th><th>Pole</th><th>Teraz</th><th></th><th>Po imporcie</th><th>Oryginał w konfiguracji</th></tr></thead>
+      <tbody>
+      {% for c in p.changes[:preview_rows] %}
+        <tr class="{{ 'changed' if c.conflict else '' }}">
+          <td>{{ c.key }}</td><td>{{ c.label }}</td><td>{{ c.col_label }}{% if c.note %}<br><small class="dbt-warn">{{ c.note }}</small>{% endif %}</td>
+          <td class="dbc-val">{{ dump(c.current) }}</td><td>→</td><td class="dbc-val"><b>{{ dump(c.new) }}</b></td>
+          <td class="dbc-val muted">{{ dump(c.stock) }}{% if c.conflict %}<br><small class="dbt-warn">tu zmienione inaczej</small>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% if p.changes|length > preview_rows %}<p class="muted">… i {{ p.changes|length - preview_rows }} więcej zmian.</p>{% endif %}
+    {% else %}
+      {% for c in p.changes %}
+      <details class="dbc-file"><summary><b>{{ c.title }}</b> <small class="muted">({{ c.key }})</small> – {% if c.data is none %}powrót do pliku z obrazu gry{% else %}+{{ c.added }} / −{{ c.removed }} linii względem: {{ c.source }}{% endif %}</summary>
+        <pre class="dbc-diff">{% for l in c.diff %}<span class="{{ 'add' if l.startswith('+') else 'del' }}">{{ l }}</span>
+{% endfor %}{% if c.diff_more %}… i {{ c.diff_more }} linii więcej{% endif %}</pre>
+      </details>
+      {% endfor %}
+    {% endif %}
+  {% endif %}
+</section>
+{% else %}
+<section class="panel"><p class="muted">Ta konfiguracja nie zawiera żadnych zmian.</p></section>
+{% endfor %}
+<section class="panel">
+  {% if importable %}
+  <p>Import zapisze zaznaczone części tak samo jak edytor: z historią (jeden wpis „Import konfiguracji”, do cofnięcia w całości), kopiami plików i listą „Zastosuj”. Gra wczyta zmiany po restarcie – <b>Zastosuj</b>.</p>
+  <button onclick="return confirm('Zaimportować zaznaczone części?')">📥 Importuj zaznaczone</button>
+  {% else %}
+  <p class="muted">Nie ma nic do zaimportowania{% if plans %} – wszystko jest już takie samo albo części mają błędy{% endif %}.</p>
+  {% endif %}
+  <a href="{{ url_for('dbeditor.config_page') }}">Wróć</a>
+</section>
+</form>
+<style>
+.dbc-check{display:inline-flex;gap:8px;align-items:center}
+.dbc-bad{color:#ff5757}
+.dbc-val{font-family:ui-monospace,Consolas,monospace;font-size:12px;word-break:break-all;max-width:320px}
+.dbc-diff{max-height:340px;overflow:auto;font-size:12px;background:color-mix(in srgb,var(--panel,#131a24) 70%,transparent);padding:8px;border-radius:8px}
+.dbc-diff .add{color:#39e890}.dbc-diff .del{color:#ff7a7a}
+.dbc-file{margin:6px 0}
+</style>
+{% endblock %}

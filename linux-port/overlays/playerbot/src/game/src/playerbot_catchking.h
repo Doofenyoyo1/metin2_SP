@@ -44,7 +44,10 @@
 //    core can win);
 //  - a bot is never sent a packet; it gathers cards from its kills and
 //    "plays" a deck without a table (MT2009_PLUS_BOT_MINIGAMES_V1,
-//    playerbot_minigames.h);
+//    playerbot_minigames.h); some of those games are ranked like a player's
+//    (MT2009_PLUS_MINIGAME_BOT_RANKING_V1, RegisterScore), and a bot of the
+//    top ten gets its place's prize in the reward window (the same
+//    "claimed = 0" UPDATE a player's claim wins);
 //  - an unasked packet (a card from a kill) goes only to a client that has
 //    sent this game a packet - an exe without the header would stop on it.
 //

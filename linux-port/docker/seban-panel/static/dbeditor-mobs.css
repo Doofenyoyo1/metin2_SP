@@ -1,0 +1,32 @@
+/* MT2009_PLUS_DB_EDITOR_V1: monsters and respawns (templates/dbeditor/mobs*, spawns*). */
+.dbe-mob-icon{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:8px;border:1px solid var(--edge);font-size:16px;margin-right:6px;background:color-mix(in srgb,var(--panel) 80%,transparent)}
+.dbe-mob-icon.big{width:56px;height:56px;font-size:30px;border-radius:12px}
+.dbe-mob-icon.k-boss{border-color:#f5b83d}
+.dbe-mob-icon.k-metin{border-color:#8fa3ff}
+.dbe-table .mob-cell a{display:inline-flex;align-items:center;text-decoration:none}
+.dbe-table td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dbe-where span{display:inline-block;font-size:12px;color:var(--muted);margin-right:6px}
+.dbe-scroll{overflow-x:auto}
+.dbe-narrow{width:92px!important;min-width:0}
+.dbe-tiny{width:64px!important;min-width:0;padding:6px 7px!important}
+.dbe-nowrap{white-space:nowrap}
+.dbe-note{font-size:12px;margin:8px 0 0}
+.dbe-boot input{border-color:#f5b83d}
+.dbe-boot-warning{border-left:4px solid #f5b83d}
+.dbe-flags{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px;margin-top:10px}
+.dbe-flags code{font-size:11px;color:var(--muted)}
+.dbe-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.dbe-respawn-setting{border-left:4px solid var(--blue2)}
+.dbe-respawn-setting p{margin:6px 0}
+.dbe-state-pending,.dbe-state-unknown{color:#f5b83d}
+.dbe-state-error{color:#ff6b6b}
+.dbe-removed li{margin:6px 0}
+.dbe-spawn-rows select{max-width:150px}
+.dbe-spawn-rows tr.dbe-new-row td{background:color-mix(in srgb,var(--blue2) 7%,transparent)}
+.dbe-spawn-rows tr.is-active td,.dbe-table tr.is-active td{outline:1px solid var(--blue2)}
+.dbe-map{position:relative;width:100%;max-width:760px;background-size:100% 100%;background-color:#0b1018;border:1px solid var(--edge);border-radius:8px;cursor:crosshair;overflow:hidden}
+.dbe-map.small{max-width:520px}
+.dbe-map-dot{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:2px solid #f5b83d;background:#f5b83d55;min-width:10px;min-height:10px;font-size:10px;line-height:1;display:grid;place-items:center;color:#fff;pointer-events:auto}
+.dbe-map-dot.k-stone{border-color:#8fa3ff;background:#8fa3ff55}
+.dbe-map-cursor{position:absolute;width:14px;height:14px;transform:translate(-50%,-50%);border:2px solid #39e890;border-radius:50%;pointer-events:none}
+[data-dbe-when][hidden]{display:none!important}

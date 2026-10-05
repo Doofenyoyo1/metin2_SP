@@ -27,11 +27,12 @@
 //
 // The results are the character's quest flags dungeon_panel.<key>_f (finished), _t (best time,
 // seconds) and _d (most damage to the boss), written by the quest function d.update_ranking(key)
-// when a dungeon's boss dies (questlua_dungeon.cpp): for everyone in the instance, or on an open
-// map (the Temple of Ochao, the Spider Dungeon, the Monkey Dungeons) for every player who hurt
-// the boss. The time is the instance's age (dungeon flag mt2009_start, quest/dungeon_panel.quest)
-// unless the quest passes one. The ranking reads the saved flags (player.quest), as the Treasure
-// Hunt's does: a few minutes behind; the asker's own line is live.
+// when a dungeon's boss dies (questlua_dungeon.cpp): for every player on the boss's map - the
+// instance, or an open map (the Temple of Ochao, the Spider Dungeon, the Monkey Dungeons) - who
+// hurt the boss (MT2009_PLUS_DUNGEON_RANKING_FINISH_V1, DungeonFinishers). The time is the
+// instance's age (dungeon flag mt2009_start, quest/dungeon_panel.quest) unless the quest passes
+// one. The ranking reads the saved flags (player.quest), as the Treasure Hunt's does: a few
+// minutes behind; the asker's own line is live.
 //
 // Arezzo's panel took the dungeon index of the packet unchecked (a crash from any client) and
 // warped without a look at the fight, the trade or the cooldown: here every index is checked, a
@@ -469,18 +470,6 @@ namespace mt2009_dpanel
 		Cmd(ch, "rankend %d", type);
 	}
 
-	struct FCollectPC
-	{
-		std::vector<LPCHARACTER>* out;
-		void operator()(LPENTITY ent)
-		{
-			if (!ent->IsType(ENTITY_CHARACTER))
-				return;
-			LPCHARACTER ch = (LPCHARACTER) ent;
-			if (Eligible(ch))
-				out->push_back(ch);
-		}
-	};
 }
 
 // "/lochy" (server-patches/playerqol, MT2009_PLUS_DUNGEON_PANEL_V1 (command)).
@@ -525,6 +514,43 @@ void DungeonPanelCommand(LPCHARACTER ch, const char* argument)
 	}
 }
 
+// MT2009_PLUS_DUNGEON_RANKING_FINISH_V1: who finished a dungeon whose boss just died - the
+// characters on the boss's map who hurt it, the quest's killer only on the same terms ("Ranking
+// nalicza sie nawet wtedy, jesli nie ukonczysz dungeonu. Wystarczy wejscie na dunga", the owner,
+// 5 October). It was everyone standing in the instance at the boss's fall: whoever came in at
+// the end and did nothing counted as much as the party that cleared it - the Demon Tower's
+// ground floor most of all, whose Metin of Toughness jumps everybody standing there into the
+// instance (a bots' raid took a player who had just walked in to the Reaper's fall), and any
+// party whose bots or companion did the fighting. A character that never hurt the boss (its
+// damage-map entry, kept until the end of the boss's Reward, is aggro alone) is not a finisher.
+// With no boss (a quest calling it outside a kill) nobody is. `people`: players only (the
+// panel's ranking); otherwise bots too (the weekly ranking).
+void DungeonFinishers(LPCHARACTER pc, LPCHARACTER npc, bool people, std::vector<LPCHARACTER>& out)
+{
+	out.clear();
+	if (!npc)
+	{
+		sys_log(0, "DUNGEON_PANEL: a dungeon's end without its boss (killer %s) - nobody credited",
+				pc ? pc->GetName() : "-");
+		return;
+	}
+	const long mapIndex = npc->GetMapIndex();
+	std::set<DWORD> seen;
+	const CHARACTER::TDamageMap& dm = npc->Mt2009PlusGetDamageMap();
+	for (CHARACTER::TDamageMap::const_iterator it = dm.begin(); it != dm.end(); ++it)
+	{
+		if (it->second.iTotalDamage <= 0)
+			continue;
+		LPCHARACTER ch = CHARACTER_MANAGER::instance().Find(it->first);
+		if (!ch || !ch->IsPC() || ch->GetMapIndex() != mapIndex)
+			continue;
+		if (people && !mt2009_dpanel::Eligible(ch))
+			continue;
+		if (seen.insert(ch->GetPlayerID()).second)
+			out.push_back(ch);
+	}
+}
+
 // d.update_ranking(key [, seconds]) (questlua_dungeon.cpp, MT2009_PLUS_DUNGEON_PANEL_V1 (lua)): in a
 // boss's kill handler - pc is the killer, npc the boss.
 // MT2009_PLUS_WEEKLY_RANKING_V1: a dungeon finished, for the weekly ranking - bots as well as
@@ -545,37 +571,17 @@ void DungeonPanelUpdateRanking(LPCHARACTER pc, LPCHARACTER npc, const char* key,
 		sys_log(0, "DUNGEON_PANEL: d.update_ranking(%s): not in dungeon_info.txt, not ranked", key);
 		return;
 	}
+	// MT2009_PLUS_DUNGEON_RANKING_FINISH_V1: those who hurt the boss, not everyone in the instance.
 	std::vector<LPCHARACTER> players;
-	const long mapIndex = pc->GetMapIndex();
-	if (mapIndex >= 10000)
+	DungeonFinishers(pc, npc, true, players);
+	const long mapIndex = npc ? npc->GetMapIndex() : pc->GetMapIndex();
+	if (mapIndex >= 10000 && seconds <= 0)
 	{
-		LPSECTREE_MAP pMap = SECTREE_MANAGER::instance().GetMap(mapIndex);
-		if (pMap)
-		{
-			FCollectPC f;
-			f.out = &players;
-			pMap->for_each(f);
-		}
-		if (seconds <= 0)
-		{
-			LPDUNGEON pDungeon = CDungeonManager::instance().FindByMapIndex(mapIndex);
-			const int start = pDungeon ? pDungeon->GetFlag("mt2009_start") : 0;
-			if (start > 0)
-				seconds = get_global_time() - start;
-		}
+		LPDUNGEON pDungeon = CDungeonManager::instance().FindByMapIndex(mapIndex);
+		const int start = pDungeon ? pDungeon->GetFlag("mt2009_start") : 0;
+		if (start > 0)
+			seconds = get_global_time() - start;
 	}
-	else if (npc)
-	{
-		const CHARACTER::TDamageMap& dm = npc->Mt2009PlusGetDamageMap();
-		for (CHARACTER::TDamageMap::const_iterator it = dm.begin(); it != dm.end(); ++it)
-		{
-			LPCHARACTER ch = CHARACTER_MANAGER::instance().Find(it->first);
-			if (ch && Eligible(ch) && ch->GetMapIndex() == mapIndex)
-				players.push_back(ch);
-		}
-	}
-	if (Eligible(pc) && std::find(players.begin(), players.end(), pc) == players.end())
-		players.push_back(pc);
 	for (size_t i = 0; i < players.size(); ++i)
 	{
 		LPCHARACTER ch = players[i];

@@ -1,0 +1,48 @@
+/* MT2009_PLUS_DB_EDITOR_V1: "Sklepy NPC" and "Ulepszanie u Kowala" (templates/dbeditor/shops*, refine*). */
+.dbs-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.dbs-card{display:grid;gap:6px;padding:14px;border-radius:10px;border:1px solid var(--edge);text-decoration:none;color:var(--text);background:color-mix(in srgb,var(--panel) 85%,transparent)}
+.dbs-card:hover{border-color:var(--blue2)}
+.dbs-card small{font-size:12px}
+.dbs-strip{display:flex;flex-wrap:wrap;gap:3px;min-height:32px}
+.dbs-strip img{width:28px;height:28px;image-rendering:pixelated}
+.dbs-help ul{margin:6px 0 0;padding-left:18px;font-size:13px}
+.dbs-layout{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+.dbs-table-wrap{flex:1 1 640px;min-width:0;overflow-x:auto}
+.dbs-goods input[type=number]{width:8.5em}
+.dbs-goods .dbs-count{width:6em}
+.dbs-goods small{display:block}
+.dbs-goods tr.dbs-del td{text-decoration:line-through;opacity:.55}
+.dbs-goods tr.dbs-nofit td{background:#ff575722}
+.dbs-goods .dbs-item{min-width:220px}
+.dbs-price{white-space:nowrap;font-weight:600}
+.dbs-window{display:grid;grid-template-columns:repeat(var(--w),34px);grid-template-rows:repeat(var(--h),34px);gap:2px;padding:8px;border-radius:8px;border:1px solid var(--edge);background:color-mix(in srgb,var(--panel) 70%,#000);position:relative;align-self:flex-start}
+.dbs-cell{position:relative;display:grid;place-items:center;border-radius:4px;background:color-mix(in srgb,var(--edge) 55%,transparent);overflow:hidden}
+.dbs-cell img{max-width:32px;max-height:100%;image-rendering:pixelated}
+.dbs-cell b{position:absolute;right:2px;bottom:0;font-size:10px;text-shadow:0 0 2px #000}
+.dbs-window-note{grid-column:1 / -1;grid-row:calc(var(--h) + 1);font-size:11px}
+.dbs-quick{display:flex;gap:4px;flex-wrap:wrap}
+.dbr-chain{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.dbr-chain a{display:inline-flex;gap:4px;align-items:center;padding:3px 7px;border-radius:7px;border:1px solid var(--edge);text-decoration:none;color:var(--text);font-size:12px}
+.dbr-chain a.is-current{border-color:var(--blue2);background:color-mix(in srgb,var(--blue2) 18%,transparent)}
+.dbr-chain img{width:24px;height:24px;image-rendering:pixelated}
+.dbr-step{border:1px solid var(--edge);border-radius:10px;padding:10px 12px;margin:10px 0;display:grid;gap:8px}
+.dbr-step.is-current{border-color:var(--blue2)}
+.dbr-step header{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.dbr-step header img{width:32px;height:32px;image-rendering:pixelated;vertical-align:middle}
+.dbr-from,.dbr-to{display:inline-flex;gap:6px;align-items:center}
+.dbr-badge{margin-left:auto;padding:2px 9px;border-radius:9px;background:color-mix(in srgb,var(--blue2) 25%,transparent);font-weight:700}
+.dbr-fields{display:flex;flex-wrap:wrap;gap:12px}
+.dbr-fields label{display:grid;gap:4px;color:var(--muted);font-size:13px}
+.dbr-fields input{width:11em}
+.dbr-fields input.is-bad{border-color:#ff5757}
+.dbr-fields input.is-warn{border-color:#f5b83d}
+.dbr-mats{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px}
+.dbr-mat{display:grid;grid-template-columns:34px 1fr 5.5em;gap:5px;align-items:center}
+.dbr-mat .dbs-name{grid-column:2 / span 2;font-size:12px;min-height:1em}
+.dbr-mat.is-empty{opacity:.6}
+.dbr-mat-icon{width:32px;height:32px;display:grid;place-items:center;grid-row:span 2}
+.dbr-mat-icon img{width:32px;height:32px;image-rendering:pixelated}
+.dbr-users{margin:0;font-size:13px}
+.dbr-scope{display:grid;gap:4px;padding:8px 10px;border:1px dashed #f5b83d;border-radius:8px}
+.dbr-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+@media (max-width:700px){.dbs-window{grid-template-columns:repeat(var(--w),28px);grid-template-rows:repeat(var(--h),28px)}.dbr-mat{grid-template-columns:30px 1fr 5em}}

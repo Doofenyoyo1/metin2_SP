@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: Szkatułki - every special_item_group group (dbeditor/chests.py, chests_index). #}
+{% block title %}Szkatułki · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/drops_head.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · SZKATUŁKI</p>
+<h1>🧰 Szkatułki</h1>
+<p class="muted">Każda szkatułka, skrzynia i paczka w grze – co z niej wypada i z jaką szansą na jedno otwarcie. Zmiana działa po restarcie rdzeni gry.
+{% if st.source == 'snapshot' %}<br><b>Uwaga:</b> gra nie opublikowała jeszcze swojego pliku – widać kopię dołączoną do panelu.{% endif %}</p>
+
+<section class="panel">
+  <form method="get" class="dbd-tools">
+    <label>Szukaj szkatułki albo przedmiotu w środku (nazwa lub VNUM)<input type="search" name="q" value="{{ query }}" class="dbd-search" placeholder="np. Szkatułka Blasku Księżyca, 50011, Zwój Błogosławieństwa"></label>
+    <button>🔍 Szukaj</button>
+    {% if query %}<a href="{{ url_for('dbeditor.chests_index') }}">wyczyść</a>{% endif %}
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Szkatułki <small class="muted">{{ chests|length }}</small></h2>
+  <div class="dbd-sets">
+  {% for c in chests %}
+    <article class="dbd-set {{ 'custom' if c.custom else '' }}">
+      <header>
+        <h3><span class="dbd-name">{% if c.icon %}<img src="{{ c.icon }}" alt="">{% endif %}<span>{{ c.name }} <small class="muted">VNUM {{ c.vnum }} · {{ types.get(c.type, c.type) }} · {{ c.lines }} pozycji</small></span></span>
+          {% if c.custom %}<span class="dbd-tag custom">zmieniona w panelu</span>{% endif %}{% if c.new %}<span class="dbd-tag new">nowa</span>{% endif %}
+          {% if c.contains %}<span class="dbd-tag">zawiera szukany przedmiot</span>{% endif %}
+          {% if not c.is_item %}<span class="dbd-tag" title="To nie przedmiot, tylko grupa losowana przez inne (sNNNN)">grupa pomocnicza</span>{% endif %}</h3>
+        <a href="{{ url_for('dbeditor.chests_edit', vnum=c.vnum) }}">{{ 'Zobacz' if c.type == 'attr' else 'Edytuj' }} →</a>
+      </header>
+      {% if c.preview %}<div class="dbd-chips">{% for e in c.preview %}<span class="dbd-chip">{% if e.icon %}<img src="{{ e.icon }}" alt="">{% endif %}<span class="{{ 'dbd-bad' if e.bad else '' }}">{{ e.label }}{% if e.count|int > 1 and e.item|string|lower not in ('gold', 'exp') %} ×{{ e.count }}{% elif e.item|string|lower in ('gold', 'exp') %} {{ e.count }}{% endif %}</span>{% if c.type != 'attr' %}<em>{{ pct_text(e.pct) }}</em>{% endif %}</span>{% endfor %}{% if c.lines > c.preview|length %}<span class="dbd-chip"><em>+{{ c.lines - c.preview|length }} więcej</em></span>{% endif %}</div>{% endif %}
+    </article>
+  {% else %}
+    <p class="muted">Nic nie znaleziono.</p>
+  {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Nowa szkatułka</h2>
+  <p class="muted">Podaj VNUM przedmiotu (najlepiej typu szkatułka), który ma coś zawierać – powstanie z jedną pozycją startową do zmiany.</p>
+  <form method="post" action="{{ url_for('dbeditor.chests_new') }}" class="dbd-tools">
+    <input type="hidden" name="dbe_csrf" value="{{ csrf }}">
+    <label>VNUM przedmiotu<input name="vnum" inputmode="numeric" required></label>
+    <button>➕ Utwórz</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Kopie zapasowe</h2>
+  <p class="muted">Każdy zapis (tu i na starej stronie „Szkatułki”) odkłada poprzednią wersję pliku zmian. Przywrócenie też najpierw robi kopię obecnego stanu.</p>
+  {% if backups %}
+  <div class="table-wrap"><table class="dbd-table">
+    <thead><tr><th>Kopia z</th><th>Zawartość</th><th></th></tr></thead>
+    <tbody>{% for b in backups %}
+    <tr><td>{{ b.time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{% if b.empty %}<span class="muted">bez zmian (obraz gry)</span>{% else %}<a href="{{ url_for('dbeditor.chests_backup_view', name=b.name) }}" target="_blank">podgląd</a>{% endif %}</td>
+      <td><form method="post" action="{{ url_for('dbeditor.chests_restore') }}" class="dbd-form"><input type="hidden" name="dbe_csrf" value="{{ csrf }}"><input type="hidden" name="backup" value="{{ b.name }}"><button data-confirm="Przywrócić tę kopię? Obecny stan trafi do kopii.">↺ Przywróć</button></form></td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">Brak kopii.</p>{% endif %}
+</section>
+{% endblock %}

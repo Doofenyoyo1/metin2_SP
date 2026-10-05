@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: earlier versions of the respawn files (dbeditor/spawns.py spawn_backups). #}
+{% block title %}Kopie respawnu · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% set dbe_tab = 'backups' %}{% include 'dbeditor/_mobs_common.html' %}
+<p class="eyebrow">RESPAWN · KOPIE ZAPASOWE</p>
+<h1>🗂️ Kopie respawnu</h1>
+<p class="muted">Przed każdym zapisem panel odkłada poprzednią wersję pliku. Przywrócenie kopii jest zwykłym zapisem (obecna wersja też trafia do kopii) i czeka na restart gry.</p>
+<section class="panel">
+  <table class="dbe-table compact">
+    <thead><tr><th>Kiedy</th><th>Plik</th><th>Wersja</th><th></th></tr></thead>
+    <tbody>
+    {% for b in backups %}
+      <tr><td>{{ b.time.strftime('%Y-%m-%d %H:%M:%S') }}</td><td>{{ b.title }}</td>
+        <td>{{ 'jak w obrazie gry (bez zmian z panelu)' if b.empty else (b.size ~ ' bajtów') }}</td>
+        <td><form method="post" class="dbe-inline" onsubmit="return confirm('Przywrócić tę wersję?');">
+          <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}"><input type="hidden" name="kopia" value="{{ b.name }}">
+          <button class="dbe-small">↶ Przywróć</button></form></td></tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">Brak kopii – nic jeszcze nie zapisano.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

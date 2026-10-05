@@ -54,9 +54,12 @@
 //    card counter after a kill): an old exe would stop at the unknown header.
 //    A client gets the packet only after it sent a CG 181 itself (the window's
 //    REQUEST_QUEST_FLAG when the game window starts); before that, chat lines.
-//  - Bots never rank and get no packets; they collect cards from their kills
-//    and "play" a set without a table (MT2009_PLUS_BOT_MINIGAMES_V1,
-//    playerbot_minigames.h).
+//  - Bots get no packets; they collect cards from their kills and "play" a
+//    set without a table (MT2009_PLUS_BOT_MINIGAMES_V1, playerbot_minigames.h);
+//    some of those games go into the season's scores like a player's, and a
+//    bot of the season's top ten gets its place's prize in the reward window
+//    (MT2009_PLUS_MINIGAME_BOT_RANKING_V1, marked with F_CLAIMED as a
+//    player's claim is).
 #include "packet.h"
 #include <random>
 

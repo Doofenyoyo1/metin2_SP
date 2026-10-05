@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: the monster search of the database editor (dbeditor/mobs.py). #}
+{% block title %}Potwory i bossowie · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% set dbe_tab = 'mobs' %}{% include 'dbeditor/_mobs_common.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · POTWORY</p>
+<h1>👹 Potwory i bossowie</h1>
+<p class="muted">Znajdź potwora po nazwie, numerze (vnum), randze, poziomie albo mapie i zmień mu PŻ, obrażenia, obronę, poziom,
+  doświadczenie i yang za zabicie, agresję, szybkość i odporności. Zmiana trafia do bazy od razu, a do gry po restarcie („Zastosuj”).
+  Wiele potworów naraz (np. ×2 PŻ wszystkim bossom) zmienisz w <a href="{{ url_for('dbeditor.mobs_mass') }}">zmianie masowej</a>.</p>
+
+<section class="panel">
+  {% include 'dbeditor/_mobs_filter.html' %}
+</section>
+
+{% if searched %}
+<section class="panel">
+  <h2>Wyniki <small class="muted">{{ results|length }}{% if more %}+ (pokazano pierwsze {{ limit }} – zawęź wyszukiwanie){% endif %}</small></h2>
+  {% if results %}
+  <div class="dbe-scroll">
+  <table class="dbe-table compact dbe-mobs">
+    <thead><tr><th>Potwór</th><th>Vnum</th><th>Poz.</th><th>Ranga</th><th>PŻ</th><th>Obrażenia</th><th>Obrona</th><th>Exp</th><th>Yang</th><th>Agresja</th><th>Gdzie</th><th></th></tr></thead>
+    <tbody>
+    {% for m in results %}
+      <tr>
+        <td class="mob-cell"><a href="{{ url_for('dbeditor.mob_edit', vnum=m.vnum) }}"><span class="dbe-mob-icon k-{{ m.kind }}" title="{{ m.kind_name }}">{{ m.kind_icon }}</span><span>{{ m.display_name }}</span></a></td>
+        <td>{{ m.vnum }}</td>
+        <td>{{ m.level }}</td>
+        <td>{{ m.rank_name }}</td>
+        <td class="num">{{ '{:,}'.format(m.max_hp|int).replace(',', ' ') }}</td>
+        <td class="num">{{ m.damage_min }}–{{ m.damage_max }}</td>
+        <td class="num">{{ m.def }}</td>
+        <td class="num">{{ '{:,}'.format(m.exp|int).replace(',', ' ') }}</td>
+        <td class="num">{{ m.gold_min }}–{{ m.gold_max }}</td>
+        <td>{% if m.aggressive %}<span class="dbe-tag pending" title="zasięg wzroku {{ m.aggressive_sight }}">agresywny</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="dbe-where">{% for idx in where_map.get(m.vnum, []) %}<span>{{ map_title(idx) }}</span>{% endfor %}</td>
+        <td><a class="button dbe-small" href="{{ url_for('dbeditor.mob_edit', vnum=m.vnum) }}">Edytuj</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="muted">Nic nie znaleziono. Spróbuj krótszego fragmentu nazwy albo innego filtra.</p>{% endif %}
+</section>
+{% else %}
+<section class="panel">
+  <h2>Szybki wybór</h2>
+  <div class="dbe-chips">
+    <a class="dbe-chip" href="{{ url_for('dbeditor.mobs', rodzaj='bossowie') }}">👑 Wszyscy bossowie</a>
+    <a class="dbe-chip" href="{{ url_for('dbeditor.mobs', rodzaj='metiny') }}">🗿 Kamienie Metin</a>
+    <a class="dbe-chip" href="{{ url_for('dbeditor.mobs_melee') }}">🗡️ Zwykłe potwory: atak z dystansu → wręcz</a>
+    {% for lo, hi in ((1, 20), (21, 40), (41, 60), (61, 80), (81, 99), (100, 255)) %}
+    <a class="dbe-chip" href="{{ url_for('dbeditor.mobs', rodzaj='potwory', lvl_od=lo, lvl_do=hi) }}">👹 Potwory {{ lo }}–{{ hi }} poz.</a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

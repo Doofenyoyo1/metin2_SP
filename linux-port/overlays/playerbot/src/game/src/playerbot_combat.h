@@ -735,6 +735,15 @@ namespace
 				map == PLAYERBOT_MAP_DEMON_TOWER || IsPlayerBotDemonTowerInstance(map) ||
 				map == PLAYERBOT_MAP_CATACOMB || IsPlayerBotCatacombInstance(map))
 			return false;
+		// MT2009_PLUS_SIDEKICK_METIN_SKILLS_V1: nor a player's companion at its
+		// owner's side. On foot - an Archer, a companion with no battle horse or
+		// mount - or on a standing mount it breaks a Metin with its class's
+		// attack skills, as its owner would, not with the plain swing alone;
+		// from a battle horse's saddle (CanPlayerBotFightOnHorse) the engine
+		// casts none anyway. The splash skills still wait for a pack
+		// (IsPlayerBotSplashWorthAtStone).
+		if (IsPlayerBotSidekickLeashed(ch))
+			return false;
 		TPlayerBotStonePlainHit& rec = s_mapPlayerBotStonePlainHits[ch->GetPlayerID()];
 		const int hp = (int)stone->GetHP();
 		if (rec.dwVID != (DWORD)stone->GetVID() || hp < rec.iHP)

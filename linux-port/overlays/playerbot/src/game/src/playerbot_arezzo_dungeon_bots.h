@@ -23,16 +23,32 @@
 // stage's objective (the stones, the defenders, the eggs, the boss), then
 // the nearest monster - and the seal used as soon as a squad member holds it.
 //
-// Where: the dungeons live on game2 of channel 1 (MAP_ALLOW 364 365 366) and
-// a bot cannot cross cores, so the cohort lives there too. Each character's
+// Where: the cohort lives on the core that hosts the dungeons, since a bot
+// cannot cross cores - game2 until MT2009_PLUS_BOT_DUNGEONS_ALL_V1 moved 364-366
+// onto game1 beside every bot (m2-render-config), game1 since; nothing here
+// names the core, the watch asks SECTREE_MANAGER. Each character's
 // save point is the dungeon map itself, beside its guard - the lobby the
 // quests already have for a player whose one-load entry falls back
 // ("Otworz przejscie", map 364/365/366 not in an instance). The cohort file
 // "playerbot_arezzo_dungeon_cohort.txt" ("<wukong|skorpion|dzungla> <pid>"
 // a line) is read on the core that hosts the maps (its bots are logged in on
-// top of nothing - game2 has no population) and on every other core, which
+// top of the hosting core's own population) and on every other core, which
 // refuses those pids (CPlayerBotManager::Spawn), so no character is loaded
 // twice. tools/arezzo_dungeon_cohort.py picks and equips the characters.
+//
+// Off its map: on game1 the dungeons' neighbours are hosted too, so what game2
+// could never do now happens - the quests' login sends a bot found on the
+// lobby map to the dungeon's exit (the Fire Land, Hwang; the Las is refused),
+// the Arezzo module's send-off (M2_AREZZO=0, the test server's setting) to
+// its town, a stranded recovery to M2. Such a bot is warped home to its
+// lobby (the route lets the cohort onto its own dungeon's map alone,
+// RoutePlayerBotArezzoTransition) and the module's send-off leaves the cohort
+// on its own dungeon's map alone (playerbot_arezzo.h): the test is the
+// operator's, a closed module keeps players and the other bots out. Should
+// the way home stay shut (PLAYERBOT_ARZDG_HOME_TRIES refusals in a row), the
+// bot is logged once with the refusal and left to the ordinary AI - it hunts
+// instead of standing on the exit in a heap with the rest - and asked home
+// again every PLAYERBOT_ARZDG_HOME_RELEASED_MS.
 //
 // The run: bots of one kingdom gather in the lobby in fives (a Shaman's buffs
 // reach its own kingdom only); a squad, or whoever has waited
@@ -123,6 +139,12 @@ namespace
 	// minutes in the Ruins): a target is chosen from the pack's middle, and a
 	// bot further than this from it with nothing on it walks back.
 	const int PLAYERBOT_ARZDG_PACK_LEASH = 1200;
+	// The warp home from elsewhere on this core: tried this often, and after
+	// this many refusals in a row the bot is the ordinary AI's, asked home
+	// again at the second figure.
+	const DWORD PLAYERBOT_ARZDG_HOME_RETRY_MS = 30000;
+	const int PLAYERBOT_ARZDG_HOME_TRIES = 3;
+	const DWORD PLAYERBOT_ARZDG_HOME_RELEASED_MS = 5 * 60 * 1000;
 	const DWORD PLAYERBOT_ARZDG_TRACK_MS = 30000;
 	const DWORD PLAYERBOT_ARZDG_COHORT_DELAY_MS = 20000;
 	const char* const PLAYERBOT_ARZDG_COHORT_FILE = "playerbot_arezzo_dungeon_cohort.txt";
@@ -189,8 +211,13 @@ namespace
 		DWORD dwDeaths;
 		DWORD dwRuns;
 		DWORD dwFinished;
+		// The warp home refused this many times in a row; released: left to
+		// the ordinary AI until the next try gets it home.
+		int iHomeRefusals;
+		bool bReleased;
 		TPlayerBotArzDgBot() : dwLobbySince(0), dwRestUntil(0), dwNextRestock(0), dwNextSeal(0), dwNextHome(0),
-				lAnchorX(0), lAnchorY(0), dwAnchorSince(0), bStuck(false), dwDeaths(0), dwRuns(0), dwFinished(0) {}
+				lAnchorX(0), lAnchorY(0), dwAnchorSince(0), bStuck(false), dwDeaths(0), dwRuns(0), dwFinished(0),
+				iHomeRefusals(0), bReleased(false) {}
 	};
 	std::map<DWORD, TPlayerBotArzDgBot> s_mapPlayerBotArzDgBots;
 
@@ -225,6 +252,24 @@ namespace
 	bool IsPlayerBotArezzoDungeonReservedPID(DWORD pid)
 	{
 		return !s_bPlayerBotArzDgHosting && IsPlayerBotArezzoDungeonCohortPID(pid);
+	}
+
+	// A cohort bot on the core that hosts it, onto its own dungeon's map (the
+	// lobby or an instance of it): the one way into 364-366 a bot without a
+	// person takes (RoutePlayerBotArezzoTransition).
+	bool IsPlayerBotArezzoDungeonCohortMove(LPCHARACTER ch, long targetMap)
+	{
+		if (!ch || !s_bPlayerBotArzDgHosting)
+			return false;
+		std::map<DWORD, int>::const_iterator it = s_mapPlayerBotArzDgCohort.find(ch->GetPlayerID());
+		return it != s_mapPlayerBotArzDgCohort.end() && GetPlayerBotArzDgIndex(targetMap) == it->second;
+	}
+
+	// A cohort bot standing on its own dungeon's map on the core that hosts
+	// it: the Arezzo module's send-off leaves it there (playerbot_arezzo.h).
+	bool IsPlayerBotArezzoDungeonCohortHome(LPCHARACTER ch)
+	{
+		return ch && IsPlayerBotArezzoDungeonCohortMove(ch, ch->GetMapIndex());
 	}
 
 	// The lobby's (and the jump's) point in world units, and in cells for a
@@ -323,18 +368,37 @@ namespace
 
 	// To the lobby by the engine's own warp (WarpBot): out of an instance, or
 	// back from anywhere else on this core.
-	bool SendPlayerBotArzDgHome(LPCHARACTER ch, int dg, const char* why)
+	// A refusal says why (refused=, and *refusal when asked): the tag the
+	// gate that said no left (s_szPlayerBotTransitionRefusal).
+	bool SendPlayerBotArzDgHome(LPCHARACTER ch, int dg, const char* why, const char** refusal = NULL)
 	{
+		if (refusal)
+			*refusal = NULL;
 		long x = 0, y = 0;
-		if (!ch || ch->IsDead() || !GetPlayerBotArzDgEntry(dg, x, y))
+		if (!ch || ch->IsDead())
+		{
+			if (refusal)
+				*refusal = "dead";
 			return false;
+		}
+		if (!GetPlayerBotArzDgEntry(dg, x, y))
+		{
+			if (refusal)
+				*refusal = "map_not_hosted";
+			return false;
+		}
 		const long from = ch->GetMapIndex();
 		const DWORD h = PlayerBotNavHash(ch->GetPlayerID() ^ 0x41525a44U);
 		x += (long)(h % 600) - 300;
 		y += (long)((h / 600) % 600) - 300;
+		s_szPlayerBotTransitionRefusal = NULL;
 		const bool ok = ch->WarpSet(x, y);
-		sys_log(0, "ARZ_DG: sent to the lobby pid=%u name=%s dungeon=%s from=%ld why=%s ok=%d",
-				ch->GetPlayerID(), ch->GetName(), PLAYERBOT_ARZDG[dg].szKey, from, why, ok ? 1 : 0);
+		const char* said = ok ? "-" : (s_szPlayerBotTransitionRefusal ? s_szPlayerBotTransitionRefusal : "unknown");
+		s_szPlayerBotTransitionRefusal = NULL;
+		if (refusal && !ok)
+			*refusal = said;
+		sys_log(0, "ARZ_DG: sent to the lobby pid=%u name=%s dungeon=%s from=%ld why=%s ok=%d refused=%s",
+				ch->GetPlayerID(), ch->GetName(), PLAYERBOT_ARZDG[dg].szKey, from, why, ok ? 1 : 0, said);
 		return ok;
 	}
 
@@ -558,8 +622,11 @@ namespace
 		return true;
 	}
 
+	// MT2009_PLUS_BOT_DUNGEON_RUNS_V1: the bots' own runs of these dungeons
+	// (playerbot_dungeon_runs.h) fight the same way and hand in their pack's
+	// middle (packN of them standing) where the cohort's run would give it.
 	bool ManagePlayerBotArzDgInside(LPCHARACTER ch, TPlayerBotAIState& state, int dg, TPlayerBotArzDgBot& bot,
-			DWORD dwNow)
+			DWORD dwNow, long packX = 0, long packY = 0, int packN = 0)
 	{
 		const TPlayerBotArzDg& info = PLAYERBOT_ARZDG[dg];
 		const long map = ch->GetMapIndex();
@@ -590,6 +657,11 @@ namespace
 			{
 				anchorX = r->second.lPackX;
 				anchorY = r->second.lPackY;
+			}
+			else if (packN >= 2)
+			{
+				anchorX = packX;
+				anchorY = packY;
 			}
 		}
 		// The waves of the Ruins and the Jungle: sixteen groups of three or
@@ -696,7 +768,8 @@ namespace
 
 	// From the top of the bot's tick, ahead of every errand: a cohort bot on
 	// its dungeon's map (the lobby or an instance of it) belongs to this pass
-	// alone. False for everybody else.
+	// alone, and one elsewhere on this core is sent home. False for everybody
+	// else, and for a cohort bot whose way home stays shut (released below).
 	bool ManagePlayerBotArezzoDungeon(LPCHARACTER ch, TPlayerBotAIState& state, DWORD dwNow)
 	{
 		if (s_mapPlayerBotArzDgCohort.empty() || !s_bPlayerBotArzDgHosting || !ch)
@@ -706,6 +779,56 @@ namespace
 			return false;
 		const int dg = it->second;
 		TPlayerBotArzDgBot& bot = s_mapPlayerBotArzDgBots[ch->GetPlayerID()];
+		const long map = ch->GetMapIndex();
+		if (GetPlayerBotArzDgIndex(map) != dg)
+		{
+			// Somewhere else on this core (the dungeon's exit the quests' login
+			// sent it to, a town, another dungeon's lobby): home to its own
+			// lobby, every PLAYERBOT_ARZDG_HOME_RETRY_MS.
+			if (dwNow >= bot.dwNextHome && !ch->IsDead())
+			{
+				const char* refusal = NULL;
+				if (SendPlayerBotArzDgHome(ch, dg, bot.bReleased ? "released" : "elsewhere", &refusal))
+				{
+					bot.dwNextHome = dwNow + PLAYERBOT_ARZDG_HOME_RETRY_MS;
+					if (bot.bReleased)
+						sys_log(0, "ARZ_DG: home again pid=%u name=%s dungeon=%s after=%d refusals",
+								ch->GetPlayerID(), ch->GetName(), PLAYERBOT_ARZDG[dg].szKey, bot.iHomeRefusals);
+					bot.iHomeRefusals = 0;
+					bot.bReleased = false;
+					return true;
+				}
+				++bot.iHomeRefusals;
+				if (bot.iHomeRefusals < PLAYERBOT_ARZDG_HOME_TRIES)
+					bot.dwNextHome = dwNow + PLAYERBOT_ARZDG_HOME_RETRY_MS;
+				else
+				{
+					// The way home stays shut: not a heap of cohort bots on
+					// the exit for good, but the ordinary AI's hunt (the
+					// experience stays locked), asked home again now and then.
+					bot.dwNextHome = dwNow + PLAYERBOT_ARZDG_HOME_RELEASED_MS;
+					if (!bot.bReleased)
+					{
+						bot.bReleased = true;
+						sys_log(0, "ARZ_DG: lobby unreachable pid=%u name=%s dungeon=%s map=%ld pos=(%ld,%ld) refusals=%d refused=%s - left to the ordinary AI, asked home again every %u s",
+								ch->GetPlayerID(), ch->GetName(), PLAYERBOT_ARZDG[dg].szKey, map, ch->GetX(), ch->GetY(),
+								bot.iHomeRefusals, refusal ? refusal : "unknown", PLAYERBOT_ARZDG_HOME_RELEASED_MS / 1000);
+					}
+				}
+			}
+			if (bot.bReleased)
+			{
+				LockPlayerBotArzDgExp(ch);
+				return false;
+			}
+			state.dwLastMeaningfulActivityTime = dwNow;
+			if (!ch->IsDead() && ch->IsStateMove())
+				ch->Stop();
+			return true;
+		}
+		// On its own dungeon's map: the watch's again.
+		bot.iHomeRefusals = 0;
+		bot.bReleased = false;
 		state.dwLastMeaningfulActivityTime = dwNow;
 		if (ch->IsDead())
 			return true;
@@ -715,24 +838,37 @@ namespace
 		// the room the potions are bought into.
 		ManagePlayerBotSashFlow(ch, dwNow, (BYTE)PLAYERBOT_SASH_FLOW_IN_PLACE);
 		RestockPlayerBotArzDg(ch, bot, dwNow);
-		const long map = ch->GetMapIndex();
-		if (GetPlayerBotArzDgIndex(map) != dg)
-		{
-			// Somewhere else on this core (another dungeon's lobby, game2's
-			// other maps): home to its own lobby.
-			if (dwNow >= bot.dwNextHome)
-			{
-				bot.dwNextHome = dwNow + 30000;
-				SendPlayerBotArzDgHome(ch, dg, "elsewhere");
-			}
-			return true;
-		}
 		if (map < PLAYERBOT_INSTANCE_MAP_INDEX_MIN)
 			return ManagePlayerBotArzDgLobby(ch, state, dg, bot, dwNow);
 		return ManagePlayerBotArzDgInside(ch, state, dg, bot, dwNow);
 	}
 
 	// ------------------------------------------------------------ the runs
+
+	// MT2009_PLUS_AREZZO_DG_NO_BOSS_REGEN_V1: in the bots' instances a boss
+	// does not heal back what it lost (the owner, 1 October: the King and
+	// the Queen regained 5 % every 15-20 s, more than five bots took off -
+	// 91-99 % health after half an hour). Players' instances are untouched.
+	// Asked once a second for every run of the cohort, and of the bots' own
+	// dungeon runs (MT2009_PLUS_BOT_DUNGEON_RUNS_V1, playerbot_dungeon_runs.h).
+	void HoldPlayerBotArzDgBossRegen(long instance, DWORD dwNow)
+	{
+		static std::map<DWORD, int> s_mapBossLowHP;
+		const TPlayerBotArzDgScan& sc = ScanPlayerBotArzDg(instance, dwNow);
+		for (size_t i = 0; i < sc.foes.size(); ++i)
+		{
+			LPCHARACTER c = CHARACTER_MANAGER::instance().Find(sc.foes[i].dwVID);
+			if (!c || c->IsDead() || c->IsStone() || c->GetMobRank() < MOB_RANK_BOSS)
+				continue;
+			std::map<DWORD, int>::iterator low = s_mapBossLowHP.find(sc.foes[i].dwVID);
+			if (low == s_mapBossLowHP.end() || c->GetHP() < low->second)
+				s_mapBossLowHP[sc.foes[i].dwVID] = c->GetHP();
+			else if (c->GetHP() > low->second)
+				c->PointChange(POINT_HP, low->second - c->GetHP());
+		}
+		if (s_mapBossLowHP.size() > 512)
+			s_mapBossLowHP.clear();
+	}
 
 	void ClosePlayerBotArzDgRun(TPlayerBotArzDgRun& run, const char* result, DWORD dwNow)
 	{
@@ -906,27 +1042,8 @@ namespace
 			PullPlayerBotArzDgRun(run, "after_the_end");
 			return true;
 		}
-		// MT2009_PLUS_AREZZO_DG_NO_BOSS_REGEN_V1: in the bots' instances a boss
-		// does not heal back what it lost (the owner, 1 October: the King and
-		// the Queen regained 5 % every 15-20 s, more than five bots took off -
-		// 91-99 % health after half an hour). Players' instances are untouched.
-		{
-			static std::map<DWORD, int> s_mapBossLowHP;
-			const TPlayerBotArzDgScan& sc = ScanPlayerBotArzDg(run.lInstance, dwNow);
-			for (size_t i = 0; i < sc.foes.size(); ++i)
-			{
-				LPCHARACTER c = CHARACTER_MANAGER::instance().Find(sc.foes[i].dwVID);
-				if (!c || c->IsDead() || c->IsStone() || c->GetMobRank() < MOB_RANK_BOSS)
-					continue;
-				std::map<DWORD, int>::iterator low = s_mapBossLowHP.find(sc.foes[i].dwVID);
-				if (low == s_mapBossLowHP.end() || c->GetHP() < low->second)
-					s_mapBossLowHP[sc.foes[i].dwVID] = c->GetHP();
-				else if (c->GetHP() > low->second)
-					c->PointChange(POINT_HP, low->second - c->GetHP());
-			}
-			if (s_mapBossLowHP.size() > 512)
-				s_mapBossLowHP.clear();
-		}
+		// MT2009_PLUS_AREZZO_DG_NO_BOSS_REGEN_V1 (HoldPlayerBotArzDgBossRegen).
+		HoldPlayerBotArzDgBossRegen(run.lInstance, dwNow);
 		// MT2009_PLUS_AREZZO_DG_STALL_DETAIL_V1 (boss): the bosses' health once a minute.
 		{
 			static std::map<int, DWORD> s_mapNextBossLog;
