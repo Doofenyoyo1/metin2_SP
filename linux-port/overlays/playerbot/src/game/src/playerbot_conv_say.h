@@ -138,6 +138,8 @@ namespace playerbot_conv
 		ReplaceAll(out, "$SHOPN", ToString(s.shopItems));
 		ReplaceAll(out, "$SHOP", s.shopSummary);
 		ReplaceAll(out, "$ONLINE", ToString((long long)s.onlineMinutes));
+		// MT2009_PLUS_BOT_CHAT_V2: the bot's channel.
+		ReplaceAll(out, "$CH", ToString((long long)(s.channel > 0 ? s.channel : 1)));
 		if (g.a)
 		{
 			ReplaceAll(out, "$OBJB", g.a->objectB);

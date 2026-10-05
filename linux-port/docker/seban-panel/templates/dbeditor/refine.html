@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: search for an item to refine (dbeditor/refine.py refine). #}
+{% block title %}Ulepszanie u Kowala · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% set dbe_tab = 'refine' %}{% include 'dbeditor/_shops_common.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · ULEPSZANIE U KOWALA</p>
+<h1>⚒️ Ulepszanie u Kowala</h1>
+<p class="muted">Znajdź broń, zbroję albo biżuterię i zobacz każdy krok ulepszania +0 → +1 … +8 → +9: ile kosztuje,
+jakich materiałów potrzeba i jaka jest szansa. Zmiana trafia do bazy od razu, a do gry po restarcie (<b>Zastosuj</b>).</p>
+
+<section class="panel">
+  <form method="get" class="dbe-search">
+    <label>Nazwa lub vnum<input type="search" name="q" value="{{ query }}" placeholder="np. Miecz Bojowy albo 140" autofocus></label>
+    <button>Szukaj</button>
+  </form>
+  <div class="dbe-chips" style="margin-top:10px">
+    {% for s in searches %}<a class="dbe-chip" href="{{ url_for('dbeditor.refine', q=s) }}">{{ s }}</a>{% endfor %}
+  </div>
+</section>
+
+{% if query %}
+<section class="panel">
+  <h2>Rodziny ulepszeń <small class="muted">{{ families|length }}{% if more %}+ – zawęź wyszukiwanie{% endif %}</small></h2>
+  {% if families %}
+  <table class="dbe-table compact">
+    <thead><tr><th>Przedmiot</th><th>Poziomy</th><th></th></tr></thead>
+    <tbody>
+    {% for f in families %}
+      <tr><td class="item-cell"><a href="{{ url_for('dbeditor.refine_edit', vnum=f.vnum) }}">{% set icon = item_icon(f.vnum) %}{% if icon %}<img src="{{ icon }}" alt="" loading="lazy">{% else %}<span class="dbe-noicon">?</span>{% endif %}<span>{{ f.name }}</span></a> <small class="muted">#{{ f.vnum }}</small></td>
+        <td>{% if f.levels %}+{{ f.levels|min }} … +{{ f.levels|max }}{% else %}—{% endif %}</td>
+        <td><a class="button dbe-small" href="{{ url_for('dbeditor.refine_edit', vnum=f.vnum) }}">Kroki ulepszania</a></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">Nic nie znaleziono wśród przedmiotów, które da się ulepszać.</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Przepisy specjalne</h2>
+  <p class="muted">Tych ulepszeń nie ma w opisie przedmiotów – gra wybiera je sama.</p>
+  <ul>{% for id, name in specials.items() %}<li><a href="{{ url_for('dbeditor.refine_recipe', vnum=id) }}">{{ name }}</a> <small class="muted">przepis #{{ id }}</small></li>{% endfor %}</ul>
+</section>
+{% endblock %}

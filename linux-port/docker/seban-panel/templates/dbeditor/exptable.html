@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: Tabela doświadczenia - common.exp_table (dbeditor/exptable.py). #}
+{% block title %}Tabela doświadczenia · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/_tables_head.html' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='dbeditor-items.css') }}">
+<p class="eyebrow">EDYTOR BAZY DANYCH · TABELA DOŚWIADCZENIA</p>
+<h1>📈 Tabela doświadczenia</h1>
+<section class="panel dbt-note">
+  <p>Dla każdego poziomu: ile <b>punktów doświadczenia (PD)</b> postać musi zdobyć, żeby awansować na następny. Po awansie pasek liczy się od zera, więc liczby nie sumują się same – kolumna „Razem od 1” pokazuje sumę.</p>
+  <p>Gra czyta tę tabelę z bazy (common.exp_table) przy starcie – zmiana działa po <b>Zastosuj</b> (restart). Poziomy bez wpisu w bazie używają tabeli wbudowanej w grę. Najwyższy poziom na serwerze: {{ max_level }}.</p>
+  <p class="muted">Boty awansują tak samo jak gracze (te same PD), a ich misje łowieckie dają PD jako procent tej tabeli. Nowe zwierzaki (peciaki) liczą swoje poziomy z tabeli wbudowanej – ich ta zmiana nie dotyczy. Postaci zachowują swoje obecne PD na pasku.</p>
+</section>
+{% if error %}<section class="panel dbt-note error"><p>Nie udało się odczytać tabeli: {{ error }}</p></section>{% endif %}
+{% if extra %}<section class="panel dbt-note warn"><p>W bazie są też poziomy powyżej {{ max_level }} ({{ extra|join(', ') }}) – ta strona ich nie pokazuje, gra ich nie używa przy MAX_LEVEL {{ max_level }}.</p></section>{% endif %}
+
+<section class="panel">
+  <h2>Wykres</h2>
+  <div class="dbt-legend"><span><i></i>Teraz w bazie</span><span><i class="base"></i>Wbudowane w grę</span><span class="muted">skala logarytmiczna · najedź na poziom</span></div>
+  <svg class="dbt-chart" viewBox="0 0 {{ chart.w }} {{ chart.h }}" role="img" aria-label="PD potrzebne na poziom, teraz i wbudowane">
+    {% for t in chart.ticks %}<line class="grid" x1="{{ chart.left }}" x2="{{ chart.right }}" y1="{{ t.y }}" y2="{{ t.y }}"/><text x="{{ chart.left - 6 }}" y="{{ t.y + 4 }}" text-anchor="end">{{ t.label }}</text>{% endfor %}
+    {% for t in chart.xticks %}<text x="{{ t.x }}" y="{{ chart.bottom + 16 }}" text-anchor="middle">{{ t.label }}</text>{% endfor %}
+    <polyline class="base" points="{{ chart.base }}"/>
+    <polyline class="cur" points="{{ chart.cur }}"/>
+    {% for p in chart.points %}<rect class="hit" x="{{ p.x }}" y="{{ chart.top }}" width="{{ p.w }}" height="{{ chart.bottom - chart.top }}"><title>Poziom {{ p.level }}: {{ dbt_num(p.exp) }} PD (wbudowane {{ dbt_num(p.builtin) }})</title></rect>{% endfor %}
+  </svg>
+</section>
+
+<section class="panel">
+  <h2>Gotowe zmiany</h2>
+  <form method="post" class="dbt-actions">
+    <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+    {% for label, low, high, factor in presets %}
+      <button name="action" value="preset{{ loop.index0 }}" onclick="return confirm('{{ label }} – zapisać?')">{{ label }}</button>
+    {% endfor %}
+  </form>
+  <form method="post" class="dbt-actions">
+    <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+    <div class="dbt-group">
+      <label>Od poziomu<input name="from" value="75" inputmode="numeric"></label>
+      <label>Do poziomu<input name="to" value="99" inputmode="numeric"></label>
+      <label>Mnożnik PD<input name="factor" value="0,8" inputmode="decimal"></label>
+      <button name="action" value="custom">Pomnóż</button>
+    </div>
+  </form>
+  <p class="muted">Mnożnik mniejszy od 1 = mniej PD potrzebnych (szybszy awans). Każdy zapis można cofnąć w historii niżej.</p>
+</section>
+
+<form method="post">
+<input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+<section class="panel">
+  <h2>Poziomy 1–{{ max_level }}</h2>
+  <div class="dbt-wrap"><table class="dbt-table">
+    <thead><tr><th class="num">Poziom</th><th>PD do następnego poziomu</th><th class="num">Wbudowane w grę</th><th class="num">Różnica</th><th class="num">Razem od 1</th></tr></thead>
+    <tbody>
+    {% for l in levels %}
+      <tr id="l{{ l.level }}" class="{{ 'hl' if l.level == highlight else ('changed' if l.pending else '') }}">
+        <td class="num">{{ l.level }}{% if l.level == max_level %} <small class="muted">(max)</small>{% endif %}</td>
+        <td><input name="l{{ l.level }}" value="{{ l.exp }}" inputmode="numeric" class="wide" aria-label="PD dla poziomu {{ l.level }}">
+          <small class="muted">{{ dbt_num(l.exp) }}</small>{% if not l.in_db %} <small class="muted" title="brak wiersza w bazie – gra używa wartości wbudowanej">(wbudowane)</small>{% endif %}
+          {% if l.exp > ceiling %} <small class="dbt-bad" title="więcej niż największa wartość wbudowana">!</small>{% endif %}</td>
+        <td class="num">{{ dbt_num(l.builtin) }}</td>
+        <td class="num">{% if l.diff|abs >= 0.05 %}{{ '%+.1f'|format(l.diff)|replace('.', ',') }}%{% else %}—{% endif %}</td>
+        <td class="num">{{ dbt_num(l.total) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <div class="dbt-actions">
+    <label>Notatka (opcjonalnie)<input name="note" maxlength="200" style="width:280px"></label>
+    <button name="action" value="save">💾 Zapisz zmienione poziomy</button>
+  </div>
+</section>
+</form>
+
+<section class="panel">
+  <h2>Ostatnie zmiany tabeli</h2>
+  {% include 'dbeditor/_items_history_list.html' %}
+</section>
+{% endblock %}

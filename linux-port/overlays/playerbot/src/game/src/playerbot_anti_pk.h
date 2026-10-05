@@ -51,6 +51,9 @@ namespace
 	// MT2009_PLUS_SIDEKICK_DEFEND_V1: defined in playerbot_sidekick.h - a blow
 	// of another kingdom at a companion or at its owner, for its defence.
 	void NotePlayerBotSidekickDefendBlow(LPCHARACTER victim, LPCHARACTER attacker, DWORD dwNow);
+	// MT2009_PLUS_BOT_CHAT_V2: defined in playerbot_spot_defense.h - a person's
+	// blow at a bot, for the bot's complaint on the whisper.
+	void NotePlayerBotSpotStruck(LPCHARACTER bot, LPCHARACTER person, DWORD dwNow);
 
 	const char* GetPlayerBotFoeReasonName(BYTE reason)
 	{
@@ -523,6 +526,11 @@ namespace
 			struck.dwAt = dwNow;
 			return;
 		}
+		// MT2009_PLUS_BOT_CHAT_V2: a person's blow at a bot is also a word on
+		// the whisper (playerbot_spot_defense.h) - the fight back below is
+		// the protocol's as it was.
+		if (attacker->GetDesc() && !attacker->GetDesc()->IsBot())
+			NotePlayerBotSpotStruck(victim, attacker, dwNow);
 		TPlayerBotPersona& p = it->second.persona;
 		// The guild's half: a person's blow at a bot of a guild, not a
 		// guild-mate's (free mode lets one strike his own guild, and the guild

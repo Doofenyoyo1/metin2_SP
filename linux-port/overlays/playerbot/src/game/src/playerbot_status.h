@@ -354,6 +354,10 @@ namespace
 	// (playerbot_chat_conversation.h, which comes after this file).
 	inline bool BuildPlayerBotSummonStatus(LPCHARACTER ch, const TPlayerBotAIState& state, const char* prefix,
 			char* status, size_t statusSize, bool en);
+	// MT2009_PLUS_BOT_DUNGEON_LFG_V1: a bot waiting for a person at a
+	// dungeon's entrance (playerbot_dungeon_lfg.h, which comes after this file).
+	inline bool BuildPlayerBotDungeonLfgStatus(LPCHARACTER ch, const char* prefix, char* status, size_t statusSize,
+			bool en);
 	// The person of its guild a bot is fighting for (playerbot_anti_pk.h,
 	// which comes after this file), or NULL.
 	LPCHARACTER FindPlayerBotGuildAidPerson(DWORD defenderPid);
@@ -616,6 +620,10 @@ namespace
 		// So does a person's call ("Ide do X", "Stoje przy X"), with the same
 		// exception for a fight.
 		if (BuildPlayerBotSummonStatus(ch, state, prefix, status, statusSize, en))
+			return;
+		// MT2009_PLUS_BOT_DUNGEON_LFG_V1: "Czekam na X pod wejsciem", but for a fight.
+		if (state.bCurrentAction != BOT_ACTION_FIGHT &&
+				BuildPlayerBotDungeonLfgStatus(ch, prefix, status, statusSize, en))
 			return;
 
 		LPCHARACTER target = state.dwTargetVID != 0

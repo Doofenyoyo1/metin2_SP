@@ -214,6 +214,21 @@ boot_cores() {
   if [ "${HAVE_DROPS:-0}" = "1" ]; then
     m2-drops apply || log "the panel's drops could not be applied -- the image's drops stay"
   fi
+  # MT2009_PLUS_DB_EDITOR_V1: the fishing table as the Seban panel saved it
+  # (m2-fishing), put into quest/libs/fishing/fishing_drop.lua the same way.
+  if [ "${HAVE_FISHING:-0}" = "1" ]; then
+    m2-fishing apply || log "the panel's fishing table could not be applied -- the image's table stays"
+  fi
+  # MT2009_PLUS_DB_EDITOR_V1: the maps' spawns as the Seban panel's database
+  # editor saved them (m2-regen), put into map/<map>/regen.txt the same way.
+  if [ "${HAVE_REGEN:-0}" = "1" ]; then
+    m2-regen apply || log "the panel's map spawns could not be applied -- the image's spawns stay"
+  fi
+  # MT2009_PLUS_DB_EDITOR_V1: the timed bosses and every map's bosses / Metin
+  # stones as the Seban panel saved them (m2-spawns), the same way.
+  if [ "${HAVE_SPAWNS:-0}" = "1" ]; then
+    m2-spawns apply || log "the panel's respawn files could not be applied -- the image's stay"
+  fi
 
   for name in "${CORE_ORDER[@]}"; do
     [ "$SHUTTING_DOWN" = "0" ] || return "$rc"
@@ -276,6 +291,19 @@ command -v m2-chests >/dev/null 2>&1 && HAVE_CHESTS=1
 # "Drop z potworów" page (m2-drops; boot_cores calls it). Absent on older images.
 HAVE_DROPS=0
 command -v m2-drops >/dev/null 2>&1 && HAVE_DROPS=1
+# MT2009_PLUS_DB_EDITOR_V1: the maps' spawns (regen.txt) from the panel.
+HAVE_REGEN=0
+command -v m2-regen >/dev/null 2>&1 && HAVE_REGEN=1
+
+# MT2009_PLUS_DB_EDITOR_V1: what a fishing rod brings up, from the database
+# editor's "Łowienie ryb" page (m2-fishing; boot_cores calls it). Absent on older images.
+HAVE_FISHING=0
+command -v m2-fishing >/dev/null 2>&1 && HAVE_FISHING=1
+
+# MT2009_PLUS_DB_EDITOR_V1: the respawn files from the Seban panel's "Respawn
+# bossów i metinów" page (m2-spawns; boot_cores calls it). Absent on older images.
+HAVE_SPAWNS=0
+command -v m2-spawns >/dev/null 2>&1 && HAVE_SPAWNS=1
 
 # The advanced panel's two resets (the bots' new game, the whole world anew).
 # Done with every core down, so no core and no db cache writes the old world

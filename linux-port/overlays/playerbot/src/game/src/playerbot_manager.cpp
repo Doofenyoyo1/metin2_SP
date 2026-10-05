@@ -74,6 +74,11 @@ extern int passes_per_sec;
 // Declared in input_p2p.cpp. ChatPacket would be useless for a bot - it has no
 // client descriptor of its own to send to.
 extern void SendShout(const char* szText, BYTE bEmpire);
+#if defined(PLAYERBOT_ENGINE_MT2009)
+// MT2009_PLUS_BOT_CHAT_V2: the '@' trade chat's delivery to this core's
+// clients (input_p2p.cpp), for the bots' own trade lines.
+extern void SendTrade(const char* szText);
+#endif
 
 // A bot's shout goes where a player's does (CInputMain::Chat): to the other
 // cores as the P2P shout, and to this core's own clients through SendShout.
@@ -155,6 +160,7 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_goblin.h" // Poszukiwanie skarbow, "/goblin" (MT2009_PLUS_GOBLIN_V1)
 #include "playerbot_ingame_events.h" // the in-game event manager, "/ingame_event" (MT2009_PLUS_EVENT_MANAGER_V1)
 #include "playerbot_seonhae.h" // Seon-Hae's 6th/7th bonus, "/seonhae" (MT2009_PLUS_SEONHAE_V1)
+#include "playerbot_dbdata_stamp.h" // "DbDataStamp" at login: the client's files vs the database editor's (MT2009_PLUS_DBDATA_STAMP_V1)
 #include "playerbot_digi_qol.h" // Digi Rasta's server conveniences, "/nowy_ksiegi" (MT2009_PLUS_DIGI_SERVER_QOL_V1)
 #include "playerbot_flower.h" // the Flower Event "Dzieci Kwiaty", packets 187 (MT2009_PLUS_FLOWER_V1)
 #include "playerbot_rumi.h" // Owsap's Rumi (Okey card game), CG/GC 181 (MT2009_PLUS_RUMI_V1)
@@ -162,6 +168,7 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_yutnori.h" // Yut Nori, packets 182 (MT2009_PLUS_YUTNORI_V1)
 #include "playerbot_dungeon_panel.h" // the dungeon panel, "/lochy", d.update_ranking (MT2009_PLUS_DUNGEON_PANEL_V1)
 #include "playerbot_weekly_rank.h" // the weekly ranking and its titles, "/ranking" (MT2009_PLUS_WEEKLY_RANKING_V1)
+#include "playerbot_monster_card.h" // Digi Rasta's Monster Cards (Karty Potworow), "/cardmonster" (MT2009_PLUS_MONSTER_CARDS_V1)
 // Iwakura's Bot Mood System: the moods and the notes the loot, the chests,
 // the fishing and the blacksmith send it - early, so any of them may.
 #include "playerbot_mood.h"
@@ -171,6 +178,7 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_movement.h"
 #include "playerbot_combat_value_policy.h"
 #include "playerbot_battle_horse.h"
+#include "playerbot_item_extra_apply.h" // MT2009_PLUS_ITEM_EXTRA_APPLY_V1: bonus lines beyond item_proto's three, counted by the gear scoring
 #include "playerbot_gear.h"
 #include "playerbot_horse30.h" // Digi Rasta's horse to level 30: paid training, the Black Steed trial, the horse bonus (MT2009_PLUS_HORSE30_V1)
 #include "playerbot_shaman_buff_set.h" // MT2009_PLUS_BOT_SHAMAN_INT_SET_V1: a Shaman's INT set for its buffs
@@ -181,6 +189,7 @@ static void SendPlayerBotShout(const char* szText, BYTE bEmpire)
 #include "playerbot_activities.h"
 #include "playerbot_mining.h"
 #include "playerbot_herbalism.h"
+#include "playerbot_gear_upgrade.h" // MT2009_PLUS_BOT_GEAR_UPGRADE_V1: counter weapons at any plus by the damage model, the merchant's best weapon, the tool guard
 #include "playerbot_unique_slots.h"
 #include "playerbot_missions.h"
 #include "playerbot_skills.h"
@@ -234,11 +243,19 @@ namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* pl
 #include "playerbot_wandering.h"
 #include "playerbot_status.h"
 #include "playerbot_chat_conversation.h"
+// MT2009_PLUS_BOT_CHAT_V2 (deals): a trade talked over on the whisper, done in
+// the exchange window. After the conversation, which talks it over, and the
+// gift trade, whose look at the window it borrows.
+#include "playerbot_chat_deals.h"
 #include "playerbot_targeting.h"
 #include "playerbot_guild_war.h"
 // Iwakura's Anti-PK protocol and the stone hunter: the war's fight, turned on
 // whoever struck the bot or is breaking its stone for another kingdom.
 #include "playerbot_anti_pk.h"
+// MT2009_PLUS_BOT_CHAT_V2: a bot's whispered complaint at a person who hits
+// it or takes its monsters. After the Anti-PK protocol, whose report of a
+// blow it hears, and the conversation, through which it speaks.
+#include "playerbot_spot_defense.h"
 #include "playerbot_rare_persona.h"
 #include "playerbot_demon_tower.h"
 // The world's bosses, broken by a crowd of one kingdom: the call, the
@@ -256,6 +273,11 @@ namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* pl
 // MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1 (include): the test cohort that runs the
 // three Arezzo dungeons in a loop. After the Catacomb, whose fight it borrows.
 #include "playerbot_arezzo_dungeon_bots.h"
+// MT2009_PLUS_BOT_DUNGEONS_ALL_V1 (include): a person's party bots in every
+// dungeon - in after the person, the fight beside the person, out with the
+// person. After the Arezzo dungeon cohort, whose scan and boss break-off it
+// borrows with the tower's fight.
+#include "playerbot_party_dungeon.h"
 // Pirate Tanaka and Zuo's Metin rain: what the timed events put into the
 // world, and the bots that answer them. After the raids, whose fight it
 // borrows and which it gives way to.
@@ -286,6 +308,21 @@ namespace { bool HandlePlayerBotConversationWith(DWORD playerPID, const char* pl
 #include "playerbot_bpbots.h"
 // MT2009_PLUS_SHOUTERS_V1: the three shouters of the first villages.
 #include "playerbot_shouters.h"
+// MT2009_PLUS_BOT_CHAT_V2: the '@' trade chat, the shout channel's questions
+// answered, and the advice of where to exp and where the Metins stand. After
+// the Battle Pass bots, whose stone table and chatter it uses.
+#include "playerbot_chat_world.h"
+// MT2009_PLUS_BOT_DUNGEON_LFG_V1 (include): the bots' dungeon finder - a
+// person's "ktos na biblioteke?" answered by whisper, the yes and the wait at
+// the entrance. After the chat world, the conversation, the companions, the
+// raids and the cohorts, whose business it asks about.
+#include "playerbot_dungeon_lfg.h"
+// MT2009_PLUS_BOT_DUNGEON_RUNS_V1 (include): the bots' own dungeon runs - the
+// call on the kingdom's shout, the party at the entrance, the instance, the
+// stages and the way out. After the dungeon finder, whose places, words and
+// refusals it borrows, and the party dungeon pass and the Arezzo cohort,
+// whose fights and items it uses.
+#include "playerbot_dungeon_runs.h"
 // MT2009_PLUS_BOT_FRIENDS_V1: a bot answers a person's friend invitation
 // (server-patches/botfriends), after the shouters and the companion it asks.
 #include "playerbot_bot_friends.h"
@@ -450,6 +487,10 @@ namespace
 	bool IsPlayerBotPartyEligible(LPCHARACTER ch, const TPlayerBotAIState& state)
 	{
 		if (!ch)
+			return false;
+		// MT2009_PLUS_BOT_DUNGEON_RUNS_V1: a bot of a dungeon run is in the
+		// run's party and no other (playerbot_dungeon_runs.h).
+		if (IsPlayerBotOnDungeonRun(ch->GetPlayerID()))
 			return false;
 		// MT2009_PLUS_BP_BOTS_V1: a Battle Pass errand is played alone for its
 		// while, as a rare state is (playerbot_bpbots.h).
@@ -1594,6 +1635,10 @@ namespace
 		// and no way out a bot knows, and the Demon Tower is one), and a spider
 		// map whose desert crossing is already under way, which the transition
 		// would otherwise restart from the desert's doorstep on every retry.
+		// MT2009_PLUS_BOT_DUNGEONS_ALL_V1: a leader in the instance of a dungeon
+		// whose guard jumps the people alone (the Blue Dragon, Razador, Nemere,
+		// the Arezzo dungeons) is followed in by ManagePlayerBotPartyDungeon,
+		// higher in the tick; the Demon Tower and the Catacomb jump the party.
 		if (leader->GetMapIndex() != ch->GetMapIndex())
 		{
 			const long leaderMap = leader->GetMapIndex();
@@ -1741,8 +1786,14 @@ namespace
 				continue;
 			// From any saddle: a battle horse casts no skill of a class
 			// either (PLAYERBOT_SADDLE_SKILL_LEVEL), and the cast below would
-			// be refused without a word.
-			if (ch->IsRiding())
+			// be refused without a word. A standing mount (a Wukong cloud, the
+			// surfboard, a drakkar) casts every skill, and its rider never
+			// climbs down for "leader_buff" (IsPlayerBotSaddleOnlyReason) - so
+			// this asked to climb down, was refused and claimed the tick
+			// without a cast, every 1.2 s for good: a companion on a cloud
+			// never buffed its owner again and lost a fight's tick to it each
+			// time (MT2009_PLUS_SIDEKICK_MOUNT_FIX_V1).
+			if (ch->IsRiding() && !IsPlayerBotOnStandingMount(ch))
 			{
 				SetPlayerBotRidingForTravel(ch, state, false, dwNow, "leader_buff");
 				next = dwNow + PLAYERBOT_BUFF_RECHECK_FAST;
@@ -1777,6 +1828,10 @@ namespace
 		// keeps (playerbot_sidekick.h), or in none; and a bot that owns one
 		// under the self-test keeps the party the companion is in.
 		if (IsPlayerBotSidekickPID(ch->GetPlayerID()) || IsPlayerBotSidekickOwnerPID(ch->GetPlayerID()))
+			return;
+		// MT2009_PLUS_BOT_DUNGEON_LFG_V1: a bot waiting for a person at a
+		// dungeon's entrance joins that person's party and no camp of bots.
+		if (IsPlayerBotDungeonLfgHeld(ch->GetPlayerID()))
 			return;
 
 		state.dwNextPartyCheckTime = dwNow + PLAYERBOT_PARTY_CHECK_INTERVAL + number(0, 3000);
@@ -2102,6 +2157,11 @@ namespace
 		{
 			LPITEM item = ch->GetInventoryItem(cell);
 			if (!item || item->GetType() != ITEM_METIN)
+				continue;
+			// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1: a companion seats only a
+			// stone its owner handed it - never one it holds for the owner or
+			// picked up off the owner's kills.
+			if (IsPlayerBotSidekickKeptForOwner(ch, item))
 				continue;
 
 			const DWORD kdVnum = item->GetVnum();
@@ -4309,6 +4369,41 @@ void CPlayerBotManager::TryScheduleRetirement(DWORD dwNow)
 				candidates.push_back(live[i].second);
 		}
 	}
+	// MT2009_PLUS_BOT_RETIREMENT_FORCE_V1: a batch always ends with its bots'
+	// game over (the owner, 4 October: "wybor musi zakonczyc sie wyborem i
+	// koncem gry botow"). When no bot of any level can be sent to a market,
+	// any bot in this core's world is taken, whatever it is doing and whatever
+	// its level - and it skips the sale (bForced, straight to the wipe). Only
+	// the identities that must stay are spared: the shouters, the 27 Legends,
+	// a player's companion, a test cohort, a bot a person has taken over;
+	// a guild's leader only when there is nobody else.
+	bool bForcedPick = false;
+	if (candidates.empty())
+	{
+		std::vector<DWORD> masters;
+		for (size_t i = 0; i < live.size(); ++i)
+		{
+			const DWORD pid = live[i].second;
+			if (m_mapBots.find(pid) == m_mapBots.end())
+				continue;
+			LPCHARACTER ch = CHARACTER_MANAGER::instance().FindByPID(pid);
+			if (!ch || !ch->IsItemLoaded())
+				continue;
+			if (IsPlayerBotShouterPID(pid) || IsPlayerBotMedalShouterPID(pid) ||
+					IsPlayerBotLegendTier(GetPlayerBotLegendTier(pid)) || GetPlayerBotLegendNameSlot(ch->GetName()) >= 0 ||
+					IsPlayerBotSidekickPID(pid) || IsPlayerBotArezzoCohortPID(pid) ||
+					IsPlayerBotArezzoDungeonCohortPID(pid) || IsPlayerBotTakeoverHold(pid))
+				continue;
+			CGuild* guild = ch->GetGuild();
+			if (guild && guild->GetMasterPID() == pid)
+				masters.push_back(pid);
+			else
+				candidates.push_back(pid);
+		}
+		if (candidates.empty())
+			candidates.swap(masters);
+		bForcedPick = !candidates.empty();
+	}
 	if (candidates.empty())
 	{
 		s_dwPlayerBotRetireNextPickTime = dwNow + 60000;
@@ -4368,6 +4463,10 @@ void CPlayerBotManager::TryScheduleRetirement(DWORD dwNow)
 	entry.dwLastSeen = dwNow;
 	s_mapPlayerBotRetiring[dwPID] = entry;
 	AuditPlayerBotRetireEvent(entry.dwBatchId, dwPID, "picked", pickedCh->GetName());
+	// MT2009_PLUS_BOT_RETIREMENT_FORCE_V1: a forced pick sells nothing - its game
+	// ends at once (wiped and logged out by ProcessRetirementResets).
+	if (bForcedPick)
+		BeginPlayerBotRetirementClose(dwPID, s_mapPlayerBotRetiring[dwPID], "forced: no bot could go to a market");
 	++s_uPlayerBotRetireBatchQueued;
 	if (s_uPlayerBotRetireBatchQueued >= s_dwPlayerBotRetireCount)
 		s_bPlayerBotRetireBatchDone = true;
@@ -4380,8 +4479,8 @@ void CPlayerBotManager::TryScheduleRetirement(DWORD dwNow)
 			? s_dwPlayerBotRetireCount - s_uPlayerBotRetireBatchQueued : 0;
 	s_dwPlayerBotRetireNextPickTime = dwNow + (left > 0 ? remaining / (DWORD)left : 0);
 
-	sys_log(0, "PLAYERBOT_RETIRE: picked pid=%u name=%s level=%u (%u/%u batch id=%u, band %u-%u, pool=%u)",
-			dwPID, pickedCh->GetName(), (unsigned int)pickedCh->GetLevel(),
+	sys_log(0, "PLAYERBOT_RETIRE: picked pid=%u name=%s level=%u%s (%u/%u batch id=%u, band %u-%u, pool=%u)",
+			dwPID, pickedCh->GetName(), (unsigned int)pickedCh->GetLevel(), bForcedPick ? " FORCED" : "",
 			(unsigned int)s_uPlayerBotRetireBatchQueued, (unsigned int)s_dwPlayerBotRetireCount,
 			s_dwPlayerBotRetireBatchId, (unsigned int)bLevelLo, (unsigned int)bLevelHi,
 			(unsigned int)candidates.size());
@@ -4437,7 +4536,9 @@ void CPlayerBotManager::ProcessRetirementResets(DWORD dwNow)
 			if (entry.stage == PLAYERBOT_RETIRE_SHOPPING && !entry.bStallSeen &&
 					playerbot_offline::requests.find(pid) == playerbot_offline::requests.end() &&
 					dwNow - entry.dwPickedAt > PLAYERBOT_RETIRE_GIVE_UP_MS)
-				AbortPlayerBotRetirement(pid, "no stall could be opened in 30 minutes");
+				// MT2009_PLUS_BOT_RETIREMENT_FORCE_V1: no stall in 30 minutes ends the
+				// game without a sale, instead of calling the retirement off.
+				BeginPlayerBotRetirementClose(pid, entry, "no stall could be opened in 30 minutes");
 			break;
 
 		case PLAYERBOT_RETIRE_SELLING:
@@ -4898,6 +4999,10 @@ void CPlayerBotManager::ManageLifeSchedule(DWORD dwNow)
 		// MT2009_PLUS_AREZZO_BOTS_V1 (cohort): the Arezzo test's characters
 		// play for as long as the test runs.
 		if (IsPlayerBotArezzoCohortPID(pid) || IsPlayerBotArezzoDungeonCohortPID(pid)) // MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1
+			continue;
+		// MT2009_PLUS_BOT_DUNGEON_RUNS_V1: nor is a bot of a dungeon run sent
+		// to rest in the middle of it; its rest waits for the way out.
+		if (IsPlayerBotOnDungeonRun(pid))
 			continue;
 		// MT2009_PLUS_BOT_RETIREMENT_FIX_V1: a bot on its way to its last stall
 		// is not sent to rest: out of the world for hours, its retirement was
@@ -6068,6 +6173,12 @@ void CPlayerBotManager::Update()
 	ManagePlayerBotSidekicks(dwNow);
 	// MT2009_PLUS_SHOUTERS_V1: the shouters of the first villages.
 	ManagePlayerBotShouters(dwNow);
+	// MT2009_PLUS_BOT_CHAT_V2: the bots' '@' trade lines and the shout
+	// channel's answers (playerbot_chat_world.h).
+	ManagePlayerBotChatWorld(dwNow);
+	// MT2009_PLUS_BOT_DUNGEON_LFG_V1: the dungeon finder's offers due out,
+	// lapsed, and its waits ended (playerbot_dungeon_lfg.h).
+	ManagePlayerBotDungeonLfg(dwNow);
 	// MT2009_PLUS_L30_WEAPON_DROPPER_V1: two or three island droppers a kingdom.
 	ManagePlayerBotL30WeaponDroppers(dwNow);
 
@@ -6136,6 +6247,10 @@ void CPlayerBotManager::Update()
 	ManagePlayerBotBossRaids(dwNow);
 	// The Devil's Catacomb (playerbot_catacomb.h).
 	ManagePlayerBotCatacombRaids(dwNow);
+	// MT2009_PLUS_BOT_DUNGEON_RUNS_V1 (pass): the bots' own dungeon runs - the
+	// next call when its time has come, the gatherings, the runs under way
+	// and their ends (playerbot_dungeon_runs.h).
+	ManagePlayerBotDungeonRuns(dwNow);
 	// MT2009_PLUS_BOT_REPRICE_NOW_V1 (pass): every keeper's counter repriced
 	// at once, a few keepers a second (playerbot_reprice_now.h).
 	ManagePlayerBotRepriceNow(dwNow);
@@ -6345,6 +6460,12 @@ WritePlayerBotGuildStatus(dwNow);
 		if (!d->IsPhase(PHASE_GAME))
 			continue;
 
+		// MT2009_PLUS_BOT_GEAR_UPGRADE_V1: a rod, a pickaxe or a knife outside
+		// its own session, or in a dungeon, goes back in the bag and the best
+		// weapon in the hand - above every pass that claims the tick
+		// (playerbot_gear_upgrade.h).
+		ManagePlayerBotToolHand(ch, state, dwNow);
+
 		// MT2009_PLUS_SHOUTERS_V1: a shouter at its level stands at its post
 		// and shouts, and does nothing else (playerbot_shouters.h).
 		if (ManagePlayerBotShouterTick(ch, state, dwNow))
@@ -6354,6 +6475,22 @@ WritePlayerBotGuildStatus(dwNow);
 		// its dungeon's map - the lobby or a run - does nothing else, ahead of
 		// every errand, quarrel and guild war (playerbot_arezzo_dungeon_bots.h).
 		if (ManagePlayerBotArezzoDungeon(ch, state, dwNow))
+			continue;
+
+		// MT2009_PLUS_BOT_DUNGEON_RUNS_V1 (tick): a bot of one of the bots' own
+		// dungeon runs - on its way to the gathering, waiting there, inside the
+		// run's instance - does nothing else, ahead of the party dungeon pass,
+		// which would walk a bot with no person out of the instance
+		// (playerbot_dungeon_runs.h).
+		if (ManagePlayerBotDungeonRun(ch, state, dwNow))
+			continue;
+
+		// MT2009_PLUS_BOT_DUNGEONS_ALL_V1 (tick): a bot whose person (its party's
+		// leader, or any person of the party) stands in one of the dungeons the
+		// guard jumps people alone into goes in after the person, and inside it
+		// fights beside the person and comes out with the person - ahead of
+		// every errand, quarrel and guild war (playerbot_party_dungeon.h).
+		if (ManagePlayerBotPartyDungeon(ch, state, dwNow))
 			continue;
 
 		// MT2009_PLUS_BOT_SASH_FLOW_V1: two or more sashes in the bag are
@@ -6437,6 +6574,12 @@ WritePlayerBotGuildStatus(dwNow);
 		// A player's trade window, ahead of everything: the bot stands still
 		// until the player accepts, then takes what it would pick up off the
 		// ground (playerbot_gift_trade.h). The companion's is its own.
+		// MT2009_PLUS_BOT_CHAT_V2 (deals): a deal settled on the whisper - the
+		// bot opens the window by the person and checks it, pays or sells
+		// (playerbot_chat_deals.h). Ahead of the gift trade, which takes any
+		// other window.
+		if (HandlePlayerBotDealTrade(ch, state, dwNow))
+			continue;
 		if (HandlePlayerBotGiftTrade(ch, state, dwNow))
 			continue;
 
@@ -6475,6 +6618,11 @@ WritePlayerBotGuildStatus(dwNow);
 			if (HandleLoot(ch, state, dwNow))
 				continue;
 		}
+
+		// MT2009_PLUS_BOT_CHAT_V2: a person hitting the bot's monsters or the
+		// bot itself gets a word on the whisper (playerbot_spot_defense.h).
+		// It only watches and talks, and never takes the tick.
+		ManagePlayerBotSpotDefense(ch, state, dwNow);
 
 		// A player who struck the bot, or its party, or is breaking its stone
 		// for another kingdom (playerbot_anti_pk.h): ahead of every errand,
@@ -6861,6 +7009,10 @@ WritePlayerBotGuildStatus(dwNow);
 			continue;
 		// A person who called the bot over ("chodz do mnie", playerbot_chat_conversation.h).
 		if (ManagePlayerBotSummon(ch, state, dwNow))
+			continue;
+		// MT2009_PLUS_BOT_DUNGEON_LFG_V1: a person who said yes to the bot's
+		// dungeon offer - the wait at the entrance (playerbot_dungeon_lfg.h).
+		if (ManagePlayerBotDungeonLfgWait(ch, state, dwNow))
 			continue;
 		// The regular levelup.quest opens a selection dialog. A fake descriptor
 		// cannot press its Confirm button, so accept/claim that official mission
@@ -8028,6 +8180,7 @@ bool CPlayerBotManager::WarpBot(LPCHARACTER bot, long x, long y, long lPrivateMa
 		{
 			sys_err("PLAYERBOT_WORLD: warpset pid=%u name=%s private map %ld is not a child of %ld",
 					bot->GetPlayerID(), bot->GetName(), lPrivateMapIndex, lMapIndex);
+			s_szPlayerBotTransitionRefusal = "warpset_private_map";
 			return false;
 		}
 		lMapIndex = lPrivateMapIndex;
@@ -8037,6 +8190,8 @@ bool CPlayerBotManager::WarpBot(LPCHARACTER bot, long x, long y, long lPrivateMa
 	{
 		sys_log(0, "PLAYERBOT_WORLD: warpset refused pid=%u name=%s to=(%ld,%ld) map=%ld private=%ld from=%ld",
 				bot->GetPlayerID(), bot->GetName(), x, y, lMapIndex, lPrivateMapIndex, bot->GetMapIndex());
+		s_szPlayerBotTransitionRefusal = lMapIndex == 0 ? "warpset_no_map" :
+				(it == s_mapPlayerBotAIStates.end() ? "warpset_no_ai_state" : "warpset_map_not_hosted");
 		return false;
 	}
 	LPDUNGEON before = bot->GetDungeon();
@@ -8149,6 +8304,41 @@ void CPlayerBotManager::OnPlayerFieldWarEntry(LPCHARACTER ch, DWORD dwMyGuild, D
 	EnterPlayerBotFieldWar(ch, dwMyGuild, dwOppGuild);
 }
 
+// MT2009_PLUS_GUILD_WAR_OBSERVE_V1: the bots' wars are field wars, which the
+// engine's war list left out ("w tej chwili nie ma zadnych wojen" at the
+// Battle Executor while three were being fought, the owner, 4 October). One
+// with its arena copy on this core is listed, and an onlooker is put at the
+// arena's own observer start (the war map's third position), or by the
+// middle ground when the map has none.
+bool CPlayerBotManager::IsPlayerBotArenaWar(DWORD dwGuild1, DWORD dwGuild2)
+{
+	return GetPlayerBotWarArena(CGuildManager::instance().FindGuild(dwGuild1),
+			CGuildManager::instance().FindGuild(dwGuild2)) != 0;
+}
+
+bool CPlayerBotManager::GetPlayerBotArenaObserverPos(DWORD dwGuild1, DWORD dwGuild2, long& lMapIndex, long& x, long& y)
+{
+	const long arena = GetPlayerBotWarArena(CGuildManager::instance().FindGuild(dwGuild1),
+			CGuildManager::instance().FindGuild(dwGuild2));
+	if (arena == 0)
+		return false;
+	PIXEL_POSITION pos;
+	if (CWarMapManager::instance().GetStartPosition(PLAYERBOT_GUILD_WAR_ARENA_MAP, 2, pos))
+	{
+		x = pos.x;
+		y = pos.y;
+	}
+	else if (const TPlayerBotWarSide* sides = GetPlayerBotArenaSides())
+	{
+		x = sides->groundX;
+		y = sides->groundY;
+	}
+	else
+		return false;
+	lMapIndex = arena;
+	return true;
+}
+
 // A player's blow at a bot, or at a person in a party or a guild
 // (CHARACTER::Damage, mt2009 via playerbotify.py): the one thing the engine
 // does not remember about a fight, and the one the Anti-PK protocol needs
@@ -8225,7 +8415,43 @@ void CPlayerBotManager::OnPlayerShout(LPCHARACTER ch, const char* szText)
 	// MT2009_PLUS_SHOUTERS_V1: a line of the channel for the shouters' count.
 	if (ch && ch->GetEmpire() >= 1 && ch->GetEmpire() <= 3)
 		++s_auPlayerBotShoutsSeen[ch->GetEmpire()];
+	// MT2009_PLUS_BOT_DUNGEON_LFG_V1: "kto na biblioteke?", "szukam ekipy na
+	// smoka" first - a call for company to a dungeon is never a trade line
+	// nor a question for the channel (playerbot_dungeon_lfg.h).
+	if (HandlePlayerBotDungeonLfgCall(ch, szText, LFG_SOURCE_SHOUT))
+		return;
 	HandlePlayerShoutForTrade(ch, szText);
+	// MT2009_PLUS_BOT_CHAT_V2: "gdzie metki na 30?", "ile stoi fms?" - a bot
+	// of the kingdom answers on the channel (playerbot_chat_world.h).
+	ReadPlayerShoutForQuestion(ch, szText);
+}
+
+// MT2009_PLUS_BOT_CHAT_V2: a person's '@' trade chat line, after it has gone
+// out (CInputMain::Chat, server-patches/playerqol): a "K> ..." or "S> ..."
+// is answered by whisper by the bot best placed to, as a trade shout is.
+void CPlayerBotManager::OnPlayerTradeChat(LPCHARACTER ch, const char* szText)
+{
+	if (!ch || !szText || !*szText || (ch->GetDesc() && ch->GetDesc()->IsBot()))
+		return;
+	// MT2009_PLUS_BOT_DUNGEON_LFG_V1: a dungeon call on '@' too, before the trade.
+	if (HandlePlayerBotDungeonLfgCall(ch, szText, LFG_SOURCE_TRADE))
+		return;
+	HandlePlayerShoutForTrade(ch, szText);
+}
+
+// MT2009_PLUS_BOT_DUNGEON_LFG_V1: a person's line on the normal chat or the
+// guild's, after it has gone out (CInputMain::Chat, server-patches/playerqol):
+// a call for company to a dungeon, answered by whisper by bots of its level -
+// on the guild chat by the guild's bots alone (playerbot_dungeon_lfg.h). The
+// party's chat is heard by the party, which is no one to ask.
+void CPlayerBotManager::OnPlayerLocalChat(LPCHARACTER ch, const char* szText, BYTE bType)
+{
+	if (!ch || !szText || !*szText || (ch->GetDesc() && ch->GetDesc()->IsBot()))
+		return;
+	if (bType == CHAT_TYPE_TALKING)
+		HandlePlayerBotDungeonLfgCall(ch, szText, LFG_SOURCE_TALK);
+	else if (bType == CHAT_TYPE_GUILD)
+		HandlePlayerBotDungeonLfgCall(ch, szText, LFG_SOURCE_GUILD);
 }
 
 // MT2009_PLUS_SHOUTERS_V1: another core's line of the channel, a bot's or a
@@ -8254,6 +8480,11 @@ void CPlayerBotManager::OnPlayerWhisper(LPCHARACTER from, LPCHARACTER bot, const
 	if (HandlePlayerBotHaggleWhisper(from, bot, szText))
 		return;
 #endif
+	// MT2009_PLUS_BOT_DUNGEON_LFG_V1: the answer to the bot's dungeon offer
+	// goes to the conversation that knows the offer, ahead of the lure order
+	// and the trade whose words a short answer may share.
+	if (from && HandlePlayerBotDungeonLfgWhisper(from->GetPlayerID(), from->GetName(), bot, szText))
+		return;
 	HandlePlayerWhisperToBot(from, bot, szText);
 }
 
@@ -8264,6 +8495,17 @@ void CPlayerBotManager::OnPeerWhisper(const char* szFrom, LPCHARACTER bot, const
 {
 	if (bot && IsPlayerBotShouterPID(bot->GetPlayerID()))
 		return;
+	// MT2009_PLUS_BOT_DUNGEON_LFG_V1: the yes to a dungeon offer from a person
+	// who has since gone to another core (the entrance's map, often).
+	if (bot && szFrom && *szFrom)
+	{
+		const CCI* peer = P2P_MANAGER::instance().Find(szFrom);
+		if (peer && !IsRegisteredBotPID(peer->dwPID))
+			NotePlayerWhisperedBot(peer->dwPID, bot);	// MT2009_PLUS_BOT_WHISPER_BLOCK_V1
+		if (peer && !IsRegisteredBotPID(peer->dwPID) &&
+				HandlePlayerBotDungeonLfgWhisper(peer->dwPID, peer->szName, bot, szText))
+			return;
+	}
 	HandlePlayerWhisperFromPeer(szFrom, bot, szText);
 }
 

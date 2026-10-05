@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: one map's boss.txt and stone.txt (dbeditor/spawns.py spawn_map). #}
+{% block title %}{{ title }} · Respawn · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% set dbe_tab = 'spawns' %}{% include 'dbeditor/_mobs_common.html' %}
+<p><a href="{{ url_for('dbeditor.spawns') }}">← Respawn bossów i metinów</a></p>
+<p class="eyebrow">RESPAWN · MAPA {{ map_index }} · {{ mapdir }}</p>
+<h1>🗺️ {{ title }}</h1>
+
+{% include 'dbeditor/_spawns_settings.html' %}
+
+{% if picture and size %}
+<section class="panel">
+  <h2>Mapa</h2>
+  <p class="muted">Punkty to bossowie (👑) i Metiny (🗿) z tabel poniżej. Kliknij w mapę, a współrzędne trafią do wiersza, w którym ostatnio pisałeś (np. nowego).</p>
+  <div class="dbe-map" data-dbe-map data-width="{{ size[0] }}" data-height="{{ size[1] }}" style="aspect-ratio:{{ size[0] }}/{{ size[1] }};background-image:url('{{ url_for('static', filename='maps/' ~ picture) }}')">
+    {% for file in files %}{% for e in file.entries %}
+      <span class="dbe-map-dot k-{{ file.kind }}" style="left:{{ (e.row.x / size[0] * 100)|round(2) }}%;top:{{ (e.row.y / size[1] * 100)|round(2) }}%;width:{{ [e.row.rx * 2 / size[0] * 100, 1.2]|max|round(2) }}%;height:{{ [e.row.ry * 2 / size[1] * 100, 1.2]|max|round(2) }}%" title="{{ e.info.name }} ({{ e.row.x }}, {{ e.row.y }}) – co {{ range_text(e.row.low, e.row.high) }}"></span>
+    {% endfor %}{% endfor %}
+    <span class="dbe-map-cursor" data-dbe-map-cursor hidden></span>
+  </div>
+</section>
+{% endif %}
+
+{% for file in files %}
+<section class="panel" id="plik-{{ file.kind }}">
+  <div class="dbe-section-head">
+    <h2>{{ '👑' if file.kind == 'boss' else '🗿' }} {{ file.title }} <small class="muted">{{ file.kind }}.txt{% if file.origin == 'custom' %} · zmieniony w panelu{% else %} · jak w obrazie gry{% endif %}</small></h2>
+    {% if file.origin == 'custom' %}
+    <form method="post" action="{{ url_for('dbeditor.spawn_map_reset', mapdir=mapdir, kind=file.kind) }}" class="dbe-inline" onsubmit="return confirm('Wrócić do pliku z obrazu gry? Twoja wersja trafi do kopii zapasowych.');">
+      <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}"><button class="dbe-small quiet-btn">↶ Przywróć plik z obrazu gry</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if file.state.kind != 'ok' %}<p class="dbe-state-{{ file.state.kind }}">{{ file.state.text }}</p>{% endif %}
+  <form method="post" class="dbe-form" data-dbe-rows>
+    <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+    <input type="hidden" name="plik" value="{{ file.kind }}">
+    <input type="hidden" name="wersja" value="{{ file.version }}">
+    <input type="hidden" name="nowe" value="{{ new_rows }}">
+    <div class="dbe-scroll">
+    <table class="dbe-table compact dbe-spawn-rows">
+      <thead><tr><th>Co</th><th>Rodzaj / numer</th><th>X</th><th>Y</th><th title="połowa szerokości / wysokości obszaru, w którym się pojawia">Obszar ±X / ±Y</th>
+        <th>Co ile (min) od – do</th><th>W grze</th><th>Ile naraz</th><th>Usuń</th></tr></thead>
+      <tbody>
+      {% for e in file.entries %}{% set p = 'r' ~ e.pos ~ '_' %}
+        <tr data-dbe-row>
+          <td>{{ e.info.icon }} <b>{{ e.info.name }}</b>{% if e.info.level %} <small class="muted">poz. {{ e.info.level }}</small>{% endif %}{% if e.info.flag %}<br><small class="muted">{{ e.info.flag }}</small>{% endif %}</td>
+          <td class="dbe-nowrap"><select name="{{ p }}typ">{% for t, label in row_types.items() %}<option value="{{ t }}" {{ 'selected' if e.form.typ == t }}>{{ label }}</option>{% endfor %}</select>
+            <input name="{{ p }}vnum" value="{{ e.form.vnum }}" class="dbe-narrow" inputmode="numeric"></td>
+          <td><input name="{{ p }}x" value="{{ e.form.x }}" class="dbe-narrow" inputmode="numeric" data-x></td>
+          <td><input name="{{ p }}y" value="{{ e.form.y }}" class="dbe-narrow" inputmode="numeric" data-y></td>
+          <td class="dbe-nowrap"><input name="{{ p }}rx" value="{{ e.form.rx }}" class="dbe-tiny" inputmode="numeric"> / <input name="{{ p }}ry" value="{{ e.form.ry }}" class="dbe-tiny" inputmode="numeric"></td>
+          <td class="dbe-nowrap"><input name="{{ p }}od" value="{{ e.form.od }}" class="dbe-tiny" inputmode="decimal"> – <input name="{{ p }}do" value="{{ e.form.do }}" class="dbe-tiny" inputmode="decimal"></td>
+          <td class="dbe-nowrap">{% if e.info.once %}raz, przy starcie{% else %}<b>{{ range_text(e.info.eff_low, e.info.eff_high) }}</b>{% if e.info.percent != 100 %}<br><small class="muted">{{ e.info.percent }}% {{ 'mapy' if e.info.source == 'map' else 'z Respawnów' }}</small>{% endif %}{% endif %}</td>
+          <td class="dbe-nowrap"><input name="{{ p }}ile" value="{{ e.form.ile }}" class="dbe-tiny" inputmode="numeric">{% if e.info.eff_count != e.info.count %} <small class="muted">→ {{ e.info.eff_count }} w grze</small>{% endif %}</td>
+          <td><label class="dbe-check"><input type="checkbox" name="{{ p }}usun" value="1"> 🗑</label></td>
+        </tr>
+      {% endfor %}
+      {% for i in range(new_rows) %}{% set p = 'n' ~ i ~ '_' %}
+        <tr data-dbe-row class="dbe-new-row">
+          <td><span class="muted">➕ nowy wiersz</span></td>
+          <td class="dbe-nowrap"><select name="{{ p }}typ">{% for t, label in row_types.items() %}<option value="{{ t }}">{{ label }}</option>{% endfor %}</select>
+            <input name="{{ p }}vnum" value="" class="dbe-narrow" inputmode="numeric" placeholder="numer"></td>
+          <td><input name="{{ p }}x" class="dbe-narrow" inputmode="numeric" data-x></td>
+          <td><input name="{{ p }}y" class="dbe-narrow" inputmode="numeric" data-y></td>
+          <td class="dbe-nowrap"><input name="{{ p }}rx" value="0" class="dbe-tiny"> / <input name="{{ p }}ry" value="0" class="dbe-tiny"></td>
+          <td class="dbe-nowrap"><input name="{{ p }}od" value="{{ '20' if file.kind == 'stone' else '30' }}" class="dbe-tiny" inputmode="decimal"> – <input name="{{ p }}do" value="{{ '25' if file.kind == 'stone' else '40' }}" class="dbe-tiny" inputmode="decimal"></td>
+          <td></td>
+          <td><input name="{{ p }}ile" value="1" class="dbe-tiny" inputmode="numeric"></td>
+          <td></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if file.other %}<p class="muted">Plik ma też {{ file.other }} wiersz(y) innego rodzaju (np. obszary wyłączone) – zostają bez zmian.</p>{% endif %}
+    <p class="muted dbe-note">Numer: dla „Potwór” – vnum potwora (znajdziesz go w <a href="{{ url_for('dbeditor.mobs') }}">Potworach</a>), dla „Grupa” – numer grupy z group.txt.
+      X i Y to kratki mapy (te same, co w plikach gry). Czas 0 = pojawia się tylko raz, przy starcie serwera. Wiersz bez zmian zostaje w pliku dokładnie taki, jaki był.</p>
+    <div class="dbe-actions">
+      <button type="submit">💾 Zapisz {{ file.title|lower }}</button>
+      <span class="muted">Zmiana czeka na restart gry („Zastosuj”). Przed zapisem gra sprawdzi plik; błędny plik nie zostanie użyty.</span>
+    </div>
+  </form>
+</section>
+{% endfor %}
+<script src="{{ static_asset_url('dbeditor-mobs.js') }}"></script>
+{% endblock %}

@@ -1,6 +1,7 @@
 # MT2009_PLUS_DIGI_CLIENT_QOL_V1 - "Opcje dodatkowe" (Autor: Digi Rasta; nowy-system 0.19.0,
 # paczki Biore BL_HIDE_EFFECT, Hide-Objects, Graphic-Mask-Control, Chat-Log-Viewer).
-# The window opens from the "Opcje dodatkowe" button of the ESC menu (uisystem.py).
+# The window is the "Dodatkowe" tab of the ESC menu's "Opcje Gry" (MT2009_PLUS_OPTIONS_TABS_V1,
+# uioptionstabs.py; it had its own button before).
 #   - buff effects / skill auras    exe: app.SetHideEffects (MT2009_PLUS_DIGI_CLIENT_QOL_V1)
 #   - player shops                  exe: chrmgr.SetShopsVisible (ikashop entities + shop characters)
 #   - trees / objects / clouds / water   background.SetVisiblePart (every exe)
@@ -216,7 +217,7 @@ class OptionRow(ui.Window):
 
 
 class ExtraOptionsWindow(ui.BoardWithTitleBar):
-	WIDTH = 270
+	WIDTH = 305  # MT2009_PLUS_OPTIONS_TABS_V1: was 270; as wide as Opcje Systemowe, under the tab row
 	TOP = 36
 	ROW = 22
 

@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: Zwykły drop - common_drop_item.txt (dbeditor/drops.py, drops_common). #}
+{% block title %}Zwykły drop · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/drops_head.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · DROP · ZWYKŁY DROP</p>
+<h1>Zwykły drop <small class="muted">wszystkie potwory, wg poziomu gracza</small>{% if source == 'custom' %} <span class="dbd-tag custom">zmieniony w panelu</span>{% endif %}</h1>
+<p class="muted">Ta tabela działa dla <b>każdego</b> potwora danej rangi (bossy i królowie jej nie mają). Wiersz mówi: gracz na poziomie <i>od–do</i>, który zabije potwora tej rangi, ma taką szansę na ten przedmiot. Każdy wiersz losowany osobno. Szansa „na zabicie” – różnica poziomów i stawka dropu serwera jeszcze ją zmieniają.</p>
+
+{% if not table %}
+<section class="panel"><p class="dbd-bad">Gra nie opublikowała jeszcze pliku common_drop_item.txt (drops/common_drop_item.base.txt w wolumenie). Uruchom rdzenie gry przynajmniej raz na aktualnym obrazie.</p></section>
+{% else %}
+<nav class="dbd-tabs">{% for name in rank_names %}<a href="{{ url_for('dbeditor.drops_common', rank=loop.index0) }}" class="{{ 'on' if rank == loop.index0 else '' }}">{{ name }} ({{ counts[loop.index0] }})</a>{% endfor %}</nav>
+
+<form method="post" class="dbd-form" data-mode="pct" data-api="{{ url_for('dbeditor.api_items') }}" action="{{ url_for('dbeditor.drops_common_save') }}">
+<input type="hidden" name="dbe_csrf" value="{{ csrf }}">
+<input type="hidden" name="rank" value="{{ rank }}">
+<input type="hidden" name="row_count" class="dbd-row-count" value="{{ slots|length }}">
+<section class="panel">
+  <h2>{{ rank_names[rank] }} <small class="muted">{{ slots|length }} pozycji</small></h2>
+  <div class="dbd-tools"><label>Filtruj tabelę<input type="search" class="dbd-filter dbd-search" placeholder="nazwa, VNUM albo poziom"></label></div>
+  <div class="table-wrap"><table class="dbd-table">
+    <thead><tr><th>Przedmiot (VNUM)</th><th>Nazwa</th><th>Poziom gracza od</th><th>do</th><th>Szansa %</th><th>Na jedno zabicie</th><th>Usuń</th></tr></thead>
+    <tbody class="dbd-rows">
+    {% for s in slots %}{% set i = loop.index0 %}
+    <tr>
+      <td><input name="r{{ i }}_item" value="{{ s.item }}" class="dbd-item" list="dbd-items"><input type="hidden" name="r{{ i }}_label" value="{{ s.label }}"></td>
+      <td><span class="dbd-name">{% if s.icon %}<img src="{{ s.icon }}" alt="">{% endif %}<span class="{{ 'dbd-bad' if s.bad else '' }}">{{ s.name }}</span></span></td>
+      <td><input name="r{{ i }}_from" type="number" min="1" max="250" value="{{ s.lv_start }}" class="dbd-small"></td>
+      <td><input name="r{{ i }}_to" type="number" min="1" max="250" value="{{ s.lv_end }}" class="dbd-small"></td>
+      <td><input name="r{{ i }}_pct" value="{{ s.pct_input }}" class="dbd-num dbd-pct" inputmode="decimal"><input type="hidden" name="r{{ i }}_shown" value="{{ s.pct_input }}"><input type="hidden" name="r{{ i }}_orig" value="{{ s.pct }}"><input type="hidden" name="r{{ i }}_n" value="{{ s.n }}"></td>
+      <td class="dbd-chance"><span class="dbd-out">{{ chance_text(s.chance) }}</span><span class="dbd-bar" style="width:{{ [2, [100, s.chance]|min * 1.2]|max }}px"></span></td>
+      <td><input type="checkbox" name="r{{ i }}_delete" value="1" class="dbd-delete"></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    <template class="dbd-row-template"><tr class="dbd-new">
+      <td><input name="r__i___item" class="dbd-item" list="dbd-items" placeholder="VNUM lub nazwa"></td>
+      <td><span class="dbd-name"><span class="muted">wpisz VNUM lub nazwę</span></span></td>
+      <td><input name="r__i___from" type="number" min="1" max="250" value="1" class="dbd-small"></td>
+      <td><input name="r__i___to" type="number" min="1" max="250" value="120" class="dbd-small"></td>
+      <td><input name="r__i___pct" value="0.01" class="dbd-num dbd-pct" inputmode="decimal"></td>
+      <td class="dbd-chance"><span class="dbd-out"></span><span class="dbd-bar"></span></td>
+      <td><input type="checkbox" name="r__i___delete" value="1" class="dbd-delete"></td>
+    </tr></template>
+  </table></div>
+  <p><button type="button" class="dbd-add">➕ Dodaj przedmiot</button></p>
+  <div class="dbd-actions">
+    <button name="action" value="save">💾 Zapisz „{{ rank_names[rank] }}”</button>
+    <div class="dbd-group"><span>Szansa ×</span>
+      {% for f in factors %}<button name="action" value="multiply" data-factor="{{ f }}">×{{ f|replace('.', ',') }}</button>{% endfor %}
+      <input name="factor" value="2" inputmode="decimal" title="Własny mnożnik"><button name="action" value="multiply">Pomnóż</button>
+      <label><input type="radio" name="scope" value="rank" checked> tylko „{{ rank_names[rank] }}”</label>
+      <label><input type="radio" name="scope" value="all"> wszystkie rangi</label>
+    </div>
+    {% if source == 'custom' %}<button name="action" value="reset" data-confirm="Cały zwykły drop wróci do stanu z obrazu gry. Na pewno?">↺ Przywróć z obrazu gry</button>{% endif %}
+  </div>
+  <p class="muted dbd-help">Zapis sprawdza każdy VNUM w item_proto (zły numer zatrzymałby rdzeń gry), poziomy 1–250 i szansę do 100%. Plik trafia do wolumenu gry (drops/common_drop_item.custom.txt) – aktualizacja serwera go nie nadpisze; poprzednia wersja idzie do kopii zapasowej.</p>
+</section>
+</form>
+{% endif %}
+{% endblock %}

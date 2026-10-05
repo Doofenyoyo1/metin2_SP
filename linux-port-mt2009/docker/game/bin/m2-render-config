@@ -111,14 +111,24 @@ MAPS_first="1 3 4 5 6 107 81 111 112 113 181 182 183 200 250 302 304"
 # (d.new_jump_pids, MT2009_PLUS_DUNGEON_ONE_WARP_V1) and game2 warps the players
 # straight into it - one loading screen, no lobby. Players only: no bot can stand on
 # a game2 map.
+# MT2009_PLUS_BOT_DUNGEONS_ALL_V1: every dungeon on game1 now - 208 (Leze Smoka), 351
+# and 352 here, the Arezzo dungeons 363-366 below - under either layout. The owner
+# (4 October): the bots of a person's party go into every dungeon with the person,
+# and a bot cannot cross cores. MAP_ALLOW_LIMIT is 48 since MT2009_PLUS_MAP_ALLOW_48_V1,
+# so the 32-map reason for game2 is gone: game1 hosts 35 maps in the split layout and
+# 43 in the unified one, game2 9 and 5. The guards' d.new_jump_pids finds the map on
+# its own core and makes the instance there (Mt2009PlusDungeonNewJumpHere): the same
+# one loading screen, the person's own warp. The bots follow the person in
+# (playerbot_party_dungeon.h). More maps on game1 is more of the world on one
+# process; a dungeon's instance costs nothing until a party opens one.
 # MT2009_PLUS_SPIDER3_OFF_V1: 217, the third Spider Dungeon, is hosted by no core.
 # The server has all of it, but no client of this world has its map, so a warp
 # there closed the client, and a character saved there closed it at every login
 # (blasty, 1 October). Not hosted, the engine sends such a character to its
 # kingdom's start at the next login (ENABLE_GOHOME_IF_MAP_NOT_EXIST, input_db.cpp)
 # and a warp there goes nowhere. No bot ever went there.
-MAPS_game1="21 23 24 25 26 61 62 63 64 65 66 67 68 69 70 71 104 108 109 79 216 72 73 209"
-MAPS_game2="41 43 44 45 46 90 208 301 303 351 352"
+MAPS_game1="21 23 24 25 26 61 62 63 64 65 66 67 68 69 70 71 104 108 109 79 216 72 73 209 208 351 352"
+MAPS_game2="41 43 44 45 46 90 301 303"
 
 # One world on one core, when the operator asks for it.
 #
@@ -140,7 +150,7 @@ M2_PLAYERBOT_WORLD_LAYOUT="${M2_PLAYERBOT_WORLD_LAYOUT:-split}"
 if [ "$M2_PLAYERBOT_WORLD_LAYOUT" = "unified" ]; then
   MAPS_game1="$MAPS_game1 1 3 4 5 41 43 44 45"
   MAPS_first="6 107 81 111 112 113 181 182 183 200 250 302 304"
-  MAPS_game2="46 90 208 301 303 351 352"
+  MAPS_game2="46 90 301 303"
   log "world layout: unified (all three kingdoms + frontier on game1)"
 else
   log "world layout: split (per-kingdom cores; Shinsoo/Jinno cap ~36)"
@@ -154,12 +164,13 @@ MAPS_game2="$MAPS_game2 419"
 # Valley and the Temple of Ochao (the bots will hunt them, and a bot cannot cross cores; game1 of the
 # unified layout then hosts 35 maps of MAP_ALLOW_LIMIT 48), the Biblioteka Wiedzy dungeon (363) on
 # game2 with Razador and Nemere (d.new_jump_pids from its guard in Orc Valley).
-MAPS_game1="$MAPS_game1 360 362"
-MAPS_game2="$MAPS_game2 363"
+# MT2009_PLUS_BOT_DUNGEONS_ALL_V1: 363 on game1 with Razador and Nemere since.
+MAPS_game1="$MAPS_game1 360 362 363"
 # MT2009_PLUS_AREZZO_V1 (maps, phases 5-8): Pustkowie Faraona (361) on game1 with the other open Arezzo
 # maps (game1 of the unified layout: 36 maps of 48); the dungeons 364-366 on game2 with 363.
-MAPS_game1="$MAPS_game1 361"
-MAPS_game2="$MAPS_game2 364 365 366"
+# MT2009_PLUS_BOT_DUNGEONS_ALL_V1: 364-366 on game1 with 363 since (the Arezzo dungeon test
+# cohort, playerbot_arezzo_dungeon_bots.h, runs on whichever core hosts them).
+MAPS_game1="$MAPS_game1 361 364 365 366"
 # MT2009_PLUS_GUILD_WAR_ARENA_V1: the battle arena 110 (metin2_map_t3) on game1 under
 # either layout - the bots' guild wars are fought in private copies of it
 # (playerbot_guild_war.h), and a bot cannot cross cores. 111 (the flags) stays on

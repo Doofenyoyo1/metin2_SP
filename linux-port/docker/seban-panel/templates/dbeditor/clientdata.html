@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: "Zastosuj" - pending changes, restart and the client files zip (dbeditor/clientdata.py). #}
+{% block title %}Zastosuj zmiany · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+<style>
+.dbe-list{width:100%;border-collapse:collapse;font-size:14px}
+.dbe-list td,.dbe-list th{padding:6px 8px;border-bottom:1px solid var(--line,#253042);text-align:left;vertical-align:top}
+.dbe-kind{display:inline-block;padding:1px 8px;border-radius:9px;font-size:12px;background:color-mix(in srgb,var(--blue2,#4a7bd6) 20%,transparent)}
+.dbe-state{border-left:4px solid var(--muted,#8a96a8);padding:10px 14px;margin:10px 0}
+.dbe-state.ok{border-left-color:#39e890}.dbe-state.pending{border-left-color:#f5b83d}.dbe-state.error{border-left-color:#ff5757}
+.dbe-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:12px}
+.dbe-actions label{display:grid;gap:4px;color:var(--muted,#8a96a8);font-size:13px}
+.dbe-actions a.button{display:inline-block;padding:10px 16px;border-radius:8px;background:var(--accent,#d6a74a);color:#111;text-decoration:none;font-weight:600}
+.dbe-actions a.button.secondary{background:var(--panel-2,#131a24);color:inherit;border:1px solid var(--line,#253042)}
+.dbe-notes li{margin:.2em 0}
+</style>
+<p class="eyebrow">EDYTOR BAZY DANYCH · ZASTOSUJ</p>
+<h1>✅ Zastosuj zmiany</h1>
+<p class="muted"><a href="{{ url_for('dbeditor.index') }}">← Edytor bazy danych</a></p>
+
+<section class="panel">
+  <h2>Oczekujące zmiany</h2>
+  {% if last.time %}<p class="muted">Ostatnie „Zastosuj”: {{ last.when or last.time }} → {{ last.changes }} zmian.</p>{% endif %}
+  {% if not items and not files %}
+    <div class="dbe-state ok"><p>Nic nie czeka na zastosowanie – gra działa na tym, co jest w bazie i w plikach dropu.</p></div>
+  {% else %}
+    <div class="dbe-state pending"><p><b>{{ items|length + files|length }}</b> zmian czeka na restart gry.</p></div>
+    <table class="dbe-list">
+      <thead><tr><th>Kiedy</th><th>Co</th><th>Pole</th><th>Było → jest</th></tr></thead>
+      <tbody>
+      {% for c in items %}
+        <tr><td>{{ c.changed_at or '—' }}</td>
+          <td><span class="dbe-kind">{{ table_kind(c.tbl) if table_kind is defined else ('umiejętność' if 'skill' in c.tbl else 'przedmiot') }}</span> {{ c.label or '' }} ({{ c.row_key }})</td>
+          <td>{{ column_label(c.tbl, c.col) }}</td>
+          <td>{{ format_value(c.tbl, c.col, c.old_value) }} → {{ format_value(c.tbl, c.col, c.new_value) }}</td></tr>
+      {% endfor %}
+      {% for f in files %}
+        <tr><td>{{ f.time or '—' }}</td><td><span class="dbe-kind">{{ 'błąd' if f.kind == 'error' else 'plik' }}</span> {{ f.title }}</td>
+          <td colspan="2">{{ f.text }}{% if f.detail %} – {{ f.detail }}{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+  <form method="post" action="{{ url_for('dbeditor.apply_post') }}" class="dbe-actions" onsubmit="return confirm('Zrestartować rdzenie gry? Gracze online zostaną rozłączeni na ok. minutę.');">
+    <input type="hidden" name="dbe_csrf" value="{{ csrf }}">
+    <label>Wpisz RESTART, aby potwierdzić<input name="confirmation" autocomplete="off" placeholder="RESTART" required></label>
+    <button>✅ Zastosuj (restart rdzeni)</button>
+  </form>
+  <p class="muted">Gra wczytuje przedmioty, umiejętności, drop, szkatułki i spawny potworów tylko przy starcie rdzeni. Postęp restartu: {{ restart.stage or '—' }}{% if restart.percent is defined %} ({{ restart.percent }}%){% endif %}.</p>
+</section>
+
+<section class="panel">
+  <h2>Pliki klienta dla graczy</h2>
+  <p class="muted">Nazwy, poziomy, bonusy przedmiotów i opisy umiejętności klient gry bierze z własnych plików (paczka <code>pack\dbdata</code>).
+    Klient ani patcher niczego nie pobierają same – pobierz zip i rozpakuj go w folderze klienta (zgódź się na nadpisanie) albo wyślij znajomemu, który gra na tym serwerze.</p>
+  {% if new_client %}<div class="dbe-state pending"><p>⚠️ {{ new_client }}</p></div>{% endif %}
+  {% if client_version %}
+    <p>Pliki dla klienta <b>{{ client_version }}</b> (i nowszego, dopóki nie zmieni się w nim paczka dbdata). Starszego klienta najpierw zaktualizuj.</p>
+    <div class="dbe-actions">
+      <a class="button" href="{{ url_for('dbeditor.clientdata_zip') }}">⬇️ Pobierz aktualne pliki klienta (zip)</a>
+      <a class="button secondary" href="{{ url_for('dbeditor.clientdata_zip', oryginal=1) }}">↩️ Pobierz oryginalne pliki (zip)</a>
+    </div>
+    <p class="muted">„Aktualne” = oryginalne pliki klienta {{ client_version }} ze wszystkimi zmianami przedmiotów i umiejętności z edytora (także tymi, które czekają jeszcze na restart). „Oryginalne” przywracają klienta sprzed zmian – np. przed grą na innym serwerze.</p>
+    <p class="muted">Zip ma też plik <code>dbdata_stamp.txt</code> (znacznik plików{% if server_stamp %}, teraz <code>{{ server_stamp }}</code>{% endif %}). Gra porównuje go przy wejściu ze znacznikiem serwera i gdy się różnią – np. po aktualizacji klienta, która przywróciła oryginalne pliki – pokazuje graczowi okienko z prośbą o pobranie nowego zipa.</p>
+  {% else %}
+    <div class="dbe-state error"><p>Panel nie ma plików bazowych klienta (m2clientpack/base) – pobieranie jest niedostępne.</p></div>
+  {% endif %}
+  {% if build %}
+    {% if not build.ok %}<div class="dbe-state error"><p>Ostatnie budowanie nie udało się: {{ build.error }}</p></div>
+    {% else %}{% set s = build.summary or {} %}
+    <div class="dbe-state ok">
+      <p>Ostatni zip: {{ build.when }} · klient {{ build.client }} · zmienione pliki: {{ (s.changed_files or ['brak'])|join(', ') }}</p>
+      {% if s['items'] %}<p>Przedmioty ({{ s['items']|length }}): {{ s['items'][:40]|join(', ') }}{% if s['items']|length > 40 %} …{% endif %}</p>{% endif %}
+      {% if s.skills %}<p>Umiejętności: {{ s.skills|join(', ') }}</p>{% endif %}
+      {% if s.extra_apply and s.extra_apply.lines %}<p>Dodatkowe bonusy (ponad 3): {{ s.extra_apply.lines }} linii na {{ s.extra_apply['items'] }} przedmiotach – widać je w opisie przedmiotu w kliencie z nowym opisem przedmiotów (od 2.0.53).</p>{% endif %}
+      {% if s.notes %}<ul class="dbe-notes">{% for n in s.notes[:30] %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

@@ -420,6 +420,47 @@ namespace
 		if (!ch)
 			return -1;
 		const DWORD pid = ch->GetPlayerID();
+		// MT2009_PLUS_BOT_DUNGEONS_ALL_V1: a bot with a person of its party
+		// goes in and out with the person (through the temple to the Las and
+		// the Jungle's guard), and a bot that agreed to wait at the Jungle's
+		// entrance for a person (playerbot_dungeon_lfg.h) is put at the
+		// temple's gate the way the Guardian's warp puts one - each only from
+		// the temple's level, the quest's gate for bots as for players.
+		const bool intoTemple = targetMap == PLAYERBOT_MAP_OCHAO && ch->GetMapIndex() != PLAYERBOT_MAP_OCHAO;
+		const bool lfgIn = intoTemple && reason && strcmp(reason, "dungeon_lfg") == 0;
+		if (lfgIn || IsPlayerBotDungeonPartyMove(ch, targetMap, reason))
+		{
+			if (intoTemple && ch->GetLevel() < PLAYERBOT_OCHAO_MIN_LEVEL)
+			{
+				PlayerBotLogThrottled("ochao_party_level_gate", dwNow,
+						"OCHAO_BOT: with its party, refused under level %u pid=%u name=%s level=%u reason=%s",
+						(unsigned int)PLAYERBOT_OCHAO_MIN_LEVEL, pid, ch->GetName(),
+						(unsigned int)ch->GetLevel(), reason ? reason : "?");
+				return 0;
+			}
+			s_mapPlayerBotOchaoPending.erase(pid);
+			s_mapPlayerBotOchaoCrossing.erase(pid);
+			if (intoTemple)
+			{
+				TPlayerBotOchaoTrack& t = s_mapPlayerBotOchaoTrack[pid];
+				t.dwEntered = dwNow;
+				t.dwVisitDeaths = 0;
+				t.adwDeathAt[0] = t.adwDeathAt[1] = 0;
+				sys_log(0, "OCHAO_BOT: entered with its party pid=%u name=%s level=%u reason=%s",
+						pid, ch->GetName(), (unsigned int)ch->GetLevel(), reason ? reason : "?");
+			}
+			else if (ch->GetMapIndex() == PLAYERBOT_MAP_OCHAO && targetMap != PLAYERBOT_MAP_OCHAO)
+			{
+				s_mapPlayerBotOchaoExit.erase(pid);
+				s_setPlayerBotOchaoLeave.erase(pid);
+				std::map<DWORD, TPlayerBotOchaoTrack>::iterator t = s_mapPlayerBotOchaoTrack.find(pid);
+				if (t != s_mapPlayerBotOchaoTrack.end())
+					t->second.dwEntered = 0;
+				sys_log(0, "OCHAO_BOT: left with its party pid=%u name=%s to=%ld reason=%s",
+						pid, ch->GetName(), targetMap, reason ? reason : "?");
+			}
+			return -1;
+		}
 		if (ch->GetMapIndex() == PLAYERBOT_MAP_OCHAO && targetMap != PLAYERBOT_MAP_OCHAO)
 		{
 			// Out only from the Teleporter or the Portal, or with the ring.
@@ -706,7 +747,9 @@ namespace
 		std::map<DWORD, TPlayerBotOchaoPending>::iterator it = s_mapPlayerBotOchaoPending.find(ch->GetPlayerID());
 		if (it == s_mapPlayerBotOchaoPending.end())
 			return false;
-		if (ch->GetMapIndex() != PLAYERBOT_MAP_OCHAO)
+		// MT2009_PLUS_SIDEKICK_AREZZO_V1: nor a player's companion at its
+		// owner's side (the temple is its owner's road to the Las).
+		if (ch->GetMapIndex() != PLAYERBOT_MAP_OCHAO || IsPlayerBotSidekickLeashed(ch))
 		{
 			s_mapPlayerBotOchaoPending.erase(it);
 			return false;

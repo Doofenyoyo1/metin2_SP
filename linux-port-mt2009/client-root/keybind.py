@@ -136,6 +136,8 @@ CATEGORIES = (
 		('autohunt', 'Auto\xb3owy', ((0, 'DIK_K'),), False),
 		# The bonus switcher (uibonusswitch.py, Metin2 SinglePlayer): 0 by default.
 		('bonus_switch', 'Prze\xb3\xb9cznik bonus\xf3w', ((0, 'DIK_0'),), False),
+		# MT2009_PLUS_AUTOHUNT_QUICK_V1: start/stop with the saved settings, no window.
+		('autohunt_quick', 'Auto\xb3owy - szybki start/stop', ((SHIFT, 'DIK_K'),), False),
 		('garbage_bin', 'Kosz', ((0, 'DIK_J'),), False),
 		('shop_search', 'Wyszukiwarka sklep\xf3w', ((0, 'DIK_F5'),), False),
 		('event_calendar', 'Kalendarz event\xf3w', ((0, 'DIK_F11'),), False),
@@ -146,6 +148,9 @@ CATEGORIES = (
 		('tp_bookmarks', 'Zapisane pozycje', (), False),
 		# MT2009_PLUS_WEEKLY_RANKING_V1: the weekly ranking (uiweeklyrank.py), no key by default.
 		('weekly_rank', 'Ranking tygodniowy', (), False),
+		# MT2009_PLUS_MONSTER_CARDS_V1: Karty Potworow (monstercard.py) - J, the package's key, is
+		# the Kosz here, so none by default (the Esc menu's button opens it too).
+		('monster_card', 'Karty Potwor\xf3w', (), False),
 		('drop_wiki', 'Drop wiki', ((0, 'DIK_SLASH'),), False),	# MT2009_PLUS_DROP_WIKI_V1
 		('hide_ui', 'Ukryj interfejs', ((CTRL, 'DIK_TAB'),), False),
 		('quest_buttons', 'Ukryj/poka\xbf ikony zada\xf1', ((CTRL, 'DIK_Q'),), False),

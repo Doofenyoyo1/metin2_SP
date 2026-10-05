@@ -647,6 +647,44 @@ namespace
 	// next census carries on from the pid this one stopped at.
 	const int PLAYERBOT_WEAPON_CENSUS_REFRESHES = 400;
 	const DWORD PLAYERBOT_WEAPON_GOAL_FALLBACK_PRICE = 500000;
+	// MT2009_PLUS_BOT_GEAR_UPGRADE_V1 (playerbot_gear_upgrade.h): a counter
+	// weapon at any plus is bought when its blow beats the best weapon the
+	// bot owns by the first share - the market's +6 rule had kept every one
+	// of the 18 000 weapons of level 40 and up on the counters (16 000 of
+	// them at +4) away from the bots of 75 swinging a weapon of 48 (test
+	// world, 5 October). A gain of the second share is paid out of the larger
+	// part of the purse; the floor is what stays in it for potions, fares and
+	// the anvil's first fees. Each bot's look at its first village's counters
+	// is read again this often.
+	const int PLAYERBOT_WEAPON_UPGRADE_MIN_GAIN_PERCENT = 10;
+	const int PLAYERBOT_WEAPON_UPGRADE_BIG_GAIN_PERCENT = 25;
+	const int PLAYERBOT_WEAPON_UPGRADE_SMALL_BUDGET_PERCENT = 50;
+	const int PLAYERBOT_WEAPON_UPGRADE_BIG_BUDGET_PERCENT = 80;
+	const long long PLAYERBOT_WEAPON_UPGRADE_GOLD_FLOOR = 100000;
+	const DWORD PLAYERBOT_WEAPON_UPGRADE_LOOK_MS = 5 * 60 * 1000;
+	// The village merchant's weapons cost 800 to 15 000 yang: one is paid
+	// out of half of what the bot holds over this much.
+	const long long PLAYERBOT_WEAPON_UPGRADE_MERCHANT_FLOOR = 10000;
+	// How many of a map's candidate lines, best blow first, are built into an
+	// item and asked the purchase's own tests.
+	const int PLAYERBOT_WEAPON_UPGRADE_PREVIEW_LINES = 8;
+	// A rod, pickaxe or knife found in the hand outside its own session is
+	// put away at most this often (ManagePlayerBotToolHand).
+	const DWORD PLAYERBOT_TOOL_GUARD_RETRY_MS = 3000;
+	// MT2009_PLUS_BOT_GEAR_UPGRADE_V2 (playerbot_gear_upgrade.h): an armour
+	// of the seven slots at any plus is bought when its equipment score beats
+	// the best piece of its slot the bot owns by the first share, out of the
+	// weapon's shares of the purse once the weapon the bot's look found is
+	// set aside; the look runs on the weapon look's clock.
+	const int PLAYERBOT_ARMOUR_UPGRADE_MIN_GAIN_PERCENT = 10;
+	const int PLAYERBOT_ARMOUR_UPGRADE_BIG_GAIN_PERCENT = 25;
+	const int PLAYERBOT_ARMOUR_UPGRADE_SMALL_BUDGET_PERCENT = 50;
+	const int PLAYERBOT_ARMOUR_UPGRADE_BIG_BUDGET_PERCENT = 80;
+	const long long PLAYERBOT_ARMOUR_UPGRADE_GOLD_FLOOR = 100000;
+	const DWORD PLAYERBOT_ARMOUR_UPGRADE_LOOK_MS = 5 * 60 * 1000;
+	// How many of a map's candidate lines, most score a yang first, are
+	// built into an item and asked the purchase's own tests.
+	const int PLAYERBOT_ARMOUR_UPGRADE_PREVIEW_LINES = 8;
 	// The level-30 weapons (15 September): "taka bron +6/7 z srednimi
 	// 25% jest znacznie lepsza niz krwawy miecz +5/6", the bots should want
 	// them and grind them "nawet do +9", and from 37% average "tylko bodziami
@@ -2940,6 +2978,11 @@ namespace
 	const DWORD PLAYERBOT_PRIOR_BOOK_STRONG_BODY = 180000; // Silne Cialo (19)
 	const DWORD PLAYERBOT_PRIOR_BOOK_KEY = 140000;         // inne kluczowe dla buildu
 	const DWORD PLAYERBOT_PRIOR_BOOK_ORDINARY = 45000;
+	// MT2009_PLUS_BOOK_PRICE_LADDER_V1: what a skill book is never offered under,
+	// apiece, on the sheet - scaled by the yang curve and the world's yang like
+	// the sheet's books, then held against the spread and a markdown (owner,
+	// 4 October).
+	const DWORD PLAYERBOT_BOOK_PRICE_FLOOR = 100000;
 	// Iwakura's book prices are in playerbot_price_tables.h with the rest of
 	// his sheet, scaled along the same yang-rate curve as every other price
 	// there (his v1.0 dropped the books' own x1.1 line). A listing then draws
@@ -2980,7 +3023,9 @@ namespace
 	// four maximal lines on one piece (point 11).
 	// 11: MT2009_PLUS_OWNER_PRICES_V2 - the owner's compendium edits of
 	// 1 October (gear tops, materials, scrolls, books, the new goods).
-	const DWORD PLAYERBOT_PRICE_TABLE_VERSION = 11;
+	// 12: MT2009_PLUS_BOOK_PRICE_LADDER_V1 - the skill books' ladder down to
+	// 100 000 (owner, 4 October).
+	const DWORD PLAYERBOT_PRICE_TABLE_VERSION = 12;
 	// Community patch 2, point 8: inflation. Every PLAYERBOT_INFLATION_STEP_YANG
 	// the world's characters hold between them lifts every price his sheet sets
 	// by PLAYERBOT_INFLATION_STEP_PERCENT, on top of the yang-rate curve and in
@@ -3794,11 +3839,49 @@ namespace
 	// maps and dungeons (360-366 and their instances) and the Blue Dragon's
 	// lair (208). The owner, 30 September: no bot in the new dungeons, and on
 	// the new maps only the test cohorts, for now.
+	// MT2009_PLUS_BOT_DUNGEONS_ALL_V1: still so for a bot on its own - none
+	// wanders into these. A bot with a person of its party goes where the
+	// person goes (IsPlayerBotDungeonPartyMove below), into a dungeon too
+	// ("trzeba to naprawic aby boty mogly wchodzic na wszystkie dungeony", the
+	// owner, 4 October).
+	// MT2009_PLUS_BOT_DUNGEON_RUNS_V1: and the bots' own dungeon runs go in
+	// with their party (IsPlayerBotDungeonRunMove, playerbot_dungeon_runs.h:
+	// "niech wszystkie boty lataja na dungeony", the owner, 4 October).
 	bool IsPlayerBotOffLimitsMap(long mapIndex)
 	{
 		const long base = mapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN ? mapIndex / 10000 : mapIndex;
 		return base == 208 || (base >= 360 && base <= 366);
 	}
+	// MT2009_PLUS_BOT_DUNGEONS_ALL_V1: the dungeons whose guard jumps the
+	// people of a party into a new instance (d.new_jump_pids) and leaves the
+	// party's bots outside - Leze Smoka (208), Czysciec Ognia (351), Lodowa
+	// Kraina (352) and the four Arezzo dungeons (363-366). A bot of the party
+	// is taken after its person into the same instance, fights there beside it
+	// and comes out with it (playerbot_party_dungeon.h). The Demon Tower (66)
+	// and the Catacomb (216) jump the whole party themselves
+	// (CDungeon::JumpParty through CPlayerBotManager::WarpBot).
+	bool IsPlayerBotPartyDungeonMap(long mapIndex)
+	{
+		const long base = mapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN ? mapIndex / 10000 : mapIndex;
+		return base == 208 || base == 351 || base == 352 || (base >= 363 && base <= 366);
+	}
+	// MT2009_PLUS_BOT_DUNGEONS_ALL_V1: both defined in playerbot_party_dungeon.h.
+	// A person (not a bot) of the bot's party online on this core - standing on
+	// that map index when mapIndex is not 0 - the party's leader first.
+	LPCHARACTER FindPlayerBotPartyPerson(LPCHARACTER ch, long mapIndex);
+	// A map change the routes of the Arezzo maps and of the Temple of Ochao
+	// let through whatever they would say to the bot alone: out of a party
+	// dungeon's instance, onto the map a person of the bot's party stands on
+	// (the follow), or a dungeon's own jump of a person's party into one of the
+	// party dungeons.
+	bool IsPlayerBotDungeonPartyMove(LPCHARACTER ch, long targetMap, const char* reason);
+	// MT2009_PLUS_BOT_DUNGEON_RUNS_V1: both defined in playerbot_dungeon_runs.h.
+	// A bot called to, gathering for or inside one of the bots' own dungeon
+	// runs - every other pass that would take it somewhere leaves it alone -
+	// and a map change of such a run (to the gathering, into its instance,
+	// out of it and home), which the Arezzo and Ochao routes let through.
+	bool IsPlayerBotOnDungeonRun(DWORD pid);
+	bool IsPlayerBotDungeonRunMove(LPCHARACTER ch, long targetMap, const char* reason);
 	// The Easter event's metins (8041-8050, event_easter.quest): its kill
 	// hook pays the killer a basket and puts more metins down, and the owner
 	// wants no bot in the new events - never a bot's target.
@@ -7071,6 +7154,22 @@ namespace
 	// companion wears or was given while its owner's lock is on: no refine,
 	// stone, crafting, swap, sale or discard by the AI.
 	bool IsPlayerBotSidekickLockedItem(LPCHARACTER ch, LPITEM item);
+	// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1 ("Dropnalem KD+4, polecialo na
+	// towarzysza. Poszedl sprzedac smieci, sprzedal wszystkie KD+4", the
+	// owner, 5 October): somebody's companion - in any mode - and what of its
+	// bag it may let go of at all: only plain scrap worth next to nothing
+	// (IsPlayerBotSidekickSellableJunk). Everything else of value is its
+	// owner's: never sold, never put in its own storekeeper's box, never
+	// turned into dust; and what it did not get from its owner's hand is not
+	// spent by the AI either - a soul stone seated, a Cor opened
+	// (IsPlayerBotSidekickKeptForOwner).
+	bool IsPlayerBotSidekickServing(LPCHARACTER ch);
+	bool IsPlayerBotSidekickSellableJunk(LPCHARACTER ch, LPITEM item);
+	bool IsPlayerBotSidekickKeptForOwner(LPCHARACTER ch, LPITEM item);
+	// Its storekeeper's box emptied back into its bag on a town errand, once a
+	// start (an older version put the owner's stones and materials there).
+	bool PlayerBotSidekickWantsBoxSweep(LPCHARACTER ch);
+	void NotePlayerBotSidekickBoxSwept(LPCHARACTER ch, CSafebox* box);
 	const char* GetPlayerBotSidekickOwnerName(LPCHARACTER ch);
 	// MT2009_PLUS_SIDEKICK_TRIP_V1: a frontier its companion gave up on for a
 	// while (playerbot_sidekick.h); GetPlayerBotFrontierMapForLevel skips it.
@@ -9038,7 +9137,10 @@ namespace
 				state.dwTowerRaidGuild != 0 || state.bTowerSummoned || state.wBossRaidRace != 0 ||
 				// And the Devil's Catacomb's raid (playerbot_catacomb.h).
 				(ch && (IsPlayerBotCatacombInstance(ch->GetMapIndex()) ||
-					IsPlayerBotCatacombRaider(ch->GetPlayerID())));
+					IsPlayerBotCatacombRaider(ch->GetPlayerID()))) ||
+				// MT2009_PLUS_BOT_DUNGEON_RUNS_V1: and the bots' own dungeon
+				// runs, from the call to the way out (playerbot_dungeon_runs.h).
+				(ch && IsPlayerBotOnDungeonRun(ch->GetPlayerID()));
 	}
 
 	// A dungeon's business: the tower's and a raid's, and any dungeon instance.

@@ -13,6 +13,14 @@ Group	MT2009_arezzo_9675
 	6	70058	1	15	-- Pierscien Teleportacji
 	7	27002	30	100	-- Czerwona Mikstura(S)
 	8	27005	30	100	-- Niebieska Mikstura(S)
+	9	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	10	s10753	1	100	-- MiniBoss_HighTier, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	11	s10743	1	200	-- Boss_HighTier, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	12	30774	1	200	-- Skrzynia Wukonga, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	13	30775	1	40	-- Skrzynia Skorpiona, 10% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	14	s10987	1	60	-- Kamien Duszy +0..+3, 15% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	15	27003	50	400	-- Czerwona Mikstura(D), 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	16	27006	50	400	-- Niebieska Mikstura(D), 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
 }
 
 Group	MT2009_arezzo_9681
@@ -28,4 +36,102 @@ Group	MT2009_arezzo_9681
 	7	70058	1	20	-- Pierscien Teleportacji
 	8	27003	30	100	-- Czerwona Mikstura(D)
 	9	27006	30	100	-- Niebieska Mikstura(D)
+	10	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	11	s10755	1	200	-- MiniBoss_VeryHighTier, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	12	s10743	1	400	-- Boss_HighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	13	s10743	1	100	-- Boss_HighTier, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	14	30775	1	400	-- Skrzynia Skorpiona, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	15	30775	1	100	-- Skrzynia Skorpiona, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	16	50513	1	32	-- Kamien Duchowy, 8% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	17	s10987	1	100	-- Kamien Duszy +0..+3, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	18	s10988	1	40	-- Kamien Duszy +2..+4, 10% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	19	27003	100	400	-- Czerwona Mikstura(D), 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	20	27006	100	400	-- Niebieska Mikstura(D), 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+// MT2009_PLUS_AREZZO_BALANCE_V1: the Arezzo dungeons' bosses drop on the ground besides the quest chests - the
+// shared boss tier groups (10742/10743, 10752/10753/10755) and soul stones, each dungeon above the one
+// before (Biblioteka < Wukong < Skorpion < Dzungla). A drop group joins any the mob already has
+// (mob_drop_item.dropedit.append.txt). Type drop: the chance is pct / 4 percent.
+
+Group	MT2009_azbal_9706
+{
+	mob	9706	-- Baronowna Pajakow
+	Type	drop
+	1	s10752	1	200	-- MiniBoss_MedTier, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_9683
+{
+	mob	9683	-- Obronca Chmur
+	Type	drop
+	1	s10752	1	160	-- MiniBoss_MedTier, 40% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_9684
+{
+	mob	9684	-- Plomienny Feniks
+	Type	drop
+	1	s10753	1	400	-- MiniBoss_HighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10987	1	60	-- Kamien Duszy +0..+3, 15% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_9682
+{
+	mob	9682	-- WuKong
+	Type	drop
+	1	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10743	1	200	-- Boss_HighTier, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	3	s10987	1	160	-- Kamien Duszy +0..+3, 40% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	4	50513	1	20	-- Kamien Duchowy, 5% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_9695
+{
+	mob	9695	-- Czerwony Skorpion
+	Type	drop
+	1	s10753	1	400	-- MiniBoss_HighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10742	1	200	-- Boss_MediumTier, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	3	s10987	1	100	-- Kamien Duszy +0..+3, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_9694
+{
+	mob	9694	-- Krol Skorpionow
+	Type	drop
+	1	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10755	1	200	-- MiniBoss_VeryHighTier, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	3	s10743	1	400	-- Boss_HighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	4	s10988	1	100	-- Kamien Duszy +2..+4, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	5	50513	1	32	-- Kamien Duchowy, 8% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_9712
+{
+	mob	9712	-- Faethorn
+	Type	drop
+	1	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10988	1	80	-- Kamien Duszy +2..+4, 20% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_9713
+{
+	mob	9713	-- Krolewska Sowa
+	Type	drop
+	1	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10743	1	200	-- Boss_HighTier, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	3	s10988	1	120	-- Kamien Duszy +2..+4, 30% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_9714
+{
+	mob	9714	-- Krolowa Dzungli
+	Type	drop
+	1	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	3	s10743	1	400	-- Boss_HighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	4	s10743	1	200	-- Boss_HighTier, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	5	s10988	1	200	-- Kamien Duszy +2..+4, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	6	s10984	1	100	-- Kamien Duszy +4, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	7	50513	1	60	-- Kamien Duchowy, 15% (MT2009_PLUS_AREZZO_BALANCE_V1)
 }

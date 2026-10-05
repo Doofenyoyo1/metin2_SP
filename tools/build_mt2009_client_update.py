@@ -171,9 +171,13 @@ def main():
         open(exe, 'wb').write(data)
 
     top = {n.replace('\\', '/') for n in names if '\\' not in n and '/' not in n}
-    for f in git('diff', '--name-only', a.since, 'HEAD', '--', BESIDE).decode().split():
+    # Every file of ours beside the exe that differs from the previous
+    # package's copy, not only what changed since <commit>: a client rebased
+    # onto an upstream package starts from that package's Dolacz.*, and a
+    # rebase that leaves client-coop alone would have shipped those.
+    for f in git('ls-files', '--', BESIDE).decode().splitlines():
         base = os.path.basename(f)
-        if base in top:
+        if base in top and open(os.path.join(REPO, f), 'rb').read() != open(os.path.join(new_dir, base), 'rb').read():
             shutil.copyfile(os.path.join(REPO, f), os.path.join(new_dir, base))
             print('  beside the exe:', base)
     # A file of ours beside the exe that the previous package does not hold

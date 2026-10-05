@@ -37,6 +37,8 @@
 
 // The players' names for items (FMS, 12D, bodzio ...) - pure, playerbot_conv_aliases.h.
 #include "playerbot_conv_aliases.h"
+// MT2009_PLUS_BOT_CHAT_V2: the public line's meaning (TPublicLine, EPublicKind).
+#include "playerbot_conv_state.h"
 
 namespace
 {
@@ -51,6 +53,10 @@ namespace
 	const DWORD PLAYERBOT_TRADE_REPLY_INTERVAL = 8000;
 	// Fewer letters than this after the verb is not a thing anybody meant.
 	const size_t PLAYERBOT_TRADE_QUERY_MIN = 3;
+	// MT2009_PLUS_BOT_CHAT_V2: a person who whispered with a bot this lately
+	// is still talking to it (IsPlayerBotTalkingWith, playerbot_chat_conversation.h).
+	const DWORD PLAYERBOT_TRADE_TALK_MS = 10 * 60 * 1000;
+	bool IsPlayerBotTalkingWith(DWORD personPID, DWORD botPID, DWORD now);
 	// The skill books the proto names one skill each - "Instr. Aura Miecza",
 	// value 0 the skill - which is the only place the server has a skill's
 	// Polish name. skill_proto holds the Korean ones.
@@ -58,6 +64,115 @@ namespace
 	const DWORD PLAYERBOT_TRADE_SKILL_BOOK_LAST = 50511;
 
 	DWORD s_dwPlayerBotTradeShoutTime = 0;
+
+	// MT2009_PLUS_BOT_CHAT_V2: what each bot itself said in public lately -
+	// on its kingdom's shout and on the '@' trade chat - with what it meant
+	// (playerbot_conv::TPublicLine): a whisper that refers to it ("jeszcze
+	// szukasz pt?", "dalej kupujesz?", "mam do sprzedania X" after its
+	// "K> X") is answered in that context, and the bot itself names it to a
+	// stranger who greets it soon after. The newest few, for an hour; a
+	// trade post is closed when its deal is done (ClosePlayerBotPublicPost).
+	const size_t PLAYERBOT_PUBLIC_LINES_MAX = 6;
+	const DWORD PLAYERBOT_PUBLIC_LINE_TTL_MS = 60 * 60 * 1000;
+	struct TPlayerBotPublicLine
+	{
+		DWORD at;
+		BYTE kind;          // playerbot_conv::EPublicKind
+		bool trade;
+		std::string text;
+		std::string itemName;
+		DWORD vnum;
+		int count;
+		DWORD unit;
+		long map;
+		int level;
+		bool open;
+		// A skill book's skill: every book is one vnum, the skill in socket 0.
+		DWORD skill;
+		TPlayerBotPublicLine() : at(0), kind(0), trade(false), vnum(0), count(0), unit(0), map(0), level(0), open(true),
+			skill(0) {}
+	};
+	std::map<DWORD, std::deque<TPlayerBotPublicLine> > s_mapPlayerBotPublicLines;
+
+	void NotePlayerBotPublicLine(LPCHARACTER bot, BYTE kind, bool trade, const char* text, DWORD vnum = 0, int count = 0,
+			DWORD unit = 0, long map = 0, int level = 0, const char* itemName = NULL, DWORD skill = 0)
+	{
+		if (!bot || !text)
+			return;
+		std::deque<TPlayerBotPublicLine>& lines = s_mapPlayerBotPublicLines[bot->GetPlayerID()];
+		TPlayerBotPublicLine line;
+		line.at = get_dword_time();
+		line.kind = kind;
+		line.trade = trade;
+		line.text = text;
+		line.vnum = vnum;
+		line.count = count;
+		line.unit = unit;
+		line.map = map >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN ? map / 10000 : map;
+		line.level = level;
+		line.skill = skill;
+		if (itemName && *itemName)
+			line.itemName = itemName;
+		else if (vnum)
+		{
+			const TItemTable* proto = ITEM_MANAGER::instance().GetTable(vnum);
+			if (proto)
+				line.itemName = proto->szLocaleName;
+		}
+		// A new post of the same item replaces the old one - a book of the
+		// same skill (all books are one vnum).
+		if (vnum)
+			for (std::deque<TPlayerBotPublicLine>::iterator it = lines.begin(); it != lines.end(); )
+				it = it->vnum == vnum && it->kind == kind && it->skill == skill ? lines.erase(it) : it + 1;
+		lines.push_front(line);
+		while (lines.size() > PLAYERBOT_PUBLIC_LINES_MAX)
+			lines.pop_back();
+	}
+
+	// A trade post's deal done: the post is not meant any more. A book's
+	// post by its skill: selling KU Berserk does not close "S> KU Aura".
+	void ClosePlayerBotPublicPost(DWORD botPID, DWORD vnum, DWORD skill = 0)
+	{
+		std::map<DWORD, std::deque<TPlayerBotPublicLine> >::iterator it = s_mapPlayerBotPublicLines.find(botPID);
+		if (it == s_mapPlayerBotPublicLines.end())
+			return;
+		for (size_t i = 0; i < it->second.size(); ++i)
+			if (it->second[i].vnum == vnum && (skill == 0 || it->second[i].skill == 0 || it->second[i].skill == skill))
+				it->second[i].open = false;
+	}
+
+	// The bot's lines for the conversation's snapshot, newest first.
+	void GetPlayerBotPublicLines(DWORD botPID, std::vector<playerbot_conv::TPublicLine>& out)
+	{
+		out.clear();
+		std::map<DWORD, std::deque<TPlayerBotPublicLine> >::iterator it = s_mapPlayerBotPublicLines.find(botPID);
+		if (it == s_mapPlayerBotPublicLines.end())
+			return;
+		const DWORD now = get_dword_time();
+		while (!it->second.empty() && now - it->second.back().at > PLAYERBOT_PUBLIC_LINE_TTL_MS)
+			it->second.pop_back();
+		for (size_t i = 0; i < it->second.size(); ++i)
+		{
+			const TPlayerBotPublicLine& l = it->second[i];
+			playerbot_conv::TPublicLine p;
+			p.kind = l.kind;
+			p.trade = l.trade;
+			p.text = l.text;
+			p.itemName = l.itemName;
+			p.vnum = l.vnum;
+			p.count = l.count;
+			p.unitPrice = l.unit;
+			p.map = l.map;
+			p.level = l.level;
+			p.ageMin = (now - l.at) / 60000;
+			p.open = l.open;
+			p.skill = l.skill;
+			out.push_back(p);
+		}
+	}
+	// MT2009_PLUS_BOT_CHAT_V2: the engine's own floor for the trade chat
+	// (CInputMain::Chat: level 20).
+	const int PLAYERBOT_TRADECHAT_MIN_LEVEL = 20;
 	std::map<DWORD, DWORD> s_mapPlayerBotTradeShoutTime;
 	std::map<DWORD, DWORD> s_mapPlayerBotTradeReplyTime;
 
@@ -119,12 +234,55 @@ namespace
 	// rather than the person's own: that core hands the packet to its client
 	// (CInputP2P::Relay), as it does a player's whisper to somebody the
 	// sender's core does not hold.
+	// MT2009_PLUS_BOT_WHISPER_BLOCK_V1 (the owner, 5 October: "nie dziala blokada
+	// pw - dalem w ustawieniach zablokuj, a boty dalej do mnie spamuja"): a person
+	// with the game option "block whispers" on gets no whisper from a bot,
+	// unless the person whispered that bot in the last minutes (an answer to
+	// the person's own talk). The engine checks the option only for a player's
+	// whisper (CInputMain::Whisper) and for a relayed one (CInputP2P::Relay);
+	// a bot's whisper to a person of this core went straight to the client.
+	const DWORD PLAYERBOT_WHISPER_ANSWER_WINDOW_MS = 10 * 60 * 1000;
+	std::map<std::pair<DWORD, DWORD>, DWORD> s_mapPlayerBotWhisperedBy;	// (person pid, bot pid) -> when
+
+	void NotePlayerWhisperedBot(DWORD personPID, LPCHARACTER bot)
+	{
+		if (!personPID || !bot)
+			return;
+		const DWORD now = get_dword_time();
+		s_mapPlayerBotWhisperedBy[std::make_pair(personPID, bot->GetPlayerID())] = now;
+		if (s_mapPlayerBotWhisperedBy.size() > 4096)
+			for (std::map<std::pair<DWORD, DWORD>, DWORD>::iterator it = s_mapPlayerBotWhisperedBy.begin();
+					it != s_mapPlayerBotWhisperedBy.end(); )
+			{
+				if (now - it->second > PLAYERBOT_WHISPER_ANSWER_WINDOW_MS)
+					s_mapPlayerBotWhisperedBy.erase(it++);
+				else
+					++it;
+			}
+	}
+
+	bool IsPlayerBotWhisperBlocked(LPCHARACTER bot, LPCHARACTER person)
+	{
+		if (!bot || !person || !person->IsBlockMode(BLOCK_WHISPER))
+			return false;
+		std::map<std::pair<DWORD, DWORD>, DWORD>::const_iterator it =
+				s_mapPlayerBotWhisperedBy.find(std::make_pair(person->GetPlayerID(), bot->GetPlayerID()));
+		return it == s_mapPlayerBotWhisperedBy.end() || get_dword_time() - it->second > PLAYERBOT_WHISPER_ANSWER_WINDOW_MS;
+	}
+
 	void SendPlayerBotWhisperPacket(LPCHARACTER bot, LPDESC desc, const char* relayTo, const char* text)
 	{
 		// MT2009_PLUS_SHOUTERS_V1: a shouter of the first villages whispers to
 		// nobody (playerbot_shouters.h).
 		if (!bot || IsPlayerBotShouterPID(bot->GetPlayerID()))
 			return;
+		// MT2009_PLUS_BOT_WHISPER_BLOCK_V1: a person of this core who blocks whispers.
+		if (!relayTo && desc && IsPlayerBotWhisperBlocked(bot, desc->GetCharacter()))
+		{
+			sys_log(0, "PLAYERBOT_TRADE: whisper blocked pid=%u name=%s to=%s (block_whisper)",
+					bot->GetPlayerID(), bot->GetName(), desc->GetCharacter()->GetName());
+			return;
+		}
 		const size_t len = std::min<size_t>(strlen(text), CHAT_MAX_LEN);
 		TPacketGCWhisper pack;
 		pack.bHeader = HEADER_GC_WHISPER;
@@ -273,8 +431,57 @@ namespace
 				playerbot_item_link::WhisperRoom(strlen(sender->GetName())));
 	}
 
+	// MT2009_PLUS_BOT_CHAT_V2: the '@' trade chat. On this server a line a
+	// person types after "@ " (TAB's trade mode, uichat.py) goes to every
+	// kingdom - CInputMain::Chat's CHAT_TYPE_TRADE: the name in its kingdom's
+	// colour, linked for a whisper, sent to every core (TPacketGGShout with
+	// bChatType CHAT_TYPE_TRADE, which CInputP2P::Shout hands to SendTrade)
+	// and to this core's clients (SendTrade). "@nick tekst" with no space
+	// after the '@' is Digi Rasta's whisper shortcut instead, done by the
+	// client alone - nothing a bot sends. A bot's line here is built exactly
+	// as a person's is, so it reads and clicks the same. On an engine
+	// without the trade chat it is the kingdom's shout, as before.
+	bool IsPlayerBotTradeChatOn()
+	{
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		return GetPlayerBotTradeChatSeconds() > 0;
+#else
+		return false;
+#endif
+	}
+
+	void SendPlayerBotTradeChat(LPCHARACTER bot, const char* text)
+	{
+		if (!bot || !text || !*text)
+			return;
+#if defined(PLAYERBOT_ENGINE_MT2009)
+		static const char* const kColour[4] = { "", "ff5959", "ffdb3b", "4590ff" };
+		const BYTE empire = bot->GetEmpire() <= 3 ? bot->GetEmpire() : 0;
+		char chatbuf[CHAT_MAX_LEN + 1];
+		snprintf(chatbuf, sizeof(chatbuf), "[|cff%s|Hmsg:%s,%d|h%s|h|r]: %s", kColour[empire], bot->GetName(),
+				(int)empire, bot->GetName(), text);
+		TPacketGGShout p;
+		memset(&p, 0, sizeof(p));
+		p.bHeader = HEADER_GG_SHOUT;
+		p.bEmpire = 0;
+		p.bChatType = CHAT_TYPE_TRADE;
+		strlcpy(p.szText, chatbuf, sizeof(p.szText));
+		P2P_MANAGER::instance().Send(&p, sizeof(TPacketGGShout));
+		SendTrade(chatbuf);
+#else
+		char msg[CHAT_MAX_LEN + 1];
+		snprintf(msg, sizeof(msg), "%s : %s", bot->GetName(), text);
+		SendPlayerBotShout(msg, bot->GetEmpire());
+#endif
+		sys_log(0, "PLAYERBOT_TRADECHAT: pid=%u name=%s empire=%u text=\"%s\"",
+				bot->GetPlayerID(), bot->GetName(), (unsigned int)bot->GetEmpire(), text);
+	}
+
 	// A line on the world channel in the bot's name, within the two throttles.
-	bool ShoutPlayerBotTrade(LPCHARACTER bot, const char* text, DWORD dwNow)
+	// MT2009_PLUS_BOT_CHAT_V2: with the trade chat on, the trade chat - in
+	// the "S> ... / K> ..." shape players write there - and the kingdom's
+	// shout keeps its talk.
+	bool ShoutPlayerBotTrade(LPCHARACTER bot, const char* text, DWORD dwNow, const char* tradeText = NULL)
 	{
 		if (!bot || !text || !*text)
 			return false;
@@ -285,6 +492,11 @@ namespace
 		if (last != 0 && dwNow - last < PLAYERBOT_TRADE_SHOUT_BOT_INTERVAL)
 			return false;
 		s_dwPlayerBotTradeShoutTime = last = dwNow;
+		if (IsPlayerBotTradeChatOn() && (int)bot->GetLevel() >= PLAYERBOT_TRADECHAT_MIN_LEVEL)
+		{
+			SendPlayerBotTradeChat(bot, tradeText && *tradeText ? tradeText : text);
+			return true;
+		}
 		char msg[CHAT_MAX_LEN + 1];
 		snprintf(msg, sizeof(msg), "%s : %s", bot->GetName(), text);
 		SendPlayerBotShout(msg, bot->GetEmpire());
@@ -303,8 +515,16 @@ namespace
 		char text[CHAT_MAX_LEN + 1];
 		snprintf(text, sizeof(text), "Sprzedam %s - stragan w %s",
 				pszItemName, GetPlayerBotTownName(ch->GetMapIndex()));
-		ShoutPlayerBotTrade(ch, text, get_dword_time());
+		// MT2009_PLUS_BOT_CHAT_V2: the trade chat's shape of it.
+		char trade[CHAT_MAX_LEN + 1];
+		snprintf(trade, sizeof(trade), "S> %s, stragan %s ch%d", pszItemName, GetPlayerBotTownName(ch->GetMapIndex()),
+				(int)g_bChannel);
+		if (ShoutPlayerBotTrade(ch, text, get_dword_time(), trade))
+			NotePlayerBotPublicLine(ch, playerbot_conv::PL_SELL, IsPlayerBotTradeChatOn(), trade, 0, 0, 0, 0, 0, pszItemName);
 	}
+
+	// MT2009_PLUS_BOT_CHAT_V2: what the market pays for it (playerbot_chat_world.h).
+	DWORD GetPlayerBotWantedUnitPrice(DWORD vnum, DWORD dwNow);
 
 	// The bot walked the market for a material and found none: it asks. Called
 	// from the market code when a trip ends with nothing on offer.
@@ -329,7 +549,17 @@ namespace
 		char text[CHAT_MAX_LEN + 1];
 		snprintf(text, sizeof(text), "Kupie %s - kto ma, niech wystawi w %s",
 				proto->szLocaleName, GetPlayerBotTownName(ch->GetMapIndex()));
-		ShoutPlayerBotTrade(ch, text, get_dword_time());
+		char trade[CHAT_MAX_LEN + 1];
+		const DWORD unit = IsPlayerBotTradeChatOn() ? GetPlayerBotWantedUnitPrice(*wanted.begin(), get_dword_time()) : 0;
+		if (unit > 0)
+			snprintf(trade, sizeof(trade), "K> %s, place %s/szt, wystaw w %s albo pw", proto->szLocaleName,
+					playerbot_conv::FormatYang(unit).c_str(), GetPlayerBotTownName(ch->GetMapIndex()));
+		else
+			snprintf(trade, sizeof(trade), "K> %s, kto ma niech wystawi w %s albo pw", proto->szLocaleName,
+					GetPlayerBotTownName(ch->GetMapIndex()));
+		if (ShoutPlayerBotTrade(ch, text, get_dword_time(), trade))
+			NotePlayerBotPublicLine(ch, playerbot_conv::PL_BUY, IsPlayerBotTradeChatOn(), trade, *wanted.begin(),
+					proto->dwFlags & ITEM_FLAG_STACKABLE ? 10 : 1, unit);
 	}
 
 	// The skill a folded name means, from the per-skill books' names.
@@ -500,6 +730,49 @@ namespace
 		return false;
 	}
 
+	// MT2009_PLUS_BOT_CHAT_V2: beside what in its village a stall stands, as a
+	// person finds it - "przy kowalu", "kolo magazyniera" - from the town's
+	// services (playerbot_empire_rules.h). Empty off a village or unknown.
+	const long PLAYERBOT_STALL_SPOT_NEAR = 1500;
+	const long PLAYERBOT_STALL_SPOT_FAR = 5000;
+	std::string DescribePlayerBotStallSpot(long mapIndex, long x, long y)
+	{
+		playerbot_empire_rules::TTownServices services;
+		if (mapIndex <= 0 || (x == 0 && y == 0) || !playerbot_empire_rules::GetTownServices(mapIndex, services))
+			return std::string();
+		// The stall ring's middle, under the kingdom's guard, is where most of
+		// them stand.
+		playerbot_empire_rules::TPoint pitch = { 0, 0 };
+		playerbot_empire_rules::GetTownPitch(mapIndex, pitch);
+		const struct { const playerbot_empire_rules::TPoint* at; const char* near; const char* by; } kSpots[] = {
+			{ &pitch, "na placu przy strazniku", "na placu kolo straznika" },
+			{ &services.blacksmith, "przy kowalu", "kolo kowala" },
+			{ &services.storekeeper, "przy magazynierze", "kolo magazyniera" },
+			{ &services.weaponMerchant, "przy sprzedawcy broni", "kolo sprzedawcy broni" },
+			{ &services.armourMerchant, "przy sprzedawcy zbroi", "kolo sprzedawcy zbroi" },
+			{ &services.miscMerchant, "przy sklepie z miksami", "kolo sklepu z miksami" },
+			{ &services.stableKeeper, "przy stajennym", "kolo stajennego" },
+			{ &services.skillReset, "przy starej kobiecie", "kolo starej kobiety" },
+			{ &services.teleporter, "przy teleporterze", "kolo teleportera" },
+		};
+		long best = -1;
+		size_t bestAt = 0;
+		for (size_t i = 0; i < sizeof(kSpots) / sizeof(kSpots[0]); ++i)
+		{
+			if (kSpots[i].at->x == 0 && kSpots[i].at->y == 0)
+				continue;
+			const long d = DISTANCE_APPROX(kSpots[i].at->x - x, kSpots[i].at->y - y);
+			if (best < 0 || d < best)
+			{
+				best = d;
+				bestAt = i;
+			}
+		}
+		if (best < 0 || best > PLAYERBOT_STALL_SPOT_FAR)
+			return std::string();
+		return best <= PLAYERBOT_STALL_SPOT_NEAR ? kSpots[bestAt].near : kSpots[bestAt].by;
+	}
+
 	// A folded query against a stall line: the skill of a book ("ku aura") -
 	// a skill book's or a Forgetting Book's (forget, "kz aura"), never the one
 	// for the other - or the name with the players' aliases ("fms", "12d",
@@ -539,7 +812,9 @@ namespace
 				return FindPlayerBotSkillByName(rest.c_str());
 			}
 		}
-		static const char* const kBook[] = { "ku ", "ksiega ", "ksiege ", "ksiegi ", "instr " };
+		// "instr. " too: the proto's own name of a book, which is what the
+		// bot's post printed and a person copies back.
+		static const char* const kBook[] = { "ku ", "ksiega ", "ksiege ", "ksiegi ", "instr. ", "instr " };
 		for (size_t i = 0; i < sizeof(kBook) / sizeof(kBook[0]); ++i)
 		{
 			const size_t n = strlen(kBook[i]);
@@ -586,6 +861,14 @@ namespace
 			{ "sprzedam", PLAYERBOT_TRADE_SELL }, { "sprzedaje", PLAYERBOT_TRADE_SELL },
 			{ "oddam", PLAYERBOT_TRADE_SELL }, { "s>", PLAYERBOT_TRADE_SELL },
 			{ "k>", PLAYERBOT_TRADE_BUY },
+			// MT2009_PLUS_BOT_CHAT_V2: the trade chat's other shorthands, and
+			// the question way of asking ("kto sprzeda tanio bodzie?").
+			{ "b>", PLAYERBOT_TRADE_BUY }, { "wtb", PLAYERBOT_TRADE_BUY }, { "wts", PLAYERBOT_TRADE_SELL },
+			{ "s >", PLAYERBOT_TRADE_SELL }, { "k >", PLAYERBOT_TRADE_BUY }, { "b >", PLAYERBOT_TRADE_BUY },
+			{ "kto sprzeda", PLAYERBOT_TRADE_BUY }, { "ktos sprzeda", PLAYERBOT_TRADE_BUY },
+			{ "sprzeda ktos", PLAYERBOT_TRADE_BUY }, { "ma ktos", PLAYERBOT_TRADE_BUY }, { "ktos ma", PLAYERBOT_TRADE_BUY },
+			{ "kto ma", PLAYERBOT_TRADE_BUY }, { "kto kupi", PLAYERBOT_TRADE_SELL }, { "ktos kupi", PLAYERBOT_TRADE_SELL },
+			{ "kupi ktos", PLAYERBOT_TRADE_SELL },
 		};
 		EPlayerBotTradeVerb verb = PLAYERBOT_TRADE_NONE;
 		for (size_t i = 0; i < sizeof(kVerbs) / sizeof(kVerbs[0]); ++i)
@@ -603,6 +886,25 @@ namespace
 			return verb;
 		while (*p && IsPlayerBotChatSeparator(*p))
 			++p;
+		// MT2009_PLUS_BOT_CHAT_V2: "kupie to ku ognisty duch", "kupie ten
+		// naszyjnik": the pointing word is not the item, and before "ku" it hid
+		// the book (book=0 query="to ku ognisty duch", 4 October).
+		{
+			static const char* const kPoint[] = { "to", "ten", "te", "ta", "tego", "tej", "tych", "twoj", "twoja",
+				"twoje", "twojego" };
+			for (bool skipped = true; skipped; )
+			{
+				skipped = false;
+				for (size_t i = 0; i < sizeof(kPoint) / sizeof(kPoint[0]) && !skipped; ++i)
+					if (PlayerBotTextOpensWithWord(p, kPoint[i]))
+					{
+						p += strlen(kPoint[i]);
+						while (*p && IsPlayerBotChatSeparator(*p))
+							++p;
+						skipped = true;
+					}
+			}
+		}
 		if (PlayerBotTextOpensWithWord(p, "kz"))
 		{
 			outBook = true;
@@ -633,11 +935,95 @@ namespace
 		size_t n = strlen(outQuery);
 		while (n > 0 && IsPlayerBotChatSeparator(outQuery[n - 1]))
 			outQuery[--n] = 0;
+		// MT2009_PLUS_BOT_CHAT_V2: the words round the item that are not its
+		// name - "tanio bodzie, byku", "pilnie fms pls".
+		{
+			static const char* const kFill[] = { "tanio", "pilnie", "szybko", "byku", "mordo", "ziom", "ziomek",
+				"pls", "plz", "prosze", "moze", "jakis", "jakas", "jakies", "tu", "tutaj", "teraz", "ktos", "?" };
+			bool trimmed = true;
+			while (trimmed && n > 0)
+			{
+				trimmed = false;
+				for (size_t i = 0; i < sizeof(kFill) / sizeof(kFill[0]); ++i)
+				{
+					const size_t lf = strlen(kFill[i]);
+					// At the front.
+					if (n > lf && strncmp(outQuery, kFill[i], lf) == 0 && IsPlayerBotChatSeparator(outQuery[lf]))
+					{
+						size_t k = lf;
+						while (k < n && IsPlayerBotChatSeparator(outQuery[k]))
+							++k;
+						memmove(outQuery, outQuery + k, n - k + 1);
+						n -= k;
+						trimmed = true;
+						break;
+					}
+					// At the end.
+					if (n > lf && strcmp(outQuery + n - lf, kFill[i]) == 0 && IsPlayerBotChatSeparator(outQuery[n - lf - 1]))
+					{
+						n -= lf;
+						outQuery[n] = 0;
+						while (n > 0 && IsPlayerBotChatSeparator(outQuery[n - 1]))
+							outQuery[--n] = 0;
+						trimmed = true;
+						break;
+					}
+				}
+			}
+		}
 		// "Kupie KK", "Sprzedam KD": two letters are too few to search names
 		// with, but a word of the players' dictionary names the item exactly.
 		// "Kupie KZ" names the Forgetting Book with nothing after it.
 		return n >= PLAYERBOT_TRADE_QUERY_MIN || (n > 0 && playerbot_conv::IsItemAliasWord(outQuery)) || outForget
 				? verb : PLAYERBOT_TRADE_NONE;
+	}
+
+	// MT2009_PLUS_BOT_CHAT_V2: a bot's open trade post of this item (a book
+	// of this skill), younger than an hour.
+	bool HasPlayerBotOpenPostOf(DWORD botPID, BYTE kind, DWORD vnum, DWORD skill)
+	{
+		std::map<DWORD, std::deque<TPlayerBotPublicLine> >::const_iterator it = s_mapPlayerBotPublicLines.find(botPID);
+		if (it == s_mapPlayerBotPublicLines.end() || !vnum)
+			return false;
+		const DWORD now = get_dword_time();
+		for (size_t i = 0; i < it->second.size(); ++i)
+		{
+			const TPlayerBotPublicLine& l = it->second[i];
+			if (l.open && l.kind == kind && l.vnum == vnum && l.skill == skill && now - l.at < PLAYERBOT_PUBLIC_LINE_TTL_MS)
+				return true;
+		}
+		return false;
+	}
+
+	// The bot whose open post of the item a trade line names is already
+	// talking with the person (a whisper lately, a deal): the line is that
+	// talk's, and no other bot cuts in with an offer of its own - "Kupie ku
+	// ognisty duch" whispered to DzikiRycerz2 after its "S> Instr. Ognisty
+	// Duch" was answered by traviden's "Mam [Instr. Ognisty Duch] na
+	// straganie w Yongan" and never by DzikiRycerz2 (the owner, 4 October).
+	DWORD FindPlayerBotPostOwnerInTalk(DWORD personPID, BYTE kind, const char* query, bool book, bool forget,
+			DWORD skillVnum)
+	{
+		if (!personPID || forget)
+			return 0;
+		std::vector<std::string> candidates;
+		playerbot_conv::ExpandItemQuery(query ? query : "", candidates);
+		const DWORD now = get_dword_time();
+		for (std::map<DWORD, std::deque<TPlayerBotPublicLine> >::const_iterator it = s_mapPlayerBotPublicLines.begin();
+				it != s_mapPlayerBotPublicLines.end(); ++it)
+		{
+			for (size_t i = 0; i < it->second.size(); ++i)
+			{
+				const TPlayerBotPublicLine& l = it->second[i];
+				if (!l.open || l.kind != kind || now - l.at >= PLAYERBOT_PUBLIC_LINE_TTL_MS || l.itemName.empty())
+					continue;
+				const bool names = book ? l.skill != 0 && l.skill == skillVnum
+						: playerbot_conv::ItemNameMatchesAny(playerbot_conv::FoldName(l.itemName.c_str()), candidates);
+				if (names && IsPlayerBotTalkingWith(personPID, it->first, now))
+					return it->first;
+			}
+		}
+		return 0;
 	}
 
 	// "Kupie X": the nearest open counter with X on it answers with where and
@@ -673,7 +1059,11 @@ namespace
 					distance = player.local
 							? (long long)DISTANCE_APPROX(player.local->GetX() - stall.x, player.local->GetY() - stall.y)
 							: 500000LL;
-				if (bestDistance < 0 || distance < bestDistance)
+				// MT2009_PLUS_BOT_CHAT_V2: "kupie X" right after a bot's own
+				// "S> X" is that post's answer - its keeper answers it.
+				if (HasPlayerBotOpenPostOf(it->first, playerbot_conv::PL_SELL, line.vnum, line.skill))
+					distance = -1;
+				if (!bestKeeper || distance < bestDistance)
 				{
 					bestDistance = distance;
 					bestKeeper = keeper;
@@ -960,6 +1350,16 @@ namespace
 			forget = false;
 		}
 		const DWORD dwNow = get_dword_time();
+		{
+			const DWORD owner = FindPlayerBotPostOwnerInTalk(player.pid,
+					verb == PLAYERBOT_TRADE_BUY ? playerbot_conv::PL_SELL : playerbot_conv::PL_BUY, query, book, forget, skillVnum);
+			if (owner)
+			{
+				sys_log(0, "PLAYERBOT_TRADE: shout from=%s left to the post's bot pid=%u query=\"%s\"",
+						player.name.c_str(), owner, query);
+				return false;
+			}
+		}
 		if (!PlayerBotTradeReplyAllowed(player.pid, dwNow))
 			return false;
 		const bool answered = verb == PLAYERBOT_TRADE_BUY
@@ -1230,23 +1630,17 @@ namespace
 		const EPlayerBotTradeVerb verb = ParsePlayerBotTradeText(text, query, sizeof(query), book, forget);
 		if (verb != PLAYERBOT_TRADE_NONE)
 		{
-			// The 8-second trade clock is for shouts - one bot to one door. A
-			// whisper inside it used to vanish without a word; now this bot
-			// answers it itself from its own counter and needs (conversation
-			// layer, I_BUY / I_SELL), so nothing a person writes is lost.
-			std::map<DWORD, DWORD>::const_iterator last =
-					s_mapPlayerBotTradeReplyTime.find(player.pid);
-			if (last != s_mapPlayerBotTradeReplyTime.end() && last->second != 0 &&
-					dwNow - last->second < PLAYERBOT_TRADE_REPLY_INTERVAL &&
-					HandlePlayerBotConversationWith(player.pid, player.name.c_str(), bot, text))
-				return;
-			if (AnswerPlayerBotTradeLine(player, text))
-				return;
-			// Nobody on this core has the thing on a counter or wants it. The
-			// line used to be left without a word, as a shout nobody can answer
-			// is; whispered, it is this bot's to answer from its own counter and
-			// needs. A person on the other channel meets that most: that
-			// channel's counters are mostly the other core's bots'.
+			// MT2009_PLUS_BOT_CHAT_V2: a trade line whispered to a bot is this
+			// bot's to answer - from its own counter, bag, posts and needs
+			// (conversation layer, I_BUY / I_SELL, the deals). It used to be
+			// answered as a shout, by whichever bot was best placed: the
+			// owner whispered DzikiRycerz2 "Kupie to ku ognisty duch" after
+			// its own post of that book, traviden whispered back an offer of
+			// its own and DzikiRycerz2 said nothing (4 October). A private
+			// whisper is nobody else's business.
+			sys_log(0, "PLAYERBOT_TRADE: whisper trade line pid=%u name=%s from=%s verb=%s book=%d query=\"%s\"",
+					bot->GetPlayerID(), bot->GetName(), player.name.c_str(), verb == PLAYERBOT_TRADE_BUY ? "buy" : "sell",
+					book ? 1 : 0, query);
 			HandlePlayerBotConversationWith(player.pid, player.name.c_str(), bot, text);
 			return;
 		}
@@ -1290,6 +1684,7 @@ namespace
 
 	void HandlePlayerWhisperToBot(LPCHARACTER player, LPCHARACTER bot, const char* text)
 	{
+		NotePlayerWhisperedBot(player ? player->GetPlayerID() : 0, bot);	// MT2009_PLUS_BOT_WHISPER_BLOCK_V1
 		// Before everything else: an invitation is not a trade or a talk, and
 		// a request to join is read before an invitation. A person of this
 		// core only: the guild's own calls need the character here.

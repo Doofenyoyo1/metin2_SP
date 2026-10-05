@@ -41,17 +41,18 @@
 
 <section class="panel">
 <h2>Misje</h2>
-<p class="muted">Każda misja ma rodzaj, cel (0 = dowolny; przy potworach, Metinach i bossach VNUM potwora, przy „Użyj przedmiotu” VNUM przedmiotu), poziom celu (przy potworach, Metinach i bossach: liczą się tylko cele tego poziomu, 0 = dowolny), wymaganą ilość, misję, którą trzeba najpierw ukończyć (łańcuch – do tego czasu misja jest zablokowana i nic się nie liczy) i do trzech nagród, które trafiają do ekwipunku od razu po ukończeniu misji. Nazwa i opis są opcjonalne – bez nazwy gra sama opisze misję. W opisie <code>//</code> łamie linię. Nowe misje wpisz w puste wiersze na dole.</p>
+<p class="muted">Każda misja ma rodzaj, cel (0 = dowolny; przy potworach, Metinach i bossach VNUM potwora, przy „Użyj przedmiotu” VNUM przedmiotu), poziom celu (przy potworach, Metinach i bossach: liczą się tylko cele tego poziomu, 0 = dowolny), wymaganą ilość, misję, którą trzeba najpierw ukończyć (łańcuch – do tego czasu misja jest zablokowana i nic się nie liczy) i do trzech nagród, które trafiają do ekwipunku od razu po ukończeniu misji. Nazwa i opis są opcjonalne – bez nazwy gra sama opisze misję. W opisie <code>//</code> łamie linię. Misja <b>powtarzalna</b> po osiągnięciu ilości daje nagrody i liczy od nowa, ile razy gracz zechce w sezonie; nie blokuje nagrody końcowej, a misje, które jej wymagają, odblokowuje po pierwszym ukończeniu. Nowe misje wpisz w puste wiersze na dole.</p>
 <form method="post">
 <input type="hidden" name="battlepass_csrf" value="{{ battlepass_csrf }}">
 <input type="hidden" name="row_count" value="{{ missions|length + new_rows }}">
 <div class="table-wrap"><table class="bp-table">
-<thead><tr><th>#</th><th>Aktywna</th><th>Rodzaj</th><th>Cel (VNUM) / poziom</th><th>Ilość</th><th>Wymaga misji</th><th>Nagrody (VNUM × ilość)</th><th>Nazwa i opis</th><th>Usuń</th></tr></thead>
+<thead><tr><th>#</th><th>Aktywna</th><th>Powtarzalna</th><th>Rodzaj</th><th>Cel (VNUM) / poziom</th><th>Ilość</th><th>Wymaga misji</th><th>Nagrody (VNUM × ilość)</th><th>Nazwa i opis</th><th>Usuń</th></tr></thead>
 <tbody>
 {% for m in missions %}{% set i = loop.index0 %}
 <tr class="{{ '' if m.active else 'bp-off' }}">
 <td>{{ m.id }}<input type="hidden" name="m{{ i }}_id" value="{{ m.id }}"></td>
 <td><input type="checkbox" name="m{{ i }}_active" value="1" {% if m.active %}checked{% endif %}></td>
+<td><input type="checkbox" name="m{{ i }}_repeatable" value="1" {% if m.repeatable %}checked{% endif %}></td>
 <td><select name="m{{ i }}_type">{% for t, label, kind in types %}<option value="{{ t }}" {% if t == m.type %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><span class="bp-hint">W grze: {{ m.auto_name }}</span></td>
 <td><input name="m{{ i }}_target" type="number" min="0" value="{{ m.target }}" class="bp-num">{% if m.target_name %}<span class="bp-hint">{{ m.target_name }}</span>{% elif m.target and type_target.get(m.type) %}<span class="bp-hint">nieznany VNUM</span>{% elif not type_target.get(m.type) %}<span class="bp-hint">bez celu</span>{% else %}<span class="bp-hint">dowolny</span>{% endif %}{% if type_target.get(m.type) == 'mob' %}<input name="m{{ i }}_target_level" type="number" min="0" max="255" value="{{ m.target_level }}" class="bp-lvl" title="Poziom celu (0 = dowolny)"><span class="bp-hint">poziom: {{ m.target_level or 'dowolny' }}</span>{% endif %}</td>
 <td><input name="m{{ i }}_count" type="number" min="1" value="{{ m.count }}" class="bp-num"></td>
@@ -65,6 +66,7 @@
 <tr class="bp-new">
 <td>nowa</td>
 <td><input type="checkbox" name="m{{ i }}_active" value="1" checked></td>
+<td><input type="checkbox" name="m{{ i }}_repeatable" value="1"></td>
 <td><select name="m{{ i }}_type"><option value="0" selected>— pusty wiersz —</option>{% for t, label, kind in types %}<option value="{{ t }}">{{ label }}</option>{% endfor %}</select></td>
 <td><input name="m{{ i }}_target" type="number" min="0" value="0" class="bp-num"><input name="m{{ i }}_target_level" type="number" min="0" max="255" value="0" class="bp-lvl" title="Poziom celu (0 = dowolny)"></td>
 <td><input name="m{{ i }}_count" type="number" min="1" value="1" class="bp-num"></td>

@@ -863,6 +863,9 @@ namespace
 		return finder.found;
 	}
 
+	// MT2009_PLUS_BOT_DUNGEON_LFG_V1: defined in playerbot_dungeon_lfg.h, later.
+	bool IsPlayerBotDungeonLfgHeld(DWORD botPID);
+
 	bool IsPlayerBotHeldForCompany(LPCHARACTER ch)
 	{
 		if (!ch)
@@ -872,6 +875,14 @@ namespace
 		// its own stand and the world travel all ask this, and any of them
 		// would take the bot off the map the person called it on.
 		if (IsPlayerBotHiredClient(pid) || IsPlayerBotSummoned(pid))
+			return true;
+		// MT2009_PLUS_BOT_DUNGEON_LFG_V1: waiting for a person at a dungeon's
+		// entrance, for the same reason.
+		if (IsPlayerBotDungeonLfgHeld(pid))
+			return true;
+		// MT2009_PLUS_BOT_CHAT_V2 (deals): on its way to, or waiting at, the
+		// blacksmith a deal's window was agreed at (playerbot_chat_deals.h).
+		if (IsPlayerBotDealMeeting(pid))
 			return true;
 		// A player's companion at its owner's side (playerbot_sidekick.h).
 		if (IsPlayerBotSidekickLeashed(ch))

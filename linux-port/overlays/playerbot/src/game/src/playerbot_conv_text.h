@@ -197,7 +197,14 @@ namespace playerbot_conv
 			{ "pz", "hp" }, { "mp", "sp" }, { "pe", "sp" },
 			{ "kt", "kupie" }, { "sell", "sprzedam" }, { "wts", "sprzedam" }, { "wtb", "kupie" },
 			{ "is", "itemshop" }, { "itemshopa", "itemshop" }, { "sm", "smocze monety" },
-			{ "depo", "magazyn" }, { "dozo", "magazyn" }, { "dozorca", "magazyn" },
+			{ "depo", "magazyn" }, { "dozorca", "magazyn" },
+			// MT2009_PLUS_BOT_CHAT_V2: "dozo" is "do zobaczenia" in a whisper ("to
+			// dawaj dozo ch1 m1"), not the warehouse keeper.
+			{ "dozo", "nara" }, { "dozobaczenia", "nara" }, { "nwmm", "nie wiem" },
+			{ "kawalek", "kawal" }, { "zarcik", "zart" }, { "zarta", "zart" }, { "kawala", "kawal" },
+			{ "sorka", "sorry" }, { "soryy", "sorry" }, { "srry", "sorry" }, { "sry", "sorry" },
+			{ "metkow", "metinow" }, { "metkach", "metinach" }, { "metke", "metina" },
+			{ "expic", "expic" }, { "expi", "expi" }, { "expimy", "expimy" },
 			{ "pvm", "exp" }, { "pve", "exp" }, { "pvb", "boss" },
 			{ "ksujesz", "ksujesz" }, { "ksuj", "ksujesz" }, { "ksuje", "ksujesz" }, { "ks", "ksujesz" },
 			{ "kryt", "krytyk" }, { "kryty", "krytyk" }, { "dmg", "obrazenia" }, { "def", "obrona" },

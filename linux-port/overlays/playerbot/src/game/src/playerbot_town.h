@@ -23,6 +23,8 @@
 
 namespace
 {
+	// playerbot_chat_trade.h, below: a skill's Polish name ("KU Aura Miecza" on a sign).
+	const char* GetPlayerBotSkillName(DWORD skillVnum);
 	// Iwakura's gambler, defined in playerbot_gambler.h after this file: a
 	// session that takes pieces from the storekeeper and the bag to the anvil
 	// and refines them for the counter. It runs inside a town visit - the
@@ -324,6 +326,12 @@ namespace
 
 	bool HasPlayerBotSafeboxDeposit(LPCHARACTER ch, const TPlayerBotAIState& state)
 	{
+		// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1: a companion puts nothing in
+		// its own box - what it carries is its owner's, and the owner never
+		// sees that box. The LPP list put the owner's soul stones +4 there on
+		// a shopping errand ("sprzedal wszystkie KD+4, zostawil KD+1/2/3").
+		if (IsPlayerBotSidekickServing(ch))
+			return false;
 		std::vector<WORD> cells;
 		CollectPlayerBotSafeboxBooks(ch, cells);
 		if (!cells.empty())
@@ -446,7 +454,16 @@ namespace
 
 			bool wanted = false;
 			const char* why = "";
-			if (item->GetType() == ITEM_SKILLBOOK)
+			// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1: a companion takes
+			// everything out (PlayerBotSidekickWantsBoxSweep) - what is down
+			// there an older version put there of its owner's - leaving a cell
+			// free for the next drop; the bag window hands it to the owner.
+			if (IsPlayerBotSidekickServing(ch))
+			{
+				wanted = CountPlayerBotFreeInventoryCells(ch) - (int)item->GetSize() >= 1;
+				why = "sidekick_owner";
+			}
+			else if (item->GetType() == ITEM_SKILLBOOK)
 			{
 				// No longer surplus: the skill reached Master and the keep
 				// limit rose with it, or the bot finally has a skill group.
@@ -766,6 +783,9 @@ namespace
 	int DepositPlayerBotSafeboxBooks(LPCHARACTER ch, TPlayerBotAIState& state, CSafebox* box,
 			int* pToppedUp = NULL, std::set<DWORD>* pDeposited = NULL)
 	{
+		// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1 (HasPlayerBotSafeboxDeposit).
+		if (IsPlayerBotSidekickServing(ch))
+			return 0;
 		std::vector<WORD> cells;
 		CollectPlayerBotSafeboxBooks(ch, cells);
 		const size_t books = cells.size();
@@ -959,17 +979,20 @@ namespace
 		state.bTownNeedWeaponMerchant = HasPlayerBotJunkForMerchant(
 				ch, BOT_MERCHANT_WEAPON) || ch->GetWear(WEAR_WEAPON) == NULL ||
 				NeedsPlayerBotProgressionWeapon(ch) || NeedsPlayerBotArrows(ch) ||
-				NeedsPlayerBotProperWeapon(ch) || NeedsPlayerBotBackupWeapon(ch);
+				NeedsPlayerBotProperWeapon(ch) || NeedsPlayerBotBackupWeapon(ch) ||
+				PlayerBotWantsMerchantWeaponUpgrade(ch);   // MT2009_PLUS_BOT_GEAR_UPGRADE_V1
 		state.bTownNeedArmorMerchant = HasPlayerBotJunkForMerchant(ch, BOT_MERCHANT_ARMOR) ||
 				NeedsPlayerBotProgressionArmor(ch) || NeedsPlayerBotProgressionShield(ch) ||
-				NeedsPlayerBotProgressionHelmet(ch) || NeedsPlayerBotBackupArmour(ch);
+				NeedsPlayerBotProgressionHelmet(ch) || NeedsPlayerBotBackupArmour(ch) ||
+				PlayerBotWantsMerchantArmourUpgrade(ch);   // MT2009_PLUS_BOT_GEAR_UPGRADE_V2
 		state.bTownNeedBlacksmith = HasPlayerBotRefineOpportunity(ch) ||
 				IsPlayerBotGambling(state, dwNow);
 		// The gambler's first stop is the storekeeper, once a session.
 		state.bTownNeedSafebox = HasPlayerBotSafeboxDeposit(ch, state) ||
 				(IsPlayerBotGambling(state, dwNow) && !state.persona.bGambleSafeboxChecked) ||
 				PlayerBotWantsLppRelease(ch, state, dwNow) ||
-				PlayerBotWantsMaterialRelease(ch, state, dwNow);
+				PlayerBotWantsMaterialRelease(ch, state, dwNow) ||
+				PlayerBotSidekickWantsBoxSweep(ch);	// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1
 		if (!state.bTownNeedTrainer && !state.bTownNeedSkillReset && !state.bTownNeedMisc &&
 				!state.bTownNeedWeaponMerchant && !state.bTownNeedSafebox &&
 				!state.bTownNeedArmorMerchant && !state.bTownNeedBlacksmith)
@@ -2318,6 +2341,22 @@ namespace
 				((DWORD)(GetPlayerBotInflationFactor() / 200) << 20)) ^ (IsPlayerBotBonusCountPricingOn() ? 0x80000000UL : 0UL);
 	}
 
+	// MT2009_PLUS_BOOK_PRICE_LADDER_V1: the goods PLAYERBOT_BOOK_PRICE_FLOOR
+	// holds - a skill book (ITEM_SKILLBOOK) or one of the six general books.
+	bool IsPlayerBotBookPriceFloored(LPITEM item)
+	{
+		return item && (item->GetType() == ITEM_SKILLBOOK || IsPlayerBotGeneralSkillBook(item->GetVnum()));
+	}
+
+	// The floor itself: the sheet's 100 000 through the yang-rate curve and the
+	// world's yang like every book on the sheet (owner, 4 October: "na
+	// poczatku serwera kosztuja mniej") - 40 000 in a new world, 100 000 at
+	// ten billion, more past it.
+	DWORD GetPlayerBotBookPriceFloor()
+	{
+		return ScalePlayerBotIwakuraPrice(PLAYERBOT_BOOK_PRICE_FLOOR);
+	}
+
 	// Iwakura's base for a book, at this world's yang rate. The rate is the
 	// mob_gold multiplier in percent (100 when nothing set it), the same
 	// number the panel's rates page writes.
@@ -3615,6 +3654,14 @@ namespace
 			if (spread != 100)
 				PlayerBotPriceStep(per::STEP_SPREAD, unit, spread);
 		}
+		// MT2009_PLUS_BOOK_PRICE_LADDER_V1: no skill book under the sheet's
+		// 100 000 apiece at this world's yang (GetPlayerBotBookPriceFloor),
+		// whatever the memory or the spread took it to.
+		if (IsPlayerBotBookPriceFloored(item) && unit < GetPlayerBotBookPriceFloor())
+		{
+			unit = GetPlayerBotBookPriceFloor();
+			PlayerBotPriceFlag(per::LFLAG_FLOOR_BOUND);
+		}
 		// And never under what a Moonlight chest holds, or what a bonus item
 		// is worth on the sheet (GetPlayerBotBonusGoodsFloorUnit): the memory
 		// of a hundred-thousand chest, the limiter's drift from it and the
@@ -3738,6 +3785,15 @@ namespace
 				if (IsPlayerBotListingTracing())
 					PlayerBotListingStep(per::STEP_ROUND, price);
 			}
+		}
+		// MT2009_PLUS_BOOK_PRICE_LADDER_V1: a markdown never takes a skill book
+		// under the floor either.
+		if (IsPlayerBotBookPriceFloored(item))
+		{
+			const unsigned long long floorPrice = (unsigned long long)GetPlayerBotBookPriceFloor() *
+					(unsigned long long)std::max<DWORD>(1, item->GetCount());
+			if ((unsigned long long)price < floorPrice && floorPrice < (unsigned long long)GOLD_MAX)
+				price = (DWORD)floorPrice;
 		}
 		return price;
 	}
@@ -5876,6 +5932,7 @@ namespace
 		// Iwakura's rules (playerbot_shop_signs.h), and the best line's name for
 		// the world channel. The counter is sorted best first.
 		const char* pszBestName = NULL;
+		char szBestBookName[64] = { 0 };
 		std::vector<LPITEM> signGoods;
 		bool grid[PLAYERBOT_SHOP_GRID_CELLS];
 		memset(grid, 0, sizeof(grid));
@@ -6047,7 +6104,20 @@ namespace
 				countedListed[countedKind] += (int)item->GetCount();
 
 			if (!pszBestName)
+			{
 				pszBestName = proto->szLocaleName;
+				// A skill book by its skill ("KU Aura Miecza"), not "Ksiega
+				// Umiejetnosci" that names none (the owner, 4 October).
+				if (offer.dwSkillVnum)
+				{
+					const char* skill = GetPlayerBotSkillName(offer.dwSkillVnum);
+					if (skill && strcmp(skill, "?") != 0)
+					{
+						snprintf(szBestBookName, sizeof(szBestBookName), "KU %s", skill);
+						pszBestName = szBestBookName;
+					}
+				}
+			}
 			signGoods.push_back(item);
 		}
 		// Asked again here rather than trusting the scan above: the inventory
@@ -6939,6 +7009,9 @@ namespace
 				const int taken = WithdrawPlayerBotSafebox(ch, box, &justDeposited,
 						IsPlayerBotGambling(state, dwNow) ? &state.persona : NULL, &state.persona,
 						&released);
+				// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1: a companion's sweep done,
+				// or what is left told to its owner.
+				NotePlayerBotSidekickBoxSwept(ch, box);
 #if defined(PLAYERBOT_ENGINE_MT2009)
 				// The box poured together and laid out the way a player's
 				// "Scal i uporzadkuj" does it (ArrangeSafebox, playerbot_arrange.cpp):

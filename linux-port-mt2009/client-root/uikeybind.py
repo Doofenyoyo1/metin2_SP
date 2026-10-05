@@ -1,6 +1,6 @@
 # MT2009_PLUS_VEKIRION_V1 - Skroty klawiszowe (Autor: Vekirion): the window of
-# keybind.py, behind the Esc menu's button above "Sklep z przedmiotami"
-# (uisystem.py, uiscript/systemdialog.py).
+# keybind.py, the "Skroty" tab of the Esc menu's "Opcje Gry"
+# (MT2009_PLUS_OPTIONS_TABS_V1, uioptionstabs.py).
 #
 # Every action game.py runs, by category, with its two keys. A click on a key
 # waits for the next key pressed (taken in the game window, keybind.CaptureKey,
@@ -46,6 +46,15 @@ def OpenWindow():
 		window = KeybindWindow()
 		_state['window'] = window
 	window.Open()
+
+
+# MT2009_PLUS_OPTIONS_TABS_V1: the window for the "Skroty" tab (uioptionstabs.py).
+def GetWindow():
+	window = _state['window']
+	if window is None:
+		window = KeybindWindow()
+		_state['window'] = window
+	return window
 
 
 def DestroyWindow():
@@ -277,6 +286,21 @@ class KeybindWindow(ui.BoardWithTitleBar):
 		self.draft = {}
 		self.__SetDirty(False)
 		self.Hide()
+
+	# MT2009_PLUS_OPTIONS_TABS_V1: another tab of "Opcje Gry" hides the window
+	# with its draft kept; Resume shows it again as it was (Open starts anew).
+	def Suspend(self):
+		self.__EndCapture()
+		self.__OnCloseQuestion()
+		self.Hide()
+
+	def Resume(self):
+		if not self.draft:
+			self.Open()
+			return
+		self.Refresh()
+		self.Show()
+		self.SetTop()
 
 	def OnClickSave(self):
 		self.__EndCapture()

@@ -1,0 +1,208 @@
+#!/bin/sh
+# =============================================================================
+#  m2-fishing -- what a fishing rod brings up, as the Seban panel's "Łowienie
+#  ryb" page (database editor, dbeditor/fishing.py) saved it
+#  (MT2009_PLUS_DB_EDITOR_V1).
+#
+#  This engine decides a catch in the quest library
+#      $LOCALE_DIR/quest/libs/fishing/fishing_drop.lua   (fishing_drop_table)
+#  - fishing.cpp never reads fishing.txt. Every core reads the library while
+#  it boots, and the file lives in the image (the Dockerfile already edits it),
+#  so an edit made in the image would be lost on the next update.
+#
+#  The panel therefore writes only the table's lines, plain text, into the
+#  spool volume both containers share:
+#      $SPOOL/fishing/fishing_drop.custom.txt
+#          item<TAB>count<TAB>rod_from<TAB>rod_to<TAB>min_bonus<TAB>weight  [# comment]
+#          (item: a VNUM or "farba" - a random hair dye)
+#  and before the cores boot (m2-supervise, boot_cores) `apply' rebuilds the
+#  live fishing_drop.lua: the image's copy with the lines between
+#  "local fishing_drop_table = {" and its "}" replaced by the panel's. No file
+#  means the image's table. The image's file goes back to the panel as
+#  $SPOOL/fishing/fishing_drop.base.lua; how the last apply went:
+#  $SPOOL/fishing/status (state, time, groups, sha, message - like m2-drops).
+#
+#  Checked before anything is used (a failing file is not used at all, the
+#  cores boot with the image's table and the panel is told why):
+#    * six fields per line, whole numbers in range, rod_from <= rod_to;
+#    * every rod +0..+9 with its own bonus (item_proto value0, no bait) has
+#      something to catch - the quest's draw would fail otherwise;
+#    * every item is in item_proto (when the database answers).
+#
+#  Subcommands
+#      prepare   as root, at container start: keep the image's file, make the
+#                live one writable by the service account, the spool folder
+#      apply     rebuild the live file (run by m2-supervise before a boot)
+# =============================================================================
+set -u
+LC_ALL=C
+export LC_ALL
+
+SHARE_DIR="${M2_SHARE_DIR:-/opt/metin2/share}"
+VAR_DIR="${M2_VAR_DIR:-/opt/metin2/var}"
+LOCALE_DIR="$SHARE_DIR/locale/${M2_LOCALE_NAME:-poland}"
+LIBDIR="$LOCALE_DIR/quest/libs/fishing"
+SPOOL="${M2_RATES_SPOOL:-/opt/m2spool}/fishing"
+
+LIVE="$LIBDIR/fishing_drop.lua"
+IMAGE="$LIBDIR/fishing_drop.image.lua"
+CUSTOM="$SPOOL/fishing_drop.custom.txt"
+STATUS="$SPOOL/status"
+WORK="$VAR_DIR/fishing"
+# rod level -> the rod's own bonus, when the database does not answer
+ROD_BONUS_DEFAULT="0:0 1:10 2:20 3:30 4:40 5:50 6:60 7:70 8:80 9:100"
+
+say() { printf '%s [fishing] %s\n' "$(date -u '+%Y-%m-%d %H:%M:%SZ')" "$1"; }
+
+write_status() { # write_status STATE LINES SHA MESSAGE
+    _tmp="$STATUS.new.$$"
+    { printf 'state=%s\n' "$1"
+      printf 'time=%s\n' "$(date +%s 2>/dev/null)"
+      printf 'groups=%s\n' "$2"
+      printf 'sha=%s\n' "$3"
+      printf 'message=%s\n' "$4"
+    } > "$_tmp" 2>/dev/null || { rm -f "$_tmp"; return 1; }
+    chmod 0664 "$_tmp" 2>/dev/null
+    mv -f "$_tmp" "$STATUS" 2>/dev/null || rm -f "$_tmp"
+    return 0
+}
+
+publish() { # publish SOURCE NAME -- a read-only copy of the image's file for the panel
+    [ -d "$SPOOL" ] && [ -f "$1" ] || return 0
+    cmp -s "$1" "$SPOOL/$2" && return 0
+    cp "$1" "$SPOOL/$2.new.$$" 2>/dev/null && chmod 0664 "$SPOOL/$2.new.$$" 2>/dev/null \
+        && mv -f "$SPOOL/$2.new.$$" "$SPOOL/$2" 2>/dev/null || rm -f "$SPOOL/$2.new.$$"
+}
+
+# The live file is rewritten in place: the folder belongs to root, the file
+# itself to the service account (prepare).
+put_live() { # put_live SOURCE
+    cmp -s "$1" "$LIVE" && return 0
+    cat "$1" > "$LIVE"
+}
+
+db_query() { # db_query SQL -- rows on stdout; returns non-zero when the database did not answer
+    command -v mariadb >/dev/null 2>&1 || return 2
+    MYSQL_PWD="${M2_DB_PASSWORD:-}" mariadb -h "${M2_DB_HOST:-mariadb}" -P "${M2_DB_PORT:-3306}" \
+        -u "${M2_DB_USER:-metin2}" -N -B --connect-timeout=10 -e "$1" 2>/dev/null
+}
+
+reject() { # reject SHA WHY
+    say "the panel's fishing table was NOT used: $2"
+    put_live "$IMAGE"
+    write_status rejected 0 "$1" "$2"
+    return 0
+}
+
+cmd_prepare() {
+    [ -f "$LIVE" ] || { say "no $LIVE -- nothing to prepare"; return 0; }
+    # The first start of a container: the file is still the image's.
+    [ -f "$IMAGE" ] || cp -p "$LIVE" "$IMAGE" || return 1
+    chown metin2:metin2 "$LIVE" 2>/dev/null
+    chmod 0644 "$LIVE" 2>/dev/null
+    mkdir -p "$WORK" 2>/dev/null && chown metin2:metin2 "$WORK" 2>/dev/null
+    if mkdir -p "$SPOOL" 2>/dev/null; then
+        chgrp m2spool "$SPOOL" 2>/dev/null && chmod 2770 "$SPOOL" 2>/dev/null
+        chgrp -R m2spool "$SPOOL"/* 2>/dev/null
+        chmod g+rw "$SPOOL"/* 2>/dev/null
+    fi
+    return 0
+}
+
+cmd_apply() {
+    [ -f "$IMAGE" ] || { say "no $IMAGE (m2-fishing prepare did not run) -- fishing left as the image has it"; return 0; }
+    mkdir -p "$WORK" 2>/dev/null
+    publish "$IMAGE" fishing_drop.base.lua
+
+    if [ ! -s "$CUSTOM" ] || ! grep -Eq '^[[:blank:]]*([0-9]+|farba)[[:blank:]]' "$CUSTOM"; then
+        put_live "$IMAGE" || { say "could not write $LIVE"; return 1; }
+        write_status base 0 "" "no change in the panel -- the image's fishing table is live"
+        return 0
+    fi
+    _sha=$(sha256sum "$CUSTOM" | cut -d' ' -f1)
+
+    # The rods' own bonus (item_proto value0) of the rods +0..+9.
+    _rods=$(db_query "SELECT (vnum - 27400) DIV 10, value0 FROM player.item_proto${M2_TABLE_POSTFIX:-} WHERE type = 13 AND vnum BETWEEN 27400 AND 27490 AND vnum % 10 = 0" \
+        | awk '{ printf "%s:%s ", $1, $2 }')
+    [ -n "$_rods" ] || _rods=$ROD_BONUS_DEFAULT
+
+    sed '1s/^\xEF\xBB\xBF//; s/\r$//; s/#.*$//; s/[[:blank:]]*$//' "$CUSTOM" > "$WORK/custom.norm" || return 1
+    awk -v rods="$_rods" '
+    function err(m) { print "E line " NR ": " m; bad = 1; exit }
+    function isint(s) { return s ~ /^[0-9]+$/ }
+    function range(v, lo, hi, what) { if (!isint(v) || v + 0 < lo || v + 0 > hi) err(what " must be " lo "-" hi) }
+    /^[[:blank:]]*$/ { next }
+    {
+        n = split($0, f, /[[:blank:]]+/)
+        if (f[1] == "") { for (i = 2; i <= n; i++) f[i - 1] = f[i]; n-- }
+        if (n != 6) err("six fields needed: item count rod_from rod_to min_bonus weight")
+        if (f[1] != "farba" && !isint(f[1])) err("item \"" f[1] "\" is not a number (or farba)")
+        range(f[2], 1, 200, "count"); range(f[3], 0, 19, "rod_from"); range(f[4], 0, 19, "rod_to")
+        range(f[5], 0, 1000, "min_bonus"); range(f[6], 1, 1000000, "weight")
+        if (f[3] + 0 > f[4] + 0) err("rod_from is above rod_to")
+        if (isint(f[1])) print "I " f[1]
+        item = (f[1] == "farba") ? "\"farba\"" : f[1]
+        print "L     " item ", " f[2] ", " f[3] ", " f[4] ", " f[5] ", " f[6] ", "
+        rows++; rmin[rows] = f[3] + 0; rmax[rows] = f[4] + 0; rbon[rows] = f[5] + 0; rw[rows] = f[6] + 0
+    }
+    END {
+        if (bad) exit
+        if (!rows) { print "E no lines"; exit }
+        m = split(rods, pairs, " ")
+        for (p = 1; p <= m; p++) {
+            split(pairs[p], kv, ":"); lv = kv[1] + 0; bonus = kv[2] + 0
+            if (lv < 0 || lv > 9) continue
+            pool = 0
+            for (r = 1; r <= rows; r++) if (rmin[r] <= lv && lv <= rmax[r] && bonus >= rbon[r]) pool += rw[r]
+            if (!pool) { print "E rod +" lv " (bonus " bonus ") would catch nothing"; exit }
+        }
+    }
+    ' "$WORK/custom.norm" > "$WORK/custom.check" 2>&1
+
+    _why=$(sed -n 's/^E //p' "$WORK/custom.check" | head -1)
+    [ -n "$_why" ] && { reject "$_sha" "$_why"; return 0; }
+
+    _items=$(sed -n 's/^I //p' "$WORK/custom.check" | sort -un | tr '\n' ',' | sed 's/,$//')
+    if [ -n "$_items" ]; then
+        if db_query "SELECT vnum FROM player.item_proto${M2_TABLE_POSTFIX:-} WHERE vnum IN ($_items)" > "$WORK/items.found"; then
+            printf '%s\n' "$_items" | tr ',' '\n' | sort -u > "$WORK/items.wanted"
+            _missing=$(sort -u "$WORK/items.found" | comm -23 "$WORK/items.wanted" - | tr '\n' ' ')
+            [ -n "$(printf '%s' "$_missing" | tr -d ' ')" ] && { reject "$_sha" "no such item: $_missing"; return 0; }
+        else
+            say "could not check the item numbers against the database -- trusting the panel's check"
+        fi
+    fi
+
+    sed -n 's/^L //p' "$WORK/custom.check" > "$WORK/rows.lua"
+    _count=$(wc -l < "$WORK/rows.lua" | tr -d ' ')
+    # The image's file with the table's lines replaced (CRLF like the image).
+    awk -v rowsfile="$WORK/rows.lua" '
+    {
+        line = $0; sub(/\r$/, "", line)
+    }
+    state == 0 && line ~ /^[[:blank:]]*local[[:blank:]]+fishing_drop_table[[:blank:]]*=[[:blank:]]*\{/ {
+        print $0
+        print "    -- MT2009_PLUS_DB_EDITOR_V1: the Seban panel'"'"'s table (m2-fishing)\r"
+        while ((getline r < rowsfile) > 0) print r "\r"
+        state = 1; next
+    }
+    state == 1 { t = line; sub(/^[[:blank:]]+/, "", t); if (substr(t, 1, 1) == "}") { print $0; state = 2 } ; next }
+    { print $0 }
+    END { if (state != 2) exit 3 }
+    ' "$IMAGE" > "$WORK/live.new" || { reject "$_sha" "the image's fishing_drop.lua has no fishing_drop_table"; return 0; }
+
+    if ! put_live "$WORK/live.new"; then
+        say "could not write $LIVE -- fishing left as it was"
+        write_status failed 0 "$_sha" "the game container could not write fishing_drop.lua"
+        return 1
+    fi
+    say "fishing table from the panel applied: $_count line(s)"
+    write_status ok "$_count" "$_sha" "applied: $_count line(s) from the panel"
+    return 0
+}
+
+case "${1:-}" in
+    prepare) cmd_prepare ;;
+    apply)   cmd_apply ;;
+    *) echo "usage: m2-fishing prepare|apply"; exit 1 ;;
+esac

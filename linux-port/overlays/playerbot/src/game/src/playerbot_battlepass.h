@@ -32,7 +32,15 @@
 //  13 items used (target = the vnum)
 //  14 shout messages (any text on the shout channel, a bot's too)
 // 1-3 and 13 honour the target vnum; a companion's kill is its owner's, as
-// for the quests. The engine calls in through server-patches/playerqol
+// for the quests.
+//
+// A repeatable mission (MT2009_PLUS_BP_REPEAT_V1, Autor: Vekirion: battlepass_mission.repeatable
+// = 1, any of the types above) gives its rewards each time its count is
+// reached and starts again from 0, as often as the season lasts: the reward
+// is taken with progress = progress - count, so no two cores give it, and
+// battlepass_progress.completions counts how often it was done. It never
+// shows as claimed, does not hold back the final reward, and unlocks the
+// missions that require it once it was done the first time. The engine calls in through server-patches/playerqol
 // (MT2009_PLUS_BATTLE_PASS_V1): the kill, AddPlayerStat, UseItem and the
 // /battlepass command.
 //
@@ -117,6 +125,8 @@ namespace mt2009_battlepass
 		// Locked, and counting nothing, until this mission is done (0 = none):
 		// a chain such as 2000, 5000, 10000 monsters.
 		DWORD requiredId;
+		// Rewarded and started again each time it is done (MT2009_PLUS_BP_REPEAT_V1).
+		bool repeatable;
 	};
 
 	// What this core knows of one mission of one player: the total the
@@ -129,7 +139,9 @@ namespace mt2009_battlepass
 		DWORD value;
 		DWORD delta;
 		bool claimed;
-		Progress() : value(0), delta(0), claimed(false) {}
+		// How often a repeatable mission was done this season (MT2009_PLUS_BP_REPEAT_V1).
+		DWORD completions;
+		Progress() : value(0), delta(0), claimed(false), completions(0) {}
 	};
 
 	struct Cache
@@ -210,7 +222,8 @@ namespace mt2009_battlepass
 				"ADD COLUMN IF NOT EXISTS reward3_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER reward3_vnum, "
 				"ADD COLUMN IF NOT EXISTS description VARBINARY(255) NOT NULL DEFAULT '' AFTER name, "
 				"ADD COLUMN IF NOT EXISTS target_level INT UNSIGNED NOT NULL DEFAULT 0 AFTER target, "
-				"ADD COLUMN IF NOT EXISTS requires_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER active"));
+				"ADD COLUMN IF NOT EXISTS requires_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER active, "
+				"ADD COLUMN IF NOT EXISTS repeatable TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER requires_id"));
 		std::unique_ptr<SQLMsg> p(AccountDB::instance().DirectQuery(
 				"CREATE TABLE IF NOT EXISTS player.battlepass_progress ("
 				"pid INT UNSIGNED NOT NULL, "
@@ -219,6 +232,9 @@ namespace mt2009_battlepass
 				"progress INT UNSIGNED NOT NULL DEFAULT 0, "
 				"claimed TINYINT UNSIGNED NOT NULL DEFAULT 0, "
 				"PRIMARY KEY (pid, season, mission)) ENGINE=InnoDB"));
+		std::unique_ptr<SQLMsg> pmore(AccountDB::instance().DirectQuery(
+				"ALTER TABLE player.battlepass_progress "
+				"ADD COLUMN IF NOT EXISTS completions INT UNSIGNED NOT NULL DEFAULT 0 AFTER claimed"));
 		std::unique_ptr<SQLMsg> config(AccountDB::instance().DirectQuery(
 				"CREATE TABLE IF NOT EXISTS player.battlepass_config ("
 				"id TINYINT UNSIGNED NOT NULL PRIMARY KEY, "
@@ -288,7 +304,8 @@ namespace mt2009_battlepass
 			return;
 		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(
 				"SELECT id, type, target, count, reward_vnum, reward_count, reward2_vnum, reward2_count, "
-				"reward3_vnum, reward3_count, name, description, target_level, requires_id FROM player.battlepass_mission "
+				"reward3_vnum, reward3_count, name, description, target_level, requires_id, repeatable "
+				"FROM player.battlepass_mission "
 				"WHERE active <> 0 ORDER BY id"));
 		if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
 			return;
@@ -319,6 +336,9 @@ namespace mt2009_battlepass
 			m.targetLevel = m.requiredId = 0;
 			str_to_number(m.targetLevel, row[12]);
 			str_to_number(m.requiredId, row[13]);
+			unsigned int repeatable = 0;
+			str_to_number(repeatable, row[14]);
+			m.repeatable = repeatable != 0;
 			fresh.push_back(m);
 		}
 		if (!s_bMissionsLoaded || fresh.size() != s_vecMissions.size())
@@ -357,26 +377,29 @@ namespace mt2009_battlepass
 		{
 			it->second.value = 0;
 			it->second.claimed = false;
+			it->second.completions = 0;
 		}
 		cache.final.value = 0;
 		cache.final.claimed = false;
-		char query[160];
+		char query[192];
 		snprintf(query, sizeof(query),
-				"SELECT mission, progress, claimed FROM player.battlepass_progress WHERE pid=%u AND season=%u",
-				pid, cache.season);
+				"SELECT mission, progress, claimed, completions FROM player.battlepass_progress "
+				"WHERE pid=%u AND season=%u", pid, cache.season);
 		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
 		if (!msg.get() || msg->uiSQLErrno != 0 || !msg->Get() || !msg->Get()->pSQLResult)
 			return;
 		MYSQL_ROW row;
 		while (NULL != (row = mysql_fetch_row(msg->Get()->pSQLResult)))
 		{
-			DWORD mission = 0, progress = 0, claimed = 0;
+			DWORD mission = 0, progress = 0, claimed = 0, completions = 0;
 			str_to_number(mission, row[0]);
 			str_to_number(progress, row[1]);
 			str_to_number(claimed, row[2]);
+			str_to_number(completions, row[3]);
 			Progress& p = mission == 0 ? cache.final : cache.missions[mission];
 			p.value = progress;
 			p.claimed = claimed != 0;
+			p.completions = completions;
 		}
 	}
 
@@ -399,7 +422,7 @@ namespace mt2009_battlepass
 		for (size_t first = 0; first < pids.size(); first += CHUNK)
 		{
 			const size_t last = std::min(pids.size(), first + CHUNK);
-			std::string query = "SELECT pid, mission, progress, claimed FROM player.battlepass_progress WHERE season=";
+			std::string query = "SELECT pid, mission, progress, claimed, completions FROM player.battlepass_progress WHERE season=";
 			char number[24];
 			snprintf(number, sizeof(number), "%u AND pid IN (", season);
 			query += number;
@@ -421,17 +444,19 @@ namespace mt2009_battlepass
 			MYSQL_ROW row;
 			while (NULL != (row = mysql_fetch_row(msg->Get()->pSQLResult)))
 			{
-				DWORD pid = 0, mission = 0, progress = 0, claimed = 0;
+				DWORD pid = 0, mission = 0, progress = 0, claimed = 0, completions = 0;
 				str_to_number(pid, row[0]);
 				str_to_number(mission, row[1]);
 				str_to_number(progress, row[2]);
 				str_to_number(claimed, row[3]);
+				str_to_number(completions, row[4]);
 				std::map<DWORD, Cache>::iterator c = s_mapCaches.find(pid);
 				if (c == s_mapCaches.end())
 					continue;
 				Progress& p = mission == 0 ? c->second.final : c->second.missions[mission];
 				p.value = progress;
 				p.claimed = claimed != 0;
+				p.completions = completions;
 			}
 		}
 	}
@@ -557,18 +582,35 @@ namespace mt2009_battlepass
 		return msg.get() && msg->uiSQLErrno == 0 && msg->Get() && msg->Get()->uiAffectedRows == 1;
 	}
 
+	// A repeatable mission's reward, taken by starting it again: the core whose
+	// UPDATE takes the count off the row gives it (MT2009_PLUS_BP_REPEAT_V1).
+	bool TakeRepeat(DWORD pid, DWORD season, const Mission& m)
+	{
+		char query[256];
+		snprintf(query, sizeof(query),
+				"UPDATE player.battlepass_progress SET progress = progress - %u, completions = completions + 1 "
+				"WHERE pid=%u AND season=%u AND mission=%u AND progress >= %u",
+				m.count, pid, season, m.id, m.count);
+		std::unique_ptr<SQLMsg> msg(AccountDB::instance().DirectQuery(query));
+		return msg.get() && msg->uiSQLErrno == 0 && msg->Get() && msg->Get()->uiAffectedRows == 1;
+	}
+
+	// Every mission that is not repeatable done (a repeatable one is never
+	// "done" for good, so it holds nothing back, MT2009_PLUS_BP_REPEAT_V1).
 	bool AllDone(Cache& cache)
 	{
-		if (s_vecMissions.empty())
-			return false;
+		bool any = false;
 		for (size_t i = 0; i < s_vecMissions.size(); ++i)
 		{
 			const Mission& m = s_vecMissions[i];
+			if (m.repeatable)
+				continue;
+			any = true;
 			std::map<DWORD, Progress>::const_iterator it = cache.missions.find(m.id);
 			if (it == cache.missions.end() || it->second.value + it->second.delta < m.count)
 				return false;
 		}
-		return true;
+		return any;
 	}
 
 	void EnsureTick();
@@ -584,6 +626,9 @@ namespace mt2009_battlepass
 		if (!req)
 			return false;
 		const Progress& p = cache.missions[req->id];
+		// A repeatable requirement unlocks for good once done the first time.
+		if (req->repeatable && p.completions > 0)
+			return false;
 		return p.value + p.delta < req->count;
 	}
 
@@ -603,7 +648,7 @@ namespace mt2009_battlepass
 		{
 			const Mission& m = s_vecMissions[i];
 			Progress& p = cache.missions[m.id];
-			if (p.value < m.count || p.claimed)
+			if (p.value < m.count || (p.claimed && !m.repeatable))
 				continue;
 			// MT2009_PLUS_BOT_BP_ROOM_V1: a bot's reward never falls on the
 			// ground for want of a cell (the operator, 3 October: "nagrody z
@@ -614,6 +659,23 @@ namespace mt2009_battlepass
 			if (IsBot(ch) && HasReward(m) &&
 					!playerbot_bpbots::EnsureRewardRoom(ch, m.rewardVnum, m.rewardCount, 3, m.id))
 				continue;
+			// MT2009_PLUS_BP_REPEAT_V1: rewarded, and started again from 0.
+			if (m.repeatable)
+			{
+				if (!TakeRepeat(pid, cache.season, m))
+					continue;	// another core took it; the next read shows it
+				p.value -= m.count;
+				++p.completions;
+				if (announce)
+					ch->ChatPacket(CHAT_TYPE_INFO, "Battle Pass: misja powtarzalna ukonczona (%u. raz)!%s",
+							p.completions, HasReward(m) ? " Nagroda trafila do ekwipunku." : "");
+				for (int r = 0; r < 3; ++r)
+					if (m.rewardVnum[r])
+						ch->AutoGiveItem(m.rewardVnum[r], (ITEM_COUNT)std::max<DWORD>(1, m.rewardCount[r]));
+				sys_log(0, "BATTLEPASS: %s%s done repeatable mission %u (%u times)", IsBot(ch) ? "bot " : "",
+						ch->GetName(), m.id, p.completions);
+				continue;
+			}
 			if (!TakeClaim(pid, cache.season, m.id))
 			{
 				p.claimed = true;
@@ -676,7 +738,13 @@ namespace mt2009_battlepass
 			Progress& p = cache.missions[m.id];
 			const DWORD have = p.value + p.delta;
 			if (have >= m.count)
+			{
+				// A repeatable mission full here may have been started again on
+				// another core: a player's settle reads it again (MT2009_PLUS_BP_REPEAT_V1).
+				if (m.repeatable && Eligible(ch))
+					reached = true;
 				continue;
+			}
 			const long long room = (long long)(m.count - have);
 			p.delta += (DWORD)(amount >= room ? room : amount);
 			if (p.value + p.delta >= m.count)
@@ -763,7 +831,7 @@ namespace mt2009_battlepass
 			// name: a window older than them reads the rest alone.
 			ch->ChatPacket(CHAT_TYPE_COMMAND, "BPMission %u %u %u %u %u %d %u %u %u %u %u %u %s %u %u %d", m.id,
 					(unsigned int)m.type, m.target, m.count, std::min<DWORD>(m.count, p.value + p.delta),
-					p.claimed ? 1 : 0,
+					p.claimed && !m.repeatable ? 1 : 0,
 					m.rewardVnum[0], m.rewardCount[0], m.rewardVnum[1], m.rewardCount[1], m.rewardVnum[2], m.rewardCount[2],
 					m.nameHex.empty() ? "-" : m.nameHex.c_str(), m.targetLevel, m.requiredId, IsLocked(cache, m) ? 1 : 0);
 			// The description on a line of its own: a chat command is at most

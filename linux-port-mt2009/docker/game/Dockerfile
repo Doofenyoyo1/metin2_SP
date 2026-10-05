@@ -232,7 +232,9 @@ RUN set -eux; \
     # horse_inventory (the saddlebag rows to horse level 30, MT2009_PLUS_HORSE30_V1).
     # pc.clear_quest_letter for usun_misje (MT2009_PLUS_CLEAR_MISSIONS_V1,
     # server-patches/clearmissions).
-    for fn in mes.get_message pc.get_special_flag pc.set_special_flag mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.is_playerbot affect.get_duration pc.has_affect pc.warp_channel game.get_catchking_score game.get_catchking_myscore game.catchking_claim_reward game.catchking_use_item game.catchking_deliver pc.clear_quest_letter; do \
+    # guild.treasury_available and guild.treasury_spend for our guild_building
+    # (MT2009_PLUS_GUILD_TREASURY_V1, server-patches/enginefixes).
+    for fn in mes.get_message pc.get_special_flag pc.set_special_flag mysql_direct_query pc.equip_slot pc.unequip_slot item.set_attr item.get_max_stack item.use pc.open_special_shop affect.add_new affect.remove_new pc.is_playerbot affect.get_duration pc.has_affect pc.warp_channel game.get_catchking_score game.get_catchking_myscore game.catchking_claim_reward game.catchking_use_item game.catchking_deliver pc.clear_quest_letter guild.treasury_available guild.treasury_spend; do \
       grep -qx "$fn" /tmp/qc-work/quest_functions || echo "$fn" >> /tmp/qc-work/quest_functions; \
     done; \
     # MT2009_PLUS_HORSE30_V1 (Digi Rasta's horse to level 30): konie is the
@@ -305,7 +307,10 @@ RUN set -eux; \
     # once with pc.clear_quest_letter (MT2009_PLUS_CLEAR_MISSIONS_V1,
     # server-patches/clearmissions, client root uiusunmisje.py; its table from
     # tools/gen_usun_misje.py).
-    for q in web_admin speed_boost starter_chest starter_kit konie horse_inventory gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 deviltower_zone fishing_pass_shop collect_quest_lv85 towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears acce_costume_uriel ah_yu_shop costume_bonus_transfer dragon_soul dragon_soul_refine dragon_soul_shop autohunt_time antiexp_ring seon_pyeong flea_market temple_of_the_ochao razador_dungeon nemere_dungeon blue_dragon_lair goblin_skarbow biblioteka_wiedzy map_warp dungeon_panel wzgorze_wukonga ruiny_skorpiona starozytna_dzungla seonhae minigame_rumi minigame_catchking minigame_yutnori tp_bookmarks ksiegi_seonhae usun_misje; do \
+    # guild_building is the package's land purchase at the guild land NPC with the
+    # land paid from the guild's treasury first, the master's own yang for the rest
+    # (MT2009_PLUS_GUILD_TREASURY_V1: the treasury is spent only on the guild).
+    for q in web_admin speed_boost starter_chest starter_kit konie horse_inventory gm_profile new_quest_lv19 teleport_ring pony_buy horse_upgrade horse_upgrade2 deviltower_zone fishing_pass_shop collect_quest_lv85 towarzysz devilcatacomb_zone check_trans_ticket heavens_cave_keyquest tanaka_ears acce_costume_uriel ah_yu_shop costume_bonus_transfer dragon_soul dragon_soul_refine dragon_soul_shop autohunt_time antiexp_ring seon_pyeong flea_market temple_of_the_ochao razador_dungeon nemere_dungeon blue_dragon_lair goblin_skarbow biblioteka_wiedzy map_warp dungeon_panel wzgorze_wukonga ruiny_skorpiona starozytna_dzungla seonhae minigame_rumi minigame_catchking minigame_yutnori tp_bookmarks ksiegi_seonhae usun_misje guild_building; do \
       [ -f "/quest-add/$q.quest" ] || continue; \
       sed 's/\r$//' "/quest-add/$q.quest" > "/tmp/qc-work/$q.quest"; \
       ( cd /tmp/qc-work && /src/Server/game/src/quest/qc "$q.quest" ); \
@@ -379,6 +384,8 @@ COPY src/serverfiles/share/package /opt/metin2/share/package
 #    their Moonlight chest (50011) instead of ours. No package, update or
 #    launcher writes it, so an edit there survives them all (Piciu713,
 #    26 September: an edit of the shipped file came back as the 16.09 one);
+#  * special_item_group.unique_attr.txt - the ItemShop rings' and amulets' bonuses
+#    (attr groups 100000-100005, MT2009_PLUS_UNIQUE_RING_BONUS_V1);
 #  * special_item_group.starter.txt - the starter chest chain the playerbot
 #    seed hands out and the package has no group for.
 #  * special_item_group.cors.txt - the higher Cor Draconis grades (50256-50259)
@@ -393,7 +400,7 @@ COPY src/serverfiles/share/package /opt/metin2/share/package
 #    50275-50277) and their pools 950401-950403 (MT2009_PLUS_RUMI_V1).
 #  * special_item_group.catchking.txt - Catch the King's three King's Loots
 #    (50968-50970, MT2009_PLUS_CATCH_KING_V1).
-COPY special_item_group.moonlight.custom*.txt mob_drop_item.m3.append.txt special_item_group.moonlight.txt special_item_group.starter.txt special_item_group.cors.txt special_item_group.dungeons.txt special_item_group.goblin.txt special_item_group.rumi.txt special_item_group.catchking.txt /tmp/share-add/
+COPY special_item_group.moonlight.custom*.txt mob_drop_item.m3.append.txt special_item_group.moonlight.txt special_item_group.starter.txt special_item_group.cors.txt special_item_group.dungeons.txt special_item_group.goblin.txt special_item_group.rumi.txt special_item_group.catchking.txt special_item_group.unique_attr.txt /tmp/share-add/
 RUN set -eu; L=/opt/metin2/share/locale/poland \
  && for f in /tmp/share-add/*.txt; do sed -i '1s/^\xEF\xBB\xBF//; s/\r$//; s/$/\r/' "$f"; done \
  && m=/tmp/share-add/special_item_group.moonlight.txt; c=/tmp/share-add/special_item_group.moonlight.custom.txt \
@@ -401,7 +408,7 @@ RUN set -eu; L=/opt/metin2/share/locale/poland \
  && cat /tmp/share-add/mob_drop_item.m3.append.txt >> "$L/mob_drop_item.txt" \
  && f="$L/special_item_group.txt" \
  && awk 'BEGIN{keep=1} /^Group/{blk=""; keep=1} {blk=blk $0 "\n"} /Vnum[ \t]+(50011|50187|50212|50213|50188|50189|50190|50191|50192|50193|50194|50195|50196|50186|50254|50256|50257|50258|50259|50270|50271|50023|5026[789]|5027[567]|95040[123]|50968|50969|50970|515[0-9][0-9]|516[0-4][0-9])([^0-9]|$)/{keep=0} /^}/{ if (keep) printf "%s", blk; blk=""; keep=1 }' "$f" > "$f.new" \
- && cat "$m" /tmp/share-add/special_item_group.starter.txt /tmp/share-add/special_item_group.cors.txt /tmp/share-add/special_item_group.dungeons.txt /tmp/share-add/special_item_group.goblin.txt /tmp/share-add/special_item_group.rumi.txt /tmp/share-add/special_item_group.catchking.txt >> "$f.new" \
+ && cat "$m" /tmp/share-add/special_item_group.starter.txt /tmp/share-add/special_item_group.cors.txt /tmp/share-add/special_item_group.dungeons.txt /tmp/share-add/special_item_group.goblin.txt /tmp/share-add/special_item_group.rumi.txt /tmp/share-add/special_item_group.catchking.txt /tmp/share-add/special_item_group.unique_attr.txt >> "$f.new" \
  && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+(50968|50969|50970)([^0-9]|$)' "$f.new")" = 3 \
  && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+(50270|50271)([^0-9]|$)' "$f.new")" = 2 \
  && test "$(grep -c -E '^[[:blank:]]*Vnum[[:blank:]]+(515[0-9][0-9]|516[0-4][0-9])([^0-9]|$)' "$f.new")" = 146 \
@@ -463,6 +470,19 @@ RUN set -eu; F=/opt/metin2/share/locale/poland/mob_drop_item.txt; A=/tmp/mob_dro
  && cat "$A" >> "$F" \
  && rm -f "$A" \
  && echo "share: metin beans - $(grep -c -E '^Group[[:blank:]]+MT2009_metinbean_' "$F") groups"
+# MT2009_PLUS_DT_DROPS_V1: the Demon Tower's brutal demons (1061-1071, the second life of every
+# demon of floors 2-9) drop the tower's upgrade items 30086 / 30087 and level-65 weapons +0 as junk
+# (the owner, 5 October) - one drop group each, merged by the engine with any group the mob has.
+# The level fade inside the tower is server-patches/raremobrules (MT2009_PLUS_DT_DROPS_V1 (delta)).
+COPY mob_drop_item.dtdrops.append.txt /tmp/mob_drop_item.dtdrops.append.txt
+RUN set -eu; F=/opt/metin2/share/locale/poland/mob_drop_item.txt; A=/tmp/mob_drop_item.dtdrops.append.txt \
+ && ! grep -q -E '^Group[[:blank:]]+MT2009_dtdrop_' "$F" \
+ && sed -i 's/\r$//; s/$/\r/' "$A" \
+ && { [ -z "$(tail -c 1 "$F")" ] || printf '\r\n' >> "$F"; } \
+ && cat "$A" >> "$F" \
+ && test "$(grep -c -E '^Group[[:blank:]]+MT2009_dtdrop_10(6[1-9]|7[01])([^0-9]|$)' "$F")" = 11 \
+ && rm -f "$A" \
+ && echo "share: Demon Tower brutal demons - 11 drop groups"
 
 # MT2009_PLUS_FLOWER_V1: the Flower Event's five gift boxes (83023-83027, Pudelko z Chryzantema ..
 # ze Slonecznikiem; playerbot_flower.h gives them for 10 shoots of a flower), opened by their
@@ -619,6 +639,17 @@ RUN set -eu; O=/opt/metin2/share/locale/poland/quest/object \
  && rm -rf "$O/monkey_curse" \
  && ! find "$O" -path "$O/state" -prune -o -name 'monkey_curse*' -print | grep -q . \
  && echo "share: monkey curse removed ($n handlers)"
+
+# MT2009_PLUS_KINGDOM_WAR_OFF_V1: the Kingdom War (the package's forked_road, the Battle
+# Executor's "Wojna Krolestw" and its GM start) is switched off - its maps (114,
+# 118-128) are hosted by no core and no client of this world has them, so "Wejdz"
+# went nowhere (the owner, 4 October: "Po prostu wylacz ja"). Its handlers go,
+# its state table stays; the Executor keeps its other options.
+RUN set -eu; O=/opt/metin2/share/locale/poland/quest/object \
+ && n=$(find "$O" -path "$O/state" -prune -o -type f -name 'forked_road.*' -print | wc -l) \
+ && find "$O" -path "$O/state" -prune -o -type f -name 'forked_road.*' -exec rm -f {} + \
+ && ! find "$O" -path "$O/state" -prune -o -type f -name 'forked_road.*' -print | grep -q . \
+ && echo "share: Kingdom War switched off ($n handlers)"
 
 # MT2009_PLUS_HORSE30_V1 (Digi Rasta's horse to level 30, quest konie): the stable
 # keeper trains the horse for a fee, so the package's training missions -

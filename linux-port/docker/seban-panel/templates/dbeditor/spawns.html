@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: "Respawn bossów i metinów" overview (dbeditor/spawns.py). #}
+{% block title %}Respawn bossów i metinów · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% set dbe_tab = 'spawns' %}{% include 'dbeditor/_mobs_common.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · RESPAWN</p>
+<h1>⏱️ Respawn bossów i metinów</h1>
+<p class="muted">Kto się pojawia, na jakiej mapie i co ile minut. Zmienisz czas, miejsca i liczbę, dodasz albo usuniesz wpis.
+  Każda zmiana czeka na restart gry („Zastosuj”); poprzednie wersje plików są w <a href="{{ url_for('dbeditor.spawn_backups') }}">kopiach</a>.</p>
+
+{% include 'dbeditor/_spawns_settings.html' %}
+
+<section class="panel">
+  <div class="dbe-section-head">
+    <h2>👑 Bossowie czasowi <small class="muted">special_spawns.txt</small></h2>
+    <a class="button dbe-small" href="{{ url_for('dbeditor.spawn_special') }}">➕ Dodaj bossa czasowego</a>
+  </div>
+  <p class="muted">Pojawiają się w jednym z kilku miejsc, co określony czas po zabiciu. {% if special_state.kind != 'ok' %}<span class="dbe-state-{{ special_state.kind }}">{{ special_state.text }}</span>{% endif %}</p>
+  <div class="dbe-scroll">
+  <table class="dbe-table compact">
+    <thead><tr><th>Boss</th><th>Mapa</th><th>Co ile</th><th>Ile naraz / miejsc</th><th>Pierwszy raz po starcie</th><th></th><th></th></tr></thead>
+    <tbody>
+    {% for s in specials %}
+      <tr>
+        <td>👑 <a href="{{ url_for('dbeditor.spawn_special', vnum=s.group.vnum) }}">{{ s.name }}</a>{% if s.level %} <small class="muted">poz. {{ s.level }}</small>{% endif %}
+          <br><small class="muted">{{ s.group.name }}{% if s.group.event_flag %} · tylko gdy wydarzenie „{{ s.group.event_flag }}”{% endif %}</small></td>
+        <td>{{ s.map_title }}</td>
+        <td><b>{{ s.when }}</b></td>
+        <td>{{ s.group.count }} / {{ s.places }}</td>
+        <td>{{ s.initial }}</td>
+        <td>{% if s.origin == 'changed' %}<span class="dbe-tag pending">zmieniony</span>{% elif s.origin == 'added' %}<span class="dbe-tag pending">dodany</span>{% endif %}</td>
+        <td><a class="button dbe-small" href="{{ url_for('dbeditor.spawn_special', vnum=s.group.vnum) }}">Edytuj</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="muted">Brak bossów czasowych.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if removed %}
+  <h3>Usunięci (wrócą po „Przywróć”)</h3>
+  <ul class="dbe-removed">
+  {% for grp in removed %}
+    <li>{{ grp.name }} ({{ mob_name(grp.spawn_vnum or 0) if grp.spawn_type == 'mob' else 'grupa ' ~ grp.spawn_vnum }})
+      <form method="post" action="{{ url_for('dbeditor.spawn_special_reset', vnum=grp.vnum) }}" class="dbe-inline">
+        <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+        <button class="dbe-small quiet-btn">↶ Przywróć z obrazu gry</button>
+      </form></li>
+  {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>🗺️ Bossowie i Metiny na mapach <small class="muted">boss.txt / stone.txt</small></h2>
+  <p class="muted">Stałe miejsca: każdy wiersz pliku to jeden boss, grupa albo Metin w danym obszarze mapy, odradzany co podany czas.</p>
+  <div class="dbe-scroll">
+  <table class="dbe-table compact">
+    <thead><tr><th>Mapa</th><th>Plik</th><th>Wierszy</th><th>Co ile (bazowo)</th><th>W grze</th><th>Bossowie</th><th>Stan</th><th></th></tr></thead>
+    <tbody>
+    {% for m in maps %}{% for file in m.files %}
+      <tr>
+        {% if loop.first %}<td rowspan="{{ m.files|length }}"><b>{{ m.title }}</b><br><small class="muted">{{ m.dir }}</small></td>{% endif %}
+        <td>{{ '👑' if file.kind == 'boss' else '🗿' }} {{ file.title }}</td>
+        <td>{{ file.rows }}</td>
+        <td>{% if file.high %}{{ range_text(file.low or file.high, file.high) }}{% else %}—{% endif %}</td>
+        <td>{% if file.eff_high %}{{ range_text(file.eff_low or file.eff_high, file.eff_high) }}{% else %}—{% endif %}</td>
+        <td class="dbe-bonus">{% for b in file.bosses %}{{ b.name }}{{ ', ' if not loop.last }}{% endfor %}</td>
+        <td>{% if file.origin == 'custom' %}<span class="dbe-tag {{ 'ok' if file.state.kind == 'ok' else 'pending' }}">zmieniony{{ ' · czeka' if file.state.pending }}</span>{% elif file.state.pending %}<span class="dbe-tag pending">czeka na restart</span>{% endif %}
+          {% if file.state.kind == 'error' %}<span class="dbe-tag dbe-error" title="{{ file.state.text }}">odrzucony</span>{% endif %}</td>
+        <td><a class="button dbe-small" href="{{ url_for('dbeditor.spawn_map', mapdir=m.dir) }}#plik-{{ file.kind }}">Edytuj</a></td>
+      </tr>
+    {% endfor %}{% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

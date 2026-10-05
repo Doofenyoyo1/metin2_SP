@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: Drop - every drop source at a glance (dbeditor/drops.py, drops_index). #}
+{% block title %}Drop · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/drops_head.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · DROP</p>
+<h1>💀 Drop – wszystkie grupy</h1>
+<p class="muted">Tu widać <b>wszystko, co wypada z potworów</b>, pogrupowane tak, jak czyta to gra. Grupę zmieniasz raz – zmiana dotyczy od razu wszystkich potworów, które jej używają. Szanse są podane „na jedno zabicie” (dla gracza na poziomie potwora, bez premium i eventów; serwerowa stawka dropu jeszcze je mnoży).</p>
+
+{% if pending %}
+<section class="panel dbd-status pending">
+  <p><b>Czeka na restart gry:</b></p>
+  <ul>{% for p in pending %}<li>{{ p.title }} – {{ p.text }}{% if p.detail %} <small class="muted">({{ p.detail }})</small>{% endif %}</li>{% endfor %}</ul>
+  <p class="muted">Kliknij <b>Zastosuj</b> na stronie <a href="{{ url_for('dbeditor.index') }}">Edytora bazy danych</a>, żeby gra wczytała zmiany (restart rdzeni).</p>
+</section>
+{% endif %}
+
+<section class="panel">
+  <form method="get" class="dbd-tools">
+    <label>Szukaj potwora albo przedmiotu (nazwa lub VNUM)<input type="search" name="q" value="{{ query }}" class="dbd-search" placeholder="np. Metin Walki, 8001, Zwój Błogosławieństwa, 25040"></label>
+    {% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
+    <button>🔍 Szukaj</button>
+    {% if query %}<a href="{{ url_for('dbeditor.drops_index', kind=kind) }}">wyczyść</a>{% endif %}
+  </form>
+  <p class="muted dbd-help">Wpisz nazwę przedmiotu, żeby zobaczyć <b>kto go dropi</b> (i z jaką szansą), albo nazwę potwora, żeby zobaczyć jego drop.</p>
+</section>
+
+<section class="panel">
+  <h2>Źródła dropu</h2>
+  <div class="dbd-sources">
+    <a class="dbd-source" href="{{ url_for('dbeditor.drops_common') }}">
+      <strong>Zwykły drop</strong><small>wszystkie potwory wg poziomu gracza i rangi potwora · common_drop_item.txt</small>
+      {% if common_counts %}<span class="dbd-big">{{ common_counts|sum }} pozycji</span><small>{% for n in common_counts %}{{ rank_names[loop.index0] }}: {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</small>{% else %}<small class="dbd-bad">gra nie opublikowała jeszcze tego pliku</small>{% endif %}
+      {% if common_source == 'custom' %}<span class="dbd-tag custom">zmieniony w panelu</span>{% endif %}
+    </a>
+    <a class="dbd-source" href="#zestawy">
+      <strong>Drop potworów (grupy)</strong><small>własny drop konkretnych potworów, Metinów i bossów · mob_drop_item.txt</small>
+      <span class="dbd-big">{{ st.sets|length }} zestawów</span>
+      <small>{% for k, n in kinds.items() %}{{ kind_names[k] }}: {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</small>
+      {% if st.custom %}<span class="dbd-tag custom">{{ st.custom|length }} grup zmienionych w panelu</span>{% endif %}
+    </a>
+    <a class="dbd-source" href="{{ url_for('dbeditor.drops_etc') }}">
+      <strong>Drop specjalny</strong><small>przedmiot wpisany potworowi w „drop_item” (np. Kamienie Duszy, materiały) · etc_drop_item.txt</small>
+      {% if etc_count is not none %}<span class="dbd-big">{{ etc_count }} pozycji</span>{% else %}<small class="dbd-bad">gra nie opublikowała jeszcze tego pliku</small>{% endif %}
+      {% if etc_source == 'custom' %}<span class="dbd-tag custom">zmieniony w panelu</span>{% endif %}
+    </a>
+    {% if 'dbeditor.chests_index' in dbd_endpoints %}
+    <a class="dbd-source" href="{{ url_for('dbeditor.chests_index') }}">
+      <strong>Szkatułki</strong><small>co jest w szkatułkach i skrzyniach · special_item_group.txt</small><span class="dbd-big">🧰</span>
+    </a>
+    {% endif %}
+    <div class="dbd-source">
+      <strong>Dodatkowe grupy dropu</strong><small>drop_item_group.txt – gra dokleja je do „Drop” potwora</small>
+      {% if not group_known %}<small>gra jeszcze nie opublikowała tego pliku (tylko podgląd)</small>
+      {% elif drop_groups %}<span class="dbd-big">{{ drop_groups|length }} grup</span><small>tylko podgląd</small>
+      {% else %}<small>plik jest pusty – ten serwer go nie używa</small>{% endif %}
+    </div>
+  </div>
+  <p class="muted dbd-help">Poza tymi plikami silnik gry sam dokłada m.in. Księgi Umiejętności i Kamienie Duszy z Metinów, Cor Draconis, Szkatułkę Blasku Księżyca i Kupony SM (ustawiane w „Zarządzanie grą”) – ich tu nie ma.</p>
+</section>
+
+{% if query %}
+<section class="panel">
+  <h2>Kto dropi… <small class="muted">przedmioty pasujące do „{{ query }}”</small></h2>
+  {% for w in who %}
+  <h3><span class="dbd-name">{% if w.icon %}<img src="{{ w.icon }}" alt="">{% endif %}<span>{{ w.item.name }} <small class="muted">VNUM {{ w.item.vnum }}</small></span></span></h3>
+  {% if w.places %}
+  <div class="table-wrap"><table class="dbd-table">
+    <thead><tr><th>Skąd</th><th>Kto / gdzie</th><th>Szansa</th><th>Warunek</th><th></th></tr></thead>
+    <tbody>{% for p in w.places %}<tr><td>{{ p.source }}</td><td>{{ p.who }}</td><td class="dbd-chance">{{ chance_text(p.pct) }}</td><td class="muted">{{ p.note }}</td><td>{% if p.link %}<a href="{{ p.link }}">Edytuj →</a>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">Nie wypada z żadnej grupy dropu ani szkatułki (może z questa albo ze sklepu).</p>{% endif %}
+  {% else %}<p class="muted">Żaden przedmiot nie pasuje.</p>{% endfor %}
+
+  {% if found_mobs %}
+  <h2>Potwory pasujące do „{{ query }}”</h2>
+  <div class="table-wrap"><table class="dbd-table">
+    <thead><tr><th>VNUM</th><th>Nazwa</th><th>Poziom</th><th>Ranga</th><th>Jego drop</th></tr></thead>
+    <tbody>
+    {% for m in found_mobs %}
+    <tr><td>{{ m.vnum }}</td><td>{{ m.name or '—' }} <span class="dbd-tag {{ m.kind }}">{{ m.kind_name }}</span></td><td>{{ m.level }}</td><td>{{ m.rank_name }}</td>
+      <td>{% for k, s in mob_sets_of(m.vnum) %}{% if s %}<a class="dbd-tag {{ 'custom' if s.custom else '' }}" href="{{ url_for('dbeditor.drops_set', set_id=s.id) }}">{{ kind_names[k] }} ({{ s['items']|length }}){% if s.mobs|length > 1 %} · wspólny z {{ s.mobs|length - 1 }}{% endif %}</a>{% endif %}{% else %}<span class="muted">brak własnego dropu (tylko zwykły drop{% if m.drop_item %} i specjalny{% endif %})</span>{% endfor %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="panel" id="zestawy">
+  <h2>Drop potworów – zestawy <small class="muted">{{ total }}{% if query %} pasujących do „{{ query }}”{% endif %}</small></h2>
+  <p class="muted dbd-help">Zestaw = potwory, które mają <b>dokładnie taki sam</b> drop jednego rodzaju. Zmiana zestawu zmienia drop wszystkich jego potworów naraz (możesz też odznaczyć niektóre).</p>
+  <nav class="dbd-tabs">
+    <a href="{{ url_for('dbeditor.drops_index', q=query or None) }}#zestawy" class="{{ 'on' if not kind else '' }}">Wszystkie ({{ st.sets|length }})</a>
+    {% for k, n in kinds.items() %}<a href="{{ url_for('dbeditor.drops_index', kind=k, q=query or None) }}#zestawy" class="{{ 'on' if kind == k else '' }}" title="{{ kind_help[k] }}">{{ kind_names[k] }} ({{ n }})</a>{% endfor %}
+  </nav>
+  <div class="dbd-sets">
+  {% for s in sets %}
+    <article class="dbd-set {{ 'custom' if s.custom else '' }}">
+      <header>
+        <h3>{{ kind_names[s.kind] }}{% if s.kind == 'kill' %} <small class="muted">co {{ s.kill_drop }} zabójstw</small>{% elif s.kind == 'limit' %} <small class="muted">gracz od poz. {{ s.level_limit }}</small>{% endif %}
+          {% if s.custom %}<span class="dbd-tag custom">zmieniony w panelu</span>{% endif %}
+          <small class="muted">· {{ s.mobs|length }} {{ 'potwór' if s.mobs|length == 1 else 'potworów' }} · {{ s['items']|length }} pozycji</small></h3>
+        <a href="{{ url_for('dbeditor.drops_set', set_id=s.id) }}">Edytuj grupę →</a>
+      </header>
+      <p class="dbd-members">{% for m in s.members[:10] %}<b>{{ m.name }}</b> <small>({{ m.vnum }}{% if m.info %}, poz. {{ m.info.level }}{% endif %})</small>{% if not loop.last %}, {% endif %}{% endfor %}{% if s.members|length > 10 %} i {{ s.members|length - 10 }} innych{% endif %}
+        {% if s.names %}<br><small>nazwa grupy w pliku: {{ s.names[:3]|join(', ') }}{% if s.names|length > 3 %}…{% endif %}</small>{% endif %}</p>
+      <div class="dbd-chips">{% for e in s.lines[:14] %}<span class="dbd-chip" title="{{ e.item }} × {{ e.count }}">{% if e.icon %}<img src="{{ e.icon }}" alt="">{% endif %}<span class="{{ 'dbd-bad' if e.bad else '' }}">{{ e.label }}{% if e.count|int > 1 %} ×{{ e.count }}{% endif %}</span><em>{{ pct_text(e.pct) }}</em></span>{% endfor %}{% if s.lines|length > 14 %}<span class="dbd-chip"><em>+{{ s.lines|length - 14 }} więcej</em></span>{% endif %}</div>
+    </article>
+  {% else %}
+    <p class="muted">Brak zestawów{% if query %} pasujących do wyszukiwania{% endif %}.</p>
+  {% endfor %}
+  </div>
+  {% if pages > 1 %}
+  <nav class="dbd-pager">{% for p in range(1, pages + 1) %}{% if p == page %}<span>{{ p }}</span>{% else %}<a href="{{ url_for('dbeditor.drops_index', kind=kind or None, q=query or None, page=p) }}#zestawy">{{ p }}</a>{% endif %}{% endfor %}</nav>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Nowy drop dla potworów</h2>
+  <p class="muted">Dla potworów, które jeszcze nie mają dropu tego rodzaju. Zaczynasz od jednej pozycji – resztę dodasz na stronie zestawu. Żeby dać potworom drop istniejącej grupy, otwórz ją i użyj „Skopiuj do innych potworów”.</p>
+  <form method="post" action="{{ url_for('dbeditor.drops_new') }}" class="dbd-tools">
+    <input type="hidden" name="dbe_csrf" value="{{ csrf }}"><input type="hidden" name="row_count" value="1">
+    <label>Rodzaj<select name="kind">{% for k, n in kind_help.items() %}<option value="{{ k }}">{{ n }}</option>{% endfor %}</select></label>
+    <label>Potwory (VNUM-y po przecinku)<input name="mobs" placeholder="np. 101, 102" required></label>
+    <label>Przedmiot (VNUM)<input name="r0_item" list="dbd-items" class="dbd-num" required></label>
+    <label>Ilość<input name="r0_count" type="number" min="1" value="1" class="dbd-num"></label>
+    <label>Szansa % (drop/poziom/rękawice)<input name="r0_pct" value="1" class="dbd-num" inputmode="decimal"></label>
+    <label>Waga (co N zabójstw)<input name="r0_weight" type="number" min="1" value="1" class="dbd-num"></label>
+    <label>Co ile zabójstw<input name="kill_drop" type="number" min="1" value="100" class="dbd-num"></label>
+    <label>Od poziomu gracza<input name="level_limit" type="number" min="0" max="250" value="1" class="dbd-num"></label>
+    <button>➕ Dodaj drop</button>
+  </form>
+</section>
+{% endblock %}

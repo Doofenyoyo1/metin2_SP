@@ -2264,6 +2264,9 @@ namespace
 				continue;
 			if (ch->GetParty() && IsPlayerBotHumanLedParty(ch->GetParty()))
 				continue;
+			// MT2009_PLUS_BOT_DUNGEON_RUNS_V1: nor one of the bots' own dungeon runs.
+			if (IsPlayerBotOnDungeonRun(it->first))
+				continue;
 			if (IsPlayerBotDropper(it->second.bPersonality))
 				continue;
 			// A rod or a pickaxe is no weapon (the duel learned this first).

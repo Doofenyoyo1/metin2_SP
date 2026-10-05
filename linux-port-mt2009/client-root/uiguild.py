@@ -1031,6 +1031,9 @@ class GuildWindow(ui.ScriptWindow):
 			try:
 				page.GetChild("DepositButton").SetEvent(ui.__mem_func__(self.__OnClickDepositButton))
 				page.GetChild("WithdrawButton").SetEvent(ui.__mem_func__(self.__OnClickWithdrawButton))
+				# MT2009_PLUS_GUILD_TREASURY_V1: the treasury pays only the land and the
+				# buildings (the server refuses a withdrawal), so no withdraw button.
+				page.GetChild("WithdrawButton").Hide()
 			except KeyError:
 				pass
 
@@ -1049,6 +1052,7 @@ class GuildWindow(ui.ScriptWindow):
 			page.guildDutyButton.Hide()
 			page.GetChild("OfferButton").SetEvent(ui.__mem_func__(self.__OnClickOfferButton))
 			page.GetChild("GuildWidthdrawMoney").SetEvent(ui.__mem_func__(self.__OnClickWithdrawButton))
+			page.GetChild("GuildWidthdrawMoney").Hide()  # MT2009_PLUS_GUILD_TREASURY_V1
 			page.GetChild("EnemyGuildCancel1").Hide()
 			page.GetChild("EnemyGuildCancel2").Hide()
 			page.GetChild("EnemyGuildCancel3").Hide()

@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: one monster of world.mob_proto (dbeditor/mobs.py mob_edit). #}
+{% block title %}{{ mob.display_name }} · Potwory · {{ panel_brand }}{% endblock %}
+{% macro val(col) %}{{ raw[col] if col in raw else mob[col] }}{% endmacro %}
+{% macro field(col, help='') %}
+  <label class="{{ 'dbe-boot' if col in boot_always }}">{{ specs[col].label }}
+    <input name="{{ col }}" type="number" min="{{ specs[col].min }}" max="{{ specs[col].max }}" value="{{ val(col) }}" required>
+    <small>{{ help }}{% if col in boot_always %} <b class="dbe-warn">⚠ wraca przy starcie</b>{% endif %}</small></label>
+{% endmacro %}
+{% block content %}
+{% set dbe_tab = 'mobs' %}{% include 'dbeditor/_mobs_common.html' %}
+<p><a href="{{ url_for('dbeditor.mobs', q=mob.display_name) }}">← Wyszukiwarka potworów</a></p>
+
+<section class="panel dbe-head">
+  <span class="dbe-mob-icon big k-{{ mob.kind }}">{{ mob.kind_icon }}</span>
+  <div>
+    <p class="eyebrow">{{ mob.kind_name|upper }} · VNUM {{ mob.vnum }}</p>
+    <h1>{{ mob.display_name }}</h1>
+    <p class="muted">Poziom {{ mob.level }} · {{ mob.rank_name }} · {{ mob.type_name }}{% if mob.aggressive %} · agresywny{% endif %}
+      · mnożnik obrażeń {{ mob.dam_multiply if mob.dam_multiply is not none else 1 }}
+      {% if mob.drop_item %} · drop specjalny: przedmiot {{ mob.drop_item }}{% endif %}</p>
+  </div>
+</section>
+
+{% if boot_notes %}
+<section class="panel dbe-boot-warning">
+  <p><strong>⚠️ {{ boot_warning }}</strong>: {% for c in boot_always %}{{ specs[c].label }}{{ ', ' if not loop.last }}{% endfor %}.</p>
+  <ul class="muted">{% for note, cols in boot_notes %}<li>{{ note }}</li>{% endfor %}</ul>
+  <p class="muted">Tak ustawia go skrypt startowy bazy (apply.sh). Pozostałe pola edytujesz normalnie.</p>
+</section>
+{% endif %}
+
+<form method="post" class="dbe-form">
+  <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+  <section class="panel">
+    <h2>Siła potwora</h2>
+    <div class="dbe-grid">
+      {{ field('max_hp', 'ile trzeba zadać obrażeń, żeby go zabić') }}
+      {{ field('damage_min', 'najsłabsze uderzenie (przed mnożnikiem obrażeń)') }}
+      {{ field('damage_max', 'najmocniejsze uderzenie') }}
+      {{ field('def', 'im wyżej, tym mniej obrażeń dostaje') }}
+      {{ field('level', 'od niego zależy m.in. kara do exp za różnicę poziomów') }}
+      <label class="{{ 'dbe-boot' if 'rank' in boot_always }}">{{ specs['rank'].label }}
+        <select name="rank">{% set cur = (raw['rank'] if 'rank' in raw else mob['rank'])|int %}{% for r, label in ranks.items() %}<option value="{{ r }}" {{ 'selected' if cur == r }}>{{ r }} – {{ label }}</option>{% endfor %}</select>
+        <small>Boss i Król liczą się jako bossowie (respawn „Metiny i bossy”, bonus „Silny przeciw bossom”).</small></label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Nagroda za zabicie</h2>
+    <div class="dbe-grid">
+      {{ field('exp', 'przed mnożnikiem doświadczenia serwera') }}
+      {{ field('gold_min', 'przed mnożnikiem yang serwera') }}
+      {{ field('gold_max', '') }}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Zachowanie</h2>
+    <input type="hidden" name="ai_flag_sent" value="1">
+    {% set flags = mob.flags %}
+    <label class="dbe-check big"><input type="checkbox" name="ai_flag" value="AGGR" {{ 'checked' if 'AGGR' in flags }}> {{ ai_labels['AGGR'] }}</label>
+    <div class="dbe-grid">
+      {{ field('aggressive_sight', 'jak daleko widzi gracza, gdy jest agresywny (zwykle 400–2000)') }}
+      {{ field('attack_speed', '100 = zwykła, 150 = o połowę szybciej') }}
+      {{ field('move_speed', '100 = zwykła, 150 = o połowę szybciej') }}
+    </div>
+    <details class="dbe-advanced">
+      <summary>Pozostałe flagi zachowania</summary>
+      <div class="dbe-flags">
+      {% for flag in ai_flags if flag != 'AGGR' %}
+        <label class="dbe-check"><input type="checkbox" name="ai_flag" value="{{ flag }}" {{ 'checked' if flag in flags }}> {{ ai_labels.get(flag, flag) }} <code>{{ flag }}</code></label>
+      {% endfor %}
+      </div>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2>Odporności</h2>
+    <p class="muted">W procentach: 20 = dostaje o 20% mniej obrażeń od tego rodzaju broni / żywiołu, ujemna = więcej.</p>
+    <div class="dbe-grid dense">
+      {% for key, label in resists %}{{ field('resist_' ~ key) }}{% endfor %}
+    </div>
+  </section>
+
+  <div class="dbe-actions">
+    <button type="submit">💾 Zapisz zmiany</button>
+    <span class="muted">Po zapisaniu zmiana czeka na restart gry („Zastosuj”). Poziom i nazwę nad głową potwora klient gracza bierze z własnych plików – w walce liczy się już nowa wartość.</span>
+  </div>
+</form>
+
+<section class="panel">
+  <h2>Gdzie się pojawia</h2>
+  {% if not has_index %}<p class="muted">Gra nie opublikowała jeszcze plików respawnu (obraz gry bez m2-spawns albo rdzenie jeszcze nie startowały).</p>
+  {% elif spawns %}
+  <table class="dbe-table compact">
+    <thead><tr><th>Mapa</th><th>Plik</th><th>Co ile (bazowo)</th><th>Ile naraz</th><th></th></tr></thead>
+    <tbody>
+    {% for s in spawns %}
+      <tr><td>{{ map_title(s.map) }}</td>
+        <td>{{ {'special': 'boss czasowy', 'boss': 'bossowie mapy', 'stone': 'Metiny mapy'}[s.kind] }}</td>
+        <td>{% if s.low %}{{ (s.low / 60)|round(1) }}{% if s.high != s.low %}–{{ (s.high / 60)|round(1) }}{% endif %} min{% else %}raz, przy starcie{% endif %}</td>
+        <td>{{ s.count }}</td>
+        <td>{% if s.kind == 'special' %}<a href="{{ url_for('dbeditor.spawn_special', vnum=s.vnum) }}">Edytuj respawn</a>{% else %}<a href="{{ url_for('dbeditor.spawn_map', mapdir=s.dir) }}#plik-{{ s.kind }}">Edytuj respawn</a>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted">Zwykłe potwory z regen.txt nie są tu wymienione.</p>
+  {% else %}<p class="muted">Nie ma go w plikach bossów, Metinów ani bossów czasowych (może pojawiać się w zwykłym respawnie, lochu albo z zadania).</p>{% endif %}
+</section>
+
+{% if history %}
+<section class="panel">
+  <h2>Ostatnie zmiany tego potwora</h2>
+  {% include 'dbeditor/_items_history_list.html' %}
+  <p><a href="{{ url_for('dbeditor.proto_history', tbl='world.mob_proto', key=mob.vnum) }}">Cała historia tego potwora →</a></p>
+</section>
+{% endif %}
+{% endblock %}

@@ -50,9 +50,18 @@
 //    is checked here again: the NPC by the vid the quest wrote (same map,
 //    25 m, talked to in the last 10 minutes), no other window, the ten
 //    distinct cells, each a skill book that is not locked or traded, the
-//    Yang. One piece of a stack is taken per cell. The Yang goes through
-//    PlayerBotChangeGold (mt2009 refuses PointChange(POINT_GOLD)).
-//    Answer: "NOWY_KSIEGI done <vnum>" (uiskillbookexchange.py).
+//    Yang. The Yang goes through PlayerBotChangeGold (mt2009 refuses
+//    PointChange(POINT_GOLD)).
+//    MT2009_PLUS_BOOK_EXCHANGE_V2: "/nowy_ksiegi x<times> <cells...>" - up to
+//    BOOK_MAX_CELLS cells, whole stacks counted (a stack of ten books is ten
+//    books), <times> exchanges in one order (1..BOOK_MAX_TIMES; without the
+//    "x" one, the old window's form). The books are taken from the cells in
+//    their order, 10 x <times> pieces, never more than the cells hold; the
+//    Yang is <times> x BOOK_COST. Everything is checked before anything is
+//    taken, the room in the bag too (the stacks the new books join, the
+//    cells the taken ones free) - nothing falls on the ground.
+//    Answer: "NOWY_KSIEGI done <vnum> <count>", one per kind of book given
+//    (uiskillbookexchange.py).
 #include "messenger_manager.h"
 
 namespace mt2009_digi_qol
@@ -109,6 +118,10 @@ namespace mt2009_digi_qol
 	const long long BOOK_COST = 250000;	// the owner, 3 October (was 1 000 000)
 	const int BOOK_COUNT = 10;
 	const DWORD BOOK_INSTR_BASE = 50400;	// "Instr." book = 50400 + skill vnum
+	// MT2009_PLUS_BOOK_EXCHANGE_V2: the window's cells (5 x 4) and the most
+	// exchanges one order may ask for (uiskillbookexchange.py has the same).
+	const size_t BOOK_MAX_CELLS = 20;
+	const int BOOK_MAX_TIMES = 100;
 
 	// Gives the daily gift when it is due; false while the quest flags are not loaded yet.
 	bool DailyGiftTry(LPCHARACTER ch)
@@ -239,6 +252,9 @@ void Mt2009DigiLevelUp(LPCHARACTER ch, int oldLevel)
 
 void Mt2009DigiDailyGift(LPCHARACTER ch)
 {
+	// MT2009_PLUS_DBDATA_STAMP_V1: this login hook also tells a person's client
+	// which client files (database editor) the server has (playerbot_dbdata_stamp.h).
+	Mt2009DbDataStampOnLogin(ch);
 	if (!mt2009_digi_qol::GIFT_ENABLED)
 		return;
 	using namespace mt2009_digi_qol;
@@ -335,10 +351,29 @@ ACMD(do_nowy_ksiegi)
 		return;
 	}
 
-	std::vector<LPITEM> books;
+	// MT2009_PLUS_BOOK_EXCHANGE_V2: "x<times>" first (none: one exchange), then
+	// the cells; whole stacks count, the books are taken in the cells' order.
 	char arg[64];
 	const char* rest = argument;
-	while (books.size() < (size_t)BOOK_COUNT)
+	int times = 1;
+	{
+		const char* next = one_argument(rest, arg, sizeof(arg));
+		if (arg[0] == 'x' || arg[0] == 'X')
+		{
+			times = 0;
+			str_to_number(times, arg + 1);
+			rest = next;
+			if (times < 1 || times > BOOK_MAX_TIMES)
+			{
+				ch->ChatPacket(CHAT_TYPE_INFO, "Od 1 do %d wymian naraz.", BOOK_MAX_TIMES);
+				return;
+			}
+		}
+	}
+
+	std::vector<LPITEM> books;
+	long long have = 0;
+	while (books.size() < BOOK_MAX_CELLS)
 	{
 		rest = one_argument(rest, arg, sizeof(arg));
 		if (!*arg)
@@ -347,21 +382,24 @@ ACMD(do_nowy_ksiegi)
 		str_to_number(cell, arg);
 		LPITEM book = (cell >= 0 && cell < (int)ch->GetInventoryMaxCount() && cell < INVENTORY_MAX_NUM) ? ch->GetInventoryItem(cell) : NULL;
 		if (!book || book->GetType() != ITEM_SKILLBOOK || book->isLocked() || book->IsExchanging() || book->IsEquipped() ||
-			std::find(books.begin(), books.end(), book) != books.end())
+			book->GetCount() < 1 || std::find(books.begin(), books.end(), book) != books.end())
 		{
 			ch->ChatPacket(CHAT_TYPE_INFO, "Ksi" "\xea" "gi si" "\xea" " zmieni" "\xb3" "y - u" "\xb3" "\xf3" "\xbf" " je od nowa.");
 			return;
 		}
 		books.push_back(book);
+		have += (long long)book->GetCount();
 	}
-	if (books.size() != (size_t)BOOK_COUNT)
+	const long long need = (long long)times * BOOK_COUNT;
+	if (have < need)
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, "Potrzeba 10 ksi" "\xb9" "g.");
+		ch->ChatPacket(CHAT_TYPE_INFO, "Potrzeba %lld ksi" "\xb9" "g (w oknie: %lld).", need, have);
 		return;
 	}
-	if ((long long)ch->GetGold() < BOOK_COST)
+	const long long cost = (long long)times * BOOK_COST;
+	if ((long long)ch->GetGold() < cost)
 	{
-		ch->ChatPacket(CHAT_TYPE_INFO, "Za ma" "\xb3" "o Yang (250 000).");
+		ch->ChatPacket(CHAT_TYPE_INFO, "Za ma" "\xb3" "o Yang (potrzeba %lld).", cost);
 		return;
 	}
 
@@ -379,17 +417,82 @@ ACMD(do_nowy_ksiegi)
 		return;
 	}
 
+	// MT2009_PLUS_BOOK_EXCHANGE_V2: how many pieces each cell gives (in order,
+	// 10 x times in all), and the cells a whole stack taken frees.
+	std::map<LPITEM, long long> taken;
+	long long left = need;
+	int freed = 0;
+	for (size_t i = 0; i < books.size() && left > 0; ++i)
+	{
+		const long long count = (long long)books[i]->GetCount();
+		const long long take = std::min(count, left);
+		taken[books[i]] = take;
+		left -= take;
+		if (take == count)
+			freed += books[i]->GetSize();
+	}
+
+	// The rewards, rolled first, then the room they need: the stacks of the
+	// same book (as they will be after the taking) and empty cells.
+	std::map<DWORD, int> rolled;
+	for (int t = 0; t < times; ++t)
+		++rolled[rewards[number(0, (int)rewards.size() - 1)]];
+	int cellsNeeded = 0;
+	for (std::map<DWORD, int>::const_iterator it = rolled.begin(); it != rolled.end(); ++it)
+	{
+		const TItemTable* proto = ITEM_MANAGER::instance().GetTable(it->first);
+		const long long maxStack = std::max<long long>(1, proto ? (long long)proto->dwMaxStack : 1);
+		long long room = 0;
+		if (proto && (proto->dwFlags & ITEM_FLAG_STACKABLE) && proto->bType != ITEM_BLEND)
+		{
+			for (int i = 0; i < ch->GetInventoryMaxCount(); ++i)
+			{
+				LPITEM held = ch->GetInventoryItem(i);
+				if (!held || held->GetVnum() != it->first)
+					continue;
+				bool plain = true;	// AutoStackItemProto joins only a stack with the proto's sockets
+				for (int j = 0; j < ITEM_SOCKET_MAX_NUM; ++j)
+					if (held->GetSocket(j) != proto->alSockets[j])
+						plain = false;
+				if (!plain)
+					continue;
+				std::map<LPITEM, long long>::const_iterator tk = taken.find(held);
+				const long long after = (long long)held->GetCount() - (tk != taken.end() ? tk->second : 0);
+				if (after > 0 && after < maxStack)
+					room += maxStack - after;
+			}
+		}
+		const long long over = (long long)it->second - room;
+		if (over > 0)
+			cellsNeeded += (int)((over + maxStack - 1) / maxStack) * std::max<int>(1, proto ? proto->bSize : 1);
+	}
+	if (cellsNeeded > ch->CountEmptyInventory() + freed)
+	{
+		ch->ChatPacket(CHAT_TYPE_INFO, "Zr" "\xf3" "b miejsce w ekwipunku (potrzeba %d wolnych p" "\xf3" "l).", cellsNeeded);
+		return;
+	}
+
 	for (size_t i = 0; i < books.size(); ++i)
 	{
+		std::map<LPITEM, long long>::const_iterator tk = taken.find(books[i]);
+		if (tk == taken.end() || tk->second <= 0)
+			continue;
 		LPITEM book = books[i];
-		if (book->GetCount() > 1)
-			book->SetCount(book->GetCount() - 1);
+		if ((long long)book->GetCount() > tk->second)
+			book->SetCount((ITEM_COUNT)((long long)book->GetCount() - tk->second));
 		else
 			ITEM_MANAGER::instance().RemoveItem(book, "DIGI_QOL_BOOKS");
 	}
-	PlayerBotChangeGold(ch, -BOOK_COST);
-	const DWORD dwReward = rewards[number(0, (int)rewards.size() - 1)];
-	ch->AutoGiveItem(dwReward, 1);
-	LogManager::instance().CharLog(ch, dwReward, "DIGI_QOL_BOOKS", "");
-	ch->ChatPacket(CHAT_TYPE_COMMAND, "NOWY_KSIEGI done %u", dwReward);
+	PlayerBotChangeGold(ch, -cost);
+	for (std::map<DWORD, int>::const_iterator it = rolled.begin(); it != rolled.end(); ++it)
+	{
+		// One at a time: each joins a stack or takes an empty cell (CreateItem
+		// cuts a count over the stack's limit).
+		for (int n = 0; n < it->second; ++n)
+			ch->AutoGiveItem(it->first, 1, -1, false);
+		char hint[32];
+		snprintf(hint, sizeof(hint), "x%d", it->second);
+		LogManager::instance().CharLog(ch, it->first, "DIGI_QOL_BOOKS", hint);
+		ch->ChatPacket(CHAT_TYPE_COMMAND, "NOWY_KSIEGI done %u %d", it->first, it->second);
+	}
 }

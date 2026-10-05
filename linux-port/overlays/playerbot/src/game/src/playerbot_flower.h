@@ -46,13 +46,26 @@
 // for shoots actually given (Owsap took them when the counters were full and
 // its "all full" test could never be true); one counter update per exchange;
 // the counters change before the reward is given and only after the room is
-// checked (no second claim, no lost reward); bots never get seeds nor use the
-// window; the GC packet goes only to a client whose exe sent the CG packet in
+// checked (no second claim, no lost reward); bots never use the window (but
+// see below); the GC packet goes only to a client whose exe sent the CG packet in
 // this session (an older exe would stop at the unknown header).
 //
 // Counters are kept from one event to the next (Owsap did the same): what a
 // player collected is never taken away.
+//
+// MT2009_PLUS_BOT_FLOWER_V1 (the owner, 5 October: "Naucz boty grac w Dzieci
+// Kwiaty", every bot): a bot's kill rolls the seed with a player's chance and
+// the seed goes to the same counter (PlayerBotFlowerSeed); the bots' pass
+// (playerbot_minigames.h) exchanges the seeds and the shoots through
+// ExchangeSeeds / ExchangeShoots below - the window's own exchange - and the
+// boxes are opened by the bots' chest pass like any gift box.
 #include <sys/stat.h>
+
+// MT2009_PLUS_BOT_FLOWER_V1: a bot's seed (playerbot_minigames.h, later in the unit).
+namespace
+{
+	void PlayerBotFlowerSeed(LPCHARACTER ch);
+}
 
 namespace mt2009_flower
 {
@@ -544,7 +557,9 @@ namespace mt2009_flower
 void FlowerEventOnKill(LPCHARACTER victim, LPCHARACTER killer, int iDeltaPercent, int iRandRange)
 {
 	using namespace mt2009_flower;
-	if (!victim || victim->IsPC() || !Eligible(killer) || iRandRange <= 0 || !Running())
+	// MT2009_PLUS_BOT_FLOWER_V1: a bot's kill rolls the same seed.
+	const bool bot = killer && killer->IsPC() && killer->GetDesc() && killer->GetDesc()->IsBot();
+	if (!victim || victim->IsPC() || (!bot && !Eligible(killer)) || iRandRange <= 0 || !Running())
 		return;
 	const TSettings& s = Settings();
 	if (s.seedChance <= 0 || killer->GetLevel() < s.minLevel)
@@ -554,7 +569,12 @@ void FlowerEventOnKill(LPCHARACTER victim, LPCHARACTER killer, int iDeltaPercent
 	// with seed_chance hundredths of a percent.
 	const long long pct = (long long)iDeltaPercent * s.seedChance * iRandRange / 1000000LL;
 	if (pct >= number(1, iRandRange))
-		GiveSeed(killer, s);
+	{
+		if (bot)
+			PlayerBotFlowerSeed(killer);
+		else
+			GiveSeed(killer, s);
+	}
 }
 
 // CInputMain::Analyze, HEADER_CG_FLOWER_EVENT (MT2009_PLUS_FLOWER_V1 (input)).

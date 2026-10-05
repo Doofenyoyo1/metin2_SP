@@ -256,6 +256,10 @@ namespace
 				item->GetCell() >= PLAYERBOT_BAG_CELLS || !IsPlayerBotCraftExchangeVnum(item->GetVnum()) ||
 				!IsPlayerBotTradeableMaterial(item))
 			return false;
+		// MT2009_PLUS_SIDEKICK_KEEP_VALUABLES_V1: a companion's materials are
+		// its owner's, not the Dozorca's.
+		if (IsPlayerBotSidekickServing(ch))
+			return false;
 		if (GetPlayerBotItemPolicy(item) != PLAYERBOT_ITEM_POLICY_NONE ||
 				PlayerBotNeedsRefineMaterial(ch, item->GetVnum()))
 			return false;

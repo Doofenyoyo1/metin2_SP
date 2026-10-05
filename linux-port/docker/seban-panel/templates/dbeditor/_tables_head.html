@@ -1,0 +1,13 @@
+{#- MT2009_PLUS_DB_EDITOR_V1: the common top of the attrs / exptable / fishing pages. -#}
+<link rel="stylesheet" href="{{ url_for('static', filename='dbeditor-tables.css') }}">
+<nav class="dbt-crumbs">
+  <a href="{{ url_for('dbeditor.index') }}">🗄️ Edytor bazy danych</a>
+  {% for ep, label in [('dbeditor.attrs', '🎲 Bonusy'), ('dbeditor.exptable', '📈 Tabela doświadczenia'), ('dbeditor.fishing', '🎣 Łowienie ryb'), ('dbeditor.proto_history', '🕘 Historia zmian'), ('dbeditor.config_page', '📤 Eksport / import'), ('dbeditor.apply_page', '✅ Zastosuj')] %}
+    {% if ep in dbt_endpoints %}<a href="{{ url_for(ep) }}">{{ label }}</a>{% endif %}
+  {% endfor %}
+</nav>
+{% if pending is defined and pending %}
+<section class="panel dbt-note warn" role="status">
+  <p><b>⏳ {{ pending|length }} zmian(y) z tej strony czeka na zastosowanie.</b> Baza / plik są już zmienione, ale gra wczyta je dopiero po restarcie rdzeni – kliknij <b>Zastosuj</b>{% if 'dbeditor.apply_page' in dbt_endpoints %} na stronie <a href="{{ url_for('dbeditor.apply_page') }}">Zastosuj</a>{% endif %}.</p>
+</section>
+{% endif %}

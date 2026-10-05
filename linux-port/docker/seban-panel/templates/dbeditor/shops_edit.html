@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: one NPC shop (dbeditor/shops.py shop_edit). #}
+{% block title %}{{ shop.label }} · Sklepy NPC · {{ panel_brand }}{% endblock %}
+{% macro val(name, default) %}{{ raw[name] if name in raw else default }}{% endmacro %}
+{% block content %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% set dbe_tab = 'shops' %}{% include 'dbeditor/_shops_common.html' %}
+<p><a href="{{ url_for('dbeditor.shops') }}">← Wszystkie sklepy</a></p>
+
+<section class="panel">
+  <p class="eyebrow">SKLEP NPC #{{ shop.vnum }}{% if shop.npc_vnum %} · NPC {{ shop.npc_vnum }}{% endif %}</p>
+  <h1>🛒 {{ shop.label }}</h1>
+  <p class="muted">{% if shop.npc_vnum %}{% if shop.places %}Stoi w: {{ shop.places|join(', ') }}. {% endif %}Każdy NPC tej rasy ma ten sam sklep.{% else %}Ten sklep nie ma NPC – otwiera go zadanie albo GM.{% endif %}
+  {% if shop.name and shop.name != shop.label %}Nazwa w bazie: „{{ shop.name }}”.{% endif %}</p>
+  {% if shop.bots %}<p class="dbe-warn">🤖 Boty kupują tu broń i zbroje (po cenie ze sklepu) – usunięcie towaru albo wyższa cena zmienia to, czym walczą boty.</p>{% endif %}
+</section>
+
+<section class="panel dbs-help">
+  <h2>Jak to działa w grze</h2>
+  <ul class="muted">
+    <li><b>Cena</b> to cena przedmiotu (jedna dla wszystkich sklepów i widoczna w opisie przedmiotu u graczy) × ilość w paczce. Gracz z innego królestwa płaci ×3.</li>
+    <li><b>Odkup</b>: za sprzedany przedmiot NPC płaci 1/5 ceny odkupu × ilość, minus podatek 3–20% (+3–8% za przedmioty powyżej 40. poziomu).</li>
+    <li><b>Kolejność</b> w oknie ustala gra – po numerze przedmiotu (VNUM). Okno ma 5×8 pól; broń i zbroje zajmują 2–3 pola w pionie. Czego nie da się zmieścić, gra pomija – edytor na to nie pozwoli.</li>
+  </ul>
+</section>
+
+{% if boot_added %}
+<section class="panel" style="border-left:4px solid #f5b83d">
+  <p><strong>⚠️ Skrypt startowy (apply.sh) dodaje do tego sklepu przy każdym starcie:</strong>
+  {% for b in boot_added %}{{ b.note }} ×{{ b.count }}{{ ', ' if not loop.last }}{% endfor %}. Usunięte – wrócą po restarcie.</p>
+</section>
+{% endif %}
+
+<form method="post" class="dbs-form" data-api="{{ url_for('dbeditor.api_items') if 'dbeditor.api_items' in url_map_endpoints else '' }}">
+  <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+  <input type="hidden" name="action" value="save">
+  <input type="hidden" name="rows_n" value="{{ lines|length }}">
+  <section class="panel">
+    <h2>Towary <small class="muted">{{ lines|length }} / {{ max_lines }}</small></h2>
+    <div class="dbs-layout">
+    <div class="dbs-table-wrap">
+    <table class="dbe-table compact dbs-goods">
+      <thead><tr><th>Przedmiot</th><th>Ilość</th><th>Gracz płaci</th><th>Cena za 1 szt.</th><th>Odkup (cena odkupu)</th><th>Usuń</th></tr></thead>
+      <tbody>
+      {% for l in lines %}{% set i = loop.index0 %}
+        <tr class="{{ 'dbs-nofit' if not l.fits }}">
+          <td class="item-cell"><input type="hidden" name="item_{{ i }}" value="{{ l.item_vnum }}"><input type="hidden" name="count0_{{ i }}" value="{{ l.count }}">
+            <a href="{{ url_for('dbeditor.item_edit', vnum=l.item_vnum) if 'dbeditor.item_edit' in url_map_endpoints else '#' }}">{% set icon = item_icon(l.item_vnum) %}{% if icon %}<img src="{{ icon }}" alt="" loading="lazy">{% else %}<span class="dbe-noicon">?</span>{% endif %}<span>{{ l.item.name }}</span></a>
+            <small class="muted">#{{ l.item_vnum }}{% if l.others %} · też w {{ l.others|length }} inn. sklep.{% endif %}{% if l.boot_added %} · <span class="dbe-warn">dodawany przy starcie</span>{% endif %}{% if not l.fits %} · <span class="dbe-error">nie mieści się w oknie</span>{% endif %}</small></td>
+          <td><input class="dbs-count" type="number" name="count_{{ i }}" min="1" max="{{ [l.item.stack, 1]|max }}" value="{{ val('count_%d' % i, l.count) }}"></td>
+          <td class="dbs-price" data-gold="{{ l.item.gold }}">{{ '{:,}'.format(l.price).replace(',', ' ') }} Yang</td>
+          {% if l.first %}
+          <td><input class="dbs-gold" type="number" name="gold_{{ l.item_vnum }}" min="0" value="{{ val('gold_%d' % l.item_vnum, l.item.gold) }}">
+            {% if l.boot_cols and 'gold' in l.boot_cols %}<small class="dbe-error">ustawiana przy starcie</small>{% endif %}
+            {% for n in l.boot_partial %}<small class="dbe-warn">{{ n }}</small>{% endfor %}</td>
+          <td><input class="dbs-buy" type="number" name="buy_{{ l.item_vnum }}" min="0" value="{{ val('buy_%d' % l.item_vnum, l.item.shop_buy_price) }}">
+            <small class="muted dbs-sell">gracz dostaje ok. {{ '{:,}'.format(l.sell).replace(',', ' ') }} za ×{{ l.count }}</small>
+            {% if l.boot_cols and 'shop_buy_price' in l.boot_cols %}<small class="dbe-error">ustawiana przy starcie</small>{% endif %}</td>
+          {% else %}
+          <td colspan="2" class="muted">jak wyżej (cena jest jedna dla przedmiotu)</td>
+          {% endif %}
+          <td><label class="dbe-check"><input type="checkbox" name="del_{{ i }}" value="1" {{ 'checked' if raw.get('del_%d' % i) == '1' }}> usuń</label></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+      <tbody class="dbs-new">
+        {% set n_new = (raw.get('new_n', '1')|int) if raw else 1 %}
+        {% for j in range([n_new, 1]|max) %}
+        <tr>
+          <td><input class="dbs-item" name="new_item_{{ j }}" list="dbs-items" placeholder="nowy towar: VNUM lub nazwa" value="{{ raw.get('new_item_%d' % j, '') }}" autocomplete="off"> <span class="dbs-name muted"></span></td>
+          <td><input type="number" name="new_count_{{ j }}" min="1" value="{{ raw.get('new_count_%d' % j, '1') }}"></td>
+          <td></td>
+          <td><input type="number" name="new_gold_{{ j }}" min="0" placeholder="cena bez zmian" value="{{ raw.get('new_gold_%d' % j, '') }}"></td>
+          <td colspan="2"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <input type="hidden" name="new_n" class="dbs-new-n" value="{{ [ (raw.get('new_n', '1')|int) if raw else 1, 1]|max }}">
+    <template class="dbs-new-template"><tr>
+      <td><input class="dbs-item" name="new_item___j__" list="dbs-items" placeholder="nowy towar: VNUM lub nazwa" autocomplete="off"> <span class="dbs-name muted"></span></td>
+      <td><input type="number" name="new_count___j__" min="1" value="1"></td><td></td>
+      <td><input type="number" name="new_gold___j__" min="0" placeholder="cena bez zmian"></td><td colspan="2"></td></tr></template>
+    <datalist id="dbs-items"></datalist>
+    <p><button type="button" class="dbs-add quiet-btn dbe-small">+ Dodaj kolejny towar</button>
+       <small class="muted">Wpisz VNUM albo kawałek nazwy i wybierz z listy.</small></p>
+    </div>
+
+    <div class="dbs-window" aria-label="Okno sklepu w grze" style="--w:{{ grid_w }};--h:{{ grid_h }}">
+      {% for g in grid %}{% set icon = item_icon(g.item_vnum) %}
+        <span class="dbs-cell" style="grid-column:{{ g.col }};grid-row:{{ g.row }} / span {{ g.size }}" title="{{ items[g.item_vnum].name }} ×{{ g.count }}">{% if icon %}<img src="{{ icon }}" alt="">{% else %}?{% endif %}{% if g.count > 1 %}<b>{{ g.count }}</b>{% endif %}</span>
+      {% endfor %}
+      <small class="dbs-window-note muted">Tak wygląda okno sklepu w grze (5×8).</small>
+    </div>
+    </div>
+    <div class="dbe-actions">
+      <button>💾 Zapisz sklep</button>
+      <span class="muted">Ceny i odkup zmieniają się dla przedmiotu we wszystkich sklepach.</span>
+    </div>
+  </section>
+</form>
+
+<section class="panel">
+  <h2>Wszystkie ceny w tym sklepie naraz</h2>
+  <form method="post" class="dbe-search dbs-mass">
+    <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+    <input type="hidden" name="action" value="mass">
+    <label>Pomnóż ceny przez<input name="factor" value="0,8" size="6"></label>
+    <span class="dbs-quick">{% for f in ['0,5', '0,8', '1,2', '1,5', '2'] %}<button type="button" class="quiet-btn dbe-small" data-factor="{{ f }}">×{{ f }}</button>{% endfor %}</span>
+    <label class="dbe-check"><input type="checkbox" name="with_buy" value="1"> zmień też cenę odkupu</label>
+    <button data-confirm="Zmienić ceny wszystkich przedmiotów w tym sklepie? Zmienią się też w innych sklepach, które je sprzedają.">Zmień ceny</button>
+  </form>
+  <p class="muted">Ceny zaokrąglane do 1 Yang. Gdy odkup byłby wyższy niż cena, nic się nie zmieni – zaznacz wtedy „zmień też cenę odkupu”.</p>
+</section>
+
+{% if history %}
+<section class="panel">
+  <h2>Ostatnie zmiany tego sklepu</h2>
+  {% include 'dbeditor/_items_history_list.html' %}
+</section>
+{% endif %}
+<script src="{{ static_asset_url('dbeditor-shops.js') }}" data-page-script></script>
+{% endblock %}

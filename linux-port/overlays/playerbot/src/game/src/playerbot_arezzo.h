@@ -12,7 +12,8 @@
 //         empire's M2, Straznik Wzgorza in the Hwang Temple, Straznik Ruin on the Fire Land) are
 //         spawned here instead of npc.txt: on while the module is on, gone while it is off;
 //       - a player (not a GM) on an Arezzo map or in one of its dungeons while the module is
-//         off is sent to his empire's town.
+//         off is sent to his empire's town - but the operator's dungeon test cohort on its
+//         own dungeon's map (playerbot_arezzo_dungeon_bots.h).
 // The client always has the files (client 2.0.30+); without the module nothing on the server
 // leads there. The event flags reach a core a moment after its boot, so the first look waits
 // START_DELAY_SECONDS.
@@ -127,6 +128,13 @@ namespace mt2009_arezzo
 		{
 			LPCHARACTER ch = (*d)->GetCharacter();
 			if (!ch || !ch->IsPC() || ch->IsGM() || !IsArezzoMap(ch->GetMapIndex()))
+				continue;
+			// MT2009_PLUS_AREZZO_DUNGEON_BOTS_V1: the operator's dungeon test cohort
+			// on its own dungeon's map, on the core that hosts it, is the test's
+			// (playerbot_arezzo_dungeon_bots.h, the test server runs with
+			// M2_AREZZO=0). On game2 this warp to the town was refused (no town
+			// there) and the cohort ran; on game1 it lands, and every 20 s.
+			if (IsPlayerBotArezzoDungeonCohortHome(ch))
 				continue;
 			std::map<DWORD, DWORD>::iterator it = s_warped.find(ch->GetPlayerID());
 			if (it != s_warped.end() && now - it->second < (DWORD) WARP_RETRY_SECONDS)

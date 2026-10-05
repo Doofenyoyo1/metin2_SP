@@ -86,7 +86,21 @@ NOT_OURS = {'AKTUALIZACJE_MOD.md', 'MODS_PL.md', 'MOD_VERSION', 'SERWER_PL.md',
             # Rasta's horse to level 30): its git dropped them and its package
             # still carries the old copies, which nothing compiles any more.
             'linux-port/docker/game/quest/horse_levelup.quest',
-            'linux-port/docker/game/quest/pony_levelup.quest'}
+            'linux-port/docker/game/quest/pony_levelup.quest',
+            # The database editor's client bases (its 2.22.0) as they stood on
+            # its build machine before they were committed: the base of client
+            # 2.0.51, the 2.0.52 base's first indexes and a first overlay.py.
+            # Its git has none of them; the panel reads the newest base alone.
+            'linux-port/docker/seban-panel/m2clientpack/overlay.py',
+            'linux-port/docker/seban-panel/m2clientpack/base/2.0.51/base.json',
+            'linux-port/docker/seban-panel/m2clientpack/base/2.0.51/gamedata.index',
+            'linux-port/docker/seban-panel/m2clientpack/base/2.0.51/locale.index',
+            'linux-port/docker/seban-panel/m2clientpack/base/2.0.51/files/gamedata/item_proto',
+            'linux-port/docker/seban-panel/m2clientpack/base/2.0.51/files/gamedata/skilltable.txt',
+            'linux-port/docker/seban-panel/m2clientpack/base/2.0.51/files/locale/pl/itemdesc.txt',
+            'linux-port/docker/seban-panel/m2clientpack/base/2.0.51/files/locale/pl/skilldesc.txt',
+            'linux-port/docker/seban-panel/m2clientpack/base/2.0.52/gamedata.index',
+            'linux-port/docker/seban-panel/m2clientpack/base/2.0.52/locale.index'}
 
 
 def published(rel):

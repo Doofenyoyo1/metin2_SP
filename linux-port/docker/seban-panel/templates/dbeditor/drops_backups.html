@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: the drop files' backups (dbeditor/drops.py, drops_backups). #}
+{% block title %}Kopie zapasowe dropu · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/drops_head.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · DROP · KOPIE ZAPASOWE</p>
+<h1>Kopie zapasowe dropu</h1>
+<p class="muted">Każdy zapis (tu i na starej stronie „Drop z potworów”) najpierw odkłada poprzednią wersję pliku zmian – najnowsze 100 kopii każdego pliku. Przywrócenie też najpierw zapisuje kopię obecnego stanu, więc niczego nie tracisz. Kopia „bez zmian” oznacza stan z obrazu gry.</p>
+<section class="panel">
+  {% if backups %}
+  <div class="table-wrap"><table class="dbd-table">
+    <thead><tr><th>Kopia z</th><th>Plik</th><th>Zawartość</th><th></th></tr></thead>
+    <tbody>
+    {% for b in backups %}
+    <tr><td>{{ b.time.strftime('%Y-%m-%d %H:%M:%S') }}</td><td>{{ b.title }}</td>
+      <td>{% if b.empty %}<span class="muted">bez zmian (obraz gry)</span>{% else %}<a href="{{ url_for('dbeditor.drops_backup_view', key=b.key, name=b.name) }}" target="_blank">podgląd ({{ (b.size / 1024)|round(1) }} KB)</a>{% endif %}</td>
+      <td><form method="post" action="{{ url_for('dbeditor.drops_restore') }}" class="dbd-form">
+        <input type="hidden" name="dbe_csrf" value="{{ csrf }}"><input type="hidden" name="key" value="{{ b.key }}"><input type="hidden" name="backup" value="{{ b.name }}">
+        <button data-confirm="Przywrócić tę kopię? Obecny stan trafi do kopii.">↺ Przywróć</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">Brak kopii – nic jeszcze nie zapisano.</p>{% endif %}
+</section>
+{% endblock %}

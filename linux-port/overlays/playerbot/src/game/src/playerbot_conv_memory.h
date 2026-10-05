@@ -20,6 +20,9 @@
 // longer (CONV_MEMORY_TTL_MS) and is capped in count by the engine side.
 
 #include "playerbot_conv_intents.h"
+// MT2009_PLUS_BOT_DUNGEON_LFG_V1: the dungeon finder's words (TTalk, the yes
+// and the no, the dungeons' names) - pure, like this file.
+#include "playerbot_dungeon_lfg_rules.h"
 
 namespace playerbot_conv
 {
@@ -44,6 +47,102 @@ namespace playerbot_conv
 	const size_t CONV_TURNS = 4;
 	const size_t CONV_RECENT_TEMPLATES = 12;
 
+	// MT2009_PLUS_BOT_CHAT_V2 (deals): a trade talked over on the whisper -
+	// the bot buying what a person sells (its own "K> ..." post answered, or
+	// an offer) or selling what it has in its bag. The talk is here; the
+	// exchange window that completes it is the engine's
+	// (playerbot_chat_deals.h), told of the agreement by IConvWorld::DealAgreed.
+	const u32 CONV_DEAL_TTL_MS = 12 * 60 * 1000;
+	enum EDealState
+	{
+		DEAL_NONE = 0,
+		DEAL_OPEN,       // talking: price and count
+		DEAL_AGREED,     // both settled, waiting for the exchange window
+		DEAL_DONE,
+		DEAL_FAILED
+	};
+	enum EDealSide
+	{
+		DEAL_BOT_BUYS = 1,
+		DEAL_BOT_SELLS = 2
+	};
+
+	// MT2009_PLUS_BOT_CHAT_V2 (deals): why the bot takes or gives fewer pieces
+	// than the person named - said, never silently cut (the owner, 4 October:
+	// "5" answered with "2 szt po 158k" and no word why).
+	enum EDealCap
+	{
+		DEAL_CAP_NONE = 0,
+		DEAL_CAP_NEED,    // it does not need more (its post's count, its want)
+		DEAL_CAP_PURSE,   // its yang does not stretch further
+		DEAL_CAP_HAVE     // it has only so many to sell
+	};
+
+	// The landmark a bot waits at for a deal's window.
+	enum EDealSpot
+	{
+		DEAL_SPOT_NONE = 0,
+		DEAL_SPOT_SMITH,  // the village's blacksmith (20016)
+		DEAL_SPOT_STALL   // its own stall, which it does not leave
+	};
+
+	// Where the two of a settled deal meet, as the engine arranged it
+	// (IConvWorld::DealAgreed, IConvWorld::DealMeet). The owner, 4 October:
+	// "Boty niech podaja dokladna lokalizacje ... typu jestem w m1 yongan
+	// bede czekac przy kowalu" - a village, a landmark in it, and the channel
+	// when it is not the person's.
+	struct TDealMeetPlace
+	{
+		int kind;           // EDealMeet (playerbot_conv_state.h)
+		long map;           // the village (or the bot's map) it waits on, 0 none
+		int spot;           // EDealSpot
+		int channel;        // the bot's channel
+		bool otherChannel;  // the person plays on another one
+		bool arrived;       // standing at the spot (or never had to go)
+		TDealMeetPlace() : kind(-1), map(0), spot(DEAL_SPOT_NONE), channel(0), otherChannel(false), arrived(false) {}
+	};
+
+	// "ide", "czekaj", "zaraz bede", "chwila" - the person on the way to a
+	// meeting, or asking the bot to wait for them.
+	inline bool DealComingWords(const TTokens& t)
+	{
+		static const char* const k[] = { "ide", "idziemy", "czekaj", "poczekaj", "zaczekaj", "czekej", "chwila",
+			"chwile", "chwilka", "chwileczke", "moment", "sek", "sec", "zaraz", "bede", "lece", "biegne", "jade",
+			"dojde", "dochodze", "przychodze", "teleportuje", "tepam", "przelaczam", "zmieniam", "przelacze",
+			"zmienie", "toba", "kowala", "kowalu", "jestem" };
+		for (size_t i = 0; i < sizeof(k) / sizeof(k[0]); ++i)
+			if (t.Has(k[i]))
+				return true;
+		return false;
+	}
+
+	struct TDeal
+	{
+		unsigned char state;
+		unsigned char side;
+		u32 vnum;
+		u32 skill;            // a skill book's skill (socket 0), 0 any other item
+		std::string name;
+		int count;            // pieces settled on, 0 not yet
+		int maxCount;         // the most the bot takes / has
+		long long offer;      // the bot's price per piece now
+		long long ask;        // the person's last price per piece, 0 none
+		long long limit;      // the most the bot pays / the least it takes, per piece
+		long long fair;       // what the market says a piece is worth
+		int rounds;           // counter-offers made
+		bool priceSettled;
+		bool fromPost;        // an answer to the bot's own public post
+		int capWhy;           // EDealCap: what maxCount stands for
+		TDealMeetPlace meet;  // once agreed: where the window is
+		u32 at;
+		TDeal() : state(DEAL_NONE), side(0), vnum(0), skill(0), count(0), maxCount(0), offer(0), ask(0), limit(0), fair(0),
+			rounds(0), priceSettled(false), fromPost(false), capWhy(DEAL_CAP_NONE), at(0) {}
+		bool Live(u32 now) const
+		{
+			return (state == DEAL_OPEN || state == DEAL_AGREED) && at != 0 && now - at < CONV_DEAL_TTL_MS;
+		}
+	};
+
 	enum EBotAsk
 	{
 		ASK_NONE = 0,
@@ -52,7 +151,8 @@ namespace playerbot_conv
 		ASK_TOPIC,         // "A ty lubisz zime?" - botAskTopic says which
 		ASK_JOIN,          // "Idziesz na exp?"
 		ASK_FOUND,         // "Znalazles cos ciekawego?"
-		ASK_SUMMON         // "Po co mam przyjsc?" - a stranger called the bot over
+		ASK_SUMMON,        // "Po co mam przyjsc?" - a stranger called the bot over
+		ASK_REAL           // MT2009_PLUS_BOT_CHAT_V2: "a ty skad jestes?" after the bot's own city
 	};
 
 	enum ETier
@@ -148,6 +248,32 @@ namespace playerbot_conv
 		u32 gearReasonAt;
 		// Generic answers in a row ("Aha, rozumiem."): the second one steers.
 		int fallbackStreak;
+		// MT2009_PLUS_BOT_CHAT_V2: the bot's patience with this person, 0..100.
+		// Insults, spam, the same question over and over and lines nothing
+		// understood wear it down; time and kindness bring it back
+		// (UpdatePatience). Low, the bot answers shortly, then rarely, then
+		// not at all.
+		int patience;
+		u32 patienceAt;
+		// How often each of these was asked lately: the answer moves on
+		// ("serio, jestem botem, beep boop xd" the third time).
+		int botAsked;
+		int begAsked;
+		int jokesTold;
+		// The rate limit: lines in the current minute, and the bot ignoring
+		// the person until mutedUntil after it said it would.
+		u32 rateStart;
+		int rateLines;
+		u32 mutedUntil;
+		// The trade talked over now (TDeal).
+		TDeal deal;
+		// MT2009_PLUS_BOT_DUNGEON_LFG_V1: what the bot asked the person about
+		// a dungeon (playerbot_dungeon_lfg.h): "moge przyjsc?", "na jaki
+		// dung?", or that it waits at the entrance. Set by the engine when the
+		// offer goes out, read by ResolveContext, moved on by the answer's
+		// generator (GenLfgAnswer) and cleared by the engine when it is over.
+		// Kept through ClearContext, as the deal is: it has its own clock.
+		playerbot_lfg::TTalk lfg;
 
 		TConvMemory() : playerPID(0), botPID(0), firstAt(0), lastPlayerAt(0), lastBotAt(0),
 			lastInitiativeAt(0), lastCheckAt(0), talks(0), sessions(0), positive(0), negative(0),
@@ -156,7 +282,8 @@ namespace playerbot_conv
 			botAskTopic(T_NONE), botAskAt(0), recentIndex(0), moodMentionAt(0), greetedAt(0),
 			lastKnownLevel(0), repeatCount(0), quietUntil(0), lastSaidMap(0), lastSaidMapAt(0),
 			prevSaidMap(0), prevSaidMapAt(0), levelSaidAt(0), levelSaid(0), gearSaidAt(0), gearReasonAt(0),
-			fallbackStreak(0)
+			fallbackStreak(0), patience(100), patienceAt(0), botAsked(0), begAsked(0), jokesTold(0),
+			rateStart(0), rateLines(0), mutedUntil(0)
 		{
 			for (size_t i = 0; i < CONV_RECENT_TEMPLATES; ++i)
 				recentTemplates[i] = 0;
@@ -208,6 +335,25 @@ namespace playerbot_conv
 	inline bool IsQuiet(const TConvMemory& m, u32 now)
 	{
 		return m.quietUntil != 0 && (int)(m.quietUntil - now) > 0;
+	}
+
+	// MT2009_PLUS_BOT_CHAT_V2: patience. A point back every 20 s of quiet, up
+	// to a hundred; `delta` is what this line costs (negative) or gives.
+	const u32 CONV_PATIENCE_REGEN_MS = 20 * 1000;
+
+	inline void UpdatePatience(TConvMemory& m, int delta, u32 now)
+	{
+		if (m.patienceAt != 0 && now - m.patienceAt >= CONV_PATIENCE_REGEN_MS)
+		{
+			const u32 regained = (now - m.patienceAt) / CONV_PATIENCE_REGEN_MS;
+			m.patience += regained > 100 ? 100 : (int)regained;
+		}
+		m.patienceAt = now;
+		m.patience += delta;
+		if (m.patience > 100)
+			m.patience = 100;
+		if (m.patience < 0)
+			m.patience = 0;
 	}
 
 	// A map the bot has just named in a reply.
@@ -283,6 +429,145 @@ namespace playerbot_conv
 				a.repeated = true;
 		}
 
+		// MT2009_PLUS_BOT_DUNGEON_LFG_V1: the bot offered to come along to a
+		// dungeon, asked which one, or waits at its entrance. A yes, a no, or
+		// (to "na jaki dung?") the dungeon's name is the answer to that,
+		// whatever the line would read as alone: "chodz" is not "come over to
+		// me" here, "nie" not a reaction, "ok" not a nod. Anything else - a
+		// question of its own, "nie wiem" - is answered as ever and the offer
+		// keeps its clock.
+		if (m.lfg.Live(now) && a.tokens.words.size() <= playerbot_lfg::MAX_ANSWER_WORDS)
+		{
+			int difficulty = 0;
+			const std::string named = m.lfg.state == playerbot_lfg::TALK_ASKED
+					? playerbot_lfg::FindDungeonKey(a.tokens, difficulty) : std::string();
+			const int yesNo = playerbot_lfg::ParseYesNo(a.tokens);
+			int answer = playerbot_lfg::ANSWER_NONE;
+			if (!named.empty() && yesNo >= 0)
+			{
+				answer = playerbot_lfg::ANSWER_CHOOSE;
+				a.lfgKey = named;
+				a.lfgDifficulty = difficulty;
+			}
+			else if (yesNo < 0)
+				answer = playerbot_lfg::ANSWER_NO;
+			else if (yesNo > 0)
+				answer = m.lfg.state == playerbot_lfg::TALK_ASKED ? playerbot_lfg::ANSWER_WHICH : playerbot_lfg::ANSWER_YES;
+			if (answer != playerbot_lfg::ANSWER_NONE)
+			{
+				a.intent = I_LFG_ANSWER;
+				a.subject = I_LFG_ANSWER;
+				a.lfgAnswer = answer;
+				return;
+			}
+		}
+
+		// MT2009_PLUS_BOT_CHAT_V2 (deals): while a trade is talked over, a
+		// price, a count, a yes or a no is about that trade - unless the line
+		// names another item, which is a new one.
+		if (m.deal.Live(now) && a.tokens.words.size() <= 12)
+		{
+			const TConceptSet& c = a.concepts;
+			const bool otherItem = !a.object.empty() && !m.deal.name.empty() &&
+					!ItemNameMatches(m.deal.name.c_str(), a.object) && (a.intent == I_BUY || a.intent == I_SELL);
+			const bool dealish = a.offerYang > 0 || a.dealCount > 0 || c.Has(C_AGREE) || c.Has(C_YES) ||
+					c.Has(C_NO) || c.Has(C_ACK) || c.Has(C_PRICEQ) || c.Has(C_HOWMUCH) || c.Has(C_STILL) ||
+					a.intent == I_BUY || a.intent == I_SELL || a.intent == I_PRICE || a.intent == I_GOLD ||
+					a.tokens.Has("drogo") || a.tokens.Has("malo") || a.tokens.Has("tanio") || a.tokens.Has("wiecej") ||
+					a.tokens.Has("mniej") || a.tokens.Has("taniej") || a.tokens.Has("drozej") || a.tokens.Has("gdzie") ||
+					a.tokens.Has("wymiane") || a.tokens.Has("wymiana") || a.tokens.Has("handel");
+			// Agreed and waiting for the window: "czekaj ide za toba", "juz
+			// ide", "zaraz bede", "chwila", "gdzie jestes?" are about the
+			// meeting (the small talk answered them "hehe, moze", and "juz
+			// ide" read as a purchase of "ide").
+			const bool meeting = (m.deal.state == DEAL_AGREED && a.tokens.words.size() <= 8 &&
+					(DealComingWords(a.tokens) || c.Has(C_WHERE) || a.tokens.Has("jestes") ||
+					 a.tokens.Has("kanal") || a.tokens.Has("ch"))) ||
+					// Still talking: "czekaj", "chwila" - a moment to think.
+					(m.deal.state == DEAL_OPEN && a.tokens.words.size() <= 3 && DealComingWords(a.tokens));
+			if ((meeting || (dealish && !otherItem)) && !IsColdIntent((EIntent)a.intent) && a.intent != I_FAREWELL &&
+					a.intent != I_THANKS && a.intent != I_MATH)
+			{
+				a.intent = I_DEAL;
+				a.subject = I_DEAL;
+				return;
+			}
+		}
+		// A trade talked about and then just the item's name ("buty ognistego
+		// ptaka", "a fms?"), or "a moge ci sprzedac?" with the item a line
+		// before: the same trade, about that item.
+		if ((base == I_BUY || base == I_SELL || base == I_SHOP || base == I_PRICE || base == I_ITEM_OWN ||
+				base == I_MARKET || base == I_DEAL) && prev)
+		{
+			if ((a.intent == I_SELL || a.intent == I_BUY || a.intent == I_PRICE) && a.object.empty() &&
+					!prev->object.empty())
+			{
+				a.object = prev->object;
+				a.subject = a.intent;
+				return;
+			}
+			const bool bareItem = a.tokens.words.size() <= 6 && !a.question && !a.concepts.Has(C_YOU) &&
+					(a.concepts.Has(C_ITEMWORD) || a.concepts.Has(C_GEAR) || a.intent == I_EQUIPMENT ||
+					 a.intent == I_UNKNOWN_STATEMENT);
+			const bool bareItemAsked = a.tokens.words.size() <= 6 && (a.concepts.Has(C_ITEMWORD) ||
+					a.concepts.Has(C_GEAR)) && (a.intent == I_EQUIPMENT || a.intent == I_UNKNOWN_QUESTION ||
+					a.intent == I_ITEM_OWN || a.intent == I_FOLLOW_UP);
+			if (bareItem || bareItemAsked)
+			{
+				a.intent = base == I_SELL ? I_SELL : (base == I_PRICE ? I_PRICE : I_BUY);
+				a.subject = a.intent;
+				a.object = ExtractTradeObject(a.tokens, 0);
+				return;
+			}
+		}
+
+		// MT2009_PLUS_BOT_CHAT_V2: "jeszcze jeden", "dawaj kolejny", "jeszcze"
+		// after a joke is another joke; "a na 45?" after a question about
+		// where the Metins or the exp of a level are is the same question for
+		// another level.
+		if (base == I_JOKE && a.tokens.words.size() <= 5 && a.intent != I_JOKE &&
+				(a.concepts.Has(C_MORE) || a.tokens.Has("jeszcze") || a.tokens.Has("dawaj") ||
+				 a.tokens.Has("kolejny") || a.tokens.Has("nastepny")) && !IsColdIntent((EIntent)a.intent))
+		{
+			a.intent = I_JOKE;
+			a.subject = I_JOKE;
+			return;
+		}
+		if ((base == I_WHERE_METIN || base == I_WHERE_EXP) && a.tokens.words.size() <= 5 &&
+				(a.intent == I_UNKNOWN_QUESTION || a.intent == I_UNKNOWN_STATEMENT || a.intent == I_FOLLOW_UP ||
+				 a.intent == I_LEVEL))
+		{
+			for (size_t i = 0; i < a.tokens.words.size(); ++i)
+			{
+				const std::string& w = a.tokens.words[i];
+				int v = 0;
+				bool digits = !w.empty() && w.size() <= 3;
+				for (size_t k = 0; k < w.size() && digits; ++k)
+				{
+					if (w[k] < '0' || w[k] > '9')
+						digits = false;
+					else
+						v = v * 10 + (w[k] - '0');
+				}
+				if (digits && v >= 1 && v <= 120)
+				{
+					a.intent = base;
+					a.subject = base;
+					a.levelAsked = v;
+					return;
+				}
+			}
+		}
+		// "a w real?" after the bot's empire or its map: real life.
+		if ((base == I_ORIGIN || base == I_LOCATION || base == I_REAL_LIFE) && a.tokens.words.size() <= 4 &&
+				(a.tokens.Has("real") || a.tokens.Has("realu") || a.tokens.Has("irl") ||
+				 (a.concepts.Has(C_CITY) && IsQuestionLine(a))))
+		{
+			a.intent = I_REAL_LIFE;
+			a.subject = I_REAL_LIFE;
+			return;
+		}
+
 		// An answer to what the bot asked. Only when the line is not a new
 		// question and not one of the fixed social moves. The summon and its
 		// release are moves of their own too ("chodz tu" again, "mozesz isc");
@@ -304,7 +589,11 @@ namespace playerbot_conv
 				!IsArgumentIntent((EIntent)a.intent) && a.intent != I_MATH &&
 				a.intent != I_BUY && a.intent != I_SELL &&
 				(a.intent != I_PARTY_REQUEST || m.botAsk == ASK_SUMMON) &&
-				a.intent != I_SUMMON && a.intent != I_DISMISS && a.intent != I_THANKS)
+				a.intent != I_SUMMON && a.intent != I_DISMISS && a.intent != I_THANKS &&
+				// MT2009_PLUS_BOT_CHAT_V2: requests of their own, never an answer
+				a.intent != I_JOKE && a.intent != I_BEG && a.intent != I_MEET && a.intent != I_GENDER &&
+				a.intent != I_WHERE_METIN && a.intent != I_WHERE_EXP && a.intent != I_IS_BOT &&
+				(a.intent != I_REAL_LIFE || m.botAsk == ASK_REAL))
 		{
 			a.subject = (EIntent)a.intent;
 			a.intent = I_ANSWER_TO_BOT;
@@ -493,6 +782,31 @@ namespace playerbot_conv
 			m.quietUntil = 0;
 		if (a.repeated)
 			++m.repeatCount;
+		// MT2009_PLUS_BOT_CHAT_V2: what the line does to the bot's patience.
+		{
+			int delta = 0;
+			if (a.intent == I_INSULT || a.concepts.Has(C_INSULT))
+				delta -= 18;
+			else if (a.intent == I_THREAT)
+				delta -= 12;
+			else if (a.intent == I_MOCK)
+				delta -= 5;
+			if (a.repeated)
+				delta -= 8;
+			if (a.intent == I_UNKNOWN_QUESTION || a.intent == I_UNKNOWN_STATEMENT)
+				delta -= 3;
+			if (a.intent == I_BEG)
+				delta -= 6;
+			if (a.intent == I_THANKS || a.intent == I_PRAISE || a.thanksToo)
+				delta += 10;
+			if (a.intent == I_APOLOGY)
+				delta += 35;
+			UpdatePatience(m, delta, now);
+			if (a.intent == I_IS_BOT)
+				++m.botAsked;
+			if (a.intent == I_BEG)
+				++m.begAsked;
+		}
 		// "lubie zime" - one thing to remember about the person.
 		const int lubie = a.tokens.Find("lubie");
 		if (lubie >= 0)

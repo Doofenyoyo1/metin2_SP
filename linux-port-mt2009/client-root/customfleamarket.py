@@ -9,6 +9,7 @@ import localeinfo_point
 import skill
 import net
 import app
+import wndMgr
 import localeInfo
 import uiCommon
 import player
@@ -177,12 +178,17 @@ SORT_MODES = (
 )
 
 # CUSTOM_FLEA_BONUS_FILTER_V1: (nazwa stalej w module "player", etykieta PL) -
-# wyselekcjonowany zestaw bonusow do filtra "Filtry" (do 5 naraz, kazdy z
-# progiem minimalnym). Caly filtr dziala po stronie klienta na juz pobranych
-# ofertach (kazda oferta ma "attrs" - krotke (bType, sValue) - wyslana przez
-# natywny modul ikashop, wiec serwer nie musi nic wiedziec o tym filtrze).
-# Pelna liste wszystkich mozliwych bonusow ma AFFECT_DICT w localeinfo_point.py
-# - tu tylko te, ktore graczy faktycznie interesuja przy zakupie ekwipunku.
+# bonusy do filtra "Filtry" (do 5 naraz, kazdy z progiem minimalnym). Caly
+# filtr dziala po stronie klienta na juz pobranych ofertach (kazda oferta ma
+# "attrs" - krotke (bType, sValue) - wyslana przez natywny modul ikashop, wiec
+# serwer nie musi nic wiedziec o tym filtrze). bType to numer POINT_* (ten sam,
+# ktory zna localeinfo_point.AFFECT_DICT i dymek przedmiotu - w tym silniku nie
+# ma osobnych APPLY_*), wiec porownanie attr[0] == player.POINT_* dziala dla
+# kazdego bonusu z tej listy.
+# MT2009_PLUS_FLEA_BONUS_SCROLL_V1: najpierw te 22, ktore gracze wybieraja
+# najczesciej (kolejnosc jak dawniej), potem WSZYSTKIE pozostale bonusy, ktore
+# klient umie nazwac (AFFECT_DICT) - alfabetycznie, bez punktow wewnetrznych
+# (BONUS_FILTER_SKIP).
 BONUS_FILTER_DEFS = (
     ("POINT_MAX_HP", "Max PZ"),
     ("POINT_MAX_SP", "Max PM"),
@@ -208,6 +214,122 @@ BONUS_FILTER_DEFS = (
     ("POINT_ITEM_DROP_BONUS", "Bonus do dropu"),
 )
 
+# MT2009_PLUS_FLEA_BONUS_SCROLL_V1: krotkie polskie nazwy reszty bonusow z
+# localeinfo_point.AFFECT_DICT (w liscie ida alfabetycznie, po tych 22 wyzej).
+# Bonus z AFFECT_DICT, ktorego tu nie ma (np. dopisany w przyszlosci), dostaje
+# nazwe z tekstu dymka (_LabelFromTooltip) - tak zeby lista zawsze byla pelna.
+BONUS_FILTER_EXTRA_LABELS = {
+    "POINT_HT": "Witalnosc",
+    "POINT_IQ": "Inteligencja",
+    "POINT_ST": "Sila",
+    "POINT_DX": "Zrecznosc",
+    "POINT_CASTING_SPEED": "Szybkosc zaklec",
+    "POINT_HP_REGEN": "Regeneracja PZ",
+    "POINT_SP_REGEN": "Regeneracja PM",
+    "POINT_POISON_PCT": "Szansa na otrucie",
+    "POINT_STUN_PCT": "Szansa na omdlenie",
+    "POINT_SLOW_PCT": "Szansa na spowolnienie",
+    "POINT_FIRE_PCT": "Szansa na podpalenie",
+    "POINT_ATTBONUS_MONSTER": "Bonus vs Potwory",
+    "POINT_ATTBONUS_HUMAN": "Bonus vs Ludzie",
+    "POINT_ATTBONUS_ANIMAL": "Bonus vs Zwierzeta",
+    "POINT_ATTBONUS_ORC": "Bonus vs Orki",
+    "POINT_ATTBONUS_MILGYO": "Bonus vs Mistycy",
+    "POINT_ATTBONUS_UNDEAD": "Bonus vs Nieumarli",
+    "POINT_ATTBONUS_DEVIL": "Bonus vs Diably",
+    "POINT_ATTBONUS_STONE": "Bonus vs Metiny",
+    "POINT_ATTBONUS_BOSS": "Bonus vs Bossy",
+    "POINT_ATT_SPECIAL": "Bonus vs Bossy/Metiny",
+    "POINT_ATTBONUS_ORC_VALLEY": "Bonus w Dolinie Seungryong",
+    "POINT_MANA_BURN_PCT": "Szansa na kradziez PM",
+    "POINT_DAMAGE_SP_RECOVER": "Transfer obrazen do PM",
+    "POINT_RESIST_SWORD": "Odpornosc: miecze",
+    "POINT_RESIST_TWOHAND": "Odpornosc: bron dwureczna",
+    "POINT_RESIST_DAGGER": "Odpornosc: sztylety",
+    "POINT_RESIST_BELL": "Odpornosc: dzwony",
+    "POINT_RESIST_FAN": "Odpornosc: wachlarze",
+    "POINT_RESIST_FIRE": "Odpornosc: ogien",
+    "POINT_RESIST_ELEC": "Odpornosc: blyskawice",
+    "POINT_RESIST_WIND": "Odpornosc: wiatr",
+    "POINT_RESIST_ICE": "Odpornosc: lod",
+    "POINT_RESIST_EARTH": "Odpornosc: ziemia",
+    "POINT_RESIST_DARK": "Odpornosc: mrok",
+    "POINT_RESIST_WARRIOR": "Odpornosc: Wojownik",
+    "POINT_RESIST_ASSASSIN": "Odpornosc: Ninja",
+    "POINT_RESIST_SURA": "Odpornosc: Sura",
+    "POINT_RESIST_SHAMAN": "Odpornosc: Szaman",
+    "POINT_RESIST_HUMAN": "Odpornosc: ludzie",
+    "POINT_RESIST_MONSTER_1000PCT": "Odpornosc: potwory",
+    "POINT_RESIST_CRITICAL": "Odpornosc: cios krytyczny",
+    "POINT_RESIST_PENETRATE": "Odpornosc: przebicie",
+    "POINT_RESIST_NORMAL_DAMAGE": "Odpornosc: ataki fizyczne",
+    "POINT_NORMAL_HIT_DEFEND_BONUS": "Odpornosc: srednie obrazenia",
+    "POINT_SKILL_DEFEND_BONUS": "Odpornosc: obrazenia umiejetnosci",
+    "POINT_POISON_REDUCE": "Odpornosc: trucizny",
+    "POINT_IMMUNE_SLOW": "Odpornosc na spowolnienie",
+    "POINT_IMMUNE_FALL": "Odpornosc na upadek",
+    "POINT_IMMUNE_STUN_BREAK": "Przebicie odpornosci na omdlenie",
+    "POINT_REFLECT_MELEE": "Odbicie ciosu",
+    "POINT_REFLECT_ARROW": "Odbicie pocisku",
+    "POINT_KILL_SP_RECOVER": "Odzysk PM po zabiciu",
+    "POINT_KILL_HP_RECOVERY": "Odzysk PZ po zabiciu",
+    "POINT_HIT_HP_RECOVERY": "Zlodziej zycia",
+    "POINT_POTION_BONUS": "Bonus mikstur",
+    "POINT_BOW_DISTANCE": "Zasieg luku",
+    "POINT_DEF_GRADE_BONUS": "Obrona",
+    "POINT_DEF_BONUS": "Wzmocnienie obrony",
+    "POINT_MAGIC_ATT_GRADE_BONUS": "Wartosc magicznego ataku",
+    "POINT_MAGIC_DEF_GRADE_BONUS": "Magiczna obrona",
+    "POINT_MAGIC_ATT": "Obrazenia magiczne",
+    "POINT_MAGIC_ATT_MONSTER": "Obrazenia magiczne vs potwory",
+    "POINT_MAGIC_ATT_GRADE_BONUS_MONSTER": "Magiczny atak vs potwory",
+    "POINT_MAGIC_ATT_BONUS_PER": "Magiczny atak %",
+    "POINT_MELEE_MAGIC_ATT_BONUS_PER": "Atak magiczny/fizyczny %",
+    "POINT_ATT_GRADE_MONSTER": "Wartosc ataku vs potwory",
+    "POINT_DAGGER_ATT_GRADE_MONSTER": "Atak sztyletem vs potwory",
+    "POINT_SKILL_DAMAGE_BONUS": "Obrazenia umiejetnosci",
+    "POINT_SKILL_DURATION": "Czas trwania umiejetnosci",
+    "POINT_MAX_HP_PCT": "Max PZ %",
+    "POINT_MAX_SP_PCT": "Max PM %",
+    "POINT_MAX_STAMINA": "Max wytrzymalosc",
+    "POINT_ST_REGEN": "Regeneracja wytrzymalosci",
+    "POINT_ABSORB_DAMAGE": "Absorpcja obrazen",
+    "POINT_ABSORB_DAMAGE_MONSTER": "Absorpcja obrazen od potworow",
+    "POINT_BREAK_TEMPLE_CURSE": "Zlamanie klatwy swiatyni",
+    "POINT_BREAK_RESIST_SWORD": "Zlamanie odpornosci: miecze",
+    "POINT_BREAK_RESIST_TWOHAND": "Zlamanie odpornosci: bron 2-r.",
+    "POINT_BREAK_RESIST_DAGGER": "Zlamanie odpornosci: sztylety",
+    "POINT_BREAK_RESIST_BELL": "Zlamanie odpornosci: dzwony",
+    "POINT_BREAK_RESIST_FAN": "Zlamanie odpornosci: wachlarze",
+    "POINT_BREAK_RESIST_BOW": "Zlamanie odpornosci: luki",
+    "POINT_DROP_RARE": "Szansa na przedmiot z bonusem",
+    "POINT_MALL_ATTBONUS": "Wartosc ataku %",
+    "POINT_MALL_DEFBONUS": "Obrona %",
+    "POINT_MALL_EXPBONUS": "Punkty doswiadczenia %",
+    "POINT_MALL_ITEMBONUS": "Mnoznik dropu przedmiotow",
+    "POINT_MALL_GOLDBONUS": "Mnoznik dropu yang",
+}
+
+# MT2009_PLUS_FLEA_BONUS_SCROLL_V1: punkty z AFFECT_DICT, ktore nie sa bonusem
+# przedmiotu (przemiana, iCafe, energia/kostium, szansa nauki z ksiegi, efekty
+# umiejetnosci) - nie ma ich w liscie wyboru.
+BONUS_FILTER_SKIP = (
+    "POINT_POLYMORPH",
+    "POINT_PC_BANG_EXP_BONUS",
+    "POINT_PC_BANG_DROP_BONUS",
+    "POINT_ENERGY",
+    "POINT_COSTUME_ATTR_BONUS",
+    "POINT_LEARN_CHANCE",
+    "POINT_TERROR",
+    "POINT_ATT_BONUS",
+    "POINT_CURSE_PCT",
+    "POINT_CONVERT_DAMAGE_TO_SP",
+    "POINT_DEATH_PENALTY",
+)
+# klucze AFFECT_DICT, ktore nie sa stalymi POINT_* silnika (991 = klientowy
+# "rare pct" dymka)
+BONUS_FILTER_SKIP_VALUES = (991,)
+
 # localeinfo_point.ATTR_MAX_VALUES (silnikowa tabela) nie ma wpisu dla kazdego
 # z powyzszych - tu nadpisania/dopelnienia dla tych, ktore gracze podali z
 # wlasnego doswiadczenia (np. Srednie obrazenia losuja sie do +60%).
@@ -215,17 +337,73 @@ BONUS_FILTER_MAX_OVERRIDES = {
     "POINT_NORMAL_HIT_DAMAGE_BONUS": 60,
 }
 
+_TOOLTIP_FORMAT_RE = re.compile(r'[+-]?%[-+ #0-9.]*[a-zA-Z]|%%')
+
+
+def _LabelFromTooltip(value):
+    # tekst dymka ("Maks. PZ: +%d", "Odpornosc na Ogien: %d%%") bez liczby -
+    # tylko dla bonusu spoza BONUS_FILTER_EXTRA_LABELS
+    text = localeinfo_point.AFFECT_DICT.get(value)
+    if callable(text):
+        try:
+            text = text.func_closure[0].cell_contents
+        except (AttributeError, IndexError, TypeError):
+            text = None
+    if not isinstance(text, str):
+        return None
+    text = _TOOLTIP_FORMAT_RE.sub("", text)
+    text = " ".join(text.split()).strip(" :+-.")
+    return text or None
+
 
 def BuildBonusFilterOptions():
+    skip = set(BONUS_FILTER_SKIP_VALUES)
+    for constName in BONUS_FILTER_SKIP:
+        value = getattr(player, constName, None)
+        if value is not None:
+            skip.add(value)
+
+    maxByValue = {}
+    for constName, maxValue in BONUS_FILTER_MAX_OVERRIDES.items():
+        value = getattr(player, constName, None)
+        if value is not None:
+            maxByValue[value] = maxValue
+
+    def WithMax(value, label):
+        maxValue = maxByValue.get(value) or localeinfo_point.ATTR_MAX_VALUES.get(value)
+        if maxValue and maxValue > 1:
+            if value in localeinfo_point.POINT_1000PCT_Tuple:
+                return "%s (maks. %.1f)" % (label, maxValue / 10.0)
+            return "%s (maks. %d)" % (label, maxValue)
+        return label
+
     options = []
+    seen = set()
     for constName, label in BONUS_FILTER_DEFS:
         value = getattr(player, constName, None)
-        if value is None:
+        if value is None or value in seen:
             continue
-        maxValue = BONUS_FILTER_MAX_OVERRIDES.get(constName) or localeinfo_point.ATTR_MAX_VALUES.get(value)
-        if maxValue:
-            label = "%s (maks. %d)" % (label, maxValue)
-        options.append((value, label))
+        seen.add(value)
+        options.append((value, WithMax(value, label)))
+
+    labelByValue = {}
+    for constName, label in BONUS_FILTER_EXTRA_LABELS.items():
+        value = getattr(player, constName, None)
+        if value is not None:
+            labelByValue[value] = label
+
+    rest = []
+    for value in localeinfo_point.AFFECT_DICT.keys():
+        if value in seen or value in skip:
+            continue
+        label = labelByValue.get(value) or _LabelFromTooltip(value)
+        if not label:
+            continue
+        seen.add(value)
+        rest.append((PolishLower(label), value, label))
+    rest.sort()
+    for _, value, label in rest:
+        options.append((value, WithMax(value, label)))
     return options
 
 
@@ -255,9 +433,15 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
     # very window already.
     MAX_ROWS = 5
     ROW_HEIGHT = 34
-    WIDTH = 430
+    WIDTH = 470
     LEFT = 20
-    PICK_WIDTH = 240
+    PICK_WIDTH = 280
+    # MT2009_PLUS_FLEA_BONUS_SCROLL_V1: lista wyboru pokazuje stala liczbe
+    # wierszy z paskiem przewijania (i kolkiem myszy) zamiast jednej dlugiej
+    # listy na wszystkie bonusy.
+    PICKER_ROWS = 10
+    PICKER_LINE = 17
+    PICKER_WHEEL_ROWS = 2
     PICK_HEIGHT = 23
     EDIT_WIDTH = 86
     NONE_LABEL = "- brak -"
@@ -270,6 +454,8 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
         self.rows = []
         self.activeRow = -1
         self.__keepers = []
+        self.pickerBase = 0
+        self.pickerScrollGuard = False
 
         self.__top = 64
         # MT2009_PLUS_UPSTREAM_2_0_76: one more row, "Min. liczba bonusow".
@@ -279,8 +465,13 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
         # dolna czesc listy wystaje poza wlasne okno, a kliki tam trafiaja w
         # przedmioty pod spodem zamiast w liste (wlasny pick-area okna konczy
         # sie na jego deklarowanym rozmiarze, mimo ze tekst renderuje sie dalej).
-        pickerHeight = len(self.options) * 17 + 6
-        bottom = self.__top + max(cardHeight + 50, pickerHeight + 20)
+        # MT2009_PLUS_FLEA_BONUS_SCROLL_V1: lista ma stala wysokosc
+        # (PICKER_ROWS), wiec okno jest tak wysokie, zeby otworzyla sie w
+        # calosci pod kazdym z 5 wierszy - a nie na dlugosc wszystkich bonusow.
+        self.pickerViewCount = min(self.PICKER_ROWS, len(self.options))
+        self.pickerHeight = self.pickerViewCount * self.PICKER_LINE + 6
+        lastRowBottom = self.__top + 6 + (self.MAX_ROWS - 1) * self.ROW_HEIGHT + self.PICK_HEIGHT
+        bottom = max(self.__top + cardHeight + 50, lastRowBottom + 2 + self.pickerHeight + 10)
         self.SetSize(self.WIDTH, bottom)
         self.AddFlag("movable")
         self.AddFlag("float")
@@ -333,16 +524,37 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
         self.clearButton = self.__MakeButton(self.WIDTH / 2 + 10, y + 14, "Wyczysc", self.ClearAll)
 
         # lista wyboru bonusu - jedna wspolna dla wszystkich wierszy
+        # MT2009_PLUS_FLEA_BONUS_SCROLL_V1: PICKER_ROWS widocznych pozycji
+        # (ListBox.SetBasePos) + ui.ScrollBar po prawej; kolko myszy nad
+        # lista przewija ja (OnMouseWheel tego okna - zdarzenie kolka idzie
+        # od okna pod kursorem w gore po rodzicach).
+        pickerWidth = self.PICK_WIDTH + 8
         self.pickerBackground = ui.SlotBar()
         self.pickerBackground.SetParent(self)
-        self.pickerBackground.SetPosition(self.LEFT - 4, self.__top)
-        self.pickerBackground.SetSize(self.PICK_WIDTH + 8, 1)
+        self.pickerBackground.SetPosition(self.LEFT + 4 + 16 - 4, self.__top)
+        self.pickerBackground.SetSize(pickerWidth, self.pickerHeight)
         self.pickerBackground.AddFlag("not_pick")
         self.pickerBackground.Hide()
+        self.pickerScroll = ui.ScrollBar()
+        self.pickerScroll.SetParent(self.pickerBackground)
+        self.pickerScroll.SetScrollBarSize(self.pickerHeight - 4)
+        scrollWidth = self.pickerScroll.GetWidth()
+        self.pickerScroll.SetPosition(pickerWidth - scrollWidth - 2, 2)
+        self.pickerScroll.SetScrollEvent(ui.__mem_func__(self.OnPickerScroll))
+        self.pickerScroll.Hide()
+        self.pickerHasScroll = len(self.options) > self.pickerViewCount
+        listWidth = self.PICK_WIDTH
+        if self.pickerHasScroll:
+            listWidth = pickerWidth - scrollWidth - 4 - 4
+            maxBase = len(self.options) - self.pickerViewCount
+            self.pickerScroll.SetMiddleBarSize(float(self.pickerViewCount) / len(self.options))
+            # przycisk strzalki = 3 pozycje (pasek ma ~1-2 px na pozycje,
+            # wiec krok o 1 pozycje czasem nic by nie przesunal)
+            self.pickerScroll.SetScrollStep(min(1.0, 3.0 / maxBase))
         self.pickerList = ui.ListBox()
         self.pickerList.SetParent(self.pickerBackground)
         self.pickerList.SetPosition(4, 3)
-        self.pickerList.SetSize(self.PICK_WIDTH, 1)
+        self.pickerList.SetSize(listWidth, self.pickerViewCount * self.PICKER_LINE)
         self.pickerList.SetTextCenterAlign(False)
         self.pickerList.SetEvent(self.OnPickerSelect)
         self.pickerList.Hide()
@@ -443,28 +655,99 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
         valueEdit.SAFE_SetReturnEvent(self.Apply)
         valueEdit.Show()
 
-        return {"optionIndex": 0, "button": pickButton, "edit": valueEdit}
+        return {"optionIndex": 0, "button": pickButton, "edit": valueEdit, "y": y}
 
     def OpenPicker(self, rowIndex):
+        # ten sam wiersz klikniety drugi raz - zamyka liste
+        if self.activeRow == rowIndex and self.pickerBackground.IsShow():
+            self.HidePicker()
+            return
         self.activeRow = rowIndex
-        lineHeight = 17
-        height = len(self.options) * lineHeight + 6
-        self.pickerList.SetSize(self.PICK_WIDTH, height - 6)
-        self.pickerList.LocateItem()
-        self.pickerBackground.SetSize(self.PICK_WIDTH + 8, height)
+        row = self.rows[rowIndex]
+
+        # MT2009_PLUS_FLEA_BONUS_SCROLL_V1: pod wierszem, a gdy tam brak
+        # miejsca (w oknie albo na ekranie) - nad nim; w ostatecznosci
+        # dosuniete do krawedzi okna, nigdy poza nie (poza oknem kliki szly
+        # w przedmioty pod spodem).
+        height = self.pickerHeight
+        minY = 32
+        maxY = self.GetHeight() - 8 - height
+        below = row["y"] + self.PICK_HEIGHT + 2
+        above = row["y"] - 2 - height
+        try:
+            screenLimit = wndMgr.GetScreenHeight() - self.GetGlobalPosition()[1] - height
+        except:
+            screenLimit = maxY
+        if below <= maxY and below <= screenLimit:
+            y = below
+        elif above >= minY:
+            y = above
+        else:
+            y = max(minY, min(below, maxY))
+        x, _ = self.pickerBackground.GetLocalPosition()
+        self.pickerBackground.SetPosition(x, y)
+
+        # biezacy wybor wiersza widoczny w liscie (mniej wiecej na srodku);
+        # ClearSelection, bo ListBox nie wola zdarzenia dla ponownie
+        # kliknietej tej samej pozycji
+        self.pickerList.ClearSelection()
+        self.SetPickerBase(row["optionIndex"] - self.pickerViewCount / 2)
+
         self.pickerBackground.Show()
         self.pickerList.Show()
+        if self.pickerHasScroll:
+            self.pickerScroll.Show()
         self.pickerBackground.SetTop()
         self.pickerList.SetTop()
 
+    def __GetPickerMaxBase(self):
+        return max(0, len(self.options) - self.pickerViewCount)
+
+    def SetPickerBase(self, base):
+        maxBase = self.__GetPickerMaxBase()
+        base = max(0, min(int(base), maxBase))
+        self.pickerBase = base
+        self.pickerList.SetBasePos(base)
+        if self.pickerHasScroll and maxBase > 0:
+            # pasek idzie za lista; OnPickerScroll nie przelicza tego
+            # z powrotem (zaokraglenie pikseli paska przesuneloby liste)
+            self.pickerScrollGuard = True
+            try:
+                self.pickerScroll.SetPos(float(base) / maxBase)
+            finally:
+                self.pickerScrollGuard = False
+
+    def OnPickerScroll(self):
+        if self.pickerScrollGuard:
+            return
+        maxBase = self.__GetPickerMaxBase()
+        base = int(self.pickerScroll.GetPos() * maxBase + 0.5)
+        base = max(0, min(base, maxBase))
+        if base != self.pickerBase:
+            self.pickerBase = base
+            self.pickerList.SetBasePos(base)
+
+    def OnMouseWheel(self, length):
+        if not self.pickerBackground.IsShow():
+            return ui.BoardWithTitleBar.OnMouseWheel(self, length)
+        if length > 0:
+            self.SetPickerBase(self.pickerBase - self.PICKER_WHEEL_ROWS)
+        elif length < 0:
+            self.SetPickerBase(self.pickerBase + self.PICKER_WHEEL_ROWS)
+        return True
+
+    def HidePicker(self):
+        self.pickerList.Hide()
+        self.pickerScroll.Hide()
+        self.pickerBackground.Hide()
+        self.activeRow = -1
+
     def OnPickerSelect(self, optionIndex, name):
-        if self.activeRow >= 0:
+        if self.activeRow >= 0 and 0 <= optionIndex < len(self.options):
             row = self.rows[self.activeRow]
             row["optionIndex"] = optionIndex
             row["button"].SetText(self.options[optionIndex][1])
-        self.pickerList.Hide()
-        self.pickerBackground.Hide()
-        self.activeRow = -1
+        self.HidePicker()
 
     def Apply(self):
         filters = []
@@ -481,6 +764,11 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
             if minValue <= 0:
                 minValue = 1
             attrType = self.options[row["optionIndex"]][0]
+            # MT2009_PLUS_FLEA_BONUS_SCROLL_V1: "Odpornosc: potwory" siedzi na
+            # przedmiocie w promilach (dymek dzieli przez 10) - prog wpisany
+            # w procentach
+            if attrType in localeinfo_point.POINT_1000PCT_Tuple:
+                minValue *= 10
             filters.append((attrType, minValue))
         try:
             minCount = max(0, int(self.countEdit.GetText()))
@@ -495,9 +783,7 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
             row["button"].SetText(self.NONE_LABEL)
             row["edit"].SetText("")
         self.countEdit.SetText("")
-        self.pickerList.Hide()
-        self.pickerBackground.Hide()
-        self.activeRow = -1
+        self.HidePicker()
         self.market.SetBonusFilters([])
 
     def Open(self):
@@ -506,9 +792,7 @@ class FleaMarketBonusFilterDialog(ui.BoardWithTitleBar):
         self.SetCenterPosition()
 
     def Close(self):
-        self.pickerList.Hide()
-        self.pickerBackground.Hide()
-        self.activeRow = -1
+        self.HidePicker()
         self.Hide()
 
 

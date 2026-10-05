@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: one bonus of world.item_attr / item_attr_rare (dbeditor/attrs.py). #}
+{% block title %}{{ bonus.name }} · Bonusy · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/_tables_head.html' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='dbeditor-items.css') }}">
+<p class="eyebrow">EDYTOR BAZY DANYCH · BONUSY · {{ meta.title|upper }}</p>
+<h1>{{ bonus.name }}{% if bonus.unit %} <small class="muted">({{ bonus.unit }})</small>{% endif %}</h1>
+<p class="muted"><a href="{{ url_for('dbeditor.attrs', pula=pool) }}">← {{ meta.title }}</a> · numer bonusu w grze: <b>{{ bonus.point }}</b> <small>({{ bonus.apply }})</small></p>
+<section class="panel dbt-note warn"><p>⚠️ {{ warning }}</p></section>
+
+<form method="post">
+<input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+<section class="panel">
+  <h2>Wartości i waga</h2>
+  <div class="dbt-grid">
+    <label>Waga (jak często się losuje)<input name="prob" value="{{ bonus.prob }}" inputmode="numeric"></label>
+    {% for v in bonus.lv %}<label>Wartość na poziomie {{ loop.index }}<input name="lv{{ loop.index }}" value="{{ v }}" inputmode="numeric"></label>{% endfor %}
+  </div>
+  <p class="muted">Wartości: 0…{{ value_max }} (więcej przedmiot nie zmieści). Wartość 0 na danym poziomie = bonus się nie doda.</p>
+</section>
+<section class="panel">
+  <h2>Na jakim ekwipunku się losuje</h2>
+  <div class="dbt-wrap"><table class="dbt-table">
+    <thead><tr><th>Ekwipunek</th><th>Najwyższy poziom</th><th class="num">Szansa teraz</th><th class="num">Bonusów na tym ekwipunku</th></tr></thead>
+    <tbody>
+    {% for k in kinds %}
+      <tr><td>{{ k.icon }} {{ k.name }}</td>
+        <td><select name="{{ k.col }}">
+          <option value="0" {{ 'selected' if k.level == 0 }}>nie losuje się</option>
+          {% for l in range(1, 6) %}<option value="{{ l }}" {{ 'selected' if k.level == l }}>do poziomu {{ l }} (max {{ bonus.lv[l - 1] }}{{ bonus.unit }})</option>{% endfor %}
+          {% if k.level > 5 %}<option value="{{ k.level }}" selected>{{ k.level }} (jak 5)</option>{% endif %}
+        </select></td>
+        <td class="num">{{ fmt_pct(k.chance) if k.level else '—' }}</td>
+        <td class="num">{{ k.count }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <div class="dbt-actions">
+    <label>Notatka (opcjonalnie)<input name="note" maxlength="200" style="width:280px"></label>
+    <button name="action" value="save">💾 Zapisz</button>
+    <button name="action" value="clear" class="quiet-btn" onclick="return confirm('Usunąć ten bonus ze wszystkich rodzajów ekwipunku? (Wartości i waga zostają.)')">✕ Wyłącz na całym ekwipunku</button>
+  </div>
+</section>
+</form>
+
+<section class="panel">
+  <h2>Ostatnie zmiany tego bonusu</h2>
+  {% include 'dbeditor/_items_history_list.html' %}
+</section>
+{% endblock %}

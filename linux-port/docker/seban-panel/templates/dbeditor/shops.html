@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: every NPC shop (dbeditor/shops.py shops). #}
+{% block title %}Sklepy NPC · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% macro shop_card(s) %}
+  <a class="dbs-card" href="{{ url_for('dbeditor.shop_edit', vnum=s.vnum) }}">
+    <strong>{{ s.label }}</strong>
+    <small class="muted">{% if s.npc_vnum %}NPC {{ s.npc_vnum }}{% if s.places %} · {{ s.places|join(', ') }}{% endif %}{% else %}otwierany przez zadanie / GM{% endif %} · sklep #{{ s.vnum }}{% if s.name and s.name != s.label %} „{{ s.name }}”{% endif %}</small>
+    <span class="dbs-strip">
+      {% for it in (s.hits if s.hits is defined else s.preview) %}{% set icon = item_icon(it.vnum) %}{% if icon %}<img src="{{ icon }}" alt="" title="{{ it.name }}" loading="lazy">{% else %}<span class="dbe-noicon" title="{{ it.name }}">?</span>{% endif %}{% endfor %}
+    </span>
+    <small>{{ s.goods }} pozycji{% if s.bots %} · <span class="dbe-warn">kupują tu boty</span>{% endif %}{% if s.hits is defined %} · sprzedaje: {{ s.hits|map(attribute='name')|join(', ') }}{% endif %}</small>
+  </a>
+{% endmacro %}
+{% block content %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% set dbe_tab = 'shops' %}{% include 'dbeditor/_shops_common.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · SKLEPY NPC</p>
+<h1>🛒 Sklepy NPC</h1>
+<p class="muted">Co sprzedają handlarze w wioskach. Kliknij sklep, żeby dodać lub usunąć towar, zmienić ilość w paczce,
+cenę albo to, ile NPC płaci graczowi za odkupiony przedmiot. Zmiana trafia do bazy od razu, a do gry po restarcie (<b>Zastosuj</b>).</p>
+
+<section class="panel">
+  <form method="get" class="dbe-search">
+    <label>Kto sprzedaje…<input type="search" name="q" value="{{ query }}" placeholder="np. Czerwona Mikstura albo 27001"></label>
+    <button>Szukaj</button>
+    {% if searched %}<a href="{{ url_for('dbeditor.shops') }}">wszystkie sklepy</a>{% endif %}
+  </form>
+</section>
+
+{% if searched %}
+<section class="panel">
+  <h2>Sklepy, które sprzedają „{{ query }}”</h2>
+  {% if hits %}<div class="dbs-cards">{% for s in hits %}{{ shop_card(s) }}{% endfor %}</div>
+  {% else %}<p class="muted">Żaden sklep NPC tego nie sprzedaje.</p>{% endif %}
+</section>
+{% else %}
+<section class="panel">
+  <h2>Handlarze w wioskach</h2>
+  <p class="muted">Sklep należy do rasy NPC – ten sam towar ma każdy taki NPC w każdej wiosce.</p>
+  <div class="dbs-cards">{% for s in listing.npc %}{{ shop_card(s) }}{% endfor %}</div>
+</section>
+<section class="panel">
+  <h2>Sklepy bez NPC</h2>
+  <p class="muted">Otwiera je zadanie (np. sklep serwera testowego) albo GM – zwykły gracz zwykle ich nie widzi.</p>
+  <div class="dbs-cards">{% for s in listing.quest %}{{ shop_card(s) }}{% else %}<p class="muted">Brak.</p>{% endfor %}</div>
+</section>
+{% endif %}
+{% endblock %}

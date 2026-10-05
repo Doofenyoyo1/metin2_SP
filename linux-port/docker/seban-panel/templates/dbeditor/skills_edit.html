@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: one skill of world.skill_proto with live previews (dbeditor/skills.py skill_edit). #}
+{% block title %}{{ skill.name_pl }} · Umiejętności · {{ panel_brand }}{% endblock %}
+{% macro formula(col, label) %}
+{% set p = previews[col] %}
+<div class="dbe-formula" data-dbe-formula="{{ col }}">
+  <label for="f-{{ col }}"><b>{{ label }}</b> <code>{{ col }}</code></label>
+  <div class="dbe-formula-row">
+    <input id="f-{{ col }}" name="{{ col }}" value="{{ values[col] }}" maxlength="100" spellcheck="false" autocomplete="off"
+           class="dbe-mono" data-dbe-poly="{{ col }}" data-original="{{ skill[col] }}">
+    <span class="dbe-quick">
+      <button type="button" class="dbe-small quiet-btn" data-dbe-scale="0.8" title="Pomnóż cały wzór przez 0,8">−20%</button>
+      <button type="button" class="dbe-small quiet-btn" data-dbe-scale="0.9">−10%</button>
+      <button type="button" class="dbe-small quiet-btn" data-dbe-scale="1.1">+10%</button>
+      <button type="button" class="dbe-small quiet-btn" data-dbe-scale="1.2">+20%</button>
+      <button type="button" class="dbe-small quiet-btn" data-dbe-reset title="Przywróć wzór z bazy">↺</button>
+    </span>
+  </div>
+  <div class="dbe-preview" data-dbe-preview="{{ col }}">
+    {% if p.error %}<p class="dbe-error">{{ p.error }}</p>{% endif %}
+    {% for w in p.warnings %}<p class="dbe-warn">{{ w }}</p>{% endfor %}
+    {% if p.ok %}
+    <table class="dbe-table compact dbe-levels"><tr><th>Poziom</th>{% for v in p['values'] %}<th class="{{ '' if v.used else 'is-unused' }}">{{ v.label }}</th>{% endfor %}</tr>
+      <tr><td>Wynik</td>{% for v in p['values'] %}<td class="{{ '' if v.used else 'is-unused' }}">{{ v.min if v.min == v.max else '%d – %d'|format(v.min, v.max) }}</td>{% endfor %}</tr></table>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+{% block content %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% set dbe_tab = 'skills' %}{% include 'dbeditor/_items_common.html' %}
+<p><a href="{{ url_for('dbeditor.skills', klasa=skill.bType) }}">← Lista umiejętności</a></p>
+<section class="panel dbe-head">
+  {% if icon %}<img src="{{ icon }}" alt="">{% else %}<span class="dbe-noicon big">✦</span>{% endif %}
+  <div>
+    <p class="eyebrow">UMIEJĘTNOŚĆ #{{ skill.dwVnum }} · {{ skill.szName }}</p>
+    <h1>{{ skill.name_pl }}</h1>
+    <p class="muted">{{ path or 'Umiejętność bez klasy' }} · działa na: <b>{{ point_on.get(skill.szPointOn, skill.szPointOn) }}</b>{% if skill.szPointOn2 and skill.szPointOn2 != 'NONE' %} oraz {{ point_on.get(skill.szPointOn2, skill.szPointOn2) }}{% endif %}</p>
+  </div>
+</section>
+
+<form method="post" class="dbe-form" id="dbe-skill-form" data-preview-url="{{ url_for('dbeditor.skill_preview') }}" data-max-level="{{ skill.bMaxLevel }}">
+  <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+
+  <section class="panel dbe-help">
+    <details>
+      <summary><b>Jak czytać wzory?</b> – k, poziomy M1/G1/P i przykładowa postać</summary>
+      <p>Gra liczy każdy wzór dla poziomu umiejętności. Zmienna <code>k</code> to „moc” umiejętności z tabeli {{ 'SKILL_POWER_BY_LEVEL (common.locale)' if power_source != 'default' else 'domyślnej SKILL_POWER_BY_LEVEL' }}:
+      {% for lvl in [1, 10, 20, 30, 40] %}<b>{{ level_label(lvl) }}</b> k = {{ '%.2f'|format(power[lvl] * skill.bMaxLevel / 100) }}{{ ', ' if not loop.last }}{% endfor %}.
+      Działania: <code>+ - * / ( )</code>, potęga <code>^</code>, funkcje <code>min(a,b)</code>, <code>max(a,b)</code>, <code>number(a,b)</code> (losowa liczba), <code>floor(x)</code>, <code>sqrt(x)</code>, <code>log(podstawa,x)</code>. Ułamki z kropką: <code>1.5</code>. Wynik jest obcinany do liczby całkowitej.</p>
+      <p>Zmienne: {% for name, help in var_help.items() %}<code>{{ name }}</code> {{ help }}{{ '; ' if not loop.last }}{% endfor %}.</p>
+      <p class="muted">Obrażenia zależą też od broni, obrony celu i bonusów – podgląd liczy je dla przykładowej postaci poniżej, więc pokazuje proporcje, nie dokładne liczby z gry.</p>
+      <div class="dbe-sample">
+        {% for name in sample_editable %}<label>{{ name }}<input type="number" name="sample_{{ name }}" value="{{ sample_now[name]|int }}" data-dbe-sample="{{ name }}"></label>{% endfor %}
+      </div>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2>Czas trwania i odnowienia</h2>
+    {{ formula('szDurationPoly', 'Czas trwania efektu (sekundy)') }}
+    {{ formula('szCooldownPoly', 'Czas odnowienia – ładowania (sekundy)') }}
+  </section>
+
+  <section class="panel">
+    <h2>Siła i obrażenia</h2>
+    <p class="muted">Dla umiejętności zadających obrażenia wynik jest ujemny (np. −2400 = 2400 obrażeń). Od poziomu G1 gra używa drugiego wzoru („od Arcymistrza”).</p>
+    {{ formula('szPointPoly', 'Siła / obrażenia (poziomy 1 – M10)') }}
+    <label class="dbe-check"><input type="checkbox" name="same_master" value="1" data-dbe-mirror="szPointPoly:szMasterBonusPoly"{{ ' checked' if values.szMasterBonusPoly == values.szPointPoly and values.szPointPoly }}> Na G i P użyj tego samego wzoru</label>
+    {{ formula('szMasterBonusPoly', 'Siła / obrażenia od Arcymistrza (G1 – P)') }}
+  </section>
+
+  <section class="panel">
+    <h2>Koszt PM</h2>
+    {{ formula('szSPCostPoly', 'Koszt PM (poziomy 1 – M10)') }}
+    <label class="dbe-check"><input type="checkbox" name="same_master_sp" value="1" data-dbe-mirror="szSPCostPoly:szGrandMasterAddSPCostPoly"{{ ' checked' if values.szGrandMasterAddSPCostPoly == values.szSPCostPoly and values.szSPCostPoly }}> Na G i P ten sam koszt</label>
+    {{ formula('szGrandMasterAddSPCostPoly', 'Koszt PM od Arcymistrza (G1 – P)') }}
+  </section>
+
+  <details class="panel dbe-advanced">
+    <summary><b>Zaawansowane</b> – drugi i trzeci efekt, zasięgi, koszt utrzymania</summary>
+    {% for col, label, group, vars, use in formulas if group == 'adv' %}{{ formula(col, label) }}{% endfor %}
+    <div class="dbe-grid dense">
+    {% for col, label, low, high in numbers %}
+      <label>{{ label }}<input type="number" name="{{ col }}" min="{{ low }}" max="{{ high }}" value="{{ values[col] }}"><small><code>{{ col }}</code></small></label>
+    {% endfor %}
+    </div>
+  </details>
+
+  <div class="dbe-actions">
+    <button type="submit">💾 Zapisz zmiany</button>
+    <span class="muted">Zapis sprawdza składnię jak gra – błędny wzór nie zostanie zapisany. Zmiana czeka na restart gry („Zastosuj”).</span>
+  </div>
+</form>
+
+{% if history %}
+<section class="panel">
+  <h2>Ostatnie zmiany tej umiejętności</h2>
+  {% include 'dbeditor/_items_history_list.html' %}
+  <p><a href="{{ url_for('dbeditor.proto_history', tbl='world.skill_proto', key=skill.dwVnum) }}">Cała historia tej umiejętności →</a></p>
+</section>
+{% endif %}
+<script src="{{ static_asset_url('dbeditor-items.js') }}"></script>
+{% endblock %}

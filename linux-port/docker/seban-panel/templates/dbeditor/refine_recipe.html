@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: one refine recipe by its id (dbeditor/refine.py refine_recipe). #}
+{% from 'dbeditor/_refine_fields.html' import step_fields with context %}
+{% block title %}Przepis #{{ recipe_id }} · Ulepszanie · {{ panel_brand }}{% endblock %}
+{% block content %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% set dbe_tab = 'refine' %}{% include 'dbeditor/_shops_common.html' %}
+<p><a href="{{ url_for('dbeditor.refine') }}">← Ulepszanie u Kowala</a></p>
+<section class="panel">
+  <p class="eyebrow">PRZEPIS ULEPSZENIA #{{ recipe_id }}</p>
+  <h1>⚒️ {{ special or ('Przepis #%d' % recipe_id) }}</h1>
+  <p class="muted">{% if users %}Używa go {{ users|length }} przedmiot(ów) – zmiana tutaj dotyczy wszystkich. Żeby zmienić tylko jedną rodzinę, otwórz ją z listy niżej.{% elif special %}Gra wybiera ten przepis sama (nie ma go w opisie przedmiotów).{% else %}Żaden przedmiot go nie używa.{% endif %}</p>
+  <p class="dbe-warn">🤖 Boty ulepszają według tych samych przepisów.</p>
+</section>
+{% if boot and boot.kind == 'always' %}
+<section class="panel" style="border-left:4px solid #ff5757"><p><strong>⚠️ {{ boot.note }}</strong> – skrypt startowy (apply.sh) ustawia ten przepis przy każdym starcie: {{ boot.cols|join(', ') }}. Zmiana zostanie nadpisana.</p></section>
+{% endif %}
+
+{% if values %}
+<form method="post" class="dbs-form dbr-form" data-api="{{ url_for('dbeditor.api_items') if 'dbeditor.api_items' in url_map_endpoints else '' }}">
+  <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+  <datalist id="dbs-items"></datalist>
+  <section class="panel">
+    <article class="dbr-step">{{ step_fields('r', values, raw, materials, slots, guild_safe) }}</article>
+    <div class="dbe-actions"><button>💾 Zapisz przepis</button></div>
+  </section>
+</form>
+{% else %}
+<section class="panel"><p class="dbe-error">Przepis #{{ recipe_id }} nie istnieje – przedmioty niżej nie dadzą się ulepszyć. Utwórz go na stronie rodziny.</p></section>
+{% endif %}
+
+{% if users %}
+<section class="panel">
+  <h2>Przedmioty z tym przepisem</h2>
+  <table class="dbe-table compact"><tbody>
+  {% for u in users %}
+    <tr><td class="item-cell"><a href="{{ url_for('dbeditor.refine_edit', vnum=u.vnum) }}#krok-{{ u.vnum }}">{% set icon = item_icon(u.vnum) %}{% if icon %}<img src="{{ icon }}" alt="" loading="lazy">{% endif %}<span>{{ u.name }}</span></a> <small class="muted">#{{ u.vnum }}</small></td></tr>
+  {% endfor %}
+  </tbody></table>
+</section>
+{% endif %}
+
+{% if history %}
+<section class="panel"><h2>Historia</h2>{% include 'dbeditor/_items_history_list.html' %}</section>
+{% endif %}
+<script src="{{ static_asset_url('dbeditor-shops.js') }}" data-page-script></script>
+{% endblock %}

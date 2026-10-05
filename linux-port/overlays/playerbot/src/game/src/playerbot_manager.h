@@ -56,6 +56,13 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// a bot. Both from patch 0007 in input_main.cpp; playerbot_chat_trade.h
 		// decides whether and which bot answers.
 		void	OnPlayerShout(LPCHARACTER ch, const char* szText);
+		// MT2009_PLUS_BOT_CHAT_V2: a person's '@' trade chat line
+		// (CInputMain::Chat's CHAT_TYPE_TRADE, server-patches/playerqol).
+		void	OnPlayerTradeChat(LPCHARACTER ch, const char* szText);
+		// MT2009_PLUS_BOT_DUNGEON_LFG_V1: a person's normal or guild chat line
+		// (CInputMain::Chat's CHAT_TYPE_TALKING / CHAT_TYPE_GUILD,
+		// server-patches/playerqol), for the bots' dungeon finder.
+		void	OnPlayerLocalChat(LPCHARACTER ch, const char* szText, BYTE bType);
 		void	OnPlayerWhisper(LPCHARACTER from, LPCHARACTER bot, const char* szText);
 		// A whisper to a bot of this core from a person another core holds -
 		// the other channel's, or a map this core does not host - by name, as
@@ -128,6 +135,11 @@ class CPlayerBotManager : public singleton<CPlayerBotManager>
 		// bot guild is fought on the kingdom's guild map, and the player goes
 		// to its guild's camp there (playerbot_guild_war.h).
 		void	OnPlayerFieldWarEntry(LPCHARACTER ch, DWORD dwMyGuild, DWORD dwOppGuild);
+		// MT2009_PLUS_GUILD_WAR_OBSERVE_V1: the Battle Executor's war list and its
+		// "watch" (guild_war_observer.quest): a bots' arena war fought here, and
+		// where an onlooker stands in its copy of the arena.
+		bool	IsPlayerBotArenaWar(DWORD dwGuild1, DWORD dwGuild2);
+		bool	GetPlayerBotArenaObserverPos(DWORD dwGuild1, DWORD dwGuild2, long& lMapIndex, long& x, long& y);
 		// A player struck a bot, or a person in a party or a guild
 		// (CHARACTER::Damage, mt2009 via playerbotify.py): the Anti-PK
 		// protocol's only source of who is attacking a bot or a guild's person

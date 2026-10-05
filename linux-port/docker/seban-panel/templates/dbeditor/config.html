@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_CONFIG_V1: Eksport / import konfiguracji (dbeditor/config.py). #}
+{% block title %}Eksport / import konfiguracji · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% include 'dbeditor/_tables_head.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · EKSPORT / IMPORT KONFIGURACJI</p>
+<h1>📤 Eksport / import konfiguracji</h1>
+<section class="panel dbt-note">
+  <p>Wszystko, co zmieniono w edytorze, jako <b>jeden tekst</b>: przedmioty, dodatkowe bonusy, umiejętności, potwory, drop, szkatułki, sklepy, ulepszanie, bonusy 1–5 i 6/7, tabela doświadczenia, łowienie ryb, respawn bossów i spawny map. Tekst zawiera tylko <b>różnice względem gry z obrazu</b> (oryginał → teraz) – bez kont, postaci i haseł – więc można go zapisać na później albo wkleić na Discordzie.</p>
+  <p class="muted">Oryginał pól bazy to pierwsza wartość z historii edytora; „teraz” jest czytane z bazy. Pliki (drop, szkatułki, łowienie, respawn, spawny) są dołączane w całości, jeśli różnią się od pliku z obrazu gry.</p>
+</section>
+{% if error %}<section class="panel dbt-note error"><p>Nie udało się zebrać konfiguracji: {{ error }}</p></section>{% endif %}
+
+<section class="panel">
+  <h2>Eksport</h2>
+  {% if summary %}
+  <table class="dbt-table"><thead><tr><th>Część</th><th>Zmiany</th></tr></thead><tbody>
+    {% for part, title, text in summary %}<tr><td>{{ title }} <small class="muted">[{{ part }}]</small></td><td>{{ text }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}
+  <p class="muted">Brak zmian z edytora – gra działa na danych z obrazu. Eksport będzie zawierał sam nagłówek.</p>
+  {% endif %}
+  <form method="get" class="dbt-actions">
+    <details{% if chosen %} open{% endif %}><summary>Tylko wybrane części</summary>
+      <div class="dbc-parts">{% for part, title in parts %}<label><input type="checkbox" name="czesc" value="{{ part }}"{% if not chosen or part in chosen %} checked{% endif %}> {{ title }}</label>{% endfor %}</div>
+      <button>Pokaż eksport wybranych części</button>
+    </details>
+  </form>
+  <div class="dbt-actions">
+    <a class="button" href="{{ url_for('dbeditor.config_export', czesc=chosen or []) }}">⬇️ Pobierz plik (pełny tekst)</a>
+    <a class="button secondary" href="{{ url_for('dbeditor.config_export', czesc=chosen or [], skrot=1) }}">⬇️ Pobierz skrót</a>
+  </div>
+  <h3>Pełny tekst <small class="muted">{{ text_size }} znaków</small></h3>
+  {% if text is not none %}
+  <textarea id="dbc-full" class="dbc-text" rows="14" readonly spellcheck="false">{{ text }}</textarea>
+  <button type="button" data-copy="dbc-full">📋 Kopiuj pełny tekst</button>
+  {% else %}<p class="muted">Tekst jest za duży, żeby go tu pokazać – pobierz plik.</p>{% endif %}
+  <h3>Skrót do wklejenia <small class="muted">{{ short_size }} znaków (gzip + base64)</small></h3>
+  {% if short is not none %}
+  <textarea id="dbc-short" class="dbc-text" rows="4" readonly spellcheck="false">{{ short }}</textarea>
+  <button type="button" data-copy="dbc-short">📋 Kopiuj skrót</button>
+  {% endif %}
+  {% if short_size + 8 <= discord_limit %}
+  <p class="dbt-note ok">Skrót mieści się w jednej wiadomości Discorda ({{ discord_limit }} znaków) – wklej go w bloku kodu (```).</p>
+  {% elif text_size + 8 <= discord_limit %}
+  <p class="dbt-note ok">Pełny tekst mieści się w jednej wiadomości Discorda.</p>
+  {% else %}
+  <p class="dbt-note warn">Za długie na jedną wiadomość Discorda ({{ discord_limit }} znaków) – wyślij pobrany plik jako załącznik.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Import</h2>
+  <p>Wklej tekst albo skrót (MT2009CFG1:…) albo wybierz plik. Najpierw zobaczysz <b>podgląd</b>: co się zmieni, ostrzeżenia i błędy – nic nie jest zapisywane, dopóki nie potwierdzisz.</p>
+  <form method="post" action="{{ url_for('dbeditor.config_preview') }}" enctype="multipart/form-data">
+    <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+    <textarea name="tekst" class="dbc-text" rows="10" spellcheck="false" placeholder="# MT2009 PLUS - konfiguracja edytora bazy danych v{{ version }}&#10;…  albo  MT2009CFG1:H4sI…"></textarea>
+    <div class="dbt-actions">
+      <label>albo plik<input type="file" name="plik" accept=".txt,text/plain"></label>
+      <label class="dbc-check"><input type="checkbox" name="pomin_konflikty" value="1"> nie nadpisuj pól już zmienionych na tym serwerze</label>
+      <button>🔍 Sprawdź (podgląd)</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel" id="importy">
+  <h2>Ostatnie importy</h2>
+  {% if records %}
+  <table class="dbt-table"><thead><tr><th>Kiedy</th><th>Import</th><th>Skąd</th><th>Zmiany</th><th></th></tr></thead><tbody>
+  {% for r in records %}
+    <tr>
+      <td>{{ r.when }}</td><td>#{{ r.batch[:8] }}<br><small class="muted">{{ r.who }}</small></td>
+      <td>{% if r.source %}{{ r.source.get('nazwa') or '' }} {% if r.source.get('serwer') %}<small class="muted">serwer {{ r.source.get('serwer') }}{% if r.source.get('data') %}, {{ r.source.get('data') }}{% endif %}</small>{% endif %}{% endif %}</td>
+      <td>{{ r.fields }} w bazie, {{ r.files|length }} plik(ów)<br><small class="muted">{% for part, n in (r.counts or {}).items() %}{{ part }}: {{ n }}{% if not loop.last %}, {% endif %}{% endfor %}</small></td>
+      <td>{% if r.reverted_in %}<span class="muted">cofnięty</span>{% else %}
+        <form method="post" action="{{ url_for('dbeditor.config_undo') }}" onsubmit="return confirm('Cofnąć cały import #{{ r.batch[:8] }}?')">
+          <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}"><input type="hidden" name="batch" value="{{ r.batch }}">
+          <label class="dbc-check"><input type="checkbox" name="force" value="1"> cofnij mimo to</label>
+          <button>↩️ Cofnij import</button>
+        </form>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody></table>
+  <p class="muted">Cofnięcie importu przywraca pola bazy (jak „Cofnij” w <a href="{{ url_for('dbeditor.proto_history') }}">historii zmian</a>) i pliki sprzed importu. Potem – jak zawsze – <a href="{{ url_for('dbeditor.apply_page') if 'dbeditor.apply_page' in dbt_endpoints else '#' }}">Zastosuj</a>.</p>
+  {% else %}<p class="muted">Jeszcze nic nie importowano.</p>{% endif %}
+</section>
+<style>
+.dbc-text{width:100%;box-sizing:border-box;font-family:ui-monospace,Consolas,monospace;font-size:12px;white-space:pre;overflow:auto}
+.dbc-parts{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 12px;margin:8px 0}
+.dbc-parts label,.dbc-check{display:flex!important;gap:6px;align-items:center;font-size:13px}
+</style>
+<script>
+document.querySelectorAll('[data-copy]').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var box = document.getElementById(button.dataset.copy);
+    box.select();
+    var done = function () { button.textContent = '✔ Skopiowano'; };
+    if (navigator.clipboard) { navigator.clipboard.writeText(box.value).then(done, function () { document.execCommand('copy'); done(); }); }
+    else { document.execCommand('copy'); done(); }
+  });
+});
+</script>
+{% endblock %}

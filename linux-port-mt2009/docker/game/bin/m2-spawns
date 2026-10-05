@@ -1,0 +1,413 @@
+#!/bin/sh
+# =============================================================================
+#  m2-spawns -- the timed bosses and the bosses / Metin stones of every map,
+#  as the Seban panel's "Respawn bossów i metinów" page saved them
+#  (MT2009_PLUS_DB_EDITOR_V1, the panel's dbeditor/spawns.py + spawnfiles.py).
+#
+#  The game reads them once, while a core boots:
+#    special_spawns.txt         SpecialSpawnManager::LoadSpecialSpawn
+#    map/<dir>/boss.txt         SECTREE_MANAGER::Build -> regen_load
+#    map/<dir>/stone.txt        (regen.txt and npc.txt are not touched here)
+#  A server update ships a new image and with it new files, so the panel
+#  never edits the image: it writes into the spool volume both containers
+#  share
+#      $SPOOL/spawns/special_spawns.custom.txt   the Group blocks it changed,
+#                       added or removed ("m2_removed 1"), keyed by "vnum";
+#      $SPOOL/spawns/maps/<dir>/boss.custom.txt  a whole boss.txt / stone.txt
+#      $SPOOL/spawns/maps/<dir>/stone.custom.txt
+#  and before the cores boot (m2-supervise, boot_cores) `apply' rebuilds the
+#  live files from the image's copies (*.image.txt, kept by `prepare') plus
+#  these:
+#    * special_spawns.txt = the image's file without every Group whose vnum
+#      the panel's file has, then the panel's Groups (not the removed ones);
+#    * boss.txt / stone.txt = the panel's file when it has one, else the
+#      image's (so deleting the panel's file brings the image's back).
+#  The image's files go back to the panel as $SPOOL/spawns/base/... (with
+#  group.txt, group_group.txt, map/index, each map's regen.txt and
+#  Setting.txt, for the names, the "which monsters are on this map" filter
+#  and the map pictures), and how each file went as $SPOOL/spawns/status:
+#      time=<epoch>
+#      special=<ok|rejected|failed>|<sha256 of the panel's file>|<message>
+#      map.<dir>.<boss|stone>=...
+#
+#  What would stop a core or shift its reading (checked here, before anything
+#  is used; a file that fails is not used at all, that file stays the
+#  image's and the panel is told why):
+#    special_spawns: a Group line with more than one word (exit), a key
+#      without a value (the loader stops reading), a missing vnum /
+#      spawn_vnum / spawn_type / map_index / time / time_type / count, a time
+#      or initial_delay that is not "a" or "a-b" (std::stoi throws), a place
+#      with fewer than three numbers (at() throws), count above the number of
+#      places (thecore_shutdown), a monster that is not in mob_proto, a group
+#      that is not in group.txt, a map that is not in map/index;
+#    boss/stone: a line that is not exactly 11 words (the reader runs on
+#      across lines), an unknown type (exit), a word that is not a number,
+#      a time that is not the game's 15m / 600s / 15m-20m notation, a monster
+#      not in mob_proto, a group not in group.txt / group_group.txt.
+#
+#  The respawn settings of the panel's "Respawny" page (fastBossSpawn,
+#  fastMobSpawn, m2_boss_count, m2_mob_count) are event flags the core
+#  applies on top of these times while it runs - nothing here touches them.
+#
+#  Subcommands
+#      prepare   as root, at container start: keep the image's files, make
+#                the live ones writable by the service account, the spool
+#      apply     rebuild the live files (run by m2-supervise before a boot)
+# =============================================================================
+set -u
+LC_ALL=C
+export LC_ALL
+
+SHARE_DIR="${M2_SHARE_DIR:-/opt/metin2/share}"
+VAR_DIR="${M2_VAR_DIR:-/opt/metin2/var}"
+LOCALE_DIR="$SHARE_DIR/locale/${M2_LOCALE_NAME:-poland}"
+MAP_DIR="$LOCALE_DIR/map"
+SPOOL="${M2_RATES_SPOOL:-/opt/m2spool}/spawns"
+WORK="$VAR_DIR/spawns"
+
+SPECIAL="$LOCALE_DIR/special_spawns.txt"
+SPECIAL_IMAGE="$LOCALE_DIR/special_spawns.image.txt"
+SPECIAL_CUSTOM="$SPOOL/special_spawns.custom.txt"
+STATUS="$SPOOL/status"
+
+say() { printf '%s [spawns] %s\n' "$(date -u '+%Y-%m-%d %H:%M:%SZ')" "$1"; }
+
+# The map folders the core builds (map/index), one per line; only plain names.
+map_dirs() {
+    [ -f "$MAP_DIR/index" ] || return 0
+    tr -d '\r' < "$MAP_DIR/index" | awk '$2 ~ /^[A-Za-z0-9_]+$/ { print $2 }' | sort -u
+}
+
+# publish SOURCE TARGET -- a read-only copy of an image file for the panel.
+publish() {
+    [ -f "$1" ] || return 0
+    cmp -s "$1" "$2" 2>/dev/null && return 0
+    mkdir -p "$(dirname "$2")" 2>/dev/null || return 0
+    cp "$1" "$2.new.$$" 2>/dev/null && chmod 0664 "$2.new.$$" 2>/dev/null \
+        && mv -f "$2.new.$$" "$2" 2>/dev/null || rm -f "$2.new.$$"
+}
+
+# put_file SOURCE TARGET -- the live file is rewritten in place (it belongs to
+# the service account after prepare, its folder to root).
+put_file() {
+    cmp -s "$1" "$2" && return 0
+    cat "$1" > "$2"
+}
+
+status_line() { # status_line KEY STATE SHA MESSAGE
+    printf '%s=%s|%s|%s\n' "$1" "$2" "$3" "$(printf '%s' "$4" | tr '\n|' '  ' | cut -c1-300)" >> "$WORK/status.new"
+}
+
+# vnums_missing TABLE LIST -- the numbers of the comma-separated LIST the
+# table does not have; returns 2 when the database did not answer.
+vnums_missing() {
+    [ -n "$2" ] && command -v mariadb >/dev/null 2>&1 || return 0
+    MYSQL_PWD="${M2_DB_PASSWORD:-}" mariadb -h "${M2_DB_HOST:-mariadb}" -P "${M2_DB_PORT:-3306}" \
+        -u "${M2_DB_USER:-metin2}" -N -B --connect-timeout=10 \
+        -e "SELECT vnum FROM $1${M2_TABLE_POSTFIX:-} WHERE vnum IN ($2)" \
+        > "$WORK/found" 2>/dev/null || return 2
+    printf '%s\n' "$2" | tr ',' '\n' | sort -u > "$WORK/wanted"
+    sort -u "$WORK/found" | comm -23 "$WORK/wanted" - | tr '\n' ' '
+    return 0
+}
+
+# group_vnums FILE -- the "Vnum" of every Group of group.txt / group_group.txt.
+group_vnums() {
+    [ -f "$1" ] || return 0
+    tr -d '\r' < "$1" | awk 'tolower($1) == "vnum" && $2 ~ /^[0-9]+$/ { print $2 + 0 }' | sort -u
+}
+
+# not_in LIST FILE -- the numbers of the space-separated LIST not in FILE.
+not_in() {
+    printf '%s\n' $1 | sort -u | comm -23 - "$2" | tr '\n' ' '
+}
+
+check_refs() { # check_refs CHECKFILE -> sets _why when a reference is unknown
+    _mobs=$(sed -n 's/^M //p' "$1" | sort -un | tr '\n' ',' | sed 's/,$//')
+    _missing=$(vnums_missing player.mob_proto "$_mobs"); _rc=$?
+    [ "$_rc" = "2" ] && say "could not check the monsters against the database -- trusting the panel's check"
+    [ -n "$(printf '%s' "$_missing" | tr -d ' ')" ] && { _why="no such monster in mob_proto: $_missing"; return; }
+    _g=$(sed -n 's/^G //p' "$1" | sort -un | tr '\n' ' ')
+    if [ -n "$_g" ]; then
+        _missing=$(not_in "$_g" "$WORK/groups")
+        [ -n "$(printf '%s' "$_missing" | tr -d ' ')" ] && { _why="no such group in group.txt: $_missing"; return; }
+    fi
+    _r=$(sed -n 's/^R //p' "$1" | sort -un | tr '\n' ' ')
+    if [ -n "$_r" ]; then
+        _missing=$(not_in "$_r" "$WORK/groupgroups")
+        [ -n "$(printf '%s' "$_missing" | tr -d ' ')" ] && { _why="no such group in group_group.txt: $_missing"; return; }
+    fi
+    _maps=$(sed -n 's/^P //p' "$1" | sort -un | tr '\n' ' ')
+    if [ -n "$_maps" ]; then
+        _missing=$(not_in "$_maps" "$WORK/mapindexes")
+        [ -n "$(printf '%s' "$_missing" | tr -d ' ')" ] && { _why="no such map in map/index: $_missing"; return; }
+    fi
+}
+
+# ------------------------------------------------------------ boss/stone ---
+apply_map_file() { # apply_map_file DIR KIND
+    _d=$1; _k=$2
+    _live="$MAP_DIR/$_d/$_k.txt"; _img="$MAP_DIR/$_d/$_k.image.txt"
+    _cus="$SPOOL/maps/$_d/$_k.custom.txt"; _key="map.$_d.$_k"
+    if [ ! -f "$_img" ]; then
+        [ -f "$_cus" ] && { status_line "$_key" rejected "$(sha256sum "$_cus" | cut -d' ' -f1)" \
+            "the image has no $_k.txt for $_d (or prepare did not run)"; say "the panel's $_d/$_k.txt NOT used: no image copy"; }
+        return 0
+    fi
+    if [ ! -f "$_cus" ]; then
+        put_file "$_img" "$_live" || say "could not write $_live"
+        return 0
+    fi
+    _sha=$(sha256sum "$_cus" | cut -d' ' -f1)
+    sed '1s/^\xEF\xBB\xBF//; s/\r$//' "$_cus" > "$WORK/map.norm" || return 1
+    # The core's reading (regen.cpp read_line): words, 11 a row (6 for an "e"
+    # area), "//" to the end of the line. Prints M/G/R <vnum> per reference.
+    awk '
+    function err(m) { print "E line " NR ": " m; bad = 1; exit }
+    function isnum(s) { return s ~ /^-?[0-9]+$/ }
+    /^[ \t]*$/ { next }
+    {
+        n = split($0, f, /[ \t]+/)
+        if (n > 0 && f[1] == "") { for (i = 2; i <= n; i++) f[i - 1] = f[i]; n-- }
+        if (n <= 0) next
+        if (substr(f[1], 1, 2) == "//") next
+        for (i = 1; i <= n; i++) {
+            if (substr(f[i], 1, 2) == "//") err("a // comment after the words (only whole comment lines)")
+            if (length(f[i]) > 60) err("a word longer than the core reads")
+            if (f[i] ~ /"/) err("a quote in a respawn line")
+        }
+        t = f[1]
+        if (t ~ /^e$/) {
+            if (n != 6) err("an e line takes 6 words")
+            for (i = 2; i <= 6; i++) if (!isnum(f[i])) err("\"" f[i] "\" is not a number")
+            next
+        }
+        if (t !~ /^[mgrs][ahd]?$/) err("unknown type \"" t "\" (m, g, r, s - the core exits on anything else)")
+        if (n != 11) err("a respawn line takes 11 words, this one has " n)
+        for (i = 2; i <= 7; i++) if (!isnum(f[i])) err("\"" f[i] "\" is not a number")
+        for (i = 9; i <= 11; i++) if (!isnum(f[i])) err("\"" f[i] "\" is not a number")
+        if (f[8] !~ /^[0-9hms]+(-[0-9hms]+)?$/ || f[8] !~ /^[hms]*[0-9]/) err("bad time \"" f[8] "\" (e.g. 15m, 600s, 15m-20m)")
+        if (f[10] + 0 < 0 || f[10] + 0 > 1000) err("count " f[10] " out of 0..1000")
+        k = substr(t, 1, 1)
+        if (k == "m" || k == "s") print "M " (f[11] + 0)
+        else if (k == "g") print "G " (f[11] + 0)
+        else print "R " (f[11] + 0)
+    }
+    ' "$WORK/map.norm" > "$WORK/map.check" 2>&1
+    _why=$(sed -n 's/^E //p' "$WORK/map.check" | head -1)
+    [ -z "$_why" ] && check_refs "$WORK/map.check"
+    if [ -n "$_why" ]; then
+        say "the panel's $_d/$_k.txt was NOT used: $_why"
+        put_file "$_img" "$_live"
+        status_line "$_key" rejected "$_sha" "$_why"
+        return 0
+    fi
+    sed 's/$/\r/' "$WORK/map.norm" > "$WORK/map.live" && put_file "$WORK/map.live" "$_live" || {
+        say "could not write $_live -- left as it was"
+        status_line "$_key" failed "$_sha" "the game container could not write $_d/$_k.txt"
+        return 1
+    }
+    status_line "$_key" ok "$_sha" "applied: the panel's $_d/$_k.txt"
+    say "$_d/$_k.txt from the panel applied"
+    return 0
+}
+
+# ------------------------------------------------------ special_spawns ---
+apply_special() {
+    [ -f "$SPECIAL_IMAGE" ] || { say "no $SPECIAL_IMAGE (prepare did not run) -- special spawns left as the image has them"; return 0; }
+    if [ ! -s "$SPECIAL_CUSTOM" ] || ! grep -qi '^[[:blank:]]*Group[[:blank:]]' "$SPECIAL_CUSTOM"; then
+        put_file "$SPECIAL_IMAGE" "$SPECIAL" || { say "could not write $SPECIAL"; return 1; }
+        return 0
+    fi
+    _sha=$(sha256sum "$SPECIAL_CUSTOM" | cut -d' ' -f1)
+    sed '1s/^\xEF\xBB\xBF//; s/\r$//' "$SPECIAL_CUSTOM" > "$WORK/special.norm" || return 1
+    # The groups as CTextFileLoader + LoadSpecialSpawn read them. Prints
+    # "K <vnum>" per group, "X <vnum>" per removed one, M/G/P references; the
+    # groups to add (without m2_* keys) go to special.keep.
+    awk -v keep="$WORK/special.keep" '
+    function err(m) { print "E line " NR ": " m; bad = 1; exit }
+    function isint(s) { return s ~ /^[0-9]+$/ }
+    function isrange(s) { return s ~ /^[0-9]+(-[0-9]+)?$/ }
+    function lo(s) { split(s, r, "-"); return r[1] + 0 }
+    function hi(s) { n2 = split(s, r, "-"); return (n2 > 1 ? r[2] : r[1]) + 0 }
+    /^[ \t]*$/ { next }
+    {
+        n = split($0, f, /[ \t]+/)
+        if (n > 0 && f[1] == "") { for (i = 2; i <= n; i++) f[i - 1] = f[i]; n-- }
+    }
+    n <= 0 { next }
+    state == 0 {
+        if (substr(f[1], 1, 1) == "#") next
+        if (tolower(f[1]) != "group") err("expected Group <name>")
+        if (n != 2) err("a Group line takes exactly one name without spaces (the core exits otherwise)")
+        if (f[2] !~ /^[A-Za-z0-9_]+$/) err("a group name of letters, digits and _ only")
+        state = 1; delete v; np = 0; blk = "Group\t" f[2] "\n"; next
+    }
+    state == 1 { if (f[1] != "{") err("expected {"); state = 2; blk = blk "{\n"; next }
+    f[1] == "}" {
+        if (!("vnum" in v)) err("group without vnum")
+        if (!isint(v["vnum"])) err("bad vnum")
+        if (v["vnum"] in seen) err("vnum " v["vnum"] " twice")
+        seen[v["vnum"]] = 1
+        if (v["m2_removed"] == "1") { print "X " v["vnum"]; state = 0; next }
+        if (!isint(v["spawn_vnum"])) err("group without a spawn_vnum")
+        if (v["spawn_type"] != "mob" && v["spawn_type"] != "group") err("spawn_type must be mob or group")
+        if (!isint(v["map_index"])) err("group without a map_index")
+        if (!isrange(v["time"])) err("time must be a or a-b (seconds)")
+        if (lo(v["time"]) > hi(v["time"])) err("time: the first number above the second")
+        if (v["time_type"] != "normal" && v["time_type"] != "hour") err("time_type must be normal or hour")
+        if (!isint(v["count"]) || v["count"] + 0 < 1) err("count must be 1 or more")
+        if (("initial_delay" in v) && !isrange(v["initial_delay"])) err("initial_delay must be a or a-b")
+        if (("initial_delay" in v) && lo(v["initial_delay"]) > hi(v["initial_delay"])) err("initial_delay: the first number above the second")
+        if (("channel" in v) && !isint(v["channel"])) err("bad channel")
+        if (("save_kill" in v) && v["save_kill"] !~ /^[01]$/) err("save_kill must be 0 or 1")
+        if (("notify_level" in v) && !isint(v["notify_level"])) err("bad notify_level")
+        if (np < 1) err("a group without places")
+        if (v["count"] + 0 > np) err("count " v["count"] " above the " np " places (the core shuts down)")
+        print "K " v["vnum"]
+        print (v["spawn_type"] == "mob" ? "M " : "G ") (v["spawn_vnum"] + 0)
+        print "P " (v["map_index"] + 0)
+        printf "%s}\n\n", blk > keep
+        state = 0; next
+    }
+    {
+        if (f[1] == "{") err("a group inside a group")
+        if (n < 2) err("\"" f[1] "\" without a value (the loader stops reading the file there)")
+        key = tolower(f[1])
+        if (isint(f[1])) {
+            if (f[1] + 0 != np + 1) err("place " f[1] " where " (np + 1) " belongs")
+            if (n < 4 || !isint(f[2]) || !isint(f[3]) || f[4] !~ /^-?[0-9]+$/) err("a place takes x y rotation")
+            np++
+        } else if (key !~ /^[a-z][a-z0-9_]*$/) err("unexpected \"" f[1] "\"")
+        else if (!(key in v)) v[key] = f[2]
+        if (substr(key, 1, 3) != "m2_") { line = "\t" f[1]; for (i = 2; i <= n; i++) line = line "\t" f[i]; blk = blk line "\n" }
+    }
+    END { if (!bad && state != 0) print "E the last group is not closed" }
+    ' "$WORK/special.norm" > "$WORK/special.check" 2>&1
+    : >> "$WORK/special.keep"
+    _why=$(sed -n 's/^E //p' "$WORK/special.check" | head -1)
+    [ -z "$_why" ] && check_refs "$WORK/special.check"
+    if [ -n "$_why" ]; then
+        say "the panel's special_spawns was NOT used: $_why"
+        put_file "$SPECIAL_IMAGE" "$SPECIAL"
+        status_line special rejected "$_sha" "$_why"
+        rm -f "$WORK/special.keep"
+        return 0
+    fi
+    _keys=$(sed -n 's/^[KX] //p' "$WORK/special.check" | tr '\n' ' ')
+    # The image's file without the Groups of those vnums (a group runs from
+    # its Group line to the } that closes it), then the panel's groups.
+    tr -d '\r' < "$SPECIAL_IMAGE" | awk -v list=" $_keys " -v cutlog="$WORK/cut.log" '
+    {
+        t = $0; sub(/^[ \t]+/, "", t); split(t, f, /[ \t]+/); k = tolower(f[1])
+    }
+    !ing {
+        if (k == "group") { ing = 1; depth = 0; blk = $0 "\n"; vn = ""; next }
+        print; next
+    }
+    { blk = blk $0 "\n" }
+    substr(t, 1, 1) == "{" { depth++; next }
+    k == "vnum" && depth == 1 && vn == "" { vn = f[2] + 0 }
+    substr(t, 1, 1) == "}" {
+        depth--
+        if (depth <= 0) {
+            if (vn != "" && index(list, " " vn " ")) print vn > cutlog
+            else printf "%s", blk
+            ing = 0; blk = ""
+        }
+    }
+    END { if (ing) printf "%s", blk }
+    ' > "$WORK/special.new" || { say "could not build special_spawns.txt"; put_file "$SPECIAL_IMAGE" "$SPECIAL"; return 1; }
+    _cut=$(wc -l < "$WORK/cut.log" 2>/dev/null | tr -d ' '); rm -f "$WORK/cut.log"
+    {
+        printf '\n'
+        cat "$WORK/special.keep"
+    } >> "$WORK/special.new"
+    rm -f "$WORK/special.keep"
+    sed 's/$/\r/' "$WORK/special.new" > "$WORK/special.live"
+    if ! put_file "$WORK/special.live" "$SPECIAL"; then
+        say "could not write $SPECIAL -- left as it was"
+        status_line special failed "$_sha" "the game container could not write special_spawns.txt"
+        return 1
+    fi
+    say "special spawns from the panel applied: vnums $_keys(${_cut:-0} image group(s) replaced or removed)"
+    status_line special ok "$_sha" "applied: groups $_keys(${_cut:-0} image groups replaced or removed)"
+    return 0
+}
+
+cmd_prepare() {
+    if [ -f "$SPECIAL" ]; then
+        [ -f "$SPECIAL_IMAGE" ] || cp -p "$SPECIAL" "$SPECIAL_IMAGE" || return 1
+        chown metin2:metin2 "$SPECIAL" 2>/dev/null
+        chmod 0644 "$SPECIAL" 2>/dev/null
+    fi
+    for _d in $(map_dirs); do
+        for _k in boss stone; do
+            _f="$MAP_DIR/$_d/$_k.txt"
+            [ -f "$_f" ] || continue
+            [ -f "$MAP_DIR/$_d/$_k.image.txt" ] || cp -p "$_f" "$MAP_DIR/$_d/$_k.image.txt" || return 1
+            chown metin2:metin2 "$_f" 2>/dev/null
+            chmod 0644 "$_f" 2>/dev/null
+        done
+    done
+    mkdir -p "$WORK" 2>/dev/null && chown metin2:metin2 "$WORK" 2>/dev/null
+    if mkdir -p "$SPOOL/base" "$SPOOL/maps" 2>/dev/null; then
+        chgrp -R m2spool "$SPOOL" 2>/dev/null
+        chmod 2770 "$SPOOL" "$SPOOL/base" "$SPOOL/maps" 2>/dev/null
+        chmod -R g+rwX "$SPOOL" 2>/dev/null
+    fi
+    return 0
+}
+
+cmd_apply() {
+    mkdir -p "$WORK" 2>/dev/null
+    : > "$WORK/status.new" || return 1
+    # The image's files, for the panel to show and edit.
+    if [ -d "$SPOOL" ]; then
+        if [ -f "$SPECIAL_IMAGE" ]; then publish "$SPECIAL_IMAGE" "$SPOOL/base/special_spawns.txt"
+        else publish "$SPECIAL" "$SPOOL/base/special_spawns.txt"; fi
+        publish "$LOCALE_DIR/group.txt" "$SPOOL/base/group.txt"
+        publish "$LOCALE_DIR/group_group.txt" "$SPOOL/base/group_group.txt"
+        publish "$MAP_DIR/index" "$SPOOL/base/map_index.txt"
+        for _d in $(map_dirs); do
+            [ -d "$MAP_DIR/$_d" ] || continue
+            for _k in boss stone; do
+                if [ -f "$MAP_DIR/$_d/$_k.image.txt" ]; then publish "$MAP_DIR/$_d/$_k.image.txt" "$SPOOL/base/maps/$_d/$_k.txt"
+                else publish "$MAP_DIR/$_d/$_k.txt" "$SPOOL/base/maps/$_d/$_k.txt"; fi
+            done
+            publish "$MAP_DIR/$_d/regen.txt" "$SPOOL/base/maps/$_d/regen.txt"
+            publish "$MAP_DIR/$_d/Setting.txt" "$SPOOL/base/maps/$_d/Setting.txt"
+        done
+    fi
+    # What the checks look the references up in.
+    group_vnums "$LOCALE_DIR/group.txt" > "$WORK/groups"
+    group_vnums "$LOCALE_DIR/group_group.txt" > "$WORK/groupgroups"
+    tr -d '\r' < "$MAP_DIR/index" 2>/dev/null | awk '$1 ~ /^[0-9]+$/ { print $1 + 0 }' | sort -u > "$WORK/mapindexes"
+
+    apply_special || say "the panel's special spawns could not be applied"
+    for _d in $(map_dirs); do
+        for _k in boss stone; do
+            apply_map_file "$_d" "$_k" || say "the panel's $_d/$_k.txt could not be applied"
+        done
+    done
+    # A panel file for a map the core does not build.
+    for _f in "$SPOOL"/maps/*/*.custom.txt; do
+        [ -f "$_f" ] || continue
+        _d=$(basename "$(dirname "$_f")")
+        map_dirs | grep -qx "$_d" && continue
+        _k=$(basename "$_f" .custom.txt)
+        status_line "map.$_d.$_k" rejected "$(sha256sum "$_f" | cut -d' ' -f1)" "no map $_d in map/index"
+    done
+    if [ -d "$SPOOL" ]; then
+        { printf 'time=%s\n' "$(date +%s 2>/dev/null)"; cat "$WORK/status.new"; } > "$STATUS.new.$$" 2>/dev/null \
+            && chmod 0664 "$STATUS.new.$$" 2>/dev/null && mv -f "$STATUS.new.$$" "$STATUS" 2>/dev/null \
+            || rm -f "$STATUS.new.$$"
+    fi
+    return 0
+}
+
+case "${1:-}" in
+    prepare) cmd_prepare ;;
+    apply)   cmd_apply ;;
+    *) echo "usage: m2-spawns prepare|apply"; exit 1 ;;
+esac

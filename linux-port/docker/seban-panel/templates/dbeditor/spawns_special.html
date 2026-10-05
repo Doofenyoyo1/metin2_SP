@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: one timed boss of special_spawns.txt (dbeditor/spawns.py spawn_special). #}
+{% block title %}{{ 'Nowy boss czasowy' if is_new else (view.name if view else v.nazwa) }} · Respawn · {{ panel_brand }}{% endblock %}
+{% block content %}
+{% set dbe_tab = 'spawns' %}{% include 'dbeditor/_mobs_common.html' %}
+<p><a href="{{ url_for('dbeditor.spawns') }}">← Respawn bossów i metinów</a></p>
+<p class="eyebrow">BOSS CZASOWY · WPIS {{ vnum }}{% if custom and not is_new %} · ZMIENIONY W PANELU{% endif %}</p>
+<h1>👑 {{ 'Nowy boss czasowy' if is_new else (view.name if view else v.nazwa) }}</h1>
+{% if view %}<p class="muted">{{ view.map_title }} · {{ view.when }} · {{ view.group.count }} naraz z {{ view.places }} miejsc</p>{% endif %}
+{% if state.kind != 'ok' %}<p class="dbe-state-{{ state.kind }}">{{ state.text }}</p>{% endif %}
+
+<section class="panel dbe-respawn-setting">
+  <p class="muted">Bossowie czasowi mają własny zegar: pojawiają się w jednym z podanych miejsc co wylosowany czas „od – do” po śmierci poprzedniego.
+    Ustawienie tempa ze strony <a href="{{ url_for('respawns') }}">Respawny</a> ich <b>nie dotyczy</b> – czas, który tu wpiszesz, jest czasem w grze.</p>
+</section>
+
+<form method="post" class="dbe-form">
+  <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+  <section class="panel">
+    <h2>Kto i gdzie</h2>
+    <div class="dbe-grid">
+      <label>Nazwa wpisu<input name="nazwa" value="{{ v.nazwa }}" required pattern="[A-Za-z0-9_]+" maxlength="48"><small>bez spacji i polskich liter, np. Boss_Las</small></label>
+      <label>Co się pojawia
+        <select name="rodzaj"><option value="mob" {{ 'selected' if v.rodzaj == 'mob' }}>jeden potwór</option><option value="group" {{ 'selected' if v.rodzaj == 'group' }}>grupa (boss ze świtą, group.txt)</option></select></label>
+      <label>Numer potwora / grupy<input name="spawn_vnum" value="{{ v.spawn_vnum }}" inputmode="numeric" required><small>vnum z <a href="{{ url_for('dbeditor.mobs', rodzaj='bossowie') }}">Potworów</a> albo numer grupy</small></label>
+      <label>Mapa
+        <select name="mapa" required><option value="">— wybierz —</option>{% for idx, title in maps %}<option value="{{ idx }}" {{ 'selected' if v.mapa == idx|string }}>{{ title }}</option>{% endfor %}</select>
+        <small>po zmianie mapy zapisz, a pojawi się jej obrazek</small></label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Kiedy</h2>
+    <div class="dbe-grid">
+      <label>Rodzaj czasu
+        <select name="czas_typ" data-dbe-timetype><option value="normal" {{ 'selected' if v.czas_typ == 'normal' }}>co jakiś czas po zabiciu</option><option value="hour" {{ 'selected' if v.czas_typ == 'hour' }}>codziennie o godzinie</option></select></label>
+      <label data-dbe-when="normal">Co ile minut – od<input name="od" value="{{ v.od }}" inputmode="decimal"></label>
+      <label data-dbe-when="normal">do<input name="do" value="{{ v.do }}" inputmode="decimal"><small>gra losuje czas z tego przedziału</small></label>
+      <label data-dbe-when="hour">Godzina od<input name="godz_od" value="{{ v.godz_od }}" placeholder="18:00"></label>
+      <label data-dbe-when="hour">do<input name="godz_do" value="{{ v.godz_do }}" placeholder="18:30"></label>
+      <label>Pierwsze pojawienie po starcie serwera (min) – od<input name="start_od" value="{{ v.start_od }}" inputmode="decimal"><small>puste = po 3–6 sekundach</small></label>
+      <label>do<input name="start_do" value="{{ v.start_do }}" inputmode="decimal"></label>
+      <label class="dbe-check"><input type="checkbox" name="zapamietaj" value="1" {{ 'checked' if v.zapamietaj }}> zapamiętaj czas zabicia (restart nie odnawia bossa wcześniej)</label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Miejsca</h2>
+    <div class="dbe-grid">
+      <label>Ile naraz<input name="ile" value="{{ v.ile }}" inputmode="numeric" required><small>nie więcej niż miejsc poniżej</small></label>
+    </div>
+    {% if picture and size %}
+    <p class="muted">Kliknij w mapę, a współrzędne trafią do wiersza, w którym ostatnio pisałeś.</p>
+    <div class="dbe-map small" data-dbe-map data-width="{{ size[0] }}" data-height="{{ size[1] }}" style="aspect-ratio:{{ size[0] }}/{{ size[1] }};background-image:url('{{ url_for('static', filename='maps/' ~ picture) }}')">
+      {% for x, y, rot in places %}<span class="dbe-map-dot k-boss" style="left:{{ (x / size[0] * 100)|round(2) }}%;top:{{ (y / size[1] * 100)|round(2) }}%;width:1.6%;height:1.6%" title="miejsce {{ loop.index }} ({{ x }}, {{ y }})">{{ loop.index }}</span>{% endfor %}
+      <span class="dbe-map-cursor" data-dbe-map-cursor hidden></span>
+    </div>
+    {% endif %}
+    <input type="hidden" name="miejsca" value="{{ places|length + new_places }}">
+    <table class="dbe-table compact">
+      <thead><tr><th>#</th><th>X</th><th>Y</th><th>Kierunek (0 = losowo, 1–8)</th><th>Usuń</th></tr></thead>
+      <tbody>
+      {% for x, y, rot in places %}{% set p = 'p' ~ loop.index0 ~ '_' %}
+        <tr data-dbe-row><td>{{ loop.index }}</td><td><input name="{{ p }}x" value="{{ x }}" class="dbe-narrow" data-x></td><td><input name="{{ p }}y" value="{{ y }}" class="dbe-narrow" data-y></td>
+          <td><input name="{{ p }}rot" value="{{ rot }}" class="dbe-tiny"></td><td><label class="dbe-check"><input type="checkbox" name="{{ p }}usun" value="1"> 🗑</label></td></tr>
+      {% endfor %}
+      {% for i in range(new_places) %}{% set p = 'p' ~ (places|length + i) ~ '_' %}
+        <tr data-dbe-row class="dbe-new-row"><td>➕</td><td><input name="{{ p }}x" class="dbe-narrow" data-x></td><td><input name="{{ p }}y" class="dbe-narrow" data-y></td>
+          <td><input name="{{ p }}rot" value="0" class="dbe-tiny"></td><td></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <details class="panel dbe-advanced">
+    <summary><b>Zaawansowane</b></summary>
+    <div class="dbe-grid">
+      <label>Kanał<input name="kanal" value="{{ v.kanal }}" inputmode="numeric"><small>0 = na każdym kanale</small></label>
+      <label>Ogłoszenie o pojawieniu<input name="ogloszenie" value="{{ v.ogloszenie }}" inputmode="numeric"><small>0 = bez ogłoszenia na mapie</small></label>
+      <label>Flaga wydarzenia<input name="flaga" value="{{ v.flaga }}"><small>pojawia się tylko, gdy ta flaga wydarzenia jest włączona; puste = zawsze</small></label>
+    </div>
+  </details>
+
+  <div class="dbe-actions">
+    <button type="submit">💾 Zapisz</button>
+    <span class="muted">Zmiana czeka na restart gry („Zastosuj”). Gra sprawdzi plik przed startem – błędny nie zostanie użyty.</span>
+  </div>
+</form>
+
+{% if not is_new %}
+<section class="panel dbe-actions">
+  {% if base %}
+  <form method="post" action="{{ url_for('dbeditor.spawn_special_delete', vnum=vnum) }}" class="dbe-inline" onsubmit="return confirm('Usunąć tego bossa czasowego z gry?');">
+    <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}"><button class="quiet-btn">🗑 Usuń z gry</button></form>
+  {% if custom %}
+  <form method="post" action="{{ url_for('dbeditor.spawn_special_reset', vnum=vnum) }}" class="dbe-inline" onsubmit="return confirm('Wrócić do ustawień z obrazu gry?');">
+    <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}"><button class="quiet-btn">↶ Przywróć z obrazu gry</button></form>
+  {% endif %}
+  {% else %}
+  <form method="post" action="{{ url_for('dbeditor.spawn_special_delete', vnum=vnum) }}" class="dbe-inline" onsubmit="return confirm('Usunąć dodanego bossa czasowego?');">
+    <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}"><button class="quiet-btn">🗑 Usuń</button></form>
+  {% endif %}
+</section>
+{% endif %}
+<script src="{{ static_asset_url('dbeditor-mobs.js') }}"></script>
+{% endblock %}

@@ -1,12 +1,13 @@
 -- MT2009_PLUS_DIGI_SERVER_QOL_V1: Seon-Hae's book exchange (20095, the first
 -- villages). Autor: Digi Rasta (nowy-system v0.23.0, ksiegi_seonhae.quest;
 -- the "SKILLBOOK_COMB_SYSTEM" of his Biore list). Ten skill books of any kind
--- and 1 000 000 Yang for one random "Instr." book of the player's own class
+-- and 250 000 Yang for one random "Instr." book of the player's own class
 -- and skill group. This quest only opens the window: it writes which Seon-Hae
 -- was spoken to (ksiegi_seonhae.npc_vid, ksiegi_seonhae.npc_time) and sends
 -- "NOWY_KSIEGI open"; the window (uiskillbookexchange.py in the client root)
--- sends "/nowy_ksiegi <10 cells>" and the core checks everything again - the
--- NPC, the books, the Yang (playerbot_digi_qol.h). Not for bots.
+-- sends "/nowy_ksiegi x<times> <cells>" (MT2009_PLUS_BOOK_EXCHANGE_V2: whole
+-- stacks, many exchanges at once) and the core checks everything again - the
+-- NPC, the books, the Yang, the room (playerbot_digi_qol.h). Not for bots.
 quest ksiegi_seonhae begin
 	state start begin
 		when 20095.chat."Wymiana ksi¹g umiejêtnoœci" with not pc.is_bot() begin

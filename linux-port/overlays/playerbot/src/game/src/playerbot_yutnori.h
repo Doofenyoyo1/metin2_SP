@@ -33,7 +33,11 @@
 //    points left, like the player.
 //  - only real players play here: a playerbot has no client. Its kills grow
 //    birch trunks of its own, and it "plays" a board without a table
-//    (MT2009_PLUS_BOT_MINIGAMES_V1, playerbot_minigames.h).
+//    (MT2009_PLUS_BOT_MINIGAMES_V1, playerbot_minigames.h); some of those
+//    games go into player.minigame_yutnori like a player's
+//    (MT2009_PLUS_MINIGAME_BOT_RANKING_V1), and a bot of the top ten gets
+//    its place's prize in the reward window (marked with the quest's own
+//    minigame_yutnori.reward_season, as a player's claim is).
 //  - the season. Owsap's ranking table summed every event since the server
 //    was born. The leading core writes mini_game_yutnori_season (the epoch
 //    the event began) when an event starts and

@@ -31,13 +31,13 @@ drop	wieza	7184	1	5
 drop	wieza	5123	1	10
 drop	wieza	5124	1	5
 dungeon	wukong	364	1	xy	65	5537	1450	45	0	1	8	9682	wzgorze_wukonga.entry	1800	0	0	Wzgórze_Wukonga	Œwi¹tynia_Hwang
-cost	wukong	7000000
-drop	wukong	30774	3	100
+cost	wukong	2500000
+drop	wukong	30774	4	100
 dungeon	razador	351	1	xy	62	5979	7060	55	0	1	8	6091	razador_dungeon.entry	3600	0	0	Czyœciec_Ognia_(Razador)	Doyyumhwaji
-cost	razador	10000000
+cost	razador	3500000
 drop	razador	50270	5	100
 dungeon	skorpion	365	1	xy	62	5989	7058	65	0	1	8	9694	ruiny_skorpiona.entry	3600	0	0	Ruiny_Skorpiona	Doyyumhwaji
-cost	skorpion	12000000
+cost	skorpion	5000000
 drop	skorpion	30775	4	100
 # MT2009_PLUS_CATACOMB_MAP_V1: the Catacomb lands beside its Guardian (20367 at 5924 1006 in Hwang Temple),
 # not at the quest's exit (5914 992) seventeen metres off.
@@ -58,12 +58,12 @@ drop	katakumby	7184	1	10
 drop	katakumby	5123	1	20
 drop	katakumby	5124	1	10
 dungeon	nemere	352	1	xy	61	4322	1655	75	0	1	8	6191	nemere_dungeon.entry	3600	0	0	Lodowa_Kraina_(Nemere)	Góra_Sohan
-cost	nemere	12000000
+cost	nemere	7500000
 drop	nemere	50271	5	100
 dungeon	smok	208	1	xy	64	2850	8103	90	0	1	8	2493	blue_dragon_lair.entry	3600	0	0	Le¿e_Smoka	Dolina_Orków
-cost	smok	10000000
+cost	smok	7500000
 drop	smok	71123	1	100
 drop	smok	71129	1	100
 dungeon	dzungla	366	1	town	209	0	0	95	0	1	8	9714	starozytna_dzungla.entry	3600	0	0	Staro¿ytna_D¿ungla	Œwi¹tynia_Ochao
-cost	dzungla	12000000
+cost	dzungla	7500000
 drop	dzungla	30776	5	100

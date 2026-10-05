@@ -67,10 +67,12 @@ linux-port-mt2009/docker/game/special_item_group.goblin.txt
 # The mini games and the Flower Event (MT2009 PLUS 2.17.0).
 linux-port-mt2009/docker/game/special_item_group.rumi.txt
 linux-port-mt2009/docker/game/special_item_group.catchking.txt
+linux-port-mt2009/docker/game/special_item_group.unique_attr.txt
 linux-port-mt2009/docker/game/special_item_group.yutnori.txt
 linux-port-mt2009/docker/game/special_item_group.flower.txt
 linux-port-mt2009/docker/game/mob_drop_item.dropedit.append.txt
 linux-port-mt2009/docker/game/mob_drop_item.metinbeans.append.txt
+linux-port-mt2009/docker/game/mob_drop_item.dtdrops.append.txt
 linux-port-mt2009/docker/game/dungeons/*
 # The Arezzo places (MT2009 PLUS 2.16.0, off unless M2_AREZZO=1).
 linux-port-mt2009/docker/game/arezzo/*
@@ -151,7 +153,9 @@ linux-port-mt2009/docker/game/src/server/game/src/desc_manager.cpp
 linux-port-mt2009/docker/game/src/server/game/src/desc_manager.h
 linux-port-mt2009/docker/game/src/server/game/src/event.cpp
 linux-port-mt2009/docker/game/src/server/game/src/exchange.cpp
+linux-port-mt2009/docker/game/src/server/game/src/exchange.h
 linux-port-mt2009/docker/game/src/server/game/src/guild.cpp
+linux-port-mt2009/docker/game/src/server/game/src/guild.h
 linux-port-mt2009/docker/game/src/server/game/src/guild_manager.cpp
 linux-port-mt2009/docker/game/src/server/game/src/guild_war.cpp
 linux-port-mt2009/docker/game/src/server/game/src/char_horse.cpp
@@ -170,6 +174,8 @@ linux-port-mt2009/docker/game/src/server/game/src/input_p2p.cpp
 linux-port-mt2009/docker/game/src/server/game/src/item.cpp
 linux-port-mt2009/docker/game/src/server/game/src/item_manager.cpp
 linux-port-mt2009/docker/game/src/server/game/src/item_manager.h
+linux-port-mt2009/docker/game/src/server/game/src/item_manager_read_tables.cpp
+linux-port-mt2009/docker/game/src/server/game/src/questlua.cpp
 linux-port-mt2009/docker/game/src/server/game/src/main.cpp
 # Not ours to change, and shipped for that reason: a fork's companion system
 # rewrote it to call CPlayerBotManager::GetCompanionOwner, which this manager
@@ -201,6 +207,7 @@ linux-port-mt2009/docker/game/src/server/game/src/input.cpp
 linux-port-mt2009/docker/game/src/server/game/src/item_attribute.cpp
 linux-port-mt2009/docker/game/src/server/game/src/questlua_game.cpp
 linux-port-mt2009/docker/game/src/server/game/src/questlua_global.cpp
+linux-port-mt2009/docker/game/src/server/game/src/questlua_guild.cpp
 linux-port-mt2009/docker/game/src/server/game/src/sectree.cpp
 linux-port-mt2009/docker/game/src/server/game/src/sectree.h
 

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: Spawny potworów na mapach - the list of maps (dbeditor/regen.py, regen_index). #}
+{% block title %}Spawny potworów · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='dbeditor-regen.css') }}">
+<script src="{{ url_for('static', filename='dbeditor-regen.js') }}" defer></script>
+<nav class="dbr-crumbs"><a href="{{ url_for('dbeditor.index') }}">🗄️ Edytor bazy danych</a><span>🗺️ Spawny potworów</span></nav>
+<p class="eyebrow">EDYTOR BAZY DANYCH · SPAWNY POTWORÓW</p>
+<h1>🗺️ Spawny potworów na mapach</h1>
+<p class="muted">Każda mapa ma listę „spawnów”: <b>który potwór albo która grupa</b>, <b>w którym miejscu</b>, <b>co ile czasu</b> się odradza i <b>ile naraz</b> stoi. Wybierz mapę, żeby zobaczyć ją na podglądzie i zmienić spawny. Gra czyta te pliki tylko przy starcie – po zmianach kliknij <b>Zastosuj</b> w <a href="{{ url_for('dbeditor.index') }}">Edytorze bazy danych</a>.</p>
+<p class="muted dbr-help">Bossowie z czasem pojawienia i Metiny są w osobnych plikach (inna część edytora); NPC i sklepy też nie są tutaj.</p>
+
+{% if pending %}
+<section class="panel dbr-status pending">
+  <p><b>Czeka na restart gry:</b></p>
+  <ul>{% for p in pending %}<li>{{ p.title }} – {{ p.text }}{% if p.detail %} <small class="muted">({{ p.detail }})</small>{% endif %}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if not published %}
+<section class="panel dbr-status error">
+  <p><b>Gra nie udostępniła jeszcze plików map.</b> Panel czyta je z folderu wymiany (<code>/opt/m2spool/regen/base</code>), który obraz gry wypełnia przy starcie rdzeni (skrypt <code>m2-regen</code>). Zaktualizuj obraz gry do wersji z tą funkcją i zrestartuj rdzenie – potem mapy pojawią się tutaj.</p>
+</section>
+{% else %}
+<section class="panel">
+  <label class="dbr-filter">Szukaj mapy<input type="search" data-dbr-filter="#dbr-maps tbody tr" placeholder="np. Dolina Orków, M1, 64"></label>
+  <div class="table-wrap"><table class="dbr-table" id="dbr-maps">
+    <thead><tr><th>Mapa</th><th>Wpisy</th><th>Naraz na mapie</th><th>Stan</th></tr></thead>
+    <tbody>
+    {% for m in maps %}
+    <tr data-text="{{ m.label }} {{ m.folder }} {{ m.index }}">
+      <td><a href="{{ url_for('dbeditor.regen_map', folder=m.folder) }}"><b>{{ m.label }}</b></a>
+        <small class="muted">#{{ m.index }} · {{ m.folder }}</small></td>
+      <td>{{ m.rows }}</td>
+      <td>{% if m.rows %}{% if m.monsters %}{{ m.monsters }} potw.{% endif %}{% if m.monsters and m.groups %} + {% endif %}{% if m.groups %}{{ m.groups }} grup{% endif %}{% else %}<span class="muted">pusta</span>{% endif %}</td>
+      <td>{% if m.source == 'custom' %}<span class="dbr-tag custom">zmieniona w panelu</span>{% endif %}
+        {% if m.state.kind == 'pending' or m.state.kind == 'unknown' %}<span class="dbr-tag pending">czeka na restart</span>
+        {% elif m.state.kind == 'error' %}<span class="dbr-tag bad">odrzucona przez grę</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}
+{% endblock %}

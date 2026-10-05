@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: the skills of world.skill_proto by class (dbeditor/skills.py). #}
+{% block title %}Umiejętności · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% set dbe_tab = 'skills' %}{% include 'dbeditor/_items_common.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · UMIEJĘTNOŚCI</p>
+<h1>✨ Umiejętności</h1>
+<p class="muted">Wybierz klasę i umiejętność, aby zmienić jej czas trwania, czas odnowienia (ładowania), siłę/obrażenia albo koszt PM. Przy każdym wzorze zobaczysz od razu wartości na poziomach M1, G1 i P.</p>
+<nav class="dbe-tabs sub">
+  {% for t, label in tabs %}<a href="{{ url_for('dbeditor.skills', klasa=t) }}" class="{{ 'is-active' if tab == t }}">{{ label }} <small>{{ counts.get(t, 0) }}</small></a>{% endfor %}
+</nav>
+<section class="panel">
+  <table class="dbe-table">
+    <thead><tr><th>Umiejętność</th><th>Ścieżka</th><th>Odnowienie</th><th>Czas trwania</th><th></th></tr></thead>
+    <tbody>
+    {% for s in skills %}
+      <tr>
+        <td class="item-cell"><a href="{{ url_for('dbeditor.skill_edit', vnum=s.dwVnum) }}">{% if s.icon %}<img src="{{ s.icon }}" alt="" loading="lazy">{% else %}<span class="dbe-noicon">✦</span>{% endif %}<span>{{ s.name_pl }}<br><small class="muted">{{ s.szName }} · #{{ s.dwVnum }}</small></span></a></td>
+        <td>{{ s.path or '—' }}</td>
+        <td>{% if s.summary.cooldown_bad %}<span class="dbe-error">błąd we wzorze</span>{% elif s.summary.cooldown and s.summary.cooldown.max %}{{ s.summary.cooldown.max }} s <small class="muted">({{ s.top_label }})</small>{% else %}—{% endif %}</td>
+        <td>{% if s.summary.duration_bad %}<span class="dbe-error">błąd we wzorze</span>{% elif s.summary.duration and s.summary.duration.max %}{{ s.summary.duration.max }} s <small class="muted">({{ s.top_label }})</small>{% else %}—{% endif %}</td>
+        <td><a class="button dbe-small" href="{{ url_for('dbeditor.skill_edit', vnum=s.dwVnum) }}">Edytuj</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="muted">Brak umiejętności tego rodzaju.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

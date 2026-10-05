@@ -23,6 +23,17 @@
 #  (and, to show them read-only, common_drop_item.base.txt and
 #  etc_drop_item.base.txt), and how the last apply went from $SPOOL/drops/status.
 #
+#  MT2009_PLUS_DB_EDITOR_V1: the database editor (dbeditor/drops.py) also
+#  edits the two plain tables, as whole files:
+#      $SPOOL/drops/common_drop_item.custom.txt   (common_drop_item.txt)
+#      $SPOOL/drops/etc_drop_item.custom.txt      (etc_drop_item.txt)
+#  `apply' puts such a file live in place of the image's (kept as
+#  <name>.image.txt), after checking every item number the core would look
+#  up (ReadCommonDropItemFile / ReadEtcDropItemFile stop the core on an
+#  unknown item); no file means the image's table. How it went:
+#  $SPOOL/drops/<name>.status (same keys as status). drop_item_group.txt is
+#  published read-only as drop_item_group.base.txt.
+#
 #  What stops a core at boot (checked here, before anything is used):
 #    * a Group line with more than one word after it (the loader exit()s),
 #    * a key without a value (the loader stops reading the file there),
@@ -57,7 +68,12 @@ WORK="$VAR_DIR/drops"
 say() { printf '%s [drops] %s\n' "$(date -u '+%Y-%m-%d %H:%M:%SZ')" "$1"; }
 
 write_status() { # write_status STATE GROUPS SHA MESSAGE
-    _tmp="$STATUS.new.$$"
+    write_status_to "$STATUS" "$@"
+}
+
+write_status_to() { # write_status_to FILE STATE GROUPS SHA MESSAGE
+    _file=$1; shift
+    _tmp="$_file.new.$$"
     { printf 'state=%s\n' "$1"
       printf 'time=%s\n' "$(date +%s 2>/dev/null)"
       printf 'groups=%s\n' "$2"
@@ -65,7 +81,7 @@ write_status() { # write_status STATE GROUPS SHA MESSAGE
       printf 'message=%s\n' "$4"
     } > "$_tmp" 2>/dev/null || { rm -f "$_tmp"; return 1; }
     chmod 0664 "$_tmp" 2>/dev/null
-    mv -f "$_tmp" "$STATUS" 2>/dev/null || rm -f "$_tmp"
+    mv -f "$_tmp" "$_file" 2>/dev/null || rm -f "$_tmp"
     return 0
 }
 
@@ -84,6 +100,94 @@ put_live() { # put_live SOURCE
     cat "$1" > "$LIVE"
 }
 
+# MT2009_PLUS_DB_EDITOR_V1: the same for the plain tables.
+put_file() { # put_file SOURCE TARGET
+    cmp -s "$1" "$2" && return 0
+    cat "$1" > "$2"
+}
+
+# items_missing LIST -- prints the item numbers of the comma-separated LIST
+# that item_proto does not have; returns 2 when the database did not answer.
+items_missing() {
+    [ -n "$1" ] && command -v mariadb >/dev/null 2>&1 || return 0
+    MYSQL_PWD="${M2_DB_PASSWORD:-}" mariadb -h "${M2_DB_HOST:-mariadb}" -P "${M2_DB_PORT:-3306}" \
+        -u "${M2_DB_USER:-metin2}" -N -B --connect-timeout=10 \
+        -e "SELECT vnum FROM player.item_proto${M2_TABLE_POSTFIX:-} WHERE vnum IN ($1)" \
+        > "$WORK/table.items.found" 2>/dev/null || return 2
+    printf '%s\n' "$1" | tr ',' '\n' | sort -u > "$WORK/table.items.wanted"
+    sort -u "$WORK/table.items.found" | comm -23 "$WORK/table.items.wanted" - | tr '\n' ' '
+    return 0
+}
+
+# apply_table NAME -- common_drop_item or etc_drop_item: the panel's whole
+# file in place of the image's, when it passes the core's checks.
+apply_table() {
+    _t=$1
+    _img="$LOCALE_DIR/$_t.image.txt"; _live="$LOCALE_DIR/$_t.txt"
+    _cus="$SPOOL/$_t.custom.txt"; _st="$SPOOL/$_t.status"
+    [ -f "$_img" ] || { say "no $_img (prepare did not run) -- $_t left as the image has it"; return 0; }
+    if [ ! -s "$_cus" ]; then
+        put_file "$_img" "$_live" || { say "could not write $_live"; return 1; }
+        write_status_to "$_st" base 0 "" "no change in the panel -- the image's $_t is live"
+        return 0
+    fi
+    _tsha=$(sha256sum "$_cus" | cut -d' ' -f1)
+    sed '1s/^\xEF\xBB\xBF//; s/\r$//' "$_cus" > "$WORK/$_t.norm" || return 1
+    # The core's own reading: common - 4 ranks of 6 tab-separated columns
+    # (label, level from, level to, percent, item, count), fgets(1024);
+    # etc - the item before the LAST tab, the chance after it.
+    awk -F'\t' -v table="$_t" '
+    function err(m) { print "E line " NR ": " m; bad = 1; exit }
+    function isint(s) { return s ~ /^[0-9]+$/ }
+    function isnum(s) { return s ~ /^[0-9]+(\.[0-9]+)?$/ || s ~ /^\.[0-9]+$/ }
+    $0 == "" { next }
+    table == "common_drop_item" {
+        if (length($0) > 1000) err("line longer than the core reads (1023 bytes)")
+        for (r = 0; r < 4; r++) {
+            it = $(r * 6 + 5); a = $(r * 6 + 2); b = $(r * 6 + 3); p = $(r * 6 + 4)
+            if (it == "") continue
+            if (!isint(it)) { if (NR == 1) continue; err("item \"" it "\" is not a number") }
+            if (it + 0 <= 1) continue
+            print "I " it
+            if (a != "" && !isint(a)) err("bad level \"" a "\"")
+            if (b != "" && !isint(b)) err("bad level \"" b "\"")
+            if (p != "" && !isnum(p)) err("bad percent \"" p "\"")
+        }
+        next
+    }
+    {
+        n = split($0, f, "\t"); if (n < 2) next
+        it = f[1]; for (i = 2; i < n; i++) it = it "\t" f[i]
+        p = f[n]; sub(/[[:blank:]]+$/, "", p)
+        if (!isnum(p)) err("bad chance \"" p "\"")
+        if (p + 0 == 0) next
+        if (!isint(it)) err("item \"" it "\" is not a number")
+        print "I " it
+    }
+    ' "$WORK/$_t.norm" > "$WORK/$_t.check" 2>&1
+    _why=$(sed -n 's/^E //p' "$WORK/$_t.check" | head -1)
+    if [ -z "$_why" ]; then
+        _items=$(sed -n 's/^I //p' "$WORK/$_t.check" | sort -un | tr '\n' ',' | sed 's/,$//')
+        _missing=$(items_missing "$_items"); _rc=$?
+        [ "$_rc" = "2" ] && say "could not check $_t's items against the database -- trusting the panel's check"
+        [ -n "$(printf '%s' "$_missing" | tr -d ' ')" ] && _why="no such item: $_missing"
+    fi
+    if [ -n "$_why" ]; then
+        say "the panel's $_t was NOT used: $_why"
+        put_file "$_img" "$_live"
+        write_status_to "$_st" rejected 0 "$_tsha" "$_why"
+        return 0
+    fi
+    sed 's/$/\r/' "$WORK/$_t.norm" > "$WORK/$_t.live" && put_file "$WORK/$_t.live" "$_live" || {
+        say "could not write $_live -- $_t left as it was"
+        write_status_to "$_st" failed 0 "$_tsha" "the game container could not write $_t.txt"
+        return 1
+    }
+    say "$_t from the panel applied"
+    write_status_to "$_st" ok 1 "$_tsha" "applied: the panel's $_t"
+    return 0
+}
+
 cmd_prepare() {
     [ -f "$LIVE" ] || { say "no $LIVE -- nothing to prepare"; return 0; }
     # The first start of a container: the file is still the image's (a new
@@ -91,6 +195,13 @@ cmd_prepare() {
     [ -f "$IMAGE" ] || cp -p "$LIVE" "$IMAGE" || return 1
     chown metin2:metin2 "$LIVE" 2>/dev/null
     chmod 0644 "$LIVE" 2>/dev/null
+    # MT2009_PLUS_DB_EDITOR_V1: the plain tables the same way.
+    for _t in common_drop_item etc_drop_item; do
+        [ -f "$LOCALE_DIR/$_t.txt" ] || continue
+        [ -f "$LOCALE_DIR/$_t.image.txt" ] || cp -p "$LOCALE_DIR/$_t.txt" "$LOCALE_DIR/$_t.image.txt" || return 1
+        chown metin2:metin2 "$LOCALE_DIR/$_t.txt" 2>/dev/null
+        chmod 0644 "$LOCALE_DIR/$_t.txt" 2>/dev/null
+    done
     mkdir -p "$WORK" 2>/dev/null && chown metin2:metin2 "$WORK" 2>/dev/null
     if mkdir -p "$SPOOL" 2>/dev/null; then
         chgrp m2spool "$SPOOL" 2>/dev/null && chmod 2770 "$SPOOL" 2>/dev/null
@@ -106,8 +217,20 @@ cmd_apply() {
 
     # The image's files, for the panel to show and edit.
     publish "$IMAGE" mob_drop_item.base.txt
-    publish "$LOCALE_DIR/common_drop_item.txt" common_drop_item.base.txt
-    publish "$LOCALE_DIR/etc_drop_item.txt" etc_drop_item.base.txt
+    # MT2009_PLUS_DB_EDITOR_V1: the image's copies (the live files may be
+    # the panel's), drop_item_group.txt read-only, then the panel's tables.
+    for _t in common_drop_item etc_drop_item; do
+        if [ -f "$LOCALE_DIR/$_t.image.txt" ]; then
+            publish "$LOCALE_DIR/$_t.image.txt" "$_t.base.txt"
+        else
+            publish "$LOCALE_DIR/$_t.txt" "$_t.base.txt"
+        fi
+    done
+    publish "$LOCALE_DIR/drop_item_group.txt" drop_item_group.base.txt
+    if [ -d "$SPOOL" ]; then
+        apply_table common_drop_item || say "the panel's common_drop_item could not be applied"
+        apply_table etc_drop_item || say "the panel's etc_drop_item could not be applied"
+    fi
 
     if [ ! -s "$CUSTOM" ] || ! grep -qi '^[[:blank:]]*Group[[:blank:]]' "$CUSTOM"; then
         put_live "$IMAGE" || { say "could not write $LIVE"; return 1; }

@@ -378,6 +378,16 @@ db -e "UPDATE world.item_proto SET locale_name = 'Auto Lowy (8h)', flag = flag |
 # out of every name, on every start; a clean name is not touched.
 db -e "UPDATE world.item_proto SET locale_name = REGEXP_REPLACE(locale_name, '[[:cntrl:]]+', '') WHERE locale_name REGEXP '[[:cntrl:]]';" \
     || echo "[playerbot-migrate] WARNING: could not clean the line breaks out of item names" >&2
+# MT2009_PLUS_ITEM_EXTRA_APPLY_V1: an item's bonus lines beyond the three of
+# item_proto (applytype0..2 - the proto format and the client exe have room for
+# exactly three). One row a line: slot orders them, apply_type is the same
+# POINT_* number as item_proto's applytype, apply_value its value. The Seban
+# panel's database editor fills it ("Dodatkowe bonusy (ponad 3)"); the game core
+# reads it once after its start (playerbot_item_extra_apply.h, the item.cpp hook
+# of server-patches/enginefixes) and wears the lines like the proto's own. Empty
+# until the operator adds a line; never filled or emptied here.
+db -e "CREATE TABLE IF NOT EXISTS world.item_extra_apply (vnum INT UNSIGNED NOT NULL, slot TINYINT UNSIGNED NOT NULL, apply_type TINYINT UNSIGNED NOT NULL DEFAULT 0, apply_value INT NOT NULL DEFAULT 0, PRIMARY KEY (vnum, slot)) ENGINE=InnoDB;" \
+    || echo "[playerbot-migrate] WARNING: could not create world.item_extra_apply (extra item bonuses)" >&2
 # Maska Sabaha left the world with the Hwang curse (playerbotify
 # apply_hwang_curse_removed, the share step of the game Dockerfile): the shop
 # that sold one sells it no more. The db core reads the shops at boot, so this
@@ -2036,6 +2046,70 @@ INSERT IGNORE INTO world.item_proto SELECT * FROM world.az_item;
 DROP TEMPORARY TABLE world.az_item;
 UPDATE world.item_proto SET name = _cp1250 X'536B727A796E69612044BF756E676C69', locale_name = _cp1250 X'536B727A796E69612044BF756E676C69', stack = 200, antiflag = 0, flag = 4 WHERE vnum = 30776;" || echo "[playerbot-migrate] WARNING: could not add the Arezzo dungeons' and Pustkowie Faraona's monsters, NPCs and items" >&2
 
+# MT2009_PLUS_AREZZO_BALANCE_V1 (the owner, 5 October, from the players' reports): the bosses one could
+# not stand against, the knockback and the yang of the ladder (Biblioteka/Wukong < Razador/Skorpion <
+# Nemere/Katakumby < Smok/Dzungla). Measured against a player of the dungeon's band (Wukong: 9 000 HP,
+# 280 defence; Skorpion: 12 000 / 400; Razador: 11 000 / 350; Nemere: 14 000 / 480; Dzungla: 20 000 / 600):
+#  * no monster pushes a player any more - the monsters' crush skills (EnemyCrush200/300/400: 256, 258,
+#    260; their users are bosses, the Grotto's commanders and two level-97 mobs, 3551/3552) lose CRUSH.
+#    The push used to throw the player out of a skill's later hits; a skill whose motion lands several hits on one spot now lands
+#    them all, so those bosses' skill level drops to keep the cast's total where it was (power ~ 1/hits):
+#    the desert turtles 2191/2192/8614/8615 (2 hits) 40 -> 26, 3691 (3 hits at two spots) 25 -> 19,
+#    3790/3890 (3 hits) 20 -> 8, 3791/3391 (3 hits) 25 -> 9, Obronca Chmur 9683 (3 hits) 20 -> 10. No boss
+#    is pushed by a player either (server-patches/enginefixes, the same marker).
+#  * Plomienny Feniks (9684): its skill lands ten hits (five beats, both wings counted on one spot) of
+#    2.5 x its attack - 23 800 a cast at level 20, a player of the band had no chance. Level 6: some
+#    2 600 a cast (29% of the band's HP, 6.7%/s with its claws), below WuKong's (10%/s), whom the players
+#    call easy. Its 120 000 HP and claws stay.
+#  * Czerwony Skorpion (9695): two hits on a spot 600 ahead - an archer or a mage took 8 000 (67%) -
+#    20 -> 12 (32%). Krol Skorpionow (9694): 15%/s and 6 600 a cast - dam_multiply 3.15 -> 2.70, skills
+#    20/25 -> 15/20 (10%/s, 38%). Krolowa Dzungli (9714): three hits on one spot, 17 400 a cast (87%) -
+#    skill 20 -> 8, dam_multiply 2.55 -> 2.30 (7.5%/s, 32%).
+#  * Razador (6091): his first skill lands three hits 800 ahead - 15 000 on a ranged player (141%) -
+#    20 -> 8 (43%); the second 25 -> 20. Nemere (6191) hit 2 400 a blow and 8 100 a cast (58%) -
+#    dam_multiply 3.2 -> 2.72, skills 20/25 -> 12/15 (14% a blow, 25% a cast, 8.9%/s). Szel (6151) keeps
+#    the owner's +100% (29 September).
+#  * the bosses' yang (a boss drops it in 10-21 piles to the killer's party, bots too): the Arezzo
+#    bosses, Razador/Nemere (their package 1 792-2 688), Azrael, the Grotto's Generals and the forest's
+#    lemur bosses up the ladder; Beran-Setaou keeps his 23-34 million.
+# Written every start (PROTO_FROM_DB, skill_proto at the cores' start). Idempotent.
+db -e "UPDATE world.skill_proto SET setFlag = 'ATTACK,USE_MELEE_DAMAGE,SPLASH' WHERE dwVnum IN (256, 258, 260) AND setFlag = 'ATTACK,USE_MELEE_DAMAGE,SPLASH,CRUSH';
+UPDATE world.mob_proto SET skill_level0 = 26 WHERE vnum IN (2191, 2192, 8614, 8615) AND skill_vnum0 = 256;
+UPDATE world.mob_proto SET skill_level1 = 19 WHERE vnum = 3691 AND skill_vnum1 = 258;
+UPDATE world.mob_proto SET skill_level0 = 8 WHERE vnum IN (3790, 3890) AND skill_vnum0 = 256;
+UPDATE world.mob_proto SET skill_level1 = 9 WHERE vnum IN (3791, 3391) AND skill_vnum1 = 258;
+UPDATE world.mob_proto SET skill_level0 = 10, gold_min = 25000, gold_max = 35000 WHERE vnum = 9683;
+UPDATE world.mob_proto SET skill_level0 = 6, gold_min = 60000, gold_max = 90000 WHERE vnum = 9684;
+UPDATE world.mob_proto SET gold_min = 150000, gold_max = 220000 WHERE vnum = 9682;
+UPDATE world.mob_proto SET gold_min = 60000, gold_max = 90000 WHERE vnum = 9606;
+UPDATE world.mob_proto SET gold_min = 150000, gold_max = 250000 WHERE vnum = 9607;
+UPDATE world.mob_proto SET gold_min = 90000, gold_max = 135000 WHERE vnum = 9675;
+UPDATE world.mob_proto SET gold_min = 200000, gold_max = 300000 WHERE vnum = 9681;
+UPDATE world.mob_proto SET skill_level0 = 12, gold_min = 100000, gold_max = 150000 WHERE vnum = 9695;
+UPDATE world.mob_proto SET skill_level0 = 15, skill_level1 = 20, dam_multiply = 2.70, gold_min = 300000, gold_max = 450000 WHERE vnum = 9694;
+UPDATE world.mob_proto SET gold_min = 120000, gold_max = 180000 WHERE vnum = 9712;
+UPDATE world.mob_proto SET gold_min = 200000, gold_max = 300000 WHERE vnum = 9713;
+UPDATE world.mob_proto SET skill_level0 = 8, dam_multiply = 2.30, gold_min = 600000, gold_max = 900000 WHERE vnum = 9714;
+UPDATE world.mob_proto SET skill_level0 = 8, skill_level1 = 20, gold_min = 300000, gold_max = 450000 WHERE vnum = 6091;
+UPDATE world.mob_proto SET gold_min = 60000, gold_max = 90000 WHERE vnum = 6051;
+UPDATE world.mob_proto SET skill_level0 = 12, skill_level1 = 15, dam_multiply = 2.72, gold_min = 500000, gold_max = 750000 WHERE vnum = 6191;
+UPDATE world.mob_proto SET gold_min = 100000, gold_max = 150000 WHERE vnum = 6151;
+UPDATE world.mob_proto SET gold_min = 400000, gold_max = 600000 WHERE vnum = 2598;
+UPDATE world.mob_proto SET gold_min = 600000, gold_max = 900000 WHERE vnum = 2492;
+UPDATE world.mob_proto SET gold_min = 500000, gold_max = 750000 WHERE vnum = 2495;
+UPDATE world.mob_proto SET gold_min = 150000, gold_max = 220000 WHERE vnum = 3390;
+UPDATE world.mob_proto SET gold_min = 300000, gold_max = 450000 WHERE vnum = 3391;" || echo "[playerbot-migrate] WARNING: could not balance the Arezzo and dungeon bosses (MT2009_PLUS_AREZZO_BALANCE_V1)" >&2
+# MT2009_PLUS_AREZZO_BALANCE_V1 (the owner, 5 October: "jesli wejscie jest za 5kk, to
+# drop z glownego bossa niech bedzie polowa tej wartosci"): each dungeon's main boss
+# drops about half its entry fee in yang (0.45-0.55 x the fee; Leze Smoka's
+# Beran-Setaou already drops far more and stays).
+db -e "UPDATE world.mob_proto SET gold_min = 450000, gold_max = 550000 WHERE vnum = 9706;
+UPDATE world.mob_proto SET gold_min = 1125000, gold_max = 1375000 WHERE vnum = 9682;
+UPDATE world.mob_proto SET gold_min = 1575000, gold_max = 1925000 WHERE vnum = 6091;
+UPDATE world.mob_proto SET gold_min = 2250000, gold_max = 2750000 WHERE vnum = 9694;
+UPDATE world.mob_proto SET gold_min = 3375000, gold_max = 4125000 WHERE vnum IN (6191, 9714);" \
+  || echo "[playerbot-migrate] WARNING: could not set the dungeon bosses' yang to half the entry fee" >&2
+
 # MT2009_PLUS_GOBLIN_V1: the Treasure Hunt event (playerbot_goblin.h, the events
 # file's kind "goblin"): the Treasure Ticket (70617, from chests while the
 # event runs - it takes a player of level 70 to Treasure Island), the Goblin
@@ -2543,6 +2617,93 @@ FROM DUAL WHERE EXISTS (SELECT 1 FROM world.item_proto WHERE vnum = 40233) AND N
 # "Rozbuduj" refused.
 db -e "CREATE TABLE IF NOT EXISTS player.collector_storage (account_id INT UNSIGNED NOT NULL PRIMARY KEY, tier TINYINT UNSIGNED NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB;" \
   || echo "[playerbot-migrate] WARNING: could not create player.collector_storage (the collector's storage stays at 500 entries)" >&2
+
+# MT2009_PLUS_KINGDOM_WAR_OFF_V1: the Kingdom War is switched off (game Dockerfile); a war a
+# game master had started before stays off.
+db -e "UPDATE player.quest SET lValue = 0 WHERE dwPID = 0 AND szName = 'threeway_war';" >/dev/null 2>&1 || true
+
+# ---------------------------------------------------------------------------
+# MT2009_PLUS_MONSTER_CARDS_V1: Karty Potworow, the Monster Card System
+# (Autor: Digi Rasta - nowy-system v0.25.2, his port of the
+# "Official-Monster-Card-System" package; overlay playerbot_monster_card.h,
+# engine calls server-patches/monstercard, client root monstercard.py and
+# uimonstercard.py). The progress is the account's: the mission (level, its
+# three targets and its deck), every monster's collected cards, kills, stars
+# and cooldowns, and the sets registered and worn. The tables keep the names
+# of his package (80_karty_potworow.sql), so a world that ran it keeps its
+# progress. The items: 50283 Karta Potwora (from a mission or a drop, the
+# monster in socket 1; no drop, trade or shop - antiflag 73856), 50284 Karta
+# Potwora (handlowalna) (the monster in socket 0, tradable), 72322 Karta Nowego
+# Poczatku (a mission reset past the free one a day) and 72323 Karta Nowego
+# Ukladu (new targets) - stack 200, only cards of the same monster merge (the
+# engine compares the sockets). The names as _cp1250 literals (db() speaks
+# latin1). INSERT IGNORE: a row the operator changed is kept; the client
+# carries the same four rows (client-patches/client-2.0.30/tools/monstercard).
+# M2_MONSTER_CARDS=0 switches the system off in the game core, the tables and
+# items stay. Idempotent.
+# ---------------------------------------------------------------------------
+db -e "CREATE TABLE IF NOT EXISTS player.nowy_karty_misja (
+  account_id INT UNSIGNED NOT NULL,
+  glowny0 INT UNSIGNED NOT NULL DEFAULT 0, glowny1 INT UNSIGNED NOT NULL DEFAULT 0, glowny2 INT UNSIGNED NOT NULL DEFAULT 0,
+  talia0 INT UNSIGNED NOT NULL DEFAULT 0, talia1 INT UNSIGNED NOT NULL DEFAULT 0, talia2 INT UNSIGNED NOT NULL DEFAULT 0,
+  talia3 INT UNSIGNED NOT NULL DEFAULT 0, talia4 INT UNSIGNED NOT NULL DEFAULT 0, talia5 INT UNSIGNED NOT NULL DEFAULT 0,
+  talia6 INT UNSIGNED NOT NULL DEFAULT 0, talia7 INT UNSIGNED NOT NULL DEFAULT 0, talia8 INT UNSIGNED NOT NULL DEFAULT 0,
+  talia9 INT UNSIGNED NOT NULL DEFAULT 0, talia10 INT UNSIGNED NOT NULL DEFAULT 0, talia11 INT UNSIGNED NOT NULL DEFAULT 0,
+  talia12 INT UNSIGNED NOT NULL DEFAULT 0, talia13 INT UNSIGNED NOT NULL DEFAULT 0, talia14 INT UNSIGNED NOT NULL DEFAULT 0,
+  talia15 INT UNSIGNED NOT NULL DEFAULT 0,
+  zabity0 TINYINT UNSIGNED NOT NULL DEFAULT 0, zabity1 TINYINT UNSIGNED NOT NULL DEFAULT 0, zabity2 TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  poziom INT UNSIGNED NOT NULL DEFAULT 0,
+  reset_misji BIGINT NOT NULL DEFAULT 0, reset_kolejnosci BIGINT NOT NULL DEFAULT 0,
+  okno_start BIGINT NOT NULL DEFAULT 0, okno_liczba INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (account_id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+CREATE TABLE IF NOT EXISTS player.nowy_karty_status (
+  account_id INT UNSIGNED NOT NULL,
+  vnum INT UNSIGNED NOT NULL,
+  zebrane INT UNSIGNED NOT NULL DEFAULT 0,
+  zabicia INT UNSIGNED NOT NULL DEFAULT 0,
+  gwiazdki TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  teleport BIGINT NOT NULL DEFAULT 0,
+  przemiana BIGINT NOT NULL DEFAULT 0,
+  przywolanie BIGINT NOT NULL DEFAULT 0,
+  rekrutacja BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (account_id, vnum)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+CREATE TABLE IF NOT EXISTS player.nowy_karty_osiagniecia (
+  account_id INT UNSIGNED NOT NULL,
+  vnum INT UNSIGNED NOT NULL,
+  zalozone TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  ranga TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (account_id, vnum)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+INSERT IGNORE INTO world.item_proto (vnum, name, locale_name, type, subtype, stack, weight, size, antiflag, flag, wearflag, immuneflag, gold, shop_buy_price, refined_vnum, refine_set, magic_pct, specular, socket_pct, addon_type, limittype0, limitvalue0, limittype1, limitvalue1, applytype0, applyvalue0, applytype1, applyvalue1, applytype2, applyvalue2, value0, value1, value2, value3, value4, value5, socket0, socket1, socket2, socket3, socket4, socket5) VALUES
+(50283, 'Monster Card', _cp1250 X'4B6172746120506F74776F7261', 3, 10, 200, 0, 1, 73856, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(50284, 'Monster Card (Tradable)', _cp1250 X'4B6172746120506F74776F7261202868616E646C6F77616C6E6129', 3, 10, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(72322, 'New Start Card', _cp1250 X'4B61727461204E6F7765676F20506F637AB9746B75', 5, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1),
+(72323, 'New Order Card', _cp1250 X'4B61727461204E6F7765676F20556BB3616475', 5, 0, 200, 0, 1, 0, 4, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1);" \
+  || echo "[playerbot-migrate] WARNING: could not add the Monster Card tables or items (Karty Potworow)" >&2
+# MT2009_PLUS_MONSTER_CARDS_V1 (the owner, 5 October): Karta Nowego Poczatku
+# (72322, a mission reset past the free one) and Karta Nowego Ukladu (72323,
+# new targets) are sold in the ItemShop's "Zwoje i ksiegi" page (indexes
+# 601-699) at 49 SM each. INSERT IGNORE: a price the operator changed stays.
+db -e "INSERT IGNORE INTO common.itemshop_items (\`index\`, vnum, count, price, currency, minLevel) VALUES (617, 72322, 1, 49, 'DRAGON_COIN', 0), (618, 72323, 1, 49, 'DRAGON_COIN', 0);" \
+  || echo "[playerbot-migrate] WARNING: could not put the Monster Card scrolls into the ItemShop" >&2
+
+# MT2009_PLUS_DUNGEON_RANKING_FINISH_V1: the dungeon panel credits a run only to
+# those who hurt the final boss (playerbot_dungeon_panel.h, DungeonFinishers);
+# before, everyone standing in the instance at the boss's fall was credited -
+# whoever had just walked in as well ("Wystarczy wejscie na dunga", the owner).
+# A run leaves no record of who fought in it, so the old rows cannot be told
+# apart one by one, but a character whose best damage to a dungeon's boss
+# (dungeon_panel.<key>_d) was never above zero hurt that boss in none of its
+# credited runs: its finished count and best time there (<key>_f, <key>_t) go.
+# A character that hurt the boss at least once keeps its rows whole. Every
+# credit written since carries a damage above zero, so this is idempotent.
+# The weekly ranking's dungeon counts are sums of the season and stay.
+db -e "DELETE FROM player.quest WHERE dwPID > 0 AND szName = 'dungeon_panel' AND RIGHT(szState, 2) IN ('_f', '_t')
+  AND NOT EXISTS (SELECT 1 FROM (SELECT dwPID, szState FROM player.quest WHERE szName = 'dungeon_panel' AND RIGHT(szState, 2) = '_d' AND lValue > 0) d
+    WHERE d.dwPID = player.quest.dwPID AND d.szState = CONCAT(LEFT(player.quest.szState, CHAR_LENGTH(player.quest.szState) - 2), '_d'));" \
+  || echo "[playerbot-migrate] WARNING: could not clear the dungeon panel's results of characters who never hurt a boss" >&2
 
 # MT2009_PLUS_FAST_START_V1: the full run is done - its fingerprint for the next start.
 db -e "REPLACE INTO common.playerbot_migrate_state (id, fingerprint, done_at) VALUES (1, '$migrate_fp', NOW());" >/dev/null 2>&1 \

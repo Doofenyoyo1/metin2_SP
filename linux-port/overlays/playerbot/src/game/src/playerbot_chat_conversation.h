@@ -56,6 +56,26 @@
 
 namespace
 {
+	// MT2009_PLUS_BOT_CHAT_V2: defined later in the unit - the spot quarrel
+	// (playerbot_spot_defense.h) and the places a level is advised to
+	// (playerbot_chat_world.h, after the Battle Pass bots' stone table).
+	int GetPlayerBotSpotQuarrel(DWORD botPID, DWORD personPID, bool& gaveUp);
+	bool DescribePlayerBotExpPlace(int level, int empire, std::string& out);
+	bool DescribePlayerBotMetinPlace(int level, int empire, std::string& out);
+	// MT2009_PLUS_BOT_CHAT_V2 (deals): playerbot_chat_deals.h - an item a
+	// whisper names, priced and judged; a deal both sides settled.
+	bool QuotePlayerBotDealItem(LPCHARACTER bot, const std::string& query, DWORD vnumHint, DWORD skillHint,
+			playerbot_conv::TDealQuote& out);
+	int RegisterPlayerBotDeal(LPCHARACTER bot, DWORD personPID, LPCHARACTER person, BYTE side, DWORD vnum, DWORD skill,
+			int count, long long unit, playerbot_conv::TDealMeetPlace& place);
+	bool GetPlayerBotDealMeet(LPCHARACTER bot, DWORD personPID, playerbot_conv::TDealMeetPlace& place);
+	// MT2009_PLUS_BOT_DUNGEON_LFG_V1: playerbot_dungeon_lfg.h - the yes to a
+	// bot's dungeon offer, the no, and the dungeon named to "na jaki dung?".
+	int AcceptPlayerBotDungeonLfg(LPCHARACTER bot, DWORD personPID);
+	void DeclinePlayerBotDungeonLfg(LPCHARACTER bot, DWORD personPID);
+	int ChoosePlayerBotDungeonLfg(LPCHARACTER bot, DWORD personPID, const std::string& key, int difficulty,
+			std::string& resolved);
+
 	const DWORD PLAYERBOT_CONV_SWITCH_CHECK_MS = 30000;
 	const DWORD PLAYERBOT_CONV_STATS_INTERVAL_MS = 10 * 60 * 1000;
 	const int PLAYERBOT_CONV_AROUND_RADIUS = 2500;
@@ -188,6 +208,44 @@ namespace
 			case BOT_PERSONALITY_L30_WEAPON_DROPPER: return S_DROPPER; // MT2009_PLUS_L30_WEAPON_DROPPER_V1
 			default: return S_ADVENTURER;
 		}
+	}
+
+	// MT2009_PLUS_BOT_CHAT_V2: the timed events running now (playerbot_events.h),
+	// named as a player would: "event na expa, skrzynie".
+	std::string DescribePlayerBotEventsNow()
+	{
+		std::string out;
+		for (int kind = 0; kind < playerbot_events::KIND_MAX; ++kind)
+		{
+			if (!s_aPlayerBotEventState[kind].active)
+				continue;
+			const char* name = NULL;
+			switch (kind)
+			{
+				case playerbot_events::KIND_CHEST: name = "skrzynie z Ksiezycowego Swiatla"; break;
+				case playerbot_events::KIND_EXP: name = "event na expa"; break;
+				case playerbot_events::KIND_DROP: name = "event na drop"; break;
+				case playerbot_events::KIND_YANG: name = "event na yang"; break;
+				case playerbot_events::KIND_TANAKA: name = "piraci Tanaki"; break;
+				case playerbot_events::KIND_ZUO: name = "deszcz metinow"; break;
+				case playerbot_events::KIND_BOSS_LOOT: name = "lepszy drop z bossow"; break;
+				case playerbot_events::KIND_METIN_LOOT: name = "lepszy drop z metinow"; break;
+				case playerbot_events::KIND_GOBLIN: name = "poszukiwanie skarbow"; break;
+				case playerbot_events::KIND_CATCHKING: name = "Catch the King"; break;
+				case playerbot_events::KIND_RUMI: name = "Rumi"; break;
+				case playerbot_events::KIND_YUTNORI: name = "Yut Nori"; break;
+				case playerbot_events::KIND_FLOWER: name = "Dzieci Kwiaty"; break;
+				case playerbot_events::KIND_EASTER: name = "event wielkanocny"; break;
+				case playerbot_events::KIND_CHESTDROP: name = "skrzynki z mobow"; break;
+				default: break;
+			}
+			if (!name)
+				continue;
+			if (!out.empty())
+				out += ", ";
+			out += name;
+		}
+		return out;
 	}
 
 	int MapPlayerBotConvMood(LPCHARACTER ch, const TPlayerBotAIState& state, DWORD dwNow)
@@ -1106,7 +1164,7 @@ namespace
 	class CPlayerBotConvWorld : public playerbot_conv::IConvWorld
 	{
 		public:
-			CPlayerBotConvWorld() : m_bot(NULL), m_player(NULL), m_channel(0) {}
+			CPlayerBotConvWorld() : m_bot(NULL), m_player(NULL), m_channel(0), m_personPID(0) {}
 			// `player` is NULL for a person on another core; `channel` is the
 			// one the person plays on, whose counters "ile chodzi" reads.
 			void Bind(LPCHARACTER bot, LPCHARACTER player, int channel)
@@ -1116,10 +1174,11 @@ namespace
 				m_channel = channel;
 			}
 
-			bool FindItem(const std::string& query, std::string& outName, unsigned int& outCount)
+			bool FindItem(const std::string& rawQuery, std::string& outName, unsigned int& outCount)
 			{
 				if (!m_bot || !m_bot->IsItemLoaded())
 					return false;
+				const std::string query = playerbot_conv::FoldName(rawQuery.c_str());
 				for (WORD cell = 0; cell < PLAYERBOT_BAG_CELLS; ++cell)
 				{
 					LPITEM item = m_bot->GetInventoryItem(cell);
@@ -1149,11 +1208,15 @@ namespace
 
 			// "masz na straganie X?": the bot's own stall - classic or the Ikarus
 			// offline shop (GetPlayerBotStall, playerbot_chat_trade.h).
-			bool FindShopItem(const std::string& query, std::string& outName, long long& outPrice,
+			bool FindShopItem(const std::string& rawQuery, std::string& outName, long long& outPrice,
 					unsigned int& outCount)
 			{
 				if (!m_bot)
 					return false;
+				// Folded as the stall's names are: the bot's own post's item
+				// came here as the post printed it ("Ebonitowy Naszyjnik+4")
+				// and matched none of them (the owner, 4 October).
+				const std::string query = playerbot_conv::FoldName(rawQuery.c_str());
 				TPlayerBotStall stall;
 				if (!GetPlayerBotStall(m_bot->GetPlayerID(), m_bot, stall))
 					return false;
@@ -1178,9 +1241,10 @@ namespace
 			// "ile chodzi X?": the cheapest line of X on the asker's channel's
 			// stalls (the other bots' and, on mt2009, every offline shop), else
 			// the sale memory's median for it.
-			bool FindMarketPrice(const std::string& query, std::string& outName, long long& outPrice,
+			bool FindMarketPrice(const std::string& rawQuery, std::string& outName, long long& outPrice,
 					unsigned int& outSellers)
 			{
+				const std::string query = playerbot_conv::FoldName(rawQuery.c_str());
 				std::string rest;
 				bool forget = false;
 				const DWORD skill = GetPlayerBotStallBookQuery(query, rest, forget);
@@ -1281,10 +1345,63 @@ namespace
 				return EndPlayerBotSummonBy(m_bot, m_player, get_dword_time());
 			}
 
+			// MT2009_PLUS_BOT_CHAT_V2: "gdzie expic na 40?", "gdzie metki na
+			// 30?" - the progression table's maps and the stones' spawns, in
+			// the bot's kingdom's words.
+			bool ExpPlaceFor(int level, std::string& out)
+			{
+				return DescribePlayerBotExpPlace(level, m_bot ? (int)m_bot->GetEmpire() : 0, out);
+			}
+
+			bool MetinPlaceFor(int level, std::string& out)
+			{
+				return DescribePlayerBotMetinPlace(level, m_bot ? (int)m_bot->GetEmpire() : 0, out);
+			}
+
+			// MT2009_PLUS_BOT_CHAT_V2 (deals).
+			bool QuoteItem(const std::string& query, playerbot_conv::u32 vnumHint, playerbot_conv::u32 skillHint,
+					playerbot_conv::TDealQuote& out)
+			{
+				return m_bot && QuotePlayerBotDealItem(m_bot, query, vnumHint, skillHint, out);
+			}
+
+			int DealAgreed(unsigned char side, playerbot_conv::u32 vnum, playerbot_conv::u32 skill, int count, long long unit,
+					playerbot_conv::TDealMeetPlace& place)
+			{
+				return RegisterPlayerBotDeal(m_bot, m_personPID, m_player, side, vnum, skill, count, unit, place);
+			}
+
+			bool DealMeet(playerbot_conv::TDealMeetPlace& place)
+			{
+				return GetPlayerBotDealMeet(m_bot, m_personPID, place);
+			}
+
+			// MT2009_PLUS_BOT_DUNGEON_LFG_V1: the dungeon finder's answers, made
+			// at the moment the reply is composed - the teleport to the
+			// entrance with it. The person by pid: a yes may come from another
+			// core.
+			int LfgAccept()
+			{
+				return AcceptPlayerBotDungeonLfg(m_bot, m_personPID);
+			}
+
+			void LfgDecline()
+			{
+				DeclinePlayerBotDungeonLfg(m_bot, m_personPID);
+			}
+
+			int LfgChoose(const std::string& key, int difficulty, std::string& resolved)
+			{
+				return ChoosePlayerBotDungeonLfg(m_bot, m_personPID, key, difficulty, resolved);
+			}
+
+			void SetPersonPID(DWORD pid) { m_personPID = pid; }
+
 		private:
 			LPCHARACTER m_bot;
 			LPCHARACTER m_player;
 			int m_channel;
+			DWORD m_personPID;
 	};
 
 	// ---------------------------------------------------------------- host
@@ -1373,6 +1490,7 @@ namespace
 					s.leaderIsMe = party->GetLeaderPID() == botPID;
 					// A party holds its members on every core (the P2P party).
 					s.askerInParty = player ? player->GetParty() == party : party->IsMember(playerPID);
+					s.partyWithOtherPerson = PlayerBotPartyHasOtherPerson(party, player);
 				}
 				CGuild* guild = bot->GetGuild();
 				if (guild)
@@ -1497,6 +1615,10 @@ namespace
 						s.shopMapIndex = stall.mapIndex >= PLAYERBOT_INSTANCE_MAP_INDEX_MIN ? stall.mapIndex / 10000 : stall.mapIndex;
 						// Another channel than the asker's, who may be on either.
 						s.shopOtherChannel = stall.channel != s.askerChannel;
+						// MT2009_PLUS_BOT_CHAT_V2: beside what it stands, for "jest
+						// na straganie w M1 Joan przy kowalu".
+						s.shopChannel = stall.channel;
+						s.shopSpot = DescribePlayerBotStallSpot(s.shopMapIndex, stall.x, stall.y);
 						s.shopItems = (int)stall.lines.size();
 						for (size_t i = 0; i < stall.lines.size() && i < PLAYERBOT_CONV_SHOP_SUMMARY_ITEMS; ++i)
 						{
@@ -1572,6 +1694,11 @@ namespace
 				else
 					s.summonBlock = AskerOnOtherChannel(s) ? SB_OTHER_CHANNEL : SB_OTHER_MAP;
 				s.afk = state.persona.dwAfkUntil != 0 && now < state.persona.dwAfkUntil;
+				// MT2009_PLUS_BOT_CHAT_V2: how far a quarrel over the bot's spot
+				// with this person went (playerbot_spot_defense.h).
+				s.spotQuarrel = GetPlayerBotSpotQuarrel(botPID, playerPID, s.spotGaveUp);
+				s.eventsNow = DescribePlayerBotEventsNow();
+				GetPlayerBotPublicLines(botPID, s.publicLines);
 				{
 					const time_t t = time(0);
 					const struct tm* lt = localtime(&t);
@@ -1587,6 +1714,7 @@ namespace
 				const int channel = person.Channel();
 				m_world.Bind(CHARACTER_MANAGER::instance().FindByPID(botPID), person.local,
 						channel ? channel : (int)g_bChannel);
+				m_world.SetPersonPID(playerPID);
 				return &m_world;
 			}
 
@@ -1685,6 +1813,20 @@ namespace
 				text, now, playerName, bot->GetName());
 		EnsurePlayerBotConvTimer();
 		return true;
+	}
+
+	// MT2009_PLUS_BOT_CHAT_V2: whether a person is in the middle of a talk
+	// with a bot - a line within PLAYERBOT_TRADE_TALK_MS, or a deal open -
+	// so a trade line of theirs on the channel is that talk's, and no other
+	// bot cuts in with its own offer (AnswerPlayerBotTradeLine).
+	bool IsPlayerBotTalkingWith(DWORD personPID, DWORD botPID, DWORD now)
+	{
+		playerbot_conv::TConvPair* pair = s_PlayerBotConvEngine.FindPair(personPID, botPID);
+		if (!pair)
+			return false;
+		if (pair->mem.deal.Live(now))
+			return true;
+		return pair->mem.lastPlayerAt != 0 && now - pair->mem.lastPlayerAt < PLAYERBOT_TRADE_TALK_MS;
 	}
 
 	// The same for a character of this core. Inline because the whisper path

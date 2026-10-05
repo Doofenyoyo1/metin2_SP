@@ -94,3 +94,96 @@ Group	MT2009_dropedit_532
 	1	292	1	4	-- Miecz Pelni Ksiezyca+2, 1%
 	2	2152	1	4	-- Luk Z Rogu Jelenia+2, 1%
 }
+
+// MT2009_PLUS_AREZZO_BALANCE_V1 (the owner, 5 October): the progression ladder - each harder boss drops clearly better
+// than the tier before. The Grotto of Exile's Generals (2492, 2495; their Commanders 2491/2494 keep
+// the Krety Klucz) were worth only the key: now soul stones (+2..+4 always, +4 at 50%), the
+// Kamien Duchowy, pearls, books and the boss tier groups - per kill under the Ice Witch's (1192:
+// fourteen +4 stones at 12.5% each, every 8 h), per hour above her. Zaczarowany Las's bosses
+// (3390/3391) and Azrael (2598, the Catacomb) the same way at their level. These groups join the
+// mobs' own (the base share's Setaou-General groups, Azrael's chest).
+
+Group	MT2009_azbal_2491
+{
+	mob	2491	-- Dowodca Yonghan
+	Type	drop
+	1	s10987	1	100	-- Kamien Duszy +0..+3, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	27987	2	100	-- Malz x2, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_2494
+{
+	mob	2494	-- Dowodca Huashin
+	Type	drop
+	1	s10987	1	100	-- Kamien Duszy +0..+3, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	27987	2	100	-- Malz x2, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_2492
+{
+	mob	2492	-- General Yonghan
+	Type	drop
+	1	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10743	1	400	-- Boss_HighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	3	s10743	1	100	-- Boss_HighTier, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	4	s10988	1	400	-- Kamien Duszy +2..+4, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	5	s10984	1	200	-- Kamien Duszy +4, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	6	50513	1	60	-- Kamien Duchowy, 15% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	7	50300	2	200	-- Ksiega Umiejetnosci x2, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	8	27992	1	100	-- Biala Perla, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	9	27993	1	60	-- Niebieska Perla, 15% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	10	27994	1	30	-- Krwawa Perla, 7.5% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	11	71084	2	60	-- Zaczarowanie Przedmiotu x2, 15% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	12	71085	2	40	-- Wzmocnienie Przedmiotu x2, 10% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_2495
+{
+	mob	2495	-- General Huashin
+	Type	drop
+	1	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10743	1	400	-- Boss_HighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	3	s10743	1	100	-- Boss_HighTier, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	4	s10988	1	400	-- Kamien Duszy +2..+4, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	5	s10984	1	200	-- Kamien Duszy +4, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	6	50513	1	60	-- Kamien Duchowy, 15% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	7	50300	2	200	-- Ksiega Umiejetnosci x2, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	8	27992	1	100	-- Biala Perla, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	9	27993	1	60	-- Niebieska Perla, 15% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	10	27994	1	30	-- Krwawa Perla, 7.5% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	11	71084	2	60	-- Zaczarowanie Przedmiotu x2, 15% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	12	71085	2	40	-- Wzmocnienie Przedmiotu x2, 10% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_3390
+{
+	mob	3390	-- Lemur Hrabia
+	Type	drop
+	1	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10743	1	200	-- Boss_HighTier, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	3	s10988	1	100	-- Kamien Duszy +2..+4, 25% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	4	50513	1	20	-- Kamien Duchowy, 5% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_3391
+{
+	mob	3391	-- Straz Przyboczna Lemurow
+	Type	drop
+	1	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10755	1	200	-- MiniBoss_VeryHighTier, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	3	s10743	1	400	-- Boss_HighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	4	s10988	1	200	-- Kamien Duszy +2..+4, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	5	s10984	1	60	-- Kamien Duszy +4, 15% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	6	50513	1	40	-- Kamien Duchowy, 10% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}
+
+Group	MT2009_azbal_2598
+{
+	mob	2598	-- Azrael
+	Type	drop
+	1	s10755	1	400	-- MiniBoss_VeryHighTier, 100% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	2	s10743	1	200	-- Boss_HighTier, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	3	s10988	1	200	-- Kamien Duszy +2..+4, 50% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	4	s10984	1	40	-- Kamien Duszy +4, 10% (MT2009_PLUS_AREZZO_BALANCE_V1)
+	5	50513	1	40	-- Kamien Duchowy, 10% (MT2009_PLUS_AREZZO_BALANCE_V1)
+}

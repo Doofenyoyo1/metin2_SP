@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: the item search of the database editor (dbeditor/items.py). #}
+{% block title %}Przedmioty · Edytor bazy danych · {{ panel_brand }}{% endblock %}
+{% block content %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% set dbe_tab = 'items' %}{% include 'dbeditor/_items_common.html' %}
+<p class="eyebrow">EDYTOR BAZY DANYCH · PRZEDMIOTY</p>
+<h1>⚔️ Przedmioty</h1>
+<p class="muted">Znajdź przedmiot po nazwie albo numerze (vnum), otwórz go i zmień nazwę, wymagany poziom, bonusy, atak lub obronę. Zmiana trafia do bazy od razu, a do gry po restarcie.</p>
+
+<section class="panel">
+  <form method="get" class="dbe-search">
+    <label>Nazwa lub vnum<input type="search" name="q" value="{{ query }}" placeholder="np. Miecz Bojowy albo 149" autofocus></label>
+    <label>Rodzaj
+      <select name="typ">
+        <option value="">— wszystkie —</option>
+        {% for t, label, count in types %}<option value="{{ t }}" {{ 'selected' if item_type == t }}>{{ label }} ({{ count }})</option>{% endfor %}
+      </select></label>
+    {% if subtypes %}
+    <label>Podrodzaj
+      <select name="podtyp">
+        <option value="">— wszystkie —</option>
+        {% for s, label in subtypes.items() %}<option value="{{ s }}" {{ 'selected' if subtype == s }}>{{ label }}</option>{% endfor %}
+      </select></label>
+    {% endif %}
+    <label class="dbe-check"><input type="checkbox" name="rodziny" value="1" {{ 'checked' if only_top }}> tylko +0 z każdej rodziny ulepszeń</label>
+    <button>Szukaj</button>
+  </form>
+</section>
+
+{% if not searched %}
+<section class="panel">
+  <h2>Przeglądaj według rodzaju</h2>
+  <div class="dbe-chips">
+  {% for t, label, count in types %}<a class="dbe-chip" href="{{ url_for('dbeditor.items', typ=t, rodziny=1) }}">{{ label }} <small>{{ count }}</small></a>{% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="panel">
+  <h2>Wyniki <small class="muted">{{ results|length }}{% if more %}+ (pokazano pierwsze {{ limit }} – zawęź wyszukiwanie){% endif %}</small></h2>
+  {% if results %}
+  <table class="dbe-table">
+    <thead><tr><th>Przedmiot</th><th>Vnum</th><th>Rodzaj</th><th>Poziom</th><th>Bonusy</th><th></th></tr></thead>
+    <tbody>
+    {% for it in results %}
+      <tr>
+        <td class="item-cell"><a href="{{ url_for('dbeditor.item_edit', vnum=it.vnum) }}">{% set icon = item_icon(it.vnum) %}{% if icon %}<img src="{{ icon }}" alt="" loading="lazy">{% else %}<span class="dbe-noicon">?</span>{% endif %}<span>{{ it.locale_name }}</span></a></td>
+        <td>{{ it.vnum }}</td>
+        <td>{{ it.type_text }}</td>
+        <td>{{ it.level or '—' }}</td>
+        <td class="dbe-bonus">{{ it.bonus_text or '—' }}</td>
+        <td><a class="button dbe-small" href="{{ url_for('dbeditor.item_edit', vnum=it.vnum) }}">Edytuj</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">Nic nie znaleziono. Spróbuj krótszego fragmentu nazwy.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

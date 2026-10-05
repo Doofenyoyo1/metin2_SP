@@ -14,13 +14,29 @@
 -- statue (30101) takes a party of up to eight into an instance. Floor 2: the
 -- Gates of Perdition, then the turtle rock (30103), where a Dried Head is
 -- taken from every member. Floor 3: seven Metins of Revenge, one of them real.
--- Floor 4: the maze and the rune stake (30104). Floor 5: Tartar (2591), whose
--- totem (30312) goes to the obelisk (30102). Floor 6: Charon (2597) and every
--- monster. Floor 7: Azrael (2598) and every monster. Sixty minutes from floor 2.
+-- Floor 4 was the maze and the rune stake (30104) - gone, see below. Floor 5:
+-- Tartar (2591), whose totem (30312) goes to the obelisk (30102). Floor 6:
+-- Charon (2597) and every monster. Floor 7: Azrael (2598) and every monster.
+-- Sixty minutes from floor 2.
 --
--- 2.2.21: a party of bots runs it too (playerbot_catacomb.h). The three windows
--- a character passes - the key on the statue, the turtle rock, the rune stake -
--- ask pc.is_playerbot() (playerbotify.py) and let a bot through without the
+-- MT2009_PLUS_CATACOMB_NO_LABYRINTH_V1 (5 October): no more maze. "40 minut na
+-- trzecim pietrze i nie przenosi nigdzie, zaden teleport nie przenosi na
+-- poziom 4 [...] Od dawna na PL oraz innych hard serwerach nie ma tego pietra
+-- z teleportami, jest po prostu usuniete" (the owner). The maze was one of five
+-- random wirings (devilcatacomb_floor4_regen1-5.txt) of 35 GOTO doors
+-- (10801-10835) over nine rooms, most of them leading back towards the entry
+-- room, so a party that does not know its run's wiring - and a video shows
+-- another one - walks in circles; three doors (10814, 10817, 10818) carried a
+-- locale_name the engine could not read and moved nobody until apply.sh mended
+-- them. As on the official servers the floor is skipped: the real Metin of
+-- Revenge takes the party straight to Tartar's floor (5), three seconds later,
+-- on a server timer of the instance (the killer's own timer did nothing when
+-- the killer had left). The maze's map, regens and doors stay in the data,
+-- unused.
+--
+-- 2.2.21: a party of bots runs it too (playerbot_catacomb.h). The windows a
+-- character passes - the key on the statue, the turtle rock (and the maze's
+-- rune stake, gone since NO_LABYRINTH) - ask pc.is_playerbot() (playerbotify.py) and let a bot through without the
 -- dialog it has no client to answer; a person gets them as before. And the
 -- move to floor 3 is the dungeon's own timer, not the clicker's: a clicker
 -- without a Dried Head is the first one exit_all_by_item_group sends out, and
@@ -71,6 +87,7 @@ quest devilcatacomb_zone begin
 		},
 
 		["mob_regen_file_path"] = "data/dungeon/devilcatacomb/",
+		-- floor4_*: the maze's, unused since MT2009_PLUS_CATACOMB_NO_LABYRINTH_V1.
 		["floor4_regen_file"] = {"devilcatacomb_floor4_regen1.txt",
 		                       "devilcatacomb_floor4_regen2.txt",
 							   "devilcatacomb_floor4_regen3.txt",
@@ -472,51 +489,35 @@ quest devilcatacomb_zone begin
 		end
 
 		when devilcatacomb3_stone.kill begin
-			local setting = devilcatacomb_zone.setting()
 			-- When a stone breaks, see whether the real one has died.
-			-- If the real one has died, go on to floor 4.
+			-- If the real one has died, go on - past the maze, to floor 5
+			-- (MT2009_PLUS_CATACOMB_NO_LABYRINTH_V1). A fake one broken in the
+			-- three seconds before the jump starts no second jump.
 			if d.is_unique_dead("real") then
-				d.notice(gameforge.devilcatacomb_zone._280_dNotice)
-				
-				d.setf ("level",4)
-				d.setqf2("devilcatacomb_zone","level", 4)
-				timer ("devilcatacomb_floor4_enter_timer", 3)
+				if d.getf("floor5_called") == 0 then
+					d.setf("floor5_called", 1)
+					d.notice("Prawdziwy Kamieñ Metin zosta³ zniszczony. Za chwilê zejdziecie do Tartara!")
+					server_timer("devilcatacomb_floor5_enter_timer", 3, d.get_map_index())
+				end
 			else
 				d.notice(gameforge.devilcatacomb_zone._290_dNotice)
 			end
 		end
 
-		when devilcatacomb_floor4_enter_timer.timer begin
-			local setting = devilcatacomb_zone.setting()
-			local i = number (1, 5)
-			timer("warp_timer",3)
-			d.purge ()
-			d.jump_all (setting.floor4_entry.x + setting.base.x , setting.floor4_entry.y + setting.base.y)
-			d.regen_file (setting.mob_regen_file_path.."dc_4f_regen.txt")
-			d.regen_file (setting.mob_regen_file_path..setting.floor4_regen_file[i])
-			if (is_test_server()) then
-				d.notice (setting.floor4_regen_file[i])
+		-- MT2009_PLUS_CATACOMB_NO_LABYRINTH_V1: floor 3 to floor 5, what the rune
+		-- stake's click at the end of the maze did: Tartar at one of his five
+		-- places, his floor's monsters and the obelisk.
+		when devilcatacomb_floor5_enter_timer.server_timer begin
+			if not d.select(get_server_timer_arg()) then
+				return
 			end
-			d.spawn_mob (setting.floor4_npc, setting.floor4_npc_pos[1], setting.floor4_npc_pos[2])
-		end
-
-		-- devilcatacomb_floor4_stone is the NPC whose click moves the party from floor 4 to floor 5.
-		when devilcatacomb_floor4_stone.click begin
 			local setting = devilcatacomb_zone.setting()
 			local n = number (1,5)
-			if not pc.is_playerbot() then
-				say(gameforge.devilcatacomb_zone._300_say)
-				wait()
-			end
-			if (is_test_server()) then
-				-- devil_king pos
-				chat (setting.devil_king_pos[n][1], setting.devil_king_pos[n][2])
-			end
 			d.purge ()
 			d.jump_all (setting.floor5_entry.x + setting.base.x, setting.floor5_entry.y + setting.base.y )
 			d.setf ("level",5)
 			d.setqf2("devilcatacomb_zone","level", 5)
-			timer("warp_timer",3)
+			server_timer("devilcatacomb_warp_notice_timer", 3, get_server_timer_arg())
 			d.regen_file (setting.mob_regen_file_path.."dc_5f_regen.txt")
 			d.spawn_mob (setting.devil_king, setting.devil_king_pos[n][1], setting.devil_king_pos[n][2])
 			d.spawn_mob (setting.floor5_stone, setting.floor5_stone_pos[1], setting.floor5_stone_pos[2])

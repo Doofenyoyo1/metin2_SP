@@ -1,0 +1,47 @@
+{#- MT2009_PLUS_DB_EDITOR_V1: a list of saves (common_items.history_batches),
+    each with its fields and an undo button. Needs batches (or history),
+    column_label, format_value, dbe_csrf. -#}
+{% set dbe_batches = batches if batches is defined else history %}
+<div class="dbe-history">
+{% for b in dbe_batches %}
+  <article class="dbe-batch {{ 'is-reverted' if b.reverted }}">
+    <header>
+      <span><b>{{ b.changed_at.strftime('%Y-%m-%d %H:%M:%S') if b.changed_at.strftime is defined else b.changed_at }}</b> · {{ b.who }} · {{ b.note or 'zmiana' }}</span>
+      <span class="dbe-status">
+        {% if b.reverted %}<span class="dbe-tag">cofnięta</span>
+        {% elif b.unapplied %}<span class="dbe-tag pending">czeka na restart</span>
+        {% else %}<span class="dbe-tag ok">w grze</span>{% endif %}
+      </span>
+    </header>
+    <table class="dbe-table compact">
+      <tbody>
+      {% for r in b.rows %}
+        <tr class="{{ 'is-reverted' if r.reverted_in }}">
+          <td>{% set meta = tables.get(r.tbl) if tables is defined else none %}{% if meta and meta.edit_endpoint %}<a href="{{ url_for(meta.edit_endpoint, vnum=(r.row_key|string).split(':')[0]) }}">{{ r.label or r.row_key }}</a>{% else %}{{ r.label or r.row_key }}{% endif %} <small class="muted">#{{ r.row_key }}</small></td>
+          <td>{{ column_label(r.tbl, r.col) }}</td>
+          <td class="dbe-old">{{ format_value(r.tbl, r.col, r.old_value) }}</td>
+          <td>→</td>
+          <td class="dbe-new">{{ format_value(r.tbl, r.col, r.new_value) }}</td>
+          <td>{% if not r.reverted_in %}
+            <form method="post" action="{{ url_for('dbeditor.proto_history_revert') }}" class="dbe-inline">
+              <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}"><input type="hidden" name="id" value="{{ r.id }}">
+              <input type="hidden" name="back" value="{{ request.full_path }}">
+              <button class="dbe-small quiet-btn" title="Cofnij tylko to pole">↶ pole</button>
+            </form>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% if not b.reverted %}
+    <form method="post" action="{{ url_for('dbeditor.proto_history_revert') }}" class="dbe-inline dbe-revert" onsubmit="return confirm('Cofnąć tę zmianę ({{ b.fields }} pól)?')">
+      <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}"><input type="hidden" name="batch" value="{{ b.batch }}">
+      <input type="hidden" name="back" value="{{ request.full_path }}">
+      <button class="dbe-small">↶ Cofnij całą zmianę</button>
+      <label class="dbe-check small"><input type="checkbox" name="force" value="1"> cofnij mimo późniejszych zmian</label>
+    </form>
+    {% endif %}
+  </article>
+{% else %}
+  <p class="muted">Brak zapisanych zmian.</p>
+{% endfor %}
+</div>

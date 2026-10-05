@@ -21,6 +21,9 @@ Group	MT2009_chest_50270
 	2	s950272	1	100 -- zapychacz z wiki
 	3	s950272	1	40 -- drugi zapychacz
 	4	s950273	1	50 -- przedmiot do peta
+	5	s950281	1	100 -- sakwa Yang (MT2009_PLUS_AREZZO_BALANCE_V1)
+	6	s950282	1	85 -- materialy ulepszen 55-70
+	7	s950283	1	55 -- cenny przedmiot
 }
 Group	MT2009_chest_razador_gear
 {
@@ -192,6 +195,9 @@ Group	MT2009_chest_50271
 	2	s950277	1	100 -- zapychacz z wiki
 	3	s950277	1	50 -- drugi zapychacz
 	4	s950278	1	60 -- przedmiot do peta
+	5	s950286	1	100 -- sakwa Yang (MT2009_PLUS_AREZZO_BALANCE_V1)
+	6	s950287	1	80 -- materialy ulepszen 70-90
+	7	s950288	1	65 -- cenny przedmiot
 }
 Group	MT2009_chest_nemere_gear
 {
@@ -324,4 +330,82 @@ Group	MT2009_chest_nemere_pet
 	37	55032	1	120 -- Smakolyk
 	38	55035	1	80 -- Smakolyk+
 	39	55404	1	15 -- Jajo Mini Nemere
+}
+# MT2009_PLUS_AREZZO_BALANCE_V1 (the owner, 5 October: "practically nothing sensible drops" from Razador and Nemere):
+# both chests get a purse (always), upgrade materials of their tier and a valuable - soul stones up to +4,
+# the Kamien Duchowy, skill books, blessing scrolls - each above the tier before it.
+Group	MT2009_chest_razador_sakwa
+{
+	Vnum	950281
+	1	gold	600000	50 -- Yang 600 000
+	2	gold	1000000	30 -- Yang 1 000 000
+	3	gold	1800000	15 -- Yang 1 800 000
+	4	gold	3500000	5 -- Yang 3 500 000
+}
+Group	MT2009_chest_razador_mat
+{
+	Vnum	950282
+	1	30015	3	10 -- Pamiatka Po Demonie
+	2	30016	3	10 -- Klejnot Demona
+	3	30089	2	8 -- Futro Yeti+
+	4	30091	2	8 -- Symbol Wojownika
+	5	30079	2	8 -- Nieznany Talizman+
+	6	30087	2	8 -- Klejnot Demona+
+	7	30086	2	8 -- Pamiatka Po Demonie+
+	8	30354	2	8 -- Czerwone Nasiono
+	9	27992	1	8 -- Biala Perla
+	10	27993	1	5 -- Niebieska Perla
+	11	27994	1	2 -- Krwawa Perla
+	12	27987	3	7 -- Malz
+}
+Group	MT2009_chest_razador_val
+{
+	Vnum	950283
+	1	50300	3	25 -- Ksiega Umiejetnosci x3
+	2	25040	4	18 -- Zwoj Blogoslawienstwa x4
+	3	s10987	1	15 -- Kamien Duszy +0..+3
+	4	s10988	1	5 -- Kamien Duszy +2..+4
+	5	50513	1	16 -- Kamien Duchowy
+	6	71084	2	10 -- Zaczarowanie Przedmiotu x2
+	7	71085	2	8 -- Wzmocnienie Przedmiotu x2
+	8	25100	1	5 -- Zwoj Kamienia Duszy
+	9	s10992	1	7 -- losowa ksiega (srednia)
+}
+Group	MT2009_chest_nemere_sakwa
+{
+	Vnum	950286
+	1	gold	1200000	50 -- Yang 1 200 000
+	2	gold	2000000	30 -- Yang 2 000 000
+	3	gold	3500000	15 -- Yang 3 500 000
+	4	gold	6000000	5 -- Yang 6 000 000
+}
+Group	MT2009_chest_nemere_mat
+{
+	Vnum	950287
+	1	30089	3	8 -- Futro Yeti+
+	2	30091	3	8 -- Symbol Wojownika
+	3	30087	3	8 -- Klejnot Demona+
+	4	30086	3	8 -- Pamiatka Po Demonie+
+	5	30354	3	8 -- Czerwone Nasiono
+	6	30088	3	6 -- Kawalek Lodu+
+	7	30090	3	6 -- Matowy Lod+
+	8	30016	3	6 -- Klejnot Demona
+	9	27992	2	10 -- Biala Perla
+	10	27993	1	8 -- Niebieska Perla
+	11	27994	1	4 -- Krwawa Perla
+	12	27987	5	6 -- Malz
+}
+Group	MT2009_chest_nemere_val
+{
+	Vnum	950288
+	1	50300	5	18 -- Ksiega Umiejetnosci x5
+	2	25040	6	14 -- Zwoj Blogoslawienstwa x6
+	3	s10988	1	18 -- Kamien Duszy +2..+4
+	4	s10984	1	5 -- Kamien Duszy +4
+	5	50513	1	18 -- Kamien Duchowy
+	6	71084	3	9 -- Zaczarowanie Przedmiotu x3
+	7	71085	3	8 -- Wzmocnienie Przedmiotu x3
+	8	25100	1	6 -- Zwoj Kamienia Duszy
+	9	30373	1	4 -- Ksiega Erudyty
+	10	s10993	1	6 -- losowa ksiega (wysoka)
 }

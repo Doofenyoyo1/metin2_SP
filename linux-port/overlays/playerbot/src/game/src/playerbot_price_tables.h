@@ -787,52 +787,57 @@ namespace
 	};
 
 	// Skill books by the skill in socket 0, before the per-listing jitter.
+	// MT2009_PLUS_BOOK_PRICE_LADDER_V1 (owner, 4 October): no book under 100 000.
+	// The books his 1 October sheet priced keep his number; every other one
+	// follows the bots' reading order of its build (ApplyPlayerBotSkillPriority,
+	// tier-mates by their old price): each next a step cheaper, geometric from
+	// his cheapest book above it down to 100 000 for the build's last.
 	struct TPlayerBotBookPrice { DWORD dwSkill; DWORD dwPrice; };
 	const TPlayerBotBookPrice PLAYERBOT_BOOK_PRICES[] = {
-		{   1,   52372 },	// Trzystronne Ciecie
-		{   2,  162101 },	// Wir Miecza
-		{   3,  224448 },	// Berserk
+		{   1,  100000 },	// Trzystronne Ciecie
+		{   2,  394000 },	// Wir Miecza
+		{   3,  781000 },	// Berserk
 		{   4,  1550568 },	// Aura Miecza
-		{   5,   67334 },	// Szarza
-		{  16,  162101 },	// Duchowe Uderzenie
-		{  17,   37407 },	// Tapniecie
-		{  18,   37407 },	// Uderzenie Miecza
+		{   5,  198000 },	// Szarza
+		{  16,  681000 },	// Duchowe Uderzenie
+		{  17,  359000 },	// Tapniecie
+		{  18,  190000 },	// Uderzenie Miecza
 		{  19,  1289672 },	// Silne Cialo
-		{  20,   69827 },	// Walniecie
+		{  20,  100000 },	// Walniecie
 		{  31,  1212224 },	// Zasadzka
-		{  32,   39902 },	// Szybki Atak
-		{  33,  112224 },	// Wirujacy Sztylet
-		{  34,   62347 },	// Krycie Sie
-		{  35,   39902 },	// Trujaca Chmura
-		{  46,   39902 },	// Powtarzalny Strzal
-		{  47,   32420 },	// Deszcz Strzal
+		{  32,  187000 },	// Szybki Atak
+		{  33,  348000 },	// Wirujacy Sztylet
+		{  34,  100000 },	// Krycie Sie
+		{  35,  650000 },	// Trujaca Chmura
+		{  46,  498000 },	// Powtarzalny Strzal
+		{  47,  223000 },	// Deszcz Strzal
 		{  48,  1137162 },	// Ognista Strzala
-		{  49,   24940 },	// Bezszelestny Chod
+		{  49,  100000 },	// Bezszelestny Chod
 		{  50,  1112224 },	// Trujaca Strzala
-		{  61,   22445 },	// Uderzenie Palcem
-		{  62,   39902 },	// Smoczy Wir
+		{  61,  150000 },	// Uderzenie Palcem
+		{  62,  226000 },	// Smoczy Wir
 		{  63,  2364487 },	// Czarowane Ostrze
-		{  64,  237875 },	// Strach
+		{  64,  340000 },	// Strach
 		{  65,  512224 },	// Czarowana Zbroja
-		{  66,   62347 },	// Rozproszenie Magii
-		{  76,   54865 },	// Mroczne Uderzenie
-		{  77,   64840 },	// Ogniste Uderzenie
+		{  66,  100000 },	// Rozproszenie Magii
+		{  76,  288000 },	// Mroczne Uderzenie
+		{  77,  490000 },	// Ogniste Uderzenie
 		{  78,  1412224 },	// Ognisty Duch
-		{  79,   99754 },	// Mroczna Ochrona
-		{  80,   29927 },	// Duchowy Cios
-		{  81,   24940 },	// Mroczny Kamien
-		{  91,   22445 },	// Latajacy Talizman
-		{  92,   29927 },	// Strzelajacy Smok
-		{  93,   77309 },	// Smoczy Skowyt
+		{  79,  832000 },	// Mroczna Ochrona
+		{  80,  170000 },	// Duchowy Cios
+		{  81,  100000 },	// Mroczny Kamien
+		{  91,  100000 },	// Latajacy Talizman
+		{  92,  234000 },	// Strzelajacy Smok
+		{  93,  546000 },	// Smoczy Skowyt
 		{  94,  1274571 },	// Blogoslawienstwo
-		{  95,   890877 },	// Odbicie
+		{  95,   180000 },	// Odbicie (owner, 4 October)
 		{  96,  2187039 },	// Pomoc Smoka
-		{ 106,   37407 },	// Blyskawiczny Rzut
-		{ 107,   62347 },	// Przywolanie Blyskawicy
-		{ 108,   44890 },	// Szpon Blyskawicy
+		{ 106,  170000 },	// Blyskawiczny Rzut
+		{ 107,  496000 },	// Przywolanie Blyskawicy
+		{ 108,  291000 },	// Szpon Blyskawicy
 		{ 109,  1122224 },	// Leczenie
 		{ 110,   844890 },	// Zwinnosc
-		{ 111,   27432 },	// Burza
+		{ 111,  100000 },	// Burza
 	};
 
 	// Soul stones by kind and grade. The kinds are the last two digits of the

@@ -1,0 +1,25 @@
+{#- MT2009_PLUS_DB_EDITOR_V1: the fields of one refine step / recipe
+    (dbeditor/refine.py parse_step): cost_<p>, prob_<p>, mv_<p>_<k>, mc_<p>_<k>.
+    raw = the submitted form (kept after an error or a preset), values = the
+    recipe now (or none), materials = {vnum: item}. -#}
+{% macro step_fields(p, values, raw, materials, slots, guild_safe) %}
+  {% set cost = raw['cost_%s' % p] if ('cost_%s' % p) in raw else (values.cost if values else 0) %}
+  {% set prob = raw['prob_%s' % p] if ('prob_%s' % p) in raw else (values.prob if values else 100) %}
+  <div class="dbr-fields">
+    <label>Koszt (Yang)<input class="dbr-cost" type="number" name="cost_{{ p }}" min="0" max="2000000000" value="{{ cost }}" data-guild="{{ guild_safe }}"></label>
+    <label>Szansa %<input class="dbr-prob" type="number" name="prob_{{ p }}" min="1" max="100" value="{{ prob }}"></label>
+  </div>
+  <div class="dbr-mats">
+  {% for k in range(slots) %}
+    {% set mv = raw['mv_%s_%d' % (p, k)] if ('mv_%s_%d' % (p, k)) in raw else ((values['vnum%d' % k] or '') if values else '') %}
+    {% set mc = raw['mc_%s_%d' % (p, k)] if ('mc_%s_%d' % (p, k)) in raw else ((values['count%d' % k] or '') if values else '') %}
+    {% set known = materials.get(mv|int) if (mv|string).isdigit() else none %}
+    <div class="dbr-mat {{ 'is-empty' if not mv }}">
+      <span class="dbr-mat-icon">{% if known %}{% set icon = item_icon(known.vnum) %}{% if icon %}<img src="{{ icon }}" alt="">{% endif %}{% endif %}</span>
+      <input class="dbs-item dbr-mv" name="mv_{{ p }}_{{ k }}" value="{{ mv }}" list="dbs-items" placeholder="materiał (VNUM)" autocomplete="off">
+      <input class="dbr-mc" type="number" name="mc_{{ p }}_{{ k }}" min="1" max="32767" value="{{ mc }}" placeholder="szt.">
+      <span class="dbs-name muted">{% if known %}{{ known.name }}{% elif mv %}<span class="dbe-error">NIEZNANY PRZEDMIOT</span>{% endif %}</span>
+    </div>
+  {% endfor %}
+  </div>
+{% endmacro %}

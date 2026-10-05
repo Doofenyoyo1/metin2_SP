@@ -27,26 +27,28 @@
 //   2  the Gates of Perdition - for each of the four groups either set of
 //      doors - and then the turtle rock, clicked;
 //   3  the seven Metins of Revenge until the real one falls;
-//   4  the maze of GOTO doors to the rune stake, clicked;
 //   5  Tartar, and his totem given to the obelisk;
 //   6  every monster and Charon;
 //   7  every monster and Azrael - then the quest sends everybody to Hwang.
 //
-// The three windows a character passes (the statue, the rock, the stake)
-// ask pc.is_playerbot() in the quest's own copy and let a bot through
-// without the dialog; the rock and the stake are clicked through
-// CQuestManager::Click, the key and the totem handed over with
-// CHARACTER::GiveItem, which is what a player's drag does. A raid with a
+// MT2009_PLUS_CATACOMB_NO_LABYRINTH_V1: there is no floor 4 any more - the
+// maze of GOTO doors to the rune stake is skipped as on the official servers,
+// and the real Metin's fall takes the party from floor 3 straight to floor 5
+// (devilcatacomb_zone.quest). The bots' maze walk and the stake's click went
+// with it.
+//
+// The two windows a character passes (the statue, the rock) ask
+// pc.is_playerbot() in the quest's own copy and let a bot through without
+// the dialog; the rock is clicked through CQuestManager::Click, the key and
+// the totem handed over with CHARACTER::GiveItem, which is what a player's
+// drag does. A raid with a
 // person in it is left to the person: the AI never clicks for a party whose
 // instance holds anybody who can.
 //
 // Nothing of this could be watched yet: no bot of this world has reached
 // the Reaper, so no bot carries 9_done or a head. The fight is the tower's
 // (FightPlayerBotTowerObjective, KeepPlayerBotTowerAlive,
-// BuffPlayerBotTowerFellows); the maze is walked door by door with the
-// engine's own 45-second dwell between two crossings, and after
-// PLAYERBOT_CATACOMB_MAZE_MAX_MS the leader passes the stake where it
-// stands.
+// BuffPlayerBotTowerFellows).
 //
 // An implementation fragment in the sense playerbot_types.h describes:
 // include it once, after playerbot_boss_raid.h. mt2009 only: the r40250
@@ -66,12 +68,10 @@ namespace
 	const long PLAYERBOT_CATACOMB_F1_ENTRY[2] = { 73, 63 };
 	const long PLAYERBOT_CATACOMB_STATUE_CELL[2] = { 307, 323 };
 	const long PLAYERBOT_CATACOMB_ROCK_CELL[2] = { 741, 217 };
-	const long PLAYERBOT_CATACOMB_STAKE_CELL[2] = { 500, 717 };
 	const long PLAYERBOT_CATACOMB_OBELISK_CELL[2] = { 848, 735 };
 	const DWORD PLAYERBOT_CATACOMB_NPC_STATUE = 30101;
 	const DWORD PLAYERBOT_CATACOMB_NPC_OBELISK = 30102;
 	const DWORD PLAYERBOT_CATACOMB_NPC_ROCK = 30103;
-	const DWORD PLAYERBOT_CATACOMB_NPC_STAKE = 30104;
 	const DWORD PLAYERBOT_CATACOMB_KEY = 30311;
 	const DWORD PLAYERBOT_CATACOMB_TOTEM = 30312;
 	const DWORD PLAYERBOT_CATACOMB_TARTAR = 2591;
@@ -136,9 +136,6 @@ namespace
 	// sooner when nothing of a floor has died for STALL_MS.
 	const DWORD PLAYERBOT_CATACOMB_RUN_MAX_MS = 65 * 60 * 1000;
 	const DWORD PLAYERBOT_CATACOMB_STALL_MS = 12 * 60 * 1000;
-	// The maze: after this long on the fourth floor the leader passes the
-	// stake where it stands, in case a door is out of the bots' reach.
-	const DWORD PLAYERBOT_CATACOMB_MAZE_MAX_MS = 12 * 60 * 1000;
 	// Who is fought: within FIGHT_RANGE of the pack and on the bot's own
 	// ground; a monster within THREAT_RANGE of the bot first.
 	const long PLAYERBOT_CATACOMB_FIGHT_RANGE = 4000;
@@ -215,8 +212,7 @@ namespace
 		CATACOMB_KIND_MONSTER = 0,
 		CATACOMB_KIND_STONE,
 		CATACOMB_KIND_DOOR,
-		CATACOMB_KIND_NPC,
-		CATACOMB_KIND_GOTO
+		CATACOMB_KIND_NPC
 	};
 
 	struct TPlayerBotCatacombEntity
@@ -226,9 +222,6 @@ namespace
 		long y;
 		DWORD race;
 		BYTE kind;
-		// A GOTO door's destination, in world units.
-		long toX;
-		long toY;
 	};
 
 	struct TPlayerBotCatacombScan
@@ -247,10 +240,7 @@ namespace
 	struct FPlayerBotCatacombCollect
 	{
 		TPlayerBotCatacombScan& m_scan;
-		long m_baseX;
-		long m_baseY;
-		FPlayerBotCatacombCollect(TPlayerBotCatacombScan& scan, long baseX, long baseY) :
-			m_scan(scan), m_baseX(baseX), m_baseY(baseY) {}
+		explicit FPlayerBotCatacombCollect(TPlayerBotCatacombScan& scan) : m_scan(scan) {}
 
 		void operator()(LPENTITY ent)
 		{
@@ -276,26 +266,12 @@ namespace
 			e.x = c->GetX();
 			e.y = c->GetY();
 			e.race = c->GetRaceNum();
-			e.toX = 0;
-			e.toY = 0;
 			if (c->IsStone())
 				e.kind = CATACOMB_KIND_STONE;
 			else if (c->IsDoor())
 				e.kind = CATACOMB_KIND_DOOR;
 			else if (c->IsMonster())
 				e.kind = CATACOMB_KIND_MONSTER;
-			else if (c->IsGoto())
-			{
-				// Where the engine's FuncCheckWarp sends whoever stands by it: the
-				// name's two numbers, cells off the map's base.
-				char buf[64];
-				long cx = 0, cy = 0;
-				if (sscanf(c->GetName(), " %63s %ld %ld", buf, &cx, &cy) != 3)
-					return;
-				e.kind = CATACOMB_KIND_GOTO;
-				e.toX = m_baseX + cx * 100;
-				e.toY = m_baseY + cy * 100;
-			}
 			else
 				e.kind = CATACOMB_KIND_NPC;
 			if (e.kind == CATACOMB_KIND_MONSTER || e.kind == CATACOMB_KIND_STONE || e.kind == CATACOMB_KIND_DOOR)
@@ -314,7 +290,7 @@ namespace
 		LPSECTREE_MAP pMap = SECTREE_MANAGER::instance().GetMap(lMapIndex);
 		if (!pMap)
 			return &scan;
-		FPlayerBotCatacombCollect f(scan, pMap->m_setting.iBaseX, pMap->m_setting.iBaseY);
+		FPlayerBotCatacombCollect f(scan);
 		pMap->for_each(f);
 		if (scan.packN > 0)
 		{
@@ -345,8 +321,7 @@ namespace
 
 	// ------------------------------------------------------------ the fight
 
-	// The ground a bot is on: the floors are rooms of one map, and the maze's
-	// rooms are joined by its doors alone.
+	// The ground a bot is on: the floors are rooms of one map.
 	DWORD GetPlayerBotCatacombGround(long lMapIndex, long x, long y)
 	{
 		CPlayerBotNavigation& navigation = CPlayerBotNavigation::instance(lMapIndex);
@@ -461,50 +436,6 @@ namespace
 			}
 		}
 		return best;
-	}
-
-	// The maze: the next door on the way from the bot's room to the stake's,
-	// a breadth-first walk over the rooms the GOTO doors join.
-	LPCHARACTER PickPlayerBotCatacombMazeDoor(LPCHARACTER ch, const TPlayerBotCatacombScan* scan,
-			DWORD stakeGround)
-	{
-		const long map = ch->GetMapIndex();
-		const DWORD start = GetPlayerBotCatacombGround(map, ch->GetX(), ch->GetY());
-		if (!scan || start == 0 || stakeGround == 0 || start == stakeGround)
-			return NULL;
-		struct TEdge { DWORD from; DWORD to; DWORD vid; };
-		std::vector<TEdge> edges;
-		for (size_t i = 0; i < scan->entities.size(); ++i)
-		{
-			const TPlayerBotCatacombEntity& e = scan->entities[i];
-			if (e.kind != CATACOMB_KIND_GOTO)
-				continue;
-			TEdge edge;
-			edge.from = GetPlayerBotCatacombGround(map, e.x, e.y);
-			edge.to = GetPlayerBotCatacombGround(map, e.toX, e.toY);
-			edge.vid = e.vid;
-			if (edge.from != 0 && edge.to != 0 && edge.from != edge.to)
-				edges.push_back(edge);
-		}
-		// Rooms reached, and the first door taken out of the bot's room to reach each.
-		std::map<DWORD, DWORD> firstDoor;
-		std::vector<DWORD> queue;
-		firstDoor[start] = 0;
-		queue.push_back(start);
-		for (size_t head = 0; head < queue.size(); ++head)
-		{
-			const DWORD room = queue[head];
-			for (size_t i = 0; i < edges.size(); ++i)
-			{
-				if (edges[i].from != room || firstDoor.find(edges[i].to) != firstDoor.end())
-					continue;
-				firstDoor[edges[i].to] = room == start ? edges[i].vid : firstDoor[room];
-				if (edges[i].to == stakeGround)
-					return CHARACTER_MANAGER::instance().Find(firstDoor[edges[i].to]);
-				queue.push_back(edges[i].to);
-			}
-		}
-		return NULL;
 	}
 
 	// ------------------------------------------------------------ the raid's steps
@@ -905,7 +836,7 @@ namespace
 		TPlayerBotCatacombBot& self = s_mapPlayerBotCatacombBots[ch->GetPlayerID()];
 		// A jump inside the instance is a Show on the same map: the route and
 		// the target belong to the floor left behind.
-		// The fourth floor's flag goes up three seconds before its jump, so a
+		// A flag may also change a few seconds before or after its jump, so a
 		// move of more than a run of a few ticks is a jump too.
 		const bool jumped = self.lLastX != 0 &&
 				DISTANCE_APPROX(ch->GetX() - self.lLastX, ch->GetY() - self.lLastY) > 3000;
@@ -1019,52 +950,6 @@ namespace
 				LPCHARACTER stone = stoneVid ? CHARACTER_MANAGER::instance().Find(stoneVid) : NULL;
 				if (stone)
 					return FightPlayerBotTowerObjective(ch, state, stone, dwNow);
-				if (threat)
-					return FightPlayerBotTowerObjective(ch, state, threat, dwNow);
-				break;
-			}
-			case 4:
-			{
-				LPCHARACTER threat = PickPlayerBotCatacombFoe(ch, scan, 0, false);
-				if (threat && DISTANCE_APPROX(ch->GetX() - threat->GetX(), ch->GetY() - threat->GetY()) <= PLAYERBOT_CATACOMB_THREAT_RANGE)
-					return FightPlayerBotTowerObjective(ch, state, threat, dwNow);
-				const long stakeX = baseX + PLAYERBOT_CATACOMB_STAKE_CELL[0] * 100;
-				const long stakeY = baseY + PLAYERBOT_CATACOMB_STAKE_CELL[1] * 100;
-				LPCHARACTER stake = FindPlayerBotCatacombNpc(scan, PLAYERBOT_CATACOMB_NPC_STAKE, stakeX, stakeY);
-				const DWORD stakeGround = stake ? GetPlayerBotCatacombGround(map, stake->GetX(), stake->GetY()) : 0;
-				const DWORD myGround = GetPlayerBotCatacombGround(map, ch->GetX(), ch->GetY());
-				const bool overdue = dwNow - raid.dwFloorSince > PLAYERBOT_CATACOMB_MAZE_MAX_MS;
-				if (stake && clicks && (myGround == stakeGround || overdue))
-				{
-					if (!overdue && DISTANCE_APPROX(ch->GetX() - stake->GetX(), ch->GetY() - stake->GetY()) > 800)
-					{
-						WalkPlayerBotCatacomb(ch, state, stake->GetX(), stake->GetY(), dwNow);
-						return true;
-					}
-					if (dwNow >= raid.dwNextClick)
-					{
-						raid.dwNextClick = dwNow + PLAYERBOT_CATACOMB_CLICK_RETRY_MS;
-						const bool ok = quest::CQuestManager::instance().Click(ch->GetPlayerID(), stake);
-						sys_log(0, "PLAYERBOT_CATACOMB: the rune stake pid=%u name=%s ok=%d overdue=%d",
-								ch->GetPlayerID(), ch->GetName(), ok ? 1 : 0, overdue ? 1 : 0);
-					}
-					return true;
-				}
-				if (myGround != stakeGround)
-				{
-					LPCHARACTER door = PickPlayerBotCatacombMazeDoor(ch, scan, stakeGround);
-					if (door)
-					{
-						// Up to the door: the engine moves whoever stands within 300.
-						WalkPlayerBotCatacomb(ch, state, door->GetX(), door->GetY(), dwNow);
-						return true;
-					}
-				}
-				else if (stake && DISTANCE_APPROX(ch->GetX() - stake->GetX(), ch->GetY() - stake->GetY()) > 1500)
-				{
-					WalkPlayerBotCatacomb(ch, state, stake->GetX(), stake->GetY(), dwNow);
-					return true;
-				}
 				if (threat)
 					return FightPlayerBotTowerObjective(ch, state, threat, dwNow);
 				break;

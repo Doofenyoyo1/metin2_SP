@@ -1,0 +1,71 @@
+# MT2009_PLUS_UNIQUE_RING_BONUS_V1: the bonuses of the ItemShop rings, the lollipop and the amulets
+# (special_item_group's "special" group 10050 names attr groups 100000-100005 that the package never
+# had, so these items gave nothing). Values as the Metin2 wiki (Przedmioty Specjalne, 4 October 2026);
+# a line is <n><TAB><POINT_* number><TAB><value>: 83 exp, 17 attack speed, 21 casting speed,
+# 93 attack %, 53 strong vs monsters, 59/60/61/62 defence vs warrior/ninja/sura/shaman, 119/120 max HP/SP %.
+Group	MT2009_ring_sila_woli
+{
+	Vnum	100000
+	type	attr
+	1	83	30
+	2	59	20
+	3	60	20
+	4	53	30
+	5	119	10
+	6	120	10
+}
+Group	MT2009_ring_smiercionosnej_mocy
+{
+	Vnum	100001
+	type	attr
+	1	83	30
+	2	61	20
+	3	62	20
+	4	53	30
+	5	119	10
+	6	120	10
+}
+Group	MT2009_medal_bohatera
+{
+	Vnum	100002
+	type	attr
+	1	83	50
+	2	17	20
+	3	21	20
+	4	93	30
+	5	119	10
+	6	120	10
+}
+Group	MT2009_ring_polksiezyca_lizak
+{
+	Vnum	100003
+	type	attr
+	1	83	50
+	2	17	20
+	3	21	20
+	4	93	30
+	5	119	10
+	6	120	10
+}
+Group	MT2009_ring_radosci
+{
+	Vnum	100004
+	type	attr
+	1	83	50
+	2	53	30
+	3	17	20
+	4	21	20
+	5	119	10
+	6	120	10
+}
+Group	MT2009_amulet_wiecznej_milosci
+{
+	Vnum	100005
+	type	attr
+	1	83	30
+	2	17	10
+	3	21	10
+	4	53	10
+	5	119	5
+	6	120	5
+}

@@ -905,6 +905,11 @@ namespace
 			if (!item || item->GetType() != ITEM_COSTUME || item->GetSubType() != COSTUME_MOUNT ||
 					item->GetValue(1) == 0 || item->isLocked() || item->IsExchanging() || !item->CanUsedBy(ch))
 				continue;
+			// MT2009_PLUS_SIDEKICK_MOUNT_FIX_V1: a seal a companion's owner took
+			// off (or that it holds for the owner) stays in the bag - it went
+			// back on with the next long walk, and the owner could not keep it off.
+			if (IsPlayerBotSidekickUnwanted(ch, item))
+				continue;
 			if (ch->EquipItem(item))
 				sys_log(0, "PLAYERBOT_ISHOP: look_mount on pid=%u name=%s vnum=%u (before riding)",
 						ch->GetPlayerID(), ch->GetName(), item->GetVnum());
@@ -1106,11 +1111,17 @@ namespace
 	// foot with the skills it chose, and so does the companion.
 	bool CanPlayerBotEverFightOnHorse(LPCHARACTER ch)
 	{
-		if (ch && IsPlayerBotSidekickPID(ch->GetPlayerID()))
-			return false;
-		// A standing mount keeps every skill: nothing beats that saddle.
+		// A standing mount keeps every skill: nothing beats that saddle - a
+		// companion's included. MT2009_PLUS_SIDEKICK_MOUNT_FIX_V1: the
+		// companion's "never" stood first, so on a Wukong cloud its own buffs
+		// waited for a foe in hand (ManagePlayerBotCombatBuffs asks
+		// CanPlayerBotKeepSaddleInFight) and beside an owner who was not
+		// fighting it never cast them - "jak wlacze auto lowy to buffuje,
+		// jak wylacze to przestaje".
 		if (HasPlayerBotStandingMount(ch))
 			return true;
+		if (ch && IsPlayerBotSidekickPID(ch->GetPlayerID()))
+			return false;
 		return HasPlayerBotBattleHorse(ch) && !PlayerBotSkillsBeatTheSaddle(ch);
 	}
 
@@ -1128,10 +1139,16 @@ namespace
 		// target section and the tower mount for one (mounted_combat,
 		// tower_stone), and a missing buff still takes the rider down for a
 		// moment and puts it back (ManagePlayerBotCombatBuffs).
+		// MT2009_PLUS_SIDEKICK_METIN_SKILLS_V1: a player's companion too. Since
+		// Tieru 2.2.22 ("the companion on foot") it climbed down for a stone as
+		// for a monster, and its owner watched it break Metins on foot beside
+		// the mount it had just ridden up on ("szamanka ... mimo ze ma mounta to
+		// metina bije z buta", the owner, 5 October). A monster and a character
+		// it still fights on foot, with its skills (prodnathin, 26 September).
 		if (HasPlayerBotStandingMount(ch))
 			return true;
 		if (target && target->IsStone())
-			return HasPlayerBotBattleHorse(ch) && !IsPlayerBotSidekickPID(ch->GetPlayerID());
+			return HasPlayerBotBattleHorse(ch);
 		// A character - a player or another bot - is fought on foot
 		// (SendPlayerBotHorseAwayForFight), so nothing that asks about the foe
 		// in hand puts the bot back in the saddle in the middle of a duel.

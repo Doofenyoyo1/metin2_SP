@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{# MT2009_PLUS_DB_EDITOR_V1: the refine steps of one family +0..+9 (dbeditor/refine.py refine_edit). #}
+{% from 'dbeditor/_refine_fields.html' import step_fields with context %}
+{% block title %}{{ chain[0].name }} · Ulepszanie · {{ panel_brand }}{% endblock %}
+{% block content %}
+<script>document.body.dataset.ajaxForms='1';</script>
+{% set dbe_tab = 'refine' %}{% include 'dbeditor/_shops_common.html' %}
+<p><a href="{{ url_for('dbeditor.refine', q=chain[0].name.split('+')[0]|trim) }}">← Wyszukiwarka</a></p>
+
+<section class="panel">
+  <p class="eyebrow">ULEPSZANIE U KOWALA · {{ chain|length }} PRZEDMIOT(ÓW) W RODZINIE</p>
+  <h1>⚒️ {{ chain[0].name.split('+')[0]|trim }}</h1>
+  <div class="dbr-chain">
+    {% for it in chain %}{% set icon = item_icon(it.vnum) %}
+      <a href="#krok-{{ it.vnum }}" class="{{ 'is-current' if it.vnum == vnum }}" title="{{ it.name }} (#{{ it.vnum }})">{% if icon %}<img src="{{ icon }}" alt="">{% endif %}<span>{{ it.name }}</span></a>{% if not loop.last %}<span class="muted">→</span>{% endif %}
+    {% endfor %}
+  </div>
+  {% if chain[-1].missing_result %}<p class="dbe-error">Ostatni przedmiot ulepsza się w #{{ chain[-1].missing_result }}, którego nie ma w bazie – to ulepszenie się nie uda.</p>{% endif %}
+  <p class="dbe-warn">🤖 Boty ulepszają według tych samych przepisów: płacą ten koszt, zbierają te materiały i mają tę szansę.</p>
+</section>
+
+{% set booted = steps|selectattr('boot')|list %}{% set boot_items = steps|selectattr('boot_set')|list %}
+{% if booted or boot_items %}
+<section class="panel" style="border-left:4px solid #ff5757">
+  {% for s in booted %}<p><strong>⚠️ Przepis #{{ s.set }} ({{ s.boot.note }})</strong> – skrypt startowy (apply.sh) ustawia go przy każdym starcie; zmiana zostanie nadpisana.</p>{% endfor %}
+  {% if boot_items %}<p><strong>⚠️ Przepis tych przedmiotów przypina skrypt startowy:</strong> {{ boot_items|map(attribute='item.name')|join(', ') }} – „tylko ta rodzina” nie przetrwa restartu.</p>{% endif %}
+</section>
+{% endif %}
+
+{% if preview %}<section class="panel dbe-pending"><strong>👀 Podgląd: {{ preview }}</strong><span>Wartości poniżej są już zmienione, ale jeszcze niezapisane – sprawdź je i kliknij „Zapisz”.</span></section>{% endif %}
+
+<form method="post" class="dbs-form dbr-form" data-api="{{ url_for('dbeditor.api_items') if 'dbeditor.api_items' in url_map_endpoints else '' }}">
+  <input type="hidden" name="dbe_csrf" value="{{ dbe_csrf }}">
+  <datalist id="dbs-items"></datalist>
+  <section class="panel">
+    <h2>Kroki ulepszania</h2>
+    {% if not steps %}<p class="muted">Tego przedmiotu nie da się ulepszyć u Kowala (nie ma kolejnego poziomu).</p>{% endif %}
+    {% for s in steps %}
+    <article class="dbr-step {{ 'is-current' if s.item.vnum == vnum }}" id="krok-{{ s.item.vnum }}">
+      <input type="hidden" name="set_{{ s.index }}" value="{{ s.set }}">
+      <header>
+        <span class="dbr-from">{% set icon = item_icon(s.item.vnum) %}{% if icon %}<img src="{{ icon }}" alt="">{% endif %}<b>{{ s.item.name }}</b></span>
+        <span class="muted">→</span>
+        <span class="dbr-to">{% if s.result %}{% set icon = item_icon(s.result.vnum) %}{% if icon %}<img src="{{ icon }}" alt="">{% endif %}<b>{{ s.result.name }}</b>{% else %}<span class="dbe-error">#{{ s.item.refined_vnum }} – brak w bazie</span>{% endif %}</span>
+        <span class="dbr-badge">+{{ s.level - 1 }} → +{{ s.level }}</span>
+      </header>
+      {% if s.recipe %}
+        {{ step_fields(s.index, s['values'], raw, materials, slots, guild_safe) }}
+        <p class="dbr-users muted">Przepis <a href="{{ url_for('dbeditor.refine_recipe', vnum=s.set) }}">#{{ s.set }}</a>
+          {% if s.outside %}– używa go też {{ s.outside|length }} inn. przedmiot(ów): {{ s.outside[:4]|map(attribute='name')|join(', ') }}{% if s.outside|length > 4 %} …{% endif %}{% else %}– tylko ta rodzina{% endif %}.</p>
+        {% if s.ask_scope %}
+        {% set scope = raw.get('scope_%d' % s.set, 'family') %}
+        <div class="dbr-scope">
+          <label class="dbe-check"><input type="radio" name="scope_{{ s.set }}" value="family" {{ 'checked' if scope != 'all' }}> zmień <b>tylko dla tej rodziny</b> (powstanie nowy przepis)</label>
+          <label class="dbe-check"><input type="radio" name="scope_{{ s.set }}" value="all" {{ 'checked' if scope == 'all' }}> zmień <b>dla wszystkich {{ s.users|length }} przedmiotów</b> z tym przepisem</label>
+        </div>
+        {% endif %}
+      {% else %}
+        <p class="dbe-error">{% if s.set %}Przepis #{{ s.set }} nie istnieje{% else %}Ten przedmiot nie ma przepisu{% endif %} – u Kowala nie da się go teraz ulepszyć.</p>
+        <label class="dbe-check"><input type="checkbox" name="create_{{ s.index }}" value="1" {{ 'checked' if raw.get('create_%d' % s.index) == '1' }}> utwórz przepis dla tego kroku:</label>
+        {{ step_fields(s.index, none, raw, materials, slots, guild_safe) }}
+      {% endif %}
+    </article>
+    {% endfor %}
+    {% if steps %}
+    <div class="dbe-actions">
+      <button name="action" value="save">💾 Zapisz kroki ulepszania</button>
+      <span class="muted">Szansa 1–100%. Kowal gildii: szansa −10%, koszt ×4. Zwoje błogosławieństwa itp. liczą szansę po swojemu.</span>
+    </div>
+    {% endif %}
+  </section>
+
+  {% if steps %}
+  <section class="panel">
+    <h2>Szybkie zmiany (podgląd przed zapisem)</h2>
+    <p class="muted">Kliknij – wartości w krokach zmienią się na stronie, a zapiszesz je przyciskiem „Zapisz”.</p>
+    <div class="dbr-presets">
+      {% for v, name in used.items() %}
+        <button class="quiet-btn dbe-small" name="preset" value="drop:{{ v }}:1:99">bez {{ name }}</button>
+      {% endfor %}
+      <button class="quiet-btn dbe-small" name="preset" value="chance_mul:1.2:7:9">szansa ×1,2 dla +7…+9</button>
+      <button class="quiet-btn dbe-small" name="preset" value="chance_mul:1.2:1:99">szansa ×1,2 dla wszystkich</button>
+      <button class="quiet-btn dbe-small" name="preset" value="chance_set:100:1:4">+1…+4 zawsze się udaje</button>
+      <button class="quiet-btn dbe-small" name="preset" value="cost_mul:0.5:1:99">koszt ×0,5</button>
+      <button class="quiet-btn dbe-small" name="preset" value="count_mul:0.5:1:99">połowa materiałów</button>
+    </div>
+    <div class="dbe-search dbr-custom">
+      <label>Zmiana<select name="preset_kind">
+        <option value="chance_mul">szansa ×</option><option value="chance_set">szansa = (%)</option>
+        <option value="cost_mul">koszt ×</option><option value="count_mul">ilość materiałów ×</option>
+        <option value="drop">usuń materiał (VNUM)</option></select></label>
+      <label>Wartość<input name="preset_amount" value="1.2" size="8"></label>
+      <label>od +<input name="preset_from" type="number" value="1" min="1" max="99" style="width:5em"></label>
+      <label>do +<input name="preset_to" type="number" value="9" min="1" max="99" style="width:5em"></label>
+      <button class="quiet-btn" name="preset" value="custom">Pokaż podgląd</button>
+    </div>
+  </section>
+  {% endif %}
+</form>
+
+{% if history %}
+<section class="panel">
+  <h2>Ostatnie zmiany tych przepisów</h2>
+  {% include 'dbeditor/_items_history_list.html' %}
+</section>
+{% endif %}
+<script src="{{ static_asset_url('dbeditor-shops.js') }}" data-page-script></script>
+{% endblock %}
